@@ -821,6 +821,17 @@ Status OoOScheduler::SelectSpillBuffers(LocalBufferPtr allocBuffer, IssueEntryPt
     return SUCCESS;
 }
 
+Status OoOScheduler::RearrangeBuffer(MemoryType memType) {
+    std::vector<int> memIds = bufferManagerMap[memType].GetAddrSortedBufs();
+    for (auto memId : memIds) {
+        auto allocIssue = tensorOccupyMap[memType][memId];
+        if (allocIssue->tileOp.GetOpcodeStr().find("ALLOC") == std::string::npos) {
+            return FAILED;
+        }
+    }
+    return bufferManagerMap[memType].CompactBufferSlices();
+}
+
 Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
     std::vector<int> spillGroup;
     bool spillFailed = false;
@@ -833,9 +844,7 @@ Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
         std::vector<int> memIds = bufferManagerMap[memType].GetAddrSortedBufs();
         for (auto memId : memIds) {
             auto spillIssue = tensorOccupyMap[memType][memId];
-            if (spillIssue->tileOp.GetOpcode() == Opcode::OP_VIEW ||
-                spillIssue->tileOp.GetOpcode() == Opcode::OP_VIEW_TYPE ||
-                spillIssue->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            if (IsViewOp(spillIssue->tileOp) || spillIssue->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE) {
                 continue;
             }
             if (spillIssue->tileOp.GetOpcodeStr().find("ALLOC") != std::string::npos) {
@@ -851,7 +860,11 @@ Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
                 return FAILED;
             }
         }
-        for (auto issue : tensorOccupyMap[memType]) {
+        // Alloc内存整理
+        if (RearrangeBuffer(memType) != SUCCESS) {
+            APASS_LOG_WARN_F(Elements::Operation, "RearrangeBuffer failed at GenBufferSpill. %s", GetFormatBacktrace(allocIssue->tileOp).c_str());
+        }
+        for (const auto& issue : tensorOccupyMap[memType]) {
             if (issue.second->tileOp.GetOpcodeStr().find("ALLOC") == std::string::npos) {
                 continue;
             }
@@ -877,7 +890,7 @@ Status OoOScheduler::GenSpillOp(LocalBufferPtr allocBuffer, size_t &pcIdx) {
         if (PrintSpillFailedInfo(issueEntries[pcIdx]) != SUCCESS) {	
             APASS_LOG_ERROR_F(Elements::Operation, "PrintSpillFailedInfo failed; Please check the PrintSpillFailedInfo method.");	
             return FAILED;	
-        }	
+        }
         APASS_LOG_ERROR_F(Elements::Operation, "Buffer[L0A/B/C] is Full. Please check tile shape and OOO spill failed info.");	
         return FAILED;	
     }	
