@@ -821,14 +821,13 @@ Status OoOScheduler::SelectSpillBuffers(LocalBufferPtr allocBuffer, IssueEntryPt
     return SUCCESS;
 }
 
-Status OoOScheduler::RearrangeBuffer(IssueEntryPtr allocIssue) {
-    MemoryType memType = localBufferMap[allocIssue->reqMemIds[0]]->memType;
+Status OoOScheduler::RearrangeBuffer(MemoryType memType) {
     std::vector<int> memIds = bufferManagerMap[memType].GetAddrSortedBufs();
     for (auto memId : memIds) {
         auto spillIssue = tensorOccupyMap[memType][memId];
         if (IsViewOp(spillIssue->tileOp) || spillIssue->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE) {
             return FAILED;
-        } 
+        }
     }
     return bufferManagerMap[memType].CompactBufferSlices();
 }
@@ -873,7 +872,7 @@ Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
             return FAILED;
         }
         // 内存整理
-        if (RearrangeBuffer(allocIssue) != SUCCESS) {
+        if (RearrangeBuffer(memType) != SUCCESS) {
             APASS_LOG_WARN_F(Elements::Operation, "RearrangeBuffer failed at GenBufferSpill. %s", GetFormatBacktrace(allocIssue->tileOp).c_str());
         }
     } else {
