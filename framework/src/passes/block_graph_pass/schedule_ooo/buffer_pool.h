@@ -83,6 +83,7 @@ class BufferPool {
     void PrintStatus();
     Status MakeBufferSlice(LocalBufferPtr tensor, BufferSlice& newSlice);
     void SelectHeadAndTail(LocalBufferPtr tensor, bool &head, bool &tail, std::map<uint64_t, std::map<uint64_t, uint64_t>> freeIntervals);
+    Status CompactBufferSlices();
 
   private:
     MemoryType memType_{MemoryType::MEM_UNKNOWN};
