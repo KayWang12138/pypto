@@ -1,0 +1,56 @@
+# pypto.set\_verify\_golden\_data
+
+## 产品支持情况
+
+| 产品             | 是否支持 |
+|:-----------------|:--------:|
+| Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
+| Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
+
+## 功能说明
+
+该接口包括以下必要功能：
+
+-   功能1：将用户执行算子时实际的输入、输出列表设置到工具中，用于工具在粗检时使用同样的输入进行模拟计算
+-   功能2：将用户已有的计算基准数据（golden）设置到工具中，用于工具在计算出模拟结果后与基准输出对比，进而粗粒度确定模拟结果的正确性
+
+## 函数原型
+
+```python
+set_verify_golden_data(in_out_tensors=None, goldens=None)
+```
+
+## 参数说明
+
+
+| 参数名          | 输入/输出 | 说明                                                                 |
+|-----------------|-----------|----------------------------------------------------------------------|
+| in_out_tensors  | 输入      | 含义：将用户执行算子时实际的输入、输出列表按照相同位置对应地设置到检测工具。 <br> 说明：jit 调用模式下，该选项不需设置 <br> 类型：List[Union(pypto.Tensor, torch.Tensor)] <br> 取值范围：NA <br> 默认值：NA |
+| goldens         | 输入      | 含义：将用户已有的计算基准数据（golden）输出设置到工具中做对比检测。 <br> 说明：该列表与算子输入、输出参数列表的长度一致、位置对应。若相应位置设置为 None，表示跳过该位置的数据对比。 <br> 类型：List[Union(pypto.Tensor, torch.Tensor)] <br> * 其中 torch.Tensor 的 device 属性需为 CPU，不支持 NPU。 <br> 取值范围：NA <br> 默认值：NA |
+
+## 返回值说明
+
+void：Set方法无返回值。设置操作成功即生效。
+
+## 约束说明
+
+需重新编译、安装PyPTO后才能使用该接口。编译安装流程如下：
+
+1.  根据docs/context/build\_and\_install.md指导安装编译环境。
+2.  确认Python环境中已按照安装依赖安装了PyTorch。
+3.  确认GCC版本安装、升级到9.4.0或更高版本。
+4.  在编译、安装命令中增加选项 --no-build-isolation，例如：
+
+    ```bash
+    python3 -m pip install . --verbose --no-build-isolation ... ...
+    ```
+
+5.  卸载当前安装的pypto Python包，执行编译、安装命令
+
+## 调用示例
+
+```python
+set_verify_golden_data(goldens=[None, None, golden_out0])
+set_verify_golden_data([real_in0, real_in1, real_out0], [None, None, golden_out0])
+```
+
