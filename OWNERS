@@ -1,0 +1,30 @@
+approvers:
+- li-xulong
+- mabing726
+- miao-fangzheng
+- wang-fei6
+- li-shengxian
+- xig514
+- zhangzhongzt
+- y1825181
+- yangxu19921206
+
+reviewers:
+- li-xulong
+- mabing726
+- miao-fangzheng
+- wang-fei6
+- li-shengxian
+- xig514
+- zhangzhongzt
+- y1825181
+- yangxu19921206
+
+files:
+  "LICENSE":
+    approvers:
+      - yangxu19921206
+      - songchangxia
+  "OWNERS":
+    approvers:
+      - songchangxia
