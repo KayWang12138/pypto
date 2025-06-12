@@ -12,14 +12,18 @@
 
 构建总入口.
 """
+import os
 import argparse
 import logging
 import multiprocessing
 import re
 import shlex
+import shutil
+import signal
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 
 class BuildCtrl:
@@ -48,17 +52,17 @@ class BuildCtrl:
         self.stest_golden_path: Optional[Path] = None  # STest 指定 Golden 路径
         self.stest_golden_path_clean: bool = args.stest_golden_path_clean  # STest 清理 Golden 标记
         self.stest_device_id: str = ""
+        self.stest_enable_binary_cache: bool = False
+        self.stest_experiment_copy_aicpu_binary: bool = args.experiment_copy_aicpu_binary
+        self.stest_dump_json: bool = args.stest_dump_json
         self.tests_auto_execute: bool = args.disable_auto_execute
         self.tests_auto_execute_parallel: bool = False
-        self.tests_enable_binary_cache: bool = False
         self.tests_changed_file: Optional[Path] = args.changed_files
-        self.stest_dump_json: bool = args.stest_dump_json
         self.init_param_tests(args=args)
         # 控制标记/参数预处理(build_tools)
         self.asan: bool = args.asan
         self.ubsan: bool = args.ubsan
         self.gcov: bool = args.gcov
-        self.experiment_copy_aicpu_binary: bool = args.experiment_copy_aicpu_binary
         self.prof = args.prof
         self.pe = args.pe
         # 控制标记/参数预处理(tools)
@@ -79,17 +83,28 @@ class BuildCtrl:
         self.replay_file_path = args.replay_file_path
 
     def __str__(self):
+
+        def get_filter_str(_filter: Optional[str]) -> str:
+            if _filter is None:
+                _filter_str = "0"
+            elif _filter == "ON":
+                _filter_str = "ON"
+            else:
+                _filter_list = _filter.split(':')
+                _filter_str = f"{len(_filter_list)}"
+            return _filter_str
+
         desc = ""
         desc += f"\nArgs Param"
         desc += f"\n\tBackend Type  : {self.backend_type}"
         desc += f"\n\tForced Clean  : {self.forced_clean}"
         desc += f"\n\tBuild Job Num : {self.build_job_num}"
         desc += f"\n\tBuild Targets : {self.build_targets}"
-        desc += f"\n\tBuild UTest   : Flag({self.utest_enable}), Filter({self.utest_cases_filter})"
-        desc += (f"\n\tBuild STest   : Flag({self.stest_enable}), Filter({self.stest_cases_filter}),"
-                 f" DeviceID({self.stest_device_id})")
+        desc += f"\n\tBuild UTest   : Flag({self.utest_enable}), Filter({get_filter_str(self.utest_cases_filter)})"
+        desc += (f"\n\tBuild STest   : Flag({self.stest_enable}), Filter({get_filter_str(self.stest_cases_filter)}),"
+                 f" DeviceID({self.stest_device_id}) BinaryCache({self.stest_enable_binary_cache})")
         desc += (f"\n\tTests Execute : Flag({self.tests_auto_execute}),"
-                 f" Parallel({self.tests_auto_execute_parallel}), BinaryCache({self.tests_enable_binary_cache})"
+                 f" Parallel({self.tests_auto_execute_parallel}), "
                  f" PrintJson({self.stest_dump_json})")
         desc += f"\n\tTests Changed : File({self.tests_changed_file})"
         desc += f"\nOthers"
@@ -108,7 +123,7 @@ class BuildCtrl:
     def init_param_tests(self, args):
         self.tests_changed_file = None if not self.tests_changed_file else Path(self.tests_changed_file).resolve()
         self.tests_auto_execute_parallel = True if self.tests_changed_file is not None else False
-        self.tests_enable_binary_cache = True if self.tests_changed_file is not None else False
+        self.stest_enable_binary_cache = True if self.tests_changed_file is not None else False
         self.init_param_tests_utest(args=args)
         self.init_param_tests_stest(args=args)
 
@@ -266,15 +281,165 @@ class BuildCtrl:
 
     def clean(self):
         """ 清理中间结果, 清理内容包括构建树, 安装树全部内容. """
-        pass
+        if self.forced_clean:
+            if self.build_root.exists():
+                logging.info("Clean Build-Tree(%s)", self.build_root)
+                shutil.rmtree(self.build_root)
+            if self.install_root.exists():
+                logging.info("Clean Install-Tree(%s)", self.install_root)
+                shutil.rmtree(self.install_root)
+        if self.stest_enable_binary_cache:
+            binary_cache_path = Path(Path.home(), "ast_data")
+            if binary_cache_path.exists():
+                shutil.rmtree(binary_cache_path)
+                logging.info("Clean Binary Cache Path(%s)", binary_cache_path)
 
     def configure(self):
         """ CMake Configure 阶段流程. """
-        pass
+        cmd = f"cmake -S {self.src_root} -B {self.build_root}"
+        # common 相关配置
+        #    SocVersion, Backend 相关配置, SocVersion相关配置暂不支持
+        if self.backend_type == "npu":
+            cmd += f" -DAC_ENABLE_FRAMEWORK_WITHOUT_CANN=OFF"
+        if self.backend_type == "cost_module" or self.backend_type == "cost_model":
+            cmd += f" -DAC_ENABLE_FRAMEWORK_WITHOUT_CANN=ON"
+        # tests 相关配置
+        cmd += self._configure_tests()
+        # tools_build 相关配置
+        cmd += self._configure_tools_build()
+        # tools 相关配置
+        cmd += self._configure_tools()
+        # 执行
+        logging.info("CMake Configure, Cmd: %s", cmd)
+        ret = subprocess.run(shlex.split(cmd), capture_output=False, check=True, text=True, encoding='utf-8')
+        ret.check_returncode()
+
+    def _configure_tests(self) -> str:
+        cmd = ""
+        if self.utest_enable or self.stest_enable:
+            if self.tests_auto_execute:
+                cmd += f" -DENABLE_TESTS_EXECUTE=ON"
+                if self.tests_auto_execute_parallel:
+                    cmd += f" -DENABLE_TESTS_EXECUTE_PARALLEL=ON"
+            else:
+                cmd += f" -DENABLE_TESTS_EXECUTE=OFF"  # 保证能正确触发用例不执行
+        if self.utest_enable:
+            cmd += f" -DENABLE_TESTS_UTEST={self.utest_cases_filter}"
+        else:
+            cmd += f" -DENABLE_TESTS_UTEST=OFF"
+        if self.stest_enable:
+            cmd += f" -DENABLE_TESTS_STEST={self.stest_cases_filter}"
+            cmd += f" -DENABLE_TESTS_EXECUTE_DEVICE_ID={self.stest_device_id}"
+            if self.stest_golden_path_clean:
+                cmd += f" -DENABLE_TESTS_STEST_GOLDEN_PATH_CLEAN=ON"
+            cmd += f" -DENABLE_TESTS_STEST_GOLDEN_PATH={self.stest_golden_path}"
+            if self.stest_enable_binary_cache:
+                cmd += f" -DENABLE_TESTS_STEST_BINARY_CACHE=ON"
+            if self.stest_dump_json:
+                cmd += f" -DENABLE_TESTS_STEST_DUMP_JSON=ON"
+            cmd += f" -DENABLE_TESTS_STEST_EXPERIMENT_COPY_AICPU_BINARY="
+            cmd += "ON" if self.stest_experiment_copy_aicpu_binary else "OFF"
+        else:
+            cmd += f" -DENABLE_TESTS_STEST=OFF"
+        return cmd
+
+    def _configure_tools_build(self) -> str:
+        cmd = ""
+        cmd += f" -DENABLE_ASAN=ON" if self.asan else ""
+        cmd += f" -DENABLE_UBSAN=ON" if self.ubsan else ""
+        cmd += f" -DENABLE_GCOV=ON" if self.gcov else ""
+        return cmd
+
+    def _configure_tools(self) -> str:
+        cmd = ""
+        # tools 公共参数
+        if self.tools_prof_enable:
+            cmd += f" -DENABLE_TESTS_STEST_TOOLS_OUTPUT_CLEAN=ON" if self.tools_output_clean else ""
+            cmd += f" -DENABLE_TESTS_STEST_TOOLS_INTERCEPT=ON" if self.tools_intercept_flag else ""
+            if self.tools_cases_csv_file:
+                cmd += f" -DENABLE_TESTS_STEST_TOOLS_CASE_FILE={self.tools_cases_csv_file}"
+        # Profiling 工具参数
+        cmd += self._configure_tools_profiling()
+        return cmd
+
+    def _configure_tools_profiling(self) -> str:
+        cmd = ""
+        if self.tools_prof_enable:
+            cmd += f" -DENABLE_TESTS_STEST_TOOLS_PROF=ON"
+            cmd += f" -DENABLE_TESTS_STEST_TOOLS_PROF_LEVEL={self.tools_prof_level}"
+            if self.tools_prof_warn_up_cnt is not None:
+                cmd += f" -DENABLE_TESTS_STEST_TOOLS_PROF_WARN_UP_CNT={self.tools_prof_warn_up_cnt}"
+            if self.tools_prof_try_cnt is not None:
+                cmd += f" -DENABLE_TESTS_STEST_TOOLS_PROF_TRY_CNT={self.tools_prof_try_cnt}"
+            if self.tools_prof_max_cnt is not None:
+                cmd += f" -DENABLE_TESTS_STEST_TOOLS_PROF_MAX_CNT={self.tools_prof_max_cnt}"
+        else:
+            cmd += f" -DENABLE_TESTS_STEST_TOOLS_PROF=OFF"
+        return cmd
 
     def build(self):
         """ CMake Build 阶段流程. """
-        pass
+        cmd_list: List[str] = []
+        if self.build_targets:
+            for t in self.build_targets:
+                cmd = f"cmake --build {self.build_root} --target {t} -- -j {self.build_job_num}"
+                cmd_list.append(cmd)
+        else:
+            cmd = f"cmake --build {self.build_root} -- -j {self.build_job_num}"
+            cmd_list.append(cmd)
+        for i, c in enumerate(cmd_list):
+            ts = datetime.now(tz=timezone.utc)
+            logging.info("CMake Build(%s/%s), Cmd: %s", i + 1, len(cmd_list), c)
+            try:
+                ret = self.run_build_cmd(cmd=c, check=True)
+            except subprocess.CalledProcessError as e:
+                logging.info(f"Run cmd {c} failed, ERROR CODE: {e.returncode}")
+                raise
+            ret.check_returncode()
+            logging.info("CMake Build(%s/%s), Cost %s sec, Cmd: %s",
+                         i + 1, len(cmd_list),
+                         (datetime.now(tz=timezone.utc) - ts).seconds, c)
+
+    def run_build_cmd(self, cmd: str, update_env: Optional[Dict[str, str]] = None,
+                      check: bool = False) -> subprocess.CompletedProcess:
+        """
+        执行具体 build 命令行
+
+        因以下原因, 设置本函数, 而非调用原生 subprocess.run
+        1. 支持多 target 构建, 各 target 构建时长共享公共 timeout 配置;
+        2. UTest/STest 并行执行场景下, 执行时进程调用关系为:
+               build.py(主进程) -> 进程1(CMake) -> 进程2(CMake Generator, make/ninja) -> 进程3(Python)-> 进程4(executable)
+           此时若 进程1 超时, 需要触发其子/孙进程感知, 进而结束
+
+        :param cmd: Build 命令行
+        :param update_env: 环境变量(额外更新内容)
+        :param check: 检查返回值
+        """
+        ts = datetime.now(tz=timezone.utc)
+        stdout: Optional[str] = None
+        stderr: Optional[str] = None
+        env = {**os.environ}
+        env.update(update_env if update_env else {})
+        with subprocess.Popen(shlex.split(cmd), env=env, text=True, encoding='utf-8',
+                              start_new_session=True) as process:
+            try:
+                stdout, stderr = process.communicate(timeout=self.timeout)
+            except (subprocess.TimeoutExpired, KeyboardInterrupt):
+                # 通过 SIGINT 信号通知所有子/孙进程结束, python 并行脚本内会捕获该信号进行结算处理
+                pgid = os.getpgid(process.pid)
+                os.killpg(pgid, signal.SIGINT)
+                raise
+            except Exception:
+                process.kill()
+                raise
+            finally:
+                stdout = stdout or ""
+                stderr = stderr or ""
+            ret_code = process.poll()
+            if check and ret_code:
+                raise subprocess.CalledProcessError(ret_code, process.args, output=stdout, stderr=stderr)
+        self.timeout = self.timeout - (datetime.now(tz=timezone.utc) - ts).seconds if self.timeout else self.timeout
+        return subprocess.CompletedProcess(process.args, ret_code, stdout, stderr)
 
 
 class SubCommandMgr:
