@@ -1,0 +1,125 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file cycles.cpp
+ * \brief
+ */
+
+#include <cassert>
+#include <algorithm>
+#include "cycles.h"
+
+namespace npu::tile_fwk {
+constexpr const int BYTES_PER_REPEAT = 256;
+constexpr const int DEFAULT_MAX_PARALLELISM = 128;
+constexpr const int DEFAULT_LATENCY = 10;
+
+// get element per cycle
+int GetParallelism(const std::string &op, DataType dtype) {
+    auto iterTileOp = INTRIN_PARALLELISM_IN_OP.find(op);
+    if (iterTileOp == INTRIN_PARALLELISM_IN_OP.end()) {
+        return DEFAULT_MAX_PARALLELISM;
+    }
+    auto iterDtype = iterTileOp->second.find(dtype);
+    if (iterDtype == iterTileOp->second.end()) {
+        return DEFAULT_MAX_PARALLELISM;
+    }
+    return iterDtype->second;
+}
+
+// used to extend in future
+int GetLatency(const std::string &op, DataType dtype) {
+    auto iterTileOp = INTRIN_LATENCY_IN_OP.find(op);
+    if (iterTileOp == INTRIN_LATENCY_IN_OP.end()) {
+        return DEFAULT_LATENCY;
+    }
+    auto iterDtype = iterTileOp->second.find(dtype);
+    if (iterDtype == iterTileOp->second.end()) {
+        return DEFAULT_LATENCY;
+    }
+    return iterDtype->second;
+}
+
+int GetMaxShapeSize(const std::vector<std::vector<int>> &shape) {
+    int maxTotalSize = 0;
+    for (const auto &i : shape) {
+        int totalSize = 1;
+        for (auto dimVal : i) {
+            totalSize *= dimVal;
+        }
+        maxTotalSize = std::max(maxTotalSize, totalSize);
+    }
+    return maxTotalSize;
+}
+
+int CalcCyclesCommon(const std::string &op, int shapeSize, DataType dtype) {
+    int totalSize = shapeSize * BytesOf(dtype);
+
+    int elePerRepeat = BYTES_PER_REPEAT / BytesOf(dtype);
+    int parallelism = GetParallelism(op, dtype);
+    int cyclePerRepeat = elePerRepeat / parallelism;
+    if (cyclePerRepeat == 0) {
+        cyclePerRepeat = 1;
+    }
+
+    int repeatCount = (totalSize - BYTES_PER_REPEAT) / BYTES_PER_REPEAT + 1;
+    int latency = GetLatency(op, dtype);
+    int cycle = latency + repeatCount * cyclePerRepeat - 1;
+    return cycle;
+}
+
+// according to implementation in tile op instruction
+int CalcUBCompactCycles(const std::vector<std::vector<int>> &shape, DataType dtype) {
+    int srcShape0 = shape[1][0];
+    int dstShape0 = shape[0][0];
+    constexpr int32_t SRC_SHAPE_16 = 16;
+    int vnchwconvRegSetScala = 4;
+    int vnchwconvBytePerCycle = 512;
+    if (srcShape0 < SRC_SHAPE_16) {
+        return dstShape0 * vnchwconvRegSetScala;
+    }
+    int shapeSize = GetMaxShapeSize(shape);
+    int totalBytes = shapeSize * BytesOf(dtype);
+    if (totalBytes / vnchwconvBytePerCycle < 1) {
+        return 1 + vnchwconvRegSetScala;
+    }
+    int vnchwconvCycle = totalBytes / vnchwconvBytePerCycle + vnchwconvRegSetScala;
+    int copyUbToUbCycle = CalcCyclesCommon("UB_MOV", shapeSize, dtype);
+    return vnchwconvCycle + copyUbToUbCycle;
+}
+
+int GetCycles(const std::string &op, const std::vector<std::vector<int>> &shape, DataType dtype) {
+    if (op == "NOP") {
+        return 0;
+    }
+    // for sync op
+    auto iterSyncOp = SYNC_OP_CYCLES.find(op);
+    if (iterSyncOp != SYNC_OP_CYCLES.end()) {
+        return iterSyncOp->second;
+    }
+
+    assert(!shape.empty() && !shape[0].empty() && "shape is invalid");
+
+    // assume that the cycle of UB_ALLOC, L1_ALLOC, etc. is 1
+    if (op.find("_ALLOC") != std::string::npos) {
+        return 1;
+    }
+
+    auto iterCombineIntrin = COMINE_INTRIN_CYCLES_IN_OP.find(op);
+    if (iterCombineIntrin != COMINE_INTRIN_CYCLES_IN_OP.end()) {
+        return iterCombineIntrin->second(shape, dtype);
+    }
+
+    int shapeSize = GetMaxShapeSize(shape);
+    int cycle = CalcCyclesCommon(op, shapeSize, dtype);
+    return cycle;
+}
+} // namespace npu::tile_fwk

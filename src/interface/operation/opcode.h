@@ -1,0 +1,445 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file opcode.h
+ * \brief
+ */
+
+#pragma once
+
+#include <string>
+#include <map>
+#include <array>
+#include <sstream>
+#include <unordered_set>
+#include <unordered_map>
+#include "interface/utils/common.h"
+#include "common/data_type.h"
+#include "interface/utils/assert.h"
+namespace npu::tile_fwk {
+enum class Opcode {
+    // Unary Vector
+    OP_EXP,
+    OP_SQRT,
+    OP_RECIPROCAL,
+    OP_CAST,
+    OP_EXPAND,
+    OP_COMPACT,
+    OP_ROWMAX,
+    OP_ROWSUM,
+    OP_ROWEXPMAX,
+    OP_ROWEXPSUM,
+    OP_ROWSUMLINE,
+    OP_ADDS,
+    OP_SUBS,
+    OP_MULS,
+    OP_DIVS,
+    OP_S_ADDS,
+    OP_S_SUBS,
+    OP_S_MULS,
+    OP_S_DIVS,
+    OP_S_MAXS,
+    OP_S_MINS,
+    OP_TRANSPOSE_DATAMOVE,
+    OP_TRANSPOSE_VNCHWCONV,
+    OP_ABS,
+    // Binary Vector
+    OP_ADD,
+    OP_SUB,
+    OP_MUL,
+    OP_DIV,
+    OP_ADD_BRC,
+    OP_SUB_BRC,
+    OP_MUL_BRC,
+    OP_DIV_BRC,
+    OP_MAX_BRC,
+    OP_S_ADD,
+    OP_S_SUB,
+    OP_S_MUL,
+    OP_S_DIV,
+    OP_S_MAX,
+    OP_S_MIN,
+    OP_MAXIMUM,
+    OP_GATHER,
+    OP_GATHER_ELEMENT,
+    OP_SCATTER_ELEMENT,
+    OP_INDEX_PUT,
+    OP_CONCAT,
+    OP_SCATTER_UPDATE,
+    OP_SCATTER_SCALAR,
+    OP_PAIRMAX,
+    OP_PAIRSUM,
+    OP_ROWMAX_SINGLE,
+    OP_ROWSUM_SINGLE,
+    OP_ROWMAX_COMBINE_AXIS_SINGLE,
+    OP_ROWSUM_COMBINE_AXIS_SINGLE,
+    // Cube
+    OP_A_MUL_B,
+    OP_A_MULACC_B,
+    OP_A_MUL_BT,
+    OP_A_MULACC_BT,
+    OP_CONV,
+    OP_CONV_ADD,
+    OP_CUBE_CONV_D2S,
+    OP_CUBE_CONCAT_C,
+    OP_L1_TO_L0A,
+    OP_L1_TO_L0B,
+    // ANY
+    OP_DUPLICATE,
+    // Move
+    OP_RESHAPE,
+    OP_ASSEMBLE,
+    OP_VIEW,
+    OP_INDEX_OUTCAST,
+    OP_REGISTER_COPY,
+    OP_CONVERT,
+    OP_COPY_IN,
+    OP_COPY_OUT,
+    // Special
+    OP_CALL,
+    OP_CALL_NOT_EXPAND,
+    OP_NOP,
+
+    OP_UB_ALLOC,
+    OP_UB_COPY_IN,
+    OP_UB_COPY_OUT,
+    OP_VEC_DUP,
+    OP_REG_ALLOC,
+    OP_VLD,
+    OP_VST,
+
+    // Cube
+    OP_L1_ALLOC,
+    OP_L0A_ALLOC,
+    OP_L0B_ALLOC,
+    OP_L0C_ALLOC,
+    OP_FIX_ALLOC,
+    OP_BT_ALLOC,
+    OP_BT_COPY_IN,
+    // MTE
+    OP_L1_COPY_IN,
+    OP_L1_COPY_IN_FRACTAL_Z,
+    OP_L1_COPY_OUT,
+    OP_L1_LOOP_ENHANCE,
+
+    OP_L1_COPY_IN_DMA,
+    OP_L1_COPY_OUT_DMA,
+
+    OP_L0C_COPY_OUT,
+    OP_L1_TO_L0_BT,
+    OP_FIX_COPY_IN,
+    OP_FIX_COPY_IN_QUANT_PRE,
+    OP_FIX_COPY_IN_RELU_PRE,
+    OP_FIX_COPY_IN_RELU_POST,
+    OP_FIX_COPY_IN_QUANT_POST,
+    OP_FIX_COPY_IN_ELT_ANTIQ,
+    OP_FIX_COPY_IN_MTE2_ANTIQ,
+    OP_L1_COPY_UB,
+    OP_L0C_COPY_UB,
+    OP_UB_COPY_L1,
+    OP_UB_COPY_L1_ND,
+    OP_COPY_L1_TO_L1,
+    OP_COPY_UB_TO_UB,
+
+    // Scala
+    OP_SYNC_SRC,
+    OP_SYNC_DST,
+    OP_CV_SYNC_SRC,
+    OP_CV_SYNC_DST,
+    OP_PHASE1,
+    OP_PHASE2,
+    OP_BAR_V,
+    OP_BAR_M,
+    OP_BAR_ALL,
+    OP_PAD,
+
+    // Distributed
+    OP_REMOTE_GATHER,
+    OP_LOCAL_COPY_OUT,
+    OP_WRITE_REMOTE,
+    OP_REMOTE_REDUCE,
+    OP_COMM_WAIT_FLAG,
+    OP_DIST_REDUCE,
+    OP_DIST_SCATTER,
+    OP_DIST_GATHER,
+    OP_DIST_BROADCAST,
+    OP_DEPEND_ON,
+    OP_MOE_FFN_TO_ATTN,
+    OP_MOE_ATTN_COMBINE,
+    OP_SEND_TO_ROUTING_EXPERT,
+    OP_SEND_TO_SHARED_EXPERT,
+    OP_COPY_TO_LOCAL_EXPERT,
+    OP_DISPATCH_SET_FLAG,
+    OP_FFN_SCHED,
+    OP_FFN_BATCHING,
+    // Begin: add for TOPK and ArgSort
+    // OP_TOPK,
+    OP_BITSORT,
+    OP_MRGSORT,
+    OP_ARGSORT,
+    OP_EXTRACT,
+    OP_FUSED_OP,
+    // End: add for TOPK and ArgSort
+    // Begin: add for Reduce Atomic
+    OP_REDUCE_ACC,
+    // Begin: add for Reduce Atomic
+    OP_MAX_POOL,
+    OP_UNKNOWN
+};
+
+enum class OpCoreType { AIC, AIV, ANY, AICPU, HUB, GMATOMIC };
+
+enum class OpCalcType {
+    ELMWISE,
+    CAST,
+    BROADCAST,
+    OTHER,
+    REDUCE,
+    MATMUL,
+    CONV,
+    MOVE_IN,
+    MOVE_OUT,
+    MOVE_LOCAL,
+    SYNC,        // 同步
+    DISTRIBUTED, // 通信
+    SYS,         // 框架
+    CALC_TYPE_BOTTOM
+};
+
+class TileOpCfg {
+public:
+    TileOpCfg(){};
+    TileOpCfg(std ::string code, PipeType pipeIdStart, PipeType pipeIdEnd, CoreType coreType)
+        : tileOpCode_(code), pipeIdStart_(pipeIdStart), pipeIdEnd_(pipeIdEnd), coreType_(coreType) {}
+    std::string tileOpCode_;
+    PipeType pipeIdStart_{PipeType::PIPE_S};
+    PipeType pipeIdEnd_{PipeType::PIPE_S};
+    CoreType coreType_{CoreType::AIV};
+};
+
+class OpcodeManager {
+public:
+    static OpcodeManager &Inst() {
+        static OpcodeManager inst;
+        return inst;
+    }
+
+    bool HasOpcode(Opcode opcode) const {
+        return static_cast<int>(opcode) >= 0 && static_cast<size_t>(opcode) < opcodeInfos_.size();
+    }
+    bool HasOpcode(const std::string &str) const { return strToEnum_.count(str) > 0; }
+
+    Opcode GetOpcode(const std::string &str) const {
+        auto it = strToEnum_.find(str);
+        ASSERT(it != strToEnum_.end());
+        return it->second;
+    }
+    const std::string &GetOpcodeStr(Opcode opcode) const {
+        ASSERT(HasOpcode(opcode));
+        return opcodeInfos_[static_cast<int>(opcode)].str;
+    }
+
+    OpCoreType GetCoreType(Opcode opcode) const {
+        ASSERT(HasOpcode(opcode)) << "Can't find op " << static_cast<int>(opcode) << std::endl;
+        return opcodeInfos_[static_cast<int>(opcode)].coreType;
+    }
+
+    const TileOpCfg &GetTileOpCfg(Opcode opcode) const {
+        ASSERT(HasOpcode(opcode)) << "Can't find op " << static_cast<int>(opcode) << std::endl;
+        return opcodeInfos_[static_cast<int>(opcode)].tileOpCfg;
+    }
+
+    bool MemTypeSensitive(Opcode opcode) const {
+        auto &info = opcodeInfos_[static_cast<int>(opcode)];
+        return !info.inputsMemType.empty() || !info.outputsMemType.empty();
+    }
+
+    const std::vector<MemoryType> &GetInputsMemType(Opcode opcode) const {
+        auto &info = opcodeInfos_[static_cast<int>(opcode)];
+        return info.inputsMemType;
+    }
+
+    const std::vector<MemoryType> &GetOutputsMemType(Opcode opcode) const {
+        auto &info = opcodeInfos_[static_cast<int>(opcode)];
+        return info.outputsMemType;
+    }
+
+    OpCalcType GetOpCalcType(Opcode opcode) const {
+        auto &info = opcodeInfos_[static_cast<int>(opcode)];
+        return info.calcType;
+    }
+
+    const std::vector<std::string> &GetAttrs(Opcode opcode) const {
+        auto &info = opcodeInfos_[static_cast<int>(opcode)];
+        return info.attrs;
+    }
+
+    std::string PrintSupportOpcodes() const {
+        std::stringstream ss;
+        ss << "[";
+        bool isFirst = true;
+        for (const auto &info : opcodeInfos_) {
+            if (!isFirst) {
+                ss << ", ";
+            }
+            isFirst = false;
+            ss << info.str;
+        }
+        ss << "]";
+        return ss.str();
+    }
+
+    bool IsBoundaryIn(Opcode opcode) const {
+        auto &info = opcodeInfos_[static_cast<int>(opcode)];
+        return info.calcType == OpCalcType::MOVE_IN;
+    }
+
+    bool IsBoundaryOut(Opcode opcode) const {
+        auto &info = opcodeInfos_[static_cast<int>(opcode)];
+        return info.calcType == OpCalcType::MOVE_OUT;
+    }
+
+    inline bool IsCopyIn(Opcode opCode) const {
+        return opCode == Opcode::OP_COPY_IN || opCode == Opcode::OP_UB_COPY_IN || opCode == Opcode::OP_L1_COPY_IN;
+    }
+
+    inline bool IsCopyOut(Opcode opCode) const {
+        return opCode == Opcode::OP_COPY_OUT || opCode == Opcode::OP_UB_COPY_OUT || opCode == Opcode::OP_L0C_COPY_OUT ||
+               opCode == Opcode::OP_L1_COPY_OUT || opCode == Opcode::OP_TRANSPOSE_DATAMOVE ||
+               opCode == Opcode::OP_INDEX_OUTCAST || opCode == Opcode::OP_REMOTE_GATHER ||
+               opCode == Opcode::OP_LOCAL_COPY_OUT || opCode == Opcode::OP_REMOTE_REDUCE ||
+               opCode == Opcode::OP_FFN_SCHED || opCode == Opcode::OP_FFN_BATCHING ||
+               opCode == Opcode::OP_COPY_TO_LOCAL_EXPERT;
+    }
+
+    inline bool IsCopyInOrOut(Opcode opCode) const { return IsCopyIn(opCode) || IsCopyOut(opCode); }
+
+private:
+    struct OpcodeInfo {
+        Opcode opcode;
+        OpCoreType coreType;
+        std::string str;
+        std::vector<MemoryType> inputsMemType;
+        std::vector<MemoryType> outputsMemType;
+        TileOpCfg tileOpCfg;
+        OpCalcType calcType;
+        std::vector<std::string> attrs;
+    };
+
+private:
+    OpcodeManager();
+
+private:
+    std::array<OpcodeInfo, static_cast<int>(Opcode::OP_UNKNOWN)> opcodeInfos_{};
+    std::unordered_map<std::string, Opcode> strToEnum_;
+};
+
+inline Opcode FindOpcode(const std::string &op) {
+    std::string originOp = op;
+    constexpr int32_t END_VALUE_4 = 4;
+    constexpr int32_t END_VALUE_5 = 5;
+    if (op.substr(0, END_VALUE_5) == "TILE_") {
+        originOp = originOp.substr(END_VALUE_5);
+    }
+    if (op.substr(0, END_VALUE_4) == "CALL") {
+        originOp = "CALL";
+    }
+
+    if (!OpcodeManager::Inst().HasOpcode(originOp)) {
+        ASSERT(0) << "Can't find op " << originOp << "\n" << OpcodeManager::Inst().PrintSupportOpcodes();
+    }
+
+    return OpcodeManager::Inst().GetOpcode(originOp);
+}
+
+const std::unordered_set<Opcode> ALLOC_OPCODE = {Opcode::OP_UB_ALLOC, Opcode::OP_L1_ALLOC, Opcode::OP_L0A_ALLOC,
+    Opcode::OP_L0B_ALLOC, Opcode::OP_L0C_ALLOC, Opcode::OP_FIX_ALLOC, Opcode::OP_BT_ALLOC};
+const std::unordered_set<Opcode> BINARY_OPS{
+    Opcode::OP_ADD,
+    Opcode::OP_SUB,
+    Opcode::OP_MUL,
+    Opcode::OP_DIV,
+    Opcode::OP_S_ADD,
+    Opcode::OP_S_SUB,
+    Opcode::OP_S_MUL,
+    Opcode::OP_S_DIV,
+    Opcode::OP_S_MAX,
+    Opcode::OP_S_MIN,
+    Opcode::OP_MAXIMUM,
+    Opcode::OP_PAIRSUM,
+    Opcode::OP_PAIRMAX,
+};
+
+const std::unordered_set<Opcode> BINARY_WITH_BRC_OPS{
+    Opcode::OP_ADD_BRC,
+    Opcode::OP_SUB_BRC,
+    Opcode::OP_MUL_BRC,
+    Opcode::OP_DIV_BRC,
+    Opcode::OP_MAX_BRC,
+};
+
+const std::unordered_set<Opcode> UNARY_OPS{Opcode::OP_EXP, Opcode::OP_SQRT, Opcode::OP_EXPAND, Opcode::OP_RECIPROCAL,
+    Opcode::OP_ROWSUM, Opcode::OP_ROWMAX, Opcode::OP_ROWEXPSUM, Opcode::OP_ROWEXPMAX,
+    Opcode::OP_COPY_L1_TO_L1, Opcode::OP_COPY_UB_TO_UB, Opcode::OP_ROWSUMLINE, Opcode::OP_ABS};
+
+const std::unordered_set<Opcode> UNARY_OPS_WITH_TMP{
+    Opcode::OP_COMPACT, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_ROWMAX_SINGLE, Opcode::OP_TRANSPOSE_VNCHWCONV,
+    Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE};
+
+const std::unordered_set<Opcode> VECTOR_SCALAR_OPS{Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_DIVS};
+
+const std::unordered_set<Opcode> SCLAR_VECTOR_SCALAR_OPS{
+    Opcode::OP_S_ADDS, Opcode::OP_S_SUBS, Opcode::OP_S_MULS, Opcode::OP_S_DIVS, Opcode::OP_S_MAXS, Opcode::OP_S_MINS};
+
+const std::unordered_set<Opcode> CAST_OPS{Opcode::OP_CAST};
+
+const std::unordered_set<Opcode> GATHER_OPS{Opcode::OP_GATHER};
+
+const std::unordered_set<Opcode> GATHER_ELEMENT_OPS{Opcode::OP_GATHER_ELEMENT};
+const std::unordered_set<Opcode> SCATTER_ELEMENT_OPS{Opcode::OP_SCATTER_ELEMENT};
+
+const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_TRANSPOSE_VNCHWCONV,
+    Opcode::OP_GATHER_ELEMENT, Opcode::OP_COPY_IN, Opcode::OP_COPY_OUT, Opcode::OP_TRANSPOSE_DATAMOVE,
+    Opcode::OP_INDEX_OUTCAST, Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL, Opcode::OP_DIV, Opcode::OP_EXP,
+    Opcode::OP_ABS, Opcode::OP_SQRT, Opcode::OP_RECIPROCAL, Opcode::OP_CAST, Opcode::OP_ADDS, Opcode::OP_SUBS,
+    Opcode::OP_MULS, Opcode::OP_DIVS, Opcode::OP_PAIRMAX, Opcode::OP_PAIRSUM, Opcode::OP_ROWMAX_SINGLE,
+    Opcode::OP_ROWSUM_SINGLE, Opcode::OP_EXPAND, Opcode::OP_VEC_DUP, Opcode::OP_MAXIMUM, Opcode::OP_L1_TO_L0A,
+    Opcode::OP_L1_TO_L0_BT, Opcode::OP_L1_TO_L0B, Opcode::OP_A_MUL_B, Opcode::OP_A_MULACC_B, Opcode::OP_A_MUL_BT,
+    Opcode::OP_A_MULACC_BT, Opcode::OP_ROWSUMLINE, Opcode::OP_ADD_BRC, Opcode::OP_ADD_BRC, Opcode::OP_SUB_BRC,
+    Opcode::OP_MUL_BRC, Opcode::OP_DIV_BRC, Opcode::OP_MAX_BRC, Opcode::OP_GATHER, Opcode::OP_S_ADDS, Opcode::OP_S_SUBS,
+    Opcode::OP_S_DIVS, Opcode::OP_S_MULS, Opcode::OP_S_MAXS};
+
+const std::unordered_set<Opcode> FIX_COPY_IN_OPS{Opcode::OP_FIX_COPY_IN, Opcode::OP_FIX_COPY_IN_QUANT_PRE,
+    Opcode::OP_FIX_COPY_IN_RELU_PRE, Opcode::OP_FIX_COPY_IN_RELU_POST, Opcode::OP_FIX_COPY_IN_QUANT_POST,
+    Opcode::OP_FIX_COPY_IN_ELT_ANTIQ, Opcode::OP_FIX_COPY_IN_MTE2_ANTIQ};
+
+const std::unordered_set<Opcode> CROSS_L1_UB_OPS{
+    Opcode::OP_L1_COPY_UB, Opcode::OP_L0C_COPY_UB, Opcode::OP_UB_COPY_L1, Opcode::OP_UB_COPY_L1_ND};
+inline bool IsAllocOpCode(Opcode opCode) {
+    return (ALLOC_OPCODE.count(opCode) != 0);
+}
+
+inline bool IsCopyIn(const Opcode opCode) {
+    return opCode == Opcode::OP_COPY_IN || opCode == Opcode::OP_UB_COPY_IN || opCode == Opcode::OP_L1_COPY_IN;
+}
+
+inline bool IsCopyOut(const Opcode &op) {
+    return (op == Opcode::OP_COPY_OUT || op == Opcode::OP_L0C_COPY_OUT || op == Opcode::OP_TRANSPOSE_DATAMOVE ||
+            op == Opcode::OP_INDEX_OUTCAST || op == Opcode::OP_REMOTE_GATHER || op == Opcode::OP_LOCAL_COPY_OUT ||
+            op == Opcode::OP_REMOTE_REDUCE || op == Opcode::OP_FFN_SCHED || op == Opcode::OP_FFN_BATCHING ||
+            op == Opcode::OP_COPY_TO_LOCAL_EXPERT);
+}
+
+inline bool IsOpCodeSupportMultiProducers(Opcode opCode) {
+    return opCode == Opcode::OP_ASSEMBLE || IsCopyOut(opCode) || opCode == Opcode::OP_CALL ||
+           opCode == Opcode::OP_INDEX_OUTCAST;
+}
+} // namespace npu::tile_fwk
