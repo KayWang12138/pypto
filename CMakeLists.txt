@@ -8,7 +8,7 @@
 # ======================================================================================================================
 cmake_minimum_required(VERSION 3.16)
 
-project(AscendCpp
+project(TileFramework
         LANGUAGES C CXX
         VERSION 2.0
 )
@@ -18,10 +18,10 @@ project(AscendCpp
 ########################################################################################################################
 
 # 路径配置
-get_filename_component(ASCENDCPP_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}" REALPATH)
-get_filename_component(ASCENDCPP_BIN_ROOT "${CMAKE_CURRENT_BINARY_DIR}" REALPATH)
+get_filename_component(TILE_FWK_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}" REALPATH)
+get_filename_component(TILE_FWK_BIN_ROOT "${CMAKE_CURRENT_BINARY_DIR}" REALPATH)
 # 公开编译开关(common)
-option(BUILD_OPEN_PROJECT   "Build open Ascend C++ project."  ON)
+option(BUILD_OPEN_PROJECT   "Build open Tile Framework project."  ON)
 option(AC_ENABLE_FRAMEWORK_WITHOUT_CANN "Only gen device code." OFF)
 # 公开编译开关(tests)
 option(ENABLE_TESTS_EXECUTE "Enable auto execute tests executable"  OFF)
@@ -30,6 +30,7 @@ option(ENABLE_TESTS_EXECUTE_PARALLEL "Auto execute tests executable parallel" OF
 option(ENABLE_TESTS_EXECUTE_PARALLEL_TIMEOUT "Auto execute tests executable parallel timeout" OFF)
 option(ENABLE_TESTS_UTEST "Enable UTest"  OFF)
 option(ENABLE_TESTS_STEST "Enable STest"  OFF)
+option(ENABLE_TESTS_STEST_DISTRIBUTED "Enable STest(Distributed)"  OFF)
 option(ENABLE_TESTS_STEST_GOLDEN_PATH "Specific STest Golden Path"  OFF)
 option(ENABLE_TESTS_STEST_GOLDEN_PATH_CLEAN "Clean STest Golden"  OFF)
 option(ENABLE_TESTS_STEST_BINARY_CACHE "Enable STest Binary Cache" OFF)
@@ -53,7 +54,7 @@ option(ENABLE_TESTS_STEST_TOOLS_PROF_MAX_CNT "Specify STest Tools Profiling Max 
 include(ExternalProject)
 include(cmake/config.cmake)
 include(cmake/intf.cmake)
-
+include(cmake/func.cmake)
 
 ########################################################################################################################
 # 编译流程
@@ -61,7 +62,11 @@ include(cmake/intf.cmake)
 
 add_subdirectory(src)
 
-if (ENABLE_TESTS_UTEST OR ENABLE_TESTS_STEST)
+if (ENABLE_TESTS_UTEST OR ENABLE_TESTS_STEST OR ENABLE_TESTS_STEST_DISTRIBUTED)
     enable_testing()
     add_subdirectory(tests)
 endif ()
+
+install(DIRECTORY include/
+    DESTINATION lib/tilefwk/ OPTIONAL
+)

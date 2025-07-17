@@ -65,6 +65,45 @@ def quant(input_t, is_pertoken: bool = True, has_smooth=False, smooth_cq=None):
     return out_int8, scale_dequant
 
 
+def post_compute(inputs):
+    dtype = inputs.get("dtype")
+    is_quant = inputs.get("is_quant")
+    x = inputs.get("x")
+    w_uv = inputs.get("w_uv")
+    w_o = inputs.get("w_o")
+    if is_quant:
+        w_o_scale = inputs.get("w_o_scale")
+
+    b, s, n, kv_lora_rank = x.shape
+    v_head_dim = w_uv.shape[2]
+    h = w_o.shape[1]
+
+    x_reshape = x.reshape(b * s, n, kv_lora_rank)
+    x_trans = np.transpose(x_reshape, (1, 0, 2))  # [n, b*s, kv_lora_rank]
+    # [n, b*s, kv_lora_rank] @ [n, kv_lora_rank, v_head_dim] -> [n, b*s, v_head_dim]
+    bmm = np.matmul(x_trans.astype(np.float32), w_uv.astype(np.float32))
+    bmm = bmm.astype(dtype)
+
+    bmm_trans = np.transpose(bmm, (1, 0, 2))  # [b*s, n, v_head_dim]
+    bmm_reshape = bmm_trans.reshape(b * s, n * v_head_dim)  # [b*s, n*v_head_dim]
+    if is_quant:
+        # quant, per_token
+        # scale_dequant: [b*s, 1]
+        bmm_reshape, scale_dequant = quant(bmm_reshape, True)  # int8, fp32
+        mm = np.matmul(bmm_reshape.astype(np.int32), w_o.astype(np.int32))
+
+        # dequant
+        mm_fp32 = mm.astype(fp32)  # [b*s, h]
+        mm_fp32_dequant = mm_fp32 * scale_dequant
+        mm = mm_fp32_dequant * w_o_scale
+    else:
+        mm = np.matmul(bmm_reshape.astype(fp32), w_o.astype(fp32))
+    mm = mm.astype(dtype)
+
+    output = mm.reshape(b, s, h)
+    return output
+
+
 def gen_post_test_data(output_dir: Path, params, dtype, is_quant=True, is_nz=True):
     b, n, s, h, kv_lora_rank, v_head_dim = params
     x_shape = [b, s, n, kv_lora_rank]
@@ -76,15 +115,15 @@ def gen_post_test_data(output_dir: Path, params, dtype, is_quant=True, is_nz=Tru
     logging.debug("w_0 shape is %s", w_o_shape)
     logging.debug("w_o_scale shape is %s", w_o_scale_shape)
 
-    input_path = Path(output_dir, 'x.bin')
+    x_path = Path(output_dir, 'x.bin')
     w_uv_path = Path(output_dir, 'w_uv.bin')
     w_o_path = Path(output_dir, 'w_o.bin')
     w_o_scale_path = Path(output_dir, 'w_o_scale.bin')
     # output
     output_path = Path(output_dir, 'golden_output.bin')
 
-    input = np.random.uniform(-1, 1, x_shape).astype(dtype)
-    input.tofile(input_path)
+    x = np.random.uniform(-1, 1, x_shape).astype(dtype)
+    x.tofile(x_path)
     w_uv = np.random.uniform(-0.1, 0.1, w_uv_shape).astype(dtype)
     w_uv.tofile(w_uv_path)
     w_o = np.random.uniform(-0.1, 0.1, w_o_shape).astype(dtype)
@@ -103,30 +142,15 @@ def gen_post_test_data(output_dir: Path, params, dtype, is_quant=True, is_nz=Tru
         else:
             w_o.tofile(w_o_path)
 
-    logging.debug("================ calculate ================")
-    x_reshape = input.reshape(b * s, n, kv_lora_rank)
-    x_trans = np.transpose(x_reshape, (1, 0, 2))  # [n, b*s, kv_lora_rank]
-    # [n, b*s, kv_lora_rank] @ [n, kv_lora_rank, v_head_dim] -> [n, b*s, v_head_dim]
-    bmm = np.matmul(x_trans.astype(np.float32), w_uv.astype(np.float32))
-    bmm = bmm.astype(dtype)
-
-    bmm_trans = np.transpose(bmm, (1, 0, 2))  # [b*s, n, v_head_dim]
-    bmm_reshape = bmm_trans.reshape(b * s, n * v_head_dim)  # [b*s, n*v_head_dim]
+    inputs = {"dtype": dtype, "is_quant": is_quant}
+    inputs["x"] = x
+    inputs["w_uv"] = w_uv
+    inputs["w_o"] = w_o
     if is_quant:
-        # quant, per_token
-        # scale_dequant: [b*s, 1]
-        bmm_reshape, scale_dequant = quant(bmm_reshape, True)  # int8, fp32
-        mm = np.matmul(bmm_reshape.astype(np.int32), w_o_quant.astype(np.int32))
+        inputs["w_o"] = w_o_quant
+        inputs["w_o_scale"] = w_o_scale
 
-        # dequant
-        mm_fp32 = mm.astype(fp32)  # [b*s, h]
-        mm_fp32_dequant = mm_fp32 * scale_dequant
-        mm = mm_fp32_dequant * w_o_scale
-    else:
-        mm = np.matmul(bmm_reshape.astype(fp32), w_o.astype(fp32))
-    mm = mm.astype(dtype)
-
-    output = mm.reshape(b, s, h)
+    output = post_compute(inputs)
     output.tofile(output_path)
 
     return output

@@ -1,0 +1,75 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file ascendcl_stubs.cpp
+ * \brief
+ */
+
+#include <acl/acl_base.h>
+#include <acl/acl.h>
+
+extern "C" {
+
+aclError aclFinalize()
+{
+    return 0;
+}
+
+aclError aclrtStreamWaitEvent(aclrtStream stream, aclrtEvent event)
+{
+    (void)stream;
+    (void)event;
+    return 0;
+}
+
+aclError aclrtCreateEventWithFlag(aclrtEvent *event, uint32_t flag) 
+{
+    (void)event;
+    (void)flag;
+    return 0;
+}
+
+aclError aclrtRecordEvent(aclrtEvent event, aclrtStream stream)
+{
+    (void)event;
+    (void)stream;
+    return 0;
+}
+
+aclError aclrtCreateEvent(aclrtEvent *event)
+{
+    (void)event;
+    return 0;
+}
+
+aclError aclInit(const char *configPath)
+{
+    (void)configPath;
+    return 0;
+}
+
+
+
+aclError aclrtSetDevice(int32_t deviceId)
+{
+    (void)deviceId;
+    return 0;
+}
+
+aclError aclrtMalloc(void **devPtr, size_t size, aclrtMemMallocPolicy policy)
+{
+    (void)devPtr;
+    (void)size;
+    (void)policy;
+    return 0;
+}
+
+}

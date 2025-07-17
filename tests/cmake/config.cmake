@@ -13,30 +13,30 @@
 ########################################################################################################################
 
 # 预定义变量
-set(AscendCppUTestNamePrefix ascendcpp_utest)
-set(AscendCppSTestNamePrefix ascendcpp_stest)
+set(TileFwkUTestNamePrefix tile_fwk_utest)
+set(TileFwkSTestNamePrefix tile_fwk_stest)
 
-set(AscendCppStestExecuteDeviceIdList)
+set(TileFwkStestExecuteDeviceIdList)
 if (NOT ENABLE_TESTS_EXECUTE_DEVICE_ID)
-    set(AscendCppStestExecuteDeviceIdList 0)
+    set(TileFwkStestExecuteDeviceIdList 0)
 else ()
-    string(REPLACE ":" ";" AscendCppStestExecuteDeviceIdList "${ENABLE_TESTS_EXECUTE_DEVICE_ID}")
+    string(REPLACE ":" ";" TileFwkStestExecuteDeviceIdList "${ENABLE_TESTS_EXECUTE_DEVICE_ID}")
 endif ()
-list(GET AscendCppStestExecuteDeviceIdList 0 AscendCppStestExecuteDeviceIdPref)
+list(GET TileFwkStestExecuteDeviceIdList 0 TileFwkStestExecuteDeviceIdPref)
 
 # 预定义路径
-get_filename_component(AscendCppUTestExePath "${CMAKE_CURRENT_BINARY_DIR}/ut" REALPATH)
-get_filename_component(AscendCppSTestExePath "${CMAKE_CURRENT_BINARY_DIR}/st" REALPATH)
+get_filename_component(TileFwkUTestExePath "${CMAKE_CURRENT_BINARY_DIR}/ut" REALPATH)
+get_filename_component(TileFwkSTestExePath "${CMAKE_CURRENT_BINARY_DIR}/st" REALPATH)
 
 if (ENABLE_TESTS_STEST_GOLDEN_PATH)
     get_filename_component(ENABLE_TESTS_STEST_GOLDEN_PATH "${ENABLE_TESTS_STEST_GOLDEN_PATH}" REALPATH)
 else ()
-    get_filename_component(ENABLE_TESTS_STEST_GOLDEN_PATH "${AscendCppSTestExePath}/golden" REALPATH)
+    get_filename_component(ENABLE_TESTS_STEST_GOLDEN_PATH "${TileFwkSTestExePath}/golden" REALPATH)
 endif ()
 
 # 环境变量 PATH
 if ((NOT BUILD_OPEN_PROJECT) AND ENABLE_TESTS_UTEST)
-    set(ASCENDCPP_EXPORT_ENV_PATH "PATH=$ENV{PATH}:${CCEC_PATH}")
+    set(TILE_FWK_EXPORT_ENV_PATH "PATH=$ENV{PATH}:${CCEC_PATH}")
 endif()
 
 
@@ -45,7 +45,7 @@ endif()
 ########################################################################################################################
 
 # GTest
-if (BUILD_OPEN_PROJECT AND (ENABLE_TESTS_UTEST OR ENABLE_TESTS_STEST))
+if (BUILD_OPEN_PROJECT AND (ENABLE_TESTS_UTEST OR ENABLE_TESTS_STEST OR ENABLE_TESTS_STEST_DISTRIBUTED))
     find_package(GTest CONFIG)
     if (NOT ${GTest_FOUND})
         if (DEFINED ENV{ASCEND_3RD_LIB_PATH} AND NOT "${ASCEND_3RD_LIB_PATH}x" STREQUAL "x")

@@ -7,13 +7,14 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
-add_library(ascendcpp_intf_pub INTERFACE)
-target_include_directories(ascendcpp_intf_pub
+add_library(tile_fwk_intf_pub INTERFACE)
+target_include_directories(tile_fwk_intf_pub
         INTERFACE   # 源码依赖
-            ${ASCENDCPP_SRC_ROOT}/include
-            ${ASCENDCPP_SRC_ROOT}/src
+            ${TILE_FWK_SRC_ROOT}/include
+            ${TILE_FWK_SRC_ROOT}/src
+            ${TILE_FWK_SRC_ROOT}/src/include
 )
-target_compile_options(ascendcpp_intf_pub
+target_compile_options(tile_fwk_intf_pub
         INTERFACE
             # 安全编译选项
             $<$<CONFIG:Release>:-O2 -D_FORTIFY_SOURCE=2>
@@ -40,7 +41,7 @@ target_compile_options(ascendcpp_intf_pub
             -Wtype-limits
             -Wshift-negative-value
             -Wswitch-default
-            -Wframe-larger-than=$<IF:$<OR:$<BOOL:${ENABLE_ASAN}>,$<BOOL:${ENABLE_UBSAN}>>,65536,32768>
+            -Wframe-larger-than=$<IF:$<OR:$<BOOL:${ENABLE_ASAN}>,$<BOOL:${ENABLE_UBSAN}>>,131072,32768>
             -Woverloaded-virtual
             -Wnon-virtual-dtor
             $<$<CXX_COMPILER_ID:GNU>:-Wshift-overflow=2>
@@ -65,11 +66,18 @@ target_compile_options(ascendcpp_intf_pub
             -fno-common
             -fno-strict-aliasing
             # 放在最后
+            $<$<CONFIG:Release>:-Wno-return-type>
+            $<$<CONFIG:Release>:-Wno-array-bounds>
+            $<$<CONFIG:Release>:-Wno-maybe-uninitialized>
+            $<$<CONFIG:Release>:-Wno-unused-but-set-variable>
+            $<$<CONFIG:Release>:-Wno-unused-variable>
+            $<$<CONFIG:Release>:-Wno-unused-parameter>
+            $<$<CONFIG:Release>:-Wno-unused-result>
             -Werror
             # 依赖分析选项
-            $<$<OR:$<BOOL:${ENABLE_TESTS_UTEST}>,$<BOOL:${ENABLE_TESTS_STEST}>>:-MMD>
+            $<$<OR:$<BOOL:${ENABLE_TESTS_UTEST}>,$<BOOL:${ENABLE_TESTS_STEST}>,$<BOOL:${ENABLE_TESTS_STEST_DISTRIBUTED}>>:-MMD>
 )
-target_link_options(ascendcpp_intf_pub
+target_link_options(tile_fwk_intf_pub
         INTERFACE
             # 安全编译选项
             $<$<CONFIG:Release>:-s>

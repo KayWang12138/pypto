@@ -15,7 +15,7 @@ Parameters:
   multi_value_keywords:
       FILTER_DIRECTORIES : [Optional] 覆盖率结果过滤目录
 ]]
-function(AscendCpp_GTest_GenerateCoverage)
+function(TileFwk_GTest_GenerateCoverage)
     cmake_parse_arguments(
             TMP
             ""
@@ -40,9 +40,9 @@ function(AscendCpp_GTest_GenerateCoverage)
 
         # 参数组织
         find_program(LCOV lcov REQUIRED)
-        get_filename_component(GenCoveragePy ${ASCENDCPP_SRC_ROOT}/tests/cmake/scripts/gen_coverage.py REALPATH)
-        get_filename_component(GenCoverageDataDir "${ASCENDCPP_BIN_ROOT}" REALPATH)
-        set(_Args "-s=${ASCENDCPP_SRC_ROOT}" "-c=${GenCoverageDataDir}")
+        get_filename_component(GenCoveragePy ${TILE_FWK_SRC_ROOT}/tests/cmake/scripts/gen_coverage.py REALPATH)
+        get_filename_component(GenCoverageDataDir "${TILE_FWK_BIN_ROOT}" REALPATH)
+        set(_Args "-s=${TILE_FWK_SRC_ROOT}" "-c=${GenCoverageDataDir}")
 
         get_target_property(GTest_GTest_Inc     GTest::gtest           INTERFACE_INCLUDE_DIRECTORIES)
         get_target_property(GTest_GTestMain_Inc GTest::gtest_main      INTERFACE_INCLUDE_DIRECTORIES)
@@ -52,8 +52,8 @@ function(AscendCpp_GTest_GenerateCoverage)
             get_target_property(Json_Inc json                         INTERFACE_INCLUDE_DIRECTORIES)
         endif ()
         set(Filter_Dirs
-                ${ASCENDCPP_SRC_ROOT}/tests
-                ${ASCENDCPP_SRC_ROOT}/thirdparty
+                ${TILE_FWK_SRC_ROOT}/tests
+                ${TILE_FWK_SRC_ROOT}/thirdparty
                 ${GTest_GTest_Inc}
                 ${GTest_GTestMain_Inc}
                 ${Json_Inc}
@@ -67,7 +67,7 @@ function(AscendCpp_GTest_GenerateCoverage)
 
         add_custom_command(
                 TARGET ${TMP_TARGET} POST_BUILD
-                COMMAND ${ASCENDCPP_PYTHON3} ${GenCoveragePy} ARGS ${_Args}
+                COMMAND ${TILE_FWK_PYTHON3_EXE} ${GenCoveragePy} ARGS ${_Args}
                 COMMENT "Generate coverage for ${TMP_TARGET}"
         )
     endif ()
@@ -85,7 +85,7 @@ Parameters:
 Attention:
     1. 函数内按照环境变量 LD_LIBRARY_PATH, LD_LIBRARIES_EXT 指定内容, 环境变量 PATH, CMD_SETUP_EXT 顺序处理产生最终 CMD_SETUP;
 ]]
-function(AscendCpp_GTest_RunExe_GetPreExecCmdSetup CMD_SETUP)
+function(TileFwk_GTest_RunExe_GetPreExecCmdSetup CMD_SETUP)
     cmake_parse_arguments(
             TMP
             ""
@@ -110,8 +110,8 @@ function(AscendCpp_GTest_RunExe_GetPreExecCmdSetup CMD_SETUP)
     list(APPEND CmdSetup export ${LD_LIBRARY_PATH})
 
     # 环境变量 PATH 处理
-    if (NOT "${ASCENDCPP_EXPORT_ENV_PATH}x" STREQUAL "x")
-        list(APPEND CmdSetup && export ${ASCENDCPP_EXPORT_ENV_PATH})
+    if (NOT "${TILE_FWK_EXPORT_ENV_PATH}x" STREQUAL "x")
+        list(APPEND CmdSetup && export ${TILE_FWK_EXPORT_ENV_PATH})
     endif ()
 
     # CMD_SETUP_EXT 处理
@@ -140,7 +140,7 @@ Parameters:
       PRIVATE_INCLUDE_DIRECTORIES   : [Optional] Private 头文件查找路径
       PRIVATE_LINK_LIBRARIES        : [Optional] Private 链接库
 ]]
-function(AscendCpp_GTest_AddExe)
+function(TileFwk_GTest_AddExe)
     cmake_parse_arguments(
             TMP
             ""
@@ -153,7 +153,7 @@ function(AscendCpp_GTest_AddExe)
     target_sources(${TMP_TARGET}
             PRIVATE
                 ${TMP_SOURCES}
-                ${ASCENDCPP_SRC_ROOT}/tests/main.cpp
+                ${TILE_FWK_SRC_ROOT}/tests/main.cpp
     )
     target_include_directories(${TMP_TARGET}
             PRIVATE

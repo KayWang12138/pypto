@@ -170,6 +170,112 @@ def to_file(data, dir, name):
     data.tofile(bin_path)
 
 
+def mla_prolog_compute(inputs):
+    dtype = inputs.get("dtype")
+    is_quant = inputs.get("is_quant")
+    has_smooth = inputs.get("has_smooth")
+    cache_mode = inputs.get("cache_mode")
+    gamma_cq = inputs.get("gamma_cq")
+    gamma_ckv = inputs.get("gamma_ckv")
+    epsilon = inputs.get("epsilon")
+    x = inputs.get("x")
+    wDq = inputs.get("wDq")
+    wUqQr = inputs.get("wUqQr")
+    wUk = inputs.get("wUk")
+    wDkvKr = inputs.get("wDkvKr")
+    cos = inputs.get("cos")
+    sin = inputs.get("sin")
+    kv_cache = inputs.get("kv_cache")
+    kr_cache = inputs.get("kr_cache")
+    cache_index = inputs.get("cache_index")
+    if is_quant:
+        w_qb_quant = inputs.get("w_qb_quant")
+        w_qb_scale = inputs.get("w_qb_scale")
+        if has_smooth:
+            smooth_cq = inputs.get("smooth_cq")
+
+    b, s, h = x.shape
+    qk_rope_head_dim = cos.shape[2]
+    n, qk_nope_head_dim, kv_lora_rank = wUk.shape
+    q_head_dim = qk_nope_head_dim + qk_rope_head_dim
+
+    """ q """
+    x_2d = x.reshape(b * s, h)
+    # shape is: [b * s, h] @ [h, q_lora_rank] -> [b * s, q_lora_rank]
+    wdqMatmulRes = np.matmul(x_2d.astype(fp32), wDq.astype(fp32))  # wdqMatmulRes
+    wdqMatmulRes = wdqMatmulRes.astype(dtype)
+    
+    q_a_layernorm = rms_norm(wdqMatmulRes, gamma_cq, epsilon)
+    logging.debug("q_a_layernorm.shape: %s %s", q_a_layernorm.shape, q_a_layernorm.dtype)
+
+    # shape is: [b * s, q_lora_rank] @ [q_lora_rank, n * q_head_dim] -> [b * s, n * q_head_dim]
+    if is_quant:
+        if has_smooth:
+            q_a_layernorm, q_a_layernorm_scale_dequant = quant(q_a_layernorm, True, True, smooth_cq)
+        else:
+            q_a_layernorm, q_a_layernorm_scale_dequant = quant(q_a_layernorm, True)  # scale: [b*s,1]
+        q_b_proj = np.matmul(q_a_layernorm.astype(np.int32), w_qb_quant.astype(np.int32))  # q_b_proj
+
+        """ dequant """
+        q_b_proj_fp32 = q_b_proj.astype(fp32)
+        q_b_proj_fp32_dequant = q_b_proj_fp32 * q_a_layernorm_scale_dequant
+        q_b_proj = q_b_proj_fp32_dequant * w_qb_scale
+    else:
+        q_b_proj = np.matmul(q_a_layernorm.astype(fp32), wUqQr.astype(fp32))  # q_b_proj
+
+    q_b_proj = q_b_proj.astype(dtype)
+    logging.debug("q_b_proj.shape: %s %s", q_b_proj.shape, q_b_proj.dtype)
+
+    q_reshape = q_b_proj.reshape(b, s, n, q_head_dim)
+    logging.debug("q_reshape.shape: %s %s", q_reshape.shape, q_reshape.dtype)
+
+    q_nope = q_reshape[:, :, :, 0:qk_nope_head_dim]  # [b, s, n, qk_nope_head_dim]
+    q_nope_r = q_nope.reshape(b * s, n, qk_nope_head_dim)
+    q_nope_t = q_nope_r.transpose(1, 0, 2)  # [n, b*s, qk_nope_head_dim]
+    # shape is: [n, b*s, qk_nope_head_dim] @ [n, qk_nope_head_dim, kv_lora_rank] -> [n, b*s, kv_lora_rank]
+    q_nope_new = np.matmul(q_nope_t.astype(fp32), wUk.astype(fp32))
+    q_nope_new = q_nope_new.astype(dtype)
+    q_nope_new_t = q_nope_new.transpose(1, 0, 2)  # [b*s, n, kv_lora_rank]
+    q_out = q_nope_new_t.reshape(b, s, n, kv_lora_rank)  # [b, s, n, kv_lora_rank]
+
+    """ kv """
+    # shape is: [b*s, h] @ [h, kv_lora_rank + qk_rope_head_dim] -> [b*s, kv_lora_rank + qk_rope_head_dim]
+    kv_a_proj = np.matmul(x_2d.astype(fp32), wDkvKr.astype(fp32))  # kv_a_proj
+    kv_a_proj = kv_a_proj.astype(dtype)
+    logging.debug("kv_a_proj.shape: %s %s", kv_a_proj.shape, kv_a_proj.dtype)
+    kv_reshape = kv_a_proj.reshape(b, s, kv_lora_rank + qk_rope_head_dim)
+    logging.debug("kv_reshape.shape: %s %s", kv_reshape.shape, kv_reshape.dtype)
+
+    compressed_kv = kv_reshape[:, :, 0:kv_lora_rank]  # [b, s, kv_lora_rank]
+    compressed_kv_norm = rms_norm(compressed_kv, gamma_ckv, epsilon)
+    compressed_kv_r = compressed_kv_norm.reshape(b, s, 1, kv_lora_rank)
+    if cache_mode != "BNSD":
+        k_nope = compressed_kv_r.reshape(b * s * 1, kv_lora_rank)
+    else:
+        k_nope = compressed_kv_r.transpose(0, 2, 1, 3)  # [b, 1, s, kv_lora_rank]
+
+    """ RoPE """
+    q_pe = q_reshape[:, :, :, qk_nope_head_dim:]  # [b, s, n, qk_rope_head_dim]
+
+    k_pe = kv_reshape[:, :, kv_lora_rank:]  # [b, s, qk_rope_head_dim]
+    k_pe_r = k_pe.reshape(b, s, 1, qk_rope_head_dim)
+
+    # q_embed: [b, s, n, qk_rope_head_dim], k_embed: [b, s, 1, qk_rope_head_dim]
+    q_embed, k_embed = apply_rotary_pos_emb_v2(q_pe, k_pe_r, cos, sin, 2)
+    if cache_mode != "BNSD":
+        k_embed_r = k_embed.reshape(b * 1 * s, qk_rope_head_dim)
+    else:
+        k_embed_r = k_embed.reshape(b, 1, s, qk_rope_head_dim)
+
+    """ kv_cache output, [b,1,s2,kv_lora_rank] """
+    kv_cache_out = scatter_update([kv_cache, k_nope, cache_index], -2, cache_mode)
+
+    """ kr_cache output, [b,1,s2,qk_rope_head_dim] """
+    kr_cache_out = scatter_update([kr_cache, k_embed_r, cache_index], -2, cache_mode)
+
+    return q_out, q_embed, kv_cache_out, kr_cache_out
+
+
 def gen_mla_prolog_data(params, dtypes, epsilon, output_dir: Path, is_quant=False, is_nz=False, has_smooth=False,
                         block_size=128, cache_mode="BNSD"):
     dtype, w_dtype = dtypes
@@ -292,91 +398,31 @@ def gen_mla_prolog_data(params, dtypes, epsilon, output_dir: Path, is_quant=Fals
         kr_cache.tofile(kr_cache_path)  # kr_cache in
         kv_cache.tofile(kv_cache_path)  # kv_cache in
 
-    # q
-    logging.debug("================ numpy ================")
-    x_2d = x.reshape(b * s, h)
-    # shape is: [b * s, h] @ [h, q_lora_rank] -> [b * s, q_lora_rank]
-    wdqMatmulRes = np.matmul(x_2d.astype(fp32), wDq.astype(fp32))  # wdqMatmulRes
-    wdqMatmulRes = wdqMatmulRes.astype(dtype)
-    to_file(wdqMatmulRes, output_dir, 'wdqMatmulRes.bin')
-    q_a_layernorm = rms_norm(wdqMatmulRes, gamma_cq, epsilon)
-    to_file(q_a_layernorm.astype(dtype), output_dir, 'q_a_layernorm.bin')
-    logging.debug("q_a_layernorm.shape: %s %s", q_a_layernorm.shape, q_a_layernorm.dtype)
-
-    # shape is: [b * s, q_lora_rank] @ [q_lora_rank, n * q_head_dim] -> [b * s, n * q_head_dim]
+    inputs = {"dtype": dtype, "is_quant": is_quant, "has_smooth": has_smooth}
+    inputs["cache_mode"] = cache_mode
+    inputs["gamma_cq"] = gamma_cq
+    inputs["gamma_ckv"] = gamma_ckv
+    inputs["epsilon"] = epsilon
+    inputs["x"] = x
+    inputs["wDq"] = wDq
+    inputs["wUqQr"] = wUqQr
+    inputs["wUk"] = wUk
+    inputs["wDkvKr"] = wDkvKr
+    inputs["cos"] = cos
+    inputs["sin"] = sin
+    inputs["kv_cache"] = kv_cache
+    inputs["kr_cache"] = kr_cache
+    inputs["cache_index"] = kv_len
     if is_quant:
+        inputs["w_qb_quant"] = w_qb_quant
+        inputs["w_qb_scale"] = w_qb_scale
         if has_smooth:
-            q_a_layernorm, q_a_layernorm_scale_dequant = quant(q_a_layernorm, True, True, smooth_cq)
-        else:
-            q_a_layernorm, q_a_layernorm_scale_dequant = quant(q_a_layernorm, True)  # scale: [b*s,1]
-        q_b_proj = np.matmul(q_a_layernorm.astype(np.int32), w_qb_quant.astype(np.int32))  # q_b_proj
+            inputs["smooth_cq"] = smooth_cq
 
-        """ dequant """
-        q_b_proj_fp32 = q_b_proj.astype(fp32)
-        q_b_proj_fp32_dequant = q_b_proj_fp32 * q_a_layernorm_scale_dequant
-        q_b_proj = q_b_proj_fp32_dequant * w_qb_scale
-    else:
-        q_b_proj = np.matmul(q_a_layernorm.astype(fp32), wUqQr.astype(fp32))  # q_b_proj
+    q_out, q_embed, kv_cache_out, kr_cache_out = mla_prolog_compute(inputs)
 
-    q_b_proj = q_b_proj.astype(dtype)
-    to_file(q_b_proj, output_dir, 'q_b_proj.bin')
-    logging.debug("q_b_proj.shape: %s %s", q_b_proj.shape, q_b_proj.dtype)
-
-    q_reshape = q_b_proj.reshape(b, s, n, q_head_dim)
-    logging.debug("q_reshape.shape: %s %s", q_reshape.shape, q_reshape.dtype)
-
-    q_nope = q_reshape[:, :, :, 0:qk_nope_head_dim]  # [b, s, n, qk_nope_head_dim]
-    q_nope_r = q_nope.reshape(b * s, n, qk_nope_head_dim)
-    to_file(q_nope_r, output_dir, 'q_nope_r.bin')
-    q_nope_t = q_nope_r.transpose(1, 0, 2)  # [n, b*s, qk_nope_head_dim]
-    to_file(q_nope_t, output_dir, 'q_nope_t.bin')
-    # shape is: [n, b*s, qk_nope_head_dim] @ [n, qk_nope_head_dim, kv_lora_rank] -> [n, b*s, kv_lora_rank]
-    q_nope_new = np.matmul(q_nope_t.astype(fp32), wUk.astype(fp32))
-    q_nope_new = q_nope_new.astype(dtype)
-    to_file(q_nope_new, output_dir, 'q_nope_new.bin')
-    q_nope_new_t = q_nope_new.transpose(1, 0, 2)  # [b*s, n, kv_lora_rank]
-    q_out = q_nope_new_t.reshape(b, s, n, kv_lora_rank)  # [b, s, n, kv_lora_rank]
-    """ q output, [b,s,n,kv_lora_rank] """
-    q_out.tofile(q_golden_path)
-
-    """ kv """
-    # shape is: [b*s, h] @ [h, kv_lora_rank + qk_rope_head_dim] -> [b*s, kv_lora_rank + qk_rope_head_dim]
-    kv_a_proj = np.matmul(x_2d.astype(fp32), wDkvKr.astype(fp32))  # kv_a_proj
-    kv_a_proj = kv_a_proj.astype(dtype)
-    to_file(kv_a_proj, output_dir, 'kv_a_proj.bin')
-    logging.debug("kv_a_proj.shape: %s %s", kv_a_proj.shape, kv_a_proj.dtype)
-    kv_reshape = kv_a_proj.reshape(b, s, kv_lora_rank + qk_rope_head_dim)
-    logging.debug("kv_reshape.shape: %s %s", kv_reshape.shape, kv_reshape.dtype)
-
-    compressed_kv = kv_reshape[:, :, 0:kv_lora_rank]  # [b, s, kv_lora_rank]
-    compressed_kv_norm = rms_norm(compressed_kv, gamma_ckv, epsilon)
-    compressed_kv_r = compressed_kv_norm.reshape(b, s, 1, kv_lora_rank)
-    if cache_mode != "BNSD":
-        k_nope = compressed_kv_r.reshape(b * s * 1, kv_lora_rank)
-    else:
-        k_nope = compressed_kv_r.transpose(0, 2, 1, 3)  # [b, 1, s, kv_lora_rank]
-
-    """ RoPE """
-    q_pe = q_reshape[:, :, :, qk_nope_head_dim:]  # [b, s, n, qk_rope_head_dim]
-
-    k_pe = kv_reshape[:, :, kv_lora_rank:]  # [b, s, qk_rope_head_dim]
-    k_pe_r = k_pe.reshape(b, s, 1, qk_rope_head_dim)
-
-    # q_embed: [b, s, n, qk_rope_head_dim], k_embed: [b, s, 1, qk_rope_head_dim]
-    q_embed, k_embed = apply_rotary_pos_emb_v2(q_pe, k_pe_r, cos, sin, 2)
-    if cache_mode != "BNSD":
-        k_embed_r = k_embed.reshape(b * 1 * s, qk_rope_head_dim)
-    else:
-        k_embed_r = k_embed.reshape(b, 1, s, qk_rope_head_dim)
-
-    """ q_rope output, [b,s,n,qk_rope_head_dim] """
-    q_embed.tofile(q_rope_golden_path)
-
-    """ kv_cache output, [b,1,s2,kv_lora_rank] """
-    kv_cache_out = scatter_update([kv_cache, k_nope, kv_len], -2, cache_mode)
-
-    """ kr_cache output, [b,1,s2,qk_rope_head_dim] """
-    kr_cache_out = scatter_update([kr_cache, k_embed_r, kv_len], -2, cache_mode)
+    q_out.tofile(q_golden_path)  # [b,s,n,kv_lora_rank]
+    q_embed.tofile(q_rope_golden_path)  # [b,s,n,qk_rope_head_dim]
 
     if cache_mode == "PA_NZ":
         kr_cache_out.reshape((block_num, block_size, qk_rope_head_dim // NzFrac, NzFrac)).transpose(0, 2, 1, 3).tofile(kr_golden_path)

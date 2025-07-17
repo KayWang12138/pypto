@@ -17,7 +17,7 @@ find_package(Python3)
 if ((NOT Python3_FOUND) OR (${Python3_EXECUTABLE} STREQUAL ""))
     message(FATAL_ERROR "Can't find python3.")
 endif ()
-set(ASCENDCPP_PYTHON3   "${Python3_EXECUTABLE}" CACHE   STRING   "python executor")
+set(TILE_FWK_PYTHON3_EXE   "${Python3_EXECUTABLE}" CACHE   STRING   "python executor")
 
 # 获取 CANN 路径
 if (CUSTOM_ASCEND_CANN_PACKAGE_PATH)
@@ -72,7 +72,8 @@ endif ()
 #       在 UTest 及 STest 场景不略去 RPATH
 string(REPLACE "," ":" ENABLE_TESTS_UTEST "${ENABLE_TESTS_UTEST}")
 string(REPLACE "," ":" ENABLE_TESTS_STEST "${ENABLE_TESTS_STEST}")
-if (ENABLE_TESTS_UTEST OR ENABLE_TESTS_STEST)
+string(REPLACE "," ":" ENABLE_TESTS_STEST_DISTRIBUTED "${ENABLE_TESTS_STEST_DISTRIBUTED}")
+if (ENABLE_TESTS_UTEST OR ENABLE_TESTS_STEST OR ENABLE_TESTS_STEST_DISTRIBUTED)
     set(CMAKE_SKIP_RPATH FALSE)
 else ()
     set(CMAKE_SKIP_RPATH TRUE)
@@ -223,7 +224,7 @@ endif ()
 # SecureC
 if (BUILD_OPEN_PROJECT)
     set(BoundsCheck_DirName "libboundscheck-v1.1.16")
-    get_filename_component(BoundsCheck_Dir "${ASCENDCPP_SRC_ROOT}/3rd/${BoundsCheck_DirName}" REALPATH)
+    get_filename_component(BoundsCheck_Dir "${TILE_FWK_SRC_ROOT}/3rd/${BoundsCheck_DirName}" REALPATH)
     if (NOT (EXISTS "${BoundsCheck_Dir}" AND EXISTS "${BoundsCheck_Dir}/CMakeLists.txt"))
         message(WARNING "Can't get BoundsCheck/HwSecureC Source, Please make sure BoundsCheck has been installed.")
     else ()
@@ -239,6 +240,7 @@ if (BUILD_OPEN_PROJECT)
                 CONFIGURE_COMMAND ${CMAKE_COMMAND}
                     -G ${CMAKE_GENERATOR}
                     -S <SOURCE_DIR>
+                    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                     -DCMAKE_C_COMPILER_LAUNCHER=${CMAKE_C_COMPILER_LAUNCHER}
                     -DCMAKE_CXX_COMPILER_LAUNCHER=${CMAKE_CXX_COMPILER_LAUNCHER}
                     -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>

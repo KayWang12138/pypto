@@ -8,19 +8,12 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
- /*!
-  * \file main.cpp
-  * \brief UTest/STest 
-  */
+/*!
+ * \file main.cpp
+ * \brief
+ */
 
 #include <gtest/gtest.h>
-#include "stubs.h"
-
-class TestSuite_XTest_Stubs : public testing::Test {};
-
-TEST_F(TestSuite_XTest_Stubs, TestCase_001) {
-    ascend::Stubs::func_stub();
-}
 
 class AscendcppTestExecutionCounter : public testing::EmptyTestEventListener {
 public:
@@ -34,16 +27,18 @@ public:
 int main(int argc, char** argv) {
     testing::InitGoogleTest(&argc, argv);
 
+    // 创建并注册监听器
     AscendcppTestExecutionCounter counter;
     testing::UnitTest::GetInstance()->listeners().Append(&counter);
 
     auto ret = RUN_ALL_TESTS();
 
+    // 移除监听器（避免析构时访问已释放内存）
     testing::UnitTest::GetInstance()->listeners().Release(&counter);
     if (counter.executed_count == 0) {
         std::cout << "Error: Can't get any case to run when using " << testing::GTEST_FLAG(filter)
                   << " to filter." << std::endl;
-        ret = ret == 0 ? 1: ret;
+        ret = ret == 0 ? 1 : ret;
     }
 
     return ret;

@@ -21,9 +21,12 @@ import shlex
 import shutil
 import signal
 import subprocess
+import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Tuple
+
+from tools import work_flow as wf
 
 
 class BuildCtrl:
@@ -43,6 +46,7 @@ class BuildCtrl:
         self.build_job_num: int = args.job_num if args.job_num > 0 else int(multiprocessing.cpu_count())
         self.forced_clean: bool = args.clean  # 强制清理 Build-Tree 及 Install-Tree 标记
         self.timeout = None if args.timeout == 0 else args.timeout  # 构建超时时长
+        self.build_type: Optional[str] = args.build_type
         self.init_param_common()
         # 控制标记/参数预处理(tests)
         self.utest_enable: bool = False  # UTest 使能标记
@@ -51,6 +55,8 @@ class BuildCtrl:
         self.stest_cases_filter: Optional[str] = None  # 指定 STest 所需执行用例
         self.stest_golden_path: Optional[Path] = None  # STest 指定 Golden 路径
         self.stest_golden_path_clean: bool = args.stest_golden_path_clean  # STest 清理 Golden 标记
+        self.stest_distributed_enable: bool = False  # distributed test 使能标记
+        self.stest_distributed_cases_filter: Optional[str] = None  # 指定 distributed test 所需执行用例
         self.stest_device_id: str = ""
         self.stest_enable_binary_cache: bool = False
         self.stest_experiment_copy_aicpu_binary: bool = args.experiment_copy_aicpu_binary
@@ -80,6 +86,7 @@ class BuildCtrl:
         self.back_annotation_aicpu = args.back_annotation_aicpu
         self.back_annotation_aicore = args.back_annotation_aicore
         self.calendar = args.calendar
+        self.pvmodel = args.pvmodel
         self.replay_file_path = args.replay_file_path
 
     def __str__(self):
@@ -96,89 +103,32 @@ class BuildCtrl:
 
         desc = ""
         desc += f"\nArgs Param"
-        desc += f"\n\tBackend Type  : {self.backend_type}"
-        desc += f"\n\tForced Clean  : {self.forced_clean}"
-        desc += f"\n\tBuild Job Num : {self.build_job_num}"
-        desc += f"\n\tBuild Targets : {self.build_targets}"
-        desc += f"\n\tBuild UTest   : Flag({self.utest_enable}), Filter({get_filter_str(self.utest_cases_filter)})"
-        desc += (f"\n\tBuild STest   : Flag({self.stest_enable}), Filter({get_filter_str(self.stest_cases_filter)}),"
-                 f" DeviceID({self.stest_device_id}) BinaryCache({self.stest_enable_binary_cache})")
-        desc += (f"\n\tTests Execute : Flag({self.tests_auto_execute}),"
-                 f" Parallel({self.tests_auto_execute_parallel}), "
-                 f" PrintJson({self.stest_dump_json})")
-        desc += f"\n\tTests Changed : File({self.tests_changed_file})"
+        desc += f"\n\tBackend Type             : {self.backend_type}"
+        desc += f"\n\tForced Clean             : {self.forced_clean}"
+        desc += f"\n\tBuild Job Num            : {self.build_job_num}"
+        desc += f"\n\tBuild Type               : {self.build_type}"
+        desc += f"\n\tBuild Targets            : {self.build_targets}"
+        desc += (f"\n\tBuild UTest              : Flag({self.utest_enable}), "
+                 f"Filter({get_filter_str(self.utest_cases_filter)})")
+        desc += (f"\n\tBuild STest              : Flag({self.stest_enable}), "
+                 f"Filter({get_filter_str(self.stest_cases_filter)}) DeviceID({self.stest_device_id})")
+        desc += (f"\n\tBuild STest(Distributed) : Flag({self.stest_distributed_enable}), "
+                 f"Filter({get_filter_str(self.stest_distributed_cases_filter)})")
+        desc += (f"\n\tTests Execute            : Flag({self.tests_auto_execute}),"
+                 f" Parallel({self.tests_auto_execute_parallel}),"
+                 f" PrintJson({self.stest_dump_json}),"
+                 f" BinaryCache({self.stest_enable_binary_cache})")
+        desc += f"\n\tTests Changed            : File({self.tests_changed_file})"
         desc += f"\nOthers"
-        desc += f"\n\tSource  Root Dir : {self.src_root}"
-        desc += f"\n\tBuild   Root Dir : {self.build_root}"
-        desc += f"\n\tInstall Root Dir : {self.install_root}"
+        desc += f"\n\tSource  Root Dir         : {self.src_root}"
+        desc += f"\n\tBuild   Root Dir         : {self.build_root}"
+        desc += f"\n\tInstall Root Dir         : {self.install_root}"
         return desc
-
-    def init_param_common(self):
-        if self.timeout is not None:
-            ret = subprocess.run(shlex.split("uname -m"), capture_output=True, check=True, text=True, encoding='utf-8')
-            ret.check_returncode()
-            hardware_processor_type = re.sub('[\r\n\t]', '', ret.stdout)
-            self.timeout = self.timeout if hardware_processor_type == "x86_64" else self.timeout * 2
-
-    def init_param_tests(self, args):
-        self.tests_changed_file = None if not self.tests_changed_file else Path(self.tests_changed_file).resolve()
-        self.tests_auto_execute_parallel = True if self.tests_changed_file is not None else False
-        self.stest_enable_binary_cache = True if self.tests_changed_file is not None else False
-        self.init_param_tests_utest(args=args)
-        self.init_param_tests_stest(args=args)
-
-    def init_param_tests_utest(self, args):
-        # 识别具体需要触发的 Tests 范围, 暂不支持
-        if args.utest is None:
-            self.utest_enable = True
-            self.utest_cases_filter = "ON"  # 指定 -u 但未指定 filter
-        elif args.utest == "":
-            self.utest_enable = False
-            self.utest_cases_filter = None  # 未指定 -u
-        else:
-            self.utest_enable = True
-            self.utest_cases_filter = args.utest  # 使用脚本传入的 filter
-
-    def init_param_tests_stest(self, args):
-        # 识别具体需要触发的 Tests 范围, 暂不支持
-        if args.stest is None:
-            self.stest_enable = True
-            self.stest_cases_filter = "ON"  # 指定 -s 但未指定 filter
-        elif args.stest == "":
-            self.stest_enable = False
-            self.stest_cases_filter = None  # 未指定 -u
-        else:
-            self.stest_enable = True
-            self.stest_cases_filter = args.stest  # 使用脚本传入的 filter
-        if args.stest_golden_path is None:  # 未传参
-            self.stest_golden_path = Path(self.build_root, "tests/st/golden")
-        elif args.stest_golden_path == "":  # 未指定
-            self.stest_golden_path = Path(self.build_root, "tests/st/golden")
-        else:
-            self.stest_golden_path = Path(args.stest_golden_path).resolve()
-        self.stest_golden_path.mkdir(parents=True, exist_ok=True)
-        # STest 并行加速
-        devs = ["0"]
-        if args.device is not None:
-            devs = [str(d) for d in list(set(args.device)) if d is not None and str(d) != ""]
-        self.stest_device_id = ":".join(devs)
-
-    def init_param_tools(self, args):
-        self.tools_output_clean = args.tools_output_clean
-        self.tools_intercept_flag = args.intercept
-        self.tools_cases_csv_file = Path(args.cases_csv_file[0]).resolve() if args.cases_csv_file else None
-
-    def init_param_tools_profiling(self, args):
-        self.tools_prof_enable = True
-        self.tools_prof_level = args.prof_level
-        self.tools_prof_warn_up_cnt = args.prof_warn_up_cnt[0] if args.prof_warn_up_cnt else None
-        self.tools_prof_try_cnt = args.prof_try_cnt[0] if args.prof_try_cnt else None
-        self.tools_prof_max_cnt = args.prof_max_cnt[0] if args.prof_max_cnt else None
 
     @classmethod
     def main(cls):
         """ 主处理流程 """
-        parser = argparse.ArgumentParser(description=f"Ascend C++ Build Ctrl.", epilog="Best Regards!")
+        parser = argparse.ArgumentParser(description=f"Tile Framework C++ Build Ctrl.", epilog="Best Regards!")
         sub_parser = parser.add_subparsers()  # 子命令
         # 参数注册
         parser.add_argument("-b", "--backend", nargs="?", type=str, default="npu",
@@ -193,6 +143,9 @@ class BuildCtrl:
                             help="clean, clean Build-Tree and Install-Tree before build.")
         parser.add_argument("--timeout", nargs="?", type=int, default=0,
                             help="build task timeout.")
+        parser.add_argument("--build_type", nargs="?", type=str, default=None,
+                            choices=["Debug", "Release", "MinSizeRel", "RelWithDebInfo"],
+                            help="build type.")
         cls._add_argument_tests(parser=parser)
         cls._add_argument_build_tools(parser=parser)
         cls._add_argument_tools(sub_parser=sub_parser)
@@ -219,6 +172,9 @@ class BuildCtrl:
                             help="Specific STest golden path.")
         parser.add_argument("--stest_golden_path_clean", action="store_true", default=False,
                             help="Clean STest golden.")
+        parser.add_argument("--stest_distributed", nargs="?", type=str, default="",
+                            help="stest, enable Distributed STest scene, Distributed STest case filter, "
+                                 "multiple distributed test cases are separated by ':'/',' .")
         parser.add_argument("--disable_auto_execute", action="store_false", default=True,
                             help="Disable auto execute STest/Utest with build.")
         parser.add_argument("-d", "--device", nargs="?", type=int, action="append",
@@ -242,6 +198,8 @@ class BuildCtrl:
                             help="Specify replay file path for back annotation.")
         parser.add_argument("-cal", "--calendar", action="store_true", default=False,
                             help="Enable calendar mode.")
+        parser.add_argument("-pv", "--pvmodel", action="store_true", default=False,
+                            help="Enable PVModel mode.")
 
     @classmethod
     def _add_argument_build_tools(cls, parser):
@@ -279,6 +237,64 @@ class BuildCtrl:
                                  help="Specify profiling max cnt")
         parser_prof.set_defaults(func=SubCommandMgr.init_param_tools_profiling)
 
+    @classmethod
+    def _gen_cmd(cls, opt: str, ctr: bool, tv: str = "ON", fv: str = "OFF") -> str:
+        cmd: str = f" -D{opt}=" + (tv if ctr else fv)
+        return cmd
+
+    def init_param_common(self):
+        if self.timeout is not None:
+            ret = subprocess.run(shlex.split("uname -m"), capture_output=True, check=True, text=True, encoding='utf-8')
+            ret.check_returncode()
+            hardware_processor_type = re.sub('[\r\n\t]', '', ret.stdout)
+            self.timeout = self.timeout if hardware_processor_type == "x86_64" else self.timeout * 2
+
+    def init_param_tests(self, args):
+        def _init_args(_args: Optional[str]) -> Tuple[bool, Optional[str]]:
+            """ 初始化可指定 str 的 args """
+            if _args is None:
+                return True, "ON"   # 指定 对应参数 但未指定内容
+            elif _args == "":
+                return False, None  # 未指定 对应参数
+            else:
+                return True, _args  # 指定 对应参数 且指定内容
+
+        self.tests_changed_file = None if not self.tests_changed_file else Path(self.tests_changed_file).resolve()
+        self.tests_auto_execute_parallel = True if self.tests_changed_file is not None else False
+        self.stest_enable_binary_cache = True if self.tests_changed_file is not None else False
+
+        # UTest
+        self.utest_enable, self.utest_cases_filter = _init_args(_args=args.utest)
+        # STest
+        self.stest_enable, self.stest_cases_filter = _init_args(_args=args.stest)
+        # STest Distributed
+        self.stest_distributed_enable, self.stest_distributed_cases_filter = _init_args(_args=args.stest_distributed)
+        # STest Golden
+        if args.stest_golden_path is None:  # 未传参
+            self.stest_golden_path = Path(self.build_root, "tests/st/golden")
+        elif args.stest_golden_path == "":  # 未指定
+            self.stest_golden_path = Path(self.build_root, "tests/st/golden")
+        else:
+            self.stest_golden_path = Path(args.stest_golden_path).resolve()
+        self.stest_golden_path.mkdir(parents=True, exist_ok=True)
+        # STest 并行加速
+        devs = ["0"]
+        if args.device is not None:
+            devs = [str(d) for d in list(set(args.device)) if d is not None and str(d) != ""]
+        self.stest_device_id = ":".join(devs)
+
+    def init_param_tools(self, args):
+        self.tools_output_clean = args.tools_output_clean
+        self.tools_intercept_flag = args.intercept
+        self.tools_cases_csv_file = Path(args.cases_csv_file[0]).resolve() if args.cases_csv_file else None
+
+    def init_param_tools_profiling(self, args):
+        self.tools_prof_enable = True
+        self.tools_prof_level = args.prof_level
+        self.tools_prof_warn_up_cnt = args.prof_warn_up_cnt[0] if args.prof_warn_up_cnt else None
+        self.tools_prof_try_cnt = args.prof_try_cnt[0] if args.prof_try_cnt else None
+        self.tools_prof_max_cnt = args.prof_max_cnt[0] if args.prof_max_cnt else None
+
     def clean(self):
         """ 清理中间结果, 清理内容包括构建树, 安装树全部内容. """
         if self.forced_clean:
@@ -301,8 +317,9 @@ class BuildCtrl:
         #    SocVersion, Backend 相关配置, SocVersion相关配置暂不支持
         if self.backend_type == "npu":
             cmd += f" -DAC_ENABLE_FRAMEWORK_WITHOUT_CANN=OFF"
-        if self.backend_type == "cost_module" or self.backend_type == "cost_model":
+        if self.backend_type == "cost_model":
             cmd += f" -DAC_ENABLE_FRAMEWORK_WITHOUT_CANN=ON"
+        cmd += f" -DCMAKE_BUILD_TYPE={self.build_type}" if self.build_type else ""
         # tests 相关配置
         cmd += self._configure_tests()
         # tools_build 相关配置
@@ -313,72 +330,14 @@ class BuildCtrl:
         logging.info("CMake Configure, Cmd: %s", cmd)
         ret = subprocess.run(shlex.split(cmd), capture_output=False, check=True, text=True, encoding='utf-8')
         ret.check_returncode()
-
-    def _configure_tests(self) -> str:
-        cmd = ""
-        if self.utest_enable or self.stest_enable:
-            if self.tests_auto_execute:
-                cmd += f" -DENABLE_TESTS_EXECUTE=ON"
-                if self.tests_auto_execute_parallel:
-                    cmd += f" -DENABLE_TESTS_EXECUTE_PARALLEL=ON"
-            else:
-                cmd += f" -DENABLE_TESTS_EXECUTE=OFF"  # 保证能正确触发用例不执行
-        if self.utest_enable:
-            cmd += f" -DENABLE_TESTS_UTEST={self.utest_cases_filter}"
-        else:
-            cmd += f" -DENABLE_TESTS_UTEST=OFF"
-        if self.stest_enable:
-            cmd += f" -DENABLE_TESTS_STEST={self.stest_cases_filter}"
-            cmd += f" -DENABLE_TESTS_EXECUTE_DEVICE_ID={self.stest_device_id}"
-            if self.stest_golden_path_clean:
-                cmd += f" -DENABLE_TESTS_STEST_GOLDEN_PATH_CLEAN=ON"
-            cmd += f" -DENABLE_TESTS_STEST_GOLDEN_PATH={self.stest_golden_path}"
-            if self.stest_enable_binary_cache:
-                cmd += f" -DENABLE_TESTS_STEST_BINARY_CACHE=ON"
-            if self.stest_dump_json:
-                cmd += f" -DENABLE_TESTS_STEST_DUMP_JSON=ON"
-            cmd += f" -DENABLE_TESTS_STEST_EXPERIMENT_COPY_AICPU_BINARY="
-            cmd += "ON" if self.stest_experiment_copy_aicpu_binary else "OFF"
-        else:
-            cmd += f" -DENABLE_TESTS_STEST=OFF"
-        return cmd
-
-    def _configure_tools_build(self) -> str:
-        cmd = ""
-        cmd += f" -DENABLE_ASAN=ON" if self.asan else ""
-        cmd += f" -DENABLE_UBSAN=ON" if self.ubsan else ""
-        cmd += f" -DENABLE_GCOV=ON" if self.gcov else ""
-        return cmd
-
-    def _configure_tools(self) -> str:
-        cmd = ""
-        # tools 公共参数
-        if self.tools_prof_enable:
-            cmd += f" -DENABLE_TESTS_STEST_TOOLS_OUTPUT_CLEAN=ON" if self.tools_output_clean else ""
-            cmd += f" -DENABLE_TESTS_STEST_TOOLS_INTERCEPT=ON" if self.tools_intercept_flag else ""
-            if self.tools_cases_csv_file:
-                cmd += f" -DENABLE_TESTS_STEST_TOOLS_CASE_FILE={self.tools_cases_csv_file}"
-        # Profiling 工具参数
-        cmd += self._configure_tools_profiling()
-        return cmd
-
-    def _configure_tools_profiling(self) -> str:
-        cmd = ""
-        if self.tools_prof_enable:
-            cmd += f" -DENABLE_TESTS_STEST_TOOLS_PROF=ON"
-            cmd += f" -DENABLE_TESTS_STEST_TOOLS_PROF_LEVEL={self.tools_prof_level}"
-            if self.tools_prof_warn_up_cnt is not None:
-                cmd += f" -DENABLE_TESTS_STEST_TOOLS_PROF_WARN_UP_CNT={self.tools_prof_warn_up_cnt}"
-            if self.tools_prof_try_cnt is not None:
-                cmd += f" -DENABLE_TESTS_STEST_TOOLS_PROF_TRY_CNT={self.tools_prof_try_cnt}"
-            if self.tools_prof_max_cnt is not None:
-                cmd += f" -DENABLE_TESTS_STEST_TOOLS_PROF_MAX_CNT={self.tools_prof_max_cnt}"
-        else:
-            cmd += f" -DENABLE_TESTS_STEST_TOOLS_PROF=OFF"
-        return cmd
+        self._gen_simulation_json()
 
     def build(self):
         """ CMake Build 阶段流程. """
+        # prof使能初始化
+        update_env = {}
+        if self.prof == 1 or self.prof == 2:
+            update_env = wf.ini(self.build_root, self.prof, self.pe)
         cmd_list: List[str] = []
         if self.build_targets:
             for t in self.build_targets:
@@ -391,14 +350,20 @@ class BuildCtrl:
             ts = datetime.now(tz=timezone.utc)
             logging.info("CMake Build(%s/%s), Cmd: %s", i + 1, len(cmd_list), c)
             try:
-                ret = self.run_build_cmd(cmd=c, check=True)
+                ret = self.run_build_cmd(cmd=c, update_env=update_env, check=True)
             except subprocess.CalledProcessError as e:
                 logging.info(f"Run cmd {c} failed, ERROR CODE: {e.returncode}")
+                # 一键绘图
+                if self.prof == 1 or self.prof == 2:
+                    wf.work_flow_plot(self.build_root, self.prof, self.pe)
                 raise
             ret.check_returncode()
             logging.info("CMake Build(%s/%s), Cost %s sec, Cmd: %s",
                          i + 1, len(cmd_list),
                          (datetime.now(tz=timezone.utc) - ts).seconds, c)
+        # 一键绘图
+        if self.prof == 1 or self.prof == 2:
+            wf.work_flow_plot(self.build_root, self.prof, self.pe)
 
     def run_build_cmd(self, cmd: str, update_env: Optional[Dict[str, str]] = None,
                       check: bool = False) -> subprocess.CompletedProcess:
@@ -440,6 +405,161 @@ class BuildCtrl:
                 raise subprocess.CalledProcessError(ret_code, process.args, output=stdout, stderr=stderr)
         self.timeout = self.timeout - (datetime.now(tz=timezone.utc) - ts).seconds if self.timeout else self.timeout
         return subprocess.CompletedProcess(process.args, ret_code, stdout, stderr)
+
+    def _configure_tests(self) -> str:
+        cmd = ""
+        # 公共
+        if self.utest_enable or self.stest_enable or self.stest_distributed_enable:
+            cmd += self._gen_cmd(opt="ENABLE_TESTS_EXECUTE", ctr=self.tests_auto_execute)
+            cmd += self._gen_cmd(opt="ENABLE_TESTS_EXECUTE_PARALLEL",
+                                 ctr=self.tests_auto_execute and self.tests_auto_execute_parallel)
+        # UTest
+        cmd += self._gen_cmd(opt="ENABLE_TESTS_UTEST", ctr=self.utest_enable, tv=f"{self.utest_cases_filter}")
+        # STest 公共
+        if self.stest_enable or self.stest_distributed_enable:
+            # Golden
+            cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_GOLDEN_PATH_CLEAN", ctr=self.stest_golden_path_clean)
+            cmd += f" -DENABLE_TESTS_STEST_GOLDEN_PATH={self.stest_golden_path}"
+            # BinaryCache
+            cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_BINARY_CACHE", ctr=self.stest_enable_binary_cache)
+            # DumJson
+            cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_DUMP_JSON", ctr=self.stest_dump_json)
+            # Experiment
+            cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_EXPERIMENT_COPY_AICPU_BINARY",
+                                 ctr=self.stest_experiment_copy_aicpu_binary)
+        # STest
+        if self.stest_enable:
+            # DeviceId
+            cmd += f" -DENABLE_TESTS_EXECUTE_DEVICE_ID={self.stest_device_id}"
+            cmd += f" -DENABLE_TESTS_STEST={self.stest_cases_filter}"
+        else:
+            cmd += f" -DENABLE_TESTS_STEST=OFF"
+        # STest, Distributed
+        cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_DISTRIBUTED", ctr=self.stest_distributed_enable,
+                             tv=f"{self.stest_distributed_cases_filter}")
+        return cmd
+
+    def _configure_tools_build(self) -> str:
+        cmd = ""
+        cmd += self._gen_cmd(opt="ENABLE_ASAN", ctr=self.asan)
+        cmd += self._gen_cmd(opt="ENABLE_UBSAN", ctr=self.ubsan)
+        cmd += self._gen_cmd(opt="ENABLE_GCOV", ctr=self.gcov)
+        return cmd
+
+    def _configure_tools(self) -> str:
+        cmd = ""
+        # tools 公共参数
+        if self.tools_prof_enable:
+            cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_TOOLS_OUTPUT_CLEAN", ctr=self.tools_output_clean)
+            cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_TOOLS_INTERCEPT", ctr=self.tools_intercept_flag)
+            if self.tools_cases_csv_file:
+                cmd += f" -DENABLE_TESTS_STEST_TOOLS_CASE_FILE={self.tools_cases_csv_file}"
+        # Profiling 工具参数
+        cmd += self._configure_tools_profiling()
+        return cmd
+
+    def _configure_tools_profiling(self) -> str:
+        cmd = ""
+        if self.tools_prof_enable:
+            cmd += f" -DENABLE_TESTS_STEST_TOOLS_PROF=ON"
+            cmd += f" -DENABLE_TESTS_STEST_TOOLS_PROF_LEVEL={self.tools_prof_level}"
+            cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_TOOLS_PROF_WARN_UP_CNT",
+                                 ctr=self.tools_prof_warn_up_cnt is not None, tv=f"{self.tools_prof_warn_up_cnt}")
+            cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_TOOLS_PROF_TRY_CNT",
+                                 ctr=self.tools_prof_try_cnt is not None, tv=f"{self.tools_prof_try_cnt}")
+            cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_TOOLS_PROF_MAX_CNT",
+                                 ctr=self.tools_prof_max_cnt is not None, tv=f"{self.tools_prof_max_cnt}")
+        else:
+            cmd += f" -DENABLE_TESTS_STEST_TOOLS_PROF=OFF"
+        return cmd
+
+    def _save_simulation_json(self, simulation_json):
+        temp_json_path = os.path.join(str(self.src_root), "tests/cost_model/simulation/scripts/tmp_simulation.json")
+        os.makedirs(os.path.dirname(temp_json_path), exist_ok=True)
+        with open(temp_json_path, 'w') as f:
+            json.dump(simulation_json, f, indent=4)
+
+    def _gen_simulation_json(self) -> None:
+        simulation_json = {
+            "global_configs": {
+                "platform_configs": {},
+                "simulation_configs": {}
+            }
+        }
+        if self.sim:
+            simulation_json["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
+
+        if self.sim_with_onboard_aicpu:
+            simulation_json["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
+            simulation_json["global_configs"]["simulation_configs"]["USE_ON_BOARD_INFO"] = True
+            simulation_json["global_configs"]["simulation_configs"]["args"] = [
+                "Model.statisticReportToFile=true",
+                "Model.deviceArch=910B",
+                "Model.useOOOPassSeq=true",
+                "Core.logLabelMode=0"
+            ]
+
+        if self.back_annotation_aicpu:
+            if self.replay_file_path is None:
+                logging.error("Error: replay_file_path is required when back_annotation_aicpu is enabled")
+                raise ValueError("Missing required argument: -rf, --replay_file_path")
+            simulation_json["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
+            simulation_json["global_configs"]["simulation_configs"]["args"] = [
+                "Model.statisticReportToFile=true",
+                "Model.deviceArch=910B",
+                "Model.useOOOPassSeq=true",
+                "Core.logLabelMode=0",
+                "Model.replayAllMode=1",
+                f"Model.replayFile={self.replay_file_path}"
+            ]
+
+        if self.back_annotation_aicore:
+            if self.replay_file_path is None:
+                logging.error("Error: replay_file_path is required when back_annotation_aicore is enabled")
+                raise ValueError("Missing required argument: -rf, --replay_file_path")
+            simulation_json["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
+            simulation_json["global_configs"]["simulation_configs"]["USE_ON_BOARD_INFO"] = True
+            simulation_json["global_configs"]["simulation_configs"]["JSON_PATH"] = self.replay_file_path
+            simulation_json["global_configs"]["simulation_configs"]["args"] = [
+                "Model.statisticReportToFile=true",
+                "Model.deviceArch=910B",
+                "Model.useOOOPassSeq=true",
+                "Core.logLabelMode=0"
+            ]
+
+        if self.calendar:
+            if self.replay_file_path is None:
+                logging.error("Error: replay_file_path is required when calendar is enabled")
+                raise ValueError("Missing required argument: -rf, --replay_file_path")
+            simulation_json["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
+            simulation_json["global_configs"]["simulation_configs"]["args"] = [
+                "Model.statisticReportToFile=true",
+                "Model.deviceArch=910B",
+                "Model.useOOOPassSeq=true",
+                "Core.logLabelMode=0",
+                "Model.genCalendarScheduleCpp=true",
+                "Model.simulationFixedLatencyTask=true",
+                f"Model.fixedLatencyTaskInfoPath={self.replay_file_path}",
+                "Model.fixedLatencyTimeConvert=1",
+                "Model.aicpuMachineNumber=1",
+                "Model.coreMachineNumberPerAICPU=54",
+                "Model.cubeMachineNumberPerAICPU=27",
+                "Model.vecMachineNumberPerAICPU=27",
+            ]
+        
+        if self.pvmodel:
+            simulation_json["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
+            simulation_json["global_configs"]["platform_configs"]["ENABLE_SOFT_MEMORY"] = True
+            simulation_json["global_configs"]["platform_configs"]["ENABLE_PV_DATA"] = True
+            simulation_json["global_configs"]["simulation_configs"]["PV_LEVEL"] = 2
+            simulation_json["global_configs"]["simulation_configs"]["args"] = [
+                "Model.statisticReportToFile=true",
+                "Model.deviceArch=910B",
+                "Model.useOOOPassSeq=true",
+                "Core.logLabelMode=0",
+            ]
+
+        self._save_simulation_json(simulation_json)
 
 
 class SubCommandMgr:
