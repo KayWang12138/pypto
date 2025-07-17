@@ -1,0 +1,101 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file distributed_op_test_common.h
+ * \brief
+ */
+
+#ifndef DISTRIBUTED_OP_TEST_COMMON_H
+#define DISTRIBUTED_OP_TEST_COMMON_H
+
+#include <vector>
+#include <string>
+#include "test_common.h"
+#include "distributed_op_test_suite.h"
+
+namespace npu::tile_fwk {
+namespace Distributed {
+
+template <size_t N, typename SrcT = int64_t, typename DstT = int32_t>
+std::array<DstT, N> GetParams(const std::string &filePath)
+{
+    std::vector<SrcT> srcParams(N);
+    readInput(filePath, srcParams);
+    std::array<DstT, N> dstParams;
+    std::transform(srcParams.begin(), srcParams.begin() + N, dstParams.begin(), [](SrcT v) { return static_cast<DstT>(v); });
+    return dstParams;
+}
+
+inline DataType GetDataTypeNum(const int64_t typeNum)
+{
+    if ((typeNum < 0) || (typeNum >= static_cast<int64_t>(DataType::DT_BOTTOM))) {
+        ALOG_ERROR_F("Invalid type code: %d (Valid range: [0-%d])", typeNum, static_cast<int64_t>(DataType::DT_BOTTOM));
+        return DataType::DT_BOTTOM;
+    }
+    return static_cast<DataType>(typeNum);
+}
+
+template <typename T, typename PtrType>
+bool DoCompare(const std::string &goldenFilename, const uint64_t outSize, const size_t dTypeSize, PtrType &outPtrs,
+    const OpTestParam &testParam)
+{
+    std::vector<T> res(outSize);
+    std::vector<T> resGolden(outSize);
+    // 统一处理指针或指针数组
+    if constexpr (std::is_same_v<PtrType, uint8_t *>) {
+        runtime::GetRA()->CopyFromTensor(reinterpret_cast<uint8_t *>(res.data()), outPtrs, outSize * dTypeSize);
+    } else {
+        for (int32_t i = 0; i < testParam.rankSize; ++i) {
+            const size_t chunkSize = outSize / testParam.rankSize;
+            const size_t offset = i * chunkSize;
+            runtime::GetRA()->CopyFromTensor(
+                reinterpret_cast<uint8_t *>(res.data() + offset), outPtrs[i], chunkSize * dTypeSize);
+        }
+    }
+    // 读取Golden数据并比较
+    readInput<T>(GetGoldenDir() + goldenFilename + std::to_string(testParam.rankId) + ".bin", resGolden);
+    return resultCmp<T>(resGolden, res, 0.001f);
+}
+
+template <typename PtrType>
+bool CompareWithGolden(const DataType dType, const std::string &goldenFilename, const uint64_t outSize, PtrType &outPtrs,
+    const OpTestParam &testParam)
+{
+    static_assert((std::is_same_v<PtrType, uint8_t *>) || (std::is_same_v<PtrType, std::vector<uint8_t *>>),
+        "PtrType must be either uint8_t* or std::vector<uint8_t*>");
+
+    const size_t dTypeSize = BytesOf(dType);
+    bool result = false;
+
+    switch (dType) {
+        case DataType::DT_FP32:
+            result = DoCompare<float>(goldenFilename, outSize, dTypeSize, outPtrs, testParam);
+            break;
+        case DataType::DT_FP16:
+            result = DoCompare<npu::tile_fwk::float16>(goldenFilename, outSize, dTypeSize, outPtrs, testParam);
+            break;
+        case DataType::DT_BF16:
+            result = DoCompare<npu::tile_fwk::bfloat16>(goldenFilename, outSize, dTypeSize, outPtrs, testParam);
+            break;
+        case DataType::DT_INT32:
+            result = DoCompare<int32_t>(goldenFilename, outSize, dTypeSize, outPtrs, testParam);
+            break;
+        default:
+            ALOG_ERROR_F("Unsupported dType: %lu", static_cast<uint64_t>(dType));
+            break;
+    }
+    return result;
+}
+
+} // namespace Distributed
+} // namespace npu::tile_fwk
+
+#endif // DISTRIBUTED_OP_TEST_COMMON_H
