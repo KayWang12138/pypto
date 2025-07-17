@@ -30,6 +30,9 @@ struct PostTileConfig {
     int tileS = 1;
 };
 
+void PostCompute(Tensor &input, Tensor &weightUV, Tensor &weightO, Tensor &weightOScale,
+                 const PostTileConfig &tileConfig, Tensor &postOut);
+
 void AttentionPost(Tensor &input, Tensor &weightUV, Tensor &weightO, Tensor &weightOScale,
                    const PostTileConfig &tileConfig, Tensor &postOut);
 

@@ -60,12 +60,12 @@ void SlcAttn(Tensor &qNope, Tensor &qRope, Tensor &kSlc, Tensor &vSlc, Tensor &k
 
     FUNCTION("SA_MAIN", FunctionType::DYNAMIC, {qNope, qRope, kSlc, vSlc, kvSlcActSeqs}, {attentionOut}) {
         /******** tune params ********/
-        // Program::GetInstance().GetConfig().SetCubeNBufferMap({});
-        // Program::GetInstance().GetConfig().SetL1Reuse(0);
-        // Program::GetInstance().GetConfig().SetCopyInThreshold(1 * NUM_1024 * NUM_1024);
-        // Program::GetInstance().GetConfig().SetCycleUpperBound(NUM_100000);
-        // Program::GetInstance().GetConfig().SetParallelThreshold(NUM_2);
-        // Program::GetInstance().GetConfig().SetCubeNBuffer(NUM_2);
+        // Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {});
+        // Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 0);
+        // Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, 1 * NUM_1024 * NUM_1024);
+        // Program::GetInstance().GetConfig().Set<int>(CYCLE_UPPER_BOUND, NUM_100000);
+        // Program::GetInstance().GetConfig().Set<int>(PARALLEL_THRESHOLD, NUM_2);
+        // Program::GetInstance().GetConfig().Set<int>(CUBE_NBUFFER, NUM_2);
         // config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
 
         /******** attention ********/

@@ -75,8 +75,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
     auto vHeadDim = weightUV->shape[2];
 
     std::vector<int> paOutShape = {b * s * n, kvLoraRank};
-    Program::GetInstance().GetConfig().SetUseNodeHash(true);
-    // Program::GetInstance().GetConfig().SetMachineSchMode({MachineSchduleConfig::L2CACHE_AFFINITY_SCH});
+    Program::GetInstance().GetConfig().Set<bool>(USE_NODE_HASH, true);
 
     FUNCTION("main", FunctionType::DYNAMIC,
         {tokenX, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache,
@@ -85,12 +84,12 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
         {postOut}, {{kvCacheOut, kvCache}, {krCacheOut, krCache}}) {
         /******** mla_prolog ********/
         SymbolicScalar bLoop = b / tileB;
-        Program::GetInstance().GetConfig().SetDbType(1);      // 是否开启db切分 1开启
-        Program::GetInstance().GetConfig().SetL1Reuse(NUM_4); //L1reuse合并的左矩阵或者右矩阵数量
-        Program::GetInstance().GetConfig().SetCubeNBufferMap({{NUM_3, NUM_4}});   //从NUM_3个mm开始设置CubeNBuffer数量为NUM_4；CubeNBuffer：设置同构的mm计算合并入一个图
-        Program::GetInstance().GetConfig().SetCopyInThreshold(NUM_2 * NUM_1024 * NUM_1024);   // CubeNBuffer、L1reuse合并时copyin的cycle上限
-        Program::GetInstance().GetConfig().SetCycleUpperBound(NUM_100000);    // 设置切图与合图后子图的Latency的上限
-        Program::GetInstance().GetConfig().SetParallelThreshold(NUM_2);       // 设置子图合并的并行度下限（子图数量大于等于parallelThreshold才可合并）
+        Program::GetInstance().GetConfig().Set<int>(DB_TYPE, 1);      // 是否开启db切分 1开启
+        Program::GetInstance().GetConfig().Set<int>(L1_REUSE, NUM_4); //L1reuse合并的左矩阵或者右矩阵数量
+        Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{NUM_3, NUM_4}});   //从NUM_3个mm开始设置CubeNBuffer数量为NUM_4；CubeNBuffer：设置同构的mm计算合并入一个图
+        Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, NUM_2 * NUM_1024 * NUM_1024);   // CubeNBuffer、L1reuse合并时copyin的cycle上限
+        Program::GetInstance().GetConfig().Set<int>(CYCLE_UPPER_BOUND, NUM_100000);    // 设置切图与合图后子图的Latency的上限
+        Program::GetInstance().GetConfig().Set<int>(PARALLEL_THRESHOLD, NUM_2);       // 设置子图合并的并行度下限（子图数量大于等于parallelThreshold才可合并）
 
         LOOP("LOOP_L0_bIdx_mla_prolog", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1)) {
             SymbolicScalar bOffset = bIdx * tileB;
@@ -231,12 +230,12 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
         SymbolicScalar nQ = qNopeOut->shape[0] / batchSizeScalar;
         SymbolicScalar nLoop = nQ / nTile;
 
-        Program::GetInstance().GetConfig().SetCubeNBufferMap({});
-        Program::GetInstance().GetConfig().SetL1Reuse(0);
-        Program::GetInstance().GetConfig().SetCopyInThreshold(1 * NUM_1024 * NUM_1024);
-        Program::GetInstance().GetConfig().SetCycleUpperBound(NUM_100000);
-        Program::GetInstance().GetConfig().SetParallelThreshold(NUM_2);
-        Program::GetInstance().GetConfig().SetCubeNBuffer(NUM_2);
+        Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {});
+        Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 0);
+        Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, 1 * NUM_1024 * NUM_1024);
+        Program::GetInstance().GetConfig().Set<int>(CYCLE_UPPER_BOUND, NUM_100000);
+        Program::GetInstance().GetConfig().Set<int>(PARALLEL_THRESHOLD, NUM_2);
+        Program::GetInstance().GetConfig().Set<int>(CUBE_NBUFFER, NUM_2);
         config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
 
         LOOP("LOOP_L0_bIdx_pa", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, batchSizeScalar, 1), {}, true) {
@@ -345,12 +344,12 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
         }
 
         /******** post ********/
-        Program::GetInstance().GetConfig().SetCopyInThreshold(1 * NUM_1024 * NUM_1024);
-        Program::GetInstance().GetConfig().SetCycleUpperBound(NUM_500000);
-        Program::GetInstance().GetConfig().SetParallelThreshold(NUM_20);
-        Program::GetInstance().GetConfig().SetCubeNBuffer(1);
+        Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, 1 * NUM_1024 * NUM_1024);
+        Program::GetInstance().GetConfig().Set<int>(CYCLE_UPPER_BOUND, NUM_500000);
+        Program::GetInstance().GetConfig().Set<int>(PARALLEL_THRESHOLD, NUM_20);
+        Program::GetInstance().GetConfig().Set<int>(CUBE_NBUFFER, 1);
         config::SetOperationConfig("FORCE_COMBINE_AXIS", false);
-        Program::GetInstance().GetConfig().SetCubeNBufferMap({{0, 4}});
+        Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{0, 4}});
         Program::GetInstance().GetMatrixSize().SetMatrixSize({});
         LOOP("PaPost", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(bLoop), {}, true) {
             ConfigManager::Instance().SetSemanticLabel("Post");

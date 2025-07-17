@@ -331,10 +331,10 @@ std::vector<Tensor> PreCompute(const Tensor &tokenX, const Tensor &wDq, const Te
 // NSA MlaProlog, b and s is dynamic, support:
 // b: 16, 32, 64, 24, 48, 96
 // s: 1, 2
-void MlaProlog(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wUk, const Tensor &wDkvKr,
-    const Tensor &gammaCq, const Tensor &gammaCkv, const Tensor &sin, const Tensor &cos, const Tensor &cacheIndex,
-    Tensor &kvCache, Tensor &krCache, const MlaQuantInputs &quantInputs, const MlaTileConfig &tileConfig,
-    Tensor &queryOut, Tensor &queryRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut,
+void MlaPrologCompute(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wUk,
+    const Tensor &wDkvKr, const Tensor &gammaCq, const Tensor &gammaCkv, const Tensor &sin, const Tensor &cos,
+    const Tensor &cacheIndex, Tensor &kvCache, Tensor &krCache, const MlaQuantInputs &quantInputs,
+    const MlaTileConfig &tileConfig, Tensor &queryOut, Tensor &queryRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut,
     float epsilonCq, float epsilonCkv, std::string cacheMode) {
     // params check
     assert(tokenX->shape.size() == 3 && wUk->shape.size() == 3 && sin->shape.size() == 3); // shape dim 3
@@ -365,107 +365,117 @@ void MlaProlog(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
         {tileB, tileS, 1, qkRopeHeadDim / 2, 2}  // (b,s,n,d//2,2)
     };
 
+    // quant params
+    Tensor dequantScaleWUqQr = quantInputs.dequantScaleWUqQr;
+    bool isQuant = (dequantScaleWUqQr.GetStorage() != nullptr);
+
+    SymbolicScalar b = GetInputShapeDim(tokenX, 0);
+    SymbolicScalar s = GetInputShapeDim(tokenX, 1);
+    SymbolicScalar bLoop = b / tileB;
+    SymbolicScalar sLoop = s / tileS;
+
+    LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1)) {
+        SymbolicScalar bOffset = bIdx * tileB;
+        LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sLoop, 1)) {
+            SymbolicScalar sOffset = sIdx * tileS;
+            std::vector<SymbolicScalar> outputOffset = {bOffset, sOffset, 0, 0};
+
+            Program::GetInstance().GetTileShape().SetVecTileShapes({tileB, tileS, NUM_128});
+            auto xView = DView(tokenX, {tileB, tileS, h}, {bOffset, sOffset, 0});
+            auto qKv = PreCompute(xView, wDq, wUqQr, wDkvKr, gammaCq, epsilonCq, quantInputs);
+            Tensor q = qKv[0];     // [b*s, n*qHeadDim]
+            Tensor kvTmp = qKv[1]; // [b*s, kvLoraRank+qkRopeHeadDim]
+
+            // dequant: int32 -> fp32 -> *scale -> fp16/bf16
+            if (isQuant) {
+                std::vector<int> tileShape = {std::min(NUM_32, tileBS), NUM_64};
+                Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
+                auto qFp32 = Cast(q, DataType::DT_FP32);
+                auto qDequantScale = qKv[2];
+                auto qDequantPerToken = Mul(qFp32, qDequantScale);
+                auto qDequantChannel = Mul(qDequantPerToken, dequantScaleWUqQr);
+                q = Cast(qDequantChannel, dType);
+            }
+            auto qTmp = Reshape(q, {tileB, tileS, n, qHeadDim});
+
+            /******** q ********/
+            Tensor qNope = View(qTmp, {tileB, tileS, n, qkNopeHeadDim}, {0, 0, 0, 0}); // [b,s,n,qkNopeHeadDim]
+            std::vector<int> tileShape = {tileB, tileS, 1, NUM_128};
+            Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
+            Tensor qNopeRes = Reshape(qNope, {tileBS, n, qkNopeHeadDim}); // [bs,n,qkNopeHeadDim]
+            tileShape = {std::min(NUM_32, tileBS), 1, qkNopeHeadDim};
+            Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
+            Tensor qNopeTrans = Transpose(qNopeRes, {0, 1}); // [n,bs,qkNopeHeadDim]
+
+            int c0 = NUM_16;
+            int m = (std::min(NUM_32, tileBS) + c0 - 1) / c0 * c0;
+            Program::GetInstance().GetTileShape().SetCubeTileShapes({m, m}, {NUM_128, NUM_128}, {NUM_128, NUM_128});
+            // bmm: (n,bs,qkNopeHeadDim) @ (n, qkNopeHeadDim, kvLoraRank) = (n, bs, kvLoraRank)
+            Tensor qNopeNew = Matrix::BatchMatmul(dType, qNopeTrans, wUk);
+
+            tileShape = {1, std::min(NUM_32, tileBS), kvLoraRank};
+            Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
+            Tensor qNopeNewTrans = Transpose(qNopeNew, {0, 1}); // [bs,n,kvLoraRank]
+            auto queryOutView = Reshape(qNopeNewTrans, {tileB, tileS, n, kvLoraRank}); // [b,s,n,kvLoraRank]
+
+            /******** kv ********/
+            Tensor compressedKv = View(kvTmp, {tileBS, kvLoraRank}, {0, 0}); // [b*s,kvLoraRank]
+            tileShape = {NUM_2, NUM_512};
+            Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
+            Tensor kNope = RmsNorm(compressedKv, gammaCkv, epsilonCkv); // [b*s,kvLoraRank]
+
+            /******** RoPE ********/
+            Tensor kPeView = View(kvTmp, {tileBS, qkRopeHeadDim}, {0, kvLoraRank}); // [b*s,qkRopeHeadDim]
+            Tensor kPeRes = Reshape(kPeView, {tileB, tileS, 1, qkRopeHeadDim}); // [b,s,1,qkRopeHeadDim]
+            Tensor qPeView = View(qTmp, {tileB, tileS, n, qkRopeHeadDim}, {0, 0, 0, qkNopeHeadDim});
+            Tensor cosView = DView(cos, {tileB, tileS, qkRopeHeadDim}, {bOffset, sOffset, 0});
+            Tensor sinView = DView(sin, {tileB, tileS, qkRopeHeadDim}, {bOffset, sOffset, 0});
+            Tensor qRopeView(kPeRes->Datatype(), {tileB, tileS, n, qkRopeHeadDim}, "qRopeView");
+            Tensor kRopeView(kPeRes->Datatype(), {tileB, tileS, 1, qkRopeHeadDim}, "kRopeView");
+            ApplyRotaryPosEmbV2(qPeView, kPeRes, cosView, sinView, qRopeView, kRopeView,
+                2, ropeConfig); // 2 is unsqueeze dim
+
+            // PA_BSND, PA_NZ
+            Tensor kvCacheRes = Reshape(kvCache, {blockNum * blockSize * n2, kvLoraRank});
+            Tensor krCacheRes = Reshape(krCache, {blockNum * blockSize * n2, qkRopeHeadDim});
+            Tensor kRopeRes = Reshape(kRopeView, {tileBS * 1, qkRopeHeadDim});
+            Tensor indexView = DView(cacheIndex, {tileB, tileS}, {bOffset, sOffset});
+
+            /******** kvCache ********/
+            tileShape = {1, kvLoraRank};
+            Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
+            // kvCache: [blockNum * blockSize * n2, kvLoraRank], output3
+            Tensor kvCacheOutView = ScatterUpdate(kvCacheRes, indexView, kNope, SCATTER_UPADATE_DIM, cacheMode, blockSize);
+
+            /******** krCache ********/
+            tileShape = {1, qkRopeHeadDim};
+            Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
+            // krCache: [blockNum * blockSize * n2, qkRopeHeadDim], output4
+            Tensor krCacheOutView = ScatterUpdate(krCacheRes, indexView, kRopeRes, SCATTER_UPADATE_DIM, cacheMode, blockSize);
+
+            kvCacheOut = Reshape(kvCacheOutView, {blockNum, blockSize, n2, kvLoraRank});
+            krCacheOut = Reshape(krCacheOutView, {blockNum, blockSize, n2, qkRopeHeadDim});
+
+            Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, NUM_32, NUM_128});
+            DAssemble(queryOutView, outputOffset, queryOut);  // output1
+            Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, NUM_32, NUM_64});
+            DAssemble(qRopeView, outputOffset, queryRopeOut);  // output2
+        }
+    }
+}
+
+void MlaProlog(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wUk,
+    const Tensor &wDkvKr, const Tensor &gammaCq, const Tensor &gammaCkv, const Tensor &sin, const Tensor &cos,
+    const Tensor &cacheIndex, Tensor &kvCache, Tensor &krCache, const MlaQuantInputs &quantInputs,
+    const MlaTileConfig &tileConfig, Tensor &queryOut, Tensor &queryRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut,
+    float epsilonCq, float epsilonCkv, std::string cacheMode) {
     FUNCTION("main", FunctionType::DYNAMIC,
         {tokenX, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache,
          quantInputs.dequantScaleWUqQr, quantInputs.smoothScalesCq},
         {queryOut, queryRopeOut, kvCacheOut, krCacheOut}) {
-        // quant params
-        Tensor dequantScaleWUqQr = quantInputs.dequantScaleWUqQr;
-        bool isQuant = (dequantScaleWUqQr.GetStorage() != nullptr);
-
-        SymbolicScalar b = GetInputShapeDim(tokenX, 0);
-        SymbolicScalar s = GetInputShapeDim(tokenX, 1);
-        SymbolicScalar bLoop = b / tileB;
-        SymbolicScalar sLoop = s / tileS;
-
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1)) {
-            SymbolicScalar bOffset = bIdx * tileB;
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sLoop, 1)) {
-                SymbolicScalar sOffset = sIdx * tileS;
-                std::vector<SymbolicScalar> outputOffset = {bOffset, sOffset, 0, 0};
-
-                Program::GetInstance().GetTileShape().SetVecTileShapes({tileB, tileS, NUM_128});
-                auto xView = DView(tokenX, {tileB, tileS, h}, {bOffset, sOffset, 0});
-                auto qKv = PreCompute(xView, wDq, wUqQr, wDkvKr, gammaCq, epsilonCq, quantInputs);
-                Tensor q = qKv[0];     // [b*s, n*qHeadDim]
-                Tensor kvTmp = qKv[1]; // [b*s, kvLoraRank+qkRopeHeadDim]
-
-                // dequant: int32 -> fp32 -> *scale -> fp16/bf16
-                if (isQuant) {
-                    std::vector<int> tileShape = {std::min(NUM_32, tileBS), NUM_64};
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
-                    auto qFp32 = Cast(q, DataType::DT_FP32);
-                    auto qDequantScale = qKv[2];
-                    auto qDequantPerToken = Mul(qFp32, qDequantScale);
-                    auto qDequantChannel = Mul(qDequantPerToken, dequantScaleWUqQr);
-                    q = Cast(qDequantChannel, dType);
-                }
-                auto qTmp = Reshape(q, {tileB, tileS, n, qHeadDim});
-
-                /******** q ********/
-                Tensor qNope = View(qTmp, {tileB, tileS, n, qkNopeHeadDim}, {0, 0, 0, 0}); // [b,s,n,qkNopeHeadDim]
-                std::vector<int> tileShape = {tileB, tileS, 1, NUM_128};
-                Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
-                Tensor qNopeRes = Reshape(qNope, {tileBS, n, qkNopeHeadDim}); // [bs,n,qkNopeHeadDim]
-                tileShape = {std::min(NUM_32, tileBS), 1, qkNopeHeadDim};
-                Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
-                Tensor qNopeTrans = Transpose(qNopeRes, {0, 1}); // [n,bs,qkNopeHeadDim]
-
-                int c0 = NUM_16;
-                int m = (std::min(NUM_32, tileBS) + c0 - 1) / c0 * c0;
-                Program::GetInstance().GetTileShape().SetCubeTileShapes({m, m}, {NUM_128, NUM_128}, {NUM_128, NUM_128});
-                // bmm: (n,bs,qkNopeHeadDim) @ (n, qkNopeHeadDim, kvLoraRank) = (n, bs, kvLoraRank)
-                Tensor qNopeNew = Matrix::BatchMatmul(dType, qNopeTrans, wUk);
-
-                tileShape = {1, std::min(NUM_32, tileBS), kvLoraRank};
-                Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
-                Tensor qNopeNewTrans = Transpose(qNopeNew, {0, 1}); // [bs,n,kvLoraRank]
-                auto queryOutView = Reshape(qNopeNewTrans, {tileB, tileS, n, kvLoraRank}); // [b,s,n,kvLoraRank]
-
-                /******** kv ********/
-                Tensor compressedKv = View(kvTmp, {tileBS, kvLoraRank}, {0, 0}); // [b*s,kvLoraRank]
-                tileShape = {NUM_2, NUM_512};
-                Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
-                Tensor kNope = RmsNorm(compressedKv, gammaCkv, epsilonCkv); // [b*s,kvLoraRank]
-
-                /******** RoPE ********/
-                Tensor kPeView = View(kvTmp, {tileBS, qkRopeHeadDim}, {0, kvLoraRank}); // [b*s,qkRopeHeadDim]
-                Tensor kPeRes = Reshape(kPeView, {tileB, tileS, 1, qkRopeHeadDim}); // [b,s,1,qkRopeHeadDim]
-                Tensor qPeView = View(qTmp, {tileB, tileS, n, qkRopeHeadDim}, {0, 0, 0, qkNopeHeadDim});
-                Tensor cosView = DView(cos, {tileB, tileS, qkRopeHeadDim}, {bOffset, sOffset, 0});
-                Tensor sinView = DView(sin, {tileB, tileS, qkRopeHeadDim}, {bOffset, sOffset, 0});
-                Tensor qRopeView(kPeRes->Datatype(), {tileB, tileS, n, qkRopeHeadDim}, "qRopeView");
-                Tensor kRopeView(kPeRes->Datatype(), {tileB, tileS, 1, qkRopeHeadDim}, "kRopeView");
-                ApplyRotaryPosEmbV2(qPeView, kPeRes, cosView, sinView, qRopeView, kRopeView,
-                    2, ropeConfig); // 2 is unsqueeze dim
-
-                // PA_BSND, PA_NZ
-                Tensor kvCacheRes = Reshape(kvCache, {blockNum * blockSize * n2, kvLoraRank});
-                Tensor krCacheRes = Reshape(krCache, {blockNum * blockSize * n2, qkRopeHeadDim});
-                Tensor kRopeRes = Reshape(kRopeView, {tileBS * 1, qkRopeHeadDim});
-                Tensor indexView = DView(cacheIndex, {tileB, tileS}, {bOffset, sOffset});
-
-                /******** kvCache ********/
-                tileShape = {1, kvLoraRank};
-                Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
-                // kvCache: [blockNum * blockSize * n2, kvLoraRank], output3
-                Tensor kvCacheOutView = ScatterUpdate(kvCacheRes, indexView, kNope, SCATTER_UPADATE_DIM, cacheMode, blockSize);
-
-                /******** krCache ********/
-                tileShape = {1, qkRopeHeadDim};
-                Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
-                // krCache: [blockNum * blockSize * n2, qkRopeHeadDim], output4
-                Tensor krCacheOutView = ScatterUpdate(krCacheRes, indexView, kRopeRes, SCATTER_UPADATE_DIM, cacheMode, blockSize);
-
-                kvCacheOut = Reshape(kvCacheOutView, {blockNum, blockSize, n2, kvLoraRank});
-                krCacheOut = Reshape(krCacheOutView, {blockNum, blockSize, n2, qkRopeHeadDim});
-
-                Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, NUM_32, NUM_128});
-                DAssemble(queryOutView, outputOffset, queryOut);  // output1
-                Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, NUM_32, NUM_64});
-                DAssemble(qRopeView, outputOffset, queryRopeOut);  // output2
-            }
-        }
+        // compute
+        MlaPrologCompute(tokenX, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache,
+            quantInputs, tileConfig, queryOut, queryRopeOut, kvCacheOut, krCacheOut, epsilonCq, epsilonCkv, cacheMode);
     }
 }
 
