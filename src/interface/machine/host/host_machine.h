@@ -1,0 +1,163 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file host_machine.h
+ * \brief
+ */
+
+#pragma once
+
+#include <queue>
+#include <mutex>
+#include <condition_variable>
+#include <thread>
+#include <vector>
+#include <memory>
+#include <atomic>
+#include <cstdint>
+#include <tuple>
+#include "interface/machine/host/machine_task.h"
+#include "interface/cache/function_cache.h"
+#include "interface/configs/config_manager.h"
+
+namespace npu::tile_fwk {
+#if defined(MACHINE_DEBUG) && MACHINE_DEBUG == 1
+#define MACHINE_ASSERT(exp) ASSERT(exp)
+#else
+#define MACHINE_ASSERT(exp)
+#endif
+
+extern "C" {
+typedef int (*InitFuncPtr)();
+typedef int (*ExecuteFuncPtr)(MachineTask*, FunctionCache&);
+typedef bool (*MatchCacheFuncPtr)(const std::string&);
+}
+
+enum class HostMachineMode {
+    SERVER = 0,  // server扩展模式，host machine内部完成端到端调度上板执行，submit task & compile & run 不对外暴露
+    API = 1, // api 模式，当前torch对接使用此模式，对外暴露submit task  & compile & run api供外部调用
+};
+
+template <typename T>
+class SafeQueue {
+public:
+    void Push(T value) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        queue_.push(std::move(value));
+    }
+
+    T Pop() {
+        std::unique_lock<std::mutex> lock(mutex_);
+        T value = std::move(queue_.front());
+        queue_.pop();
+        return value;
+    }
+
+    bool Empty() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return queue_.empty();
+    }
+
+    uint64_t Size() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return queue_.size();
+    }
+
+    void Clear() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        queue_ = std::queue<T>();
+    }
+
+private:
+    std::queue<T> queue_;
+    mutable std::mutex mutex_;
+};
+
+class HostMachine {
+public:
+    explicit HostMachine(HostMachineMode mode = HostMachineMode::SERVER) : mode_(mode) {}
+    ~HostMachine() { DestroyThread(); }
+
+    int Init(HostMachineMode mode); // init resource & launch device machine core machine
+    int Destroy(); // release resource & stop device machine core machine
+
+    void SubTask(Function* function);
+    void WaitTaskFinish(); // wait all task finish
+
+    void StashTask(Function* function);
+    void SubAllStashedTask();
+
+    std::optional<CacheValue> TryHitCahce(const FunctionHash &functionHash) { return cache_.Get(functionHash); }
+    void AddFunctionCache(Function* function ) { cache_.Insert(function->GetFunctionHash(), *function); }
+
+    std::vector<InvokeParaOffset> outputStubPara;
+
+    FunctionCache& GetFunctionCache() { return cache_; }
+
+    bool ForceEnableBackend();
+
+public: // api mode
+    MachineTask* Compile(MachineTask* task = nullptr) const;
+
+private:
+    void InitThread();
+    void DestroyThread();
+
+    void CompileFunction(Function* func) const;
+    /* 线程处理函数 */
+    void CompileThreadFunc();
+    void AgentThreadFunc();
+
+    void PushAgentQueue(std::unique_ptr<MachineTask> task);
+    void PushFinishQueue(std::unique_ptr<MachineTask> task);
+
+    static std::string GetCacheKeyFromFunction(Function *function);
+
+private:
+    HostMachineMode mode_;
+    MachineTask* curTask;
+
+    std::atomic<bool> initialized_;
+
+    FunctionCache cache_;
+    std::atomic<uint64_t> curTaskId_{0};
+    std::atomic<bool> stopFlag_{false};
+
+    /* 线程管理 */
+    int compileThreadCount_{1}; 
+    int agentThreadCount_{1};
+    std::mutex compileQueueMutex_;
+    std::mutex agentQueueMutex_;
+    std::mutex stashQueueMutex_;
+    std::condition_variable compileQueueCv_;
+    std::condition_variable agentQueueCv_;
+    std::vector<std::thread> compileThreads_;
+    std::vector<std::thread> agentThreads_;
+    SafeQueue<std::unique_ptr<MachineTask>> compileQueue_; // 待编译任务
+    SafeQueue<std::unique_ptr<MachineTask>> agentQueue_; // 待device agent处理任务
+    SafeQueue<std::unique_ptr<MachineTask>> finishQueue_; // device machine 处理结束任务
+    SafeQueue<std::tuple<Function *, Function *, AscendConfig, TileShape, InternalGlobalConfig,
+                         nlohmann::json>> stashedFuncQueue_; // stash func
+
+    /* 后端管理 */
+    void* mNpuBackendHandle = nullptr;
+    void* mSimulationBackendHandle = nullptr;
+    InitFuncPtr mNpuInitFunc = nullptr;
+    MatchCacheFuncPtr mNpuMatchCacheFunc = nullptr;
+    ExecuteFuncPtr mNpuExecuteFunc = nullptr;
+    ExecuteFuncPtr mSimulationExecuteFunc = nullptr;
+
+    int32_t InitBackend(const bool forceEnableBackend = false);
+    void DestroyBackend();
+};
+
+
+} // namespace npu::tile_fwk
