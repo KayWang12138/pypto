@@ -316,7 +316,7 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout_singlemlp_withquant)
     PROGRAM("MOE_INFER_SINGLEMLP_QUANT") {
         Program::GetInstance().GetConfig().Reset();
         Program::GetInstance().GetTileShape().SetCubeTileShapes({64, 64}, {64, 64}, {64, 64});
-        Program::GetInstance().GetConfig().SetL1Reuse(4);
+        Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 4);
 
         Program::GetInstance().GetTileShape().SetVecTileShapes(128, 128); // for Assemble
 

@@ -31,9 +31,9 @@ public:
         Program::GetInstance().GetConfig().Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, false);
         config::SetHostConfig(KEY_STRATEGY, "PVC2_OOO");
-        Program::GetInstance().GetConfig().SetDbType(1);
-        Program::GetInstance().GetConfig().SetL1Reuse(LLMA_L1REUSE_THRESHOLD);
-        Program::GetInstance().GetConfig().SetCyclesThreshold(LLMA_CYCLE_THRESHOLD);
+        Program::GetInstance().GetConfig().Set<int>(DB_TYPE, 1);
+        Program::GetInstance().GetConfig().Set<int>(L1_REUSE, LLMA_L1REUSE_THRESHOLD);
+        Program::GetInstance().GetConfig().Set<int>(CYCLES_THRESHOLD, LLMA_CYCLE_THRESHOLD);
     }
 };
 

@@ -368,7 +368,7 @@ void PageAttentionPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32, bTile*S), 1, kvLoraRank}); // raw (bTile*1, 128, 512)
             auto t1Res = Transpose(r1Res, {0, 1}); // (N, bTile * S, kvLoraRank)    // 128个
 
-            // Program::GetInstance().GetConfig().SetCubeNBufferMap({{0, 4}});
+            // Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{0, 4}});
             Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(32, bTile*S), std::min(32, bTile*S)},
                 {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
                 {vHeadDim, vHeadDim}); // raw bTile*1  512   128   // 128/4个

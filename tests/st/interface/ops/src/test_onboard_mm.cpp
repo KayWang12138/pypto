@@ -347,7 +347,7 @@ TEST_F(MatmulOnBoardTest, test_mm_unalign_float32_8_64_64_bt) {
 
 TEST_F(MatmulOnBoardTest, test_mm_int8_32_16384_7168) {
     Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16}, {128, 128}, {128, 128});
-    Program::GetInstance().GetConfig().SetL1Reuse(4);
-    Program::GetInstance().GetConfig().SetCopyInThreshold(32*1024*1024);
+    Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 4);
+    Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, 32*1024*1024);
     TestMatmul<int8_t, int32_t>(32, 16384, 7168, GetGoldenDir());
 }

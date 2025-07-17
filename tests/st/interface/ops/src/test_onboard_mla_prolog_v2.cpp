@@ -856,7 +856,7 @@ TEST_F(MlaPrologV2OnBoardTest, test_MlaPrologV2_bfloat16_4_128_1_4096_7168_1536)
 }
 
 TEST_F(MlaPrologV2OnBoardTest, test_mla_bf16_low_quant_smooth) {  // b_n_s_s2_h_q_lora_rank
-    Program::GetInstance().GetConfig().SetL1Reuse(4);
+    Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 4);
     int b = 4;
     int s = 1;
     int s2 = 256;
@@ -874,9 +874,9 @@ TEST_F(MlaPrologV2OnBoardTest, test_mla_bf16_low_quant_smooth) {  // b_n_s_s2_h_
 }
 
 TEST_F(MlaPrologV2OnBoardTest, test_mla_bf16_high_quant_smooth) {  // b_n_s_s2_h_q_lora_rank
-    Program::GetInstance().GetConfig().SetDbType(1);
-    Program::GetInstance().GetConfig().SetNBuffer(2);
-    Program::GetInstance().GetConfig().SetCycleUpperBound(20000);
+    Program::GetInstance().GetConfig().Set<int>(DB_TYPE, 1);
+    Program::GetInstance().GetConfig().Set<int>(NBUFFER_NUM, 2);
+    Program::GetInstance().GetConfig().Set<int>(CYCLE_UPPER_BOUND, 20000);
     int b = 32;
     int s = 1;
     int s2 = 4096;
@@ -894,7 +894,7 @@ TEST_F(MlaPrologV2OnBoardTest, test_mla_bf16_high_quant_smooth) {  // b_n_s_s2_h
 }
 
 TEST_F(MlaPrologV2OnBoardTest, test_MlaPrologV2_float16_4_32_1_256_7168_1536_quant) {  // b_n_s_s2_h_q_lora_rank
-    Program::GetInstance().GetConfig().SetL1Reuse(4);
+    Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 4);
     int b = 4;
     int s = 1;
     int s2 = 256;
@@ -929,10 +929,10 @@ TEST_F(MlaPrologV2OnBoardTest, test_MlaPrologV2_float16_32_32_1_256_7168_1536_qu
 }
 
 TEST_F(MlaPrologV2OnBoardTest, test_mla_fp16_high_quant_smooth) {  // b_n_s_s2_h_q_lora_rank
-    Program::GetInstance().GetConfig().SetDbType(1);
-    Program::GetInstance().GetConfig().SetL1Reuse(4);
-    Program::GetInstance().GetConfig().SetCubeNBufferMap({{3,4}});
-    Program::GetInstance().GetConfig().SetCopyInThreshold(2*1024*1024);
+    Program::GetInstance().GetConfig().Set<int>(DB_TYPE, 1);
+    Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 4);
+    Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{3,4}});
+    Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, 2*1024*1024);
     int b = 32;
     int s = 1;
     int s2 = 4096;
@@ -953,7 +953,7 @@ TEST_F(MlaPrologV2OnBoardTest, test_mla_fp16_high_quant_smooth) {  // b_n_s_s2_h
 }
 
 TEST_F(MlaPrologV2OnBoardTest, test_mla_fp16_low_quant_smooth_pa_bsnd) {  // b_n_s_s2_h_q_lora_rank
-    Program::GetInstance().GetConfig().SetL1Reuse(4);
+    Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 4);
     int b = 4;
     int s = 1;
     int s2 = 256;
@@ -980,8 +980,8 @@ TEST_F(MlaPrologV2OnBoardTest, test_mla_fp16_low_quant_smooth_pa_bsnd) {  // b_n
 }
 
 TEST_F(MlaPrologV2OnBoardTest, test_mla_fp16_high_quant_smooth_pa_bsnd) {  // b_n_s_s2_h_q_lora_rank
-    Program::GetInstance().GetConfig().SetDbType(1);
-    Program::GetInstance().GetConfig().SetNBuffer(2);
+    Program::GetInstance().GetConfig().Set<int>(DB_TYPE, 1);
+    Program::GetInstance().GetConfig().Set<int>(NBUFFER_NUM, 2);
     int b = 32;
     int s = 1;
     int s2 = 4096;
@@ -1008,7 +1008,7 @@ TEST_F(MlaPrologV2OnBoardTest, test_mla_fp16_high_quant_smooth_pa_bsnd) {  // b_
 }
 
 TEST_F(MlaPrologV2OnBoardTest, test_mla_fp16_low_quant_smooth_nz_pa_bsnd) {  // b_n_s_s2_h_q_lora_rank
-    Program::GetInstance().GetConfig().SetL1Reuse(4);
+    Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 4);
     int b = 4;
     int s = 1;
     int s2 = 256;
@@ -1035,8 +1035,8 @@ TEST_F(MlaPrologV2OnBoardTest, test_mla_fp16_low_quant_smooth_nz_pa_bsnd) {  // 
 }
 
 TEST_F(MlaPrologV2OnBoardTest, test_mla_bf16_high_quant_smooth_nz_pa_bsnd) {  // b_n_s_s2_h_q_lora_rank
-    Program::GetInstance().GetConfig().SetDbType(1);
-    Program::GetInstance().GetConfig().SetNBuffer(2);
+    Program::GetInstance().GetConfig().Set<int>(DB_TYPE, 1);
+    Program::GetInstance().GetConfig().Set<int>(NBUFFER_NUM, 2);
     int b = 32;
     int s = 1;
     int s2 = 4096;
@@ -1063,8 +1063,8 @@ TEST_F(MlaPrologV2OnBoardTest, test_mla_bf16_high_quant_smooth_nz_pa_bsnd) {  //
 }
 
 TEST_F(MlaPrologV2OnBoardTest, test_mla_bf16_high48_quant_smooth_nz_pa_bsnd) {  // b_n_s_s2_h_q_lora_rank
-    Program::GetInstance().GetConfig().SetDbType(1);
-    Program::GetInstance().GetConfig().SetNBuffer(2);
+    Program::GetInstance().GetConfig().Set<int>(DB_TYPE, 1);
+    Program::GetInstance().GetConfig().Set<int>(NBUFFER_NUM, 2);
     int b = 48;
     int s = 1;
     int s2 = 4096;

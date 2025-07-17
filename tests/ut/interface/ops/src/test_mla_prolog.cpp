@@ -152,8 +152,8 @@ void TestMlaPrologV2(std::vector<int> &params, bool isQuant = false, bool hasSmo
 }
 
 TEST_F(MlaPrologUtest, mla_ut_bf16_high_quant_smooth_nz_pa_bsnd) {  // b_n_s_s2_h_q_lora_rank
-    Program::GetInstance().GetConfig().SetDbType(1);
-    Program::GetInstance().GetConfig().SetNBuffer(2);
+    Program::GetInstance().GetConfig().Set<int>(DB_TYPE, 1);
+    Program::GetInstance().GetConfig().Set<int>(NBUFFER_NUM, 2);
     int b = 32;
     int s = 1;
     int s2 = 4096;
