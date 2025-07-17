@@ -174,6 +174,62 @@ void PrologPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &q
     Tensor &blockTable, Tensor &actSeqs, Tensor &weightUV, Tensor &weightO, int blockSize, float softmaxScale,
     Tensor &postOut, PaTileShapeConfig &tileConfig);
 
+namespace Matrix {
+/***************** matmul intf *************/
+namespace Internel {
+// inner impl
+Tensor A_MUL_Bt(DataType dataType, const Tensor &operand1, const Tensor &operand2);
+Tensor A_MUL_Bt(DataType dataType, const Tensor &operand1, const Tensor &operand2, const Tensor &operand3);
+Tensor A_MUL_B(DataType dataType, const Tensor &operand1, const Tensor &operand2);
+Tensor A_MUL_B(DataType dataType, const Tensor &operand1, const Tensor &operand2, const Tensor &operand3);
+} // namespace Internel
+
+// regular intf: c = a * b
+template <bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false>
+Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix) {
+    if constexpr (!isATrans && !isBTrans) {
+        return Internel::A_MUL_B(outType, aMatrix, bMatrix);
+    } else if constexpr (!isATrans && isBTrans) {
+        return Internel::A_MUL_Bt(outType, aMatrix, bMatrix);
+    } else {
+        assert("only support B trans currently!");
+    }
+    return Tensor();
+}
+
+// intf: k spilt
+template <bool isATrans = false, bool isBTrans = false, bool IsCMatrixNZ = false>
+Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const Tensor &cMatrix) {
+    if constexpr (!isATrans && !isBTrans) {
+        return Internel::A_MUL_B(outType, aMatrix, bMatrix, cMatrix);
+    } else if constexpr (!isATrans && isBTrans) {
+        return Internel::A_MUL_Bt(outType, aMatrix, bMatrix, cMatrix);
+    } else {
+        assert("only support B trans currently!");
+    }
+    return Tensor();
+}
+
+// matmul extend intf with MatmulParams(Bias/Quant)
+template <typename ScaleT>
+struct MatmulParams {
+    Tensor biasTensor;
+    ScaleT quantScale;
+};
+
+/*****************batch matmul intf *************/
+// intf: c = a * b
+template <bool isATrans = false, bool isBTrans = false>
+Tensor BatchMatmul(DataType dataType, const Tensor &aMatrix, const Tensor &bMatrix);
+
+// batch mamtul extend intf with MatmulParams(Bias/Quant)
+template <typename ScaleT, bool isATrans = false, bool isBTrans = false>
+Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const Tensor &cMatrix,
+    const MatmulParams<ScaleT> &params);
+
+Tensor QuantMM(const Tensor &operand1, const Tensor &operand2, const Tensor &dequantScaleW);
+} // namespace Matrix
+
 namespace Distributed {
 enum class DistReduceType {
     DIST_REDUCE_ADD,
