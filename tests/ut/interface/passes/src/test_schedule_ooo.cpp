@@ -311,8 +311,8 @@ TEST_F(ScheduleOoOTest, TestHealthReport) {
     Tensor res;
 
     Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16}, {128, 128}, {128, 128});
-    Program::GetInstance().GetConfig().SetL1Reuse(4);
-    Program::GetInstance().GetConfig().SetCopyInThreshold(32*1024*1024);
+    Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 4);
+    Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, 32*1024*1024);
     config::SetPassDefaultConfig(KEY_HEALTH_CHECK, true);
     FUNCTION("A") {
         res = npu::tile_fwk::Matrix::Matmul<false, false>(DT_INT32, inputA, inputW);

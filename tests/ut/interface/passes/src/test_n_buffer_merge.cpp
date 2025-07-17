@@ -40,8 +40,8 @@ public:
 
         constexpr int DbType = 1;
         constexpr int NBuffer = 2;
-        Program::GetInstance().GetConfig().SetDbType(DbType);
-        Program::GetInstance().GetConfig().SetNBuffer(NBuffer);
+        Program::GetInstance().GetConfig().Set<int>(DB_TYPE, DbType);
+        Program::GetInstance().GetConfig().Set<int>(NBUFFER_NUM, NBuffer);
     }
 
     void TearDown() override {}

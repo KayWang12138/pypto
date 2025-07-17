@@ -1,0 +1,149 @@
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+
+set(_CaseFilterList
+        # PassUT
+        "RemoveRedundentReshapeTest.TestSameInputOutputShape"
+        "RemoveRedundentReshapeTest.TestReshapeChain"
+        "RemoveRedundentReshapeTest.TestReplaceInput"
+        "NBufferMergeTest.TestNBufferMerge"
+        "L1CopyInReuseTest.TwoCopyIn"
+        "SubgraphToFunctionTest.DifferentOffset"
+        "SubgraphToFunctionTest.test_json_dump_and_load"
+        "SubgraphToFunctionTest.test_json_dump_and_load_1"
+        "SubgraphToFunctionTest.test_json_dump_and_load_1_cov"
+        "SubgraphToFunctionTest.test_json_dump_and_load_2"
+        "SubgraphToFunctionTest.SameOffset"
+        "SubgraphToFunctionTest.VerifyPassResumeByJson"
+        "MergeViewAssembleTest.TestMergeViewAssemble"
+        "AssignMemoryTypeTest.AddReshape"
+        "AssignMemoryTypeTest.TestVecToCube"
+        "AssignMemoryTypeTest.TestVecToCubeV2"
+        "AssignMemoryTypeTest.TestCubeToCube"
+        "AssignMemoryTypeTest.TestCubeToCubeV2"
+        "CommonOperationEliminateTest.EliminateRedundantOps"
+        "CommonOperationEliminateTest.EliminateRedundantMultiInputOp"
+        "CommonOperationEliminateTest.EliminateRedundantMultiOutputOp"
+        "CommonOperationEliminateTest.EliminateRedundantCascadeOp"
+        "CommonOperationEliminateTest.IgnoreSingleInputOp"
+        "CommonOperationEliminateTest.IgnoreMultiInputOp"
+        "CommonOperationEliminateTest.IgnoreDifferentAttr"
+        "CommonOperationEliminateTest.IgnoreDifferentOp"
+        "CommonOperationEliminateTest.IgnoreDifferentSubgraph"
+        "MergeSrcDstBufferTest.Replaced"
+        "MergeSrcDstBufferTest.NoReplaced"
+        "MergeSrcDstBufferTest.AppointInplace"
+        "CodegenPreprocTest.TestSaveGmTensorParamIdxInCall"
+        "TestPadLocalBuffer.test_add_last_axis_1"
+        "TestPadLocalBuffer.test_matmul"
+        "TestPadLocalBuffer.test_operation_row_max_single_4dim_softmax_unalign"
+        "TestPadLocalBuffer.test_operation_row_max_single_4dim_softmax_unalign_2"
+        "PartitionVC2Test.TestExistIsomorphismGraph"
+        "PartitionVC2Test.TestCheckCycle"
+        "PartitionVC2Test.TestExistIsomorphismGraphWithSingleCopyOut"
+        "PartitionVC2Test.TestNonexistIsomorphismGraphWithSingleCopyOut"
+        "PartitionVC2Test.TestCheckCycleWithSingleCopyOut"
+        "PartitionVC2Test.TestOnlyReshape"
+        "PartitionVC2Test.TestHealthReport"
+        "AddAllocTest.TestAllocNode"
+        "AddAllocTest.TestFindTensorAllocMsg"
+        "DuplicateViewTest.TestThreeConsumersAfterView"
+        "DuplicateViewTest.TestOneConsumersAfterView"
+        "GraphInitTest.TestIsCubeOrNot"
+        "PartitionVCTest.TestVCPartition"
+        "PartitionVCTest.TestOnlyReshape"
+        "PreGraphTest.TestVCPartition"
+        "PreGraphTest.TestAssemble"
+        "PreGraphTest.TestView"
+        "RemoveRedundentOpTest.TestInShapeEqualOutShape"
+        "RemoveRedundentOpTest.TestInShapeNotEqualOutShape"
+        "RemoveRedundentOpTest.TestIntermediateOutcast"
+        "RemoveRedundentOpTest.TestInternalAssembleView"
+        "GenerateMoveOpPassTest.AssembleViewToCopy"
+        "GenerateMoveOpPassTest.ConvertToCopy"
+        "GenerateMoveOpPassTest.Transpose"
+        "GenerateMoveOpPassTest.ScatterUpdate"
+        "InsertCopyOpTest.InsertCopy"
+        "MergeCompileFunctionTest.A_MUL_Bt"
+        "RemoveAllocTest.RemoveAlloc"
+        "SplitLargeFanoutTensorTest.PerfectlyMatch"
+        "SplitLargeFanoutTensorTest.BeCovered"
+        "SplitLargeFanoutTensorTest.PerfectlyMatchWithAll"
+        "SplitLargeFanoutTensorTest.MultiView"
+        "TestExpandFunction.ExpandFunctionTest"
+        "SplitLargeLocalRawTest.SplitLocalRaw"
+        "TestInsertSync.TestMainSchedule"
+        "TestInsertSync.TestInnerFunction"
+        "TestPriorScheduling.TestMainSchedule"
+        "TestInsertSync.TestEnableDebug"
+        "ScheduleOoOTest.TestSpill"
+        "ScheduleOoOTest.TestSpillCopyIn"
+        "ScheduleOoOTest.TestHealthReport"
+        "ScheduleOoOTest.TestOpNullptr"
+        "ScheduleOoOTest.TestDelBufCount"
+        "ScheduleOoOTest.TestDelBufCount_1"
+        "ScheduleOoOTest.TestGenBufferSpill"
+        "ScheduleOoOTest.TestUpdateReloadIssueInfo"
+        "ScheduleOoOTest.TestUpdateTensorAttr_DDR"
+        "ScheduleOoOTest.TestUpdateTensorAttr_UB"
+        "ScheduleOoOTest.TestGetSpillTensor"
+        "ScheduleOoOTest.TestCheckAllocIssue"
+        "ScheduleOoOTest.TestGetBufTimes"
+        "TestRemoveUnalignedReshapeOp.test_Unalign_reshape"
+        "TestSplitReshapeOpPVC2.test_reshape_assemble_multito1"
+        "TestSplitReshapeOpPVC2.Test_Reshape_1to1"
+        "TestSplitReshapeOpPVC2.Test_Reshape_1toMulti"
+        "TestSplitReshapeOpPVC2.Test_Reshape_multito1"
+        "TestMemoryReuse.*"
+        "InferShapeTest.*"
+        "GetParamIdxTest.*"
+        "GeneralizetionTest.TestReshape"
+        "GeneralizetionTest.TestAssemble"
+        "GeneralizetionTest.TestView"
+        "GeneralizetionTest.TestScatterUpdate"
+        "GeneralizetionTest.TestTranspose"
+        "GeneralizetionTest.TestReshapeReshape"
+        "GeneralizetionTest.TestAssembleAssemble"
+        "GeneralizetionTest.TestViewView"
+        "GeneralizetionTest.TestScatterUpdateScatterUpdate"
+        "GeneralizetionTest.TestTransposeTranspose"
+        "GeneralizetionTest.TestReshapeToAll"
+        "GeneralizetionTest.TestAssembleToAll"
+        "GeneralizetionTest.TestViewToAll"
+        "GeneralizetionTest.TestScatterUpdateToAll"
+        "GeneralizetionTest.TestTransposeToAll"
+        "PassManagerTest.*"
+        # DumpJson
+        "JsonOutputValidationTest.VerifyBasicStructure"
+        "JsonOutputValidationTest.VerifyFunctionStructure"
+        "JsonOutputValidationTest.VerifyTensorStructure"
+        "JsonOutputValidationTest.VerifyOperationStructure"
+        "CalendarSchedulerTest.TestFullWorkflowWithReassign"
+        "CalenderScheduleCounterTest.TestCounterNum71"
+        "CalenderScheduleCounterTest.TestCounterNum60"
+        "CalenderScheduleCounterTest.TestInvalidFilePath"
+)
+
+set(_Target ${TileFwkUTestNamePrefix}_interface_passes)
+
+file(GLOB_RECURSE _Sources src/*.cpp)
+
+TileFwk_UTest_AddCaseLib(
+        TARGET ${_Target}
+        SOURCES ${_Sources}
+        PUBLIC_LINK_LIBRARIES tile_fwk_passes tile_fwk_interface
+        GTEST_FILTER_LIST ${_CaseFilterList}
+)
+
+add_custom_command(
+        TARGET ${_Target} PRE_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${TileFwkUTestExePath}/config/pass/json
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/src/ut_json/*.json ${TileFwkUTestExePath}/config/pass/json
+        COMMENT "Copy ${_Target} dependence config file."
+)

@@ -38,11 +38,11 @@ public:
         Program::GetInstance().GetConfig().Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-        Program::GetInstance().GetConfig().SetL1Reuse(4);
-        Program::GetInstance().GetConfig().SetL1ReuseMap({{0,2}});
-        Program::GetInstance().GetConfig().SetCubeNBuffer(1);
-        Program::GetInstance().GetConfig().SetCubeNBufferMap({{0,1}});
-        Program::GetInstance().GetConfig().SetLoadBalance(true);
+        Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 4);
+        Program::GetInstance().GetConfig().Set<std::map<int, int>>(L1_REUSE_MAP, {{0,2}});
+        Program::GetInstance().GetConfig().Set<int>(CUBE_NBUFFER, 1);
+        Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{0,1}});
+        Program::GetInstance().GetConfig().Set<bool>(LOAD_BALANCE, true);
     }
 
     void TearDown() override {}
