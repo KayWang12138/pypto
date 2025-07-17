@@ -26,11 +26,11 @@
 #include "common/data_type.h"   // Assuming this is where MemoryType is defined
 #include "interface/configs/config.h" // Assuming this is where the configuration manager is defined
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/tensor/tensormap.h" // Assuming this is where LogicalTensor and tensormap are defined
 #include "interface/tensor/logical_tensor.h"
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h" // Include this if Function is defined in a separate file
+#include "interface/inner/tilefwk.h" // Include this if Function is defined in a separate file
 #include "interface/program/program.h"
 
 

@@ -17,7 +17,7 @@
 
 #include "interface/tensor/logical_tensor.h"
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/operation/op_infer_shape_impl.h"
 #include "passes/tile_graph_pass/infer_dyn_shape.h"

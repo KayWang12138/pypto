@@ -21,7 +21,7 @@
 #include "interface/configs/config_manager.h"
 #include "interface/operation/opcode.h"
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/operation/cycles.h"
 #include "interface/function/function.h"

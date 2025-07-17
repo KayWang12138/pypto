@@ -12,7 +12,6 @@ target_include_directories(tile_fwk_intf_pub
         INTERFACE   # 源码依赖
             ${TILE_FWK_SRC_ROOT}/include
             ${TILE_FWK_SRC_ROOT}/src
-            ${TILE_FWK_SRC_ROOT}/src/include
 )
 target_compile_options(tile_fwk_intf_pub
         INTERFACE

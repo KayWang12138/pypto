@@ -22,7 +22,7 @@
 #include "interface/operation/opcode.h"
 #include "common/data_type.h"
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "passes/pass_utils/parallel_tool.h"
 
 namespace npu{

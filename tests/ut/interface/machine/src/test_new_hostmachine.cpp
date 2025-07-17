@@ -18,7 +18,7 @@
 #include <fstream>
 #include <chrono>
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/configs/config.h"
 #include "interface/machine/host/host_machine.h"

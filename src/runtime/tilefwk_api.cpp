@@ -13,10 +13,10 @@
  * \brief
  */
 
-#include <tilefwk/tilefwk_api.h>
+#include "interface/inner/tilefwk/tilefwk_api.h"
 #include "backend.h"
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "runtime/host/machine_agent.h"
 #include "runtime/dump/kernel_dump_utils.h"

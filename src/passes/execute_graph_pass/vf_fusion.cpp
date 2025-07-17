@@ -21,7 +21,7 @@
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_utils/pass_utils.h"
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "passes/tile_graph_pass/merge_view_assemble.h"
 #include "add_alloc.h"

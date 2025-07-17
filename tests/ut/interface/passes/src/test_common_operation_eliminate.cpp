@@ -16,7 +16,7 @@
 #include <gtest/gtest.h>
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "passes/pass_manager.h"
 #include "passes/pass_registry.h"

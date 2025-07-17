@@ -2,99 +2,51 @@
   "libtile_fwk_interface.so": {
     "Source-Header": {
       "Self": [
-        "src/interface/cache",
-        "src/interface/configs",
-        "src/interface/function",
-        "src/interface/machine",
-        "src/interface/operation",
-        "src/interface/operator",
-        "src/interface/platform",
-        "src/interface/program",
-        "src/interface/tensor",
-        "src/interface/registry",
-        "src/interface/utils",
-        "src/interface/interpreter",
-        "src/models"
+        "src/interface/"
       ],
       "Area": [
-        "src/passes"
+        "src/models/",
+        "src/passes/"
       ],
       "Include": [
-        "include/common",
-        "include/operation",
-        "include/program",
-        "include/tilefwk",
-        "include/tensor",
-        "src/include"
+        "include/"
       ],
       "WhiteList": [
       ],
       "BlackList": [
+        "include/tileop/"
       ]
     }
   },
   "libtile_fwk_passes.so": {
     "Source-Header": {
       "Self": [
-        "src/passes"
+        "src/passes/"
       ],
       "Area": [
-        "src/interface/cache",
-        "src/interface/configs",
-        "src/interface/function",
-        "src/interface/machine",
-        "src/interface/operation",
-        "src/interface/operator",
-        "src/interface/platform",
-        "src/interface/program",
-        "src/interface/tensor",
-        "src/interface/registry",
-        "src/interface/utils",
-        "src/interface/interpreter",
-        "src/models"
+        "src/interface/"
       ],
       "Include": [
-        "include/common",
-        "include/operation",
-        "include/program",
-        "include/tilefwk",
-        "include/tensor",
-        "src/include"
+        "include/"
       ],
       "WhiteList": [
       ],
       "BlackList": [
+        "include/tileop/"
       ]
     }
   },
   "libtile_fwk_codegen.so": {
     "Source-Header": {
       "Self": [
-        "src/codegen"
+        "src/codegen/"
       ],
       "Area": [
-      ],
-      "Open" : [
-        "src/interface/cache",
-        "src/interface/configs",
-        "src/interface/function",
-        "src/interface/machine",
-        "src/interface/operation",
-        "src/interface/operator",
-        "src/interface/platform",
-        "src/interface/program",
-        "src/interface/tensor",
-        "src/interface/utils",
-        "src/passes",
-        "src/models"
+        "src/interface/",
+        "src/passes/"
       ],
       "Include": [
-        "include/common",
-        "include/operation",
-        "include/program",
-        "include/tilefwk",
-        "include/tensor",
-        "src/include"
+        "include/"
       ],
       "WhiteList": [
       ],
@@ -105,37 +57,18 @@
   "libtile_fwk_runtime.so": {
     "Source-Header": {
       "Self": [
-        "src/runtime"
+        "src/runtime/"
       ],
       "Area": [
-        "src/codegen"
-      ],
-      "Open" : [
-        "src/interface/cache",
-        "src/interface/configs",
-        "src/interface/function",
-        "src/interface/machine",
-        "src/interface/operation",
-        "src/interface/operator",
-        "src/interface/platform",
-        "src/interface/program",
-        "src/interface/tensor",
-        "src/interface/registry",
-        "src/interface/utils",
-        "src/passes",
-        "src/models",
-        "tests/cost_model/simulation"
+        "src/interface/",
+        "src/passes/",
+        "src/codegen/"
       ],
       "Include": [
-        "include/common",
-        "include/operation",
-        "include/program",
-        "include/tilefwk",
-        "include/tensor",
-        "include/tileop",
-        "src/include"
+        "include/"
       ],
       "WhiteList": [
+        "tests/cost_model/simulation/"
       ],
       "BlackList": [
       ]
@@ -144,302 +77,169 @@
   "libtile_fwk_simulation.so": {
     "Source-Header": {
       "Self": [
-        "tests/cost_model/simulation"
+        "tests/cost_model/simulation/"
       ],
       "Area": [
-        "src/interface/cache",
-        "src/interface/configs",
-        "src/interface/function",
-        "src/interface/machine",
-        "src/interface/operation",
-        "src/interface/operator",
-        "src/interface/platform",
-        "src/interface/program",
-        "src/interface/tensor",
-        "src/interface/utils",
-        "src/passes",
-        "src/models"
+        "src/interface/",
+        "src/passes/"
       ],
       "Include": [
-        "include/common",
-        "include/operation",
-        "include/program",
-        "include/tilefwk",
-        "include/tensor",
-        "src/include"
+        "include/"
       ],
       "WhiteList": [
       ],
       "BlackList": [
+        "include/tileop/"
       ]
     }
   },
   "libtile_fwk_simulation_pv.so": {
     "Source-Header": {
       "Self": [
-        "tests/cost_model/simulation_pv"
+        "tests/cost_model/simulation_pv/"
       ],
       "Area": [
-        "src/codegen",
-        "tests/cost_model/simulation"
-      ],
-      "Open" : [
-        "src/interface/cache",
-        "src/interface/configs",
-        "src/interface/function",
-        "src/interface/machine",
-        "src/interface/operation",
-        "src/interface/operator",
-        "src/interface/platform",
-        "src/interface/program",
-        "src/interface/tensor",
-        "src/interface/utils",
-        "src/passes",
-        "src/models"
+        "src/interface/",
+        "src/passes/",
+        "src/codegen/",
+        "tests/cost_model/simulation/"
       ],
       "Include": [
-        "include/common",
-        "include/operation",
-        "include/program",
-        "include/tilefwk",
-        "include/tensor",
-        "src/include"
+        "include/"
       ],
       "WhiteList": [
       ],
       "BlackList": [
+        "include/tileop/"
       ]
     }
   },
   "libtile_fwk_simulation_ca.so": {
     "Source-Header": {
       "Self": [
-        "tests/cost_model/simulation_ca"
+        "tests/cost_model/simulation_ca/"
       ],
       "Area": [
-        "src/codegen",
-        "tests/cost_model/simulation"
-      ],
-      "Open" : [
-        "src/interface/cache",
-        "src/interface/configs",
-        "src/interface/function",
-        "src/interface/machine",
-        "src/interface/operation",
-        "src/interface/operator",
-        "src/interface/platform",
-        "src/interface/program",
-        "src/interface/tensor",
-        "src/interface/utils",
-        "src/passes",
-        "src/models"
+        "src/interface/",
+        "src/passes/",
+        "src/codegen/",
+        "tests/cost_model/simulation/"
       ],
       "Include": [
-        "include/common",
-        "include/operation",
-        "include/program",
-        "include/tilefwk",
-        "include/tensor",
-        "src/include"
+        "include/"
       ],
       "WhiteList": [
       ],
       "BlackList": [
+        "include/tileop/"
       ]
     }
   },
   "libtile_fwk_stest_interface_ops.a": {
     "Source-Header": {
       "Self": [
-        "tests/st/interface/ops"
+        "tests/st/interface/ops/"
       ],
       "Area": [
+        "src/models/",
+        "src/interface/",
+        "src/passes/",
+        "src/runtime/",
         "tests/st/utils"
       ],
-      "Open" : [
-        "src/interface/cache",
-        "src/interface/configs",
-        "src/interface/function",
-        "src/interface/machine",
-        "src/interface/operation",
-        "src/interface/operator",
-        "src/interface/platform",
-        "src/interface/program",
-        "src/interface/tensor",
-        "src/interface/utils",
-        "src/interface/interpreter",
-        "src/passes",
-        "src/models",
-        "tests/cost_model/simulation",
-        "src/runtime"
-      ],
       "Include": [
-        "include/common",
-        "include/operation",
-        "include/program",
-        "include/tilefwk",
-        "include/tensor",
-        "src/include"
+        "include/"
       ],
       "WhiteList": [
+        "tests/cost_model/simulation/"
       ],
       "BlackList": [
+        "include/tileop/"
       ]
     }
   },
   "libtile_fwk_stest_interface_tile_op.a": {
     "Source-Header": {
       "Self": [
-        "tests/st/interface/tile_op"
+        "tests/st/interface/tile_op/"
       ],
       "Area": [
-        "src/codegen",
+        "src/interface/",
+        "src/passes/",
+        "src/codegen/",
+        "src/runtime/",
         "tests/st/utils"
       ],
-      "Open" : [
-        "src/interface/cache",
-        "src/interface/configs",
-        "src/interface/function",
-        "src/interface/machine",
-        "src/interface/operation",
-        "src/interface/operator",
-        "src/interface/platform",
-        "src/interface/program",
-        "src/interface/tensor",
-        "src/interface/utils",
-        "src/interface/interpreter",
-        "src/passes",
-        "src/models",
-        "tests/cost_model/simulation",
-        "src/runtime",
-        "src/include"
-      ],
       "Include": [
-        "include/common",
-        "include/operation",
-        "include/program",
-        "include/tilefwk",
-        "include/tensor",
-        "src/include"
+        "include/"
       ],
       "WhiteList": [
+        "tests/cost_model/simulation/"
       ],
       "BlackList": [
+        "include/tileop/"
       ]
     }
   },
   "libtile_fwk_stest_runtime.a": {
     "Source-Header": {
       "Self": [
-        "tests/st/runtime"
+        "tests/st/runtime/"
       ],
       "Area": [
-        "tests/st/utils",
-        "src/runtime",
-        "tests/st/distributed/ops/include",
-        "tests/st/distributed/framework/include"
-      ],
-      "Open" : [
-        "src/interface/cache",
-        "src/interface/configs",
-        "src/interface/function",
-        "src/interface/machine",
-        "src/interface/operation",
-        "src/interface/operator",
-        "src/interface/platform",
-        "src/interface/program",
-        "src/interface/tensor",
-        "src/interface/registry",
-        "src/interface/utils",
-        "src/interface/interpreter",
-        "src/passes",
-        "src/models",
-        "tests/cost_model/simulation"
+        "src/models/",
+        "src/interface/",
+        "src/passes/",
+        "src/runtime/",
+        "tests/st/utils"
       ],
       "Include": [
-        "include/common",
-        "include/operation",
-        "include/program",
-        "include/tilefwk",
-        "include/tensor",
-        "src/include"
+        "include/"
       ],
       "WhiteList": [
+        "tests/cost_model/simulation/"
       ],
       "BlackList": [
+        "include/tileop/"
       ]
     }
   },
   "libtile_fwk_stest_simulation.a": {
     "Source-Header": {
       "Self": [
-        "tests/st/simulation"
+        "tests/st/simulation/"
       ],
       "Area": [
-        "src/codegen",
-        "src/runtime",
-        "tests/cost_model/simulation",
+        "src/models/",
+        "src/interface/",
+        "src/passes/",
+        "src/runtime/",
         "tests/st/utils"
       ],
-      "Open" : [
-        "src/interface/cache",
-        "src/interface/configs",
-        "src/interface/function",
-        "src/interface/machine",
-        "src/interface/operation",
-        "src/interface/operator",
-        "src/interface/platform",
-        "src/interface/program",
-        "src/interface/tensor",
-        "src/interface/interpreter",
-        "src/interface/utils",
-        "src/passes",
-        "src/models"
-      ],
       "Include": [
-        "include/common",
-        "include/operation",
-        "include/program",
-        "include/tilefwk",
-        "include/tensor",
-        "src/include"
+        "include/"
       ],
       "WhiteList": [
+        "tests/cost_model/simulation/"
       ],
       "BlackList": [
+        "include/tileop/"
       ]
     }
   },
   "libtile_fwk_utest_codegen.a": {
     "Source-Header": {
       "Self": [
-        "tests/ut/codegen"
+        "tests/ut/codegen/"
       ],
       "Area": [
-        "src/codegen"
-      ],
-      "Open" : [
-        "src/interface/cache",
-        "src/interface/configs",
-        "src/interface/function",
-        "src/interface/machine",
-        "src/interface/operation",
-        "src/interface/operator",
-        "src/interface/platform",
-        "src/interface/program",
-        "src/interface/tensor",
-        "src/interface/utils",
-        "src/passes",
-        "src/models",
-        "src/include"
+        "src/models/",
+        "src/interface/",
+        "src/passes/",
+        "src/codegen/"
       ],
       "Include": [
-        "include/common",
-        "include/operation",
-        "include/program",
-        "include/tilefwk",
-        "include/tensor",
-        "src/include"
+        "include/"
       ],
       "WhiteList": [
       ],
@@ -450,181 +250,97 @@
   "libtile_fwk_utest_interface_function.a": {
     "Source-Header": {
       "Self": [
-        "tests/ut/interface/function"
+        "tests/ut/interface/function/"
       ],
       "Area": [
-      ],
-      "Open" : [
-        "src/interface/cache",
-        "src/interface/configs",
-        "src/interface/function",
-        "src/interface/machine",
-        "src/interface/operation",
-        "src/interface/operator",
-        "src/interface/platform",
-        "src/interface/program",
-        "src/interface/tensor",
-        "src/interface/interpreter",
-        "src/interface/utils",
-        "src/passes",
-        "src/models"
+        "src/models/",
+        "src/interface/",
+        "src/passes/"
       ],
       "Include": [
-        "include/common",
-        "include/operation",
-        "include/program",
-        "include/tilefwk",
-        "include/tensor",
-        "src/include"
+        "include/"
       ],
       "WhiteList": [
       ],
       "BlackList": [
+        "include/tileop/"
       ]
     }
   },
   "libtile_fwk_utest_interface_machine.a": {
     "Source-Header": {
       "Self": [
-        "tests/ut/interface/machine"
+        "tests/ut/interface/machine/"
       ],
       "Area": [
-      ],
-      "Open" : [
-        "src/interface/cache",
-        "src/interface/configs",
-        "src/interface/function",
-        "src/interface/machine",
-        "src/interface/operation",
-        "src/interface/operator",
-        "src/interface/platform",
-        "src/interface/program",
-        "src/interface/tensor",
-        "src/interface/utils",
-        "src/passes",
-        "src/models"
+        "src/interface/",
+        "src/passes/"
       ],
       "Include": [
-        "include/common",
-        "include/operation",
-        "include/program",
-        "include/tilefwk",
-        "include/tensor",
-        "src/include"
+        "include/"
       ],
       "WhiteList": [
       ],
       "BlackList": [
+        "include/tileop/"
       ]
     }
   },
   "libtile_fwk_utest_interface_ops.a": {
     "Source-Header": {
       "Self": [
-        "tests/ut/interface/ops"
+        "tests/ut/interface/ops/"
       ],
       "Area": [
-      ],
-      "Open" : [
-        "src/interface/cache",
-        "src/interface/configs",
-        "src/interface/function",
-        "src/interface/machine",
-        "src/interface/operation",
-        "src/interface/operator",
-        "src/interface/platform",
-        "src/interface/program",
-        "src/interface/tensor",
-        "src/interface/utils",
-        "src/interface/interpreter",
-        "src/passes",
-        "src/models",
-        "tests/cost_model/simulation"
+        "src/models/",
+        "src/interface/",
+        "src/passes/"
       ],
       "Include": [
-        "include/common",
-        "include/operation",
-        "include/program",
-        "include/tilefwk",
-        "include/tensor",
-        "src/include"
+        "include/"
       ],
       "WhiteList": [
       ],
       "BlackList": [
+        "include/tileop/"
       ]
     }
   },
   "libtile_fwk_utest_interface_passes.a": {
     "Source-Header": {
       "Self": [
-        "tests/ut/interface/passes"
+        "tests/ut/interface/passes/"
       ],
       "Area": [
-      ],
-      "Open" : [
-        "src/interface/cache",
-        "src/interface/configs",
-        "src/interface/function",
-        "src/interface/machine",
-        "src/interface/operation",
-        "src/interface/operator",
-        "src/interface/platform",
-        "src/interface/program",
-        "src/interface/tensor",
-        "src/interface/utils",
-        "src/passes",
-        "src/models"
+        "src/models/",
+        "src/interface/",
+        "src/passes/"
       ],
       "Include": [
-        "include/common",
-        "include/operation",
-        "include/program",
-        "include/tilefwk",
-        "include/tensor",
-        "src/include"
+        "include/"
       ],
       "WhiteList": [
       ],
       "BlackList": [
+        "include/tileop/"
       ]
     }
   },
   "libtile_fwk_utest_runtime.a": {
     "Source-Header": {
       "Self": [
-        "tests/ut/runtime"
+        "tests/ut/runtime/"
       ],
       "Area": [
-        "src/runtime"
-      ],
-      "Open" : [
-        "src/interface/cache",
-        "src/interface/configs",
-        "src/interface/function",
-        "src/interface/machine",
-        "src/interface/operation",
-        "src/interface/operator",
-        "src/interface/platform",
-        "src/interface/program",
-        "src/interface/tensor",
-        "src/interface/registry",
-        "src/interface/utils",
-        "src/interface/interpreter",
-        "src/passes",
-        "src/models",
-        "tests/cost_model/simulation"
+        "src/models/",
+        "src/interface/",
+        "src/passes/",
+        "src/runtime/"
       ],
       "Include": [
-        "include/common",
-        "include/operation",
-        "include/program",
-        "include/tilefwk",
-        "include/tensor",
-        "src/include"
+        "include/"
       ],
       "WhiteList": [
-        "include/tileop/a2a3/hccl_context.h"
       ],
       "BlackList": [
       ]
@@ -633,38 +349,23 @@
   "libtile_fwk_utest_simulation.a": {
     "Source-Header": {
       "Self": [
-        "tests/ut/simulation"
+        "tests/ut/simulation/"
       ],
       "Area": [
-        "tests/cost_model/simulation",
-        "tests/cost_model/simulation_pv",
-        "src/codegen"
-      ],
-      "Open" : [
-        "src/interface/cache",
-        "src/interface/configs",
-        "src/interface/function",
-        "src/interface/machine",
-        "src/interface/operation",
-        "src/interface/operator",
-        "src/models",
-        "src/interface/platform",
-        "src/interface/program",
-        "src/interface/tensor",
-        "src/interface/utils",
-        "src/passes"
+        "src/models/",
+        "src/interface/",
+        "src/passes/",
+        "src/codegen/",
+        "tests/cost_model/simulation/",
+        "tests/cost_model/simulation_pv/"
       ],
       "Include": [
-        "include/common",
-        "include/operation",
-        "include/program",
-        "include/tilefwk",
-        "include/tensor",
-        "src/include"
+        "include/"
       ],
       "WhiteList": [
       ],
       "BlackList": [
+        "include/tileop/"
       ]
     }
   }

@@ -21,14 +21,14 @@
 #include <fstream>
 #include <chrono>
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "common/data_type.h"
 #include "runtime/mem.h"
 #include "test_common.h"
 #include "interface/machine/host/host_machine.h"
 #include "models/llama/llama_def.h"
-#include <tilefwk/tilefwk_api.h>
+#include "interface/inner/tilefwk/tilefwk_api.h"
 #include <Python.h>
 
 namespace {

@@ -22,7 +22,7 @@
 #include "interface/utils/any.h"
 #include "interface/utils/common.h"
 #include "interface/utils/log.h"
-#include "element.h"
+#include "interface/inner/element.h"
 
 namespace npu::tile_fwk {
 const std::string OP_ATTR_PREFIX = "op_attr_";

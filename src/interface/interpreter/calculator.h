@@ -19,7 +19,7 @@
 #include <cfenv>
 #include "interface/utils/thread_pool.h"
 #include "interface/interpreter/raw_tensor_data.h"
-#include "element.h"
+#include "interface/inner/element.h"
 #include "interface/operation/opcode.h"
 
 

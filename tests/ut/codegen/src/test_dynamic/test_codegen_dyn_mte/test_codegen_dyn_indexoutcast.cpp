@@ -18,7 +18,7 @@
 #include "interface/operation/opcode.h"
 #include "interface/tensor/logical_tensor.h"
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
 #include "interface/operation/operation.h"

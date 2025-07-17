@@ -21,7 +21,7 @@
 #include "interface/tensor/raw_tensor.h"
 #include "interface/operation/attribute.h"
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "passes/tile_graph_pass/dead_operation_eliminate.h"
 #include "passes/pass_interface/pass.h"

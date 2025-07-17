@@ -17,7 +17,7 @@
 
 #include "codegen/codegen.h"
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "models/deepseek/deepseek_moeinfer.h"
 #include "interface/configs/config_manager.h"

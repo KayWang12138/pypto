@@ -15,7 +15,7 @@
 
 #include <gtest/gtest.h>
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "test_common.h"
 #include "distributed_op_test_suite.h"

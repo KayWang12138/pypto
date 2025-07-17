@@ -16,7 +16,7 @@
 #ifndef PASSES_PASS_MGR_H_
 #define PASSES_PASS_MGR_H_
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/function/function.h"
 

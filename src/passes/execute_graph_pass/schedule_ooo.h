@@ -26,7 +26,7 @@
 #include "passes/pass_utils/pass_utils.h"
 #include "passes/pass_utils/reschedule_utils.h"
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "passes/execute_graph_pass/buffer_pool.h"
 

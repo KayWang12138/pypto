@@ -20,7 +20,7 @@
 #include "interface/utils/id_gen.h"
 #include "interface/utils/log.h"
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/operation/attribute.h"
 #include "interface/tensor/logical_tensor.h"

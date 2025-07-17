@@ -23,7 +23,7 @@
 #include "interface/utils/thread_pool.h"
 #include "common/data_type.h"
 #include "tilefwk/tensor.h"
-#include "element.h"
+#include "interface/inner/element.h"
 #include "interface/tensor/tensor_offset.h"
 
 

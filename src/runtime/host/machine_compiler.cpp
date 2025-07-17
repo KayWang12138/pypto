@@ -22,7 +22,7 @@
 #include "interface/tensor/raw_tensor.h"
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 
 constexpr int DUMP_INCAST = 2;

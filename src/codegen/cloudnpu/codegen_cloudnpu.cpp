@@ -21,7 +21,7 @@
 #include "interface/configs/config_manager.h"
 #include "securec.h"
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "codegen_vf.h"
 #include "codegen_cloudnpu.h"

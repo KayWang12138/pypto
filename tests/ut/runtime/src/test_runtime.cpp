@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include "runtime/runtime.h"
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include <iostream>
 using namespace npu::tile_fwk;

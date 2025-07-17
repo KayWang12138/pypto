@@ -15,7 +15,7 @@
 
 #include "passes/pass_utils/parallel_tool.h"
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 
 namespace npu::tile_fwk {

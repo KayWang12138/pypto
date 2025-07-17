@@ -20,7 +20,7 @@
 #include "interface/configs/config_manager.h"
 #include "passes/pass_manager.h"
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 
 namespace npu::tile_fwk {

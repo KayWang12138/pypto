@@ -21,7 +21,7 @@
 #include "runtime/cache_manager/cache_manager.h"
 #include "runtime/utils/dynamic/dev_encode.h"
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
 #include "codegen/codegen.h"

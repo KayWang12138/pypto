@@ -19,7 +19,7 @@
 #include "interface/configs/config_manager.h"
 #include "interface/platform/platform_manager.h"
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "runtime/dump/task_dump_utils.h"
 

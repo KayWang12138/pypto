@@ -22,7 +22,7 @@
 #include "common/data_type.h"
 #include "interface/utils/assert.h"
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 
 namespace npu::tile_fwk {

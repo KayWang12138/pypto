@@ -17,7 +17,7 @@
 #define INFER_PARAM_INDEX_PASS_H_
 #include "passes/pass_interface/pass.h"
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/function/function.h"
 namespace npu::tile_fwk {

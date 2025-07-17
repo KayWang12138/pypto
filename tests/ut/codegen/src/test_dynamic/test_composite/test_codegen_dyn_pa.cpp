@@ -17,7 +17,7 @@
 
 #include "codegen/codegen.h"
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/machine/host/host_machine.h"
 #include "models/llama/llama_def.h"

@@ -19,7 +19,7 @@
 #include "passes/pass_interface/pass.h"
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "passes/tile_graph_pass/convert_op_inserter.h"
 namespace npu::tile_fwk {

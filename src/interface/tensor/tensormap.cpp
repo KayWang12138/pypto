@@ -24,7 +24,7 @@
 #include <numeric>
 
 #include "tilefwk/tilefwk.h"
-#include "tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/function/function.h"
 #include "interface/tensor/raw_tensor.h"
