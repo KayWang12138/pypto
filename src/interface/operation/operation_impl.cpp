@@ -20,6 +20,7 @@
 #include "distributed/distributed_expand.h"
 #include "interface/function/function.h"
 #include "interface/tensor/symbolic_scalar.h"
+#include "tilefwk/symbolic_scalar.h"
 #include "tilefwk/tensor.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/tensor/raw_tensor.h"
@@ -978,7 +979,10 @@ Tensor View(const Tensor &operand, const std::vector<int> &shapes, const std::ve
     Tensor result(operand->Datatype(), shapes, "View_" + operand->GetRawTensor()->GetSymbol(), operand->nodetype, operand->tensorfmt);
     auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(
         Opcode::OP_VIEW, {operand.GetStorage()}, {result.GetStorage()});
-    op.SetOpAttribute(std::make_shared<ViewOpAttribute>(offsets));
+    auto validShape = GetViewValidShape(operand->GetDynValidShape(), offsets, {}, shapes);
+    result->UpdateDynValidShape(validShape);
+    auto newOffsets = SymbolicScalar::FromConcrete(offsets);
+    op.SetOpAttribute(std::make_shared<ViewOpAttribute>(offsets, newOffsets, validShape));
     return result;
 }
 
@@ -987,8 +991,10 @@ Tensor DView(const Tensor &operand, const std::vector<int> &shapes, const std::v
     result->UpdateDynValidShape(SymbolicScalar::FromConcrete(shapes));
     auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(
         Opcode::OP_VIEW, {operand.GetStorage()}, {result.GetStorage()});
+    auto validShape = GetViewValidShape(operand->GetDynValidShape(), {}, newOffsets, shapes);
+    result->UpdateDynValidShape(validShape);
     std::vector<int> newOffsetsConcrete = SymbolicScalar::Concrete(newOffsets, 0);
-    op.SetOpAttribute(std::make_shared<ViewOpAttribute>(newOffsetsConcrete, newOffsets));
+    op.SetOpAttribute(std::make_shared<ViewOpAttribute>(newOffsetsConcrete, newOffsets, validShape));
     return result;
 }
 
@@ -1803,14 +1809,13 @@ void TiledVecDup(Function &function, const TileShape &tileShape, size_t cur, Ele
 
         op.SetAttribute(OpAttributeKey::scalar, value);
         op.SetAttribute(OP_ATTR_PREFIX + "shape", resultTileInfo.shape);
-        op.SetAttribute(OP_ATTR_PREFIX + "validShape", resultTileInfo.validShape);
+        op.SetAttribute(OP_ATTR_PREFIX + "validShape", resultTile->GetDynValidShape());
         return;
     }
 
     for (int i = 0; i < results->shape[cur]; i += tileShape.V(cur)) {
         resultTileInfo.offset[cur] = i;
         resultTileInfo.shape[cur] = std::min(results->shape[cur] - i, tileShape.V(cur));
-        resultTileInfo.validShape[cur] = std::max(std::min(validShape[cur] - i, tileShape.V(cur)), 0);
         TiledVecDup(function, tileShape, cur + 1, value, shape, validShape, results, resultTileInfo);
     }
 }
@@ -3081,9 +3086,8 @@ void TiledInnerAMulB(Function &function, const TileShape &tileShape,
                                                     "a_l1", Tile1->nodetype , Tile1->tensorfmt);
                     auto &CopyInA = function.AddOperation(Opcode::OP_COPY_IN, {Tile1}, {inputTile1});
                     CopyInA.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}),
-                        MemoryType::MEM_L1,
-                        OpImmediate::Specified(inputTile1->GetShape()),
-                        OpImmediate::Specified(inputTile1->tensor->GetRawShape())));
+                        MemoryType::MEM_L1, OpImmediate::Specified(inputTile1->GetShape()),
+                        OpImmediate::Specified(inputTile1->tensor->GetDynRawShape())));
                     leftTilesL1.push_back(inputTile1);
                 }
                 for (const auto& tile : rightTiles) {
@@ -3098,9 +3102,8 @@ void TiledInnerAMulB(Function &function, const TileShape &tileShape,
                                                 "b_l1", Tile2->nodetype , Tile2->tensorfmt);
                     auto &CopyInB = function.AddOperation(Opcode::OP_COPY_IN, {Tile2}, {inputTile2});
                     CopyInB.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}),
-                            MemoryType::MEM_L1,
-                            OpImmediate::Specified(inputTile2->GetShape()),
-                            OpImmediate::Specified(inputTile2->tensor->GetRawShape())));
+                        MemoryType::MEM_L1, OpImmediate::Specified(inputTile2->GetShape()),
+                        OpImmediate::Specified(inputTile2->tensor->GetDynRawShape())));
                     rightTilesL1.push_back(inputTile2);
                 }
                 for (int k = 0; k < formatDimK; k += stepK) {
