@@ -43,17 +43,6 @@ class Float {
         uint32_t v = *static_cast<uint32_t *>(p);
         value = BaseFromFp32(v);
     }
-public:
-    Float() : value(0) {}
-
-    template <typename T>
-    explicit Float(T fv) {
-        InitFromFloat(static_cast<float>(fv));
-    }
-
-    Float(const float& val) {
-        InitFromFloat(static_cast<float>(val));
-    }
 
     float ToFloat() const {
         uint32_t v = BaseToFp32(value);
@@ -61,109 +50,10 @@ public:
         return *static_cast<float *>(p);
     }
 
-    operator float() const {
-        return ToFloat();
-    }
-
-    template <typename T>
-    Float &operator=(T fv) {
-        InitFromFloat(static_cast<float>(fv));
-        return *this;
-    }
-
-    template <typename T>
-    Float operator+(T fv) {
-        return Float(this->ToFloat() + static_cast<float>(fv));
-    }
-
-    template <typename T>
-    Float operator-(T fv) {
-        return Float(this->ToFloat() - static_cast<float>(fv));
-    }
-
-    template <typename T>
-    Float operator*(T fv) {
-        return Float(this->ToFloat() * static_cast<float>(fv));
-    }
-
-    template <typename T>
-    Float operator/(T fv) {
-        return Float(this->ToFloat() / static_cast<float>(fv));
-    }
-
-    template <typename T>
-    Float &operator+=(T fv) {
-        InitFromFloat(this->ToFloat() + static_cast<float>(fv));
-        return *this;
-    }
-
-    template <typename T>
-    Float &operator-=(T fv) {
-        InitFromFloat(this->ToFloat() - static_cast<float>(fv));
-        return *this;
-    }
-
-    template <typename T>
-    Float &operator*=(T fv) {
-        InitFromFloat(this->ToFloat() * static_cast<float>(fv));
-        return *this;
-    }
-
-    template <typename T>
-    Float &operator/=(T fv) {
-        InitFromFloat(this->ToFloat() / static_cast<float>(fv));
-        return *this;
-    }
-
     static bool isNaN(TBase v) {
         uint32_t exp = (v >> fracBit) & BitOf(expBit);
         uint32_t frac = v & BitOf(fracBit);
         return (exp == BitOf(expBit)) && (frac != 0);
-    }
-
-    template <typename T>
-    bool operator==(T fv) const {
-        TBase thisBase = value;
-        TBase otherBase;
-        if constexpr (std::is_same_v<T, Float>) {
-            otherBase = fv.value;
-        } else {
-            float temp = static_cast<float>(fv);
-            otherBase = BaseFromFp32(*reinterpret_cast<const uint32_t*>(&temp));
-        }
-        if ((thisBase & ~(1 << (expBit + fracBit))) == 0 &&
-            (otherBase & ~(1 << (expBit + fracBit))) == 0) {
-            return true;
-        }
-        if (isNaN(thisBase) || isNaN(otherBase)) {
-            return false;
-        }
-        return thisBase == otherBase;
-    }
-
-    template <typename T>
-    bool operator!=(T fv) const {
-        return !(*this == fv);
-    }
-
-    template <typename T>
-    bool operator>=(T fv) const {
-        return this->ToFloat() >= static_cast<float>(fv);
-    }
-
-    template <typename T>
-    bool operator<=(T fv) const {
-        return this->ToFloat() <= static_cast<float>(fv);
-    }
-
-    template <typename T>
-    bool operator>(T fv) const {
-        return this->ToFloat() > static_cast<float>(fv);
-    }
-
-    template <typename T>
-    bool operator<(T fv) const {
-        return this->ToFloat() < static_cast<float>(fv);
     }
 
     static_assert(sizeof(TBase) * static_cast<uint32_t>(FloatExp::bitOfByte) >= signBit + expBit + fracBit,
@@ -173,20 +63,14 @@ public:
         return (1 << n) - 1;
     }
 
-    static void PrintMetadata() {
-        printf("expBit=%d fracBit=%d expZero=%d fp32ExpBit=%d fp32FracBit=%d fp32ExpZero=%d\n", expBit, fracBit,
-            static_cast<uint32_t>(FloatExp::expZero), static_cast<uint32_t>(FloatExp::fp32ExpBit),
-            static_cast<uint32_t>(FloatExp::fp32FracBit), static_cast<uint32_t>(FloatExp::fp32ExpZero));
+    static constexpr uint32_t BaseFromFp32DivRound(uint32_t frac, uint32_t shift) {
+        return (frac >> shift) + ((frac >> (shift - 1)) & 0x1);
     }
 
     static Float FromBase(TBase val) {
         Float ret;
         ret.value = val;
         return ret;
-    }
-
-    static constexpr uint32_t BaseFromFp32DivRound(uint32_t frac, uint32_t shift) {
-        return (frac >> shift) + ((frac >> (shift - 1)) & 0x1);
     }
 
     static constexpr TBase BaseFromFp32(uint32_t v32) {
@@ -272,7 +156,7 @@ public:
             }
         }
         return (sign << (expBit + fracBit)) | (exp << fracBit) | frac;
-    };
+    }
 
     static constexpr uint32_t BaseToFp32(TBase v) {
         if (expBit == EXP_BIT_EIGHT) {
@@ -334,6 +218,113 @@ public:
         }
         return (sign << (static_cast<uint32_t>(FloatExp::fp32ExpBit) + static_cast<uint32_t>(FloatExp::fp32FracBit))) |
                (exp32 << static_cast<uint32_t>(FloatExp::fp32FracBit)) | frac32;
+    }
+
+    static void PrintMetadata() {
+        printf("expBit=%d fracBit=%d expZero=%d fp32ExpBit=%d fp32FracBit=%d fp32ExpZero=%d\n", expBit, fracBit,
+            static_cast<uint32_t>(FloatExp::expZero), static_cast<uint32_t>(FloatExp::fp32ExpBit),
+            static_cast<uint32_t>(FloatExp::fp32FracBit), static_cast<uint32_t>(FloatExp::fp32ExpZero));
+    }
+
+public:
+    Float() : value(0) {}
+
+    template <typename T>
+    Float(T fv) {
+        InitFromFloat(static_cast<float>(fv));
+    }
+
+    operator float() const {
+        return ToFloat();
+    }
+
+    template <typename T>
+    Float operator+(T fv) {
+        return Float(this->ToFloat() + static_cast<float>(fv));
+    }
+
+    template <typename T>
+    Float operator-(T fv) {
+        return Float(this->ToFloat() - static_cast<float>(fv));
+    }
+
+    template <typename T>
+    Float operator*(T fv) {
+        return Float(this->ToFloat() * static_cast<float>(fv));
+    }
+
+    template <typename T>
+    Float operator/(T fv) {
+        return Float(this->ToFloat() / static_cast<float>(fv));
+    }
+
+    template <typename T>
+    Float &operator+=(T fv) {
+        InitFromFloat(this->ToFloat() + static_cast<float>(fv));
+        return *this;
+    }
+
+    template <typename T>
+    Float &operator-=(T fv) {
+        InitFromFloat(this->ToFloat() - static_cast<float>(fv));
+        return *this;
+    }
+
+    template <typename T>
+    Float &operator*=(T fv) {
+        InitFromFloat(this->ToFloat() * static_cast<float>(fv));
+        return *this;
+    }
+
+    template <typename T>
+    Float &operator/=(T fv) {
+        InitFromFloat(this->ToFloat() / static_cast<float>(fv));
+        return *this;
+    }
+
+    template <typename T>
+    bool operator==(T fv) const {
+        TBase thisBase = value;
+        TBase otherBase;
+        if constexpr (std::is_same_v<T, Float>) {
+            otherBase = fv.value;
+        } else {
+            float temp = static_cast<float>(fv);
+            otherBase = BaseFromFp32(*reinterpret_cast<const uint32_t*>(&temp));
+        }
+        if ((thisBase & ~(1 << (expBit + fracBit))) == 0 &&
+            (otherBase & ~(1 << (expBit + fracBit))) == 0) {
+            return true;
+        }
+        if (isNaN(thisBase) || isNaN(otherBase)) {
+            return false;
+        }
+        return thisBase == otherBase;
+    }
+
+    template <typename T>
+    bool operator!=(T fv) const {
+        return !(*this == fv);
+    }
+
+    template <typename T>
+    bool operator>=(T fv) const {
+        return this->ToFloat() >= static_cast<float>(fv);
+    }
+
+    template <typename T>
+    bool operator<=(T fv) const {
+        return this->ToFloat() <= static_cast<float>(fv);
+    }
+
+    template <typename T>
+    bool operator>(T fv) const {
+        return this->ToFloat() > static_cast<float>(fv);
+    }
+
+    template <typename T>
+    bool operator<(T fv) const {
+        return this->ToFloat() < static_cast<float>(fv);
     }
 };
 
