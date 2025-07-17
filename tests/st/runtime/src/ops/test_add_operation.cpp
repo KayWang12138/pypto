@@ -1,0 +1,105 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file test_add_operation.cpp
+ * \brief
+ */
+
+#include "test_operation.h"
+
+using namespace ascend::test_operation;
+namespace {
+struct  AddOperationTestCaseData {
+    std::vector<int> shape;
+    std::vector<int> vecTileShapes;
+    DataType dType;
+    OpFunc opFunc;
+};
+
+static void AddOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
+                                const std::vector<int>& tileShape, const std::vector<string>& attrs) {
+    (void)attrs;                                
+    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0], inputs[1]}, {outputs[0]}) {
+        SymbolicScalar firstDim = inputs[0]->shape[0];
+        SymbolicScalar secondDim = inputs[0]->shape[1];
+        const int firstl0LoopLengthTile = 128;
+
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, firstDim / firstl0LoopLengthTile, 1)) {
+            auto tileTensor0 = DViewPad(inputs[0], {firstl0LoopLengthTile, secondDim},
+                {std::min(firstDim - bIdx * firstl0LoopLengthTile, firstl0LoopLengthTile), secondDim},
+                {bIdx * firstl0LoopLengthTile, 0});
+            auto tileTensor1 = DViewPad(inputs[1], {firstl0LoopLengthTile, secondDim},
+                {std::min(firstDim - bIdx * firstl0LoopLengthTile, firstl0LoopLengthTile), secondDim},
+                {bIdx * firstl0LoopLengthTile, 0});
+            Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
+            auto res = Add(tileTensor0, tileTensor1);
+            DAssemble(res, {bIdx * firstl0LoopLengthTile, 0}, outputs[0]);
+        }
+    }
+}
+
+static void AddOperationExeFuncDoubleCut(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
+                                         const std::vector<int>& tileShape, const std::vector<string>& attrs) {
+    (void)attrs;                                
+    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0], inputs[1]}, {outputs[0]}) {
+        SymbolicScalar firstDim = inputs[0]->shape[0];
+        SymbolicScalar secondDim = inputs[0]->shape[1];
+        const int firstViewShape = 128;
+        const int secondViewShape = 128;
+
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, firstDim / firstViewShape, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, secondDim / secondViewShape, 1)) {
+                auto tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape},
+                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                        std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                    {bIdx * firstViewShape, sIdx * secondViewShape});
+                auto tileTensor1 = DViewPad(inputs[1], {firstViewShape, secondViewShape},
+                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                        std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                    {bIdx * firstViewShape, sIdx * secondViewShape});
+                Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
+                auto res = Add(tileTensor0, tileTensor1);
+                DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
+            }
+        }
+    }
+}
+
+static const AddOperationTestCaseData testDataLists[] = {
+    AddOperationTestCaseData{{512, 128}, {64, 128}, DataType::DT_FP32, AddOperationExeFunc},
+    AddOperationTestCaseData{{1024, 256}, {64, 128}, DataType::DT_FP32, AddOperationExeFunc},
+    AddOperationTestCaseData{{512, 256}, {64, 64}, DataType::DT_FP32, AddOperationExeFuncDoubleCut},
+};
+
+class AddOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<AddOperationTestCaseData> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    TestAdd,
+    AddOperationTest,
+    ::testing::ValuesIn(testDataLists)
+);
+
+TEST_P(AddOperationTest, test_add) {
+    TestCaseDesc testCase;
+    testCase.inputTensors = {
+        Tensor(GetParam().dType, GetParam().shape, "input0"),
+        Tensor(GetParam().dType, GetParam().shape, "input1")
+    };
+    testCase.outputTensors = {
+        Tensor(GetParam().dType, GetParam().shape, "output")
+    };
+    testCase.opExeFunc = GetParam().opFunc;
+    testCase.tileShape = GetParam().vecTileShapes;
+    testCase.inputPaths = {GetGoldenDir() + "/x.bin", GetGoldenDir() + "/y.bin"};
+    testCase.goldenPaths = {GetGoldenDir() + "/res.bin"};
+    TestExecutor::runTest(testCase);
+}
+} // namespace

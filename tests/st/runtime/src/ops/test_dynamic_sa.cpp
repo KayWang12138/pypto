@@ -1,0 +1,172 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file test_dynamic_sa.cpp
+ * \brief
+ */
+
+#include <gtest/gtest.h>
+#include "common/data_type.h"
+#include "interface/function/function.h"
+#include "operation/tilefwk_op.h"
+#include "tilefwk/tilefwk.h"
+#include "runtime/device/dynamic/device_utils.h"
+#include "test_suite_stest_ops.h"
+#include "interface/interpreter/raw_tensor_data.h"
+#include "models/nsa/selected_attention.h"
+#include "runtime/utils/dynamic/dev_encode.h"
+#include "test_dynamic.h"
+
+using namespace npu::tile_fwk;
+using namespace npu::tile_fwk::dynamic;
+class DynamicSATest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
+
+struct SaConfig {
+    bool manualUnroll{false};
+    int maxUnrollTimes{1};
+    bool onlyBatchLoop{false};
+    bool isNzFormat{false};
+};
+
+template <typename T = npu::tile_fwk::float16>
+void TestSa(SaTileShapeConfig& tileConfig, SaConfig config) {
+    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+
+    DataType dType = DT_FP32;
+    if (std::is_same<T, npu::tile_fwk::float16>::value) {
+        dType = DT_FP16;
+    } else if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
+        dType = DT_BF16;
+    } else {
+        dType = DT_FP32;
+    }
+
+    std::vector<uint8_t> devProgBinary;
+
+    int paramsSize = 8;
+    std::vector<int> input_param(paramsSize);
+    readInput<int>(GetGoldenDir() + "/input_param.bin", input_param);
+
+    int b = input_param[0];
+    int sq = input_param[1];
+    int nq = input_param[2];
+    int nkv = input_param[3];
+    int dn = input_param[4];
+    int dr = input_param[5];
+    int smax = input_param[6];
+    float softmaxScale = static_cast<float>(1.0 / sqrtf((dn + dr)));
+
+    std::cout << "====input param==== b sq nq nkv dn dr smax: " << b << " " << sq << " " << nq << " " << nkv << " " << dn << " " << dr << " " << smax << std::endl;
+
+    TileOpFormat kvFormat = config.isNzFormat ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
+
+    std::vector<int> qNopeShape = {b * sq * nq, dn};
+    std::vector<int> qRopeShape = {b * sq * nq, dr};
+    std::vector<int> kSlcShape = {b * sq * nkv * smax, dn + dr};
+    std::vector<int> vSlcShape = {b * sq * nkv * smax, dn};
+    std::vector<int> saOutShape = {b * sq * nq, dn};
+
+    Tensor actSeqs(DT_INT32, {b}, "actSeqs");
+    Tensor qNope(dType, qNopeShape, "qNope");
+    Tensor qRope(dType, qRopeShape, "qRope");
+    Tensor kSlc(dType, kSlcShape, "kSlc", NodeType::LOCAL, kvFormat);
+    Tensor vSlc(dType, vSlcShape, "vSlc", NodeType::LOCAL, kvFormat);
+    Tensor saOut(DT_FP32, saOutShape, "saOut");
+
+    SlcAttn(qNope, qRope, kSlc, vSlc, actSeqs, nq, nkv, softmaxScale, saOut, tileConfig);
+
+    // 读数据
+    int qNopeSize = std::accumulate(qNopeShape.begin(), qNopeShape.end(), 1, std::multiplies<>());
+    int qRopeSize = std::accumulate(qRopeShape.begin(), qRopeShape.end(), 1, std::multiplies<>());
+    int kSlcSize = std::accumulate(kSlcShape.begin(), kSlcShape.end(), 1, std::multiplies<>());
+    int vSlcSize = std::accumulate(vSlcShape.begin(), vSlcShape.end(), 1, std::multiplies<>());
+    int saOutSize = std::accumulate(saOutShape.begin(), saOutShape.end(), 1, std::multiplies<>());
+
+    std::vector<int> seq(b);
+    std::vector<T> qNopeData(qNopeSize, 0);
+    std::vector<T> qRopeData(qRopeSize, 0);
+    std::vector<T> kSlcData(kSlcSize, 0);
+    std::vector<T> vSlcData(vSlcSize, 0);
+
+    readInput<int>(GetGoldenDir() + "/actual_seq.bin", seq);
+    readInput<T>(GetGoldenDir() + "/q_nope.bin", qNopeData);
+    readInput<T>(GetGoldenDir() + "/q_rope.bin", qRopeData);
+    if (config.isNzFormat) {
+    } else {
+        readInput<T>(GetGoldenDir() + "/k_slc.bin", kSlcData);
+        readInput<T>(GetGoldenDir() + "/v_slc.bin", vSlcData);
+    }
+
+    std::vector<float> golden(saOutSize, 0);
+    readInput(GetGoldenDir() + "/atten_out.bin", golden);
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<T>(qNope, qNopeData),
+        RawTensorData::CreateTensor<T>(qRope, qRopeData),
+        RawTensorData::CreateTensor<T>(kSlc, kSlcData),
+        RawTensorData::CreateTensor<T>(vSlc, vSlcData),
+        RawTensorData::CreateTensor<int32_t>(actSeqs, seq),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(saOut, 0),
+    });
+
+    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+    DynFuncRunner::Run(funcop);
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.0005f));
+    // EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.0005f, 0, 1000, true));
+}
+
+TEST_F(DynamicSATest, slc_attn_fp16) {
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
+    SaTileShapeConfig tileConfig;
+    const int gTile = 128; // for gLoop split
+    const int sTile = 1024; // for s2Loop split
+    tileConfig.gTile = gTile;
+    tileConfig.sKvTile = sTile;
+    tileConfig.c1TileShape = {gTile, gTile, 64, 64, 128, 128}; // (n1, dn+dr) @ (s2Tile, dn+dr) -> (n1, s2Tile)
+    tileConfig.v1TileShape = {16, 256}; // (n1, s2Tile)
+    tileConfig.c2TileShape = {gTile, gTile, 64, 64, 128, 128}; // (n1, s2Tile) @ (s2Tile, dn) -> (n1, d)
+    tileConfig.v2TileShape = {16, 256}; // (n1, d)
+    SaConfig config;
+    TestSa<npu::tile_fwk::float16>(tileConfig, config);
+}
+
+TEST_F(DynamicSATest, slc_attn_bf16) {
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
+    SaTileShapeConfig tileConfig;
+    const int gTile = 32; // for gLoop split
+    const int sTile = 1024; // for s2Loop split
+    tileConfig.gTile = gTile;
+    tileConfig.sKvTile = sTile;
+    tileConfig.c1TileShape = {gTile, gTile, 64, 64, 128, 128}; // (n1, dn+dr) @ (s2Tile, dn+dr) -> (n1, s2Tile)
+    tileConfig.v1TileShape = {gTile, 128}; // (n1, s2Tile)
+    tileConfig.c2TileShape = {gTile, gTile, 128, 128, 128, 128}; // (n1, s2Tile) @ (s2Tile, dn) -> (n1, d)
+    tileConfig.v2TileShape = {gTile, 128}; // (n1, d)
+    SaConfig config;
+    TestSa<npu::tile_fwk::bfloat16>(tileConfig, config);
+}
+
+TEST_F(DynamicSATest, slc_attn_mtp_s1_2_fp16) {
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
+    SaTileShapeConfig tileConfig;
+    const int gTile = 64; // for gLoop split
+    const int sTile = 1024; // for s2Loop split
+    tileConfig.gTile = gTile;
+    tileConfig.sKvTile = sTile;
+    tileConfig.c1TileShape = {gTile, gTile, 64, 64, 128, 128}; // (n1, dn+dr) @ (s2Tile, dn+dr) -> (n1, s2Tile)
+    tileConfig.v1TileShape = {gTile, 128}; // (n1, s2Tile)
+    tileConfig.c2TileShape = {gTile, gTile, 128, 128, 128, 128}; // (n1, s2Tile) @ (s2Tile, dn) -> (n1, d)
+    tileConfig.v2TileShape = {gTile, 128}; // (n1, d)
+    SaConfig config;
+    TestSa<npu::tile_fwk::float16>(tileConfig, config);
+}
