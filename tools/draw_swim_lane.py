@@ -97,7 +97,7 @@ class TaskInfo:
     def get_dur_event(self, event_id, pid, tid):
         res = {}
         res["args"] = {}
-        res["args"]["ascend-hint"] = self.get_task_full_name()
+        res["args"]["event-hint"] = self.get_task_full_name()
         res["args"]["ioperand-hint"] = self.inoperand_label
         res["args"]["ooperand-hint"] = self.outoperand_label
         res["args"]["execution-hint"] = self.get_task_execution_time_analysis()
