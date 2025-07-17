@@ -1,0 +1,7 @@
+[Device]
+
+stitchLatency = 10000
+submitLatency = 100
+stitchMaxSize = 100
+
+submachineTypes = ["AIC", "AIV"]
