@@ -1,0 +1,203 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file test_argsort.cpp
+ * \brief
+ */
+
+#include "test_suite_stest_ops.h"
+
+using namespace npu::tile_fwk;
+
+class ArgsortOnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
+
+TEST_F(ArgsortOnBoardTest, test_operation_tensor_128_32_argsort) {
+    aclInit(nullptr);
+    constexpr int32_t shape0 = 128;
+    constexpr int32_t shape1 = 32;
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = shape0 * shape1 * sizeof(float);
+    uint8_t* out_ptr1 = allocDevAddr(outputSize);
+    PROGRAM("ARGSORT") {
+        std::vector<int> input_shape = {shape0, shape1};
+        std::vector<int> output_shape = {shape0, shape1};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outputSize);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({shape0, shape1});
+        Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
+        Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
+        FUNCTION("ARGSORT_T", FunctionType::STATIC, {input_a, output}) {
+            output = ArgSort(input_a, -1);
+        }
+    }
+    std::vector<int32_t> golden_idx(shape0 * shape1);
+    std::vector<int32_t> res2(shape0 * shape1);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res2.data(), (uint8_t *)out_ptr1, outputSize);
+    readInput(GetGoldenDir() + "/idx.bin", golden_idx);
+    int ret_idx = resultCmp(golden_idx, res2, 0);
+    EXPECT_EQ(ret_idx, true);
+}
+
+TEST_F(ArgsortOnBoardTest, test_operation_tensor_4_32_argsort) {
+    aclInit(nullptr);
+    constexpr int32_t shape0 = 4;
+    constexpr int32_t shape1 = 32;
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = shape0 * shape1 * sizeof(float);
+    uint8_t* out_ptr1 = allocDevAddr(outputSize);
+    PROGRAM("ARGSORT") {
+        std::vector<int> input_shape = {shape0, shape1};
+        std::vector<int> output_shape = {shape0, shape1};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outputSize);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({shape0, shape1});
+        Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
+        Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
+        FUNCTION("ARGSORT_T", FunctionType::STATIC, {input_a, output}) {
+            output = ArgSort(input_a, -1);
+        }
+    }
+    std::vector<int32_t> golden_idx(shape0 * shape1);
+    std::vector<int32_t> res2(shape0 * shape1);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res2.data(), (uint8_t *)out_ptr1, outputSize);
+    readInput(GetGoldenDir() + "/idx.bin", golden_idx);
+    int ret_idx = resultCmp(golden_idx, res2, 0);
+    EXPECT_EQ(ret_idx, true);
+}
+
+TEST_F(ArgsortOnBoardTest, test_operation_tensor_2_16_argsort) {
+    aclInit(nullptr);
+    constexpr int32_t shape0 = 2;
+    constexpr int32_t shape1 = 16;
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = shape0 * shape1 * sizeof(float);
+    uint8_t* out_ptr1 = allocDevAddr(outputSize);
+    PROGRAM("ARGSORT") {
+        std::vector<int> input_shape = {shape0, shape1};
+        std::vector<int> output_shape = {shape0, shape1};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outputSize);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({shape0, shape1});
+        Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
+        Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
+        FUNCTION("ARGSORT_T", FunctionType::STATIC, {input_a, output}) {
+            output = ArgSort(input_a, -1);
+        }
+    }
+    std::vector<int32_t> golden_idx(shape0 * shape1);
+    std::vector<int32_t> res2(shape0 * shape1);
+
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res2.data(), (uint8_t *)out_ptr1, outputSize);
+    readInput(GetGoldenDir() + "/idx.bin", golden_idx);
+    int ret_idx = resultCmp(golden_idx, res2, 0);
+    EXPECT_EQ(ret_idx, true);
+}
+
+TEST_F(ArgsortOnBoardTest, test_operation_tensor_32_argsort) {
+    aclInit(nullptr);
+    constexpr int32_t shape0 = 32;
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = shape0  * sizeof(float);
+    uint8_t* out_ptr1 = allocDevAddr(outputSize);
+    PROGRAM("ARGSORT") {
+        std::vector<int> input_shape = {shape0};
+        std::vector<int> output_shape = {shape0};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outputSize);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({shape0});
+        Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
+        Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
+        FUNCTION("ARGSORT_T", FunctionType::STATIC, {input_a, output}) {
+            output = ArgSort(input_a, -1);
+        }
+    }
+    std::vector<int32_t> golden_idx(shape0);
+    std::vector<int32_t> res2(shape0);
+
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res2.data(), (uint8_t *)out_ptr1, outputSize);
+    readInput(GetGoldenDir() + "/idx.bin", golden_idx);
+    int ret_idx = resultCmp(golden_idx, res2, 0);
+    EXPECT_EQ(ret_idx, true);
+}
+
+TEST_F(ArgsortOnBoardTest, test_operation_tensor_64_argsort) {
+    aclInit(nullptr);
+    constexpr int32_t shape0 = 64;
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = shape0  * sizeof(float);
+    uint8_t* out_ptr1 = allocDevAddr(outputSize);
+    PROGRAM("ARGSORT") {
+        std::vector<int> input_shape = {shape0};
+        std::vector<int> output_shape = {shape0};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outputSize);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({shape0});
+        Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
+        Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
+        FUNCTION("ARGSORT_T", FunctionType::STATIC, {input_a, output}) {
+            output = ArgSort(input_a, -1);
+        }
+    }
+    std::vector<int32_t> golden_idx(shape0);
+    std::vector<int32_t> res2(shape0);
+
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res2.data(), (uint8_t *)out_ptr1, outputSize);
+    readInput(GetGoldenDir() + "/idx.bin", golden_idx);
+    int ret_idx = resultCmp(golden_idx, res2, 0);
+    EXPECT_EQ(ret_idx, true);
+}
+
+TEST_F(ArgsortOnBoardTest, test_operation_tensor_4_32__argsort) {
+    aclInit(nullptr);
+    constexpr int32_t shape0 = 4;
+    constexpr int32_t shape1 = 32;
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = shape0 * shape1 * sizeof(float);
+    uint8_t* out_ptr1 = allocDevAddr(outputSize);
+    PROGRAM("ARGSORT") {
+        std::vector<int> input_shape = {shape0, shape1};
+        std::vector<int> output_shape = {shape0, shape1};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outputSize);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({shape0, shape1});
+        Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
+        Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
+        FUNCTION("ARGSORT_T", FunctionType::STATIC, {input_a, output}) {
+            output = ArgSort(input_a, -1, false);
+        }
+    }
+    std::vector<int32_t> golden_idx(shape0 * shape1);
+    std::vector<int32_t> res2(shape0 * shape1);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res2.data(), (uint8_t *)out_ptr1, outputSize);
+    readInput(GetGoldenDir() + "/idx.bin", golden_idx);
+    int ret_idx = resultCmp(golden_idx, res2, 0);
+    EXPECT_EQ(ret_idx, true);
+}
+
+TEST_F(ArgsortOnBoardTest, test_operation_tensor_64__argsort_moe) {
+    aclInit(nullptr);
+    constexpr int32_t shape0 = 64;
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = shape0  * sizeof(float);
+    uint8_t* out_ptr1 = allocDevAddr(outputSize);
+    PROGRAM("ARGSORT") {
+        std::vector<int> input_shape = {shape0};
+        std::vector<int> output_shape = {shape0};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outputSize);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({shape0});
+        Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
+        Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
+        FUNCTION("ARGSORT_T", FunctionType::STATIC, {input_a, output}) {
+            output = ArgSort(input_a, -1, false);
+        }
+    }
+    std::vector<int32_t> golden_idx(shape0);
+    std::vector<int32_t> res2(shape0);
+
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res2.data(), (uint8_t *)out_ptr1, outputSize);
+    readInput(GetGoldenDir() + "/idx.bin", golden_idx);
+    int ret_idx = resultCmp(golden_idx, res2, 0);
+    EXPECT_EQ(ret_idx, true);
+}

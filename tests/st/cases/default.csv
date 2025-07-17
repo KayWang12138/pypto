@@ -1,0 +1,5 @@
+NetworkType,TestCaseName,Enable,CycleThreshold,ProfWarnUpCnt,ProfTryCnt,ProfMaxCnt,JitterRateThreshold
+DeepSeek,DynamicAttentionPostTest.dynamic_pa_post_new_mm5nz_splitk,True,7500,1,,3,-0.2
+DeepSeek,DyMla.high,True,6400,1,,1,-0.2
+DeepSeek,DynamicAttention.high_throughput_quant_smooth_nz,True,30250,1,,1,-0.1
+DeepSeek,DynamicFFNTest.TestOnbroadDynamicFFNQuant,True,5400,1,,1,-0.1

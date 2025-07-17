@@ -1,0 +1,2398 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file test_onboard.cpp
+ * \brief
+ */
+
+#include "test_suite_stest_ops.h"
+#include"models/llama/llama_def.h"
+
+namespace {
+int in0 = 2;
+int row = 64;
+int col = 64;
+const int capacity = row * col;
+const int capacity_64 = 1 * col;
+const int capacity_dim3 = 2 * row * col;
+const int capacity_dim4 = 1 * 1 * 16 * 16;
+const int capacity_8_8_8 = 8 * 8 * 8;
+const int capacity_2_2_16_16 = 2 * 2 * 16 * 16;
+const int capacity_2_2_8_8 = 2 * 2 * 8 * 8;
+const int capacity_2_1_8_8 = 2 * 1 * 8 * 8;
+const int capacity_4_4_16_16 = 4 * 4 * 16 * 16;
+const int capacity_4_1_16_16 = 4 * 1 * 16 * 16;
+const int capacity_16_16_64_64 = 16 * 16 * 64 * 64;
+const int capacity_8_32_32 = 8 * 32 * 32;
+const int capacity_8_8_32_32 = 8 * 8 * 32 * 32;
+const int capacity_4_4_4_16_16 = 4 * 4 * 4 * 16 * 16;
+const int capacity_8_80_80 = 8 * 80 * 80;
+const int capacity_64_128 = 64 * 128;
+const int capacity_32_32 = 32 * 32;
+const int capacity_16_32_32 = 16 * 32 * 32;
+const int capacity_1_1_32 = 1 * 1 * 32;
+const int capacity_8_16_16 = 8 * 16 * 16;
+const int capacity_1_16_16 = 1 * 16 * 16;
+const int capacity_8_8_1 = 8 * 8;
+const int capacity_8_8_7168 = 8 * 8 * 7168;
+const int capacity_8_1_1 = 8 * 1 * 1;
+const int capacity_8_16_1 = 8 * 16 * 1;
+const int capacity_1_1_1 = 1 * 1 * 1;
+const int capacity_8_1_16 = 8 * 1 * 16;
+const int capacity_8_8_1_1 = 8 * 8 * 1 * 1;
+const int capacity_8_8_1_256 = 8 * 8 * 1 * 256;
+}
+
+using namespace npu::tile_fwk;
+
+class OnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
+
+TEST_F(OnBoardTest, test_sin_dim2_float32) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    std::vector<int> shape = {64, 64};
+    DataType dtype = DataType::DT_FP32;
+    int cap = shape[0] * shape[1];
+    uint64_t outputSize = cap * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("Sin") {
+        void *x_ptr = readToDev(GetGoldenDir() + "/x_dim2_fp32.bin", cap); // true means no cut
+        Program::GetInstance().GetTileShape().SetVecTileShapes({32, 32});
+        Tensor input_x(dtype, shape, (uint8_t *)x_ptr, "x");
+        Tensor output(dtype, shape, out_ptr, "sin");
+
+        FUNCTION("SIN_T", FunctionType::STATIC, {input_x, output}) {
+            output = Sin(input_x);
+        }
+    }
+
+    std::vector<float> x(cap);
+    std::vector<float> golden(cap);
+    std::vector<float> res(cap);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/sin_golden_fp32.bin", golden);
+    readInput(GetGoldenDir() + "/x_dim2_fp32.bin", x);
+    int ret = resultCmpUnary(x, golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_cos_dim4_float16) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    std::vector<int> shape = {2, 2, 64, 64};
+    DataType dtype = DataType::DT_FP16;
+    int cap = shape[0] * shape[1] * shape[2] * shape[3];
+    uint64_t outputSize = cap * sizeof(uint16_t);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("Cos") {
+        void *x_ptr = readToDev(GetGoldenDir() + "/x_dim_4_fp16.bin", cap); // true means no cut
+        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, 64});
+        Tensor input_x(dtype, shape, (uint8_t *)x_ptr, "x");
+        Tensor output(dtype, shape, out_ptr, "sin");
+
+        FUNCTION("COS_T", FunctionType::STATIC, {input_x, output}) {
+            output = Cos(input_x);
+        }
+    }
+
+    std::vector<npu::tile_fwk::float16> x(cap);
+    std::vector<npu::tile_fwk::float16> golden(cap);
+    std::vector<npu::tile_fwk::float16> res(cap);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/cos_golden_fp16.bin", golden);
+    readInput(GetGoldenDir() + "/x_dim_4_fp16.bin", x);
+    int ret = resultCmpUnary<npu::tile_fwk::float16>(x, golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_gather_float_case1) {
+    int B = 1;
+    int S = 32;
+    int S2 = 32;
+    int D = 64;
+    std::vector<int> shape0 = {S2, D};
+    std::vector<int> shape1 = {B, S};
+    int axis = 0;
+    std::vector<int> shape2 = {B, S, D};
+
+    int capacity0 = shape0[0] * shape0[1];
+    int capacity1 = shape1[0] * shape1[1];
+    int capacity2 = shape2[0] * shape2[1] * shape2[2];
+
+    char buffer[100];
+    sprintf(buffer, "../tests/Gather/%d_%d_%d_%d/", B, S, S2, D);
+    std::string inputDir(buffer);
+
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity2 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("GATHER") {
+        void *x_ptr = readToDev(inputDir + "x.bin", capacity0);
+        void *indices_ptr = readToDev(inputDir + "indices.bin", capacity1);
+        // Program::GetInstance().GetTileShape().SetVecTileShapes({1, 32, 64});
+        // Program::GetInstance().GetTileShape().SetVecTileShapes({1, 16, 64});
+        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 16, 32});
+
+        Tensor input_src0(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "x");
+        Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
+        Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
+
+        FUNCTION("GATHER_T", FunctionType::STATIC, {input_src0, input_src1, output}) {
+            output = Gather(input_src0, input_src1, axis);
+        }
+    }
+
+    std::vector<float> golden(capacity2);
+    std::vector<float> dev_res(capacity2);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(inputDir + "y_golden.bin", golden);
+    std::cout << "====== output size:" << capacity2 << std::endl;
+    int ret = resultCmp(golden, dev_res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_gather_float_case2) {
+    int B = 1;
+    int S = 64;
+    int S2 = 64;
+    int D = 256;
+    std::vector<int> shape0 = {S2, D};
+    std::vector<int> shape1 = {B, S};
+    int axis = 0;
+    std::vector<int> shape2 = {B, S, D};
+
+    int capacity0 = shape0[0] * shape0[1];
+    int capacity1 = shape1[0] * shape1[1];
+    int capacity2 = shape2[0] * shape2[1] * shape2[2];
+
+    char buffer[100];
+    sprintf(buffer, "../tests/Gather/%d_%d_%d_%d/", B, S, S2, D);
+    std::string inputDir(buffer);
+
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity2 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("GATHER") {
+        void *x_ptr = readToDev(inputDir + "x.bin", capacity0);
+        void *indices_ptr = readToDev(inputDir + "indices.bin", capacity1);
+        // Program::GetInstance().GetTileShape().SetVecTileShapes({1, 64, 64});
+        // Program::GetInstance().GetTileShape().SetVecTileShapes({1, 32, 64});
+        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 32, 128});
+
+        Tensor input_src0(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "x");
+        Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
+        Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
+
+        FUNCTION("GATHER_T", FunctionType::STATIC, {input_src0, input_src1, output}) {
+            output = Gather(input_src0, input_src1, axis);
+        }
+    }
+
+    std::vector<float> golden(capacity2);
+    std::vector<float> dev_res(capacity2);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(inputDir + "y_golden.bin", golden);
+    std::cout << "====== output size:" << capacity2 << std::endl;
+    int ret = resultCmp(golden, dev_res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_gather_float_case3) {
+    int B = 32;
+    int S = 1;
+    int S2 = 1;
+    int D = 64;
+    std::vector<int> shape0 = {S, D};
+    std::vector<int> shape1 = {B, S};
+    int axis = 0;
+    std::vector<int> shape2 = {B, S, D};
+
+    int capacity0 = shape0[0] * shape0[1];
+    int capacity1 = shape1[0] * shape1[1];
+    int capacity2 = shape2[0] * shape2[1] * shape2[2];
+
+    char buffer[100];
+    sprintf(buffer, "../tests/Gather/%d_%d_%d_%d/", B, S, S2, D);
+    std::string inputDir(buffer);
+
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity2 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("GATHER") {
+        void *x_ptr = readToDev(inputDir + "x.bin", capacity0);
+        void *indices_ptr = readToDev(inputDir + "indices.bin", capacity1);
+        // Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 64});
+        // Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32});
+        // Program::GetInstance().GetTileShape().SetVecTileShapes({32, 1, 64});
+        // Program::GetInstance().GetTileShape().SetVecTileShapes({16, 1, 64});
+        // Program::GetInstance().GetTileShape().SetVecTileShapes({32, 1, 32});
+        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 1, 32});
+
+        Tensor input_src0(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "x");
+        Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
+        Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
+
+        FUNCTION("GATHER_T", FunctionType::STATIC, {input_src0, input_src1, output}) {
+            output = Gather(input_src0, input_src1, axis);
+        }
+    }
+    std::vector<float> golden(capacity2);
+    std::vector<float> dev_res(capacity2);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(inputDir + "y_golden.bin", golden);
+    std::cout << "====== output size:" << capacity2 << std::endl;
+    int ret = resultCmp(golden, dev_res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_gather_float_case4) {
+    int B = 16;
+    int S = 64;
+    int S2 = 64;
+    int D = 512;
+    std::vector<int> shape0 = {S, D};
+    std::vector<int> shape1 = {B, S};
+    int axis = 0;
+    std::vector<int> shape2 = {B, S, D};
+
+    int capacity0 = shape0[0] * shape0[1];
+    int capacity1 = shape1[0] * shape1[1];
+    int capacity2 = shape2[0] * shape2[1] * shape2[2];
+
+    char buffer[100];
+    sprintf(buffer, "../tests/Gather/%d_%d_%d_%d/", B, S, S2, D);
+    std::string inputDir(buffer);
+
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity2 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("GATHER") {
+        void *x_ptr = readToDev(inputDir + "x.bin", capacity0);
+        void *indices_ptr = readToDev(inputDir + "indices.bin", capacity1);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 32, 128});
+        // Program::GetInstance().GetTileShape().SetVecTileShapes({1, 64, 64});
+        // Program::GetInstance().GetTileShape().SetVecTileShapes({2, 32, 64});
+
+        Tensor input_src0(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "x");
+        Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
+        Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
+
+        FUNCTION("GATHER_T", FunctionType::STATIC, {input_src0, input_src1, output}) {
+            output = Gather(input_src0, input_src1, axis);
+        }
+    }
+
+    std::vector<float> golden(capacity2);
+    std::vector<float> dev_res(capacity2);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(inputDir + "y_golden.bin", golden);
+    std::cout << "====== output size:" << capacity2 << std::endl;
+    int ret = resultCmp(golden, dev_res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_concat_all2all) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+
+    PROGRAM("CONCAT") {
+        std::vector<int> shape = {row, col};
+        void *x_ptr = readToDev("../tests/AsmdTensor/concat_2dim_x.bin", capacity);
+        void *y_ptr = readToDev("../tests/AsmdTensor/concat_2dim_y.bin", capacity);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({32, 32});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
+        Tensor output;
+
+        FUNCTION("CONCAT_T") {
+            output = Concat(std::vector<Tensor>{input_a, input_b}, 1);
+        }
+    }
+    uint64_t outputSize = Program::GetInstance().GetHostMachine().outputStubPara.at(0).rawShapeSize;
+    uint8_t *outputGmAddr = Program::GetInstance().GetHostMachine().outputStubPara.at(0).rawTensorAddr;
+    assert(outputSize == capacity * 2 * sizeof(float));
+    std::vector<float> golden(capacity * 2);
+    std::vector<float> res(capacity * 2);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)outputGmAddr, outputSize);
+    readInput("../tests/AsmdTensor/concat_2dim_res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    for (size_t i = 0; i < golden.size(); ++i) {
+        std::cout << golden[i] << "," << res[i] << std::endl;
+    }
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_concat_4) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    PROGRAM("CONCAT") {
+        std::vector<int> shape1 = {2, 2, 10, 10};
+        std::vector<int> shape2 = {3, 2, 10, 10};
+        std::vector<int> shape3 = {8, 2, 10, 10};
+        void *x_ptr = readToDev("../tests/AsmdTensor/concat_4dim_operand1.bin", 2 * 2 * 10 * 10);
+        void *y_ptr = readToDev("../tests/AsmdTensor/concat_4dim_operand2.bin", 3 * 2 * 10 * 10);
+        void *z_ptr = readToDev("../tests/AsmdTensor/concat_4dim_operand3.bin", 8 * 2 * 10 * 10);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({6, 6, 6, 6});
+        Tensor input_a(DataType::DT_FP32, shape1, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape2, (uint8_t *)y_ptr, "B");
+        Tensor input_c(DataType::DT_FP32, shape3, (uint8_t *)z_ptr, "C");
+        Tensor output;
+
+        FUNCTION("CONCAT_T", FunctionType::STATIC) {
+            output = Concat(std::vector<Tensor>{input_a, input_b, input_c}, 0);
+        }
+    }
+    uint64_t outputSize = Program::GetInstance().GetHostMachine().outputStubPara.at(0).rawShapeSize;
+    uint8_t *outputGmAddr = Program::GetInstance().GetHostMachine().outputStubPara.at(0).rawTensorAddr;
+    assert(outputSize == 13 * 2 * 10 * 10 * sizeof(float));
+    std::vector<float> golden(13 * 2 * 10 * 10);
+    std::vector<float> res(13 * 2 * 10 * 10);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)outputGmAddr, outputSize);
+    readInput("../tests/AsmdTensor/concat_4dim_res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    for (size_t i = 0; i < golden.size(); ++i) {
+        std::cout << golden[i] << "," << res[i] << std::endl;
+    }
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_add) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_16_16_64_64 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("ADD") {
+        std::vector<int> shape = {16, 16, 64, 64};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_16_64_64);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_16_16_64_64);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 16, 16});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("ADD_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Add(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capacity_16_16_64_64);
+    std::vector<float> res(capacity_16_16_64_64);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_16_16_64_65_tileop_add_unalign) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    std::vector<int> shape = {16, 16, 64, 65};
+    int shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+    uint64_t outputSize = shapeSize * sizeof(float);
+
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("ADD") {
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", shapeSize);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", shapeSize);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 16, 16});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("ADD_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Add(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(shapeSize);
+    std::vector<float> res(shapeSize);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_16_16_39_65_tileop_add_unalign) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    std::vector<int> shape = {16, 16, 39, 65};
+    int shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+    uint64_t outputSize = shapeSize * sizeof(float);
+
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("ADD") {
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", shapeSize);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", shapeSize);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 16, 16});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("ADD_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Add(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(shapeSize);
+    std::vector<float> res(shapeSize);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_32_1_tileop_add_unalign) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    std::vector<int> shape = {32, 1};
+    int shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+    uint64_t outputSize = shapeSize * sizeof(float);
+
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("ADD") {
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", shapeSize);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", shapeSize);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("ADD_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Add(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(shapeSize);
+    std::vector<float> res(shapeSize);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_32_1_tileop_sub_unalign) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    std::vector<int> shape = {32, 1};
+    int shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+    uint64_t outputSize = shapeSize * sizeof(float);
+
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("SUB") {
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", shapeSize);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", shapeSize);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("SUB_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Sub(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(shapeSize);
+    std::vector<float> res(shapeSize);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_32_1_tileop_mul_unalign) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    std::vector<int> shape = {32, 1};
+    int shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+    uint64_t outputSize = shapeSize * sizeof(float);
+
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("MUL") {
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", shapeSize);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", shapeSize);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("MUL_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Mul(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(shapeSize);
+    std::vector<float> res(shapeSize);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_sub) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_16_16_64_64 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("SUB") {
+        std::vector<int> shape = {16, 16, 64, 64};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_16_64_64);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_16_16_64_64);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 4, 16, 32});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("SUB_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Sub(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capacity_16_16_64_64);
+    std::vector<float> res(capacity_16_16_64_64);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_mul) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_16_16_64_64 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("MUL") {
+        std::vector<int> shape = {16, 16, 64, 64};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_16_64_64);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_16_16_64_64);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 8, 16, 32});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("MUL_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Mul(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capacity_16_16_64_64);
+    std::vector<float> res(capacity_16_16_64_64);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_div) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_16_16_64_64 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("DIV") {
+        std::vector<int> shape = {16, 16, 64, 64};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_16_64_64);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_16_16_64_64);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 16, 16});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("DIV_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Div(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capacity_16_16_64_64);
+    std::vector<float> res(capacity_16_16_64_64);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_add) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_8_80_80 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("ADD") {
+        std::vector<int> shape = {8, 80, 80};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_80_80);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_8_80_80);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 16, 16});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("ADD_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Add(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capacity_8_80_80);
+    std::vector<float> res(capacity_8_80_80);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_sub) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_8_80_80 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("SUB") {
+        std::vector<int> shape = {8, 80, 80};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_80_80);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_8_80_80);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 16, 16});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("SUB_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Sub(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capacity_8_80_80);
+    std::vector<float> res(capacity_8_80_80);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_mul) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_8_80_80 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("MUL") {
+        std::vector<int> shape = {8, 80, 80};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_80_80);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_8_80_80);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 16, 16});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("MUL_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Mul(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capacity_8_80_80);
+    std::vector<float> res(capacity_8_80_80);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_div) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_8_80_80 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("DIV") {
+        std::vector<int> shape = {8, 80, 80};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_80_80);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_8_80_80);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 16, 16});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("DIV_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Div(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capacity_8_80_80);
+    std::vector<float> res(capacity_8_80_80);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_add) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_64_128 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("ADD") {
+        std::vector<int> shape = {64, 128};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_64_128);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_64_128);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({32, 64});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("ADD_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Add(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capacity_64_128);
+    std::vector<float> res(capacity_64_128);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_sub) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_64_128 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("SUB") {
+        std::vector<int> shape = {64, 128};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_64_128);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_64_128);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({10, 32});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("SUB_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Sub(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capacity_64_128);
+    std::vector<float> res(capacity_64_128);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_mul) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_64_128 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("MUL") {
+        std::vector<int> shape = {64, 128};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_64_128);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_64_128);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({32, 64});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("MUL_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Mul(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capacity_64_128);
+    std::vector<float> res(capacity_64_128);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_div) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_64_128 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("DIV") {
+        std::vector<int> shape = {64, 128};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_64_128);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_64_128);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({32, 32});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("DIV_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Div(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capacity_64_128);
+    std::vector<float> res(capacity_64_128);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_dim4_add) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_dim4 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("ADD") {
+        std::vector<int> shape = {1, 1, 16, 16};
+        void *x_ptr = readToDev(GetGoldenDir() + "/add_dim4_x.bin", capacity_dim4);
+        void *y_ptr = readToDev(GetGoldenDir() + "/add_dim4_y.bin", capacity_dim4);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 16, 16});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("ADD_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Add(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capacity_dim4);
+    std::vector<float> res(capacity_dim4);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/add_dim4_res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_dim2_add) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("ADD") {
+        std::vector<int> shape = {row, col};
+        void *x_ptr = readToDev(GetGoldenDir() + "/add_x.bin", capacity);
+        void *y_ptr = readToDev(GetGoldenDir() + "/add_y.bin", capacity);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({64, 64});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+        FUNCTION("ADD_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Add(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capacity);
+    std::vector<float> res(capacity);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/add_res.bin", golden);
+
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+// ----------------------------------expand
+TEST_F(OnBoardTest, test_operation_tensor_2_2_8_8_expand_add) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_2_2_8_8 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("ADD") {
+        std::vector<int> shape0 = {2, 2, 8, 8};
+        std::vector<int> shape1 = {2, 1, 8, 8};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_2_2_8_8);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_2_1_8_8);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({2, 2, 8, 8});
+        Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("ADD_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Add(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capacity_2_2_8_8);
+    std::vector<float> res(capacity_2_2_8_8);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+
+    std::vector<float> input01(capacity_2_2_8_8);
+    readInput(GetGoldenDir() + "/x.bin", input01);
+    std::vector<float> input02(capacity_2_1_8_8);
+    readInput(GetGoldenDir() + "/y.bin", input02);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_1_n_to_m_n_mul) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = 64 * 32 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("MUL") {
+        std::vector<int> shape1 = {64, 32};
+        std::vector<int> shape2 = {1, 32};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", 64 * 32);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", 1 * 32);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16});
+        Tensor input_a(DataType::DT_FP32, shape1, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape2, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape1, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("MUL_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Mul(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(64 * 32);
+    std::vector<float> res(64 * 32);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_4_4_16_16_expand_add) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_4_4_16_16 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("ADD") {
+        std::vector<int> shape0 = {4, 4, 16, 16};
+        std::vector<int> shape1 = {4, 1, 16, 16};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_4_4_16_16);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_4_1_16_16);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({2, 2, 8, 8});
+        Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("ADD_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Add(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capacity_4_4_16_16);
+    std::vector<float> res(capacity_4_4_16_16);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+
+    std::vector<float> input01(capacity_4_4_16_16);
+    readInput(GetGoldenDir() + "/x.bin", input01);
+    std::vector<float> input02(capacity_4_1_16_16);
+    readInput(GetGoldenDir() + "/y.bin", input02);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_1_1_32_to_16_32_32_expand_add) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_16_32_32 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("ADD") {
+        std::vector<int> shape0 = {16, 32, 32};
+        std::vector<int> shape1 = {1, 1, 32};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_32_32);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_1_1_32);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 8});
+        Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("ADD_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Add(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capacity_16_32_32);
+    std::vector<float> res(capacity_16_32_32);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+
+    std::vector<float> input01(capacity_16_32_32);
+    readInput(GetGoldenDir() + "/x.bin", input01);
+    std::vector<float> input02(capacity_1_1_32);
+    readInput(GetGoldenDir() + "/y.bin", input02);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_8_16_1_to_8_16_16_expand_add) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_8_16_16 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("ADD") {
+        std::vector<int> shape0 = {8, 16, 16};
+        std::vector<int> shape1 = {8, 16, 1};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_16_16);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_8_16_1);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 8, 8});
+        Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("ADD_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Add(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capacity_8_16_16);
+    std::vector<float> res(capacity_8_16_16);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_8_8_1_to_8_8_7168_expand_Mul_moe) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_8_8_7168 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("MUL") {
+        std::vector<int> shape0 = {8, 8, 7168};
+        std::vector<int> shape1 = {8, 8, 1};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_8_7168);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_8_8_1);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 128});
+        Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("MUL_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Mul(input_b, input_a);
+        }
+    }
+
+    std::vector<float> golden(capacity_8_8_7168);
+    std::vector<float> res(capacity_8_8_7168);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_8_8_1_to_8_8_7168_expand_sub) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_8_8_7168 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("SUB") {
+        std::vector<int> shape0 = {8, 8, 1};
+        std::vector<int> shape1 = {8, 8, 7168};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_8_1);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_8_8_7168);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 128});
+        Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("SUB_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Sub(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capacity_8_8_7168);
+    std::vector<float> res(capacity_8_8_7168);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_8_1_16_to_8_16_16_expand_add) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_8_16_16 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("ADD") {
+        std::vector<int> shape0 = {8, 16, 16};
+        std::vector<int> shape1 = {8, 1, 16};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_16_16);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_8_1_16);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 8, 8});
+        Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("ADD_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Add(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capacity_8_16_16);
+    std::vector<float> res(capacity_8_16_16);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+TEST_F(OnBoardTest, test_operation_tensor_1_16_16_to_8_16_16_expand_add) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_8_16_16 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("ADD") {
+        std::vector<int> shape0 = {8, 16, 16};
+        std::vector<int> shape1 = {1, 16, 16};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_16_16);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_1_16_16);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 8, 8});
+        Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("ADD_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Add(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capacity_8_16_16);
+    std::vector<float> res(capacity_8_16_16);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+TEST_F(OnBoardTest, test_operation_tensor_8_1_1_to_8_16_16_expand_add) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_8_16_16 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("ADD") {
+        std::vector<int> shape0 = {8, 16, 16};
+        std::vector<int> shape1 = {8, 1, 1};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_16_16);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_8_1_1);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 8, 8});
+        Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("ADD_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Add(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capacity_8_16_16);
+    std::vector<float> res(capacity_8_16_16);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+TEST_F(OnBoardTest, test_operation_tensor_1_1_1_to_8_16_16_expand_add) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_8_16_16 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("ADD") {
+        std::vector<int> shape0 = {8, 16, 16};
+        std::vector<int> shape1 = {1, 1, 1};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_16_16);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_1_1_1);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 8, 8});
+        Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("ADD_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Add(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capacity_8_16_16);
+    std::vector<float> res(capacity_8_16_16);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_add) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    int size0 = 32*32*256;
+    int size1 = 32*32;
+    uint64_t outputSize = size0 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("ADD") {
+        std::vector<int> shape0 = {32, 32, 1, 256};
+        std::vector<int> shape1 = {32, 32, 1, 1};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", size0);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", size1);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16, 1, 16});
+        Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("ADD_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Add(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(size0);
+    std::vector<float> res(size0);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_sub) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    int size0 = 32*32*256;
+    int size1 = 32*32;
+    uint64_t outputSize = size0 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("SUB") {
+        std::vector<int> shape0 = {32, 32, 1, 256};
+        std::vector<int> shape1 = {32, 32, 1, 1};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", size0);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", size1);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16, 1, 32});
+        Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("SUB_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Sub(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(size0);
+    std::vector<float> res(size0);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_mul) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    int size0 = 32*32*256;
+    int size1 = 32*32;
+    uint64_t outputSize = size0 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("MUL") {
+        std::vector<int> shape0 = {32, 32, 1, 256};
+        std::vector<int> shape1 = {32, 32, 1, 1};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", size0);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", size1);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16, 1, 8});
+        Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("MUL_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Mul(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(size0);
+    std::vector<float> res(size0);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_div) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    int size0 = 32*32*256;
+    int size1 = 32*32;
+    uint64_t outputSize = size0 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("MUL") {
+        std::vector<int> shape0 = {32, 32, 1, 256};
+        std::vector<int> shape1 = {32, 32, 1, 1};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", size0);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", size1);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16, 1, 32});
+        Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("MUL_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Div(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(size0);
+    std::vector<float> res(size0);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_8_8_1_1_to_8_8_1_256_tileop_sub) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+
+    uint64_t outputSize = capacity_8_8_1_256 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("ADD") {
+        std::vector<int> shape0 = {8, 8, 1, 256};
+        std::vector<int> shape1 = {8, 8, 1, 1};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_8_1_256);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_8_8_1_1);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 1, 8});
+        Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("ADD_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Sub(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capacity_8_8_1_256);
+    std::vector<float> res(capacity_8_8_1_256);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+TEST_F(OnBoardTest, test_operation_tensor_1_1_1_64_to_1_128_1_64_tileop_mul01) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    int capShape1 = 64;
+    int capShape2 = 128*64;
+    uint64_t outputSize = capShape2 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("MUL") {
+        std::vector<int> shape0 = {1, 1, 1, 64};
+        std::vector<int> shape1 = {1, 128, 1, 64};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capShape1);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capShape2);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 16, 1, 32});
+        Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("MUL_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Mul(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capShape2);
+    std::vector<float> res(capShape2);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_1_1_1_64_to_1_128_1_64_tileop_mul02) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    int capShape1 = 128*64;
+    int capShape2 = 64;
+    uint64_t outputSize = capShape2 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("MUL") {
+        std::vector<int> shape0 = {1, 128, 1, 64};
+        std::vector<int> shape1 = {1, 1, 1, 64};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capShape1);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capShape2);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 1, 64});
+        Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("MUL_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Mul(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capShape1);
+    std::vector<float> res(capShape1);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+// Fail
+TEST_F(OnBoardTest, test_operation_tensor_1_1_64_to_32_1_64_tileop_mul03) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    int capShape1 = 32*64;
+    int capShape2 = 64;
+    uint64_t outputSize = capShape2 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("MUL") {
+        std::vector<int> shape0 = {32, 1, 64};
+        std::vector<int> shape1 = {1, 1, 64};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capShape1);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capShape2);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 1, 32});
+        Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("MUL_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Mul(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capShape1);
+    std::vector<float> res(capShape1);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_8_8_1_to_8_8_7168_expand_mul) {
+    aclInit(nullptr);
+    int ccc = 7168;
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = 8*8*ccc * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("ADD") {
+        std::vector<int> shape0 = {8, 8, ccc};
+        std::vector<int> shape1 = {8, 8, 1};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", 8*8*ccc);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", 8*8);
+        Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("ADD_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 128});
+            output = Mul(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(8*8*ccc);
+    std::vector<float> res(8*8*ccc);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+// ----------------------------------expand end
+
+TEST_F(OnBoardTest, test_unary_operation_32_32_tileop_exp) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_32_32 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("EXP") {
+        std::vector<int> shape = {32, 32};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_32_32);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+
+        FUNCTION("EXP_T", FunctionType::STATIC, {input_a, output}) {
+            output = Exp(input_a);
+        }
+    }
+
+    std::vector<float> golden(capacity_32_32);
+    std::vector<float> res(capacity_32_32);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_unary_operation_16_32_32_tileop_exp) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_16_32_32 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("EXP") {
+        std::vector<int> shape = {16, 32, 32};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_32_32);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 16, 16});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+
+        FUNCTION("EXP_T", FunctionType::STATIC, {input_a, output}) {
+            output = Exp(input_a);
+        }
+    }
+
+    std::vector<float> golden(capacity_16_32_32);
+    std::vector<float> res(capacity_16_32_32);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_unary_operation_16_16_64_64_tileop_exp) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_16_16_64_64 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("EXP") {
+        std::vector<int> shape = {16, 16, 64, 64};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_16_64_64);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 16, 32});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+
+        FUNCTION("EXP_T", FunctionType::STATIC, {input_a, output}) {
+            output = Exp(input_a);
+        }
+    }
+
+    std::vector<float> golden(capacity_16_16_64_64);
+    std::vector<float> res(capacity_16_16_64_64);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_unary_operation_32_32_tileop_sqrt) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_32_32 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("SQRT") {
+        std::vector<int> shape = {32, 32};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_32_32);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+
+        FUNCTION("SQRT_T", FunctionType::STATIC, {input_a, output}) {
+            output = Sqrt(input_a);
+        }
+    }
+
+    std::vector<float> golden(capacity_32_32);
+    std::vector<float> res(capacity_32_32);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_unary_operation_16_32_32_tileop_sqrt) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_16_32_32 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("SQRT") {
+        std::vector<int> shape = {16, 32, 32};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_32_32);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 16, 16});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+
+        FUNCTION("SQRT_T", FunctionType::STATIC, {input_a, output}) {
+            output = Sqrt(input_a);
+        }
+    }
+
+    std::vector<float> golden(capacity_16_32_32);
+    std::vector<float> res(capacity_16_32_32);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_unary_operation_16_16_64_64_tileop_sqrt) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_16_16_64_64 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("SQRT") {
+        std::vector<int> shape = {16, 16, 64, 64};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_16_64_64);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 16, 32});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+
+        FUNCTION("SQRT_T", FunctionType::STATIC, {input_a, output}) {
+            output = Sqrt(input_a);
+        }
+    }
+
+    std::vector<float> golden(capacity_16_16_64_64);
+    std::vector<float> res(capacity_16_16_64_64);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_unary_operation_16_16_64_70_tileop_sqrt) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    const int capacity_16_16_64_70 = 16 * 16 * 64 * 70;
+    uint64_t outputSize = capacity_16_16_64_70 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("SQRT") {
+        std::vector<int> shape = {16, 16, 64, 70};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_16_64_70);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 16, 32});
+        Tensor input_a(DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor output(DT_FP32, shape, out_ptr, "C");
+
+        FUNCTION("SQRT_T", FunctionType::STATIC, {input_a, output}) {
+            output = Sqrt(input_a);
+        }
+    }
+
+    std::vector<float> golden(capacity_16_16_64_70);
+    std::vector<float> res(capacity_16_16_64_70);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_unary_operation_32_32_tileop_reciprocal) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_32_32 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("RECIPROCAL") {
+        std::vector<int> shape = {32, 32};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_32_32);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+
+        FUNCTION("RECIPROCAL_T", FunctionType::STATIC, {input_a, output}) {
+            output = Reciprocal(input_a);
+        }
+    }
+
+    std::vector<float> golden(capacity_32_32);
+    std::vector<float> res(capacity_32_32);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+
+    int ret = resultCmp(golden, res, 0.003f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_unary_operation_16_32_32_tileop_reciprocal) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_16_32_32 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("RECIPROCAL") {
+        std::vector<int> shape = {16, 32, 32};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_32_32);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 16, 16});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+
+        FUNCTION("RECIPROCAL_T", FunctionType::STATIC, {input_a, output}) {
+            output = Reciprocal(input_a);
+        }
+    }
+
+    std::vector<float> golden(capacity_16_32_32);
+    std::vector<float> res(capacity_16_32_32);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+
+    int ret = resultCmp(golden, res, 0.003f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_unary_operation_16_16_64_64_tileop_reciprocal) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_16_16_64_64 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("RECIPROCAL") {
+        std::vector<int> shape = {16, 16, 64, 64};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_16_64_64);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 16, 32});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+
+        FUNCTION("RECIPROCAL_T", FunctionType::STATIC, {input_a, output}) {
+            output = Reciprocal(input_a);
+        }
+    }
+
+    std::vector<float> golden(capacity_16_16_64_64);
+    std::vector<float> res(capacity_16_16_64_64);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+
+    int ret = resultCmp(golden, res, 0.003f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_scalar_dim2_add) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("ADD") {
+        std::vector<int> shape = {row, col};
+        void *x_ptr = readToDev(GetGoldenDir() + "/adds_2d_x.bin", capacity);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({64, 64});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Element value(DataType::DT_FP32, 1.5);
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+        FUNCTION("ADD_S", FunctionType::STATIC, {input_a, output}) {
+            output = AddS(input_a, value);
+        }
+    }
+
+    std::vector<float> golden(capacity);
+    std::vector<float> res(capacity);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/adds_2d_res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_add_vs_dim2_unalign) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    std::vector<int> shape = {79, 85};
+    int shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+    uint64_t outputSize = shapeSize * sizeof(float);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
+    PROGRAM("ADD") {
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", shapeSize);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 128});
+        Tensor input_a(DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Element value(DataType::DT_FP32, 1.5);
+        Tensor output(DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+        FUNCTION("ADD_S", FunctionType::STATIC, {input_a, output}) {
+            output = AddS(input_a, value);
+        }
+    }
+
+    std::vector<float> golden(shapeSize);
+    std::vector<float> res(shapeSize);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_mul_vs_dim3_unalign) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    std::vector<int> shape = {2, 79, 85};
+    int shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+    uint64_t outputSize = shapeSize * sizeof(float);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
+    PROGRAM("MUL") {
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", shapeSize);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 16, 128});
+        Tensor input_a(DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Element value(DataType::DT_FP32, 1.5);
+        Tensor output(DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+        FUNCTION("MUL_S", FunctionType::STATIC, {input_a, output}) {
+            output = MulS(input_a, value);
+        }
+    }
+
+    std::vector<float> golden(shapeSize);
+    std::vector<float> res(shapeSize);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_sub_vs_dim4_unalign) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    std::vector<int> shape = {2, 2, 67, 125};
+    int shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+    uint64_t outputSize = shapeSize * sizeof(float);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
+    PROGRAM("SUB") {
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", shapeSize);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({2, 1, 16, 128});
+        Tensor input_a(DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Element value(DataType::DT_FP32, 1.5);
+        Tensor output(DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+        FUNCTION("SUB_S", FunctionType::STATIC, {input_a, output}) {
+            output = SubS(input_a, value);
+        }
+    }
+
+    std::vector<float> golden(shapeSize);
+    std::vector<float> res(shapeSize);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_div_vs_dim1_unalign) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    std::vector<int> shape = {125};
+    int shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+    uint64_t outputSize = shapeSize * sizeof(float);
+    uint8_t *out_ptr = allocDevAddr(outputSize);
+    PROGRAM("DIV") {
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", shapeSize);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({128});
+        Tensor input_a(DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Element value(DataType::DT_FP32, 1.5);
+        Tensor output(DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+        FUNCTION("DIV_S", FunctionType::STATIC, {input_a, output}) {
+            output = DivS(input_a, value);
+        }
+    }
+
+    std::vector<float> golden(shapeSize);
+    std::vector<float> res(shapeSize);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_scalar_dim2_add_FP16) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity * sizeof(uint16_t);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("ADD") {
+        std::vector<int> shape = {row, col};
+        void *x_ptr = readToDev(GetGoldenDir() + "/adds_2d_x.bin", capacity);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({64, 64});
+        Tensor input_a(DataType::DT_FP16, shape, (uint8_t *)x_ptr, "A");
+        Element value(DataType::DT_FP32, 1.5);
+        Tensor output(DataType::DT_FP16, shape, out_ptr, "C");
+        FUNCTION("ADD_S", FunctionType::STATIC, {input_a, output}) {
+            output = AddS(input_a, value);
+        }
+    }
+
+    std::vector<npu::tile_fwk::float16> golden(capacity);
+    std::vector<npu::tile_fwk::float16> res(capacity);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/adds_2d_res.bin", golden);
+
+    std::vector<npu::tile_fwk::float16> x(outputSize);
+    readInput(GetGoldenDir() + "/adds_2d_x.bin", x);
+    int ret = resultCmpUnary<npu::tile_fwk::float16>(x, golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_scalar_dim2_sub) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("SUB") {
+        std::vector<int> shape = {row, col};
+        void *x_ptr = readToDev(GetGoldenDir() + "/subs_2d_x.bin", capacity);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({64, 64});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Element value(DataType::DT_FP32, 1.5);
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+        FUNCTION("SUB_S", FunctionType::STATIC, {input_a, output}) {
+            output = SubS(input_a, value);
+        }
+    }
+
+    std::vector<float> golden(capacity);
+    std::vector<float> res(capacity);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/subs_2d_res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_scalar_dim2_mul) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("MUL") {
+        std::vector<int> shape = {row, col};
+        void *x_ptr = readToDev(GetGoldenDir() + "/muls_2d_x.bin", capacity);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({64, 64});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Element value(DataType::DT_FP32, 1.5);
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+        FUNCTION("MUL_S", FunctionType::STATIC, {input_a, output}) {
+            output = MulS(input_a, value);
+        }
+    }
+
+    std::vector<float> golden(capacity);
+    std::vector<float> res(capacity);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/muls_2d_res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_scalar_dim2_div) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("DIV") {
+        std::vector<int> shape = {row, col};
+        void *x_ptr = readToDev(GetGoldenDir() + "/divs_2d_x.bin", capacity);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({64, 64});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Element value(DataType::DT_FP32, 1.5);
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+        FUNCTION("DIV_S", FunctionType::STATIC, {input_a, output}) {
+            output = DivS(input_a, value);
+        }
+    }
+
+    std::vector<float> golden(capacity);
+    std::vector<float> res(capacity);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/divs_2d_res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_scalar_dim1_div) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = 64 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("DIV") {
+        std::vector<int> shape = {col};
+        void *x_ptr = readToDev(GetGoldenDir() + "/divs_1d_x.bin", 1 * 64);
+        Program::GetInstance().GetTileShape().SetVecTileShapes(32);
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Element value(DataType::DT_FP32, 1.5);
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+        FUNCTION("DIV_S", FunctionType::STATIC, {input_a, output}) {
+            // auto reshapeInput = Reshape(input_a, {1 * col});
+            output = DivS(input_a, value);
+            // output = Reshape(reshapeOutput, shape);
+        }
+    }
+
+    std::vector<float> golden(64);
+    std::vector<float> res(64);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/divs_1d_res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_scalar_dim3_add) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_dim3 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("ADD") {
+        std::vector<int> shape = {in0, row, col};
+        void *x_ptr = readToDev(GetGoldenDir() + "/adds_3d_x.bin", capacity_dim3);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 32, 32});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Element value(DataType::DT_FP32, 1.5);
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+        FUNCTION("ADD_S", FunctionType::STATIC, {input_a, output}) {
+            output = AddS(input_a, value);
+        }
+    }
+
+    std::vector<float> golden(capacity_dim3);
+    std::vector<float> res(capacity_dim3);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/adds_3d_res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_scalar_dim4_add) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = 2 * 2 * capacity * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("ADD") {
+        std::vector<int> shape = {2, 2, row, col};
+        void *x_ptr = readToDev(GetGoldenDir() + "/adds_4d_x.bin", 2 * 2 * capacity);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, 32});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Element value(DataType::DT_FP32, 1.5);
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+        FUNCTION("ADD_S", FunctionType::STATIC, {input_a, output}) {
+            output = AddS(input_a, value);
+        }
+    }
+
+    std::vector<float> golden(2 * 2 * capacity);
+    std::vector<float> res(2 * 2 * capacity);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/adds_4d_res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_scalar_dim3_sub) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_dim3 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("SUB") {
+        std::vector<int> shape = {in0, row, col};
+        void *x_ptr = readToDev(GetGoldenDir() + "/subs_3d_x.bin", capacity_dim3);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 32, 32});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Element value(DataType::DT_FP32, 1.5);
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+        FUNCTION("SUB_S", FunctionType::STATIC, {input_a, output}) {
+            output = SubS(input_a, value);
+        }
+    }
+
+    std::vector<float> golden(capacity_dim3);
+    std::vector<float> res(capacity_dim3);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/subs_3d_res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_scalar_dim4_sub) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = 2 * 2 * capacity * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("SUB") {
+        std::vector<int> shape = {2, 2, row, col};
+        void *x_ptr = readToDev(GetGoldenDir() + "/subs_4d_x.bin", 2 * 2 * capacity);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, 32});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Element value(DataType::DT_FP32, 1.5);
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+        FUNCTION("SUB_S", FunctionType::STATIC, {input_a, output}) {
+            output = SubS(input_a, value);
+        }
+    }
+
+    std::vector<float> golden(2 * 2 * capacity);
+    std::vector<float> res(2 * 2 * capacity);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/subs_4d_res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_scalar_dim3_mul) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_dim3 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("MUL") {
+        std::vector<int> shape = {in0, row, col};
+        void *x_ptr = readToDev(GetGoldenDir() + "/muls_3d_x.bin", capacity_dim3);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 32, 32});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Element value(DataType::DT_FP32, 1.5);
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+        FUNCTION("MUL_S", FunctionType::STATIC, {input_a, output}) {
+            output = MulS(input_a, value);
+        }
+    }
+
+    std::vector<float> golden(capacity_dim3);
+    std::vector<float> res(capacity_dim3);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/muls_3d_res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_scalar_dim4_mul) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = 2 * 2 * capacity * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("MUL") {
+        std::vector<int> shape = {2, 2, row, col};
+        void *x_ptr = readToDev(GetGoldenDir() + "/muls_4d_x.bin", 2 * 2 * capacity);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, 32});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Element value(DataType::DT_FP32, 1.5);
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+        FUNCTION("MUL_S", FunctionType::STATIC, {input_a, output}) {
+            output = MulS(input_a, value);
+        }
+    }
+
+    std::vector<float> golden(2 * 2 * capacity);
+    std::vector<float> res(2 * 2 * capacity);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/muls_4d_res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_scalar_32_32_1_256_mul) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    int cap = 32 * 32 * 256;
+    uint64_t outputSize = cap * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("MUL") {
+        std::vector<int> shape = {32, 32, 1, 256};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", cap);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16, 1, 16});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Element value(DataType::DT_FP32, 0.07256f);
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+        FUNCTION("MUL_S", FunctionType::STATIC, {input_a, output}) {
+            output = MulS(input_a, value);
+        }
+    }
+
+    std::vector<float> golden(cap);
+    std::vector<float> res(cap);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_scalar_dim3_div) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity_dim3 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("DIV") {
+        std::vector<int> shape = {in0, row, col};
+        void *x_ptr = readToDev(GetGoldenDir() + "/divs_3d_x.bin", capacity_dim3);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 32, 32});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Element value(DataType::DT_FP32, 1.5);
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+        FUNCTION("DIV_S", FunctionType::STATIC, {input_a, output}) {
+            output = DivS(input_a, value);
+        }
+    }
+
+    std::vector<float> golden(capacity_dim3);
+    std::vector<float> res(capacity_dim3);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/divs_3d_res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_scalar_dim4_div) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = 2 * 2 * capacity * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("DIV") {
+        std::vector<int> shape = {2, 2, row, col};
+        void *x_ptr = readToDev(GetGoldenDir() + "/divs_4d_x.bin", 2 * 2 * capacity);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, 32});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Element value(DataType::DT_FP32, 1.5);
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+        FUNCTION("DIV_S", FunctionType::STATIC, {input_a, output}) {
+            output = DivS(input_a, value);
+        }
+    }
+
+    std::vector<float> golden(2 * 2 * capacity);
+    std::vector<float> res(2 * 2 * capacity);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/divs_4d_res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_operation_tensor_16_32_32_to_16_32_1_tileop_mul) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    int capShape1 = 16 * 32 * 32;
+    int capShape2 = 16 * 32 * 1;
+    uint64_t outputSize = capShape1 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("ADD") {
+        std::vector<int> shape0 = {16, 32, 32};
+        std::vector<int> shape1 = {16, 32, 1};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capShape1);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capShape2);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 8});
+        Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("ADD_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Mul(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(capShape1);
+    std::vector<float> res(capShape1);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_scatterupdate_case1) {
+    int B = 2;
+    int S = 1;
+    int S2 = 512;
+    int kvLoraRank = 512;
+    int qkRopeHeadDim = 64;
+
+    std::vector<int> shape0 = {B, 1, S2, kvLoraRank + qkRopeHeadDim};
+    std::vector<int> shape1 = {S};
+    std::vector<int> shape2 = {B, 1, S, kvLoraRank + qkRopeHeadDim};
+
+    int capacity0 = shape0[0] * shape0[1] * shape0[2] * shape0[3];
+
+    char buffer[100];
+    sprintf(buffer, "../tests/ScatterUpdate/%d_%d_%d_%d_%d/", B, S, S2, kvLoraRank, qkRopeHeadDim);
+    std::string inputDir(buffer);
+
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+
+    PROGRAM("SCATTERUPDATE") {
+        readToDev(inputDir + "x.bin", capacity0);
+ // false:用tensor graph展开
+        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 256, 128);
+
+        Tensor kv_len(DataType::DT_INT32, {1, 1}, "kv_len");
+        Tensor past_key_states(DataType::DT_FP32, {B, 1, S2, kvLoraRank + qkRopeHeadDim}, "past_key_states");
+        // Tensor compressed_kv(DataType::DT_FP32, {B, S, kvLoraRank}, "past_key_states");
+        // Tensor k_pe_rope(DataType::DT_FP32, {B, 1, S, qkRopeHeadDim}, "k_pe_rope"); // (b,1,s,qkRopeHeadDim)
+        Tensor res;
+        Tensor key_states(DataType::DT_FP32, {B, 1, S, kvLoraRank + qkRopeHeadDim}, "past_key_states");
+        Tensor past_key_states_new(DataType::DT_FP32, {B, 1, S2, kvLoraRank + qkRopeHeadDim}, "past_key_states_new");
+
+        FUNCTION("SCATTERUPDATE_T", FunctionType::STATIC) {
+            past_key_states_new = ScatterUpdate(past_key_states, kv_len, key_states, -2);
+        }
+    }
+
+    uint64_t outputSize = Program::GetInstance().GetHostMachine().outputStubPara.at(0).rawShapeSize;
+    uint8_t* outputGmAddr = Program::GetInstance().GetHostMachine().outputStubPara.at(0).rawTensorAddr;
+    assert(outputSize == capacity0 * sizeof(float));
+    std::vector<float> golden(capacity0);
+    std::vector<float> dev_res(capacity0);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)outputGmAddr, outputSize);
+    readInput(inputDir + "z_golden.bin", golden);
+    std::cout << "====== output size:" << capacity0 << std::endl;
+    int ret = resultCmp(golden, dev_res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_mul_large_row) {
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    std::vector<int> shape = {1, 16384};
+    int shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+    uint64_t outputSize = shapeSize * sizeof(float);
+
+    uint8_t *out_ptr = allocDevAddr(outputSize);
+    PROGRAM("MUL") {
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", shapeSize);
+        void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", shapeSize);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 16384});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+        ConfigManager::Instance();
+
+        FUNCTION("MUL_T", FunctionType::STATIC, {input_a, input_b, output}) {
+            output = Mul(input_a, input_b);
+        }
+    }
+
+    std::vector<float> golden(shapeSize);
+    std::vector<float> res(shapeSize);
+    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+
+    int ret = resultCmp(golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
