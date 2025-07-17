@@ -1,0 +1,69 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file dead_operation_eliminate.cpp
+ * \brief
+ */
+
+#include "passes/tile_graph_pass/dead_operation_eliminate.h"
+#include <queue>
+#include <chrono>
+#include "interface/tensor/logical_tensor.h"
+
+namespace npu::tile_fwk {
+
+Status DeadOperationEliminator::EliminateDeadOperation(Function &function) {
+    DeadOperationEliminator eliminator;
+    eliminator.EliminateDeadOperationBackward(function);
+    return SUCCESS;
+}
+
+// Delete Operation without oOperand
+void DeadOperationEliminator::EliminateDeadOperationBackward(Function &function) {
+    std::queue<Operation *> q;
+    std::unordered_set<Operation*> visited;
+    for (auto &op : function.Operations()) {
+        bool dontTouch = op.GetBoolAttribute(OpAttributeKey::dontTouch);
+        if(dontTouch){
+            visited.emplace(&op);
+            q.emplace(&op);
+        }
+    }
+
+    for (auto &outcast : function.GetOutcast()) {
+        for (auto op : outcast->GetProducers()) {
+            if (visited.count(op) != 0) {
+                continue;
+            }
+            visited.emplace(op);
+            q.emplace(op);
+        }
+    }
+    while (!q.empty()) {
+        auto op = q.front();
+        q.pop();
+        auto producerOps = function.FindProducers(*op);
+        for (const auto &producerOp : producerOps) {
+            if (visited.count(producerOp) != 0) {
+                continue;
+            }
+            visited.emplace(producerOp);
+            q.emplace(producerOp);
+        }
+    }
+    for (auto &op : function.Operations()) {
+        if (visited.count(&op) == 0) {
+            op.SetAsDeleted();
+        }
+    }
+    function.EraseOperations(true);
+}
+} // namespace

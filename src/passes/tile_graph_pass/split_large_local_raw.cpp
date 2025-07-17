@@ -1,0 +1,157 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file split_large_local_raw.cpp
+ * \brief
+ */
+
+#include "split_large_local_raw.h"
+
+using namespace npu::tile_fwk;
+
+namespace npu::tile_fwk {
+
+std::vector<int> SplitLargeLocalRawPass::UpdateOffset(std::vector<int> &offset, std::vector<int> &diff) const {
+    std::vector<int> result = offset;
+    for (size_t i = 0; i < offset.size(); i++) {
+        if (offset[i] >= diff[i]) {
+            result[i] = offset[i] - diff[i];
+        }
+    }
+    return result;
+}
+
+void SplitLargeLocalRawPass::UpdateConsumerView(const LogicalTensorPtr &logicalTensor, std::vector<int> &diff) const {
+    /* All the consumer View op's attr offset should be corret */
+    /* 1. 更新View相关的属性 */
+    for (auto &viewOp : logicalTensor->GetConsumers()) {
+        if (viewOp->GetOpcode() == Opcode::OP_VIEW) {
+            auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(viewOp->GetOpAttribute().get());
+            if (viewOpAttribute != nullptr) {
+                // VIEW操作的offset要相应被修改。
+                auto &fromOffset = viewOpAttribute->GetFrom();
+                fromOffset = UpdateOffset(fromOffset, diff);
+                // 更新view输出tensor的offset
+                auto &output = viewOp->oOperand[0];
+                output->offset = fromOffset;
+            }
+            // 更新view后的输出的rawtensor
+            auto &output = viewOp->oOperand[0];
+            output->tensor = logicalTensor->tensor;
+            ALOG_DEBUG_F("Update View op needs fromOffset: %d.", viewOp->GetOpMagic());
+        }
+    }
+}
+
+void SplitLargeLocalRawPass::UpdateProducerAssemble(const LogicalTensorPtr &logicalTensor, std::vector<int> &diff) const {
+    /* 1. 更新Assemble相关的属性 */
+    // Assemble1 ->
+    //              logicalTensor(UB) -> Reshape -> UB
+    // Assemble2 ->
+    for (auto &assembleOp : logicalTensor->GetProducers()) {
+        if (assembleOp->GetOpcode() == Opcode::OP_ASSEMBLE) {
+            auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(assembleOp->GetOpAttribute().get());
+            if (assembleOpAttribute != nullptr) {
+                // Assemble操作的offset要相应被修改。
+                auto &toOffset = assembleOpAttribute->GetToOffset();
+                toOffset = UpdateOffset(toOffset, diff);
+                // 更新assemble输入tensor的offset
+                auto &input = assembleOp->iOperand[0];
+                input->offset = toOffset;
+            }
+            // 更新assemble前的输入的rawtensor
+            auto &input = assembleOp->iOperand[0];
+            input->tensor = logicalTensor->tensor;
+            ALOG_DEBUG_F("Update Assemble op needs toOffset: %d.", assembleOp->GetOpMagic());
+        }
+    }
+}
+
+void SplitLargeLocalRawPass::UpdateMemID(Function &function) const {
+    for (auto &op : function.Operations()) {
+        for (auto &input : op.GetIOperands()) {
+            for (auto &rangePair : input->memorymap) {
+                rangePair.second.memId = input->tensor->GetRawMagic();
+            }
+        }
+        for (auto &output : op.GetOOperands()) {
+            for (auto &rangePair : output->memorymap) {
+                rangePair.second.memId = output->tensor->GetRawMagic();
+            }
+        }
+    }
+}
+
+/*
+遍历所有tensor，如果rawTensor的shape大于tensor的shape，
+且rawTensor不是InCast和OutCast(当前Incast、OutCast的Symbol不在tensormap里)、且tensor不是ddr，
+那么需要将重新创建一个shape和当前tensor相同的rawTensor
+*/
+void SplitLargeLocalRawPass::SplitLargeLocalRaw(Function &function) const {
+    std::vector<int> rawIdNeedDelete;
+    std::vector<std::pair<int, std::set<std::shared_ptr<LogicalTensor>, TensorPtrComparator>>> newRawVec;
+    // 为了按序访问tensormap, 将tensormap转化为有序map
+    auto &tensorMap = function.GetTensorMap().tensorMap_;
+    std::map<int, std::set<std::shared_ptr<LogicalTensor>, TensorPtrComparator>> omap;
+    for (const auto &kv : tensorMap) {
+        omap.insert(kv);
+    }
+    for (auto &ele : omap) {
+        bool needDelete = false;
+        std::unordered_set<LogicalTensorPtr> relatedViewOutput;
+        for (auto &singleLogicalTensor : ele.second) {
+            auto rawShape = singleLogicalTensor->tensor->rawshape;
+            if ((singleLogicalTensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) ||
+                (singleLogicalTensor->shape == rawShape)) {
+                continue;
+            }
+            /* 创建新的rawTensor，并将其后接的View以及view的Consumer的rawtensor刷新为新的rawTensor */
+            std::string symbol = LOCAL_RAW_SYMBOL_PREFIX + std::to_string(singleLogicalTensor->magic);
+            singleLogicalTensor->tensor =
+                std::make_shared<RawTensor>(singleLogicalTensor->tensor->datatype, singleLogicalTensor->shape, symbol);
+            if (singleLogicalTensor->tensor == nullptr) {
+                continue;
+            }
+            needDelete = true;
+            std::set<std::shared_ptr<LogicalTensor>, TensorPtrComparator> newSet;
+            newSet.emplace(singleLogicalTensor);
+            UpdateConsumerView(singleLogicalTensor, singleLogicalTensor->offset);
+            UpdateProducerAssemble(singleLogicalTensor, singleLogicalTensor->offset);
+            newRawVec.emplace_back(std::make_pair(singleLogicalTensor->tensor->rawmagic, newSet));
+            for (auto &offset : singleLogicalTensor->offset) {
+                offset = 0;
+            }
+        }
+        if (needDelete) {
+            rawIdNeedDelete.emplace_back(ele.first);
+        }
+    }
+    // 将tensormap更新回来
+    tensorMap.clear();
+    for (const auto &kv : omap) {
+        tensorMap.insert(kv);
+    }
+    for (auto &ele : newRawVec) {
+        function.GetTensorMap().tensorMap_.emplace(ele);
+    }
+    for (auto &id : rawIdNeedDelete) {
+        function.GetTensorMap().tensorMap_.erase(id);
+    }
+}
+
+Status SplitLargeLocalRawPass::RunOnFunction(Function &function) {
+    ASLOGI("===> Start SplitLargeLocalRawPass.");
+    SplitLargeLocalRaw(function);
+    UpdateMemID(function);
+    ASLOGI("===> End SplitLargeLocalRawPass.");
+    return SUCCESS;
+}
+} // namespace npu::tile_fwk
