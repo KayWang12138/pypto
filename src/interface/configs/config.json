@@ -1,0 +1,182 @@
+{
+    "global_configs": {
+        "platform_configs": {
+            "GRAPH_ONLY_DOT": true,
+            "GRAPH_FILE_TYPE": "svg",
+            "USE_SSA": true,
+            "ENABLE_COST_MODEL": false,
+            "ENABLE_DYN_COST_MODEL": false,
+            "ENABLE_AIHAC_BACKEND": false,
+            "ONLY_TENSOR_GRAPH": false,
+            "ONLY_HOST_COMPILE": false,
+            "PRINT_TENSOR_GRAPH": false,
+            "TEST_IS_TIG": false,
+            "ENABLE_SOFT_MEMORY": false,
+            "ENABLE_PV_DATA": false
+        },
+        "host_configs": {
+            "STRATEGY": "PVC2_OOO",
+            "ENABLE_BINARY_CACHE": true,
+            "workspace_recycle_period": 10,
+            "estimated_stitching_count": 50,
+            "ONLY_CODEGEN":false,
+            "DUMP_BIN_AND_JSON": false,
+            "DUMP_BIN_AND_JSON_PATH": "",
+            "DUMP_KERNEL_NAME":""
+        },
+        "device_configs": {},
+        "core_configs": {},
+        "simulation_configs": {
+            "DEBUG_SINGLE_FUNC": false,
+            "DEBUG_SINGLE_FUNCNAME": "DEBUG_LEAF_FUNC",
+            "DRAW_FUNCTION_GRAPH": true,
+            "BUILD_TASK_BASED_TOPO": true,
+            "SIM_MODE": 0,
+            "ACCURACY_LEVEL": 2,
+            "PV_LEVEL": 0,
+            "LOG_LEVEL": 3,
+            "EXECUTE_CYCLE_THRESHOLD": -1,
+            "JSON_PATH": "",
+            "AGENT_JSON_PATH": "",
+            "args" : [
+                "Model.statisticReportToFile=true",
+                "Model.deviceArch=A2A3",
+                "Model.useOOOPassSeq=true",
+                "Core.logLabelMode=0",
+                "Core.bufferBackPressure=false"
+            ]
+        },
+        "codegen_configs": {
+            "PARALLEL_THREAD_NUM" : 8,
+            "SUPPORT_DYNAMIC_UNALIGNED" : false,
+            "CODEGEN_BY_JSON" : false
+        },
+        "operation_configs": {
+            "FORCE_COMBINE_AXIS" : false
+        },
+        "distributed_configs": {
+            "AICPU_WAIT_FLAG_ENABLE": true
+        }
+    },
+    "pass_global_configs": {
+        "enable_pass_configs": true,
+        "enabled_last_pass_type": "execute_graph",
+        "enable_cv_fuse": false,
+        "pass_thread_num": 1,
+        "default_pass_configs": {
+            "PRINT_FUNCTION": false,
+            "DUMP_FUNCTION_GRAPH_BEFORE_PASS": false,
+            "DUMP_FUNCTION_GRAPH_AFTER_PASS": false,
+            "DUMP_PASS_TIME_COST": true,
+            "PRE_CHECK": true,
+            "POST_CHECK": true,
+            "EXPECTED_VALUE_CHECK": false,
+            "DISABLE_PASS": false,
+            "HEALTH_CHECK": false
+        }
+    },
+    "strategies": {
+        "Readme": {
+            "I'm pass identifier, not pass name to allow run pass more than one time": {
+                "I'm pass config key, you can change default or add specific to your pass": "any json type is allowed"
+            }
+        },
+        "TIG": {
+            "RemoveRedundentReshape": {
+                "DUMP_FUNCTION_GRAPH_BEFORE_PASS": false
+            }
+        },
+        "PVC1_OOO": {
+            "OoOSchedulePass": {
+                "PRINT_FUNCTION": false
+            }
+        },
+        "PVC2_OOO": {
+            "RemoveRedundentReshape": {
+                "EXPECTED_VALUE_CHECK": false
+            },
+            "MergeViewAssemble": {
+                "DUMP_FUNCTION_GRAPH_BEFORE_PASS": false,
+                "DUMP_FUNCTION_GRAPH_AFTER_PASS": false
+            },
+            "InsertCopyOpPass": {
+                "EXPECTED_VALUE_CHECK": false,
+                "DUMP_FUNCTION_GRAPH_BEFORE_PASS": false,
+                "DUMP_FUNCTION_GRAPH_AFTER_PASS": false
+            },
+            "PadLocalBuffer": {
+                "DUMP_FUNCTION_GRAPH_BEFORE_PASS": false,
+                "DUMP_FUNCTION_GRAPH_AFTER_PASS": false
+            },
+            "RemoveRedundentOp": {
+                "EXPECTED_VALUE_CHECK": false
+            },
+            "CommonOperationEliminate": {
+                "EXPECTED_VALUE_CHECK": false
+            },
+            "ExpandFunction": {
+                "EXPECTED_VALUE_CHECK": false
+            },
+            "GenerateMoveOp": {
+                "PRE_CHECK": false,
+                "POST_CHECK": false,
+                "EXPECTED_VALUE_CHECK": false
+            },
+            "SplitReshapeOpPVC2": {
+                "EXPECTED_VALUE_CHECK": false
+            },
+            "SplitLargeFanoutTensor": {
+                "EXPECTED_VALUE_CHECK": false
+            },
+            "SubgraphToFunction": {
+                "PRE_CHECK": false,
+                "POST_CHECK": false,
+                "USE_MAX_FREQ_LABEL": true
+            },
+            "SrcDstBufferMergePVC2Pass": {
+                "POST_CHECK": false
+            },
+            "AddAllocNewPass": {
+                "POST_CHECK": false
+            },
+            "OoOSchedulePass": {
+                "PRE_CHECK": false,
+                "POST_CHECK": false,
+                "DUMP_FUNCTION_GRAPH_BEFORE_PASS": false,
+                "DUMP_FUNCTION_GRAPH_AFTER_PASS": false
+            },
+            "RemoveAllocPass": {
+                "POST_CHECK": false
+            },
+            "InsertSyncPass": {
+                "DUMP_FUNCTION_GRAPH_BEFORE_PASS": false,
+                "DUMP_FUNCTION_GRAPH_AFTER_PASS": false
+            },
+            "GraphPartitionPass": {
+                "PRE_CHECK": false,
+                "POST_CHECK": false,
+                "DUMP_FUNCTION_GRAPH_BEFORE_PASS": false,
+                "DUMP_FUNCTION_GRAPH_AFTER_PASS": false
+            },
+            "CodegenPreprocPass": {
+                "POST_CHECK": false
+            },
+            "InsertConvertOp": {
+                "PRE_CHECK": true,
+                "POST_CHECK": true
+            },
+            "MemoryReuse": {
+            },
+            "L1CopyInReusePass": {
+            },
+            "VFFusionPass": {
+                "DISABLE_PASS": true
+            }
+        },
+        "JsonResumeStrategy": {
+            "MergeViewAssemble": {
+                "RESUME_PATH":"./config/pass/json/pass_resume.json"
+            }
+        }
+    }
+}

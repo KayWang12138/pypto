@@ -1,0 +1,429 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file raw_tensor_data.h
+ * \brief
+ */
+
+#pragma once
+
+#include <cstdint>
+#include <vector>
+#include <string>
+#include <memory>
+
+#include "interface/utils/thread_pool.h"
+#include "common/data_type.h"
+#include "tilefwk/tensor.h"
+#include "element.h"
+#include "interface/tensor/tensor_offset.h"
+
+
+namespace npu::tile_fwk {
+
+struct RawTensorData : public std::vector<uint8_t> {
+    static int GetDataSize(DataType dataType) {
+        int result = 0;
+        constexpr int DATA_SIZE_HALF = -1;
+        constexpr int DATA_SIZE_BYTE = 1;
+        constexpr int DATA_SIZE_SHORT = 2;
+        constexpr int DATA_SIZE_INT = 4;
+        constexpr int DATA_SIZE_LONG = 8;
+        switch (dataType) {
+            case DT_INT4: result = DATA_SIZE_HALF; break;
+            case DT_INT8: result = DATA_SIZE_BYTE; break;
+            case DT_INT16: result = DATA_SIZE_SHORT; break;
+            case DT_INT32: result = DATA_SIZE_INT; break;
+            case DT_INT64: result = DATA_SIZE_LONG; break;
+            case DT_FP8: result = DATA_SIZE_BYTE; break;
+            case DT_FP16: result = DATA_SIZE_SHORT; break;
+            case DT_FP32: result = DATA_SIZE_INT; break;
+            case DT_BF16: result = DATA_SIZE_SHORT; break;
+            case DT_HF4: result = DATA_SIZE_HALF; break;
+            case DT_HF8: result = DATA_SIZE_BYTE; break;
+            case DT_UINT8: result = DATA_SIZE_BYTE; break;
+            case DT_UINT16: result = DATA_SIZE_SHORT; break;
+            case DT_UINT32: result = DATA_SIZE_INT; break;
+            case DT_UINT64: result = DATA_SIZE_LONG; break;
+            case DT_BOOL: result = DATA_SIZE_BYTE; break;
+            case DT_DOUBLE: result = DATA_SIZE_LONG; break;
+            default: result = 0; break;
+        }
+        return result;
+    }
+
+    static std::vector<int> ShapeToStride(const std::vector<int> &shape) {
+        std::vector<int> stride;
+        stride.resize(shape.size());
+        stride[shape.size() - 1] = 1;
+        for (int k = static_cast<int>(shape.size()) - 2; k >= 0; k--) {
+            stride[k] = stride[k + 1] * shape[k + 1];
+        }
+        return stride;
+    }
+
+    RawTensorData() : RawTensorData(DT_UINT8, {}) {}
+    RawTensorData(DataType dataType, const std::vector<int> &shape)
+        : dataType_(dataType),
+          shape_(shape),
+          stride_(ShapeToStride(shape)),
+          nelem(stride_[0] * shape[0]),
+          elemSize_(GetDataSize(dataType)) {
+        this->resize(nelem * elemSize_);
+    }
+
+    const std::vector<int> &GetShape() const { return shape_; }
+    const std::vector<int> &GetStride() const { return stride_; }
+    DataType GetDataType() const { return dataType_; }
+    int GetSize() const { return nelem; }
+    int GetElementSize() const { return elemSize_; }
+
+    template <typename T>
+    const T &Get(int index) const {
+        const void *addr = &this->data()[index * elemSize_];
+        return *static_cast<const T *>(addr);
+    }
+
+    template <typename T>
+    T &Get(int index) {
+        void *addr = &this->data()[index * elemSize_];
+        return *static_cast<T *>(addr);
+    }
+
+    Element GetElement(int index) const {
+        switch (GetDataType()) {
+#define CASE_DATA_TYPE_DIS(ast2Type, dataType, calcType, index) \
+    case ast2Type: return Element(ast2Type, static_cast<calcType>(Get<dataType>(index)))
+            break;
+            DISPATCH_DATA_TYPE(CASE_DATA_TYPE_DIS, index)
+#undef CASE_DATA_TYPE_DIS
+            default: ASSERT(false); return Element();
+        }
+    }
+
+    std::string DumpElement(int index) const {
+        switch (GetDataType()) {
+            case DT_INT8: return std::to_string(Get<int8_t>(index));
+            case DT_INT16: return std::to_string(Get<int16_t>(index));
+            case DT_INT32: return std::to_string(Get<int32_t>(index));
+            case DT_INT64: return std::to_string(Get<int64_t>(index));
+            case DT_FP16: return std::to_string(Get<npu::tile_fwk::float16>(index));
+            case DT_FP32: return std::to_string(Get<float>(index));
+            case DT_BF16: return std::to_string(Get<npu::tile_fwk::bfloat16>(index));
+            case DT_UINT8: return std::to_string(Get<uint8_t>(index));
+            case DT_UINT16: return std::to_string(Get<uint16_t>(index));
+            case DT_UINT32: return std::to_string(Get<uint32_t>(index));
+            case DT_UINT64: return std::to_string(Get<uint64_t>(index));
+            case DT_DOUBLE: return std::to_string(Get<double>(index));
+            default: ASSERT(false); return "";
+        }
+    }
+
+    void DumpElement(int index, ElementDump *dump) const {
+        switch (GetDataType()) {
+            case DT_INT8: dump->DumpElement(static_cast<int64_t>(Get<int8_t>(index))); break;
+            case DT_INT16: dump->DumpElement(static_cast<int64_t>(Get<int16_t>(index))); break;
+            case DT_INT32: dump->DumpElement(static_cast<int64_t>(Get<int32_t>(index))); break;
+            case DT_INT64: dump->DumpElement(static_cast<int64_t>(Get<int64_t>(index))); break;
+            case DT_FP16: dump->DumpElement(static_cast<double>(Get<npu::tile_fwk::float16>(index))); break;
+            case DT_FP32: dump->DumpElement(static_cast<double>(Get<float>(index))); break;
+            case DT_BF16: dump->DumpElement(static_cast<double>(Get<npu::tile_fwk::bfloat16>(index))); break;
+            case DT_UINT8: dump->DumpElement(static_cast<uint64_t>(Get<uint8_t>(index))); break;
+            case DT_UINT16: dump->DumpElement(static_cast<uint64_t>(Get<uint16_t>(index))); break;
+            case DT_UINT32: dump->DumpElement(static_cast<uint64_t>(Get<uint32_t>(index))); break;
+            case DT_UINT64: dump->DumpElement(static_cast<uint64_t>(Get<uint64_t>(index))); break;
+            case DT_DOUBLE: dump->DumpElement(static_cast<double>(Get<double>(index))); break;
+            default: ASSERT(false);
+        }
+    }
+
+    template <typename T>
+    static std::shared_ptr<RawTensorData> CreateConstantTensor(const Tensor &t, T value) {
+        auto tensorData = std::make_shared<RawTensorData>(t.GetDataType(), t.GetShape());
+
+        T *data = reinterpret_cast<T *>(tensorData->data());
+        for (size_t i = 0; i < tensorData->nelem; i++) {
+            data[i] = value;
+        }
+        return tensorData;
+    }
+
+    template <typename T>
+    static std::shared_ptr<RawTensorData> CreateTensor(const Tensor &t, const std::vector<T> &values, bool l2Disable = false) {
+        auto tensorData = std::make_shared<RawTensorData>(t.GetDataType(), t.GetShape());
+        tensorData->l2Disable_ = l2Disable;
+        T *data = reinterpret_cast<T *>(tensorData->data());
+        for (size_t i = 0; i < tensorData->nelem; i++) {
+            data[i] = values[i];
+        }
+        return tensorData;
+    }
+
+    static std::shared_ptr<RawTensorData> CreateTensorZero(const Tensor &t) {
+        auto tensorData = std::make_shared<RawTensorData>(t.GetDataType(), t.GetShape());
+
+        uint8_t *data = reinterpret_cast<uint8_t *>(tensorData->data());
+        for (size_t i = 0; i < tensorData->nelem * BytesOf(t.GetDataType()); i++) {
+            data[i] = 0;
+        }
+        return tensorData;
+    }
+
+    void SetDevPtr(uint8_t *ptr) { devPtr_ = ptr; }
+    uint8_t *GetDevPtr() { return devPtr_; }
+
+private:
+    uint8_t *devPtr_{nullptr};
+    DataType dataType_;
+    std::vector<int> shape_;
+    std::vector<int> stride_;
+    size_t nelem;
+    size_t elemSize_;
+    bool l2Disable_;
+};
+
+using RawTensorDataPtr = std::shared_ptr<RawTensorData>;
+
+struct LogicalTensorData {
+    LogicalTensorData() = default;
+
+    LogicalTensorData(RawTensorDataPtr data)
+        : LogicalTensorData(
+              data, data->GetShape(), std::vector<int>(0), std::vector<int>(data->GetShape().size(), 0)) {}
+
+    LogicalTensorData(RawTensorDataPtr data, const std::vector<int> &shape, const std::vector<int> &ValidShape,
+        const std::vector<int> &offset)
+        : data_(data),
+          shape_(shape),
+          ValidShape_(ValidShape),
+          offset_(offset),
+          stride_(RawTensorData::ShapeToStride(shape)),
+          size_(shape_[0] * stride_[0]),
+          isSpilled_(false) {}
+
+    LogicalTensorData(RawTensorDataPtr data, const std::vector<int> &shape, const std::vector<int> &offset)
+        : LogicalTensorData(data, shape, shape, offset) {}
+
+    const RawTensorDataPtr &GetData() const { return data_; }
+    RawTensorDataPtr GetData() { return data_; }
+
+    const std::vector<int> &GetShape() const { return shape_; }
+    const std::vector<int> &GetValidShape() const { return ValidShape_; }
+    const std::vector<int> &GetStride() const { return stride_; }
+    const std::vector<int> &GetOffset() const { return offset_; }
+    bool GetIsSpilled() const { return isSpilled_; }
+    void SetIsSpilled(bool isSpilled) { isSpilled_ = isSpilled; }
+    int GetSize() const { return size_; }
+    DataType GetDataType() const { return GetData()->GetDataType(); }
+
+    int ViewIndexToDataIndex(int viewIndex) const {
+        int offset[0x8];
+        for (size_t i = 0; i < GetShape().size(); i++) {
+            offset[i] = viewIndex / stride_[i];
+            viewIndex %= stride_[i];
+        }
+        for (size_t i = 0; i < GetShape().size(); i++) {
+            offset[i] += offset_[i];
+        }
+        int dataIndex = 0;
+        for (size_t i = 0; i < GetShape().size(); i++) {
+            dataIndex += offset[i] * GetData()->GetStride()[i];
+        }
+        return dataIndex;
+    }
+
+    template <typename T>
+    const T &Get(int index) const {
+        return GetData()->Get<T>(ViewIndexToDataIndex(index));
+    }
+    template <typename T>
+    T &Get(int index) {
+        return GetData()->Get<T>(ViewIndexToDataIndex(index));
+    }
+
+    Element GetElement(int index) const { return GetData()->GetElement(ViewIndexToDataIndex(index)); }
+    std::string DumpElement(int index) const { return GetData()->DumpElement(ViewIndexToDataIndex(index)); }
+    void DumpElement(int index, ElementDump *dump) const {
+        return GetData()->DumpElement(ViewIndexToDataIndex(index), dump);
+    }
+    std::string DumpType() const {
+        std::ostringstream oss;
+        oss << "<";
+        for (size_t k = 0; k < GetShape().size(); k++) {
+            oss << GetShape()[k] << " x ";
+        }
+        oss << DataType2String(GetDataType()) << ">";
+        return oss.str();
+    }
+
+    static std::shared_ptr<LogicalTensorData> CreateMove(RawTensorData &&data) {
+        auto tensorData = std::make_shared<RawTensorData>(std::move(data));
+        return std::make_shared<LogicalTensorData>(tensorData);
+    }
+
+    static std::shared_ptr<LogicalTensorData> Create(const RawTensorData &data) {
+        auto tensorData = std::make_shared<RawTensorData>(data);
+        return std::make_shared<LogicalTensorData>(tensorData);
+    }
+
+    static std::shared_ptr<LogicalTensorData> CreateEmpty(
+        DataType dataType, const std::vector<int> &shape, const std::vector<int> &validShape) {
+        auto tensorData = std::make_shared<RawTensorData>(dataType, shape);
+        return std::make_shared<LogicalTensorData>(
+            tensorData, shape, validShape, std::vector<int>(shape.size(), 0));
+    }
+
+    std::shared_ptr<LogicalTensorData> View(const std::vector<int> &viewShape, const std::vector<int> &viewOffset) {
+        std::vector<int> resultOffset = TensorOffset::Add(GetOffset(), viewOffset);
+        for (size_t dim = 0; dim < viewShape.size(); dim++) {
+            ASSERT(viewShape[dim] + resultOffset[dim] <= GetData()->GetShape()[dim])
+                << "shape=" << viewShape[dim] << " offset=" << resultOffset[dim] << " bound=" << GetData()->GetShape()[dim];
+        }
+        return std::make_shared<LogicalTensorData>(GetData(), viewShape, resultOffset);
+    }
+
+    std::shared_ptr<LogicalTensorData> DeepCopy() const {
+        auto tensorData = std::make_shared<RawTensorData>(*data_);
+        return std::make_shared<LogicalTensorData>(tensorData, shape_, ValidShape_, offset_);
+    }
+
+    std::string Dump(const std::vector<ElementDump> *elementDumpList) const {
+        constexpr int INDENT_TWO = 2;
+        return DumpData(INDENT_TWO, elementDumpList);
+    }
+
+    std::string Dump() const { return DumpData(2, nullptr); }
+
+    void Save(const std::string &filepath) const;
+    void SaveFile(const char *filepath) const;
+    static std::shared_ptr<LogicalTensorData> Load(const std::string &filepath);
+
+private:
+    template <typename T>
+    void HandleSave(FILE *fdata, int totalSize, int rowSize) const {
+        if(fdata == nullptr){
+            ASSERT(false);
+        }
+        for (int k = 0; k < totalSize / rowSize; k++) {
+            size_t result = fwrite(&Get<T>(k), sizeof(T), rowSize, fdata);
+            if (result != static_cast<size_t>(rowSize)) {
+            ASSERT(false);
+        }
+        }
+    }
+
+    std::string DumpRange(int idxBegin, int idxEnd, const std::vector<ElementDump> *elementDumpList) const;
+    std::string DumpCoord(int row) const;
+    std::string DumpData(int indent, const std::vector<ElementDump> *elementDumpList) const;
+
+private:
+    std::shared_ptr<RawTensorData> data_;
+    std::vector<int> shape_;
+    std::vector<int> ValidShape_;
+    std::vector<int> offset_;
+    std::vector<int> stride_;
+    int size_;
+    bool isSpilled_;
+};
+
+template <>
+inline std::shared_ptr<RawTensorData> RawTensorData::CreateTensor<uint8_t>(const Tensor &t,
+                                                const std::vector<uint8_t> &values, bool l2Disable) {
+    auto tensorData = std::make_shared<RawTensorData>(t.GetDataType(), t.GetShape());
+    tensorData->l2Disable_ = l2Disable;
+    uint8_t *data = reinterpret_cast<uint8_t *>(tensorData->data());
+    for (size_t i = 0; i < tensorData->nelem * BytesOf(t.GetDataType()); i++) {
+        data[i] = values[i];
+    }
+    return tensorData;
+}
+
+struct ProgramData {
+    std::vector<RawTensorDataPtr> inputDataList_;
+    std::vector<RawTensorDataPtr> outputDataList_;
+    std::vector<RawTensorDataPtr> goldenDataList_;
+
+    const std::vector<RawTensorDataPtr> &GetInputDataList() const { return inputDataList_; }
+    std::vector<RawTensorDataPtr> &GetInputDataList() { return inputDataList_; }
+    RawTensorDataPtr GetInputData(int idx) { return inputDataList_[idx]; }
+
+    const std::vector<RawTensorDataPtr> &GetOutputDataList() const { return outputDataList_; }
+    std::vector<RawTensorDataPtr> &GetOutputDataList() { return outputDataList_; }
+    RawTensorDataPtr GetOutputData(int idx) { return outputDataList_[idx]; }
+
+    const std::vector<RawTensorDataPtr> GetGoldenDataList() const { return goldenDataList_; }
+    std::vector<RawTensorDataPtr> GetGoldenDataList() { return goldenDataList_; }
+    RawTensorDataPtr GetGoldenData(int idx) { return goldenDataList_[idx]; }
+
+    void AppendInput(RawTensorDataPtr data) { inputDataList_.push_back(data); }
+    void AppendInputs(const std::vector<RawTensorDataPtr> &dataList) {
+        for (const auto &data : dataList) {
+            AppendInput(data);
+        }
+    }
+
+    void AppendOutput(RawTensorDataPtr data) { outputDataList_.push_back(data); }
+    void AppendOutputs(const std::vector<RawTensorDataPtr> &dataList) {
+        for (const auto &data : dataList) {
+            AppendOutput(data);
+        }
+    }
+
+    void AppendGolden(RawTensorDataPtr data) { goldenDataList_.push_back(data); }
+    void AppendGoldens(const std::vector<RawTensorDataPtr> &dataList) {
+        for (const auto &data : dataList) {
+            AppendGolden(data);
+        }
+    }
+
+    void PrepareData(const std::vector<RawTensorDataPtr> inputDataList,
+        const std::vector<RawTensorDataPtr> outputDataList, const std::vector<RawTensorDataPtr> goldenDataList) {
+        AppendInputs(inputDataList);
+        AppendOutputs(outputDataList);
+        AppendGoldens(goldenDataList);
+    }
+
+    void CopyTo(std::vector<std::shared_ptr<LogicalTensorData>> &dataViewList,
+        const std::vector<RawTensorDataPtr> &dataList) {
+        for (auto data : dataList) {
+            auto shape = data->GetShape();
+            dataViewList.push_back(std::make_shared<LogicalTensorData>(
+                data, shape, std::vector<int>(0), std::vector<int>(shape.size(), 0)));
+        }
+    }
+
+    void CopyToInputDataViewList(std::vector<std::shared_ptr<LogicalTensorData>> &inputDataViewList) {
+        CopyTo(inputDataViewList, inputDataList_);
+    }
+
+    void CopyToOutputDataViewList(std::vector<std::shared_ptr<LogicalTensorData>> &outputDataViewList) {
+        CopyTo(outputDataViewList, outputDataList_);
+    }
+
+    void CopyToGoldenDataViewList(std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList) {
+        CopyTo(goldenDataViewList, goldenDataList_);
+    }
+
+    void Reset() {
+        inputDataList_.clear();
+        outputDataList_.clear();
+        goldenDataList_.clear();
+    }
+
+    void SaveJsonFile(const std::string &fileName);
+    void LoadJsonFile(const std::string &fileName);
+
+    static ProgramData &GetInstance() {
+        static ProgramData data;
+        return data;
+    }
+};
+} // namespace npu::tile_fwk

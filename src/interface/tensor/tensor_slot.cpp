@@ -1,0 +1,425 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file tensor_slot.cpp
+ * \brief
+ */
+
+#include "tensor_slot.h"
+
+#include "tilefwk/tilefwk.h"
+#include "tilefwk.h"
+#include "interface/program/program.h"
+
+namespace npu::tile_fwk {
+
+std::string TensorSlot::GetSymbolName() const {
+    std::string name;
+    if (IsKindTensor()) {
+        const Tensor *t = reinterpret_cast<const Tensor *>(GetSlot());
+        if (t->GetStorage(false) != nullptr) {
+            name = t->GetStorage(false)->tensor->symbol;
+        }
+    }
+    return name;
+}
+
+std::shared_ptr<LogicalTensor> TensorSlot::GetSlotValue() const {
+    std::shared_ptr<LogicalTensor> value;
+    if (IsKindTensor()) {
+        const Tensor *tensor = reinterpret_cast<const Tensor *>(GetSlot());
+        value = tensor->GetStorage(false);
+    }
+    return value;
+}
+
+void TensorSlot::SetSlotValue(const std::shared_ptr<LogicalTensor> &value) const {
+    if (IsKindTensor()) {
+        Tensor *tensor = reinterpret_cast<Tensor *>(const_cast<void *>(GetSlot()));
+        tensor->GetStorage(false) = value;
+    }
+}
+
+std::string TensorSlot::DumpHead(const std::string &name) const {
+    constexpr int width = 15;
+    std::ostringstream oss;
+    std::string symbol = name;
+    if (symbol != "") {
+        symbol = "(" + symbol + ")";
+    }
+    oss << "kind:" << static_cast<int>(GetKind()) << " slot:" << GetSlot() << std::setw(width) << std::left << symbol;;
+    return oss.str();
+}
+
+std::string TensorSlot::Dump() const {
+    std::ostringstream oss;
+    oss << DumpHead(GetSymbolName());
+    std::shared_ptr<LogicalTensor> value = GetSlotValue();
+    if (value != nullptr) {
+        oss << " value:" << value.get() << "(" << value->Dump(true, true) << ")";
+    }
+    return oss.str();
+}
+
+void TensorSlotScope::BuildSlotSet() {
+    if (accessRecord.size() == 0) {
+        return;
+    }
+    for (size_t idx = 0; idx < tensorFunc->GetIncast().size(); idx++) {
+        auto &i = tensorFunc->GetIncast()[idx];
+        ASSERT(incastToInArgumentDict.count(i));
+        auto iarg = incastToInArgumentDict[i];
+        auto slot = LookupIncastReadFrom(iarg);
+        incastReadSlotSet.push_back(slot);
+    }
+    for (size_t idx = 0; idx < tensorFunc->GetOutcast().size(); idx++) {
+        auto &o = tensorFunc->GetOutcast()[idx];
+        ASSERT(outcastToOutArgumentDict.count(o));
+        auto oarg = outcastToOutArgumentDict[o];
+        auto slot = LookupOutcastWriteTo(oarg);
+        outcastWriteSlotSet.push_back(slot);
+    }
+}
+
+void TensorSlotScope::BuildIncastOutcastSlot(const std::unordered_map<TensorSlot, int> &slotIndexDict) {
+    ioslot.incastSlot.resize(tensorFunc->GetIncast().size());
+    for (size_t idx = 0; idx < tensorFunc->GetIncast().size(); idx++) {
+        for (auto &h : incastReadSlotSet[idx]) {
+            ASSERT(slotIndexDict.count(h) != 0);
+            ioslot.incastSlot[idx].push_back(slotIndexDict.find(h)->second);
+        }
+        std::sort(ioslot.incastSlot[idx].begin(), ioslot.incastSlot[idx].end());
+    }
+
+    ioslot.outcastSlot.resize(tensorFunc->GetOutcast().size());
+    for (size_t idx = 0; idx < tensorFunc->GetOutcast().size(); idx++) {
+        for (auto &h : outcastWriteSlotSet[idx]) {
+            ASSERT(slotIndexDict.count(h) != 0);
+            ioslot.outcastSlot[idx].push_back(slotIndexDict.find(h)->second);
+        }
+        std::sort(ioslot.outcastSlot[idx].begin(), ioslot.outcastSlot[idx].end());
+    }
+}
+
+std::string TensorSlotScope::Dump() const {
+    std::string INDENT = "  ";
+    std::ostringstream oss;
+    oss << "scope {\n"
+        << INDENT << "#name:" << tensorFunc->GetMagicName() << "\n";
+    for (auto &[slot, access] : accessRecord) {
+        oss << INDENT << "slot:" << slot.GetSlot() << " access:"  << access.Dump() << "\n";
+    }
+    for (auto &[incast, inarg] : incastToInArgumentDict) {
+        oss << INDENT << "incast:" << incast->Dump() << " inarg:" << inarg->Dump() << "\n";
+    }
+    for (auto &[outcast, outarg] : outcastToOutArgumentDict) {
+        oss << INDENT << "outcast:" << outcast->Dump() << " outarg:" << outarg->Dump() << "\n";
+    }
+    oss << "}\n";
+    return oss.str();
+}
+
+void TensorSlotManager::BeginScope(Function *tensorFunc) {
+    std::shared_ptr<TensorSlotScope> scope = std::make_shared<TensorSlotScope>(tensorFunc);
+    scopeList.push_back(scope);
+    currScope = scope;
+}
+
+std::shared_ptr<TensorSlotScope> TensorSlotManager::EndScope() {
+    std::shared_ptr<TensorSlotScope> lastScope = currScope;
+
+    currScope = nullptr;
+    return lastScope;
+}
+
+void TensorSlotManager::ConnectSlot(std::shared_ptr<TensorSlotScope> scope) {
+    scope->BuildSlotSet();
+    scope->BuildIncastOutcastSlot(slotIndexDict);
+    scope->tensorFunc->SetSlotScope(scope);
+}
+
+void TensorSlotManager::TensorSlotRead(const TensorSlot &slot, const std::shared_ptr<LogicalTensor> &tensor) {
+    if (slotIndexDict.count(slot) == 0) {
+        slotIndexDict[slot] = slotIndexDict.size();
+        liveSlotSet.insert(slot);
+    }
+    if (currScope) {
+        currScope->accessRecord[slot].Read(tensor);
+    }
+}
+
+void TensorSlotManager::TensorSlotWrite(const TensorSlot &slot, const std::shared_ptr<LogicalTensor> &tensor) {
+    if (slotIndexDict.count(slot) == 0) {
+        slotIndexDict[slot] = slotIndexDict.size();
+        liveSlotSet.insert(slot);
+    }
+    if (currScope) {
+        currScope->accessRecord[slot].Write(tensor);
+    }
+}
+
+void TensorSlotManager::TensorSlotDestruct(const TensorSlot &slot) {
+    if (liveSlotSet.count(slot)) {
+        liveSlotSet.erase(slot);
+    }
+}
+
+static std::string Width(const std::string &suffix, int width) {
+    std::ostringstream oss;
+    oss << std::setw(width) << std::left << suffix;
+    return oss.str();
+}
+
+void TensorSlotManager::LogOperation(const TensorSlot &slot, const std::string &op) {
+    std::string ops = Width(op, 10);
+    ALOG_DEBUG("[slotManager] " + std::to_string(slotIndexDict.size()) + " op:" + ops + " " + slot.Dump());
+}
+
+void TensorSlotManager::TensorRead(const Tensor &tensor) {
+    TensorSlot slot = TensorSlot::CreateTensor(tensor);
+    std::shared_ptr<LogicalTensor> storage = tensor.GetStorage(false);
+    TensorSlotRead(slot, storage);
+
+    LogOperation(slot, "read");
+}
+
+void TensorSlotManager::TensorWrite(const Tensor &tensor, bool isAssemble) {
+    TensorSlot slot = TensorSlot::CreateTensor(tensor);
+    std::shared_ptr<LogicalTensor> storage = tensor.GetStorage(false);
+    TensorSlotWrite(slot, storage);
+
+    if (isAssemble)
+        assembleSlotSet.insert(slot);
+    ASSERT(tensor.GetStorage(false) != nullptr) << "Assigning uninitialized Tensor variable is forbidden";
+    LogOperation(slot, "write");
+}
+
+void TensorSlotManager::TensorDestruct(const Tensor &tensor) {
+    TensorSlot slot = TensorSlot::CreateTensor(tensor);
+
+    TensorSlotDestruct(slot);
+
+    LogOperation(slot, "destruct");
+}
+
+void TensorSlotManager::TensorSymbol(const Tensor &tensor, const std::string &symbolName) {
+    TensorSlot slot = TensorSlot::CreateTensor(tensor);
+    symbolNameDict[symbolName] = slot;
+    slotNameDict[slot] = symbolName;
+}
+
+std::vector<int> TensorSlotManager::LookupSlotIndex(const std::vector<std::reference_wrapper<Tensor>> &tensorList) {
+    std::vector<int> indexList;
+    for (auto &tensor : tensorList) {
+        TensorSlot slot = TensorSlot::CreateTensor(tensor);
+        if (slotIndexDict.count(slot)) {
+            indexList.push_back(slotIndexDict[slot]);
+        } else {
+            indexList.push_back(-1);
+        }
+    }
+    return indexList;
+}
+
+std::vector<int> TensorSlotManager::LookupSlotIndexConst(const std::vector<std::reference_wrapper<const Tensor>> &tensorList) {
+    std::vector<int> indexList;
+    for (auto &tensor : tensorList) {
+        TensorSlot slot = TensorSlot::CreateTensor(tensor);
+        if (slotIndexDict.count(slot)) {
+            indexList.push_back(slotIndexDict[slot]);
+        } else {
+            indexList.push_back(-1);
+        }
+    }
+    return indexList;
+}
+
+std::vector<int> TensorSlotManager::LookupSlotIndexBySymbol(const std::vector<std::string> &symbolNameList) {
+    std::vector<int> indexList;
+    for (auto &symbolName : symbolNameList) {
+        if (!symbolNameDict.count(symbolName)) {
+            indexList.push_back(-1);
+        } else {
+            TensorSlot slot = symbolNameDict[symbolName];
+            if (slotIndexDict.count(slot)) {
+                indexList.push_back(slotIndexDict[slot]);
+            } else {
+                indexList.push_back(-1);
+            }
+        }
+    }
+    return indexList;
+}
+
+void TensorSlotManager::MarkInput(const Tensor &tensor) {
+    TensorSlot slot = TensorSlot::CreateTensor(tensor);
+    ASSERT(inputSlotDict.count(slot) == 0);
+    inputSlotDict[slot] = inputSlotList.size();
+    inputSlotList.push_back(slot);
+    auto logicalTensor = tensor.GetStorage(false);
+    inputNameList.push_back(logicalTensor ? logicalTensor->tensor->symbol : "unknown");
+
+    LogOperation(slot, "input");
+}
+
+void TensorSlotManager::MarkOutput(const Tensor &tensor) {
+    TensorSlot slot = TensorSlot::CreateTensor(tensor);
+    ASSERT(outputSlotDict.count(slot) == 0);
+    outputSlotDict[slot] = outputSlotList.size();
+    outputSlotList.push_back(slot);
+    auto logicalTensor = tensor.GetStorage(false);
+    outputNameList.push_back(logicalTensor ? logicalTensor->tensor->symbol : "unknown");
+
+    LogOperation(slot, "output");
+}
+
+void TensorSlotManager::MarkInplace(const Tensor &out, const Tensor &in) {
+    MarkOutput(out);
+    TensorSlot outSlot = TensorSlot::CreateTensor(out);
+    TensorSlot inSlot = TensorSlot::CreateTensor(in);
+    ASSERT(inputSlotDict.count(inSlot) != 0);
+    inplaceDict[outSlot] = inSlot;
+}
+
+int TensorSlotManager::GetInputIndex(const Tensor &tensor) {
+    TensorSlot slot = TensorSlot::CreateTensor(tensor);
+    for (size_t i = 0; i < inputSlotList.size(); i++) {
+        if (slot == inputSlotList[i]) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int TensorSlotManager::GetOutputIndex(const Tensor &tensor) {
+    TensorSlot slot = TensorSlot::CreateTensor(tensor);
+    for (size_t i = 0; i < outputSlotList.size(); i++) {
+        if (slot == outputSlotList[i]) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void TensorSlotManager::Checkpoint() {
+    TensorSlotCheckpoint checkpoint;
+
+    std::unordered_set<std::shared_ptr<LogicalTensor>> tensorSet;
+    for (auto &slot : liveSlotSet) {
+        checkpoint.slotDict[slot] = slot.GetSlotValue();
+        tensorSet.insert(slot.GetSlotValue());
+
+        LogOperation(slot, "checkpoint");
+    }
+    for (auto &tensor : tensorSet) {
+        if (tensor == nullptr) {
+            continue;
+        }
+        checkpoint.producerDict[tensor] = tensor->GetProducers();
+        checkpoint.consumerDict[tensor] = tensor->GetConsumers();
+    }
+    checkpointStack.push_back(std::move(checkpoint));
+}
+
+void TensorSlotManager::Restore() {
+    ASSERT(checkpointStack.size() != 0);
+    TensorSlotCheckpoint &checkpoint = checkpointStack.back();
+    for (auto &[slot, value] : checkpoint.slotDict) {
+        slot.SetSlotValue(value);
+
+        LogOperation(slot, "restore");
+    }
+
+    std::vector<std::shared_ptr<LogicalTensor>> tensorList;
+    for (auto &ele : checkpoint.producerDict) {
+        tensorList.push_back(ele.first);
+    }
+
+    for (auto tensor : tensorList) {
+        tensor->GetProducers() = checkpoint.producerDict[tensor];
+        tensor->GetConsumers() = checkpoint.consumerDict[tensor];
+    }
+    checkpointStack.pop_back();
+}
+
+std::string TensorSlotManager::Dump() const {
+    std::vector<TensorSlot> slotList(slotIndexDict.size());
+    for (auto &[slot, index] : slotIndexDict) {
+        slotList[index] = slot;
+    }
+    constexpr int width2 = 2;
+    constexpr int width6 = 2;
+    constexpr int width7 = 2;
+
+    std::ostringstream oss;
+    for (size_t i = 0; i < slotList.size(); i++) {
+        bool live = liveSlotSet.count(slotList[i]);
+        bool assemble = assembleSlotSet.count(slotList[i]);
+        bool input = inputSlotDict.count(slotList[i]);
+        bool output = outputSlotDict.count(slotList[i]);
+        bool named = slotNameDict.count(slotList[i]);
+        if (live || input || output || named) {
+            oss << "slot[" << std::setw(width2) << i << "]: ";
+            oss << std::setw(width2) << (live ? 'L' : ' ');
+            oss << std::setw(width2) << (assemble ? 'A' : ' ');
+            oss << std::setw(width6) << (input ? "in:" + std::to_string(inputSlotDict.find(slotList[i])->second) : std::string(" "));
+            oss << std::setw(width7) << (output ? "out:" + std::to_string(outputSlotDict.find(slotList[i])->second) : std::string(" "));
+            if (live) {
+                oss << " " << slotList[i].Dump() << "\n";
+            } else {
+                oss << " " << slotList[i].DumpHead(slotNameDict.find(slotList[i])->second) << "\n";
+            }
+        }
+    }
+    oss << "slotSize:" << slotList.size() << "\n";
+    return oss.str();
+}
+
+IncastOutcastLink TensorSlotManager::BuildIncastOutcastLink([[maybe_unused]]const std::string &rawname) {
+    IncastOutcastLink link(slotIndexDict.size());
+
+    for (auto &scope : scopeList) {
+        Function *tensorFunc = scope->tensorFunc;
+        if (!tensorFunc->IsGraphType(GraphType::TILE_GRAPH)) {
+            continue;
+        }
+        link.ioslotDict[tensorFunc] = scope->ioslot;
+    }
+
+    for (auto &input : inputSlotList) {
+        ASSERT(slotIndexDict.count(input) != 0);
+        link.inputSlotIndexList.push_back(slotIndexDict[input]);
+    }
+    for (auto &output : outputSlotList) {
+        ASSERT(slotIndexDict.count(output) != 0);
+        link.outputSlotIndexList.push_back(slotIndexDict[output]);
+        auto iter = inplaceDict.find(output);
+        if (iter != inplaceDict.end()) {
+            link.inplaceSlotIndexList.push_back(slotIndexDict[iter->second]);
+        } else {
+            link.inplaceSlotIndexList.push_back(-1);
+        }
+    }
+    for (auto &[slot, index] : slotIndexDict) {
+        if (assembleSlotSet.count(slot)) {
+            link.assembleSlotIndexList.push_back(index);
+        }
+    }
+
+    for (auto &[func, ioslot] : link.ioslotDict) {
+        for (size_t idx = 0; idx < func->GetIncast().size(); idx++) {
+            ASSERT(!ioslot.incastSlot[idx].empty()) << "!!! incast[" << idx <<"] slot not found, " << func->GetIncast()[idx]->Dump();
+        }
+    }
+    return link;
+}
+
+} // namespace npu::tile_fwk

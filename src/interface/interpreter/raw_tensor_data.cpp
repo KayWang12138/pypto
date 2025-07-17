@@ -1,0 +1,181 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file raw_tensor_data.cpp
+ * \brief
+ */
+
+#include "raw_tensor_data.h"
+
+namespace npu::tile_fwk {
+
+struct LogicalTensorDataHead {
+    uint32_t version{0};
+    uint32_t dataType{0};
+    uint32_t dimension{0};
+    uint32_t shape[0x5] = {0};
+    uint32_t padding[0x8] = {0};
+};
+
+
+std::string LogicalTensorData::DumpRange(int idxBegin, int idxEnd, const std::vector<ElementDump> *elementDumpList) const {
+    std::vector<bool> elementDiffPrevList(idxEnd - idxBegin, false);
+
+    std::vector<std::string> elementList;
+    if (elementDumpList == nullptr) {
+        for (int idx = 0; idx < idxEnd - idxBegin; idx++) {
+            elementList.push_back(DumpElement(idxBegin + idx));
+        }
+        for (int idx = 1; idx < idxEnd - idxBegin; idx++) {
+            elementDiffPrevList[idx] = elementList[idx] != elementList[idx - 1];
+        }
+    } else {
+        for (int idx = 1; idx < idxEnd - idxBegin; idx++) {
+            elementDiffPrevList[idx] = elementDumpList->at(idxBegin + idx) != elementDumpList->at(idxBegin + idx - 1);
+        }
+    }
+
+    std::ostringstream oss;
+    int base = 0;
+    for (int idx = 0; idx <= idxEnd - idxBegin; idx++) {
+        if (idx == 0 || idx == idxEnd - idxBegin || elementDiffPrevList[idx]) {
+            if (idx != 0) {
+                if (base != 0) {
+                    oss << ",";
+                }
+                oss << "[";
+                if (idx == base + 1) {
+                    oss << base;
+                } else {
+                    oss << base << "..." << (idx - 1);
+                }
+                oss << "]=";
+                if (elementDumpList == nullptr) {
+                    oss << elementList[base];
+                } else {
+                    oss << elementDumpList->at(idxBegin + base).c_str();
+                }
+            }
+            base = idx;
+        }
+    }
+    return oss.str();
+}
+
+std::string LogicalTensorData::DumpCoord(int row) const {
+    std::ostringstream oss;
+
+    std::vector<int> coord(GetShape().size() - 1);
+    int coordDim = row;
+    for (size_t k = 0; k < GetShape().size() - 1; k++) {
+        int dim = GetShape().size() - 2 - k;
+        coord[dim] = coordDim % GetShape()[dim];
+        coordDim /= GetShape()[dim];
+    }
+    for (size_t k = 0; k < coord.size(); k++) {
+        if (k != 0) {
+            oss << ",";
+        }
+        oss << coord[k];
+    }
+    return oss.str();
+}
+
+std::string LogicalTensorData::DumpData(int indent, const std::vector<ElementDump> *elementDumpList) const {
+    std::string space(indent, ' ');
+
+    std::ostringstream oss;
+    oss << DumpType() << " {\n";
+    int rowSize = 1;
+    for (size_t k = 0; k < GetShape().size() - 1; k++) {
+        rowSize *= GetShape()[k];
+    }
+    int colSize = GetShape().back();
+
+    std::vector<std::string> rowList;
+    for (int row = 0; row < rowSize; row++) {
+        rowList.emplace_back(DumpRange(row * colSize, row * colSize + colSize, elementDumpList));
+    }
+    int base = 0;
+    for (int row = 0; row <= rowSize; row++) {
+        if (row == 0 || row == rowSize || rowList[row] != rowList[row - 1]) {
+            if (row != 0) {
+                oss << space << "[";
+                if (row == base + 1) {
+                    oss << DumpCoord(base);
+                } else {
+                    oss << DumpCoord(base) << "..." << DumpCoord(row - 1);
+                }
+                oss << "]=";
+                oss << "{";
+                oss << rowList[base];
+                oss << "}\n";
+            }
+            base = row;
+        }
+    }
+    oss << "}";
+    return oss.str();
+}
+
+void LogicalTensorData::Save(const std::string &filepath) const {
+    FILE *fdata = fopen(filepath.c_str(), "wb");
+    LogicalTensorDataHead head;
+    head.dataType = GetDataType();
+    head.dimension = GetShape().size();
+    for (size_t k = 0; k < GetShape().size(); k++) {
+        head.shape[k] = GetShape()[k];
+    }
+    fwrite(&head, sizeof(head), 1, fdata);
+
+    int rowSize = GetShape().back();
+    int totalSize = GetSize();
+
+    switch (GetDataType()) {
+        case DT_INT8: HandleSave<int8_t>(fdata, totalSize, rowSize); break;
+        case DT_INT16: HandleSave<int16_t>(fdata, totalSize, rowSize); break;
+        case DT_INT32: HandleSave<int32_t>(fdata, totalSize, rowSize); break;
+        case DT_INT64: HandleSave<int64_t>(fdata, totalSize, rowSize); break;
+        case DT_FP16: HandleSave<npu::tile_fwk::float16>(fdata, totalSize, rowSize); break;
+        case DT_FP32: HandleSave<float>(fdata, totalSize, rowSize); break;
+        case DT_BF16: HandleSave<npu::tile_fwk::bfloat16>(fdata, totalSize, rowSize); break;
+        case DT_UINT8: HandleSave<uint8_t>(fdata, totalSize, rowSize); break;
+        case DT_UINT16: HandleSave<uint16_t>(fdata, totalSize, rowSize); break;
+        case DT_UINT32: HandleSave<uint32_t>(fdata, totalSize, rowSize); break;
+        case DT_UINT64: HandleSave<uint64_t>(fdata, totalSize, rowSize); break;
+        case DT_DOUBLE: HandleSave<double>(fdata, totalSize, rowSize); break;
+        default: ASSERT(false); break;
+    }
+    fclose(fdata);
+}
+
+void LogicalTensorData::SaveFile(const char *filepath) const {
+    return Save(filepath);
+}
+
+std::shared_ptr<LogicalTensorData> LogicalTensorData::Load(const std::string &filepath) {
+    FILE *fdata = fopen(filepath.c_str(), "rb");
+    LogicalTensorDataHead head;
+    fread(&head, sizeof(head), 1, fdata);
+
+    std::vector<int> shape(head.dimension, 0);
+    for (int i = 0; i < static_cast<int>(head.dimension); i++) {
+        shape[i] = head.shape[i];
+    }
+    auto data = std::make_shared<RawTensorData>(static_cast<DataType>(head.dataType), shape);
+    fread(data->data(), 1, data->size(), fdata);
+    auto dataView =
+        std::make_shared<LogicalTensorData>(data, shape, std::vector<int>(0), std::vector<int>(shape.size(), 0));
+    fclose(fdata);
+    return dataView;
+}
+
+}

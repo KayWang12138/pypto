@@ -1,0 +1,14 @@
+approvers:
+- tsungl4
+- yinjie27
+- eric_tech
+- guang-jun-zhang2
+- w_a_n_g_q_i
+
+files:
+  "OWNERS":
+    approvers:
+      - yangxu19921206
+
+options:
+  no_parent_owners: true

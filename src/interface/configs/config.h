@@ -1,0 +1,129 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file config.h
+ * \brief
+ */
+
+#pragma once
+#include <cstdint>
+
+#define PRIOR_SCHEDULING // comment it to disable PriorScheduling pass
+
+#include <memory>
+#include <vector>
+#include <cassert>
+#include <array>
+#include <iostream>
+#include <sstream>
+#include <map>
+#include <string>
+#include <set>
+#include <unordered_set>
+#include <variant>
+#include <typeinfo>
+
+#include "interface/utils/assert.h"
+#include "common/data_type.h"
+#include "interface/utils/common.h"
+#include "interface/cache/hash_buffer.h"
+#include "platform_config.h"
+#include "tilefwk/tuner.h"
+
+#ifdef PRIOR_SCHEDULING
+using setType = std::conditional<true, std::unordered_set<int>, std::set<int>>::type;
+#else
+using setType = std::conditional<false, std::unordered_set<int>, std::set<int>>::type;
+#endif
+
+namespace npu::tile_fwk {
+
+/* RuntimeConfig KEYS*/
+const std::string PARALLEL_THRESHOLD = "parallel_threshold";
+const std::string CYCLE_UPPER_BOUND = "cycle_upper_bound";
+const std::string USE_NODE_HASH = "use_node_hash";
+const std::string CYCLES_THRESHOLD = "cycles_threshold";
+const std::string DB_TYPE = "db_type";
+const std::string NBUFFER_NUM = "nbuffer_num";
+const std::string L1_REUSE = "l1_reuse";
+const std::string L1_REUSE_MAP = "l1_reuse_map";
+const std::string CUBE_NBUFFER = "cube_nbuffer";
+const std::string CUBE_NBUFFER_MAP = "cube_nbuffer_map";
+const std::string LOAD_BALANCE = "load_balance";
+const std::string COPYIN_THRESHOLD = "copyin_threshold";
+const std::string MACHINE_CONFIG = "machine_config";
+
+class TuningConfig {
+public:
+    using ConfigValue = std::variant<int, bool, std::string, std::map<int, int>, uint8_t>;
+    explicit TuningConfig() {
+        Reset();
+    }
+
+    void Reset() {
+        runtimeConfigs_[PARALLEL_THRESHOLD] = 20;  // default threshold
+        runtimeConfigs_[CYCLE_UPPER_BOUND] = 10000; // defalt cycle upper bound
+        runtimeConfigs_[USE_NODE_HASH] = false;
+        runtimeConfigs_[CYCLES_THRESHOLD] = 512; // default cycle threshold
+        runtimeConfigs_[DB_TYPE] = 0;
+        runtimeConfigs_[NBUFFER_NUM] = 1;
+        runtimeConfigs_[L1_REUSE] = 0;
+        runtimeConfigs_[L1_REUSE_MAP] = std::map<int,int>({});
+        runtimeConfigs_[CUBE_NBUFFER] = 1;
+        runtimeConfigs_[CUBE_NBUFFER_MAP] = std::map<int,int>({});
+        runtimeConfigs_[LOAD_BALANCE] = false;
+        runtimeConfigs_[COPYIN_THRESHOLD] = 1024 * 1024; // default copyin threshold
+        runtimeConfigs_[MACHINE_CONFIG] = static_cast<uint8_t>(0);
+    }
+
+    template <typename T>
+    void Set(const std::string& key, const T& value) {
+        runtimeConfigs_[key] = value;
+    }
+
+    template <typename T>
+    T Get(const std::string& key) const {
+        auto it = runtimeConfigs_.find(key);
+        if (it == runtimeConfigs_.end()) {
+            throw std::runtime_error("Config key not found: " + key);
+        }
+
+        try {
+            return std::get<T>(it->second);
+        } catch (const std::bad_variant_access&) {
+            std::stringstream ss;
+            ss << "Type mismatch for config key: " << key 
+            << ", expected: " << typeid(T).name()
+            << ", actual type index: " << it->second.index();
+            throw std::runtime_error(ss.str());
+        }
+    }
+
+    template <typename T>
+    T Get(const std::string& key, const T& defaultValue) const noexcept {
+        auto it = runtimeConfigs_.find(key);
+        if (it == runtimeConfigs_.end()) {
+            return defaultValue;
+        }
+
+        const T* value = std::get_if<T>(&it->second);
+        return value ? *value : defaultValue;
+    }
+
+    bool Has(const std::string& key) const {
+        return runtimeConfigs_.find(key) != runtimeConfigs_.end();
+    }
+
+private:
+    std::unordered_map<std::string, ConfigValue> runtimeConfigs_;
+};
+
+} // namespace npu::tile_fwk
