@@ -85,7 +85,9 @@ class UTestAccelerate:
 
     @classmethod
     def main(cls) -> bool:
-        """ 主处理流程 """
+        """
+        主处理流程
+        """
         # 参数注册
         parser = argparse.ArgumentParser(description=f"UTest Execute Accelerate", epilog="Best Regards!")
         parser.add_argument("-t", "--target", nargs=1, type=str, required=True,

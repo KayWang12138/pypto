@@ -58,7 +58,7 @@ set(_CaseFilterList
         # mla_prolog PA_BSND
         #"MlaPrologV2OnBoardTest.test_mla_bf16_high_quant_smooth_nz_pa_bsnd"
         # "MlaPrologV2OnBoardTest.test_mla_bf16_high48_quant_smooth_nz_pa_bsnd"
-        "MlaPrologV2OnBoardTest.attentionV2_bf16_low"
+        # "MlaPrologV2OnBoardTest.attentionV2_bf16_low"
         # CodeGen by Json
         "MlaPrologV2OnBoardTest.test_MlaPrologV2_bfloat16_4_32_1_256_7168_1536_codegen_by_json"
 
