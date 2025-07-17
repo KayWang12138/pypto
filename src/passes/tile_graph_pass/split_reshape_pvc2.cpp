@@ -14,6 +14,7 @@
  */
 
 #include "split_reshape_pvc2.h"
+#include "interface/tensor/logical_tensor.h"
 
 namespace npu::tile_fwk {
 Status SplitReshapeOpPVC2::RunOnFunction(Function &function) {
@@ -200,7 +201,6 @@ std::pair<std::vector<int>, std::vector<int>> SplitReshapeOpPVC2::ReshapeTile(co
                 newOffset[i] = currentOffset / stride;
                 newShape[i] = 1;
                 currentOffset = currentOffset - newOffset[i] * stride;
-                currentShape = currentShape;
                 assert(currentOffset + currentShape <= stride && "tile is scattered in alignedShape");
             } else {
                 assert(currentOffset % stride == 0 && "cannot reshape to alignedShape");
@@ -292,8 +292,10 @@ void SplitReshapeOpPVC2::CheckCopyIn(Function &function) {
         std::vector<int> alignedShape = ShapeAlign(reshapeSource->tensor->rawshape, input->tensor->rawshape);
         auto newinputviewTileinfo =
             ReshapeTile(inputView->tensor->rawshape, alignedShape, inputView->offset, inputView->shape);
+        // give a dummy valid shape also, to avoid rank of rawTensor and shape/offset are mismatch
+        std::vector<SymbolicScalar> validShape;
         auto newinputview = std::make_shared<LogicalTensor>(
-            function, inputView->tensor, newinputviewTileinfo.first, newinputviewTileinfo.second);
+            function, inputView->tensor, newinputviewTileinfo.first, newinputviewTileinfo.second, validShape);
         std::vector<std::shared_ptr<LogicalTensor>> overlaps;
         std::vector<std::shared_ptr<LogicalTensor>> newOverlaps;
         for (auto &copyOutSource : copyOutSources[reshapeSource->tensor->rawmagic]) {
@@ -301,8 +303,8 @@ void SplitReshapeOpPVC2::CheckCopyIn(Function &function) {
             std::vector<int> copyOutOffset = mappingOffset[copyOutSource->magic][reshapeSource->magic];
             auto newcopyOutSourceTileinfo =
                 ReshapeTile(reshapeSource->tensor->rawshape, alignedShape, copyOutOffset, copyOutSource->shape);
-            auto newCopyOutSource = std::make_shared<LogicalTensor>(
-                function, reshapeSource->tensor, newcopyOutSourceTileinfo.first, newcopyOutSourceTileinfo.second);
+            auto newCopyOutSource = std::make_shared<LogicalTensor>(function, reshapeSource->tensor,
+                newcopyOutSourceTileinfo.first, newcopyOutSourceTileinfo.second, validShape);
             auto status = CalcOverlap(newinputview, newCopyOutSource, true);
             if (status == OverlapStatus::PERFECTLY_MATCH || status == OverlapStatus::BE_COVERED) {
                 overlaps.push_back(copyOutSource);
@@ -344,7 +346,7 @@ void SplitReshapeOpPVC2::CheckCopyIn(Function &function) {
                         for (auto &consumerOp : consumers) {
                             consumerOp->ReplaceInput(existOp->output, output);
                         }
-                    } else {                        
+                    } else {
                         for (auto &consumerOp : consumers) {
                             consumerOp->ReplaceInput(reshapeOutput, output);
                         }

@@ -213,7 +213,7 @@ Status ProccessCopyIn(Operation &op, Function &function, bool &needToDelete) {
             }
             std::shared_ptr<CopyOpAttribute> cur_attr = std::make_shared<CopyOpAttribute>(newOffset, MemoryType::MEM_L1,
                 OpImmediate::Specified(in->shape),
-                OpImmediate::Specified(in->tensor->GetRawShape()));
+                OpImmediate::Specified(in->tensor->GetDynRawShape()));
             if (cur_attr == nullptr) {return FAILED;}
             op.SetOpAttribute(cur_attr);
             return SUCCESS;

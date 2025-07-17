@@ -34,7 +34,6 @@ private:
         std::shared_ptr<LogicalTensor> output;
         std::vector<int32_t> offset;
         std::vector<SymbolicScalar> dynOffset;
-        std::vector<SymbolicScalar> dynValidShape;
     };
     struct AssembleOp {
         std::shared_ptr<LogicalTensor> input;
@@ -59,14 +58,12 @@ private:
     
     Status CalculateMergedOffsets(const std::vector<Operation *> &chain,
                                 std::vector<int32_t> &newOffset,
-                                std::vector<SymbolicScalar> &newDynOffset,
-                                std::vector<SymbolicScalar> &newDynValidShape);
+                                std::vector<SymbolicScalar> &newDynOffset);
     
     void RecordMergedViewOperation(const std::shared_ptr<LogicalTensor> &startTensor,
                                  const std::shared_ptr<LogicalTensor> &endTensor,
                                  const std::vector<int32_t> &newOffset,
-                                 const std::vector<SymbolicScalar> &newDynOffset,
-                                 const std::vector<SymbolicScalar> &newDynValidShape);
+                                 const std::vector<SymbolicScalar> &newDynOffset);
 
     // Assemble chain processing methods
     Status MergeAssembleChain(Function &function, Operation &operation, std::vector<Operation *> &chain);

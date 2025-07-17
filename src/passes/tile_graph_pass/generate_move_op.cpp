@@ -37,7 +37,7 @@ Status GenerateMoveOp::RunOnFunction(Function &function) {
 bool GenerateMoveOp::ValidViewOp(const Operation &op) const{
     //校验view单输入单输出，指针非空
     bool valid = true;
-    if((op.GetOpAttribute().get() == nullptr) || 
+    if((op.GetOpAttribute().get() == nullptr) ||
        (op.GetIOperands().size() != 1) || (op.GetOOperands().size() != 1) ||
        (op.GetIOperands().front() == nullptr) || (op.GetOOperands().front() == nullptr) ||
        (*(op.oOperand[0]->GetConsumers().begin()) == nullptr)){
@@ -48,7 +48,7 @@ bool GenerateMoveOp::ValidViewOp(const Operation &op) const{
 bool GenerateMoveOp::ValidAssembleOp(const Operation &op) const{
     //校验view单输入单输出，指针非空
     bool valid = true;
-    if((op.GetOpAttribute().get() == nullptr) || 
+    if((op.GetOpAttribute().get() == nullptr) ||
        (op.GetIOperands().size() != 1) || (op.GetOOperands().size() != 1) ||
        (op.GetIOperands().front() == nullptr) || (op.GetOOperands().front() == nullptr)){
         valid = false;
@@ -62,7 +62,7 @@ bool GenerateMoveOp::ValidConvertOp(const Operation &op) const{
        (op.GetIOperands().front() == nullptr) || (op.GetOOperands().front() == nullptr) ||
        (op.GetIOperands().front()->GetMemoryTypeOriginal() == op.GetOOperands().front()->GetMemoryTypeOriginal()) ||
        (op.GetIOperands().front()->GetShape() != op.GetOOperands().front()->GetShape()) ||
-       ((op.GetIOperands().front()->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) && 
+       ((op.GetIOperands().front()->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) &&
        (op.GetOOperands().front()->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR))){
         valid = false;
     }
@@ -86,17 +86,17 @@ Status GenerateMoveOp::PreCheck(Function &function) {
                 break;
             case Opcode :: OP_VIEW:
                 isValid = ValidViewOp(operation);
-                break;    
+                break;
             case Opcode :: OP_ASSEMBLE:
                 isValid = ValidAssembleOp(operation);
-                break; 
+                break;
             default:
-                continue;   
+                continue;
         }
         if(!isValid) {
             ALOG_ERROR_F("Operation validation failed.");
             return FAILED;
-        }    
+        }
     }
     ALOG_INFO_F("===> End Precheck.");
     return SUCCESS;
@@ -111,13 +111,13 @@ Status GenerateMoveOp::PostCheck(Function &function) {
     auto operations = function.Operations();
     for (auto &operation : operations) {
         auto op = operation.GetOpcode();
-        bool isValid =true; 
-        if (((op == Opcode::OP_ASSEMBLE || op == Opcode::OP_VIEW) 
-            &&((operation.GetIOperands().size() != 1) ||(operation.GetOOperands().size() != 1) 
+        bool isValid =true;
+        if (((op == Opcode::OP_ASSEMBLE || op == Opcode::OP_VIEW)
+            &&((operation.GetIOperands().size() != 1) ||(operation.GetOOperands().size() != 1)
             ||(operation.GetIOperands().front()->GetMemoryTypeOriginal() != operation.GetOOperands().front()->GetMemoryTypeOriginal())))
-            ||(op == Opcode::OP_DUPLICATE || op == Opcode::OP_CONVERT)) {    
-                isValid = false;  
-            }         
+            ||(op == Opcode::OP_DUPLICATE || op == Opcode::OP_CONVERT)) {
+                isValid = false;
+            }
         if(!isValid) {
             ALOG_ERROR_F("Operation validation failed.");
             return FAILED;
@@ -143,7 +143,7 @@ void GenerateMoveOp::CreateMoveOpForView(Operation &op) const {
         op.SetOpCode(Opcode::OP_COPY_IN); // 将view转化为copyin
         op.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()),
             viewOpAttribute->GetTo(), OpImmediate::Specified(op.oOperand.front()->shape),
-            OpImmediate::Specified(op.iOperand.front()->tensor->GetRawShape()),
+            OpImmediate::Specified(op.iOperand.front()->tensor->GetDynRawShape()),
             OpImmediate::Specified(viewOpAttribute->GetToDynValidShape())));
         if (nextOp->HasAttr(OpAttributeKey::tag)) {
             op.SetAttribute(OpAttributeKey::tag, nextOp->GetStringAttribute(OpAttributeKey::tag));
@@ -195,7 +195,7 @@ void GenerateMoveOp::CreateMoveOpForAssemble(Operation &op) const {
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(ASSEMBLE_in->GetMemoryTypeOriginal(),
         OpImmediate::Specified(assembleOpAttribute->GetToTensorOffset()),
         OpImmediate::Specified(op.iOperand.front()->shape),
-        OpImmediate::Specified(op.oOperand.front()->tensor->GetRawShape())));
+        OpImmediate::Specified(op.oOperand.front()->tensor->GetDynRawShape())));
 }
 
 void GenerateMoveOp::CreateMoveOp(Function &function) const {
@@ -221,7 +221,7 @@ void GenerateMoveOp::CreateMoveOp(Function &function) const {
                     }
                     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(newOffset, to,
                         OpImmediate::Specified(op.oOperand.front()->shape),
-                        OpImmediate::Specified(op.iOperand.front()->tensor->GetRawShape()),
+                        OpImmediate::Specified(op.iOperand.front()->tensor->GetDynRawShape()),
                         OpImmediate::Specified(op.iOperand.front()->GetDynValidShape())));
                     auto childOp = *op.oOperand.front()->GetConsumers().begin();
                     op.UpdateSubgraphID(childOp->GetSubgraphID());
@@ -234,10 +234,10 @@ void GenerateMoveOp::CreateMoveOp(Function &function) const {
                     }
                     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(from, newOffset,
                         OpImmediate::Specified(op.iOperand.front()->shape),
-                        OpImmediate::Specified(op.oOperand.front()->tensor->GetRawShape())));
+                        OpImmediate::Specified(op.oOperand.front()->tensor->GetDynRawShape())));
                     auto parentOp = *op.iOperand.front()->GetProducers().begin();
                     op.UpdateSubgraphID(parentOp->GetSubgraphID());
-                } 
+                }
                 break;
             }
             case Opcode::OP_DUPLICATE: {
@@ -248,7 +248,7 @@ void GenerateMoveOp::CreateMoveOp(Function &function) const {
                 }
                 op.SetOpAttribute(std::make_shared<CopyOpAttribute>(op.iOperand.front()->GetMemoryTypeOriginal(),
                     newOffset, OpImmediate::Specified(op.iOperand.front()->shape),
-                    OpImmediate::Specified(op.oOperand.front()->tensor->GetRawShape())));
+                    OpImmediate::Specified(op.oOperand.front()->tensor->GetDynRawShape())));
                 break;
             }
             default: break;
@@ -317,4 +317,3 @@ void GenerateMoveOp::EraseRedundentCopyOut(Function &function) const {
     function.EraseOperations(false);
 }
 } // namespace npu::tile_fwk
-

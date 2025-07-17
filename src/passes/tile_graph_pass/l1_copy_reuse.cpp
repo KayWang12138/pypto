@@ -292,7 +292,6 @@ void L1CopyInReuseRunner::Phase1(Function &func, int color, std::vector<std::vec
 }
 
 std::vector<int> L1CopyInReuseRunner::SetNumDB() {
-    numDBMap = Program::GetInstance().GetConfig().GetCubeNBufferMap();
     std::vector<int> numDBList(hashMap.size(), numDB_);
     for (auto &entry : numDBMap) {
         int i = entry.first;
@@ -303,9 +302,8 @@ std::vector<int> L1CopyInReuseRunner::SetNumDB() {
     return numDBList;
 }
 
-inline std::vector<int> AdjustNumDBCore(int color, int numDB) {
+inline std::vector<int> AdjustNumDBCore(bool isLoadBalance, int color, int numDB) {
     std::vector<int> pingColorList(color, 1);
-    bool isLoadBalance = Program::GetInstance().GetConfig().GetLoadBalance();
     int numMerged = (color + numDB - 1) / numDB;
     if (isLoadBalance) {
         int coreNum = Program::GetInstance().GetPlatformConfig().GetAICoreNum();
@@ -340,7 +338,11 @@ void L1CopyInReuseRunner::Run(Function &func, int color, std::vector<std::vector
     // L1Reuse
     numLR = func.paramConfigs_.l1ReuseNum;
     numDB_ = func.paramConfigs_.cubeNBufferNum;
-    numLRMap = Program::GetInstance().GetConfig().GetL1ReuseMap();
+    numLRMap = func.paramConfigs_.l1ReuseMap;
+    numDBMap = func.paramConfigs_.cubeNBufferMap;
+
+    isLoadBalance = func.paramConfigs_.loadBalance; 
+
     if (numLR != 0 || numLRMap.size() != 0) {
         Phase1(func, color, colorNode, colorCopyIn, hashColor);
         HashUpdate(hashMap, hashOrder, color, hashColor);
@@ -355,7 +357,7 @@ void L1CopyInReuseRunner::Run(Function &func, int color, std::vector<std::vector
             continue;
         }
         int pingColor = -1;
-        std::vector<int> pingColorList = AdjustNumDBCore(colorValues.size(), hashMergeNum[hashOrder[colorHashValue]]);
+        std::vector<int> pingColorList = AdjustNumDBCore(isLoadBalance, colorValues.size(), hashMergeNum[hashOrder[colorHashValue]]);
         for (size_t i = 0; i < colorValues.size(); i++) {
             if (pingColorList[i] == 0) {
                 pingColor = colorValues[i];
@@ -404,9 +406,9 @@ void L1CopyInReuseRunner::RemoveUselessViews(Function &func) const {
 
 void L1CopyInReusePass::L1CopyInReuse(Function &func) const {
     auto numLR = func.paramConfigs_.l1ReuseNum;
-    auto numLRMap = Program::GetInstance().GetConfig().GetL1ReuseMap();
+    auto numLRMap = func.paramConfigs_.l1ReuseMap;
     auto numDB = func.paramConfigs_.cubeNBufferNum;
-    auto numDBMap = Program::GetInstance().GetConfig().GetCubeNBufferMap();
+    auto numDBMap = func.paramConfigs_.cubeNBufferMap;
     ALOG_INFO_F("L1 Reuse Setting: %d", numLR);
     if (numLR == 0 && numDB == 1 && numLRMap.size() == 0 && numDBMap.size() == 0) {
         return;

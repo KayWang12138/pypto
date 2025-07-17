@@ -127,7 +127,7 @@ void GetDynOffsetBeforeReshape(const std::vector<SymbolicScalar> &oriOffset, con
     }
 }
 
-/* 
+/*
 生效场景:
 DAssemble拆分了最高轴，认为可以透传，不需要拷贝，前序在ExpandFunction中做了判断，属性NeedCopy=false
 Copy_Out --> tensor(GM) --> Reshape --> oriBackUp [16, 16] --> DAssemble(offset, dynOffset) --> OCAST(offset, dynOffset) [16, 64]
@@ -182,7 +182,7 @@ void HandleDynOffsetForReshape(const LogicalTensorPtr &oriBackUp, std::unordered
     }
 }
 
-void PreGraphPass::HandleForAssembleFromInOut(Function &function, std::unordered_set<Operation *> &concurrentAssembles, 
+void PreGraphPass::HandleForAssembleFromInOut(Function &function, std::unordered_set<Operation *> &concurrentAssembles,
     std::set<Operation *, LogicalTensor::CompareOp> &producersBackup) const {
     LogicalTensorPtr inOrOutTensor = nullptr;
     for (auto &assemble : concurrentAssembles) {
@@ -219,7 +219,7 @@ op1 --> tensor1 ---> Assemble1-2 --> OCAST
                 /--> Assemble2-1 --> Tensor
 op2 --> tensor2 ---> Assemble2-2 --> OCAST
 */
-void PreGraphPass::HandleForAssembleToOutcast(Function &function, std::unordered_set<Operation *> &concurrentAssembles, 
+void PreGraphPass::HandleForAssembleToOutcast(Function &function, std::unordered_set<Operation *> &concurrentAssembles,
     std::set<Operation *, LogicalTensor::CompareOp> &producersBackup) const {
     int outCastMagic = -1;
     for (auto &assemble : concurrentAssembles) {
@@ -320,12 +320,12 @@ void PreGraphPass::ProcessSpecialMTEOperation(Operation &op) const {
         /* transpose datamove 输入和输出的shape不相同 */
         op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MemoryType::MEM_UB,
             OpImmediate::Specified(outputTensor->GetTensorOffset()), OpImmediate::Specified(outputTensor->GetShape()),
-            OpImmediate::Specified(outputTensor->tensor->GetRawShape())));
+            OpImmediate::Specified(outputTensor->tensor->GetDynRawShape())));
         op.oOperand[0]->isSubGraphBoundary = true;
     } else {
         op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MemoryType::MEM_UB,
             OpImmediate::Specified(outputTensor->GetTensorOffset()), OpImmediate::Specified(outputTensor->GetShape()),
-            OpImmediate::Specified(outputTensor->tensor->GetRawShape())));
+            OpImmediate::Specified(outputTensor->tensor->GetDynRawShape())));
         op.oOperand[0]->isSubGraphBoundary = true;
     }
 }
@@ -364,7 +364,7 @@ void PreGraphPass::InsertTemporaryCopyIn(Function &function, Operation &op) cons
                 auto &ubCopyIn = function.AddRawOperation(Opcode::OP_COPY_IN, operandGm, operandUb);
                 ubCopyIn.SetOpAttribute(std::make_shared<CopyOpAttribute>(
                     OpImmediate::Specified(input->GetTensorOffset()), MemoryType::MEM_UB,
-                    OpImmediate::Specified(input->GetShape()), OpImmediate::Specified(input->tensor->GetRawShape()),
+                    OpImmediate::Specified(input->GetShape()), OpImmediate::Specified(input->tensor->GetDynRawShape()),
                     OpImmediate::Specified(input->GetDynValidShape())));
                 ubCopyIn.SetAttribute(OpAttributeKey::isCube, false);
                 ubCopyIn.UpdateSubgraphID(op.GetSubgraphID());

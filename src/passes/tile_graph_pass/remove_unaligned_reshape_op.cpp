@@ -30,7 +30,7 @@ Status RemoveUnalignedReshapeOp::RunOnFunction(Function &function) {
         auto &newCopyOut = function.AddRawOperation(Opcode::OP_COPY_OUT, {a.input}, {a.output});
         newCopyOut.SetOpAttribute(std::make_shared<CopyOpAttribute>(a.from, OpImmediate::Specified(a.toOffset),
             OpImmediate::Specified(newCopyOut.iOperand.front()->oriShape),
-            OpImmediate::Specified(newCopyOut.oOperand.front()->tensor->GetRawShape())));
+            OpImmediate::Specified(newCopyOut.oOperand.front()->tensor->GetDynRawShape())));
         newCopyOut.UpdateSubgraphID(a.input->subGraphID);
         ASLOGI("ADD OP_COPY_OUT, magic %d ,IOperand tensor magic %d OOperand tensor magic %d", newCopyOut.opmagic,
             a.input->magic, a.output->magic);
@@ -39,7 +39,7 @@ Status RemoveUnalignedReshapeOp::RunOnFunction(Function &function) {
         auto &newCopyIn = function.AddRawOperation(Opcode::OP_COPY_IN, {b.input}, {b.output});
         newCopyIn.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(b.fromOffset), b.to,
             OpImmediate::Specified(newCopyIn.oOperand.front()->oriShape),
-            OpImmediate::Specified(newCopyIn.iOperand.front()->tensor->GetRawShape()),
+            OpImmediate::Specified(newCopyIn.iOperand.front()->tensor->GetDynRawShape()),
             OpImmediate::Specified(newCopyIn.iOperand.front()->GetDynValidShape())));
         newCopyIn.UpdateSubgraphID(b.output->subGraphID);
         ASLOGI("ADD OP_VIEW, magic %d ,IOperand tensor magic %d OOperand tensor magic %d", newCopyIn.opmagic,

@@ -168,7 +168,7 @@ void OoOScheduler::UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr s
     if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
         op.SetOpAttribute(std::make_shared<CopyOpAttribute>(spillTensor->GetMemoryTypeOriginal(), 
         OpImmediate::Specified(offset), OpImmediate::Specified(spillTensor->GetShape()), 
-        OpImmediate::Specified(spillTensor->GetRawTensor()->GetRawShape())));
+        OpImmediate::Specified(spillTensor->GetRawTensor()->GetDynRawShape())));
     } else if (op.GetOpcodeStr().find("ALLOC") == std::string::npos) {
         if (spillIssue->tileOp->GetOpcode() == Opcode::OP_COPY_IN) {
             op.SetOpAttribute(spillIssue->tileOp->GetOpAttribute());
@@ -176,7 +176,7 @@ void OoOScheduler::UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr s
         } else {
             op.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(offset),
                 spillTensor->GetMemoryTypeOriginal(), OpImmediate::Specified(spillTensor->GetShape()),
-                OpImmediate::Specified(spillTensor->tensor->GetRawShape())));
+                OpImmediate::Specified(spillTensor->tensor->GetDynRawShape())));
         }
     }
     op.UpdateLatency(opLatency);

@@ -33,7 +33,7 @@ Status AssignConvMemoryType::RunOnFunction(Function &function) {
                 op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
                     OpImmediate::Specified(std::vector<int>(op.oOperand[0]->shape.size(), 0)),
                     op.oOperand[0]->GetMemoryTypeOriginal(), OpImmediate::Specified(op.oOperand[0]->shape),
-                    OpImmediate::Specified(op.iOperand[0]->tensor->GetRawShape()),
+                    OpImmediate::Specified(op.iOperand[0]->tensor->GetDynRawShape()),
                     OpImmediate::Specified(op.iOperand[0]->GetDynValidShape())));
             }
         }
