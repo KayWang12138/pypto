@@ -1,0 +1,62 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file test_codegen_argsort.cpp
+ * \brief Unit test for codegen.
+ */
+
+#include <gtest/gtest.h>
+#include "interface/function/function.h"
+#include "tilefwk/tilefwk.h"
+#include "tilefwk.h"
+#include "interface/program/program.h"
+#include "interface/configs/config_manager.h"
+#include "codegen/codegen.h"
+#include <vector>
+#include <string>
+#include "codegen/cloudnpu/codegen_cloudnpu.h"
+
+using namespace npu::tile_fwk;
+
+class TestCodegenArgSort : public ::testing::Test {
+public:
+    static void SetUpTestCase() {}
+
+    static void TearDownTestCase() {}
+
+    void SetUp() override {
+        Program::GetInstance().Reset();
+        Program::GetInstance().GetConfig().Reset();
+        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+    }
+
+    void TearDown() override {}
+};
+
+TEST_F(TestCodegenArgSort, TestArgSort) {
+    constexpr const int32_t shape0 = 64;
+
+    std::vector<int> input_shape = {shape0};
+    std::vector<int> output_shape = {shape0};
+
+    Program::GetInstance().GetTileShape().SetVecTileShapes({shape0});
+    Tensor input_a(DT_FP32, input_shape, "A");
+    Tensor output(DT_FP32, output_shape, "resDics");
+
+    std::string funcName = "ARGSORT_T";
+    FUNCTION(funcName, FunctionType::STATIC, {input_a, output}) {
+        output = ArgSort(input_a, -1);
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    codeGen.GenCode(*function, {});
+}
