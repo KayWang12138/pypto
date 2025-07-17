@@ -162,6 +162,9 @@ class STestAccelerate:
         return True
 
     def post(self) -> bool:
+        """
+        运行结束后处理
+        """
         # Device 执行信息收集汇总
         devs_exec_brief, devs_exec_ori_secs = self._post_device_exec_info()
 
