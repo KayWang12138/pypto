@@ -144,7 +144,7 @@ private:
     SafeQueue<std::unique_ptr<MachineTask>> compileQueue_; // 待编译任务
     SafeQueue<std::unique_ptr<MachineTask>> agentQueue_; // 待device agent处理任务
     SafeQueue<std::unique_ptr<MachineTask>> finishQueue_; // device machine 处理结束任务
-    SafeQueue<std::tuple<Function *, Function *, AscendConfig, TileShape, InternalGlobalConfig,
+    SafeQueue<std::tuple<Function *, Function *, TuningConfig, TileShape, InternalGlobalConfig,
                          nlohmann::json>> stashedFuncQueue_; // stash func
 
     /* 后端管理 */
