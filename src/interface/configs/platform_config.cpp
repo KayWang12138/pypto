@@ -16,6 +16,7 @@
 #include <algorithm>
 #include "interface/utils/assert.h"
 #include "interface/configs/platform_config.h"
+#include "interface/configs/config_manager.h"
 
 namespace npu::tile_fwk {
 AscendPlatformConfig::AscendPlatformConfig(ModelID modelId) : modelId_(modelId) {
@@ -26,6 +27,7 @@ AscendPlatformConfig::AscendPlatformConfig(ModelID modelId) : modelId_(modelId) 
     memoryGraph.AddPath(MemoryType::MEM_L1, MemoryType::MEM_L0A);
     memoryGraph.AddPath(MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR);
     SetMemoryLimitList(modelId);
+    SetPlatform(config::GetDevicePlatform());
 }
 
 void AscendPlatformConfig::MemoryNode::AddDest(const std::shared_ptr<MemoryNode> &to) {

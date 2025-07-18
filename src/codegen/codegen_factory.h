@@ -29,7 +29,8 @@ namespace npu::tile_fwk {
 class CodeGenFactory {
 public:
     static std::shared_ptr<CodeGenCCE> GetCodeGenCCE(const std::string &path = "") {
-        if (Program::GetInstance().GetPlatformConfig().IsPlatformA2()) {
+        auto platform = config::GetDevicePlatform();
+        if (platform >= DPlatform::ASCEND_910B1 && platform <= DPlatform::ASCEND_910B4) {
             return std::make_shared<CodeGenCloudNPU>(path);
         }
         ASSERT(false) << "can not support this platform";

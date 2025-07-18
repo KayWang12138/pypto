@@ -49,7 +49,23 @@ enum class DPlatform {
     ASCEND_910B2,
     ASCEND_910B3,
     ASCEND_910B4,
+    UNKNOWN_DEVICE,
 };
+
+inline DPlatform StringToDpaltform(std::string platform) {
+    std::unordered_map<std::string, DPlatform> mappings = {
+        {"ASCEND_910B1", DPlatform::ASCEND_910B1},
+        {"ASCEND_910B2", DPlatform::ASCEND_910B2},
+        {"ASCEND_910B3", DPlatform::ASCEND_910B3},
+        {"ASCEND_910B4", DPlatform::ASCEND_910B4},
+    };
+
+    if (mappings.count(platform)) {
+        return mappings[platform];
+    }
+
+    return DPlatform::UNKNOWN_DEVICE;
+}
 
 struct DPlatformInfo {
     int c0ByteSize;
@@ -131,8 +147,6 @@ public:
     }
 
     int GetAICpuCoreNum() const { return aiCpuCoreNum; }
-
-    bool IsPlatformA2() { return platform_ >= DPlatform::ASCEND_910B1 && platform_ <= DPlatform::ASCEND_910B4; }
 
 protected:
     std::vector<size_t> memorySizeLimit_;

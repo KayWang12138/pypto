@@ -406,6 +406,11 @@ void SetCodeGenConfig(const std::string &key, const T &value) {
     ConfigManager::Instance().SetCodeGenConfig(key, value);
 }
 
+inline DPlatform GetDevicePlatform() {
+    auto platform = ConfigManager::Instance().GetPlatformConfig("DEVICE_PLATFORM", "ASCEND_910B2");
+    return StringToDpaltform(platform);
+}
+
 inline const std::string &LogTopFolder() {
     return ConfigManager::Instance().LogTopFolder();
 }

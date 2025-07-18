@@ -12,7 +12,8 @@
             "PRINT_TENSOR_GRAPH": false,
             "TEST_IS_TIG": false,
             "ENABLE_SOFT_MEMORY": false,
-            "ENABLE_PV_DATA": false
+            "ENABLE_PV_DATA": false,
+            "DEVICE_PLATFORM":"ASCEND_910B2"
         },
         "host_configs": {
             "STRATEGY": "PVC2_OOO",
