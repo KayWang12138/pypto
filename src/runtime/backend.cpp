@@ -421,37 +421,6 @@ static void FillL2PrefetchInfo(std::shared_ptr<DyndevFunctionAttribute> attr) {
     return;
 }
 
-static void DumpDynDevFuction(Function *function) {
-    Json jdyn;
-    std::shared_ptr<DyndevFunctionAttribute> dynattr = function->GetDyndevAttribute();
-    DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(dynattr->devProgBinary.data());
-
-    for (size_t funcKey = 0; funcKey < devProg->GetFunctionSize(); funcKey++) {
-        auto devFunc = devProg->GetFunction(funcKey);
-        Function *func = dynattr->devRootList[funcKey];
-        Json jfunc;
-        jfunc["funcKey"] = funcKey;
-        jfunc["funcMagic"] = func->GetFuncMagic();
-        jfunc["funcName"] = func->GetMagicName();
-        for (size_t opIdx = 0; opIdx < devFunc->GetOperationSize(); opIdx++) {
-            auto opmagic = devFunc->GetOperationOpmagic(opIdx);
-            auto op = func->GetOpByOpMagic(opmagic);
-            if (op == nullptr) // dummy op may not found
-                continue;
-            Json jop = op->DumpJson();
-            jop["opIndex"] = opIdx;
-            jop["funcName"] = op->GetCalleeMagicName();
-            jfunc["operations"].push_back(jop);
-        }
-        jdyn.push_back(jfunc);
-    }
-
-    std::string filePath = config::LogTopFolder() + "/" + function->GetMagicName() + ".json";
-    std::ofstream file(filePath);
-    file << jdyn << std::endl;
-    file.close();
-}
-
 static void SetDyndevProgBinary(Function *function) {
     if (function == nullptr || function->GetDyndevAttribute() == nullptr) {
         return;
@@ -463,9 +432,6 @@ static void SetDyndevProgBinary(Function *function) {
 
     dynamic::DevAscendProgram *devProg = reinterpret_cast<dynamic::DevAscendProgram *>(&dynAttrPtr->devProgBinary[0]);
     dynamic::EncodeDevAscendProgram(function, size, devProg);
-
-    DumpDynDevFuction(function);
-    ALOG_INFO("Dump dev prog info:", devProg->Dump());
 
     devProg->Reloc(-reinterpret_cast<int64_t>(devProg));
     ALOG_INFO_F("Dev prog binary size is:%zu.\n", dynAttrPtr->devProgBinary.size());

@@ -308,3 +308,83 @@ TEST_F(DynamicBasicTest, TestInnerLoopOrder) {
     auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_main_2");
     EXPECT_NE(mainFunc, nullptr);
 }
+
+TEST_F(DynamicBasicTest, TestDeviceMachineOnModel) {
+    int s = 32;
+    int n = 8;
+    Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
+    Tensor t1(DT_FP32, {s, s}, "t1");  // [32, 32]
+    Tensor blockTable{
+        DT_INT32, {n, 1},
+         "blockTable"
+    };
+    Tensor out(DT_FP32, {n * s, s}, "out");
+    TestLoopDViewDAssemble(t0, t1, blockTable, out, s);
+
+    std::vector<int> tblData;
+    for (int i = 0; i < n; i++)
+        tblData.push_back(i);
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(t0, 1.0),
+        RawTensorData::CreateConstantTensor<float>(t1, 2.0),
+        RawTensorData::CreateTensor<int>(blockTable, tblData),  // value: [0,1,2,...,7]
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, 0.0f),
+    });
+
+    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+    DynFuncRunner::Run(funcop, false);
+    
+    std::cout << "test -> blockdim = 16, aicpunum = 4" << std::endl;
+    DynFuncRunner::Run(funcop, false, 16, 4);
+
+    std::cout << "test -> blockdim = 9, aicpunum = 4" << std::endl;
+    DynFuncRunner::Run(funcop, false, 9, 4);
+
+    std::cout << "test -> blockdim = 8, aicpunum = 3" << std::endl;
+    DynFuncRunner::Run(funcop, false, 8, 3);
+
+    std::cout << "test -> blockdim = 1, aicpunum = 3" << std::endl;
+    DynFuncRunner::Run(funcop, false, 1, 3);
+}
+
+TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard) {
+    int s = 32;
+    int n = 8;
+    Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
+    Tensor t1(DT_FP32, {s, s}, "t1");  // [32, 32]
+    Tensor blockTable{
+        DT_INT32, {n, 1},
+         "blockTable"
+    };
+    Tensor out(DT_FP32, {n * s, s}, "out");
+    TestLoopDViewDAssemble(t0, t1, blockTable, out, s);
+
+    std::vector<int> tblData;
+    for (int i = 0; i < n; i++)
+        tblData.push_back(i);
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(t0, 1.0),
+        RawTensorData::CreateConstantTensor<float>(t1, 2.0),
+        RawTensorData::CreateTensor<int>(blockTable, tblData),  // value: [0,1,2,...,7]
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, 0.0f),
+    });
+
+    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+
+#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+    DynFuncRunner::Run(funcop, true, 15, 4);
+    std::vector<float> golden(n * s * s, 128.0f);
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+
+    DynFuncRunner::Run(funcop, true, 7, 3);
+    auto outs1 = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (float *)outs1->data(), 0.001f));
+#endif
+}

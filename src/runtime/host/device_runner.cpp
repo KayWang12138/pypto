@@ -412,9 +412,10 @@ int DeviceRunner::RunPrepare(rtStream_t stream) {
     return rc;
 }
 
-int DeviceRunner::DynamicRun(rtStream_t stream, int64_t taskId, AstKernelArgs *kernelArgs) {
+int DeviceRunner::DynamicRun(rtStream_t stream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim, int launchAicpuNum) {
     auto localArgs = args_;
     auto size = sizeof(localArgs);
+    int maxAicoreNum = 25;
 
     localArgs.taskId = taskId;
     localArgs.taskType = DEVICE_TASK_TYPE_DYN;
@@ -422,6 +423,12 @@ int DeviceRunner::DynamicRun(rtStream_t stream, int64_t taskId, AstKernelArgs *k
         return -1;
     }
     localArgs.machineConfig = kernelArgs->machineConfig;
+    if (blockdim != maxAicoreNum) {
+        localArgs.nrValidAic = blockdim;
+        localArgs.nrAicpu = launchAicpuNum;
+        blockDim_ = blockdim;
+        aicpuNum_ = launchAicpuNum;
+    }
     int rc = rtMemcpy(kernelArgs->tilingdata, size, &localArgs, size, RT_MEMCPY_HOST_TO_DEVICE);
     if (rc != 0) {
         ALOG_ERROR_F("rtmemcpy failed %p rc %d\n", kernelArgs->tilingdata, rc);

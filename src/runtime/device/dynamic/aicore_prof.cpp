@@ -87,18 +87,10 @@ void AiCoreProf::ProfInit(int64_t *regAddrs, int64_t *pmuEventAddrs) {
     coreNum_ = hostAicoreMng_.GetAllAiCoreNum();
     if (ProfCheckLevel(PROF_TASK_TIME_L2) == true) {
         profLevel_ = PROF_LEVEL_FUNC_LOG_PMU;
-#if PERF_AICPU_TEST_SWITCH
-        ProInitAiCpuTaskStat();
-        ProInitHandShake();
-#endif
         ProfInitLog();
         ProfInitPmu(regAddrs, pmuEventAddrs);
     } else if (ProfCheckLevel(PROF_TASK_TIME_L1) == true) {
         profLevel_ = PROF_LEVEL_FUNC_LOG;
-#if PERF_AICPU_TEST_SWITCH
-        ProInitAiCpuTaskStat();
-        ProInitHandShake();
-#endif
         ProfInitLog();
     } else if (ProfCheckLevel(PROF_TASK_TIME_L0) == true) {
         profLevel_ = PROF_LEVEL_FUNC;
@@ -180,15 +172,9 @@ void AiCoreProf::ProfStop() {
         return;
     } else if (profLevel_ == PROF_LEVEL_FUNC_LOG) {
         ProfStopLog();
-#if PERF_AICPU_TEST_SWITCH
-        ProfStopAiCpuTaskStat();
-#endif
     } else if (profLevel_ == PROF_LEVEL_FUNC_LOG_PMU) {
         ProfStopPmu();
         ProfStopLog();
-#if PERF_AICPU_TEST_SWITCH
-        ProfStopAiCpuTaskStat();
-#endif
     }
     DEV_INFO("aicore profiling stop, total run task num: %lu\n", taskCnt_);
 }

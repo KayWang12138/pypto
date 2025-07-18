@@ -51,7 +51,7 @@ const uint32_t AICORE_TYPE_NUM = 2;
 
 constexpr uint32_t MAX_AICORE_NUM = 75;
 constexpr uint32_t NAX_AIV_TOTAL_NUM = 50;
-constexpr uint32_t MAX_MANAGER_AIV_NUM = (NAX_AIV_TOTAL_NUM / npu::tile_fwk::dynamic::START_AICPU_NUM) + 1;
+constexpr uint32_t MAX_MANAGER_AIV_NUM = (NAX_AIV_TOTAL_NUM / npu::tile_fwk::dynamic::MAX_SCHEDULE_AICPU_NUM) + 1;
 
 constexpr uint32_t REG_31_BITS = 0x7FFFFFFF;
 constexpr uint32_t REG_32_BITS = 0xFFFFFFFF;
@@ -98,7 +98,7 @@ struct DeviceTaskCtrl {
     std::atomic<int> refcnt{-1};
     void (*finishFunc)(void *devTask);
     int retCode{0};
-    std::array<std::array<std::atomic<bool>, npu::tile_fwk::dynamic::START_AICPU_NUM>, AICORE_TYPE_NUM>  isAicpuIdle;
+    std::array<std::array<std::atomic<bool>, npu::tile_fwk::dynamic::MAX_SCHEDULE_AICPU_NUM>, AICORE_TYPE_NUM>  isAicpuIdle;
 
     bool IsFree() { return refcnt == -1; }
 

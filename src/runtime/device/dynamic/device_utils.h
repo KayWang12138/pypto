@@ -25,10 +25,6 @@
 #include <fstream>
 #include "runtime/utils/device_log.h"
 
-#ifndef CONFIG_START_AICPU_NUM
-#define CONFIG_START_AICPU_NUM 3
-#endif
-
 #ifndef CONFIG_MAX_DEVICE_TASK_NUM
 #define CONFIG_MAX_DEVICE_TASK_NUM 64
 #endif
@@ -60,11 +56,14 @@ constexpr int32_t DEVICE_MACHINE_OK = 0;
 constexpr int32_t DEVICE_MACHINE_FINISHED = 1;
 constexpr int32_t TIME_OUT_THRESHOLD = 1000000; // 超时阈值 1s
 constexpr int32_t DFX_TIME_OUT_THRESHOLD = 50000000; // 超时阈值 50s
-constexpr int32_t START_AICPU_NUM = CONFIG_START_AICPU_NUM;          // 真正负责调度aicore的aicpu个数
+constexpr uint32_t MAX_SCHEDULE_AICPU_NUM = 3;          // 真正负责调度aicore的aicpu个数
+constexpr int32_t START_AICPU_NUM = 3; 
 constexpr uint64_t NUM_FIFTY = 50;
 constexpr uint64_t US_PER_SEC = 1000000;
 constexpr uint64_t NSEC_PER_USEC = 1000;
 constexpr uint64_t NSEC_PER_SEC = 1000000000;
+constexpr int32_t MAX_MNG_AICORE_AVG_NUM = 8;
+constexpr uint32_t NEED_LAUNCH_AICPU_MINNUM = 3;
 
 #ifdef __aarch64__
 constexpr uint64_t TIMEOUT_CYCLES = 50 * 1000 * 1000;
@@ -172,6 +171,18 @@ inline bool PerfEvtEnable[] = {
 #undef X_L2
 #undef X
 };
+
+inline uint32_t CalcSchAicpuNumByBlockDim(uint32_t blockDim) {
+    if (blockDim > (MAX_SCHEDULE_AICPU_NUM - 1) * MAX_MNG_AICORE_AVG_NUM) {
+        return MAX_SCHEDULE_AICPU_NUM;
+    }
+
+    if (blockDim % MAX_MNG_AICORE_AVG_NUM == 0) {
+        return blockDim / MAX_MNG_AICORE_AVG_NUM;
+    }
+
+    return blockDim / MAX_MNG_AICORE_AVG_NUM + 1;
+}
 
 inline uint64_t GetTimeMonotonic() {
     struct timespec ts;
@@ -412,14 +423,14 @@ private:
 inline void PerfBegin(int type) {
     if (PerfEvtEnable[type]) {
         PerfEvtMgr::Instance().PerfBegin(type);
-        PerfettoMgr::Instance().PerfBegin(type, START_AICPU_NUM);
+        PerfettoMgr::Instance().PerfBegin(type, MAX_SCHEDULE_AICPU_NUM);
     }
 }
 
 inline void PerfEnd(int type) {
     if (PerfEvtEnable[type]) {
         PerfEvtMgr::Instance().PerfEnd(type);
-        PerfettoMgr::Instance().PerfEnd(type, START_AICPU_NUM);
+        PerfettoMgr::Instance().PerfEnd(type, MAX_SCHEDULE_AICPU_NUM);
     }
 }
 

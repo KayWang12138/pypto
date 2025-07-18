@@ -61,7 +61,7 @@ public:
     int Run(rtStream_t stream, int64_t taskId, uint64_t taskData, int taskType = DEVICE_TASK_TYPE_STATIC);
     int RunAsync(rtStream_t stream, int64_t taskId, uint64_t taskData, int taskType = DEVICE_TASK_TYPE_STATIC);
     uint64_t GetTasksTime() const;
-    int DynamicRun(rtStream_t stream, int64_t taskId, AstKernelArgs *kernelArgs);
+    int DynamicRun(rtStream_t stream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim = 25, int launchAicpuNum = 5);
     void InitDynamicArgs(DeviceArgs &args, int nrCore = CORE_DEFAULT_NUM);
     static int RegiserKernelBin(void **hdl);
 private:

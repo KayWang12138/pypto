@@ -29,17 +29,17 @@ namespace npu::tile_fwk::dynamic {
 
 class DeviceMachine {
 public:
-    DeviceMachine() {
-        for (uint32_t i = 0; i < START_AICPU_NUM; ++i) {
-            aicoreManager_.push_back(std::make_unique<AiCoreManager>(aicpuTaskManager_));
-        }
-    }
+    DeviceMachine() {}
 
     void init(DeviceArgs *args) {
         DEV_INFO("device machine init .\n");
         if (args->devQueueAddr != 0) {
             serverMode_ = true;
             receiver.init(reinterpret_cast<uint8_t *>(args->devQueueAddr), DEVICE_QUEUE_SIZE);
+        }
+        schAicpuNum_ = CalcSchAicpuNumByBlockDim(args->nrValidAic);
+        for (uint32_t i = 0; i < schAicpuNum_; ++i) {
+            aicoreManager_.push_back(std::make_unique<AiCoreManager>(aicpuTaskManager_));
         }
 
         coreNum_ = args->nrAic + args->nrAiv;
@@ -78,8 +78,8 @@ public:
         taskCtrl->finishedAivFunctionCnt = 0;
         taskCtrl->finishedAicpuFunctionCnt = 0;
         taskCtrl->finishedFunctionCnt.store(0, std::memory_order_relaxed);
-        taskCtrl->refcnt.store(aicoreManager_.size(), std::memory_order_relaxed);
-        taskCtrl->runcnt.store(aicoreManager_.size(), std::memory_order_relaxed);
+        taskCtrl->refcnt.store(schAicpuNum_, std::memory_order_relaxed);
+        taskCtrl->runcnt.store(schAicpuNum_, std::memory_order_relaxed);
         taskCtrl->finish = callback;
         taskCtrl->ctx = ctx;
         if (ctx->costModelData != nullptr) {
@@ -129,11 +129,14 @@ public:
 
     int Run(int threadIdx, DeviceArgs *args) {
         int ret = 0;
-        if (args->nrAic == 0) {
+        if (args->nrAic == 0 || args->nrValidAic == 0 || args->nrAicpu < NEED_LAUNCH_AICPU_MINNUM) {
+            DEV_ERROR("Device machinr run invalid args aicnum:%u, blockdim:%u, launchAicpu num:%u",
+                args->nrAic, args->nrValidAic, args->nrAicpu);
             return DEVICE_MACHINE_ERROR;
         }
-        DEV_INFO("thread  %d start .\n", threadIdx);
-        if (threadIdx >= (int)START_AICPU_NUM) {
+
+        DEV_INFO("thread %d start .\n", threadIdx);
+        if (static_cast<uint32_t>(threadIdx) >= MAX_SCHEDULE_AICPU_NUM) {
             DEV_INFO("thread start ignore \n");
             return DEVICE_MACHINE_OK;
         }
@@ -213,13 +216,6 @@ public:
         (void)taskId;
         return ret;
     }
-    uint64_t GetMinTaskTime(int threadIdx) {
-        return aicoreManager_[threadIdx]->GetTaskStartTime();
-    }
-
-    uint64_t GetMaxTaskTime(int threadIdx) {
-        return aicoreManager_[threadIdx]->GetTaskEndTime();
-    }
 
 private:
     static void DumpTask(int64_t taskId, DeviceTask *devTask, bool isDyn) {
@@ -285,6 +281,7 @@ private:
     uint64_t taskCtrlIndex_{0};
     DeviceTaskCtrl *initTaskCtrl{nullptr};
     AicpuTaskManager aicpuTaskManager_;
+    uint32_t schAicpuNum_{MAX_SCHEDULE_AICPU_NUM};
     std::vector<std::unique_ptr<AiCoreManager>> aicoreManager_;
 };
 } // namespace npu::tile_fwk

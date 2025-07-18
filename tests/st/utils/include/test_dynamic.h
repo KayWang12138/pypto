@@ -107,13 +107,15 @@ public:
     }
 
     // Run with incast/outcast from ProgramData
-    static void Run(std::shared_ptr<DyndevFunctionAttribute> funcop) {
+    static void Run(std::shared_ptr<DyndevFunctionAttribute> funcop, bool isOnboard = true, int blockdim = 25, int launchAicpuNum = 5) {
         auto runner = DynFuncRunner(funcop->devProgBinary);
         runner.KernelLaunchPrecheck(funcop);
         auto &inputs = ProgramData::GetInstance().GetInputDataList();
         auto &outputs = ProgramData::GetInstance().GetOutputDataList();
-        runner.RunModel(inputs, outputs);
-        runner.Run(inputs, outputs);
+        runner.RunModel(inputs, outputs, blockdim, launchAicpuNum);
+        if (isOnboard) {
+            runner.Run(inputs, outputs, blockdim, launchAicpuNum);
+        }
     }
 
     static void Run(const std::vector<uint8_t> &devProg,
@@ -125,9 +127,10 @@ public:
 
 private:
 
-    void RunModel(const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs) {
+    void RunModel(const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs,
+            int blockdim = 25, int launchAicpuNum = 5) {
             for (int i = 0; i < 1; i++) {
-                AstKernelArgs kArgs = BuildKernelArgs(inputs, outputs, true);
+                AstKernelArgs kArgs = BuildKernelArgs(inputs, outputs, true, blockdim, launchAicpuNum);
                 std::cout << "!!! Run CostModel " << i << "\n";
                 RunCostModel(&kArgs);
                 std::cout << "!!! Run TestModel " << i << "\n";
@@ -140,14 +143,15 @@ private:
         return devProg->inplaceSlotList.size() != 0;
     }
 
-    void Run(const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs) {
+    void Run(const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs,
+            int blockdim = 25, int launchAicpuNum = 5) {
         std::cout << "!!! Kernel Launch " << "\n";
         int rc = aclInit(nullptr);
         if (rc == 0 || rc == ACL_ERROR_REPEAT_INITIALIZE) {
             rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-            AstKernelArgs kArgs = BuildKernelArgs(inputs, outputs, false);
+            AstKernelArgs kArgs = BuildKernelArgs(inputs, outputs, false, blockdim, launchAicpuNum);
             auto stream = runtime::GetRA()->GetStreamAICPU();
-            rc = DeviceRunner::Get().DynamicRun(stream, 0, &kArgs);
+            rc = DeviceRunner::Get().DynamicRun(stream, 0, &kArgs, blockdim, launchAicpuNum);
             CopyFromDev(outputs, false);
             if (HasInplaceArgs())
                 CopyFromDev(inputs, false);
@@ -183,7 +187,8 @@ private:
         (void) kArgs;
         std::thread aicpus[6];
         std::atomic<int> idx{0};
-        for (int i = 0; i < 6; i++) {
+        auto *devProg = (DevAscendProgram *)(kArgs->tilingdata);
+        for (int i = 0; i < static_cast<int>(devProg->devArgs.nrAicpu); i++) {
             aicpus[i] = std::thread([&]() {
                 int tidx = idx++;
                 cpu_set_t cpuset;
@@ -191,6 +196,7 @@ private:
                 CPU_SET(tidx, &cpuset);
                 char name[64];
                 sprintf(name, "aicput%d", tidx);
+                std::cout << "start thread: " << name << std::endl;
                 pthread_setname_np(pthread_self(), name);
                 pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
                 auto rc = DynamicServerKernel(kArgs);
@@ -199,7 +205,9 @@ private:
         }
 
         for (int i = 0; i < 6; i++) {
-            aicpus[i].join();
+            if (aicpus[i].joinable()) {
+                aicpus[i].join();
+            }
         }
     }
 
@@ -212,7 +220,7 @@ private:
     }
 
     AstKernelArgs BuildKernelArgs(const std::vector<RawTensorDataPtr> &inputs,
-        const std::vector<RawTensorDataPtr> &outputs, bool isTest_ = true) {
+        const std::vector<RawTensorDataPtr> &outputs, bool isTest_ = true, int blockdim = 25, int launchAicpunum = 5) {
         AstKernelArgs kArgs;
         MemoryHelper h{isTest_};
 
@@ -239,8 +247,8 @@ private:
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProg_.data()));
         devProg->devArgs.nrAic = 25;
         devProg->devArgs.nrAiv = 50;
-        devProg->devArgs.nrAicpu = 6;
-        devProg->devArgs.nrValidAic = 24;
+        devProg->devArgs.nrAicpu = launchAicpunum;
+        devProg->devArgs.nrValidAic = blockdim;
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
 
         for (auto &input: inputs) {

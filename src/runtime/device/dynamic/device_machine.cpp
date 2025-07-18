@@ -69,6 +69,9 @@ void DySdmaPrefetch(DevStartArgs *devArgs) {
 struct DynMachineManager {
     int allocThreadIdx(int nrAicpu) {
         int threadIdx = -1;
+        if (schAicpuNum == 1) {
+            return threadIdx_++;
+        }
         int cpu = sched_getcpu();
         cpumask.fetch_or(1 << cpu, std::memory_order_release);
         while (__builtin_popcount(cpumask.load(std::memory_order_acquire)) != nrAicpu) {
@@ -79,7 +82,7 @@ struct DynMachineManager {
         int cpuoff = 0;
         for (int i = 0; i < static_cast<int>(sizeof(uint64_t)); i++) {
             int mask = (maskval >> cpuoff) & 0xF;
-            if (__builtin_popcount(mask) >= (int)npu::tile_fwk::dynamic::START_AICPU_NUM) {
+            if (__builtin_popcount(static_cast<uint32_t>(mask)) >= schAicpuNum) {
                 threadIdx = threadIdx_++;
                 break;
             }
@@ -93,12 +96,13 @@ struct DynMachineManager {
 
     int Run(AstKernelArgs *args) {
         char logfile[128];
+        (void)logfile;
         int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
         auto devArgs = (DeviceArgs *)args->tilingdata;
         int threadIdx = allocThreadIdx(devArgs->nrAicpu);
-        if ((threadIdx != -1) && threadIdx < START_AICPU_NUM) {
-#if DEBUG_SWITCH
-            (void)sprintf_s(logfile, sizeof(logfile), "/tmp/aicpu%d.txt", threadIdx);
+        if ((threadIdx != -1) && threadIdx < schAicpuNum) {
+#if defined(DEBUG_SWITCH) && DEBUG_SWITCH
+            (void)sprintf_s(logfile, sizeof(logfile), "/tmp/tile_fwk_aicpu_sch%d.txt", threadIdx);
             GetLogger(logfile);
 #endif
             DEV_INFO("devArgs->taskType %d\n", static_cast<int>(devArgs->taskType));
@@ -108,15 +112,15 @@ struct DynMachineManager {
                 devArgs->sharedBuffer, devArgs->coreRegAddr, devArgs->corePmuAddr);
             ret = machine.Run(threadIdx, devArgs);
         } else {
-            threadIdx = ctrlcpu.fetch_add(1);
-            (void)sprintf_s(logfile, sizeof(logfile), "/tmp/aicpu%d.txt", threadIdx);
-            GetLogger(logfile);
+            threadIdx = ctrlcpuIdx.fetch_add(1);
             DEV_INFO("devArgs->taskType %d\n",  static_cast<int>(devArgs->taskType));
-            if (devArgs->taskType == DEVICE_TASK_TYPE_DYN && threadIdx == START_AICPU_NUM) {
+            if (devArgs->taskType == DEVICE_TASK_TYPE_DYN && threadIdx == MAX_SCHEDULE_AICPU_NUM) {
+                (void)sprintf_s(logfile, sizeof(logfile), "/tmp/tile_fwk_aicpu_ctrl.txt");
+                GetLogger(logfile);
                 ret = machine.ExecDyn(threadIdx, devArgs->taskId, args);
-            } else {
-#if DEBUG_SWITCH
-                (void)sprintf_s(logfile, sizeof(logfile), "/tmp/aicpu888.txt");
+            } else if (threadIdx == MAX_SCHEDULE_AICPU_NUM + 1){
+#if defined(DEBUG_SWITCH) && DEBUG_SWITCH
+                (void)sprintf_s(logfile, sizeof(logfile), "/tmp/tile_fwk_aicpu_prefetch.txt");
                 GetLogger(logfile);
 #endif
                 if (devArgs->taskType == DEVICE_TASK_TYPE_DYN) {
@@ -137,25 +141,16 @@ struct DynMachineManager {
         return ret;
     }
 
-    void GetTaskTotalWastTime(volatile uint64_t *totalWastTime) {
-        uint64_t min_task_start_time = UINT64_MAX;
-        uint64_t max_task_end_time = 0;
-        for (uint32_t i = 0; i < START_AICPU_NUM; i++) {
-            min_task_start_time = std::min(machine.GetMinTaskTime(i), min_task_start_time);
-            max_task_end_time = std::max(machine.GetMaxTaskTime(i), max_task_end_time);
-        }
-        *totalWastTime = max_task_end_time - min_task_start_time;
-        DEV_INFO("min_task_start_time %lu, max_task_end_time %lu\n", min_task_start_time, max_task_end_time);
-    }
-
     void init(DeviceArgs *args) {
+        schAicpuNum = CalcSchAicpuNumByBlockDim(args->nrValidAic);
         machine.init(args);
     }
 
     std::atomic<int> threadIdx_{0};
     std::atomic<int> finished{0};
     std::atomic<uint64_t> cpumask{0};
-    std::atomic<int> ctrlcpu{START_AICPU_NUM};
+    std::atomic<int> ctrlcpuIdx{MAX_SCHEDULE_AICPU_NUM};
+    int schAicpuNum{MAX_SCHEDULE_AICPU_NUM};
     DeviceMachine machine;
 };
 
@@ -178,12 +173,8 @@ static int RunDynamic(AstKernelArgs *kargs, bool initDyn) {
     int rc = machine->Run(kargs);
     if (rc == npu::tile_fwk::dynamic::DEVICE_MACHINE_FINISHED) {
         DEV_INFO("all exited destroy the machine\n");
-        if (devArgs->taskType == DEVICE_TASK_TYPE_STATIC) {
-            machine->GetTaskTotalWastTime(reinterpret_cast<uint64_t *>(kargs->taskWastTime));
-            wmb();
-            DEV_INFO("Total wast time is %lu\n", *(uint64_t *)kargs->taskWastTime);
-        }
         delete machine;
+        devArgs->opaque = 0;
         return DEVICE_MACHINE_OK;
     }
     return rc;
