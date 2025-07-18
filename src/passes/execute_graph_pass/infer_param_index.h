@@ -20,14 +20,15 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/function/function.h"
-namespace npu::tile_fwk {
+namespace npu{
+namespace tile_fwk {
 class InferParamIndexPass : public Pass {
 public:
     InferParamIndexPass() : Pass("InferParamIndexPass") {}
     ~InferParamIndexPass() override {}
     Status RunOnFunction(Function &function) override;
     std::string DumpParamIndex(const std::map<std::string, DynParamInfo>& dynParamTable);
-    std::mutex mtxInfer;
 };
+}
 }
 #endif

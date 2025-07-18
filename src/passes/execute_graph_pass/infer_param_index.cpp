@@ -14,16 +14,13 @@
  */
 
 #include <queue>
+#include <vector>
 #include "infer_param_index.h"
 #include "interface/operation/op_infer_shape_impl.h"
 #include "interface/operation/opcode.h"
-#include <vector>
-#include <thread>
-#include <mutex>
-#include <condition_variable>
-#include <atomic>
 
-namespace npu::tile_fwk {
+namespace npu {
+namespace tile_fwk {
 std::string InferParamIndexPass::DumpParamIndex(const std::map<std::string, DynParamInfo>& dynParamTable)
 {
     std::ostringstream ss;
@@ -39,11 +36,12 @@ std::string InferParamIndexPass::DumpParamIndex(const std::map<std::string, DynP
 }
 
 void ResetDynValidShape(Function& function) {
+    const std::set<Opcode> specifiedOps = {Opcode::OP_VEC_DUP};
     for (auto &op : function.Operations()) {
         std::vector<SymbolicScalar> validShape;
         for (auto outOperand : op.GetOOperands()) {
             // 输入输出的tensor shape符号化
-            if (OpcodeManager::Inst().IsCopyInOrOut(op.GetOpcode())) {
+            if (OpcodeManager::Inst().IsCopyInOrOut(op.GetOpcode()) || specifiedOps.count(op.GetOpcode())) {
                 for (size_t dimIdx = 0U; dimIdx < outOperand->GetShape().size(); ++dimIdx) {
                     validShape.push_back(SymbolicScalar("sym_" + std::to_string(outOperand->GetMagic()) + "_dim_" +
                         std::to_string(dimIdx)));
@@ -130,25 +128,22 @@ Status InferParamIndexPass::RunOnFunction(Function &function)
         ALOG_INFO(subFunc.Dump());
         std::map<int, std::vector<SymbolicScalar>> addr2ValidShape;
         for (auto &op : subFunc.Operations()) {
-            if (!OpcodeManager::Inst().IsCopyInOrOut(op.GetOpcode())) {
+            int addrPos;
+            if (IsCopyIn(op.GetOpcode())) {
+                addrPos = op.GetIOpAttrOffset(0);
+            } else {
+                addrPos = op.GetOOpAttrOffset(0);
+            }
+            if (addrPos == -1) {
                 continue;
             }
-            int addrPos;
-            if (IsCopyIn(op.GetOpcode()))
-                addrPos = op.GetIOpAttrOffset(0);
-            else
-                addrPos = op.GetOOpAttrOffset(0);
-            if (addrPos == -1)
-                continue;
             if (addr2ValidShape.find(addrPos) == addr2ValidShape.end()) {
                 addr2ValidShape[addrPos] = op.GetOOperands()[0]->GetDynValidShape();
             }
         }
-        std::map<int, int> addrIdx2GmIdx;
         std::set<std::string> visitedSymbol;
         int gmIdx{0};
         for (auto validShape : addr2ValidShape) {
-            addrIdx2GmIdx[validShape.first] = gmIdx;
             int dimIdx{0};
             for (auto dim : validShape.second) {
                 if (!dim.IsSymbol()) {
@@ -168,4 +163,5 @@ Status InferParamIndexPass::RunOnFunction(Function &function)
     ASLOGI("===> End InferParamIndexPass By Sequential Execution.");
     return SUCCESS;
 }
-}  // namespace npu::tile_fwk
+}  // namespace tile_fwk
+}  // namespace npu
