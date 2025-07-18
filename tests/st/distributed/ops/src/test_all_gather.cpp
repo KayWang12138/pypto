@@ -50,8 +50,8 @@ void TestAllGather(OpTestParam &testParam)
         ConfigManager::Instance();
         FUNCTION("AllGather", FunctionType::STATIC, {in, out}) {
             Program::GetInstance().GetTileShape().SetDistTileShapes(
-                {outM / testParam.rankSize, testParam.rankSize, 0},
-                {N / testParam.rankSize, testParam.rankSize, 0},
+                {M / testParam.rankSize, testParam.rankSize, 0}, 
+                {N / testParam.rankSize, testParam.rankSize, 0}, 
                 {1, testParam.rankSize, 0});
             Program::GetInstance().GetTileShape().SpecifyStaticRankId(testParam.rankId);
             out = AllGather(in, testParam.group);

@@ -25,6 +25,10 @@
 
 namespace npu::tile_fwk {
 namespace Distributed {
+// 以下 ATOMIC_ADD_BLOCK_BYTE_SIZE 和 FLAG_BYTE_SIZE 的定义与 distributed.h 中的定义一致
+constexpr uint32_t ATOMIC_ADD_BLOCK_BYTE_SIZE = 32; // AtomicAdd 每次操作 32B 的数据，对同一 32B 的数据进行 AtomicAdd 需要排队
+constexpr uint32_t FLAG_BYTE_SIZE = ATOMIC_ADD_BLOCK_BYTE_SIZE * 4; // 为了消除 AtomicAdd 并发，以 32B 为最小单位，视情况调节每个 flag 占用的字节数
+
 class FlagPoller {
 public:
     FlagPoller() {};
@@ -34,22 +38,17 @@ public:
     void PollCompleted(std::vector<uint64_t> &completed);
 
 private:
-    void SetUndoFlag(uint32_t startIndex, uint32_t endIndex);
-    void ProcessFlag();
-    void ProcessBlock(uint8_t *winFlag, uint8_t *undoFlag, size_t start);
-    void ProcessRemaining(uint8_t *winFlag, uint8_t *undoFlag, size_t remaining, size_t start);
     struct OpInfo {
         uint64_t taskId;
-        uint32_t flagCount;
-        uint32_t offset;
+        uint32_t todoFlagCount;
     };
     uint32_t rankId_;
     uint32_t rankSize_;
+    uint32_t rankShape_;
     uint8_t *winFlag_{nullptr};
-    std::vector<uint8_t> undoFlag_;
+    std::vector<bool> doneFlag_;
     std::vector<OpInfo> opInfo_;
     size_t opCount_{0};
-    std::deque<size_t> readyQueue_;
 };
 
 class CommWaitFlag {

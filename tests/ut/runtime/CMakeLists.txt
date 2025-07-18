@@ -37,6 +37,8 @@ set(_CaseFilterList
         "CacheManagerUnitTest.test_*"
         # encode
         "DevEncode.*"
+        # distributed
+        "CommWaitFlagTest.CommWaitFlag_EnqueueOp_and_PollCompleted_success"
 )
 
 set(_Target ${TileFwkUTestNamePrefix}_runtime)

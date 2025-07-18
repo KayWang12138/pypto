@@ -23,7 +23,9 @@
 
 namespace TileOp {
 namespace Distributed {
-constexpr uint32_t FLAG_BASE_BLOCK_SIZE = 32; // flag 基本块大小，32bit，即 4B，int32 大小
+// 以下 ATOMIC_ADD_BLOCK_BYTE_SIZE 和 FLAG_BYTE_SIZE 的定义与 comm_wait_flag.h 中的定义一致
+constexpr uint32_t ATOMIC_ADD_BLOCK_BYTE_SIZE = 32; // AtomicAdd 每次操作 32B 的数据，对同一 32B 的数据进行 AtomicAdd 需要排队
+constexpr uint32_t FLAG_BYTE_SIZE = ATOMIC_ADD_BLOCK_BYTE_SIZE * 4; // 为了消除 AtomicAdd 并发，以 32B 为最小单位，视情况调节每个 flag 占用的字节数
 constexpr uint32_t COMBINE_FLAG_OFFSET = 128;   // combine算子flag的偏移512B，flag是int32类型
 constexpr uint32_t COMBINE_INFO_NUM = 3;        // combine算子的输入的combineInfo信息有三个，attnId, tokenId and kOffset
 
@@ -90,19 +92,8 @@ TILEOP void SetFlag(__ubuf__ int32_t *flag, GM_ADDR winFlagBaseAddr, uint32_t fl
     ClearFlagBuf(flag);
     pipe_barrier(PIPE_ALL);
 
-    /* 计算需要改动的位在 win 区上真实偏移的 flag block 数量，也即最后落在哪个 block 上 */
-    uint32_t flagBaseBlockIdx = flagOffset / FLAG_BASE_BLOCK_SIZE;
-    /*
-     最高位是 31 卡，最低位是 0 卡
-     11111111  11111111  11111111  11111111
-     以最右边 1111 为例
-      bit: 1 1 1 1
-     rank: 3 2 1 0
-     所以，需要调整为 1 的 index 是 rank，左移的 offset 也是 rank
-     */
-    uint32_t modifyBitIdx = flagOffset % FLAG_BASE_BLOCK_SIZE; // modifyBitIdx 算出来的是需要调整为 1 的位置
-    uint32_t bitOffset = modifyBitIdx;       // 在最低位为 rank0 的场景下，左移的 offset 正好是 modifyBitIdx
-    flag[flagBaseBlockIdx] = 1 << bitOffset; // 只有指定位数是 1
+    GM_ADDR winFlagAddr = winFlagBaseAddr + flagOffset * FLAG_BYTE_SIZE;
+    flag[0] = 1;
 
     uint16_t nBurst = 1;    // 搬运次数，flag ub 较小，可以一次搬完
     uint16_t lenBurst = 1;  // 每次搬运块数，单位为 block, 32B
@@ -111,7 +102,7 @@ TILEOP void SetFlag(__ubuf__ int32_t *flag, GM_ADDR winFlagBaseAddr, uint32_t fl
 
     set_atomic_add();
     set_atomic_s32();
-    copy_ubuf_to_gm(winFlagBaseAddr, flag, 0 /* sid */, nBurst, lenBurst, srcStride, dstStride);
+    copy_ubuf_to_gm(winFlagAddr, flag, 0 /* sid */, nBurst, lenBurst, srcStride, dstStride);
     pipe_barrier(PIPE_ALL);
     set_atomic_none();
 
@@ -168,16 +159,9 @@ TILEOP void WaitFlag(__ubuf__ int32_t *flag, GM_ADDR winFlagBaseAddr, uint32_t f
 {
     pipe_barrier(PIPE_ALL);
 
-    /* 计算需要改动的位在 win 区上真实偏移的 flag block 数量，也即最后落在哪个 block 上 */
-    uint32_t flagBaseBlockIdx = flagOffset / FLAG_BASE_BLOCK_SIZE;
-    GM_ADDR winFlagAddr =
-        winFlagBaseAddr /* 远端 win 区 flag 基地址 */
-        + flagBaseBlockIdx * sizeof(int32_t) /* flagBaseBlockIdx 个 flag block 占据的 win 区 flag 字节数 */;
+    GM_ADDR winFlagAddr = winFlagBaseAddr + flagOffset * FLAG_BYTE_SIZE;
 
-    uint32_t modifyBitIdx = flagOffset % FLAG_BASE_BLOCK_SIZE; // modifyBitIdx 算出来的是需要调整为 1 的位置
-    uint32_t bitOffset = modifyBitIdx; // 在最低位为 rank0 的场景下，左移的 offset 正好是 modifyBitIdx
-
-    uint32_t value = 1 << bitOffset;
+    uint32_t value = 1;
     uint32_t status = 0;
 
     pipe_barrier(PIPE_ALL);
@@ -193,13 +177,12 @@ TILEOP void WaitFlag(__ubuf__ int32_t *flag, GM_ADDR winFlagBaseAddr, uint32_t f
 // 清除 WinGM 中 flag 的对应 bit 位
 TILEOP void ClearFlag(__ubuf__ int32_t *flag, GM_ADDR winFlagBaseAddr, uint32_t flagOffset)
 {
-    uint32_t bitOffset = flagOffset % FLAG_BASE_BLOCK_SIZE;
-    uint32_t flagBaseBlockIdx = flagOffset / FLAG_BASE_BLOCK_SIZE;
-    flag[flagBaseBlockIdx] = -(1 << (bitOffset));
+    GM_ADDR winFlagAddr = winFlagBaseAddr + flagOffset * FLAG_BYTE_SIZE;
+    flag[0] = -1;
 
     pipe_barrier(PIPE_ALL);
     set_atomic_s32();
-    copy_ubuf_to_gm(winFlagBaseAddr, flag, 0 /*sid*/, 1, 1, 0, 0);
+    copy_ubuf_to_gm(winFlagAddr, flag, 0 /*sid*/, 1, 1, 0, 0);
     set_atomic_none();
     set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
     wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
