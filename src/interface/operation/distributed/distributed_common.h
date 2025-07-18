@@ -34,6 +34,12 @@
 namespace npu::tile_fwk {
 namespace Distributed {
 constexpr int32_t FLAG_TENSOR_SIZE = 64;
+constexpr int32_t DIST_HEAD_SHAPE = 0;
+constexpr int32_t DIST_HEAD_COUNT = 1;
+constexpr int32_t DIST_TAIL_SHAPE = 2;
+constexpr int32_t DIST_INDEX_ZERO = 0;
+constexpr int32_t DIST_INDEX_ONE = 1;
+constexpr int32_t DIST_INDEX_TWO = 2;
 enum class TileIndex : size_t {
     HEAD_SHAPE,
     HEAD_NUM,
@@ -66,7 +72,8 @@ struct DispatchTilingInfo {
     int totalTileNum{0};
     int magic{0x5a5a5a5a};
 
-    std::vector<int> SerializeTo() const {
+    std::vector<int> SerializeTo() const
+    {
         return std::vector<int>{
             tileIndex, groupIndex,
             shape, offset,
@@ -74,7 +81,8 @@ struct DispatchTilingInfo {
         };
     }
 
-    std::string ToString() const {
+    std::string ToString() const
+    {
         std::stringstream ss;
         ss << "tileIndex=" << tileIndex
             << ", groupIndex=" << groupIndex
@@ -100,7 +108,8 @@ struct TilingInfo {
     int shareRankCnt{0};
     int magic{0x5a5a5a5a};
 
-    std::vector<int> SerializeTo() const {
+    std::vector<int> SerializeTo() const
+    {
         return std::vector<int>{
             tileIndex, groupIndex,
             rowPerRank, colPerRank,
@@ -110,7 +119,8 @@ struct TilingInfo {
             totalTileNum, shareRankCnt, magic
         };
     }
-    std::string ToString() const {
+    std::string ToString() const
+    {
         std::stringstream ss;
         ss << "tileIndex=" << tileIndex
             << ", rowShape=" << rowShape
@@ -133,7 +143,8 @@ struct OpArgs {
     std::optional<T> tilingInfo;
     std::optional<std::vector<int>> attrArray;
 
-    void PrintLog() const {
+    void PrintLog() const
+    {
         ALOG_INFO_F("Distributed Op name=[%s]", opName.c_str());
         for (uint32_t i = 0; i < iOperands.size(); i++) {
             ALOG_INFO_F("iOperands[%u] symbol=[%s], magic=[%d %d], shape=[%d %d], offset=[%d %d]",
@@ -168,7 +179,8 @@ struct CommGroupInfo {
     std::optional<std::array<int, MAX_DIST_DIM_SIZE>> rank{std::nullopt};
     std::optional<int> rankSize{std::nullopt};
     std::optional<int> rankId{std::nullopt};
-    CommGroupInfo(const char *group, const TileShape &tileShape) {
+    CommGroupInfo(const char *group, const TileShape &tileShape)
+    {
         groupIndex = static_cast<int32_t>(Program::GetInstance().GetCommGroupRecorder().Input(std::string(group)));
         if (tileShape.GetDistRankId() >= 0) {
             rankId = std::make_optional(tileShape.GetDistRankId());
@@ -181,7 +193,8 @@ struct CommGroupInfo {
     }
     CommGroupInfo() = default;
 
-    bool CheckAndUpdate(std::optional<int> size) {
+    bool CheckAndUpdate(std::optional<int> size)
+    {
         if (size.has_value() && rankSize.has_value()) {
             return size.value() == rankSize.value();
         }
@@ -198,7 +211,8 @@ class DistTensorTilingInfo {
 public:
     std::vector<std::array<int, MAX_DIST_DIM_SIZE>> tileInfo;
     DistTensorTilingInfo() = default;
-    explicit DistTensorTilingInfo(const TileShape &tileShape, size_t dim) {
+    explicit DistTensorTilingInfo(const TileShape &tileShape, size_t dim)
+    {
         if (dim > 0) {
             tileInfo.push_back(tileShape.GetDistTileRow());
         }
@@ -206,7 +220,8 @@ public:
             tileInfo.push_back(tileShape.GetDistTileCol());
         }
     }
-    bool Check(const std::vector<std::optional<int>> &checker) const {
+    bool Check(const std::vector<std::optional<int>> &checker) const
+    {
         if (checker.size() != tileInfo.size()) {
             return false;
         }
@@ -218,7 +233,8 @@ public:
         return true;
     }
 
-    bool Check(size_t index, std::optional<int> total) const {
+    bool Check(size_t index, std::optional<int> total) const
+    {
         if (!NotNegative(tileInfo[index])) {
             return false;
         }
@@ -231,7 +247,8 @@ public:
         }
         return true;
     }
-    auto& operator[](size_t index) const {
+    auto& operator[](size_t index) const
+    {
         return tileInfo[index];
     }
 };
@@ -253,7 +270,8 @@ void CheckAndGetGroupInfo(const int groupIndex, const TileShape &tileShape, Comm
 void CheckAndGetTileInfo(int rowTotal, int colTotal, const TileShape &tileShape, TensorTileInfo &tileInfo);
 
 template <typename T = TilingInfo>
-Operation &AddOperation(Function& function, OpArgs<T> &opArgs) {
+Operation &AddOperation(Function& function, OpArgs<T> &opArgs)
+{
     ASSERT(opArgs.iOperands.size() != 0);
 
     if (opArgs.tilingInfo.has_value() && (opArgs.tilingTensor != nullptr)) {

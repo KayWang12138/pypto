@@ -31,7 +31,8 @@ public:
     explicit TilingStorage(int maxNum) : maxNum_(maxNum), pos_(0), storage_(maxNum, 0) {}
     ~TilingStorage() = default;
 
-    int SaveData(const std::vector<int> &tilingData) {
+    int SaveData(const std::vector<int> &tilingData)
+    {
         int offset = GetOffset(tilingData);
         if (offset < static_cast<int>(pos_)) {
             return offset;
@@ -45,19 +46,23 @@ public:
         return offset;
     }
 
-    void* GetStoragePtr() {
+    void* GetStoragePtr()
+    {
         return static_cast<void*>(storage_.data());
     }
 
-    const void* GetConstStoragePtr() const {
+    const void* GetConstStoragePtr() const
+    {
         return static_cast<const void*>(storage_.data());
     }
 
-    size_t GetValidsize() const {
+    size_t GetValidsize() const
+    {
         return pos_ * sizeof(int);
     }
 
-    inline std::string PrintString() const {
+    inline std::string PrintString() const
+    {
         std::ostringstream oss;
         oss << "total size=" << maxNum_ << ", pos=" << pos_ << ", storage:{";
         for (auto &i : storage_) {
@@ -69,7 +74,8 @@ public:
 private:
     TilingStorage() = delete;
 
-    int GetOffset(const std::vector<int> &vec) {
+    int GetOffset(const std::vector<int> &vec)
+    {
         auto it = mappedOffset_.find(vec);
         if (it != mappedOffset_.end()) {
             return it->second;
@@ -88,7 +94,8 @@ public:
     TilingManager() = default;
     ~TilingManager() {};
 
-    inline int Save(const std::string &tensorSymbol, const std::vector<int> &tilingData) {
+    inline int Save(const std::string &tensorSymbol, const std::vector<int> &tilingData)
+    {
         auto it = tilingTensor_.find(tensorSymbol);
         if (it == tilingTensor_.end()) {
             return -1;
@@ -96,7 +103,8 @@ public:
         return it->second.SaveData(tilingData);
     }
 
-    inline std::optional<std::pair<void*, size_t>> Get(const std::string &tensorSymbol) {
+    inline std::optional<std::pair<void*, size_t>> Get(const std::string &tensorSymbol)
+    {
         auto it = tilingTensor_.find(tensorSymbol);
         if (it == tilingTensor_.end()) {
             return std::nullopt;
@@ -104,7 +112,8 @@ public:
         return std::make_pair(it->second.GetStoragePtr(), it->second.GetValidsize());
     }
 
-    inline std::string CreateTilingStorage(const std::string &suffix, int maxNum) {
+    inline std::string CreateTilingStorage(const std::string &suffix, int maxNum)
+    {
         static uint64_t cnt = 0;
         const std::string symbol = "DIST_TILING_INFO_" + std::to_string(cnt++) + "_" + suffix;
         if (tilingTensor_.find(symbol) == tilingTensor_.end()) {
@@ -113,11 +122,13 @@ public:
         return symbol;
     }
 
-    inline const std::unordered_map<std::string, TilingStorage>& GetAllTilingTensorData() const {
+    inline const std::unordered_map<std::string, TilingStorage>& GetAllTilingTensorData() const
+    {
         return tilingTensor_;
     }
 
-    inline std::string PrintString() const {
+    inline std::string PrintString() const
+    {
         std::ostringstream oss;
         oss << "distribute tiling info:";
         for (const auto& [symbol, storage] : tilingTensor_) {

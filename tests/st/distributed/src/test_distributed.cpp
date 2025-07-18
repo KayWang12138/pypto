@@ -49,18 +49,18 @@ public:
 
     // 暴露超时设置接口
     void SetDestroyTimeout(int32_t destroyTimeout)
-    { 
-        timeout = destroyTimeout; 
+    {
+        timeout = destroyTimeout;
     }
 
 protected:
     void DistributedTestDestroy()
     {
-        //销毁集合通信域
+        // 销毁集合通信域
         ASSERT(HcclCommDestroy(hcomTestParam.hcclComm) == 0);
-        //重置设备
+        // 重置设备
         ASSERT(aclrtResetDevice(testParam.rankId) == 0);
-        //设备去初始化
+        // 设备去初始化
         ASSERT(aclFinalize() == 0);
     }
 
@@ -120,7 +120,8 @@ TEST_F(DistributedTest, aivWaitFlag_single_test_moe_dispatch_bfloat16_rank_size_
     Distributed::TestMoeDispatch(testParam);
 }
 
-TEST_F(DistributedTest, aivWaitFlag_single_test_moe_combine_bfloat16_rank_size_4) {
+TEST_F(DistributedTest, aivWaitFlag_single_test_moe_combine_bfloat16_rank_size_4)
+{
     config::SetDistConfig(KEY_AICPU_WAIT_FLAG_ENABLE, false);
     Distributed::TestMoeCombine(testParam);
 }

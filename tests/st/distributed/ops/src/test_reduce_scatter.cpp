@@ -35,7 +35,7 @@ void TestReduceScatter(OpTestParam &testParam)
     int32_t inSize = M * N;
     int32_t outM = M / testParam.rankSize;
     int32_t outSize = outM * N;
-    size_t dTypeSize = BytesOf(dType); 
+    size_t dTypeSize = BytesOf(dType);
     int32_t outByteSize = dTypeSize * outSize;
     uint8_t *outPtr = allocDevAddr(outByteSize);
     ALOG_INFO_F("before REDUCESCATTER [%d, %d], rankSize=%d, outPtr=%p", M, N, testParam.rankSize, outPtr);
@@ -43,7 +43,8 @@ void TestReduceScatter(OpTestParam &testParam)
         std::vector<int32_t> inShape = {M, N};
         std::vector<int32_t> outShape = {outM, N};
 
-        void *xPtr = readToDev(GetGoldenDir() + "/input_rank_"+ std::to_string(testParam.rankId) + ".bin", inSize * dTypeSize / sizeof(float));
+        void *xPtr = readToDev(GetGoldenDir() + "/input_rank_"+ std::to_string(testParam.rankId) + ".bin",
+            inSize * dTypeSize / sizeof(float));
 
         Tensor in(dType, inShape,  (uint8_t *)xPtr, "in");
         Tensor out(dType, outShape, outPtr, "out");
@@ -52,11 +53,12 @@ void TestReduceScatter(OpTestParam &testParam)
 
         FUNCTION("REDUCESCATTER_F", FunctionType::STATIC, {in, out}) {
             Program::GetInstance().GetTileShape().SetDistTileShapes(
-                {outM / 2, 2, 0}, 
-                {N / 2, 2, 0}, 
+                {outM / 2, 2, 0},
+                {N / 2, 2, 0},
                 {1, testParam.rankSize, 0});
             Program::GetInstance().GetTileShape().SpecifyStaticRankId(testParam.rankId);
-            out = Distributed::ReduceScatter(in, testParam.group, npu::tile_fwk::Distributed::DistReduceType::DIST_REDUCE_ADD);
+            out = Distributed::ReduceScatter(in, testParam.group,
+                npu::tile_fwk::Distributed::DistReduceType::DIST_REDUCE_ADD);
         }
     }
 
@@ -71,7 +73,7 @@ void TestReduceScatterEx(OpTestParam &testParam)
     ASSERT(M % testParam.rankSize == 0);
 
     DataType dType = GetDataTypeNum(typeNum);
-    size_t dTypeSize = BytesOf(dType); 
+    size_t dTypeSize = BytesOf(dType);
 
     int32_t outM = M / testParam.rankSize;
     int32_t outSize = outM * N;
@@ -83,7 +85,8 @@ void TestReduceScatterEx(OpTestParam &testParam)
         std::vector<int32_t> inShape = {outM, N};
         std::vector<int32_t> outShape = {outM, N};
 
-        void *xPtr = readToDev(GetGoldenDir() + "/input_rank_"+ std::to_string(testParam.rankId) + ".bin", M * N * dTypeSize / sizeof(float));
+        void *xPtr = readToDev(GetGoldenDir() + "/input_rank_"+ std::to_string(testParam.rankId) + ".bin",
+            M * N * dTypeSize / sizeof(float));
         Tensor out(dType, outShape, outPtr, "out");
 
         std::vector<Tensor> inVec;
@@ -98,11 +101,12 @@ void TestReduceScatterEx(OpTestParam &testParam)
  
         FUNCTION("REDUCESCATTER_EX", FunctionType::STATIC, paras) {
             Program::GetInstance().GetTileShape().SetDistTileShapes(
-                {outM / 2, 2, 0}, 
-                {N / 2, 2, 0}, 
+                {outM / 2, 2, 0},
+                {N / 2, 2, 0},
                 {1, testParam.rankSize, 0});
             Program::GetInstance().GetTileShape().SpecifyStaticRankId(testParam.rankId);
-            out = Distributed::ReduceScatter(inVec, testParam.group, npu::tile_fwk::Distributed::DistReduceType::DIST_REDUCE_ADD);
+            out = Distributed::ReduceScatter(inVec, testParam.group,
+                npu::tile_fwk::Distributed::DistReduceType::DIST_REDUCE_ADD);
         }
     }
 

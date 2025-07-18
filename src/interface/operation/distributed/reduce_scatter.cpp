@@ -31,7 +31,8 @@ namespace npu::tile_fwk {
 namespace Distributed {
 void RedeceByRankView(
     const std::shared_ptr<LogicalTensor> &inTile, const std::shared_ptr<LogicalTensor> &outTile,
-    const std::shared_ptr<LogicalTensor> &dummyOut, TileArgs &args) {
+    const std::shared_ptr<LogicalTensor> &dummyOut, TileArgs &args)
+{
     // 此rank view仅包含localRankId时，不需要做remote reduce，否则需要remote reduce
     const bool onlyLocalInView =
         (args.groupInfo.rankId.value() == args.tilingInfo.rankOffset) && (args.tilingInfo.rankShape == 1);
@@ -64,15 +65,16 @@ void RedeceByRankView(
 }
 
 void LocalReduce(
-    const std::shared_ptr<LogicalTensor> &inTile, const std::shared_ptr<LogicalTensor> &outTile, TileArgs &args) {
+    const std::shared_ptr<LogicalTensor> &inTile, const std::shared_ptr<LogicalTensor> &outTile, TileArgs &args)
+{
     const auto &tileRank = args.groupInfo.rank.value();
     // LocalReduce kernel 侧现在不会使用 rank 相关信息，此处暂时无用
     if (args.groupInfo.rankId.value() < tileRank[0] * tileRank[1]) {
         args.tilingInfo.rankShape = tileRank[0];
         args.tilingInfo.rankOffset = args.groupInfo.rankId.value() / tileRank[0] * tileRank[0];
     } else {
-        args.tilingInfo.rankShape = tileRank[2];
-        args.tilingInfo.rankOffset = tileRank[1] * tileRank[0];
+        args.tilingInfo.rankShape = tileRank[DIST_TAIL_SHAPE];
+        args.tilingInfo.rankOffset = tileRank[DIST_HEAD_COUNT] * tileRank[DIST_HEAD_SHAPE];
     }
 
     OpArgs<TilingInfo> opArgs = {"LOCAL_COPY_OUT", {inTile}, {outTile}, args.tilingTensor, args.tilingSymbol,
@@ -81,7 +83,8 @@ void LocalReduce(
     op.SetAttr("extraTemplateParam", std::string("true"));
 }
 
-void DealTileBelongLocal(TileArgs &args) {
+void DealTileBelongLocal(TileArgs &args)
+{
     const auto &tileRank = args.groupInfo.rank.value();
     std::vector<int> shape = {args.tilingInfo.rowShape, args.tilingInfo.colShape};
     std::vector<int> offset = {args.tilingInfo.rowOffset, args.tilingInfo.colOffset};
@@ -98,14 +101,16 @@ void DealTileBelongLocal(TileArgs &args) {
         RedeceByRankView(inTile, outTile, dummyOut, args);
     }
 
-    if (tileRank[2] != 0) {
-        args.tilingInfo.rankShape = tileRank[2];
-        args.tilingInfo.rankOffset = tileRank[1] * tileRank[0];
+    if (tileRank[DIST_TAIL_SHAPE] != 0)
+    {
+        args.tilingInfo.rankShape = tileRank[DIST_TAIL_SHAPE];
+        args.tilingInfo.rankOffset = tileRank[DIST_HEAD_COUNT] * tileRank[DIST_HEAD_SHAPE];
         RedeceByRankView(inTile, outTile, dummyOut, args);
     }
 }
 
-void DealTileBelongRemote(TileArgs &args) {
+void DealTileBelongRemote(TileArgs &args)
+{
     auto inTile = args.in->View(args.function, {args.tilingInfo.rowShape, args.tilingInfo.colShape},
         {args.tilingInfo.rowOffset, args.tilingInfo.colOffset});
     std::vector<int> flagShape = {1, FLAG_TENSOR_SIZE}; // 256 byte
@@ -115,36 +120,43 @@ void DealTileBelongRemote(TileArgs &args) {
     (void)AddOperation(args.function, opArgs);
 }
 
-inline std::vector<int> GetRsOutShape(const Tensor &in, int rankSize) {
+inline std::vector<int> GetRsOutShape(const Tensor &in, int rankSize)
+{
     return {in->shape[0] / rankSize, in->shape[1]};
 }
 
-inline std::vector<int> GetRsOutShape(const std::vector<Tensor> &in, int rankSize) {
+inline std::vector<int> GetRsOutShape(const std::vector<Tensor> &in, int rankSize)
+{
     (void)rankSize;
     return in[0]->GetShape();
 }
 
-inline Tensor GetInTensorView(const std::vector<Tensor> &in, const std::vector<int>& outShape, int rankIndex){
+inline Tensor GetInTensorView(const std::vector<Tensor> &in, const std::vector<int>& outShape, int rankIndex)
+{
     (void)outShape;
     return in[rankIndex];
 }
 
-inline Tensor GetInTensorView(const Tensor &in, const std::vector<int>& outShape, int rankIndex) {
+inline Tensor GetInTensorView(const Tensor &in, const std::vector<int>& outShape, int rankIndex)
+{
     std::vector<int> offset = {rankIndex * outShape[0], 0};
     return View(in, outShape, offset);
 }
 
-inline auto GetDataType(const Tensor &in) {
+inline auto GetDataType(const Tensor &in)
+{
     return in.GetDataType();
 }
 
-inline auto GetDataType(const std::vector<Tensor> &in) {
+inline auto GetDataType(const std::vector<Tensor> &in)
+{
     return in[0].GetDataType();
 }
 
 template <typename T>
 Tensor TensorReduceScatter(const T &in, const Tensor &tilingTensor, const CommGroupInfo &groupInfo,
-    DistReduceType reduceType) {
+    DistReduceType reduceType)
+{
     (void)reduceType;
     auto outShape = GetRsOutShape(in, groupInfo.rankSize.value());
     Tensor out(GetDataType(in), outShape, "out", NodeType::OUTCAST);
@@ -163,7 +175,8 @@ Tensor TensorReduceScatter(const T &in, const Tensor &tilingTensor, const CommGr
             oper.SetAttr(OpAttributeKey::distTilingInfo, tilingInfo);
             oper.SetAttr("tiling_tensor_symbol", tilingTensor.GetStorage()->Symbol());
         } else {
-            auto &oper = function.AddOperation("DIST_REDUCE", {inTile.GetStorage(), tilingTensor.GetStorage()}, {out.GetStorage()});
+            auto &oper = function.AddOperation("DIST_REDUCE", {inTile.GetStorage(), tilingTensor.GetStorage()},
+                {out.GetStorage()});
             oper.SetAttr(OpAttributeKey::commGroupInfo, groupInfo);
             oper.SetAttr(OpAttributeKey::distTilingInfo, tilingInfo);
             oper.SetAttr("tiling_tensor_symbol", tilingTensor.GetStorage()->Symbol());
@@ -173,10 +186,10 @@ Tensor TensorReduceScatter(const T &in, const Tensor &tilingTensor, const CommGr
 }
 
 template <typename T>
-Tensor ReduceScatterImpl(const T &in, const char *group, DistReduceType reduceType) {
-    static_assert(std::is_same_v<T, const npu::tile_fwk::Tensor &> || std::is_same_v<T, const std::vector<npu::tile_fwk::Tensor>&>,
-        "T must be Tensor or std::vector<Tensor>"
-    );
+Tensor ReduceScatterImpl(const T &in, const char *group, DistReduceType reduceType)
+{
+    static_assert((std::is_same_v<T, const npu::tile_fwk::Tensor &>) ||
+        (std::is_same_v<T, const std::vector<npu::tile_fwk::Tensor>&>), "T must be Tensor or std::vector<Tensor>");
     int groupIndex = static_cast<int>(Program::GetInstance().GetCommGroupRecorder().Input(std::string(group)));
     CommGroupInfo groupInfo;
     const TileShape &tileShape = Program::GetInstance().GetTileShape();
@@ -190,23 +203,27 @@ Tensor ReduceScatterImpl(const T &in, const char *group, DistReduceType reduceTy
     auto &function = *Program::GetInstance().GetCurrentFunction();
     int tilingTensorSize = GetTilingTensorSize(tileInfo, groupInfo);
     std::vector<int> tilingShape = {1, tilingTensorSize};
-    const std::string tilingSymbol = function.GetDistTilingManager()->CreateTilingStorage("reducescatter", tilingShape[1]);
+    const std::string tilingSymbol = function.GetDistTilingManager()->CreateTilingStorage("reducescatter",
+        tilingShape[1]);
     Tensor tilingTensor(DataType::DT_INT32, tilingShape, tilingSymbol);
     return TensorReduceScatter<decltype(in)>(in, tilingTensor, groupInfo, reduceType);
 }
 
-Tensor ReduceScatter(const std::vector<Tensor> &in, const char *group, DistReduceType reduceType) {
+Tensor ReduceScatter(const std::vector<Tensor> &in, const char *group, DistReduceType reduceType)
+{
     return ReduceScatterImpl<decltype(in)>(in, group, reduceType);
 }
 
-Tensor ReduceScatter(const Tensor &in, const char *group, DistReduceType reduceType) {
+Tensor ReduceScatter(const Tensor &in, const char *group, DistReduceType reduceType)
+{
     return ReduceScatterImpl<decltype(in)>(in, group, reduceType);
 }
 
 void TiledDistReduce(Function &function, const TileShape &tileShape,
     const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
-    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op) {
-    if (iOperand.size() != 2UL || oOperand.size() != 1UL) {
+    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op)
+{
+    if ((iOperand.size() != 2UL) || (oOperand.size() != 1UL)) {
         ALOG_ERROR_F("TiledDistReduce iOperand size=%lu, oOperand size=%lu", iOperand.size(), oOperand.size());
         return;
     }
@@ -228,7 +245,8 @@ void TiledDistReduce(Function &function, const TileShape &tileShape,
 }
 
 void TiledDistScatter(Function &function, const TileShape &tileShape,
-        const std::vector<std::shared_ptr<LogicalTensor>> &iOperand, const Operation &op) {
+        const std::vector<std::shared_ptr<LogicalTensor>> &iOperand, const Operation &op)
+{
     if (iOperand.size() != 2UL) {
         ALOG_ERROR_F("TiledDistScatter iOperand size=%lu", iOperand.size());
         return;

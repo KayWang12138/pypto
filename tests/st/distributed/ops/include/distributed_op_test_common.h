@@ -30,7 +30,8 @@ std::array<DstT, N> GetParams(const std::string &filePath)
     std::vector<SrcT> srcParams(N);
     readInput(filePath, srcParams);
     std::array<DstT, N> dstParams;
-    std::transform(srcParams.begin(), srcParams.begin() + N, dstParams.begin(), [](SrcT v) { return static_cast<DstT>(v); });
+    std::transform(srcParams.begin(), srcParams.begin() + N, dstParams.begin(),
+        [](SrcT v) { return static_cast<DstT>(v); });
     return dstParams;
 }
 
@@ -66,8 +67,8 @@ bool DoCompare(const std::string &goldenFilename, const uint64_t outSize, const 
 }
 
 template <typename PtrType>
-bool CompareWithGolden(const DataType dType, const std::string &goldenFilename, const uint64_t outSize, PtrType &outPtrs,
-    const OpTestParam &testParam)
+bool CompareWithGolden(const DataType dType, const std::string &goldenFilename, const uint64_t outSize,
+    PtrType &outPtrs, const OpTestParam &testParam)
 {
     static_assert((std::is_same_v<PtrType, uint8_t *>) || (std::is_same_v<PtrType, std::vector<uint8_t *>>),
         "PtrType must be either uint8_t* or std::vector<uint8_t*>");

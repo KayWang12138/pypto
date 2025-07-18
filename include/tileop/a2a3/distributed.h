@@ -31,7 +31,8 @@ constexpr uint32_t COMBINE_INFO_NUM = 3;        // combine算子的输入的comb
 #define UB_ADDR __ubuf__ uint8_t *
 
 template <typename T>
-TILEOP void SetAttomicType() {
+TILEOP void SetAttomicType()
+{
     if constexpr (std::is_same_v<T, float>) {
         set_atomic_f32();
     } else if constexpr (std::is_same_v<T, half>) {
@@ -63,7 +64,8 @@ struct TilingInfo {
 };
 
 /* UB 清 0 */
-TILEOP void ClearFlagBuf(__ubuf__ int32_t *flagBuf) {
+TILEOP void ClearFlagBuf(__ubuf__ int32_t *flagBuf)
+{
     /*
     每次处理 8 个 block，8 * 32 = 256B，所以使用 vector_dup 时建议 flag 内存对齐 256B，BlockStride 是每次迭代内 block
     的距离 （前一个的尾巴和后一个的开头，单位是 block，RepeatStride 是每次迭代间 block
@@ -82,7 +84,8 @@ TILEOP void ClearFlagBuf(__ubuf__ int32_t *flagBuf) {
 }
 
 /* win 连续排布 */
-TILEOP void SetFlag(__ubuf__ int32_t *flag, GM_ADDR winFlagBaseAddr, uint32_t flagOffset) {
+TILEOP void SetFlag(__ubuf__ int32_t *flag, GM_ADDR winFlagBaseAddr, uint32_t flagOffset)
+{
     /* 需要手动清空 flag 所使用的内存 */
     ClearFlagBuf(flag);
     pipe_barrier(PIPE_ALL);
@@ -108,7 +111,7 @@ TILEOP void SetFlag(__ubuf__ int32_t *flag, GM_ADDR winFlagBaseAddr, uint32_t fl
 
     set_atomic_add();
     set_atomic_s32();
-    copy_ubuf_to_gm(winFlagBaseAddr, flag, 0 /*sid*/, nBurst, lenBurst, srcStride, dstStride);
+    copy_ubuf_to_gm(winFlagBaseAddr, flag, 0 /* sid */, nBurst, lenBurst, srcStride, dstStride);
     pipe_barrier(PIPE_ALL);
     set_atomic_none();
 
@@ -117,7 +120,8 @@ TILEOP void SetFlag(__ubuf__ int32_t *flag, GM_ADDR winFlagBaseAddr, uint32_t fl
 
 template <typename T>
 TILEOP void WriteRemote(
-    __ubuf__ T *in, __ubuf__ int32_t *flag, __ubuf__ int32_t *tilingData, __gm__ int64_t *hcclContext) {
+    __ubuf__ T *in, __ubuf__ int32_t *flag, __ubuf__ int32_t *tilingData, __gm__ int64_t *hcclContext)
+{
     pipe_barrier(PIPE_ALL);
     __ubuf__ TilingInfo *tilingInfo = reinterpret_cast<__ubuf__ TilingInfo *>(tilingData);
     uint16_t nBurst = tilingInfo->rowShape;                    // 次数
@@ -145,7 +149,7 @@ TILEOP void WriteRemote(
             + (tilingInfo->rowOffset * tilingInfo->colPerRank + tilingInfo->rowShape * tilingInfo->colOffset) *
                   sizeof(T) /* 当前 tile 块的偏移 */;
 
-        copy_ubuf_to_gm(remoteRankWinGMAddr, in, 0 /*sid*/, nBurst, lenBurst, srcStride, dstStride);
+        copy_ubuf_to_gm(remoteRankWinGMAddr, in, 0 /* sid */, nBurst, lenBurst, srcStride, dstStride);
         pipe_barrier(PIPE_ALL);
 
         /* 把 flag 写到远端卡的 win，flag 在 win 区的基地址 */
@@ -160,7 +164,8 @@ TILEOP void WriteRemote(
     return;
 }
 
-TILEOP void WaitFlag(__ubuf__ int32_t *flag, GM_ADDR winFlagBaseAddr, uint32_t flagOffset) {
+TILEOP void WaitFlag(__ubuf__ int32_t *flag, GM_ADDR winFlagBaseAddr, uint32_t flagOffset)
+{
     pipe_barrier(PIPE_ALL);
 
     /* 计算需要改动的位在 win 区上真实偏移的 flag block 数量，也即最后落在哪个 block 上 */
@@ -177,7 +182,7 @@ TILEOP void WaitFlag(__ubuf__ int32_t *flag, GM_ADDR winFlagBaseAddr, uint32_t f
 
     pipe_barrier(PIPE_ALL);
     do {
-        copy_gm_to_ubuf(flag, winFlagAddr, 0 /*sid*/, 1, 1, 0, 0);
+        copy_gm_to_ubuf(flag, winFlagAddr, 0 /* sid */, 1, 1, 0, 0);
         set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
         wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
         status = flag[0] & value;
@@ -186,7 +191,8 @@ TILEOP void WaitFlag(__ubuf__ int32_t *flag, GM_ADDR winFlagBaseAddr, uint32_t f
 }
 
 // 清除 WinGM 中 flag 的对应 bit 位
-TILEOP void ClearFlag(__ubuf__ int32_t *flag, GM_ADDR winFlagBaseAddr, uint32_t flagOffset) {
+TILEOP void ClearFlag(__ubuf__ int32_t *flag, GM_ADDR winFlagBaseAddr, uint32_t flagOffset)
+{
     uint32_t bitOffset = flagOffset % FLAG_BASE_BLOCK_SIZE;
     uint32_t flagBaseBlockIdx = flagOffset / FLAG_BASE_BLOCK_SIZE;
     flag[flagBaseBlockIdx] = -(1 << (bitOffset));
@@ -202,16 +208,17 @@ TILEOP void ClearFlag(__ubuf__ int32_t *flag, GM_ADDR winFlagBaseAddr, uint32_t 
 // WinGM 拷贝到 GM, Win区大小为200M，offset用uint32_t
 template <typename T, bool enableAtomicAdd>
 TILEOP void WinGMCopyOut(__gm__ T *out, __ubuf__ T *in, GM_ADDR WinBaseAddr, uint32_t offset, uint16_t nBurst,
-    uint16_t lenBurst, uint16_t srcStride, uint16_t dstStride) {
+    uint16_t lenBurst, uint16_t srcStride, uint16_t dstStride)
+{
     // 获取WinGM数据，Win区数据和UB数据是连续的，stride都为0
-    copy_gm_to_ubuf(in, reinterpret_cast<__gm__ T *>(WinBaseAddr + offset), 0 /*sid*/, nBurst, lenBurst, 0, 0);
+    copy_gm_to_ubuf(in, reinterpret_cast<__gm__ T *>(WinBaseAddr + offset), 0 /* sid */, nBurst, lenBurst, 0, 0);
     set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
     wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
     if constexpr (enableAtomicAdd) {
         set_atomic_add();
         SetAttomicType<T>();
     }
-    copy_ubuf_to_gm(out, in, 0 /*sid*/, nBurst, lenBurst, srcStride, dstStride);
+    copy_ubuf_to_gm(out, in, 0 /* sid */, nBurst, lenBurst, srcStride, dstStride);
     set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
     wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
     if constexpr (enableAtomicAdd) {
@@ -221,7 +228,8 @@ TILEOP void WinGMCopyOut(__gm__ T *out, __ubuf__ T *in, GM_ADDR WinBaseAddr, uin
 
 template <typename T, bool enableAtomicAdd, bool needWaitFlag>
 TILEOP void RemoteGroupRecv(
-    __gm__ T *out, __ubuf__ T *in, __ubuf__ int32_t *flag, __ubuf__ int32_t *tilingData, __gm__ int64_t *hcclContext) {
+    __gm__ T *out, __ubuf__ T *in, __ubuf__ int32_t *flag, __ubuf__ int32_t *tilingData, __gm__ int64_t *hcclContext)
+{
     __ubuf__ TilingInfo *tilingInfo = reinterpret_cast<__ubuf__ TilingInfo *>(tilingData);
     uint16_t nBurst = tilingInfo->rowShape;
     uint16_t lenBurst = tilingInfo->colShape * sizeof(T) / 32;
@@ -267,7 +275,8 @@ TILEOP void RemoteGroupRecv(
 
 template <typename T, bool needWaitFlag = false>
 TILEOP void RemoteGather(
-    __gm__ T *out, __ubuf__ T *in, __ubuf__ int32_t *flag, __ubuf__ int32_t *tilingData, __gm__ int64_t *hcclContext) {
+    __gm__ T *out, __ubuf__ T *in, __ubuf__ int32_t *flag, __ubuf__ int32_t *tilingData, __gm__ int64_t *hcclContext)
+{
     pipe_barrier(PIPE_ALL);
     RemoteGroupRecv<T, false, needWaitFlag>(out, in, flag, tilingData, hcclContext);
     pipe_barrier(PIPE_ALL);
@@ -276,13 +285,15 @@ TILEOP void RemoteGather(
 }
 
 template <typename T, bool needWaitFlag = false>
-TILEOP void RemoteReduce(
-    __gm__ T *out, __gm__ T *in, __ubuf__ T *tmp, __ubuf__ int32_t *flag,  __ubuf__ int32_t *tilingData, __gm__ int64_t *hcclContext) {
+TILEOP void RemoteReduce(__gm__ T *out, __gm__ T *in, __ubuf__ T *tmp, __ubuf__ int32_t *flag, 
+    __ubuf__ int32_t *tilingData, __gm__ int64_t *hcclContext)
+{
     RemoteGroupRecv<T, true, needWaitFlag>(out, tmp, flag, tilingData, hcclContext);
 }
 
 template <typename T, bool isLocalReduce = false>
-TILEOP void LocalCopyOut(__gm__ T *out, __ubuf__ T *in, __ubuf__ int32_t *tilingData, __gm__ int64_t *hcclContext) {
+TILEOP void LocalCopyOut(__gm__ T *out, __ubuf__ T *in, __ubuf__ int32_t *tilingData, __gm__ int64_t *hcclContext)
+{
     pipe_barrier(PIPE_ALL);
     __ubuf__ TilingInfo *tilingInfo = reinterpret_cast<__ubuf__ TilingInfo *>(tilingData);
     uint16_t nBurst = tilingInfo->rowShape;
@@ -290,7 +301,7 @@ TILEOP void LocalCopyOut(__gm__ T *out, __ubuf__ T *in, __ubuf__ int32_t *tiling
     uint16_t srcStride = 0;
     uint16_t dstStride = ((tilingInfo->colPerRank - tilingInfo->colShape) * sizeof(T)) / 32;
 
-    copy_ubuf_to_gm(out, in, 0 /*sid*/, nBurst, lenBurst, srcStride, dstStride);
+    copy_ubuf_to_gm(out, in, 0 /* sid */, nBurst, lenBurst, srcStride, dstStride);
 
     pipe_barrier(PIPE_ALL);
     return;
@@ -300,7 +311,7 @@ TILEOP void CombineWaitFlag(__ubuf__ int32_t *flag, __gm__ int32_t *winFlagAddr,
 {
     int32_t status = 0;
     do {
-        copy_gm_to_ubuf(flag, winFlagAddr, 0 /*sid*/, 1, 1, 0, 0);
+        copy_gm_to_ubuf(flag, winFlagAddr, 0 /* sid */, 1, 1, 0, 0);
         set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
         wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
         status = flag[0];
@@ -310,8 +321,8 @@ TILEOP void CombineWaitFlag(__ubuf__ int32_t *flag, __gm__ int32_t *winFlagAddr,
 }
 
 template <typename T, uint32_t topk>
-TILEOP void FFN2Attn(__ubuf__ T *in, __ubuf__ int32_t *combineInfo, __ubuf__ int32_t *flag, __ubuf__ int32_t *tilingData,
-    __gm__ int64_t *hcclContext)
+TILEOP void FFN2Attn(__ubuf__ T *in, __ubuf__ int32_t *combineInfo, __ubuf__ int32_t *flag,
+    __ubuf__ int32_t *tilingData, __gm__ int64_t *hcclContext)
 {
     __ubuf__ TilingInfo *tilingInfo = reinterpret_cast<__ubuf__ TilingInfo *>(tilingData);
     __gm__ HcclCombinOpParam *winContext = (__gm__ HcclCombinOpParam *)(hcclContext[tilingInfo->groupIndex]);
@@ -341,19 +352,19 @@ TILEOP void FFN2Attn(__ubuf__ T *in, __ubuf__ int32_t *combineInfo, __ubuf__ int
 
         __gm__ T * winGM = (__gm__ T *)(winContext->windowsIn[attnId]) +
                            (uint64_t)((tokenId * winTokenSize + kOffset) * colShape);
-        __gm__ int32_t* winFlagAddr = (__gm__ int32_t*)(winContext->windowsExp[attnId]) + 
+        __gm__ int32_t* winFlagAddr = (__gm__ int32_t*)(winContext->windowsExp[attnId]) +
                                       (uint64_t)(tokenId * COMBINE_FLAG_OFFSET);            // flag 占用 512Byte
 
         // send data
         set_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
         wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
-        copy_ubuf_to_gm(winGM, in, 0 /*sid*/, 1, lenBurst, 0, 0);
+        copy_ubuf_to_gm(winGM, in, 0 /* sid */, 1, lenBurst, 0, 0);
         pipe_barrier(PIPE_MTE3);
 
         // set flag
         set_atomic_add();
         set_atomic_s32();
-        copy_ubuf_to_gm(winFlagAddr, flag, 0 /*sid*/, 1, 1, 0, 0);
+        copy_ubuf_to_gm(winFlagAddr, flag, 0 /* sid */, 1, 1, 0, 0);
         set_atomic_none();
         pipe_barrier(PIPE_MTE3);
 
@@ -365,8 +376,8 @@ TILEOP void FFN2Attn(__ubuf__ T *in, __ubuf__ int32_t *combineInfo, __ubuf__ int
 }
 
 template <typename T>
-TILEOP void SharedCombineCompute(__ubuf__ T *out, __ubuf__ float *tmpFP32, __ubuf__ float *sumFP32, __gm__ T * winGMAddr,
-    int offset, uint16_t lenBurst, int repeat)
+TILEOP void SharedCombineCompute(__ubuf__ T *out, __ubuf__ float *tmpFP32, __ubuf__ float *sumFP32,
+    __gm__ T * winGMAddr, int offset, uint16_t lenBurst, int repeat)
 {
     __ubuf__ T *curOut = out;
     __ubuf__ float *curSumFP32 = sumFP32;
@@ -425,7 +436,7 @@ TILEOP void AttmCombineCompute(__ubuf__ T *out, __ubuf__ float *scale, __ubuf__ 
     }
 
     // 共享专家
-    SharedCombineCompute(out, mulFP32,sumFP32, winGMAddr, offset, lenBurst, repeat);
+    SharedCombineCompute(out, mulFP32, sumFP32, winGMAddr, offset, lenBurst, repeat);
 
     curOut = out;
     curSumFP32 = sumFP32;
@@ -438,8 +449,8 @@ TILEOP void AttmCombineCompute(__ubuf__ T *out, __ubuf__ float *scale, __ubuf__ 
 }
 
 template <typename T, uint32_t topk, uint32_t bs>
-TILEOP void AttnCombine(__ubuf__ T *out, __gm__ float *scaleGM, __ubuf__ float *scale, __ubuf__ float *mulFP32, __ubuf__ float *sumFP32,
-    __ubuf__ int32_t *tilingData, __gm__ int64_t *hcclContext)
+TILEOP void AttnCombine(__ubuf__ T *out, __gm__ float *scaleGM, __ubuf__ float *scale, __ubuf__ float *mulFP32,
+    __ubuf__ float *sumFP32, __ubuf__ int32_t *tilingData, __gm__ int64_t *hcclContext)
 {
     pipe_barrier(PIPE_ALL);
     __ubuf__ TilingInfo *tilingInfo = reinterpret_cast<__ubuf__ TilingInfo *>(tilingData);
@@ -456,20 +467,22 @@ TILEOP void AttnCombine(__ubuf__ T *out, __gm__ float *scaleGM, __ubuf__ float *
 
     // 等待flag，out 复用为 flag, 不用申请额外的UB给flag用
     __ubuf__ int32_t* flag = reinterpret_cast<__ubuf__ int32_t*>(out);
-    __gm__ int32_t* winFlagAddr = (__gm__ int32_t*)(winContext->windowsExp[winContext->rankId]) + 
+    __gm__ int32_t* winFlagAddr = (__gm__ int32_t*)(winContext->windowsExp[winContext->rankId]) +
                                   (uint64_t)(tokenId * COMBINE_FLAG_OFFSET);
     CombineWaitFlag(flag, winFlagAddr, winTokenSize);
     pipe_barrier(PIPE_ALL);
 
     // Combine的相关计算
     scale += tokenId * topk;        // scale是完整传入，需要手动偏移
-    __gm__ T * winGMAddr = (__gm__ T *)(winContext->windowsIn[winContext->rankId]) + (uint64_t)(tokenId * winTokenSize * colShape);
+    __gm__ T * winGMAddr = (__gm__ T *)(winContext->windowsIn[winContext->rankId]) +
+        (uint64_t)(tokenId * winTokenSize * colShape);
     AttmCombineCompute<T>(out, scale, mulFP32, sumFP32, winGMAddr, topk, colShape);
     pipe_barrier(PIPE_ALL);     // necessary
 }
 
 template <typename T>
-constexpr TILEOP T AlignUp(const T value, const T alignment) {
+constexpr TILEOP T AlignUp(const T value, const T alignment)
+{
     if (alignment == 0) {
         return value;
     }
@@ -477,7 +490,8 @@ constexpr TILEOP T AlignUp(const T value, const T alignment) {
 }
 
 TILEOP int32_t CalcOccurrences(__ubuf__ int32_t *expertTable, uint32_t dstExpertId, uint32_t cnt,
-    __ubuf__ int32_t *tmpBuf) {
+    __ubuf__ int32_t *tmpBuf)
+{
     if (cnt == 0) {
         return 0;
     }
@@ -492,7 +506,8 @@ TILEOP int32_t CalcOccurrences(__ubuf__ int32_t *expertTable, uint32_t dstExpert
 }
 
 TILEOP int32_t CalcOccurrencesVector(__ubuf__ int32_t *expertTable, uint32_t dstExpertId, uint32_t cnt,
-    __ubuf__ int32_t *tmpBuf) {
+    __ubuf__ int32_t *tmpBuf)
+{
     if (cnt == 0) {
         return 0;
     }
@@ -507,13 +522,13 @@ TILEOP int32_t CalcOccurrencesVector(__ubuf__ int32_t *expertTable, uint32_t dst
     // dst, srcImm, repeat, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride
     vector_dup(tmpBuf, dstExpertId, repeatCnt, 1, 1, 8, 8);
     pipe_barrier(PIPE_V);
-    //dst, src0, src1, repeat, dstBlockStride, src0BlockStride, src1BlockStride, dstRepeatStride, src0RepeatStride, src1RepeatStride
+    // dst, src0, src1, repeat, dstBlockStride, src0BlockStride, src1BlockStride, dstRepeatStride, src0RepeatStride, src1RepeatStride
     vsub(subBuf, expertTable, tmpBuf, repeatCnt, 1, 1, 1, 8, 8, 8);
     pipe_barrier(PIPE_V);
     // dst, src, repeat, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride
     vabs((__ubuf__ float*)tmpBuf, (__ubuf__ float*)subBuf, repeatCnt, 1, 1, 8, 8);
     pipe_barrier(PIPE_V);
-    // // dst, src0, src1, repeat, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride
+    // dst, src0, src1, repeat, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride
     vmins(subBuf, tmpBuf, 1, repeatCnt, 1, 1, 8, 8);
     pipe_barrier(PIPE_V);
 
@@ -539,8 +554,10 @@ struct DispatchTilingInfo {
 };
 
 template <typename T, int32_t bs, int32_t axisH, int32_t topK>
-TILEOP void SendToRoutingExpert(__gm__ int32_t *syncTensor, __gm__ T *token, __gm__ int32_t *expertTable, __ubuf__ T *tokenBuffer, 
-    __ubuf__ int32_t *expertTableUb, __ubuf__ int32_t *expertBuffer, __ubuf__ int32_t *tilingData, __gm__ int64_t *hcclContext) {
+TILEOP void SendToRoutingExpert(__gm__ int32_t *syncTensor, __gm__ T *token, __gm__ int32_t *expertTable,
+    __ubuf__ T *tokenBuffer, __ubuf__ int32_t *expertTableUb, __ubuf__ int32_t *expertBuffer,
+    __ubuf__ int32_t *tilingData, __gm__ int64_t *hcclContext)
+{
     pipe_barrier(PIPE_ALL);
     auto tilingInfo = reinterpret_cast<__ubuf__ DispatchTilingInfo *>(tilingData);
     constexpr int32_t hOutSize = axisH * sizeof(T); // 如有量化，需要量化后通信
@@ -581,8 +598,9 @@ TILEOP void SendToRoutingExpert(__gm__ int32_t *syncTensor, __gm__ T *token, __g
 }
 
 template <typename T, int32_t bs, int32_t axisH>
-TILEOP void SendToSharedExpert(__gm__ int32_t *syncTensor, __gm__ T *token, __ubuf__ T *tokenBuffer, __ubuf__ int32_t *tilingData,
-    __gm__ int64_t *hcclContext) {
+TILEOP void SendToSharedExpert(__gm__ int32_t *syncTensor, __gm__ T *token, __ubuf__ T *tokenBuffer,
+    __ubuf__ int32_t *tilingData, __gm__ int64_t *hcclContext)
+{
     pipe_barrier(PIPE_ALL);
     auto tilingInfo = reinterpret_cast<__ubuf__ DispatchTilingInfo *>(tilingData);
     constexpr int32_t hOutSize = axisH * sizeof(T);
@@ -604,8 +622,8 @@ TILEOP void SendToSharedExpert(__gm__ int32_t *syncTensor, __gm__ T *token, __ub
         tmpTokenBuffer[tokenQuantAlign32] = localUsrRankId; // 暂时先不考虑 A3 数组，前端大小可以暂时用 token[1],暂不修改
         tmpTokenBuffer[tokenQuantAlign32 + 1] = bsId;
         tmpTokenBuffer[tokenQuantAlign32 + 2] = 1;
-
-        uint32_t remoteRankId = (localUsrRankId - shareRankSize) / shareOpProcessRankSize; // 对齐后续 sched 使用方式，连续的 moe 卡发给同一个共享专家
+        // 对齐后续 sched 使用方式，连续的 moe 卡发给同一个共享专家
+        uint32_t remoteRankId = (localUsrRankId - shareRankSize) / shareOpProcessRankSize; \
         GM_ADDR remoteRankWinGMBaseAddr = (GM_ADDR)(winContext->windowsIn[remoteRankId]);
         GM_ADDR dstWinGMAddr = remoteRankWinGMBaseAddr + expertPerSizeOnWin * localUsrRankId +
             (bsId * hCommuSize);
@@ -623,13 +641,15 @@ TILEOP void SendToSharedExpert(__gm__ int32_t *syncTensor, __gm__ T *token, __ub
 
 template <typename T, int32_t bs, int32_t axisH>
 TILEOP void CopyToLocalExpert(__gm__ T *out, __gm__ T *token, __ubuf__ T *tokenBuffer, __ubuf__ int32_t *tilingData,
-    __gm__ int64_t *hcclContext) {
+    __gm__ int64_t *hcclContext)
+{
     pipe_barrier(PIPE_ALL);
     auto tilingInfo = reinterpret_cast<__ubuf__ DispatchTilingInfo *>(tilingData);
     constexpr int32_t hOutSize = axisH * sizeof(T);
     constexpr int32_t scaleParamPad = 128; // 预留128B给量化参数+expandidx索引，实际使用量化 4B(fp32) + 3 * 4，非量化 3 * 4
     constexpr int32_t hCommuSize = hOutSize; // + scaleParamPad;
-    constexpr int32_t tokenQuantAlign32 = AlignUp<int32_t>(hOutSize + sizeof(float), 32) / sizeof(int32_t); // 最好直接 512B 对齐 token size
+    // 最好直接 512B 对齐 token size
+    constexpr int32_t tokenQuantAlign32 = AlignUp<int32_t>(hOutSize + sizeof(float), 32) / sizeof(int32_t);
     constexpr int32_t expertPerSizeOnWin = bs * hCommuSize;
 
     __gm__ HcclCombinOpParam *winContext = (__gm__ HcclCombinOpParam *)(hcclContext[tilingInfo->groupIndex]);
@@ -648,9 +668,10 @@ TILEOP void CopyToLocalExpert(__gm__ T *out, __gm__ T *token, __ubuf__ T *tokenB
 }
 
 template <typename T, int32_t bs, int32_t topK>
-TILEOP void DispatchSetFlag(__gm__ int32_t *dummy, __gm__ T *syncTensor, __gm__ int32_t *expertTable, __ubuf__ int32_t *statusTensor, 
-    __ubuf__ int32_t *expertTableUb, __ubuf__ int32_t *expertBuffer, __ubuf__ int32_t *tilingData,
-    __gm__ int64_t *hcclContext) {
+TILEOP void DispatchSetFlag(__gm__ int32_t *dummy, __gm__ T *syncTensor, __gm__ int32_t *expertTable,
+    __ubuf__ int32_t *statusTensor, __ubuf__ int32_t *expertTableUb, __ubuf__ int32_t *expertBuffer,
+    __ubuf__ int32_t *tilingData, __gm__ int64_t *hcclContext)
+{
     pipe_barrier(PIPE_ALL);
     auto tilingInfo = reinterpret_cast<__ubuf__ DispatchTilingInfo *>(tilingData);
     __gm__ HcclCombinOpParam *winContext = (__gm__ HcclCombinOpParam *)(hcclContext[tilingInfo->groupIndex]);
@@ -662,12 +683,14 @@ TILEOP void DispatchSetFlag(__gm__ int32_t *dummy, __gm__ T *syncTensor, __gm__ 
     wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
 
     uint32_t localUsrRankId = winContext->rankId;
-    for (int32_t dstExpertId = tilingInfo->offset; dstExpertId < tilingInfo->offset + tilingInfo->shape; ++dstExpertId) {
+    for (int32_t dstExpertId = tilingInfo->offset; dstExpertId < tilingInfo->offset + tilingInfo->shape; 
+        ++dstExpertId) {
         GM_ADDR winFlagBaseAddr = (GM_ADDR)(winContext->windowsExp[dstExpertId]);
         GM_ADDR dstWinGMAddr = winFlagBaseAddr + 512 * localUsrRankId;
 
         statusTensor[dstExpertId * 8] = 1;
-        statusTensor[dstExpertId * 8 + 1] = CalcOccurrencesVector(expertTableUb, dstExpertId, expertTblSize, expertBuffer);
+        statusTensor[dstExpertId * 8 + 1] = CalcOccurrencesVector(expertTableUb, dstExpertId, expertTblSize,
+            expertBuffer);
         copy_ubuf_to_gm(dstWinGMAddr, statusTensor + dstExpertId * 8, 0, 1, 1, 0, 0);
         set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
         wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
@@ -759,7 +782,8 @@ TILEOP void GatherMaskAndSum(__gm__ T *out, __ubuf__ uint32_t *src0, __ubuf__ ui
     GatherMaskParams gatherMaskParams;
     uint32_t gatherMaskRepeat = (cnt * 32 + 255) / 256; // 重复次数，向上对齐 256B（gather 每次处理 256B）
     gatherMaskParams.repeat = gatherMaskRepeat; // 重复次数，最多只会处理 8 个数，每 8 个取一个，正好 64 个，256B
-    gatherMaskParams.src0BlockStride = 1; // 单次迭代内 blk stride，表示 mask 后 32 个数相对前 32 个数的 stride（u32 类型），1 表示连续，0 表示两次处理同一块，一般取 1
+    // 单次迭代内 blk stride，表示 mask 后 32 个数相对前 32 个数的 stride（u32 类型），1 表示连续，0 表示两次处理同一块，一般取 1
+    gatherMaskParams.src0BlockStride = 1;
     gatherMaskParams.patternMode = 0; // 自定义模式需为 0
     // 可能可以调为 1，winFlag 搬运进 UB 的时候可以按照 32B 对齐，不搬运全部 512B 大小
     gatherMaskParams.src0RepeatStride = 16; // 迭代间 stride，16 * 32 = 512B，符合 dispatch 的 flag 排序要求
@@ -802,8 +826,8 @@ TILEOP void CopyOutRecvTokenCnt(GM_ADDR outRecvTokenCntAddr, UB_ADDR recvTokenCn
 }
  
 template <typename T>
-TILEOP void ConstructOutRecvTokenCnt(__gm__ T *out, __ubuf__ uint32_t *src0, __ubuf__ uint32_t *src1, __ubuf__ uint32_t *dst,
-    uint32_t cnt, __ubuf__ int32_t *tilingData, __gm__ int64_t *hcclContext)
+TILEOP void ConstructOutRecvTokenCnt(__gm__ T *out, __ubuf__ uint32_t *src0, __ubuf__ uint32_t *src1,
+    __ubuf__ uint32_t *dst, uint32_t cnt, __ubuf__ int32_t *tilingData, __gm__ int64_t *hcclContext)
 {
     GatherMaskAndSum(out, src0, src1, dst, MASK_SELECT_SEND_COUNT, cnt, tilingData, hcclContext);
  
@@ -880,7 +904,8 @@ TILEOP void ShareRankWaitFlag(__gm__ T *out, __ubuf__ uint32_t *src0, __ubuf__ u
     __ubuf__ int32_t *tilingData, __gm__ int64_t *hcclContext, uint32_t processRankSize)
 {
     __ubuf__ TilingInfo *tilingInfo = reinterpret_cast<__ubuf__ TilingInfo *>(tilingData);
-    uint32_t startMoeRankId = tilingInfo->tileIndex * processRankSize + tilingInfo->shareRankCnt; // 当前 share rank 接收的起始的 moe rank id
+    // 当前 share rank 接收的起始的 moe rank id
+    uint32_t startMoeRankId = tilingInfo->tileIndex * processRankSize + tilingInfo->shareRankCnt;
     if (tilingInfo->tileIndex != 0) {
         return;
     }
@@ -935,11 +960,12 @@ TILEOP void ReadRecvTokenCnt(__ubuf__ uint32_t *recvTokenCnt, __gm__ uint32_t *s
     gmToUbParams.sid = 0;
     gmToUbParams.nBurst = tilingInfo->tileIndex; // 搬运次数，只搬运能用到的数据即可
     // 对于 index 0，需要全部搬运，其会计算全部；likely 是为了降低快核，提高慢核性能
-    if(tilingInfo->tileIndex == 0) [[likely]] {
+    if (tilingInfo->tileIndex == 0) [[likely]] {
         gmToUbParams.nBurst = tileCnt;
     }
     gmToUbParams.lenBurst = 1; // cnt 有效数据只有 4B，搬运 32B 即可
-    gmToUbParams.srcStride = tilingInfo->totalTileNum * 512 / 32 - 1;// 前一个尾巴和下一个的开头，gap，最大值 65535，每次偏移 48*512B，48 * 512 / 32 - 1
+    // 前一个尾巴和下一个的开头，gap，最大值 65535，每次偏移 48*512B，48 * 512 / 32 - 1
+    gmToUbParams.srcStride = tilingInfo->totalTileNum * 512 / 32 - 1;
     gmToUbParams.dstStride = 0; // 前一个尾巴和下一个开头，gap，搬运成连续
  
     // 每个 tile 都读自己 index 的 gm 地址，避免地址交织
@@ -1063,7 +1089,8 @@ TILEOP void MoeRankCopyOut(__gm__ T *expandX, __gm__ uint32_t *validCnt, __ubuf_
     uint32_t cumSumDstSize = 256;
     offset = offset + cumSumDstSize;
     __ubuf__ uint32_t *gatherMaskDst = reinterpret_cast<__ubuf__ uint32_t *>(tmpUb + offset);
-    uint32_t gatherMaskDstSize = (tileCnt * 4 + 31) / 32 * 32; // 作为 gathermask 的 dst，最多会存放 48 个 int，也就是最大是 48 * 4 = 192B
+    // 作为 gathermask 的 dst，最多会存放 48 个 int，也就是最大是 48 * 4 = 192B
+    uint32_t gatherMaskDstSize = (tileCnt * 4 + 31) / 32 * 32;
     offset = offset + gatherMaskDstSize;
  
     ReadRecvTokenCnt(recvTokenCnt, gmRecvTokenCnt, tilingData, hcclContext, tileCnt);
@@ -1139,8 +1166,10 @@ TILEOP void ShareRankCopyOut(__gm__ T *expandX, __ubuf__ uint8_t *tmpUb, __ubuf_
  
     // 理论上不需要切分 TileOp, 但是为了和 moe 专家切分保持一致，按照 token cnt 切分
     uint32_t vectorCnt = tilingInfo->totalTileNum; // 理论上的核数，device 实际核数不是 48 也不影响
-    uint32_t processMoeRankCnt = (winContext->rankNum - tilingInfo->shareRankCnt) / tilingInfo->shareRankCnt; // 每个共享专家处理的 moe 卡数
-    uint32_t tokenCntRecvFromMoeRank = processMoeRankCnt * tilingInfo->rowShape; // bs * processMoeRankCnt, bs 典型值 8，从某张卡开始连续的 64 个 token
+    // 每个共享专家处理的 moe 卡数
+    uint32_t processMoeRankCnt = (winContext->rankNum - tilingInfo->shareRankCnt) / tilingInfo->shareRankCnt;
+    // bs * processMoeRankCnt, bs 典型值 8，从某张卡开始连续的 64 个 token
+    uint32_t tokenCntRecvFromMoeRank = processMoeRankCnt * tilingInfo->rowShape;
     uint32_t tailProcessTokenCnt = tokenCntRecvFromMoeRank / vectorCnt; // 尾块处理 token 个数
     uint32_t tileCnt = tokenCntRecvFromMoeRank % vectorCnt; // 整块个数
     uint32_t tileProcessTokenCnt = tailProcessTokenCnt + 1; // 整块处理 token 个数
@@ -1169,7 +1198,9 @@ TILEOP void FFNBatching(__gm__ T *expandX, __gm__ int32_t *validCnt, __gm__ int3
     if constexpr (isSharedRank) {
         ShareRankCopyOut<T>(expandX, reinterpret_cast<__ubuf__ uint8_t *>(tmpUb), tilingData, hcclContext);
     } else {
-        MoeRankCopyOut<T>(expandX, reinterpret_cast<__gm__ uint32_t *>(validCnt), reinterpret_cast<__ubuf__ uint8_t *>(tmpUb), reinterpret_cast<__gm__ uint32_t *>(gmRecvTokenCnt), tilingData, hcclContext);
+        MoeRankCopyOut<T>(expandX, reinterpret_cast<__gm__ uint32_t *>(validCnt),
+            reinterpret_cast<__ubuf__ uint8_t *>(tmpUb), reinterpret_cast<__gm__ uint32_t *>(gmRecvTokenCnt),
+            tilingData, hcclContext);
     }
     pipe_barrier(PIPE_ALL);
 }

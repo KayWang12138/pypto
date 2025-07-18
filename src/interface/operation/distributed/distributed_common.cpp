@@ -22,27 +22,29 @@
 namespace npu::tile_fwk {
 namespace Distributed {
 
-inline bool CheckTileShape(const std::array<int, MAX_DIST_DIM_SIZE> &shape, int total) {
-    if ((shape[0] < 0) || (shape[1] < 0) || (shape[2] < 0)) {
+inline bool CheckTileShape(const std::array<int, MAX_DIST_DIM_SIZE> &shape, int total)
+{
+    if ((shape[DIST_HEAD_SHAPE] < 0) || (shape[DIST_HEAD_COUNT] < 0) || (shape[DIST_TAIL_SHAPE] < 0)) {
         return false;
     }
-    if (shape[0] * shape[1] + shape[2] != total) {
+    if (shape[DIST_HEAD_SHAPE] * shape[DIST_HEAD_COUNT] + shape[DIST_TAIL_SHAPE] != total) {
         return false;
     }
     return true;
 }
 
-void CheckAndGetGroupInfo(const int groupIndex, const TileShape &tileShape, CommGroupInfo &groupInfo) {
+void CheckAndGetGroupInfo(const int groupIndex, const TileShape &tileShape, CommGroupInfo &groupInfo)
+{
     groupInfo.groupIndex = groupIndex;
 
     auto rankShape = tileShape.GetDistTileRank();
-    ASSERT((rankShape[0] >= 0) && (rankShape[1] >= 0) && (rankShape[2] >= 0));
-    int rankSize = rankShape[0] * rankShape[1] + rankShape[2];
+    ASSERT((rankShape[DIST_HEAD_SHAPE] >= 0) && (rankShape[DIST_HEAD_COUNT] >= 0) && (rankShape[DIST_TAIL_SHAPE] >= 0));
+    int rankSize = rankShape[DIST_HEAD_SHAPE] * rankShape[DIST_HEAD_COUNT] + rankShape[DIST_TAIL_SHAPE];
     ASSERT(rankSize > 0);
     groupInfo.rank = std::make_optional(rankShape);
     groupInfo.rankSize = std::make_optional(rankSize);
-    ALOG_INFO_F("Distributed opinfo: rank=[%d %d %d], rankSize=%d", groupInfo.rank.value()[0],
-        groupInfo.rank.value()[1], groupInfo.rank.value()[2], groupInfo.rankSize.value());
+    ALOG_INFO_F("Distributed opinfo: rank=[%d %d %d], rankSize=%d", groupInfo.rank.value()[DIST_HEAD_SHAPE],
+        groupInfo.rank.value()[DIST_HEAD_COUNT], groupInfo.rank.value()[DIST_TAIL_SHAPE], groupInfo.rankSize.value());
 
     int rankId = tileShape.GetDistRankId();
     if ((rankId >= 0) && (rankId < INT16_MAX) && (rankId < rankSize)) {
@@ -52,7 +54,8 @@ void CheckAndGetGroupInfo(const int groupIndex, const TileShape &tileShape, Comm
     ASSERT(groupInfo.rankSize.has_value() && groupInfo.rankId.has_value());
 }
 
-void CheckAndGetTileInfo(int rowTotal, int colTotal, const TileShape &tileShape, TensorTileInfo &tileInfo) {
+void CheckAndGetTileInfo(int rowTotal, int colTotal, const TileShape &tileShape, TensorTileInfo &tileInfo)
+{
     ASSERT(rowTotal > 0 && colTotal > 0);
 
     const auto rowShape = tileShape.GetDistTileRow();
@@ -68,8 +71,9 @@ void CheckAndGetTileInfo(int rowTotal, int colTotal, const TileShape &tileShape,
     } else {
         tileInfo.col = {colTotal, 1, 0};
     }
-    ALOG_INFO_F("Distributed opinfo: row=[%d %d %d], col=[%d %d %d]", tileInfo.row[0], tileInfo.row[1], tileInfo.row[2],
-        tileInfo.col[0], tileInfo.col[1], tileInfo.col[2]);
+    ALOG_INFO_F("Distributed opinfo: row=[%d %d %d], col=[%d %d %d]", 
+        tileInfo.row[DIST_HEAD_SHAPE], tileInfo.row[DIST_HEAD_COUNT], tileInfo.row[DIST_TAIL_SHAPE],
+        tileInfo.col[DIST_HEAD_SHAPE], tileInfo.col[DIST_HEAD_COUNT], tileInfo.col[DIST_TAIL_SHAPE]);
 }
 
 int GetTilingTensorSize(const TensorTileInfo &tileInfo, const CommGroupInfo &groupInfo)
@@ -81,7 +85,8 @@ int GetTilingTensorSize(const TensorTileInfo &tileInfo, const CommGroupInfo &gro
     int colCnt = getCnt(tileInfo.col);
     ASSERT(groupInfo.rankSize.has_value() && groupInfo.rank.has_value());
     int tileRankCnt = getCnt(groupInfo.rank.value());
-    return rowCnt * colCnt * (tileRankCnt + groupInfo.rankSize.value()) * static_cast<int>(sizeof(TilingInfo) / sizeof(int));
+    return rowCnt * colCnt * (tileRankCnt + groupInfo.rankSize.value()) *
+            static_cast<int>(sizeof(TilingInfo) / sizeof(int));
 }
 
 } // namespace Distributed

@@ -27,7 +27,8 @@ public:
     ~CommGroupRecorder() {};
 
     // 注册组，返回对应的 groupIndex（自动去重）
-    inline uint32_t Input(const std::string &groupName) {
+    inline uint32_t Input(const std::string &groupName)
+    {
         auto it = name2Index_.find(groupName);
         if (it != name2Index_.end()) {
             return it->second; // 已存在，返回现有 index
@@ -45,7 +46,8 @@ public:
     // 获取所有 groupName 的列表（按 index 顺序）
     inline const std::vector<std::string> &Output() const { return index2Name_; }
 
-    static inline std::string PrintString(std::vector<std::string> &commGroups) {
+    static inline std::string PrintString(std::vector<std::string> &commGroups)
+    {
         std::ostringstream oss;
         oss << "distributed comm groups: [";
         for (size_t i = 0; i < commGroups.size(); ++i) {

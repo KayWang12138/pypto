@@ -14,13 +14,13 @@
  */
 
 #include <gtest/gtest.h>
+#include <vector>
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
 #include "codegen/codegen.h"
-#include <vector>
 
 using namespace npu::tile_fwk;
 using namespace Distributed;
@@ -31,7 +31,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         oriEnableAihacBackend = config::GetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
         Program::GetInstance().Reset();
@@ -39,7 +40,8 @@ public:
         config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     }
 
-    void TearDown() override {
+    void TearDown() override
+    {
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);
     }
 
@@ -47,7 +49,8 @@ protected:
     bool oriEnableAihacBackend = false;
 };
 
-void TestMoeCombine() {
+void TestMoeCombine()
+{
     const char *group = "hcom123";
     int expandBS = 16;
     int bs = 8;
@@ -63,11 +66,13 @@ void TestMoeCombine() {
     ConfigManager::Instance();
 
     FUNCTION("ATTNCombine", FunctionType::STATIC, {in, combineInfo, scale, out}) {
-        Program::GetInstance().GetTileShape().SpecifyStaticRankId(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+        Program::GetInstance().GetTileShape().SpecifyStaticRankId(
+            npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
         out = Distributed::MoeCombine(in, scale, combineInfo, group);
     }
 }
 
-TEST_F(TestCodegenMoeCombine, TestMoeCombine) {
+TEST_F(TestCodegenMoeCombine, TestMoeCombine)
+{
     TestMoeCombine();
 }

@@ -33,7 +33,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         Program::GetInstance().GetConfig().Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
@@ -43,7 +44,8 @@ public:
     void TearDown() override {}
 };
 
-void TestAllGatherFunc() {
+void TestAllGatherFunc()
+{
     const char *group = "hcom123";
     std::vector<int> shape = {16, 256};
 
@@ -69,14 +71,16 @@ void TestAllGatherFunc() {
 }
 
 // tensor graph
-TEST_F(TestCodegenAllGather, TestAllGatherTensorGraph) {
+TEST_F(TestCodegenAllGather, TestAllGatherTensorGraph)
+{
     TestAllGatherFunc();
 }
 
-void TestAllGatherOutTensorFunc() {
+void TestAllGatherOutTensorFunc()
+{
     const char *group = "hcom123";
-    std::vector<int> shape = {16, 256};
-    std::vector<int> outShape = {32, 256};
+    std::vector<int32_t> shape = {16, 256};
+    std::vector<int32_t> outShape = {32, 256};
 
     Program::GetInstance().GetTileShape().SetDistTileShapes({16, 1, 0}, {256, 1, 0}, {2, 1, 0});
     Program::GetInstance().GetTileShape().SpecifyStaticRankId(0);
@@ -97,23 +101,25 @@ void TestAllGatherOutTensorFunc() {
 }
 
 // tensor graph
-TEST_F(TestCodegenAllGather, TestAllGatherOutTensorTensorGraph) {
+TEST_F(TestCodegenAllGather, TestAllGatherOutTensorTensorGraph)
+{
     TestAllGatherOutTensorFunc();
 }
 
-void TestAllGatherAndMatmul() {
+void TestAllGatherAndMatmul()
+{
     const char *group = "hcom123";
-    int m = 32;
-    int n = 32;
+    int32_t m = 32;
+    int32_t n = 32;
     int procSize = 2;
 
     DataType dType = DataType::DT_BF16;
     std::string funcName = "AllGatherAndMatmul";
     
     PROGRAM("TestAllGatherMatmul") {
-        std::vector<int> inputShape = {m, n};
-        std::vector<int> matmulShape = {n, n};
-        std::vector<int> resShape = {m * procSize, n};
+        std::vector<int32_t> inputShape = {m, n};
+        std::vector<int32_t> matmulShape = {n, n};
+        std::vector<int32_t> resShape = {m * procSize, n};
 
         Tensor in(dType, inputShape, "in");
         Tensor w(dType, matmulShape, "w");
@@ -136,6 +142,7 @@ void TestAllGatherAndMatmul() {
 }
 
 // tensor graph
-TEST_F(TestCodegenAllGather, TestAllGatherMatmulTensorGraph) {
+TEST_F(TestCodegenAllGather, TestAllGatherMatmulTensorGraph)
+{
     TestAllGatherAndMatmul();
 }

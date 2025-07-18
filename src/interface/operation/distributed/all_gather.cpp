@@ -78,13 +78,17 @@ void LocalCopyOutProcess(const TileArgs &args)
     (void)AddOperation(args.function, opArgs);
 }
 
-inline LogicalTensorPtr GetTensorView(Function &function, const std::vector<Tensor> &tensor, const std::vector<int> &shape, const int rankIndex) {
+inline LogicalTensorPtr GetTensorView(Function &function, const std::vector<Tensor> &tensor,
+    const std::vector<int> &shape, const int rankIndex)
+{
     (void)shape;
     (void)function;
     return tensor[rankIndex].GetStorage();
 }
 
-inline LogicalTensorPtr GetTensorView(Function &function, const Tensor &tensor, const std::vector<int> &shape, const int rankIndex) {
+inline LogicalTensorPtr GetTensorView(Function &function, const Tensor &tensor, const std::vector<int> &shape,
+    const int rankIndex)
+{
     const std::vector<int> offset = {rankIndex * shape[0], 0};
     return tensor.GetStorage()->View(function, shape, offset);
 }
@@ -150,8 +154,9 @@ void DistBroadCastTileProcess(TileArgs &args, const int32_t rankIndex)
 }
 
 template <typename T>
-void TensorAllGatherTenor(const LogicalTensorPtr &in, const LogicalTensorPtr &tilingTensor, const CommGroupInfo &groupInfo,
-    T &out) {
+void TensorAllGatherTenor(const LogicalTensorPtr &in, const LogicalTensorPtr &tilingTensor,
+    const CommGroupInfo &groupInfo, T &out)
+{
     auto &function = *Program::GetInstance().GetCurrentFunction();
     TilingInfo tilingInfo;
     tilingInfo.groupIndex = groupInfo.groupIndex;
@@ -184,8 +189,9 @@ void TensorAllGatherTenor(const LogicalTensorPtr &in, const LogicalTensorPtr &ti
 }
 
 template <typename T>
-void TensorAllGatherVector(const LogicalTensorPtr &in, const LogicalTensorPtr &tilingTensor, const CommGroupInfo &groupInfo,
-    T &out) {
+void TensorAllGatherVector(const LogicalTensorPtr &in, const LogicalTensorPtr &tilingTensor,
+    const CommGroupInfo &groupInfo, T &out)
+{
     auto &function = *Program::GetInstance().GetCurrentFunction();
     TilingInfo tilingInfo;
     tilingInfo.groupIndex = groupInfo.groupIndex;
@@ -214,7 +220,8 @@ void TensorAllGatherVector(const LogicalTensorPtr &in, const LogicalTensorPtr &t
 
 void TiledDistGather(Function &function, const TileShape &tileShape,
     const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
-    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op) {
+    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op)
+{
     if (iOperand.size() != 2UL || oOperand.size() != 1UL) {
         ALOG_ERROR_F("TiledDistGather iOperand size=%lu, oOperand size=%lu", iOperand.size(), oOperand.size());
         return;
@@ -238,7 +245,8 @@ void TiledDistGather(Function &function, const TileShape &tileShape,
 
 void TiledDistBroadCast(Function &function, const TileShape &tileShape,
     const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
-    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op) {
+    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op)
+{
     if (iOperand.size() != 2UL || oOperand.size() != 1UL) {
         ALOG_ERROR_F("TiledDistBroadCast iOperand size=%lu, oOperand size=%lu", iOperand.size(), oOperand.size());
         return;
@@ -261,7 +269,8 @@ void TiledDistBroadCast(Function &function, const TileShape &tileShape,
 }
 
 template <typename T>
-void AllGatherImpl(const Tensor &in, T &out, const char *group) {
+void AllGatherImpl(const Tensor &in, T &out, const char *group)
+{
     int groupIndex = static_cast<int>(Program::GetInstance().GetCommGroupRecorder().Input(std::string(group)));
     const TileShape &tileShape = Program::GetInstance().GetTileShape();
     CommGroupInfo groupInfo;
@@ -271,7 +280,7 @@ void AllGatherImpl(const Tensor &in, T &out, const char *group) {
     CheckAndGetTileInfo(in->shape[0], in->shape[1], tileShape, tileInfo);
 
     auto &function = *Program::GetInstance().GetCurrentFunction();
-    int tilingTensorSize = GetTilingTensorSize(tileInfo, groupInfo);
+    int32_t tilingTensorSize = GetTilingTensorSize(tileInfo, groupInfo);
     std::vector<int> tilingShape = {1, tilingTensorSize};
     const std::string tilingSymbol = function.GetDistTilingManager()->CreateTilingStorage("allgather", tilingShape[1]);
     Tensor tilingTensor(DataType::DT_INT32, tilingShape, tilingSymbol);
@@ -282,21 +291,24 @@ void AllGatherImpl(const Tensor &in, T &out, const char *group) {
     }
 }
 
-void AllGather(const Tensor &in, std::vector<Tensor> &out, const char *group) {
+void AllGather(const Tensor &in, std::vector<Tensor> &out, const char *group)
+{
     AllGatherImpl<std::vector<Tensor>>(in, out, group);
 }
 
-inline std::vector<int> GetOutShape(const Tensor &in) {
+inline std::vector<int> GetOutShape(const Tensor &in)
+{
     const TileShape &tileShape = Program::GetInstance().GetTileShape();
     auto rankShape = tileShape.GetDistTileRank();
-    ASSERT((rankShape[0] >= 0) && (rankShape[1] >= 0) && (rankShape[2] >= 0));
-    int rankSize = rankShape[0] * rankShape[1] + rankShape[2];
+    ASSERT((rankShape[DIST_HEAD_SHAPE] >= 0) && (rankShape[DIST_HEAD_COUNT] >= 0) && (rankShape[DIST_TAIL_SHAPE] >= 0));
+    int32_t rankSize = rankShape[DIST_HEAD_SHAPE] * rankShape[DIST_HEAD_COUNT] + rankShape[DIST_TAIL_SHAPE];
     ASSERT(rankSize > 0);
 
     return {in->shape[0] * rankSize, in->shape[1]};
 }
 
-Tensor AllGather(const Tensor &in, const char *group) {
+Tensor AllGather(const Tensor &in, const char *group)
+{
     auto outShape = GetOutShape(in);
     Tensor out(in.GetDataType(), outShape, "out", NodeType::OUTCAST);
     AllGatherImpl<Tensor>(in, out, group);

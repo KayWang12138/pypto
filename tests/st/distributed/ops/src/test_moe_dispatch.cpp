@@ -23,10 +23,11 @@
 namespace npu::tile_fwk {
 namespace Distributed {
 
-void TestMoeDispatch(OpTestParam &testParam) {
+void TestMoeDispatch(OpTestParam &testParam)
+{
     constexpr size_t paramsSize = 6;
-    auto [batchSize, hiddenSize, shareNum, expertNum, topK, typeNum]
-        = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    auto [batchSize, hiddenSize, shareNum, expertNum, topK, typeNum] =
+        GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
 
     DataType dType = GetDataTypeNum(typeNum);
 
@@ -42,10 +43,8 @@ void TestMoeDispatch(OpTestParam &testParam) {
     int32_t validCntByteSize = sizeof(int32_t) * validCntSize;
     uint8_t* validCntPtr = allocDevAddr(validCntByteSize);
 
-    ALOG_INFO_F(
-        "before moe dispatch [%d, %d, %d, %d, %d], rankSize=%d, validCntPtr=%p, expandXPtr=%p",
-        batchSize, hiddenSize, shareNum, expertNum, topK, testParam.rankSize, validCntPtr, expandXPtr
-    );
+    ALOG_INFO_F("before moe dispatch [%d, %d, %d, %d, %d], rankSize=%d, validCntPtr=%p, expandXPtr=%p",
+        batchSize, hiddenSize, shareNum, expertNum, topK, testParam.rankSize, validCntPtr, expandXPtr);
 
     using T = npu::tile_fwk::bfloat16;
 
@@ -56,12 +55,8 @@ void TestMoeDispatch(OpTestParam &testParam) {
         void* tokenExpertTablePtr = readToDev<int32_t>(expertIdsPath, batchSize * topK);
 
         Tensor tokenTensor(dType, {batchSize, hiddenSize}, static_cast<uint8_t*>(tokenTensorPtr), "tokenTensor");
-        Tensor tokenExpertTable(
-            DataType::DT_INT32,
-            {batchSize, topK},
-            static_cast<uint8_t*>(tokenExpertTablePtr),
-            "tokenExpertTable"
-        );
+        Tensor tokenExpertTable(DataType::DT_INT32, {batchSize, topK}, static_cast<uint8_t*>(tokenExpertTablePtr),
+            "tokenExpertTable");
         Tensor validCnt(DataType::DT_INT32, {validCntRow * validCntCol}, validCntPtr, "validCnt");
         Tensor expandX(dType, {expandXRow, expandXCol}, expandXPtr, "expandX");
 
@@ -75,13 +70,8 @@ void TestMoeDispatch(OpTestParam &testParam) {
     EXPECT_TRUE(CompareWithGolden<uint8_t *>(dType, "/y_rank_", expandXSize, expandXPtr, testParam));
 
     if (testParam.rankId >= shareNum) {
-        EXPECT_TRUE(CompareWithGolden<uint8_t *>(
-            DataType::DT_INT32,
-            "/valid_count_rank_",
-            validCntSize,
-            validCntPtr,
-            testParam
-        ));
+        EXPECT_TRUE(CompareWithGolden<uint8_t *>(DataType::DT_INT32, "/valid_count_rank_", validCntSize, validCntPtr,
+            testParam));
     }
 }
 } // namespace Distributed

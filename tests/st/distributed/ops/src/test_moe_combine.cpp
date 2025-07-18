@@ -80,4 +80,4 @@ void TestMoeCombine(OpTestParam &testParam)
 }
 
 } // namespace Distributed
-} // namespace ascend
+} // namespace tile_fwk

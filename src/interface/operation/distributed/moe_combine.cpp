@@ -57,9 +57,9 @@ void DealTileFFN2Attn(FFN2AttnTileArgs &args)
     std::vector<int> shape = {args.tilingInfo.rowShape, args.tilingInfo.colShape};
     std::vector<int> offset = {args.tilingInfo.rowOffset, args.tilingInfo.colOffset};
 
-    std::shared_ptr<LogicalTensor> in = args.iOperand[0];
-    std::shared_ptr<LogicalTensor> combineInfo = args.iOperand[1];
-    std::shared_ptr<LogicalTensor> tilingTensor = args.iOperand[2];
+    std::shared_ptr<LogicalTensor> in = args.iOperand[DIST_INDEX_ZERO];
+    std::shared_ptr<LogicalTensor> combineInfo = args.iOperand[DIST_INDEX_ONE];
+    std::shared_ptr<LogicalTensor> tilingTensor = args.iOperand[DIST_INDEX_TWO];
     auto inTile = in->View(args.function, shape, offset);
 
     std::vector<int> flagShape =  {1, 64};
@@ -129,10 +129,11 @@ void MoeFFN2Attn(const Tensor &in, const Tensor &combineInfo, const int tileCnt,
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
     std::vector<int32_t> tilingShape = {1, tileCnt * static_cast<int>(sizeof(TilingInfo) / sizeof(int))};
-    const std::string tilingSymbol = function.GetDistTilingManager()->CreateTilingStorage("MoeFFN2Attn", tilingShape[1]);
+    const std::string tilingSymbol = function.GetDistTilingManager()->CreateTilingStorage("MoeFFN2Attn",
+        tilingShape[1]);
     Tensor tilingTensor(DataType::DT_INT32, tilingShape, tilingSymbol);
 
-    auto &oper = function.AddOperation("MOE_FFN_TO_ATTN", 
+    auto &oper = function.AddOperation("MOE_FFN_TO_ATTN",
         {in.GetStorage(), combineInfo.GetStorage(), tilingTensor.GetStorage()}, {});
     oper.SetAttr("tiling_tensor_symbol", tilingTensor.GetStorage()->Symbol());
     const TileShape &tileShape = Program::GetInstance().GetTileShape();
@@ -171,7 +172,8 @@ void MoeAttnCombine(Tensor &out, const Tensor &scale, int tileCnt, const char *g
     auto &function = *Program::GetInstance().GetCurrentFunction();
 
     std::vector<int32_t> tilingShape = {1, tileCnt * static_cast<int>(sizeof(TilingInfo) / sizeof(int))};
-    const std::string tilingSymbol = function.GetDistTilingManager()->CreateTilingStorage("MoeAttnCombine", tilingShape[1]);
+    const std::string tilingSymbol = function.GetDistTilingManager()->CreateTilingStorage("MoeAttnCombine",
+        tilingShape[1]);
     Tensor tilingTensor(DataType::DT_INT32, tilingShape, tilingSymbol);
 
     auto &oper = function.AddOperation("MOE_ATTN_COMBINE",

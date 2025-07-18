@@ -129,7 +129,7 @@ void TestFrameworkInit(OpTestParam &testParam, HcomTestParam &hcomTestParam)
 
     ALOG_INFO_F("testParam.rankSize %d\n", testParam.rankSize);
     ALOG_INFO_F("testParam.rankId %d\n", testParam.rankId);
-    ALOG_INFO_F("testParam.group %d\n", testParam.group);
+    ALOG_INFO_F("testParam.group %s\n", testParam.group);
     ALOG_INFO_F("rootInfo.internal %s\n", hcomTestParam.rootInfo.internal);
 
     return;

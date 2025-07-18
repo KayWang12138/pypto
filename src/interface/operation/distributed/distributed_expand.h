@@ -52,9 +52,11 @@ void TiledMoeAttnCombine(Function &function, const TileShape &tileShape,
 Tensor TransToPositionTable(const Tensor &tokenExpertTable);
 void SendToRoutingExpert(const Tensor &tokenTensor, const Tensor &tokenExpertTable,
     const Tensor &tilingTensor, const Tensor &syncTensor, const char *group);
-void SendToSharedExpert(const Tensor &tokenTensor, const Tensor &tilingTensor, const Tensor &syncTensor, const char *group);
+void SendToSharedExpert(const Tensor &tokenTensor, const Tensor &tilingTensor, const Tensor &syncTensor,
+    const char *group);
 void CopyToLocalExpert(const Tensor &tokenTensor, const Tensor &tilingTensor, const Tensor &expandX);
-Tensor DispatchSetFlag(const Tensor &tokenExpertTable, const Tensor &syncTensor, const Tensor &tilingTensor, const char *group);
+Tensor DispatchSetFlag(const Tensor &tokenExpertTable, const Tensor &syncTensor, const Tensor &tilingTensor,
+    const char *group);
 void TiledSendToRoutingExpert(Function &function, const TileShape &tileShape,
     const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);

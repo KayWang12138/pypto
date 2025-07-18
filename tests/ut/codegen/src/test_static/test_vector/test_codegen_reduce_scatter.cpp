@@ -14,13 +14,13 @@
  */
 
 #include <gtest/gtest.h>
+#include <vector>
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
 #include "codegen/codegen.h"
-#include <vector>
 
 using namespace npu::tile_fwk;
 using namespace Distributed;
@@ -31,7 +31,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         oriEnableAihacBackend = config::GetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
         Program::GetInstance().Reset();
@@ -45,13 +46,14 @@ protected:
     bool oriEnableAihacBackend = false;
 };
 
-void TestReduceScatter() {
+void TestReduceScatter()
+{
     const char *group = "hcom123";
-    int M = 16;
-    int N = 128;
+    int32_t m = 16;
+    int32_t n = 128;
     DataType dType = DT_FP16;
 
-    std::vector<int> shape = {M, N};
+    std::vector<int32_t> shape = {m, n};
 
     std::vector<Tensor> in;
     Tensor in1(dType, shape, "in1");
@@ -63,25 +65,27 @@ void TestReduceScatter() {
 
     FUNCTION("REDUCESCATTER_F", FunctionType::STATIC, {in[0], in[1], out}) {
         // 为了适配 kernel 代码，这边切分改成 1，线上代码可以直接运行
-        Program::GetInstance().GetTileShape().SetDistTileShapes({M / 2, 2, 0}, {N, 1, 0}, {2, 1, 0});
+        Program::GetInstance().GetTileShape().SetDistTileShapes({m / 2, 2, 0}, {n, 1, 0}, {2, 1, 0});
         Program::GetInstance().GetTileShape().SpecifyStaticRankId(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
         out = Distributed::ReduceScatter(in, group, npu::tile_fwk::Distributed::DistReduceType::DIST_REDUCE_ADD);
     }
 }
 
-TEST_F(TestCodegenReduceScatter, TestReduceScatter) {
+TEST_F(TestCodegenReduceScatter, TestReduceScatter)
+{
     TestReduceScatter();
 }
 
-void TestReduceScatterOneTensor() {
+void TestReduceScatterOneTensor()
+{
     const char *group = "hcom123";
-    int M = 16;
-    int N = 128;
+    int32_t m = 16;
+    int32_t n = 128;
     DataType dType = DT_FP16;
 
-    std::vector<int> inShape = {M, N};
-    int rankSize = 2;
-    std::vector<int> outShape = {M / rankSize, N};
+    std::vector<int32_t> inShape = {m, n};
+    int32_t rankSize = 2;
+    std::vector<int32_t> outShape = {m / rankSize, n};
 
     Tensor in(dType, inShape, "in");
     Tensor out(dType, outShape, "out");
@@ -89,12 +93,13 @@ void TestReduceScatterOneTensor() {
 
     FUNCTION("REDUCESCATTER_F", FunctionType::STATIC, {in, out}) {
         // 为了适配 kernel 代码，这边切分改成 1，线上代码可以直接运行
-        Program::GetInstance().GetTileShape().SetDistTileShapes({M / 2, 2, 0}, {N, 1, 0}, {rankSize, 1, 0});
+        Program::GetInstance().GetTileShape().SetDistTileShapes({m / 2, 2, 0}, {m, 1, 0}, {rankSize, 1, 0});
         Program::GetInstance().GetTileShape().SpecifyStaticRankId(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
         out = Distributed::ReduceScatter(in, group, npu::tile_fwk::Distributed::DistReduceType::DIST_REDUCE_ADD);
     }
 }
 
-TEST_F(TestCodegenReduceScatter, TestReduceScatterOneTensor) {
+TEST_F(TestCodegenReduceScatter, TestReduceScatterOneTensor)
+{
     TestReduceScatterOneTensor();
 }
