@@ -28,21 +28,22 @@
 namespace ascend {
 namespace test_operation {
 
+struct OpFuncArgs {
+};
+
 using OpFunc = std::function<void(
     const std::vector<Tensor>&,
     std::vector<Tensor>&,
-    const std::vector<int>&,
-    const std::vector<string>&
+    const OpFuncArgs*
 )>;
 
-struct  TestCaseDesc {
+struct TestCaseDesc {
     std::vector<Tensor> inputTensors;
     std::vector<Tensor> outputTensors;
-    std::vector<int> tileShape;
-    std::vector<std::string> attrs;
-    OpFunc opExeFunc;
     std::vector<std::string> inputPaths;
     std::vector<std::string> goldenPaths;
+    const OpFuncArgs* args;
+    OpFunc opFunc;
 };
 
 class TestExecutor {
@@ -55,6 +56,7 @@ public:
 private:
     static void init() {
         config::SetHostConfig(npu::tile_fwk::KEY_ONLY_CODEGEN, true);
+        config::SetCodeGenConfig(npu::tile_fwk::KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     }
 
     static void verifyOpResults(const TestCaseDesc& testCase) {
@@ -80,7 +82,7 @@ private:
         ProgramData::GetInstance().AppendOutputs({ascendOutputs});
 
         std::vector<Tensor> nonConstOutputs = testCase.outputTensors;
-        testCase.opExeFunc(testCase.inputTensors, nonConstOutputs, testCase.tileShape, testCase.attrs);
+        testCase.opFunc(testCase.inputTensors, nonConstOutputs, testCase.args);
 
         auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
         DynFuncRunner::Run(funcop);

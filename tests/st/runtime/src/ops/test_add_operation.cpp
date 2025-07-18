@@ -17,16 +17,23 @@
 
 using namespace ascend::test_operation;
 namespace {
-struct  AddOperationTestCaseData {
-    std::vector<int> shape;
-    std::vector<int> vecTileShapes;
-    DataType dType;
-    OpFunc opFunc;
+struct AddOpFuncArgs : public OpFuncArgs {
+    AddOpFuncArgs(std::vector<int> shape, std::vector<int> vecTileShapes, DataType dType) :
+        shape_(shape), vecTileShapes_(vecTileShapes), dType_(dType) {}
+    std::vector<int> shape_;
+    std::vector<int> vecTileShapes_;
+    DataType dType_;
+};
+
+struct AddOperationMetadata {
+    AddOperationMetadata(std::vector<int> shape, std::vector<int> vecTileShapes, DataType dType, OpFunc opFunc) :
+        args_(shape, vecTileShapes, dType), opFunc_(opFunc) {}
+    AddOpFuncArgs args_;
+    OpFunc opFunc_;
 };
 
 static void AddOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
-                                const std::vector<int>& tileShape, const std::vector<string>& attrs) {
-    (void)attrs;                                
+                                const OpFuncArgs* opArgs) {
     FUNCTION("main", FunctionType::DYNAMIC, {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
@@ -39,7 +46,8 @@ static void AddOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<T
             auto tileTensor1 = DViewPad(inputs[1], {firstl0LoopLengthTile, secondDim},
                 {std::min(firstDim - bIdx * firstl0LoopLengthTile, firstl0LoopLengthTile), secondDim},
                 {bIdx * firstl0LoopLengthTile, 0});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
+            Program::GetInstance().GetTileShape().SetVecTileShapes(
+                (static_cast<const AddOpFuncArgs*>(opArgs))->vecTileShapes_);
             auto res = Add(tileTensor0, tileTensor1);
             DAssemble(res, {bIdx * firstl0LoopLengthTile, 0}, outputs[0]);
         }
@@ -47,8 +55,7 @@ static void AddOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<T
 }
 
 static void AddOperationExeFuncDoubleCut(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
-                                         const std::vector<int>& tileShape, const std::vector<string>& attrs) {
-    (void)attrs;                                
+                                         const OpFuncArgs* opArgs) {
     FUNCTION("main", FunctionType::DYNAMIC, {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
@@ -65,7 +72,8 @@ static void AddOperationExeFuncDoubleCut(const std::vector<Tensor>& inputs, std:
                     {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                         std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
-                Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
+                Program::GetInstance().GetTileShape().SetVecTileShapes(
+                    (static_cast<const AddOpFuncArgs*>(opArgs))->vecTileShapes_);
                 auto res = Add(tileTensor0, tileTensor1);
                 DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
@@ -73,13 +81,13 @@ static void AddOperationExeFuncDoubleCut(const std::vector<Tensor>& inputs, std:
     }
 }
 
-static const AddOperationTestCaseData testDataLists[] = {
-    AddOperationTestCaseData{{512, 128}, {64, 128}, DataType::DT_FP32, AddOperationExeFunc},
-    AddOperationTestCaseData{{1024, 256}, {64, 128}, DataType::DT_FP32, AddOperationExeFunc},
-    AddOperationTestCaseData{{512, 256}, {64, 64}, DataType::DT_FP32, AddOperationExeFuncDoubleCut},
+static const AddOperationMetadata testDataLists[] = {
+    AddOperationMetadata({512, 128}, {64, 128}, DataType::DT_FP32, AddOperationExeFunc),
+    AddOperationMetadata({1024, 256}, {64, 128}, DataType::DT_FP32, AddOperationExeFunc),
+    AddOperationMetadata({512, 256}, {64, 64}, DataType::DT_FP32, AddOperationExeFuncDoubleCut),
 };
 
-class AddOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<AddOperationTestCaseData> {};
+class AddOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<AddOperationMetadata> {};
 
 INSTANTIATE_TEST_SUITE_P(
     TestAdd,
@@ -90,16 +98,16 @@ INSTANTIATE_TEST_SUITE_P(
 TEST_P(AddOperationTest, test_add) {
     TestCaseDesc testCase;
     testCase.inputTensors = {
-        Tensor(GetParam().dType, GetParam().shape, "input0"),
-        Tensor(GetParam().dType, GetParam().shape, "input1")
+        Tensor(GetParam().args_.dType_, GetParam().args_.shape_, "input0"),
+        Tensor(GetParam().args_.dType_, GetParam().args_.shape_, "input1")
     };
     testCase.outputTensors = {
-        Tensor(GetParam().dType, GetParam().shape, "output")
+        Tensor(GetParam().args_.dType_, GetParam().args_.shape_, "output")
     };
-    testCase.opExeFunc = GetParam().opFunc;
-    testCase.tileShape = GetParam().vecTileShapes;
     testCase.inputPaths = {GetGoldenDir() + "/x.bin", GetGoldenDir() + "/y.bin"};
     testCase.goldenPaths = {GetGoldenDir() + "/res.bin"};
+    testCase.args = &(GetParam().args_);
+    testCase.opFunc = GetParam().opFunc_;
     TestExecutor::runTest(testCase);
 }
 } // namespace
