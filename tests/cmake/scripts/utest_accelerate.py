@@ -46,6 +46,7 @@ class UTestAccelerate:
         self.case_queue: JoinableQueue = JoinableQueue()
         self.case_fail_error_queue: JoinableQueue = JoinableQueue()  # Case 执行失败时, 用于收集错误信息
         self.case_terminate_queue: JoinableQueue = JoinableQueue()  # Case 被终止执行时, 收集相关信息
+        self.case_exec_queue: JoinableQueue = JoinableQueue() # Case 正常执行结束时，收集相关信息
         self.case_exec_timeout: Optional[int] = None  # 单 Case 执行 Timeout
 
         # 执行控制(多进程)
@@ -85,9 +86,7 @@ class UTestAccelerate:
 
     @classmethod
     def main(cls) -> bool:
-        """
-        主处理流程
-        """
+        """ 主处理流程 """
         # 参数注册
         parser = argparse.ArgumentParser(description=f"UTest Execute Accelerate", epilog="Best Regards!")
         parser.add_argument("-t", "--target", nargs=1, type=str, required=True,
@@ -169,6 +168,9 @@ class UTestAccelerate:
                               f"Executed({len(self.case_list) - case_remaining_cnt}) "
                               f"Remaining({case_remaining_cnt}) Terminate({case_terminate_cnt})")
 
+        # Case 运行时长收集汇总
+        case_exectime_str = self._post_case_time_info()
+
         # Case 异常信息收集汇总
         case_fail_brief, case_fail_datas_len = self._post_case_fail_info()
 
@@ -181,6 +183,7 @@ class UTestAccelerate:
         out += f"\nCase Terminate Brief({case_terminate_cnt}):{case_terminate_str}"
         out += f"\nCase Execution Brief:{case_exec_str}"
         out += f"\nCase Exception Brief({case_fail_datas_len}):\n{case_fail_brief}"
+        out += f"\nCase Execution Brief:{case_exectime_str}"
 
         ret: bool = case_remaining_cnt == 0 and case_fail_datas_len == 0
         if not ret:
@@ -275,6 +278,9 @@ class UTestAccelerate:
                              "Output Below:\n%s",
                              job_idx, self.target_name, self.asan_option, self.ubsan_option, gtest_filter,
                              self.dfx_case_progress(update=True), msg)
+                time_brief: List[Any] = [job_idx, gtest_filter, (datetime.now(tz=timezone.utc) - ts)]
+                self.case_exec_queue.put(time_brief)
+
         except KeyboardInterrupt:
             # 强制终止时, 主动退出执行, 上报已运行时长
             logging.info("Job[%s] Case[%s] receive terminate event.", job_idx, gtest_filter)
@@ -329,6 +335,40 @@ class UTestAccelerate:
             case_terminate_str += f"\n\t{case_terminate_cnt}\tJob({job_id})\tCost({cs_cost}) secs\tCase({cs_name})"
             self.case_terminate_queue.task_done()
         return case_terminate_str, case_terminate_cnt
+
+    def _post_case_time_info(self) -> str:
+        """
+        获取各用例执行时间
+        """
+        case_times = []
+        while not self.case_exec_queue.empty():
+            job_idx, case_name, duration = self.case_exec_queue.get()
+            case_times.append((job_idx, case_name, duration))
+            self.case_exec_queue.task_done()
+        if not case_times:
+            return "none case executed"
+        
+        time_info = ""
+        col0_width = len("job_idx")
+        col1_width = max(len("case_name"), max(len(name) for job_idx, name, duration in case_times))
+        col2_width = max(
+            len("time"),
+            max(len(f"{duration.total_seconds():.2f} seconds") for job_idx, name, duration in case_times)
+        )
+
+        logging.info("\nCase Execution Report")
+        logging.info("+" + "-" * col0_width + "+" + "-" * col1_width + "+" + "-" * col2_width + "+")
+        logging.info("|" + "job_idx".ljust(col0_width) 
+            + "|" + "case_name".ljust(col1_width) 
+            + "|" + "time".rjust(col2_width) + "|"
+        )
+        logging.info("+" + "-" * col0_width + "+" + "-" * col1_width + "+" + "-" * col2_width + "+")
+        for job_idx, name, duration in case_times:
+            logging.info("|" + str(job_idx).ljust(col0_width) 
+            + "|" + name.ljust(col1_width) + "|" 
+            + f"{duration.total_seconds():.2f} seconds".rjust(col2_width) + "|")
+            logging.info("+" + "-" * col0_width + "+" + "-" * col1_width + "+" + "-" * col2_width + "+")
+        return time_info   
 
     def _post_case_exec_info(self) -> int:
         case_remaining_cnt: int = 0
