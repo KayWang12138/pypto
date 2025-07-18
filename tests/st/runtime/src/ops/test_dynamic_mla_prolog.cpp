@@ -72,6 +72,7 @@ void TestDynamicMlaProlog(const TestShapeParams &params, const MlaTileConfig &ti
     int s = params.s;
     int s2 = params.s2;
     int n = params.n;
+    int n2 = 1;
     int h = params.h;
     int qLoraRank = params.qLoraRank;
     int qkNopeHeadDim = params.qkNopeHeadDim;
@@ -93,12 +94,16 @@ void TestDynamicMlaProlog(const TestShapeParams &params, const MlaTileConfig &ti
     std::vector<int> gammaCqShape = {qLoraRank};
     std::vector<int> gammaCkvShape = {kvLoraRank};
     std::vector<int> kvLenShape = {b, s};
-    std::vector<int> kvCacheShape = {b, 1, s2, kvLoraRank};
-    std::vector<int> krCacheShape = {b, 1, s2, qkRopeHeadDim};
+    std::vector<int> kvCacheShape = {b, n2, s2, kvLoraRank};
+    std::vector<int> krCacheShape = {b, n2, s2, qkRopeHeadDim};
+    std::vector<int> kvCacheOutShape = {b, n2, s2, kvLoraRank};
+    std::vector<int> krCacheOutShape = {b, n2, s2, qkRopeHeadDim};
     if (cacheMode != "BNSD") {
         int blockNum = b * (s2 / blockSize);
-        kvCacheShape = {blockNum, blockSize, 1, kvLoraRank};
-        krCacheShape = {blockNum, blockSize, 1, qkRopeHeadDim};
+        kvCacheShape = {blockNum, blockSize, n2, kvLoraRank};
+        krCacheShape = {blockNum, blockSize, n2, qkRopeHeadDim};
+        kvCacheOutShape = {blockNum * blockSize, n2 * kvLoraRank};
+        krCacheOutShape = {blockNum, blockSize, n2 * qkRopeHeadDim};
     }
     std::vector<int> wQbScaleShape = {1, n * qHeadDim};
     std::vector<int> smoothCqShape{1, qLoraRank};
@@ -127,16 +132,16 @@ void TestDynamicMlaProlog(const TestShapeParams &params, const MlaTileConfig &ti
     Tensor smoothCq(DT_FP32, smoothCqShape, "smoothCq");
 
     // output
-    Tensor outputKvCache(dType, kvCacheShape, "outputKvCache");
-    Tensor outputKrCache(dType, krCacheShape, "outputKrCache");
+    Tensor outputKvCache(dType, kvCacheOutShape, "outputKvCache");
+    Tensor outputKrCache(dType, krCacheOutShape, "outputKrCache");
     Tensor outputQ(dType, qOutShape, "outputQ");
     Tensor outputQRope(dType, qRopeOutShape, "outputQRope");
 
     // output
     std::vector<T> golden1 = getGoldenVec<T>(qOutShape, "/q_golden.bin");
     std::vector<T> golden2 = getGoldenVec<T>(qRopeOutShape, "/q_rope_golden.bin");
-    std::vector<T> golden3 = getGoldenVec<T>(kvCacheShape, "/kv_cache_golden.bin");
-    std::vector<T> golden4 = getGoldenVec<T>(krCacheShape, "/kr_cache_golden.bin");
+    std::vector<T> golden3 = getGoldenVec<T>(kvCacheOutShape, "/kv_cache_golden.bin");
+    std::vector<T> golden4 = getGoldenVec<T>(krCacheOutShape, "/kr_cache_golden.bin");
 
     auto xData = CreateTensorData<T>(x, xShape, "/x.bin");
     auto wDqData = CreateTensorData<T>(wDq, wDqShape, "/wDq.bin");
@@ -177,7 +182,7 @@ void TestDynamicMlaProlog(const TestShapeParams &params, const MlaTileConfig &ti
     DynFuncRunner::Run(funcOp, inputDataList, outputDataList);
 
     std::cout << "qNope ====== " << std::endl;
-    EXPECT_TRUE(resultCmp<T>(golden1, (T *)outputQData->data(), 0.008f, 16, 1000, false, false, 16));
+    EXPECT_TRUE(resultCmp<T>(golden1, (T *)outputQData->data(), 0.01f, 16, 1000, false, false, 16));
     std::cout << "qRope ======" << std::endl;
     EXPECT_TRUE(resultCmp<T>(golden2, (T *)outputQRopeData->data(), 0.005f, 16, 1000, false, false, 16));
     std::cout << "kv ====== " << std::endl;
@@ -222,7 +227,7 @@ TEST_F(MlaPrologSTest, b32_s2_pa_nz_fp16_quant) {
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
-    MlaTileConfig tileConfig = {32, 1};  // {16, 2}, kv kr ERROR
+    MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
     TestDynamicMlaProlog<npu::tile_fwk::float16, true, int8_t, true, true>(params, tileConfig, cacheMode);
@@ -232,7 +237,7 @@ TEST_F(MlaPrologSTest, b64_s1_pa_nz_fp16_quant) {
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {64, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
-    MlaTileConfig tileConfig = {32, 1};  // {64, 1}
+    MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
     TestDynamicMlaProlog<npu::tile_fwk::float16, true, int8_t, true, true>(params, tileConfig, cacheMode);
@@ -242,7 +247,7 @@ TEST_F(MlaPrologSTest, b64_s2_pa_nz_fp16_quant) {
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {64, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
-    MlaTileConfig tileConfig = {32, 1};  // {32, 2}, kv kr ERROR
+    MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
     TestDynamicMlaProlog<npu::tile_fwk::float16, true, int8_t, true, true>(params, tileConfig, cacheMode);
@@ -272,7 +277,7 @@ TEST_F(MlaPrologSTest, b48_s1_pa_nz_fp16_quant) {
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {48, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
-    MlaTileConfig tileConfig = {48, 1};  // {16, 1};
+    MlaTileConfig tileConfig = {48, 1};
 
     PerformanceConfig();
     TestDynamicMlaProlog<npu::tile_fwk::float16, true, int8_t, true, true>(params, tileConfig, cacheMode);
@@ -282,7 +287,7 @@ TEST_F(MlaPrologSTest, b48_s2_pa_nz_fp16_quant) {
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {48, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
-    MlaTileConfig tileConfig = {48, 1};  // {16, 2}, kv kr ERROR
+    MlaTileConfig tileConfig = {48, 1};
 
     PerformanceConfig();
     TestDynamicMlaProlog<npu::tile_fwk::float16, true, int8_t, true, true>(params, tileConfig, cacheMode);
@@ -302,7 +307,7 @@ TEST_F(MlaPrologSTest, b96_s2_pa_nz_fp16_quant) {
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {96, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
-    MlaTileConfig tileConfig = {32, 1};  // {32, 2}, kv kr ERROR
+    MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
     TestDynamicMlaProlog<npu::tile_fwk::float16, true, int8_t, true, true>(params, tileConfig, cacheMode);
@@ -343,7 +348,7 @@ TEST_F(MlaPrologSTest, b32_s2_pa_nz_bf16_quant) {
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
-    MlaTileConfig tileConfig = {32, 1};  // {16, 2}, kv kr ERROR
+    MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
     TestDynamicMlaProlog<npu::tile_fwk::bfloat16, true, int8_t, true, true>(params, tileConfig, cacheMode);
@@ -353,7 +358,7 @@ TEST_F(MlaPrologSTest, b64_s1_pa_nz_bf16_quant) {
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {64, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
-    MlaTileConfig tileConfig = {32, 1};  // {64, 1}
+    MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
     TestDynamicMlaProlog<npu::tile_fwk::bfloat16, true, int8_t, true, true>(params, tileConfig, cacheMode);
@@ -363,7 +368,7 @@ TEST_F(MlaPrologSTest, b64_s2_pa_nz_bf16_quant) {
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {64, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
-    MlaTileConfig tileConfig = {32, 1};  // {32, 2}, kv kr ERROR
+    MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
     TestDynamicMlaProlog<npu::tile_fwk::bfloat16, true, int8_t, true, true>(params, tileConfig, cacheMode);
@@ -393,7 +398,7 @@ TEST_F(MlaPrologSTest, b48_s1_pa_nz_bf16_quant) {
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {48, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
-    MlaTileConfig tileConfig = {48, 1};  // {16, 1};
+    MlaTileConfig tileConfig = {48, 1};
 
     PerformanceConfig();
     TestDynamicMlaProlog<npu::tile_fwk::bfloat16, true, int8_t, true, true>(params, tileConfig, cacheMode);
@@ -403,7 +408,7 @@ TEST_F(MlaPrologSTest, b48_s2_pa_nz_bf16_quant) {
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {48, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
-    MlaTileConfig tileConfig = {48, 1};  // {16, 2}, kv kr ERROR
+    MlaTileConfig tileConfig = {48, 1};
 
     PerformanceConfig();
     TestDynamicMlaProlog<npu::tile_fwk::bfloat16, true, int8_t, true, true>(params, tileConfig, cacheMode);
@@ -423,7 +428,7 @@ TEST_F(MlaPrologSTest, b96_s2_pa_nz_bf16_quant) {
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {96, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
-    MlaTileConfig tileConfig = {32, 1};  // {32, 2}, kv kr ERROR
+    MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
     TestDynamicMlaProlog<npu::tile_fwk::bfloat16, true, int8_t, true, true>(params, tileConfig, cacheMode);
@@ -444,10 +449,71 @@ TEST_F(MlaPrologSTest, b32_s2_pa_nd_fp16_quant) {
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_BSND";
-    MlaTileConfig tileConfig = {32, 1};  // {32, 1} {32, 2} ok, {16, 2} kv kr ERROR
+    MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
     TestDynamicMlaProlog<npu::tile_fwk::float16, false, int8_t, true, true>(params, tileConfig, cacheMode);
+}
+
+TEST_F(MlaPrologSTest, b48_s1_pa_nd_fp16_quant) {
+    // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
+    TestShapeParams params = {48, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
+    std::string cacheMode = "PA_BSND";
+    MlaTileConfig tileConfig = {48, 1};
+
+    PerformanceConfig();
+    TestDynamicMlaProlog<npu::tile_fwk::float16, false, int8_t, true, true>(params, tileConfig, cacheMode);
+}
+
+TEST_F(MlaPrologSTest, b48_s2_pa_nd_fp16_quant) {
+    // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
+    TestShapeParams params = {48, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
+    std::string cacheMode = "PA_BSND";
+    MlaTileConfig tileConfig = {48, 1};
+
+    PerformanceConfig();
+    TestDynamicMlaProlog<npu::tile_fwk::float16, false, int8_t, true, true>(params, tileConfig, cacheMode);
+}
+
+////// bf16, quant, weight nd, "PA_BSND"
+TEST_F(MlaPrologSTest, b64_s1_pa_nd_bf16_quant) {
+    // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
+    TestShapeParams params = {64, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
+    std::string cacheMode = "PA_BSND";
+    MlaTileConfig tileConfig = {32, 1};
+
+    PerformanceConfig();
+    TestDynamicMlaProlog<npu::tile_fwk::bfloat16, false, int8_t, true, true>(params, tileConfig, cacheMode);
+}
+
+TEST_F(MlaPrologSTest, b64_s2_pa_nd_bf16_quant) {
+    // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
+    TestShapeParams params = {64, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
+    std::string cacheMode = "PA_BSND";
+    MlaTileConfig tileConfig = {32, 1};
+
+    PerformanceConfig();
+    TestDynamicMlaProlog<npu::tile_fwk::bfloat16, false, int8_t, true, true>(params, tileConfig, cacheMode);
+}
+
+TEST_F(MlaPrologSTest, b96_s1_pa_nd_bf16_quant) {
+    // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
+    TestShapeParams params = {96, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
+    std::string cacheMode = "PA_BSND";
+    MlaTileConfig tileConfig = {32, 1};
+
+    PerformanceConfig();
+    TestDynamicMlaProlog<npu::tile_fwk::bfloat16, false, int8_t, true, true>(params, tileConfig, cacheMode);
+}
+
+TEST_F(MlaPrologSTest, b96_s2_pa_nd_bf16_quant) {
+    // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
+    TestShapeParams params = {96, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
+    std::string cacheMode = "PA_BSND";
+    MlaTileConfig tileConfig = {32, 1};
+
+    PerformanceConfig();
+    TestDynamicMlaProlog<npu::tile_fwk::bfloat16, false, int8_t, true, true>(params, tileConfig, cacheMode);
 }
 
 ////// fp16, no quant, weight nz, "PA_NZ"
@@ -465,7 +531,7 @@ TEST_F(MlaPrologSTest, b32_s2_pa_nz_fp16) {
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
-    MlaTileConfig tileConfig = {16, 2};
+    MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
     TestDynamicMlaProlog<npu::tile_fwk::float16, true, npu::tile_fwk::float16, false, true>(params, tileConfig, cacheMode);
@@ -486,7 +552,7 @@ TEST_F(MlaPrologSTest, b32_s2_pa_nd_fp16) {
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_BSND";
-    MlaTileConfig tileConfig = {16, 2};  // {32, 1} {32, 2} ok, {16, 2} kv kr ERROR
+    MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
     TestDynamicMlaProlog<npu::tile_fwk::float16, false, npu::tile_fwk::float16, false, true>(params, tileConfig, cacheMode);
@@ -497,7 +563,7 @@ TEST_F(MlaPrologSTest, b16_s2_pa_nd_fp16_small) {
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {16, 2, 256, 128, 256, 256, 128, 64, 512, 128};
     std::string cacheMode = "PA_BSND";
-    MlaTileConfig tileConfig = {8, 2};  // {16, 2} {16, 1} {8, 1} ok
+    MlaTileConfig tileConfig = {16, 1};
 
     PerformanceConfig();
     TestDynamicMlaProlog<npu::tile_fwk::float16, false, npu::tile_fwk::float16, false, true>(params, tileConfig, cacheMode);

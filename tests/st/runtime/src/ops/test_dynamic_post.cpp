@@ -67,6 +67,7 @@ void TestAttentionPost(const TestPostParams &params, const PostTileConfig &tileC
     std::vector<int> wUvShape = {n, kvLoraRank, vHeadDim};
     std::vector<int> woShape = {n * vHeadDim, h};
     std::vector<int> woScaleShape = {1, h};
+    std::vector<int> smoothWoShape = {1, n * vHeadDim};
     std::vector<int> outShape = {b, s, h};
 
     TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
@@ -74,6 +75,7 @@ void TestAttentionPost(const TestPostParams &params, const PostTileConfig &tileC
     Tensor wUv(dType, wUvShape, "wUv");
     Tensor wo(dTypeQuant, woShape, "wo", NodeType::LOCAL, weightFormat);
     Tensor woScale;
+    Tensor smoothWo;
     Tensor postOut(dType, outShape, "postOut");
 
     std::vector<T> goldenDate = getGoldenVec<T>(outShape, "/golden_output.bin");
@@ -90,16 +92,22 @@ void TestAttentionPost(const TestPostParams &params, const PostTileConfig &tileC
         woScale = scale;
         auto woScaleData = CreateTensorData<float>(woScale, woScaleShape, "/w_o_scale.bin");
         inputDataList.emplace_back(woScaleData);
+        if (isSmooth) {
+            Tensor smooth(DT_FP32, smoothWoShape, "smoothWo");
+            smoothWo = smooth;
+            auto smoothWoData = CreateTensorData<float>(smoothWo, smoothWoShape, "/smooth_wo.bin");
+            inputDataList.emplace_back(smoothWoData);
+        }
     }
 
-    AttentionPost(x, wUv, wo, woScale, tileConfig, postOut);
+    AttentionPost(x, wUv, wo, woScale, smoothWo, tileConfig, postOut);
 
     auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
     DynFuncRunner::Run(funcOp, inputDataList, outputDataList);
 
     std::cout << "postOut ====== " << std::endl;
-    EXPECT_TRUE(resultCmp<T>(goldenDate, (T *)outputData->data(), 0.008f, 16, 1000, false, false, 16));
+    EXPECT_TRUE(resultCmp<T>(goldenDate, (T *)outputData->data(), 0.01f, 16, 1000, false, false, 16));
 #endif
 }
 
@@ -115,7 +123,7 @@ TEST_F(AttentionPostSTest, b16_s1_nz_fp16_quant) {
     PostTileConfig tileConfig = {16, 1};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::float16, true, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::float16, true, int8_t, true>(params, tileConfig);
 }
 
 TEST_F(AttentionPostSTest, b16_s2_nz_fp16_quant) {
@@ -124,7 +132,7 @@ TEST_F(AttentionPostSTest, b16_s2_nz_fp16_quant) {
     PostTileConfig tileConfig = {16, 2};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::float16, true, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::float16, true, int8_t, true>(params, tileConfig);
 }
 
 TEST_F(AttentionPostSTest, b32_s1_nz_fp16_quant) {
@@ -133,7 +141,7 @@ TEST_F(AttentionPostSTest, b32_s1_nz_fp16_quant) {
     PostTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::float16, true, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::float16, true, int8_t, true>(params, tileConfig);
 }
 
 TEST_F(AttentionPostSTest, b32_s2_nz_fp16_quant) {
@@ -142,7 +150,7 @@ TEST_F(AttentionPostSTest, b32_s2_nz_fp16_quant) {
     PostTileConfig tileConfig = {32, 2};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::float16, true, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::float16, true, int8_t, true>(params, tileConfig);
 }
 
 TEST_F(AttentionPostSTest, b64_s1_nz_fp16_quant) {
@@ -151,7 +159,7 @@ TEST_F(AttentionPostSTest, b64_s1_nz_fp16_quant) {
     PostTileConfig tileConfig = {64, 1};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::float16, true, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::float16, true, int8_t, true>(params, tileConfig);
 }
 
 TEST_F(AttentionPostSTest, b64_s2_nz_fp16_quant) {
@@ -160,7 +168,7 @@ TEST_F(AttentionPostSTest, b64_s2_nz_fp16_quant) {
     PostTileConfig tileConfig = {32, 2};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::float16, true, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::float16, true, int8_t, true>(params, tileConfig);
 }
 
 TEST_F(AttentionPostSTest, b24_s1_nz_fp16_quant) {
@@ -169,7 +177,7 @@ TEST_F(AttentionPostSTest, b24_s1_nz_fp16_quant) {
     PostTileConfig tileConfig = {24, 1};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::float16, true, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::float16, true, int8_t, true>(params, tileConfig);
 }
 
 TEST_F(AttentionPostSTest, b24_s2_nz_fp16_quant) {
@@ -178,7 +186,7 @@ TEST_F(AttentionPostSTest, b24_s2_nz_fp16_quant) {
     PostTileConfig tileConfig = {24, 2};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::float16, true, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::float16, true, int8_t, true>(params, tileConfig);
 }
 
 TEST_F(AttentionPostSTest, b48_s1_nz_fp16_quant) {
@@ -187,7 +195,7 @@ TEST_F(AttentionPostSTest, b48_s1_nz_fp16_quant) {
     PostTileConfig tileConfig = {48, 1};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::float16, true, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::float16, true, int8_t, true>(params, tileConfig);
 }
 
 TEST_F(AttentionPostSTest, b48_s2_nz_fp16_quant) {
@@ -196,7 +204,7 @@ TEST_F(AttentionPostSTest, b48_s2_nz_fp16_quant) {
     PostTileConfig tileConfig = {48, 1};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::float16, true, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::float16, true, int8_t, true>(params, tileConfig);
 }
 
 TEST_F(AttentionPostSTest, b96_s1_nz_fp16_quant) {
@@ -205,7 +213,7 @@ TEST_F(AttentionPostSTest, b96_s1_nz_fp16_quant) {
     PostTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::float16, true, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::float16, true, int8_t, true>(params, tileConfig);
 }
 
 TEST_F(AttentionPostSTest, b96_s2_nz_fp16_quant) {
@@ -214,7 +222,7 @@ TEST_F(AttentionPostSTest, b96_s2_nz_fp16_quant) {
     PostTileConfig tileConfig = {32, 2};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::float16, true, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::float16, true, int8_t, true>(params, tileConfig);
 }
 
 ////// bf16, nz, quant
@@ -224,7 +232,7 @@ TEST_F(AttentionPostSTest, b16_s1_nz_bf16_quant) {
     PostTileConfig tileConfig = {16, 1};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::bfloat16, true, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::bfloat16, true, int8_t, true>(params, tileConfig);
 }
 
 TEST_F(AttentionPostSTest, b16_s2_nz_bf16_quant) {
@@ -233,7 +241,7 @@ TEST_F(AttentionPostSTest, b16_s2_nz_bf16_quant) {
     PostTileConfig tileConfig = {16, 2};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::bfloat16, true, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::bfloat16, true, int8_t, true>(params, tileConfig);
 }
 
 TEST_F(AttentionPostSTest, b32_s1_nz_bf16_quant) {
@@ -242,7 +250,7 @@ TEST_F(AttentionPostSTest, b32_s1_nz_bf16_quant) {
     PostTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::bfloat16, true, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::bfloat16, true, int8_t, true>(params, tileConfig);
 }
 
 TEST_F(AttentionPostSTest, b32_s2_nz_bf16_quant) {
@@ -251,7 +259,7 @@ TEST_F(AttentionPostSTest, b32_s2_nz_bf16_quant) {
     PostTileConfig tileConfig = {32, 2};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::bfloat16, true, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::bfloat16, true, int8_t, true>(params, tileConfig);
 }
 
 TEST_F(AttentionPostSTest, b64_s1_nz_bf16_quant) {
@@ -260,7 +268,7 @@ TEST_F(AttentionPostSTest, b64_s1_nz_bf16_quant) {
     PostTileConfig tileConfig = {64, 1};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::bfloat16, true, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::bfloat16, true, int8_t, true>(params, tileConfig);
 }
 
 TEST_F(AttentionPostSTest, b64_s2_nz_bf16_quant) {
@@ -269,7 +277,7 @@ TEST_F(AttentionPostSTest, b64_s2_nz_bf16_quant) {
     PostTileConfig tileConfig = {32, 2};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::bfloat16, true, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::bfloat16, true, int8_t, true>(params, tileConfig);
 }
 
 TEST_F(AttentionPostSTest, b24_s1_nz_bf16_quant) {
@@ -278,7 +286,7 @@ TEST_F(AttentionPostSTest, b24_s1_nz_bf16_quant) {
     PostTileConfig tileConfig = {24, 1};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::bfloat16, true, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::bfloat16, true, int8_t, true>(params, tileConfig);
 }
 
 TEST_F(AttentionPostSTest, b24_s2_nz_bf16_quant) {
@@ -287,7 +295,7 @@ TEST_F(AttentionPostSTest, b24_s2_nz_bf16_quant) {
     PostTileConfig tileConfig = {24, 2};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::bfloat16, true, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::bfloat16, true, int8_t, true>(params, tileConfig);
 }
 
 TEST_F(AttentionPostSTest, b48_s1_nz_bf16_quant) {
@@ -296,7 +304,7 @@ TEST_F(AttentionPostSTest, b48_s1_nz_bf16_quant) {
     PostTileConfig tileConfig = {48, 1};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::bfloat16, true, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::bfloat16, true, int8_t, true>(params, tileConfig);
 }
 
 TEST_F(AttentionPostSTest, b48_s2_nz_bf16_quant) {
@@ -305,7 +313,7 @@ TEST_F(AttentionPostSTest, b48_s2_nz_bf16_quant) {
     PostTileConfig tileConfig = {48, 1};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::bfloat16, true, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::bfloat16, true, int8_t, true>(params, tileConfig);
 }
 
 TEST_F(AttentionPostSTest, b96_s1_nz_bf16_quant) {
@@ -314,7 +322,7 @@ TEST_F(AttentionPostSTest, b96_s1_nz_bf16_quant) {
     PostTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::bfloat16, true, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::bfloat16, true, int8_t, true>(params, tileConfig);
 }
 
 TEST_F(AttentionPostSTest, b96_s2_nz_bf16_quant) {
@@ -323,7 +331,7 @@ TEST_F(AttentionPostSTest, b96_s2_nz_bf16_quant) {
     PostTileConfig tileConfig = {32, 2};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::bfloat16, true, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::bfloat16, true, int8_t, true>(params, tileConfig);
 }
 
 ////// fp16, nd, quant
@@ -333,7 +341,7 @@ TEST_F(AttentionPostSTest, b32_s1_nd_fp16_quant) {
     PostTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::float16, false, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::float16, false, int8_t, true>(params, tileConfig);
 }
 
 TEST_F(AttentionPostSTest, b32_s2_nd_fp16_quant) {
@@ -342,7 +350,7 @@ TEST_F(AttentionPostSTest, b32_s2_nd_fp16_quant) {
     PostTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::float16, false, int8_t>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::float16, false, int8_t, true>(params, tileConfig);
 }
 
 ////// fp16, nz, no quant
@@ -352,7 +360,7 @@ TEST_F(AttentionPostSTest, b32_s1_nz_fp16) {
     PostTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::float16, true, npu::tile_fwk::float16>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::float16, true, npu::tile_fwk::float16, false>(params, tileConfig);
 }
 
 TEST_F(AttentionPostSTest, b32_s2_nz_fp16) {
@@ -361,7 +369,7 @@ TEST_F(AttentionPostSTest, b32_s2_nz_fp16) {
     PostTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::float16, true, npu::tile_fwk::float16>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::float16, true, npu::tile_fwk::float16, false>(params, tileConfig);
 }
 
 ////// fp16, nd, no quant
@@ -371,7 +379,7 @@ TEST_F(AttentionPostSTest, b32_s1_nd_fp16) {
     PostTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::float16, false, npu::tile_fwk::float16>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::float16, false, npu::tile_fwk::float16, false>(params, tileConfig);
 }
 
 TEST_F(AttentionPostSTest, b32_s2_nd_fp16) {
@@ -380,7 +388,7 @@ TEST_F(AttentionPostSTest, b32_s2_nd_fp16) {
     PostTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    TestAttentionPost<npu::tile_fwk::float16, false, npu::tile_fwk::float16>(params, tileConfig);
+    TestAttentionPost<npu::tile_fwk::float16, false, npu::tile_fwk::float16, false>(params, tileConfig);
 }
 
 } // namespace

@@ -25,7 +25,7 @@ namespace npu::tile_fwk {
 // b and s is dynamic, support:
 // b: 16, 32, 64, 24, 48, 96
 // s: 1, 2
-void PostCompute(Tensor &input, Tensor &weightUV, Tensor &weightO, Tensor &weightOScale,
+void PostCompute(Tensor &input, Tensor &weightUV, Tensor &weightO, Tensor &weightOScale, Tensor &smoothScalesWo,
                  const PostTileConfig &tileConfig, Tensor &postOut) {
     // input: [b,s,n,kvLoraRank], fp16/bf16
     // weightUV: [n,kvLoraRank,vHeadDim], fp16/bf16
@@ -45,6 +45,7 @@ void PostCompute(Tensor &input, Tensor &weightUV, Tensor &weightO, Tensor &weigh
     int tileBS = tileB * tileS;
 
     bool isQuant = (weightOScale.GetStorage() != nullptr);
+    bool isSmooth = (smoothScalesWo.GetStorage() != nullptr);
 
     SymbolicScalar b = GetInputShapeDim(input, 0);
     SymbolicScalar s = GetInputShapeDim(input, 1);
@@ -83,10 +84,16 @@ void PostCompute(Tensor &input, Tensor &weightUV, Tensor &weightO, Tensor &weigh
             if (isQuant) {
                 ConfigManager::Instance().SetSemanticLabel("postQuant");
                 Program::GetInstance().GetTileShape().SetVecTileShapes({1, n * vHeadDim});
-                auto quant = Quant(bmmRes, true, false);
-                auto bmmResQuant = std::get<0>(quant); // [tileBS, n*vHeadDim], int8
-                auto scaleDequant = std::get<1>(quant); // [tileBS, 1], fp32
+                std::tuple<Tensor, Tensor> quantRes;
+                if (isSmooth) {
+                    quantRes = Quant(bmmRes, true, true, smoothScalesWo);
+                } else {
+                    quantRes = Quant(bmmRes, true, false);
+                }
+                auto bmmResQuant = std::get<0>(quantRes); // [tileBS, n*vHeadDim], int8
+                auto scaleDequant = std::get<1>(quantRes); // [tileBS, 1], fp32
 
+                ConfigManager::Instance().SetSemanticLabel("postMm");
                 Program::GetInstance().GetTileShape().SetCubeTileShapes({m, m},
                     {std::min(NUM_512, n * vHeadDim), std::min(NUM_512, n * vHeadDim)},
                     {std::min(NUM_64, h), std::min(NUM_64, h)}, true);
@@ -121,10 +128,10 @@ void PostCompute(Tensor &input, Tensor &weightUV, Tensor &weightO, Tensor &weigh
     }
 }
 
-void AttentionPost(Tensor &input, Tensor &weightUV, Tensor &weightO, Tensor &weightOScale,
+void AttentionPost(Tensor &input, Tensor &weightUV, Tensor &weightO, Tensor &weightOScale, Tensor &smoothScalesWo,
                    const PostTileConfig &tileConfig, Tensor &postOut) {
-    FUNCTION("POST_MAIN", FunctionType::DYNAMIC, {input, weightUV, weightO, weightOScale}, {postOut}) {
-        PostCompute(input, weightUV, weightO, weightOScale, tileConfig, postOut);
+    FUNCTION("POST_MAIN", FunctionType::DYNAMIC, {input, weightUV, weightO, weightOScale, smoothScalesWo}, {postOut}) {
+        PostCompute(input, weightUV, weightO, weightOScale, smoothScalesWo, tileConfig, postOut);
     }
 }
 

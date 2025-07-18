@@ -453,8 +453,8 @@ void MlaPrologCompute(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUq
             // krCache: [blockNum * blockSize * n2, qkRopeHeadDim], output4
             Tensor krCacheOutView = ScatterUpdate(krCacheRes, indexView, kRopeRes, SCATTER_UPADATE_DIM, cacheMode, blockSize);
 
-            kvCacheOut = Reshape(kvCacheOutView, {blockNum, blockSize, n2, kvLoraRank});
-            krCacheOut = Reshape(krCacheOutView, {blockNum, blockSize, n2, qkRopeHeadDim});
+            kvCacheOut = Reshape(kvCacheOutView, {blockNum * blockSize, n2 * kvLoraRank});
+            krCacheOut = Reshape(krCacheOutView, {blockNum * blockSize, n2 * qkRopeHeadDim});
 
             Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, NUM_32, NUM_128});
             DAssemble(queryOutView, outputOffset, queryOut);  // output1

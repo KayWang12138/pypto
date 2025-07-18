@@ -44,10 +44,10 @@ else:
 fp32 = np.float32
 
 
-def quant(input_t, is_pertoken: bool = True, has_smooth=False, smooth_cq=None):
+def quant(input_t, is_pertoken: bool = True, has_smooth=False, smooth_w=None):
     input_fp32 = input_t.astype(fp32)
     if has_smooth:
-        input_fp32 = input_fp32 * smooth_cq
+        input_fp32 = input_fp32 * smooth_w
     abs_res = np.abs(input_fp32)
     reduce_idx = -1
     if not is_pertoken:
@@ -68,11 +68,14 @@ def quant(input_t, is_pertoken: bool = True, has_smooth=False, smooth_cq=None):
 def post_compute(inputs):
     dtype = inputs.get("dtype")
     is_quant = inputs.get("is_quant")
+    has_smooth = inputs.get("has_smooth")
     x = inputs.get("x")
     w_uv = inputs.get("w_uv")
     w_o = inputs.get("w_o")
     if is_quant:
         w_o_scale = inputs.get("w_o_scale")
+        if has_smooth:
+            smooth_wo = inputs.get("smooth_wo")
 
     b, s, n, kv_lora_rank = x.shape
     v_head_dim = w_uv.shape[2]
@@ -89,7 +92,11 @@ def post_compute(inputs):
     if is_quant:
         # quant, per_token
         # scale_dequant: [b*s, 1]
-        bmm_reshape, scale_dequant = quant(bmm_reshape, True)  # int8, fp32
+        if has_smooth:
+            bmm_reshape, scale_dequant = quant(bmm_reshape, True, True, smooth_wo)
+        else:
+            bmm_reshape, scale_dequant = quant(bmm_reshape, True)  # int8, fp32
+
         mm = np.matmul(bmm_reshape.astype(np.int32), w_o.astype(np.int32))
 
         # dequant
@@ -104,12 +111,13 @@ def post_compute(inputs):
     return output
 
 
-def gen_post_test_data(output_dir: Path, params, dtype, is_quant=True, is_nz=True):
+def gen_post_test_data(output_dir: Path, params, dtype, is_quant=True, has_smooth=True, is_nz=True):
     b, n, s, h, kv_lora_rank, v_head_dim = params
     x_shape = [b, s, n, kv_lora_rank]
     w_uv_shape = [n, kv_lora_rank, v_head_dim]
     w_o_shape = [n * v_head_dim, h]
     w_o_scale_shape = [1, h]
+    smooth_wo_shape = [1, n * v_head_dim]
     logging.debug("x shape is %s", x_shape)
     logging.debug("w_uv shape is %s", w_uv_shape)
     logging.debug("w_0 shape is %s", w_o_shape)
@@ -119,6 +127,7 @@ def gen_post_test_data(output_dir: Path, params, dtype, is_quant=True, is_nz=Tru
     w_uv_path = Path(output_dir, 'w_uv.bin')
     w_o_path = Path(output_dir, 'w_o.bin')
     w_o_scale_path = Path(output_dir, 'w_o_scale.bin')
+    smooth_wo_path = Path(output_dir, 'smooth_wo.bin')
     # output
     output_path = Path(output_dir, 'golden_output.bin')
 
@@ -136,19 +145,24 @@ def gen_post_test_data(output_dir: Path, params, dtype, is_quant=True, is_nz=Tru
             w_o_quant.tofile(w_o_path)
         w_o_scale.tofile(w_o_scale_path)
         logging.debug("w_o_scale shape is %s", w_o_scale.shape)
+        if has_smooth:
+            smooth_wo = np.random.uniform(-1, 1, smooth_wo_shape).astype(np.float32)
+            smooth_wo.tofile(smooth_wo_path)
     else:
         if is_nz:
             w_o.reshape(w_o_shape[0], w_o_shape[1] // 16, 16).transpose(1,0,2).tofile(w_o_path)
         else:
             w_o.tofile(w_o_path)
 
-    inputs = {"dtype": dtype, "is_quant": is_quant}
+    inputs = {"dtype": dtype, "is_quant": is_quant, "has_smooth": has_smooth}
     inputs["x"] = x
     inputs["w_uv"] = w_uv
     inputs["w_o"] = w_o
     if is_quant:
         inputs["w_o"] = w_o_quant
         inputs["w_o_scale"] = w_o_scale
+        if has_smooth:
+            inputs["smooth_wo"] = smooth_wo
 
     output = post_compute(inputs)
     output.tofile(output_path)
@@ -201,69 +215,69 @@ def gen_post_date(case_name: str, output: Path) -> bool:
     # b, n, s, h, kv_lora_rank, v_head_dim
     # fp16, nz, quant
     if case_name == "AttentionPostSTest.b16_s1_nz_fp16_quant":
-        gen_post_test_data(output, (16, 128, 1, 7168, 512, 128), np.float16, True, True)
+        gen_post_test_data(output, (16, 128, 1, 7168, 512, 128), np.float16, True, True, True)
     elif case_name == "AttentionPostSTest.b16_s2_nz_fp16_quant":
-        gen_post_test_data(output, (16, 128, 2, 7168, 512, 128), np.float16, True, True)
+        gen_post_test_data(output, (16, 128, 2, 7168, 512, 128), np.float16, True, True, True)
     elif case_name == "AttentionPostSTest.b32_s1_nz_fp16_quant":
-        gen_post_test_data(output, (32, 128, 1, 7168, 512, 128), np.float16, True, True)
+        gen_post_test_data(output, (32, 128, 1, 7168, 512, 128), np.float16, True, True, True)
     elif case_name == "AttentionPostSTest.b32_s2_nz_fp16_quant":
-        gen_post_test_data(output, (32, 128, 2, 7168, 512, 128), np.float16, True, True)
+        gen_post_test_data(output, (32, 128, 2, 7168, 512, 128), np.float16, True, True, True)
     elif case_name == "AttentionPostSTest.b64_s1_nz_fp16_quant":
-        gen_post_test_data(output, (64, 128, 1, 7168, 512, 128), np.float16, True, True)
+        gen_post_test_data(output, (64, 128, 1, 7168, 512, 128), np.float16, True, True, True)
     elif case_name == "AttentionPostSTest.b64_s2_nz_fp16_quant":
-        gen_post_test_data(output, (64, 128, 2, 7168, 512, 128), np.float16, True, True)
+        gen_post_test_data(output, (64, 128, 2, 7168, 512, 128), np.float16, True, True, True)
     elif case_name == "AttentionPostSTest.b24_s1_nz_fp16_quant":
-        gen_post_test_data(output, (24, 128, 1, 7168, 512, 128), np.float16, True, True)
+        gen_post_test_data(output, (24, 128, 1, 7168, 512, 128), np.float16, True, True, True)
     elif case_name == "AttentionPostSTest.b24_s2_nz_fp16_quant":
-        gen_post_test_data(output, (24, 128, 2, 7168, 512, 128), np.float16, True, True)
+        gen_post_test_data(output, (24, 128, 2, 7168, 512, 128), np.float16, True, True, True)
     elif case_name == "AttentionPostSTest.b48_s1_nz_fp16_quant":
-        gen_post_test_data(output, (48, 128, 1, 7168, 512, 128), np.float16, True, True)
+        gen_post_test_data(output, (48, 128, 1, 7168, 512, 128), np.float16, True, True, True)
     elif case_name == "AttentionPostSTest.b48_s2_nz_fp16_quant":
-        gen_post_test_data(output, (48, 128, 2, 7168, 512, 128), np.float16, True, True)
+        gen_post_test_data(output, (48, 128, 2, 7168, 512, 128), np.float16, True, True, True)
     elif case_name == "AttentionPostSTest.b96_s1_nz_fp16_quant":
-        gen_post_test_data(output, (96, 128, 1, 7168, 512, 128), np.float16, True, True)
+        gen_post_test_data(output, (96, 128, 1, 7168, 512, 128), np.float16, True, True, True)
     elif case_name == "AttentionPostSTest.b96_s2_nz_fp16_quant":
-        gen_post_test_data(output, (96, 128, 2, 7168, 512, 128), np.float16, True, True)
+        gen_post_test_data(output, (96, 128, 2, 7168, 512, 128), np.float16, True, True, True)
     # bf16, nz, quant
     elif case_name == "AttentionPostSTest.b16_s1_nz_bf16_quant":
-        gen_post_test_data(output, (16, 128, 1, 7168, 512, 128), bfloat16, True, True)
+        gen_post_test_data(output, (16, 128, 1, 7168, 512, 128), bfloat16, True, True, True)
     elif case_name == "AttentionPostSTest.b16_s2_nz_bf16_quant":
-        gen_post_test_data(output, (16, 128, 2, 7168, 512, 128), bfloat16, True, True)
+        gen_post_test_data(output, (16, 128, 2, 7168, 512, 128), bfloat16, True, True, True)
     elif case_name == "AttentionPostSTest.b32_s1_nz_bf16_quant":
-        gen_post_test_data(output, (32, 128, 1, 7168, 512, 128), bfloat16, True, True)
+        gen_post_test_data(output, (32, 128, 1, 7168, 512, 128), bfloat16, True, True, True)
     elif case_name == "AttentionPostSTest.b32_s2_nz_bf16_quant":
-        gen_post_test_data(output, (32, 128, 2, 7168, 512, 128), bfloat16, True, True)
+        gen_post_test_data(output, (32, 128, 2, 7168, 512, 128), bfloat16, True, True, True)
     elif case_name == "AttentionPostSTest.b64_s1_nz_bf16_quant":
-        gen_post_test_data(output, (64, 128, 1, 7168, 512, 128), bfloat16, True, True)
+        gen_post_test_data(output, (64, 128, 1, 7168, 512, 128), bfloat16, True, True, True)
     elif case_name == "AttentionPostSTest.b64_s2_nz_bf16_quant":
-        gen_post_test_data(output, (64, 128, 2, 7168, 512, 128), bfloat16, True, True)
+        gen_post_test_data(output, (64, 128, 2, 7168, 512, 128), bfloat16, True, True, True)
     elif case_name == "AttentionPostSTest.b24_s1_nz_bf16_quant":
-        gen_post_test_data(output, (24, 128, 1, 7168, 512, 128), bfloat16, True, True)
+        gen_post_test_data(output, (24, 128, 1, 7168, 512, 128), bfloat16, True, True, True)
     elif case_name == "AttentionPostSTest.b24_s2_nz_bf16_quant":
-        gen_post_test_data(output, (24, 128, 2, 7168, 512, 128), bfloat16, True, True)
+        gen_post_test_data(output, (24, 128, 2, 7168, 512, 128), bfloat16, True, True, True)
     elif case_name == "AttentionPostSTest.b48_s1_nz_bf16_quant":
-        gen_post_test_data(output, (48, 128, 1, 7168, 512, 128), bfloat16, True, True)
+        gen_post_test_data(output, (48, 128, 1, 7168, 512, 128), bfloat16, True, True, True)
     elif case_name == "AttentionPostSTest.b48_s2_nz_bf16_quant":
-        gen_post_test_data(output, (48, 128, 2, 7168, 512, 128), bfloat16, True, True)
+        gen_post_test_data(output, (48, 128, 2, 7168, 512, 128), bfloat16, True, True, True)
     elif case_name == "AttentionPostSTest.b96_s1_nz_bf16_quant":
-        gen_post_test_data(output, (96, 128, 1, 7168, 512, 128), bfloat16, True, True)
+        gen_post_test_data(output, (96, 128, 1, 7168, 512, 128), bfloat16, True, True, True)
     elif case_name == "AttentionPostSTest.b96_s2_nz_bf16_quant":
-        gen_post_test_data(output, (96, 128, 2, 7168, 512, 128), bfloat16, True, True)
+        gen_post_test_data(output, (96, 128, 2, 7168, 512, 128), bfloat16, True, True, True)
     # fp16, nd, quant
     elif case_name == "AttentionPostSTest.b32_s1_nd_fp16_quant":
-        gen_post_test_data(output, (32, 128, 1, 7168, 512, 128), np.float16, True, False)
+        gen_post_test_data(output, (32, 128, 1, 7168, 512, 128), np.float16, True, True, False)
     elif case_name == "AttentionPostSTest.b32_s2_nd_fp16_quant":
-        gen_post_test_data(output, (32, 128, 2, 7168, 512, 128), np.float16, True, False)
+        gen_post_test_data(output, (32, 128, 2, 7168, 512, 128), np.float16, True, True, False)
     # fp16, nz, no quant
     elif case_name == "AttentionPostSTest.b32_s1_nz_fp16":
-        gen_post_test_data(output, (32, 128, 1, 7168, 512, 128), np.float16, False, True)
+        gen_post_test_data(output, (32, 128, 1, 7168, 512, 128), np.float16, False, False, True)
     elif case_name == "AttentionPostSTest.b32_s2_nz_fp16":
-        gen_post_test_data(output, (32, 128, 2, 7168, 512, 128), np.float16, False, True)
+        gen_post_test_data(output, (32, 128, 2, 7168, 512, 128), np.float16, False, False, True)
     # fp16, nd, no quant
     elif case_name == "AttentionPostSTest.b32_s1_nd_fp16":
-        gen_post_test_data(output, (32, 128, 1, 7168, 512, 128), np.float16, False, False)
+        gen_post_test_data(output, (32, 128, 1, 7168, 512, 128), np.float16, False, False, False)
     elif case_name == "AttentionPostSTest.b32_s2_nd_fp16":
-        gen_post_test_data(output, (32, 128, 2, 7168, 512, 128), np.float16, False, False)
+        gen_post_test_data(output, (32, 128, 2, 7168, 512, 128), np.float16, False, False, False)
 
     else:
         logging.error("Can't get func to gen golden, Case(%s)", case_name)

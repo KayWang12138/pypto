@@ -67,6 +67,7 @@ void TestAttentionPostUt(const TestPostParams &params, const PostTileConfig &til
     std::vector<int> wUvShape = {n, kvLoraRank, vHeadDim};
     std::vector<int> woShape = {n * vHeadDim, h};
     std::vector<int> woScaleShape = {1, h};
+    std::vector<int> smoothWoShape = {1, n * vHeadDim};
     std::vector<int> outShape = {b, s, h};
 
     TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
@@ -74,14 +75,19 @@ void TestAttentionPostUt(const TestPostParams &params, const PostTileConfig &til
     Tensor wUv(dType, wUvShape, "wUv");
     Tensor wo(dTypeQuant, woShape, "wo", NodeType::LOCAL, weightFormat);
     Tensor woScale;
+    Tensor smoothWo;
     Tensor postOut(dType, outShape, "postOut");
 
     if (isQuant) {
         Tensor scale(DT_FP32, woScaleShape, "woScale");
         woScale = scale;
+        if (isSmooth) {
+            Tensor smooth(DT_FP32, smoothWoShape, "smoothWo");
+            smoothWo = smooth;
+        }
     }
 
-    AttentionPost(x, wUv, wo, woScale, tileConfig, postOut);
+    AttentionPost(x, wUv, wo, woScale, smoothWo, tileConfig, postOut);
 }
 
 TEST_F(AttentionPostUTest, b32_s1_nz_fp16_quant) {
@@ -89,5 +95,5 @@ TEST_F(AttentionPostUTest, b32_s1_nz_fp16_quant) {
     TestPostParams params = {32, 128, 1, 7168, 512, 128};
     PostTileConfig tileConfig = {16, 1};
 
-    TestAttentionPostUt<npu::tile_fwk::float16, true, int8_t>(params, tileConfig);
+    TestAttentionPostUt<npu::tile_fwk::float16, true, int8_t, true>(params, tileConfig);
 }

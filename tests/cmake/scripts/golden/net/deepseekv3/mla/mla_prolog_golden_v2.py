@@ -972,6 +972,19 @@ def gen_mla_prolog_data_nsa(case_name: str, output: Path):
         gen_prolog_data((np.float16, np.float16), (32, 128, 1, 8192), 1e-5, output, True, False, True, 128, "PA_BSND")
     elif case_name == "MlaPrologSTest.b32_s2_pa_nd_fp16_quant":
         gen_prolog_data((np.float16, np.float16), (32, 128, 2, 8192), 1e-5, output, True, False, True, 128, "PA_BSND")
+    elif case_name == "MlaPrologSTest.b48_s1_pa_nd_fp16_quant":
+        gen_prolog_data((np.float16, np.float16), (48, 128, 1, 8192), 1e-5, output, True, False, True, 128, "PA_BSND")
+    elif case_name == "MlaPrologSTest.b48_s2_pa_nd_fp16_quant":
+        gen_prolog_data((np.float16, np.float16), (48, 128, 2, 8192), 1e-5, output, True, False, True, 128, "PA_BSND")
+    # bf16, quant, weight nd, "PA_BSND"
+    elif case_name == "MlaPrologSTest.b64_s1_pa_nd_bf16_quant":
+        gen_prolog_data((bfloat16, bfloat16), (64, 128, 1, 8192), 1e-5, output, True, False, True, 128, "PA_BSND")
+    elif case_name == "MlaPrologSTest.b64_s2_pa_nd_bf16_quant":
+        gen_prolog_data((bfloat16, bfloat16), (64, 128, 2, 8192), 1e-5, output, True, False, True, 128, "PA_BSND")
+    elif case_name == "MlaPrologSTest.b96_s1_pa_nd_bf16_quant":
+        gen_prolog_data((bfloat16, bfloat16), (96, 128, 1, 8192), 1e-5, output, True, False, True, 128, "PA_BSND")
+    elif case_name == "MlaPrologSTest.b96_s2_pa_nd_bf16_quant":
+        gen_prolog_data((bfloat16, bfloat16), (96, 128, 2, 8192), 1e-5, output, True, False, True, 128, "PA_BSND")
     # fp16, no quant, weight nz, "PA_NZ"
     elif case_name == "MlaPrologSTest.b32_s1_pa_nz_fp16":
         gen_prolog_data((np.float16, np.float16), (32, 128, 1, 8192), 1e-5, output, False, True, False, 128, "PA_NZ")
@@ -1019,6 +1032,13 @@ nsa_case_names = [
     # fp16, quant, weight nd, "PA_BSND"
     "MlaPrologSTest.b32_s1_pa_nd_fp16_quant",
     "MlaPrologSTest.b32_s2_pa_nd_fp16_quant",
+    "MlaPrologSTest.b48_s1_pa_nd_fp16_quant",
+    "MlaPrologSTest.b48_s2_pa_nd_fp16_quant",
+    # bf16, quant, weight nd, "PA_BSND"
+    "MlaPrologSTest.b64_s1_pa_nd_bf16_quant",
+    "MlaPrologSTest.b64_s2_pa_nd_bf16_quant",
+    "MlaPrologSTest.b96_s1_pa_nd_bf16_quant",
+    "MlaPrologSTest.b96_s2_pa_nd_bf16_quant",
     # fp16, no quant, weight nz, "PA_NZ"
     "MlaPrologSTest.b32_s1_pa_nz_fp16",
     "MlaPrologSTest.b32_s2_pa_nz_fp16",
