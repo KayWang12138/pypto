@@ -41,7 +41,7 @@ _checkmode_dict = {
     "PreGraphPass": 1,
     "PadLocalBuffer": 1,
     "SubgraphToFunction": 2,
-    "SrcDstBufferMergePVC2Pass": 2,
+    "SrcDstBufferMergePass": 2,
     "AddAllocNewPass": 2,
     "OoOSchedulePVC2Pass": 2,
     "RemoveAllocPass": 2,

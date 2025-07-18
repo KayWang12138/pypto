@@ -21,29 +21,41 @@
 #include "interface/utils/log.h"
 namespace npu::tile_fwk {
 
-class SrcDstBufferMergePVC2 {
-  public:
-    SrcDstBufferMergePVC2() = default;
-    ~SrcDstBufferMergePVC2() = default;
-    void Run(Function &func);
-  private:
-    void Init(const std::vector<Operation *> &opList);
-    bool CanSrcDstReuse(const std::vector<Operation *> &opList, size_t idx,
-                        std::shared_ptr<LogicalTensor> ioperand, bool strict = false);
+class SrcDstBufferMerge {
+public:
+    SrcDstBufferMerge() = default;
+    ~SrcDstBufferMerge() = default;
+    Status Run(Function &func);
+
+private:
+    void InitTensorMaxSize(const LogicalTensorPtr &output);
+    Status Init(const std::vector<Operation *> &opList);
+    bool CheckIgnoreScene(Function &func, const Operation *oriOps);
+    std::pair<bool, Status> CheckHasInplaced(const Operation *oriOps, const Operation *ops,
+        std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors, int &inIdx);
+    bool FindReplaced(const Operation *oriOps, const Operation *ops,
+        std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors, int &inIdx);
+    void NotFindReplacedProcess(const Operation *ops,
+        std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors);
+    bool CanSrcDstReuse(const Operation *ops, std::shared_ptr<LogicalTensor> ioperand, bool strict = false);
+
     std::map<int, std::set<int>> tensorConsumers_;
     std::map<int, int> tensorMaxSize_;
-    int subGrpahID_{-1};
+    int subGraphID_{-1};
 };
 
 class SrcDstBufferMergePass : public Pass {
-  public:
+public:
     SrcDstBufferMergePass() : Pass("SrcDstBufferMergePass") {}
 
 private:
     Status RunOnFunction(Function &function) override {
         ALOG_INFO_F("===> Start SrcDstBufferMergePass.");
-        SrcDstBufferMergePVC2 merge;
-        merge.Run(function);
+        SrcDstBufferMerge merge;
+        if (merge.Run(function) != SUCCESS) {
+			ALOG_INFO_F("===> Stop SrcDstBufferMergePass.");
+			return SUCCESS;
+		}
         ALOG_INFO_F("===> Finish SrcDstBufferMergePass.");
         return SUCCESS;
     }

@@ -133,7 +133,7 @@
                 "POST_CHECK": false,
                 "USE_MAX_FREQ_LABEL": true
             },
-            "SrcDstBufferMergePVC2Pass": {
+            "SrcDstBufferMergePass": {
                 "POST_CHECK": false
             },
             "AddAllocNewPass": {

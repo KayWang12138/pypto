@@ -233,7 +233,7 @@ TEST_F(MergeSrcDstBufferTest, AppointInplace) {
     FunctionUtils::AddControlEdge(alloc3, add1);
     add1.SetAttr(OpAttributeKey::inplaceIdx, 0);
 
-    SrcDstBufferMergePVC2 srcDstMerge;
+    SrcDstBufferMerge srcDstMerge;
     Function func(Program::GetInstance(), "", "", nullptr);
     Function func1(Program::GetInstance(), "", "", nullptr);
     Function *rootFunc = &func1;
