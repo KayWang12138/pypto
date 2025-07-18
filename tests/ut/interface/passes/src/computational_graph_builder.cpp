@@ -32,11 +32,38 @@ bool ComputationalGraphBuilder::AddTensor(DataType dataType, const std::vector<i
     return true;
 }
 
+bool ComputationalGraphBuilder::AddTensor(DataType dataType, const std::vector<int>& tileShape,
+                                          MemoryType memType, const std::string& name)
+{
+    if (!AddTensor(dataType, tileShape, name)) {
+        return false;
+    }
+    auto tensor = GetTensor(name);
+    tensor->SetMemoryTypeBoth(memType, true);
+    tensors_[name] = tensor;
+    return true;
+}
+
 bool ComputationalGraphBuilder::AddTensors(DataType dataType, const std::vector<int>& tileShape,
                                            const std::vector<std::string>& names)
 {
     for (auto &name : names) {
         if (!AddTensor(dataType, tileShape, name)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool ComputationalGraphBuilder::AddTensors(DataType dataType, const std::vector<int>& tileShape,
+                                           const std::vector<MemoryType>& memTypes,
+                                           const std::vector<std::string>& names)
+{
+    if (memTypes.size() != names.size()) {
+        return false;
+    }
+    for (size_t i = 0; i < memTypes.size(); i++) {
+        if (!AddTensor(dataType, tileShape, memTypes[i], names[i])) {
             return false;
         }
     }
