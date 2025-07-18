@@ -57,5 +57,5 @@ private:
     std::unordered_map<OverlaprawMagic, std::shared_ptr<RawTensor>> reshapeRawOutputs;
     std::unordered_map<OverlaprawMagic, std::shared_ptr<RawTensor>> reshapeRawInputs;
 };
-} // namespace ascend
+} // namespace
 #endif // PASS_REMOVE_UNALIGNED_RESHAPE_OP_H_

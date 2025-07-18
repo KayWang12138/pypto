@@ -13,8 +13,8 @@
  * \brief
  */
 
-#ifndef ASCEND_PASS_SPLIT_LARGE_FANOUT_TENSOR_H_
-#define ASCEND_PASS_SPLIT_LARGE_FANOUT_TENSOR_H_
+#ifndef PASS_SPLIT_LARGE_FANOUT_TENSOR_H_
+#define PASS_SPLIT_LARGE_FANOUT_TENSOR_H_
 
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
@@ -55,4 +55,4 @@ private:
     std::vector<AssembleOp> assembles;
 };
 } // namespace npu::tile_fwk
-#endif // ASCEND_PASS_SPLIT_LARGE_FANOUT_TENSOR_H_
+#endif // PASS_SPLIT_LARGE_FANOUT_TENSOR_H_

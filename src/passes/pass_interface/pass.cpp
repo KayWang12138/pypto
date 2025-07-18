@@ -32,15 +32,16 @@ const std::string &Pass::LogFolder(const std::string &topFolder, size_t i) const
 }
 
 Status Pass::CreateLogFolder(const std::string &topFolder, size_t i) const {
-    if (passFolder_.empty()) {
-        std::stringstream ss;
-        ss << std::setw(PASS_NUM_DIGITS) << std::setfill('0') << i;
-        passFolder_ = topFolder + "/Pass_" + ss.str() + "_" + name_;
-        bool res = CreateDir(passFolder_);
-        if (res == false) {
-            ALOG_WARN_F("Failed to create directory: [%s].", passFolder_.c_str());
-            return FAILED;
-        }
+    if (!topFolder.empty()) {
+        passFolder_ = topFolder;
+    }
+    std::stringstream ss;
+    ss << std::setw(PASS_NUM_DIGITS) << std::setfill('0') << i;
+    passFolder_ = passFolder_ + "/Pass_" + ss.str() + "_" + name_;
+    bool res = CreateDir(passFolder_);
+    if (res == false) {
+        ALOG_WARN_F("Failed to create directory: [%s].", passFolder_.c_str());
+        return FAILED;
     }
     return SUCCESS;
 }

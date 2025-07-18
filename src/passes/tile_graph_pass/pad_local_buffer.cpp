@@ -343,4 +343,4 @@ Status PadLocalBuffer::RunOnFunction(Function &function) {
     DoPadding(function);
     return SUCCESS;
 }
-} // namespace ascend
+} // namespace

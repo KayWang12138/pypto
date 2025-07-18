@@ -96,4 +96,4 @@ void RemoveUnalignedReshapeOp::CollectReshapeOps(Function &function) {
     }
 }
 
-} // namespace ascend
+} // namespace
