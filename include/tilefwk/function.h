@@ -29,19 +29,53 @@
 #define RECORD_FUNC_VAR_NAME_COUNTER(var, cnt) RECORD_FUNC_VAR_NAME_COUNTER_HELPER(var, cnt)
 #define RECORD_FUNC_VAR_NAME(var) RECORD_FUNC_VAR_NAME_COUNTER(var, __COUNTER__)
 
-// Main FUNCTION macro that dispatches based on argument count
+/**
+ * @brief Start a tile_fwk function. All computational logic must be enclosed by this macro
+ * @param name: Name of the function;
+ * @param type: Type of funtion;
+ * @param explicitOpArgs: The inputs and outputs of the function. Be effective in static shape scen.
+ * @param startArgsInputTensorList: The inputs of the function. Be effective in dynamic shape scen.
+ * @param startArgsOutputTensorList: The outputs of the function. Be effective in dynamic shape scen.
+ * @param inplaceArgs: A inpute and a output have same addr. Be effective in dynamic shape scen. optional, default is empty;
+ */
 #define FUNCTION(name, ...)                                                                       \
     if (auto RECORD_FUNC_VAR_NAME(recordFunc) = npu::tile_fwk::RecordFunc(name, ##__VA_ARGS__); false) { \
     } else
 
+/**
+ * @brief Start a tile_fwk dynamic loop.
+ * @param name: Name of the loops;
+ * @param type: Type of funtion;
+ * @param index: The index of loops.
+ * @param range: The range of loops, including start\end and step length.
+ * @param unrollList: The list for unroll; Optional, default is empty.
+ * @param submitBeforeLoop: Submit task before next loop. Optional, default value is false.
+ */
 #define LOOP(name, funcType, index, ...) \
     for (auto &index : npu::tile_fwk::RecordLoopFunc(name, funcType, #index, ##__VA_ARGS__))
 
+/**
+ * @brief Describe an 'if' branch in dynamic scen.
+ * @param cond: The conditions;
+ */
 #define IF(cond) if (npu::tile_fwk::RecordIfBranch(cond, __FILE__, __LINE__))
 
+/**
+ * @brief Describe an 'else' branch in dynamic scen.
+ * 
+ */
 #define ELSE else
 
+/**
+ * @brief Expend some loops to compile.
+ * @param unrollTimes: The times of loops to compile;
+ */
 #define UNROLL(X) if (npu::tile_fwk::RecordLoopFunc::MatchUnrollTimes(X))
+
+/**
+ * @brief Expend 1 loop to compile.
+ *
+ */
 #define UNROLL_DEFAULT if (npu::tile_fwk::RecordLoopFunc::MatchUnrollTimes(1))
 
 namespace npu::tile_fwk {
