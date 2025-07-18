@@ -58,7 +58,7 @@ Status RemoveRedundentReshape::RemoveReshape(Function &function) const {
             }
         }
         if (allConsumersIsReshape == true) {
-            ALOG_DEBUG_F("All consummers of op [%s] are reshape.", op.GetOpMagic());
+            ALOG_DEBUG_F("All consummers of op [%d] are reshape.", op.GetOpMagic());
             redundentResapes.insert(&op);
         }
     }

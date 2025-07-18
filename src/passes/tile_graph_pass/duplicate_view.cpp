@@ -59,7 +59,7 @@ Status DuplicateView::DuplicateViewPass(Function &function) const {
         if (RunOnOperation(function, op, viewResults) != SUCCESS) {return FAILED;}
     }
     for (auto &viewResult : viewResults) {
-        auto &viewOp = function.AddOperation(Opcode::OP_VIEW, {viewResult.first}, {viewResult.second});
+        auto &viewOp = function.AddRawOperation(Opcode::OP_VIEW, {viewResult.first}, {viewResult.second});
         viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int>(viewResult.second->GetOffset().size())));
     }
     return SUCCESS;
