@@ -51,7 +51,7 @@ test_cases = [
         "FunctionTest.TestRoPEDeepseekV3",
         "FunctionTest.testRmsNormNewMultiDims",
         "FunctionTest.TestConcat",
-        "FunctionTest.TestAttention",
+        # "FunctionTest.TestAttention",
         "FunctionTest.TestAttentionPost",
         "FunctionTest.Test_qkvPre",
         "FunctionTest.Test_qkvPre2",

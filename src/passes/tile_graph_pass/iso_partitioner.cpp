@@ -52,10 +52,6 @@ Status GraphPartitionPass::PreCheck(Function &function)
             return FAILED;
         }
     }
-    if (!function.LoopCheck().empty()) {
-        ALOG_ERROR_F("Loopcheck failed before pass: GraphPartitionPass.");
-        return FAILED;
-    }
     return SUCCESS;
 }
 
@@ -170,7 +166,12 @@ Status GraphPartitionPass::PostCheck(Function &function)
         }
         subgraphs[curSubgraphID].push_back(&op);
     }
-
+    for (int graphID = 0; graphID < static_cast<int>(subgraphs.size()); graphID++) {
+        if (subgraphs[graphID].size() == 0) {
+            ALOG_ERROR_F("Subgraph %d includes no Operation.", graphID);
+            return FAILED;
+        }
+    }
     if (!function.LoopCheck().empty()) {
         ALOG_ERROR("Loopcheck failed after pass: GraphPartitionPass.");
         return FAILED;

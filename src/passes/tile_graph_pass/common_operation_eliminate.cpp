@@ -99,6 +99,9 @@ Operation *CommonOperationEliminate::OperationExist(Operation *operation)
     if (l0CopyInOps.count(operation->GetOpcode()) != 0U) {
         return nullptr;
     }
+    if (operation->GetOpcode() == Opcode::OP_VIEW) {
+        return nullptr;
+    }
     if (operationCache_.count(operation->ComputeHash()) != 0) {
         return operationCache_[operation->ComputeHash()];
     } else {

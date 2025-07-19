@@ -74,6 +74,53 @@ Status UpdateIOOperand(const std::vector<OperationPtr> &tensorOperations) {
 }
 }
 
+Status ExpandFunction::PreCheck(Function &function)
+{
+    ALOG_INFO_F("PreCheck for ExpandFunction.");
+    for (auto &op : function.Operations().DuplicatedOpList()) {
+        if (op == nullptr) {
+            ALOG_ERROR_F("Null pointer in Operations.");
+            return FAILED;
+        }
+    }
+    std::unordered_set<OpCalcType> calTypes{OpCalcType::ELMWISE, OpCalcType::BROADCAST, OpCalcType::REDUCE,
+                                            OpCalcType::CONV};
+    for (auto &op : function.Operations().DuplicatedOpList()) {
+        OpCalcType opCalType = OpcodeManager::Inst().GetOpCalcType(op->GetOpcode());
+        if (calTypes.count(opCalType) > 0) {
+            for (auto &itensor: op->GetIOperands()) {
+                if (itensor->tensor->datatype == DT_BF16) {
+                    ALOG_ERROR_F("Calculation Op %d has BF16 operand %d.", op->GetOpMagic(), itensor->GetMagic());
+                    return FAILED;
+                }
+            }
+            for (auto &otensor: op->GetOOperands()) {
+                if (otensor->tensor->datatype == DT_BF16) {
+                    ALOG_ERROR_F("Calculation Op %d has BF16 operand %d.", op->GetOpMagic(), otensor->GetMagic());
+                    return FAILED;
+                }
+            }
+        }
+    }
+    return SUCCESS;
+}
+
+Status ExpandFunction::PostCheck(Function &function)
+{
+    ALOG_INFO_F("PostCheck for ExpandFunction.");
+    if (function.expandFunctionAccelerate != false) {
+        ALOG_ERROR_F("expandFunctionAccelerate should equal to false after ExpandFunction.");
+        return FAILED;
+    }
+    for (auto &op : function.Operations().DuplicatedOpList()) {
+        if (op == nullptr) {
+            ALOG_ERROR_F("Null pointer in Operations.");
+            return FAILED;
+        }
+    }
+    return SUCCESS;
+}
+
 Status ExpandFunction::RunOnFunction(Function &function) {
     ALOG_INFO_F("===> Start ExpandFunctionPass for function [%s].", function.GetRawName().c_str());
     if (Expandfunction(function) != SUCCESS) {return FAILED;}

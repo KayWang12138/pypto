@@ -41,6 +41,7 @@ set(_CaseFilterList
         "CommonOperationEliminateTest.IgnoreDifferentAttr"
         "CommonOperationEliminateTest.IgnoreDifferentOp"
         "CommonOperationEliminateTest.IgnoreDifferentSubgraph"
+        "CommonOperationEliminateTest.IgnoreSpecialOp"
         "MergeSrcDstBufferTest.Replaced"
         "MergeSrcDstBufferTest.NoReplaced"
         "MergeSrcDstBufferTest.AppointInplace"
