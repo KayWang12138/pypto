@@ -21,7 +21,8 @@ using namespace npu::tile_fwk;
 class TestTileOpAdd : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 void CompileTestCCE(const std::string &cceFileName) {
-    CodeGenCloudNPU codegen; // used to PrepareDefaultOutputPath
+    CodeGenCtx ctx;
+    CodeGenCloudNPU codegen(ctx); // used to PrepareDefaultOutputPath
     std::string cwd = GetCurRunningPath();
     ALOG_INFO_F("cwd is %s", cwd.c_str());
     std::string testDir = "test_add";

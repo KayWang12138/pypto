@@ -275,7 +275,7 @@ void CodeGenCloudNPU::GenCode(
             bool isCube = IsCube(subFunc->Operations());
             std::string coreType = isCube ? "_aic" : "_aiv";
             std::stringstream ss;
-            ss << path_ << "/" << topFunc.GetMagicName() << "_" << topFunc.GetFunctionHash() << "_" << subFuncPair.first
+            ss << ctx.ccePath << "/" << topFunc.GetMagicName() << "_" << topFunc.GetFunctionHash() << "_" << subFuncPair.first
                << coreType << "_rankId_" << npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId();
 
             std::string fileNameStub = ss.str();
@@ -416,6 +416,7 @@ int CodeGenCloudNPU::CompileCCE(
     std::string coreType = isCube ? "dav-c220-cube" : "dav-c220-vec";
 
     char ccecCmd[2048];
+    std::string includePath = ctx.IsIncludePathEmpty() ? SRC_PATH : ctx.includePath;
     int ret = snprintf_s(ccecCmd, sizeof(ccecCmd), sizeof(ccecCmd) - 1,
         "ccec %s -c -O3 -g -x cce -std=c++17 "
         "--cce-aicore-only "
@@ -430,7 +431,8 @@ int CodeGenCloudNPU::CompileCCE(
         "-I%s/src/ "
         "-o %s "
         "%s",
-        compileOptions.c_str(), coreType.c_str(), SRC_PATH, SRC_PATH, SRC_PATH, objFile.c_str(), srcFile.c_str());
+        compileOptions.c_str(), coreType.c_str(), includePath.c_str(), includePath.c_str(), includePath.c_str(),
+        objFile.c_str(), srcFile.c_str());
     if (ret < 0) {
         ALOG_INFO << "CompileCCE snprintf_s failed " << ret;
     }

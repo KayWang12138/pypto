@@ -69,7 +69,8 @@ TEST_F(TestCodegenStaticUnderDyn, TestStaticFuncUnderDyn) {
     for (auto &ele : Program::GetInstance().GetFunctionMap()) {
         bool isRootExist = ele.second.get()->rootFunc_ != nullptr;
         if (isRootExist) {
-            npu::tile_fwk::CodeGenCloudNPU codeGen;
+            npu::tile_fwk::CodeGenCtx ctx;
+            npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
             codeGen.GenCode(*ele.second.get(), {});
         }
     }

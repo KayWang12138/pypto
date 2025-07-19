@@ -111,7 +111,8 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
 
     SymbolManager memAlloc;
-    CodeGenCloudNPU cga;
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
     cga.GenExtraAlloc(memAlloc, localTensorSrc0, op);
     cga.GenExtraAlloc(memAlloc, localTensorSrc1, op);
     CodeGenOpCloudNPU cop(memAlloc, function->GetTensorMap(), FunctionType::DYNAMIC_LOOP_PATH, {}, true);
@@ -170,6 +171,7 @@ TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
         subFunc.second->InsertDynParam("sym_38_dim_0", fakeParam);
         subFunc.second->InsertDynParam("sym_38_dim_1", fakeParam);
     }
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }

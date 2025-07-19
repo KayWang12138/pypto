@@ -85,6 +85,7 @@ TEST_F(TestCodegenDynBinaryBrc, TestMulDynamic) {
         subFunc.second->dynParamTable_.emplace("sym_42_dim_1", fakeParam);
     }
 
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }

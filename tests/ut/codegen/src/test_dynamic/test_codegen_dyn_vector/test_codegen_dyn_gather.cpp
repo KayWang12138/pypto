@@ -88,6 +88,7 @@ TEST_F(TestCodegenDynGather, TestGather) {
         subFunc.second->dynParamTable_.emplace("sym_27_dim_0", fakeParam);
         subFunc.second->dynParamTable_.emplace("sym_27_dim_1", fakeParam);
     }
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }

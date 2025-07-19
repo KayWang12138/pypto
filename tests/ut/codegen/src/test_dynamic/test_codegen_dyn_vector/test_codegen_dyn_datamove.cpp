@@ -79,7 +79,8 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim3) {
         subFunc.second->dynParamTable_.emplace("sym_2_dim_2", fakeParam);
     }
 
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
@@ -120,7 +121,8 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim4) {
         subFunc.second->dynParamTable_.emplace("sym_13_dim_3", fakeParam);
     }
 
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
@@ -155,6 +157,7 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveAlignDim4) {
         }
     }
 
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }

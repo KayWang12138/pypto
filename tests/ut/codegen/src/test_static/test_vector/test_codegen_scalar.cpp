@@ -84,7 +84,8 @@ void TestQuant(std::vector<int> &inputShape) {
     }
 
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
@@ -111,7 +112,8 @@ TEST_F(TestCodegenScalar, TestScalarOp) {
         output = ScalarMaxS(output_d, Element(DataType::DT_FP32, F_127), true);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
@@ -149,7 +151,8 @@ TEST_F(TestCodegenScalar, TestPipeAll) {
     currFunctionPtr->inCasts_.push_back(incast1);
     currFunctionPtr->inCasts_.push_back(incast2);
     currFunctionPtr->outCasts_.push_back(outCast);
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*rootFuncPtr, {});
     EXPECT_TRUE(true);
 }

@@ -84,7 +84,8 @@ TEST_F(TestCodegenDynCopy, L0CToOut) {
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
 
     SymbolManager memAlloc;
-    CodeGenCloudNPU cga;
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
     cga.GenExtraAlloc(memAlloc, localTensor, op);
     CodeGenOpCloudNPU cop(memAlloc, function->GetTensorMap(), FunctionType::DYNAMIC_LOOP_PATH, {}, true);
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
@@ -142,7 +143,8 @@ void TestL1CopyInBody(bool isNz = false, int outerValueForNz = 0, int innerValue
     }
 
     SymbolManager memAlloc;
-    CodeGenCloudNPU cga;
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
     cga.GenExtraAlloc(memAlloc, localTensor, op);
     CodeGenOpCloudNPU cop(memAlloc, function->GetTensorMap(), FunctionType::DYNAMIC_LOOP_PATH, {}, true);
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
@@ -206,7 +208,8 @@ TEST_F(TestCodegenDynCopy, UBCopyIn) {
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
 
     SymbolManager memAlloc;
-    CodeGenCloudNPU cga;
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
     cga.GenExtraAlloc(memAlloc, localTensor, op);
     CodeGenOpCloudNPU cop(memAlloc, function->GetTensorMap(), FunctionType::DYNAMIC_LOOP_PATH, {}, true);
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;

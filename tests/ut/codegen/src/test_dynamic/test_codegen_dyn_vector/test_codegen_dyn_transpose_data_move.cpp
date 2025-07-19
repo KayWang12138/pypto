@@ -94,7 +94,8 @@ void TestTransposeDataMoveBody(int dim = 3) {
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
 
     SymbolManager memAlloc;
-    CodeGenCloudNPU cga;
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
     cga.GenExtraAlloc(memAlloc, localTensor, op);
     CodeGenOpCloudNPU cop(memAlloc, function->GetTensorMap(), FunctionType::DYNAMIC_LOOP_PATH, {}, true);
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;

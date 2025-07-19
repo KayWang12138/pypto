@@ -19,13 +19,13 @@
 namespace npu::tile_fwk {
 void CodeGen::GenCode(
     Function &topFunc, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) {
-    auto cg = CodeGenFactory::GetCodeGenCCE(path_);
+    auto cg = CodeGenFactory::GetCodeGenCCE(ctx_);
     cg->GenCode(topFunc, invokeParaOffset);
 }
 
 void CodeGen::GenCode(
     const std::string &jsonPath, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) {
-    auto cg = CodeGenFactory::GetCodeGenCCE(path_);
+    auto cg = CodeGenFactory::GetCodeGenCCE(ctx_);
     cg->GenCode(jsonPath, invokeParaOffset);
 }
 

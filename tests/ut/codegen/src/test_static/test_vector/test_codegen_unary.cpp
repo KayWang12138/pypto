@@ -51,7 +51,8 @@ void TestRowMaxSingleBody(
         output = RowMaxSingle(input_a, -1);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
@@ -76,7 +77,8 @@ void TestRowSumSingleBody(
         output = RowSumSingle(input_a, -1);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
@@ -101,7 +103,8 @@ void TestTransposeVnchwconvBody(std::vector<int> shape, std::vector<int> outShap
         output = Transpose(input, transposeShape);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
@@ -127,7 +130,8 @@ void TestRowMaxExpandBody(
         output = RowMaxExpand(input_a);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
@@ -143,7 +147,8 @@ void TestCastBody(std::vector<int> shape, std::vector<int> outShape, std::vector
         output = Cast(input_a, DT_FP32);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
@@ -160,7 +165,8 @@ void TestExpandBody(std::vector<int> shape, std::vector<int> outShape, std::vect
         output = Expand(input_a, outShape);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
@@ -187,7 +193,8 @@ void TestRowSumBody(
         output = RowSumSingle(input_a, axis);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
@@ -215,7 +222,8 @@ TEST_F(TestCodegenUnary, TestVecDup) {
     }
 
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
@@ -231,6 +239,7 @@ TEST_F(TestCodegenUnary, TestVecDupUnaligned) {
         output = npu::tile_fwk::VectorDuplicate(src, DT_FP32, shape);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }

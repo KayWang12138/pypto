@@ -80,6 +80,7 @@ TEST_F(TestCodegenDynRowSumLine, TestOperationRowSumLine) {
         subFunc.second->InsertDynParam("sym_23_dim_2", fakeParam);
     }
 
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }

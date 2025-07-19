@@ -73,7 +73,8 @@ void TestDynVnchwconvBody(std::vector<int> shape, std::vector<int> outShape, std
         subFunc.second->dynParamTable_.emplace("sym_21_dim_2", fakeParam);
         subFunc.second->dynParamTable_.emplace("sym_21_dim_3", fakeParam);
     }
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 

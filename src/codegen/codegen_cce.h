@@ -21,13 +21,14 @@
 
 #include "interface/operation/operation.h"
 #include "interface/machine/host/machine_task.h"
+#include "codegen_common.h"
 
 namespace npu::tile_fwk {
 
 class CodeGenCCE {
 public:
-    explicit CodeGenCCE(std::string path = "") : path_(std::move(path)) {
-        if (path_.empty()) {
+    explicit CodeGenCCE(const CodeGenCtx &cctx) : ctx(cctx.includePath, cctx.ccePath) {
+        if (ctx.IsCCEPathEmpty()) {
             PrepareDefaultOutputPath();
         }
     }
@@ -39,7 +40,7 @@ public:
         const std::string &jsonPath, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) = 0;
 
 protected:
-    std::string path_;
+    CodeGenCtx ctx;
 
 private:
     void PrepareDefaultOutputPath();

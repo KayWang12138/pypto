@@ -67,7 +67,8 @@ TEST_F(TestCodegenGather, TestGather) {
         output = Gather(inputSrc0, inputSrc1, axis);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
@@ -93,6 +94,7 @@ TEST_F(TestCodegenGather, TestGatherEle) {
         outputTensor = Div(topkWeight, denominator);                          // [b*s,numExpertsPerTok]
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }

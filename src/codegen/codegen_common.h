@@ -81,6 +81,15 @@ const std::map<OperandType, const char *> BUFFER_TYPE_TO_PREFIX = {
     {OperandType::BUF_DDR,  "DDR"},
 };
 
+struct CodeGenCtx {
+    std::string includePath = "";
+    std::string ccePath = "";
+    CodeGenCtx() = default;
+    CodeGenCtx(std::string inPath, std::string cmpPath)
+        : includePath(std::move(inPath)), ccePath(std::move(cmpPath)) {}
+    bool IsCCEPathEmpty() const { return ccePath.empty(); }
+    bool IsIncludePathEmpty() const { return includePath.empty(); }
+};
 } // namespace npu::tile_fwk
 
 #endif // CODEGEN_COMMON_H

@@ -53,7 +53,8 @@ void TestAddBody(std::vector<int> shape, std::vector<int> tile_shape, std::strin
     }
 
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
@@ -83,7 +84,8 @@ TEST_F(TestCodegenBinary, TestCodegenAddDim2ByJson) {
     }
 
     std::string jsonPath = config::LogTopFolder() + "/program.json";
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(jsonPath, {});
 }
 
@@ -96,7 +98,8 @@ void TestAddSBody(std::vector<int> shape, std::vector<int> tile_shape, std::stri
         output = AddS(input_a, value);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 

@@ -79,8 +79,8 @@ void TestAddDynBody(const std::vector<int> &shape, const std::vector<int> &tile_
         subFunc.second->dynParamTable_.emplace("sym_4_dim_0", fakeParam);
         subFunc.second->dynParamTable_.emplace("sym_4_dim_1", fakeParam);
     }
-
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
@@ -124,7 +124,8 @@ TEST_F(TestCodegenDynBinary, TestAddsDynamic) {
         subFunc.second->dynParamTable_.emplace("sym_4_dim_1", fakeParam);
     }
 
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
@@ -165,6 +166,7 @@ TEST_F(TestCodegenDynBinary, TestGatherEle) {
         subFunc.second->InsertDynParam("sym_4_dim_0", fakeParam);
         subFunc.second->InsertDynParam("sym_4_dim_1", fakeParam);
     }
-    npu::tile_fwk::CodeGenCloudNPU codeGen;
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }

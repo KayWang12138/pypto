@@ -197,7 +197,8 @@ void PvModelImpl<SystemConfig, CaseConfig>::Prepare(npu::tile_fwk::Function *fun
 template <typename SystemConfig, typename CaseConfig>
 void PvModelImpl<SystemConfig, CaseConfig>::CodeGen(npu::tile_fwk::Function *func) {
     func->rootFunc_ = func;
-    npu::tile_fwk::CodeGen g(dir_);
+    npu::tile_fwk::CodeGenCtx ctxRoot("", dir_);
+    npu::tile_fwk::CodeGen g(ctxRoot);
     if (level_ > 1) {
         g.GenCode(*func,{});
     }
@@ -207,7 +208,8 @@ void PvModelImpl<SystemConfig, CaseConfig>::CodeGen(npu::tile_fwk::Function *fun
         auto binPath = subFuncPair.second->GetBinPath();
         auto srcPath = binPath.substr(0, binPath.length()-1) + "cpp";
         PvModelCodegen::AddGlobalAttr(srcPath);
-        npu::tile_fwk::CodeGenCloudNPU cga;
+        npu::tile_fwk::CodeGenCtx ctx;
+        npu::tile_fwk::CodeGenCloudNPU cga(ctx);
         cga.CompileCCE(srcPath, binPath, subFuncPair.second->GetCoreType() == npu::tile_fwk::CoreType::AIC,"");
     }
 }

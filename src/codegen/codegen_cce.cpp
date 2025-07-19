@@ -42,7 +42,7 @@ void CodeGenCCE::PrepareDefaultOutputPath() {
             << "failed to call mkdir to create " << outputPath;
     }
 
-    path_ = outputPath;
+    ctx.ccePath = outputPath;
 }
 
 std::map<int, int> GenRealizeIdMap(const SubfuncParam &subFuncParam) {

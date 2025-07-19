@@ -22,11 +22,12 @@
 #include "interface/operation/operation.h"
 #include "codegen/codegen_cce.h"
 #include "codegen/codegen_symbol.h"
+#include "codegen/codegen_common.h"
 
 namespace npu::tile_fwk {
 class CodeGenCloudNPU : public CodeGenCCE {
 public:
-    explicit CodeGenCloudNPU(const std::string &path = "") : CodeGenCCE(path){};
+    explicit CodeGenCloudNPU(const CodeGenCtx &cctx) : CodeGenCCE(cctx){};
     ~CodeGenCloudNPU() override = default;
 
     void GenCode(
