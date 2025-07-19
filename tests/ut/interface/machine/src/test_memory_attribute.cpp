@@ -16,7 +16,6 @@
 #include "gtest/gtest.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/program/program.h"
 #include "interface/operation/operation.h"
 #include "common/data_type.h"
 

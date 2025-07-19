@@ -18,7 +18,6 @@
 #include <iostream>
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/program/program.h"
 #include "runtime/device/device_machine.h"
 
 using namespace npu::tile_fwk;

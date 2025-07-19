@@ -19,7 +19,6 @@
 #include "interface/inner/tilefwk/tilefwk_api.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/program/program.h"
 #include "common/data_type.h"
 #include "test_common.h"
 #include "runtime/dump/machine_dump.h"

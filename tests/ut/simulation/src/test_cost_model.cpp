@@ -22,7 +22,6 @@
 #include "simulation/common/CommonType.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/program/program.h"
 #include "simulation/pv/PvModelFactory.h"
 
 using namespace npu::tile_fwk;

@@ -19,7 +19,6 @@
 #include "operation/tilefwk_op.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/program/program.h"
 #include "runtime/device/dynamic/device_utils.h"
 #include "test_suite_stest_ops.h"
 #include "interface/interpreter/raw_tensor_data.h"

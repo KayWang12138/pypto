@@ -18,7 +18,6 @@
 #include <gtest/gtest.h>
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/program/program.h"
 #include "test_common.h"
 #include "common/data_type.h"
 #include "interface/interpreter/raw_tensor_data.h"

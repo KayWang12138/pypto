@@ -187,7 +187,7 @@ private:
     std::vector<int> stride_;
     size_t nelem;
     size_t elemSize_;
-    bool l2Disable_;
+    bool l2Disable_{false};
 };
 
 using RawTensorDataPtr = std::shared_ptr<RawTensorData>;

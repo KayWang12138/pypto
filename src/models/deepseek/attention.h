@@ -18,7 +18,6 @@
 #include "common/pre_def.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/program/program.h"
 #include "interface/configs/config.h"
 #include "dynamic_mla.h"
 #include "page_attention.h"

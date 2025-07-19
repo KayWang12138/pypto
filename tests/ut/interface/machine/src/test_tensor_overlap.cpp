@@ -20,7 +20,6 @@
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/program/program.h"
 
 using namespace npu::tile_fwk;
 

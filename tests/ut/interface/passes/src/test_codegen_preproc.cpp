@@ -17,7 +17,6 @@
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/program/program.h"
 #include "passes/execute_graph_pass/codegen_preproc.h"
 #include "interface/configs/config_manager.h"
 #include "ut_json/ut_json_tool.h"

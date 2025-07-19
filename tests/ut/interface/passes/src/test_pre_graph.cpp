@@ -18,7 +18,6 @@
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/program/program.h"
 #include "passes/pass_manager.h"
 #include "interface/configs/config_manager.h"
 #include "passes/tile_graph_pass/pre_graph.h"

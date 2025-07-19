@@ -19,7 +19,6 @@
 #include <cstdlib>
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/program/program.h"
 #include "runtime/host/device_runner.h"
 #include "runtime/utils/machine_ws_intf.h"
 class TestDeviceRunner : public testing::Test {

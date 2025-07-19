@@ -18,7 +18,6 @@
 #include "runtime/rt.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/program/program.h"
 #include "common/data_type.h"
 #include "interface/operation/operation.h"
 #include "interface/tensor/float.h"

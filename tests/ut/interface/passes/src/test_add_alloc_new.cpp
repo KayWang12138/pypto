@@ -18,7 +18,6 @@
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/program/program.h"
 #include "passes/pass_manager.h"
 #include "passes/execute_graph_pass/add_alloc.h"
 #include "ut_json/ut_json_tool.h"

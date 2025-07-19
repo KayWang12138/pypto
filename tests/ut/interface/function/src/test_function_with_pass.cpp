@@ -19,7 +19,6 @@
 #include "passes/pass_utils/pass_utils.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/program/program.h"
 #include "interface/configs/config.h"
 #include "interface/tensor/expected_value.h"
 #include "interface/tensor/float.h"
