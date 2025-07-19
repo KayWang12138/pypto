@@ -61,7 +61,7 @@ struct DeviceTaskBin {
     uint64_t dataOffset[static_cast<size_t>(BinDataType::END)];
     uint8_t data[0];
 };
-#pragma pack () 
+#pragma pack ()
 
 constexpr int64_t DEVICE_QUEUE_SIZE = 512;
 #define DEVICE_TASK_STOP 0x7FFFFFFE
@@ -71,6 +71,7 @@ struct AstKernelArgs {
     int64_t *outputs;
     int64_t *workspace;
     int64_t *tilingdata;
+    int64_t workspaceSize;
     void *costmodeldata{nullptr};
     uint64_t taskWastTime{0};
     uint8_t machineConfig;

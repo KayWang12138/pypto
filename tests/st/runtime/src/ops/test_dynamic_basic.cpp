@@ -141,11 +141,9 @@ TEST_F(DynamicBasicTest, TestDD) {
 
 TEST_F(DynamicBasicTest, DynamicRawShape) {
     int s = 32;
-    int n = 1;
-    std::vector<int> dynDims = {0};
-    Tensor t0(DT_FP32, {n * s, s}, dynDims, "t0"); // [32*8, 32]
+    Tensor t0(DT_FP32, {-1, s}, "t0"); // [32*8, 32]
     Tensor t1(DT_FP32, {s, s}, "t1");              // [32, 32]
-    Tensor out(DT_FP32, {n * s, s}, dynDims, "out");
+    Tensor out(DT_FP32, {-1, s}, "out");
 
     FUNCTION("main", FunctionType::DYNAMIC, {t0, t1}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(GetInputShapeDim(t0, 0) / s)) {
@@ -155,7 +153,7 @@ TEST_F(DynamicBasicTest, DynamicRawShape) {
         }
     }
 
-    n = 8;
+    int n = 8;
     Tensor arg0(DT_FP32, {n * s, s});
     Tensor out0(DT_FP32, {n * s, s});
     ProgramData::GetInstance().AppendInputs({
@@ -174,6 +172,50 @@ TEST_F(DynamicBasicTest, DynamicRawShape) {
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 #endif
 }
+
+TEST_F(DynamicBasicTest, DynamicRawShapeUnalign) {
+    int s = 32;
+    Tensor t0(DT_FP32, {-1, s}, "t0"); // [32*8, 32]
+    Tensor out(DT_FP32, {-1, s}, "out");
+
+    FUNCTION("main", FunctionType::DYNAMIC, {t0}, {out}) {
+        auto shape0 = GetInputShapeDim(t0, 0);
+        auto t1 = Tensor(t0.GetDataType(), {shape0, s});
+        auto loop1 = (shape0 + s - 1) / s;
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(loop1)) {
+            Tensor t0s = DView(t0, {s, s}, {idx * s, 0});
+            auto t = AddS(t0s, Element(DT_FP32, 3.0));
+            DAssemble(t, {idx * s, 0}, t1);
+        }
+
+        // check t1 use dynshape from t0
+        auto loop2 = (GetInputShapeDim(t1, 0) + s - 1) / s;
+        LOOP("L1", FunctionType::DYNAMIC_LOOP, idx, LoopRange(loop2), {}, true) {
+            Tensor t1s = DView(t1, {s, s}, {idx * s, 0});
+            auto t = SubS(t1s, Element(DT_FP32, 1.0));
+            DAssemble(t, {idx * s, 0}, out);
+        }
+    }
+
+    int s0 = 200;
+    Tensor arg0(DT_FP32, {s0, s});
+    Tensor out0(DT_FP32, {s0, s});
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(arg0, 3.0),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out0, 0.0f),
+    });
+
+    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+    DynFuncRunner::Run(funcop, DynFuncRunnerConfig(arg0->GetDataSize()));
+    std::vector<float> golden(s0, 5.0f);
+    auto outs = ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+#endif
+}
+
 
 TEST_F(DynamicBasicTest, TestInplace) {
     Tensor t0(DT_FP32, {32, 32}, "t0");
@@ -335,19 +377,19 @@ TEST_F(DynamicBasicTest, TestDeviceMachineOnModel) {
     });
 
     auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop, false);
-    
+    DynFuncRunner::Run(funcop, {false, 25, 5});
+
     std::cout << "test -> blockdim = 16, aicpunum = 4" << std::endl;
-    DynFuncRunner::Run(funcop, false, 16, 4);
+    DynFuncRunner::Run(funcop, {false, 16, 4});
 
     std::cout << "test -> blockdim = 9, aicpunum = 4" << std::endl;
-    DynFuncRunner::Run(funcop, false, 9, 4);
+    DynFuncRunner::Run(funcop, {false, 9, 4});
 
     std::cout << "test -> blockdim = 8, aicpunum = 3" << std::endl;
-    DynFuncRunner::Run(funcop, false, 8, 3);
+    DynFuncRunner::Run(funcop, {false, 8, 3});
 
     std::cout << "test -> blockdim = 1, aicpunum = 3" << std::endl;
-    DynFuncRunner::Run(funcop, false, 1, 3);
+    DynFuncRunner::Run(funcop, {false, 1, 3});
 }
 
 TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard) {
@@ -378,12 +420,12 @@ TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard) {
     auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 
 #ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
-    DynFuncRunner::Run(funcop, true, 15, 4);
+    DynFuncRunner::Run(funcop, {true, 15, 4});
     std::vector<float> golden(n * s * s, 128.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 
-    DynFuncRunner::Run(funcop, true, 7, 3);
+    DynFuncRunner::Run(funcop, {true, 7, 3});
     auto outs1 = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs1->data(), 0.001f));
 #endif

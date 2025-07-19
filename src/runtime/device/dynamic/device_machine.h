@@ -158,6 +158,7 @@ public:
         auto outputPtr = inputPtr + inputSize;
         auto outputSize = DevAscendTensorDataCreator::Decode(kargs->outputs, outputPtr);
         auto workspaceAddr = ALIGN_UP((uint64_t)(outputPtr + outputSize), 512);
+        auto devArgsSize = workspaceAddr - (uint64_t)kargs->workspace;
 
         auto devProg = (DevAscendProgram *)kargs->tilingdata;
         devArgs->inputTensorList = inputPtr;
@@ -166,8 +167,8 @@ public:
         devArgs->outputTensorSize = outputSize;
         devArgs->workspaceAddr = workspaceAddr;
         devArgs->devProg = devProg;
-        devArgs->aicoreLocalWorkspaceSize = devProg->aicoreLocalWorkspaceSize;
-        devArgs->aicpuCoherentWorkspaceSize = devProg->aicpuCoherentWorkspaceSize;
+        devArgs->aicpuCoherentWorkspaceSize = devProg->aicpuCoherentWorkspaceSize - devArgsSize;
+        devArgs->aicoreLocalWorkspaceSize = kargs->workspaceSize - devProg->aicpuCoherentWorkspaceSize;
         devArgs->inputSymbolList = nullptr;
         devArgs->inputSymbolSize = 0;
 

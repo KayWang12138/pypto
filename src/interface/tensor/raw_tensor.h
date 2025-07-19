@@ -21,7 +21,7 @@
 #include <utility>
 #include <vector>
 
-#include "tilefwk/element.h"
+#include "tilefwk/tilefwk.h"
 #include "common/pre_def.h"
 #include "common/data_type.h"
 
@@ -96,6 +96,7 @@ public:
     int64_t GetRawShapeSize() const;
     int64_t GetRawDataSize() const;
     const std::vector<SymbolicScalar> &GetDynRawShape() const { return dynRawShape; }
+    SymbolicScalar GetDynRawShape(int axis) const { return dynRawShape[axis]; }
     void UpdateDynRawShape(const std::vector<SymbolicScalar> &dynShape) { dynRawShape = dynShape; }
     /* rawData just used to identify the user value, RawTensor do not have the ownership */
     BinDataPtr GetRawDataPtr() const { return rawData; };

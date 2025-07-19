@@ -14,7 +14,6 @@
  */
 
 #include "tilefwk/tensor.h"
-#include <sstream>
 #include "logical_tensor.h"
 #include "raw_tensor.h"
 #include "tilefwk/tilefwk.h"
@@ -50,27 +49,45 @@ Tensor::Tensor(std::shared_ptr<LogicalTensor> s) : storage(std::move(s)), index_
     Program::GetInstance().GetTensorSlotManager()->TensorWrite(*this);
 }
 
-Tensor::Tensor(DataType t, std::vector<int> tshape, std::string tname, NodeType tnodetype, TileOpFormat tensorfmt)
+static std::vector<SymbolicScalar> ToDynShape(const std::string &tname, const std::vector<int> &shape) {
+    auto dynShape = SymbolicScalar::FromConcrete(shape);
+    for (size_t dim = 0; dim < shape.size(); dim++) {
+        ASSERT(shape[dim] >= -1) << "Invalid shape " << shape[dim];
+        if (shape[dim] == -1) {
+            auto name = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::GetInputShapeDim);
+            auto handler = SymbolicScalar(AddRuntimePrefix(name));
+            auto input = SymbolicScalar(AddArgPrefix(tname));
+            dynShape[dim] = handler(input, dim);
+        }
+    }
+    return dynShape;
+}
+
+Tensor::Tensor(DataType t, std::vector<int> tshape, std::string tname, NodeType tnodetype,
+    TileOpFormat tensorfmt)
     : index_(IdGen<IdType::TENSOR_INDEX>::Inst().NewId()) {
-    Program::GetInstance().InsertAliveTensor(this);
-    storage = std::make_shared<LogicalTensor>(
-        *Program::GetInstance().GetCurrentFunction(), t, tshape, tname, tnodetype, tensorfmt);
+    auto dynShape = ToDynShape(tname, tshape);
+    storage = std::make_shared<LogicalTensor>(*Program::GetInstance().GetCurrentFunction(),
+        t, tshape, tname, tnodetype, tensorfmt);
     storage->tensor->AddRefCount(1);
+
+    storage->GetRawTensor()->UpdateDynRawShape(dynShape);
+
+    Program::GetInstance().InsertAliveTensor(this);
     Program::GetInstance().GetTensorSlotManager()->TensorWrite(*this);
     Program::GetInstance().GetTensorSlotManager()->TensorSymbol(*this, tname);
 }
 
-Tensor::Tensor(DataType t, std::vector<int> tshape, std::vector<int> dynDims, std::string tname, TileOpFormat tensorfmt)
-    : Tensor(t, tshape, tname, NodeType::LOCAL, tensorfmt) {
-    auto dynShape = SymbolicScalar::FromConcrete(tshape);
-    for (auto d : dynDims) {
-        auto name = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::GetInputShapeDim);
-        auto handler = SymbolicScalar(AddRuntimePrefix(name));
-        auto input = SymbolicScalar(AddArgPrefix(tname));
-        dynShape[d] = handler(input, d);
+Tensor::Tensor(DataType t, std::vector<SymbolicScalar> tshape, std::string tname, TileOpFormat tensorfmt)
+    :Tensor(t, SymbolicScalar::Concrete(tshape, -1), tname, NodeType::LOCAL, tensorfmt)
+{
+    auto rawTensor = storage->GetRawTensor();
+    for (size_t axis = 0; axis  < tshape.size(); axis++) {
+        if (tshape[axis].ConcreteValid() && tshape[axis].Concrete() == -1) {
+            tshape[axis] = rawTensor->GetDynRawShape(axis);
+        }
     }
-    storage->UpdateDynValidShape(dynShape);
-    storage->GetRawTensor()->UpdateDynRawShape(dynShape);
+    rawTensor->UpdateDynRawShape(tshape);
 }
 
 void Tensor::SetData(BinDataPtr data) {
@@ -238,16 +255,8 @@ SymbolicScalar npu::tile_fwk::GetInputShapeDimSize(const Tensor &t) {
 }
 
 SymbolicScalar npu::tile_fwk::GetInputShapeDim(const Tensor &t, int n) {
-    std::string getInputShapeDimName = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::GetInputShapeDim);
-    int inputIndex = Program::GetInstance().GetTensorSlotManager()->GetInputIndex(t);
-    std::string inputName = Program::GetInstance().GetTensorSlotManager()->GetInputNameList()[inputIndex];
-
-    getInputShapeDimName = AddRuntimePrefix(getInputShapeDimName);
-    inputName = AddArgPrefix(inputName);
-
-    SymbolicScalar getInputShapeDim(getInputShapeDimName);
-    SymbolicScalar input(inputName);
-    return getInputShapeDim(input, n);
+    auto rawTensor = t.GetStorage(false)->GetRawTensor();
+    return rawTensor->GetDynRawShape(n);
 }
 
 SymbolicScalar npu::tile_fwk::GetInputDataInt32Dim1(const Tensor &t, SymbolicScalar off0) {
