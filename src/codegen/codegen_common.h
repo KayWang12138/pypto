@@ -75,7 +75,7 @@ const std::map<OperandType, const char *> BUFFER_TYPE_TO_PREFIX = {
     { OperandType::BUF_L1,   "L1"},
     {OperandType::BUF_L0A,  "L0A"},
     {OperandType::BUF_L0B,  "L0B"},
-    {OperandType::BUF_L0C,  "LOC"},
+    {OperandType::BUF_L0C,  "L0C"},
     {OperandType::BUF_FIX, "FBUF"},
     { OperandType::BUF_BT,   "BT"},
     {OperandType::BUF_DDR,  "DDR"},

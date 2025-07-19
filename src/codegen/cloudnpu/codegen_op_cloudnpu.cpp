@@ -94,7 +94,7 @@ std::vector<std::string> CodeGenOpCloudNPU::GenParamIdxExprByIndex(
     std::ostringstream os;
     for (int index = 0; index < dim; ++index) {
         os << "GET_PARAM_" << prefix << "_BY_IDX(" << GM_TENSOR_PARAM_STR << ", " << GmTensorParamIdxInCallFunc << ", "
-           << paramLocation[gmParamIdx] << "," << dim << "," << index << ")";
+           << paramLocation[gmParamIdx] << ", " << dim << ", " << index << ")";
         paramExpr.emplace_back(os.str());
         os.str("");
     }

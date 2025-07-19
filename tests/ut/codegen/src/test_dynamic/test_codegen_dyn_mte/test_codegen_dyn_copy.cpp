@@ -25,8 +25,11 @@
 #include "codegen/codegen_symbol.h"
 #include "codegen/cloudnpu/codegen_op_cloudnpu.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "test_codegen_utils.h"
 
-using namespace npu::tile_fwk;
+namespace npu::tile_fwk {
+
+constexpr const int dummyRawMagic = 123;
 
 class TestCodegenDynCopy : public ::testing::Test {
 public:
@@ -59,8 +62,7 @@ TEST_F(TestCodegenDynCopy, L0CToOut) {
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     function->SetUnderDynamicFunction(true);
-    std::shared_ptr<RawTensor> ddrRawTensor =
-        std::make_shared<RawTensor>(DataType::DT_FP32, shape, "L0CToOut", 123);
+    std::shared_ptr<RawTensor> ddrRawTensor = std::make_shared<RawTensor>(DataType::DT_FP32, shape, "L0CToOut", dummyRawMagic);
     const std::vector<int> offset = {0, 0};
 
     auto ddrTensor = std::make_shared<LogicalTensor>(*function, ddrRawTensor, offset, shape);
@@ -94,10 +96,14 @@ TEST_F(TestCodegenDynCopy, L0CToOut) {
     cop.originShape[0] = shape;
     cop.originShape[1] = shape;
 
-    cop.GenOpCode();
+    std::string res = cop.GenOpCode();
+    std::string expect =
+        R"!!!(TileOp::DynL0CCopyOut<float, float, 64, 64, 64, 64 >((__gm__ float*)GET_PARAM_ADDR(param, 0, 0), (__cc__ float*)L0C_S0_E0, GET_PARAM_RAWSHAPE_2(param, 0, 0), GET_PARAM_OFFSET_2(param, 0, 0), 0);
+)!!!";
+    EXPECT_EQ(res, expect);
 }
 
-void TestL1CopyInBody(bool isNz = false, int outerValueForNz = 0, int innerValueForNz = 0) {
+std::string TestL1CopyInBody(bool isNz = false, int outerValueForNz = 0, int innerValueForNz = 0) {
     const std::vector<int> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
     Program::GetInstance().GetTileShape().SetVecTileShapes(shape);
@@ -112,8 +118,7 @@ void TestL1CopyInBody(bool isNz = false, int outerValueForNz = 0, int innerValue
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     function->SetUnderDynamicFunction(true);
-    std::shared_ptr<RawTensor> ddrRawTensor =
-        std::make_shared<RawTensor>(DataType::DT_FP32, shape, "L1CopyIn", 123);
+    std::shared_ptr<RawTensor> ddrRawTensor = std::make_shared<RawTensor>(DataType::DT_FP32, shape, "L1CopyIn", dummyRawMagic);
     const std::vector<int> offset = {0, 0};
 
     auto ddrTensor = std::make_shared<LogicalTensor>(*function, ddrRawTensor, offset, shape);
@@ -153,19 +158,31 @@ void TestL1CopyInBody(bool isNz = false, int outerValueForNz = 0, int innerValue
     cop.originShape[0] = shape;
     cop.originShape[1] = shape;
 
-    cop.GenOpCode();
+    return cop.GenOpCode();
 }
 
 TEST_F(TestCodegenDynCopy, L1CopyIn) {
-    TestL1CopyInBody();
+    std::string res = TestL1CopyInBody();
+    std::string expect =
+        R"!!!(TileOp::DynL1CopyIn<float, float, 64, 64>((__cbuf__ float*)L1_S0_E0, (__gm__ float*)GET_PARAM_ADDR(param, 0, 0), GET_PARAM_RAWSHAPE_2(param, 0, 0), GET_PARAM_OFFSET_2(param, 0, 0), 0);
+)!!!";
+    EXPECT_EQ(res, expect);
 }
 
 TEST_F(TestCodegenDynCopy, L1CopyInNZ) {
-    TestL1CopyInBody(true);
+    std::string res = TestL1CopyInBody(true);
+    std::string expect =
+        R"!!!(TileOp::DynL1CopyInNZ2NZ<float, float, 64, 64>((__cbuf__ float*)L1_S0_E0, (__gm__ float*)GET_PARAM_ADDR(param, 0, 0), GET_PARAM_RAWSHAPE_2(param, 0, 0), GET_PARAM_OFFSET_2(param, 0, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 0, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 0, 2, 1), 0);
+)!!!";
+    EXPECT_EQ(res, expect);
 }
 
 TEST_F(TestCodegenDynCopy, L1CopyInNZWithValue) {
-    TestL1CopyInBody(true, 1, 1);
+    std::string res = TestL1CopyInBody(true, 1, 1);
+    std::string expect =
+        R"!!!(TileOp::DynL1CopyInNZ2NZ<float, float, 64, 64>((__cbuf__ float*)L1_S0_E0, (__gm__ float*)GET_PARAM_ADDR(param, 0, 0), GET_PARAM_RAWSHAPE_2(param, 0, 0), GET_PARAM_OFFSET_2(param, 0, 0), 1, 1, 0);
+)!!!";
+    EXPECT_EQ(res, expect);
 }
 
 TEST_F(TestCodegenDynCopy, UBCopyIn) {
@@ -183,8 +200,7 @@ TEST_F(TestCodegenDynCopy, UBCopyIn) {
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     function->SetUnderDynamicFunction(true);
-    std::shared_ptr<RawTensor> ddrRawTensor =
-        std::make_shared<RawTensor>(DataType::DT_FP32, shape, "L1CopyIn", 123);
+    std::shared_ptr<RawTensor> ddrRawTensor = std::make_shared<RawTensor>(DataType::DT_FP32, shape, "L1CopyIn", dummyRawMagic);
     const std::vector<int> offset = {0, 0};
 
     auto ddrTensor = std::make_shared<LogicalTensor>(*function, ddrRawTensor, offset, shape);
@@ -218,5 +234,11 @@ TEST_F(TestCodegenDynCopy, UBCopyIn) {
     cop.originShape[0] = shape;
     cop.originShape[1] = shape;
 
-    cop.GenOpCode();
+    std::string res = cop.GenOpCode();
+    std::string expect =
+        R"!!!(TileOp::DynUBCopyIn<float, 1, 1, 1, 64, 64, 1, 1, 64, 64>((__ubuf__ float*)UB_S0_E0, (__gm__ float*)GET_PARAM_ADDR(param, 0, 0), 1, 1, 1, GET_PARAM_RAWSHAPE_2(param, 0, 0), 0, 0, 0, GET_PARAM_OFFSET_2(param, 0, 0));
+)!!!";
+    EXPECT_EQ(res, expect);
 }
+
+} // namespace npu::tile_fwk
