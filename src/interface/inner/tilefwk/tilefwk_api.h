@@ -131,7 +131,7 @@ void TileFwkSetVecTileShapes(const std::vector<int> &tileShape);
 void TileFwkAssign(Tensor &dst, const Tensor &src);
 
 bool TileOpCompile(const std::string &opType, const uint64_t configKey, const std::string &kernelName,
-    const std::string &dumpPath, const std::string &socVersion="Ascend910B1");
+    const std::string &dumpPath);
 
 extern "C" bool TileFwkCompileFatbin(const char *opType, const char *socVersion, const char *dumpPath,
     const char *kernelName);

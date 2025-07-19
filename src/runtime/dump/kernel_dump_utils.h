@@ -54,7 +54,7 @@ public:
                                     const std::vector<char> &fatbinBuffer);
     static bool GetBufferFromBinFile(const std::string &binFilePath, std::vector<char> &buffer);
     static bool GetSubJsonInfo(const std::string &jsonPath, JsonInfo &kernelJsonInfo);
-    static void LoadTileFwkOpLib(void *opLibHandle);
+    static void* LoadTileFwkImplOpLib();
     static void FreeOpHandle(void *opLibHandle);
 private:
     static bool DumpBinFile(const DeviceAgentTask *deviceAgentTask, const std::string &kernelName, const std::string &dumpDirPath);

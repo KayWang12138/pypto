@@ -31,7 +31,24 @@
 #include "hccl/hcom.h"
 #include "kernel_tiling/kernel_tiling.h"
 
+#ifndef ENABLE_HCCL_STUB
 extern "C" HcclResult HcclAllocComResourceByTiling(HcclComm comm, void *stream, void *mc2Tiling, void **commContext);
+#else
+typedef void *HcclComm;
+HcclResult HcclAllocComResourceByTiling(HcclComm comm, void *stream, void *mc2Tiling, void **commContext) {
+    (void)comm;
+    (void)stream;
+    (void)mc2Tiling;
+    (void)commContext;
+    return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult HcomGetCommHandleByGroup(const char *group, HcclComm comm) {
+    (void)group;
+    (void)comm;
+    return HcclResult::HCCL_SUCCESS;
+}
+#endif
 
 #endif
 extern "C" __attribute__((weak)) int AdxDataDumpServerInit();

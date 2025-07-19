@@ -23,7 +23,7 @@
 #include "runtime/host/machine_compiler.h"
 #include "runtime/cache_manager/cache_manager.h"
 #include "interface/platform/platform_manager.h"
-#include "interface/registry/ast_op_registry.h"
+#include "interface/registry/tile_fwk_op_registry.h"
 
 namespace npu::tile_fwk {
 int32_t TileFwkInit(const std::string &socVersion) {
@@ -139,53 +139,59 @@ int Program::RunAsync(const void *stream, const void *workSpaceGmAddr, void *han
 
 extern "C" bool TileFwkCompileFatbin(const char *opType, const char *socVersion,
         const char *dumpPath, const char *kernelName) {
-    ALOG_INFO("Start to compile fatbin for op: ", opType);
-    (void)socVersion;
-    void *opLibHandle = nullptr;
-    KernelDumpUtils::LoadTileFwkOpLib(opLibHandle);
-    std::vector<uint64_t> configKeys = AstOpImplRegistry::GetInstance().GetAllConfigKeys(opType);
+    ALOG_INFO_F("Start to compile fatbin for op type[%s], dump path and file name is [%s] and [%s].",
+                opType, dumpPath, kernelName);
+    (void)PlatformManager::Instance().Initialize(socVersion);
+    // load op impl so
+    void *opLibHandle = KernelDumpUtils::LoadTileFwkImplOpLib();
+    std::vector<uint64_t> configKeys = TileFwkOpRegistry::GetInstance().GetAllConfigKeys(opType);
     if (configKeys.empty()) {
-        ALOG_INFO("Cannot find registered configKey, opType: ", opType);
+        ALOG_INFO_F("Cannot find registered configKeys of op type[%s].", opType);
         KernelDumpUtils::FreeOpHandle(opLibHandle);
         return false;
     }
-    std::vector<char> fatbinBuffer;
+
     FatbinHeadInfo fatbinHeadInfo;
-    std::string dumpPathStr = dumpPath;
-    std::string kernelNameStr = kernelName;
+    std::vector<char> fatbinBuffer;
     std::vector<JsonInfo> allBinJsonInfo;
     for (auto &configKey : configKeys) {
-        std::string subKernelName = kernelNameStr + "_" + std::to_string(configKey);
-        ALOG_INFO("Start to call TileOpCompile, optype: ", opType, ", configKey: ",
-                  configKey, ", sub binfile name: ", subKernelName);
-        if (!TileOpCompile(opType, configKey, subKernelName, dumpPathStr)) {
-            KernelDumpUtils::FreeOpHandle(opLibHandle);
-            return false;
-        }
-        std::string jsonPath = dumpPathStr + "/" + subKernelName + ".json";
-        std::string binPath = dumpPathStr + "/" + subKernelName + ".o";
-        fatbinHeadInfo.binOffsets.emplace_back(fatbinBuffer.size());
-        if (!KernelDumpUtils::GetBufferFromBinFile(binPath, fatbinBuffer)) {
+        std::string subKernelName = std::string(kernelName) + "_" + std::to_string(configKey);
+        ALOG_INFO_F("Start to compile sub kernel[%s] for op type[%s] and configKey[%lu].",
+                    subKernelName.c_str(), opType, configKey);
+        if (!TileOpCompile(opType, configKey, subKernelName, dumpPath)) {
             KernelDumpUtils::FreeOpHandle(opLibHandle);
             return false;
         }
         ++fatbinHeadInfo.configKeyNum;
+        fatbinHeadInfo.binOffsets.emplace_back(fatbinBuffer.size());
         fatbinHeadInfo.configKeyList.emplace_back(configKey);
+
+        // parse sub kernel bin file
+        std::string subKernelBinPath = std::string(dumpPath) + "/" + subKernelName + ".o";
+        if (!KernelDumpUtils::GetBufferFromBinFile(subKernelBinPath, fatbinBuffer)) {
+            KernelDumpUtils::FreeOpHandle(opLibHandle);
+            return false;
+        }
+        // parse sub kernel json file
+        std::string subKernelJsonPath = std::string(dumpPath) + "/" + subKernelName + ".json";
         JsonInfo subJsonInfo;
         subJsonInfo.configKey = configKey;
-        if (!KernelDumpUtils::GetSubJsonInfo(jsonPath, subJsonInfo)) {
+        if (!KernelDumpUtils::GetSubJsonInfo(subKernelJsonPath, subJsonInfo)) {
             KernelDumpUtils::FreeOpHandle(opLibHandle);
             return false;
         }
         allBinJsonInfo.emplace_back(subJsonInfo);
     }
     KernelDumpUtils::FreeOpHandle(opLibHandle);
-    std::string binFileName = kernelNameStr + ".o";
-    if (!KernelDumpUtils::WriteBufferToFatbin(fatbinHeadInfo, dumpPathStr + "/" + binFileName, fatbinBuffer)) {
+    std::string fatbinBinFilePath = std::string(dumpPath) + "/" + std::string(kernelName) + ".o";
+    if (!KernelDumpUtils::WriteBufferToFatbin(fatbinHeadInfo, fatbinBinFilePath, fatbinBuffer)) {
         return false;
     }
-    KernelDumpUtils::WriteFatbinJson(allBinJsonInfo, dumpPathStr + "/" + kernelNameStr + ".json", binFileName);
-    ALOG_INFO("Finish to compile fatbin, optype: ", opType, ", binFileName: ", binFileName);
+
+    std::string fatbinJsonFilePath = std::string(dumpPath) + "/" + std::string(kernelName) + ".json";
+    KernelDumpUtils::WriteFatbinJson(allBinJsonInfo, fatbinJsonFilePath, kernelName);
+    ALOG_INFO_F("Finish to compile fatbin, bin file[%s] and json file[%s].",
+                fatbinBinFilePath.c_str(), fatbinJsonFilePath.c_str());
     return true;
 }
 
@@ -193,8 +199,7 @@ extern "C" bool TileFwkCompileFatbin(const char *opType, const char *socVersion,
  * compile op for AscendCppBackend binary
  */
 bool TileOpCompile(const std::string &opType, const uint64_t configKey, const std::string &kernelName,
-    const std::string &dumpPath, const std::string &socVersion) {
-    (void)PlatformManager::Instance().Initialize(socVersion);
+    const std::string &dumpPath) {
     if (!Program::GetInstance().GetHostMachine().ForceEnableBackend()) {
         ALOG_WARN("Fail to init host machine backend.");
         return false;
@@ -206,7 +211,7 @@ bool TileOpCompile(const std::string &opType, const uint64_t configKey, const st
     config::SetHostConfig(KEY_DUMP_KERNEL_NAME, kernelName);
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
 
-    AstOpImplFunc opFunc = AstOpImplRegistry::GetInstance().GetOpImplFunc(opType, configKey);
+    TileFwkOpImplFunc opFunc = TileFwkOpRegistry::GetInstance().GetOpImplFunc(opType, configKey);
     if (opFunc == nullptr) {
         ALOG_WARN("Op impl func is not found.");
         return false;

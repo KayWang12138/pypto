@@ -22,7 +22,7 @@
 #include "models/llama/llama_def.h"
 #include "runtime/runtime.h"
 #include "interface/utils/file_utils.h"
-#include "interface/registry/ast_op_registry.h"
+#include "interface/registry/tile_fwk_op_registry.h"
 
 using namespace npu::tile_fwk;
 class TestAstOpCompile : public testing::Test {
@@ -128,12 +128,12 @@ void DynamicDD(uint64_t configKey) {
 REGISTER_OP(DViewDAssemble).ImplFunc({{0, DynamicDD}, {1, DynamicDD}, {2, DynamicDD}});
 
 TEST_F(TestAstOpCompile, test_dynamic_DViewDAssemble) {
-    bool ret = TileOpCompile("DViewDAssemble", 0, "ast_op_dd_0", "dump_path", "Ascend910B2");
+    bool ret = TileOpCompile("DViewDAssemble", 0, "ast_op_dd_0", "dump_path");
     EXPECT_EQ(ret, true);
     EXPECT_EQ(RealPath("./dump_path/ast_op_dd_0.json").empty(), false);
     EXPECT_EQ(RealPath("./dump_path/ast_op_dd_0.o").empty(), false);
 }
 TEST_F(TestAstOpCompile, test_compile_fatbin) {
-    bool ret = TileFwkCompileFatbin("DViewDAssemble", 0, "./dump_path", "ast_op_add");
+    bool ret = TileFwkCompileFatbin("DViewDAssemble", "Ascend910B1", "./dump_path", "ast_op_add");
     EXPECT_EQ(ret, true);
 }

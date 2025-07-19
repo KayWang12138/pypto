@@ -57,7 +57,7 @@ bool CacheManager::Initialize() {
         ALOG_ERROR_F("Failed to create cache dir[%s].", cacheDirPath_.c_str());
         return false;
     }
-    ALOG_ERROR_F("Cache manager has been initialized at cache dir path[%s].", cacheDirPath_.c_str());
+    ALOG_INFO_F("Cache manager has been initialized at cache dir path[%s].", cacheDirPath_.c_str());
     isInit_ = true;
     return true;
 }
@@ -75,9 +75,9 @@ bool CacheManager::MatchBinCache(const std::string &cacheKey) const {
     // check whether both json and bin file is existed
     bool ret = !RealPath(cacheBinFile).empty();
     if (ret) {
-        ALOG_ERROR_F("Cache matched, bin file[%s] is existed.", cacheBinFile.c_str());
+        ALOG_INFO_F("Cache matched, bin file[%s] is existed.", cacheBinFile.c_str());
     } else {
-        ALOG_ERROR_F("Cache missed, bin file[%s] is not existed.", cacheBinFile.c_str());
+        ALOG_INFO_F("Cache missed, bin file[%s] is not existed.", cacheBinFile.c_str());
     }
     return ret;
 }
@@ -100,7 +100,7 @@ void CacheManager::SaveTaskFile(const DeviceAgentTask *deviceAgentTask) const {
         return;
     }
     if (function->IsFunctionType(FunctionType::DYNAMIC) && function->GetDyndevAttribute() != nullptr) {
-        ALOG_ERROR_F("Save devProgBinary at bin file[%s].", binFilePath.c_str());
+        ALOG_INFO_F("Save devProgBinary at bin file[%s].", binFilePath.c_str());
         std::string lockFilePath =
             cacheDirPath_ + "/" + CACHE_FILE_PREFIX + deviceAgentTask->compileTask->GetCacheKey() + CACHE_LOCK_FILE_SUFFIX;
         FILE *fp = LockAndOpenFile(lockFilePath);
@@ -116,7 +116,7 @@ void CacheManager::SaveTaskFile(const DeviceAgentTask *deviceAgentTask) const {
     if ((function->IsFunctionTypeAndGraphType({FunctionType::STATIC}, {GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) &&
         (function->BelongTo().GetLastFunction() == nullptr ||
          !function->BelongTo().GetLastFunction()->IsFunctionType(FunctionType::DYNAMIC))) {
-        ALOG_ERROR_F("Save deviceAgentTask at bin file[%s].", binFilePath.c_str());
+        ALOG_INFO_F("Save deviceAgentTask at bin file[%s].", binFilePath.c_str());
         std::string lockFilePath =
             cacheDirPath_ + "/" + CACHE_FILE_PREFIX + deviceAgentTask->compileTask->GetCacheKey() + CACHE_LOCK_FILE_SUFFIX;
         FILE *fp = LockAndOpenFile(lockFilePath);
@@ -143,7 +143,7 @@ bool CacheManager::RecoverTask(const std::string &cacheKey, DeviceAgentTask *dev
                  function->GetFunctionTypeStr().c_str());
     std::lock_guard<std::mutex> lock_guard(cacheMutex_);
     if (function->IsFunctionType(FunctionType::DYNAMIC)) {
-        ALOG_ERROR_F("Recover devProgBinary from bin file[%s].", cacheBinFile.c_str());
+        ALOG_INFO_F("Recover devProgBinary from bin file[%s].", cacheBinFile.c_str());
         function->GetDyndevAttribute()->devProgBinary = LoadFile(cacheBinFile);
         return !function->GetDyndevAttribute()->devProgBinary.empty();
     }
@@ -151,7 +151,7 @@ bool CacheManager::RecoverTask(const std::string &cacheKey, DeviceAgentTask *dev
     if ((deviceAgentTask->GetFunction()->IsFunctionTypeAndGraphType({FunctionType::STATIC}, {GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) &&
         (function->BelongTo().GetLastFunction() == nullptr ||
          !function->BelongTo().GetLastFunction()->IsFunctionType(FunctionType::DYNAMIC))) {
-        ALOG_ERROR_F("Recover deviceAgentTask from bin file[%s].", cacheBinFile.c_str());
+        ALOG_INFO_F("Recover deviceAgentTask from bin file[%s].", cacheBinFile.c_str());
         return TaskDumpUtils::RecoverTaskFromBinFile(cacheBinFile, deviceAgentTask);
     }
     return true;

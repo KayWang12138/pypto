@@ -22,7 +22,7 @@
 #include "models/llama/llama_def.h"
 #include "runtime/runtime.h"
 #include "interface/utils/file_utils.h"
-#include "interface/registry/ast_op_registry.h"
+#include "interface/registry/tile_fwk_op_registry.h"
 
 using namespace npu::tile_fwk;
 

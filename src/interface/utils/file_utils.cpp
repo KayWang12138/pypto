@@ -22,6 +22,7 @@
 #include <dirent.h>
 #include <ftw.h>
 #include <fcntl.h>
+#include <dlfcn.h>
 #include "interface/utils/log.h"
 
 namespace npu::tile_fwk {
@@ -377,5 +378,18 @@ bool CopyFile(const std::string &srcPath, const std::string &dstPath) {
     src.close();
     dst.close();
     return true;
+}
+
+std::string GetCurrentLibPath() {
+    std::string currentLibPath;
+    Dl_info info;
+    if (dladdr(reinterpret_cast<void*>(GetCurrentLibPath), &info)) {
+        currentLibPath = std::string(info.dli_fname);
+        int32_t pos = currentLibPath.rfind('/');
+        if (pos >= 0) {
+            currentLibPath = currentLibPath.substr(0, pos);
+        }
+    }
+    return currentLibPath;
 }
 }  // namespace npu::tile_fwk

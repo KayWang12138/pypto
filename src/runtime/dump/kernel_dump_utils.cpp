@@ -30,6 +30,7 @@ const std::string KERNEL_FILE_PREFIX = "ast_op_";
 const std::string KERNEL_BIN_FILE_SUFFIX = ".o";
 const std::string KERNEL_JSON_FILE_SUFFIX = ".json";
 const std::string AICORE_KERNEL_FILE_PATH = "../../src/runtime/kernel/kernel.o";
+const std::string AICORE_KERNEL_FILE_NAME = "kernel.o";
 
 inline size_t DataSizeAlign(const size_t bytes, const uint32_t aligns = 32U) {
     const size_t alignSize = (aligns == 0U) ? sizeof(uintptr_t) : aligns;
@@ -75,13 +76,23 @@ bool KernelDumpUtils::DumpBinFile(const DeviceAgentTask *deviceAgentTask, const 
     }
 
     if (opBinData.empty()) {
-        return false;
+        ALOG_INFO_F("OP binary data is empty, function type is [%s].", function->GetFunctionTypeStr().c_str());
+        return true;
     }
     kernelHeader.dataSize[static_cast<size_t>(KernelContextType::OpBinary)] = opBinData.size();
     offset += DataSizeAlign(opBinData.size());
 
     // kernel.o
-    std::vector<uint8_t> kernelBinData = LoadFile(AICORE_KERNEL_FILE_PATH);
+    std::string kernelPath = GetCurrentLibPath() + "/" + AICORE_KERNEL_FILE_NAME;
+    std::vector<uint8_t> kernelBinData = LoadFile(kernelPath);
+    if (kernelBinData.empty()) {
+        kernelPath = GetCurrentLibPath() + "/" + AICORE_KERNEL_FILE_PATH;
+        kernelBinData = LoadFile(kernelPath);
+        if (kernelBinData.empty()) {
+            ALOG_ERROR_F("Kernel path[%] is not existed.", kernelPath.c_str());
+            return false;
+        }
+    }
     kernelHeader.dataOffset[static_cast<size_t>(KernelContextType::Kernel)] = offset;
     kernelHeader.dataSize[static_cast<size_t>(KernelContextType::Kernel)] = kernelBinData.size();
     offset += DataSizeAlign(kernelBinData.size());
@@ -121,24 +132,24 @@ void KernelDumpUtils::DumpJsonFile(const DeviceAgentTask *deviceAgentTask, const
 bool KernelDumpUtils::GetBufferFromBinFile(const std::string &binFilePath, std::vector<char> &buffer) {
     char resolvedPath[PATH_MAX] = {0x00};
     if (realpath(binFilePath.c_str(), resolvedPath) == nullptr) {
-        ALOG_INFO("path is invalid, val: ", binFilePath);
+        ALOG_INFO_F("Bin file path[%s] is invalid.", binFilePath.c_str());
         return false;
     }
     std::ifstream ifStream(resolvedPath, std::ios::binary | std::ios::ate);
     if (!ifStream.is_open()) {
-        ALOG_INFO("Open file failed, path is: ", binFilePath);
+        ALOG_INFO_F("Fail to open bin file path[%s].", binFilePath.c_str());
         return false;
     }
     try {
         std::streamsize bufferSize = ifStream.tellg();
         if (bufferSize <= 0) {
             ifStream.close();
-            ALOG_INFO("Get stream failed");
+            ALOG_INFO_F("Get stream failed");
             return false;
         }
         if (bufferSize > INT_MAX) {
             ifStream.close();
-            ALOG_INFO("bufferSize is invalid.");
+            ALOG_INFO_F("bufferSize is invalid.");
             return false;
         }
         ifStream.seekg(0, std::ios::beg);
@@ -149,7 +160,7 @@ bool KernelDumpUtils::GetBufferFromBinFile(const std::string &binFilePath, std::
         ifStream.close();
     } catch (const std::ifstream::failure &e) {
         ifStream.close();
-        std::cerr << "Error attr: " << e.what() << std::endl;
+        ALOG_ERROR_F("Failed to read bin file[%s], reason is [%s]", binFilePath.c_str(), e.what());
         return false;
     }
     return true;
@@ -159,7 +170,7 @@ bool KernelDumpUtils::WriteBufferToFatbin(FatbinHeadInfo &fatbinHeadInfo, const 
         const std::vector<char> &fatbinBuffer) {
     std::ofstream fatbinFile(path, std::ios::binary);
     if (!fatbinFile.is_open()) {
-        std::cerr << "Failed to open file: " << path << std::endl;
+        ALOG_ERROR_F("Failed to open file[%s].", path.c_str());
         return false;
     }
     size_t headSize = sizeof(fatbinHeadInfo.configKeyNum);
@@ -177,9 +188,9 @@ bool KernelDumpUtils::WriteBufferToFatbin(FatbinHeadInfo &fatbinHeadInfo, const 
     fatbinFile.write(reinterpret_cast<const char*>(fatbinData.data()), fatbinData.size());
     fatbinFile.write(reinterpret_cast<const char*>(fatbinBuffer.data()), fatbinBuffer.size());
     if (!fatbinFile.good()) {
-        std::cerr << "Error occurred during writing!" << std::endl;
+        ALOG_WARN_F("Error occurred during writing");
     }
-    ALOG_INFO("headInfoSize is: ", offset, ", fatbin size is: ", fatbinFile.tellp());
+    ALOG_INFO_F("headInfoSize is: %zu, fatbin size is: %ld.", offset, fatbinFile.tellp());
     fatbinFile.close();
     return true;
 }
@@ -216,7 +227,7 @@ void KernelDumpUtils::WriteFatbinJson(const std::vector<JsonInfo> &allBinJsonInf
 bool KernelDumpUtils::GetSubJsonInfo(const std::string &jsonPath, JsonInfo &kernelJsonInfo) {
     char resolvedPath[PATH_MAX] = {0x00};
     if (realpath(jsonPath.c_str(), resolvedPath) == nullptr) {
-        ALOG_INFO("realpath failed, val is: ", jsonPath);
+        ALOG_INFO_F("realpath failed, val is: %s.", jsonPath.c_str());
         return false;
     }
     Json jsonValue;
@@ -239,7 +250,7 @@ bool KernelDumpUtils::GetSubJsonInfo(const std::string &jsonPath, JsonInfo &kern
             kernelJsonInfo.workspaceSize = workspaceValue.at("size").get<std::vector<int64_t>>().at(0);
         }
     } catch (const std::exception &e) {
-        std::cerr << "Json parse error: " << e.what() << ", json val is: " << jsonValue.dump() << std::endl;
+        ALOG_ERROR_F("Fail to parse json, error:%s, json is %s.", e.what(), jsonValue.dump().c_str());
         return false;
     }
     return true;
@@ -249,23 +260,25 @@ void GetEnv(const char *envName, std::string &envValue) {
     const size_t envValueMaxLen = 1024UL * 1024UL;
     const char *envTemp = std::getenv(envName);
     if ((envTemp == nullptr) || (strnlen(envTemp, envValueMaxLen) >= envValueMaxLen)) {
-        ALOG_INFO("Env[%s] not found. \n", envName);
+        ALOG_INFO_F("Env[%s] is not found.", envName);
         return;
     }
     envValue = envTemp;
 }
 
-void KernelDumpUtils::LoadTileFwkOpLib(void *opLibHandle) {
+void* KernelDumpUtils::LoadTileFwkImplOpLib() {
     std::string tileFwkLibPath;
     GetEnv("TILE_FWK_OP_IMPL_PATH", tileFwkLibPath);
+    ALOG_INFO_F("Value of env[TILE_FWK_OP_IMPL_PATH] is [%s].", tileFwkLibPath.c_str());
     if (tileFwkLibPath.empty()) {
-        tileFwkLibPath = ".";
+        ALOG_WARN_F("Value of env[TILE_FWK_OP_IMPL_PATH] is empty.");
+        return nullptr;
     }
-    tileFwkLibPath += "/libtile_fwk_impl.so";
-    opLibHandle = dlopen(tileFwkLibPath.c_str(), RTLD_NOW | RTLD_GLOBAL);
+    void *opLibHandle = dlopen(tileFwkLibPath.c_str(), RTLD_NOW | RTLD_GLOBAL);
     if (opLibHandle == nullptr) {
-        ALOG_INFO("Cannot dlopen libast_impl.so, ", dlerror());
+        ALOG_INFO_F("Failed to dlopen %s, reason is %s.", tileFwkLibPath.c_str(), dlerror());
     }
+    return opLibHandle;
 }
 
 void KernelDumpUtils::FreeOpHandle(void *opLibHandle) {
