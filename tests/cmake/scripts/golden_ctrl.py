@@ -20,6 +20,7 @@ import math
 import multiprocessing
 import shutil
 import sys
+import os
 from pathlib import Path
 from typing import List, Any
 from datetime import datetime, timezone
@@ -58,14 +59,23 @@ class GoldenCtrl:
         return datas
 
     @staticmethod
+    def default_golden_path(base_dir) -> List:
+        golden_paths = []
+        for root, dirs, _ in os.walk(base_dir):
+            for d in dirs:
+                if '__pycache__' in d:
+                    continue
+                golden_paths.append(os.path.join(root, d))
+        return golden_paths
+
+    @staticmethod
     def main() -> bool:
         """ 主处理流程 """
         parser = argparse.ArgumentParser(description=f"STest Golden Ctrl", epilog="Best Regards!")
         parser.add_argument("-c", "--cases", type=str, default="", required=True,
                             help="STest Cases, multiple test cases are separated by ':'")
-        parser.add_argument("-o", "--output", type=str, default="", required=True,
-                            help="Golden output path.")
-        parser.add_argument("-p", "--path", nargs="?", type=str, action="append", required=True,
+        parser.add_argument("-o", "--output", type=str, default="golden", help="Golden output path.")
+        parser.add_argument("-p", "--path", nargs="?", type=str, action="append",
                             help="Golden impl path, relative path to the source root directory.")
         parser.add_argument("--clean", action="store_true", default=False,
                             help="clean, clean before generate.")
@@ -73,7 +83,12 @@ class GoldenCtrl:
                             # Golden 生成不确定是否 CPU Bound, 默认使用 0.8 倍 CPU 数进程
                             default=int(math.ceil(float(multiprocessing.cpu_count()) * 0.8)),
                             help="Specific parallel accelerate job num.")
-        ctrl = GoldenCtrl(args=parser.parse_args())
+        args = parser.parse_args()
+        if not args.path:
+            base_dir = os.path.join(os.path.dirname(sys.argv[0]), "golden")
+            args.path = GoldenCtrl.default_golden_path(base_dir)
+
+        ctrl = GoldenCtrl(args)
         ret = ctrl.prepare()
         ret = ret and ctrl.process()
         return ret

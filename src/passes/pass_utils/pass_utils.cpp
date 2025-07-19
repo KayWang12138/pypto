@@ -133,7 +133,8 @@ void SubfuncInvokeInfoTy::ConstructActualInvokeParam(int esgId) {
     for (auto &tensorArg : tensorArgs_) {
         ALOG_DEBUG_F("######## Construct TA for %d ########", esgId);
         tensorParamList_.emplace_back(paramLoc, tensorArg.realDDRId, tensorArg.offset, tensorArg.shape,
-            tensorArg.rawShape, tensorArg.dType, tensorArg.isOutputToGM, tensorArg.tensor, tensorArg.opMagic);
+            tensorArg.rawShape, tensorArg.dType, tensorArg.isOutputToGM, tensorArg.tensor, tensorArg.opMagic,
+            tensorArg.operandIdx);
         paramLoc++;
     }
 
@@ -145,14 +146,15 @@ void SubfuncInvokeInfoTy::ConstructActualInvokeParam(int esgId) {
         // accordinarly.
         incastTensorParamList_.emplace_back(
             IncastParamPackTy{iParamLoc, inCastInfo.realIncastDDRId, inCastInfo.offset, inCastInfo.shape,
-                              inCastInfo.rawShape, inCastInfo.dType, inCastInfo.tensor, inCastInfo.opMagic});
+                              inCastInfo.rawShape, inCastInfo.dType, inCastInfo.tensor, inCastInfo.opMagic,
+                              inCastInfo.operandIdx});
         iParamLoc++;
     }
 
     int oParamLoc = 0 | 0x20000000;
     for (auto &outCast : outCasts_) {
         outcastTensorParamList_.emplace_back(oParamLoc, outCast.realOutCastDDRId, outCast.refCount, outCast.shape,
-            outCast.rawShape, outCast.offset, outCast.dType, outCast.tensor, outCast.opMagic);
+            outCast.rawShape, outCast.offset, outCast.dType, outCast.tensor, outCast.opMagic, outCast.operandIdx);
 
         oParamLoc++;
     }
@@ -272,7 +274,7 @@ void SubfuncInvokeInfoTy::Print(const std::string &extInfo) const {
 
     ss << "---- Tensors: \n";
     for (auto &tensorArg : tensorArgs_) {
-        ss << "seqNo: " << tensorArg.seqNo << ", Op:" << tensorArg.operandIndex << ", $" << tensorArg.realDDRId;
+        ss << "seqNo: " << tensorArg.seqNo << ", Op:" << tensorArg.operandIdx << ", $" << tensorArg.realDDRId;
         ss << "\n";
     }
 
@@ -281,7 +283,7 @@ void SubfuncInvokeInfoTy::Print(const std::string &extInfo) const {
         osm << "DstESgId: " << std::get<1>(conn) << ", ";
         const InCastInfoTy &icInfo = std::get<2>(conn);
         osm << "seqNo: " << icInfo.seqNo << ",";
-        osm << "DstOprn: " << icInfo.dstOperandId << ",";
+        osm << "DstOprn: " << icInfo.operandIdx << ",";
         int ddrId = icInfo.realIncastDDRId;
         if (ddrId != -1) {
             osm << "ddrId: $" << ddrId << "\n";
@@ -338,6 +340,7 @@ Json SubfuncInvokeInfoTy::DumpJson() const {
         incastJson["offset"] = incast.offset;
         incastJson["shape"] = incast.shape;
         incastJson["op_magic"] = incast.opMagic;
+        incastJson["operandIdx"] = incast.operandIdx;
         incastArray.emplace_back(incastJson);
     }
 
@@ -351,6 +354,7 @@ Json SubfuncInvokeInfoTy::DumpJson() const {
         outcastJson["offset"] = outcast.offset;
         outcastJson["shape"] = outcast.shape;
         outcastJson["op_magic"] = outcast.opMagic;
+        outcastJson["operandIdx"] = outcast.operandIdx;
         outcastArray.emplace_back(outcastJson);
     }
 
@@ -364,6 +368,7 @@ Json SubfuncInvokeInfoTy::DumpJson() const {
         tensorJson["shape"] = tensor.shape;
         tensorJson["op_magic"] = tensor.opMagic;
         tensorJson["is_output"] = tensor.isOutputToGM;
+        tensorJson["operandIdx"] = tensor.operandIdx;
         tensorArray.emplace_back(tensorJson);
     }
     ret["program_id"] = programSubgraphId_;
@@ -375,6 +380,7 @@ void SubfuncInvokeInfoTy::LoadJson(const Json &invokeInfoJson, Function *belongT
     for (const Json &incastJson : invokeInfoJson["incast_params"]) {
         int paramLoc = incastJson["param_loc"].get<int>();
         int opMagic = incastJson["op_magic"].get<int>();
+        int operandIdx = incastJson["operandIdx"].get<int>();
         std::shared_ptr<LogicalTensor> tensorPtr = belongTo->GetTensorMap().GetTensorByMagic(incastJson["tensor"].get<int>());
         if (tensorPtr == nullptr) {
             ALOG_ERROR_F("Tile FWK for incast %d op %d is nullptr, function type %d name %s",
@@ -384,13 +390,14 @@ void SubfuncInvokeInfoTy::LoadJson(const Json &invokeInfoJson, Function *belongT
         }
         incastTensorParamList_.emplace_back(IncastParamPackTy(paramLoc, tensorPtr->GetRawMagic(),
             incastJson["offset"].get<std::vector<int>>(), incastJson["shape"].get<std::vector<int>>(),
-            tensorPtr->tensor->rawshape, tensorPtr->tensor->GetDataType(), tensorPtr, opMagic));
+            tensorPtr->tensor->rawshape, tensorPtr->tensor->GetDataType(), tensorPtr, opMagic, operandIdx));
     }
 
     for (const Json &outcastJson : invokeInfoJson["outcast_params"]) {
         int paramLoc = outcastJson["param_loc"].get<int>();
         int refCount = outcastJson["ref_count"].get<int>();
         int opMagic = outcastJson["op_magic"].get<int>();
+        int operandIdx = outcastJson["operandIdx"].get<int>();
         std::shared_ptr<LogicalTensor> tensorPtr = belongTo->GetTensorMap().GetTensorByMagic(outcastJson["tensor"].get<int>());
         if (tensorPtr == nullptr) {
             ALOG_ERROR_F("Tile FWK for outcast %d op %d is nullptr function type %d name %s",
@@ -400,11 +407,13 @@ void SubfuncInvokeInfoTy::LoadJson(const Json &invokeInfoJson, Function *belongT
         }
         outcastTensorParamList_.emplace_back(OutcastParamPackTy(paramLoc, tensorPtr->GetRawMagic(), refCount,
             outcastJson["shape"].get<std::vector<int>>(), tensorPtr->tensor->rawshape,
-            outcastJson["offset"].get<std::vector<int>>(), tensorPtr->tensor->GetDataType(), tensorPtr, opMagic));
+            outcastJson["offset"].get<std::vector<int>>(), tensorPtr->tensor->GetDataType(), tensorPtr, opMagic,
+            operandIdx));
     }
     for (const Json &tensorJson : invokeInfoJson["tensor_params"]) {
         int paramLoc = tensorJson["param_loc"].get<int>();
         int opMagic = tensorJson["op_magic"].get<int>();
+        int operandIdx = tensorJson["operandIdx"].get<int>();
         std::shared_ptr<LogicalTensor> tensorPtr = belongTo->GetTensorMap().GetTensorByMagic(tensorJson["tensor"].get<int>());
         if (tensorPtr == nullptr) {
             ALOG_ERROR_F("Tile FWK for tensor %d op %d is nullptr, function type %d name %s",
@@ -416,7 +425,7 @@ void SubfuncInvokeInfoTy::LoadJson(const Json &invokeInfoJson, Function *belongT
         tensorParamList_.emplace_back(TensorParamPackTy(paramLoc, tensorPtr->GetRawMagic(),
             tensorJson["offset"].get<std::vector<int>>(),
             tensorJson["shape"].get<std::vector<int>>(),
-            tensorPtr->tensor->rawshape, tensorPtr->tensor->GetDataType(), isOutput, tensorPtr, opMagic));
+            tensorPtr->tensor->rawshape, tensorPtr->tensor->GetDataType(), isOutput, tensorPtr, opMagic, operandIdx));
     }
     programSubgraphId_ = invokeInfoJson["program_id"].get<int>();
     graphType_ = static_cast<CoreType>(invokeInfoJson["graph_type"].get<int>());
@@ -429,7 +438,7 @@ Json SubfuncInvokeInfoTy::ToJson() const {
         Json jdata;
         auto &incast = std::get<2>(conn);
         jdata["seqNo"] = incast.seqNo;
-        jdata["operandIdx"] = incast.dstOperandId;
+        jdata["operandIdx"] = incast.operandIdx;
         jdata["ddrId"] = incast.realIncastDDRId;
         jdata["shape"] = incast.shape;
         jdata["offset"] = incast.offset;
@@ -440,7 +449,7 @@ Json SubfuncInvokeInfoTy::ToJson() const {
     for (const auto &outcast : outCasts_) {
         Json jdata;
         jdata["seqNo"] = outcast.seqNo;
-        jdata["operandIdx"] = 0;
+        jdata["operandIdx"] = outcast.operandIdx;
         jdata["ddrId"] = outcast.realOutCastDDRId;
         jdata["shape"] = outcast.shape;
         jdata["offset"] = outcast.offset;
@@ -456,7 +465,7 @@ Json SubfuncInvokeInfoTy::ToJson() const {
     for (const auto &tensor : tensorArgs_) {
         Json jdata;
         jdata["seqNo"] = tensor.seqNo;
-        jdata["operandIdx"] = tensor.operandIndex;
+        jdata["operandIdx"] = tensor.operandIdx;
         jdata["ddrId"] = tensor.realDDRId;
         jdata["shape"] = tensor.shape;
         jdata["offset"] = tensor.offset;
@@ -572,9 +581,9 @@ void SubfuncParam::FromJson(const Json& params) {
     tensorsArgs_.clear();
     outCastArgs_.clear();
     for (auto &ele : params["incasts"]) {
-        AppendIncastParam(ele["seqNo"].get<int>(), 
-            ele["operandIdx"].get<int>(), 
-            ele["ddrId"].get<int>(),  
+        AppendIncastParam(ele["seqNo"].get<int>(),
+            ele["operandIdx"].get<int>(),
+            ele["ddrId"].get<int>(),
             ele["shape"].get<std::vector<int>>(),
             ele["offset"].get<std::vector<int>>(),
             ele["name"].get<std::string>(),
@@ -584,8 +593,8 @@ void SubfuncParam::FromJson(const Json& params) {
     }
 
     for (auto &ele : params["outcasts"]) {
-        AppendOutcastParam(ele["seqNo"].get<int>(), 
-            ele["operandIdx"].get<int>(), 
+        AppendOutcastParam(ele["seqNo"].get<int>(),
+            ele["operandIdx"].get<int>(),
             ele["ddrId"].get<int>(), 0,
             ele["shape"].get<std::vector<int>>(),
             ele["offset"].get<std::vector<int>>(),
@@ -596,9 +605,9 @@ void SubfuncParam::FromJson(const Json& params) {
     }
 
     for (auto &ele : params["tensors"]) {
-        AppendTensorParam(ele["seqNo"].get<int>(), 
-            ele["operandIdx"].get<int>(), 
-            ele["ddrId"].get<int>(),  
+        AppendTensorParam(ele["seqNo"].get<int>(),
+            ele["operandIdx"].get<int>(),
+            ele["ddrId"].get<int>(),
             ele["shape"].get<std::vector<int>>(),
             ele["offset"].get<std::vector<int>>(),
             ele["name"].get<std::string>(),
@@ -623,7 +632,7 @@ void SubfuncTopologyInfoTy::AddEntry(const int esgId, const int readState, const
     }
 }
 
-void SubfuncTopologyInfoTy::UpdateEntry(const uint32_t extType, const uint32_t extParamNum, const std::vector<int> &extParams) { 
+void SubfuncTopologyInfoTy::UpdateEntry(const uint32_t extType, const uint32_t extParamNum, const std::vector<int> &extParams) {
     auto &entry = topology_.back();
     entry.extType = extType;
     entry.extParamNum = extParamNum;

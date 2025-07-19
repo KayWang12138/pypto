@@ -49,8 +49,8 @@ TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_PrintInvokeInfo) {
     subfuncInvokeInfo.RecordConnection(3, 3, 3, 3, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 40);
 
     std::vector<SubfuncInvokeInfoTy::SuccessorIncastRecTy> inCasts;
-    subfuncInvokeInfo.RecordOutcast(4, 4, 4, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 50);
-    subfuncInvokeInfo.RecordOutcast(5, 5, 5, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 60);
+    subfuncInvokeInfo.RecordOutcast(4, 4, 0, 4, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 50);
+    subfuncInvokeInfo.RecordOutcast(5, 5, 0, 5, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 60);
 
     subfuncInvokeInfo.DoFinishRecord();
     subfuncInvokeInfo.ConstructActualInvokeParam(123);
@@ -69,8 +69,8 @@ TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_PrettyPrintInvokeInfo1) {
     subfuncInvokeInfo.RecordConnection(3, 3, 3, 3, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 40);
 
     std::vector<SubfuncInvokeInfoTy::SuccessorIncastRecTy> inCasts;
-    subfuncInvokeInfo.RecordOutcast(4, 4, 4, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 50);
-    subfuncInvokeInfo.RecordOutcast(5, 5, 5, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 60);
+    subfuncInvokeInfo.RecordOutcast(4, 4, 0, 4, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 50);
+    subfuncInvokeInfo.RecordOutcast(5, 5, 0, 5, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 60);
 
     subfuncInvokeInfo.DoFinishRecord();
     subfuncInvokeInfo.ConstructActualInvokeParam(123);
@@ -89,8 +89,8 @@ TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_DumpInvokeInfo1) {
     subfuncInvokeInfo.RecordConnection(3, 3, 3, 3, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 40);
 
     std::vector<SubfuncInvokeInfoTy::SuccessorIncastRecTy> inCasts;
-    subfuncInvokeInfo.RecordOutcast(4, 4, 4, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 50);
-    subfuncInvokeInfo.RecordOutcast(5, 5, 5, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 60);
+    subfuncInvokeInfo.RecordOutcast(4, 4, 0, 4, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 50);
+    subfuncInvokeInfo.RecordOutcast(5, 5, 0, 5, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 60);
 
     subfuncInvokeInfo.DoFinishRecord();
     subfuncInvokeInfo.ConstructActualInvokeParam(123);
@@ -110,8 +110,8 @@ TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_LookupInvokeArgs1) {
     subfuncInvokeInfo.RecordConnection(3, 3, 3, 3, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 40);
 
     std::vector<SubfuncInvokeInfoTy::SuccessorIncastRecTy> inCasts;
-    subfuncInvokeInfo.RecordOutcast(4, 4, 4, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 50);
-    subfuncInvokeInfo.RecordOutcast(5, 5, 5, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 60);
+    subfuncInvokeInfo.RecordOutcast(4, 4, 0, 4, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 50);
+    subfuncInvokeInfo.RecordOutcast(5, 5, 0, 5, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 60);
 
     subfuncInvokeInfo.DoFinishRecord();
     subfuncInvokeInfo.ConstructActualInvokeParam(123);
@@ -133,8 +133,8 @@ TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_Print1) {
     subfuncInvokeInfo.RecordConnection(3, 3, 3, 3, 123, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 40);
 
     std::vector<SubfuncInvokeInfoTy::SuccessorIncastRecTy> inCasts;
-    subfuncInvokeInfo.RecordOutcast(4, 4, 4, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 50);
-    subfuncInvokeInfo.RecordOutcast(5, 5, 5, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 60);
+    subfuncInvokeInfo.RecordOutcast(4, 4, 0, 4, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 50);
+    subfuncInvokeInfo.RecordOutcast(5, 5, 0, 5, 123, inCasts, {0, 0}, {64, 64}, {64, 64}, DataType::DT_FP32, nullptr, 60);
 
     subfuncInvokeInfo.Print("extra_info");
 

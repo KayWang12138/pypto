@@ -385,18 +385,10 @@ public:
     bool IsNeedStackGM() const;
 
     int GetIOpAttrOffset(int pos) const {
-        if (pos >= static_cast<int>(iOpAttrOffset.size())) {
-            int notNormalize = -1;
-            return notNormalize;
-        }
-        return iOpAttrOffset[pos];
+        return iOpAttrOffset.empty() ? -1 : iOpAttrOffset[pos];
     }
     int GetOOpAttrOffset(int pos) const {
-        if (pos >= static_cast<int>(oOpAttrOffset.size())) {
-            int notNormalize = -1;
-            return notNormalize;
-        }
-        return oOpAttrOffset[pos];
+        return oOpAttrOffset.empty() ? -1 : oOpAttrOffset[pos];
     }
     void SetIOpAttrOffset(int pos, int offset) {
         if (iOpAttrOffset.empty())

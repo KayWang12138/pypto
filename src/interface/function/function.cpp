@@ -16,9 +16,13 @@
 #include "interface/function/function.h"
 #include <queue>
 #include <algorithm>
+#include "common/pre_def.h"
 #include "interface/cache/hash.h"
+#include "interface/operation/opcode.h"
+#include "interface/operation/operation.h"
 #include "interface/utils/id_gen.h"
 #include "interface/utils/log.h"
+#include "tilefwk/symbolic_scalar.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
@@ -38,7 +42,7 @@ const std::string PREFIX = "  ";
 const int SPACE_NUM_THREE = 3;
 const int LAST_TWO = -2;
 constexpr int BASE_OFFSET = 1;
-constexpr int TIMES_NUM_2 = 2;
+
 const std::set<Opcode> SPECIAL_OPCODE_SET = {
     Opcode::OP_INDEX_OUTCAST, Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_CALL, Opcode::OP_CONVERT,
     Opcode::OP_COPY_IN, Opcode::OP_COPY_OUT
@@ -2020,171 +2024,151 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     return func;
 }
 
-std::vector<std::vector<SymbolicScalar>> Function::NormalizeCopyInCopyOut(
-    std::vector<int> &iOffset, std::vector<int> &oOffset) {
-    int argSize = 0;
-    std::vector<std::vector<SymbolicScalar>> argList;
-    for (size_t i = 0; i < inCasts_.size(); ++i) {
-        int subArgSize = 1 + inCasts_[i]->shape.size() * ARG_ATTR_TYPE;
-        argList.emplace_back(subArgSize, 0);
-        iOffset.push_back(argSize);
-        argSize += subArgSize;
+static std::vector<SymbolicScalar> NormalizeCopyIn(Operation *op, bool valueToIndex) {
+    auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
+    int dim = copyAttr->GetShape().size();
+    int offset = BASE_OFFSET;
+    std::vector<SymbolicScalar> argList(BASE_OFFSET + dim * ARG_ATTR_TYPE, 0);
+
+    auto opImmList = copyAttr->GetFromOffset();
+    OpImmediate::NormalizeValue(argList, opImmList, offset, valueToIndex);
+    copyAttr->SetFromOffset(opImmList);
+    offset += dim;
+
+    // shape to normal
+    opImmList = copyAttr->GetShape();
+    OpImmediate::NormalizeValue(argList, opImmList, offset, valueToIndex);
+    copyAttr->SetShape(opImmList);
+    offset += dim;
+
+    opImmList = copyAttr->GetRawShape();
+    OpImmediate::NormalizeValue(argList, opImmList, offset, valueToIndex);
+    copyAttr->SetRawShape(opImmList);
+    offset += dim;
+
+    opImmList = copyAttr->GetToDynValidShape();
+    OpImmediate::NormalizeValue(argList, opImmList, offset, valueToIndex);
+    copyAttr->SetToDynValidShape(opImmList);
+
+    return argList;
+}
+
+static std::vector<SymbolicScalar> NormalizeCopyOut(Operation *op, bool valueToIndex) {
+    auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
+    int dim = copyAttr->GetShape().size();
+    int offset = BASE_OFFSET;
+    std::vector<SymbolicScalar> argList(BASE_OFFSET + dim * ARG_ATTR_TYPE, 0);
+
+    auto opImmList = copyAttr->GetToOffset();
+    OpImmediate::NormalizeValue(argList, opImmList, offset, valueToIndex);
+    copyAttr->SetToOffset(opImmList);
+    offset += dim;
+
+    // shape to normal
+    opImmList = copyAttr->GetShape();
+    OpImmediate::NormalizeValue(argList, opImmList, offset, valueToIndex);
+    copyAttr->SetShape(opImmList);
+    offset += dim;
+
+    opImmList = copyAttr->GetRawShape();
+    OpImmediate::NormalizeValue(argList, opImmList, offset, valueToIndex);
+    copyAttr->SetRawShape(opImmList);
+    offset += dim;
+
+    return argList;
+}
+
+static std::vector<SymbolicScalar> NormalizeTensor(LogicalTensorPtr operand) {
+    auto offset = OpImmediate::Specified(operand->GetOffset());
+    auto dynOffset = OpImmediate::Specified(operand->GetDynOffset());
+    auto shape = OpImmediate::Specified(operand->GetShape());
+    auto rawshape = OpImmediate::Specified(operand->GetRawTensor()->GetRawShape());
+    auto dynValidShape = OpImmediate::Specified(operand->GetDynValidShape());
+
+    int dim = shape.size();
+    int argIdx = BASE_OFFSET;
+    std::vector<SymbolicScalar> argList(BASE_OFFSET + dim * ARG_ATTR_TYPE, 0);
+
+    if (dynOffset.size()) {
+        OpImmediate::NormalizeValue(argList, dynOffset, argIdx, false);
+    } else {
+        OpImmediate::NormalizeValue(argList, offset, argIdx, false);
     }
-    for (size_t i = 0; i < outCasts_.size(); ++i) {
-        int subArgSize = 1 + outCasts_[i]->shape.size() * ARG_ATTR_TYPE;
-        argList.emplace_back(subArgSize, 0);
-        oOffset.push_back(argSize);
-        argSize += subArgSize;
-    }
-    std::vector<SymbolicScalar> linearArgList(argSize, 0);
+    argIdx += dim;
 
-    bool valueToIndex = parent_->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH;
+    OpImmediate::NormalizeValue(argList, shape, argIdx, false);
+    argIdx += dim;
 
-    std::vector<std::shared_ptr<Operation>> inOps;
-    std::vector<std::shared_ptr<Operation>> outOps;
-    for (auto &op : operations_) {
-        if (IsCopyIn(op->GetOpcode())) {
-            inOps.push_back(op);
-        } else if (IsCopyOut(op->GetOpcode())) {
-            outOps.push_back(op);
-        }
-    }
-    for (auto &op : inOps) {
-        auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
-        auto incastIdx = opmagicToIncastIdx_[op->GetOpMagic()];
-        auto argIdx = iOffset[incastIdx];
-        // base addr
-        op->SetIOpAttrOffset(0, argIdx);
+    OpImmediate::NormalizeValue(argList, rawshape, argIdx, false);
+    argIdx += dim;
 
-        // offset
-        auto opImmList = copyAttr->GetFromOffset();
-        OpImmediate::NormalizeValue(linearArgList, opImmList, argIdx + BASE_OFFSET, valueToIndex);
-        copyAttr->SetFromOffset(opImmList);
-
-        int dim = opImmList.size();
-        // shape to normal
-        opImmList = copyAttr->GetShape();
-        OpImmediate::NormalizeValue(linearArgList, opImmList, argIdx + BASE_OFFSET + dim, valueToIndex);
-        copyAttr->SetShape(opImmList);
-
-        opImmList = copyAttr->GetRawShape();
-        OpImmediate::NormalizeValue(linearArgList, opImmList, argIdx + BASE_OFFSET + TIMES_NUM_2 * dim, valueToIndex);
-        copyAttr->SetRawShape(opImmList);
-
-        opImmList = copyAttr->GetToDynValidShape();
-        OpImmediate::NormalizeValue(linearArgList, opImmList, argIdx + BASE_OFFSET + 0x3 * dim, valueToIndex);
-        copyAttr->SetToDynValidShape(opImmList);
-    }
-    for (auto &op : outOps) {
-        auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
-        auto outcastIdx = opmagicToOutcastIdx_[op->GetOpMagic()];
-
-        auto argIdx = oOffset[outcastIdx];
-        // base addr
-        op->SetOOpAttrOffset(0, argIdx);
-
-        // offset
-        auto opImmList = copyAttr->GetToOffset();
-        OpImmediate::NormalizeValue(linearArgList, opImmList, argIdx + BASE_OFFSET, valueToIndex);
-        copyAttr->SetToOffset(opImmList);
-
-        int dim = opImmList.size();
-        // shape
-        opImmList = copyAttr->GetShape();
-        OpImmediate::NormalizeValue(linearArgList, opImmList, argIdx + BASE_OFFSET + dim, valueToIndex);
-        copyAttr->SetShape(opImmList);
-
-        opImmList = copyAttr->GetRawShape();
-        OpImmediate::NormalizeValue(linearArgList, opImmList, argIdx + BASE_OFFSET + TIMES_NUM_2 * dim, valueToIndex);
-        copyAttr->SetRawShape(opImmList);
-    }
-
-    auto normalizeCommon = [&linearArgList, &valueToIndex](auto operand, int argIdx) {
-        auto offset = OpImmediate::Specified(operand->GetOffset());
-        auto dynOffset = OpImmediate::Specified(operand->GetDynOffset());
-        auto shape = OpImmediate::Specified(operand->GetShape());
-        auto rawshape = OpImmediate::Specified(operand->GetRawTensor()->GetRawShape());
-        auto dynValidShape = OpImmediate::Specified(operand->GetDynValidShape());
-
-        if (dynOffset.size()) {
-            OpImmediate::NormalizeValue(linearArgList, dynOffset, argIdx + BASE_OFFSET, valueToIndex);
-        } else {
-            OpImmediate::NormalizeValue(linearArgList, offset, argIdx + BASE_OFFSET, valueToIndex);
-        }
-
-        int dim = shape.size();
-        OpImmediate::NormalizeValue(linearArgList, shape, argIdx + BASE_OFFSET + dim, valueToIndex);
-        OpImmediate::NormalizeValue(linearArgList, rawshape, argIdx + BASE_OFFSET + 0x2 * dim, valueToIndex);
-
-        if (dynValidShape.size()) {
-            OpImmediate::NormalizeValue(linearArgList, dynValidShape, argIdx + BASE_OFFSET + 0x3 * dim, valueToIndex);
-        }
-    };
-
-    auto expandArgList = [&linearArgList, &argList](int dim) {
-        int argIdx = linearArgList.size();
-        int subArgSize = 1 + dim * ARG_ATTR_TYPE;
-        argList.emplace_back(subArgSize, 0);
-        linearArgList.resize(argIdx + subArgSize, -1);
-        return argIdx;
-    };
-
-    for (auto &op : operations_) {
-        if (op->GetOpcode() == Opcode::OP_RESHAPE || op->GetOpcode() == Opcode::OP_VIEW) {
-            auto iop = op->GetIOperands()[0];
-            if (iop->GetMemoryTypeOriginal() == MEM_DEVICE_DDR) {
-                auto incastIdx = opmagicToIncastIdx_[op->GetOpMagic()];
-                normalizeCommon(iop, iOffset[incastIdx]);
-                op->SetIOpAttrOffset(0, iOffset[incastIdx]);
-            }
-            auto oop = op->GetOOperands()[0];
-            if (iop->GetMemoryTypeOriginal() == MEM_DEVICE_DDR) {
-                auto outcastIdx = opmagicToOutcastIdx_[op->GetOpMagic()];
-                normalizeCommon(oop, oOffset[outcastIdx]);
-                op->SetOOpAttrOffset(0, oOffset[outcastIdx]);
-            }
-            ALOG_DEBUG_F("reshape %d %s incastIdx %d outcastIdx %d", op->opmagic, op->GetOpcodeStr().c_str(),
-                opmagicToIncastIdx_[op->GetOpMagic()], opmagicToOutcastIdx_[op->GetOpMagic()]);
-        } else if (op->GetOpcode() == Opcode::OP_INDEX_OUTCAST) {
-            auto outIdx = oOffset[opmagicToOutcastIdx_[op->GetOpMagic()]];
-            auto inIdx = iOffset[opmagicToIncastIdx_[op->GetOpMagic()]];
-            int dim = op->GetOOperands()[0]->shape.size();
-            for (int i = 0; i < ARG_ATTR_TYPE * dim; i++) {
-                linearArgList[inIdx + BASE_OFFSET + i] = linearArgList[outIdx + BASE_OFFSET + i];
-            }
-            op->SetIOpAttrOffset(0x2, inIdx);
-        } else if (op->GetOpcode() == Opcode::OP_A_MUL_B || op->GetOpcode() == Opcode::OP_A_MUL_BT ||
-            op->GetOpcode() == Opcode::OP_A_MULACC_B || op->GetOpcode() == Opcode::OP_A_MULACC_BT) {
-            size_t inputNum = 3; // matmul input num
-            size_t inputIdx = 2; // index of the accu operand
-            if (op->GetIOperands().size() == inputNum && op->GetIOperands()[inputIdx]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-                auto incastIdx = opmagicToIncastIdx_[op->GetOpMagic()];
-                normalizeCommon(op->GetIOperands()[inputIdx], iOffset[incastIdx]);
-                op->SetIOpAttrOffset(inputIdx, iOffset[incastIdx]);
-            }
-        } else if (op->GetOpcode() == Opcode::OP_VEC_DUP) {
-            auto oOp = op->GetOOperands()[0];
-            int argIdx = expandArgList(oOp->shape.size());
-            normalizeCommon(oOp, argIdx);
-            oOffset.push_back(argIdx);
-            op->SetOOpAttrOffset(0, argIdx);
-        }
-    }
-
-    for (auto x : iOffset)
-        ASSERT(x != -1);
-    for (auto x : oOffset)
-        ASSERT(x != -1);
-
-    int argPos = 0;
-    for (auto &l : argList) {
-        for (auto &arg : l) {
-           arg = linearArgList[argPos];
-           ++argPos;
-        }
+    if (dynValidShape.size()) {
+        OpImmediate::NormalizeValue(argList, dynValidShape, argIdx, false);
+    } else {
+        OpImmediate::NormalizeValue(argList, shape, argIdx, false);
     }
 
     return argList;
+}
+
+std::vector<std::vector<SymbolicScalar>> Function::NormalizeCopyInCopyOut(
+    std::vector<int> &iOffset, std::vector<int> &oOffset) {
+    std::map<int, Operation *> opmagicToOp;
+    std::vector<std::pair<Operation*, int>> extraOutcasts;
+
+    for (auto &op : operations_) {
+        opmagicToOp[op->GetOpMagic()] = op.get();
+        /* The valid-shape of following OP could not be deduced
+           should be normalized also */
+        if (op->GetOpcode() == Opcode::OP_VEC_DUP ||
+            op->GetOpcode() == Opcode::OP_RESHAPE ||
+            op->GetOpcode() == Opcode::OP_EXPAND) {
+            extraOutcasts.emplace_back(op.get(), 0);
+        }
+    }
+
+    int argIdx = 0;
+    std::vector<std::vector<SymbolicScalar>> argLists;
+    bool valueToIndex = parent_->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH;
+    for (auto [opmagic, k] : incastPosition) {
+        auto op = opmagicToOp[opmagic];
+        std::vector<SymbolicScalar> argList;
+        if (IsCopyIn(op->GetOpcode()) && k == 0) {
+            argList = NormalizeCopyIn(op, valueToIndex);
+        } else {
+            argList = NormalizeTensor(op->GetIOperands()[k]);
+        }
+        op->SetIOpAttrOffset(k, argIdx);
+        iOffset.push_back(argIdx);
+        argIdx += argList.size();
+        argLists.push_back(std::move(argList));
+    }
+
+    for (auto [opmagic, k] : outcastPosition) {
+        auto op = opmagicToOp[opmagic];
+        std::vector<SymbolicScalar> argList;
+        if (IsCopyOut(op->GetOpcode()) && k == 0) {
+            argList = NormalizeCopyOut(op, valueToIndex);
+        } else {
+            argList = NormalizeTensor(op->GetOOperands()[k]);
+        }
+        op->SetOOpAttrOffset(k, argIdx);
+        oOffset.push_back(argIdx);
+        argIdx += argList.size();
+        argLists.push_back(std::move(argList));
+    }
+
+    for (auto [op, k]: extraOutcasts) {
+        if (op->GetOOpAttrOffset(0) != -1)
+            continue;
+        auto argList = NormalizeTensor(op->GetOOperands()[k]);
+        op->SetOOpAttrOffset(k, argIdx);
+        oOffset.push_back(argIdx);
+        argIdx += argList.size();
+        argLists.push_back(std::move(argList));
+    }
+
+    return argLists;
 }
 
 void Function::DumpTopoFile(const std::string &fileName) const

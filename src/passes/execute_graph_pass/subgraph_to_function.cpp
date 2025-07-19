@@ -284,7 +284,7 @@ void SubgraphToFunction::RecordEsgOutcast(Function &function, size_t i, size_t j
                         eSgId, connectedTgtOperandIdx, nullptr, consumer->GetOpMagic()));
                 }
             }
-            iter.RecordOutcast(i, nLIST[i][j]->GetIntAttribute(OpAttributeKey::seqNo),
+            iter.RecordOutcast(i, nLIST[i][j]->GetIntAttribute(OpAttributeKey::seqNo), k,
                 refCount, oOperand->GetRawMagic(),
                 relatedIncastList, offset, shape,
                 oOperand->tensor->rawshape, oOperand->Datatype(), oOperand,
@@ -681,21 +681,17 @@ void SubgraphToFunction::BuildGraph(Function &function) {
 
 void SubgraphToFunction::InsertParameter(size_t i, Function* leafFunc) {
     for (auto &in : subFuncInvokeInfos[i].GetIncastTensorParamList()) {
-        leafFunc->inCasts_.emplace_back(in.tensor);
-        leafFunc->InsertOpmagicToIncastIdx(in.opMagic, leafFunc->inCasts_.size() - 1);
+        leafFunc->AppendIncast(in.tensor, in.opMagic, in.operandIdx);
     }
     for (auto &out : subFuncInvokeInfos[i].GetOutcastTensorParamList()) {
-        leafFunc->outCasts_.emplace_back(out.tensor);
-        leafFunc->InsertOpmagicToOutcastIdx(out.opMagic, leafFunc->outCasts_.size() - 1);
+        leafFunc->AppendOutcast(out.tensor, out.opMagic, out.operandIdx);
     }
     for (auto &tensor : subFuncInvokeInfos[i].GetTensorParamList()) {
         leafFunc->AddGlobalTensor(tensor.tensor);
         if (tensor.isOutputToGM) {
-            leafFunc->outCasts_.emplace_back(tensor.tensor);
-            leafFunc->InsertOpmagicToOutcastIdx(tensor.opMagic, leafFunc->outCasts_.size() - 1);
+            leafFunc->AppendOutcast(tensor.tensor, tensor.opMagic, tensor.operandIdx);
         } else {
-            leafFunc->inCasts_.emplace_back(tensor.tensor);
-            leafFunc->InsertOpmagicToIncastIdx(tensor.opMagic, leafFunc->inCasts_.size() - 1);
+            leafFunc->AppendIncast(tensor.tensor, tensor.opMagic, tensor.operandIdx);
         }
     }
 }
@@ -901,4 +897,3 @@ void SubgraphToFunction::InitializeRootFunction(Function& function, Function* ro
         rootFunc->GetTensorMap().inverseMap_.size(), rootFunc->GetTensorMap().tensorMap_.size());
 }
 } // namespace npu::tile_fwk
-

@@ -616,11 +616,14 @@ public:
         }
     }
 
-    void InsertOpmagicToIncastIdx(int opmagic, int idx) {
-        opmagicToIncastIdx_.insert({opmagic, idx});
+    void AppendIncast(LogicalTensorPtr tensor, int opmagic, int k) {
+        incastPosition.emplace_back(opmagic, k);
+        inCasts_.emplace_back(tensor);
     }
-    void InsertOpmagicToOutcastIdx(int opmagic, int idx) {
-        opmagicToOutcastIdx_.insert({opmagic, idx});
+
+    void AppendOutcast(LogicalTensorPtr tensor, int opmagic, int k) {
+        outcastPosition.emplace_back(opmagic, k);
+        outCasts_.emplace_back(tensor);
     }
 
     const SubfuncParam &GetParameter() const { return parameter_; }
@@ -685,10 +688,11 @@ private:
 
     std::vector<std::shared_ptr<LogicalTensor>> originInCasts_;
     std::unordered_set<std::shared_ptr<LogicalTensor>> inCastsSet_; // Input tensors set
-    std::map<int, int> opmagicToIncastIdx_;
+    std::vector<std::pair<int, int>> incastPosition;
 
     std::vector<std::shared_ptr<LogicalTensor>> originOutCasts_;
     std::map<int, int> opmagicToOutcastIdx_;
+    std::vector<std::pair<int, int>> outcastPosition;
 
     TensorMap tensorMap_; // TensorMap to register tensors
     std::unordered_set<std::shared_ptr<LogicalTensor>> globalTensors_; // global tensors
