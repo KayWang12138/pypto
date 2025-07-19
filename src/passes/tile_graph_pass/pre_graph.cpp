@@ -616,6 +616,7 @@ void PreGraphPass::SetTensorBoundary(Function &function) const {
 }
 
 Status PreGraphPass::RunOnFunction(Function &function) {
+    ALOG_INFO_F("===> start PreGraphPass");
     ResetMemoryMap(function);
     SortColor(function);
     auto opList = function.Operations();
@@ -650,6 +651,7 @@ Status PreGraphPass::RunOnFunction(Function &function) {
     }
     ProcessSameInOutOp(function);
     DeleteRedundantAssemble(function);
+    ALOG_INFO_F("===> End PreGraphPass");
     return SUCCESS;
 }
 

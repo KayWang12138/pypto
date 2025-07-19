@@ -41,6 +41,7 @@ Status InferDynShapePass::PostCheck(Function &function) {
 
 Status InferDynShapePass::RunOnFunction(Function &function)
 {
+    ALOG_INFO_F("===> start InferDynShapePass");
     // 遍历每一个op，调用对应的infershape函数
     // 遍历顺序，按照入度解依赖
     size_t i = 0U;
@@ -84,6 +85,7 @@ Status InferDynShapePass::RunOnFunction(Function &function)
         InferShapeRegistry::GetInstance().CallInferShapeFunc(opList[opIdx]);
     }
     ALOG_INFO(function.Dump());
+    ALOG_INFO_F("===> end InferDynShapePass");
     return SUCCESS;
 }
 }  // namespace npu::tile_fwk
