@@ -88,6 +88,7 @@ set(_CaseFilterList
         "TestRemoveRedundantOpPass.RemoveRedundantOpUTest7"
         "TestRemoveRedundantOpPass.RemoveRedundantOpUTest8"
         "TestRemoveRedundantOpPass.RemoveRedundantOpUTest9"
+        "TestRemoveRedundantOpPass.RemoveRedundantOpUTest10"
         "TestRemoveRedundantOpPass.RemoveRedundantOpSTest1"
         "TestRemoveRedundantOpPass.RemoveRedundantOpSTest2"
         "TestRemoveRedundantOpPass.RemoveRedundantOpSTest3"
@@ -167,9 +168,6 @@ set(_CaseFilterList
         "CalenderScheduleCounterTest.TestCounterNum60"
         "CalenderScheduleCounterTest.TestInvalidFilePath"
 )
-
-set(JSON_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/ut_json/)
-add_compile_definitions(JSON_DIR=\"${JSON_DIR}\")
 
 set(_Target ${TileFwkUTestNamePrefix}_interface_passes)
 

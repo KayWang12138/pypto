@@ -330,10 +330,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionSTest1) {
         output = Exp(input);
     }
 
-    std::string jsonFilePath = std::string(JSON_DIR).append("ExpandfunctionSTest1.json");
-    Json readData = LoadJsonFile(jsonFilePath);
-    Program::GetInstance().LoadJson(readData);
-    Function* func = Program::GetInstance().GetCurrentFunction();
+    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase1");
     EXPECT_EQ(func->Operations().size(), kSizeThree);
     passManager.RegisterStrategy("ExpandFunctionTestStrategy", {
         {   "ExpandFunction",   "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
@@ -403,15 +400,12 @@ void ConstructGraphST2() {
         sqrt = Sqrt(view);
         output2 = Reshape(sqrt, reshape_shape);
     }
-    std::string jsonFilePath = std::string(JSON_DIR).append("ExpandfunctionSTest2.json");
-    Json readData = LoadJsonFile(jsonFilePath);
-    Program::GetInstance().LoadJson(readData);
 }
 
 TEST_F(TestExpandFunctionPass, ExpandFunctionSTest2) {
     PassManager &passManager = PassManager::Instance();
     ConstructGraphST2();
-    Function* func = Program::GetInstance().GetCurrentFunction();
+    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase2");
     EXPECT_EQ(func->Operations().size(), kSizeEleven);
 
     passManager.RegisterStrategy("ExpandFunctionTestStrategy", {

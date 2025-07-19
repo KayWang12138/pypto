@@ -171,8 +171,8 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeUTest3) {
     currFunctionPtr->outCasts_.push_back(outCast3);
 
     RemoveRedundentReshape removeredundentpass;
-    auto status = removeredundentpass.RunOnFunction(*currFunctionPtr);
-    EXPECT_EQ(status, SUCCESS);
+    EXPECT_NE(removeredundentpass.PreCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundentpass.RunOnFunction(*currFunctionPtr), SUCCESS);
 
     uint32_t reshape_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
@@ -275,10 +275,7 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeSTest1) {
         output2 = Reshape(exp2, shape2);
     }
 
-    std::string jsonFilePath = std::string(JSON_DIR).append("RemoveRedundantReshapeSTest1.json");
-    Json readData = LoadJsonFile(jsonFilePath);
-    Program::GetInstance().LoadJson(readData);
-    Function* func = Program::GetInstance().GetCurrentFunction();
+    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase1");
     EXPECT_EQ(func->Operations().size(), kSizeThirteen);
 
     passManager.RegisterStrategy("RemoveRedundentReshapeTestStrategy", {

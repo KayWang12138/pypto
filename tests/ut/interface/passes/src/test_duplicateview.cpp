@@ -258,10 +258,7 @@ TEST_F(TestDuplicateViewPass, DuplicateViewSTest1) {
         output4 = View(view1, shape1, {kNumZero, kNumZero});
     }
 
-    std::string jsonFilePath = std::string(JSON_DIR).append("DuplicateViewSTest1.json");
-    Json readData = LoadJsonFile(jsonFilePath);
-    Program::GetInstance().LoadJson(readData);
-    Function* func = Program::GetInstance().GetCurrentFunction();
+    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase1");
     EXPECT_EQ(func->Operations().size(), kNumEleven);
 
     passManager.RegisterStrategy("DuplicateViewTestStrategy", {

@@ -25,6 +25,8 @@ public:
     RemoveRedundentReshape() : Pass("RemoveRedundentReshape") {}
     ~RemoveRedundentReshape() override = default;
 private:
+    Status PreCheck(Function &function) override;
+    Status PostCheck(Function &function) override;
     Status RunOnFunction(Function &function) override;
     Status RemoveReshape(Function &function) const;
 };

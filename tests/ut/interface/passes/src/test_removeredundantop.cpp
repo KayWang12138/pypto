@@ -96,8 +96,9 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest1) {
     currFunctionPtr->outCasts_.push_back(outCast3);
 
     RemoveRedundentOp removeredundentpass;
-    auto status = removeredundentpass.RunOnFunction(*currFunctionPtr);
-    EXPECT_EQ(status, SUCCESS);
+    EXPECT_NE(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundentpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
 
     uint32_t expand_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
@@ -120,7 +121,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest1) {
 /*
 TESTRemoveDummyRegCopy
 inCast{8,16}->regcopy->ubTensor1{16,8}->regcopy->ubTensor2{16,8}->exp->outCast1{16,8}
-inCast{8,16}->regcopy->ubTensor1{16,8}->regcopy->ubTensor2{16,8}->exp->outCast1{16,8}
+inCast{8,16}->regcopy->ubTensor1{16,8}->exp->outCast1{16,8}
 */
 TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest2) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestRemoveRedundantOp", "TestRemoveRedundantOp", nullptr);
@@ -142,8 +143,9 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest2) {
     currFunctionPtr->outCasts_.push_back(outCast);
 
     RemoveRedundentOp removeredundentpass;
-    auto status = removeredundentpass.RunOnFunction(*currFunctionPtr);
-    EXPECT_EQ(status, SUCCESS);
+    EXPECT_NE(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundentpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
 
     uint32_t regcopy_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
@@ -196,8 +198,9 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest3) {
     currFunctionPtr->outCasts_.push_back(outCast2);
 
     RemoveRedundentOp removeredundentpass;
-    auto status = removeredundentpass.RunOnFunction(*currFunctionPtr);
-    EXPECT_EQ(status, SUCCESS);
+    EXPECT_NE(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundentpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
 
     uint32_t assemble_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
@@ -215,7 +218,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest3) {
 }
 
 /*
-TESTRemoveDummyAssembleDDRSpecialCase
+TESTRemoveDummyAssembleDDRSpecialCase(WARNING CASE)
 inCast{8,16}->exp(any legal op)->ddrTensor1{8,16}  ->exp->outCast3{8,16}
                                     ->assemble->outCast1{8,16}
                                     ->assemble->outCast2{8,16}
@@ -240,7 +243,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest4) {
     auto &exp1 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {inCast}, {ubTensor});
     currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {ubTensor}, {outCast1});
     currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {ubTensor}, {outCast2});
-    auto &exp2 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {inCast}, {outCast3});
+    auto &exp2 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor}, {outCast3});
     
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast1);
@@ -248,8 +251,10 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest4) {
     currFunctionPtr->outCasts_.push_back(outCast3);
 
     RemoveRedundentOp removeredundentpass;
-    auto status = removeredundentpass.RunOnFunction(*currFunctionPtr);
-    EXPECT_EQ(status, SUCCESS);
+    EXPECT_NE(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_NE(removeredundentpass.PreCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundentpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
 
     uint32_t assemble_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
@@ -260,9 +265,6 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest4) {
     EXPECT_EQ(assemble_num, kNumZero);
     EXPECT_EQ(exp1.GetOutputOperandSize(), kSizeOne);
     EXPECT_EQ(exp2.GetInputOperandSize(), kSizeOne);
-    if (exp1.GetOutputOperand(kSizeZero) != exp2.GetInputOperand(kSizeZero)) {
-        std::cout << "WARNING CASE!" << std::endl;
-    }
 }
 
 /*
@@ -298,9 +300,9 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest5) {
     currFunctionPtr->outCasts_.push_back(outCast2);
 
     RemoveRedundentOp removeredundentpass;
-    auto status = removeredundentpass.RunOnFunction(*currFunctionPtr);
-    EXPECT_EQ(status, SUCCESS);
-
+    EXPECT_NE(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundentpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    
     uint32_t assemble_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
@@ -327,7 +329,6 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest6) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestRemoveRedundantOp", "TestRemoveRedundantOp", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
-    // Prepare the graph
     std::vector<int> shape1 = {kNumEight, kNumExpFour};
     auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
@@ -337,7 +338,6 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest6) {
     auto outCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto outCast3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto outCast4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
-    
     auto &exp1 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {inCast}, {ubTensor1});
     currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor1}, {outCast1});
     auto &exp2 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor1}, {ubTensor2});
@@ -345,17 +345,17 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest6) {
     auto &exp3 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor3}, {outCast2});
     auto &reci = currFunctionPtr->AddOperation(Opcode::OP_RECIPROCAL, {ubTensor3}, {outCast3});
     auto &sqrt = currFunctionPtr->AddOperation(Opcode::OP_SQRT, {ubTensor3}, {outCast4});
-    
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast1);
     currFunctionPtr->outCasts_.push_back(outCast2);
     currFunctionPtr->outCasts_.push_back(outCast3);
     currFunctionPtr->outCasts_.push_back(outCast4);
-
     RemoveRedundentOp removeredundentpass;
-    auto status = removeredundentpass.RunOnFunction(*currFunctionPtr);
-    EXPECT_EQ(status, SUCCESS);
-
+    EXPECT_NE(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_NE(removeredundentpass.PreCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundentpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
+    
     uint32_t view_num = kNumZero;
     uint32_t output_ubTensor1 = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
@@ -368,15 +368,10 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest6) {
     }
     EXPECT_EQ(view_num, kNumZero);
     EXPECT_EQ(output_ubTensor1, kNumZero);
-    EXPECT_EQ(exp1.GetOutputOperandSize(), kSizeOne);
     EXPECT_EQ(exp1.GetOutputOperand(kSizeZero), outCast1);
-    EXPECT_EQ(exp2.GetInputOperandSize(), kSizeOne);
     EXPECT_EQ(exp2.GetInputOperand(kSizeZero), ubTensor1);
-    EXPECT_EQ(exp3.GetInputOperandSize(), kSizeOne);
     EXPECT_EQ(exp3.GetInputOperand(kSizeZero), ubTensor2);
-    EXPECT_EQ(reci.GetInputOperandSize(), kSizeOne);
     EXPECT_EQ(reci.GetInputOperand(kSizeZero), ubTensor2);
-    EXPECT_EQ(sqrt.GetInputOperandSize(), kSizeOne);
     EXPECT_EQ(sqrt.GetInputOperand(kSizeZero), ubTensor2);
 }
 
@@ -404,8 +399,9 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest7) {
     currFunctionPtr->outCasts_.push_back(outCast);
 
     RemoveRedundentOp removeredundentpass;
-    auto status = removeredundentpass.RunOnFunction(*currFunctionPtr);
-    EXPECT_EQ(status, SUCCESS);
+    EXPECT_NE(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundentpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
 
     uint32_t view_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
@@ -447,8 +443,9 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest8) {
     currFunctionPtr->outCasts_.push_back(outCast);
 
     RemoveRedundentOp removeredundentpass;
-    auto status = removeredundentpass.RunOnFunction(*currFunctionPtr);
-    EXPECT_EQ(status, SUCCESS);
+    EXPECT_NE(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundentpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
 
     uint32_t copy_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
@@ -492,8 +489,8 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest9) {
     currFunctionPtr->outCasts_.push_back(outCast);
 
     RemoveRedundentOp removeredundentpass;
-    auto status = removeredundentpass.RunOnFunction(*currFunctionPtr);
-    EXPECT_EQ(status, SUCCESS);
+    EXPECT_EQ(removeredundentpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
 
     uint32_t copy_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
@@ -509,6 +506,32 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest9) {
     for (size_t i = 0; i < ubTensor2->shape.size(); i++) {
         EXPECT_EQ(offset[i].Dump(), OpImmediate::Specified(SymbolicScalar(inputOffset[i])).Dump());
     }
+}
+
+/*
+TESTRemoveDummyView(WARNING CASE)
+inCast{8,16}->view->ddrTensor{8,16}->assemble->outCast{1,8,16}
+inCast{8,16}->assemble->outCast{1,8,16} (FAILED)
+*/
+TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest10) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestRemoveRedundantOp", "TestRemoveRedundantOp", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    // Prepare the graph
+    std::vector<int> shape = {kNumEight, kNumExpFour};
+    auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto ddrTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    
+    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ddrTensor});
+    currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {ddrTensor}, {outCast});
+    
+    currFunctionPtr->inCasts_.push_back(inCast);
+    currFunctionPtr->outCasts_.push_back(outCast);
+
+    RemoveRedundentOp removeredundentpass;
+    EXPECT_EQ(removeredundentpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_NE(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
 }
 
 /*
@@ -539,10 +562,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest1) {
         output2 = Exp(expand);
     }
 
-    std::string jsonFilePath = std::string(JSON_DIR).append("RemoveRedundantOpSTest1.json");
-    Json readData = LoadJsonFile(jsonFilePath);
-    Program::GetInstance().LoadJson(readData);
-    Function* func = Program::GetInstance().GetCurrentFunction();
+    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase1");
     EXPECT_EQ(func->Operations().size(), kSizeEleven);
 
     passManager.RegisterStrategy("RemoveRedundentOpTestStrategy", {
@@ -598,10 +618,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest2) {
         output2 = Exp(expand);
     }
 
-    std::string jsonFilePath = std::string(JSON_DIR).append("RemoveRedundantOpSTest2.json");
-    Json readData = LoadJsonFile(jsonFilePath);
-    Program::GetInstance().LoadJson(readData);
-    Function* func = Program::GetInstance().GetCurrentFunction();
+    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase2");
     EXPECT_EQ(func->Operations().size(), kSizeEleven);
 
     passManager.RegisterStrategy("RemoveRedundentOpTestStrategy", {
@@ -653,10 +670,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest3) {
         output = Exp(input);
     }
 
-    std::string jsonFilePath = std::string(JSON_DIR).append("RemoveRedundantOpSTest3.json");
-    Json readData = LoadJsonFile(jsonFilePath);
-    Program::GetInstance().LoadJson(readData);
-    Function* func = Program::GetInstance().GetCurrentFunction();
+    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase3");
     EXPECT_EQ(func->Operations().size(), kSizeEight);
     int assemble_before = kNumZero;
     for (const auto &op : func->Operations()) {
@@ -714,10 +728,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest4) {
         output = Exp(input);
     }
 
-    std::string jsonFilePath = std::string(JSON_DIR).append("RemoveRedundantOpSTest4.json");
-    Json readData = LoadJsonFile(jsonFilePath);
-    Program::GetInstance().LoadJson(readData);
-    Function* func = Program::GetInstance().GetCurrentFunction();
+    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase4");
     EXPECT_EQ(func->Operations().size(), kSizeForteen);
     int assemble_before = kNumZero;
     for (const auto &op : func->Operations()) {

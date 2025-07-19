@@ -19,36 +19,165 @@ using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
 namespace {
+// Precheck for assemble
+// in->assemble->out1 (will be removed)
+//   ->assemble->out2 (will be removed)
+//   ->op->...
+Status PreCheckAssemble(const Operation &op, const LogicalTensorPtr &in) {
+    uint32_t assembleRemoveNum = 0;
+    uint32_t otherOpNum = 0;
+    for (auto &childOp : in->GetConsumers()) {
+        if (childOp->GetOpcode() == Opcode::OP_ASSEMBLE) {
+            auto child_in = op.iOperand.front();
+            if (child_in == nullptr) {return FAILED;}
+            auto child_out = op.oOperand.front();
+            if (child_out == nullptr) {return FAILED;}
+            if (child_out->GetConsumers().empty()) {
+                if (child_in->shape == child_out->shape &&
+                    child_in->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
+                    child_out->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+                    ++assembleRemoveNum;
+                }
+            } else {
+                ++otherOpNum;
+            }
+        } else {
+            ++otherOpNum;
+        }
+    }
+    if (assembleRemoveNum > 1 && otherOpNum > 0) {
+        ALOG_ERROR_F("More than one assemble ddr op without consumer!");
+        return FAILED;
+    }
+    return SUCCESS;
+}
+
+// Precheck for view
+// in->op->...
+//   ->view->out (removed with no consumer)
+Status PreCheckView(const Operation &op, const LogicalTensorPtr &in) {
+    auto out = op.oOperand.front();
+    if (out == nullptr) {return FAILED;}
+    if (in->shape == out->shape && op.ConsumerOps().empty() && in->GetConsumers().size() > 1) {
+        ALOG_ERROR_F("There is another op consumes the input of a view op without consumer!");
+        return FAILED;
+    }
+    return SUCCESS;
+}
+
+Status ProcessPreCheck(const Operation &op) {
+    if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+        auto assemble_in = op.iOperand.front();
+        if (assemble_in == nullptr) {return FAILED;}
+        if (PreCheckAssemble(op, assemble_in) != SUCCESS) {
+            ALOG_ERROR_F("PreCheck for assemble op[%d] failed!", op.GetOpMagic());
+            return FAILED;
+        }
+    } else if (op.GetOpcode() == Opcode::OP_VIEW) {
+        auto view_in = op.iOperand.front();
+        if (view_in == nullptr) {return FAILED;}
+        if (PreCheckView(op, view_in) != SUCCESS) {
+            ALOG_ERROR_F("PreCheck for view op[%d] failed!", op.GetOpMagic());
+            return FAILED;
+        }  
+    }
+    return SUCCESS;
+}
+
+Status ProcessPostCheckAssemble(const Operation &op) {
+    auto assemble_in = op.iOperand.front();
+    if (assemble_in == nullptr) {return FAILED;}
+    auto assemble_out = op.oOperand.front();
+    if (assemble_out == nullptr) {return FAILED;}
+    auto parentOp = *assemble_in->GetProducers().begin();
+    if (parentOp == nullptr) {return FAILED;}
+    if (assemble_in->shape == assemble_out->shape) {
+        if (assemble_in->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
+            assemble_out->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+            ALOG_ERROR_F("PostCheck for assembleDDR op[%d] failed!", op.GetOpMagic());
+            return FAILED;
+        } else if (assemble_in->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
+            assemble_out->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
+            ALOG_ERROR_F("PostCheck for assembleUB op[%d] failed!", op.GetOpMagic());
+            return FAILED;
+        }
+    }
+    return SUCCESS;
+}
+
+Status ProcessPostCheckView(const Operation &op) {
+    auto view_in = op.iOperand.front();
+    if (view_in == nullptr) {return FAILED;}
+    auto view_out = op.oOperand.front();
+    if (view_out == nullptr) {return FAILED;}
+    if (view_in->shape == view_out->shape && view_in->GetMemoryTypeOriginal() == view_out->GetMemoryTypeOriginal()) {
+        ALOG_ERROR_F("PostCheck for view op[%d] failed!", op.GetOpMagic());
+        return FAILED;
+    } else if (view_out->GetConsumers().size() == 1) {
+        auto childOp = *(view_out->GetConsumers().begin());
+        if (childOp == nullptr) {return FAILED;}
+        if (childOp->GetOpcode() == Opcode::OP_COMM_WAIT_FLAG) {return FAILED;}
+    }
+    return SUCCESS;
+}
+
+Status ProcessPostRegCopy(const Operation &op) {
+    auto regcopy_in = op.iOperand.front();
+    if (regcopy_in == nullptr) {return FAILED;}
+    auto regcopy_out = op.oOperand.front();
+    if (regcopy_out == nullptr) {return FAILED;}
+    if (regcopy_in->shape == regcopy_out->shape) {
+        ALOG_ERROR_F("PostCheck for regcopy op[%d] failed!", op.GetOpMagic());
+        return FAILED;
+    }
+    return SUCCESS;
+}
+
+Status ProcessPostCopyIn(const Operation &op) {
+    auto copy_in = op.iOperand.front();
+    if (copy_in == nullptr) {return FAILED;}
+    auto copy_out = op.oOperand.front();
+    if (copy_out == nullptr) {return FAILED;}
+    if (copy_in->shape == copy_out->shape && copy_out->GetMemoryTypeOriginal() == npu::tile_fwk::MEM_L1) {
+        bool isRedundant = true;
+        for (auto &producerOp : op.ProducerOps()) {
+            if (producerOp == nullptr) {return FAILED;}
+            if (producerOp->GetOpcode() != Opcode::OP_VIEW) {
+                isRedundant = false;
+                break;
+            }
+        }
+        if (isRedundant) {
+            ALOG_ERROR_F("PostCheck for copyin op[%d] failed!", op.GetOpMagic());
+            return FAILED;
+        }
+    }
+    return SUCCESS;
+}
+
+Status ProcessPostExpand(const Operation &op) {
+    auto expand_in = op.iOperand.front();
+    if (expand_in == nullptr) {return FAILED;}
+    auto expand_out = op.oOperand.front();
+    if (expand_out == nullptr) {return FAILED;}
+    if (expand_in->shape == expand_out->shape) {
+        ALOG_ERROR_F("PostCheck for expand op[%d] failed!", op.GetOpMagic());
+        return FAILED;
+    }
+    return SUCCESS;
+}
+
 Status ProcessPostCheck(const Operation &op) {
-    switch (op.GetOpcode()) {
-        case Opcode::OP_REGISTER_COPY:
-        case Opcode::OP_ASSEMBLE: {
-            auto ASSEMBLE_in = op.iOperand.front();
-            if (ASSEMBLE_in == nullptr) {return FAILED;}
-            auto ASSEMBLE_out = op.oOperand.front();
-            if (ASSEMBLE_out == nullptr) {return FAILED;}
-            auto parentOp = *ASSEMBLE_in->GetProducers().begin();
-            if (parentOp == nullptr) {return FAILED;}
-            if (ASSEMBLE_in->shape == ASSEMBLE_out->shape && ASSEMBLE_in->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
-                ASSEMBLE_out->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
-                parentOp->GetOpcode() != Opcode::OP_TRANSPOSE_DATAMOVE &&
-                parentOp->GetOpcode() != Opcode::OP_INDEX_OUTCAST) {
-                ALOG_WARN_F("Op magic: %d and op code: %s, this op shoule be removed", op.GetOpMagic(), op.GetOpcodeStr().c_str());
-            }
-            [[fallthrough]];
-        }
-        case Opcode::OP_VIEW: {
-            auto in = op.iOperand.front();
-            if (in == nullptr) {return FAILED;}
-            auto out = op.oOperand.front();
-            if (out == nullptr) {return FAILED;}
-            if (in->shape == out->shape && in->GetMemoryTypeOriginal() == out->GetMemoryTypeOriginal()) {
-                ALOG_WARN_F("Op magic: %d and op code: %s, this op shoule be removed", op.GetOpMagic(), op.GetOpcodeStr().c_str());
-            }
-            break;
-        }
-        default:
-            break;
+    if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+        if (ProcessPostCheckAssemble(op) != SUCCESS) {return FAILED;}
+    } else if (op.GetOpcode() == Opcode::OP_VIEW) {
+        if (ProcessPostCheckView(op) != SUCCESS) {return FAILED;}
+    } else if (op.GetOpcode() == Opcode::OP_REGISTER_COPY) {
+        if (ProcessPostRegCopy(op) != SUCCESS) {return FAILED;}
+    } else if (op.GetOpcode() == Opcode::OP_COPY_IN) {
+        if (ProcessPostCopyIn(op) != SUCCESS) {return FAILED;}
+    } else if (op.GetOpcode() == Opcode::OP_EXPAND) {
+        if (ProcessPostExpand(op) != SUCCESS) {return FAILED;}
     }
     return SUCCESS;
 }
@@ -268,19 +397,27 @@ Status RemoveRedundentOp::RunOnFunction(Function &function) {
 
 Status RemoveRedundentOp::PreCheck(Function &function) {
     ALOG_INFO_F("PreCheck for RemoveRedundentOp");
-    if (!function.LoopCheck().empty()) {
-        ALOG_ERROR_F("Loopcheck failed before RemoveRedundentOp");
+    for (const auto &op : function.Operations().DuplicatedOpList()) {
+        if (op == nullptr) {return FAILED;}
+    }
+    if (!function.LoopCheck().empty()) {return FAILED;}
+    for (auto &op : function.Operations()) {
+        if (ProcessPreCheck(op) != SUCCESS) {
+            ALOG_ERROR_F("PreCheck for RemoveRedundentOp failed!");
+            return FAILED;
+        }
     }
     return SUCCESS;
 }
 
 Status RemoveRedundentOp::PostCheck(Function &function) {
     ALOG_INFO_F("PostCheck for RemoveRedundentOp");
-    if (!function.LoopCheck().empty()) {
-        ALOG_ERROR_F("Loopcheck failed after RemoveRedundentOp");
-    }
+    if (!function.LoopCheck().empty()) {return FAILED;}
     for (auto &op : function.Operations()) {
-        if (ProcessPostCheck(op)) {return FAILED;}
+        if (ProcessPostCheck(op) != SUCCESS) {
+            ALOG_ERROR_F("PostCheck for RemoveRedundentOp failed!");
+            return FAILED;
+        }
     }
     return SUCCESS;
 }
