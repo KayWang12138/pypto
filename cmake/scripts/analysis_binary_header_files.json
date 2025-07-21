@@ -154,7 +154,8 @@
         "tests/cost_model/simulation/"
       ],
       "BlackList": [
-        "include/tileop/"
+        "include/tileop/",
+        "interface/program/program.h"
       ]
     }
   },
@@ -177,7 +178,8 @@
         "tests/cost_model/simulation/"
       ],
       "BlackList": [
-        "include/tileop/"
+        "include/tileop/",
+        "interface/program/program.h"
       ]
     }
   },
@@ -200,7 +202,8 @@
         "tests/cost_model/simulation/"
       ],
       "BlackList": [
-        "include/tileop/"
+        "include/tileop/",
+        "interface/program/program.h"
       ]
     }
   },
@@ -223,7 +226,8 @@
         "tests/cost_model/simulation/"
       ],
       "BlackList": [
-        "include/tileop/"
+        "include/tileop/",
+        "interface/program/program.h"
       ]
     }
   },
@@ -263,7 +267,8 @@
       "WhiteList": [
       ],
       "BlackList": [
-        "include/tileop/"
+        "include/tileop/",
+        "interface/program/program.h"
       ]
     }
   },
@@ -282,7 +287,8 @@
       "WhiteList": [
       ],
       "BlackList": [
-        "include/tileop/"
+        "include/tileop/",
+        "interface/program/program.h"
       ]
     }
   },
@@ -302,7 +308,8 @@
       "WhiteList": [
       ],
       "BlackList": [
-        "include/tileop/"
+        "include/tileop/",
+        "interface/program/program.h"
       ]
     }
   },
@@ -322,7 +329,8 @@
       "WhiteList": [
       ],
       "BlackList": [
-        "include/tileop/"
+        "include/tileop/",
+        "interface/program/program.h"
       ]
     }
   },
@@ -343,6 +351,7 @@
       "WhiteList": [
       ],
       "BlackList": [
+        "interface/program/program.h"
       ]
     }
   },
@@ -365,7 +374,8 @@
       "WhiteList": [
       ],
       "BlackList": [
-        "include/tileop/"
+        "include/tileop/",
+        "interface/program/program.h"
       ]
     }
   }
