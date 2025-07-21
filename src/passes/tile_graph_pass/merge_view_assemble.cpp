@@ -82,10 +82,11 @@ Status MergeViewAssemble::AppendMergedViewOperations(Function &function) {
     /* Process View ops first to avoid View output being cleared in View-Assemble scenarios */
     for (auto &viewOp : viewOpToAppend_) {
         auto attr = std::make_shared<ViewOpAttribute>(viewOp.offset, viewOp.dynOffset, 
-                     viewOp.output->GetDynValidShape());
+                     viewOp.dynValidShape);
         if (!attr) { ALOG_ERROR_F("Failed to create ViewOpAttribute"); return FAILED; }
         auto &mergedViewOp = function.AddRawOperation(Opcode::OP_VIEW, {viewOp.input}, {viewOp.output});
         mergedViewOp.SetOpAttribute(attr);
+        viewOp.output->UpdateDynValidShape(viewOp.dynValidShape);
     }
     return SUCCESS;
 }
@@ -168,11 +169,12 @@ Status MergeViewAssemble::ProcessChainEnd(
     if (!startTensor || !endTensor) { ALOG_ERROR_F("Null tensor found in chain"); return FAILED; }
     std::vector<int32_t> newOffset;
     std::vector<SymbolicScalar> newDynOffset;
-    Status status = CalculateMergedOffsets(chain, newOffset, newDynOffset);
+    std::vector<SymbolicScalar> newDynValidShape;
+    Status status = CalculateMergedOffsets(chain, newOffset, newDynOffset, newDynValidShape);
     if (status != SUCCESS) { return status; }
 
     // 4. 记录合并操作
-    RecordMergedViewOperation(startTensor, endTensor, newOffset, newDynOffset);
+    RecordMergedViewOperation(startTensor, endTensor, newOffset, newDynOffset, newDynValidShape);
     
     // 5. 清理链尾
     chain.back()->oOperand.clear();
@@ -184,7 +186,8 @@ Status MergeViewAssemble::ProcessChainEnd(
 Status MergeViewAssemble::CalculateMergedOffsets(
     const std::vector<Operation *> &chain,
     std::vector<int32_t> &newOffset,
-    std::vector<SymbolicScalar> &newDynOffset)
+    std::vector<SymbolicScalar> &newDynOffset,
+    std::vector<SymbolicScalar> &newDynValidShape)
 {
     for (size_t i = 0; i < chain.size(); ++i) {
         const auto &view = chain[i];
@@ -194,11 +197,20 @@ Status MergeViewAssemble::CalculateMergedOffsets(
         if (i == 0) {
             newOffset = viewOpAttribute->GetFromOffset();
             newDynOffset = viewOpAttribute->GetFromDynOffset();
+            if (newDynValidShape.empty() && !viewOpAttribute->GetToDynValidShape().empty()) {
+                newDynValidShape = viewOpAttribute->GetToDynValidShape();
+            }
         } else {
             auto ret = TensorOffset::Add(newOffset, newDynOffset, viewOpAttribute->GetFromOffset(), viewOpAttribute->GetFromDynOffset());
             if (!ret.first.empty()) {
                 newOffset = ret.first;
                 newDynOffset = ret.second;
+            }
+            if (newDynValidShape.empty() && !viewOpAttribute->GetToDynValidShape().empty()) {
+                newDynValidShape = viewOpAttribute->GetToDynValidShape();
+            } else {
+                newDynValidShape = GetViewValidShape(newDynValidShape, viewOpAttribute->GetFromOffset(),
+                    viewOpAttribute->GetFromDynOffset(), view->GetOOperands()[0]->GetShape());
             }
         }
     }
@@ -209,10 +221,11 @@ void MergeViewAssemble::RecordMergedViewOperation(
     const std::shared_ptr<LogicalTensor> &startTensor,
     const std::shared_ptr<LogicalTensor> &endTensor,
     const std::vector<int32_t> &newOffset,
-    const std::vector<SymbolicScalar> &newDynOffset)
+    const std::vector<SymbolicScalar> &newDynOffset,
+    const std::vector<SymbolicScalar> &newDynValidShape)
 {
     endTensor->GetProducers().clear();
-    viewOpToAppend_.emplace_back(ViewOp{startTensor, endTensor, newOffset, newDynOffset});
+    viewOpToAppend_.emplace_back(ViewOp{startTensor, endTensor, newOffset, newDynOffset, newDynValidShape});
 }
 
 Status MergeViewAssemble::MergeAssembleChain(Function &function, Operation &operation, std::vector<Operation *> &chain) {
