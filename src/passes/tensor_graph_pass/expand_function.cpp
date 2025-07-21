@@ -77,11 +77,9 @@ Status UpdateIOOperand(const std::vector<OperationPtr> &tensorOperations) {
 Status ExpandFunction::PreCheck(Function &function)
 {
     ALOG_INFO_F("PreCheck for ExpandFunction.");
-    for (auto &op : function.Operations().DuplicatedOpList()) {
-        if (op == nullptr) {
-            ALOG_ERROR_F("Null pointer in Operations.");
-            return FAILED;
-        }
+    if (!function.OperationLoopCheck()) {
+        ALOG_ERROR_F("Operation Loop detected before expand function.");
+        return FAILED;
     }
     std::unordered_set<OpCalcType> calTypes{OpCalcType::ELMWISE, OpCalcType::BROADCAST, OpCalcType::REDUCE,
                                             OpCalcType::CONV};
@@ -112,11 +110,9 @@ Status ExpandFunction::PostCheck(Function &function)
         ALOG_ERROR_F("expandFunctionAccelerate should equal to false after ExpandFunction.");
         return FAILED;
     }
-    for (auto &op : function.Operations().DuplicatedOpList()) {
-        if (op == nullptr) {
-            ALOG_ERROR_F("Null pointer in Operations.");
-            return FAILED;
-        }
+    if (!function.OperationLoopCheck()) {
+        ALOG_ERROR_F("Operation Loop detected after expand function.");
+        return FAILED;
     }
     return SUCCESS;
 }

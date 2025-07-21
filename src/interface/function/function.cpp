@@ -587,6 +587,39 @@ void Function::OperationLoopCheck(const std::string &errorMsg) {
     }
 }
 
+bool Function::OperationLoopCheck()
+{
+    std::unordered_map<Operation*, int> inLinkNum;
+    std::unordered_set<Operation*> visitedOp;
+    std::vector<Operation*> visitStack; 
+    for (std::shared_ptr<Operation> op : operations_) {
+        inLinkNum[op.get()] = op->ProducerOps().size();
+        if (inLinkNum[op.get()] == 0) {
+            visitStack.push_back(op.get());
+        }
+    }
+    while (!visitStack.empty()) {
+        Operation* currOp = visitStack.back();
+        visitStack.pop_back();
+        visitedOp.insert(currOp);
+        for (Operation* nextOp : currOp->ConsumerOps()) {
+            inLinkNum[nextOp] -= 1;
+            if (inLinkNum[nextOp] == 0) {
+                visitStack.push_back(nextOp);
+            }
+            if (inLinkNum[nextOp] < 0) {
+                ALOG_ERROR_F("[OperationLoopCheck]     Operation:", nextOp->Dump());
+                return false;
+            }
+        }
+    }
+    if (visitedOp.size() != operations_.size()) {
+        ALOG_ERROR_F("[OperationLoopCheck]     Loop Detected.");
+        return false;
+    }
+    return true;
+}
+
 void Function::GetAnIslandIncastsOutcasts(const std::map<int, int> &opToSubgraph, const int subgraphID,
     const std::vector<Operation *> &operations, std::vector<std::shared_ptr<LogicalTensor>> &iOperands,
     std::vector<std::shared_ptr<LogicalTensor>> &oOperands) const {

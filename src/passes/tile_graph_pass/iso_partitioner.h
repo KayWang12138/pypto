@@ -31,8 +31,8 @@ public:
     std::vector<int32_t> GetSameLevelOpIdx(int32_t opIdx, Opcode opLabel) const;
     std::vector<Operation*> opList_;
     std::unordered_map<int32_t, int32_t> magic2Idx_;
-    std::vector<std::set<int32_t>> opInGraph_;
-    std::vector<std::set<int32_t>> opOutGraph_;
+    std::vector<std::set<int32_t>> inGraph_;
+    std::vector<std::set<int32_t>> outGraph_;
     std::vector<uint64_t> opHashList_;
     std::vector<OpCoreType> opCoreType_;
     bool useCVMixPartition_ = false;
@@ -42,6 +42,8 @@ class NodeGraphInfo {
 public:
     Status Build(const std::shared_ptr<OperationGraphInfo> operationGraphInfo,
                  const std::vector<std::pair<int32_t, int32_t>> &mergePair, bool markIsCube);
+    Status AvoidLoop(const std::shared_ptr<OperationGraphInfo> operationGraphInfo,
+                     std::vector<int32_t> &parent, std::vector<std::vector<int32_t>> &node2Op, bool &updated);
     Status BuildInOutGraph(const std::shared_ptr<OperationGraphInfo> operationGraphInfo, bool markIsCube);
     int32_t FindParent(std::vector<int32_t> &parent, int32_t i);
     Status MergeSrcToDstIsland(const std::shared_ptr<OperationGraphInfo> operationGraphInfo,

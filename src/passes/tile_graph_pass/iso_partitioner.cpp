@@ -270,8 +270,8 @@ Status IsoPartitioner::BuildOpGraph(const std::vector<Operation*> &opList)
         return FAILED;
     }
     operationInfo_->opList_ = opList;
-    operationInfo_->opInGraph_.resize(opList.size());
-    operationInfo_->opOutGraph_.resize(opList.size());
+    operationInfo_->inGraph_.resize(opList.size());
+    operationInfo_->outGraph_.resize(opList.size());
     operationInfo_->opHashList_.resize(opList.size());
     operationInfo_->opCoreType_.resize(opList.size());
     operationInfo_->useCVMixPartition_ = useCVMixPartition_;
@@ -284,9 +284,9 @@ Status IsoPartitioner::BuildOpGraph(const std::vector<Operation*> &opList)
                 if (operationInfo_->magic2Idx_.count(parentOpPtr->GetOpMagic()) == 0) {
                     continue;
                 }
-                int32_t opInIdx = operationInfo_->magic2Idx_[parentOpPtr->GetOpMagic()];
-                operationInfo_->opInGraph_[i].insert(opInIdx);
-                operationInfo_->opOutGraph_[opInIdx].insert(i);
+                int32_t operationInIdx = operationInfo_->magic2Idx_[parentOpPtr->GetOpMagic()];
+                operationInfo_->inGraph_[i].insert(operationInIdx);
+                operationInfo_->outGraph_[operationInIdx].insert(i);
             }
         }
     }
@@ -305,7 +305,7 @@ inline bool L1CopyInCombine(const std::shared_ptr<OperationGraphInfo> operationI
     }
     if (opList[i]->GetOOperands().size() == 1U &&
         opList[i]->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
-        for (auto outNode : operationInfo->opOutGraph_[i]) {
+        for (auto outNode : operationInfo->outGraph_[i]) {
             mergePair.emplace_back(outNode, i);
         }
         return true;
@@ -331,10 +331,10 @@ inline bool AssembleCombine(const std::shared_ptr<OperationGraphInfo> operationI
             }
         }
         // assmemble和其输入绑定
-        if (operationInfo->opInGraph_[i].size() > 0) {
-            mergePair.emplace_back(i, *(operationInfo->opInGraph_[i].begin()));
+        if (operationInfo->inGraph_[i].size() > 0) {
+            mergePair.emplace_back(i, *(operationInfo->inGraph_[i].begin()));
             ALOG_DEBUG_F("Combine %d and %d for Assemble in building SuperNode.",
-                         opList[i]->GetOpMagic(), opList[*(operationInfo->opInGraph_[i].begin())]->GetOpMagic());
+                         opList[i]->GetOpMagic(), opList[*(operationInfo->inGraph_[i].begin())]->GetOpMagic());
         }
         return true;
     }
@@ -380,10 +380,10 @@ inline bool CopyInCombine(const std::shared_ptr<OperationGraphInfo> operationInf
     // 所有的copyin操作与其输出绑定
     if ((OpcodeManager::Inst().GetOpCalcType(opList[i]->GetOpcode()) == OpCalcType::MOVE_IN ||
          OpcodeManager::Inst().GetOpCalcType(opList[i]->GetOpcode()) == OpCalcType::MOVE_LOCAL) &&
-        operationInfo->opOutGraph_[i].size() == 1) {
-        mergePair.emplace_back(i, *(operationInfo->opOutGraph_[i].begin()));
+        operationInfo->outGraph_[i].size() == 1) {
+        mergePair.emplace_back(i, *(operationInfo->outGraph_[i].begin()));
         ALOG_DEBUG_F("Combine %d and %d for CopyIn in building SuperNode.",
-                     opList[i]->GetOpMagic(), opList[*(operationInfo->opOutGraph_[i].begin())]->GetOpMagic());
+                     opList[i]->GetOpMagic(), opList[*(operationInfo->outGraph_[i].begin())]->GetOpMagic());
         return true;
     }
     return false;
@@ -397,7 +397,7 @@ inline bool MulAccCombine(const std::shared_ptr<OperationGraphInfo> operationInf
     }
     // MulAcc需要与其输入mul绑定
     if (opList[i]->GetOpcode() == Opcode::OP_A_MULACC_B || opList[i]->GetOpcode() == Opcode::OP_A_MULACC_BT) {
-        for (auto inOp : operationInfo->opInGraph_[i]) {
+        for (auto inOp : operationInfo->inGraph_[i]) {
             if (OpcodeManager::Inst().GetOpCalcType(opList[inOp]->GetOpcode()) == OpCalcType::MATMUL) {
                 mergePair.emplace_back(i, inOp);
                 ALOG_DEBUG_F("Combine %d and %d for MulAcc in building SuperNode.",
@@ -412,7 +412,7 @@ inline bool MulAccCombine(const std::shared_ptr<OperationGraphInfo> operationInf
 Status IsoPartitioner::BuildSuperNodeGraph()
 {
     std::vector<Operation*> &opList = operationInfo_->opList_;
-    if (opList.size() != operationInfo_->opInGraph_.size() || opList.size() != operationInfo_->opOutGraph_.size()) {
+    if (opList.size() != operationInfo_->inGraph_.size() || opList.size() != operationInfo_->outGraph_.size()) {
         ALOG_ERROR_F("Operation inGraph and outGraph have not been initialized.");
         return FAILED;
     }
@@ -485,7 +485,102 @@ Status NodeGraphInfo::MergeSrcToDstIsland(const std::shared_ptr<OperationGraphIn
                                    operationGraphInfo->opCoreType_[srcParent],
                                    operationGraphInfo->opCoreType_[dstParent]};
     if (operationGraphInfo->CoreTypeMergeable(coreTypes)) {
-        parent[srcParent] = dstParent;
+        if (srcParent > dstParent) {
+            parent[srcParent] = dstParent;
+        } else {
+            parent[dstParent] = srcParent;
+        }
+    } else {
+        ALOG_ERROR_F("Try to merge not mergeable operation pair.");
+        return FAILED;
+    }
+    return SUCCESS;
+}
+
+std::vector<int32_t> NodeInnerExpand(const std::shared_ptr<OperationGraphInfo> operationGraphInfo, std::vector<int32_t> &nodeOps)
+{
+    std::vector<int32_t> frontBackVisitedOp;
+    int32_t minOpIdx = static_cast<int32_t>(operationGraphInfo->opList_.size());
+    int32_t maxOpIdx = -1;
+    for (int32_t opIdx : nodeOps) {
+        minOpIdx = opIdx < minOpIdx ? opIdx : minOpIdx;
+        maxOpIdx = opIdx > maxOpIdx ? opIdx : maxOpIdx;
+    }
+    std::unordered_set<int32_t> frontVisitedOp;
+    std::vector<int32_t> frontVisitStack(nodeOps);
+    while (frontVisitStack.size() > 0) {
+        int32_t opIdx = frontVisitStack.back();
+        frontVisitStack.pop_back();
+        if (frontVisitedOp.count(opIdx) > 0) {
+            continue;
+        }
+        frontVisitedOp.insert(opIdx);
+        for (int32_t nextOpIdx : operationGraphInfo->outGraph_[opIdx]) {
+            if (nextOpIdx <= maxOpIdx) {
+                frontVisitStack.push_back(nextOpIdx);
+            }
+        }
+    }
+    std::unordered_set<int32_t> backVisitedOp;
+    std::vector<int32_t> backVisitStack(nodeOps);
+    while (backVisitStack.size() > 0) {
+        int32_t opIdx = backVisitStack.back();
+        backVisitStack.pop_back();
+        if (backVisitedOp.count(opIdx) > 0) {
+            continue;
+        }
+        if (frontVisitedOp.count(opIdx) > 0) {
+            frontBackVisitedOp.push_back(opIdx);
+        }
+        backVisitedOp.insert(opIdx);
+        for (int32_t prevOpIdx : operationGraphInfo->inGraph_[opIdx]) {
+            if (prevOpIdx >= minOpIdx) {
+                backVisitStack.push_back(prevOpIdx);
+            }
+        }
+    }
+    return frontBackVisitedOp;
+}
+
+Status NodeGraphInfo::AvoidLoop(const std::shared_ptr<OperationGraphInfo> operationGraphInfo,
+                                std::vector<int32_t> &parent, std::vector<std::vector<int32_t>> &node2Op, bool &updated)
+{
+    std::vector<Operation*> &opList = operationGraphInfo->opList_;
+    std::vector<int32_t> parentToNodes(opList.size(), -1);
+    updated = false;
+    node2Op.clear();
+    for (int32_t i = 0; i < static_cast<int32_t>(opList.size()); i++) {
+        int32_t currParent = FindParent(parent, i);
+        if (currParent == -1) { 
+            ALOG_ERROR_F("Find parent in the union set failed.");
+            return FAILED; 
+        }
+        if (currParent == i) {
+            parentToNodes[i] = node2Op.size();
+            node2Op.push_back(std::vector<int32_t>());
+        }
+    }
+    for (int32_t i = 0; i < static_cast<int32_t>(operationGraphInfo->opList_.size()); i++) {
+        int32_t currParent = FindParent(parent, i);
+        if (currParent == -1) {
+            ALOG_ERROR_F("Find parent in the union set failed.");
+            return FAILED;
+        }
+        int32_t nodeIdx = parentToNodes[currParent];
+        node2Op[nodeIdx].push_back(i);
+    }
+    for (size_t nodeIdx = 0; nodeIdx < node2Op.size(); nodeIdx++) {
+        std::vector<int32_t> expandNode = NodeInnerExpand(operationGraphInfo, node2Op[nodeIdx]);
+        if (expandNode.size() == node2Op[nodeIdx].size() || expandNode.size() == 0) {
+            continue;
+        }
+        updated = true;
+        for (size_t opIdx = 1; opIdx < expandNode.size(); opIdx++) {
+            if (MergeSrcToDstIsland(operationGraphInfo, parent, expandNode[0], expandNode[opIdx]) != SUCCESS) {
+                ALOG_ERROR_F("Build the disjoint set failed.");
+                return FAILED;
+            }
+        }
     }
     return SUCCESS;
 }
@@ -504,27 +599,24 @@ Status NodeGraphInfo::Build(const std::shared_ptr<OperationGraphInfo> operationG
             return FAILED;
         }
     }
-    std::vector<int32_t> parentToNodes(opList.size(), -1);
-    op2Node_.clear();
-    op2Node_.resize(opList.size());
-    node2Op_.clear();
-    for (int32_t i = 0; i < static_cast<int32_t>(opList.size()); i++) {
-        int32_t currParent = FindParent(parent, i);
-        if (currParent == -1) { ALOG_ERROR_F("Find parent in the union set failed."); return FAILED; }
-        if (currParent == i) {
-            parentToNodes[i] = node2Op_.size();
-            node2Op_.push_back(std::vector<int32_t>());
+    bool updated = true;
+    while (updated) {
+        updated = false;
+        if (AvoidLoop(operationGraphInfo, parent, node2Op_, updated) != SUCCESS) {
+            ALOG_ERROR_F("Avoid loop in building node failed");
+            return FAILED;
         }
     }
-    nodeCycles_ = std::vector<int32_t>(node2Op_.size(), 0);
-    for (int32_t i = 0; i < static_cast<int32_t>(operationGraphInfo->opList_.size()); i++) {
-        int32_t currParent = FindParent(parent, i);
-        if (currParent == -1) { ALOG_ERROR_F("Find parent in the union set failed."); return FAILED; }
-        int32_t nodeIdx = parentToNodes[currParent];
-        op2Node_[i] = nodeIdx;
-        node2Op_[nodeIdx].push_back(i);
-        nodeCycles_[nodeIdx] += operationGraphInfo->opList_[i]->GetLatency();
-    }
+    op2Node_.resize(opList.size());
+    nodeCycles_.resize(opList.size());
+    for (size_t nodeIdx = 0; nodeIdx < node2Op_.size(); nodeIdx++) {
+        nodeCycles_[nodeIdx] = 0;
+        for (size_t opNodeIdx = 0; opNodeIdx < node2Op_[nodeIdx].size(); opNodeIdx++) {
+            int32_t opIdx = node2Op_[nodeIdx][opNodeIdx];
+            op2Node_[opIdx] = nodeIdx;
+            nodeCycles_[nodeIdx] += operationGraphInfo->opList_[opIdx]->GetLatency();
+        }
+    } 
     BuildInOutGraph(operationGraphInfo, markIsCube);
     return SUCCESS;
 }
@@ -538,7 +630,7 @@ Status NodeGraphInfo::BuildInOutGraph(const std::shared_ptr<OperationGraphInfo> 
     for (size_t i = 0; i < node2Op_.size(); i++) {
         std::vector<int32_t> &currNode = node2Op_[i];
         for (int32_t opIdx : currNode) {
-            for (int32_t publisherOpIdx : operationGraphInfo->opInGraph_[opIdx]) {
+            for (int32_t publisherOpIdx : operationGraphInfo->inGraph_[opIdx]) {
                 int32_t publisherNodeIdx = op2Node_[publisherOpIdx];
                 if (publisherNodeIdx != static_cast<int32_t>(i)) {
                     nodeInGraph_[i].insert(publisherNodeIdx);
@@ -617,7 +709,7 @@ std::vector<std::pair<int32_t, int32_t>> IsoPartitioner::GetReduceNodeMergePair(
     std::vector<std::pair<int32_t, int32_t>> mergePair;
     for (size_t i = 0; i < opList.size(); i++) {
         if (opList[i]->GetOpcode() == Opcode::OP_A_MULACC_B || opList[i]->GetOpcode() == Opcode::OP_A_MULACC_BT) {
-            for (auto inOp : operationInfo_->opInGraph_[i]) {
+            for (auto inOp : operationInfo_->inGraph_[i]) {
                 if (OpcodeManager::Inst().GetOpCalcType(opList[inOp]->GetOpcode()) == OpCalcType::MATMUL) {
                     mergePair.emplace_back(i, inOp);
                     ALOG_DEBUG_F("Combine %d and %d for MulAcc in building ReduceNode.",
@@ -626,11 +718,11 @@ std::vector<std::pair<int32_t, int32_t>> IsoPartitioner::GetReduceNodeMergePair(
             }
             continue;
         }
-        if (reduceType.count(opList[i]->GetOpcode()) > 0 && operationInfo_->opOutGraph_[i].size() == 1 &&
-            opList[i]->GetOpcode() == opList[*(operationInfo_->opOutGraph_[i].begin())]->GetOpcode()) {
-            mergePair.emplace_back(i, *(operationInfo_->opOutGraph_[i].begin()));
+        if (reduceType.count(opList[i]->GetOpcode()) > 0 && operationInfo_->outGraph_[i].size() == 1 &&
+            opList[i]->GetOpcode() == opList[*(operationInfo_->outGraph_[i].begin())]->GetOpcode()) {
+            mergePair.emplace_back(i, *(operationInfo_->outGraph_[i].begin()));
             ALOG_DEBUG_F("Combine %d and %d for Reduce AIV Operation in building ReduceNode.",
-                         opList[i]->GetOpMagic(), opList[*(operationInfo_->opOutGraph_[i].begin())]->GetOpMagic());
+                         opList[i]->GetOpMagic(), opList[*(operationInfo_->outGraph_[i].begin())]->GetOpMagic());
         }
     }
     return mergePair;
@@ -704,7 +796,7 @@ Status IsoPartitioner::BuildBalanceOpHash(std::vector<uint64_t> &opHashList)
         for (size_t localIdx = 0; localIdx < localOps.size(); localIdx++) {
             int32_t localOpIdx = localOps[localIdx];
             localFront[localOpIdx] = operationInfo_->opHashList_[localOpIdx];
-            for (int32_t publisherOpIdx : operationInfo_->opInGraph_[localOpIdx]) {
+            for (int32_t publisherOpIdx : operationInfo_->inGraph_[localOpIdx]) {
                 if (localFront.count(publisherOpIdx) > 0) {
                     localFront[localOpIdx] = CombineHash(localFront[localOpIdx], localFront[publisherOpIdx]);
                 }
@@ -713,7 +805,7 @@ Status IsoPartitioner::BuildBalanceOpHash(std::vector<uint64_t> &opHashList)
         for (int32_t localIdx = static_cast<int32_t>(localOps.size()) - 1; localIdx >= 0; localIdx--) {
             int32_t localOpIdx = localOps[localIdx];
             localBack[localOpIdx] = operationInfo_->opHashList_[localOpIdx];
-            for (int32_t consumerOpIdx : operationInfo_->opOutGraph_[localOpIdx]) {
+            for (int32_t consumerOpIdx : operationInfo_->outGraph_[localOpIdx]) {
                 if (localBack.count(consumerOpIdx) > 0) {
                     localBack[localOpIdx] = CombineHash(localBack[localOpIdx], localBack[consumerOpIdx]);
                 }
@@ -743,13 +835,13 @@ Status IsoPartitioner::BuildHashValues()
         std::vector<uint64_t> opHashListFrontBack(operationInfo_->opList_.size(), 0);
         for (size_t i = 0; i < operationInfo_->opList_.size(); i++) {
             opHashListFront[i] = operationInfo_->opHashList_[i];
-            for (int32_t j : operationInfo_->opInGraph_[i]) {
+            for (int32_t j : operationInfo_->inGraph_[i]) {
                 opHashListFront[i] = CombineHash(opHashListFront[i], opHashListFront[j]);
             }
         }
         for (int32_t i = static_cast<int32_t>(operationInfo_->opList_.size() - 1); i >= 0; i--) {
             opHashListBack[i] = operationInfo_->opHashList_[i];
-            for (int32_t j : operationInfo_->opOutGraph_[i]) {
+            for (int32_t j : operationInfo_->outGraph_[i]) {
                 std::set<OpCoreType> coreTypes{operationInfo_->opCoreType_[i], operationInfo_->opCoreType_[j]};
                 if (!operationInfo_->CoreTypeMergeable(coreTypes)) {
                     continue;

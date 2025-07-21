@@ -449,5 +449,40 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionSTest2) {
     EXPECT_EQ(sqrt_num, kNumFour);
     EXPECT_EQ(reciprocal_num, kNumFour);
 }
+
+/*
+TESTExpandFunctionLoop
+inCast{64,64}->assemble->view->outCast{64,64}
+             <-assemble<-
+loop will be detected
+*/
+TEST_F(TestExpandFunctionPass, ExpandFunctionUTest6) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestExpandFunction", "TestExpandFunction", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    // Prepare the graph
+    std::vector<int> shape = {kNumExpSix, kNumExpSix};
+    auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    
+    std::vector<int> toOffset = {kNumZero, kNumZero};
+    std::vector<SymbolicScalar> symbol = {SymbolicScalar("sym")};
+    auto op_attr = std::make_shared<AssembleOpAttribute>(toOffset, symbol);
+    auto& assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {inCast}, {outCast});
+    assemble_op.SetOpAttribute(op_attr);
+
+    auto& assemble_op_loop = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {outCast}, {inCast});
+    assemble_op_loop.SetOpAttribute(op_attr);
+    
+    currFunctionPtr->inCasts_.push_back(inCast);
+    currFunctionPtr->outCasts_.push_back(outCast);
+    currFunctionPtr->SetGraphType(GraphType::TENSOR_GRAPH);
+
+    ExpandFunction expandfunctionpass;
+    EXPECT_EQ(expandfunctionpass.PreCheck(*currFunctionPtr), FAILED);
+
+    currFunctionPtr->SetGraphType(GraphType::TILE_GRAPH);
+    EXPECT_EQ(expandfunctionpass.PostCheck(*currFunctionPtr), FAILED);
+}
 }
 }

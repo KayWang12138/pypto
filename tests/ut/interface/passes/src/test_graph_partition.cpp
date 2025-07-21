@@ -80,7 +80,7 @@ TEST_F(GraphPartitionTest, TestBuildOpGraph) {
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
     EXPECT_EQ(partitioner.operationInfo_->opList_.size(), function->Operations().size());
     EXPECT_EQ(partitioner.operationInfo_->magic2Idx_.size(), function->Operations().size());
-    EXPECT_EQ(partitioner.operationInfo_->opInGraph_.size(), function->Operations().size());
+    EXPECT_EQ(partitioner.operationInfo_->inGraph_.size(), function->Operations().size());
     EXPECT_EQ(partitioner.operationInfo_->opHashList_.size(), function->Operations().size());
     EXPECT_EQ(partitioner.operationInfo_->opCoreType_.size(), function->Operations().size());
     const std::vector<std::pair<std::string, int>> inLinkNum{{"COPY_IN0", 0}, {"MULS0", 1}, {"ADDS0", 1},
@@ -89,7 +89,7 @@ TEST_F(GraphPartitionTest, TestBuildOpGraph) {
         EXPECT_NE(G.GetOp(pr.first), nullptr);
         int opMagic = G.GetOp(pr.first)->GetOpMagic();
         int opIdx = partitioner.operationInfo_->magic2Idx_[opMagic];
-        EXPECT_EQ(partitioner.operationInfo_->opInGraph_[opIdx].size(), pr.second);
+        EXPECT_EQ(partitioner.operationInfo_->inGraph_[opIdx].size(), pr.second);
     }
     const std::vector<std::pair<std::string, int>> outLinkNum{{"COPY_IN0", 1}, {"MULS0", 1}, {"ADDS0", 1},
                                                              {"SUM1", 1}, {"SUM2", 1}, {"SUM3", 0}};
@@ -97,7 +97,7 @@ TEST_F(GraphPartitionTest, TestBuildOpGraph) {
         EXPECT_NE(G.GetOp(pr.first), nullptr);
         int opMagic = G.GetOp(pr.first)->GetOpMagic();
         int opIdx = partitioner.operationInfo_->magic2Idx_[opMagic];
-        EXPECT_EQ(partitioner.operationInfo_->opOutGraph_[opIdx].size(), pr.second);
+        EXPECT_EQ(partitioner.operationInfo_->outGraph_[opIdx].size(), pr.second);
     }
     int copyIdx0 = partitioner.operationInfo_->magic2Idx_[G.GetOp("COPY_IN0")->GetOpMagic()];
     int copyIdx1 = partitioner.operationInfo_->magic2Idx_[G.GetOp("COPY_IN1")->GetOpMagic()];
@@ -563,6 +563,23 @@ TEST_F(GraphPartitionTest, TestNonIsomorphismGraph) {
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
     const int subGraphNum = 1;
     EXPECT_EQ(function->GetTotalSubGraphCount(), subGraphNum);
+}
+
+TEST_F(GraphPartitionTest, TestAvoidSuperNodeLoop) {
+    ComputationalGraphBuilder G;
+    std::vector<int> tileShape{16,16};
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"}), true);
+    std::vector<Opcode> opCodes{Opcode::OP_A_MUL_B, Opcode::OP_A_MUL_B, Opcode::OP_A_MUL_B, Opcode::OP_A_MULACC_B};
+    std::vector<std::vector<std::string>> ioperands{{"t1", "t2"}, {"t2", "t3"}, {"t4","t5"}, {"t3", "t6", "t7"}};
+    std::vector<std::vector<std::string>> ooperands{{"t3"}, {"t4"}, {"t6"}, {"t8"}};
+    std::vector<std::string> opNames{"MUL1", "MUL2", "MUL3", "MULACC"};
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    EXPECT_EQ(G.SetInCast({"t1", "t2", "t5", "t7"}), true);
+    EXPECT_EQ(G.SetOutCast({"t8"}), true);
+    Function *function = G.GetFunction();
+    GraphPartitionPass gpp;
+    EXPECT_EQ(gpp.RunOnFunction(*function), SUCCESS);
+    EXPECT_EQ(gpp.PostCheck(*function), SUCCESS);
 }
 
 TEST_F(GraphPartitionTest, TestGraphBuilder) {

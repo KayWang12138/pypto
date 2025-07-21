@@ -483,6 +483,7 @@ public:
 
     void TensorMagicCheck() const;
     void OperationLoopCheck(const std::string &errorMsg);
+    bool OperationLoopCheck();
     void ValidCheck() const;
 
     std::shared_ptr<OpAttribute> CreateCallOpAttribute(const std::vector<std::vector<SymbolicScalar>> &argList);
