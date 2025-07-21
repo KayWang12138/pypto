@@ -50,7 +50,7 @@ Status SrcDstBufferMerge::Init(const std::vector<Operation *> &opList) {
                 continue;
             }
             if (output->memorymap.find(subGraphID_) == output->memorymap.end()) {
-                ALOG_ERROR_F("can not find subgrash id");
+                ALOG_DEBUG_F("can not find subgrash id");
                 continue;
             }
             if (subGraphID_ != op->GetSubgraphID()) {
@@ -78,7 +78,6 @@ bool SrcDstBufferMerge::CheckIgnoreScene(Function &func, const Operation *oriOps
     }
 
     if (func.GetRootFunction()->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC_LOOP_PATH, GraphType::ROOT_GRAPH)) {
-        /* why ignore these two opcode */
         if (oriOps->GetOpcode() == Opcode::OP_PAIRMAX || oriOps->GetOpcode() == Opcode::OP_PAIRSUM) {
             return true;
         }
@@ -96,7 +95,8 @@ std::pair<bool, Status> SrcDstBufferMerge::CheckHasInplaced(const Operation *ori
         inIdx = oriOps->GetIntAttribute(OpAttributeKey::inplaceIdx);
         if (oriOps->GetIOperands().size() <= static_cast<size_t>(inIdx) ||
             oriOps->GetOOperands().size() <= static_cast<size_t>(0)) {
-            ALOG_ERROR_F("operands size error");
+            ALOG_ERROR_F("operands size error, in:%d, out:%d, inIdx:%d",
+                oriOps->GetIOperands().size(), oriOps->GetOOperands().size(), inIdx);
             return std::make_pair(false, FAILED);
         }
 
@@ -156,6 +156,10 @@ void SrcDstBufferMerge::NotFindReplacedProcess(const Operation *ops,
 }
 
 Status SrcDstBufferMerge::Run(Function &func) {
+    if (func.rootFunc_ == nullptr) {
+        ALOG_ERROR_F("rootFunc is null");
+        return FAILED;
+    }
     for (auto &subProgram : func.rootFunc_->programs_) {
         ALOG_INFO_F("merge src dst for program id : [%lu]", subProgram.first);
         auto opList = subProgram.second->Operations().DuplicatedOpList();
