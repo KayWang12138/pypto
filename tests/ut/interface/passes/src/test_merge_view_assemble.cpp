@@ -19,13 +19,15 @@
 #include "interface/inner/tilefwk.h"
 #include "passes/pass_manager.h"
 #include "interface/configs/config_manager.h"
+#include "computational_graph_builder.h"
 #include "ut_json/ut_json_tool.h"
 #include "passes/tile_graph_pass/merge_view_assemble.h"
 #include <fstream>
 #include <vector>
 #include <string>
 
-using namespace npu::tile_fwk;
+namespace npu {
+namespace tile_fwk {
 
 class MergeViewAssembleTest : public testing::Test {
 public:
@@ -134,3 +136,612 @@ TEST_F(MergeViewAssembleTest, TestMergeViewAssemble) {
 
     // Check the offset of the View operation
 }
+
+TEST_F(MergeViewAssembleTest, MergeTwoConsecutiveViews) {
+    Program program;
+    std::string funcMagicName = "test_function";
+    std::string funcRawName = "test_function_raw";
+    std::unique_ptr<Function> function = std::make_unique<Function>(program, funcMagicName, funcRawName, nullptr);
+    // 创建原始输入tensor
+    auto rawTensor = std::make_shared<RawTensor>(DataType::DT_FP32, std::vector<int>{10, 10}, "input_tensor");
+    std::shared_ptr<LogicalTensor> inputTensor = std::make_shared<LogicalTensor>(*function, rawTensor, std::vector<int>{0, 0}, std::vector<int>{10, 10});
+    const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(function->GetIncast()).push_back(inputTensor);
+    // 创建第一个VIEW操作，偏移量[1,2]
+    auto midTensor = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, std::vector<int>{8, 8});
+    auto view1Attr = std::make_shared<ViewOpAttribute>(
+        std::vector<int>{1, 2}, // from_offset
+        std::vector<SymbolicScalar>{},  // from_dyn_offset
+        std::vector<SymbolicScalar>{}   // to_dyn_valid_shape
+    );
+    auto& view1Op = function->AddRawOperation(
+        Opcode::OP_VIEW,
+        {inputTensor},
+        {midTensor}
+    );
+    view1Op.SetOpAttribute(view1Attr);
+
+    // 2. 创建第2个VIEW操作，偏移量[3,4]
+    auto outputTensor = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, std::vector<int>{6, 6});
+    const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(function->GetOutcast()).push_back(outputTensor);
+    auto view2Attr = std::make_shared<ViewOpAttribute>(
+        std::vector<int>{3, 4}, // from_offset
+        std::vector<SymbolicScalar>{},  // from_dyn_offset
+        std::vector<SymbolicScalar>{}   // to_dyn_valid_shape
+    );
+    auto& view2Op = function->AddRawOperation(
+        Opcode::OP_VIEW,
+        {midTensor},
+        {outputTensor}
+    );
+    view2Op.SetOpAttribute(view2Attr);
+
+    // 3. 执行MergeViewAssemble pass
+    MergeViewAssemble mergePass;
+    ASSERT_EQ(mergePass.RunOnFunction(*function), SUCCESS);
+
+    // 4. 验证结果
+    // 4.1 检查原始VIEW操作是否被标记为删除
+    EXPECT_TRUE(view1Op.IsDeleted());
+    EXPECT_TRUE(view2Op.IsDeleted());
+
+    // 4.2 检查合并后的VIEW操作
+    int viewOpCount = 0;
+    Operation* mergedViewOp = nullptr;
+    for (auto& op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW && !op.IsDeleted()) {
+            viewOpCount++;
+            mergedViewOp = &op;
+        }
+    }
+
+    ASSERT_EQ(viewOpCount , 1) << "只有一个合并后的VIEW操作";
+    ASSERT_NE(mergedViewOp, nullptr);
+
+    // 4.3 检查合并后的偏移量是否正确
+    auto mergedAttr = dynamic_cast<ViewOpAttribute*>(mergedViewOp->GetOpAttribute().get());
+    ASSERT_NE(mergedAttr, nullptr);
+
+    const auto& mergedOffset = mergedAttr->GetFromOffset();
+    ASSERT_EQ(mergedOffset.size(), 2);
+    EXPECT_EQ(mergedOffset[0], 4) << "第一个维度偏移量应为4";
+    EXPECT_EQ(mergedOffset[1], 6) << "第二个维度偏移量应为6";
+
+    // 4.4 检查输入输出tensor是否正确
+    ASSERT_EQ(mergedViewOp->GetIOperands().size(), 1);
+    ASSERT_EQ(mergedViewOp->GetOOperands().size(), 1);
+    EXPECT_EQ(mergedViewOp->GetInputOperand(0), inputTensor);
+    EXPECT_EQ(mergedViewOp->GetOutputOperand(0), outputTensor);
+
+    // 4.5 检查中间tensor是否被清理
+    bool midTensorExists = false;
+    for (auto& [_, tensor] : function->GetTensorMap().inverseMap_) {
+        if (tensor == midTensor) {
+            midTensorExists = true;
+            break;
+        }
+    }
+    EXPECT_FALSE(midTensorExists) << "中间tensor应该被清理";
+}
+
+TEST_F(MergeViewAssembleTest, MergeThreeConsecutiveAssembles) {
+    Program program;
+    std::string funcMagicName = "test_function";
+    std::string funcRawName = "test_function_raw";
+    std::unique_ptr<Function> function = std::make_unique<Function>(program, funcMagicName, funcRawName, nullptr);
+
+    // 1.创建原始输入tensor并设置incast
+    auto rawTensor = std::make_shared<RawTensor>(DataType::DT_FP32, std::vector<int>{10, 10}, "input_tensor");
+    std::shared_ptr<LogicalTensor> inputTensor = std::make_shared<LogicalTensor>(*function, rawTensor, std::vector<int>{0, 0}, std::vector<int>{10, 10});
+    const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(function->GetIncast()).push_back(inputTensor);
+
+    // 2.创建三个连续的ASSEMBLE操作
+    // 第一个ASSEMBLE：偏移量[1,0]
+    auto midTensor1 = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, std::vector<int>{9, 10});
+    auto assemble1Attr = std::make_shared<AssembleOpAttribute>(
+        std::vector<int>{1, 0}, // to_offset
+        std::vector<SymbolicScalar>{}  // to_dyn_offset
+    );
+    auto& assemble1Op = function->AddRawOperation(
+        Opcode::OP_ASSEMBLE,
+        {inputTensor},
+        {midTensor1}
+    );
+    assemble1Op.SetOpAttribute(assemble1Attr);
+
+    // 第二个ASSEMBLE：偏移量[0,2]
+    auto midTensor2 = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, std::vector<int>{9, 8});
+    auto assemble2Attr = std::make_shared<AssembleOpAttribute>(
+        std::vector<int>{0, 2}, // to_offset
+        std::vector<SymbolicScalar>{}   // to_dyn_offset
+    );
+    auto& assemble2Op = function->AddRawOperation(
+        Opcode::OP_ASSEMBLE,
+        {midTensor1},
+        {midTensor2}
+    );
+    assemble2Op.SetOpAttribute(assemble2Attr);
+
+    // 第三个ASSEMBLE：偏移量[3,0]
+    auto outputTensor = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, std::vector<int>{6, 8});
+    const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(function->GetOutcast()).push_back(outputTensor);
+    auto assemble3Attr = std::make_shared<AssembleOpAttribute>(
+        std::vector<int>{3, 0}, // to_offset
+        std::vector<SymbolicScalar>{}   // to_dyn_offset
+    );
+    auto& assemble3Op = function->AddRawOperation(
+        Opcode::OP_ASSEMBLE,
+        {midTensor2},
+        {outputTensor}
+    );
+    assemble3Op.SetOpAttribute(assemble3Attr);
+
+    // 3.执行MergeViewAssemble pass
+    MergeViewAssemble mergePass;
+    ASSERT_EQ(mergePass.RunOnFunction(*function), SUCCESS);
+
+    // 4.验证结果
+    // 4.1检查原始ASSEMBLE操作是否被标记为已删除
+    EXPECT_TRUE(assemble1Op.IsDeleted());
+    EXPECT_TRUE(assemble2Op.IsDeleted());
+    EXPECT_TRUE(assemble3Op.IsDeleted());
+
+    // 4.2检查合并后的ASSEMBLE操作
+    ASSERT_EQ(function->Operations().size(), 0) << "所有op都应该被删除";
+
+    // 4.3检查中间tensor是否被清理
+    bool midTensor1Exists = false;
+    bool midTensor2Exists = false;
+    for (auto& [_, tensor] : function->GetTensorMap().inverseMap_) {
+        if (tensor == midTensor1) {
+            midTensor1Exists = true;
+        }
+        if (tensor == midTensor2) {
+            midTensor2Exists = true;
+        }
+    }
+    EXPECT_FALSE(midTensor1Exists) << "中间tensor1应该被清理";
+    EXPECT_FALSE(midTensor2Exists) << "中间tensor2应该被清理";
+}
+
+TEST_F(MergeViewAssembleTest, ViewAssembleChainShouldNotMerge) {
+    // 创建计算图构建器
+    ComputationalGraphBuilder G;
+
+    // 创建测试tensor
+    std::vector<std::string> tensorNames = {"input", "view1_out", "assemble_out", "view2_out"};
+    EXPECT_TRUE(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames));
+
+    // 创建op链: VIEW1 -> ASSEMBLE -> VIEW2
+    std::vector<Opcode> opCodes{Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_VIEW};
+    std::vector<std::vector<std::string>> ioperands{
+        {"input"},
+        {"view1_out"},
+        {"assemble_out"}
+    };
+    std::vector<std::vector<std::string>> ooperands{
+        {"view1_out"},
+        {"assemble_out"},
+        {"view2_out"}
+    };
+    std::vector<std::string> opNames{"VIEW1", "ASSEMBLE", "VIEW2"};
+
+    // 添加op
+    EXPECT_TRUE(G.AddOps(opCodes, ioperands, ooperands, opNames, true));
+
+    // 设置输入输出
+    EXPECT_TRUE(G.SetInCast({"input"}));
+    EXPECT_TRUE(G.SetOutCast({"view2_out"}));
+
+    // 获取Function并验证
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    // 记录原始op数量
+    const size_t originalOpCount = function->Operations().size();
+    ASSERT_EQ(originalOpCount, 3);
+
+    // 执行pass
+    MergeViewAssemble mva;
+    Status status = mva.RunOnFunction(*function);
+    EXPECT_EQ(status, SUCCESS);
+
+    // 验证op数量不变
+    EXPECT_EQ(function->Operations().size(), originalOpCount);
+
+    // 验证op顺序和类型保持不变
+    const auto& ops = function->Operations();
+    EXPECT_EQ(ops[0].GetOpcode(), Opcode::OP_VIEW);
+    EXPECT_EQ(ops[1].GetOpcode(), Opcode::OP_ASSEMBLE);
+    EXPECT_EQ(ops[2].GetOpcode(), Opcode::OP_VIEW);
+}
+
+TEST_F(MergeViewAssembleTest, Test2View2Assemble2View2AssembleChain) {
+    ComputationalGraphBuilder G;
+
+    std::vector<std::string> tensorNames{
+        "input",
+        "view1_out",
+        "view2_out",
+        "assemble1_out",
+        "assemble2_out",
+        "view3_out",
+        "view4_out",
+        "assemble3_out",
+        "assemble4_out",
+        "final_out"
+    };
+    
+    std::vector<Opcode> opCodes{
+        Opcode::OP_VIEW,
+        Opcode::OP_VIEW,
+        Opcode::OP_ASSEMBLE,
+        Opcode::OP_ASSEMBLE,
+        Opcode::OP_VIEW,
+        Opcode::OP_VIEW,
+        Opcode::OP_ASSEMBLE,
+        Opcode::OP_ASSEMBLE,
+        Opcode::OP_ABS
+    };
+
+    std::vector<std::vector<std::string>> ioperands{
+        {"input"},
+        {"view1_out"},
+        {"view2_out"},
+        {"assemble1_out"},
+        {"assemble2_out"},
+        {"view3_out"},
+        {"view4_out"},
+        {"assemble3_out"},
+        {"assemble4_out"}
+    };
+
+    std::vector<std::vector<std::string>> ooperands{
+        {"view1_out"},
+        {"view2_out"},
+        {"assemble1_out"},
+        {"assemble2_out"},
+        {"view3_out"},
+        {"view4_out"},
+        {"assemble3_out"},
+        {"assemble4_out"},
+        {"final_out"}
+    };
+
+    std::vector<std::string> opNames{
+        "view1", "view2", "assemble1", "assemble2",
+        "view3", "view4", "assemble3", "assemble4", "abs"
+    };
+
+    EXPECT_TRUE(G.AddTensors(DataType::DT_FP32, {10, 10, 10}, tensorNames));
+    EXPECT_TRUE(G.AddOps(opCodes, ioperands, ooperands, opNames, true));
+    EXPECT_EQ(G.SetInCast({"input"}), true);
+    EXPECT_EQ(G.SetOutCast({"final_out"}), true);
+
+    Function* function = G.GetFunction();
+    ASSERT_NE(function, nullptr);
+
+    size_t op_index = 0;
+    for (auto& op : function->Operations()) {
+        switch (op_index) {
+            case 0: { // view1
+                auto attr = std::make_shared<ViewOpAttribute>(
+                    std::vector<int32_t>{1, 1, 1}, std::vector<SymbolicScalar>{}, std::vector<SymbolicScalar>{});
+                op.SetOpAttribute(attr);
+                break;
+            }
+            case 1: { // view2
+                auto attr = std::make_shared<ViewOpAttribute>(
+                    std::vector<int32_t>{2, 2, 2}, std::vector<SymbolicScalar>{}, std::vector<SymbolicScalar>{});
+                op.SetOpAttribute(attr);
+                break;
+            }
+            case 2: { // assemble1
+                auto attr = std::make_shared<AssembleOpAttribute>(
+                    std::vector<int32_t>{3, 3, 3}, std::vector<SymbolicScalar>{});
+                op.SetOpAttribute(attr);
+                break;
+            }
+            case 3: { // assemble2
+                auto attr = std::make_shared<AssembleOpAttribute>(
+                    std::vector<int32_t>{4, 4, 4}, std::vector<SymbolicScalar>{});
+                op.SetOpAttribute(attr);
+                break;
+            }
+            case 4: { // view3
+                auto attr = std::make_shared<ViewOpAttribute>(
+                    std::vector<int32_t>{5, 5, 5}, std::vector<SymbolicScalar>{}, std::vector<SymbolicScalar>{});
+                op.SetOpAttribute(attr);
+                break;
+            }
+            case 5: { // view4
+                auto attr = std::make_shared<ViewOpAttribute>(
+                    std::vector<int32_t>{6, 6, 6}, std::vector<SymbolicScalar>{}, std::vector<SymbolicScalar>{});
+                op.SetOpAttribute(attr);
+                break;
+            }
+            case 6: { // assemble3
+                auto attr = std::make_shared<AssembleOpAttribute>(
+                    std::vector<int32_t>{7, 7, 7}, std::vector<SymbolicScalar>{});
+                op.SetOpAttribute(attr);
+                break;
+            }
+            case 7: { // assemble4
+                auto attr = std::make_shared<AssembleOpAttribute>(
+                    std::vector<int32_t>{8, 8, 8}, std::vector<SymbolicScalar>{});
+                op.SetOpAttribute(attr);
+                break;
+            }
+            default:
+                // No attribute needed for other operations (e.g. ABS)
+                break;
+        }
+        op_index++;
+    }
+
+    MergeViewAssemble pass;
+    Status status = pass.RunOnFunction(*function);
+    EXPECT_EQ(status, SUCCESS);
+
+    const auto& operations = function->Operations();
+    int view_count = 0;
+    int assemble_count = 0;
+    
+    for (const auto& op : operations) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            view_count++;
+        }
+        else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            assemble_count++;
+        }
+    }
+    
+    // Should have 2 merged views and 2 merged assembles
+    EXPECT_EQ(view_count, 2);
+    EXPECT_EQ(assemble_count, 2);
+    
+    // Verify final graph structure
+    bool found_structure = false;
+    for (const auto& op : operations) {
+        if (op.GetOpcode() == Opcode::OP_ABS) {
+            const auto* abs_input = op.GetIOperands()[0].get();
+            ASSERT_NE(abs_input, nullptr);
+            
+            const auto* last_assemble = *abs_input->GetProducers().begin();
+            ASSERT_NE(last_assemble, nullptr);
+            EXPECT_EQ(last_assemble->GetOpcode(), Opcode::OP_ASSEMBLE);
+            
+            const auto* last_view = *last_assemble->GetIOperands()[0]->GetProducers().begin();
+            ASSERT_NE(last_view, nullptr);
+            EXPECT_EQ(last_view->GetOpcode(), Opcode::OP_VIEW);
+            
+            const auto* first_assemble = *last_view->GetIOperands()[0]->GetProducers().begin();
+            ASSERT_NE(first_assemble, nullptr);
+            EXPECT_EQ(first_assemble->GetOpcode(), Opcode::OP_ASSEMBLE);
+            
+            const auto* first_view = *first_assemble->GetIOperands()[0]->GetProducers().begin();
+            ASSERT_NE(first_view, nullptr);
+            EXPECT_EQ(first_view->GetOpcode(), Opcode::OP_VIEW);
+            
+            found_structure = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(found_structure);
+}
+
+TEST_F(MergeViewAssembleTest, TestMixedBranchWithViewAndAssemble) {
+    ComputationalGraphBuilder G;
+
+    // 定义张量 (包含主分支和两个不同类型的子分支)
+    std::vector<std::string> tensorNames{
+        "input",
+        // 主分支
+        "view1_out", "view2_out", "assemble1_out",
+        // 分支1 (VIEW分支)
+        "view3_out", "view4_out", "assemble2_out",
+        // 分支2 (Assemble分支)
+        "view5_out", "assemble3_out", "assemble4_out",
+        // 合并输出
+        "merged_out", "final_out"
+    };
+
+    // 操作序列 (包含混合类型分支)
+    std::vector<Opcode> opCodes{
+        // 主分支
+        Opcode::OP_VIEW,     // view1
+        Opcode::OP_VIEW,     // view2
+        Opcode::OP_ASSEMBLE, // assemble1
+        // 分支1 (VIEW分支)
+        Opcode::OP_VIEW,     // view3
+        Opcode::OP_VIEW,     // view4
+        Opcode::OP_ASSEMBLE, // assemble2
+        // 分支2 (Assemble分支)
+        Opcode::OP_ASSEMBLE, // assemble3
+        Opcode::OP_VIEW,     // view5
+        Opcode::OP_ASSEMBLE, // assemble4
+        // 合并
+        Opcode::OP_ASSEMBLE, // merge_assemble
+        Opcode::OP_ABS       // final
+    };
+
+    // 定义输入输出关系
+    std::vector<std::vector<std::string>> ioperands{
+        {"input"},           // view1
+        {"view1_out"},       // view2
+        {"view2_out"},       // assemble1
+        {"assemble1_out"},   // view3 (分支1)
+        {"view3_out"},       // view4 (分支1)
+        {"view4_out"},       // assemble2 (分支1)
+        {"assemble1_out"},   // assemble3 (分支2)
+        {"assemble3_out"},   // view5 (分支2)
+        {"view5_out"},       // assemble4 (分支2)
+        {"assemble2_out", "assemble4_out"}, // merge_assemble
+        {"merged_out"}       // abs
+    };
+
+    std::vector<std::vector<std::string>> ooperands{
+        {"view1_out"},
+        {"view2_out"},
+        {"assemble1_out"},
+        {"view3_out"},
+        {"view4_out"},
+        {"assemble2_out"},
+        {"assemble3_out"},
+        {"view5_out"},
+        {"assemble4_out"},
+        {"merged_out"},
+        {"final_out"}
+    };
+
+    // 添加操作名称列表
+    std::vector<std::string> opNames{
+        "view1", "view2", "assemble1",      // 主分支
+        "view3", "view4", "assemble2",      // 分支1 (VIEW分支)
+        "assemble3", "view5", "assemble4",  // 分支2 (Assemble分支)
+        "merge_assemble", "abs_final"       // 合并与最终操作
+    };
+
+    // 构建计算图
+    EXPECT_TRUE(G.AddTensors(DataType::DT_FP32, {20, 20, 20}, tensorNames));
+    EXPECT_TRUE(G.AddOps(opCodes, ioperands, ooperands, opNames, true));
+
+    // 辅助函数：安全设置属性
+    auto set_attr = [&G](const std::string& op_name, auto attr) {
+        auto* op = G.GetOp(op_name);
+        ASSERT_NE(op, nullptr) << "Operation " << op_name << " not found!";
+        op->SetOpAttribute(attr);
+    };
+
+    // ------------------------- 主分支属性设置 -------------------------
+    // view1: offset=[1,0,0]
+    set_attr("view1", std::make_shared<ViewOpAttribute>(
+        std::vector<int32_t>{1, 0, 0},   // offset
+        std::vector<SymbolicScalar>{},   // stride (空表示默认)
+        std::vector<SymbolicScalar>{}    // shape (空表示保持输入形状)
+    ));
+
+    // view2: offset=[0,2,0]
+    set_attr("view2", std::make_shared<ViewOpAttribute>(
+        std::vector<int32_t>{0, 2, 0}, 
+        std::vector<SymbolicScalar>{}, 
+        std::vector<SymbolicScalar>{}
+    ));
+
+    // assemble1: offset=[1,2,0]
+    set_attr("assemble1", std::make_shared<AssembleOpAttribute>(
+        std::vector<int32_t>{1, 2, 0},   // offset
+        std::vector<SymbolicScalar>{}     // 其他参数（如无则空）
+    ));
+
+    // ------------------------- 分支1 (VIEW分支) 属性设置 -------------------------
+    // view3: offset=[0,0,3]
+    set_attr("view3", std::make_shared<ViewOpAttribute>(
+        std::vector<int32_t>{0, 0, 3}, 
+        std::vector<SymbolicScalar>{}, 
+        std::vector<SymbolicScalar>{}
+    ));
+
+    // view4: offset=[4,0,0]
+    set_attr("view4", std::make_shared<ViewOpAttribute>(
+        std::vector<int32_t>{4, 0, 0}, 
+        std::vector<SymbolicScalar>{}, 
+        std::vector<SymbolicScalar>{}
+    ));
+
+    // assemble2: offset=[4,0,3]
+    set_attr("assemble2", std::make_shared<AssembleOpAttribute>(
+        std::vector<int32_t>{4, 0, 3}, 
+        std::vector<SymbolicScalar>{}
+    ));
+
+    // ------------------------- 分支2 (Assemble分支) 属性设置 -------------------------
+    // assemble3: offset=[5,0,0]
+    set_attr("assemble3", std::make_shared<AssembleOpAttribute>(
+        std::vector<int32_t>{5, 0, 0}, 
+        std::vector<SymbolicScalar>{}
+    ));
+
+    // view5: offset=[0,6,0]
+    set_attr("view5", std::make_shared<ViewOpAttribute>(
+        std::vector<int32_t>{0, 6, 0}, 
+        std::vector<SymbolicScalar>{}, 
+        std::vector<SymbolicScalar>{}
+    ));
+
+    // assemble4: offset=[5,6,0]
+    set_attr("assemble4", std::make_shared<AssembleOpAttribute>(
+        std::vector<int32_t>{5, 6, 0}, 
+        std::vector<SymbolicScalar>{}
+    ));
+
+    // ------------------------- 合并操作属性设置 -------------------------
+    // merge_assemble: offset=[9,9,9]
+    set_attr("merge_assemble", std::make_shared<AssembleOpAttribute>(
+        std::vector<int32_t>{9, 9, 9}, 
+        std::vector<SymbolicScalar>{}
+    ));
+
+    // ABS操作无需属性
+    // ------------------------- 设置输入输出 -------------------------
+    EXPECT_EQ(G.SetInCast({"input"}), true);
+    EXPECT_EQ(G.SetOutCast({"final_out"}), true);
+
+    Function* function = G.GetFunction();
+    ASSERT_NE(function, nullptr);
+
+    // 执行pass
+    MergeViewAssemble pass;
+    Status status = pass.RunOnFunction(*function);
+    EXPECT_EQ(status, SUCCESS);
+
+    // 验证结果
+    const auto& operations = function->Operations();
+
+    // 1. 验证操作合并情况
+    int view_count = 0;
+    int assemble_count = 0;
+    for (const auto& op : operations) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            view_count++;
+        }
+        else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            assemble_count++;
+        }
+    }
+    EXPECT_EQ(view_count, 3); // 应合并为3个VIEW操作
+    EXPECT_EQ(assemble_count, 4); // assemble3/4不应被合并
+
+    // 验证final_out的生成路径
+    bool found_abs = false;
+    for (const auto& op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_ABS) {
+            // 1. 检查输入数量是否为1
+            const auto& abs_inputs = op.GetIOperands();
+            ASSERT_EQ(abs_inputs.size(), 1) << "OP_ABS should have exactly 1 input tensor";
+
+            // 2. 获取输入Tensor及其生产者
+            const auto* input_tensor = abs_inputs[0].get();
+            ASSERT_NE(input_tensor, nullptr) << "Input tensor is null";
+
+            const auto& producers = input_tensor->GetProducers();
+            ASSERT_EQ(producers.size(), 2) << "Input tensor should have 2 producers";
+
+            // 3. 验证两个生产者均为ASSEMBLE操作
+            int assemble_producer_count = 0;
+            for (const auto* producer : producers) {
+                ASSERT_NE(producer, nullptr) << "Producer is null";
+                if (producer->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                    assemble_producer_count++;
+                }
+            }
+            EXPECT_EQ(assemble_producer_count, 2) 
+                << "Expected 2 ASSEMBLE producers, but got " << assemble_producer_count;
+
+            found_abs = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(found_abs) << "OP_ABS operation not found in the graph";
+}
+} // namespace tile_fwk
+} // namespace npu
