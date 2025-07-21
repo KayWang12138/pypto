@@ -20,7 +20,7 @@
 #include <vector>
 
 #include "codegen_common.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "interface/utils/common.h"
 #include "interface/operation/opcode.h"
 

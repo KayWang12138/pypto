@@ -62,7 +62,7 @@ TEST_F(DynamicPATest, TestDD) {
     Tuner::GetInstance()
         .SetCyclesThreshold(defaultCyclesThreshold)
         .SetCycleUpperBound(defaultCyclesUpperBound)
-        .SetMachineSchMode({MachineSchduleConfig::DEFAULT_SCH})
+        .SetMachineSchMode({MachineScheduleConfig::DEFAULT_SCH})
         .SetParallelThreshold(defaultParalleThreshold)
         .SetUseNodeHash(false);
 

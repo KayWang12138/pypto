@@ -17,7 +17,7 @@
 #include "logical_tensor.h"
 
 #include "raw_tensor.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "tilefwk/symbolic_scalar.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"

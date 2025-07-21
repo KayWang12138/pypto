@@ -19,12 +19,11 @@
 #include <cassert>
 #include <cstdint>
 #include <iostream>
-#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
-
 #include "interface/cache/hash_buffer.h"
+
 namespace npu::tile_fwk {
 
 constexpr int MAX_MDIM_SIZE = 2;

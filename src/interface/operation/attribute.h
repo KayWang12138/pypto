@@ -20,7 +20,7 @@
 #include <cstdint>
 #include <memory>
 #include "interface/utils/assert.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "interface/cache/hash.h"
 #include "interface/cache/hash_buffer.h"
 #include "interface/cache/hash.h"

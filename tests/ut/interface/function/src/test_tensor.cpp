@@ -18,7 +18,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/operation/operation.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 
 class TestTensor : public testing::Test {
 public:

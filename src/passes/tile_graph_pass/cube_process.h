@@ -19,7 +19,7 @@
 #include <vector>
 
 #include "interface/operation/opcode.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 
 #include "passes/pass_interface/pass.h"
 #include "passes/tile_graph_pass/dead_operation_eliminate.h"

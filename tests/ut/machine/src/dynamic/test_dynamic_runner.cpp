@@ -21,7 +21,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "interface/operation/operation.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #define private public
 using namespace npu::tile_fwk;
 class TestDynamicDeviceRunner : public testing::Test {

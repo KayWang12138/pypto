@@ -19,7 +19,7 @@
 #include <climits>
 
 #include "interface/operation/opcode.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 
 #include "passes/pass_interface/pass.h"
 #include "tilefwk/tilefwk.h"

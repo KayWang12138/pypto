@@ -24,7 +24,7 @@
 #include "models/deepseek/deepseek_mla.h"
 #include "models/deepseek/mla_prolog.h"
 #include "models/deepseek/deepseek_spec.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 
 using namespace npu::tile_fwk;
 

@@ -22,7 +22,7 @@
 #include <unordered_set>
 #include <string>
 
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "interface/tensor/raw_tensor.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/operation/operation.h"

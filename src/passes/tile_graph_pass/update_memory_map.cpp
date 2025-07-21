@@ -16,7 +16,7 @@
 #include "passes/tile_graph_pass/update_memory_map.h"
 #include <vector>
 #include "interface/operation/opcode.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 namespace npu{
 namespace tile_fwk {
 

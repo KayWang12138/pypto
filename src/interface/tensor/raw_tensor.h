@@ -23,7 +23,7 @@
 
 #include "tilefwk/tilefwk.h"
 #include "common/pre_def.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 
 #include <nlohmann/json.hpp>
 using Json = nlohmann::json;

@@ -17,7 +17,7 @@
 #include <vector>
 #include <string>
 #include "gtest/gtest.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "operation/tilefwk_op.h"
 #include "interface/function/function.h"
 #include "passes/tile_graph_pass/iso_partitioner.h"

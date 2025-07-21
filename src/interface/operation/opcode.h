@@ -22,7 +22,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include "interface/utils/common.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "interface/utils/assert.h"
 namespace npu::tile_fwk {
 enum class Opcode {

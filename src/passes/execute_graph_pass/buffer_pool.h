@@ -20,7 +20,7 @@
 #include <memory>
 #include <unordered_map>
 #include <algorithm>
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "interface/utils/log.h"
 #include "interface/utils/common.h"
 namespace npu::tile_fwk {

@@ -20,7 +20,7 @@
 #include <unordered_set>
 
 #include "codegen/codegen_common.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "interface/operation/operation.h"
 #include "interface/tensor/tensormap.h"
 #include "interface/function/function.h"

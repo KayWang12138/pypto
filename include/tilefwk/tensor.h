@@ -19,9 +19,8 @@
 #include <memory>
 #include <vector>
 #include <initializer_list>
-
 #include "common/pre_def.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "tilefwk/symbolic_scalar.h"
 
 namespace npu::tile_fwk {

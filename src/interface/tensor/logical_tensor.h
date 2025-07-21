@@ -20,7 +20,7 @@
 #include <memory>
 #include <unordered_set>
 #include <functional>
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "common/pre_def.h"
 #include "raw_tensor.h"
 #include "interface/operation/attr_holder.h"

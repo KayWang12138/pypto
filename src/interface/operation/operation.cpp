@@ -17,7 +17,7 @@
 
 #include <functional>
 
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "interface/configs/config_manager.h"
 #include "interface/operation/opcode.h"
 #include "tilefwk/tilefwk.h"

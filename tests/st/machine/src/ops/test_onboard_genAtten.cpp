@@ -13,7 +13,7 @@
  * \brief
  */
 #include <gtest/gtest.h>
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "interface/function/function.h"
 #include "operation/tilefwk_op.h"
 #include "tilefwk/tilefwk.h"
@@ -39,7 +39,7 @@ struct GenAttenConfig {
 template<typename T = npu::tile_fwk::float16>
 void genAtten(GenAttenConfig &inputConfig) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    Program::GetInstance().GetConfig().Set<uint8_t>(MACHINE_CONFIG, static_cast<uint8_t>(MachineSchduleConfig::L2CACHE_AFFINITY_SCH));
+    Program::GetInstance().GetConfig().Set<uint8_t>(MACHINE_CONFIG, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
 
     int B = inputConfig.batchSize;
     int N = inputConfig.headNumSize;

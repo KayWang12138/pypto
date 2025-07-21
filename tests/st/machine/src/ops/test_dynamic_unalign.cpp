@@ -14,7 +14,7 @@
  */
 
 #include <gtest/gtest.h>
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "interface/function/function.h"
 #include "operation/tilefwk_op.h"
 #include "test_suite_stest_ops.h"

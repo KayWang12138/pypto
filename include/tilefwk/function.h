@@ -18,11 +18,9 @@
 #include <vector>
 #include <string>
 #include <set>
-#include <tuple>
-#include <map>
 #include <unordered_set>
 #include "tilefwk/tensor.h"
-#include "symbolic_scalar.h"
+#include "tilefwk/symbolic_scalar.h"
 
 // Helper macros to count arguments
 #define RECORD_FUNC_VAR_NAME_COUNTER_HELPER(var, cnt) var##cnt

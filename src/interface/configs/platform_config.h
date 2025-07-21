@@ -24,7 +24,7 @@
 #include <unordered_set>
 #include <sstream>
 
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 
 namespace npu::tile_fwk {
 const size_t K_ONE_KB = 1024L;

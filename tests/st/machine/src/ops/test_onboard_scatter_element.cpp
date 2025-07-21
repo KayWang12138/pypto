@@ -18,7 +18,7 @@
 #include "operation/tilefwk_op.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "test_common.h"
 #include "test_suite_stest_ops.h"
 #include "machine/runtime.h"

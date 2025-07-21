@@ -1359,13 +1359,13 @@ private:
         runningIds_.fill(AICORE_STATUS_INIT);
         pendingIds_.fill(AICORE_STATUS_INIT);
         taskDfxStatPos_.fill(REG_LOW_TASK_PING);
-        if (deviceArgs->machineConfig != static_cast<uint8_t>(MachineSchduleConfig::DEFAULT_SCH)) {
+        if (deviceArgs->machineConfig != static_cast<uint8_t>(MachineScheduleConfig::DEFAULT_SCH)) {
             if (aicpuNum_ > 1) {
                 enableFairSch_ = static_cast<uint8_t>(deviceArgs->machineConfig) &
-                    static_cast<uint8_t>(MachineSchduleConfig::MULTI_CORE_FAIR_SCH);
+                    static_cast<uint8_t>(MachineScheduleConfig::MULTI_CORE_FAIR_SCH);
             }
             enableL2CacheSch_ = static_cast<uint8_t>(deviceArgs->machineConfig) &
-                static_cast<uint8_t>(MachineSchduleConfig::L2CACHE_AFFINITY_SCH);
+                static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH);
         }
         UpdateAiCoreBlockIndexSection();
         if constexpr (IsDeviceMode()) {

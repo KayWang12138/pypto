@@ -23,7 +23,7 @@
 #include <memory>
 #include <algorithm>
 #include <iostream>
-#include "common/data_type.h"   // Assuming this is where MemoryType is defined
+#include "tilefwk/data_type.h"   // Assuming this is where MemoryType is defined
 #include "interface/configs/config.h" // Assuming this is where the configuration manager is defined
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"

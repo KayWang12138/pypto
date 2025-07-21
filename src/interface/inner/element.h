@@ -17,10 +17,9 @@
 
 #include <cstdint>
 #include <nlohmann/json.hpp>
-#include <tilefwk/element.h>
-
+#include <securec.h>
+#include "tilefwk/element.h"
 #include "interface/tensor/float.h"
-#include "securec.h"
 
 using Json = nlohmann::json;
 
@@ -34,7 +33,6 @@ inline std::string to_string(npu::tile_fwk::float16 data) {
     return std::to_string(static_cast<float>(data));
 }
 } // namespace std
-
 
 #define DISPATCH_DATA_TYPE(f, ...)                       \
     f(DT_INT8, int8_t, int64_t, ##__VA_ARGS__);        \

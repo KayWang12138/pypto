@@ -17,7 +17,6 @@
 
 #include <string>
 #include <stdexcept>
-#include <cassert>
 #include <unordered_map>
 
 namespace npu::tile_fwk {

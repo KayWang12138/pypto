@@ -17,7 +17,7 @@
 #include "distributed_op_test_common.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {

@@ -24,7 +24,7 @@
 #include <map>
 #include "simulation/common/CommonType.h"
 #include "simulation/common/CommonTools.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "interface/operation/operation.h"
 
 namespace CostModel {

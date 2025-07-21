@@ -16,7 +16,7 @@
 #ifndef GRAPI_INIT_PASS_H
 #define GRAPI_INIT_PASS_H
 #include "interface/operation/opcode.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "passes/pass_interface/pass.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"

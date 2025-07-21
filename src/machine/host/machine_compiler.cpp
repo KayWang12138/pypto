@@ -17,7 +17,7 @@
 #include <functional>
 #include <unistd.h>
 #include "interface/machine/host/host_machine.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/tensor/raw_tensor.h"
 #include "interface/function/function.h"

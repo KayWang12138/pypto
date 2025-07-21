@@ -9,7 +9,7 @@
  */
  
 /*!
- * \file include/tilefwk/tuner.h
+ * \file tuner.h
  * \brief
  */
  
@@ -17,7 +17,7 @@
 
 namespace npu::tile_fwk {
  
-enum class MachineSchduleConfig {
+enum class MachineScheduleConfig {
     DEFAULT_SCH = 0x0, // default sch mode:L2CACHE_AFFINITY_SCH(disable) MULTI_CORE_FAIR_SCH(disable)
     L2CACHE_AFFINITY_SCH = 0x1, // Dispatch the most recently ready task to maximize cache reuse
     MULTI_CORE_FAIR_SCH = 0x2 // Fair scheduling refers to maintaining as balanced a distribution of tasks across cores as possible,
@@ -38,7 +38,7 @@ class Tuner {
  
         Tuner& SetUseNodeHash(const bool useNodeHash);
 
-        Tuner& SetMachineSchMode(std::vector<MachineSchduleConfig> config);
+        Tuner& SetMachineSchMode(std::vector<MachineScheduleConfig> config);
 };
 
 } // end npu::tile_fwk

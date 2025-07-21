@@ -17,7 +17,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/operation/operation.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 
 TEST(TestMemoryAttribute, MemorySizeLimitTest) {
     npu::tile_fwk::Program::GetInstance().GetPlatformConfig().SetMemoryLimitList(static_cast<npu::tile_fwk::ModelID>(0));

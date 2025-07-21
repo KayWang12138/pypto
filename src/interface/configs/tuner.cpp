@@ -42,7 +42,7 @@ Tuner& Tuner::SetUseNodeHash(const bool useNodeHash) {
     return *this;
 }
 
-Tuner& Tuner::SetMachineSchMode(std::vector<MachineSchduleConfig> config) {
+Tuner& Tuner::SetMachineSchMode(std::vector<MachineScheduleConfig> config) {
     uint8_t machineConfig;
     for (size_t i = 0; i < config.size(); i++) {
         machineConfig |= static_cast<uint8_t>(config[i]);

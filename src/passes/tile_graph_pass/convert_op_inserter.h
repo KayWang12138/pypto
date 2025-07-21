@@ -20,7 +20,7 @@
 
 #include "interface/function/function.h"
 #include "interface/operation/opcode.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "passes/pass_utils/parallel_tool.h"

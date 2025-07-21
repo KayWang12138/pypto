@@ -15,7 +15,7 @@
 
 #include "operation_impl.h"
 #include <memory>
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "interface/operation/operation.h"
 #include "distributed/distributed_expand.h"
 #include "interface/function/function.h"

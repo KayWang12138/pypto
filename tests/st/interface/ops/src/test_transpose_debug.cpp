@@ -22,7 +22,7 @@
 #include <chrono>
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "machine/mem.h"
 #include "test_common.h"
 #include "interface/machine/host/host_machine.h"

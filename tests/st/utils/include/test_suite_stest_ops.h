@@ -19,7 +19,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "test_common.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "interface/interpreter/raw_tensor_data.h"
 
 namespace npu::tile_fwk::stest {

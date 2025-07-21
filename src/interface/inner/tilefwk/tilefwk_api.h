@@ -18,7 +18,6 @@
 #include <functional>
 #include <string>
 #include <vector>
-#include <map>
 #include "tilefwk/tensor.h"
 
 namespace npu::tile_fwk {

@@ -18,7 +18,7 @@
 
 #include <functional>
 #include <unordered_map>
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 
 namespace npu::tile_fwk {
 const std::unordered_map<std::string, std::unordered_map<DataType, int>> INTRIN_LATENCY_IN_OP{

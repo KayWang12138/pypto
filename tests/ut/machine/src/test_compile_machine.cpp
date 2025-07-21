@@ -18,7 +18,7 @@
 #include "runtime/rt.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "interface/operation/operation.h"
 #include "interface/tensor/float.h"
 #include "models/deepseek/deepseek_mla.h"

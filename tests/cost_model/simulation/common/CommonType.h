@@ -23,7 +23,7 @@
 #include <regex>
 #include "CycleInfo.h"
 #include "CommonData.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "interface/utils/common.h"
 #include "interface/utils/log.h"
 #include "interface/utils/assert.h"

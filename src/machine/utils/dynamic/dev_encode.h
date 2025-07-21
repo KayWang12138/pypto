@@ -30,7 +30,7 @@
 #include "interface/cache/core_func_data.h"
 #include "securec.h"
 #include "interface/utils/common.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "interface/tensor/symbol_handler.h"
 #include "machine/kernel/aicore.h"
 #include "machine/utils/dynamic/allocator/allocators.h"

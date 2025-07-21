@@ -17,7 +17,7 @@
 #include <memory>
 #include <vector>
 #include "interface/configs/config_manager.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "interface/operation/attribute.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"

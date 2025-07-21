@@ -19,7 +19,7 @@
 #include <sstream>
 #include <unordered_set>
 #include "interface/utils/common.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "interface/utils/assert.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"

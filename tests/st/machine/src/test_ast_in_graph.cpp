@@ -19,7 +19,7 @@
 #include "interface/inner/tilefwk/tilefwk_api.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 #include "test_common.h"
 #include "machine/dump/machine_dump.h"
 #include "models/llama/llama_def.h"

@@ -17,7 +17,7 @@
 #include <string>
 #include <cstdint>
 #include <nlohmann/json.hpp>
-#include "common/data_type.h"
+#include "tilefwk/data_type.h"
 
 namespace npu::tile_fwk {
 class Storage {

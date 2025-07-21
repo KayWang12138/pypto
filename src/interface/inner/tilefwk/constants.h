@@ -12,9 +12,7 @@
  * \file constants.h
  * \brief
  */
-#ifndef TILE_FWK_CONSTANDS_H
-#define TILE_FWK_CONSTANDS_H
+
+#pragma once
 
 constexpr int NOT_IN_SUBGRAPH = -1;
-
-#endif
