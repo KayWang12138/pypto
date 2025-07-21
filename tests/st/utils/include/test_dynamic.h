@@ -93,11 +93,11 @@ extern "C" int DynamicServerKernel(void *targ);
 struct DynFuncRunnerConfig {
     bool onBoard{true};
     int blockdim{25};
-    int aicpunum{5};
+    int aicpuNum{5};
     int64_t dynWorkspaceSize{0};
 
     DynFuncRunnerConfig() = default;
-    DynFuncRunnerConfig(bool onboard, int tblockdim, int taicpunum) : onBoard(onboard), blockdim(tblockdim), aicpunum(taicpunum) {}
+    DynFuncRunnerConfig(bool onboard, int tblockdim, int taicpunum) : onBoard(onboard), blockdim(tblockdim), aicpuNum(taicpunum) {}
     DynFuncRunnerConfig(int tdynWorkspaceSize) : dynWorkspaceSize(tdynWorkspaceSize) {}
 };
 
@@ -160,9 +160,9 @@ private:
         int rc = aclInit(nullptr);
         if (rc == 0 || rc == ACL_ERROR_REPEAT_INITIALIZE) {
             rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-            AstKernelArgs kArgs = BuildKernelArgs(inputs, outputs, false, blockdim, launchAicpuNum);
+            AstKernelArgs kArgs = BuildKernelArgs(inputs, outputs, false);
             auto stream = machine::GetRA()->GetStreamAICPU();
-            rc = DeviceRunner::Get().DynamicRun(stream, 0, &kArgs, blockdim, launchAicpuNum);
+            rc = DeviceRunner::Get().DynamicRun(stream, 0, &kArgs, config_.blockdim, config_.aicpuNum);
             CopyFromDev(outputs, false);
             if (HasInplaceArgs())
                 CopyFromDev(inputs, false);
@@ -258,7 +258,7 @@ private:
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProg_.data()));
         devProg->devArgs.nrAic = 25;
         devProg->devArgs.nrAiv = 50;
-        devProg->devArgs.nrAicpu = config_.aicpunum;
+        devProg->devArgs.nrAicpu = config_.aicpuNum;
         devProg->devArgs.nrValidAic = config_.blockdim;
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
 

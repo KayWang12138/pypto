@@ -19,11 +19,11 @@
 #include "operation/tilefwk_op.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/program/program.h"
-#include "runtime/device/dynamic/device_utils.h"
+#include "machine/device/dynamic/device_utils.h"
 #include "test_suite_stest_ops.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "models/deepseek/gen_kv_slc.h"
-#include "runtime/utils/dynamic/dev_encode.h"
+#include "machine/utils/dynamic/dev_encode.h"
 #include "test_dynamic.h"
 
 using namespace npu::tile_fwk;
