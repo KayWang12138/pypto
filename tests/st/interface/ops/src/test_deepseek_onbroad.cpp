@@ -95,13 +95,13 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer) {
     std::vector<float> devOutsTensor(b * s * numExpertsPerTok * h);
     std::vector<float> devFinalWeight(hiddenStatesSize);
 
-    runtime::GetRA()->CopyFromTensor(
+    machine::GetRA()->CopyFromTensor(
         (uint8_t *)devIdxs.data(), (uint8_t *)idxsPtr, b * s * numExpertsPerTok * sizeof(float));
-    runtime::GetRA()->CopyFromTensor((uint8_t *)devSortedTokens.data(), (uint8_t *)sortedTokensPtr,
+    machine::GetRA()->CopyFromTensor((uint8_t *)devSortedTokens.data(), (uint8_t *)sortedTokensPtr,
         b * s * numExpertsPerTok * h * sizeof(float));
-    runtime::GetRA()->CopyFromTensor(
+    machine::GetRA()->CopyFromTensor(
         (uint8_t *)devOutsTensor.data(), (uint8_t *)outsPtr, b * s * numExpertsPerTok * h * sizeof(float));
-    runtime::GetRA()->CopyFromTensor(
+    machine::GetRA()->CopyFromTensor(
         (uint8_t *)devFinalWeight.data(), (uint8_t *)outputPtr, hiddenStatesSize * sizeof(float));
 
     // 真值比对
@@ -185,7 +185,7 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout) {
     std::vector<float> goldenFinalWeight(hiddenStatesSize);
     std::vector<float> devFinalWeight(hiddenStatesSize);
 
-    runtime::GetRA()->CopyFromTensor((uint8_t *)devFinalWeight.data(), (uint8_t *)outputPtr,
+    machine::GetRA()->CopyFromTensor((uint8_t *)devFinalWeight.data(), (uint8_t *)outputPtr,
                             hiddenStatesSize  * sizeof(float));
 
     // 真值比对
@@ -254,7 +254,7 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout_singlemlp) {
     std::vector<float> goldenFinalWeight(hiddenStatesSize);
     std::vector<float> devFinalWeight(hiddenStatesSize);
 
-    runtime::GetRA()->CopyFromTensor((uint8_t *)devFinalWeight.data(), (uint8_t *)outputPtr,
+    machine::GetRA()->CopyFromTensor((uint8_t *)devFinalWeight.data(), (uint8_t *)outputPtr,
                             hiddenStatesSize  * sizeof(float));
 
     // 真值比对
@@ -333,7 +333,7 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout_singlemlp_withquant)
     std::vector<float> goldenFinalWeight(hiddenStatesSize);
     std::vector<float> devFinalWeight(hiddenStatesSize);
 
-    runtime::GetRA()->CopyFromTensor((uint8_t *)devFinalWeight.data(), (uint8_t *)outputPtr,
+    machine::GetRA()->CopyFromTensor((uint8_t *)devFinalWeight.data(), (uint8_t *)outputPtr,
                             hiddenStatesSize  * sizeof(float));
 
     // 真值比对

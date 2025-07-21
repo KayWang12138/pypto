@@ -40,7 +40,7 @@ TEST_F(VecdupTest, TestVecDup) {
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/res.bin", golden);
 
@@ -69,7 +69,7 @@ TEST_F(VecdupTest, TestVecDupUnaligned) {
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/res.bin", golden);
 

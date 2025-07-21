@@ -57,7 +57,7 @@
   "libtile_fwk_runtime.so": {
     "Source-Header": {
       "Self": [
-        "src/runtime/"
+        "src/machine/"
       ],
       "Area": [
         "src/interface/",
@@ -144,7 +144,7 @@
         "src/models/",
         "src/interface/",
         "src/passes/",
-        "src/runtime/",
+        "src/machine/",
         "tests/st/utils"
       ],
       "Include": [
@@ -167,7 +167,7 @@
         "src/interface/",
         "src/passes/",
         "src/codegen/",
-        "src/runtime/",
+        "src/machine/",
         "tests/st/utils"
       ],
       "Include": [
@@ -184,13 +184,13 @@
   "libtile_fwk_stest_runtime.a": {
     "Source-Header": {
       "Self": [
-        "tests/st/runtime/"
+        "tests/st/machine/"
       ],
       "Area": [
         "src/models/",
         "src/interface/",
         "src/passes/",
-        "src/runtime/",
+        "src/machine/",
         "tests/st/utils"
       ],
       "Include": [
@@ -213,7 +213,7 @@
         "src/models/",
         "src/interface/",
         "src/passes/",
-        "src/runtime/",
+        "src/machine/",
         "tests/st/utils"
       ],
       "Include": [
@@ -329,13 +329,13 @@
   "libtile_fwk_utest_runtime.a": {
     "Source-Header": {
       "Self": [
-        "tests/ut/runtime/"
+        "tests/ut/machine/"
       ],
       "Area": [
         "src/models/",
         "src/interface/",
         "src/passes/",
-        "src/runtime/"
+        "src/machine/"
       ],
       "Include": [
         "include/"

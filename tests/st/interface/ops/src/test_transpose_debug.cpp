@@ -23,7 +23,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "common/data_type.h"
-#include "runtime/mem.h"
+#include "machine/mem.h"
 #include "test_common.h"
 #include "interface/machine/host/host_machine.h"
 #include "models/llama/llama_def.h"
@@ -104,7 +104,7 @@ void TransposePost(uint8_t* outputGmAddr, uint64_t outputSize) {
     std::vector<float> golden(capacity);
     std::vector<float> res(capacity);
     std::vector<float> input(capacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)outputGmAddr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)outputGmAddr, outputSize);
     readInput("res.bin", golden);
     readInput("input.bin", input);
     int ret = resultCmp(golden, res, 0.001f, 64);

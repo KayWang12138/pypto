@@ -18,10 +18,10 @@
 #include <gtest/gtest.h>
 #include <cstdint>
 #include "interface/interpreter/raw_tensor_data.h"
-#include "runtime/utils/dynamic/dev_encode.h"
-#include "runtime/device/dynamic/costmodel_utils.h"
-#include "runtime/runtime.h"
-#include "runtime/host/device_runner.h"
+#include "machine/utils/dynamic/dev_encode.h"
+#include "machine/device/dynamic/costmodel_utils.h"
+#include "machine/runtime.h"
+#include "machine/host/device_runner.h"
 #include "simulation/backend.h"
 
 using namespace npu::tile_fwk;
@@ -31,7 +31,7 @@ using namespace npu::tile_fwk::dynamic;
 struct MemoryHelper {
     MemoryHelper(bool isTest) : isTest_(isTest) {
         if (!isTest_) {
-            l2Offset = runtime::GetRA()->GetL2Offset();
+            l2Offset = machine::GetRA()->GetL2Offset();
         }
     }
 
@@ -78,7 +78,7 @@ struct MemoryHelper {
         if (isTest_)
             devPtr = (uint8_t *)malloc(size);
         else
-            runtime::GetRA()->AllocDevAddr(&devPtr, size);
+            machine::GetRA()->AllocDevAddr(&devPtr, size);
         return devPtr;
     }
 
@@ -160,9 +160,9 @@ private:
         int rc = aclInit(nullptr);
         if (rc == 0 || rc == ACL_ERROR_REPEAT_INITIALIZE) {
             rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-            AstKernelArgs kArgs = BuildKernelArgs(inputs, outputs, false);
-            auto stream = runtime::GetRA()->GetStreamAICPU();
-            rc = DeviceRunner::Get().DynamicRun(stream, 0, &kArgs, config_.blockdim, config_.aicpunum);
+            AstKernelArgs kArgs = BuildKernelArgs(inputs, outputs, false, blockdim, launchAicpuNum);
+            auto stream = machine::GetRA()->GetStreamAICPU();
+            rc = DeviceRunner::Get().DynamicRun(stream, 0, &kArgs, blockdim, launchAicpuNum);
             CopyFromDev(outputs, false);
             if (HasInplaceArgs())
                 CopyFromDev(inputs, false);

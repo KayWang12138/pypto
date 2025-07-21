@@ -57,7 +57,7 @@ void TestBatchMatmul3D(std::vector<int> shape_a, std::vector<int>shape_b ,string
         }
     }
     std::vector<OnputT> res(capacity_mat_c);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), mat_c_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), mat_c_ptr, outputSize);
     std::vector<OnputT> golden(capacity_mat_c);
     readInput(dataPath + "/mat_c.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
@@ -93,7 +93,7 @@ void TestBatchMatmul4D(std::vector<int> shape_a, std::vector<int>shape_b ,string
         }
     }
     std::vector<OnputT> res(capacity_mat_c);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), mat_c_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), mat_c_ptr, outputSize);
     std::vector<OnputT> golden(capacity_mat_c);
     readInput(dataPath + "/mat_c.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
@@ -223,7 +223,7 @@ void TestBatchMatmulA8W8O32(std::vector<int> shape_a_in, std::vector<int> shape_
     }
 
     std::vector<int32_t> res(capacity_mat_c);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), mat_c_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), mat_c_ptr, outputSize);
 
     std::vector<int32_t> golden(capacity_mat_c);
     readInput(GetGoldenDir() + "/mat_c.bin", golden);
@@ -280,7 +280,7 @@ void TestBatchMatmulA8W8O32ACC(std::vector<int> shape_a_in, std::vector<int> sha
     }
 
     std::vector<int32_t> res(capacity_mat_c);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), mat_c_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), mat_c_ptr, outputSize);
 
     std::vector<int32_t> golden(capacity_mat_c);
     readInput(GetGoldenDir() + "/mat_c.bin", golden);

@@ -600,7 +600,7 @@ struct SymbolicSymbolTable {
 
     std::string BuildHeader() const {
         std::ostringstream oss;
-        oss << "#include \"runtime/utils/codegen/codegen.h\"\n";
+        oss << "#include \"machine/utils/codegen/codegen.h\"\n";
         return oss.str();
     }
 

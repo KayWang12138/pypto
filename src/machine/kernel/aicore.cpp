@@ -1,0 +1,322 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file aicore.cpp
+ * \brief
+ */
+#include "machine/kernel/aicore.h"
+#include "aicore_runtime.h"
+#include "interface/cache/core_func_data.h"
+#include "machine/utils/device_switch.h"
+#include "machine/utils/common_def.h"
+#include <stdint.h>
+#include <cstdint>
+
+using npu::tile_fwk::DynFuncHeader;
+using npu::tile_fwk::DynFuncData;
+using npu::tile_fwk::DynFuncBin;
+using npu::tile_fwk::DevRawTensorDesc;
+using npu::tile_fwk::CoreFunctionData;
+
+constexpr uint32_t STATUS_TASKID_SHIFT = 32;
+
+
+#if defined(__MIX__) && defined(__AIV__)
+#define blockIdx __v_blockIdx
+#define GmWorkspace __v_GmWorkspace
+#endif
+
+[[block_local]] int blockIdx;
+[[block_local]] int64_t GmWorkspace;
+
+enum DFX_STAGE_STATUS {
+    STAGE_HANDSHAKE_START = 1,
+    STAGE_HANDSHAKE_END = 2,
+    STAGE_GET_COREFUNC_DATA_STOP = 3,
+    STAGE_GET_NEXT_TASK_STOP = 4,
+    STAGE_PRE_EXEC_COREFUNC_KERNEL = 5,
+    STAGE_FINISH_EXEC_COREFUNC_KERNEL = 6,
+    STAGE_FINISH_PIPE_SYNC = 7,
+    STAGE_FINISH_CUR_TASK = 8
+};
+
+struct ExecuteContext {
+    __gm__ KernelArgs *args;
+    uint32_t seqNo;
+    __gm__ DynFuncBin *funcBins;
+    __gm__ DynFuncData *funcDataList;
+    __gm__ CoreFunctionData *staticFuncData;
+};
+
+typedef void (*DynKernelFunc)(CoreFuncParam *ctx, int64_t gmStackAddr, __gm__ int64_t *hcclContext);
+typedef void (*StaticKernelFunc)(__gm__ int64_t *param, int64_t gmStackAddr, __gm__ int64_t *hcclContext, __gm__ int64_t *oriAddrPtr);
+INLINE uint32_t GetNextTask(uint32_t lastTaskIdx) {
+    uint32_t nextLowIdx;
+    uint64_t coreStatus;
+    do {
+        __asm__ volatile("MOV %0, DATA_MAIN_BASE\n" : "+l"(coreStatus));
+        nextLowIdx = coreStatus & 0xFFFFFFFF;
+        nextLowIdx -= 1;
+    } while (nextLowIdx == lastTaskIdx);
+
+    return nextLowIdx;
+}
+
+INLINE void PipeSync() {
+#if defined(__AIV__)
+    set_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
+    wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
+#else
+    set_flag(PIPE_FIX, PIPE_S, EVENT_ID7);
+    wait_flag(PIPE_FIX, PIPE_S, EVENT_ID7);
+#endif
+}
+
+INLINE void Barrier()
+{
+#if defined(__CCE_KT_TEST__) && __CCE_KT_TEST__ == 1
+    __asm__ __volatile__("" ::: "memory");
+#else
+    __asm__ __volatile__("");
+#endif
+}
+
+INLINE void HandshakeClient(volatile __gm__ int64_t *shakeBuf) {
+    volatile __gm__ int64_t *hello = shakeBuf;
+
+    set_cond(AICORE_TASK_INIT);
+    *hello = (int64_t)get_coreid() << 32 | AICORE_SAY_HELLO;
+    Barrier();
+    dcci(hello, SINGLE_CACHE_LINE, CACHELINE_OUT);
+    Barrier();
+}
+
+
+INLINE void SetStatus(__gm__ KernelArgs *args, int64_t val) {
+#if DEBUG_SWITCH
+    Barrier();
+    args->shakeBuffer[2] = val;
+    dcci(args->shakeBuffer, SINGLE_CACHE_LINE, CACHELINE_OUT);
+#endif
+}
+
+INLINE void SendRegFinsh(uint32_t curTaskIdx) {
+    set_cond(curTaskIdx | AICORE_FIN_MASK);
+}
+
+INLINE void SendRegAck(uint32_t taskIdx) {
+    set_cond(taskIdx);
+}
+
+INLINE void SetTaskStatistic(__gm__ KernelArgs *args, int32_t& dfxPose,
+                             int32_t taskId, int32_t subGraphId, int64_t tStart)
+{
+    __gm__ volatile TaskStat *stat = &args->taskStat[dfxPose];
+    stat->subGraphId = subGraphId;
+    stat->taskId = taskId;
+    stat->execStart = tStart;
+    stat->execEnd = get_sys_cnt();
+    dcci(stat, SINGLE_CACHE_LINE, CACHELINE_OUT);
+}
+
+INLINE void AddMetricStatistic(__gm__ KernelArgs *args, uint32_t seqNo, uint32_t taskId, int32_t subGraphId, int64_t t1) {
+#if PROF_DFX_HOST_PREPARE_MEMORY_MODE
+    auto m = (__gm__ Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+    if (m && m->taskCount < MAX_DFX_TASK_NUM_PER_CORE) {
+        m->tasks[m->taskCount].subGraphId = subGraphId;
+        m->tasks[m->taskCount].seqNo = seqNo;
+        m->tasks[m->taskCount].taskId = taskId;
+        m->tasks[m->taskCount].execStart = t1;
+        m->tasks[m->taskCount].execEnd = get_sys_cnt();
+        m->taskCount++;
+    }
+#endif
+}
+
+INLINE void FlushMetricStatistic(__gm__ volatile KernelArgs* args) {
+    __gm__ volatile Metrics* m = (__gm__ volatile Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+    if (m == nullptr) {
+        return;
+    }
+    for (uint32_t i = 0; i < m->taskCount; i++) {
+        dcci(&m->tasks[i], SINGLE_CACHE_LINE, CACHELINE_OUT);
+    }
+    m->isMetricStop = 1;
+    dcci(m, SINGLE_CACHE_LINE, CACHELINE_OUT);
+}
+
+INLINE uint64_t getCoreFuncionData(__gm__ KernelArgs *args, int64_t lastFunc) {
+    uint32_t nextLowIdx;
+    uint64_t coreStatus;
+
+    while (true) {
+        // check if stop
+        volatile __gm__ int64_t *shakebuffer = args->shakeBuffer;
+        dcci(shakebuffer, SINGLE_CACHE_LINE, CACHELINE_OUT);
+        auto newFunc = args->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX];
+        if (newFunc != lastFunc) {
+            dcci((__gm__ void *)newFunc, SINGLE_CACHE_LINE, CACHELINE_OUT);
+            return newFunc;
+        }
+
+        __asm__ volatile("MOV %0, DATA_MAIN_BASE\n" : "+l"(coreStatus));
+        nextLowIdx = coreStatus & 0xFFFFFFFF;
+        nextLowIdx -= 1;
+
+        if (nextLowIdx == AICORE_TASK_STOP) {
+            return 0;
+        }
+
+    }
+}
+
+INLINE void PmuTestBegin(__gm__ KernelArgs *args) {
+#if PERF_PMU_TEST_SWITCH
+    if (args->taskEntry.reserved[0] == PRO_LEVEL2) {
+        set_ctrl((uint64_t) get_ctrl() | 0x1);
+    }
+#endif
+}
+
+INLINE void PmuTestEnd(__gm__ KernelArgs *args) {
+#if PERF_PMU_TEST_SWITCH
+        if (args->taskEntry.reserved[0] == PRO_LEVEL2) {
+            set_ctrl((uint64_t) get_ctrl() - 1);
+        }
+#endif
+}
+
+#define TASKID_TASK_BITS 20
+#define FuncID(id)       (id >> TASKID_TASK_BITS)
+#define TaskID(id)       (id & ((1 << TASKID_TASK_BITS) - 1))
+#define FuncNum(id)      TaskID(id)
+
+INLINE void ExecStaticCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
+#if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1
+    static int32_t taskDfxPos = REG_LOW_TASK_PING;
+#endif
+    __gm__ CoreFunctionData* coreFuncData = ctx->staticFuncData;
+    uint64_t t1 = get_sys_cnt();
+    SetStatus(ctx->args,  ((uint64_t)taskId << STATUS_TASKID_SHIFT) | STAGE_PRE_EXEC_COREFUNC_KERNEL);
+    __gm__ npu::tile_fwk::CoreFunctionWsAddr* functionInfo =
+            &((__gm__ npu::tile_fwk::CoreFunctionWsAddr*)coreFuncData->coreFunctionWsAddr)[taskId];
+    StaticKernelFunc kernel = (StaticKernelFunc)functionInfo->functionBinAddr;
+    kernel((__gm__ int64_t *)functionInfo->invokeEntryAddr,
+           coreFuncData->stackWorkSpaceAddr + blockIdx * coreFuncData->stackWorkSpaceSize,
+           (__gm__ int64_t *)coreFuncData->hcclContextAddr,
+           (__gm__ int64_t *)functionInfo->invokeEntryOriAddr);
+
+    SetStatus(ctx->args, STAGE_FINISH_EXEC_COREFUNC_KERNEL);
+    PipeSync();
+    SetStatus(ctx->args, STAGE_FINISH_PIPE_SYNC);
+
+#if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1
+    SetTaskStatistic(ctx->args, taskDfxPos, taskId, (int32_t)functionInfo->psgId, t1);
+#endif
+
+    AddMetricStatistic(ctx->args, 0, taskId, (int32_t)functionInfo->psgId, t1);
+}
+
+INLINE void ExecDynCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
+    uint64_t t1 = get_sys_cnt();
+
+    SetStatus(ctx->args, ((uint64_t)taskId << STATUS_TASKID_SHIFT) | STAGE_PRE_EXEC_COREFUNC_KERNEL); // high 32 bits used for taskId
+
+    auto funcData = &ctx->funcDataList[FuncID(taskId)];
+    auto opAttrs = &funcData->opAttrs[funcData->opAtrrOffsets[TaskID(taskId)]];
+    DynKernelFunc kernel = (DynKernelFunc)ctx->funcBins[opAttrs[0]].binAddr;
+    CoreFuncParam param = {funcData, opAttrs + 1, funcData->exprTbl};
+    kernel(&param, funcData->stackWorkSpaceAddr + blockIdx * funcData->stackWorkSpaceSize, (__gm__ int64_t *)funcData->hcclContext);
+    SetStatus(ctx->args, STAGE_FINISH_EXEC_COREFUNC_KERNEL);
+    PipeSync();
+    SetStatus(ctx->args, STAGE_FINISH_PIPE_SYNC);
+    AddMetricStatistic(ctx->args, ctx->seqNo, taskId, opAttrs[0], t1);
+#if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1
+    static int32_t taskDfxPos = REG_LOW_TASK_PING;
+    SetTaskStatistic(ctx->args, taskDfxPos, taskId, opAttrs[0], t1);
+#endif
+}
+
+INLINE void InitCtx(ExecuteContext *ctx, uint64_t coreFuncData, bool isDyn) {
+    if (isDyn) {
+        __gm__ DynFuncHeader *header = (__gm__ DynFuncHeader *)coreFuncData;
+        ctx->seqNo = header->seqNo;
+        ctx->funcBins = header->cceBinary;
+        ctx->funcDataList = (__gm__ npu::tile_fwk::DynFuncData *)(header + 1);
+        dcci((__gm__ void *)0, ENTIRE_DATA_CACHE, CACHELINE_OUT);
+        return;
+    }
+
+    ctx->staticFuncData = (__gm__ npu::tile_fwk::CoreFunctionData*)coreFuncData;
+}
+
+INLINE void ExecCoreFunctionKernel(ExecuteContext *ctx, uint32_t curTaskIdx, bool isDyn) {
+    if (isDyn) {
+        ExecDynCoreFunctionKernel(ctx, curTaskIdx);
+        return;
+    }
+
+    ExecStaticCoreFunctionKernel(ctx, curTaskIdx);
+}
+
+extern "C" __global__ __aicore__ void KERNEL_ENTRY(ast_main)(int64_t inputs, int64_t outputs, int64_t workspace,
+    int64_t tilingdata) {
+#if defined(__AIV__) and defined(__MIX__)
+    blockIdx = get_block_idx() * get_subblockdim() + get_subblockid() + get_block_num();
+#else
+    blockIdx = get_block_idx();
+#endif
+    auto devArgs = (DeviceArgs*)tilingdata;
+    __gm__ KernelArgs *args = (__gm__ KernelArgs *)(devArgs->sharedBuffer + blockIdx * SHARED_BUFFER_SIZE);
+    bool isDyn = devArgs->taskType == DEVICE_TASK_TYPE_DYN ? true : false;
+
+    SetStatus(args, STAGE_HANDSHAKE_START);
+    HandshakeClient(args->shakeBuffer);
+    SetStatus(args, STAGE_HANDSHAKE_END);
+
+    uint32_t curTaskIdx;
+    uint32_t lastTaskIdx;
+    int64_t coreFuncData = 0;
+    ExecuteContext ctx = {.args = args };
+
+    //get core task data
+    while (true) {
+        lastTaskIdx = AICORE_TASK_INIT;
+        coreFuncData = getCoreFuncionData(args, coreFuncData);
+        if (coreFuncData == 0) {
+            FlushMetricStatistic(args);
+            SetStatus(args, STAGE_GET_COREFUNC_DATA_STOP);
+            return; // no data exit
+        }
+        InitCtx(&ctx, coreFuncData, isDyn);
+        while (true) {
+            curTaskIdx = GetNextTask(lastTaskIdx);
+            if (curTaskIdx == AICORE_TASK_STOP || curTaskIdx == AICORE_FUNC_STOP) {
+                SetStatus(args, STAGE_GET_NEXT_TASK_STOP);
+                if (isDyn) {
+                    SendRegFinsh(AICORE_FUNC_STOP);
+                    break;
+                } else {
+                    FlushMetricStatistic(args);
+                    return;
+                }
+            }
+
+            SendRegAck(curTaskIdx);
+            PmuTestBegin(args);
+            ExecCoreFunctionKernel(&ctx, curTaskIdx, isDyn);
+            PmuTestEnd(args);
+            SendRegFinsh(curTaskIdx);
+            lastTaskIdx = curTaskIdx;
+            SetStatus(args, STAGE_FINISH_CUR_TASK);
+        }
+    }
+}

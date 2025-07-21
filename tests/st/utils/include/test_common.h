@@ -19,7 +19,8 @@
 #include <nlohmann/json.hpp>
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "runtime/runtime.h"
+#include "interface/program/program.h"
+#include "machine/runtime.h"
 #include "operation/tilefwk_op.h"
 #include "interface/tensor/float.h"
 #include "interface/tensor/logical_tensor.h"
@@ -372,7 +373,7 @@ void *readToDev(const std::string &path, int size) {
     readInput(path, data);
 
     uint8_t *devPtr = nullptr;
-    runtime::GetRA()->AllocDevAddr(&devPtr, bytes);
+    machine::GetRA()->AllocDevAddr(&devPtr, bytes);
     if (devPtr == nullptr) {
         std::cout << "rtMalloc failed" << std::endl;
         devPtr = reinterpret_cast<uint8_t *>(CostModel::SoftMemory::Instance().AllocateData(bytes, data));
@@ -394,7 +395,7 @@ void *readToDev(const std::string &path, int size) {
 
 [[maybe_unused]] static uint8_t *allocDevAddr(unsigned size) {
     uint8_t *devPtr = nullptr;
-    runtime::GetRA()->AllocDevAddr(&devPtr, size);
+    machine::GetRA()->AllocDevAddr(&devPtr, size);
     if (devPtr == nullptr) {
         std::cout << "allocDevAddr rtMalloc failed" << std::endl;
         std::vector<uint8_t> data(size);
@@ -512,7 +513,7 @@ static std::string GetCurRunningPath() {
 
     std::string coreType = isCube ? "dav-c220-cube" : "dav-c220-vec";
     const std::string envPath = std::string(std::getenv("ASCEND_AICPU_PATH"));
-    std::string runtimePath = envPath + "/runtime/include";
+    std::string runtimePath = envPath + "/machine/include";
     std::string lib64Path = envPath + "/lib64";
 
     char ccecCmd[2048];
@@ -531,7 +532,7 @@ static std::string GetCurRunningPath() {
         "-lruntime "
         "-I%s "
         "-I%s/include/tileop/a2a3 "
-        "-I%s/src/runtime/kernel/ "
+        "-I%s/src/machine/kernel/ "
         "-I%s/src/ "
         "-I%s/src/interface "
         "-o %s "

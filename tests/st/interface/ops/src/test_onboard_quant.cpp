@@ -82,13 +82,13 @@ void TestQuant(std::vector<int>& inputShape) {
 
     std::vector<dtype> output_golden(capacity);
     std::vector<dtype> output_npu(capacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)output_npu.data(), (uint8_t *)out_ptr, outSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)output_npu.data(), (uint8_t *)out_ptr, outSize);
     readInput(GetGoldenDir() + "/output_golden.bin", output_golden);
     int ret0 = resultCmp<dtype>(output_golden, output_npu, 0.0001f);
 
     std::vector<float> scale_golden(capacityScale);
     std::vector<float> scale_npu(capacityScale);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)scale_npu.data(), (uint8_t *)scale_ptr, scaleSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)scale_npu.data(), (uint8_t *)scale_ptr, scaleSize);
     readInput(GetGoldenDir() + "/scale_dequant_golden.bin", scale_golden);
     int ret1 = resultCmp<float>(scale_golden, scale_npu, 0.0001f);
 
@@ -151,13 +151,13 @@ void TestQuant3D(std::vector<int>& inputShape) {
 
     std::vector<dtype> output_golden(capacity);
     std::vector<dtype> output_npu(capacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)output_npu.data(), (uint8_t *)out_ptr, outSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)output_npu.data(), (uint8_t *)out_ptr, outSize);
     readInput(GetGoldenDir() + "/output_golden.bin", output_golden);
     int ret0 = resultCmp<dtype>(output_golden, output_npu, 0.0001f);
 
     std::vector<float> scale_golden(capacityScale);
     std::vector<float> scale_npu(capacityScale);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)scale_npu.data(), (uint8_t *)scale_ptr, scaleSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)scale_npu.data(), (uint8_t *)scale_ptr, scaleSize);
     readInput(GetGoldenDir() + "/scale_dequant_golden.bin", scale_golden);
     int ret1 = resultCmp<float>(scale_golden, scale_npu, 0.0001f);
 
@@ -221,13 +221,13 @@ void TestQuantWithSmoothFactor(std::vector<int>& inputShape) {
 
     std::vector<dstType> output_golden(capacity);
     std::vector<dstType> output_npu(capacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)output_npu.data(), (uint8_t *)out_ptr, outSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)output_npu.data(), (uint8_t *)out_ptr, outSize);
     readInput(GetGoldenDir() + "/output_golden.bin", output_golden);
     int ret0 = resultCmp<dstType>(output_golden, output_npu, 0.0001f);
 
     std::vector<float> scale_golden(capacityScale);
     std::vector<float> scale_npu(capacityScale);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)scale_npu.data(), (uint8_t *)scale_ptr, scaleSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)scale_npu.data(), (uint8_t *)scale_ptr, scaleSize);
     readInput(GetGoldenDir() + "/scale_dequant_golden.bin", scale_golden);
     int ret1 = resultCmp<float>(scale_golden, scale_npu, 0.0001f);
 
@@ -294,7 +294,7 @@ void TestQuantMM(std::vector<int>& shapeA, std::vector<int>& shapeW) {
     }
 
     std::vector<dstType> res(capacityRes);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), matRes_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), matRes_ptr, outputSize);
     std::vector<dstType> golden(capacityRes);
     readInput(GetGoldenDir() + "/quant_mm_golden.bin", golden);
     std::vector<srcAType> a(capacityA);
@@ -347,7 +347,7 @@ void TestQuantMM3D(std::vector<int>& shapeA, std::vector<int>& shapeW) {
     }
 
     std::vector<dstType> res(capacityRes);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), matRes_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), matRes_ptr, outputSize);
     std::vector<dstType> golden(capacityRes);
     readInput(GetGoldenDir() + "/quant_mm_golden.bin", golden);
     std::vector<srcAType> a(capacityA);

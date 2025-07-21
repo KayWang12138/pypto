@@ -52,12 +52,12 @@ bool DoCompare(const std::string &goldenFilename, const uint64_t outSize, const 
     std::vector<T> resGolden(outSize);
     // 统一处理指针或指针数组
     if constexpr (std::is_same_v<PtrType, uint8_t *>) {
-        runtime::GetRA()->CopyFromTensor(reinterpret_cast<uint8_t *>(res.data()), outPtrs, outSize * dTypeSize);
+        machine::GetRA()->CopyFromTensor(reinterpret_cast<uint8_t *>(res.data()), outPtrs, outSize * dTypeSize);
     } else {
         for (int32_t i = 0; i < testParam.rankSize; ++i) {
             const size_t chunkSize = outSize / testParam.rankSize;
             const size_t offset = i * chunkSize;
-            runtime::GetRA()->CopyFromTensor(
+            machine::GetRA()->CopyFromTensor(
                 reinterpret_cast<uint8_t *>(res.data() + offset), outPtrs[i], chunkSize * dTypeSize);
         }
     }

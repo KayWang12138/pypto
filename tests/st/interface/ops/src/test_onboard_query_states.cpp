@@ -79,7 +79,7 @@ TEST_F(OnBoardTest, test_query_states_fp16_b32_n2) {
     std::vector<npu::tile_fwk::float16> q(cap);
     std::vector<npu::tile_fwk::float16> golden(outputCap);
     std::vector<npu::tile_fwk::float16> res(outputCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput<npu::tile_fwk::float16>(GetGoldenDir() + "/query_states_res.bin", golden);
     int ret = resultCmp<npu::tile_fwk::float16>(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -145,7 +145,7 @@ TEST_F(OnBoardTest, test_query_states_fp16_b32_n16) {
     std::vector<npu::tile_fwk::float16> q(cap);
     std::vector<npu::tile_fwk::float16> golden(outputCap);
     std::vector<npu::tile_fwk::float16> res(outputCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput<npu::tile_fwk::float16>(GetGoldenDir() + "/query_states_res.bin", golden);
     int ret = resultCmp<npu::tile_fwk::float16>(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -211,7 +211,7 @@ TEST_F(OnBoardTest, test_query_states_fp16_b32_n32) {
     std::vector<npu::tile_fwk::float16> q(cap);
     std::vector<npu::tile_fwk::float16> golden(outputCap);
     std::vector<npu::tile_fwk::float16> res(outputCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput<npu::tile_fwk::float16>(GetGoldenDir() + "/query_states_res.bin", golden);
     int ret = resultCmp<npu::tile_fwk::float16>(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -278,7 +278,7 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n2) {
     std::vector<npu::tile_fwk::bfloat16> q(cap);
     std::vector<npu::tile_fwk::bfloat16> golden(outputCap);
     std::vector<npu::tile_fwk::bfloat16> res(outputCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/query_states_res.bin", golden);
     int ret = resultCmp<npu::tile_fwk::bfloat16>(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -328,7 +328,7 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n2_concat) {
     std::vector<npu::tile_fwk::bfloat16> q(cap);
     std::vector<npu::tile_fwk::bfloat16> golden(outputCap);
     std::vector<npu::tile_fwk::bfloat16> res(outputCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/query_states_res.bin", golden);
     int ret = resultCmp<npu::tile_fwk::bfloat16>(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -395,7 +395,7 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n2_nocat) {
     std::vector<npu::tile_fwk::bfloat16> q(cap);
     std::vector<npu::tile_fwk::bfloat16> golden(outputCap);
     std::vector<npu::tile_fwk::bfloat16> res(outputCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/t3.bin", golden);
     int ret = resultCmp<npu::tile_fwk::bfloat16>(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -462,7 +462,7 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n16) {
     std::vector<npu::tile_fwk::bfloat16> q(cap);
     std::vector<npu::tile_fwk::bfloat16> golden(outputCap);
     std::vector<npu::tile_fwk::bfloat16> res(outputCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/query_states_res.bin", golden);
     int ret = resultCmp<npu::tile_fwk::bfloat16>(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -529,7 +529,7 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n32) {
     std::vector<npu::tile_fwk::bfloat16> q(cap);
     std::vector<npu::tile_fwk::bfloat16> golden(outputCap);
     std::vector<npu::tile_fwk::bfloat16> res(outputCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/query_states_res.bin", golden);
     int ret = resultCmp<npu::tile_fwk::bfloat16>(golden, res, 0.001f);
     EXPECT_EQ(ret, true);

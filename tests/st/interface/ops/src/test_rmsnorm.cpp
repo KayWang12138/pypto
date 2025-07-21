@@ -45,7 +45,7 @@ TEST_F(RmsNormTest, test_32_32_tileop_rmsnorm) {
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/res.bin", golden);
 
@@ -80,7 +80,7 @@ TEST_F(RmsNormTest, test_2_32_32_tileop_rmsnorm) {
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/res.bin", golden);
 
@@ -116,7 +116,7 @@ TEST_F(RmsNormTest, test_2_2_32_32_tileop_rmsnorm) {
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/res.bin", golden);
 
@@ -150,7 +150,7 @@ TEST_F(RmsNormTest, test_32_256_tileop_rmsnorm_fp16) {
 
     std::vector<npu::tile_fwk::float16 > golden(outputCapacity);
     std::vector<npu::tile_fwk::float16 > res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/res.bin", golden);
 
@@ -184,7 +184,7 @@ TEST_F(RmsNormTest, test_32_1536_tileop_rmsnorm_fp16_realCase) {
 
     std::vector<npu::tile_fwk::float16 > golden(outputCapacity);
     std::vector<npu::tile_fwk::float16 > res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/res.bin", golden);
 
@@ -219,7 +219,7 @@ TEST_F(RmsNormTest, test_2_32_256_tileop_rmsnorm_fp16) {
 
     std::vector<npu::tile_fwk::float16 > golden(outputCapacity);
     std::vector<npu::tile_fwk::float16 > res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/res.bin", golden);
 
@@ -257,7 +257,7 @@ TEST_F(RmsNormTest, test_32_1536_tileop_rmsnorm_gamma_fp16_realCase) {
 
     std::vector<npu::tile_fwk::float16 > golden(outputCapacity);
     std::vector<npu::tile_fwk::float16 > res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/res.bin", golden);
 
@@ -296,7 +296,7 @@ TEST_F(RmsNormTest, test_2_1_512_tileop_rmsnorm_gamma_fp16_realCase) {
 
     std::vector<npu::tile_fwk::float16 > golden(outputCapacity);
     std::vector<npu::tile_fwk::float16 > res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/res.bin", golden);
 

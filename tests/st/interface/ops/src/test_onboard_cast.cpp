@@ -56,7 +56,7 @@ namespace {
         std::vector<InputType> x(srcCapacity);
         std::vector<OutputType> golden(dstCapacity);
         std::vector<OutputType> res(dstCapacity);
-        runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+        machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
         readInput(GetGoldenDir() + "/" + config.inputFile, x);
         readInput(GetGoldenDir() + "/" + config.goldenFile, golden);
         int ret = resultCmpCast<InputType, OutputType>(x, golden, res, 0.001f);
@@ -129,7 +129,7 @@ TEST_F(CastOnBoard, test_cast_fp16tofp32_unalign) {
     std::vector<npu::tile_fwk::float16> x1(srcCapacity);
     std::vector<float> golden(dstCapacity);
     std::vector<float> res(dstCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/fp16tofp32_unalign_golden.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);

@@ -105,7 +105,7 @@ TEST_F(OnBoardTest, test_attention_post_bf16_real_batch4) {
     } else {
         std::vector<T> golden(outputSize);
         std::vector<T> res(outputSize);
-        runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputByteSize);
+        machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputByteSize);
         readInput<T>(GetGoldenDir() + "/attn_output.bin", golden);
         int ret = resultCmp<T>(golden, res, 0.005f);
         EXPECT_EQ(ret, true);
@@ -198,7 +198,7 @@ TEST_F(OnBoardTest, test_attention_post_bf16_real_n128) {
     } else {
         std::vector<T> golden(outputSize);
         std::vector<T> res(outputSize);
-        runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputByteSize);
+        machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputByteSize);
         readInput<T>(GetGoldenDir() + "/attn_output.bin", golden);
         int ret = resultCmp<T>(golden, res, 0.006f);
         EXPECT_EQ(ret, true);

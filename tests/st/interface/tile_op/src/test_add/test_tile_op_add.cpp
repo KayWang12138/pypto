@@ -69,7 +69,7 @@ TEST_F(TestTileOpAdd, TestAddDim2) {
     // Invoke a kernel
     std::vector<float> golden(capacity);
     std::vector<float> res(capacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, size);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, size);
     readInput(GetGoldenDir() + "/add_res.bin", golden);
     //    for (int i = 0; i < 4096; ++i) {
     //        printf("%f, ", golden[i]);

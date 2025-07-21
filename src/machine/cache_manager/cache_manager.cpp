@@ -1,0 +1,159 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file cache_manager.cpp
+ * \brief
+ */
+
+#include "cache_manager.h"
+#include "interface/utils/log.h"
+#include "interface/utils/file_utils.h"
+#include "interface/configs/config_manager.h"
+#include "interface/platform/platform_manager.h"
+#include "tilefwk/tilefwk.h"
+#include "interface/inner/tilefwk.h"
+#include "interface/program/program.h"
+#include "machine/dump/task_dump_utils.h"
+
+namespace npu::tile_fwk {
+namespace {
+const std::string CACHE_FILE_PREFIX = "ast_op_";
+const std::string CACHE_BIN_FILE_SUFFIX = ".o";
+const std::string CACHE_LOCK_FILE_SUFFIX = ".lock";
+}
+CacheManager& CacheManager::Instance() {
+    static CacheManager cacheManager;
+    return cacheManager;
+}
+
+bool CacheManager::Initialize() {
+    if (isInit_) {
+        return true;
+    }
+    if (!config::GetHostConfig(KEY_ENABLE_BINARY_CACHE, true)) {
+        ALOG_INFO_F("Binary cache is not enable.");
+        return true;
+    }
+    cacheMode_ = CacheMode::Enable;
+
+    // create cache dir
+    const char *envPath = std::getenv("HOME");
+    if (envPath == nullptr) {
+        ALOG_ERROR_F("Env[HOME] is not existed or empty.");
+        return false;
+    }
+    std::string homeEnvPath(envPath);
+    cacheDirPath_ = homeEnvPath + "/ast_data/" + PlatformManager::Instance().GetShortSocVersion();
+    ALOG_DEBUG_F("Begin to initialize cache manager, cache dir path is [%s].", cacheDirPath_.c_str());
+    if (RealPath(cacheDirPath_).empty() && !CreateMultiLevelDir(cacheDirPath_)) {
+        ALOG_ERROR_F("Failed to create cache dir[%s].", cacheDirPath_.c_str());
+        return false;
+    }
+    ALOG_INFO_F("Cache manager has been initialized at cache dir path[%s].", cacheDirPath_.c_str());
+    isInit_ = true;
+    return true;
+}
+
+bool CacheManager::MatchBinCache(const std::string &cacheKey) const {
+    if (!IsCahceEnable()) {
+        return false;
+    }
+    if (cacheKey.empty()) {
+        return false;
+    }
+    std::string cacheBinFile = cacheDirPath_ + "/" + CACHE_FILE_PREFIX + cacheKey + CACHE_BIN_FILE_SUFFIX;
+    ALOG_DEBUG_F("Try to check whether bin file[%s] is existed.", cacheBinFile.c_str());
+    std::lock_guard<std::mutex> lock_guard(cacheMutex_);
+    // check whether both json and bin file is existed
+    bool ret = !RealPath(cacheBinFile).empty();
+    if (ret) {
+        ALOG_INFO_F("Cache matched, bin file[%s] is existed.", cacheBinFile.c_str());
+    } else {
+        ALOG_INFO_F("Cache missed, bin file[%s] is not existed.", cacheBinFile.c_str());
+    }
+    return ret;
+}
+
+void CacheManager::SaveTaskFile(const DeviceAgentTask *deviceAgentTask) const {
+    if (!IsCahceEnable()) {
+        return;
+    }
+    if (deviceAgentTask == nullptr || deviceAgentTask->GetFunction() == nullptr) {
+        return;
+    }
+    Function *function = deviceAgentTask->GetFunction();
+    std::string binFilePath =
+        cacheDirPath_ + "/" + CACHE_FILE_PREFIX + deviceAgentTask->compileTask->GetCacheKey() + CACHE_BIN_FILE_SUFFIX;
+    ALOG_DEBUG_F("Try to save bin file[%s], function type is [%s].", binFilePath.c_str(),
+                 function->GetFunctionTypeStr().c_str());
+    std::lock_guard<std::mutex> lock_guard(cacheMutex_);
+    if (!RealPath(binFilePath).empty()) {
+        ALOG_INFO_F("Bin file[%s] already exists.", binFilePath.c_str());
+        return;
+    }
+    if (function->IsFunctionType(FunctionType::DYNAMIC) && function->GetDyndevAttribute() != nullptr) {
+        ALOG_INFO_F("Save devProgBinary at bin file[%s].", binFilePath.c_str());
+        std::string lockFilePath =
+            cacheDirPath_ + "/" + CACHE_FILE_PREFIX + deviceAgentTask->compileTask->GetCacheKey() + CACHE_LOCK_FILE_SUFFIX;
+        FILE *fp = LockAndOpenFile(lockFilePath);
+        if (fp == nullptr) {
+            return;
+        }
+        if (RealPath(binFilePath).empty()) {
+            SaveFile(binFilePath, function->GetDyndevAttribute()->devProgBinary);
+        }
+        UnlockAndCloseFile(fp);
+    }
+    // dump binary for static graph, exclude static graph in dyn graph
+    if ((function->IsFunctionTypeAndGraphType({FunctionType::STATIC}, {GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) &&
+        (function->BelongTo().GetLastFunction() == nullptr ||
+         !function->BelongTo().GetLastFunction()->IsFunctionType(FunctionType::DYNAMIC))) {
+        ALOG_INFO_F("Save deviceAgentTask at bin file[%s].", binFilePath.c_str());
+        std::string lockFilePath =
+            cacheDirPath_ + "/" + CACHE_FILE_PREFIX + deviceAgentTask->compileTask->GetCacheKey() + CACHE_LOCK_FILE_SUFFIX;
+        FILE *fp = LockAndOpenFile(lockFilePath);
+        if (fp == nullptr) {
+            return;
+        }
+        if (RealPath(binFilePath).empty()) {
+            (void)TaskDumpUtils::DumpTaskToBinFile(deviceAgentTask, binFilePath);
+        }
+        UnlockAndCloseFile(fp);
+    }
+}
+
+bool CacheManager::RecoverTask(const std::string &cacheKey, DeviceAgentTask *deviceAgentTask) const {
+    if (!IsCahceEnable()) {
+        return false;
+    }
+    if (deviceAgentTask == nullptr || deviceAgentTask->GetFunction() == nullptr) {
+        return false;
+    }
+    Function *function = deviceAgentTask->GetFunction();
+    std::string cacheBinFile = cacheDirPath_ + "/" + CACHE_FILE_PREFIX + cacheKey + CACHE_BIN_FILE_SUFFIX;
+    ALOG_DEBUG_F("Try to recover device task from bin file[%s], function type is [%s].", cacheBinFile.c_str(),
+                 function->GetFunctionTypeStr().c_str());
+    std::lock_guard<std::mutex> lock_guard(cacheMutex_);
+    if (function->IsFunctionType(FunctionType::DYNAMIC)) {
+        ALOG_INFO_F("Recover devProgBinary from bin file[%s].", cacheBinFile.c_str());
+        function->GetDyndevAttribute()->devProgBinary = LoadFile(cacheBinFile);
+        return !function->GetDyndevAttribute()->devProgBinary.empty();
+    }
+    // recover binary for static graph, exclude static graph in dyn graph
+    if ((deviceAgentTask->GetFunction()->IsFunctionTypeAndGraphType({FunctionType::STATIC}, {GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) &&
+        (function->BelongTo().GetLastFunction() == nullptr ||
+         !function->BelongTo().GetLastFunction()->IsFunctionType(FunctionType::DYNAMIC))) {
+        ALOG_INFO_F("Recover deviceAgentTask from bin file[%s].", cacheBinFile.c_str());
+        return TaskDumpUtils::RecoverTaskFromBinFile(cacheBinFile, deviceAgentTask);
+    }
+    return true;
+}
+}

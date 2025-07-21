@@ -47,7 +47,7 @@ TEST_F(OnBoardTest, test_operation_gm_reshape) {
 
     std::vector<float> golden(capacity_8_8_8);
     std::vector<float> res(capacity_8_8_8);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/reshapegm_res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.001f);
@@ -85,7 +85,7 @@ TEST_F(OnBoardTest, test_operation_ub_reshape) {
 
     std::vector<float> golden(capacity_8_8_8);
     std::vector<float> res(capacity_8_8_8);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/reshapeub_res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -121,7 +121,7 @@ TEST_F(OnBoardTest, test_operation_gm_reshape_2dimto3dim) {
 
     std::vector<float> golden(capacity);
     std::vector<float> res(capacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/reshapeub_res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -157,7 +157,7 @@ TEST_F(OnBoardTest, test_operation_ub_reshape_3dimto2dim) {
     std::vector<float> golden(capacity);
     std::vector<float> res(capacity);
 
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/reshapeub_res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.001f);
@@ -193,7 +193,7 @@ TEST_F(OnBoardTest, test_operation_ub_withoutreshape_3dimto2dim) {
     std::vector<float> golden(capacity_8_8_8);
     std::vector<float> res(capacity_8_8_8);
 
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/reshapeub_res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.001f);
@@ -240,7 +240,7 @@ TEST_F(OnBoardTest, test_reshape_matmul_mul) {
 
     assert(outputSize == c_size * sizeof(float));
     std::vector<float> res(c_size);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);

@@ -17,8 +17,8 @@
 
 #include <gtest/gtest.h>
 #include "interface/interpreter/raw_tensor_data.h"
-#include "runtime/utils/dynamic/dev_encode.h"
-#include "runtime/host/device_runner.h"
+#include "machine/utils/dynamic/dev_encode.h"
+#include "machine/host/device_runner.h"
 #include "simulation/pv/PvModel.h"
 #include "simulation/pv/PvModelFactory.h"
 

@@ -77,7 +77,7 @@ TEST_F(OnBoardTest, test_sin_dim2_float32) {
     std::vector<float> x(cap);
     std::vector<float> golden(cap);
     std::vector<float> res(cap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/sin_golden_fp32.bin", golden);
     readInput(GetGoldenDir() + "/x_dim2_fp32.bin", x);
     int ret = resultCmpUnary(x, golden, res, 0.001f);
@@ -106,7 +106,7 @@ TEST_F(OnBoardTest, test_cos_dim4_float16) {
     std::vector<npu::tile_fwk::float16> x(cap);
     std::vector<npu::tile_fwk::float16> golden(cap);
     std::vector<npu::tile_fwk::float16> res(cap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/cos_golden_fp16.bin", golden);
     readInput(GetGoldenDir() + "/x_dim_4_fp16.bin", x);
     int ret = resultCmpUnary<npu::tile_fwk::float16>(x, golden, res, 0.001f);
@@ -153,7 +153,7 @@ TEST_F(OnBoardTest, test_gather_float_case1) {
 
     std::vector<float> golden(capacity2);
     std::vector<float> dev_res(capacity2);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(inputDir + "y_golden.bin", golden);
     std::cout << "====== output size:" << capacity2 << std::endl;
     int ret = resultCmp(golden, dev_res, 0.001f);
@@ -200,7 +200,7 @@ TEST_F(OnBoardTest, test_gather_float_case2) {
 
     std::vector<float> golden(capacity2);
     std::vector<float> dev_res(capacity2);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(inputDir + "y_golden.bin", golden);
     std::cout << "====== output size:" << capacity2 << std::endl;
     int ret = resultCmp(golden, dev_res, 0.001f);
@@ -249,7 +249,7 @@ TEST_F(OnBoardTest, test_gather_float_case3) {
     }
     std::vector<float> golden(capacity2);
     std::vector<float> dev_res(capacity2);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(inputDir + "y_golden.bin", golden);
     std::cout << "====== output size:" << capacity2 << std::endl;
     int ret = resultCmp(golden, dev_res, 0.001f);
@@ -296,7 +296,7 @@ TEST_F(OnBoardTest, test_gather_float_case4) {
 
     std::vector<float> golden(capacity2);
     std::vector<float> dev_res(capacity2);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(inputDir + "y_golden.bin", golden);
     std::cout << "====== output size:" << capacity2 << std::endl;
     int ret = resultCmp(golden, dev_res, 0.001f);
@@ -325,7 +325,7 @@ TEST_F(OnBoardTest, test_concat_all2all) {
     assert(outputSize == capacity * 2 * sizeof(float));
     std::vector<float> golden(capacity * 2);
     std::vector<float> res(capacity * 2);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)outputGmAddr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)outputGmAddr, outputSize);
     readInput("../tests/AsmdTensor/concat_2dim_res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     for (size_t i = 0; i < golden.size(); ++i) {
@@ -359,7 +359,7 @@ TEST_F(OnBoardTest, test_concat_4) {
     assert(outputSize == 13 * 2 * 10 * 10 * sizeof(float));
     std::vector<float> golden(13 * 2 * 10 * 10);
     std::vector<float> res(13 * 2 * 10 * 10);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)outputGmAddr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)outputGmAddr, outputSize);
     readInput("../tests/AsmdTensor/concat_4dim_res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     for (size_t i = 0; i < golden.size(); ++i) {
@@ -390,7 +390,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_add) {
 
     std::vector<float> golden(capacity_16_16_64_64);
     std::vector<float> res(capacity_16_16_64_64);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -420,7 +420,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_64_65_tileop_add_unalign) {
 
     std::vector<float> golden(shapeSize);
     std::vector<float> res(shapeSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.001f);
@@ -451,7 +451,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_39_65_tileop_add_unalign) {
 
     std::vector<float> golden(shapeSize);
     std::vector<float> res(shapeSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.001f);
@@ -482,7 +482,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_1_tileop_add_unalign) {
 
     std::vector<float> golden(shapeSize);
     std::vector<float> res(shapeSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.001f);
@@ -513,7 +513,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_1_tileop_sub_unalign) {
 
     std::vector<float> golden(shapeSize);
     std::vector<float> res(shapeSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.001f);
@@ -544,7 +544,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_1_tileop_mul_unalign) {
 
     std::vector<float> golden(shapeSize);
     std::vector<float> res(shapeSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.001f);
@@ -573,7 +573,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_sub) {
 
     std::vector<float> golden(capacity_16_16_64_64);
     std::vector<float> res(capacity_16_16_64_64);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -601,7 +601,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_mul) {
 
     std::vector<float> golden(capacity_16_16_64_64);
     std::vector<float> res(capacity_16_16_64_64);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -629,7 +629,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_div) {
 
     std::vector<float> golden(capacity_16_16_64_64);
     std::vector<float> res(capacity_16_16_64_64);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -657,7 +657,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_add) {
 
     std::vector<float> golden(capacity_8_80_80);
     std::vector<float> res(capacity_8_80_80);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -685,7 +685,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_sub) {
 
     std::vector<float> golden(capacity_8_80_80);
     std::vector<float> res(capacity_8_80_80);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -713,7 +713,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_mul) {
 
     std::vector<float> golden(capacity_8_80_80);
     std::vector<float> res(capacity_8_80_80);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -741,7 +741,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_div) {
 
     std::vector<float> golden(capacity_8_80_80);
     std::vector<float> res(capacity_8_80_80);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -769,7 +769,7 @@ TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_add) {
 
     std::vector<float> golden(capacity_64_128);
     std::vector<float> res(capacity_64_128);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -797,7 +797,7 @@ TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_sub) {
 
     std::vector<float> golden(capacity_64_128);
     std::vector<float> res(capacity_64_128);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -825,7 +825,7 @@ TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_mul) {
 
     std::vector<float> golden(capacity_64_128);
     std::vector<float> res(capacity_64_128);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -853,7 +853,7 @@ TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_div) {
 
     std::vector<float> golden(capacity_64_128);
     std::vector<float> res(capacity_64_128);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -881,7 +881,7 @@ TEST_F(OnBoardTest, test_operation_tensor_dim4_add) {
 
     std::vector<float> golden(capacity_dim4);
     std::vector<float> res(capacity_dim4);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/add_dim4_res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -908,7 +908,7 @@ TEST_F(OnBoardTest, test_operation_tensor_dim2_add) {
 
     std::vector<float> golden(capacity);
     std::vector<float> res(capacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/add_res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.001f);
@@ -939,7 +939,7 @@ TEST_F(OnBoardTest, test_operation_tensor_2_2_8_8_expand_add) {
 
     std::vector<float> golden(capacity_2_2_8_8);
     std::vector<float> res(capacity_2_2_8_8);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
 
     std::vector<float> input01(capacity_2_2_8_8);
@@ -973,7 +973,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_n_to_m_n_mul) {
 
     std::vector<float> golden(64 * 32);
     std::vector<float> res(64 * 32);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -1002,7 +1002,7 @@ TEST_F(OnBoardTest, test_operation_tensor_4_4_16_16_expand_add) {
 
     std::vector<float> golden(capacity_4_4_16_16);
     std::vector<float> res(capacity_4_4_16_16);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
 
     std::vector<float> input01(capacity_4_4_16_16);
@@ -1036,7 +1036,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_1_32_to_16_32_32_expand_add) {
 
     std::vector<float> golden(capacity_16_32_32);
     std::vector<float> res(capacity_16_32_32);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
 
     std::vector<float> input01(capacity_16_32_32);
@@ -1070,7 +1070,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_16_1_to_8_16_16_expand_add) {
 
     std::vector<float> golden(capacity_8_16_16);
     std::vector<float> res(capacity_8_16_16);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -1099,7 +1099,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_8_1_to_8_8_7168_expand_Mul_moe) {
 
     std::vector<float> golden(capacity_8_8_7168);
     std::vector<float> res(capacity_8_8_7168);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -1128,7 +1128,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_8_1_to_8_8_7168_expand_sub) {
 
     std::vector<float> golden(capacity_8_8_7168);
     std::vector<float> res(capacity_8_8_7168);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -1157,7 +1157,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_1_16_to_8_16_16_expand_add) {
 
     std::vector<float> golden(capacity_8_16_16);
     std::vector<float> res(capacity_8_16_16);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -1185,7 +1185,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_16_16_to_8_16_16_expand_add) {
 
     std::vector<float> golden(capacity_8_16_16);
     std::vector<float> res(capacity_8_16_16);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -1213,7 +1213,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_1_1_to_8_16_16_expand_add) {
 
     std::vector<float> golden(capacity_8_16_16);
     std::vector<float> res(capacity_8_16_16);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -1241,7 +1241,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_1_1_to_8_16_16_expand_add) {
 
     std::vector<float> golden(capacity_8_16_16);
     std::vector<float> res(capacity_8_16_16);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -1272,7 +1272,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_add) {
 
     std::vector<float> golden(size0);
     std::vector<float> res(size0);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -1302,7 +1302,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_sub) {
 
     std::vector<float> golden(size0);
     std::vector<float> res(size0);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -1332,7 +1332,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_mul) {
 
     std::vector<float> golden(size0);
     std::vector<float> res(size0);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -1362,7 +1362,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_div) {
 
     std::vector<float> golden(size0);
     std::vector<float> res(size0);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -1392,7 +1392,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_8_1_1_to_8_8_1_256_tileop_sub) {
 
     std::vector<float> golden(capacity_8_8_1_256);
     std::vector<float> res(capacity_8_8_1_256);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -1422,7 +1422,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_1_1_64_to_1_128_1_64_tileop_mul01) {
 
     std::vector<float> golden(capShape2);
     std::vector<float> res(capShape2);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -1453,7 +1453,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_1_1_64_to_1_128_1_64_tileop_mul02) {
 
     std::vector<float> golden(capShape1);
     std::vector<float> res(capShape1);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -1484,7 +1484,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_1_64_to_32_1_64_tileop_mul03) {
 
     std::vector<float> golden(capShape1);
     std::vector<float> res(capShape1);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -1514,7 +1514,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_8_1_to_8_8_7168_expand_mul) {
 
     std::vector<float> golden(8*8*ccc);
     std::vector<float> res(8*8*ccc);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -1541,7 +1541,7 @@ TEST_F(OnBoardTest, test_unary_operation_32_32_tileop_exp) {
 
     std::vector<float> golden(capacity_32_32);
     std::vector<float> res(capacity_32_32);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -1566,7 +1566,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_32_32_tileop_exp) {
 
     std::vector<float> golden(capacity_16_32_32);
     std::vector<float> res(capacity_16_32_32);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.001f);
@@ -1592,7 +1592,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_16_64_64_tileop_exp) {
 
     std::vector<float> golden(capacity_16_16_64_64);
     std::vector<float> res(capacity_16_16_64_64);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.001f);
@@ -1618,7 +1618,7 @@ TEST_F(OnBoardTest, test_unary_operation_32_32_tileop_sqrt) {
 
     std::vector<float> golden(capacity_32_32);
     std::vector<float> res(capacity_32_32);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.001f);
@@ -1644,7 +1644,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_32_32_tileop_sqrt) {
 
     std::vector<float> golden(capacity_16_32_32);
     std::vector<float> res(capacity_16_32_32);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.001f);
@@ -1670,7 +1670,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_16_64_64_tileop_sqrt) {
 
     std::vector<float> golden(capacity_16_16_64_64);
     std::vector<float> res(capacity_16_16_64_64);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.001f);
@@ -1697,7 +1697,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_16_64_70_tileop_sqrt) {
 
     std::vector<float> golden(capacity_16_16_64_70);
     std::vector<float> res(capacity_16_16_64_70);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.001f);
@@ -1723,7 +1723,7 @@ TEST_F(OnBoardTest, test_unary_operation_32_32_tileop_reciprocal) {
 
     std::vector<float> golden(capacity_32_32);
     std::vector<float> res(capacity_32_32);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.003f);
@@ -1749,7 +1749,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_32_32_tileop_reciprocal) {
 
     std::vector<float> golden(capacity_16_32_32);
     std::vector<float> res(capacity_16_32_32);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.003f);
@@ -1775,7 +1775,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_16_64_64_tileop_reciprocal) {
 
     std::vector<float> golden(capacity_16_16_64_64);
     std::vector<float> res(capacity_16_16_64_64);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.003f);
@@ -1802,7 +1802,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_add) {
 
     std::vector<float> golden(capacity);
     std::vector<float> res(capacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/adds_2d_res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -1829,7 +1829,7 @@ TEST_F(OnBoardTest, test_operation_add_vs_dim2_unalign) {
 
     std::vector<float> golden(shapeSize);
     std::vector<float> res(shapeSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -1856,7 +1856,7 @@ TEST_F(OnBoardTest, test_operation_mul_vs_dim3_unalign) {
 
     std::vector<float> golden(shapeSize);
     std::vector<float> res(shapeSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -1883,7 +1883,7 @@ TEST_F(OnBoardTest, test_operation_sub_vs_dim4_unalign) {
 
     std::vector<float> golden(shapeSize);
     std::vector<float> res(shapeSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -1910,7 +1910,7 @@ TEST_F(OnBoardTest, test_operation_div_vs_dim1_unalign) {
 
     std::vector<float> golden(shapeSize);
     std::vector<float> res(shapeSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -1935,7 +1935,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_add_FP16) {
 
     std::vector<npu::tile_fwk::float16> golden(capacity);
     std::vector<npu::tile_fwk::float16> res(capacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/adds_2d_res.bin", golden);
 
     std::vector<npu::tile_fwk::float16> x(outputSize);
@@ -1964,7 +1964,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_sub) {
 
     std::vector<float> golden(capacity);
     std::vector<float> res(capacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/subs_2d_res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -1990,7 +1990,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_mul) {
 
     std::vector<float> golden(capacity);
     std::vector<float> res(capacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/muls_2d_res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -2016,7 +2016,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_div) {
 
     std::vector<float> golden(capacity);
     std::vector<float> res(capacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/divs_2d_res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -2044,7 +2044,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim1_div) {
 
     std::vector<float> golden(64);
     std::vector<float> res(64);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/divs_1d_res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -2070,7 +2070,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim3_add) {
 
     std::vector<float> golden(capacity_dim3);
     std::vector<float> res(capacity_dim3);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/adds_3d_res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -2096,7 +2096,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim4_add) {
 
     std::vector<float> golden(2 * 2 * capacity);
     std::vector<float> res(2 * 2 * capacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/adds_4d_res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -2122,7 +2122,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim3_sub) {
 
     std::vector<float> golden(capacity_dim3);
     std::vector<float> res(capacity_dim3);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/subs_3d_res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -2148,7 +2148,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim4_sub) {
 
     std::vector<float> golden(2 * 2 * capacity);
     std::vector<float> res(2 * 2 * capacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/subs_4d_res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -2174,7 +2174,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim3_mul) {
 
     std::vector<float> golden(capacity_dim3);
     std::vector<float> res(capacity_dim3);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/muls_3d_res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -2200,7 +2200,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim4_mul) {
 
     std::vector<float> golden(2 * 2 * capacity);
     std::vector<float> res(2 * 2 * capacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/muls_4d_res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -2227,7 +2227,7 @@ TEST_F(OnBoardTest, test_operation_scalar_32_32_1_256_mul) {
 
     std::vector<float> golden(cap);
     std::vector<float> res(cap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -2253,7 +2253,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim3_div) {
 
     std::vector<float> golden(capacity_dim3);
     std::vector<float> res(capacity_dim3);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/divs_3d_res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -2279,7 +2279,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim4_div) {
 
     std::vector<float> golden(2 * 2 * capacity);
     std::vector<float> res(2 * 2 * capacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/divs_4d_res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -2310,7 +2310,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_32_32_to_16_32_1_tileop_mul) {
 
     std::vector<float> golden(capShape1);
     std::vector<float> res(capShape1);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -2359,7 +2359,7 @@ TEST_F(OnBoardTest, test_scatterupdate_case1) {
     assert(outputSize == capacity0 * sizeof(float));
     std::vector<float> golden(capacity0);
     std::vector<float> dev_res(capacity0);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)outputGmAddr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)outputGmAddr, outputSize);
     readInput(inputDir + "z_golden.bin", golden);
     std::cout << "====== output size:" << capacity0 << std::endl;
     int ret = resultCmp(golden, dev_res, 0.001f);
@@ -2390,7 +2390,7 @@ TEST_F(OnBoardTest, test_mul_large_row) {
 
     std::vector<float> golden(shapeSize);
     std::vector<float> res(shapeSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.001f);

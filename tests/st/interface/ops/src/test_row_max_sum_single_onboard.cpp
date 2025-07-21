@@ -47,7 +47,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single) {
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/257_128/max_res.bin", golden);
 
@@ -83,7 +83,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single) {
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/257_128/sum_res.bin", golden);
 
@@ -120,7 +120,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_3dim) {
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/8_4_128/max_res.bin", golden);
 
@@ -158,7 +158,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_mla_rmsNor
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/16_1_1536/sum_res.bin", golden);
 
@@ -197,7 +197,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax) {
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/2_128_1_256/max_res.bin", golden);
 
@@ -236,7 +236,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax_un
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/1_128_1_248/max_res.bin", golden);
 
@@ -275,7 +275,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_4dim_softmax) {
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/32_128_1_256/sum_res.bin", golden);
 
@@ -312,7 +312,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_moe) {
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/6_1_8_1024/sum_res.bin", golden);
 
@@ -349,7 +349,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_big_moe) {
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/8_1_8_7168/sum_res.bin", golden);
 
@@ -384,7 +384,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_2dim_moe) {
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/8_1_1_256/sum_res.bin", golden);
 
@@ -420,7 +420,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis0_unalign) {
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/6_2_8_255/sum_res.bin", golden);
 
@@ -456,7 +456,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis1_unalign) {
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/4_2_8_255/sum_res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.001f);
@@ -491,7 +491,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis2_unalign) {
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/3_2_8_255/sum_res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
@@ -526,7 +526,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign) {
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/4_530/sum_res.bin", golden);
 
@@ -562,7 +562,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4_93) {
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/4_93/sum_res.bin", golden);
 
@@ -600,7 +600,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4d) {
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/3_3_4_530/sum_res.bin", golden);
 
@@ -636,7 +636,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign) {
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/4_93/max_res.bin", golden);
 
@@ -672,7 +672,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign_4_93) {
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/4_93/max_res.bin", golden);
 
@@ -710,7 +710,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign_4d) {
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/3_3_4_530/max_res.bin", golden);
 

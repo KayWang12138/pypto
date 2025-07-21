@@ -39,7 +39,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_128_32_argsort) {
     }
     std::vector<int32_t> golden_idx(shape0 * shape1);
     std::vector<int32_t> res2(shape0 * shape1);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res2.data(), (uint8_t *)out_ptr1, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res2.data(), (uint8_t *)out_ptr1, outputSize);
     readInput(GetGoldenDir() + "/idx.bin", golden_idx);
     int ret_idx = resultCmp(golden_idx, res2, 0);
     EXPECT_EQ(ret_idx, true);
@@ -65,7 +65,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_4_32_argsort) {
     }
     std::vector<int32_t> golden_idx(shape0 * shape1);
     std::vector<int32_t> res2(shape0 * shape1);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res2.data(), (uint8_t *)out_ptr1, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res2.data(), (uint8_t *)out_ptr1, outputSize);
     readInput(GetGoldenDir() + "/idx.bin", golden_idx);
     int ret_idx = resultCmp(golden_idx, res2, 0);
     EXPECT_EQ(ret_idx, true);
@@ -92,7 +92,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_2_16_argsort) {
     std::vector<int32_t> golden_idx(shape0 * shape1);
     std::vector<int32_t> res2(shape0 * shape1);
 
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res2.data(), (uint8_t *)out_ptr1, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res2.data(), (uint8_t *)out_ptr1, outputSize);
     readInput(GetGoldenDir() + "/idx.bin", golden_idx);
     int ret_idx = resultCmp(golden_idx, res2, 0);
     EXPECT_EQ(ret_idx, true);
@@ -118,7 +118,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_32_argsort) {
     std::vector<int32_t> golden_idx(shape0);
     std::vector<int32_t> res2(shape0);
 
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res2.data(), (uint8_t *)out_ptr1, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res2.data(), (uint8_t *)out_ptr1, outputSize);
     readInput(GetGoldenDir() + "/idx.bin", golden_idx);
     int ret_idx = resultCmp(golden_idx, res2, 0);
     EXPECT_EQ(ret_idx, true);
@@ -144,7 +144,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_64_argsort) {
     std::vector<int32_t> golden_idx(shape0);
     std::vector<int32_t> res2(shape0);
 
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res2.data(), (uint8_t *)out_ptr1, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res2.data(), (uint8_t *)out_ptr1, outputSize);
     readInput(GetGoldenDir() + "/idx.bin", golden_idx);
     int ret_idx = resultCmp(golden_idx, res2, 0);
     EXPECT_EQ(ret_idx, true);
@@ -170,7 +170,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_4_32__argsort) {
     }
     std::vector<int32_t> golden_idx(shape0 * shape1);
     std::vector<int32_t> res2(shape0 * shape1);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res2.data(), (uint8_t *)out_ptr1, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res2.data(), (uint8_t *)out_ptr1, outputSize);
     readInput(GetGoldenDir() + "/idx.bin", golden_idx);
     int ret_idx = resultCmp(golden_idx, res2, 0);
     EXPECT_EQ(ret_idx, true);
@@ -196,7 +196,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_64__argsort_moe) {
     std::vector<int32_t> golden_idx(shape0);
     std::vector<int32_t> res2(shape0);
 
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res2.data(), (uint8_t *)out_ptr1, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res2.data(), (uint8_t *)out_ptr1, outputSize);
     readInput(GetGoldenDir() + "/idx.bin", golden_idx);
     int ret_idx = resultCmp(golden_idx, res2, 0);
     EXPECT_EQ(ret_idx, true);

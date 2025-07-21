@@ -17,7 +17,7 @@
 #include <future>
 #include <dlfcn.h>
 #include "hccl/hccl.h"
-#include "runtime/runtime.h"
+#include "machine/runtime.h"
 #include "distributed_test_framework.h"
 #include "interface/utils/log.h"
 

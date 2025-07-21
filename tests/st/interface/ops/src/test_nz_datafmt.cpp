@@ -51,7 +51,7 @@ void TestNZFormat(int bs, int m, int k, int n) {
         }
     }
     std::vector<float> res(capacity_mat_c);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), mat_c_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), mat_c_ptr, outputSize);
 
     std::vector<float> golden(capacity_mat_c);
     readInput(GetGoldenDir() + "/mat_c.bin", golden);
@@ -141,7 +141,7 @@ void TestNZFormatBatch(int bs, int m, int k, int n) {
         }
     }
     std::vector<float> res(capacity_mat_c);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), mat_c_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), mat_c_ptr, outputSize);
 
     std::vector<float> golden(capacity_mat_c);
     readInput(GetGoldenDir() + "/mat_c.bin", golden);
@@ -203,7 +203,7 @@ void TestNZFormatACC(int bs, int m, int k, int n) {
     }
 
     std::vector<float> res(capacity_mat_c);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), mat_c_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), mat_c_ptr, outputSize);
 
     std::vector<float> golden(capacity_mat_c);
     readInput(GetGoldenDir() + "/mat_c.bin", golden);

@@ -42,7 +42,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_cast_in) {
     std::vector<npu::tile_fwk::float16> x(cap);
     std::vector<float> golden(cap);
     std::vector<float> res(cap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/x_softmax_cast_in.bin", x);
     readInput(GetGoldenDir() + "/softmax_cast_in.bin", golden);
     int ret = resultCmpCast<npu::tile_fwk::float16, float>(x, golden, res, 0.001f);
@@ -72,7 +72,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_cast_out) {
     std::vector<float> x(cap);
     std::vector<npu::tile_fwk::float16> golden(cap);
     std::vector<npu::tile_fwk::float16> res(cap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/x_softmax_cast_out.bin", x);
     readInput(GetGoldenDir() + "/softmax_cast_out.bin", golden);
     int ret = resultCmpCast<float, npu::tile_fwk::float16>(x, golden, res, 0.001f);
@@ -102,7 +102,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_sum_single) {
     std::vector<float> x(icap);
     std::vector<float> golden(oCap);
     std::vector<float> res(oCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), out_ptr, outputSize);
     readInput(GetGoldenDir() + "/x_sum.bin", x);
     readInput(GetGoldenDir() + "/softmax_sum.bin", golden);
     int ret = resultCmpUnary<float>(x, golden, res, 0.001f);
@@ -132,7 +132,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_max_single) {
     std::vector<float> x(icap);
     std::vector<float> golden(oCap);
     std::vector<float> res(oCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), out_ptr, outputSize);
     readInput(GetGoldenDir() + "/x_max.bin", x);
     readInput(GetGoldenDir() + "/softmax_max.bin", golden);
     int ret = resultCmpUnary<float>(x, golden, res, 0.001f);
@@ -160,7 +160,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_exp) {
     std::vector<float> x(cap);
     std::vector<float> golden(cap);
     std::vector<float> res(cap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), out_ptr, outputSize);
     readInput(GetGoldenDir() + "/x_exp.bin", x);
     readInput(GetGoldenDir() + "/softmax_exp.bin", golden);
     int ret = resultCmpUnary(x, golden, res, 0.001f);
@@ -193,7 +193,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_div) {
     }
     std::vector<float> golden(ocap);
     std::vector<float> res(ocap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), out_ptr, outputSize);
     readInput(GetGoldenDir() + "/softmax_div.bin", golden);
     int ret = resultCmp<float>(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -222,7 +222,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_sum_all) {
     std::vector<npu::tile_fwk::float16> x(icap);
     std::vector<npu::tile_fwk::float16> golden(oCap);
     std::vector<npu::tile_fwk::float16> res(oCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), out_ptr, outputSize);
     readInput(GetGoldenDir() + "/x_sum_all.bin", x);
     readInput(GetGoldenDir() + "/softmax_sum_all.bin", golden);
     int ret = resultCmpUnary<npu::tile_fwk::float16>(x, golden, res, 0.001f, 10);
@@ -252,7 +252,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_full_inference) {
     std::vector<npu::tile_fwk::float16> x(icap);
     std::vector<npu::tile_fwk::float16> golden(oCap);
     std::vector<npu::tile_fwk::float16> res(oCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), out_ptr, outputSize);
     readInput(GetGoldenDir() + "/x_full.bin", x);
     readInput(GetGoldenDir() + "/softmax_full_inference.bin", golden);
     int ret = resultCmpUnary<npu::tile_fwk::float16>(x, golden, res, 0.001f, 10);
@@ -282,7 +282,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_deepseek) {
     std::vector<npu::tile_fwk::float16> x(icap);
     std::vector<npu::tile_fwk::float16> golden(oCap);
     std::vector<npu::tile_fwk::float16> res(oCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), out_ptr, outputSize);
     readInput(GetGoldenDir() + "/x_deepseek.bin", x);
     readInput(GetGoldenDir() + "/softmax_deepseek.bin", golden);
     int ret = resultCmpUnary<npu::tile_fwk::float16>(x, golden, res, 0.001f, 10);
@@ -312,7 +312,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_flash_attention) {
     std::vector<float> x(icap);
     std::vector<float> golden(oCap);
     std::vector<float> res(oCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), out_ptr, outputSize);
     readInput(GetGoldenDir() + "/x.bin", x);
     readInput(GetGoldenDir() + "/softmax.bin", golden);
     int ret = resultCmpUnary<float>(x, golden, res, 0.001f, 10);

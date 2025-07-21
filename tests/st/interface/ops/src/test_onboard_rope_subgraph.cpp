@@ -86,7 +86,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3) {
 
     // qEmbed
     std::vector<float> qEmbedRes(qEmbedSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)qEmbedRes.data(), (uint8_t *)qEmbed_ptr, qEmbedSize * sizeof(float)); // Byte
+    machine::GetRA()->CopyFromTensor((uint8_t *)qEmbedRes.data(), (uint8_t *)qEmbed_ptr, qEmbedSize * sizeof(float)); // Byte
     std::vector<float> qEmbedGolden(qEmbedSize);
     readInput(GetGoldenDir() + shape_dir_path + "qEmbed_res.bin", qEmbedGolden);
     int ret = resultCmp(qEmbedGolden, qEmbedRes, 0.001f);
@@ -101,7 +101,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3) {
 
     // kEmbed
     std::vector<float> kEmbedRes(kEmbedSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)kEmbedRes.data(), (uint8_t *)kEmbed_ptr, kEmbedSize * sizeof(float));
+    machine::GetRA()->CopyFromTensor((uint8_t *)kEmbedRes.data(), (uint8_t *)kEmbed_ptr, kEmbedSize * sizeof(float));
     std::vector<float> kEmbedGolden(kEmbedSize);
     // readInput(GetGoldenDir() + shape_dir_path + "k_RTR_rotate_half.bin", kEmbedGolden);
     readInput(GetGoldenDir() + shape_dir_path + "kEmbed_res.bin", kEmbedGolden);
@@ -185,14 +185,14 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_fp16) {
 
     // qEmbed
     std::vector<npu::tile_fwk::float16> qEmbedRes(qEmbedSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)qEmbedRes.data(), (uint8_t *)qEmbed_ptr, qEmbedSize * sizeof(npu::tile_fwk::float16)); // Byte
+    machine::GetRA()->CopyFromTensor((uint8_t *)qEmbedRes.data(), (uint8_t *)qEmbed_ptr, qEmbedSize * sizeof(npu::tile_fwk::float16)); // Byte
     std::vector<npu::tile_fwk::float16> qEmbedGolden(qEmbedSize);
     readInput<npu::tile_fwk::float16>(GetGoldenDir() + shape_dir_path + "qEmbed_res.bin", qEmbedGolden);
     int ret = resultCmp<npu::tile_fwk::float16>(qEmbedGolden, qEmbedRes, 0.01f);
 
     // kEmbed
     std::vector<npu::tile_fwk::float16> kEmbedRes(kEmbedSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)kEmbedRes.data(), (uint8_t *)kEmbed_ptr, kEmbedSize * sizeof(npu::tile_fwk::float16));
+    machine::GetRA()->CopyFromTensor((uint8_t *)kEmbedRes.data(), (uint8_t *)kEmbed_ptr, kEmbedSize * sizeof(npu::tile_fwk::float16));
     std::vector<npu::tile_fwk::float16> kEmbedGolden(kEmbedSize);
     readInput<npu::tile_fwk::float16>(GetGoldenDir() + shape_dir_path + "kEmbed_res.bin", kEmbedGolden);
     ret &= resultCmp<npu::tile_fwk::float16>(kEmbedGolden, kEmbedRes, 0.01f);
@@ -267,14 +267,14 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_fp16_2ba
 
     // qEmbed
     std::vector<npu::tile_fwk::float16> qEmbedRes(qEmbedSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)qEmbedRes.data(), (uint8_t *)qEmbed_ptr, qEmbedSize * sizeof(npu::tile_fwk::float16)); // Byte
+    machine::GetRA()->CopyFromTensor((uint8_t *)qEmbedRes.data(), (uint8_t *)qEmbed_ptr, qEmbedSize * sizeof(npu::tile_fwk::float16)); // Byte
     std::vector<npu::tile_fwk::float16> qEmbedGolden(qEmbedSize);
     readInput<npu::tile_fwk::float16>(GetGoldenDir() + shape_dir_path + "qEmbed_res.bin", qEmbedGolden);
     int ret = resultCmp<npu::tile_fwk::float16>(qEmbedGolden, qEmbedRes, 0.01f);
 
     // kEmbed
     std::vector<npu::tile_fwk::float16> kEmbedRes(kEmbedSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)kEmbedRes.data(), (uint8_t *)kEmbed_ptr, kEmbedSize * sizeof(npu::tile_fwk::float16));
+    machine::GetRA()->CopyFromTensor((uint8_t *)kEmbedRes.data(), (uint8_t *)kEmbed_ptr, kEmbedSize * sizeof(npu::tile_fwk::float16));
     std::vector<npu::tile_fwk::float16> kEmbedGolden(kEmbedSize);
     readInput<npu::tile_fwk::float16>(GetGoldenDir() + shape_dir_path + "kEmbed_res.bin", kEmbedGolden);
     ret &= resultCmp<npu::tile_fwk::float16>(kEmbedGolden, kEmbedRes, 0.01f);
@@ -348,14 +348,14 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_bf16) {
 
     // qEmbed
     std::vector<npu::tile_fwk::bfloat16> qEmbedRes(qEmbedSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)qEmbedRes.data(), (uint8_t *)qEmbed_ptr, qEmbedSize * sizeof(npu::tile_fwk::bfloat16)); // Byte
+    machine::GetRA()->CopyFromTensor((uint8_t *)qEmbedRes.data(), (uint8_t *)qEmbed_ptr, qEmbedSize * sizeof(npu::tile_fwk::bfloat16)); // Byte
     std::vector<npu::tile_fwk::bfloat16> qEmbedGolden(qEmbedSize);
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + shape_dir_path + "qEmbed_res.bin", qEmbedGolden);
     int ret = resultCmp<npu::tile_fwk::bfloat16>(qEmbedGolden, qEmbedRes, 0.001f);
 
     // kEmbed
     std::vector<npu::tile_fwk::bfloat16> kEmbedRes(kEmbedSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)kEmbedRes.data(), (uint8_t *)kEmbed_ptr, kEmbedSize * sizeof(npu::tile_fwk::bfloat16));
+    machine::GetRA()->CopyFromTensor((uint8_t *)kEmbedRes.data(), (uint8_t *)kEmbed_ptr, kEmbedSize * sizeof(npu::tile_fwk::bfloat16));
     std::vector<npu::tile_fwk::bfloat16> kEmbedGolden(kEmbedSize);
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + shape_dir_path + "kEmbed_res.bin", kEmbedGolden);
     ret &= resultCmp<npu::tile_fwk::bfloat16>(kEmbedGolden, kEmbedRes, 0.001f);
@@ -429,14 +429,14 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_bf16_32b
 
     // qEmbed
     std::vector<npu::tile_fwk::bfloat16> qEmbedRes(qEmbedSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)qEmbedRes.data(), (uint8_t *)qEmbed_ptr, qEmbedSize * sizeof(npu::tile_fwk::bfloat16)); // Byte
+    machine::GetRA()->CopyFromTensor((uint8_t *)qEmbedRes.data(), (uint8_t *)qEmbed_ptr, qEmbedSize * sizeof(npu::tile_fwk::bfloat16)); // Byte
     std::vector<npu::tile_fwk::bfloat16> qEmbedGolden(qEmbedSize);
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + shape_dir_path + "qEmbed_res.bin", qEmbedGolden);
     int ret = resultCmp<npu::tile_fwk::bfloat16>(qEmbedGolden, qEmbedRes, 0.001f);
 
     // kEmbed
     std::vector<npu::tile_fwk::bfloat16> kEmbedRes(kEmbedSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)kEmbedRes.data(), (uint8_t *)kEmbed_ptr, kEmbedSize * sizeof(npu::tile_fwk::bfloat16));
+    machine::GetRA()->CopyFromTensor((uint8_t *)kEmbedRes.data(), (uint8_t *)kEmbed_ptr, kEmbedSize * sizeof(npu::tile_fwk::bfloat16));
     std::vector<npu::tile_fwk::bfloat16> kEmbedGolden(kEmbedSize);
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + shape_dir_path + "kEmbed_res.bin", kEmbedGolden);
     ret &= resultCmp<npu::tile_fwk::bfloat16>(kEmbedGolden, kEmbedRes, 0.001f);
@@ -511,7 +511,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_bf16_2ba
 
     // qEmbed
     std::vector<npu::tile_fwk::bfloat16> qEmbedRes(qEmbedSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)qEmbedRes.data(), (uint8_t *)qEmbed_ptr, qEmbedSize * sizeof(npu::tile_fwk::bfloat16)); // Byte
+    machine::GetRA()->CopyFromTensor((uint8_t *)qEmbedRes.data(), (uint8_t *)qEmbed_ptr, qEmbedSize * sizeof(npu::tile_fwk::bfloat16)); // Byte
     std::vector<npu::tile_fwk::bfloat16> qEmbedGolden(qEmbedSize);
     // readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + shape_dir_path + "qPe.bin", qEmbedGolden);
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + shape_dir_path + "qEmbed_res.bin", qEmbedGolden);
@@ -519,7 +519,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_bf16_2ba
 
     // kEmbed
     std::vector<npu::tile_fwk::bfloat16> kEmbedRes(kEmbedSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)kEmbedRes.data(), (uint8_t *)kEmbed_ptr, kEmbedSize * sizeof(npu::tile_fwk::bfloat16));
+    machine::GetRA()->CopyFromTensor((uint8_t *)kEmbedRes.data(), (uint8_t *)kEmbed_ptr, kEmbedSize * sizeof(npu::tile_fwk::bfloat16));
     std::vector<npu::tile_fwk::bfloat16> kEmbedGolden(kEmbedSize);
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + shape_dir_path + "kEmbed_res.bin", kEmbedGolden);
     ret &= resultCmp<npu::tile_fwk::bfloat16>(kEmbedGolden, kEmbedRes, 0.001f);
@@ -631,14 +631,14 @@ TEST_F(RoPESubGraphOnBoardTest, test_CD_bf16_32batch) {
 
     // qEmbed
     std::vector<npu::tile_fwk::bfloat16> qEmbedRes(qEmbedSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)qEmbedRes.data(), (uint8_t *)qEmbed_ptr, qEmbedSize * sizeof(npu::tile_fwk::bfloat16)); // Byte
+    machine::GetRA()->CopyFromTensor((uint8_t *)qEmbedRes.data(), (uint8_t *)qEmbed_ptr, qEmbedSize * sizeof(npu::tile_fwk::bfloat16)); // Byte
     std::vector<npu::tile_fwk::bfloat16> qEmbedGolden(qEmbedSize);
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + shape_dir_path + "qEmbed_res.bin", qEmbedGolden);
     int ret = resultCmp<npu::tile_fwk::bfloat16>(qEmbedGolden, qEmbedRes, 0.001f);
 
     // kEmbed
     std::vector<npu::tile_fwk::bfloat16> kEmbedRes(kEmbedSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)kEmbedRes.data(), (uint8_t *)kEmbed_ptr, kEmbedSize * sizeof(npu::tile_fwk::bfloat16));
+    machine::GetRA()->CopyFromTensor((uint8_t *)kEmbedRes.data(), (uint8_t *)kEmbed_ptr, kEmbedSize * sizeof(npu::tile_fwk::bfloat16));
     std::vector<npu::tile_fwk::bfloat16> kEmbedGolden(kEmbedSize);
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + shape_dir_path + "kEmbed_res.bin", kEmbedGolden);
     ret &= resultCmp<npu::tile_fwk::bfloat16>(kEmbedGolden, kEmbedRes, 0.001f);
@@ -646,7 +646,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_CD_bf16_32batch) {
     std::cout << "======capacity0 size:" << capacity0 << std::endl;
     std::vector<npu::tile_fwk::bfloat16> golden(capacity0);
     std::vector<npu::tile_fwk::bfloat16> dev_res(capacity0);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)x_ptr, capacity0 * sizeof(npu::tile_fwk::bfloat16));
+    machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)x_ptr, capacity0 * sizeof(npu::tile_fwk::bfloat16));
     readInput(GetGoldenDir() + shape_dir_path + "z_golden.bin", golden);
 
     ret &= resultCmp<npu::tile_fwk::bfloat16>(golden, dev_res, 0.001f);
@@ -756,14 +756,14 @@ TEST_F(RoPESubGraphOnBoardTest, test_CD_bf16_32batch_4k) {
 
     // qEmbed
     std::vector<npu::tile_fwk::bfloat16> qEmbedRes(qEmbedSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)qEmbedRes.data(), (uint8_t *)qEmbed_ptr, qEmbedSize * sizeof(npu::tile_fwk::bfloat16)); // Byte
+    machine::GetRA()->CopyFromTensor((uint8_t *)qEmbedRes.data(), (uint8_t *)qEmbed_ptr, qEmbedSize * sizeof(npu::tile_fwk::bfloat16)); // Byte
     std::vector<npu::tile_fwk::bfloat16> qEmbedGolden(qEmbedSize);
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + shape_dir_path + "qEmbed_res.bin", qEmbedGolden);
     int ret = resultCmp<npu::tile_fwk::bfloat16>(qEmbedGolden, qEmbedRes, 0.001f);
 
     // kEmbed
     std::vector<npu::tile_fwk::bfloat16> kEmbedRes(kEmbedSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)kEmbedRes.data(), (uint8_t *)kEmbed_ptr, kEmbedSize * sizeof(npu::tile_fwk::bfloat16));
+    machine::GetRA()->CopyFromTensor((uint8_t *)kEmbedRes.data(), (uint8_t *)kEmbed_ptr, kEmbedSize * sizeof(npu::tile_fwk::bfloat16));
     std::vector<npu::tile_fwk::bfloat16> kEmbedGolden(kEmbedSize);
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + shape_dir_path + "kEmbed_res.bin", kEmbedGolden);
     ret &= resultCmp<npu::tile_fwk::bfloat16>(kEmbedGolden, kEmbedRes, 0.001f);
@@ -771,7 +771,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_CD_bf16_32batch_4k) {
     std::cout << "======capacity0 size:" << capacity0 << std::endl;
     std::vector<npu::tile_fwk::bfloat16> golden(capacity0);
     std::vector<npu::tile_fwk::bfloat16> dev_res(capacity0);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)x_ptr, capacity0 * sizeof(npu::tile_fwk::bfloat16));
+    machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)x_ptr, capacity0 * sizeof(npu::tile_fwk::bfloat16));
     readInput(GetGoldenDir() + shape_dir_path + "z_golden.bin", golden);
 
     ret &= resultCmp<npu::tile_fwk::bfloat16>(golden, dev_res, 0.001f);

@@ -177,8 +177,8 @@ void TestMlaProlog(std::vector<int> &params, string dataPath, bool isQuant = fal
 
     readInput<outDtype>(dataPath + "/q_golden.bin", q_golden);
     readInput<T>(dataPath + "/kv_golden.bin", kv_golden);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)q_npu.data(), (uint8_t *)q_out_ptr, outputSize0);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)kv_npu.data(), (uint8_t *)past_key_states_ptr, outputSize1);
+    machine::GetRA()->CopyFromTensor((uint8_t *)q_npu.data(), (uint8_t *)q_out_ptr, outputSize0);
+    machine::GetRA()->CopyFromTensor((uint8_t *)kv_npu.data(), (uint8_t *)past_key_states_ptr, outputSize1);
 
     std::cout << "\n====== resultCmp: output q start" << std::endl;
     int ret0 = resultCmp<outDtype>(q_golden, q_npu, 0.005f);
@@ -583,8 +583,8 @@ void Attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
 
     readInput<outDtype>(dataPath + "/q_golden.bin", q_golden);
     readInput<T>(dataPath + "/kv_golden.bin", kv_golden);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)q_npu.data(), (uint8_t *)q_out_ptr, outputSize0);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)kv_npu.data(), (uint8_t *)past_key_states_ptr, outputSize1);
+    machine::GetRA()->CopyFromTensor((uint8_t *)q_npu.data(), (uint8_t *)q_out_ptr, outputSize0);
+    machine::GetRA()->CopyFromTensor((uint8_t *)kv_npu.data(), (uint8_t *)past_key_states_ptr, outputSize1);
 
     std::cout << "\n====== resultCmp: output q start" << std::endl;
     int ret0 = resultCmp<outDtype>(q_golden, q_npu, 0.01f, 16);
@@ -596,7 +596,7 @@ void Attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
    std::vector<outDtype> q0_golden(q0_capacity);
    std::vector<outDtype> q0_npu(q0_capacity);
    readInput<outDtype>(dataPath + "/q0_golden.bin", q0_golden);
-   runtime::GetRA()->CopyFromTensor((uint8_t *)q0_npu.data(), (uint8_t *)q0_ptr, q0_size);
+   machine::GetRA()->CopyFromTensor((uint8_t *)q0_npu.data(), (uint8_t *)q0_ptr, q0_size);
    std::cout << "\n====== resultCmp: output q0 start" << std::endl;
    int q0_ret = resultCmp<outDtype>(q0_golden, q0_npu, 0.01f, 16);
    EXPECT_EQ(q0_ret, true);
@@ -604,7 +604,7 @@ void Attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
    std::vector<outDtype> q1_golden(q1_capacity);
    std::vector<outDtype> q1_npu(q1_capacity);
    readInput<outDtype>(dataPath + "/q1_golden.bin", q1_golden);
-   runtime::GetRA()->CopyFromTensor((uint8_t *)q1_npu.data(), (uint8_t *)q1_ptr, q1_size);
+   machine::GetRA()->CopyFromTensor((uint8_t *)q1_npu.data(), (uint8_t *)q1_ptr, q1_size);
    std::cout << "\n====== resultCmp: output q1 start" << std::endl;
    int q1_ret = resultCmp<outDtype>(q1_golden, q1_npu, 0.005f, 16);
    EXPECT_EQ(q1_ret, true);
@@ -612,7 +612,7 @@ void Attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
    std::vector<outDtype> k0_golden(k0_capacity);
    std::vector<outDtype> k0_npu(k0_capacity);
    readInput<outDtype>(dataPath + "/k0_golden.bin", k0_golden);
-   runtime::GetRA()->CopyFromTensor((uint8_t *)k0_npu.data(), (uint8_t *)k0_ptr, k0_size);
+   machine::GetRA()->CopyFromTensor((uint8_t *)k0_npu.data(), (uint8_t *)k0_ptr, k0_size);
    std::cout << "\n====== resultCmp: output k0 start" << std::endl;
    int k0_ret = resultCmp<outDtype>(k0_golden, k0_npu, 0.005f, 16);
    EXPECT_EQ(k0_ret, true);
@@ -620,7 +620,7 @@ void Attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
    std::vector<outDtype> k1_golden(k1_capacity);
    std::vector<outDtype> k1_npu(k1_capacity);
    readInput<outDtype>(dataPath + "/k1_golden.bin", k1_golden);
-   runtime::GetRA()->CopyFromTensor((uint8_t *)k1_npu.data(), (uint8_t *)k1_ptr, k1_size);
+   machine::GetRA()->CopyFromTensor((uint8_t *)k1_npu.data(), (uint8_t *)k1_ptr, k1_size);
    std::cout << "\n====== resultCmp: output k1 start" << std::endl;
    int k1_ret = resultCmp<outDtype>(k1_golden, k1_npu, 0.005f, 16);
    EXPECT_EQ(k1_ret, true);
@@ -629,7 +629,7 @@ void Attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
    std::vector<outDtype> v0_golden(v0_capacity);
    std::vector<outDtype> v0_npu(v0_capacity);
    readInput<outDtype>(dataPath + "/v0_golden.bin", v0_golden);
-   runtime::GetRA()->CopyFromTensor((uint8_t *)v0_npu.data(), (uint8_t *)v0_ptr, v0_size);
+   machine::GetRA()->CopyFromTensor((uint8_t *)v0_npu.data(), (uint8_t *)v0_ptr, v0_size);
    std::cout << "\n====== resultCmp: output v0 start" << std::endl;
    int v0_ret = resultCmp<outDtype>(v0_golden, v0_npu, 0.005f, 16);
    EXPECT_EQ(v0_ret, true);
@@ -637,7 +637,7 @@ void Attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
    std::cout << "\n====== resultCmp: output fa start" << std::endl;
    std::vector<float> golden(outCap);
    std::vector<float> res(outCap);
-   runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)outPtr, outputSize);
+   machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)outPtr, outputSize);
    readInput(GetGoldenDir() + "/atten_out.bin", golden);
    int ret2 = resultCmp(golden, res, 0.05f, 64);
    EXPECT_EQ(ret2, true);
@@ -646,7 +646,7 @@ void Attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
        std::cout << "\n====== resultCmp: output post start" << std::endl;
        std::vector<T> postGolden(postOutputSize);
        std::vector<T> postRes(postOutputSize);
-       runtime::GetRA()->CopyFromTensor((uint8_t *)postRes.data(), (uint8_t *)out_ptr, outputByteSize);
+       machine::GetRA()->CopyFromTensor((uint8_t *)postRes.data(), (uint8_t *)out_ptr, outputByteSize);
        readInput<T>(GetGoldenDir() + "/attn_output.bin", postGolden);
        int ret = resultCmp<T>(postGolden, postRes, 0.08f, 500);
        EXPECT_EQ(ret, true);
@@ -1002,8 +1002,8 @@ void attention_high(std::vector<int> &params, string dataPath, bool isQuant = fa
 
     readInput<outDtype>(dataPath + "/q_golden.bin", q_golden);
     readInput<T>(dataPath + "/kv_golden.bin", kv_golden);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)q_npu.data(), (uint8_t *)q_out_ptr, outputSize0);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)kv_npu.data(), (uint8_t *)past_key_states_ptr, outputSize1);
+    machine::GetRA()->CopyFromTensor((uint8_t *)q_npu.data(), (uint8_t *)q_out_ptr, outputSize0);
+    machine::GetRA()->CopyFromTensor((uint8_t *)kv_npu.data(), (uint8_t *)past_key_states_ptr, outputSize1);
 
     std::cout << "\n====== resultCmp: output q start" << std::endl;
     int ret0 = resultCmp<outDtype>(q_golden, q_npu, 0.005f, 16);
@@ -1015,7 +1015,7 @@ void attention_high(std::vector<int> &params, string dataPath, bool isQuant = fa
     std::vector<outDtype> q0_golden(q0_capacity);
     std::vector<outDtype> q0_npu(q0_capacity);
     readInput<outDtype>(dataPath + "/q0_golden.bin", q0_golden);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)q0_npu.data(), (uint8_t *)q0_ptr, q0_size);
+    machine::GetRA()->CopyFromTensor((uint8_t *)q0_npu.data(), (uint8_t *)q0_ptr, q0_size);
     std::cout << "\n====== resultCmp: output q0 start" << std::endl;
     int q0_ret = resultCmp<outDtype>(q0_golden, q0_npu, 0.005f, 16);
     EXPECT_EQ(q0_ret, true);
@@ -1023,7 +1023,7 @@ void attention_high(std::vector<int> &params, string dataPath, bool isQuant = fa
     std::vector<outDtype> q1_golden(q1_capacity);
     std::vector<outDtype> q1_npu(q1_capacity);
     readInput<outDtype>(dataPath + "/q1_golden.bin", q1_golden);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)q1_npu.data(), (uint8_t *)q1_ptr, q1_size);
+    machine::GetRA()->CopyFromTensor((uint8_t *)q1_npu.data(), (uint8_t *)q1_ptr, q1_size);
     std::cout << "\n====== resultCmp: output q1 start" << std::endl;
     int q1_ret = resultCmp<outDtype>(q1_golden, q1_npu, 0.005f, 16);
     EXPECT_EQ(q1_ret, true);
@@ -1031,7 +1031,7 @@ void attention_high(std::vector<int> &params, string dataPath, bool isQuant = fa
     std::vector<outDtype> k0_golden(k0_capacity);
     std::vector<outDtype> k0_npu(k0_capacity);
     readInput<outDtype>(dataPath + "/k0_golden.bin", k0_golden);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)k0_npu.data(), (uint8_t *)k0_ptr, k0_size);
+    machine::GetRA()->CopyFromTensor((uint8_t *)k0_npu.data(), (uint8_t *)k0_ptr, k0_size);
     std::cout << "\n====== resultCmp: output k0 start" << std::endl;
     int k0_ret = resultCmp<outDtype>(k0_golden, k0_npu, 0.005f, 16);
     EXPECT_EQ(k0_ret, true);
@@ -1039,7 +1039,7 @@ void attention_high(std::vector<int> &params, string dataPath, bool isQuant = fa
     std::vector<outDtype> k1_golden(k1_capacity);
     std::vector<outDtype> k1_npu(k1_capacity);
     readInput<outDtype>(dataPath + "/k1_golden.bin", k1_golden);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)k1_npu.data(), (uint8_t *)k1_ptr, k1_size);
+    machine::GetRA()->CopyFromTensor((uint8_t *)k1_npu.data(), (uint8_t *)k1_ptr, k1_size);
     std::cout << "\n====== resultCmp: output k1 start" << std::endl;
     int k1_ret = resultCmp<outDtype>(k1_golden, k1_npu, 0.005f, 16);
     EXPECT_EQ(k1_ret, true);
@@ -1048,7 +1048,7 @@ void attention_high(std::vector<int> &params, string dataPath, bool isQuant = fa
     std::vector<outDtype> v0_golden(v0_capacity);
     std::vector<outDtype> v0_npu(v0_capacity);
     readInput<outDtype>(dataPath + "/v0_golden.bin", v0_golden);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)v0_npu.data(), (uint8_t *)v0_ptr, v0_size);
+    machine::GetRA()->CopyFromTensor((uint8_t *)v0_npu.data(), (uint8_t *)v0_ptr, v0_size);
     std::cout << "\n====== resultCmp: output v0 start" << std::endl;
     int v0_ret = resultCmp<outDtype>(v0_golden, v0_npu, 0.005f, 16);
     EXPECT_EQ(v0_ret, true);
@@ -1056,7 +1056,7 @@ void attention_high(std::vector<int> &params, string dataPath, bool isQuant = fa
     std::cout << "\n====== resultCmp: output fa start" << std::endl;
     std::vector<float> golden(outCap);
     std::vector<float> res(outCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)outPtr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)outPtr, outputSize);
     readInput(GetGoldenDir() + "/atten_out.bin", golden);
     int ret2 = resultCmp(golden, res, 0.01f, 16);
     EXPECT_EQ(ret2, true);
@@ -1065,7 +1065,7 @@ void attention_high(std::vector<int> &params, string dataPath, bool isQuant = fa
         std::cout << "\n====== resultCmp: output post start" << std::endl;
         std::vector<T> postGolden(postOutputSize);
         std::vector<T> postRes(postOutputSize);
-        runtime::GetRA()->CopyFromTensor((uint8_t *)postRes.data(), (uint8_t *)out_ptr, outputByteSize);
+        machine::GetRA()->CopyFromTensor((uint8_t *)postRes.data(), (uint8_t *)out_ptr, outputByteSize);
         readInput<T>(GetGoldenDir() + "/attn_output.bin", postGolden);
         int ret = resultCmp<T>(postGolden, postRes, 0.02f, 500);
         EXPECT_EQ(ret, true);

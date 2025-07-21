@@ -183,10 +183,10 @@ void TestMlaPrologV2(std::vector<int> &params, string dataPath, bool isQuant = f
     readInput<outDtype>(dataPath + "/q_rope_golden.bin", q_rope_golden);
     readInput<T>(dataPath + "/kv_cache_golden.bin", kv_golden);
     readInput<T>(dataPath + "/kr_cache_golden.bin", kr_golden);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)q_npu.data(), (uint8_t *)q_out_ptr, outputSize0);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)q_rope_npu.data(), (uint8_t *)q_rope_out_ptr, outputSize1);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)kv_npu.data(), (uint8_t *)kv_cache_ptr, outputSize2);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)kr_npu.data(), (uint8_t *)kr_cache_ptr, outputSize3);
+    machine::GetRA()->CopyFromTensor((uint8_t *)q_npu.data(), (uint8_t *)q_out_ptr, outputSize0);
+    machine::GetRA()->CopyFromTensor((uint8_t *)q_rope_npu.data(), (uint8_t *)q_rope_out_ptr, outputSize1);
+    machine::GetRA()->CopyFromTensor((uint8_t *)kv_npu.data(), (uint8_t *)kv_cache_ptr, outputSize2);
+    machine::GetRA()->CopyFromTensor((uint8_t *)kr_npu.data(), (uint8_t *)kr_cache_ptr, outputSize3);
 
     std::cout << "\n====== resultCmp: output q start" << std::endl;
     int ret0 = resultCmp<outDtype>(q_golden, q_npu, 0.008f);
@@ -563,10 +563,10 @@ void TestAttentionV2(std::vector<int> &params, string dataPath, IfaTileShapeConf
     readInput<outDtype>(dataPath + "/q_rope_golden.bin", q_rope_golden);
     readInput<T>(dataPath + "/kv_cache_golden.bin", kv_golden);
     readInput<T>(dataPath + "/kr_cache_golden.bin", kr_golden);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)q_npu.data(), (uint8_t *)q_out_ptr, outputSize0);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)q_rope_npu.data(), (uint8_t *)q_rope_out_ptr, outputSize1);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)kv_npu.data(), (uint8_t *)kv_cache_ptr, outputSize2);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)kr_npu.data(), (uint8_t *)kr_cache_ptr, outputSize3);
+    machine::GetRA()->CopyFromTensor((uint8_t *)q_npu.data(), (uint8_t *)q_out_ptr, outputSize0);
+    machine::GetRA()->CopyFromTensor((uint8_t *)q_rope_npu.data(), (uint8_t *)q_rope_out_ptr, outputSize1);
+    machine::GetRA()->CopyFromTensor((uint8_t *)kv_npu.data(), (uint8_t *)kv_cache_ptr, outputSize2);
+    machine::GetRA()->CopyFromTensor((uint8_t *)kr_npu.data(), (uint8_t *)kr_cache_ptr, outputSize3);
 
     std::cout << "\n====== resultCmp: output q_rope start" << std::endl;
     int ret1 = resultCmp<outDtype>(q_rope_golden, q_rope_npu, 0.005f, 16);
@@ -583,14 +583,14 @@ void TestAttentionV2(std::vector<int> &params, string dataPath, IfaTileShapeConf
     std::cout << "\n====== resultCmp: output attentionOut start" << std::endl;
     std::vector<float> golden(outCap);
     std::vector<float> res(outCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)outPtr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)outPtr, outputSize);
     readInput(GetGoldenDir() + "/atten_out.bin", golden);
     int ret = resultCmp(golden, res, 0.004f, 16);
     EXPECT_EQ(ret, true);
 
     std::vector<T> postGolden(postOutputSize);
     std::vector<T> postRes(postOutputSize);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputByteSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputByteSize);
     readInput(GetGoldenDir() + "/attn_output.bin", golden);
     ret = resultCmp(golden, res, 0.1f, 650);
     EXPECT_EQ(ret, true);
@@ -609,10 +609,10 @@ void TestAttentionV2(std::vector<int> &params, string dataPath, IfaTileShapeConf
         readInput<outDtype>(dataPath + "/a_q_ro.bin", q_rope_golden_trans);
         readInput<T>(dataPath + "/a_kv_no.bin", kv_golden_trans);
         readInput<T>(dataPath + "/a_kv_ro.bin", kr_golden_trans);
-        runtime::GetRA()->CopyFromTensor((uint8_t *)q_npu_trans.data(), (uint8_t *)q_nope_bnsd_ptr, outputSize0);
-        runtime::GetRA()->CopyFromTensor((uint8_t *)q_rope_npu_trans.data(), (uint8_t *)q_rope_bnsd_ptr, outputSize1);
-        runtime::GetRA()->CopyFromTensor((uint8_t *)kv_npu_trans.data(), (uint8_t *)k_nope_bnsd_ptr, outputSize2);
-        runtime::GetRA()->CopyFromTensor((uint8_t *)kr_npu_trans.data(), (uint8_t *)k_rope_bnsd_ptr, outputSize3);
+        machine::GetRA()->CopyFromTensor((uint8_t *)q_npu_trans.data(), (uint8_t *)q_nope_bnsd_ptr, outputSize0);
+        machine::GetRA()->CopyFromTensor((uint8_t *)q_rope_npu_trans.data(), (uint8_t *)q_rope_bnsd_ptr, outputSize1);
+        machine::GetRA()->CopyFromTensor((uint8_t *)kv_npu_trans.data(), (uint8_t *)k_nope_bnsd_ptr, outputSize2);
+        machine::GetRA()->CopyFromTensor((uint8_t *)kr_npu_trans.data(), (uint8_t *)k_rope_bnsd_ptr, outputSize3);
 
         std::cout << "\n====== resultCmp: output a_q_no start" << std::endl;
         int ret4 = resultCmp<outDtype>(q_golden_trans, q_npu_trans, 0.008f, 16);

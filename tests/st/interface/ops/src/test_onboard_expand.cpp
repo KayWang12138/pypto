@@ -48,7 +48,7 @@ TEST_F(ExpandOnBoardTest, test_expand_32_1_to_32_32) {
 
     std::vector<float> golden(dstCapacity);
     std::vector<float> res(dstCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/expand_res.bin", golden);
     for (size_t i = 0; i < res.size(); i++) {
         cout<<"res["<<i<<"]="<<res[i]<<" golden["<<i<<"]="<<golden[i]<<endl;
@@ -89,7 +89,7 @@ TEST_F(ExpandOnBoardTest, test_expand_32_8_1_to_32_8_32) {
 
     std::vector<float> golden(dstCapacity);
     std::vector<float> res(dstCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/expand_res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.001f);
@@ -125,7 +125,7 @@ TEST_F(ExpandOnBoardTest, test_expand_32_1_to_32_23) {
 
     std::vector<float> golden(dstCapacity);
     std::vector<float> res(dstCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/expand_res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -162,7 +162,7 @@ TEST_F(ExpandOnBoardTest, test_expand_32_8_1_to_32_8_23) {
 
     std::vector<float> golden(dstCapacity);
     std::vector<float> res(dstCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/expand_res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.001f);
@@ -194,7 +194,7 @@ TEST_F(ExpandOnBoardTest, test_expand_for_4_dim) {
 
     std::vector<float> golden(dstCapacity);
     std::vector<float> res(dstCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/expand_res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.001f);
@@ -230,7 +230,7 @@ TEST_F(ExpandOnBoardTest, test_expand_1_1_to_1_16384) {
 
     std::vector<float> golden(dstCapacity);
     std::vector<float> res(dstCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/expand_res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);

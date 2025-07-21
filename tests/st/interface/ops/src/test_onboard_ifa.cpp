@@ -45,7 +45,7 @@ TEST_F(OnBoardIFATest, test_32_128_sub_32_1) {
 
     std::vector<float> golden(outCap);
     std::vector<float> res(outCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -76,7 +76,7 @@ TEST_F(OnBoardIFATest, test_32_1_sub_32_1) {
 
     std::vector<float> golden(outCap);
     std::vector<float> res(outCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -107,7 +107,7 @@ TEST_F(OnBoardIFATest, test_32_512_add_32_1) {
 
     std::vector<float> golden(outCap);
     std::vector<float> res(outCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -139,7 +139,7 @@ TEST_F(OnBoardIFATest, test_32_1_mul_32_1) {
 
     std::vector<float> golden(outCap);
     std::vector<float> res(outCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -172,7 +172,7 @@ TEST_F(OnBoardIFATest, test_32_512_mul_32_1) {
 
     std::vector<float> golden(outCap);
     std::vector<float> res(outCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -199,7 +199,7 @@ TEST_F(OnBoardIFATest, test_32_128_tileop_exp) {
 
     std::vector<float> golden(outCap);
     std::vector<float> res(outCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.001f);
@@ -227,7 +227,7 @@ TEST_F(OnBoardIFATest, test_32_1_tileop_exp) {
 
     std::vector<float> golden(outCap);
     std::vector<float> res(outCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
 
     int ret = resultCmp(golden, res, 0.001f);
@@ -259,7 +259,7 @@ TEST_F(OnBoardIFATest, test_32_1_maximum) {
 
     std::vector<float> golden(outCap);
     std::vector<float> res(outCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -287,7 +287,7 @@ TEST_F(OnBoardIFATest, test_32_1_reciprocal) {
 
     std::vector<float> golden(outCap);
     std::vector<float> res(outCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.003f);
     EXPECT_EQ(ret, true);
@@ -322,7 +322,7 @@ TEST_F(OnBoardIFATest, test_operation_32_128_row_max_single) {
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
@@ -357,7 +357,7 @@ TEST_F(OnBoardIFATest, test_operation_32_128_row_sum_single) {
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
@@ -394,7 +394,7 @@ TEST_F(OnBoardIFATest, test_concat_32_512_32_64) {
 
     std::vector<float> golden(outCap);
     std::vector<float> res(outCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
@@ -437,7 +437,7 @@ TEST_F(OnBoardIFATest, test_concat_32_tensor) {
 
     std::vector<float> golden(outCap);
     std::vector<float> res(outCap);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);

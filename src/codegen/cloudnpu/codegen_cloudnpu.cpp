@@ -427,7 +427,7 @@ int CodeGenCloudNPU::CompileCCE(
         "-mllvm -cce-aicore-addr-transform "
         "-mllvm -cce-aicore-dcci-insert-for-scalar=false "
         "-I%s/include/tileop/a2a3 "
-        "-I%s/src/runtime/kernel "
+        "-I%s/src/machine/kernel "
         "-I%s/src/ "
         "-o %s "
         "%s",

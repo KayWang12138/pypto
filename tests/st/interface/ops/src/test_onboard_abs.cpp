@@ -50,7 +50,7 @@ TEST_F(AbsOnBoardTest, test_abs_8_4608) {
     std::vector<npu::tile_fwk::float16> x(dstCapacity);
     std::vector<npu::tile_fwk::float16> golden(dstCapacity);
     std::vector<npu::tile_fwk::float16> res(dstCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/abs_golden.bin", golden);
     readInput(GetGoldenDir() + "/abs_x.bin", x);
 
@@ -89,7 +89,7 @@ TEST_F(AbsOnBoardTest, test_abs_8_4609) {
     std::vector<npu::tile_fwk::float16> x(dstCapacity);
     std::vector<npu::tile_fwk::float16> golden(dstCapacity);
     std::vector<npu::tile_fwk::float16> res(dstCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/abs_golden_not_align.bin", golden);
     readInput(GetGoldenDir() + "/abs_x_not_align.bin", x);
 
@@ -128,7 +128,7 @@ TEST_F(AbsOnBoardTest, test_abs_1_16384) {
     std::vector<npu::tile_fwk::float16> x(dstCapacity);
     std::vector<npu::tile_fwk::float16> golden(dstCapacity);
     std::vector<npu::tile_fwk::float16> res(dstCapacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/abs_golden_not_align.bin", golden);
     readInput(GetGoldenDir() + "/abs_x_not_align.bin", x);
 

@@ -38,13 +38,13 @@ Tile Framework 项目介绍, 待完善。
 │   │   │   └── default.csv                 # 性能工具用例
 │   │   │
 │   │   ├── interface                       # STest用例实现(Interface 模块), 拟开源
-│   │   ├── runtime                         # STest用例实现(Runtime 模块), 闭源
+│   │   ├── machine                         # STest用例实现(Machine 模块), 闭源
 │   │   └── utils                           # STest 场景公共逻辑
 │   │
 │   └── ut
 │       ├── codegen                         # UTest 用例实现(CodeGen 模块), 闭源
 │       ├── interface                       # UTest 用例实现(Interface 模块), 拟开源
-│       ├── runtime                         # UTest 用例实现(Runtime 模块), 闭源
+│       ├── machine                         # UTest 用例实现(Machine 模块), 闭源
 │       ├── simulation                      # UTest 用例实现(Simulation 模块), 拟开源
 │       └── stubs                           # UTest 场景公共桩
 │

@@ -30,7 +30,7 @@ void TransposePre(uint8_t** out_ptr, uint64_t* outsize) {
 void TransposePost(uint8_t* outputGmAddr, uint64_t outputSize) {
     std::vector<float> golden(capacity);
     std::vector<float> res(capacity);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)outputGmAddr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)outputGmAddr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f, 64);
     EXPECT_EQ(ret, true);

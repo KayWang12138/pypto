@@ -15,8 +15,8 @@
 
 #include "test_suite_stest_ops.h"
 #include "interface/interpreter/raw_tensor_data.h"
-#include "runtime/utils/dynamic/dev_encode.h"
-#include "runtime/device/dynamic/device_context.h"
+#include "machine/utils/dynamic/dev_encode.h"
+#include "machine/device/dynamic/device_context.h"
 
 #include "test_dynamic.h"
 

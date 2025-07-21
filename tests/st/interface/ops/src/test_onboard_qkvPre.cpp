@@ -105,8 +105,8 @@ void TestQkvPre(std::vector<int> &params, string dataPath) {
     std::vector<T> kv_npu(capacity_kv);
     readInput<T>(dataPath + "/q_golden.bin", q_golden);
     readInput<T>(dataPath + "/kv_golden.bin", kv_golden);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)q_npu.data(), (uint8_t *)q_out_ptr, outputSize0);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)kv_npu.data(), (uint8_t *)kv_out_ptr, outputSize1);
+    machine::GetRA()->CopyFromTensor((uint8_t *)q_npu.data(), (uint8_t *)q_out_ptr, outputSize0);
+    machine::GetRA()->CopyFromTensor((uint8_t *)kv_npu.data(), (uint8_t *)kv_out_ptr, outputSize1);
 
     std::cout << "\n====== resultCmp: output q start" << std::endl;
     int ret0 = resultCmp<T>(q_golden, q_npu, 0.005f);
@@ -450,8 +450,8 @@ void TestQkvPreFp32(std::vector<int> &params, string dataPath) {
     std::vector<float> kv_npu(capacity_kv);
     readInput<float>(dataPath + "/q_golden.bin", q_golden);
     readInput<float>(dataPath + "/kv_golden.bin", kv_golden);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)q_npu.data(), (uint8_t *)q_out_ptr, outputSize0);
-    runtime::GetRA()->CopyFromTensor((uint8_t *)kv_npu.data(), (uint8_t *)kv_out_ptr, outputSize1);
+    machine::GetRA()->CopyFromTensor((uint8_t *)q_npu.data(), (uint8_t *)q_out_ptr, outputSize0);
+    machine::GetRA()->CopyFromTensor((uint8_t *)kv_npu.data(), (uint8_t *)kv_out_ptr, outputSize1);
 
     std::cout << "\n====== resultCmp: output q start" << std::endl;
     int ret0 = resultCmp<float>(q_golden, q_npu, 0.005f);
