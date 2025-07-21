@@ -43,6 +43,7 @@ set(_CaseFilterList
         "DynamicAttentionUtTest.dynamic_attention_low"
         "DynamicAttentionUtTest.dynamic_attention_low_nz"
         "DynamicPATest.AllocatorCoverage"
+        "DynamicKvSlcUtTest.test_kv_slc"
         "TensorElement.*"
         "ThreadPoolTest.*"
         "StringUtils.*"

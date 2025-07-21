@@ -148,7 +148,7 @@ struct AOTBinaryExpressionTable : AOTBinary {
     uint64_t offsetSize;
 };
 
-#define MAX_CACHED_FUNC_NUM 128
+#define MAX_CACHED_FUNC_NUM 256
 
 struct DynFuncCacheItem {
     DevAscendFunction *devFunc;
