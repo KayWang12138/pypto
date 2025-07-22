@@ -123,6 +123,71 @@ def gen_add_op_golden(case_name: str, output: Path, case_index: int = None) -> b
     return True
 
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestExp/ExpOperationTest.TestExp",
+    ]
+)
+def gen_exp_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者徐根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def generate_golden_files(case_name: str, output_path: Path, shape: list, dtype, index: int) -> bool:
+        x_path = Path(output_path, 'x.bin')
+        o_path = Path(output_path, 'res.bin')
+
+        complete = x_path.exists() and o_path.exists()
+        if complete:
+            logging.debug("Case(%s), Golden complete.", case_name)
+            return True
+
+        x = np.random.uniform(0, 1, shape).astype(dtype)
+        if index == 6:
+            x[0][0] = np.inf
+        elif index == 7:
+            x[0][0] = np.nan
+        elif index == 9:
+            x[0][0] = np.finfo(np.float32).max
+        elif index == 10:
+            x[0][0] = np.finfo(np.float32).min
+
+        x.tofile(x_path)
+        (np.exp(x)).tofile(o_path)
+        return False
+
+    # 测试数据集，根据具体测试需求修改，可增加字段
+    test_configs = [
+        ([64 * 48, 1], np.float32),       # 0 1dims
+        ([64 * 48, 128 * 3], np.float32), # 1 2dims
+        ([64 * 48, 16 * 3], np.float32),  # 2 2dims tileshape 不对齐
+        ([64 * 48, 128 * 3], np.float32), # 3 2dims viewshape 不对齐
+        ([48 * 128, 64, 64], np.float32), # 5 3dims
+        ([64 * 48, 128 * 3], np.float16), # 7 fp16
+        ([64 * 48, 128 * 3], np.float32), # 8 inf
+        ([64 * 48, 128 * 3], np.float32), # 9 nan
+        ([64 * 48, 0], np.float32),       # 10 空tensor
+        ([64 * 48, 128 * 3], np.float32), # 11 max
+        ([64 * 48, 128 * 3], np.float32), # 12 min
+        ([1, 1], np.float32),             # 14 originalshape < viewshape
+        ([32, 32], np.float32),           # 15 originalshape == viewshape
+        ([128, 128], np.float32),         # 16 viewshape < tileshape
+        ([1, 64 * 192], np.float32),      # 19 k_dim 192 b min
+        ([96, 64 * 192], np.float32),     # 20 k_dim 192 b max
+        ([1, 64 * 128], np.float32),      # 23 v_dim 128 b min
+        ([96, 64 * 128], np.float32),     # 24 v_dim 128 b max
+    ]
+
+    # 1.跑测试套还是单个用例，生成不同场景的文件夹，一般不用改
+    # 2.涉及test_configs数据结构变更，generate_golden_files的接口形式和调用传参可能需联动修改
+    if case_index is None:
+        for index, (shape, dtype) in enumerate(test_configs):
+            output_path = Path(str(output) + '/' + str(index))
+            output_path.mkdir(parents=True, exist_ok=True)
+            generate_golden_files(case_name, output_path, shape, dtype, case_index)
+    else:
+        shape, dtype = test_configs[case_index]
+        generate_golden_files(case_name, output, shape, dtype, case_index)
+    return True
+
+
 def main() -> bool:
     # 用例名称
     case_name_list: List[str] = [
