@@ -17,17 +17,20 @@
 #include <memory>
 #include <vector>
 #include "interface/configs/config_manager.h"
+#include "computational_graph_builder.h"
 #include "tilefwk/data_type.h"
 #include "interface/operation/attribute.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
+#include "interface/program/program.h"
 #include "interface/function/function.h"
 #include "interface/operation/operation.h"
 #include "passes/execute_graph_pass/subgraph_to_function.h"
 #include "passes/pass_manager.h"
 #include "ut_json/ut_json_tool.h"
 
-using namespace npu::tile_fwk;
+namespace npu {
+namespace tile_fwk {
 
 class SubgraphToFunctionTest : public testing::Test {
 public:
@@ -43,6 +46,11 @@ public:
     }
 
     void TearDown() override {}
+};
+
+class SubgraphToFunctionFriend : public SubgraphToFunction {
+public:
+    using SubgraphToFunction::colorOutGraph;
 };
 
 bool ArePsgHashesUnique(const Function &function) {
@@ -711,3 +719,470 @@ TEST_F(SubgraphToFunctionTest, VerifyPassResumeByJson) {
         d1 = SoftmaxNew(T);
     }
 }
+
+TEST_F(SubgraphToFunctionTest, TestBasicSubgraphConversion) {
+    ComputationalGraphBuilder G;
+
+    // 1. 定义张量和操作
+    std::vector<std::string> tensorNames = {
+        "input", "view1_out", "view2_out", "add_out", "final_out"
+    };
+
+    std::vector<Opcode> opCodes = {
+        Opcode::OP_VIEW,    // view1 (input -> view1_out)
+        Opcode::OP_VIEW,    // view2 (input -> view2_out)
+        Opcode::OP_ADD,     // add (view1_out + view2_out -> add_out)
+        Opcode::OP_ABS       // abs (add_out -> final_out)
+    };
+
+    // 输入输出张量关系
+    std::vector<std::vector<std::string>> ioperands = {
+        {"input"},          // view1
+        {"input"},          // view2 (确保与view1不同输出)
+        {"view1_out", "view2_out"}, // add (两个不同输入)
+        {"add_out"}         // abs
+    };
+
+    std::vector<std::vector<std::string>> ooperands = {
+        {"view1_out"},
+        {"view2_out"},
+        {"add_out"},
+        {"final_out"}
+    };
+
+    std::vector<std::string> opNames = {
+        "view1", "view2", "add", "abs_final"
+    };
+
+    // 2. 添加张量和操作
+    EXPECT_TRUE(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames));
+    EXPECT_TRUE(G.AddOps(opCodes, ioperands, ooperands, opNames, true));
+
+    // 3. 设置内存类型和边界张量
+    auto input_tensor = G.GetTensor("input");
+    auto final_out_tensor = G.GetTensor("final_out");
+    input_tensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR);
+    final_out_tensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR);
+    input_tensor->isSubGraphBoundary = true;
+    final_out_tensor->isSubGraphBoundary = true;
+
+    // 4. 设置输入输出转换
+    EXPECT_TRUE(G.SetInCast({"input"}));
+    EXPECT_TRUE(G.SetOutCast({"final_out"}));
+
+    // 5. 设置子图ID（所有操作在同一个子图）
+    for (const auto& opName : opNames) {
+        G.GetOp(opName)->UpdateSubgraphID(0);
+    }
+
+    // 6. 获取Function并执行子图转换Pass
+    Function* function = G.GetFunction();
+    ASSERT_NE(function, nullptr);
+    function->SetTotalSubGraphCount(1);  // 总子图数=1
+
+    SubgraphToFunction pass;
+    Status status = pass.RunOnFunction(*function);
+    EXPECT_EQ(status, SUCCESS);
+
+    // 7. 验证结果
+    Function* rootFunc = function->rootFunc_;
+    ASSERT_NE(rootFunc, nullptr);
+    EXPECT_EQ(rootFunc->GetGraphType(), GraphType::ROOT_GRAPH);
+
+    // 检查子图调用信息
+    const auto& topoInfo = rootFunc->topoInfo_;
+    EXPECT_EQ(topoInfo.topology_.size(), 1);  // 应有一个子图调用
+
+    // 检查子图内部操作（应保留VIEW+VIEW+ADD+ABS）
+    auto leafFunc = rootFunc->programs_.begin()->second;
+    EXPECT_EQ(leafFunc->Operations().size(), 4);
+}
+
+TEST_F(SubgraphToFunctionTest, MultiSubgraphDependencyWithMixedOps) {
+    // 1. 构建包含3个子图的依赖链：AIC -> AIV -> AICPU
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames = {
+        "input", "aic_out", "aiv_out", "final_out"
+    };
+
+    // 定义操作类型（AIC/AIV/AICPU）
+    std::vector<Opcode> opCodes = {
+        Opcode::OP_A_MUL_B,  // AIC 子图 (0)
+        Opcode::OP_ADD,     // AIV 子图 (1)
+        Opcode::OP_EXP      // AICPU 子图 (2)
+    };
+
+    // 输入输出张量关系（形成依赖链）
+    std::vector<std::vector<std::string>> ioperands = {
+        {"input"},          // MATMUL (子图0)
+        {"aic_out"},        // ADD (子图1)
+        {"aiv_out"}         // EXP (子图2)
+    };
+
+    std::vector<std::vector<std::string>> ooperands = {
+        {"aic_out"},
+        {"aiv_out"},
+        {"final_out"}
+    };
+
+    std::vector<std::string> opNames = {
+        "matmul_aic", "add_aiv", "exp_aicpu"
+    };
+
+    // 2. 添加张量和操作
+    EXPECT_TRUE(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames));
+    EXPECT_TRUE(G.AddOps(opCodes, ioperands, ooperands, opNames, true));
+
+    // 3. 显式设置子图ID和核心类型
+    G.GetOp("matmul_aic")->UpdateSubgraphID(0);
+    G.GetOp("matmul_aic")->SetCoreType(CoreType::AIC);  // 标记为AIC操作
+    G.GetOp("matmul_aic")->SetAttribute(OpAttributeKey::isCube, true);
+
+    G.GetOp("add_aiv")->UpdateSubgraphID(1);
+    G.GetOp("add_aiv")->SetCoreType(CoreType::AIV);     // 标记为AIV操作
+
+    G.GetOp("exp_aicpu")->UpdateSubgraphID(2);
+    G.GetOp("exp_aicpu")->SetCoreType(CoreType::AICPU); // 标记为AICPU操作
+
+    // 4. 设置内存类型和边界张量
+    auto input_tensor = G.GetTensor("input");
+    auto final_out_tensor = G.GetTensor("final_out");
+
+    // 输入输出为DDR内存
+    input_tensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR);
+    final_out_tensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR);
+
+    // 标记边界张量
+    input_tensor->isSubGraphBoundary = true;
+    final_out_tensor->isSubGraphBoundary = true;
+
+    // 中间张量作为子图边界
+    G.GetTensor("aic_out")->isSubGraphBoundary = true;
+    G.GetTensor("aiv_out")->isSubGraphBoundary = true;
+
+    // 5. 设置输入输出转换
+    EXPECT_TRUE(G.SetInCast({"input"}));
+    EXPECT_TRUE(G.SetOutCast({"final_out"}));
+
+    // 6. 获取Function并设置总子图数
+    Function* function = G.GetFunction();
+    ASSERT_NE(function, nullptr);
+    function->SetTotalSubGraphCount(3);  // 共3个子图
+
+    // 7. 执行子图转换Pass
+    SubgraphToFunction pass;
+    Status status = pass.RunOnFunction(*function);
+    EXPECT_EQ(status, SUCCESS);
+
+    // 8. 验证结果
+    Function* rootFunc = function->rootFunc_;
+    ASSERT_NE(rootFunc, nullptr);
+
+    // 8.1 验证子图数量
+    EXPECT_EQ(rootFunc->programs_.size(), 3);  // 应生成3个子图程序
+
+    // 8.2 验证拓扑依赖关系
+    const auto& topoInfo = rootFunc->topoInfo_;
+    EXPECT_EQ(topoInfo.topology_.size(), 3);  // 应有3个子图调用
+
+    // 检查依赖链：0 -> 1 -> 2
+    EXPECT_EQ(topoInfo.topology_[0].outGraph, std::unordered_set<int>{1});  // 子图0依赖子图1
+    EXPECT_EQ(topoInfo.topology_[1].outGraph, std::unordered_set<int>{2});  // 子图1依赖子图2
+    EXPECT_TRUE(topoInfo.topology_[2].outGraph.empty());                // 子图2无后继
+
+    // 8.3 验证readyState计算
+    EXPECT_EQ(topoInfo.topology_[0].readyState, 0);   // 子图0无前驱，初始ready
+    EXPECT_EQ(topoInfo.topology_[1].readyState, -1);  // 子图1依赖子图0
+    EXPECT_EQ(topoInfo.topology_[2].readyState, -1);  // 子图2依赖子图1
+
+    // 8.4 验证子图类型分类
+    const auto& callOps = rootFunc->Operations();
+    ASSERT_EQ(callOps.size(), 3);
+
+    // 检查CallOpAttribute中的graphType
+    auto check_graph_type = [&callOps](size_t idx, CoreType expected) {
+        auto attr = dynamic_cast<CallOpAttribute*>(callOps[idx].GetOpAttribute().get());
+        ASSERT_NE(attr, nullptr);
+        EXPECT_EQ(attr->invokeInfo_->GetGraphType(), expected);
+    };
+
+    check_graph_type(0, CoreType::AIC);    // 子图0应为AIC
+    check_graph_type(1, CoreType::AIV);    // 子图1应为AIV
+    check_graph_type(2, CoreType::AICPU);  // 子图2应为AICPU
+
+    // 8.5 验证ready子图列表
+    EXPECT_EQ(rootFunc->GetReadySubGraphCount(CoreType::AIC), 1);    // 子图0应在AIC就绪列表
+    EXPECT_EQ(rootFunc->GetReadySubGraphCount(CoreType::AIV), 0);    // 子图1未就绪
+    EXPECT_EQ(rootFunc->GetReadySubGraphCount(CoreType::AICPU), 0);  // 子图2未就绪
+}
+
+TEST_F(SubgraphToFunctionTest, EliminateRedundantEdges) {
+    ComputationalGraphBuilder G;
+
+    // 定义张量（需要更多张量来创建冗余路径）
+    std::vector<std::string> tensorNames{"t0", "t1", "t2", "t3", "t4", "t5", "t6"};
+
+    // 定义操作和子图分配 - 创建两条路径到MAX_SG3
+    std::vector<Opcode> opCodes{
+        Opcode::OP_ADD,    // 子图0
+        Opcode::OP_CONV,   // 子图1
+        Opcode::OP_ABS,    // 子图2
+        Opcode::OP_ADD,    // 子图3
+        Opcode::OP_MAXIMUM // 子图4
+    };
+
+    std::vector<std::vector<std::string>> ioperands{
+        {"t0", "t1"},  // ADD1_SG0
+        {"t2"},        // CONV_SG1
+        {"t2"},        // ABS_SG2
+        {"t3", "t4"},  // ADD2_SG3
+        {"t4", "t5"}   // MAX_SG4 (接收来自ADD和ABS的输入)
+    };
+
+    std::vector<std::vector<std::string>> ooperands{
+        {"t2"}, {"t3"}, {"t4"}, {"t5"}, {"t6"}
+    };
+
+    std::vector<std::string> opNames{
+        "ADD1_SG0", "CONV_SG1", "ABS_SG2", "ADD2_SG3", "MAX_SG4"
+    };
+
+    // 创建图和操作
+    EXPECT_TRUE(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames));
+    EXPECT_TRUE(G.AddOps(opCodes, ioperands, ooperands, opNames, true));
+
+    // 设置子图ID - 创建跨子图冗余
+    G.GetOp("ADD1_SG0")->UpdateSubgraphID(0);
+    G.GetOp("CONV_SG1")->UpdateSubgraphID(1);
+    G.GetOp("ABS_SG2")->UpdateSubgraphID(2);
+    G.GetOp("ADD2_SG3")->UpdateSubgraphID(3);
+    G.GetOp("MAX_SG4")->UpdateSubgraphID(4);
+
+    // 设置边界张量
+    EXPECT_TRUE(G.SetInCast({"t0", "t1"}));
+    EXPECT_TRUE(G.SetOutCast({"t6"}));
+
+    Function* function = G.GetFunction();
+    ASSERT_NE(function, nullptr);
+    function->SetTotalSubGraphCount(5);  // 共5个子图
+    // 2. 运行SubgraphToFunction pass
+    SubgraphToFunction pass;
+
+    // 构建基础图结构
+    pass.BuildGraph(*function);
+    pass.RecordIncastOutcast(*function);
+
+    // 3. 验证初始边关系（通过消费者关系）
+    auto* abs_op = G.GetOp("ABS_SG2");
+    auto* add2_op = G.GetOp("ADD2_SG3");
+    auto* max_op = G.GetOp("MAX_SG4");
+
+    // 验证ABS_SG2的消费者包含ADD2_SG3、MAX_SG4
+    auto abs_consumers1 = abs_op->ConsumerOps();
+    EXPECT_TRUE(abs_consumers1.find(add2_op) != abs_consumers1.end());
+    EXPECT_TRUE(abs_consumers1.find(max_op) != abs_consumers1.end());
+
+    // 4. 构建颜色图并消除冗余边
+    pass.BuildColorGraph(*function);
+    pass.EraseRedundantColorEdges(*function);
+
+    // 5. 验证冗余边已被移除
+    auto& pass_ref = static_cast<SubgraphToFunctionFriend&>(pass);
+    const auto& colorOutGraph = pass_ref.colorOutGraph;
+    const int abs_sgid = G.GetOp("ABS_SG2")->GetSubgraphID();
+    const int max_sgid = G.GetOp("MAX_SG4")->GetSubgraphID();
+    const auto& abs_out_edges = colorOutGraph[abs_sgid];
+    bool found = std::find(abs_out_edges.begin(), abs_out_edges.end(), max_sgid) != abs_out_edges.end();
+    EXPECT_FALSE(found) << "Redundant edge not removed!";
+}
+
+TEST_F(SubgraphToFunctionTest, ReshapeDependencyHandling) {
+    ComputationalGraphBuilder G;
+
+    // 1. 构建测试图：包含一个RESHAPE操作和其消费者
+    std::vector<std::string> tensorNames{"t0", "t1", "t2"};
+    std::vector<Opcode> opCodes{Opcode::OP_RESHAPE, Opcode::OP_ABS};
+    std::vector<std::vector<std::string>> ioperands{
+        {"t0"},        // RESHAPE_SG0 (无输入子图)
+        {"t1"}         // ABS_SG1 (输入来自RESHAPE)
+    };
+    std::vector<std::vector<std::string>> ooperands{
+        {"t1"}, {"t2"}
+    };
+    std::vector<std::string> opNames{"RESHAPE_SG0", "ABS_SG1"};
+
+    EXPECT_TRUE(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames));
+    EXPECT_TRUE(G.AddOps(opCodes, ioperands, ooperands, opNames, true));
+
+    // 2. 设置子图ID（确保RESHAPE是独立子图）
+    auto set_subgraph_id = [&G](const std::string& op_name, int id) {
+        auto* op = G.GetOp(op_name);
+        ASSERT_NE(op, nullptr) << "Operation " << op_name << " not found!";
+        op->UpdateSubgraphID(id);
+    };
+    set_subgraph_id("RESHAPE_SG0", 0);  // RESHAPE单独子图且无输入子图
+    set_subgraph_id("ABS_SG1", 1);
+
+    // 3. 构建函数并运行pass
+    Function* function = G.GetFunction();
+    ASSERT_NE(function, nullptr);
+    function->SetTotalSubGraphCount(2);  // 3个子图
+
+    SubgraphToFunction pass;
+    pass.BuildGraph(*function);
+    pass.RecordIncastOutcast(*function);
+    pass.ConstructParamMap(*function);
+
+    // 4. 验证RESHAPE子图的特殊处理
+    auto* reshape_op = G.GetOp("RESHAPE_SG0");
+    ASSERT_NE(reshape_op, nullptr);
+    const int reshape_sgid = reshape_op->GetSubgraphID();
+
+    // 4.1 验证RESHAPE子图被正确标记
+    EXPECT_TRUE(pass.isReshape[reshape_sgid])
+        << "RESHAPE subgraph should be marked when it has no input subgraph and single reshape op";
+
+    EXPECT_TRUE(function->topoInfo_.GetSuccs(reshape_sgid).empty())
+    << "RESHAPE subgraph should have empty successors set";
+
+    int expected_out_degree = 0; // 根据实际图结构调整这个值
+    bool found = false;
+    for (const auto& entry : function->topoInfo_.GetTopology()) {
+        if (entry.esgId == 1) { // ABS_SG1的子图ID
+            EXPECT_EQ(entry.readyState, -1 * expected_out_degree)
+                << "Consumer subgraph's readyOrNot should exclude RESHAPE inputs";
+            found = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(found) << "ABS_SG1 subgraph entry not found in topology";
+}
+
+TEST_F(SubgraphToFunctionTest, FullPassWithEmptySubgraph) {
+    ComputationalGraphBuilder G;
+
+    // 1. Build test graph with 5 subgraphs (including one empty subgraph)
+    std::vector<std::string> tensorNames{"t0", "t1", "t2", "t3", "t4", "t5"};
+    std::vector<Opcode> opCodes{Opcode::OP_ADD, Opcode::OP_ABS, Opcode::OP_MUL, Opcode::OP_RESHAPE};
+    std::vector<std::vector<std::string>> ioperands{
+        {"t0", "t1"},  // ADD_SG0
+        {"t2"},         // ABS_SG1 (input from empty subgraph)
+        {"t1", "t3"},   // MUL_SG3
+        {"t4"}          // RESHAPE_SG4
+    };
+    std::vector<std::vector<std::string>> ooperands{
+        {"t2"}, {"t3"}, {"t4"}, {"t5"}
+    };
+    std::vector<std::string> opNames{"ADD_SG0", "ABS_SG1", "MUL_SG3", "RESHAPE_SG4"};
+
+    EXPECT_TRUE(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames));
+    EXPECT_TRUE(G.AddOps(opCodes, ioperands, ooperands, opNames, true));
+
+    // 2. Set subgraph IDs (including empty subgraph 2)
+    auto set_subgraph_id = [&G](const std::string& op_name, int id) {
+        if (op_name.empty()) {
+            // Empty subgraph has no operations
+            return; 
+        }
+        auto* op = G.GetOp(op_name);
+        ASSERT_NE(op, nullptr) << "Operation " << op_name << " not found!";
+        op->UpdateSubgraphID(id);
+    };
+    set_subgraph_id("ADD_SG0", 0);
+    set_subgraph_id("ABS_SG1", 1);
+    set_subgraph_id("", 2);       // Empty subgraph ID=2
+    set_subgraph_id("MUL_SG3", 3);
+    set_subgraph_id("RESHAPE_SG4", 4);
+
+    // 3. Build function and run full pass
+    Function* function = G.GetFunction();
+    ASSERT_NE(function, nullptr);
+    function->SetTotalSubGraphCount(5);  // 5 subgraphs (including empty one)
+
+    // Run the complete pass
+    SubgraphToFunction pass;
+    auto status = pass.RunOnFunction(*function);
+    EXPECT_EQ(status, SUCCESS) << "SubgraphToFunction pass failed";
+
+    // 4. Verify results after pass execution
+
+    // 4.1 Verify root function was created
+    ASSERT_NE(function->rootFunc_, nullptr);
+    EXPECT_EQ(function->rootFunc_->GetGraphType(), GraphType::ROOT_GRAPH);
+
+    // 4.2 Verify subgraph programs were created
+    EXPECT_EQ(function->rootFunc_->programs_.size(), 5); // Should have programs for all subgraphs
+
+    // 4.3 Verify topology info
+    auto& topo = function->rootFunc_->topoInfo_;
+    EXPECT_EQ(topo.topology_.size(), 5); // Entries for all subgraphs
+
+    // 4.4 Verify empty subgraph handling
+    bool empty_subgraph_found = false;
+    for (const auto& entry : topo.topology_) {
+        if (entry.esgId == 2) { // Empty subgraph ID
+            empty_subgraph_found = true;
+            // Should maintain its connections even though empty
+            EXPECT_FALSE(entry.outGraph.empty());
+            EXPECT_EQ(entry.readyState, -1); // Should have one input (from ADD_SG0)
+            break;
+        }
+    }
+    EXPECT_TRUE(empty_subgraph_found) << "Empty subgraph not found in topology";
+
+    // 4.5 Verify reshape subgraph handling
+    bool reshape_subgraph_found = false;
+    for (const auto& entry : topo.topology_) {
+        if (entry.esgId == 4) { // RESHAPE_SG4
+            reshape_subgraph_found = true;
+            // Reshape subgraph should have empty successors
+            EXPECT_TRUE(entry.outGraph.empty());
+            break;
+        }
+    }
+    EXPECT_TRUE(reshape_subgraph_found) << "Reshape subgraph not found in topology";
+
+    // 4.6 Verify ready states
+    std::unordered_map<int, int> pred_counts;
+    // Calculate actual predecessor counts
+    for (const auto& entry : topo.topology_) {
+        for (const auto& succ : entry.outGraph) {
+            pred_counts[succ]++;
+        }
+    }
+    // Verify readyState matches negative predecessor counts
+    for (const auto& entry : topo.topology_) {
+        int expected = -(pred_counts[entry.esgId]);
+        EXPECT_EQ(entry.readyState, expected)
+            << "Subgraph " << entry.esgId << " has incorrect readyState";
+    }
+
+    // 4.7 Verify program mapping
+    EXPECT_EQ(pass.psgToESgMap.size(), 5); // Should map all subgraphs
+    for (int i = 0; i < 5; i++) {
+        EXPECT_NE(pass.psgToESgMap.find(i), pass.psgToESgMap.end())
+            << "Missing mapping for subgraph " << i;
+    }
+
+    // 4.8 Verify ready subgraph lists
+    // Initial ready subgraphs should be those with no predecessors
+    EXPECT_NE(function->rootFunc_->GetReadySubGraphCount(CoreType::AIC), 0);
+    EXPECT_NE(function->rootFunc_->GetReadySubGraphCount(CoreType::AIV), 0);
+
+    // 4.9 Verify parameter mapping
+    for (const auto& [psgId, esgId] : pass.psgToESgMap) {
+        auto program_iter = function->rootFunc_->programs_.find(psgId);
+        ASSERT_NE(program_iter, function->rootFunc_->programs_.end())
+            << "Missing program for psgId " << psgId;
+
+        const auto& esg_info = function->rootFunc_->Operations()[esgId].GetSubFuncInvokeInfo();
+        const auto& psg_param = program_iter->second->GetParameter();
+
+        // Verify parameter lists match
+        EXPECT_EQ(esg_info.GetIncastTensorParamList().size(), psg_param.inCastArgs_.size());
+        EXPECT_EQ(esg_info.GetOutcastTensorParamList().size(), psg_param.outCastArgs_.size());
+        EXPECT_EQ(esg_info.GetTensorParamList().size(), psg_param.tensorsArgs_.size());
+    }
+}
+} // namespace tile_fwk
+} // namespace npu
