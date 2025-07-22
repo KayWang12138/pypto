@@ -29,12 +29,15 @@ public:
         RunOnFunction(function);
     }
 private:
+    Status PreCheck(Function &function) override;    
     Status RunOnFunction(Function &function) override;
     void AssignMoveOp(Operation &operation);
     void RunOnOperation(Operation &operation);
     void AssignMemUnknown(Function &function);
     void AssignL1CopyIn(Function &function);
     void AssignSpecialOpMemtype(Operation &op);
+    void CheckPattern(Operation *operation,std::queue<std::pair<Operation*,int>> &opQueue,
+        int depth,std::unordered_set<Operation* > &visited);
     std::string PrintTensorMem(std::shared_ptr<LogicalTensor>& tensor) const;
     ConvertInserter inserter;
 };

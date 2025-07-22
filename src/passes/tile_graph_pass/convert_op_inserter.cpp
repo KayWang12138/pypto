@@ -177,6 +177,12 @@ void ConvertInserter::RecordConflict(Function &function) {
     converts.clear();
     std::vector<int> visitedTensor;
     for (const auto &op : function.Operations()) {
+        for (auto &iOperand : op.iOperand) {
+            if(iOperand->GetProducers().size()>=1){
+                continue;
+            }
+            iOperand->SetMemoryTypeToBe(iOperand->GetMemoryTypeOriginal());
+        }
         for (auto &oOperand : op.oOperand) {
             oOperand->SetMemoryTypeToBe(oOperand->GetMemoryTypeOriginal());
             //step1:当tensor不在conflictMap中或者已经在visitedTensor中被处理过，可以跳过，否则需要处理内存冲突
@@ -316,11 +322,17 @@ void ConvertInserter::CheckUnknown(Function &function) const {
                 default: break;
             }
             for (auto &i : op.GetIOperands()) {
-                if(supportedMemType.count(i->GetMemoryTypeToBe()) == 0){ALOG_ERROR_F("Op %d has unsupported mem type %s.",op.opmagic,MemoryTypeToString(i->GetMemoryTypeToBe()));}
+                if(supportedMemType.count(i->GetMemoryTypeToBe()) == 0){
+                    ALOG_DEBUG_F("Op %s[%d] input[%d] has unsupported mem type %s.",op.GetOpcodeStr().c_str(),op.GetOpMagic(),i->magic,MemoryTypeToString(i->GetMemoryTypeToBe()).c_str());
+                }
             }
             for (auto &o : op.GetOOperands()) {
-                if(supportedMemType.count(o->GetMemoryTypeToBe()) == 0){ALOG_ERROR_F("Op %d has unsupported mem type %s.",op.opmagic,MemoryTypeToString(o->GetMemoryTypeToBe()));}
-                if(o->GetMemoryTypeOriginal() != o->GetMemoryTypeToBe()){ALOG_ERROR_F("Op %d has to mem type %s and %s.",op.opmagic,MemoryTypeToString(o->GetMemoryTypeToBe()),MemoryTypeToString(o->GetMemoryTypeToBe()));}
+                if(supportedMemType.count(o->GetMemoryTypeToBe()) == 0){
+                    ALOG_DEBUG_F("Op %s[%d] output[%d] has unsupported mem type %s.",op.GetOpcodeStr().c_str(),op.GetOpMagic(),o->magic,MemoryTypeToString(o->GetMemoryTypeToBe()).c_str());
+                }
+                if(o->GetMemoryTypeOriginal() != o->GetMemoryTypeToBe()){
+                    ALOG_DEBUG_F("Op %s[%d] output[%d] has two mem type %s and %s.",op.GetOpcodeStr().c_str(),op.GetOpMagic(),o->magic,MemoryTypeToString(o->GetMemoryTypeToBe()).c_str(),MemoryTypeToString(o->GetMemoryTypeToBe()).c_str());
+                }
             }
         }
     });

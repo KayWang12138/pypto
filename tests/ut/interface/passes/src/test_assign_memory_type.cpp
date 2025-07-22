@@ -139,21 +139,21 @@ TEST_F(AssignMemoryTypeTest, AddReshape) {
     assemble_output->SetMemoryTypeBoth(MEM_UNKNOWN);
     assemble_output->SetMagic(tensorMagic5);
 
-    auto &view_op1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input_tensor1}, {view_output1});
+    auto &view_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {input_tensor1}, {view_output1});
     view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int>{0, 0}));
     view_op1.opmagic = opMagic0;
 
-    auto &view_op2 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input_tensor2}, {view_output2});
+    auto &view_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {input_tensor2}, {view_output2});
     view_op2.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int>{0, 0}));
     view_op2.opmagic = opMagic3;
 
-    auto &add_op = currFunctionPtr->AddOperation(Opcode::OP_ADD, {view_output1, view_output2}, {add_output});
+    auto &add_op = currFunctionPtr->AddRawOperation(Opcode::OP_ADD, {view_output1, view_output2}, {add_output});
     add_op.opmagic = opMagic1;
 
-    auto &reshape_op = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {add_output}, {reshape_output});
+    auto &reshape_op = currFunctionPtr->AddRawOperation(Opcode::OP_RESHAPE, {add_output}, {reshape_output});
     reshape_op.opmagic = opMagic4;
 
-    auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {reshape_output}, {assemble_output});
+    auto &assemble_op = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {reshape_output}, {assemble_output});
     assemble_op.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int>{0, 0}));
     assemble_op.opmagic = opMagic2;
 
@@ -342,5 +342,125 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCubeV2) {
         EXPECT_EQ(convertNum, expextedConvertNum) << "12 operations should be Convert";
     }
 }
+
+void GetInvalidPatternGraph(std::shared_ptr<Function> &currFunctionPtr){
+    constexpr int opMagic0 = 1001;
+    constexpr int opMagic1 = 1002;
+    constexpr int opMagic2 = 1003;
+    constexpr int opMagic3 = 1004;
+    constexpr int opMagic4 = 1005;
+    constexpr int opMagic5 = 1006;
+    constexpr int opMagic6 = 1007;
+    constexpr int opMagic7 = 1008;
+
+    constexpr int tensorMagic0 = 1;
+    constexpr int tensorMagic1 = 2;
+    constexpr int tensorMagic2 = 3;
+    constexpr int tensorMagic3 = 4;
+    constexpr int tensorMagic4 = 5;
+    constexpr int tensorMagic5 = 6;
+    constexpr int tensorMagic6 = 7;
+    constexpr int tensorMagic7 = 8;
+    // Prepare the graph
+    std::vector<int> shape = {16, 32};
+    std::vector<int> shape1 = {32,16};
+    std::vector<int> shape2 = {8,32};
+    std::vector<int> shape3 = {32,8};
+    std::shared_ptr<LogicalTensor> input_cast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    input_cast->SetMagic(tensorMagic0);
+
+    std::shared_ptr<LogicalTensor> input_tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    input_tensor1->SetMagic(tensorMagic1);
+
+    std::shared_ptr<LogicalTensor> view_output1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    view_output1->SetMagic(tensorMagic2);
+
+    std::shared_ptr<LogicalTensor> view_output2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    view_output2->SetMagic(tensorMagic3);
+
+    std::shared_ptr<LogicalTensor> reshape_output1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
+    reshape_output1->SetMagic(tensorMagic4);
+
+    std::shared_ptr<LogicalTensor> reshape_output2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
+    reshape_output2->SetMagic(tensorMagic5);
+
+    std::shared_ptr<LogicalTensor> assemble_output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    assemble_output->SetMagic(tensorMagic6);
+
+    std::shared_ptr<LogicalTensor> output_cast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    output_cast->SetMagic(tensorMagic7);
+
+    auto &reshape_op0 = currFunctionPtr->AddRawOperation(Opcode::OP_RESHAPE, {input_cast}, {input_tensor1});
+    reshape_op0.opmagic = opMagic0;
+
+    auto &view_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {input_tensor1}, {view_output1});
+    view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int>{0, 0}));
+    view_op1.opmagic = opMagic1;
+
+    auto &view_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {input_tensor1}, {view_output2});
+    view_op2.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int>{8, 0}));
+    view_op2.opmagic = opMagic2;
+
+    auto &reshape_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_RESHAPE, {view_output1}, {reshape_output1});
+    reshape_op1.opmagic = opMagic3;
+
+    auto &reshape_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_RESHAPE, {view_output2}, {reshape_output2});
+    reshape_op2.opmagic = opMagic4;
+
+    auto &assemble_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {reshape_output1}, {assemble_output});
+    assemble_op1.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int>{0, 0}));
+    assemble_op1.opmagic = opMagic5;
+
+    auto &assemble_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {reshape_output2}, {assemble_output});
+    assemble_op2.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int>{8, 0}));
+    assemble_op2.opmagic = opMagic6;
+
+    auto &view_op3 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {assemble_output}, {output_cast});
+    view_op3.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int>{0, 0}));
+    view_op3.opmagic = opMagic7;
+
+    currFunctionPtr->inCasts_.push_back(input_cast);
+    currFunctionPtr->outCasts_.push_back(output_cast);
+}
+TEST_F(AssignMemoryTypeTest, InValidOpPattern) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "InValidOpPattern", "InValidOpPattern", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    Program::GetInstance().InsertFuncToFunctionMap("InValidOpPattern", currFunctionPtr);
+    
+    GetInvalidPatternGraph(currFunctionPtr);
+
+    std::stringstream ssBefore;
+    ssBefore << "Before_AssignMemoryType";
+
+    // Call the pass
+    AssignMemoryType assignMemoryType;
+    assignMemoryType.PreCheck(*currFunctionPtr);
+    assignMemoryType.RunOnFunction(*currFunctionPtr);
+    assignMemoryType.PostCheck(*currFunctionPtr);
+
+    std::stringstream ss;
+    ss << "After_AssignMemoryType";
+
+    std::string josnFilePath = "/config/pass/json/assign_mem_type_invalidpattern.json";
+    currFunctionPtr->DumpJsonFile(josnFilePath);
+
+    // Validate the results
+    std::cout << "========== op size: " << currFunctionPtr->Operations().size() << std::endl;
+    for (auto &op : currFunctionPtr->Operations()) {
+        std::cout << op.GetOpcodeStr() << " " << op.GetOpMagic() << std::endl;
+        for (auto &input : op.GetIOperands()) {
+            std::cout << "\t|--- iOperand " << input->magic;
+            EXPECT_EQ(input->GetMemoryTypeOriginal(), MemoryType::MEM_DEVICE_DDR) << " Unexpected memory type.";
+            EXPECT_EQ(input->GetMemoryTypeOriginal(), input->GetMemoryTypeToBe()) << " iOperand has two memory type.";
+        }
+        for (auto &output : op.GetOOperands()) {
+            std::cout << "\t|--- oOperand " << output->magic;
+            EXPECT_EQ(output->GetMemoryTypeOriginal(), MemoryType::MEM_DEVICE_DDR) << " Unexpected memory type.";
+            EXPECT_EQ(output->GetMemoryTypeOriginal(), output->GetMemoryTypeToBe()) << " oOperand has two memory type.";
+        }
+    }
+}
+
 }
 } // namespace npu::tile_fwk

@@ -27,6 +27,8 @@
 
 using namespace npu::tile_fwk;
 
+namespace npu{
+namespace tile_fwk {
 class GenerateMoveOpPassTest : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
@@ -42,6 +44,115 @@ public:
     }
     void TearDown() override {}
 };
+void GetCopyInCopyOutGraph(std::shared_ptr<Function> &currFunctionPtr){
+    constexpr int opMagic0 = 1001;
+    constexpr int opMagic1 = 1002;
+    constexpr int opMagic2 = 1003;
+    constexpr int opMagic3 = 1004;
+    constexpr int opMagic4 = 1005;
+    constexpr int opMagic5 = 1006;
+
+    constexpr int tensorMagic0 = 1;
+    constexpr int tensorMagic1 = 2;
+    constexpr int tensorMagic2 = 3;
+    constexpr int tensorMagic3 = 4;
+    constexpr int tensorMagic4 = 5;
+    constexpr int tensorMagic5 = 6;
+
+    // Prepare the graph
+    std::vector<int> shape = {16, 32};
+    std::vector<int> shape1 = {8,32};
+    std::shared_ptr<LogicalTensor> start_tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    start_tensor->SetMagic(tensorMagic0);
+
+    std::shared_ptr<LogicalTensor> tmp_tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tmp_tensor->SetMagic(tensorMagic1);
+
+    std::shared_ptr<LogicalTensor> end_tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    end_tensor->SetMagic(tensorMagic2);
+
+    std::shared_ptr<LogicalTensor> output_tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    output_tensor1->SetMagic(tensorMagic3);
+
+    std::shared_ptr<LogicalTensor> output_tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    output_tensor2->SetMagic(tensorMagic4);
+
+    std::shared_ptr<LogicalTensor> assemble_output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    assemble_output->SetMagic(tensorMagic5);
+
+    auto &copy_in = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {start_tensor}, {tmp_tensor});
+    copy_in.opmagic = opMagic0;
+
+    auto &copy_out = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {tmp_tensor}, {end_tensor});
+    copy_out.opmagic = opMagic1;
+
+    auto &view_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {end_tensor}, {output_tensor1});
+    view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int>{0, 0}));
+    view_op1.opmagic = opMagic2;
+
+    auto &view_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {end_tensor}, {output_tensor2});
+    view_op2.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int>{8, 0}));
+    view_op2.opmagic = opMagic3;
+
+    auto &assemble_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {output_tensor1}, {assemble_output});
+    assemble_op1.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int>{0, 0}));
+    assemble_op1.opmagic = opMagic4;
+
+    auto &assemble_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {output_tensor2}, {assemble_output});
+    assemble_op2.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int>{8, 0}));
+    assemble_op2.opmagic = opMagic5;
+
+    currFunctionPtr->inCasts_.push_back(start_tensor);
+    currFunctionPtr->outCasts_.push_back(assemble_output);
+}
+TEST_F(GenerateMoveOpPassTest, MergeCopyInCopyOut) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "MergeCopyInCopyOut", "MergeCopyInCopyOut", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    Program::GetInstance().InsertFuncToFunctionMap("MergeCopyInCopyOut", currFunctionPtr);
+    
+    GetCopyInCopyOutGraph(currFunctionPtr);
+
+    std::stringstream ssBefore;
+    ssBefore << "Before_GenerateMoveOp";
+
+    // Call the pass
+    GenerateMoveOp generateMoveOp;
+    generateMoveOp.PreCheck(*currFunctionPtr);
+    generateMoveOp.RunOnFunction(*currFunctionPtr);
+    generateMoveOp.PostCheck(*currFunctionPtr);
+
+    std::stringstream ss;
+    ss << "After_GenerateMoveOp";
+
+    // Validate the results
+    std::cout << "========== op size: " << currFunctionPtr->Operations().size() << std::endl;
+    int view_num = 0;
+    int copy_in_num = 0;
+    int copy_out_num = 0;
+    for (auto &op : currFunctionPtr->Operations()) {
+        std::cout << op.GetOpcodeStr() << " " << op.GetOpMagic() << std::endl;
+        for (auto &input : op.GetIOperands()) {
+            std::cout << "\t|--- iOperand " << input->magic;
+        }
+        for (auto &output : op.GetOOperands()) {
+            std::cout << "\t|--- oOperand " << output->magic;
+        }
+        if(op.GetOpcode()==Opcode::OP_VIEW){
+            view_num++;
+        }else if(op.GetOpcode()==Opcode::OP_COPY_IN){
+            copy_in_num++;
+        }else if(op.GetOpcode()==Opcode::OP_COPY_OUT) {
+            copy_out_num++;
+        }
+    }
+    constexpr int expectedView =2;
+    constexpr int expectedCopyIn =0;
+    constexpr int expectedCopyOut =0;
+    EXPECT_EQ(view_num,expectedView) << "2 operations shoulde be OP_VIEW.";
+    EXPECT_EQ(copy_in_num,expectedCopyIn) << "0 operations shoulde be OP_COPY_IN.";
+    EXPECT_EQ(copy_out_num,expectedCopyOut) << "0 operations shoulde be OP_COPY_OUT.";
+}
 
 TEST_F(GenerateMoveOpPassTest, AssembleViewToCopy) {
     PROGRAM("GenerateMoveOpPassTest") {
@@ -385,3 +496,6 @@ TEST_F(GenerateMoveOpPassTest, ScatterUpdate) {
         EXPECT_EQ(copy_out_num, expectedCopyOut) << "0 operations should be OP_COPY_OUT";
     }
 }
+
+}
+} // namespace npu::tile_fwk

@@ -122,7 +122,7 @@ void GraphParitioner::BuildSuperNodes() {
     }
     for (size_t i = 0; i < opList_.size(); i++) {
         // L1 copy in reuse
-        if (opList_[i]->GetOOperands().size() == 1U && opList_[i]->GetOOperands()[0]->GetMemoryTypeToBe() == MemoryType::MEM_L1) {
+        if (opList_[i]->GetOOperands().size() == 1U && opList_[i]->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
             for (auto outNode : opOutGraph_[i]) {
                 MergeSrcToDstIsland(parent, outNode, i);
             }
@@ -130,8 +130,8 @@ void GraphParitioner::BuildSuperNodes() {
         }
         // assemble 特殊处理, assemble到local tensor，需要将这些assemble统一island
         if (opList_[i]->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            if ((opList_[i]->GetOOperands()[0]->GetMemoryTypeToBe() != MemoryType::MEM_HOST1) &&
-                (opList_[i]->GetOOperands()[0]->GetMemoryTypeToBe() != MemoryType::MEM_DEVICE_DDR)) {
+            if ((opList_[i]->GetOOperands()[0]->GetMemoryTypeOriginal() != MemoryType::MEM_HOST1) &&
+                (opList_[i]->GetOOperands()[0]->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR)) {
                 for (int opIdx : GetSameLevelOpIdx(i, Opcode::OP_ASSEMBLE)) {
                     MergeSrcToDstIsland(parent, opIdx, i);
                 }
@@ -144,7 +144,7 @@ void GraphParitioner::BuildSuperNodes() {
         if (OpcodeManager::Inst().GetOpCalcType(opList_[i]->GetOpcode()) == OpCalcType::MOVE_OUT &&
             opList_[i]->ProducerOps().size() == 1U) {
             for (auto inputTensor : opList_[i]->GetIOperands()) {
-                if (inputTensor->GetMemoryTypeToBe() != MemoryType::MEM_HOST1 && inputTensor->GetMemoryTypeToBe() != MemoryType::MEM_DEVICE_DDR) {
+                if (inputTensor->GetMemoryTypeOriginal() != MemoryType::MEM_HOST1 && inputTensor->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
                     for (auto& producer : inputTensor->GetProducers()) {
                         MergeSrcToDstIsland(parent, opMagic2Idx_[producer->GetOpMagic()], i);
                     }
