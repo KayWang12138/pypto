@@ -122,7 +122,6 @@ std::set<int> DataDependencySearcher::Find(Operation *opWait) {
         if (readDDRmemId != -1 && writeDdrMemMap.count(readDDRmemId) > 0) {
             std::set<int> found = writeDdrMemMap[readDDRmemId];
             res.insert(found.begin(), found.end());
-            res.insert(found.begin(), found.end());
         }
         if (rawSearchTree_.count(readMemoryType) > 0) {
             TileRange rg = opWait->GetIOperands()[inIdx]->memorymap[opWait->GetSubgraphID()];
@@ -208,7 +207,7 @@ Status PipeSync::InsertSync(Function &function, std::vector<Operation *> &synced
     return SUCCESS;
 }
 
-std::string PipeSync::DepOp::Dump(std::vector<Operation *> opLog) {
+std::string PipeSync::DepOp::DumpDepOp(std::vector<Operation *> opLog) {
     std::stringstream ss;
     ss << "idx: " << idx << " opmagic: " << opLog[idx]->GetOpMagic() << ", ";
     if (!opLog.empty()) {
@@ -241,6 +240,25 @@ std::string PipeSync::IssueQueue::DumpIssueQueue(std::vector<Operation *> opLogP
         ss << opLogPtr[op]->GetOpMagic() << " " << opLogPtr[op]->GetOpcodeStr() << ", ";
     }
     ss << "}";
+    return ss.str();
+}
+
+std::string PipeSync::PipeDepInfo::DumpPipeDepInfo() {
+    std::stringstream ss;
+    ss << "    wait idx: " << waitIdx << "\n";
+    ss << "    setPipes:" << "\n";
+    for (auto pair : setPipes) {
+        ss << "        pipetype: " << PipeTypeName(pair.first.pipe) << "  opidx: " << pair.second << "\n";
+    }
+    return ss.str();
+}
+
+std::string PipeSync::DumpLatestPipeDepMap() {
+    std::stringstream ss;
+    for (auto pair : latestPipeDep_) {
+        ss << "current pipe type: " << PipeTypeName(pair.first.pipe) << "\n";
+        ss << pair.second.DumpPipeDepInfo() << "\n";
+    }
     return ss.str();
 }
 
@@ -874,6 +892,40 @@ bool PipeSync::CheckWawDependency(const Operation *opSet, const Operation *opWai
     return false;
 }
 
+bool PipeSync::CheckRawDependency(const Operation *opSet, const Operation *opWait, size_t k, size_t idx) const {
+    for (size_t outIdx = 0; outIdx < opSet->GetOOperands().size(); outIdx++) {
+        for (size_t inIdx = 0; inIdx < opWait->GetIOperands().size(); inIdx++) {
+            auto memTypeSame = opWait->GetIOperands()[inIdx]->GetMemoryTypeOriginal() == opSet->GetOOperands()[outIdx]->GetMemoryTypeOriginal();
+            auto ddrTensorSame = opSet->GetOOperands()[outIdx]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
+                opWait->GetIOperands()[inIdx]->memorymap[opWait->GetSubgraphID()].memId == opSet->GetOOperands()[outIdx]->memorymap[opSet->GetSubgraphID()].memId;
+            auto overlap = BufOverlap(opWait->GetIOperands()[inIdx]->memorymap[opWait->GetSubgraphID()], opSet->GetOOperands()[outIdx]->memorymap[opSet->GetSubgraphID()]);
+            if (memTypeSame && (overlap || ddrTensorSame)) {
+                ALOG_DEBUG_F("        %d %zu %s and %d %zu %s has RAW data dependency", opSet->GetOpMagic(), k, opSet->GetOpcodeStr().c_str(),
+                       opWait->GetOpMagic(), idx, opWait->GetOpcodeStr().c_str());
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool PipeSync::CheckWarDependency(const Operation *opSet, const Operation *opWait, size_t k, size_t idx) const {
+    for (size_t outIdx = 0; outIdx < opWait->GetOOperands().size(); outIdx++) {
+        for (size_t inIdx = 0; inIdx < opSet->GetIOperands().size(); inIdx++) {
+            auto memTypeSame = opSet->GetIOperands()[inIdx]->GetMemoryTypeOriginal() == opWait->GetOOperands()[outIdx]->GetMemoryTypeOriginal();
+            auto ddrTensorSame = opSet->GetIOperands()[inIdx]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
+                opWait->GetOOperands()[outIdx]->memorymap[opWait->GetSubgraphID()].memId == opSet->GetIOperands()[inIdx]->memorymap[opSet->GetSubgraphID()].memId;
+            auto overlap = BufOverlap(opSet->GetIOperands()[inIdx]->memorymap[opSet->GetSubgraphID()], opWait->GetOOperands()[outIdx]->memorymap[opWait->GetSubgraphID()]);
+            if (memTypeSame && (overlap || ddrTensorSame)) {
+                ALOG_DEBUG_F("        %d %zu %s and %d %zu %s has WAR data dependency", opSet->GetOpMagic(), k, opSet->GetOpcodeStr().c_str(),
+                       opWait->GetOpMagic(), idx, opWait->GetOpcodeStr().c_str());
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 bool PipeSync::HasDataDependency(const Operation *opSet, const Operation *opWait, size_t k, size_t idx) const {
     std::string opSetStr = opSet->GetOpcodeStr();
     std::string opWaitStr = opWait->GetOpcodeStr();
@@ -892,34 +944,15 @@ bool PipeSync::HasDataDependency(const Operation *opSet, const Operation *opWait
     }
 
     // check RAW
-    for (size_t outIdx = 0; outIdx < opSet->GetOOperands().size(); outIdx++) {
-        for (size_t inIdx = 0; inIdx < opWait->GetIOperands().size(); inIdx++) {
-            auto memTypeSame = opWait->GetIOperands()[inIdx]->GetMemoryTypeOriginal() == opSet->GetOOperands()[outIdx]->GetMemoryTypeOriginal();
-            auto ddrTensorSame = opSet->GetOOperands()[outIdx]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
-                opWait->GetIOperands()[inIdx]->memorymap[opWait->GetSubgraphID()].memId == opSet->GetOOperands()[outIdx]->memorymap[opSet->GetSubgraphID()].memId;
-            auto overlap = BufOverlap(opWait->GetIOperands()[inIdx]->memorymap[opWait->GetSubgraphID()], opSet->GetOOperands()[outIdx]->memorymap[opSet->GetSubgraphID()]);
-            if (memTypeSame && (overlap || ddrTensorSame)) {
-                ALOG_DEBUG_F("        %d %zu %s and %d %zu %s has RAW data dependency", opSet->GetOpMagic(), k, opSet->GetOpcodeStr().c_str(),
-                       opWait->GetOpMagic(), idx, opWait->GetOpcodeStr().c_str());
-                return true;
-            }
-        }
+    if (CheckRawDependency(opSet, opWait, k, idx)) {
+        return true;
     }
 
     // check WAR
-    for (size_t outIdx = 0; outIdx < opWait->GetOOperands().size(); outIdx++) {
-        for (size_t inIdx = 0; inIdx < opSet->GetIOperands().size(); inIdx++) {
-            auto memTypeSame = opSet->GetIOperands()[inIdx]->GetMemoryTypeOriginal() == opWait->GetOOperands()[outIdx]->GetMemoryTypeOriginal();
-            auto ddrTensorSame = opSet->GetIOperands()[inIdx]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
-                opWait->GetOOperands()[outIdx]->memorymap[opWait->GetSubgraphID()].memId == opSet->GetIOperands()[inIdx]->memorymap[opSet->GetSubgraphID()].memId;
-            auto overlap = BufOverlap(opSet->GetIOperands()[inIdx]->memorymap[opSet->GetSubgraphID()], opWait->GetOOperands()[outIdx]->memorymap[opWait->GetSubgraphID()]);
-            if (memTypeSame && (overlap || ddrTensorSame)) {
-                ALOG_DEBUG_F("        %d %zu %s and %d %zu %s has WAR data dependency", opSet->GetOpMagic(), k, opSet->GetOpcodeStr().c_str(),
-                       opWait->GetOpMagic(), idx, opWait->GetOpcodeStr().c_str());
-                return true;
-            }
-        }
+    if (CheckWarDependency(opSet, opWait, k, idx)) {
+        return true;
     }
+
     return false;
 }
 
@@ -998,29 +1031,28 @@ bool PipeSync::IgnorableIntraPipeDep(size_t prev, size_t curr, const std::vector
 
 // find depend op in opLog for 0 to idx
 void PipeSync::FindDep(DepOp &op, const std::vector<Operation *> opLogPtr, size_t idx, DataDependencySearcher& dataDependencySearcher) {
-    const auto currAOp = opLogPtr[idx];
-    ALOG_DEBUG_F("=== OP: %d %zu %s ===", currAOp->GetOpMagic(), idx, currAOp->GetOpcodeStr().c_str());
+    const auto currOp = opLogPtr[idx];
+    ALOG_DEBUG_F("=== OP: %d %zu %s ===", currOp->GetOpMagic(), idx, currOp->GetOpcodeStr().c_str());
     // check dependency from latest op to oldest
-    auto dataDependencySet = dataDependencySearcher.Find(currAOp);
-    for (auto it = dataDependencySet.rbegin();it!=dataDependencySet.rend();it++){
+    auto dataDependencySet = dataDependencySearcher.Find(currOp);
+    for (auto it = dataDependencySet.rbegin(); it != dataDependencySet.rend(); it++) {
         size_t k = *it;
         const Operation *prevAOp = opLogPtr[k];
         DepOp &prevOp = depOps_[k];
         ALOG_DEBUG_F("    current process ops: %d %zu %s and %d %zu %s", prevAOp->GetOpMagic(), k, prevAOp->GetOpcodeStr().c_str(),
-            currAOp->GetOpMagic(), idx, currAOp->GetOpcodeStr().c_str());
+            currOp->GetOpMagic(), idx, currOp->GetOpcodeStr().c_str());
 
-        if (HasDataDependency(prevAOp, currAOp, k, idx)) {
+        if (HasDataDependency(prevAOp, currOp, k, idx)) {
             bool ignorable = false;
             if (IgnorableIntraPipeDep(k, idx, opLogPtr)) {
                 ignorable = true;
             }
             if (!ignorable) {
                 UpdateDep(op, prevOp);
-                PipeCoreReal prevOpPipeCore(prevOp.selfPipeCore.pipeEnd, prevOp.selfPipeCore.core);
             }
         }
     }
-    dataDependencySearcher.Insert(currAOp,idx);
+    dataDependencySearcher.Insert(currOp, idx);
 }
 
 std::deque<int> &PipeSync::GetFreeEventIdQueue(const PipePair &pp) {

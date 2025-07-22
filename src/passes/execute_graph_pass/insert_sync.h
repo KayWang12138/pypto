@@ -155,7 +155,7 @@ private:
 
         std::vector<size_t> setPipe;  // this op will set_flag for op in setPipe; 后
         std::vector<size_t> waitPipe; // this op will wait_flag for op in waitPipe; 前
-        std::string Dump(std::vector<Operation *> opLog = {});
+        std::string DumpDepOp(std::vector<Operation *> opLog = {});
     };
 
     struct IssueQueue {
@@ -169,6 +169,7 @@ private:
     struct PipeDepInfo {
         size_t waitIdx;
         std::map<PipeCoreReal, size_t, PipeCoreRealCompare> setPipes;
+        std::string DumpPipeDepInfo();
     };
 
     struct DataDepInfo {
@@ -211,6 +212,8 @@ private:
     bool HasFreeEventId(const PipePair &pp);
     bool BufOverlap(const TileRange &range1, const TileRange &range2) const;
     bool CheckWawDependency(const Operation *opSet, const Operation *opWait, size_t k, size_t idx) const;
+    bool CheckRawDependency(const Operation *opSet, const Operation *opWait, size_t k, size_t idx) const;
+    bool CheckWarDependency(const Operation *opSet, const Operation *opWait, size_t k, size_t idx) const;
     bool HasDataDependency(const Operation *opSet, const Operation *opWait, size_t k, size_t idx) const;
     void UpdateDep(DepOp &currOp, DepOp &prevOp);
     bool IgnorableIntraPipeDep(size_t prev, size_t curr, const std::vector<Operation *> opLogPtr);
@@ -219,6 +222,7 @@ private:
     int GetMaxEventId(const PipePair &pp);
     Status ProcessViewAssemble(std::vector<Operation *> &opLogNew, std::pair<Operation *, Operation *> pair);
     Status ReorderViewAssemble(std::vector<Operation *> &opLog, std::vector<Operation *> &opListNew, const std::unordered_map<Operation *, Operation *> &changeMap);
+    std::string DumpLatestPipeDepMap();
 
     std::vector<DepOp> depOps_;
     // Cube: MTE2, MTE1, M, FIX, Vector: MTE2, V, MTE3
