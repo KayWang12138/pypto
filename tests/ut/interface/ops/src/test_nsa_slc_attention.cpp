@@ -78,9 +78,9 @@ void TestSaUT(std::vector<int> &input_param, SaTileShapeConfig& tileConfig, SaCo
     std::vector<int> qRopeShape = {b * sq * nq, dr};
     std::vector<int> kSlcShape = {b * sq * nkv * smax, dn + dr};
     std::vector<int> vSlcShape = {b * sq * nkv * smax, dn};
-    std::vector<int> saOutShape = {b * sq * nq, dn};
+    std::vector<int> saOutShape = {b, sq, nq, dn};
 
-    Tensor actSeqs(DT_INT32, {b}, "actSeqs");
+    Tensor actSeqs(DT_INT32, {b, sq}, "actSeqs");
     Tensor qNope(dType, qNopeShape, "qNope");
     Tensor qRope(dType, qRopeShape, "qRope");
     Tensor kSlc(dType, kSlcShape, "kSlc", NodeType::LOCAL, kvFormat);

@@ -64,13 +64,13 @@ set(_CaseFilterList
         "DynamicGatherTest.TestDynamicGatherDim3"
         "DynamicDatamoveTest.TestDynamicDatamove"
         "DynamicBrcTest.TestDynamicMulBrcUnalign"
-        "DynamicSlcTest.dynamic_p_slc_bf16"
-        "DynamicSlcTest.dynamic_p_slc_fp16"
-
+        
         #===========================================================================
         # NSA native spare attention
         #===========================================================================
         "TestGenAtten.TestOnboardGenAttenTest_FP16_S1"
+        "DynamicSlcTest.dynamic_p_slc_bf16"
+        "DynamicSlcTest.dynamic_p_slc_fp16"
 
         # PaPost
         #===========================================================================
@@ -78,12 +78,6 @@ set(_CaseFilterList
         # "DynamicAttentionPostTest.dynamic_pa_post_new_mm5nz_splitk_low"
         # "DynamicAttentionPostTest.dynamic_pa_papost_bf16_b48"
 
-        # Attention
-
-        # NSA
-        "DynamicSATest.slc_attn_fp16"
-        "DynamicSATest.slc_attn_bf16"
-        "DynamicSATest.slc_attn_mtp_s1_2_fp16"
 
         #===========================================================================
         # AstApi

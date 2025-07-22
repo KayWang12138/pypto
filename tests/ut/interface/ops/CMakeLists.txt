@@ -36,6 +36,7 @@ set(_CaseFilterList
         # NSA AttentionPost
         "AttentionPostUTest.b32_s1_nz_fp16_quant"
         # NSA
+        "NSAUtest.nsa_b_16_fp16"
         "SlcAttnUtest.slc_attn_fp16"
 
         # 前端表达'单 Op'用例

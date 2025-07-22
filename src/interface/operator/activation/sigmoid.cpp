@@ -37,11 +37,13 @@ constexpr float F_NEGA_1 = -1.0;
 
 Tensor Sigmoid(const Tensor &input) {
     // 1/(1+exp(-x))
-    auto expRes = Exp(MulS(input, Element(DataType::DT_FP32, F_NEGA_1)));
+    auto fp32Operand = Cast(input, DataType::DT_FP32);
+    auto expRes = Exp(MulS(fp32Operand, Element(DataType::DT_FP32, F_NEGA_1)));
     auto res = AddS(expRes, Element(DataType::DT_FP32, F_1));
     Element src(DataType::DT_FP32, 1.0f);
-    auto ones = VectorDuplicate(src, DT_FP32, res.GetShape());
+    auto ones = VectorDuplicate(src, DataType::DT_FP32, res.GetShape());
     res = Div(ones, res);
+    res = Cast(res, input->Datatype());
     return res;
 }
 

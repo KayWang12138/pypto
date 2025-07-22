@@ -116,11 +116,11 @@ def compute_attention(q, k, v, actualSeq, scalar, atten_out_shape):
 
     # 遍历每个批次
     for i in range(b):
-        # 获取当前批次的实际序列长度
-        kv_seq_len = actualSeq[i]
 
         # 遍历每个s_q
         for j in range(s_q):
+            # 获取当前批次的实际序列长度
+            kv_seq_len = actualSeq[i][j]
 
             seq_len = max(kv_seq_len - s_q + 1 + j, 0) # s_q!=1 MTP场景下的casual计算
             print("==============cur s1 seq_len: ", seq_len)
@@ -198,9 +198,9 @@ def sa_func(case_name: str, output: Path) -> bool:
     scalar = d_q ** -0.5
 
     if isinstance(skv, int):
-        actual_seq = [skv] * b
+        actual_seq = [[skv] * s_q for _ in range(b)]
     elif isinstance(skv, list):
-        if len(skv) == b:
+        if len(skv) == b and len(skv[0]) == s_q:
             actual_seq = skv
         else:
             raise RuntimeError("unsupported skv list length")
