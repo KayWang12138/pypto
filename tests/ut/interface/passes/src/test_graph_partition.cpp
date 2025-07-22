@@ -167,7 +167,7 @@ TEST_F(GraphPartitionTest, TestSuperNode) {
         int opIdx = partitioner.operationInfo_->magic2Idx_[opMagic];
         frontReshapeNode.insert(partitioner.superNodeInfo_->op2Node_[opIdx]);
     }
-    EXPECT_EQ(frontReshapeNode.size(), 1);
+    EXPECT_EQ(frontReshapeNode.size(), brNum);
     std::unordered_set<int> backReshapeNode;
     for (int i = 0; i < brNum; i++) {
         EXPECT_NE(G.GetOp("RESHAPE_OUT" + std::to_string(i)), nullptr);
@@ -176,7 +176,7 @@ TEST_F(GraphPartitionTest, TestSuperNode) {
         backReshapeNode.insert(partitioner.superNodeInfo_->op2Node_[opIdx]);
     }
     EXPECT_EQ(backReshapeNode.size(), brNum);
-    const int subGraphNum = 6;
+    const int subGraphNum = 9;
     EXPECT_EQ(function->GetTotalSubGraphCount(), subGraphNum);
 }
 

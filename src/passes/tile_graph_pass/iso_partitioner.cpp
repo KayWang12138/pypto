@@ -324,12 +324,6 @@ inline bool AssembleCombine(const std::shared_ptr<OperationGraphInfo> operationI
         if (opList[i]->GetOOperands().size() == 0) {
             return false;
         }
-        if ((opList[i]->GetOOperands()[0]->GetMemoryTypeOriginal() != MemoryType::MEM_HOST1) &&
-            (opList[i]->GetOOperands()[0]->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR)) {
-            for (int32_t opIdx : operationInfo->GetSameLevelOpIdx(i, Opcode::OP_ASSEMBLE)) {
-                mergePair.emplace_back(opIdx, i);
-            }
-        }
         // assmemble和其输入绑定
         if (operationInfo->inGraph_[i].size() > 0) {
             mergePair.emplace_back(i, *(operationInfo->inGraph_[i].begin()));
