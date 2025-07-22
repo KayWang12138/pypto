@@ -28,13 +28,18 @@
 
 #ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
 #include "securec.h"
+#ifndef ENABLE_HCCL_STUB
 #include "hccl/hcom.h"
+#endif
 #include "kernel_tiling/kernel_tiling.h"
 
 #ifndef ENABLE_HCCL_STUB
 extern "C" HcclResult HcclAllocComResourceByTiling(HcclComm comm, void *stream, void *mc2Tiling, void **commContext);
 #else
 typedef void *HcclComm;
+enum HcclResult {
+    HCCL_SUCCESS = 0
+};
 HcclResult HcclAllocComResourceByTiling(HcclComm comm, void *stream, void *mc2Tiling, void **commContext) {
     (void)comm;
     (void)stream;

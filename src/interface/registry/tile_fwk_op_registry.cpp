@@ -16,32 +16,29 @@
 #include "interface/registry/tile_fwk_op_registry.h"
 
 namespace npu::tile_fwk {
-TileFwkOpRegister::TileFwkOpRegister(const std::string &opType) : opType_(opType) {}
+OpImplRegister::OpImplRegister(const std::string &opType) : opType_(opType) {}
 
-TileFwkOpRegister::TileFwkOpRegister(const TileFwkOpRegister &registerData) {
+OpImplRegister::OpImplRegister(const OpImplRegister &registerData) {
     this->opType_ = registerData.opType_;
     this->implFuncMap_ = registerData.implFuncMap_;
 }
 
-TileFwkOpRegister::~TileFwkOpRegister() {
-    opType_.clear();
-    implFuncMap_.clear();
-}
+OpImplRegister::~OpImplRegister() {}
 
-void TileFwkOpRegister::AddImplFunc(const std::map<uint64_t, TileFwkOpImplFunc> &implFuncMap) {
+void OpImplRegister::AddImplFunc(const std::map<uint64_t, OpImplFunc> &implFuncMap) {
     if (!implFuncMap.empty()) {
         implFuncMap_.insert(implFuncMap.begin(), implFuncMap.end());
     }
 }
 
-void TileFwkOpRegister::AddImplFunc(const uint64_t configKey, const TileFwkOpImplFunc implFunc) {
+void OpImplRegister::AddImplFunc(const uint64_t configKey, const OpImplFunc implFunc) {
     if (implFunc == nullptr) {
         return;
     }
     implFuncMap_.emplace(configKey, implFunc);
 }
 
-std::vector<uint64_t> TileFwkOpRegister::GetAllConfigKeys() const {
+std::vector<uint64_t> OpImplRegister::GetAllConfigKeys() const {
     std::vector<uint64_t> configKeys;
     for (const auto &item : implFuncMap_) {
         configKeys.emplace_back(item.first);
@@ -49,20 +46,20 @@ std::vector<uint64_t> TileFwkOpRegister::GetAllConfigKeys() const {
     return configKeys;
 }
 
-TileFwkOpImplFunc TileFwkOpRegister::GetOpImplFunc(const uint64_t configKey) const {
+OpImplFunc OpImplRegister::GetOpImplFunc(const uint64_t configKey) const {
     auto iter = implFuncMap_.find(configKey);
     return iter == implFuncMap_.end() ? nullptr : iter->second;
 }
 
-TileFwkOpRegistry &TileFwkOpRegistry::GetInstance() {
-    static TileFwkOpRegistry instance;
+OpImplRegistry &OpImplRegistry::GetInstance() {
+    static OpImplRegistry instance;
     return instance;
 }
 
-TileFwkOpRegisterPtr TileFwkOpRegistry::CreateOrGetOpRegister(const std::string &opType) {
+OpImplRegisterPtr OpImplRegistry::CreateOrGetOpRegister(const std::string &opType) {
     auto iter = opRegisterMap_.find(opType);
     if (iter == opRegisterMap_.end()) {
-        TileFwkOpRegisterPtr opRegister = std::make_shared<TileFwkOpRegister>(opType);
+        OpImplRegisterPtr opRegister = std::make_shared<OpImplRegister>(opType);
         opRegisterMap_.emplace(opType, opRegister);
         return opRegister;
     } else {
@@ -70,7 +67,7 @@ TileFwkOpRegisterPtr TileFwkOpRegistry::CreateOrGetOpRegister(const std::string 
     }
 }
 
-TileFwkOpImplFunc TileFwkOpRegistry::GetOpImplFunc(const std::string &opType, const uint64_t configKey) const {
+OpImplFunc OpImplRegistry::GetOpImplFunc(const std::string &opType, const uint64_t configKey) const {
     auto iter = opRegisterMap_.find(opType);
     if (iter == opRegisterMap_.end()) {
         return nullptr;
@@ -78,7 +75,7 @@ TileFwkOpImplFunc TileFwkOpRegistry::GetOpImplFunc(const std::string &opType, co
     return iter->second->GetOpImplFunc(configKey);
 }
 
-std::vector<uint64_t> TileFwkOpRegistry::GetAllConfigKeys(const std::string &opType) const {
+std::vector<uint64_t> OpImplRegistry::GetAllConfigKeys(const std::string &opType) const {
     std::vector<uint64_t> configKeys;
     auto iter = opRegisterMap_.find(opType);
     if (iter != opRegisterMap_.end()) {
@@ -87,19 +84,19 @@ std::vector<uint64_t> TileFwkOpRegistry::GetAllConfigKeys(const std::string &opT
     return configKeys;
 }
 
-TileFwkOpRegistHelper::TileFwkOpRegistHelper(const std::string &opType) {
-    opRegister_ = TileFwkOpRegistry::GetInstance().CreateOrGetOpRegister(opType);
+OpImplRegistHelper::OpImplRegistHelper(const std::string &opType) {
+    opRegister_ = OpImplRegistry::GetInstance().CreateOrGetOpRegister(opType);
 }
 
-TileFwkOpRegistHelper::~TileFwkOpRegistHelper() {}
+OpImplRegistHelper::~OpImplRegistHelper() {}
 
-TileFwkOpRegistHelper &TileFwkOpRegistHelper::ImplFunc(const std::map<uint64_t, TileFwkOpImplFunc> &implFuncMap) {
+OpImplRegistHelper &OpImplRegistHelper::ImplFunc(const std::map<uint64_t, OpImplFunc> &implFuncMap) {
     if (opRegister_ != nullptr) {
         opRegister_->AddImplFunc(implFuncMap);
     }
     return *this;
 }
-TileFwkOpRegistHelper &TileFwkOpRegistHelper::ImplFunc(const uint64_t configKey, const TileFwkOpImplFunc implFunc) {
+OpImplRegistHelper &OpImplRegistHelper::ImplFunc(const uint64_t configKey, const OpImplFunc implFunc) {
     if (opRegister_ != nullptr) {
         opRegister_->AddImplFunc(configKey, implFunc);
     }

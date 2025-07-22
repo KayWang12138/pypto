@@ -144,7 +144,7 @@ extern "C" bool TileFwkCompileFatbin(const char *opType, const char *socVersion,
     (void)PlatformManager::Instance().Initialize(socVersion);
     // load op impl so
     void *opLibHandle = KernelDumpUtils::LoadTileFwkImplOpLib();
-    std::vector<uint64_t> configKeys = TileFwkOpRegistry::GetInstance().GetAllConfigKeys(opType);
+    std::vector<uint64_t> configKeys = OpImplRegistry::GetInstance().GetAllConfigKeys(opType);
     if (configKeys.empty()) {
         ALOG_INFO_F("Cannot find registered configKeys of op type[%s].", opType);
         KernelDumpUtils::FreeOpHandle(opLibHandle);
@@ -211,7 +211,7 @@ bool TileOpCompile(const std::string &opType, const uint64_t configKey, const st
     config::SetHostConfig(KEY_DUMP_KERNEL_NAME, kernelName);
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
 
-    TileFwkOpImplFunc opFunc = TileFwkOpRegistry::GetInstance().GetOpImplFunc(opType, configKey);
+    OpImplFunc opFunc = OpImplRegistry::GetInstance().GetOpImplFunc(opType, configKey);
     if (opFunc == nullptr) {
         ALOG_WARN("Op impl func is not found.");
         return false;

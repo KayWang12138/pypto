@@ -20,51 +20,49 @@
 #include "tilefwk/tensor.h"
 
 namespace npu::tile_fwk {
-using TileFwkOpImplFunc = void (*)(uint64_t);
-class TileFwkOpRegister {
+using OpImplFunc = void (*)(uint64_t);
+class OpImplRegister {
 public:
-    explicit TileFwkOpRegister(const std::string &opType);
-    TileFwkOpRegister(const TileFwkOpRegister &registerData);
-    TileFwkOpRegister &operator=(const TileFwkOpRegister &) = delete;
-    TileFwkOpRegister &operator=(TileFwkOpRegister &&) = delete;
-    ~TileFwkOpRegister();
-    void AddImplFunc(const std::map<uint64_t, TileFwkOpImplFunc> &implFuncMap);
-    void AddImplFunc(const uint64_t configKey, const TileFwkOpImplFunc implFunc);
+    explicit OpImplRegister(const std::string &opType);
+    OpImplRegister(const OpImplRegister &registerData);
+    OpImplRegister &operator=(const OpImplRegister &) = delete;
+    OpImplRegister &operator=(OpImplRegister &&) = delete;
+    ~OpImplRegister();
+    void AddImplFunc(const std::map<uint64_t, OpImplFunc> &implFuncMap);
+    void AddImplFunc(const uint64_t configKey, const OpImplFunc implFunc);
     std::vector<uint64_t> GetAllConfigKeys() const;
-    TileFwkOpImplFunc GetOpImplFunc(const uint64_t configKey) const;
+    OpImplFunc GetOpImplFunc(const uint64_t configKey) const;
 private:
     std::string opType_;
-    std::map<uint64_t, TileFwkOpImplFunc> implFuncMap_;
+    std::map<uint64_t, OpImplFunc> implFuncMap_;
 };
-using TileFwkOpRegisterPtr = std::shared_ptr<TileFwkOpRegister>;
+using OpImplRegisterPtr = std::shared_ptr<OpImplRegister>;
 
-class TileFwkOpRegistry {
+class OpImplRegistry {
 public:
-    static TileFwkOpRegistry &GetInstance();
-    TileFwkOpRegisterPtr CreateOrGetOpRegister(const std::string &opType);
-    TileFwkOpImplFunc GetOpImplFunc(const std::string &opType, const uint64_t configKey) const;
+    static OpImplRegistry &GetInstance();
+    OpImplRegisterPtr CreateOrGetOpRegister(const std::string &opType);
+    OpImplFunc GetOpImplFunc(const std::string &opType, const uint64_t configKey) const;
     std::vector<uint64_t> GetAllConfigKeys(const std::string &opType) const;
 private:
-    TileFwkOpRegistry() {}
-    ~TileFwkOpRegistry() {
-        opRegisterMap_.clear();
-    }
-    std::map<std::string, TileFwkOpRegisterPtr> opRegisterMap_;
+    OpImplRegistry() {}
+    ~OpImplRegistry() {}
+    std::map<std::string, OpImplRegisterPtr> opRegisterMap_;
 };
 
-class TileFwkOpRegistHelper {
+class OpImplRegistHelper {
 public:
-    explicit TileFwkOpRegistHelper(const std::string &opType);
-    ~TileFwkOpRegistHelper();
-    TileFwkOpRegistHelper &ImplFunc(const std::map<uint64_t, TileFwkOpImplFunc> &implFuncMap);
-    TileFwkOpRegistHelper &ImplFunc(const uint64_t configKey, const TileFwkOpImplFunc keyToFunc);
+    explicit OpImplRegistHelper(const std::string &opType);
+    ~OpImplRegistHelper();
+    OpImplRegistHelper &ImplFunc(const std::map<uint64_t, OpImplFunc> &implFuncMap);
+    OpImplRegistHelper &ImplFunc(const uint64_t configKey, const OpImplFunc keyToFunc);
 private:
-    TileFwkOpRegisterPtr opRegister_;
+    OpImplRegisterPtr opRegister_;
 };
 }
 
 #define VAR_UNUSED __attribute__((unused))
 #define REGISTER_OP_COUNTER(opType, name, counter) \
-  static npu::tile_fwk::TileFwkOpRegistHelper VAR_UNUSED name##counter = npu::tile_fwk::TileFwkOpRegistHelper(#opType)
+  static npu::tile_fwk::OpImplRegistHelper VAR_UNUSED name##counter = npu::tile_fwk::OpImplRegistHelper(#opType)
 #define REGISTER_OP_COUNTER_NUMBER(opType, name, counter) REGISTER_OP_COUNTER(opType, name, counter)
 #define REGISTER_OP(opType) REGISTER_OP_COUNTER_NUMBER(opType, op_impl_reg_##opType, __COUNTER__)

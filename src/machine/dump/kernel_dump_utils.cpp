@@ -15,6 +15,7 @@
 
 #include "machine/dump/kernel_dump_utils.h"
 #include <climits>
+#include <dlfcn.h>
 #include "interface/utils/file_utils.h"
 #include "tilefwk/function.h"
 #include "interface/machine/host/host_machine.h"
@@ -29,12 +30,25 @@ constexpr int64_t MAX_BLOCK_NUM = 24;
 const std::string KERNEL_FILE_PREFIX = "ast_op_";
 const std::string KERNEL_BIN_FILE_SUFFIX = ".o";
 const std::string KERNEL_JSON_FILE_SUFFIX = ".json";
+const std::string AICORE_KERNEL_FILE_PATH = "kernel/kernel.o";
 const std::string AICORE_KERNEL_FILE_NAME = "kernel.o";
-const std::string AICORE_KERNEL_FILE_PATH = "../../src/machine/kernel/kernel.o";
 
 inline size_t DataSizeAlign(const size_t bytes, const uint32_t aligns = 32U) {
     const size_t alignSize = (aligns == 0U) ? sizeof(uintptr_t) : aligns;
     return (((bytes + alignSize) - 1U) / alignSize) * alignSize;
+}
+
+std::string GetCurrentLibPath() {
+    std::string currentLibPath;
+    Dl_info info;
+    if (dladdr(reinterpret_cast<void*>(GetCurrentLibPath), &info)) {
+        currentLibPath = std::string(info.dli_fname);
+        int32_t pos = currentLibPath.rfind('/');
+        if (pos >= 0) {
+            currentLibPath = currentLibPath.substr(0, pos);
+        }
+    }
+    return currentLibPath;
 }
 }
 
