@@ -421,8 +421,9 @@ void OoOScheduler::CheckOpBufferSize(Operation *op) {
     for (auto &buffer : bufferSize) {
         if (inChipMemorySize.find(buffer.first) != inChipMemorySize.end()) {
             if (buffer.second > inChipMemorySize[buffer.first]) {
-                ALOG_ERROR_F("OP[%d] %s size[%d] exceeds limit!", op->GetOpMagic(), MemoryTypeToString(buffer.first),
-                    buffer.second);
+                ALOG_ERROR_F("OP %s[%d] in/output total size[%d] exceeds %s size[%d]!", op->GetOpcodeStr().c_str(), 
+                    op->GetOpMagic(), buffer.second, MemoryTypeToString(buffer.first).c_str(), 
+                    inChipMemorySize[buffer.first]);
             }
         }
     }
