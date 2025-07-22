@@ -235,7 +235,7 @@ int DeviceRunner::LaunchAiCpu(
     const rtStream_t stream, const uint64_t taskId, const uint64_t taskData, int taskType) const {
     struct Args {
         DeviceArgs devArgs;
-        const char kernelName[32] = {"AscendTensorRuntimeServer"};
+        const char kernelName[32] = {"StaticTileFwkKernelServer"};
         const char soName[32] = {"libaicpu_extend_kernels.so"};
         const char opName[32] = {""};
     } args;
@@ -364,7 +364,7 @@ int DeviceRunner::launchDynamicAiCore(rtStream_t stream, AstKernelArgs *kernelAr
 int DeviceRunner::launchDynamicAiCpu(rtStream_t stream, AstKernelArgs *kArgs) {
     struct Args {
         AstKernelArgs kArgs;
-        const char kernelName[32] = {"AscendCppDynAicpuInterface"};
+        const char kernelName[32] = {"DynTileFwkKernelServer"};
         const char soName[32] = {"libaicpu_extend_kernels.so"};
         const char opName[32] = {""};
     } args;
@@ -379,6 +379,26 @@ int DeviceRunner::launchDynamicAiCpu(rtStream_t stream, AstKernelArgs *kArgs) {
     rtArgs.soNameAddrOffset = offsetof(struct Args, soName);
     return rtAicpuKernelLaunchExWithArgs(
         rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", aicpuNum_, &rtArgs, nullptr, stream, 0);
+}
+
+int DeviceRunner::launchDynamicAiCpuInit(rtStream_t stream, AstKernelArgs *kArgs) {
+    struct Args {
+        AstKernelArgs kArgs;
+        const char kernelName[32] = {"DynTileFwkKernelServerInit"};
+        const char soName[32] = {"libaicpu_extend_kernels.so"};
+        const char opName[32] = {""};
+    } args;
+
+    args.kArgs = *kArgs;
+
+    rtAicpuArgsEx_t rtArgs;
+    memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
+    rtArgs.args = &args;
+    rtArgs.argsSize = sizeof(args);
+    rtArgs.kernelNameAddrOffset = offsetof(struct Args, kernelName);
+    rtArgs.soNameAddrOffset = offsetof(struct Args, soName);
+    return rtAicpuKernelLaunchExWithArgs(
+        rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 1, &rtArgs, nullptr, stream, 0);
 }
 
 int DeviceRunner::RunPrepare(rtStream_t stream) {
@@ -442,6 +462,11 @@ int DeviceRunner::DynamicRun(rtStream_t stream, int64_t taskId, AstKernelArgs *k
     rc = launchDynamicAiCore(coreStream_, kernelArgs);
     if (rc < 0) {
         ALOG_ERROR_F("launch aicpu failed %d\n", rc);
+        return rc;
+    }
+
+    if (launchDynamicAiCpuInit(stream, kernelArgs) < 0) {
+        ALOG_ERROR_F("launch aicpu init failed %d\n", rc);
         return rc;
     }
 

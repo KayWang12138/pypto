@@ -116,7 +116,7 @@ struct MachineManager {
 };
 static std::mutex g_mutex;
 
-extern "C" __attribute__((visibility("default"))) int ASTServerKernel(void *targ) {
+extern "C" __attribute__((visibility("default"))) int StaticTileFwkNSAKernelServer(void *targ) {
     auto args = (DeviceArgs *)targ;
     g_mutex.lock();
     MachineManager *machine = reinterpret_cast<MachineManager *>(args->opaque);

@@ -157,7 +157,7 @@ struct DynMachineManager {
 
 static std::mutex g_mutex;
 
-static int RunDynamic(AstKernelArgs *kargs, bool initDyn) {
+static int RunDynamic(AstKernelArgs *kargs) {
     auto devArgs = (DeviceArgs *)kargs->tilingdata;
 
     g_mutex.lock();
@@ -165,8 +165,6 @@ static int RunDynamic(AstKernelArgs *kargs, bool initDyn) {
     if (machine == nullptr) {
         machine = new DynMachineManager();
         machine->init(devArgs);
-        if (initDyn)
-            DeviceMachine::InitDyn(kargs);
         devArgs->opaque = reinterpret_cast<uint64_t>(machine);
     }
     g_mutex.unlock();
@@ -190,11 +188,19 @@ static bool CheckValidArgs(AstKernelArgs *kargs) {
     return true;
 }
 
-extern "C" __attribute__((visibility("default"))) int DynamicServerKernel(void *targ) {
+extern "C" __attribute__((visibility("default"))) int DynTileFwkNSAKernelServerInit(void *targ) {
+    PerfBegin(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
     auto kargs = (AstKernelArgs *)targ;
     if (!CheckValidArgs(kargs)) {
         DEV_INFO("invalid parameter\n");
         return -EINVAL;
     }
-    return RunDynamic(kargs, true);
+    DeviceMachine::InitDyn(kargs);
+    PerfEnd(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
+    return 0;
+}
+
+extern "C" __attribute__((visibility("default"))) int DynTileFwkNSAKernelServer(void *targ) {
+    auto kargs = (AstKernelArgs *)targ;
+    return RunDynamic(kargs);
 }

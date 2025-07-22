@@ -106,6 +106,8 @@ constexpr uint64_t PROF_DUMP_TIMEOUT_CYCLES = 10 * TIMEOUT_CYCLES;
     X(2, RELEASE_FINISH_TASK_INSYNC)            \
     X(3, DEALLOCATE_TASK_INSYNC)                \
     X(1, STAGE_STOP_AICORE)                     \
+    X(1, DEVICE_MACHINE_INIT_DYN)               \
+    X(1, DEVICE_MACHINE_SERVER_DYN)             \
     X3(1, STAGE_SCHEDULE)                       \
     X3(2, RUN_TASK)                             \
     X3(3, POLLING_AICORES)                      \
