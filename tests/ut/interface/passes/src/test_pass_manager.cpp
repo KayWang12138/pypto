@@ -24,7 +24,8 @@
 #include "interface/configs/config_manager.h"
 #include "passes/pass_registry.h"
 #include "ut_json/ut_json_tool.h"
-
+#include "computational_graph_builder.h"
+#include "interface/utils/file_utils.h"
 
 namespace npu::tile_fwk {
 class PassTestCast : public Pass {
@@ -118,5 +119,70 @@ TEST_F(PassManagerTest, TestPassBase) {
     passTestCase.SetPassConfigs(configs);
     res = passTestCase.Run(*currFunctionPtr1, "TestPassManager1", "TestPassManager1");
     EXPECT_TRUE(res == FAILED);
+}
+
+TEST_F(PassManagerTest, TestPassStrategy) {
+    PassManager::Instance().RegisterStrategy("StrategyTest", {
+                        {   "RemoveRedundentReshape",   "RemoveRedundentReshape",  PassType::TYPE_TENSOR_GRAPH},
+                        {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH}});
+    // user define
+    auto strategyPasses = PassManager::Instance().GetStrategyPasses("StrategyTest");
+    EXPECT_TRUE(!strategyPasses.empty());
+    // default strategy
+    auto pvcPasses = PassManager::Instance().GetStrategyPasses("PVC2_OOO");
+    EXPECT_TRUE(!pvcPasses.empty());
+    // empty strategy
+    auto strategyPasses1 = PassManager::Instance().GetStrategyPasses("StrategyTest1");
+    EXPECT_TRUE(strategyPasses1.empty());
+}
+
+TEST_F(PassManagerTest, TestPassReg) {
+    PassManager::Instance().RegisterStrategy("TestPassReg", {
+                        {   "RemoveRedundentReshape",   "RemoveRedundentReshape",  PassType::TYPE_TENSOR_GRAPH},
+                        {   "RemoveRedundentReshape",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH}});
+    // user define
+    auto strategyPasses = PassManager::Instance().GetStrategyPasses("TestPassReg");
+    EXPECT_TRUE(strategyPasses.size() == 1);
+}
+
+void GetGraph(ComputationalGraphBuilder &G) {
+    std::vector<int> tileShape{16,16};
+    std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5"};
+    std::vector<Opcode> opCodes{Opcode::OP_COPY_IN, Opcode::OP_MULS, Opcode::OP_ADDS, Opcode::OP_COPY_OUT};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}, {"t3"}, {"t4"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}, {"t3"}, {"t4"}, {"t5"}};
+    std::vector<std::string> opNames{"COPY_IN", "MULS", "ADDS", "COPY_OUT"};
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, tensorNames), true);
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    EXPECT_EQ(G.SetInCast({"t1"}), true);
+    EXPECT_EQ(G.SetOutCast({"t5"}), true);
+}
+
+TEST_F(PassManagerTest, TestPassDFX) {
+    PassManager::Instance().RegisterStrategy("TestPassDFX", {
+                        {   "RemoveRedundentReshape",   "RemoveRedundentReshape",  PassType::TYPE_TENSOR_GRAPH}});
+    ComputationalGraphBuilder G;
+    GetGraph(G);
+    Function *function = G.GetFunction();
+    auto rootPath = config::LogTopFolder();
+    PassManager::Instance().RunPass(Program::GetInstance(), *function, "TestPassDFX");
+    auto afterJsonPath = rootPath + "/Pass_00_RemoveRedundentReshape/After_000_RemoveRedundentReshape_PROGRAM_ENTRY.json";
+    auto beforeJsonPath = rootPath + "/Pass_00_RemoveRedundentReshape/Before_000_RemoveRedundentReshape_PROGRAM_ENTRY.json";
+    auto beforeIRPath = rootPath + "/Pass_00_RemoveRedundentReshape/Before_000_RemoveRedundentReshape_PROGRAM_ENTRY.tifwkgr";
+    auto afterIRPath = rootPath + "/Pass_00_RemoveRedundentReshape/After_000_RemoveRedundentReshape_PROGRAM_ENTRY.tifwkgr";
+    EXPECT_FALSE(IsPathExist(afterJsonPath));
+    EXPECT_FALSE(IsPathExist(beforeJsonPath));
+    EXPECT_FALSE(IsPathExist(beforeJsonPath));
+    EXPECT_FALSE(IsPathExist(afterJsonPath));
+    config::SetPassConfig("TestPassDFX", "RemoveRedundentReshape", "PRINT_FUNTION", true);
+    config::SetPassConfig("TestPassDFX", "RemoveRedundentReshape", "DUMP_FUNCTION_GRAPH_BEFORE_PASS", true);
+    config::SetPassConfig("TestPassDFX", "RemoveRedundentReshape", "DUMP_FUNCTION_GRAPH_AFTER_PASS", true);
+    PassManager::Instance().RunPass(Program::GetInstance(), *function, "TestPassDFX");
+    EXPECT_TRUE(IsPathExist(afterJsonPath));
+    EXPECT_TRUE(IsPathExist(beforeJsonPath));
+    EXPECT_TRUE(IsPathExist(beforeJsonPath));
+    EXPECT_TRUE(IsPathExist(afterJsonPath));
+    config::SetPassConfig("TestPassDFX", "RemoveRedundentReshape", "DISABLE_PASS", true);
+    PassManager::Instance().RunPass(Program::GetInstance(), *function, "TestPassDFX");
 }
 }
