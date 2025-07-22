@@ -320,10 +320,11 @@ public:
             size_t rawTensorCount = dup.GetSource()->GetRawTensorSize();
             for (size_t j = 0; j < rawTensorCount; j++) {
                 auto *rawTensor = dup.GetSource()->GetRawTensor(j);
+                auto memReq = rawTensor->GetMemoryRequirement(dup.GetExpressionAddr());
                 MemoryInfo memInfo {
                     dup.GetRawTensorAddr(j),
                     // For workspace tensors, the memoryRequirement property is deprecated
-                    rawTensor->ioProperty == DevIOProperty::NONE ? 0 : rawTensor->memoryRequirement,
+                    rawTensor->ioProperty == DevIOProperty::NONE ? 0 : memReq,
                     dup,
                     i,
                     j,
@@ -449,7 +450,9 @@ public:
             if (slotIndex != -1) {
                 desc = slotList[slotIndex].desc;
                 if (desc.IsNullAddress()) {
-                    auto allocation = aicoreGlobalAllocator_.Allocate<uint8_t>(devRootSrc->GetOutcastRawTensor(i)->memoryRequirement);
+                    auto rawTensor = devRootSrc->GetOutcastRawTensor(i);
+                    auto memReq = rawTensor->GetMemoryRequirement(devRootDup.GetExpressionAddr());
+                    auto allocation = aicoreGlobalAllocator_.Allocate<uint8_t>(memReq);
                     desc = AddressDescriptor(allocation.ptr);
                 }
             } else {
@@ -630,11 +633,11 @@ private:
         baseAddr += devProg->slotPoolSize * devProg->slotStandardMemReq;
 
         // Initialize gloabl tensor memory
-        globalTensorVerifier_.Init(baseAddr, devProg->globalTensorMem);
-        aicoreGlobalAllocator_.InitAicoreLocal(
-            baseAddr,
-            devProg->globalTensorMem);
-        baseAddr += devProg->globalTensorMem;
+        auto dynWsMem = aicoreLocalWorkspaceSize - devProg->aicoreLocalWorkspaceSize;
+        auto globalTensorMem = dynWsMem + devProg->globalTensorMem;
+        globalTensorVerifier_.Init(baseAddr, globalTensorMem);
+        aicoreGlobalAllocator_.InitAicoreLocal(baseAddr, globalTensorMem);
+        baseAddr += globalTensorMem;
 
         // Initialize aicore function internal workspace tensor memory
         funcWsVerifier_.Init(baseAddr, devProg->rootFuncStandardMemReq * devProg->workspaceRecyclePeriod);
@@ -867,8 +870,6 @@ struct DeviceStitchContext {
             auto &outcastDesc = dup.GetOutcastAddress(desc.outcastIdx);
             DEV_DEBUG_ASSERT(outcastDesc.IsAddress());
             if (outcastDesc.addr == outcastWsStandardAddr) {
-                DEV_DEBUG_ASSERT(workspace_->IsValidSlotMemRequirement(outcastRawTensor->memoryRequirement));
-
                 // First time meet this unsolved slot
                 slotInfosInDecidingSlotMem_[slotIdx].slotPtr = workspace_->AllocateSlot(dup.GetSource()->GetRawName());
                 slotInfosInDecidingSlotMem_[slotIdx].refCnt = slotRefCntPool.Make(1);
@@ -1697,12 +1698,6 @@ struct DeviceExecuteContext {
         DevAscendFunctionDupped devRootDup = workspace.DuplicateRoot(devRoot);
         PROF_STAGE_END(PERF_EVT_STAGE_DUP_ROOT, "dup.after\n");
 
-        while (!workspace.TryAllocateFunctionMemory(devRootDup, slotContext.GetSlotList())) {
-            // Failed to allocate, failed to stitch, submit existing stitched window to aicore and recycle memory
-            // If nothing stitched, wait for aicore to finish tasks and release enough memory
-            SubmitToAicoreAndRecycleMemory();
-        }
-
         currDevRootDup = devRootDup;
         return (void *)&devRootDup.GetExpression(0);
     }
@@ -1715,6 +1710,12 @@ struct DeviceExecuteContext {
         }
 
         DevAscendFunctionDupped devRootDup = currDevRootDup;
+        while (!workspace.TryAllocateFunctionMemory(devRootDup, slotContext.GetSlotList())) {
+            // Failed to allocate, failed to stitch, submit existing stitched window to aicore and recycle memory
+            // If nothing stitched, wait for aicore to finish tasks and release enough memory
+            SubmitToAicoreAndRecycleMemory();
+        }
+
         if (AiCoreFree()) {
             SubmitToAicoreAndRecycleMemory();
         }

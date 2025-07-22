@@ -300,14 +300,14 @@ struct DevSymShape {
         dimSize = shape.size();
     }
 
-    uint64_t At(size_t idx, uint64_t *exprTbl) const {
+    uint64_t At(size_t idx, const uint64_t *exprTbl) const {
         if (dim[idx].IsExpression())
             return exprTbl[idx];
         else
             return dim[idx].Value();
     }
 
-    void ToStride(uint64_t *stides, uint64_t *exprTbl) const {
+    void ToStride(uint64_t *stides, const uint64_t *exprTbl) const {
         stides[dimSize - 1] = 1;
         for (int i = dimSize - 1; i > 0; i--) {
             stides[i - 1] = stides[i] * At(i, exprTbl);
@@ -326,6 +326,16 @@ struct DevAscendRawTensor {
     int32_t ioIndex;
 
     int GetDim() const { return shape.dimSize; }
+
+    uint64_t GetMemoryRequirement(const uint64_t *exprTbl) const {
+        if (memoryRequirement != 0)
+            return memoryRequirement;
+        uint64_t memReq = BytesOf(dataType);
+        for (int i = 0; i < GetDim(); i++) {
+            memReq *= shape.At(i, exprTbl);
+        }
+        return memReq;
+    }
 
     std::string Dump() const {
         std::ostringstream oss;
@@ -1200,8 +1210,8 @@ struct DevAscendFunctionDuppedData {
     uint64_t GetExpression(int index) const { return GET_DATA(uint64_t, data_, expressionList_.base, index); }
     uint64_t &GetExpression(int index) { return GET_DATA(uint64_t, data_, expressionList_.base, index); }
 
-    uint64_t *GetExpressionAddr() {
-        return &GetExpression(0);
+    uint64_t *GetExpressionAddr() const {
+        return &GET_DATA(uint64_t, data_, expressionList_.base, 0);
     }
 
     uint64_t GetIncastSize() const { return incastList_.size; }
@@ -1279,7 +1289,7 @@ struct DevAscendFunctionDupped {
 
     inline uint64_t GetExpression(int arg) const { return DupData()->GetExpression(arg); };
     inline uint64_t &GetExpression(int arg) { return DupData()->GetExpression(arg); };
-    inline uint64_t *GetExpressionAddr() { return DupData()->GetExpressionAddr(); }
+    inline uint64_t *GetExpressionAddr() const { return DupData()->GetExpressionAddr(); }
 
     inline predcount_t &GetOperationCurrPredCount(int arg) { return DupData()->GetOperationCurrPredCount(arg); };
     inline auto &GetOperationStitch(int arg) { return DupData()->GetOperationStitch(arg); };
