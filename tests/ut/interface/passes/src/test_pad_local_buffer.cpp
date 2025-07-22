@@ -17,6 +17,7 @@
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
+#include "passes/tile_graph_pass/pad_local_buffer.h"
 #include "passes/pass_manager.h"
 #include "interface/configs/config_manager.h"
 #include <nlohmann/json.hpp>
@@ -42,139 +43,902 @@ public:
     }
 };
 
-TEST_F(TestPadLocalBuffer, test_add_last_axis_1) {
-    std::vector<int> shape = {16, 16, 64, 65};
+inline void ConstructGraph1(std::shared_ptr<Function> &currFunctionPtr) {
+    // Prepare the graph
+    std::vector<int> shape = {8, 15};
+    auto shapeImme = OpImmediate::Specified(shape);
+    auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto incast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor1->SetMemoryTypeBoth(MEM_UB);
+    auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor2->SetMemoryTypeBoth(MEM_UB);
+    auto ubTensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor3->SetMemoryTypeBoth(MEM_UB);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    outCast->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"), SymbolicScalar("output_0_Dim_1")});
+    auto &copy_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {incast1}, {ubTensor1});
+    auto copyin1Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_UB, shapeImme, shapeImme, std::vector<npu::tile_fwk::OpImmediate>());
+    std::vector<npu::tile_fwk::OpImmediate> toValidShape = {OpImmediate(SymbolicScalar("Input_0_Dim_0")), OpImmediate(SymbolicScalar("Input_0_Dim_1"))};
+    copyin1Attr->SetToDynValidShape(toValidShape);
+    copy_op1.SetOpAttribute(copyin1Attr);
+    auto &copy_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {incast2}, {ubTensor2});
+    auto copyin2Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_UB, shapeImme, shapeImme, std::vector<npu::tile_fwk::OpImmediate>());
+    std::vector<npu::tile_fwk::OpImmediate> toValidShape1 = {OpImmediate(SymbolicScalar("Input_1_Dim_0")), OpImmediate(SymbolicScalar("Input_1_Dim_1"))};
+    copyin2Attr->SetToDynValidShape(toValidShape1);
+    copy_op2.SetOpAttribute(copyin2Attr);
+    auto& add_op = currFunctionPtr->AddRawOperation(Opcode::OP_ADD, {ubTensor1, ubTensor2}, {ubTensor3});
+    (void) add_op;
+    auto& copy_out_op = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor3}, {outCast});
+    (void) copy_out_op;
+    currFunctionPtr->inCasts_.push_back(incast1);
+    currFunctionPtr->inCasts_.push_back(incast2);
+    currFunctionPtr->outCasts_.push_back(outCast);
+}
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 16, 16});
-    Tensor input_a(DT_FP32, shape, "A");
-    Tensor input_b(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "C");
+inline void ConstructGraph2(std::shared_ptr<Function> &currFunctionPtr) {
+    // Prepare the graph
+    std::vector<int> shape = {8, 16};
+    auto shapeImme = OpImmediate::Specified(shape);
+    auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto incast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor1->SetMemoryTypeBoth(MEM_UB);
+    auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor2->SetMemoryTypeBoth(MEM_UB);
+    auto ubTensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor3->SetMemoryTypeBoth(MEM_UB);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    outCast->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"), SymbolicScalar("output_0_Dim_1")});
+    auto &copy_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {incast1}, {ubTensor1});
+    auto copyin1Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_UB, shapeImme, shapeImme, std::vector<npu::tile_fwk::OpImmediate>());
+    std::vector<npu::tile_fwk::OpImmediate> toValidShape = {OpImmediate(SymbolicScalar("Input_0_Dim_0")), OpImmediate(SymbolicScalar("Input_0_Dim_1"))};
+    copyin1Attr->SetToDynValidShape(toValidShape);
+    copy_op1.SetOpAttribute(copyin1Attr);
+    auto &copy_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {incast2}, {ubTensor2});
+    auto copyin2Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_UB, shapeImme, shapeImme, std::vector<npu::tile_fwk::OpImmediate>());
+    std::vector<npu::tile_fwk::OpImmediate> toValidShape1 = {OpImmediate(SymbolicScalar("Input_1_Dim_0")), OpImmediate(SymbolicScalar("Input_1_Dim_1"))};
+    copyin2Attr->SetToDynValidShape(toValidShape1);
+    copy_op2.SetOpAttribute(copyin2Attr);
+    auto& add_op = currFunctionPtr->AddRawOperation(Opcode::OP_ADD, {ubTensor1, ubTensor2}, {ubTensor3});
+    (void) add_op;
+    auto& copy_out_op = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor3}, {outCast});
+    (void) copy_out_op;
+    currFunctionPtr->inCasts_.push_back(incast1);
+    currFunctionPtr->inCasts_.push_back(incast2);
+    currFunctionPtr->outCasts_.push_back(outCast);
+}
 
-    FUNCTION("ADD_T", FunctionType::STATIC, {input_a, input_b, output}) {
-        output = Add(input_a, input_b);
-    }
+inline void ConstructGraph3(std::shared_ptr<Function> &currFunctionPtr) {
+    // Prepare the graph
+    std::vector<int> AShape = {8, 15};
+    std::vector<int> BShape = {15, 15};
+    std::vector<int> CShape = {8, 16};
+    std::vector<int> expOriShape = {16, 16};
+    auto AShapeImme = OpImmediate::Specified(AShape);
+    auto BShapeImme = OpImmediate::Specified(BShape);
+    auto CShapeImme = OpImmediate::Specified(CShape);
+    auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, AShape);
+    auto incast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, BShape);
+    auto l0Atensor0 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, AShape);
+    l0Atensor0->SetMemoryTypeBoth(MEM_L0A);
+    auto l0Btensor0 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, BShape);
+    l0Btensor0->SetMemoryTypeBoth(MEM_L0B);
+    auto l0Ctensor0 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, CShape);
+    l0Ctensor0->SetMemoryTypeBoth(MEM_L0C);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, expOriShape);
+    outCast->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"), SymbolicScalar("output_0_Dim_1")});
+    auto &copy_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {incast1}, {l0Atensor0});
+    auto copyin1Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_L0A, AShapeImme, AShapeImme, std::vector<npu::tile_fwk::OpImmediate>());
+    std::vector<npu::tile_fwk::OpImmediate> toValidShape = {OpImmediate(SymbolicScalar("Input_0_Dim_0")), OpImmediate(SymbolicScalar("Input_0_Dim_1"))};
+    copyin1Attr->SetToDynValidShape(toValidShape);
+    copy_op1.SetOpAttribute(copyin1Attr);
+    auto &copy_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {incast2}, {l0Btensor0});
+    auto copyin2Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_L0B, BShapeImme, BShapeImme, std::vector<npu::tile_fwk::OpImmediate>());
+    std::vector<npu::tile_fwk::OpImmediate> toValidShape1 = {OpImmediate(SymbolicScalar("Input_1_Dim_0")), OpImmediate(SymbolicScalar("Input_1_Dim_1"))};
+    copyin2Attr->SetToDynValidShape(toValidShape1);
+    copy_op2.SetOpAttribute(copyin2Attr);
+    auto& matmul_op = currFunctionPtr->AddRawOperation(Opcode::OP_A_MULACC_B, {l0Atensor0, l0Btensor0}, {l0Ctensor0});
+    (void) matmul_op;
+    auto& copy_out_op = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {l0Ctensor0}, {outCast});
+    (void) copy_out_op;
+    currFunctionPtr->inCasts_.push_back(incast1);
+    currFunctionPtr->inCasts_.push_back(incast2);
+    currFunctionPtr->outCasts_.push_back(outCast);
+}
 
-    auto function= Program::GetInstance().GetFunctionByRawName("TENSOR_ADD_T");
-    ASSERT_NE(function, nullptr);
-    std::vector<int> expShape = {8, 8, 16, 8};
-    std::vector<int> expOriShape = {8, 8, 16, 1};
+inline void ConstructGraph4(std::shared_ptr<Function> &currFunctionPtr) {
+    // Prepare the graph
+    std::vector<int> shape = {8, 15};
+    std::vector<int> reduce_shape = {8, 1};
+    std::vector<int> expOriShape = {8, 16};
+    auto shapeImme = OpImmediate::Specified(shape);
+    auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor1->SetMemoryTypeBoth(MEM_UB);
+    auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reduce_shape);
+    ubTensor2->SetMemoryTypeBoth(MEM_UB);
+    auto ubTensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reduce_shape);
+    ubTensor3->SetMemoryTypeBoth(MEM_UB);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reduce_shape);
+    outCast->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"), SymbolicScalar("output_0_Dim_1")});
+    auto &copy_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {incast1}, {ubTensor1});
+    auto copyin1Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_UB, shapeImme, shapeImme, std::vector<npu::tile_fwk::OpImmediate>());
+    std::vector<npu::tile_fwk::OpImmediate> toValidShape = {OpImmediate(SymbolicScalar("Input_0_Dim_0")), OpImmediate(SymbolicScalar("Input_0_Dim_1"))};
+    copyin1Attr->SetToDynValidShape(toValidShape);
+    copy_op1.SetOpAttribute(copyin1Attr);
+    auto& reduce_op = currFunctionPtr->AddRawOperation(Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, {ubTensor1}, {ubTensor2});
+    (void) reduce_op;
+    reduce_op.SetAttribute(OP_ATTR_PREFIX + "AXIS", 1);
+    auto& abs_op = currFunctionPtr->AddRawOperation(Opcode::OP_ABS, {ubTensor2}, {ubTensor3});
+    (void) abs_op;
+    auto& copy_out_op = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor3}, {outCast});
+    (void) copy_out_op;
+    currFunctionPtr->inCasts_.push_back(incast1);
+    currFunctionPtr->outCasts_.push_back(outCast);
+}
 
-    for (auto &op : function->Operations()) {
+inline void ConstructGraph5(std::shared_ptr<Function> &currFunctionPtr) {
+    // Prepare the graph
+    std::vector<int> shape = {7, 15};
+    std::vector<int> expInShape = {7, 16};
+    std::vector<int> reduce_shape = {7, 1};
+    std::vector<int> expOriShape = {7, 8};
+    auto shapeImme = OpImmediate::Specified(shape);
+    auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor1->SetMemoryTypeBoth(MEM_UB);
+    auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reduce_shape);
+    ubTensor2->SetMemoryTypeBoth(MEM_UB);
+    auto ubTensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reduce_shape);
+    ubTensor3->SetMemoryTypeBoth(MEM_UB);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reduce_shape);
+    outCast->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"), SymbolicScalar("output_0_Dim_1")});
+    auto &copy_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {incast1}, {ubTensor1});
+    auto copyin1Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_UB, shapeImme, shapeImme, std::vector<npu::tile_fwk::OpImmediate>());
+    std::vector<npu::tile_fwk::OpImmediate> toValidShape = {OpImmediate(SymbolicScalar("Input_0_Dim_0")), OpImmediate(SymbolicScalar("Input_0_Dim_1"))};
+    copyin1Attr->SetToDynValidShape(toValidShape);
+    copy_op1.SetOpAttribute(copyin1Attr);
+    auto& reduce_op = currFunctionPtr->AddRawOperation(Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, {ubTensor1}, {ubTensor2});
+    (void) reduce_op;
+    reduce_op.SetAttribute(OP_ATTR_PREFIX + "AXIS", 1);
+    auto& abs_op = currFunctionPtr->AddRawOperation(Opcode::OP_ABS, {ubTensor2}, {ubTensor3});
+    (void) abs_op;
+    auto& copy_out_op = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor3}, {outCast});
+    (void) copy_out_op;
+    currFunctionPtr->inCasts_.push_back(incast1);
+    currFunctionPtr->outCasts_.push_back(outCast);
+}
+
+inline void ConstructGraph6(std::shared_ptr<Function> &currFunctionPtr) {
+    // Prepare the graph
+    std::vector<int> shape = {8, 15};
+    std::vector<int> expInShape = {8, 16};
+    std::vector<int> reduce_shape = {8, 1};
+    std::vector<int> expOriShape = {8, 8};
+    std::vector<int> expandShape = {8, 15};
+    std::vector<int> expectExpandShape = {8, 16};
+    auto shapeImme = OpImmediate::Specified(shape);
+    auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor1->SetMemoryTypeBoth(MEM_UB);
+    auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reduce_shape);
+    ubTensor2->SetMemoryTypeBoth(MEM_UB);
+    auto ubTensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reduce_shape);
+    ubTensor3->SetMemoryTypeBoth(MEM_UB);
+    auto ubTensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, expandShape);
+    ubTensor4->SetMemoryTypeBoth(MEM_UB);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, expandShape);
+    outCast->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"), SymbolicScalar("output_0_Dim_1")});
+    auto &copy_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {incast1}, {ubTensor1});
+    auto copyin1Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_UB, shapeImme, shapeImme, std::vector<npu::tile_fwk::OpImmediate>());
+    std::vector<npu::tile_fwk::OpImmediate> toValidShape = {OpImmediate(SymbolicScalar("Input_0_Dim_0")), OpImmediate(SymbolicScalar("Input_0_Dim_1"))};
+    copyin1Attr->SetToDynValidShape(toValidShape);
+    copy_op1.SetOpAttribute(copyin1Attr);
+    auto& reduce_op = currFunctionPtr->AddRawOperation(Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, {ubTensor1}, {ubTensor2});
+    (void) reduce_op;
+    reduce_op.SetAttribute(OP_ATTR_PREFIX + "AXIS", 1);
+    auto& abs_op = currFunctionPtr->AddRawOperation(Opcode::OP_ABS, {ubTensor2}, {ubTensor3});
+    (void) abs_op;
+    auto& expand_op = currFunctionPtr->AddRawOperation(Opcode::OP_EXPAND, {ubTensor3}, {ubTensor4});
+    (void) expand_op;
+    expand_op.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", 1);
+    auto& copy_out_op = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor4}, {outCast});
+    (void) copy_out_op;
+    currFunctionPtr->inCasts_.push_back(incast1);
+    currFunctionPtr->outCasts_.push_back(outCast);
+}
+
+inline void ConstructGraph7(std::shared_ptr<Function> &currFunctionPtr) {
+    // Prepare the graph
+    std::vector<int> shape = {8, 15};
+    std::vector<int> expInShape = {8, 16};
+    std::vector<int> reduce_shape = {8, 1};
+    auto shapeImme = OpImmediate::Specified(shape);
+    auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor1->SetMemoryTypeBoth(MEM_UB);
+    auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reduce_shape);
+    ubTensor2->SetMemoryTypeBoth(MEM_UB);
+    auto ubTensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reduce_shape);
+    ubTensor3->SetMemoryTypeBoth(MEM_UB);
+    auto ubTensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reduce_shape);
+    ubTensor4->SetMemoryTypeBoth(MEM_UB);
+    auto ubTensor5 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reduce_shape);
+    ubTensor5->SetMemoryTypeBoth(MEM_UB);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reduce_shape);
+    outCast->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"), SymbolicScalar("output_0_Dim_1")});
+    auto outCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reduce_shape);
+    outCast2->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"), SymbolicScalar("output_0_Dim_1")});
+    auto &copy_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {incast1}, {ubTensor1});
+    auto copyin1Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_UB, shapeImme, shapeImme, std::vector<npu::tile_fwk::OpImmediate>());
+    std::vector<npu::tile_fwk::OpImmediate> toValidShape = {OpImmediate(SymbolicScalar("Input_0_Dim_0")), OpImmediate(SymbolicScalar("Input_0_Dim_1"))};
+    copyin1Attr->SetToDynValidShape(toValidShape);
+    copy_op1.SetOpAttribute(copyin1Attr);
+    auto& reduce_op = currFunctionPtr->AddRawOperation(Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, {ubTensor1}, {ubTensor2});
+    (void) reduce_op;
+    reduce_op.SetAttribute(OP_ATTR_PREFIX + "AXIS", 1);
+    auto& abs_op = currFunctionPtr->AddRawOperation(Opcode::OP_ABS, {ubTensor2}, {ubTensor3});
+    (void) abs_op;
+    auto& copy_out_op = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor3}, {outCast});
+    (void) copy_out_op;
+    auto& copy_in_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {outCast}, {ubTensor4});
+    (void) copy_in_op2;
+    auto& exp_op = currFunctionPtr->AddRawOperation(Opcode::OP_EXP, {ubTensor4}, {ubTensor5});
+    (void) exp_op;
+    auto& copy_out_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor5}, {outCast2});
+    (void) copy_out_op2;
+    currFunctionPtr->inCasts_.push_back(incast1);
+    currFunctionPtr->outCasts_.push_back(outCast2);
+}
+
+inline void ConstructGraph8(std::shared_ptr<Function> &currFunctionPtr) {
+    // Prepare the graph
+    std::vector<int> shape = {8, 15};
+    std::vector<int> expInShape = {8, 16};
+    std::vector<int> reduce_shape = {8, 1};
+    std::vector<int> reshape_shape = {1, 8};
+    std::vector<int> expect_shape = {8, 8};
+    auto shapeImme = OpImmediate::Specified(shape);
+    auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor1->SetMemoryTypeBoth(MEM_UB);
+    auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reduce_shape);
+    ubTensor2->SetMemoryTypeBoth(MEM_UB);
+    auto ubTensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reduce_shape);
+    ubTensor3->SetMemoryTypeBoth(MEM_UB);
+    auto ubTensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reduce_shape);
+    ubTensor4->SetMemoryTypeBoth(MEM_UB);
+    auto ubTensor5 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reduce_shape);
+    ubTensor5->SetMemoryTypeBoth(MEM_UB);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reduce_shape);
+    outCast->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"), SymbolicScalar("output_0_Dim_1")});
+    auto outCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reduce_shape);
+    outCast2->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"), SymbolicScalar("output_0_Dim_1")});
+    auto &copy_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {incast1}, {ubTensor1});
+    auto copyin1Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_UB, shapeImme, shapeImme, std::vector<npu::tile_fwk::OpImmediate>());
+    std::vector<npu::tile_fwk::OpImmediate> toValidShape = {OpImmediate(SymbolicScalar("Input_0_Dim_0")), OpImmediate(SymbolicScalar("Input_0_Dim_1"))};
+    copyin1Attr->SetToDynValidShape(toValidShape);
+    copy_op1.SetOpAttribute(copyin1Attr);
+    auto& reduce_op = currFunctionPtr->AddRawOperation(Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, {ubTensor1}, {ubTensor2});
+    (void) reduce_op;
+    reduce_op.SetAttribute(OP_ATTR_PREFIX + "AXIS", 1);
+    auto& abs_op = currFunctionPtr->AddRawOperation(Opcode::OP_ABS, {ubTensor2}, {ubTensor3});
+    (void) abs_op;
+    auto& copy_out_op = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor3}, {outCast});
+    (void) copy_out_op;
+    auto& copy_in_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {outCast}, {ubTensor4});
+    (void) copy_in_op2;
+    auto& reshape_op = currFunctionPtr->AddRawOperation(Opcode::OP_RESHAPE, {ubTensor4}, {ubTensor5});
+    (void) reshape_op;
+    auto& copy_out_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor5}, {outCast2});
+    (void) copy_out_op2;
+    currFunctionPtr->inCasts_.push_back(incast1);
+    currFunctionPtr->outCasts_.push_back(outCast2);
+}
+
+inline void ConstructGraph9(std::shared_ptr<Function> &currFunctionPtr) {
+    // Prepare the graph
+    std::vector<int> shape = {16, 6};
+    std::vector<int> trans_shape = {6, 16};
+    auto shapeImme = OpImmediate::Specified(shape);
+    auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor1->SetMemoryTypeBoth(MEM_UB);
+    auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor2->SetMemoryTypeBoth(MEM_UB);
+    auto ubTensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, trans_shape);
+    ubTensor3->SetMemoryTypeBoth(MEM_UB);
+    auto ubTensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, trans_shape);
+    ubTensor4->SetMemoryTypeBoth(MEM_UB);
+    auto ubTensor5 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, trans_shape);
+    ubTensor5->SetMemoryTypeBoth(MEM_UB);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, trans_shape);
+    outCast->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"), SymbolicScalar("output_0_Dim_1")});
+    auto outCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    outCast2->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"), SymbolicScalar("output_0_Dim_1")});
+    auto &copy_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {incast1}, {ubTensor1});
+    auto copyin1Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_UB, shapeImme, shapeImme, std::vector<npu::tile_fwk::OpImmediate>());
+    std::vector<npu::tile_fwk::OpImmediate> toValidShape = {OpImmediate(SymbolicScalar("Input_0_Dim_0")), OpImmediate(SymbolicScalar("Input_0_Dim_1"))};
+    copyin1Attr->SetToDynValidShape(toValidShape);
+    copy_op1.SetOpAttribute(copyin1Attr);
+    auto& abs_op = currFunctionPtr->AddRawOperation(Opcode::OP_ABS, {ubTensor1}, {ubTensor2});
+    (void) abs_op;
+    auto& transpose_op = currFunctionPtr->AddRawOperation(Opcode::OP_TRANSPOSE_VNCHWCONV, {ubTensor2}, {ubTensor3, ubTensor4});
+    (void) transpose_op;
+    transpose_op.SetAttribute(OP_ATTR_PREFIX + "shape", std::vector<int>{1, 0});
+    auto& exp_op = currFunctionPtr->AddRawOperation(Opcode::OP_EXP, {ubTensor3}, {ubTensor5});
+    (void) exp_op;
+    auto& copy_out_op = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor5}, {outCast});
+    (void) copy_out_op;
+    currFunctionPtr->inCasts_.push_back(incast1);
+    currFunctionPtr->outCasts_.push_back(outCast2);
+}
+
+/*
+before:
+  copyin  copyin
+  [8,15]  [8,15]
+    \       /
+       add
+      [8,15]
+        |
+      copyout
+
+after:
+  copyin  copyin
+  [8,16]  [8,16]
+    \       /
+       add
+      [8,16]
+        |
+      copyout
+*/
+TEST_F(TestPadLocalBuffer, no_reduce_last_dim_all_vec_last_dim_unpadded) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    std::vector<int> shape = {8, 15};
+    std::vector<int> expOriShape = {8, 16};
+    ConstructGraph1(currFunctionPtr);
+    PadLocalBuffer padLocalBufferTest;
+    padLocalBufferTest.RunOnFunction(*currFunctionPtr);
+    for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_ADD) {
             for (auto &in : op.iOperand) {
-                if (in->oriShape == expOriShape) {
-                    EXPECT_EQ(in->shape, expShape);
-                    EXPECT_EQ(in->tensor->rawshape, expShape);
-                    EXPECT_EQ(in->tensor->oriRawshape, expOriShape);
+                if (in->oriShape == shape) {
+                    EXPECT_EQ(in->shape, expOriShape);
+                    EXPECT_EQ(in->tensor->rawshape, expOriShape);
+                    EXPECT_EQ(in->tensor->oriRawshape, shape);
                 }
             }
-
             for (auto &out : op.oOperand) {
-                if (out->oriShape == expOriShape) {
-                    EXPECT_EQ(out->shape, expShape);
-                    EXPECT_EQ(out->tensor->rawshape, expShape);
-                    EXPECT_EQ(out->tensor->oriRawshape, expOriShape);
+                if (out->oriShape == shape) {
+                    EXPECT_EQ(out->shape, expOriShape);
+                    EXPECT_EQ(out->tensor->rawshape, expOriShape);
+                    EXPECT_EQ(out->tensor->oriRawshape, shape);
                 }
             }
         }
     }
 }
 
-TEST_F(TestPadLocalBuffer, test_matmul) {
-    std::vector<int> shape = {32, 32};
+/*
+before:
+    copyin  copyin
+    [8,16]  [8,16]
+      \       /
+       add
+      [8,16]
+        |
+      copyout
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8});
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16}, {16, 16}, {16, 16});
-    Tensor input_a(DT_FP32, shape, "A");
-    Tensor input_b(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "C");
-
-    FUNCTION("A_MUL_Bt", FunctionType::STATIC, {input_a, input_b, output}) {
-        output = Matrix::Matmul<false, true>(DataType::DT_FP32, input_a, input_b);
-    }
-
-    auto function= Program::GetInstance().GetFunctionByRawName("TENSOR_A_MUL_Bt");
-    ASSERT_NE(function, nullptr);
-}
-
-TEST_F(TestPadLocalBuffer, test_operation_row_max_single_4dim_softmax_unalign) {
-    // softmax rowmax: [B,N,1,S2]
-    int shape0 = 1;
-    int shape1 = 128;
-    int shape2 = 1;
-    int shape3 = 247;
-    std::vector<int> shape = {shape0, shape1, shape2, shape3};
-    std::vector<int> outshape = {shape0, shape1, shape2, 1};
-
-    PROGRAM("RowMaxSingle") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 64, 1, 64});
-
-        Tensor input_a(DT_FP32, shape, "A");
-        Tensor output(DT_FP32, outshape, "C");
-
-        FUNCTION("RowMaxSingle", FunctionType::STATIC, {input_a, output}) {
-            output = RowMaxSingle(input_a, -1);
-        }
-    }
-
-    auto function= Program::GetInstance().GetFunctionByRawName("TENSOR_RowMaxSingle");
-    ASSERT_NE(function, nullptr);
-    int count = 0;
-    std::vector<int> expShape = {1, 64, 1, 64};
-    std::vector<int> expOriShape = {1, 64, 1, 55};
-
-    for (auto &op : function->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_PAIRMAX) {
+after:
+    copyin  copyin
+    [8,16]  [8,16]
+      \       /
+       add
+      [8,16]
+        |
+      copyout
+*/
+TEST_F(TestPadLocalBuffer, no_reduce_last_dim_all_vec_last_dim_padded) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    std::vector<int> shape = {8, 16};
+    std::vector<int> expOriShape = {8, 16};
+    ConstructGraph2(currFunctionPtr);
+    PadLocalBuffer padLocalBufferTest;
+    padLocalBufferTest.RunOnFunction(*currFunctionPtr);
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_ADD) {
             for (auto &in : op.iOperand) {
-                if (in->oriShape == expOriShape) {
-                    EXPECT_EQ(in->shape, expShape);
-                    EXPECT_EQ(in->tensor->rawshape, expShape);
-                    EXPECT_EQ(in->tensor->oriRawshape, expOriShape);
-                    count++;
+                if (in->oriShape == shape) {
+                    EXPECT_EQ(in->shape, expOriShape);
+                    EXPECT_EQ(in->tensor->rawshape, expOriShape);
+                    EXPECT_EQ(in->tensor->oriRawshape, shape);
+                }
+            }
+            for (auto &out : op.oOperand) {
+                if (out->oriShape == shape) {
+                    EXPECT_EQ(out->shape, expOriShape);
+                    EXPECT_EQ(out->tensor->rawshape, expOriShape);
+                    EXPECT_EQ(out->tensor->oriRawshape, shape);
                 }
             }
         }
     }
-    EXPECT_EQ(count, 2);
 }
 
-TEST_F(TestPadLocalBuffer, test_operation_row_max_single_4dim_softmax_unalign_2) {
-    // softmax rowmax: [B,N,1,S2]
-    int shape0 = 1;
-    int shape1 = 128;
-    int shape2 = 1;
-    int shape3 = 199;
-    std::vector<int> shape = {shape0, shape1, shape2, shape3};
-    std::vector<int> outshape = {shape0, shape1, shape2, 1};
 
-    PROGRAM("RowMaxSingle") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 64, 1, 64});
+/*
+before:
+    copyin  copyin
+    [8,15]  [15,15]
+      \       /
+       matmul
+       [8,15]
+          |
+       copyout
 
-        Tensor input_a(DT_FP32, shape, "A");
-        Tensor output(DT_FP32, outshape, "C");
-
-        FUNCTION("RowMaxSingle", FunctionType::STATIC, {input_a, output}) {
-            output = RowMaxSingle(input_a, -1);
-        }
-    }
-
-    auto function= Program::GetInstance().GetFunctionByRawName("TENSOR_RowMaxSingle");
-    ASSERT_NE(function, nullptr);
-    int count = 0;
-    std::vector<int> expShape = {1, 64, 1, 8};
-    std::vector<int> expOriShape = {1, 64, 1, 7};
-
-    for (auto &op : function->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_PAIRMAX) {
+after:
+    copyin  copyin
+    [16,16]  [16,16]
+      \       /
+       matmul
+       [16,16]
+          |
+       copyout
+*/
+TEST_F(TestPadLocalBuffer, no_reduce_last_dim_mm) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    std::vector<int> AShape = {8, 15};
+    std::vector<int> BShape = {15, 15};
+    std::vector<int> CShape = {8, 16};
+    std::vector<int> expOriShape = {16, 16};
+    ConstructGraph3(currFunctionPtr);
+    PadLocalBuffer padLocalBufferTest;
+    padLocalBufferTest.RunOnFunction(*currFunctionPtr);
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_A_MULACC_B) {
             for (auto &in : op.iOperand) {
-                if (in->oriShape == expOriShape) {
-                    EXPECT_EQ(in->shape, expShape);
-                    EXPECT_EQ(in->tensor->rawshape, expShape);
-                    EXPECT_EQ(in->tensor->oriRawshape, expOriShape);
-                    count++;
+                if (in->oriShape == AShape) {
+                    EXPECT_EQ(in->shape, expOriShape);
+                    EXPECT_EQ(in->tensor->rawshape, expOriShape);
+                    EXPECT_EQ(in->tensor->oriRawshape, AShape);
+                }
+                if (in->oriShape == BShape) {
+                    EXPECT_EQ(in->shape, expOriShape);
+                    EXPECT_EQ(in->tensor->rawshape, expOriShape);
+                    EXPECT_EQ(in->tensor->oriRawshape, BShape);
+                }
+            }
+            for (auto &out : op.oOperand) {
+                if (out->oriShape == CShape) {
+                    EXPECT_EQ(out->shape, expOriShape);
+                    EXPECT_EQ(out->tensor->rawshape, expOriShape);
+                    EXPECT_EQ(out->tensor->oriRawshape, CShape);
                 }
             }
         }
     }
-    EXPECT_EQ(count, 2);
+}
+
+/*
+before:
+    copyin  
+    [8,15]
+      |
+    reduce
+    [8,1]
+      |
+    abs
+    [8,1]
+      |
+    copyout
+
+after:
+    copyin  
+    [8,16]
+      |
+    reduce
+    [8,1]
+      |
+    abs
+    [8,1]
+      |
+    copyout
+*/
+TEST_F(TestPadLocalBuffer, reduce_last_dim_padding) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    std::vector<int> shape = {8, 15};
+    std::vector<int> reduce_shape = {8, 1};
+    std::vector<int> expOriShape = {8, 16};
+    ConstructGraph4(currFunctionPtr);
+    PadLocalBuffer padLocalBufferTest;
+    padLocalBufferTest.RunOnFunction(*currFunctionPtr);
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE) {
+            for (auto &in : op.iOperand) {
+                if (in->oriShape == shape) {
+                    EXPECT_EQ(in->shape, expOriShape);
+                    EXPECT_EQ(in->tensor->rawshape, expOriShape);
+                    EXPECT_EQ(in->tensor->oriRawshape, shape);
+                }
+            }
+            for (auto &out : op.oOperand) {
+                if (out->oriShape == reduce_shape) {
+                    EXPECT_EQ(out->shape, reduce_shape);
+                    EXPECT_EQ(out->tensor->rawshape, reduce_shape);
+                    EXPECT_EQ(out->tensor->oriRawshape, reduce_shape);
+                }
+            }
+        }
+    }
+}
+
+
+/*
+before:
+    copyin  
+    [7,15]
+      |
+    reduce
+    [7,1]
+      |
+    abs
+    [7,1]
+      |
+    copyout
+
+after:
+    copyin  
+    [7,16]
+      |
+    reduce
+    [7,8]
+      |
+    abs
+    [7,8]
+      |
+    copyout
+*/
+TEST_F(TestPadLocalBuffer, reduce_last_dim_no_padding) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    std::vector<int> shape = {7, 15};
+    std::vector<int> expInShape = {7, 16};
+    std::vector<int> reduce_shape = {7, 1};
+    std::vector<int> expOriShape = {7, 8};
+    ConstructGraph5(currFunctionPtr);
+    PadLocalBuffer padLocalBufferTest;
+    padLocalBufferTest.RunOnFunction(*currFunctionPtr);
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE) {
+            for (auto &in : op.iOperand) {
+                if (in->oriShape == shape) {
+                    EXPECT_EQ(in->shape, expInShape);
+                    EXPECT_EQ(in->tensor->rawshape, expInShape);
+                    EXPECT_EQ(in->tensor->oriRawshape, shape);
+                }
+            }
+            for (auto &out : op.oOperand) {
+                if (out->oriShape == reduce_shape) {
+                    EXPECT_EQ(out->shape, expOriShape);
+                    EXPECT_EQ(out->tensor->rawshape, expOriShape);
+                    EXPECT_EQ(out->tensor->oriRawshape, reduce_shape);
+                }
+            }
+        }
+    }
+}
+
+/*
+before:
+    copyin  
+    [8,15]
+      |
+    reduce
+    [8,1]
+      |
+    abs
+    [8,1]
+      |
+    expand
+    [8, 15]
+      |
+    copyout
+
+after:
+    copyin  
+    [8,16]
+      |
+    reduce
+    [8,1]
+      |
+    abs
+    [8,1]
+      |
+    expand
+    [8, 16]
+      |
+    copyout
+*/
+TEST_F(TestPadLocalBuffer, reduce_last_dim_with_brc) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    std::vector<int> shape = {8, 15};
+    std::vector<int> expInShape = {8, 16};
+    std::vector<int> reduce_shape = {8, 1};
+    std::vector<int> expOriShape = {8, 8};
+    std::vector<int> expandShape = {8, 15};
+    std::vector<int> expectExpandShape = {8, 16};
+    ConstructGraph6(currFunctionPtr);
+    PadLocalBuffer padLocalBufferTest;
+    padLocalBufferTest.RunOnFunction(*currFunctionPtr);
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE) {
+            for (auto &in : op.iOperand) {
+                if (in->oriShape == shape) {
+                    EXPECT_EQ(in->shape, expInShape);
+                    EXPECT_EQ(in->tensor->rawshape, expInShape);
+                    EXPECT_EQ(in->tensor->oriRawshape, shape);
+                }
+            }
+            for (auto &out : op.oOperand) {
+                if (out->oriShape == reduce_shape) {
+                    EXPECT_EQ(out->shape, reduce_shape);
+                    EXPECT_EQ(out->tensor->rawshape, reduce_shape);
+                    EXPECT_EQ(out->tensor->oriRawshape, reduce_shape);
+                }
+            }
+        }
+        if (op.GetOpcode() == Opcode::OP_EXPAND) {
+            for (auto &out : op.oOperand) {
+                if (out->oriShape == expandShape) {
+                    EXPECT_EQ(out->shape, expectExpandShape);
+                    EXPECT_EQ(out->tensor->rawshape, expectExpandShape);
+                    EXPECT_EQ(out->tensor->oriRawshape, expandShape);
+                }
+            }
+        }
+    }
+}
+
+/*
+before:
+    copyin  
+    [8,15]
+      |
+    reduce
+    [8,1]
+      |
+    abs
+    [8,1]
+      |
+    copyout
+    [8,1]
+      |
+    copyin
+    [8,1]
+      |
+     exp
+    [8,1]
+      |
+    copyout
+    [8,1]
+
+after:
+    copyin  
+    [8,16]
+      |
+    reduce
+    [8,1]
+      |
+    abs
+    [8,1]
+      |
+    copyout
+    [8,1]
+      |
+    copyin
+    [8,1]
+      |
+     exp
+    [8,1]
+      |
+    copyout
+    [8,1]
+*/
+TEST_F(TestPadLocalBuffer, reduce_last_dim_with_copyout_copyin_elementwise) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    std::vector<int> shape = {8, 15};
+    std::vector<int> expInShape = {8, 16};
+    std::vector<int> reduce_shape = {8, 1};
+    ConstructGraph7(currFunctionPtr);
+    PadLocalBuffer padLocalBufferTest;
+    padLocalBufferTest.RunOnFunction(*currFunctionPtr);
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE) {
+            for (auto &in : op.iOperand) {
+                if (in->oriShape == shape) {
+                    EXPECT_EQ(in->shape, expInShape);
+                    EXPECT_EQ(in->tensor->rawshape, expInShape);
+                    EXPECT_EQ(in->tensor->oriRawshape, shape);
+                }
+            }
+            for (auto &out : op.oOperand) {
+                if (out->oriShape == reduce_shape) {
+                    EXPECT_EQ(out->shape, reduce_shape);
+                    EXPECT_EQ(out->tensor->rawshape, reduce_shape);
+                    EXPECT_EQ(out->tensor->oriRawshape, reduce_shape);
+                }
+            }
+        }
+        if (op.GetOpcode() == Opcode::OP_EXP) {
+            for (auto &out : op.oOperand) {
+                if (out->oriShape == reduce_shape) {
+                    EXPECT_EQ(out->shape, reduce_shape);
+                    EXPECT_EQ(out->tensor->rawshape, reduce_shape);
+                    EXPECT_EQ(out->tensor->oriRawshape, reduce_shape);
+                }
+            }
+        }
+    }
+}
+
+/*
+before:
+    copyin  
+    [8,15]
+      |
+    reduce
+    [8,1]
+      |
+    abs
+    [8,1]
+      |
+    copyout
+    [8,1]
+      |
+    copyin
+    [8,1]
+      |
+    reshape
+    [1,8]
+      |
+    copyout
+    [1,8]
+
+after:
+    copyin  
+    [8,16]
+      |
+    reduce
+    [8,1]
+      |
+    abs
+    [8,1]
+      |
+    copyout
+    [8,1]
+      |
+    copyin
+    [8,8]
+      |
+    reshape
+    [8,8]
+      |
+    copyout
+    [8,1]
+*/
+TEST_F(TestPadLocalBuffer, reduce_last_dim_with_copyout_copyin_reshape) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    std::vector<int> shape = {8, 15};
+    std::vector<int> expInShape = {8, 16};
+    std::vector<int> reduce_shape = {8, 1};
+    std::vector<int> reshape_shape = {1, 8};
+    std::vector<int> expect_shape = {8, 8};
+    ConstructGraph8(currFunctionPtr);
+    PadLocalBuffer padLocalBufferTest;
+    padLocalBufferTest.RunOnFunction(*currFunctionPtr);
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE) {
+            for (auto &in : op.iOperand) {
+                if (in->oriShape == shape) {
+                    EXPECT_EQ(in->shape, expInShape);
+                    EXPECT_EQ(in->tensor->rawshape, expInShape);
+                    EXPECT_EQ(in->tensor->oriRawshape, shape);
+                }
+            }
+            for (auto &out : op.oOperand) {
+                if (out->oriShape == reduce_shape) {
+                    EXPECT_EQ(out->shape, reduce_shape);
+                    EXPECT_EQ(out->tensor->rawshape, reduce_shape);
+                    EXPECT_EQ(out->tensor->oriRawshape, reduce_shape);
+                }
+            }
+        }
+        if (op.GetOpcode() == Opcode::OP_COPY_IN) {
+            for (auto &out : op.oOperand) {
+                if (out->oriShape == reshape_shape) {
+                    EXPECT_EQ(out->shape, expect_shape);
+                    EXPECT_EQ(out->tensor->rawshape, reduce_shape);
+                    EXPECT_EQ(out->tensor->oriRawshape, reduce_shape);
+                }
+            }
+        }
+    }
+}
+
+/*
+before:
+    copyin  
+    [16,6]
+      |
+    abs
+    [16,6]
+      |
+    transpose
+    [6,16]
+      |
+    exp
+    [6,16]
+      |
+    copyout
+
+after:
+    copyin  
+    [16,8]
+      |
+    abs
+    [16,8]
+      |
+    transpose
+    [8,16]
+      |
+    exp
+    [6,16]
+      |
+    copyout
+*/
+TEST_F(TestPadLocalBuffer, reduce_last_dim_with_transpose) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    std::vector<int> shape = {16, 6};
+    std::vector<int> expect_shape = {16, 8};
+    std::vector<int> trans_shape = {6, 16};
+    std::vector<int> expect_trans_shape = {8, 16};
+    ConstructGraph9(currFunctionPtr);
+    PadLocalBuffer padLocalBufferTest("PadLocalBuffer",true);
+    padLocalBufferTest.RunOnFunction(*currFunctionPtr);
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_TRANSPOSE_VNCHWCONV) {
+            for (auto &in : op.iOperand) {
+                if (in->oriShape == shape) {
+                    EXPECT_EQ(in->shape, expect_shape);
+                    EXPECT_EQ(in->tensor->rawshape, expect_shape);
+                    EXPECT_EQ(in->tensor->oriRawshape, shape);
+                }
+            }
+            auto &out = op.oOperand[0];
+            if (out->oriShape == trans_shape) {
+                EXPECT_EQ(out->shape, expect_trans_shape);
+                EXPECT_EQ(out->tensor->rawshape, expect_trans_shape);
+                EXPECT_EQ(out->tensor->oriRawshape, trans_shape);
+            }
+        }
+        if (op.GetOpcode() == Opcode::OP_EXP) {
+            for (auto &out : op.oOperand) {
+                if (out->oriShape == trans_shape) {
+                    EXPECT_EQ(out->shape, trans_shape);
+                    EXPECT_EQ(out->tensor->rawshape, trans_shape);
+                    EXPECT_EQ(out->tensor->oriRawshape, trans_shape);
+                }
+            }
+        }
+    }
 }

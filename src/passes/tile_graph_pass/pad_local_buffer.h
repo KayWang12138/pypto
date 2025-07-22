@@ -35,7 +35,7 @@ namespace npu::tile_fwk {
 */
 class PadLocalBuffer : public Pass {
 public:
-    explicit PadLocalBuffer(std::string name = "PadLocalBuffer") : Pass(name) {}
+    explicit PadLocalBuffer(std::string name = "PadLocalBuffer", bool processTranspose = false) : Pass(name), processTranspose_(processTranspose) {}
     ~PadLocalBuffer() override = default;
 private:
     Status RunOnFunction(Function &function) override;
@@ -52,6 +52,8 @@ private:
     bool IsMatmul(const LogicalTensorPtr &tensor) const;
     bool IsVector(const LogicalTensorPtr &tensor);
     void DoPadding(Function &function);
+    Status ProcessTranspose(Function &function);
+    bool processTranspose_;
 };
 } // namespace
 #endif  // PAD_LOCAL_BUFFER_H

@@ -19,6 +19,7 @@ namespace npu::tile_fwk {
 constexpr size_t MATMUL_MIN_SHAPE_SIZE = 2;
 constexpr size_t VECTOR_MIN_SHAPE_SIZE = 1;
 constexpr size_t AXIS_COMBINE_MIN_SHAPE_SIZE = 2;
+constexpr size_t TRANSPOSE_MIN_SHAPE_SIZE = 2;
 constexpr size_t BROADCAST_OP_INPUT_SIZE = 2;
 /* 记录不同matmul的padding值的index */
 constexpr size_t CUBE_INPUT_SIZE = 4;
@@ -322,6 +323,49 @@ void PadLocalBuffer::DoPadding(Function &function) {
     }
 }
 
+// 对ub上transpose的特殊处理,其他类型的transpose不做处理
+Status PadLocalBuffer::ProcessTranspose(Function &function) {
+    for (auto &op : function.Operations()) {
+        if (op.GetOpcode() != Opcode::OP_TRANSPOSE_VNCHWCONV || op.GetIOperands()[0]->shape.size() < TRANSPOSE_MIN_SHAPE_SIZE) {
+            continue;
+        }
+        std::vector<int32_t> transposeAxis = npu::tile_fwk::AnyCast<std::vector<int32_t>>(op.GetAttribute(OP_ATTR_PREFIX + "shape"));
+        if (transposeAxis.size() != TRANSPOSE_MIN_SHAPE_SIZE) {
+            ALOG_DEBUG_F("transpose op %d %s's shape size %d is not two, skip", op.opmagic, op.GetOpcodeStr().c_str(), transposeAxis.size());
+            continue;
+        }
+        if (op.iOperand.size() <= 0 || op.oOperand.size() <= 0) {
+            ALOG_ERROR_F("transpose op %d %s's input or output is empty", op.opmagic, op.GetOpcodeStr().c_str());
+            return FAILED;
+        }
+        auto &inTensor = op.iOperand[0];
+        auto &outTensor = op.oOperand[0];
+        if (transposeAxis[0] == transposeAxis[1]) {
+            ALOG_ERROR_F("transpose op has the same transpose dims, not supported");
+            return FAILED;
+        }
+        if ((transposeAxis[0] != static_cast<int32_t>(inTensor->shape.size() - 1)) && (transposeAxis[1] != static_cast<int32_t>(inTensor->shape.size() - 1))) {
+            ALOG_DEBUG_F("transpose op %d %s's transpose axis %d %d, not last dim transpose, skip", op.opmagic, op.GetOpcodeStr().c_str(), transposeAxis[0], transposeAxis[1]);
+            continue;
+        }
+        int32_t nonLastDimIdx = -1;
+        int32_t lastDimIdx = inTensor->shape.size() - 1;
+        if (transposeAxis[0] != static_cast<int32_t>(inTensor->shape.size() - 1)) {
+            nonLastDimIdx = transposeAxis[0];
+        } else {
+            nonLastDimIdx = transposeAxis[1];
+        }
+        auto &inLastDim = inTensor->shape[lastDimIdx];
+        auto &outFirstDim = outTensor->shape[nonLastDimIdx];
+        if (inLastDim != outFirstDim) {
+            ALOG_DEBUG_F("tune transpose output dim %d to %d", inLastDim, outFirstDim);
+            outTensor->shape[nonLastDimIdx] = inLastDim;
+            outTensor->tensor->rawshape[nonLastDimIdx] = inLastDim;
+        }
+    }
+    return SUCCESS;
+}
+
 Status PadLocalBuffer::RunOnFunction(Function &function) {
     for (auto &op : function.Operations()) {
         auto calcType = OpcodeManager::Inst().GetOpCalcType(op.GetOpcode());
@@ -341,6 +385,12 @@ Status PadLocalBuffer::RunOnFunction(Function &function) {
         }
     }
     DoPadding(function);
+    if (processTranspose_) {
+        if (ProcessTranspose(function) != SUCCESS) {
+            ALOG_ERROR_F("ProcessTranspose failed");
+            return FAILED;
+        }
+    }
     return SUCCESS;
 }
 } // namespace

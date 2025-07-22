@@ -19,6 +19,8 @@
 #include <vector>
 #include <string>
 #include "interface/function/function.h"
+#include "passes/tile_graph_pass/remove_unaligned_reshape_op.h"
+#include "passes/tile_graph_pass/pad_local_buffer.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "passes/pass_manager.h"
@@ -43,41 +45,320 @@ public:
     }
 };
 
-TEST_F(TestRemoveUnalignedReshapeOp, test_Unalign_reshape) {
-    std::vector<int> shape = {16, 16, 64, 1};
-    std::vector<int> shapeOutput = {16, 16, 1, 64};
+inline void ConstructGraph1(std::shared_ptr<Function> &currFunctionPtr) {
+    // Prepare the graph
+    std::vector<int> shape = {7, 15};
+    std::vector<int> reshape_shape = {15,7};
+    std::vector<int> expect_shape = {7, 16};
+    auto shapeImme = OpImmediate::Specified(shape);
+    auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor1->SetMemoryTypeBoth(MEM_UB);
+    auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshape_shape);
+    ubTensor2->SetMemoryTypeBoth(MEM_UB);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshape_shape);
+    outCast->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"), SymbolicScalar("output_0_Dim_1")});
+    auto &copy_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {incast1}, {ubTensor1});
+    auto copyin1Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_UB, shapeImme, shapeImme, std::vector<npu::tile_fwk::OpImmediate>());
+    std::vector<npu::tile_fwk::OpImmediate> toValidShape = {OpImmediate(SymbolicScalar("Input_0_Dim_0")), OpImmediate(SymbolicScalar("Input_0_Dim_1"))};
+    copyin1Attr->SetToDynValidShape(toValidShape);
+    copy_op1.SetOpAttribute(copyin1Attr);
+    auto& reshape_op = currFunctionPtr->AddRawOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
+    (void) reshape_op;
+    auto& copy_out_op = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor2}, {outCast});
+    (void) copy_out_op;
+    currFunctionPtr->inCasts_.push_back(incast1);
+    currFunctionPtr->outCasts_.push_back(outCast);
+}
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 16, 16});
-    Tensor input_a(DT_FP32, shape, "A");
-    Tensor input_b(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shapeOutput, "C");
-    Function* currentFunction;
+inline void ConstructGraph2(std::shared_ptr<Function> &currFunctionPtr) {
+    // Prepare the graph
+    std::vector<int> shape = {8, 16};
+    std::vector<int> reshape_shape = {16,8};
+    std::vector<int> expect_shape = {8, 16};
+    auto shapeImme = OpImmediate::Specified(shape);
+    auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor1->SetMemoryTypeBoth(MEM_UB);
+    auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshape_shape);
+    ubTensor2->SetMemoryTypeBoth(MEM_UB);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshape_shape);
+    outCast->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"), SymbolicScalar("output_0_Dim_1")});
+    auto &copy_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {incast1}, {ubTensor1});
+    auto copyin1Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_UB, shapeImme, shapeImme, std::vector<npu::tile_fwk::OpImmediate>());
+    std::vector<npu::tile_fwk::OpImmediate> toValidShape = {OpImmediate(SymbolicScalar("Input_0_Dim_0")), OpImmediate(SymbolicScalar("Input_0_Dim_1"))};
+    copyin1Attr->SetToDynValidShape(toValidShape);
+    copy_op1.SetOpAttribute(copyin1Attr);
+    auto& reshape_op = currFunctionPtr->AddRawOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
+    (void) reshape_op;
+    auto& copy_out_op = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor2}, {outCast});
+    (void) copy_out_op;
+    currFunctionPtr->inCasts_.push_back(incast1);
+    currFunctionPtr->outCasts_.push_back(outCast);
+}
 
-    FUNCTION("TENSOR_UNALIGN_RESHAPE_T", FunctionType::STATIC, {input_a, input_b, output}) {
-        Tensor Tmp = Add(input_a, input_b);
-        Tensor reshapeOutput = Reshape(Tmp, shapeOutput);
-        output = Exp(reshapeOutput);
-        currentFunction = Program::GetInstance().GetCurrentFunction();
-    }
+inline void ConstructGraph3(std::shared_ptr<Function> &currFunctionPtr) {
+    // Prepare the graph
+    std::vector<int> shape = {8, 16};
+    std::vector<int> reshape_shape = {16,8};
+    std::vector<int> expect_shape = {8, 16};
+    auto shapeImme = OpImmediate::Specified(shape);
+    auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    incast1->SetMemoryTypeBoth(MEM_DEVICE_DDR);
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor1->SetMemoryTypeBoth(MEM_UB);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshape_shape);
+    outCast->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"), SymbolicScalar("output_0_Dim_1")});
+    auto& reshape_op = currFunctionPtr->AddRawOperation(Opcode::OP_RESHAPE, {incast1}, {ubTensor1});
+    (void) reshape_op;
+    auto& copy_out_op = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor1}, {outCast});
+    (void) copy_out_op;
+}
 
-    std::vector<int> expiInShape = {8, 8, 16, 1};
-    std::vector<int> expOutShape = {8, 8, 1, 16};
+inline void ConstructGraph4(std::shared_ptr<Function> &currFunctionPtr) {
+    // Prepare the graph
+    std::vector<int> shape = {64, 1};
+    std::vector<int> reshape_shape = {1,64};
+    auto shapeImme = OpImmediate::Specified(shape);
+    auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    incast1->SetMemoryTypeBoth(MEM_DEVICE_DDR);
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor1->SetMemoryTypeBoth(MEM_UB);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshape_shape);
+    outCast->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"), SymbolicScalar("output_0_Dim_1")});
+    auto& reshape_op = currFunctionPtr->AddRawOperation(Opcode::OP_RESHAPE, {incast1}, {ubTensor1});
+    (void) reshape_op;
+    auto& copy_out_op = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {ubTensor1}, {outCast});
+    (void) copy_out_op;
+}
+/*
+before:
+    copyin
+    [7,15]
+     |
+    reshape
+    [15,7]
+     |
+    copyout
+    [15,7]
 
-    for (auto &op : currentFunction->Operations()) {
+after:
+    copyin
+    [7,15]
+      |
+    copyout
+    [7,15]
+      |
+    reshape
+    [15,7]
+      |
+    copyin
+    [15,8]
+      |
+    copyout
+    [15,7]
+*/
+TEST_F(TestRemoveUnalignedReshapeOp, reshaped_padded_ub) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    std::vector<int> shape = {7, 15};
+    std::vector<int> reshape_shape = {15,7};
+    std::vector<int> expect_shape = {7, 16};
+    ConstructGraph1(currFunctionPtr);
+    PadLocalBuffer padLocalBufferTest;
+    padLocalBufferTest.RunOnFunction(*currFunctionPtr);
+    RemoveUnalignedReshapeOp removeUnalignedReshapeOpTest;
+    removeUnalignedReshapeOpTest.RunOnFunction(*currFunctionPtr);
+    for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
             for (auto &in : op.iOperand) {
-                if (in->oriShape == expiInShape) {
-                    EXPECT_EQ(in->shape, expiInShape);
-                    EXPECT_EQ(in->tensor->rawshape, expiInShape);
-                    EXPECT_EQ(in->tensor->oriRawshape, expiInShape);
+                EXPECT_EQ(in->GetProducers().size(), 1);
+                auto producer = *(in->GetProducers().begin());
+                EXPECT_EQ(producer->GetOpcode(), Opcode::OP_COPY_OUT);
+                if (in->oriShape == shape) {
+                    EXPECT_EQ(in->shape, shape);
+                    EXPECT_EQ(in->tensor->rawshape, shape);
+                    EXPECT_EQ(in->tensor->oriRawshape, shape);
                 }
             }
-
             for (auto &out : op.oOperand) {
-                if (out->oriShape == expOutShape) {
-                    EXPECT_EQ(out->shape, expOutShape);
-                    EXPECT_EQ(out->tensor->rawshape, expOutShape);
-                    EXPECT_EQ(out->tensor->oriRawshape, expOutShape);
+                EXPECT_EQ(out->GetConsumers().size(), 1);
+                auto consumer = *(out->GetConsumers().begin());
+                EXPECT_EQ(consumer->GetOpcode(), Opcode::OP_COPY_IN);
+                if (out->oriShape == reshape_shape) {
+                    EXPECT_EQ(out->shape, reshape_shape);
+                    EXPECT_EQ(out->tensor->rawshape, reshape_shape);
+                    EXPECT_EQ(out->tensor->oriRawshape, reshape_shape);
+                }
+            }
+        }
+    }
+}
+
+/*
+before:
+    copyin
+    [8,16]
+     |
+    reshape
+    [16,8]
+     |
+    copyout
+    [16,8]
+
+after:
+    copyin
+    [8,16]
+     |
+    reshape
+    [16,8]
+     |
+    copyout
+    [16,8]
+*/
+TEST_F(TestRemoveUnalignedReshapeOp, reshaped_unpadded_ub) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    std::vector<int> shape = {8, 16};
+    std::vector<int> reshape_shape = {16,8};
+    std::vector<int> expect_shape = {8, 16};
+    ConstructGraph2(currFunctionPtr);
+    PadLocalBuffer padLocalBufferTest;
+    padLocalBufferTest.RunOnFunction(*currFunctionPtr);
+    RemoveUnalignedReshapeOp removeUnalignedReshapeOpTest;
+    removeUnalignedReshapeOpTest.RunOnFunction(*currFunctionPtr);
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+            for (auto &in : op.iOperand) {
+                EXPECT_EQ(in->GetProducers().size(), 1);
+                auto producer = *(in->GetProducers().begin());
+                EXPECT_NE(producer->GetOpcode(), Opcode::OP_COPY_OUT);
+                if (in->oriShape == shape) {
+                    EXPECT_EQ(in->shape, shape);
+                    EXPECT_EQ(in->tensor->rawshape, shape);
+                    EXPECT_EQ(in->tensor->oriRawshape, shape);
+                }
+            }
+            for (auto &out : op.oOperand) {
+                EXPECT_EQ(out->GetConsumers().size(), 1);
+                auto consumer = *(out->GetConsumers().begin());
+                EXPECT_NE(consumer->GetOpcode(), Opcode::OP_COPY_IN);
+                if (out->oriShape == reshape_shape) {
+                    EXPECT_EQ(out->shape, reshape_shape);
+                    EXPECT_EQ(out->tensor->rawshape, reshape_shape);
+                    EXPECT_EQ(out->tensor->oriRawshape, reshape_shape);
+                }
+            }
+        }
+    }
+}
+
+/*
+before:
+    incast(gm)
+    [8,16]
+     |
+    reshape
+    [16,8]
+     |
+    copyout
+    [16,8]
+
+after:
+    incast(gm)
+    [8,16]
+     |
+    reshape
+    [16,8]
+     |
+    copyout
+    [16,8]
+*/
+TEST_F(TestRemoveUnalignedReshapeOp, reshaped_unpadded_ub_gm) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    std::vector<int> shape = {8, 16};
+    std::vector<int> reshape_shape = {16,8};
+    std::vector<int> expect_shape = {8, 16};
+    ConstructGraph3(currFunctionPtr);
+    PadLocalBuffer padLocalBufferTest;
+    padLocalBufferTest.RunOnFunction(*currFunctionPtr);
+    RemoveUnalignedReshapeOp removeUnalignedReshapeOpTest;
+    removeUnalignedReshapeOpTest.RunOnFunction(*currFunctionPtr);
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+            for (auto &out : op.oOperand) {
+                EXPECT_EQ(out->GetConsumers().size(), 1);
+                auto consumer = *(out->GetConsumers().begin());
+                EXPECT_NE(consumer->GetOpcode(), Opcode::OP_COPY_IN);
+                if (out->oriShape == reshape_shape) {
+                    EXPECT_EQ(out->shape, reshape_shape);
+                    EXPECT_EQ(out->tensor->rawshape, reshape_shape);
+                    EXPECT_EQ(out->tensor->oriRawshape, reshape_shape);
+                }
+            }
+        }
+    }
+}
+
+/*
+问题用例
+before:
+    copyin
+    [64,1]
+     |
+    reshape
+    [1, 64]
+     |
+    copyout
+    [1, 64]
+
+after:
+    copyin
+    [64, 1]
+      |
+    copyout
+    [64, 1]
+      |
+    reshape
+    [1, 64]
+      |
+    copyin
+    [1, 64]
+      |
+    copyout
+    [1, 64]
+*/
+TEST_F(TestRemoveUnalignedReshapeOp, reshaped_unpadded_ub_gm_last_dim_1) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    std::vector<int> shape = {64, 1};
+    std::vector<int> reshape_shape = {1,64};
+    ConstructGraph4(currFunctionPtr);
+    PadLocalBuffer padLocalBufferTest;
+    padLocalBufferTest.RunOnFunction(*currFunctionPtr);
+    RemoveUnalignedReshapeOp removeUnalignedReshapeOpTest;
+    removeUnalignedReshapeOpTest.RunOnFunction(*currFunctionPtr);
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+            for (auto &in : op.iOperand) {
+                EXPECT_EQ(in->GetProducers().size(), 1);
+                auto producer = *(in->GetProducers().begin());
+                EXPECT_EQ(producer->GetOpcode(), Opcode::OP_COPY_OUT);
+                if (in->oriShape == shape) {
+                    EXPECT_EQ(in->shape, shape);
+                    EXPECT_EQ(in->tensor->rawshape, shape);
+                    EXPECT_EQ(in->tensor->oriRawshape, shape);
+                }
+            }
+            for (auto &out : op.oOperand) {
+                EXPECT_EQ(out->GetConsumers().size(), 1);
+                auto consumer = *(out->GetConsumers().begin());
+                EXPECT_EQ(consumer->GetOpcode(), Opcode::OP_COPY_IN);
+                if (out->oriShape == reshape_shape) {
+                    EXPECT_EQ(out->shape, reshape_shape);
+                    EXPECT_EQ(out->tensor->rawshape, reshape_shape);
+                    EXPECT_EQ(out->tensor->oriRawshape, reshape_shape);
                 }
             }
         }
