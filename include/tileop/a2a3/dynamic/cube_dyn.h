@@ -21,6 +21,24 @@
 #include <type_traits>
 
 namespace TileOp {
+constexpr uint16_t BLOCK_CUBE_M_N = 16;
+constexpr uint16_t BLOCK_ALIGN_BYTE = 32;
+
+template <typename T>
+INLINE T CeilAlign(T num_1, T num_2) {
+    if (num_2 == 0) {
+        return 0;
+    }
+    return (num_1 + num_2 - 1) / num_2 * num_2;
+}
+
+template <typename T>
+INLINE T CeilDiv(T num_1, T num_2) {
+    if (num_2 == 0) {
+        return 0;
+    }
+    return (num_1 + num_2 - 1) / num_2;
+}
 /*
  * brief: dynamic l1 copy in nz2nz functions with batch
  */
@@ -203,17 +221,16 @@ template <typename GMT, typename L1T>
 TILEOP void DynL1CopyIn(__cbuf__ L1T *dst, __gm__ GMT *src, unsigned TShape0, unsigned TShape1, unsigned GmShape0,
     unsigned GmShape1, unsigned GmOffset0, unsigned GmOffset1, int reserved) { // ND2NZ
     src += CalcLinearOffset(GmShape1, GmOffset0, GmOffset1);
-    auto c0Size = 32 / sizeof(GMT);
+    uint16_t nValue = TShape0;
+    uint16_t dValue = TShape1;
+    uint16_t srcDValue = GmShape1;
+    uint16_t dstNzC0Stride = CeilAlign<uint16_t>(TShape0, BLOCK_CUBE_M_N);
+
     constexpr uint16_t ndNum = 1;
-    uint16_t nValue = TShape0;                // n
-    uint16_t dValue = TShape1;                // d
-    constexpr uint16_t srcNdMatrixStride = 0; //
-    uint16_t srcDValue = GmShape1;            // D
-    TShape0 = (TShape0 + c0Size - 1) / c0Size * c0Size;
-    TShape1 = (TShape1 + c0Size - 1) / c0Size * c0Size;
-    uint16_t dstNzC0Stride = TShape0; // n
+    constexpr uint16_t srcNdMatrixStride = 0;
     constexpr uint16_t dstNzNStride = 1;
     constexpr uint16_t dstNzMatrixStride = 1;
+
     if constexpr (std::is_same<GMT, int8_t>::value) {
         copy_gm_to_cbuf_multi_nd2nz_b8((__cbuf__ L1T *)dst, (__gm__ GMT *)src, 0 /*sid*/, ndNum, nValue, dValue,
             srcNdMatrixStride, srcDValue, dstNzC0Stride, dstNzNStride, dstNzMatrixStride);
@@ -286,8 +303,8 @@ TILEOP void DynL0CCopyOut(__gm__ GMT *dst, __cc__ L0CT *src, unsigned oriTShape0
     uint16_t MSize = oriTShape0;
     uint16_t NSize = oriTShape1;
     uint32_t dstStride_dst_D = GmShape1;
-    uint16_t fracNum = 32 / sizeof(L0CT);
-    uint16_t srcStride = (oriTShape0 + fracNum - 1) / fracNum * fracNum;
+    uint16_t srcStride = CeilAlign<uint16_t>(oriTShape0, BLOCK_CUBE_M_N);
+
     uint64_t ndNum = 1;
     uint64_t src_nd_stride = 0;
     uint64_t dst_nd_stride = 0;
@@ -331,33 +348,24 @@ TILEOP void DynL0CCopyOut(__gm__ GMT *dst, __cc__ L0CT *src, unsigned oriTShape0
 // Nz2Zz
 template <typename T, unsigned Offset0, unsigned Offset1>
 TILEOP void DynL1ToL0A(__ca__ T *dst, __cbuf__ T *src, unsigned dstM, unsigned dstK, unsigned srcM, unsigned srcK) {
-    // current only support 128*128
-    int64_t frac_num = 32 / sizeof(T);
-    dstM = (dstM + frac_num - 1) / frac_num * frac_num;
-    dstK = (dstK + frac_num - 1) / frac_num * frac_num;
-    srcM = (srcM + frac_num - 1) / frac_num * frac_num;
-    srcK = (srcK + frac_num - 1) / frac_num * frac_num;
+    constexpr uint16_t blockCubeK = BLOCK_ALIGN_BYTE / sizeof(T);
+    dstM = CeilAlign<uint16_t>(dstM, BLOCK_CUBE_M_N);
+    dstK = CeilAlign<uint16_t>(dstK, blockCubeK);
+    srcM = CeilAlign<uint16_t>(srcM, BLOCK_CUBE_M_N);
+    srcK = CeilAlign<uint16_t>(srcK, blockCubeK);
 
-    if (dstM == 128 && dstK == 128 && srcM == 128 && srcK == 128) {
-        uint64_t fmatrix_config = 0x10000 + srcM;
-        set_fmatrix(fmatrix_config);
+    uint8_t repeat = dstK / blockCubeK;
+    uint16_t srcStride = srcM / BLOCK_CUBE_M_N;
+    uint16_t dstStride = 0;
+    int32_t dstOffset = 0;
+    int32_t dstOffsetStep = BLOCK_CUBE_M_N * dstK;
+    int32_t srcOffset = Offset0 * blockCubeK + Offset1 *srcM;
+    int32_t srcOffsetStep = BLOCK_CUBE_M_N * blockCubeK;
 
-        uint16_t stepK = srcK;
-        uint16_t stepM = srcM;
-        uint16_t channelSize = srcM;
-        img2colv2_cbuf_to_ca(dst, src, stepK, stepM, 0, 0, 1, 1, 1, 1, 1, 1, false, false, false, false, channelSize);
-        return;
-    }
-
-    int64_t m_frac = dstM / 16; //
-    uint8_t repeat = dstK / frac_num;
-    uint16_t srcStride = srcM / 16; // stride
-
-    uint16_t dstStride = 0; // gap
-
-    for (int64_t m_idx = 0; m_idx < m_frac; ++m_idx) {
-        load_cbuf_to_ca(dst + m_idx * 16 * dstK, src + m_idx * 16 * frac_num + (Offset0 * frac_num + Offset1 * srcM), 0,
-            repeat, srcStride, dstStride, 0, 0, inc);
+    for (int32_t mIdx = 0; mIdx < static_cast<int32_t>(dstM / BLOCK_CUBE_M_N); ++mIdx) {
+        load_cbuf_to_ca(dst + dstOffset, src + srcOffset, 0, repeat, srcStride, dstStride, 0, 0, inc);
+        dstOffset += dstOffsetStep;
+        srcOffset += srcOffsetStep;
     }
 }
 
@@ -443,10 +451,8 @@ TILEOP void DynTmad(__cc__ Tc *c, __ca__ Ta *a, __cb__ Tb *b, uint16_t m, uint16
     uint8_t unitFlag = uf;
     bool kDirectionAlign = true; // aligned to 8 for fp32
     bool cmatrixSource = false;  // true means bias
-    auto c0Size = 32 / sizeof(Ta);
-    m = (m + c0Size - 1) / c0Size * c0Size;
-    k = (k + c0Size - 1) / c0Size * c0Size;
-    n = (n + c0Size - 1) / c0Size * c0Size;
+    m = CeilAlign<uint16_t>(m, BLOCK_CUBE_M_N);
+
     mad((__cc__ Tc *)(c + (Offset0 * 16) + Offset1 * L0CShape0), a, b, m, k, n, unitFlag, kDirectionAlign,
         cmatrixSource, zero_C);
 }
