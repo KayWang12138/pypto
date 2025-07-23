@@ -79,6 +79,24 @@ def gen_uniform_data(data_shape, min_value, max_value, dtype):
                              size=data_shape).astype(dtype)
 
 
+def process_test_cases(
+    case_name: str,
+    base_output: Path,
+    test_configs: list,
+    generate_golden: callable,
+    case_index: int = None
+) -> bool:
+    if case_index is None:
+        for index, config in enumerate(test_configs):
+            output_path = Path(base_output, str(index))
+            output_path.mkdir(parents=True, exist_ok=True)
+            generate_golden_files(case_name, output_path, config)
+    else:
+        config = test_configs[case_index]
+        generate_golden_files(case_name, output, config)
+    return True
+
+
 @GoldenRegister.reg_golden_func(
     case_names=[
         "TestAdd/AddOperationTest.test_add",
@@ -371,7 +389,7 @@ def gen_muls_op_golden(case_name: str,
         "TestDivs/DivsOperationTest.test_divs",
     ]
 )
-def gen_adds_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+def gen_divs_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
     def generate_golden_files(case_name: str, output_path: Path, params) -> bool:
         x_path = Path(output_path, 'x.bin')
@@ -436,6 +454,98 @@ def gen_adds_op_golden(case_name: str, output: Path, case_index: int = None) -> 
         config = test_configs[case_index]
         generate_golden_files(case_name, output, config)
     return True
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestAdds/AddsOperationTest.test_adds",
+    ]
+)
+def gen_adds_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def generate_golden_files(case_name: str, output_path: Path, shape: list, dtype, ele) -> bool:
+        x_path = Path(output_path, 'x.bin')
+        y_path = Path(output_path, 'y.bin')
+        o_path = Path(output_path, 'res.bin')
+
+        complete = x_path.exists() and y_path.exists() and o_path.exists()
+        if complete:
+            logging.debug("Case(%s), Golden complete.", case_name)
+            return True
+        x = np.random.uniform(0, 1, shape).astype(dtype)
+        x.tofile(x_path)
+        y = np.array([ele], dtype=np.float32)
+        y.tofile(y_path)
+        (x + np.float32(ele)).tofile(o_path)
+        return False
+
+    # 测试数据集，根据具体测试需求修改，可增加字段
+    test_configs = [
+        ([3072, 1], np.float32, 1e-5),
+        ([64 * 48, 128 * 3], np.float32, 1.0),
+        ([64 * 32, 16 * 3], np.float32, 1.0),
+        ([64 * 32 + 3, 16 * 3], np.float32, 1.0),
+        ([64 * 48, 128 * 3], np.float32, 1.0),
+        ([48 * 128, 64, 64], np.float32, 1.0 / 24),
+        ([1, 1], np.float32, 1.0),
+        ([32, 32], np.float32, 1.0),
+        ([128, 128], np.float32, 1.0),
+        ([48, 64, 128, 32], np.float32, 1.0),
+        ([64 * 48, 0], np.float32, 2.0),
+        ([0, 128 * 3], np.float32, 2.0),
+        ([64 * 48, 128 * 3], np.float32, np.finfo(np.float32).max),
+        ([96 * 1024, 128 * 3], np.float32, 1.0),
+        ([64, 64 * 576], np.float32, 1.0),            # [b, 64*k_dim] + 1 (fp32)
+        ([64, 64 * 512], np.float32, 1.0),            # [b, 64*v_dim] + 1 (fp32)
+        ([64 * 32, 7168 * 4], np.float32, 1.0),         # [b*s, h*4] + 1 (fp32)
+        ([96, 64 * 576], np.float32, 1.0),
+        ([96, 64 * 512], np.float32, 1.0),
+        ([768 * 1024, 128 * 3], np.float32, 1.0),
+    ]
+
+    return process_test_cases(case_name, output, test_configs, generate_golden_files, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestVectorDup/VectorDupOperationTest.test_vector_dup",
+    ]
+)
+def gen_vector_dup_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def generate_golden_files(case_name: str, output_path: Path, shape: list, dtype, ele) -> bool:
+        x_path = Path(output_path, 'x.bin')
+        o_path = Path(output_path, 'res.bin')
+        complete = x_path.exists() and o_path.exists()
+        if complete:
+            logging.debug("Case(%s), Golden complete.", case_name)
+            return True
+
+        x = np.full([1, 1], ele, dtype=dtype)
+        x.tofile(x_path)
+        tensor = np.full(shape, ele, dtype=dtype)
+        tensor.tofile(o_path)
+        return False
+    # 测试数据集，根据具体测试需求修改，可增加字段
+    test_configs = [
+        ([3072, 1], np.float32, 1e-5),
+        ([64 * 48, 128 * 3], np.float32, 2.0),
+        ([64 * 32, 16 * 3], np.float32, 2.0),
+        ([64 * 32 + 3, 16 * 3], np.float32, 2.0),
+        ([64 * 48, 128 * 3], np.float32, 2.0),
+        ([48 * 128, 64, 64], np.float32, 2.0),
+        ([1, 1], np.float32, 2.0),
+        ([32, 32], np.float32, 2.0),
+        ([128, 128], np.float32, 2.0),
+        ([48, 64, 128, 32], np.float32, 2.0),
+        ([64 * 48, 0], np.float32, 2.0),
+        ([0, 128 * 3], np.float32, 2.0),
+        ([64 * 48, 1536], np.float32, 2.0),
+        ([64 * 48, 512], np.float32, 2.0),
+        ([64 * 48, 7168 * 4], np.float32, 2.0),
+    ]
+
+    return process_test_cases(case_name, output, test_configs, generate_golden_files, case_index)
 
 
 def main() -> bool:
