@@ -112,6 +112,19 @@ set(_CaseFilterList
         #"GatherElementOnBoardTest.test_gather_element_float_16_64_7_32_1"
         #"GatherElementOnBoardTest.test_gather_element_float_16_64_7_32_0"
         #"ScatterElementOnBoardTest.test_scatter_element_float_8_256_8_8_1_moe"
+        #===========================================================================
+        # matmul功能用例
+        #===========================================================================
+        "DynamicMatmulTest.mm_A_B_ND_bf16"
+        "DynamicMatmulTest.mm_A_B_NZ_bf16"
+        "DynamicMatmulTest.mm_A_Bt_ND_fp16"
+        "DynamicMatmulTest.mm_A_Bt_NZ_fp16"
+        "DynamicMatmulTest.mm_A_B_NZ_int8"
+        "DynamicMatmulTest.mm_A_Bt_NZ_int8"
+        "DynamicMatmulTest.mm_A_B_ND_bf16_tile1"
+        "DynamicMatmulTest.mm_A_Bt_ND_fp16_tile2"
+        "DynamicMatmulTest.mm_A_B_NZ_int8_tile3"
+        "DynamicMatmulTest.mm_A_Bt_NZ_int8_tile4"
 )
 
 set(_Target ${TileFwkSTestNamePrefix}_runtime)
