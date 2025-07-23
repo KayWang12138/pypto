@@ -53,7 +53,16 @@ void ResetDynValidShape(Function& function) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
             if (viewOpAttribute != nullptr) {
-                viewOpAttribute->SetToDynValidShape(std::vector<SymbolicScalar>());
+                auto newDynValidShape = viewOpAttribute->GetToDynValidShape();
+                std::vector<int> newValidShape;
+                for (auto validSym : newDynValidShape) {
+                    if (validSym.ConcreteValid()) { newValidShape.push_back(validSym.Concrete()); }
+                }
+                if (newValidShape.size() == newDynValidShape.size()) {
+                    op.GetOOperands()[0]->UpdateDynValidShape(newDynValidShape);
+                } else {
+                    viewOpAttribute->SetToDynValidShape(std::vector<SymbolicScalar>());
+                }
             }
             continue;
         }

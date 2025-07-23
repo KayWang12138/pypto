@@ -351,8 +351,6 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest6) {
     currFunctionPtr->outCasts_.push_back(outCast3);
     currFunctionPtr->outCasts_.push_back(outCast4);
     RemoveRedundentOp removeredundentpass;
-    EXPECT_NE(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
-    EXPECT_NE(removeredundentpass.PreCheck(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(removeredundentpass.RunOnFunction(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
     

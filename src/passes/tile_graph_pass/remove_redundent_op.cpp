@@ -110,10 +110,12 @@ Status ProcessPostCheckView(const Operation &op) {
     if (view_in == nullptr) {return FAILED;}
     auto view_out = op.oOperand.front();
     if (view_out == nullptr) {return FAILED;}
-    if (view_in->shape == view_out->shape && view_in->GetMemoryTypeOriginal() == view_out->GetMemoryTypeOriginal()) {
+    auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
+    if (viewOpAttribute && viewOpAttribute->GetToDynValidShape().empty() &&
+        view_in->shape == view_out->shape && view_in->GetMemoryTypeOriginal() == view_out->GetMemoryTypeOriginal()) {
         ALOG_ERROR_F("PostCheck for view op[%d] failed!", op.GetOpMagic());
         return FAILED;
-    } else if (view_out->GetConsumers().size() == 1) {
+    } else if  (view_out->GetConsumers().size() == 1) {
         auto childOp = *(view_out->GetConsumers().begin());
         if (childOp == nullptr) {return FAILED;}
         if (childOp->GetOpcode() == Opcode::OP_COMM_WAIT_FLAG) {return FAILED;}
@@ -278,6 +280,16 @@ Status ProcessView(const Operation &op, Function &function, bool &needToDelete) 
     if (in == nullptr) {return FAILED;}
     auto out = op.oOperand.front();
     if (out == nullptr) {return FAILED;}
+    auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
+    if (viewOpAttribute) {
+        auto newDynValidShape = viewOpAttribute->GetToDynValidShape();
+        std::vector<int> validShape;
+        for (auto validSym : newDynValidShape) {
+            if (!validSym.ConcreteValid()) {needToDelete = false; return SUCCESS;}
+            validShape.push_back(validSym.Concrete());
+        }
+        if (!newDynValidShape.empty() && out->shape != validShape) { needToDelete = false; return SUCCESS; }
+    }
     if (in->shape == out->shape && in->GetMemoryTypeOriginal() == out->GetMemoryTypeOriginal()) {
         auto consumerOps = function.FindConsumers(op);
         if (consumerOps.empty()) {

@@ -80,14 +80,14 @@ void  UpdateMemoryMap::UpdateMemMapForCrossSubgraphAccess (Function &function) {
             if (producerColorSet.size() > 1) {
                 singleLogicalTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
                 needInsertConvert = true;
-                ASLOGE("@@@@@@@@@@@@@@@ Force setting tensor memtype ori %d to MEM_DEVICE_DDR", singleLogicalTensor->magic);
+                ALOG_DEBUG_F("Force setting tensor memtype ori %d to MEM_DEVICE_DDR.", singleLogicalTensor->magic);
             }
             if (producerColorSet.size() > 1 && isAllChildView) {
                 for (auto &consumerOp : singleLogicalTensor->GetConsumers()) {
                     inserter.UpdateTensorTobeMap(*singleLogicalTensor, *consumerOp, MemoryType::MEM_DEVICE_DDR);
                 }
                 needInsertConvert = true;
-                ASLOGE("@@@@@@@@@@@@@@@ Force setting tensor memtype tobe %d to MEM_DEVICE_DDR", singleLogicalTensor->magic);
+                ALOG_DEBUG_F("Force setting tensor memtype tobe %d to MEM_DEVICE_DDR.", singleLogicalTensor->magic);
             }    
         }
     }

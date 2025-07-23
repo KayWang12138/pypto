@@ -123,8 +123,6 @@ set(_CaseFilterList
         "TestRemoveRedundantOpPass.RemoveRedundantOpSTest2"
         "TestRemoveRedundantOpPass.RemoveRedundantOpSTest3"
         "TestRemoveRedundantOpPass.RemoveRedundantOpSTest4"
-        "RemoveRedundentOpTest.TestInShapeEqualOutShape"
-        "RemoveRedundentOpTest.TestInShapeNotEqualOutShape"
         "RemoveRedundentOpTest.TestIntermediateOutcast"
         "RemoveRedundentOpTest.TestInternalAssembleView"
         "GenerateMoveOpPassTest.MergeCopyInCopyOut"
