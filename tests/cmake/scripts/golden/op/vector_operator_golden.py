@@ -17,6 +17,7 @@ import sys
 import logging
 from pathlib import Path
 from typing import List
+import math
 
 import numpy as np
 from bfloat16 import bfloat16
@@ -74,9 +75,8 @@ def gen_uniform_data(data_shape, min_value, max_value, dtype):
         return np.zeros(data_shape, dtype=dtype)
     if dtype == np.bool_:
         return np.random.choice([True, False], size=data_shape)
-    return np.random.uniform(low=min_value, high=max_value, size=data_shape).astype(
-        dtype
-    )
+    return np.random.uniform(low=min_value, high=max_value,
+                             size=data_shape).astype(dtype)
 
 
 @GoldenRegister.reg_golden_func(
@@ -261,6 +261,110 @@ def gen_div_op_golden(case_name: str, output: Path, case_index: int = None) -> b
         config = test_configs[case_index]
         generate_golden_files(case_name, output, config)
     return True
+
+
+@GoldenRegister.reg_golden_func(case_names=[
+    "TestSub/SubOperationTest.test_sub",
+])
+def gen_sub_op_golden(case_name: str,
+                      output: Path,
+                      case_index: int = None) -> bool:
+    def generate_golden_files(case_name: str, output_path: Path, shape0: list,
+                              shape1: list, dtype) -> bool:
+        x_path = Path(output_path, 'x.bin')
+        y_path = Path(output_path, 'y.bin')
+        o_path = Path(output_path, 'res.bin')
+
+        complete = x_path.exists() and y_path.exists() and o_path.exists()
+        if complete:
+            logging.debug("Case(%s), Golden complete.", case_name)
+            return True
+
+        x = np.random.uniform(0, 1, shape0).astype(dtype)
+        y = np.random.uniform(0, 1, shape1).astype(dtype)
+        x.tofile(x_path)
+        y.tofile(y_path)
+        (x - y).tofile(o_path)
+        return False
+ 
+    # 测试数据集
+    test_configs = [
+        ([128 + 17, 128], [128 + 17, 128], np.float32),
+        ([90 + 17, 128], [90 + 17, 128], np.float32),
+    ]
+
+    if case_index is None:
+        for index, (shape0, shape1, dtype) in enumerate(test_configs):
+            output_path = Path(str(output) + '/' + str(index))
+            output_path.mkdir(parents=True, exist_ok=True)
+            generate_golden_files(case_name, output_path, shape0, shape1,
+                                  dtype)
+    else:
+        shape0, shape1, dtype = test_configs[case_index]
+        generate_golden_files(case_name, output, shape0, shape1, dtype)
+    return True
+
+
+@GoldenRegister.reg_golden_func(case_names=[
+    "TestMuls/MulsOperationTest.test_muls",
+])
+def gen_muls_op_golden(case_name: str,
+                       output: Path,
+                       case_index: int = None) -> bool:
+    def generate_golden_files(case_name: str, output_path: Path,
+                              datainfo: list) -> bool:
+
+        shape, dtype, ele, default_value = datainfo
+        x_path = Path(output_path, 'x.bin')
+        y_path = Path(output_path, 'y.bin')
+        o_path = Path(output_path, 'res.bin')
+
+        complete = x_path.exists() and o_path.exists()
+        if complete:
+            logging.debug("Case(%s), Golden complete.", case_name)
+            return True
+
+        if default_value is None:
+            x = np.random.uniform(0, 1, shape).astype(dtype)
+        else:
+            x = np.full(shape, default_value, dtype=dtype)
+        y = np.array([ele], dtype=np.float32)
+
+        x.tofile(x_path)
+        y.tofile(y_path)
+        (x * np.float32(ele)).tofile(o_path)
+        return False
+
+    test_configs = [
+        ([64 * 48, 512], np.float32, 1.0 / 512.0, None),  # 0
+        ([64 * 48, 128 * 3], np.float32, -1.0, None),  # 1
+        ([64 * 32, 16 * 3], np.float32, -1.0, None),  # 2
+        ([64 * 48 + 3, 128 * 3], np.float32, -1.0, None),  # 3
+        ([64 * 48, 128 * 3], np.float32, -1.0, None),  # 4
+        ([64 * 48, 128 * 3], np.float32, -1.0, None),  # 5
+        ([48 * 128, 64, 64], np.float32, 1.0 / math.sqrt(576.0), None),  # 6
+        ([16, 16, 128, int(64 / 2)], np.float32, -1.0, None),  # 7
+        ([64 * 48, 128 * 3], np.float32, -1.0, np.inf),  # 8
+        ([64 * 48, 128 * 3], np.float32, -1.0, np.nan),  # 9
+        ([64 * 48, 0], np.float32, -1.0, None),  # 10
+        ([1, 1], np.float32, -1.0, None),  # 12
+        ([32, 32], np.float32, -1.0, None),  # 13
+        ([128, 128], np.float32, -1.0, None),  # 14
+    ]
+
+    if case_index is None:
+        for index, (shape, dtype, ele,
+                    default_value) in enumerate(test_configs):
+            output_path = Path(str(output) + '/' + str(index))
+            output_path.mkdir(parents=True, exist_ok=True)
+            generate_golden_files(case_name, output_path,
+                                  [shape, dtype, ele, default_value])
+    else:
+        shape, dtype, ele, default_value = test_configs[case_index]
+        generate_golden_files(case_name, output,
+                              [shape, dtype, ele, default_value])
+    return True
+
 
 
 def main() -> bool:
