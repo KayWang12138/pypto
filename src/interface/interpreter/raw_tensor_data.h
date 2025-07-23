@@ -60,8 +60,8 @@ struct RawTensorData : public std::vector<uint8_t> {
         return result;
     }
 
-    static std::vector<int> ShapeToStride(const std::vector<int> &shape) {
-        std::vector<int> stride;
+    static std::vector<int64_t> ShapeToStride(const std::vector<int> &shape) {
+        std::vector<int64_t> stride;
         stride.resize(shape.size());
         stride[shape.size() - 1] = 1;
         for (int k = static_cast<int>(shape.size()) - 2; k >= 0; k--) {
@@ -81,10 +81,10 @@ struct RawTensorData : public std::vector<uint8_t> {
     }
 
     const std::vector<int> &GetShape() const { return shape_; }
-    const std::vector<int> &GetStride() const { return stride_; }
+    const std::vector<int64_t> &GetStride() const { return stride_; }
     DataType GetDataType() const { return dataType_; }
-    int GetSize() const { return nelem; }
-    int GetElementSize() const { return elemSize_; }
+    int64_t GetSize() const { return nelem; }
+    int64_t GetElementSize() const { return elemSize_; }
 
     template <typename T>
     const T &Get(int index) const {
@@ -184,7 +184,7 @@ private:
     uint8_t *devPtr_{nullptr};
     DataType dataType_;
     std::vector<int> shape_;
-    std::vector<int> stride_;
+    std::vector<int64_t> stride_;
     size_t nelem;
     size_t elemSize_;
     bool l2Disable_{false};
@@ -217,7 +217,7 @@ struct LogicalTensorData {
 
     const std::vector<int> &GetShape() const { return shape_; }
     const std::vector<int> &GetValidShape() const { return ValidShape_; }
-    const std::vector<int> &GetStride() const { return stride_; }
+    const std::vector<int64_t> &GetStride() const { return stride_; }
     const std::vector<int> &GetOffset() const { return offset_; }
     bool GetIsSpilled() const { return isSpilled_; }
     void SetIsSpilled(bool isSpilled) { isSpilled_ = isSpilled; }
@@ -329,8 +329,8 @@ private:
     std::vector<int> shape_;
     std::vector<int> ValidShape_;
     std::vector<int> offset_;
-    std::vector<int> stride_;
-    int size_;
+    std::vector<int64_t> stride_;
+    int64_t size_;
     bool isSpilled_;
 };
 

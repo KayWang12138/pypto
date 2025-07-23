@@ -90,7 +90,6 @@ public:
     void UpdateBelongFunction(Function &function) { function_ = &function; }
 
     std::string DumpType() const;
-    Element &GetElement(const std::vector<int> &indices) const;
 
     /* By default, RawTensor is dumped. In whole function dumping, we only dump the magic */
     Json DumpJson(bool dumpRawTensor = true) const;

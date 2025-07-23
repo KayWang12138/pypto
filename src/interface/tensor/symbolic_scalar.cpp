@@ -361,55 +361,6 @@ std::vector<SymbolicScalar> SymbolicScalar::FromConcrete(const std::vector<int> 
     return result;
 }
 
-ValueGuesser RawSymbolicScalar::ValueGuess() {
-    constexpr int size2 = 2;
-    if (valueGuesser_.IsCalculated()) {
-        return valueGuesser_;
-    }
-    if (IsSymbol()) {
-        valueGuesser_ = ValueGuesser::Any();
-        return valueGuesser_;
-    }
-    if (IsImmediate()) {
-        auto v = dynamic_cast<RawSymbolicImmediate *>(this)->Immediate();
-        valueGuesser_ = ValueGuesser(NotLessThan(v), NotGreaterThan(v));
-        return valueGuesser_;
-    }
-    ASSERT(IsExpression());
-    auto expression = dynamic_cast<RawSymbolicExpression *>(this);
-    const auto &operandList = expression->OperandList();
-    ASSERT(!operandList.empty());
-    switch (expression->Opcode()) {
-        case SymbolicOpcode::T_MOP_CALL: {
-            valueGuesser_ = ValueGuesser::Any();
-            break;
-        }
-        case SymbolicOpcode::T_BOP_SUB: {
-            ASSERT(operandList.size() == size2);
-            valueGuesser_ = operandList[0]->ValueGuess() - operandList[1]->ValueGuess();
-            break;
-        }
-        case SymbolicOpcode::T_BOP_DIV: {
-            ASSERT(operandList.size() == size2);
-            valueGuesser_ = operandList[0]->ValueGuess() / operandList[1]->ValueGuess();
-            break;
-        }
-        case SymbolicOpcode::T_BOP_LT: {
-            ASSERT(operandList.size() == size2);
-            valueGuesser_ = operandList[0]->ValueGuess() < operandList[1]->ValueGuess();
-            break;
-        }
-        case SymbolicOpcode::T_BOP_EQ: {
-            ASSERT(operandList.size() == size2);
-            valueGuesser_ = operandList[0]->ValueGuess() == operandList[1]->ValueGuess();
-            break;
-        }
-        default:
-            ALOG_ERROR_F("unsupported guess begin and end");
-    }
-    return valueGuesser_;
-}
-
 void RawSymbolicScalar::ResetValueGuesser(ValueGuesser valueGuesser) {
     ASSERT(valueGuesser.IsCalculated());
     valueGuesser_ = valueGuesser;

@@ -66,7 +66,6 @@ public:
     virtual Json DumpJson() = 0;
     virtual ~RawSymbolicScalar() = default;
 
-    ValueGuesser ValueGuess();
     void ResetValueGuesser(ValueGuesser valueGuesser);
 
 private:

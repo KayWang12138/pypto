@@ -99,15 +99,6 @@ LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawT
     ASSERT(shape.size() == offset.size());
 }
 
-Element &LogicalTensor::GetElement(const std::vector<int> &indices) const {
-    assert(indices.size() == shape.size());
-    std::vector<int> actualIndices(indices.size());
-    for (size_t i = 0; i < indices.size(); ++i) {
-        actualIndices[i] = indices[i] + offset[i];
-    }
-    return (*tensor)(actualIndices);
-}
-
 std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function &dstFunc) const {
     /* Clone is only for dstFunc to simplify the process of creating OP_CALL's input and output. */
     ASSERT(dstFunc.GetGraphType() == GraphType::ROOT_GRAPH);

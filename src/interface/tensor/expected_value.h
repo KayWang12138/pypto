@@ -15,16 +15,6 @@
 
 #pragma once
 
-#include <memory>
-#include <vector>
-#include <set>
-#include <unordered_map>
-#include <unordered_set>
-#include <string>
-
-#include "tilefwk/data_type.h"
-#include "interface/tensor/raw_tensor.h"
-#include "interface/tensor/logical_tensor.h"
 #include "interface/operation/operation.h"
 #include "interface/function/function.h"
 
