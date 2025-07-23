@@ -180,6 +180,7 @@ private:
     Status GenBufferSpill(Function &function, IssueEntryPtr allocIssue, MemoryType bufferType, 
         std::vector<Operation *> &newOperations);
     Status GenSpillSchedule(Function &function);
+    void FindFilterLtags(IssueEntryPtr allocIssue, std::set<IssueEntryPtr> &filterLtags);
 
     Status UpdateRemainOpBufId(int oldMemId, int newMemId);
     void UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr spillTensor, std::vector<int> offset, 

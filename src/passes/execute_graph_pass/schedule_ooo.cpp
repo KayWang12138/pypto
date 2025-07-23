@@ -102,11 +102,7 @@ Status OoOScheduler::DelBufRefCount(const int memId) {
 Status OoOScheduler::GetOldestBuffer(IssueEntryPtr allocIssue, MemoryType bufferType, int& memId,
     IssueEntryPtr &spillIssue) {
     std::set<IssueEntryPtr> filterLtags;
-    for (auto &dstIssue : allocIssue->successors) {
-        for (auto &inIssue : dstIssue->predecessors) {
-            filterLtags.insert(inIssue);
-        }
-    }
+    FindFilterLtags(allocIssue, filterLtags);
     uint64_t maxIdx = 0;
     for (auto &occupyIssue : tensorOccupyMap[bufferType]) {
         if (occupyIssue.second->isAlloc || filterLtags.count(occupyIssue.second) != 0 ||
@@ -198,6 +194,11 @@ Status OoOScheduler::UpdateRemainOpBufId(int oldMemId, int newMemId) {
         for (auto memId : issue->reqMemIds) {
             if (memId == oldMemId) {
                 std::replace(issue->reqMemIds.begin(), issue->reqMemIds.end(), oldMemId, newMemId);
+            }
+        }
+        for (auto &outTensor : issue->tileOp->GetOOperands()) {
+            if (outTensor->memorymap[subGraphID].memId == oldMemId) {
+                outTensor->memorymap[subGraphID].memId = newMemId;
             }
         }
     }
@@ -825,14 +826,36 @@ bool OoOScheduler::GetBufNextUseTime(int curMemId, size_t& nextUseTime) {
     return false;
 }
 
+void OoOScheduler::FindFilterLtags(IssueEntryPtr allocIssue, std::set<IssueEntryPtr> &filterLtags) {
+    for (auto &dstIssue : allocIssue->successors) {
+        for (auto &inIssue : dstIssue->predecessors) {
+            filterLtags.insert(inIssue);
+        }
+    }
+}
+
 Status OoOScheduler::SelectSpillBufferGroup(std::vector<std::vector<int>>& groups, int currPc, 
     std::vector<int> &spillGroup) {
     if (groups.empty()) { ALOG_ERROR_F("Cannot find tensor to spill."); return FAILED; }
     std::unordered_map<int, size_t> nextUseTimeCache;
-    std::vector<size_t> groupNextUseTime;
+    std::vector<int> groupNextUseTime;
     for (auto& group : groups) {
         std::vector<size_t> bufNextUseTime;
+        bool cannotSpill = false;
         for (auto& memId : group) {
+            std::set<IssueEntryPtr> filterLtags;
+            FindFilterLtags(issueEntries[currPc], filterLtags);
+            size_t bufLastWriteTime = currPc;
+            if (!GetBufLastWriteTime(memId, bufLastWriteTime)) { 
+                ALOG_ERROR_F("Cannot find spill Tensor[%d] last write time.", memId); 
+                return FAILED; 
+            }
+            auto spillIssue = issueEntries[bufLastWriteTime];
+            if (spillIssue->tileOp->GetOpcode() == Opcode::OP_VIEW || 
+                spillIssue->tileOp->GetOpcode() == Opcode::OP_ASSEMBLE || filterLtags.count(spillIssue) != 0) {
+                cannotSpill = true;
+                break;
+            }
             if (nextUseTimeCache.find(memId) != nextUseTimeCache.end()) {
                 bufNextUseTime.push_back(nextUseTimeCache[memId]);
             } else {
@@ -845,15 +868,27 @@ Status OoOScheduler::SelectSpillBufferGroup(std::vector<std::vector<int>>& group
                 bufNextUseTime.push_back(nextUseTime);
             }
         }
-        groupNextUseTime.push_back(*std::min_element(bufNextUseTime.begin(), bufNextUseTime.end()));
+        if (cannotSpill) {
+            groupNextUseTime.push_back(-1);
+        } else {
+            groupNextUseTime.push_back(*std::min_element(bufNextUseTime.begin(), bufNextUseTime.end()));
+        }
     }
     size_t groupSel = std::max_element(groupNextUseTime.begin(), groupNextUseTime.end()) - groupNextUseTime.begin();
+    if (groupNextUseTime[groupSel] == -1) {
+        ALOG_ERROR_F("Cannot find tensor to spill."); 
+        return FAILED;
+    }
     spillGroup = groups[groupSel];
     return SUCCESS;
 }
 
 Status OoOScheduler::GenSpillOp(Function &function, LocalBufferPtr allocBuffer, size_t &pcIdx) {
     if (bufferManagerMap[allocBuffer->memType].IsFull(allocBuffer)) {
+        if (allocBuffer->memType != MemoryType::MEM_L1 && allocBuffer->memType != MemoryType::MEM_UB) {
+            ALOG_ERROR("Buffer[L0A/B/C] is Full. Please check tile shape and OOO spill failed info.");
+            return FAILED;
+        }
         // 查找出可以spill 单个或多个tensor的集合
         std::vector<std::vector<int>> canSpillGroups = 
             bufferManagerMap[allocBuffer->memType].GetSpillGroup(allocBuffer->size);
@@ -1104,6 +1139,9 @@ Status OoOScheduler::ScheduleMainLoop(Function &func, std::vector<Operation *> &
 
 Status OoOScheduler::Schedule(Function &function, const std::vector<Operation *> &operations, 
     std::vector<Operation *> &newOperations) {
+    if (operations.empty()) {
+        return SUCCESS;
+    }
     ALOG_INFO_F("==================== ORIGIN OPS =====================");
     for (auto &op : operations) {
         if (op == nullptr) {
@@ -1114,7 +1152,7 @@ Status OoOScheduler::Schedule(Function &function, const std::vector<Operation *>
             continue;
         }
         ALOG_DEBUG_F("%s, %d, memId: %d", op->GetOpcodeStr().c_str(), op->GetOpMagic(), 
-            op->oOperand[0]->memorymap[subGraphID].memId);
+            op->oOperand[0]->memorymap[op->GetSubgraphID()].memId);
     }
     subGraphID = operations.front()->GetSubgraphID();
 

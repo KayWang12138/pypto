@@ -33,13 +33,15 @@ bool ComputationalGraphBuilder::AddTensor(DataType dataType, const std::vector<i
 }
 
 bool ComputationalGraphBuilder::AddTensor(DataType dataType, const std::vector<int>& tileShape,
-                                          MemoryType memType, const std::string& name)
+                                          MemoryType memType, const std::string& name, int subGraphID)
 {
     if (!AddTensor(dataType, tileShape, name)) {
         return false;
     }
     auto tensor = GetTensor(name);
     tensor->SetMemoryTypeBoth(memType, true);
+    tensor->subGraphID = subGraphID;
+    tensor->memorymap[subGraphID].memId = tensor->GetMagic();
     tensors_[name] = tensor;
     return true;
 }
@@ -57,13 +59,13 @@ bool ComputationalGraphBuilder::AddTensors(DataType dataType, const std::vector<
 
 bool ComputationalGraphBuilder::AddTensors(DataType dataType, const std::vector<int>& tileShape,
                                            const std::vector<MemoryType>& memTypes,
-                                           const std::vector<std::string>& names)
+                                           const std::vector<std::string>& names, int subGraphID)
 {
     if (memTypes.size() != names.size()) {
         return false;
     }
     for (size_t i = 0; i < memTypes.size(); i++) {
-        if (!AddTensor(dataType, tileShape, memTypes[i], names[i])) {
+        if (!AddTensor(dataType, tileShape, memTypes[i], names[i], subGraphID)) {
             return false;
         }
     }
@@ -92,6 +94,16 @@ bool ComputationalGraphBuilder::AddOp(Opcode opcode, const std::vector<std::stri
         otensors.push_back(tensors_[oop]);
     }
     Operation &op = function->AddRawOperation(opcode, itensors, otensors, updateFunctionMap);
+    if (op.GetOpcode() == Opcode::OP_COPY_IN) {
+        auto shapeImme = OpImmediate::Specified(itensors[0]->GetShape());
+        op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+            OpImmediate::Specified({0, 0}), otensors[0]->GetMemoryTypeOriginal(), shapeImme, shapeImme, 
+            std::vector<OpImmediate>()));
+    } else if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
+        auto shapeImme = OpImmediate::Specified(itensors[0]->GetShape());
+        op.SetOpAttribute(std::make_shared<CopyOpAttribute>(itensors[0]->GetMemoryTypeOriginal(), 
+            OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
+    }
     operations_[name] = &op;
     return true;
 }
