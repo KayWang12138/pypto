@@ -55,17 +55,6 @@ void TestLoopDViewDAssemble(const Tensor &t0, const Tensor &t1, const Tensor &bl
 }
 
 TEST_F(DynamicPATest, TestDD) {
-    const int defaultCyclesThreshold = 512;
-    const int defaultCyclesUpperBound = 10000;
-    const int defaultParalleThreshold = 20;
-
-    Tuner::GetInstance()
-        .SetCyclesThreshold(defaultCyclesThreshold)
-        .SetCycleUpperBound(defaultCyclesUpperBound)
-        .SetMachineSchMode({MachineScheduleConfig::DEFAULT_SCH})
-        .SetParallelThreshold(defaultParalleThreshold)
-        .SetUseNodeHash(false);
-
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
     Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});

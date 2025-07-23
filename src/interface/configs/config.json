@@ -1,8 +1,6 @@
 {
     "global_configs": {
         "platform_configs": {
-            "GRAPH_ONLY_DOT": true,
-            "GRAPH_FILE_TYPE": "svg",
             "USE_SSA": true,
             "ENABLE_COST_MODEL": false,
             "ENABLE_DYN_COST_MODEL": false,

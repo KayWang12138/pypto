@@ -440,6 +440,7 @@ inline bool UseTIG() {
     return GetPassStrategy() == "TIG" || GetPassStrategy() == "PVC2_OOO" || GetPlatformConfig("TEST_IS_TIG", false) ||
            GetPassStrategy() == "DFS_OOO" || GetPassStrategy() == "BFS_DFS_OOO";
 }
+
 } // namespace config
 
 } // namespace npu::tile_fwk

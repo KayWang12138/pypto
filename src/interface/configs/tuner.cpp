@@ -22,28 +22,28 @@ Tuner &Tuner::GetInstance() {
     return tuner;
 }
 
-Tuner& Tuner::SetCycleUpperBound(const int sgCycleUpperBound) {
+Tuner& Tuner::SetCycleUpperBound(int sgCycleUpperBound) {
     Program::GetInstance().GetConfig().Set<int>(CYCLE_UPPER_BOUND, sgCycleUpperBound);
     return *this;
 }
  
-Tuner& Tuner::SetCyclesThreshold(const int sgCycleLowerBound) {
+Tuner& Tuner::SetCyclesThreshold(int sgCycleLowerBound) {
     Program::GetInstance().GetConfig().Set<int>(CYCLES_THRESHOLD, sgCycleLowerBound);
     return *this;
 }
  
-Tuner& Tuner::SetParallelThreshold(const int sgParallelNum) {
+Tuner& Tuner::SetParallelThreshold(int sgParallelNum) {
     Program::GetInstance().GetConfig().Set<int>(PARALLEL_THRESHOLD, sgParallelNum);
     return *this;
 }
 
-Tuner& Tuner::SetUseNodeHash(const bool useNodeHash) {
+Tuner& Tuner::SetUseNodeHash(bool useNodeHash) {
     Program::GetInstance().GetConfig().Set<bool>(USE_NODE_HASH, useNodeHash);
     return *this;
 }
 
-Tuner& Tuner::SetMachineSchMode(std::vector<MachineScheduleConfig> config) {
-    uint8_t machineConfig;
+Tuner& Tuner::SetMachineSchMode(const std::vector<MachineScheduleConfig> &config) {
+    uint8_t machineConfig = 0;
     for (size_t i = 0; i < config.size(); i++) {
         machineConfig |= static_cast<uint8_t>(config[i]);
     }

@@ -292,6 +292,25 @@
       ]
     }
   },
+  "libtile_fwk_utest_interface_configs.a": {
+    "Source-Header": {
+      "Self": [
+        "tests/ut/interface/configs/"
+      ],
+      "Area": [
+        "src/interface/",
+        "src/passes/"
+      ],
+      "Include": [
+        "include/"
+      ],
+      "WhiteList": [
+      ],
+      "BlackList": [
+        "include/tileop/"
+      ]
+    }
+  },
   "libtile_fwk_utest_interface_ops.a": {
     "Source-Header": {
       "Self": [

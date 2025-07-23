@@ -25,20 +25,24 @@ enum class MachineScheduleConfig {
 };
 
 class Tuner {
-    public:
-        Tuner() = default;
- 
-        static Tuner &GetInstance();
+public:
+    Tuner(const Tuner&) = delete;
+    Tuner& operator=(const Tuner&) = delete;
 
-        Tuner& SetCycleUpperBound(const int sgCycleUpperBound);
- 
-        Tuner& SetCyclesThreshold(const int sgCycleLowerBound);
- 
-        Tuner& SetParallelThreshold(const int sgParallelNum);
- 
-        Tuner& SetUseNodeHash(const bool useNodeHash);
+    static Tuner &GetInstance();
 
-        Tuner& SetMachineSchMode(std::vector<MachineScheduleConfig> config);
+    Tuner& SetCycleUpperBound(int sgCycleUpperBound);
+
+    Tuner& SetCyclesThreshold(int sgCycleLowerBound);
+
+    Tuner& SetParallelThreshold(int sgParallelNum);
+
+    Tuner& SetUseNodeHash(bool useNodeHash);
+
+    Tuner& SetMachineSchMode(const std::vector<MachineScheduleConfig> &config);
+private:
+    Tuner() = default;
+    ~Tuner() = default;
 };
 
 } // end npu::tile_fwk
