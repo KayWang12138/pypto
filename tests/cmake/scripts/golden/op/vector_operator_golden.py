@@ -188,6 +188,81 @@ def gen_exp_op_golden(case_name: str, output: Path, case_index: int = None) -> b
     return True
 
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestDiv/DivOperationTest.TestDiv",
+    ]
+)
+def gen_div_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者徐根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def generate_golden_files(case_name: str, output_path: Path, config: list) -> bool:
+        x_path = Path(output_path, "x.bin")
+        y_path = Path(output_path, "y.bin")
+        o_path = Path(output_path, "res.bin")
+
+        complete = x_path.exists() and y_path.exists() and o_path.exists()
+        if complete:
+            logging.debug("Case(%s), Golden complete.", case_name)
+            return True
+
+        default_values = {
+            1: [None, np.inf],
+            2: [np.inf, None],
+            3: [np.inf, np.inf],
+            4: [None, np.nan],
+            5: [np.nan, None],
+            6: [np.nan, np.nan],
+            7: [np.finfo(np.float32).max, np.finfo(np.float32).min],
+            8: [np.finfo(np.float32).min, np.finfo(np.float32).max],
+            9: [None, 0.0],
+        }
+        [x_default_value, y_default_value] = default_values.get(
+            case_index, [None, None]
+        )
+        if x_default_value is None:
+            x = np.random.uniform(0, 1, config[0][0]).astype(config[0][1])
+        else:
+            x = np.full(config[0][0], x_default_value, dtype=config[0][1])
+        if y_default_value is None:
+            y = np.random.uniform(0, 1, config[1][0]).astype(config[1][1])
+        else:
+            y = np.full(config[1][0], y_default_value, dtype=config[1][1])
+
+        x.tofile(x_path)
+        y.tofile(y_path)
+        (x / y).tofile(o_path)
+        return False
+
+    # 测试数据集，根据具体测试需求修改，可增加字段
+    test_configs = [
+        [([1024, 128], np.float32), ([1024, 128], np.float32)],
+        [([1024, 128], np.float32), ([1024, 128], np.float32)],
+        [([1024, 128], np.float32), ([1024, 128], np.float32)],
+        [([1024, 128], np.float32), ([1024, 128], np.float32)],
+        [([1024, 128], np.float32), ([1024, 128], np.float32)],
+        [([1024, 128], np.float32), ([1024, 128], np.float32)],
+        [([1024, 128], np.float32), ([1024, 128], np.float32)],
+        [([1024, 128], np.float32), ([1024, 128], np.float32)],
+        [([1024, 128], np.float32), ([1024, 128], np.float32)],
+        [([1024, 128], np.float32), ([1024, 128], np.float32)],
+        [([496, 128, 64], np.float32), ([496, 128, 64], np.float32)],
+        [([128 + 17, 128], np.float32), ([128 + 17, 128], np.float32)],
+        [([90 + 17, 128], np.float32), ([90 + 17, 128], np.float32)],
+    ]
+
+    # 1.跑测试套还是单个用力，生成不同场景的文件夹，一般不用改
+    # 2.涉及test_configs数据结构变更，generate_golden_files的接口形式和调用传参可能需联动修改
+    if case_index is None:
+        for index, config in enumerate(test_configs):
+            output_path = Path(str(output) + "/" + str(index))
+            output_path.mkdir(parents=True, exist_ok=True)
+            generate_golden_files(case_name, output_path, config)
+    else:
+        config = test_configs[case_index]
+        generate_golden_files(case_name, output, config)
+    return True
+
+
 def main() -> bool:
     # 用例名称
     case_name_list: List[str] = [
