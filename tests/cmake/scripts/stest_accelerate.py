@@ -47,6 +47,7 @@ class STestAccelerate:
         self.case_queue: JoinableQueue = JoinableQueue()
         self.case_fail_error_queue: JoinableQueue = JoinableQueue()  # Case 执行失败时, 用于收集错误信息
         self.case_terminate_queue: JoinableQueue = JoinableQueue()  # Case 被终止执行时, 收集相关信息
+        self.case_exec_queue: JoinableQueue = JoinableQueue() # Case 正常执行时，收集相关信息
         self.case_exec_timeout: Optional[int] = None  # 单 Case 执行 Timeout
 
         # 执行控制(多 Device)
@@ -174,6 +175,9 @@ class STestAccelerate:
         # Case 执行信息收集汇总
         case_exec_brief, case_exec_datas_len, case_remaining_cnt = self._post_case_exec_info()
 
+        # Case 执行时间收集汇总
+        case_exectime_str = self._post_case_time_info()
+
         # Case 异常信息收集汇总
         case_fail_brief, case_fail_datas_len = self._post_case_fail_info()
 
@@ -186,6 +190,7 @@ class STestAccelerate:
         out += f"\nCase Terminate Brief({case_terminate_datas_len}):\n{case_terminate_brief}"
         out += f"\nCase Execution Brief({case_exec_datas_len}):\n{case_exec_brief}"
         out += f"\nCase Exception Brief({case_fail_datas_len}):\n{case_fail_brief}"
+        out += f"\nCase Execution Brief({case_exectime_str})" 
 
         ret: bool = case_remaining_cnt == 0 and case_fail_datas_len == 0
         if ret:
@@ -282,6 +287,8 @@ class STestAccelerate:
                              "Output Below:\n%s",
                              device_id, self.target_name, self.asan_option, self.ubsan_option, gtest_filter,
                              self.dfx_case_progress(update=True), msg)
+                time_brief: List[Any] = [device_id, gtest_filter, (datetime.now(tz=timezone.utc) - ts)]
+                self.case_exec_queue.put(time_brief)
         except KeyboardInterrupt:
             # 强制终止时, 主动退出执行, 上报已运行时长
             logging.info("Device[%s] Case[%s] receive terminate event.", device_id, gtest_filter)
@@ -335,6 +342,35 @@ class STestAccelerate:
         if len(case_terminate_datas) != 0:
             case_terminate_brief = str(tabulate(case_terminate_datas, headers=case_terminate_heads, tablefmt='grid'))
         return case_terminate_brief, len(case_terminate_datas)
+
+    def _post_case_time_info(self) -> str:
+        """
+        获取各用例执行时间
+        """
+        time_info = ""
+        case_times = []
+        while not self.case_exec_queue.empty():
+            device_id, case_name, duration = self.case_exec_queue.get()
+            total_seconds = duration.total_seconds()
+            case_times.append((device_id, case_name, total_seconds))
+            self.case_exec_queue.task_done()
+        if not case_times:
+            time_info = "none case executed"
+            return time_info
+        
+        headers = ["device_id", "case_name", "time"]
+        table = tabulate(
+            case_times,
+            headers=headers,
+            tablefmt="grid",
+            stralign="left",
+            numalign="right",
+            missingval="N/A",
+            floatfmt=".3f"
+        )
+        time_info = "Case Exucetion Report"
+        logging.info(f"\n{table}")
+        return time_info
 
     def _post_case_exec_info(self) -> Tuple[str, int, int]:
         case_remaining_cnt: int = 0
