@@ -13,6 +13,8 @@
  * \brief
  */
 
+#include <float.h>
+
 // dim2 & dim1 (T0 = 1 for dim1)
 template <typename T, unsigned T0, unsigned T1, unsigned DS, unsigned SS0, unsigned SS1>
 TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1) {
@@ -130,6 +132,8 @@ TILEOP void T_BIN_VS(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
 #ifdef VS_DIV
     if (src1 != 0) {
         src1 = (float)1.0 / src1;
+    } else {
+        src1 = FLT_MAX;
     }
 #endif
     constexpr unsigned elementsPerRepeat = REPEAT_BYTE / sizeof(T);

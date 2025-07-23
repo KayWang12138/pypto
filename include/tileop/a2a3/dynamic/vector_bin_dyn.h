@@ -13,6 +13,8 @@
  * \brief
  */
 
+#include <float.h>
+
 /* ------------------------------------- support unaligned scene -------------------------------------*/
 
 // dim2 & dim1 (T0 = 1 for dim1)
@@ -127,6 +129,8 @@ TILEOP void T_BIN_VS(__ubuf__ T *dst, __ubuf__ T *src0, T src1, unsigned T0, uns
 #ifdef VS_DIV
     if (src1 != 0) {
         src1 = (float)1.0 / src1;
+    } else {
+        src1 = FLT_MAX;
     }
 #endif
     constexpr unsigned elementsPerRepeat = REPEAT_BYTE / sizeof(T);
