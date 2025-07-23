@@ -22,6 +22,7 @@ constexpr int IS_NUM1 = 1;
 constexpr int IS_NUM2 = 2;
 constexpr int IS_NUM3 = 3;
 constexpr int IS_NUM4 = 4;
+constexpr int IS_NUM5 = 5;
 constexpr int IS_NUM8 = 8;
 constexpr int IS_NUM9 = 9;
 constexpr int IS_NUM10 = 10;
@@ -94,6 +95,7 @@ constexpr int IS_NUM700 = 700;
 constexpr int IS_NUM800 = 800;
 constexpr int IS_NUM900 = 900;
 constexpr int IS_NUM1000 = 1000;
+constexpr int IS_NUM1100 = 1100;
 class InsertSyncTest : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
@@ -250,6 +252,19 @@ TEST_F(InsertSyncTest, TestFindDep) {
     EXPECT_EQ(ps.IgnorableIntraPipeDep(0, IS_NUM4, opLogPtr), false);
     tensor2->shape = {IS_NUM16, IS_NUM16, IS_NUM16};
     EXPECT_EQ(ps.IgnorableIntraPipeDep(0, IS_NUM4, opLogPtr), true);
+
+    // test AdjustOpCfg
+    auto opcfg1 = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[1]->GetOpcode());
+    EXPECT_EQ(ps.AdjustOpCfg(opcfg1, opLogPtr[1]), FAILED);
+
+    auto tensor7 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    tensor7->SetMemoryTypeBoth(MemoryType::MEM_UB);
+    tensor7->memorymap[tensor7->GetSubgraphID()].start = IS_NUM1000;
+    tensor7->memorymap[tensor7->GetSubgraphID()].end = IS_NUM1100;
+    auto &copyout = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {tensor5}, {tensor7});
+    opLogPtr.emplace_back(&copyout);
+    auto opcfg2 = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[IS_NUM1]->GetOpcode());
+    EXPECT_EQ(ps.AdjustOpCfg(opcfg2, opLogPtr[IS_NUM5]), FAILED);
 }
 
 TEST_F(InsertSyncTest, TestPhaseKernelProcess) {
@@ -340,6 +355,40 @@ TEST_F(InsertSyncTest, TestViewAssembleProcess) {
     EXPECT_EQ(itView4 < itAdd2, true);
     EXPECT_EQ(itAdd2 < itAssemble1, true);
     EXPECT_EQ(itView5 < itAssemble2, true);
+    EXPECT_EQ(opLogPtr.size(), resLogPtr.size());
+
+    opLogPtr.clear();
+    resLogPtr.clear();
+    auto tensor11 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
+    auto &view6 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {tensor10}, {tensor11});
+    opLogPtr.emplace_back(&view1);
+    opLogPtr.emplace_back(&view2);
+    opLogPtr.emplace_back(&view3);
+    opLogPtr.emplace_back(&view4);
+    opLogPtr.emplace_back(&assemble1);
+    opLogPtr.emplace_back(&view5);
+    opLogPtr.emplace_back(&assemble2);
+    opLogPtr.emplace_back(&view6);
+    opLogPtr.emplace_back(&add1);
+    opLogPtr.emplace_back(&add2);
+    EXPECT_EQ(ps.ProcessViewAssembleOrder(opLogPtr, resLogPtr), FAILED);
+
+    opLogPtr.clear();
+    resLogPtr.clear();
+    auto tensor12 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    auto &assemble3 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {tensor12}, {tensor1});
+    opLogPtr.emplace_back(&assemble3);
+    opLogPtr.emplace_back(&view1);
+    opLogPtr.emplace_back(&view2);
+    opLogPtr.emplace_back(&view3);
+    opLogPtr.emplace_back(&view4);
+    opLogPtr.emplace_back(&assemble1);
+    opLogPtr.emplace_back(&view5);
+    opLogPtr.emplace_back(&assemble2);
+    opLogPtr.emplace_back(&view6);
+    opLogPtr.emplace_back(&add1);
+    opLogPtr.emplace_back(&add2);
+    EXPECT_EQ(ps.ProcessViewAssembleOrder(opLogPtr, resLogPtr), FAILED);
 }
 
 TEST_F(InsertSyncTest, TestUpdateDep) {

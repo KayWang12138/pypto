@@ -320,6 +320,10 @@ Status PipeSync::AdjustOpCfg(TileOpCfg &opcfg, Operation *opptr) {
         }
     }
     if (opptr->GetOpcode() == Opcode::OP_COPY_IN) {
+        if (opptr->GetOpAttribute() == nullptr) {
+            ALOG_ERROR_F("copyin op attr is nullptr, AdjustOpCfg failed!");
+            return FAILED;
+        }
         std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(opptr->GetOpAttribute());
         auto dstMemType = attr->GetCopyInAttr().second;
         if (dstMemType == MemoryType::MEM_L1) {
@@ -333,6 +337,10 @@ Status PipeSync::AdjustOpCfg(TileOpCfg &opcfg, Operation *opptr) {
         }
     }
     if (opptr->GetOpcode() == Opcode::OP_COPY_OUT) {
+        if (opptr->GetOpAttribute() == nullptr) {
+            ALOG_ERROR_F("copyout op attr is nullptr, AdjustOpCfg failed!");
+            return FAILED;
+        }
         std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(opptr->GetOpAttribute());
         auto srcMemType = attr->GetCopyOutAttr().first;
         if (srcMemType == MemoryType::MEM_L0C) {
@@ -1160,6 +1168,10 @@ Status PipeSync::ProcessViewAssembleOrder(std::vector<Operation *> &opLog, std::
     for (auto &opPtr : opLog) {
         if (opPtr->GetOpcode() == Opcode::OP_VIEW) {
             auto consumers = opPtr->ConsumerOps();
+            if (consumers.empty()) {
+                ALOG_ERROR_F("VIEW op doesn't have consumer, ProcessViewAssembleOrder failed!");
+                return FAILED;
+            }
             auto minIt = opLog.end();
             for (auto &consumer : consumers) {
                 auto it = std::find(opLog.begin(), opLog.end(), consumer);
@@ -1171,6 +1183,10 @@ Status PipeSync::ProcessViewAssembleOrder(std::vector<Operation *> &opLog, std::
             ALOG_DEBUG_F("%d VIEW consumer: %d", opPtr->GetOpMagic(), (*minIt)->GetOpMagic());
         } else if (opPtr->GetOpcode() == Opcode::OP_ASSEMBLE) {
             auto producers = opPtr->ProducerOps();
+            if (producers.empty()) {
+                ALOG_ERROR_F("ASSEMBLE op doesn't have producer, ProcessViewAssembleOrder failed!");
+                return FAILED;
+            }
             auto maxIt = opLog.begin();
             for (auto &producer : producers) {
                 auto it = std::find(opLog.begin(), opLog.end(), producer);
