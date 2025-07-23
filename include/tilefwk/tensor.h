@@ -263,11 +263,67 @@ private:
     BinDataPtr data_{};
 };
 
+/**
+ * @brief Get the Input Shape Dim Size object
+ * 
+ * @param t input tensor
+ * @return SymbolicScalar : dimension of tensor
+ */
 SymbolicScalar GetInputShapeDimSize(const Tensor &t);
+
+/**
+ * @brief Get the size of a special dimension of input tensor
+ * 
+ * @param t input tensor
+ * @param n dimension index
+ * @return SymbolicScalar : size of a special dimension of tensor
+ */
 SymbolicScalar GetInputShapeDim(const Tensor &t, int n);
+
+/**
+ * @brief Get the Input Data of a 1D tensor 
+ * 
+ * @param t input tensor
+ * @param off0 positional shift applied to the first axis of the tensor
+ * @return SymbolicScalar : the data of a 1D tensor starting from off0
+ */
 SymbolicScalar GetInputDataInt32Dim1(const Tensor &t, SymbolicScalar off0);
+
+/**
+ * @brief Get the Input Data of a 2D tensor 
+ * @param t input tensor
+ * @param off0 positional shift applied to the first axis of the tensor
+ * @param off1 positional shift applied to the second axis of the tensor
+ * @return SymbolicScalar the data of a 1D tensor starting from [off0, off1]
+ */
 SymbolicScalar GetInputDataInt32Dim2(const Tensor &t, SymbolicScalar off0, SymbolicScalar off1);
+
+/**
+ * @brief Get the Input Data of a 3D tensor 
+ * 
+ * @param t input tensor
+ * @param off0 positional shift applied to the first axis of the tensor
+ * @param off1 positional shift applied to the second axis of the tensor
+ * @param off2 positional shift applied to the third axis of the tensor
+ * @return SymbolicScalar 
+ */
 SymbolicScalar GetInputDataInt32Dim3(const Tensor &t, SymbolicScalar off0, SymbolicScalar off1, SymbolicScalar off2);
+
+/**
+ * @brief Determines if the current iteration is the start of loop
+ * 
+ * @param symbol current loop index
+ * @param begin begin loop index
+ * @return SymbolicScalar : expression to determine if currently at loop start
+ */
 SymbolicScalar IsLoopBegin(const SymbolicScalar &symbol, const SymbolicScalar &begin);
+
+/**
+ * @brief Determines if the current iteration is the end of loop
+ * 
+ * @param symbol current loop index
+ * @param end end loop index
+ * @return SymbolicScalar : expression to determine if currently at loop start
+ */
 SymbolicScalar IsLoopEnd(const SymbolicScalar &symbol, const SymbolicScalar &end);
 } // namespace npu::tile_fwk
