@@ -47,7 +47,7 @@ void ParseInput::ParseJson(std::shared_ptr<CostModel::SimSys> sim, const std::st
         std::unordered_map<int, int> tensorMagicIdMap;
         tensorMagicIdMap.clear();
         FunctionPtr func = std::make_shared<Function>();
-        func->functionHash = function.at("hash");
+        func->functionHash = std::stoull(function.at("hash").get<std::string>());
         func->magic = function.at("magic");
         func->funcName = function.at("magicname");
         if (!foundStartFunc) {
@@ -112,7 +112,7 @@ void ParseInput::ParseJson(std::shared_ptr<CostModel::SimSys> sim, const std::st
             tileOp->magic = op.at("opmagic");
             tileOp->bufType = OperandType::BUF_UB;
             if (tileOp->IsCall()) {
-                tileOp->calleeHash = op.at("calleehash");
+                tileOp->calleeHash = std::stoull(op.at("calleehash").get<std::string>());
             }
             tileOp->GetPipeType();
             if (tileOp->pipeType == CorePipeType::PIPE_CUBE) {

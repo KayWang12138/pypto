@@ -1578,7 +1578,7 @@ void Function::DumpJsonFile(std::string fileName) {
     Json progDump;
     progDump["version"] = T_VERSION;
     progDump["functions"].push_back(DumpJson());
-    progDump["entryhash"] = this->GetFunctionHash().GetHash();
+    progDump["entryhash"] = this->GetFunctionHash().Data();
     file << progDump.dump(1) << std::endl;
     file.close();
 }
@@ -1686,7 +1686,7 @@ Json Function::DumpJson(bool useTable) {
         }
     }
     funcDump["operations"] = operations;
-    funcDump["hash"] = functionHash_.GetHash();
+    funcDump["hash"] = functionHash_.Data();
 
     std::vector<std::string> resultSemanticLabels(semanticLabels_.begin(), semanticLabels_.end());
     std::sort(resultSemanticLabels.begin(), resultSemanticLabels.end());
@@ -1969,7 +1969,7 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     func->slotScope_ = tensorSlotScope;
 
     func->ComputeHashOrderless();
-    func->functionHash_ = funcDump["hash"].get<uint64_t>();
+    func->functionHash_ = std::stoull(funcDump["hash"].get<std::string>());
 
     std::vector<std::string> semanticLabelData = funcDump["semantic_label"].get<std::vector<std::string>>();
     func->semanticLabels_.insert(semanticLabelData.begin(), semanticLabelData.end());
