@@ -73,6 +73,7 @@ struct AstKernelArgs {
     int64_t *tilingdata;
     int64_t workspaceSize;
     void *costmodeldata{nullptr};
+    void *aicoreModel{nullptr};
     uint64_t taskWastTime{0};
     uint8_t machineConfig;
 };

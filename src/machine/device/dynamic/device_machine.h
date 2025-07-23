@@ -82,6 +82,7 @@ public:
         taskCtrl->runcnt.store(schAicpuNum_, std::memory_order_relaxed);
         taskCtrl->finish = callback;
         taskCtrl->ctx = ctx;
+        devTask->aicoreModel = reinterpret_cast<uint64_t>(ctx->aicoreModel);
         if (ctx->costModelData != nullptr) {
             devTask->costModelData = reinterpret_cast<uint64_t>(ctx->costModelData);
         }
@@ -190,6 +191,7 @@ public:
 
         DeviceExecuteContext ctx(devArgs);
         ctx.costModelData = reinterpret_cast<CostModel::ModelData*>(args->costmodeldata);
+        ctx.aicoreModel = args->aicoreModel;
         PerfBegin(PERF_EVT_EXEC_DYN);
         ctx.GELaunch(devArgs, [this](uint64_t dynTaskId, DeviceTask *devTask, DeviceExecuteContext *ctx_) {
 #if DEBUG_SWITCH

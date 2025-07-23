@@ -191,6 +191,10 @@ public:
         args_.fill(nullptr);
     }
 
+    inline void SetModel(uint64_t model) {
+        model_ = reinterpret_cast<CostModel::AiCoreModel*>(model);
+    }
+
     int64_t *GetRegAddrs() const { return regAddrs_; }
 
     inline uint32_t ReadReg32(int coreIdx, int offset) {
@@ -398,6 +402,9 @@ public:
         uint64_t timeCost = getTaskTimeCost == nullptr ? 0 : getTaskTimeCost(coreIdx, taskId, time);
         taskTimes[coreIdx].push_back(time + timeCost);
         taskIds[coreIdx].push_back(taskId);
+        if (model_) {
+            model_->SendTask(coreIdx, taskId);
+        }
         DEV_DEBUG("CostModel AICore %d add task 0x%lx, new queue size %lu, finish time %lu\n",
                   coreIdx, taskId, taskIds[coreIdx].size(), time + timeCost);
     }
@@ -481,8 +488,14 @@ public:
     }
 
     inline void InitTaskData(int coreIdx, int64_t funcdata) {
-        volatile KernelArgs *arg = args_[coreIdx];
-        arg->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX] = funcdata;
+        if constexpr (IsDeviceMode()) {
+            volatile KernelArgs *arg = args_[coreIdx];
+            arg->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX] = funcdata;
+        }else{
+            if (model_) {
+                model_->InitData(coreIdx, funcdata);
+            }
+        }
     }
 
     int HandShake(int coreIdx, int64_t dotStatus) {
@@ -525,6 +538,8 @@ private:
     std::array<int, MAX_AICORE_NUM> blockIdToPhyCoreId_;
 
     AiCoreProf *prof_{nullptr};
+
+    CostModel::AiCoreModel *model_{nullptr};
 };
 class AiCoreManager {
 public:
@@ -536,17 +551,15 @@ public:
         curDevTask_ = taskCtrl->devTask;
         curTaskType_ = taskCtrl->taskType;
         curTaskId_ = taskCtrl->taskId;
-
-        if constexpr (IsDeviceMode()) {
-            int64_t funcdata;
-            if (IsStaticFunction()) {
-                funcdata = (int64_t)&curDevTask_->coreFuncData;
-            } else {
-                auto dyntask = (DynDeviceTask *)curDevTask_;
-                funcdata = (int64_t)dyntask->dynFuncData.data();
-            }
-            ForEachManageAicore([&](int coreIdx) { aicoreHAL.InitTaskData(coreIdx, funcdata); });
+        aicoreHAL.SetModel(taskCtrl->devTask->aicoreModel);
+        int64_t funcdata;
+        if (IsStaticFunction()) {
+            funcdata = (int64_t)&curDevTask_->coreFuncData;
+        } else {
+            auto dyntask = (DynDeviceTask *)curDevTask_;
+            funcdata = (int64_t)dyntask->dynFuncData.data();
         }
+        ForEachManageAicore([&](int coreIdx) { aicoreHAL.InitTaskData(coreIdx, funcdata); });
 
         readyAicCoreFunctionQue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(curDevTask_->readyAicCoreFunctionQue);
         readyAivCoreFunctionQue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(curDevTask_->readyAivCoreFunctionQue);

@@ -1397,6 +1397,9 @@ private:
             dyndata->workspaceAddr = funcDup.RuntimeWorkspace();
             dyndata->stackWorkSpaceSize = workspace_->StandardStackWorkspacePerCore();
             dyndata->stackWorkSpaceAddr = workspace_->StackWorkspaceAddr();
+            dyndata->opAttrSize = funcDup.GetSource()->GetOpAttrSize();
+            dyndata->rawTensorAddrSize = funcDup.GetSource()->GetIncastSize();
+            dyndata->rawTensorDescSize = funcDup.GetSource()->GetRawTensorDescSize();
             DEV_ASSERT((uint64_t)dyndata->opAttrs % OP_ATTRS_PRE_NUM == 0);
             DEV_ASSERT((uint64_t)dyndata->opAtrrOffsets % OP_ATTRS_OFFSET_PRE_NUM == 0);
             DEV_ASSERT((uint64_t)dyndata->exprTbl % EXPR_TABLE_PRE_NUM == 0);
@@ -1526,6 +1529,8 @@ struct DeviceExecuteContext {
     DevAscendFunctionDupped currDevRootDup;
 
     CostModel::ModelData *costModelData;
+
+    void *aicoreModel;
 
     static uint64_t GetInputShapeDimSize(DeviceExecuteContext *ctx, uint64_t inputIndex) {
         DevAscendTensorData *input = &ctx->args->inputTensorList[inputIndex];

@@ -118,6 +118,7 @@ struct DeviceTask {
     CoreFunctionData coreFuncData;
     L2PreInfo l2Info;
     uint64_t costModelData;           // costmodel仿真时长
+    uint64_t aicoreModel;             // costmodel aicore功能模型
 };
 
 // dfx 相关
@@ -171,6 +172,9 @@ struct DynFuncData {
     __gm__ uint64_t *exprTbl;       // dyn
     __gm__ DevRawTensorDesc *rawTensorDesc;
     __gm__ uint64_t *rawTensorAddr;
+    uint64_t opAttrSize;
+    uint64_t rawTensorDescSize;
+    uint64_t rawTensorAddrSize;
     uint64_t workspaceAddr;
     uint64_t stackWorkSpaceAddr;
     uint64_t stackWorkSpaceSize;

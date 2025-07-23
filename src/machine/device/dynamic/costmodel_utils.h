@@ -25,4 +25,11 @@ public:
     std::vector<uint64_t> functionTime;
 };
 
+class AiCoreModel {
+public:
+    virtual ~AiCoreModel() = default;
+    virtual void InitData(int coreIdx, int64_t funcdata) = 0;
+    virtual void SendTask(int coreIdx, uint64_t taskId) = 0;
+};
+
 } // namespace CostModel
