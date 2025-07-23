@@ -1528,12 +1528,84 @@ std::string CodeGenOpCloudNPU::GenScatterElementOp() const {
     return ostring;
 }
 
+std::string CodeGenOpCloudNPU::PrintBitSortDynamicUnaligned(const PrintSortParam &param) const{
+    unsigned dstShape0 = param.dstShape0;
+    unsigned dstShape1 = param.dstShape1;
+    unsigned src0Shape0 = param.srcShape0;
+    unsigned src0Shape1 = param.srcShape1;
+    const std::string &s0Var = param.s0Var;
+    const std::string &dVar = param.dVar;
+    const std::string &srcDtypeStr = param.srcDtypeStr;
+    const std::string &dstDtypeStr = param.dstDtypeStr;
+    std::string orisrcShape0;
+    std::string orisrcShape1;
+    if (dynamicValidShape[1].size() == 1) {
+        orisrcShape0 = "1";
+        orisrcShape1 = dynamicValidShape[1][0].Dump();
+    } else {
+        orisrcShape0 = dynamicValidShape[1][0].Dump();
+        orisrcShape1 = dynamicValidShape[1][1].Dump();
+    }
+    std::vector<std::string> paramList;
+    paramList.emplace_back(srcDtypeStr);
+    paramList.insert(paramList.end(), {std::to_string(dstShape0), std::to_string(dstShape1)});
+    paramList.insert(paramList.end(), {std::to_string(src0Shape0), std::to_string(src0Shape1)});
+
+    std::string templateParam = JoinString(paramList, ", ");
+    templateParam += GenOpAttr();
+    paramList.clear();
+    std::string dstParam = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
+    std::string srcParam = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
+    paramList.insert(paramList.end(), {dstParam, srcParam});
+    paramList.insert(paramList.end(), {orisrcShape0, orisrcShape1});
+    std::string tileCallParam = JoinString(paramList, ", ");
+    std::ostringstream oss;
+    oss << tileOpName << "<" << templateParam << ">" << "(" << tileCallParam << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintBitSortStatic(const PrintSortParam &param) const {
+    unsigned dstShape0 = param.dstShape0;
+    unsigned dstShape1 = param.dstShape1;
+    unsigned src0Shape0 = param.srcShape0;
+    unsigned src0Shape1 = param.srcShape1;
+    unsigned orisrcShape0 = 0;
+    unsigned orisrcShape1 = 0;
+    const std::string &s0Var = param.s0Var;
+    const std::string &dVar = param.dVar;
+    const std::string &srcDtypeStr = param.srcDtypeStr;
+    const std::string &dstDtypeStr = param.dstDtypeStr;
+    const std::vector<int> &oriSrc0Shape = originShape[1];
+    if (oriSrc0Shape.size() == 1) {
+        orisrcShape0 = 1;
+        orisrcShape1 = oriSrc0Shape[0];
+    } else {
+        orisrcShape0 = oriSrc0Shape[0];
+        orisrcShape1 = oriSrc0Shape[1];
+    }
+    std::vector<std::string> paramList;
+    paramList.emplace_back(srcDtypeStr);
+    paramList.insert(paramList.end(), {std::to_string(dstShape0), std::to_string(dstShape1)});
+    paramList.insert(paramList.end(), {std::to_string(src0Shape0), std::to_string(src0Shape1)});
+    paramList.insert(paramList.end(), {std::to_string(orisrcShape0), std::to_string(orisrcShape1)});
+
+    std::string templateParam = JoinString(paramList, ", ");
+    templateParam += GenOpAttr();
+    paramList.clear();
+    std::string dstParam = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
+    std::string srcParam = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
+    paramList.insert(paramList.end(), {dstParam, srcParam});
+    std::string tileCallParam = JoinString(paramList, ", ");
+    std::ostringstream oss;
+    oss << tileOpName << "<" << templateParam << ">" << "(" << tileCallParam << ");\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::GenBitSortOp() const {
     const DataType dstDtype = operandDtype[ID0];
     const DataType src0Dtype = operandDtype[ID1];
     int dst = operandWithMagic[ID0];
     int src0 = operandWithMagic[ID1];
-    const std::vector<int> &oriSrc0Shape = originShape[1];
 
     auto kSrc0 = CreateAllocKey(src0);
     auto kDst = CreateAllocKey(dst);
@@ -1547,36 +1619,100 @@ std::string CodeGenOpCloudNPU::GenBitSortOp() const {
     unsigned dstShape1 = 0;
     unsigned src0Shape0 = 0;
     unsigned src0Shape1 = 0;
-    unsigned orisrc0Shape0 = 0;
-    unsigned orisrc0Shape1 = 0;
     if (shapeSize == 1) {
         dstShape0 = 1;
         dstShape1 = std::min(dstShape[0], shape[0][0]);
         src0Shape0 = 1;
         src0Shape1 = std::min(src0Shape[0], shape[1][0]);
-        orisrc0Shape0 = 1;
-        orisrc0Shape1 = oriSrc0Shape[0];
     } else {
         dstShape0 = std::min(dstShape[0], shape[0][0]);
         dstShape1 = dstShape[1];
         src0Shape0 = std::min(src0Shape[0], shape[1][0]);
-        src0Shape1 = src0Shape[1];
-        orisrc0Shape0 = 1;
-        orisrc0Shape1 = oriSrc0Shape[0];
+        src0Shape1 = std::min(src0Shape[1], shape[1][1]);
     }
-    char buffer[256] = "CG_ERROR";
     std::string dstDtypeStr = DataType2CCEStr(dstDtype);
     std::string src0DtypeStr = DataType2CCEStr(src0Dtype);
-
     AppendLocalBufferVarOffset({&dstVar, &src0Var}, {0, 1});
 
-    int ret = sprintf_s(buffer, sizeof(buffer),
-        "%s<%s, %u, %u, %u, %u, %u, %u %s>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s);\n", tileOpName.c_str(),
-        dstDtypeStr.c_str(), dstShape0, dstShape1, src0Shape0, src0Shape1, orisrc0Shape0, orisrc0Shape1,
-        GenOpAttr().c_str(), dstDtypeStr.c_str(), dstVar.c_str(), src0DtypeStr.c_str(), src0Var.c_str());
-    ASSERT(ret >= 0) << "GenBitSortOp sprintf_s failed ";
-    std::string ostring(buffer);
-    return ostring;
+    if (isSupportDynamicUnaligned) {
+        return PrintBitSortDynamicUnaligned(
+            {dstShape0, dstShape1, src0Shape0, src0Shape1, src0Var, dstVar, src0DtypeStr, dstDtypeStr});
+    }
+    return PrintBitSortStatic(
+        {dstShape0, dstShape1, src0Shape0, src0Shape1, src0Var, dstVar, src0DtypeStr, dstDtypeStr});
+}
+
+std::string CodeGenOpCloudNPU::PrintMrgSortDynamicUnaligned(const PrintSortParam &param) const {
+    unsigned dstShape0 = param.dstShape0;
+    unsigned dstShape1 = param.dstShape1;
+    unsigned src0Shape0 = param.srcShape0;
+    unsigned src0Shape1 = param.srcShape1;
+    const std::string &s0Var = param.s0Var;
+    const std::string &dVar = param.dVar;
+    const std::string &srcDtypeStr = param.srcDtypeStr;
+    const std::string &dstDtypeStr = param.dstDtypeStr;
+    std::string orisrcShape0;
+    std::string orisrcShape1;
+    if (dynamicValidShape[1].size() == 1) {
+        orisrcShape0 = "1";
+        orisrcShape1 = dynamicValidShape[1][0].Dump();
+    } else {
+        orisrcShape0 = dynamicValidShape[1][0].Dump();
+        orisrcShape1 = dynamicValidShape[1][1].Dump();
+    }
+    std::vector<std::string> paramList;
+    paramList.emplace_back(srcDtypeStr);
+    paramList.insert(paramList.end(), {std::to_string(dstShape0), std::to_string(dstShape1)});
+    paramList.insert(paramList.end(), {std::to_string(src0Shape0), std::to_string(src0Shape1)});
+
+    std::string templateParam = JoinString(paramList, ", ");
+    templateParam += GenOpAttr();
+    paramList.clear();
+    std::string dstParam = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
+    std::string srcParam = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
+    paramList.insert(paramList.end(), {dstParam, srcParam});
+    paramList.insert(paramList.end(), {orisrcShape0, orisrcShape1});
+    std::string tileCallParam = JoinString(paramList, ", ");
+    std::ostringstream oss;
+    oss << tileOpName << "<" << templateParam << ">" << "(" << tileCallParam << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintMrgSortStatic(const PrintSortParam &param) const {
+    unsigned dstShape0 = param.dstShape0;
+    unsigned dstShape1 = param.dstShape1;
+    unsigned src0Shape0 = param.srcShape0;
+    unsigned src0Shape1 = param.srcShape1;
+    unsigned orisrcShape0 = 0;
+    unsigned orisrcShape1 = 0;
+    const std::string &s0Var = param.s0Var;
+    const std::string &dVar = param.dVar;
+    const std::string &srcDtypeStr = param.srcDtypeStr;
+    const std::string &dstDtypeStr = param.dstDtypeStr;
+    const std::vector<int> &oriSrc0Shape = originShape[1];
+    if (oriSrc0Shape.size() == 1) {
+        orisrcShape0 = 1;
+        orisrcShape1 = oriSrc0Shape[0];
+    } else {
+        orisrcShape0 = oriSrc0Shape[0];
+        orisrcShape1 = oriSrc0Shape[1];
+    }
+    std::vector<std::string> paramList;
+    paramList.emplace_back(srcDtypeStr);
+    paramList.insert(paramList.end(), {std::to_string(dstShape0), std::to_string(dstShape1)});
+    paramList.insert(paramList.end(), {std::to_string(src0Shape0), std::to_string(src0Shape1)});
+    paramList.insert(paramList.end(), {std::to_string(orisrcShape0), std::to_string(orisrcShape1)});
+
+    std::string templateParam = JoinString(paramList, ", ");
+    templateParam += GenOpAttr();
+    paramList.clear();
+    std::string dstParam = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
+    std::string srcParam = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
+    paramList.insert(paramList.end(), {dstParam, srcParam});
+    std::string tileCallParam = JoinString(paramList, ", ");
+    std::ostringstream oss;
+    oss << tileOpName << "<" << templateParam << ">" << "(" << tileCallParam << ");\n";
+    return oss.str();
 }
 
 std::string CodeGenOpCloudNPU::GenMrgSortOp() const {
@@ -1584,7 +1720,6 @@ std::string CodeGenOpCloudNPU::GenMrgSortOp() const {
     const DataType src0Dtype = operandDtype[ID1];
     int dst = operandWithMagic[ID0];
     int src0 = operandWithMagic[ID1];
-    const std::vector<int> &oriSrc0Shape = originShape[1];
 
     auto kSrc0 = CreateAllocKey(src0);
     auto kDst = CreateAllocKey(dst);
@@ -1599,33 +1734,26 @@ std::string CodeGenOpCloudNPU::GenMrgSortOp() const {
     unsigned dstShape1 = 0;
     unsigned src0Shape0 = 0;
     unsigned src0Shape1 = 0;
-    unsigned orisrc0Shape0 = 0;
-    unsigned orisrc0Shape1 = 0;
     if (shapeSize == 1) {
         dstShape0 = 1;
         dstShape1 = std::min(dstShape[0], shape[0][0]);
         src0Shape0 = 1;
         src0Shape1 = std::min(src0Shape[0], shape[1][0]);
-        orisrc0Shape0 = 1;
-        orisrc0Shape1 = oriSrc0Shape[0];
     } else {
         dstShape0 = std::min(dstShape[0], shape[0][0]);
         dstShape1 = dstShape[1];
         src0Shape0 = std::min(src0Shape[0], shape[1][0]);
-        src0Shape1 = src0Shape[1];
-        orisrc0Shape0 = 1;
-        orisrc0Shape1 = oriSrc0Shape[0];
+        src0Shape1 = std::min(src0Shape[1], shape[1][1]);
     }
-    char buffer[256] = "CG_ERROR";
     std::string dstDtypeStr = DataType2CCEStr(dstDtype);
     std::string src0DtypeStr = DataType2CCEStr(src0Dtype);
     AppendLocalBufferVarOffset({&dstVar, &src0Var}, {0, 1});
-    int ret = sprintf_s(buffer, sizeof(buffer),
-        "%s<%s, %u, %u, %u, %u, %u, %u %s>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s);\n", tileOpName.c_str(),
-        dstDtypeStr.c_str(), dstShape0, dstShape1, src0Shape0, src0Shape1, orisrc0Shape0, orisrc0Shape1,
-        GenOpAttr().c_str(), dstDtypeStr.c_str(), dstVar.c_str(), src0DtypeStr.c_str(), src0Var.c_str());
-    ASSERT(ret >= 0) << "GenMrgSortOp sprintf_s failed ";
-    return buffer;
+    if (isSupportDynamicUnaligned) {
+        return PrintMrgSortDynamicUnaligned(
+            {dstShape0, dstShape1, src0Shape0, src0Shape1, src0Var, dstVar, src0DtypeStr, dstDtypeStr});
+    }
+    return PrintMrgSortStatic(
+        {dstShape0, dstShape1, src0Shape0, src0Shape1, src0Var, dstVar, src0DtypeStr, dstDtypeStr});
 }
 
 std::string CodeGenOpCloudNPU::GenExtractOp() const {
@@ -1635,22 +1763,34 @@ std::string CodeGenOpCloudNPU::GenExtractOp() const {
     std::string s0Var = sm->QueryVariableName(kS0);
     std::string dVar = sm->QueryVariableName(kDst);
     std::vector src0RawShape = this->rawShape[1];
-    unsigned tShape0 = std::min(src0RawShape[0], shape[0][0]);
-    unsigned tShape1 = std::min(src0RawShape[1], shape[0][1]);
-    char buffer[BUFFER_SIZE_256] = "CG_ERROR";
+    unsigned tShape0 = 0;
+    unsigned tShape1 = 0;
+
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
     std::vector src0Shape = this->rawShape[0];
     AppendLocalBufferVarOffset({&dVar, &s0Var}, {0, 1});
     if (this->rawShape[1].size() == 1) {
-        tShape1 = tShape0;
+        tShape1 = std::min(src0RawShape[0], shape[0][0]);
         tShape0 = 1;
+    } else {
+        tShape0 = std::min(src0RawShape[0], shape[0][0]);
+        tShape1 = std::min(src0RawShape[1], shape[0][1]);
     }
-    int ret = sprintf_s(buffer, sizeof(buffer), "%s<%s, %s, %u, %u %s>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s);\n",
-        tileOpName.c_str(), dstDtypeStr.c_str(), src0DtypeStr.c_str(), tShape0, tShape1, GenOpAttr().c_str(),
-        dstDtypeStr.c_str(), dVar.c_str(), src0DtypeStr.c_str(), s0Var.c_str());
-    ASSERT(ret >= 0) << "GenExtractOp sprintf_s failed ";
-    return buffer;
+    std::vector<std::string> paramList;
+    paramList.insert(paramList.end(), {dstDtypeStr, src0DtypeStr});
+    paramList.insert(paramList.end(), {std::to_string(tShape0), std::to_string(tShape1)});
+
+    std::string templateParam = JoinString(paramList, ", ");
+    templateParam += GenOpAttr();
+    paramList.clear();
+    std::string dstParam = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
+    std::string srcParam = "(__ubuf__ " + src0DtypeStr + "*)" + s0Var;
+    paramList.insert(paramList.end(), {dstParam, srcParam});
+    std::string tileCallParam = JoinString(paramList, ", ");
+    std::ostringstream oss;
+    oss << tileOpName << "<" << templateParam << ">" << "(" << tileCallParam << ");\n";
+    return oss.str();
 }
 
 std::string CodeGenOpCloudNPU::GenVectorScalarOp() const {

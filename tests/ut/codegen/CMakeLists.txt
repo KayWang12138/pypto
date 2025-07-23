@@ -26,6 +26,8 @@ set(_CaseFilterList
         "TestCodegenDynBinary.TestCodegenAddDim2SrcNotSameShape"
         "TestCodegenDynBinaryBrc.TestMulDynamic"
         "TestCodegenDynUna.TestAbsDynamic"
+        "TestCodegenDynUna.TestDynBitSort"
+        "TestCodegenDynUna.TestDynMrgSort"
         "TestCodegenDynBinary.TestAddsDynamic"
         "TestCodegenDynGather.TestGather"
         "TestCodegenDynScalar.TestScalarAdds"
