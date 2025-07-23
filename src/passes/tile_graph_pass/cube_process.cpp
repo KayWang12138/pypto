@@ -88,6 +88,7 @@ void CubeProcess::EliminateReduceAcc(Function &function) {
             }
             // delete the Reduce_Acc
             op.SetAsDeleted();
+            ALOG_DEBUG_F("%s[%d] will be deleted.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
         }
     }
     function.EraseOperations(true);

@@ -178,5 +178,1046 @@ TEST_F(InplaceProcessTest, CopyInDirectAssemble) {
     */
     CheckInplace(*function);
 }
+
+TEST_F(InplaceProcessTest, InplaceProcessViewOnL1) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    DataType inputAstDtype = DataType::DT_FP16;
+    DataType outputAstDtype = DataType::DT_FP16;
+    G.AddTensor(inputAstDtype, {64, 128}, "mat_a");
+    auto mat_a = G.GetTensor("mat_a");
+    mat_a->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(inputAstDtype, {128, 128}, "mat_b");
+    auto mat_b = G.GetTensor("mat_b");
+    mat_b->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "mat_c_0");
+    auto mat_c_0 = G.GetTensor("mat_c_0");
+    mat_c_0->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "mat_c_1");
+    auto mat_c_1 = G.GetTensor("mat_c_1");
+    mat_c_1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(inputAstDtype, {64, 128}, "l1_a");
+    auto l1_a = G.GetTensor("l1_a");
+    l1_a->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {128, 128}, "l1_b");
+    auto l1_b = G.GetTensor("l1_b");
+    l1_b->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {64, 64}, "l1_a_0");
+    auto l1_a_0 = G.GetTensor("l1_a_0");
+    l1_a_0->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {64, 128}, "l1_b_0");
+    auto l1_b_0 = G.GetTensor("l1_b_0");
+    l1_b_0->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {64, 64}, "l1_a_1");
+    auto l1_a_1 = G.GetTensor("l1_a_1");
+    l1_a_1->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {64, 128}, "l1_b_1");
+    auto l1_b_1 = G.GetTensor("l1_b_1");
+    l1_b_1->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {64, 64}, "l0_a_0");
+    auto l0_a_0 = G.GetTensor("l0_a_0");
+    l0_a_0->SetMemoryTypeBoth(MemoryType::MEM_L0A, true);
+    G.AddTensor(inputAstDtype, {64, 128}, "l0_b_0");
+    auto l0_b_0 = G.GetTensor("l0_b_0");
+    l0_b_0->SetMemoryTypeBoth(MemoryType::MEM_L0B, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "l0_c_0");
+    auto l0_c_0 = G.GetTensor("l0_c_0");
+    l0_c_0->SetMemoryTypeBoth(MemoryType::MEM_L0C, true);
+    G.AddTensor(inputAstDtype, {64, 64}, "l0_a_1");
+    auto l0_a_1 = G.GetTensor("l0_a_1");
+    l0_a_1->SetMemoryTypeBoth(MemoryType::MEM_L0A, true);
+    G.AddTensor(inputAstDtype, {64, 128}, "l0_b_1");
+    auto l0_b_1 = G.GetTensor("l0_b_1");
+    l0_b_1->SetMemoryTypeBoth(MemoryType::MEM_L0B, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "l0_c_1");
+    auto l0_c_1 = G.GetTensor("l0_c_1");
+    l0_c_1->SetMemoryTypeBoth(MemoryType::MEM_L0C, true);
+    // add op
+    G.AddOp(Opcode::OP_COPY_IN, {"mat_a"}, {"l1_a"}, "L1_Copy_In_A");
+    G.AddOp(Opcode::OP_COPY_IN, {"mat_b"}, {"l1_b"}, "L1_Copy_In_B");
+    G.AddOp(Opcode::OP_VIEW, {"l1_a"}, {"l1_a_0"}, "A_OP_VIEW_0");
+    auto a_op_view_0 = G.GetOp("A_OP_VIEW_0");
+    std::vector<int> offestAOpView0 = {0, 0};
+    auto attrAOpView0 = std::make_shared<ViewOpAttribute>(offestAOpView0, MemoryType::MEM_L1);
+    a_op_view_0->SetOpAttribute(attrAOpView0);
+    G.AddOp(Opcode::OP_VIEW, {"l1_a"}, {"l1_a_1"}, "A_OP_VIEW_1");
+    auto a_op_view_1 = G.GetOp("A_OP_VIEW_1");
+    std::vector<int> offestAOpView1 = {0, 64};
+    auto attrAOpView1 = std::make_shared<ViewOpAttribute>(offestAOpView1, MemoryType::MEM_L1);
+    a_op_view_1->SetOpAttribute(attrAOpView1);
+    G.AddOp(Opcode::OP_VIEW, {"l1_b"}, {"l1_b_0"}, "B_OP_VIEW_0");
+    auto b_op_view_0 = G.GetOp("B_OP_VIEW_0");
+    std::vector<int> offestBOpView0 = {0, 0};
+    auto attrBOpView0 = std::make_shared<ViewOpAttribute>(offestBOpView0, MemoryType::MEM_L1);
+    b_op_view_0->SetOpAttribute(attrBOpView0);
+    G.AddOp(Opcode::OP_VIEW, {"l1_b"}, {"l1_b_1"}, "B_OP_VIEW_1");
+    auto b_op_view_1 = G.GetOp("B_OP_VIEW_1");
+    std::vector<int> offestBOpView1 = {64, 0};
+    auto attrBOpView1 = std::make_shared<ViewOpAttribute>(offestBOpView1, MemoryType::MEM_L1);
+    b_op_view_1->SetOpAttribute(attrBOpView1);
+    G.AddOp(Opcode::OP_L1_TO_L0A, {"l1_a_0"}, {"l0_a_0"}, "L1_To_L0A_0");
+    G.AddOp(Opcode::OP_L1_TO_L0A, {"l1_a_1"}, {"l0_a_1"}, "L1_To_L0A_1");
+    G.AddOp(Opcode::OP_L1_TO_L0B, {"l1_b_0"}, {"l0_b_0"}, "L1_To_L0B_0");
+    G.AddOp(Opcode::OP_L1_TO_L0B, {"l1_b_1"}, {"l0_b_1"}, "L1_To_L0B_1");
+    G.AddOp(Opcode::OP_A_MUL_B, {"l0_a_0", "l0_b_0"}, {"l0_c_0"}, "A_MUL_B_0");
+    G.AddOp(Opcode::OP_A_MUL_B, {"l0_a_1", "l0_b_1"}, {"l0_c_1"}, "A_MUL_B_1");
+    G.AddOp(Opcode::OP_COPY_OUT, {"l0_c_0"}, {"mat_c_0"}, "L0C_Copy_out_0");
+    G.AddOp(Opcode::OP_COPY_OUT, {"l0_c_1"}, {"mat_c_1"}, "L0C_Copy_out_1");
+    // set incast and outcast
+    G.SetInCast({"mat_a", "mat_b"});
+    G.SetOutCast({"mat_c_0", "mat_c_1"});
+    // check before pass
+    auto l1ArawshapeBefore = l1_a->GetRawTensor()->GetRawShape();
+    auto l1A0rawshapeBefore = l1_a_0->GetRawTensor()->GetRawShape();
+    auto l1A1rawshapeBefore = l1_a_1->GetRawTensor()->GetRawShape();
+    auto l1BrawshapeBefore = l1_b->GetRawTensor()->GetRawShape();
+    auto l1B0rawshapeBefore = l1_b_0->GetRawTensor()->GetRawShape();
+    auto l1B1rawshapeBefore = l1_b_1->GetRawTensor()->GetRawShape();
+    EXPECT_NE(l1ArawshapeBefore, l1A0rawshapeBefore);
+    EXPECT_NE(l1ArawshapeBefore, l1A1rawshapeBefore);
+    EXPECT_NE(l1BrawshapeBefore, l1B0rawshapeBefore);
+    EXPECT_NE(l1BrawshapeBefore, l1B1rawshapeBefore);
+    auto l1ARawMagicBefore = l1_a->GetRawMagic();
+    auto l1A0RawMagicBefore = l1_a_0->GetRawMagic();
+    auto l1A1RawMagicBefore = l1_a_1->GetRawMagic();
+    auto l1BRawMagicBefore = l1_b->GetRawMagic();
+    auto l1B0RawMagicBefore = l1_b_0->GetRawMagic();
+    auto l1B1RawMagicBefore = l1_b_1->GetRawMagic();
+    EXPECT_NE(l1ARawMagicBefore, l1A0RawMagicBefore);
+    EXPECT_NE(l1ARawMagicBefore, l1A1RawMagicBefore);
+    EXPECT_NE(l1BRawMagicBefore, l1B0RawMagicBefore);
+    EXPECT_NE(l1BRawMagicBefore, l1B1RawMagicBefore);
+    // run pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    InplaceProcess passLocal;
+    passLocal.Run(*function, "", "", 0);
+    // check after pass
+    auto l1ARawshapeAfter = l1_a->GetRawTensor()->GetRawShape();
+    auto l1A0RawshapeAfter = l1_a_0->GetRawTensor()->GetRawShape();
+    auto l1A1RawshapeAfter = l1_a_1->GetRawTensor()->GetRawShape();
+    auto l1BRawshapeAfter = l1_b->GetRawTensor()->GetRawShape();
+    auto l1B0RawshapeAfter = l1_b_0->GetRawTensor()->GetRawShape();
+    auto l1B1RawshapeAfter = l1_b_1->GetRawTensor()->GetRawShape();
+    EXPECT_EQ(l1ARawshapeAfter, l1A0RawshapeAfter);
+    EXPECT_EQ(l1ARawshapeAfter, l1A1RawshapeAfter);
+    EXPECT_EQ(l1BRawshapeAfter, l1B0RawshapeAfter);
+    EXPECT_EQ(l1BRawshapeAfter, l1B1RawshapeAfter);
+    EXPECT_EQ(l1ArawshapeBefore, l1ARawshapeAfter);
+    EXPECT_EQ(l1BrawshapeBefore, l1BRawshapeAfter);
+    auto l1A0OffestAfter = l1_a_0->GetOffset();
+    auto l1A1OffestAfter = l1_a_1->GetOffset();
+    auto l1B0OffestAfter = l1_b_0->GetOffset();
+    auto l1B1OffestAfter = l1_b_1->GetOffset();
+    EXPECT_EQ(offestAOpView0, l1A0OffestAfter);
+    EXPECT_EQ(offestAOpView1, l1A1OffestAfter);
+    EXPECT_EQ(offestBOpView0, l1B0OffestAfter);
+    EXPECT_EQ(offestBOpView1, l1B1OffestAfter);
+    auto l1ARawMagicAfter = l1_a->GetRawMagic();
+    auto l1A0RawMagicAfter = l1_a_0->GetRawMagic();
+    auto l1A1RawMagicAfter = l1_a_1->GetRawMagic();
+    auto l1BRawMagicAfter = l1_b->GetRawMagic();
+    auto l1B0RawMagicAfter = l1_b_0->GetRawMagic();
+    auto l1B1RawMagicAfter = l1_b_1->GetRawMagic();
+    EXPECT_EQ(l1ARawMagicAfter, l1A0RawMagicAfter);
+    EXPECT_EQ(l1ARawMagicAfter, l1A1RawMagicAfter);
+    EXPECT_EQ(l1BRawMagicAfter, l1B0RawMagicAfter);
+    EXPECT_EQ(l1BRawMagicAfter, l1B1RawMagicAfter);
+    EXPECT_EQ(l1ARawMagicBefore, l1ARawMagicAfter);
+    EXPECT_EQ(l1BRawMagicBefore, l1BRawMagicAfter);
+}
+
+TEST_F(InplaceProcessTest, InplaceProcessAssembleOnGm) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    DataType inputAstDtype = DataType::DT_FP16;
+    DataType outputAstDtype = DataType::DT_FP16;
+    G.AddTensor(inputAstDtype, {64, 64}, "vec_in_0");
+    auto vec_in_0 = G.GetTensor("vec_in_0");
+    vec_in_0->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(inputAstDtype, {64, 64}, "vec_in_1");
+    auto vec_in_1 = G.GetTensor("vec_in_1");
+    vec_in_1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "vec_out");
+    auto vec_out = G.GetTensor("vec_out");
+    vec_out->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    // add op
+    G.AddOp(Opcode::OP_ASSEMBLE, {"vec_in_0"}, {"vec_out"}, "ASSEMBLE_0");
+    auto assemble0 = G.GetOp("ASSEMBLE_0");
+    std::vector<int> offestAssemble0= {0, 0};
+    auto attrAssemble0 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offestAssemble0);
+    assemble0->SetOpAttribute(attrAssemble0);
+    G.AddOp(Opcode::OP_ASSEMBLE, {"vec_in_1"}, {"vec_out"}, "ASSEMBLE_1");
+    auto assemble1 = G.GetOp("ASSEMBLE_1");
+    std::vector<int> offestAssemble1= {0, 64};
+    auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offestAssemble1);
+    assemble1->SetOpAttribute(attrAssemble1);
+    // set incast and outcast
+    G.SetInCast({"vec_in_0", "vec_in_1"});
+    G.SetOutCast({"vec_out"});
+    // check before pass
+    auto vecIn0RawshapeBefore = vec_in_0->GetRawTensor()->GetRawShape();
+    auto vecIn1RawshapeBefore = vec_in_1->GetRawTensor()->GetRawShape();
+    auto vecOutRawshapeBefore = vec_out->GetRawTensor()->GetRawShape();
+    EXPECT_NE(vecIn0RawshapeBefore, vecOutRawshapeBefore);
+    EXPECT_NE(vecIn1RawshapeBefore, vecOutRawshapeBefore);
+    auto vecIn0RawMagicBefore = vec_in_0->GetRawMagic();
+    auto vecIn1RawMagicBefore = vec_in_1->GetRawMagic();
+    auto vecOutRawMagicBefore = vec_out->GetRawMagic();
+    EXPECT_NE(vecIn0RawMagicBefore, vecOutRawMagicBefore);
+    EXPECT_NE(vecIn1RawMagicBefore, vecOutRawMagicBefore);
+    // run pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    InplaceProcess passLocal;
+    passLocal.Run(*function, "", "", 0);
+    // check after pass
+    auto vecIn0RawshapeAfter = vec_in_0->GetRawTensor()->GetRawShape();
+    auto vecIn1RawshapeAfter = vec_in_1->GetRawTensor()->GetRawShape();
+    auto vecOutRawshapeAfter = vec_out->GetRawTensor()->GetRawShape();
+    EXPECT_EQ(vecIn0RawshapeAfter, vecOutRawshapeAfter);
+    EXPECT_EQ(vecIn1RawshapeAfter, vecOutRawshapeAfter);
+    EXPECT_EQ(vecOutRawshapeBefore, vecOutRawshapeAfter);
+    auto vecIn0OffestAfter = vec_in_0->GetOffset();
+    auto vecIn1OffestAfter = vec_in_1->GetOffset();
+    EXPECT_EQ(offestAssemble0, vecIn0OffestAfter);
+    EXPECT_EQ(offestAssemble1, vecIn1OffestAfter);
+    auto vecIn0RawMagicAfter = vec_in_0->GetRawMagic();
+    auto vecIn1RawMagicAfter = vec_in_1->GetRawMagic();
+    auto vecOutRawMagicAfter = vec_out->GetRawMagic();
+    EXPECT_EQ(vecIn0RawMagicAfter, vecOutRawMagicAfter);
+    EXPECT_EQ(vecIn1RawMagicAfter, vecOutRawMagicAfter);
+}
+
+TEST_F(InplaceProcessTest, InplaceProcessAssembleOnUb) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    DataType inputAstDtype = DataType::DT_FP16;
+    DataType outputAstDtype = DataType::DT_FP16;
+    G.AddTensor(inputAstDtype, {64, 64}, "vec_in_0");
+    auto vec_in_0 = G.GetTensor("vec_in_0");
+    vec_in_0->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(inputAstDtype, {64, 64}, "vec_in_1");
+    auto vec_in_1 = G.GetTensor("vec_in_1");
+    vec_in_1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "vec_out");
+    auto vec_out = G.GetTensor("vec_out");
+    vec_out->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(inputAstDtype, {64, 64}, "ub_in_0");
+    auto ub_in_0 = G.GetTensor("ub_in_0");
+    ub_in_0->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    G.AddTensor(inputAstDtype, {64, 64}, "ub_in_1");
+    auto ub_in_1 = G.GetTensor("ub_in_1");
+    ub_in_1->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "ub_out");
+    auto ub_out = G.GetTensor("ub_out");
+    ub_out->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    // add op
+    G.AddOp(Opcode::OP_UB_COPY_IN, {"vec_in_0"}, {"ub_in_0"}, "UB_COPY_IN");
+    G.AddOp(Opcode::OP_UB_COPY_IN, {"vec_in_1"}, {"ub_in_1"}, "UB_COPY_IN");
+    G.AddOp(Opcode::OP_ASSEMBLE, {"ub_in_0"}, {"ub_out"}, "ASSEMBLE_0");
+    auto assemble0 = G.GetOp("ASSEMBLE_0");
+    std::vector<int> offestAssemble0= {0, 0};
+    auto attrAssemble0 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, offestAssemble0);
+    assemble0->SetOpAttribute(attrAssemble0);
+    G.AddOp(Opcode::OP_ASSEMBLE, {"ub_in_1"}, {"ub_out"}, "ASSEMBLE_1");
+    auto assemble1 = G.GetOp("ASSEMBLE_1");
+    std::vector<int> offestAssemble1= {0, 64};
+    auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, offestAssemble1);
+    assemble1->SetOpAttribute(attrAssemble1);
+    G.AddOp(Opcode::OP_UB_COPY_OUT, {"ub_out"}, {"vec_out"}, "UB_COPY_OUT");
+    // set incast and outcast
+    G.SetInCast({"vec_in_0", "vec_in_1"});
+    G.SetOutCast({"vec_out"});
+    // check before pass
+    auto ubIn0RawshapeBefore = ub_in_0->GetRawTensor()->GetRawShape();
+    auto ubIn1RawshapeBefore = ub_in_1->GetRawTensor()->GetRawShape();
+    auto ubOutRawshapeBefore = ub_out->GetRawTensor()->GetRawShape();
+    EXPECT_NE(ubIn0RawshapeBefore, ubOutRawshapeBefore);
+    EXPECT_NE(ubIn1RawshapeBefore, ubOutRawshapeBefore);
+    auto ubIn0RawMagicBefore = ub_in_0->GetRawMagic();
+    auto ubIn1RawMagicBefore = ub_in_1->GetRawMagic();
+    auto ubOutRawMagicBefore = ub_out->GetRawMagic();
+    EXPECT_NE(ubIn0RawMagicBefore, ubOutRawMagicBefore);
+    EXPECT_NE(ubIn1RawMagicBefore, ubOutRawMagicBefore);
+    // run pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    InplaceProcess passLocal;
+    passLocal.Run(*function, "", "", 0);
+    // check after pass
+    auto ubIn0RawshapeAfter = ub_in_0->GetRawTensor()->GetRawShape();
+    auto ubIn1RawshapeAfter = ub_in_1->GetRawTensor()->GetRawShape();
+    auto ubOutRawshapeAfter = ub_out->GetRawTensor()->GetRawShape();
+    EXPECT_EQ(ubIn0RawshapeAfter, ubOutRawshapeAfter);
+    EXPECT_EQ(ubIn1RawshapeAfter, ubOutRawshapeAfter);
+    EXPECT_EQ(ubOutRawshapeBefore, ubOutRawshapeAfter);
+    auto ubIn0OffestAfter = ub_in_0->GetOffset();
+    auto ubIn1OffestAfter = ub_in_1->GetOffset();
+    EXPECT_EQ(offestAssemble0, ubIn0OffestAfter);
+    EXPECT_EQ(offestAssemble1, ubIn1OffestAfter);
+    auto ubIn0RawMagicAfter = ub_in_0->GetRawMagic();
+    auto ubIn1RawMagicAfter = ub_in_1->GetRawMagic();
+    auto ubOutRawMagicAfter = ub_out->GetRawMagic();
+    EXPECT_EQ(ubIn0RawMagicAfter, ubOutRawMagicAfter);
+    EXPECT_EQ(ubIn1RawMagicAfter, ubOutRawMagicAfter);
+    EXPECT_EQ(ubOutRawMagicBefore, ubOutRawMagicAfter);
+}
+
+TEST_F(InplaceProcessTest, InplaceProcessReShapeOnGm) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    DataType inputAstDtype = DataType::DT_FP16;
+    DataType outputAstDtype = DataType::DT_FP16;
+    G.AddTensor(inputAstDtype, {64, 8, 16}, "vec_in");
+    auto vec_in = G.GetTensor("vec_in");
+    vec_in->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "vec_out");
+    auto vec_out = G.GetTensor("vec_out");
+    vec_out->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "vec_out_rel");
+    auto vec_out_rel = G.GetTensor("vec_out_rel");
+    vec_out_rel->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    // add op
+    G.AddOp(Opcode::OP_RESHAPE, {"vec_in"}, {"vec_out"}, "RESHAPE");
+    G.AddOp(Opcode::OP_VIEW, {"vec_out"}, {"vec_out_rel"}, "VIEW");
+    // set incast and outcast
+    G.SetInCast({"vec_in"});
+    G.SetOutCast({"vec_out_rel"});
+    // check before pass
+    auto inRawMagicBefore = vec_in->GetRawMagic();
+    auto outRawMagicBefore = vec_out->GetRawMagic();
+    EXPECT_NE(inRawMagicBefore, outRawMagicBefore);
+    // run pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    InplaceProcess passLocal;
+    passLocal.Run(*function, "", "", 0);
+    // check after pass
+    auto inRawMagicAfter = vec_in->GetRawMagic();
+    auto outRawMagicAfter = vec_out->GetRawMagic();
+    EXPECT_EQ(inRawMagicAfter, outRawMagicAfter);
+    EXPECT_EQ(inRawMagicBefore, inRawMagicAfter);
+}
+
+TEST_F(InplaceProcessTest, InplaceProcessReShapeOnUb) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    DataType inputAstDtype = DataType::DT_FP16;
+    DataType outputAstDtype = DataType::DT_FP16;
+    G.AddTensor(inputAstDtype, {64, 8, 16}, "vec_in");
+    auto vec_in = G.GetTensor("vec_in");
+    vec_in->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "vec_out");
+    auto vec_out = G.GetTensor("vec_out");
+    vec_out->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(inputAstDtype, {64, 8, 16}, "ub_in");
+    auto ub_in = G.GetTensor("ub_in");
+    ub_in->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "ub_out");
+    auto ub_out = G.GetTensor("ub_out");
+    ub_out->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    // add op
+    G.AddOp(Opcode::OP_UB_COPY_IN, {"vec_in"}, {"ub_in"}, "UB_COPY_IN");
+    G.AddOp(Opcode::OP_RESHAPE, {"ub_in"}, {"ub_out"}, "RESHAPE");
+    G.AddOp(Opcode::OP_UB_COPY_OUT, {"ub_out"}, {"vec_out"}, "UB_COPY_OUT");
+    // set incast and outcast
+    G.SetInCast({"vec_in"});
+    G.SetOutCast({"vec_out"});
+    // check before pass
+    auto inRawMagicBefore = ub_in->GetRawMagic();
+    auto outRawMagicBefore = ub_out->GetRawMagic();
+    EXPECT_NE(inRawMagicBefore, outRawMagicBefore);
+    // run pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    InplaceProcess passLocal;
+    passLocal.Run(*function, "", "", 0);
+    // check after pass
+    auto inRawMagicAfter = ub_in->GetRawMagic();
+    auto outRawMagicAfter = ub_out->GetRawMagic();
+    EXPECT_EQ(inRawMagicAfter, outRawMagicAfter);
+    EXPECT_EQ(inRawMagicBefore, inRawMagicAfter);
+}
+
+TEST_F(InplaceProcessTest, InplaceProcessViewReshape) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    DataType inputAstDtype = DataType::DT_FP16;
+    DataType outputAstDtype = DataType::DT_FP16;
+    G.AddTensor(inputAstDtype, {64, 4, 32}, "mat_a");
+    auto mat_a = G.GetTensor("mat_a");
+    mat_a->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(inputAstDtype, {4, 32, 128}, "mat_b");
+    auto mat_b = G.GetTensor("mat_b");
+    mat_b->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "mat_c_0");
+    auto mat_c_0 = G.GetTensor("mat_c_0");
+    mat_c_0->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "mat_c_1");
+    auto mat_c_1 = G.GetTensor("mat_c_1");
+    mat_c_1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(inputAstDtype, {64, 4, 32}, "l1_a");
+    auto l1_a = G.GetTensor("l1_a");
+    l1_a->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {4, 32, 128}, "l1_b");
+    auto l1_b = G.GetTensor("l1_b");
+    l1_b->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {64, 4, 16}, "l1_a_0");
+    auto l1_a_0 = G.GetTensor("l1_a_0");
+    l1_a_0->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {4, 16, 128}, "l1_b_0");
+    auto l1_b_0 = G.GetTensor("l1_b_0");
+    l1_b_0->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {64, 4, 16}, "l1_a_1");
+    auto l1_a_1 = G.GetTensor("l1_a_1");
+    l1_a_1->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {4, 16, 128}, "l1_b_1");
+    auto l1_b_1 = G.GetTensor("l1_b_1");
+    l1_b_1->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {64, 64}, "l1_a_2");
+    auto l1_a_2 = G.GetTensor("l1_a_2");
+    l1_a_2->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {64, 128}, "l1_b_2");
+    auto l1_b_2 = G.GetTensor("l1_b_2");
+    l1_b_2->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {64, 64}, "l1_a_3");
+    auto l1_a_3 = G.GetTensor("l1_a_3");
+    l1_a_3->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {64, 128}, "l1_b_3");
+    auto l1_b_3 = G.GetTensor("l1_b_3");
+    l1_b_3->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {64, 64}, "l0_a_0");
+    auto l0_a_0 = G.GetTensor("l0_a_0");
+    l0_a_0->SetMemoryTypeBoth(MemoryType::MEM_L0A, true);
+    G.AddTensor(inputAstDtype, {64, 128}, "l0_b_0");
+    auto l0_b_0 = G.GetTensor("l0_b_0");
+    l0_b_0->SetMemoryTypeBoth(MemoryType::MEM_L0B, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "l0_c_0");
+    auto l0_c_0 = G.GetTensor("l0_c_0");
+    l0_c_0->SetMemoryTypeBoth(MemoryType::MEM_L0C, true);
+    G.AddTensor(inputAstDtype, {64, 64}, "l0_a_1");
+    auto l0_a_1 = G.GetTensor("l0_a_1");
+    l0_a_1->SetMemoryTypeBoth(MemoryType::MEM_L0A, true);
+    G.AddTensor(inputAstDtype, {64, 128}, "l0_b_1");
+    auto l0_b_1 = G.GetTensor("l0_b_1");
+    l0_b_1->SetMemoryTypeBoth(MemoryType::MEM_L0B, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "l0_c_1");
+    auto l0_c_1 = G.GetTensor("l0_c_1");
+    l0_c_1->SetMemoryTypeBoth(MemoryType::MEM_L0C, true);
+    // add op
+    G.AddOp(Opcode::OP_COPY_IN, {"mat_a"}, {"l1_a"}, "L1_Copy_In_A");
+    G.AddOp(Opcode::OP_COPY_IN, {"mat_b"}, {"l1_b"}, "L1_Copy_In_B");
+    G.AddOp(Opcode::OP_VIEW, {"l1_a"}, {"l1_a_0"}, "A_OP_VIEW_0");
+    auto a_op_view_0 = G.GetOp("A_OP_VIEW_0");
+    std::vector<int> offestAOpView0 = {0, 0, 0};
+    auto attrAOpView0 = std::make_shared<ViewOpAttribute>(offestAOpView0, MemoryType::MEM_L1);
+    a_op_view_0->SetOpAttribute(attrAOpView0);
+    G.AddOp(Opcode::OP_VIEW, {"l1_a"}, {"l1_a_1"}, "A_OP_VIEW_1");
+    auto a_op_view_1 = G.GetOp("A_OP_VIEW_1");
+    std::vector<int> offestAOpView1 = {0, 0, 16};
+    auto attrAOpView1 = std::make_shared<ViewOpAttribute>(offestAOpView1, MemoryType::MEM_L1);
+    a_op_view_1->SetOpAttribute(attrAOpView1);
+    G.AddOp(Opcode::OP_VIEW, {"l1_b"}, {"l1_b_0"}, "B_OP_VIEW_0");
+    auto b_op_view_0 = G.GetOp("B_OP_VIEW_0");
+    std::vector<int> offestBOpView0 = {0, 0, 0};
+    auto attrBOpView0 = std::make_shared<ViewOpAttribute>(offestBOpView0, MemoryType::MEM_L1);
+    b_op_view_0->SetOpAttribute(attrBOpView0);
+    G.AddOp(Opcode::OP_VIEW, {"l1_b"}, {"l1_b_1"}, "B_OP_VIEW_1");
+    auto b_op_view_1 = G.GetOp("B_OP_VIEW_1");
+    std::vector<int> offestBOpView1 = {0, 16, 0};
+    auto attrBOpView1 = std::make_shared<ViewOpAttribute>(offestBOpView1, MemoryType::MEM_L1);
+    b_op_view_1->SetOpAttribute(attrBOpView1);
+    G.AddOp(Opcode::OP_RESHAPE, {"l1_a_0"}, {"l1_a_2"}, "RESHAPE_0");
+    G.AddOp(Opcode::OP_RESHAPE, {"l1_a_1"}, {"l1_a_3"}, "RESHAPE_1");
+    G.AddOp(Opcode::OP_RESHAPE, {"l1_b_0"}, {"l1_b_2"}, "RESHAPE_2");
+    G.AddOp(Opcode::OP_RESHAPE, {"l1_b_1"}, {"l1_b_3"}, "RESHAPE_3");
+    G.AddOp(Opcode::OP_L1_TO_L0A, {"l1_a_2"}, {"l0_a_0"}, "L1_To_L0A_0");
+    G.AddOp(Opcode::OP_L1_TO_L0A, {"l1_a_3"}, {"l0_a_1"}, "L1_To_L0A_1");
+    G.AddOp(Opcode::OP_L1_TO_L0B, {"l1_b_2"}, {"l0_b_0"}, "L1_To_L0B_0");
+    G.AddOp(Opcode::OP_L1_TO_L0B, {"l1_b_3"}, {"l0_b_1"}, "L1_To_L0B_1");
+    G.AddOp(Opcode::OP_A_MUL_B, {"l0_a_0", "l0_b_0"}, {"l0_c_0"}, "A_MUL_B_0");
+    G.AddOp(Opcode::OP_A_MUL_B, {"l0_a_1", "l0_b_1"}, {"l0_c_1"}, "A_MUL_B_1");
+    G.AddOp(Opcode::OP_COPY_OUT, {"l0_c_0"}, {"mat_c_0"}, "L0C_Copy_out_0");
+    G.AddOp(Opcode::OP_COPY_OUT, {"l0_c_1"}, {"mat_c_1"}, "L0C_Copy_out_1");
+    // set incast and outcast
+    G.SetInCast({"mat_a", "mat_b"});
+    G.SetOutCast({"mat_c_0", "mat_c_1"});
+    // view check before pass
+    auto l1ARawshapeBefore = l1_a->GetRawTensor()->GetRawShape();
+    auto l1A0RawshapeBefore = l1_a_0->GetRawTensor()->GetRawShape();
+    auto l1A1RawshapeBefore = l1_a_1->GetRawTensor()->GetRawShape();
+    auto l1BRawshapeBefore = l1_b->GetRawTensor()->GetRawShape();
+    auto l1B0RawshapeBefore = l1_b_0->GetRawTensor()->GetRawShape();
+    auto l1B1RawshapeBefore = l1_b_1->GetRawTensor()->GetRawShape();
+    EXPECT_NE(l1ARawshapeBefore, l1A0RawshapeBefore);
+    EXPECT_NE(l1ARawshapeBefore, l1A1RawshapeBefore);
+    EXPECT_NE(l1BRawshapeBefore, l1B0RawshapeBefore);
+    EXPECT_NE(l1BRawshapeBefore, l1B1RawshapeBefore);
+    auto l1ARawMagicBefore = l1_a->GetRawMagic();
+    auto l1A0RawMagicBefore = l1_a_0->GetRawMagic();
+    auto l1A1RawMagicBefore = l1_a_1->GetRawMagic();
+    auto l1BRawMagicBefore = l1_b->GetRawMagic();
+    auto l1B0RawMagicBefore = l1_b_0->GetRawMagic();
+    auto l1B1RawMagicBefore = l1_b_1->GetRawMagic();
+    EXPECT_NE(l1ARawMagicBefore, l1A0RawMagicBefore);
+    EXPECT_NE(l1ARawMagicBefore, l1A1RawMagicBefore);
+    EXPECT_NE(l1BRawMagicBefore, l1B0RawMagicBefore);
+    EXPECT_NE(l1BRawMagicBefore, l1B1RawMagicBefore);
+    // reshape check before pass
+    auto l1A2RawMagicBefore = l1_a_2->GetRawMagic();
+    auto l1A3RawMagicBefore = l1_a_3->GetRawMagic();
+    auto l1B2RawMagicBefore = l1_b_2->GetRawMagic();
+    auto l1B3RawMagicBefore = l1_b_3->GetRawMagic();
+    EXPECT_NE(l1A0RawMagicBefore, l1A2RawMagicBefore);
+    EXPECT_NE(l1A1RawMagicBefore, l1A3RawMagicBefore);
+    EXPECT_NE(l1B0RawMagicBefore, l1B2RawMagicBefore);
+    EXPECT_NE(l1B1RawMagicBefore, l1B3RawMagicBefore);
+    // run pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    InplaceProcess passLocal;
+    passLocal.Run(*function, "", "", 0);
+    // view check after pass
+    auto l1ARawshapeAfter = l1_a->GetRawTensor()->GetRawShape();
+    auto l1A0RawshapeAfter = l1_a_0->GetRawTensor()->GetRawShape();
+    auto l1A1RawshapeAfter = l1_a_1->GetRawTensor()->GetRawShape();
+    auto l1BRawshapeAfter = l1_b->GetRawTensor()->GetRawShape();
+    auto l1B0RawshapeAfter = l1_b_0->GetRawTensor()->GetRawShape();
+    auto l1B1RawshapeAfter = l1_b_1->GetRawTensor()->GetRawShape();
+    EXPECT_EQ(l1ARawshapeAfter, l1A0RawshapeAfter);
+    EXPECT_EQ(l1ARawshapeAfter, l1A1RawshapeAfter);
+    EXPECT_EQ(l1BRawshapeAfter, l1B0RawshapeAfter);
+    EXPECT_EQ(l1BRawshapeAfter, l1B1RawshapeAfter);
+    EXPECT_EQ(l1ARawshapeBefore, l1ARawshapeAfter);
+    EXPECT_EQ(l1BRawshapeBefore, l1BRawshapeAfter);
+    auto l1A0OffestAfter = l1_a_0->GetOffset();
+    auto l1A1OffestAfter = l1_a_1->GetOffset();
+    auto l1B0OffestAfter = l1_b_0->GetOffset();
+    auto l1B1OffestAfter = l1_b_1->GetOffset();
+    EXPECT_EQ(offestAOpView0, l1A0OffestAfter);
+    EXPECT_EQ(offestAOpView1, l1A1OffestAfter);
+    EXPECT_EQ(offestBOpView0, l1B0OffestAfter);
+    EXPECT_EQ(offestBOpView1, l1B1OffestAfter);
+    auto l1ARawMagicAfter = l1_a->GetRawMagic();
+    auto l1A0RawMagicAfter = l1_a_0->GetRawMagic();
+    auto l1A1RawMagicAfter = l1_a_1->GetRawMagic();
+    auto l1BRawMagicAfter = l1_b->GetRawMagic();
+    auto l1B0RawMagicAfter = l1_b_0->GetRawMagic();
+    auto l1B1RawMagicAfter = l1_b_1->GetRawMagic();
+    EXPECT_EQ(l1ARawMagicAfter, l1A0RawMagicAfter);
+    EXPECT_EQ(l1ARawMagicAfter, l1A1RawMagicAfter);
+    EXPECT_EQ(l1BRawMagicAfter, l1B0RawMagicAfter);
+    EXPECT_EQ(l1BRawMagicAfter, l1B1RawMagicAfter);
+    EXPECT_EQ(l1ARawMagicBefore, l1ARawMagicAfter);
+    EXPECT_EQ(l1BRawMagicBefore, l1BRawMagicAfter);
+    // reshape check after pass
+    auto l1A2RawMagicAfter = l1_a_2->GetRawMagic();
+    auto l1A3RawMagicAfter = l1_a_3->GetRawMagic();
+    auto l1B2RawMagicAfter = l1_b_2->GetRawMagic();
+    auto l1B3RawMagicAfter = l1_b_3->GetRawMagic();
+    EXPECT_EQ(l1A0RawMagicAfter, l1A2RawMagicAfter);
+    EXPECT_EQ(l1A1RawMagicAfter, l1A3RawMagicAfter);
+    EXPECT_EQ(l1B0RawMagicAfter, l1B2RawMagicAfter);
+    EXPECT_EQ(l1B1RawMagicAfter, l1B3RawMagicAfter);
+}
+
+TEST_F(InplaceProcessTest, InplaceProcessReshapeView) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    DataType inputAstDtype = DataType::DT_FP16;
+    DataType outputAstDtype = DataType::DT_FP16;
+    G.AddTensor(inputAstDtype, {64, 4, 32}, "mat_a");
+    auto mat_a = G.GetTensor("mat_a");
+    mat_a->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(inputAstDtype, {4, 32, 128}, "mat_b");
+    auto mat_b = G.GetTensor("mat_b");
+    mat_b->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "mat_c_0");
+    auto mat_c_0 = G.GetTensor("mat_c_0");
+    mat_c_0->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "mat_c_1");
+    auto mat_c_1 = G.GetTensor("mat_c_1");
+    mat_c_1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(inputAstDtype, {64, 4, 32}, "l1_a");
+    auto l1_a = G.GetTensor("l1_a");
+    l1_a->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {4, 32, 128}, "l1_b");
+    auto l1_b = G.GetTensor("l1_b");
+    l1_b->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {64, 128}, "l1_a_0");
+    auto l1_a_0 = G.GetTensor("l1_a_0");
+    l1_a_0->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {128, 128}, "l1_b_0");
+    auto l1_b_0 = G.GetTensor("l1_b_0");
+    l1_b_0->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {64, 64}, "l1_a_1");
+    auto l1_a_1 = G.GetTensor("l1_a_1");
+    l1_a_1->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {64, 128}, "l1_b_1");
+    auto l1_b_1 = G.GetTensor("l1_b_1");
+    l1_b_1->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {64, 64}, "l1_a_2");
+    auto l1_a_2 = G.GetTensor("l1_a_2");
+    l1_a_2->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {64, 128}, "l1_b_2");
+    auto l1_b_2 = G.GetTensor("l1_b_2");
+    l1_b_2->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {64, 64}, "l0_a_0");
+    auto l0_a_0 = G.GetTensor("l0_a_0");
+    l0_a_0->SetMemoryTypeBoth(MemoryType::MEM_L0A, true);
+    G.AddTensor(inputAstDtype, {64, 128}, "l0_b_0");
+    auto l0_b_0 = G.GetTensor("l0_b_0");
+    l0_b_0->SetMemoryTypeBoth(MemoryType::MEM_L0B, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "l0_c_0");
+    auto l0_c_0 = G.GetTensor("l0_c_0");
+    l0_c_0->SetMemoryTypeBoth(MemoryType::MEM_L0C, true);
+    G.AddTensor(inputAstDtype, {64, 64}, "l0_a_1");
+    auto l0_a_1 = G.GetTensor("l0_a_1");
+    l0_a_1->SetMemoryTypeBoth(MemoryType::MEM_L0A, true);
+    G.AddTensor(inputAstDtype, {64, 128}, "l0_b_1");
+    auto l0_b_1 = G.GetTensor("l0_b_1");
+    l0_b_1->SetMemoryTypeBoth(MemoryType::MEM_L0B, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "l0_c_1");
+    auto l0_c_1 = G.GetTensor("l0_c_1");
+    l0_c_1->SetMemoryTypeBoth(MemoryType::MEM_L0C, true);
+    // add op
+    G.AddOp(Opcode::OP_COPY_IN, {"mat_a"}, {"l1_a"}, "L1_Copy_In_A");
+    G.AddOp(Opcode::OP_COPY_IN, {"mat_b"}, {"l1_b"}, "L1_Copy_In_B");
+    G.AddOp(Opcode::OP_RESHAPE, {"l1_a"}, {"l1_a_0"}, "RESHAPE_0");
+    G.AddOp(Opcode::OP_RESHAPE, {"l1_b"}, {"l1_b_0"}, "RESHAPE_1");
+    G.AddOp(Opcode::OP_VIEW, {"l1_a_0"}, {"l1_a_1"}, "A_OP_VIEW_0");
+    auto a_op_view_0 = G.GetOp("A_OP_VIEW_0");
+    std::vector<int> offestAOpView0 = {0, 0};
+    auto attrAOpView0 = std::make_shared<ViewOpAttribute>(offestAOpView0, MemoryType::MEM_L1);
+    a_op_view_0->SetOpAttribute(attrAOpView0);
+    G.AddOp(Opcode::OP_VIEW, {"l1_a_0"}, {"l1_a_2"}, "A_OP_VIEW_1");
+    auto a_op_view_1 = G.GetOp("A_OP_VIEW_1");
+    std::vector<int> offestAOpView1 = {0, 64};
+    auto attrAOpView1 = std::make_shared<ViewOpAttribute>(offestAOpView1, MemoryType::MEM_L1);
+    a_op_view_1->SetOpAttribute(attrAOpView1);
+    G.AddOp(Opcode::OP_VIEW, {"l1_b_0"}, {"l1_b_1"}, "B_OP_VIEW_0");
+    auto b_op_view_0 = G.GetOp("B_OP_VIEW_0");
+    std::vector<int> offestBOpView0 = {0, 0};
+    auto attrBOpView0 = std::make_shared<ViewOpAttribute>(offestBOpView0, MemoryType::MEM_L1);
+    b_op_view_0->SetOpAttribute(attrBOpView0);
+    G.AddOp(Opcode::OP_VIEW, {"l1_b_0"}, {"l1_b_2"}, "B_OP_VIEW_1");
+    auto b_op_view_1 = G.GetOp("B_OP_VIEW_1");
+    std::vector<int> offestBOpView1 = {64, 0};
+    auto attrBOpView1 = std::make_shared<ViewOpAttribute>(offestBOpView1, MemoryType::MEM_L1);
+    b_op_view_1->SetOpAttribute(attrBOpView1);
+    G.AddOp(Opcode::OP_L1_TO_L0A, {"l1_a_0"}, {"l0_a_0"}, "L1_To_L0A_0");
+    G.AddOp(Opcode::OP_L1_TO_L0A, {"l1_a_1"}, {"l0_a_1"}, "L1_To_L0A_1");
+    G.AddOp(Opcode::OP_L1_TO_L0B, {"l1_b_0"}, {"l0_b_0"}, "L1_To_L0B_0");
+    G.AddOp(Opcode::OP_L1_TO_L0B, {"l1_b_1"}, {"l0_b_1"}, "L1_To_L0B_1");
+    G.AddOp(Opcode::OP_A_MUL_B, {"l0_a_0", "l0_b_0"}, {"l0_c_0"}, "A_MUL_B_0");
+    G.AddOp(Opcode::OP_A_MUL_B, {"l0_a_1", "l0_b_1"}, {"l0_c_1"}, "A_MUL_B_1");
+    G.AddOp(Opcode::OP_COPY_OUT, {"l0_c_0"}, {"mat_c_0"}, "L0C_Copy_out_0");
+    G.AddOp(Opcode::OP_COPY_OUT, {"l0_c_1"}, {"mat_c_1"}, "L0C_Copy_out_1");
+    // set incast and outcast
+    G.SetInCast({"mat_a", "mat_b"});
+    G.SetOutCast({"mat_c_0", "mat_c_1"});
+    // reshape check before pass
+    auto l1ARawMagicBefore = l1_a->GetRawMagic();
+    auto l1A0RawMagicBefore = l1_a_0->GetRawMagic();
+    EXPECT_NE(l1ARawMagicBefore, l1A0RawMagicBefore);
+    auto l1BRawMagicBefore = l1_b->GetRawMagic();
+    auto l1B0RawMagicBefore = l1_b_0->GetRawMagic();
+    EXPECT_NE(l1BRawMagicBefore, l1B0RawMagicBefore);
+    // view check before pass
+    auto l1A0RawshapeBefore = l1_a_0->GetRawTensor()->GetRawShape();
+    auto l1A1RawshapeBefore = l1_a_1->GetRawTensor()->GetRawShape();
+    auto l1A2RawshapeBefore = l1_a_2->GetRawTensor()->GetRawShape();
+    auto l1B0RawshapeBefore = l1_b_0->GetRawTensor()->GetRawShape();
+    auto l1B1RawshapeBefore = l1_b_1->GetRawTensor()->GetRawShape();
+    auto l1B2RawshapeBefore = l1_b_2->GetRawTensor()->GetRawShape();
+    EXPECT_NE(l1A0RawshapeBefore, l1A1RawshapeBefore);
+    EXPECT_NE(l1A0RawshapeBefore, l1A2RawshapeBefore);
+    EXPECT_NE(l1B0RawshapeBefore, l1B1RawshapeBefore);
+    EXPECT_NE(l1B0RawshapeBefore, l1B2RawshapeBefore);
+    auto l1A1RawMagicBefore = l1_a_1->GetRawMagic();
+    auto l1A2RawMagicBefore = l1_a_2->GetRawMagic();
+    auto l1B1RawMagicBefore = l1_b_1->GetRawMagic();
+    auto l1B2RawMagicBefore = l1_b_2->GetRawMagic();
+    EXPECT_NE(l1A0RawMagicBefore, l1A1RawMagicBefore);
+    EXPECT_NE(l1A0RawMagicBefore, l1A2RawMagicBefore);
+    EXPECT_NE(l1B0RawMagicBefore, l1B1RawMagicBefore);
+    EXPECT_NE(l1B0RawMagicBefore, l1B2RawMagicBefore);
+    // run pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    InplaceProcess passLocal;
+    passLocal.Run(*function, "", "", 0);
+    // reshape check after pass
+    auto l1ARawMagicAfter = l1_a->GetRawMagic();
+    auto l1A0RawMagicAfter = l1_a_0->GetRawMagic();
+    EXPECT_EQ(l1ARawMagicAfter, l1A0RawMagicAfter);
+    auto l1BRawMagicAfter = l1_b->GetRawMagic();
+    auto l1B0RawMagicAfter = l1_b_0->GetRawMagic();
+    EXPECT_EQ(l1BRawMagicAfter, l1B0RawMagicAfter);
+    EXPECT_EQ(l1ARawMagicBefore, l1ARawMagicAfter);
+    EXPECT_EQ(l1BRawMagicBefore, l1BRawMagicAfter);
+    // view check after pass
+    auto l1A0RawshapeAfter = l1_a_0->GetRawTensor()->GetRawShape();
+    auto l1A1RawshapeAfter = l1_a_1->GetRawTensor()->GetRawShape();
+    auto l1A2RawshapeAfter = l1_a_2->GetRawTensor()->GetRawShape();
+    auto l1B0RawshapeAfter = l1_b_0->GetRawTensor()->GetRawShape();
+    auto l1B1RawshapeAfter = l1_b_1->GetRawTensor()->GetRawShape();
+    auto l1B2RawshapeAfter = l1_b_2->GetRawTensor()->GetRawShape();
+    EXPECT_EQ(l1A0RawshapeAfter, l1A1RawshapeAfter);
+    EXPECT_EQ(l1A0RawshapeAfter, l1A2RawshapeAfter);
+    EXPECT_EQ(l1B0RawshapeAfter, l1B1RawshapeAfter);
+    EXPECT_EQ(l1B0RawshapeAfter, l1B2RawshapeAfter);
+    EXPECT_EQ(l1A0RawshapeBefore, l1A0RawshapeAfter);
+    EXPECT_EQ(l1B0RawshapeBefore, l1B0RawshapeAfter);
+    auto l1A1OffestAfter = l1_a_1->GetOffset();
+    auto l1A2OffestAfter = l1_a_2->GetOffset();
+    auto l1B1OffestAfter = l1_b_1->GetOffset();
+    auto l1B2OffestAfter = l1_b_2->GetOffset();
+    EXPECT_EQ(offestAOpView0, l1A1OffestAfter);
+    EXPECT_EQ(offestAOpView1, l1A2OffestAfter);
+    EXPECT_EQ(offestBOpView0, l1B1OffestAfter);
+    EXPECT_EQ(offestBOpView1, l1B2OffestAfter);
+    auto l1A1RawMagicAfter = l1_a_1->GetRawMagic();
+    auto l1A2RawMagicAfter = l1_a_2->GetRawMagic();
+    auto l1B1RawMagicAfter = l1_b_1->GetRawMagic();
+    auto l1B2RawMagicAfter = l1_b_2->GetRawMagic();
+    EXPECT_EQ(l1A0RawMagicAfter, l1A1RawMagicAfter);
+    EXPECT_EQ(l1A0RawMagicAfter, l1A2RawMagicAfter);
+    EXPECT_EQ(l1B0RawMagicAfter, l1B1RawMagicAfter);
+    EXPECT_EQ(l1B0RawMagicAfter, l1B2RawMagicAfter);
+}
+
+TEST_F(InplaceProcessTest, InplaceProcessAssembleReshape) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    DataType inputAstDtype = DataType::DT_FP16;
+    DataType outputAstDtype = DataType::DT_FP16;
+    G.AddTensor(inputAstDtype, {64, 64}, "vec_in_0");
+    auto vec_in_0 = G.GetTensor("vec_in_0");
+    vec_in_0->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(inputAstDtype, {64, 64}, "vec_in_1");
+    auto vec_in_1 = G.GetTensor("vec_in_1");
+    vec_in_1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "vec");
+    auto vec = G.GetTensor("vec");
+    vec->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {64, 8, 16}, "vec_out");
+    auto vec_out = G.GetTensor("vec_out");
+    vec_out->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {64, 8, 16}, "vec_out_rel");
+    auto vec_out_rel = G.GetTensor("vec_out_rel");
+    vec_out_rel->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    // add op
+    G.AddOp(Opcode::OP_ASSEMBLE, {"vec_in_0"}, {"vec"}, "ASSEMBLE_0");
+    auto assemble0 = G.GetOp("ASSEMBLE_0");
+    std::vector<int> offestAssemble0= {0, 0};
+    auto attrAssemble0 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offestAssemble0);
+    assemble0->SetOpAttribute(attrAssemble0);
+    G.AddOp(Opcode::OP_ASSEMBLE, {"vec_in_1"}, {"vec"}, "ASSEMBLE_1");
+    auto assemble1 = G.GetOp("ASSEMBLE_1");
+    std::vector<int> offestAssemble1= {0, 64};
+    auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offestAssemble1);
+    assemble1->SetOpAttribute(attrAssemble1);
+    G.AddOp(Opcode::OP_RESHAPE, {"vec"}, {"vec_out"}, "RESHAPE");
+    G.AddOp(Opcode::OP_VIEW, {"vec_out"}, {"vec_out_rel"}, "VIEW");
+    // set incast and outcast
+    G.SetInCast({"vec_in_0", "vec_in_1"});
+    G.SetOutCast({"vec_out_rel"});
+    // assemble check before pass
+    auto vecIn0RawshapeBefore = vec_in_0->GetRawTensor()->GetRawShape();
+    auto vecIn1RawshapeBefore = vec_in_1->GetRawTensor()->GetRawShape();
+    auto vecRawshapeBefore = vec->GetRawTensor()->GetRawShape();
+    EXPECT_NE(vecIn0RawshapeBefore, vecRawshapeBefore);
+    EXPECT_NE(vecIn1RawshapeBefore, vecRawshapeBefore);
+    auto vecIn0RawMagicBefore = vec_in_0->GetRawMagic();
+    auto vecIn1RawMagicBefore = vec_in_1->GetRawMagic();
+    auto vecRawMagicBefore = vec->GetRawMagic();
+    EXPECT_NE(vecIn0RawMagicBefore, vecRawMagicBefore);
+    EXPECT_NE(vecIn1RawMagicBefore, vecRawMagicBefore);
+    // reshape check before pass
+    auto vecOutRawMagicBefore = vec_out->GetRawMagic();
+    EXPECT_NE(vecRawMagicBefore, vecOutRawMagicBefore);
+    // run pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    InplaceProcess passLocal;
+    passLocal.Run(*function, "", "", 0);
+    // assemble check after pass
+    auto vecIn0RawshapeAfter = vec_in_0->GetRawTensor()->GetRawShape();
+    auto vecIn1RawshapeAfter = vec_in_1->GetRawTensor()->GetRawShape();
+    auto vecRawshapeAfter = vec->GetRawTensor()->GetRawShape();
+    EXPECT_EQ(vecIn0RawshapeAfter, vecRawshapeAfter);
+    EXPECT_EQ(vecIn1RawshapeAfter, vecRawshapeAfter);
+    EXPECT_EQ(vecRawshapeBefore, vecRawshapeAfter);
+    auto vecIn0OffestAfter = vec_in_0->GetOffset();
+    auto vecIn1OffestAfter = vec_in_1->GetOffset();
+    EXPECT_EQ(offestAssemble0, vecIn0OffestAfter);
+    EXPECT_EQ(offestAssemble1, vecIn1OffestAfter);
+    auto vecIn0RawMagicAfter = vec_in_0->GetRawMagic();
+    auto vecIn1RawMagicAfter = vec_in_1->GetRawMagic();
+    auto vecRawMagicAfter = vec->GetRawMagic();
+    EXPECT_EQ(vecIn0RawMagicAfter, vecRawMagicAfter);
+    EXPECT_EQ(vecIn1RawMagicAfter, vecRawMagicAfter);
+    EXPECT_EQ(vecRawMagicBefore, vecRawMagicAfter);
+    // reshape check after pass
+    auto vecOutRawMagicAfter = vec_out->GetRawMagic();
+    EXPECT_EQ(vecRawMagicAfter, vecOutRawMagicAfter);
+}
+
+TEST_F(InplaceProcessTest, InplaceProcessReShapeReshape) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    DataType inputAstDtype = DataType::DT_FP16;
+    DataType outputAstDtype = DataType::DT_FP16;
+    G.AddTensor(inputAstDtype, {64, 8, 16}, "vec_in");
+    auto vec_in = G.GetTensor("vec_in");
+    vec_in->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "vec_out");
+    auto vec_out = G.GetTensor("vec_out");
+    vec_out->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(inputAstDtype, {64, 8, 16}, "ub_in");
+    auto ub_in = G.GetTensor("ub_in");
+    ub_in->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    G.AddTensor(inputAstDtype, {64, 4, 32}, "ub");
+    auto ub = G.GetTensor("ub");
+    ub->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "ub_out");
+    auto ub_out = G.GetTensor("ub_out");
+    ub_out->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    // add op
+    G.AddOp(Opcode::OP_UB_COPY_IN, {"vec_in"}, {"ub_in"}, "UB_COPY_IN");
+    G.AddOp(Opcode::OP_RESHAPE, {"ub_in"}, {"ub"}, "RESHAPE_1");
+    G.AddOp(Opcode::OP_RESHAPE, {"ub"}, {"ub_out"}, "RESHAPE_2");
+    G.AddOp(Opcode::OP_UB_COPY_OUT, {"ub_out"}, {"vec_out"}, "UB_COPY_OUT");
+    // set incast and outcast
+    G.SetInCast({"vec_in"});
+    G.SetOutCast({"vec_out"});
+    // check before pass
+    auto inRawMagicBefore = ub_in->GetRawMagic();
+    auto outRawMagicBefore = ub_out->GetRawMagic();
+    EXPECT_NE(inRawMagicBefore, outRawMagicBefore);
+    // run pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    InplaceProcess passLocal;
+    passLocal.Run(*function, "", "", 0);
+    // check after pass
+    auto inRawMagicAfter = ub_in->GetRawMagic();
+    auto outRawMagicAfter = ub_out->GetRawMagic();
+    EXPECT_EQ(inRawMagicAfter, outRawMagicAfter);
+    EXPECT_EQ(inRawMagicBefore, inRawMagicAfter);
+}
+
+TEST_F(InplaceProcessTest, InplaceProcessReshapeAssemble) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    DataType inputAstDtype = DataType::DT_FP16;
+    DataType outputAstDtype = DataType::DT_FP16;
+    G.AddTensor(inputAstDtype, {64, 4, 16}, "vec_in_0");
+    auto vec_in_0 = G.GetTensor("vec_in_0");
+    vec_in_0->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(inputAstDtype, {64, 4, 16}, "vec_in_1");
+    auto vec_in_1 = G.GetTensor("vec_in_1");
+    vec_in_1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(inputAstDtype, {64, 64}, "vec_0");
+    auto vec_0 = G.GetTensor("vec_0");
+    vec_0->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(inputAstDtype, {64, 64}, "vec_1");
+    auto vec_1 = G.GetTensor("vec_1");
+    vec_1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "vec_out");
+    auto vec_out = G.GetTensor("vec_out");
+    vec_out->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    // add op
+    G.AddOp(Opcode::OP_RESHAPE, {"vec_in_0"}, {"vec_0"}, "RESHAPE_0");
+    G.AddOp(Opcode::OP_RESHAPE, {"vec_in_1"}, {"vec_1"}, "RESHAPE_1");
+    G.AddOp(Opcode::OP_ASSEMBLE, {"vec_0"}, {"vec_out"}, "ASSEMBLE_0");
+    auto assemble0 = G.GetOp("ASSEMBLE_0");
+    std::vector<int> offestAssemble0= {0, 0};
+    auto attrAssemble0 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offestAssemble0);
+    assemble0->SetOpAttribute(attrAssemble0);
+    G.AddOp(Opcode::OP_ASSEMBLE, {"vec_1"}, {"vec_out"}, "ASSEMBLE_1");
+    auto assemble1 = G.GetOp("ASSEMBLE_1");
+    std::vector<int> offestAssemble1= {0, 64};
+    auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offestAssemble1);
+    assemble1->SetOpAttribute(attrAssemble1);
+    // set incast and outcast
+    G.SetInCast({"vec_in_0", "vec_in_1"});
+    G.SetOutCast({"vec_out"});
+    // reshape check before pass
+    auto vecIn0RawMagicBefore = vec_in_0->GetRawMagic();
+    auto vec0RawMagicBefore = vec_0->GetRawMagic();
+    auto vecIn1RawMagicBefore = vec_in_1->GetRawMagic();
+    auto vec1RawMagicBefore = vec_1->GetRawMagic();
+    EXPECT_NE(vecIn0RawMagicBefore, vec0RawMagicBefore);
+    EXPECT_NE(vecIn1RawMagicBefore, vec1RawMagicBefore);
+    // assemble check before pass
+    auto vec0RawshapeBefore = vec_0->GetRawTensor()->GetRawShape();
+    auto vec1RawshapeBefore = vec_1->GetRawTensor()->GetRawShape();
+    auto vecOutRawshapeBefore = vec_out->GetRawTensor()->GetRawShape();
+    EXPECT_NE(vec0RawshapeBefore, vecOutRawshapeBefore);
+    EXPECT_NE(vec1RawshapeBefore, vecOutRawshapeBefore);
+    auto vecOutRawMagicBefore = vec_out->GetRawMagic();
+    EXPECT_NE(vec1RawMagicBefore, vecOutRawMagicBefore);
+    EXPECT_NE(vec0RawMagicBefore, vecOutRawMagicBefore);
+    // run pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    InplaceProcess passLocal;
+    passLocal.Run(*function, "", "", 0);
+    // reshape check after pass
+    auto vecIn0RawMagicAfter = vec_in_0->GetRawMagic();
+    auto vec0RawMagicAfter = vec_0->GetRawMagic();
+    auto vecIn1RawMagicAfter = vec_in_1->GetRawMagic();
+    auto vec1RawMagicAfter = vec_1->GetRawMagic();
+    EXPECT_EQ(vecIn0RawMagicAfter, vec0RawMagicAfter);
+    EXPECT_EQ(vecIn1RawMagicAfter, vec1RawMagicAfter);
+    EXPECT_EQ(vecIn0RawMagicBefore, vecIn0RawMagicAfter);
+    EXPECT_EQ(vecIn1RawMagicBefore, vecIn1RawMagicAfter);
+    // assemble check after pass
+    auto vec0RawshapeAfter = vec_0->GetRawTensor()->GetRawShape();
+    auto vec1RawshapeAfter = vec_1->GetRawTensor()->GetRawShape();
+    auto vecOutRawshapeAfter = vec_out->GetRawTensor()->GetRawShape();
+    EXPECT_EQ(vec0RawshapeAfter, vecOutRawshapeAfter);
+    EXPECT_EQ(vec1RawshapeAfter, vecOutRawshapeAfter);
+    EXPECT_EQ(vecOutRawshapeBefore, vecOutRawshapeAfter);
+    auto vec0OffestAfter = vec_0->GetOffset();
+    auto vec1OffestAfter = vec_1->GetOffset();
+    EXPECT_EQ(offestAssemble0, vec0OffestAfter);
+    EXPECT_EQ(offestAssemble1, vec1OffestAfter);
+    auto vecOutRawMagicAfter = vec_out->GetRawMagic();
+    EXPECT_EQ(vec1RawMagicAfter, vecOutRawMagicAfter);
+    EXPECT_EQ(vec0RawMagicAfter, vecOutRawMagicAfter);
+}
+
+TEST_F(InplaceProcessTest, InplaceProcessViewAssemble) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    DataType inputAstDtype = DataType::DT_FP16;
+    DataType outputAstDtype = DataType::DT_FP16;
+    G.AddTensor(inputAstDtype, {64, 256}, "vec_in");
+    auto vec_in = G.GetTensor("vec_in");
+    vec_in->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(inputAstDtype, {64, 64}, "vec_0");
+    auto vec_0 = G.GetTensor("vec_0");
+    vec_0->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(inputAstDtype, {64, 64}, "vec_1");
+    auto vec_1 = G.GetTensor("vec_1");
+    vec_1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(inputAstDtype, {64, 64}, "vec_2");
+    auto vec_2 = G.GetTensor("vec_2");
+    vec_2->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(inputAstDtype, {64, 64}, "vec_3");
+    auto vec_3 = G.GetTensor("vec_3");
+    vec_3->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "vec_out");
+    auto vec_out = G.GetTensor("vec_out");
+    vec_out->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    // add op
+    G.AddOp(Opcode::OP_VIEW, {"vec_in"}, {"vec_0"}, "OP_VIEW_0");
+    auto op_view_0 = G.GetOp("OP_VIEW_0");
+    std::vector<int> offestOpView0 = {0, 0};
+    auto attrOpView0 = std::make_shared<ViewOpAttribute>(offestOpView0, MemoryType::MEM_DEVICE_DDR);
+    op_view_0->SetOpAttribute(attrOpView0);
+    G.AddOp(Opcode::OP_VIEW, {"vec_in"}, {"vec_1"}, "OP_VIEW_1");
+    auto op_view_1 = G.GetOp("OP_VIEW_1");
+    std::vector<int> offestOpView1 = {0, 64};
+    auto attrOpView1 = std::make_shared<ViewOpAttribute>(offestOpView1, MemoryType::MEM_DEVICE_DDR);
+    op_view_1->SetOpAttribute(attrOpView1);
+    G.AddOp(Opcode::OP_VIEW, {"vec_in"}, {"vec_2"}, "OP_VIEW_2");
+    auto op_view_2 = G.GetOp("OP_VIEW_2");
+    std::vector<int> offestOpView2 = {0, 128};
+    auto attrOpView2 = std::make_shared<ViewOpAttribute>(offestOpView2, MemoryType::MEM_DEVICE_DDR);
+    op_view_2->SetOpAttribute(attrOpView2);
+    G.AddOp(Opcode::OP_VIEW, {"vec_in"}, {"vec_3"}, "OP_VIEW_3");
+    auto op_view_3 = G.GetOp("OP_VIEW_3");
+    std::vector<int> offestOpView3 = {64, 192};
+    auto attrBOpView3 = std::make_shared<ViewOpAttribute>(offestOpView3, MemoryType::MEM_DEVICE_DDR);
+    op_view_3->SetOpAttribute(attrBOpView3);
+    G.AddOp(Opcode::OP_ASSEMBLE, {"vec_0"}, {"vec_out"}, "ASSEMBLE_0");
+    auto assemble0 = G.GetOp("ASSEMBLE_0");
+    std::vector<int> offestAssemble0= {0, 0};
+    auto attrAssemble0 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offestAssemble0);
+    assemble0->SetOpAttribute(attrAssemble0);
+    G.AddOp(Opcode::OP_ASSEMBLE, {"vec_2"}, {"vec_out"}, "ASSEMBLE_1");
+    auto assemble1 = G.GetOp("ASSEMBLE_1");
+    std::vector<int> offestAssemble1= {0, 64};
+    auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offestAssemble1);
+    assemble1->SetOpAttribute(attrAssemble1);
+    // set incast and outcast
+    G.SetInCast({"vec_in"});
+    G.SetOutCast({"vec_out"});
+    // view check before pass
+    auto vecInRawshapeBefore = vec_in->GetRawTensor()->GetRawShape();
+    auto vec0RawshapeBefore = vec_0->GetRawTensor()->GetRawShape();
+    auto vec1RawshapeBefore = vec_1->GetRawTensor()->GetRawShape();
+    auto vec2RawshapeBefore = vec_2->GetRawTensor()->GetRawShape();
+    auto vec3RawshapeBefore = vec_3->GetRawTensor()->GetRawShape();
+    EXPECT_NE(vecInRawshapeBefore, vec0RawshapeBefore);
+    EXPECT_NE(vecInRawshapeBefore, vec1RawshapeBefore);
+    EXPECT_NE(vecInRawshapeBefore, vec2RawshapeBefore);
+    EXPECT_NE(vecInRawshapeBefore, vec3RawshapeBefore);
+    auto vecIn0MagicBefore = vec_in->GetRawMagic();
+    auto vec0RawMagicBefore = vec_0->GetRawMagic();
+    auto vec1RawMagicBefore = vec_1->GetRawMagic();
+    auto vec2RawMagicBefore = vec_2->GetRawMagic();
+    auto vec3RawMagicBefore = vec_3->GetRawMagic();
+    EXPECT_NE(vecIn0MagicBefore, vec0RawMagicBefore);
+    EXPECT_NE(vecIn0MagicBefore, vec1RawMagicBefore);
+    EXPECT_NE(vecIn0MagicBefore, vec2RawMagicBefore);
+    EXPECT_NE(vecIn0MagicBefore, vec3RawMagicBefore);
+    // assemble check before pass
+    auto vecOutRawshapeBefore = vec_out->GetRawTensor()->GetRawShape();
+    EXPECT_NE(vec0RawshapeBefore, vecOutRawshapeBefore);
+    EXPECT_NE(vec2RawshapeBefore, vecOutRawshapeBefore);
+    auto vecOutMagicBefore = vec_out->GetRawMagic();
+    EXPECT_NE(vec0RawMagicBefore, vecOutMagicBefore);
+    EXPECT_NE(vec2RawMagicBefore, vecOutMagicBefore);
+    // run pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    InplaceProcess passLocal;
+    passLocal.Run(*function, "", "", 0);
+    // view check after pass
+    auto vecInRawshapeAfter = vec_in->GetRawTensor()->GetRawShape();
+    auto vec0RawshapeAfter = vec_0->GetRawTensor()->GetRawShape();
+    auto vec1RawshapeAfter = vec_1->GetRawTensor()->GetRawShape();
+    auto vec2RawshapeAfter = vec_2->GetRawTensor()->GetRawShape();
+    auto vec3RawshapeAfter = vec_3->GetRawTensor()->GetRawShape();
+    EXPECT_EQ(vecInRawshapeAfter, vec0RawshapeAfter);
+    EXPECT_EQ(vecInRawshapeAfter, vec1RawshapeAfter);
+    EXPECT_EQ(vecInRawshapeAfter, vec2RawshapeAfter);
+    EXPECT_EQ(vecInRawshapeAfter, vec3RawshapeAfter);
+    EXPECT_EQ(vecInRawshapeBefore, vecInRawshapeAfter);
+    auto vec0OffestAfter = vec_0->GetOffset();
+    auto vec1OffestAfter = vec_1->GetOffset();
+    auto vec2OffestAfter = vec_2->GetOffset();
+    auto vec3OffestAfter = vec_3->GetOffset();
+    EXPECT_EQ(offestOpView0, vec0OffestAfter);
+    EXPECT_EQ(offestOpView1, vec1OffestAfter);
+    EXPECT_EQ(offestOpView2, vec2OffestAfter);
+    EXPECT_EQ(offestOpView3, vec3OffestAfter);
+    auto vecIn0MagicAfter = vec_in->GetRawMagic();
+    auto vec0RawMagicAfter = vec_0->GetRawMagic();
+    auto vec1RawMagicAfter = vec_1->GetRawMagic();
+    auto vec2RawMagicAfter = vec_2->GetRawMagic();
+    auto vec3RawMagicAfter = vec_3->GetRawMagic();
+    EXPECT_EQ(vecIn0MagicAfter, vec0RawMagicAfter);
+    EXPECT_EQ(vecIn0MagicAfter, vec1RawMagicAfter);
+    EXPECT_EQ(vecIn0MagicAfter, vec2RawMagicAfter);
+    EXPECT_EQ(vecIn0MagicAfter, vec3RawMagicAfter);
+    EXPECT_EQ(vecIn0MagicBefore, vecIn0MagicAfter);
+    // assemble check after pass
+    auto vecOutRawshapeAfter = vec_out->GetRawTensor()->GetRawShape();
+    EXPECT_EQ(vec0RawshapeAfter, vecOutRawshapeAfter);
+    EXPECT_EQ(vec2RawshapeAfter, vecOutRawshapeAfter);
+    EXPECT_EQ(vecOutRawshapeBefore, vecOutRawshapeAfter);
+    EXPECT_EQ(offestAssemble0, vec0OffestAfter);
+    EXPECT_EQ(offestAssemble1, vec2OffestAfter);
+    auto vecOutMagicAfter = vec_out->GetRawMagic();
+    EXPECT_EQ(vec0RawMagicAfter, vecOutMagicAfter);
+    EXPECT_EQ(vec2RawMagicAfter, vecOutMagicAfter);
+}
 } // namespace tile_fwk
 } // namespace npu

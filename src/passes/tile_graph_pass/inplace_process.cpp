@@ -59,6 +59,12 @@ bool InplaceProcess::ValidMeaninglessOp(const Operation &op) const {
     if ((op.GetIOperands().size() != 1) || (op.GetOOperands().size() != 1) ||
         (op.GetIOperands().front() == nullptr) || (op.GetOOperands().front() == nullptr) ||
         (op.GetIOperands().front()->GetMemoryTypeOriginal() != op.GetOOperands().front()->GetMemoryTypeOriginal())) {
+        ALOG_INFO_F("InplaceProcess Invalid Op: IOperands.size isnot 1 (%d); OOperands.size isnot 1 (%d); "
+                    "IOperands.front is nullptr (%d); OOperands.front is nullptr (%d); IOperands.front.MemoryType and "
+                    "OOperands.front.MemoryType are not equal (%d)",
+            (op.GetIOperands().size() != 1), (op.GetOOperands().size() != 1), (op.GetIOperands().front() == nullptr),
+            (op.GetOOperands().front() == nullptr),
+            (op.GetIOperands().front()->GetMemoryTypeOriginal() != op.GetOOperands().front()->GetMemoryTypeOriginal()));
         valid = false;
     }
     return valid;

@@ -756,5 +756,41 @@ TEST_F(PreGraphTest, TestAddExp) {
     */
     EXPECT_EQ(function->Operations().size(), opNumBefore) << opNumBefore << " operations after pass";
 }
+
+TEST_F(PreGraphTest, PreGraphReShapeOnOcast) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    DataType inputAstDtype = DataType::DT_FP16;
+    DataType outputAstDtype = DataType::DT_FP16;
+    G.AddTensor(inputAstDtype, {64, 8, 16}, "vec_in_rel");
+    auto vec_in_rel = G.GetTensor("vec_in_rel");
+    vec_in_rel->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(inputAstDtype, {64, 8, 16}, "vec_in");
+    auto vec_in = G.GetTensor("vec_in");
+    vec_in->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "vec_out");
+    auto vec_out = G.GetTensor("vec_out");
+    vec_out->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    // add op
+    G.AddOp(Opcode::OP_VIEW, {"vec_in_rel"}, {"vec_in"}, "VIEW");
+    G.AddOp(Opcode::OP_RESHAPE, {"vec_in"}, {"vec_out"}, "RESHAPE");
+    // set incast and outcast
+    G.SetInCast({"vec_in_rel"});
+    G.SetOutCast({"vec_out"});
+    // check before pass
+    auto inRawMagicBefore = vec_in->GetRawMagic();
+    auto outRawMagicBefore = vec_out->GetRawMagic();
+    EXPECT_NE(inRawMagicBefore, outRawMagicBefore);
+    // run pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    PreGraphPass passLocal;
+    passLocal.Run(*function, "", "", 0);
+    // check after pass
+    auto inRawMagicAfter = vec_in->GetRawMagic();
+    auto outRawMagicAfter = vec_out->GetRawMagic();
+    EXPECT_EQ(inRawMagicAfter, outRawMagicAfter);
+    EXPECT_EQ(outRawMagicBefore, outRawMagicAfter);
+}
 } // namespace tile_fwk
 } // namespace npu
