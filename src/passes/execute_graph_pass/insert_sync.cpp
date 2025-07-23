@@ -1240,18 +1240,6 @@ Status InsertSyncPass::RunOnFunction(Function &function) {
     ALOG_INFO_F("===============================================================> Start InsertSyncPass.");
     const unsigned hardwareConcurrency = config::GetPassGlobalConfig("pass_thread_num", 1);
     uint64_t index = 0;
-    // Sequential execution for small number of subgraphs
-    if (hardwareConcurrency == 1) {
-        for (auto &program : function.rootFunc_->programs_) {
-            ALOG_DEBUG_F("====================================Program %d ===========================================", index);
-            if (InsertSyncMainLoop(program.second) != SUCCESS) { ALOG_ERROR_F("InsertSync Pass RunOnFunction failed at function InsertSyncMainLoop!"); return FAILED; }
-            index++;
-        }
-        ALOG_INFO_F("===============================================================> Finish InsertSyncPass By Sequential Execution.");
-        return SUCCESS;
-    }
-
-    // Subgraph parallelization through multithreading
     std::vector<std::pair<uint64_t, Function*>> subPrograms;
     for (auto &subProgram : function.rootFunc_->programs_) {
         subPrograms.push_back(subProgram);
@@ -1266,7 +1254,6 @@ Status InsertSyncPass::RunOnFunction(Function &function) {
     );
     std::vector<std::thread> workers;
 
-    // Creating Multiple Threads to Process Subprograms
     std::atomic<bool> multiThreadsStatus(true);
     for (unsigned i = 0; i < threadNum; ++i) {
         workers.emplace_back([&subPrograms, &nextIdx, leafFuncSize, &index, this, &multiThreadsStatus] {
@@ -1288,7 +1275,7 @@ Status InsertSyncPass::RunOnFunction(Function &function) {
             t.join();
         }
     }
-    ALOG_INFO("===============================================================> Finish InsertSyncPass By Parallel Execution.");
+    ALOG_INFO_F("===============================================================> Finish InsertSyncPass");
     return SUCCESS;
 }
 } // namespace npu::tile_fwk
