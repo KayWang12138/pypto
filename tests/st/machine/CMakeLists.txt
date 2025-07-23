@@ -22,14 +22,6 @@ set(_CaseFilterList
         # "DyMla.high_PA_NZ"
         "DyMla.low_PA_BSND"
 
-        # NSA MlaProlog
-        # "MlaPrologSTest.b32_s1_pa_nz_bf16_quant"
-        "MlaPrologSTest.b32_s2_pa_nz_bf16_quant"
-
-        # NSA AttentionPost
-        # "AttentionPostSTest.b32_s1_nz_bf16_quant"
-        "AttentionPostSTest.b32_s2_nz_bf16_quant"
-
         # Flash Attention
         #===========================================================================
         "DynamicBasicTest.TestDD"

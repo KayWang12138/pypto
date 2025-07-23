@@ -16,6 +16,7 @@
 """
 import sys
 import math
+import time
 import logging
 from pathlib import Path
 from typing import List
@@ -23,7 +24,8 @@ from typing import List
 import torch
 import numpy as np
 from bfloat16 import bfloat16
-np.random.seed(0)
+
+
 if __name__ == "__main__":
     """ 单独调试时配置 """
     # 日志级别
@@ -189,7 +191,7 @@ def mla_prolog_compute(inputs):
     kr_cache = inputs.get("kr_cache")
     cache_index = inputs.get("cache_index")
     if is_quant:
-        w_qb_quant = inputs.get("w_qb_quant")
+        # w_qb_quant = inputs.get("w_qb_quant")
         w_qb_scale = inputs.get("w_qb_scale")
         if has_smooth:
             smooth_cq = inputs.get("smooth_cq")
@@ -214,7 +216,7 @@ def mla_prolog_compute(inputs):
             q_a_layernorm, q_a_layernorm_scale_dequant = quant(q_a_layernorm, True, True, smooth_cq)
         else:
             q_a_layernorm, q_a_layernorm_scale_dequant = quant(q_a_layernorm, True)  # scale: [b*s,1]
-        q_b_proj = np.matmul(q_a_layernorm.astype(np.int32), w_qb_quant.astype(np.int32))  # q_b_proj
+        q_b_proj = np.matmul(q_a_layernorm.astype(np.int32), wUqQr.astype(np.int32))  # q_b_proj
 
         """ dequant """
         q_b_proj_fp32 = q_b_proj.astype(fp32)
@@ -276,10 +278,10 @@ def mla_prolog_compute(inputs):
     return q_out, q_embed, kv_cache_out, kr_cache_out
 
 
-def gen_mla_prolog_data(params, dtypes, epsilon, output_dir: Path, is_quant=False, is_nz=False, has_smooth=False,
-                        block_size=128, cache_mode="BNSD"):
+def gen_prolog_input_data(params, dtypes, epsilon, output_dir: Path, is_quant=False, is_nz=False, has_smooth=False,
+                          block_size=128, cache_mode="BNSD"):
     dtype, w_dtype = dtypes
-    logging.debug(f"gen_mla_prolog_data  dtype:{dtype}, w_dtype:{w_dtype}")
+    logging.debug(f"gen_prolog_input_data  dtype:{dtype}, w_dtype:{w_dtype}")
     b = params.get("b")
     s = params.get("s")  # s=1 or 2
     s2 = params.get("s2")  # s2=4k
@@ -336,59 +338,67 @@ def gen_mla_prolog_data(params, dtypes, epsilon, output_dir: Path, is_quant=Fals
     kv_cache_path = Path(output_dir, 'kv_cache.bin')
     kr_cache_path = Path(output_dir, 'kr_cache.bin')
     smooth_cq_path = Path(output_dir, 'smooth_cq.bin')
-    # output
-    q_golden_path = Path(output_dir, 'q_golden.bin')
-    q_rope_golden_path = Path(output_dir, 'q_rope_golden.bin')
-    kv_golden_path = Path(output_dir, 'kv_cache_golden.bin')
-    kr_golden_path = Path(output_dir, 'kr_cache_golden.bin')
-    fake_out_path = Path(output_dir, 'fake_out.bin')
 
+    res = [None] * 14
     x = np.random.uniform(-1, 1, x_shape).astype(dtype)
     x.tofile(x_path)
+    res[0] = x
     wDq = np.random.uniform(-0.1, 0.1, w_qa_shape).astype(w_dtype)
     if is_nz:
         wDq.reshape(h, q_lora_rank//16, 16).transpose(1,0,2).tofile(wDqPath)
     else:
         wDq.tofile(wDqPath)
+    res[1] = wDq
     wUqQr = np.random.uniform(-0.1, 0.1, w_qb_shape).astype(w_dtype)
     if is_quant:
-        w_qb_quant, w_qb_scale = quant(wUqQr, False)
+        wUqQr, w_qb_scale = quant(wUqQr, False)
         if is_nz:
-            w_qb_quant.reshape(q_lora_rank, n * q_head_dim//32,32).transpose(1,0,2).tofile(wUqQrPath)
+            wUqQr.reshape(q_lora_rank, n * q_head_dim//32,32).transpose(1,0,2).tofile(wUqQrPath)
         else:
-            w_qb_quant.tofile(wUqQrPath)
+            wUqQr.tofile(wUqQrPath)
+        res[2] = wUqQr
         smooth_cq = np.random.uniform(-1, 1, smooth_cq_shape).astype(np.float32)
         smooth_cq.tofile(smooth_cq_path)
         logging.debug("smooth_cq shape is %s", smooth_cq.shape)
         w_qb_scale.tofile(w_qb_scale_path)
         logging.debug("w_qb_scale shape is %s", w_qb_scale.shape)
         logging.debug("%s", w_qb_scale)
+        res[3] = smooth_cq
+        res[4] = w_qb_scale
     else:
         if is_nz:
             wUqQr.reshape(q_lora_rank, n * q_head_dim//16,16).transpose(1,0,2).tofile(wUqQrPath)
         else:
             wUqQr.tofile(wUqQrPath)
+        res[2] = wUqQr
 
     wDkvKr = np.random.uniform(-0.1, 0.1, w_kv_a_shape).astype(w_dtype)
     if is_nz:
         wDkvKr.reshape(h, (kv_lora_rank + qk_rope_head_dim)//16,16).transpose(1,0,2).tofile(wDkvKrPath)
     else:
         wDkvKr.tofile(wDkvKrPath)
+    res[5] = wDkvKr
     wUk = np.random.uniform(-0.1, 0.1, w_kv_b_k_shape).astype(w_dtype)
     if is_nz:
         wUk.reshape(n*qk_nope_head_dim, kv_lora_rank//16,16).transpose(1,0,2).tofile(wUkPath)
     else:
         wUk.tofile(wUkPath)
+    res[6] = wUk
     gamma_cq = np.random.uniform(-1, 1, gamma_cq_shape).astype(dtype)  # [q_lora_rank]
     gamma_ckv = np.random.uniform(-1, 1, gamma_ckv_shape).astype(dtype)  # [kv_lora_rank]
     gamma_cq.tofile(gamma_cq_path)
     gamma_ckv.tofile(gamma_ckv_path)
+    res[7] = gamma_cq
+    res[8] = gamma_ckv
     cos = np.random.uniform(-0.1, 0.1, cos_shape).astype(dtype)  # [b, s, qk_rope_head_dim]
     sin = np.random.uniform(-0.1, 0.1, cos_shape).astype(dtype)  # [b, s, qk_rope_head_dim]
     cos.tofile(cos_path)
     sin.tofile(sin_path)
+    res[9] = cos
+    res[10] = sin
     kv_len = np.random.choice(np.arange(0, index_value_max), size=kv_len_shape, replace=False).astype(np.int64)
     kv_len.tofile(kv_len_path)
+    res[11] = kv_len
     kv_cache = np.random.uniform(-1, 1, kv_cache_shape).astype(dtype)
     kr_cache = np.random.uniform(-1, 1, kr_cache_shape).astype(dtype)
     if cache_mode == "PA_NZ":
@@ -397,6 +407,32 @@ def gen_mla_prolog_data(params, dtypes, epsilon, output_dir: Path, is_quant=Fals
     else:
         kr_cache.tofile(kr_cache_path)  # kr_cache in
         kv_cache.tofile(kv_cache_path)  # kv_cache in
+    res[12] = kv_cache
+    res[13] = kr_cache
+
+    return res
+
+
+def gen_mla_prolog_data(params, dtypes, epsilon, output_dir: Path, is_quant=False, is_nz=False, has_smooth=False,
+                        block_size=128, cache_mode="BNSD"):
+    np.random.seed(int(time.time()))
+    dtype, w_dtype = dtypes
+    logging.debug(f"gen_mla_prolog_data  dtype:{dtype}, w_dtype:{w_dtype}")
+    x, wDq, wUqQr, smooth_cq, w_qb_scale, wDkvKr, wUk, gamma_cq, gamma_ckv, cos, sin, kv_len, kv_cache, kr_cache = \
+        gen_prolog_input_data(params, dtypes, epsilon, output_dir, is_quant, is_nz, has_smooth, block_size, cache_mode)
+
+    b = params.get("b")
+    s2 = params.get("s2")  # s2=4k
+    qk_rope_head_dim = params.get("qk_rope_head_dim")
+    kv_lora_rank = params.get("kv_lora_rank")
+    NzFrac = 16 if dtype != float else 8
+    if cache_mode != "BNSD":
+        block_num = b * (s2 // block_size)
+    # output
+    q_golden_path = Path(output_dir, 'q_golden.bin')
+    q_rope_golden_path = Path(output_dir, 'q_rope_golden.bin')
+    kv_golden_path = Path(output_dir, 'kv_cache_golden.bin')
+    kr_golden_path = Path(output_dir, 'kr_cache_golden.bin')
 
     inputs = {"dtype": dtype, "is_quant": is_quant, "has_smooth": has_smooth}
     inputs["cache_mode"] = cache_mode
@@ -414,7 +450,6 @@ def gen_mla_prolog_data(params, dtypes, epsilon, output_dir: Path, is_quant=Fals
     inputs["kr_cache"] = kr_cache
     inputs["cache_index"] = kv_len
     if is_quant:
-        inputs["w_qb_quant"] = w_qb_quant
         inputs["w_qb_scale"] = w_qb_scale
         if has_smooth:
             inputs["smooth_cq"] = smooth_cq

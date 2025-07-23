@@ -116,30 +116,32 @@ void GenAttn(Tensor &gatingScore, Tensor &cmpAtten, Tensor &selAtten, Tensor &wi
     }
 }
 
-void DynamicNsa(Tensor &topkIndices, Tensor &topkTensorShape, Tensor &kvNopeCache, Tensor &kRopeCache, Tensor &kvActSeqs, Tensor &blockTable, 
+void DynamicNsa(Tensor &topkIndices, Tensor &topkTensorShape, Tensor &kvNopeCache, Tensor &kRopeCache, Tensor &kvActSeqs, Tensor &blockTable,
     int front, int near, int topk, int slcBlockSize, int blockSize, KvSlcTileShapeConfig &kvSlcTileConfig,
     const Tensor &qNope, const Tensor &qRope, Tensor &kvSlcActSeqs, float softmaxScale, SaTileShapeConfig saTileConfig,
     const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, const Tensor &gateSimW1, GateMode gateMode,
     Tensor &cmpAtten, Tensor &winAtten,
-    Tensor &kvSlcActSeqOut, Tensor &attentionOut) {
-    ASSERT(gateMode == GateMode::standard); // 当前仅支持standard模式
+    Tensor &weightUV, Tensor &weightO, Tensor &weightOScale, Tensor &smoothScalesWo, const PostTileConfig &postConfig,
+    Tensor &kvSlcActSeqOut, Tensor &attentionOut, Tensor &postOut) {
+    ASSERT(gateMode == standard); // 当前仅支持standard模式
 
     FUNCTION("main", FunctionType::DYNAMIC, {topkIndices, topkTensorShape, kvNopeCache, kRopeCache, kvActSeqs, blockTable, // genKvSlc
                                              qNope, qRope, kvSlcActSeqs,  // SlcAttn
                                              x, gateW1, gateW2, gateSimW1,  // gatedScore
-                                             cmpAtten, winAtten},  // genAttn
-                                            {kvSlcActSeqOut, attentionOut}) {
+                                             cmpAtten, winAtten,  // genAttn
+                                             weightUV, weightO, weightOScale, smoothScalesWo}, // paPost
+                                            {kvSlcActSeqOut, attentionOut, postOut}) {
         Program::GetInstance().GetConfig().Set<int>(DB_TYPE, 1);
         Program::GetInstance().GetConfig().Set<int>(L1_REUSE, NUM_4);
         Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{NUM_3, NUM_4}});
         Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, NUM_2 * NUM_1024 * NUM_1024);
 
         int b = x->shape[0];
-        int s = x->shape[1];
+        int s = x->shape[1]; // s=1
         int n1 = gateW2->shape[1] / 3;
         int n2 = 1;
+        int vDim = qNope->shape[1];  // kvLoraRank
         int ropeDim = qRope->shape[1];
-        int vDim = qNope->shape[1];
         int kDim = vDim + ropeDim;
         auto dtype = x->Datatype();
         int slcSMax = topk * slcBlockSize;
@@ -194,10 +196,13 @@ void DynamicNsa(Tensor &topkIndices, Tensor &topkTensorShape, Tensor &kvNopeCach
         // Loop_barrier
         // subgraph-6
         /******** gen attn ********/
-        GenAttn(gatingScore, cmpAtten, slcAttn, winAtten, attentionOut);
+        GenAttn(gatingScore, cmpAtten, slcAttn, winAtten, attentionOut); // [b,s,n1,vDim] fp16
 
+        Program::GetInstance().GetConfig().Set<int>(CYCLE_UPPER_BOUND, 500000);  // 500000
+        Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{0, 4}});
         // Loop_barrier
-        // subgraph-7
+        // subgraph-7: postOut [b,s,h]
+        PostCompute(attentionOut, weightUV, weightO, weightOScale, smoothScalesWo, postConfig, postOut);
     }
 }
 

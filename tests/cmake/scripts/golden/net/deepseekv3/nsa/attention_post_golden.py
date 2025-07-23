@@ -16,13 +16,13 @@
 """
 import sys
 import math
+import time
 import logging
 from pathlib import Path
 from typing import List
 
 import numpy as np
 from bfloat16 import bfloat16
-np.random.seed(0)
 
 
 if __name__ == "__main__":
@@ -45,7 +45,7 @@ fp32 = np.float32
 
 
 def quant(input_t, is_pertoken: bool = True, has_smooth=False, smooth_w=None):
-    input_fp32 = input_t.astype(fp32)
+    input_fp32 = input_t.astype(np.float32)
     if has_smooth:
         input_fp32 = input_fp32 * smooth_w
     abs_res = np.abs(input_fp32)
@@ -111,55 +111,73 @@ def post_compute(inputs):
     return output
 
 
-def gen_post_test_data(output_dir: Path, params, dtype, is_quant=True, has_smooth=True, is_nz=True):
+# params: [b, n, s, h, kv_lora_rank, v_head_dim]
+def gen_post_input_data(output_dir: Path, params, dtype, is_quant=True, has_smooth=True, is_nz=True):
     b, n, s, h, kv_lora_rank, v_head_dim = params
-    x_shape = [b, s, n, kv_lora_rank]
     w_uv_shape = [n, kv_lora_rank, v_head_dim]
     w_o_shape = [n * v_head_dim, h]
     w_o_scale_shape = [1, h]
     smooth_wo_shape = [1, n * v_head_dim]
-    logging.debug("x shape is %s", x_shape)
     logging.debug("w_uv shape is %s", w_uv_shape)
-    logging.debug("w_0 shape is %s", w_o_shape)
+    logging.debug("w_o shape is %s", w_o_shape)
     logging.debug("w_o_scale shape is %s", w_o_scale_shape)
+    logging.debug("smooth_wo shape is %s", smooth_wo_shape)
 
-    x_path = Path(output_dir, 'x.bin')
     w_uv_path = Path(output_dir, 'w_uv.bin')
     w_o_path = Path(output_dir, 'w_o.bin')
     w_o_scale_path = Path(output_dir, 'w_o_scale.bin')
     smooth_wo_path = Path(output_dir, 'smooth_wo.bin')
-    # output
-    output_path = Path(output_dir, 'golden_output.bin')
 
-    x = np.random.uniform(-1, 1, x_shape).astype(dtype)
-    x.tofile(x_path)
+    res = [None] * 4
     w_uv = np.random.uniform(-0.1, 0.1, w_uv_shape).astype(dtype)
     w_uv.tofile(w_uv_path)
+    res[0] = w_uv
+
     w_o = np.random.uniform(-0.1, 0.1, w_o_shape).astype(dtype)
     if is_quant:
         # per_channel, w_o_scale: [1, h]
-        w_o_quant, w_o_scale = quant(w_o, False)
+        w_o, w_o_scale = quant(w_o, False)
         if is_nz:
-            w_o_quant.reshape(w_o_shape[0], w_o_shape[1] // 32, 32).transpose(1,0,2).tofile(w_o_path)
+            w_o.reshape(w_o_shape[0], w_o_shape[1] // 32, 32).transpose(1,0,2).tofile(w_o_path)
         else:
-            w_o_quant.tofile(w_o_path)
+            w_o.tofile(w_o_path)
         w_o_scale.tofile(w_o_scale_path)
-        logging.debug("w_o_scale shape is %s", w_o_scale.shape)
+        res[1] = w_o
+        res[2] = w_o_scale
+
         if has_smooth:
             smooth_wo = np.random.uniform(-1, 1, smooth_wo_shape).astype(np.float32)
             smooth_wo.tofile(smooth_wo_path)
+            res[3] = smooth_wo
     else:
         if is_nz:
             w_o.reshape(w_o_shape[0], w_o_shape[1] // 16, 16).transpose(1,0,2).tofile(w_o_path)
         else:
             w_o.tofile(w_o_path)
+        res[1] = w_o
+
+    return res
+
+
+def gen_post_test_data(output_dir: Path, params, dtype, is_quant=True, has_smooth=True, is_nz=True):
+    b, n, s, h, kv_lora_rank, v_head_dim = params
+    x_shape = [b, s, n, kv_lora_rank]
+    logging.debug("x shape is %s", x_shape)
+
+    x_path = Path(output_dir, 'x.bin')
+    output_path = Path(output_dir, 'golden_output.bin')
+
+    np.random.seed(int(time.time()))
+
+    x = np.random.uniform(-10, 10, x_shape).astype(dtype)
+    x.tofile(x_path)
+    w_uv, w_o, w_o_scale, smooth_wo = gen_post_input_data(output_dir, params, dtype, is_quant, has_smooth, is_nz)
 
     inputs = {"dtype": dtype, "is_quant": is_quant, "has_smooth": has_smooth}
     inputs["x"] = x
     inputs["w_uv"] = w_uv
     inputs["w_o"] = w_o
     if is_quant:
-        inputs["w_o"] = w_o_quant
         inputs["w_o_scale"] = w_o_scale
         if has_smooth:
             inputs["smooth_wo"] = smooth_wo
@@ -199,12 +217,16 @@ def gen_post_test_data(output_dir: Path, params, dtype, is_quant=True, has_smoot
         "AttentionPostSTest.b96_s1_nz_bf16_quant",
         "AttentionPostSTest.b96_s2_nz_bf16_quant",
         # fp16, nd, quant
+        "AttentionPostSTest.b16_s1_nd_fp16_quant",
+        "AttentionPostSTest.b16_s2_nd_fp16_quant",
         "AttentionPostSTest.b32_s1_nd_fp16_quant",
         "AttentionPostSTest.b32_s2_nd_fp16_quant",
         # fp16, nz, no quant
         "AttentionPostSTest.b32_s1_nz_fp16",
         "AttentionPostSTest.b32_s2_nz_fp16",
         # fp16, nd, no quant
+        "AttentionPostSTest.b16_s1_nd_fp16",
+        "AttentionPostSTest.b16_s2_nd_fp16",
         "AttentionPostSTest.b32_s1_nd_fp16",
         "AttentionPostSTest.b32_s2_nd_fp16",
     ]
@@ -264,6 +286,10 @@ def gen_post_date(case_name: str, output: Path) -> bool:
     elif case_name == "AttentionPostSTest.b96_s2_nz_bf16_quant":
         gen_post_test_data(output, (96, 128, 2, 7168, 512, 128), bfloat16, True, True, True)
     # fp16, nd, quant
+    elif case_name == "AttentionPostSTest.b16_s1_nd_fp16_quant":
+        gen_post_test_data(output, (16, 128, 1, 7168, 512, 128), np.float16, True, True, False)
+    elif case_name == "AttentionPostSTest.b16_s2_nd_fp16_quant":
+        gen_post_test_data(output, (16, 128, 2, 7168, 512, 128), np.float16, True, True, False)
     elif case_name == "AttentionPostSTest.b32_s1_nd_fp16_quant":
         gen_post_test_data(output, (32, 128, 1, 7168, 512, 128), np.float16, True, True, False)
     elif case_name == "AttentionPostSTest.b32_s2_nd_fp16_quant":
@@ -274,6 +300,10 @@ def gen_post_date(case_name: str, output: Path) -> bool:
     elif case_name == "AttentionPostSTest.b32_s2_nz_fp16":
         gen_post_test_data(output, (32, 128, 2, 7168, 512, 128), np.float16, False, False, True)
     # fp16, nd, no quant
+    elif case_name == "AttentionPostSTest.b16_s1_nd_fp16":
+        gen_post_test_data(output, (16, 128, 1, 7168, 512, 128), np.float16, False, False, False)
+    elif case_name == "AttentionPostSTest.b16_s2_nd_fp16":
+        gen_post_test_data(output, (16, 128, 2, 7168, 512, 128), np.float16, False, False, False)
     elif case_name == "AttentionPostSTest.b32_s1_nd_fp16":
         gen_post_test_data(output, (32, 128, 1, 7168, 512, 128), np.float16, False, False, False)
     elif case_name == "AttentionPostSTest.b32_s2_nd_fp16":

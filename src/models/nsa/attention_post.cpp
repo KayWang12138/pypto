@@ -47,36 +47,36 @@ void PostCompute(Tensor &input, Tensor &weightUV, Tensor &weightO, Tensor &weigh
     bool isQuant = (weightOScale.GetStorage() != nullptr);
     bool isSmooth = (smoothScalesWo.GetStorage() != nullptr);
 
-    SymbolicScalar b = GetInputShapeDim(input, 0);
-    SymbolicScalar s = GetInputShapeDim(input, 1);
+    int b = input->shape[0];  // SymbolicScalar b = GetInputShapeDim(input, 0);
+    int s = input->shape[1];  // SymbolicScalar s = GetInputShapeDim(input, 1);
     SymbolicScalar bLoop = b / tileB;
     SymbolicScalar sLoop = s / tileS;
 
-    LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1)) {
+    LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1), {}, true) {
         SymbolicScalar bOffset = bIdx * tileB;
         LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sLoop, 1)) {
             SymbolicScalar sOffset = sIdx * tileS;
             std::vector<SymbolicScalar> outOffset = {bOffset, sOffset, 0};
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, NUM_32, kvLoraRank});
+            Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, kvLoraRank});
             auto inputView = DView(input, {tileB, tileS, n, kvLoraRank}, {bOffset, sOffset, 0, 0});
             ConfigManager::Instance().SetSemanticLabel("postReshape1");
             auto inputRes = Reshape(inputView, {tileBS, n, kvLoraRank});
-            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(NUM_32, tileBS), NUM_2, kvLoraRank});
+            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32, tileBS), 2, kvLoraRank});
             ConfigManager::Instance().SetSemanticLabel("postTranspose1");
             auto inputTrans = Transpose(inputRes, {0, 1});  // [n,tileBS,kvLoraRank]
 
             ConfigManager::Instance().SetSemanticLabel("postBmm");
-            int c0 = NUM_16;
-            int m = (std::min(NUM_32, tileBS) + c0 - 1) / c0 * c0;
+            int c0 = 16;
+            int m = (std::min(32, tileBS) + c0 - 1) / c0 * c0;
             Program::GetInstance().GetTileShape().SetCubeTileShapes({m, m},
-                {std::min(NUM_256, kvLoraRank), std::min(NUM_512, kvLoraRank)},
+                {std::min(256, kvLoraRank), std::min(512, kvLoraRank)},
                 {vHeadDim, vHeadDim}, true);
             // [n,tileBS,kvLoraRank] @ [n,kvLoraRank,vHeadDim] -> [n,tileBS,vHeadDim]
             auto bmm = Matrix::BatchMatmul(dtype, inputTrans, weightUV);
 
             ConfigManager::Instance().SetSemanticLabel("postTranspose2");
-            Program::GetInstance().GetTileShape().SetVecTileShapes({4, std::min(NUM_32, tileBS), vHeadDim});
+            Program::GetInstance().GetTileShape().SetVecTileShapes({4, std::min(32, tileBS), vHeadDim});
             auto bmmTrans = Transpose(bmm, {0, 1}); // [n,tileBS,vHeadDim] -> [tileBS,n,vHeadDim]
             ConfigManager::Instance().SetSemanticLabel("postReshape2");
             auto bmmRes = Reshape(bmmTrans, {tileBS, n * vHeadDim});
@@ -95,14 +95,14 @@ void PostCompute(Tensor &input, Tensor &weightUV, Tensor &weightO, Tensor &weigh
 
                 ConfigManager::Instance().SetSemanticLabel("postMm");
                 Program::GetInstance().GetTileShape().SetCubeTileShapes({m, m},
-                    {std::min(NUM_512, n * vHeadDim), std::min(NUM_512, n * vHeadDim)},
-                    {std::min(NUM_64, h), std::min(NUM_64, h)}, true);
+                    {std::min(512, n * vHeadDim), std::min(512, n * vHeadDim)},
+                    {std::min(64, h), std::min(64, h)}, true);
                 // [tileBS, n*vHeadDim] @ [n*vHeadDim, h] -> [tileBS, h], int8 @ int8 -> int32
                 Tensor mm = Matrix::Matmul(DataType::DT_INT32, bmmResQuant, weightO);
 
                 ConfigManager::Instance().SetSemanticLabel("postDequant");
                 Program::GetInstance().GetTileShape().SetVecTileShapes(
-                    {std::min(NUM_32, tileBS), std::min(NUM_32, h)});
+                    {std::min(32, tileBS), std::min(32, h)});
                 Tensor res = Cast(mm, DataType::DT_FP32);
                 res = Mul(res, scaleDequant);   // [tileBS, h] * [tileBS, 1] -> [tileBS, h]
                 res = Mul(res, weightOScale);   // [tileBS, h] * [1, h] -> [tileBS, h]
@@ -114,8 +114,8 @@ void PostCompute(Tensor &input, Tensor &weightUV, Tensor &weightO, Tensor &weigh
                 DAssemble(postOutView, outOffset, postOut);
             } else {
                 Program::GetInstance().GetTileShape().SetCubeTileShapes({m, m},
-                    {std::min(NUM_512, n * vHeadDim), std::min(NUM_512, n * vHeadDim)},
-                    {std::min(NUM_64, h), std::min(NUM_64, h)}, true);
+                    {std::min(512, n * vHeadDim), std::min(512, n * vHeadDim)},
+                    {std::min(64, h), std::min(64, h)}, true);
                 // [tileBS, n*vHeadDim] @ [n*vHeadDim, h] -> [tileBS, h], dtype @ dtype -> dtype
                 Tensor mm = Matrix::Matmul(dtype, bmmRes, weightO);
 

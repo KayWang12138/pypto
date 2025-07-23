@@ -23,6 +23,7 @@
 #include "interface/configs/config.h"
 #include "models/nsa/selected_attention.h"
 #include "models/deepseek/gen_kv_slc.h"
+#include "models/nsa/attention_post.h"
 
 namespace npu::tile_fwk {
 constexpr int NUM_1 = 1;
@@ -70,6 +71,7 @@ struct NSASimpleParams {
     int topk;
     std::string cacheMode;
     int blockSize;
+    int vHeadDim;
     static NSASimpleParams getCommonParams() {
         NSASimpleParams params;
         params.h = NUM_7168;
@@ -87,6 +89,7 @@ struct NSASimpleParams {
         params.topk = NUM_16;
         params.cacheMode = "BSND";
         params.blockSize = NUM_128;
+        params.vHeadDim = NUM_128;
         return params;
     }
 
@@ -121,7 +124,8 @@ void DynamicNsa(Tensor &topkIndices, Tensor &topkTensorShape, Tensor &kvNopeCach
     const Tensor &qNope, const Tensor &qRope, Tensor &kvSlcActSeqs, float softmaxScale, SaTileShapeConfig saTileConfig,
     const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, const Tensor &gateSimW1, GateMode gateMode,
     Tensor &cmpAtten, Tensor &winAtten,
-    Tensor &kvSlcActSeqOut, Tensor &attentionOut);
+    Tensor &weightUV, Tensor &weightO, Tensor &weightOScale, Tensor &smoothScalesWo, const PostTileConfig &postConfig,
+    Tensor &kvSlcActSeqOut, Tensor &attentionOut, Tensor &postOut);
 
 } // namespace npu::tile_fwk
 

@@ -43,8 +43,9 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::strin
     return RawTensorData::CreateTensor<T>(tensor, values);
 }
 
-template <typename T = npu::tile_fwk::float16>
-void TestNsa(const NSASimpleParams &params, SaTileShapeConfig& saTileConfig, KvSlcTileShapeConfig& kvSlcTileConfig) {
+template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool isSmooth = false, bool nz = false>
+void TestNsa(const NSASimpleParams &params, SaTileShapeConfig& saTileConfig, KvSlcTileShapeConfig& kvSlcTileConfig,
+    PostTileConfig& postConfig, float precision) {
     SetPreConfig();
 
     int b = params.b;
@@ -72,7 +73,10 @@ void TestNsa(const NSASimpleParams &params, SaTileShapeConfig& saTileConfig, KvS
     int maxSeqAllBatch = *(std::max_element(kvCacheActSeqVec.begin(), kvCacheActSeqVec.end()));
     int maxBlockNumPerBatch = CeilDiv(maxSeqAllBatch, blockSize);
 
+    int vHeadDim = params.vHeadDim;
     DataType dType = (std::is_same<T, npu::tile_fwk::float16>::value) ? DT_FP16 : DT_BF16;
+    bool isQuant = std::is_same<wDtype, int8_t>::value;
+    DataType dTypeQuant = isQuant ? DT_INT8 : dType;
 
     // 1. 设置shape
     std::vector<int> topkIndicesShape = {b, s1, topk - front - near};
@@ -98,6 +102,13 @@ void TestNsa(const NSASimpleParams &params, SaTileShapeConfig& saTileConfig, KvS
     // std::vector<int> shape_selAtten = {b, s1, n1, v_dim};
     std::vector<int> shape_winAtten = {b, s1, n1, v_dim};
     std::vector<int> shape_attentionOut = {b, s1, n1, v_dim};
+
+    // post: shape
+    std::vector<int> wUvShape = {n1, v_dim, vHeadDim};
+    std::vector<int> woShape = {n1 * vHeadDim, h};
+    std::vector<int> woScaleShape = {1, h};
+    std::vector<int> smoothWoShape = {1, n1 * vHeadDim};
+    std::vector<int> outShape = {b, s1, h};
 
     // 2. 构造tensor
     Tensor topkIndices(DT_INT32, topkIndicesShape, "topkTensor");
@@ -126,6 +137,14 @@ void TestNsa(const NSASimpleParams &params, SaTileShapeConfig& saTileConfig, KvS
     Tensor kvSlcActSeqsMidOut(DT_INT32, slcActSeqsShape, "kvSlcActSeqsMidOut");
     Tensor attenOut(dType, shape_attentionOut, "attenOut");
 
+    // post: Tensor
+    TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
+    Tensor wUv(dType, wUvShape, "wUv");
+    Tensor wo(dTypeQuant, woShape, "wo", NodeType::LOCAL, weightFormat);
+    Tensor woScale;
+    Tensor smoothWo;
+    Tensor postOut(dType, outShape, "postOut");
+
     // 3. 为输入填充数据
     auto topkIndicesData = CreateTensorData<int32_t>(topkIndices, "/topk_tensor.bin");
     auto topkTensorShapeData = CreateTensorData<int32_t>(topkTensorShape, "/topk_tensor_shape.bin");
@@ -149,42 +168,72 @@ void TestNsa(const NSASimpleParams &params, SaTileShapeConfig& saTileConfig, KvS
     // auto selAttenData = CreateTensorData<T>(selAtten, "/sel_atten.bin");
     auto winAttenData = CreateTensorData<T>(winAtten, "/win_atten.bin");
 
+    // post: data
+    auto wUvData = CreateTensorData<T>(wUv, "/w_uv.bin");
+    auto woData = CreateTensorData<wDtype>(wo, "/w_o.bin");
+
     // auto gatingScoreZeroData = RawTensorData::CreateConstantTensor<T>(gatingScore, 0.0);
     auto kvSlcActSeqsMidOutZeroData = RawTensorData::CreateConstantTensor<int32_t>(kvSlcActSeqsMidOut, 0.0);
     auto attenOutZeroData = RawTensorData::CreateConstantTensor<T>(attenOut, 0.0);
+    auto outputData = RawTensorData::CreateConstantTensor<T>(postOut, 0.0);
 
     // std::vector<T> gatingScoreGolden = getGoldenVec<T>(gatingScoreShape, "/gating_score.bin");
     std::vector<int32_t> kvSlcActSeqMidOutGolden = getGoldenVec<int32_t>(slcActSeqsShape, "/kv_slc_actual_seqs.bin");
     std::vector<T> attenOutGolden = getGoldenVec<T>(shape_attentionOut, "/attention_out.bin");
+    std::vector<T> postGolden = getGoldenVec<T>(outShape, "/golden_output.bin");
+
+    std::vector<RawTensorDataPtr> inputDataList = {
+        topkIndicesData, topkTensorShapeData, kvNopeCacheData, kRopeCacheData, kvCacheActSeqData, blockTableData, // genkvSlc
+        qNopeData, qRopeData, slcActSeqsData, // slcAtten
+        xData, gateW1Data, gateW2Data, gateSimW1Data, // gatedScore
+        cmpAttenData, winAttenData, // genAttn
+        wUvData, woData, // post
+    };
+    if (isQuant) {
+        Tensor scale(DT_FP32, woScaleShape, "woScale");
+        woScale = scale;
+        auto woScaleData = CreateTensorData<float>(woScale, "/w_o_scale.bin");
+        inputDataList.emplace_back(woScaleData);
+        if (isSmooth) {
+            Tensor smooth(DT_FP32, smoothWoShape, "smoothWo");
+            smoothWo = smooth;
+            auto smoothWoData = CreateTensorData<float>(smoothWo, "/smooth_wo.bin");
+            inputDataList.emplace_back(smoothWoData);
+        }
+    }
 
     // 4. 计算接口
     DynamicNsa(topkIndices, topkTensorShape, kvNopeCache, kRopeCache, kvCacheActSeq, blockTable, front, near, topk, slcBlockSize, blockSize, kvSlcTileConfig, // genKvSlc
         qNope, qRope, slcActSeqs, softmaxScale, saTileConfig, // slcAttn
         x, gateW1, gateW2, gateSimW1, GateMode::standard, // gatedscore
         cmpAtten, winAtten, // gen win
-        kvSlcActSeqsMidOut, attenOut);
+        wUv, wo, woScale, smoothWo, postConfig, // post
+        kvSlcActSeqsMidOut, attenOut, postOut);
 
     auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
     // 5. 更新输入输出list
-    DynFuncRunner::Run(funcOp,
-        {topkIndicesData, topkTensorShapeData, kvNopeCacheData, kRopeCacheData, kvCacheActSeqData, blockTableData, // genkvSlc
-         qNopeData, qRopeData, slcActSeqsData, // slcAtten
-         xData, gateW1Data, gateW2Data, gateSimW1Data, // gatedScore
-         cmpAttenData, winAttenData // genAttn
-        }, // input list
-        {kvSlcActSeqsMidOutZeroData, attenOutZeroData}); // output list
+    DynFuncRunner::Run(funcOp,  inputDataList, // input list
+        {kvSlcActSeqsMidOutZeroData, attenOutZeroData, outputData}); // output list
+
+    // attenOutZeroData->ToFile(GetGoldenDir() + "/attenOutNpu.bin");
 
     // EXPECT_TRUE(resultCmp<T>(gatingScoreGolden, (T *)gatingScoreZeroData->data(), 0.008f, 16)); // gatedScore
+    std::cout << "kvSlcActSeqMidOut ====== " << std::endl;
     EXPECT_TRUE(resultCmp<int32_t>(kvSlcActSeqMidOutGolden, (int32_t *)kvSlcActSeqsMidOutZeroData->data(), 0.0005f));
+    std::cout << "attenOut ====== " << std::endl;
     EXPECT_TRUE(resultCmp<T>(attenOutGolden, (T *)attenOutZeroData->data(), 0.008f));
+    std::cout << "postOut ====== " << std::endl;
+    EXPECT_TRUE(resultCmp<T>(postGolden, (T *)outputData->data(), precision));
+    std::cout << "postOut ====== print" << std::endl;
+    resultCmp<T>(postGolden, (T *)outputData->data(), precision, int(b * s1 * h * precision), 1000, false, false, 16);
 #endif
 }
 
 TEST_F(DynamicNSATest, subgraph_4_5_6_fp16_b16) {
     NSASimpleParams params = NSASimpleParams::getDecodeParams();
 
-    int paramsSize = 5;
+    int paramsSize = 7;
     std::vector<int> inputParams(paramsSize);
     readInput<int>(GetGoldenDir() + "/input_params.bin", inputParams); // 在golden中保存了变化的参数，便于调试
     params.b = inputParams[0]; // 16
@@ -192,6 +241,9 @@ TEST_F(DynamicNSATest, subgraph_4_5_6_fp16_b16) {
     params.s2 = inputParams[2];
     params.n1 = inputParams[3];
     params.n2 = inputParams[4];
+    int isQuant = inputParams[5];
+    int isSmooth = inputParams[6];
+    std::cout << "===========subgraph_4_5_6_fp16_b16: isQuant: " << isQuant << ", isSmooth: " << isSmooth << std::endl;
 
     SaTileShapeConfig saTileConfig;
     const int gTile = 128; // for gLoop split
@@ -206,5 +258,56 @@ TEST_F(DynamicNSATest, subgraph_4_5_6_fp16_b16) {
     KvSlcTileShapeConfig kvSlcTileConfig;
     kvSlcTileConfig.v0TileShape = {32, 32};
 
-    TestNsa<npu::tile_fwk::float16>(params, saTileConfig, kvSlcTileConfig);
+    PostTileConfig postConfig = {16, 1};
+
+    if (isQuant == 1) {
+        if (isSmooth == 1) {
+            TestNsa<npu::tile_fwk::float16, int8_t, true>(params, saTileConfig, kvSlcTileConfig, postConfig, 0.06f);
+        } else {
+            TestNsa<npu::tile_fwk::float16, int8_t, false>(params, saTileConfig, kvSlcTileConfig, postConfig, 0.06f);
+        }
+    } else {
+        TestNsa<npu::tile_fwk::float16, npu::tile_fwk::float16, false>(params, saTileConfig, kvSlcTileConfig, postConfig, 0.02f);
+    }
+}
+
+TEST_F(DynamicNSATest, subgraph_4_5_6_fp16_b16_quant) {
+    NSASimpleParams params = NSASimpleParams::getDecodeParams();
+
+    int paramsSize = 7;
+    std::vector<int> inputParams(paramsSize);
+    readInput<int>(GetGoldenDir() + "/input_params.bin", inputParams); // 在golden中保存了变化的参数，便于调试
+    params.b = inputParams[0]; // 16
+    params.s1 = inputParams[1];
+    params.s2 = inputParams[2];
+    params.n1 = inputParams[3];
+    params.n2 = inputParams[4];
+    int isQuant = inputParams[5];
+    int isSmooth = inputParams[6];
+    std::cout << "===========subgraph_4_5_6_fp16_b16_quant: isQuant: " << isQuant << ", isSmooth: " << isSmooth << std::endl;
+
+    SaTileShapeConfig saTileConfig;
+    const int gTile = 128; // for gLoop split
+    const int sTile = 1024; // for s2Loop split
+    saTileConfig.gTile = gTile;
+    saTileConfig.sKvTile = sTile;
+    saTileConfig.c1TileShape = {gTile, gTile, 64, 64, 128, 128}; // (n1, dn+dr) @ (s2Tile, dn+dr) -> (n1, s2Tile)
+    saTileConfig.v1TileShape = {16, 256}; // (n1, s2Tile)
+    saTileConfig.c2TileShape = {gTile, gTile, 64, 64, 128, 128}; // (n1, s2Tile) @ (s2Tile, dn) -> (n1, d)
+    saTileConfig.v2TileShape = {16, 256}; // (n1, d)
+
+    KvSlcTileShapeConfig kvSlcTileConfig;
+    kvSlcTileConfig.v0TileShape = {32, 32};
+
+    PostTileConfig postConfig = {16, 1};
+
+    if (isQuant == 1) {
+        if (isSmooth == 1) {
+            TestNsa<npu::tile_fwk::float16, int8_t, true>(params, saTileConfig, kvSlcTileConfig, postConfig, 0.06f);
+        } else {
+            TestNsa<npu::tile_fwk::float16, int8_t, false>(params, saTileConfig, kvSlcTileConfig, postConfig, 0.06f);
+        }
+    } else {
+        TestNsa<npu::tile_fwk::float16, npu::tile_fwk::float16, false>(params, saTileConfig, kvSlcTileConfig, postConfig, 0.02f);
+    }
 }

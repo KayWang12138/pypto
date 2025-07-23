@@ -27,8 +27,7 @@ from bfloat16 import bfloat16
 
 from golden.net.deepseekv3.nsa.gen_slc_attn import compute_attention
 from golden.op.kv_slc import kv_slc_compute
-
-np.random.seed(None)
+from golden.net.deepseekv3.nsa.attention_post_golden import post_compute, gen_post_input_data
 
 
 if __name__ == "__main__":
@@ -255,7 +254,7 @@ def dump_gated_score_file(x, gate_sim_w1, gate_w1, gate_w2, gating_score, dtype,
     gating_score.astype(dtype).tofile(gating_score_path)
 
 
-def gen_nsa_golden(params, dtypes, output_dir: Path):
+def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
     '''
     将整个nsa分为6个子图进行串联
     subgragh 1: gen_win_attn
@@ -264,6 +263,7 @@ def gen_nsa_golden(params, dtypes, output_dir: Path):
     subgragh 4: gen_slc_atten, 其中包括: gen_kv_slc及slc_attn
     subgragh 5: gen_gated_score
     subgragh 6: gen_attn
+    subgragh 7: post
     '''
     print("=========== start =============: nsa golden")
 
@@ -287,6 +287,9 @@ def gen_nsa_golden(params, dtypes, output_dir: Path):
     near = params.get("near")
     topk = params.get("topk")
     block_size = params.get("block_size")
+    v_head_dim = params.get("v_head_dim")
+    is_quant = params.get("is_quant")
+    has_smooth = params.get("is_smooth")
 
     softmax_scale = q_dim ** -0.5
     slc_s_max = topk * slc_block_size
@@ -325,6 +328,7 @@ def gen_nsa_golden(params, dtypes, output_dir: Path):
     win_atten_shape = [b, s, n1, v_dim]
     gating_score_shape = [b, s, n1, 3]
 
+    np.random.seed(int(time.time()))
 
     # 2. 生成数据
     kv_nope_cache, k_rope_cache, block_table = gen_kv_cache(params, kv_cache_actual_seq, dtype, output_dir) # 生成kvcache
@@ -351,6 +355,10 @@ def gen_nsa_golden(params, dtypes, output_dir: Path):
     cmp_atten = np.random.uniform(-1, 1, cmp_atten_shape).astype(dtype)
     # slc_atten = np.random.uniform(-1, 1, sel_atten_shape).astype(dtype)
     win_atten = np.random.uniform(-1, 1, win_atten_shape).astype(dtype)
+
+    # post
+    post_params = [b, n1, s, h, kv_lora_rank, v_head_dim]
+    w_uv, w_o, w_o_scale, smooth_wo = gen_post_input_data(output_dir, post_params, dtype, is_quant, has_smooth, is_nz)
 
 
     # 3. 计算 & dump file
@@ -387,12 +395,30 @@ def gen_nsa_golden(params, dtypes, output_dir: Path):
     print("========== gen attn ==============")
     attention_out = gen_atten_golden_data(cmp_atten, slc_atten, win_atten, gating_score, dtype)
     dump_gen_atten_file(cmp_atten, slc_atten, win_atten, attention_out, dtype, output_dir)
+    print("========== attention_out: ", attention_out.shape, attention_out.dtype)
+
+    # post
+    print("========== gen post output ==============")
+    post_inputs = {"dtype": dtype, "is_quant": is_quant, "has_smooth": has_smooth}
+    post_inputs["x"] = attention_out
+    post_inputs["w_uv"] = w_uv
+    post_inputs["w_o"] = w_o
+    if is_quant:
+        post_inputs["w_o_scale"] = w_o_scale
+        if has_smooth:
+            post_inputs["smooth_wo"] = smooth_wo
+    post_out = post_compute(post_inputs)
+
+    # dump output to file
+    output_path = Path(output_dir, 'golden_output.bin')
+    post_out.tofile(output_path)
 
     return True
 
 
-def nsa_entry(dtypes, bs1s2h, output_dir: Path):
+def nsa_entry(dtypes, bs1s2h, quant_smooth, output_dir: Path):
     b, s1, s2, h = bs1s2h
+    is_quant, is_smooth = quant_smooth
     kv_lora_rank = 512
     rope_dim = 64
     q_dim = kv_lora_rank + rope_dim
@@ -400,6 +426,7 @@ def nsa_entry(dtypes, bs1s2h, output_dir: Path):
     v_dim = kv_lora_rank
     topk = 16
     slc_block_size = 64
+    v_head_dim = 128
 
     params = {
         "b": b,
@@ -424,17 +451,23 @@ def nsa_entry(dtypes, bs1s2h, output_dir: Path):
         "topk": topk,
         "block_size": 128,
         "kv_cache_actual_seq": s2,
+        "v_head_dim": v_head_dim,
+        "is_quant": is_quant,
+        "is_smooth": is_smooth,
     }
     gen_nsa_golden(params, dtypes, output_dir)
 
     # 将变化的参数保存到文件中，供测试用例直接读取
     input_params = [params.get("b"), params.get("s"), params.get("s2"), params.get("n1"), params.get("n2")]
+    input_params.append(1 if is_quant else 0)
+    input_params.append(1 if is_smooth else 0)
     dump_file(input_params, Path(output_dir, 'input_params.bin'), np.int32)
 
 
 @GoldenRegister.reg_golden_func(
     case_names=[
         "DynamicNSATest.subgraph_4_5_6_fp16_b16",
+        "DynamicNSATest.subgraph_4_5_6_fp16_b16_quant",
     ]
 )
 def gen_nsa_v1_func(case_name: str, output: Path) -> bool:
@@ -456,7 +489,9 @@ def gen_nsa_v1_func(case_name: str, output: Path) -> bool:
         logging.info("Case(%s), Golden data exits. cache catch", case_name)
     else:
         if case_name == "DynamicNSATest.subgraph_4_5_6_fp16_b16": # gen_slc_attn + gen_gated_score + gen_attn
-            nsa_entry((np.float16, np.float16), (16, 1, 8192, 7168), output)
+            nsa_entry((np.float16, np.float16), (16, 1, 8192, 7168), (False, False), output)
+        elif case_name == "DynamicNSATest.subgraph_4_5_6_fp16_b16_quant": # quant
+            nsa_entry((np.float16, np.float16), (16, 1, 8192, 7168), (True, True), output)
         else:
             logging.error("Can't get func to gen golden, Case(%s)", case_name)
             return False

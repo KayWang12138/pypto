@@ -46,9 +46,9 @@ public:
     void TearDown() override {}
 };
 
-template <typename T = npu::tile_fwk::float16>
-void TestNsa(const NSASimpleParams &params, SaTileShapeConfig& saTileConfig, KvSlcTileShapeConfig& kvSlcTileConfig) {
-
+template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool isSmooth = false, bool nz = false>
+void TestNsa(const NSASimpleParams &params, SaTileShapeConfig& saTileConfig, KvSlcTileShapeConfig& kvSlcTileConfig,
+    PostTileConfig& postConfig) {
     int b = params.b;
     int s1 = params.s1;
     int s2 = params.s2;
@@ -74,7 +74,10 @@ void TestNsa(const NSASimpleParams &params, SaTileShapeConfig& saTileConfig, KvS
     int maxSeqAllBatch = *(std::max_element(kvCacheActSeqVec.begin(), kvCacheActSeqVec.end()));
     int maxBlockNumPerBatch = CeilDiv(maxSeqAllBatch, blockSize);
 
+    int vHeadDim = params.vHeadDim;
     DataType dType = (std::is_same<T, npu::tile_fwk::float16>::value) ? DT_FP16 : DT_BF16;
+    bool isQuant = std::is_same<wDtype, int8_t>::value;
+    DataType dTypeQuant = isQuant ? DT_INT8 : dType;
 
     // 1. 设置shape
     std::vector<int> topkIndicesShape = {b, s1, topk - front - near};
@@ -100,6 +103,13 @@ void TestNsa(const NSASimpleParams &params, SaTileShapeConfig& saTileConfig, KvS
     // std::vector<int> shape_selAtten = {b, s1, n1, v_dim};
     std::vector<int> shape_winAtten = {b, s1, n1, v_dim};
     std::vector<int> shape_attentionOut = {b, s1, n1, v_dim};
+
+    // post: shape
+    std::vector<int> wUvShape = {n1, v_dim, vHeadDim};
+    std::vector<int> woShape = {n1 * vHeadDim, h};
+    std::vector<int> woScaleShape = {1, h};
+    std::vector<int> smoothWoShape = {1, n1 * vHeadDim};
+    std::vector<int> outShape = {b, s1, h};
 
     // 2. 构造tensor
     Tensor topkIndices(DT_INT32, topkIndicesShape, "topkTensor");
@@ -128,24 +138,35 @@ void TestNsa(const NSASimpleParams &params, SaTileShapeConfig& saTileConfig, KvS
     Tensor kvSlcActSeqsMidOut(DT_INT32, slcActSeqsShape, "kvSlcActSeqsMidOut");
     Tensor attenOut(dType, shape_attentionOut, "attenOut");
 
+    // post: Tensor
+    TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
+    Tensor wUv(dType, wUvShape, "wUv");
+    Tensor wo(dTypeQuant, woShape, "wo", NodeType::LOCAL, weightFormat);
+    Tensor woScale;
+    Tensor smoothWo;
+    Tensor postOut(dType, outShape, "postOut");
+
     // 3. 计算接口
     DynamicNsa(topkIndices, topkTensorShape, kvNopeCache, kRopeCache, kvCacheActSeq, blockTable, front, near, topk, slcBlockSize, blockSize, kvSlcTileConfig, // genKvSlc
         qNope, qRope, slcActSeqs, softmaxScale, saTileConfig, // slcAttn
         x, gateW1, gateW2, gateSimW1, GateMode::standard, // gatedscore
         cmpAtten, winAtten, // gen win
-        kvSlcActSeqsMidOut, attenOut);
+        wUv, wo, woScale, smoothWo, postConfig, // post
+        kvSlcActSeqsMidOut, attenOut, postOut);
 }
 
 TEST_F(NSAUtest, nsa_b_16_fp16) {
     NSASimpleParams params = NSASimpleParams::getDecodeParams();
 
-    std::vector<int> inputParams = {16, 1, 8192, 128, 1};
+    std::vector<int> inputParams = {16, 1, 8192, 128, 1, 0, 0};
 
     params.b = inputParams[0]; // 16
     params.s1 = inputParams[1];
     params.s2 = inputParams[2];
     params.n1 = inputParams[3];
     params.n2 = inputParams[4];
+    int isQuant = inputParams[5];
+    int isSmooth = inputParams[6];
 
     SaTileShapeConfig saTileConfig;
     const int gTile = 128; // for gLoop split
@@ -160,5 +181,15 @@ TEST_F(NSAUtest, nsa_b_16_fp16) {
     KvSlcTileShapeConfig kvSlcTileConfig;
     kvSlcTileConfig.v0TileShape = {32, 32};
 
-    TestNsa<npu::tile_fwk::float16>(params, saTileConfig, kvSlcTileConfig);
+    PostTileConfig postConfig = {16, 1};
+
+    if (isQuant == 1) {
+        if (isSmooth == 1) {
+            TestNsa<npu::tile_fwk::float16, int8_t, true>(params, saTileConfig, kvSlcTileConfig, postConfig);
+        } else {
+            TestNsa<npu::tile_fwk::float16, int8_t, false>(params, saTileConfig, kvSlcTileConfig, postConfig);
+        }
+    } else {
+        TestNsa<npu::tile_fwk::float16, npu::tile_fwk::float16, false>(params, saTileConfig, kvSlcTileConfig, postConfig);
+    }
 }

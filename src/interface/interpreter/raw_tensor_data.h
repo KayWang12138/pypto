@@ -180,6 +180,15 @@ struct RawTensorData : public std::vector<uint8_t> {
     void SetDevPtr(uint8_t *ptr) { devPtr_ = ptr; }
     uint8_t *GetDevPtr() { return devPtr_; }
 
+    void ToFile(const std::string &path) const {
+        std::ofstream ofile(path, std::ios::out | std::ios::binary);
+        if (!ofile) {
+            std::cerr << "open file " << path << " failed!!!!\n";
+        }
+        ofile.write(reinterpret_cast<const char *>(data()), size());
+        ofile.close();
+    }
+
 private:
     uint8_t *devPtr_{nullptr};
     DataType dataType_;

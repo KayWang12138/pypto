@@ -15,6 +15,15 @@ set(_CaseFilterList
         "DynamicSATest.slc_attn_fp16"
         "DynamicSATest.slc_attn_bf16"
         "DynamicSATest.slc_attn_mtp_s1_2_fp16"
+
+        # NSA MlaProlog
+        # "MlaPrologSTest.b32_s1_pa_nz_bf16_quant"
+        "MlaPrologSTest.b32_s2_pa_nz_bf16_quant"
+
+        # NSA AttentionPost
+        # "AttentionPostSTest.b32_s1_nz_bf16_quant"
+        "AttentionPostSTest.b32_s2_nz_bf16_quant"
+
         #===========================================================================
         # '单 Op'精度用例
         #===========================================================================

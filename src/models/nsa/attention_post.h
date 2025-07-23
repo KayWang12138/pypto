@@ -21,7 +21,6 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config.h"
-#include "models/deepseek/deepseek_mla.h"
 
 namespace npu::tile_fwk {
 
