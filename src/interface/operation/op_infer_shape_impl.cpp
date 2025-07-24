@@ -440,4 +440,15 @@ void VecDupInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &va
     validShapes.push_back(validShape);
 }
 REGISTER_INFER_SHAPE_FUNC(OP_VEC_DUP, Opcode::OP_VEC_DUP, VecDupInferFunc);
+
+void ReshapeInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &validShapes) {
+    std::vector<SymbolicScalar> validShape;
+    if (op->GetAttr(OP_ATTR_PREFIX + "validShape", validShape)) {
+        validShapes.push_back(validShape);
+    } else {
+        auto dstShape = op->GetOOperands()[0]->GetShape();
+        validShapes.push_back(SymbolicScalar::FromConcrete(dstShape));
+    }
+}
+REGISTER_INFER_SHAPE_FUNC(OP_RESHAPE, Opcode::OP_RESHAPE, ReshapeInferFunc);
 }  // namespace npu::tile_fwk

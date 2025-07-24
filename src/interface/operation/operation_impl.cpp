@@ -2234,52 +2234,72 @@ static int CalculateCapacity(const std::vector<int> &shape) {
 
 void TiledInnerReshape(Function &function, const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
     auto &op = function.AddOperation("TILE_RESHAPE", {operand}, {result});
+    op.SetAttribute(OP_ATTR_PREFIX + "validShape", result->GetDynValidShape());
     op.oOperand.front()->SetIsDummy();
 }
 
 void TensorInnerReshape(Function &function, const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
     auto &operation = function.AddOperation(Opcode::OP_RESHAPE, {operand}, {result});
+    result->UpdateDynValidShape(SymbolicScalar::FromConcrete(result->GetShape()));
     operation.SetAttribute("reshape", result->shape);
 }
 
-Tensor Reshape(const Tensor &operand, const std::vector<int> &dstshape) {
-    int inputCapacity = CalculateCapacity(operand->shape);
-    int dstshapeCapacity = CalculateCapacity(dstshape);
-    if (inputCapacity != dstshapeCapacity) {
-        assert(0 && "The capacity does not meet requirements.");
+static std::vector<int> CheckAndInferShape(const std::vector<int> &oriShape, const std::vector<int> &dstshape) {
+    int negIdx = -1;
+    std::vector<int> newShape = dstshape;
+    int capacity = CalculateCapacity(oriShape);
+
+    for (size_t i = 0; i < newShape.size(); i++) {
+        int x = newShape[i];
+        ASSERT(x >= -1) << "Invalid shape " << x;
+        if (x == -1) {
+            ASSERT(negIdx == -1) << "Only one dim can be inferred";
+            negIdx = i;
+        }
+        ASSERT(capacity % x == 0) << "Invalid dstshape";
+        capacity /= x;
     }
 
+    if (negIdx != -1) {
+        newShape[negIdx] = capacity;
+        capacity = 1;
+    }
+    ASSERT(capacity == 1) << "Shape size not match";
+    return newShape;
+}
+
+static bool ReshapeNeedCopy(const Tensor &operand) {
+    if (operand->shape != operand->tensor->rawshape) {
+        return true;
+    }
+    if (operand->GetProducers().empty()) {
+        return false;
+    }
+    auto &op = **operand->GetProducers().begin();
+    if (op.GetOpcode() != Opcode::OP_VIEW) {
+        return false;
+    }
+    if (op.GetInputOperand(0)->GetShape() != op.GetOutputOperand(0)->GetShape()) {
+        return true;
+    }
+    return false;
+}
+
+Tensor Reshape(const Tensor &operand, const std::vector<int> &dstshape) {
     if (operand->shape == dstshape) {
         return operand;
     }
-    std::vector<int> offset(dstshape.size(), 0);
-    auto needCopy = [&operand]() -> bool {
-        if (operand->shape != operand->tensor->rawshape) {
-            return true;
-        }
-        if (operand->GetProducers().empty()) {
-            return false;
-        }
-        auto &op = **operand->GetProducers().begin();
-        if (op.GetOpcode() != Opcode::OP_VIEW) {
-            return false;
-        }
-        if (op.GetInputOperand(0)->GetShape() != op.GetOutputOperand(0)->GetShape()) {
-            return true;
-        }
-        return false;
-    };
-    if (needCopy()) {
-        // 数据不连续存储场景需要copy
+    auto newShape = CheckAndInferShape(operand->shape, dstshape);
+    if (ReshapeNeedCopy(operand)) {
         Tensor copyOperand(operand->Datatype(), operand->shape, "", operand->nodetype, operand->tensorfmt);
         CALL(InnerAssign, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(),
             copyOperand.GetStorage());
-        Tensor result(copyOperand->Datatype(), dstshape, "", operand->nodetype, operand->tensorfmt);
+        Tensor result(copyOperand->Datatype(), newShape, "", operand->nodetype, operand->tensorfmt);
         CALL(InnerReshape, *Program::GetInstance().GetCurrentFunction(), copyOperand.GetStorage(),
             result.GetStorage());
         return result;
     } else {
-        Tensor result(operand->Datatype(), dstshape, "", operand->nodetype, operand->tensorfmt);
+        Tensor result(operand->Datatype(), newShape, "", operand->nodetype, operand->tensorfmt);
         CALL(InnerReshape, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage());
         return result;
     }

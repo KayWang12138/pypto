@@ -209,7 +209,7 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_DUPLICATE, OpCoreType::ANY, "DUPLICATE", {}, {MemoryType::MEM_DEVICE_DDR}, {},
                  OpCalcType::MOVE_LOCAL);
     // Move
-    registerInfo(Opcode::OP_RESHAPE, OpCoreType::ANY, "RESHAPE", {}, {}, {"TileOp::Treshape", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER);
+    registerInfo(Opcode::OP_RESHAPE, OpCoreType::ANY, "RESHAPE", {}, {}, {"TileOp::Treshape", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "validShape"});
     registerInfo(Opcode::OP_ASSEMBLE, OpCoreType::ANY, "ASSEMBLE", {}, {MemoryType::MEM_DEVICE_DDR}, {"ASSEMBLE", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::MOVE_LOCAL);
     registerInfo(Opcode::OP_VIEW, OpCoreType::ANY, "VIEW", {}, {}, {"VIEW", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::MOVE_LOCAL);
     registerInfo(Opcode::OP_INDEX_OUTCAST, OpCoreType::ANY, "INDEX_OUTCAST", {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR},
