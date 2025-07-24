@@ -548,6 +548,148 @@ def gen_vector_dup_op_golden(case_name: str, output: Path, case_index: int = Non
     return process_test_cases(case_name, output, test_configs, generate_golden_files, case_index)
 
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestMul/MulOperationTest.TestMul",
+    ]
+)
+def gen_mul_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    def generate_golden_files(case_name: str, output_path: Path, shape: list, dtype, index: int) -> bool:
+        x_path = Path(output_path, 'x.bin')
+        y_path = Path(output_path, 'y.bin')
+        o_path = Path(output_path, 'res.bin')
+
+        complete = x_path.exists() and y_path.exists() and o_path.exists()
+        if complete:
+            logging.debug("Case(%s), Golden complete.", case_name)
+            return True
+
+        x = np.random.uniform(0, 1, shape).astype(dtype)
+        y = np.random.uniform(0, 1, shape).astype(dtype)
+        if index == 11:
+            x[0][0] = np.inf
+            y[0][0] = np.inf
+        elif index == 12:
+            x[0][0] = np.nan
+            y[0][0] = np.nan
+        elif index == 13:
+            x[0][0] = np.finfo(np.float32).max
+            y[0][0] = np.finfo(np.float32).max
+        elif index == 14:
+            x[0][0] = np.finfo(np.float32).min
+            y[0][0] = np.finfo(np.float32).min
+        elif index == 15:
+            y = np.random.uniform(0, 1, [32, 1]).astype(dtype)
+        elif index == 16:
+            y = np.random.uniform(0, 1, [1, 32]).astype(dtype)
+        elif index == 17:
+            y = np.random.uniform(0, 1, [1, 1, 1, 16]).astype(dtype)
+        elif index == 18:
+            y = np.random.uniform(0, 1, [16, 16, 1, 16]).astype(dtype)
+
+        x.tofile(x_path)
+        y.tofile(y_path)
+        (x * y).tofile(o_path)
+        return False
+
+    # 测试数据集，根据具体测试需求修改，可增加字段
+    test_configs = [
+        ([32, 1536], np.float32),
+        ([71, 576], np.float32),
+        ([32, 1], np.float32),
+        ([8, 128], np.float32),
+        ([1, 1], np.float32),
+        ([107, 145], np.float32),
+        ([32, 32], np.float32),
+        ([128, 128], np.float32),
+        ([192, 512], np.float32),
+        ([2, 2, 2, 65], np.float32),
+        ([32, 128, 64, 192], np.float32),
+        ([32, 32], np.float32), # 11 inf
+        ([32, 32], np.float32), # 12 nan
+        ([32, 32], np.float32), # 13 float32 max
+        ([32, 32], np.float32), # 14 float32 min
+        ([32, 32], np.float32), # 15 float32
+        ([32, 32], np.float32), # 16 float32
+        ([1, 1, 16, 16], np.float32),           # 17 float32
+        ([16, 16, 16, 16], np.float32),         # 18 float32
+        ([16, 128, 10, 2], np.float32),       # 19 float32
+    ]
+
+    # 1.跑测试套还是单个用力，生成不同场景的文件夹，一般不用改
+    # 2.涉及test_configs数据结构变更，generate_golden_files的接口形式和调用传参可能需联动修改
+    if case_index is None:
+        for index, (shape, dtype) in enumerate(test_configs):
+            output_path = Path(str(output) + '/' + str(index))
+            output_path.mkdir(parents=True, exist_ok=True)
+            generate_golden_files(case_name, output_path, shape, dtype, index)
+    else:
+        shape, dtype = test_configs[case_index]
+        generate_golden_files(case_name, output, shape, dtype, case_index)
+    return True
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestSqrt/SqrtOperationTest.TestSqrt",
+    ]
+)
+
+def gen_sqrt_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    def generate_golden_files(case_name: str, output_path: Path, shape: list, dtype, idx: int) -> bool:
+        x_path = Path(output_path, 'x.bin')
+        o_path = Path(output_path, 'res.bin')
+
+        complete = x_path.exists() and o_path.exists()
+        if complete:
+            logging.debug("Case(%s), Golden complete.", case_name)
+            return True
+
+        x = np.random.uniform(0, 1, shape).astype(dtype)
+        if idx == 11:
+            x[0][0] = np.inf
+        elif idx == 12:
+            x[0][0] = np.nan
+        elif idx == 13:
+            x[0][0] = np.finfo(np.float32).max
+        elif idx == 14:
+            x[0][0] = np.finfo(np.float32).min
+
+        x.tofile(x_path)
+        (np.sqrt(x)).tofile(o_path)
+        return False
+
+    case_idx = case_index
+    # 测试数据集，根据具体测试需求修改，可增加字段
+    test_configs = [
+        ([16, 1], np.float32),
+        ([32, 1], np.float32),
+        ([32, 128], np.float32),
+        ([32, 1], np.float32),
+        ([1, 1], np.float32),
+        ([32, 32], np.float32),
+        ([128, 128], np.float16),
+        ([16, 1], np.float32),
+        ([16, 1], np.float32),
+        ([128, 128], np.float32),
+        ([32, 32], np.float32), # 11 inf
+        ([32, 32], np.float32), # 12 nan
+        ([32, 32], np.float32), # 13 float32 max
+        ([32, 32], np.float32), # 14 float32 min
+        ([64 * 48, 128 * 3], np.float32),
+    ]
+
+    if case_idx is None:
+        for idx, (shape, dtype) in enumerate(test_configs):
+            output_path = Path(str(output) + '/' + str(idx))
+            output_path.mkdir(parents=True, exist_ok=True)
+            generate_golden_files(case_name, output_path, shape, dtype, idx)
+    else:
+        shape, dtype = test_configs[case_idx]
+        generate_golden_files(case_name, output, shape, dtype, case_idx)
+    return True
+
+
 def main() -> bool:
     # 用例名称
     case_name_list: List[str] = [
