@@ -874,6 +874,7 @@ std::string CodeGenOpCloudNPU::PrintBinaryStatic(const PrintBinaryParam &param) 
     const std::string &s1Var = param.s1Var;
 
     std::vector<int> os0 = NormalizeShape(originShape[1], SHAPE_DIM4);
+    std::vector<int> os1 = NormalizeShape(originShape[2], SHAPE_DIM4);
     std::vector<int> s0 = NormalizeShape(rawShape[1], SHAPE_DIM4);
     std::vector<int> s1 = NormalizeShape(rawShape[2], SHAPE_DIM4);
     std::vector<int> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
@@ -885,6 +886,7 @@ std::string CodeGenOpCloudNPU::PrintBinaryStatic(const PrintBinaryParam &param) 
     for (int i = 1; i < SHAPE_DIM4; ++i) {
         paramList.emplace_back(std::to_string(os0[i]));
     }
+    paramList.emplace_back("/*OS1*/ " + std::to_string(os1[ID3]));
     paramList.emplace_back("/*DS*/ " + std::to_string(ds[1]));
     for (int i = 2; i < SHAPE_DIM4; ++i) {
         paramList.emplace_back(std::to_string(ds[i]));
@@ -897,6 +899,11 @@ std::string CodeGenOpCloudNPU::PrintBinaryStatic(const PrintBinaryParam &param) 
     for (int i = 2; i < SHAPE_DIM4; ++i) {
         paramList.emplace_back(std::to_string(s1[i]));
     }
+    bool copyFlag = false;
+    if (opCode == Opcode::OP_PAIRMAX || opCode == Opcode::OP_PAIRSUM) {
+        copyFlag = true;
+    }
+    paramList.emplace_back("/*copyFlag*/ " + std::to_string(copyFlag));
     std::string templateParam = JoinString(paramList, ", ");
 
     paramList.clear();
@@ -910,7 +917,6 @@ std::string CodeGenOpCloudNPU::PrintBinaryStatic(const PrintBinaryParam &param) 
     std::string tiloOpCallParam = JoinString(paramList, ", ");
     os << tileOpName.c_str() << "_<" << templateParam << ">"
        << "(" << tiloOpCallParam << ");\n";
-    ;
 
     return os.str();
 }

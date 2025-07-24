@@ -66,22 +66,18 @@ Status SrcDstBufferMerge::Init(const std::vector<Operation *> &opList) {
     return SUCCESS;
 }
 
-bool SrcDstBufferMerge::CheckIgnoreScene(Function &func, const Operation *oriOps) {
+bool SrcDstBufferMerge::CheckIgnoreScene(const Operation *oriOps) {
     /* use opcode is unfavorable for reading and modification, maybe use opcalctype */
     const std::set<Opcode> ignoreOps = {Opcode::OP_UB_COPY_IN, Opcode::OP_UB_COPY_OUT, Opcode::OP_UB_ALLOC,
         Opcode::OP_L0C_COPY_OUT, Opcode::OP_ROWMAX, Opcode::OP_ROWEXPSUM, Opcode::OP_REMOTE_GATHER,
         Opcode::OP_ROWEXPMAX, Opcode::OP_TRANSPOSE_VNCHWCONV, Opcode::OP_COPY_IN, Opcode::OP_COPY_OUT,
-        Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_MAX_POOL, Opcode::OP_COPY_UB_TO_UB};
+        Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_MAX_POOL, Opcode::OP_COPY_UB_TO_UB,
+        Opcode::OP_PAIRMAX, Opcode::OP_PAIRSUM};
 
     if (ignoreOps.count(oriOps->GetOpcode()) != 0) {
         return true;
     }
 
-    if (func.GetRootFunction()->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC_LOOP_PATH, GraphType::ROOT_GRAPH)) {
-        if (oriOps->GetOpcode() == Opcode::OP_PAIRMAX || oriOps->GetOpcode() == Opcode::OP_PAIRSUM) {
-            return true;
-        }
-    }
     if (oriOps->HasAttr(OpAttributeKey::isCube) &&
         oriOps->GetBoolAttribute(OpAttributeKey::isCube)) {
         return true;
@@ -170,7 +166,7 @@ Status SrcDstBufferMerge::Run(Function &func) {
         std::unordered_map<int, std::shared_ptr<LogicalTensor>> replacedTensors;
         for (size_t i = 0; i < oriOps.size(); i++) {
             ALOG_DEBUG_F("Try reuse op [%d] input by out tensor", oriOps[i]->GetOpMagic());
-            if (CheckIgnoreScene(func, oriOps[i])) {
+            if (CheckIgnoreScene(oriOps[i])) {
                 continue;
             }
             int inIdx = 0;

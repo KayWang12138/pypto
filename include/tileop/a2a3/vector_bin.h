@@ -16,8 +16,19 @@
 #include <float.h>
 
 // dim2 & dim1 (T0 = 1 for dim1)
-template <typename T, unsigned T0, unsigned T1, unsigned DS, unsigned SS0, unsigned SS1>
+template <typename T, unsigned T0, unsigned S0T1, unsigned S1T1, unsigned DS, unsigned SS0, unsigned SS1, bool copyFlag>
 TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1) {
+    constexpr unsigned T1 = S0T1 < S1T1 ? S0T1 : S1T1;
+    if (copyFlag && S0T1 != S1T1) {
+        __ubuf__ T *src = S0T1 > S1T1 ? src0 : src1;
+        constexpr unsigned srcT1 = S0T1 > S1T1 ? S0T1 : S1T1;
+        constexpr uint16_t lenBurst = (srcT1 * sizeof(T) + BLOCK_SIZE - 1) / BLOCK_SIZE;
+        constexpr uint16_t srcSS = S0T1 > S1T1 ? SS0 : SS1;
+        constexpr uint16_t srcGap = srcSS * sizeof(T) / BLOCK_SIZE - lenBurst;
+        constexpr uint16_t dstGap = DS * sizeof(T) / BLOCK_SIZE - lenBurst;
+        copy_ubuf_to_ubuf(dst, src, 0, T0, lenBurst, srcGap, dstGap);
+        pipe_barrier(PIPE_V);
+    }
     constexpr unsigned elementsPerRepeat = REPEAT_BYTE / sizeof(T);
     constexpr unsigned numRepeatPerLine = T1 / elementsPerRepeat;
     constexpr unsigned numRemainPerLine = T1 % elementsPerRepeat;
@@ -50,12 +61,12 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1) {
     if constexpr (numRemainPerLine) {
         constexpr unsigned numLoop = T0 / REPEAT_MAX;
         constexpr unsigned remainAfterLoop = T0 % REPEAT_MAX;
-        bool strideOverFlag = (DS / blockSizeElem > REPEAT_STRIDE_MAX) || (SS0 / blockSizeElem > REPEAT_STRIDE_MAX) ||
-                              (SS1 / blockSizeElem > REPEAT_STRIDE_MAX);
+        constexpr bool strideOverFlag = (DS / blockSizeElem > REPEAT_STRIDE_MAX) ||
+         (SS0 / blockSizeElem > REPEAT_STRIDE_MAX) || (SS1 / blockSizeElem > REPEAT_STRIDE_MAX);
         SetContinuousMask(numRemainPerLine);
         if constexpr (numLoop) {
             for (int i = 0; i < numLoop; i++) {
-                if (strideOverFlag) {
+                if constexpr (strideOverFlag) {
                     for (uint64_t j = 0; j < REPEAT_MAX; j++) {
                         V_BIN_FUNC(dst + i * REPEAT_MAX * DS + j * DS, src0 + i * REPEAT_MAX * SS0 + j * SS0,
                             src1 + i * REPEAT_MAX * SS1 + j * SS1, 1, 1, 1, 1, 1, 1, 1);
@@ -67,7 +78,7 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1) {
             }
         }
         if constexpr (remainAfterLoop) {
-            if (strideOverFlag) {
+            if constexpr (strideOverFlag) {
                 for (unsigned j = 0; j < remainAfterLoop; j++) {
                     V_BIN_FUNC(dst + numLoop * REPEAT_MAX * DS + j * DS, src0 + numLoop * REPEAT_MAX * SS0 + j * SS0,
                         src1 + numLoop * REPEAT_MAX * SS1 + j * SS1, 1, 1, 1, 1, 1, 1, 1);
@@ -82,28 +93,11 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1) {
     }
 }
 
-// dim3
-template <typename T, unsigned T0, unsigned T1, unsigned T2,
-         unsigned DS0, unsigned DS1,
-         unsigned S0S0, unsigned S0S1,
-         unsigned S1S0, unsigned S1S1>
-TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1) {
-    static_assert((DS1 * sizeof(T)) % BLOCK_SIZE == 0);
-    static_assert((S0S1 * sizeof(T)) % BLOCK_SIZE == 0);
-    static_assert((S1S1 * sizeof(T)) % BLOCK_SIZE == 0);
-    for (int i = 0; i < T0; i++) {
-        T_BIN<T, T1, T2, DS1, S0S1, S1S1>(dst, src0, src1);
-        dst += DS0 * DS1;
-        src0 += S0S0 * S0S1;
-        src1 += S1S0 * S1S1;
-    }
-}
-
 // dim4
-template <typename T, unsigned T0, unsigned T1, unsigned T2, unsigned T3,
+template <typename T, unsigned T0, unsigned T1, unsigned T2, unsigned S0T3, unsigned S1T3,
          unsigned DS0, unsigned DS1, unsigned DS2,
          unsigned S0S0, unsigned S0S1, unsigned S0S2,
-         unsigned S1S0, unsigned S1S1, unsigned S1S2>
+         unsigned S1S0, unsigned S1S1, unsigned S1S2, bool copyFlag>
 TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1) {
     static_assert((DS2 * sizeof(T)) % BLOCK_SIZE == 0);
     static_assert((S0S2 * sizeof(T)) % BLOCK_SIZE == 0);
@@ -113,7 +107,7 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1) {
         __ubuf__ T *src0_ = src0;
         __ubuf__ T *src1_ = src1;
         for (int j = 0; j < T1; j++) {
-            T_BIN<T, T2, T3, DS2, S0S2, S1S2>(dst_, src0_, src1_);
+            T_BIN<T, T2, S0T3, S1T3, DS2, S0S2, S1S2, copyFlag>(dst_, src0_, src1_);
             dst_ += DS1 * DS2;
             src0_ += S0S1 * S0S2;
             src1_ += S1S1 * S1S2;

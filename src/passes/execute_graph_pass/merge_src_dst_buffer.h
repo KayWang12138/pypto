@@ -30,7 +30,7 @@ public:
 private:
     void InitTensorMaxSize(const LogicalTensorPtr &output);
     Status Init(const std::vector<Operation *> &opList);
-    bool CheckIgnoreScene(Function &func, const Operation *oriOps);
+    bool CheckIgnoreScene(const Operation *oriOps);
     std::pair<bool, Status> CheckHasInplaced(const Operation *oriOps, const Operation *ops,
         std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors, int &inIdx);
     bool FindReplaced(const Operation *oriOps, const Operation *ops,
