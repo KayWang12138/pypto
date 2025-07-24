@@ -522,7 +522,7 @@ public:
 
     FunctionType GetFunctionType() const;
     void SetFunctionType(FunctionType type);
-    const std::string& GetFunctionTypeStr() const;
+    std::string GetFunctionTypeStr() const;
 
     void SetExplicit() { isExplicit_ = true; }
     GraphType GetGraphType() const;

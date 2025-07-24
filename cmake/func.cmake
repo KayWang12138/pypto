@@ -35,7 +35,10 @@ function(TileFwk_AnalysisTargetSymbols)
             ""
             ${ARGN}
     )
-    if (BUILD_OPEN_PROJECT AND (ENABLE_TESTS_UTEST OR ENABLE_TESTS_STEST OR ENABLE_TESTS_STEST_DISTRIBUTED) AND (CMAKE_GENERATOR STREQUAL "Unix Makefiles"))
+    if (BUILD_OPEN_PROJECT
+            AND (ENABLE_TESTS_UTEST OR ENABLE_TESTS_STEST OR ENABLE_TESTS_STEST_DISTRIBUTED)
+            AND (CMAKE_GENERATOR STREQUAL "Unix Makefiles")
+            AND (CMAKE_C_COMPILER_ID STREQUAL "GNU"))
         set(_file $<TARGET_FILE:${TMP_TARGET}>)
         get_filename_component(_PyScript "${TILE_FWK_SRC_ROOT}/cmake/scripts/analysis_binary_symbol.py" REALPATH)
         set(_Args "-f=${_file}")
@@ -65,7 +68,10 @@ function(TileFwk_AnalysisTargetHeaderFiles)
             ""
             ${ARGN}
     )
-    if (BUILD_OPEN_PROJECT AND (ENABLE_TESTS_UTEST OR ENABLE_TESTS_STEST OR ENABLE_TESTS_STEST_DISTRIBUTED) AND (CMAKE_GENERATOR STREQUAL "Unix Makefiles"))
+    if (BUILD_OPEN_PROJECT
+            AND (ENABLE_TESTS_UTEST OR ENABLE_TESTS_STEST OR ENABLE_TESTS_STEST_DISTRIBUTED)
+            AND (CMAKE_GENERATOR STREQUAL "Unix Makefiles")
+            AND (CMAKE_C_COMPILER_ID STREQUAL "GNU"))
         set(_file $<TARGET_FILE:${TMP_TARGET}>)
         set(_objects $<TARGET_OBJECTS:${TMP_TARGET}>)
         get_filename_component(_PyScript "${TILE_FWK_SRC_ROOT}/cmake/scripts/analysis_binary_header_files.py" REALPATH)

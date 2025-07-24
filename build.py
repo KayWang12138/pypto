@@ -67,11 +67,13 @@ class BuildCtrl:
         self.tests_changed_file: Optional[Path] = args.changed_files
         self.init_param_tests(args=args)
         # 控制标记/参数预处理(build_tools)
+        self.clang_path: Optional[Path] = None
         self.asan: bool = args.asan
         self.ubsan: bool = args.ubsan
         self.gcov: bool = args.gcov
         self.prof = args.prof
         self.pe = args.pe
+        self.init_param_build_tools(args=args)
         # 控制标记/参数预处理(tools)
         self.tools_cases_csv_file: Optional[Path] = None
         self.tools_intercept_flag: bool = False
@@ -207,6 +209,8 @@ class BuildCtrl:
 
     @classmethod
     def _add_argument_build_tools(cls, parser):
+        parser.add_argument("--clang", nargs="?", type=str, default="",
+                            help="Specify clang install path, such as /usr/bin/clang")
         parser.add_argument("--asan", action="store_true", default=False,
                             help="Enable AddressSanitizer.")
         parser.add_argument("--ubsan", action="store_true", default=False,
@@ -245,6 +249,14 @@ class BuildCtrl:
     def _gen_cmd(cls, opt: str, ctr: bool, tv: str = "ON", fv: str = "OFF") -> str:
         cmd: str = f" -D{opt}=" + (tv if ctr else fv)
         return cmd
+
+    @classmethod
+    def _gen_cmd_str(cls, opt: str, v: str) -> str:
+        return cls._gen_cmd(opt=opt, ctr=True, tv=v)
+
+    @classmethod
+    def _gen_cmd_path(cls, opt: str, v: Path) -> str:
+        return cls._gen_cmd_str(opt=opt, v=str(v))
 
     def init_param_common(self):
         if self.timeout is not None:
@@ -286,6 +298,21 @@ class BuildCtrl:
         if args.device is not None:
             devs = [str(d) for d in list(set(args.device)) if d is not None and str(d) != ""]
         self.stest_device_id = ":".join(devs)
+
+    def init_param_build_tools(self, args):
+        if args.clang is None:  # 指定 clang 参数, 但未指定具体路径, 此时需尝试寻找
+            cmd = "which clang"
+            ret = subprocess.run(shlex.split(cmd), capture_output=True, check=True, text=True, encoding='utf-8')
+            ret.check_returncode()
+            self.clang_path = Path(ret.stdout).resolve()
+        elif args.clang == "":  # 未指定 clang 参数
+            self.clang_path = None
+        else:  # 指定 clang 参数, 并指定具体路径
+            self.clang_path = Path(args.clang)
+        if self.clang_path is not None:
+            self.clang_path = Path(self.clang_path).resolve().parent
+            if not self.clang_path.exists():
+                raise ValueError(f"Clang install path not exist, path={self.clang_path}")
 
     def init_param_tools(self, args):
         self.tools_output_clean = args.tools_output_clean
@@ -371,7 +398,7 @@ class BuildCtrl:
             wf.work_flow_plot(self.build_root, self.prof, self.pe)
 
     def run_build_cmd(self, cmd: str, update_env: Optional[Dict[str, str]] = None,
-                      check: bool = False) -> subprocess.CompletedProcess:
+                      check: bool = False) -> Optional[subprocess.CompletedProcess]:
         """
         执行具体 build 命令行
 
@@ -446,6 +473,33 @@ class BuildCtrl:
 
     def _configure_tools_build(self) -> str:
         cmd = ""
+
+        def _check_clang_toolchain(_opt: str, _b: str) -> Tuple[bool, str]:
+            _p: Path = Path(self.clang_path, _b)
+            if _p.exists():
+                return True, self._gen_cmd_path(opt=_opt, v=_p)
+            logging.error("Clang Toolchain %s not exist.", _p)
+            return False, ""
+
+        def _gen_clang_cmd() -> Tuple[bool, str]:
+            _bin_opt_lst: List[List[str]] = [["clang", "CMAKE_C_COMPILER"],
+                                             ["clang++", "CMAKE_CXX_COMPILER"]]
+            _rst: bool = True
+            _cmd: str = ""
+            for _bin_opt in _bin_opt_lst:
+                _sub_bin, _sub_opt = _bin_opt
+                _sub_rst, _sub_cmd = _check_clang_toolchain(_opt=_sub_opt, _b=_sub_bin)
+                _rst = _rst and _sub_rst
+                _cmd = _cmd + _sub_cmd
+            return _rst, _cmd if _rst else ""
+
+        # Clang
+        if self.clang_path is not None:
+            ret, clang_cmd = _gen_clang_cmd()
+            if not ret:
+                raise RuntimeError(f"Clang({self.clang_path}) not complete.")
+            cmd += clang_cmd
+
         cmd += self._gen_cmd(opt="ENABLE_ASAN", ctr=self.asan)
         cmd += self._gen_cmd(opt="ENABLE_UBSAN", ctr=self.ubsan)
         cmd += self._gen_cmd(opt="ENABLE_GCOV", ctr=self.gcov)
@@ -551,7 +605,7 @@ class BuildCtrl:
                 "Model.cubeMachineNumberPerAICPU=27",
                 "Model.vecMachineNumberPerAICPU=27",
             ]
-        
+
         if self.pvmodel:
             simulation_json["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
             simulation_json["global_configs"]["platform_configs"]["ENABLE_SOFT_MEMORY"] = True

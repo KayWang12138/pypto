@@ -346,9 +346,9 @@ Json Operation::DumpJson(bool dumpTensor) const {
     if (isTileOp_) {
         HashBuffer vecBuffer, cubeBuffer, distBuffer;
         tileShape_.SerializeTo(vecBuffer, cubeBuffer, distBuffer);
-        opDump["tile"]["vec"] = vecBuffer;
-        opDump["tile"]["cube"] = cubeBuffer;
-        opDump["tile"]["comm"] = distBuffer;
+        opDump["tile"]["vec"] = std::basic_string(vecBuffer);
+        opDump["tile"]["cube"] = std::basic_string(cubeBuffer);
+        opDump["tile"]["comm"] = std::basic_string(distBuffer);
     }
 
     if (GetOpAttribute() != nullptr) {

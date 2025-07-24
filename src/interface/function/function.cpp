@@ -591,7 +591,7 @@ bool Function::OperationLoopCheck()
 {
     std::unordered_map<Operation*, int> inLinkNum;
     std::unordered_set<Operation*> visitedOp;
-    std::vector<Operation*> visitStack; 
+    std::vector<Operation*> visitStack;
     for (std::shared_ptr<Operation> op : operations_) {
         inLinkNum[op.get()] = op->ProducerOps().size();
         if (inLinkNum[op.get()] == 0) {
@@ -1525,7 +1525,7 @@ void Function::SetFunctionType(FunctionType type) {
     functionType_ = type;
 }
 
-const std::string& Function::GetFunctionTypeStr() const {
+std::string Function::GetFunctionTypeStr() const{
     return GetFunctionTypeNameDict().Find(functionType_);
 }
 

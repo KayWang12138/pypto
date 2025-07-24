@@ -36,3 +36,11 @@ files:
   "OWNERS":
     approvers:
       - songchangxia
+  "build.py":
+    approvers:
+      - yangxu19921206
+      - li-shengxian
+  "CMakeLists.txt":
+    approvers:
+      - yangxu19921206
+      - li-shengxian

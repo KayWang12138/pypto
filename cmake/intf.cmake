@@ -72,9 +72,25 @@ target_compile_options(tile_fwk_intf_pub
             $<$<CONFIG:Release>:-Wno-unused-variable>
             $<$<CONFIG:Release>:-Wno-unused-parameter>
             $<$<CONFIG:Release>:-Wno-unused-result>
+            # Clang
+            $<$<CXX_COMPILER_ID:Clang>:-Wno-mismatched-tags>
+            $<$<CXX_COMPILER_ID:Clang>:-Wno-non-pod-varargs>
+            $<$<CXX_COMPILER_ID:Clang>:-Wno-unused-const-variable>
+            $<$<CXX_COMPILER_ID:Clang>:-Wno-unused-private-field>
+            $<$<CXX_COMPILER_ID:Clang>:-Wno-uninitialized>
+            $<$<CXX_COMPILER_ID:Clang>:-Wno-unused-lambda-capture>
+            $<$<CXX_COMPILER_ID:Clang>:-Wno-braced-scalar-init>
+            $<$<CXX_COMPILER_ID:Clang>:-Wno-frame-larger-than=>
+            $<$<CXX_COMPILER_ID:Clang>:-Wno-unused-variable>
+            $<$<CXX_COMPILER_ID:Clang>:-Wno-missing-braces>
+            $<$<CXX_COMPILER_ID:Clang>:-Wno-cast-qual>
+            $<$<CXX_COMPILER_ID:Clang>:-Wno-shadow>
+            $<$<CXX_COMPILER_ID:Clang>:-Wno-unsequenced>
+            $<$<CXX_COMPILER_ID:Clang>:-Wno-unused-function>
+            $<$<CXX_COMPILER_ID:Clang>:-Wno-return-type-c-linkage>
             -Werror
             # 依赖分析选项
-            $<$<OR:$<BOOL:${ENABLE_TESTS_UTEST}>,$<BOOL:${ENABLE_TESTS_STEST}>,$<BOOL:${ENABLE_TESTS_STEST_DISTRIBUTED}>>:-MMD>
+            $<$<CXX_COMPILER_ID:GNU>:$<$<OR:$<BOOL:${ENABLE_TESTS_UTEST}>,$<BOOL:${ENABLE_TESTS_STEST}>,$<BOOL:${ENABLE_TESTS_STEST_DISTRIBUTED}>>:-MMD>>
 )
 target_link_options(tile_fwk_intf_pub
         INTERFACE
@@ -88,7 +104,7 @@ if (BUILD_OPEN_PROJECT)
             INTERFACE
                 # 安全编译选项
                 -fPIC
-                $<$<STREQUAL:$<TARGET_PROPERTY:TYPE>,EXECUTABLE>:-pie>
+                $<$<CXX_COMPILER_ID:GNU>:$<$<STREQUAL:$<TARGET_PROPERTY:TYPE>,EXECUTABLE>:-pie>>
                 $<$<CXX_COMPILER_ID:GNU>:$<IF:$<VERSION_GREATER:${CMAKE_C_COMPILER_VERSION},4.8.5>,-fstack-protector-strong,-fstack-protector-all>>
                 $<$<CXX_COMPILER_ID:Clang>:$<IF:$<VERSION_GREATER:${CMAKE_C_COMPILER_VERSION},10.0.0>,-fstack-protector-strong,-fstack-protector-all>>
                 # 基础要求选项
