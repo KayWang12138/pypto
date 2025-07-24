@@ -67,20 +67,20 @@ void KvSlcCompute(Tensor &topK_indcies, Tensor &topK_tensor_shape, Tensor &kvNop
                     auto kv_slcBlock = DView(kvNopeCache, {l_prime, kv_lora_rank}, {slcBlockIdx * blockSize + tail, nkvIdx * kv_lora_rank});
                     auto kRope_slcBlock = DView(kRopeCache, {l_prime, rope_dim}, {slcBlockIdx * blockSize + tail, nkvIdx * rope_dim});
                     Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
-                    auto k_slcBlock_fp32 = Cast(kv_slcBlock, DataType::DT_FP32);
-                    auto v_slcBlock_fp32 = Cast(kRope_slcBlock, DataType::DT_FP32);
+                    auto kv_slcBlock_fp32 = Cast(kv_slcBlock, DataType::DT_FP32);
+                    auto kRope_slcBlock_fp32 = Cast(kRope_slcBlock, DataType::DT_FP32);
                     Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
-                    auto kv_slcBlock_tiled = MulS(k_slcBlock_fp32, Element(k_slcBlock_fp32->Datatype(), float(1)));
-                    auto kRope_slcBlock_tiled = MulS(v_slcBlock_fp32, Element(v_slcBlock_fp32->Datatype(), float(1)));
+                    auto kv_slcBlock_tiled = MulS(kv_slcBlock_fp32, Element(kv_slcBlock_fp32->Datatype(), float(1)));
+                    auto kRope_slcBlock_tiled = MulS(kRope_slcBlock_fp32, Element(kRope_slcBlock_fp32->Datatype(), float(1)));
                     Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
-                    auto k_slcBlock_fp16 = Cast(kv_slcBlock_tiled, k_slcOut->Datatype());
-                    auto v_slcBlock_fp16 = Cast(kRope_slcBlock_tiled, v_slcOut->Datatype());
+                    auto kv_slcBlock_fp16 = Cast(kv_slcBlock_tiled, k_slcOut->Datatype());
+                    auto kRope_slcBlock_fp16 = Cast(kRope_slcBlock_tiled, v_slcOut->Datatype());
                     Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
                     SymbolicScalar output_axis1_value =
                     batchIdx * s * n2 * topk * l_prime + slcIdx * n2 * topk * l_prime + nkvIdx * topk * l_prime + topKIdx * l_prime;
-                    DAssemble(k_slcBlock_fp16, {output_axis1_value, 0}, k_slcOut);
-                    DAssemble(v_slcBlock_fp16, {output_axis1_value, kv_lora_rank}, k_slcOut);
-                    DAssemble(k_slcBlock_fp16, {output_axis1_value, 0}, v_slcOut);
+                    DAssemble(kv_slcBlock_fp16, {output_axis1_value, 0}, k_slcOut);
+                    DAssemble(kRope_slcBlock_fp16, {output_axis1_value, kv_lora_rank}, k_slcOut);
+                    DAssemble(kv_slcBlock_fp16, {output_axis1_value, 0}, v_slcOut);
                 }
                 Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1);
                 auto kvSlcActSeqsElemet = DView(kvActSeqs, {1}, {batchIdx});
