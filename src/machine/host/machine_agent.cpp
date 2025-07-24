@@ -59,7 +59,6 @@ HcclResult HcomGetCommHandleByGroup(const char *group, HcclComm comm) {
 extern "C" __attribute__((weak)) int AdxDataDumpServerInit();
 
 namespace npu::tile_fwk {
-
 void MachineAgent::DumpData(const std::string &fileName,const char *data, size_t len) {
     std::ofstream fout(fileName, std::ios::binary);
     if (!fout) {

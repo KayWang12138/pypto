@@ -21,7 +21,9 @@
 #include "interface/machine/host/host_machine.h"
 #include "interface/operation/distributed/comm_barrier_manager.h"
 #include "interface/program/program.h"
+#include "interface/platform/platform_manager.h"
 #include "machine/dump/machine_dump.h"
+#include "machine/utils/dynamic/dev_encode.h"
 
 namespace npu::tile_fwk {
 namespace {
@@ -79,7 +81,7 @@ bool KernelDumpUtils::DumpBinFile(const DeviceAgentTask *deviceAgentTask, const 
     kernelHeader.dataOffset[static_cast<size_t>(KernelContextType::OpBinary)] = offset;
     Function *function = deviceAgentTask->GetFunction();
     std::vector<uint8_t> opBinData;
-    if (function->IsFunctionType(FunctionType::DYNAMIC) && function->GetDyndevAttribute()) {
+    if (function->IsFunctionType(FunctionType::DYNAMIC) && function->GetDyndevAttribute() != nullptr) {
         opBinData = function->GetDyndevAttribute()->devProgBinary;
     }
 
@@ -131,12 +133,21 @@ void KernelDumpUtils::DumpJsonFile(const DeviceAgentTask *deviceAgentTask, const
     binJson["binFileSuffix"] = KERNEL_BIN_FILE_SUFFIX;
     binJson["kernelName"] = "ast_main_0";
     binJson["coreType"] = "MIX";
-    binJson["blockDim"] = MAX_BLOCK_NUM;
+    binJson["blockDim"] = PlatformManager::Instance().GetAiCoreCnt();
     binJson["magic"] = "RT_DEV_BINARY_MAGIC_ELF";
     binJson["dynamicParamMode"] = "floded_with_desc";
+    uint64_t workspaceSize = deviceAgentTask->GetWorkSpaceSize() == 0 ? 1 : deviceAgentTask->GetWorkSpaceSize();
+    if (deviceAgentTask->GetFunction()->IsFunctionType(FunctionType::DYNAMIC) &&
+        deviceAgentTask->GetFunction()->GetDyndevAttribute() != nullptr) {
+        dynamic::DevAscendProgram *devProg = reinterpret_cast<dynamic::DevAscendProgram *>(deviceAgentTask->GetFunction()->GetDyndevAttribute()->devProgBinary.data());
+        if (devProg != nullptr) {
+            workspaceSize = devProg->aicoreLocalWorkspaceSize + devProg->aicpuCoherentWorkspaceSize;
+        }
+    }
+    ALOG_INFO_F("Work space size is [%lu].", workspaceSize);
     binJson["workspace"] = {
         {"num", 1},
-        {"size", {deviceAgentTask->GetWorkSpaceSize() == 0 ? 1 : deviceAgentTask->GetWorkSpaceSize()}},
+        {"size", {workspaceSize}},
         {"type", {0}}
     };
     file << binJson.dump(LEVEL_FOUR) << std::endl;
