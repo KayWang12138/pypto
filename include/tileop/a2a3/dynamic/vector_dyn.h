@@ -298,7 +298,7 @@ template <typename T, unsigned DS, unsigned SS, unsigned TBS>
 TILEOP void DynTrowmaxsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp, unsigned OS0, unsigned OS1) {
     //    OS0 <= REPEAT_MAX
     uint64_t srcRepeatPerRow = static_cast<uint64_t>(OS1 * sizeof(T) / REPEAT_BYTE);
-    constexpr unsigned srcRepeatStride = SS * sizeof(T) / BLOCK_SIZE;
+    unsigned srcRepeatStride = SS * sizeof(T) / BLOCK_SIZE;
     constexpr unsigned nElemPerRepeat = REPEAT_BYTE / sizeof(T);
     unsigned remain = OS1 % nElemPerRepeat;
     if (srcRepeatPerRow == 1 && OS0 <= REPEAT_MAX && remain == 0) {
@@ -336,7 +336,7 @@ TILEOP void DynTrowmaxsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp,
             return;
         }
     }
-    constexpr uint16_t tmpRepeatStride = TBS * sizeof(T) / BLOCK_SIZE;
+    uint16_t tmpRepeatStride = TBS * sizeof(T) / BLOCK_SIZE;
     if (srcRepeatPerRow == 1 && remain > 0) {
         copy_ubuf_to_ubuf(tmp, src, 0, OS0, BLOCK_MAX_PER_REPEAT, srcRepeatStride - BLOCK_MAX_PER_REPEAT,
             tmpRepeatStride - BLOCK_MAX_PER_REPEAT);
@@ -728,7 +728,7 @@ TILEOP void DynTrowsumline_(__ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0,
     } else if (axis == 1) {
         for (unsigned i = 0; i < TShape0; i++) {
             DynTrowsumline_<T, srcRawShape2>(
-                dst + i * dstRawShape1 * dstRawShape2, src0 + i * srcRawShape1 * srcRawShape2, TShape0, TShape1);
+                dst + i * dstRawShape1 * dstRawShape2, src0 + i * srcRawShape1 * srcRawShape2, TShape1, TShape2);
         }
     }
 }

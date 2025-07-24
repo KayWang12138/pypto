@@ -99,6 +99,82 @@ def process_test_cases(
 
 @GoldenRegister.reg_golden_func(
     case_names=[
+        "TestReduceSum/ReduceSumFirstAxisOperationTest.test_reduce_sum",
+        "TestReduceSum/ReduceSum4DOperationTest.test_reduce_sum",
+        "TestReduceSum/ReduceSum3DOperationTest.test_reduce_sum",
+        "TestReduceSum/ReduceSumOperationTest.test_reduce_sum",
+        "TestReduceMax/ReduceMaxOperationTest.test_reduce_max",
+        "TestReduceMax/ReduceMax3DOperationTest.test_reduce_max",
+        "TestReduceMax/ReduceMax4DOperationTest.test_reduce_max",
+    ]
+)
+
+def gen_reduce_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    shape_list_i = []
+    reduce_axis = []
+    op_type = "sum"
+    if "ReduceSumOperationTest" in case_name:
+        shape_list_i = [[512, 128], [4, 1000]]
+        reduce_axis = [-1]
+    elif "ReduceSum3DOperationTest" in case_name:
+        shape_list_i = [[48, 32, 32]]
+        reduce_axis = [-1]
+    elif "ReduceSum4DOperationTest" in case_name:
+        shape_list_i = [[8, 6, 10, 8]]
+        reduce_axis = [-1]
+    elif "ReduceSumFirstAxisOperationTest" in case_name:
+        shape_list_i = [[8, 128]]
+        reduce_axis = [0]
+    elif "ReduceMaxOperationTest" in case_name:
+        shape_list_i = [[512, 128], [4, 1000]]
+        reduce_axis = [-1]
+        op_type = "max"
+    elif "ReduceMax3DOperationTest" in case_name:
+        shape_list_i = [[48, 32, 32]]
+        reduce_axis = [-1]
+        op_type = "max"
+    elif "ReduceMax4DOperationTest" in case_name:
+        shape_list_i = [[8, 6, 10, 8]]
+        reduce_axis = [-1]
+        op_type = "max"
+    if case_index is None:
+        for index, arr in enumerate(shape_list_i):
+            output_path = Path(str(output) + '/' + str(index))
+            output_path.mkdir(parents=True, exist_ok=True)
+            x_path = Path(output_path, 'x.bin')
+            o_path = Path(output_path, 'res.bin')
+            complete = x_path.exists() and o_path.exists()
+            if complete:
+                logging.debug("Case(%s), Golden complete.", case_name)
+                return True
+            else:
+                x = np.random.uniform(0, 1, arr).astype(np.float32)
+                x.tofile(x_path)
+                if op_type == "max":
+                    y = x.max(axis=reduce_axis[0], keepdims=True)
+                elif op_type == "sum":
+                    y = x.sum(axis=reduce_axis[0], keepdims=True)
+                y.tofile(o_path)
+    else:
+        x_path = Path(output, 'x.bin')
+        o_path = Path(output, 'res.bin')
+        complete = x_path.exists() and o_path.exists()
+        if complete:
+            logging.debug("Case(%s), Golden complete.", case_name)
+            return True
+        else:
+            x = np.random.uniform(0, 1, shape_list_i[case_index]).astype(np.float32)
+            x.tofile(x_path)
+            if op_type == "max":
+                y = x.max(axis=reduce_axis[0], keepdims=True)
+            elif op_type == "sum":
+                y = x.sum(axis=reduce_axis[0], keepdims=True)
+            y.tofile(o_path)
+    return True
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
         "TestAdd/AddOperationTest.test_add",
     ]
 )

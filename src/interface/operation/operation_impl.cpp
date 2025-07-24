@@ -704,6 +704,7 @@ void TileReduceNew(Function &function, const TileShape &tileShape, const std::st
     auto source = std::make_shared<LogicalTensor>(function, in->tensor, in->offset, in->shape, in->GetDynValidShape(), in->nodetype);
 
     int width = (source->shape[axis] + tileShape.V(axis) - 1) / tileShape.V(axis) * tileShape.V(axis); // 向上对齐
+    int padSize = width - source->shape[axis];
     int remainder = 0;
 
     int p2width = tileShape.V(axis);
@@ -746,6 +747,10 @@ void TileReduceNew(Function &function, const TileShape &tileShape, const std::st
         if (remainder < width) {
             source = resultA;
             continue;
+        }
+
+        if ((remainderShape[axis] + remainderOffset[axis] > in->shape[axis])) {
+            remainderShape[axis] = remainderShape[axis] - padSize;
         }
 
         auto tileRemainder = in->View(function, remainderShape, remainderOffset);

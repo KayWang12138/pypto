@@ -110,10 +110,12 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned 
         __ubuf__ T *src0_ = src0;
         __ubuf__ T *src1_ = src1;
         for (int j = 0; j < src0T1; j++) {
-            T_BIN<T, DS2, S0S2, S1S2>(dst_, src0_, src1_, src0T2, src0T3, src1T3, copyFlag);
-            dst_ += DS1 * DS2;
-            src0_ += S0S1 * S0S2;
-            src1_ += S1S1 * S1S2;
+            if (src0T2 != 0) {
+                T_BIN<T, DS2, S0S2, S1S2>(dst_, src0_, src1_, src0T2, src0T3, src1T3, copyFlag);
+                dst_ += DS1 * DS2;
+                src0_ += S0S1 * S0S2;
+                src1_ += S1S1 * S1S2;
+            }
         }
         dst += DS0 * DS1 * DS2;
         src0 += S0S0 * S0S1 * S0S2;

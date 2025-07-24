@@ -135,6 +135,24 @@ void LastReduceInferFunc(Operation* op,
 REGISTER_INFER_SHAPE_FUNC(OP_ROWMAX_SINGLE, Opcode::OP_ROWMAX_SINGLE, LastReduceInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_ROWSUM_SINGLE, Opcode::OP_ROWSUM_SINGLE, LastReduceInferFunc);
 
+void NonLastReduceInferFunc(Operation* op,
+                        std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    std::vector<std::vector<SymbolicScalar>> inputValidShapes;
+    for (auto inputTensor : op->GetIOperands()) {
+        inputValidShapes.push_back(inputTensor->GetDynValidShape());
+    }
+    if (inputValidShapes.empty()) {
+        return;
+    }
+    auto outValidShape = inputValidShapes[0];
+    int axis = op->GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
+    outValidShape[axis] = SymbolicScalar(1); // lastReduce
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(outValidShape);
+    }
+}
+REGISTER_INFER_SHAPE_FUNC(OP_ROWSUMLINE, Opcode::OP_ROWSUMLINE, NonLastReduceInferFunc);
+
 // Gather infer shape func
 void InferFunc4Gather(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     auto iOperands = op->GetIOperands();
