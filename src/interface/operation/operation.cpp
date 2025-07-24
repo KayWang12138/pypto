@@ -140,6 +140,17 @@ Operation::Operation(
 
     if (function_->IsGraphType({GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) {
         tileShape_ = cur.BelongTo().GetTileShape();
+        if (iOperands.size() > 0 ) {
+            // tile shape was set
+            ASSERT(tileShape_.TileShapeAvaliable())<<"op ["<<OpcodeManager::Inst().GetOpcodeStr(opcode)<<"]tile shape not set";
+            // vector tile shape 32B align
+            if (tileShape_.GetVecTileShapes().size() > 0) {
+                auto dataBytes = BytesOf(iOperands[0]->Datatype());
+                auto lastAxisTile = tileShape_.GetVecTileShapes().back();
+                ASSERT((dataBytes * lastAxisTile) % BLOCK_SIZE == 0) << "vector tile shape last dimesion should be 32B align";
+            }
+        }
+
         if (!ConfigManager::Instance().GetSemanticLabel().empty()) {
             SetSemanticLabel(ConfigManager::Instance().GetSemanticLabel());
         }

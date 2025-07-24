@@ -130,10 +130,17 @@ public:
         return result;
     }
 
+    bool TileShapeAvaliable() {
+        bool mZero = std::all_of(m.begin(), m.end(), [](int x) { return x == 0; });
+        bool kZero = std::all_of(n.begin(), n.end(), [](int x) { return x == 0; });
+        bool nZero = std::all_of(k.begin(), k.end(), [](int x) { return x == 0; });
+        return (mZero == false) && (kZero == false) && (nZero == false);
+    }
+
 private:
-    std::array<int, MAX_MDIM_SIZE> m{};
-    std::array<int, MAX_KDIM_SIZE> k{};
-    std::array<int, MAX_NDIM_SIZE> n{};
+    std::array<int, MAX_MDIM_SIZE> m{0, 0};
+    std::array<int, MAX_KDIM_SIZE> k{0, 0};
+    std::array<int, MAX_NDIM_SIZE> n{0, 0};
     bool setL1Tile;
 };
 
@@ -180,6 +187,13 @@ public:
         result.rank_[0x2] = buffer[0x8];
         result.rankId_ = buffer[0x9];
         return result;
+    }
+
+    bool TileShapeAvaliable() {
+        bool rowZero = std::all_of(row_.begin(), row_.end(), [](int x) { return x == 0; });
+        bool colZero = std::all_of(col_.begin(), col_.end(), [](int x) { return x == 0; });
+        bool rankZero = std::all_of(rank_.begin(), rank_.end(), [](int x) { return x == 0; });
+        return (rowZero == false) && (colZero == false) && (rankZero == false);
     }
 
     // row/col/rank轴切分，格式[size, count, tail]，表示：
@@ -312,6 +326,13 @@ public:
         result.distTileShapes_ = DistTileShapes::DeserializeFrom(distBuffer);
         return result;
     }
+
+    bool TileShapeAvaliable() {
+        return cubeTileShapes_.TileShapeAvaliable() ||
+            vecTileShapes_.size() > 0 ||
+            distTileShapes_.TileShapeAvaliable();
+    }
+
 private:
     VecTileShapes vecTileShapes_;
     CubeTileShapes cubeTileShapes_;
