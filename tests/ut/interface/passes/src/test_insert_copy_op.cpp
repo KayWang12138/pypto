@@ -60,8 +60,6 @@ TEST_F(InsertCopyOpTest, InsertCopy) {
             {          "InsertConvertOp",          "InsertConvertOp",    PassType::TYPE_TILE_GRAPH},
             {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
             {           "GenerateMoveOp",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
-            {            "GraphInitPass",            "GraphInitPass",    PassType::TYPE_TILE_GRAPH},
-            {          "PartitionVCPass",          "PartitionVCPass",    PassType::TYPE_TILE_GRAPH},
             {        "GraphPartitionPass",        "GraphPartitionPass",    PassType::TYPE_TILE_GRAPH},
             {          "UpdateMemoryMap",          "UpdateMemoryMap",    PassType::TYPE_TILE_GRAPH},
 

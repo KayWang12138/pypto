@@ -63,8 +63,6 @@ TEST_F(AddAllocTest, TestAllocNode) {
     {       "SplitReshapeOpPVC2",       "SplitReshapeOpPVC2",    PassType::TYPE_TILE_GRAPH},
     {        "RemoveRedundentOp",        "RemoveRedundentOp",    PassType::TYPE_TILE_GRAPH},
     {           "GenerateMoveOp",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
-    {             "GraphInitPass",           "GraphInitPass",    PassType::TYPE_TILE_GRAPH},
-    {           "PartitionVCPass",         "PartitionVCPass",    PassType::TYPE_TILE_GRAPH},
     {        "GraphPartitionPass",        "GraphPartitionPass",    PassType::TYPE_TILE_GRAPH},
     {   "SplitLargeLocalRawPass",   "SplitLargeLocalRawPass",    PassType::TYPE_TILE_GRAPH},
     {         "InsertCopyOpPass",         "InsertCopyOpPass",    PassType::TYPE_TILE_GRAPH},

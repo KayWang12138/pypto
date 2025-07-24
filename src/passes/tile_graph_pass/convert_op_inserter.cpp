@@ -12,9 +12,9 @@
  * \file convert_op_inserter.cpp
  * \brief
  */
-
-#include "interface/tensor/logical_tensor.h"
 #include "convert_op_inserter.h"
+#include "interface/tensor/logical_tensor.h"
+#include "passes/pass_config/pass_config_manager.h"
 
 namespace npu{
     namespace tile_fwk {
@@ -154,7 +154,7 @@ void ConvertInserter::RefreshTensorTobeMap(Function &function) {
 // 判断path路径中是否包含DDR
 bool ConvertInserter::CrossCore(const MemoryType from, const MemoryType to) const {
     std::vector<MemoryType> paths;
-    Program::GetInstance().GetPlatformConfig().FindNearestPath(from, to, paths);
+    PassConfigManager::Instance().GetPlatformConfig().FindNearestPath(from, to, paths);
 
     return std::find(paths.begin(), paths.end(), MemoryType::MEM_DEVICE_DDR) != paths.end();
 }
@@ -213,7 +213,7 @@ void ConvertInserter::RecordConflict(Function &function) {
                 }
                 //step4:构造转换路径
                 std::vector<MemoryType> paths;
-                Program::GetInstance().GetPlatformConfig().FindNearestPath(
+                PassConfigManager::Instance().GetPlatformConfig().FindNearestPath(
                     oOperand->GetMemoryTypeOriginal(), requiredMemoryType, paths);
                 if (paths.size() <= 1) {
                     continue;

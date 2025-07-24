@@ -20,11 +20,13 @@
 #include "passes/pass_manager.h"
 #include "passes/pass_registry.h"
 #include "interface/configs/config_manager.h"
+#include "passes/tile_graph_pass/n_buffer_merge.h"
 #include <fstream>
 #include <vector>
 #include <string>
 
-using namespace npu::tile_fwk;
+namespace npu {
+namespace tile_fwk{
 
 class NBufferMergeTest : public testing::Test {
 public:
@@ -47,11 +49,6 @@ public:
 };
 
 TEST_F(NBufferMergeTest, TestNBufferMerge) {
-    PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("NBufferMergePassStrategy", {
-        {        "NBufferMergePass",        "NBufferMergePass",    PassType::TYPE_TILE_GRAPH},
-    });
-    config::SetHostConfig(KEY_STRATEGY, "NBufferMergePassStrategy");
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestNBufferMerge", "TestNBufferMerge", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
@@ -87,10 +84,11 @@ TEST_F(NBufferMergeTest, TestNBufferMerge) {
     currFunctionPtr->outCasts_.push_back(tensor4);
 
     // Call the pass
-    const std::string passName = "NBufferMergePass";
-    const std::string identifier = "NBufferMergePass";
-    auto pass = PassRegistry::GetInstance().CreatePass(passName);
-    pass->PreCheck(*currFunctionPtr);
-    pass->Run(*currFunctionPtr, config::GetPassStrategy(), identifier);
-    pass->PostCheck(*currFunctionPtr);
+    NBufferMergePass nPass;
+    Pass &nbufferPass = nPass;
+    nbufferPass.PreCheck(*currFunctionPtr);
+    nbufferPass.Run(*currFunctionPtr, "", "");
+    nbufferPass.PostCheck(*currFunctionPtr);
+}
+}
 }

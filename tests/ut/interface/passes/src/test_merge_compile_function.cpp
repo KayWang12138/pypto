@@ -64,9 +64,7 @@ TEST_F(MergeCompileFunctionTest, A_MUL_Bt) {
             {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
             {          "InsertConvertOp",          "InsertConvertOp",    PassType::TYPE_TILE_GRAPH},
             {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
-            {           "GenerateMoveOp",           "GenerateMoveOp",   PassType::TYPE_TILE_GRAPH},
-            {        "GroupOperationsOp",        "GroupOperationsOp",   PassType::TYPE_TILE_GRAPH},
-            {            "GraphInitPass",            "GraphInitPass",   PassType::TYPE_TILE_GRAPH},
+            {           "GenerateMoveOp",           "GenerateMoveOp",   PassType::TYPE_TILE_GRAPH}
 
         });
         ConfigManager::Instance();

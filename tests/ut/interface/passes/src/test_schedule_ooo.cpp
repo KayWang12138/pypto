@@ -23,6 +23,7 @@
 #include "passes/execute_graph_pass/schedule_ooo.h"
 #include "models/deepseek/deepseek_mla.h"
 #include "computational_graph_builder.h"
+#include "passes/pass_config/pass_config_manager.h"
 
 namespace npu::tile_fwk {
 class ScheduleOoOTest : public ::testing::Test {
@@ -31,7 +32,9 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {}
+    void SetUp() override {
+        PassConfigManager::Instance().Initialize(DPlatform::ASCEND_910B2);
+    }
     void TearDown() override {}
 };
 

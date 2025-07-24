@@ -32,13 +32,10 @@
 #include "passes/tile_graph_pass/common_operation_eliminate.h"
 #include "passes/tile_graph_pass/assign_memory_type.h"
 #include "passes/tile_graph_pass/duplicate_view.h"
-#include "passes/tile_graph_pass/group_operations.h"
-#include "passes/tile_graph_pass/merge_compile_function.h"
 #include "passes/tile_graph_pass/insert_convert_op.h"
 #include "passes/tile_graph_pass/l1_copy_reuse.h"
 #include "passes/tile_graph_pass/merge_view_assemble.h"
 #include "passes/tile_graph_pass/insert_copy_op.h"
-#include "passes/tile_graph_pass/graph_init.h"
 #include "passes/tile_graph_pass/pad_local_buffer.h"
 #include "passes/tile_graph_pass/inplace_process.h"
 #include "passes/tile_graph_pass/pre_graph.h"
@@ -49,8 +46,6 @@
 #include "passes/tile_graph_pass/split_large_fanout_tensor.h"
 #include "passes/tile_graph_pass/cube_process.h"
 #include "passes/tile_graph_pass/partitioner.h"
-#include "passes/tile_graph_pass/calibrate_cycles.h"
-#include "passes/tile_graph_pass/assign_conv_memory.h"
 #include "passes/tile_graph_pass/remove_unaligned_reshape_op.h"
 #include "passes/tile_graph_pass/split_reshape_pvc2.h"
 #include "passes/tile_graph_pass/infer_dyn_shape.h"
@@ -63,11 +58,10 @@
 #include "passes/execute_graph_pass/schedule_ooo.h"
 #include "passes/execute_graph_pass/codegen_preproc.h"
 #include "passes/execute_graph_pass/infer_param_index.h"
-#include "passes/execute_graph_pass/vf_fusion.h"
 #include "passes/execute_graph_pass/add_alloc.h"
-#include "passes/execute_graph_pass/prior_scheduling.h"
 #include "passes/execute_graph_pass/remove_alloc.h"
 #include "passes/execute_graph_pass/merge_src_dst_buffer.h"
+#include "passes/pass_config/pass_config_manager.h"
 
 namespace npu::tile_fwk {
 PassManager &PassManager::Instance() {
@@ -86,24 +80,19 @@ PassManager::PassManager() {
     REG_PASS(ExpandFunction);
     REG_PASS(CommonOperationEliminate);
     REG_PASS(GenerateMoveOp);
-    REG_PASS(AssignConvMemoryType);
     REG_PASS(AssignMemoryType);
     REG_PASS(DuplicateView);
-    REG_PASS(GroupOperationsOp);
-    REG_PASS(MergeCompileFunction);
     REG_PASS(RemoveRedundentReshape);
     REG_PASS(InsertConvertOp);
     REG_PASS(NBufferMergePass);
     REG_PASS(L1CopyInReusePass);
     REG_PASS(MergeViewAssemble);
     REG_PASS(InsertCopyOpPass);
-    REG_PASS(GraphInitPass);
     REG_PASS(PadLocalBuffer);
     REG_PASS(InplaceProcess);
     REG_PASS(PreGraphPass);
     REG_PASS(RemoveRedundentOp);
     REG_PASS(SplitLargeLocalRawPass);
-    REG_PASS(CalibratedCyclesPass);
     REG_PASS(SplitReshapeOpPVC2);
     REG_PASS(RemoveUnalignedReshapeOp);
     REG_PASS(CodegenPreprocPass);
@@ -111,8 +100,6 @@ PassManager::PassManager() {
     REG_PASS(CubeProcess);
     REG_PASS(InferDynShapePass);
     REG_PASS(InferParamIndexPass);
-    REG_PASS(VFFusionPass);
-    REG_PASS(PriorScheduling);
     REG_PASS(AddAllocPass);
     REG_PASS(RemoveAllocPass);
     REG_PASS(SrcDstBufferMergePass);
@@ -129,7 +116,7 @@ PassManager::PassManager() {
                         {        "RemoveRedundentOp",        "RemoveRedundentOp",    PassType::TYPE_TILE_GRAPH},
                         {        "GenerateMoveOp_01",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
                         {              "CubeProcess",              "CubeProcess",    PassType::TYPE_TILE_GRAPH},
-                        {        "GraphPartitionPass",        "GraphPartitionPass",    PassType::TYPE_TILE_GRAPH},
+                        {        "GraphPartitionPass",      "GraphPartitionPass",    PassType::TYPE_TILE_GRAPH},
                         {         "NBufferMergePass",         "NBufferMergePass",    PassType::TYPE_TILE_GRAPH},
                         {          "UpdateMemoryMap",          "UpdateMemoryMap",    PassType::TYPE_TILE_GRAPH},
                         {        "GenerateMoveOp_02",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
@@ -140,17 +127,15 @@ PassManager::PassManager() {
                         {           "InplaceProcess",           "InplaceProcess",    PassType::TYPE_TILE_GRAPH},
                         {             "PreGraphPass",             "PreGraphPass",    PassType::TYPE_TILE_GRAPH},
                         {           "PadLocalBuffer",           "PadLocalBuffer",    PassType::TYPE_TILE_GRAPH},
-                        {  "RemoveUnalignedReshapeOp",  "RemoveUnalignedReshapeOp",    PassType::TYPE_TILE_GRAPH},
+                        {  "RemoveUnalignedReshapeOp","RemoveUnalignedReshapeOp",    PassType::TYPE_TILE_GRAPH},
                         {        "InferDynShapePass",        "InferDynShapePass",    PassType::TYPE_TILE_GRAPH},
                         {       "SubgraphToFunction",       "SubgraphToFunction", PassType::TYPE_EXECUTE_GRAPH},
                         {      "InferParamIndexPass",      "InferParamIndexPass", PassType::TYPE_EXECUTE_GRAPH},
                         {    "SrcDstBufferMergePass",    "SrcDstBufferMergePass", PassType::TYPE_EXECUTE_GRAPH},
-                        {             "VFFusionPass",             "VFFusionPass", PassType::TYPE_EXECUTE_GRAPH},
                         {             "AddAllocPass",             "AddAllocPass", PassType::TYPE_EXECUTE_GRAPH},
                         {          "OoOSchedulePass",          "OoOSchedulePass", PassType::TYPE_EXECUTE_GRAPH},
                         {              "MemoryReuse",              "MemoryReuse", PassType::TYPE_EXECUTE_GRAPH},
                         {          "RemoveAllocPass",          "RemoveAllocPass", PassType::TYPE_EXECUTE_GRAPH},
-                        {          "PriorScheduling",          "PriorScheduling", PassType::TYPE_EXECUTE_GRAPH},
                         {           "InsertSyncPass",           "InsertSyncPass", PassType::TYPE_EXECUTE_GRAPH},
                         {       "CodegenPreprocPass",       "CodegenPreprocPass", PassType::TYPE_EXECUTE_GRAPH},
     });
@@ -203,12 +188,12 @@ std::string PassManager::GetResumePath(const std::string &strategy) {
 }
 
 Status PassManager::RunPass(Program &program, Function &function, const std::string &strategy) const {
-    auto &cfgMgr = ConfigManager::Instance();
+    PassConfigManager::Instance().Initialize(config::GetDevicePlatform());
     auto strategyPasses = GetStrategyPasses(strategy);
     std::vector<std::string> identifiers;
     std::transform(strategyPasses.begin(), strategyPasses.end(), std::back_inserter(identifiers),
         [](const PassEntry &elem) { return elem.identifier; });
-    cfgMgr.PassConfigsDebugInfo(strategy, identifiers);
+    ConfigManager::Instance().PassConfigsDebugInfo(strategy, identifiers);
     for (size_t i = startIdx; i < strategyPasses.size(); i++) {
         const auto &identifier = strategyPasses[i].identifier;
         const auto &passName = strategyPasses[i].passName;

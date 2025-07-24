@@ -49,8 +49,6 @@ public:
             {       "SplitReshapeOpPVC2",       "SplitReshapeOpPVC2",    PassType::TYPE_TILE_GRAPH},
             {        "RemoveRedundentOp",        "RemoveRedundentOp",    PassType::TYPE_TILE_GRAPH},
             {           "GenerateMoveOp",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
-            {             "GraphInitPass",           "GraphInitPass",    PassType::TYPE_TILE_GRAPH},
-            {           "PartitionVCPass",         "PartitionVCPass",    PassType::TYPE_TILE_GRAPH},
             {        "GraphPartitionPass",        "GraphPartitionPass",    PassType::TYPE_TILE_GRAPH},
             {         "NBufferMergePass",         "NBufferMergePass",    PassType::TYPE_TILE_GRAPH},
             {          "UpdateMemoryMap",          "UpdateMemoryMap",    PassType::TYPE_TILE_GRAPH},

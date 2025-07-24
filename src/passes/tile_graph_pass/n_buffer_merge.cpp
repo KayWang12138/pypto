@@ -17,6 +17,7 @@
 #include "passes/pass_utils/reschedule_utils.h"
 #include "interface/utils/log.h"
 #include "passes/pass_utils/parallel_tool.h"
+#include "passes/pass_config/pass_config_manager.h"
 
 namespace npu::tile_fwk {
 class NBufferMerger {
@@ -41,6 +42,8 @@ class NBufferMerger {
     std::map<uint64_t, size_t> GetIsoColorMergeNum(const OperationsViewer &opOriList,
         const std::map<uint64_t, std::vector<int>> &hashMap) const;
     std::vector<std::vector<int>> SortColorWithInput(std::vector<int> &colorValues) const;
+    bool Process(const OperationsViewer &opOriList, std::map<uint64_t, std::vector<int>> &hashMap, int copyInThreshold,
+        std::map<uint64_t, size_t> &hashMergeNum, std::vector<uint64_t> &hashColor);
 };
 
 void NBufferMerger::GetOpHash(std::vector<uint64_t> &hashList, const std::string op, int idx) {
@@ -233,12 +236,12 @@ std::map<uint64_t, size_t> NBufferMerger::GetIsoColorMergeNum(const OperationsVi
         for (auto& opIdx : colorNode_[subGraphIdx]) {
             if (opOriList[opIdx].HasAttr(OpAttributeKey::isCube) &&
                 opOriList[opIdx].GetBoolAttribute(OpAttributeKey::isCube)) {
-                hashCoreNum[entry.first] = Program::GetInstance().GetPlatformConfig().GetAICoreNum();
+                hashCoreNum[entry.first] = PassConfigManager::Instance().GetPlatformConfig().GetCoreNum(NpuCoreType::AICORE);
                 break;
             }
         }
         if (hashCoreNum.find(entry.first) == hashCoreNum.end()) {
-            hashCoreNum[entry.first] = Program::GetInstance().GetPlatformConfig().GetVectorCoreNum();
+            hashCoreNum[entry.first] = PassConfigManager::Instance().GetPlatformConfig().GetCoreNum(NpuCoreType::VECTORCORE);
         }
         ALOG_INFO_F("Subgraph hash: %lu, size %zu, core num: %zu.", entry.first, entry.second.size(), hashCoreNum[entry.first]);
         if (entry.second.size() <= hashCoreNum[entry.first]) {
@@ -303,6 +306,7 @@ inline int GetCopyIn(const OperationsViewer &opOriList, std::vector<int> &colorN
         if (opOriList[j].GetOpcodeStr() == "COPY_IN") {
             int volume = BytesOf(opOriList[j].GetOOperands()[0]->Datatype());
             std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(opOriList[j].GetOpAttribute());
+            if (attr == nullptr) {return colorCopyIn;}
             auto shape = attr->GetSpecifiedShape(1);
             for (int k : shape) {
                 volume *= k;
@@ -355,29 +359,8 @@ std::vector<std::vector<int>> NBufferMerger::SortColorWithInput(std::vector<int>
     return res;
 }
 
-bool NBufferMerger::NBufferMerge(Function &func, int dbMerging, int numDB, int copyInThreshold) {
-    if (Init(func) == false) {
-        return false;
-    }
-    // 如果子图个数已经少于核数； 后续按照core的类型来判断
-    if (color_ <= Program::GetInstance().GetPlatformConfig().GetAICoreNum()) {
-        ALOG_INFO_F("NBufferMerge is skipped. color: %d, aiCoreNum: %d", color_, Program::GetInstance().GetPlatformConfig().GetAICoreNum());
-        return true;
-    }
-    ALOG_INFO_F("User set nbuffer num: %d", numDB);
-    // 获取节点和子图的hash
-    auto opOriList = func.Operations();
-    std::vector<uint64_t> hashColor(color_, 0);
-    std::map<uint64_t, std::vector<int>> hashMap;
-    GetColorHash(opOriList, dbMerging, hashColor, hashMap);
-    std::map<uint64_t, size_t> hashMergeNum;
-    if (numDB > 1) {
-        for (auto& entry : hashMap) {
-            hashMergeNum[entry.first] = numDB;
-        }
-    } else {
-        hashMergeNum = GetIsoColorMergeNum(opOriList, hashMap);
-    }
+bool NBufferMerger::Process(const OperationsViewer &opOriList, std::map<uint64_t, std::vector<int>> &hashMap, int copyInThreshold,
+                            std::map<uint64_t, size_t> &hashMergeNum, std::vector<uint64_t> &hashColor) {
     std::vector<uint64_t> hashMapKeys;
     for (auto &entry : hashMap) {
         hashMapKeys.push_back(entry.first);
@@ -418,6 +401,34 @@ bool NBufferMerger::NBufferMerge(Function &func, int dbMerging, int numDB, int c
             }
         }
     });
+    return true;
+}
+
+bool NBufferMerger::NBufferMerge(Function &func, int dbMerging, int numDB, int copyInThreshold) {
+    if (Init(func) == false) {
+        return false;
+    }
+    // 如果子图个数已经少于核数； 后续按照core的类型来判断
+    int coreNum = PassConfigManager::Instance().GetPlatformConfig().GetCoreNum(NpuCoreType::AICORE);
+    if (color_ <= coreNum) {
+        ALOG_INFO_F("NBufferMerge is skipped. color: %d, aiCoreNum: %d", color_, coreNum);
+        return true;
+    }
+    ALOG_INFO_F("User set nbuffer num: %d", numDB);
+    // 获取节点和子图的hash
+    auto opOriList = func.Operations();
+    std::vector<uint64_t> hashColor(color_, 0);
+    std::map<uint64_t, std::vector<int>> hashMap;
+    GetColorHash(opOriList, dbMerging, hashColor, hashMap);
+    std::map<uint64_t, size_t> hashMergeNum;
+    if (numDB > 1) {
+        for (auto& entry : hashMap) {
+            hashMergeNum[entry.first] = numDB;
+        }
+    } else {
+        hashMergeNum = GetIsoColorMergeNum(opOriList, hashMap);
+    }
+    Process(opOriList, hashMap, copyInThreshold, hashMergeNum, hashColor);
     CheckAndFixColorOrder(opOriList, color_, colorCycles_, colorNode_);
     func.SetTotalSubGraphCount(color_);
     ALOG_DEBUG_F("After Nbuffer merge");

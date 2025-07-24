@@ -55,8 +55,6 @@ TEST_F(SplitLargeLocalRawTest, SplitLocalRaw) {
             {          "InsertConvertOp",          "InsertConvertOp",    PassType::TYPE_TILE_GRAPH},
             {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
             {       "SplitReshapeOpPVC2",       "SplitReshapeOpPVC2",    PassType::TYPE_TILE_GRAPH},
-            {             "GraphInitPass",           "GraphInitPass",    PassType::TYPE_TILE_GRAPH},
-            {           "PartitionVCPass",         "PartitionVCPass",    PassType::TYPE_TILE_GRAPH},
             {        "GraphPartitionPass",        "GraphPartitionPass",    PassType::TYPE_TILE_GRAPH},
 
         });

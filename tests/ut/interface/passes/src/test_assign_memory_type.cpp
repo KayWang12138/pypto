@@ -20,6 +20,7 @@
 #include "interface/configs/config_manager.h"
 #include "passes/tile_graph_pass/assign_memory_type.h"
 #include "passes/pass_manager.h"
+#include "passes/pass_config/pass_config_manager.h"
 #include <fstream>
 #include <vector>
 
@@ -45,6 +46,7 @@ public:
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
         config::SetPlatformConfig("TEST_IS_TIG", true);
+        PassConfigManager::Instance().Initialize(DPlatform::ASCEND_910B2);
     }
     void TearDown() override {}
 

@@ -25,6 +25,7 @@
 #include <sstream>
 
 #include "tilefwk/data_type.h"
+#include "interface/utils/assert.h"
 
 namespace npu::tile_fwk {
 const size_t K_ONE_KB = 1024L;

@@ -32,6 +32,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h" // Include this if Function is defined in a separate file
 #include "interface/program/program.h"
+#include "passes/pass_config/pass_config_manager.h"
 
 
 namespace npu::tile_fwk {
@@ -137,7 +138,7 @@ public:
     void Reset(ModelID modelId) {
         for (size_t i = static_cast<size_t>(MemoryType::MEM_UB); i <= static_cast<size_t>(MemoryType::MEM_FAR2); ++i) {
             MemoryType memType = static_cast<MemoryType>(i);
-            size_t sizeLimit = Program::GetInstance().GetPlatformConfig().GetMemoryLimit(memType);
+            size_t sizeLimit = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(memType);
             TileRange initialRange(0, sizeLimit);
             allocators.emplace_back(MemoryTypeToString(memType), initialRange);
         }

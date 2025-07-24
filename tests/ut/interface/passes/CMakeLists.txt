@@ -103,7 +103,6 @@ set(_CaseFilterList
         "GraphInitTest.TestIsCubeOrNot"
         "PartitionVCTest.TestVCPartition"
         "PartitionVCTest.TestOnlyReshape"
-        "PreGraphTest.TestVCPartition"
         "PreGraphTest.TestAssemble"
         "PreGraphTest.TestTransposeDatamove"
         "PreGraphTest.TestTransposeDatamoveExp"

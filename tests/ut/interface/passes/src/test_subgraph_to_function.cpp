@@ -702,12 +702,10 @@ TEST_F(SubgraphToFunctionTest, VerifyPassResumeByJson) {
         {       "SubgraphToFunction",       "SubgraphToFunction", PassType::TYPE_EXECUTE_GRAPH},
         {      "InferParamIndexPass",      "InferParamIndexPass", PassType::TYPE_EXECUTE_GRAPH},
         {    "SrcDstBufferMergePass",    "SrcDstBufferMergePass", PassType::TYPE_EXECUTE_GRAPH},
-        {             "VFFusionPass",             "VFFusionPass", PassType::TYPE_EXECUTE_GRAPH},
         {             "AddAllocPass",             "AddAllocPass", PassType::TYPE_EXECUTE_GRAPH},
         {          "OoOSchedulePass",          "OoOSchedulePass", PassType::TYPE_EXECUTE_GRAPH},
         {              "MemoryReuse",              "MemoryReuse", PassType::TYPE_EXECUTE_GRAPH},
         {          "RemoveAllocPass",          "RemoveAllocPass", PassType::TYPE_EXECUTE_GRAPH},
-        {          "PriorScheduling",          "PriorScheduling", PassType::TYPE_EXECUTE_GRAPH},
         {           "InsertSyncPass",           "InsertSyncPass", PassType::TYPE_EXECUTE_GRAPH},
         {       "CodegenPreprocPass",       "CodegenPreprocPass", PassType::TYPE_EXECUTE_GRAPH},
     });

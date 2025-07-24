@@ -14,12 +14,13 @@
  */
 
 #include "schedule_ooo.h"
-#include "../statistic/statistic.h"
 #include <vector>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
+#include "../statistic/statistic.h"
+#include "passes/pass_config/pass_config_manager.h"
 
 namespace npu::tile_fwk {
 
@@ -526,9 +527,9 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
         {MemoryType::MEM_BT, MAX_BT_SIZE},
         {MemoryType::MEM_FIX, MAX_FIX_SIZE},
     };
-    inChipMemorySize.insert({MemoryType::MEM_UB, Program::GetInstance().GetPlatformConfig().GetUBSize()});
-    inChipMemorySize.insert({MemoryType::MEM_L1, Program::GetInstance().GetPlatformConfig().GetL1Size()});
-    inChipMemorySize.insert({MemoryType::MEM_L0B, Program::GetInstance().GetPlatformConfig().GetL0BSize()});
+    inChipMemorySize.insert({MemoryType::MEM_UB,  PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB)});
+    inChipMemorySize.insert({MemoryType::MEM_L1,  PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L1)});
+    inChipMemorySize.insert({MemoryType::MEM_L0B,  PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L0B)});
     
     std::vector<Operation *> newOperations;
     for (auto& op : operations) {

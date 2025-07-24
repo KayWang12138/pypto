@@ -14,6 +14,7 @@
  */
 
 #include "l1_copy_reuse.h"
+#include "passes/pass_config/pass_config_manager.h"
 
 namespace npu::tile_fwk {
 inline std::vector<int> GetGMInputFeature(const Operation &op) { // 提取GM tensor的特征
@@ -306,7 +307,7 @@ inline std::vector<int> AdjustNumDBCore(bool isLoadBalance, int color, int numDB
     std::vector<int> pingColorList(color, 1);
     int numMerged = (color + numDB - 1) / numDB;
     if (isLoadBalance) {
-        int coreNum = Program::GetInstance().GetPlatformConfig().GetAICoreNum();
+        int coreNum = PassConfigManager::Instance().GetPlatformConfig().GetCoreNum(NpuCoreType::AICORE);
         int columns = numMerged / coreNum;
         int packed = columns * coreNum * numDB;
         for (int i = 0; i < columns * coreNum; i++) {

@@ -15,6 +15,7 @@
 
 #include "insert_convert_op.h"
 #include "passes/pass_utils/parallel_tool.h"
+#include "passes/pass_config/pass_config_manager.h"
 
 namespace npu::tile_fwk {
 Status InsertConvertOp::PreCheck(Function &function) {
@@ -110,7 +111,7 @@ void InsertConvertOp::CheckUnknown(Function &function) const {
 
 bool InsertConvertOp::CrossCore(const std::shared_ptr<LogicalTensor>& tensor) const {
     std::vector<MemoryType> paths;
-    Program::GetInstance().GetPlatformConfig().FindNearestPath(
+    PassConfigManager::Instance().GetPlatformConfig().FindNearestPath(
         tensor->GetMemoryTypeOriginal(), tensor->GetMemoryTypeToBe(), paths);
 
     return std::find(paths.begin(), paths.end(), MemoryType::MEM_DEVICE_DDR) != paths.end();
@@ -176,7 +177,7 @@ void InsertConvertOp::RunOnOperation(Function &function, const npu::tile_fwk::Op
                 oOperand->SetMemoryTypeToBe(MEM_DEVICE_DDR);
             }
             std::vector<MemoryType> paths;
-            Program::GetInstance().GetPlatformConfig().FindNearestPath(
+            PassConfigManager::Instance().GetPlatformConfig().FindNearestPath(
                 oOperand->GetMemoryTypeOriginal(), oOperand->GetMemoryTypeToBe(), paths);
 
             std::shared_ptr<LogicalTensor> input = oOperand;

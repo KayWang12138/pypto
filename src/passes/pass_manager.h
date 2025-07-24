@@ -15,14 +15,13 @@
 
 #ifndef PASSES_PASS_MGR_H_
 #define PASSES_PASS_MGR_H_
+#include <vector>
+#include <string>
+#include <unordered_map>
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/function/function.h"
-
-#include <vector>
-#include <string>
-#include <unordered_map>
 
 namespace npu::tile_fwk {
 

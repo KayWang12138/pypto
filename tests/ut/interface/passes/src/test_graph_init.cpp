@@ -76,13 +76,6 @@ TEST_F(GraphInitTest, TestIsCubeOrNot) {
     std::vector<int> shape6{64, 2};
     std::vector<int> shape7{2, 2};
 
-    //Initialize PassManager
-    PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("GraphInitTestStrategy", {
-    {             "GraphInitPass",           "GraphInitPass",    PassType::TYPE_TILE_GRAPH},
-    });
-    ConfigManager::Instance();
-
     //Create and configure the function
     Function* originFunction = nullptr;
     std::vector<int> originOpmagic;

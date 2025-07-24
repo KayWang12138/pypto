@@ -41,6 +41,7 @@ bool GenerateMoveOp::ValidViewOp(const Operation &op) const{
        (op.GetIOperands().size() != 1) || (op.GetOOperands().size() != 1) ||
        (op.GetIOperands().front() == nullptr) || (op.GetOOperands().front() == nullptr) ||
        (*(op.oOperand[0]->GetConsumers().begin()) == nullptr)){
+        ALOG_ERROR_F("View op [%d] check failed.", op.GetOpMagic());
         valid = false;
     }
     return valid;
@@ -51,6 +52,7 @@ bool GenerateMoveOp::ValidAssembleOp(const Operation &op) const{
     if((op.GetOpAttribute().get() == nullptr) ||
        (op.GetIOperands().size() != 1) || (op.GetOOperands().size() != 1) ||
        (op.GetIOperands().front() == nullptr) || (op.GetOOperands().front() == nullptr)){
+        ALOG_ERROR_F("Assemble op [%d] check failed.", op.GetOpMagic());
         valid = false;
     }
     return valid;
@@ -63,7 +65,10 @@ bool GenerateMoveOp::ValidConvertOp(const Operation &op) const{
        (op.GetIOperands().front()->GetMemoryTypeOriginal() == op.GetOOperands().front()->GetMemoryTypeOriginal()) ||
        (op.GetIOperands().front()->GetShape() != op.GetOOperands().front()->GetShape()) ||
        ((op.GetIOperands().front()->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) &&
-       (op.GetOOperands().front()->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR))){
+       (op.GetOOperands().front()->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR))) {
+        ALOG_ERROR_F("Convert op [%d] check failed. in memtype %s, out memtype %s.", op.GetOpMagic(),
+            MemoryTypeToString(op.GetIOperands().front()->GetMemoryTypeOriginal()).c_str(),
+            MemoryTypeToString(op.GetOOperands().front()->GetMemoryTypeOriginal()).c_str());
         valid = false;
     }
     return valid;
