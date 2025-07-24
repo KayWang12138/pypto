@@ -133,7 +133,7 @@ int MachineAgent::PrepareWorkSpace(DeviceAgentTask *task) {
 
     uint8_t *workSpaceAddr = nullptr;
 #ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
-    machine::GetRA()->AllocDevAddr(&workSpaceAddr, static_cast<unsigned>(workSpaceSize));
+    machine::GetRA()->AllocDevAddr(&workSpaceAddr, workSpaceSize);
     if (workSpaceAddr == nullptr) {
         std::cerr << "[DEVICE AGENT] Error: Failed to allocate workspace memory !" << std::endl;
         return MACHINE_ERROR;
@@ -245,18 +245,18 @@ int MachineAgent::PrepareInvokeEntry(DeviceAgentTask *task) {
     uint8_t *invokeTensorsInfoDev = nullptr;
     uint8_t *invokeEntyDevOri = nullptr;
 #ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
-    machine::GetRA()->AllocDevAddr(&invokeEntyDev, static_cast<unsigned>(invokeOffsetVecSize));
+    machine::GetRA()->AllocDevAddr(&invokeEntyDev, invokeOffsetVecSize);
     if (invokeEntyDev == nullptr) {
         std::cerr << "[DEVICE AGENT] Error: Failed to allocate memory for invokeEntyDev!" << std::endl;
         return MACHINE_ERROR;
     }
-    machine::GetRA()->AllocDevAddr(&invokeEntyDevOri, static_cast<unsigned>(invokeOffsetOriVec.size() * sizeof(uint64_t)));
+    machine::GetRA()->AllocDevAddr(&invokeEntyDevOri, invokeOffsetOriVec.size() * sizeof(uint64_t));
     if (invokeEntyDevOri == nullptr) {
         std::cerr << "[DEVICE AGENT] Error: Failed to allocate memory for invokeEntyDev!" << std::endl;
         return MACHINE_ERROR;
     }
     size_t invokeTensorsInfoSize = task->compileInfo.coreTensorInfoVec.size() * sizeof(TensorInfo);
-    machine::GetRA()->AllocDevAddr(&invokeTensorsInfoDev, static_cast<unsigned>(invokeTensorsInfoSize));
+    machine::GetRA()->AllocDevAddr(&invokeTensorsInfoDev, invokeTensorsInfoSize);
     if (invokeTensorsInfoDev == nullptr) {
         std::cerr << "[DEVICE AGENT] Error: Failed to allocate memory for invokeEntyInfo!" << std::endl;
         return MACHINE_ERROR;
@@ -269,13 +269,11 @@ int MachineAgent::PrepareInvokeEntry(DeviceAgentTask *task) {
     DumpData("invokeOffsetVec.data", reinterpret_cast<const char *>(invokeOffsetVec.data()), invokeOffsetVecSize);
 #ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
     machine::GetRA()->CopyToDev(
-        invokeEntyDev, reinterpret_cast<uint8_t *>(invokeOffsetVec.data()), static_cast<unsigned>(invokeOffsetVecSize));
+        invokeEntyDev, reinterpret_cast<uint8_t *>(invokeOffsetVec.data()), invokeOffsetVecSize);
     machine::GetRA()->CopyToDev(invokeTensorsInfoDev,
-        reinterpret_cast<uint8_t *>(task->compileInfo.coreTensorInfoVec.data()),
-        static_cast<unsigned>(invokeTensorsInfoSize));
+        reinterpret_cast<uint8_t *>(task->compileInfo.coreTensorInfoVec.data()),invokeTensorsInfoSize);
     machine::GetRA()->CopyToDev(invokeEntyDevOri,
-        reinterpret_cast<uint8_t *>(invokeOffsetOriVec.data()),
-        static_cast<unsigned>(invokeOffsetOriVec.size() * sizeof(uint64_t)));
+        reinterpret_cast<uint8_t *>(invokeOffsetOriVec.data()), invokeOffsetOriVec.size() * sizeof(uint64_t));
 #endif
     ALOG_INFO_F("[DEVICE AGENT] Copied invokeOffsetVec data to invokeEntyDev, size: %lu bytes", invokeOffsetVecSize);
 
@@ -299,7 +297,7 @@ int MachineAgent::PrepareTopo(DeviceAgentTask *task) {
     uint8_t *topoGmAddr = nullptr;
 #ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
     uint64_t allocSize = cacheTopo->dataSize + sizeof(uint64_t); // datasize字段头也一起加上
-    machine::GetRA()->AllocDevAddr(&topoGmAddr, static_cast<unsigned>(allocSize));
+    machine::GetRA()->AllocDevAddr(&topoGmAddr, allocSize);
     if (topoGmAddr == nullptr) {
         std::cerr << "[DEVICE AGENT] Error: Failed to allocate topo memory!" << std::endl;
         return MACHINE_ERROR;
@@ -324,7 +322,7 @@ int MachineAgent::PrepareCoreFunctionBin(DeviceAgentTask *task) {
 #ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
     CoreFunctionBinCache *cacheBin = cacheValue.binCache;
     uint64_t allocSize = cacheBin->dataSize + sizeof(uint64_t); // datasize字段头也一起加上
-    machine::GetRA()->AllocDevAddr(&binGmAddr, static_cast<unsigned>(allocSize));
+    machine::GetRA()->AllocDevAddr(&binGmAddr, allocSize);
     if (binGmAddr == nullptr) {
         std::cerr << "[DEVICE AGENT] Error: Failed to allocate function bin memory!" << std::endl;
         return MACHINE_ERROR;
@@ -350,17 +348,17 @@ int MachineAgent::PrepareReadyCoreFunction(DeviceAgentTask *task) {
 
 #ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
     machine::GetRA()->AllocDevAddr(&task->deviceInfo.readyAicQueElmGmAddr,
-        static_cast<unsigned>(cacheValue.header.coreFunctionNum * sizeof(uint64_t)));
+        cacheValue.header.coreFunctionNum * sizeof(uint64_t));
     machine::GetRA()->AllocDevAddr(&task->deviceInfo.readyAivQueElmGmAddr,
-        static_cast<unsigned>(cacheValue.header.coreFunctionNum * sizeof(uint64_t)));
+        cacheValue.header.coreFunctionNum * sizeof(uint64_t));
     machine::GetRA()->AllocDevAddr(&task->deviceInfo.readyAicpuQueElmGmAddr,
-        static_cast<unsigned>(cacheValue.header.coreFunctionNum * sizeof(uint64_t)));
+        cacheValue.header.coreFunctionNum * sizeof(uint64_t));
     machine::GetRA()->AllocDevAddr(
-        &task->deviceInfo.readyAicQueGmAddr, static_cast<unsigned>(sizeof(StaticReadyCoreFunctionQueue)));
+        &task->deviceInfo.readyAicQueGmAddr, sizeof(StaticReadyCoreFunctionQueue));
     machine::GetRA()->AllocDevAddr(
-        &task->deviceInfo.readyAivQueGmAddr, static_cast<unsigned>(sizeof(StaticReadyCoreFunctionQueue)));
+        &task->deviceInfo.readyAivQueGmAddr, sizeof(StaticReadyCoreFunctionQueue));
     machine::GetRA()->AllocDevAddr(
-        &task->deviceInfo.readyAicpuQueGmAddr, static_cast<unsigned>(sizeof(StaticReadyCoreFunctionQueue)));
+        &task->deviceInfo.readyAicpuQueGmAddr, sizeof(StaticReadyCoreFunctionQueue));
     if (task->deviceInfo.readyAicQueElmGmAddr == nullptr || task->deviceInfo.readyAivQueElmGmAddr == nullptr ||
         task->deviceInfo.readyAicQueGmAddr == nullptr || task->deviceInfo.readyAivQueGmAddr == nullptr ||
         task->deviceInfo.readyAicpuQueElmGmAddr == nullptr || task->deviceInfo.readyAicpuQueGmAddr == nullptr) {
@@ -471,7 +469,7 @@ int MachineAgent::PrepareReadyState(DeviceAgentTask *task) {
     uint8_t *readyState = nullptr;
 #ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
     uint64_t allocSize = task->compileInfo.coreFunctionReadyState.size() * sizeof(CoreFunctionReadyState);
-    machine::GetRA()->AllocDevAddr(&readyState, static_cast<unsigned>(allocSize));
+    machine::GetRA()->AllocDevAddr(&readyState, allocSize);
     if (readyState == nullptr) {
         std::cerr << "[DEVICE AGENT] Error: Failed to allocate ready state memory!" << std::endl;
         return MACHINE_ERROR;
@@ -562,7 +560,7 @@ int MachineAgent::ConstructDeviceTask(DeviceAgentTask *task) {
     uint8_t *coreFuncWsGmAddr = nullptr;
 #ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
     uint64_t allocSize = devInfo.coreFunctionWsAddr.size() * sizeof(CoreFunctionWsAddr);
-    machine::GetRA()->AllocDevAddr(&coreFuncWsGmAddr, static_cast<unsigned>(allocSize));
+    machine::GetRA()->AllocDevAddr(&coreFuncWsGmAddr, allocSize);
     if (coreFuncWsGmAddr == nullptr) {
         std::cerr << "[DEVICE AGENT] Error: Failed to allocate  core func ws addr memory!" << std::endl;
         return MACHINE_ERROR;
@@ -578,7 +576,7 @@ int MachineAgent::ConstructDeviceTask(DeviceAgentTask *task) {
 #endif
     uint8_t *deviceTaskGmAddr = nullptr;
 #ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
-    machine::GetRA()->AllocDevAddr(&deviceTaskGmAddr, static_cast<unsigned>(sizeof(DeviceTask)));
+    machine::GetRA()->AllocDevAddr(&deviceTaskGmAddr, sizeof(DeviceTask));
     if (deviceTaskGmAddr == nullptr) {
         std::cerr << "[DEVICE AGENT] Error: Failed to allocate  devicetask addr memory!" << std::endl;
         return MACHINE_ERROR;

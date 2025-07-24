@@ -90,9 +90,9 @@ public:
         return offset;
     }
 
-    void AllocDevAddr(uint8_t **devAddr, unsigned size) {
+    void AllocDevAddr(uint8_t **devAddr, uint64_t size) {
         auto alignSize = MemSizeAlign(size);
-        ALOG_INFO_F("RuntimeAgent::Alloc size[%u] with align size[%u].", size, alignSize);
+        ALOG_INFO_F("RuntimeAgent::Alloc size[%u] with align size[%lu].", size, alignSize);
         if (TryGetHugePageMem(devAddr, alignSize)) {
           return;
         }
@@ -102,20 +102,20 @@ public:
           ALOG_WARN_F("1G page mem alloc failed, turn to 2M page.\n");
           res = rtMalloc((void **)devAddr, alignSize, TWO_MB_HUGE_PAGE_FLAGS, 0);
           if (res != 0) {
-            ALOG_ERROR_F("RuntimeAgent::AllocDevAddr failed for size %u", size);
+            ALOG_ERROR_F("RuntimeAgent::AllocDevAddr failed for size %lu", size);
             return;
           }
           allocatedDevAddr.emplace_back(*devAddr);
-          ALOG_INFO_F("AllocDevAddr %p size is %u", *devAddr, size);
+          ALOG_INFO_F("AllocDevAddr %p size is %lu", *devAddr, size);
           return;
         }
         allocatedDevAddr.emplace_back(*devAddr);
         hugePageVec.emplace_back(HugePageDesc(*devAddr, allocSize));
         if (!TryGetHugePageMem(devAddr, alignSize)) {
-          ALOG_ERROR_F("RuntimeAgent::AllocDevAddr failed for size %u", size);
+          ALOG_ERROR_F("RuntimeAgent::AllocDevAddr failed for size %lu", size);
           return;
         }
-        ALOG_INFO_F("Alloc 1G page mem %p size is %u", *devAddr, allocSize);
+        ALOG_INFO_F("Alloc 1G page mem %p size is %lu", *devAddr, allocSize);
         return;
     }
 
@@ -127,13 +127,13 @@ public:
         return false;
     }
 
-    void CopyToDev(uint8_t *devAddr, uint8_t *hostSrcAddr, unsigned size) {
+    void CopyToDev(uint8_t *devAddr, uint8_t *hostSrcAddr, uint64_t size) {
         rtMemcpy(devAddr, size, hostSrcAddr, size, RT_MEMCPY_HOST_TO_DEVICE);
         ALOG_DEBUG_F("RuntimeAgent::CopyToDev for src %lx to dst %lx with size %u", reinterpret_cast<uint64_t>(hostSrcAddr),
             reinterpret_cast<uint64_t>(devAddr), size);
     }
 
-    void CopyFromTensor(uint8_t *hostDstAddr, uint8_t *devSrcAddr, unsigned size) {
+    void CopyFromTensor(uint8_t *hostDstAddr, uint8_t *devSrcAddr, uint64_t size) {
 #ifdef RUN_WITH_ASCEND_CAMODEL
         rtMemcpy(hostDstAddr, size, devSrcAddr, size, RT_MEMCPY_DEVICE_TO_HOST);
 #else
@@ -196,7 +196,7 @@ private:
     }
     bool GetPgmsk(uint64_t &valid, int32_t &deviceId) const;
 
-    bool TryGetHugePageMem(uint8_t **devAddr, unsigned alignSize) {
+    bool TryGetHugePageMem(uint8_t **devAddr, uint64_t alignSize) {
         for (size_t i = 0; i < hugePageVec.size(); ++i) {
           if (hugePageVec[i].current + alignSize <= hugePageVec[i].allSize) {
             *devAddr = hugePageVec[i].baseAddr + hugePageVec[i].current;

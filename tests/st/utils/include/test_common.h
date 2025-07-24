@@ -393,7 +393,7 @@ void *readToDev(const std::string &path, int size) {
     return devPtr;
 }
 
-[[maybe_unused]] static uint8_t *allocDevAddr(unsigned size) {
+[[maybe_unused]] static uint8_t *allocDevAddr(uint64_t size) {
     uint8_t *devPtr = nullptr;
     machine::GetRA()->AllocDevAddr(&devPtr, size);
     if (devPtr == nullptr) {
