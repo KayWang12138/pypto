@@ -25,7 +25,7 @@
 #include "codegen/codegen_symbol.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 
-using namespace npu::tile_fwk;
+namespace npu::tile_fwk {
 
 class TestCodegenDynVnchwconv : public ::testing::Test {
 public:
@@ -80,3 +80,4 @@ void TestDynVnchwconvBody(std::vector<int> shape, std::vector<int> outShape, std
 TEST_F(TestCodegenDynVnchwconv, TransposeDynVnchwconvDim3) {
     TestDynVnchwconvBody({2, 32, 16}, {2, 16, 32}, {2, 1}, {1, 16, 16}, "TRANSPOSE_DYN_VNCHWCONV_DIM4");
 }
+} // namespace npu::tile_fwk

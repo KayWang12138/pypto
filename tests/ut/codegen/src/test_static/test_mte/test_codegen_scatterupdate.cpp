@@ -22,7 +22,7 @@
 #include "operation/tilefwk_op.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 
-using namespace npu::tile_fwk;
+namespace npu::tile_fwk {
 
 class TestCodegenScatterUpdate : public ::testing::Test {
 public:
@@ -131,3 +131,4 @@ TEST_F(TestCodegenScatterUpdate, TestScatterUpdate) {
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
+} // namespace npu::tile_fwk

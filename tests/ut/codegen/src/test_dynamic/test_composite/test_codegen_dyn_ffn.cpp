@@ -21,7 +21,7 @@
 #include "models/deepseek/deepseek_moeinfer.h"
 #include "interface/configs/config_manager.h"
 
-using namespace npu::tile_fwk;
+namespace npu::tile_fwk {
 
 class TestCodegenDynFFN : public ::testing::Test {
 public:
@@ -65,7 +65,6 @@ void testffn() {
     DynamicFFN(hiddenStates, ffnweight1, ffnweight2, ffnweight3, ffnout, BASIC_BATCH);
 }
 
-
 void testffnquant() {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
 
@@ -93,7 +92,8 @@ void testffnquant() {
     Tensor ffnScale3(DT_FP32, {1, H}, "ffnScale3");
     Tensor ffnout(DT_FP32, OutShape, "ffnout");
 
-    DynamicFFNQuant(hiddenStates, hiddenStatesScale, ffnWeight1, ffnWeight2, ffnWeight3, ffnScale1, ffnScale2, ffnScale3, ffnout, BASIC_BATCH);
+    DynamicFFNQuant(hiddenStates, hiddenStatesScale, ffnWeight1, ffnWeight2, ffnWeight3, ffnScale1, ffnScale2,
+        ffnScale3, ffnout, BASIC_BATCH);
 }
 
 TEST_F(TestCodegenDynFFN, FFNDynamicTest) {
@@ -103,3 +103,4 @@ TEST_F(TestCodegenDynFFN, FFNDynamicTest) {
 TEST_F(TestCodegenDynFFN, FFNQuantDynamicTest) {
     testffnquant();
 }
+} // namespace npu::tile_fwk

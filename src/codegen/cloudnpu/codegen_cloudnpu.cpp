@@ -121,11 +121,11 @@ std::string CodeGenCloudNPU::GenCodeImpl(Function &subFunc, Function &topFunc) {
     auto locToOffsetMap = GenRealizeIdMap(subFunc.GetParameter());
 
     for (const auto &op : operationList) {
-        ALOG_INFO_F("======================== Op CodeGenNPU Start ========================\nGen OP IS: %s",
-            op.Dump().c_str());
+        ALOG_INFO_F(
+            "======================== Op CodeGenNPU Start ========================\nGen OP IS: %s", op.Dump().c_str());
         Opcode opcode = op.GetOpcode();
         if (SKIP_OPCODE.find(opcode) != SKIP_OPCODE.end()) {
-            ALOG_INFO << "ignore this op\n------------------------ Op CodeGenNPU Finish -----------------------";
+            ALOG_INFO_F("ignore this op\n------------------------ Op CodeGenNPU Finish -----------------------");
             continue;
         }
 
@@ -214,8 +214,7 @@ std::string CodeGenCloudNPU::GetParamType(const Function &func) {
     if (isUnderDynamicFunction) {
         return GM_PARAM_TYPE_FOR_DYN;
     }
-    return func.GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH ? GM_PARAM_TYPE_FOR_DYN :
-                                                                            GM_PARAM_TYPE_FOR_STATIC;
+    return func.GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH ? GM_PARAM_TYPE_FOR_DYN : GM_PARAM_TYPE_FOR_STATIC;
 }
 
 std::string CodeGenCloudNPU::GenFuncCodeAfterReplace(
@@ -254,6 +253,7 @@ void CodeGenCloudNPU::GenCode(
     ALOG_INFO_F("Start GenOpCode by Json");
     Program::GetInstance().LoadJson(jsonData);
     Function *func = Program::GetInstance().GetCurrentFunction();
+    ASSERT(func->rootFunc_ != nullptr) << "func can not be nullptr";
     GenCode(*func, invokeParaOffset);
 }
 
@@ -262,7 +262,7 @@ void CodeGenCloudNPU::GenCode(
     std::deque<std::function<void(void)>> tasks;
     for (auto &subFuncPair : topFunc.rootFunc_->programs_) {
         std::function task = [this, subFuncPair, &topFunc]() {
-            ALOG_INFO << " ----- subprogram id [" << subFuncPair.first << "] -----";
+            ALOG_INFO_F(" ----- subprogram id [%d] -----", subFuncPair.first);
             auto subFunc = subFuncPair.second;
             if (subFunc->IsAicpuSubFunction()) {
                 subFunc->SetCoreType(CoreType::AICPU);
@@ -318,14 +318,15 @@ bool CodeGenCloudNPU::DumpCCE(const std::string &name, const std::string &code) 
     return !file.fail();
 }
 
-bool CodeGenCloudNPU::GenConfigJson(const std::string &configJson, const std::string &cppName, const std::string &binName,
-    const std::string &kernelName, int workspaceSize) const {
+bool CodeGenCloudNPU::GenConfigJson(const std::string &configJson, const std::string &cppName,
+    const std::string &binName, const std::string &kernelName, int workspaceSize) const {
     std::ofstream file;
     file.open(configJson);
     file << "{\n"
          << R"(    "kernelFile": ")" << cppName << "\",\n"
          << R"(    "kernelBin": ")" << binName << "\",\n"
-         << R"(    "kernelName": ")" << kernelName + "_main" << "\",\n"
+         << R"(    "kernelName": ")" << kernelName + "_main"
+         << "\",\n"
          << "    \"workspaceSize\": " << workspaceSize << "\n"
          << "}";
     return !file.fail();
@@ -335,17 +336,15 @@ std::optional<std::string> CodeGenCloudNPU::GenExtraAlloc(
     SymbolManager &memAlloc, const std::shared_ptr<LogicalTensor> &tensor, const npu::tile_fwk::Operation &op) const {
     const auto &memMap = tensor->memorymap;
     if (memMap.find(tensor->subGraphID) == memMap.end()) {
-        ALOG_ERROR << __FUNCTION__ << ": can not find subgGraphID(" << tensor->subGraphID
-                   << ") in the memorymap of op:";
-        ALOG_ERROR << "    " << op.Dump();
+        ALOG_ERROR_F("%s: can not find subgGraphID(%d) in the memorymap of op:", __FUNCTION__, tensor->subGraphID);
+        ALOG_ERROR_F("    %s", op.Dump().c_str());
         return std::nullopt;
     }
 
     auto memType = tensor->GetMemoryTypeOriginal();
     if (npu::tile_fwk::OPERAND_TYPE_TO_MEMORY_TYPE.find(memType) == npu::tile_fwk::OPERAND_TYPE_TO_MEMORY_TYPE.end()) {
-        ALOG_ERROR << __FUNCTION__ << ": invalid memory type(" << static_cast<size_t>(memType)
-                   << ") of tensor tensor: ";
-        ALOG_ERROR << "    " << tensor->Dump();
+        ALOG_ERROR_F("%s: invalid memory type(%d) of tensor tensor: ", __FUNCTION__, static_cast<size_t>(memType));
+        ALOG_ERROR_F("    %s", tensor->Dump().c_str());
         return std::nullopt;
     }
 
@@ -366,8 +365,9 @@ std::string GenAllocVarName(const char *prefix, const npu::tile_fwk::TileRange &
 
 std::string CodeGenCloudNPU::GenAlloc(SymbolManager &manager, SymbolManager::BufferType bufferType,
     npu::tile_fwk::DataType dataType, const npu::tile_fwk::TileRange &range) const {
-    if ((BUFFER_TYPE_TO_PREFIX.count(bufferType) == 0) || (npu::tile_fwk::OPERAND_TYPE_TO_ADDR_TYPE.count(bufferType) == 0)) {
-        ALOG_ERROR << __FUNCTION__ << ": invalid bufferType: " << bufferType;
+    if ((BUFFER_TYPE_TO_PREFIX.count(bufferType) == 0) ||
+        (npu::tile_fwk::OPERAND_TYPE_TO_ADDR_TYPE.count(bufferType) == 0)) {
+        ALOG_ERROR_F("%s: invalid bufferType: %d", __FUNCTION__, static_cast<size_t>(bufferType));
         ASSERT(false);
         return "";
     }
@@ -384,7 +384,8 @@ std::string CodeGenCloudNPU::GenAlloc(SymbolManager &manager, SymbolManager::Buf
         return "";
     }
 
-    ALOG_INFO << __FUNCTION__ << ": bind key to name: " << key << "->" << allocVarName;
+    ALOG_INFO_F(
+        "%s: bind key to name: %s->%s", __FUNCTION__, npu::tile_fwk::FormatAllocKey(key).c_str(), allocVarName.c_str());
 
     std::string dataTypeStr = DataType2CCEStr(dataType);
 
@@ -434,17 +435,17 @@ int CodeGenCloudNPU::CompileCCE(
         compileOptions.c_str(), coreType.c_str(), includePath.c_str(), includePath.c_str(), includePath.c_str(),
         objFile.c_str(), srcFile.c_str());
     if (ret < 0) {
-        ALOG_INFO << "CompileCCE snprintf_s failed " << ret;
+        ALOG_INFO_F("CompileCCE snprintf_s failed %d", ret);
     }
 
-    ALOG_INFO << "compile kernel...\n" << ccecCmd;
+    ALOG_INFO_F("compile kernel...\n%s", ccecCmd);
     if (CheckInjectStr(ccecCmd, strlen(ccecCmd)) != 0) {
-        ALOG_INFO << "CheckInjectStr faild...\n";
+        ALOG_INFO_F("CheckInjectStr failed...\n");
         return -1;
     }
     ret = std::system(ccecCmd);
     if (ret != 0) {
-        ALOG_INFO << "CompileCce ccec failed " << ret;
+        ALOG_INFO_F("CompileCce ccec failed %d", ret);
     }
     return ret;
 }

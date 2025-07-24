@@ -24,7 +24,7 @@
 #include "interface/configs/config_manager.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 
-using namespace npu::tile_fwk;
+namespace npu::tile_fwk {
 
 class TestCodegenDynPa : public ::testing::Test {
 public:
@@ -99,3 +99,4 @@ TEST_F(TestCodegenDynPa, PaHighThroughputDviewLargeDynamicValidShape) {
     tileConfig.v2TileShape = {nTile / 8, 256};
     testPa(tileConfig);
 }
+} // namespace npu::tile_fwk

@@ -29,8 +29,7 @@
 #include "codegen/cloudnpu/codegen_op_cloudnpu.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 
-using namespace npu::tile_fwk;
-
+namespace npu::tile_fwk {
 class TestCodegenDynIndexOutCast : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
@@ -174,3 +173,4 @@ TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
+} // namespace npu::tile_fwk

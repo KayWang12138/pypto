@@ -61,7 +61,8 @@ TEST_F(TestCodegenDynCopy, L0CToOut) {
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     function->SetUnderDynamicFunction(true);
-    std::shared_ptr<RawTensor> ddrRawTensor = std::make_shared<RawTensor>(DataType::DT_FP32, shape, "L0CToOut", dummyRawMagic);
+    std::shared_ptr<RawTensor> ddrRawTensor =
+        std::make_shared<RawTensor>(DataType::DT_FP32, shape, "L0CToOut", dummyRawMagic);
     const std::vector<int> offset = {0, 0};
 
     auto ddrTensor = std::make_shared<LogicalTensor>(*function, ddrRawTensor, offset, shape);
@@ -117,7 +118,8 @@ std::string TestL1CopyInBody(bool isNz = false, int outerValueForNz = 0, int inn
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     function->SetUnderDynamicFunction(true);
-    std::shared_ptr<RawTensor> ddrRawTensor = std::make_shared<RawTensor>(DataType::DT_FP32, shape, "L1CopyIn", dummyRawMagic);
+    std::shared_ptr<RawTensor> ddrRawTensor =
+        std::make_shared<RawTensor>(DataType::DT_FP32, shape, "L1CopyIn", dummyRawMagic);
     const std::vector<int> offset = {0, 0};
 
     auto ddrTensor = std::make_shared<LogicalTensor>(*function, ddrRawTensor, offset, shape);
@@ -199,7 +201,8 @@ TEST_F(TestCodegenDynCopy, UBCopyIn) {
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     function->SetUnderDynamicFunction(true);
-    std::shared_ptr<RawTensor> ddrRawTensor = std::make_shared<RawTensor>(DataType::DT_FP32, shape, "L1CopyIn", dummyRawMagic);
+    std::shared_ptr<RawTensor> ddrRawTensor =
+        std::make_shared<RawTensor>(DataType::DT_FP32, shape, "L1CopyIn", dummyRawMagic);
     const std::vector<int> offset = {0, 0};
 
     auto ddrTensor = std::make_shared<LogicalTensor>(*function, ddrRawTensor, offset, shape);

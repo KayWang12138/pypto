@@ -25,7 +25,7 @@
 #include "codegen/cloudnpu/codegen_op_cloudnpu.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 
-using namespace npu::tile_fwk;
+namespace npu::tile_fwk {
 
 class TestCodegenDynSpillOut : public ::testing::Test {
 public:
@@ -145,3 +145,4 @@ TEST_F(TestCodegenDynSpillOut, L1SpillOut) {
 
     cop.GenOpCode();
 }
+} // namespace npu::tile_fwk

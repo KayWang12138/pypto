@@ -26,7 +26,7 @@
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "codegen/cloudnpu/codegen_op_cloudnpu.h"
 
-using namespace npu::tile_fwk;
+namespace npu::tile_fwk {
 
 class TestCodegenDynTransposeDataMove : public ::testing::Test {
 public:
@@ -110,3 +110,4 @@ TEST_F(TestCodegenDynTransposeDataMove, TransposeDataMoveDim3) {
 TEST_F(TestCodegenDynTransposeDataMove, TransposeDataMoveDim4) {
     TestTransposeDataMoveBody(SHAPE_DIM4);
 }
+} // namespace npu::tile_fwk

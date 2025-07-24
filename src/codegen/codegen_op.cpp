@@ -117,14 +117,14 @@ bool CodeGenOp::Init(const npu::tile_fwk::Operation &ops) {
         << "can not support ops.iOperand.size: " << ops.iOperand.size()
         << ", ops.oOperand.size: " << ops.oOperand.size();
 
-    ALOG_INFO << __FUNCTION__ << ": init CodeGenOp from npu::tile_fwk::Operation";
+    ALOG_INFO_F("%s: init CodeGenOp from npu::tile_fwk::Operation", __FUNCTION__);
 
     isSupportDynamicUnaligned = functionType == FunctionType::DYNAMIC_LOOP_PATH &&
                                 ConfigManager::Instance().GetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, false);
 
     UpdateTileOpInfo(ops);
     if (tileOpName.empty()) {
-        ALOG_ERROR << __FUNCTION__ << ": empty tileOpName for ops:\n" << ops.Dump();
+        ALOG_ERROR_F("%s: empty tileOpName for ops:\n%s", __FUNCTION__, ops.Dump().c_str());
         return false;
     }
 
@@ -340,7 +340,7 @@ void CodeGenOp::UpdateTileOpInfo(const Operation &ops) {
         tileOpName.insert(nameSpaceLen, dynPrefix);
     }
 
-    ALOG_INFO << "after UpdateTileOpInfo: tileOpName = " << tileOpName;
+    ALOG_INFO_F("after UpdateTileOpInfo: tileOpName = %s", tileOpName.c_str());
 }
 
 void CodeGenOp::GetGmParamIdx(const npu::tile_fwk::Operation &oper) {
@@ -354,8 +354,8 @@ void CodeGenOp::GetGmParamIdx(const npu::tile_fwk::Operation &oper) {
         ASSERT(outParamLocSize <= oper.oOperand.size())
             << "size of Op.outParamLocation_ is larger than output operands";
 
-        ALOG_INFO << __FUNCTION__ << ": inParamLocation = " << IntVecToStr(oper.inParamLocation_);
-        ALOG_INFO << __FUNCTION__ << ": outParamLocation = " << IntVecToStr(oper.outParamLocation_);
+        ALOG_INFO_F("%d: inParamLocation = %s", __FUNCTION__, IntVecToStr(oper.inParamLocation_).c_str());
+        ALOG_INFO_F("%d: outParamLocation = %s", __FUNCTION__, IntVecToStr(oper.outParamLocation_).c_str());
 
         std::copy(oper.outParamLocation_.begin(), oper.outParamLocation_.end(), paramLocation);
         std::copy(oper.inParamLocation_.begin(), oper.inParamLocation_.end(), paramLocation + oper.oOperand.size());
@@ -367,9 +367,9 @@ void CodeGenOp::GetGmParamIdx(const npu::tile_fwk::Operation &oper) {
         ASSERT(attr != nullptr) << "Copy In attr is null";
         std::shared_ptr<CopyOpAttribute> copyAttr = std::static_pointer_cast<CopyOpAttribute>(attr);
         paramLocation[1] = oper.GetIOpAttrOffset(0);
-        ALOG_INFO << "Gm Param Index of Copy In Op " << GetTileOpName(oper.GetOpcode()) << "is " << paramLocation[1];
+        ALOG_INFO_F("Gm Param Index of Copy In Op %s is %d", GetTileOpName(oper.GetOpcode()), paramLocation[1]);
         GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
-        ALOG_INFO << __FUNCTION__ << " GmTensorParamIdxInCallFunc: " << GmTensorParamIdxInCallFunc;
+        ALOG_INFO_F("%s GmTensorParamIdxInCallFunc: %d", __FUNCTION__, GmTensorParamIdxInCallFunc);
         return;
     }
 
@@ -378,9 +378,9 @@ void CodeGenOp::GetGmParamIdx(const npu::tile_fwk::Operation &oper) {
         ASSERT(attr != nullptr) << "Copy In attr is null";
         std::shared_ptr<CopyOpAttribute> copyAttr = std::static_pointer_cast<CopyOpAttribute>(attr);
         paramLocation[0] = oper.GetOOpAttrOffset(0);
-        ALOG_INFO << "Gm Param Index of Copy Out Op " << GetTileOpName(oper.GetOpcode()) << "is " << paramLocation[0];
+        ALOG_INFO_F("Gm Param Index of Copy Out Op %s is %d", GetTileOpName(oper.GetOpcode()), paramLocation[0]);
         GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
-        ALOG_INFO << __FUNCTION__ << " GmTensorParamIdxInCallFunc: " << GmTensorParamIdxInCallFunc;
+        ALOG_INFO_F("%s GmTensorParamIdxInCallFunc: %d", __FUNCTION__, GmTensorParamIdxInCallFunc);
         return;
     }
 }
@@ -388,10 +388,9 @@ void CodeGenOp::GetGmParamIdx(const npu::tile_fwk::Operation &oper) {
 SymbolManager::AllocKey CodeGenOp::CreateAllocKey(std::shared_ptr<LogicalTensor> tensor) {
     const auto &memMap = tensor->memorymap;
     if (memMap.count(tensor->subGraphID) == 0) {
-        ALOG_ERROR << __FUNCTION__ << ": can not find subGraphID(" << tensor->subGraphID
-                   << ") in the memorymap of tensor: ";
-        ALOG_ERROR << "    " << tensor->Dump();
-        ALOG_ERROR << "    " << "memorymap size = " << memMap.size();
+        ALOG_ERROR_F("%s: can not find subGraphID(%d) in the memorymap of tensor: ", __FUNCTION__, tensor->subGraphID);
+        ALOG_ERROR_F("    %s", tensor->Dump().c_str());
+        ALOG_ERROR_F("    memorymap size = %d", memMap.size());
 
         ASSERT(false);
         return {};
@@ -399,8 +398,8 @@ SymbolManager::AllocKey CodeGenOp::CreateAllocKey(std::shared_ptr<LogicalTensor>
 
     auto memType = tensor->GetMemoryTypeOriginal();
     if (npu::tile_fwk::OPERAND_TYPE_TO_MEMORY_TYPE.count(memType) == 0) {
-        ALOG_ERROR << __FUNCTION__ << ": invalid memory type(" << static_cast<size_t>(memType) << ") of out tensor: ";
-        ALOG_ERROR << "    " << tensor->Dump();
+        ALOG_ERROR_F("%s: invalid memory type(%d) of tensor: ", __FUNCTION__, static_cast<size_t>(memType));
+        ALOG_ERROR_F("    %s", tensor->Dump().c_str());
 
         ASSERT(false);
         return {};
@@ -417,7 +416,7 @@ SymbolManager::AllocKey CodeGenOp::CreateAllocKey(std::shared_ptr<LogicalTensor>
 SymbolManager::AllocKey CodeGenOp::CreateAllocKey(int tensorMagicNum) const {
     std::shared_ptr<LogicalTensor> tensor = tensorMap.GetTensorByMagic(tensorMagicNum);
     if (!tensor) {
-        ALOG_ERROR << __FUNCTION__ << ": can not query tensor object from tensor magicnum: " << tensorMagicNum;
+        ALOG_ERROR_F("%s: can not query tensor object from tensor magicnum: %d", __FUNCTION__, tensorMagicNum);
         return {};
     }
 
@@ -429,7 +428,7 @@ std::string CodeGenOp::GenBarrier() const {
     auto pipeId1 = GetPipeId(syncQueue.pipeId_);
     int ret = snprintf_s(buffer, sizeof(buffer), sizeof(buffer) - 1, "pipe_barrier(%s);\n", pipeId1.c_str());
     if (ret < 0) {
-        ALOG_INFO << "genBarrier snprintf_s failed " << ret;
+        ALOG_INFO_F("genBarrier snprintf_s failed %d", ret);
     }
     return buffer;
 }
@@ -441,7 +440,7 @@ std::string CodeGenOp::GenSyncSetOp() const {
     int ret = snprintf_s(buffer, sizeof(buffer), sizeof(buffer) - 1, "set_flag(%s, %s, EVENT_ID%d);\n", pipeId1.c_str(),
         pipeId2.c_str(), syncQueue.eventId_);
     if (ret < 0) {
-        ALOG_INFO << "genSyncSetOp snprintf_s failed " << ret;
+        ALOG_INFO_F("genSyncSetOp snprintf_s failed %d", ret);
     }
     return buffer;
 }
@@ -453,7 +452,7 @@ std::string CodeGenOp::GenSyncWaitOp() const {
     int ret = snprintf_s(buffer, sizeof(buffer), sizeof(buffer) - 1, "wait_flag(%s, %s, EVENT_ID%d);\n",
         pipeId1.c_str(), pipeId2.c_str(), syncQueue.eventId_);
     if (ret < 0) {
-        ALOG_INFO << "genSyncWaitOp snprintf_s failed " << ret;
+        ALOG_INFO_F("genSyncWaitOp snprintf_s failed %d", ret);
     }
     return buffer;
 }

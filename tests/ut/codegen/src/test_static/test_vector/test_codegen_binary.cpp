@@ -23,7 +23,7 @@
 #include <string>
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 
-using namespace npu::tile_fwk;
+namespace npu::tile_fwk {
 
 class TestCodegenBinary : public ::testing::Test {
 public:
@@ -113,3 +113,4 @@ TEST_F(TestCodegenBinary, TestCodegenAddSDim3) {
 TEST_F(TestCodegenBinary, TestCodegenAddSDim4) {
     TestAddSBody({2, 2, 20, 20}, {1, 1, 8, 8}, "ADD_DIM4");
 }
+} // namespace npu::tile_fwk

@@ -21,8 +21,8 @@
 #include "interface/configs/config_manager.h"
 #include "codegen/codegen.h"
 
-using namespace npu::tile_fwk;
-using namespace Distributed;
+namespace npu::tile_fwk {
+namespace Distributed {
 
 class TestCodegenMoeCombine : public ::testing::Test {
 public:
@@ -30,8 +30,7 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override
-    {
+    void SetUp() override {
         oriEnableAihacBackend = config::GetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
         Program::GetInstance().Reset();
@@ -39,17 +38,13 @@ public:
         config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     }
 
-    void TearDown() override
-    {
-        config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);
-    }
+    void TearDown() override { config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend); }
 
 protected:
     bool oriEnableAihacBackend = false;
 };
 
-void TestMoeCombine()
-{
+void TestMoeCombine() {
     const char *group = "hcom123";
     int expandBS = 16;
     int bs = 8;
@@ -71,7 +66,8 @@ void TestMoeCombine()
     }
 }
 
-TEST_F(TestCodegenMoeCombine, TestMoeCombine)
-{
+TEST_F(TestCodegenMoeCombine, TestMoeCombine) {
     TestMoeCombine();
 }
+} // namespace Distributed
+} // namespace npu::tile_fwk

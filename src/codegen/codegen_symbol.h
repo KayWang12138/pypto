@@ -31,10 +31,16 @@ public:
 
     using BufferType = enum OperandType;
 
+    enum class AllocKeyIdx : size_t {
+        BufType = 0,
+        RangeStart = 1,
+        RangeEnd = 2,
+    };
     using AllocKey = std::tuple<BufferType, int64_t /*RangeStart*/, int64_t /*RangeEnd*/>;
     using AllocRecord = std::pair<uint64_t /*AllocaAddr*/, unsigned /*AllocaSize*/>;
 
 public:
+    virtual std::string QueryVariableName(const AllocKey &key);
     SymbolManager(SymbolManager &other) = delete;
 
     void operator=(const SymbolManager &other) = delete;
@@ -54,29 +60,36 @@ public:
         return false;
     }
 
-    virtual std::string QueryVariableName(const AllocKey &key) {
-        ALOG_INFO << __FUNCTION__ << ": query varname by key: " << key;
-
-        auto iter = key2VariableName.find(key);
-        if (iter != key2VariableName.end()) {
-            return iter->second;
-        }
-
-        ALOG_ERROR << __FUNCTION__ << ": failed to query by key: " << key;
-        ASSERT(false) << " UNDEFINED_VAR !!! ";
-        return "UNDEFINED_VAR";
-    }
-
 private:
     std::map<AllocKey, std::string> key2VariableName;
 };
 
-inline std::ostream &operator<<(std::ostream &os, npu::tile_fwk::SymbolManager::AllocKey key) {
-    os << "AllocKey<buf_type = "
-       << npu::tile_fwk::OperandTypeToStr(std::get<0>(key)) /* 0 is BUF_TYPE_IDX */
-       << ", range_start = " << std::get<1>(key) /* 1 is RANGE_START_IDX */
-       << ", range_end = " << std::get<2>(key) /* 2 is RANGE_END_IDX */
-       << ">";
-    return os;
+inline std::string FormatAllocKey(const SymbolManager::AllocKey &key) {
+    constexpr size_t bufSize = 256;
+    char keyBuf[bufSize] = {};
+
+    int ret = snprintf_s(keyBuf, sizeof(keyBuf), sizeof(keyBuf) - 1,
+        "alloc indentifier <buf_type=%s, range_start=%ld, range_end=%ld>",
+        OperandTypeToStr(std::get<static_cast<size_t>(SymbolManager::AllocKeyIdx::BufType)>(key)).c_str(),
+        std::get<static_cast<size_t>(SymbolManager::AllocKeyIdx::RangeStart)>(key),
+        std::get<static_cast<size_t>(SymbolManager::AllocKeyIdx::RangeEnd)>(key));
+    if (ret < 0) {
+        ALOG_INFO_F("Format alloc indentifier snprintf_s buffer failed %d", ret);
+    }
+    return std::string(keyBuf);
 }
+
+inline std::string SymbolManager::QueryVariableName(const SymbolManager::AllocKey &key) {
+    ALOG_INFO_F("%s: query varname by indentifier: %s", __FUNCTION__, FormatAllocKey(key).c_str());
+
+    auto iter = key2VariableName.find(key);
+    if (iter != key2VariableName.end()) {
+        return iter->second;
+    }
+
+    ALOG_ERROR_F("%s: failed to query by indentifier: %s", __FUNCTION__, FormatAllocKey(key).c_str());
+    ASSERT(false) << " UNDEFINED_VAR !!! ";
+    return "UNDEFINED_VAR";
+}
+
 } // namespace npu::tile_fwk

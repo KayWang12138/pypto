@@ -25,7 +25,7 @@
 #include "codegen/codegen_symbol.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 
-using namespace npu::tile_fwk;
+namespace npu::tile_fwk {
 
 class TestCodegenDynRowSumLine : public ::testing::Test {
 public:
@@ -83,3 +83,4 @@ TEST_F(TestCodegenDynRowSumLine, TestOperationRowSumLine) {
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
+} // namespace npu::tile_fwk

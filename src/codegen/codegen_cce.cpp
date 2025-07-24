@@ -23,11 +23,11 @@
 
 namespace npu::tile_fwk {
 void CodeGenCCE::PrepareDefaultOutputPath() {
-    constexpr int size = 1024;
-    char buf[size] = {};
-    std::string cwd = getcwd(buf, size);
+    constexpr size_t size = 1024;
+    char cwdbuf[size] = {};
+    std::string cwd = getcwd(cwdbuf, size);
     if (cwd.empty()) {
-        ALOG_INFO << "failed to call getcwd()!";
+        ALOG_INFO_F("failed to call getcwd()!");
         return;
     }
 
@@ -52,22 +52,22 @@ std::map<int, int> GenRealizeIdMap(const SubfuncParam &subFuncParam) {
 
     std::map<int, int> idMap;
     auto f = [&idMap](size_t offset, auto &invokeArgs) {
-        ALOG_INFO << " start offset is " << offset << ", arg size is " << invokeArgs.size();
+        ALOG_INFO_F("start offset is %d, arg size is %d", offset, invokeArgs.size());
         for (size_t i = 0; i < invokeArgs.size(); i++) {
             size_t paramOff = (offset + i);
             uint32_t paramLoc = invokeArgs[i].paramLoc;
             ALOG_DEBUG("paramLoc ", paramLoc, " --> offset ", paramOff);
-            ALOG_INFO << " paramLoc is " << paramLoc << ", paramOff is " << paramOff << ", SymDDRId is "
-                      << invokeArgs[i].symDDRId << ", SymName is " << invokeArgs[i].symName;
+            ALOG_INFO_F(" paramLoc is %d, paramOff is %d, SymDDRId is %d, SymName is %s", paramLoc, paramOff,
+                invokeArgs[i].symDDRId, invokeArgs[i].symName);
             idMap.insert({paramLoc, paramOff});
         }
     };
 
-    ALOG_INFO << "---  start tensorInvokeArgs paramLoc map ---- ";
+    ALOG_INFO_F("---  start tensorInvokeArgs paramLoc map ---- ");
     f(0, tensorInvokeArgs);
-    ALOG_INFO << "---  start incastInvokeArgs paramLoc map ---- ";
+    ALOG_INFO_F("---  start incastInvokeArgs paramLoc map ---- ");
     f(tensorInvokeArgs.size(), incastInvokeArgs);
-    ALOG_INFO << "---  start outcastInvokeArgs paramLoc map ---- ";
+    ALOG_INFO_F("---  start outcastInvokeArgs paramLoc map ---- ");
     f(tensorInvokeArgs.size() + incastInvokeArgs.size(), outcastInvokeArgs);
     return idMap;
 }

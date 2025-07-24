@@ -545,11 +545,11 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveDynamic(const PrintTranspos
     int dim = static_cast<int>(paramIdxForDynShape[ID0].size());
     std::vector<std::string> gmShapeExpr = GenGetParamMacroPacked(ID0, dim, PREFIX_STR_RAW_SHAPE);
     FillIntVecWithDummyInHead<std::string>(gmShapeExpr, SHAPE_DIM4 - dim, "1");
-    ALOG_INFO << "dynamic gmShape param: " << IntVecToStr(gmShapeExpr);
+    ALOG_INFO_F("dynamic gmShape param: %s", IntVecToStr(gmShapeExpr).c_str());
 
     std::vector<std::string> gmOffsetExpr = GenGetParamMacroPacked(ID0, dim, PREFIX_STR_OFFSET);
     FillIntVecWithDummyInHead<std::string>(gmOffsetExpr, SHAPE_DIM4 - dim, "0");
-    ALOG_INFO << "dynamic gmOffset param: " << IntVecToStr(gmOffsetExpr);
+    ALOG_INFO_F("dynamic gmOffset param: %s", IntVecToStr(gmOffsetExpr).c_str());
 
     std::vector<int> os = NormalizeShape(originShape[1], SHAPE_DIM4);
     std::vector<int> srcShape = NormalizeShape(rawShape[1], SHAPE_DIM4);
@@ -595,11 +595,11 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveDynamicUnaligned(const Prin
     int dim = static_cast<int>(paramIdxForDynShape[ID0].size());
     std::vector<std::string> gmShapeExpr = GenGetParamMacroPacked(ID0, dim, PREFIX_STR_RAW_SHAPE);
     FillIntVecWithDummyInHead<std::string>(gmShapeExpr, SHAPE_DIM4 - dim, "1");
-    ALOG_INFO << "dynamic gmShape param: " << IntVecToStr(gmShapeExpr);
+    ALOG_INFO_F("dynamic gmShape param: %s", IntVecToStr(gmShapeExpr).c_str());
 
     std::vector<std::string> gmOffsetExpr = GenGetParamMacroPacked(ID0, dim, PREFIX_STR_OFFSET);
     FillIntVecWithDummyInHead<std::string>(gmOffsetExpr, SHAPE_DIM4 - dim, "0");
-    ALOG_INFO << "dynamic gmOffset param: " << IntVecToStr(gmOffsetExpr);
+    ALOG_INFO_F("dynamic gmOffset param: %s", IntVecToStr(gmOffsetExpr).c_str());
     auto newDynSrcValidShape = dynamicValidShape[1];
     FillIntVecWithDummyInHead<SymbolicScalar>(newDynSrcValidShape, SHAPE_DIM4 - dynamicValidShape[1].size(), 1);
 
@@ -1230,10 +1230,10 @@ std::string CodeGenOpCloudNPU::PrintGatherStatic(const PrintGatherParam &param) 
     const std::string &s0Var = param.s0Var;
     const std::string &s1Var = param.s1Var;
 
-    std::vector dstShape = this->rawShape[0];
-    std::vector src0Shape = this->rawShape[1];
+    std::vector dstShape = this->rawShape[ID0];
+    std::vector src0Shape = this->rawShape[ID1];
 
-    std::vector<int> dos = NormalizeShape(originShape[0], SHAPE_DIM4);
+    std::vector<int> dos = NormalizeShape(originShape[ID0], SHAPE_DIM4);
     std::vector<int> ss = NormalizeShape(src0Shape, SHAPE_DIM4);
     std::vector<int> ds = NormalizeShape(dstShape, SHAPE_DIM4);
 
@@ -1241,12 +1241,12 @@ std::string CodeGenOpCloudNPU::PrintGatherStatic(const PrintGatherParam &param) 
     std::vector<std::string> paramList;
     paramList.emplace_back(src0DtypeStr);
     paramList.emplace_back(src1DtypeStr);
-    paramList.emplace_back("/*DOS*/ " + std::to_string(dos[1]));
-    for (int i = 2; i < SHAPE_DIM4; ++i) {
+    paramList.emplace_back("/*DOS*/ " + std::to_string(dos[ID1]));
+    for (int i = ID2; i < SHAPE_DIM4; ++i) {
         paramList.emplace_back(std::to_string(dos[i]));
     }
-    paramList.emplace_back("/*SS*/ " + std::to_string(ss[3]));
-    paramList.emplace_back("/*DS*/ " + std::to_string(ds[3]));
+    paramList.emplace_back("/*SS*/ " + std::to_string(ss[ID3]));
+    paramList.emplace_back("/*DS*/ " + std::to_string(ds[ID3]));
     std::string templateParam = JoinString(paramList, ", ");
 
     paramList.clear();
@@ -1271,21 +1271,21 @@ std::string CodeGenOpCloudNPU::PrintGatherDynamicUnaligned(const PrintGatherPara
     const std::string &dVar = param.dVar;
     const std::string &s0Var = param.s0Var;
     const std::string &s1Var = param.s1Var;
-    std::vector dstShape = this->rawShape[0];
-    std::vector src0Shape = this->rawShape[1];
-    std::vector<int> dos = NormalizeShape(originShape[0], SHAPE_DIM4);
+    std::vector dstShape = this->rawShape[ID0];
+    std::vector src0Shape = this->rawShape[ID1];
+    std::vector<int> dos = NormalizeShape(originShape[ID0], SHAPE_DIM4);
     std::vector<int> ss = NormalizeShape(src0Shape, SHAPE_DIM4);
     std::vector<int> ds = NormalizeShape(dstShape, SHAPE_DIM4);
 
-    auto dynDstShape = dynamicValidShape[0];
-    FillIntVecWithDummyInHead<SymbolicScalar>(dynDstShape, SHAPE_DIM4 - dynamicValidShape[0].size(), 1);
+    auto dynDstShape = dynamicValidShape[ID0];
+    FillIntVecWithDummyInHead<SymbolicScalar>(dynDstShape, SHAPE_DIM4 - dynamicValidShape[ID0].size(), 1);
 
     std::ostringstream os;
     std::vector<std::string> paramList;
     paramList.emplace_back(src0DtypeStr);
     paramList.emplace_back(src1DtypeStr);
-    paramList.emplace_back("/*SS*/ " + std::to_string(ss[3]));
-    paramList.emplace_back("/*DS*/ " + std::to_string(ds[3]));
+    paramList.emplace_back("/*SS*/ " + std::to_string(ss[ID3]));
+    paramList.emplace_back("/*DS*/ " + std::to_string(ds[ID3]));
     std::string templateParam = JoinString(paramList, ", ");
 
     paramList.clear();
@@ -1322,9 +1322,9 @@ std::string CodeGenOpCloudNPU::GenGatherOp() const {
     std::string dVar = sm->QueryVariableName(kDst);
 
     // shape: dst, src0, src1
-    int dstRank = shape[0].size();
-    int src0Rank = shape[1].size();
-    int src1Rank = shape[2].size();
+    int dstRank = shape[ID0].size();
+    int src0Rank = shape[ID1].size();
+    int src1Rank = shape[ID2].size();
 
     // support following cases:
     // [case1] src0: [S2,D], src1: [S], axis: 0, dst: [S,D]
@@ -1335,13 +1335,13 @@ std::string CodeGenOpCloudNPU::GenGatherOp() const {
 
     std::vector dstShape = this->rawShape[0];
     if (dstRank == RANK2) {
-        ALOG_INFO << "GenGatherOp, dst Shape is [" << dstShape[0] << "," << dstShape[1];
+        ALOG_INFO_F("GenGatherOp, dst Shape is [%d,%d]", dstShape[ID0], dstShape[ID1]);
     } else if (dstRank == RANK3) {
-        ALOG_INFO << "GenGatherOp, dst Shape is [" << dstShape[0] << "," << dstShape[1] << "," << dstShape[2];
+        ALOG_INFO_F("GenGatherOp, dst Shape is [%d,%d,%d]", dstShape[ID0], dstShape[ID1], dstShape[ID2]);
     }
 
     std::vector src0Shape = this->rawShape[1];
-    ALOG_INFO << "GenGatherOp, src0 Shape is [" << src0Shape[0] << "," << src0Shape[1];
+    ALOG_INFO_F("GenGatherOp, src0 Shape is [%d,%d]", src0Shape[0], src0Shape[1]);
 
     char buffer[256] = "CG_ERROR";
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
@@ -1372,17 +1372,17 @@ std::string CodeGenOpCloudNPU::PrintGatherElementStatic(const PrintGatherElePara
     // template param
     std::ostringstream oss;
     std::vector<std::string> paramList;
-    paramList.insert(paramList.end(), {dataTypeExpr[1], dataTypeExpr[2]});
-    paramList.insert(paramList.end(), {std::to_string(dstOriginShape[0]), std::to_string(dstOriginShape[1])});
-    paramList.emplace_back(std::to_string(src0RawShape[1]));
-    paramList.emplace_back(std::to_string(dstRawShape[1]));
+    paramList.insert(paramList.end(), {dataTypeExpr[ID1], dataTypeExpr[ID2]});
+    paramList.insert(paramList.end(), {std::to_string(dstOriginShape[ID0]), std::to_string(dstOriginShape[ID1])});
+    paramList.emplace_back(std::to_string(src0RawShape[ID1]));
+    paramList.emplace_back(std::to_string(dstRawShape[ID1]));
     paramList.emplace_back(std::to_string(param.axis));
     std::string templateParam = JoinString(paramList, ", ");
     // func actual param
     paramList.clear();
-    std::string dst = "(__ubuf__ " + dataTypeExpr[0] + "*)" + dVar;
-    std::string src0 = "(__ubuf__ " + dataTypeExpr[1] + "*)" + s0Var;
-    std::string src1 = "(__ubuf__ " + dataTypeExpr[2] + "*)" + s1Var;
+    std::string dst = "(__ubuf__ " + dataTypeExpr[ID0] + "*)" + dVar;
+    std::string src0 = "(__ubuf__ " + dataTypeExpr[ID1] + "*)" + s0Var;
+    std::string src1 = "(__ubuf__ " + dataTypeExpr[ID2] + "*)" + s1Var;
     paramList.insert(paramList.end(), {dst, src0, src1});
     std::string tiloOpCallParam = JoinString(paramList, ", ");
     oss << tileOpName << "<" << templateParam << ">"
@@ -1401,20 +1401,20 @@ std::string CodeGenOpCloudNPU::PrintGatherElementDynamicUnaligned(const PrintGat
     // template param
     std::ostringstream oss;
     std::vector<std::string> paramList;
-    paramList.insert(paramList.end(), {dataTypeExpr[1], dataTypeExpr[2]});
-    paramList.emplace_back(std::to_string(src0RawShape[1]));
-    paramList.emplace_back(std::to_string(dstRawShape[1]));
+    paramList.insert(paramList.end(), {dataTypeExpr[ID1], dataTypeExpr[ID2]});
+    paramList.emplace_back(std::to_string(src0RawShape[ID1]));
+    paramList.emplace_back(std::to_string(dstRawShape[ID1]));
     paramList.emplace_back(std::to_string(param.axis));
     std::string templateParam = JoinString(paramList, ", ");
     // func actual param
     paramList.clear();
-    std::string dst = "(__ubuf__ " + dataTypeExpr[0] + "*)" + dVar;
-    std::string src0 = "(__ubuf__ " + dataTypeExpr[1] + "*)" + s0Var;
-    std::string src1 = "(__ubuf__ " + dataTypeExpr[2] + "*)" + s1Var;
+    std::string dst = "(__ubuf__ " + dataTypeExpr[ID0] + "*)" + dVar;
+    std::string src0 = "(__ubuf__ " + dataTypeExpr[ID1] + "*)" + s0Var;
+    std::string src1 = "(__ubuf__ " + dataTypeExpr[ID2] + "*)" + s1Var;
     paramList.insert(paramList.end(), {dst, src0, src1});
-    auto dstValidShape = dynamicValidShape[0];
-    paramList.emplace_back(dstValidShape[0].Dump());
-    paramList.emplace_back(dstValidShape[1].Dump());
+    auto dstValidShape = dynamicValidShape[ID0];
+    paramList.emplace_back(dstValidShape[ID0].Dump());
+    paramList.emplace_back(dstValidShape[ID1].Dump());
     std::string tiloOpCallParam = JoinString(paramList, ", ");
     oss << tileOpName << "<" << templateParam << ">"
         << "(" << tiloOpCallParam << ");\n";
@@ -1501,8 +1501,8 @@ std::string CodeGenOpCloudNPU::GenScatterElementOp() const {
     std::string dstDtypeStr = DataType2CCEStr(dstDtype);
     std::string src0DtypeStr = DataType2CCEStr(dstDtype);
     std::string src1DtypeStr = DataType2CCEStr(src1Dtype);
-    ALOG_INFO << "GenScatterElementOp, dstDtypeStr" << dstDtypeStr;
-    ALOG_INFO << "GenScatterElementOp, src1DtypeStr" << src1DtypeStr;
+    ALOG_INFO_F("GenScatterElementOp, dstDtypeStr%s", dstDtypeStr.c_str());
+    ALOG_INFO_F("GenScatterElementOp, src1DtypeStr%s", src1DtypeStr.c_str());
 
     AppendLocalBufferVarOffset({&dstVar, &src0Var, &src1Var}, {0, 1, 2});
 
@@ -1514,7 +1514,7 @@ std::string CodeGenOpCloudNPU::GenScatterElementOp() const {
     int ret =
         snprintf_s(scalarTmpBuffer, sizeof(scalarTmpBuffer), sizeof(scalarTmpBuffer) - 1, "%.9g", scala.Cast<float>());
     if (ret < 0) {
-        ALOG_INFO << "GenScatterElementOp snprintf_s scalarTmpBuffer failed " << ret;
+        ALOG_INFO_F("GenScatterElementOp snprintf_s scalarTmpBuffer failed %d", ret);
     }
     ret = snprintf_s(buffer, sizeof(buffer), sizeof(buffer) - 1,
         "%s<%s, %s, %u, %u, %u, %u %s>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s, (__ubuf__ %s *)%s, (%s)%s);\n",
@@ -1522,7 +1522,7 @@ std::string CodeGenOpCloudNPU::GenScatterElementOp() const {
         GenOpAttr().c_str(), dstDtypeStr.c_str(), dstVar.c_str(), src0DtypeStr.c_str(), src0Var.c_str(),
         src1DtypeStr.c_str(), src1Var.c_str(), dstDtypeStr.c_str(), scalarTmpBuffer);
     if (ret < 0) {
-        ALOG_INFO << "GenScatterElementOp snprintf_s buffer failed " << ret;
+        ALOG_INFO_F("GenScatterElementOp snprintf_s buffer failed %d", ret);
     }
     std::string ostring(buffer);
     return ostring;

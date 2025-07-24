@@ -21,8 +21,8 @@
 #include "interface/configs/config_manager.h"
 #include "codegen/codegen.h"
 
-using namespace npu::tile_fwk;
-using namespace Distributed;
+namespace npu::tile_fwk {
+namespace Distributed {
 
 class TestCodegenReduceScatter : public ::testing::Test {
 public:
@@ -30,8 +30,7 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override
-    {
+    void SetUp() override {
         oriEnableAihacBackend = config::GetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
         Program::GetInstance().Reset();
@@ -45,8 +44,7 @@ protected:
     bool oriEnableAihacBackend = false;
 };
 
-void TestReduceScatter()
-{
+void TestReduceScatter() {
     const char *group = "hcom123";
     int32_t m = 16;
     int32_t n = 128;
@@ -65,18 +63,17 @@ void TestReduceScatter()
     FUNCTION("REDUCESCATTER_F", FunctionType::STATIC, {in[0], in[1], out}) {
         // 为了适配 kernel 代码，这边切分改成 1，线上代码可以直接运行
         Program::GetInstance().GetTileShape().SetDistTileShapes({m / 2, 2, 0}, {n, 1, 0}, {2, 1, 0});
-        Program::GetInstance().GetTileShape().SpecifyStaticRankId(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+        Program::GetInstance().GetTileShape().SpecifyStaticRankId(
+            npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
         out = Distributed::ReduceScatter(in, group, npu::tile_fwk::Distributed::DistReduceType::DIST_REDUCE_ADD);
     }
 }
 
-TEST_F(TestCodegenReduceScatter, TestReduceScatter)
-{
+TEST_F(TestCodegenReduceScatter, TestReduceScatter) {
     TestReduceScatter();
 }
 
-void TestReduceScatterOneTensor()
-{
+void TestReduceScatterOneTensor() {
     const char *group = "hcom123";
     int32_t m = 16;
     int32_t n = 128;
@@ -93,12 +90,14 @@ void TestReduceScatterOneTensor()
     FUNCTION("REDUCESCATTER_F", FunctionType::STATIC, {in, out}) {
         // 为了适配 kernel 代码，这边切分改成 1，线上代码可以直接运行
         Program::GetInstance().GetTileShape().SetDistTileShapes({m / 2, 2, 0}, {m, 1, 0}, {rankSize, 1, 0});
-        Program::GetInstance().GetTileShape().SpecifyStaticRankId(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+        Program::GetInstance().GetTileShape().SpecifyStaticRankId(
+            npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
         out = Distributed::ReduceScatter(in, group, npu::tile_fwk::Distributed::DistReduceType::DIST_REDUCE_ADD);
     }
 }
 
-TEST_F(TestCodegenReduceScatter, TestReduceScatterOneTensor)
-{
+TEST_F(TestCodegenReduceScatter, TestReduceScatterOneTensor) {
     TestReduceScatterOneTensor();
 }
+} // namespace Distributed
+} // namespace npu::tile_fwk

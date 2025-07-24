@@ -23,7 +23,7 @@
 #include <string>
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 
-using namespace npu::tile_fwk;
+namespace npu::tile_fwk {
 
 class TestCodegenGather : public ::testing::Test {
 public:
@@ -86,14 +86,15 @@ TEST_F(TestCodegenGather, TestGatherEle) {
 
     std::string funcName = "GATHER_ELEMET_T";
     FUNCTION(funcName, FunctionType::STATIC, {inputScores, inputTmpScores, outputTensor}) {
-        auto topkIdx = std::get<1>(TopK(inputScores, numExpertsPerTopk, -1)); // [b*s,256]->[b*s,8]
-        auto topkWeight = GatherElement(inputTmpScores, topkIdx, 1);          // [b*s,8]
-        auto topkWeightSum = RowSumSingle(topkWeight, 1);                     // [b*s,8]->[b*s,1]
-        auto denominator = AddS(topkWeightSum, Element(DataType::DT_FP32, 1e-20f));              // [b*s,1]
-        outputTensor = Div(topkWeight, denominator);                          // [b*s,numExpertsPerTok]
+        auto topkIdx = std::get<1>(TopK(inputScores, numExpertsPerTopk, -1));       // [b*s,256]->[b*s,8]
+        auto topkWeight = GatherElement(inputTmpScores, topkIdx, 1);                // [b*s,8]
+        auto topkWeightSum = RowSumSingle(topkWeight, 1);                           // [b*s,8]->[b*s,1]
+        auto denominator = AddS(topkWeightSum, Element(DataType::DT_FP32, 1e-20f)); // [b*s,1]
+        outputTensor = Div(topkWeight, denominator);                                // [b*s,numExpertsPerTok]
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
+} // namespace npu::tile_fwk

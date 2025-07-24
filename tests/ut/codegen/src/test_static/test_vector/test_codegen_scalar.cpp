@@ -23,7 +23,7 @@
 #include <string>
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 
-using namespace npu::tile_fwk;
+namespace npu::tile_fwk {
 constexpr int DIM2 = 2;
 constexpr int DIM3 = 3;
 constexpr int DIM4 = 4;
@@ -57,19 +57,15 @@ void TestQuant(std::vector<int> &inputShape) {
 
     // depend on shapeDim
     switch (shapeDim) {
-        case DIM2:
-            Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[1]);
-            break;
+        case DIM2: Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[1]); break;
         case DIM3:
-            Program::GetInstance().GetTileShape().SetVecTileShapes(
-                vecTileShape[0], vecTileShape[0], vecTileShape[1]);
+            Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[0], vecTileShape[1]);
             break;
         case DIM4:
             Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, vecTileShape[0], vecTileShape[1]);
             break;
         default: ASSERT(true) << "unsupport dim " << shapeDim << " \n"; break;
     }
-
 
     Tensor input(DataType::DT_FP16, inputShape, "input");
     Tensor output(DataType::DT_INT8, inputShape, "output");
@@ -117,11 +113,10 @@ TEST_F(TestCodegenScalar, TestScalarOp) {
 }
 
 TEST_F(TestCodegenScalar, TestPipeAll) {
-    auto rootFuncPtr =
-        std::make_shared<Function>(Program::GetInstance(), "TestParams", "TestParams", nullptr);
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestParams", "TestParams", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(
-        Program::GetInstance(), "TestAddParams", "TestAddParams", rootFuncPtr.get());
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestAddParams", "TestAddParams", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
 
@@ -155,3 +150,4 @@ TEST_F(TestCodegenScalar, TestPipeAll) {
     codeGen.GenCode(*rootFuncPtr, {});
     EXPECT_TRUE(true);
 }
+} // namespace npu::tile_fwk

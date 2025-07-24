@@ -24,7 +24,7 @@
 #include "interface/configs/config_manager.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 
-using namespace npu::tile_fwk;
+namespace npu::tile_fwk {
 
 class TestCodegenLlama : public ::testing::Test {
 public:
@@ -69,3 +69,4 @@ TEST_F(TestCodegenLlama, TestCodegenLlama) {
     AttentionDims dimsCfg = {1, 1, 128, 128, DFT_SINGLE_M, DFT_SINGLE_N};
     CgLLamaLayer(dimsCfg, 0.005f);
 }
+} // namespace npu::tile_fwk

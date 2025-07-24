@@ -417,7 +417,7 @@ std::vector<int> CodeGenOpCloudNPU::GetTileShapeForMemTransfer(
         }
     } else if (localType == BUF_L1 || localType == BUF_L0C) {
         std::vector l1Shape = this->rawShape[localIdx];
-        ALOG_INFO << "getTileShape src1Shape is [" << l1Shape[0] << "," << l1Shape[1];
+        ALOG_INFO_F("getTileShape src1Shape is [%d,%d]", l1Shape[0], l1Shape[1]);
         for (size_t i = 0; i < this->rawShape[localIdx].size(); ++i) {
             tileShapeForMT.emplace_back(rawShape[localIdx][i]);
         }

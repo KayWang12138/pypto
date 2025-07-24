@@ -23,8 +23,8 @@
 #include <string>
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 
-using namespace npu::tile_fwk;
-using namespace Distributed;
+namespace npu::tile_fwk {
+namespace Distributed {
 
 class TestCodegenAllGather : public ::testing::Test {
 public:
@@ -116,7 +116,7 @@ void TestAllGatherAndMatmul()
 
     DataType dType = DataType::DT_BF16;
     std::string funcName = "AllGatherAndMatmul";
-    
+
     PROGRAM("TestAllGatherMatmul") {
         std::vector<int32_t> inputShape = {m, n};
         std::vector<int32_t> matmulShape = {n, n};
@@ -126,15 +126,14 @@ void TestAllGatherAndMatmul()
         Tensor w(dType, matmulShape, "w");
         Tensor out = Tensor(dType, resShape, "out");
         ConfigManager::Instance();
-        FUNCTION(funcName, FunctionType::STATIC, {in,  w, out}) {
-            Program::GetInstance().GetTileShape().SetDistTileShapes({inputShape[0] / 2, 2, 0},
-                {inputShape[1] / 2, 2, 0}, {1, procSize, 0});
+        FUNCTION(funcName, FunctionType::STATIC, {in, w, out}) {
+            Program::GetInstance().GetTileShape().SetDistTileShapes(
+                {inputShape[0] / 2, 2, 0}, {inputShape[1] / 2, 2, 0}, {1, procSize, 0});
             Program::GetInstance().GetTileShape().SpecifyStaticRankId(0);
             auto allGatherOut = Distributed::AllGather(in, group);
-            
-            Program::GetInstance().GetTileShape().SetCubeTileShapes(
-                    {16, 16}, {16, 16}, {32, 32});
-            out = Matrix::Matmul<false, false>(dType, allGatherOut, w); 
+
+            Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16}, {16, 16}, {32, 32});
+            out = Matrix::Matmul<false, false>(dType, allGatherOut, w);
         }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
@@ -148,3 +147,5 @@ TEST_F(TestCodegenAllGather, TestAllGatherMatmulTensorGraph)
 {
     TestAllGatherAndMatmul();
 }
+} // namespace Distributed
+} // namespace npu::tile_fwk
