@@ -18,7 +18,7 @@
 
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/configs/config.h"
+#include "interface/configs/config_storage.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/tensor/raw_tensor.h"
 #include "interface/interpreter/raw_tensor_data.h"

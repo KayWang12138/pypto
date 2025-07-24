@@ -20,29 +20,14 @@
 #include "common/pre_def.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/program/program.h"
-#include "interface/configs/config.h"
+#include "interface/configs/config_storage.h"
 #include "models/nsa/selected_attention.h"
 #include "models/deepseek/gen_kv_slc.h"
 #include "models/nsa/attention_post.h"
 
 namespace npu::tile_fwk {
 constexpr int NUM_1 = 1;
-constexpr int NUM_2 = 2;
 constexpr int NUM_3 = 3;
-constexpr int NUM_4 = 4;
-constexpr int NUM_8 = 8;
-constexpr int NUM_16 = 16;
-constexpr int NUM_32 = 32;
-constexpr int NUM_64 = 64;
-constexpr int NUM_128 = 128;
-constexpr int NUM_256 = 256;
-constexpr int NUM_384 = 384;
-constexpr int NUM_512 = 512;
-constexpr int NUM_1024 = 1024;
-constexpr int NUM_1536 = 1536;
-constexpr int NUM_1792 = 1792;
-constexpr int NUM_4096 = 4096;
-constexpr int NUM_7168 = 7168;
 constexpr int NUM_65536 = 65536;
 
 enum GateMode {

@@ -62,9 +62,9 @@ public: // public api for torch
     bool OperatorChecker() const { return operatorChecker_; }
     void UpdateOperatorChecker(bool checker) { operatorChecker_ = checker; }
 
-    TuningConfig &GetConfig() { return config_; }
-    const TuningConfig &GetConfig() const { return config_; }
-    void SetConfig(const TuningConfig &config) { config_ = config; }
+    ConfigStorage &GetConfig() { return config_; }
+    const ConfigStorage &GetConfig() const { return config_; }
+    void SetConfig(const ConfigStorage &config) { config_ = config; }
 
     AscendPlatformConfig &GetPlatformConfig() { return platformconfig_; }
     const AscendPlatformConfig &GetPlatformConfig() const { return platformconfig_; }
@@ -134,7 +134,7 @@ private:
     std::string currentFunctionMagicName_;
     Function *currentFunctionPtr_;
     Function *lastFunc_{nullptr};
-    TuningConfig config_;
+    ConfigStorage config_;
     AscendPlatformConfig platformconfig_;
     bool underDyndevFunction_{false};
     bool operatorChecker_{false};

@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file config.h
+ * \file config_storage.h
  * \brief
  */
 
@@ -35,8 +35,6 @@
 #include "tilefwk/data_type.h"
 #include "interface/utils/common.h"
 #include "interface/cache/hash_buffer.h"
-#include "platform_config.h"
-#include "tilefwk/tuner.h"
 
 #ifdef PRIOR_SCHEDULING
 using setType = std::conditional<true, std::unordered_set<int>, std::set<int>>::type;
@@ -61,38 +59,38 @@ const std::string LOAD_BALANCE = "load_balance";
 const std::string COPYIN_THRESHOLD = "copyin_threshold";
 const std::string MACHINE_CONFIG = "machine_config";
 
-class TuningConfig {
+class ConfigStorage {
 public:
     using ConfigValue = std::variant<int, bool, std::string, std::map<int, int>, uint8_t>;
-    explicit TuningConfig() {
+    explicit ConfigStorage() {
         Reset();
     }
 
     void Reset() {
-        runtimeConfigs_[PARALLEL_THRESHOLD] = 20;  // default threshold
-        runtimeConfigs_[CYCLE_UPPER_BOUND] = 10000; // defalt cycle upper bound
-        runtimeConfigs_[USE_NODE_HASH] = false;
-        runtimeConfigs_[CYCLES_THRESHOLD] = 512; // default cycle threshold
-        runtimeConfigs_[DB_TYPE] = 0;
-        runtimeConfigs_[NBUFFER_NUM] = 1;
-        runtimeConfigs_[L1_REUSE] = 0;
-        runtimeConfigs_[L1_REUSE_MAP] = std::map<int,int>({});
-        runtimeConfigs_[CUBE_NBUFFER] = 1;
-        runtimeConfigs_[CUBE_NBUFFER_MAP] = std::map<int,int>({});
-        runtimeConfigs_[LOAD_BALANCE] = false;
-        runtimeConfigs_[COPYIN_THRESHOLD] = 1024 * 1024; // default copyin threshold
-        runtimeConfigs_[MACHINE_CONFIG] = static_cast<uint8_t>(0);
+        configs_[PARALLEL_THRESHOLD] = 20;  // default threshold
+        configs_[CYCLE_UPPER_BOUND] = 10000; // defalt cycle upper bound
+        configs_[USE_NODE_HASH] = false;
+        configs_[CYCLES_THRESHOLD] = 512; // default cycle threshold
+        configs_[DB_TYPE] = 0;
+        configs_[NBUFFER_NUM] = 1;
+        configs_[L1_REUSE] = 0;
+        configs_[L1_REUSE_MAP] = std::map<int,int>({});
+        configs_[CUBE_NBUFFER] = 1;
+        configs_[CUBE_NBUFFER_MAP] = std::map<int,int>({});
+        configs_[LOAD_BALANCE] = false;
+        configs_[COPYIN_THRESHOLD] = 1024 * 1024; // default copyin threshold
+        configs_[MACHINE_CONFIG] = static_cast<uint8_t>(0);
     }
 
     template <typename T>
     void Set(const std::string& key, const T& value) {
-        runtimeConfigs_[key] = value;
+        configs_[key] = value;
     }
 
     template <typename T>
     T Get(const std::string& key) const {
-        auto it = runtimeConfigs_.find(key);
-        if (it == runtimeConfigs_.end()) {
+        auto it = configs_.find(key);
+        if (it == configs_.end()) {
             throw std::runtime_error("Config key not found: " + key);
         }
 
@@ -109,8 +107,8 @@ public:
 
     template <typename T>
     T Get(const std::string& key, const T& defaultValue) const noexcept {
-        auto it = runtimeConfigs_.find(key);
-        if (it == runtimeConfigs_.end()) {
+        auto it = configs_.find(key);
+        if (it == configs_.end()) {
             return defaultValue;
         }
 
@@ -119,11 +117,11 @@ public:
     }
 
     bool Has(const std::string& key) const {
-        return runtimeConfigs_.find(key) != runtimeConfigs_.end();
+        return configs_.find(key) != configs_.end();
     }
 
 private:
-    std::unordered_map<std::string, ConfigValue> runtimeConfigs_;
+    std::unordered_map<std::string, ConfigValue> configs_;
 };
 
 } // namespace npu::tile_fwk

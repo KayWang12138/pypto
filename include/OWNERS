@@ -11,6 +11,9 @@ files:
   "OWNERS":
     approvers:
       - yangxu19921206
-
+  "tilefwk/config.h"
+    approvers:
+      - seu__lc
+      - yangxu19921206
 options:
   no_parent_owners: true

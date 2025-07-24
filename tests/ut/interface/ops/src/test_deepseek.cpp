@@ -18,7 +18,7 @@
 
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/configs/config.h"
+#include "interface/configs/config_storage.h"
 #include "models/deepseek/deepseek_mla.h"
 #include "interface/configs/config_manager.h"
 #include "models/llama/llama_def.h"

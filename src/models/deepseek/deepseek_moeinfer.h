@@ -20,7 +20,7 @@
 #include "common/pre_def.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/configs/config.h"
+#include "interface/configs/config_storage.h"
 
 namespace npu::tile_fwk {
 

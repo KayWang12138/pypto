@@ -22,7 +22,7 @@
 #include <vector>
 #include <optional>
 #include <functional>
-#include "interface/configs/config.h"
+#include "interface/configs/config_storage.h"
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"

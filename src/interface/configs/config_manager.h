@@ -22,8 +22,8 @@
 #include <set>
 #include "interface/utils/common.h"
 #include "interface/utils/log.h"
-#include "config.h"
 #include "passes/pass_interface/pass_type.h"
+#include "platform_config.h"
 
 namespace npu::tile_fwk {
 using JsonExpcetion = nlohmann::json::exception;

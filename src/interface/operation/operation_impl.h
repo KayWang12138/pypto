@@ -18,7 +18,7 @@
 #include <string>
 #include <unordered_set>
 #include "tilefwk/tensor.h"
-#include "interface/configs/config.h"
+#include "interface/configs/config_storage.h"
 #include "opcode.h"
 #include "common/tile_shape.h"
 

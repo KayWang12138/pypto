@@ -20,7 +20,7 @@
 #include "common/pre_def.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/configs/config.h"
+#include "interface/configs/config_storage.h"
 
 #define LLAMA_FUNCTION(n, ...) FUNCTION(#n, ##__VA_ARGS__)
 #define LLAMA_PROGRAM(n, ...) PROGRAM(#n, ##__VA_ARGS__)

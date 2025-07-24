@@ -9,7 +9,7 @@
  */
  
 /*!
- * \file tuner.cpp
+ * \file config.cpp
  * \brief
  */
 
@@ -17,32 +17,32 @@
 #include "interface/program/program.h"
 
 namespace npu::tile_fwk {
-Tuner &Tuner::GetInstance() {
-    static Tuner tuner;
-    return tuner;
+Config &Config::GetInstance() {
+    static Config Config;
+    return Config;
 }
 
-Tuner& Tuner::SetCycleUpperBound(int sgCycleUpperBound) {
+Config& Config::SetCycleUpperBound(int sgCycleUpperBound) {
     Program::GetInstance().GetConfig().Set<int>(CYCLE_UPPER_BOUND, sgCycleUpperBound);
     return *this;
 }
  
-Tuner& Tuner::SetCyclesThreshold(int sgCycleLowerBound) {
+Config& Config::SetCyclesThreshold(int sgCycleLowerBound) {
     Program::GetInstance().GetConfig().Set<int>(CYCLES_THRESHOLD, sgCycleLowerBound);
     return *this;
 }
  
-Tuner& Tuner::SetParallelThreshold(int sgParallelNum) {
+Config& Config::SetParallelThreshold(int sgParallelNum) {
     Program::GetInstance().GetConfig().Set<int>(PARALLEL_THRESHOLD, sgParallelNum);
     return *this;
 }
 
-Tuner& Tuner::SetUseNodeHash(bool useNodeHash) {
+Config& Config::SetUseNodeHash(bool useNodeHash) {
     Program::GetInstance().GetConfig().Set<bool>(USE_NODE_HASH, useNodeHash);
     return *this;
 }
 
-Tuner& Tuner::SetMachineSchMode(const std::vector<MachineScheduleConfig> &config) {
+Config& Config::SetMachineSchMode(const std::vector<MachineScheduleConfig> &config) {
     uint8_t machineConfig = 0;
     for (size_t i = 0; i < config.size(); i++) {
         machineConfig |= static_cast<uint8_t>(config[i]);

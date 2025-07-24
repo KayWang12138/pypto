@@ -27,7 +27,7 @@
 #include "interface/utils/common.h"
 #include "interface/utils/log.h"
 #include "interface/utils/assert.h"
-#include "interface/configs/config.h"
+#include "interface/configs/config_storage.h"
 
 namespace CostModel {
 enum class SimMode {

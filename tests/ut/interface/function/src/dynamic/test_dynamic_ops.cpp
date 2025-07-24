@@ -19,7 +19,7 @@
 #include "operation/tilefwk_op.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/configs/config.h"
+#include "interface/configs/config_storage.h"
 
 using namespace npu::tile_fwk;
 

@@ -37,6 +37,7 @@
 #include "device_utils.h"
 #include "machine/device/aicore_dump.h"
 #include "interface/utils/common.h"
+#include "tilefwk/config.h"
 
 namespace npu::tile_fwk::dynamic {
 const uint32_t REG_SPR_FAST_PATH_ENABLE = 0x18;

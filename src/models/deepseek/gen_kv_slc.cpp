@@ -21,7 +21,7 @@ See LICENSE in the root of the software repository for the full text of the Lice
 #include "interface/tensor/raw_tensor.h"
 #include "interface/tensor/tensormap.h"
 #include "interface/configs/config_manager.h"
-#include "interface/configs/config.h"
+#include "interface/configs/config_storage.h"
 #include "interface/utils/common.h"
 #include "interface/utils/id_gen.h"
 #include "interface/utils/log.h"

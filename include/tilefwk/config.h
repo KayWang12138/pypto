@@ -9,7 +9,7 @@
  */
  
 /*!
- * \file tuner.h
+ * \file config.h
  * \brief
  */
  
@@ -24,25 +24,37 @@ enum class MachineScheduleConfig {
                               // Enabling this configuration will introduce some additional public scheduling overhead.
 };
 
-class Tuner {
+class Config {
 public:
-    Tuner(const Tuner&) = delete;
-    Tuner& operator=(const Tuner&) = delete;
+    Config(const Config&) = delete;
+    Config& operator=(const Config&) = delete;
 
-    static Tuner &GetInstance();
+    static Config &GetInstance();
 
-    Tuner& SetCycleUpperBound(int sgCycleUpperBound);
+    /**
+     * @brief Set the Cycle Upper Bound object
+     * 
+     * @param sgCycleUpperBound 
+     * @return Config& 
+     */
+    Config& SetCycleUpperBound(int sgCycleUpperBound);
 
-    Tuner& SetCyclesThreshold(int sgCycleLowerBound);
+    Config& SetCyclesThreshold(int sgCycleLowerBound);
 
-    Tuner& SetParallelThreshold(int sgParallelNum);
+    Config& SetParallelThreshold(int sgParallelNum);
 
-    Tuner& SetUseNodeHash(bool useNodeHash);
+    Config& SetUseNodeHash(bool useNodeHash);
 
-    Tuner& SetMachineSchMode(const std::vector<MachineScheduleConfig> &config);
+    /**
+     * @brief Set the Machine Sch Mode object
+     * 
+     * @param config 
+     * @return Config& 
+     */
+    Config& SetMachineSchMode(const std::vector<MachineScheduleConfig> &config);
 private:
-    Tuner() = default;
-    ~Tuner() = default;
+    Config() = default;
+    ~Config() = default;
 };
 
 } // end npu::tile_fwk

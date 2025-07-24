@@ -24,7 +24,7 @@
 #include <algorithm>
 #include <iostream>
 #include "tilefwk/data_type.h"   // Assuming this is where MemoryType is defined
-#include "interface/configs/config.h" // Assuming this is where the configuration manager is defined
+#include "interface/configs/config_storage.h" // Assuming this is where the configuration manager is defined
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/tensor/tensormap.h" // Assuming this is where LogicalTensor and tensormap are defined

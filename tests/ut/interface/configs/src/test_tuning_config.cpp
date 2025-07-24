@@ -16,11 +16,11 @@
 #include "gtest/gtest.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/configs/config.h"
+#include "interface/configs/config_storage.h"
 
 using namespace npu::tile_fwk;
 
-class TestTuningConfig : public testing::Test {
+class TestConfigStorage : public testing::Test {
 public:
     static void SetUpTestCase() {}
     static void TearDownTestCase() {}
@@ -28,7 +28,7 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestTuningConfig, InitialGet) {
+TEST_F(TestConfigStorage, InitialGet) {
     auto config = Program::GetInstance().GetConfig();
     std::map<int,int> nullMap;
     EXPECT_EQ(config.Get<int>(PARALLEL_THRESHOLD), 20);
@@ -46,7 +46,7 @@ TEST_F(TestTuningConfig, InitialGet) {
     EXPECT_EQ(config.Get<uint8_t>(MACHINE_CONFIG), 0);
 }
 
-TEST_F(TestTuningConfig, HasConfig) {
+TEST_F(TestConfigStorage, HasConfig) {
     auto config = Program::GetInstance().GetConfig();
     EXPECT_EQ(config.Has("test"), false);
     EXPECT_EQ(config.Has(MACHINE_CONFIG), true);
@@ -55,7 +55,7 @@ TEST_F(TestTuningConfig, HasConfig) {
     EXPECT_EQ(config.Has("test"), true);
 }
 
-TEST_F(TestTuningConfig, ConfigSet) {
+TEST_F(TestConfigStorage, ConfigSet) {
     auto config = Program::GetInstance().GetConfig();
     config.Set<int>(npu::tile_fwk::CYCLE_UPPER_BOUND, 1);
     EXPECT_EQ(config.Get<int>(CYCLE_UPPER_BOUND), 1);
@@ -69,12 +69,12 @@ TEST_F(TestTuningConfig, ConfigSet) {
     EXPECT_EQ(cubeNbuffer, expect);
 }
 
-TEST_F(TestTuningConfig, TunerInterface) {
+TEST_F(TestConfigStorage, TunerInterface) {
     const int defaultCyclesThreshold = 100;
     const int defaultCyclesUpperBound = 1000;
     const int defaultParalleThreshold = 10;
 
-    Tuner::GetInstance()
+    Config::GetInstance()
         .SetCyclesThreshold(defaultCyclesThreshold)
         .SetCycleUpperBound(defaultCyclesUpperBound)
         .SetMachineSchMode({MachineScheduleConfig::L2CACHE_AFFINITY_SCH})

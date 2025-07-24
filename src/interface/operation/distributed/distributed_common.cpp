@@ -16,7 +16,7 @@
 #include "distributed_common.h"
 #include <vector>
 #include "interface/utils/common.h"
-#include "interface/configs/config.h"
+#include "interface/configs/config_storage.h"
 #include "interface/utils/log.h"
 
 namespace npu::tile_fwk {

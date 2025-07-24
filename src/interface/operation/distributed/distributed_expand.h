@@ -19,7 +19,7 @@
 #include <cstdint>
 #include <vector>
 #include <memory>
-#include "interface/configs/config.h"
+#include "interface/configs/config_storage.h"
 #include "interface/function/function.h"
 #include "interface/operation/operation.h"
 
