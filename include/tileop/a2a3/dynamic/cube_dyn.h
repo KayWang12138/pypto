@@ -391,15 +391,11 @@ TILEOP void DynL1ToL0B(__cb__ T *dst, __cbuf__ T *src, unsigned dstK, unsigned d
         return;
     }
     if constexpr (std::is_same<T, float>::value) {
-        nBlockSize = 16;
-        for (auto index = 0; index < srcK / nBlockSize; ++index) {
-            auto repeatTimes = srcN / nBlockSize;
-            auto srcStride = (nBlockSize * srcK) / (nBlockSize * nBlockSize);
-            auto dstGap = 1;
-            auto dstFracGap = 0;
-            load_cbuf_to_cb_transpose(dst + index * nBlockSize * srcN, src + index * 8 * nBlockSize, 0, repeatTimes,
-                srcStride, dstGap, inc, dstFracGap);
-        }
+        uint8_t repeat = dstN / BLOCK_CUBE_M_N;
+        uint16_t srcStride = 1;
+        uint16_t dstStride = 0;
+        uint16_t dstFracStride = repeat - 1;
+        load_cbuf_to_cb_transpose(dst, src, 0, repeat, srcStride, dstStride, inc, dstFracStride);
         return;
     }
     // L1 n1k1k0no   -> l0b  k1n1n0k0
