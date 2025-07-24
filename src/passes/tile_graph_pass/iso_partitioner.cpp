@@ -226,21 +226,19 @@ Status IsoPartitioner::PartitionGraph(Function &function)
 
 uint64_t OperationGraphInfo::GetHash(const Operation *op) const
 {
-    std::string name = op->GetOpcodeStr();
-    uint64_t p = 37;
-    uint64_t hash = 0;
-    for (char c : name) {
-        hash = hash * p + static_cast<uint64_t>(c);
-    }
+    std::string hashString;
+    hashString.append(op->GetOpcodeStr());
     for (auto tensor : op->GetIOperands()) {
-        hash = hash * p + static_cast<uint64_t>(tensor->GetMemoryTypeOriginal());
-        hash = hash * p + static_cast<uint64_t>(tensor->tensor->datatype);
+        hashString.append("IOperand-");
+        hashString.append(std::to_string(tensor->GetMemoryTypeOriginal()));
+        hashString.append(std::to_string(tensor->tensor->datatype));
     }
     for (auto tensor : op->GetOOperands()) {
-        hash = hash * p + static_cast<uint64_t>(tensor->GetMemoryTypeOriginal());
-        hash = hash * p + static_cast<uint64_t>(tensor->tensor->datatype);
+        hashString.append("OOperand-");
+        hashString.append(std::to_string(tensor->GetMemoryTypeOriginal()));
+        hashString.append(std::to_string(tensor->tensor->datatype));
     }
-    return hash;
+    return std::hash<std::string>{}(hashString);
 }
 
 std::vector<int32_t> OperationGraphInfo::GetSameLevelOpIdx(int32_t opIdx, Opcode opLabel) const
@@ -669,9 +667,13 @@ Status NodeGraphInfo::BuildInOutGraph(const std::shared_ptr<OperationGraphInfo> 
 
 uint64_t IsoPartitioner::CombineHash(const uint64_t h1, const uint64_t h2) const
 {
-    uint64_t a = 0x12345678;
-    uint64_t p = 37;
-    return h1 * p + (h2 ^ a);
+    const uint64_t mask52 = 0xFFFFFFFFFFFFF;
+    const uint64_t maskXor = 0x12345678;
+    const uint64_t prime = 881;
+    uint64_t h1Trunc = h1 & mask52;
+    uint64_t h2Trunc = h2 & mask52;
+    uint64_t h3 = (h1Trunc * prime) + (h2Trunc ^ maskXor);
+    return h3;
 }
 
 bool OperationGraphInfo::CoreTypeMergeable(const std::set<OpCoreType> &coreTypes) const
