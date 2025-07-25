@@ -56,13 +56,14 @@ set(_CaseFilterList
         "DynamicGatherTest.TestDynamicGatherDim3"
         "DynamicDatamoveTest.TestDynamicDatamove"
         "DynamicBrcTest.TestDynamicMulBrcUnalign"
-        
+
         #===========================================================================
         # NSA native spare attention
         #===========================================================================
         "TestGenAtten.TestOnboardGenAttenTest_FP16_S1"
         "DynamicSlcTest.dynamic_p_slc_bf16"
         "DynamicSlcTest.dynamic_p_slc_fp16"
+        "DynamicWinAttenTest.test_DynAttn_nas_win_attn_s1_2_actseqlen_1024_mla_fp16"
 
         # PaPost
         #===========================================================================

@@ -14,7 +14,6 @@ set(TileFwkSTestCaseGoldenScriptPathList  "" CACHE INTERNAL "" FORCE)     # STes
 
 # 切换完成前, 增加原有目录
 set(TileFwkSTestCaseGoldenScriptPathList ${TileFwkSTestCaseGoldenScriptPathList} ${TILE_FWK_SRC_ROOT}/tests/cmake/scripts/golden/net/deepseekv3/mla CACHE INTERNAL "" FORCE)
-set(TileFwkSTestCaseGoldenScriptPathList ${TileFwkSTestCaseGoldenScriptPathList} ${TILE_FWK_SRC_ROOT}/tests/cmake/scripts/golden/net/deepseekv3/attention CACHE INTERNAL "" FORCE)
 set(TileFwkSTestCaseGoldenScriptPathList ${TileFwkSTestCaseGoldenScriptPathList} ${TILE_FWK_SRC_ROOT}/tests/cmake/scripts/golden/net/deepseekv3/moe CACHE INTERNAL "" FORCE)
 set(TileFwkSTestCaseGoldenScriptPathList ${TileFwkSTestCaseGoldenScriptPathList} ${TILE_FWK_SRC_ROOT}/tests/cmake/scripts/golden/net/deepseekv3/quant CACHE INTERNAL "" FORCE)
 set(TileFwkSTestCaseGoldenScriptPathList ${TileFwkSTestCaseGoldenScriptPathList} ${TILE_FWK_SRC_ROOT}/tests/cmake/scripts/golden/net/llama CACHE INTERNAL "" FORCE)

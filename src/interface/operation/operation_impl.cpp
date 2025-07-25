@@ -2214,6 +2214,8 @@ void DInnerAssemble(Function &function, const LogicalTensorPtr &operand,
 
 void DAssemble(const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset, Tensor &dest) {
     ASSERT(dest.GetStorage(false)->tensorfmt == tensor.GetStorage(false)->tensorfmt)<<"DAssemble: src and dest requires same format";
+    ASSERT(dest.GetShape().size() == tensor.GetShape().size())<<"DAssemble: src and dest requires same shape";
+    ASSERT(dest.GetShape().size() == dynOffset.size())<<"DAssemble: dynOffset and dest requires same shape";
     DInnerAssemble(*Program::GetInstance().GetCurrentFunction(), tensor.GetStorage(), dest.GetStorage(), dynOffset);
 
     Program::GetInstance().GetTensorSlotManager()->TensorWrite(dest, true);

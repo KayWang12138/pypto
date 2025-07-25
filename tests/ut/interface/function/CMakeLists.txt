@@ -48,6 +48,7 @@ set(_CaseFilterList
         "ThreadPoolTest.*"
         "StringUtils.*"
         "DynamicTestGenAtten.TestOnboardGenAttenTest_FP16"
+        "DynamicTestWinAttenUt.TestOnboardWinAttnTest_FP16"
 )
 
 set(_Target ${TileFwkUTestNamePrefix}_interface_function)

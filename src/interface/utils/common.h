@@ -71,6 +71,7 @@ constexpr const int VNCHWCONV_REPEAT = 16;
 constexpr const int MAX_CAT_NUM_ONCE = 64;
 
 constexpr const int TILE_VEC_DIMS = 2;
+constexpr const int TILE_VEC_FOUR_DIMS = 4;
 constexpr const int TILE_CUBE_DIMS = 6;
 
 constexpr  const int SHAPE_BUFFER_MAX_SIZE = 32;
