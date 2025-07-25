@@ -35,7 +35,7 @@ Status InplaceProcess::RunOnFunction(Function &function) {
             auto assembleOut = op.GetOOperands().front();
             // 校验Assemble输出的汇聚后tensor大小是否超过UB上限
             if (assembleOut->GetMemoryTypeOriginal() == MemoryType::MEM_UB && (assembleOut->tensor->GetRawDataSize() > UB_SIZE)) {
-                ALOG_ERROR_F(" Local Buffer Assemble Result Oversized, %d, tensor: %d, size: %ld B", op.opmagic,
+                ALOG_ERROR_F(" Local Buffer Assemble Result Oversized, %d, tensor: %d, size: %ld B.", op.opmagic,
                     assembleOut->magic, assembleOut->tensor->GetRawDataSize());
                 return FAILED;
             }
@@ -59,19 +59,20 @@ bool InplaceProcess::ValidMeaninglessOp(const Operation &op) const {
     if ((op.GetIOperands().size() != 1) || (op.GetOOperands().size() != 1) ||
         (op.GetIOperands().front() == nullptr) || (op.GetOOperands().front() == nullptr) ||
         (op.GetIOperands().front()->GetMemoryTypeOriginal() != op.GetOOperands().front()->GetMemoryTypeOriginal())) {
-        ALOG_INFO_F("InplaceProcess Invalid Op: IOperands.size isnot 1 (%d); OOperands.size isnot 1 (%d); "
-                    "IOperands.front is nullptr (%d); OOperands.front is nullptr (%d); IOperands.front.MemoryType and "
-                    "OOperands.front.MemoryType are not equal (%d)",
-            (op.GetIOperands().size() != 1), (op.GetOOperands().size() != 1), (op.GetIOperands().front() == nullptr),
-            (op.GetOOperands().front() == nullptr),
-            (op.GetIOperands().front()->GetMemoryTypeOriginal() != op.GetOOperands().front()->GetMemoryTypeOriginal()));
+        ALOG_INFO_F(
+            "InplaceProcess %s[%d] Invalid: IOperands.size is %d; OOperands.size is %d; "
+            "IOperands.front is nullptr (%d); OOperands.front is nullptr (%d); IOperands.front.MemoryType is %d; "
+            "OOperands.front.MemoryType is %d.",
+            (op.GetOpcodeStr().c_str()), (op.GetOpMagic()), (op.GetIOperands().size()), (op.GetOOperands().size()),
+            (op.GetIOperands().front() == nullptr), (op.GetOOperands().front() == nullptr),
+            (op.GetIOperands().front()->GetMemoryTypeOriginal()), (op.GetOOperands().front()->GetMemoryTypeOriginal()));
         valid = false;
     }
     return valid;
 }
 
 void InplaceProcess::ProcessView(Operation &op) const {
-    ALOG_DEBUG_F("Find Internal View %d", op.opmagic);
+    ALOG_DEBUG_F("Find Internal View %d.", op.opmagic);
     std::vector<int> inputOffset = op.GetIOperands()[0]->GetOffset();
     for (auto &consumer : op.GetIOperands()[0]->GetConsumers()) {
         if ((consumer->GetOpcode() != Opcode::OP_VIEW) || (consumer->GetOpMagic() != op.GetOpMagic())) {
@@ -114,7 +115,7 @@ void InplaceProcess::ProcessAssemble(Operation &op) const {
     auto assembleOut = op.GetOOperands().front();
     if (op.iOperand[0]->tensor->GetRawDataSize() > assembleOut->tensor->GetRawDataSize()) {
         if (assembleOut->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
-            ALOG_ERROR_F(" Invalid Assemble case, opmagic: %d", op.opmagic);
+            ALOG_DEBUG_F(" Invalid Assemble case, opmagic: %d.", op.opmagic);
             return;
         }
         std::vector<LogicalTensorPtr> assembleInputList;
@@ -163,7 +164,7 @@ void InplaceProcess::ProcessReshape(Function &function, Operation &op) const {
     ALOG_DEBUG_F(" %s[%d] on %s.", op.GetOpcodeStr().c_str(), op.GetOpMagic(), BriefMemoryTypeToString(reshapeIn->GetMemoryTypeOriginal()).c_str());
     if ((reshapeOut->tensor->actualRawmagic == -1) && (!function.IsFromOutCast(reshapeOut))) {
         reshapeOut->tensor->actualRawmagic = reshapeIn->GetRawMagic();
-        ALOG_DEBUG_F(" update reshape opmagic %d, output's actualRaw: %d", op.opmagic, reshapeOut->GetRawMagic());
+        ALOG_DEBUG_F(" update reshape opmagic %d, output's actualRaw: %d.", op.opmagic, reshapeOut->GetRawMagic());
     }
 }
 
@@ -176,7 +177,7 @@ void InplaceProcess::ProcessInplaceOp(Function &function, Operation &op) const {
         auto inputIdx = reusePair.first;
         auto outputIdx = reusePair.second;
         if (inputIdx >= op.GetIOperands().size() || outputIdx >= op.GetOOperands().size()) {
-            ALOG_ERROR_F("Invalid inplace op info for %s[%d].", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            ALOG_DEBUG_F("Invalid inplace op info for %s[%d].", op.GetOpcodeStr().c_str(), op.GetOpMagic());
             continue;
         }
         auto tensorIn = op.GetIOperands()[inputIdx];
