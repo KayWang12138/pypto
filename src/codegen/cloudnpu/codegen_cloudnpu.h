@@ -58,8 +58,6 @@ private:
 
     std::string GenDynParamForExpr(const npu::tile_fwk::Function &func) const;
 
-    std::vector<std::string> stmtsVec_;
-    std::vector<std::string> stmtsCube_;
     std::vector<std::pair<DataType, std::string>> globalTensorAddr;
     bool isUnderDynamicFunction{false};
 };

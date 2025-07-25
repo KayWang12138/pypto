@@ -16,12 +16,29 @@
 #ifndef TEST_CODEGEN_UTILS_H
 #define TEST_CODEGEN_UTILS_H
 
-#include "gtest/gtest.h"
+#include "interface/tensor/logical_tensor.h"
+#include "interface/operation/operation.h"
 
 namespace npu::tile_fwk {
-void ResultStrCmpWithLF(const std::string &actual, const std::string &expect) {
-    EXPECT_EQ(actual, expect + "\n");
-}
+const constexpr int DummyFuncMagic = 1;
+struct LogicalTensorInfo {
+    LogicalTensorInfo(Function &func, DataType dataType, MemoryType memoryType, const std::vector<int> &tShape)
+        : function(func), dType(dataType), memType(memoryType), shape(tShape){};
+    LogicalTensorInfo(
+        Function &func, DataType dataType, MemoryType memoryType, const std::vector<int> &tShape, std::string tName)
+        : function(func), dType(dataType), memType(memoryType), shape(tShape), tensorName(std::move(tName)){};
+
+    Function &function;
+    DataType dType;
+    MemoryType memType;
+    const std::vector<int> &shape;
+    const std::string tensorName;
+};
+
+std::shared_ptr<LogicalTensor> CreateLogicalTensor(const LogicalTensorInfo &info);
+
+std::string GetResultFromCpp(const Function &function);
+
 } // namespace npu::tile_fwk
 
 #endif // TEST_CODEGEN_UTILS_H

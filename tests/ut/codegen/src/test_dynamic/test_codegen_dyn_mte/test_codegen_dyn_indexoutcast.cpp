@@ -13,21 +13,23 @@
  * \brief Unit test for codegen.
  */
 
+#include <iostream>
+
 #include "gtest/gtest.h"
 
 #include "interface/operation/opcode.h"
-#include "interface/tensor/logical_tensor.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "interface/operation/operation.h"
 #include "tilefwk/data_type.h"
-#include "codegen/codegen_op.h"
 #include "codegen/codegen_symbol.h"
 #include "passes/pass_manager.h"
 #include "codegen/codegen.h"
 #include "codegen/cloudnpu/codegen_op_cloudnpu.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "test_codegen_utils.h"
+#include "interface/utils/id_gen.h"
 
 namespace npu::tile_fwk {
 class TestCodegenDynIndexOutCast : public ::testing::Test {
@@ -41,6 +43,7 @@ public:
         Program::GetInstance().GetConfig().Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
@@ -69,32 +72,11 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     function->SetUnderDynamicFunction(true);
-    std::shared_ptr<RawTensor> ddrRawTensor =
-        std::make_shared<RawTensor>(DataType::DT_FP32, shape0, "IndexOutCast", 123);
-    const std::vector<int> offset = {0, 0};
-    auto ddrTensor = std::make_shared<LogicalTensor>(*function, ddrRawTensor, offset, shape0);
-    ddrTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
-    ddrTensor->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
 
-    auto localTensorSrc0 = std::make_shared<LogicalTensor>(*function, DT_FP32, shape2);
-    localTensorSrc0->UpdateSubgraphID(0);
-    localTensorSrc0->SetMemoryTypeOriginal(MemoryType::MEM_UB);
-    localTensorSrc0->SetMemoryTypeToBe(MemoryType::MEM_UB);
-    localTensorSrc0->SetMagic(3);
-    localTensorSrc0->SetAttr(OpAttributeKey::needAlloc, true);
-    localTensorSrc0->memorymap[0].memId = 0;
-    localTensorSrc0->memorymap[0].start = 0;
-    localTensorSrc0->memorymap[0].end = 0;
-
-    auto localTensorSrc1 = std::make_shared<LogicalTensor>(*function, DT_FP32, shape1);
-    localTensorSrc1->UpdateSubgraphID(0);
-    localTensorSrc1->SetMemoryTypeOriginal(MemoryType::MEM_UB);
-    localTensorSrc1->SetMemoryTypeToBe(MemoryType::MEM_UB);
-    localTensorSrc1->SetMagic(3);
-    localTensorSrc1->SetAttr(OpAttributeKey::needAlloc, true);
-    localTensorSrc1->memorymap[0].memId = 0;
-    localTensorSrc1->memorymap[0].start = 0;
-    localTensorSrc1->memorymap[0].end = 0;
+    auto ddrTensor =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape0, "IndexOutCast"});
+    auto localTensorSrc0 = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape2});
+    auto localTensorSrc1 = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape1});
 
     auto &op =
         function->AddOperation(Opcode::OP_INDEX_OUTCAST, {localTensorSrc0, localTensorSrc1, ddrTensor}, {ddrTensor});
@@ -119,11 +101,15 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
 
     cop.Init(op);
 
-    cop.GenOpCode();
+    std::string res = cop.GenOpCode();
+    std::string expect =
+        R"!!!(TileOp::DynTIndexoutcast<float, float, 1, 1, 16, 1, 16, 1, 1, 0, 1>((__gm__ float*)GET_PARAM_ADDR(param, 0, 0), (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 1, 1, GET_PARAM_RAWSHAPE_2(param, 0, 0), 0, 0, GET_PARAM_OFFSET_2(param, 0, 0));
+)!!!";
+    EXPECT_EQ(res, expect);
 }
 
 TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes({16, 32});
+    Program::GetInstance().GetTileShape().SetVecTileShapes({32, 32});
 
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy",
@@ -140,7 +126,8 @@ TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
             {        "GenerateMoveOp",         "GenerateMoveOp",   PassType::TYPE_TILE_GRAPH},
     });
 
-    int h = 128, minusTwo = -2;
+    int h = 32;
+    int minusTwo = -2;
     Tensor output(DT_INT32, {h, h}, "output");
     Tensor idxs(DT_INT32, {h, h}, "idxs");
     Tensor keyStates(DT_INT32, {h, h}, "keyStates");
@@ -172,5 +159,37 @@ TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
+
+    std::string res = GetResultFromCpp(*function);
+    std::string expect = R"!!!(
+#include "TileOpImpl.h"
+
+// funcHash: 7673751692681773590
+
+[aicore] void TENSOR_ScatterUpdate_1_0(CoreFuncParam* param, uint64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
+int32_t __ubuf__ *UB_S0_E4096 = (int32_t __ubuf__ *)get_imm(0x0); // size: 1000 
+int32_t __ubuf__ *UB_S4096_E8192 = (int32_t __ubuf__ *)get_imm(0x1000); // size: 1000 
+uint64_t sym_32_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 0, 2, 0);
+uint64_t sym_32_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 0, 2, 0);
+uint64_t sym_38_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 0, 2, 0);
+uint64_t sym_38_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 0, 2, 0);
+uint64_t sym_4_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 0, 2, 0);
+uint64_t sym_4_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 0, 2, 1);
+uint64_t sym_6_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 9, 2, 0);
+uint64_t sym_6_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 9, 2, 1);
+uint64_t sym_7_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 2, 27, 2, 0);
+uint64_t sym_7_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 2, 27, 2, 1);
+SUBKERNEL_PHASE1
+TileOp::DynUBCopyIn<int32_t, 1, 1, 32, 32>((__ubuf__ int32_t*)UB_S0_E4096, (__gm__ int32_t*)GET_PARAM_ADDR(param, 0, 0), 1, 1, 1, sym_6_dim_0, sym_6_dim_1, 1, 1, 1, GET_PARAM_RAWSHAPE_2(param, 0, 0), 0, 0, 0, GET_PARAM_OFFSET_2(param, 0, 0));
+TileOp::DynUBCopyIn<int32_t, 1, 1, 32, 32>((__ubuf__ int32_t*)UB_S4096_E8192, (__gm__ int32_t*)GET_PARAM_ADDR(param, 0, 0), 1, 1, 1, sym_4_dim_0, sym_4_dim_1, 1, 1, 1, GET_PARAM_RAWSHAPE_2(param, 0, 0), 0, 0, 0, GET_PARAM_OFFSET_2(param, 0, 0));
+SUBKERNEL_PHASE2
+set_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
+wait_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
+TileOp::DynTIndexoutcast<int32_t, int32_t, 32, 32, 32, 0, 1>((__gm__ int32_t*)GET_PARAM_ADDR(param, 0, 0), (__ubuf__ int32_t*)UB_S0_E4096, (__ubuf__ int32_t*)UB_S4096_E8192, 1, 1, sym_6_dim_1, sym_4_dim_1, 1, 1, GET_PARAM_RAWSHAPE_2(param, 0, 0), 0, 0, GET_PARAM_OFFSET_2(param, 0, 0));
+
+}
+)!!!";
+
+    EXPECT_EQ(res, expect);
 }
 } // namespace npu::tile_fwk
