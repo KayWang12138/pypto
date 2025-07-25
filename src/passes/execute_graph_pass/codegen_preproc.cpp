@@ -40,12 +40,6 @@ Status CodegenPreprocPass::SaveGmTensorParamIdxToOp(Function &func) const {
         gmParamInCallFunc.clear();
         for (auto &op : subProgram.second->Operations()) {
             if (IsNeedSave(op)) {
-                const std::shared_ptr<OpAttribute> &attr = op.GetOpAttribute();
-                if (attr == nullptr) {
-                    ALOG_ERROR_F("Copy In attr is null, SaveGmTensorParamIdxToOp failed!");
-                    return FAILED;
-                }
-                std::shared_ptr<CopyOpAttribute> copyAttr = std::static_pointer_cast<CopyOpAttribute>(attr);
                 int addrPos;
                 if (IsCopyIn(op.GetOpcode()))
                     addrPos = op.GetIOpAttrOffset(0);

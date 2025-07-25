@@ -823,6 +823,6 @@ TEST_F(InsertSyncTest, TestRelaxFakeDataDep) {
         eventIdDeadlockEnterTimes = static_cast<size_t>(0);
     }
 }
-} // namespace acend
+} // namespace npu::tile_fwk
 
 #undef private
