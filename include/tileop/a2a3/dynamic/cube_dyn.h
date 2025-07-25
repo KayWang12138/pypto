@@ -451,6 +451,7 @@ TILEOP void DynTmad(__cc__ Tc *c, __ca__ Ta *a, __cb__ Tb *b, uint16_t m, uint16
 
     mad((__cc__ Tc *)(c + (Offset0 * 16) + Offset1 * L0CShape0), a, b, m, k, n, unitFlag, kDirectionAlign,
         cmatrixSource, zero_C);
+    pipe_barrier(PIPE_M);
 }
 
 } // namespace TileOp

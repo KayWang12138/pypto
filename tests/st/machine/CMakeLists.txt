@@ -118,6 +118,14 @@ set(_CaseFilterList
         "DynamicMatmulTest.mm_A_Bt_ND_fp16_tile2"
         "DynamicMatmulTest.mm_A_B_NZ_int8_tile3"
         "DynamicMatmulTest.mm_A_Bt_NZ_int8_tile4"
+        #===========================================================================
+         # batchMatmul功能用例
+        #===========================================================================
+        "DynamicBatchMatmulTest.test_bmm_A_B_ND_bf16"
+        "DynamicBatchMatmulTest.test_bmm_A_Bt_ND_fp16"
+        "DynamicBatchMatmulTest.test_bmm_A_B_NZ_bf16"
+        "DynamicBatchMatmulTest.test_bmm_A_Bt_NZ_fp16"
+        "DynamicBatchMatmulTest.test_bmm_A_B_ND_bf16_tile1"
 )
 
 set(_Target ${TileFwkSTestNamePrefix}_runtime)

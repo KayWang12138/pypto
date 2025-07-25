@@ -3176,7 +3176,7 @@ void MatmulImpl(DataType dataType, const std::vector<LogicalTensorPtr>& iOperand
     OperatorChecker checker;
     const auto operand1 = iOperand[0];
     const auto operand2 = iOperand[1];
-
+    
     CheckOperandsValid(operand1, operand2);
     assert(dataType == DT_FP32 || dataType == DT_FP16 || dataType == DT_BF16 || dataType == DT_INT32);
     CALL(InnerAMulB, *Program::GetInstance().GetCurrentFunction(), iOperand, result);

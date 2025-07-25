@@ -1366,7 +1366,7 @@ TEST_F(FunctionTest, Test_quantMM) {
     Tensor inputScaleW = Tensor(DT_FP32, {1, n}, "inputScaleW");
     Tensor res;
 
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {128, 128}, {512, 128});
+    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {128, 128}, {128, 128});
     Program::GetInstance().GetTileShape().SetVecTileShapes(32, 64); // for Assemble
 
     FUNCTION("A") {
