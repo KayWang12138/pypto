@@ -15,6 +15,9 @@ project(tile_fwk_server LANGUAGES C CXX)
 ########################################################################################################################
 # 基础配置
 ########################################################################################################################
+if(BUILD_OPEN_PROJECT)
+    add_subdirectory(stub)
+endif()
 
 # 路径配置
 get_filename_component(TILE_FWK_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../.." ABSOLUTE)
@@ -61,10 +64,13 @@ target_include_directories(tile_fwk_server
 target_link_directories(tile_fwk_server
         PRIVATE
             $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/devlib/linux/aarch64/>
+            $<$<BOOL:${AC_ENABLE_FRAMEWORK_WITHOUT_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/lib64>
 )
 target_link_libraries(tile_fwk_server
         PRIVATE
+            -Wl,--no-as-needed
             c_sec
+            $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,slog_stub,slog>
             -ldl
 )
 set_target_properties(tile_fwk_server PROPERTIES OUTPUT_NAME ASTServer)

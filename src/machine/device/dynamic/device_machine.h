@@ -47,7 +47,11 @@ public:
 
         if (args->taskType == DEVICE_TASK_TYPE_STATIC) {
             auto devTask = reinterpret_cast<DeviceTask *>(args->taskData);
+#if DEBUG_PLOG && defined(__DEVICE__)
+            if (CheckDebug()) {
+#else
             if (GetLogger().Level() == LOG_LEVEL_DEBUG) {
+#endif
                 DumpTask(args->taskId, devTask, false);
             }
             auto idx = AllocNewTaskCtrl();

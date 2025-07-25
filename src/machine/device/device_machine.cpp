@@ -59,7 +59,7 @@ struct MachineManager {
 
         int threadIdx = allocThreadIdx(args->nrAicpu);
         if (threadIdx != -1) {
-#if DEBUG_SWITCH
+#if DEBUG_SWITCH && !DEBUG_PLOG
             (void)sprintf_s(logfile, sizeof(logfile), "/tmp/aicpu%d.txt", threadIdx);
             GetLogger(logfile);
 #endif
@@ -69,22 +69,28 @@ struct MachineManager {
                 args->sharedBuffer, args->coreRegAddr, args->corePmuAddr);
             ret = machine.Run(threadIdx, args);
             DEV_INFO("threadIdx %d finished, ret %d\n", threadIdx, ret);
+#if !DEBUG_PLOG
             GetLogger().Flush();
+#endif
         } else {
             int old = 0;
             if (args->taskType == DEVICE_TASK_TYPE_DYN && ctrlcpu.compare_exchange_weak(old, 1)) {
                 (void)sprintf_s(logfile, sizeof(logfile), "/tmp/aicpu%u.txt", START_AICPU_NUM);
+#if !DEBUG_PLOG
                 GetLogger(logfile);
+#endif
                 ret = machine.ExecDyn(args->taskId, args->taskData);
+#if !DEBUG_PLOG
                 GetLogger().Flush();
+#endif
             } else {
-#if DEBUG_SWITCH
+#if DEBUG_SWITCH && !DEBUG_PLOG
               (void)sprintf_s(logfile, sizeof(logfile), "/tmp/aicpu4.txt");
               GetLogger(logfile);
 #endif
               auto devTask = reinterpret_cast<DeviceTask *>(args->taskData);
               SdmaPrefetch(devTask);
-#if DEBUG_SWITCH
+#if DEBUG_SWITCH && !DEBUG_PLOG
               GetLogger().Flush();
 #endif
             }
@@ -133,7 +139,9 @@ extern "C" __attribute__((visibility("default"))) int StaticTileFwkNSAKernelServ
         machine->GetTaskTotalWastTime((uint64_t *)args->taskWastTime);
         wmb();
         DEV_INFO("Total wast time is %lu\n", *(uint64_t *)args->taskWastTime);
+#if !DEBUG_PLOG
         GetLogger().Flush();
+#endif
         delete machine;
         return 0;
     }

@@ -23,8 +23,57 @@
 #include <cassert>
 #include <sys/time.h>
 #include <fcntl.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 #include "machine/utils/device_switch.h"
+#ifdef __DEVICE__
+#include "toolchain/slog.h"
+#endif
+
+#if DEBUG_PLOG && defined(__DEVICE__)
+#define GET_TID() syscall(__NR_gettid)
+const std::string TILE_FWK_DEVICE_MACHINE = "AI_CPU";
+
+#define D_DEV_LOGD(MODE_NAME, fmt, ...) dlog_debug(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__)
+#define D_DEV_LOGI(MODE_NAME, fmt, ...) dlog_info(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__)
+#define D_DEV_LOGW(MODE_NAME, fmt, ...) dlog_warn(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__)
+#define D_DEV_LOGE(MODE_NAME, fmt, ...) dlog_error(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__)
+
+#define DEV_DEBUG(fmt, args...) D_DEV_LOGD(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
+#define DEV_INFO(fmt, args...) D_DEV_LOGI(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
+#define DEV_ERROR(fmt, args...) D_DEV_LOGE(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
+#define DEV_WARN(fmt, args...) D_DEV_LOGW(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
+
+inline int CheckDebug() {
+    return CheckLogLevel(AICPU, DLOG_DEBUG);
+}
+
+#define DEV_ASSERT_MSG(expr, fmt, args...)                                                   \
+    do {                                                                                     \
+        if (!(expr)) {                                                                       \
+            DEV_ERROR(fmt, ##args);                                                          \
+            assert(0);                                                                       \
+        }                                                                                    \
+    } while (0)
+
+#define DEV_ASSERT(expr)                                                       \
+    do {                                                                       \
+        if (!(expr)) {                                                         \
+            assert(0);                                                         \
+        }                                                                      \
+    } while (0)
+
+#define DEV_DEBUG_ASSERT(expr)                                                 \
+    do {                                                                       \
+        if (!(expr)) {                                                         \
+            DEV_ERROR("assert failed: %s, %d", #expr, __FILE__, __LINE__);     \
+            assert(0);                                                         \
+        }                                                                      \
+    } while (0)
+
+#define DEV_MEM_DUMP(fmt, args...)
+
+#else
 
 constexpr int LOG_LEVEL_DEBUG = 0;
 constexpr int LOG_LEVEL_INFO = 1;
@@ -158,3 +207,4 @@ inline DeviceLogger &GetLogger(const char *logfile = nullptr, int level = LOG_LE
 #else
 #define DEV_DEBUG_ASSERT(expr)
 #endif // DEBUG_SWITCH
+#endif // DEBUG_PLOG

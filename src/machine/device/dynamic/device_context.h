@@ -1778,7 +1778,12 @@ private:
 
     static void *DeviceExecuteRuntimerLog(void *ctx_, uint64_t value) {
         (void)ctx_;
+        (void) value;
+#if !DEBUG_PLOG
         GetLogger().Log(LOG_LEVEL_INFO, __FILE__, 0, "%" PRIu64 "\n", value);
+#else
+        DEV_INFO("Value: %lu", value);
+#endif
         return nullptr;
     }
 };
