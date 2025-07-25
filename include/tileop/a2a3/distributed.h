@@ -69,11 +69,9 @@ struct TilingInfo {
 TILEOP void ClearFlagBuf(__ubuf__ int32_t *flagBuf)
 {
     /*
-    每次处理 8 个 block，8 * 32 = 256B，所以使用 vector_dup 时建议 flag 内存对齐 256B，BlockStride 是每次迭代内 block
-    的距离 （前一个的尾巴和后一个的开头，单位是 block，RepeatStride 是每次迭代间 block
-    的距离（前一个头和后一个头），如果内存是连续的， 值一般是 8，一次处理的大小 void vector_dup(__ubuf__ int32_t *dst,
-    int32_t src, uint8_t repeat, uint16_t dstBlockStride, uint16_t srcBlockStride, uint8_t dstRepeatStride, uint8_t
-    srcRepeatStride);
+    每次处理 8 个 block，8 * 32 = 256B，所以使用 vector_dup 时建议 flag 内存对齐 256B
+    BlockStride 是每次迭代内 block 的距离（stride，前一个头和后一个头，0 会按照 1 来处理），单位是 block
+    RepeatStride 是每次迭代间 block 的距离，如果内存是连续的，值一般是 8
     */
 
     uint8_t repeat = 1;
@@ -90,23 +88,50 @@ TILEOP void SetFlag(__ubuf__ int32_t *flag, GM_ADDR winFlagBaseAddr, uint32_t fl
 {
     /* 需要手动清空 flag 所使用的内存 */
     ClearFlagBuf(flag);
-    pipe_barrier(PIPE_ALL);
 
     GM_ADDR winFlagAddr = winFlagBaseAddr + flagOffset * FLAG_BYTE_SIZE;
+
+    set_flag(PIPE_V, PIPE_S, EVENT_ID0);
+    wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
     flag[0] = 1;
+    /*
+    copy_ubuf_to_gm 参数：
+        nBurst：搬运次数，flag ub 较小，可以一次搬完
+        lenBurst：每次搬运块数，单位为 block, 32B
+        srcStride：前后数据块的间隔，单位为 block
+        dstStride：前后数据块的间隔，单位为 block
+    */
+    set_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
+    wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
+    copy_ubuf_to_gm(winFlagAddr, flag, 0, 1, 1, 0, 0);
+    set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+}
 
-    uint16_t nBurst = 1;    // 搬运次数，flag ub 较小，可以一次搬完
-    uint16_t lenBurst = 1;  // 每次搬运块数，单位为 block, 32B
-    uint16_t srcStride = 0; // 前后数据块的间隔，单位为 block
-    uint16_t dstStride = 0; // 前后数据块的间隔，单位为 block
+TILEOP void WaitFlag(__ubuf__ int32_t *flag, GM_ADDR winFlagBaseAddr, uint32_t flagOffset)
+{
+    GM_ADDR winFlagAddr = winFlagBaseAddr + flagOffset * FLAG_BYTE_SIZE;
+    uint32_t value = 1;
+    uint32_t status = 0;
+    do {
+        set_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
+        wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
+        copy_gm_to_ubuf(flag, winFlagAddr, 0, 1, 1, 0, 0);
+        set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
+        wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
+        status = flag[0];
+    } while (status != value);
+}
 
-    set_atomic_add();
-    set_atomic_s32();
-    copy_ubuf_to_gm(winFlagAddr, flag, 0 /* sid */, nBurst, lenBurst, srcStride, dstStride);
-    pipe_barrier(PIPE_ALL);
-    set_atomic_none();
-
-    return;
+TILEOP void ClearFlag(__ubuf__ int32_t *flag, GM_ADDR winFlagBaseAddr, uint32_t flagOffset)
+{
+    GM_ADDR winFlagAddr = winFlagBaseAddr + flagOffset * FLAG_BYTE_SIZE;
+    ClearFlagBuf(flag);
+    set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+    wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+    copy_ubuf_to_gm(winFlagAddr, flag, 0, 1, 1, 0, 0);
+    set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
 }
 
 template <typename T>
@@ -153,39 +178,6 @@ TILEOP void WriteRemote(
     }
 
     return;
-}
-
-TILEOP void WaitFlag(__ubuf__ int32_t *flag, GM_ADDR winFlagBaseAddr, uint32_t flagOffset)
-{
-    pipe_barrier(PIPE_ALL);
-
-    GM_ADDR winFlagAddr = winFlagBaseAddr + flagOffset * FLAG_BYTE_SIZE;
-
-    uint32_t value = 1;
-    uint32_t status = 0;
-
-    pipe_barrier(PIPE_ALL);
-    do {
-        copy_gm_to_ubuf(flag, winFlagAddr, 0 /* sid */, 1, 1, 0, 0);
-        set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
-        wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
-        status = flag[0] & value;
-    } while (status != value);
-    pipe_barrier(PIPE_ALL);
-}
-
-// 清除 WinGM 中 flag 的对应 bit 位
-TILEOP void ClearFlag(__ubuf__ int32_t *flag, GM_ADDR winFlagBaseAddr, uint32_t flagOffset)
-{
-    GM_ADDR winFlagAddr = winFlagBaseAddr + flagOffset * FLAG_BYTE_SIZE;
-    flag[0] = -1;
-
-    pipe_barrier(PIPE_ALL);
-    set_atomic_s32();
-    copy_ubuf_to_gm(winFlagAddr, flag, 0 /*sid*/, 1, 1, 0, 0);
-    set_atomic_none();
-    set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
-    wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
 }
 
 // WinGM 拷贝到 GM, Win区大小为200M，offset用uint32_t
@@ -238,8 +230,8 @@ TILEOP void RemoteGroupRecv(
 
         uint32_t flagOffset = tileIndexOffset + remoteRankId;
 
-        // 临时，等待远端卡发完数据
         if constexpr (needWaitFlag) {
+            // AIV等flag
             WaitFlag(flag, winFlagBaseAddr, flagOffset);
         }
 
