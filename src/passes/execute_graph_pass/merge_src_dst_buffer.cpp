@@ -39,29 +39,38 @@ Status SrcDstBufferMerge::Init(const std::vector<Operation *> &opList) {
         return FAILED;
     }
     subGraphID_ = opList.front()->GetSubgraphID();
+    int opId = 0;
     for (auto &op : opList) {
         if (op == nullptr) {
-            ALOG_ERROR_F("op is null");
+            ALOG_ERROR_F("op:%d is null", opId);
             return FAILED;
         }
+        if (subGraphID_ != op->GetSubgraphID()) {
+            ALOG_ERROR_F("subgraph id:%d is not same with op:%s magic:%d id:%d subgraph id:%d",
+                subGraphID_, op->GetOpcodeStr().c_str(), op->GetOpMagic(), opId, op->GetSubgraphID());
+            return FAILED;
+        }
+        int outId = 0;
         for (auto &output : op->GetOOperands()) {
             if (output == nullptr) {
-                ALOG_ERROR_F("output is null");
+                ALOG_DEBUG_F("op:%s, magic:%d, output:%d is null",
+                    op->GetOpcodeStr().c_str(), op->GetOpMagic(), outId);
+                ++outId;
                 continue;
             }
             if (output->memorymap.find(subGraphID_) == output->memorymap.end()) {
-                ALOG_DEBUG_F("can not find subgrash id");
+                ALOG_DEBUG_F("op:%s, magic:%d, output id:%d can not find subgrash id:%d",
+                    op->GetOpcodeStr().c_str(), op->GetOpMagic(), outId, subGraphID_);
+                ++outId;
                 continue;
-            }
-            if (subGraphID_ != op->GetSubgraphID()) {
-                ALOG_ERROR_F("subgraph id not same");
-                return FAILED;
             }
             if (output->memorymap[subGraphID_].memId == -1) {
                 output->memorymap[subGraphID_].memId = output->GetMagic();
             }
             InitTensorMaxSize(output);
+            ++outId;
         }
+        ++opId;
     }
     return SUCCESS;
 }
@@ -81,6 +90,14 @@ bool SrcDstBufferMerge::CheckIgnoreScene(const Operation *oriOps) {
     if (oriOps->HasAttr(OpAttributeKey::isCube) &&
         oriOps->GetBoolAttribute(OpAttributeKey::isCube)) {
         return true;
+    }
+    for (auto &output : oriOps->GetOOperands()) {
+        if (output == nullptr) {
+            return true;
+        }
+        if (output->memorymap.find(subGraphID_) == output->memorymap.end()) {
+            return true;
+        }
     }
     return false;
 }

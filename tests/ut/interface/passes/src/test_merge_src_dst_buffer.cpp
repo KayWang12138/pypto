@@ -28,7 +28,8 @@
 #include <vector>
 #include <string>
 
-namespace npu::tile_fwk {
+namespace npu {
+namespace tile_fwk {
 
 class MergeSrcDstBufferTest : public testing::Test {
 public:
@@ -297,6 +298,7 @@ TEST_F(MergeSrcDstBufferTest, AddReplaced) {
         if (op.GetOpcode() == Opcode::OP_ADD) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
+            EXPECT_NE(outputTensor->memorymap[0].memId, -1);
             EXPECT_EQ(outputTensor->memorymap[0].memId, inputTensor->memorymap[0].memId);
             break;
         }
@@ -345,6 +347,7 @@ TEST_F(MergeSrcDstBufferTest, AddNotReplaced) {
         if (op.GetOpcode() == Opcode::OP_ADD) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
+            EXPECT_NE(outputTensor->memorymap[0].memId, -1);
             EXPECT_NE(outputTensor->memorymap[0].memId, inputTensor->memorymap[0].memId);
             break;
         }
@@ -384,6 +387,7 @@ TEST_F(MergeSrcDstBufferTest, AddHasInReplaced) {
         if (op.GetOpcode() == Opcode::OP_ADD) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
+            EXPECT_NE(outputTensor->memorymap[0].memId, -1);
             EXPECT_EQ(outputTensor->memorymap[0].memId, inputTensor->memorymap[0].memId);
             break;
         }
@@ -414,6 +418,7 @@ TEST_F(MergeSrcDstBufferTest, CopyInNotReplaced) {
         if (op.GetOpcode() == Opcode::OP_COPY_IN) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
+            EXPECT_NE(outputTensor->memorymap[0].memId, -1);
             EXPECT_NE(outputTensor->memorymap[0].memId, inputTensor->memorymap[0].memId);
             break;
         }
@@ -446,6 +451,7 @@ TEST_F(MergeSrcDstBufferTest, PairMaxNotReplaced) {
         if (op.GetOpcode() == Opcode::OP_PAIRMAX) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
+            EXPECT_NE(outputTensor->memorymap[0].memId, -1);
             EXPECT_NE(outputTensor->memorymap[0].memId, inputTensor->memorymap[0].memId);
             break;
         }
@@ -482,6 +488,7 @@ TEST_F(MergeSrcDstBufferTest, IsCubeNotReplaced) {
         if (op.GetOpcode() == Opcode::OP_PAIRMAX) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
+            EXPECT_NE(outputTensor->memorymap[0].memId, -1);
             EXPECT_NE(outputTensor->memorymap[0].memId, inputTensor->memorymap[0].memId);
             break;
         }
@@ -526,6 +533,7 @@ TEST_F(MergeSrcDstBufferTest, AddDiffMemTypeNotReplaced) {
         if (op.GetOpcode() == Opcode::OP_ADD) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
+            EXPECT_NE(outputTensor->memorymap[0].memId, -1);
             EXPECT_NE(outputTensor->memorymap[0].memId, inputTensor->memorymap[0].memId);
             break;
         }
@@ -558,6 +566,7 @@ TEST_F(MergeSrcDstBufferTest, AddDiffShapeNotReplaced) {
         if (op.GetOpcode() == Opcode::OP_ADD) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
+            EXPECT_NE(outputTensor->memorymap[0].memId, -1);
             EXPECT_NE(outputTensor->memorymap[0].memId, inputTensor->memorymap[0].memId);
             break;
         }
@@ -590,6 +599,7 @@ TEST_F(MergeSrcDstBufferTest, AddDiffDataTypeNotReplaced) {
         if (op.GetOpcode() == Opcode::OP_ADD) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
+            EXPECT_NE(outputTensor->memorymap[0].memId, -1);
             EXPECT_NE(outputTensor->memorymap[0].memId, inputTensor->memorymap[0].memId);
             break;
         }
@@ -643,6 +653,7 @@ TEST_F(MergeSrcDstBufferTest, AssembleNotReplaced) {
         if (op.GetOpcode() == Opcode::OP_ADD) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
+            EXPECT_NE(outputTensor->memorymap[0].memId, -1);
             EXPECT_NE(outputTensor->memorymap[0].memId, inputTensor->memorymap[0].memId);
             break;
         }
@@ -674,9 +685,11 @@ TEST_F(MergeSrcDstBufferTest, AddMultiConsumerNotReplaced) {
         if (op.GetOpcode() == Opcode::OP_ADD) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
+            EXPECT_NE(outputTensor->memorymap[0].memId, -1);
             EXPECT_NE(outputTensor->memorymap[0].memId, inputTensor->memorymap[0].memId);
             break;
         }
     }
 }
-} // namespace npu::tile_fwk
+} // namespace tile_fwk
+} // namespace npu
