@@ -352,7 +352,9 @@ TEST_F(SubgraphToFunctionTest, SameOffset) {
 
     // call the pass
     SubgraphToFunction subgraphToFunction;
+    subgraphToFunction.PreCheck(*currFunctionPtr);
     subgraphToFunction.RunOnFunction(*currFunctionPtr);
+    subgraphToFunction.PostCheck(*currFunctionPtr);
 
     std::stringstream ss;
     ss << "After_subgraphIsomorphismPass";
@@ -780,6 +782,7 @@ TEST_F(SubgraphToFunctionTest, TestBasicSubgraphConversion) {
 
     SubgraphToFunction pass;
     Status status = pass.RunOnFunction(*function);
+    status = pass.PostCheck(*function);
     EXPECT_EQ(status, SUCCESS);
 
     // 7. 验证结果
@@ -983,6 +986,8 @@ TEST_F(SubgraphToFunctionTest, EliminateRedundantEdges) {
     // 4. 构建颜色图并消除冗余边
     pass.BuildColorGraph(*function);
     pass.EraseRedundantColorEdges(*function);
+    auto status = pass.ColorOutGraphCheck(*function);
+    EXPECT_EQ(status, SUCCESS) << "SubgraphToFunction ColorOutGraphCheck failed";
 
     // 5. 验证冗余边已被移除
     auto& pass_ref = static_cast<SubgraphToFunctionFriend&>(pass);
@@ -1099,7 +1104,11 @@ TEST_F(SubgraphToFunctionTest, FullPassWithEmptySubgraph) {
 
     // Run the complete pass
     SubgraphToFunction pass;
-    auto status = pass.RunOnFunction(*function);
+    auto status = pass.PreCheck(*function);
+    if (status == FAILED) {
+        return;
+    }
+    status = pass.RunOnFunction(*function);
     EXPECT_EQ(status, SUCCESS) << "SubgraphToFunction pass failed";
 
     // 4. Verify results after pass execution

@@ -363,6 +363,11 @@ public:
             osm << IntVecToStr(shape);
             osm << symName << " Loc[" << ParamLocToStr(paramLoc) << "]\n";
         }
+
+        bool CompareParam(const SubfuncInvokeInfoTy::IncastParamPackTy &esgParam) const {
+            return (paramLoc == esgParam.paramLoc) && (symDDRId && esgParam.ddrId) &&
+                (shape == esgParam.shape) && (dataType == esgParam.dType);
+        }
     };
 
     struct OutCastParamTy {
@@ -392,6 +397,12 @@ public:
             osm << IntVecToStr(shape);
             osm << symName << " Loc[" << ParamLocToStr(paramLoc) << "]" << std::endl;
         }
+
+        bool CompareParam(const SubfuncInvokeInfoTy::OutcastParamPackTy &esgParam) const {
+            return (paramLoc == esgParam.paramLoc) &&
+                (symDDRId == esgParam.ddrId) && (refCount == esgParam.refCount) &&
+                (shape == esgParam.shape) && (dataType == esgParam.dType);
+        }
     };
 
     struct TensorParamTy {
@@ -416,6 +427,11 @@ public:
             osm << IntVecToStr(symOffset);
             osm << IntVecToStr(shape);
             osm << symName << " Loc[" << ParamLocToStr(paramLoc) << "]" << std::endl;
+        }
+
+        bool CompareParam(const SubfuncInvokeInfoTy::TensorParamPackTy &esgParam) const {
+            return (paramLoc == esgParam.paramLoc) && (symDDRId == esgParam.ddrId) &&
+                (shape == esgParam.shape) && (dataType == esgParam.dType);
         }
     };
 

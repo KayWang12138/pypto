@@ -34,7 +34,10 @@ private:
         subFuncInvokeInfos.clear();
         // build in-graph and out-graph at first
         // 1. Construct in-graph & out-graph
-        BuildGraph(function);
+        if (BuildGraph(function) != SUCCESS) {
+            ASLOGE("failed to build graph from input function");
+            return FAILED;
+        }
         // reconnect in-graph and out-graph by Incast and Outcast
         RecordIncastOutcast(function);
         // Construct funtion.subFunctionInvokeMap
@@ -48,8 +51,22 @@ private:
         return SUCCESS;
     };
 
-    void BuildGraph(Function &function);
+    Status BuildGraph(Function &function);
     void InsertParameter(size_t i, Function* leafFunc);
+    Status NOPCheck(const Operation &op) const;
+    Status CheckSubGraphTopo(Function &function) const;
+    template <typename eType>
+    Status InAndOutGraphConsistencyCheck(
+        const std::vector<std::vector<eType>> &inEdgeGraph,
+        const std::vector<std::vector<eType>> &outEdgeGraph);
+    Status EdgeIndexCheck(const bool found, const int newIndex, const size_t graphSize) const;
+    Status BuildInGraph(Function &function);
+    Status BuildOutGraph(Function &function);
+    Status CheckInAndOutGraphMatch(Function &function);
+    Status CheckSubGraphBoundary(Function &function);
+    bool foundNodeInNeighbor(const int dstNode, const std::vector<int> &searchGraph) const;
+    Status VerifyRedundantEdge(const int srcNode, const int dstNode) const;
+    Status ColorOutGraphCheck(Function &function) const;
     Status PreCheck(Function &function) override;
     Status PostCheck(Function &function) override;
     Status CheckSinglePsgEsgMapping(Function &function, uint32_t psgId, uint32_t esgId);
@@ -64,7 +81,8 @@ private:
     Status ProcessSubgraph(Function& function, size_t i, size_t& programIdx, std::vector<Function*>& outputFuncList);
     Status ProcessCacheResult(const std::tuple<Function*, Operation*, bool>& result, size_t i, size_t& programIdx, std::vector<Function*>& outputFuncList, Operation* callOp);
     void SetSemanticLabel(const std::vector<std::shared_ptr<Operation>>& subgraph, Operation* callOp);
-    CoreType DetermineGraphType(size_t i);
+    bool IsCVSeparatePlatform();
+    Status DetermineGraphType(size_t i, CoreType &esgGraphType);
     Status HandleReadyStates(Function* rootFunc);
     void InitializeRootFunction(Function& function, Function* rootFunc);
     Status IslandToFunction(Function &function);

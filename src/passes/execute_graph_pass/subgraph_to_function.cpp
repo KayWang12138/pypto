@@ -23,6 +23,7 @@
 #include "passes/pass_utils/parallel_tool.h"
 
 namespace npu::tile_fwk {
+    
 // Add string name for codegen
 std::string SubgraphToFunction::FindSymbolName(std::shared_ptr<LogicalTensor> op, int magic) const {
     if (magic < 0){
@@ -39,157 +40,6 @@ std::string SubgraphToFunction::FindSymbolName(std::shared_ptr<LogicalTensor> op
 
     auto name = "$" + std::to_string(magic);
     return name;
-}
-
-Status SubgraphToFunction::PreCheck(Function &function) {
-    Status baseStatus = Pass::PreCheck(function);
-    if (baseStatus != SUCCESS) { ALOG_ERROR_F("PreCheck failed in base Pass class"); return baseStatus; }
-    auto operations = function.Operations();
-    for (size_t i = 0; i < operations.size(); i++) {
-        auto &op = operations[i];
-        int subGraphId = op.GetSubgraphID();
-        // Check input operands
-        for (size_t k = 0; k < op.iOperand.size(); k++) {
-            auto iOperand = op.GetInputOperand(k);
-            // Rule 1: Operands from DDR memory must be marked as subgraph boundary
-            if (iOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && !iOperand->isSubGraphBoundary) { ALOG_ERROR_F("Input operand %zu of operation %zu (opdump: %s) is from DDR but not marked as subgraph boundary!", k, i, op.Dump().c_str()); return FAILED; }
-            // Rule 2: Operands with consumer in a different subgraph must be marked as subgraph boundary
-            if (subGraphId != iOperand->subGraphID && !iOperand->isSubGraphBoundary) { ALOG_ERROR_F("Input operand %zu of operation %zu (opdump: %s) has a consumer in a different subgraph but not marked as subgraph boundary!", k, i, op.Dump().c_str()); return FAILED; }
-            // Rule 3: Input operands of special ops (e.g., OP_UB_COPY_IN) must be marked as subgraph boundary
-            if (IsCopyIn(op.GetOpcode()) && !iOperand->isSubGraphBoundary) { ALOG_ERROR_F("Input operand %zu of IsCopyIn operation %zu (opdump: %s) is not marked as subgraph boundary!",k, i, op.Dump().c_str()); return FAILED; }
-        }
-        // Check output operands
-        for (size_t k = 0; k < op.oOperand.size(); k++) {
-            auto oOperand = op.GetOutputOperand(k);
-            // Rule 1: Operands from DDR memory must be marked as subgraph boundary
-            if (oOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && !oOperand->isSubGraphBoundary) { ALOG_ERROR_F("Output operand %zu of operation %zu (opdump: %s) is from DDR but not marked as subgraph boundary!", k, i, op.Dump().c_str()); return FAILED; }
-            // Rule 2: Operands with producer in a different subgraph must be marked as subgraph boundary
-            if (subGraphId != oOperand->subGraphID && !oOperand->isSubGraphBoundary) { ALOG_ERROR_F("Output operand %zu of operation %zu (opdump: %s) has a producer in a different subgraph but not marked as subgraph boundary!", k, i, op.Dump().c_str()); return FAILED; }
-            // Rule 3: Output operands of special ops (e.g., OP_UB_COPY_OUT, OP_TRANSPOSE_DATA_MOVE, OP_INDEX_OUTCAST) must be marked as subgraph boundary
-            if (IsCopyOut(op.GetOpcode()) && !oOperand->isSubGraphBoundary) { ALOG_ERROR_F("Output operand %zu of IsCopyOut operation %zu (opdump: %s) is not marked as subgraph boundary!",k, i, op.Dump().c_str()); return FAILED; }
-        }
-    }
-    ALOG_INFO_F("SubgraphToFunction PreCheck completed successfully!");
-    return SUCCESS;
-}
-
-Status SubgraphToFunction::PostCheck(Function &function) {
-    Status baseStatus = Pass::PostCheck(function);
-    if (baseStatus != SUCCESS) { ALOG_ERROR_F("PostCheck failed in base Pass class"); return baseStatus; }
-    // Check the mapping relationships in psgToESgMap
-    for (auto [psgId, esgId] : psgToESgMap) {
-        if (CheckSinglePsgEsgMapping(function, psgId, esgId) != SUCCESS) { ALOG_ERROR_F("Failed to check mapping between psg %d and esg %d", psgId, esgId); return FAILED; }
-    }
-
-    for (size_t i = 0; i < function.rootFunc_->Operations().size(); ++i) {
-        if (VerifySingleOpTopology(function, i) != SUCCESS) { ALOG_ERROR_F("Failed to verify topology for operation %zu", i); return FAILED; }
-    }
-
-    // Verify readyState matches negative predecessor count
-    for (size_t i = 0; i < function.rootFunc_->topoInfo_.topology_.size(); i++) {
-        if (CheckReadyStateConsistency(function, i) != SUCCESS) { ALOG_ERROR_F("Ready state inconsistency found for topology entry %zu", i); return FAILED; }
-    }
-
-    ALOG_INFO_F("SubgraphToFunction PostCheck completed successfully!");
-    return SUCCESS;
-}
-    
-Status SubgraphToFunction::CheckSinglePsgEsgMapping(Function &function, uint32_t psgId, uint32_t esgId) {
-    auto iter = function.rootFunc_->programs_.find(psgId);
-    if (iter == function.rootFunc_->programs_.end()) { ALOG_ERROR_F("Psg %d not found in program", psgId); return FAILED; }
-    auto &esg = function.rootFunc_->Operations()[esgId].GetSubFuncInvokeInfo();
-    auto &psg = iter->second->GetParameter();
-    ALOG_DEBUG_F("start match psg %d - esg %d\n", psgId, esgId);
-    if (!CompareParamLists(esg.GetIncastTensorParamList(), psg.inCastArgs_, "Incast", psgId, esgId)) { ALOG_ERROR_F("Incast parameter lists mismatch between psg %d and esg %d", psgId, esgId); return FAILED; }
-    if (!CompareParamLists(esg.GetOutcastTensorParamList(), psg.outCastArgs_, "Outcast", psgId, esgId)) { ALOG_ERROR_F("Outcast parameter lists mismatch between psg %d and esg %d", psgId, esgId); return FAILED; }
-    if (!CompareParamLists(esg.GetTensorParamList(), psg.tensorsArgs_, "Tensor", psgId, esgId)) { ALOG_ERROR_F("Tensor parameter lists mismatch between psg %d and esg %d", psgId, esgId); return FAILED; }
-    return SUCCESS;
-}
-
-template <typename ESGParamType, typename PSGParamContainer>
-bool SubgraphToFunction::CompareParamListsImpl(
-    const std::vector<ESGParamType>& esgParams, 
-    const PSGParamContainer& psgParams, 
-    const std::string &paramType, uint32_t psgId, uint32_t esgId) const
-{
-    if (esgParams.size() != psgParams.size()) {
-        ALOG_ERROR_F("Psg %d esg %d %s size mismatch[%zu : %zu]", psgId, esgId, paramType.c_str(), esgParams.size(), psgParams.size());
-        return false;
-    }
-    for (size_t i = 0; i < esgParams.size(); i++) {
-        const auto& e = esgParams[i];
-        const auto& p = psgParams[i];
-        if (e.shape != p.shape) {
-            ALOG_ERROR_F("Psg %d esg %d %s shape mismatch at %zu", psgId, esgId, paramType.c_str(), i);
-            return false;
-        }
-    }
-    return true;
-}
-
-bool SubgraphToFunction::CompareParamLists(
-    const std::vector<SubfuncInvokeInfoTy::IncastParamPackTy>& esgParams, 
-    const SubfuncParam::InCastParamListTy& psgParams, 
-    const std::string &paramType, uint32_t psgId, uint32_t esgId) const
-{
-    return CompareParamListsImpl(esgParams, psgParams, paramType, psgId, esgId);
-}
-        
-bool SubgraphToFunction::CompareParamLists(
-    const std::vector<SubfuncInvokeInfoTy::OutcastParamPackTy>& esgParams, 
-    const SubfuncParam::OutCastParamListTy& psgParams, 
-    const std::string &paramType, uint32_t psgId, uint32_t esgId) const   
-{
-    return CompareParamListsImpl(esgParams, psgParams, paramType, psgId, esgId);
-}
-
-bool SubgraphToFunction::CompareParamLists(
-    const std::vector<SubfuncInvokeInfoTy::TensorParamPackTy>& esgParams, 
-    const SubfuncParam::TensorParamListTy& psgParams, 
-    const std::string& paramType, uint32_t psgId, uint32_t esgId) const
-{
-    return CompareParamListsImpl(esgParams, psgParams, paramType, psgId, esgId);  
-}
-        
-Status SubgraphToFunction::VerifySingleOpTopology(Function &function, size_t opIndex) {
-    const auto &callOps = function.rootFunc_->Operations();
-    auto consumers = callOps[opIndex].ConsumerOps();
-    auto producers = callOps.at(opIndex).ProducerOps();
-    ALOG_DEBUG_F("=================Call ===============%zu", opIndex);
-    for (auto &prod : producers) {
-        ALOG_DEBUG_F("Producer %s %d", prod->GetOpcodeStr().c_str(), prod->opmagic);
-    }
-    auto &topoInfo = function.rootFunc_->topoInfo_.topology_[opIndex];
-    std::unordered_set<Operation *> consumersNoSelf;
-    for (auto *cons : consumers) {
-        if (cons->opmagic != callOps[opIndex].opmagic) {
-            consumersNoSelf.insert(cons);
-        }
-    }
-    if (consumersNoSelf.size() < topoInfo.outGraph.size()) { ALOG_ERROR_F("Call %zu %d consumers size are %zu and %zu", opIndex, callOps.at(opIndex).opmagic, consumersNoSelf.size(), topoInfo.outGraph.size()); return FAILED; }
-    for (auto succ : topoInfo.outGraph) {
-        if (consumers.count(&(callOps.at(succ))) == 0) { ALOG_ERROR_F("Cannot find consumer %d for call %zu", succ, opIndex); return FAILED; }
-    }
-    return SUCCESS;
-}        
-        
-Status SubgraphToFunction::CheckReadyStateConsistency(Function &function, size_t opIndex) {
-    auto &topology = function.rootFunc_->topoInfo_.topology_;
-    // Calculate actual predecessor count
-    int actualPredCount = 0;
-
-    for (size_t j = 0; j < topology.size(); j++) {
-        if (opIndex == j) {
-            continue;
-        }    
-        auto &otherEntry = topology[j];
-        if (std::find(otherEntry.outGraph.begin(), otherEntry.outGraph.end(), opIndex) != otherEntry.outGraph.end()) {
-            actualPredCount++;
-        }
-    }
-    // readyState should equal negative predecessor counts
-    if (topology[opIndex].readyState != -actualPredCount) { ALOG_ERROR_F("Subgraph %zu has inconsistent readyState: actual=%d, expected=%d", opIndex, topology[opIndex].readyState, -actualPredCount); return FAILED; }
-    return SUCCESS;
 }
     
 void SubgraphToFunction::RecordEsgIncast(Function &function, size_t i, size_t j, size_t k) {
@@ -638,45 +488,51 @@ void SubgraphToFunction::SymbolizeFunction(Function *rootFunc, std::vector<Funct
     }
 }
 
-void SubgraphToFunction::BuildGraph(Function &function) {
+Status SubgraphToFunction::BuildInGraph(Function &function) {
     auto operationViewer = function.Operations();
-    inGraph.resize(operationViewer.size());
-    outGraph.resize(operationViewer.size());
     for (size_t i = 0; i < operationViewer.size(); i++) {
         inGraph[i].clear();
         outGraph[i].clear();
+        // inGraph
         for (auto &inOperand : operationViewer[i].GetIOperands()) {
             for (auto &parentOp : inOperand->GetProducers()) {
                 auto [parentSeqNo, found] = operationViewer.FindOpPosition(*parentOp);
-                if (!found) {
-                    ASLOGE("cannot find op magic %d in function %d %s", parentOp->GetOpMagic(), function.GetFuncMagic(),
+                if (EdgeIndexCheck(found, parentSeqNo, inGraph.size()) != SUCCESS) {
+                    ALOG_ERROR_F("error inserting op magic %d in function %d %s to inGraph", parentOp->GetOpMagic(), function.GetFuncMagic(),
                         function.GetRawName().c_str());
-                    continue;
-                }
-                if (static_cast<size_t>(parentSeqNo) >= inGraph.size()) {
-                    ASLOGE("parent index %d is larger than operations_ size %zu", parentSeqNo, operationViewer.size());
-                    continue;
+                    return FAILED;
                 }
                 inGraph[i].push_back(parentSeqNo);
-                outGraph[parentSeqNo].push_back(i);
             }
         }
 
         for (const auto &inControlOp : operationViewer[i].GetInCtrlOperations()) {
             auto [parentSeqNo, found] = operationViewer.FindOpPosition(*inControlOp);
-            if (!found) {
-                ASLOGE("cannot find op magic %d in function %d %s", inControlOp->GetOpMagic(), function.GetFuncMagic(),
+            if (EdgeIndexCheck(found, parentSeqNo, inGraph.size()) != SUCCESS) {
+                ALOG_ERROR_F("error inserting op magic %d in function %d %s to inGraph", inControlOp->GetOpMagic(), function.GetFuncMagic(),
                     function.GetRawName().c_str());
-                continue;
-            }
-            if (static_cast<size_t>(parentSeqNo) >= inGraph.size()) {
-                ASLOGE("control parent index %d is larger than operations_ size %zu", parentSeqNo, operationViewer.size());
-                continue;
+                return FAILED;
             }
             inGraph[i].push_back(parentSeqNo);
+        }
+    }
+    return SUCCESS;
+}
+
+Status SubgraphToFunction::BuildGraph(Function &function) {
+    auto operationViewer = function.Operations();
+    inGraph.resize(operationViewer.size());
+    outGraph.resize(operationViewer.size());
+    if (BuildInGraph(function) != SUCCESS) {
+        ALOG_ERROR_F("Build failed");
+        return FAILED;
+    }
+    for (size_t i = 0; i < operationViewer.size(); i++) {
+        for (auto parentSeqNo : inGraph[i]) {
             outGraph[parentSeqNo].push_back(i);
         }
     }
+    return SUCCESS;
 }
 
 void SubgraphToFunction::InsertParameter(size_t i, Function* leafFunc) {
@@ -711,6 +567,10 @@ Status SubgraphToFunction::ProcessSubgraph(Function& function, size_t i,
     //In EndFunction to calculate cache hash
     auto result = Program::GetInstance().EndFunction(leafName);
     auto callOp = std::get<1>(result);
+    if (callOp == nullptr) {
+        ALOG_ERROR_F("leafname %s, program returned nullptr");
+        return FAILED;
+    }
     callOp->UpdateSubgraphID(i);
     callOp->SetSubFuncInvokeInfo(subFuncInvokeInfos[i]);
 
@@ -778,7 +638,15 @@ void SubgraphToFunction::SetSemanticLabel(const std::vector<std::shared_ptr<Oper
     callOp->SetSemanticLabel(tag);     
 }
 
-CoreType SubgraphToFunction::DetermineGraphType(size_t i) {
+bool SubgraphToFunction::IsCVSeparatePlatform() {
+    auto socVersion = Program::GetInstance().GetPlatformConfig().GetPlatform();
+    if (socVersion == DPlatform::ASCEND_910B1 || socVersion == DPlatform::ASCEND_910B2 || socVersion == DPlatform::ASCEND_910B3 || socVersion == DPlatform::ASCEND_910B4) {
+        return true;
+    }
+    return false;
+}
+
+Status SubgraphToFunction::DetermineGraphType(size_t i, CoreType &esgGraphType) {
     int32_t cubeOpCnt = 0;
     int32_t vecOpCnt = 0;
     int32_t aicpuOpCnt = 0;
@@ -791,7 +659,7 @@ CoreType SubgraphToFunction::DetermineGraphType(size_t i) {
             vecOpCnt += 1;
         }
     }
-    CoreType esgGraphType = CoreType::AIV;
+
     if (aicpuOpCnt > 0){
         esgGraphType = CoreType::AICPU;
     } else if (cubeOpCnt == 0 && vecOpCnt > 0) {
@@ -800,18 +668,26 @@ CoreType SubgraphToFunction::DetermineGraphType(size_t i) {
         esgGraphType = CoreType::AIC;
     } else if (cubeOpCnt > 0 && vecOpCnt > 0) {
         esgGraphType = CoreType::MIX;
+        if (IsCVSeparatePlatform() == true) {
+            ALOG_ERROR_F("Get CoreType::MIX in C-V separate platform");
+            return FAILED;
+        }        
     }
     if(nLIST[i].size()==1 && nLIST[i][0]->GetOpcode() == Opcode::OP_RESHAPE && colorInGraph[i].size() != 0){
         esgGraphType = CoreType::HUB;
     }
 
-    return esgGraphType;
+    return SUCCESS;
 }
 
 Status SubgraphToFunction::HandleReadyStates(Function* rootFunc) {
     if (rootFunc == nullptr) { ALOG_ERROR("Root function is nullptr"); return FAILED; }
     for (size_t i = 0; i < nLIST.size(); i++) {
-        CoreType esgGraphType = DetermineGraphType(i);
+        CoreType esgGraphType = CoreType::AIV;
+        if (DetermineGraphType(i, esgGraphType) != SUCCESS ) {
+            ALOG_ERROR_F("DetermineGraphType failed");
+            return FAILED;
+        }
         // Get the operation and verify it exists
         if (i >= rootFunc->Operations().size()) { ALOG_ERROR_F("Operation index %zu out of bounds (total operations: %zu)", i, rootFunc->Operations().size()); return FAILED; }
         auto& op = rootFunc->Operations()[i];
