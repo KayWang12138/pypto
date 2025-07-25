@@ -20,7 +20,6 @@
 #include "operation/tilefwk_op.h"
 #include "common/pre_def.h"
 #include "tilefwk/tilefwk.h"
-#include "interface/configs/config.h"
 
 namespace npu::tile_fwk {
 

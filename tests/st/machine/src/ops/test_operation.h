@@ -31,6 +31,13 @@ namespace test_operation {
 struct OpFuncArgs {
 };
 
+inline SymbolicScalar CeilDivSymbolicScalar(SymbolicScalar a, int b) {
+    if (b == 0) {
+        return a;
+    }
+    return (a + b - 1) / b;
+}
+
 using OpFunc = std::function<void(
     const std::vector<Tensor>&,
     std::vector<Tensor>&,
@@ -102,6 +109,9 @@ private:
                     break;
                 case DataType::DT_INT8:
                     readGoldenCmp<int8_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    break;
+                case DataType::DT_INT16:
+                    readGoldenCmp<int16_t>(tensor, testCase.goldenPaths[i], i, 0);
                     break;
                 case DataType::DT_INT32:
                     readGoldenCmp<int32_t>(tensor, testCase.goldenPaths[i], i, 0);

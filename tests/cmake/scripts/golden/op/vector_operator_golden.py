@@ -175,6 +175,68 @@ def gen_reduce_op_golden(case_name: str, output: Path, case_index: int = None) -
 
 @GoldenRegister.reg_golden_func(
     case_names=[
+        "TestCast/CastOperationTest.test_cast",
+    ]
+)
+def gen_cast_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def generate_golden_files(case_name: str, output_path: Path, shape: list, dtype_in, dtype_out, cast_type) -> bool:
+
+        x_path = Path(output_path, 'x.bin')
+        o_path = Path(output_path, 'res.bin')
+
+        complete = x_path.exists() and o_path.exists()
+        if complete:
+            logging.debug("Case(%s), Golden complete.", case_name)
+            return True
+
+        x = np.random.uniform(0, 1, shape).astype(dtype_in)
+        x.tofile(x_path)
+        
+        if cast_type == "NONE":
+            x = x.astype(dtype_out)
+        elif cast_type == "RINT":
+            x = np.rint(x).astype(dtype_out)
+        elif cast_type == "ROUND":
+            x = np.round(x).astype(dtype_out)
+        elif cast_type == "FLOOR":
+            x = np.floor(x).astype(dtype_out)
+        elif cast_type == "CEIL":
+            x = np.ceil(x).astype(dtype_out)
+        elif cast_type == "TRUNC":
+            x = np.trunc(x).astype(dtype_out)
+        x.tofile(o_path)
+        return True
+    # 测试数据集，根据具体测试需求修改，可增加字段
+    test_configs = [
+        ([512, 128], np.float32, np.float16, "NONE"),
+        ([1024, 256], np.float32, bfloat16, "NONE"),
+        ([512, 256], np.float32, np.int16, "RINT"),
+        ([512, 128], np.float16, np.float32, "NONE"),
+        ([32, 32], np.float16, np.int32, "ROUND"),
+        ([64, 64], np.float16, np.int8, "FLOOR"),
+        ([90 + 17, 128 + 17], np.int32, np.float16, "NONE"),
+        ([1, 1], np.int32, np.float32, "NONE"),
+        ([32, 32], np.int16, np.float32, "NONE"),
+        ([128, 128], np.int8, np.float16, "NONE"),
+    ]
+    # 1.跑测试套还是单个用力，生成不同场景的文件夹，一般不用改
+    # 2.涉及test_configs数据结构变更，generate_golden_files的接口形式和调用传参可能需联动修改
+    if case_index is None:
+        for index, (shape, dtype_in, dtype_out, cast_type) in enumerate(test_configs):
+
+            output_path = Path(str(output) + '/' + str(index))
+            output_path.mkdir(parents=True, exist_ok=True)
+            generate_golden_files(case_name, output_path, shape, dtype_in, dtype_out, cast_type)
+
+    else:
+        shape, dtype = test_configs[case_index]
+        generate_golden_files(case_name, output, shape, dtype_in, dtype_out, cast_type)
+    return True
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
         "TestAdd/AddOperationTest.test_add",
     ]
 )
@@ -202,6 +264,14 @@ def gen_add_op_golden(case_name: str, output: Path, case_index: int = None) -> b
         ([512, 128], np.float32),
         ([1024, 256], np.float32),
         ([512, 256], np.float32),
+        ([512, 128], np.float32),
+        ([128 + 17, 128], np.float32),
+        ([90 + 17, 128], np.float32),
+        ([90 + 17, 128 + 17], np.float32),
+        ([1, 1], np.float32),
+        ([32, 32], np.float32),
+        ([128, 128], np.float32),
+        ([192, 512], np.float32)
     ]
 
     # 1.跑测试套还是单个用力，生成不同场景的文件夹，一般不用改

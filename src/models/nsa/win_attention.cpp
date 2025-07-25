@@ -21,7 +21,6 @@
 #include "interface/program/program.h"
 #include "interface/tensor/tensormap.h"
 #include "interface/configs/config_manager.h"
-#include "interface/configs/config.h"
 #include "interface/utils/common.h"
 #include "interface/utils/id_gen.h"
 #include "interface/utils/log.h"

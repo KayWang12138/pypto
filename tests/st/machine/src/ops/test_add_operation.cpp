@@ -39,7 +39,7 @@ static void AddOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<T
         SymbolicScalar secondDim = inputs[0]->shape[1];
         const int firstl0LoopLengthTile = 128;
 
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, firstDim / firstl0LoopLengthTile, 1)) {
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, CeilDivSymbolicScalar(firstDim, firstl0LoopLengthTile), 1)) {
             auto tileTensor0 = DViewPad(inputs[0], {firstl0LoopLengthTile, secondDim},
                 {std::min(firstDim - bIdx * firstl0LoopLengthTile, firstl0LoopLengthTile), secondDim},
                 {bIdx * firstl0LoopLengthTile, 0});
@@ -62,8 +62,8 @@ static void AddOperationExeFuncDoubleCut(const std::vector<Tensor>& inputs, std:
         const int firstViewShape = 128;
         const int secondViewShape = 128;
 
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, firstDim / firstViewShape, 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, secondDim / secondViewShape, 1)) {
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, CeilDivSymbolicScalar(firstDim, firstViewShape), 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, CeilDivSymbolicScalar(secondDim, secondViewShape), 1)) {
                 auto tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape},
                     {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                         std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
@@ -85,6 +85,14 @@ static const AddOperationMetadata testDataLists[] = {
     AddOperationMetadata({512, 128}, {64, 128}, DataType::DT_FP32, AddOperationExeFunc),
     AddOperationMetadata({1024, 256}, {64, 128}, DataType::DT_FP32, AddOperationExeFunc),
     AddOperationMetadata({512, 256}, {64, 64}, DataType::DT_FP32, AddOperationExeFuncDoubleCut),
+    AddOperationMetadata({512, 128}, {64, 64}, DataType::DT_FP32, AddOperationExeFuncDoubleCut),
+    AddOperationMetadata({128 + 17, 128}, {32, 32}, DataType::DT_FP32, AddOperationExeFuncDoubleCut),
+    AddOperationMetadata({90 + 17, 128}, {32, 32}, DataType::DT_FP32, AddOperationExeFuncDoubleCut),
+    AddOperationMetadata({90 + 17, 128 + 17}, {16, 16}, DataType::DT_FP32, AddOperationExeFuncDoubleCut),
+    AddOperationMetadata({1, 1}, {16, 16}, DataType::DT_FP32, AddOperationExeFuncDoubleCut),
+    AddOperationMetadata({32, 32}, {16, 16}, DataType::DT_FP32, AddOperationExeFuncDoubleCut),
+    AddOperationMetadata({128, 128}, {64, 64}, DataType::DT_FP32, AddOperationExeFuncDoubleCut),
+    AddOperationMetadata({192, 512}, {32, 32}, DataType::DT_FP32, AddOperationExeFuncDoubleCut),
 };
 
 class AddOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<AddOperationMetadata> {};
