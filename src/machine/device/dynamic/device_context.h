@@ -220,6 +220,10 @@ struct DeviceExecuteSlot {
     bool isAssemble{false};
     uint32_t *refCnt{nullptr}; // refCnt to stored tensor
 
+    bool IsFixedAddress() const {
+        return isOutputSlot || isAssemble;
+    }
+
     template <WsMemCategory category>
     bool DerefAndCheckIfZeroRefCnt(ItemPool<uint32_t, category> &pool) {
         DEV_DEBUG_ASSERT(refCnt != nullptr);
@@ -441,7 +445,7 @@ public:
             auto &toSlotList = devRootSrc->GetOutcast(i).toSlotList;
             for (size_t k = 0; k < toSlotList.size(); k++) {
                 auto idx = devRootSrc->At(toSlotList, k);
-                if (slotList[idx].isOutputSlot || slotList[idx].isAssemble) { // true表示固定地址，用户输出
+                if (slotList[idx].IsFixedAddress()) { // true表示固定地址，用户输出/Assemble的结果
                     slotIndex = idx;
                     break;
                 }
@@ -746,25 +750,18 @@ public:
         DevAscendFunction *devRootSrc = devRootDup.GetSource();
         size_t outcastSize = devRootSrc->GetOutcastSize();
         for (size_t i = 0; i < outcastSize; i++) {
-            auto &desc = devRootDup.GetOutcastAddress(i);
-            bool isOutput = desc.IsAddress() && desc.GetAddress() !=
-                devRootDup.RuntimeOutcastBase() + devRootSrc->GetOutcastRawTensor(i)->addrOffset; // 判断是否标准地址
-
+            auto &srcDesc = devRootDup.GetOutcastAddress(i);
             auto &outcast = devRootSrc->GetOutcast(i);
             for (size_t j = 0; j < outcast.toSlotList.size(); j++) {
                 int slotIdx = devRootSrc->At(outcast.toSlotList, j);
                 auto &slot = slotList[slotIdx];
-                if (slot.isOutputSlot) {
-                    continue;
-                }
-
                 if (slot.refCnt != nullptr && slot.DerefAndCheckIfZeroRefCnt(slotRefCntPool)) {
                     DEV_DEBUG_ASSERT(!slot.desc.IsNullAddress());
                     workspace->DelayedRecycleSlotMem(slot.desc.addr);
                 }
 
-                if (isOutput || !desc.IsAddress() /* Unroll secondary placeholder */) {
-                    slot.desc = desc;
+                if (!srcDesc.IsAddress() /* Unroll secondary placeholder */) {
+                    slot.desc = srcDesc;
                 } else {
                     slot.desc = AddressDescriptor(dupIdx, i);
                 }
@@ -841,8 +838,14 @@ struct DeviceStitchContext {
         DEV_DEBUG("[DecideSlotAddress] %s\n", label);
         for (size_t slotIdx = 0; slotIdx < slotSize; slotIdx++) {
             auto &desc = slotList[slotIdx].desc;
-            DEV_DEBUG("[DecideSlotAddress]   Slot [%3lu]: addr %s isOutput %d\n",
-                slotIdx, desc.ToString().c_str(), slotList[slotIdx].isOutputSlot);
+            const char *extraAttr = "";
+            if (slotList[slotIdx].isOutputSlot) {
+                extraAttr = " <output>";
+            } else if (slotList[slotIdx].isAssemble) {
+                extraAttr = " <assemble>"
+            }
+            DEV_DEBUG("[DecideSlotAddress]   Slot [%3lu]: addr %s%s\n",
+                slotIdx, desc.ToString().c_str(), extraAttr);
         }
 #else
         UNUSED(label);
@@ -859,16 +862,22 @@ struct DeviceStitchContext {
 
         slotInfosInDecidingSlotMem_.resize(slotSize);
         for (size_t slotIdx = 0; slotIdx < slotSize; slotIdx++) {
-            auto &desc = slotList[slotIdx].desc;
+            auto &slot = slotList[slotIdx];
+            auto &desc = slot.desc;
             if (desc.IsAddress()) {
                 continue;
             }
 
             auto &dup = stitchedList_[desc.dupIdx];
-            auto *outcastRawTensor = dup.GetSource()->GetOutcastRawTensor(desc.outcastIdx);
-            uintdevptr_t outcastWsStandardAddr = dup.RuntimeOutcastBase() + outcastRawTensor->addrOffset;
             auto &outcastDesc = dup.GetOutcastAddress(desc.outcastIdx);
             DEV_DEBUG_ASSERT(outcastDesc.IsAddress());
+            if (slot.IsFixedAddress()) {
+                desc = outcastDesc;
+                continue;
+            }
+
+            auto *outcastRawTensor = dup.GetSource()->GetOutcastRawTensor(desc.outcastIdx);
+            uintdevptr_t outcastWsStandardAddr = dup.RuntimeOutcastBase() + outcastRawTensor->addrOffset;
             if (outcastDesc.addr == outcastWsStandardAddr) {
                 // First time meet this unsolved slot
                 slotInfosInDecidingSlotMem_[slotIdx].slotPtr = workspace_->AllocateSlot(dup.GetSource()->GetRawName());
@@ -884,7 +893,7 @@ struct DeviceStitchContext {
         for (size_t slotIdx = 0; slotIdx < slotSize; slotIdx++) {
             auto &slot = slotList[slotIdx];
             auto &desc = slot.desc;
-            if (desc.IsAddress()) {
+            if (desc.IsAddress() || slot.IsFixedAddress()) {
                 continue;
             }
 
