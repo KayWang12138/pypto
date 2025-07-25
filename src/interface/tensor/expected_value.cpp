@@ -30,6 +30,9 @@ bool CheckAllZero(const std::vector<int> &vec) {
 
 static inline
 bool CheckSameShape(const std::shared_ptr<LogicalTensor> &lhs, const std::shared_ptr<LogicalTensor> &rhs) {
+    if (lhs == nullptr || rhs == nullptr) {
+        return false;
+    }
     return lhs->GetShape() == rhs->GetShape();
 }
 
