@@ -90,10 +90,10 @@ def process_test_cases(
         for index, config in enumerate(test_configs):
             output_path = Path(base_output, str(index))
             output_path.mkdir(parents=True, exist_ok=True)
-            generate_golden_files(case_name, output_path, config)
+            generate_golden(case_name, output_path, config)
     else:
         config = test_configs[case_index]
-        generate_golden_files(case_name, output, config)
+        generate_golden(case_name, base_output, config)
     return True
 
 
@@ -179,7 +179,7 @@ def gen_reduce_op_golden(case_name: str, output: Path, case_index: int = None) -
     ]
 )
 def gen_add_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
-    # golden开发者徐根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    # golden开发者根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
     def generate_golden_files(case_name: str, output_path: Path, shape: list, dtype) -> bool:
         x_path = Path(output_path, 'x.bin')
         y_path = Path(output_path, 'y.bin')
@@ -223,7 +223,7 @@ def gen_add_op_golden(case_name: str, output: Path, case_index: int = None) -> b
     ]
 )
 def gen_exp_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
-    # golden开发者徐根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    # golden开发者根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
     def generate_golden_files(case_name: str, output_path: Path, shape: list, dtype, index: int) -> bool:
         x_path = Path(output_path, 'x.bin')
         o_path = Path(output_path, 'res.bin')
@@ -539,7 +539,8 @@ def gen_divs_op_golden(case_name: str, output: Path, case_index: int = None) -> 
 )
 def gen_adds_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def generate_golden_files(case_name: str, output_path: Path, shape: list, dtype, ele) -> bool:
+    def generate_golden_files(case_name: str, output_path: Path, config) -> bool:
+        shape, dtype, ele = config
         x_path = Path(output_path, 'x.bin')
         y_path = Path(output_path, 'y.bin')
         o_path = Path(output_path, 'res.bin')
@@ -589,7 +590,8 @@ def gen_adds_op_golden(case_name: str, output: Path, case_index: int = None) -> 
 )
 def gen_vector_dup_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def generate_golden_files(case_name: str, output_path: Path, shape: list, dtype, ele) -> bool:
+    def generate_golden_files(case_name: str, output_path: Path, config) -> bool:
+        shape, dtype, ele = config
         x_path = Path(output_path, 'x.bin')
         o_path = Path(output_path, 'res.bin')
         complete = x_path.exists() and o_path.exists()
