@@ -2282,12 +2282,17 @@ static bool ReshapeNeedCopy(const Tensor &operand) {
     if (operand->GetProducers().empty()) {
         return false;
     }
-    auto &op = **operand->GetProducers().begin();
-    if (op.GetOpcode() != Opcode::OP_VIEW) {
-        return false;
-    }
-    if (op.GetInputOperand(0)->GetShape() != op.GetOutputOperand(0)->GetShape()) {
-        return true;
+
+    auto op = *operand->GetProducers().begin();
+    while (op->GetOpcode() == Opcode::OP_VIEW) {
+        if (op->GetInputOperand(0)->GetShape() != op->GetOutputOperand(0)->GetShape()) {
+            return true;
+        }
+        if (op->GetInputOperand(0) != nullptr && !op->GetInputOperand(0)->GetProducers().empty()) {
+            op = *op->GetInputOperand(0)->GetProducers().begin();
+        } else {
+            break;
+        }
     }
     return false;
 }
