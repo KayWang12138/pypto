@@ -97,7 +97,7 @@ struct OrderedSet : std::unordered_map<T, int> {
             }
         }
         if (removed) {
-            std::vector<T> newOrder(this->size());
+            std::vector<T> newOrder;
             for (auto &[key, val] : dynamic_cast<std::unordered_map<T, int> &>(*this)) {
                 val = newOrder.size();
                 newOrder.push_back(key);

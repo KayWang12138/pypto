@@ -741,8 +741,9 @@ private:
     inline void DumpAiCoreStatus() const {
 #if defined(DEBUG_SWITCH) && DEBUG_SWITCH
         ForEachManageAicore([this](int coreIdx) {
-            aicoreHAL.DumpAicoreStatus(coreIdx);
-
+            if constexpr (IsDeviceMode()) {
+                aicoreHAL.DumpAicoreStatus(coreIdx);
+            }
             DEV_INFO("reg low task: runningid(%u) pendingid(%u) dfxpos(%d)\n", runningIds_[coreIdx],
                 pendingIds_[coreIdx], taskDfxStatPos_[coreIdx]);
 
@@ -1145,14 +1146,13 @@ private:
             return;
         }
 
-        if (likely(readyCount[coreType] < READY_ID_FIX_CACHE_NUM)) {
-            readyIds[coreType][readyCount[coreType]++] = taskId;
-        } else {
+        if (unlikely(readyCount[coreType] == READY_ID_FIX_CACHE_NUM)) {
             ReadyCoreFunctionQueue* readyQue =
                 coreType == static_cast<int>(CoreType::AIC) ?  readyAicCoreFunctionQue_ : readyAivCoreFunctionQue_;
             PushReadyQue(readyQue, readyIds[coreType], readyCount[coreType]);
             readyCount[coreType] = 0;
         }
+        readyIds[coreType][readyCount[coreType]++] = taskId;
     }
 
     inline void ResolveVirtualPure(uint64_t dep, CoreFunctionReadyState* readyState) {
