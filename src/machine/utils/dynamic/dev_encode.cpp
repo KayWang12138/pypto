@@ -1518,7 +1518,6 @@ static LocalWorkspaceResult CalcAicoreLocalWorkspace(DevAscendProgram &devProg) 
         return false;
     };
 
-
     uint64_t maxInnerWorkspace = 0;
     uint64_t maxOutcastWorkspace = 0;
     uint64_t maxSlotMemReq = 0;

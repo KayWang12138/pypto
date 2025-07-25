@@ -174,7 +174,6 @@ INLINE uint64_t getCoreFuncionData(__gm__ KernelArgs *args, int64_t lastFunc) {
         if (nextLowIdx == AICORE_TASK_STOP) {
             return 0;
         }
-
     }
 }
 
