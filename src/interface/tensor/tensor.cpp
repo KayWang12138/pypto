@@ -252,7 +252,7 @@ SymbolicScalar npu::tile_fwk::GetInputShapeDimSize(const Tensor &t) {
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
     int inputIndex = slotManager->GetInputIndex(t);
     ASSERT(inputIndex >= 0 && static_cast<size_t>(inputIndex) < slotManager->GetInputNameList().size()) <<
-        "Tensor is not in input tensor list for " <<"["<<getInputShapeDimSizeName<<"]"<<"!";
+        "Tensor " << t.GetStorage(false)->GetRawTensor()->GetSymbol() << " is not in input tensor list!";
     std::string inputName = slotManager->GetInputNameList()[inputIndex];
 
     getInputShapeDimSizeName = AddRuntimePrefix(getInputShapeDimSizeName);
@@ -275,7 +275,7 @@ SymbolicScalar npu::tile_fwk::GetInputDataInt32Dim1(const Tensor &t, SymbolicSca
     std::string getInputDataInt32Dim1Name = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::GetInputDataInt32Dim1);
     int inputIndex = slotManager->GetInputIndex(t);
     ASSERT(inputIndex >= 0 && static_cast<size_t>(inputIndex) < slotManager->GetInputNameList().size()) <<
-        "Tensor is not in input tensor list for " <<"["<<getInputDataInt32Dim1Name<<"]"<<"!";
+        "Tensor " << t.GetStorage(false)->GetRawTensor()->GetSymbol() << " is not in input tensor list!";
     std::string inputName = slotManager->GetInputNameList()[inputIndex];
 
     getInputDataInt32Dim1Name = AddRuntimePrefix(getInputDataInt32Dim1Name);
@@ -293,7 +293,7 @@ SymbolicScalar npu::tile_fwk::GetInputDataInt32Dim2(const Tensor &t, SymbolicSca
     std::string getInputDataInt32Dim2Name = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::GetInputDataInt32Dim2);
     int inputIndex = slotManager->GetInputIndex(t);
     ASSERT(inputIndex >= 0 && static_cast<size_t>(inputIndex) < slotManager->GetInputNameList().size()) <<
-        "Tensor is not in input tensor list for " <<"["<<getInputDataInt32Dim2Name<<"]"<<"!";
+        "Tensor " << t.GetStorage(false)->GetRawTensor()->GetSymbol() << " is not in input tensor list!";
     std::string inputName = slotManager->GetInputNameList()[inputIndex];
 
     getInputDataInt32Dim2Name = AddRuntimePrefix(getInputDataInt32Dim2Name);
@@ -311,7 +311,7 @@ SymbolicScalar npu::tile_fwk::GetInputDataInt32Dim3(const Tensor &t, SymbolicSca
     std::string getInputDataInt32Dim3Name = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::GetInputDataInt32Dim3);
     int inputIndex = slotManager->GetInputIndex(t);
     ASSERT(inputIndex >= 0 && static_cast<size_t>(inputIndex) < slotManager->GetInputNameList().size()) <<
-        "Tensor is not in input tensor list for " <<"["<<getInputDataInt32Dim3Name<<"]"<<"!";
+        "Tensor " << t.GetStorage(false)->GetRawTensor()->GetSymbol() << " is not in input tensor list!";
     std::string inputName = slotManager->GetInputNameList()[inputIndex];
 
     getInputDataInt32Dim3Name = AddRuntimePrefix(getInputDataInt32Dim3Name);

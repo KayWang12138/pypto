@@ -20,13 +20,6 @@
 #include "interface/operation/operation.h"
 #include "tilefwk/data_type.h"
 
-namespace {
-constexpr int VALUE1 = 1;
-constexpr int VALUE16 = 16;
-constexpr int VALUE32 = 32;
-constexpr int VALUE64 = 64;
-constexpr int VALUEN4 = -4;
-
 class TestTensor : public testing::Test {
 public:
     static void SetUpTestCase() {}
@@ -146,14 +139,13 @@ TEST_F(TestTensor, AssignWithData2) {
 }
 
 TEST_F(TestTensor, GetShapeTest) {
-    std::vector<int> tshape = {VALUE16, VALUE32, VALUE16, VALUE64};
+    std::vector<int> tshape = {16, 32, 16, 64};
     std::vector<int> kshape = {};
     npu::tile_fwk::Tensor a(npu::tile_fwk::DT_FP32, tshape, "A");
     npu::tile_fwk::Tensor b(npu::tile_fwk::DT_FP32, kshape, "B");
 
-    auto ashape = a.GetShape(VALUE1);
-    EXPECT_EQ(ashape, VALUE32);
-    ashape = a.GetShape(VALUEN4);
-    EXPECT_EQ(ashape, VALUE16);
-}
+    auto ashape = a.GetShape(1);
+    EXPECT_EQ(ashape, 32);
+    ashape = a.GetShape(-4);
+    EXPECT_EQ(ashape, 16);
 }
