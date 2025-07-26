@@ -21,6 +21,10 @@
 #include "passes/pass_utils/pass_common_defs.h"
 #include "passes/tile_graph_pass/dead_operation_eliminate.h"
 #include "passes/pass_interface/pass.h"
+#include "tilefwk/data_type.h"
+#include "tilefwk/tilefwk.h"
+#include "interface/inner/tilefwk.h"
+#include "passes/pass_config/pass_config_manager.h"
 
 namespace npu::tile_fwk {
 /*
@@ -50,6 +54,7 @@ private:
     void RemoveOps(Function &function, std::vector<Operation *> &opList) const;
     void UpdateForRedundantAssemble(Operation &op);
     void UpdateForRedundantView(Operation &op, Operation &consumer);
+    void UpdateOverSizedLocalBuffer(Function &function);
 
     std::unordered_map<int, std::vector<std::pair<std::shared_ptr<LogicalTensor>, std::vector<int>>>> copyOutSources;
     std::vector<AssembleOp> assembles;

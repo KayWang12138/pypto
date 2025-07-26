@@ -231,7 +231,6 @@ void AssignMemoryType::AssignMoveOp(Operation &operation) {
                     BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(),
                     BriefMemoryTypeToString(fromType).c_str());
                 tensor->SetMemoryTypeOriginal(fromType, true);
-
                 auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(operation.GetOpAttribute().get());
                 assembleOpAttribute->SetFromType(fromType);
             }
