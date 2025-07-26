@@ -22,7 +22,6 @@
 #include "interface/inner/element.h"
 #include "interface/operation/opcode.h"
 
-
 namespace npu::tile_fwk {
 
 #define CONFIG_PROC 64

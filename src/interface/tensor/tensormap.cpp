@@ -63,7 +63,6 @@ void TensorMap::Insert(std::shared_ptr<LogicalTensor> tobject, bool checkOverlap
             return;
         }
     }
-    
 
     int rawmagic = tobject->tensor->rawmagic;
     // Check if the tensor with the same rawmagic exists
@@ -171,7 +170,7 @@ void TensorMap::Reset() {
     overlapChecker_.clear();
 }
 
-int CalcOverlapSize(const std::shared_ptr<LogicalTensor> &pTensor, 
+int CalcOverlapSize(const std::shared_ptr<LogicalTensor> &pTensor,
     const std::shared_ptr<LogicalTensor> &qTensor) {
     std::vector<int> overlapEdge;
     for (size_t dim = 0; dim < pTensor->offset.size(); dim++) {

@@ -14,7 +14,6 @@
  */
 
 #include "interface/inner/element.h"
-
 #include "interface/utils/assert.h"
 
 namespace npu::tile_fwk {
