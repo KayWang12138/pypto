@@ -285,7 +285,6 @@ void SplitLargeFanoutTensor::EraseRedundantCopyIn(Function &function) {
 }
 
 void SplitLargeFanoutTensor::UpdateOverSizedLocalBuffer(Function &function) {
-    Program::GetInstance().GetPlatformConfig().SetMemoryLimitList(static_cast<ModelID>(0));
     const int UB_SIZE_THRESHOLD = static_cast<int>(PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB) * 0.5);
     const int L1_SIZE_THRESHOLD = static_cast<int>(PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L1) * 0.5);
     ALOG_INFO_F("UB buffer size threshold %d", UB_SIZE_THRESHOLD);
