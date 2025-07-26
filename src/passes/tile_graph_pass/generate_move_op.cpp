@@ -47,7 +47,7 @@ bool GenerateMoveOp::ValidViewOp(const Operation &op) const{
     return valid;
 }
 bool GenerateMoveOp::ValidAssembleOp(const Operation &op) const{
-    //校验view单输入单输出，指针非空
+    //校验assemble单输入单输出，指针非空
     bool valid = true;
     if((op.GetOpAttribute().get() == nullptr) ||
        (op.GetIOperands().size() != 1) || (op.GetOOperands().size() != 1) ||
@@ -58,17 +58,13 @@ bool GenerateMoveOp::ValidAssembleOp(const Operation &op) const{
     return valid;
 }
 bool GenerateMoveOp::ValidConvertOp(const Operation &op) const{
-    //校验view单输入单输出，指针非空，输入输出内存类型不同，且存在DDR类型
+    //校验convert单输入单输出，指针非空，输入输出内存类型不同，且存在DDR类型
     bool valid = true;
     if((op.GetOpAttribute().get() == nullptr) || (op.GetIOperands().size() != 1) || (op.GetOOperands().size() != 1) ||
        (op.GetIOperands().front() == nullptr) || (op.GetOOperands().front() == nullptr) ||
        (op.GetIOperands().front()->GetMemoryTypeOriginal() == op.GetOOperands().front()->GetMemoryTypeOriginal()) ||
-       (op.GetIOperands().front()->GetShape() != op.GetOOperands().front()->GetShape()) ||
-       ((op.GetIOperands().front()->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) &&
-       (op.GetOOperands().front()->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR))) {
-        ALOG_ERROR_F("Convert op [%d] check failed. in memtype %s, out memtype %s.", op.GetOpMagic(),
-            MemoryTypeToString(op.GetIOperands().front()->GetMemoryTypeOriginal()).c_str(),
-            MemoryTypeToString(op.GetOOperands().front()->GetMemoryTypeOriginal()).c_str());
+       (op.GetIOperands().front()->GetShape() != op.GetOOperands().front()->GetShape())){
+        ALOG_ERROR_F("Convert op [%d] check failed.",op.GetOpMagic());
         valid = false;
     }
     return valid;
@@ -124,7 +120,7 @@ Status GenerateMoveOp::PostCheck(Function &function) {
                 isValid = false;
             }
         if(!isValid) {
-            ALOG_ERROR_F("Operation validation failed.");
+            ALOG_ERROR_F("Operation validation failed : op [%d] check failed.",operation.GetOpMagic());
             return FAILED;
         }
     }
@@ -203,6 +199,45 @@ void GenerateMoveOp::CreateMoveOpForAssemble(Operation &op) const {
         OpImmediate::Specified(op.oOperand.front()->tensor->GetDynRawShape())));
 }
 
+void GenerateMoveOp::CreateMoveOpForConvert(Operation &op) const {
+    auto convertOpAttribute = dynamic_cast<ConvertOpAttribute *>(op.GetOpAttribute().get());
+    auto [from, to] = convertOpAttribute->GetConvertPath();
+    if (from == MemoryType::MEM_DEVICE_DDR) {
+        op.SetOpCode(Opcode::OP_COPY_IN); //将convert根据memorytype转化为copyin和copyout
+        std::vector<OpImmediate> newOffset;
+        auto inputOffset = op.GetIOperands().front()->GetOffset();
+        for (size_t i = 0; i < op.oOperand.front()->shape.size(); i++) {
+            newOffset.push_back(OpImmediate::Specified(SymbolicScalar(inputOffset[i])));
+        }
+        op.SetOpAttribute(std::make_shared<CopyOpAttribute>(newOffset, to,
+            OpImmediate::Specified(op.oOperand.front()->shape),
+            OpImmediate::Specified(op.iOperand.front()->tensor->GetDynRawShape()),
+            OpImmediate::Specified(op.iOperand.front()->GetDynValidShape())));
+        auto childOp = *op.oOperand.front()->GetConsumers().begin();
+        op.UpdateSubgraphID(childOp->GetSubgraphID());
+    } else if (to == MemoryType::MEM_DEVICE_DDR) {
+        op.SetOpCode(Opcode::OP_COPY_OUT);
+        std::vector<OpImmediate> newOffset;
+        auto inputOffset = op.GetIOperands().front()->GetOffset();
+        for (size_t i = 0; i < op.iOperand.front()->shape.size(); i++) {
+            newOffset.push_back(OpImmediate::Specified(SymbolicScalar(inputOffset[i])));
+        }
+        op.SetOpAttribute(std::make_shared<CopyOpAttribute>(from, newOffset,
+            OpImmediate::Specified(op.iOperand.front()->shape),
+            OpImmediate::Specified(op.oOperand.front()->tensor->GetDynRawShape())));
+        auto parentOp = *op.iOperand.front()->GetProducers().begin();
+        op.UpdateSubgraphID(parentOp->GetSubgraphID());
+    }else if ((from == MemoryType::MEM_L1) && (to == MemoryType::MEM_L0A)) {
+        op.SetOpCode(Opcode::OP_L1_TO_L0A);
+        auto childOp = *op.oOperand.front()->GetConsumers().begin();
+        op.UpdateSubgraphID(childOp->GetSubgraphID());
+    }else if ((from == MemoryType::MEM_L1) && (to == MemoryType::MEM_L0B)) {
+        op.SetOpCode(Opcode::OP_L1_TO_L0B);
+        auto childOp = *op.oOperand.front()->GetConsumers().begin();
+        op.UpdateSubgraphID(childOp->GetSubgraphID());
+    }
+}
+
 void GenerateMoveOp::CreateMoveOp(Function &function) const {
     for (auto &op : function.Operations()) {
         switch (op.GetOpcode()) {
@@ -215,34 +250,7 @@ void GenerateMoveOp::CreateMoveOp(Function &function) const {
                 break;
             }
             case Opcode::OP_CONVERT: {
-                auto convertOpAttribute = dynamic_cast<ConvertOpAttribute *>(op.GetOpAttribute().get());
-                auto [from, to] = convertOpAttribute->GetConvertPath();
-                if (from == MemoryType::MEM_DEVICE_DDR) {
-                    op.SetOpCode(Opcode::OP_COPY_IN); //将convert根据memorytype转化为copyin和copyout
-                    std::vector<OpImmediate> newOffset;
-                    auto inputOffset = op.GetIOperands().front()->GetOffset();
-                    for (size_t i = 0; i < op.oOperand.front()->shape.size(); i++) {
-                        newOffset.push_back(OpImmediate::Specified(SymbolicScalar(inputOffset[i])));
-                    }
-                    op.SetOpAttribute(std::make_shared<CopyOpAttribute>(newOffset, to,
-                        OpImmediate::Specified(op.oOperand.front()->shape),
-                        OpImmediate::Specified(op.iOperand.front()->tensor->GetDynRawShape()),
-                        OpImmediate::Specified(op.iOperand.front()->GetDynValidShape())));
-                    auto childOp = *op.oOperand.front()->GetConsumers().begin();
-                    op.UpdateSubgraphID(childOp->GetSubgraphID());
-                } else if (to == MemoryType::MEM_DEVICE_DDR) {
-                    op.SetOpCode(Opcode::OP_COPY_OUT);
-                    std::vector<OpImmediate> newOffset;
-                    auto inputOffset = op.GetIOperands().front()->GetOffset();
-                    for (size_t i = 0; i < op.iOperand.front()->shape.size(); i++) {
-                        newOffset.push_back(OpImmediate::Specified(SymbolicScalar(inputOffset[i])));
-                    }
-                    op.SetOpAttribute(std::make_shared<CopyOpAttribute>(from, newOffset,
-                        OpImmediate::Specified(op.iOperand.front()->shape),
-                        OpImmediate::Specified(op.oOperand.front()->tensor->GetDynRawShape())));
-                    auto parentOp = *op.iOperand.front()->GetProducers().begin();
-                    op.UpdateSubgraphID(parentOp->GetSubgraphID());
-                }
+                CreateMoveOpForConvert(op);
                 break;
             }
             case Opcode::OP_DUPLICATE: {

@@ -37,6 +37,7 @@ private:
     void EraseRedundentCopyOut(Function &function) const;
     void CreateMoveOpForView(Operation &op) const;
     void CreateMoveOpForAssemble(Operation &op) const;
+    void CreateMoveOpForConvert(Operation &op) const;
     bool HasGmInput(Operation &op) const;
     bool ValidAssembleOp(const Operation &op) const;
     bool ValidConvertOp(const Operation &op) const;

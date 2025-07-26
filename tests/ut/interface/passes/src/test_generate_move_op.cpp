@@ -497,5 +497,99 @@ TEST_F(GenerateMoveOpPassTest, ScatterUpdate) {
     }
 }
 
+TEST_F(GenerateMoveOpPassTest, L1TOL0){
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "L1TOL0", "L1TOL0", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    Program::GetInstance().InsertFuncToFunctionMap("L1TOL0", currFunctionPtr);
+    constexpr int opMagic0 = 1001;
+    constexpr int opMagic1 = 1002;
+    constexpr int opMagic2 = 1003;
+
+    constexpr int tensorMagic0 = 1;
+    constexpr int tensorMagic1 = 2;
+    constexpr int tensorMagic2 = 3;
+    constexpr int tensorMagic3 = 4;
+    constexpr int tensorMagic4 = 5;
+
+    // Prepare the graph
+    std::vector<int> shape = {8, 16};
+    std::vector<int> shape1 = {16, 8};
+    std::vector<int> shape2 = {8, 8};
+    std::shared_ptr<LogicalTensor> input_a = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    input_a->SetMagic(tensorMagic0);
+    input_a->SetMemoryTypeOriginal(MemoryType::MEM_L1);
+
+    std::shared_ptr<LogicalTensor> tmp_a = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tmp_a->SetMagic(tensorMagic1);
+    tmp_a->SetMemoryTypeOriginal(MemoryType::MEM_L0A);
+
+    std::shared_ptr<LogicalTensor> input_b = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    input_b->SetMagic(tensorMagic2);
+    input_b->SetMemoryTypeOriginal(MemoryType::MEM_L1);
+
+    std::shared_ptr<LogicalTensor> tmp_b = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    tmp_b->SetMagic(tensorMagic3);
+    tmp_b->SetMemoryTypeOriginal(MemoryType::MEM_L0B);
+
+    std::shared_ptr<LogicalTensor> output_c = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    output_c->SetMagic(tensorMagic4);
+
+    auto &convert_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_CONVERT, {input_a}, {tmp_a});
+    convert_op1.opmagic = opMagic0;
+    convert_op1.SetOpAttribute(std::make_shared<ConvertOpAttribute>(MemoryType::MEM_L1,MemoryType::MEM_L0A));
+
+    auto &convert_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_CONVERT, {input_b}, {tmp_b});
+    convert_op2.opmagic = opMagic1;
+    convert_op2.SetOpAttribute(std::make_shared<ConvertOpAttribute>(MemoryType::MEM_L1,MemoryType::MEM_L0B));
+
+    auto &matmul_op = currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {tmp_a,tmp_b}, {output_c});
+    matmul_op.opmagic = opMagic2;
+
+    currFunctionPtr->inCasts_.push_back(input_a);
+    currFunctionPtr->inCasts_.push_back(input_b);
+    currFunctionPtr->outCasts_.push_back(output_c);
+
+    std::stringstream ssBefore;
+    ssBefore << "Before_GenerateMoveOp";
+
+    // Call the pass
+    GenerateMoveOp generateMoveOp;
+    generateMoveOp.PreCheck(*currFunctionPtr);
+    generateMoveOp.RunOnFunction(*currFunctionPtr);
+    generateMoveOp.PostCheck(*currFunctionPtr);
+
+    std::stringstream ss;
+    ss << "After_GenerateMoveOp";
+
+    // Validate the results
+    std::cout << "========== op size: " << currFunctionPtr->Operations().size() << std::endl;
+    int convert_num = 0;
+    int l1tol0a_num = 0;
+    int l1tol0B_num = 0;
+    for (auto &op : currFunctionPtr->Operations()) {
+        std::cout << op.GetOpcodeStr() << " " << op.GetOpMagic() << std::endl;
+        for (auto &input : op.GetIOperands()) {
+            std::cout << "\t|--- iOperand " << input->magic;
+        }
+        for (auto &output : op.GetOOperands()) {
+            std::cout << "\t|--- oOperand " << output->magic;
+        }
+        if(op.GetOpcode()==Opcode::OP_CONVERT){
+            convert_num++;
+        }else if(op.GetOpcode()==Opcode::OP_L1_TO_L0A){
+            l1tol0a_num++;
+        }else if(op.GetOpcode()==Opcode::OP_L1_TO_L0B){
+            l1tol0B_num++;
+        }
+    }
+    constexpr int expectedConvert =0;
+    constexpr int expectedL1tol0a =1;
+    constexpr int expectedL1tol0b =1;
+    EXPECT_EQ(convert_num,expectedConvert) << "0 operations shoulde be OP_VIEW.";
+    EXPECT_EQ(l1tol0a_num,expectedL1tol0a) << "1 operations shoulde be OP_COPY_IN.";
+    EXPECT_EQ(l1tol0B_num,expectedL1tol0b) << "1 operations shoulde be OP_COPY_OUT.";
+}
+
 }
 } // namespace npu::tile_fwk

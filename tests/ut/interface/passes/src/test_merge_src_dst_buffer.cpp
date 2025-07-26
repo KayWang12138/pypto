@@ -133,6 +133,7 @@ TEST_F(MergeSrcDstBufferTest, NoReplaced) {
                                  {         "InsertCopyOpPass",         "InsertCopyOpPass",    PassType::TYPE_TILE_GRAPH},
                                  {      "L1CopyInReusePass",       "L1CopyInReusePass",    PassType::TYPE_TILE_GRAPH},
                                  { "CommonOperationEliminate", "CommonOperationEliminate",    PassType::TYPE_TILE_GRAPH},
+                                 {           "InplaceProcess",           "InplaceProcess",    PassType::TYPE_TILE_GRAPH},
                                  {             "PreGraphPass",             "PreGraphPass",    PassType::TYPE_TILE_GRAPH},
                                  {           "PadLocalBuffer",           "PadLocalBuffer",    PassType::TYPE_TILE_GRAPH},
                                  {       "SubgraphToFunction",       "SubgraphToFunction", PassType::TYPE_EXECUTE_GRAPH},
@@ -159,7 +160,8 @@ TEST_F(MergeSrcDstBufferTest, NoReplaced) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
-            ASSERT_NE(outputTensor->memorymap[0].memId, inputTensor->memorymap[0].memId);
+            ASSERT_NE(outputTensor->memorymap.size(), inputTensor->memorymap.size());
+            ASSERT_EQ(outputTensor->GetRawMagic(), inputTensor->GetRawMagic());
             break;
         }
     }

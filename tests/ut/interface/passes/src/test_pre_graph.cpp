@@ -262,6 +262,104 @@ public:
     }
 };
 
+TEST_F(PreGraphTest, TestVCPartition) {
+    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+
+    //Define the shape of the Tensors
+    std::vector<int> shape1{2, 1, 64};
+    std::vector<int> shape2{2, 1, 1, 64};
+    std::vector<int> shape3{1, 2, 1, 64};
+    std::vector<int> shape4{1, 2, 64};
+    std::vector<int> shape5{2, 64};
+    std::vector<int> shape6{64, 2};
+    std::vector<int> shape7{2, 2};
+
+    //Initialize PassManager
+    PassManager &passManager = PassManager::Instance();
+    passManager.RegisterStrategy("PreGraphTestStrategy", {
+    {   "RemoveRedundentReshape",   "RemoveRedundentReshape",  PassType::TYPE_TENSOR_GRAPH},
+    {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
+    {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
+    {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
+    {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
+    {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
+    {       "SplitReshapeOpPVC2",       "SplitReshapeOpPVC2",    PassType::TYPE_TILE_GRAPH},
+    {        "RemoveRedundentOp",        "RemoveRedundentOp",    PassType::TYPE_TILE_GRAPH},
+    {        "GenerateMoveOp_01",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
+    {              "CubeProcess",              "CubeProcess",    PassType::TYPE_TILE_GRAPH},
+    {        "GraphPartitionPass",        "GraphPartitionPass",    PassType::TYPE_TILE_GRAPH},
+    {         "NBufferMergePass",         "NBufferMergePass",    PassType::TYPE_TILE_GRAPH},
+    {          "UpdateMemoryMap",          "UpdateMemoryMap",    PassType::TYPE_TILE_GRAPH},
+    {        "GenerateMoveOp_02",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
+    {   "SplitLargeLocalRawPass",   "SplitLargeLocalRawPass",    PassType::TYPE_TILE_GRAPH},
+    {         "InsertCopyOpPass",         "InsertCopyOpPass",    PassType::TYPE_TILE_GRAPH},
+    { "CommonOperationEliminate", "CommonOperationEliminate",    PassType::TYPE_TILE_GRAPH},
+    {        "L1CopyInReusePass",        "L1CopyInReusePass",    PassType::TYPE_TILE_GRAPH},
+
+    });
+    ConfigManager::Instance();
+
+    //Create and configure the function
+    Function* originFunction = nullptr;
+    std::vector<int> originOpmagic;
+
+    //Create Tensor
+    Tensor in_tensor(DT_FP32, shape1, "in_tensor");
+    Tensor out_tensor(DT_FP16, shape7, "in_tensor");
+
+    FUNCTION("PreGraphFunction") {
+        Program::GetInstance().GetTileShape().SetVecTileShapes({2, 1, 1, 64});
+        auto out_tensor_1_A = Reshape(in_tensor, shape2);
+        auto out_tensor_1_B = Reshape(in_tensor, shape2);
+        auto out_tensor_2_A = Transpose(out_tensor_1_A, {0, 1});
+        auto out_tensor_2_B = Transpose(out_tensor_1_B, {0, 1});
+        auto out_tensor_3_A = Reshape(out_tensor_2_A, shape1);
+        auto out_tensor_3_B = Reshape(out_tensor_2_B, shape4);
+        Program::GetInstance().GetTileShape().SetVecTileShapes({2, 1, 64});
+        auto out_tensor_4_A = Cast(out_tensor_3_A, DT_FP16);
+        auto out_tensor_4_B = Cast(out_tensor_3_B, DT_FP16);
+        auto out_tensor_5_A = Reshape(out_tensor_4_A, shape5);
+        auto out_tensor_5_B = Reshape(out_tensor_4_A, shape6);
+        Program::GetInstance().GetTileShape().SetCubeTileShapes({2, 2}, {64, 64}, {2, 2});
+        out_tensor = npu::tile_fwk::Matrix::Matmul<false, false>(DataType::DT_FP32, out_tensor_5_A, out_tensor_5_B);
+        originFunction = Program::GetInstance().GetCurrentFunction();
+        ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
+        auto operations = originFunction->Operations();
+        for (const auto &op : operations) {
+            originOpmagic.emplace_back(op.opmagic);
+        }
+    }
+
+    std::string jsonFilePath = "./config/pass/json/pre_graph_vc_partition.json";
+    bool dumpJsonFlag = false;
+    if (dumpJsonFlag) {
+        auto programJson = Program::GetInstance().DumpJson();
+        DumpJsonFile(programJson, jsonFilePath);
+    }
+    // Call the pass
+    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_PreGraphFunction");
+    npu::tile_fwk::PreGraphPass preGraphPass;
+    preGraphPass.PreCheck(*func);
+    preGraphPass.RunOnFunction(*func);
+    preGraphPass.PostCheck(*func);
+
+    int memoryMapSize = 1;
+    std::set<int> tensorMagicWithColorSet;
+    PrintGraphInfoPreGraph(func, memoryMapSize, tensorMagicWithColorSet);
+
+    // ================== Verify the effect of the Pass ==================
+    auto updated_operations = func->Operations();
+    int opSize = 14;
+
+    EXPECT_EQ(updated_operations.size(), opSize) << "After the Pass, there should be 12 operations";
+    const int lastOpIdx = opSize - 1;
+    EXPECT_EQ(updated_operations[lastOpIdx].GetOpcode(), Opcode::OP_COPY_OUT) << "The last operation of graph should be Assemble";
+    auto inputTensor = updated_operations[lastOpIdx].GetIOperands().front();
+    auto outputTensor = updated_operations[lastOpIdx].GetOOperands().front();
+    EXPECT_EQ(inputTensor->GetMemoryTypeOriginal(), MemoryType::MEM_L0C) << "The last operation's input is on L0C";
+    EXPECT_EQ(outputTensor->GetMemoryTypeOriginal(), MemoryType::MEM_DEVICE_DDR) << "The last operation's output is on DDR";
+}
+
 TEST_F(PreGraphTest, TestAssemble) {
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("PreGraphTestStrategy", {
