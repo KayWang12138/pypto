@@ -25,7 +25,8 @@
 #include "interface/operation/opcode.h"
 #include "passes/pass_interface/pass.h"
 
-namespace npu::tile_fwk {
+namespace npu {
+namespace tile_fwk {
 constexpr uint64_t EVENTID_DEADLOCK_ENTER_TIME = 5;
 constexpr uint64_t DEADLOCK_TIME_THRESHOLD = 2;
 constexpr uint64_t LEFT_OFFSET1 = 32;
@@ -210,7 +211,7 @@ private:
     bool GenSyncOp(PipeCoreReal set, PipeCoreReal wait, int eventId, bool isSet, Operation *op);
     Status GetEventId(const PipePair &pp, int &eventId);
     bool HasFreeEventId(const PipePair &pp);
-    bool BufOverlap(const TileRange &range1, const TileRange &range2) const;
+    bool BufOverlap(const TileRange &range1, int magic1, const TileRange &range2, int magic2) const;
     bool CheckWawDependency(const Operation *opSet, const Operation *opWait, size_t k, size_t idx) const;
     bool CheckRawDependency(const Operation *opSet, const Operation *opWait, size_t k, size_t idx) const;
     bool CheckWarDependency(const Operation *opSet, const Operation *opWait, size_t k, size_t idx) const;
@@ -255,6 +256,7 @@ private:
     Status InsertSyncMainLoop(Function *subGraphFunc);
     bool enableDebug_{false};
 };
-} // namespace npu::tile_fwk
+} // namespace tile_fwk
+} // namespace npu
 
 #endif // PASS_INSERT_SYNC_H

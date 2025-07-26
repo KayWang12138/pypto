@@ -17,7 +17,8 @@
 #include "ut_json/ut_json_tool.h"
 #define private public
 
-namespace npu::tile_fwk {
+namespace npu {
+namespace tile_fwk {
 constexpr int IS_NUM1 = 1;
 constexpr int IS_NUM2 = 2;
 constexpr int IS_NUM3 = 3;
@@ -823,6 +824,7 @@ TEST_F(InsertSyncTest, TestRelaxFakeDataDep) {
         eventIdDeadlockEnterTimes = static_cast<size_t>(0);
     }
 }
-} // namespace npu::tile_fwk
+} // namespace tile_fwk
+} // namespace npu
 
 #undef private

@@ -21,7 +21,8 @@
 #include "passes/pass_interface/pass.h"
 #include "passes/pass_utils/pass_utils.h"
 
-namespace npu::tile_fwk {
+namespace npu {
+namespace tile_fwk {
 class CodegenPreprocPass : public Pass {
 public:
     CodegenPreprocPass() : Pass("CodegenPreprocPass") {}
@@ -43,5 +44,6 @@ private:
     Status ProcessAxis(Operation &op, std::vector<bool> attr, bool isInput) const;
 };
 
-} // namespace npu::tile_fwk
+} // namespace tile_fwk
+} // namespace npu
 #endif // PASS_CODEGEN_PREPROC_H

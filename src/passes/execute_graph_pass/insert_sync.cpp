@@ -15,20 +15,21 @@
 
 #include "passes/execute_graph_pass/insert_sync.h"
 
-namespace npu::tile_fwk {
+namespace npu {
+namespace tile_fwk {
 Status RangeSearchTree::ProcessTreeNode(const Interval &interval, IntervalTreeNode *currPtr, std::vector<IntervalTreeNode*> &intervalStack) {
     int start = currPtr->interval.start;
     if (interval.start < start) {
         if (currPtr->left == nullptr) {
             currPtr->left = new IntervalTreeNode(interval);
-            if (currPtr->left == nullptr) { ALOG_ERROR_F("currPtr->left is nullptr, ProcessTreeNode failed!"); return FAILED; }
+            if (currPtr->left == nullptr) { ALOG_ERROR_F("New created left tree node is nullptr, ProcessTreeNode failed!"); return FAILED; }
         } else {
             intervalStack.push_back(currPtr->left);
         }
     } else {
         if (currPtr->right == nullptr) {
             currPtr->right = new IntervalTreeNode(interval);
-            if (currPtr->right == nullptr) { ALOG_ERROR_F("currPtr->right is nullptr, ProcessTreeNode failed!"); return FAILED; }
+            if (currPtr->right == nullptr) { ALOG_ERROR_F("New created right tree node is nullptr, ProcessTreeNode failed!"); return FAILED; }
         } else {
             intervalStack.push_back(currPtr->right);
         }
@@ -40,7 +41,7 @@ Status RangeSearchTree::InsertInterval(const Interval &interval) {
     std::vector<IntervalTreeNode*> intervalStack;
     if (treeRoot == nullptr) {
         treeRoot = new IntervalTreeNode(interval);
-        if (treeRoot == nullptr) { ALOG_ERROR_F("treeRoot is nullptr, InsertInterval failed!"); return FAILED; }
+        if (treeRoot == nullptr) { ALOG_ERROR_F("TreeRoot is nullptr, InsertInterval failed!"); return FAILED; }
         return SUCCESS;
     }
     intervalStack.push_back(treeRoot);
@@ -192,7 +193,7 @@ Status PipeSync::InsertSync(Function &function, std::vector<Operation *> &synced
     std::vector<Operation *> opLogPtr(function.Operations().DuplicatedOpList());
     uint64_t idxInput = 0;
     for (const auto &op : opLogPtr) {
-        ALOG_DEBUG_F("input operation %d %d: %s", idxInput, op->GetOpMagic(), op->GetOpcodeStr().c_str());
+        ALOG_DEBUG_F("Input operation %d %d: %s", idxInput, op->GetOpMagic(), op->GetOpcodeStr().c_str());
         idxInput++;
     }
     if (PipeDispatch(opLogPtr, synced) != SUCCESS) { ALOG_ERROR_F("InsertSync failed at function PipeDispatch!"); return FAILED; }
@@ -312,7 +313,7 @@ PipeSync::PipeCoreReal PipeSync::GetPipeFromSeq(PipeSeq seq) {
 
 Status PipeSync::AdjustOpCfg(TileOpCfg &opcfg, Operation *opptr) {
     if (opptr->GetOpcode() == Opcode::OP_RESHAPE) {
-        if (opptr->GetIOperands().size() < 1 || opptr->GetOOperands().size() < 1) { ALOG_ERROR_F("RESHAPE op operands size is 0, AdjustOpCfg failed!"); return FAILED; }
+        if (opptr->GetIOperands().size() < 1 || opptr->GetOOperands().size() < 1) { ALOG_ERROR_F("%d RESHAPE op operands size is 0, AdjustOpCfg failed!", opptr->GetOpMagic()); return FAILED; }
         if (opptr->GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
             opptr->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
             opcfg.pipeIdStart_ = PipeType::PIPE_MTE3;
@@ -321,7 +322,7 @@ Status PipeSync::AdjustOpCfg(TileOpCfg &opcfg, Operation *opptr) {
     }
     if (opptr->GetOpcode() == Opcode::OP_COPY_IN) {
         if (opptr->GetOpAttribute() == nullptr) {
-            ALOG_ERROR_F("copyin op attr is nullptr, AdjustOpCfg failed!");
+            ALOG_ERROR_F("%d COPYIN op attr is nullptr, AdjustOpCfg failed!", opptr->GetOpMagic());
             return FAILED;
         }
         std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(opptr->GetOpAttribute());
@@ -338,7 +339,7 @@ Status PipeSync::AdjustOpCfg(TileOpCfg &opcfg, Operation *opptr) {
     }
     if (opptr->GetOpcode() == Opcode::OP_COPY_OUT) {
         if (opptr->GetOpAttribute() == nullptr) {
-            ALOG_ERROR_F("copyout op attr is nullptr, AdjustOpCfg failed!");
+            ALOG_ERROR_F("%d COPYOUT op attr is nullptr, AdjustOpCfg failed!", opptr->GetOpMagic());
             return FAILED;
         }
         std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(opptr->GetOpAttribute());
@@ -363,7 +364,7 @@ Status PipeSync::AdjustOpCfg(TileOpCfg &opcfg, Operation *opptr) {
 Status PipeSync::PipeDispatch(const std::vector<Operation *> opLogPtr, std::vector<IndexOp> &syncedOpLog) {
     DataDependencySearcher dataDependencySearcher;
     for (size_t i = 0; i < opLogPtr.size(); i++) {
-        if (opLogPtr[i]->GetOpcodeStr().find("ALLOC") != std::string::npos) { ALOG_ERROR_F("Alloc should not appear in InsertSync Pass, PipeDispatch failed!"); return FAILED; }
+        if (opLogPtr[i]->GetOpcodeStr().find("ALLOC") != std::string::npos) { ALOG_ERROR_F("%d ALLOC op should not appear in InsertSync, PipeDispatch failed!", opLogPtr[i]->GetOpMagic()); return FAILED; }
         maxOpMagic = std::max(maxOpMagic, opLogPtr[i]->GetOpMagic());
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[i]->GetOpcode());
         if (AdjustOpCfg(opcfg, opLogPtr[i]) != SUCCESS) { ALOG_ERROR_F("PipeDispatch failed at function AdjustOpCfg!"); return FAILED; }
@@ -427,11 +428,11 @@ Status PipeSync::AddOpDep(DepOp &setOp, DepOp &waitOp) {
 
     size_t depWaitIdx = static_cast<size_t>(-1);
     for (auto ele : setOp.setPipe) {
-        if (ele == waitOpIdx) { ALOG_ERROR_F("this dependency should not exist, AddOpDep failed!"); return FAILED; }
+        if (ele == waitOpIdx) { ALOG_ERROR_F("This dependency should not exist, AddOpDep failed!"); return FAILED; }
         PipeCoreReal elePipeCore(depOps_[ele].selfPipeCore.pipeStart, depOps_[ele].selfPipeCore.core);
         PipeCoreReal waitOpPipeCore(depOps_[waitOpIdx].selfPipeCore.pipeStart, depOps_[waitOpIdx].selfPipeCore.core);
         if (elePipeCore == waitOpPipeCore) {
-            if (ele  <= waitOpIdx) { ALOG_ERROR_F("new waitidx should less than old, AddOpDep failed!"); return FAILED; }
+            if (ele  <= waitOpIdx) { ALOG_ERROR_F("New waitidx should less than old, AddOpDep failed!"); return FAILED; }
             depWaitIdx = ele;
             break;
         }
@@ -501,7 +502,7 @@ Status PipeSync::PopFromQueue(IssueQueue &issueQ, std::vector<size_t> &poped, bo
             break;
         }
         auto &op = depOps_[issueQ.ops[issueQ.currOp]];
-        if (op.issued) { ALOG_ERROR_F("try to issue a op which is already issued, PopFromQueue failed!"); return FAILED; }
+        if (op.issued) { ALOG_ERROR_F("Try to issue a op which is already issued, PopFromQueue failed!"); return FAILED; }
         bool ready = true;
         // current op will be issued only when all of the waitop are issued
         for (const auto &waitOp : op.waitPipe) {
@@ -598,7 +599,7 @@ Status PipeSync::ProcessDeadLock(uint64_t &eventIdDeadlockEnterTimes, bool &even
         eventIdDeadlock = true;
     }
     if (RelaxFakeDataDep(syncedOpLog) != SUCCESS) { ALOG_ERROR_F("ProcessDeadLock failed at function RelaxFakeDataDep!"); return FAILED; }
-    if (eventIdDeadlockEnterTimes >= EVENTID_DEADLOCK_ENTER_TIME) { ALOG_ERROR_F("unbreakable deadlock detected, ProcessDeadLock failed!"); return FAILED; }
+    if (eventIdDeadlockEnterTimes >= EVENTID_DEADLOCK_ENTER_TIME) { ALOG_ERROR_F("Unbreakable deadlock detected, ProcessDeadLock failed!"); return FAILED; }
     return SUCCESS;
 }
 
@@ -607,7 +608,7 @@ Status PipeSync::IssueOp(Function &function, std::vector<Operation *> opLogPtr, 
     size_t allIssued = 0;
     for (int i = 0; i < static_cast<int>(PipeSeq::PIPE_END); i++) {
         allIssued += issueState_[i].ops.size();
-        ALOG_DEBUG_F("pipe seq %d: %s %s", i, PipeSeqName(static_cast<PipeSeq>(i)).c_str(), issueState_[i].DumpIssueQueue(opLogPtr).c_str());
+        ALOG_DEBUG_F("Pipe seq %d: %s %s", i, PipeSeqName(static_cast<PipeSeq>(i)).c_str(), issueState_[i].DumpIssueQueue(opLogPtr).c_str());
     }
     bool eventIdDeadlock = false;
     uint64_t eventIdDeadlockEnterTimes = 0;
@@ -631,7 +632,7 @@ Status PipeSync::IssueOp(Function &function, std::vector<Operation *> opLogPtr, 
         eventIdDeadlock = false;
         eventIdDeadlockEnterTimes = 0;
     }
-    if (totalIssued != allIssued) { ALOG_ERROR_F("issue error, IssueOp failed!"); return FAILED; }
+    if (totalIssued != allIssued) { ALOG_ERROR_F("Issue error, IssueOp failed!"); return FAILED; }
     ALOG_DEBUG_F("ALL op issued: %zu", totalIssued);
     return SUCCESS;
 }
@@ -816,7 +817,7 @@ Status PipeSync::RelaxFakeDataDep(std::vector<IndexOp> &syncedOpLog) {
         int eventId1 = depInfo.setOpEventIdList[maxOverlapDepIdx];
         int eventId2 = depInfo.setOpEventIdList[maxOverlapDepIdx + 1];
         int syncOpIdx1 = depInfo.setOpIdList[maxOverlapDepIdx];
-        if (set1 >= set2 || wait1 >= wait2) { ALOG_ERROR_F("dependency error, RelaxFakeDataDep failed!"); return FAILED; }
+        if (set1 >= set2 || wait1 >= wait2) { ALOG_ERROR_F("Dependency error, RelaxFakeDataDep failed!"); return FAILED; }
         RemoveOpDep(depOps_[set1], depOps_[wait1]);
         RemoveOpDep(depOps_[set2], depOps_[wait2]);
         if (AddOpDep(depOps_[set2], depOps_[wait1]) != SUCCESS) { ALOG_ERROR_F("RelaxFakeDataDep failed at function AddOpDep!"); return FAILED; }
@@ -863,7 +864,7 @@ Status PipeSync::GetEventId(const PipePair &pp, int &eventId) {
     }
 
     auto &eventQ = GetFreeEventIdQueue(pp);
-    if (eventQ.empty()) { ALOG_ERROR_F("eventid exhausted, GetEventId failed!"); return FAILED; }
+    if (eventQ.empty()) { ALOG_ERROR_F("Eventid exhausted, GetEventId failed!"); return FAILED; }
 
     eventId = eventQ.front();
     eventQ.pop_front();
@@ -875,13 +876,13 @@ bool PipeSync::HasFreeEventId(const PipePair &pp) {
     return !eventQ.empty();
 }
 
-bool PipeSync::BufOverlap(const TileRange &range1, const TileRange &range2) const {
-    ALOG_DEBUG_F("        range 1 [%zu ~ %zu], range 2 [%zu ~ %zu].", range1.start, range1.end, range2.start, range2.end);
+bool PipeSync::BufOverlap(const TileRange &range1, int magic1, const TileRange &range2, int magic2) const {
+    ALOG_DEBUG_F("        Range 1 [%zu ~ %zu], range 2 [%zu ~ %zu].", range1.start, range1.end, range2.start, range2.end);
     if (range1.end > range2.start && range2.end > range1.start) {
-        ALOG_DEBUG_F("        tensor1 and tensor2 have overlap ");
+        ALOG_DEBUG_F("        Tensor %d and tensor %d have overlap ", magic1, magic2);
         return true;
     } else {
-        ALOG_DEBUG_F("        tensor1 and tensor2 don't have overlap ");
+        ALOG_DEBUG_F("        Tensor %d and tensor %d don't have overlap ", magic1, magic2);
         return false;
     }
 }
@@ -890,7 +891,8 @@ bool PipeSync::CheckWawDependency(const Operation *opSet, const Operation *opWai
     for (size_t setIdx = 0; setIdx < opSet->GetOOperands().size(); setIdx++) {
         for (size_t waitIdx = 0; waitIdx < opWait->GetOOperands().size(); waitIdx++) {
             if (opSet->GetOOperands()[setIdx]->GetMemoryTypeOriginal() == opWait->GetOOperands()[waitIdx]->GetMemoryTypeOriginal() && 
-                BufOverlap(opSet->GetOOperands()[setIdx]->memorymap[opSet->GetSubgraphID()], opWait->GetOOperands()[waitIdx]->memorymap[opWait->GetSubgraphID()])) {
+                BufOverlap(opSet->GetOOperands()[setIdx]->memorymap[opSet->GetSubgraphID()], opSet->GetOOperands()[setIdx]->GetMagic(), 
+                    opWait->GetOOperands()[waitIdx]->memorymap[opWait->GetSubgraphID()], opWait->GetOOperands()[waitIdx]->GetMagic())) {
                 ALOG_DEBUG_F("        %d %zu %s and %d %zu %s has WAW data dependency", opSet->GetOpMagic(), k, opSet->GetOpcodeStr().c_str(),
                     opWait->GetOpMagic(), idx, opWait->GetOpcodeStr().c_str());
                 return true;
@@ -906,7 +908,8 @@ bool PipeSync::CheckRawDependency(const Operation *opSet, const Operation *opWai
             auto memTypeSame = opWait->GetIOperands()[inIdx]->GetMemoryTypeOriginal() == opSet->GetOOperands()[outIdx]->GetMemoryTypeOriginal();
             auto ddrTensorSame = opSet->GetOOperands()[outIdx]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
                 opWait->GetIOperands()[inIdx]->memorymap[opWait->GetSubgraphID()].memId == opSet->GetOOperands()[outIdx]->memorymap[opSet->GetSubgraphID()].memId;
-            auto overlap = BufOverlap(opWait->GetIOperands()[inIdx]->memorymap[opWait->GetSubgraphID()], opSet->GetOOperands()[outIdx]->memorymap[opSet->GetSubgraphID()]);
+            auto overlap = BufOverlap(opWait->GetIOperands()[inIdx]->memorymap[opWait->GetSubgraphID()], opWait->GetIOperands()[inIdx]->GetMagic(), 
+                opSet->GetOOperands()[outIdx]->memorymap[opSet->GetSubgraphID()], opSet->GetOOperands()[outIdx]->GetMagic());
             if (memTypeSame && (overlap || ddrTensorSame)) {
                 ALOG_DEBUG_F("        %d %zu %s and %d %zu %s has RAW data dependency", opSet->GetOpMagic(), k, opSet->GetOpcodeStr().c_str(),
                        opWait->GetOpMagic(), idx, opWait->GetOpcodeStr().c_str());
@@ -923,7 +926,8 @@ bool PipeSync::CheckWarDependency(const Operation *opSet, const Operation *opWai
             auto memTypeSame = opSet->GetIOperands()[inIdx]->GetMemoryTypeOriginal() == opWait->GetOOperands()[outIdx]->GetMemoryTypeOriginal();
             auto ddrTensorSame = opSet->GetIOperands()[inIdx]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
                 opWait->GetOOperands()[outIdx]->memorymap[opWait->GetSubgraphID()].memId == opSet->GetIOperands()[inIdx]->memorymap[opSet->GetSubgraphID()].memId;
-            auto overlap = BufOverlap(opSet->GetIOperands()[inIdx]->memorymap[opSet->GetSubgraphID()], opWait->GetOOperands()[outIdx]->memorymap[opWait->GetSubgraphID()]);
+            auto overlap = BufOverlap(opSet->GetIOperands()[inIdx]->memorymap[opSet->GetSubgraphID()], opSet->GetIOperands()[inIdx]->GetMagic(), 
+                opWait->GetOOperands()[outIdx]->memorymap[opWait->GetSubgraphID()], opWait->GetOOperands()[outIdx]->GetMagic());
             if (memTypeSame && (overlap || ddrTensorSame)) {
                 ALOG_DEBUG_F("        %d %zu %s and %d %zu %s has WAR data dependency", opSet->GetOpMagic(), k, opSet->GetOpcodeStr().c_str(),
                        opWait->GetOpMagic(), idx, opWait->GetOpcodeStr().c_str());
@@ -1047,7 +1051,7 @@ void PipeSync::FindDep(DepOp &op, const std::vector<Operation *> opLogPtr, size_
         size_t k = *it;
         const Operation *prevAOp = opLogPtr[k];
         DepOp &prevOp = depOps_[k];
-        ALOG_DEBUG_F("    current process ops: %d %zu %s and %d %zu %s", prevAOp->GetOpMagic(), k, prevAOp->GetOpcodeStr().c_str(),
+        ALOG_DEBUG_F("    Current process ops: %d %zu %s and %d %zu %s", prevAOp->GetOpMagic(), k, prevAOp->GetOpcodeStr().c_str(),
             currOp->GetOpMagic(), idx, currOp->GetOpcodeStr().c_str());
 
         if (HasDataDependency(prevAOp, currOp, k, idx)) {
@@ -1169,7 +1173,7 @@ Status PipeSync::ProcessViewAssembleOrder(std::vector<Operation *> &opLog, std::
         if (opPtr->GetOpcode() == Opcode::OP_VIEW) {
             auto consumers = opPtr->ConsumerOps();
             if (consumers.empty()) {
-                ALOG_ERROR_F("VIEW op doesn't have consumer, ProcessViewAssembleOrder failed!");
+                ALOG_ERROR_F("%d VIEW op doesn't have consumer, ProcessViewAssembleOrder failed!", opPtr->GetOpMagic());
                 return FAILED;
             }
             auto minIt = opLog.end();
@@ -1184,7 +1188,7 @@ Status PipeSync::ProcessViewAssembleOrder(std::vector<Operation *> &opLog, std::
         } else if (opPtr->GetOpcode() == Opcode::OP_ASSEMBLE) {
             auto producers = opPtr->ProducerOps();
             if (producers.empty()) {
-                ALOG_ERROR_F("ASSEMBLE op doesn't have producer, ProcessViewAssembleOrder failed!");
+                ALOG_ERROR_F("%d ASSEMBLE op doesn't have producer, ProcessViewAssembleOrder failed!", opPtr->GetOpMagic());
                 return FAILED;
             }
             auto maxIt = opLog.begin();
@@ -1241,11 +1245,11 @@ Status InsertSyncPass::InsertSyncMainLoop(Function *subGraphFunc) {
     ALOG_DEBUG_F("==========================================================================================");
     for (const auto &op : subGraphFunc->Operations().DuplicatedOpList()) {
         if (op->GetOpcodeStr() == "SYNC_SRC" || op->GetOpcodeStr() == "SYNC_DST" || op->GetOpcodeStr() == "BAR.V" || op->GetOpcodeStr() == "BAR.M") {
-            ALOG_DEBUG_F("output operation %d: %s, setpipe type: %s, waitpipe type: %s, eventid: %d",
+            ALOG_DEBUG_F("Output operation %d: %s, setpipe type: %s, waitpipe type: %s, eventid: %d",
                 op->GetOpMagic(), op->GetOpcodeStr().c_str(), PipeTypeName(op->syncQueue_.pipeId_).c_str(), 
                 PipeTypeName(op->syncQueue_.trigPipeId_).c_str(), op->syncQueue_.eventId_);
         } else {
-            ALOG_DEBUG_F("output operation %d: %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
+            ALOG_DEBUG_F("Output operation %d: %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
         }
     }
     return SUCCESS;
@@ -1253,7 +1257,7 @@ Status InsertSyncPass::InsertSyncMainLoop(Function *subGraphFunc) {
 
 // regist pass
 Status InsertSyncPass::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===============================================================> Start InsertSyncPass.");
+    ALOG_INFO_F("===============================================================> Start InsertSync.");
     const unsigned hardwareConcurrency = config::GetPassGlobalConfig("pass_thread_num", 1);
     uint64_t index = 0;
     std::vector<std::pair<uint64_t, Function*>> subPrograms;
@@ -1283,15 +1287,23 @@ Status InsertSyncPass::RunOnFunction(Function &function) {
             }
         });
     }
-    if (!multiThreadsStatus.load()) { ALOG_ERROR_F("InsertSync Pass RunOnFunction failed at function InsertSyncMainLoop in Multiple Threads scenario!"); return FAILED; }
-
+    if (!multiThreadsStatus.load()) {
+        if (threadNum == 1) {
+            ALOG_ERROR_F("InsertSync RunOnFunction failed at function InsertSyncMainLoop in Single Thread scenario!");
+            return FAILED;
+        } else {
+            ALOG_ERROR_F("InsertSync RunOnFunction failed at function InsertSyncMainLoop in Multiple Threads scenario!");
+            return FAILED;
+        }
+    }
     // Wait for all threads to finish
     for (auto& t : workers) {
         if (t.joinable()) {
             t.join();
         }
     }
-    ALOG_INFO_F("===============================================================> Finish InsertSyncPass");
+    ALOG_INFO_F("===============================================================> Finish InsertSync.");
     return SUCCESS;
 }
-} // namespace npu::tile_fwk
+} // namespace tile_fwk
+} // namespace npu

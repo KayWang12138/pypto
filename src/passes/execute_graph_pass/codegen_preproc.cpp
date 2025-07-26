@@ -23,7 +23,8 @@
 #include "passes/pass_interface/pass.h"
 #include "codegen_preproc.h"
 
-namespace npu::tile_fwk {
+namespace npu {
+namespace tile_fwk {
 // only save general gm input/output, not contain spill-out scene
 bool CodegenPreprocPass::IsNeedSave(const Operation &op) const {
     return OpcodeManager::Inst().IsCopyInOrOut(op.GetOpcode()) && (!op.IsNeedStackGM());
@@ -78,7 +79,7 @@ Status CodegenPreprocPass::ProcessAxis(Operation &op, std::vector<bool> attr, bo
         }
     }
     if (attr.size() != operands.size()) {
-        ALOG_ERROR_F("attr size is not equal to operands size, ProcessAxis failed!");
+        ALOG_ERROR_F("%d %s attr size is not equal to operands size, ProcessAxis failed!", op.GetOpMagic(), op.GetOpcodeStr().c_str());
         return FAILED;
     }
     for (size_t i = 0; i < operands.size(); ++i) {
@@ -123,15 +124,18 @@ Status CodegenPreprocPass::ForceCombineAxis(Function &func) const {
 }
 
 Status CodegenPreprocPass::RunOnFunction(Function &function) {
+    ALOG_INFO_F("===============================================================> Start CodegenPreproc.");
     if (SaveGmTensorParamIdxToOp(function) != SUCCESS) {
-        ALOG_ERROR_F("CodegenPreprocPass RunOnFunction failed at function SaveGmTensorParamIdxToOp!");
+        ALOG_ERROR_F("CodegenPreproc RunOnFunction failed at function SaveGmTensorParamIdxToOp!");
         return FAILED;
     }
     if (ForceCombineAxis(function) != SUCCESS) {
-        ALOG_ERROR_F("CodegenPreprocPass RunOnFunction failed at function ForceCombineAxis!");
+        ALOG_ERROR_F("CodegenPreproc RunOnFunction failed at function ForceCombineAxis!");
         return FAILED;
     }
+    ALOG_INFO_F("===============================================================> Finish CodegenPreproc.");
     return SUCCESS;
 }
 
-} // namespace npu::tile_fwk
+} // namespace tile_fwk
+} // namespace npu
