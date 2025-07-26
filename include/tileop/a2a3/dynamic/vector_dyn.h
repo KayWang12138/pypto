@@ -1094,6 +1094,238 @@ TILEOP void DynTSmaxs(__ubuf__ T *dst, __ubuf__ T *src, float scalar, unsigned T
     wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
 }
 
+template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0, unsigned srcShape1, int axis, int isLargest>
+TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, unsigned oriShape1) {
+    // 生成index数据,首先创建一个1~8的数组,之后扩展到TShape1,构成0~TShape1的index数组
+    // pipe_barrier(PIPE_ALL); // 当前OP无法描述两条流水,UB复用场景存在问题,暂时按照pipe_all规避
+    int32_t srcShape1Align = (oriShape1 + 31) / 32 * 32;
+    __ubuf__ uint32_t *idx = (__ubuf__ uint32_t *)dst + 2 * srcShape1Align;
+    for (int32_t j = 0; j < oriShape1; j++) {
+        *(idx + j) = j;
+    }
+    set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+    wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+
+    // 对于不满足32元素对齐场景,首先将src拷贝到dst的3*srcShape1位置
+    if (oriShape1 < 32) {
+        uint64_t srcShape1_Align_Block_Num = (oriShape1 * sizeof(float) + 31) / 32;
+        uint64_t dstShape1_Block_Num = dstShape1 * sizeof(float) / 32;
+        copy_ubuf_to_ubuf((__ubuf__ float *)dst + 3 * srcShape1Align, (__ubuf__ void *)src, 0, oriShape0,
+            srcShape1_Align_Block_Num, 0, dstShape1_Block_Num - srcShape1_Align_Block_Num);
+        pipe_barrier(PIPE_V);
+        if constexpr (isLargest == 0) {
+            set_mask_count();
+            set_vector_mask(0, oriShape1);
+            // 按照升序排列时,需要首先将数据乘以-1,同时不可以污染src
+            vmuls((__ubuf__ float *)dst + 3 * srcShape1Align, (__ubuf__ float *)dst + 3 * srcShape1Align, -1.0f, 1, 1,
+                1, 8, 8);
+            pipe_barrier(PIPE_V);
+            set_mask_norm();
+            set_vector_mask(-1, -1);
+        }
+        // 需要将尾块部分置为-inf，之后再排序
+        // 计算duplicate的mask
+        uint64_t mask = ~(((static_cast<uint64_t>(1)) << oriShape1) - 1);
+        mask = mask & 0xFFFFFFFF;
+        float FLOAT_MIN = -1.0e38f;
+        set_mask_norm();
+        set_vector_mask(0, mask);
+        vector_dup(dst + 3 * srcShape1Align, FLOAT_MIN, oriShape0, 1, 1, dstShape1 * sizeof(float) / 32, (int64_t)0);
+        pipe_barrier(PIPE_V);
+        for (int rowIdx = 0; rowIdx < oriShape0; rowIdx++) {
+            vbitsort((__ubuf__ float *)dst + rowIdx * dstShape1,
+                (__ubuf__ float *)dst + rowIdx * dstShape1 + 3 * srcShape1Align, (__ubuf__ uint32_t *)idx, 1);
+        }
+        pipe_barrier(PIPE_V);
+        set_vector_mask(-1, -1);
+    }
+
+    if (oriShape1 == 32) {
+        for (int rowIdx = 0; rowIdx < oriShape0; rowIdx++) {
+            // 32个数时，一次完成排序
+            __ubuf__ float *srcData = reinterpret_cast<__ubuf__ float *>(src) + rowIdx * srcShape1;
+            __ubuf__ float *dstData = reinterpret_cast<__ubuf__ float *>(dst) + rowIdx * dstShape1;
+            if constexpr (isLargest == 0) {
+                set_mask_count();
+                set_vector_mask(0, oriShape1);
+                // 按照升序排列时,需要首先将数据乘以-1,同时不可以污染src
+                srcData = reinterpret_cast<__ubuf__ float *>(dst) + rowIdx * dstShape1 + 3 * srcShape1Align;
+                vmuls(srcData, reinterpret_cast<__ubuf__ float *>(src) + rowIdx * srcShape1, -1.0f, 1, 1, 1, 8, 8);
+                pipe_barrier(PIPE_V);
+                set_mask_norm();
+                set_vector_mask(-1, -1);
+            }
+            vbitsort(dstData, srcData, idx, 1);
+            pipe_barrier(PIPE_V);
+        }
+    }
+
+    if (oriShape1 > 32) {
+        int32_t repeat_sort32 = oriShape1 / 32;
+        int32_t tail_sort32 = oriShape1 % 32;
+        for (int rowIdx = 0; rowIdx < oriShape0; rowIdx++) {
+            __ubuf__ float *srcData = reinterpret_cast<__ubuf__ float *>(src) + rowIdx * srcShape1;
+            __ubuf__ float *dstData = reinterpret_cast<__ubuf__ float *>(dst) + rowIdx * dstShape1;
+            if constexpr (isLargest == 0) {
+                set_mask_count();
+                set_vector_mask(0, oriShape1);
+                // 按照升序排列时,需要首先将数据乘以-1,同时不可以污染src
+                srcData = reinterpret_cast<__ubuf__ float *>(dst) + rowIdx * dstShape1 + 3 * srcShape1Align;
+                vmuls(srcData, reinterpret_cast<__ubuf__ float *>(src) + rowIdx * srcShape1, -1.0f, 1, 1, 1, 8, 8);
+                pipe_barrier(PIPE_V);
+                set_mask_norm();
+                set_vector_mask(-1, -1);
+            }
+            // 首先逐32个数进行排序,需要补齐不对齐的部分
+            if (tail_sort32 > 0) {
+                // 非整块的时候,首先对尾部补充-inf
+                float FLOAT_MIN = -1.0e38f;
+                uint64_t mask = ~(((static_cast<uint64_t>(1)) << ( tail_sort32)) - 1);
+                set_mask_norm();
+                set_vector_mask(0, mask);
+                vector_dup(srcData + repeat_sort32 * 32, FLOAT_MIN, 1, 1, 1, 8, (int64_t)0);
+                pipe_barrier(PIPE_V);
+                vbitsort(dstData, srcData, idx, repeat_sort32 + 1);
+                pipe_barrier(PIPE_V);
+                set_vector_mask(-1, -1);
+            } else {
+                // 整块时,直接进行逐32元素排序
+                vbitsort(dstData, srcData, idx, repeat_sort32);
+                pipe_barrier(PIPE_V);
+            }
+            pipe_barrier(PIPE_V);
+        }
+    }
+}
+
+template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0, unsigned srcShape1, int axis, int k, int isLargest>
+TILEOP void DynMrgSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, unsigned oriShape1) {
+    constexpr int32_t kAlign = (k + 3) / 4 * 4; // k需要向32Bytes取整,否则最后搬运出问题
+    int32_t totalNum = oriShape1 / 4;
+    for (int rowIdx = 0; rowIdx < dstShape0; rowIdx++) {
+        // 每4个合并,计算整块
+        int32_t z = 32;
+        for (; z * 4 <= totalNum; z *= 4) {
+            __ubuf__ float *srcData = reinterpret_cast<__ubuf__ float *>(src) + rowIdx * srcShape1;
+            __ubuf__ float *dstData = reinterpret_cast<__ubuf__ float *>(src) + rowIdx * srcShape1 + totalNum * 2;
+            uint64_t config = 0;
+            uint32_t repeat_mrg = totalNum / (z * 4);
+            config |= uint64_t(totalNum / (z * 4)); // Xt[7:0]: repeat time
+            config |= (uint64_t(0b1111) << 8);      // Xt[11:8]: 4-bit mask signal
+            config |= (uint64_t(0b0) << 12);        // Xt[12]: 1-enable input list exhausted suspension
+
+            // 每次计算的数据
+            uint64_t src1 = 0;
+            src1 |= (uint64_t(z));
+            src1 |= (uint64_t(z) << 16);
+            src1 |= (uint64_t(z) << 32);
+            src1 |= (uint64_t(z) << 48);
+
+            __ubuf__ float *addr_array[4] = {(__ubuf__ float *)(srcData + 0 * z * 2),
+                (__ubuf__ float *)(srcData + 1 * z * 2), (__ubuf__ float *)(srcData + 2 * z * 2),
+                (__ubuf__ float *)(srcData + 3 * z * 2)};
+            pipe_barrier(PIPE_V);
+            vmrgsort4(dstData, addr_array, src1, config);
+            pipe_barrier(PIPE_V);
+            copy_ubuf_to_ubuf(
+                (__ubuf__ void *)srcData, (__ubuf__ void *)dstData, 0, z * 4 * repeat_mrg * 2 / 8, 1, 0, 0);
+            pipe_barrier(PIPE_V);
+        }
+        // 合并尾块
+        if (z < totalNum) {
+            int32_t arrayCount = 0;
+            int32_t mrgArray[15] = {0};
+            int32_t tmpInner = totalNum;
+            for (int32_t i = z; i >= 32; i /= 4) {
+                int32_t count;
+                for (count = 0; count < tmpInner / i; count++) {
+                    mrgArray[arrayCount++] = i;
+                }
+                tmpInner -= count * i;
+            }
+            uint16_t mrgSortedLen = 0;
+            for (int32_t i = 0; i < arrayCount - 1; ++i) {
+                __ubuf__ float *srcData = reinterpret_cast<__ubuf__ float *>(src) + rowIdx * srcShape1;
+                __ubuf__ float *dstData = reinterpret_cast<__ubuf__ float *>(src) + rowIdx * srcShape1 + totalNum * 2;
+                mrgSortedLen += static_cast<uint16_t>(mrgArray[i]);
+                uint64_t tmpMrgSortedLen = mrgSortedLen;
+                uint64_t tmpMrgArray = mrgArray[i + 1];
+                if (mrgSortedLen > k) {
+                    tmpMrgSortedLen = k;
+                }
+                if (mrgArray[i + 1] > k) {
+                    tmpMrgArray = k;
+                }
+                uint64_t config = 0;
+                config |= uint64_t(1);           // Xt[7:0]: repeat time
+                config |= (uint64_t(0b11) << 8); // Xt[11:8]: 4-bit mask signal
+                config |= (uint64_t(0b0) << 12); // Xt[12]: 1-enable input list exhausted suspension
+
+                // 每次计算的数据
+                uint64_t src1 = 0;
+                src1 |= (uint64_t(tmpMrgSortedLen));
+                src1 |= (uint64_t(tmpMrgArray) << 16);
+                __ubuf__ float *addr_array[4] = {(__ubuf__ float *)(srcData),
+                    (__ubuf__ float *)(srcData + mrgSortedLen * 2), (__ubuf__ float *)0, (__ubuf__ float *)0};
+                pipe_barrier(PIPE_V);
+                vmrgsort4(dstData, addr_array, src1, config);
+                pipe_barrier(PIPE_V);
+                copy_ubuf_to_ubuf((__ubuf__ void *)srcData, (__ubuf__ void *)dstData, 0,
+                    (tmpMrgSortedLen + tmpMrgArray) * 2 / 8, 1, 0, 0);
+                pipe_barrier(PIPE_V);
+            }
+        }
+        copy_ubuf_to_ubuf((__ubuf__ float *)dst + rowIdx * dstShape1, (__ubuf__ float *)src + rowIdx * srcShape1, 0,
+            kAlign / 4, 1, 0, 0);
+        pipe_barrier(PIPE_V);
+    }
+}
+
+template <typename T, typename U, int k, int extractMode, int isLargest>
+TILEOP void DynExtract(__ubuf__ T *dst, __ubuf__ U *src, unsigned TShape0, unsigned TShape1) {
+    constexpr uint64_t repeat = static_cast<uint64_t>(TShape0 * TShape1 * 2 * sizeof(T) / REPEAT_BYTE);
+    constexpr uint8_t dstBlockStride = 1;
+    constexpr uint8_t srcBlockStride = 1;
+    constexpr uint8_t dstRepeatStride = 8;
+    constexpr uint8_t srcRepeatStride = 8;
+    // mode trans, extractMode == 0 取奇数位， extractMode == 1 取偶数位
+    int patternMode = 1;
+    if constexpr (extractMode == 1) {
+        patternMode = 2;
+    }
+    __ubuf__ U *nullsrc1 = REPEAT_BYTE * sizeof(U) + src;
+    if constexpr (repeat < 1) {
+        uint64_t elems = TShape0 * TShape1;
+        set_mask_count();
+        set_vector_mask(0, elems * 2);
+        vreducev2((__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)src, (__ubuf__ uint32_t *)nullsrc1, 1, srcBlockStride,
+            patternMode, srcRepeatStride, 0);
+        set_mask_norm();
+        set_vector_mask(-1, -1);
+        pipe_barrier(PIPE_V);
+    } else {
+        uint8_t repeatMod = static_cast<uint8_t>(repeat % REPEAT_MAX);
+        if (repeatMod != 0) {
+            uint64_t elems = TShape0 * TShape1;
+            set_mask_norm();
+            set_vector_mask(-1, -1);
+            vreducev2((__ubuf__ uint32_t *)(dst), (__ubuf__ uint32_t *)(src), (__ubuf__ uint32_t *)nullsrc1, repeatMod,
+                srcBlockStride, patternMode, srcRepeatStride, 0);
+            pipe_barrier(PIPE_V);
+        }
+    }
+
+    if constexpr (extractMode == 0 && isLargest == 0) {
+        // 按照升序排序时,对于value需要乘以-1,恢复原始值
+        set_mask_count();
+        set_vector_mask(0, TShape0 * TShape1);
+        vmuls((__ubuf__ float *)dst, (__ubuf__ float *)dst, -1.0f, 1, 1, 1, 8, 8);
+        set_mask_norm();
+        set_vector_mask(-1, -1);
+        pipe_barrier(PIPE_V);
+    }
+}
+
 } // namespace TileOp
 
 #endif // TILE_FWK_VECTOR_DYN_H

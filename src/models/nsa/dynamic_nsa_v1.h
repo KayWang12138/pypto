@@ -26,8 +26,6 @@
 #include "models/nsa/attention_post.h"
 
 namespace npu::tile_fwk {
-constexpr int NUM_1 = 1;
-constexpr int NUM_3 = 3;
 constexpr int NUM_65536 = 65536;
 
 enum GateMode {

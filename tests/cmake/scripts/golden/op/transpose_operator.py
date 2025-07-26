@@ -168,6 +168,17 @@ def test_transpose_abcd_abdc(x, bs, n, d, output_dir: Path):
     input_t.tofile(input_path)
     res.tofile(res_path)
 
+def test_transpose_ab_ba(a, b, output_dir: Path):
+    qkv_shape = [a,b]
+    logging.debug(f'AB -> BA shape --------> a {a} b {b} dir {output_dir}\n')
+    input_path = Path(output_dir, 'input.bin')
+    res_path = Path(output_dir, 'res.bin')
+    input_t = np.arange(0, a*b, 1).reshape(qkv_shape).astype(dtype_f32)
+    res = input_t.transpose(1,0)
+    logging.debug("=== input shape:", input_t.shape, "res shape:", res.shape)
+    input_t.tofile(input_path)
+    res.tofile(res_path)
+
 
 @GoldenRegister.reg_golden_func(
     case_names=[
@@ -188,6 +199,15 @@ def test_transpose_abcd_abdc(x, bs, n, d, output_dir: Path):
         "TransposeTest.TestTranspose_ABCD_ABDC_1_2_16_31",
         "TransposeTest.Test_Datamove_Nonalign_Dim4",
         "TransposeTest.Test_Datamove_Nonalign_Dim3",
+        "TransposeTest.Test_AB_BA_32_768",
+        "TransposeTest.Test_AB_BA_768_32",
+        "TransposeTest.Test_AB_BA_128_511",
+        "TransposeTest.Test_AB_BA_128_255",
+        "TransposeTest.Test_AB_BA_128_63",
+        "TransposeTest.Test_AB_BA_1_128_511",
+        "TransposeTest.Test_AB_BA_1_128_255",
+        "TransposeTest.Test_AB_BA_1_128_63",
+        "TransposeTest.TestTranspose_abcd_bacd_2_128_3_32"
     ]
 )
 def get_transpose_golden(case_name: str, output: Path) -> bool:
@@ -274,11 +294,37 @@ def get_transpose_golden(case_name: str, output: Path) -> bool:
         elif case_name == "TransposeTest.TestTranspose_ABCD_ABDC_1_2_16_31":
             b, s, d = 2, 16, 31
             test_transpose_abcd_abdc(1, b, s, d, output)
+        elif case_name == "TransposeTest.Test_AB_BA_32_768":
+            a,b = 32, 768
+            test_transpose_ab_ba(a,b, output)
+        elif case_name == "TransposeTest.Test_AB_BA_768_32":
+            a,b = 768, 32
+            test_transpose_ab_ba(a,b, output)
+        elif case_name == "TransposeTest.Test_AB_BA_128_511":
+            a,b = 128, 511
+            test_transpose_ab_ba(a,b, output)
+        elif case_name == "TransposeTest.Test_AB_BA_128_255":
+            a,b = 128, 255
+            test_transpose_ab_ba(a,b, output)
+        elif case_name == "TransposeTest.Test_AB_BA_128_63":
+            a,b = 128, 63
+            test_transpose_ab_ba(a,b, output)
+        elif case_name == "TransposeTest.Test_AB_BA_1_128_511":
+            a,b = 128, 511
+            test_transpose_ab_ba(a,b, output)
+        elif case_name == "TransposeTest.Test_AB_BA_1_128_255":
+            a,b = 128, 255
+            test_transpose_ab_ba(a,b, output)
+        elif case_name == "TransposeTest.Test_AB_BA_1_128_63":
+            a,b = 128, 63
+            test_transpose_ab_ba(a,b, output)
+        elif case_name == "TransposeTest.TestTranspose_abcd_bacd_2_128_3_32":
+            b, n, s, d = 2, 128,3, 32
+            test_transpose_abcd_bacd(b, n, s, d, output)
         else:
             logging.error("Can't get func to gen golden, Case(%s)", case_name)
             return False
     return True
-
 
 def main() -> bool:
     """

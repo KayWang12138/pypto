@@ -33,8 +33,6 @@
 using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
-constexpr int NUM_3 = 3;
-constexpr int NUM_20 = 20;
 constexpr int NUM_100000 = 100000;
 constexpr int NUM_500000 = 500000;
 

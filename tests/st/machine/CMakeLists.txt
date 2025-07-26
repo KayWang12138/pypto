@@ -65,6 +65,11 @@ set(_CaseFilterList
         "DynamicSlcTest.dynamic_p_slc_fp16"
         "DynamicWinAttenTest.test_DynAttn_nas_win_attn_s1_2_actseqlen_1024_mla_fp16"
 
+        # NSA gatescore && compress attention part2
+        "DyNsa.gateScore_mini_mtp"
+        "DyNsa.GenSlc_b1_s1_fp_6k1" 
+        "DyNsa.GenSlc_b1_s1_fp_8k"       
+
         # PaPost
         #===========================================================================
         #"DynamicAttentionPostTest.dynamic_pa_post_new_mm5nz_splitk"

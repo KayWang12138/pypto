@@ -497,3 +497,203 @@ TEST_F(TransposeTest, Test_Datamove_Nonalign_Dim3) {
     }
     TransposePost(out_ptr, outSize);
 }
+
+TEST_F(TransposeTest, Test_AB_BA_32_768) {
+    int a = 32;
+    int b = 768;
+    std::vector<int> shape{a,b};
+    std::vector<int> resShape{b,a};
+    capacity = a * b ;
+    uint8_t* out_ptr = nullptr;
+    uint64_t outSize = 0;
+    TransposePre(&out_ptr, &outSize);
+    PROGRAM("Transpose") {
+        Program::GetInstance().GetTileShape().SetVecTileShapes(a, b);
+        void *input_ptr = readToDev(GetGoldenDir() + "/input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
+        FUNCTION("MLA_4D_0", FunctionType::STATIC, {input, output}) {
+            output = Transpose(input, {0, 1});
+        }
+    }
+    TransposePost(out_ptr, outSize);
+}
+
+TEST_F(TransposeTest, Test_AB_BA_768_32) {
+    int a = 768;
+    int b = 32;
+    std::vector<int> shape{a,b};
+    std::vector<int> resShape{b,a};
+    capacity = a * b ;
+    uint8_t* out_ptr = nullptr;
+    uint64_t outSize = 0;
+    TransposePre(&out_ptr, &outSize);
+    PROGRAM("Transpose") {
+        Program::GetInstance().GetTileShape().SetVecTileShapes(a, b);
+        void *input_ptr = readToDev(GetGoldenDir() + "/input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
+        FUNCTION("MLA_4D_0", FunctionType::STATIC, {input, output}) {
+            output = Transpose(input, {0, 1});
+        }
+    }
+    TransposePost(out_ptr, outSize);
+}
+
+TEST_F(TransposeTest, Test_AB_BA_128_511) {
+    int a = 128;
+    int b = 511;
+    std::vector<int> shape{a,b};
+    std::vector<int> resShape{b,a};
+    capacity = a * b ;
+    uint8_t* out_ptr = nullptr;
+    uint64_t outSize = 0;
+    TransposePre(&out_ptr, &outSize);
+    PROGRAM("Transpose") {
+        Program::GetInstance().GetTileShape().SetVecTileShapes(NUM16, b);
+        void *input_ptr = readToDev(GetGoldenDir() + "/input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
+        FUNCTION("MLA_4D_0", FunctionType::STATIC, {input, output}) {
+            output = Transpose(input, {0, 1});
+        }
+    }
+    TransposePost(out_ptr, outSize);
+}
+
+TEST_F(TransposeTest, Test_AB_BA_128_255) {
+    int a = 128;
+    int b = 255;
+    std::vector<int> shape{a,b};
+    std::vector<int> resShape{b,a};
+    capacity = a * b ;
+    uint8_t* out_ptr = nullptr;
+    uint64_t outSize = 0;
+    TransposePre(&out_ptr, &outSize);
+    PROGRAM("Transpose") {
+        Program::GetInstance().GetTileShape().SetVecTileShapes(NUM16, b);
+        void *input_ptr = readToDev(GetGoldenDir() + "/input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
+        FUNCTION("MLA_4D_0", FunctionType::STATIC, {input, output}) {
+            output = Transpose(input, {0, 1});
+        }
+    }
+    TransposePost(out_ptr, outSize);
+}
+
+
+TEST_F(TransposeTest, Test_AB_BA_128_63) {
+    int a = 128;
+    int b = 63;
+    std::vector<int> shape{a,b};
+    std::vector<int> resShape{b,a};
+    capacity = a * b ;
+    uint8_t* out_ptr = nullptr;
+    uint64_t outSize = 0;
+    TransposePre(&out_ptr, &outSize);
+    PROGRAM("Transpose") {
+        Program::GetInstance().GetTileShape().SetVecTileShapes(NUM16, b);
+        void *input_ptr = readToDev(GetGoldenDir() + "/input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
+        FUNCTION("MLA_4D_0", FunctionType::STATIC, {input, output}) {
+            output = Transpose(input, {0, 1});
+        }
+    }
+    TransposePost(out_ptr, outSize);
+}
+
+
+
+
+
+
+
+TEST_F(TransposeTest, Test_AB_BA_1_128_511) {
+    int a = 128;
+    int b = 511;
+    std::vector<int> shape{1,a,b};
+    std::vector<int> resShape{1,b,a};
+    capacity = a * b ;
+    uint8_t* out_ptr = nullptr;
+    uint64_t outSize = 0;
+    TransposePre(&out_ptr, &outSize);
+    PROGRAM("Transpose") {
+        Program::GetInstance().GetTileShape().SetVecTileShapes(1, NUM2, b);
+        void *input_ptr = readToDev(GetGoldenDir() + "/input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
+        FUNCTION("MLA_4D_0", FunctionType::STATIC, {input, output}) {
+            output = Transpose(input, {1, 2});
+        }
+    }
+    TransposePost(out_ptr, outSize);
+}
+
+TEST_F(TransposeTest, Test_AB_BA_1_128_255) {
+    int a = 128;
+    int b = 255;
+    std::vector<int> shape{1,a,b};
+    std::vector<int> resShape{1,b,a};
+    capacity = a * b ;
+    uint8_t* out_ptr = nullptr;
+    uint64_t outSize = 0;
+    TransposePre(&out_ptr, &outSize);
+    PROGRAM("Transpose") {
+        Program::GetInstance().GetTileShape().SetVecTileShapes(1, NUM16, b);
+        void *input_ptr = readToDev(GetGoldenDir() + "/input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
+        FUNCTION("MLA_4D_0", FunctionType::STATIC, {input, output}) {
+            output = Transpose(input, {1,2});
+        }
+    }
+    TransposePost(out_ptr, outSize);
+}
+
+
+TEST_F(TransposeTest, Test_AB_BA_1_128_63) {
+    int a = 128;
+    int b = 63;
+    std::vector<int> shape{1,a,b};
+    std::vector<int> resShape{1,b,a};
+    capacity = a * b ;
+    uint8_t* out_ptr = nullptr;
+    uint64_t outSize = 0;
+    TransposePre(&out_ptr, &outSize);
+    PROGRAM("Transpose") {
+        Program::GetInstance().GetTileShape().SetVecTileShapes(1, NUM16, b);
+        void *input_ptr = readToDev(GetGoldenDir() + "/input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
+        FUNCTION("MLA_4D_0", FunctionType::STATIC, {input, output}) {
+            output = Transpose(input, {1,2});
+        }
+    }
+    TransposePost(out_ptr, outSize);
+}
+
+
+TEST_F(TransposeTest, TestTranspose_abcd_bacd_2_128_3_32) {
+    int b = 2;
+    int n = 128;
+    int s = 3;
+    int d = 32;
+    std::vector<int> shape{b, n, s, d};
+    std::vector<int> resShape{b, s, n, d};
+    capacity = b * n * s * d;
+    uint8_t* out_ptr = nullptr;
+    uint64_t outSize = 0;
+    TransposePre(&out_ptr, &outSize);
+    PROGRAM("Transpose") {
+        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, s, d);
+        void *input_ptr = readToDev(GetGoldenDir() + "/input.bin", capacity);
+        Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
+        Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
+        FUNCTION("MLA_4D_0", FunctionType::STATIC, {input, output}) {
+            output = Transpose(input, {0, 1});
+        }
+    }
+    TransposePost(out_ptr, outSize);;
+}

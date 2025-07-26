@@ -43,6 +43,7 @@ inline constexpr uint32_t DIST_COMM_GROUP_NUM = 8;
 
 constexpr const int NUM2 = 2;
 constexpr const int NUM150 = 150;
+constexpr const int NUM16 = 16;
 
 constexpr const int REPEAT_BLOCK_NUM = 64;
 constexpr const int BLOCK_NUM = 8;

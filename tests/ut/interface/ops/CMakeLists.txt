@@ -86,6 +86,9 @@ set(_CaseFilterList
         "OperationImplTest.test_BMMT_NZ_1_128_256_128_Batch"
         "GraphTest.TestTailBlock"
         "MlaPrologUtest.mla_ut_bf16_high_quant_smooth_nz_pa_bsnd"
+        "DyNsa.gateScore_mini_mtp"
+        "DyNsa.GenTopk_b1_s1_fp_6k1_dyn"
+        "DyNsa.GenSlc_b1_s1_fp_6k1"
 
 )
 

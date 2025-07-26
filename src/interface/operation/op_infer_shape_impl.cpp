@@ -452,6 +452,66 @@ void AssembleInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& 
 }
 REGISTER_INFER_SHAPE_FUNC(OP_ASSEMBLE, Opcode::OP_ASSEMBLE, AssembleInferFunc);
 
+const std::string TOPK_AXIS = OP_ATTR_PREFIX + "axis";
+const std::string TOPK_ORDER = OP_ATTR_PREFIX + "order";
+const std::string TOPK_KVALUE = OP_ATTR_PREFIX + "kvalue";
+const std::string EXTRACT_MASKMODE = OP_ATTR_PREFIX + "makeMode";
+constexpr int32_t blockSize = 32;
+constexpr int32_t kFactorSize = 4;
+constexpr int32_t kBlockFpNum = 8;
+
+// m,n -> m,4*n align32
+void BitSortFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
+    std::vector<std::vector<SymbolicScalar>> inputValidShapes;
+    for (auto inputTensor : op->GetIOperands()) {
+        inputValidShapes.push_back(inputTensor->GetDynValidShape());
+    }
+    if (inputValidShapes.empty()) {
+        return;
+    }
+    std::vector<SymbolicScalar> res(inputValidShapes[0]);
+    auto topk_axis = op->GetIntAttribute(TOPK_AXIS);
+    res[topk_axis] = (res[topk_axis] + blockSize - 1) / blockSize * blockSize;
+    res[topk_axis] = res[topk_axis] * kFactorSize; // todo topk_axis -1  what happen?
+    outValidShapes.push_back(res);
+}
+
+REGISTER_INFER_SHAPE_FUNC(OP_BITSORT, Opcode::OP_BITSORT, BitSortFunc);
+
+// m,4 *n align32byte -> m, 2 * k align8
+void MrgSortFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
+    std::vector<std::vector<SymbolicScalar>> inputValidShapes;
+    for (auto inputTensor : op->GetIOperands()) {
+        inputValidShapes.push_back(inputTensor->GetDynValidShape());
+    }
+    if (inputValidShapes.empty()) {
+        return;
+    }
+    std::vector<SymbolicScalar> res(inputValidShapes[0]);
+    auto topk_axis = op->GetIntAttribute(TOPK_AXIS);
+    auto topk_kvalue = op->GetIntAttribute(TOPK_KVALUE);
+    res[topk_axis] = (topk_kvalue + kBlockFpNum - 1) / kBlockFpNum * kBlockFpNum * NUM2;
+    outValidShapes.push_back(res);
+}
+
+REGISTER_INFER_SHAPE_FUNC(OP_MRGSORT, Opcode::OP_MRGSORT, MrgSortFunc);
+
+// m, 2 * k align8 -> m, k
+void ExtractFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
+    std::vector<std::vector<SymbolicScalar>> inputValidShapes;
+    for (auto inputTensor : op->GetIOperands()) {
+        inputValidShapes.push_back(inputTensor->GetDynValidShape());
+    }
+    if (inputValidShapes.empty()) {
+        return;
+    }
+    std::vector<SymbolicScalar> res(inputValidShapes[0]);
+    res.back() = op->GetIntAttribute(TOPK_KVALUE);
+    outValidShapes.push_back(res);
+}
+
+REGISTER_INFER_SHAPE_FUNC(OP_EXTRACT, Opcode::OP_EXTRACT, ExtractFunc);
+
 void VecDupInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &validShapes) {
     std::vector<SymbolicScalar> validShape;
     op->GetAttr(OP_ATTR_PREFIX + "validShape", validShape);

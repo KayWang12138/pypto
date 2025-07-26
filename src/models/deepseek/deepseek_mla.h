@@ -25,11 +25,16 @@
 namespace npu::tile_fwk {
 
 constexpr int SCATTER_UPADATE_DIM = -2;
+constexpr int NUM_1 = 1;
 constexpr int NUM_2 = 2;
+constexpr int NUM_3 = 3;
 constexpr int NUM_4 = 4;
 constexpr int NUM_8 = 8;
 constexpr int NUM_16 = 16;
+constexpr int NUM_20 = 20;
+constexpr int NUM_24 = 24;
 constexpr int NUM_32 = 32;
+constexpr int NUM_48 = 48;
 constexpr int NUM_64 = 64;
 constexpr int NUM_128 = 128;
 constexpr int NUM_256 = 256;
@@ -39,6 +44,8 @@ constexpr int NUM_1024 = 1024;
 constexpr int NUM_1536 = 1536;
 constexpr int NUM_1792 = 1792;
 constexpr int NUM_4096 = 4096;
+constexpr int NUM_6144 = 6144;
+constexpr int NUM_8192 = 8192;
 constexpr int NUM_7168 = 7168;
 constexpr float F_1 = 1.0;
 constexpr float F_0 = 0.0;
