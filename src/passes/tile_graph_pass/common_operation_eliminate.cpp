@@ -18,8 +18,6 @@
 #include "interface/tensor/logical_tensor.h"
 #include "passes/tile_graph_pass/dead_operation_eliminate.h"
 
-using namespace npu::tile_fwk;
-
 namespace npu::tile_fwk {
 Status CommonOperationEliminate::RunOnFunction(Function &function)
 {
@@ -85,18 +83,13 @@ Status CommonOperationEliminate::PostCheck(Function &function)
 
 Operation *CommonOperationEliminate::OperationExist(Operation *operation)
 {
-    static std::set<Opcode> l0CopyInOps = {Opcode::OP_L1_TO_L0_BT,
-                                           Opcode::OP_L1_TO_L0A,
-                                           Opcode::OP_L1_TO_L0B,
-                                           Opcode::OP_BT_COPY_IN,
-                                           Opcode::OP_FIX_COPY_IN,
-                                           Opcode::OP_FIX_COPY_IN_QUANT_PRE,
-                                           Opcode::OP_FIX_COPY_IN_RELU_PRE,
-                                           Opcode::OP_FIX_COPY_IN_RELU_POST,
-                                           Opcode::OP_FIX_COPY_IN_QUANT_POST,
-                                           Opcode::OP_FIX_COPY_IN_ELT_ANTIQ,
-                                           Opcode::OP_FIX_COPY_IN_MTE2_ANTIQ};
-    if (l0CopyInOps.count(operation->GetOpcode()) != 0U) {
+    auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(operation->GetOpcode());
+    auto &outputsMemType = OpcodeManager::Inst().GetOutputsMemType(operation->GetOpcode());
+    OpCalcType opCalcType = OpcodeManager::Inst().GetOpCalcType(operation->GetOpcode());
+    bool inputCheck = inputsMemType.size() == 1 && inputsMemType[0] == MemoryType::MEM_L1;
+    bool calcTypeCheck = opCalcType == OpCalcType::MOVE_LOCAL || opCalcType == OpCalcType::MOVE_IN;
+    bool outputCheck = outputsMemType.size() == 1 && outputsMemType[0] != MemoryType::MEM_L1;
+    if (inputCheck && calcTypeCheck && outputCheck) { // copy from L1 to L0
         return nullptr;
     }
     if (operation->GetOpcode() == Opcode::OP_VIEW) {

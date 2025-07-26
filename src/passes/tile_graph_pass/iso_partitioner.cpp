@@ -388,7 +388,7 @@ inline bool MulAccCombine(const std::shared_ptr<OperationGraphInfo> operationInf
         return false;
     }
     // MulAcc需要与其输入mul绑定
-    if (opList[i]->GetOpcode() == Opcode::OP_A_MULACC_B || opList[i]->GetOpcode() == Opcode::OP_A_MULACC_BT) {
+    if (OpcodeManager::Inst().GetOpCalcType(opList[i]->GetOpcode()) == OpCalcType::MATMUL) {
         for (auto inOp : operationInfo->inGraph_[i]) {
             if (OpcodeManager::Inst().GetOpCalcType(opList[inOp]->GetOpcode()) == OpCalcType::MATMUL) {
                 mergePair.emplace_back(i, inOp);
@@ -704,7 +704,7 @@ std::vector<std::pair<int32_t, int32_t>> IsoPartitioner::GetReduceNodeMergePair(
     std::vector<Operation*> &opList = operationInfo_->opList_;
     std::vector<std::pair<int32_t, int32_t>> mergePair;
     for (size_t i = 0; i < opList.size(); i++) {
-        if (opList[i]->GetOpcode() == Opcode::OP_A_MULACC_B || opList[i]->GetOpcode() == Opcode::OP_A_MULACC_BT) {
+        if (OpcodeManager::Inst().GetOpCalcType(opList[i]->GetOpcode()) == OpCalcType::MATMUL) {
             for (auto inOp : operationInfo_->inGraph_[i]) {
                 if (OpcodeManager::Inst().GetOpCalcType(opList[inOp]->GetOpcode()) == OpCalcType::MATMUL) {
                     mergePair.emplace_back(i, inOp);
@@ -879,7 +879,6 @@ Status IsoPartitioner::BuildIsomorphismGroups()
             zeroInQueue.push_front(i);
         }
     }
-
     currentNodeSet.clear();
     while (zeroInQueue.size() > 0) {
         int32_t currIdx = zeroInQueue[0];
@@ -888,11 +887,9 @@ Status IsoPartitioner::BuildIsomorphismGroups()
         std::vector<int32_t> &expandCandidate = superNodeInfo_->hash2NodeMap_[hs];
         bool isLegalStart = true;
         for (size_t i = 0; i < expandCandidate.size(); i++) {
-            if (idxInLinkNum[expandCandidate[i]] != 0) {
+            if (idxInLinkNum[expandCandidate[i]] != 0 || currentNodeSet.count(expandCandidate[i]) > 0) {
                 isLegalStart = false;
-            }
-            if (currentNodeSet.count(expandCandidate[i]) > 0) {
-                isLegalStart = false;
+                break;
             }
         }
         if (!isLegalStart) {
