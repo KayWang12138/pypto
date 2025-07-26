@@ -253,7 +253,7 @@ TILEOP void RemoteGather(
 }
 
 template <typename T, bool needWaitFlag = false>
-TILEOP void RemoteReduce(__gm__ T *out, __gm__ T *in, __ubuf__ T *tmp, __ubuf__ int32_t *flag, 
+TILEOP void RemoteReduce(__gm__ T *out, __ubuf__ T *tmp, __gm__ T *in, __ubuf__ int32_t *flag, 
     __ubuf__ int32_t *tilingData, __gm__ int64_t *hcclContext)
 {
     RemoteGroupRecv<T, true, needWaitFlag>(out, tmp, flag, tilingData, hcclContext);

@@ -54,7 +54,7 @@ void RedeceByRankView(
 
     // remoteTmp is used as data transfer station, dummyOut is control edge between local reduce and remote reduce
     auto remoteTmp = std::make_shared<LogicalTensor>(args.function, inTile->Datatype(), inTile->shape);
-    OpArgs<TilingInfo> opArgs = {"REMOTE_REDUCE", {dummyOut, remoteTmp, flagTensor}, {outTile}, args.tilingTensor,
+    OpArgs<TilingInfo> opArgs = {"REMOTE_REDUCE", {dummyOut, flagTensor}, {outTile, remoteTmp}, args.tilingTensor,
         args.tilingSymbol, std::make_optional(args.tilingInfo), std::nullopt};
     auto &op = AddOperation(args.function, opArgs);
     if (!aicpuWaitFlagEnable) {

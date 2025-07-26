@@ -496,7 +496,6 @@ void PreGraphPass::ProcessSameInOutOp(Function &function) const {
             for (auto &input : op.GetIOperands()) {
                 for (auto &producer : input->GetProducers()) {
                     if (producer->GetOpcode() == prod) {
-                        ASSERT(op.GetOOperands().size() == 1) << "output tensor size is not 1";
                         auto output = op.GetOOperands().front();
                         ASSERT(input->shape == output->shape)
                             << "op input output tensor shape is not equal, cannot reuse buffer";
