@@ -54,8 +54,8 @@ void ExpandTensorTiles(const std::function<void(T &)> &dealFunc, T &args)
     }
 }
 
-void TileProcess(const std::function<void(DispatchTileArgs<TilingInfo> &)> &dealFunc,
-    DispatchTileArgs<TilingInfo> &args)
+void TileProcess(const std::function<void(DispatchTileArgs<TilingInfo>&, const std::vector<int32_t>&)>& dealFunc,
+    DispatchTileArgs<TilingInfo>& args, const std::vector<int32_t>& bufferShape)
 {
     const auto &rankTileInfo = args.groupInfo.rank.value();
     const int32_t tileRankShape = rankTileInfo[DIST_HEAD_SHAPE];
@@ -67,28 +67,29 @@ void TileProcess(const std::function<void(DispatchTileArgs<TilingInfo> &)> &deal
     tilingInfo.rankOffset = 0; // rankOffset 初始化
     tilingInfo.groupIndex = args.groupInfo.groupIndex;
     tilingInfo.totalTileNum = GetTotalTileNum(rankTileInfo); // tileOp 个数
-    tilingInfo.shareRankCnt = Distributed::SHARED_EXPERT_NUM; // 共享专家卡数，moe 卡数可以计算出来
+    tilingInfo.shareRankCnt = SHARED_EXPERT_NUM; // 共享专家卡数，moe 卡数可以计算出来
 
     while (tilingInfo.tileIndex < tilingInfo.totalTileNum) {
         tilingInfo.rankShape = (tilingInfo.tileIndex < tileRankCnt) ? tileRankShape : tailRankShape;
-        dealFunc(args);
+        dealFunc(args, bufferShape);
         tilingInfo.rankOffset += tilingInfo.rankShape;
         tilingInfo.tileIndex++;
     }
 }
 
-void FFNSchedOpCallback(DispatchTileArgs<TilingInfo> &args)
+void FFNSchedOpCallback(DispatchTileArgs<TilingInfo>& args, const std::vector<int32_t>& bufferShape)
 {
     std::shared_ptr<LogicalTensor> syncTensor = args.in[DIST_INDEX_ZERO];
     std::shared_ptr<LogicalTensor> tilingTensor = args.in[DIST_INDEX_ONE];
-    std::shared_ptr<LogicalTensor> flagTensor = args.in[DIST_INDEX_TWO];
     std::shared_ptr<LogicalTensor> recvTokenCntOut = args.out[DIST_INDEX_ZERO];
 
     auto &tilingInfo = args.tilingInfo;
     tilingInfo.rowShape = args.tensorTileInfo[0][0]; // 没切 x，所以 rowTile colTile 就是 x 的 shape
     tilingInfo.colShape = args.tensorTileInfo[1][0];
 
-    OpArgs<TilingInfo> opArgs = {"TILE_FFN_SCHED", {syncTensor, flagTensor}, {recvTokenCntOut},
+    auto bufferTensor = std::make_shared<LogicalTensor>(args.function, DataType::DT_INT32, bufferShape);
+
+    OpArgs<TilingInfo> opArgs = {"TILE_FFN_SCHED", {syncTensor}, {recvTokenCntOut, bufferTensor},
         tilingTensor, args.tilingSymbol, std::make_optional(args.tilingInfo), std::nullopt};
     auto &op = AddOperation(args.function, opArgs);
     if (!IsRoutingExpert(args.groupInfo.rankId.value())) { // share rank 传入模板参数 true
@@ -96,11 +97,10 @@ void FFNSchedOpCallback(DispatchTileArgs<TilingInfo> &args)
     }
 }
 
-void FFNBatchingOpCallback(DispatchTileArgs<TilingInfo> &args)
+void FFNBatchingOpCallback(DispatchTileArgs<TilingInfo> &args, const std::vector<int32_t>& bufferShape)
 {
     std::shared_ptr<LogicalTensor> recvTokenCntOut = args.in[DIST_INDEX_ZERO];
     std::shared_ptr<LogicalTensor> tilingTensor = args.in[DIST_INDEX_ONE];
-    std::shared_ptr<LogicalTensor> flagTensor = args.in[DIST_INDEX_TWO];
     std::shared_ptr<LogicalTensor> expandX = args.out[DIST_INDEX_ZERO];
     std::shared_ptr<LogicalTensor> validCnt = args.out[DIST_INDEX_ONE];
 
@@ -108,7 +108,9 @@ void FFNBatchingOpCallback(DispatchTileArgs<TilingInfo> &args)
     tilingInfo.rowShape = args.tensorTileInfo[0][0];
     tilingInfo.colShape = args.tensorTileInfo[1][0];
 
-    OpArgs<TilingInfo> opArgs = {"TILE_FFN_BATCHING", {recvTokenCntOut, flagTensor}, {expandX, validCnt},
+    auto bufferTensor = std::make_shared<LogicalTensor>(args.function, DataType::DT_INT32, bufferShape);
+
+    OpArgs<TilingInfo> opArgs = {"TILE_FFN_BATCHING", {recvTokenCntOut}, {expandX, validCnt, bufferTensor},
         tilingTensor, args.tilingSymbol, std::make_optional(args.tilingInfo), std::nullopt};
     auto &op = AddOperation(args.function, opArgs);
     if (!IsRoutingExpert(args.groupInfo.rankId.value())) { // share rank 传入模板参数 true
@@ -133,7 +135,9 @@ void TiledDispatchFFNBatching(Function &function, const TileShape &tileShape,
         args.tensorTileInfo[0][DIST_HEAD_COUNT], args.tensorTileInfo[0][DIST_TAIL_SHAPE],
         args.tensorTileInfo[1][DIST_HEAD_SHAPE], args.tensorTileInfo[1][DIST_HEAD_COUNT],
         args.tensorTileInfo[1][DIST_TAIL_SHAPE]);
-    TileProcess(FFNBatchingOpCallback, args);
+    std::vector<int32_t> bufferShape;
+    op.GetAttr("DISPATCH_FFN_BUFFER_SHAPE", bufferShape);
+    TileProcess(FFNBatchingOpCallback, args, bufferShape);
 }
  
  
@@ -154,14 +158,16 @@ void TiledDispatchFFNSched(Function &function, const TileShape &tileShape,
         args.tensorTileInfo[0][DIST_HEAD_COUNT], args.tensorTileInfo[0][DIST_TAIL_SHAPE],
         args.tensorTileInfo[1][DIST_HEAD_SHAPE], args.tensorTileInfo[1][DIST_HEAD_COUNT],
         args.tensorTileInfo[1][DIST_TAIL_SHAPE]);
-    TileProcess(FFNSchedOpCallback, args);
+    std::vector<int32_t> bufferShape;
+    op.GetAttr("DISPATCH_FFN_BUFFER_SHAPE", bufferShape);
+    TileProcess(FFNSchedOpCallback, args, bufferShape);
 }
 
-void TensorGraphAddOp(const std::string &opName, const std::vector<std::shared_ptr<LogicalTensor>> &iOperands,
+Operation& TensorGraphAddOp(const std::string &opName, const std::vector<std::shared_ptr<LogicalTensor>> &iOperands,
     const std::vector<std::shared_ptr<LogicalTensor>> &oOperands, const char *group)
 {
-    auto &function = *Program::GetInstance().GetCurrentFunction();
-    auto &oper = function.AddOperation(opName, iOperands, oOperands);
+    auto& function = *Program::GetInstance().GetCurrentFunction();
+    auto& oper = function.AddOperation(opName, iOperands, oOperands);
     std::shared_ptr<LogicalTensor> tilingTensor = iOperands[1];
 
     int32_t groupIndex = static_cast<int32_t>(
@@ -171,44 +177,31 @@ void TensorGraphAddOp(const std::string &opName, const std::vector<std::shared_p
     CheckAndGetGroupInfo(groupIndex, tileShape, groupInfo);
     oper.SetAttr(OpAttributeKey::commGroupInfo, groupInfo);
     oper.SetAttr("tiling_tensor_symbol", tilingTensor->Symbol());
+    return oper;
 }
 
 void DispatchFFNBatching(std::vector<std::shared_ptr<LogicalTensor>> &iOperands,
     std::vector<std::shared_ptr<LogicalTensor>> &oOperands, const char *group, const Tensor &tokenTensor)
 {
-    int tempSize1 = (Distributed::AIV_NUM * 32 + 255) / 256 * 256 +
-                     256 +
-                    (Distributed::AIV_NUM * 4 + 31) / 32 * 32;
+    auto &oper = TensorGraphAddOp("FFN_BATCHING", iOperands, oOperands, group);
+    int tempSize1 = (AIV_NUM * 32 + 255) / 256 * 256 + 256 + (AIV_NUM * 4 + 31) / 32 * 32;
     int tempSize2 = tokenTensor->shape[1] * BytesOf(tokenTensor.GetDataType());
     int tempBufSize = (tempSize1 < tempSize2) ? tempSize2 : tempSize1;
-
-    std::vector<int> flagShape {tempBufSize / 8, 8}; // 肯定能除尽
-    // std::vector<int> flagShape {Distributed::TOTAL_EXPERT_NUM, 128}; // 需要一个计算公式
-    auto &function = *Program::GetInstance().GetCurrentFunction();
-    auto flagTensor = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, flagShape);
-
-    iOperands.push_back(flagTensor);
-    TensorGraphAddOp("FFN_BATCHING", iOperands, oOperands, group);
+    const std::vector<int32_t> bufferShape{tempBufSize / 8, 8}; // 肯定能除尽
+    oper.SetAttr("DISPATCH_FFN_BUFFER_SHAPE", bufferShape);
 }
 
 void DispatchFFNSched(std::vector<std::shared_ptr<LogicalTensor>> &iOperands,
     std::vector<std::shared_ptr<LogicalTensor>> &oOperands, const char *group)
 {
-    uint32_t moeOpProcessRankSize = Distributed::TOTAL_EXPERT_NUM / Distributed::AIV_NUM;
-    uint32_t shareOpProcessRankSize = Distributed::ROUTING_EXPERT_NUM / Distributed::SHARED_EXPERT_NUM;
-    uint32_t maxProcessRankSize = (moeOpProcessRankSize < shareOpProcessRankSize) ?
+    auto &oper = TensorGraphAddOp("FFN_SCHED", iOperands, oOperands, group);
+    int32_t moeOpProcessRankSize = TOTAL_EXPERT_NUM / AIV_NUM;
+    int32_t shareOpProcessRankSize = ROUTING_EXPERT_NUM / SHARED_EXPERT_NUM;
+    int32_t maxProcessRankSize = (moeOpProcessRankSize < shareOpProcessRankSize) ?
         shareOpProcessRankSize : moeOpProcessRankSize;
-    int tempBufSize = maxProcessRankSize * 32 +
-                      32 +
-                      (maxProcessRankSize * 4 + 31) / 32 * 32;
-
-    std::vector<int> flagShape {tempBufSize / 8, 8}; // 肯定能除尽
-    // std::vector<int> flagShape {Distributed::TOTAL_EXPERT_NUM, 128}; // 需要一个计算公式
-    auto &function = *Program::GetInstance().GetCurrentFunction();
-    auto flagTensor = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, flagShape);
-
-    iOperands.push_back(flagTensor);
-    TensorGraphAddOp("FFN_SCHED", iOperands, oOperands, group);
+    int tempBufSize = maxProcessRankSize * 32 + 32 + (maxProcessRankSize * 4 + 31) / 32 * 32;
+    const std::vector<int32_t> bufferShape{tempBufSize / 8, 8}; // 肯定能除尽
+    oper.SetAttr("DISPATCH_FFN_BUFFER_SHAPE", bufferShape);
 }
 
 std::vector<int32_t> GetCommBufferSize(const std::shared_ptr<LogicalTensor> &tokenTensor)
@@ -233,7 +226,7 @@ void DealSendToRoutingExpertTile(DispatchTileArgs<DispatchTilingInfo> &args)
     auto expertBuffer = std::make_shared<LogicalTensor>(args.function, tokenExpertTable->Datatype(),
         std::vector<int32_t>{1, tokenExpertTable->shape[0] * tokenExpertTable->shape[1] * 2});
     OpArgs<DispatchTilingInfo> opArgs = {"TILE_SEND_TO_ROUTING_EXPERT",
-        {tokenTensor, tokenExpertTable, tokenBuffer, expertBufferUb, expertBuffer}, {syncTensor},
+        {tokenTensor, tokenExpertTable}, {syncTensor, tokenBuffer, expertBufferUb, expertBuffer},
         tilingTensor, args.tilingSymbol, std::make_optional(tilingInfo), std::nullopt};
     auto& op = AddOperation(args.function, opArgs);
     std::string extraParam = std::to_string(tokenTensor->shape[0]) + ", " +
@@ -266,7 +259,7 @@ void DealSendToSharedExpertTile(DispatchTileArgs<DispatchTilingInfo> &args)
     auto &tilingInfo = args.tilingInfo;
     auto tokenBuffer = std::make_shared<LogicalTensor>(args.function, tokenTensor->Datatype(),
         GetCommBufferSize(tokenTensor));
-    OpArgs<DispatchTilingInfo> opArgs = {"TILE_SEND_TO_SHARED_EXPERT", {tokenTensor, tokenBuffer}, {syncTensor},
+    OpArgs<DispatchTilingInfo> opArgs = {"TILE_SEND_TO_SHARED_EXPERT", {tokenTensor}, {syncTensor, tokenBuffer},
         tilingTensor, args.tilingSymbol, std::make_optional(tilingInfo), std::nullopt};
     auto &op = AddOperation(args.function, opArgs);
     std::string extraParam = std::to_string(tokenTensor->shape[0]) + ", " +
@@ -282,7 +275,7 @@ void DealCopyToLocalExpertTile(DispatchTileArgs<DispatchTilingInfo> &args)
     auto &tilingInfo = args.tilingInfo;
     auto tokenBuffer = std::make_shared<LogicalTensor>(args.function, tokenTensor->Datatype(),
         GetCommBufferSize(tokenTensor));
-    OpArgs<DispatchTilingInfo> opArgs = {"TILE_COPY_TO_LOCAL_EXPERT", {tokenTensor, tokenBuffer}, {expandX},
+    OpArgs<DispatchTilingInfo> opArgs = {"TILE_COPY_TO_LOCAL_EXPERT", {tokenTensor}, {expandX, tokenBuffer},
         tilingTensor, args.tilingSymbol, std::make_optional(tilingInfo), std::nullopt};
     auto &op = AddOperation(args.function, opArgs);
     std::string extraParam = std::to_string(tokenTensor->shape[0]) + ", " +
@@ -334,7 +327,7 @@ void DealDispatchSetFlagTile(DispatchTileArgs<DispatchTilingInfo> &args)
     auto expertBuffer = std::make_shared<LogicalTensor>(args.function, tokenExpertTable->Datatype(),
         std::vector<int32_t>{1, tokenExpertTable->shape[0] * tokenExpertTable->shape[1] * 2});
     OpArgs<DispatchTilingInfo> opArgs = {"TILE_DISPATCH_SET_FLAG",
-        {syncTensor, tokenExpertTable, statusTensor, expertBufferUb, expertBuffer}, {dummy},
+        {syncTensor, tokenExpertTable}, {dummy, statusTensor, expertBufferUb, expertBuffer},
         tilingTensor, args.tilingSymbol, std::make_optional(args.tilingInfo), std::nullopt};
     auto& op = AddOperation(args.function, opArgs);
     std::string extraParam = std::to_string(tokenExpertTable->shape[0]) + ", " +
@@ -400,7 +393,7 @@ Tensor DispatchSetFlag(const Tensor &tokenExpertTable, const Tensor &syncTensor,
     const TileShape &tileShape = Program::GetInstance().GetTileShape();
     CommGroupInfo groupInfo(group, tileShape);
     DistTensorTilingInfo tileInfo(tileShape, 1);
-    ASSERT(tileInfo.Check({Distributed::TOTAL_EXPERT_NUM}) && groupInfo.CheckAndUpdate(Distributed::TOTAL_EXPERT_NUM));
+    ASSERT(tileInfo.Check({TOTAL_EXPERT_NUM}) && groupInfo.CheckAndUpdate(TOTAL_EXPERT_NUM));
     oper.SetAttr(OpAttributeKey::commGroupInfo, groupInfo);
     oper.SetAttr("DistTensorTilingInfo", tileInfo);
     return dummyTensor;
@@ -420,47 +413,45 @@ void CopyToLocalExpert(const Tensor &tokenTensor, const Tensor &tilingTensor, co
 
 Tensor MoeDispatch(const Tensor &tokenTensor, const Tensor &tokenExpertTable, Tensor &validCnt, const char *group)
 {
-    OperatorChecker checker;
-
     auto &function = *Program::GetInstance().GetCurrentFunction();
     std::vector<int32_t> tilingShape = {1, 8192};
     const std::string tilingSymbol = function.GetDistTilingManager()->CreateTilingStorage("dispatch", tilingShape[1]);
     Tensor tilingTensor(DataType::DT_INT32, tilingShape, tilingSymbol);
 
     const int32_t tableSize = tokenExpertTable.GetShape()[0] * tokenExpertTable.GetShape()[1];
-    Tensor expandX(tokenTensor.GetDataType(), {(Distributed::TOTAL_EXPERT_NUM) * tokenTensor.GetShape()[0],
+    Tensor expandX(tokenTensor.GetDataType(), {(TOTAL_EXPERT_NUM) * tokenTensor.GetShape()[0],
         tokenTensor.GetShape()[1]}, "expandX");
     Tensor syncTensor(DataType::DT_INT32, {1, 1}, "syncTensor");
     Program::GetInstance().GetTileShape().SetDistTileShapes({1, tableSize, 0});
-    Distributed::SendToRoutingExpert(tokenTensor, tokenExpertTable, tilingTensor, syncTensor, group);
+    SendToRoutingExpert(tokenTensor, tokenExpertTable, tilingTensor, syncTensor, group);
 
     // 发送的专家号是固定的，通过本卡的rankId确定；这里对token的M轴进行切分，为了方便在Rank上操作
     Program::GetInstance().GetTileShape().SetDistTileShapes({1, tokenTensor.GetShape()[0], 0});
     if (IsRoutingExpert(Program::GetInstance().GetTileShape().GetDistRankId())) {
-        Distributed::SendToSharedExpert(tokenTensor, tilingTensor, syncTensor, group);
+        SendToSharedExpert(tokenTensor, tilingTensor, syncTensor, group);
     } else {
-        Distributed::CopyToLocalExpert(tokenTensor, tilingTensor, expandX);
+        CopyToLocalExpert(tokenTensor, tilingTensor, expandX);
     }
 
-    Program::GetInstance().GetTileShape().SetDistTileShapes({1, Distributed::TOTAL_EXPERT_NUM, 0});
-    auto dummy = Distributed::DispatchSetFlag(tokenExpertTable, syncTensor, tilingTensor,  group);
+    Program::GetInstance().GetTileShape().SetDistTileShapes({1, TOTAL_EXPERT_NUM, 0});
+    auto dummy = DispatchSetFlag(tokenExpertTable, syncTensor, tilingTensor,  group);
 
     // 48 * 48 * 512B
-    Tensor recvTokenCntOut(DataType::DT_INT32, {Distributed::AIV_NUM * Distributed::AIV_NUM, 128},
+    Tensor recvTokenCntOut(DataType::DT_INT32, {AIV_NUM * AIV_NUM, 128},
         "recvTokenCntOut");
  
     Program::GetInstance().GetTileShape().SetDistTileShapes(
         {tokenTensor->shape[0], 1, 0},
         {tokenTensor->shape[1], 1, 0}, // 不切 x
-        {Distributed::TOTAL_EXPERT_NUM / Distributed::AIV_NUM, Distributed::AIV_NUM, 0}); // 暂不处理不整除的场景
+        {TOTAL_EXPERT_NUM / AIV_NUM, AIV_NUM, 0}); // 暂不处理不整除的场景
  
     std::vector<std::shared_ptr<LogicalTensor>> schedInOperands {dummy.GetStorage(), tilingTensor.GetStorage()};
     std::vector<std::shared_ptr<LogicalTensor>> schedOutOperands {recvTokenCntOut.GetStorage()};
-    Distributed::DispatchFFNSched(schedInOperands, schedOutOperands, group);
+    DispatchFFNSched(schedInOperands, schedOutOperands, group);
  
     std::vector<std::shared_ptr<LogicalTensor>> iOperands {recvTokenCntOut.GetStorage(), tilingTensor.GetStorage()};
     std::vector<std::shared_ptr<LogicalTensor>> oOperands {expandX.GetStorage(), validCnt.GetStorage()};
-    Distributed::DispatchFFNBatching(iOperands, oOperands, group, tokenTensor);
+    DispatchFFNBatching(iOperands, oOperands, group, tokenTensor);
  
     return expandX;
 }

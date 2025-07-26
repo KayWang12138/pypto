@@ -33,7 +33,7 @@ void WriteRemoteProcess(const TileArgs &args)
         {args.tilingInfo.rowOffset, args.tilingInfo.colOffset});
     std::vector<int32_t> flagShape = {1, FLAG_TENSOR_SIZE}; // 256B
     auto flagTensor = std::make_shared<LogicalTensor>(args.function, DT_INT32, flagShape);
-    OpArgs<TilingInfo> opArgs = {"WRITE_REMOTE", {inTile, flagTensor}, {}, args.tilingTensor, args.tilingSymbol,
+    OpArgs<TilingInfo> opArgs = {"WRITE_REMOTE", {inTile}, {flagTensor}, args.tilingTensor, args.tilingSymbol,
         std::make_optional(args.tilingInfo), std::nullopt};
     (void)AddOperation(args.function, opArgs);
 }
@@ -42,23 +42,24 @@ void WaitFlagAndRemoteGatherProcess(const TileArgs &args)
 {
     std::vector<int> shape = {args.tilingInfo.rowShape, args.tilingInfo.colShape};
     std::vector<int> offset = {args.tilingInfo.rowOffset, args.tilingInfo.colOffset};
-    auto inTile = args.in->View(args.function, shape, offset);
     auto outTile = args.out->View(args.function, shape, offset);
 
     const bool aicpuWaitFlagEnable = ConfigManager::Instance().GetDistConfig(KEY_AICPU_WAIT_FLAG_ENABLE, true);
     std::vector<int> flagShape = {1, FLAG_TENSOR_SIZE}; // 256B
+    auto inTensor = std::make_shared<LogicalTensor>(args.function, args.in->Datatype(), shape);
     auto flagTensor = std::make_shared<LogicalTensor>(args.function, DataType::DT_INT32, flagShape);
 
     if (aicpuWaitFlagEnable) {
         std::vector<int> opAttr = {args.tilingInfo.tileIndex, args.tilingInfo.groupIndex, args.tilingInfo.rankShape,
             args.tilingInfo.rankOffset};
+        auto inTile = args.in->View(args.function, shape, offset);
         OpArgs<TilingInfo> opArgs = {"COMM_WAIT_FLAG", {inTile}, {flagTensor}, args.tilingTensor, args.tilingSymbol,
             std::nullopt, std::make_optional(opAttr)};
         AddOperation(args.function, opArgs);
     }
 
-    // flagTensor is control edge between remote gather and comm_wait_flag, inTile is used as data transfer station
-    OpArgs<TilingInfo> opArgs = {"REMOTE_GATHER", {inTile, flagTensor}, {outTile}, args.tilingTensor, args.tilingSymbol,
+    // flagTensor is control edge between remote gather and comm_wait_flag
+    OpArgs<TilingInfo> opArgs = {"REMOTE_GATHER", {flagTensor}, {outTile, inTensor}, args.tilingTensor, args.tilingSymbol,
         std::make_optional(args.tilingInfo), std::nullopt};
     auto &op = AddOperation(args.function, opArgs);
     if (!aicpuWaitFlagEnable) {

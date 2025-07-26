@@ -66,7 +66,7 @@ void DealTileFFN2Attn(FFN2AttnTileArgs &args)
     auto flag = std::make_shared<LogicalTensor>(args.function, DataType::DT_INT32, flagShape);
 
     // CombineInfo不切tile
-    OpArgs<TilingInfo> opArgs = {"MOE_FFN_TO_ATTN", {inTile, combineInfo, flag}, {}, tilingTensor, args.tilingSymbol,
+    OpArgs<TilingInfo> opArgs = {"MOE_FFN_TO_ATTN", {inTile, combineInfo}, {flag}, tilingTensor, args.tilingSymbol,
         std::make_optional(args.tilingInfo), std::nullopt};
     auto& op = AddOperation(args.function, opArgs);
     std::string extraParam = std::to_string(args.topk);
@@ -94,7 +94,7 @@ void DealTileAttnCombine(AttnCombineTileArgs &args)
     // 由于UBCopyIn 拷贝 [8, 4]这种shape有问题，临时做法，传入scale的GM地址，和申请一个UB来拷贝scale
     auto scaleFlatten = std::make_shared<LogicalTensor>(args.function, DataType::DT_FP32, scaleFlattenShape);
 
-    OpArgs<TilingInfo> opArgs = {"MOE_ATTN_COMBINE", {scale, scaleFlatten, mulFP32, sumFP32}, {outTile}, tilingTensor,
+    OpArgs<TilingInfo> opArgs = {"MOE_ATTN_COMBINE", {scale}, {outTile, scaleFlatten, mulFP32, sumFP32}, tilingTensor,
         args.tilingSymbol, std::make_optional(args.tilingInfo), std::nullopt};
     auto& op = AddOperation(args.function, opArgs);
     std::string extraParam = std::to_string(topk) + ", " + std::to_string(bs); // 临时，由于在kernel进行copy，需要知道多一个bs的模板参数

@@ -24,6 +24,8 @@ std::string CodeGenOpCloudNPU::GetTemplateDType() const {
         return DataType2CCEStr(operandDtype[0]);
     } else if (tileOpName.find("AttnCombine") != std::string::npos) {
         return DataType2CCEStr(operandDtype[0]);
+    } else if (tileOpName.find("DispatchSetFlag") != std::string::npos) {
+        return DataType2CCEStr(operandDtype[4]); // 从 operand 4 获取 T
     }
     return DataType2CCEStr(operandDtype[1]);
 }

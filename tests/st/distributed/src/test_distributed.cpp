@@ -30,11 +30,10 @@ public:
 
     void SetUp() override
     {
-        // 使能 Aihac 后端
-        oriEnableAihacBackend = config::GetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
         config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, false);
-        // Reset Program
+        // CodeGen 多线程有问题，暂时关闭
+        config::SetCodeGenConfig(KEY_PARALLEL_THREAD_NUM, 1);
         Program::GetInstance().Reset();
         Distributed::TestFrameworkInit(testParam, hcomTestParam);
     }
@@ -42,7 +41,6 @@ public:
     void TearDown() override
     {
         DistributedTestDestroy();
-        config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);
         Distributed::TestFrameworkDestroy(timeout);
     }
 
@@ -63,7 +61,6 @@ protected:
         ASSERT(aclFinalize() == 0);
     }
 
-    bool oriEnableAihacBackend = false;
     Distributed::OpTestParam testParam;
     Distributed::HcomTestParam hcomTestParam;
     int32_t timeout = 10;

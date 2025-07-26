@@ -27,6 +27,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
+#include "interface/operation/opcode.h"
 #include "interface/operation/operation.h"
 #include "interface/configs/config_manager.h"
 #include "distributed_expand.h"
@@ -272,8 +273,6 @@ void CheckAndGetTileInfo(int rowTotal, int colTotal, const TileShape &tileShape,
 template <typename T = TilingInfo>
 Operation &AddOperation(Function& function, OpArgs<T> &opArgs)
 {
-    ASSERT(opArgs.iOperands.size() != 0);
-
     if (opArgs.tilingInfo.has_value() && (opArgs.tilingTensor != nullptr)) {
         auto tilingData = opArgs.tilingInfo.value().SerializeTo();
         int offset = function.GetDistTilingManager()->Save(opArgs.tilingSymbol, tilingData);
@@ -290,7 +289,7 @@ Operation &AddOperation(Function& function, OpArgs<T> &opArgs)
         oper.SetAttribute(OP_ATTR_PREFIX + "distributed", opArgs.attrArray.value());
     }
 
-    if (opArgs.oOperands.size() == 0) {
+    if (IsEmptyOut(oper.GetOpcode())) {
         oper.SetAttr(OpAttributeKey::dontTouch, true);
     }
 

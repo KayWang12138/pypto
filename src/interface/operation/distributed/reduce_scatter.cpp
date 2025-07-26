@@ -115,7 +115,7 @@ void DealTileBelongRemote(TileArgs &args)
         {args.tilingInfo.rowOffset, args.tilingInfo.colOffset});
     std::vector<int> flagShape = {1, FLAG_TENSOR_SIZE}; // 256 byte
     auto flagTensor = std::make_shared<LogicalTensor>(args.function, DataType::DT_INT32, flagShape);
-    OpArgs<TilingInfo> opArgs = {"WRITE_REMOTE", {inTile, flagTensor}, {}, args.tilingTensor, args.tilingSymbol,
+    OpArgs<TilingInfo> opArgs = {"WRITE_REMOTE", {inTile}, {flagTensor}, args.tilingTensor, args.tilingSymbol,
         std::make_optional(args.tilingInfo), std::nullopt};
     (void)AddOperation(args.function, opArgs);
 }

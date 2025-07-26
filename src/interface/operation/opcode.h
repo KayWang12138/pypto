@@ -427,6 +427,10 @@ inline bool IsAllocOpCode(Opcode opCode) {
     return (ALLOC_OPCODE.count(opCode) != 0);
 }
 
+inline bool IsEmptyOut(const Opcode opCode) {
+    return opCode == Opcode::OP_WRITE_REMOTE || opCode == Opcode::OP_MOE_FFN_TO_ATTN;
+}
+
 inline bool IsCopyIn(const Opcode opCode) {
     return opCode == Opcode::OP_COPY_IN || opCode == Opcode::OP_UB_COPY_IN || opCode == Opcode::OP_L1_COPY_IN;
 }
