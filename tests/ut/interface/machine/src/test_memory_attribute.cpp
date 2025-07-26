@@ -19,20 +19,6 @@
 #include "interface/operation/operation.h"
 #include "tilefwk/data_type.h"
 
-TEST(TestMemoryAttribute, MemorySizeLimitTest) {
-    npu::tile_fwk::Program::GetInstance().GetPlatformConfig().SetMemoryLimitList(static_cast<npu::tile_fwk::ModelID>(0));
-
-    EXPECT_EQ(npu::tile_fwk::Program::GetInstance().GetPlatformConfig().GetMemoryLimit(npu::tile_fwk::MEM_UB), npu::tile_fwk::KB(192));
-    EXPECT_EQ(npu::tile_fwk::Program::GetInstance().GetPlatformConfig().GetMemoryLimit(npu::tile_fwk::MEM_L0C), npu::tile_fwk::KB(128));
-
-    npu::tile_fwk::Program::GetInstance().GetPlatformConfig().SetMemoryLimitList(static_cast<npu::tile_fwk::ModelID>(1));
-
-    EXPECT_EQ(npu::tile_fwk::Program::GetInstance().GetPlatformConfig().GetMemoryLimit(npu::tile_fwk::MEM_UB), npu::tile_fwk::KB(192));
-    EXPECT_EQ(npu::tile_fwk::Program::GetInstance().GetPlatformConfig().GetMemoryLimit(npu::tile_fwk::MEM_L2), npu::tile_fwk::MB(192));
-
-    npu::tile_fwk::Program::GetInstance().GetConfig().Reset();
-}
-
 TEST(TestMemoryAttribute, MemorySizeTest) {
     std::vector<std::vector<int>> tshapes = {
         {   1,    1},

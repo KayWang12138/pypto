@@ -38,6 +38,7 @@
 namespace npu::tile_fwk {
 
 enum class TiFwkAllocatorStrategy { ALLOC_MINFIT, ALLOC_FAST };
+enum class ModelID { ASCEND_910B };
 
 // Standalone functions
 bool IsOverlap(const TileRange &a, const TileRange &b);

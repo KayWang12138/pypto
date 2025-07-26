@@ -639,7 +639,7 @@ void SubgraphToFunction::SetSemanticLabel(const std::vector<std::shared_ptr<Oper
 }
 
 bool SubgraphToFunction::IsCVSeparatePlatform() {
-    auto socVersion = Program::GetInstance().GetPlatformConfig().GetPlatform();
+    auto socVersion = config::GetDevicePlatform();
     if (socVersion == DPlatform::ASCEND_910B1 || socVersion == DPlatform::ASCEND_910B2 || socVersion == DPlatform::ASCEND_910B3 || socVersion == DPlatform::ASCEND_910B4) {
         return true;
     }

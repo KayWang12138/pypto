@@ -18,6 +18,8 @@
 
 #include <vector>
 #include "passes/pass_interface/pass.h"
+#include "tilefwk/data_type.h"
+
 namespace npu::tile_fwk {
 class GroupOperationsOp : public Pass {
 public:

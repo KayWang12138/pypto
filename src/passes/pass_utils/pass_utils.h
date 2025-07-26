@@ -19,6 +19,14 @@
 #include "interface/tensor/logical_tensor.h"
 
 namespace npu::tile_fwk {
+#define PRIOR_SCHEDULING // comment it to disable PriorScheduling pass
+
+#ifdef PRIOR_SCHEDULING
+using setType = std::conditional<true, std::unordered_set<int>, std::set<int>>::type;
+#else
+using setType = std::conditional<false, std::unordered_set<int>, std::set<int>>::type;
+#endif
+
 class FunctionUtils {
 public:
     static void AddControlEdge(Operation &outOperation, Operation &inOperation);

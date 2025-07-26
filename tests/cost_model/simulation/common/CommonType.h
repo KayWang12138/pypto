@@ -21,13 +21,22 @@
 #include <map>
 #include <set>
 #include <regex>
+#include <unordered_set>
 #include "CycleInfo.h"
 #include "CommonData.h"
 #include "tilefwk/data_type.h"
 #include "interface/utils/common.h"
 #include "interface/utils/log.h"
 #include "interface/utils/assert.h"
-#include "interface/configs/config_storage.h"
+
+
+#define PRIOR_SCHEDULING // comment it to disable PriorScheduling pass
+
+#ifdef PRIOR_SCHEDULING
+using setType = std::conditional<true, std::unordered_set<int>, std::set<int>>::type;
+#else
+using setType = std::conditional<false, std::unordered_set<int>, std::set<int>>::type;
+#endif
 
 namespace CostModel {
 enum class SimMode {

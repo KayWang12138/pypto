@@ -9,7 +9,6 @@
 
 set(_CaseFilterList
         # 框架相关用例
-        "TestMemoryAttribute.MemorySizeLimitTest"
         "TestMemoryAttribute.MemorySizeTest"
         #"TestIncastOverlap.AddSubExp_12_8"
         #"SerializationTest.TestAddSub"

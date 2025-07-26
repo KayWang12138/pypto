@@ -23,7 +23,6 @@
 #include "interface/utils/common.h"
 #include "interface/utils/log.h"
 #include "passes/pass_interface/pass_type.h"
-#include "platform_config.h"
 
 namespace npu::tile_fwk {
 using JsonExpcetion = nlohmann::json::exception;
@@ -86,6 +85,29 @@ const std::string KEY_AICPU_WAIT_FLAG_ENABLE = "AICPU_WAIT_FLAG_ENABLE";
 const std::string KEY_SUPPORT_DYNAMIC_UNALIGNED = "SUPPORT_DYNAMIC_UNALIGNED";
 const std::string KEY_PARALLEL_THREAD_NUM = "PARALLEL_THREAD_NUM";
 const std::string KEY_CODEGEN_BY_JSON = "CODEGEN_BY_JSON";
+
+enum class DPlatform {
+    ASCEND_910B1,
+    ASCEND_910B2,
+    ASCEND_910B3,
+    ASCEND_910B4,
+    UNKNOWN_DEVICE,
+};
+
+inline DPlatform StringToDpaltform(std::string platform) {
+    std::unordered_map<std::string, DPlatform> mappings = {
+        {"ASCEND_910B1", DPlatform::ASCEND_910B1},
+        {"ASCEND_910B2", DPlatform::ASCEND_910B2},
+        {"ASCEND_910B3", DPlatform::ASCEND_910B3},
+        {"ASCEND_910B4", DPlatform::ASCEND_910B4},
+    };
+
+    if (mappings.count(platform)) {
+        return mappings[platform];
+    }
+
+    return DPlatform::UNKNOWN_DEVICE;
+}
 
 struct PassConfigs {
     bool printFunction{false};

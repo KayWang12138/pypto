@@ -15,9 +15,6 @@
 
 #pragma once
 #include <cstdint>
-
-#define PRIOR_SCHEDULING // comment it to disable PriorScheduling pass
-
 #include <memory>
 #include <vector>
 #include <cassert>
@@ -35,12 +32,6 @@
 #include "tilefwk/data_type.h"
 #include "interface/utils/common.h"
 #include "interface/cache/hash_buffer.h"
-
-#ifdef PRIOR_SCHEDULING
-using setType = std::conditional<true, std::unordered_set<int>, std::set<int>>::type;
-#else
-using setType = std::conditional<false, std::unordered_set<int>, std::set<int>>::type;
-#endif
 
 namespace npu::tile_fwk {
 

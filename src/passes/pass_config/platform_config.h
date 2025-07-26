@@ -19,7 +19,7 @@
 #include <map>
 #include "tilefwk/data_type.h"
 #include "interface/utils/common.h"
-#include "interface/configs/platform_config.h"
+#include "interface/configs/config_manager.h"
 
 namespace npu {
 namespace tile_fwk {

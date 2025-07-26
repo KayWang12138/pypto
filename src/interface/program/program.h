@@ -66,10 +66,6 @@ public: // public api for torch
     const ConfigStorage &GetConfig() const { return config_; }
     void SetConfig(const ConfigStorage &config) { config_ = config; }
 
-    AscendPlatformConfig &GetPlatformConfig() { return platformconfig_; }
-    const AscendPlatformConfig &GetPlatformConfig() const { return platformconfig_; }
-    void SetPlatFormConfig(const AscendPlatformConfig &platformconfig) { platformconfig_ = platformconfig; }
-
     Distributed::CommGroupRecorder &GetCommGroupRecorder() { return commGroupRecorder_; }
     Distributed::CommBarrierManager &GetCommBarrierManager() { return commBarrierManager_; }
 
@@ -135,7 +131,6 @@ private:
     Function *currentFunctionPtr_;
     Function *lastFunc_{nullptr};
     ConfigStorage config_;
-    AscendPlatformConfig platformconfig_;
     bool underDyndevFunction_{false};
     bool operatorChecker_{false};
     std::unordered_set<Tensor *> aliveTensors_;
