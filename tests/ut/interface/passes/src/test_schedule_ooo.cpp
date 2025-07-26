@@ -49,6 +49,114 @@ IssueEntryPtr GetIssueEntry(const std::string& name, ComputationalGraphBuilder s
     return nullptr;
 }
 
+void SetTensorAttr(LogicalTensorPtr tensor, MemoryType memType, int subGraphId, int memId) {
+    tensor->SetMemoryTypeOriginal(memType);
+    tensor->SetMemoryTypeToBe(memType);
+    tensor->subGraphID = subGraphId;
+    tensor->memorymap[0].memId = memId;
+    tensor->UpdateDynValidShape({SymbolicScalar("S0"), SymbolicScalar("S1")});
+}
+
+void SetAllocAttr(Operation &alloc, int latency, int subGraphId) {
+    alloc.UpdateLatency(latency);
+    alloc.UpdateSubgraphID(subGraphId);
+}
+
+LogicalTensorPtr CreateTensor(Function &currFunction, DataType dateType, std::vector<int> shape, MemoryType memType, int memId) {
+    LogicalTensorPtr tensor = std::make_shared<LogicalTensor>(currFunction, dateType, shape);
+    SetTensorAttr(tensor, memType, 0, memId);
+    return tensor;
+}
+
+Operation &CreateAllocOp(Function &currFunction, LogicalTensorPtr tensor, int latency, int subGraphId) {
+    Operation &alloc = currFunction.AddOperation(Opcode::OP_UB_ALLOC, {}, LogicalTensors({tensor}));
+    SetAllocAttr(alloc, latency, subGraphId);
+    return alloc;
+}
+
+Operation &CreateCopyOp(Function &currFunction, Opcode opcode, LogicalTensorPtr inTensor, LogicalTensorPtr outTensor, std::vector<int> shape) {
+    std::vector<int> offset = {0, 0};
+    auto &copy = currFunction.AddOperation(opcode, LogicalTensors({inTensor}), LogicalTensors({outTensor}));
+    auto shapeImme = OpImmediate::Specified(shape);
+    copy.UpdateSubgraphID(0);
+    if (opcode == Opcode::OP_COPY_IN) {
+        copy.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(offset), MEM_UB, shapeImme, shapeImme)); 
+    }
+    if (opcode == Opcode::OP_COPY_OUT) {
+        copy.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified(offset), shapeImme, shapeImme));
+    }
+    return copy;
+}
+
+Operation &CreateAddOp(Function &currFunction, LogicalTensorPtr inTensor1, LogicalTensorPtr inTensor2, LogicalTensorPtr outTensor, int subGraphId) {
+    auto &add = currFunction.AddOperation(Opcode::OP_ADD, LogicalTensors({inTensor1, inTensor2}), LogicalTensors({outTensor}));
+    add.UpdateSubgraphID(subGraphId);
+    return add;
+}
+
+void ReorderOperations(Function &function) {
+    auto opList = function.Operations().DuplicatedOpList();
+    std::vector<Operation *> newOperations;
+    for (auto &op : opList) {
+        if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
+            newOperations.insert(newOperations.begin(), op);
+        } else {
+            newOperations.push_back(op);
+        }
+    }
+    function.ScheduleBy(newOperations);
+}
+
+TEST_F(ScheduleOoOTest, TestMainScheduleOoO) {
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestParams", "TestParams", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestOOO", "TestOOO", rootFuncPtr.get());
+    auto emptyOpFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "", "", rootFuncPtr.get());
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    EXPECT_TRUE(emptyOpFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+    rootFuncPtr->rootFunc_->programs_.emplace(emptyOpFunctionPtr->GetFuncMagic(), emptyOpFunctionPtr.get());
+    std::vector<int> shape = {128, 128};
+    auto shapeImme = OpImmediate::Specified(shape);
+    
+    auto tensor1 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_DEVICE_DDR, 1);
+    auto tensor2 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_DEVICE_DDR, 2);
+    auto tensor3 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_UB, 3);
+    auto tensor4 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_UB, 4);
+    auto tensor5 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_UB, 5);
+    auto tensor6 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_UB, 6);
+    auto tensor7 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_DEVICE_DDR, 7);
+    auto tensor8 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_UB, 8);
+    auto tensor9 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_UB, 9);
+    auto &alloc1 = CreateAllocOp(*currFunctionPtr, tensor3, 1, 0);
+    auto &alloc2 = CreateAllocOp(*currFunctionPtr, tensor4, 1, 0);
+    auto &alloc3 = CreateAllocOp(*currFunctionPtr, tensor5, 1, 0);
+    auto &alloc4 = CreateAllocOp(*currFunctionPtr, tensor6, 1, 0);
+    auto &alloc5 = CreateAllocOp(*currFunctionPtr, tensor8, 1, 0);
+    auto &alloc6 = CreateAllocOp(*currFunctionPtr, tensor9, 1, 0);
+    auto &copyin1 = CreateCopyOp(*currFunctionPtr, Opcode::OP_COPY_IN, tensor1, tensor3, shape);
+    auto &copyin2 = CreateCopyOp(*currFunctionPtr, Opcode::OP_COPY_IN, tensor2, tensor4, shape);
+    FunctionUtils::AddControlEdge(alloc1, copyin1);
+    FunctionUtils::AddControlEdge(alloc2, copyin2);
+    auto &add1 = CreateAddOp(*currFunctionPtr, tensor3, tensor4, tensor5, 0);
+    auto &add2 = CreateAddOp(*currFunctionPtr, tensor3, tensor4, tensor6, 0);
+    auto &add3 = CreateAddOp(*currFunctionPtr, tensor6, tensor4, tensor8, 0);
+    auto &add4 = CreateAddOp(*currFunctionPtr, tensor8, tensor5, tensor9, 0);
+    FunctionUtils::AddControlEdge(alloc3, add1);
+    FunctionUtils::AddControlEdge(alloc4, add2);
+    FunctionUtils::AddControlEdge(alloc5, add3);
+    FunctionUtils::AddControlEdge(alloc6, add4);
+    auto &copyout = CreateCopyOp(*currFunctionPtr, Opcode::OP_COPY_OUT, tensor9, tensor7, shape);
+    copyout.UpdateSubgraphID(0);
+    for (auto &program : rootFuncPtr->rootFunc_->programs_) {
+        ReorderOperations(*(program.second));
+    }
+    OoOSchedulePass oooSchedule;
+    EXPECT_EQ(oooSchedule.PreCheck(*rootFuncPtr), SUCCESS);
+    oooSchedule.RunOnFunction(*rootFuncPtr);
+    EXPECT_EQ(oooSchedule.PostCheck(*rootFuncPtr), SUCCESS);
+}
+
 TEST_F(ScheduleOoOTest, TestDependencies) {
     ComputationalGraphBuilder subGraph;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"};

@@ -218,6 +218,22 @@ public:
 private:
     Status RunOnFunction(Function &function) override;
     bool IsAicpuProgram(std::vector<Operation *> opList);
+    Status PreCheck(Function &function) override;
+    Status PostCheck(Function &function) override;
+    bool PreCheckTensorInfo(const int subGraphId, const LogicalTensorPtr tensor);
+    bool PreCheckOpInfo(const int subGraphId, const Operation *op);
+    bool PostCheckOpMagic(std::set<int> opSet, const Operation *op, const int programIdx);
+    bool PostCheckNewOpConnection(const std::vector<Operation *> opListBeforePass,
+        const std::vector<int> opMagicListBeforePass, const Operation *op, const int programIdx);
+    bool PostCheckSpecialOp(const Operation *op, const int subGraphId);
+    bool PostCheckTensorMagic(std::set<int> tensorSet, const LogicalTensorPtr tensor, const int programIdx);
+    bool PostCheckLocalTensor(const LogicalTensorPtr tensor, const int subGraphId, const int programIdx);
+    bool PostCheckGlobalTensor(const LogicalTensorPtr tensor, const int subGraphId, const int programIdx);
+    bool PostCheckDynValidShape(const LogicalTensorPtr tensor, const int programIdx);
+    bool PostCheckNewTensor(const int subGraphId, std::pair<const int, Function*> program, const int programIdx);
+    std::vector<std::unordered_set<LogicalTensorPtr>> tensorListBeforePass;
+    std::vector<std::unordered_set<LogicalTensorPtr>> tensorListAfterPass;
+    std::vector<Function *> oriFunctions;
 };
 } // namespace npu::tile_fwk
 #endif // PASS_SCHEDULE_OOO_H
