@@ -262,8 +262,14 @@ void AssignMemoryType::AssignMoveOp(Operation &operation) {
 }
 
 void AssignMemoryType::AssignMemUnknown(Function &function) {
+    std::unordered_set<LogicalTensor*> inputOperandVisited;
+    std::unordered_set<LogicalTensor*> outputOperandVisited;
     for (auto &op : function.Operations()) {
         for (auto &i : op.iOperand) {
+            if (inputOperandVisited.count(i.get()) > 0) {
+                continue;
+            }
+            inputOperandVisited.insert(i.get());
             if (i->GetMemoryTypeOriginal() == MemoryType::MEM_UNKNOWN) {
                 MemoryType fromType = MemoryType::MEM_DEVICE_DDR;
                 std::map<MemoryType, std::set<Operation *>> localTobeMap = inserter.GetRequiredTobe(*i);
@@ -277,8 +283,11 @@ void AssignMemoryType::AssignMemUnknown(Function &function) {
             }
             inserter.UpdateTensorTobeMapUnknown(*i, i->GetMemoryTypeOriginal());
         }
-
         for (auto &o : op.oOperand) {
+            if (outputOperandVisited.count(o.get()) > 0) {
+                continue;
+            }
+            outputOperandVisited.insert(o.get());
             if (o->GetMemoryTypeOriginal() == MemoryType::MEM_UNKNOWN) {
                 /*
                 说明该op的输出mem type 没有在opcode.cpp总定义，当前有 OP_VIEW, OP_COPY_IN, OP_RESHAPE，并且大概率为级联

@@ -546,12 +546,6 @@ void PreGraphPass::UpdateCopyOpIsCube(Operation &op) const {
 void PreGraphPass::InitializeTensorMemorymap(Operation &op) const {
     const int newColor = oldToNewColor.at(op.GetSubgraphID());
     for (auto &input : op.GetIOperands()) {
-        /* 使用TIG时需要跳过local buffer 的初始化流程 */
-        for (auto &rangePair : input->memorymap) {
-            if (rangePair.second.memId == -1) {
-                rangePair.second.memId = input->tensor->GetRawMagic();
-            }
-        }
         TileRange range;
         range.memId = input->tensor->GetRawMagic();
         input->memorymap.insert(std::make_pair(newColor, range));
@@ -560,12 +554,6 @@ void PreGraphPass::InitializeTensorMemorymap(Operation &op) const {
         }
     }
     for (auto &output : op.GetOOperands()) {
-        /* 使用TIG时需要跳过local buffer 的初始化流程 */
-        for (auto &rangePair : output->memorymap) {
-            if (rangePair.second.memId == -1) {
-                rangePair.second.memId = output->tensor->GetRawMagic();
-            }
-        }
         TileRange range;
         range.memId = output->tensor->GetRawMagic();
         output->memorymap.insert(std::make_pair(newColor, range));

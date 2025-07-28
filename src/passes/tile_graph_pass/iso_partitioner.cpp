@@ -477,11 +477,7 @@ Status NodeGraphInfo::MergeSrcToDstIsland(const std::shared_ptr<OperationGraphIn
                                    operationGraphInfo->opCoreType_[srcParent],
                                    operationGraphInfo->opCoreType_[dstParent]};
     if (operationGraphInfo->CoreTypeMergeable(coreTypes)) {
-        if (srcParent > dstParent) {
-            parent[srcParent] = dstParent;
-        } else {
-            parent[dstParent] = srcParent;
-        }
+        parent[srcParent] = dstParent;
     } else {
         ALOG_ERROR_F("Try to merge not mergeable operation pair.");
         return FAILED;
