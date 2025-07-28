@@ -37,6 +37,7 @@
 #include "securec.h"
 #include "costmodel_utils.h"
 #include "machine/utils/machine_ws_intf.h"
+#include "machine/utils/dynamic/spsc_queue.h"
 #if DEBUG_SWITCH
 #include <map>
 #endif
@@ -147,27 +148,34 @@ struct AOTBinaryExpressionTable : AOTBinary {
     const uint64_t *offsetList;
     uint64_t offsetSize;
 };
-const size_t MAX_CACHED_FUNC_NUM = 256;
+const size_t MAX_CACHED_FUNC_NUM = 128;
+const size_t MAX_READY_QUE_ELM_SIZE = 20000;
 
 struct DynFuncCacheItem {
     DevAscendFunction *devFunc;
     predcount_t *predCount;
     int *calleList;
 };
+struct WsSlabStageAllocMem {
+    StageAllocInfo aicpuCoherentStageMem;
+    StageAllocInfo aicpuStitchStageMem;
+};
 
+class DeviceWorkspaceAllocator;
 struct DynDeviceTask {
     DeviceTask devTask;
-    Vector<uint64_t, WsMemCategory::VECTOR_DYN_FUNC_DATA> dynFuncData;
+    DynFuncHeader* dynFuncData{nullptr};
 
     ReadyCoreFunctionQueue *readyQueue[0x2];
     DynFuncCacheItem cacheList[MAX_CACHED_FUNC_NUM];
-    Vector<DevAscendFunctionDupped, WsMemCategory::VECTOR_STITCHED_LIST> stitchedList;
+    Vector<DevAscendFunctionDupped, WsMemCategory::VECTOR_STITCHED_LIST, DeviceWorkspaceAllocator> stitchedList;
     const DevCceBinary *cceBinary;
     WsAllocation selfAlloc;
+    WsSlabStageAllocMem taskStageAllocMem;
+    std::atomic_bool isFinish{false}; // mark task execution status
 
-    DynDeviceTask(WsAicpuCoherentAllocator &allocator) {
+    DynDeviceTask(DeviceWorkspaceAllocator &allocator) {
         memset_s(&devTask, sizeof(devTask), 0, sizeof(devTask));
-        dynFuncData.InitAllocator(allocator);
         stitchedList.InitAllocator(allocator);
     }
 
@@ -186,7 +194,7 @@ struct DynDeviceTask {
     }
 
     void DumpTopo() {
-        auto header = (DynFuncHeader *)dynFuncData.data();
+        auto header = dynFuncData;
         static std::ofstream of("./output/dyn_topo.txt");
         if (of.tellp() == 0) {
             of << "seqNo,taskId,rootIndex,leafIndex,opmagic,coreType,psgId,funcHash,successors\n";
@@ -256,14 +264,19 @@ public:
         slotMemToBeFree_.reserve(args->devProg->slotPoolSize);
 
         standardRootWorkspace_ = args->devProg->rootFuncStandardMemReq;
+        devProg_ = args->devProg;
     }
 
     uintdevptr_t StackWorkspaceAddr() const { return stackWorkspaceBase_; }
     uint64_t StandardStackWorkspacePerCore() const { return standardStackWorkspacePerCore_; }
 
-    template <typename T, WsMemCategory category>
-    void SetupVector(Vector<T, category> &vector) {
-        vector.InitAllocator(aicpuCoherentAllocator_);
+    template <typename T, WsMemCategory category, typename WsAllocator_T>
+    void SetupVector(Vector<T, category, WsAllocator_T> &vector) {
+        if constexpr (std::is_same_v<WsAllocator_T, npu::tile_fwk::dynamic::DeviceWorkspaceAllocator>) {
+            vector.InitAllocator((*this));
+        } else {
+            vector.InitAllocator(aicpuCoherentAllocator_);
+        }
     }
 
     template <typename T, WsMemCategory category>
@@ -511,7 +524,8 @@ public:
     }
 
     DevAscendFunctionDupped DuplicateRoot(DevAscendFunction *func) {
-        return DevAscendFunctionDupped::DuplicateRoot(func, aicpuCoherentAllocator_);
+        WsAllocation tinyAlloc = SlabAlloc(func->GetDuppedDataAllocSize(), WsAicpuSlabMemType::DUPPED_FUNC_DATA);
+        return DevAscendFunctionDupped::DuplicateRoot(func, tinyAlloc);
     }
 
     void DestroyDuppedFunc(DevAscendFunctionDupped &dup) {
@@ -519,26 +533,20 @@ public:
     }
 
     DynDeviceTask *MakeDynDeviceTask() {
-        WsAllocation alloc = aicpuCoherentAllocator_.Malloc(sizeof(DynDeviceTask), WsMemCategory::DYN_DEVICE_TASK);
-        DynDeviceTask *dynTask = new((void *)alloc.ptr) DynDeviceTask(aicpuCoherentAllocator_);
+        WsAllocation alloc = SlabAlloc(sizeof(DynDeviceTask), WsAicpuSlabMemType::DEV_DYN_TASK);
+        DynDeviceTask *dynTask = new((void *)alloc.ptr) DynDeviceTask(*this);
         dynTask->selfAlloc = alloc;
         return dynTask;
     }
 
-    template <class T>
-    WsAllocation AllocateMetadata(size_t size, WsMemCategory category = WsMemCategory::UNCLASSIFIED) {
-        return aicpuCoherentAllocator_.Allocate<T>(size, category);
-    }
-
     void DestroyDynDeviceTask(DynDeviceTask *dynTask) {
-        auto alloc = dynTask->selfAlloc;
+        auto alloc = dynTask->taskStageAllocMem;
         dynTask->~DynDeviceTask();
-        aicpuCoherentAllocator_.Deallocate(alloc);
+        SlabFreeStageAllocMem(alloc); // recycle all memory allocated when build device task
     }
 
     DevAscendFunctionDuppedStitch *AllocateStitch() {
-        WsAllocation allocation =
-            aicpuStitchAllocator_.Allocate<DevAscendFunctionDuppedStitch>(1, WsMemCategory::DUPPED_STITCH);
+        WsAllocation allocation = SlabAlloc(sizeof(DevAscendFunctionDuppedStitch), WsAicpuSlabMemType::DUPPED_STITCH);
         DevAscendFunctionDuppedStitch *stitch = allocation.As<DevAscendFunctionDuppedStitch>();
         uint64_t *clear = (uint64_t *)stitch;
         clear[0] = 0;
@@ -580,7 +588,8 @@ public:
 
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_LIGHT
         aicpuCoherentAllocator_.DumpMemoryUsage(hint, "Metadata");
-        aicpuStitchAllocator_.DumpMemoryUsage(hint, "Stitch Metadata");
+        aicpuMetaSlabAllocator_.DumpMemoryUsage(hint, "Metadata slab allocator");
+        aicpuStitchSlabAllocator_.DumpMemoryUsage(hint, "Stitch Metadata");
         aicoreLocalFuncWsAllocator_.DumpMemoryUsage(hint, "Tensor (inner) workspace");
         aicoreLocalFuncOutcastAllocator_.DumpMemoryUsage(hint, "Tensor (outcast) workspace");
         aicoreGlobalAllocator_.DumpMemoryUsage(hint, "Tensor (global) workspace");
@@ -592,6 +601,60 @@ public:
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_LIGHT
     }
 
+    void InitAicpuMetaSlabAllocator() {
+        DEV_ASSERT(aicpuCoherentAllocator_.FreeMemorySize() > 0);
+        uint64_t memBase = aicpuCoherentAllocator_.MemBaseAddr() + aicpuCoherentAllocator_.AllocatedSize();
+        uint64_t realMemBase = AlignUp(memBase, sizeof(uint64_t));
+
+        uint32_t slabSize = CalcAicpuCoherentSlabAlloctorSlabPageSize();
+        aicpuMetaSlabAllocator_.Init(reinterpret_cast<void*>(realMemBase),
+            aicpuCoherentAllocator_.FreeMemorySize() - (realMemBase - memBase), slabSize);
+        for (size_t i = 0; i < ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT); i++) {
+            if (slabMemObjSizeFunc[i] != nullptr) {
+                DEV_ASSERT(aicpuMetaSlabAllocator_.RegistCache(i, (this->*slabMemObjSizeFunc[i])()));
+            }
+        }
+    }
+
+    WsAllocation SlabAlloc(uint32_t objSize, WsAicpuSlabMemType type) {
+        void* ptr = nullptr;
+        DEV_DEBUG("SlabAlloc type = %u, size =%u \n", ToUnderlying(type), objSize);
+        SlabTryDynAddCache(type, objSize); // ready que need dyn add cache
+        if (type < WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT) {
+            ptr = aicpuMetaSlabAllocator_.Alloc(ToUnderlying(type));
+        } else if (type < WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT) {
+            ptr = aicpuStitchSlabAllocator_.Alloc(ToUnderlying(type));
+        } else {
+            DEV_ASSERT(false);
+        }
+
+        DEV_ASSERT(ptr != nullptr);
+        WsAllocation allocation;
+        allocation.ptr = reinterpret_cast<uintdevptr_t>(ptr);
+        allocation.node_ = reinterpret_cast<void *>(0xDEADBEEFDEADBEFF);
+        return allocation;
+    }
+
+    WsSlabStageAllocMem SlabGetStageAllocMem() {
+        WsSlabStageAllocMem stageMem;
+        stageMem.aicpuCoherentStageMem = aicpuMetaSlabAllocator_.PopStageAllocMem();
+        stageMem.aicpuStitchStageMem = aicpuStitchSlabAllocator_.PopStageAllocMem();
+        return stageMem;
+    }
+
+     void SlabFreeStageAllocMem(WsSlabStageAllocMem stageMem) {
+        aicpuMetaSlabAllocator_.FreeStageAllocMem(stageMem.aicpuCoherentStageMem);
+        aicpuStitchSlabAllocator_.FreeStageAllocMem(stageMem.aicpuStitchStageMem);
+    }
+
+    /* support vector allocator,so need have this fucntion member */
+    template <typename T>
+    WsAllocation Allocate(uint64_t count, WsMemCategory category) {
+        DEV_ASSERT(category == WsMemCategory::VECTOR_STITCHED_LIST);
+        return SlabAlloc(count * sizeof(T), WsAicpuSlabMemType::VEC_STITCHED_LIST);
+    }
+
+    void Deallocate(WsAllocation) {} // just for support vector allocator,so need have this fucntion member
 private:
     void InitHostCoherentAllocators(uintdevptr_t workspaceAddr,
                                     uint64_t aicpuCoherentWorkspaceSize,
@@ -604,7 +667,7 @@ private:
 
         aicpuCoherentAllocator_.InitAicpuCoherent(baseAddr, aicpuCoherentWorkspaceSize - devProg->stitchPoolSize);
         baseAddr += aicpuCoherentWorkspaceSize - devProg->stitchPoolSize;
-        aicpuStitchAllocator_.InitAicpuCoherent(baseAddr, devProg->stitchPoolSize);
+        InitAicpuStitchSlabAllocator(reinterpret_cast<void*>(baseAddr), devProg->stitchPoolSize);
         baseAddr += devProg->stitchPoolSize;
 
         DEV_ASSERT(workspaceAddr <= baseAddr && baseAddr <= workspaceAddr + aicpuCoherentWorkspaceSize);
@@ -661,13 +724,106 @@ private:
         DEV_ASSERT(workspaceAddr <= baseAddr && baseAddr <= workspaceAddr + aicoreLocalWorkspaceSize);
     }
 
+    uint32_t DevFunctionDuppedSlabMemObjSize() {
+        if (maxDevFuncDuppedSize_ == 0) {
+            for (uint32_t i = 0; i < devProg_->GetFunctionSize(); i++) {
+                uint64_t curSize = devProg_->GetFunction(i)->GetDuppedDataAllocSize();
+                if (curSize > maxDevFuncDuppedSize_) {
+                    maxDevFuncDuppedSize_ = curSize;
+                }
+            }
+        }
+
+        return maxDevFuncDuppedSize_;
+    }
+
+    /* 按照devicetask最大支持stitch阈值分配对象 */
+    uint32_t DynFuncDataSlabMemObjSize() {
+        return (sizeof(DynFuncHeader) + MAX_CACHED_FUNC_NUM * sizeof(DynFuncData));
+    }
+
+    /* 按照devicetask最大支持stitch阈值分配对象 */
+    uint32_t VecStitchListSLabMemObjSize() {
+        return MAX_CACHED_FUNC_NUM * sizeof(DevAscendFunctionDupped);
+    }
+
+    uint32_t DynDevTaskSlabMemObjSize() {
+        return sizeof(struct DynDeviceTask);
+    }
+
+    uint32_t DuppedStitchSlabMemObjSize() {
+        return sizeof(struct DevAscendFunctionDuppedStitch);
+    }
+
+    uint32_t ReadyQueSlabMemObjSize() {
+        return sizeof(ReadyCoreFunctionQueue) + MAX_READY_QUE_ELM_SIZE * sizeof(uint32_t);
+    }
+
+    uint32_t (DeviceWorkspaceAllocator::*slabMemObjSizeFunc[ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT)])() = {
+        &DeviceWorkspaceAllocator::DevFunctionDuppedSlabMemObjSize,
+        &DeviceWorkspaceAllocator::DynFuncDataSlabMemObjSize,
+        &DeviceWorkspaceAllocator::VecStitchListSLabMemObjSize,
+        &DeviceWorkspaceAllocator::DynDevTaskSlabMemObjSize,
+        &DeviceWorkspaceAllocator::ReadyQueSlabMemObjSize,
+        nullptr, // invalid type
+        &DeviceWorkspaceAllocator::DuppedStitchSlabMemObjSize,
+    };
+
+    /* 根据当前算子的业务模型分析计算出slab 管理内存页大小, 基于当前可评估的所有内存类型的最大值评估 */
+    uint32_t CalcAicpuCoherentSlabAlloctorSlabPageSize() {
+        uint32_t slabSize = 0;
+        constexpr uint32_t extendAlign = 1024;
+        constexpr uint32_t allocNumOneSlab = 4;
+        for (size_t i = 0; i < ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT); i++) {
+            if (slabMemObjSizeFunc[i] != nullptr) {
+                uint32_t currentSize = (this->*slabMemObjSizeFunc[i])();
+                if (currentSize > slabSize) {
+                    slabSize = currentSize;
+                }
+            }
+        }
+
+        DEV_ASSERT(slabSize > 0);
+        slabSize *= allocNumOneSlab; // 保证一个slab可以支持4个最大对象的分配
+        slabSize += extendAlign; // 扩展buf,给slaballocator管理内存使用
+        return ALIGN_UP(slabSize, extendAlign);
+    }
+
+    void InitAicpuStitchSlabAllocator(void* memBase, uint32_t totalSize) {
+        DEV_ASSERT(memBase != nullptr && totalSize > 0);
+        constexpr uint32_t slabSize = 4 * 1024; // fix size
+        aicpuStitchSlabAllocator_.Init(memBase, totalSize, slabSize);
+        for (size_t i = ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT) + 1;
+            i < ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT); i++) {
+            if (slabMemObjSizeFunc[i] != nullptr) {
+                uint32_t objSize = (this->*slabMemObjSizeFunc[i])();
+                DEV_ASSERT(slabSize > objSize);
+                DEV_ASSERT(aicpuStitchSlabAllocator_.RegistCache(i, (this->*slabMemObjSizeFunc[i])()));
+            }
+        }
+    }
+
+    void SlabTryDynAddCache(WsAicpuSlabMemType type, uint32_t objSize) {
+        if (type < WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT) {
+            if (!aicpuMetaSlabAllocator_.ExistCache(ToUnderlying(type), objSize)) {
+                DEV_ASSERT(aicpuMetaSlabAllocator_.RegistCache(ToUnderlying(type), objSize));
+            }
+        } else if (type < WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT) {
+            if (!aicpuStitchSlabAllocator_.ExistCache(ToUnderlying(type), objSize)) {
+                DEV_ASSERT(aicpuStitchSlabAllocator_.RegistCache(ToUnderlying(type), objSize));
+            }
+        } else {
+            DEV_ASSERT(false);
+        }
+    }
 private:
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
     DelayedDumper wsMemDelayedDumper_;
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
 
-    WsAicpuCoherentAllocator aicpuCoherentAllocator_;  // aicpu coherent for small suballocation
-    WsAicpuCoherentAllocator aicpuStitchAllocator_; // aicpu stitched data
+    WsAicpuCoherentAllocator aicpuCoherentAllocator_;  // aicpu coherent for small suballocation, not support recycle
+    SlabWsAllocator aicpuMetaSlabAllocator_; // aicpu meta memory, support reclamation 
+    SlabWsAllocator aicpuStitchSlabAllocator_; // aicpu stitched data support reclamation
     SeqWsAllocator aicoreGlobalAllocator_;     // only aicore accesses it
     SeqWsAllocator aicoreLocalFuncWsAllocator_;     // only aicore accesses it
     SeqWsAllocator aicoreLocalFuncOutcastAllocator_;
@@ -678,6 +834,8 @@ private:
     uint64_t stackWorkspaceSize_{0};
 
     uint64_t standardRootWorkspace_{0};
+    uint32_t maxDevFuncDuppedSize_{0};
+    DevAscendProgram *devProg_{nullptr};
 
     WsMemoryVerifier aicoreLocalWsVerifier_;
     WsMemoryVerifier slotVerifier_;
@@ -791,6 +949,7 @@ struct DeviceStitchContext {
         workspace_ = &workspace;
 
         workspace_->SetupVector(slotInfosInDecidingSlotMem_);
+        slotInfosInDecidingSlotMem_.resize(devProg->slotSize); // need pre alloc , left memory for slab allocator
 
         if (devProg->rootFuncStandardMemReq == 0) {
             // No memory to reuse
@@ -815,13 +974,13 @@ struct DeviceStitchContext {
     uint64_t Stitch(DeviceSlotContext &slotContext, DevAscendFunctionDupped &nextDup) {
         uint64_t count = FastStitch(slotContext.GetSlotList(), slotContext.GetSlotSize(), nextDup,
             stitchedList_.data(), stitchedList_.size(), stitchReuseContext_, workspace_);
+        if (stitchedList_.capacity() == 0) {
+            /* This stitchedList_ vector can only allocate sufficient space once,
+               during a single device task construction process.*/
+            stitchedList_.reserve(MAX_CACHED_FUNC_NUM);
+        }
         Append(nextDup);
-        return count;
-    }
-    uint64_t Stitch(DeviceExecuteSlot *slotList, size_t slotSize, DevAscendFunctionDupped &nextDup) {
-        uint64_t count = FastStitch(slotList, slotSize, nextDup,
-            stitchedList_.data(), stitchedList_.size(), stitchReuseContext_, workspace_);
-        Append(nextDup);
+        stitchedCallOpSize_ += nextDup.GetSource()->GetOperationSize();
         return count;
     }
 
@@ -842,7 +1001,7 @@ struct DeviceStitchContext {
             if (slotList[slotIdx].isOutputSlot) {
                 extraAttr = " <output>";
             } else if (slotList[slotIdx].isAssemble) {
-                extraAttr = " <assemble>"
+                extraAttr = " <assemble>";
             }
             DEV_DEBUG("[DecideSlotAddress]   Slot [%3lu]: addr %s%s\n",
                 slotIdx, desc.ToString().c_str(), extraAttr);
@@ -859,8 +1018,6 @@ struct DeviceStitchContext {
         static constexpr uint64_t NON_ADDR_MASK = UINT64_C(1) << 62;
 
         DumpSlotInfo("Update before", slotList, slotSize);
-
-        slotInfosInDecidingSlotMem_.resize(slotSize);
         for (size_t slotIdx = 0; slotIdx < slotSize; slotIdx++) {
             auto &slot = slotList[slotIdx];
             auto &desc = slot.desc;
@@ -943,8 +1100,10 @@ struct DeviceStitchContext {
     void MoveTo(DynDeviceTask *dynTask) {
         dynTask->stitchedList = std::move(stitchedList_);
         stitchedList_.clear();
+        dynTask->devTask.coreFunctionCnt = stitchedCallOpSize_;
+        stitchedCallOpSize_ = 0;
 
-        DEV_ASSERT(dynTask->stitchedList.size() < MAX_CACHED_FUNC_NUM);
+        DEV_ASSERT(dynTask->stitchedList.size() <= MAX_CACHED_FUNC_NUM);
         int size = dynTask->stitchedList.size();
         for (int i = 0; i < size; i++) {
             auto &funcDup = dynTask->stitchedList[i];
@@ -972,13 +1131,15 @@ struct DeviceStitchContext {
         stitch.PushBack(coreTask, [workspace] { return workspace->AllocateStitch(); });
     }
 
+    uint32_t stitchedCallOpSize() { return stitchedCallOpSize_; }
+
 private:
     struct SlotAdditionalInfo {
         uintdevptr_t slotPtr{0};
         uint32_t *refCnt{nullptr};
     };
-
-    Vector<DevAscendFunctionDupped, WsMemCategory::VECTOR_STITCHED_LIST> stitchedList_;
+    uint32_t stitchedCallOpSize_{0};
+    Vector<DevAscendFunctionDupped, WsMemCategory::VECTOR_STITCHED_LIST, DeviceWorkspaceAllocator> stitchedList_;
     Vector<SlotAdditionalInfo, WsMemCategory::VECTOR_TEMPORARY> slotInfosInDecidingSlotMem_;
     DeviceWorkspaceAllocator *workspace_{nullptr};
 
@@ -1279,6 +1440,8 @@ struct DeviceTaskContext {
         stitchContext.MoveTo(dynTask);
         PerfEnd(PERF_EVT_ALLOCATE_TASK);
         BuildDeviceTaskData(dynTask, devProg);
+        dynTask->taskStageAllocMem = workspace_->SlabGetStageAllocMem(); // cache allocated memory , when task finish will recycle
+        dynTask->isFinish.store(false);
         return dynTask;
     }
 
@@ -1307,17 +1470,15 @@ private:
     uint64_t readyTaskNum {0};
     uint64_t dynFuncDataSize {0};
     uint64_t leafFuncDataSize {0};
-
 private:
     DeviceWorkspaceAllocator *workspace_{nullptr};
 private:
     void BuildReadyQueue(DynDeviceTask *dyntask) {
-        auto size = sizeof(ReadyCoreFunctionQueue) / sizeof(uint64_t) + dyntask->devTask.coreFunctionCnt;
-
+        uint32_t size = sizeof(ReadyCoreFunctionQueue) + dyntask->devTask.coreFunctionCnt * sizeof(taskid_t);
+        DEV_ASSERT(dyntask->devTask.coreFunctionCnt <= MAX_READY_QUE_ELM_SIZE);
         ReadyCoreFunctionQueue *queue[0x2];
         for (int coreType = 0; coreType < 0x2; coreType++) {
-            ReadyCoreFunctionQueue *q = workspace_->AllocateMetadata<uint64_t>(
-                size, WsMemCategory::READY_QUEUE).As<ReadyCoreFunctionQueue>();
+            ReadyCoreFunctionQueue *q = workspace_->SlabAlloc(size, WsAicpuSlabMemType::READY_QUE).As<ReadyCoreFunctionQueue>();
             q->head = 0;
             q->tail = 0;
             q->lock = 0;
@@ -1383,9 +1544,9 @@ private:
     }
 
     void BuildDynFuncData(DynDeviceTask *dyntask) {
-        size_t size =  (sizeof(DynFuncHeader) + dyntask->stitchedList.size() * sizeof(DynFuncData)) / sizeof(int64_t);
-        dyntask->dynFuncData.reserve(size);
-        auto header = (DynFuncHeader *)dyntask->dynFuncData.data();
+        size_t size = sizeof(DynFuncHeader) + dyntask->stitchedList.size() * sizeof(DynFuncData);
+        auto header = workspace_->SlabAlloc(size, WsAicpuSlabMemType::DYN_FUNC_DATA).As<DynFuncHeader>();
+        dyntask->dynFuncData = header;
         auto dyndata = (DynFuncData *)(header + 1);
 
         header->funcSize = size * sizeof(int64_t);
@@ -1490,12 +1651,6 @@ private:
     void BuildDeviceTaskData(DynDeviceTask *dyntask, DevAscendProgram *devProg) {
         dyntask->cceBinary = devProg->GetCceBinary(0);
 
-        uint64_t coreTaskSize = 0;
-        for (auto &dup : dyntask->stitchedList) {
-            coreTaskSize += dup.GetSource()->GetOperationSize();
-        }
-        dyntask->devTask.coreFunctionCnt = coreTaskSize;
-
         DEV_DEBUG("build ready queue\n");
         PerfBegin(PERF_EVT_READY_QUEUE);
         BuildReadyQueue(dyntask);
@@ -1517,6 +1672,7 @@ private:
     }
 };
 const uint64_t SLEEP_TIME_US = 10000;
+const uint32_t SUBMMIT_TASK_QUE_SIZE = 5;
 struct DeviceExecuteContext {
     std::function<void(uint64_t, DeviceTask *, DeviceExecuteContext *)> pushTask;
     DevStartArgs *args;
@@ -1540,6 +1696,8 @@ struct DeviceExecuteContext {
     CostModel::ModelData *costModelData;
 
     void *aicoreModel;
+
+    SPSCQueue<DynDeviceTask *, SUBMMIT_TASK_QUE_SIZE> submmitTaskQueue_;
 
     static uint64_t GetInputShapeDimSize(DeviceExecuteContext *ctx, uint64_t inputIndex) {
         DevAscendTensorData *input = &ctx->args->inputTensorList[inputIndex];
@@ -1623,7 +1781,6 @@ struct DeviceExecuteContext {
         taskContext.InitAllocator(workspace);
 
         workspace.SetupVector(symbolTable);
-
         symbolTable.resize(devProg->symbolTable.size());
         for (int i = 0; i < startArgs->GetInputSymbolSize(); i++) {
             DevInputSymbol &param = startArgs->GetInputSymbol(i);
@@ -1638,8 +1795,12 @@ struct DeviceExecuteContext {
             DEV_ASSERT_MSG(handler, "handler not found\n");
             symbolTable[symbolHandler.symIndex] = (uint64_t)handler;
         }
-        PerfEnd(PERF_EVT_CONTROL_FLOW_INIT);
 
+        /* This initialization must only occur after all other AICPU workspace meta memory allocations have completed. 
+           The remaining portion of AICPU workspace meta memory must support reclamation. */
+        workspace.InitAicpuMetaSlabAllocator();
+
+        PerfEnd(PERF_EVT_CONTROL_FLOW_INIT);
         DEV_INFO("Image size = %lu\n", devProg->GetSize());
 
         PerfBegin(PERF_EVT_CONTROL_FLOW);
@@ -1701,6 +1862,22 @@ struct DeviceExecuteContext {
 
         // Reset stitch context
         stitchContext.Reset();
+
+        auto FreeTaskfunc = [this] (DynDeviceTask* task) -> bool {
+            if (task->isFinish.load(std::memory_order_relaxed)) {
+                workspace.SlabFreeStageAllocMem(task->taskStageAllocMem); // recycle slab alloc memory
+                return true;
+            }
+            return false;
+        };
+
+        // try free finished task and recycle aicpu meta memory
+        submmitTaskQueue_.FreeUntil(FreeTaskfunc);
+
+        while (!submmitTaskQueue_.TryEnqueue(dynTask)) {
+            // maybe que is full, need wait task finish and recycle aicpu meta memory
+            submmitTaskQueue_.FreeUntil(FreeTaskfunc);
+        }
     }
 
     void *CallRootFunctionAlloc(uint64_t rootKey) {
@@ -1711,6 +1888,11 @@ struct DeviceExecuteContext {
         PROF_STAGE_BEGIN(PERF_EVT_STAGE_DUP_ROOT, "dup.before\n");
         DevAscendFunctionDupped devRootDup = workspace.DuplicateRoot(devRoot);
         PROF_STAGE_END(PERF_EVT_STAGE_DUP_ROOT, "dup.after\n");
+
+        if (stitchContext.Size() == MAX_CACHED_FUNC_NUM ||
+            stitchContext.stitchedCallOpSize() + devRoot->GetOperationSize() > MAX_READY_QUE_ELM_SIZE) {
+            SubmitToAicoreAndRecycleMemory();
+        }
 
         currDevRootDup = devRootDup;
         return (void *)&devRootDup.GetExpression(0);
@@ -1724,6 +1906,8 @@ struct DeviceExecuteContext {
         }
 
         DevAscendFunctionDupped devRootDup = currDevRootDup;
+
+        // dyn rawshape size depend expresstable calculated
         while (!workspace.TryAllocateFunctionMemory(devRootDup, slotContext.GetSlotList())) {
             // Failed to allocate, failed to stitch, submit existing stitched window to aicore and recycle memory
             // If nothing stitched, wait for aicore to finish tasks and release enough memory
@@ -1743,7 +1927,7 @@ struct DeviceExecuteContext {
     }
 
     void TaskFinish(DynDeviceTask *dynTask) {
-        (void)dynTask;
+        dynTask->isFinish.store(true);
     }
 
     static void TaskFinish(DeviceTask *task, void *ctx_) {

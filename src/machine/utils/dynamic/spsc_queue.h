@@ -56,6 +56,23 @@ public:
         return true;
     }
 
+    inline void FreeUntil(std::function<bool(const T&)> checker) {
+        while (true) {
+            auto head = head_.load(std::memory_order_relaxed);
+            auto tail = tail_.load(std::memory_order_acquire);
+            if (head == tail) {
+                break;
+            }
+
+            const T& elem = pools_[head % N];
+            if (!checker(elem)) {
+                break;
+            }
+
+            head_.fetch_add(1, std::memory_order_release);
+        }
+    }
+
 private:
     alignas(ALIGN_SIZE) std::atomic<uint64_t> head_ = {0};
     alignas(ALIGN_SIZE) std::atomic<uint64_t> tail_ = {0};

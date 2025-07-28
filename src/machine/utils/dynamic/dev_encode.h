@@ -1092,13 +1092,13 @@ private:
 };
 
 struct DevAscendFunctionDuppedOperation {
-    uint16_t size;
-    uint16_t predCountBase;
-    uint16_t stitchBase;
+    uint32_t size;
+    uint32_t predCountBase;
+    uint32_t stitchBase;
 };
 struct DevAscendFunctionDuppedVector {
-    uint16_t size;
-    uint16_t base;
+    uint32_t size;
+    uint32_t base;
 };
 
 constexpr uint32_t DUPPED_STITCH_SIZE  = 13;
@@ -1246,8 +1246,7 @@ struct DevAscendFunctionDupped {
     DevAscendFunctionDupped() = default;
     explicit DevAscendFunctionDupped(WsAllocation tinyAlloc) : dupTiny_(tinyAlloc) {}
 
-    static DevAscendFunctionDupped DuplicateRoot(DevAscendFunction *func, WsAicpuCoherentAllocator &allocator) {
-        WsAllocation tinyAlloc = allocator.Malloc(func->GetDuppedDataAllocSize(), WsMemCategory::DUP_FUNC);
+    static DevAscendFunctionDupped DuplicateRoot(DevAscendFunction *func, WsAllocation tinyAlloc) {
         DevAscendFunctionDuppedData *dupData = tinyAlloc.As<DevAscendFunctionDuppedData>();
         DevAscendFunctionDuppedData *sourceData = func->GetDuppedData();
         memcpy_s(reinterpret_cast<uint8_t *>(dupData),

@@ -101,7 +101,7 @@ struct DynMachineManager {
         auto devArgs = (DeviceArgs *)args->tilingdata;
         int threadIdx = allocThreadIdx(devArgs->nrAicpu);
         if ((threadIdx != -1) && threadIdx < schAicpuNum) {
-#if defined(DEBUG_SWITCH) && DEBUG_SWITCH && !DEBUG_PLOG
+#if !DEBUG_PLOG || !defined(__DEVICE__)
             (void)sprintf_s(logfile, sizeof(logfile), "/tmp/tile_fwk_aicpu_sch%d.txt", threadIdx);
             GetLogger(logfile);
 #endif
@@ -115,13 +115,13 @@ struct DynMachineManager {
             threadIdx = ctrlcpuIdx.fetch_add(1);
             DEV_INFO("devArgs->taskType %d\n",  static_cast<int>(devArgs->taskType));
             if (devArgs->taskType == DEVICE_TASK_TYPE_DYN && threadIdx == MAX_SCHEDULE_AICPU_NUM) {
-#if !DEBUG_PLOG
+#if !DEBUG_PLOG || !defined(__DEVICE__)
                 (void)sprintf_s(logfile, sizeof(logfile), "/tmp/tile_fwk_aicpu_ctrl.txt");
                 GetLogger(logfile);
 #endif
                 ret = machine.ExecDyn(threadIdx, devArgs->taskId, args);
             } else if (threadIdx == MAX_SCHEDULE_AICPU_NUM + 1){
-#if defined(DEBUG_SWITCH) && DEBUG_SWITCH && !DEBUG_PLOG
+#if !DEBUG_PLOG || !defined(__DEVICE__)
                 (void)sprintf_s(logfile, sizeof(logfile), "/tmp/tile_fwk_aicpu_prefetch.txt");
                 GetLogger(logfile);
 #endif
@@ -136,7 +136,7 @@ struct DynMachineManager {
         }
      
         DEV_INFO("threadIdx %d finished, ret %d\n", threadIdx, ret);
-#if !DEBUG_PLOG
+#if !DEBUG_PLOG || !defined(__DEVICE__)
         GetLogger().Flush();
 #endif
         if (++finished == static_cast<std::atomic<int>>(devArgs->nrAicpu)) {

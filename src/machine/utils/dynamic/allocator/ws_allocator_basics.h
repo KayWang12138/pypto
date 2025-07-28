@@ -38,7 +38,6 @@ inline constexpr const char *GetCategoryName(WsMemCategory category) {
 
     return WS_MEM_CATEGORY_NAMELIST[ToUnderlying(category)];
 }
-
 struct WsAllocation {
     friend class WsAllocator;
     friend class WsRtAllocator;
@@ -72,7 +71,6 @@ struct WsAllocation {
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
     }
 
-private:
     void *node_{nullptr};
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
     size_t rawMemReq_{0};

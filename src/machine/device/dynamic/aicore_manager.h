@@ -558,7 +558,7 @@ public:
             funcdata = (int64_t)&curDevTask_->coreFuncData;
         } else {
             auto dyntask = (DynDeviceTask *)curDevTask_;
-            funcdata = (int64_t)dyntask->dynFuncData.data();
+            funcdata = (int64_t)dyntask->dynFuncData;
         }
         ForEachManageAicore([&](int coreIdx) { aicoreHAL.InitTaskData(coreIdx, funcdata); });
 
@@ -1236,7 +1236,7 @@ private:
         auto opIndex = TaskID(taskId);
         auto leafFunctionIdx = funcDup.GetSource()->GetOperationAttrCalleeIndex(opIndex);
         auto timeCost = costModelData->functionTime[leafFunctionIdx];
-        auto header = reinterpret_cast<DynFuncHeader *>(dyntask->dynFuncData.data());
+        auto header = dyntask->dynFuncData;
         auto dyndata = reinterpret_cast<DynFuncData *>(header + 1);
         auto opAttrs = &dyndata->opAttrs[dyndata->opAtrrOffsets[TaskID(taskId)]];
         auto psgId = opAttrs[0];

@@ -70,6 +70,8 @@ inline int CheckDebug() {
             assert(0);                                                         \
         }                                                                      \
     } while (0)
+    
+#define DEV_DEBUG_ASSERT_MSG(expr, fmt, args...) DEV_ASSERT_MSG(expr, fmt, ##args)
 
 #define DEV_MEM_DUMP(fmt, args...)
 
@@ -204,7 +206,9 @@ inline DeviceLogger &GetLogger(const char *logfile = nullptr, int level = LOG_LE
 
 #if DEBUG_SWITCH
 #define DEV_DEBUG_ASSERT(expr) DEV_ASSERT(expr)
+#define DEV_DEBUG_ASSERT_MSG(expr, fmt, args...) DEV_ASSERT_MSG(expr, fmt, ##args)
 #else
 #define DEV_DEBUG_ASSERT(expr)
+#define DEV_DEBUG_ASSERT_MSG(expr, fmt, args...)
 #endif // DEBUG_SWITCH
 #endif // DEBUG_PLOG

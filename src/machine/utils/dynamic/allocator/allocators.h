@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include "slab_ws_allocator.h"
 #include "ws_allocator_basics.h"
 #include "ws_allocator.h"
 #include "ws_rt_allocator.h"
