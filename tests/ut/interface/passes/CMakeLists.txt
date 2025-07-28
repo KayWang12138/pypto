@@ -42,6 +42,7 @@ set(_CaseFilterList
         #"AssignMemoryTypeTest.TestCubeToCube"
         "AssignMemoryTypeTest.TestCubeToCubeV2"
         "AssignMemoryTypeTest.InValidOpPattern"
+        "AssignMemoryTypeTest.ViewReshape"
         "CommonOperationEliminateTest.EliminateRedundantOps"
         "CommonOperationEliminateTest.EliminateRedundantMultiInputOp"
         "CommonOperationEliminateTest.EliminateRedundantMultiOutputOp"

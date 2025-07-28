@@ -345,7 +345,7 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCubeV2) {
     }
 }
 
-void GetInvalidPatternGraph(std::shared_ptr<Function> &currFunctionPtr){
+void GetInvalidPatternGraph(std::shared_ptr<Function> &currFunctionPtr) {
     constexpr int opMagic0 = 1001;
     constexpr int opMagic1 = 1002;
     constexpr int opMagic2 = 1003;
@@ -459,6 +459,100 @@ TEST_F(AssignMemoryTypeTest, InValidOpPattern) {
         for (auto &output : op.GetOOperands()) {
             std::cout << "\t|--- oOperand " << output->magic;
             EXPECT_EQ(output->GetMemoryTypeOriginal(), MemoryType::MEM_DEVICE_DDR) << " Unexpected memory type.";
+            EXPECT_EQ(output->GetMemoryTypeOriginal(), output->GetMemoryTypeToBe()) << " oOperand has two memory type.";
+        }
+    }
+}
+
+void GetViewReshapeGraph (std::shared_ptr<Function> &currFunctionPtr) {
+    constexpr int opMagic0 = 1001;
+    constexpr int opMagic1 = 1002;
+    constexpr int opMagic2 = 1003;
+    constexpr int opMagic3 = 1004;
+    constexpr int opMagic4 = 1005;
+
+    constexpr int tensorMagic0 = 1;
+    constexpr int tensorMagic1 = 2;
+    constexpr int tensorMagic2 = 3;
+    constexpr int tensorMagic3 = 4;
+    constexpr int tensorMagic4 = 5;
+    constexpr int tensorMagic5 = 6;
+
+    // Prepare the graph
+    std::vector<int> shape = {16, 32};
+    std::vector<int> shape1 = {32, 16};
+    std::vector<int> shape2 = {1, 32};
+    std::vector<int> shape3 = {8, 32};
+    std::shared_ptr<LogicalTensor> input_cast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    input_cast->SetMagic(tensorMagic0);
+
+    std::shared_ptr<LogicalTensor> transpose_out = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    transpose_out->SetMagic(tensorMagic1);
+
+    std::shared_ptr<LogicalTensor> view_output1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    view_output1->SetMagic(tensorMagic2);
+
+    std::shared_ptr<LogicalTensor> reshape_output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    reshape_output->SetMagic(tensorMagic3);
+
+    std::shared_ptr<LogicalTensor> view_output2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    view_output2->SetMagic(tensorMagic4);
+
+    std::shared_ptr<LogicalTensor> output_cast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
+    output_cast->SetMagic(tensorMagic5);
+
+    auto &transpose_op = currFunctionPtr->AddRawOperation(Opcode::OP_TRANSPOSE_VNCHWCONV, {input_cast}, {transpose_out});
+    transpose_op.opmagic = opMagic0;
+
+    auto &view_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {transpose_out}, {view_output1});
+    view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int>{0, 0}));
+    view_op1.opmagic = opMagic1;
+
+    auto &reshape_op = currFunctionPtr->AddRawOperation(Opcode::OP_RESHAPE, {view_output1}, {reshape_output});
+    reshape_op.opmagic = opMagic2;
+
+    auto &view_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {reshape_output}, {view_output2});
+    view_op2.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int>{0, 0}));
+    view_op2.opmagic = opMagic3; 
+
+    auto &expand_op = currFunctionPtr->AddRawOperation(Opcode::OP_EXPAND, {view_output2}, {output_cast});
+    expand_op.opmagic = opMagic4;
+}
+TEST_F(AssignMemoryTypeTest, ViewReshape) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "ViewReshape", "ViewReshape", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    Program::GetInstance().InsertFuncToFunctionMap("ViewReshape", currFunctionPtr);
+    
+    GetViewReshapeGraph(currFunctionPtr);
+
+    std::stringstream ssBefore;
+    ssBefore << "Before_AssignMemoryType";
+
+    // Call the pass
+    AssignMemoryType assignMemoryType;
+    assignMemoryType.PreCheck(*currFunctionPtr);
+    assignMemoryType.RunOnFunction(*currFunctionPtr);
+    assignMemoryType.PostCheck(*currFunctionPtr);
+
+    std::stringstream ss;
+    ss << "After_AssignMemoryType";
+
+    std::string josnFilePath = "/config/pass/json/assign_mem_type_invalidpattern.json";
+    currFunctionPtr->DumpJsonFile(josnFilePath);
+
+    // Validate the results
+    std::cout << "========== op size: " << currFunctionPtr->Operations().size() << std::endl;
+    for (auto &op : currFunctionPtr->Operations()) {
+        std::cout << op.GetOpcodeStr() << " " << op.GetOpMagic() << std::endl;
+        for (auto &input : op.GetIOperands()) {
+            std::cout << "\t|--- iOperand " << input->magic;
+            EXPECT_EQ(input->GetMemoryTypeOriginal(), MemoryType::MEM_UB) << " Unexpected memory type.";
+            EXPECT_EQ(input->GetMemoryTypeOriginal(), input->GetMemoryTypeToBe()) << " iOperand has two memory type.";
+        }
+        for (auto &output : op.GetOOperands()) {
+            std::cout << "\t|--- oOperand " << output->magic;
+            EXPECT_EQ(output->GetMemoryTypeOriginal(), MemoryType::MEM_UB) << " Unexpected memory type.";
             EXPECT_EQ(output->GetMemoryTypeOriginal(), output->GetMemoryTypeToBe()) << " oOperand has two memory type.";
         }
     }

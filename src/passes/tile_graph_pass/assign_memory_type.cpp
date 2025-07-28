@@ -245,6 +245,13 @@ void AssignMemoryType::AssignMoveOp(Operation &operation) {
             for (size_t i = 0; i < operation.iOperand.size(); ++i) {
                 auto &tensor = operation.iOperand[i];
                 MemoryType toType = operation.oOperand.front()->GetMemoryTypeOriginal();
+                if(toType == MemoryType::MEM_UNKNOWN && tensor->GetMemoryTypeOriginal() != MemoryType::MEM_UNKNOWN) {
+                    //view输出的消费者是assemble或者reshape
+                    operation.oOperand.front()->SetMemoryTypeOriginal(tensor->GetMemoryTypeOriginal());
+                    auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(operation.GetOpAttribute().get());
+                    viewOpAttribute->SetToType(tensor->GetMemoryTypeOriginal());
+                    continue;
+                }
                 ALOG_DEBUG_F(" @@@@@ %s[%d] input %d mem original %s --> %s.", operation.GetOpcodeStr().c_str(),
                     operation.GetOpMagic(), tensor->magic,
                     BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(),
