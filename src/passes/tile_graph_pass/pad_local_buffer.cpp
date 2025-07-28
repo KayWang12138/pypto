@@ -96,7 +96,7 @@ void PadLocalBuffer::PadVector(Operation &op, LogicalTensorPtr &in, std::unorder
     OpCalcType calcType = OpcodeManager::Inst().GetOpCalcType(op.GetOpcode());
     if (noPadding) {
         in->oriShape = in->shape;
-        in->tensor->rawshape = in->shape;
+        in->tensor->UpdateRawShape(in->shape);
         in->tensor->oriRawshape = in->tensor->rawshape;
         ALOG_DEBUG_F("Vector Op %d %s input %d, not handle unalign.", op.opmagic, op.GetOpcodeStr().c_str(), in->magic);
         return;
@@ -205,7 +205,7 @@ void PadLocalBuffer::TraverseAndSetAttr(LogicalTensorPtr &output, Function &func
         }  else if (consCalcType == OpCalcType::BROADCAST) {
             TraverseBroadcast(function, consumer, output, visitedTensors);
         } else if (consCalcType ==
-                    OpCalcType::MOVE_OUT) { 
+                    OpCalcType::MOVE_OUT) {
             // 剩下来的move out，直接中断，仅在输入的地方支持尾轴非对齐
             ALOG_DEBUG_F("op %d %s is move out, input's last dim should not be padded", consumer->opmagic, consumer->GetOpcodeStr().c_str());
             consumer->SetAttr(OpAttributeKey::inputCombineAxis, AXIS_COMBINED);
@@ -232,14 +232,14 @@ z0必须32B对齐,尾轴reduce
       reduce
       [z0, 1]<-------->[z0, 1]  [z0, z1]
      /        \            \      /
-  elementwise  copy_out    add_brc(break)             
+  elementwise  copy_out    add_brc(break)
   [z0, 1]       [z0, 1]    [z0, pad(z1)]
     |              |
   expand(break)  copy_in
   [z0, pad(z1)]  [z0, 1]
                    |
                 elementwise
-                 [z0, 1]    
+                 [z0, 1]
 */
 void PadLocalBuffer::ProcessReduce(Function &function, Operation &op) {
     // 轴的数量必须大于等于2， 并且倒数第二根轴为32B对齐， 否则无法命中优化pattern
@@ -369,7 +369,7 @@ Status PadLocalBuffer::ProcessTranspose(Function &function) {
 Status PadLocalBuffer::RunOnFunction(Function &function) {
     for (auto &op : function.Operations()) {
         auto calcType = OpcodeManager::Inst().GetOpCalcType(op.GetOpcode());
-        // 尾轴Reduce且倒数第二根轴32B对齐的op起始的链路上的op不做padding，以节省UB空间 
+        // 尾轴Reduce且倒数第二根轴32B对齐的op起始的链路上的op不做padding，以节省UB空间
         if (IsReduceLastDim(op)) {
             ProcessReduce(function, op);
         }

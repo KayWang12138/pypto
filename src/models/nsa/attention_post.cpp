@@ -52,9 +52,9 @@ void PostCompute(Tensor &input, Tensor &weightUV, Tensor &weightO, Tensor &weigh
     SymbolicScalar bLoop = b / tileB;
     SymbolicScalar sLoop = s / tileS;
 
-    LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1), {}, true) {
+    LOOP("POST_LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1), {}, true) {
         SymbolicScalar bOffset = bIdx * tileB;
-        LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sLoop, 1)) {
+        LOOP("POST_LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sLoop, 1)) {
             SymbolicScalar sOffset = sIdx * tileS;
             std::vector<SymbolicScalar> outOffset = {bOffset, sOffset, 0};
 

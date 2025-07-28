@@ -67,7 +67,8 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
     // config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
 
     SymbolicScalar batchSizeSym = kvSlcActSeqs->shape[0]; // b
-    SymbolicScalar s1N2GSym = GetInputShapeDim(qNope, 0) / batchSizeSym; // s1n2
+    // SymbolicScalar s1N2GSym = GetInputShapeDim(qNope, 0) / batchSizeSym; // s1n2
+    SymbolicScalar s1N2GSym = qNope->shape[0] / batchSizeSym; // s1n2
     SymbolicScalar s1Sym = s1N2GSym / nQ; // s1
     SymbolicScalar gLoopSym = group / gTile;
 

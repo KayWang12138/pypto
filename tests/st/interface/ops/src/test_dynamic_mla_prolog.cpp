@@ -103,7 +103,7 @@ void TestDynamicMlaProlog(const TestShapeParams &params, const MlaTileConfig &ti
         kvCacheShape = {blockNum, blockSize, n2, kvLoraRank};
         krCacheShape = {blockNum, blockSize, n2, qkRopeHeadDim};
         kvCacheOutShape = {blockNum * blockSize, n2 * kvLoraRank};
-        krCacheOutShape = {blockNum, blockSize, n2 * qkRopeHeadDim};
+        krCacheOutShape = {blockNum * blockSize, n2 * qkRopeHeadDim};
     }
     std::vector<int> wQbScaleShape = {1, n * qHeadDim};
     std::vector<int> smoothCqShape{1, qLoraRank};
@@ -155,10 +155,12 @@ void TestDynamicMlaProlog(const TestShapeParams &params, const MlaTileConfig &ti
     auto kvLenData = CreateTensorData<int64_t>(cacheIndex, kvLenShape, "/kv_len.bin");
     auto kvCacheData = CreateTensorData<T>(kvCache, kvCacheShape, "/kv_cache.bin");
     auto krCacheData = CreateTensorData<T>(krCache, krCacheShape, "/kr_cache.bin");
+    auto outKvCacheData = CreateTensorData<T>(outputKvCache, kvCacheOutShape, "/kv_cache.bin");
+    auto outKrCacheData = CreateTensorData<T>(outputKrCache, krCacheOutShape, "/kr_cache.bin");
     auto outputQData = RawTensorData::CreateConstantTensor<T>(outputQ, 0.0);
     auto outputQRopeData = RawTensorData::CreateConstantTensor<T>(outputQRope, 0.0);
 
-    std::vector<RawTensorDataPtr> outputDataList = {outputQData, outputQRopeData, kvCacheData, krCacheData};
+    std::vector<RawTensorDataPtr> outputDataList = {outputQData, outputQRopeData, outKvCacheData, outKrCacheData};
     std::vector<RawTensorDataPtr> inputDataList =
         {xData, wDqData, wUqQrData, wUkData, wDkvKrData, gammaCqData, gammaCkvData, sinData, cosData, kvLenData,
          kvCacheData, krCacheData};
@@ -172,6 +174,9 @@ void TestDynamicMlaProlog(const TestShapeParams &params, const MlaTileConfig &ti
             inputDataList.emplace_back(smoothCqData);
             quantInputs.smoothScalesCq = smoothCq;
         }
+    } else {
+        inputDataList.emplace_back(nullptr); // quantInputs.dequantScaleWUqQr
+        inputDataList.emplace_back(nullptr); // quantInputs.smoothScalesCq
     }
 
     MlaProlog(x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache, quantInputs,
@@ -186,9 +191,9 @@ void TestDynamicMlaProlog(const TestShapeParams &params, const MlaTileConfig &ti
     std::cout << "qRope ======" << std::endl;
     EXPECT_TRUE(resultCmp<T>(golden2, (T *)outputQRopeData->data(), 0.005f));
     std::cout << "kv ====== " << std::endl;
-    EXPECT_TRUE(resultCmp<T>(golden3, (T *)kvCacheData->data(), 0.003f));
+    EXPECT_TRUE(resultCmp<T>(golden3, (T *)outKvCacheData->data(), 0.003f));
     std::cout << "kr ====== " << std::endl;
-    EXPECT_TRUE(resultCmp<T>(golden4, (T *)krCacheData->data(), 0.003f));
+    EXPECT_TRUE(resultCmp<T>(golden4, (T *)outKrCacheData->data(), 0.003f));
 #endif
 }
 

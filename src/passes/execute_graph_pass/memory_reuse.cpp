@@ -60,8 +60,8 @@ bool TensorBucket::IsReusable(const TensorsDesc &tensorsDesc, const ConnectionMa
     }
     bool ret = HasTopoDependency(previousTensors, tensorsDesc.tensors, connMatrix);
     if (ret) {
-        ALOG_DEBUG_F("Tensor %d raw %d size %ld can use reuse previous %d raw %d size %ld", first->magic, 
-            first->GetRawMagic(), first->tensor->GetRawDataSize(),previousFirst->magic, previousFirst->GetRawMagic(), 
+        ALOG_DEBUG_F("Tensor %d raw %d size %ld can use reuse previous %d raw %d size %ld", first->magic,
+            first->GetRawMagic(), first->tensor->GetRawDataSize(),previousFirst->magic, previousFirst->GetRawMagic(),
             previousFirst->tensor->GetRawDataSize());
     }
     return ret;
@@ -121,7 +121,7 @@ bool Allocator::IsRawQualified(const WorkspaceInfo &outWspInfo, const WorkspaceI
 
 // 在不引入额外同步的情况下，完成内存的复用，找到某一个CopyOut的前驱的CopyIn，依赖关系天然存在
 // 极限的复用，可以不考虑依赖关系，只看节点之间的顺序，在后续insert sync时可以插入mte3 wait mte2的同步，但是可能会有性能劣化。
-void FindFirstQualifiedCopyIn(Function *leafFunc, Operation *op, 
+void FindFirstQualifiedCopyIn(Function *leafFunc, Operation *op,
     const WorkspaceInfo &outWspInfo,
     std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inWspCnt,
     std::vector<WorkspaceInfo> &outReuseInCasts) {
@@ -209,7 +209,7 @@ bool GetCopyInSize(LogicalTensorPtr &in, Operation *copyIn, uint64_t &size) {
 }
 
 /* Reshape的复用之后的Offset计算比较复杂，暂时不复用 */
-bool HasReshapeConsumer(const LogicalTensorPtr &out) 
+bool HasReshapeConsumer(const LogicalTensorPtr &out)
 {
     for (Operation *consumer : out->GetConsumers()) {
         if (consumer->GetOpcode() == Opcode::OP_RESHAPE) {
@@ -315,7 +315,7 @@ bool CheckAllNoOverlap(const std::vector<std::vector<int>> &allOffsets,
     return true;
 }
 
-void RecordAllConsumerShapeAndOffset(LogicalTensorPtr &out, std::vector<std::vector<int>> &allOffsets, 
+void RecordAllConsumerShapeAndOffset(LogicalTensorPtr &out, std::vector<std::vector<int>> &allOffsets,
     std::vector<std::vector<int>> &allShapes, bool &canReuse) {
     size_t outShapeSize = out->shape.size();
     size_t shapeIdx =  OFFSET_INDEX + outShapeSize;
@@ -337,7 +337,7 @@ void RecordAllConsumerShapeAndOffset(LogicalTensorPtr &out, std::vector<std::vec
                 continue;
             }
             auto &arglist = attr->GetArgList()[i];
-            for (size_t j = OFFSET_INDEX; j < OFFSET_INDEX + outShapeSize; j++) { 
+            for (size_t j = OFFSET_INDEX; j < OFFSET_INDEX + outShapeSize; j++) {
                 if (arglist[j].IsImmediate()) {
                     offset.emplace_back(arglist[j].Concrete());
                 } else {
@@ -346,7 +346,7 @@ void RecordAllConsumerShapeAndOffset(LogicalTensorPtr &out, std::vector<std::vec
                 }
             }
 
-            for (size_t j = shapeIdx; j < shapeIdx + outShapeSize; j++) { 
+            for (size_t j = shapeIdx; j < shapeIdx + outShapeSize; j++) {
                 if (arglist[j].IsImmediate()) {
                     shape.emplace_back(arglist[j].Concrete());
                 } else {
@@ -372,13 +372,13 @@ void Allocator::CheckConsumerNoOverLap() {
             if (out->GetConsumers().size() == 1) {
                 continue;
             }
-            
+
             std::vector<std::vector<int>> allOffsets;
             std::vector<std::vector<int>> allShapes;
             RecordAllConsumerShapeAndOffset(out, allOffsets, allShapes, canReuse);
             if (canReuse == false) {
                 continue;
-            } 
+            }
             bool ret= CheckAllNoOverlap(allOffsets, allShapes);
             if (ret) {
                 out->SetAttr("MemoryReuseNoOverlap", true);
@@ -401,9 +401,9 @@ void Allocator::InitInnerLeafReuse() {
 /* 如果previous tensor的consumer中包含了tensor的producer，那么不能复用。
    其余场景，如果previous tensor的所有consumer到tensor的一个producer之间有连接，那么意味着，tensor的producer的执行，一定要
    等到preivous的所有consumer都执行完。 */
-bool TensorBucket::HasTopoDependency(const std::set<LogicalTensorPtr> &previousTensors, 
-    const std::set<LogicalTensorPtr> &tensors, 
-    const ConnectionMatrix &connMatrix) const 
+bool TensorBucket::HasTopoDependency(const std::set<LogicalTensorPtr> &previousTensors,
+    const std::set<LogicalTensorPtr> &tensors,
+    const ConnectionMatrix &connMatrix) const
 {
     for (auto previous : previousTensors) {
         ALOG_DEBUG_F("PreviousTensor %d %d",  previous->GetRawMagic(), previous->magic);
@@ -457,7 +457,7 @@ bool GetStorageOffsetByCall(Operation& callOp, size_t incastIdx, uint64_t &stora
     auto &argList = attr->GetArgList()[incastIdx];
     std::vector<int> offset;
     std::vector<int> rawshape;
-    for (size_t i = OFFSET_INDEX; i < OFFSET_INDEX + input->shape.size(); i++) { 
+    for (size_t i = OFFSET_INDEX; i < OFFSET_INDEX + input->shape.size(); i++) {
         if (argList[i].IsImmediate()) {
             offset.emplace_back(argList[i].Concrete());
         } else {
@@ -465,7 +465,7 @@ bool GetStorageOffsetByCall(Operation& callOp, size_t incastIdx, uint64_t &stora
         }
     }
 
-    for (size_t i = rawShapeIdx; i < rawShapeIdx + input->shape.size(); i++) { 
+    for (size_t i = rawShapeIdx; i < rawShapeIdx + input->shape.size(); i++) {
         if (argList[i].IsImmediate()) {
             rawshape.emplace_back(argList[i].Concrete());
         } else {
@@ -501,9 +501,9 @@ bool Allocator::CheckTopoDependancy(const LogicalTensorPtr &tensor, Operation &o
     return true;
 }
 
-bool Allocator::CheckReuseInnerCall(Operation &callOp, size_t outputIdx, LogicalTensorPtr &previous, 
+bool Allocator::CheckReuseInnerCall(Operation &callOp, size_t outputIdx, LogicalTensorPtr &previous,
     uint64_t &storageOffset) const
-{   
+{
     // CallOp需要满足Topo序
     auto cacheValue = Program::GetInstance().GetHostMachine().TryHitCahce(callOp.GetCalleeHash());
     Function *program = nullptr;
@@ -537,7 +537,7 @@ bool Allocator::CheckReuseInnerCall(Operation &callOp, size_t outputIdx, Logical
     (void)input->GetAttr("MemoryReuseNoOverlap", consumerNoOverLap);
     if (consumerSize > 1 && consumerNoOverLap == false) {
         if (!CheckTopoDependancy(input, callOp)) {
-            ALOG_DEBUG_F("input %d contains more than one consumer and does not directly linked to %d", 
+            ALOG_DEBUG_F("input %d contains more than one consumer and does not directly linked to %d",
                 input->magic, callOp.opmagic);
             return false;
         }
@@ -569,7 +569,7 @@ void UpdateOneCall(Operation &consumer, const LogicalTensorPtr &output) {
     size_t shapeSize = output->shape.size();
     size_t rawShapeIdx = OFFSET_INDEX + RAW_SHAPE_POS * shapeSize;
     auto attr = dynamic_cast<CallOpAttribute *>(consumer.GetOpAttribute().get());
-    
+
     for (inputIdx = 0; inputIdx < consumerInputs.size(); inputIdx++) {
         if (consumerInputs[inputIdx] != output) {
             continue;
@@ -590,7 +590,7 @@ void RefreshCallRawShape(Operation &callOp, size_t j, const LogicalTensorPtr &ou
         return;
     }
     // 1. 刷新producer CallOp的Attr中的output rawshape数据
-    output->tensor->rawshape = previous->tensor->rawshape;
+    output->tensor->UpdateRawShape(previous->tensor->rawshape);
     auto attr = dynamic_cast<CallOpAttribute *>(callOp.GetOpAttribute().get());
     auto &arglist = attr->GetArgList()[callOp.GetIOperands().size() + j];
     size_t shapeSize = previous->shape.size();
@@ -598,7 +598,7 @@ void RefreshCallRawShape(Operation &callOp, size_t j, const LogicalTensorPtr &ou
     for (size_t i = 0; i < shapeSize; i++) {
         arglist[i + rawShapeIdx] = SymbolicScalar(output->tensor->rawshape[i]);
     }
-    
+
     // 2. 刷新对应的consumer CallOp的Attr中的input rawshape数据
     for (auto consumer : output->GetConsumers()) {
         if (consumer->GetOpcode() != Opcode::OP_CALL) {

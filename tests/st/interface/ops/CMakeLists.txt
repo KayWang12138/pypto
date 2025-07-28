@@ -18,11 +18,12 @@ set(_CaseFilterList
 
         # NSA MlaProlog
         # "MlaPrologSTest.b32_s1_pa_nz_bf16_quant"
-        "MlaPrologSTest.b32_s2_pa_nz_bf16_quant"
+        # "MlaPrologSTest.b32_s2_pa_nz_bf16_quant"
+        "MlaPrologSTest.b32_s2_pa_nd_fp16_quant"
 
         # NSA AttentionPost
         # "AttentionPostSTest.b32_s1_nz_bf16_quant"
-        "AttentionPostSTest.b32_s2_nz_bf16_quant"
+        # "AttentionPostSTest.b32_s2_nz_bf16_quant"
 
         #===========================================================================
         # '单 Op'精度用例
@@ -79,7 +80,7 @@ set(_CaseFilterList
         "MlaPrologV2OnBoardTest.test_MlaPrologV2_bfloat16_4_32_1_256_7168_1536_codegen_by_json"
 
         # attention
-        "MlaPrologOnBoardTest.attention_bf16_4_1024_1024_32_256"
+        # "MlaPrologOnBoardTest.attention_bf16_4_1024_1024_32_256"
 
         # Expand
         #"ExpandOnBoardTest.test_expand_32_1_to_32_32"

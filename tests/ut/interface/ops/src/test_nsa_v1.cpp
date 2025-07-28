@@ -47,8 +47,9 @@ public:
 };
 
 template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool isSmooth = false, bool nz = false>
-void TestNsa(const NSASimpleParams &params, SaTileShapeConfig& saTileConfig, KvSlcTileShapeConfig& kvSlcTileConfig,
-    PostTileConfig& postConfig) {
+void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig, SaTileShapeConfig& saTileConfig,
+    KvSlcTileShapeConfig& kvSlcTileConfig, PostTileConfig& postConfig, std::string cacheMode = "PA_BSND") {
+    float eps = params.eps;
     int b = params.b;
     int s1 = params.s1;
     int s2 = params.s2;
@@ -56,6 +57,10 @@ void TestNsa(const NSASimpleParams &params, SaTileShapeConfig& saTileConfig, KvS
     int n2 = params.n2;
     int h = params.h;
     int v_dim = params.kv_lora_rank;
+    int qLoraRank = params.q_lora_rank;
+    int qkNopeHeadDim = params.qk_nope_head_dim;
+    int qkRopeHeadDim = params.qk_rope_head_dim;
+    int qHeadDim = qkNopeHeadDim + qkRopeHeadDim;
     int smax = params.topk * params.slcBlockSize;
     int dn = v_dim;
     int dr = params.rope_dim;
@@ -80,6 +85,31 @@ void TestNsa(const NSASimpleParams &params, SaTileShapeConfig& saTileConfig, KvS
     DataType dTypeQuant = isQuant ? DT_INT8 : dType;
 
     // 1. 设置shape
+    // MlaProlog
+    std::vector<int> xShape = {b, s1, h};
+    std::vector<int> wDqShape = {h, qLoraRank};
+    std::vector<int> wUqQrShape = {qLoraRank, n1 * qHeadDim};
+    std::vector<int> wDkvKrShape = {h, v_dim + qkRopeHeadDim};
+    std::vector<int> wUkShape = {n1, qkNopeHeadDim, v_dim};
+    std::vector<int> cosShape = {b, s1, qkRopeHeadDim};
+    std::vector<int> gammaCqShape = {qLoraRank};
+    std::vector<int> gammaCkvShape = {v_dim};
+    std::vector<int> kvLenShape = {b, s1};
+    std::vector<int> kvCacheShape = {b, n2, s2, v_dim};
+    std::vector<int> krCacheShape = {b, n2, s2, qkRopeHeadDim};
+    std::vector<int> kvCacheOutShape = {b, n2, s2, v_dim};
+    std::vector<int> krCacheOutShape = {b, n2, s2, qkRopeHeadDim};
+    if (cacheMode != "BNSD") {
+        kvCacheShape = {blockNum, blockSize, n2, v_dim};
+        krCacheShape = {blockNum, blockSize, n2, qkRopeHeadDim};
+        kvCacheOutShape = {blockNum * blockSize, n2 * v_dim};
+        krCacheOutShape = {blockNum * blockSize, n2 * qkRopeHeadDim};
+    }
+    std::vector<int> wQbScaleShape = {1, n1 * qHeadDim};
+    std::vector<int> smoothCqShape{1, qLoraRank};
+    std::vector<int> qOutShape = {b, s1, n1, v_dim};
+    std::vector<int> qRopeOutShape = {b, s1, n1, qkRopeHeadDim};
+
     std::vector<int> topkIndicesShape = {b, s1, topk - front - near};
     std::vector<int> topkTensorShapeShape = {b, s1};
     std::vector<int> kvNopeCacheShape = {int(blockNum * blockSize), n2 * dn};
@@ -93,14 +123,13 @@ void TestNsa(const NSASimpleParams &params, SaTileShapeConfig& saTileConfig, KvS
     std::vector<int> kSlcShape = {b * s1 * n2 * smax, dn + dr};
     std::vector<int> vSlcShape = {b * s1 * n2 * smax, dn};
 
-    std::vector<int> x_shape = {b, s1, h};
     std::vector<int> gateW1Shape = {h, 4 * h};
     std::vector<int> gateW2Shape = {4 * h, 3 * n1};
     std::vector<int> gateSimW1Shape = {h, 3 * n1};
     // std::vector<int> gatingScoreShape = {b, s1, n1, 3};
 
     std::vector<int> shape_cmpAtten = {b, s1, n1, v_dim};
-    // std::vector<int> shape_selAtten = {b, s1, n1, v_dim};
+    std::vector<int> shape_selAtten = {b, s1, n1, v_dim};
     std::vector<int> shape_winAtten = {b, s1, n1, v_dim};
     std::vector<int> shape_attentionOut = {b, s1, n1, v_dim};
 
@@ -112,6 +141,33 @@ void TestNsa(const NSASimpleParams &params, SaTileShapeConfig& saTileConfig, KvS
     std::vector<int> outShape = {b, s1, h};
 
     // 2. 构造tensor
+    // MlaProlog
+    Tensor x(dType, xShape, "x");
+    TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
+    Tensor wDq(dType, wDqShape, "wDq", NodeType::LOCAL, weightFormat);
+    Tensor wUqQr(dTypeQuant, wUqQrShape, "wUqQr", NodeType::LOCAL, weightFormat);
+    const bool usePrefetch = true;
+    if constexpr (usePrefetch) {
+        wDq.Prefetch();
+        wUqQr.Prefetch();
+    }
+    Tensor wDkvKr(dType, wDkvKrShape, "wDkvKr", NodeType::LOCAL, weightFormat);
+    Tensor wUk(dType, wUkShape, "wUk", NodeType::LOCAL, weightFormat);
+    Tensor gammaCq(dType, gammaCqShape, "gammaCq");
+    Tensor gammaCkv(dType, gammaCkvShape, "gammaCkv");
+    Tensor cos(dType, cosShape, "cos");
+    Tensor sin(dType, cosShape, "sin");
+    Tensor cacheIndex(DT_INT64, kvLenShape, "cacheIndex"); // int64
+    Tensor kvCache(dType, kvCacheShape, "kvCache");
+    Tensor krCache(dType, krCacheShape, "krCache");
+    Tensor wQbScale(DT_FP32, wQbScaleShape, "wQbScale");
+    Tensor smoothCq(DT_FP32, smoothCqShape, "smoothCq");
+    // MlaProlog output
+    Tensor outputKvCache(dType, kvCacheOutShape, "outputKvCache");
+    Tensor outputKrCache(dType, krCacheOutShape, "outputKrCache");
+    Tensor outputQ(dType, qOutShape, "outputQ");
+    Tensor outputQRope(dType, qRopeOutShape, "outputQRope");
+
     Tensor topkIndices(DT_INT32, topkIndicesShape, "topkTensor");
     Tensor topkTensorShape(DT_INT32, topkTensorShapeShape, "topkTensorShape");
     Tensor kvNopeCache(dType, kvNopeCacheShape, "kNopeCache");
@@ -122,37 +178,49 @@ void TestNsa(const NSASimpleParams &params, SaTileShapeConfig& saTileConfig, KvS
     Tensor slcActSeqs(DT_INT32, slcActSeqsShape, "slcActSeqs");
     Tensor qNope(dType, qNopeShape, "qNope");
     Tensor qRope(dType, qRopeShape, "qRope");
-    // Tensor kSlc(dType, kSlcShape, "kSlc");
-    // Tensor vSlc(dType, vSlcShape, "vSlc");
+    Tensor kSlc(dType, kSlcShape, "kSlc");
+    Tensor vSlc(dType, vSlcShape, "vSlc");
 
-    Tensor x(dType, x_shape, "x");
     Tensor gateW1(dType, gateW1Shape, "gateW1");
     Tensor gateW2(dType, gateW2Shape, "gateW2");
     Tensor gateSimW1(dType, gateSimW1Shape, "gateSimW1");
     // Tensor gatingScore(dType, gatingScoreShape, "gatingScore");
 
     Tensor cmpAtten(dType, shape_cmpAtten, "cmpAtten");
-    // Tensor selAtten(DT_FP32, shape_selAtten, "selAtten"); // fp32输入
+    Tensor slcAttn(DT_FP32, shape_selAtten, "selAtten"); // fp32输入
     Tensor winAtten(dType, shape_winAtten, "winAtten");
 
     Tensor kvSlcActSeqsMidOut(DT_INT32, slcActSeqsShape, "kvSlcActSeqsMidOut");
     Tensor attenOut(dType, shape_attentionOut, "attenOut");
 
     // post: Tensor
-    TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
     Tensor wUv(dType, wUvShape, "wUv");
     Tensor wo(dTypeQuant, woShape, "wo", NodeType::LOCAL, weightFormat);
     Tensor woScale;
     Tensor smoothWo;
     Tensor postOut(dType, outShape, "postOut");
 
+    MlaQuantInputs quantInputs;
+    if (isQuant) {
+        std::vector<int> w_qb_scale_shape = {1, n1 * qHeadDim};
+        Tensor w_qb_scale = Tensor(DataType::DT_FP32, w_qb_scale_shape, "w_qb_scale");
+        quantInputs.dequantScaleWUqQr = w_qb_scale;
+        if (isSmooth) {
+            std::vector<int> smooth_cq_shape = {1, qLoraRank};
+            Tensor smooth_cq = Tensor(DT_FP32, smooth_cq_shape, "smooth_cq");
+            quantInputs.smoothScalesCq = smooth_cq;
+        }
+    }
+
     // 3. 计算接口
-    DynamicNsa(topkIndices, topkTensorShape, kvNopeCache, kRopeCache, kvCacheActSeq, blockTable, front, near, topk, slcBlockSize, blockSize, kvSlcTileConfig, // genKvSlc
-        qNope, qRope, slcActSeqs, softmaxScale, saTileConfig, // slcAttn
-        x, gateW1, gateW2, gateSimW1, GateMode::standard, // gatedscore
+    DynamicNsa(x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache, quantInputs,
+        prologConfig, eps, eps, cacheMode,
+        topkIndices, topkTensorShape, /*kvNopeCache, kRopeCache,*/ kvCacheActSeq, blockTable, front, near, topk, slcBlockSize, blockSize, kvSlcTileConfig, // genKvSlc
+        /*qNope, qRope,*/ slcActSeqs, softmaxScale, saTileConfig, // slcAttn
+        /*x, */gateW1, gateW2, gateSimW1, GateMode::standard, // gatedscore
         cmpAtten, winAtten, // gen win
         wUv, wo, woScale, smoothWo, postConfig, // post
-        kvSlcActSeqsMidOut, attenOut, postOut);
+        outputQ, outputQRope, outputKvCache, outputKrCache, qNope, qRope, kvSlcActSeqsMidOut, kSlc, vSlc, slcAttn, attenOut, postOut);
 }
 
 TEST_F(NSAUtest, nsa_b_16_fp16) {
@@ -182,14 +250,16 @@ TEST_F(NSAUtest, nsa_b_16_fp16) {
     kvSlcTileConfig.v0TileShape = {32, 32};
 
     PostTileConfig postConfig = {16, 1};
+    MlaTileConfig prologConfig = {16, 1};
 
+    std::string cacheMode = "PA_BSND";
     if (isQuant == 1) {
         if (isSmooth == 1) {
-            TestNsa<npu::tile_fwk::float16, int8_t, true>(params, saTileConfig, kvSlcTileConfig, postConfig);
+            TestNsa<npu::tile_fwk::float16, int8_t, true>(params, prologConfig, saTileConfig, kvSlcTileConfig, postConfig, cacheMode);
         } else {
-            TestNsa<npu::tile_fwk::float16, int8_t, false>(params, saTileConfig, kvSlcTileConfig, postConfig);
+            TestNsa<npu::tile_fwk::float16, int8_t, false>(params, prologConfig, saTileConfig, kvSlcTileConfig, postConfig, cacheMode);
         }
     } else {
-        TestNsa<npu::tile_fwk::float16, npu::tile_fwk::float16, false>(params, saTileConfig, kvSlcTileConfig, postConfig);
+        TestNsa<npu::tile_fwk::float16, npu::tile_fwk::float16, false>(params, prologConfig, saTileConfig, kvSlcTileConfig, postConfig, cacheMode);
     }
 }

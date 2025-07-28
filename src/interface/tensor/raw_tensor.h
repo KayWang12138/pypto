@@ -98,6 +98,10 @@ public:
     const std::vector<SymbolicScalar> &GetDynRawShape() const { return dynRawShape; }
     SymbolicScalar GetDynRawShape(int axis) const { return dynRawShape[axis]; }
     void UpdateDynRawShape(const std::vector<SymbolicScalar> &dynShape) { dynRawShape = dynShape; }
+    void UpdateRawShape(const std::vector<int> &trawShape) {
+        rawshape = trawShape;
+        dynRawShape = SymbolicScalar::FromConcrete(trawShape);
+    }
     /* rawData just used to identify the user value, RawTensor do not have the ownership */
     BinDataPtr GetRawDataPtr() const { return rawData; };
     void SetRawDataPtr(uint8_t *ptr) { rawData = ptr; }

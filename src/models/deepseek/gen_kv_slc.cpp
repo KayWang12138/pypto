@@ -37,7 +37,7 @@ void KvSlcCompute(Tensor &topK_indcies, Tensor &topK_tensor_shape, Tensor &kvNop
     SymbolicScalar s = topK_indcies->shape[1];
     SymbolicScalar kv_lora_rank = kvNopeCache.GetShape(1) / n2;
     SymbolicScalar rope_dim = kRopeCache.GetShape(1) / n2;
-    LOOP("LOOP_L0_batchIdx", FunctionType::DYNAMIC_LOOP, batchIdx, LoopRange(0, b, 1)) {
+    LOOP("LOOP_L0_batchIdx", FunctionType::DYNAMIC_LOOP, batchIdx, LoopRange(0, b, 1), {}, true) {
         SymbolicScalar curActSeq = GetInputDataInt32Dim1(kvActSeqs, batchIdx);
         LOOP("LOOP_L1_slcIdx", FunctionType::DYNAMIC_LOOP, slcIdx, LoopRange(0, s, 1)) {
             LOOP("LOOP_L2_kvSlcIdx", FunctionType::DYNAMIC_LOOP, nkvIdx, LoopRange(0, n2, 1)) {

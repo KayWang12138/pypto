@@ -116,21 +116,30 @@ void GenAttn(Tensor &gatingScore, Tensor &cmpAtten, Tensor &selAtten, Tensor &wi
     }
 }
 
-void DynamicNsa(Tensor &topkIndices, Tensor &topkTensorShape, Tensor &kvNopeCache, Tensor &kRopeCache, Tensor &kvActSeqs, Tensor &blockTable,
+void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wUk,
+    const Tensor &wDkvKr, const Tensor &gammaCq, const Tensor &gammaCkv, const Tensor &sin, const Tensor &cos,
+    const Tensor &cacheIndex, Tensor &kvCache, Tensor &krCache, const MlaQuantInputs &quantInputs,
+    const MlaTileConfig &mlaTileConfig, float epsilonCq, float epsilonCkv, std::string cacheMode, // prolog
+    Tensor &topkIndices, Tensor &topkTensorShape, Tensor &kvActSeqs, Tensor &blockTable,
     int front, int near, int topk, int slcBlockSize, int blockSize, KvSlcTileShapeConfig &kvSlcTileConfig,
-    const Tensor &qNope, const Tensor &qRope, Tensor &kvSlcActSeqs, float softmaxScale, SaTileShapeConfig saTileConfig,
-    const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, const Tensor &gateSimW1, GateMode gateMode,
+    Tensor &kvSlcActSeqs, float softmaxScale, SaTileShapeConfig saTileConfig,
+    const Tensor &gateW1, const Tensor &gateW2, const Tensor &gateSimW1, GateMode gateMode,
     Tensor &cmpAtten, Tensor &winAtten,
     Tensor &weightUV, Tensor &weightO, Tensor &weightOScale, Tensor &smoothScalesWo, const PostTileConfig &postConfig,
-    Tensor &kvSlcActSeqOut, Tensor &attentionOut, Tensor &postOut) {
+    Tensor &queryOut, Tensor &queryRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut, Tensor &qNope, Tensor &qRope,
+    Tensor &kvSlcActSeqOut, Tensor &kSlc, Tensor &vSlc, Tensor &slcAttn, Tensor &attentionOut, Tensor &postOut) {
     ASSERT(gateMode == standard); // 当前仅支持standard模式
 
-    FUNCTION("main", FunctionType::DYNAMIC, {topkIndices, topkTensorShape, kvNopeCache, kRopeCache, kvActSeqs, blockTable, // genKvSlc
-                                             qNope, qRope, kvSlcActSeqs,  // SlcAttn
-                                             x, gateW1, gateW2, gateSimW1,  // gatedScore
-                                             cmpAtten, winAtten,  // genAttn
-                                             weightUV, weightO, weightOScale, smoothScalesWo}, // paPost
-                                            {kvSlcActSeqOut, attentionOut, postOut}) {
+    FUNCTION("main", FunctionType::DYNAMIC,
+        {x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache,
+         quantInputs.dequantScaleWUqQr, quantInputs.smoothScalesCq, // prolog
+         topkIndices, topkTensorShape, kvActSeqs, blockTable, // genKvSlc
+         kvSlcActSeqs,  // SlcAttn
+         gateW1, gateW2, gateSimW1,  // gatedScore
+         cmpAtten, winAtten,  // genAttn
+         weightUV, weightO, weightOScale, smoothScalesWo}, // paPost
+        {queryOut, queryRopeOut, kvCacheOut, krCacheOut, qNope, qRope, kvSlcActSeqOut, kSlc, vSlc, slcAttn,
+         attentionOut, postOut}) {
         Program::GetInstance().GetConfig().Set<int>(DB_TYPE, 1);
         Program::GetInstance().GetConfig().Set<int>(L1_REUSE, NUM_4);
         Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{NUM_3, NUM_4}});
@@ -140,11 +149,9 @@ void DynamicNsa(Tensor &topkIndices, Tensor &topkTensorShape, Tensor &kvNopeCach
         int s = x->shape[1]; // s=1
         int n1 = gateW2->shape[1] / 3;
         int n2 = 1;
-        int vDim = qNope->shape[1];  // kvLoraRank
-        int ropeDim = qRope->shape[1];
-        int kDim = vDim + ropeDim;
+        int vDim = wUk->shape[2];  // kvLoraRank
+        int ropeDim = sin->shape[2]; // [b,s,qkRopeHeadDim]
         auto dtype = x->Datatype();
-        int slcSMax = topk * slcBlockSize;
 
         /*********************************/
         /*有数据依赖的子图一定要加loop_barrier*/
@@ -166,7 +173,29 @@ void DynamicNsa(Tensor &topkIndices, Tensor &topkTensorShape, Tensor &kvNopeCach
         */
         /*********************************/
 
-        // subgraph-0
+        // subgraph-0: prolog
+        // queryOut: [b,s1,n1,kvLoraRank], queryRopeOut: [b,s1,n1,qkRopeHeadDim]
+        // kvCacheOut: [blockNum * blockSize * n2, kvLoraRank], krCache: [blockNum * blockSize * n2, qkRopeHeadDim]
+        MlaPrologCompute(x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache,
+            quantInputs, mlaTileConfig, queryOut, queryRopeOut, kvCacheOut, krCacheOut, epsilonCq, epsilonCkv, cacheMode);
+
+        // [b,s1,n1,d] -> [b*s1*n1,d]
+        LOOP("RESHAPE_LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, b, 1), {}, true) {
+            SymbolicScalar bOffset = bIdx * 1;
+            LOOP("RESHAPE_LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, s, 1)) {
+                SymbolicScalar sOffset = sIdx * 1;
+
+                Tensor nopeView = DView(queryOut, {1, 1, n1, vDim}, {bOffset, sOffset, 0, 0});
+                Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, vDim});
+                Tensor nopeRes = Reshape(nopeView, {1 * 1 * n1, vDim});
+                DAssemble(nopeRes, {(bOffset * s + sOffset) * n1, 0}, qNope);
+
+                Tensor ropeView = DView(queryRopeOut, {1, 1, n1, ropeDim}, {bOffset, sOffset, 0, 0});
+                Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, n1, ropeDim});
+                Tensor ropeRes = Reshape(ropeView, {1 * 1 * n1, ropeDim});
+                DAssemble(ropeRes, {(bOffset * s + sOffset) * n1, 0}, qRope);
+            }
+        }
 
         // Loop_barrier
         // subgraph-1
@@ -176,15 +205,12 @@ void DynamicNsa(Tensor &topkIndices, Tensor &topkTensorShape, Tensor &kvNopeCach
         // subgraph-4
         /********gen kv slc ********/
         config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, false);
-        Tensor kSlc(dtype, {b * s * n2 * slcSMax, kDim}, "kSlc"); // 输出两维 [b*s1*n2*topk*slcBlockSize, d]
-        Tensor vSlc(dtype, {b * s * n2 * slcSMax, vDim}, "vSlc");
-        KvSlcCompute(topkIndices, topkTensorShape, kvNopeCache, kRopeCache, kvActSeqs, front, near, topk, slcBlockSize,
+        KvSlcCompute(topkIndices, topkTensorShape, kvCacheOut, krCacheOut, kvActSeqs, front, near, topk, slcBlockSize,
                      n2, blockTable, blockSize, kSlc, vSlc, kvSlcActSeqOut, kvSlcTileConfig);
 
         // loop_barrier
-        config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // codegen参数化，for 动态尾块
+        // config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // codegen参数化，for 动态尾块
         /********gen slc atten ********/
-        Tensor slcAttn(DT_FP32, {b, s, n1, vDim}, "slcAttn"); // slcAttn 输出四维[b,s,n1,vDim] fp32
         SlcAttnCompute(qNope, qRope, kSlc, vSlc, kvSlcActSeqs, n1, n2, softmaxScale, slcAttn, saTileConfig);
 
         // subgraph-5

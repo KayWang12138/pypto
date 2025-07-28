@@ -21,7 +21,6 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_storage.h"
-#include "models/deepseek/deepseek_mla.h"
 
 namespace npu::tile_fwk {
 
@@ -60,30 +59,30 @@ struct SimpleParams {
     static SimpleParams getCommonParams() {
         SimpleParams params;
         params.s = 1;
-        params.h = NUM_7168;
-        params.q_lora_rank = NUM_1536;
-        params.kv_lora_rank = NUM_512;
-        params.qk_rope_head_dim = NUM_64;
-        params.qk_nope_head_dim = NUM_128;
+        params.h = 7168; // 7168
+        params.q_lora_rank = 1536; // 1536
+        params.kv_lora_rank = 512; // 512
+        params.qk_rope_head_dim = 64; // 64
+        params.qk_nope_head_dim = 128; // 128
         params.q_head_dim = params.qk_rope_head_dim + params.qk_nope_head_dim;
         params.cacheMode = "BNSD";
-        params.blockSize = NUM_128;
+        params.blockSize = 128; // 128
         return params;
     }
 
     static SimpleParams getLowParams() {
         SimpleParams params = getCommonParams();
-        params.b = NUM_4;
-        params.n = NUM_32;
-        params.s2 = NUM_256;
+        params.b = 4; // 4
+        params.n = 32; // 32
+        params.s2 = 256; // 256
         return params;
     }
 
     static SimpleParams getHighParams() {
         SimpleParams params = getCommonParams();
-        params.b = NUM_32;
-        params.n = NUM_128;
-        params.s2 = NUM_4096;
+        params.b = 32; // 32
+        params.n = 128; // 128
+        params.s2 = 4096; // 4096
         return params;
     }
 };

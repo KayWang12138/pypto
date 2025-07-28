@@ -28,6 +28,7 @@ from bfloat16 import bfloat16
 from golden.net.deepseekv3.nsa.gen_slc_attn import compute_attention
 from golden.op.kv_slc import kv_slc_compute
 from golden.net.deepseekv3.nsa.attention_post_golden import post_compute, gen_post_input_data
+from golden.net.deepseekv3.mla.mla_prolog_golden_v2 import gen_prolog_input_data, mla_prolog_compute
 
 
 if __name__ == "__main__":
@@ -58,7 +59,7 @@ def gated_score_mlp_standard(x, w_1, w_2, output: Path):
     #     w_1 = np.random.rand(h, 4 * h)
     #     w_2 = np.random.rand(4*h, 3 * n)
     print(f'b {b} s {s} h {h} n {n} \n')
-    x_path = Path(output, 'x.bin')
+    # x_path = Path(output, 'x.bin')
     w1_path = Path(output, 'w1.bin')
     w2_path = Path(output, 'w2.bin')
     score_path = Path(output, 'score.bin')
@@ -70,7 +71,7 @@ def gated_score_mlp_standard(x, w_1, w_2, output: Path):
     mm2 = np.matmul(mm1_sigmoid, w_2)
     gating_score = mm2.reshape(b, s, 3, n)
  
-    x.astype(np.float16).tofile(x_path)
+    # x.astype(np.float16).tofile(x_path)
     w_1.astype(np.float16).tofile(w1_path)
     w_2.astype(np.float16).tofile(w2_path)
     gating_score.astype(np.float16).tofile(score_path)
@@ -162,23 +163,24 @@ def gen_kv_cache(params, actual_seq_list, dtype, output_dir):
     block_num, block_table = gen_block_table(b, actual_seq_list, block_size)
 
     shape_topk_indices = [b, s1, topk - front - near]
-    shape_kv_nope_cache = [block_num * block_size, n2 * kv_lora_rank]
-    shape_k_rope_cache = [block_num * block_size, n2 * rope_dim]
+    # shape_kv_nope_cache = [block_num * block_size, n2 * kv_lora_rank]
+    # shape_k_rope_cache = [block_num * block_size, n2 * rope_dim]
 
-    kv_nope_cache = gen_uniform_data(shape_kv_nope_cache, -1, 1, dtype)
-    k_rope_cache = gen_uniform_data(shape_k_rope_cache, -1, 1, dtype)
+    # kv_nope_cache = gen_uniform_data(shape_kv_nope_cache, -1, 1, dtype)
+    # k_rope_cache = gen_uniform_data(shape_k_rope_cache, -1, 1, dtype)
 
-    kv_nope_cache_path = Path(output_dir, 'kv_nope_cache.bin')
-    kr_cache_path = Path(output_dir, 'k_rope_cache.bin')
+    # kv_nope_cache_path = Path(output_dir, 'kv_nope_cache.bin')
+    # kr_cache_path = Path(output_dir, 'k_rope_cache.bin')
     block_table_path = Path(output_dir, 'block_table.bin')
     kv_cache_actual_seq_path = Path(output_dir, 'kv_cache_actual_seq_len.bin')
 
-    dump_file(kv_nope_cache, kv_nope_cache_path, dtype)
-    dump_file(k_rope_cache, kr_cache_path, dtype)
+    # dump_file(kv_nope_cache, kv_nope_cache_path, dtype)
+    # dump_file(k_rope_cache, kr_cache_path, dtype)
     dump_file(block_table, block_table_path, np.int32)
     dump_file(actual_seq_list, kv_cache_actual_seq_path, np.int32)
 
-    return kv_nope_cache, k_rope_cache, block_table
+    # return kv_nope_cache, k_rope_cache, block_table
+    return block_table
 
 
 def gen_atten_golden_data(cmp_atten, sel_atten, win_atten, gating_score, dtype):
@@ -199,14 +201,14 @@ def gen_atten_golden_data(cmp_atten, sel_atten, win_atten, gating_score, dtype):
 def dump_gen_kv_slc_file(topk_indices, topk_tensor_shape, kv_slc_out, kr_slc_out, kv_slc_actual_seqs, dtype, output_dir):
     topk_tensor_path = Path(output_dir, 'topk_tensor.bin')
     topk_tensor_shape_path = Path(output_dir, 'topk_tensor_shape.bin')
-    # kv_slc_out_path = Path(output_dir, 'kv_slc_out.bin')
-    # kr_slc_out_path = Path(output_dir, 'kr_slc_out.bin')
+    kv_slc_out_path = Path(output_dir, 'kv_slc_out.bin')
+    kr_slc_out_path = Path(output_dir, 'kr_slc_out.bin')
     kv_slc_actual_seqs_path = Path(output_dir, 'kv_slc_actual_seqs.bin')
 
     dump_file(topk_indices, topk_tensor_path, np.int32)
     dump_file(topk_tensor_shape, topk_tensor_shape_path, np.int32)
-    # dump_file(kv_slc_out, kv_slc_out_path, dtype)
-    # dump_file(kr_slc_out, kr_slc_out_path, dtype)
+    dump_file(kv_slc_out, kv_slc_out_path, dtype)
+    dump_file(kr_slc_out, kr_slc_out_path, dtype)
     dump_file(kv_slc_actual_seqs, kv_slc_actual_seqs_path, np.int32)
 
 
@@ -230,24 +232,24 @@ def dump_slc_atten_file(q_bsnd, k_bsnd, v_bsnd, actual_seq, kv_lora_rank, dtype,
 
 def dump_gen_atten_file(cmp_atten, sel_atten, win_atten, attention_out, dtype, output_dir):
     cmp_atten_path = Path(output_dir, 'cmp_atten.bin')
-    # sel_atten_path = Path(output_dir, 'sel_atten.bin')
+    sel_atten_path = Path(output_dir, 'sel_atten.bin')
     win_atten_path = Path(output_dir, 'win_atten.bin')
     attention_out_path = Path(output_dir, 'attention_out.bin')
 
     dump_file(cmp_atten, cmp_atten_path, dtype)
-    # dump_file(sel_atten, sel_atten_path, np.float32) # slc_attn, fp32
+    dump_file(sel_atten, sel_atten_path, np.float32) # slc_attn, fp32
     dump_file(win_atten, win_atten_path, dtype)
     dump_file(attention_out, attention_out_path, dtype)
 
 
-def dump_gated_score_file(x, gate_sim_w1, gate_w1, gate_w2, gating_score, dtype, output_dir):
-    x_path = Path(output_dir, 'x.bin')
+def dump_gated_score_file(gate_sim_w1, gate_w1, gate_w2, gating_score, dtype, output_dir):
+    # x_path = Path(output_dir, 'x.bin')
     gate_sim_w1_path = Path(output_dir, 'gate_sim_w1.bin')
     gate_w1_path = Path(output_dir, 'gate_w1.bin')
     gate_w2_path = Path(output_dir, 'gate_w2.bin')
     gating_score_path = Path(output_dir, 'gating_score.bin')
 
-    x.astype(dtype).tofile(x_path)
+    # x.astype(dtype).tofile(x_path)
     gate_sim_w1.astype(dtype).tofile(gate_sim_w1_path)
     gate_w1.astype(dtype).tofile(gate_w1_path)
     gate_w2.astype(dtype).tofile(gate_w2_path)
@@ -287,12 +289,17 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
     near = params.get("near")
     topk = params.get("topk")
     block_size = params.get("block_size")
+    epsilon = params.get("epsilon")
+    cache_mode = params.get("cache_mode")
+    q_lora_rank = params.get("q_lora_rank")
+    qk_nope_head_dim = params.get("qk_nope_head_dim")
     v_head_dim = params.get("v_head_dim")
     is_quant = params.get("is_quant")
     has_smooth = params.get("is_smooth")
 
     softmax_scale = q_dim ** -0.5
     slc_s_max = topk * slc_block_size
+    block_num = b * (s2 // block_size)
 
     # kv cache actual_seq
     kv_cache_actual_seq_p = params.get("kv_cache_actual_seq")
@@ -311,7 +318,7 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
     shape_topk_indices = [b, s, topk - front - near]
 
     # gen slc atten
-    slc_q_shape = [b, s, n1, q_dim]
+    # slc_q_shape = [b, s, n1, q_dim]
     slc_k_shape = [b, s, n2, slc_s_max, k_dim]
     slc_v_shape = [b, s, n2, slc_s_max, v_dim]
     slc_atten_out_shape = [b, s, n1, v_dim]
@@ -331,7 +338,25 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
     np.random.seed(int(time.time()))
 
     # 2. 生成数据
-    kv_nope_cache, k_rope_cache, block_table = gen_kv_cache(params, kv_cache_actual_seq, dtype, output_dir) # 生成kvcache
+    # mla_prolog
+    prolog_params = {
+        "b": b,
+        "s": s,
+        "s2": s2,
+        "h": h,
+        "num_heads": n1,
+        "q_lora_rank": q_lora_rank,
+        "qk_nope_head_dim": qk_nope_head_dim,
+        "qk_rope_head_dim": rope_dim,
+        "kv_lora_rank": kv_lora_rank,
+        "v_head_dim": v_head_dim,
+    }
+    x, wDq, wUqQr, smooth_cq, w_qb_scale, wDkvKr, wUk, gamma_cq, gamma_ckv, cos, sin, kv_len, kv_cache, kr_cache = \
+        gen_prolog_input_data(prolog_params, [dtype, dtype], epsilon, output_dir, is_quant, is_nz, has_smooth,
+                              block_size, cache_mode)
+
+    # kv_nope_cache, k_rope_cache, block_table = gen_kv_cache(params, kv_cache_actual_seq, dtype, output_dir) # 生成kvcache
+    block_table = gen_kv_cache(params, kv_cache_actual_seq, dtype, output_dir) # 生成kvcache
     # gen kv_slc
     s_slc = 128 # TODO: 中间输出，后续topk子图拼接后，需要删除topk_indices的生成
     topk_indices = gen_uniform_data(shape_topk_indices, 0, s_slc, dtype=np.int32)
@@ -341,12 +366,12 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
             topk_tensor_shape[batchIdx][seqIdx] = s_slc
 
     # gen slc attn
-    slc_q_bsnd = gen_uniform_data(slc_q_shape, -1, 1, dtype)
+    # q_bsnd = gen_uniform_data(slc_q_shape, -1, 1, dtype)
     slc_k_bsnd = gen_uniform_data(slc_k_shape, -1, 1, dtype)
     slc_v_bsnd = slc_k_bsnd[:, :, :, :, :kv_lora_rank]
 
     # gen gated_score
-    x = gen_uniform_data(x_shape, -1, 1, dtype)
+    # x = gen_uniform_data(x_shape, -1, 1, dtype)
     gate_sim_w1 = gen_uniform_data(gate_sim_w1_shape, -0.1, 0.1, dtype)
     gate_w1 = gen_uniform_data(gate_w1_shape, -0.1, 0.1, dtype)
     gate_w2 = gen_uniform_data(gate_w2_shape, -0.1, 0.1, dtype)
@@ -362,6 +387,40 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
 
 
     # 3. 计算 & dump file
+    # mla_prolog
+    prolog_inputs = {"dtype": dtype, "is_quant": is_quant, "has_smooth": has_smooth}
+    prolog_inputs["cache_mode"] = cache_mode
+    prolog_inputs["gamma_cq"] = gamma_cq
+    prolog_inputs["gamma_ckv"] = gamma_ckv
+    prolog_inputs["epsilon"] = epsilon
+    prolog_inputs["x"] = x
+    prolog_inputs["wDq"] = wDq
+    prolog_inputs["wUqQr"] = wUqQr
+    prolog_inputs["wUk"] = wUk
+    prolog_inputs["wDkvKr"] = wDkvKr
+    prolog_inputs["cos"] = cos
+    prolog_inputs["sin"] = sin
+    prolog_inputs["kv_cache"] = kv_cache
+    prolog_inputs["kr_cache"] = kr_cache
+    prolog_inputs["cache_index"] = kv_len
+    if is_quant:
+        prolog_inputs["w_qb_scale"] = w_qb_scale
+        if has_smooth:
+            prolog_inputs["smooth_cq"] = smooth_cq
+    # q_out: [b, s, n1, kv_lora_rank], q_rope_out: [b, s, n1, rope_dim]
+    # kv_cache_out: [block_num, block_size, n2, kv_lora_rank], kr_cache_out: [block_num, block_size, n2, rope_dim]
+    q_out, q_rope_out, kv_cache_out, kr_cache_out = mla_prolog_compute(prolog_inputs)
+    q_out.tofile(Path(output_dir, 'q_golden.bin'))
+    q_rope_out.tofile(Path(output_dir, 'q_rope_golden.bin'))
+    kv_cache_out.tofile(Path(output_dir, 'kv_cache_golden.bin'))
+    kr_cache_out.tofile(Path(output_dir, 'kr_cache_golden.bin'))
+
+    # reshape
+    kv_nope_cache = kv_cache_out.reshape([block_num * block_size, n2 * kv_lora_rank])
+    k_rope_cache = kr_cache_out.reshape([block_num * block_size, n2 * rope_dim])
+
+    q_bsnd = np.concatenate([q_out, q_rope_out], axis=-1)  # [b, s, n1, kv_lora_rank + rope_dim]
+
     # kv compression
     # gen_kv_compression()
 
@@ -382,14 +441,14 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
     input_params = [b, s, n1, n2, kv_lora_rank, rope_dim, slc_s_max, slc_s_max]
     k_slc = np.reshape(k_slc_out, slc_k_shape) # [b*s*n2*slc_s_max, k_dim] -> [b, s, n2, slc_s_max, k_dim]
     v_slc = np.reshape(v_slc_out, slc_v_shape) # [b*s*n2*slc_s_max, v_dim] -> [b, s, n2, slc_s_max, v_dim]
-    slc_atten = compute_attention(slc_q_bsnd, k_slc, v_slc, kv_slc_actual_seqs, softmax_scale, slc_atten_out_shape) # 输出fp64
-    dump_slc_atten_file(slc_q_bsnd, k_slc, v_slc, kv_slc_actual_seqs, kv_lora_rank, dtype, output_dir, slc_atten, input_params)
+    slc_atten = compute_attention(q_bsnd, k_slc, v_slc, kv_slc_actual_seqs, softmax_scale, slc_atten_out_shape) # 输出fp64
+    dump_slc_atten_file(q_bsnd, k_slc, v_slc, kv_slc_actual_seqs, kv_lora_rank, dtype, output_dir, slc_atten, input_params)
 
     # gen gated_score
     print("========== gen gated_score ==============")
     gating_score, _, _ = gen_gated_score(x.astype(np.float64), gate_sim_w1.astype(np.float64),
         gate_w1.astype(np.float64), gate_w2.astype(np.float64), output_dir, mode='standard') # 升精度运算
-    dump_gated_score_file(x, gate_sim_w1, gate_w1, gate_w2, gating_score, dtype, output_dir)
+    dump_gated_score_file(gate_sim_w1, gate_w1, gate_w2, gating_score, dtype, output_dir)
 
     # gen atten
     print("========== gen attn ==============")
@@ -427,6 +486,8 @@ def nsa_entry(dtypes, bs1s2h, quant_smooth, output_dir: Path):
     topk = 16
     slc_block_size = 64
     v_head_dim = 128
+    epsilon = 1e-5
+    cache_mode = "PA_BSND"
 
     params = {
         "b": b,
@@ -451,6 +512,8 @@ def nsa_entry(dtypes, bs1s2h, quant_smooth, output_dir: Path):
         "topk": topk,
         "block_size": 128,
         "kv_cache_actual_seq": s2,
+        "epsilon": epsilon,
+        "cache_mode": cache_mode,
         "v_head_dim": v_head_dim,
         "is_quant": is_quant,
         "is_smooth": is_smooth,

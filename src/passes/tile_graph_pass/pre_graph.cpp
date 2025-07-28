@@ -175,7 +175,7 @@ void HandleDynOffsetForReshape(const LogicalTensorPtr &oriBackUp, std::unordered
             copyAttr->SetRawShape(OpImmediate::Specified(newRawShape));
             copyAttr->SetToOffset(newOffset);
         }
-        producer->GetIOperands()[0]->tensor->rawshape = newRawShape;
+        producer->GetIOperands()[0]->tensor->UpdateRawShape(newRawShape);
     }
 }
 

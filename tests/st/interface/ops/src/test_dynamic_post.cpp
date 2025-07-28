@@ -98,6 +98,9 @@ void TestAttentionPost(const TestPostParams &params, const PostTileConfig &tileC
             auto smoothWoData = CreateTensorData<float>(smoothWo, smoothWoShape, "/smooth_wo.bin");
             inputDataList.emplace_back(smoothWoData);
         }
+    } else {
+        inputDataList.emplace_back(nullptr); // woScaleData
+        inputDataList.emplace_back(nullptr); // smoothWoData
     }
 
     AttentionPost(x, wUv, wo, woScale, smoothWo, tileConfig, postOut);

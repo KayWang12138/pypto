@@ -121,6 +121,7 @@ public:
     static void Run(std::shared_ptr<DyndevFunctionAttribute> funcop, const std::vector<RawTensorDataPtr> &inputs,
         const std::vector<RawTensorDataPtr> &outputs, const DynFuncRunnerConfig &config = DynFuncRunnerConfig()) {
         auto runner = DynFuncRunner(funcop->devProgBinary, config);
+        runner.KernelLaunchPrecheck(funcop, inputs, outputs);
         runner.RunModel(inputs, outputs);
         runner.Run(inputs, outputs);
     }
@@ -128,9 +129,9 @@ public:
     // Run with incast/outcast from ProgramData
     static void Run(std::shared_ptr<DyndevFunctionAttribute> funcop, const DynFuncRunnerConfig &config = DynFuncRunnerConfig()) {
         auto runner = DynFuncRunner(funcop->devProgBinary, config);
-        runner.KernelLaunchPrecheck(funcop);
         auto &inputs = ProgramData::GetInstance().GetInputDataList();
         auto &outputs = ProgramData::GetInstance().GetOutputDataList();
+        runner.KernelLaunchPrecheck(funcop, inputs, outputs);
         runner.RunModel(inputs, outputs);
         if (config.onBoard) {
             runner.Run(inputs, outputs);
@@ -295,9 +296,11 @@ private:
         return;
     }
 
-    void KernelLaunchPrecheck(std::shared_ptr<DyndevFunctionAttribute> funcop) {
+    void KernelLaunchPrecheck(std::shared_ptr<DyndevFunctionAttribute> funcop,
+        const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs) {
         auto checkInouts = [&](std::vector<std::reference_wrapper<const Tensor>> &tensorList,
                                const std::vector<RawTensorDataPtr> &dataList) {
+            EXPECT_EQ(tensorList.size(), dataList.size()) << "argument num not match !!!!";
             for (size_t i = 0; i < tensorList.size(); i++) {
                 auto &t = tensorList[i].get();
                 auto &d = dataList[i];
@@ -314,8 +317,8 @@ private:
             }
         };
 
-        checkInouts(funcop->startArgsInputTensorList, ProgramData::GetInstance().GetInputDataList());
-        checkInouts(funcop->startArgsOutputTensorList, ProgramData::GetInstance().GetOutputDataList());
+        checkInouts(funcop->startArgsInputTensorList, inputs);
+        checkInouts(funcop->startArgsOutputTensorList, outputs);
     }
 
 private:

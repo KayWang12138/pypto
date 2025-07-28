@@ -23,6 +23,7 @@
 #include "interface/configs/config_storage.h"
 #include "models/nsa/selected_attention.h"
 #include "models/deepseek/gen_kv_slc.h"
+#include "models/deepseek/dynamic_mla.h"
 #include "models/nsa/attention_post.h"
 
 namespace npu::tile_fwk {
@@ -55,6 +56,7 @@ struct NSASimpleParams {
     std::string cacheMode;
     int blockSize;
     int vHeadDim;
+    float eps;
     static NSASimpleParams getCommonParams() {
         NSASimpleParams params;
         params.h = NUM_7168;
@@ -73,6 +75,7 @@ struct NSASimpleParams {
         params.cacheMode = "BSND";
         params.blockSize = NUM_128;
         params.vHeadDim = NUM_128;
+        params.eps = 1e-5f;
         return params;
     }
 
@@ -102,13 +105,18 @@ void GenGatedScore(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, 
 
 void GenAttn(Tensor &gatingScore, Tensor &cmpAtten, Tensor &selAtten, Tensor &winAtten, Tensor &attentionOut);
 
-void DynamicNsa(Tensor &topkIndices, Tensor &topkTensorShape, Tensor &kvNopeCache, Tensor &kRopeCache, Tensor &kvActSeqs, Tensor &blockTable,
+void DynamicNsa(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wUk,
+    const Tensor &wDkvKr, const Tensor &gammaCq, const Tensor &gammaCkv, const Tensor &sin, const Tensor &cos,
+    const Tensor &cacheIndex, Tensor &kvCache, Tensor &krCache, const MlaQuantInputs &quantInputs,
+    const MlaTileConfig &tileConfig, float epsilonCq, float epsilonCkv, std::string cacheMode,
+    Tensor &topkIndices, Tensor &topkTensorShape, Tensor &kvActSeqs, Tensor &blockTable,
     int front, int near, int topk, int slcBlockSize, int blockSize, KvSlcTileShapeConfig &kvSlcTileConfig,
-    const Tensor &qNope, const Tensor &qRope, Tensor &kvSlcActSeqs, float softmaxScale, SaTileShapeConfig saTileConfig,
-    const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, const Tensor &gateSimW1, GateMode gateMode,
+    Tensor &kvSlcActSeqs, float softmaxScale, SaTileShapeConfig saTileConfig,
+    const Tensor &gateW1, const Tensor &gateW2, const Tensor &gateSimW1, GateMode gateMode,
     Tensor &cmpAtten, Tensor &winAtten,
     Tensor &weightUV, Tensor &weightO, Tensor &weightOScale, Tensor &smoothScalesWo, const PostTileConfig &postConfig,
-    Tensor &kvSlcActSeqOut, Tensor &attentionOut, Tensor &postOut);
+    Tensor &queryOut, Tensor &queryRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut, Tensor &qNope, Tensor &qRope,
+    Tensor &kvSlcActSeqOut, Tensor &kSlc, Tensor &vSlc, Tensor &slcAttn, Tensor &attentionOut, Tensor &postOut);
 
 } // namespace npu::tile_fwk
 
