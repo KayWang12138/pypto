@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file test_dynamic_mm.cpp
+ * \file test_dynamic_bmm.cpp
  * \brief
  */
 

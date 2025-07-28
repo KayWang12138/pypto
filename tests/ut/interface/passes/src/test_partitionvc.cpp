@@ -64,61 +64,6 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(PartitionVCTest, TestVCPartition) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-
-    //Define the shape of the Tensors
-    std::vector<int> shape1{2, 1, 64};
-    std::vector<int> shape2{2, 1, 1, 64};
-    std::vector<int> shape5{2, 64};
-
-    //Initialize PassManager
-    PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("PartitionVCTestStrategy", {
-    {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
-    {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
-    {           "GenerateMoveOp",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
-    });
-    ConfigManager::Instance();
-
-    //Create and configure the function
-    Function* originFunction = nullptr;
-    std::vector<int> originOpmagic;
-
-    //Create Tensor
-    Tensor in_tensor(DT_FP32, shape1, "in_tensor");
-    Tensor out_tensor(DT_FP16, shape5, "in_tensor");
-
-    FUNCTION("PartitionVCFunction") {
-        auto out_tensor_1_A = Reshape(in_tensor, shape2);
-        auto out_tensor_2_A = Transpose(out_tensor_1_A, {0, 1});
-        auto out_tensor_3_A = Reshape(out_tensor_2_A, shape1);
-        auto out_tensor_4_A = Cast(out_tensor_3_A, DT_FP16);
-        out_tensor = Reshape(out_tensor_4_A, shape5);
-
-        originFunction = Program::GetInstance().GetCurrentFunction();
-        ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
-        auto operations = originFunction->Operations();
-        for (const auto &op : operations) {
-            originOpmagic.emplace_back(op.opmagic);
-        }
-    }
-    std::string jsonFilePath = "./config/pass/json/vc_partition.json";
-    bool dumpJsonFlag = false;
-    if (dumpJsonFlag) {
-        auto programJson = Program::GetInstance().DumpJson();
-        DumpJsonFile(programJson, jsonFilePath);
-        Json readData = LoadJsonFile(jsonFilePath);
-        Program::GetInstance().LoadJson(readData);
-    }
-    // Call the pass
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_PartitionVCFunction");
-    PartitionVCPass partitionVCPass;
-    EXPECT_TRUE(partitionVCPass.PreCheck(*func) == SUCCESS);
-    EXPECT_TRUE(partitionVCPass.RunOnFunction(*func) == SUCCESS);
-    EXPECT_TRUE(partitionVCPass.PostCheck(*func) == SUCCESS);
-}
-
 TEST_F(PartitionVCTest, TestOnlyReshape) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 

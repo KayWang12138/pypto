@@ -3172,12 +3172,28 @@ void TensorInnerAMulB(Function &function, const std::vector<LogicalTensorPtr> &o
     AddMatmulAttr(op);
 }
 
+void CheckOperandsTilingValid(DataType dataType) {
+    auto tileShape = Program::GetInstance().GetTileShape().GetCubeTileShapes();
+    int kL0 = tileShape.GetTileShape<TileShapeType::K>(0);
+    int kL1 = tileShape.GetTileShape<TileShapeType::K>(1);
+    int mL0 = tileShape.GetTileShape<TileShapeType::M>(0);
+    int mL1 = tileShape.GetTileShape<TileShapeType::M>(1);
+    int nL0 = tileShape.GetTileShape<TileShapeType::N>(0);
+    int nL1 = tileShape.GetTileShape<TileShapeType::N>(1);
+    assert(kL0 > 0 && kL1 > 0 && mL0 > 0 && mL1 > 0 && nL0 > 0 && nL1 > 0);
+    assert(kL0 <= kL1 && kL1 % kL0 == 0);
+    assert(nL0 <= nL1 && nL1 % nL0 == 0);
+    assert(mL0 <= mL1 && mL1 % mL0 == 0);
+    assert(kL0 * BytesOf(dataType) % ALIGN_SIZE_32 == 0);
+    assert(nL0 * BytesOf(dataType) % ALIGN_SIZE_32 == 0);
+}
+
 void MatmulImpl(DataType dataType, const std::vector<LogicalTensorPtr>& iOperand, LogicalTensorPtr &result) {
     OperatorChecker checker;
     const auto operand1 = iOperand[0];
     const auto operand2 = iOperand[1];
-    
     CheckOperandsValid(operand1, operand2);
+    CheckOperandsTilingValid(dataType);
     assert(dataType == DT_FP32 || dataType == DT_FP16 || dataType == DT_BF16 || dataType == DT_INT32);
     CALL(InnerAMulB, *Program::GetInstance().GetCurrentFunction(), iOperand, result);
 }
