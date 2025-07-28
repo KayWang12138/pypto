@@ -25,6 +25,7 @@
 #include "tilefwk/tensor.h"
 #include "interface/inner/element.h"
 #include "interface/tensor/tensor_offset.h"
+#include "securec.h"
 
 
 namespace npu::tile_fwk {
@@ -162,8 +163,9 @@ struct RawTensorData : public std::vector<uint8_t> {
         auto tensorData = std::make_shared<RawTensorData>(t.GetDataType(), t.GetShape());
         tensorData->l2Disable_ = l2Disable;
         T *data = reinterpret_cast<T *>(tensorData->data());
-        for (size_t i = 0; i < tensorData->nelem; i++) {
-            data[i] = values[i];
+        errno_t ret = memcpy_s(data, tensorData->GetDataSize(), values.data(), values.size() * sizeof(T));
+        if(ret != EOK) {
+            std::cerr << "memcpy_s not success!\n";
         }
         return tensorData;
     }
@@ -172,9 +174,7 @@ struct RawTensorData : public std::vector<uint8_t> {
         auto tensorData = std::make_shared<RawTensorData>(t.GetDataType(), t.GetShape());
 
         uint8_t *data = reinterpret_cast<uint8_t *>(tensorData->data());
-        for (size_t i = 0; i < tensorData->nelem * BytesOf(t.GetDataType()); i++) {
-            data[i] = 0;
-        }
+        (void)memset_s(data, tensorData->GetDataSize(), 0, tensorData->GetDataSize());
         return tensorData;
     }
 
@@ -188,6 +188,10 @@ struct RawTensorData : public std::vector<uint8_t> {
         }
         ofile.write(reinterpret_cast<const char *>(data()), size());
         ofile.close();
+    }
+
+    size_t GetDataSize() const {
+        return nelem * elemSize_;
     }
 
 private:
@@ -350,9 +354,7 @@ inline std::shared_ptr<RawTensorData> RawTensorData::CreateTensor<uint8_t>(const
     auto tensorData = std::make_shared<RawTensorData>(t.GetDataType(), t.GetShape());
     tensorData->l2Disable_ = l2Disable;
     uint8_t *data = reinterpret_cast<uint8_t *>(tensorData->data());
-    for (size_t i = 0; i < tensorData->nelem * BytesOf(t.GetDataType()); i++) {
-        data[i] = values[i];
-    }
+    (void)memcpy_s(data, tensorData->GetDataSize(), values.data(), values.size());
     return tensorData;
 }
 
