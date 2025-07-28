@@ -45,7 +45,6 @@
 #include "passes/tile_graph_pass/update_memory_map.h"
 #include "passes/tile_graph_pass/split_large_fanout_tensor.h"
 #include "passes/tile_graph_pass/cube_process.h"
-#include "passes/tile_graph_pass/partitioner.h"
 #include "passes/tile_graph_pass/remove_unaligned_reshape_op.h"
 #include "passes/tile_graph_pass/split_reshape_pvc2.h"
 #include "passes/tile_graph_pass/infer_dyn_shape.h"
@@ -74,7 +73,6 @@ PassManager::PassManager() {
     REG_PASS(UpdateMemoryMap);
     REG_PASS(SubgraphToFunction);
     REG_PASS(GraphPartitionPass);
-    REG_PASS(PartitionVCPass);
     REG_PASS(InsertSyncPass);
     REG_PASS(OoOSchedulePass);
     REG_PASS(ExpandFunction);

@@ -21,9 +21,18 @@
 #include "interface/function/function.h"
 #include "codegen/codegen_common.h"
 #include "securec.h"
-#include "passes/execute_graph_pass/vf_fusion.h"
 
 namespace npu::tile_fwk {
+const std::unordered_set<Opcode> BinaryOps{Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL, Opcode::OP_DIV,
+    Opcode::OP_PAIRMAX, Opcode::OP_PAIRSUM, Opcode::OP_EXPAND, Opcode::OP_FUSED_OP};
+const std::unordered_set<Opcode> UnaryOps{
+    Opcode::OP_EXP,
+    Opcode::OP_SQRT,
+    Opcode::OP_ABS,
+    Opcode::OP_ROWMAX,
+    Opcode::OP_ROWEXPSUM,
+    Opcode::OP_ROWEXPMAX,
+};
 
 std::map<Opcode, const std::string> VFTileOpNameMap{
   // VF

@@ -102,9 +102,6 @@ set(_CaseFilterList
         "TestDuplicateViewPass.DuplicateViewUTest2"
         "TestDuplicateViewPass.DuplicateViewUTest3"
         "TestDuplicateViewPass.DuplicateViewSTest1"
-        #"PartitionVCTest.TestVCPartition"
-        #"PartitionVCTest.TestOnlyReshape"
-        #"PreGraphTest.TestVCPartition"
         "PreGraphTest.TestAssemble"
         "PreGraphTest.TestTransposeDatamove"
         "PreGraphTest.TestTransposeDatamoveExp"
@@ -134,7 +131,6 @@ set(_CaseFilterList
         "GenerateMoveOpPassTest.ScatterUpdate"
         "GenerateMoveOpPassTest.L1TOL0"
         "InsertCopyOpTest.InsertCopy"
-        "MergeCompileFunctionTest.A_MUL_Bt"
         "RemoveAllocTest.RemoveAlloc"
         "SplitLargeFanoutTensorTest.Unmatched"
         "SplitLargeFanoutTensorTest.BeCovered_Full"
@@ -177,7 +173,6 @@ set(_CaseFilterList
         "CubeProcessTest.Test_MM_FP16_Atomic_On"
         "CubeProcessTest.TestAnzBnd"
         "CubeProcessTest.TestAnzBndL1"
-        "TestPriorScheduling.TestMainSchedule"
         "InsertSyncTest.TestEnableDebug"
         "InsertSyncTest.TestFindDep"
         "InsertSyncTest.TestPhaseKernelProcess"
@@ -253,10 +248,6 @@ set(_CaseFilterList
         "JsonOutputValidationTest.VerifyFunctionStructure"
         "JsonOutputValidationTest.VerifyTensorStructure"
         "JsonOutputValidationTest.VerifyOperationStructure"
-        "CalendarSchedulerTest.TestFullWorkflowWithReassign"
-        "CalenderScheduleCounterTest.TestCounterNum71"
-        "CalenderScheduleCounterTest.TestCounterNum60"
-        "CalenderScheduleCounterTest.TestInvalidFilePath"
 )
 
 set(_Target ${TileFwkUTestNamePrefix}_interface_passes)

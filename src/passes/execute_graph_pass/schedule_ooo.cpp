@@ -19,7 +19,6 @@
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
-#include "../statistic/statistic.h"
 #include "passes/pass_config/pass_config_manager.h"
 
 namespace npu::tile_fwk {

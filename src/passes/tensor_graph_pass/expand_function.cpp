@@ -24,7 +24,6 @@
 #include "interface/operation/operation_impl.h"
 #include "interface/configs/config_manager.h"
 #include "passes/tensor_graph_pass/expand_function.h"
-#include "passes/statistic/statistic.h"
 
 using namespace npu::tile_fwk;
 
@@ -125,12 +124,6 @@ Status ExpandFunction::RunOnFunction(Function &function) {
 }
 
 Status ExpandFunction::Expandfunction(Function &function) const {
-    if (passDfxconfigs_.healthCheck) {
-        CoutRedirector redirector("healthreport_tensorgraph_expandfunction.txt");
-        ReportTitle("Before PASS: ExpandFunction, Health Report: TensorGraph START");
-        HealthCheckTensorGraph(function);
-        ReportTitle("Before PASS: ExpandFunction, Health Report: TensorGraph END");
-    }
     if (!function.IsGraphType(GraphType::TENSOR_GRAPH)) {
         ALOG_INFO_F("Function is not static tensor graph, skip expanding. function name: %s ", function.GetRawName().c_str());
         return SUCCESS;

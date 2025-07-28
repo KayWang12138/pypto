@@ -17,10 +17,10 @@
 #define PASS_SUGGRAPH_TO_FUNCTION_H_
 
 #include <vector>
-#include "passes/statistic/statistic.h"
 #include "passes/pass_interface/pass.h"
 #include "interface/operation/opcode.h"
 #include "tilefwk/data_type.h"
+#include "passes/pass_utils/pass_utils.h"
 
 namespace npu::tile_fwk {
 class SubgraphToFunction : public Pass {
@@ -44,10 +44,6 @@ private:
         ConstructParamMap(function);
         // Determine the isomorphism of subgraphs and record ProgramInfoMap
         IslandToFunction(function);
-        if (passDfxconfigs_.healthCheck) {
-            CoutRedirector redirector("healthreport_executegraph_and_kernelgraph_subgraphtofunction.txt");
-            HealthCheckIsomorphismSubgraph(psgToESgMap, nLIST);
-        }
         return SUCCESS;
     };
 

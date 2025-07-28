@@ -26,7 +26,6 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/utils/log.h"
-#include "../statistic/statistic.h"
 
 namespace npu::tile_fwk {
 class L1CopyInReuseRunner {
@@ -76,12 +75,6 @@ private:
         L1CopyInReuse(function);
         EliminateDeadOperationBackward(function);
         ALOG_INFO_F("===> Finish L1CopyInReusePass.");
-        if (passDfxconfigs_.healthCheck) {
-          CoutRedirector redirector("healthreport_tilegraph_l1copyinreuse.txt");
-          ReportTitle("After PASS: L1CopyInReusePass, Health Report: TileGraph START");
-          HealthCheckTileGraph(function);
-          ReportTitle("After PASS: L1CopyInReusePass, Health Report: TileGraph END");
-        }
         return SUCCESS;
     }
 };
