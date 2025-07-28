@@ -34,7 +34,7 @@ public:
     void TearDown() override {}
 };
 
-extern "C" int StaticTileFwkNSAKernelServer(void *targ);
+extern "C" int StaticTileFwkBackendKernelServer(void *targ);
 
 TEST(DeviceMachineTest, DeviceMachinetest) {
     std::cout << "start to test runtime" << std::endl;
@@ -55,7 +55,7 @@ TEST(DeviceMachineTest, DeviceMachinetest) {
             sprintf(name, "aicput%d", tidx);
             pthread_setname_np(pthread_self(), name);
             pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
-            StaticTileFwkNSAKernelServer(&args);
+            StaticTileFwkBackendKernelServer(&args);
         });
     }
 
@@ -82,7 +82,7 @@ TEST(DeviceMachineTest, test_get_task_time) {
             sprintf(name, "aicput%d", tidx);
             pthread_setname_np(pthread_self(), name);
             pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
-            StaticTileFwkNSAKernelServer(&args);
+            StaticTileFwkBackendKernelServer(&args);
         });
     }
 

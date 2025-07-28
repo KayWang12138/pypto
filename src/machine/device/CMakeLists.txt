@@ -73,7 +73,7 @@ target_link_libraries(tile_fwk_server
             $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,slog_stub,slog>
             -ldl
 )
-set_target_properties(tile_fwk_server PROPERTIES OUTPUT_NAME ASTServer)
+set_target_properties(tile_fwk_server PROPERTIES OUTPUT_NAME tilefwk_backend_server)
 
 
 install(TARGETS tile_fwk_server

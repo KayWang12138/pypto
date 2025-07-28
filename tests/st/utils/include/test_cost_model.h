@@ -26,7 +26,7 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 using namespace CostModel;
 
-extern "C" int DynTileFwkNSAKernelServer(void *targ);
+extern "C" int DynTileFwkBackendKernelServer(void *targ);
 
 class CostModelDynFuncRunner {
 public:

@@ -191,7 +191,7 @@ static bool CheckValidArgs(AstKernelArgs *kargs) {
     return true;
 }
 
-extern "C" __attribute__((visibility("default"))) int DynTileFwkNSAKernelServerInit(void *targ) {
+extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelServerInit(void *targ) {
     PerfBegin(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
     auto kargs = (AstKernelArgs *)targ;
     if (!CheckValidArgs(kargs)) {
@@ -203,7 +203,7 @@ extern "C" __attribute__((visibility("default"))) int DynTileFwkNSAKernelServerI
     return 0;
 }
 
-extern "C" __attribute__((visibility("default"))) int DynTileFwkNSAKernelServer(void *targ) {
+extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelServer(void *targ) {
     auto kargs = (AstKernelArgs *)targ;
     return RunDynamic(kargs);
 }

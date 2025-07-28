@@ -90,8 +90,8 @@ struct MemoryHelper {
     uint64_t l2Offset{0};
 };
 
-extern "C" int DynTileFwkNSAKernelServer(void *targ);
-extern "C" int DynTileFwkNSAKernelServerInit(void *targ);
+extern "C" int DynTileFwkBackendKernelServer(void *targ);
+extern "C" int DynTileFwkBackendKernelServerInit(void *targ);
 
 struct DynFuncRunnerConfig {
     bool onBoard{true};
@@ -226,7 +226,7 @@ private:
         std::thread aicpus[6];
         std::atomic<int> idx{0};
         auto *devProg = (DevAscendProgram *)(kArgs->cfgdata);
-        auto rc0 = DynTileFwkNSAKernelServerInit(kArgs);
+        auto rc0 = DynTileFwkBackendKernelServerInit(kArgs);
         EXPECT_EQ(rc0, 0);
         for (int i = 0; i < static_cast<int>(devProg->devArgs.nrAicpu); i++) {
             aicpus[i] = std::thread([&]() {
@@ -239,7 +239,7 @@ private:
                 std::cout << "start thread: " << name << std::endl;
                 pthread_setname_np(pthread_self(), name);
                 pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
-                auto rc = DynTileFwkNSAKernelServer(kArgs);
+                auto rc = DynTileFwkBackendKernelServer(kArgs);
                 EXPECT_EQ(rc, 0);
             });
         }

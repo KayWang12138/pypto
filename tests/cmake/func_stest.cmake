@@ -80,7 +80,7 @@ function(TileFwk_STest_RunExe_CopyAiCpuBinary)
     # AICPU Copy
     if (ENABLE_TESTS_STEST_EXPERIMENT_COPY_AICPU_BINARY)
         get_filename_component(_CopyPy "${TILE_FWK_SRC_ROOT}/tests/cmake/scripts/experiment/copy_aicpu_binary.py" REALPATH)
-        get_filename_component(_File "${TILE_FWK_BIN_ROOT}/libASTServer.so" REALPATH)
+        get_filename_component(_File "${TILE_FWK_BIN_ROOT}/libtilefwk_backend_server.so" REALPATH)
         set(_Args "-b=${_File}")
         # DISTRIBUTED STEST SPECIAL DEVICE LIST
         if (${TMP_MANUAL_SPECIAL_DEIVCE})

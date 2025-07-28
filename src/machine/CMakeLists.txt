@@ -26,10 +26,10 @@ if (NOT AC_ENABLE_FRAMEWORK_WITHOUT_CANN)
                 -DCMAKE_C_COMPILER_LAUNCHER=${CMAKE_C_COMPILER_LAUNCHER}
                 -DCMAKE_CXX_COMPILER_LAUNCHER=${CMAKE_CXX_COMPILER_LAUNCHER}
                 <SOURCE_DIR>
-            INSTALL_COMMAND ${CMAKE_COMMAND} -E copy <BINARY_DIR>/libASTServer.so ${CMAKE_BINARY_DIR}/
+            INSTALL_COMMAND ${CMAKE_COMMAND} -E copy <BINARY_DIR>/libtilefwk_backend_server.so ${CMAKE_BINARY_DIR}/
             BUILD_ALWAYS TRUE
             BUILD_BYPRODUCTS
-                ${TILE_FWK_BIN_ROOT}/libASTServer.so
+                ${TILE_FWK_BIN_ROOT}/libtilefwk_backend_server.so
     )
 endif ()
 
