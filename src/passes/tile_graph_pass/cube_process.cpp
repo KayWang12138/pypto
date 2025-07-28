@@ -18,12 +18,20 @@
 namespace npu::tile_fwk {
 // verstion 2.0
 Status CubeProcess::RunOnFunction(Function &function) {
-    EliminateReduceAcc(function);
-    UpdateCubeOp(function);
+    ALOG_INFO_F("===> start CubeProcess");
+    if (EliminateReduceAcc(function) != SUCCESS) {
+        ALOG_ERROR_F("Eliminate ReduceAcc failed.");
+        return FAILED;
+    }
+    if (UpdateCubeOp(function) != SUCCESS) {
+        ALOG_ERROR_F("Update Cube attr fialed.");
+        return FAILED;
+    }
     if (DeadOperationEliminator::EliminateDeadOperation(function) != SUCCESS) {
         ALOG_ERROR_F("Eliminate dead operation failed in CommonOperationEliminate.");
         return FAILED;
     }
+    ALOG_INFO_F("===> End CubeProcess");
     return SUCCESS;
 }
 
@@ -43,7 +51,7 @@ bool CubeProcess::IsInt(const std::shared_ptr<LogicalTensor> tensor) const {
     return false;   
 }
 
-void CubeProcess::EliminateReduceAcc(Function &function) {
+Status CubeProcess::EliminateReduceAcc(Function &function) {
     /*
     Before:
     A_MUL_B --> L0C --> Copy_Out --> \
@@ -65,14 +73,14 @@ void CubeProcess::EliminateReduceAcc(Function &function) {
     */
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_REDUCE_ACC) {
-            ASLOGI("ATOMIC_ADD, opmagic: %d", op.GetOpMagic());
+            ALOG_INFO_F("ATOMIC_ADD, opmagic: %d", op.GetOpMagic());
             if (op.GetIOperands().size() <= 1) {
                 ALOG_ERROR_F("%s[%d] has input num less than 1", op.GetOpcodeStr().c_str(), op.GetOpMagic());
-                continue;
+                return FAILED;
             }
             if (op.GetOOperands().size() != 1) {
                 ALOG_ERROR_F("%s[%d] has output num != 1", op.GetOpcodeStr().c_str(), op.GetOpMagic());
-                continue;
+                return FAILED;
             }
 
             auto reduceOut = op.GetOOperands().front();
@@ -92,9 +100,10 @@ void CubeProcess::EliminateReduceAcc(Function &function) {
         }
     }
     function.EraseOperations(true);
+    return SUCCESS;
 }
 
-void CubeProcess::UpdateCubeOp(Function &function) {
+Status CubeProcess::UpdateCubeOp(Function &function) {
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_A_MUL_B && op.GetOpcode() != Opcode::OP_A_MULACC_B) {
             continue;
@@ -106,7 +115,7 @@ void CubeProcess::UpdateCubeOp(Function &function) {
             // Align copy out GM with the reset GM
             if (op.GetOOperands().size() != 1) {
                 ALOG_ERROR_F("%s[%d] has output num != 1", op.GetOpcodeStr().c_str(), op.GetOpMagic());
-                continue;
+                return FAILED;
             }
             auto outputL0C = op.GetOOperands().front();
             auto chainEndCopyOut = *(outputL0C->GetConsumers().begin());
@@ -134,6 +143,7 @@ void CubeProcess::UpdateCubeOp(Function &function) {
         }
         UpdateL1CopyInNz(op);
     }
+    return SUCCESS;
 }
 
 void CubeProcess::AddL1CopyInAttr(
@@ -205,8 +215,7 @@ void CubeProcess::UpdateL1CopyInNz(Operation &op) const {
             break;
         }
         default: {
-            ALOG_DEBUG_F("Invalid is_nz value: %d, opmagic: %d", nzAttr, op.opmagic);
-            ASSERT(false);
+            ALOG_INFO_F("Invalid is_nz value: %d, opmagic: %d", nzAttr, op.opmagic);
             break;
         }
     }

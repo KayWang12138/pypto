@@ -46,8 +46,8 @@ public:
     ~CubeProcess() override = default;
 
     Status RunOnFunction(Function &function) override;
-    void EliminateReduceAcc(Function &function);
-    void UpdateCubeOp(Function &function);
+    Status EliminateReduceAcc(Function &function);
+    Status UpdateCubeOp(Function &function);
     void UpdateL1CopyInNz(Operation &op) const;
     void AddL1CopyInAttr(const std::shared_ptr<LogicalTensor> input, int nzValue, int mValue, int kValue, int nValue) const;
     bool IsFloat(const std::shared_ptr<LogicalTensor> tensor) const;

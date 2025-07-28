@@ -148,10 +148,10 @@ void SplitLargeLocalRawPass::SplitLargeLocalRaw(Function &function) const {
 }
 
 Status SplitLargeLocalRawPass::RunOnFunction(Function &function) {
-    ASLOGI("===> Start SplitLargeLocalRawPass.");
+    ALOG_INFO_F("===> Start SplitLargeLocalRaw.");
     SplitLargeLocalRaw(function);
     UpdateMemID(function);
-    ASLOGI("===> End SplitLargeLocalRawPass.");
+    ALOG_INFO_F("===> End SplitLargeLocalRaw.");
     return SUCCESS;
 }
 } // namespace npu::tile_fwk

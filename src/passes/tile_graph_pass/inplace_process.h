@@ -26,10 +26,9 @@
 #include "interface/function/function.h"
 #include "passes/pass_utils/pass_utils.h"
 #include "interface/configs/config_manager.h"
+#include "passes/pass_config/pass_config_manager.h"
 
 namespace npu::tile_fwk {
-
-const int UB_SIZE = 192 * 1024;
 
 /*
 key: Opcode类型
@@ -53,11 +52,15 @@ private:
     */
     Status RunOnFunction(Function &function) override;
     void ProcessView(Operation &op) const;
-    void ProcessAssemble(Operation &op) const;
+    void ProcessAssemble(Operation &op);
     void AlignCopyInConsumer(std::shared_ptr<LogicalTensor> tensorGm) const;
+    void AlignCopyOutProducer(std::shared_ptr<LogicalTensor> tensorGm) const;
     void ProcessReshape(Function &function, Operation &op) const;
-    void ProcessInplaceOp(Function &function, Operation &op) const;
+    Status ProcessInplaceOp(Function &function, Operation &op) const;
     bool ValidMeaninglessOp(const Operation &op) const;
+    void ReplaceRawTensor(std::shared_ptr<LogicalTensor> logicalTensor, 
+        const std::shared_ptr<LogicalTensor> targetTensor, const Operation &op);
+    std::vector<int> visitedAssembleOp;
 };
 } // namespace npu::tile_fwk
 #endif // INPLACE_PROCESS_H

@@ -17,7 +17,7 @@
 
 namespace npu::tile_fwk {
 Status SplitLargeFanoutTensor::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===> Start SplitLargeFanoutTensorPass.");
+    ALOG_INFO_F("===> Start SplitLargeFanoutTensor.");
     copyOutSources.clear();
     assembles.clear();
     CollectCopyOut(function);
@@ -35,7 +35,7 @@ Status SplitLargeFanoutTensor::RunOnFunction(Function &function) {
         return FAILED;
     }
     UpdateOverSizedLocalBuffer(function);
-    ALOG_INFO_F("===> End SplitLargeFanoutTensorPass.");
+    ALOG_INFO_F("===> End SplitLargeFanoutTensor.");
     return SUCCESS;
 }
 

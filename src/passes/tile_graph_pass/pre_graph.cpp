@@ -15,8 +15,6 @@
 
 #include "pre_graph.h"
 
-using namespace npu::tile_fwk;
-
 namespace npu::tile_fwk {
 
 void PreGraphPass::ResetMemoryMap(Function &function) const {
@@ -49,13 +47,12 @@ bool CalculateNewRawShape(const std::vector<int> &oriShape, const std::vector<in
     oriScale.resize(oriSize);
     for (size_t i = 0; i < oriSize; i++) {
         oriScale[i] = oriRawShape[i] / oriShape[i];
-        if (i != 0) {
-            if (oriScale[i] != 1) { // 只有当最高轴存在DAssemble的行为时，才可以将数据直接拷贝到DAssemble之后的内存
-                return false;
-            }
+        if ((i != 0) && (oriScale[i] != 1)) {
+            // 只有当最高轴存在DAssemble的行为时，才可以将数据直接拷贝到DAssemble之后的内存
+            return false;
         }
     }
-    ALOG_DEBUG_F("oriScale is %s", IntVecToStr(oriScale).c_str());
+    ALOG_DEBUG_F("oriScale is %s.", IntVecToStr(oriScale).c_str());
     size_t newSize = newShape.size();
     newRawShape.resize(newSize);
     std::vector<int> newScale(newSize, 1);
@@ -241,6 +238,13 @@ void PreGraphPass::HandleForReshapeToOutcast(Function &function) const {
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
             if (function.IsFromOutCast(op.GetOOperands()[0])) {
+                // input --> reshape --> OCAST
+                if (op.GetIOperands()[0]->tensor->actualRawmagic != -1) {
+                    // 说明输入也来自于reshape，需要找到指向的raw tensor，并更新其actual raw
+                    int inputActualRawId = op.GetIOperands()[0]->tensor->actualRawmagic;
+                    auto inputRaw = function.GetTensorMap().GetRawTensorByRawMagic(inputActualRawId);
+                    inputRaw->actualRawmagic = op.GetOOperands()[0]->GetRawMagic();
+                }
                 op.GetIOperands()[0]->tensor->actualRawmagic = op.GetOOperands()[0]->GetRawMagic();
             }
         }
@@ -492,21 +496,25 @@ void PreGraphPass::ProcessInplaceOp(Function &function) const {
 void PreGraphPass::ProcessSameInOutOp(Function &function) const {
     for (auto &op : function.Operations()) {
         Opcode prod;
-        if (op.GetAttr(OpAttributeKey::sameInOut, prod)) {
-            for (auto &input : op.GetIOperands()) {
-                for (auto &producer : input->GetProducers()) {
-                    if (producer->GetOpcode() == prod) {
-                        auto output = op.GetOOperands().front();
-                        ASSERT(input->shape == output->shape)
-                            << "op input output tensor shape is not equal, cannot reuse buffer";
-                        input->tensor = output->tensor;
-                        input->offset = output->offset;
-                        if (IsCopyOut(producer->GetOpcode())) {
-                            std::shared_ptr<CopyOpAttribute> attr =
-                                std::static_pointer_cast<CopyOpAttribute>(producer->GetOpAttribute());
-                            attr->SetToOffset(OpImmediate::Specified(output->offset));
-                        }
-                    }
+        if (!op.GetAttr(OpAttributeKey::sameInOut, prod)) {
+            continue;
+        }
+        for (auto &input : op.GetIOperands()) {
+            for (auto &producer : input->GetProducers()) {
+                if (producer->GetOpcode() != prod) {
+                    continue;
+                }
+                auto output = op.GetOOperands().front();
+                if (input->shape != output->shape) {
+                    ALOG_INFO_F("op input output tensor shape is not equal, cannot reuse buffer");
+                    continue;
+                }
+                input->tensor = output->tensor;
+                input->offset = output->offset;
+                if (IsCopyOut(producer->GetOpcode())) {
+                    std::shared_ptr<CopyOpAttribute> attr =
+                        std::static_pointer_cast<CopyOpAttribute>(producer->GetOpAttribute());
+                    attr->SetToOffset(OpImmediate::Specified(output->offset));
                 }
             }
         }
@@ -603,7 +611,7 @@ void PreGraphPass::SetTensorBoundary(Function &function) const {
 }
 
 Status PreGraphPass::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===> start PreGraphPass");
+    ALOG_INFO_F("===> start PreGraph");
     ResetMemoryMap(function);
     SortColor(function);
     auto opList = function.Operations();
@@ -638,7 +646,7 @@ Status PreGraphPass::RunOnFunction(Function &function) {
     }
     ProcessSameInOutOp(function);
     DeleteRedundantAssemble(function);
-    ALOG_INFO_F("===> End PreGraphPass");
+    ALOG_INFO_F("===> End PreGraph");
     return SUCCESS;
 }
 
@@ -704,7 +712,12 @@ Status PreGraphPass::PostCheck(Function &function) {
             }
         }
 
+        std::unordered_set<std::shared_ptr<LogicalTensor>> checkedTensors;
         for (const std::shared_ptr<LogicalTensor> &inputTensor : op.GetIOperands()) {
+            if (checkedTensors.count(inputTensor) > 0) {
+                continue;
+            }
+            checkedTensors.insert(inputTensor);
             if (inputTensor->subGraphID == NOT_IN_SUBGRAPH) {
                 ALOG_WARN_F(
                     "Tensor magic: %d, its subgraph id should not be %d.", inputTensor->GetMagic(), NOT_IN_SUBGRAPH);
@@ -732,6 +745,10 @@ Status PreGraphPass::PostCheck(Function &function) {
         }
 
         for (const std::shared_ptr<LogicalTensor> &outputTensor : op.GetOOperands()) {
+            if (checkedTensors.count(outputTensor) > 0) {
+                continue;
+            }
+            checkedTensors.insert(outputTensor);
             if (outputTensor->subGraphID == NOT_IN_SUBGRAPH) {
                 ALOG_WARN_F(
                     "Tensor magic: %d, its subgraph id should not be %d.", outputTensor->GetMagic(), NOT_IN_SUBGRAPH);

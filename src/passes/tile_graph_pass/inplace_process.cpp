@@ -15,8 +15,6 @@
 
 #include "inplace_process.h"
 
-using namespace npu::tile_fwk;
-
 namespace npu::tile_fwk {
 
 Status InplaceProcess::RunOnFunction(Function &function) {
@@ -34,6 +32,7 @@ Status InplaceProcess::RunOnFunction(Function &function) {
             }
             auto assembleOut = op.GetOOperands().front();
             // 校验Assemble输出的汇聚后tensor大小是否超过UB上限
+            const int UB_SIZE = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB);
             if (assembleOut->GetMemoryTypeOriginal() == MemoryType::MEM_UB && (assembleOut->tensor->GetRawDataSize() > UB_SIZE)) {
                 ALOG_ERROR_F(" Local Buffer Assemble Result Oversized, %d, tensor: %d, size: %ld B.", op.opmagic,
                     assembleOut->magic, assembleOut->tensor->GetRawDataSize());
@@ -46,7 +45,10 @@ Status InplaceProcess::RunOnFunction(Function &function) {
             }
             ProcessReshape(function, op);
         } else {
-            ProcessInplaceOp(function, op);
+            if (ProcessInplaceOp(function, op) != SUCCESS) {
+                ALOG_ERROR_F(" Processing inplace op %s[%d] failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+                return FAILED;
+            }
         }
     }
     ALOG_INFO_F("===> End InplaceProcess.");
@@ -110,7 +112,34 @@ void InplaceProcess::AlignCopyInConsumer(std::shared_ptr<LogicalTensor> tensorGm
     }
 }
 
-void InplaceProcess::ProcessAssemble(Operation &op) const {
+void InplaceProcess::AlignCopyOutProducer(std::shared_ptr<LogicalTensor> tensorGm) const {
+    if (tensorGm->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+        return;
+    }
+    ALOG_DEBUG_F("InplaceProcess::AlignCopyOutProducer tensor[%d].", tensorGm->magic);
+    for (auto &producerOp : tensorGm->GetProducers()) {
+        if (producerOp->GetOpcode() == Opcode::OP_COPY_OUT) {
+            std::shared_ptr<CopyOpAttribute> opAttr = std::static_pointer_cast<CopyOpAttribute>(producerOp->GetOpAttribute());
+            std::vector<OpImmediate> newToOffset;
+            for (size_t i = 0; i < opAttr->GetToOffset().size(); i++) {
+                newToOffset.push_back(opAttr->GetToOffset()[i] + OpImmediate::Specified(SymbolicScalar(tensorGm->offset[i])));
+            }
+            opAttr->SetToOffset(newToOffset);
+            opAttr->SetRawShape(OpImmediate::Specified(tensorGm->tensor->GetRawShape()));
+            ALOG_DEBUG_F("InplaceProcess::AlignCopyOutProducer update Attr for %s[%d].", producerOp->GetOpcodeStr().c_str(), 
+                producerOp->GetOpMagic());
+        }
+    }
+}
+
+void InplaceProcess::ReplaceRawTensor(std::shared_ptr<LogicalTensor> logicalTensor, 
+    const std::shared_ptr<LogicalTensor> targetTensor, const Operation &op) {
+    logicalTensor->tensor = targetTensor->tensor;
+    logicalTensor->UpdateOffset(dynamic_cast<AssembleOpAttribute *>(op.GetOpAttribute().get())->GetToOffset());
+    ALOG_DEBUG_F("update the offset for Tensor %d.", logicalTensor->magic);
+}
+
+void InplaceProcess::ProcessAssemble(Operation &op) {
     auto assembleIn = op.GetIOperands().front();
     auto assembleOut = op.GetOOperands().front();
     if (op.iOperand[0]->tensor->GetRawDataSize() > assembleOut->tensor->GetRawDataSize()) {
@@ -148,12 +177,16 @@ void InplaceProcess::ProcessAssemble(Operation &op) const {
     } else {
         // check each producer of the assem_result
         for (auto &producer : assembleOut->GetProducers()) {
-            if (producer->GetOpcode() != Opcode::OP_ASSEMBLE) {
+            if ((producer->GetOpcode() != Opcode::OP_ASSEMBLE) || 
+                std::find(visitedAssembleOp.begin(), visitedAssembleOp.end(), producer->GetOpMagic()) != visitedAssembleOp.end()) {
                 continue;
             }
-            producer->iOperand[0]->tensor = assembleOut->tensor;
-            producer->iOperand[0]->UpdateOffset(dynamic_cast<AssembleOpAttribute *>(producer->GetOpAttribute().get())->GetToOffset());
-            ALOG_DEBUG_F("update the assemble input tensor offset for Tensor %d.", producer->iOperand[0]->magic);
+            /*
+            producer->iOperand[0] 可能来自一个被复用过的op
+            raw tensor 与 producer->iOperand[0] 的 raw tensor 相同的所有logical tensor 都应该update
+            */
+            ReplaceRawTensor(producer->iOperand[0], assembleOut, *producer);
+            visitedAssembleOp.push_back(producer->GetOpMagic());
         }
     }
 }
@@ -168,32 +201,36 @@ void InplaceProcess::ProcessReshape(Function &function, Operation &op) const {
     }
 }
 
-void InplaceProcess::ProcessInplaceOp(Function &function, Operation &op) const {
+Status InplaceProcess::ProcessInplaceOp(Function &function, Operation &op) const {
     auto opcode = op.GetOpcode();
     if (inplaceOpMap.find(opcode) == inplaceOpMap.end()) {
-        return;
+        return SUCCESS;
     }
     for (auto &reusePair : inplaceOpMap.at(opcode)) {
         auto inputIdx = reusePair.first;
         auto outputIdx = reusePair.second;
         if (inputIdx >= op.GetIOperands().size() || outputIdx >= op.GetOOperands().size()) {
-            ALOG_DEBUG_F("Invalid inplace op info for %s[%d].", op.GetOpcodeStr().c_str(), op.GetOpMagic());
-            continue;
+            ALOG_ERROR_F("Invalid inplace op info for %s[%d].", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            return FAILED;
         }
         auto tensorIn = op.GetIOperands()[inputIdx];
         auto tensorOut = op.GetOOperands()[outputIdx];
         if (tensorIn == nullptr || tensorOut == nullptr) {
-            continue;
+            ALOG_ERROR_F("%s[%d] inplace input or output is nullptr.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            return FAILED;
         }
         if (function.IsFromOutCast(tensorOut)) {
             tensorIn->tensor = tensorOut->tensor;
+            tensorIn->UpdateOffset(tensorOut->GetOffset());
         } else {
             tensorOut->tensor = tensorIn->tensor;
+            tensorOut->UpdateOffset(tensorIn->GetOffset());
         }
         ALOG_DEBUG_F("%s[%d] output %d reuses input %d.", op.GetOpcodeStr().c_str(), op.GetOpMagic(), outputIdx, inputIdx);
         ALOG_DEBUG_F("output magic: %d, raw maigc: %d.", tensorOut->magic, tensorOut->tensor->GetRawMagic());
         ALOG_DEBUG_F("input magic: %d, raw maigc: %d.", tensorIn->magic, tensorIn->tensor->GetRawMagic());
     }
+    return SUCCESS;
 }
 
 } // namespace npu::tile_fwk
