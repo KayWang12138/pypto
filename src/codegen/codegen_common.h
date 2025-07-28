@@ -90,6 +90,17 @@ struct CodeGenCtx {
     bool IsCCEPathEmpty() const { return ccePath.empty(); }
     bool IsIncludePathEmpty() const { return includePath.empty(); }
 };
+
+struct SortParam {
+    unsigned dstShape0;
+    unsigned dstShape1;
+    unsigned srcShape0;
+    unsigned srcShape1;
+    const std::string s0Var = "";
+    const std::string dVar = "";
+    const std::string srcDtypeStr = "";
+    const std::string dstDtypeStr = "";
+};
 } // namespace npu::tile_fwk
 
 #endif // CODEGEN_COMMON_H

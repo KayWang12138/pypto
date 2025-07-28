@@ -232,20 +232,13 @@ private:
     std::string PrintUnaryDynamicUnaligned(const PrintUnaryParam &param) const;
     std::string PrintUnaryStatic(const PrintUnaryParam &param) const;
 
-    struct PrintSortParam {
-        unsigned dstShape0;
-        unsigned dstShape1;
-        unsigned srcShape0;
-        unsigned srcShape1;
-        const std::string &s0Var;
-        const std::string &dVar;
-        const std::string &srcDtypeStr;
-        const std::string &dstDtypeStr;
-    };
-    std::string PrintBitSortDynamicUnaligned(const PrintSortParam &param) const;
-    std::string PrintBitSortStatic(const PrintSortParam &param) const;
-    std::string PrintMrgSortDynamicUnaligned(const PrintSortParam &param) const;
-    std::string PrintMrgSortStatic(const PrintSortParam &param) const;
+    SortParam PrepareSortParam() const;
+    std::string PrintSortDynamicUnaligned(const SortParam &param) const;
+    std::string PrintSortStatic(const SortParam &param) const;
+    std::string PrintBitSortDynamicUnaligned(const SortParam &param) const;
+    std::string PrintBitSortStatic(const SortParam &param) const;
+    std::string PrintMrgSortDynamicUnaligned(const SortParam &param) const;
+    std::string PrintMrgSortStatic(const SortParam &param) const;
 
     struct PrintBinaryParam {
         const std::string &s0Var;

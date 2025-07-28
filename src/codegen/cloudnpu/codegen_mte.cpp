@@ -823,10 +823,10 @@ std::string CodeGenOpCloudNPU::GenGMAddrExprWithOffset(const std::string &addrEx
     SymbolicScalar gmOffset = this->offsetGmSymbolic[gmIdx][0];
     bool isZero = gmOffset.ConcreteValid() && static_cast<int>(gmOffset.Concrete()) == 0;
     if (isZero) {
-        printRet = sprintf_s(buf, BUFFER_SIZE_1024, "%s", addrExpr.c_str());
+        printRet = sprintf_s(buf, sizeof(buf), "%s", addrExpr.c_str());
         ASSERT(printRet >= 0) << "sprintf_s failed in genGMAddrExpr isZero=true, return value:" << printRet;
     } else {
-        printRet = sprintf_s(buf, BUFFER_SIZE_1024, "((__gm__ uint8_t*)%s + %s)", addrExpr.c_str(), gmOffset.Dump().c_str());
+        printRet = sprintf_s(buf, sizeof(buf), "((__gm__ uint8_t*)%s + %s)", addrExpr.c_str(), gmOffset.Dump().c_str());
         ASSERT(printRet >= 0) << "sprintf_s failed in genGMAddrExpr, return value:" << printRet;
     }
 
@@ -837,10 +837,10 @@ std::string CodeGenOpCloudNPU::GenAddrExpr(const std::string &addrExpr, unsigned
     char buf[BUFFER_SIZE_256];
     int printRet;
     if (offsetParam != 0) {
-        printRet = sprintf_s(buf, BUFFER_SIZE_1024, "%s + 0x%x", addrExpr.c_str(), offsetParam);
+        printRet = sprintf_s(buf, sizeof(buf), "%s + 0x%x", addrExpr.c_str(), offsetParam);
         ASSERT(printRet >= 0) << "sprintf_s failed in GenAddrExpr(offsetParam != 0), return value:" << printRet;
     } else {
-        printRet = sprintf_s(buf, BUFFER_SIZE_1024, "%s", addrExpr.c_str());
+        printRet = sprintf_s(buf, sizeof(buf), "%s", addrExpr.c_str());
         ASSERT(printRet >= 0) << "sprintf_s failed in GenAddrExpr, return value:" << printRet;
     }
 
