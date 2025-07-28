@@ -266,14 +266,14 @@ INLINE void ExecCoreFunctionKernel(ExecuteContext *ctx, uint32_t curTaskIdx, boo
     ExecStaticCoreFunctionKernel(ctx, curTaskIdx);
 }
 
-extern "C" __global__ __aicore__ void KERNEL_ENTRY(ast_main)(int64_t inputs, int64_t outputs, int64_t workspace,
-    int64_t tilingdata) {
+extern "C" __global__ __aicore__ void KERNEL_ENTRY(ast_main)(int64_t ffts_addr, int64_t inputs, int64_t outputs,
+        int64_t workspace, int64_t tilingdata, int64_t cfgdata) {
 #if defined(__AIV__) and defined(__MIX__)
     blockIdx = get_block_idx() * get_subblockdim() + get_subblockid() + get_block_num();
 #else
     blockIdx = get_block_idx();
 #endif
-    auto devArgs = (DeviceArgs*)tilingdata;
+    auto devArgs = (DeviceArgs*)cfgdata;
     __gm__ KernelArgs *args = (__gm__ KernelArgs *)(devArgs->sharedBuffer + blockIdx * SHARED_BUFFER_SIZE);
     bool isDyn = devArgs->taskType == DEVICE_TASK_TYPE_DYN ? true : false;
 

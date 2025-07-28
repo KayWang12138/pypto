@@ -203,10 +203,12 @@ int DeviceRunner::Run(rtStream_t stream, int64_t taskId, uint64_t taskData, int 
 
 int DeviceRunner::LaunchAiCore(rtStream_t stream, int taskType) {
     struct Args {
+        int64_t *syncAddr = nullptr;
         int64_t *inputs = nullptr;
         int64_t *outputs = nullptr;
         int64_t *workspace = nullptr;
-        DeviceArgs *tilingData = nullptr;
+        int64_t *tilingData = nullptr;
+        DeviceArgs *cfgdata = nullptr;
         int64_t *logBuf = nullptr;
     };
 
@@ -222,8 +224,7 @@ int DeviceRunner::LaunchAiCore(rtStream_t stream, int taskType) {
         ALOG_ERROR_F("rtmemcpy failed %p rc %d\n", devArgs_, rc);
         return rc;
     }
-
-    Args args{nullptr, nullptr, nullptr, devArgs_};
+    Args args{nullptr, nullptr, nullptr, nullptr, nullptr, devArgs_};
     rtArgsEx_t rtArgs;
     memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
     rtArgs.args = &args;
@@ -355,7 +356,7 @@ int DeviceRunner::Synchronize(rtStream_t stream) {
 int DeviceRunner::launchDynamicAiCore(rtStream_t stream, AstKernelArgs *kernelArgs) {
     rtArgsEx_t rtArgs;
     memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
-    std::vector<void *> kArgs = {nullptr, nullptr, nullptr, kernelArgs->tilingdata};
+    std::vector<void *> kArgs = {nullptr, nullptr, nullptr, nullptr, nullptr, kernelArgs->cfgdata};
     rtArgs.args = kArgs.data();
     rtArgs.argsSize = kArgs.size() * sizeof(int64_t);
     return rtKernelLaunchWithHandleV2(binHdl_, 0, blockDim_, &rtArgs, nullptr, stream, nullptr);
@@ -449,9 +450,9 @@ int DeviceRunner::DynamicRun(rtStream_t stream, int64_t taskId, AstKernelArgs *k
         blockDim_ = blockdim;
         aicpuNum_ = launchAicpuNum;
     }
-    int rc = rtMemcpy(kernelArgs->tilingdata, size, &localArgs, size, RT_MEMCPY_HOST_TO_DEVICE);
+    int rc = rtMemcpy(kernelArgs->cfgdata, size, &localArgs, size, RT_MEMCPY_HOST_TO_DEVICE);
     if (rc != 0) {
-        ALOG_ERROR_F("rtmemcpy failed %p rc %d\n", kernelArgs->tilingdata, rc);
+        ALOG_ERROR_F("rtmemcpy failed %p rc %d\n", kernelArgs->cfgdata, rc);
         return rc;
     }
 

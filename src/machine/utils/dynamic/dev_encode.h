@@ -1502,6 +1502,7 @@ struct DevAscendProgramSymbol {
 #endif
 struct DevAscendProgram {
     DeviceArgs devArgs;
+    uint64_t workspaceSize;
     uint64_t hashKey;
     uint64_t slotSize;
     uint64_t aicoreLocalWorkspaceSize;
@@ -1512,6 +1513,7 @@ struct DevAscendProgram {
     uint64_t standardStackWorkspacePerCore;
     uint64_t stitchPoolSize;
     uint64_t globalTensorMem;
+    const void *controlFlowBinaryAddr{nullptr};
     uint32_t workspaceRecyclePeriod;
     DevRelocVector<DevAscendProgramSymbol> symbolTable;
     DevRelocVector<char> symbolTableNameList;

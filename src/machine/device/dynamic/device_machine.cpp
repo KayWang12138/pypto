@@ -98,7 +98,7 @@ struct DynMachineManager {
         char logfile[128];
         (void)logfile;
         int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
-        auto devArgs = (DeviceArgs *)args->tilingdata;
+        auto devArgs = (DeviceArgs *)args->cfgdata;
         int threadIdx = allocThreadIdx(devArgs->nrAicpu);
         if ((threadIdx != -1) && threadIdx < schAicpuNum) {
 #if !DEBUG_PLOG || !defined(__DEVICE__)
@@ -162,8 +162,7 @@ struct DynMachineManager {
 static std::mutex g_mutex;
 
 static int RunDynamic(AstKernelArgs *kargs) {
-    auto devArgs = (DeviceArgs *)kargs->tilingdata;
-
+    auto devArgs = (DeviceArgs *)kargs->cfgdata;
     g_mutex.lock();
     DynMachineManager *machine = reinterpret_cast<DynMachineManager *>(devArgs->opaque);
     if (machine == nullptr) {
@@ -186,7 +185,7 @@ static bool CheckValidArgs(AstKernelArgs *kargs) {
     if (kargs == nullptr) {
         return false;
     }
-    if (kargs->inputs == nullptr || kargs->outputs == nullptr || kargs->workspace == nullptr || kargs->tilingdata == nullptr) {
+    if (kargs->inputs == nullptr || kargs->outputs == nullptr || kargs->workspace == nullptr || kargs->cfgdata == nullptr) {
         return false;
     }
     return true;

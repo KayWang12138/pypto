@@ -27,6 +27,8 @@
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 
+constexpr uint32_t kDefaultAicNum = 25;
+constexpr uint32_t kDefaultAivNum = 50;
 
 struct MemoryHelper {
     MemoryHelper(bool isTest) : isTest_(isTest) {
@@ -96,10 +98,13 @@ struct DynFuncRunnerConfig {
     int blockdim{25};
     int aicpuNum{5};
     int64_t dynWorkspaceSize{0};
+    int64_t repeatNum{1};
 
     DynFuncRunnerConfig() = default;
     DynFuncRunnerConfig(bool onboard, int tblockdim, int taicpunum) : onBoard(onboard), blockdim(tblockdim), aicpuNum(taicpunum) {}
     DynFuncRunnerConfig(int tdynWorkspaceSize) : dynWorkspaceSize(tdynWorkspaceSize) {}
+    DynFuncRunnerConfig(int tdynWorkspaceSize, int64_t trepeatNum) : dynWorkspaceSize(tdynWorkspaceSize),
+                                                                     repeatNum(trepeatNum){}
 };
 
 class DynFuncRunner {
@@ -138,12 +143,28 @@ public:
         runner.RunModel(inputs, outputs);
         runner.Run(inputs, outputs);
     }
-
 private:
+    void InitTilingData(AstKernelArgs &kArgs, bool isTest) {
+        MemoryHelper h{isTest};
+        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProg_.data()));
+        devProg->devArgs.nrAic = kDefaultAicNum;
+        devProg->devArgs.nrAiv = kDefaultAivNum;
+        devProg->devArgs.nrAicpu = config_.aicpuNum;
+        devProg->devArgs.nrValidAic = config_.blockdim;
+        devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
+        devProg->workspaceSize = devProg->aicoreLocalWorkspaceSize + devProg->aicpuCoherentWorkspaceSize
+                                 + config_.dynWorkspaceSize;
+        kArgs.workspace = (int64_t *)h.AllocDev(devProg->workspaceSize);
+        kArgs.cfgdata = (int64_t *)h.CopyToDev(devProg_);
+        kArgs.machineConfig = devProg->devArgs.machineConfig;
+        return;
+    }
 
     void RunModel(const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs) {
-            for (int i = 0; i < 1; i++) {
-                AstKernelArgs kArgs = BuildKernelArgs(inputs, outputs, true);
+            AstKernelArgs kArgs;
+            InitTilingData(kArgs, true);
+            for (int i = 0; i < config_.repeatNum; i++) {
+                InitKernelInOuts(kArgs, inputs, outputs, true);
                 std::cout << "!!! Run CostModel " << i << "\n";
                 RunCostModel(&kArgs);
                 std::cout << "!!! Run TestModel " << i << "\n";
@@ -161,13 +182,17 @@ private:
         int rc = aclInit(nullptr);
         if (rc == 0 || rc == ACL_ERROR_REPEAT_INITIALIZE) {
             rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-            AstKernelArgs kArgs = BuildKernelArgs(inputs, outputs, false);
+            AstKernelArgs kArgs;
+            InitTilingData(kArgs, false);
             auto stream = machine::GetRA()->GetStreamAICPU();
-            rc = DeviceRunner::Get().DynamicRun(stream, 0, &kArgs, config_.blockdim, config_.aicpuNum);
+            for (int i = 0; i < config_.repeatNum; i++) {
+              InitKernelInOuts(kArgs, inputs, outputs, false);
+              rc = DeviceRunner::Get().DynamicRun(stream, 0, &kArgs, config_.blockdim, config_.aicpuNum);
+              EXPECT_EQ(rc, 0);
+            }
             CopyFromDev(outputs, false);
             if (HasInplaceArgs())
                 CopyFromDev(inputs, false);
-            EXPECT_EQ(rc, 0);
         }
     }
 
@@ -199,7 +224,7 @@ private:
         (void) kArgs;
         std::thread aicpus[6];
         std::atomic<int> idx{0};
-        auto *devProg = (DevAscendProgram *)(kArgs->tilingdata);
+        auto *devProg = (DevAscendProgram *)(kArgs->cfgdata);
         auto rc0 = DynTileFwkNSAKernelServerInit(kArgs);
         EXPECT_EQ(rc0, 0);
         for (int i = 0; i < static_cast<int>(devProg->devArgs.nrAicpu); i++) {
@@ -233,10 +258,9 @@ private:
         }
     }
 
-    AstKernelArgs BuildKernelArgs(const std::vector<RawTensorDataPtr> &inputs,
-        const std::vector<RawTensorDataPtr> &outputs, bool isTest_ = true) {
-        AstKernelArgs kArgs;
-        MemoryHelper h{isTest_};
+    void InitKernelInOuts(AstKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputTensors,
+        const std::vector<RawTensorDataPtr> &outputTensors, bool isTest = true) {
+        MemoryHelper h{isTest};
 
         auto buildInouts = [&](auto &tensorList) {
             std::vector<DevAscendTensorData> geTensors;
@@ -256,33 +280,19 @@ private:
             auto outs = DevAscendTensorDataCreator::Encode(geTensors);
             return h.CopyToDev(outs);
         };
-
-        // auto *devProg = (DevAscendProgram *)devProg_.data();
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProg_.data()));
-        devProg->devArgs.nrAic = 25;
-        devProg->devArgs.nrAiv = 50;
-        devProg->devArgs.nrAicpu = config_.aicpuNum;
-        devProg->devArgs.nrValidAic = config_.blockdim;
-        devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
-
-        for (auto &input: inputs) {
+        for (auto &input: inputTensors) {
             if (input)
                 input->SetDevPtr(nullptr);
         }
-        for (auto &output: outputs) {
+        for (auto &output: outputTensors) {
             if (output)
                 output->SetDevPtr(nullptr);
         }
-        kArgs.workspaceSize = devProg->aicoreLocalWorkspaceSize +
-            devProg->aicpuCoherentWorkspaceSize + config_.dynWorkspaceSize;
-        kArgs.inputs = buildInouts(inputs);
-        kArgs.outputs = buildInouts(outputs);
-        kArgs.workspace = (int64_t *)h.AllocDev(kArgs.workspaceSize);
-        kArgs.tilingdata = (int64_t *)h.CopyToDev(devProg_);
-        kArgs.machineConfig  = devProg->devArgs.machineConfig;
-        ALOG_INFO_F("inputs %p outputs %p workspace %p tiledata %p", kArgs.inputs, kArgs.outputs, kArgs.workspace,
-            kArgs.tilingdata);
-        return kArgs;
+        kArgs.inputs = buildInouts(inputTensors);
+        kArgs.outputs = buildInouts(outputTensors);
+        ALOG_INFO_F("Inputs %p outputs %p workspace %p cfgdata %p", kArgs.inputs, kArgs.outputs, kArgs.workspace,
+            kArgs.cfgdata);
+        return;
     }
 
     void KernelLaunchPrecheck(std::shared_ptr<DyndevFunctionAttribute> funcop) {

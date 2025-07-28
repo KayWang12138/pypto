@@ -165,7 +165,7 @@ public:
         auto workspaceAddr = ALIGN_UP((uint64_t)(outputPtr + outputSize), 512);
         auto devArgsSize = workspaceAddr - (uint64_t)kargs->workspace;
 
-        auto devProg = (DevAscendProgram *)kargs->tilingdata;
+        auto devProg = (DevAscendProgram *)kargs->cfgdata;
         devArgs->inputTensorList = inputPtr;
         devArgs->inputTensorSize = inputSize;
         devArgs->outputTensorList = outputPtr;
@@ -173,15 +173,17 @@ public:
         devArgs->workspaceAddr = workspaceAddr;
         devArgs->devProg = devProg;
         devArgs->aicpuCoherentWorkspaceSize = devProg->aicpuCoherentWorkspaceSize - devArgsSize;
-        devArgs->aicoreLocalWorkspaceSize = kargs->workspaceSize - devProg->aicpuCoherentWorkspaceSize;
+        devArgs->aicoreLocalWorkspaceSize = devProg->workspaceSize - devProg->aicpuCoherentWorkspaceSize;
         devArgs->inputSymbolList = nullptr;
         devArgs->inputSymbolSize = 0;
 
         PerfBegin(PERF_EVT_INIT);
-        devProg->Reloc((uint64_t)devProg, true);
-
-        auto execProg = DeviceExecuteProgram(devProg, nullptr);
-        devArgs->controlFlowEntry = execProg.GetControlFlowEntry();
+        if (devProg->controlFlowBinaryAddr == nullptr) {
+            devProg->Reloc((uint64_t)devProg, true);
+            auto execProg = DeviceExecuteProgram(devProg, nullptr);
+            devProg->controlFlowBinaryAddr = execProg.GetControlFlowEntry();
+        }
+        devArgs->controlFlowEntry = devProg->controlFlowBinaryAddr;
 
         PerfEnd(PERF_EVT_INIT);
         DEV_INFO("AscendCppDyInitTask done\n");

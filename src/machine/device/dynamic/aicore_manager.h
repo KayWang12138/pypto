@@ -517,6 +517,12 @@ public:
         return ret;
     }
 
+    void ResetShakeBuf(int coreIdx) {
+        args_[coreIdx]->shakeBuffer[0] = 0;
+        args_[coreIdx]->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX] = 0;
+        return;
+    }
+
     volatile TaskStat *GetTaskStat(int coreIdx, int pos) {
         volatile TaskStat *stat = &args_[coreIdx]->taskStat[pos];
         return stat;
@@ -1516,6 +1522,7 @@ private:
         __sync_synchronize();
         ForEachManageAicore([this](auto coreIdx) {
             aicoreHAL.WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
+            aicoreHAL.ResetShakeBuf(coreIdx);
         });
         DEV_DEBUG("aicore manager %d normal stopped\n", aicpuIdx_);
     }

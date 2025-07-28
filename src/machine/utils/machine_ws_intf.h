@@ -67,11 +67,13 @@ constexpr int64_t DEVICE_QUEUE_SIZE = 512;
 #define DEVICE_TASK_STOP 0x7FFFFFFE
 
 struct AstKernelArgs {
-    int64_t *inputs;
-    int64_t *outputs;
-    int64_t *workspace;
-    int64_t *tilingdata;
-    int64_t workspaceSize;
+    int64_t *syncaddr{nullptr}; // not used
+    int64_t *inputs{nullptr};
+    int64_t *outputs{nullptr};
+    int64_t *workspace{nullptr};
+    int64_t *tilingdata{nullptr};
+    int64_t *cfgdata{nullptr};
+    // following 4 paras need remove to binary
     void *costmodeldata{nullptr};
     void *aicoreModel{nullptr};
     uint64_t taskWastTime{0};

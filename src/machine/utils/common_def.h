@@ -47,11 +47,11 @@ const uint64_t DEVICE_QUEUE_SIZE = 512;
 #define DEVICE_TASK_TYPE_INVALID 0xf
 
 struct DeviceArgs {
-    uint32_t nrAic;
-    uint32_t nrAiv;
-    uint32_t nrAicpu;
-    uint32_t nrValidAic;
-    uint64_t opaque;          // store device global data, must be init with zero
+    uint32_t nrAic{0};
+    uint32_t nrAiv{0};
+    uint32_t nrAicpu{0};
+    uint32_t nrValidAic{0};
+    uint64_t opaque{0};          // store device global data, must be init with zero
     uint64_t devQueueAddr;    // pcie/XLink mem, used between host and device, `DEVICE_QUEUE_SIZE`
     uint64_t sharedBuffer;    // SHARED_BUFFER_SIZE per core, aics first
     uint64_t coreRegAddr;     // core reg addr, uint64_t per core, aic first

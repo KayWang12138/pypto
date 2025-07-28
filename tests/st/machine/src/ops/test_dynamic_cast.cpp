@@ -64,7 +64,7 @@ TEST_F(DynamicCastTest, testDynCastUnalign) {
     });
 
     auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DynFuncRunner::Run(funcop, DynFuncRunnerConfig(0, 3)); // 看护可重入，连续执行3次
 
     std::vector<int32_t> golden(b * sq * d, 0);
     for (int bidx = 0; bidx < b; ++bidx) {
