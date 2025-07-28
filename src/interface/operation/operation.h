@@ -242,6 +242,15 @@ public:
     std::unordered_set<Operation *> ConsumerOps() const;
     std::unordered_set<Operation *> ProducerOps() const;
 
+    class OperationComparator {
+    public:
+        bool operator()(const Operation *lhs, const Operation *rhs) const {
+            return lhs->GetOpMagic() < rhs->GetOpMagic();
+        }
+    };
+    std::set<Operation *, OperationComparator> ConsumerOpsOrdered() const;
+    std::set<Operation *, OperationComparator> ProducerOpsOrdered() const;
+
     [[nodiscard]] const std::unordered_set<Operation *> &GetInCtrlOperations() const { return inputCtrlOps; }
 
     [[nodiscard]] const std::unordered_set<Operation *> &GetOutCtrlOperations() const { return outputCtrlOps; }

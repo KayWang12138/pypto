@@ -65,65 +65,6 @@ using  uint16v8 = uint16_t __attribute__((vector_size(16)));
 
 #define ALIGN_UP(val, align)            (((val) + (align) - 1) & ~((align) - 1))
 
-template <typename T>
-struct OrderedSet : std::unordered_map<T, int> {
-    bool Insert(const T &data) {
-        if (this->count(data) == 0) {
-            this->insert(std::make_pair(data, this->size()));
-            order.push_back(data);
-            return true;
-        }
-
-        return false;
-    }
-
-    typename std::vector<T>::iterator begin() { return order.begin(); }
-    typename std::vector<T>::iterator end() { return order.end(); }
-
-    typename std::vector<T>::const_iterator begin() const { return order.begin(); }
-    typename std::vector<T>::const_iterator end()const { return order.end(); }
-
-    const T &operator[](int index) const { return order[index]; }
-    T &operator[](int index) { return order[index]; }
-
-    int GetIndex(const T &data) const { return this->find(data)->second; }
-
-    void Remove(const std::vector<T> &items) {
-        bool removed = false;
-        for (size_t i = 0; i < items.size(); i++) {
-            if (this->count(items[i])) {
-                this->erase(items[i]);
-                removed = true;
-            }
-        }
-        if (removed) {
-            std::vector<T> newOrder;
-            for (auto &[key, val] : dynamic_cast<std::unordered_map<T, int> &>(*this)) {
-                val = newOrder.size();
-                newOrder.push_back(key);
-            }
-            order = std::move(newOrder);
-        }
-    }
-
-    void Clear() {
-        order.clear();
-        this->clear();
-    }
-
-    bool operator==(const OrderedSet &rhs) {
-        if (order.size() != rhs.size())
-            return false;
-        for (auto &x : rhs.order) {
-            if (this->count(x) == 0)
-                return false;
-        }
-        return true;
-    }
-
-    std::vector<T> order;
-};
-
 constexpr int ARG_ATTR_TYPE = 4;
 
 // flag need used bit 63, see also macro values in tileop/runtime.h

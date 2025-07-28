@@ -260,6 +260,88 @@ private:
     std::unordered_map<std::string, T> str2typeDict;
 };
 
+template <typename T>
+struct OrderedSet : std::unordered_map<T, int> {
+    bool Insert(const T &data) {
+        if (this->count(data) == 0) {
+            this->insert(std::make_pair(data, this->size()));
+            order.push_back(data);
+            return true;
+        }
+
+        return false;
+    }
+
+    typedef T OrderElementType;
+    typename std::vector<OrderElementType>::iterator begin() { return order.begin(); }
+    typename std::vector<OrderElementType>::iterator end() { return order.end(); }
+
+    typename std::vector<OrderElementType>::const_iterator begin() const { return order.begin(); }
+    typename std::vector<OrderElementType>::const_iterator end()const { return order.end(); }
+
+    const T &operator[](int index) const { return order[index]; }
+    T &operator[](int index) { return order[index]; }
+
+    int GetIndex(const T &data) const { return this->find(data)->second; }
+
+    void Remove(const std::vector<T> &items) {
+        bool removed = false;
+        for (size_t i = 0; i < items.size(); i++) {
+            if (this->count(items[i])) {
+                this->erase(items[i]);
+                removed = true;
+            }
+        }
+        if (removed) {
+            std::vector<T> newOrder;
+            for (auto &[key, val] : dynamic_cast<std::unordered_map<T, int> &>(*this)) {
+                val = newOrder.size();
+                newOrder.push_back(key);
+            }
+            order = std::move(newOrder);
+        }
+    }
+
+    void Clear() {
+        order.clear();
+        this->clear();
+    }
+
+    bool operator==(const OrderedSet &rhs) {
+        if (order.size() != rhs.size())
+            return false;
+        for (auto &x : rhs.order) {
+            if (this->count(x) == 0)
+                return false;
+        }
+        return true;
+    }
+
+    std::vector<OrderElementType> order;
+};
+
+template <typename Key, typename T, class Hash = std::hash<Key>>
+struct OrderedMap {
+    typedef typename std::pair<Key, T> OrderElementType;
+    typename std::vector<OrderElementType>::iterator begin() { return orderData.begin(); }
+    typename std::vector<OrderElementType>::iterator end() { return orderData.end(); }
+
+    typename std::vector<OrderElementType>::const_iterator begin() const { return orderData.begin(); }
+    typename std::vector<OrderElementType>::const_iterator end()const { return orderData.end(); }
+
+    T &operator[](const Key &key) {
+        if (!orderDict.count(key)) {
+            int size = orderDict.size();
+            orderDict[key] = size;
+            orderData.emplace_back(key, T());
+        }
+        return orderData[orderDict[key]].second;
+    }
+
+    std::unordered_map<Key, int, Hash> orderDict;
+    std::vector<OrderElementType> orderData;
+};
+
 inline const BiMap<QueueType> &GetQueueNameDict() {
     static BiMap<QueueType> dict{
         {

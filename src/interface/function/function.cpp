@@ -346,8 +346,8 @@ void Function::BeginFunction(const std::vector<std::reference_wrapper<Tensor>> &
 FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &scope) {
     // Deduce Incast and Outcast here, need by TENSOR_GRAPH & STATIC_TILE_GRAPH
     if (IsGraphType(GraphType::TENSOR_GRAPH) || IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
-        std::unordered_set<LogicalTensorPtr> incasts;
-        std::unordered_set<LogicalTensorPtr> outcasts;
+        OrderedSet<LogicalTensorPtr> incasts;
+        OrderedSet<LogicalTensorPtr> outcasts;
         // update functionParamInfo endValue
         for (auto &functionParamInfo : functionParamInfos_) {
             functionParamInfo.endValue = functionParamInfo.key->GetStorage(false);
@@ -359,12 +359,12 @@ FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &s
         for (auto &op : Operations()) {
             for (auto &iOperand : op.iOperand) {
                 if (tensorMap_.tensorMap_.count(iOperand->tensor->rawmagic) == 0) {
-                    incasts.emplace(iOperand);
+                    incasts.Insert(iOperand);
                 }
             }
             for (auto &oOperand : op.oOperand) {
                 if (oOperand->tensor->GetRefCount() > 0) {
-                    outcasts.emplace(oOperand);
+                    outcasts.Insert(oOperand);
                     ASSERT(incasts.count(oOperand) == 0);
                 }
             }
@@ -384,13 +384,13 @@ FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &s
                 endTensor->GetRawTensor()->SetTensorInfo(tensorInfo);
                 if (incasts.count(beginTensor) > 0) {
                     AddOriginIncast(beginTensor);
-                    incasts.erase(beginTensor);
+                    incasts.Remove({beginTensor});
                     beginTensor->GetRawTensor()->SetRawDataPtr(functionParamInfo.key->GetData());
                     beginTensor->GetRawTensor()->SetTensorInfo(tensorInfo);
                 }
                 if (outcasts.count(endTensor) > 0) {
                     AddOriginOutcast(endTensor);
-                    outcasts.erase(endTensor);
+                    outcasts.Remove({endTensor});
                     endTensor->GetRawTensor()->SetRawDataPtr(functionParamInfo.key->GetData());
                     endTensor->GetRawTensor()->SetTensorInfo(tensorInfo);
                 }

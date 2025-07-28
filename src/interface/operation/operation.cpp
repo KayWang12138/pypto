@@ -670,6 +670,17 @@ std::unordered_set<Operation *> Operation::ProducerOps() const {
     return producers;
 }
 
+std::set<Operation *, Operation::OperationComparator> Operation::ConsumerOpsOrdered() const {
+    auto ops = ConsumerOps();
+    std::set<Operation *, OperationComparator> consumers(ops.begin(), ops.end());
+    return consumers;
+}
+std::set<Operation *, Operation::OperationComparator> Operation::ProducerOpsOrdered() const {
+    auto ops = ProducerOps();
+    std::set<Operation *, OperationComparator> producers(ops.begin(), ops.end());
+    return producers;
+}
+
 void Operation::UpdateInputOperand(const size_t index, const std::shared_ptr<LogicalTensor> &newInput) {
     if (newInput == nullptr || index >= iOperand.size()) {
         return;

@@ -54,10 +54,10 @@ Status InferDynShapePass::InferShape(Function& function){
         (void) tid;
         for (int opIdx = st; opIdx < et; opIdx++) {
             auto& op = opList[opIdx];
-            for (auto producer : op->ProducerOps()) {
+            for (auto producer : op->ProducerOpsOrdered()) {
                 opInGraph[opMagic2Idx[op->GetOpMagic()]].push_back(opMagic2Idx[producer->GetOpMagic()]);
             }
-            for (auto consumer : op->ConsumerOps()) {
+            for (auto consumer : op->ConsumerOpsOrdered()) {
                 opOutGraph[opMagic2Idx[op->GetOpMagic()]].push_back(opMagic2Idx[consumer->GetOpMagic()]);
             }
         }

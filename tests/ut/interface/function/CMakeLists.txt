@@ -47,6 +47,7 @@ set(_CaseFilterList
         "TensorElement.*"
         "ThreadPoolTest.*"
         "StringUtils.*"
+        "CommonTest.*"
         "DynamicTestGenAtten.TestOnboardGenAttenTest_FP16"
         "DynamicTestWinAttenUt.TestOnboardWinAttnTest_FP16"
 )

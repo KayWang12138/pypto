@@ -968,9 +968,12 @@ struct EncodeDevAscendFunctionInfo {
     }
 
     void optimizeCallopSuccs(std::vector<Operation *> &callOpList, int optimizeLimit) {
-        std::unordered_map<OrderedSet<Operation *>, OrderedSet<Operation *>, Hasher> predDict;
-        for (auto &[callOp, succOps] : callOpSuccDict) {
-            predDict[succOps].Insert(callOp);
+        OrderedMap<OrderedSet<Operation *>, OrderedSet<Operation *>, Hasher> predDict;
+        for (auto &callOp : callOpList) {
+            if (callOpSuccDict.count(callOp)) {
+                auto succOps = callOpSuccDict[callOp];
+                predDict[succOps].Insert(callOp);
+            }
         }
 
         for (auto & [succSet, predSet] : predDict) {
