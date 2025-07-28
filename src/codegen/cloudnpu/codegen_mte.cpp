@@ -31,6 +31,30 @@ bool CodeGenOpCloudNPU::GetAttr(const std::string &key, T &value) const {
     return false;
 }
 
+CodeGenOpCloudNPU::DynamicParamPack CodeGenOpCloudNPU::PrepareDynamicShapeInfo(
+    int dynShapeIdx, int ShapeDim, bool gmOffsetCond) const {
+    CodeGenOpCloudNPU::DynamicParamPack pack;
+    int dim = static_cast<int>(paramIdxForDynShape[dynShapeIdx].size());
+    pack.gmShapeExpr = GenGetParamMacroPacked(dynShapeIdx, dim, PREFIX_STR_RAW_SHAPE);
+    FillIntVecWithDummyInHead<std::string>(pack.gmShapeExpr, ShapeDim - dim, "1");
+    ALOG_INFO_F("dynamic gmShape param: %s", IntVecToStr(pack.gmShapeExpr).c_str());
+
+    pack.gmOffsetExpr = GenGetParamMacroPacked(dynShapeIdx, dim, PREFIX_STR_OFFSET);
+    FillIntVecWithDummyInHead<std::string>(pack.gmOffsetExpr, ShapeDim - dim, "0");
+    ALOG_INFO_F("dynamic gmOffset param: %s", IntVecToStr(pack.gmOffsetExpr).c_str());
+
+    for (const auto &gs : pack.gmShapeExpr) {
+        pack.paramList.emplace_back(gs);
+    }
+    if (gmOffsetCond) {
+        for (const auto &go : pack.gmOffsetExpr) {
+            pack.paramList.emplace_back(go);
+        }
+    }
+
+    return pack;
+}
+
 std::string CodeGenOpCloudNPU::GenMemL1CopyIn() const {
     struct OpInfo opInfo(tileOpName, {operandWithMagic[ID0]}, {operandDtype[ID1], operandDtype[ID0]});
     opInfo.bufferId = operand[ID1];
@@ -311,14 +335,9 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastDynamic(const PrintIndexOutCastP
     const std::string *dataTypeExpr = param.dataTypeExpr;
     int cacheModeFlag = (param.cacheMode == "PA_NZ") ? 1 : 0;
 
-    int dim = static_cast<int>(paramIdxForDynShape[0].size());
-    std::vector<std::string> gmShapeExpr = GenGetParamMacroPacked(0, dim, PREFIX_STR_RAW_SHAPE);
-    FillIntVecWithDummyInHead<std::string>(gmShapeExpr, SHAPE_DIM4 - dim, "1");
-    ALOG_INFO_F("dynamic gmShape param: %s", IntVecToStr(gmShapeExpr).c_str());
-
-    std::vector<std::string> gmOffsetExpr = GenGetParamMacroPacked(0, dim, PREFIX_STR_OFFSET);
-    FillIntVecWithDummyInHead<std::string>(gmOffsetExpr, SHAPE_DIM4 - dim, "0");
-    ALOG_INFO_F("dynamic gmOffset param: %s", IntVecToStr(gmOffsetExpr).c_str());
+    auto paramPack = PrepareDynamicShapeInfo(ID0);
+    std::vector<std::string> gmShapeExpr = paramPack.gmOffsetExpr;
+    std::vector<std::string> gmOffsetExpr = paramPack.gmOffsetExpr;
 
     std::ostringstream os;
     std::vector<std::string> paramList;
@@ -340,12 +359,8 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastDynamic(const PrintIndexOutCastP
     std::string src0 = "(__ubuf__ " + dataTypeExpr[1] + "*)" + s0Var;
     std::string src1 = "(__ubuf__ " + dataTypeExpr[2] + "*)" + s1Var;
     paramList.insert(paramList.end(), {dst, src0, src1});
-    for (const auto &gs : gmShapeExpr) {
-        paramList.emplace_back(gs);
-    }
-    for (const auto &go : gmOffsetExpr) {
-        paramList.emplace_back(go);
-    }
+    paramList.insert(paramList.end(), paramPack.paramList.begin(), paramPack.paramList.end());
+
     std::string tiloOpCallParam = JoinString(paramList, ", ");
     os << tileOpName << "<" << templateParam << ">"
        << "(" << tiloOpCallParam << ");\n";
@@ -363,14 +378,10 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastDynamicUnaligned(const PrintInde
     const std::string *dataTypeExpr = param.dataTypeExpr;
     int cacheModeFlag = (param.cacheMode == "PA_NZ") ? 1 : 0;
 
-    int dim = static_cast<int>(paramIdxForDynShape[0].size());
-    std::vector<std::string> gmShapeExpr = GenGetParamMacroPacked(0, dim, PREFIX_STR_RAW_SHAPE);
-    FillIntVecWithDummyInHead<std::string>(gmShapeExpr, SHAPE_DIM4 - dim, "1");
-    ALOG_INFO_F("dynamic gmShape param: %s", IntVecToStr(gmShapeExpr).c_str());
+    auto paramPack = PrepareDynamicShapeInfo(ID0);
+    std::vector<std::string> gmShapeExpr = paramPack.gmOffsetExpr;
+    std::vector<std::string> gmOffsetExpr = paramPack.gmOffsetExpr;
 
-    std::vector<std::string> gmOffsetExpr = GenGetParamMacroPacked(0, dim, PREFIX_STR_OFFSET);
-    FillIntVecWithDummyInHead<std::string>(gmOffsetExpr, SHAPE_DIM4 - dim, "0");
-    ALOG_INFO_F("dynamic gmOffset param: %s", IntVecToStr(gmOffsetExpr).c_str());
     auto src0ValidShape = dynamicValidShape[1];
     FillIntVecWithDummyInHead<SymbolicScalar>(src0ValidShape, SHAPE_DIM4 - dynamicValidShape[1].size(), 1);
     auto src1ValidShape = dynamicValidShape[2];
@@ -393,12 +404,8 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastDynamicUnaligned(const PrintInde
     paramList.insert(paramList.end(), {dst, src0, src1});
     paramList.insert(paramList.end(), {src0ValidShape[0].Dump(), src0ValidShape[1].Dump(), src0ValidShape[3].Dump()});
     paramList.emplace_back(src1ValidShape[1].Dump());
-    for (const auto &gs : gmShapeExpr) {
-        paramList.emplace_back(gs);
-    }
-    for (const auto &go : gmOffsetExpr) {
-        paramList.emplace_back(go);
-    }
+    paramList.insert(paramList.end(), paramPack.paramList.begin(), paramPack.paramList.end());
+
     std::string tiloOpCallParam = JoinString(paramList, ", ");
     os << tileOpName << "<" << templateParam << ">"
        << "(" << tiloOpCallParam << ");\n";
@@ -739,14 +746,9 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamic(const PrintMemCopyWithU
     FillIntVecWithDummyInHead<int>(newOriginShape, MAX_DIM - originShape[localIdx].size(), 1);
     const std::vector<int> &localRawShape = NormalizeShape(rawShape[localIdx], SHAPE_DIM5);
 
-    int dim = static_cast<int>(paramIdxForDynShape[gmIdx].size());
-    std::vector<std::string> gmShapeExpr = GenGetParamMacroPacked(gmIdx, dim, PREFIX_STR_RAW_SHAPE);
-    FillIntVecWithDummyInHead<std::string>(gmShapeExpr, MAX_DIM - dim, "1");
-    ALOG_INFO_F("dynamic gmShape param: %s", IntVecToStr(gmShapeExpr).c_str());
-
-    std::vector<std::string> gmOffsetExpr = GenGetParamMacroPacked(gmIdx, dim, PREFIX_STR_OFFSET);
-    FillIntVecWithDummyInHead<std::string>(gmOffsetExpr, MAX_DIM - dim, "0");
-    ALOG_INFO_F("dynamic gmOffset param: %s", IntVecToStr(gmOffsetExpr).c_str());
+    auto paramPack = PrepareDynamicShapeInfo(gmIdx, MAX_DIM, !param.isSpillIntoGM);
+    std::vector<std::string> gmShapeExpr = paramPack.gmOffsetExpr;
+    std::vector<std::string> gmOffsetExpr = paramPack.gmOffsetExpr;
 
     std::ostringstream os;
     std::vector<std::string> paramList;
@@ -764,15 +766,8 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamic(const PrintMemCopyWithU
     std::string src = "(" + addrTypeHead[1] + " " + dataTypeExpr[localIdx] + "*)" + addrExpr[1];
     paramList.emplace_back(dst);
     paramList.emplace_back(src);
-    for (auto gs : gmShapeExpr) {
-        paramList.emplace_back(gs);
-    }
-    // GM offset is already appended under spilling scene
-    if (!param.isSpillIntoGM) {
-        for (auto go : gmOffsetExpr) {
-            paramList.emplace_back(go);
-        }
-    }
+    paramList.insert(paramList.end(), paramPack.paramList.begin(), paramPack.paramList.end());
+
     std::string tiloOpCallParam = JoinString(paramList, ", ");
     os << tileOpName.c_str() << "<" << templateParam << ">"
        << "(" << tiloOpCallParam << ");\n";
@@ -791,14 +786,9 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamicSupportUnaligned(const P
     FillIntVecWithDummyInHead<SymbolicScalar>(newDynamicShape, MAX_DIM - dynamicValidShape[localIdx].size(), 1);
     const std::vector<int> &localRawShape = NormalizeShape(rawShape[localIdx], SHAPE_DIM5);
 
-    int dim = static_cast<int>(paramIdxForDynShape[gmIdx].size());
-    std::vector<std::string> gmShapeExpr = GenGetParamMacroPacked(gmIdx, dim, PREFIX_STR_RAW_SHAPE);
-    FillIntVecWithDummyInHead<std::string>(gmShapeExpr, MAX_DIM - dim, "1");
-    ALOG_INFO_F("dynamic gmShape param: %s", IntVecToStr(gmShapeExpr).c_str());
-
-    std::vector<std::string> gmOffsetExpr = GenGetParamMacroPacked(gmIdx, dim, PREFIX_STR_OFFSET);
-    FillIntVecWithDummyInHead<std::string>(gmOffsetExpr, MAX_DIM - dim, "0");
-    ALOG_INFO_F("dynamic gmOffset param: %s", IntVecToStr(gmOffsetExpr).c_str());
+    auto paramPack = PrepareDynamicShapeInfo(gmIdx, MAX_DIM, !param.isSpillIntoGM);
+    std::vector<std::string> gmShapeExpr = paramPack.gmOffsetExpr;
+    std::vector<std::string> gmOffsetExpr = paramPack.gmOffsetExpr;
 
     std::ostringstream os;
     std::vector<std::string> paramList;
@@ -816,16 +806,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamicSupportUnaligned(const P
     for (auto ts : newDynamicShape) {
         paramList.emplace_back(ts.Dump());
     }
-    for (auto gs : gmShapeExpr) {
-        paramList.emplace_back(gs);
-    }
-
-    // GM offset is already appended under spilling scene
-    if (!param.isSpillIntoGM) {
-        for (auto go : gmOffsetExpr) {
-            paramList.emplace_back(go);
-        }
-    }
+    paramList.insert(paramList.end(), paramPack.paramList.begin(), paramPack.paramList.end());
 
     std::string tiloOpCallParam = JoinString(paramList, ", ");
     os << tileOpName.c_str() << "<" << templateParam << ">"

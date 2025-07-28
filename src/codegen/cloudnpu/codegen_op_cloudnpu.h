@@ -327,6 +327,16 @@ private:
         const std::string &tmpDtypeStr;
         const std::string &dstDtypeStr;
     };
+
+    struct DynamicParamPack {
+        std::vector<std::string> gmShapeExpr;
+        std::vector<std::string> gmOffsetExpr;
+        std::vector<std::string> paramList;
+    };
+
+    DynamicParamPack PrepareDynamicShapeInfo(
+        int dynShapeIdx, int ShapeDim = SHAPE_DIM4, bool gmOffsetCond = true) const;
+
     std::string PrintReduceLastAxis(const PrintReduceLastAxisParam &param) const;
 
     const std::unordered_map<Opcode, std::function<std::string()>> opsGenMap_ = {
