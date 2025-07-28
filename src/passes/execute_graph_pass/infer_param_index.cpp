@@ -35,16 +35,17 @@ std::string InferParamIndexPass::DumpParamIndex(const std::map<std::string, DynP
     return ss.str();
 }
 
-void ResetDynValidShape(Function& function) {
+Status InferParamIndexPass::ResetDynValidShape(Function& function) {
     const std::set<Opcode> specifiedOps = {Opcode::OP_VEC_DUP};
     for (auto &op : function.Operations()) {
         std::vector<SymbolicScalar> validShape;
         for (auto outOperand : op.GetOOperands()) {
-            // 输入输出的tensor shape符号化
             if (OpcodeManager::Inst().IsCopyInOrOut(op.GetOpcode()) || specifiedOps.count(op.GetOpcode())) {
                 for (size_t dimIdx = 0U; dimIdx < outOperand->GetShape().size(); ++dimIdx) {
-                    validShape.push_back(SymbolicScalar("sym_" + std::to_string(outOperand->GetMagic()) + "_dim_" +
-                        std::to_string(dimIdx)));
+                    validShape.push_back(SymbolicScalar("sym_" + 
+                                                        std::to_string(outOperand->GetMagic()) + 
+                                                        "_dim_" +
+                                                        std::to_string(dimIdx)));
                 }
             }
             outOperand->UpdateDynValidShape(validShape);
@@ -52,19 +53,19 @@ void ResetDynValidShape(Function& function) {
         // 清空view和assemble的属性中的dynvalidshape，以便后续重新推导符号化的dynvalidshape
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
-            if (viewOpAttribute != nullptr) {
-                auto newDynValidShape = viewOpAttribute->GetToDynValidShape();
-                std::vector<int> newValidShape;
-                for (auto validSym : newDynValidShape) {
-                    if (validSym.ConcreteValid()) { newValidShape.push_back(validSym.Concrete()); }
-                }
-                if (newValidShape.size() == newDynValidShape.size()) {
-                    op.GetOOperands()[0]->UpdateDynValidShape(newDynValidShape);
-                } else {
-                    viewOpAttribute->SetToDynValidShape(std::vector<SymbolicScalar>());
-                }
+            if (viewOpAttribute == nullptr) {
+                continue;
             }
-            continue;
+            auto newDynValidShape = viewOpAttribute->GetToDynValidShape();
+            std::vector<int> newValidShape;
+            for (auto validSym : newDynValidShape) {
+                if (validSym.ConcreteValid()) { newValidShape.push_back(validSym.Concrete()); }
+            }
+            if (newValidShape.size() == newDynValidShape.size()) {
+                op.GetOOperands()[0]->UpdateDynValidShape(newDynValidShape);
+            } else {
+                viewOpAttribute->SetToDynValidShape(std::vector<SymbolicScalar>());
+            }
         }
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
             auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(op.GetOpAttribute().get());
@@ -75,23 +76,18 @@ void ResetDynValidShape(Function& function) {
             continue;
         }
     }
+    return SUCCESS;
 }
 
-bool NeedInferShape(const Operation *op) {
-    if (op->GetOOperands().empty()) {
-        return false;
-    }
-    if (!(op->GetOOperands()[0]->GetDynValidShape().empty())) {
-        return false;
-    }
-    return true;
-}
-
-void InferShape(Function &function)
+Status InferParamIndexPass::InferShape(Function &function)
 {
     size_t i = 0U;
     std::map<int, size_t> opMagic2Idx;
     std::vector<Operation*> opList = function.Operations().DuplicatedOpList();
+    if (opList.empty()) {
+        ALOG_ERROR_F("InferShape: opList is Empty.");
+        return FAILED;
+    }
     for (auto op : opList) {
         opMagic2Idx[op->GetOpMagic()] = i;
         i++;
@@ -104,36 +100,22 @@ void InferShape(Function &function)
             opOutGraph[opMagic2Idx[producer->GetOpMagic()]].push_back(opMagic2Idx[op->GetOpMagic()]);
         }
     }
-    std::queue<size_t> procOpQueue;
-    std::vector<size_t> inDegree(opList.size(), 0);
-    for (size_t j = 0; j < opInGraph.size(); ++j) {
-        if (opInGraph[j].empty()) {
-            procOpQueue.push(j);
-        }
-        inDegree[j] = opInGraph[j].size();
-    }
-    while (!procOpQueue.empty()) {
-        auto opIdx = procOpQueue.front();
-        procOpQueue.pop();
-        for (auto outIdx : opOutGraph[opIdx]) {
-            inDegree[outIdx]--;
-            if (inDegree[outIdx] == 0) {
-                procOpQueue.push(outIdx);
-            }
-        }
-        if (NeedInferShape(opList[opIdx])) {
-            InferShapeRegistry::GetInstance().CallInferShapeFunc(opList[opIdx]);
-        }
-    }
+    bool isParamIndex = true;
+    TopoProgramUtils::TopoProgram(opList, opInGraph, opOutGraph, isParamIndex);
+    return SUCCESS;
 }
 
 Status InferParamIndexPass::RunOnFunction(Function &function)
 {
-    ASLOGI("===> Start InferParamIndexPass.");
+    ALOG_INFO_F("===> Start InferParamIndexPass.");
     for (auto &subProgram : function.rootFunc_->programs_) {
         auto &subFunc = *subProgram.second;
-        ResetDynValidShape(subFunc);
-        InferShape(subFunc);
+        if (ResetDynValidShape(subFunc) != SUCCESS) {
+            return FAILED;
+        }
+        if (InferShape(subFunc) != SUCCESS) {
+            return FAILED;
+        }
         ALOG_INFO(subFunc.Dump());
         std::map<int, std::vector<SymbolicScalar>> addr2ValidShape;
         for (auto &op : subFunc.Operations()) {
@@ -161,7 +143,8 @@ Status InferParamIndexPass::RunOnFunction(Function &function)
                 if (visitedSymbol.count(dim.Dump()) > 0) {
                     continue;
                 }
-                auto paramInfo = DynParamInfo{static_cast<int>(validShape.second.size()), gmIdx, validShape.first, DynParamInfoType::VALID_SHAPE, dimIdx};
+                auto paramInfo = DynParamInfo{static_cast<int>(validShape.second.size()), gmIdx, 
+                                            validShape.first, DynParamInfoType::VALID_SHAPE, dimIdx};
                 subFunc.InsertDynParam(dim.Dump(), paramInfo);
                 dimIdx++;
             }
@@ -169,7 +152,7 @@ Status InferParamIndexPass::RunOnFunction(Function &function)
         }
         ALOG_DEBUG(DumpParamIndex(subFunc.GetDynParamTable()));
     }
-    ASLOGI("===> End InferParamIndexPass By Sequential Execution.");
+    ALOG_INFO_F("===> End InferParamIndexPass By Sequential Execution.");
     return SUCCESS;
 }
 }  // namespace tile_fwk

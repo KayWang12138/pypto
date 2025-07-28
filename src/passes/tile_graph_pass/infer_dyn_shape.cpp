@@ -17,7 +17,8 @@
 #include "interface/function/function.h"
 #include "infer_dyn_shape.h"
 #include "passes/pass_utils/parallel_tool.h"
-namespace npu::tile_fwk {
+namespace npu {
+namespace tile_fwk {
 Status InferDynShapePass::PostCheck(Function &function) {
     for (auto& op : function.Operations()) {
         if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode())) {
@@ -39,11 +40,7 @@ Status InferDynShapePass::PostCheck(Function &function) {
     return SUCCESS;
 }
 
-Status InferDynShapePass::RunOnFunction(Function &function)
-{
-    ALOG_INFO_F("===> start InferDynShapePass");
-    // 遍历每一个op，调用对应的infershape函数
-    // 遍历顺序，按照入度解依赖
+Status InferDynShapePass::InferShape(Function& function){
     size_t i = 0U;
     std::map<int, size_t> opMagic2Idx;
     std::vector<Operation*> opList = function.Operations().DuplicatedOpList();
@@ -55,7 +52,7 @@ Status InferDynShapePass::RunOnFunction(Function &function)
     std::vector<std::vector<size_t>> opOutGraph(opList.size());
     ParallelTool::Instance().Parallel_for(0, opList.size(),1,[&](int st,int et,int tid) {
         (void) tid;
-        for(int opIdx=st; opIdx<et; opIdx++){
+        for (int opIdx = st; opIdx < et; opIdx++) {
             auto& op = opList[opIdx];
             for (auto producer : op->ProducerOps()) {
                 opInGraph[opMagic2Idx[op->GetOpMagic()]].push_back(opMagic2Idx[producer->GetOpMagic()]);
@@ -65,27 +62,22 @@ Status InferDynShapePass::RunOnFunction(Function &function)
             }
         }
     });
-    std::queue<size_t> procOpQueue;
-    std::vector<size_t> inDegree(opList.size(), 0);
-    for (size_t j = 0; j < opInGraph.size(); ++j) {
-        if (opInGraph[j].empty()) {
-            procOpQueue.push(j);
-        }
-        inDegree[j] = opInGraph[j].size();
-    }
-    while (!procOpQueue.empty()) {
-        auto opIdx = procOpQueue.front();
-        procOpQueue.pop();
-        for (auto outIdx : opOutGraph[opIdx]) {
-            inDegree[outIdx]--;
-            if (inDegree[outIdx] == 0) {
-                procOpQueue.push(outIdx);
-            }
-        }
-        InferShapeRegistry::GetInstance().CallInferShapeFunc(opList[opIdx]);
-    }
-    ALOG_INFO(function.Dump());
-    ALOG_INFO_F("===> end InferDynShapePass");
+    bool isInferIndex = false;
+    TopoProgramUtils::TopoProgram(opList, opInGraph, opOutGraph, isInferIndex);
     return SUCCESS;
 }
-}  // namespace npu::tile_fwk
+
+Status InferDynShapePass::RunOnFunction(Function &function)
+{
+    // 遍历每一个op，调用对应的infershape函数
+    // 遍历顺序，按照入度解依赖
+    ALOG_INFO_F("===> Start InferDynShapePass.");
+    if (InferShape(function) != SUCCESS) {
+        return FAILED;
+    }
+    ALOG_DEBUG(function.Dump());
+    ALOG_INFO_F("===> End InferDynShapePass.");
+    return SUCCESS;
+}
+} 
+} // namespace npu::tile_fwk

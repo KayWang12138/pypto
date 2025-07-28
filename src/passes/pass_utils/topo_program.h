@@ -9,26 +9,27 @@
  */
 
 /*!
- * \file infer_dyn_shape.h
+ * \file topo_program.h
  * \brief
  */
 
-#ifndef INFER_DYN_SHAPE_PASS_H_
-#define INFER_DYN_SHAPE_PASS_H_
+#pragma once
+#ifndef TOPO_PROGRAM_H
+#define TOPO_PROGRAM_H
+#include <vector>
+#include <queue>
 #include "interface/operation/op_infer_shape_impl.h"
-#include "passes/pass_interface/pass.h"
 #include "interface/function/function.h"
-#include "passes/pass_utils/topo_program.h"
+#include "interface/tensor/logical_tensor.h"
+
 namespace npu {
 namespace tile_fwk {
-class InferDynShapePass : public Pass {
+class TopoProgramUtils{
 public:
-    InferDynShapePass() : Pass("InferDynShapePass") {}
-    ~InferDynShapePass() override {}
-    Status RunOnFunction(Function &function) override;
-    Status PostCheck(Function &function) override;
-private:
-    Status InferShape(Function& function);
+    static void TopoProgram(const std::vector<Operation*>& opList,
+                            const std::vector<std::vector<size_t>>& opInGraph,
+                            const std::vector<std::vector<size_t>>& opOutGraph,
+                            bool isParamIndex);
 };
 }
 }
