@@ -33,6 +33,7 @@
 namespace npu::tile_fwk {
 const std::string OpAttributeKey::color = "COLOR";
 const std::string OpAttributeKey::scalar = "SCALAR";
+const std::string OpAttributeKey::dynScalar = "DYN_SCALAR";
 const std::string OpAttributeKey::isGlobalInput = "IS_GLOBAL_INPUT";
 const std::string OpAttributeKey::seqNo = "SEQ_NO";
 const std::string OpAttributeKey::isCube = "IS_CUBE";
@@ -241,6 +242,19 @@ CastMode Operation::GetCastModeAttribute(const std::string &key) const {
 
 void Operation::SetAttribute(const std::string &key, CastMode value) {
     SetAttr(key, static_cast<int>(value));
+}
+
+SymbolicScalar Operation::GetSymbolicScalarAttribute(const std::string &key) const {
+    ASSERT(HasAttr(key)) << "Operation doesn't have attribute " << key;
+    SymbolicScalar attrVal = 0;
+    GetAttr(key, attrVal);
+    ASSERT(attrVal.IsValid());
+    return attrVal;
+}
+
+void Operation::SetAttribute(const std::string &key, const SymbolicScalar &value) {
+    ASSERT(value.IsValid());
+    SetAttr(key, value);
 }
 
 // std::map<std::string, npu::tile_fwk::any> Operation::GetAllAttribute() const {
@@ -494,6 +508,7 @@ std::string Operation::DumpSSA() const {
         }
         oss << iOperand[i]->DumpSSA(false, true, false);
     }
+    oss << " " << DumpAttr();
     oss << "\n";
     return oss.str();
 }

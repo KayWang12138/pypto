@@ -67,7 +67,7 @@ public:
     bool IsImmediate() const;
     bool IsSymbol() const;
     bool IsExpression() const;
-    bool IsNull() const { return raw_ == nullptr; }
+    bool IsValid() const { return raw_ != nullptr; }
 
     // symbolic experession maybe too compicated
     // use this as a hint to generate intermediat variable
@@ -123,6 +123,7 @@ public:
         const SymbolicScalar &arg3) const;
     SymbolicScalar operator()(const SymbolicScalar &arg0, const SymbolicScalar &arg1, const SymbolicScalar &arg2,
         const SymbolicScalar &arg3, const SymbolicScalar &arg4) const;
+    SymbolicScalar operator()(const std::vector<SymbolicScalar> &argList) const;
 
     friend std::ostream &operator<<(std::ostream &os, const SymbolicScalar &val) { return os << val.Dump(); }
 

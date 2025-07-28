@@ -46,6 +46,54 @@ enum class SymbolicScalarKind {
     T_SCALAR_SYMBOLIC_EXPRESSION,
 };
 
+inline std::string SymbolicScalarKind2Name(SymbolicScalarKind kind) {
+    std::string name;
+    switch (kind) {
+    case SymbolicScalarKind::T_SCALAR_SYMBOLIC_IMMEDIATE:
+        name = "immediate";
+        break;
+    case SymbolicScalarKind::T_SCALAR_SYMBOLIC_SYMBOL:
+        name = "symbol";
+        break;
+    case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION:
+        name = "expression";
+        break;
+    default:
+        ASSERT(false);
+        break;
+    }
+    return name;
+}
+
+enum class SymbolicOpcode {
+    T_UOP_POS,
+    T_UOP_NEG,
+    T_UOP_NOT,
+
+    T_BOP_ADD,
+    T_BOP_SUB,
+    T_BOP_MUL,
+    T_BOP_DIV,
+    T_BOP_MOD,
+
+    T_BOP_EQ,
+    T_BOP_NE,
+    T_BOP_LT,
+    T_BOP_LE,
+    T_BOP_GT,
+    T_BOP_GE,
+
+    T_BOP_MIN,
+    T_BOP_MAX,
+
+    T_MOP_CALL,
+
+    T_UOP_BEGIN = T_UOP_POS,
+    T_UOP_END = T_UOP_NOT + 1,
+    T_BOP_BEGIN = T_BOP_ADD,
+    T_BOP_END = T_BOP_MAX + 1
+};
+
 class RawSymbolicScalar {
 public:
     SymbolicScalarKind kind;
@@ -59,6 +107,12 @@ public:
     bool IsImmediate() const { return Kind() == SymbolicScalarKind::T_SCALAR_SYMBOLIC_IMMEDIATE; }
     bool IsSymbol() const { return Kind() == SymbolicScalarKind::T_SCALAR_SYMBOLIC_SYMBOL; }
     bool IsExpression() const { return Kind() == SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION; }
+
+    ScalarImmediateType GetImmediateValue() const;
+    const std::string &GetSymbolName() const;
+    SymbolicOpcode GetExpressionOpcode() const;
+    const std::vector<RawSymbolicScalarPtr> &GetExpressionOperandList() const;
+    bool IsExpressionCall(const std::string &calleeName) const;
 
     [[nodiscard]] bool IsIntermediateVariable() const { return intermediateVariable_; }
     void AsIntermediateVariable() { intermediateVariable_ = true; }
@@ -125,35 +179,6 @@ private:
     void DumpBuffer(std::string &buffer) override { buffer += name_; }
 
     std::string name_;
-};
-
-enum class SymbolicOpcode {
-    T_UOP_POS,
-    T_UOP_NEG,
-    T_UOP_NOT,
-
-    T_BOP_ADD,
-    T_BOP_SUB,
-    T_BOP_MUL,
-    T_BOP_DIV,
-    T_BOP_MOD,
-
-    T_BOP_EQ,
-    T_BOP_NE,
-    T_BOP_LT,
-    T_BOP_LE,
-    T_BOP_GT,
-    T_BOP_GE,
-
-    T_BOP_MIN,
-    T_BOP_MAX,
-
-    T_MOP_CALL,
-
-    T_UOP_BEGIN = T_UOP_POS,
-    T_UOP_END = T_UOP_NOT + 1,
-    T_BOP_BEGIN = T_BOP_ADD,
-    T_BOP_END = T_BOP_MAX + 1
 };
 
 class RawSymbolicExpression : public RawSymbolicScalar {

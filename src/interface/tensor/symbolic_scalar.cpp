@@ -99,6 +99,44 @@ SymbolicExpressionTable SymbolicExpressionTableBuilder::BuildAndLoad() {
     return table;
 }
 
+ScalarImmediateType RawSymbolicScalar::GetImmediateValue() const {
+    ASSERT(IsImmediate()) << "Mismatch immediate type: " << SymbolicScalarKind2Name(Kind());
+    auto immediate = static_cast<const RawSymbolicImmediate *>(this);
+    return immediate->Immediate();
+}
+const std::string &RawSymbolicScalar::GetSymbolName() const {
+    ASSERT(IsSymbol()) << "Mismatch symbol type: " << SymbolicScalarKind2Name(Kind());
+    auto symbol = static_cast<const RawSymbolicSymbol *>(this);
+    return symbol->Name();
+}
+SymbolicOpcode RawSymbolicScalar::GetExpressionOpcode() const {
+    ASSERT(IsExpression()) << "Mismatch expression type: " << SymbolicScalarKind2Name(Kind());
+    auto expression = static_cast<const RawSymbolicExpression *>(this);
+    return expression->Opcode();
+}
+const std::vector<RawSymbolicScalarPtr> &RawSymbolicScalar::GetExpressionOperandList() const {
+    ASSERT(IsExpression()) << "Mismatch expression type: " << SymbolicScalarKind2Name(Kind());
+    auto expression = static_cast<const RawSymbolicExpression *>(this);
+    return expression->OperandList();
+}
+
+bool RawSymbolicScalar::IsExpressionCall(const std::string &calleeName) const {
+    if (!IsExpression()) {
+        return false;
+    }
+    if (GetExpressionOpcode() != SymbolicOpcode::T_MOP_CALL) {
+        return false;
+    }
+    auto caller = GetExpressionOperandList()[0];
+    if (!caller->IsSymbol()) {
+        return false;
+    }
+    if (caller->GetSymbolName() != calleeName) {
+        return false;
+    }
+    return true;
+}
+
 static void DumpSymbolicScalar(const RawSymbolicScalarPtr &raw, Json &jarray) {
     switch (raw->Kind()) {
         case SymbolicScalarKind::T_SCALAR_SYMBOLIC_IMMEDIATE: {

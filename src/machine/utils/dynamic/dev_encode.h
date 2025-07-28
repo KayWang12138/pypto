@@ -1737,6 +1737,12 @@ struct DevAscendProgram {
         return oss.str();
     }
 
+    void DumpFile(const std::string &filePath) const {
+        std::ofstream ofs(filePath);
+        ofs << Dump();
+        ofs.close();
+    }
+
     std::vector<int> GetInputTensorSlotIndexList() const {
         std::vector<int> indexList;
         for (size_t i = 0; i < startArgsInputTensorSlotIndexList.size(); i++) {

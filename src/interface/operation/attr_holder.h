@@ -19,13 +19,16 @@
 #include <string>
 #include <any>
 
+#include "tilefwk/symbolic_scalar.h"
 #include "interface/utils/any.h"
 #include "interface/utils/common.h"
 #include "interface/utils/log.h"
+#include "interface/utils/string_utils.h"
 #include "interface/inner/element.h"
 
 namespace npu::tile_fwk {
 const std::string OP_ATTR_PREFIX = "op_attr_";
+const std::string OP_ATTR_EMUOP_PREFIX = "op_attr_emuop_";
 
 class AttrHolder {
 private:
@@ -54,7 +57,7 @@ public:
         auto it = attributes.find(key);
         if (it != attributes.end()) {
             try {
-                return std::addressof(npu::tile_fwk::AnyCast<T &>(it->second));
+                return std::addressof(npu::tile_fwk::AnyCast<const T &>(it->second));
             } catch (const std::bad_any_cast &) {
                 return nullptr;
             }
@@ -95,6 +98,24 @@ public:
         }
     }
 
+    void CopyAttrFrom(const AttrHolder &holder, const std::string &prefix) {
+        for (const auto &pair : holder.attributes) {
+            if (StringUtils::StartsWith(pair.first, prefix)) {
+                attributes[pair.first] = pair.second;
+            }
+        }
+    }
+
+    std::string DumpAttr() const {
+        std::ostringstream oss;
+        int index = 0;
+        for (auto &it : attributes) {
+            oss << ((index++ == 0) ? "" : ",");
+            oss << it.first << ":" << DumpAttr(it.first);
+        }
+        return oss.str();
+    }
+
     // 打印所有属性
     std::string DumpAttr(const std::string &key) const {
         std::string result;
@@ -128,6 +149,9 @@ public:
                     } else if (tensorElement.IsFloat()) {
                         result = std::to_string(tensorElement.GetFloatData());
                     }
+                } else if (it->second.Type() == typeid(SymbolicScalar)) {
+                    auto scalar = npu::tile_fwk::AnyCast<SymbolicScalar>(it->second);
+                    result = scalar.Dump();
                 } else {
                     result += "unsupported type ";
                     result += it->second.Type().name();

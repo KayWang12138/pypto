@@ -97,7 +97,7 @@ std::string DynloopFunctionPathNode::Dump() const
     int indent = 2;
     std::ostringstream oss;
     std::function<void(const DynloopFunctionPathNode *, int)> dump = [&oss, &indent, &dump](const DynloopFunctionPathNode *node, int level) {
-        if (node->cond.IsNull()) {
+        if (!node->cond.IsValid()) {
             oss << std::setw(level * indent) << ' ' << node->root->GetRawName() << "(" << node->root->GetFunctionHash() << ")\n";
         } else {
             oss << std::setw(level * indent) << ' ' << node->cond.Dump() << "\n";
@@ -124,7 +124,7 @@ std::shared_ptr<DynloopFunctionPathNode> DynloopFunctionAttribute::BuildPathNode
             auto node = root;
             for (size_t j = 0; j < pathList[i].pathCondList.size(); j++) {
                 auto &pathCond = pathList[i].pathCondList[j];
-                if (node->cond.IsNull()) {
+                if (!node->cond.IsValid()) {
                     node->cond = pathCond.GetCond();
                 }
                 if (node->branchNodeList[pathCond.IsSat()] == nullptr) {

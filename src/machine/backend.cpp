@@ -264,7 +264,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         std::vector<IntermediateVariableTable::IntermediateVariableInfo> intermediateVariables;
         std::function<void(const std::shared_ptr<DynloopFunctionPathNode> &)> intermediateVariableFind =
             [&linker, &curIvt, &intermediateVariables, &intermediateVariableFind](const std::shared_ptr<DynloopFunctionPathNode> &node){
-            if (node->cond.IsNull()) {
+            if (!node->cond.IsValid()) {
                 if (node->root->GetGraphType() == GraphType::TILE_GRAPH) {
                     auto curFunc = node->root->GetRootFunction();
                     ASSERT(curFunc != nullptr);
@@ -299,7 +299,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         std::function<void(const std::shared_ptr<DynloopFunctionPathNode> &, int)> condBuilder =
             [&cache, &linker, &sectionName, &devRootList, &rootTileDict, &oss, &condBuilder, &curIvt](
                 const std::shared_ptr<DynloopFunctionPathNode> &node, int condIndent) {
-                if (node->cond.IsNull()) {
+                if (!node->cond.IsValid()) {
                     BuildControlFlow(
                         cache, linker, sectionName, node->root, devRootList, rootTileDict, oss, condIndent, curIvt);
                 } else {

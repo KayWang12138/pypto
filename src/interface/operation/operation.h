@@ -44,6 +44,7 @@ constexpr int32_t TILE_STR_PREFIX_LEN = 5;
 class OpAttributeKey {
 public:
     static const std::string scalar;
+    static const std::string dynScalar;
     static const std::string isGlobalInput;
     static const std::string seqNo;
     static const std::string color;
@@ -192,6 +193,9 @@ public:
 
     [[nodiscard]] CastMode GetCastModeAttribute(const std::string &key) const;
     void SetAttribute(const std::string &key, CastMode value);
+
+    [[nodiscard]] SymbolicScalar GetSymbolicScalarAttribute(const std::string &key) const;
+    void SetAttribute(const std::string &key, const SymbolicScalar &value);
 
     [[nodiscard]] npu::tile_fwk::Any GetAttribute(const std::string &key) const;
     void SetAttribute(const std::string &key, npu::tile_fwk::Any value);
