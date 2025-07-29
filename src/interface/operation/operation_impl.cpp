@@ -2231,8 +2231,8 @@ Tensor Assign(const Tensor &operand) {
     return result;
 }
 
-static int CalculateCapacity(const std::vector<int> &shape) {
-    int capacity = 1;
+static int64_t CalculateCapacity(const std::vector<int> &shape) {
+    int64_t capacity = 1;
     for (size_t i = 0; i < shape.size(); i++) {
         capacity = capacity * shape[i];
     }
@@ -2254,7 +2254,7 @@ void TensorInnerReshape(Function &function, const LogicalTensorPtr &operand, con
 static std::vector<int> CheckAndInferShape(const std::vector<int> &oriShape, const std::vector<int> &dstshape) {
     int negIdx = -1;
     std::vector<int> newShape = dstshape;
-    int capacity = CalculateCapacity(oriShape);
+    auto capacity = CalculateCapacity(oriShape);
 
     for (size_t i = 0; i < newShape.size(); i++) {
         int x = newShape[i];
