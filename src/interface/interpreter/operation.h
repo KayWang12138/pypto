@@ -20,6 +20,7 @@
 #include "interface/operation/attribute.h"
 #include "interface/tensor/symbolic_scalar_evaluate.h"
 #include "calculator.h"
+#include "tilefwk/data_type.h"
 
 namespace npu::tile_fwk {
 
@@ -296,9 +297,8 @@ private:
         ASSERT(ctx->ioperandDataViewList->size() == 0);
         auto &ret = ctx->ooperandInplaceDataViewList->at(0);
         auto scalarVal = ctx->op->GetAttribute(OpAttributeKey::scalar);
-        auto value = scalarVal.HasValue() ? npu::tile_fwk::AnyCast<float>(scalarVal) : 0.0f;
+        auto element = scalarVal.HasValue() ? npu::tile_fwk::AnyCast<Element>(scalarVal) : Element(DT_FP32, 0.0f);
         ASSERT(ret->GetDataType() == DT_FP32);
-        Element element(DT_FP32, value);
         Calculator::CalcVecDup(ret.get(), &element, &pool);
     }
 
@@ -427,10 +427,9 @@ private:
         auto &ret = ctx->ooperandInplaceDataViewList->at(0);
         auto &lhs = ctx->ioperandDataViewList->at(0);
         auto scalarVal = ctx->op->GetAttribute(OpAttributeKey::scalar);
-        auto value = scalarVal.HasValue() ? npu::tile_fwk::AnyCast<float>(scalarVal) : 0.0f;
+        auto element = scalarVal.HasValue() ? npu::tile_fwk::AnyCast<Element>(scalarVal) : Element(DT_FP32, 0.0f);
         bool reverse = ctx->op->GetBoolAttribute(OP_ATTR_PREFIX + "reverseOperand");
         ASSERT(ret->GetDataType() == DT_FP32);
-        Element element(DT_FP32, value);
         switch (opcode) {
             case Opcode::OP_ADDS: Calculator::CalcAddS(ret.get(), lhs.get(), &element, reverse, &pool); break;
             case Opcode::OP_SUBS: Calculator::CalcSubS(ret.get(), lhs.get(), &element, reverse, &pool); break;
