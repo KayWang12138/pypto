@@ -3172,7 +3172,25 @@ void TensorInnerAMulB(Function &function, const std::vector<LogicalTensorPtr> &o
     AddMatmulAttr(op);
 }
 
-void CheckOperandsTilingValid(DataType dataType) {
+void CheckMatMulOperandsValid(DataType dataType, const Tensor &operand1, const Tensor &operand2) {
+    // shape valid check
+    assert(operand1->shape.size() != 0 && operand2->shape.size() != 0);
+    for (size_t i = 0; i < operand1->shape.size(); ++i) {
+        assert(operand1->shape[i] > 0);
+    }
+    for (size_t i = 0; i < operand2->shape.size(); ++i) {
+        assert(operand2->shape[i] > 0);
+    }
+    // 内轴值要小于等于65535，只有ND2NZ指令需要
+    auto opFormatA = operand1->GetTileOpFormat();
+    auto opFormatB = operand2->GetTileOpFormat();
+    if (opFormatA == TileOpFormat::TILEOP_ND) {
+        assert(operand1->shape.back() <= SHAPE_INNER_AXIS_MAX_SIZE);
+    }
+    if (opFormatB == TileOpFormat::TILEOP_ND) {
+        assert(operand2->shape.back() <= SHAPE_INNER_AXIS_MAX_SIZE);
+    }
+    // tile valid check
     auto tileShape = Program::GetInstance().GetTileShape().GetCubeTileShapes();
     int kL0 = tileShape.GetTileShape<TileShapeType::K>(0);
     int kL1 = tileShape.GetTileShape<TileShapeType::K>(1);
@@ -3193,7 +3211,7 @@ void MatmulImpl(DataType dataType, const std::vector<LogicalTensorPtr>& iOperand
     const auto operand1 = iOperand[0];
     const auto operand2 = iOperand[1];
     CheckOperandsValid(operand1, operand2);
-    CheckOperandsTilingValid(dataType);
+    CheckMatMulOperandsValid(dataType, operand1, operand2);
     assert(dataType == DT_FP32 || dataType == DT_FP16 || dataType == DT_BF16 || dataType == DT_INT32);
     CALL(InnerAMulB, *Program::GetInstance().GetCurrentFunction(), iOperand, result);
 }
@@ -3233,6 +3251,7 @@ void TensorInnerAMulBt(Function &function, const LogicalTensorPtr &operand1,
 void AMulBtImpl(DataType dataType, const LogicalTensorPtr &operand1, const LogicalTensorPtr &operand2, LogicalTensorPtr &result) {
     OperatorChecker checker;
     CheckOperandsValid(operand1, operand2);
+    CheckMatMulOperandsValid(dataType, operand1, operand2);
     assert(dataType == DataType::DT_FP32 || dataType == DataType::DT_FP16 || dataType == DataType::DT_BF16 || dataType == DataType::DT_INT32);
     CALL(InnerAMulBt, *Program::GetInstance().GetCurrentFunction(), operand1, operand2, result);
 }
@@ -3240,6 +3259,7 @@ void AMulBtImpl(DataType dataType, const LogicalTensorPtr &operand1, const Logic
 void AMulBtImpl(DataType dataType, const LogicalTensorPtr &operand1, const LogicalTensorPtr &operand2, const LogicalTensorPtr &operand3, LogicalTensorPtr &result) {
     OperatorChecker checker;
     CheckOperandsValid(operand1, operand2);
+    CheckMatMulOperandsValid(dataType, operand1, operand2);
     assert(dataType == DataType::DT_FP32 || dataType == DataType::DT_FP16 || dataType == DataType::DT_BF16 || dataType == DataType::DT_INT32);
     CALL(InnerAMulBt, *Program::GetInstance().GetCurrentFunction(), operand1, operand2, operand3, result);
 }
