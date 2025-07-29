@@ -23,6 +23,26 @@
 #include "passes/pass_utils/parallel_tool.h"
 
 namespace npu::tile_fwk {
+
+Status SubgraphToFunction::RunOnFunction(Function &function) {
+    /* 需要将所有缓存在类成员的信息清零 */
+    subFuncInvokeInfos.clear();
+    // build in-graph and out-graph at first
+    // 1. Construct in-graph & out-graph
+    if (BuildGraph(function) != SUCCESS) {
+        ASLOGE("failed to build graph from input function");
+        return FAILED;
+    }
+    // reconnect in-graph and out-graph by Incast and Outcast
+    RecordIncastOutcast(function);
+    // Construct funtion.subFunctionInvokeMap
+    ConstructParamMap(function);
+    // Determine the isomorphism of subgraphs and record ProgramInfoMap
+    Function::EnableMagicLookupRecord(true, &function);
+    IslandToFunction(function);
+    Function::EnableMagicLookupRecord(false, &function);
+    return SUCCESS;
+}
     
 // Add string name for codegen
 std::string SubgraphToFunction::FindSymbolName(std::shared_ptr<LogicalTensor> op, int magic) const {

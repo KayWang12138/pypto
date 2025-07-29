@@ -29,24 +29,7 @@ public:
     ~SubgraphToFunction() override = default;
 
 private:
-    Status RunOnFunction(Function &function) override {
-        /* 需要将所有缓存在类成员的信息清零 */
-        subFuncInvokeInfos.clear();
-        // build in-graph and out-graph at first
-        // 1. Construct in-graph & out-graph
-        if (BuildGraph(function) != SUCCESS) {
-            ASLOGE("failed to build graph from input function");
-            return FAILED;
-        }
-        // reconnect in-graph and out-graph by Incast and Outcast
-        RecordIncastOutcast(function);
-        // Construct funtion.subFunctionInvokeMap
-        ConstructParamMap(function);
-        // Determine the isomorphism of subgraphs and record ProgramInfoMap
-        IslandToFunction(function);
-        return SUCCESS;
-    };
-
+    Status RunOnFunction(Function &function) override;
     Status BuildGraph(Function &function);
     void InsertParameter(size_t i, Function* leafFunc);
     Status NOPCheck(const Operation &op) const;

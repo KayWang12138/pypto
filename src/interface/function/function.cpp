@@ -906,16 +906,60 @@ void Function::RefreshOpPosition() {
     }
 }
 
-void Function::MagicLookup(const Function *function, const std::vector<LogicalTensorPtr> &operand, const int subGraphId, int &index,
-                                 std::unordered_map<int, int> &magic2index, std::stringstream &ss) {
+bool Function::enableMagicLookupRecord_{false};
+std::map<std::pair<int, int>, std::set<Operation *, LogicalTensor::CompareOp>> Function::tensorAndSubgraphToProducer_;
+
+void Function::ProducerMagicLookup(const Function *function, const std::set<Operation *, LogicalTensor::CompareOp> &producers,
+        const int subGraphId, int &index, std::unordered_map<int, int> &magic2index, std::stringstream &ss)
+{
+    for (auto &op : producers) {
+        if (subGraphId != INT32_MIN && op->GetSubgraphID() != subGraphId) {
+            continue;
+        }
+        bool isInBoundary = OpcodeManager::Inst().IsBoundaryIn(op->GetOpcode());
+        if (isInBoundary) {
+            /* 除了最高轴之外的所有内轴都纳入到hash的计算中 */
+            for (size_t i = 1; i < op->iOperand[0]->tensor->rawshape.size(); i++) {
+                ss << op->iOperand[0]->tensor->rawshape[i] << " ";
+            }
+        }
+        bool isOutBoundary = OpcodeManager::Inst().IsBoundaryOut(op->GetOpcode());
+        if (isOutBoundary) {
+            /* 除了最高轴之外的所有内轴都纳入到hash的计算中 */
+            for (size_t i = 1; i < op->oOperand[0]->tensor->rawshape.size(); i++) {
+                ss << op->oOperand[0]->tensor->rawshape[i] << " ";
+            }
+        }
+        ss << " " << op->GetOpcodeStr(true);
+        for (const auto &attr : OpcodeManager::Inst().GetAttrs(op->GetOpcode())) {
+            ss << " attr: [" << attr << " : " << op->DumpAttr(attr) << "]";
+        }
+        if (function->GetGraphType() != GraphType::LEAF_GRAPH) {
+            ss << " tile shape: [" << op->GetTileShape().Dump() << "]";
+        }
+        if (op->GetOpAttribute() != nullptr) {
+            if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                if (!op->oOperand[0]->isSubGraphBoundary) {
+                    ss << " " << op->GetOpAttribute()->Dump();
+                }
+            } else if ((!isInBoundary && !isOutBoundary) || function->GetGraphType() != GraphType::LEAF_GRAPH) {
+                ss << " " << op->GetOpAttribute()->Dump();
+            }
+        }
+        MagicLookup(function, op->iOperand, subGraphId, index, magic2index, ss);
+    }
+}
+
+void Function::MagicLookup(const Function *function, const std::vector<LogicalTensorPtr> &operand, const int subGraphId,
+                           int &index, std::unordered_map<int, int> &magic2index, std::stringstream &ss)
+{
     for (auto &t : operand) {
-        if (magic2index.count(t->GetMagic()) && (function->inCastsSet_.count(t) == 0) && t->GetProducers().size() != 0) {
+        if (magic2index.count(t->GetMagic()) && (function->inCastsSet_.count(t) == 0) &&
+            t->GetProducers().size() != 0) {
             continue;
         }
         magic2index[t->GetMagic()] = index++;
-        ss << "(";
-        ss << " " << static_cast<int>(t->tensor->datatype) << " ";
-
+        ss << "(" << " " << static_cast<int>(t->tensor->datatype) << " ";
         // Add shape information
         for (const auto &dim : t->shape) {
             ss << dim << " ";
@@ -925,46 +969,11 @@ void Function::MagicLookup(const Function *function, const std::vector<LogicalTe
                 ss << dim << " ";
             }
         }
-
-        // SSA format
-        for (auto &op : t->GetProducers()) {
-            if (subGraphId != INT32_MIN && op->GetSubgraphID() != subGraphId) {
-                continue;
-            }
-
-            bool isInBoundary = OpcodeManager::Inst().IsBoundaryIn(op->GetOpcode());
-            if (isInBoundary) {
-                /* 除了最高轴之外的所有内轴都纳入到hash的计算中 */
-                for (size_t i = 1; i < op->iOperand[0]->tensor->rawshape.size(); i++) {
-                    ss << op->iOperand[0]->tensor->rawshape[i] << " ";
-                }
-            }
-
-            bool isOutBoundary = OpcodeManager::Inst().IsBoundaryOut(op->GetOpcode());
-            if (isOutBoundary) {
-                /* 除了最高轴之外的所有内轴都纳入到hash的计算中 */
-                for (size_t i = 1; i < op->oOperand[0]->tensor->rawshape.size(); i++) {
-                    ss << op->oOperand[0]->tensor->rawshape[i] << " ";
-                }
-            }
-            ss << " " << op->GetOpcodeStr(true);
-            for (const auto &attr : OpcodeManager::Inst().GetAttrs(op->GetOpcode())) {
-                ss << " attr: [" << attr << " : " << op->DumpAttr(attr) << "]";
-            }
-            if (function->GetGraphType() != GraphType::LEAF_GRAPH) {
-                ss << " tile shape: [" << op->GetTileShape().Dump() << "]";
-            }
-            if (op->GetOpAttribute() != nullptr) {
-                if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
-                    if (!op->oOperand[0]->isSubGraphBoundary) {
-                        ss << " " << op->GetOpAttribute()->Dump();
-                    }
-                } else if ((!isInBoundary && !isOutBoundary) || function->GetGraphType() != GraphType::LEAF_GRAPH) {
-                    ss << " " << op->GetOpAttribute()->Dump();
-                }
-            }
-
-            MagicLookup(function, op->iOperand, subGraphId, index, magic2index, ss);
+        if (!enableMagicLookupRecord_) {
+            ProducerMagicLookup(function, t->GetProducers(), subGraphId, index, magic2index, ss);
+        } else if (tensorAndSubgraphToProducer_.count({t->GetMagic(), subGraphId}) > 0) {
+            ProducerMagicLookup(function, tensorAndSubgraphToProducer_[{t->GetMagic(), subGraphId}], subGraphId,
+                                index, magic2index, ss);
         }
         ss << ")";
     }

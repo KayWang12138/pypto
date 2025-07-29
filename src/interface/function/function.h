@@ -673,6 +673,21 @@ public:
         return size;
     }
 
+    static void EnableMagicLookupRecord(bool enable, Function *function) {
+        enableMagicLookupRecord_ = enable;
+        if (!enable) {
+            tensorAndSubgraphToProducer_.clear();
+            return;
+        }
+        for (Operation &op : function->Operations()) {
+            int subgraphId = op.GetSubgraphID();
+            for (std::shared_ptr<LogicalTensor> tensor : op.GetOOperands()) {
+                std::pair<int,int> tensorAndSubgraph{tensor->GetMagic(), subgraphId};
+                 tensorAndSubgraphToProducer_[tensorAndSubgraph].insert(&op);
+            }
+        }
+    }
+
 private:
     int functionMagic_{-1};
     std::string funcMagicName_; // Function name
@@ -729,6 +744,9 @@ private:
     std::shared_ptr<TensorSlotScope> slotScope_;
 
     std::vector<Operation *> loopCallOrderGroup_;
+
+    static bool enableMagicLookupRecord_;
+    static std::map<std::pair<int, int>, std::set<Operation *, LogicalTensor::CompareOp>> tensorAndSubgraphToProducer_;
 private:
     unsigned long ComputeHashOrderless() const;
     void OpValidCheck(Operation &op) const;
@@ -745,6 +763,8 @@ private:
                                         std::map<int, std::shared_ptr<LogicalTensor>> &magicToLogicalTensor);
     static void MagicLookup(const Function* function, const std::vector<LogicalTensorPtr> &operand, const int subGraphId, int &index,
                             std::unordered_map<int, int> &magic2index, std::stringstream &ss);
+    static void ProducerMagicLookup(const Function *function, const std::set<Operation *, LogicalTensor::CompareOp> &producers,
+        const int subGraphId, int &index, std::unordered_map<int, int> &magic2index, std::stringstream &ss);
     static void LoadTensorJson(const std::shared_ptr<Function> &func, const Json &funcDump,
                                const std::unordered_map<int, std::shared_ptr<RawTensor>> &rawTensorDict,
                                std::unordered_map<int, std::shared_ptr<LogicalTensor>> &tensorDict);
