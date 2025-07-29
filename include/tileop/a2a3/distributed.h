@@ -33,6 +33,30 @@ constexpr uint32_t COMBINE_INFO_NUM = 3;        // combine算子的输入的comb
 #define UB_ADDR __ubuf__ uint8_t *
 
 template <typename T>
+constexpr TILEOP T AlignUp(const T value, const T alignment)
+{
+    if (alignment == 0) {
+        return value;
+    }
+    return (value + alignment - 1) / alignment * alignment;
+}
+
+TILEOP void DevWinLOG(__gm__ int64_t *hcclContext, __ubuf__ uint8_t *tmpBuf, size_t len, size_t offset = 0)
+{
+    pipe_barrier(PIPE_ALL);
+    __gm__ HcclCombinOpParam *winContext = (__gm__ HcclCombinOpParam *)(hcclContext[0]);
+    GM_ADDR winBaseAddr = (GM_ADDR)(winContext->windowsOut[winContext->rankId]);
+    GM_ADDR dstWinGMAddr = winBaseAddr + offset;
+    int32_t lenBurst = AlignUp<int32_t>(len, 32) / 32;
+    set_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
+    wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
+    copy_ubuf_to_gm(dstWinGMAddr, tmpBuf, 0, 1, lenBurst, 0, 0);
+    set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    pipe_barrier(PIPE_ALL);
+}
+
+template <typename T>
 TILEOP void SetAttomicType()
 {
     if constexpr (std::is_same_v<T, float>) {
@@ -442,15 +466,6 @@ TILEOP void AttnCombine(__ubuf__ T *out, __ubuf__ float *scale, __ubuf__ float *
         (uint64_t)(tokenId * winTokenSize * colShape);
     AttmCombineCompute<T>(out, scale, mulFP32, sumFP32, winGMAddr, topk, colShape);
     pipe_barrier(PIPE_ALL);     // necessary
-}
-
-template <typename T>
-constexpr TILEOP T AlignUp(const T value, const T alignment)
-{
-    if (alignment == 0) {
-        return value;
-    }
-    return (value + alignment - 1) / alignment * alignment;
 }
 
 TILEOP int32_t CalcOccurrences(__ubuf__ int32_t *expertTable, uint32_t dstExpertId, uint32_t cnt,

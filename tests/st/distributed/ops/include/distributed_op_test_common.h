@@ -20,6 +20,7 @@
 #include <string>
 #include "test_common.h"
 #include "distributed_op_test_suite.h"
+#include "tileop/a2a3/hccl_context.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {
@@ -95,6 +96,61 @@ bool CompareWithGolden(const DataType dType, const std::string &goldenFilename, 
     }
     return result;
 }
+
+enum class WinType : uint32_t {
+    WIN_EXP,
+    WIN_OUT,
+    WIN_IN
+};
+
+class HcclWin {
+public:
+    HcclWin(uint64_t addr)
+    {
+        (void)rtMemcpy(&param_, sizeof(param_), (uint8_t *)addr, sizeof(param_), RT_MEMCPY_DEVICE_TO_HOST);
+    }
+
+    template <typename T>
+    std::vector<T> GetWinValue(WinType winType, size_t count = 0UL)
+    {
+        auto [devAddr, winSize] = GetWinAddrAndSize(winType);
+        ASSERT((devAddr != 0) && (devAddr != 0));
+        auto maxDataCnt = winSize / sizeof(T);
+        if ((count == 0UL) || (count > maxDataCnt)) {
+            count = maxDataCnt;
+        }
+        std::vector<T> result(count, 0);
+        (void)rtMemcpy(result.data(), count * sizeof(T), (uint8_t *)devAddr, count * sizeof(T), RT_MEMCPY_DEVICE_TO_HOST);
+        return result;
+    }
+private:
+    std::tuple<uint64_t, uint64_t> GetWinAddrAndSize(WinType winType)
+    {
+        uint64_t devAddr = 0UL;
+        uint64_t winSize = 0UL;
+        switch(winType) {
+            case WinType::WIN_EXP:
+                devAddr = param_.windowsExp[param_.rankId];
+                winSize = param_.winExpSize;
+                break;
+            case WinType::WIN_OUT:
+                devAddr = param_.windowsOut[param_.rankId];
+                winSize = param_.winSize;
+                break;
+            case WinType::WIN_IN:
+                devAddr = param_.windowsIn[param_.rankId];
+                winSize = param_.winSize;
+                break;
+            default:
+                break;
+        }
+        return std::tie(devAddr, winSize);
+    }
+private:
+    TileOp::HcclCombinOpParam param_;
+};
+
+std::vector<uint64_t> GetHcclContext(const std::vector<std::string> &groupNames);
 
 } // namespace Distributed
 } // namespace npu::tile_fwk
