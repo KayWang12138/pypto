@@ -16,6 +16,7 @@
 #include "register/op_impl_registry.h"
 #include "register/op_ct_impl_registry.h"
 #include "register/op_ext_gentask_registry.h"
+#include "utils/tile_fwk_op_utils.h"
 
 using namespace ge;
 
@@ -38,28 +39,24 @@ IMPL_OP(NativeSparseAttention)
 
 ge::graphStatus GetOpspecificInfoNativeSparseAttention(const gert::OpCheckContext *context, ge::AscendString &result)
 {
-    (void)context;
-    (void)result;
-    return GRAPH_SUCCESS;
+    return TileFwkOpUtils::CommonGenOpSpecificInfo(context, result);
 }
 
 ge::graphStatus CalcOpParamNativeSparseAttention(gert::ExeResGenerationContext *context)
 {
-    (void)context;
-    return GRAPH_SUCCESS;
+    ge::AscendString name = "nsa aicpu kfc server";
+    ge::AscendString reuse_key = "nsa kfc_stream";
+    return TileFwkOpUtils::CommonCalcOpParam(context, name, reuse_key);
 }
 
 IMPL_OP_CT(NativeSparseAttention)
     .GetOpSpecificInfo(GetOpspecificInfoNativeSparseAttention)
     .CalcOpParam(CalcOpParamNativeSparseAttention);
 
-ge::graphStatus GenerateTaskNativeSparseAttention(const ge::Node &node, ge::RunContext &context,
-                                                  std::vector<domi::TaskDef> &tasks)
+ge::graphStatus GenerateTaskNativeSparseAttention(const ge::Node &node, ge::RunContext &run_context,
+                                                  std::vector<domi::TaskDef> &task_defs)
 {
-    (void)node;
-    (void)context;
-    (void)tasks;
-    return GRAPH_SUCCESS;
+    return TileFwkOpUtils::CommonGenerateTask(node, run_context, task_defs);
 }
 
 REGISTER_NODE_EXT_GENTASK("NativeSparseAttention", GenerateTaskNativeSparseAttention);

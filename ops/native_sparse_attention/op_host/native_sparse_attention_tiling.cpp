@@ -16,5 +16,15 @@ ge::graphStatus TilingNativeSparseAttention(gert::TilingContext *context)
     (void)context;
     return ge::GRAPH_SUCCESS;
 }
-IMPL_OP(NativeSparseAttention).Tiling(TilingNativeSparseAttention);
+
+ge::graphStatus TilingParseNativeSparseAttention(gert::TilingParseContext *context)
+{
+    (void)context;
+    return ge::GRAPH_SUCCESS;
+}
+
+struct DefaultCompileInfo {};
+IMPL_OP(NativeSparseAttention)
+     .Tiling(TilingNativeSparseAttention)
+     .TilingParse<DefaultCompileInfo>(TilingParseNativeSparseAttention);
 }

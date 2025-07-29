@@ -40,6 +40,7 @@ build_ops()
     mkdir -p "${BUILD_PATH}"
     cd "${BUILD_PATH}"
     cmake -D ENABLE_BUILD_BINARY=True \
+          -D ENABLE_BUILD_HOST=False \
           -D ASCEND_HOME_PATH=${ASCEND_HOME_PATH} \
           -D CMAKE_INSTALL_PREFIX=${OUTPUT_PATH} \
           -D ASCEND_COMPUTE_UNIT=${COMPUTE_UNIT} \

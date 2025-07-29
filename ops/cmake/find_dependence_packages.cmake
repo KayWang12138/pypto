@@ -7,14 +7,18 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
-include(cmake/function.cmake)
-include(cmake/intf_pub.cmake)
+if (BUILD_OPEN_PROJECT OR ENABLE_BUILD_HOST)
+    include(cmake/function.cmake)
+    include(cmake/intf_pub.cmake)
+endif()
+
 if (DEFINED ENV{ASCEND_3RD_LIB_PATH} AND NOT "$ENV{ASCEND_3RD_LIB_PATH}x" STREQUAL "x")
     get_filename_component(ASCEND_3RD_LIB_PATH "$ENV{ASCEND_3RD_LIB_PATH}" REALPATH)
     if (EXISTS "${ASCEND_3RD_LIB_PATH}/cmake/modules")
         list(APPEND CMAKE_MODULE_PATH ${ASCEND_3RD_LIB_PATH}/cmake/modules)
     endif()
 endif()
+
 if (BUILD_OPEN_PROJECT AND ENABLE_BUILD_HOST)
     list(APPEND CMAKE_PREFIX_PATH ${ASCEND_3RD_LIB_PATH}/protoc)
     find_package(protoc MODULE REQUIRED)

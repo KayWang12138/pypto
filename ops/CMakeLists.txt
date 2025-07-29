@@ -11,7 +11,7 @@ cmake_minimum_required(VERSION 3.14)
 project(tile_fwk_ops)
 
 option(BUILD_OPEN_PROJECT "Build open ascend ops project."  FALSE)
-option(ENABLE_BUILD_HOST "Build host."  FALSE)
+option(ENABLE_BUILD_HOST "Build host."  TRUE)
 option(ENABLE_BUILD_BINARY "Build binary."  FALSE)
 
 set(TILE_FWK_OPS_ROOT_PATH ${CMAKE_CURRENT_LIST_DIR})
@@ -204,6 +204,24 @@ if (BUILD_OPEN_PROJECT AND ENABLE_BUILD_HOST)
         )
         install(TARGETS opmaster_rt2.0
                 LIBRARY DESTINATION op_impl/ai_core/tbe/op_tiling/lib/linux/${CMAKE_SYSTEM_PROCESSOR}
+        )
+endif ()
+
+if (ENABLE_BUILD_HOST)
+        target_sources(opsproto_rt2.0 PRIVATE
+                src/utils/tile_fwk_op_utils.cpp
+        )
+
+        target_include_directories(opsproto_rt2.0 PRIVATE
+                ${CMAKE_CURRENT_SOURCE_DIR}/src/
+        )
+
+        target_sources(opmaster_ct PRIVATE
+                src/utils/tile_fwk_op_utils.cpp
+        )
+
+        target_include_directories(opmaster_ct PRIVATE
+                ${CMAKE_CURRENT_SOURCE_DIR}/src/
         )
 endif ()
 
