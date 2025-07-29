@@ -44,6 +44,8 @@ public:
 private:
     Status PreCheck(Function &function) override;
     Status PostCheck(Function &function) override;
+    Status PostCheckHelpFunc(const LogicalTensor &singleTensor);
+    Status PostCheckReshape(const Operation &op);
     Status RunOnFunction(Function &function) override;
     void DeleteRedundantAssemble(Function &function) const;
     void ProcessSpecialMTEOperation(Operation &op) const;

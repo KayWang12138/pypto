@@ -651,127 +651,154 @@ Status PreGraphPass::RunOnFunction(Function &function) {
 }
 
 Status PreGraphPass::PreCheck(Function &function) {
-    ALOG_INFO("PreCheck for pass: PreGraphPass");
+    ALOG_INFO_F("PreCheck for PreGraph");
     Pass::PreCheck(function);
     if (!function.LoopCheck().empty()) {
-        ALOG_ERROR("Loopcheck failed before pass: PreGraphPass");
+        ALOG_ERROR_F("Loopcheck failed before PreGraph");
+        return FAILED;
+    }
+    for (auto &op : function.Operations()) {
+        if (op.GetSubgraphID() == NOT_IN_SUBGRAPH) {
+            ALOG_ERROR_F("%s[%d] is not partitioned.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            return FAILED;
+        }
+        if ((op.GetOpcode() != Opcode::OP_ASSEMBLE) && (op.GetOpcode() != Opcode::OP_VIEW) && 
+            (op.GetOpcode() != Opcode::OP_RESHAPE)) {
+            continue;
+        }
+        auto tensorIn = op.GetIOperands().front();
+        auto tensorOut = op.GetOOperands().front();
+        if (tensorIn->GetMemoryTypeOriginal() != tensorOut->GetMemoryTypeOriginal()) {
+            ALOG_ERROR_F("unmatched input output memory type for reshape opmagic: %d, input mem type: %s, output mem type: %s", 
+                op.opmagic,
+                MemoryTypeToString(tensorIn->GetMemoryTypeOriginal()).c_str(),
+                MemoryTypeToString(tensorOut->GetMemoryTypeOriginal()).c_str());
+            return FAILED;
+        }
+    }
+    return SUCCESS;
+}
+
+Status PreGraphPass::PostCheckHelpFunc(const LogicalTensor &singleTensor) {
+    if (singleTensor.subGraphID == NOT_IN_SUBGRAPH) {
+        // tensor 的子图编号是否被设置过
+        ALOG_ERROR_F(
+            "Tensor magic: %d, its subgraph id should not be %d.", singleTensor.GetMagic(), NOT_IN_SUBGRAPH);
+        return FAILED;
+    }
+    if (singleTensor.GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
+        singleTensor.isSubGraphBoundary == false) {
+        // gm tensor 是否被标记为boundary
+        ALOG_WARN_F("Tensor magic: %d, when memory type is DDR, this tensor should be subgraph boundary.",
+            singleTensor.GetMagic());
+    }
+    if (singleTensor.GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
+        (singleTensor.Datatype() != DataType::DT_FP32 && singleTensor.Datatype() != DataType::DT_INT32)) {
+        // L0C tensor 数据类型是否为FP32或INT32
+        ALOG_ERROR_F("Tensor magic: %d, when memory type is L0C, this tensor should be fp32 or int32.",
+            singleTensor.GetMagic());
+        return FAILED;
+    }
+    for (auto &rangePair : singleTensor.memorymap) {
+        if (singleTensor.GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+            continue;
+        }
+        if (rangePair.second.memId != singleTensor.GetRawMagic()) {
+            // tensor memorymap 的 memId 是否与其 raw tensor id 一致
+            ALOG_ERROR_F("Tensor magic: %d, its memId %d should be same with its raw magic %d, but not.",
+                singleTensor.GetMagic(), rangePair.second.memId, singleTensor.GetRawMagic());
+            return FAILED;
+        }
+    }
+    if (singleTensor.MemorySize() < 1 && !singleTensor.IsDummy()) {
+        // 是否存在 dummy tensor
+        ALOG_INFO_F("Tensor magic: %d, its memory size %d should be over than 0, but not.",
+            singleTensor.GetMagic(), singleTensor.MemorySize());
+    }
+    return SUCCESS;
+}
+
+Status PreGraphPass::PostCheckReshape(const Operation &op) {
+    auto reshapeIn = op.GetIOperands().front();
+    auto reshapeOut = op.GetOOperands().front();
+    if (reshapeOut->tensor->GetRawMagic() != reshapeIn->GetRawMagic()) {
+        ALOG_ERROR_F(
+            "Operation magic: %d, reshape op's output actual raw magic shoule be same with input raw magic.",
+            op.GetOpMagic());
+        return FAILED;
+    }
+
+    if (reshapeIn->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+        ALOG_DEBUG_F(" reshape on local buffer, opmagic: %d", op.opmagic);
+        auto opSubgraphId = op.GetSubgraphID();
+        auto inputSubgraphId = reshapeIn->GetSubgraphID();
+        auto outSubgraphId = reshapeIn->GetSubgraphID();
+        if (opSubgraphId != inputSubgraphId || opSubgraphId != outSubgraphId) {
+            // local buffer 上的reshape，输入/输出/op的子图编号相同
+            ALOG_ERROR_F("OP_RESHAPE[%d], op subGraphId: %d, input subGraphId: %d, output subGraphId: %d,", 
+                op.GetOpMagic(), opSubgraphId, inputSubgraphId, outSubgraphId);
+            return FAILED;
+        }
+        auto inputRange = reshapeIn->memorymap.find(opSubgraphId);
+        auto outputRange = reshapeOut->memorymap.find(opSubgraphId);
+        if ((inputRange == reshapeIn->memorymap.end()) || 
+            (outputRange == reshapeOut->memorymap.end())) {
+            ALOG_ERROR_F("OP_RESHAPE[%d], input or output memorymap set wrong.", op.GetOpMagic());
+            return FAILED;
+        }
+        ALOG_DEBUG_F("input memid: %d, output memid: %d", inputRange->second.memId, outputRange->second.memId);
+        if (inputRange->second.memId != outputRange->second.memId) {
+            ALOG_ERROR_F("unmatched memid for OP_RESHAPE, opmagic: %d, input memid: %d, output memid: %d",
+            op.opmagic, inputRange->second.memId, outputRange->second.memId);
+            return FAILED;
+        }
+        // Debug Print
+        ALOG_DEBUG_F(" check done, input magic %d (raw %d), output magic %d (raw %d)",
+            reshapeIn->magic, reshapeIn->GetRawMagic(), reshapeOut->magic,
+            reshapeOut->GetRawMagic());
+        auto childOp = *(reshapeOut->GetConsumers().begin());
+        ALOG_DEBUG_F(" child op: %s, opmagic: %d", childOp->GetOpcodeStr().c_str(), childOp->opmagic);
+        ALOG_DEBUG_F(" child op output magic %d (raw %d)", childOp->GetOOperands()[0]->magic,
+            childOp->GetOOperands()[0]->GetRawMagic());
+        auto childoutputRange = childOp->GetOOperands()[0]->memorymap.find(opSubgraphId);
+        ALOG_DEBUG_F(" child output memid: %d", childoutputRange->second.memId);
     }
     return SUCCESS;
 }
 
 Status PreGraphPass::PostCheck(Function &function) {
-    ALOG_INFO("PostCheck for pass: PreGraphPass");
-    Pass::PostCheck(function);
+    ALOG_INFO_F("PostCheck for PreGraph");
+    // 检测是否成环
     if (!function.LoopCheck().empty()) {
-        ALOG_ERROR("Loopcheck failed after pass: PreGraphPass");
+        ALOG_ERROR_F("Loopcheck failed after PreGraph");
     }
-
+    std::unordered_set<std::shared_ptr<LogicalTensor>> checkedTensors;
     for (auto &op : function.Operations()) {
         if ((op.GetOpcode() == Opcode::OP_ASSEMBLE || op.GetOpcode() == Opcode::OP_VIEW) &&
             op.GetIOperands()[0]->GetRawMagic() != op.GetOOperands()[0]->GetRawMagic()) {
             ALOG_WARN_F("Operation magic: %d, assemble or view op raw magic should not changed.", op.GetOpMagic());
         }
-
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            if (op.GetOOperands()[0]->tensor->GetRawMagic() != op.GetIOperands()[0]->GetRawMagic()) {
-                ALOG_ERROR_F(
-                    "Operation magic: %d, reshape op's output actual raw magic shoule be same with input raw magic.",
-                    op.GetOpMagic());
-            }
-            if (op.GetIOperands()[0]->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
-                ALOG_DEBUG_F(" reshape on local buffer, opmagic: %d", op.opmagic);
-                if (op.GetOOperands()[0]->GetMemoryTypeOriginal() != op.GetIOperands()[0]->GetMemoryTypeOriginal()) {
-                    ALOG_ERROR_F("unmatched input output memory type for reshape opmagic: %d", op.opmagic);
-                    ALOG_ERROR_F("input mem type: %s",
-                        MemoryTypeToString(op.GetIOperands()[0]->GetMemoryTypeOriginal()).c_str());
-                    ALOG_ERROR_F("output mem type: %s",
-                        MemoryTypeToString(op.GetOOperands()[0]->GetMemoryTypeOriginal()).c_str());
-                }
-                auto opSubgraphId = op.GetSubgraphID();
-                auto inputSubgraphId = op.GetIOperands()[0]->GetSubgraphID();
-                auto outSubgraphId = op.GetIOperands()[0]->GetSubgraphID();
-                ASSERT(opSubgraphId == inputSubgraphId && opSubgraphId == outSubgraphId);
-                ASSERT(op.GetIOperands()[0]->memorymap.find(opSubgraphId) != op.GetOOperands()[0]->memorymap.end());
-                ASSERT(op.GetOOperands()[0]->memorymap.find(opSubgraphId) != op.GetOOperands()[0]->memorymap.end());
-                auto inputRange = op.GetIOperands()[0]->memorymap.find(opSubgraphId);
-                auto outputRange = op.GetOOperands()[0]->memorymap.find(opSubgraphId);
-                ALOG_DEBUG_F("input memid: %d, output memid: %d", inputRange->second.memId, outputRange->second.memId);
-                if (inputRange->second.memId != outputRange->second.memId) {
-                    ALOG_ERROR_F("unmatched memid for OP_RESHAPE, opmagic: %d, input memid: %d, output memid: %d",
-                        op.opmagic, inputRange->second.memId, outputRange->second.memId);
-                }
-                ALOG_DEBUG_F(" check passed, input magic %d (raw %d), output magic %d (raw %d)",
-                    op.GetIOperands()[0]->magic, op.GetIOperands()[0]->GetRawMagic(), op.GetOOperands()[0]->magic,
-                    op.GetOOperands()[0]->GetRawMagic());
-                auto childOp = *(op.GetOOperands()[0]->GetConsumers().begin());
-                ALOG_DEBUG_F(" child op: %s, opmagic: %d", childOp->GetOpcodeStr().c_str(), childOp->opmagic);
-                ALOG_DEBUG_F(" child op output magic %d (raw %d)", childOp->GetOOperands()[0]->magic,
-                    childOp->GetOOperands()[0]->GetRawMagic());
-                auto childoutputRange = childOp->GetOOperands()[0]->memorymap.find(opSubgraphId);
-                ALOG_DEBUG_F(" child output memid: %d", childoutputRange->second.memId);
+            if (PostCheckReshape(op) != SUCCESS) {
+                return FAILED;
             }
         }
-
-        std::unordered_set<std::shared_ptr<LogicalTensor>> checkedTensors;
         for (const std::shared_ptr<LogicalTensor> &inputTensor : op.GetIOperands()) {
             if (checkedTensors.count(inputTensor) > 0) {
                 continue;
             }
             checkedTensors.insert(inputTensor);
-            if (inputTensor->subGraphID == NOT_IN_SUBGRAPH) {
-                ALOG_WARN_F(
-                    "Tensor magic: %d, its subgraph id should not be %d.", inputTensor->GetMagic(), NOT_IN_SUBGRAPH);
-            }
-            if (inputTensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
-                inputTensor->isSubGraphBoundary == false) {
-                ALOG_WARN_F("Tensor magic: %d, when memory type is DDR, this tensor should be subgraph boundary.",
-                    inputTensor->GetMagic());
-            }
-            if (inputTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
-                (inputTensor->Datatype() != DataType::DT_FP32 && inputTensor->Datatype() != DataType::DT_INT32)) {
-                ALOG_WARN_F("Tensor magic: %d, when memory type is L0C, this tensor should be fp32 or int32.",
-                    inputTensor->GetMagic());
-            }
-            for (auto &rangePair : inputTensor->memorymap) {
-                if (rangePair.second.memId != inputTensor->GetRawMagic()) {
-                    ALOG_WARN_F("Tensor magic: %d, its memId %d should be same with its raw magic %d, but not.",
-                        inputTensor->GetMagic(), rangePair.second.memId, inputTensor->GetRawMagic());
-                }
-            }
-            if (inputTensor->MemorySize() < 1) {
-                ALOG_WARN_F("Tensor magic: %d, its memory size %d should be over than 0, but not.",
-                    inputTensor->GetMagic(), inputTensor->MemorySize());
+            if (PostCheckHelpFunc(*inputTensor) != SUCCESS) {
+                return FAILED;
             }
         }
-
         for (const std::shared_ptr<LogicalTensor> &outputTensor : op.GetOOperands()) {
             if (checkedTensors.count(outputTensor) > 0) {
                 continue;
             }
             checkedTensors.insert(outputTensor);
-            if (outputTensor->subGraphID == NOT_IN_SUBGRAPH) {
-                ALOG_WARN_F(
-                    "Tensor magic: %d, its subgraph id should not be %d.", outputTensor->GetMagic(), NOT_IN_SUBGRAPH);
-            }
-            if (outputTensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
-                outputTensor->isSubGraphBoundary == false) {
-                ALOG_WARN_F("Tensor magic: %d, when memory type is DDR, this tensor should be subgraph boundary.",
-                    outputTensor->GetMagic());
-            }
-            if (outputTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
-                (outputTensor->Datatype() != DataType::DT_FP32 && outputTensor->Datatype() != DataType::DT_INT32)) {
-                ALOG_WARN_F("Tensor magic: %d, when memory type is L0C, this tensor should be fp32 or int32.",
-                    outputTensor->GetMagic());
-            }
-            for (auto &rangePair : outputTensor->memorymap) {
-                if (rangePair.second.memId != outputTensor->GetRawMagic()) {
-                    ALOG_WARN_F("Tensor magic: %d, its memId %d should be same with its raw magic %d, but not.",
-                        outputTensor->GetMagic(), rangePair.second.memId, outputTensor->GetRawMagic());
-                }
-            }
-            if (outputTensor->MemorySize() < 1) {
-                ALOG_WARN_F("Tensor magic: %d, its memory size %d should be over than 0, but not.",
-                    outputTensor->GetMagic(), outputTensor->MemorySize());
+            if (PostCheckHelpFunc(*outputTensor) != SUCCESS) {
+                return FAILED;
             }
         }
     }
