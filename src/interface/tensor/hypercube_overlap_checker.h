@@ -96,8 +96,9 @@ void HypercubeOverlapCheckerBlock<T>::Shape2Keys(const std::vector<int> &hypercu
     }
     int start = hypercube[dimIdx * elementOfDim];
     int end = hypercube[dimIdx * elementOfDim + 1];
-    int startGrid = start / wide_[dimIdx];
-    int endGrid = (end - 1) / wide_[dimIdx]; // 占用空间的表示为左闭右开
+    int wide = wide_[dimIdx] > 0 ? wide_[dimIdx] : 1;
+    int startGrid = start / wide;
+    int endGrid = (end - 1) / wide; // 占用空间的表示为左闭右开
 
     constexpr uint64_t smallPrime = 131071;
     uint64_t newvalue = currValue * smallPrime;
@@ -175,7 +176,9 @@ std::vector<int> HypercubeOverlapChecker<T>::Hypercube2Shape(const std::vector<i
     int dim = hypercube.size() / elementOfDim;
     std::vector<int> shape;
     for (int i = 0; i < dim; i++) {
-        shape.push_back(hypercube[i * elementOfDim + 1] - hypercube[i * elementOfDim]);
+        int wide = hypercube[i * elementOfDim + 1] - hypercube[i * elementOfDim];
+        wide = wide > 0 ? wide : 1;
+        shape.push_back(wide);
     }
     return shape;
 }
