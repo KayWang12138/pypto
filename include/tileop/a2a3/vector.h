@@ -1589,7 +1589,7 @@ TILEOP void GenCastCall(__ubuf__ Td *dst, __ubuf__ Ts *src, uint8_t repeatNum, u
                 vconv_f322s16z(dst, src, repeatNum, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
                 break;
             default:
-                vconv_f322s16r(dst, src, repeatNum, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
+                vconv_f322s16z(dst, src, repeatNum, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
                 break;
         }
     } else if constexpr (std::is_same<Td, float>::value && std::is_same<Ts, int16_t>::value) {
@@ -1612,7 +1612,7 @@ TILEOP void GenCastCall(__ubuf__ Td *dst, __ubuf__ Ts *src, uint8_t repeatNum, u
                 vconv_f322s32z(dst, src, repeatNum, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
                 break;
             default:
-                vconv_f322s32r(dst, src, repeatNum, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
+                vconv_f322s32z(dst, src, repeatNum, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
                 break;
         }
     } else if constexpr (std::is_same<Td, float>::value && std::is_same<Ts, int32_t>::value) {
@@ -1639,7 +1639,7 @@ TILEOP void GenCastCall(__ubuf__ Td *dst, __ubuf__ Ts *src, uint8_t repeatNum, u
                 vconv_f162s32z(dst, src, repeatNum, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
                 break;
             default:
-                vconv_f162s32r(dst, src, repeatNum, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
+                vconv_f162s32z(dst, src, repeatNum, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
                 break;
         }
     } else if constexpr (std::is_same<Td, half>::value && std::is_same<Ts, int8_t>::value) {
@@ -1659,7 +1659,7 @@ TILEOP void GenCastCall(__ubuf__ Td *dst, __ubuf__ Ts *src, uint8_t repeatNum, u
                 vconv_f162s8z(dst, src, repeatNum, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
                 break;
             default:
-                vconv_f162s8a(dst, src, repeatNum, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
+                vconv_f162s8z(dst, src, repeatNum, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
                 break;
         }
     } else if constexpr (std::is_same<Td, float>::value && std::is_same<Ts, float>::value) {
@@ -1701,7 +1701,7 @@ TILEOP void GenCastCall(__ubuf__ Td *dst, __ubuf__ Ts *src, uint8_t repeatNum, u
                 vconv_bf162s32z(dst, src, repeatNum, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
                 break;
             default:
-                vconv_bf162s32r(dst, src, repeatNum, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
+                vconv_bf162s32z(dst, src, repeatNum, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
                 break;
         }
     } else {
