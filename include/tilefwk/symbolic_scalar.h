@@ -18,9 +18,11 @@
 #include <string>
 #include <cstdint>
 #include <vector>
+#include <cassert>
 
 namespace npu::tile_fwk {
 
+#define ASSERT_F(f) assert(f)
 class NotLessThan {
 public:
     explicit NotLessThan(int64_t v) : v_(v) {}
@@ -62,7 +64,10 @@ public:
     SymbolicScalar &operator=(const SymbolicScalar &) = default;
 
     bool ConcreteValid() const { return concreteValid_; }
-    int64_t Concrete() const { return concrete_; }
+    int64_t Concrete() const {
+        ASSERT_F(concreteValid_ && "concrete value is not valid !");
+        return concrete_;
+    }
 
     bool IsImmediate() const;
     bool IsSymbol() const;
@@ -74,7 +79,10 @@ public:
     void AsIntermediateVariable();
     bool IsIntermediateVariable() const;
 
-    operator int() const { return concrete_; }
+    operator int() const {
+        ASSERT_F(concreteValid_ && "concrete value is not valid for int() !");
+        return concrete_;
+    }
 
 #define SYMBOLIC_SCALAR_DEFINE_UOP(name, uop) \
     SymbolicScalar name() const;              \

@@ -133,14 +133,16 @@ void VFCodegen::InitOpParm(Operation *op) {
             auto opImmList = attr->GetCopyInAttr().first;
             attrOffset.resize(opImmList.size());
             for (size_t i = 0; i < opImmList.size(); ++i) {
-                attrOffset[i] = opImmList[i].GetSpecifiedValue();
+                attrOffset[i] = opImmList[i].GetSpecifiedValue().ConcreteValid() ?
+                    static_cast<int>(opImmList[i].GetSpecifiedValue()) : -1;
             }
         }
         if (opCode == Opcode::OP_VST) {
             auto opImmList = attr->GetCopyOutAttr().second;
             attrOffset.resize(opImmList.size());
             for (size_t i = 0; i < opImmList.size(); ++i) {
-                attrOffset[i] = opImmList[i].GetSpecifiedValue();
+                attrOffset[i] = opImmList[i].GetSpecifiedValue().ConcreteValid() ?
+                    static_cast<int>(opImmList[i].GetSpecifiedValue()) : -1;
             }
         }
         useAttrShape = true;

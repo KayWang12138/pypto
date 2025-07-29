@@ -24,7 +24,7 @@ inline std::vector<int> GetGMInputFeature(const Operation &op) { // 提取GM ten
     std::vector<OpImmediate> opImmList = attr->GetCopyInAttr().first;
     for (auto &opImm : opImmList){
         auto offset = opImm.GetSpecifiedValue();
-        if (static_cast<int>(offset) >= 0) {
+        if (offset.ConcreteValid()) {
             vec.push_back(offset);
         } else {
             std::hash<std::string> hasher;

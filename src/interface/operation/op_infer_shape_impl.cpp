@@ -44,7 +44,7 @@ void ElewiseInferFunc(Operation* op,
                 flag = true;
                 break;
             } else {
-                minDim = minDim.Concrete() == -1 ? dim.Concrete() : std::min(minDim.Concrete(), dim.Concrete());
+                minDim = minDim.ConcreteValid() ? std::min(minDim.Concrete(), dim.Concrete()) : dim.Concrete();
             }
         }
         // 全部都是Immediate值，取用最小的

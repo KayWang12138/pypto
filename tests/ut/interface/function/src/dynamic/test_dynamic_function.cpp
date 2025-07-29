@@ -295,7 +295,7 @@ void TestHybridLoopIf(
     constexpr int SECOND_LOOP_COUNT = 2;
 
     Tensor r0;
-    int loopCount = 0;
+    SymbolicScalar loopCount = 0;
     Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
     Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
     FUNCTION("main", FunctionType::DYNAMIC, {t0, t1, t2, t3, t4}, {out}) {
@@ -316,7 +316,7 @@ void TestHybridLoopIf(
         }
         LOOP("L1", FunctionType::DYNAMIC_LOOP, i, LoopRange(SECOND_LOOP_COUNT)) {
             Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
-            loopCount += i;
+            loopCount = loopCount + i;
             r0 = Add(r0, t4);
         }
         FUNCTION("spost", FunctionType::STATIC) {
@@ -328,7 +328,7 @@ void TestHybridLoopIf(
             out = Add(r0, t4);
         }
     }
-    ALOG_INFO("loopCount=", loopCount);
+
     for (auto &ele : Program::GetInstance().GetFunctionMap()) {
         auto func = ele.second;
         std::shared_ptr<DynloopFunctionAttribute> &attr = func->GetDynloopAttribute();
@@ -366,44 +366,43 @@ void TestStaticLoopStatic(const Tensor &t0, const Tensor &t1, const Tensor &t2, 
     SymbolicScalar blockTableAddr("blockTableAddr");
     SymbolicScalar batchAddr("batchAddr");
     Tensor r0;
-    int loopCount = 0;
+    SymbolicScalar loopCount = 0;
     FUNCTION("main", FunctionType::DYNAMIC, {t0, t1, t2, t3, t4}, {out}) {
         LOOP("s0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            loopCount += i;
+            loopCount = loopCount + i;
             r0 = Add(t0, t1);
             r0 = Sub(r0, t2);
         }
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShapeDim(t3, 1) / s)) {
-            loopCount += i;
+            loopCount = loopCount + i;
             Tensor t3v = View(t3, {s, s}, {0, 0});
             r0 = Add(t3v, r0);
         }
 
         LOOP("L1", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShapeDimSize(t3) / s)) {
-            loopCount += i;
+            loopCount = loopCount + i;
             Tensor t3v = View(t3, {s, s}, {0, 0});
             r0 = Add(t3v, r0);
         }
 
         LOOP("L1", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputDataInt32Dim1(t3, npu::tile_fwk::SymbolicScalar("0")) / s)) {
-            loopCount += i;
+            loopCount = loopCount + i;
             Tensor t3v = View(t3, {s, s}, {0, 0});
             r0 = Add(t3v, r0);
         }
 
         LOOP("L2", FunctionType::DYNAMIC_LOOP, i,
              LoopRange(GetInputDataInt32Dim2(t3, npu::tile_fwk::SymbolicScalar("0"), npu::tile_fwk::SymbolicScalar("1")) / s)) {
-            loopCount += i;
+            loopCount = loopCount + i;
             Tensor t3v = View(t3, {s, s}, {0, 0});
             r0 = Add(t3v, r0);
         }
 
         LOOP("s1", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            loopCount += i;
+            loopCount = loopCount + i;
             out = Sub(r0, t4);
         }
     }
-    ALOG_INFO("loopCount=", loopCount);
 }
 
 TEST_F(DynamicFunctionTest, TestStaticLoopStatic) {
@@ -776,10 +775,10 @@ TEST_F(DynamicFunctionTest, TestGetInputDataInt32Dim3) {
         RawTensorData::CreateConstantTensor<float>(out, 0),
     });
 
-    int loopCount = 0;
+    SymbolicScalar loopCount = 0;
     FUNCTION("main", FunctionType::DYNAMIC, {t5}, {out}) {
         LOOP("s1", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputDataInt32Dim3(t5,  npu::tile_fwk::SymbolicScalar("0"), npu::tile_fwk::SymbolicScalar("1"), npu::tile_fwk::SymbolicScalar("2")) / s)) {
-            loopCount += i;
+            loopCount = loopCount + i;
             out = AddS(t5, Element(DataType::DT_FP32, static_cast<double>(1.0)));
         }
     }

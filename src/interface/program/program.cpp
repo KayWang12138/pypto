@@ -884,13 +884,16 @@ RecordLoopFunc::Iterator RecordLoopFunc::begin() {
 }
 
 RecordLoopFunc::IteratorEnd RecordLoopFunc::end() {
-    if (funcType_ == FunctionType::STATIC) {
-        /* Static loop, expand all */
-        return {*this, SymbolicScalar(iterName_, NotGreaterThan(loopRange_->End().Concrete()))};
-    } else {
-        /* Runtime: Run only once */
-        return {*this, SymbolicScalar(iterName_, NotGreaterThan(loopRange_->End().Concrete()))};
+    if (loopRange_->End().ConcreteValid()) {
+        if (funcType_ == FunctionType::STATIC) {
+            /* Static loop, expand all */
+            return {*this, SymbolicScalar(iterName_, NotGreaterThan(loopRange_->End().Concrete()))};
+        } else {
+            /* Runtime: Run only once */
+            return {*this, SymbolicScalar(iterName_, NotGreaterThan(loopRange_->End().Concrete()))};
+        }
     }
+    return {*this, SymbolicScalar(iterName_)};
 }
 
 void RecordLoopFunc::IterationBegin() {

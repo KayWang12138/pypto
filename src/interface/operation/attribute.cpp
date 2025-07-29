@@ -519,7 +519,8 @@ std::vector<int> CopyOpAttribute::GetSpecifiedShape(int defaultValue) const {
     std::vector<int> result(tensorShape_.size(), defaultValue);
     for (size_t i = 0; i < tensorShape_.size(); ++i) {
         if (tensorShape_[i].IsSpecified()) {
-            result[i] = tensorShape_[i].GetSpecifiedValue();
+            result[i] = tensorShape_[i].GetSpecifiedValue().ConcreteValid() ?
+                static_cast<int>(tensorShape_[i].GetSpecifiedValue()) : -1;
         }
     }
     return result;

@@ -52,7 +52,8 @@ void SubgraphToFunction::RecordEsgIncast(Function &function, size_t i, size_t j,
         std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(nLIST[i][j]->GetOpAttribute());
         std::vector<OpImmediate> opImmList = attr->GetCopyInAttr().first;
         for (auto &opImm : opImmList){
-            offset.push_back(opImm.GetSpecifiedValue());
+            offset.push_back(opImm.GetSpecifiedValue().ConcreteValid() ?
+                static_cast<int>(opImm.GetSpecifiedValue()) : -1);
         }
         shape = attr->GetSpecifiedShape(1);
     }
@@ -107,7 +108,8 @@ void SubgraphToFunction::RecordEsgOutcast(Function &function, size_t i, size_t j
         std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(nLIST[i][j]->GetOpAttribute());
         std::vector<OpImmediate> opImmList = attr->GetCopyOutAttr().second;
         for (auto &opImm : opImmList){
-            offset.push_back(opImm.GetSpecifiedValue());
+            offset.push_back(opImm.GetSpecifiedValue().ConcreteValid() ?
+                static_cast<int>(opImm.GetSpecifiedValue()) : -1);
         }
         shape = attr->GetSpecifiedShape(1);
     }
@@ -447,7 +449,7 @@ void SubgraphToFunction::ProcessCopyInOperand(Operation& tileOp, std::vector<int
     std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(tileOp.GetOpAttribute());
     std::vector<OpImmediate> opImmList = attr->GetCopyInAttr().first;
     for (auto &opImm : opImmList){
-        offset.push_back(opImm.GetSpecifiedValue());
+        offset.push_back(opImm.GetSpecifiedValue().ConcreteValid() ? static_cast<int>(opImm.GetSpecifiedValue()) : -1);
     }
     shape = attr->GetSpecifiedShape(1);
 }
@@ -457,7 +459,7 @@ void SubgraphToFunction::ProcessCopyOutOperand(Operation& tileOp, std::vector<in
     std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(tileOp.GetOpAttribute());
     std::vector<OpImmediate> opImmList = attr->GetCopyOutAttr().second;
     for (auto &opImm : opImmList){
-        offset.push_back(opImm.GetSpecifiedValue());
+        offset.push_back(opImm.GetSpecifiedValue().ConcreteValid() ? static_cast<int>(opImm.GetSpecifiedValue()) : -1);
     }
     shape = attr->GetSpecifiedShape(1);
 }
