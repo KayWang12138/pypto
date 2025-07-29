@@ -376,7 +376,7 @@ void DevAscendFunction::InitOperation(
         auto callop = std::static_pointer_cast<CallOpAttribute>(callList[i]->GetOpAttribute());
 
         operandSize += op->GetIOperands().size() + op->GetOOperands().size();
-        staticAttrSize += CALLOP_ARG_ATTR_BASE_INDEX + callop->GetLinearArgList().size();
+        staticAttrSize += callop->GetLinearArgList().size();
         succSize += callOpSuccDict.find(op)->second.size();
     }
     operationOperandInfoList_.HostInitDataSizeOffset(initOffset, operandSize);
@@ -401,32 +401,31 @@ void DevAscendFunction::InitOperation(
                 operationOperandInfoList_, operandSize, op->GetIOperands().size());
             std::map<int, int> rawTensorIndex;
             for (size_t j = 0; j < op->GetIOperands().size(); j++) {
-                auto argIdx = op->GetIOpAttrOffset(j);
+                auto coaIndex = op->GetIOpAttrOffset(j);
                 const std::shared_ptr<LogicalTensor> &tensor = op->GetIOperands()[j];
-                rawTensorIndex[argIdx] = rawList.find(tensor->tensor)->second;
+                rawTensorIndex[coaIndex] = rawList.find(tensor->tensor)->second;
                 At(staticField.ioperandList, j) =
-                    DevAscendOperationOperandInfo(tlist.GetIndex(tensor), argIdx + 0x2, tensor->GetShape().size());
+                    DevAscendOperationOperandInfo(tlist.GetIndex(tensor), coaIndex + COA_INDEX_BASE, tensor->GetShape().size());
             }
             operandSize += op->GetIOperands().size();
 
             staticField.ooperandList.AssignRangeOffsetSize(
                 operationOperandInfoList_, operandSize, op->GetOOperands().size());
             for (size_t j = 0; j < op->GetOOperands().size(); j++) {
-                auto argIdx = op->GetOOpAttrOffset(j);
+                auto coaIndex = op->GetOOpAttrOffset(j);
                 const std::shared_ptr<LogicalTensor> &tensor = op->GetOOperands()[j];
-                rawTensorIndex[argIdx] = rawList.find(tensor->tensor)->second;
+                rawTensorIndex[coaIndex] = rawList.find(tensor->tensor)->second;
                 At(staticField.ooperandList, j) =
-                    DevAscendOperationOperandInfo(tlist.GetIndex(tensor), argIdx + 0x2, tensor->GetShape().size());
+                    DevAscendOperationOperandInfo(tlist.GetIndex(tensor), coaIndex + COA_INDEX_BASE, tensor->GetShape().size());
             }
             operandSize += op->GetOOperands().size();
             ALOG_DEBUG_F("Producer %zu oOperand list size is %zu", i, op->GetOOperands().size());
             // Fill attr
             auto callArgs = callop->GetLinearArgList();
-            int opStaticAttrSize = CALLOP_ARG_ATTR_BASE_INDEX + callArgs.size();
+            int opStaticAttrSize = callArgs.size();
             staticField.attrList.AssignRangeOffsetSize(operationAttrList_, staticAttrSize, opStaticAttrSize);
-            int opAttrPos = 0;
-            At(staticField.attrList, opAttrPos++) = calleeHashIndexDict.at(callop->GetCalleeHash().GetHash());
-            for (size_t j = 0; j < callArgs.size(); j++) {
+            At(staticField.attrList, 0) = calleeHashIndexDict.at(callop->GetCalleeHash().GetHash());
+            for (size_t j = CALLOP_ARG_ATTR_BASE_INDEX; j < (size_t)opStaticAttrSize; j++) {
                 int fillValue = 0;
                 if (callArgs[j].IsImmediate()) {
                     if (rawTensorIndex.count(j)) {
@@ -437,7 +436,7 @@ void DevAscendFunction::InitOperation(
                 } else {
                     fillValue = expressionTable->LookupExpressionIndex(callArgs[j]);
                 }
-                At(staticField.attrList, opAttrPos++) = SymInt(!callArgs[j].IsImmediate(), fillValue);
+                At(staticField.attrList, j) = SymInt(!callArgs[j].IsImmediate(), fillValue);
             }
 
             At(opAttrOffsetList_, i) = staticAttrSize;
@@ -838,17 +837,18 @@ struct EncodeDevAscendFunctionInfo {
                 auto callAttr = dynamic_cast<CallOpAttribute *>(op.GetOpAttribute().get());
                 for (size_t k = 0; k < op.GetOOperands().size(); ++k) {
                     auto &oOperand = op.GetOOperands()[k];
-                    auto attrIdx = op.GetOOpAttrOffset(k) + 2;
                     if (o->tensor->rawmagic == oOperand->tensor->rawmagic) {
+                        ASSERT(oOperand->GetShape().size() == dim);
+                        auto coaIndex = op.GetOOpAttrOffset(k) + COA_INDEX_BASE;
                         inoutOpAttr.dim = dim;
-                        inoutOpAttr.offsetAttrIdx.push_back(attrIdx);
-                        inoutOpAttr.shapeAttrIdx.push_back(attrIdx + oOperand->shape.size());
+                        inoutOpAttr.offsetAttrIdx.push_back(coaIndex + dim * COA_INDEX_TYPE_OFFSET);
+                        inoutOpAttr.shapeAttrIdx.push_back(coaIndex + dim * COA_INDEX_TYPE_SHAPE);
                         inoutOpAttr.ops.push_back(j);
                         inoutOpAttr.operandIdx.push_back(k);
                         ALOG_DEBUG_F("outcast oOperandIdx for outcast %d %d is %d", o->magic, o->GetRawMagic(), k);
 
                         // callopAttr does not resrve cce index, put one pos back
-                        UpdateMinimalShape(inoutOpAttr, callAttr, dim, attrIdx + oOperand->shape.size() - 1);
+                        UpdateMinimalShape(inoutOpAttr, callAttr, dim, coaIndex + dim * COA_INDEX_TYPE_SHAPE);
                         ALOG_DEBUG_F("minimal shape for outcast %d raw %d op %d %d is %s\n", o->magic, o->GetRawMagic(), j,
                             op.opmagic, IntVecToStr(inoutOpAttr.minimalShape).c_str());
                     }
@@ -889,17 +889,18 @@ struct EncodeDevAscendFunctionInfo {
                 auto callAttr = dynamic_cast<CallOpAttribute *>(op.GetOpAttribute().get());
                 // add icast and oper io's relationship
                 for (size_t k = 0; k < op.GetIOperands().size(); ++k) {
-                    auto &iOperand = op.GetIOperands()[k];
-                    auto attrIdx = op.GetIOpAttrOffset(k) + 2;
+                    auto &iOperand = op.GetIOperands()[k];                    
                     if (i->tensor->rawmagic == iOperand->tensor->rawmagic) {
-                        inoutOpAttr.dim = i->shape.size();
-                        inoutOpAttr.offsetAttrIdx.push_back(attrIdx);
-                        inoutOpAttr.shapeAttrIdx.push_back(attrIdx + iOperand->shape.size());
+                        ASSERT(iOperand->GetShape().size() == dim);
+                        auto coaIndex = op.GetIOpAttrOffset(k) + COA_INDEX_BASE;
+                        inoutOpAttr.dim = dim;
+                        inoutOpAttr.offsetAttrIdx.push_back(coaIndex + dim * COA_INDEX_TYPE_OFFSET);
+                        inoutOpAttr.shapeAttrIdx.push_back(coaIndex + dim * COA_INDEX_TYPE_SHAPE);
                         inoutOpAttr.ops.push_back(j);
                         inoutOpAttr.operandIdx.push_back(k);
 
                         // callopAttr does not reserve cce index, put one pos back
-                        UpdateMinimalShape(inoutOpAttr, callAttr, dim, attrIdx + iOperand->shape.size() - 1);
+                        UpdateMinimalShape(inoutOpAttr, callAttr, dim, coaIndex + dim * COA_INDEX_TYPE_SHAPE);
                         ALOG_DEBUG_F("minimal shape for incast %d raw %d op %d %d is %s\n", i->magic, i->GetRawMagic(), j,
                             op.opmagic, IntVecToStr(inoutOpAttr.minimalShape).c_str());
                     }

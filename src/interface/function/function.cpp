@@ -41,7 +41,7 @@ namespace {
 const std::string PREFIX = "  ";
 const int SPACE_NUM_THREE = 3;
 const int LAST_TWO = -2;
-constexpr int BASE_OFFSET = 1;
+constexpr int COA_INDEX_DIM_BASE = 1;
 
 const std::set<Opcode> SPECIAL_OPCODE_SET = {
     Opcode::OP_INDEX_OUTCAST, Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_CALL, Opcode::OP_CONVERT,
@@ -2066,61 +2066,71 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     return func;
 }
 
-static std::vector<SymbolicScalar> NormalizeCopyIn(Operation *op, bool valueToIndex) {
+static std::vector<SymbolicScalar> NormalizeCopyIn(Operation *op, int coaIndexBase, bool valueToIndex) {
     auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
     int dim = copyAttr->GetShape().size();
-    int offset = BASE_OFFSET;
-    std::vector<SymbolicScalar> argList(BASE_OFFSET + dim * ARG_ATTR_TYPE, 0);
+    int operandCoaIndex = COA_INDEX_DIM_BASE;
+    int coaIndex = coaIndexBase + COA_INDEX_DIM_BASE;
+    std::vector<SymbolicScalar> operandCoaList(COA_INDEX_DIM_BASE + dim * COA_INDEX_TYPE_COUNT, 0);
 
     auto opImmList = copyAttr->GetFromOffset();
-    OpImmediate::NormalizeValue(argList, opImmList, offset, valueToIndex);
+    OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
     copyAttr->SetFromOffset(opImmList);
-    offset += dim;
+    operandCoaIndex += dim;
+    coaIndex += dim;
 
     // shape to normal
     opImmList = copyAttr->GetShape();
-    OpImmediate::NormalizeValue(argList, opImmList, offset, valueToIndex);
+    OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
     copyAttr->SetShape(opImmList);
-    offset += dim;
+    operandCoaIndex += dim;
+    coaIndex += dim;
 
     opImmList = copyAttr->GetRawShape();
-    OpImmediate::NormalizeValue(argList, opImmList, offset, valueToIndex);
+    OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
     copyAttr->SetRawShape(opImmList);
-    offset += dim;
+    operandCoaIndex += dim;
+    coaIndex += dim;
 
     opImmList = copyAttr->GetToDynValidShape();
-    OpImmediate::NormalizeValue(argList, opImmList, offset, valueToIndex);
+    OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
     copyAttr->SetToDynValidShape(opImmList);
+    operandCoaIndex += dim;
+    coaIndex += dim;
 
-    return argList;
+    return operandCoaList;
 }
 
-static std::vector<SymbolicScalar> NormalizeCopyOut(Operation *op, bool valueToIndex) {
+static std::vector<SymbolicScalar> NormalizeCopyOut(Operation *op, int coaIndexBase, bool valueToIndex) {
     auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
     int dim = copyAttr->GetShape().size();
-    int offset = BASE_OFFSET;
-    std::vector<SymbolicScalar> argList(BASE_OFFSET + dim * ARG_ATTR_TYPE, 0);
+    int operandCoaIndex = COA_INDEX_DIM_BASE;
+    int coaIndex = coaIndexBase + COA_INDEX_DIM_BASE;
+    std::vector<SymbolicScalar> operandCoaList(COA_INDEX_DIM_BASE + dim * COA_INDEX_TYPE_COUNT, 0);
 
     auto opImmList = copyAttr->GetToOffset();
-    OpImmediate::NormalizeValue(argList, opImmList, offset, valueToIndex);
+    OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
     copyAttr->SetToOffset(opImmList);
-    offset += dim;
+    operandCoaIndex += dim;
+    coaIndex += dim;
 
     // shape to normal
     opImmList = copyAttr->GetShape();
-    OpImmediate::NormalizeValue(argList, opImmList, offset, valueToIndex);
+    OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
     copyAttr->SetShape(opImmList);
-    offset += dim;
+    operandCoaIndex += dim;
+    coaIndex += dim;
 
     opImmList = copyAttr->GetRawShape();
-    OpImmediate::NormalizeValue(argList, opImmList, offset, valueToIndex);
+    OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
     copyAttr->SetRawShape(opImmList);
-    offset += dim;
+    operandCoaIndex += dim;
+    coaIndex += dim;
 
-    return argList;
+    return operandCoaList;
 }
 
-static std::vector<SymbolicScalar> NormalizeTensor(LogicalTensorPtr operand) {
+static std::vector<SymbolicScalar> NormalizeTensor(LogicalTensorPtr operand, int coaIndexBase) {
     auto offset = OpImmediate::Specified(operand->GetOffset());
     auto dynOffset = OpImmediate::Specified(operand->GetDynOffset());
     auto shape = OpImmediate::Specified(operand->GetShape());
@@ -2128,29 +2138,35 @@ static std::vector<SymbolicScalar> NormalizeTensor(LogicalTensorPtr operand) {
     auto dynValidShape = OpImmediate::Specified(operand->GetDynValidShape());
 
     int dim = shape.size();
-    int argIdx = BASE_OFFSET;
-    std::vector<SymbolicScalar> argList(BASE_OFFSET + dim * ARG_ATTR_TYPE, 0);
+    int operandCoaIndex = COA_INDEX_DIM_BASE;
+    int coaIndex = coaIndexBase + COA_INDEX_DIM_BASE;
+    std::vector<SymbolicScalar> operandCoaList(COA_INDEX_DIM_BASE + dim * COA_INDEX_TYPE_COUNT, 0);
 
     if (dynOffset.size()) {
-        OpImmediate::NormalizeValue(argList, dynOffset, argIdx, false);
+        OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, dynOffset, coaIndex, false);
     } else {
-        OpImmediate::NormalizeValue(argList, offset, argIdx, false);
+        OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, offset, coaIndex, false);
     }
-    argIdx += dim;
+    operandCoaIndex += dim;
+    coaIndex += dim;
 
-    OpImmediate::NormalizeValue(argList, shape, argIdx, false);
-    argIdx += dim;
+    OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, shape, coaIndex, false);
+    operandCoaIndex += dim;
+    coaIndex += dim;
 
-    OpImmediate::NormalizeValue(argList, rawshape, argIdx, false);
-    argIdx += dim;
+    OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, rawshape, coaIndex, false);
+    operandCoaIndex += dim;
+    coaIndex += dim;
 
     if (dynValidShape.size()) {
-        OpImmediate::NormalizeValue(argList, dynValidShape, argIdx, false);
+        OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, dynValidShape, coaIndex, false);
     } else {
-        OpImmediate::NormalizeValue(argList, shape, argIdx, false);
+        OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, shape, coaIndex, false);
     }
+    operandCoaIndex += dim;
+    coaIndex += dim;
 
-    return argList;
+    return operandCoaList;
 }
 
 std::vector<std::vector<SymbolicScalar>> Function::NormalizeCopyInCopyOut(
@@ -2169,48 +2185,48 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCopyInCopyOut(
         }
     }
 
-    int argIdx = 0;
-    std::vector<std::vector<SymbolicScalar>> argLists;
+    int coaIndex = COA_INDEX_BASE;
+    std::vector<std::vector<SymbolicScalar>> coaLists;
     bool valueToIndex = parent_->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH;
     for (auto [opmagic, k] : incastPosition) {
         auto op = opmagicToOp[opmagic];
-        std::vector<SymbolicScalar> argList;
+        std::vector<SymbolicScalar> operandCoaList;
         if (IsCopyIn(op->GetOpcode()) && k == 0) {
-            argList = NormalizeCopyIn(op, valueToIndex);
+            operandCoaList = NormalizeCopyIn(op, coaIndex, valueToIndex);
         } else {
-            argList = NormalizeTensor(op->GetIOperands()[k]);
+            operandCoaList = NormalizeTensor(op->GetIOperands()[k], coaIndex);
         }
-        op->SetIOpAttrOffset(k, argIdx);
-        iOffset.push_back(argIdx);
-        argIdx += argList.size();
-        argLists.push_back(std::move(argList));
+        op->SetIOpAttrOffset(k, coaIndex);
+        iOffset.push_back(coaIndex);
+        coaIndex += operandCoaList.size();
+        coaLists.push_back(std::move(operandCoaList));
     }
 
     for (auto [opmagic, k] : outcastPosition) {
         auto op = opmagicToOp[opmagic];
-        std::vector<SymbolicScalar> argList;
+        std::vector<SymbolicScalar> operandCoaList;
         if (IsCopyOut(op->GetOpcode()) && k == 0) {
-            argList = NormalizeCopyOut(op, valueToIndex);
+            operandCoaList = NormalizeCopyOut(op, coaIndex, valueToIndex);
         } else {
-            argList = NormalizeTensor(op->GetOOperands()[k]);
+            operandCoaList = NormalizeTensor(op->GetOOperands()[k], coaIndex);
         }
-        op->SetOOpAttrOffset(k, argIdx);
-        oOffset.push_back(argIdx);
-        argIdx += argList.size();
-        argLists.push_back(std::move(argList));
+        op->SetOOpAttrOffset(k, coaIndex);
+        oOffset.push_back(coaIndex);
+        coaIndex += operandCoaList.size();
+        coaLists.push_back(std::move(operandCoaList));
     }
 
     for (auto [op, k]: extraOutcasts) {
         if (op->GetOOpAttrOffset(0) != -1)
             continue;
-        auto argList = NormalizeTensor(op->GetOOperands()[k]);
-        op->SetOOpAttrOffset(k, argIdx);
-        oOffset.push_back(argIdx);
-        argIdx += argList.size();
-        argLists.push_back(std::move(argList));
+        auto operandCoaList = NormalizeTensor(op->GetOOperands()[k], coaIndex);
+        op->SetOOpAttrOffset(k, coaIndex);
+        oOffset.push_back(coaIndex);
+        coaIndex += operandCoaList.size();
+        coaLists.push_back(std::move(operandCoaList));
     }
 
-    return argLists;
+    return coaLists;
 }
 
 void Function::DumpTopoFile(const std::string &fileName) const

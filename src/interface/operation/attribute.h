@@ -98,15 +98,16 @@ public:
 
     static OpImmediate Parameter(int index) { return OpImmediate(OpImmediateKind::T_SCALAR_PARAMETER, index); }
 
-    static void NormalizeValue(std::vector<SymbolicScalar> &argList, std::vector<OpImmediate> &opImmList, int argIdx, bool valueToIndex) {
+    static void NormalizeValue(std::vector<SymbolicScalar> &operandCoaList, int operandCoaIndex, 
+                               std::vector<OpImmediate> &opImmList, int coaIndex, bool valueToIndex) {
         int offset = 0;
         for (auto &op : opImmList) {
             ASSERT(op.IsSpecified());
             SymbolicScalar value = op.GetSpecifiedValue();
             if (valueToIndex) {
-                op = OpImmediate::Parameter(argIdx + offset);
+                op = OpImmediate::Parameter(coaIndex + offset);
             }
-            argList[argIdx + offset] = value;
+            operandCoaList[operandCoaIndex + offset] = value;
             offset++;
         }
     }
@@ -253,8 +254,19 @@ private:
  * [dim+1, 2*dim]: shape
  * [2*dim+1, 3*dim]: rawshape
  * [3*dim+1, 4*dim]: validshape
-  */
-constexpr int ARG_ATTR_TYPE = 4;
+ * 
+ * linearArgList:
+ * [0]: cceIndex
+ * [1 ... 1 + argList[0].size() - 1]: argList[0]
+ * [1 + argList[0].size() ... 1 + argList[0].size() + argList[1].size() - 1]: argList[1] 
+ * ...
+ */
+constexpr int COA_INDEX_TYPE_OFFSET = 0;
+constexpr int COA_INDEX_TYPE_SHAPE = 1;
+constexpr int COA_INDEX_TYPE_RAWSHAPE = 2;
+constexpr int COA_INDEX_TYPE_VALIDSHAPE = 3;
+constexpr int COA_INDEX_TYPE_COUNT = 4;
+constexpr int COA_INDEX_BASE = 1;
 
 class CallOpAttribute : public OpAttribute {
 public:

@@ -232,7 +232,7 @@ INLINE void ExecDynCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
     auto funcData = &ctx->funcDataList[FuncID(taskId)];
     auto opAttrs = &funcData->opAttrs[funcData->opAtrrOffsets[TaskID(taskId)]];
     DynKernelFunc kernel = (DynKernelFunc)ctx->funcBins[opAttrs[0]].binAddr;
-    CoreFuncParam param = {funcData, opAttrs + 1, funcData->exprTbl};
+    CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl};
     kernel(&param, funcData->stackWorkSpaceAddr + blockIdx * funcData->stackWorkSpaceSize, (__gm__ int64_t *)funcData->hcclContext);
     SetStatus(ctx->args, STAGE_FINISH_EXEC_COREFUNC_KERNEL);
     PipeSync();

@@ -41,12 +41,12 @@ Status CodegenPreprocPass::SaveGmTensorParamIdxToOp(Function &func) const {
         gmParamInCallFunc.clear();
         for (auto &op : subProgram.second->Operations()) {
             if (IsNeedSave(op)) {
-                int addrPos;
+                int coaIndex;
                 if (IsCopyIn(op.GetOpcode()))
-                    addrPos = op.GetIOpAttrOffset(0);
+                    coaIndex = op.GetIOpAttrOffset(0);
                 else
-                    addrPos = op.GetOOpAttrOffset(0);
-                gmParamInCallFunc[addrPos].emplace_back(&op);
+                    coaIndex = op.GetOOpAttrOffset(0);
+                gmParamInCallFunc[coaIndex].emplace_back(&op);
             }
         }
         ALOG_INFO_F("%d:%sgmParamInCallFunc size: %zu", __LINE__, __FUNCTION__, gmParamInCallFunc.size());

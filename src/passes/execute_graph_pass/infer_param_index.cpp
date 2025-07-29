@@ -29,7 +29,7 @@ std::string InferParamIndexPass::DumpParamIndex(const std::map<std::string, DynP
         ss << "tensorIdx: " << paramInfo.second.tensorIndex << ", ";
         ss << "dimsize: " << paramInfo.second.dimSize << ", ";
         ss << "type: " << static_cast<int>(paramInfo.second.type) << ", ";
-        ss << "addrIdx: " << paramInfo.second.tensorBaseAddrIndex << ", ";
+        ss << "addrCoaIdx: " << paramInfo.second.tensorBaseAddrCoaIndex << ", ";
         ss << "dimIdx: " << paramInfo.second.dimIndex << " )" << std::endl;
     }
     return ss.str();
@@ -119,21 +119,21 @@ Status InferParamIndexPass::RunOnFunction(Function &function)
         ALOG_INFO(subFunc.Dump());
         std::map<int, std::vector<SymbolicScalar>> addr2ValidShape;
         for (auto &op : subFunc.Operations()) {
-            int addrPos;
+            int tensorBaseAddrCoaIndex;
             if (IsCopyIn(op.GetOpcode())) {
-                addrPos = op.GetIOpAttrOffset(0);
+                tensorBaseAddrCoaIndex = op.GetIOpAttrOffset(0);
             } else {
-                addrPos = op.GetOOpAttrOffset(0);
+                tensorBaseAddrCoaIndex = op.GetOOpAttrOffset(0);
             }
-            if (addrPos == -1) {
+            if (tensorBaseAddrCoaIndex == -1) {
                 continue;
             }
-            if (addr2ValidShape.find(addrPos) == addr2ValidShape.end()) {
-                addr2ValidShape[addrPos] = op.GetOOperands()[0]->GetDynValidShape();
+            if (addr2ValidShape.find(tensorBaseAddrCoaIndex) == addr2ValidShape.end()) {
+                addr2ValidShape[tensorBaseAddrCoaIndex] = op.GetOOperands()[0]->GetDynValidShape();
             }
         }
         std::set<std::string> visitedSymbol;
-        int gmIdx{0};
+        int tensorIndex{0};
         for (auto validShape : addr2ValidShape) {
             int dimIdx{0};
             for (auto dim : validShape.second) {
@@ -143,12 +143,12 @@ Status InferParamIndexPass::RunOnFunction(Function &function)
                 if (visitedSymbol.count(dim.Dump()) > 0) {
                     continue;
                 }
-                auto paramInfo = DynParamInfo{static_cast<int>(validShape.second.size()), gmIdx, 
+                auto paramInfo = DynParamInfo{static_cast<int>(validShape.second.size()), tensorIndex, 
                                             validShape.first, DynParamInfoType::VALID_SHAPE, dimIdx};
                 subFunc.InsertDynParam(dim.Dump(), paramInfo);
                 dimIdx++;
             }
-            gmIdx++;
+            tensorIndex++;
         }
         ALOG_DEBUG(DumpParamIndex(subFunc.GetDynParamTable()));
     }

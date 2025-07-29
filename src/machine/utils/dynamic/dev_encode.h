@@ -1678,7 +1678,7 @@ struct DevAscendProgram {
         oss << "}";
         return oss.str();
     }
-
+    
     void DumpFile(const std::string &filePath) const {
         std::ofstream ofs(filePath);
         ofs << Dump();

@@ -139,6 +139,39 @@ TEST_F(DynamicBasicTest, TestDD) {
 #endif
 }
 
+TEST_F(DynamicBasicTest, TestTT) {
+    int s = 64;
+    int n = 8;
+    Tensor t0(DT_FP32, {n * s, s}, "t0");  // [64 * 8, 64]
+    Tensor t1(DT_FP32, {n * s, s}, "t1");  // [64 * 8, 64]
+    Tensor out(DT_FP32, {n * s, s}, "out");
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(t0, 1.0),
+        RawTensorData::CreateConstantTensor<float>(t1, 2.0),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, 0.0f),
+    });
+
+    FUNCTION("main", FunctionType::DYNAMIC, {t0, t1}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(8)) {
+            Tensor t0s = DView(t0, {s, s}, {idx * s, 0});
+            Tensor t1s = DView(t1, {s, s}, {idx * s, 0});
+            Tensor o = Add(t0s, t1s);
+            DAssemble(o, {idx * s, 0}, out);
+        }
+    }
+
+    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+    DynFuncRunner::Run(funcop);
+    std::vector<float> golden(n * s * s, 3.0f);
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+#endif
+}
+
 TEST_F(DynamicBasicTest, DynamicRawShape) {
     int s = 32;
     Tensor t0(DT_FP32, {-1, s}, "t0"); // [32*8, 32]

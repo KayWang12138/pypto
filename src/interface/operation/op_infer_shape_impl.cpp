@@ -256,11 +256,11 @@ void CopyInInferFunc(Operation* op,
     // 连接incast
     auto toValidShape = copyOpAttribute->GetToDynValidShape();
     std::vector<SymbolicScalar> toValidShapeSym(toValidShape.size());
-    OpImmediate::NormalizeValue(toValidShapeSym, toValidShape, 0, false);
+    OpImmediate::NormalizeValue(toValidShapeSym, 0, toValidShape, 0, false);
     auto toValidShapeValue = SymbolicScalar::Concrete(toValidShapeSym, -1);
     auto tileShape = copyOpAttribute->GetShape();
     std::vector<SymbolicScalar> tileShapeSym(tileShape.size());
-    OpImmediate::NormalizeValue(tileShapeSym, tileShape, 0, false);
+    OpImmediate::NormalizeValue(tileShapeSym, 0, tileShape, 0, false);
     if (!toValidShape.empty()) {
         for (auto output : op->GetOOperands()) {
             outValidShapes.push_back(toValidShapeSym);
@@ -411,7 +411,7 @@ void ViewInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outV
         if (inputValidShape.empty()) {
             auto shapeImm = OpImmediate::Specified(op->GetIOperands()[0]->GetShape());
             inputValidShape.resize(shapeImm.size());
-            OpImmediate::NormalizeValue(inputValidShape, shapeImm, 0, false);
+            OpImmediate::NormalizeValue(inputValidShape, 0, shapeImm, 0, false);
         }
         auto newDynValidShape = GetViewValidShape(inputValidShape, viewOpAttribute->GetFromOffset(),
                                                     viewOpAttribute->GetFromDynOffset(), op->GetOOperands()[0]->GetShape());

@@ -203,7 +203,7 @@ std::string CodeGenCloudNPU::GenDynParamForExpr(const npu::tile_fwk::Function &f
             dynParamExpr += GET_PARAM_OFFSET_BY_IDX;
         }
         dynParamExpr += "(param, " + std::to_string(info.tensorIndex) + ", " +
-                        std::to_string(info.tensorBaseAddrIndex) + ", " + std::to_string(info.dimSize) + ", " +
+                        std::to_string(info.tensorBaseAddrCoaIndex) + ", " + std::to_string(info.dimSize) + ", " +
                         std::to_string(info.dimIndex) + ");\n";
         dynParamList += dynParamExpr;
     }

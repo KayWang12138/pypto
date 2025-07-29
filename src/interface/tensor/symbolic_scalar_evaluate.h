@@ -38,7 +38,7 @@ public:
             std::string symbolName = paramInfo.first;
             int n = paramInfo.second.tensorIndex;
             (void)n;
-            int base = paramInfo.second.tensorBaseAddrIndex;
+            int base = paramInfo.second.tensorBaseAddrCoaIndex;
             int dim = paramInfo.second.dimSize;
             int idx = paramInfo.second.dimIndex;
             int argIndex = ((base) + 1) + 3 * (dim) + idx;

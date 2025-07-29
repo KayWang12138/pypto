@@ -365,7 +365,7 @@ enum class DynParamInfoType{VALID_SHAPE, OFFSET, END};
 struct DynParamInfo{
     int dimSize;
     int tensorIndex;
-    int tensorBaseAddrIndex;
+    int tensorBaseAddrCoaIndex;
     DynParamInfoType type;
     int dimIndex;
 };

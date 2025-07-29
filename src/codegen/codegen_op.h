@@ -126,7 +126,7 @@ protected:
     std::vector<SymbolicScalar> offsetGmSymbolic[MAX_OPERANDS] = {};  // for spilling into GM scene
     std::vector<int> tileShape{0, 0};                                 // ub tile shape
     // if operand is an variable, record its related argument location
-    int paramLocation[MAX_OPERANDS] = {};
+    int paramLocation[MAX_OPERANDS] = {1, 1, 1, 1, 1, 1};
     int GmTensorParamIdxInCallFunc{0};
     OpSyncQueue syncQueue;
 
