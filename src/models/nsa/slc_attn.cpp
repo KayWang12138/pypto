@@ -98,8 +98,9 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
                         SymbolicScalar curKvOffset = bIdx * s1N2S2Sym + s1Idx * n2S2Sym + s2Idx * curS2Tile;
 
                         ConfigManager::Instance().SetSemanticLabel("Sa");
-                        auto qn = DView(qNope, {curGTile, dN}, {curOffset, 0});
-                        auto qr = DView(qRope, {curGTile, dR}, {curOffset, 0});
+                        // DView, 临时规避改成 DViewPad
+                        auto qn = DViewPad(qNope, {curGTile, dN}, {curGTile, dN}, {curOffset, 0});
+                        auto qr = DViewPad(qRope, {curGTile, dR}, {curGTile, dR}, {curOffset, 0});
                         Tensor qi(dtype, {curGTile, dN + dR}, "qi");
                         DAssemble(qn, {0, 0}, qi);
                         DAssemble(qr, {0, dN}, qi);

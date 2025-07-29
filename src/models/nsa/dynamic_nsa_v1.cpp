@@ -209,7 +209,7 @@ void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const T
                      n2, blockTable, blockSize, kSlc, vSlc, kvSlcActSeqOut, kvSlcTileConfig);
 
         // loop_barrier
-        // config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // codegen参数化，for 动态尾块
+        config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // codegen参数化，for 动态尾块
         /********gen slc atten ********/
         SlcAttnCompute(qNope, qRope, kSlc, vSlc, kvSlcActSeqs, n1, n2, softmaxScale, slcAttn, saTileConfig);
 

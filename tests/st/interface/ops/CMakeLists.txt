@@ -23,7 +23,7 @@ set(_CaseFilterList
 
         # NSA AttentionPost
         # "AttentionPostSTest.b32_s1_nz_bf16_quant"
-        # "AttentionPostSTest.b32_s2_nz_bf16_quant"
+        "AttentionPostSTest.b32_s2_nz_bf16_quant"
 
         #===========================================================================
         # '单 Op'精度用例
