@@ -37,28 +37,34 @@ constexpr uint32_t NEON_BLOCK_BITS = 8;
 constexpr uint32_t LONG_LONG_BITS = 64;
 constexpr uint32_t TILE_INDEX_MAX_NUM = 65535;
 
-void FlagPoller::Init(uint32_t rankId, uint32_t rankSize, uint8_t *winFlag) {
+void FlagPoller::Init(uint32_t rankId, uint32_t rankSize, uint8_t *winFlag)
+{
     rankId_ = rankId;
     rankSize_ = rankSize;
     winFlag_ = winFlag;
 }
 
-void FlagPoller::EnqueueOp(uint64_t taskId, uint32_t rankShape, uint32_t rankOffset, uint32_t tileIndex) {
+void FlagPoller::EnqueueOp(uint64_t taskId, uint32_t rankShape, uint32_t rankOffset, uint32_t tileIndex)
+{
     if ((rankShape < 1) || (tileIndex > TILE_INDEX_MAX_NUM) || (rankOffset + rankShape > TileOp::AICPU_MAX_RANK_NUM)) {
         DEV_ERROR("FlagPoller EnqueueOp failed: tileIndex=%u, rankShape=%u, rankOffset=%u\n", tileIndex, rankShape,
             rankOffset);
         return;
     }
 
-    uint32_t startIndex = tileIndex * rankSize_ + rankOffset;
-    uint32_t endIndex = startIndex + rankShape - 1U;
-
-    if (doneFlag_.size() < endIndex + 1) {
+    const uint32_t baseIndex = tileIndex * rankSize_;
+    const uint32_t startIndex = baseIndex + rankOffset;
+    const uint32_t endIndex = startIndex + rankShape - 1U;
+    const uint32_t localIndex = baseIndex + rankId_;
+    if (realCount_ <= endIndex) {
+        realCount_ = static_cast<uint32_t>(endIndex + 1U);
+    }
+    if (doneFlag_.size() <= endIndex) {
         doneFlag_.resize(endIndex + 1, false);
     }
 
     uint32_t opIndex = startIndex / rankShape;
-    if (opInfo_.size() < opIndex + 1) {
+    if (opInfo_.size() <= opIndex) {
         opInfo_.resize(opIndex + 1, OpInfo{0, 0});
     }
     opInfo_[opIndex].taskId = taskId;
@@ -66,32 +72,30 @@ void FlagPoller::EnqueueOp(uint64_t taskId, uint32_t rankShape, uint32_t rankOff
     rankShape_ = rankShape;
     opCount_++;
 
-    auto localIndex = tileIndex * rankSize_ + rankId_;
     if ((localIndex >= startIndex) && (localIndex <= endIndex)) {
         doneFlag_[localIndex] = true;
         opInfo_[localIndex / rankShape_].todoFlagCount--;
     }
 }
 
-void FlagPoller::PollCompleted(std::vector<uint64_t> &completed) {
+void FlagPoller::PollCompleted(std::vector<uint64_t> &completed)
+{
     if (opCount_ == 0U) {
         return;
     }
-
-    for (size_t flagIndex = 0; flagIndex < doneFlag_.size(); ++flagIndex) {
-        DEV_DEBUG(
-            "FlagPoller PollCompleted: flagIndex=%zu, winFlag_ addr=%p, winFlag_=%u\n",
-            flagIndex, winFlag_ + flagIndex * FLAG_BYTE_SIZE, winFlag_[flagIndex * FLAG_BYTE_SIZE]
-        );
+    completed.reserve(realCount_);
+    for (size_t flagIndex = 0; flagIndex < realCount_; ++flagIndex) {
+        DEV_DEBUG("FlagPoller PollCompleted: flagIndex=%zu, winFlag_ addr=%p, winFlag_=%u\n",
+            flagIndex, winFlag_ + flagIndex * FLAG_BYTE_SIZE, winFlag_[flagIndex * FLAG_BYTE_SIZE]);
         if (
             (!doneFlag_[flagIndex])
             && (winFlag_[flagIndex * FLAG_BYTE_SIZE] == 1)
             && (opInfo_[flagIndex / rankShape_].todoFlagCount != 0) // 等于 0 意味着，可能这个 flag 对应的子图还未执行添加进来，等添加进来后再处理
         ) {
-            uint32_t opIndex = flagIndex / rankShape_;
+            uint32_t opIndex = static_cast<uint32_t>(flagIndex / rankShape_);
             opInfo_[opIndex].todoFlagCount--;
             if (opInfo_[opIndex].todoFlagCount == 0) {
-                completed.push_back(opInfo_[opIndex].taskId);
+                completed.emplace_back(opInfo_[opIndex].taskId);
                 opCount_--;
             }
             doneFlag_[flagIndex] = true;
@@ -99,7 +103,8 @@ void FlagPoller::PollCompleted(std::vector<uint64_t> &completed) {
     }
 }
 
-void CommWaitFlag::Init(DeviceTask *deviceTask) {
+void CommWaitFlag::Init(DeviceTask *deviceTask)
+{
     uint64_t *hcclContextAddr = deviceTask->coreFuncData.hcclContextAddr;
     uint32_t commGroupNum = static_cast<uint32_t>(deviceTask->coreFuncData.commGroupNum);
     if (commGroupNum > DIST_COMM_GROUP_NUM) {
@@ -111,7 +116,8 @@ void CommWaitFlag::Init(DeviceTask *deviceTask) {
     commGroupNum_ = commGroupNum;
 }
 
-bool CommWaitFlag::Prepare(uint32_t groupIndex) {
+bool CommWaitFlag::Prepare(uint32_t groupIndex)
+{
     if (inited_[groupIndex]) {
         return true;
     }
@@ -129,7 +135,8 @@ bool CommWaitFlag::Prepare(uint32_t groupIndex) {
     return true;
 }
 
-void CommWaitFlag::EnqueueOp(uint64_t taskId, uint64_t *paramList, uint32_t paramSize) {
+void CommWaitFlag::EnqueueOp(uint64_t taskId, uint64_t *paramList, uint32_t paramSize)
+{
     if (paramSize != 0x4) {
         DEV_ERROR("CommWaitFlag EnqueueOp param size inlvaid: %u\n", paramSize);
         return;
@@ -149,7 +156,8 @@ void CommWaitFlag::EnqueueOp(uint64_t taskId, uint64_t *paramList, uint32_t para
     flagPoller_[groupIndex].EnqueueOp(taskId, rankShape, rankOffset, tileIndex);
 }
 
-void CommWaitFlag::PollCompleted(std::vector<uint64_t> &completed) {
+void CommWaitFlag::PollCompleted(std::vector<uint64_t> &completed)
+{
     for (uint32_t groupIndex = 0; groupIndex < commGroupNum_; ++groupIndex) {
         if (inited_[groupIndex]) {
             flagPoller_[groupIndex].PollCompleted(completed);
