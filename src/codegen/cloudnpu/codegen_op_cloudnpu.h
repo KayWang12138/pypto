@@ -135,18 +135,27 @@ private:
     std::string PrintDupOp(const PrintDupOpParam &param) const;
     std::string PrintDupOpDynUnaligned(const PrintDupOpParam &param) const;
     std::string PrintDupOpStatic(const PrintDupOpParam &param) const;
-
-    struct PrintRowSumLineParam {
+    
+    struct PrintUnaryParam {
         const std::string &s0Var;
         const std::string &dVar;
         const std::string &srcDtypeStr;
         const std::string &dstDtypeStr;
     };
-    std::string PrintRowSumline(const PrintRowSumLineParam &param) const;
-    std::string PrintRowSumlineDynamicUnaligned(const PrintRowSumLineParam &param) const;
-    std::string PrintRowSumlineStatic(const PrintRowSumLineParam &param) const;
+    std::string PrintRowSumline(const PrintUnaryParam &param) const;
+    std::string PrintRowSumlineDynamicUnaligned(const PrintUnaryParam &param) const;
+    std::string PrintRowSumlineStatic(const PrintUnaryParam &param) const;
 
-    struct PrintVnchwconvParam {
+    std::string PrintReduceEx(const PrintUnaryParam &param) const;
+    std::string PrintReduceExStatic(const PrintUnaryParam &param) const;
+
+    std::string PrintReduceSum(const PrintUnaryParam &param) const;
+    std::string PrintReduceSumStatic(const PrintUnaryParam &param) const;
+
+    std::string PrintVcopy(const PrintUnaryParam &param) const;
+    std::string PrintVcopyStatic(const PrintUnaryParam &param) const;
+
+    struct PrintUnaryTmpBuffParam {
         const std::string &s0Var;
         const std::string &tmpVar;
         const std::string &dVar;
@@ -154,9 +163,12 @@ private:
         const std::string &tmpDtypeStr;
         const std::string &dstDtypeStr;
     };
-    std::string PrintVnchwconv(const PrintVnchwconvParam &param) const;
-    std::string PrintVnchwconvDynUnaligned(const PrintVnchwconvParam &param) const;
-    std::string PrintVnchwconvStatic(const PrintVnchwconvParam &param) const;
+    std::string PrintVnchwconv(const PrintUnaryTmpBuffParam &param) const;
+    std::string PrintVnchwconvDynUnaligned(const PrintUnaryTmpBuffParam &param) const;
+    std::string PrintVnchwconvStatic(const PrintUnaryTmpBuffParam &param) const;
+
+    std::string PrintCompact(const PrintUnaryTmpBuffParam &param) const;
+    std::string PrintCompactStatic(const PrintUnaryTmpBuffParam &param) const;
 
     struct PrintMemCopyWithL0CParam {
         unsigned uf;
@@ -222,12 +234,6 @@ private:
     std::string PrintBinaryScalarDynamicUnaligned(const PrintBinaryScalarParam &param) const;
     std::string PrintBinaryScalarStatic(const PrintBinaryScalarParam &param) const;
 
-    struct PrintUnaryParam {
-        const std::string &s0Var;
-        const std::string &dVar;
-        const std::string &srcDtypeStr;
-        const std::string &dstDtypeStr;
-    };
     std::string PrintUnary(const PrintUnaryParam &param) const;
     std::string PrintUnaryDynamicUnaligned(const PrintUnaryParam &param) const;
     std::string PrintUnaryStatic(const PrintUnaryParam &param) const;
@@ -312,15 +318,6 @@ private:
     std::string PrintExpand(const std::string &s0Var, const std::string &dVar, const std::string &srcDtypeStr,
         const std::string &dstDtypeStr) const;
 
-    struct PrintReduceLastAxisParam {
-        const std::string &s0Var;
-        const std::string &tmpVar;
-        const std::string &dVar;
-        const std::string &srcDtypeStr;
-        const std::string &tmpDtypeStr;
-        const std::string &dstDtypeStr;
-    };
-
     struct DynamicParamPack {
         std::vector<std::string> gmShapeExpr;
         std::vector<std::string> gmOffsetExpr;
@@ -330,7 +327,7 @@ private:
     DynamicParamPack PrepareDynamicShapeInfo(
         int dynShapeIdx, int ShapeDim = SHAPE_DIM4, bool gmOffsetCond = true) const;
 
-    std::string PrintReduceLastAxis(const PrintReduceLastAxisParam &param) const;
+    std::string PrintReduceLastAxis(const PrintUnaryTmpBuffParam &param) const;
 
     const std::unordered_map<Opcode, std::function<std::string()>> opsGenMap_ = {
         // UB <-> GM

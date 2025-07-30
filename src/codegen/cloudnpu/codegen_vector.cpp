@@ -154,7 +154,7 @@ std::string CodeGenOpCloudNPU::GenDupOp() const {
     return PrintDupOp({dVar, dstDtypeStr, dupV});
 }
 
-std::string CodeGenOpCloudNPU::PrintRowSumlineStatic(const PrintRowSumLineParam &param) const {
+std::string CodeGenOpCloudNPU::PrintRowSumlineStatic(const PrintUnaryParam &param) const {
     int reduceAxis{-1};
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
     if (axis.HasValue()) {
@@ -196,7 +196,7 @@ std::string CodeGenOpCloudNPU::PrintRowSumlineStatic(const PrintRowSumLineParam 
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintRowSumlineDynamicUnaligned(const PrintRowSumLineParam &param) const {
+std::string CodeGenOpCloudNPU::PrintRowSumlineDynamicUnaligned(const PrintUnaryParam &param) const {
     int reduceAxis{-1};
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
     if (axis.HasValue()) {
@@ -243,11 +243,100 @@ std::string CodeGenOpCloudNPU::PrintRowSumlineDynamicUnaligned(const PrintRowSum
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintRowSumline(const PrintRowSumLineParam &param) const {
+std::string CodeGenOpCloudNPU::PrintRowSumline(const PrintUnaryParam &param) const {
     if (isSupportDynamicUnaligned) {
         return PrintRowSumlineDynamicUnaligned(param);
     }
     return PrintRowSumlineStatic(param);
+}
+
+std::string CodeGenOpCloudNPU::PrintReduceExStatic(const PrintUnaryParam &param) const {
+    const std::string &dstDtypeStr = param.dstDtypeStr;
+    const std::string &srcDtypeStr = param.srcDtypeStr;
+    const std::string &dVar = param.dVar;
+    const std::string &s0Var = param.s0Var;
+    std::vector<int> oriShape = NormalizeShape(originShape[1], SHAPE_DIM4);
+    std::vector<int> dstRawShape = NormalizeShape(rawShape[0], SHAPE_DIM4);
+    std::ostringstream oss;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(dstDtypeStr);
+    for (int i = 0; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(dstRawShape[i]));
+    }
+    for (int i = 2; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(oriShape[i]));
+    }
+    std::string templateParam = JoinString(paramList, ", ");
+    paramList.clear();
+    std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
+    std::string src0 = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
+    paramList.insert(paramList.end(), {dst, src0});
+    std::string tiloOpCallParam = JoinString(paramList, ", ");
+    oss << tileOpName.c_str() << "<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintReduceEx(const PrintUnaryParam &param) const {
+    return PrintReduceExStatic(param);
+}
+
+std::string CodeGenOpCloudNPU::PrintReduceSumStatic(const PrintUnaryParam &param) const {
+    const std::string &dstDtypeStr = param.dstDtypeStr;
+    const std::string &srcDtypeStr = param.srcDtypeStr;
+    const std::string &dVar = param.dVar;
+    const std::string &s0Var = param.s0Var;
+    std::vector<int> dstRawShape = NormalizeShape(rawShape[0], SHAPE_DIM4);
+    std::ostringstream oss;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(dstDtypeStr);
+    for (int i = 0; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(dstRawShape[i]));
+    }
+    std::string templateParam = JoinString(paramList, ", ");
+    paramList.clear();
+    std::string dst0 = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
+    std::string src0 = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
+    paramList.insert(paramList.end(), {dst0, src0});
+    std::string tiloOpCallParam = JoinString(paramList, ", ");
+    oss << tileOpName.c_str() << "<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintReduceSum(const PrintUnaryParam &param) const {
+    return PrintReduceSumStatic(param);
+}
+
+std::string CodeGenOpCloudNPU::PrintVcopyStatic(const PrintUnaryParam &param) const {
+    const std::string &dstDtypeStr = param.dstDtypeStr;
+    const std::string &srcDtypeStr = param.srcDtypeStr;
+    const std::string &dVar = param.dVar;
+    const std::string &s0Var = param.s0Var;
+    std::vector<int> dstRawShape = NormalizeShape(rawShape[0], SHAPE_DIM4);
+    std::vector<int> srcRawShape = NormalizeShape(rawShape[1], SHAPE_DIM4);
+    std::ostringstream os;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(dstDtypeStr);
+    for (int i = 0; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(dstRawShape[i]));
+    }
+    for (int i = 2; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(dstRawShape[i]));
+    }
+    for (int i = 2; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(srcRawShape[i]));
+    }
+    std::string templateParam = JoinString(paramList, ", ");
+    paramList.clear();
+    std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
+    std::string src0 = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
+    paramList.insert(paramList.end(), {dst, src0});
+    std::string tiloOpCallParam = JoinString(paramList, ", ");
+    os << tileOpName.c_str() << "<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+    return os.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintVcopy(const PrintUnaryParam &param) const {
+    return PrintVcopyStatic(param);
 }
 
 std::string CodeGenOpCloudNPU::PrintUnaryDynamicUnaligned(const PrintUnaryParam &param) const {
@@ -360,28 +449,6 @@ std::string CodeGenOpCloudNPU::GenUnaryOp() const {
     auto kDst = CreateAllocKey(operandWithMagic[ID0]);
     std::string dVar = sm->QueryVariableName(kDst);
 
-    std::vector<int> srcShape = this->rawShape[1];
-    ALOG_INFO_F("GenUnaryOp: srcShape is %s", IntVecToStr(srcShape).c_str());
-
-    std::vector<int> dstShape = this->rawShape[0];
-    ALOG_INFO_F("GenUnaryOp: dstShape is %s", IntVecToStr(dstShape).c_str());
-
-    unsigned tShape0 = std::min(dstShape[0], shape[0][0]);
-    unsigned tShape1 = std::min(dstShape[1], shape[0][1]);
-
-    unsigned tShape2{1};
-    if (shape[0].size() >= SHAPE_DIM3) {
-        tShape2 = std::min(dstShape[2], shape[0][2]);
-    }
-    unsigned tShape3{1};
-    if (shape[0].size() >= SHAPE_DIM4) {
-        tShape3 = std::min(dstShape[3], shape[0][3]);
-    }
-    unsigned tShape4{1};
-    if (shape[0].size() >= SHAPE_DIM5) {
-        tShape4 = std::min(dstShape[4], shape[0][4]);
-    }
-
     AppendLocalBufferVarOffset({&dVar, &s0Var}, {0, 1});
 
     std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID1]);
@@ -391,54 +458,22 @@ std::string CodeGenOpCloudNPU::GenUnaryOp() const {
         dstDtypeStr = GetTypeForB16B32(operandDtype[ID0]);
     }
 
-    char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
-    int ret = 0;
     if (opCode == Opcode::OP_EXPAND) {
         return PrintExpand(s0Var, dVar, srcDtypeStr, dstDtypeStr);
     } else if (opCode == Opcode::OP_ROWMAX || opCode == Opcode::OP_ROWEXPMAX || opCode == Opcode::OP_ROWEXPSUM) {
-        const std::vector<int> &oriSrcShape = originShape[1];
-        if (shape[0].size() == SHAPE_DIM2) {
-            ret = sprintf_s(buffer, sizeof(buffer), "%s<%s, %u, %u, %d, %d>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s);\n",
-                tileOpName.c_str(), dstDtypeStr.c_str(), tShape0, tShape1, oriSrcShape[0], oriSrcShape[1],
-                dstDtypeStr.c_str(), dVar.c_str(), srcDtypeStr.c_str(), s0Var.c_str());
-        } else if (shape[0].size() == SHAPE_DIM4) {
-            ret = sprintf_s(buffer, sizeof(buffer),
-                "%s<%s, %u, %u, %u, %u, %d, %d>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s);\n", tileOpName.c_str(),
-                dstDtypeStr.c_str(), tShape0, tShape1, tShape2, tShape3, oriSrcShape[2], oriSrcShape[3],
-                dstDtypeStr.c_str(), dVar.c_str(), srcDtypeStr.c_str(), s0Var.c_str());
-        }
+        return PrintReduceEx({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     } else if (opCode == Opcode::OP_ROWSUMLINE) {
         return PrintRowSumline({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     } else if (opCode == Opcode::OP_EXP || opCode == Opcode::OP_SQRT || opCode == Opcode::OP_ABS ||
                opCode == Opcode::OP_RECIPROCAL) {
         return PrintUnary({s0Var, dVar, srcDtypeStr, dstDtypeStr});
-    } else {
-        if (shape[0].size() == SHAPE_DIM2) {
-            ret = sprintf_s(buffer, sizeof(buffer),
-                "%s<%s, %u, %u, %d, %d, %d, %d>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s);\n", tileOpName.c_str(),
-                dstDtypeStr.c_str(), tShape0, tShape1, dstShape[0], dstShape[1], srcShape[0], srcShape[1],
-                dstDtypeStr.c_str(), dVar.c_str(), srcDtypeStr.c_str(), s0Var.c_str());
-        } else if (shape[0].size() == SHAPE_DIM3) {
-            ret = sprintf_s(buffer, sizeof(buffer),
-                "%s<%s, %u, %u, %u, %d, %d, %d, %d>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s);\n", tileOpName.c_str(),
-                dstDtypeStr.c_str(), tShape0, tShape1, tShape2, dstShape[1], dstShape[2], srcShape[1], srcShape[2],
-                dstDtypeStr.c_str(), dVar.c_str(), srcDtypeStr.c_str(), s0Var.c_str());
-        } else if (shape[0].size() == SHAPE_DIM4) {
-            ret = sprintf_s(buffer, sizeof(buffer),
-                "%s<%s, %u, %u, %u, %u, %d, %d, %d, %d>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s);\n", tileOpName.c_str(),
-                dstDtypeStr.c_str(), tShape0, tShape1, tShape2, tShape3, dstShape[2], dstShape[3], srcShape[2],
-                srcShape[3], dstDtypeStr.c_str(), dVar.c_str(), srcDtypeStr.c_str(), s0Var.c_str());
-        } else if (shape[0].size() == SHAPE_DIM5) {
-            ret = sprintf_s(buffer, sizeof(buffer),
-                "%s<%s, %u, %u, %u, %u, %u, %d, %d, %d, %d, %d, %d, %d, %d>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s);\n",
-                tileOpName.c_str(), dstDtypeStr.c_str(), tShape0, tShape1, tShape2, tShape3, tShape4, dstShape[1],
-                dstShape[2], dstShape[3], dstShape[4], srcShape[1], srcShape[2], srcShape[3], srcShape[4],
-                dstDtypeStr.c_str(), dVar.c_str(), srcDtypeStr.c_str(), s0Var.c_str());
-        }
+    } else if (opCode == Opcode::OP_COPY_UB_TO_UB) {
+        return PrintVcopy({s0Var, dVar, srcDtypeStr, dstDtypeStr});
+    } else if (opCode == Opcode::OP_ROWSUM) {
+        return PrintReduceSum({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     }
-
-    ASSERT(ret >= 0) << "GenUnaryOp" << OpcodeManager::Inst().GetOpcodeStr(opCode) << " sprintf_s failed " << ret;
-    return buffer;
+    ALOG_INFO_F("unsupported tileop");
+    return "CG_ERROR";
 }
 
 std::string CodeGenOpCloudNPU::PrintExpand(const std::string &s0Var, const std::string &dVar,
@@ -637,7 +672,7 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveDynamicUnaligned(const Prin
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintVnchwconvStatic(const PrintVnchwconvParam &param) const {
+std::string CodeGenOpCloudNPU::PrintVnchwconvStatic(const PrintUnaryTmpBuffParam &param) const {
     const std::string &s0Var = param.s0Var;
     const std::string &tmpVar = param.tmpVar;
     const std::string &dVar = param.dVar;
@@ -673,7 +708,7 @@ std::string CodeGenOpCloudNPU::PrintVnchwconvStatic(const PrintVnchwconvParam &p
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintVnchwconvDynUnaligned(const PrintVnchwconvParam &param) const {
+std::string CodeGenOpCloudNPU::PrintVnchwconvDynUnaligned(const PrintUnaryTmpBuffParam &param) const {
     const std::string &s0Var = param.s0Var;
     const std::string &tmpVar = param.tmpVar;
     const std::string &dVar = param.dVar;
@@ -711,11 +746,46 @@ std::string CodeGenOpCloudNPU::PrintVnchwconvDynUnaligned(const PrintVnchwconvPa
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintVnchwconv(const PrintVnchwconvParam &param) const {
+std::string CodeGenOpCloudNPU::PrintVnchwconv(const PrintUnaryTmpBuffParam &param) const {
     if (isSupportDynamicUnaligned) {
         return PrintVnchwconvDynUnaligned(param);
     }
     return PrintVnchwconvStatic(param);
+}
+
+std::string CodeGenOpCloudNPU::PrintCompactStatic(const PrintUnaryTmpBuffParam &param) const {
+    const std::string &s0Var = param.s0Var;
+    const std::string &tmpVar = param.tmpVar;
+    const std::string &dVar = param.dVar;
+    const std::string &srcDtypeStr = param.srcDtypeStr;
+    const std::string &tmpDtypeStr = param.tmpDtypeStr;
+    const std::string &dstDtypeStr = param.dstDtypeStr;
+    std::vector<int> srcRawShape = NormalizeShape(rawShape[2], SHAPE_DIM4);
+    std::vector<int> dstRawShape = NormalizeShape(rawShape[0], SHAPE_DIM4);
+    std::ostringstream oss;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(dstDtypeStr);
+    for (int i = 0; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(dstRawShape[i]));
+    }
+    for (int i = 0; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(srcRawShape[i]));
+    }
+    std::string templateParam = JoinString(paramList, ", ");
+    paramList.clear();
+
+    std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
+    std::string src = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
+    std::string tmp = "(__ubuf__ " + tmpDtypeStr + "*)" + tmpVar;
+    paramList.insert(paramList.end(), {dst, src, tmp});
+
+    std::string tiloOpCallParam = JoinString(paramList, ", ");
+    oss << tileOpName.c_str() << "<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintCompact(const PrintUnaryTmpBuffParam &param) const {
+    return PrintCompactStatic(param);
 }
 
 std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
@@ -732,27 +802,6 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
 
     std::vector dstShape = this->rawShape[0];
     ALOG_INFO_F("GenUnaryOpWithTmpBuff %s dst raw shape: %s", tileOpName.c_str(), IntVecToStr(dstShape).c_str());
-
-    unsigned tShape0 = std::min(dstShape[0], shape[0][0]);
-    unsigned tShape1 = std::min(dstShape[1], shape[0][1]);
-    unsigned srcShape0 = std::min(srcShape[0], shape[2][0]);
-    unsigned srcShape1 = std::min(srcShape[1], shape[2][1]);
-    unsigned tShape2{1};
-    unsigned srcShape2{1};
-    if (shape[0].size() >= SHAPE_DIM3) {
-        tShape2 = std::min(dstShape[2], shape[0][2]);
-        srcShape2 = std::min(srcShape[2], shape[2][2]);
-    }
-    unsigned tShape3{1};
-    unsigned srcShape3{1};
-    if (shape[0].size() >= SHAPE_DIM4) {
-        tShape3 = std::min(dstShape[3], shape[0][3]);
-        srcShape3 = std::min(srcShape[3], shape[2][3]);
-    }
-    unsigned srcShape4{1};
-    if (shape[0].size() >= SHAPE_DIM5) {
-        srcShape4 = std::min(srcShape[4], shape[2][4]);
-    }
 
     std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID2]);
     std::string tmpDtypeStr = DataType2CCEStr(operandDtype[ID1]);
@@ -787,37 +836,15 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
         return std::string(buffer);
     }
 
-    if (shape[0].size() == SHAPE_DIM2) {
-        ret = sprintf_s(buffer, sizeof(buffer),
-            "%s<%s, %u, %u, %u, %u %s>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s, (__ubuf__ %s *)%s);\n", tileOpName.c_str(),
-            dstDtypeStr.c_str(), tShape0, tShape1, srcShape0, srcShape1, GenOpAttr().c_str(), dstDtypeStr.c_str(),
-            dVar.c_str(), srcDtypeStr.c_str(), s0Var.c_str(), tmpDtypeStr.c_str(), tmpVar.c_str());
-    } else if (shape[0].size() == SHAPE_DIM3) {
-        ret = sprintf_s(buffer, sizeof(buffer),
-            "%s<%s, %u, %u, %u, %u, %u, %u %s>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s, (__ubuf__ %s *)%s);\n",
-            tileOpName.c_str(), dstDtypeStr.c_str(), tShape0, tShape1, tShape2, srcShape0, srcShape1, srcShape2,
-            GenOpAttr().c_str(), dstDtypeStr.c_str(), dVar.c_str(), srcDtypeStr.c_str(), s0Var.c_str(),
-            tmpDtypeStr.c_str(), tmpVar.c_str());
-    } else if (shape[0].size() == SHAPE_DIM4) {
-        ret = sprintf_s(buffer, sizeof(buffer),
-            "%s<%s, %u, %u, %u, %u, %u, %u, %u, %u %s>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s, (__ubuf__ %s *)%s);\n",
-            tileOpName.c_str(), dstDtypeStr.c_str(), tShape0, tShape1, tShape2, tShape3, srcShape0, srcShape1,
-            srcShape2, srcShape3, GenOpAttr().c_str(), dstDtypeStr.c_str(), dVar.c_str(), srcDtypeStr.c_str(),
-            s0Var.c_str(), tmpDtypeStr.c_str(), tmpVar.c_str());
-    } else if (shape[0].size() == SHAPE_DIM5) {
-        ret = sprintf_s(buffer, sizeof(buffer),
-            "%s<%s, %u, %u, %u, %u, %u, %d, %d, %d, %d, %d %s>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s, "
-            "(__ubuf__ %s *)%s);\n",
-            tileOpName.c_str(), dstDtypeStr.c_str(), srcShape0, srcShape1, srcShape2, srcShape3, srcShape4, dstShape[0],
-            dstShape[1], dstShape[2], dstShape[3], dstShape[4], GenOpAttr().c_str(), dstDtypeStr.c_str(), dVar.c_str(),
-            srcDtypeStr.c_str(), s0Var.c_str(), tmpDtypeStr.c_str(), tmpVar.c_str());
+    if (opCode == Opcode::OP_COMPACT) {
+        return PrintCompact({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
-    ASSERT(ret >= 0) << "genUnaryOpWithTmpBuff sprintf_s failed ";
+
     std::string ostring(buffer);
     return ostring;
 }
 
-std::string CodeGenOpCloudNPU::PrintReduceLastAxis(const PrintReduceLastAxisParam &param) const {
+std::string CodeGenOpCloudNPU::PrintReduceLastAxis(const PrintUnaryTmpBuffParam &param) const {
     const std::string &s0Var = param.s0Var;
     const std::string &tmpVar = param.tmpVar;
     const std::string &dVar = param.dVar;
