@@ -7,7 +7,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
-if (BUILD_OPEN_PROJECT OR ENABLE_BUILD_HOST)
+if (BUILD_OPEN_PROJECT OR ENABLE_BUILD_BINARY)
     include(cmake/function.cmake)
     include(cmake/intf_pub.cmake)
 endif()
