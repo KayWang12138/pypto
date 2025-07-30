@@ -130,7 +130,6 @@ void FindFirstQualifiedCopyIn(Function *leafFunc, Operation *op,
     auto &out = outWspInfo.tensor;
     while (!parents.empty()) {
         auto &parent = parents.front();
-        parents.pop_front();
         for (auto &in : parent->GetIOperands()) {
             for (auto &producerOfParent : in->GetProducers()) {
                 if (OpcodeManager::Inst().IsCopyIn(producerOfParent->GetOpcode())) {
@@ -156,6 +155,7 @@ void FindFirstQualifiedCopyIn(Function *leafFunc, Operation *op,
                 }
             }
         }
+        parents.pop_front();
     }
 }
 
