@@ -58,12 +58,22 @@ def softmax(x):
     return ans, x_sum
 
 
-def win_attn_calc(b, s_q, n_kv, actual_seq_len, q_bsnd, n_q, d_q, win, k_bsnd, d_k, v_bsnd, d_v, dtypes, scalar, atten_out):
+def win_attn_calc(input_params_win_attn, actual_seq_list, q_bsnd, k_bsnd, v_bsnd, dtypes, atten_out):
+    b = input_params_win_attn[0]
+    s_q = input_params_win_attn[1]
+    n_kv = input_params_win_attn[2]
+    n_q = input_params_win_attn[3]
+    d_q = input_params_win_attn[4]
+    win = input_params_win_attn[5]
+    d_k = input_params_win_attn[6]
+    d_v = input_params_win_attn[7]
+    scalar = input_params_win_attn[8]
+
     for b_index in range(b):
         for s1_index in range(s_q):
             for n_kv_index in range(n_kv):
                 # for g_index in range(g_tile):
-                act_seq = actual_seq_len[b_index]
+                act_seq = actual_seq_list[b_index]
 
                 q_tensor_cur = q_bsnd[b_index:(b_index + 1), s1_index:(s1_index + 1), :, :].reshape(n_q, d_q)
 
@@ -80,7 +90,7 @@ def win_attn_calc(b, s_q, n_kv, actual_seq_len, q_bsnd, n_q, d_q, win, k_bsnd, d
                 softmax_out = softmax_res / softmax_sum
                 mm2_res = np.matmul(softmax_out.astype(dtypes), v_cur.astype(dtypes))
                 atten_out[b_index:(b_index + 1), s1_index:(s1_index + 1), :, :] = mm2_res
-
+    atten_out = atten_out.astype(np.float32)
     return atten_out
 
 
@@ -95,7 +105,7 @@ def gen_win_attn_data(win, b, s_q, n_q, skv, block_size, n_kv, dtypes, output):
     k_cache_rope_path = Path(output, 'k_cache_rope.bin')
 
     block_table_path = Path(output, 'block_table.bin')
-    actual_seq_len_path = Path(output, 'actual_seq_len.bin')
+    actual_seq_len_path = Path(output, 'actual_seq_list.bin')
     attent_out_path = Path(output, 'atten_out.bin')
     input_param_path = Path(output, 'input_param.bin')
 
@@ -110,19 +120,19 @@ def gen_win_attn_data(win, b, s_q, n_q, skv, block_size, n_kv, dtypes, output):
     scalar = d_q ** -0.5
 
     if isinstance(skv, int):
-        actual_seq_len = [skv] * b
+        actual_seq_list = [skv] * b
     elif isinstance(skv, list):
         if len(skv) == b:
-            actual_seq_len = skv
+            actual_seq_list = skv
         else:
             raise RuntimeError("unsupported skv list length")
     else:
         raise RuntimeError("unsupported skv data type")
 
-    s_max = max(actual_seq_len)
+    skv_max = max(actual_seq_list)
 
     shape_q = [b * s_q * n_q, d_q]
-    shape_k = [b, s_max, n_kv, d_k]
+    shape_k = [b, skv_max, n_kv, d_k]
 
     atten_out_shape = [b, s_q, n_q, d_v]
 
@@ -136,7 +146,7 @@ def gen_win_attn_data(win, b, s_q, n_q, skv, block_size, n_kv, dtypes, output):
     k_bsnd = gen_uniform_data(shape_k, -1, 1, dtypes)
     v_bsnd = k_bsnd[:, :, :, : kv_lora_rank]
 
-    for actual_seq in actual_seq_len:
+    for actual_seq in actual_seq_list:
         block_num_per_batch.append(math.ceil(actual_seq / block_size))
         block_num_min += math.ceil(actual_seq / block_size)
 
@@ -146,8 +156,8 @@ def gen_win_attn_data(win, b, s_q, n_q, skv, block_size, n_kv, dtypes, output):
     # 3、生成kv cache
     # 4、将kv cache dump成新的bin文件，供aclnn接口调用
 
-    # gen block table [b, s_max/block_size]
-    block_table_shape = [b, math.ceil(s_max / block_size)]
+    # gen block table [b, skv_max/block_size]
+    block_table_shape = [b, math.ceil(skv_max / block_size)]
     block_num = block_num_min
 
     block_idx_list = np.arange(0, block_num, 1).astype(np.int32)
@@ -189,16 +199,15 @@ def gen_win_attn_data(win, b, s_q, n_q, skv, block_size, n_kv, dtypes, output):
                                                             b_idx, block_offset:(block_offset + block_size), :, :]
 
     atten_out = np.zeros(atten_out_shape, dtype=np.float32)
-
-    atten_out = win_attn_calc(b, s_q, n_kv, actual_seq_len, q_bsnd, n_q, d_q, win, k_bsnd, d_k,
-        v_bsnd, d_v, dtypes, scalar, atten_out)
+    input_params_win_attn = [b, s_q, n_kv, n_q, d_q, win, d_k, d_v, scalar]
+    atten_out = win_attn_calc(input_params_win_attn, actual_seq_list, q_bsnd, k_bsnd, v_bsnd, dtypes, atten_out)
 
     q_nope = q[:, : kv_lora_rank]
     q_rope = q[:, kv_lora_rank:]
 
     k_cache_nope = k_cache[:, :, :, : kv_lora_rank]
     k_cache_rope = k_cache[:, :, :, kv_lora_rank:]
-    input_params = [b, s_q, n_q, n_kv, s_max, kv_lora_rank, qk_rope_dim, block_size, win]
+    input_params = [b, s_q, n_q, n_kv, skv_max, kv_lora_rank, qk_rope_dim, block_size, win]
 
 
     # dump golden file
@@ -208,7 +217,7 @@ def gen_win_attn_data(win, b, s_q, n_q, skv, block_size, n_kv, dtypes, output):
     dump_file(k_cache_rope, k_cache_rope_path, dtypes)
 
     dump_file(block_table, block_table_path, np.int32)
-    dump_file(actual_seq_len, actual_seq_len_path, np.int32)
+    dump_file(actual_seq_list, actual_seq_len_path, np.int32)
     dump_file(atten_out, attent_out_path, np.float32)
     dump_file(input_params, input_param_path, np.int32)
     return 0
@@ -233,7 +242,7 @@ def win_attn_func(case_name: str, output: Path) -> bool:
     k_cache_rope_path = Path(output, 'k_cache_rope.bin')
 
     block_table_path = Path(output, 'block_table.bin')
-    actual_seq_len_path = Path(output, 'actual_seq_len.bin')
+    actual_seq_len_path = Path(output, 'actual_seq_list.bin')
     attent_out_path = Path(output, 'atten_out.bin')
     input_param_path = Path(output, 'input_param.bin')
 

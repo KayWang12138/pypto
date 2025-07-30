@@ -30,7 +30,7 @@ using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
 
-void WinAttentionCompute(Tensor &qNope, Tensor &vNopeCache, Tensor &qRope, Tensor &kRopeCache, int nQ, int nKv,
+void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &qRope, Tensor &kRopeCache, int nQ, int nKv,
     Tensor &blockTable, Tensor &actSeqs, int windowSize, int blockSize, float softmaxScale, Tensor &attentionOut,
     WinAttenTileShapeConfig &tileConfig) {
     auto dtype = qNope->Datatype();
@@ -154,7 +154,7 @@ void WinAttentionCompute(Tensor &qNope, Tensor &vNopeCache, Tensor &qRope, Tenso
     }
 }
 
-void WinAttention(Tensor &qNope, Tensor &vNopeCache, Tensor &qRope, Tensor &kRopeCache, int nQ, int nKv,
+void WinAttention(const Tensor &qNope, Tensor &vNopeCache, const Tensor &qRope, Tensor &kRopeCache, int nQ, int nKv,
     Tensor &blockTable, Tensor &actSeqs, int windowSize, int blockSize, float softmaxScale, Tensor &attentionOut,
     WinAttenTileShapeConfig &tileConfig) {
     FUNCTION("main", FunctionType::DYNAMIC,

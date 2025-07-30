@@ -28,6 +28,14 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class DynamicWinAttenTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
+constexpr int NUM_2 = 2;
+constexpr int NUM_16 = 16;
+constexpr int NUM_64 = 64;
+constexpr int NUM_128 = 128;
+constexpr int NUM_256 = 256;
+constexpr int NUM_512 = 512;
+constexpr int NUM_1024 = 1024;
+
 template <typename T = npu::tile_fwk::float16>
 void TestWinAtten(WinAttenTileShapeConfig& tileConfig) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
@@ -90,7 +98,7 @@ void TestWinAtten(WinAttenTileShapeConfig& tileConfig) {
     std::vector<T> kRopeCacheData(kRopeCacheSize, 0);
     std::vector<int> blockTableData(blockTableSize, 0);
 
-    readInput<int>(GetGoldenDir() + "/actual_seq_len.bin", seq);
+    readInput<int>(GetGoldenDir() + "/actual_seq_list.bin", seq);
     readInput<T>(GetGoldenDir() + "/q_nope.bin", qNopeData);
     readInput<T>(GetGoldenDir() + "/q_rope.bin", qRopeData);
     readInput<T>(GetGoldenDir() + "/k_cache_nope.bin", vNopeCacheData);

@@ -70,15 +70,15 @@ def gated_score_mlp_standard(x, w_1, w_2, output: Path):
     mm1_sigmoid = sigmoid(mm1)
     mm2 = np.matmul(mm1_sigmoid, w_2)
     gating_score = mm2.reshape(b, s, 3, n)
- 
+
     # x.astype(np.float16).tofile(x_path)
     w_1.astype(np.float16).tofile(w1_path)
     w_2.astype(np.float16).tofile(w2_path)
     gating_score.astype(np.float16).tofile(score_path)
- 
+
     return gating_score, mm1_sigmoid, mm2
- 
- 
+
+
 def gated_score_mlp_simple(x, w_1, output: Path):
     b, s, h = x.shape
     _, n_heads = w_1.shape
@@ -87,16 +87,16 @@ def gated_score_mlp_simple(x, w_1, output: Path):
     mm1 = np.matmul(x_2d, w_1)
     mm1_sigmoid = sigmoid(mm1)
     gating_score = mm1_sigmoid.reshape(b, s, n, 3)
- 
+
     return gating_score
- 
- 
+
+
 def gen_gated_score(x, gate_sim_w1, gate_w1, gate_w2, output: Path, mode='standard'):
     if mode == 'standard':
         gating_score, mm1, mm2 = gated_score_mlp_standard(x, gate_w1, gate_w2, output)
     else:
         gating_score = gated_score_mlp_simple(x, gate_sim_w1, output)
- 
+
     gating_score = gating_score.transpose((0, 1, 3, 2))
     return gating_score, mm1, mm2
 

@@ -23,14 +23,6 @@
 
 namespace npu::tile_fwk {
 
-constexpr int NUM_2 = 2;
-constexpr int NUM_16 = 16;
-constexpr int NUM_64 = 64;
-constexpr int NUM_128 = 128;
-constexpr int NUM_256 = 256;
-constexpr int NUM_512 = 512;
-constexpr int NUM_1024 = 1024;
-
 struct WinAttenTileShapeConfig {
     int gTile; // 由于没有处理尾块，当前仅支持因子切分
     std::array<int, TILE_VEC_DIMS> vNopeTileShape; // nope tileshape
@@ -42,11 +34,11 @@ struct WinAttenTileShapeConfig {
     std::array<int, TILE_VEC_DIMS> outTileShape; // 4-Dim output tile
 };
 
-void WinAttentionCompute(Tensor &qNope, Tensor &vNopeCache, Tensor &qRope, Tensor &kRopeCache, int nQ, int nKv,
+void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &qRope, Tensor &kRopeCache, int nQ, int nKv,
     Tensor &blockTable, Tensor &actSeqs, int windowSize, int blockSize, float softmaxScale, Tensor &attentionOut,
     WinAttenTileShapeConfig &tileConfig);
 
-void WinAttention(Tensor &qNope, Tensor &vNopeCache, Tensor &qRope, Tensor &kRopeCache, int nQ, int nKv,
+void WinAttention(const Tensor &qNope, Tensor &vNopeCache, const Tensor &qRope, Tensor &kRopeCache, int nQ, int nKv,
     Tensor &blockTable, Tensor &actSeqs, int windowSize, int blockSize, float softmaxScale, Tensor &attentionOut,
     WinAttenTileShapeConfig &tileConfig);
 

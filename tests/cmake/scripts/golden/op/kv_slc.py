@@ -204,7 +204,7 @@ def gen_i_o_tensor(input_param, s_slc, s2, dtype, output: Path):
     for batchIdx in range(b):
         for seqIdx in range(s):
             topk_tensor_shape[batchIdx][seqIdx] = s_slc
-            
+
     kvNopeCache = gen_uniform_data(shape_kvNopeCache, -1, 1, dtype)
     krCache = gen_uniform_data(shape_krCache, -1, 1, dtype)
 

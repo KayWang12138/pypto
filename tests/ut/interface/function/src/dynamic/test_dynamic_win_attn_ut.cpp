@@ -42,6 +42,14 @@ public:
     void TearDown() override {}
 };
 
+constexpr int NUM_2 = 2;
+constexpr int NUM_16 = 16;
+constexpr int NUM_64 = 64;
+constexpr int NUM_128 = 128;
+constexpr int NUM_256 = 256;
+constexpr int NUM_512 = 512;
+constexpr int NUM_1024 = 1024;
+
 template <typename T = npu::tile_fwk::float16>
 void TestWinAttenUt(WinAttenTileShapeConfig& tileConfig) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
