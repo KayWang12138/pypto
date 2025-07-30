@@ -86,12 +86,12 @@ TEST_F(SlabWsAllocatorTest, StageAllocationTracking) {
     (void)allocator.Alloc(0);
     (void)allocator.Alloc(0);
     (void)allocator.Alloc(1);
-    
-    auto allocInfo = allocator.PopStageAllocMem();
-    
+
+    auto allocInfo = allocator.PopStageAllocMem(false, 0);
+
     void* cache0_head = allocInfo.heads[0];
     EXPECT_NE(cache0_head, nullptr);
-    
+
     void* current = cache0_head;
     int count = 0;
     while (current) {
@@ -99,10 +99,43 @@ TEST_F(SlabWsAllocatorTest, StageAllocationTracking) {
         current = *static_cast<void**>(current);
     }
     EXPECT_EQ(count, 2);
-    
+
     void* cache1_head = allocInfo.heads[1];
     EXPECT_NE(cache1_head, nullptr);
     EXPECT_EQ(*static_cast<void**>(cache1_head), nullptr);
+
+    (void)allocator.Alloc(0);
+    (void)allocator.Alloc(0);
+    void* tailalloc = allocator.Alloc(0);
+    (void)allocator.Alloc(1);
+
+    allocInfo = allocator.PopStageAllocMem(true, 0);
+    cache0_head = allocInfo.heads[0];
+    EXPECT_NE(cache0_head, nullptr);
+
+    current = cache0_head;
+    count = 0;
+    while (current) {
+        count++;
+        current = *static_cast<void**>(current);
+    }
+    EXPECT_EQ(count, 2);
+    cache1_head = allocInfo.heads[1];
+    EXPECT_NE(cache1_head, nullptr);
+    EXPECT_EQ(*static_cast<void**>(cache1_head), nullptr);
+
+    allocInfo = allocator.PopStageAllocMem(true, 0);
+    EXPECT_EQ(allocInfo.heads[0], nullptr);
+    EXPECT_EQ(allocInfo.tails[0], nullptr);
+
+    uint32_t offset = 8;
+    allocInfo = allocator.PopStageAllocMem(false, 0);
+    EXPECT_EQ(allocInfo.heads[0], (uint8_t*)tailalloc - offset);
+    EXPECT_EQ(allocInfo.tails[0],  (uint8_t*)tailalloc - offset);
+
+    allocInfo = allocator.PopStageAllocMem(false, 0);
+    EXPECT_EQ(allocInfo.heads[0], nullptr);
+    EXPECT_EQ(allocInfo.tails[0], nullptr);
 }
 
 TEST_F(SlabWsAllocatorTest, BatchFreeing) {
@@ -110,13 +143,13 @@ TEST_F(SlabWsAllocatorTest, BatchFreeing) {
     
     void* obj1 = allocator.Alloc(0);
     void* obj2 = allocator.Alloc(0);
-    auto allocInfo1 = allocator.PopStageAllocMem();
+    auto allocInfo1 = allocator.PopStageAllocMem(false, 0);
 
     allocator.FreeStageAllocMem(allocInfo1);
 
     void* obj3 = allocator.Alloc(0);
     void* obj4 = allocator.Alloc(0);
-    (void)allocator.PopStageAllocMem();
+    (void)allocator.PopStageAllocMem(false, 0);
 
     EXPECT_EQ(obj1, obj3);
     EXPECT_EQ(obj2, obj4);
@@ -135,7 +168,7 @@ TEST_F(SlabWsAllocatorTest, MixedCacheAllocations) {
     EXPECT_NE(medium1, nullptr);
     EXPECT_NE(large1, nullptr);
     
-    auto allocInfo = allocator.PopStageAllocMem();
+    auto allocInfo = allocator.PopStageAllocMem(false, 0);
     allocator.FreeStageAllocMem(allocInfo);
     
     // Allocate again
@@ -194,7 +227,7 @@ TEST_F(SlabWsAllocatorTest, PartialBatchFreeing) {
     void* obj2 = allocator.Alloc(1);
     (void)allocator.Alloc(0);
 
-    auto allocInfo = allocator.PopStageAllocMem();
+    auto allocInfo = allocator.PopStageAllocMem(false, 0);
     allocInfo.heads[1] = nullptr;
 
     allocator.FreeStageAllocMem(allocInfo);
@@ -208,13 +241,13 @@ TEST_F(SlabWsAllocatorTest, PartialBatchFreeing) {
 
 TEST_F(SlabWsAllocatorTest, EmptyBatchFreeing) {
 
-    auto emptyInfo = allocator.PopStageAllocMem();
+    auto emptyInfo = allocator.PopStageAllocMem(false, 0);
 
     allocator.FreeStageAllocMem(emptyInfo);
 
     allocator.RegistCache(0, 64);
     void* obj = allocator.Alloc(0);
-    auto allocInfo = allocator.PopStageAllocMem();
+    auto allocInfo = allocator.PopStageAllocMem(false, 0);
     allocator.FreeStageAllocMem(allocInfo);
     
     EXPECT_NE(obj, nullptr);
@@ -235,12 +268,12 @@ TEST_F(SlabWsAllocatorTest, SlabReuseAfterFree) {
 
     void* obj1 = allocator.Alloc(0);
     void* obj2 = allocator.Alloc(0);
-    auto allocInfo1 = allocator.PopStageAllocMem();
+    auto allocInfo1 = allocator.PopStageAllocMem(false, 0);
     allocator.FreeStageAllocMem(allocInfo1);
 
     void* obj3 = allocator.Alloc(0);
     void* obj4 = allocator.Alloc(0);
-    (void)allocator.PopStageAllocMem();
+    (void)allocator.PopStageAllocMem(false, 0);
 
     EXPECT_EQ(obj1, obj3);
     EXPECT_EQ(obj2, obj4);
@@ -259,7 +292,7 @@ TEST_F(SlabWsAllocatorTest, MultipleAllocationBatches) {
             EXPECT_NE(obj, nullptr);
         }
 
-        auto allocInfo = allocator.PopStageAllocMem();
+        auto allocInfo = allocator.PopStageAllocMem(false, 0);
         allocator.FreeStageAllocMem(allocInfo);
     }
 

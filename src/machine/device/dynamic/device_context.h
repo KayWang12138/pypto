@@ -605,10 +605,9 @@ public:
         DEV_ASSERT(aicpuCoherentAllocator_.FreeMemorySize() > 0);
         uint64_t memBase = aicpuCoherentAllocator_.MemBaseAddr() + aicpuCoherentAllocator_.AllocatedSize();
         uint64_t realMemBase = AlignUp(memBase, sizeof(uint64_t));
-
-        uint32_t slabSize = CalcAicpuCoherentSlabAlloctorSlabPageSize();
-        aicpuMetaSlabAllocator_.Init(reinterpret_cast<void*>(realMemBase),
-            aicpuCoherentAllocator_.FreeMemorySize() - (realMemBase - memBase), slabSize);
+        uint32_t metaSlabMemSize = aicpuCoherentAllocator_.FreeMemorySize() - (realMemBase - memBase);
+        uint32_t slabSize = CalcAicpuMetaSlabAlloctorSlabPageSize(metaSlabMemSize);
+        aicpuMetaSlabAllocator_.Init(reinterpret_cast<void*>(realMemBase), metaSlabMemSize, slabSize);
         for (size_t i = 0; i < ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT); i++) {
             if (slabMemObjSizeFunc[i] != nullptr) {
                 DEV_ASSERT(aicpuMetaSlabAllocator_.RegistCache(i, (this->*slabMemObjSizeFunc[i])()));
@@ -635,10 +634,10 @@ public:
         return allocation;
     }
 
-    WsSlabStageAllocMem SlabGetStageAllocMem() {
+    WsSlabStageAllocMem SlabGetStageAllocMem(bool keepTail, WsAicpuSlabMemType keepType) {
         WsSlabStageAllocMem stageMem;
-        stageMem.aicpuCoherentStageMem = aicpuMetaSlabAllocator_.PopStageAllocMem();
-        stageMem.aicpuStitchStageMem = aicpuStitchSlabAllocator_.PopStageAllocMem();
+        stageMem.aicpuCoherentStageMem = aicpuMetaSlabAllocator_.PopStageAllocMem(keepTail, ToUnderlying(keepType));
+        stageMem.aicpuStitchStageMem = aicpuStitchSlabAllocator_.PopStageAllocMem(false, 0); // not support keep alloc memory
         return stageMem;
     }
 
@@ -770,10 +769,10 @@ private:
     };
 
     /* 根据当前算子的业务模型分析计算出slab 管理内存页大小, 基于当前可评估的所有内存类型的最大值评估 */
-    uint32_t CalcAicpuCoherentSlabAlloctorSlabPageSize() {
+    uint32_t CalcAicpuMetaSlabAlloctorSlabPageSize(uint32_t totalMemSize) {
         uint32_t slabSize = 0;
-        constexpr uint32_t extendAlign = 1024;
-        constexpr uint32_t allocNumOneSlab = 4;
+        constexpr uint32_t extendBuf = 1024;
+        uint32_t allocNumOneSlab = 4; // default
         for (size_t i = 0; i < ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT); i++) {
             if (slabMemObjSizeFunc[i] != nullptr) {
                 uint32_t currentSize = (this->*slabMemObjSizeFunc[i])();
@@ -782,11 +781,15 @@ private:
                 }
             }
         }
-
-        DEV_ASSERT(slabSize > 0);
-        slabSize *= allocNumOneSlab; // 保证一个slab可以支持4个最大对象的分配
-        slabSize += extendAlign; // 扩展buf,给slaballocator管理内存使用
-        return ALIGN_UP(slabSize, extendAlign);
+        slabSize += extendBuf;
+        uint32_t leastSlabReqMem = (ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT)) * slabSize;
+        DEV_ASSERT(leastSlabReqMem < totalMemSize);
+        uint32_t realMaxAllocNum = totalMemSize / leastSlabReqMem;
+        if (realMaxAllocNum < allocNumOneSlab) {
+            allocNumOneSlab = realMaxAllocNum;
+        }
+        slabSize *= allocNumOneSlab;
+        return ALIGN_UP(slabSize, sizeof(uint64_t));
     }
 
     void InitAicpuStitchSlabAllocator(void* memBase, uint32_t totalSize) {
@@ -1434,13 +1437,15 @@ struct DeviceTaskContext {
         workspace_ = &workspace;
     }
 
-    DynDeviceTask *BuildDeviceTaskData(DeviceStitchContext &stitchContext, DevAscendProgram *devProg) {
+    DynDeviceTask *BuildDeviceTaskData(DeviceStitchContext &stitchContext, DevAscendProgram *devProg, bool withoutTail) {
         PerfBegin(PERF_EVT_ALLOCATE_TASK);
         DynDeviceTask *dynTask = workspace_->MakeDynDeviceTask();
         stitchContext.MoveTo(dynTask);
         PerfEnd(PERF_EVT_ALLOCATE_TASK);
         BuildDeviceTaskData(dynTask, devProg);
-        dynTask->taskStageAllocMem = workspace_->SlabGetStageAllocMem(); // cache allocated memory , when task finish will recycle
+
+        // cache allocated memory , when task finish will recycle
+        dynTask->taskStageAllocMem = workspace_->SlabGetStageAllocMem(withoutTail, WsAicpuSlabMemType::DUPPED_FUNC_DATA);
         dynTask->isFinish.store(false);
         return dynTask;
     }
@@ -1821,7 +1826,7 @@ struct DeviceExecuteContext {
 #endif
     }
 
-    void SubmitToAicoreAndRecycleMemory() {
+    void SubmitToAicoreAndRecycleMemory(bool withoutTail) {
         AutoScopedPerf asp(PERF_EVT_SUBMIT_AICORE);
         PROF_STAGE_BEGIN(PERF_EVT_STAGE_BUILD_TASK, "task.before\n");
 
@@ -1853,7 +1858,7 @@ struct DeviceExecuteContext {
         // Memory recycling
         stitchContext.RecycleAicoreLocalWorkspace();
 
-        DynDeviceTask *dynTask = taskContext.BuildDeviceTaskData(stitchContext, devProg);
+        DynDeviceTask *dynTask = taskContext.BuildDeviceTaskData(stitchContext, devProg, withoutTail);
         PROF_STAGE_END(PERF_EVT_STAGE_BUILD_TASK, "task.after\n");
 
         PROF_STAGE_BEGIN(PERF_EVT_STAGE_PUSH_TASK, "push.before\n");
@@ -1884,15 +1889,14 @@ struct DeviceExecuteContext {
         DEV_INFO("execute one func %lu\n", rootKey);
         DevAscendFunction *devRoot = devProg->GetFunction(rootKey);
         DEV_INFO("prepare one func %p %s\n", devRoot, devRoot->GetRawName());
+        if (stitchContext.Size() == MAX_CACHED_FUNC_NUM ||
+            stitchContext.stitchedCallOpSize() + devRoot->GetOperationSize() > MAX_READY_QUE_ELM_SIZE) {
+            SubmitToAicoreAndRecycleMemory(false);
+        }
 
         PROF_STAGE_BEGIN(PERF_EVT_STAGE_DUP_ROOT, "dup.before\n");
         DevAscendFunctionDupped devRootDup = workspace.DuplicateRoot(devRoot);
         PROF_STAGE_END(PERF_EVT_STAGE_DUP_ROOT, "dup.after\n");
-
-        if (stitchContext.Size() == MAX_CACHED_FUNC_NUM ||
-            stitchContext.stitchedCallOpSize() + devRoot->GetOperationSize() > MAX_READY_QUE_ELM_SIZE) {
-            SubmitToAicoreAndRecycleMemory();
-        }
 
         currDevRootDup = devRootDup;
         return (void *)&devRootDup.GetExpression(0);
@@ -1901,7 +1905,7 @@ struct DeviceExecuteContext {
     void *CallRootFunctionStitch(uint64_t rootKey) {
         if (rootKey == RUNTIME_FINISH_FUNCKEY) {
             DEV_INFO("finish func\n");
-            SubmitToAicoreAndRecycleMemory();
+            SubmitToAicoreAndRecycleMemory(false);
             return nullptr;
         }
 
@@ -1911,11 +1915,11 @@ struct DeviceExecuteContext {
         while (!workspace.TryAllocateFunctionMemory(devRootDup, slotContext.GetSlotList())) {
             // Failed to allocate, failed to stitch, submit existing stitched window to aicore and recycle memory
             // If nothing stitched, wait for aicore to finish tasks and release enough memory
-            SubmitToAicoreAndRecycleMemory();
+            SubmitToAicoreAndRecycleMemory(true);
         }
 
         if (AiCoreFree()) {
-            SubmitToAicoreAndRecycleMemory();
+            SubmitToAicoreAndRecycleMemory(false);
         }
 
         PROF_STAGE_BEGIN(PERF_EVT_STAGE_STITCH, "stitch.before\n");

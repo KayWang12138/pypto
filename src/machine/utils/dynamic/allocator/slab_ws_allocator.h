@@ -164,16 +164,33 @@ public:
         return static_cast<uint8_t*>(obj) + sizeof(void*);
     }
 
-    StageAllocInfo PopStageAllocMem() {
+    StageAllocInfo PopStageAllocMem(bool keepTail, uint32_t memType) {
         StageAllocInfo info;
-        
-        for (int i = 0; i < SLAB_ALLOCATOR_MAX_CACHES; i++) {
+        for (uint32_t i = 0; i < SLAB_ALLOCATOR_MAX_CACHES; i++) {
             info.heads[i] = caches_[i].stageAllocHead;
             info.tails[i] = caches_[i].stageAllocTail;
-            
-            // Reset cache tracking
-            caches_[i].stageAllocHead = nullptr;
-            caches_[i].stageAllocTail = nullptr;
+            if (!keepTail || i != memType) {
+                // Reset cache tracking
+                caches_[i].stageAllocHead = nullptr;
+                caches_[i].stageAllocTail = nullptr;
+                continue;
+            }
+
+            if (caches_[i].stageAllocHead == caches_[i].stageAllocTail) {
+                info.heads[i] = nullptr;
+                info.tails[i] = nullptr;
+            } else {
+                void* temp = caches_[i].stageAllocHead;
+                DEV_ASSERT(temp != nullptr);
+                while (*static_cast<void**>(temp) != caches_[i].stageAllocTail) {
+                    temp = *static_cast<void**>(temp);
+                }
+                DEV_ASSERT(temp != nullptr);
+                *static_cast<void**>(temp) = nullptr;
+                info.tails[i] = temp;
+                DEV_ERROR("keep tail not pop %p \n", caches_[i].stageAllocTail);
+                caches_[i].stageAllocHead = caches_[i].stageAllocTail;
+            }
         }
         
         return info;

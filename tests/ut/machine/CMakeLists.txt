@@ -39,6 +39,7 @@ set(_CaseFilterList
         "DevEncode.*"
         # distributed
         "CommWaitFlagTest.CommWaitFlag_EnqueueOp_and_PollCompleted_success"
+        "SlabWsAllocatorTest.*"
 )
 
 set(_Target ${TileFwkUTestNamePrefix}_runtime)
