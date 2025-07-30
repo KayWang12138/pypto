@@ -16,6 +16,7 @@
 #include "interface/function/function.h"
 #include <queue>
 #include <algorithm>
+#include <unordered_map>
 #include "common/pre_def.h"
 #include "interface/cache/hash.h"
 #include "interface/operation/opcode.h"
@@ -2095,8 +2096,6 @@ static std::vector<SymbolicScalar> NormalizeCopyIn(Operation *op, int coaIndexBa
     opImmList = copyAttr->GetToDynValidShape();
     OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
     copyAttr->SetToDynValidShape(opImmList);
-    operandCoaIndex += dim;
-    coaIndex += dim;
 
     return operandCoaList;
 }
@@ -2171,9 +2170,10 @@ static std::vector<SymbolicScalar> NormalizeTensor(LogicalTensorPtr operand, int
 
 std::vector<std::vector<SymbolicScalar>> Function::NormalizeCopyInCopyOut(
     std::vector<int> &iOffset, std::vector<int> &oOffset) {
-    std::map<int, Operation *> opmagicToOp;
+    std::unordered_map<int, Operation *> opmagicToOp;
     std::vector<std::pair<Operation*, int>> extraOutcasts;
 
+    opmagicToOp.reserve(operations_.size());
     for (auto &op : operations_) {
         opmagicToOp[op->GetOpMagic()] = op.get();
         /* The valid-shape of following OP could not be deduced
@@ -2188,6 +2188,8 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCopyInCopyOut(
     int coaIndex = COA_INDEX_BASE;
     std::vector<std::vector<SymbolicScalar>> coaLists;
     bool valueToIndex = parent_->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH;
+    coaLists.reserve(incastPosition.size() + outcastPosition.size() + extraOutcasts.size());
+    iOffset.reserve(incastPosition.size());
     for (auto [opmagic, k] : incastPosition) {
         auto op = opmagicToOp[opmagic];
         std::vector<SymbolicScalar> operandCoaList;
@@ -2197,11 +2199,12 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCopyInCopyOut(
             operandCoaList = NormalizeTensor(op->GetIOperands()[k], coaIndex);
         }
         op->SetIOpAttrOffset(k, coaIndex);
-        iOffset.push_back(coaIndex);
+        iOffset.emplace_back(coaIndex);
         coaIndex += operandCoaList.size();
-        coaLists.push_back(std::move(operandCoaList));
+        coaLists.emplace_back(std::move(operandCoaList));
     }
 
+    oOffset.reserve(outcastPosition.size() + extraOutcasts.size());
     for (auto [opmagic, k] : outcastPosition) {
         auto op = opmagicToOp[opmagic];
         std::vector<SymbolicScalar> operandCoaList;
@@ -2211,9 +2214,9 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCopyInCopyOut(
             operandCoaList = NormalizeTensor(op->GetOOperands()[k], coaIndex);
         }
         op->SetOOpAttrOffset(k, coaIndex);
-        oOffset.push_back(coaIndex);
+        oOffset.emplace_back(coaIndex);
         coaIndex += operandCoaList.size();
-        coaLists.push_back(std::move(operandCoaList));
+        coaLists.emplace_back(std::move(operandCoaList));
     }
 
     for (auto [op, k]: extraOutcasts) {
@@ -2221,9 +2224,9 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCopyInCopyOut(
             continue;
         auto operandCoaList = NormalizeTensor(op->GetOOperands()[k], coaIndex);
         op->SetOOpAttrOffset(k, coaIndex);
-        oOffset.push_back(coaIndex);
+        oOffset.emplace_back(coaIndex);
         coaIndex += operandCoaList.size();
-        coaLists.push_back(std::move(operandCoaList));
+        coaLists.emplace_back(std::move(operandCoaList));
     }
 
     return coaLists;
