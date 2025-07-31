@@ -117,16 +117,6 @@ public:
     static const std::string poolw;
 };
 
-class OperatorChecker {
-public:
-    int preOpCount{0};
-    int preMagic{0};
-    int preOp{0};
-    int preRawMagic{0};
-    OperatorChecker();
-    ~OperatorChecker();
-};
-
 enum class FbBufferSpace { QUANT_PRE = 0, RELU_PRE, RELU_POST, QUANT_POST, ANTIQ_ELT, ANTIQ_MTE2 };
 
 class Function;

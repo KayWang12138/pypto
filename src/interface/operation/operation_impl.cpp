@@ -19,65 +19,19 @@
 #include "interface/operation/operation.h"
 #include "distributed/distributed_expand.h"
 #include "interface/function/function.h"
-#include "interface/tensor/symbolic_scalar.h"
 #include "tilefwk/symbolic_scalar.h"
 #include "tilefwk/tensor.h"
 #include "interface/tensor/logical_tensor.h"
-#include "interface/tensor/raw_tensor.h"
-#include "tilefwk/tilefwk.h"
-#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
-#include "interface/tensor/tensormap.h"
 #include "interface/configs/config_manager.h"
-#include "interface/configs/config_storage.h"
 #include "interface/utils/common.h"
-#include "interface/utils/id_gen.h"
 #include "interface/utils/log.h"
+#include "interface/utils/operator_tracer.h"
+
 using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
-OperatorChecker::OperatorChecker() {
-    if (!Program::GetInstance().OperatorChecker()) {
-        return;
-    }
-    preOpCount = Program::GetInstance().GetCurrentFunction()->Operations().size();
-    preMagic = Program::GetInstance().GetCurrentFunction()->magicSeed_;
-    preOp = Program::GetInstance().GetCurrentFunction()->opSeed_;
-    preRawMagic = IdGen<IdType::RAW_TENSOR>::Inst().CurId();
-}
 
-OperatorChecker::~OperatorChecker() {
-    if (!Program::GetInstance().OperatorChecker()) {
-        return;
-    }
-    int postOpCount = Program::GetInstance().GetCurrentFunction()->Operations().size();
-    int postMagic = Program::GetInstance().GetCurrentFunction()->magicSeed_;
-    int postOp = Program::GetInstance().GetCurrentFunction()->opSeed_;
-    int postRawMagic = IdGen<IdType::RAW_TENSOR>::Inst().CurId();
-
-    for (int i = preOpCount; i < postOpCount; i++) {
-        auto &op = (Program::GetInstance().GetCurrentFunction()->Operations()[i]);
-
-        assert(preOp <= op.GetOpMagic() && op.GetOpMagic() < postOp);
-        for (int j = 0, je = op.GetOOperands().size(); j < je; j++) {
-            auto &o = op.GetOOperands()[j];
-            assert(preMagic <= o->GetMagic() && o->GetMagic() < postMagic);
-            assert(preRawMagic <= o->tensor->GetRawMagic() && o->tensor->GetRawMagic() < postRawMagic);
-
-            for (int ci = preOpCount; ci < postOpCount; ci++) {
-                auto &cop = (Program::GetInstance().GetCurrentFunction()->Operations()[ci]);
-                for (int cj = 0, cje = cop.GetOOperands().size(); cj < cje; cj++) {
-                    if (i != ci || j != cj) {
-                        auto &co = cop.GetOOperands()[cj];
-                        if (o->tensor->GetRawMagic() == co->tensor->GetRawMagic()) {
-                            assert(!Overlap(o, co));
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
 } // namespace npu::tile_fwk
 
 namespace {
@@ -981,6 +935,7 @@ constexpr int SMALL_CHANNEL_8 = 8;
 constexpr int SMALL_CHANNEL_16 = 16;
 
 Tensor View(const Tensor &operand, const std::vector<int> &shapes, const std::vector<int> &offsets) {
+    DECLARE_TRACER();
     Tensor result(operand->Datatype(), shapes, "View_" + operand->GetRawTensor()->GetSymbol(), operand->nodetype, operand->tensorfmt);
     auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(
         Opcode::OP_VIEW, {operand.GetStorage()}, {result.GetStorage()});
@@ -992,6 +947,7 @@ Tensor View(const Tensor &operand, const std::vector<int> &shapes, const std::ve
 }
 
 Tensor DView(const Tensor &operand, const std::vector<int> &shapes, const std::vector<SymbolicScalar> &newOffsets) {
+    DECLARE_TRACER();
     Tensor result(operand->Datatype(), shapes, "DView_" + operand->GetRawTensor()->GetSymbol(), operand->nodetype, operand->tensorfmt);
     result->UpdateDynValidShape(SymbolicScalar::FromConcrete(shapes));
     auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(
@@ -1005,6 +961,7 @@ Tensor DView(const Tensor &operand, const std::vector<int> &shapes, const std::v
 
 Tensor DViewPad(const Tensor &operand, const std::vector<int> &shapes,
     const std::vector<SymbolicScalar> &newValidShapes, const std::vector<SymbolicScalar> &newOffsets) {
+    DECLARE_TRACER();
     Tensor result(operand->Datatype(), shapes, "DViewPad_" + operand->GetRawTensor()->GetSymbol(), operand->nodetype, operand->tensorfmt);
     auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(
         Opcode::OP_VIEW, {operand.GetStorage()}, {result.GetStorage()});
@@ -1437,6 +1394,7 @@ void TensorMaxpool(Function &function, const std::shared_ptr<LogicalTensor> &ope
 
 Tensor Maxpool(const Tensor &operand, const std::vector<int> &pools, const std::vector<int> &strides,
     const std::vector<int> &paddings) {
+    DECLARE_TRACER();
     // 目前只支持5D操作
     ASSERT((operand->shape.size() == NC1HWC0_DIM_NUM) && pools.size() == NUM_VALUE_2 &&
            strides.size() == STRIDE_DIM_NUM && paddings.size() == PADS_DIM_NUM);
@@ -1498,7 +1456,7 @@ LogicalTensorPtr TensorCastOperation(Function &function, LogicalTensorPtr operan
 }
 
 Tensor Cast(const Tensor &operand, DataType newDataType, CastMode mode) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
     assert(operand->shape.size() == operand->offset.size());
     // Cast to same dType with no mode will do nothing
     if (operand->tensor->datatype == newDataType && (mode == CAST_NONE || mode == CAST_RINT)) {
@@ -1509,165 +1467,165 @@ Tensor Cast(const Tensor &operand, DataType newDataType, CastMode mode) {
 }
 
 Tensor Exp(const Tensor &operand) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     RETURN_CALL(
         UnaryOperation<UnaryOpType::EXP>, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage());
 }
 
 Tensor Maximum(const Tensor &operand1, const Tensor &operand2) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     RETURN_CALL(BinaryOperation<BinaryOpType::MAXIMUM>, *Program::GetInstance().GetCurrentFunction(), operand1, operand2);
 }
 
 Tensor Add(const Tensor &operand1, const Tensor &operand2) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     RETURN_CALL(BinaryOperation<BinaryOpType::ADD>, *Program::GetInstance().GetCurrentFunction(), operand1, operand2);
 }
 
 Tensor Sub(const Tensor &operand1, const Tensor &operand2) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     RETURN_CALL(BinaryOperation<BinaryOpType::SUB>, *Program::GetInstance().GetCurrentFunction(), operand1, operand2);
 }
 
 Tensor Mul(const Tensor &operand1, const Tensor &operand2) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     RETURN_CALL(BinaryOperation<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(), operand1, operand2);
 }
 
 Tensor Div(const Tensor &operand1, const Tensor &operand2) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     RETURN_CALL(BinaryOperation<BinaryOpType::DIV>, *Program::GetInstance().GetCurrentFunction(), operand1, operand2);
 }
 
 Tensor ScalarAdd(const Tensor &operand1, const Tensor &operand2) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     RETURN_CALL(BinaryOperationAllScalar<BinaryOpType::S_ADD>, *Program::GetInstance().GetCurrentFunction(),
         operand1.GetStorage(), operand2.GetStorage());
 }
 Tensor ScalarSub(const Tensor &operand1, const Tensor &operand2) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     RETURN_CALL(BinaryOperationAllScalar<BinaryOpType::S_SUB>, *Program::GetInstance().GetCurrentFunction(),
         operand1.GetStorage(), operand2.GetStorage());
 }
 
 Tensor ScalarMul(const Tensor &operand1, const Tensor &operand2) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     RETURN_CALL(BinaryOperationAllScalar<BinaryOpType::S_MUL>, *Program::GetInstance().GetCurrentFunction(),
         operand1.GetStorage(), operand2.GetStorage());
 }
 
 Tensor ScalarDiv(const Tensor &operand1, const Tensor &operand2) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     RETURN_CALL(BinaryOperationAllScalar<BinaryOpType::S_DIV>, *Program::GetInstance().GetCurrentFunction(),
         operand1.GetStorage(), operand2.GetStorage());
 }
 
 Tensor ScalarMax(const Tensor &operand1, const Tensor &operand2) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     RETURN_CALL(BinaryOperationAllScalar<BinaryOpType::S_MAX>, *Program::GetInstance().GetCurrentFunction(),
         operand1.GetStorage(), operand2.GetStorage());
 }
 
 Tensor Sqrt(const Tensor &operand) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     RETURN_CALL(
         UnaryOperation<UnaryOpType::SQRT>, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage());
 }
 
 Tensor Reciprocal(const Tensor &operand) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     RETURN_CALL(UnaryOperation<UnaryOpType::RECIPROCAL>, *Program::GetInstance().GetCurrentFunction(),
         operand.GetStorage());
 }
 
 Tensor Abs(const Tensor &operand) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     RETURN_CALL(UnaryOperation<UnaryOpType::ABS>, *Program::GetInstance().GetCurrentFunction(),
         operand.GetStorage());
 }
 
 Tensor Duplicate(const Tensor &operand) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     RETURN_CALL(UnaryOperation<UnaryOpType::DUPLICATE>, *Program::GetInstance().GetCurrentFunction(),
         operand.GetStorage());
 }
 
 Tensor AddS(const Tensor &operand1, const Element &operand2) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
     RETURN_CALL(BinaryOperationScalar<BinaryOpType::ADD>, *Program::GetInstance().GetCurrentFunction(),
         operand1.GetStorage(), operand2);
 }
 
 Tensor SubS(const Tensor &operand1, const Element &operand2) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
     RETURN_CALL(BinaryOperationScalar<BinaryOpType::SUB>, *Program::GetInstance().GetCurrentFunction(),
         operand1.GetStorage(), operand2);
 }
 
 Tensor MulS(const Tensor &operand1, const Element &operand2) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
     RETURN_CALL(BinaryOperationScalar<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(),
         operand1.GetStorage(), operand2);
 }
 
 Tensor DivS(const Tensor &operand1, const Element &operand2) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
     RETURN_CALL(BinaryOperationScalar<BinaryOpType::DIV>, *Program::GetInstance().GetCurrentFunction(),
         operand1.GetStorage(), operand2);
 }
 
 Tensor ScalarAddS(const Tensor &operand, const Element &value, bool reverseOperand) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     RETURN_CALL(BinaryOperationAllScalar<BinaryOpType::S_ADD>, *Program::GetInstance().GetCurrentFunction(),
         operand.GetStorage(), value, reverseOperand);
 }
 
 Tensor ScalarSubS(const Tensor &operand, const Element &value, bool reverseOperand) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     RETURN_CALL(BinaryOperationAllScalar<BinaryOpType::S_SUB>, *Program::GetInstance().GetCurrentFunction(),
         operand.GetStorage(), value, reverseOperand);
 }
 
 Tensor ScalarMulS(const Tensor &operand, const Element &value, bool reverseOperand) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     RETURN_CALL(BinaryOperationAllScalar<BinaryOpType::S_MUL>, *Program::GetInstance().GetCurrentFunction(),
         operand.GetStorage(), value, reverseOperand);
 }
 
 Tensor ScalarDivS(const Tensor &operand, const Element &value, bool reverseOperand) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     RETURN_CALL(BinaryOperationAllScalar<BinaryOpType::S_DIV>, *Program::GetInstance().GetCurrentFunction(),
         operand.GetStorage(), value, reverseOperand);
 }
 
 Tensor ScalarMaxS(const Tensor &operand, const Element &value, bool reverseOperand) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     RETURN_CALL(BinaryOperationAllScalar<BinaryOpType::S_MAX>, *Program::GetInstance().GetCurrentFunction(),
         operand.GetStorage(), value, reverseOperand);
 }
 
 Tensor Expand(const Tensor &operand, DataType dataType, const std::vector<int> &shape) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     ASSERT(operand->shape.size() == shape.size());
     auto result = Tensor(dataType, shape);
@@ -1676,7 +1634,7 @@ Tensor Expand(const Tensor &operand, DataType dataType, const std::vector<int> &
 }
 
 Tensor Expand(const Tensor &operand, const std::vector<int> &dstShape) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     ASSERT(operand->shape.size() == dstShape.size());
     Tensor result(operand.GetStorage()->Datatype(), dstShape);
@@ -1705,21 +1663,21 @@ void TiledReduceExpandNew(Function &function, const TileShape &tileShape, const 
 }
 
 Tensor RowSumExpand(const Tensor &operand) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
     Tensor result(operand->tensor->datatype, operand->shape);
     CALL(ReduceExpand, *Program::GetInstance().GetCurrentFunction(), "SUM", operand, result);
     return result;
 }
 
 Tensor RowMaxExpand(const Tensor &operand) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
     Tensor result(operand->tensor->datatype, operand->shape);
     CALL(ReduceExpand, *Program::GetInstance().GetCurrentFunction(), "MAX", operand, result);
     return result;
 }
 
 Tensor RowMaxSingle(const Tensor &operand, int axis) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
     auto resultShape = operand->shape;
     axis = axis < 0 ? operand->shape.size() + axis : axis;
 
@@ -1742,7 +1700,7 @@ Tensor RowMaxSingle(const Tensor &operand, int axis) {
 }
 
 Tensor RowMinSingle(const Tensor &operand, int axis) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
     auto resultShape = operand->shape;
     axis = axis < 0 ? operand->shape.size() + axis : axis;
 
@@ -1757,7 +1715,7 @@ Tensor RowMinSingle(const Tensor &operand, int axis) {
 }
 
 Tensor RowSumSingle(const Tensor &operand, int axis) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
     auto resultShape = operand->shape;
     axis = axis < 0 ? operand->shape.size() + axis : axis;
 
@@ -1780,7 +1738,7 @@ Tensor RowSumSingle(const Tensor &operand, int axis) {
 }
 
 Tensor Compact(const Tensor &operand) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     assert(operand->shape.size() == operand->offset.size());
     Tensor result(operand->tensor->datatype, {operand->shape[0], 1});
@@ -1790,7 +1748,7 @@ Tensor Compact(const Tensor &operand) {
 }
 
 Tensor Gather(const Tensor &params, const Tensor &indices, int axis) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     RETURN_CALL(GatherOperation, *Program::GetInstance().GetCurrentFunction(), params.GetStorage(), indices.GetStorage(), axis);
 }
@@ -1843,7 +1801,7 @@ Tensor TensorVectorDuplicateOperation(Function &function, const Element& src,
 
 Tensor VectorDuplicate(const Element &src, DataType dtype, std::vector<int> dstShape,
     std::vector<SymbolicScalar> validShape) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
     if (validShape.empty()) {
         for (auto x : dstShape)
             validShape.emplace_back(x);
@@ -1852,14 +1810,14 @@ Tensor VectorDuplicate(const Element &src, DataType dtype, std::vector<int> dstS
 }
 
 Tensor GatherElement(const Tensor &params, const Tensor &indices, int axis) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     RETURN_CALL(GatherElementOperation, *Program::GetInstance().GetCurrentFunction(), params.GetStorage(),
         indices.GetStorage(), axis);
 }
 
 Tensor Transpose(const Tensor &operand, std::vector<int> transposeShape) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
     constexpr int32_t TRANS_EXPERT_SHAPE_2 = 2;
     constexpr int32_t TRANS_EXPERT_SHAPE_4 = 4;
     assert(
@@ -1905,13 +1863,15 @@ Tensor Transpose(const Tensor &operand, std::vector<int> transposeShape) {
 }
 
 Tensor TensorIndex(const Tensor &params, const Tensor &indices) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     // TensorIndex默认按0轴进行gather
     RETURN_CALL(GatherOperation, *Program::GetInstance().GetCurrentFunction(), params.GetStorage(), indices.GetStorage(), 0);
 }
 
 Tensor Unsqueeze(const Tensor &old, int unsqueezeDimNum) {
+    DECLARE_TRACER();
+
     ASSERT(unsqueezeDimNum < static_cast<int>(old->shape.size()) + 1 && unsqueezeDimNum >= -static_cast<int>(old->shape.size()) - 1);
     size_t unsqueezeDim = unsqueezeDimNum;
     if (unsqueezeDimNum < 0) {
@@ -2066,6 +2026,8 @@ void TensorScatterUpdate(Function &function,
 }
 
 Tensor ScatterUpdate(const Tensor &dst, const Tensor &index, const Tensor &src, int axis, std::string cacheMode, int blockSize) {
+    DECLARE_TRACER();
+
     ASSERT(dst->shape.size() == src->shape.size());
     axis = axis < 0 ? dst->shape.size() + axis : axis;
     ASSERT(static_cast<size_t>(axis)  < dst->shape.size());
@@ -2090,7 +2052,7 @@ Tensor ScatterUpdate(const Tensor &dst, const Tensor &index, const Tensor &src, 
 }
 
 Tensor ScatterElement(const Tensor &src, const Tensor &idx, const Element &scalar, int axis) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
     // 目前只支持2维操作
     constexpr int kScatterDim = 2;
     ASSERT(src->shape.size() == kScatterDim);
@@ -2104,6 +2066,8 @@ Tensor ScatterElement(const Tensor &src, const Tensor &idx, const Element &scala
 }
 
 Tensor IndexPut(const Tensor &src, std::vector<Tensor> indices, const Tensor &values) {
+    DECLARE_TRACER();
+
     Tensor result(src->tensor->datatype, src->shape);
     result.GetStorage()->tensor->SetTensorInfo(src.GetStorage()->tensor->GetTensorInfo());
     for (auto index : indices) {
@@ -2126,7 +2090,7 @@ void InnerAssemble(Function &function, const LogicalTensorPtr &operand,
 }
 
 Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int>>> &tensors) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     ASSERT(!tensors.empty());
     std::vector<int> shape = tensors.front().first->shape;
@@ -2213,6 +2177,8 @@ void DInnerAssemble(Function &function, const LogicalTensorPtr &operand,
 }
 
 void DAssemble(const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset, Tensor &dest) {
+    DECLARE_TRACER();
+
     ASSERT(dest.GetStorage(false)->tensorfmt == tensor.GetStorage(false)->tensorfmt)<<"DAssemble: src and dest requires same format";
     ASSERT(dest.GetShape().size() == tensor.GetShape().size())<<"DAssemble: src and dest requires same shape";
     ASSERT(dest.GetShape().size() == dynOffset.size())<<"DAssemble: dynOffset and dest requires same shape";
@@ -2298,6 +2264,8 @@ static bool ReshapeNeedCopy(const Tensor &operand) {
 }
 
 Tensor Reshape(const Tensor &operand, const std::vector<int> &dstshape) {
+    DECLARE_TRACER();
+
     if (operand->shape == dstshape) {
         return operand;
     }
@@ -2404,6 +2372,8 @@ void InnerConcatNew(Function &function, const LogicalTensorPtr &operand,
 
 
 Tensor Concat(const std::vector<Tensor> &tensorList, int axis) {
+    DECLARE_TRACER();
+
     if (tensorList.size() > MAX_CAT_NUM_ONCE) {
         std::vector<Tensor> front(tensorList.begin(), tensorList.begin() + MAX_CAT_NUM_ONCE);
         std::vector<Tensor> back(tensorList.begin() + MAX_CAT_NUM_ONCE, tensorList.end());
@@ -2509,7 +2479,7 @@ LogicalTensorPtr TensorPadOperation(Function &function, const TileShape &tileSha
 
 Tensor Pad(const Tensor &old, const std::vector<int> &newShape)
 {
-    OperatorChecker checker;
+    DECLARE_TRACER();
     auto oldShape = old->GetShape();
     auto oldShapeSize = oldShape.size();
     assert(oldShapeSize == newShape.size());
@@ -2556,7 +2526,7 @@ void TensorInnerCompact(Function &function, const TileShape &tileShape,
 
 Tensor NewCompact(const Tensor &operand)
 {
-    OperatorChecker checker;
+    DECLARE_TRACER();
 
     Tensor result(operand->tensor->datatype, { operand->shape[0], 1 });
     CALL(InnerCompact, *Program::GetInstance().GetCurrentFunction(), Program::GetInstance().tileShape, operand.GetStorage(), result.GetStorage());
@@ -2594,7 +2564,7 @@ void TensorExtractOperation(Function &function, LogicalTensorPtr operand, Logica
 }
 
 std::tuple<Tensor, Tensor> TopK(const Tensor &operand, const int &k, int axis = -1, bool isLargest) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
     const auto len = static_cast<int>(operand->shape.size());
     assert(axis == 1 || axis == -1);
     axis = axis >= 0 ? axis : (axis + len);
@@ -2752,7 +2722,7 @@ void TiledExtract(Function &function, const TileShape &tileShape,
 }
 
 Tensor ArgSort(const Tensor &operand, int axis = -1, bool isLargest) {
-    OperatorChecker checker;
+    DECLARE_TRACER();
     const auto len = static_cast<int>(operand->shape.size());
     assert(axis == 1 || axis == -1);
     axis = axis >= 0 ? axis : (axis + len);
@@ -2824,6 +2794,7 @@ void TiledArgSort(Function &function, const TileShape &tileShape,
 /* Begin: Start for Reduce*/
 
 Tensor Reduce(const std::vector<Tensor> &aggregation, const ReduceMode reduceMode) {
+    DECLARE_TRACER();
     // Support Reduce::Add only
     if (reduceMode != ReduceMode::ATOMIC_ADD) {
         return Tensor();
@@ -3207,9 +3178,9 @@ void CheckMatMulOperandsValid(DataType dataType, const Tensor &operand1, const T
 }
 
 void MatmulImpl(DataType dataType, const std::vector<LogicalTensorPtr>& iOperand, LogicalTensorPtr &result) {
-    OperatorChecker checker;
     const auto operand1 = iOperand[0];
     const auto operand2 = iOperand[1];
+
     CheckOperandsValid(operand1, operand2);
     CheckMatMulOperandsValid(dataType, operand1, operand2);
     assert(dataType == DT_FP32 || dataType == DT_FP16 || dataType == DT_BF16 || dataType == DT_INT32);
@@ -3217,18 +3188,24 @@ void MatmulImpl(DataType dataType, const std::vector<LogicalTensorPtr>& iOperand
 }
 
 namespace Internel {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wframe-address"
 Tensor A_MUL_B(DataType dataType, const Tensor &operand1, const Tensor &operand2) {
+    DECLARE_TRACER1();
     Tensor result(dataType, {operand1->shape[0], operand2->shape[1]});
     MatmulImpl(dataType, {operand1.GetStorage(), operand2.GetStorage()}, result.GetStorage());
     return result;
 }
 
 /* Add for Matmul acc*/
-Tensor A_MUL_B(DataType dataType, const Tensor &operand1, const Tensor &operand2, const Tensor &operand3) {
+Tensor A_MUL_B(DataType dataType, const Tensor &operand1, const Tensor &operand2,
+    const Tensor &operand3) {
+    DECLARE_TRACER1();
     Tensor result(dataType, {operand3->shape[0], operand3->shape[1]});
     MatmulImpl(dataType, {operand1.GetStorage(), operand2.GetStorage(), operand3.GetStorage()}, result.GetStorage());
     return result;
 }
+#pragma GCC diagnostic pop
 }
 
 void TensorInnerAMulBt(Function &function, const LogicalTensorPtr &operand1,
@@ -3249,7 +3226,6 @@ void TensorInnerAMulBt(Function &function, const LogicalTensorPtr &operand1,
 }
 
 void AMulBtImpl(DataType dataType, const LogicalTensorPtr &operand1, const LogicalTensorPtr &operand2, LogicalTensorPtr &result) {
-    OperatorChecker checker;
     CheckOperandsValid(operand1, operand2);
     CheckMatMulOperandsValid(dataType, operand1, operand2);
     assert(dataType == DataType::DT_FP32 || dataType == DataType::DT_FP16 || dataType == DataType::DT_BF16 || dataType == DataType::DT_INT32);
@@ -3257,7 +3233,6 @@ void AMulBtImpl(DataType dataType, const LogicalTensorPtr &operand1, const Logic
 }
 
 void AMulBtImpl(DataType dataType, const LogicalTensorPtr &operand1, const LogicalTensorPtr &operand2, const LogicalTensorPtr &operand3, LogicalTensorPtr &result) {
-    OperatorChecker checker;
     CheckOperandsValid(operand1, operand2);
     CheckMatMulOperandsValid(dataType, operand1, operand2);
     assert(dataType == DataType::DT_FP32 || dataType == DataType::DT_FP16 || dataType == DataType::DT_BF16 || dataType == DataType::DT_INT32);
@@ -3266,18 +3241,24 @@ void AMulBtImpl(DataType dataType, const LogicalTensorPtr &operand1, const Logic
 
 // normal matmul intf c = a * b
 namespace Internel {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wframe-address"
 // A mul transpose B
 Tensor A_MUL_Bt(DataType dataType, const Tensor &operand1, const Tensor &operand2) {
+    DECLARE_TRACER1();
     Tensor result(dataType, {operand1->shape[0], operand2->shape[0]});
     AMulBtImpl(dataType, operand1.GetStorage(), operand2.GetStorage(), result.GetStorage());
     return result;
 }
 
-Tensor A_MUL_Bt(DataType dataType, const Tensor &operand1, const Tensor &operand2, const Tensor &operand3) {
+Tensor A_MUL_Bt(DataType dataType, const Tensor &operand1, const Tensor &operand2,
+    const Tensor &operand3) {
+    DECLARE_TRACER1();
     Tensor result(dataType, {operand1->shape[0], operand2->shape[0]});
     AMulBtImpl(dataType, operand1.GetStorage(), operand2.GetStorage(), operand3.GetStorage(), result.GetStorage());
     return result;
 }
+#pragma GCC diagnostic pop
 }
 
 Tensor ABatchMulB3D(DataType dataType, const Tensor &operand1, const Tensor &operand2) {
@@ -3420,6 +3401,7 @@ Tensor ABatchMulBT4D(DataType dataType, const Tensor &operand1, const Tensor &op
 
 template<bool isATrans, bool isBTrans>
 Tensor BatchMatmul(DataType dataType, const Tensor& aMatrix, const Tensor& bMatrix) {
+    DECLARE_TRACER();
     assert(aMatrix.GetShape().size() == bMatrix.GetShape().size());
     Tensor res;
     if constexpr (!isATrans && isBTrans) {

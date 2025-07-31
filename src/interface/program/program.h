@@ -59,8 +59,6 @@ public: // public api for torch
     void SetTileShape(const TileShape& tileshape) { tileShape = tileshape; }
 
     bool QueryAndUpdateCurrentFunction();
-    bool OperatorChecker() const { return operatorChecker_; }
-    void UpdateOperatorChecker(bool checker) { operatorChecker_ = checker; }
 
     ConfigStorage &GetConfig() { return config_; }
     const ConfigStorage &GetConfig() const { return config_; }

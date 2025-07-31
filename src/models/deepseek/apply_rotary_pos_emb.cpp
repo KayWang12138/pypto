@@ -41,8 +41,6 @@ Tensor RoPEInputCast(const Tensor &input) {
 }
 
 Tensor RotateHalf(const Tensor &input) {
-    OperatorChecker checker;
-
     auto shape = input->shape;
     auto shapeSize = shape.size();
     assert(shapeSize >= 1 && "rope rotate_half input dim less than 1");
@@ -65,7 +63,6 @@ Tensor RotateHalf(const Tensor &input) {
 
 void ApplyRotaryPosEmbV2(const Tensor &q, const Tensor &k, const Tensor &cos, const Tensor &sin, Tensor &qEmbed,
     Tensor &kEmbed, const int unsqueezeDim, const RoPETileShapeConfigNew &ropeTileShapeConfig) {
-    OperatorChecker checker;
     auto outputDtype = qEmbed->Datatype();
 
     // q/k仅支持四维，cos/sin仅支持san维
@@ -132,7 +129,6 @@ void ApplyRotaryPosEmbV2(const Tensor &q, const Tensor &k, const Tensor &cos, co
 void ApplyRotaryPosEmb(const Tensor &q, const Tensor &k, const Tensor &cos, const Tensor &sin,
     const Tensor &positionIds, Tensor &qEmbed, Tensor &kEmbed, const int unsqueezeDim,
     const RoPETileShapeConfig &ropeTileShapeConfig) {
-    OperatorChecker checker;
     auto outputDtype = qEmbed->Datatype();
 
     // q/k仅支持四维，cos/sin仅支持两维

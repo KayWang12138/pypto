@@ -32,8 +32,6 @@ using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
 Tensor Softmax(const Tensor &operand) {
-    OperatorChecker checker;
-
     auto tRowmax = RowMaxExpand(operand);
     auto tSub = Sub(operand, tRowmax);
     auto tExp = Exp(tSub);
@@ -44,7 +42,6 @@ Tensor Softmax(const Tensor &operand) {
 }
 
 Tensor SoftmaxNew(const Tensor &operand) {
-    OperatorChecker checker;
     auto inputDtype = operand->Datatype();
     Tensor castOperand = operand;
     if (inputDtype != DataType::DT_FP32) {

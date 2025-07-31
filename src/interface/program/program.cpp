@@ -48,6 +48,14 @@ void GetEnv(const char * const envName, std::string &envValue)
     envValue = envTemp;
 }
 
+TileShape &TileShape::Current() {
+    return Program::GetInstance().GetTileShape();
+}
+
+MatrixSize &MatrixSize::Current() {
+    return Program::GetInstance().GetMatrixSize();
+}
+
 // Program Definitions
 Program::Program(const HostMachineMode mode)
     : hostMachine_(mode), currentFunctionPtr_(nullptr) {
@@ -947,7 +955,7 @@ void RecordLoopFunc::NextUnrollTimes() {
     unrollTimes_.erase(unrollTimes_.begin());
 }
 
-std::shared_ptr<DynloopFunctionAttribute> RecordLoopFunc::GetLoopAttr() { 
+std::shared_ptr<DynloopFunctionAttribute> RecordLoopFunc::GetLoopAttr() {
     return currentLoopFunc_->GetDynloopAttribute();
 }
 

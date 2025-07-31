@@ -22,6 +22,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <algorithm>
 #include "interface/cache/hash_buffer.h"
 
 namespace npu::tile_fwk {
@@ -51,11 +52,11 @@ public:
     template <TileShapeType T>
     void SetTileShape(int index, int value) {
         if constexpr (T == TileShapeType::M || T == TileShapeType::N) {
-            ASSERT(index == 0 || index == 1);
+            assert(index == 0 || index == 1);
         } else if constexpr (T == TileShapeType::K) {
-            ASSERT(index >= 0 && index < static_cast<int>(MAX_KDIM_SIZE));
+            assert(index >= 0 && index < static_cast<int>(MAX_KDIM_SIZE));
         }
-        ASSERT(value > 0);
+        assert(value > 0);
         if constexpr (T == TileShapeType::M) {
             m[index] = value;
         } else if constexpr (T == TileShapeType::K) {
@@ -63,16 +64,16 @@ public:
         } else if constexpr (T == TileShapeType::N) {
             n[index] = value;
         } else {
-            ASSERT(false);
+            assert(false);
         }
     }
 
     template <TileShapeType T>
     [[nodiscard]] int GetTileShape(int index) const {
         if constexpr (T == TileShapeType::M || T == TileShapeType::N) {
-            ASSERT(index == 0 || index == 1);
+            assert(index == 0 || index == 1);
         } else if constexpr (T == TileShapeType::K) {
-            ASSERT(index >= 0 && index < static_cast<int>(MAX_KDIM_SIZE));
+            assert(index >= 0 && index < static_cast<int>(MAX_KDIM_SIZE));
         }
         int v;
         if constexpr (T == TileShapeType::M) {
@@ -82,17 +83,17 @@ public:
         } else if constexpr (T == TileShapeType::N) {
             v = n[index];
         } else {
-            ASSERT(false);
+            assert(false);
         }
-        ASSERT(v > 0);
+        assert(v > 0);
         return v;
     }
 
     int GetTileShape(TileShapeType type, int index) const {
         if (type == TileShapeType::M || type == TileShapeType::N) {
-            ASSERT(index == 0 || index == 1);
+            assert(index == 0 || index == 1);
         } else if (type == TileShapeType::K) {
-            ASSERT(index >= 0 && index < static_cast<int>(MAX_KDIM_SIZE));
+            assert(index >= 0 && index < static_cast<int>(MAX_KDIM_SIZE));
         }
         int v = 0;
         if (type == TileShapeType::M) {
@@ -102,9 +103,9 @@ public:
         } else if (type == TileShapeType::N) {
             v = n[index];
         } else {
-            ASSERT(false);
+            assert(false);
         }
-        ASSERT(v > 0);
+        assert(v > 0);
         return v;
     }
 
@@ -275,21 +276,20 @@ public:
 
     template <TileShapeType T = TileShapeType::NORMAL>
     void SetTileShape(size_t index, int value) {
-        ASSERT(value > 0);
+        assert(value > 0);
         static_assert(T < TileShapeType::TYPE_NUM);
         if constexpr (T == TileShapeType::NORMAL) {
-            ASSERT(index < vecTileShapes_.size());
+            assert(index < vecTileShapes_.size());
             vecTileShapes_[index] = value;
             return;
         }
-        ASSERT(index < MAX_KDIM_SIZE);
+        assert(index < MAX_KDIM_SIZE);
         cubeTileShapes_.SetTileShape<T>(index, value);
     }
 
     [[nodiscard]] int V(size_t index) const {
-        ASSERT(index < vecTileShapes_.size());
+        assert(index < vecTileShapes_.size());
         auto value = vecTileShapes_[index];
-        ASSERT(value > 0);
         return value;
     }
 
@@ -333,6 +333,8 @@ public:
             distTileShapes_.TileShapeAvaliable();
     }
 
+    static TileShape &Current();
+
 private:
     VecTileShapes vecTileShapes_;
     CubeTileShapes cubeTileShapes_;
@@ -346,9 +348,11 @@ class MatrixSize {
         matrixSize_ = size;
     }
     [[nodiscard]] int V(size_t index) const {
-        ASSERT(index < matrixSize_.size());
+        assert(index < matrixSize_.size());
         return matrixSize_[index];
     }
+
+    static MatrixSize &Current();
  private:
     std::vector<int> matrixSize_;
 };

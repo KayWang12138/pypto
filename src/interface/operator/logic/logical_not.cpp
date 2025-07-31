@@ -34,7 +34,6 @@ namespace npu::tile_fwk {
 constexpr float F_NEGA_1 = -1.0;
 constexpr float F_1 = 1.0;
 Tensor LogicalNot(const Tensor &operand) {
-    OperatorChecker checker;
     auto inputDtype = operand->Datatype();
 
     Tensor castOperand = operand;

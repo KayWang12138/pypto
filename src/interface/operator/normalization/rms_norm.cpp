@@ -32,8 +32,6 @@ using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
 Tensor RmsNorm(const Tensor &operand) {
-    OperatorChecker checker;
-
     constexpr float epsilon = 1e-6f;
 
     auto fp32Operand = Cast(operand, DataType::DT_FP32);
@@ -54,8 +52,6 @@ Tensor RmsNorm(const Tensor &operand) {
 }
 
 Tensor RmsNorm(const Tensor &operand, const Tensor &gamma, float epsilon) {
-    OperatorChecker checker;
-
     auto fp32Operand = Cast(operand, DataType::DT_FP32);
     int size = operand->shape.size();
     std::vector<int> shape(size, 1);
