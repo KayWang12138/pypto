@@ -36,6 +36,7 @@
 #include "passes/tile_graph_pass/l1_copy_reuse.h"
 #include "passes/tile_graph_pass/merge_view_assemble.h"
 #include "passes/tile_graph_pass/insert_copy_op.h"
+#include "passes/tile_graph_pass/intra_subgraph_adapter.h"
 #include "passes/tile_graph_pass/pad_local_buffer.h"
 #include "passes/tile_graph_pass/inplace_process.h"
 #include "passes/tile_graph_pass/pre_graph.h"
@@ -86,6 +87,7 @@ void RegPass() {
     REG_PASS(L1CopyInReusePass);
     REG_PASS(MergeViewAssemble);
     REG_PASS(InsertCopyOpPass);
+    REG_PASS(IntraSubgraphAdapter);
     REG_PASS(PadLocalBuffer);
     REG_PASS(InplaceProcess);
     REG_PASS(PreGraphPass);
