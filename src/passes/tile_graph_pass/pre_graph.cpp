@@ -377,14 +377,13 @@ void PreGraphPass::InsertTemporaryCopyIn(Function &function, Operation &op) cons
     }
 }
 
-void DFSColor(int color, int &count, SubgraphColorInfo &info, std::vector<std::set<int>> &inColorGraph,
-    std::vector<std::set<int>> &outColorGraph) {
+void PreGraphPass::DFSColor(int color, int &count, SubgraphColorInfo &info) {
     if (info.visited[color]) {
         return;
     }
     for (auto inputColor : inColorGraph[color]) {
         if (!info.visited[inputColor]) {
-            DFSColor(inputColor, count, info, inColorGraph, outColorGraph);
+            DFSColor(inputColor, count, info);
         }
     }
     if (!info.visited[color]) {
@@ -394,15 +393,15 @@ void DFSColor(int color, int &count, SubgraphColorInfo &info, std::vector<std::s
     }
     for (auto outputColor : outColorGraph[color]) {
         if (!info.visited[outputColor]) {
-            DFSColor(outputColor, count, info, inColorGraph, outColorGraph);
+            DFSColor(outputColor, count, info);
         }
     }
 }
 
 void PreGraphPass::SortColor(Function &function) {
     int colorCount = function.GetTotalSubGraphCount();
-    std::vector<std::set<int>> inColorGraph(colorCount);
-    std::vector<std::set<int>> outColorGraph(colorCount);
+    inColorGraph.resize(colorCount);
+    outColorGraph.resize(colorCount);
     std::set<int> graphIds;
     auto opList = function.Operations();
     for (size_t i = 0; i < opList.size(); i++) {
@@ -427,22 +426,14 @@ void PreGraphPass::SortColor(Function &function) {
     if (graphIds.size() != static_cast<size_t>(colorCount)) {
         ALOG_ERROR_F("graphIds size is %zu, but graphIds count is %d", graphIds.size(), colorCount);
     }
-    std::vector<bool> visited(colorCount, false);
-    std::vector<int> newColor;
-    int preStart = 0;
-    int leftVisitedColor = colorCount;
-    SubgraphColorInfo colorInfo{visited, newColor};
-    while (leftVisitedColor > 0) {
-        int start = preStart;
-        while (colorInfo.visited[start]) {
-            start++;
-        }
-        preStart = start;
-        DFSColor(start, leftVisitedColor, colorInfo, inColorGraph, outColorGraph);
+    if (inColorGraph.size() != static_cast<size_t>(colorCount) || outColorGraph.size() != static_cast<size_t>(colorCount)) {
+        ALOG_ERROR_F("subgraphs in&out relationship invalid.");
     }
+    /* 原使用递归处理子图编号重排，子图过多时会触发越界，临时删除规避，后续整改使用stack*/
 
     for (int i = 0; i < colorCount; i++) {
-        oldToNewColor[colorInfo.newColor[i]] = i;
+        // oldToNewColor[colorInfo.newColor[i]] = i;
+        oldToNewColor[i] = i;
     }
 }
 

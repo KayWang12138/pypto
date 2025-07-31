@@ -54,6 +54,7 @@ private:
     void ProcessInplaceOp(Function &function) const;
     void UpdateCopyOpIsCube(Operation &op) const;
     void SortColor(Function &function);
+    void DFSColor(int color, int &count, SubgraphColorInfo &info);
     void InitializeTensorMemorymap(Operation &op) const;
     void ProcessSameInOutOp(Function &function) const;
     void SetTensorBoundary(Function &function) const;
@@ -63,6 +64,8 @@ private:
         std::set<Operation *, LogicalTensor::CompareOp> &producersBackup) const;
     void HandleForReshapeToOutcast(Function &function) const;
 
+    std::vector<std::set<int>> inColorGraph;
+    std::vector<std::set<int>> outColorGraph;
     std::map<int, int> oldToNewColor;
 };
 } // namespace npu::tile_fwk
