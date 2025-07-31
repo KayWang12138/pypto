@@ -16,14 +16,15 @@
 #include "machine/dump/kernel_dump_utils.h"
 #include <climits>
 #include <dlfcn.h>
-#include "interface/utils/file_utils.h"
 #include "tilefwk/function.h"
+#include "interface/utils/file_utils.h"
 #include "interface/machine/host/host_machine.h"
 #include "interface/operation/distributed/comm_barrier_manager.h"
 #include "interface/program/program.h"
 #include "interface/platform/platform_manager.h"
 #include "machine/dump/machine_dump.h"
 #include "machine/utils/dynamic/dev_encode.h"
+#include <nlohmann/json.hpp>
 
 namespace npu::tile_fwk {
 namespace {
@@ -242,9 +243,9 @@ void KernelDumpUtils::WriteFatbinJson(const std::vector<JsonInfo> &allBinJsonInf
         workspaceSize = binInfo.workspaceSize > workspaceSize ? binInfo.workspaceSize : workspaceSize;
         kernelListJson.emplace_back(kernelInfo);
     }
-    fatbinJson["workspace"] = {{"num", 1}, {"size", workspaceSize}, {"type", {0}}};
+    fatbinJson["workspace"] = {{"num", 1}, {"size", {workspaceSize}}, {"type", {0}}};
     fatbinJson["kernelList"] = kernelListJson;
-    fatbinJson["compileInfo"] = "";
+    fatbinJson["compileInfo"] = nlohmann::json::object();
     jsonFile << fatbinJson.dump(LEVEL_FOUR) << std::endl;
     jsonFile.close();
 }

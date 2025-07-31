@@ -41,6 +41,4 @@ public:
         this->AICore().AddConfig("ascend910_93", aicore_config);
     }
 };
-
-OP_ADD(NativeSparseAttention);
 }
