@@ -118,8 +118,8 @@ Status BufferPool::Allocate(LocalBufferPtr tensor) {
             bufferSlices[tensor->id] = newSlice;
             tensor->start = newSlice.offset;
             tensor->end = newSlice.offset + newSlice.size;
-            ALOG_DEBUG_F("Create new Slice of Tensor[%u], bufferSlice range [%lu, %lu].",
-                   tensor->id, newSlice.offset, newSlice.size + newSlice.offset);
+            ALOG_DEBUG_F("    Allocate Tensor[%u], range [%lu, %lu].",
+                tensor->id, newSlice.offset, newSlice.size + newSlice.offset);
             return SUCCESS;
         }
     }
@@ -129,7 +129,7 @@ Status BufferPool::Allocate(LocalBufferPtr tensor) {
 
 Status BufferPool::Free(const uint32_t tensorId) {
     if (bufferSlices.find(tensorId) == bufferSlices.end()) { ALOG_ERROR_F("Tensor[%d] not in bufferSlices", tensorId); return FAILED; }
-    ALOG_DEBUG_F("Free tensor[%u] in bufferSlices range:[%lu, %lu]", tensorId,
+    ALOG_DEBUG_F("    Free tensor[%u], range:[%lu, %lu]", tensorId,
         bufferSlices[tensorId].offset, bufferSlices[tensorId].size + bufferSlices[tensorId].offset);
     bufferSlices.erase(tensorId);
     return SUCCESS;

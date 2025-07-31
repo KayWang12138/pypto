@@ -289,7 +289,7 @@ Status OoOScheduler::CreateSpillCopyout(Function &func, IssueEntryPtr spillIssue
     spillCopyout->predecessors.insert(spillIssue);
     spillIssue->successors.insert(spillCopyout);
     spillCopyout->isRetired = true;
-    ALOG_DEBUG_F("Add issue: %s %d.", spillCopyout->tileOp->GetOpcodeStr().c_str(), spillCopyout->tileOp->GetOpMagic());
+    ALOG_DEBUG_F("Add SPILL_OUT: %s[%d].", spillCopyout->tileOp->GetOpcodeStr().c_str(), spillCopyout->tileOp->GetOpMagic());
     return SUCCESS;
 }
 
@@ -325,8 +325,8 @@ Status OoOScheduler::CreateSpillReloadIssue(Function &func, LogicalTensorPtr spi
     }
     reloadIssues.first = spillAllocInst;
     reloadIssues.second = spillInInst;
-    ALOG_DEBUG_F("Add issue: %s %d.", spillAllocInst->tileOp->GetOpcodeStr().c_str(), spillAllocInst->tileOp->GetOpMagic());
-    ALOG_DEBUG_F("Add issue: %s %d.", spillInInst->tileOp->GetOpcodeStr().c_str(), spillInInst->tileOp->GetOpMagic());
+    ALOG_DEBUG_F("Add SPILL_ALLOC: %s[%d].", spillAllocInst->tileOp->GetOpcodeStr().c_str(), spillAllocInst->tileOp->GetOpMagic());
+    ALOG_DEBUG_F("Add SPILL_IN: %s[%d].", spillInInst->tileOp->GetOpcodeStr().c_str(), spillInInst->tileOp->GetOpMagic());
     return SUCCESS;
 }
 
@@ -352,7 +352,7 @@ Status OoOScheduler::GenBufferSpill(Function &function, IssueEntryPtr allocIssue
         issueEntries.emplace_back(spillCopyout);
         ddrTensor = spillCopyout->tileOp->GetOutputOperand(0);
         newOperations.push_back(spillCopyout->tileOp);
-        ALOG_DEBUG("Insert op: ", spillCopyout->tileOp->GetOpcodeStr(), ", ", spillCopyout->tileOp->GetOpMagic());
+        ALOG_DEBUG_F("Insert: %s[%d]", spillCopyout->tileOp->GetOpcodeStr().c_str(), spillCopyout->tileOp->GetOpMagic());
     } else { // 若spill的tensor不来自OP_COPY_IN，则将tensor搬出，在需要的时候再搬入
         ddrTensor = spillIssue->tileOp->GetInputOperand(0);
     }
@@ -386,14 +386,14 @@ void OoOScheduler::PrintDependenciesAndRelations() {
         ALOG_DEBUG_F("%d %s, latency: %d.", issue->tileOp->GetOpMagic(), 
             issue->tileOp->GetOpcodeStr().c_str(), issue->tileOp->GetLatency());
         for (const auto &pre : issue->predecessors) {
-            ALOG_DEBUG("    |--- Predecessors:");
-            ALOG_DEBUG("        |--- ", pre->tileOp->GetOpMagic(), " ", pre->tileOp->GetOpcodeStr());
+            ALOG_DEBUG_F("    |--- Predecessors:");
+            ALOG_DEBUG_F("        |--- %s[%d]", pre->tileOp->GetOpcodeStr().c_str(), pre->tileOp->GetOpMagic());
         }
         for (const auto &successor : issue->successors) {
-            ALOG_DEBUG("    |--- Successors:");
-            ALOG_DEBUG("        |--- ", successor->tileOp->GetOpMagic(), " ", successor->tileOp->GetOpcodeStr());
+            ALOG_DEBUG_F("    |--- Successors:");
+            ALOG_DEBUG_F("        |--- %s[%d]", successor->tileOp->GetOpcodeStr().c_str(), successor->tileOp->GetOpMagic());
         }        
-        ALOG_DEBUG("\n");
+        ALOG_DEBUG_F("\n");
     }
 }
 
@@ -760,6 +760,8 @@ Status OoOScheduler::SpillBuffer(Function &function, int spillMemId, size_t &pcI
             spillIssue->tileOp->GetOpcodeStr().c_str());
         return FAILED;
     }
+    ALOG_DEBUG_F("Begin spill %s[%d] tensor[%d].", spillIssue->tileOp->GetOpcodeStr().c_str(), 
+        spillIssue->tileOp->GetOpMagic(), spillMemId);
     LogicalTensorPtr ddrTensor = nullptr;
     if (spillIssue->tileOp->GetOpcodeStr().find("COPY_IN") == std::string::npos) {
         IssueEntryPtr spillOutIssue = nullptr;
@@ -881,7 +883,7 @@ Status OoOScheduler::SelectSpillBufferGroup(std::vector<std::vector<int>>& group
 
 Status OoOScheduler::GenSpillOp(Function &function, LocalBufferPtr allocBuffer, size_t &pcIdx) {
     if (bufferManagerMap[allocBuffer->memType].IsFull(allocBuffer)) {
-        ALOG_DEBUG_F("---> START: Insert SPILL nodes (one-pipe simulation).");
+        ALOG_DEBUG_F("---> START: SPILL tensor.");
         if (allocBuffer->memType != MemoryType::MEM_L1 && allocBuffer->memType != MemoryType::MEM_UB) {
             ALOG_ERROR("Buffer[L0A/B/C] is Full. Please check tile shape and OOO spill failed info.");
             return FAILED;
@@ -897,15 +899,17 @@ Status OoOScheduler::GenSpillOp(Function &function, LocalBufferPtr allocBuffer, 
             if (SpillBuffer(function, spillMemId, pcIdx) != SUCCESS) { ALOG_ERROR_F("Tensor[%d] SpillBuffer failed!", spillMemId); return FAILED; }
             if (bufferManagerMap[allocBuffer->memType].Free(spillMemId) != SUCCESS) { ALOG_ERROR_F("Free spill tensor[%d] failed!", spillMemId); return FAILED; }
         }
-        ALOG_DEBUG("---> END: Insert SPILL nodes (one-pipe simulation).");
+        ALOG_DEBUG_F("---> END: SPILL tensor.");
     }
     return SUCCESS;
 }
 
 Status OoOScheduler::GenSpillSchedule(Function &function) {
     size_t pcIdx = 0;
+    ALOG_DEBUG_F("=========> Begin GenSpillSchedule.");
     while (pcIdx < issueEntries.size()) {
         auto issue = issueEntries[pcIdx];
+        ALOG_DEBUG_F("Launch %s[%d]", issue->tileOp->GetOpcodeStr().c_str(), issue->tileOp->GetOpMagic());
         if (issue->isAlloc) {
             if (localBufferMap.find(issue->reqMemIds[0]) == localBufferMap.end()) { 
                 ALOG_ERROR_F("Tensor[%d] cannot find in localBufferMap!", issue->reqMemIds[0]); 
@@ -927,6 +931,7 @@ Status OoOScheduler::GenSpillSchedule(Function &function) {
     for (auto bufRef : bufRefCount) {
         if (bufRef.second != 0) { ALOG_ERROR_F("Tensor[%d] bufRefCount not equal to 0!", bufRef.first); return FAILED; }
     }
+    ALOG_DEBUG_F("=========> End GenSpillSchedule.");
     // 更新依赖关系
     if (InitDependencies() != SUCCESS) { ALOG_ERROR_F("InitDependencies failed!"); return FAILED; }
     return SUCCESS;
@@ -959,7 +964,7 @@ Status OoOScheduler::RetireOpAndAwakeSucc(IssueEntryPtr issue, uint64_t& commitC
         }
         if (ready) {
             issueQueues[succ->type].Insert(succ, succ->execOrder);
-            ALOG_DEBUG_F("  LAUNCH op: %s %d, execOrder: %d", succ->tileOp->GetOpcodeStr().c_str(), succ->tileOp->GetOpMagic(), succ->execOrder);
+            ALOG_DEBUG_F("    Wakeup: %s[%d], execOrder: %d", succ->tileOp->GetOpcodeStr().c_str(), succ->tileOp->GetOpMagic(), succ->execOrder);
         }
     }
     return SUCCESS;
@@ -975,12 +980,11 @@ Status OoOScheduler::RetireIssueStage(uint64_t& commitCnt, int& nextCycle) {
             IssueEntryPtr issue = pipe.curIssue;
             pipe.busy = false;
             pipe.curIssue = nullptr;
-            ALOG_DEBUG("EXECUTE END: ", issue->tileOp->GetOpcodeStr(), " ", issue->tileOp->GetOpMagic());
+            ALOG_DEBUG_F("EXECUTE END: %s[%d]", issue->tileOp->GetOpcodeStr().c_str(), issue->tileOp->GetOpMagic());
             if (RetireOpAndAwakeSucc(issue, commitCnt) != SUCCESS) { ALOG_ERROR_F("RetireOpAndAwakeSucc failed!"); return FAILED; }
         } else {
-            ALOG_DEBUG("EXECUTING[%ld]: %s %d", pipe.curOpRetireCycle,
-                pipe.curIssue->tileOp->GetOpcodeStr().c_str(),
-                pipe.curIssue->tileOp->GetOpMagic());
+            ALOG_DEBUG_F("EXECUTING[%ld]: %s[%d]", pipe.curOpRetireCycle,
+                pipe.curIssue->tileOp->GetOpcodeStr().c_str(), pipe.curIssue->tileOp->GetOpMagic());
             if (nextCycle == -1 || nextCycle > pipe.curOpRetireCycle) {
                 nextCycle = pipe.curOpRetireCycle;
             }
@@ -1032,7 +1036,7 @@ Status OoOScheduler::LaunchIssueStage(int& nextCycle, std::vector<Operation *> &
             outTensor->memorymap[subGraphID] = 
                 TileRange(localBufferMap[memId]->start, localBufferMap[memId]->end, memId);
         }
-        ALOG_DEBUG("Insert op: ", issue->tileOp->GetOpcodeStr(), ", ", issue->tileOp->GetOpMagic());
+        ALOG_DEBUG_F("Insert: %s[%d]", issue->tileOp->GetOpcodeStr().c_str(), issue->tileOp->GetOpMagic());
     }
     return SUCCESS;
 }
@@ -1051,7 +1055,7 @@ Status OoOScheduler::BufferAllocStage(std::vector<Operation *>& newOperations, u
             }
             IssueEntryPtr issue = pipe.Front();
             if (!bufferManagerMap[memType].IsFull(localBufferMap[issue->reqMemIds[0]])) {
-                ALOG_DEBUG("ALLOCATE: ", issue->tileOp->GetOpcodeStr(), ", ", issue->tileOp->GetOpMagic());
+                ALOG_DEBUG_F("ALLOCATE: %s[%d]", issue->tileOp->GetOpcodeStr().c_str(), issue->tileOp->GetOpMagic());
                 if (bufferManagerMap[memType].Allocate(localBufferMap[issue->reqMemIds[0]]) != SUCCESS) { ALOG_ERROR_F("Allocate Tensor[%d] failed.", issue->reqMemIds[0]); return FAILED; }
                 tensorOccupyMap[memType][issue->reqMemIds[0]] = issue;
                 localBufferMap[issue->reqMemIds[0]]->startCycle = clock;
@@ -1061,7 +1065,7 @@ Status OoOScheduler::BufferAllocStage(std::vector<Operation *>& newOperations, u
                 }
                 issue->tileOp->GetOutputOperand(0)->SetAttr(OpAttributeKey::needAlloc, true);
                 newOperations.push_back(issue->tileOp);
-                ALOG_DEBUG("Insert op: ", issue->tileOp->GetOpcodeStr(), ", ", issue->tileOp->GetOpMagic());
+                ALOG_DEBUG_F("Insert: %s[%d]", issue->tileOp->GetOpcodeStr().c_str(), issue->tileOp->GetOpMagic());
                 pipe.PopFront();
                 if (RetireOpAndAwakeSucc(issue, commitCnt) != SUCCESS) { ALOG_ERROR_F("RetireOpAndAwakeSucc failed."); return FAILED; }
             } else {
@@ -1090,10 +1094,9 @@ Status OoOScheduler::ScheduleMainLoop(Function &func, std::vector<Operation *> &
     LaunchReadyIssue();
     uint64_t commitCnt = 0; // 当前已提交的issue数量
     bool isAllRetired = false;
-    ALOG_DEBUG_F("--->> START: Multi-pipe simulation.");
     while (!isAllRetired) {
         int nextCycle = -1;
-        ALOG_DEBUG("\n clock: ", clock);
+        ALOG_DEBUG_F("\n clock: %d", clock);
         // Retire Stage : 检查现有pipe中的op是否执行完。如果op执行完，则将op标记为retired状态，将可以被释放的buffer释放掉，并唤醒后续已经就绪的op。
         // 完毕后更新整个pipe的状态。
         if (RetireIssueStage(commitCnt, nextCycle) != SUCCESS) { ALOG_ERROR_F("RetireIssueStage failed."); return FAILED;}
@@ -1114,7 +1117,6 @@ Status OoOScheduler::ScheduleMainLoop(Function &func, std::vector<Operation *> &
                 ALOG_ERROR("GenBufferSpill failed."); return FAILED; }
         } else { clock = nextCycle; }
     }
-    ALOG_DEBUG_F("--->> END: Multi-pipe simulation.");
     for (const auto &issue : issueEntries) {
         if (!issue->isRetired) { ALOG_ERROR_F("Unexecuted op: %s %d", issue->tileOp->GetOpcodeStr().c_str(), issue->tileOp->GetOpMagic()); return FAILED; }
         if (issue->isAlloc) {
