@@ -1,0 +1,36 @@
+# 单个operation配置
+operation: add
+
+# 必选：输入张量列表（每个输入的基础配置）
+input_tensors:
+  - name: input0  # 输入张量名称
+    dtypes: 
+    - [FP32]
+    - [FP16]
+    shapes:
+    - [128, 128]
+    - [32, 32]
+  - name: input1
+    dtypes: $input0_dtypes
+    shapes: $input0_shapes  # 与input0形状保持一致（示例）
+
+# 必选：输出张量列表
+output_tensors:
+  - name: output
+    dtype: $input0_dtypes
+    shape: $input0_shapes
+
+# 必选:
+tile_shapes: 
+- [32, 32]
+- [64, 64]
+view_shapes: 
+- [32, 32]
+- [64, 64]
+
+# 可选：
+op_function: AddOperationExeFunc
+golden_function: add_operation
+
+# 可选：操作参数（如无参数可留空）
+params_list: [{}]
