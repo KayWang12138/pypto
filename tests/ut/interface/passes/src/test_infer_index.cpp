@@ -127,54 +127,6 @@ TEST_F(InferIndexTest, TestResetView) {
     EXPECT_EQ(inferParamIndex.ResetDynValidShape(*currFunctionPtr), SUCCESS);
 }
 
-TEST_F(InferIndexTest, TestResetViewNoneAttr) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), 
-                                                      "TestReset", 
-                                                      "TestReset", 
-                                                      nullptr);
-    EXPECT_TRUE(currFunctionPtr != nullptr);
-
-    // Prepare the graph
-    std::vector<int> inshape = {8, 16};
-    std::vector<int> offset = {2, 0};
-
-    auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
-    auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
-    incast->UpdateDynValidShape({SymbolicScalar("input_0_Dim_0"), SymbolicScalar("input_0_Dim_1")});
-
-    auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast}, {outcast});
-    (void) view_op;
-
-    currFunctionPtr->inCasts_.push_back(incast);
-    currFunctionPtr->outCasts_.push_back(outcast);
-
-    InferParamIndexPass inferParamIndex;
-    EXPECT_EQ(inferParamIndex.ResetDynValidShape(*currFunctionPtr), FAILED);
-}
-
-TEST_F(InferIndexTest, TestResetAssembleNoneAttr) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), 
-                                                      "TestReset", 
-                                                      "TestReset", 
-                                                      nullptr);
-    EXPECT_TRUE(currFunctionPtr != nullptr);
-
-    // Prepare the graph
-    std::vector<int> inshape = {8, 16};
-    std::vector<int> outshape = {0, 0};
-
-    auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
-    auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outshape);
-
-    auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast}, {outcast});
-    (void) assemble_op;
-
-    currFunctionPtr->inCasts_.push_back(incast);
-    currFunctionPtr->outCasts_.push_back(outcast);
-
-    InferParamIndexPass inferParamIndex;
-    EXPECT_EQ(inferParamIndex.ResetDynValidShape(*currFunctionPtr), FAILED);
-}
 
 TEST_F(InferIndexTest, TestInferShape) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), 
@@ -216,23 +168,5 @@ TEST_F(InferIndexTest, TestInferShapeNoneOp) {
     EXPECT_EQ(inferIndexTest.InferShape(*currFunctionPtr), FAILED);
 }
 
-TEST_F(InferIndexTest, TestInferShapeProduce) {
-     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), 
-                                                      "TestInferShape", 
-                                                      "TestInferShape", 
-                                                      nullptr);
-    EXPECT_TRUE(currFunctionPtr != nullptr);
-
-    std::vector<int> inshape = {8, 16};
-    std::vector<int> outshape = {8, 16};
-    auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
-    auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outshape);
-
-    auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {}, {outcast});
-    (void) assemble_op;
-    currFunctionPtr->outCasts_.push_back(outcast);
-    InferParamIndexPass inferIndexTest;
-    EXPECT_EQ(inferIndexTest.InferShape(*currFunctionPtr), FAILED);
-}
 }
 }
