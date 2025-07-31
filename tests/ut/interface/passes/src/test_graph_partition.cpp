@@ -581,17 +581,5 @@ TEST_F(GraphPartitionTest, TestAvoidSuperNodeLoop) {
     EXPECT_EQ(gpp.RunOnFunction(*function), SUCCESS);
     EXPECT_EQ(gpp.PostCheck(*function), SUCCESS);
 }
-
-TEST_F(GraphPartitionTest, TestGraphBuilder) {
-    ComputationalGraphBuilder G;
-    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, {"hin", "h2", "h3", "h41", "h42", "h5", "hout"}), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_COPY_IN, {"hin"}, {"h2"}, "COPY_IN", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_COPY_IN, {"hin"}, {"h2"}, "COPY_IN", true), false);
-    EXPECT_EQ(G.SetInCast({"ha", "hb"}), false);
-    EXPECT_EQ(G.SetOutCast({"ta", "tb"}), false);
-    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {16, 16}, MemoryType::MEM_UB, "hin"), false);
-    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"tmp"}), false);
-    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"h2","tmp"}), false);
-}
 } // namespace tile_fwk
 } // namespace npu

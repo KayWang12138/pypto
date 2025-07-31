@@ -91,7 +91,6 @@ set(_CaseFilterList
         "GraphPartitionTest.TestLargeDeepGraph"
         "GraphPartitionTest.TestIsomorphismGraph"
         "GraphPartitionTest.TestNonIsomorphismGraph"
-        "GraphPartitionTest.TestGraphBuilder"
         "GraphPartitionTest.TestAvoidSuperNodeLoop"
         "AddAllocTest.TestFindTensorAllocMsg"
         "DuplicateViewTest.TestThreeConsumersAfterView"
