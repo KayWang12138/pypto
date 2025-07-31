@@ -207,7 +207,7 @@ public:
         IdeDumpChunk ideDumpChunk = {
             .fileName = const_cast<char *>(fileName.c_str()),
             .dataBuf = dataBuf,
-            .bufLen = (unsigned int)dataSize,
+            .bufLen = static_cast<unsigned int>(dataSize),
             .isLastChunk = isLast ? 1U : 0,
             .offset = -1,
             .flag = 0,

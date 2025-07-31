@@ -548,7 +548,7 @@ public:
     DevAscendFunctionDuppedStitch *AllocateStitch() {
         WsAllocation allocation = SlabAlloc(sizeof(DevAscendFunctionDuppedStitch), WsAicpuSlabMemType::DUPPED_STITCH);
         DevAscendFunctionDuppedStitch *stitch = allocation.As<DevAscendFunctionDuppedStitch>();
-        uint64_t *clear = (uint64_t *)stitch;
+        uint64_t *clear = PtrToPtr<DevAscendFunctionDuppedStitch, uint64_t>(stitch);
         clear[0] = 0;
         clear[1] = 0;
         return stitch;

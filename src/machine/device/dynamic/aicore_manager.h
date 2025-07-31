@@ -34,7 +34,6 @@
 #include "interface/operation/opcode.h"
 #include "securec.h"
 #include "machine/device/dynamic/aicore_prof.h"
-#include "device_utils.h"
 #include "machine/device/aicore_dump.h"
 #include "interface/utils/common.h"
 #include "tilefwk/config.h"

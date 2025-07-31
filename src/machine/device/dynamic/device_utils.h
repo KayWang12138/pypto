@@ -174,6 +174,33 @@ inline bool PerfEvtEnable[] = {
 #undef X
 };
 
+// common of ptr
+template<typename TI, typename TO>
+inline TO *PtrToPtr(TI *const ptr) {
+  return reinterpret_cast<TO *>(ptr);
+}
+
+template<typename TI, typename TO>
+inline const TO *PtrToPtr(const TI *const ptr) {
+  return reinterpret_cast<const TO *>(ptr);
+}
+
+inline uint64_t PtrToValue(const void *const ptr) {
+  return static_cast<uint64_t>(reinterpret_cast<uintptr_t>(ptr));
+}
+
+inline void *ValueToPtr(const uint64_t value) {
+  return reinterpret_cast<void *>(static_cast<uintptr_t>(value));
+}
+
+inline std::vector<uint64_t> VPtrToValue(const std::vector<void *> v_ptr) {
+  std::vector<uint64_t> v_value;
+  for (const auto &ptr : v_ptr) {
+    v_value.emplace_back(PtrToValue(ptr));
+  }
+  return v_value;
+}
+
 inline uint32_t CalcSchAicpuNumByBlockDim(uint32_t blockDim) {
     if (blockDim > (MAX_SCHEDULE_AICPU_NUM - 1) * MAX_MNG_AICORE_AVG_NUM) {
         return MAX_SCHEDULE_AICPU_NUM;

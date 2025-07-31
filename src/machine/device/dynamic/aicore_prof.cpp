@@ -243,7 +243,7 @@ inline void AiCoreProf::ProfGetLog(int32_t coreIdx, const struct TaskStat *taskS
     }
 }
 
-inline void AiCoreProf::ProfInitPmu(int64_t *regAddrs, int64_t *pmuEvntAddrs) {
+inline void AiCoreProf::ProfInitPmu(int64_t *regAddrs, int64_t *pmuEventAddrs) {
     pmuMsgSize_ = sizeof(AstMsprofAdditionalInfo);
     pmuHeadSize_ = sizeof(MsprofAicpuAstPmuHead);
     pmuDataSize_ = sizeof(MsprofAicpuAstPmuData);
@@ -268,7 +268,7 @@ inline void AiCoreProf::ProfInitPmu(int64_t *regAddrs, int64_t *pmuEvntAddrs) {
     pmuCnt8Plain_.resize(coreNum_, nullptr);
     pmuCnt9Plain_.resize(coreNum_, nullptr);
     regAddrs_ = regAddrs;
-    pmuEventAddrs_ = pmuEvntAddrs;
+    pmuEventAddrs_ = pmuEventAddrs;
     DEV_INFO("0: %x, 1: %x, 2: %x, 3: %x, 4: %x, 5: %x, 6: %x, 7: %x.",
         (uint32_t)pmuEventAddrs_[0], (uint32_t)pmuEventAddrs_[1], (uint32_t)pmuEventAddrs_[2],
         (uint32_t)pmuEventAddrs_[3], (uint32_t)pmuEventAddrs_[4], (uint32_t)pmuEventAddrs_[5],

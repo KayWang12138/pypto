@@ -47,7 +47,7 @@ private:
     std::atomic_flag flag = ATOMIC_FLAG_INIT;
 };
 
-enum { IDLE, START, ACKED, FIN };
+enum StatusType { IDLE, START, ACKED, FIN };
 
 struct Slot {
     volatile uint64_t status;

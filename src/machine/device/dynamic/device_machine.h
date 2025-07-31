@@ -25,6 +25,7 @@
 #include "machine/utils/dynamic/device_channel.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/utils/device_log.h"
+#include "device_utils.h"
 namespace npu::tile_fwk::dynamic {
 
 class DeviceMachine {
@@ -155,9 +156,9 @@ public:
         auto kargs = (AstKernelArgs *) args;
 
         DEV_INFO("AscendCppDyInitTask begin");
-        DevStartArgs *devArgs = (DevStartArgs *)kargs->workspace;
+        DevStartArgs *devArgs = PtrToPtr<int64_t, DevStartArgs>(kargs->workspace);
 
-        auto inputPtr = (DevAscendTensorData *)(devArgs + 1);
+        auto inputPtr = PtrToPtr<DevStartArgs, DevAscendTensorData>(devArgs + 1);
         auto inputSize = DevAscendTensorDataCreator::Decode(kargs->inputs, inputPtr);
 
         auto outputPtr = inputPtr + inputSize;
@@ -165,7 +166,7 @@ public:
         auto workspaceAddr = ALIGN_UP((uint64_t)(outputPtr + outputSize), 512);
         auto devArgsSize = workspaceAddr - (uint64_t)kargs->workspace;
 
-        auto devProg = (DevAscendProgram *)kargs->cfgdata;
+        auto devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
         devArgs->inputTensorList = inputPtr;
         devArgs->inputTensorSize = inputSize;
         devArgs->outputTensorList = outputPtr;
@@ -193,7 +194,7 @@ public:
     int ExecDyn(int threadIdx, uint64_t taskId, npu::tile_fwk::AstKernelArgs *args) {
         int ret = 0;
         DEV_INFO("start control flow.");
-        auto devArgs = (DevStartArgs *)args->workspace;
+        auto devArgs = PtrToPtr<int64_t, DevStartArgs>(args->workspace);
 
         DeviceExecuteContext ctx(devArgs);
         ctx.costModelData = reinterpret_cast<CostModel::ModelData*>(args->costmodeldata);
@@ -252,7 +253,7 @@ private:
 
         if (isDyn) {
             DEV_DEBUG("===== dyn info =====");
-            auto dyntask = (DynDeviceTask *)devTask;
+            auto dyntask = PtrToPtr<DeviceTask, DynDeviceTask>(devTask);
             int funcIdx = 0;
             for (auto &func : dyntask->stitchedList) {
                 DEV_DEBUG("func %d %s.", funcIdx, func.DumpDyn(funcIdx, dyntask->cceBinary).c_str());
