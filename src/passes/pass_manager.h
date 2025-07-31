@@ -46,6 +46,7 @@ public:
 private:
     PassManager();
     ~PassManager() = default;
+    void RegDefaultStrategy();
 
     std::vector<PassEntry> GetStrategyPasses(const std::string &strategy) const;
 

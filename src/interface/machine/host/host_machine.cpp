@@ -174,7 +174,7 @@ void HostMachine::DestroyThread() {
 void HostMachine::CompileFunction(Function* func) const {
     if (!func->HasCallOperation()) {
         auto &pm = PassManager::Instance();
-        pm.RunPass(Program::GetInstance(), *func, config::GetPassStrategy());
+        ASSERT(pm.RunPass(Program::GetInstance(), *func, config::GetPassStrategy()) == SUCCESS) << "Run pass failed.";
     }
 
     if (func->IsFunctionType(FunctionType::DYNAMIC) || func->IsFunctionTypeAndGraphType({FunctionType::STATIC}, {GraphType::TILE_GRAPH})) {

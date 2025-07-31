@@ -42,10 +42,8 @@ Status InferParamIndexPass::ResetDynValidShape(Function& function) {
         for (auto outOperand : op.GetOOperands()) {
             if (OpcodeManager::Inst().IsCopyInOrOut(op.GetOpcode()) || specifiedOps.count(op.GetOpcode())) {
                 for (size_t dimIdx = 0U; dimIdx < outOperand->GetShape().size(); ++dimIdx) {
-                    validShape.push_back(SymbolicScalar("sym_" + 
-                                                        std::to_string(outOperand->GetMagic()) + 
-                                                        "_dim_" +
-                                                        std::to_string(dimIdx)));
+                    validShape.push_back(SymbolicScalar("sym_" +  std::to_string(outOperand->GetMagic()) + 
+                                                        "_dim_" + std::to_string(dimIdx)));
                 }
             }
             outOperand->UpdateDynValidShape(validShape);
