@@ -22,6 +22,7 @@
 #include "securec.h"
 #include "machine/utils/device_log.h"
 
+namespace npu::tile_fwk {
 static std::mutex dumpLock;
 constexpr int LOCAL_INCAST = 1;
 constexpr int LOCAL_OUTCAST = 0;
@@ -300,4 +301,5 @@ private:
     int64_t execStart_{0};
     int64_t execEnd_{0};
 };
+} // namespace npu::tile_fwk
 #endif

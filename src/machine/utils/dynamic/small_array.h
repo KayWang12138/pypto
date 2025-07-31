@@ -19,9 +19,9 @@
 #include <cstring>
 #include <cassert>
 #include "securec.h"
-
 #include "machine/utils/device_log.h"
 
+namespace npu::tile_fwk {
 template <typename T, int N>
 class FixedArray {
 public:
@@ -51,3 +51,4 @@ private:
     size_t size_{0};
     std::array<T, N> data_;
 };
+} // namespace npu::tile_fwk

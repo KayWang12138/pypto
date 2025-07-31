@@ -17,6 +17,7 @@
 #ifndef DEVICE_SWITCH_H
 #define DEVICE_SWITCH_H
 
+namespace npu::tile_fwk {
 #define PERF_PMU_TEST_SWITCH 0 // PMU test switch
 #define PERF_AICPU_TEST_SWITCH 0 //性能AICPU数据测试
 
@@ -102,4 +103,5 @@ constexpr bool SEND_TASK_IMMEDIATELY_SWITCH = true;
 #define PROF_STAGE_END_MTSAFE(perfkey, tid, ...)    PerfMtEnd(perfkey, tid)
 
 #endif
+} // namespace npu::tile_fwk
 #endif

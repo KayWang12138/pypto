@@ -47,6 +47,7 @@ set(_Target ${TileFwkUTestNamePrefix}_runtime)
 file(GLOB_RECURSE _Sources src/*.cpp)
 list(APPEND _Sources ${TILE_FWK_SRC_ROOT}/src/machine/device/aicore_prof.cpp)
 list(APPEND _Sources ${TILE_FWK_SRC_ROOT}/src/machine/device/device_machine.cpp)
+list(APPEND _Sources ${TILE_FWK_SRC_ROOT}/src/machine/device/device_log.cpp)
 list(APPEND _Sources ${TILE_FWK_SRC_ROOT}/src/machine/device/distributed/comm_wait_flag.cpp)
 
 TileFwk_UTest_AddCaseLib(

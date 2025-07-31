@@ -1764,13 +1764,6 @@ struct DeviceExecuteContext {
     }
 
     void GELaunch(DevStartArgs *startArgs, std::function<void(uint64_t, DeviceTask *, DeviceExecuteContext *)> tPushTask) {
-#if !defined(CONFIG_BAREMETAL) || defined(__x86_64__)
-        if (PerfEvtEnable[PERF_EVT_SCALE_10000US]) {
-            PROF_STAGE_BEGIN(PERF_EVT_SCALE_10000US, "scale_10000us.before\n");
-            usleep(SLEEP_TIME_US);
-            PROF_STAGE_END(PERF_EVT_SCALE_10000US, "scale_10000us.after\n");
-        }
-#endif
         PerfBegin(PERF_EVT_CONTROL_FLOW_INIT);
         this->pushTask = tPushTask;
         this->args = startArgs;

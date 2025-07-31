@@ -81,7 +81,6 @@ constexpr uint64_t PROF_DUMP_TIMEOUT_CYCLES = 20 * TIMEOUT_CYCLES;
     X(1, INIT)                                  \
     X(2, CONTROL_FLOW_MAPEXE)                   \
     X(3, CONTROL_FLOW_MAPEXE_MEMCPY)            \
-    X(1, SCALE_10000US)                         \
     X(1, CONTROL_FLOW_INIT)                     \
     X(1, CONTROL_FLOW)                          \
     X(2, ROOT_FUNC)                             \

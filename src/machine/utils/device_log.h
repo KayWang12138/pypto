@@ -29,15 +29,43 @@
 #ifdef __DEVICE__
 #include "toolchain/slog.h"
 #endif
-
+namespace npu::tile_fwk {
 #if DEBUG_PLOG && defined(__DEVICE__)
 #define GET_TID() syscall(__NR_gettid)
 const std::string TILE_FWK_DEVICE_MACHINE = "AI_CPU";
 
-#define D_DEV_LOGD(MODE_NAME, fmt, ...) dlog_debug(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__)
-#define D_DEV_LOGI(MODE_NAME, fmt, ...) dlog_info(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__)
-#define D_DEV_LOGW(MODE_NAME, fmt, ...) dlog_warn(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__)
-#define D_DEV_LOGE(MODE_NAME, fmt, ...) dlog_error(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__)
+bool IsLogDEnable();
+bool IsLogIEnable();
+bool IsLogWEnable();
+bool IsLogEEnable();
+
+#define D_DEV_LOGD(MODE_NAME, fmt, ...)                                               \
+  do {                                                                                \
+      if (IsLogDEnable()) {                                                  \
+        dlog_debug(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);  \
+      }                                                                               \
+  } while (false)
+
+#define D_DEV_LOGI(MODE_NAME, fmt, ...)                                               \
+  do {                                                                                \
+      if (IsLogIEnable()) {                                                   \
+        dlog_info(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);   \
+      }                                                                               \
+  } while(false)
+
+#define D_DEV_LOGW(MODE_NAME, fmt, ...)                                               \
+  do {                                                                                \
+      if (IsLogWEnable()) {                                                   \
+        dlog_warn(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);   \
+      }                                                                               \
+  } while(false)
+
+#define D_DEV_LOGE(MODE_NAME, fmt, ...)                                               \
+  do {                                                                                \
+      if (IsLogEEnable()) {                                                  \
+        dlog_error(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);  \
+      }                                                                               \
+  } while(false)
 
 #define DEV_DEBUG(fmt, args...) D_DEV_LOGD(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
 #define DEV_INFO(fmt, args...) D_DEV_LOGI(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
@@ -214,3 +242,4 @@ inline DeviceLogger &GetLogger(const char *logfile = nullptr, int level = LOG_LE
 #define DEV_DEBUG_ASSERT_MSG(expr, fmt, args...)
 #endif // DEBUG_SWITCH
 #endif // DEBUG_PLOG
+} // namespace npu::tile_fwk

@@ -40,6 +40,7 @@ target_sources(tile_fwk_server
             distributed/comm_wait_flag.cpp
             dynamic/device_machine.cpp
             dynamic/aicore_prof.cpp
+            device_log.cpp
 )
 target_compile_options(tile_fwk_server
         PRIVATE
