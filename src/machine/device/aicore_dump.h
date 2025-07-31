@@ -294,10 +294,10 @@ public:
     }
 
 private:
-    int32_t subGraphId_;
-    int32_t taskId_;
-    int32_t coreId_;
-    int64_t execStart_;
-    int64_t execEnd_;
+    int32_t subGraphId_{0};
+    int32_t taskId_{0};
+    int32_t coreId_{0};
+    int64_t execStart_{0};
+    int64_t execEnd_{0};
 };
 #endif

@@ -133,7 +133,7 @@ private:
         }
     }
 
-    StaticReadyCoreFunctionQueue *readyQueue_;
+    StaticReadyCoreFunctionQueue *readyQueue_{nullptr};
 
     Distributed::CommWaitFlag commWaitFlag_;
     Distributed::DependOn dependOn_;
@@ -142,6 +142,6 @@ private:
     std::array<EnqueueOpCallBack, TaskType::TASK_TYPE_NUM> enqueueOpCallBack_;
     std::array<PollCompletedCallBack, TaskType::TASK_TYPE_NUM> pollCompletedCallBack_;
 
-    CoreFunctionWsAddr *funcInfo_;
+    CoreFunctionWsAddr *funcInfo_{nullptr};
 };
 } // namespace npu::tile_fwk

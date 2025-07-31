@@ -145,8 +145,8 @@ struct AOTBinaryExpressionTable : AOTBinary {
         return ((exprEntry)(code_ + offsetList[index]))(ctx, symbolTable);
     }
 
-    const uint64_t *offsetList;
-    uint64_t offsetSize;
+    const uint64_t *offsetList{nullptr};
+    uint64_t offsetSize{0};
 };
 const size_t MAX_CACHED_FUNC_NUM = 128;
 const size_t MAX_READY_QUE_ELM_SIZE = 20000;
@@ -206,7 +206,7 @@ struct DynDeviceTask {
 };
 
 struct DeviceExecuteProgram {
-    DevAscendProgram *prog;
+    DevAscendProgram *prog{nullptr};
 
     AOTBinaryControlFlow controlFlowBinary;
     AOTBinaryExpressionTable exprBinary;
@@ -941,10 +941,10 @@ private:
 struct DeviceStitchContext {
     struct StitchReuseContext {
         // static constant properties
-        uint32_t workspaceRecyclePeriod;
+        uint32_t workspaceRecyclePeriod{0};
 
         // changing with stitching progress
-        uint32_t firstDupIdx;
+        uint32_t firstDupIdx{0};
     } stitchReuseContext_;
 
     void Init(DevAscendProgram *devProg, DeviceWorkspaceAllocator &workspace) {
@@ -1680,7 +1680,7 @@ const uint64_t SLEEP_TIME_US = 10000;
 const uint32_t SUBMMIT_TASK_QUE_SIZE = 5;
 struct DeviceExecuteContext {
     std::function<void(uint64_t, DeviceTask *, DeviceExecuteContext *)> pushTask;
-    DevStartArgs *args;
+    DevStartArgs *args{nullptr};
     uint64_t taskId{0};
 
     DevAscendProgram *devProg{nullptr};
@@ -1698,9 +1698,9 @@ struct DeviceExecuteContext {
 
     DevAscendFunctionDupped currDevRootDup;
 
-    CostModel::ModelData *costModelData;
+    CostModel::ModelData *costModelData{nullptr};
 
-    void *aicoreModel;
+    void *aicoreModel{nullptr};
 
     SPSCQueue<DynDeviceTask *, SUBMMIT_TASK_QUE_SIZE> submmitTaskQueue_;
 

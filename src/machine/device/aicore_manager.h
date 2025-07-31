@@ -88,15 +88,15 @@ struct sdma_l2_cmo_desc {
 #define IOCTL_SDMA_L2_CMO  _IOW('s', 3, struct sdma_l2_cmo_desc)
 
 struct DeviceTaskCtrl {
-    int taskType;
-    uint64_t taskId;
-    void *devTask;
+    int taskType{DEVICE_TASK_TYPE_INVALID};
+    uint64_t taskId{0};
+    void *devTask{nullptr};
     uint64_t finishedAicFunctionCnt{0}; // 所有aicpu处理完成的aic function个数，多线程增加修改
     uint64_t finishedAivFunctionCnt{0}; // 所有aicpu处理完成的aiv function个数，多线程增加修改
     uint64_t finishedAicpuFunctionCnt{0}; // 所有aicpu处理完成的aicpu function个数，多线程增加修改
     std::atomic<uint64_t> finishedFunctionCnt{0};
     std::atomic<int> refcnt{-1};
-    void (*finishFunc)(void *devTask);
+    void (*finishFunc)(void *devTask){nullptr};
     int retCode{0};
     std::array<std::array<std::atomic<bool>, npu::tile_fwk::dynamic::MAX_SCHEDULE_AICPU_NUM>, AICORE_TYPE_NUM>  isAicpuIdle;
 
@@ -1141,25 +1141,25 @@ public:
     }
 private:
     bool isFirstTaskSend_{true};
-    bool firstLock[AICORE_TYPE_NUM];
+    bool firstLock[AICORE_TYPE_NUM]{true,true};
     uint64_t task_start_time_{UINT64_MAX};
     uint64_t task_end_time_{0};
-    int aicNum_;
-    int aivNum_;
-    int aicValidNum_; // 有效的aic，根据pgmask计算host传过来
-    int aicpuIdx_;
-    int aicpuNum_;
-    int aicStart_;
-    int aicEnd_;
-    int aivStart_;
-    int aivEnd_;
+    int aicNum_{0};
+    int aivNum_{0};
+    int aicValidNum_{0}; // 有效的aic，根据pgmask计算host传过来
+    int aicpuIdx_{0};
+    int aicStart_{0};
+    int aicpuNum_{npu::tile_fwk::dynamic::MAX_SCHEDULE_AICPU_NUM};
+    int aicEnd_{0};
+    int aivStart_{0};
+    int aivEnd_{0};
     uint64_t procAicCoreFunctionCnt_{0};
     uint64_t procAivCoreFunctionCnt_{0};
     uint64_t procAicpuFunctionCnt_{0};
-    int64_t *regAddrs_;
-    int64_t sharedBuffer_;
-    DeviceTask *curDevTask_;
-    DeviceTaskCtrl* curTaskCtrl_;
+    int64_t *regAddrs_{nullptr};
+    int64_t sharedBuffer_{0};
+    DeviceTask *curDevTask_{nullptr};
+    DeviceTaskCtrl* curTaskCtrl_{nullptr};
     AicpuTaskManager &aicpuTaskManager_;
 
     std::array<uint64_t, MAX_AICORE_NUM> runningIds_;
@@ -1178,24 +1178,24 @@ private:
     SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> taskQueue_;
 
     /* prepare aicore ready task list */
-    StaticReadyCoreFunctionQueue *readyAicCoreFunctionQue_;
-    StaticReadyCoreFunctionQueue *readyAivCoreFunctionQue_;
+    StaticReadyCoreFunctionQueue *readyAicCoreFunctionQue_{nullptr};
+    StaticReadyCoreFunctionQueue *readyAivCoreFunctionQue_{nullptr};
 
     AiCoreProf prof_;
     AicoreDump aicoreDump_;
     int64_t dotStatus_{0};
-    uint64_t waitTaskCnt_[AICORE_TYPE_NUM];
-    uint32_t corePendReadyCnt_[AICORE_TYPE_NUM];
-    uint32_t coreRunReadyCnt_[AICORE_TYPE_NUM];
+    uint64_t waitTaskCnt_[AICORE_TYPE_NUM]{0,0};
+    uint32_t corePendReadyCnt_[AICORE_TYPE_NUM]{0,0};
+    uint32_t coreRunReadyCnt_[AICORE_TYPE_NUM]{0,0};
     uint32_t runReadyCoreIdx_[AICORE_TYPE_NUM][MAX_MANAGER_AIV_NUM];
-    uint32_t lastPendReadyCoreIdx_[AICORE_TYPE_NUM];
+    uint32_t lastPendReadyCoreIdx_[AICORE_TYPE_NUM]{0,0};
     uint64_t reSolveHubCnt_{0};
 
     uint64_t readyIds[AICORE_TYPE_NUM][READY_ID_FIX_CACHE_NUM];
-    uint64_t readyCount[AICORE_TYPE_NUM];
+    uint64_t readyCount[AICORE_TYPE_NUM]{0,0};
     std::vector<uint64_t> readyIdsExtend[AICORE_TYPE_NUM];
 
-    uint32_t sendCnt_[AICORE_TYPE_NUM];
+    uint32_t sendCnt_[AICORE_TYPE_NUM]{0,0};
 
 #if defined(DEBUG_SWITCH) && DEBUG_SWITCH
     std::vector<TaskInfo> sendTask_[MAX_AICORE_NUM];

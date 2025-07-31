@@ -283,8 +283,8 @@ private:
 
 private:
     DeviceTaskReceiver receiver;
-    uint64_t sharedBuffer_;
-    uint64_t coreNum_;
+    uint64_t sharedBuffer_{0};
+    uint64_t coreNum_{0};
     bool serverMode_{false};
     DeviceTaskCtrl taskctrl_[MAX_DEVICE_TASK_NUM];
     uint64_t taskCtrlIndex_{0};

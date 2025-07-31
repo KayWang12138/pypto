@@ -1210,7 +1210,9 @@ struct DevAscendFunctionDupped {
 
     void LogAicpuAlloc(WsAicpuCoherentAllocator &allocator) {
 #ifdef DEBUG_SWITCH
-        allocator.GetCounter()->LogMalloc(dupTiny_);
+        if (allocator.GetCounter()) {
+            allocator.GetCounter()->LogMalloc(dupTiny_);
+        }
 #endif // DEBUG_SWITCH
         (void)allocator;
     }

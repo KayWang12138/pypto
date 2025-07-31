@@ -245,8 +245,8 @@ private:
     int32_t coreNum_ = 0;
     AiCoreProfLevel profLevel_ = PROF_LEVEL_OFF;
     uint64_t taskCnt_ = 0;
-    int64_t *regAddrs_;
-    int64_t *pmuEventAddrs_;
+    int64_t *regAddrs_{nullptr};
+    int64_t *pmuEventAddrs_{nullptr};
 
     // PMU_CNT0 ~ PMU_CNT7 共计8个cnt寄存器,32位寄存器,用来获取对应读数,单位为cycle
     std::vector<volatile uint32_t *> pmuCnt0Plain_;
