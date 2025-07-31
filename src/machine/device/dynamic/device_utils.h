@@ -61,7 +61,7 @@ constexpr int32_t START_AICPU_NUM = 3;
 constexpr uint64_t NUM_FIFTY = 50;
 constexpr uint64_t US_PER_SEC = 1000000;
 constexpr uint64_t NSEC_PER_USEC = 1000;
-constexpr uint64_t NSEC_PER_SEC = 10000000000;
+constexpr uint64_t NSEC_PER_SEC = 1000000000;
 constexpr int32_t MAX_MNG_AICORE_AVG_NUM = 8;
 constexpr uint32_t NEED_LAUNCH_AICPU_MINNUM = 3;
 

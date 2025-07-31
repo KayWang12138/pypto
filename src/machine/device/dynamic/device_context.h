@@ -1677,7 +1677,7 @@ private:
     }
 };
 const uint64_t SLEEP_TIME_US = 10000;
-const uint32_t SUBMMIT_TASK_QUE_SIZE = 5;
+const uint32_t SUBMMIT_TASK_QUE_SIZE = 3;
 struct DeviceExecuteContext {
     std::function<void(uint64_t, DeviceTask *, DeviceExecuteContext *)> pushTask;
     DevStartArgs *args{nullptr};
