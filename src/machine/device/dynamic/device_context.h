@@ -308,7 +308,7 @@ public:
                     default:
                         break;
                 }
-                DEV_ERROR("  Func (%2zu) %16s rawTensor[%2zu], @%" PRIx64 " [%zu bytes]%s\n",
+                DEV_ERROR("  Func (%2zu) %16s rawTensor[%2zu], @%" PRIx64 " [%zu bytes]%s.",
                     stitchedListIndex, dup.GetSource()->GetRawName(), rawIndex, ptr, size,
                     ioPropertyDump.c_str());
             }
@@ -349,19 +349,19 @@ public:
                 switch (VerifyAicoreLocalMemoryState(memInfo.ptr, memInfo.size)) {
                     case WsMemoryState::INSIDE:
                         if (!isValidWsTensor(memInfo.ptr, memInfo.size)) {
-                            DEV_ERROR("Invalid workspace tensor (not completely inside any workspace segment):\n");
+                            DEV_ERROR("Invalid workspace tensor (not completely inside any workspace segment):");
                             memInfo.DumpError();
                             verificationSuccess = false;
                         }
                         break;
                     case WsMemoryState::CROSS_BOUNDARY:
-                        DEV_ERROR("Memory crossing workspace boundary:\n");
+                        DEV_ERROR("Memory crossing workspace boundary:");
                         memInfo.DumpError();
                         verificationSuccess = false;
                         break;
                     default:
                         if (!inoutAddr.count(memInfo.ptr)) {
-                            DEV_ERROR("Non input/output tensor outside of workspace:\n");
+                            DEV_ERROR("Non input/output tensor outside of workspace:");
                             memInfo.DumpError();
                             verificationSuccess = false;
                         }
@@ -477,7 +477,7 @@ public:
             }
 
             devRootDup.GetOutcastAddress(i) = desc;
-            DEV_DEBUG("get outcast %zu slot %d address %s\n", i, slotIndex, desc.ToString().c_str());
+            DEV_DEBUG("get outcast %zu slot %d address %s.", i, slotIndex, desc.ToString().c_str());
         }
 
         // assign incast address descriptor
@@ -486,7 +486,7 @@ public:
 
             int slotIndex = devRootSrc->At(devRootSrc->GetIncast(i).fromSlotList, 0);
             devRootDup.GetIncastAddress(i) = slotList[slotIndex].desc;
-            DEV_DEBUG("get incast %zu, from slot %d address %s\n", i, slotIndex, devRootDup.GetIncastAddress(i).ToString().c_str());
+            DEV_DEBUG("get incast %zu, from slot %d address %s.", i, slotIndex, devRootDup.GetIncastAddress(i).ToString().c_str());
         }
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
         funcAllocDfx.DelayedDumpAsRootFuncAndReset(wsMemDelayedDumper_, devRootDup.GetSource()->GetRawName());
@@ -617,7 +617,7 @@ public:
 
     WsAllocation SlabAlloc(uint32_t objSize, WsAicpuSlabMemType type) {
         void* ptr = nullptr;
-        DEV_DEBUG("SlabAlloc type = %u, size =%u \n", ToUnderlying(type), objSize);
+        DEV_DEBUG("SlabAlloc type = %u, size = %u.", ToUnderlying(type), objSize);
         SlabTryDynAddCache(type, objSize); // ready que need dyn add cache
         if (type < WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT) {
             ptr = aicpuMetaSlabAllocator_.Alloc(ToUnderlying(type));
@@ -876,14 +876,14 @@ public:
             DevAscendTensorData &param = args->GetInputTensor(i);
             int slotIndex = devProg->startArgsInputTensorSlotIndexList[i];
             slotList[slotIndex].desc = AddressDescriptor(param.address);
-            DEV_INFO("Param %d Input Slot %d = %lx\n", i, slotIndex, param.address);
+            DEV_INFO("Param %d Input Slot %d = %lx.", i, slotIndex, param.address);
         }
         for (int i = 0; i < args->GetOutputTensorSize(); i++) {
             DevAscendTensorData &param = args->GetOutputTensor(i);
             int slotIndex = devProg->startArgsOutputTensorSlotIndexList[i];
             slotList[slotIndex].desc = AddressDescriptor(param.address);
             slotList[slotIndex].isOutputSlot = true;
-            DEV_INFO("Param %d Output Slot %d = %lx\n", i, slotIndex, param.address);
+            DEV_INFO("Param %d Output Slot %d = %lx.", i, slotIndex, param.address);
         }
         for (size_t i = args->GetOutputTensorSize(); i < devProg->startArgsOutputTensorSlotIndexList.size(); i++) {
             int outSlot = devProg->startArgsOutputTensorSlotIndexList[i];
@@ -891,13 +891,13 @@ public:
             if (inSlot != -1) {
                 slotList[outSlot].desc = slotList[inSlot].desc;
                 slotList[outSlot].isOutputSlot = true;
-                DEV_INFO("Param %zu Output Slot %d = inSlot %d\n", i, outSlot, inSlot);
+                DEV_INFO("Param %zu Output Slot %d = inSlot %d.", i, outSlot, inSlot);
             }
         }
         for (size_t i = 0; i < devProg->assembleSlotIndexList.size(); i++) {
             int slotIndex = devProg->assembleSlotIndexList[i];
             slotList[slotIndex].isAssemble = true;
-            DEV_INFO("Assemble Slot %d\n", slotIndex);
+            DEV_INFO("Assemble Slot %d.", slotIndex);
         }
         (void)slotSize;
     }
@@ -927,7 +927,7 @@ public:
                     slot.desc = AddressDescriptor(dupIdx, i);
                 }
                 slot.refCnt = nullptr;
-                DEV_DEBUG("[UpdateSlots]   Outcast [%3zu] to slot [%3d], address %s\n", i, slotIdx, slot.desc.ToString().c_str());
+                DEV_DEBUG("[UpdateSlots]   Outcast [%3zu] to slot [%3d], address %s.", i, slotIdx, slot.desc.ToString().c_str());
             }
         }
     }
@@ -997,7 +997,7 @@ struct DeviceStitchContext {
 
     void DumpSlotInfo(const char *label, DeviceExecuteSlot *slotList, size_t slotSize) {
 #if DEBUG_SWITCH
-        DEV_DEBUG("[DecideSlotAddress] %s\n", label);
+        DEV_DEBUG("[DecideSlotAddress] %s.", label);
         for (size_t slotIdx = 0; slotIdx < slotSize; slotIdx++) {
             auto &desc = slotList[slotIdx].desc;
             const char *extraAttr = "";
@@ -1006,7 +1006,7 @@ struct DeviceStitchContext {
             } else if (slotList[slotIdx].isAssemble) {
                 extraAttr = " <assemble>";
             }
-            DEV_DEBUG("[DecideSlotAddress]   Slot [%3lu]: addr %s%s\n",
+            DEV_DEBUG("[DecideSlotAddress]   Slot [%3lu]: addr %s%s.",
                 slotIdx, desc.ToString().c_str(), extraAttr);
         }
 #else
@@ -1082,7 +1082,7 @@ struct DeviceStitchContext {
                     desc = stitchedList_[desc.dupIdx].GetOutcastAddress(desc.outcastIdx);;
                 }
                 DEV_DEBUG_ASSERT(desc.IsAddress());
-                DEV_DEBUG("[DecideIncastOutcast] func %zu incast [%3zu]: addr %s\n",
+                DEV_DEBUG("[DecideIncastOutcast] func %zu incast [%3zu]: addr %s.",
                     funcIdx, i, desc.ToString().c_str());
             }
 
@@ -1094,7 +1094,7 @@ struct DeviceStitchContext {
                     desc = stitchedList_[desc.dupIdx].GetOutcastAddress(desc.outcastIdx);
                 }
                 DEV_DEBUG_ASSERT(desc.IsAddress());
-                DEV_DEBUG("[DecideIncastOutcast] func %zu outcast [%3zu]: addr %s\n",
+                DEV_DEBUG("[DecideIncastOutcast] func %zu outcast [%3zu]: addr %s.",
                     funcIdx, i, desc.ToString().c_str());
             }
         }
@@ -1163,11 +1163,11 @@ private:
         if (depth < 0) {
             int prevIdx = prevDup.GetSource()->At(outcast.minimalTileIdx, currIdx);
             if (prevIdx >= 0 && prevIdx != producerIdx) {
-                DEV_ERROR("[Stitch] currIdx %lu already has producerIdx: %d, write failed!\n", currIdx, prevIdx);
+                DEV_ERROR("[Stitch] currIdx %lu already has producerIdx: %d, write failed!.", currIdx, prevIdx);
                 return;
             }
             prevDup.GetSource()->At(outcast.minimalTileIdx, currIdx) = producerIdx;
-            DEV_DEBUG("[Stitch] set currIdx %lu with func %s[%d]\n", currIdx, prevDup.GetSource()->GetRawName(), producerIdx);
+            DEV_DEBUG("[Stitch] set currIdx %lu with func %s[%d].", currIdx, prevDup.GetSource()->GetRawName(), producerIdx);
             return;
         }
 
@@ -1193,16 +1193,16 @@ private:
         uint64_t &matchCount, DeviceWorkspaceAllocator *workspace) {
         if (depth < 0) {
             if (currIdx >= outcast.minimalTileIdx.size()) {
-                DEV_ERROR("[Stitch] currIdx %lu is large than outcast tiles size %zu\n", currIdx, outcast.minimalTileIdx.size());
+                DEV_ERROR("[Stitch] currIdx %lu is large than outcast tiles size %zu.", currIdx, outcast.minimalTileIdx.size());
                 return;
             }
             auto producerIdx = prevDup.GetSource()->At(outcast.minimalTileIdx, currIdx);
             if (producerIdx < 0) {
-                DEV_ERROR("[Stitch] currIdx %zu of minimalTile has no producerIdx!\n", currIdx);
+                DEV_ERROR("[Stitch] currIdx %zu of minimalTile has no producerIdx!.", currIdx);
                 return;
             }
 
-            DEV_DEBUG("[Stitch] find currIdx %lu with func %lu[%d]  matchs func %lu[%d]\n", currIdx,
+            DEV_DEBUG("[Stitch] find currIdx %lu with func %lu[%d]  matchs func %lu[%d].", currIdx,
                 prevDup.GetSource()->funcKey, producerIdx, nextDup.GetSource()->funcKey, consumerIdx);
             matchCount++;
             auto coreTask = MakeTaskID(devNextIdx, consumerIdx);
@@ -1283,7 +1283,7 @@ public:
             for (size_t j = 0; j < incast.fromSlotList.size(); ++j) {
                 auto slotIdx = nextDup.GetSource()->At(incast.fromSlotList, j);
                 if (slotIdx >= (int)slotSize) {
-                    DEV_ERROR("slotIdx %d is larger than slotSize %zu!\n", slotIdx, slotSize);
+                    DEV_ERROR("slotIdx %d is larger than slotSize %zu!.", slotIdx, slotSize);
                     continue;
                 }
 
@@ -1294,10 +1294,10 @@ public:
                 DevAscendFunctionDupped &prevDup = stitchingList[slot.desc.dupIdx];
                 auto &outcast = prevDup.GetSource()->GetOutcast(slot.desc.outcastIdx);
                 auto rawTensor = prevDup.GetSource()->GetOutcastRawTensor(slot.desc.outcastIdx);
-                DEV_DEBUG("outcast %lu is %d, fastStitchTileIdx is %s\n", (unsigned long)slot.desc.outcastIdx,
+                DEV_DEBUG("outcast %lu is %d, fastStitchTileIdx is %s.", (unsigned long)slot.desc.outcastIdx,
                     outcast.fastStitchEnable, IntVecToStr(prevDup, outcast.fastStitchTileIdx).c_str());
-                DEV_DEBUG("incast %zu is %d, fastStitchTileIdx is %s\n", i, incast.fastStitchEnable, IntVecToStr(nextDup, incast.fastStitchTileIdx).c_str());
-                DEV_DEBUG("=================%zu %zu %zu %zu %d %d===========================\n", outcast.producer.size(), incast.consumer.size(),
+                DEV_DEBUG("incast %zu is %d, fastStitchTileIdx is %s.", i, incast.fastStitchEnable, IntVecToStr(nextDup, incast.fastStitchTileIdx).c_str());
+                DEV_DEBUG("=================%zu %zu %zu %zu %d %d===========================.", outcast.producer.size(), incast.consumer.size(),
                     outcast.fastStitchTileIdx.size(), incast.fastStitchTileIdx.size(), outcast.fastStitchEnable, incast.fastStitchEnable);
                 if (outcast.producer.size() == incast.consumer.size() && outcast.fastStitchTileIdx.size() == incastSize &&
                     outcast.fastStitchEnable && incast.fastStitchEnable) {
@@ -1306,7 +1306,7 @@ public:
                     for (size_t tileIdx = 0; tileIdx < incastSize; ++tileIdx) {
                         int producerIdx = *(producerIdxPtr++);
                         int consumerIdx = *(consumerIdxPtr++);
-                        DEV_DEBUG("[FastStitch] find with func %s[%d]  matchs func %s[%d]\n",
+                        DEV_DEBUG("[FastStitch] find with func %s[%d]  matchs func %s[%d].",
                             prevDup.GetSource()->GetRawName(), producerIdx, nextDup.GetSource()->GetRawName(), consumerIdx);
                         auto &producerStitch = prevDup.GetOperationStitch(producerIdx);
                         PushBackTask(producerStitch, MakeTaskID(devNextIdx, consumerIdx), workspace);
@@ -1387,7 +1387,7 @@ public:
                 }
                 std::stringstream oss;
                 oss << stitch;
-                DEV_INFO("func %d opIndex %zu stitch list: %s\n", funcId, opIndex, oss.str().c_str());
+                DEV_INFO("func %d opIndex %zu stitch list: %s.", funcId, opIndex, oss.str().c_str());
             }
             funcId++;
         }
@@ -1460,12 +1460,12 @@ struct DeviceTaskContext {
     }
 
     void ShowStats() {
-        DEV_ERROR("   Stitched function count: %10lu\n", stitchedFuncNum);
-        DEV_ERROR("       Root function count: %10lu\n", rootFuncNum);
-        DEV_ERROR("       Leaf function count: %10lu\n", leafFuncNum);
-        DEV_ERROR("   Inital ready task count: %10lu\n", readyTaskNum);
-        DEV_ERROR(" Static function data size: %10lu bytes\n", dynFuncDataSize);
-        DEV_ERROR("   Leaf function data size: %10lu bytes\n", leafFuncDataSize);
+        DEV_ERROR("   Stitched function count: %10lu.", stitchedFuncNum);
+        DEV_ERROR("       Root function count: %10lu.", rootFuncNum);
+        DEV_ERROR("       Leaf function count: %10lu.", leafFuncNum);
+        DEV_ERROR("   Inital ready task count: %10lu.", readyTaskNum);
+        DEV_ERROR(" Static function data size: %10lu bytes.", dynFuncDataSize);
+        DEV_ERROR("   Leaf function data size: %10lu bytes.", leafFuncDataSize);
     }
 
 private:
@@ -1656,7 +1656,7 @@ private:
     void BuildDeviceTaskData(DynDeviceTask *dyntask, DevAscendProgram *devProg) {
         dyntask->cceBinary = devProg->GetCceBinary(0);
 
-        DEV_DEBUG("build ready queue\n");
+        DEV_DEBUG("build ready queue.");
         PerfBegin(PERF_EVT_READY_QUEUE);
         BuildReadyQueue(dyntask);
         PerfEnd(PERF_EVT_READY_QUEUE);
@@ -1665,11 +1665,11 @@ private:
         ResolveEarlyDepends(dyntask);
         PerfEnd(PERF_EVT_RESOLVE_EARLY);
 
-        DEV_DEBUG("build func data\n");
+        DEV_DEBUG("build func data.");
         PerfBegin(PERF_EVT_CORE_FUNCDATA);
         BuildDynFuncData(dyntask);
         PerfEnd(PERF_EVT_CORE_FUNCDATA);
-        DEV_INFO("start a new static func\n");
+        DEV_INFO("start a new static func.");
 
         if constexpr (!IsDeviceMode()) {
             dyntask->DumpTopo();
@@ -1749,7 +1749,7 @@ struct DeviceExecuteContext {
         this->devProg = startArgs->devProg;
 #if DEBUG_SWITCH
         std::string dump = devProg->Dump(0, true);
-        DEV_INFO("[DEVICE] %s\n", dump.c_str());
+        DEV_INFO("[DEVICE] %s.", dump.c_str());
 #endif
         PerfBegin(PERF_EVT_CONTROL_FLOW_MAPEXE);
         execProg = DeviceExecuteProgram(devProg, (AOTBinaryControlFlow::controlFlowEntry)startArgs->controlFlowEntry);
@@ -1791,13 +1791,13 @@ struct DeviceExecuteContext {
             DevInputSymbol &param = startArgs->GetInputSymbol(i);
             int inputSymbolIndex = this->devProg->startArgsInputSymbolIndexList[i];
             symbolTable[inputSymbolIndex] = param.value;
-            DEV_INFO("Param %d Symbol Table %d = %lu\n", i, inputSymbolIndex, param.value);
+            DEV_INFO("Param %d Symbol Table %d = %lu.", i, inputSymbolIndex, param.value);
         }
 
         for (size_t i = 0; i < this->devProg->startArgsSymbolHandlerList.size(); i++) {
             SymbolHandler &symbolHandler = this->devProg->startArgsSymbolHandlerList[i];
             void *handler = SymbolHandlerIdToHandler(symbolHandler.handlerId);
-            DEV_ASSERT_MSG(handler, "handler not found\n");
+            DEV_ASSERT_MSG(handler, "handler not found.");
             symbolTable[symbolHandler.symIndex] = (uint64_t)handler;
         }
 
@@ -1806,7 +1806,7 @@ struct DeviceExecuteContext {
         workspace.InitAicpuMetaSlabAllocator();
 
         PerfEnd(PERF_EVT_CONTROL_FLOW_INIT);
-        DEV_INFO("Image size = %lu\n", devProg->GetSize());
+        DEV_INFO("Image size = %lu.", devProg->GetSize());
 
         PerfBegin(PERF_EVT_CONTROL_FLOW);
         CallRootEntryType callRootList[static_cast<uint32_t>(CallRootStage::T_CALLROOT_MAX)] = {
@@ -1886,9 +1886,9 @@ struct DeviceExecuteContext {
     }
 
     void *CallRootFunctionAlloc(uint64_t rootKey) {
-        DEV_INFO("execute one func %lu\n", rootKey);
+        DEV_INFO("execute one func %lu.", rootKey);
         DevAscendFunction *devRoot = devProg->GetFunction(rootKey);
-        DEV_INFO("prepare one func %p %s\n", devRoot, devRoot->GetRawName());
+        DEV_INFO("prepare one func %p %s.", devRoot, devRoot->GetRawName());
         if (stitchContext.Size() == MAX_CACHED_FUNC_NUM ||
             stitchContext.stitchedCallOpSize() + devRoot->GetOperationSize() > MAX_READY_QUE_ELM_SIZE) {
             SubmitToAicoreAndRecycleMemory(false);
@@ -1904,7 +1904,7 @@ struct DeviceExecuteContext {
 
     void *CallRootFunctionStitch(uint64_t rootKey) {
         if (rootKey == RUNTIME_FINISH_FUNCKEY) {
-            DEV_INFO("finish func\n");
+            DEV_INFO("finish func.");
             SubmitToAicoreAndRecycleMemory(false);
             return nullptr;
         }
@@ -1944,7 +1944,7 @@ private:
     static void *DeviceExecuteCallAlloc(void *ctx_, uint64_t rootKey) {
         DeviceExecuteContext *ctx = (DeviceExecuteContext *)ctx_;
         if (ctx == nullptr) {
-            DEV_ERROR("invalid ctx\n");
+            DEV_ERROR("invalid ctx.");
             return nullptr;
         }
         PerfBegin(PERF_EVT_ROOT_FUNC);
@@ -1955,7 +1955,7 @@ private:
     static void *DeviceExecuteCallStitch(void *ctx_, uint64_t rootKey) {
         DeviceExecuteContext *ctx = (DeviceExecuteContext *)ctx_;
         if (ctx == nullptr) {
-            DEV_ERROR("invalid ctx\n");
+            DEV_ERROR("invalid ctx.");
             return nullptr;
         }
         PerfBegin(PERF_EVT_ROOT_FUNC);
@@ -1968,7 +1968,7 @@ private:
         (void)ctx_;
         (void) value;
 #if !DEBUG_PLOG
-        GetLogger().Log(LOG_LEVEL_INFO, __FILE__, 0, "%" PRIu64 "\n", value);
+        GetLogger().Log(LOG_LEVEL_INFO, __FILE__, 0, "%" PRIu64 ".", value);
 #else
         DEV_INFO("Value: %lu", value);
 #endif

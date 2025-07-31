@@ -223,12 +223,12 @@ inline int CheckTimeOut(const uint64_t &tStart, uint64_t &tCnt, uint64_t &tCur, 
         tCur = CurrentTime();
         #if DEBUG_SWITCH
             if (tCur - tStart > DFX_TIME_OUT_THRESHOLD) {
-                DEV_ERROR("%s dfx_timeout, aicpu force exit, ttl=%lu.\n", opString.c_str(), tCnt);
+                DEV_ERROR("%s dfx_timeout, aicpu force exit, ttl=%lu.", opString.c_str(), tCnt);
                 return DEVICE_MACHINE_ERROR;
             }
         #else
             if (tCur - tStart > TIME_OUT_THRESHOLD) {
-                DEV_ERROR("%s timeout, aicpu force exit, ttl=%lu.\n", opString.c_str(), tCnt);
+                DEV_ERROR("%s timeout, aicpu force exit, ttl=%lu.", opString.c_str(), tCnt);
                 return DEVICE_MACHINE_ERROR;
             }
         #endif
@@ -251,7 +251,7 @@ inline void RepeatPuts(char c, size_t count) {
         buf[i] = c;
     }
     buf[count] = '\0';
-    DEV_ERROR("%s\n", buf);
+    DEV_ERROR("%s.", buf);
 }
 
 struct PerfettoMgr {
@@ -400,7 +400,7 @@ struct PerfEvtMgr {
         static constexpr size_t SHEET_WIDTH = 40 + 3 + 10 + 3 + 10 + 3 + 10;
 
         RepeatPuts('=', SHEET_WIDTH);
-        DEV_ERROR("%40s | %10s | %10s | %10s\n", "EventType", "Count", "Total(us)", "Avg(us)");
+        DEV_ERROR("%40s | %10s | %10s | %10s.", "EventType", "Count", "Total(us)", "Avg(us)");
         RepeatPuts('-', SHEET_WIDTH);
 
         for (int i = 0; i < PERF_EVT_MAX; i++) {
@@ -408,7 +408,7 @@ struct PerfEvtMgr {
             if (evt.count != 0) {
                 uint64_t total = evt.total * NSEC_PER_SEC / freq / NSEC_PER_USEC;
                 float avg = static_cast<float>(total / evt.count);
-                DEV_ERROR("%-40s | %10ld | %10lu | %10.1f\n", PerfEventName[i], evt.count, total, avg);
+                DEV_ERROR("%-40s | %10ld | %10lu | %10.1f.", PerfEventName[i], evt.count, total, avg);
             }
         }
 

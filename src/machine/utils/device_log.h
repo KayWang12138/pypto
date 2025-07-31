@@ -104,11 +104,13 @@ public:
         va_list ap;
         va_start(ap, fmt);
         if (fp_) {
-            fprintf(fp_, "%ld.%06ld [%s] %s:%d ", tv.tv_sec, tv.tv_usec, g_levelName[level], file, line);
+            fprintf(fp_, "%ld.%06ld [%s] %s:%d", tv.tv_sec, tv.tv_usec, g_levelName[level], file, line);
             vfprintf(fp_, fmt, ap);
+            fprintf(fp_, "\n");
         } else {
-            printf("%ld.%06ld [%s] %s:%d ", tv.tv_sec, tv.tv_usec, g_levelName[level], file, line);
+            printf("%ld.%06ld [%s] %s:%d", tv.tv_sec, tv.tv_usec, g_levelName[level], file, line);
             vprintf(fmt, ap);
+            printf("\n");
         }
         va_end(ap);
         Flush();

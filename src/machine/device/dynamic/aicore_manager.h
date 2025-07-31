@@ -158,7 +158,7 @@ inline void SdmaPrefetch(DeviceTask *devTask) {
       return;
     }
     if (devTask->l2Info.prefetchNum > MAX_PREFETCH_NUM) {
-      DEV_ERROR("Prefetch invalid num %ld.\n", devTask->l2Info.prefetchNum);
+      DEV_ERROR("Prefetch invalid num %ld.", devTask->l2Info.prefetchNum);
       return;
     }
     int fd = open(SDMA_FILE.c_str(), O_RDWR);
@@ -172,10 +172,10 @@ inline void SdmaPrefetch(DeviceTask *devTask) {
       desc.src_addr = devTask->l2Info.prefetchAddrs[i];
       desc.size = devTask->l2Info.prefetchSizes[i];
       ret |= ioctl(fd, IOCTL_SDMA_L2_CMO, &desc);
-      DEV_DEBUG("Prefetch %lx %lu ret:%d\n", devTask->l2Info.prefetchAddrs[i],
+      DEV_DEBUG("Prefetch %lx %lu ret:%d.", devTask->l2Info.prefetchAddrs[i],
           devTask->l2Info.prefetchSizes[i], ret);
     }
-    DEV_INFO("Prefetch tensor num %ld ret %d.\n", devTask->l2Info.prefetchNum, ret);
+    DEV_INFO("Prefetch tensor num %ld ret %d.", devTask->l2Info.prefetchNum, ret);
     close(fd);
     return;
 }
@@ -222,7 +222,7 @@ public:
         if constexpr (IsDeviceMode()) {
             *readyRegQueues_[GetPhyIdByBlockId(coreIdx)] = value;
         } else {
-            DEV_INFO("set coreidx %d value %lx\n", coreIdx, value);
+            DEV_INFO("set coreidx %d value %lx.", coreIdx, value);
             auto taskId = value - 1;
             if (value == 0 || taskId == AICORE_TASK_STOP || taskId == AICORE_FUNC_STOP) return;
             CostModelSendTask(coreIdx, taskId);
@@ -381,7 +381,7 @@ public:
 
     uint64_t CostModelGetTask(int coreIdx) {
         auto currentTime = GetCycles();
-        DEV_DEBUG("CostModel AICore polling aicore %d, time %lu\n", coreIdx, currentTime);
+        DEV_DEBUG("CostModel AICore polling aicore %d, time %lu.", coreIdx, currentTime);
         if (taskIds[coreIdx].empty()) return AICORE_FUNC_STOP | AICORE_FIN_MASK;
         uint64_t taskId;
         while (!taskIds[coreIdx].empty() && currentTime >= taskTimes[coreIdx].front()) {
@@ -390,10 +390,10 @@ public:
             taskIds[coreIdx].pop_front();
         }
         if (taskIds[coreIdx].empty()) {
-            DEV_DEBUG("CostModel AICore %d finish task 0x%lx, current time %lu\n", coreIdx, taskId, currentTime);
+            DEV_DEBUG("CostModel AICore %d finish task 0x%lx, current time %lu.", coreIdx, taskId, currentTime);
             return taskId | AICORE_FIN_MASK;
         }
-        DEV_DEBUG("CostModel AICore %d running task 0x%lx, current time %lu, finish time %lu\n",
+        DEV_DEBUG("CostModel AICore %d running task 0x%lx, current time %lu, finish time %lu.",
                   coreIdx, taskIds[coreIdx].front(), currentTime, taskTimes[coreIdx].front());
         return taskIds[coreIdx].front();
     }
@@ -406,7 +406,7 @@ public:
         if (model_) {
             model_->SendTask(coreIdx, taskId);
         }
-        DEV_DEBUG("CostModel AICore %d add task 0x%lx, new queue size %lu, finish time %lu\n",
+        DEV_DEBUG("CostModel AICore %d add task 0x%lx, new queue size %lu, finish time %lu.",
                   coreIdx, taskId, taskIds[coreIdx].size(), time + timeCost);
     }
 
@@ -427,7 +427,7 @@ public:
             if (addr == nullptr) {
                 continue;
             }
-            DEV_DEBUG("phy core %u Addr is %p\n", idx, addr);
+            DEV_DEBUG("phy core %u Addr is %p.", idx, addr);
             volatile uint64_t *reqQueueReg =
                 reinterpret_cast<volatile uint64_t *>(static_cast<uint8_t *>(addr) + REG_SPR_DATA_MAIN_BASE);
             readyRegQueues_[idx] = reqQueueReg;
@@ -444,26 +444,26 @@ public:
     int DumpTaskProf(int coreIdx) {
         volatile KernelArgs *arg = (KernelArgs *)(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
         volatile Metrics*  metric = (Metrics *)(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
-        DEV_INFO("aicore %d host alloc metric memory :%p.\n", coreIdx, metric);
+        DEV_INFO("aicore %d host alloc metric memory :%p.", coreIdx, metric);
         if (metric == nullptr) {
-            DEV_INFO("aicore %d Null metric.\n", coreIdx);
+            DEV_INFO("aicore %d Null metric.", coreIdx);
            return 0;
         }
 
         uint64_t cycles_start = GetCycles();
         while (metric->isMetricStop != 1) {
             if (GetCycles() - cycles_start > PROF_DUMP_TIMEOUT_CYCLES) {
-                DEV_ERROR("wait metrics done timeout !!!\n");
+                DEV_ERROR("wait metrics done timeout !!!.");
                 return DEVICE_MACHINE_ERROR;
             }
         }; // wait aicore dcci metric data finish
 
-        DEV_INFO("Dump core %d prof data , task cnt %ld, metric:%p \n.", coreIdx, metric->taskCount, metric);
+        DEV_INFO("Dump core %d prof data , task cnt %ld, metric:%p.", coreIdx, metric->taskCount, metric);
         for (int i = 0; i < metric->taskCount; i++) {
             volatile TaskStat *stat = &metric->tasks[i];
             prof_->ProfGet(coreIdx, stat->subGraphId, stat->taskId,
                           &((Metrics *)(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]))->tasks[i]);
-            DEV_INFO("  Dump prof for task %d, execstart: %ld execend :%ld .\n",
+            DEV_INFO("  Dump prof for task %d, execstart: %ld execend :%ld.",
                      stat->taskId, stat->execStart, stat->execEnd);
         }
         return 0;
@@ -471,13 +471,13 @@ public:
 
     void DumpAicoreStatus(int coreIdx) const {
         volatile KernelArgs *arg = (KernelArgs *)(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
-        DEV_INFO("\n!!***********************aicore %d last status **************************!!\n", coreIdx);
-        DEV_INFO("hello status %ld\n", arg->shakeBuffer[0]);
-        DEV_INFO("last_taskId %ld task status %ld %ld %ld %ld\n", arg->shakeBuffer[NUM_ONE],
+        DEV_INFO("!!***********************aicore %d last status **************************!!", coreIdx);
+        DEV_INFO("hello status %ld.", arg->shakeBuffer[0]);
+        DEV_INFO("last_taskId %ld task status [%ld, %ld, %ld, %ld].", arg->shakeBuffer[NUM_ONE],
             arg->shakeBuffer[NUM_TWO], arg->shakeBuffer[NUM_THREE], arg->shakeBuffer[NUM_FOUR], arg->shakeBuffer[NUM_FIVE]);
 
         for (size_t i = 0; i < sizeof(arg->taskStat) / sizeof(TaskStat); i++) {
-            DEV_INFO("task rsp index %lu: taskId %d, subGraphID %d execStart %ld execEnd %ld\n", i,
+            DEV_INFO("task rsp index %lu: taskId %d, subGraphID %d execStart %ld execEnd %ld.", i,
                 arg->taskStat[i].taskId, arg->taskStat[i].subGraphId,
                 arg->taskStat[i].execStart, arg->taskStat[i].execEnd);
         }
@@ -508,7 +508,7 @@ public:
         uint32_t cycles_start = GetCycles();
         while ((*shakeBuffer & 0xFFFFFFFF) != AICORE_SAY_HELLO) {
             if (GetCycles() - cycles_start > TIMEOUT_CYCLES) {
-                DEV_ERROR("hand shake %d timeout.\n", coreIdx);
+                DEV_ERROR("hand shake %d timeout.", coreIdx);
                 return -1;
             }
         }
@@ -600,7 +600,8 @@ public:
         procAicCoreFunctionCnt_ += sentAic;
         procAivCoreFunctionCnt_ += sentAiv;
         procAicpuFunctionCnt_ += sent;
-        DEV_DEBUG("finish send  aic task cnt: %lu,  aiv task cnt: %lu, hub task cnt:%lu, aicpu task cnt:%lu, target totalcnt: %lu \n",
+        DEV_DEBUG("finish send  aic task cnt: %lu,  aiv task cnt: %lu, hub task cnt:%lu,"
+            "aicpu task cnt:%lu, target totalcnt: %lu.",
             taskCtrl->finishedAicFunctionCnt, taskCtrl->finishedAivFunctionCnt,
             resolveHubCnt_, taskCtrl->finishedAicpuFunctionCnt, curDevTask_->coreFunctionCnt);
 #endif
@@ -611,7 +612,7 @@ public:
 
     inline int RunTask(DeviceTaskCtrl *taskCtrl) {
         int rc, ret = DEVICE_MACHINE_OK;
-        DEV_INFO("receive new task %lu\n", taskCtrl->taskId);
+        DEV_INFO("receive new task %lu.", taskCtrl->taskId);
 
         InitTaskData(taskCtrl);
         uint32_t curSent = RunCoreTask(taskCtrl);
@@ -654,11 +655,11 @@ public:
             }
         }
         PerfMtEnd(PERF_EVT_WAIT_AICORE_FINISH, aicpuIdx_);
-        DEV_DEBUG("Aicpu %d proc finish send all task,aic: %lu, aiv: %lu, aicpu: %lu.\n",
+        DEV_DEBUG("Aicpu %d proc finish send all task,aic: %lu, aiv: %lu, aicpu: %lu.",
             aicpuIdx_, procAicCoreFunctionCnt_, procAivCoreFunctionCnt_, procAicpuFunctionCnt_);
     FINISH:
         if (ret != DEVICE_MACHINE_OK) {
-            DEV_ERROR("Aicpu %d proc finish %lu %lu %lu, but timeout !.\n", aicpuIdx_,
+            DEV_ERROR("Aicpu %d proc finish %lu %lu %lu, but timeout !.", aicpuIdx_,
                 taskCtrl->finishedFunctionCnt.load(), curDevTask_->coreFunctionCnt, taskCtrl->taskId);
             DumpAiCoreStatus();
         }
@@ -673,7 +674,7 @@ public:
         if constexpr (IsDeviceMode()) {
             ret = HandShake();
             if (ret != DEVICE_MACHINE_OK) {
-                DEV_DEBUG("hand shake timeout .\n");
+                DEV_DEBUG("hand shake timeout.");
                 AbnormalStop();
                 return ret;
             }
@@ -692,24 +693,24 @@ public:
                 PerfMtBegin(PERF_EVT_RUN_TASK, threadIdx);
                 ret = RunTask(taskCtrl);
                 PerfMtEnd(PERF_EVT_RUN_TASK, threadIdx);
-                DEV_DEBUG("run task finish taskid=%d ret %d.\n", curTaskId_, ret);
+                DEV_DEBUG("run task finish taskid=%d ret %d.", curTaskId_, ret);
                 if (ret != 0)
                     break;
 
                 PerfMtBegin(PERF_EVT_SYNC_AICORE, threadIdx);
                 SyncAiCore();
                 PerfMtEnd(PERF_EVT_SYNC_AICORE, threadIdx);
-                DEV_DEBUG("sync finish.\n");
+                DEV_DEBUG("sync finish.");
                 taskCtrl->PutTask(ret);
                 PROF_STAGE_END_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.after\n");
             }
             if (ret) {
-                DEV_ERROR("task %lu execute errror, skip rest tasks\n", taskCtrl->taskId);
+                DEV_ERROR("task %lu execute errror, skip rest tasks.", taskCtrl->taskId);
                 if (IsDeviceMode()) {
                     ForEachManageAicore([&](int coreIdx) {
                         uint64_t status = aicoreHAL.GetAicoreStatus(coreIdx);
                         if ((status & 0xFFFFFFFF) == 0x5) { //STAGE_PRE_EXEC_COREFUNC_KERNEL
-                            DEV_ERROR("%s\n", ((DynDeviceTask *)curDevTask_)->DumpTaskData(status >> BITS_PER_INT).c_str());
+                            DEV_ERROR("%s.", ((DynDeviceTask *)curDevTask_)->DumpTaskData(status >> BITS_PER_INT).c_str());
                         }
                     });
                 }
@@ -723,7 +724,7 @@ public:
             NormalStop();
             ProfStop();
         }
-        DEV_DEBUG("Aicpu %d stop ret = %d, proc aic task cnt: %lu,  aiv task cnt: %lu.\n",
+        DEV_DEBUG("Aicpu %d stop ret = %d, proc aic task cnt: %lu,  aiv task cnt: %lu.",
             aicpuIdx_,
             ret,
             procAicCoreFunctionCnt_,
@@ -750,25 +751,25 @@ private:
             if constexpr (IsDeviceMode()) {
                 aicoreHAL.DumpAicoreStatus(coreIdx);
             }
-            DEV_INFO("reg low task: runningid(%u) pendingid(%u) dfxpos(%d)\n", runningIds_[coreIdx],
+            DEV_INFO("reg low task: runningid(%u) pendingid(%u) dfxpos(%d).", runningIds_[coreIdx],
                 pendingIds_[coreIdx], taskDfxStatPos_[coreIdx]);
 
-            DEV_INFO("send task info ~~~~~~~~~~~~~~~~~~~~~~~~~~~~count:%lu~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n",
+            DEV_INFO("send task info ~~~~~~~~~~~~~~~~~~~~~~~~~~~~count:%lu~~~~~~~~~~~~~~~~~~~~~~~~~~~~.",
                 sendTask_[coreIdx].size());
             for (size_t i = 0; i < sendTask_[coreIdx].size(); i++) {
-                DEV_INFO("send task: seqno %d, taskId %lx\n", (int)i, sendTask_[coreIdx][i].taskId);
+                DEV_INFO("send task: seqno %d, taskId %lx.", (int)i, sendTask_[coreIdx][i].taskId);
             }
 
-            DEV_INFO("recv finish task info ~~~~~~~~~~~~~~~~~~~~~~~~~count:%lu~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n",
+            DEV_INFO("recv finish task info ~~~~~~~~~~~~~~~~~~~~~~~~~count:%lu~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~.",
                 recvFinTask_[coreIdx].size());
             for (size_t i = 0; i < recvFinTask_[coreIdx].size(); i++) {
-                DEV_INFO("recv task: seqno %d, taskId %lx\n", (int)i, recvFinTask_[coreIdx][i].taskId);
+                DEV_INFO("recv task: seqno %d, taskId %lx.", (int)i, recvFinTask_[coreIdx][i].taskId);
             }
 
-            DEV_INFO("recv ack task info ~~~~~~~~~~~~~~~~~~~~~~~~~~~~count:%lu~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n",
+            DEV_INFO("recv ack task info ~~~~~~~~~~~~~~~~~~~~~~~~~~~~count:%lu~~~~~~~~~~~~~~~~~~~~~~~~~~~~.",
                 recvAckTask_[coreIdx].size());
             for (size_t i = 0; i < recvAckTask_[coreIdx].size(); i++) {
-                DEV_INFO("recv ack task: seqno %d, taskId %lx\n", static_cast<int>(i), recvAckTask_[coreIdx][i].taskId);
+                DEV_INFO("recv ack task: seqno %d, taskId %lx.", static_cast<int>(i), recvAckTask_[coreIdx][i].taskId);
             }
         });
 #endif
@@ -779,7 +780,7 @@ private:
             return; // not support currently
         }
         auto coreId = aicoreHAL.GetPhyIdByBlockId(coreIdx);
-        DEV_DEBUG("Output coreId is %d taskid is %d, with execStart: %ld, execend: %ld \n", coreId, stat->taskId,
+        DEV_DEBUG("Output coreId is %d taskid is %d, with execStart: %ld, execend: %ld.", coreId, stat->taskId,
             stat->execStart, stat->execEnd);
         aicoreDump_.DumpInit(stat->subGraphId, stat->taskId, coreId, stat->execStart, stat->execEnd);
         auto funcInfo = GetFunctionWsAddr(stat->taskId);
@@ -827,7 +828,7 @@ private:
                     stopSent++;
                     coreStopped[i - coreIdxStart] = true;
                 } else if (GetCycles() - start_cycles > TIMEOUT_CYCLES) {
-                    DEV_ERROR("wait tail task finish timeout coreindx=%d.\n", i);
+                    DEV_ERROR("wait tail task finish timeout coreindx=%d.", i);
                     return DEVICE_MACHINE_ERROR;
                 }
             }
@@ -845,13 +846,13 @@ private:
     inline uint64_t TryBatchSendTask(CoreType type, ReadyCoreFunctionQueue* readyQue,
                 int coreIdxStart, int coreIdxEnd) {
         if (__atomic_load_n(&readyQue->tail, __ATOMIC_RELAXED) == __atomic_load_n(&readyQue->head, __ATOMIC_RELAXED)) {
-            DEV_DEBUG("AiCpud:%d, can not send task currently. ready Task: 0 \n", aicpuIdx_);
+            DEV_DEBUG("AiCpud:%d, can not send task currently. ready Task: 0.", aicpuIdx_);
             return 0;
         }
 
         uint32_t ready = GetReadyCoreNum(type);
         if (ready == 0 ) {
-            DEV_DEBUG("AiCpud:%d, can not send task currently. ready Core: %u.\n", aicpuIdx_, ready);
+            DEV_DEBUG("AiCpud:%d, can not send task currently. ready Core: %u.", aicpuIdx_, ready);
             return 0;
         }
         PerfMtBegin(PERF_EVT_SEND_AIC_TASK, aicpuIdx_);
@@ -861,7 +862,7 @@ private:
         uint32_t tail = __atomic_load_n(&readyQue->tail, __ATOMIC_RELAXED);
         uint32_t taskCount = std::min(ready, tail - head);
         if (taskCount == 0) {
-            DEV_DEBUG("AiCpud:%u, taskCount is zero \n", head);
+            DEV_DEBUG("AiCpud:%u, taskCount is zero.", head);
             ReadyQueueUnLock(readyQue);
             PerfMtEnd(PERF_EVT_SEND_AIC_TASK, aicpuIdx_);
             return 0;
@@ -875,10 +876,10 @@ private:
             __atomic_fetch_add(&readyQue->head, taskCount, std::memory_order_release);
         }
         ReadyQueueUnLock((readyQue));
-        DEV_DEBUG("AiCpud:%d, pop all new task count: %u \n", aicpuIdx_, taskCount);
+        DEV_DEBUG("AiCpud:%d, pop all new task count: %u.", aicpuIdx_, taskCount);
         BatchSendTask(type, isRealLifo ? &readyId[taskCount - 1] : &readyQue->elem[head],
             taskCount, coreIdxStart, coreIdxEnd, isRealLifo);
-        DEV_DEBUG("core ready cnt: %u \n", corePendReadyCnt_[static_cast<int>(type)]);
+        DEV_DEBUG("core ready cnt: %u.", corePendReadyCnt_[static_cast<int>(type)]);
         firstLock[static_cast<int>(type)] = false;
         PerfMtEnd(PERF_EVT_SEND_AIC_TASK, aicpuIdx_);
         return taskCount;
@@ -888,11 +889,11 @@ private:
         int coreIdxStart, int coreIdxEnd, bool isLifo) {
         uint32_t sendCnt = 0;
         uint32_t coreRunReadyCnt = coreRunReadyCnt_[static_cast<int>(type)];
-        DEV_DEBUG("Begin Batch send %s task: corerunreadycnt:%u, pendreadyCnt:%u, taskCount:%u \n",
+        DEV_DEBUG("Begin Batch send %s task: corerunreadycnt:%u, pendreadyCnt:%u, taskCount:%u.",
             type == CoreType::AIC ? "AIC": "AIV", coreRunReadyCnt,
             corePendReadyCnt_[static_cast<int>(type)], taskCount);
         while (sendCnt < static_cast<uint64_t>(coreRunReadyCnt) && sendCnt < taskCount) {
-            DEV_DEBUG("  ## send task use runready core %u \n",
+            DEV_DEBUG("  ## send task use runready core %u.",
                 runReadyCoreIdx_[static_cast<int>(type)][coreRunReadyCnt_[static_cast<int>(type)] - 1]);
             SendTaskToAiCore(type,
                 runReadyCoreIdx_[static_cast<int>(type)][--coreRunReadyCnt_[static_cast<int>(type)]],
@@ -904,11 +905,11 @@ private:
         uint32_t idx = lastPendReadyCoreIdx_[static_cast<int>(type)];
         uint32_t coreNum = coreIdxEnd - coreIdxStart;
         uint32_t lastProcCore = idx;
-        DEV_DEBUG("  ## send task left pend ready cnt %u , last core index:%u\n",
+        DEV_DEBUG("  ## send task left pend ready cnt %u , last core index:%u.",
             corePendReadyCnt_[static_cast<int>(type)], idx);
         while (corePendReadyCnt_[static_cast<int>(type)] > 0 && sendCnt < taskCount) {
             if (pendingIds_[idx] == AICORE_TASK_INIT) {
-                DEV_DEBUG("  ## send task use pendready core %u \n", idx);
+                DEV_DEBUG("  ## send task use pendready core %u.", idx);
                 SendTaskToAiCore(type, idx, isLifo ? *newTask-- : *newTask++);
                 sendCnt++;
                 corePendReadyCnt_[static_cast<int>(type)]--;
@@ -920,7 +921,7 @@ private:
         if (lastProcCore != lastPendReadyCoreIdx_[static_cast<int>(type)]) {
             lastPendReadyCoreIdx_[static_cast<int>(type)] = coreIdxStart + (lastProcCore - coreIdxStart + 1) % coreNum;
         }
-        DEV_DEBUG("  ## finish send task left runreadycnt:%u pendreadycnt %u, last coreindex:%u \n",
+        DEV_DEBUG("  ## finish send task left runreadycnt:%u pendreadycnt %u, last coreindex:%u.",
             coreRunReadyCnt_[static_cast<int>(type)], corePendReadyCnt_[static_cast<int>(type)], idx);
         return sendCnt;
     }
@@ -948,7 +949,7 @@ private:
 
 #if DEBUG_SWITCH
         if (IsStaticFunction()) {
-            DEV_DEBUG("Start to dump input tensor info, num is\n");
+            DEV_DEBUG("Start to dump input tensor info, num is.");
             auto funcInfo = GetFunctionWsAddr(newTask);
             if (funcInfo) {
                 aicoreDump_.DumpInit(funcInfo->psgId, newTask, aicoreHAL.GetPhyIdByBlockId(coreIdx));
@@ -960,7 +961,7 @@ private:
 
         sendTask_[coreIdx].push_back(TaskInfo(coreIdx, newTask));
 #endif
-        DEV_DEBUG("Send task %lu, at core %d ,type:%d \n", newTask, coreIdx, static_cast<int>(type));
+        DEV_DEBUG("Send task %lu, at core %d ,type:%d.", newTask, coreIdx, static_cast<int>(type));
     }
 
     inline void SetAiCpuStat(int coreIdx, uint64_t taskId) {
@@ -1016,7 +1017,7 @@ private:
                 readyCount[aicIndex] -= BatchSendTask(CoreType::AIC, &readyIds[aicIndex][readyCount[aicIndex] - 1],
                     needSendCnt, aicStart_, aicEnd_, true);
             }
-            DEV_DEBUG("resolved new task, aic ready count: %u coretype:%u\n", readyCount[aicIndex], aicIndex);
+            DEV_DEBUG("resolved new task, aic ready count: %u coretype:%u.", readyCount[aicIndex], aicIndex);
             if (readyCount[aicIndex] > 0) {
                 PushReadyQue(readyAicCoreFunctionQue_, readyIds[aicIndex], readyCount[aicIndex]);
             }
@@ -1029,7 +1030,7 @@ private:
                 readyCount[aivIndex] -= BatchSendTask(CoreType::AIV, &readyIds[aivIndex][readyCount[aivIndex] - 1],
                     needSendCnt, aivStart_, aivEnd_, true);
             }
-            DEV_DEBUG("resolved new task, aiv ready count: %u coretype:%u\n", readyCount[aivIndex], aivIndex);
+            DEV_DEBUG("resolved new task, aiv ready count: %u coretype: %u.", readyCount[aivIndex], aivIndex);
             if (readyCount[aivIndex] > 0) {
                 PushReadyQue(readyAivCoreFunctionQue_, readyIds[aivIndex], readyCount[aivIndex]);
             }
@@ -1050,7 +1051,7 @@ private:
     inline void ResolveWhenSyncMode(CoreType type, uint32_t finTaskId, uint32_t finTaskState, int coreIdx)  {
         if (finTaskId == pendingIds_[coreIdx] && finTaskState == TASK_FIN_STATE) {
             DEV_DEBUG("core index: %d, PendingTask Finished."
-                " pending: %x\n", coreIdx, pendingIds_[coreIdx]);
+                " pending: %x.", coreIdx, pendingIds_[coreIdx]);
             ResolveDepWithDfx(type, coreIdx, finTaskId);
             pendingIds_[coreIdx] = AICORE_TASK_INIT;
             corePendReadyCnt_[static_cast<int>(type)]++;
@@ -1061,13 +1062,13 @@ private:
     inline void ResolveByRegVal(CoreType type, int coreIdx, uint64_t finTaskRegVal) {
         uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
         uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
-        DEV_DEBUG("reslove task core index: %d, finishtaskid:%x, finishstate:%u \n", coreIdx, finTaskId, finTaskState);
+        DEV_DEBUG("reslove task core index: %d, finishtaskid:%x, finishstate: %u.", coreIdx, finTaskId, finTaskState);
 #if SCHEDULE_USE_PENDING_AND_RUNING_SWITCH
         auto &pendId = pendingIds_[coreIdx];
         auto &runId = runningIds_[coreIdx];
         uint32_t tmpTaskId;
         if (likely(finTaskId == pendId && finTaskState == TASK_FIN_STATE)) {
-            DEV_DEBUG("PendingTask Finished.runningid:%x\n", runId);
+            DEV_DEBUG("PendingTask Finished.runningid: %x.", runId);
             tmpTaskId = runId;
             runId = AICORE_TASK_INIT;
             pendId = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
@@ -1081,7 +1082,7 @@ private:
 #if defined(DEBUG_SWITCH) && DEBUG_SWITCH
             recvAckTask_[coreIdx].push_back(TaskInfo(coreIdx, finTaskId));
 #endif
-            DEV_DEBUG("PendingTask Acked. Running task finished.runningid: %x\n", runId);
+            DEV_DEBUG("PendingTask Acked. Running task finished.runningid: %x.", runId);
             tmpTaskId = runId;
             runId = finTaskId;
             pendId = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
@@ -1090,7 +1091,7 @@ private:
                 ResolveDepWithDfx(type, coreIdx, tmpTaskId);
             }
         } else if (finTaskId == runId && finTaskState == TASK_FIN_STATE) {
-            DEV_DEBUG("core index: %d, RuningTask Finished. pending: %x, running: %x\n",
+            DEV_DEBUG("core index: %d, RuningTask Finished. pending: %x, running: %x.",
             coreIdx, pendId, runId);
             runId = AICORE_TASK_INIT;
             if (pendId == AICORE_TASK_INIT) {
@@ -1098,7 +1099,7 @@ private:
             }
             ResolveDepWithDfx(type, coreIdx, finTaskId);
         } else {
-            DEV_DEBUG("Warning, maybe inconsistent state. coreidx:%d,finTask:%lx,pending:%x,running:%x\n",
+            DEV_DEBUG("Warning, maybe inconsistent state. coreidx: %d,finTask: %lx,pending: %x,running: %x.",
                 coreIdx, finTaskRegVal, pendId, runId);
         }
 #else
@@ -1113,7 +1114,7 @@ private:
     inline bool TrySendTaskDirectly(int coreType, uint32_t taskId) {
         if (coreRunReadyCnt_[coreType] > 0) {
             corePendReadyCnt_[coreType]--;
-            DEV_DEBUG("Direct send task when task ready %x\n", taskId);
+            DEV_DEBUG("Direct send task when task ready %x.", taskId);
             SendTaskToAiCore(static_cast<CoreType>(coreType),
                 runReadyCoreIdx_[coreType][--coreRunReadyCnt_[coreType]], taskId);
             return true;
@@ -1142,7 +1143,7 @@ private:
         }
         lastPendReadyCoreIdx_[coreType] = startIdx + (idx - startIdx + 1) % (coreNum);
         corePendReadyCnt_[coreType]--;
-        DEV_DEBUG("Direct send task when task ready %x\n", taskId);
+        DEV_DEBUG("Direct send task when task ready %x.", taskId);
         SendTaskToAiCore(static_cast<CoreType>(coreType), idx, taskId);
         return true;
     }
@@ -1162,7 +1163,7 @@ private:
     }
 
     inline void ResolveVirtualPure(uint64_t dep, CoreFunctionReadyState* readyState) {
-        DEV_DEBUG("new virtual pure task resolved. id: %lu\n", dep);
+        DEV_DEBUG("new virtual pure task resolved. id: %lu.", dep);
         auto virtualFuncInfo =
             &(reinterpret_cast<CoreFunctionWsAddr *>(curDevTask_->coreFuncData.coreFunctionWsAddr)[dep]);
         auto topo = reinterpret_cast<CoreFunctionTopo *>(virtualFuncInfo->topoAddr);
@@ -1177,7 +1178,7 @@ private:
     }
 
     inline void ResolveVirtualMix(uint64_t dep, CoreFunctionReadyState* readyState) {
-        DEV_DEBUG("new virtual mix task resolved. id: %lu\n", dep);
+        DEV_DEBUG("new virtual mix task resolved. id: %lu.", dep);
         auto virtualFuncInfo =
             &(reinterpret_cast<CoreFunctionWsAddr *>(curDevTask_->coreFuncData.coreFunctionWsAddr)[dep]);
         auto topo = reinterpret_cast<CoreFunctionTopo *>(virtualFuncInfo->topoAddr);
@@ -1230,7 +1231,7 @@ private:
                 break;
             }
         }
-        DEV_DEBUG("new task resolved. id: %lu, coretype: %d\n", depTaskId, coretype);
+        DEV_DEBUG("new task resolved. id: %lu, coretype: %d.", depTaskId, coretype);
     }
 
     inline uint64_t GetCostModelTaskTime(uint64_t coreIdx, uint64_t taskId, uint64_t currentTime) {
@@ -1315,7 +1316,7 @@ private:
         auto funcInfo =
             &(reinterpret_cast<CoreFunctionWsAddr *>(curDevTask_->coreFuncData.coreFunctionWsAddr)[finishId]);
         auto topo = reinterpret_cast<CoreFunctionTopo *>(funcInfo->topoAddr);
-        DEV_DEBUG("resolve %lx, Dep core function num: %lu\n", finishId, topo->depNum);
+        DEV_DEBUG("resolve %lx, Dep core function num: %lu.", finishId, topo->depNum);
 
         for (uint64_t i = 0; i < topo->depNum; i++) {
             uint64_t dep = topo->depIds[i];
@@ -1400,20 +1401,20 @@ private:
         firstLock[static_cast<int>(CoreType::AIC)] = true;
         firstLock[static_cast<int>(CoreType::AIV)] = true;
         DEV_DEBUG("Init aicore manager aicNum_ %d aivNum_  %d sch_aicpuNum_ %d aicpuIdx_ %d "
-                  "aicValidNum_ %d aicoreHAL.regAddrs_ %p sharedBuffer_ %p machineConfig:%u \n",
+                  "aicValidNum_ %d aicoreHAL.regAddrs_ %p sharedBuffer_ %p machineConfig: %u.",
             aicNum_, aivNum_, aicpuNum_, aicpuIdx_, aicValidNum_, aicoreHAL.GetRegAddrs(),
             (void *)aicoreHAL.GetSharedBuffer(), static_cast<uint8_t>(deviceArgs->machineConfig));
     }
 
     inline int HandShake() {
-        DEV_INFO("Aicpu %d handshake start.\n", aicpuIdx_);
+        DEV_INFO("Aicpu %d handshake start.", aicpuIdx_);
         int rc = ForEachManageAicoreWithRet([this](int coreIdx) -> int {
             int ret = aicoreHAL.HandShake(coreIdx, dotStatus_);
-            DEV_DEBUG("coreidx %d handshake  phycorid %d .\n", coreIdx, aicoreHAL.GetPhyIdByBlockId(coreIdx));
+            DEV_DEBUG("coreidx %d handshake  phycorid %d.", coreIdx, aicoreHAL.GetPhyIdByBlockId(coreIdx));
             return ret;
         });
         if (rc != DEVICE_MACHINE_OK) {
-            DEV_DEBUG("Aicpu %d handshake failed end.\n", aicpuIdx_);
+            DEV_DEBUG("Aicpu %d handshake failed end.", aicpuIdx_);
             return rc;
         }
 
@@ -1422,7 +1423,7 @@ private:
         });
         /* write to MAINBASE reg need reg 0x18 open first */
         __sync_synchronize();
-        DEV_INFO("Aicpu %d handshake sucess end.\n", aicpuIdx_);
+        DEV_INFO("Aicpu %d handshake sucess end.", aicpuIdx_);
         return 0;
     }
 
@@ -1450,8 +1451,8 @@ private:
             });
         lastPendReadyCoreIdx_[static_cast<int>(CoreType::AIV)] = aivStart_;
         lastPendReadyCoreIdx_[static_cast<int>(CoreType::AIC)] = aicStart_;
-        DEV_DEBUG("assign core aic coreindex section: start %d end %d.\n", aicStart_, aicEnd_);
-        DEV_DEBUG("assign core aiv coreindex section: start %d end %d.\n", aivStart_, aivEnd_);
+        DEV_DEBUG("assign core aic coreindex section: start %d end %d.", aicStart_, aicEnd_);
+        DEV_DEBUG("assign core aiv coreindex section: start %d end %d.", aivStart_, aivEnd_);
     }
 
     inline int GetPhyIdByBlockId(int coreIdx) {
@@ -1493,14 +1494,14 @@ private:
         for (int i = aicStart_; i < aicEnd_; ++i) {
             ret = func(i);
             if (ret != DEVICE_MACHINE_OK) {
-                DEV_ERROR("proc aicore aic %d failed.\n", i);
+                DEV_ERROR("proc aicore aic %d failed.", i);
                 return ret;
             }
         }
         for (int i = aivStart_; i < aivEnd_; ++i) {
             ret = func(i);
             if (ret != DEVICE_MACHINE_OK) {
-                DEV_ERROR("proc aicore aiv %d failed.\n", i);
+                DEV_ERROR("proc aicore aiv %d failed.", i);
                 return ret;
             }
         }
@@ -1508,15 +1509,15 @@ private:
     }
 
     inline void AbnormalStop() {
-        DEV_INFO("aicore manager %d try abnormal stop\n", aicpuIdx_);
+        DEV_INFO("aicore manager %d try abnormal stop.", aicpuIdx_);
         aicoreHAL.WriteReg32All(aicNum_, aivNum_, REG_SPR_DATA_MAIN_BASE, AICORE_TASK_STOP + 1);
         /* write to MAINBASE reg must be done before close 0x18 */
         aicoreHAL.WriteReg32All(aicNum_, aivNum_, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
-        DEV_INFO("aicore manager %d abnormal stopped\n", aicpuIdx_);
+        DEV_INFO("aicore manager %d abnormal stopped.", aicpuIdx_);
     }
 
     inline void NormalStop() {
-        DEV_DEBUG("aicore manager %d try normal stop\n", aicpuIdx_);
+        DEV_DEBUG("aicore manager %d try normal stop.", aicpuIdx_);
         ForEachManageAicore([this](auto coreIdx) { aicoreHAL.SetReadyQueue(coreIdx, AICORE_TASK_STOP + 1) ; });
         /* write to MAINBASE reg must be done before close 0x18 */
         __sync_synchronize();
@@ -1524,7 +1525,7 @@ private:
             aicoreHAL.WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
             aicoreHAL.ResetShakeBuf(coreIdx);
         });
-        DEV_DEBUG("aicore manager %d normal stopped\n", aicpuIdx_);
+        DEV_DEBUG("aicore manager %d normal stopped.", aicpuIdx_);
     }
 
     inline int GetAllAiCoreNum() { return aicNum_ + aivNum_; }

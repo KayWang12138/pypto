@@ -35,9 +35,9 @@ void DySdmaPrefetch(DevStartArgs *devArgs) {
     }
     auto devProg = devArgs->devProg;
     size_t prefetchNum = devProg->prefetchInfoList.size();
-    DEV_INFO("Prefetch num %zu.\n", prefetchNum);
+    DEV_INFO("Prefetch num %zu.", prefetchNum);
     if (prefetchNum > devArgs->inputTensorSize) {
-      DEV_ERROR("Prefetch invalid num %zu.\n", prefetchNum);
+      DEV_ERROR("Prefetch invalid num %zu.", prefetchNum);
       return;
     }
     int fd = open(SDMA_FILE.c_str(), O_RDWR);
@@ -49,18 +49,18 @@ void DySdmaPrefetch(DevStartArgs *devArgs) {
     int ret = 0;
     for (size_t i = 0; i < prefetchNum; ++i) {
       auto &preInfo = devProg->prefetchInfoList[i];
-      DEV_INFO("Prefetch tensor idx[%lu] with size[%lu].\n", preInfo.tensorIdx, preInfo.tensorSize);
+      DEV_INFO("Prefetch tensor idx[%lu] with size[%lu].", preInfo.tensorIdx, preInfo.tensorSize);
       if (preInfo.tensorIdx >= static_cast<uint64_t>(devArgs->GetInputTensorSize())) {
-        DEV_WARN("TensorIdx[%lu] over inpust size[%d].\n", preInfo.tensorIdx, devArgs->GetInputTensorSize());
+        DEV_WARN("TensorIdx[%lu] over inpust size[%d].", preInfo.tensorIdx, devArgs->GetInputTensorSize());
         continue;
       }
       auto &inTensor = devArgs->GetInputTensor(preInfo.tensorIdx);
       desc.src_addr = inTensor.address;
       desc.size = preInfo.tensorSize;
       ret |= ioctl(fd, IOCTL_SDMA_L2_CMO, &desc);
-      DEV_DEBUG("Prefetch %lx %lu ret:%d\n", inTensor.address, preInfo.tensorSize, ret);
+      DEV_DEBUG("Prefetch %lx %lu ret:%d.", inTensor.address, preInfo.tensorSize, ret);
     }
-    DEV_INFO("Prefetch tensor num %zu ret %d.\n", prefetchNum, ret);
+    DEV_INFO("Prefetch tensor num %zu ret %d.", prefetchNum, ret);
     close(fd);
     return;
 }
@@ -105,15 +105,15 @@ struct DynMachineManager {
             (void)sprintf_s(logfile, sizeof(logfile), "/tmp/tile_fwk_aicpu_sch%d.txt", threadIdx);
             GetLogger(logfile);
 #endif
-            DEV_INFO("devArgs->taskType %d\n", static_cast<int>(devArgs->taskType));
-            DEV_INFO("threadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum%u \n", threadIdx, devArgs->nrAic,
+            DEV_INFO("devArgs->taskType %d.", static_cast<int>(devArgs->taskType));
+            DEV_INFO("threadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum %u.", threadIdx, devArgs->nrAic,
                 devArgs->nrAiv, devArgs->nrAicpu, devArgs->nrValidAic);
-            DEV_INFO("devQueueAddr %lx, sharedBuffer %lx coreRegAddr %lx corePmuAdr %lx\n", devArgs->devQueueAddr,
+            DEV_INFO("devQueueAddr %lx, sharedBuffer %lx coreRegAddr %lx corePmuAdr %lx.", devArgs->devQueueAddr,
                 devArgs->sharedBuffer, devArgs->coreRegAddr, devArgs->corePmuAddr);
             ret = machine.Run(threadIdx, devArgs);
         } else {
             threadIdx = ctrlcpuIdx.fetch_add(1);
-            DEV_INFO("devArgs->taskType %d\n",  static_cast<int>(devArgs->taskType));
+            DEV_INFO("devArgs->taskType %d.",  static_cast<int>(devArgs->taskType));
             if (devArgs->taskType == DEVICE_TASK_TYPE_DYN && threadIdx == MAX_SCHEDULE_AICPU_NUM) {
 #if !DEBUG_PLOG || !defined(__DEVICE__)
                 (void)sprintf_s(logfile, sizeof(logfile), "/tmp/tile_fwk_aicpu_ctrl.txt");
@@ -135,7 +135,7 @@ struct DynMachineManager {
             }
         }
      
-        DEV_INFO("threadIdx %d finished, ret %d\n", threadIdx, ret);
+        DEV_INFO("threadIdx %d finished, ret %d.", threadIdx, ret);
 #if !DEBUG_PLOG || !defined(__DEVICE__)
         GetLogger().Flush();
 #endif
@@ -173,7 +173,7 @@ static int RunDynamic(AstKernelArgs *kargs) {
     g_mutex.unlock();
     int rc = machine->Run(kargs);
     if (rc == npu::tile_fwk::dynamic::DEVICE_MACHINE_FINISHED) {
-        DEV_INFO("all exited destroy the machine\n");
+        DEV_INFO("all exited destroy the machine.");
         delete machine;
         devArgs->opaque = 0;
         return DEVICE_MACHINE_OK;
@@ -195,7 +195,7 @@ extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelSer
     PerfBegin(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
     auto kargs = (AstKernelArgs *)targ;
     if (!CheckValidArgs(kargs)) {
-        DEV_INFO("invalid parameter\n");
+        DEV_INFO("invalid parameter.");
         return -EINVAL;
     }
     DeviceMachine::InitDyn(kargs);

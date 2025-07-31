@@ -32,7 +32,7 @@ public:
     DeviceMachine() {}
 
     void init(DeviceArgs *args) {
-        DEV_INFO("device machine init .\n");
+        DEV_INFO("device machine init .");
         if (args->devQueueAddr != 0) {
             serverMode_ = true;
             receiver.init(reinterpret_cast<uint8_t *>(args->devQueueAddr), DEVICE_QUEUE_SIZE);
@@ -140,21 +140,21 @@ public:
             return DEVICE_MACHINE_ERROR;
         }
 
-        DEV_INFO("thread %d start .\n", threadIdx);
+        DEV_INFO("thread %d start .", threadIdx);
         if (static_cast<uint32_t>(threadIdx) >= MAX_SCHEDULE_AICPU_NUM) {
-            DEV_INFO("thread start ignore \n");
+            DEV_INFO("thread start ignore ");
             return DEVICE_MACHINE_OK;
         }
 
         ret = aicoreManager_[threadIdx]->Run(threadIdx, args, initTaskCtrl);
-        DEV_INFO("thread  %d end , ret = %d \n", threadIdx, ret);
+        DEV_INFO("thread  %d end , ret = %d", threadIdx, ret);
         return ret;
     }
 
     static int InitDyn(AstKernelArgs *args) {
         auto kargs = (AstKernelArgs *) args;
 
-        DEV_INFO("AscendCppDyInitTask begin\n");
+        DEV_INFO("AscendCppDyInitTask begin");
         DevStartArgs *devArgs = (DevStartArgs *)kargs->workspace;
 
         auto inputPtr = (DevAscendTensorData *)(devArgs + 1);
@@ -186,13 +186,13 @@ public:
         devArgs->controlFlowEntry = devProg->controlFlowBinaryAddr;
 
         PerfEnd(PERF_EVT_INIT);
-        DEV_INFO("AscendCppDyInitTask done\n");
+        DEV_INFO("AscendCppDyInitTask done.");
         return 0;
     }
 
     int ExecDyn(int threadIdx, uint64_t taskId, npu::tile_fwk::AstKernelArgs *args) {
         int ret = 0;
-        DEV_INFO("start control flow\n");
+        DEV_INFO("start control flow.");
         auto devArgs = (DevStartArgs *)args->workspace;
 
         DeviceExecuteContext ctx(devArgs);
@@ -205,7 +205,7 @@ public:
 #endif
             PushTask(DEVICE_TASK_TYPE_DYN, dynTaskId, devTask, ctx_, DeviceExecuteContext::TaskFinish);
         });
-        DEV_INFO("end control flow\n");
+        DEV_INFO("end control flow.");
 
         PerfBegin(PERF_EVT_STAGE_TASK_SYNC);
         ret = SyncTask(&ctx.taskContext);
@@ -228,57 +228,57 @@ public:
 
 private:
     static void DumpTask(int64_t taskId, DeviceTask *devTask, bool isDyn) {
-        DEV_DEBUG("devTask %ld %p\n", taskId, devTask);
+        DEV_DEBUG("devTask %ld %p.", taskId, devTask);
         if (devTask == nullptr) {
             return;
         }
 
-        DEV_DEBUG("devtask { %lu, %lx, %lx, %lx, %lx, %lu, %lu}\n", devTask->coreFunctionCnt,
+        DEV_DEBUG("devtask { %lu, %lx, %lx, %lx, %lx, %lu, %lu}.", devTask->coreFunctionCnt,
             devTask->coreFunctionReadyStateAddr, devTask->readyAicCoreFunctionQue, devTask->readyAivCoreFunctionQue,
             devTask->coreFuncData.coreFunctionWsAddr, devTask->coreFuncData.stackWorkSpaceAddr,
             devTask->coreFuncData.stackWorkSpaceSize);
 
-        DEV_DEBUG("===== ready aic func =====\n");
+        DEV_DEBUG("===== ready aic func =====");
         ReadyCoreFunctionQueue* readyFunc = reinterpret_cast<ReadyCoreFunctionQueue*>(devTask->readyAicCoreFunctionQue);
         for (uint64_t i = readyFunc->head; i < readyFunc->tail; i++) {
-            DEV_DEBUG( "taskId %u \n", readyFunc->elem[i]);
+            DEV_DEBUG( "taskId %u.", readyFunc->elem[i]);
         }
 
-        DEV_DEBUG("===== ready aiv func =====\n");
+        DEV_DEBUG("===== ready aiv func =====");
         readyFunc = reinterpret_cast<ReadyCoreFunctionQueue *>(devTask->readyAivCoreFunctionQue);
         for (uint64_t i = readyFunc->head; i < readyFunc->tail; i++) {
-            DEV_DEBUG( "taskId %u \n", readyFunc->elem[i]);
+            DEV_DEBUG( "taskId %u.", readyFunc->elem[i]);
         }
 
         if (isDyn) {
-            DEV_DEBUG("===== dyn info =====\n");
+            DEV_DEBUG("===== dyn info =====");
             auto dyntask = (DynDeviceTask *)devTask;
             int funcIdx = 0;
             for (auto &func : dyntask->stitchedList) {
-                DEV_DEBUG("func %d %s\n", funcIdx, func.DumpDyn(funcIdx, dyntask->cceBinary).c_str());
+                DEV_DEBUG("func %d %s.", funcIdx, func.DumpDyn(funcIdx, dyntask->cceBinary).c_str());
                 funcIdx++;
                 (void)func;
             }
         } else {
             auto coreFunc = reinterpret_cast<CoreFunctionWsAddr *>(devTask->coreFuncData.coreFunctionWsAddr);
-            DEV_DEBUG("===== core func =====\n");
+            DEV_DEBUG("===== core func =====");
             for (uint64_t i = 0; i < devTask->coreFunctionCnt; i++) {
-                DEV_DEBUG("taskId %lu binAddr %lx invokeEntry %lx topo %lx\n", i, coreFunc[i].functionBinAddr,
+                DEV_DEBUG("taskId %lu binAddr %lx invokeEntry %lx topo %lx.", i, coreFunc[i].functionBinAddr,
                     coreFunc[i].invokeEntryAddr, coreFunc[i].topoAddr);
                 auto topo = reinterpret_cast<CoreFunctionTopo *>(coreFunc[i].topoAddr);
-                DEV_DEBUG("coreType %lu pstId %lu readyCount %ld depNum %lu \n", topo->coreType, topo->psgId,
+                DEV_DEBUG("coreType %lu pstId %lu readyCount %ld depNum %lu .", topo->coreType, topo->psgId,
                     topo->readyCount, topo->depNum);
                 (void)topo;
             }
-            DEV_DEBUG("===== ready state =====\n");
+            DEV_DEBUG("===== ready state =====");
             auto readyState = reinterpret_cast<CoreFunctionReadyState *>(devTask->coreFunctionReadyStateAddr);
             for (uint64_t i = 0; i < devTask->coreFunctionCnt; i++) {
-                DEV_DEBUG("taskId %lu readyCount %ld coreType %lu\n", i, readyState[i].readyCount, readyState[i].coreType);
+                DEV_DEBUG("taskId %lu readyCount %ld coreType %lu.", i, readyState[i].readyCount, readyState[i].coreType);
             }
             (void)(readyState);
         }
         (void)taskId;
-        DEV_DEBUG("===== dev task end =====\n");
+        DEV_DEBUG("===== dev task end =====");
     }
 
 private:
