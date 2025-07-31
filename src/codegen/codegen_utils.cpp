@@ -20,12 +20,18 @@
 #include <algorithm>
 
 namespace npu::tile_fwk {
-std::string JoinString(std::vector<std::string> &str_list, const std::string &conj) {
+std::string JoinString(std::vector<std::string> &strList, const std::string &conj) {
     std::string ostring;
-    for (size_t i = 0; i < str_list.size(); i++) {
-        if (i != 0)
-            ostring += conj;
-        ostring += str_list[i];
+    std::string prefix = "/*";
+    for (size_t i = 0; i < strList.size(); i++) {
+        if (i != 0) {
+            if (strList[i - 1].substr(0, prefix.length()) == prefix) {
+                ostring += " ";
+            } else {
+                ostring += conj;
+            }
+        }
+        ostring += strList[i];
     }
     return ostring;
 }

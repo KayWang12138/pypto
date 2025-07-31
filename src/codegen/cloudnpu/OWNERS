@@ -3,6 +3,7 @@ files:
     approvers:
       - eric_tech
       - githjp423
+      - bee-hujun
   "codegen_distributed.cpp":
     approvers:
       - eric_tech
