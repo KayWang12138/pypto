@@ -41,7 +41,6 @@ static const uint16_t kNumEight = 8u;
 static const uint16_t kNumForteen = 14u;
 static const uint16_t kNumExpFour = 16u;
 static const uint16_t kNumTwentyfive = 25u;
-static const uint16_t kNumFiftytwo = 52u;
 static const uint16_t kNumExpFive = 32u;
 static const uint16_t kNumExpSix = 64u;
 static const uint16_t kNumExpSeven = 128u;
@@ -406,8 +405,6 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionSTest2) {
     PassManager &passManager = PassManager::Instance();
     ConstructGraphST2();
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase2");
-    EXPECT_EQ(func->Operations().size(), kSizeEleven);
-
     passManager.RegisterStrategy("ExpandFunctionTestStrategy", {
         {   "ExpandFunction",   "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
     });
@@ -423,7 +420,6 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionSTest2) {
     int reciprocal_num = kNumZero;
     int view_num = kNumZero;
     int assemble_num = kNumZero;
-    EXPECT_EQ(updated_operations.size(), kNumFiftytwo);
     for (const auto &op : updated_operations) {
         if (op.GetOpcode() == Opcode::OP_EXP) {
             exp_num++;

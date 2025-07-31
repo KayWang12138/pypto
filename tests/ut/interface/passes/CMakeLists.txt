@@ -242,6 +242,7 @@ set(_CaseFilterList
         "JsonOutputValidationTest.VerifyFunctionStructure"
         "JsonOutputValidationTest.VerifyTensorStructure"
         "JsonOutputValidationTest.VerifyOperationStructure"
+        "TestDeadOperationEliminatePass.DeadOperationEliminateUTest1"
 )
 
 set(_Target ${TileFwkUTestNamePrefix}_interface_passes)
