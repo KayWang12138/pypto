@@ -464,24 +464,40 @@ void SubgraphToFunction::ProcessOutputOperands(Function* rootFunc, Operation& ti
     }
 }
 
-void SubgraphToFunction::ProcessCopyInOperand(Operation& tileOp, std::vector<int>& offset, std::vector<int>& shape) const{
-    offset.clear();
+void SubgraphToFunction::ProcessCopyInOperand(Operation& tileOp, std::vector<int>& offset, std::vector<int>& shape) const{    
     std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(tileOp.GetOpAttribute());
+    if (!attr) {
+        ALOG_DEBUG_F("CopyinOperand: Invalid op attribute for op %d", tileOp.GetOpMagic());
+        return;
+    }
     std::vector<OpImmediate> opImmList = attr->GetCopyInAttr().first;
+    shape = attr->GetSpecifiedShape(1);
+    if (!opImmList.empty() && opImmList[0].IsParameter()) {
+        ALOG_DEBUG_F("CopyinOperand: First operand is paramter, skip offset processiong");
+        return;
+    }
+    offset.clear();
     for (auto &opImm : opImmList){
         offset.push_back(opImm.GetSpecifiedValue().ConcreteValid() ? static_cast<int>(opImm.GetSpecifiedValue()) : -1);
-    }
-    shape = attr->GetSpecifiedShape(1);
+    }   
 }
 
-void SubgraphToFunction::ProcessCopyOutOperand(Operation& tileOp, std::vector<int>& offset, std::vector<int>& shape) const{
-    offset.clear();
+void SubgraphToFunction::ProcessCopyOutOperand(Operation& tileOp, std::vector<int>& offset, std::vector<int>& shape) const{    
     std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(tileOp.GetOpAttribute());
+    if (!attr) {
+        ALOG_DEBUG_F("CopyOutOperand: Invalid op attribute for op %d", tileOp.GetOpMagic());
+        return;
+    }
     std::vector<OpImmediate> opImmList = attr->GetCopyOutAttr().second;
+    shape = attr->GetSpecifiedShape(1);
+    if (!opImmList.empty() && opImmList[0].IsParameter()) {
+        ALOG_DEBUG_F("CopyOutOperand: First operand is paramter, skip offset processiong");
+        return;
+    }
+    offset.clear();
     for (auto &opImm : opImmList){
         offset.push_back(opImm.GetSpecifiedValue().ConcreteValid() ? static_cast<int>(opImm.GetSpecifiedValue()) : -1);
-    }
-    shape = attr->GetSpecifiedShape(1);
+    }   
 }
 
 void SubgraphToFunction::SymbolizeEachFunction(Function *rootFunc, std::vector<Function *> &mergedFuncList1, size_t i) const{
@@ -744,7 +760,7 @@ Status SubgraphToFunction::IslandToFunction(Function &function) {
     if (rootFunc == nullptr) { ALOG_ERROR_F("Failed to create root function"); return FAILED; }
     InitializeRootFunction(function, rootFunc);
     
-    // 2. Call HashInterface to compute hash value to determine isomorphsim of each subgraph.
+    // 2. Call HashInterface to compute hash value to determine isomorphism of each subgraph.
     size_t programIdx = 0;    
     for (size_t i = 0; i < nLIST.size(); i++) {
         Status status = ProcessSubgraph(function, i, programIdx, mergedFuncList);
@@ -762,14 +778,8 @@ Status SubgraphToFunction::IslandToFunction(Function &function) {
     Status readyStateStatus = HandleReadyStates(rootFunc);
     if (readyStateStatus != SUCCESS) { ALOG_ERROR("Failed to handle ready states"); return readyStateStatus; } 
     
-    // 5. symbolize esg to program subgraph
-    if (rootFunc->GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH) {
-        SymbolizeFunction(rootFunc, mergedFuncList);
-    } else {
-        for (size_t i = 0; i < mergedFuncList.size(); i++) {
-            rootFunc->programs_.emplace(std::make_pair(i, mergedFuncList[i]));
-        }
-    }
+    // 5. symbolize esg to program subgraph for both static and dynamic paths
+    SymbolizeFunction(rootFunc, mergedFuncList);
 
     auto graphNum = nLIST.size();
     ALOG_INFO_F("#### Compressed Graph #### %zu, total_Graph %zu", programIdx, graphNum);
