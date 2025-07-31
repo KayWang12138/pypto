@@ -78,23 +78,23 @@ Status AddAllocPass::FindTensorAllocMsg(Operation *op,
             ALOG_ERROR_F("Cannot find memorymap in subgraph[%d]", op->GetSubgraphID());
             return FAILED;
         }
-        auto rawTensor = op->GetOutputOperand(i)->memorymap[op->GetSubgraphID()].memId;
-        if (rawTensor == -1) { ALOG_ERROR_F("Get memId in memorymap failed."); return FAILED; }
-        if (tensorAllocMsgMap.find(rawTensor) == tensorAllocMsgMap.end()) {
+        auto memId = op->GetOutputOperand(i)->memorymap[op->GetSubgraphID()].memId;
+        if (memId == -1) { ALOG_ERROR_F("Get memId in memorymap failed."); return FAILED; }
+        if (tensorAllocMsgMap.find(memId) == tensorAllocMsgMap.end()) {
             TensorAllocMsg tensorAllocMsg;
             tensorAllocMsg.producer.push_back(op);
             tensorAllocMsg.memType = op->GetOutputOperand(i)->GetMemoryTypeOriginal();
-            tensorAllocMsg.memId = rawTensor;
+            tensorAllocMsg.memId = memId;
             if (allocMagic.empty() || i >= allocMagic.size()) {
-                ASLOGI("Tensor [%d] is not allocted.", rawTensor);
+                ASLOGI("Tensor [%d] is not allocted.", memId);
                 tensorAllocMsg.isAllocated = false;
             }
-            tensorAllocMsgMap.emplace(rawTensor, tensorAllocMsg);
+            tensorAllocMsgMap.emplace(memId, tensorAllocMsg);
         } else {
-            tensorAllocMsgMap[rawTensor].producer.push_back(op);
-            if (i < allocMagic.size() && tensorAllocMsgMap[rawTensor].isAllocated == false) {
-                ALOG_DEBUG_F("tensor [%d] is allocaterd at the first time.", rawTensor);
-                tensorAllocMsgMap[rawTensor].isAllocated = true;
+            tensorAllocMsgMap[memId].producer.push_back(op);
+            if (i < allocMagic.size() && tensorAllocMsgMap[memId].isAllocated == false) {
+                ALOG_DEBUG_F("tensor [%d] is allocaterd at the first time.", memId);
+                tensorAllocMsgMap[memId].isAllocated = true;
             }
         }
     }

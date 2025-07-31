@@ -885,7 +885,7 @@ Status OoOScheduler::GenSpillOp(Function &function, LocalBufferPtr allocBuffer, 
     if (bufferManagerMap[allocBuffer->memType].IsFull(allocBuffer)) {
         ALOG_DEBUG_F("---> START: SPILL tensor.");
         if (allocBuffer->memType != MemoryType::MEM_L1 && allocBuffer->memType != MemoryType::MEM_UB) {
-            ALOG_ERROR("Buffer[L0A/B/C] is Full. Please check tile shape and OOO spill failed info.");
+            ALOG_ERROR_F("Buffer[L0A/B/C] is Full. Please check tile shape and OOO spill failed info.");
             return FAILED;
         }
         // 查找出可以spill 单个或多个tensor的集合
@@ -1112,9 +1112,9 @@ Status OoOScheduler::ScheduleMainLoop(Function &func, std::vector<Operation *> &
                 spillMemType = MemoryType::MEM_UB;
             } else if (!allocIssueQueue[MemoryType::MEM_L1].Empty()) {
                 spillMemType = MemoryType::MEM_L1;
-            } else { ALOG_ERROR("Buffer[L0A/B/C] is Full. Please check tile shape and OOO spill failed info."); return FAILED; }
+            } else { ALOG_ERROR_F("Buffer[L0A/B/C] is Full. Please check tile shape and OOO spill failed info."); return FAILED; }
             if (GenBufferSpill(func, allocIssueQueue[spillMemType].Front(), spillMemType, newOperations) != SUCCESS) {
-                ALOG_ERROR("GenBufferSpill failed."); return FAILED; }
+                ALOG_ERROR_F("GenBufferSpill failed."); return FAILED; }
         } else { clock = nextCycle; }
     }
     for (const auto &issue : issueEntries) {
@@ -1167,7 +1167,7 @@ Status OoOScheduler::Schedule(Function &function, const std::vector<Operation *>
     if (GenSpillSchedule(function) != SUCCESS) { ALOG_ERROR_F("GenSpillSchedule failed!"); return FAILED; }
     
     // 模拟调度
-    if (ScheduleMainLoop(function, newOperations) != SUCCESS) { ALOG_ERROR("ScheduleMainLoop failed"); return FAILED; }
+    if (ScheduleMainLoop(function, newOperations) != SUCCESS) { ALOG_ERROR_F("ScheduleMainLoop failed"); return FAILED; }
     function.SetStackWorkespaceSize(workspaceOffset);
     return SUCCESS;
 }
