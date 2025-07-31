@@ -206,7 +206,7 @@ def mla_prolog_compute(inputs):
     # shape is: [b * s, h] @ [h, q_lora_rank] -> [b * s, q_lora_rank]
     wdqMatmulRes = np.matmul(x_2d.astype(fp32), wDq.astype(fp32))  # wdqMatmulRes
     wdqMatmulRes = wdqMatmulRes.astype(dtype)
-    
+
     q_a_layernorm = rms_norm(wdqMatmulRes, gamma_cq, epsilon)
     logging.debug("q_a_layernorm.shape: %s %s", q_a_layernorm.shape, q_a_layernorm.dtype)
 
@@ -307,7 +307,7 @@ def gen_prolog_input_data(params, dtypes, epsilon, output_dir: Path, is_quant=Fa
     kr_cache_shape = [b, 1, s2, qk_rope_head_dim]
     index_value_max = s2
     if cache_mode != "BNSD":
-        block_num = b * (s2 // block_size)
+        block_num = b * (math.ceil(s2 / block_size))
         kv_cache_shape = [block_num, block_size, 1, kv_lora_rank]
         kr_cache_shape = [block_num, block_size, 1, qk_rope_head_dim]
         index_value_max = b * s2
@@ -1197,15 +1197,15 @@ def gen_mla_prolog_date_v2(case_name: str, output: Path) -> bool:
     elif case_name == "DyMla.low":
         gen_mla_prolog_test_net((np.float16, np.float16), (4, 32, 256), 1e-5, output, True, True, True)
     elif case_name == "DyMla.low_PA_BSND":
-        gen_mla_prolog_test_net((np.float16, np.float16), (4, 32, 256), 1e-5, output, True, True, True, 128, "PA_BSND")  
+        gen_mla_prolog_test_net((np.float16, np.float16), (4, 32, 256), 1e-5, output, True, True, True, 128, "PA_BSND")
     elif case_name == "DyMla.low_PA_NZ":
-        gen_mla_prolog_test_net((np.float16, np.float16), (4, 32, 256), 1e-5, output, True, True, True, 128, "PA_NZ")                
+        gen_mla_prolog_test_net((np.float16, np.float16), (4, 32, 256), 1e-5, output, True, True, True, 128, "PA_NZ")
     elif case_name == "DyMla.low_bf":
         gen_mla_prolog_test_net((bfloat16, bfloat16), (4, 32, 256), 1e-5, output, True, True, True)
     elif case_name == "DyMla.high":
         gen_mla_prolog_test_net((np.float16, np.float16), (32, 128, 4096), 1e-5, output, True, True, True)
     elif case_name == "DyMla.high_PA_NZ":
-        gen_mla_prolog_test_net((np.float16, np.float16), (32, 128, 4096), 1e-5, output, True, True, True, 128, "PA_NZ")        
+        gen_mla_prolog_test_net((np.float16, np.float16), (32, 128, 4096), 1e-5, output, True, True, True, 128, "PA_NZ")
     # elif case_name == "DyMla.TestD_low":
     #     gen_mla_prolog_subgraphD_test_data((np.float16, np.float16), (4, 32, 256), 1e-5, output)
     # elif case_name == "DyMla.TestD_mini_low":

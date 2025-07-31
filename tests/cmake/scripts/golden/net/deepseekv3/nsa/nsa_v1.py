@@ -28,6 +28,7 @@ from bfloat16 import bfloat16
 from golden.net.deepseekv3.nsa.gen_slc_attn import compute_attention
 from golden.op.kv_slc import kv_slc_compute
 from golden.net.deepseekv3.nsa.attention_post_golden import post_compute, gen_post_input_data
+from golden.net.deepseekv3.nsa.win_atten import win_attn_calc
 from golden.net.deepseekv3.mla.mla_prolog_golden_v2 import gen_prolog_input_data, mla_prolog_compute
 
 
@@ -129,7 +130,7 @@ def gen_block_table(b, actual_seq_len, block_size):
     block_num = block_num_min
 
     block_idx_list = np.arange(0, block_num, 1)
-    block_idx_list = np.random.permutation(block_idx_list).astype(np.int32)
+    # block_idx_list = np.random.permutation(block_idx_list).astype(np.int32)
 
     block_idx = 0
     block_table = [-1] * block_table_shape[1]
@@ -137,7 +138,6 @@ def gen_block_table(b, actual_seq_len, block_size):
     block_table = np.tile(block_table, (block_table_shape[0], 1)).astype(np.int32)
     block_table_batch_idx = 0
     for idx in block_num_per_batch:
-        block_idx = 0
         for j in range(idx):
             block_table[block_table_batch_idx][j] = (block_idx_list[block_idx])
             block_idx += 1
@@ -196,6 +196,11 @@ def gen_atten_golden_data(cmp_atten, sel_atten, win_atten, gating_score, dtype):
     attention_out_fp32 = (w_cmp * cmp_atten_fp32 + w_slc * sel_atten_fp32 + w_win * win_atten_fp32)
     attention_out = attention_out_fp32.astype(dtype)
     return attention_out
+
+
+def dump_gen_win_attn_file(win_attn, output_dir):
+    win_attn_path = Path(output_dir, 'winAttn.bin')
+    dump_file(win_attn, win_attn_path, np.float32)
 
 
 def dump_gen_kv_slc_file(topk_indices, topk_tensor_shape, kv_slc_out, kr_slc_out, kv_slc_actual_seqs, dtype, output_dir):
@@ -289,6 +294,7 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
     near = params.get("near")
     topk = params.get("topk")
     block_size = params.get("block_size")
+    win_size = params.get("win_size")
     epsilon = params.get("epsilon")
     cache_mode = params.get("cache_mode")
     q_lora_rank = params.get("q_lora_rank")
@@ -379,7 +385,7 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
     # gen attn
     cmp_atten = np.random.uniform(-1, 1, cmp_atten_shape).astype(dtype)
     # slc_atten = np.random.uniform(-1, 1, sel_atten_shape).astype(dtype)
-    win_atten = np.random.uniform(-1, 1, win_atten_shape).astype(dtype)
+    # win_atten = np.random.uniform(-1, 1, win_atten_shape).astype(dtype)
 
     # post
     post_params = [b, n1, s, h, kv_lora_rank, v_head_dim]
@@ -420,6 +426,9 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
     k_rope_cache = kr_cache_out.reshape([block_num * block_size, n2 * rope_dim])
 
     q_bsnd = np.concatenate([q_out, q_rope_out], axis=-1)  # [b, s, n1, kv_lora_rank + rope_dim]
+    k_cache_nope = np.concatenate([kv_cache_out, kr_cache_out], axis=-1)  # [block_num, block_size, n2, kv_lora_rank + rope_dim]
+    k_cache_bsnd = k_cache_nope.reshape([b, block_num * block_size // b, n2, k_dim])
+    v_cache_bsnd = k_cache_bsnd[:, :, :, : kv_lora_rank]
 
     # kv compression
     # gen_kv_compression()
@@ -428,7 +437,10 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
     # gen_cmp_attn()
 
     # win atten
-    # gen_win_attn()
+    win_atten = np.zeros(win_atten_shape, dtype = np.float32)
+    input_params_win_attn = [b, s, n2, n1, q_dim, win_size, k_dim, v_dim, softmax_scale]
+    win_attn_calc(input_params_win_attn, kv_cache_actual_seq, q_bsnd, k_cache_bsnd, v_cache_bsnd, dtypes, win_atten)
+    dump_gen_win_attn_file(win_atten, output_dir)
 
     # gen kv_slc
     print("========== gen kv_slc ==============")
@@ -511,6 +523,7 @@ def nsa_entry(dtypes, bs1s2h, quant_smooth, output_dir: Path):
         "near": 2,
         "topk": topk,
         "block_size": 128,
+        "win_size": 512,
         "kv_cache_actual_seq": s2,
         "epsilon": epsilon,
         "cache_mode": cache_mode,
@@ -529,8 +542,8 @@ def nsa_entry(dtypes, bs1s2h, quant_smooth, output_dir: Path):
 
 @GoldenRegister.reg_golden_func(
     case_names=[
-        "DynamicNSATest.subgraph_4_5_6_fp16_b16",
-        "DynamicNSATest.subgraph_4_5_6_fp16_b16_quant",
+        "DynamicNSATest.nsa_b_16_s1_1_s2_8192_h_7168_fp16",
+        "DynamicNSATest.nsa_b_16_s1_1_s2_8192_h_7168_fp16_quant",
     ]
 )
 def gen_nsa_v1_func(case_name: str, output: Path) -> bool:
@@ -551,9 +564,9 @@ def gen_nsa_v1_func(case_name: str, output: Path) -> bool:
     if complete:
         logging.info("Case(%s), Golden data exits. cache catch", case_name)
     else:
-        if case_name == "DynamicNSATest.subgraph_4_5_6_fp16_b16": # gen_slc_attn + gen_gated_score + gen_attn
+        if case_name == "DynamicNSATest.nsa_b_16_s1_1_s2_8192_h_7168_fp16": # gen_slc_attn + gen_gated_score + gen_attn nsa_b_16_s1_1_s2_8192_h_7168_fp16
             nsa_entry((np.float16, np.float16), (16, 1, 8192, 7168), (False, False), output)
-        elif case_name == "DynamicNSATest.subgraph_4_5_6_fp16_b16_quant": # quant
+        elif case_name == "DynamicNSATest.nsa_b_16_s1_1_s2_8192_h_7168_fp16_quant": # quant
             nsa_entry((np.float16, np.float16), (16, 1, 8192, 7168), (True, True), output)
         else:
             logging.error("Can't get func to gen golden, Case(%s)", case_name)
@@ -567,7 +580,7 @@ def main() -> bool:
     """
     # 用例名称
     case_name_list: List[str] = [
-        "DynamicNSATest.subgraph_4_5_6_fp16_b16",
+        "DynamicNSATest.nsa_b_16_s1_1_s2_8192_h_7168_fp16",
     ]
     # 函数调用
     ret: bool = True

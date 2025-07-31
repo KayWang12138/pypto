@@ -116,9 +116,9 @@ void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &
                             {blockStartOffset, 0});
                         Tensor qPart(dtype, {gTile, dNopeSize + dRopeSize}, "qPart");
                         // query
-                        auto qNopeL = DView(qNope, {gTile, dNopeSize}, {curOffset, 0});
+                        auto qNopeL = DViewPad(qNope, {gTile, dNopeSize}, {gTile, dNopeSize}, {curOffset, 0});
                         DAssemble(qNopeL, {0, 0}, qPart);
-                        auto qRopeR = DView(qRope, {gTile, dRopeSize}, {curOffset, 0});
+                        auto qRopeR = DViewPad(qRope, {gTile, dNopeSize}, {gTile, dRopeSize}, {curOffset, 0});
                         DAssemble(qRopeR, {0, dNopeSize}, qPart);
 
                         // matmul_1

@@ -24,6 +24,7 @@
 #include "models/nsa/selected_attention.h"
 #include "models/deepseek/gen_kv_slc.h"
 #include "models/deepseek/dynamic_mla.h"
+#include "models/nsa/win_attention.h"
 #include "models/nsa/attention_post.h"
 
 namespace npu::tile_fwk {
@@ -55,6 +56,7 @@ struct NSASimpleParams {
     int topk;
     std::string cacheMode;
     int blockSize;
+    int winSize;
     int vHeadDim;
     float eps;
     static NSASimpleParams getCommonParams() {
@@ -74,6 +76,7 @@ struct NSASimpleParams {
         params.topk = NUM_16;
         params.cacheMode = "BSND";
         params.blockSize = NUM_128;
+        params.winSize = NUM_512;
         params.vHeadDim = NUM_128;
         params.eps = 1e-5f;
         return params;
@@ -113,7 +116,7 @@ void DynamicNsa(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, co
     int front, int near, int topk, int slcBlockSize, int blockSize, KvSlcTileShapeConfig &kvSlcTileConfig,
     Tensor &kvSlcActSeqs, float softmaxScale, SaTileShapeConfig saTileConfig,
     const Tensor &gateW1, const Tensor &gateW2, const Tensor &gateSimW1, GateMode gateMode,
-    Tensor &cmpAtten, Tensor &winAtten,
+    Tensor &cmpAtten, Tensor &winAtten, int winSize, WinAttenTileShapeConfig &winAttntileConfig,
     Tensor &weightUV, Tensor &weightO, Tensor &weightOScale, Tensor &smoothScalesWo, const PostTileConfig &postConfig,
     Tensor &queryOut, Tensor &queryRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut, Tensor &qNope, Tensor &qRope,
     Tensor &kvSlcActSeqOut, Tensor &kSlc, Tensor &vSlc, Tensor &slcAttn, Tensor &attentionOut, Tensor &postOut);

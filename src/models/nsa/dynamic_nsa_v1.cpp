@@ -124,7 +124,7 @@ void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const T
     int front, int near, int topk, int slcBlockSize, int blockSize, KvSlcTileShapeConfig &kvSlcTileConfig,
     Tensor &kvSlcActSeqs, float softmaxScale, SaTileShapeConfig saTileConfig,
     const Tensor &gateW1, const Tensor &gateW2, const Tensor &gateSimW1, GateMode gateMode,
-    Tensor &cmpAtten, Tensor &winAtten,
+    Tensor &cmpAtten, Tensor &winAtten, int winSize, WinAttenTileShapeConfig &winAttntileConfig,
     Tensor &weightUV, Tensor &weightO, Tensor &weightOScale, Tensor &smoothScalesWo, const PostTileConfig &postConfig,
     Tensor &queryOut, Tensor &queryRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut, Tensor &qNope, Tensor &qRope,
     Tensor &kvSlcActSeqOut, Tensor &kSlc, Tensor &vSlc, Tensor &slcAttn, Tensor &attentionOut, Tensor &postOut) {
@@ -136,9 +136,9 @@ void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const T
          topkIndices, topkTensorShape, kvActSeqs, blockTable, // genKvSlc
          kvSlcActSeqs,  // SlcAttn
          gateW1, gateW2, gateSimW1,  // gatedScore
-         cmpAtten, winAtten,  // genAttn
+         cmpAtten, // genAttn
          weightUV, weightO, weightOScale, smoothScalesWo}, // paPost
-        {queryOut, queryRopeOut, kvCacheOut, krCacheOut, qNope, qRope, kvSlcActSeqOut, kSlc, vSlc, slcAttn,
+        {queryOut, queryRopeOut, kvCacheOut, krCacheOut, qNope, qRope, winAtten, kvSlcActSeqOut, kSlc, vSlc, slcAttn,
          attentionOut, postOut}) {
         Program::GetInstance().GetConfig().Set<int>(DB_TYPE, 1);
         Program::GetInstance().GetConfig().Set<int>(L1_REUSE, NUM_4);
@@ -199,7 +199,8 @@ void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const T
 
         // Loop_barrier
         // subgraph-1
-
+        WinAttentionCompute(qNope, kvCacheOut, qRope, krCacheOut, n1, n2, blockTable, kvActSeqs, winSize, blockSize,
+            softmaxScale, winAtten, winAttntileConfig);
         // subgraph-2-3
 
         // subgraph-4
