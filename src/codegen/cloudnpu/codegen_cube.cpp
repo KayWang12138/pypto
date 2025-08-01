@@ -15,6 +15,7 @@
 
 #include "codegen_op_cloudnpu.h"
 #include "codegen/codegen_utils.h"
+#include "codegen/codegen_symbol.h"
 #include "securec.h"
 
 namespace npu::tile_fwk {
@@ -32,9 +33,9 @@ std::string CodeGenOpCloudNPU::GenCubeOp(bool zeroC) const {
     int n = shape[ID0][ID1];
     unsigned uf = 0;
 
-    auto kL0C = CreateAllocKey(operandWithMagic[ID0]);
-    auto kL0A = CreateAllocKey(operandWithMagic[ID1]);
-    auto kL0B = CreateAllocKey(operandWithMagic[ID2]);
+    auto kL0C = sm->CreateAllocKey(operandWithMagic[ID0]);
+    auto kL0A = sm->CreateAllocKey(operandWithMagic[ID1]);
+    auto kL0B = sm->CreateAllocKey(operandWithMagic[ID2]);
 
     std::string aVar = sm->QueryVariableName(kL0A);
     std::string bVar = sm->QueryVariableName(kL0B);
@@ -101,7 +102,7 @@ std::string CodeGenOpCloudNPU::GenParamsStr() const {
             ASSERT(ret >= 0) << "GenParamsStr sprintf_s failed ";
             params.emplace_back(paramBuffer);
         } else {
-            auto localAllocKey = CreateAllocKey(operandWithMagic[i]);
+            auto localAllocKey = sm->CreateAllocKey(operandWithMagic[i]);
             std::string var = sm->QueryVariableName(localAllocKey);
             std::string dtypeStr = DataType2CCEStr(operandDtype[i]);
             std::string prefix = GetAddrTypeByOperandType(operandType[i]);

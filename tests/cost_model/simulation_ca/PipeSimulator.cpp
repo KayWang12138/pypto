@@ -27,6 +27,7 @@
 #include "codegen/codegen.h"
 #include "codegen/codegen_op.h"
 #include "codegen/codegen_cce.h"
+#include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "codegen/cloudnpu/codegen_op_cloudnpu.h"
 #include "simulation/arch/SimplifiedMemoryAllocator.h"
 #include "simulation/arch/PipeSimulatorFast.h"
@@ -41,8 +42,10 @@ namespace CostModel
     {
         SimplifiedMemoryAllocator memoryAllocator;
         auto locToOffsetMap = GenRealizeIdMap(tileOp->funcPtr->parentFunction->GetParameter());
-        CodeGenOpCloudNPU cop(memoryAllocator, tileOp->funcPtr->parentFunction->GetTensorMap(),
-            tileOp->funcPtr->parentFunction->GetFunctionType(), locToOffsetMap,
+        CodeGenCtx ctx;
+        CodeGenCloudNPU cga(ctx);
+        cga.GenAllocForLocalBuffer(*(tileOp->operation), memoryAllocator);
+        CodeGenOpCloudNPU cop(memoryAllocator, tileOp->funcPtr->parentFunction->GetFunctionType(), locToOffsetMap,
             tileOp->funcPtr->parentFunction->IsUnderDynamicFunction());
         auto success = cop.Init(*tileOp->operation);
         if (success) {

@@ -385,44 +385,6 @@ void CodeGenOp::GetGmParamIdx(const npu::tile_fwk::Operation &oper) {
     }
 }
 
-SymbolManager::AllocKey CodeGenOp::CreateAllocKey(std::shared_ptr<LogicalTensor> tensor) {
-    const auto &memMap = tensor->memorymap;
-    if (memMap.count(tensor->subGraphID) == 0) {
-        ALOG_ERROR_F("%s: can not find subGraphID(%d) in the memorymap of tensor: ", __FUNCTION__, tensor->subGraphID);
-        ALOG_ERROR_F("    %s", tensor->Dump().c_str());
-        ALOG_ERROR_F("    memorymap size = %d", memMap.size());
-
-        ASSERT(false);
-        return {};
-    }
-
-    auto memType = tensor->GetMemoryTypeOriginal();
-    if (npu::tile_fwk::OPERAND_TYPE_TO_MEMORY_TYPE.count(memType) == 0) {
-        ALOG_ERROR_F("%s: invalid memory type(%d) of tensor: ", __FUNCTION__, static_cast<size_t>(memType));
-        ALOG_ERROR_F("    %s", tensor->Dump().c_str());
-
-        ASSERT(false);
-        return {};
-    }
-
-    const npu::tile_fwk::TileRange &range = memMap.at(tensor->subGraphID);
-
-    auto bufferType = npu::tile_fwk::OPERAND_TYPE_TO_MEMORY_TYPE.at(memType);
-
-    SymbolManager::AllocKey key = SymbolManager::AllocKey(bufferType, range.start, range.end);
-    return key;
-}
-
-SymbolManager::AllocKey CodeGenOp::CreateAllocKey(int tensorMagicNum) const {
-    std::shared_ptr<LogicalTensor> tensor = tensorMap.GetTensorByMagic(tensorMagicNum);
-    if (!tensor) {
-        ALOG_ERROR_F("%s: can not query tensor object from tensor magicnum: %d", __FUNCTION__, tensorMagicNum);
-        return {};
-    }
-
-    return CreateAllocKey(tensor);
-}
-
 std::string CodeGenOp::GenBarrier() const {
     char buffer[256] = "CG_ERROR";
     auto pipeId1 = GetPipeId(syncQueue.pipeId_);

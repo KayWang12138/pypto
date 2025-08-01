@@ -22,6 +22,8 @@
 #include "interface/utils/log.h"
 #include "interface/utils/assert.h"
 #include "interface/utils/common.h"
+#include "interface/tensor/logical_tensor.h"
+#include "codegen_common.h"
 
 namespace npu::tile_fwk {
 class SymbolManager {
@@ -51,18 +53,72 @@ public:
     }
 
     bool BindAddrWithVariableName(const AllocKey &key, const std::string &varName) {
-        auto iter = key2VariableName.find(key);
-        if (iter != key2VariableName.end()) {
+        auto iter = key2VariableName_.find(key);
+        if (iter != key2VariableName_.end()) {
             return true;
         } else {
-            key2VariableName.insert(std::pair<AllocKey, std::string>(key, varName));
+            key2VariableName_.insert(std::pair<AllocKey, std::string>(key, varName));
         }
         return false;
     }
 
+    void AddToTensorMap(int magicNum, std::shared_ptr<LogicalTensor> tensor) {
+        tensorMap_.insert(std::pair<int, std::shared_ptr<LogicalTensor>>(magicNum, tensor));
+    }
+
+    std::shared_ptr<LogicalTensor> GetTensorByMagic(int magicNum) const {
+        auto iter = tensorMap_.find(magicNum);
+        if (iter != tensorMap_.end()) {
+            return iter->second;
+        } else {
+            ASSERT(false) << "can not find tensor by magicNum:" << magicNum;
+            return nullptr;
+        }
+    }
+
+    AllocKey CreateAllocKey(std::shared_ptr<LogicalTensor> tensor) const;
+    AllocKey CreateAllocKey(int tensorMagicNum) const;
+
 private:
-    std::map<AllocKey, std::string> key2VariableName;
+    std::map<AllocKey, std::string> key2VariableName_;
+    std::unordered_map<int, std::shared_ptr<LogicalTensor>> tensorMap_;
 };
+
+inline SymbolManager::AllocKey SymbolManager::CreateAllocKey(std::shared_ptr<LogicalTensor> tensor) const {
+    const auto &memMap = tensor->memorymap;
+    if (memMap.count(tensor->subGraphID) == 0) {
+        ALOG_ERROR_F("%s: can not find subGraphID(%d) in the memorymap of tensor: ", __FUNCTION__, tensor->subGraphID);
+        ALOG_ERROR_F("    %s", tensor->Dump().c_str());
+        ALOG_ERROR_F("    memorymap size = %d", memMap.size());
+
+        ASSERT(false);
+        return {};
+    }
+
+    auto memType = tensor->GetMemoryTypeOriginal();
+    if (npu::tile_fwk::OPERAND_TYPE_TO_MEMORY_TYPE.count(memType) == 0) {
+        ALOG_ERROR_F("%s: invalid memory type(%d) of tensor: ", __FUNCTION__, static_cast<size_t>(memType));
+        ALOG_ERROR_F("    %s", tensor->Dump().c_str());
+
+        ASSERT(false);
+        return {};
+    }
+
+    const npu::tile_fwk::TileRange &range = memMap.at(tensor->subGraphID);
+    auto bufferType = npu::tile_fwk::OPERAND_TYPE_TO_MEMORY_TYPE.at(memType);
+    SymbolManager::AllocKey key = SymbolManager::AllocKey(bufferType, range.start, range.end);
+    return key;
+}
+
+inline SymbolManager::AllocKey SymbolManager::CreateAllocKey(int tensorMagicNum) const {
+    std::shared_ptr<LogicalTensor> tensor = SymbolManager::GetTensorByMagic(tensorMagicNum);
+    if (!tensor) {
+        ALOG_ERROR_F("%s: can not query tensor object from tensor magicnum: %d", __FUNCTION__, tensorMagicNum);
+        return {};
+    }
+
+    return CreateAllocKey(tensor);
+}
 
 inline std::string FormatAllocKey(const SymbolManager::AllocKey &key) {
     constexpr size_t bufSize = 256;
@@ -82,8 +138,8 @@ inline std::string FormatAllocKey(const SymbolManager::AllocKey &key) {
 inline std::string SymbolManager::QueryVariableName(const SymbolManager::AllocKey &key) {
     ALOG_INFO_F("%s: query varname by indentifier: %s", __FUNCTION__, FormatAllocKey(key).c_str());
 
-    auto iter = key2VariableName.find(key);
-    if (iter != key2VariableName.end()) {
+    auto iter = key2VariableName_.find(key);
+    if (iter != key2VariableName_.end()) {
         return iter->second;
     }
 

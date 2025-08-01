@@ -18,11 +18,12 @@
 #include "codegen_op_cloudnpu.h"
 #include "securec.h"
 #include "codegen/codegen_utils.h"
+#include "codegen/codegen_symbol.h"
 
 namespace npu::tile_fwk {
 std::string CodeGenOpCloudNPU::GenCastOp() const {
-    auto kS0 = CreateAllocKey(operandWithMagic[ID1]);
-    auto kDst = CreateAllocKey(operandWithMagic[ID0]);
+    auto kS0 = sm->CreateAllocKey(operandWithMagic[ID1]);
+    auto kDst = sm->CreateAllocKey(operandWithMagic[ID0]);
     std::string s0Var = sm->QueryVariableName(kS0);
     std::string dVar = sm->QueryVariableName(kDst);
 
@@ -132,7 +133,7 @@ std::string CodeGenOpCloudNPU::PrintDupOp(const PrintDupOpParam &param) const {
 }
 
 std::string CodeGenOpCloudNPU::GenDupOp() const {
-    auto kDst = CreateAllocKey(operandWithMagic[ID0]);
+    auto kDst = sm->CreateAllocKey(operandWithMagic[ID0]);
     std::string dVar = sm->QueryVariableName(kDst);
     AppendLocalBufferVarOffset({&dVar}, {0});
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
@@ -426,7 +427,7 @@ std::string CodeGenOpCloudNPU::PrintUnary(const PrintUnaryParam &param) const {
 }
 
 std::string CodeGenOpCloudNPU::GenTransposeDataMove() const {
-    auto kS0 = CreateAllocKey(operandWithMagic[ID1]);
+    auto kS0 = sm->CreateAllocKey(operandWithMagic[ID1]);
     std::string s0Var = sm->QueryVariableName(kS0);
     std::string dVar = GenGmParamVar(ID0);
 
@@ -443,10 +444,10 @@ std::string CodeGenOpCloudNPU::GenTransposeDataMove() const {
 }
 
 std::string CodeGenOpCloudNPU::GenUnaryOp() const {
-    auto kS0 = CreateAllocKey(operandWithMagic[ID1]);
+    auto kS0 = sm->CreateAllocKey(operandWithMagic[ID1]);
     std::string s0Var = sm->QueryVariableName(kS0);
 
-    auto kDst = CreateAllocKey(operandWithMagic[ID0]);
+    auto kDst = sm->CreateAllocKey(operandWithMagic[ID0]);
     std::string dVar = sm->QueryVariableName(kDst);
 
     AppendLocalBufferVarOffset({&dVar, &s0Var}, {0, 1});
@@ -790,9 +791,9 @@ std::string CodeGenOpCloudNPU::PrintCompact(const PrintUnaryTmpBuffParam &param)
 
 std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
     // In this scenario, frontend set tmp buffer in output to optimize ooo schedule result.
-    auto kS0 = CreateAllocKey(operandWithMagic[ID2]);
-    auto kTmp = CreateAllocKey(operandWithMagic[ID1]);
-    auto kDst = CreateAllocKey(operandWithMagic[ID0]);
+    auto kS0 = sm->CreateAllocKey(operandWithMagic[ID2]);
+    auto kTmp = sm->CreateAllocKey(operandWithMagic[ID1]);
+    auto kDst = sm->CreateAllocKey(operandWithMagic[ID0]);
     std::string s0Var = sm->QueryVariableName(kS0);
     std::string tmpVar = sm->QueryVariableName(kTmp);
     std::string dVar = sm->QueryVariableName(kDst);
@@ -1120,8 +1121,8 @@ std::string CodeGenOpCloudNPU::PrintBinaryBrc(const PrintBinaryBrcParam &param) 
 }
 
 std::string CodeGenOpCloudNPU::GenBinaryOp() const {
-    auto kS0 = CreateAllocKey(operandWithMagic[ID1]);
-    auto kDst = CreateAllocKey(operandWithMagic[ID0]);
+    auto kS0 = sm->CreateAllocKey(operandWithMagic[ID1]);
+    auto kDst = sm->CreateAllocKey(operandWithMagic[ID0]);
     std::string s0Var = sm->QueryVariableName(kS0);
     std::string dVar = sm->QueryVariableName(kDst);
 
@@ -1132,7 +1133,7 @@ std::string CodeGenOpCloudNPU::GenBinaryOp() const {
     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
     std::string src1DtypeStr = DataType2CCEStr(operandDtype[ID2]);
 
-    auto kS1 = CreateAllocKey(operandWithMagic[ID2]);
+    auto kS1 = sm->CreateAllocKey(operandWithMagic[ID2]);
     std::string s1Var = sm->QueryVariableName(kS1);
 
     AppendLocalBufferVarOffset({&dVar, &s0Var, &s1Var}, {0, 1, 2});
@@ -1140,8 +1141,8 @@ std::string CodeGenOpCloudNPU::GenBinaryOp() const {
 }
 
 std::string CodeGenOpCloudNPU::GenBinaryWithBrc() const {
-    auto kS0 = CreateAllocKey(operandWithMagic[ID2]);
-    auto kDst = CreateAllocKey(operandWithMagic[ID0]);
+    auto kS0 = sm->CreateAllocKey(operandWithMagic[ID2]);
+    auto kDst = sm->CreateAllocKey(operandWithMagic[ID0]);
     std::string s0Var = sm->QueryVariableName(kS0);
     std::string dVar = sm->QueryVariableName(kDst);
 
@@ -1154,12 +1155,12 @@ std::string CodeGenOpCloudNPU::GenBinaryWithBrc() const {
     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID2]);
     std::string src1DtypeStr = DataType2CCEStr(operandDtype[ID3]);
 
-    auto kS1 = CreateAllocKey(operandWithMagic[ID3]);
+    auto kS1 = sm->CreateAllocKey(operandWithMagic[ID3]);
     std::string s1Var = sm->QueryVariableName(kS1);
     SymbolManager::AllocKey kTmp;
     std::string tmpVar;
     std::string tmpDtypeStr;
-    kTmp = CreateAllocKey(operandWithMagic[ID1]);
+    kTmp = sm->CreateAllocKey(operandWithMagic[ID1]);
     tmpVar = sm->QueryVariableName(kTmp);
     tmpDtypeStr = DataType2CCEStr(operandDtype[ID1]);
 
@@ -1186,7 +1187,7 @@ std::string CodeGenOpCloudNPU::GenFusedOp() const {
     std::string paramString;
     std::vector<std::string> varList;
     for (int i = 0; i < operandsNum; i++) {
-        auto kS0 = CreateAllocKey(operandWithMagic[i]);
+        auto kS0 = sm->CreateAllocKey(operandWithMagic[i]);
         std::string s0Var = sm->QueryVariableName(kS0);
         std::string dtypeStr = DataType2CCEStr(operandDtype[i]);
         paramString += "(__ubuf__ " + dtypeStr + "*)" + s0Var;
@@ -1306,9 +1307,9 @@ std::string CodeGenOpCloudNPU::PrintGather(const PrintGatherParam &param) const 
 }
 
 std::string CodeGenOpCloudNPU::GenGatherOp() const {
-    auto kS0 = CreateAllocKey(operandWithMagic[ID1]);
-    auto kS1 = CreateAllocKey(operandWithMagic[ID2]);
-    auto kDst = CreateAllocKey(operandWithMagic[ID0]);
+    auto kS0 = sm->CreateAllocKey(operandWithMagic[ID1]);
+    auto kS1 = sm->CreateAllocKey(operandWithMagic[ID2]);
+    auto kDst = sm->CreateAllocKey(operandWithMagic[ID0]);
     std::string s0Var = sm->QueryVariableName(kS0);
     std::string s1Var = sm->QueryVariableName(kS1);
     std::string dVar = sm->QueryVariableName(kDst);
@@ -1414,9 +1415,9 @@ std::string CodeGenOpCloudNPU::PrintGatherElementDynamicUnaligned(const PrintGat
 }
 
 std::string CodeGenOpCloudNPU::GenGatherElementOp() const {
-    auto kS0 = CreateAllocKey(operandWithMagic[ID1]);
-    auto kS1 = CreateAllocKey(operandWithMagic[ID2]);
-    auto kDst = CreateAllocKey(operandWithMagic[ID0]);
+    auto kS0 = sm->CreateAllocKey(operandWithMagic[ID1]);
+    auto kS1 = sm->CreateAllocKey(operandWithMagic[ID2]);
+    auto kDst = sm->CreateAllocKey(operandWithMagic[ID0]);
     std::string s0Var = sm->QueryVariableName(kS0);
     std::string s1Var = sm->QueryVariableName(kS1);
     std::string dVar = sm->QueryVariableName(kDst);
@@ -1466,9 +1467,9 @@ std::string CodeGenOpCloudNPU::GenScatterElementOp() const {
     int src1 = operandWithMagic[ID2];
     const Element &scala = extOperandVal;
 
-    auto kSrc0 = CreateAllocKey(src0);
-    auto kSrc1 = CreateAllocKey(src1);
-    auto kDst = CreateAllocKey(dst);
+    auto kSrc0 = sm->CreateAllocKey(src0);
+    auto kSrc1 = sm->CreateAllocKey(src1);
+    auto kDst = sm->CreateAllocKey(dst);
 
     std::string src0Var = sm->QueryVariableName(kSrc0);
     std::string src1Var = sm->QueryVariableName(kSrc1);
@@ -1623,8 +1624,8 @@ SortParam CodeGenOpCloudNPU::PrepareSortParam() const {
     int dst = operandWithMagic[ID0];
     int src0 = operandWithMagic[ID1];
 
-    auto kSrc0 = CreateAllocKey(src0);
-    auto kDst = CreateAllocKey(dst);
+    auto kSrc0 = sm->CreateAllocKey(src0);
+    auto kDst = sm->CreateAllocKey(dst);
     std::string src0Var = sm->QueryVariableName(kSrc0);
     std::string dstVar = sm->QueryVariableName(kDst);
 
@@ -1663,8 +1664,8 @@ std::string CodeGenOpCloudNPU::GenMrgSortOp() const {
 
 std::string CodeGenOpCloudNPU::GenExtractOp() const {
     SymbolManager::AllocRecord src0, dst;
-    auto kS0 = CreateAllocKey(operandWithMagic[ID1]);
-    auto kDst = CreateAllocKey(operandWithMagic[ID0]);
+    auto kS0 = sm->CreateAllocKey(operandWithMagic[ID1]);
+    auto kDst = sm->CreateAllocKey(operandWithMagic[ID0]);
     std::string s0Var = sm->QueryVariableName(kS0);
     std::string dVar = sm->QueryVariableName(kDst);
     std::vector src0RawShape = this->rawShape[1];
@@ -1807,8 +1808,8 @@ std::string CodeGenOpCloudNPU::PrintBinaryScalar(const PrintBinaryScalarParam &p
 }
 
 std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(bool isUseScalar) const {
-    auto kS0 = CreateAllocKey(operandWithMagic[ID1]);
-    auto kDst = CreateAllocKey(operandWithMagic[ID0]);
+    auto kS0 = sm->CreateAllocKey(operandWithMagic[ID1]);
+    auto kDst = sm->CreateAllocKey(operandWithMagic[ID0]);
     std::string s0Var = sm->QueryVariableName(kS0);
     std::string dVar = sm->QueryVariableName(kDst);
     ASSERT(shape[0] == shape[1]) << " shape between dst " << IntVecToStr(shape[ID0]) << " and src "
@@ -1863,8 +1864,8 @@ std::string CodeGenOpCloudNPU::GenPoolOp() const {
     const int poolParamsSize = 8;
     ASSERT(poolParams.size() == poolParamsSize);
 
-    auto kSrc = CreateAllocKey(operandWithMagic[ID1]);
-    auto kDst = CreateAllocKey(operandWithMagic[ID0]);
+    auto kSrc = sm->CreateAllocKey(operandWithMagic[ID1]);
+    auto kDst = sm->CreateAllocKey(operandWithMagic[ID0]);
     std::string sVar = sm->QueryVariableName(kSrc);
     std::string dVar = sm->QueryVariableName(kDst);
 

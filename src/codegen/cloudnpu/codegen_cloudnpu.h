@@ -38,10 +38,10 @@ public:
         const std::string &srcFile, const std::string &objFile, bool isCube, const std::string &compileOptions) const;
     std::optional<std::string> GenExtraAlloc(
         SymbolManager &memAlloc, const std::shared_ptr<LogicalTensor> &tensor, const npu::tile_fwk::Operation &op) const;
+    std::string GenAllocForLocalBuffer(const Operation &op, SymbolManager &memAlloc) const;
 
 private:
     std::string GenCodeImpl(Function &subFunc, Function &topFunc);
-    std::string GenAllocForLocalBuffer(Function &topFunc, const Operation &op, SymbolManager &memAlloc) const;
 
     bool DumpCCE(const std::string &name, const std::string &code) const;
     bool GenConfigJson(const std::string &configJson, const std::string &cppName, const std::string &binName,
@@ -61,7 +61,6 @@ private:
     std::vector<std::pair<DataType, std::string>> globalTensorAddr;
     bool isUnderDynamicFunction{false};
 };
-
 
 } // namespace npu::tile_fwk
 

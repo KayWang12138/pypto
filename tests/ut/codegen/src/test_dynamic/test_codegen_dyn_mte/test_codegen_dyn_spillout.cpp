@@ -84,8 +84,8 @@ TEST_F(TestCodegenDynSpillOut, UBSpillOut) {
     SymbolManager memAlloc;
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
-    cga.GenExtraAlloc(memAlloc, ubTensor, op);
-    CodeGenOpCloudNPU cop(memAlloc, function->GetTensorMap(), FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    cga.GenAllocForLocalBuffer(op, memAlloc);
+    CodeGenOpCloudNPU cop(memAlloc, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
     function->GetTensorMap().inverseMap_[ubTensor->GetMagic()] = ubTensor;
 
     cop.Init(op);
@@ -135,8 +135,8 @@ TEST_F(TestCodegenDynSpillOut, L1SpillOut) {
     SymbolManager memAlloc;
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
-    cga.GenExtraAlloc(memAlloc, l1Tensor, op);
-    CodeGenOpCloudNPU cop(memAlloc, function->GetTensorMap(), FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    cga.GenAllocForLocalBuffer(op, memAlloc);
+    CodeGenOpCloudNPU cop(memAlloc, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
     function->GetTensorMap().inverseMap_[l1Tensor->GetMagic()] = l1Tensor;
 
     cop.Init(op);

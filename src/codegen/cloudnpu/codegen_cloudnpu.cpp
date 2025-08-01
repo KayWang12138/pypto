@@ -129,10 +129,9 @@ std::string CodeGenCloudNPU::GenCodeImpl(Function &subFunc, Function &topFunc) {
             continue;
         }
 
-        std::string allocSourceCode = GenAllocForLocalBuffer(topFunc, op, memAlloc);
+        std::string allocSourceCode = GenAllocForLocalBuffer(op, memAlloc);
 
-        CodeGenOpCloudNPU cop(memAlloc, topFunc.GetTensorMap(), topFunc.GetFunctionType(), locToOffsetMap,
-            topFunc.IsUnderDynamicFunction());
+        CodeGenOpCloudNPU cop(memAlloc, topFunc.GetFunctionType(), locToOffsetMap, topFunc.IsUnderDynamicFunction());
         auto success = cop.Init(op);
         if (!success) {
             ALOG_INFO_F(": failed to init CodeGenOpCloudNPU from an operation: %s \n", op.Dump().c_str());
@@ -157,8 +156,7 @@ std::string CodeGenCloudNPU::GenCodeImpl(Function &subFunc, Function &topFunc) {
     return programCode;
 }
 
-std::string CodeGenCloudNPU::GenAllocForLocalBuffer(
-    Function &topFunc, const Operation &op, SymbolManager &memAlloc) const {
+std::string CodeGenCloudNPU::GenAllocForLocalBuffer(const Operation &op, SymbolManager &memAlloc) const {
     std::string allocSourceCode{};
     auto genExtraAllocForTensor = [this, &memAlloc, &op](const std::shared_ptr<LogicalTensor> &operand) -> std::string {
         if (HasAllocAttr(operand)) {
@@ -172,13 +170,13 @@ std::string CodeGenCloudNPU::GenAllocForLocalBuffer(
     };
     for (const std::shared_ptr<LogicalTensor> &operand : op.GetIOperands()) {
         // NEXTNEXT "inverseMap_.emplace" should be deleted later when gaoxiang prepared
-        topFunc.GetTensorMap().inverseMap_[operand->GetMagic()] = operand;
+        memAlloc.AddToTensorMap(operand->GetMagic(), operand);
         PrintOperand("IOperand", operand);
         allocSourceCode += genExtraAllocForTensor(operand);
     }
     for (const std::shared_ptr<LogicalTensor> &operand : op.GetOOperands()) {
         // NEXTNEXT "inverseMap_.emplace" should be deleted later when gaoxiang prepared
-        topFunc.GetTensorMap().inverseMap_[operand->GetMagic()] = operand;
+        memAlloc.AddToTensorMap(operand->GetMagic(), operand);
         PrintOperand("OOperand", operand);
         allocSourceCode += genExtraAllocForTensor(operand);
     }

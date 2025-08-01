@@ -14,6 +14,7 @@
  */
 
 #include "codegen_op_cloudnpu.h"
+#include "codegen/codegen_symbol.h"
 #include "codegen/codegen_utils.h"
 #include "securec.h"
 
@@ -100,7 +101,7 @@ std::string CodeGenOpCloudNPU::GenMemL1SpillIntoGM(
     addrTypeHead[l1Idx] = isCopyL0CToGM ? GetAddrTypeByOperandType(BUF_L0C) : GetAddrTypeByOperandType(BUF_L1);
 
     // Query ub variable name
-    auto l1AllocKey = CreateAllocKey(opInfo.operands[ID0]);
+    auto l1AllocKey = sm->CreateAllocKey(opInfo.operands[ID0]);
     std::vector<int> gmOffset = offset[gmIdx];
     std::vector<int> l1TileOffset = offset[l1Idx];
     unsigned l1Offset = l1TileOffset[0] * l1TileOffset[1];
@@ -193,7 +194,7 @@ std::string CodeGenOpCloudNPU::GenMemUBSpillIntoGM(bool isCopyUBToGM) const {
     addrTypeHead[ubIdx] = GetAddrTypeByOperandType(BUF_UB);
 
     // Query ub variable name
-    auto ubAllocKey = CreateAllocKey(operandWithMagic[ubIdx]);
+    auto ubAllocKey = sm->CreateAllocKey(operandWithMagic[ubIdx]);
     std::string ubVarName = sm->QueryVariableName(ubAllocKey);
 
     std::string addrExpr[2];
@@ -239,8 +240,8 @@ std::string CodeGenOpCloudNPU::GenIndexOutCastOp() const {
     OperandType localType = OperandType::BUF_UB;
     addrTypeHead[gmIdx] = GetAddrTypeByOperandType(BUF_DDR);
     addrTypeHead[localIdx] = GetAddrTypeByOperandType(localType);
-    auto ks0 = CreateAllocKey(operandWithMagic[ID1]);
-    auto ks1 = CreateAllocKey(operandWithMagic[ID2]);
+    auto ks0 = sm->CreateAllocKey(operandWithMagic[ID1]);
+    auto ks1 = sm->CreateAllocKey(operandWithMagic[ID2]);
 
     std::string s0Var = sm->QueryVariableName(ks0);
     std::string s1Var = sm->QueryVariableName(ks1);
@@ -455,7 +456,7 @@ std::string CodeGenOpCloudNPU::GenMemCopyVar(bool isCopyLocalToGM, OperandType l
     ALOG_INFO_F("========dst shape is %s", IntVecToStr(shape[0]).c_str());
     ALOG_INFO_F("========tileShapeForMT is %s", IntVecToStr(tileShapeForMT).c_str());
 
-    auto localAllocKey = CreateAllocKey(operandWithMagic[localIdx]);
+    auto localAllocKey = sm->CreateAllocKey(operandWithMagic[localIdx]);
     std::string addrExpr[2];
     addrExpr[localIdx] = sm->QueryVariableName(localAllocKey);
     addrExpr[gmIdx] = GenGmParamVar(gmIdx);
@@ -571,7 +572,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Static(const PrintMemCopyWithL1
 
     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
 
-    std::shared_ptr<LogicalTensor> tensor = tensorMap.GetTensorByMagic(operandWithMagic[1]);
+    std::shared_ptr<LogicalTensor> tensor = sm->GetTensorByMagic(operandWithMagic[1]);
     std::string opName = tileOpName;
     char addrBuffer[BUFFER_SIZE_1024] = "";
     char oriAddrBuffer[BUFFER_SIZE_1024] = "";
@@ -629,7 +630,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL
     std::vector<std::string> gmOffsetExpr = GenGetParamMacroPacked(param.gmIdx, SHAPE_DIM2, PREFIX_STR_OFFSET);
     ALOG_INFO_F("dynamic gmOffset param: %s", IntVecToStr(gmOffsetExpr).c_str());
 
-    std::shared_ptr<LogicalTensor> tensor = tensorMap.GetTensorByMagic(operandWithMagic[1]);
+    std::shared_ptr<LogicalTensor> tensor = sm->GetTensorByMagic(operandWithMagic[1]);
     std::string opName = tileOpName;
     char addrBuffer[BUFFER_SIZE_1024] = "";
     int printRet = sprintf_s(addrBuffer, BUFFER_SIZE_1024, "%s", addrExpr[1].c_str());

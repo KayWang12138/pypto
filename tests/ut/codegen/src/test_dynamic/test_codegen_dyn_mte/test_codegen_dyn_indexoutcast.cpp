@@ -93,9 +93,8 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
     SymbolManager memAlloc;
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
-    cga.GenExtraAlloc(memAlloc, localTensorSrc0, op);
-    cga.GenExtraAlloc(memAlloc, localTensorSrc1, op);
-    CodeGenOpCloudNPU cop(memAlloc, function->GetTensorMap(), FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    cga.GenAllocForLocalBuffer(op, memAlloc);
+    CodeGenOpCloudNPU cop(memAlloc, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
     function->GetTensorMap().inverseMap_[localTensorSrc0->GetMagic()] = localTensorSrc0;
     function->GetTensorMap().inverseMap_[localTensorSrc1->GetMagic()] = localTensorSrc1;
 

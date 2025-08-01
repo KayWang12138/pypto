@@ -32,8 +32,6 @@ public:
     {
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
         config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, false);
-        // CodeGen 多线程有问题，暂时关闭
-        config::SetCodeGenConfig(KEY_PARALLEL_THREAD_NUM, 1);
         Program::GetInstance().Reset();
         Distributed::TestFrameworkInit(testParam, hcomTestParam);
     }

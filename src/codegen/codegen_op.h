@@ -16,13 +16,16 @@
 #ifndef CODEGEN_OP_H
 #define CODEGEN_OP_H
 
+#include <map>
+#include <tuple>
+#include <cstdint>
+#include <string>
 #include <utility>
 #include <unordered_set>
 
 #include "codegen/codegen_common.h"
 #include "tilefwk/data_type.h"
 #include "interface/operation/operation.h"
-#include "interface/tensor/tensormap.h"
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
@@ -43,23 +46,6 @@ const std::unordered_set<Opcode> SKIP_OPCODE = {
     Opcode::OP_BT_ALLOC,
 };
 
-const std::map<MemoryType, OperandType> OPERAND_TYPE_TO_MEMORY_TYPE{
-    {            MemoryType::MEM_UB,  BUF_UB},
-    {            MemoryType::MEM_L1,  BUF_L1},
-    {           MemoryType::MEM_L0A, BUF_L0A},
-    {           MemoryType::MEM_L0B, BUF_L0B},
-    {           MemoryType::MEM_L0C, BUF_L0C},
-    {    MemoryType::MEM_DEVICE_DDR, BUF_DDR},
-    {            MemoryType::MEM_BT,  BUF_BT},
-    {           MemoryType::MEM_FIX, BUF_FIX},
-    { MemoryType::MEM_FIX_QUANT_PRE, BUF_FIX},
-    {  MemoryType::MEM_FIX_RELU_PRE, BUF_FIX},
-    { MemoryType::MEM_FIX_RELU_POST, BUF_FIX},
-    {MemoryType::MEM_FIX_QUANT_POST, BUF_FIX},
-    { MemoryType::MEM_FIX_ELT_ANTIQ, BUF_FIX},
-    {MemoryType::MEM_FIX_MTE2_ANTIQ, BUF_FIX},
-};
-
 const int MAX_OPERANDS = 11;
 const int NULL_OPERAND = 0;
 
@@ -74,12 +60,9 @@ struct OpInfo {
 
 class CodeGenOp {
 public:
-    explicit CodeGenOp(SymbolManager &symbolManager, const npu::tile_fwk::TensorMap &tm, FunctionType funcType,
-        const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false)
-        : tensorMap(tm),
-          functionType(funcType),
-          paramLocToParamListOffset(locToOffset),
-          isUnderDynamicFunction(isUnderDynamicFunc) {
+    explicit CodeGenOp(SymbolManager &symbolManager, FunctionType funcType, const std::map<int, int> &locToOffset = {},
+        bool isUnderDynamicFunc = false)
+        : functionType(funcType), paramLocToParamListOffset(locToOffset), isUnderDynamicFunction(isUnderDynamicFunc) {
         for (size_t i = 0; i < MAX_OPERANDS; i++) {
             operand[i] = NULL_OPERAND;
             operandType[i] = BUF_UNKNOWN;
@@ -97,7 +80,6 @@ public:
     virtual std::string GenOpCode() const = 0;
 
 protected:
-    SymbolManager::AllocKey CreateAllocKey(int tensorMagicNum) const;
     std::string GenOpAttr() const;
 
     // NEXTNEXT: list of all primitives:
@@ -139,7 +121,6 @@ protected:
 
     SymbolManager *sm{nullptr};
 
-    const npu::tile_fwk::TensorMap &tensorMap;
     const FunctionType functionType;
     std::string tileOpName;
     bool isInputForceCombineAxis{false};
@@ -148,7 +129,6 @@ protected:
     bool isUnderDynamicFunction;
 
 private:
-    static SymbolManager::AllocKey CreateAllocKey(std::shared_ptr<LogicalTensor> tensor);
     void UpdateCodegenOpInfoByTensor(
         const Operation &ops, bool isInput, const std::shared_ptr<LogicalTensor> &tensor, int &operandIdx);
 

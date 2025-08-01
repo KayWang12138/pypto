@@ -131,9 +131,8 @@ TEST_F(TestCodegenDynUna, TestDynBitSort) {
     SymbolManager memAlloc;
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
-    cga.GenExtraAlloc(memAlloc, localTensor, op);
-    cga.GenExtraAlloc(memAlloc, localOutTensor, op);
-    CodeGenOpCloudNPU cop(memAlloc, function->GetTensorMap(), FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    cga.GenAllocForLocalBuffer(op, memAlloc);
+    CodeGenOpCloudNPU cop(memAlloc, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
     function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
 
@@ -192,9 +191,8 @@ TEST_F(TestCodegenDynUna, TestDynMrgSort) {
     SymbolManager memAlloc;
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
-    cga.GenExtraAlloc(memAlloc, localTensor, op);
-    cga.GenExtraAlloc(memAlloc, localOutTensor, op);
-    CodeGenOpCloudNPU cop(memAlloc, function->GetTensorMap(), FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    cga.GenAllocForLocalBuffer(op, memAlloc);
+    CodeGenOpCloudNPU cop(memAlloc, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
     function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
     cop.Init(op);

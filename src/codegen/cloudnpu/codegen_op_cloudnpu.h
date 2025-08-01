@@ -22,7 +22,6 @@
 #include "codegen/codegen_common.h"
 #include "tilefwk/data_type.h"
 #include "interface/operation/operation.h"
-#include "interface/tensor/tensormap.h"
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
@@ -33,9 +32,9 @@
 namespace npu::tile_fwk {
 class CodeGenOpCloudNPU : public CodeGenOp {
 public:
-    explicit CodeGenOpCloudNPU(SymbolManager &symbolManager, const npu::tile_fwk::TensorMap &tm, FunctionType funcType,
+    explicit CodeGenOpCloudNPU(SymbolManager &symbolManager, FunctionType funcType,
         const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false)
-        : CodeGenOp(symbolManager, tm, funcType, locToOffset, isUnderDynamicFunc){};
+        : CodeGenOp(symbolManager, funcType, locToOffset, isUnderDynamicFunc){};
     ~CodeGenOpCloudNPU() override = default;
 
     std::string GenMemL1CopyIn() const;
