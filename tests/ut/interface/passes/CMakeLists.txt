@@ -174,6 +174,7 @@ set(_CaseFilterList
         "CubeProcessTest.Test_MM_FP16_Atomic_On"
         "CubeProcessTest.TestAnzBnd"
         "CubeProcessTest.TestAnzBndL1"
+        "TestPriorScheduling.TestMainSchedule"
         "InsertSyncTest.TestEnableDebug"
         "InsertSyncTest.TestFindDep"
         "InsertSyncTest.TestPhaseKernelProcess"
