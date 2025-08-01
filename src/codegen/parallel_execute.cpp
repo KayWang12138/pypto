@@ -14,7 +14,7 @@
  */
 
 #include "parallel_execute.h"
-#include "log.h"
+#include "interface/utils/log.h"
 
 #include <thread>
 #include <mutex>

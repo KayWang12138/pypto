@@ -193,7 +193,7 @@ python3 build.py -s -d=1  # 使用 Device 1 执行 STest 用例
 注意: 此功能需要 STest 用例改造, 对应接口如下:
 
 ```c++
-// src/utils/stubs.h
+// src/interface/machine/stubs.h
 
 int32_t GetCurrentDeviceId();               // 获取当前 Device ID, 取值由 build.py -d/--device 参数传入
 ```

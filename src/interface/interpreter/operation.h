@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "interface/utils/thread_pool.h"
+#include "interface/interpreter/thread_pool.h"
 #include "interface/operation/attribute.h"
 #include "interface/tensor/symbolic_scalar_evaluate.h"
 #include "calculator.h"

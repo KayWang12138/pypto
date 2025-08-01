@@ -20,7 +20,7 @@
 #include <string>
 #include <memory>
 
-#include "interface/utils/thread_pool.h"
+#include "interface/interpreter/thread_pool.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/tensor.h"
 #include "interface/inner/element.h"

@@ -31,7 +31,7 @@
 #endif
 #include "interface/utils/log.h"
 #include "interface/utils/common.h"
-#include "interface/utils/stubs.h"
+#include "interface/machine/host/stubs.h"
 #include "tilefwk/data_type.h"
 
 using HalHostRegisterFunc = int (*)(void *srcPtr, uint64_t size, uint32_t flag, uint32_t devid, void **dstPtr);

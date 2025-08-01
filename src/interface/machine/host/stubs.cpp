@@ -14,7 +14,7 @@
  */
 
 #include <iostream>
-#include "interface/utils/stubs.h"
+#include "interface/machine/host/stubs.h"
 
 using namespace npu::tile_fwk::stubs;
 

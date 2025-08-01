@@ -15,7 +15,7 @@
 
 #include "codegen_op_cloudnpu.h"
 #include "interface/utils/log.h"
-#include "interface/utils/parallel_execute.h"
+#include "codegen/parallel_execute.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/function/function.h"
 #include "interface/configs/config_manager.h"
