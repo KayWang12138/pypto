@@ -292,6 +292,7 @@ def gen_prolog_input_data(params, dtypes, epsilon, output_dir: Path, is_quant=Fa
     qk_rope_head_dim = params.get("qk_rope_head_dim")
     kv_lora_rank = params.get("kv_lora_rank")
     v_head_dim = params.get("v_head_dim")
+    param_block_num = params.get("block_num", None)
     q_head_dim = qk_nope_head_dim + qk_rope_head_dim
     NzFrac = 16 if dtype != float else 8
     x_shape = [b, s, h]
@@ -307,10 +308,13 @@ def gen_prolog_input_data(params, dtypes, epsilon, output_dir: Path, is_quant=Fa
     kr_cache_shape = [b, 1, s2, qk_rope_head_dim]
     index_value_max = s2
     if cache_mode != "BNSD":
-        block_num = b * (math.ceil(s2 / block_size))
+        if not param_block_num:
+            block_num = b * (math.ceil(s2 / block_size))
+        else:
+            block_num = param_block_num
         kv_cache_shape = [block_num, block_size, 1, kv_lora_rank]
         kr_cache_shape = [block_num, block_size, 1, qk_rope_head_dim]
-        index_value_max = b * s2
+        index_value_max = block_num * block_size
     smooth_cq_shape = [1, q_lora_rank]
     logging.debug("x shape is %s", x_shape)
     logging.debug("wDq shape is %s", w_qa_shape)

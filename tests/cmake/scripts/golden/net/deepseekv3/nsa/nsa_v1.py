@@ -180,7 +180,7 @@ def gen_kv_cache(params, actual_seq_list, dtype, output_dir):
     dump_file(actual_seq_list, kv_cache_actual_seq_path, np.int32)
 
     # return kv_nope_cache, k_rope_cache, block_table
-    return block_table
+    return block_table, block_num
 
 
 def gen_atten_golden_data(cmp_atten, sel_atten, win_atten, gating_score, dtype):
@@ -305,7 +305,6 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
 
     softmax_scale = q_dim ** -0.5
     slc_s_max = topk * slc_block_size
-    block_num = b * (s2 // block_size)
 
     # kv cache actual_seq
     kv_cache_actual_seq_p = params.get("kv_cache_actual_seq")
@@ -345,6 +344,8 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
 
     # 2. 生成数据
     # mla_prolog
+    block_table, block_num = gen_kv_cache(params, kv_cache_actual_seq, dtype, output_dir) # 生成 block_table
+
     prolog_params = {
         "b": b,
         "s": s,
@@ -356,13 +357,12 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
         "qk_rope_head_dim": rope_dim,
         "kv_lora_rank": kv_lora_rank,
         "v_head_dim": v_head_dim,
+        "block_num": block_num,
     }
     x, wDq, wUqQr, smooth_cq, w_qb_scale, wDkvKr, wUk, gamma_cq, gamma_ckv, cos, sin, kv_len, kv_cache, kr_cache = \
         gen_prolog_input_data(prolog_params, [dtype, dtype], epsilon, output_dir, is_quant, is_nz, has_smooth,
                               block_size, cache_mode)
 
-    # kv_nope_cache, k_rope_cache, block_table = gen_kv_cache(params, kv_cache_actual_seq, dtype, output_dir) # 生成kvcache
-    block_table = gen_kv_cache(params, kv_cache_actual_seq, dtype, output_dir) # 生成kvcache
     # gen kv_slc
     s_slc = 128 # TODO: 中间输出，后续topk子图拼接后，需要删除topk_indices的生成
     topk_indices = gen_uniform_data(shape_topk_indices, 0, s_slc, dtype=np.int32)
@@ -370,11 +370,6 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
     for batchIdx in range(b):
         for seqIdx in range(s):
             topk_tensor_shape[batchIdx][seqIdx] = s_slc
-
-    # gen slc attn
-    # q_bsnd = gen_uniform_data(slc_q_shape, -1, 1, dtype)
-    slc_k_bsnd = gen_uniform_data(slc_k_shape, -1, 1, dtype)
-    slc_v_bsnd = slc_k_bsnd[:, :, :, :, :kv_lora_rank]
 
     # gen gated_score
     # x = gen_uniform_data(x_shape, -1, 1, dtype)
