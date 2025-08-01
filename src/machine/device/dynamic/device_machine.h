@@ -73,6 +73,10 @@ public:
     }
 
     void InitTaskCtrl(int idx, int type, uint64_t taskId, DeviceTask *devTask, DeviceExecuteContext *ctx, FinishCallback callback = nullptr) {
+        if (ctx == nullptr) {
+            DEV_ERROR("Init Task control failed, which ctx is null.");
+            return;
+        }
         auto taskCtrl = &taskctrl_[idx];
         taskCtrl->taskType = type;
         taskCtrl->devTask = devTask;
@@ -164,13 +168,13 @@ public:
         auto outputPtr = inputPtr + inputSize;
         auto outputSize = DevAscendTensorDataCreator::Decode(kargs->outputs, outputPtr);
         auto workspaceAddr = ALIGN_UP((uint64_t)(outputPtr + outputSize), 512);
-        auto devArgsSize = workspaceAddr - (uint64_t)kargs->workspace;
+        auto devArgsSize = workspaceAddr - PtrToValue(kargs->workspace);
 
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
         devArgs->inputTensorList = inputPtr;
-        devArgs->inputTensorSize = inputSize;
+        devArgs->inputTensorSize = static_cast<uint64_t>(inputSize);
         devArgs->outputTensorList = outputPtr;
-        devArgs->outputTensorSize = outputSize;
+        devArgs->outputTensorSize = static_cast<uint64_t>(outputSize);
         devArgs->workspaceAddr = workspaceAddr;
         devArgs->devProg = devProg;
         devArgs->aicpuCoherentWorkspaceSize = devProg->aicpuCoherentWorkspaceSize - devArgsSize;

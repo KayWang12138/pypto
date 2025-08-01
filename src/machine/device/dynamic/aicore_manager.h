@@ -412,7 +412,7 @@ public:
     inline void SendTaskBatch(int coreIdx, uint64_t regVal, uint64_t taskData) {
         if constexpr (IsDeviceMode()) {
             volatile KernelArgs *arg = args_[coreIdx];
-            arg->shakeBuffer[SHAK_BUF_BATCH_TASK_INDEX] = taskData;
+            arg->shakeBuffer[SHAK_BUF_BATCH_TASK_INDEX] = static_cast<int64_t>(taskData);
         }
         __sync_synchronize();
         SetReadyQueue(coreIdx, regVal);
@@ -421,7 +421,7 @@ public:
     int64_t GetSharedBuffer() { return sharedBuffer_; }
 
     inline void MapRegistersForAllCores(int aicNum) {
-        for (uint32_t idx = 0; idx < aicNum * CORE_NUM_PER_AI_CORE; idx++) {
+        for (uint32_t idx = 0; idx < static_cast<u_int32_t>(aicNum * CORE_NUM_PER_AI_CORE); idx++) {
             void *addr = reinterpret_cast<void *>(regAddrs_[idx]);
             if (addr == nullptr) {
                 continue;
@@ -502,7 +502,7 @@ public:
         int ret = DEVICE_MACHINE_OK;
         auto args =
             reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
-        args->taskEntry.reserved[0] = dotStatus;
+        args->taskEntry.reserved[0] = static_cast<uint32_t>(dotStatus);
         volatile int64_t *shakeBuffer = args->shakeBuffer;
         uint32_t cycles_start = GetCycles();
         while ((*shakeBuffer & 0xFFFFFFFF) != AICORE_SAY_HELLO) {
@@ -563,7 +563,7 @@ public:
             funcdata = (int64_t)&curDevTask_->coreFuncData;
         } else {
             auto dyntask = (DynDeviceTask *)curDevTask_;
-            funcdata = (int64_t)dyntask->dynFuncData;
+            funcdata = static_cast<int64_t>(PtrToValue(dyntask->dynFuncData));
         }
         ForEachManageAicore([&](int coreIdx) { aicoreHAL.InitTaskData(coreIdx, funcdata); });
 
@@ -1129,7 +1129,7 @@ private:
 
         int startIdx;
         int coreNum;
-        int idx = lastPendReadyCoreIdx_[coreType];
+        int idx = static_cast<int>(lastPendReadyCoreIdx_[coreType]);
         if (coreType == static_cast<int>(CoreType::AIC)) {
             startIdx = aicStart_;
             coreNum = aicEnd_ - aicStart_;
@@ -1140,7 +1140,7 @@ private:
         while (pendingIds_[idx] != AICORE_TASK_INIT) {
             idx = startIdx + (idx - startIdx + 1) % (coreNum);
         }
-        lastPendReadyCoreIdx_[coreType] = startIdx + (idx - startIdx + 1) % (coreNum);
+        lastPendReadyCoreIdx_[coreType] = static_cast<uint32_t>(startIdx + (idx - startIdx + 1) % (coreNum));
         corePendReadyCnt_[coreType]--;
         DEV_DEBUG("Direct send task when task ready %x.", taskId);
         SendTaskToAiCore(static_cast<CoreType>(coreType), idx, taskId);
@@ -1370,8 +1370,8 @@ private:
     }
 
     inline void Init(int threadIdx, DeviceArgs *deviceArgs) {
-        aicNum_ = deviceArgs->nrAic;
-        aivNum_ = deviceArgs->nrAiv;
+        aicNum_ = static_cast<int32_t>(deviceArgs->nrAic);
+        aivNum_ = static_cast<int32_t>(deviceArgs->nrAiv);
         aicpuNum_ = CalcSchAicpuNumByBlockDim(deviceArgs->nrValidAic);
         aicpuIdx_ = threadIdx;
         aicValidNum_ = deviceArgs->nrValidAic;
@@ -1448,8 +1448,8 @@ private:
             int coreType = static_cast<int>(AicoreType(coreIdx));
             runReadyCoreIdx_[coreType][coreRunReadyCnt_[coreType]++] = coreIdx;
             });
-        lastPendReadyCoreIdx_[static_cast<int>(CoreType::AIV)] = aivStart_;
-        lastPendReadyCoreIdx_[static_cast<int>(CoreType::AIC)] = aicStart_;
+        lastPendReadyCoreIdx_[static_cast<int>(CoreType::AIV)] = static_cast<uint32_t>(aivStart_);
+        lastPendReadyCoreIdx_[static_cast<int>(CoreType::AIC)] = static_cast<uint32_t>(aicStart_);
         DEV_DEBUG("assign core aic coreindex section: start %d end %d.", aicStart_, aicEnd_);
         DEV_DEBUG("assign core aiv coreindex section: start %d end %d.", aivStart_, aivEnd_);
     }

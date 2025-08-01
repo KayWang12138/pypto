@@ -132,8 +132,8 @@ private:
     }
 
     void sendTask(int32_t n, int64_t taskId, int64_t taskData) const {
-        slots_[n].taskId = taskId;
-        slots_[n].taskData = taskData;
+        slots_[n].taskId = static_cast<uint64_t>(taskId);
+        slots_[n].taskData = static_cast<uint64_t>(taskData);
         slots_[n].status = START;
         SetNextSlot(n);
     }
@@ -187,8 +187,8 @@ public:
 
         std::lock_guard<SpinLock> lock(lock_);
         if (slots_[slot].status == START) {
-            taskId = slots_[slot].taskId;
-            taskData = slots_[slot].taskData;
+            taskId = static_cast<int64_t>(slots_[slot].taskId);
+            taskData = static_cast<int64_t>(slots_[slot].taskData);
             DEV_DEBUG("ack taskId %ld, slot %d\n", taskId, slot);
             slots_[slot].status = ACKED; // next slot will be updated after acked
             return true;

@@ -885,7 +885,7 @@ public:
             slotList[slotIndex].isOutputSlot = true;
             DEV_INFO("Param %d Output Slot %d = %lx.", i, slotIndex, param.address);
         }
-        for (size_t i = args->GetOutputTensorSize(); i < devProg->startArgsOutputTensorSlotIndexList.size(); i++) {
+        for (size_t i = static_cast<size_t>(args->GetOutputTensorSize()); i < devProg->startArgsOutputTensorSlotIndexList.size(); i++) {
             int outSlot = devProg->startArgsOutputTensorSlotIndexList[i];
             int inSlot = devProg->inplaceSlotList[i];
             if (inSlot != -1) {
@@ -1107,7 +1107,7 @@ struct DeviceStitchContext {
         stitchedCallOpSize_ = 0;
 
         DEV_ASSERT(dynTask->stitchedList.size() <= MAX_CACHED_FUNC_NUM);
-        int size = dynTask->stitchedList.size();
+        int size = static_cast<int>(dynTask->stitchedList.size());
         for (int i = 0; i < size; i++) {
             auto &funcDup = dynTask->stitchedList[i];
             dynTask->cacheList[i] = {funcDup.GetSource(), &funcDup.GetOperationCurrPredCount(0), funcDup.GetSource()->GetCalleeIndexAddr()};
@@ -1270,7 +1270,7 @@ public:
 #if !ENABLE_STITCH
         return 0;
 #endif
-        nextDup.GetSource()->GetFuncidx() = devNextIdx;
+        nextDup.GetSource()->GetFuncidx() = static_cast<int>(devNextIdx);
         if (devNextIdx == 0) {
             // The only function, don't need stitch
             return 0;
@@ -1541,11 +1541,11 @@ private:
             }
         }
 
-        aivQueue->tail = aivQueueTail;
-        aicQueue->tail = aicQueueTail;
-        dyntask->devTask.readyAivCoreFunctionQue = (uint64_t)aivQueue;
-        dyntask->devTask.readyAicCoreFunctionQue = (uint64_t)aicQueue;
-        readyTaskNum += aivQueueTail + aicQueueTail;
+        aivQueue->tail = static_cast<uint32_t>(aivQueueTail);
+        aicQueue->tail = static_cast<uint32_t>(aicQueueTail);
+        dyntask->devTask.readyAivCoreFunctionQue = PtrToValue(aivQueue);
+        dyntask->devTask.readyAicCoreFunctionQue = PtrToValue(aicQueue);
+        readyTaskNum += static_cast<uint64_t>(aivQueueTail + aicQueueTail);
     }
 
     void BuildDynFuncData(DynDeviceTask *dyntask) {
@@ -1791,7 +1791,7 @@ struct DeviceExecuteContext {
             SymbolHandler &symbolHandler = this->devProg->startArgsSymbolHandlerList[i];
             void *handler = SymbolHandlerIdToHandler(symbolHandler.handlerId);
             DEV_ASSERT_MSG(handler, "handler not found.");
-            symbolTable[symbolHandler.symIndex] = (uint64_t)handler;
+            symbolTable[symbolHandler.symIndex] = PtrToValue(handler);
         }
 
         /* This initialization must only occur after all other AICPU workspace meta memory allocations have completed. 

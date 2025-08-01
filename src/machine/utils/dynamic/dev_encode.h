@@ -238,7 +238,7 @@ struct DevSymShape {
         for (std::size_t i = 0; i < shape.size(); i++) {
             dim[i] = shape[i];
         }
-        dimSize = shape.size();
+        dimSize = static_cast<int>(shape.size());
     }
 
     uint64_t At(size_t idx, const uint64_t *exprTbl) const {
@@ -606,7 +606,7 @@ public:
                 oss << s.Value();
             }
         }
-        totalAttrStartIdx += GetOperationAttrSize(operationIndex);
+        totalAttrStartIdx += static_cast<int>(GetOperationAttrSize(operationIndex));
         oss << "] ";
         for (size_t j = 0; j < GetOperationIOperandSize(operationIndex); j++) {
             if (j != 0) {
@@ -1176,7 +1176,7 @@ struct DevAscendFunctionDuppedData {
     DevAscendFunction *&GetSource() { return source_; }
 
     DevAscendFunctionDuppedStitchList &GetOperationStitch(int operationIndex) {
-        int outcastStitchIndex = GetSource()->GetOperationOutcastStitchIndex(operationIndex);
+        int outcastStitchIndex = static_cast<int>(GetSource()->GetOperationOutcastStitchIndex(operationIndex));
         return GET_DATA(DevAscendFunctionDuppedStitchList, data_, operationList_.stitchBase, outcastStitchIndex);
     }
 };
@@ -1361,7 +1361,7 @@ struct DevAscendFunctionDupped {
             offset = std::max(offset, opInfo.staticOffsetAttrBeginIndex + ARG_ATTR_TYPE * opInfo.GetDim());
             dumpAttr(attrBase, opInfo);
         }
-        for (size_t idx = offset; idx < func->GetOperationAttrSize(operIdx); idx++) {
+        for (size_t idx = static_cast<size_t>(offset); idx < func->GetOperationAttrSize(operIdx); idx++) {
             oss << GetValue(attrBase, idx) << ", ";
         }
         return oss.str();

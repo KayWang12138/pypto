@@ -407,13 +407,13 @@ struct PerfEvtMgr {
     };
 
     void PerfBegin(int type) {
-        counters[type].start = GetCycles();
+        counters[type].start = static_cast<int64_t>(GetCycles());
     }
 
     void PerfEnd(int type) {
         auto &c = counters[type];
         c.count++;
-        c.total += GetCycles() - c.start;
+        c.total += static_cast<int64_t>(GetCycles() - c.start);
     }
 
     static PerfEvtMgr &Instance() {
