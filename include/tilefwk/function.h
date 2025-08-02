@@ -106,7 +106,7 @@ public:
     ~RecordFunc();
 
 private:
-    Function *func_{nullptr};
+    Function *dynFunc_{nullptr};
     std::string funcName;
 };
 

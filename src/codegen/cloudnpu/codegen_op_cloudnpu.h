@@ -120,6 +120,8 @@ private:
 
     std::vector<std::string> GenParamIdxExprByIndex(unsigned gmParamIdx, int dim, const std::string &prefix) const;
 
+    std::vector<std::string> GenSymbolicArgument(const std::vector<SymbolicScalar> &exprList) const;
+
     std::string GenMemUBTransfer(bool isCopyUBToGM) const;
     std::string GenMemUBSpillIntoGM(bool isCopyUBToGM) const;
     std::string GenVectorScalarOpByMode(bool isUseScalar) const;

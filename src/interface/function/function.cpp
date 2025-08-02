@@ -42,7 +42,6 @@ namespace {
 const std::string PREFIX = "  ";
 const int SPACE_NUM_THREE = 3;
 const int LAST_TWO = -2;
-constexpr int COA_INDEX_DIM_BASE = 1;
 
 const std::set<Opcode> SPECIAL_OPCODE_SET = {
     Opcode::OP_INDEX_OUTCAST, Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_CALL, Opcode::OP_CONVERT,
@@ -2067,7 +2066,21 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     return func;
 }
 
-static std::vector<SymbolicScalar> NormalizeCopyIn(Operation *op, int coaIndexBase, bool valueToIndex) {
+static void MaybeNormalizeValue(
+        const SymbolicScalar &getParam,
+        std::vector<SymbolicScalar> &operandCoaList,
+        int operandCoaIndex,
+        std::vector<OpImmediate> &opImmList,
+        int coaIndex,
+        bool valueToIndex) {
+    for (size_t dimIndex = 0; dimIndex < opImmList.size(); dimIndex++) {
+        auto &opImm = opImmList[dimIndex];
+        SymbolicScalar scalar = opImm.GetSpecifiedValue();
+        OpImmediate::NormalizeValue(operandCoaList[operandCoaIndex + dimIndex], opImm, getParam(opImmList.size(), coaIndex, dimIndex), valueToIndex);
+    }
+};
+
+static std::vector<SymbolicScalar> NormalizeCopyIn(Operation *op,  const SymbolicScalar &getParam,int coaIndexBase, bool valueToIndex) {
     auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
     int dim = copyAttr->GetShape().size();
     int operandCoaIndex = COA_INDEX_DIM_BASE;
@@ -2075,7 +2088,7 @@ static std::vector<SymbolicScalar> NormalizeCopyIn(Operation *op, int coaIndexBa
     std::vector<SymbolicScalar> operandCoaList(COA_INDEX_DIM_BASE + dim * COA_INDEX_TYPE_COUNT, 0);
 
     auto opImmList = copyAttr->GetFromOffset();
-    OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
+    MaybeNormalizeValue(getParam, operandCoaList, operandCoaIndex, opImmList, coaIndexBase, valueToIndex);    
     copyAttr->SetFromOffset(opImmList);
     operandCoaIndex += dim;
     coaIndex += dim;
@@ -2100,7 +2113,7 @@ static std::vector<SymbolicScalar> NormalizeCopyIn(Operation *op, int coaIndexBa
     return operandCoaList;
 }
 
-static std::vector<SymbolicScalar> NormalizeCopyOut(Operation *op, int coaIndexBase, bool valueToIndex) {
+static std::vector<SymbolicScalar> NormalizeCopyOut(Operation *op, const SymbolicScalar &getParam, int coaIndexBase, bool valueToIndex) {
     auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
     int dim = copyAttr->GetShape().size();
     int operandCoaIndex = COA_INDEX_DIM_BASE;
@@ -2108,7 +2121,7 @@ static std::vector<SymbolicScalar> NormalizeCopyOut(Operation *op, int coaIndexB
     std::vector<SymbolicScalar> operandCoaList(COA_INDEX_DIM_BASE + dim * COA_INDEX_TYPE_COUNT, 0);
 
     auto opImmList = copyAttr->GetToOffset();
-    OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
+    MaybeNormalizeValue(getParam, operandCoaList, operandCoaIndex, opImmList, coaIndexBase, valueToIndex);     
     copyAttr->SetToOffset(opImmList);
     operandCoaIndex += dim;
     coaIndex += dim;
@@ -2190,11 +2203,12 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCopyInCopyOut(
     bool valueToIndex = parent_->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH;
     coaLists.reserve(incastPosition.size() + outcastPosition.size() + extraOutcasts.size());
     iOffset.reserve(incastPosition.size());
+    SymbolicScalar getOffset = SymbolicScalar(AddRuntimePrefix("GET_PARAM_OFFSET"));
     for (auto [opmagic, k] : incastPosition) {
         auto op = opmagicToOp[opmagic];
         std::vector<SymbolicScalar> operandCoaList;
         if (IsCopyIn(op->GetOpcode()) && k == 0) {
-            operandCoaList = NormalizeCopyIn(op, coaIndex, valueToIndex);
+            operandCoaList = NormalizeCopyIn(op, getOffset, coaIndex, valueToIndex);
         } else {
             operandCoaList = NormalizeTensor(op->GetIOperands()[k], coaIndex);
         }
@@ -2209,7 +2223,7 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCopyInCopyOut(
         auto op = opmagicToOp[opmagic];
         std::vector<SymbolicScalar> operandCoaList;
         if (IsCopyOut(op->GetOpcode()) && k == 0) {
-            operandCoaList = NormalizeCopyOut(op, coaIndex, valueToIndex);
+            operandCoaList = NormalizeCopyOut(op, getOffset, coaIndex, valueToIndex);
         } else {
             operandCoaList = NormalizeTensor(op->GetOOperands()[k], coaIndex);
         }
@@ -2258,9 +2272,10 @@ void Function::DumpTopoFile(const std::string &fileName) const
 
 std::string Function::DumpSSATitle() const {
     std::stringstream ss;
-    ss << GetMagicName() << "[" << functionMagic_ << "]" << " "
-       << GetFunctionHash() << " "
-       << GetFunctionTypeNameDict().Find(GetFunctionType());
+    ss << GetMagicName() << "[" << functionMagic_ << "]"
+       << " " << GetFunctionHash()
+       << " " << GetFunctionTypeNameDict().Find(GetFunctionType())
+       << " " << GetGraphTypeNameDict().Find(GetGraphType());
     return ss.str();
 }
 
@@ -2441,6 +2456,12 @@ std::string Function::Dump() const {
     } else {
         return DumpASM();
     }
+}
+
+void Function::DumpFile(const std::string &filePath) const {
+    std::ofstream fout(filePath);
+    fout << Dump();
+    fout.close();
 }
 
 void Function::UpdateOperandBeforeRemoveOp(Operation &op, const bool keepOutTensor) {

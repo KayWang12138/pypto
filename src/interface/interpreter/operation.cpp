@@ -12,13 +12,30 @@
 #include "interface/interpreter/operation.h"
 
 namespace npu::tile_fwk {
+
+static int GetAsParameterCoaIndex(const RawSymbolicScalarPtr &value) {
+    if (!value->IsExpressionCall(AddRuntimePrefix("GET_PARAM_OFFSET"))) {
+        return -1;
+    }
+    auto tensorIndex = value->GetExpressionOperandList()[RUNTIME_GET_PARAM_OFFSET_OPERAND_INDEX_COA_INDEX];
+    auto offsetDimIndex = value->GetExpressionOperandList()[RUNTIME_GET_PARAM_OFFSET_OPERAND_INDEX_DIM_INDEX];
+    return tensorIndex->GetImmediateValue() + COA_INDEX_DIM_BASE + offsetDimIndex->GetImmediateValue();
+}
+
 std::vector<int> OperationInterpreter::EvaluateOpImmediate(
     FunctionFrame *frame, const std::vector<OpImmediate> &opImmList) {
     std::vector<int> result;
     for (auto &opImm : opImmList) {
         int res = 0;
         if (opImm.IsSpecified()) {
-            res = EvaluateSymbolicScalar(opImm.GetSpecifiedValue());
+            auto opImmValue = opImm.GetSpecifiedValue();
+            auto coaIndex = GetAsParameterCoaIndex(opImmValue.Raw());
+            if (coaIndex != -1) {
+                auto attr = frame->callopAttr->GetLinearArgList()[coaIndex];
+                res = EvaluateSymbolicScalar(attr);
+            } else {
+                res = EvaluateSymbolicScalar(opImm.GetSpecifiedValue());
+            }            
         } else {
             int index = opImm.GetParameterIndex();
             auto attr = frame->callopAttr->GetLinearArgList()[index];

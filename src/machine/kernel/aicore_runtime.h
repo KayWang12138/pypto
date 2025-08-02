@@ -267,4 +267,16 @@ INLINE uint64_t RUNTIME_Min(uint64_t input1, uint64_t input2) {
     return input1 < input2 ? input1 : input2;
 }
 
+INLINE uint32_t GetTensorDataInt32(CoreFuncParam *ctx, uint64_t address) {
+    return *(__gm__ uint32_t *)(address);
+}
+#define RUNTIME_GetTensorDataInt32Dim1(index, ioType, ioTypeIndex, address, ...)    GetTensorDataInt32(param, address)
+#define RUNTIME_GetTensorDataInt32Dim2(index, ioType, ioTypeIndex, address, ...)    GetTensorDataInt32(param, address)
+#define RUNTIME_GetTensorDataInt32Dim3(index, ioType, ioTypeIndex, address, ...)    GetTensorDataInt32(param, address)
+#define RUNTIME_GetTensorDataInt32Dim4(index, ioType, ioTypeIndex, address, ...)    GetTensorDataInt32(param, address)
+#define RUNTIME_GetTensorDataInt32Dim5(index, ioType, ioTypeIndex, address, ...)    GetTensorDataInt32(param, address)
+
+#define RUNTIME_GET_PARAM_OFFSET(dim, base, idx)                                    GET_PARAM_OFFSET_BY_IDX(param, 0, base, dim, idx)
+#define RUNTIME_GET_PARAM_ADDR(_, idx)                                              GET_PARAM_ADDR(param, _, idx)
+
 #endif // AST_RUNTIME_H

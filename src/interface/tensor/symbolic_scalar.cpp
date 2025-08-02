@@ -321,6 +321,23 @@ SymbolicScalar SymbolicScalar::operator()(const SymbolicScalar &arg0, const Symb
     }
 }
 
+SymbolicScalar SymbolicScalar::operator()(const std::vector<SymbolicScalar> &argList) const {
+    std::vector<RawSymbolicScalarPtr> args = {raw_};
+    for (auto &a : argList) {
+        args.push_back(a.raw_);
+    }
+    auto raw = RawSymbolicExpression::CreateMopCall(args);
+    if (AllConcreteValid({*this}) && AllConcreteValid(argList)) {
+        std::vector<ScalarImmediateType> calcArgList = {Concrete()};
+        for (auto &a : argList) {
+            calcArgList.push_back(a.Concrete());
+        }
+        return SymbolicScalar(raw, RawSymbolicExpression::CalcMopCall(calcArgList));
+    } else {
+        return SymbolicScalar(raw);
+    }
+}
+
 std::string SymbolicScalar::Dump() const {
     std::string buf;
     raw_->DumpBuffer(buf);

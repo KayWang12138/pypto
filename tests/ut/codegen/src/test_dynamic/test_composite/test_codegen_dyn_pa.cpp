@@ -76,7 +76,6 @@ void testPa(PaTileShapeConfig &tileConfig, int maxUnrollTimes = 1) {
     PageAttention(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
         tileConfig, maxUnrollTimes);
 
-    Program::GetInstance().SetUnderDyndevFunction(true);
     for (auto &ele : Program::GetInstance().GetFunctionMap()) {
         bool isRootExist = ele.second.get()->rootFunc_ != nullptr;
         if (isRootExist) {

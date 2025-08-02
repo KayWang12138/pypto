@@ -204,4 +204,9 @@ std::vector<SymbolicScalar> GetViewValidShape(
     const std::vector<int> &viewOffset,
     const std::vector<SymbolicScalar> &viewDynOffset,
     const std::vector<int> &viewShape);
+
+constexpr int RUNTIME_GET_PARAM_OFFSET_OPERAND_INDEX_DIM_SIZE_INDEX = 1;
+constexpr int RUNTIME_GET_PARAM_OFFSET_OPERAND_INDEX_COA_INDEX = 2;
+constexpr int RUNTIME_GET_PARAM_OFFSET_OPERAND_INDEX_DIM_INDEX = 3;
+
 } // namespace npu::tile_fwk

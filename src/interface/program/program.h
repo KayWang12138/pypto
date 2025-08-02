@@ -106,10 +106,11 @@ public: // public api for torch
     std::vector<std::reference_wrapper<RecordLoopFunc>> loopStack_;
     std::vector<std::reference_wrapper<RecordLoopFunc>> &GetLoopStack() { return loopStack_; }
 
-    bool GetUnderDyndevFunction() const { return underDyndevFunction_; }
-    void SetUnderDyndevFunction(bool under) {
-        ASSERT(underDyndevFunction_ != under) << "Under: " << underDyndevFunction_ << " " << under;
-        underDyndevFunction_ = under;
+    // Return current containing dynamic function.
+    Function *GetCurrentDynamicFunction() const { return currentDynamicFunctionPtr_; }
+    void SetCurrentDynamicFunction(Function *dynFunc) {
+        ASSERT(currentDynamicFunctionPtr_ != dynFunc) << "Under: " << currentDynamicFunctionPtr_->GetRawName() << " " << dynFunc->GetRawName();
+        currentDynamicFunctionPtr_ = dynFunc;
     }
 
     void VerifyTensorGraph();
@@ -128,8 +129,8 @@ private:
     std::string currentFunctionMagicName_;
     Function *currentFunctionPtr_;
     Function *lastFunc_{nullptr};
-    ConfigStorage config_;
-    bool underDyndevFunction_{false};
+    ConfigStorage config_;    
+    Function *currentDynamicFunctionPtr_{nullptr};
     bool operatorChecker_{false};
     std::unordered_set<Tensor *> aliveTensors_;
     std::map<std::string, std::shared_ptr<npu::tile_fwk::Function>> functionmap_;

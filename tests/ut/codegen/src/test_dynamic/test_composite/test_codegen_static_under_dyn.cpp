@@ -64,7 +64,6 @@ TEST_F(TestCodegenStaticUnderDyn, TestStaticFuncUnderDyn) {
     Tensor out(DT_FP32, {n * s, s}, "out");
     TestStaticLoop(t0, t1, t2, out, s);
 
-    Program::GetInstance().SetUnderDyndevFunction(true);
     for (auto &ele : Program::GetInstance().GetFunctionMap()) {
         bool isRootExist = ele.second.get()->rootFunc_ != nullptr;
         if (isRootExist) {

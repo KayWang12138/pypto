@@ -69,7 +69,7 @@ void CodeGenOp::UpdateShape(const Operation &oper, const LogicalTensor &logicalT
 
 void CodeGenOp::UpdateOffsetValueForGM(const std::vector<OpImmediate> &offsets, int operandIdx) {
     std::vector<int> attrOffset(offsets.size(), 0);
-    std::vector<SymbolicScalar> dynOffset(offsets.size(), 0);
+    std::vector<SymbolicScalar> dynOffset(offsets.size());
     for (size_t i = 0; i < offsets.size(); ++i) {
         if (offsets[i].IsSpecified()) {
             auto val = offsets[i].GetSpecifiedValue();

@@ -40,7 +40,11 @@ CodeGenOpCloudNPU::DynamicParamPack CodeGenOpCloudNPU::PrepareDynamicShapeInfo(
     FillIntVecWithDummyInHead<std::string>(pack.gmShapeExpr, ShapeDim - dim, "1");
     ALOG_INFO_F("dynamic gmShape param: %s", IntVecToStr(pack.gmShapeExpr).c_str());
 
-    pack.gmOffsetExpr = GenGetParamMacroPacked(dynShapeIdx, dim, PREFIX_STR_OFFSET);
+    if (offsetGmSymbolic[dynShapeIdx][0].IsValid()) {
+        pack.gmOffsetExpr = GenSymbolicArgument(offsetGmSymbolic[dynShapeIdx]);
+    } else {
+        pack.gmOffsetExpr = GenGetParamMacroPacked(dynShapeIdx, dim, PREFIX_STR_OFFSET);
+    } 
     FillIntVecWithDummyInHead<std::string>(pack.gmOffsetExpr, ShapeDim - dim, "0");
     ALOG_INFO_F("dynamic gmOffset param: %s", IntVecToStr(pack.gmOffsetExpr).c_str());
 
@@ -748,8 +752,6 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamic(const PrintMemCopyWithU
     const std::vector<int> &localRawShape = NormalizeShape(rawShape[localIdx], SHAPE_DIM5);
 
     auto paramPack = PrepareDynamicShapeInfo(gmIdx, MAX_DIM, !param.isSpillIntoGM);
-    std::vector<std::string> gmShapeExpr = paramPack.gmOffsetExpr;
-    std::vector<std::string> gmOffsetExpr = paramPack.gmOffsetExpr;
 
     std::ostringstream os;
     std::vector<std::string> paramList;
@@ -822,7 +824,7 @@ std::string CodeGenOpCloudNPU::GenGMAddrExprWithOffset(const std::string &addrEx
 
     // gm offset of spilling workspace is calculated by pass, the value is saved in dim 0.
     SymbolicScalar gmOffset = this->offsetGmSymbolic[gmIdx][0];
-    bool isZero = gmOffset.ConcreteValid() && static_cast<int>(gmOffset.Concrete()) == 0;
+    bool isZero = gmOffset.IsValid() && gmOffset.ConcreteValid() && static_cast<int>(gmOffset.Concrete()) == 0;
     if (isZero) {
         printRet = sprintf_s(buf, sizeof(buf), "%s", addrExpr.c_str());
         ASSERT(printRet >= 0) << "sprintf_s failed in genGMAddrExpr isZero=true, return value:" << printRet;

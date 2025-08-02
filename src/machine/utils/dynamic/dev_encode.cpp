@@ -405,7 +405,7 @@ void DevAscendFunction::InitOperation(
                 const std::shared_ptr<LogicalTensor> &tensor = op->GetIOperands()[j];
                 rawTensorIndex[coaIndex] = rawList.find(tensor->tensor)->second;
                 At(staticField.ioperandList, j) =
-                    DevAscendOperationOperandInfo(tlist.GetIndex(tensor), coaIndex + COA_INDEX_BASE, tensor->GetShape().size());
+                    DevAscendOperationOperandInfo(tlist.GetIndex(tensor), coaIndex + COA_INDEX_DIM_BASE, tensor->GetShape().size());
             }
             operandSize += op->GetIOperands().size();
 
@@ -416,7 +416,7 @@ void DevAscendFunction::InitOperation(
                 const std::shared_ptr<LogicalTensor> &tensor = op->GetOOperands()[j];
                 rawTensorIndex[coaIndex] = rawList.find(tensor->tensor)->second;
                 At(staticField.ooperandList, j) =
-                    DevAscendOperationOperandInfo(tlist.GetIndex(tensor), coaIndex + COA_INDEX_BASE, tensor->GetShape().size());
+                    DevAscendOperationOperandInfo(tlist.GetIndex(tensor), coaIndex + COA_INDEX_DIM_BASE, tensor->GetShape().size());
             }
             operandSize += op->GetOOperands().size();
             ALOG_DEBUG_F("Producer %zu oOperand list size is %zu", i, op->GetOOperands().size());
@@ -582,7 +582,6 @@ void DevAscendFunction::InitIncastOutcast(
     }
     uint64_t tileListSize = 0;
     minimalTileIdxList.HostInitDataSizeOffset(initOffset, 0);
-    outcastMinimalTileIdxList.HostInitDataSizeOffset(initOffset, 0);
     for (size_t i = 0; i < outcastTensorList.size(); i++) {
         auto &outAttr = inoutOpAttrs.at(outcastTensorList[i]);
         ONFILLCONTENT {
@@ -626,6 +625,16 @@ void DevAscendFunction::InitIncastOutcast(
                 At(At(outcastList, i).minimalTileIdx, j) = -1;
             };
         }
+        opSize += outAttr.ops.size();
+        tileListSize += outAttr.minimalTileListSize;
+    }
+    minimalTileIdxList.HostInitDataSizeOffset(initOffset, tileListSize);
+
+    // outcast fast stitch
+    tileListSize = 0;
+    outcastMinimalTileIdxList.HostInitDataSizeOffset(initOffset, 0);
+    for (size_t i = 0; i < outcastTensorList.size(); i++) {
+        auto &outAttr = inoutOpAttrs.at(outcastTensorList[i]);
         ONFILLCONTENT {
             At(outcastList, i)
                 .fastStitchTileIdx.AssignRangeOffsetSize(outcastMinimalTileIdxList, tileListSize, outAttr.minimalTileListSize);
@@ -635,10 +644,9 @@ void DevAscendFunction::InitIncastOutcast(
                 At(At(outcastList, i).fastStitchTileIdx, j) = -1;
             };
         }
-        opSize += outAttr.ops.size();
         tileListSize += outAttr.minimalTileListSize;
     }
-    // outcast fast stitch
+    outcastMinimalTileIdxList.HostInitDataSizeOffset(initOffset, tileListSize);
     ONFILLCONTENT {
         for (size_t i = 0; i < outcastList.size(); i++) {
             auto &outcast = At(outcastList, i);
@@ -682,8 +690,6 @@ void DevAscendFunction::InitIncastOutcast(
             outcast.fastStitchEnable = fastStitchEnable;
         }
     }
-    minimalTileIdxList.HostInitDataSizeOffset(initOffset, tileListSize);
-    outcastMinimalTileIdxList.HostInitDataSizeOffset(initOffset, tileListSize);
     // incast fast stitch
     uint64_t inTileListSize = 0;
     incastMinimalTileIdxList.HostInitDataSizeOffset(initOffset, 0);
@@ -839,7 +845,7 @@ struct EncodeDevAscendFunctionInfo {
                     auto &oOperand = op.GetOOperands()[k];
                     if (o->tensor->rawmagic == oOperand->tensor->rawmagic) {
                         ASSERT(oOperand->GetShape().size() == dim);
-                        auto coaIndex = op.GetOOpAttrOffset(k) + COA_INDEX_BASE;
+                        auto coaIndex = op.GetOOpAttrOffset(k) + COA_INDEX_DIM_BASE;
                         inoutOpAttr.dim = dim;
                         inoutOpAttr.offsetAttrIdx.push_back(coaIndex + dim * COA_INDEX_TYPE_OFFSET);
                         inoutOpAttr.shapeAttrIdx.push_back(coaIndex + dim * COA_INDEX_TYPE_SHAPE);
@@ -892,7 +898,7 @@ struct EncodeDevAscendFunctionInfo {
                     auto &iOperand = op.GetIOperands()[k];                    
                     if (i->tensor->rawmagic == iOperand->tensor->rawmagic) {
                         ASSERT(iOperand->GetShape().size() == dim);
-                        auto coaIndex = op.GetIOpAttrOffset(k) + COA_INDEX_BASE;
+                        auto coaIndex = op.GetIOpAttrOffset(k) + COA_INDEX_DIM_BASE;
                         inoutOpAttr.dim = dim;
                         inoutOpAttr.offsetAttrIdx.push_back(coaIndex + dim * COA_INDEX_TYPE_OFFSET);
                         inoutOpAttr.shapeAttrIdx.push_back(coaIndex + dim * COA_INDEX_TYPE_SHAPE);
@@ -909,12 +915,16 @@ struct EncodeDevAscendFunctionInfo {
 
             inoutOpAttr.minimalTileListSize = 1;
             for (int l = (dim - 1); l >= 0; --l) {
-                auto tiles = i->shape[l] / inoutOpAttr.minimalShape[l];
-                if (i->shape[l] % inoutOpAttr.minimalShape[l] != 0) {
-                    // should not happen
-                    tiles += 1;
+                if (inoutOpAttr.minimalShape[l] != -1) {
+                    auto tiles = i->shape[l] / inoutOpAttr.minimalShape[l];
+                    if (i->shape[l] % inoutOpAttr.minimalShape[l] != 0) {
+                        // should not happen
+                        tiles += 1;
+                    }
+                    inoutOpAttr.minimalTileListSize *= tiles;
+                } else {
+                    inoutOpAttr.minimalTileListSize = 0;
                 }
-                inoutOpAttr.minimalTileListSize *= tiles;
                 inoutOpAttr.tileEachDim[l] = inoutOpAttr.minimalTileListSize;
             }
             ALOG_DEBUG_F("incast %d raw %d shape %s tile %s | minimalTileListSize %d, tileEachDim %s\n", i->magic, i->GetRawMagic(),

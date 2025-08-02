@@ -187,6 +187,9 @@ public:
     [[nodiscard]] SymbolicScalar GetSymbolicScalarAttribute(const std::string &key) const;
     void SetAttribute(const std::string &key, const SymbolicScalar &value);
 
+    [[nodiscard]] std::vector<SymbolicScalar> GetVectorSymbolicScalarAttribute(const std::string &key) const;
+    void SetAttribute(const std::string &key, const std::vector<SymbolicScalar> &value);
+
     [[nodiscard]] npu::tile_fwk::Any GetAttribute(const std::string &key) const;
     void SetAttribute(const std::string &key, npu::tile_fwk::Any value);
 

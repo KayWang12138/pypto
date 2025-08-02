@@ -141,8 +141,8 @@ Status InferParamIndexPass::RunOnFunction(Function &function)
                 if (visitedSymbol.count(dim.Dump()) > 0) {
                     continue;
                 }
-                auto paramInfo = DynParamInfo{static_cast<int>(validShape.second.size()), tensorIndex, 
-                                            validShape.first, DynParamInfoType::VALID_SHAPE, dimIdx};
+                auto tensorBaseAddrCoaIndex = validShape.first;
+                auto paramInfo = DynParamInfo{static_cast<int>(validShape.second.size()), tensorIndex, tensorBaseAddrCoaIndex, DynParamInfoType::VALID_SHAPE, dimIdx};
                 subFunc.InsertDynParam(dim.Dump(), paramInfo);
                 dimIdx++;
             }

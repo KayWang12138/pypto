@@ -35,9 +35,14 @@ public:
         Program::GetInstance().GetConfig().Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
-        Program::GetInstance().SetUnderDyndevFunction(true);
+        dynFunc = std::make_shared<Function>(Program::GetInstance(), "DYN_0", "DYN", Program::GetInstance().GetCurrentFunction());
+        Program::GetInstance().SetCurrentDynamicFunction(dynFunc.get());
     }
-    void TearDown() override {}
+    void TearDown() override {
+        Program::GetInstance().SetCurrentDynamicFunction(nullptr);
+    }
+
+    std::shared_ptr<Function> dynFunc;
 };
 
 // =======================================================  已知场景 ====================================================================

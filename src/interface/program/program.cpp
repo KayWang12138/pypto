@@ -236,7 +236,7 @@ std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string 
         currentFunctionPtr_->GetGraphType() != GraphType::ROOT_GRAPH) {
         scope = GetTensorSlotManager()->EndScope();
     }
-    currentFunctionPtr_->SetUnderDynamicFunction(Program::GetInstance().GetUnderDyndevFunction());
+    currentFunctionPtr_->SetUnderDynamicFunction(Program::GetInstance().GetCurrentDynamicFunction() != nullptr);
     if (currentFunctionPtr_->IsStatic() && funcName != currentFunctionPtr_->GetRawName()) {
         return std::make_tuple(nullptr, nullptr, false);
     }
@@ -252,7 +252,7 @@ std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string 
     if (result->IsGraphType(GraphType::TENSOR_GRAPH) || result->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
         if (!config::GetPlatformConfig(KEY_ONLY_TENSOR_GRAPH, false) &&
             !config::GetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, false)) {
-            if (result->IsUnderDynamicFunction() || underDyndevFunction_) {
+            if (result->IsUnderDynamicFunction() || currentDynamicFunctionPtr_ != nullptr) {
                 hostMachine_.StashTask(result);
             } else {
                 hostMachine_.SubTask(result);
@@ -686,7 +686,6 @@ RecordFunc::RecordFunc(const std::string &name, const FunctionType type,
     ASSERT(type == FunctionType::DYNAMIC);
 
     Program::GetInstance().BeginFunction(funcName, type);
-    Program::GetInstance().SetUnderDyndevFunction(true);
 
     std::shared_ptr<TensorSlotManager> manager = Program::GetInstance().GetTensorSlotManager();
     for (auto &param : startArgsInputTensorList) {
@@ -699,22 +698,23 @@ RecordFunc::RecordFunc(const std::string &name, const FunctionType type,
         manager->MarkInplace(param.first.get(), param.second.get());
     }
 
-    func_ = Program::GetInstance().GetCurrentFunction();
-    func_->SetUnderDynamicFunction(true);
+    dynFunc_ = Program::GetInstance().GetCurrentFunction();
+    dynFunc_->SetUnderDynamicFunction(true);
 
     std::shared_ptr<DyndevFunctionAttribute> attr = std::make_shared<DyndevFunctionAttribute>();
     attr->startArgsInputTensorList = startArgsInputTensorList;
     attr->startArgsOutputTensorList = startArgsOutputTensorList;
 
-    func_->SetDyndevAttribute(attr);
+    dynFunc_->SetDyndevAttribute(attr);
+    Program::GetInstance().SetCurrentDynamicFunction(dynFunc_);
 }
 
 RecordFunc::~RecordFunc() {
     (void)Program::GetInstance().EndFunction(funcName);
-    if (func_) {
-        Program::GetInstance().SetLastFunction(func_);
-        if (func_->IsDyndev()) {
-            func_->ApplyLoopCallOrderGroup();
+    if (dynFunc_) {
+        Program::GetInstance().SetLastFunction(dynFunc_);
+        if (dynFunc_->IsDyndev()) {
+            dynFunc_->ApplyLoopCallOrderGroup();
             Program::GetInstance().SubmitAllStashTask();
             if (config::GetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, false)) {
                 if (config::GetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, false)) {
@@ -726,8 +726,8 @@ RecordFunc::~RecordFunc() {
                 }
             }
         }
-        Program::GetInstance().SetUnderDyndevFunction(false);
-        func_->SetUnderDynamicFunction(false);
+        Program::GetInstance().SetCurrentDynamicFunction(nullptr);
+        dynFunc_->SetUnderDynamicFunction(false);
     }
 }
 

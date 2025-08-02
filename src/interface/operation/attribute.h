@@ -98,6 +98,15 @@ public:
 
     static OpImmediate Parameter(int index) { return OpImmediate(OpImmediateKind::T_SCALAR_PARAMETER, index); }
 
+    static void NormalizeValue(SymbolicScalar &arg, OpImmediate &opImm, const SymbolicScalar &normCall, bool valueToIndex) {
+        ASSERT(opImm.IsSpecified());
+        SymbolicScalar value = opImm.GetSpecifiedValue();
+        if (valueToIndex) {
+            opImm = OpImmediate::Specified(normCall);
+        }
+        arg = value;
+    }
+
     static void NormalizeValue(std::vector<SymbolicScalar> &operandCoaList, int operandCoaIndex, 
                                std::vector<OpImmediate> &opImmList, int coaIndex, bool valueToIndex) {
         int offset = 0;
@@ -267,6 +276,7 @@ constexpr int COA_INDEX_TYPE_RAWSHAPE = 2;
 constexpr int COA_INDEX_TYPE_VALIDSHAPE = 3;
 constexpr int COA_INDEX_TYPE_COUNT = 4;
 constexpr int COA_INDEX_BASE = 1;
+constexpr int COA_INDEX_DIM_BASE = 1;
 
 class CallOpAttribute : public OpAttribute {
 public:
@@ -343,8 +353,8 @@ public:
         fromOffset_ = std::move(fromOffset);
     }
     void SetToOffset(std::vector<OpImmediate> toOffset) { toOffset_ = std::move(toOffset); }
-    std::vector<OpImmediate> GetFromOffset() { return fromOffset_; }
-    std::vector<OpImmediate> GetToOffset() { return toOffset_; }
+    const std::vector<OpImmediate> &GetFromOffset() const { return fromOffset_; }
+    const std::vector<OpImmediate> &GetToOffset() const { return toOffset_; }
 
     [[nodiscard]] std::pair<MemoryType, std::vector<OpImmediate>> GetCopyOutAttr() const;
     [[nodiscard]] std::pair<std::vector<OpImmediate>, MemoryType> GetCopyInAttr() const;

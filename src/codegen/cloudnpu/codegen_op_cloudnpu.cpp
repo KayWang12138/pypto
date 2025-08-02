@@ -101,6 +101,14 @@ std::vector<std::string> CodeGenOpCloudNPU::GenParamIdxExprByIndex(
     return paramExpr;
 }
 
+std::vector<std::string> CodeGenOpCloudNPU::GenSymbolicArgument(const std::vector<SymbolicScalar> &exprList) const {
+    std::vector<std::string> argList;
+    for (auto &expr : exprList) {
+        argList.push_back(expr.Dump());
+    }
+    return argList;
+}
+
 bool CodeGenOpCloudNPU::CombineAxis(std::vector<std::vector<int> *> &shapes, bool secondLastAxis) const {
     size_t num;
     {

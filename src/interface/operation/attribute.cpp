@@ -67,8 +67,8 @@ OpImmediate OpImmediate::DeserializeFrom(const Json& attrJson, size_t &despos) {
     switch (static_cast<OpImmediateKind>(attrJson[despos++])) {
         case OpImmediateKind::T_SCALAR_SPECIFIED: {
             auto symbolicJson = attrJson[despos++];
-            if (symbolicJson[VALUE1].is_number()) {
-                ScalarImmediateType immediateNum = static_cast<ScalarImmediateType>(symbolicJson[VALUE1]);
+            if (symbolicJson.is_number()) {
+                ScalarImmediateType immediateNum = static_cast<ScalarImmediateType>(symbolicJson);
                 result = OpImmediate::Specified(SymbolicScalar(immediateNum));
             } else {
                 SymbolicScalar sym = LoadSymbolicScalar(symbolicJson);

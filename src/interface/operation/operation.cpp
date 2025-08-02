@@ -257,6 +257,23 @@ void Operation::SetAttribute(const std::string &key, const SymbolicScalar &value
     SetAttr(key, value);
 }
 
+std::vector<SymbolicScalar> Operation::GetVectorSymbolicScalarAttribute(const std::string &key) const {
+    ASSERT(HasAttr(key)) << "Operation doesn't have attribute " << key;
+    std::vector<SymbolicScalar> attrVal;
+    GetAttr(key, attrVal);
+    for (auto &attr : attrVal) {
+        ASSERT(attr.IsValid());
+    }    
+    return attrVal;
+}
+
+void Operation::SetAttribute(const std::string &key, const std::vector<SymbolicScalar> &value) {
+    for (auto &attr : value) {
+        ASSERT(attr.IsValid());
+    }    
+    SetAttr(key, value);
+}
+
 // std::map<std::string, npu::tile_fwk::any> Operation::GetAllAttribute() const {
 void Operation::SetAttribute(const std::string &key, uint64_t value) {
     SetAttr(key, value);

@@ -152,6 +152,15 @@ public:
                 } else if (it->second.Type() == typeid(SymbolicScalar)) {
                     auto scalar = npu::tile_fwk::AnyCast<SymbolicScalar>(it->second);
                     result = scalar.Dump();
+                } else if (it->second.Type() == typeid(std::vector<SymbolicScalar>)) {
+                    auto scalarList = npu::tile_fwk::AnyCast<std::vector<SymbolicScalar>>(it->second);
+                    std::ostringstream oss;
+                    oss << "[";
+                    for (size_t k = 0; k < scalarList.size(); k++) {                        
+                        oss << ((k != 0) ? "," : "") << scalarList[k].Dump();                        
+                    }
+                    oss << "]";
+                    result = oss.str();
                 } else {
                     result += "unsupported type ";
                     result += it->second.Type().name();

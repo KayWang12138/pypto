@@ -477,6 +477,7 @@ public:
     std::string DumpSSA() const;
     std::string DumpASM() const;
     std::string Dump() const;                                    // Serialize brief format
+    void DumpFile(const std::string &filePath) const;
 
     LogicalTensors MakeIncasts(const std::shared_ptr<TensorSlotScope> &scope);
     LogicalTensors MakeOutcasts(const std::shared_ptr<TensorSlotScope> &scope);

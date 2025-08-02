@@ -182,6 +182,24 @@ static void SimplifySlots(IncastOutcastLink &inoutLink, DyndevFunctionAttribute 
         slotUsed[slotIdx] = true;
     }
 
+    for (Function *devRoot : attr->devRootList) {
+        Function *devTile = rootTileDict[devRoot];
+
+        ASSERT(inoutLink.ioslotDict.count(devTile));
+        IncastOutcastSlot &ioslot = inoutLink.ioslotDict[devTile];
+
+        for (auto &outcastSlots : ioslot.outcastSlot) {
+            ASSERT(!outcastSlots.empty()) << "devTile: " << devTile->GetMagicName();
+            bool outcastSlotFound = false;
+            for (auto &outcastSlot : outcastSlots) {
+                outcastSlotFound = outcastSlotFound || slotUsed[outcastSlot];                
+            }
+            if (!outcastSlotFound) {
+                slotUsed[outcastSlots.front()] = true;
+            }
+        }
+    }
+
     std::unordered_map<int, int> slotIdxMapping;
     for (int i = 0; i < inoutLink.totalSlot; i++) {
         if (slotUsed[i]) {
@@ -224,7 +242,7 @@ static void SimplifySlots(IncastOutcastLink &inoutLink, DyndevFunctionAttribute 
 
 static std::string BuildControlFlowCallee(Function *func) {
     std::ostringstream oss;
-    oss << "#name:" << func->GetRawName() << " #hash:" << func->GetFunctionHash();
+    oss << "#name:" << func->GetRawName() << " #hash:" << func->GetFunctionHash() << " #magic:" << func->GetFuncMagic();
     return oss.str();
 }
 
