@@ -293,6 +293,8 @@ def gen_prolog_input_data(params, dtypes, epsilon, output_dir: Path, is_quant=Fa
     kv_lora_rank = params.get("kv_lora_rank")
     v_head_dim = params.get("v_head_dim")
     param_block_num = params.get("block_num", None)
+    block_table = params.get("block_table", None)
+    skv_max = params.get("skv_max", None)
     q_head_dim = qk_nope_head_dim + qk_rope_head_dim
     NzFrac = 16 if dtype != float else 8
     x_shape = [b, s, h]
@@ -312,6 +314,7 @@ def gen_prolog_input_data(params, dtypes, epsilon, output_dir: Path, is_quant=Fa
             block_num = b * (math.ceil(s2 / block_size))
         else:
             block_num = param_block_num
+            kv_bsnd_shape = [b, skv_max, 1, kv_lora_rank + qk_rope_head_dim]
         kv_cache_shape = [block_num, block_size, 1, kv_lora_rank]
         kr_cache_shape = [block_num, block_size, 1, qk_rope_head_dim]
         index_value_max = block_num * block_size
@@ -405,6 +408,25 @@ def gen_prolog_input_data(params, dtypes, epsilon, output_dir: Path, is_quant=Fa
     res[11] = kv_len
     kv_cache = np.random.uniform(-1, 1, kv_cache_shape).astype(dtype)
     kr_cache = np.random.uniform(-1, 1, kr_cache_shape).astype(dtype)
+    if param_block_num:
+        k_bsnd = np.random.uniform(-1, 1, kv_bsnd_shape).astype(dtype)
+        v_bsnd = k_bsnd[:, :, :, : kv_lora_rank]
+        # kv paddIng
+        per_batch_max_num = math.ceil(skv_max / block_size)
+        k_tensor_bsnd = np.zeros((b, per_batch_max_num * block_size, 1, kv_lora_rank + qk_rope_head_dim)).astype(dtype)
+        k_tensor_bsnd[:, :k_bsnd.shape[1], :, :] = k_bsnd[:, :, :, :]
+        # kv_cache
+        k_cache_tensor = np.zeros([block_num, block_size, 1, kv_lora_rank + qk_rope_head_dim]).astype(dtype)
+        for b_idx in range(b):
+            for block_i, kv_cache_blk_id in enumerate(block_table[b_idx]):
+                block_offset = block_i * block_size
+                if kv_cache_blk_id == -1:
+                    continue
+                else:
+                    k_cache_tensor[kv_cache_blk_id, 0:block_size, :, :] = k_tensor_bsnd[
+                                                                b_idx, block_offset:(block_offset + block_size), :, :]
+        kv_cache = k_cache_tensor[:, :, :, : kv_lora_rank]
+        kr_cache = k_cache_tensor[:, :, :, kv_lora_rank :]
     if cache_mode == "PA_NZ":
         kr_cache.reshape((block_num, block_size, qk_rope_head_dim // NzFrac, NzFrac)).transpose(0, 2, 1, 3).tofile(kr_cache_path)
         kv_cache.reshape((block_num, block_size, kv_lora_rank // NzFrac, NzFrac)).transpose(0, 2, 1, 3).tofile(kv_cache_path)

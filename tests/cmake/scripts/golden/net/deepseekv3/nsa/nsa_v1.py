@@ -130,7 +130,7 @@ def gen_block_table(b, actual_seq_len, block_size):
     block_num = block_num_min
 
     block_idx_list = np.arange(0, block_num, 1)
-    # block_idx_list = np.random.permutation(block_idx_list).astype(np.int32)
+    block_idx_list = np.random.permutation(block_idx_list).astype(np.int32)
 
     block_idx = 0
     block_table = [-1] * block_table_shape[1]
@@ -261,6 +261,33 @@ def dump_gated_score_file(gate_sim_w1, gate_w1, gate_w2, gating_score, dtype, ou
     gating_score.astype(dtype).tofile(gating_score_path)
 
 
+def kv_cache_concat_bsnd(concat_parms, kr_cache_out, kv_cache_out, block_table, block_num, kv_cache_actual_seq, dtype):
+    b = concat_parms[0]
+    s = concat_parms[1]
+    n2 = concat_parms[2]
+    kv_lora_rank = concat_parms[3]
+    rope_dim= concat_parms[4]
+    block_size = concat_parms[5]
+
+    kv_max = max(kv_cache_actual_seq)
+    k_cache = np.zeros([b, kv_max, n2, kv_lora_rank], dtype = dtype)
+    v_cache = np.zeros([b, kv_max, n2, rope_dim], dtype = dtype)
+    for b_idx in range(b):
+        block_list = block_table[b_idx]
+        kv_nope_temp_tensor = np.zeros([1, kv_max, n2, kv_lora_rank], dtype = dtype)
+        kv_rope_temp_tensor = np.zeros([1, kv_max, n2, rope_dim], dtype = dtype)
+        s_idx = 0
+        for _, block_idx in enumerate(block_list):
+            kv_nope_temp_tensor[:, s_idx * block_size : (s_idx + 1) * block_size, :, :] = kv_cache_out[block_idx : block_idx + 1, :, :, :]
+            kv_rope_temp_tensor[:, s_idx * block_size : (s_idx + 1) * block_size, :, :] = kr_cache_out[block_idx : block_idx + 1, :, :, :]
+            s_idx += 1
+        k_cache[b_idx : b_idx + 1, :, :, :] = kv_nope_temp_tensor
+        v_cache[b_idx : b_idx + 1, :, :, :] = kv_rope_temp_tensor
+    k_cache_bsnd = np.concatenate([k_cache, v_cache], axis = -1)
+    v_cache_bsnd = k_cache
+    return k_cache_bsnd, v_cache_bsnd
+
+
 def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
     '''
     将整个nsa分为6个子图进行串联
@@ -317,7 +344,7 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
             raise RuntimeError("unsupported this kv_cache_actual_seq")
     else:
         raise RuntimeError("unsupported kv_cache_actual_seq data type")
-
+    skv_max = max(kv_cache_actual_seq)
     # 1. 设置shape
     # gen kv_slc
     shape_topk_indices = [b, s, topk - front - near]
@@ -358,6 +385,8 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
         "kv_lora_rank": kv_lora_rank,
         "v_head_dim": v_head_dim,
         "block_num": block_num,
+        "block_table": block_table,
+        "skv_max": skv_max,
     }
     x, wDq, wUqQr, smooth_cq, w_qb_scale, wDkvKr, wUk, gamma_cq, gamma_ckv, cos, sin, kv_len, kv_cache, kr_cache = \
         gen_prolog_input_data(prolog_params, [dtype, dtype], epsilon, output_dir, is_quant, is_nz, has_smooth,
@@ -421,9 +450,8 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
     k_rope_cache = kr_cache_out.reshape([block_num * block_size, n2 * rope_dim])
 
     q_bsnd = np.concatenate([q_out, q_rope_out], axis=-1)  # [b, s, n1, kv_lora_rank + rope_dim]
-    k_cache_nope = np.concatenate([kv_cache_out, kr_cache_out], axis=-1)  # [block_num, block_size, n2, kv_lora_rank + rope_dim]
-    k_cache_bsnd = k_cache_nope.reshape([b, block_num * block_size // b, n2, k_dim])
-    v_cache_bsnd = k_cache_bsnd[:, :, :, : kv_lora_rank]
+    concat_parms = [b, s, n2, kv_lora_rank, rope_dim, block_size]
+    k_cache_bsnd, v_cache_bsnd = kv_cache_concat_bsnd(concat_parms, kr_cache_out, kv_cache_out, block_table, block_num, kv_cache_actual_seq, dtype)
 
     # kv compression
     # gen_kv_compression()
