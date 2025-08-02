@@ -457,7 +457,7 @@ TEST_F(AssignMemoryTypeTest, InValidOpPattern) {
             EXPECT_EQ(input->GetMemoryTypeOriginal(), input->GetMemoryTypeToBe()) << " iOperand has two memory type.";
         }
         for (auto &output : op.GetOOperands()) {
-            std::cout << "\t|--- oOperand " << output->magic;
+            std::cout << "\t|--- oOperand " << output->magic << std::endl;
             EXPECT_EQ(output->GetMemoryTypeOriginal(), MemoryType::MEM_DEVICE_DDR) << " Unexpected memory type.";
             EXPECT_EQ(output->GetMemoryTypeOriginal(), output->GetMemoryTypeToBe()) << " oOperand has two memory type.";
         }
@@ -551,7 +551,7 @@ TEST_F(AssignMemoryTypeTest, ViewReshape) {
             EXPECT_EQ(input->GetMemoryTypeOriginal(), input->GetMemoryTypeToBe()) << " iOperand has two memory type.";
         }
         for (auto &output : op.GetOOperands()) {
-            std::cout << "\t|--- oOperand " << output->magic;
+            std::cout << "\t|--- oOperand " << output->magic << std::endl;
             EXPECT_EQ(output->GetMemoryTypeOriginal(), MemoryType::MEM_UB) << " Unexpected memory type.";
             EXPECT_EQ(output->GetMemoryTypeOriginal(), output->GetMemoryTypeToBe()) << " oOperand has two memory type.";
         }

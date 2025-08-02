@@ -36,15 +36,40 @@ Status GenerateMoveOp::RunOnFunction(Function &function) {
 
 bool GenerateMoveOp::ValidViewOp(const Operation &op) const{
     //校验view单输入单输出，指针非空
-    bool valid = true;
     if((op.GetOpAttribute().get() == nullptr) ||
        (op.GetIOperands().size() != 1) || (op.GetOOperands().size() != 1) ||
        (op.GetIOperands().front() == nullptr) || (op.GetOOperands().front() == nullptr) ||
        (*(op.oOperand[0]->GetConsumers().begin()) == nullptr)){
         ALOG_ERROR_F("View op [%d] check failed.", op.GetOpMagic());
-        valid = false;
+        return false;
     }
-    return valid;
+    //校验view输出tensor内存是否合理
+    if (op.GetOOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+        auto consumerOps = op.oOperand[0]->GetConsumers(); 
+        for(auto childOp : consumerOps) {
+            if(childOp == nullptr) {
+                ALOG_ERROR_F("View op [%d] output has null consumers.",op.GetOpMagic());
+                return false;
+            }
+            auto opcode = childOp->GetOpcode();
+            const auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(opcode);
+            bool hasDDRinput = std::find(inputsMemType.begin(),inputsMemType.end(),MemoryType::MEM_DEVICE_DDR) != inputsMemType.end();
+            if(opcode == Opcode::OP_RESHAPE || hasDDRinput) {
+                continue;
+            }else if(opcode == Opcode::OP_CONVERT) {
+                auto convertOpAttribute = dynamic_cast<ConvertOpAttribute *>(op.GetOpAttribute().get());
+                auto convertPath = convertOpAttribute->GetConvertPath();
+                if(convertPath.first != MemoryType::MEM_DEVICE_DDR){
+                    ALOG_ERROR_F("View op [%d] consumer %s[%d] has invalid convert path.", op.GetOpMagic(),childOp->GetOpcodeStr().c_str(),childOp->GetOpMagic());
+                    return false;
+                }
+            }else {
+                ALOG_ERROR_F("View op [%d] consumer %s[%d] does not support DDR input.", op.GetOpMagic(),childOp->GetOpcodeStr().c_str(),childOp->GetOpMagic());
+                return false;
+            }
+        }    
+    }
+    return true;
 }
 bool GenerateMoveOp::ValidAssembleOp(const Operation &op) const{
     //校验assemble单输入单输出，指针非空
@@ -138,7 +163,7 @@ void GenerateMoveOp::CreateMoveOpForView(Operation &op) const {
     if (needInsertCopyIn) {
         auto nextOp = *(op.oOperand[0]->GetConsumers().begin());
         auto viewResult = op.GetOOperands()[0];
-        if (HasGmInput(*nextOp) && viewResult->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+        if (viewResult->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
             return;
         }
         op.SetOpCode(Opcode::OP_COPY_IN); // 将view转化为copyin

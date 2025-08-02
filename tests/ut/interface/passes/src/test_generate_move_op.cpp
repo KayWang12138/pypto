@@ -136,7 +136,7 @@ TEST_F(GenerateMoveOpPassTest, MergeCopyInCopyOut) {
             std::cout << "\t|--- iOperand " << input->magic;
         }
         for (auto &output : op.GetOOperands()) {
-            std::cout << "\t|--- oOperand " << output->magic;
+            std::cout << "\t|--- oOperand " << output->magic << std::endl;
         }
         if(op.GetOpcode()==Opcode::OP_VIEW){
             view_num++;
@@ -573,7 +573,7 @@ TEST_F(GenerateMoveOpPassTest, L1TOL0){
             std::cout << "\t|--- iOperand " << input->magic;
         }
         for (auto &output : op.GetOOperands()) {
-            std::cout << "\t|--- oOperand " << output->magic;
+            std::cout << "\t|--- oOperand " << output->magic << std::endl;
         }
         if(op.GetOpcode()==Opcode::OP_CONVERT){
             convert_num++;
