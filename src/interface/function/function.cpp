@@ -318,6 +318,96 @@ void Function::CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut, LogicalTe
     inOrOutList.emplace_back(inOrOut->Clone(*parent_));
 }
 
+std::unordered_map<int, GetTensorDataIODesc> Function::GetTensorDataForTensorGraph() {
+    std::unordered_map<int, GetTensorDataIODesc> iodescDict;
+    for (auto &op : Operations(false)) {
+        if (!op.HasAttr(OP_EMUOP_PREFIX + "GetTensorData_tensor_to_scalar")) {
+            continue;
+        }
+        int getTensorDataIndex = *op.GetAttr<int>(OP_EMUOP_PREFIX + "GetTensorData_tensor_to_scalar");
+        auto tensor = op.GetIOperands()[0];
+        for (auto cons : tensor->GetConsumers()) {
+            if (cons != &op) {
+                auto outcast = cons->GetOOperands()[0];
+                auto outcastIndex = GetOutcastIndex(outcast);
+                if (outcastIndex != INVALID_IOINDEX) {
+                    iodescDict[getTensorDataIndex] = GetTensorDataIODesc(GET_TENSOR_DATA_OPERAND_IOTYPE_OUTCAST, outcastIndex, 0);
+                }
+            }
+        }        
+    }
+    return iodescDict;
+}
+
+std::unordered_map<int, GetTensorDataIODesc> Function::GetTensorDataForLeafGraph() {
+    std::unordered_map<int, GetTensorDataIODesc> iodescDict;
+    for (auto &op : Operations(false)) {
+        if (!op.HasAttr(OP_EMUOP_PREFIX + "GetTensorData_tensor_to_scalar")) {
+            continue;
+        }
+        int getTensorDataIndex = *op.GetAttr<int>(OP_EMUOP_PREFIX + "GetTensorData_tensor_to_scalar");
+        auto tensor = op.GetIOperands()[0];
+        auto incastIndex = GetIncastIndex(tensor);
+        if (incastIndex != INVALID_IOINDEX) {
+            iodescDict[getTensorDataIndex] = GetTensorDataIODesc(GET_TENSOR_DATA_OPERAND_IOTYPE_INCAST, incastIndex, 0);
+        }
+    }
+    return iodescDict;
+}
+
+void Function::GetTensorDataRefreshIO(std::unordered_map<int, GetTensorDataIODesc> &iodescDict) {
+    for (auto &op : Operations(false)) {
+        switch (op.GetOpcode()) {
+            case Opcode::OP_VIEW:
+                {
+                    auto viewAttr = std::static_pointer_cast<ViewOpAttribute>(op.GetOpAttribute());
+                    if (viewAttr != nullptr) {
+                        std::vector<SymbolicScalar> &viewFromDynOffset = viewAttr->GetFromDynOffset();
+                        std::for_each(viewFromDynOffset.begin(), viewFromDynOffset.end(), [&](SymbolicScalar &offset) {
+                            offset = GetTensorDataFillIO(iodescDict, offset);                
+                        });
+                    }
+                } break;
+            case Opcode::OP_ASSEMBLE:
+                {
+                    auto assembleAttr = std::static_pointer_cast<AssembleOpAttribute>(op.GetOpAttribute());
+                    if (assembleAttr != nullptr) {
+                        std::vector<SymbolicScalar> &assembleToDynOffset = assembleAttr->GetToDynOffset();
+                        std::for_each(assembleToDynOffset.begin(), assembleToDynOffset.end(), [&](SymbolicScalar &offset) {
+                            offset = GetTensorDataFillIO(iodescDict, offset);
+                        });
+                    }
+                } break;
+            case Opcode::OP_COPY_IN: [[fallthrough]];
+            case Opcode::OP_UB_COPY_IN:
+                {
+                    auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
+                    std::vector<OpImmediate> copyFromOffset = copyAttr->GetFromOffset();
+                    if (copyFromOffset[0].IsSpecified()) {
+                        std::for_each(copyFromOffset.begin(), copyFromOffset.end(), [&](OpImmediate &opimm) {
+                            opimm = OpImmediate::Specified(GetTensorDataFillIO(iodescDict, opimm.GetSpecifiedValue()));
+                        });
+                        copyAttr->SetFromOffset(copyFromOffset);
+                    }
+                } break;
+            case Opcode::OP_COPY_OUT: [[fallthrough]];
+            case Opcode::OP_UB_COPY_OUT:
+                {
+                    auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
+                    std::vector<OpImmediate> copyToOffset = copyAttr->GetToOffset();
+                    if (copyToOffset[0].IsSpecified()) {
+                        std::for_each(copyToOffset.begin(), copyToOffset.end(), [&](OpImmediate &opimm) {
+                            opimm = OpImmediate::Specified(GetTensorDataFillIO(iodescDict, opimm.GetSpecifiedValue()));
+                        });
+                    }
+                    copyAttr->SetToOffset(copyToOffset);
+                } break;
+            default:
+                break;
+        }
+    }
+}
+
 void Function::BeginFunction(const std::vector<std::reference_wrapper<Tensor>> &explicitOpArgs) {
     if (!IsGraphType(GraphType::TENSOR_GRAPH) && !IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
         return;
@@ -472,6 +562,8 @@ FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &s
                 arg->GetRawTensor()->SetTensorSubScript(-1);
             }
         }
+        auto iodescDict = GetTensorDataForTensorGraph();
+        GetTensorDataRefreshIO(iodescDict);
     } else if (graphType_ == GraphType::ROOT_GRAPH) {
     } else if (graphType_ == GraphType::LEAF_GRAPH) {
         for (auto &out : outCasts_) {
@@ -488,7 +580,7 @@ FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &s
     std::vector<int> oOffset;
     std::vector< std::vector<SymbolicScalar>> argList;
     if (graphType_ == GraphType::LEAF_GRAPH) {
-        argList = NormalizeCopyInCopyOut(iOffset, oOffset);
+        argList = NormalizeCoa(iOffset, oOffset);
     }
     ComputeHash();
     return {std::move(inArgumentList), std::move(outArgumentList), std::move(iOffset), std::move(oOffset),
@@ -2067,7 +2159,7 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
 }
 
 static void MaybeNormalizeValue(
-        const SymbolicScalar &getParam,
+        const SymbolicScalar &getParamOffset,
         std::vector<SymbolicScalar> &operandCoaList,
         int operandCoaIndex,
         std::vector<OpImmediate> &opImmList,
@@ -2076,11 +2168,29 @@ static void MaybeNormalizeValue(
     for (size_t dimIndex = 0; dimIndex < opImmList.size(); dimIndex++) {
         auto &opImm = opImmList[dimIndex];
         SymbolicScalar scalar = opImm.GetSpecifiedValue();
-        OpImmediate::NormalizeValue(operandCoaList[operandCoaIndex + dimIndex], opImm, getParam(opImmList.size(), coaIndex, dimIndex), valueToIndex);
+        auto getTensorDataDict = GetTensorDataDict(scalar);
+        if (getTensorDataDict.size() == 0) {
+            OpImmediate::NormalizeValue(operandCoaList[operandCoaIndex + dimIndex], opImm, getParamOffset(opImmList.size(), coaIndex, dimIndex), valueToIndex);
+        }
     }
 };
 
-static std::vector<SymbolicScalar> NormalizeCopyIn(Operation *op,  const SymbolicScalar &getParam,int coaIndexBase, bool valueToIndex) {
+static void MaybeNormalizeValue(
+        const SymbolicScalar &getParam,
+        std::vector<SymbolicScalar> &valueCoa,
+        SymbolicScalar &value,
+        int coaIndex,
+        bool valueToIndex) {
+    auto getTensorDataDict = GetTensorDataDict(value);
+    if (getTensorDataDict.size() == 0) {
+        valueCoa.push_back(value);
+        if (valueToIndex) {
+            value = getParam(coaIndex);
+        }
+    }
+}
+
+static std::vector<SymbolicScalar> NormalizeCopyIn(Operation *op, const SymbolicScalar &getParamOffset, int coaIndexBase, bool valueToIndex) {
     auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
     int dim = copyAttr->GetShape().size();
     int operandCoaIndex = COA_INDEX_DIM_BASE;
@@ -2088,7 +2198,7 @@ static std::vector<SymbolicScalar> NormalizeCopyIn(Operation *op,  const Symboli
     std::vector<SymbolicScalar> operandCoaList(COA_INDEX_DIM_BASE + dim * COA_INDEX_TYPE_COUNT, 0);
 
     auto opImmList = copyAttr->GetFromOffset();
-    MaybeNormalizeValue(getParam, operandCoaList, operandCoaIndex, opImmList, coaIndexBase, valueToIndex);    
+    MaybeNormalizeValue(getParamOffset, operandCoaList, operandCoaIndex, opImmList, coaIndexBase, valueToIndex);
     copyAttr->SetFromOffset(opImmList);
     operandCoaIndex += dim;
     coaIndex += dim;
@@ -2113,7 +2223,7 @@ static std::vector<SymbolicScalar> NormalizeCopyIn(Operation *op,  const Symboli
     return operandCoaList;
 }
 
-static std::vector<SymbolicScalar> NormalizeCopyOut(Operation *op, const SymbolicScalar &getParam, int coaIndexBase, bool valueToIndex) {
+static std::vector<SymbolicScalar> NormalizeCopyOut(Operation *op, const SymbolicScalar &getParamOffset, int coaIndexBase, bool valueToIndex) {
     auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
     int dim = copyAttr->GetShape().size();
     int operandCoaIndex = COA_INDEX_DIM_BASE;
@@ -2121,7 +2231,7 @@ static std::vector<SymbolicScalar> NormalizeCopyOut(Operation *op, const Symboli
     std::vector<SymbolicScalar> operandCoaList(COA_INDEX_DIM_BASE + dim * COA_INDEX_TYPE_COUNT, 0);
 
     auto opImmList = copyAttr->GetToOffset();
-    MaybeNormalizeValue(getParam, operandCoaList, operandCoaIndex, opImmList, coaIndexBase, valueToIndex);     
+    MaybeNormalizeValue(getParamOffset, operandCoaList, operandCoaIndex, opImmList, coaIndexBase, valueToIndex);        
     copyAttr->SetToOffset(opImmList);
     operandCoaIndex += dim;
     coaIndex += dim;
@@ -2181,7 +2291,7 @@ static std::vector<SymbolicScalar> NormalizeTensor(LogicalTensorPtr operand, int
     return operandCoaList;
 }
 
-std::vector<std::vector<SymbolicScalar>> Function::NormalizeCopyInCopyOut(
+std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
     std::vector<int> &iOffset, std::vector<int> &oOffset) {
     std::unordered_map<int, Operation *> opmagicToOp;
     std::vector<std::pair<Operation*, int>> extraOutcasts;
@@ -2203,12 +2313,13 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCopyInCopyOut(
     bool valueToIndex = parent_->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH;
     coaLists.reserve(incastPosition.size() + outcastPosition.size() + extraOutcasts.size());
     iOffset.reserve(incastPosition.size());
-    SymbolicScalar getOffset = SymbolicScalar(AddRuntimePrefix("GET_PARAM_OFFSET"));
+    SymbolicScalar getParamOffset = SymbolicScalar(AddRuntimeCoaPrefix("GET_PARAM_OFFSET"));
     for (auto [opmagic, k] : incastPosition) {
         auto op = opmagicToOp[opmagic];
         std::vector<SymbolicScalar> operandCoaList;
         if (IsCopyIn(op->GetOpcode()) && k == 0) {
-            operandCoaList = NormalizeCopyIn(op, getOffset, coaIndex, valueToIndex);
+            operandCoaList = NormalizeCopyIn(op, getParamOffset, coaIndex, valueToIndex);
+            op->SetAttr<int>(OP_EMUOP_PREFIX + "GetTensorData_coaIndex", coaIndex);
         } else {
             operandCoaList = NormalizeTensor(op->GetIOperands()[k], coaIndex);
         }
@@ -2223,7 +2334,8 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCopyInCopyOut(
         auto op = opmagicToOp[opmagic];
         std::vector<SymbolicScalar> operandCoaList;
         if (IsCopyOut(op->GetOpcode()) && k == 0) {
-            operandCoaList = NormalizeCopyOut(op, getOffset, coaIndex, valueToIndex);
+            operandCoaList = NormalizeCopyOut(op, getParamOffset, coaIndex, valueToIndex);
+            op->SetAttr<int>(OP_EMUOP_PREFIX + "GetTensorData_coaIndex", coaIndex);
         } else {
             operandCoaList = NormalizeTensor(op->GetOOperands()[k], coaIndex);
         }
@@ -2241,6 +2353,20 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCopyInCopyOut(
         oOffset.emplace_back(coaIndex);
         coaIndex += operandCoaList.size();
         coaLists.emplace_back(std::move(operandCoaList));
+    }
+
+    auto getParam = SymbolicScalar(AddRuntimeCoaPrefix("GET_PARAM"));
+    for (auto &op : operations_) {
+        if (op->GetOpcode() == Opcode::OP_VEC_DUP) {            
+            if (op->HasAttr(OpAttributeKey::dynScalar)) {
+                SymbolicScalar dynScalar = op->GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
+                std::vector<SymbolicScalar> valueCoaList;
+                MaybeNormalizeValue(getParam, valueCoaList, dynScalar, coaIndex, valueToIndex);
+                op->SetAttribute(OpAttributeKey::dynScalar, dynScalar);
+                coaLists.emplace_back(valueCoaList);
+                coaIndex += 1;
+            }            
+        }
     }
 
     return coaLists;
@@ -2579,6 +2705,24 @@ bool Function::IsFromDummyOutCast(int rawMagic) {
         }
     }
     return false;
+}
+
+int Function::GetIncastIndex(std::shared_ptr<LogicalTensor> &tensor) const {
+    for (size_t i = 0; i < inCasts_.size(); i++) {
+        if (inCasts_[i] == tensor) {
+            return (int)i;
+        }
+    }
+    return INVALID_IOINDEX;
+}
+
+int Function::GetOutcastIndex(std::shared_ptr<LogicalTensor> &tensor) const {
+    for (size_t i = 0; i < outCasts_.size(); i++) {
+        if (outCasts_[i] == tensor) {
+            return (int)i;
+        }
+    }
+    return INVALID_IOINDEX;
 }
 
 void Function::ResetOperations() {

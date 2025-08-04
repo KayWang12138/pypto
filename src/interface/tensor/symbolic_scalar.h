@@ -28,6 +28,7 @@
 #include "interface/cache/hash_buffer.h"
 #include "symbol_handler.h"
 #include "interface/utils/string_utils.h"
+#include "interface/utils/common.h"
 #include "value_guesser.h"
 
 #include <nlohmann/json.hpp>
@@ -37,6 +38,7 @@ namespace npu::tile_fwk {
 
 constexpr int INVALID_SCALAR_IMMEDIATE = -1;
 constexpr const char* const SPECIAL_SYMBOL_NAME_RUNTIME_PREFIX = "RUNTIME_";
+constexpr const char* const SPECIAL_SYMBOL_NAME_RUNTIME_COA_PREFIX = "RUNTIME_COA_";
 constexpr const char* const SPECIAL_SYMBOL_NAME_ARG_PREFIX = "ARG_";
 using ScalarImmediateType = long long;
 
@@ -117,15 +119,21 @@ public:
     [[nodiscard]] bool IsIntermediateVariable() const { return intermediateVariable_; }
     void AsIntermediateVariable() { intermediateVariable_ = true; }
 
-    virtual Json DumpJson() = 0;
+    virtual Json DumpJson() const = 0;
     virtual ~RawSymbolicScalar() = default;
 
     void ResetValueGuesser(ValueGuesser valueGuesser);
 
+    std::string Dump() const {
+        std::string buf;
+        DumpBuffer(buf);
+        return buf;
+    }
+
 private:
     friend class SymbolicScalar;
     friend class RawSymbolicExpression;
-    virtual void DumpBuffer(std::string &buffer) = 0;
+    virtual void DumpBuffer(std::string &buffer) const = 0;
 
     ValueGuesser valueGuesser_;
     bool intermediateVariable_{false};
@@ -138,7 +146,7 @@ public:
 
     ScalarImmediateType Immediate() const { return immediate_; }
 
-    Json DumpJson() override {
+    Json DumpJson() const override {
         Json immediateDump = Json::array();
         immediateDump.push_back(kind);
         immediateDump.push_back(immediate_);
@@ -149,7 +157,7 @@ public:
     }
 
 private:
-    void DumpBuffer(std::string &buffer) override { buffer += std::to_string(immediate_); }
+    void DumpBuffer(std::string &buffer) const override { buffer += std::to_string(immediate_); }
 
     ScalarImmediateType immediate_;
 };
@@ -163,7 +171,7 @@ public:
 
     const std::string &Name() const { return name_; }
 
-    Json DumpJson() override {
+    Json DumpJson() const override {
         Json symbolDump = Json::array();
         symbolDump.push_back(kind);
         symbolDump.push_back(name_);
@@ -176,7 +184,7 @@ public:
     }
 
 private:
-    void DumpBuffer(std::string &buffer) override { buffer += name_; }
+    void DumpBuffer(std::string &buffer) const override { buffer += name_; }
 
     std::string name_;
 };
@@ -220,7 +228,7 @@ public:
         return false;
     }
 
-    Json DumpJson() override {
+    Json DumpJson() const override {
         Json exprDump = Json::array();
         exprDump.push_back(kind);
         exprDump.push_back(opcode_);
@@ -476,7 +484,7 @@ public:
     }
 
 private:
-    void DumpBuffer(std::string &buffer) override {
+    void DumpBuffer(std::string &buffer) const override {
         if (SymbolicOpcode::T_UOP_BEGIN <= opcode_ && opcode_ < SymbolicOpcode::T_UOP_END) {
             buffer += "(";
             buffer += GetSymbolicCalcOpcode(opcode_);
@@ -527,6 +535,9 @@ inline std::string AddRuntimePrefix(const std::string &name) {
 }
 inline bool CheckRuntimePrefix(const std::string &name) {
     return StringUtils::StartsWith(name, SPECIAL_SYMBOL_NAME_RUNTIME_PREFIX);
+}
+inline std::string AddRuntimeCoaPrefix(const std::string &name) {
+    return SPECIAL_SYMBOL_NAME_RUNTIME_COA_PREFIX + name;
 }
 inline std::string AddArgPrefix(const std::string &name) {
     return SPECIAL_SYMBOL_NAME_ARG_PREFIX + name;
@@ -642,247 +653,34 @@ struct SymbolicSymbolTable {
 };
 
 struct SymbolicExpressionTable {
-    std::map<std::string, std::pair<RawSymbolicScalarPtr, int>> expressionIndexTable;
+    std::map<std::string, int> expressionIndexTable;
     std::vector<std::string> sourceList;
 
     std::string Dump() const {
         std::ostringstream oss;
-        for (auto &[expr, rawSS] : expressionIndexTable) {
-            oss << "Expression:" << rawSS.second << " code:" << expr << "\n";
+        for (auto &[expr, index] : expressionIndexTable) {
+            oss << "Expression:" << index << " code:" << expr << "\n";
         }
         return oss.str();
     }
 
-    static std::string BuildExpression(const SymbolicScalar &ss) { return BuildExpressionByRaw(ss.Raw()); }
-
-    static std::string BuildExpressionByRaw(const RawSymbolicScalarPtr &raw) {
-        std::string result;
-        switch (raw->Kind()) {
-            case SymbolicScalarKind::T_SCALAR_SYMBOLIC_IMMEDIATE: {
-                RawSymbolicImmediate *immediate = dynamic_cast<RawSymbolicImmediate *>(raw.get());
-                result = std::to_string(immediate->Immediate());
-            } break;
-            case SymbolicScalarKind::T_SCALAR_SYMBOLIC_SYMBOL: {
-                RawSymbolicSymbol *symbol = dynamic_cast<RawSymbolicSymbol *>(raw.get());
-                if (CheckRuntimePrefix(symbol->Name())) {
-                    result = symbol->Name();
-                } else if (CheckArgPrefix(symbol->Name())) {
-                    result = symbol->Name();
-                } else {
-                    result = "VALUE_" + symbol->Name();
-                }
-            } break;
-            case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION: {
-                RawSymbolicExpression *expr = dynamic_cast<RawSymbolicExpression *>(raw.get());
-                result = BuildSymbolicExpression(expr);
-            } break;
-            default: ASSERT(false); break;
-        }
-        return result;
-    }
-
+    static std::string BuildExpression(const SymbolicScalar &ss);
+    
     int LookupExpressionIndex(const SymbolicScalar &ss) const {
         std::string str = BuildExpression(ss);
         ASSERT(expressionIndexTable.count(str));
-        return expressionIndexTable.find(str)->second.second;
+        return expressionIndexTable.find(str)->second;
     }
 
-    std::string BuildExpressionTable(const std::string &sectionName) const {
-        std::ostringstream oss;
-        oss << "namespace npu::tile_fwk {\n"
-            << "__attribute__((section(\"" << sectionName << "\")))\n"
-            << "uint64_t entry(void *ctx, uint64_t *symbolTable, uint64_t index) {\n"
-            << "    switch (index) {\n";
-        for (auto &[expr, rawSS] : expressionIndexTable) {
-            oss << "    case " << rawSS.second << ":\n"
-                << "        return " << expr << ";\n"
-                << "        break;\n";
-        }
-        oss << "    }\n"
-            << "}\n"
-            << "} // namespace npu::tile_fwk\n";
-        return oss.str();
+    void InsertExpressionIndex(const std::string &expr, int index) {
+        expressionIndexTable[expr] = index;
     }
-    std::string BuildExpression(const std::string &sectionName, const std::string &expr) const {
-        std::ostringstream oss;
-        oss << "namespace npu::tile_fwk {\n"
-            << "__attribute__((section(\"" << sectionName << "\")))\n"
-            << "uint64_t entry(void *ctx, uint64_t *symbolTable) {\n"
-            << "  return " << expr << ";\n"
-            << "}\n"
-            << "} // namespace npu::tile_fwk\n";
-        return oss.str();
-    }
-    void BuildSource(const std::string &sectionName) {
-        sourceList.resize(expressionIndexTable.size());
-        for (auto &[expr, rawSS] : expressionIndexTable) {
-            ASSERT(rawSS.second < static_cast<int>(sourceList.size()));
-            sourceList[rawSS.second] = BuildExpression(sectionName, expr);
-        }
-    }
-
-private:
-    static std::string BuildSymbolicExpression(RawSymbolicExpression *expr) {
-        std::stringstream oss;
-        oss << "(";
-        if (SymbolicOpcode::T_UOP_BEGIN <= expr->Opcode() && expr->Opcode() < SymbolicOpcode::T_UOP_END) {
-            oss << RawSymbolicExpression::GetSymbolicCalcOpcode(expr->Opcode());
-            oss << BuildExpressionByRaw(expr->OperandList()[0]);
-        } else if (SymbolicOpcode::T_BOP_BEGIN <= expr->Opcode() && expr->Opcode() < SymbolicOpcode::T_BOP_END) {
-            if (expr->Opcode() == SymbolicOpcode::T_BOP_MAX) {
-                oss << "RUNTIME_Max(";
-                oss << BuildExpressionByRaw(expr->OperandList()[0]);
-                oss << ", ";
-                oss << BuildExpressionByRaw(expr->OperandList()[1]);
-                oss << ")";
-            } else if (expr->Opcode() == SymbolicOpcode::T_BOP_MIN) {
-                oss << "RUNTIME_Min(";
-                oss << BuildExpressionByRaw(expr->OperandList()[0]);
-                oss << ", ";
-                oss << BuildExpressionByRaw(expr->OperandList()[1]);
-                oss << ")";
-            } else {
-                for (size_t idx = 0; idx < expr->OperandList().size(); idx++) {
-                    if (idx != 0) {
-                        oss << " " + RawSymbolicExpression::GetSymbolicCalcOpcode(expr->Opcode()) + " ";
-                    }
-                    oss << BuildExpressionByRaw(expr->OperandList()[idx]);
-                }
-            }
-        } else if (expr->Opcode() == SymbolicOpcode::T_MOP_CALL) {
-            std::string callee = BuildExpressionByRaw(expr->OperandList()[0]);
-            if (CheckRuntimePrefix(callee)) {
-                oss << callee;
-            } else {
-                oss << "((Call" << expr->OperandList().size() << "EntryType)" << callee << ")";
-            }
-            oss << "(ctx";
-            for (size_t idx = 1; idx < expr->OperandList().size(); idx++) {
-                oss << ", ";
-                oss << BuildExpressionByRaw(expr->OperandList()[idx]);
-            }
-            oss << ")";
-        }
-        oss << ")";
-        return oss.str();
-    }
-};
-
-class IntermediateVariableTable {
-public:
-    explicit IntermediateVariableTable(std::string namePrefix) : namePrefix_(std::move(namePrefix)) {}
-
-    struct IntermediateVariableInfo {
-        IntermediateVariableInfo(std::string nameVar, std::string exprVar)
-            : name(std::move(nameVar)), expression(std::move(exprVar)) {}
-
-        std::string name;
-        std::string expression;
-    };
-
-public:
-    std::vector<IntermediateVariableInfo> GetAllIntermediateVariables(RawSymbolicScalar &scalar) {
-        std::vector<IntermediateVariableInfo> result;
-        GetAllIntermediateVariables(scalar, result);
-        return result;
-    }
-
-    std::string BuildExpression(const SymbolicScalar &ss) const { return BuildExpressionByRaw(*ss.Raw()); }
-
-private:
-    std::string BuildExpressionByRaw(const RawSymbolicScalar &raw, bool useIntermediateVariable = true) const {
-        if (useIntermediateVariable && raw.IsIntermediateVariable()) {
-            if (mapping_.count(&raw) > 0) {
-                return infos_[mapping_.at(&raw)].name;
-            }
-        }
-        std::string result;
-        switch (raw.Kind()) {
-            case SymbolicScalarKind::T_SCALAR_SYMBOLIC_IMMEDIATE: {
-                auto immediate = dynamic_cast<const RawSymbolicImmediate *>(&raw);
-                result = std::to_string(immediate->Immediate());
-            } break;
-            case SymbolicScalarKind::T_SCALAR_SYMBOLIC_SYMBOL: {
-                auto symbol = dynamic_cast<const RawSymbolicSymbol *>(&raw);
-                if (CheckRuntimePrefix(symbol->Name())) {
-                    result = symbol->Name();
-                } else if (CheckArgPrefix(symbol->Name())) {
-                    result = symbol->Name();
-                } else {
-                    result = "VALUE_" + symbol->Name();
-                }
-            } break;
-            case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION: {
-                auto expr = dynamic_cast<const RawSymbolicExpression *>(&raw);
-                result = BuildSymbolicExpression(*expr, useIntermediateVariable);
-            } break;
-            default: ASSERT(false); break;
-        }
-        return result;
-    }
-
-    std::string BuildSymbolicExpression(const RawSymbolicExpression &expr, bool useIntermediateVariable = true) const {
-        if (useIntermediateVariable && expr.IsIntermediateVariable()) {
-            if (mapping_.count(&expr) > 0) {
-                return infos_[mapping_.at(&expr)].name;
-            }
-        }
-        std::stringstream oss;
-        oss << "(";
-        if (SymbolicOpcode::T_UOP_BEGIN <= expr.Opcode() && expr.Opcode() < SymbolicOpcode::T_UOP_END) {
-            oss << RawSymbolicExpression::GetSymbolicCalcOpcode(expr.Opcode());
-            oss << BuildExpressionByRaw(*expr.OperandList()[0]);
-        } else if (SymbolicOpcode::T_BOP_BEGIN <= expr.Opcode() && expr.Opcode() < SymbolicOpcode::T_BOP_END) {
-            if (expr.Opcode() == SymbolicOpcode::T_BOP_MAX) {
-                oss << "RUNTIME_Max(";
-                oss << BuildExpressionByRaw(*expr.OperandList()[0]);
-                oss << ", ";
-                oss << BuildExpressionByRaw(*expr.OperandList()[1]);
-                oss << ")";
-            } else if (expr.Opcode() == SymbolicOpcode::T_BOP_MIN) {
-                oss << "RUNTIME_Min(";
-                oss << BuildExpressionByRaw(*expr.OperandList()[0]);
-                oss << ", ";
-                oss << BuildExpressionByRaw(*expr.OperandList()[1]);
-                oss << ")";
-            } else {
-                for (size_t idx = 0; idx < expr.OperandList().size(); idx++) {
-                    if (idx != 0) {
-                        oss << " " + RawSymbolicExpression::GetSymbolicCalcOpcode(expr.Opcode()) + " ";
-                    }
-                    oss << BuildExpressionByRaw(*expr.OperandList()[idx]);
-                }
-            }
-        } else if (expr.Opcode() == SymbolicOpcode::T_MOP_CALL) {
-            std::string callee = BuildExpressionByRaw(*expr.OperandList()[0]);
-            if (CheckRuntimePrefix(callee)) {
-                oss << callee;
-            } else {
-                oss << "((Call" << expr.OperandList().size() << "EntryType)" << callee << ")";
-            }
-            oss << "(ctx";
-            for (size_t idx = 1; idx < expr.OperandList().size(); idx++) {
-                oss << ", ";
-                oss << BuildExpressionByRaw(*expr.OperandList()[idx]);
-            }
-            oss << ")";
-        }
-        oss << ")";
-        return oss.str();
-    }
-
-    void GetAllIntermediateVariables(RawSymbolicScalar &scalar, std::vector<IntermediateVariableInfo> &result);
-
-private:
-    std::string namePrefix_;
-    std::unordered_map<const RawSymbolicScalar *, int> mapping_;
-    std::vector<IntermediateVariableInfo> infos_;
 };
 
 struct SymbolicSymbolTableBuilder {
     std::set<std::string> symbolTable;
 
-    void AddExpression(const SymbolicScalar &ss) {
+    void AddSymbolFromExpression(const SymbolicScalar &ss) {
         if (ss.Raw()->IsImmediate()) {
             return;
         }
@@ -926,23 +724,62 @@ private:
 
 struct SymbolicExpressionTableBuilder {
     std::map<std::string, RawSymbolicScalarPtr> expressionTable;
+    OrderedSet<RawSymbolicScalarPtr> expressionSet;
+    OrderedSet<RawSymbolicScalarPtr> primaryExpressionSet;
 
-    void AddExpression(const SymbolicScalar &ss) {
+    void AddPrimaryExpression(const SymbolicScalar &ss) {
         if (ss.Raw()->IsImmediate()) {
             return;
         }
-        std::string str = SymbolicExpressionTable::BuildExpression(SymbolicScalar(ss.Raw()));
+        std::string str = BuildExpressionByRaw(ss.Raw(), {});
         expressionTable.emplace(str, ss.Raw());
+        primaryExpressionSet.Insert(ss.Raw());
+        AddExpression(ss.Raw());
     }
 
     SymbolicExpressionTable BuildAndLoad();
+    const OrderedSet<RawSymbolicScalarPtr> &GetExpressionSet() const {
+        return expressionSet;
+    }
 
     std::string Dump() const {
         std::ostringstream oss;
         for (auto &expr: expressionTable) {
-            oss << "expr:" << SymbolicExpressionTable::BuildExpressionByRaw(expr.second) << "\n";
+            oss << "expr:" << BuildExpressionByRaw(expr.second, {}) << "\n";
         }
         return oss.str();
+    }
+
+    std::string BuildExpressionList(const std::string &prefix, const std::string &title) const;
+
+    static std::string GetExprNameLoopPrefix(int funcKey) { return "EXPR_LOOP_" + std::to_string(funcKey); }
+    static std::string GetExprNameRootPrefix(int funcKey) { return "EXPR_ROOT_" + std::to_string(funcKey); }
+    static std::string GetExprNameLeafPrefix(int funcKey) { return "EXPR_LEAF_" + std::to_string(funcKey); }
+
+    static std::string GetExprNameTempVarFlag(const std::string &prefix, int index) { return prefix + "_" + std::to_string(index) + "_TEMP_VAR_FLAG"; }
+    static std::string GetExprNameTempVar(const std::string &prefix, int index) { return prefix + "_" + std::to_string(index) + "_TEMP_VAR"; }
+    static std::string GetExprNameTempVarInit(const std::string &prefix, int index) { return prefix + "_" + std::to_string(index) + "_TEMP_INIT"; }
+    static std::string GetExprNameCalc(const std::string &prefix, int index) { return prefix + "_" + std::to_string(index) + "_CALC"; }
+    static std::string GetExprNameGet(const std::string &prefix, int index) { return prefix + "_" + std::to_string(index) + "_GET"; }
+
+    static std::string BuildExpressionByRaw(const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
+private:    
+    static std::string BuildExpressionCode(const RawSymbolicExpression *expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
+
+    void AddExpression(const RawSymbolicScalarPtr &raw) {
+        switch (raw->Kind()) {
+            case SymbolicScalarKind::T_SCALAR_SYMBOLIC_IMMEDIATE: {
+            } break;
+            case SymbolicScalarKind::T_SCALAR_SYMBOLIC_SYMBOL: {
+            } break;
+            case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION: {
+                for (auto &operand : raw->GetExpressionOperandList()) {
+                    AddExpression(operand);
+                }
+                expressionSet.Insert(raw);                
+            } break;
+            default: ASSERT(false); break;
+        }
     }
 };
 

@@ -14,7 +14,7 @@
 namespace npu::tile_fwk {
 
 static int GetAsParameterCoaIndex(const RawSymbolicScalarPtr &value) {
-    if (!value->IsExpressionCall(AddRuntimePrefix("GET_PARAM_OFFSET"))) {
+    if (!value->IsExpressionCall(AddRuntimeCoaPrefix("GET_PARAM_OFFSET"))) {
         return -1;
     }
     auto tensorIndex = value->GetExpressionOperandList()[RUNTIME_GET_PARAM_OFFSET_OPERAND_INDEX_COA_INDEX];

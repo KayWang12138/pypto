@@ -326,4 +326,11 @@ SymbolicScalar IsLoopBegin(const SymbolicScalar &symbol, const SymbolicScalar &b
  * @return SymbolicScalar : expression to determine if currently at loop start
  */
 SymbolicScalar IsLoopEnd(const SymbolicScalar &symbol, const SymbolicScalar &end);
+
+SymbolicScalar GetTensorDataInt32(const Tensor &t, const SymbolicScalar &off0);
+SymbolicScalar GetTensorDataInt32(const Tensor &t, const SymbolicScalar &off0, const SymbolicScalar &off1);
+SymbolicScalar GetTensorDataInt32(const Tensor &t, const SymbolicScalar &off0, const SymbolicScalar &off1, const SymbolicScalar &off2);
+SymbolicScalar GetTensorDataInt32(const Tensor &t, const SymbolicScalar &off0, const SymbolicScalar &off1, const SymbolicScalar &off2, const SymbolicScalar &off3);
+SymbolicScalar GetTensorDataInt32(const Tensor &t, const std::vector<SymbolicScalar> &off);
+void SetTensorDataInt32(const SymbolicScalar &v, const std::vector<SymbolicScalar> &off, Tensor &dst);
 } // namespace npu::tile_fwk

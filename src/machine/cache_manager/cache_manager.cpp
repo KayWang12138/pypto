@@ -50,8 +50,11 @@ bool CacheManager::Initialize() {
         ALOG_ERROR_F("Env[HOME] is not existed or empty.");
         return false;
     }
+    constexpr int cwdSize = 1024;
+    char cwdBuf[cwdSize] = {};
+    std::string cwd = getcwd(cwdBuf, cwdSize);
     std::string homeEnvPath(envPath);
-    cacheDirPath_ = homeEnvPath + "/ast_data/" + PlatformManager::Instance().GetShortSocVersion();
+    cacheDirPath_ = homeEnvPath + "/ast_data/" + PlatformManager::Instance().GetShortSocVersion() + "/" + cwd;
     ALOG_DEBUG_F("Begin to initialize cache manager, cache dir path is [%s].", cacheDirPath_.c_str());
     if (RealPath(cacheDirPath_).empty() && !CreateMultiLevelDir(cacheDirPath_)) {
         ALOG_ERROR_F("Failed to create cache dir[%s].", cacheDirPath_.c_str());

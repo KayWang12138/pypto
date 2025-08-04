@@ -28,6 +28,8 @@ Status SubgraphToFunction::RunOnFunction(Function &function) {
     /* 需要将所有缓存在类成员的信息清零 */
     subFuncInvokeInfos.clear();
     // build in-graph and out-graph at first
+    // GetTensorData: Add dependency
+    GetTensorDataDependencyInsert(function);    
     // 1. Construct in-graph & out-graph
     if (BuildGraph(function) != SUCCESS) {
         ASLOGE("failed to build graph from input function");
@@ -41,6 +43,8 @@ Status SubgraphToFunction::RunOnFunction(Function &function) {
     Function::EnableMagicLookupRecord(true, &function);
     IslandToFunction(function);
     Function::EnableMagicLookupRecord(false, &function);
+    // GetTensorData: Remove dependency
+    GetTensorDataDependencyClear(function);
     return SUCCESS;
 }
     
@@ -804,4 +808,139 @@ void SubgraphToFunction::InitializeRootFunction(Function& function, Function* ro
     ALOG_DEBUG_F("Root function tensor map size is %zu %zu",
         rootFunc->GetTensorMap().inverseMap_.size(), rootFunc->GetTensorMap().tensorMap_.size());
 }
+
+void SubgraphToFunction::GetTensorDataDependencyInsert(Function &function) {
+    auto operationViewer = function.Operations(false);
+    struct GetTensorDataOutcastDesc {
+        std::unordered_map<Opcode, std::vector<Operation *>> opListDict;
+        Operation *mark;
+        Operation *copyout;
+        std::shared_ptr<LogicalTensor> outcast;
+    };
+    std::unordered_map<int, GetTensorDataOutcastDesc> getTensorDataOutcastDescDict;
+    for (size_t i = 0; i < operationViewer.size(); i++) {
+        auto &op = operationViewer[i];
+        if (op.HasAttr(OP_EMUOP_PREFIX + "GetTensorData_index")) {
+            int index = *op.GetAttr<int>(OP_EMUOP_PREFIX + "GetTensorData_index");
+            getTensorDataOutcastDescDict[index].opListDict[op.GetOpcode()].push_back(&op);
+        }
+    }
+    for (auto &[index, desc] : getTensorDataOutcastDescDict) {
+        (void)index;
+        ASSERT(desc.opListDict[Opcode::OP_ADDS].size() == 1);
+        auto mark = desc.opListDict[Opcode::OP_ADDS][0];
+
+        std::shared_ptr<LogicalTensor> addsOpOut = mark->GetOOperands()[0];
+        auto copyout = *addsOpOut->GetConsumers().begin();
+        ASSERT(copyout->GetOpcode() == Opcode::OP_COPY_OUT);
+
+        auto outcast = copyout->GetOOperands()[0];
+
+        desc.mark = mark;
+        desc.copyout = copyout;
+        desc.outcast = outcast;
+    }
+
+    struct GetTensorDataDesc {
+        Operation *refOp;
+        std::vector<int> indexList;
+        MemoryType subgraphMemoryType;
+        int subgraphID;
+
+        GetTensorDataDesc(Operation *refOp_, std::vector<int> indexList_, MemoryType subgraphMemoryType_, int subgraphID_)
+            : refOp(refOp_), indexList(indexList_), subgraphMemoryType(subgraphMemoryType_), subgraphID(subgraphID_) {}
+    };
+    std::vector<GetTensorDataDesc> getTensorDataDescList;
+    for (size_t i = 0; i < operationViewer.size(); i++) {
+        auto &refOp = operationViewer[i];
+        auto attr = std::static_pointer_cast<CopyOpAttribute>(refOp.GetOpAttribute());
+
+        std::vector<OpImmediate> dynAttrList;
+        std::shared_ptr<LogicalTensor> subgraphTensor;
+        switch (refOp.GetOpcode()) {            
+            case Opcode::OP_COPY_IN:
+                dynAttrList = attr->GetFromOffset();
+                subgraphTensor = refOp.GetOOperands()[0];
+                break;
+            case Opcode::OP_COPY_OUT:
+                dynAttrList = attr->GetToOffset();
+                subgraphTensor = refOp.GetIOperands()[0];
+                break;
+            default:
+                break;
+        }
+        if (dynAttrList.size() == 0) {
+            continue;
+        }
+        std::vector<SymbolicScalar> dynAttrScalarList;
+        for (auto &dynAttr : dynAttrList) {
+            if (dynAttr.IsSpecified()) {
+                dynAttrScalarList.push_back(dynAttr.GetSpecifiedValue());
+            }
+        }
+        std::map<int, RawSymbolicScalarPtr> outcastDict = GetTensorDataDict(dynAttrScalarList);
+        if (outcastDict.size() == 0) {
+            continue;
+        }
+        MemoryType subgraphMemoryType = subgraphTensor->GetMemoryTypeToBe();
+        int subgraphID = subgraphTensor->GetSubgraphID();
+
+        std::vector<int> indexList;
+        for (auto [index, _] : outcastDict) {
+            (void)_;
+            indexList.push_back(index);
+        }
+        getTensorDataDescList.emplace_back(&refOp, indexList, subgraphMemoryType, subgraphID);
+    }
+    for (auto &[refOp, indexList, subgraphMemoryType, subgraphID] : getTensorDataDescList) {
+        for (int index : indexList) {
+            ASSERT(getTensorDataOutcastDescDict.count(index)) << "Index: " << index << " not found!\n";
+            auto &outcastDesc = getTensorDataOutcastDescDict[index];
+            auto outcastAttr = std::static_pointer_cast<CopyOpAttribute>(outcastDesc.copyout->GetOpAttribute());
+
+            std::shared_ptr<LogicalTensor> copyInTensor = std::make_shared<LogicalTensor>(function, outcastDesc.outcast->Datatype(), outcastDesc.outcast->GetShape());
+            copyInTensor->UpdateSubgraphID(subgraphID);
+            copyInTensor->SetMemoryTypeBoth(subgraphMemoryType);
+
+            auto &copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {outcastDesc.outcast}, {copyInTensor}, false);
+            auto copyInAttr = std::make_shared<CopyOpAttribute>(outcastAttr->GetToOffset(), MemoryType::MEM_UB, outcastAttr->GetShape(), outcastAttr->GetRawShape());
+            copyInOp.UpdateSubgraphID(subgraphID);
+            copyInOp.SetOpAttribute(copyInAttr);
+            copyInOp.SetAttr<int>(OP_EMUOP_PREFIX + "opc", EMUOP_TENSOR_GETDATA);
+            copyInOp.SetAttr<int>(OP_EMUOP_PREFIX + "GetTensorData_index", index);
+
+            refOp->GetIOperands().push_back(copyInTensor);
+            copyInTensor->AddConsumer(refOp);
+        }
+    }
+}
+
+void SubgraphToFunction::GetTensorDataDependencyClear(Function &function) {
+    auto root = function.GetRootFunction();
+    std::vector<Function *> leafList = root->GetCalleeFunctionList();
+    std::unordered_set<Function *> leafSet(leafList.begin(), leafList.end());
+
+    SymbolicScalar getAddr = SymbolicScalar(AddRuntimeCoaPrefix("GET_PARAM_ADDR"));
+    for (auto &leaf : leafSet) {
+        auto iodescDict = leaf->GetTensorDataForLeafGraph();
+
+        for (auto &op : leaf->Operations()) {
+            if (!op.HasAttr(OP_EMUOP_PREFIX + "opc")) {
+                continue;
+            }
+            if (*op.GetAttr<int>(OP_EMUOP_PREFIX + "opc")  != EMUOP_TENSOR_GETDATA) {
+                continue;
+            }
+            auto &copyInOp = op;
+            copyInOp.SetAsDeleted();
+
+            int tensorIndex = *op.GetAttr<int>(OP_EMUOP_PREFIX + "GetTensorData_index");
+            int addrIndex = *op.GetAttr<int>(OP_EMUOP_PREFIX + "GetTensorData_coaIndex");
+            iodescDict[tensorIndex].address = getAddr(-1, addrIndex);
+        }
+        leaf->EraseOperations(true, true);
+        leaf->GetTensorDataRefreshIO(iodescDict);
+    }
+}
+
 } // namespace npu::tile_fwk

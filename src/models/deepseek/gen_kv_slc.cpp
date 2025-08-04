@@ -82,12 +82,7 @@ void KvSlcCompute(Tensor &topK_indcies, Tensor &topK_tensor_shape, Tensor &kvNop
                     DAssemble(kRope_slcBlock_fp16, {output_axis1_value, kv_lora_rank}, k_slcOut);
                     DAssemble(kv_slcBlock_fp16, {output_axis1_value, 0}, v_slcOut);
                 }
-                Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1);
-                auto kvSlcActSeqsElemet = DView(kvActSeqs, {1}, {batchIdx});
-                auto kvSlcActSeqsElemet_reshape = Reshape(kvSlcActSeqsElemet, {1, 1});
-                auto kvSlcActSeqsElemetZero = MulS(kvSlcActSeqsElemet_reshape, Element(kvSlcActSeqsElemet->Datatype(), int64_t(0)));
-                auto kvSlcActSeqsElemet_add = AddS(kvSlcActSeqsElemetZero, Element(kvSlcActSeqsElemetZero->Datatype(), int64_t(slcSeqLen)));
-                DAssemble(kvSlcActSeqsElemet_add, {batchIdx, slcIdx}, kvSlcActSeqs);
+                SetTensorDataInt32(slcSeqLen, {batchIdx, slcIdx}, kvSlcActSeqs);
             }
         }
     }

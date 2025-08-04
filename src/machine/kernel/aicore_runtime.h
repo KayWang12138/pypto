@@ -217,7 +217,7 @@ INLINE uint64_t GetTensorAddr(CoreFuncParam *ctx, int idx) {
         return func->rawTensorAddr[desc->offsetOrIndex] & RAW_TENSOR_ADDR_MASK ;
 }
 
-INLINE uint64_t GetTensorAttr(CoreFuncParam *ctx, int idx) {
+INLINE uint64_t GetCoa(CoreFuncParam *ctx, int idx) {
     uint64_t val = ctx->opAttrs[idx];
     if (SYM_IS_EXPR(val))
         return ctx->exprTbl[SYM_VALUE(val)];
@@ -227,10 +227,10 @@ INLINE uint64_t GetTensorAttr(CoreFuncParam *ctx, int idx) {
 
 #define GET_PARAM_ADDR(param, n, base) GetTensorAddr(param, base)
 
-#define GET_PARAM_OFFSET_BY_IDX(param, n, base, dim, idx)         GetTensorAttr(param, ((base) + 1) + 0 * (dim) + idx)
-#define GET_PARAM_SHAPE_BY_IDX(param, n, base, dim, idx)          GetTensorAttr(param, ((base) + 1) + 1 * (dim) + idx)
-#define GET_PARAM_RAWSHAPE_BY_IDX(param, n, base, dim, idx)       GetTensorAttr(param, ((base) + 1) + 2 * (dim) + idx)
-#define GET_PARAM_VALID_SHAPE_BY_IDX(param, n, base, dim, idx)    GetTensorAttr(param, ((base) + 1) + 3 * (dim) + idx)
+#define GET_PARAM_OFFSET_BY_IDX(param, n, base, dim, idx)         GetCoa(param, ((base) + 1) + 0 * (dim) + idx)
+#define GET_PARAM_SHAPE_BY_IDX(param, n, base, dim, idx)          GetCoa(param, ((base) + 1) + 1 * (dim) + idx)
+#define GET_PARAM_RAWSHAPE_BY_IDX(param, n, base, dim, idx)       GetCoa(param, ((base) + 1) + 2 * (dim) + idx)
+#define GET_PARAM_VALID_SHAPE_BY_IDX(param, n, base, dim, idx)    GetCoa(param, ((base) + 1) + 3 * (dim) + idx)
 
 #define GET_PARAM_ATTR_1(name, param, n, base)  GET_PARAM_##name##_BY_IDX(param, n, base, 1, 0)
 #define GET_PARAM_ATTR_2(name, param, n, base)  GET_PARAM_##name##_BY_IDX(param, n, base, 2, 0), GET_PARAM_##name##_BY_IDX(param, n, base, 2, 1)
@@ -276,7 +276,15 @@ INLINE uint32_t GetTensorDataInt32(CoreFuncParam *ctx, uint64_t address) {
 #define RUNTIME_GetTensorDataInt32Dim4(index, ioType, ioTypeIndex, address, ...)    GetTensorDataInt32(param, address)
 #define RUNTIME_GetTensorDataInt32Dim5(index, ioType, ioTypeIndex, address, ...)    GetTensorDataInt32(param, address)
 
-#define RUNTIME_GET_PARAM_OFFSET(dim, base, idx)                                    GET_PARAM_OFFSET_BY_IDX(param, 0, base, dim, idx)
-#define RUNTIME_GET_PARAM_ADDR(_, idx)                                              GET_PARAM_ADDR(param, _, idx)
+#define RUNTIME_COA_GET_PARAM_OFFSET(dim, base, idx)                                GET_PARAM_OFFSET_BY_IDX(param, 0, base, dim, idx)
+#define RUNTIME_COA_GET_PARAM_ADDR(_, idx)                                          GET_PARAM_ADDR(param, _, idx)
+#define RUNTIME_COA_GET_PARAM(idx)                                                  GetCoa(param, idx)
+
+#define RUNTIME_TensorExtract(type, mem, dst, src) \
+    do { \
+        pipe_barrier(PIPE_ALL); \
+        *(mem type *)(dst) = *(mem type *)(src); \
+        pipe_barrier(PIPE_ALL); \
+    } while(0)
 
 #endif // AST_RUNTIME_H

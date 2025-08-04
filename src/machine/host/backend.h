@@ -32,9 +32,9 @@ struct Linker {
     void AddFunction(Function *func) {
         rootExpressionTableBuilderDict[func] = SymbolicExpressionTableBuilder();
     }
-    void AddExpression(Function *func, const SymbolicScalar &ss) {
-        symbolTableBuilder.AddExpression(ss);
-        rootExpressionTableBuilderDict[func].AddExpression(ss);
+    void AddPrimaryExpression(Function *func, const SymbolicScalar &ss) {
+        symbolTableBuilder.AddSymbolFromExpression(ss);
+        rootExpressionTableBuilderDict[func].AddPrimaryExpression(ss);
     }
 
     void BuildAndLoad() {

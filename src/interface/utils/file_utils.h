@@ -19,6 +19,7 @@
 #include <string>
 
 namespace npu::tile_fwk {
+bool FileExist(const std::string &filePath);
 std::string RealPath(const std::string& path);
 bool GetFileSize(const std::string &filePath, uint32_t &fileSize);
 uint32_t GetFileSize(const std::string& filePath);
@@ -33,6 +34,7 @@ std::vector<std::string> GetFiles(const std::string& path, const std::string& ex
 void SaveFile(const std::string &filePath, const std::vector<uint8_t> &data);
 bool DumpFile(const char *data, const size_t size, const std::string &filePath);
 bool DumpFile(const std::vector<uint8_t> &data, const std::string &filePath);
+bool DumpFile(const std::string &text, const std::string &filePath);
 std::vector<uint8_t> LoadFile(const std::string &filePath);
 FILE* LockAndOpenFile(const std::string &lockFilePath);
 void UnlockAndCloseFile(FILE *fp);

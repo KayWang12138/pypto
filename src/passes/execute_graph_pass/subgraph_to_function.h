@@ -30,6 +30,8 @@ public:
 
 private:
     Status RunOnFunction(Function &function) override;
+    void GetTensorDataDependencyInsert(Function &function);
+    void GetTensorDataDependencyClear(Function &function);
     Status BuildGraph(Function &function);
     void InsertParameter(size_t i, Function* leafFunc);
     Status NOPCheck(const Operation &op) const;

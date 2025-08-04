@@ -67,6 +67,12 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
         deviceAgentTask->compileInfo.PrintDistributed();
         deviceAgentTask->compileInfo.workSpaceStackSize = function->GetStackWorkespaceSize();
 
+        if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, false)) {
+            if (function->GetGraphType() == GraphType::TILE_GRAPH) {
+                // When expression fusion, don't need tile graph codegen.
+                return 0;
+            }
+        }        
         (void)GenCode(deviceAgentTask->compileTask, deviceAgentTask->compileInfo.invokeParaOffset, cache);
         function = deviceAgentTask->compileTask->GetFunction();
         /* finish compile add function cache */
@@ -97,6 +103,16 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
     return 0;
 }
 
+static std::string GetEmitPath(const std::string &name) {
+    std::string dirPath;
+    if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_DUMP_TO_OUTPUT, true)) {
+        dirPath = config::LogTopFolder() + "/" + name;
+    } else {
+        dirPath = name;
+    }
+    return dirPath;
+}
+
 static std::vector<Function *> GetCalleeList(FunctionCache &cache, Function *func) {
     std::vector<Function *> calleeList;
 
@@ -113,7 +129,8 @@ static std::vector<Function *> GetCalleeList(FunctionCache &cache, Function *fun
     return calleeList;
 }
 
-static void FindAllExpression(FunctionCache &cache, Linker &linker, Function *func) {
+static void FindAllExpression(FunctionCache &cache, Linker &linker, Function *func, 
+                              DyndevFunctionAttribute::FunctionGroup &group) {
     if (func->IsDynloop()) {
         auto dynloopAttr = func->GetDynloopAttribute();
         auto ss = SymbolicScalar(dynloopAttr->iterSymbolName);
@@ -122,24 +139,46 @@ static void FindAllExpression(FunctionCache &cache, Linker &linker, Function *fu
     if (func->IsFunctionTypeAndGraphType({FunctionType::DYNAMIC, FunctionType::DYNAMIC_LOOP, FunctionType::DYNAMIC_LOOP_PATH}, GraphType::TENSOR_GRAPH)) {
         ALOG_INFO("Compile control:", func->Dump());
         for (auto &callee : GetCalleeList(cache, func)) {
-            FindAllExpression(cache, linker, callee);
+            FindAllExpression(cache, linker, callee, group);
+        }
+        if (func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC_LOOP, GraphType::TENSOR_GRAPH)) {
+            group.loopList.Insert(func);
+            auto attr = func->GetDynloopAttribute();
+            linker.AddPrimaryExpression(func, attr->Begin());
+            linker.AddPrimaryExpression(func, attr->End());
+            linker.AddPrimaryExpression(func, attr->Step());
+
+            for (auto &path : attr->GetPathList()) {
+                for (auto &cond : path.GetPathCondList()) {
+                    linker.AddPrimaryExpression(func, cond.GetCond());
+                }
+            }
         }
     } else if (func->GetGraphType() == GraphType::TILE_GRAPH) {
         ALOG_INFO("Compile tile:", func->Dump());
         Function *root = func->GetRootFunction();
-        FindAllExpression(cache, linker, root);
+        FindAllExpression(cache, linker, root, group);
     } else if (func->GetGraphType() == GraphType::ROOT_GRAPH) {
         ALOG_INFO("Compile root:", func->Dump());
-        linker.AddFunction(func);
+        group.devRootList.Insert(func);
         for (auto &callopAttr : func->GetCallopAttrList()) {
             for (auto &arg : callopAttr->GetLinearArgList()) {
-                linker.AddExpression(func, arg);
+                linker.AddPrimaryExpression(func, arg);
             }
             auto hash = callopAttr->GetCalleeHash();
             Function *leafFunc = cache.GetCacheFunction(hash);
-            FindAllExpression(cache, linker, leafFunc);
+            FindAllExpression(cache, linker, leafFunc, group);
         }
     } else if (func->GetGraphType() == GraphType::LEAF_GRAPH) {
+        group.devLeafList.Insert(func);
+        for (auto &op : func->Operations()) {
+            if (op.GetOpcode() == Opcode::OP_VEC_DUP) {
+                if (op.HasAttr(OpAttributeKey::dynScalar)) {
+                    auto dynScalar = op.GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
+                    linker.AddPrimaryExpression(func, dynScalar);
+                }
+            }
+        }
     } else {
         ASSERT(false) << "Impossible function type: " << GetFunctionTypeNameDict().Find(func->GetFunctionType());
     }
@@ -155,7 +194,7 @@ static void SimplifySlots(IncastOutcastLink &inoutLink, DyndevFunctionAttribute 
                           std::unordered_map<Function *, Function *> &rootTileDict) {
     std::vector<bool> slotUsed(inoutLink.totalSlot);
 
-    for (Function *devRoot : attr->devRootList) {
+    for (Function *devRoot : attr->group.devRootList) {
         Function *devTile = rootTileDict[devRoot];
 
         ASSERT(inoutLink.ioslotDict.count(devTile));
@@ -176,7 +215,7 @@ static void SimplifySlots(IncastOutcastLink &inoutLink, DyndevFunctionAttribute 
         slotUsed[slotIdx] = true;
     }
 
-    for (Function *devRoot : attr->devRootList) {
+    for (Function *devRoot : attr->group.devRootList) {
         Function *devTile = rootTileDict[devRoot];
 
         ASSERT(inoutLink.ioslotDict.count(devTile));
@@ -209,7 +248,7 @@ static void SimplifySlots(IncastOutcastLink &inoutLink, DyndevFunctionAttribute 
     };
 
     inoutLink.totalSlot = slotIdxMapping.size();
-    for (Function *devRoot : attr->devRootList) {
+    for (Function *devRoot : attr->group.devRootList) {
         Function *devTile = rootTileDict[devRoot];
 
         ASSERT(inoutLink.ioslotDict.count(devTile));
@@ -241,88 +280,55 @@ static std::string BuildControlFlowCallee(Function *func) {
 }
 
 static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::string &sectionName,
-    Function *func, std::vector<Function *> &devRootList,
-    std::unordered_map<Function *, Function *> &rootTileDict, std::ostringstream &oss, int indent,
-    IntermediateVariableTable *curIvt = nullptr) {
+    Function *func, npu::tile_fwk::DyndevFunctionAttribute::FunctionGroup &group,
+    std::unordered_map<Function *, Function *> &rootTileDict,
+    std::ostringstream &controlFlowOss,
+    std::ostringstream &expressionOss,
+    int indent) {
     auto funcType = func->GetFunctionType();
     if (funcType == FunctionType::DYNAMIC) {
-        IntermediateVariableTable ivt("intermediateVariable");
-        oss << "#include <stdint.h>\n"
+        controlFlowOss
+            << "#include <stdint.h>\n"
+            << "#include \"expression.h\"\n"
             << "#include \"machine/utils/dynamic/codegen/codegen.h\"\n"
             << linker.symbolTable.BuildSymbolList();
         const std::vector<std::string> &inputNameList = Program::GetInstance().GetTensorSlotManager()->GetInputNameList();
         const std::vector<std::string> &outputNameList = Program::GetInstance().GetTensorSlotManager()->GetOutputNameList();
         for (size_t i = 0; i < inputNameList.size(); i++) {
-            oss << "#define " << AddArgPrefix(inputNameList[i]) << " " << i << "\n";
+            controlFlowOss << "#define " << AddArgPrefix(inputNameList[i]) << " " << i << "\n";
         }
         for (size_t i = 0; i < outputNameList.size(); i++) {
-            oss << "#define " << AddArgPrefix(outputNameList[i]) << " " << i << "\n";
+            controlFlowOss << "#define " << AddArgPrefix(outputNameList[i]) << " " << i << "\n";
         }
-        oss << "#define LOOP(idx, b, e, s) for (uint64_t idx = (b), idxEnd = (e), idxStep = (s); idx < idxEnd; idx += idxStep)\n"
+        controlFlowOss << "#define LOOP(idx, b, e, s) for (uint64_t idx = (b), idxEnd = (e), idxStep = (s); idx < idxEnd; idx += idxStep)\n"
             << "namespace npu::tile_fwk {\n"
             << "// " << BuildControlFlowCallee(func) << "\n"
             << "__attribute__((section(\"" << sectionName
             << "\")))\n"
             << "uint64_t ControlFlowEntry(void *ctx, uint64_t *symbolTable, CallRootEntryType callRootList[3], DevStartArgsBase *startArgs) {\n";
         for (auto &callee : GetCalleeList(cache, func)) {
-            BuildControlFlow(cache, linker, sectionName, callee, devRootList, rootTileDict, oss, indent + 1, &ivt);
+            BuildControlFlow(cache, linker, sectionName, callee, group, rootTileDict, controlFlowOss, expressionOss, indent + 1);
         }
-        oss << std::setw((indent + 1) * TABSIZE) << ' ' << "callRootList[CallRootStage::T_CALLROOT_STITCH](ctx, RUNTIME_FINISH_FUNCKEY); // Notify finish \n";
-        oss << std::setw((indent + 1) * TABSIZE) << ' ' << "return 0;\n";
-        oss << "}\n";
-        oss << "} // namespace npu::tile_fwk\n";
+        controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "callRootList[CallRootStage::T_CALLROOT_STITCH](ctx, RUNTIME_FINISH_FUNCKEY); // Notify finish \n";
+        controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "return 0;\n";
+        controlFlowOss << "}\n";
+        controlFlowOss << "} // namespace npu::tile_fwk\n";
     } else if (func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC_LOOP, GraphType::TENSOR_GRAPH)) {
-        ASSERT(curIvt != nullptr);
-        std::vector<IntermediateVariableTable::IntermediateVariableInfo> intermediateVariables;
-        std::function<void(const std::shared_ptr<DynloopFunctionPathNode> &)> intermediateVariableFind =
-            [&linker, &curIvt, &intermediateVariables, &intermediateVariableFind](const std::shared_ptr<DynloopFunctionPathNode> &node){
-            if (!node->cond.IsValid()) {
-                if (node->root->GetGraphType() == GraphType::TILE_GRAPH) {
-                    auto curFunc = node->root->GetRootFunction();
-                    ASSERT(curFunc != nullptr);
-                    ASSERT(linker.rootExpressionTableDict.count(curFunc));
-                    SymbolicExpressionTable &table = linker.rootExpressionTableDict[curFunc];
-                    for (auto &[expr, rawSS] : table.expressionIndexTable) {
-                        (void)expr;
-                        auto result = curIvt->GetAllIntermediateVariables(*rawSS.first);
-                        intermediateVariables.insert(intermediateVariables.end(), result.begin(), result.end());
-                    }
-                }
-                return;
-            }
-            auto result = curIvt->GetAllIntermediateVariables(*node->cond.Raw());
-            intermediateVariables.insert(intermediateVariables.end(), result.begin(), result.end());
-            if (node->branchNodeList[1] != nullptr) {
-                if (node->branchNodeList[0] != nullptr) {
-                    intermediateVariableFind(node->branchNodeList[1]);
-                    intermediateVariableFind(node->branchNodeList[0]);
-                } else {
-                    intermediateVariableFind(node->branchNodeList[1]);
-                }
-            } else {
-                if (node->branchNodeList[0] != nullptr) {
-                    intermediateVariableFind(node->branchNodeList[0]);
-                } else {
-                    ASSERT(false) << "Both conds is nullptr!";
-                }
-            }
-        };
-
         std::function<void(const std::shared_ptr<DynloopFunctionPathNode> &, int)> condBuilder =
-            [&cache, &linker, &sectionName, &devRootList, &rootTileDict, &oss, &condBuilder, &curIvt](
+            [&cache, &linker, &sectionName, &group, &rootTileDict, &controlFlowOss, &expressionOss, &condBuilder](
                 const std::shared_ptr<DynloopFunctionPathNode> &node, int condIndent) {
                 if (!node->cond.IsValid()) {
                     BuildControlFlow(
-                        cache, linker, sectionName, node->root, devRootList, rootTileDict, oss, condIndent, curIvt);
+                        cache, linker, sectionName, node->root, group, rootTileDict, controlFlowOss, expressionOss, condIndent);
                 } else {
-                    std::string cond = curIvt->BuildExpression(node->cond);
+                    std::string cond = SymbolicExpressionTable::BuildExpression(node->cond);
                     if (node->branchNodeList[1] != nullptr) {
                         if (node->branchNodeList[0] != nullptr) {
-                            oss << std::setw(condIndent * TABSIZE) << ' ' << "if (" << cond << ") {" << "\n";
+                            controlFlowOss << std::setw(condIndent * TABSIZE) << ' ' << "if (" << cond << ") {" << "\n";
                             condBuilder(node->branchNodeList[1], condIndent + 1);
-                            oss << std::setw(condIndent * TABSIZE) << ' ' << "} else {" << "\n";
+                            controlFlowOss << std::setw(condIndent * TABSIZE) << ' ' << "} else {" << "\n";
                             condBuilder(node->branchNodeList[0], condIndent + 1);
-                            oss << std::setw(condIndent * TABSIZE) << ' ' << "}" << "\n";
+                            controlFlowOss << std::setw(condIndent * TABSIZE) << ' ' << "}" << "\n";
                         } else {
                             condBuilder(node->branchNodeList[1], condIndent);
                         }
@@ -337,33 +343,18 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
             };
         auto attr = func->GetDynloopAttribute();
         ASSERT(attr != nullptr);
-        auto result1 = curIvt->GetAllIntermediateVariables(*attr->Begin().Raw());
-        auto result2 = curIvt->GetAllIntermediateVariables(*attr->End().Raw());
-        intermediateVariables.insert(intermediateVariables.end(), result1.begin(), result1.end());
-        intermediateVariables.insert(intermediateVariables.end(), result2.begin(), result2.end());
-        std::string iterBegin = curIvt->BuildExpression(attr->Begin());
-        std::string iterEnd = curIvt->BuildExpression(attr->End());
+        std::string iterBegin = SymbolicExpressionTable::BuildExpression(attr->Begin());
+        std::string iterEnd = SymbolicExpressionTable::BuildExpression(attr->End());
         std::string iterStep = SymbolicExpressionTable::BuildExpression(attr->Step());
         if (attr->submitBeforeLoop) {
-            oss << std::setw(indent * TABSIZE) << ' ' << "callRootList[CallRootStage::T_CALLROOT_STITCH](ctx, RUNTIME_FINISH_FUNCKEY); // force submit before LOOP \n";
+            controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "callRootList[CallRootStage::T_CALLROOT_STITCH](ctx, RUNTIME_FINISH_FUNCKEY); // force submit before LOOP \n";
         }
-        oss << std::setw(indent * TABSIZE) << ' ' << "// hash=" << func->GetFunctionHash() << "\n";
-        // Outer intermediate variables
-        for (const auto &[name, expression] : intermediateVariables) {
-            oss << std::setw(indent * TABSIZE) << ' ' << "uint64_t " << name << " = " << expression << ";" << std::endl;
-        }
-        intermediateVariables.clear();
-        oss << std::setw(indent * TABSIZE) << ' ' << "LOOP(INDEX, " << iterBegin << ", " << iterEnd << ", " << iterStep << ") {\n";
-        oss << std::setw((indent + 1) * TABSIZE) << ' ' << "VALUE_" << attr->iterSymbolName << " = INDEX;\n";
+        controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "// hash=" << func->GetFunctionHash() << "\n";
+        controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "LOOP(INDEX, " << iterBegin << ", " << iterEnd << ", " << iterStep << ") {\n";
+        controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "VALUE_" << attr->iterSymbolName << " = INDEX;\n";
 
         auto pathNode = attr->BuildPathNode();
-        ALOG_INFO("Paths: \n", pathNode->Dump());
-        // Inner intermediate variables
-        auto curIvtCheckPoint = *curIvt;
-        intermediateVariableFind(pathNode);
-        for (const auto &[name, expression] : intermediateVariables) {
-            oss << std::setw((indent + 1) * TABSIZE) << ' ' << "uint64_t " << name << " = " << expression << ";" << std::endl;
-        }
+        ALOG_INFO("Paths: \n", pathNode->Dump());                
         std::vector<Function *> calleeList = GetCalleeList(cache, func);
         std::sort(calleeList.begin(), calleeList.end());
 
@@ -375,34 +366,30 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
 
         ASSERT(calleeList == pathRootList);
         condBuilder(pathNode, indent + 1);
-        oss << std::setw(indent * TABSIZE) << ' ' << "}\n";
-        *curIvt = curIvtCheckPoint;
+        controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "}\n";
     } else if (func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC_LOOP_PATH, GraphType::TENSOR_GRAPH)) {
-        oss << std::setw(indent * TABSIZE) << ' ' << "// " << BuildControlFlowCallee(func) << "\n";
-        auto curIvtCheckPoint = *curIvt;
+        controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "// " << BuildControlFlowCallee(func) << "\n";
         for (auto &callee : GetCalleeList(cache, func)) {
-            BuildControlFlow(cache, linker, sectionName, callee, devRootList, rootTileDict, oss, indent + 1, curIvt);
+            BuildControlFlow(cache, linker, sectionName, callee, group, rootTileDict, controlFlowOss, expressionOss, indent + 1);
         }
-        *curIvt = curIvtCheckPoint;
     } else if (func->GetGraphType() == GraphType::TILE_GRAPH) {
-        oss << std::setw(indent * TABSIZE) << ' ' << "// " << BuildControlFlowCallee(func) << "\n";
+        controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "// " << BuildControlFlowCallee(func) << "\n";
         Function *root = func->GetRootFunction();
         rootTileDict[root] = func;
-        BuildControlFlow(cache, linker, sectionName, root, devRootList, rootTileDict, oss, indent, curIvt);
+        BuildControlFlow(cache, linker, sectionName, root, group, rootTileDict, controlFlowOss, expressionOss, indent);
     } else if (func->GetGraphType() == GraphType::ROOT_GRAPH) {
-        int key = devRootList.size();
-        oss << std::setw(indent * TABSIZE) << ' ' << "// " << BuildControlFlowCallee(func) << "\n";
-        oss << std::setw(indent * TABSIZE) << ' ' << "uint64_t *exprList" << key << " = (uint64_t *)callRootList[CallRootStage::T_CALLROOT_ALLOC](ctx, " << key << "ULL);\n";
+        ASSERT(group.devRootList.count(func));
+        int devRootKey = group.devRootList.GetIndex(func);
+        controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "// " << BuildControlFlowCallee(func) << "\n";
+        controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "uint64_t *exprList" << devRootKey << " = (uint64_t *)callRootList[CallRootStage::T_CALLROOT_ALLOC](ctx, " << devRootKey << "ULL);\n";
         if (linker.rootExpressionTableDict.count(func) != 0) {
             SymbolicExpressionTable &table = linker.rootExpressionTableDict[func];
-            for (auto &[expr, rawSS] : table.expressionIndexTable) {
-                (void)expr;
-                oss << std::setw(indent * TABSIZE) << ' ' << "exprList" << key << "[" << rawSS.second << "] = " << curIvt->BuildExpression(SymbolicScalar(rawSS.first)) << ";\n";
+            for (auto &[expr, index] : table.expressionIndexTable) {
+                controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "exprList" << devRootKey << "[" << index << "] = " << expr << ";\n";
             }
         }
 
-        oss << std::setw(indent * TABSIZE) << ' ' << "callRootList[CallRootStage::T_CALLROOT_STITCH](ctx, " << key << "ULL);\n";
-        devRootList.push_back(func);
+        controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "callRootList[CallRootStage::T_CALLROOT_STITCH](ctx, " << devRootKey << "ULL);\n";
     } else {
         ASSERT(false) << "Impossible function type: " << GetFunctionTypeNameDict().Find(funcType);
     }
@@ -450,12 +437,13 @@ static void SetDyndevProgBinary(Function *function) {
 }
 
 static void CompileDyndevFunction(Function *function, FunctionCache &cache) {
-    Linker linker;
-    FindAllExpression(cache, linker, function);
-    linker.BuildAndLoad();
-
     std::shared_ptr<DyndevFunctionAttribute> attr = function->GetDyndevAttribute();
     ASSERT(attr != nullptr);
+
+    Linker linker;
+    FindAllExpression(cache, linker, function, attr->group);
+    linker.BuildAndLoad();
+
     FillL2PrefetchInfo(attr);
     attr->symbolTable = linker.symbolTable;
     attr->rootExpressionTableDict = linker.rootExpressionTableDict;
@@ -468,24 +456,50 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache) {
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
     attr->inoutLink = slotManager->BuildIncastOutcastLink(function->GetRawName());
 
-    std::ostringstream oss;
+    std::ostringstream controlFlowOss;
+    std::ostringstream expressionOss;
+
     std::unordered_map<Function *, Function *> rootTileDict;
-    BuildControlFlow(cache, linker, "ast2", function, attr->devRootList, rootTileDict, oss, 0);
-    std::string controlFlowSource = oss.str();
+    expressionOss << "#ifndef TILE_FWK_EXPRESSION_H" << "\n"
+                  << "#define TILE_FWK_EXPRESSION_H" << "\n";
+    for (auto &[func, builder] : linker.rootExpressionTableBuilderDict) {
+        std::string prefix;
+        if (attr->group.loopList.count(func)) {
+            prefix = npu::tile_fwk::SymbolicExpressionTableBuilder::GetExprNameLoopPrefix(attr->group.loopList.GetIndex(func));
+        } else if (attr->group.devRootList.count(func)) {
+            prefix = npu::tile_fwk::SymbolicExpressionTableBuilder::GetExprNameRootPrefix(attr->group.devRootList.GetIndex(func));
+        } else if (attr->group.devLeafList.count(func)) {
+            prefix = npu::tile_fwk::SymbolicExpressionTableBuilder::GetExprNameLeafPrefix(attr->group.devLeafList.GetIndex(func));
+        } else {
+            ASSERT(false) << "Unknown function: " << func->GetMagicName();
+        }        
+        std::string title = "name=" + func->GetRawName() + " hash=" + std::to_string(func->GetFunctionHash().GetHash());
+        expressionOss << builder.BuildExpressionList(prefix, title);
+    }    
+    BuildControlFlow(cache, linker, "ast2", function, attr->group, rootTileDict, controlFlowOss, expressionOss, 0);
+    expressionOss << "#endif/*TILE_FWK_EXPRESSION_H*/" << "\n";
+    std::string controlFlowSource = controlFlowOss.str();
+    std::string expressionSource = expressionOss.str();
 
 #ifdef __x86_64__
     std::string cflags = "-mno-sse2 -mno-sse";
 #else
     std::string cflags = "";
 #endif
+
+    std::string aicpuDirPath = GetEmitPath("kernel_aicpu");
+    npu::tile_fwk::CreateMultiLevelDir(aicpuDirPath);
+
+    DumpFile(expressionSource, aicpuDirPath + "/expression.h");
+    
     attr->hostControlFlowBinary = CompileAndLoadSection(
-        controlFlowSource, config::LogTopFolder() + "/controlFlow_host.cpp",
+        controlFlowSource, aicpuDirPath + "/controlFlow_host.cpp",
         "g++", "objcopy", "ast2", cflags);
     AlignUpTo(attr->hostControlFlowBinary, 0x8, 0);
 #ifdef ASCEND_CANN_ROOT_PATH
     if (ToolchainExist(Arm64TargetTool("g++"))) {
         attr->devControlFlowBinary = CompileAndLoadSection(
-            controlFlowSource, config::LogTopFolder() + "/controlFlow_dev.cpp",
+            controlFlowSource, aicpuDirPath + "/controlFlow_dev.cpp",
             Arm64TargetTool("g++"), Arm64TargetTool("objcopy"), "ast2");
     } else {
         // brk #0
@@ -498,8 +512,14 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache) {
 #endif // ifdef ASCEND_CANN_ROOT_PATH
 
     std::map<std::string, Function *> leafDict;
-    for (size_t i = 0; i < attr->devRootList.size(); i++) {
-        Function *devRoot = attr->devRootList[i];
+    for (auto &devRoot : attr->group.devRootList) {
+        if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, false)) {
+            Function *devTile = rootTileDict[devRoot];
+            npu::tile_fwk::CodeGenCtx codeGenCtx("", GetEmitPath("kernel_aicore"));
+            npu::tile_fwk::CodeGen codeGen(codeGenCtx);
+            codeGen.GenCode(*devTile, {});
+        }
+
         for (auto &[hash, leaf] : devRoot->programs_) {
             (void) hash;
             if (!leafDict.count(leaf->GetRawName())) {
@@ -538,9 +558,9 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache) {
     encodeDevAscendFunctionParam.inoutLink = &attr->inoutLink;
 
     SimplifySlots(attr->inoutLink, attr.get(), rootTileDict);
-    attr->devEncodeList.resize(attr->devRootList.size());
-    for (size_t i = 0; i < attr->devRootList.size(); i++) {
-        Function *devRoot = attr->devRootList[i];
+    attr->devEncodeList.resize(attr->group.devRootList.size());
+    for (auto &devRoot : attr->group.devRootList) {
+        int devRootKey = attr->group.devRootList.GetIndex(devRoot);
         ALOG_INFO("Dyndev.encode: ", devRoot->GetRawName());
 
         ASSERT(rootTileDict.count(devRoot));
@@ -559,9 +579,9 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache) {
         uint64_t size = 0;
         EncodeDevAscendFunction(encodeDevAscendFunctionParam, size, nullptr);
 
-        attr->devEncodeList[i].resize(size);
-        DevAscendFunction *funcBin = reinterpret_cast<DevAscendFunction *>(&attr->devEncodeList[i][0]);
-        funcBin->funcKey = i;
+        attr->devEncodeList[devRootKey].resize(size);
+        DevAscendFunction *funcBin = reinterpret_cast<DevAscendFunction *>(&attr->devEncodeList[devRootKey][0]);
+        funcBin->funcKey = devRootKey;
         funcBin->stackWorkSpaceSize = devTile->GetStackWorkespaceSize();
         EncodeDevAscendFunction(encodeDevAscendFunctionParam, size, funcBin);
         funcBin->Reloc(-reinterpret_cast<int64_t>(funcBin), true);
@@ -578,8 +598,11 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache) {
 }
 
 MachineTask *GenCode(
-    MachineTask *task, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset, FunctionCache &cache) {
-    npu::tile_fwk::CodeGen codeGen;
+    MachineTask *task, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset, FunctionCache &cache) {        
+    npu::tile_fwk::CodeGenCtx codeGenCtx("", GetEmitPath("kernel_aicore"));
+    npu::tile_fwk::CreateMultiLevelDir(codeGenCtx.ccePath);
+
+    npu::tile_fwk::CodeGen codeGen(codeGenCtx);
     auto function = task->GetFunction();
     /* each leafFunction inside is compiled to a standalone object file.
      * the filepath of the object file is updated to the binPath_ member.
@@ -589,8 +612,8 @@ MachineTask *GenCode(
         Program::GetInstance().DumpJsonFile(jsonPath);
         codeGen.GenCode(jsonPath, invokeParaOffset);
         task->SetFunction(Program::GetInstance().GetCurrentFunction());
-    } else if (function->GetGraphType() == GraphType::TILE_GRAPH) {
-        codeGen.GenCode(*function, invokeParaOffset);
+    } else if (function->GetGraphType() == GraphType::TILE_GRAPH) {        
+        codeGen.GenCode(*function, invokeParaOffset);        
     } else {
         if (function->IsFunctionType(FunctionType::DYNAMIC)) {
             CompileDyndevFunction(function, cache);

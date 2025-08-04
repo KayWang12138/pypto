@@ -463,3 +463,210 @@ TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard) {
     EXPECT_TRUE(resultCmp(golden, (float *)outs1->data(), 0.001f));
 #endif
 }
+namespace DynamicTest {
+
+TEST_F(DynamicBasicTest, TestTensorExtract) {
+    int tiling = 32;
+    Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling);
+    Program::GetInstance().GetTileShape().SetCubeTileShapes({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
+
+    int n = tiling * 1;
+    int s = 32;
+    Tensor inputA(DT_INT32, {n, n}, "inputA");
+    Tensor output(DT_INT32, {1, s}, "output");
+    int v = 20;
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<int32_t>(inputA, v),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<int32_t>(output, 0),
+    });
+
+    FUNCTION("main", FunctionType::DYNAMIC, {inputA}, {output}) {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            Tensor t0 = AddS(inputA, Element(DT_INT32, (int64_t)2));
+            output = TensorExtract(t0, {0, 3});
+        }
+    }
+
+    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+    (void)funcOp;
+#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+    DynFuncRunner::Run(funcOp);
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_EQ(v + 2, *(int32_t *)outs->data());
+#endif
+}
+
+TEST_F(DynamicBasicTest, TestGetTensorData) {
+    int tiling = 32;
+    Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling);
+    Program::GetInstance().GetTileShape().SetCubeTileShapes({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
+
+    int n = tiling * 1;
+    int s = n * 8;
+    Tensor inputA(DT_INT32, {n, n}, "inputA");
+    Tensor inputC(DT_FP32, {n, s}, "inputC");
+    Tensor output(DT_FP32, {n, n}, "output");
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<int32_t>(inputA, 1),
+        RawTensorData::CreateConstantTensor<float>(inputC, 2.0),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(output, 0.0f),
+    });
+
+    FUNCTION("main", FunctionType::DYNAMIC, {inputA, inputC}, {output}) {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            Tensor t0 = AddS(inputA, Element(DT_INT32, (int64_t)2));
+            SymbolicScalar v0 = GetTensorDataInt32(t0, 0, 1); // t0[0, 1] == 3
+            SymbolicScalar v1 = GetTensorDataInt32(t0, 0, 2); // t0[0, 2] == 3
+            auto t2 = DView(inputC, {n, n}, {0, v0 * n});
+            auto t3 = DView(inputC, {n, n}, {0, v1 * n});
+            output = Mul(t2, t3);
+        }
+    }
+
+    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+    (void)funcOp;
+#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+    DynFuncRunner::Run(funcOp);
+    std::vector<float> golden(n * n, 4.0f);
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+#endif
+}
+
+TEST_F(DynamicBasicTest, TestVectorDup) {
+    int tiling = 32;
+    Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling);
+    Program::GetInstance().GetTileShape().SetCubeTileShapes({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
+
+    int n = tiling * 1;
+    Tensor output(DT_FP32, {n, n}, "output");
+
+    ProgramData::GetInstance().AppendInputs({
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<int32_t>(output, 0),
+    });
+
+    FUNCTION("main", FunctionType::DYNAMIC, {}, {output}) {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            SymbolicScalar v = 20;
+            output = VectorDuplicate(v + 30, DT_INT32, {n, n});
+        }
+    }
+
+    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+    (void)funcOp;
+#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+    DynFuncRunner::Run(funcOp);
+    std::vector<int32_t> golden(n * n, 50);
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (int32_t *)outs->data(), 0.001f));
+#endif
+}
+
+TEST_F(DynamicBasicTest, TestTensorInsert) {
+    int tiling = 32;
+    Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling);
+    Program::GetInstance().GetTileShape().SetCubeTileShapes({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
+
+    int n = tiling * 1;
+    Tensor output(DT_INT32, {n}, "output");
+
+    ProgramData::GetInstance().AppendInputs({
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<int32_t>(output, 0),
+    });
+
+    FUNCTION("main", FunctionType::DYNAMIC, {}, {output}) {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) {
+            auto tmp = VectorDuplicate(20, DT_INT32, {1});
+            TensorInsert(tmp, {i}, output);
+        }
+    }
+
+    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+    (void)funcOp;
+#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+    DynFuncRunner::Run(funcOp);
+    std::vector<int32_t> golden(n, 20);
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (int32_t *)outs->data(), 0.001f));
+#endif
+}
+
+TEST_F(DynamicBasicTest, TestSetTensorData) {
+    int tiling = 32;
+    Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling);
+    Program::GetInstance().GetTileShape().SetCubeTileShapes({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
+
+    int n = tiling * 1;
+    Tensor output(DT_INT32, {n}, "output");
+
+    ProgramData::GetInstance().AppendInputs({
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<int32_t>(output, 0),
+    });
+
+    FUNCTION("main", FunctionType::DYNAMIC, {}, {output}) {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) {            
+            SetTensorDataInt32(30, {i}, output);
+        }
+    }
+
+    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+    (void)funcOp;
+#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+    DynFuncRunner::Run(funcOp);
+    std::vector<int32_t> golden(n, 30);
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (int32_t *)outs->data(), 0.001f));
+#endif
+}
+
+TEST_F(DynamicBasicTest, TestSetTensorDataExpr) {
+    ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
+
+    int tiling = 32;    
+    Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling);
+    Program::GetInstance().GetTileShape().SetCubeTileShapes({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
+
+    int n = tiling * 1;
+    Tensor output(DT_INT32, {n}, "output");
+
+    ProgramData::GetInstance().AppendInputs({
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<int32_t>(output, 0),
+    });
+
+    FUNCTION("main", FunctionType::DYNAMIC, {}, {output}) {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) {            
+            SetTensorDataInt32(i + 100, {i}, output);
+        }
+    }
+
+    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+    (void)funcOp;
+#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+    DynFuncRunner::Run(funcOp);
+    std::vector<int32_t> golden(n);
+    for (int i = 0; i < n; i++) {
+        golden[i] = i + 100;
+    }
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (int32_t *)outs->data(), 0.001f));
+#endif
+}
+
+}

@@ -139,7 +139,12 @@ std::string CodeGenOpCloudNPU::GenDupOp() const {
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
 
     std::string dupV;
-    if (dstDtypeStr == "float") {
+    if (opAttrs.count(OpAttributeKey::dynScalar)) {
+        auto scalar = opAttrs.at(OpAttributeKey::dynScalar);
+        ASSERT((scalar.HasValue()) && (scalar.Type() == typeid(SymbolicScalar)))
+            << npu::tile_fwk::AnyCast<SymbolicScalar>(scalar).IsValid() << "SCALAR attribute has to have symbolic value.";
+        dupV = npu::tile_fwk::AnyCast<SymbolicScalar>(scalar).Dump();
+    } else if (dstDtypeStr == "float") {
         auto scalar = opAttrs.at(OpAttributeKey::scalar);
         ASSERT((scalar.HasValue()) && (scalar.Type() == typeid(Element)))
             << npu::tile_fwk::AnyCast<Element>(scalar).IsFloat() << "SCALAR attribute has to have float value.";
@@ -1832,6 +1837,18 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(bool isUseScalar) const {
     if (isUseScalar) {
         // Scalar op
         return PrintBinaryScalar({s0Var, dVar, dstDtypeStr, dstDtypeStr, shape[0].size()});
+    }
+
+    if (opAttrs.count(npu::tile_fwk::OP_EMUOP_PREFIX + "opc")) {
+        // Hack: should be optimized to memory copy in pass
+        int emuopc = AnyCast<int>(opAttrs.find(npu::tile_fwk::OP_EMUOP_PREFIX + "opc")->second);
+        if (emuopc == npu::tile_fwk::EMUOP_TENSOR_EXTRACT) {
+            ret = sprintf_s(buffer, sizeof(buffer), "RUNTIME_TensorExtract(/*type=*/%s, /*mem=*/__ubuf__, /*dst*/%s, /*src*/%s);\n",
+                            dstDtypeStr.c_str(), dVar.c_str(), s0Var.c_str());
+            ASSERT(ret >= 0) << "GenVectorScalarOpByMode " << OpcodeManager::Inst().GetOpcodeStr(opCode)
+                             << " failed " << ret;
+            return buffer;
+        }
     }
 
     if (isSupportDynamicUnaligned) {

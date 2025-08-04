@@ -16,6 +16,7 @@
 #pragma once
 #include <vector>
 #include <set>
+#include <map>
 #include <string>
 #include <memory>
 #include <unordered_set>
@@ -195,6 +196,16 @@ private:
     std::set<Operation *, CompareOp> consumers_;
 };
 
+enum EmuOpcode {
+    EMUOP_TENSOR_EXTRACT,
+    EMUOP_TENSOR_INSERT,
+    EMUOP_TENSOR_GETDATA,
+    EMUOP_TENSOR_SETDATA,
+};
+
+Tensor TensorExtract(const Tensor &src, const std::vector<SymbolicScalar> &offset);
+void TensorInsert(const Tensor &src, const std::vector<SymbolicScalar> &offset, Tensor &dst);
+
 SymbolicScalar GetViewValidShapeDim(
     const SymbolicScalar &validShapeDim,
     const SymbolicScalar &viewOffsetDim,
@@ -204,6 +215,26 @@ std::vector<SymbolicScalar> GetViewValidShape(
     const std::vector<int> &viewOffset,
     const std::vector<SymbolicScalar> &viewDynOffset,
     const std::vector<int> &viewShape);
+
+std::map<int, RawSymbolicScalarPtr> GetTensorDataDict(const SymbolicScalar &dimOffset);
+std::map<int, RawSymbolicScalarPtr> GetTensorDataDict(const std::vector<SymbolicScalar> &offset);
+
+struct GetTensorDataIODesc {
+    int ioType{-1};
+    int ioTypeIndex{-1};
+    // encode both incast & outcast
+    SymbolicScalar address;
+    GetTensorDataIODesc() = default;
+    GetTensorDataIODesc(int ioType_, int ioTypeIndex_, SymbolicScalar address_) : ioType(ioType_), ioTypeIndex(ioTypeIndex_), address(address_) {}
+};
+constexpr int GET_TENSOR_DATA_OPERAND_INDEX_CALLEE = 0;
+constexpr int GET_TENSOR_DATA_OPERAND_INDEX_INDEX = 1;
+constexpr int GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE = 2;
+constexpr int GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX = 3;
+constexpr int GET_TENSOR_DATA_OPERAND_INDEX_IOINDEX = 4;
+constexpr int GET_TENSOR_DATA_OPERAND_IOTYPE_INCAST = 0;
+constexpr int GET_TENSOR_DATA_OPERAND_IOTYPE_OUTCAST = 1;
+SymbolicScalar GetTensorDataFillIO(const std::unordered_map<int, GetTensorDataIODesc> &iodescDict, const SymbolicScalar &dimOffset);
 
 constexpr int RUNTIME_GET_PARAM_OFFSET_OPERAND_INDEX_DIM_SIZE_INDEX = 1;
 constexpr int RUNTIME_GET_PARAM_OFFSET_OPERAND_INDEX_COA_INDEX = 2;

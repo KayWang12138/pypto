@@ -28,6 +28,11 @@ namespace npu::tile_fwk {
 namespace {
 const int FILE_AUTHORITY = 0640;
 }
+
+bool FileExist(const std::string &filePath) {
+    return !RealPath(filePath).empty();
+}
+
 std::string RealPath(const std::string &path) {
     if (path.empty()) {
         ALOG_INFO("path string is nullptr.");
@@ -286,6 +291,10 @@ bool DumpFile(const char *data, const size_t size, const std::string &filePath) 
 
 bool DumpFile(const std::vector<uint8_t> &data, const std::string &filePath) {
     return DumpFile(reinterpret_cast<const char *>(data.data()), data.size(), filePath);
+}
+
+bool DumpFile(const std::string &text, const std::string &filePath) {
+    return DumpFile(text.data(), text.size(), filePath);
 }
 
 std::vector<uint8_t> LoadFile(const std::string &filePath) {

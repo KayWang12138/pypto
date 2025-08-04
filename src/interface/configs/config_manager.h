@@ -85,6 +85,9 @@ const std::string KEY_AICPU_WAIT_FLAG_ENABLE = "AICPU_WAIT_FLAG_ENABLE";
 const std::string KEY_SUPPORT_DYNAMIC_UNALIGNED = "SUPPORT_DYNAMIC_UNALIGNED";
 const std::string KEY_PARALLEL_THREAD_NUM = "PARALLEL_THREAD_NUM";
 const std::string KEY_CODEGEN_BY_JSON = "CODEGEN_BY_JSON";
+const std::string KEY_CODEGEN_DUMP_TO_OUTPUT = "CODEGEN_DUMP_TO_OUTPUT"; // if true, dump cce to output directory
+const std::string KEY_CODEGEN_FORCE_DUMP_CCE_ON_EXIST = "CODEGEN_FORCE_DUMP_CCE_ON_EXIST"; // if true, don't dump cce when file exists
+const std::string KEY_CODEGEN_EXPRESSION_FUSION = "CODEGEN_EXPRESSION_FUSION"; // if true, add inclue to fusion header
 
 enum class DPlatform {
     ASCEND_910B1,

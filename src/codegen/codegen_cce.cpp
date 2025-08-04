@@ -31,7 +31,7 @@ void CodeGenCCE::PrepareDefaultOutputPath() {
         return;
     }
 
-    std::string outputPath = cwd + "/kernel_meta";
+    std::string outputPath = cwd + "/kernel_aicore";
 
     struct stat st = {};
     bool outPathExist = stat(outputPath.c_str(), &st) == 0;

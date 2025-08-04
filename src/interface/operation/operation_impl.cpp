@@ -934,6 +934,26 @@ constexpr int SMALL_CHANNEL_4 = 4;
 constexpr int SMALL_CHANNEL_8 = 8;
 constexpr int SMALL_CHANNEL_16 = 16;
 
+static void MaybeAppendGetTensorData(Operation *op, const std::vector<SymbolicScalar> &offset) {
+    (void)op;
+    auto currDynFunc = Program::GetInstance().GetCurrentDynamicFunction();
+    if (currDynFunc == nullptr) {
+        return;
+    }
+
+    auto currDynAttr = currDynFunc->GetDyndevAttribute();
+    auto getTensorDataDict = GetTensorDataDict(offset);
+    for (auto &[getTensorDataIndex, _] : getTensorDataDict) {
+        (void)_;
+        ASSERT(currDynAttr->getTensorDataDict.count(getTensorDataIndex)) << "Invalid index!";
+        auto tensor = currDynAttr->getTensorDataDict[getTensorDataIndex].outcastTensor;
+        // The goal of this view is to add the tensor as incast.
+        auto tensorLoad = View(*tensor, {1}, {getTensorDataIndex});
+        auto tensorLoadOp = *tensorLoad->GetProducers().begin();
+        tensorLoadOp->SetAttr<int>(OP_EMUOP_PREFIX + "GetTensorData_tensor_to_scalar", getTensorDataIndex);
+    }
+}
+
 Tensor View(const Tensor &operand, const std::vector<int> &shapes, const std::vector<int> &offsets) {
     DECLARE_TRACER();
     Tensor result(operand->Datatype(), shapes, "View_" + operand->GetRawTensor()->GetSymbol(), operand->nodetype, operand->tensorfmt);
@@ -956,6 +976,7 @@ Tensor DView(const Tensor &operand, const std::vector<int> &shapes, const std::v
     result->UpdateDynValidShape(validShape);
     std::vector<int> newOffsetsConcrete = SymbolicScalar::Concrete(newOffsets, 0);
     op.SetOpAttribute(std::make_shared<ViewOpAttribute>(newOffsetsConcrete, newOffsets, validShape));
+    MaybeAppendGetTensorData(&op, newOffsets);
     return result;
 }
 
@@ -968,6 +989,7 @@ Tensor DViewPad(const Tensor &operand, const std::vector<int> &shapes,
     std::vector<int> newOffsetsConcrete = SymbolicScalar::Concrete(newOffsets, 0);
     op.SetOpAttribute(std::make_shared<ViewOpAttribute>(newOffsetsConcrete, newOffsets, newValidShapes));
     result->UpdateDynValidShape(newValidShapes);
+    MaybeAppendGetTensorData(&op, newOffsets);
     return result;
 }
 
@@ -1753,7 +1775,7 @@ Tensor Gather(const Tensor &params, const Tensor &indices, int axis) {
     RETURN_CALL(GatherOperation, *Program::GetInstance().GetCurrentFunction(), params.GetStorage(), indices.GetStorage(), axis);
 }
 
-void TiledVecDup(Function &function, const TileShape &tileShape, size_t cur, Element &value,
+void TiledVecDup(Function &function, const TileShape &tileShape, size_t cur, const Element &value, const SymbolicScalar &dynValue,
     std::vector<int> &shape, const std::vector<SymbolicScalar> &validShape, const LogicalTensorPtr &results,
     TileInfo &resultTileInfo) {
     if (cur == results->shape.size()) {
@@ -1771,6 +1793,9 @@ void TiledVecDup(Function &function, const TileShape &tileShape, size_t cur, Ele
         auto &op = function.AddOperation("TILE_VEC_DUP", {}, {resultTile});
 
         op.SetAttribute(OpAttributeKey::scalar, value);
+        if (dynValue.IsValid()) {
+            op.SetAttribute(OpAttributeKey::dynScalar, dynValue);
+        }
         op.SetAttribute(OP_ATTR_PREFIX + "shape", resultTileInfo.shape);
         op.SetAttribute(OP_ATTR_PREFIX + "validShape", resultTile->GetDynValidShape());
         return;
@@ -1779,21 +1804,24 @@ void TiledVecDup(Function &function, const TileShape &tileShape, size_t cur, Ele
     for (int i = 0; i < results->shape[cur]; i += tileShape.V(cur)) {
         resultTileInfo.offset[cur] = i;
         resultTileInfo.shape[cur] = std::min(results->shape[cur] - i, tileShape.V(cur));
-        TiledVecDup(function, tileShape, cur + 1, value, shape, validShape, results, resultTileInfo);
+        TiledVecDup(function, tileShape, cur + 1, value, dynValue, shape, validShape, results, resultTileInfo);
     }
 }
 
-void TiledVecDup(Function &function, const TileShape &tileShape, Element &value,
+void TiledVecDup(Function &function, const TileShape &tileShape, const Element &value, const SymbolicScalar &dynValue,
     std::vector<int> &shape, const std::vector<SymbolicScalar> &validShape, const LogicalTensorPtr &results) {
     TileInfo resultTileInfo(results->shape.size(), results->offset.size());
-    TiledVecDup(function, tileShape, 0, value, shape, validShape, results, resultTileInfo);
+    TiledVecDup(function, tileShape, 0, value, dynValue, shape, validShape, results, resultTileInfo);
 }
 
-Tensor TensorVectorDuplicateOperation(Function &function, const Element& src,
+Tensor TensorVectorDuplicateOperation(Function &function, const Element& src, const SymbolicScalar &dynValue,
     DataType dtype, const std::vector<int> &dstShape, const std::vector<SymbolicScalar> &validShape) {
     auto result = std::make_shared<LogicalTensor>(function, dtype, dstShape, validShape);
     auto &op = function.AddOperation(Opcode::OP_VEC_DUP, {}, {result}); //输入没有tensor
     op.SetAttribute(OpAttributeKey::scalar, src);
+    if (dynValue.IsValid()) {
+        op.SetAttribute(OpAttributeKey::dynScalar, dynValue);
+    }
     op.SetAttribute(OP_ATTR_PREFIX + "shape", dstShape);
     op.SetAttribute(OP_ATTR_PREFIX + "validShape", validShape);
     return result;
@@ -1806,7 +1834,17 @@ Tensor VectorDuplicate(const Element &src, DataType dtype, std::vector<int> dstS
         for (auto x : dstShape)
             validShape.emplace_back(x);
     }
-    RETURN_CALL(VectorDuplicateOperation, *Program::GetInstance().GetCurrentFunction(), src, dtype, dstShape, validShape);
+    RETURN_CALL(VectorDuplicateOperation, *Program::GetInstance().GetCurrentFunction(), src, SymbolicScalar(), dtype, dstShape, validShape);
+}
+
+Tensor VectorDuplicate(const SymbolicScalar &dynSrc, DataType dtype, std::vector<int> dstShape,
+    std::vector<SymbolicScalar> validShape) {
+    DECLARE_TRACER();
+    if (validShape.empty()) {
+        for (auto x : dstShape)
+            validShape.emplace_back(x);
+    }
+    RETURN_CALL(VectorDuplicateOperation, *Program::GetInstance().GetCurrentFunction(), Element(dtype, (int64_t)0), dynSrc, dtype, dstShape, validShape);
 }
 
 Tensor GatherElement(const Tensor &params, const Tensor &indices, int axis) {
@@ -2169,6 +2207,7 @@ void TensorDInnerAssemble(Function &function, const LogicalTensorPtr &operand,
     auto &op = function.AddOperation(Opcode::OP_ASSEMBLE, {operand}, {result});
     op.SetAssembleOpAttribute(offset, dynOffset);
     op.SetAttribute("dassemble", true);
+    MaybeAppendGetTensorData(&op, dynOffset);
 }
 
 void DInnerAssemble(Function &function, const LogicalTensorPtr &operand,
@@ -3707,10 +3746,14 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
         }
         case Opcode::OP_VEC_DUP: {
             Element scalar = op.GetElementAttribute(OpAttributeKey::scalar);
+            SymbolicScalar dynScalar;
+            if (op.HasAttr(OpAttributeKey::dynScalar)) {
+                dynScalar = op.GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
+            }
             std::vector<int> shape = op.GetVectorIntAttribute(OP_ATTR_PREFIX + "shape");
             std::vector<SymbolicScalar> validShape;
             op.GetAttr(OP_ATTR_PREFIX + "validShape", validShape);
-            TiledVecDup(function, tileShape, scalar, shape, validShape, oOperand[0]);
+            TiledVecDup(function, tileShape, scalar, dynScalar, shape, validShape, oOperand[0]);
             break;
         }
         case Opcode::OP_DIST_SCATTER: {

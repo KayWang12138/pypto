@@ -28,7 +28,7 @@
 
 namespace npu::tile_fwk {
 const std::string OP_ATTR_PREFIX = "op_attr_";
-const std::string OP_ATTR_EMUOP_PREFIX = "op_attr_emuop_";
+const std::string OP_EMUOP_PREFIX = "op_emuop_";
 
 class AttrHolder {
 private:

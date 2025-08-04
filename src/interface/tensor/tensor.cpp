@@ -322,6 +322,77 @@ SymbolicScalar npu::tile_fwk::GetInputDataInt32Dim3(const Tensor &t, SymbolicSca
     return getInputDataInt32Dim3(input, off0, off1, off2);
 }
 
+namespace npu::tile_fwk {
+
+static
+SymbolicScalar DoGetTensorDataInt32(SymbolHandlerId handlerId, const Tensor &t, const std::vector<SymbolicScalar> &offset) {
+    ASSERT(t.GetShape().size() == offset.size()) << "Mismatch dimension: " << t.GetShape().size() << " vs " << offset.size() << "\n";
+    Program::GetInstance().GetTensorSlotManager()->TensorRead(t);
+
+    auto currDynFunc = Program::GetInstance().GetCurrentDynamicFunction();
+    ASSERT(currDynFunc != nullptr) << "Not under dynamic function!\n";
+
+    auto currDynAttr = currDynFunc->GetDyndevAttribute();
+    int getTensorDataIndex = currDynAttr->getTensorDataCount++;
+
+    auto extract = std::make_shared<Tensor>(TensorExtract(t, offset));
+
+    auto emuopAssemble = *extract->GetStorage()->GetProducers().begin();
+    auto emuopMark = *emuopAssemble->GetIOperands()[0]->GetProducers().begin();
+    auto emuopView = *emuopMark->GetIOperands()[0]->GetProducers().begin();
+    emuopView->SetAttr<int>(OP_EMUOP_PREFIX + "GetTensorData_index", getTensorDataIndex);
+    emuopMark->SetAttr<int>(OP_EMUOP_PREFIX + "GetTensorData_index", getTensorDataIndex);
+    emuopAssemble->SetAttr<int>(OP_EMUOP_PREFIX + "GetTensorData_index", getTensorDataIndex);
+
+    auto &desc = currDynAttr->getTensorDataDict[getTensorDataIndex];
+    desc.outcastTensor = extract;
+    
+    std::string getName = SymbolHandler::GetNameByHandlerId(handlerId);
+    std::string getRuntimeName = AddRuntimePrefix(getName);
+    SymbolicScalar getRuntimeHandler(getRuntimeName);
+    std::vector<SymbolicScalar> argList = {getTensorDataIndex, -1, -1, -1};
+    argList.insert(argList.end(), offset.begin(), offset.end());
+    return getRuntimeHandler(argList);
+}
+
+SymbolicScalar GetTensorDataInt32(const Tensor &t, const SymbolicScalar &off0) {
+    return DoGetTensorDataInt32(SymbolHandlerId::GetTensorDataInt32Dim1, t, {off0});
+}
+SymbolicScalar GetTensorDataInt32(const Tensor &t, const SymbolicScalar &off0, const SymbolicScalar &off1) {
+    return DoGetTensorDataInt32(SymbolHandlerId::GetTensorDataInt32Dim2, t, {off0, off1});
+}
+SymbolicScalar GetTensorDataInt32(const Tensor &t, const SymbolicScalar &off0, const SymbolicScalar &off1, const SymbolicScalar &off2) {
+    return DoGetTensorDataInt32(SymbolHandlerId::GetTensorDataInt32Dim3, t, {off0, off1, off2});
+}
+SymbolicScalar GetTensorDataInt32(const Tensor &t, const SymbolicScalar &off0, const SymbolicScalar &off1, const SymbolicScalar &off2, const SymbolicScalar &off3) {
+    return DoGetTensorDataInt32(SymbolHandlerId::GetTensorDataInt32Dim4, t, {off0, off1, off2, off3});
+}
+constexpr int MAX_GET_TENSOR_DATA_DIM = 4;
+SymbolicScalar GetTensorDataInt32(const Tensor &t, const std::vector<SymbolicScalar> &off) {
+    ASSERT(off.size() <= MAX_GET_TENSOR_DATA_DIM);
+    SymbolHandlerId handlerId = static_cast<SymbolHandlerId>(static_cast<int>(SymbolHandlerId::GetTensorDataInt32Dim1) + off.size() - 1) ;
+    return DoGetTensorDataInt32(handlerId, t, off);
+}
+
+static
+void DoSetTensorDataInt32(const SymbolicScalar &v, const std::vector<SymbolicScalar> &off, Tensor &t) {
+    ASSERT(t.GetShape().size() == off.size()) << "Mismatch dimen:" << t.GetShape().size() << " vs " << off.size() << "\n";
+    Program::GetInstance().GetTensorSlotManager()->TensorWrite(t);
+
+    auto currDynFunc = Program::GetInstance().GetCurrentDynamicFunction();
+    ASSERT(currDynFunc != nullptr) << "Not under dynamic function!\n";
+
+    std::vector<int> vShape = std::vector<int>(t.GetShape().size() , 1);
+    auto tmp = VectorDuplicate(v, t.GetDataType(), vShape);
+    TensorInsert(tmp, off, t);
+}
+
+void SetTensorDataInt32(const SymbolicScalar &v, const std::vector<SymbolicScalar> &off, Tensor &dst) {
+    return DoSetTensorDataInt32(v, off, dst);
+}
+
+}
+
 SymbolicScalar npu::tile_fwk::IsLoopBegin(const SymbolicScalar &symbol, const SymbolicScalar &begin) {
     std::string isLoopBeginName = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::IsLoopBegin);
     isLoopBeginName = AddRuntimePrefix(isLoopBeginName);

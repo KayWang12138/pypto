@@ -16,6 +16,7 @@
 #include "codegen_op_cloudnpu.h"
 #include "interface/utils/log.h"
 #include "codegen/parallel_execute.h"
+#include "interface/utils/file_utils.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/function/function.h"
 #include "interface/configs/config_manager.h"
@@ -289,8 +290,29 @@ void CodeGenCloudNPU::GenCode(
                 funCode = "#include \"" + vfFile + "\"\n" + funCode;
             }
 
-            bool ret = DumpCCE(inputFile, funCode);
-            ASSERT(ret) << "Dump cce code failed!!";
+            // expression fusion
+            if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, false)) {
+                std::string expressionFileName = "../kernel_aicpu/expression.h";
+                funCode = "#include \"" + expressionFileName + "\"\n" + funCode;
+            }
+
+            bool needDump = false;
+            if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_FORCE_DUMP_CCE_ON_EXIST, true)) {
+                // force dump, default is true
+                needDump = true;
+            } else {
+                // not force dump
+                if (npu::tile_fwk::FileExist(inputFile)) {
+                    needDump = false;
+                } else {
+                    needDump = true;
+                }
+            }
+            bool ret = true;
+            if (needDump) {
+                ret = DumpCCE(inputFile, funCode);
+                ASSERT(ret) << "Dump cce code failed!!";
+            }
 
             int errCode = CompileCCE(inputFile, outputFile, isCube, "");
             ASSERT(errCode == 0) << "CompileCCE failed. errCode = " << errCode << ", cce file: " << inputFile;

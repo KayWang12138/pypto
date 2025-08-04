@@ -29,6 +29,8 @@ Tensor DViewPad(const Tensor &operand, const std::vector<int> &shapes,
 
 Tensor VectorDuplicate(const Element &src, DataType dtype, std::vector<int> dstShape,
     std::vector<SymbolicScalar> validShape = {});
+Tensor VectorDuplicate(const SymbolicScalar &src, DataType dtype, std::vector<int> dstShape,
+    std::vector<SymbolicScalar> validShape = {});
 Tensor Transpose(const Tensor &operand, std::vector<int> transposeShape);
 Tensor Cast(const Tensor &operand, DataType newDataType, CastMode mode = CAST_NONE);
 

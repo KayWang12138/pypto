@@ -206,6 +206,8 @@ struct DynloopFunctionPath {
 
     DynloopFunctionPath(Function *pathRoot, const std::vector<DynloopFunctionPathCondition> &pathConds, Operation *operation)
         : root(pathRoot), pathCondList(pathConds), callop(operation) {}
+
+    const std::vector<DynloopFunctionPathCondition> &GetPathCondList() const { return pathCondList; }
 };
 
 struct DynloopFunctionPathNode {
@@ -241,6 +243,7 @@ struct DynloopFunctionAttribute {
     const SymbolicScalar &Begin() { return loopRange.Begin(); }
     const SymbolicScalar &End() { return loopRange.End(); }
     const SymbolicScalar &Step() { return loopRange.Step(); }
+    const std::vector<DynloopFunctionPath> GetPathList() const { return pathList; }
 
     std::shared_ptr<DynloopFunctionPathNode> BuildPathNode();
     std::string DumpBranch() const;
@@ -318,6 +321,13 @@ struct DyndevFunctionAttribute {
     std::vector<std::reference_wrapper<const Tensor>> startArgsInputTensorList;
     std::vector<std::reference_wrapper<const Tensor>> startArgsOutputTensorList;
 
+    int getTensorDataCount{0};
+
+    struct GetTensorDataDesc {
+        std::shared_ptr<Tensor> outcastTensor;
+    };
+    std::unordered_map<int, GetTensorDataDesc> getTensorDataDict;
+
     SymbolicSymbolTable symbolTable;
     std::unordered_map<Function *, SymbolicExpressionTable> rootExpressionTableDict;
     /*
@@ -332,7 +342,12 @@ struct DyndevFunctionAttribute {
 
     IncastOutcastLink inoutLink;
 
-    std::vector<Function *> devRootList;
+    struct FunctionGroup {
+        OrderedSet<Function *> loopList;
+        OrderedSet<Function *> devRootList;
+        OrderedSet<Function *> devLeafList;
+    } group;    
+    
     std::vector<std::vector<uint8_t>> devEncodeList;
     std::vector<std::vector<uint8_t>> cceCodeList;
     std::vector<CceCodeInfo> cceCodeInfo;
@@ -391,6 +406,10 @@ struct FunctionParamInfo {
     LogicalTensorPtr endValue;   // End Function时Tensor指向的 LogicalTensor
 };
 
+#ifndef INVALID_IOINDEX
+#define INVALID_IOINDEX (-1)
+#endif
+
 class Function {
 public:
     std::vector<OriArgInfo> GetOpOriginArgsInfo();
@@ -446,6 +465,9 @@ public:
     bool IsFromInCast(const std::shared_ptr<LogicalTensor> &tensor);
     bool IsFromOutCast(const std::shared_ptr<LogicalTensor> &tensor);
     bool IsFromDummyOutCast(int rawMagic);
+    int GetIncastIndex(std::shared_ptr<LogicalTensor> &tensor) const;
+    int GetOutcastIndex(std::shared_ptr<LogicalTensor> &tensor) const;
+
     Operation &AddOperation(const std::string &opName, LogicalTensors iOperands, const LogicalTensors &oOperands,
         const bool updateTensorMap = true);
     Operation &AddOperation(const Opcode opCode, LogicalTensors iOperands, const LogicalTensors &oOperands,
@@ -470,7 +492,7 @@ public:
     Json DumpJson(bool useTable = true);
     static std::shared_ptr<Function> LoadJson(Program &belongTo, const Json &funcDump);
 
-    std::vector<std::vector<SymbolicScalar>> NormalizeCopyInCopyOut(
+    std::vector<std::vector<SymbolicScalar>> NormalizeCoa(
         std::vector<int> &iOffset, std::vector<int> &oOffset);
 
     void DumpTopoFile(const std::string &fileName) const;
@@ -688,6 +710,9 @@ public:
             }
         }
     }
+    std::unordered_map<int, GetTensorDataIODesc> GetTensorDataForTensorGraph();
+    std::unordered_map<int, GetTensorDataIODesc> GetTensorDataForLeafGraph();
+    void GetTensorDataRefreshIO(std::unordered_map<int, GetTensorDataIODesc> &descDict);
 
 private:
     int functionMagic_{-1};
@@ -748,6 +773,8 @@ private:
 
     static bool enableMagicLookupRecord_;
     static std::map<std::pair<int, int>, std::set<Operation *, LogicalTensor::CompareOp>> tensorAndSubgraphToProducer_;
+    std::shared_ptr<Tensor> getTensorDataOutcast_;
+
 private:
     unsigned long ComputeHashOrderless() const;
     void OpValidCheck(Operation &op) const;
