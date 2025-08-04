@@ -73,18 +73,18 @@ ge::graphStatus TileFwkOpUtils::InsertHiddenInput(const ge::Node &node, domi::Ke
   std::vector<ge::ArgDesc> arg_descs;
   auto ret = ge::ArgsFormatDescUtils::Parse(ori_args_format, arg_descs);
   if (ret != ge::GRAPH_SUCCESS || arg_descs.empty()) {
-    printf("Node[%s, %s]: failed to parse args format.", node.GetNamePtr(), node.GetTypePtr());
+    printf("Node[%s, %s]: failed to parse args format.\n", node.GetNamePtr(), node.GetTypePtr());
     return GRAPH_FAILED;
   }
   ret = ge::ArgsFormatDescUtils::InsertHiddenInputs(arg_descs, arg_descs.size(), ge::HiddenInputsType::TILEFWK, 1);
   if (ret != ge::GRAPH_SUCCESS) {
-    printf("Node[%s, %s]: failed to insert tilefwk hidden input.", node.GetNamePtr(), node.GetTypePtr());
+    printf("Node[%s, %s]: failed to insert tilefwk hidden input.\n", node.GetNamePtr(), node.GetTypePtr());
     return ge::GRAPH_FAILED;
   }
   const auto new_args_format = ge::ArgsFormatDescUtils::Serialize(arg_descs);
   kernel_context->set_args_format(new_args_format);
-  printf("Node[%s, %s]: args format is %s.", node.GetNamePtr(), node.GetTypePtr(), new_args_format.c_str());
-  return ge::GRAPH_FAILED;
+  printf("Node[%s, %s]: args format is %s.\n", node.GetNamePtr(), node.GetTypePtr(), new_args_format.c_str());
+  return ge::GRAPH_SUCCESS;
 }
 
 ge::graphStatus TileFwkOpUtils::GenerateAicpuTask(const ge::Node &node, const int64_t &sub_stream_id,
@@ -97,7 +97,7 @@ ge::graphStatus TileFwkOpUtils::GenerateAicpuTask(const ge::Node &node, const in
     ++i;
   }
   if (i == task_defs.size()) {
-    printf("Node[%s, %s]: failed to find aicore task.", node.GetNamePtr(), node.GetTypePtr());
+    printf("Node[%s, %s]: failed to find aicore task.\n", node.GetNamePtr(), node.GetTypePtr());
     return ge::GRAPH_FAILED;
   }
   domi::TaskDef aicpu_task;
@@ -114,13 +114,13 @@ ge::graphStatus TileFwkOpUtils::GenerateAicpuTask(const ge::Node &node, const in
   } else if (ge::AttrUtils::GetInt(node.GetOpDesc(), ge::TVM_ATTR_NAME_BLOCKDIM, block_dim) && block_dim > 0) {
     aicore_kernel_def->set_block_dim(block_dim);
   } else {
-    printf("Node[%s, %s]: failed to get block dim.", node.GetNamePtr(), node.GetTypePtr());
+    printf("Node[%s, %s]: failed to get block dim.\n", node.GetNamePtr(), node.GetTypePtr());
     return ge::GRAPH_FAILED;
   }
   printf("Node[%s, %s]: block dim is %ld.", node.GetNamePtr(), node.GetTypePtr(), block_dim);
   auto aicore_context = aicore_kernel_def->mutable_context();
   if (TileFwkOpUtils::InsertHiddenInput(node, aicore_context) != ge::GRAPH_SUCCESS) {
-    printf("Node[%s, %s]: failed to insert hidden input.", node.GetNamePtr(), node.GetTypePtr());
+    printf("Node[%s, %s]: failed to insert hidden input.\n", node.GetNamePtr(), node.GetTypePtr());
     return ge::GRAPH_FAILED;
   }
 
@@ -150,13 +150,13 @@ ge::graphStatus TileFwkOpUtils::CommonGenerateTask(const ge::Node &node, ge::Run
   (void)ge::AttrUtils::GetListNamedAttrs(node.GetOpDesc(), ge::ATTR_NAME_ATTACHED_STREAM_INFO_LIST,
                                          stream_info_attrs);
   if (stream_info_attrs.empty()) {
-    printf("Node[%s, %s]: failed to get stream info.", node.GetNamePtr(), node.GetTypePtr());
+    printf("Node[%s, %s]: failed to get stream info.\n", node.GetNamePtr(), node.GetTypePtr());
     return ge::GRAPH_FAILED;
   }
   bool is_valid = false;
   (void)ge::AttrUtils::GetBool(stream_info_attrs[0], ge::ATTR_NAME_ATTACHED_RESOURCE_IS_VALID, is_valid);
   if (!is_valid) {
-    printf("Node[%s, %s]: stream info is not valid.", node.GetNamePtr(), node.GetTypePtr());
+    printf("Node[%s, %s]: stream info is not valid.\n", node.GetNamePtr(), node.GetTypePtr());
     return ge::GRAPH_FAILED;
   }
   int64_t sub_stream_id{-1};
@@ -166,12 +166,12 @@ ge::graphStatus TileFwkOpUtils::CommonGenerateTask(const ge::Node &node, ge::Run
   (void)ge::AttrUtils::GetListNamedAttrs(node.GetOpDesc(), ge::ATTR_NAME_ATTACHED_SYNC_RES_INFO_LIST,
                                          sync_info_attrs);
   if (sync_info_attrs.empty()) {
-    printf("Node[%s, %s]: failed to get sync info.", node.GetNamePtr(), node.GetTypePtr());
+    printf("Node[%s, %s]: failed to get sync info.\n", node.GetNamePtr(), node.GetTypePtr());
     return ge::GRAPH_FAILED;
   }
   (void)ge::AttrUtils::GetBool(sync_info_attrs[0], ge::ATTR_NAME_ATTACHED_RESOURCE_IS_VALID, is_valid);
   if (!is_valid) {
-    printf("Node[%s, %s]: sync info is not valid.", node.GetNamePtr(), node.GetTypePtr());
+    printf("Node[%s, %s]: sync info is not valid.\n", node.GetNamePtr(), node.GetTypePtr());
     return ge::GRAPH_FAILED;
   }
   return TileFwkOpUtils::GenerateAicpuTask(node, sub_stream_id, task_defs);
