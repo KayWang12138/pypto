@@ -81,7 +81,7 @@ int32_t HostMachine::InitBackend(const bool forceEnableBackend) {
         if (mNpuBackendHandle != nullptr) {
             return MACHINE_OK;
         }
-        std::string binPath = "libtile_fwk_runtime.so";
+        std::string binPath = "libtile_fwk_compiler.so";
         std::string funcName = "Execute";
         mNpuBackendHandle = dlopen(binPath.c_str(), RTLD_NOW | RTLD_GLOBAL);
         if (mNpuBackendHandle == nullptr) {

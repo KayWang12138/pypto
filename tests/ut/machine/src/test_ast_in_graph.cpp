@@ -22,6 +22,7 @@
 #include "interface/utils/file_utils.h"
 #include "models/llama/llama_def.h"
 #include "machine/dump/task_dump_utils.h"
+#include "runtime.h"
 #define private public
 #include "machine/dump/machine_dump.h"
 #include "machine/cache_manager/cache_manager.h"

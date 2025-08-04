@@ -14,6 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
+#include "test_static.h"
 
 using namespace npu::tile_fwk;
 
@@ -42,6 +43,7 @@ TEST_F(SigmoidTest, test_32_32_tileop_sigmoid) {
             output = Sigmoid(input_a);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -76,6 +78,7 @@ TEST_F(SigmoidTest, test_32_256_tileop_sigmoid_realcase) {
             output = Sigmoid(input_a);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -111,6 +114,7 @@ TEST_F(SigmoidTest, test_2_32_32_tileop_sigmoid) {
             output = Sigmoid(input_a);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -147,6 +151,7 @@ TEST_F(SigmoidTest, test_2_2_32_32_tileop_sigmoid) {
             output = Sigmoid(input_a);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);

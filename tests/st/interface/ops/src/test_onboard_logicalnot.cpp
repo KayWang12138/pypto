@@ -14,6 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
+#include "test_static.h"
 
 using namespace npu::tile_fwk;
 
@@ -46,6 +47,7 @@ TEST_F(LogicalNotOnBoardTest, test_logicalnot_16_32_fp32) {
             output = LogicalNot(input_a);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(dstCapacity);
     std::vector<float> res(dstCapacity);
@@ -85,6 +87,7 @@ TEST_F(LogicalNotOnBoardTest, test_logicalnot_16_32_32_fp16) {
             output = LogicalNot(input_a);
         }
     }
+    RunStatic();
     std::vector<npu::tile_fwk::float16> x(dstCapacity);
     std::vector<npu::tile_fwk::float16> golden(dstCapacity);
     std::vector<npu::tile_fwk::float16> res(dstCapacity);

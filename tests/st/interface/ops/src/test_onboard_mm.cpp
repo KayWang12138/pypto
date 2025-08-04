@@ -14,6 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
+#include "test_static.h"
 
 using namespace npu::tile_fwk;
 
@@ -48,6 +49,7 @@ void TestMatmul(int m, int k, int n, string dataPath) {
             mat_c = npu::tile_fwk::Matrix::Matmul<false, false>(OutputAstDtype, mat_a, mat_b);  // result dtype
         }
     }
+    RunStatic();
     std::vector<OnputT> dev_res(capacity_c);
     std::vector<OnputT> golden(capacity_c);
     machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), c_ptr, outputSize);
@@ -87,6 +89,7 @@ void TestMatmulTrans(int m, int k, int n, string dataPath) {
             mat_c = npu::tile_fwk::Matrix::Matmul<false, true>(OutputAstDtype, mat_a, mat_b);  // result dtype
         }
     }
+    RunStatic();
     std::vector<OnputT> dev_res(capacity_c);
     std::vector<OnputT> golden(capacity_c);
     machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), c_ptr, outputSize);
@@ -139,6 +142,7 @@ void TestMatmulACC(int m, int k, int n, string dataPath) {
             final_out = AddS(tmpC, Element(DataType::DT_FP32, 0.0));
         }
     }
+    RunStatic();
     std::vector<OnputT> dev_res(capacity_c);
     std::vector<OnputT> golden(capacity_c);
     machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), c_ptr, outputSize);

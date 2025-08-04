@@ -14,6 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
+#include "test_static.h"
 
 using namespace npu::tile_fwk;
 
@@ -46,6 +47,7 @@ TEST_F(AbsOnBoardTest, test_abs_8_4608) {
             output = Abs(input_a);
         }
     }
+    RunStatic();
 
     std::vector<npu::tile_fwk::float16> x(dstCapacity);
     std::vector<npu::tile_fwk::float16> golden(dstCapacity);
@@ -85,6 +87,7 @@ TEST_F(AbsOnBoardTest, test_abs_8_4609) {
             output = Abs(input_a);
         }
     }
+    RunStatic();
 
     std::vector<npu::tile_fwk::float16> x(dstCapacity);
     std::vector<npu::tile_fwk::float16> golden(dstCapacity);
@@ -124,6 +127,7 @@ TEST_F(AbsOnBoardTest, test_abs_1_16384) {
             output = Abs(input_a);
         }
     }
+    RunStatic();
 
     std::vector<npu::tile_fwk::float16> x(dstCapacity);
     std::vector<npu::tile_fwk::float16> golden(dstCapacity);

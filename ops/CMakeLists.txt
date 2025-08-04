@@ -72,7 +72,7 @@ if (ENABLE_BUILD_BINARY)
                         ${CMAKE_CURRENT_SOURCE_DIR}/native_sparse_attention/op_kernel/bin_param
                         ${CMAKE_CURRENT_SOURCE_DIR}/python/tile_fwk_compiler.py
                         ${CMAKE_CURRENT_BINARY_DIR}/libtile_fwk_impl.so
-                        ${TILE_FWK_OPS_ROOT_PATH}/../output/lib64/libtile_fwk_runtime.so
+                        ${TILE_FWK_OPS_ROOT_PATH}/../output/lib64/libtile_fwk_compiler.so
                         ${BINARY_OUTPUT_PATH}/${COMPUTE_UNIT}/native_sparse_attention
                 )
         endforeach()

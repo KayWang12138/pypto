@@ -214,8 +214,8 @@ TEST_F(MergeViewAssembleTest, MergeTwoConsecutiveViews) {
 
     // 4.5 检查中间tensor是否被清理
     bool midTensorExists = false;
-    for (auto& [_, tensor] : function->GetTensorMap().inverseMap_) {
-        if (tensor == midTensor) {
+    for (const auto &item : function->GetTensorMap().inverseMap_) {
+        if (item.second == midTensor) {
             midTensorExists = true;
             break;
         }
@@ -291,11 +291,11 @@ TEST_F(MergeViewAssembleTest, MergeThreeConsecutiveAssembles) {
     // 4.3检查中间tensor是否被清理
     bool midTensor1Exists = false;
     bool midTensor2Exists = false;
-    for (auto& [_, tensor] : function->GetTensorMap().inverseMap_) {
-        if (tensor == midTensor1) {
+    for (const auto &item : function->GetTensorMap().inverseMap_) {
+        if (item.second == midTensor1) {
             midTensor1Exists = true;
         }
-        if (tensor == midTensor2) {
+        if (item.second == midTensor2) {
             midTensor2Exists = true;
         }
     }

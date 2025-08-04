@@ -14,6 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
+#include "test_static.h"
 
 using namespace npu::tile_fwk;
 
@@ -52,6 +53,7 @@ namespace {
                 o_x = Cast(i_x, config.outputType, config.castMode);
             }
         }
+        RunStatic();
 
         std::vector<InputType> x(srcCapacity);
         std::vector<OutputType> golden(dstCapacity);
@@ -125,6 +127,7 @@ TEST_F(CastOnBoard, test_cast_fp16tofp32_unalign) {
             output = Cast(input1, oType, CAST_NONE);
         }
     }
+    RunStatic();
 
     std::vector<npu::tile_fwk::float16> x1(srcCapacity);
     std::vector<float> golden(dstCapacity);

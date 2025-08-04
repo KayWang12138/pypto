@@ -14,16 +14,17 @@
  */
 
 #include "interface/inner/tilefwk/tilefwk_api.h"
-#include "backend.h"
+
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
-#include "machine/host/machine_agent.h"
+#include "interface/platform/platform_manager.h"
+#include "interface/registry/tile_fwk_op_registry.h"
+#include "machine/host/backend.h"
+#include "machine/host/device_agent_task.h"
 #include "machine/dump/kernel_dump_utils.h"
 #include "machine/host/machine_compiler.h"
 #include "machine/cache_manager/cache_manager.h"
-#include "interface/platform/platform_manager.h"
-#include "interface/registry/tile_fwk_op_registry.h"
 
 namespace npu::tile_fwk {
 int32_t TileFwkInit(const std::string &socVersion) {
@@ -47,11 +48,6 @@ void *TileFwkCompile() {
 int32_t TileFwkGetWorkspaceSize(const void *handle, uint64_t *workspaceSize) {
     *workspaceSize = Program::GetInstance().GetWorkSpaceSize(handle);
     return 0;
-}
-
-int32_t TileFwkRunAsync(void *handle, const void *workspace, const void *stream, const std::vector<void *> &opArgs,
-    const std::vector<size_t> &prefetchSizes) {
-    return Program::GetInstance().RunAsync(stream, workspace, handle, opArgs, prefetchSizes);
 }
 
 void TileFwkFreeHandle(const void *handle) {
@@ -125,16 +121,6 @@ void *Program::Compile() {
 
 uint64_t Program::GetWorkSpaceSize(const void *handle) {
     return (reinterpret_cast<const DeviceAgentTask *>(handle))->GetWorkSpaceSize();
-}
-
-int Program::RunAsync(const void *stream, const void *workSpaceGmAddr, void *handle,
-    const std::vector<void *> &opOriginArgs, const std::vector<size_t> &argsSize) {
-    ALOG_INFO("Program::Run stream = ", stream);
-    DeviceAgentTask *deviceAgentTask = reinterpret_cast<DeviceAgentTask *>(handle);
-    int ret = Run(stream, workSpaceGmAddr, deviceAgentTask, opOriginArgs, argsSize, true);
-    ALOG_INFO("End run: func name = ", deviceAgentTask->compileTask->GetFunction()->GetRawName(), " ret = ", ret);
-    currentFunctionPtr_ = &(currentFunctionPtr_->Parent()); // reset init function
-    return 0;
 }
 
 extern "C" bool TileFwkCompileFatbin(const char *opType, const char *socVersion,

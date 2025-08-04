@@ -17,8 +17,8 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "models/deepseek/page_attention.h"
 #include "machine/utils/dynamic/dev_encode.h"
-#include "machine/runtime.h"
-#include "machine/host/device_runner.h"
+#include "runtime.h"
+#include "device_runner.h"
 #include "simulation/backend.h"
 #include "test_dynamic.h"
 

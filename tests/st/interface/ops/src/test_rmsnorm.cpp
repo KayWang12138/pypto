@@ -14,6 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
+#include "test_static.h"
 
 using namespace npu::tile_fwk;
 
@@ -42,6 +43,7 @@ TEST_F(RmsNormTest, test_32_32_tileop_rmsnorm) {
             output = RmsNorm(input_a);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -77,6 +79,7 @@ TEST_F(RmsNormTest, test_2_32_32_tileop_rmsnorm) {
             output = RmsNorm(input_a);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -113,6 +116,7 @@ TEST_F(RmsNormTest, test_2_2_32_32_tileop_rmsnorm) {
             output = RmsNorm(input_a);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -147,6 +151,7 @@ TEST_F(RmsNormTest, test_32_256_tileop_rmsnorm_fp16) {
             output = RmsNorm(input_a);
         }
     }
+    RunStatic();
 
     std::vector<npu::tile_fwk::float16 > golden(outputCapacity);
     std::vector<npu::tile_fwk::float16 > res(outputCapacity);
@@ -181,6 +186,7 @@ TEST_F(RmsNormTest, test_32_1536_tileop_rmsnorm_fp16_realCase) {
             output = RmsNorm(input_a);
         }
     }
+    RunStatic();
 
     std::vector<npu::tile_fwk::float16 > golden(outputCapacity);
     std::vector<npu::tile_fwk::float16 > res(outputCapacity);
@@ -216,6 +222,7 @@ TEST_F(RmsNormTest, test_2_32_256_tileop_rmsnorm_fp16) {
             output = RmsNorm(input_a);
         }
     }
+    RunStatic();
 
     std::vector<npu::tile_fwk::float16 > golden(outputCapacity);
     std::vector<npu::tile_fwk::float16 > res(outputCapacity);
@@ -254,6 +261,7 @@ TEST_F(RmsNormTest, test_32_1536_tileop_rmsnorm_gamma_fp16_realCase) {
             output = RmsNorm(input_a, input_gamma, 1e-5f);
         }
     }
+    RunStatic();
 
     std::vector<npu::tile_fwk::float16 > golden(outputCapacity);
     std::vector<npu::tile_fwk::float16 > res(outputCapacity);
@@ -293,6 +301,7 @@ TEST_F(RmsNormTest, test_2_1_512_tileop_rmsnorm_gamma_fp16_realCase) {
             output = RmsNorm(input_a, input_gamma, 1e-5f);
         }
     }
+    RunStatic();
 
     std::vector<npu::tile_fwk::float16 > golden(outputCapacity);
     std::vector<npu::tile_fwk::float16 > res(outputCapacity);

@@ -23,7 +23,6 @@
 #include "interface/utils/log.h"
 #include "interface/utils/file_utils.h"
 #include "securec.h"
-#include "machine/runtime.h"
 #include "interface/platform/platform_manager.h"
 
 namespace npu::tile_fwk {

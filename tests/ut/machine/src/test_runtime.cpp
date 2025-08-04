@@ -15,7 +15,7 @@
 
 #include <regex>
 #include <gtest/gtest.h>
-#include "machine/runtime.h"
+#include "runtime.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include <iostream>

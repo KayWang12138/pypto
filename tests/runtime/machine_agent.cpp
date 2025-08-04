@@ -19,12 +19,10 @@
 #include <map>
 #include <vector>
 #include <iostream>
-#include "machine/runtime.h"
 #include "machine/utils/machine_ws_intf.h"
-#include "machine/host/device_runner.h"
 #include "interface/machine/host/host_machine.h"
 #include "interface/utils/common.h"
-#include "codegen/codegen.h"
+#include "device_runner.h"
 
 #ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
 #include "securec.h"
@@ -483,7 +481,7 @@ int MachineAgent::PrepareReadyState(DeviceAgentTask *task) {
     return MACHINE_OK;
 }
 
-void MachineAgent::FillL2PrefetchInfo(DeviceAgentTask *task, DeviceTask &devTask) const {
+void MachineAgent::FillL2PrefetchInfo(DeviceAgentTask *task, DeviceTask &devTask) {
     size_t num = 0;
     for (size_t i = 0; i < task->opOriginArgs_.size(); ++i) {
       if (num >= MAX_PREFETCH_NUM) {
@@ -501,7 +499,7 @@ void MachineAgent::FillL2PrefetchInfo(DeviceAgentTask *task, DeviceTask &devTask
     ALOG_INFO_F("prefetchNum:%lu", devTask.l2Info.prefetchNum);
 }
 
-void MachineAgent::FillDeviceTask(DeviceAgentTask *task, DeviceTask &devTask, MachineDeviceAgentInfo &devInfo) const {
+void MachineAgent::FillDeviceTask(DeviceAgentTask *task, DeviceTask &devTask, MachineDeviceAgentInfo &devInfo) {
     devTask.coreFunctionCnt = task->compileInfo.coreFunctionCnt;
     devTask.coreFuncData.stackWorkSpaceAddr =
         reinterpret_cast<uint64_t>(devInfo.workspaceGmAddr + task->compileInfo.invokeParaWorkSpaceSize);
@@ -514,7 +512,7 @@ void MachineAgent::FillDeviceTask(DeviceAgentTask *task, DeviceTask &devTask, Ma
 }
 
 void MachineAgent::DumpDeviceTaskInfo(
-    const DeviceAgentTask *task, uint8_t *deviceTaskGmAddr, const DeviceTask &devTask) const {
+    const DeviceAgentTask *task, uint8_t *deviceTaskGmAddr, const DeviceTask &devTask) {
     ALOG_INFO_F("DeviceTask: %lu", task->GetTaskId());
     ALOG_INFO_F(" deviceTaskGmAddr: %lx", reinterpret_cast<uint64_t>(deviceTaskGmAddr));
     ALOG_INFO_F(" coreFunctionCnt: %lu", devTask.coreFunctionCnt);
@@ -613,23 +611,8 @@ void MachinePipe::PipeProc(DeviceAgentTask *task) {
     aclrtStream aicpuStream = task->aicpuStream_ == nullptr ? machine::GetRA()->GetStreamAICPU() : task->aicpuStream_;
     if (task->IsAsync()) {
         runner.RunAsync(aicpuStream, task->GetTaskId(), reinterpret_cast<int64_t>(task->GetDeviceTaskGmAddr()));
-        return;
-    }
-    // Need delete some case branch
-    auto functionType = task->GetFunction()->GetFunctionType();
-    switch (functionType) {
-        case FunctionType::EAGER:
-        case FunctionType::STATIC:
-            runner.Run(aicpuStream, task->GetTaskId(), reinterpret_cast<int64_t>(task->GetDeviceTaskGmAddr()));
-            break;
-        case FunctionType::DYNAMIC_LOOP_PATH:
-        case FunctionType::DYNAMIC_LOOP:
-        case FunctionType::DYNAMIC:
-            runner.DynamicRun(aicpuStream, task->GetTaskId(), reinterpret_cast<AstKernelArgs *>(task->GetDeviceTaskGmAddr()));
-            break;
-        default:
-            runner.Run(aicpuStream, task->GetTaskId(), reinterpret_cast<int64_t>(task->GetDeviceTaskGmAddr()));
-            break;
+    } else {
+        runner.Run(aicpuStream, task->GetTaskId(), reinterpret_cast<int64_t>(task->GetDeviceTaskGmAddr()));
     }
 #endif
     ALOG_INFO_F("Recv task id: %lu", task->GetTaskId());

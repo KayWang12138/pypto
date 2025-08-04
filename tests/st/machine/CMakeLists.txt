@@ -133,15 +133,17 @@ set(_CaseFilterList
         "DynamicBatchMatmulTest.test_bmm_A_B_ND_bf16_tile1"
 )
 
-set(_Target ${TileFwkSTestNamePrefix}_runtime)
+set(_Target ${TileFwkSTestNamePrefix}_machine)
 
 file(GLOB_RECURSE _Sources src/*.cpp)
+file(GLOB_RECURSE _Device_Srcs ${TILE_FWK_SRC_ROOT}/src/machine/device/*.cpp)
+list(APPEND _Sources ${_Device_Srcs})
 
 TileFwk_STest_AddLib(
         TARGET ${_Target}
         SOURCES ${_Sources}
-        PUBLIC_LINK_LIBRARIES tile_fwk_runtime tile_fwk_interface
+        PUBLIC_LINK_LIBRARIES tile_fwk_compiler tile_fwk_runtime tile_fwk_interface
         GTEST_FILTER_LIST ${_CaseFilterList}
-        LD_LIBRARIES_EXT tile_fwk_runtime
+        LD_LIBRARIES_EXT tile_fwk_compiler tile_fwk_runtime
         GOLDEN_SCRIPT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/ops
 )

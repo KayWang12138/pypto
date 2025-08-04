@@ -21,7 +21,7 @@ TileFwk_STest_AddLib(
         SOURCES ${_Sources}
         PUBLIC_LINK_LIBRARIES tile_fwk_interface tile_fwk_simulation tile_fwk_simulation_ca
         GTEST_FILTER_LIST ${_CaseFilterList}
-        LD_LIBRARIES_EXT tile_fwk_runtime tile_fwk_simulation tile_fwk_simulation_ca
+        LD_LIBRARIES_EXT tile_fwk_compiler tile_fwk_simulation tile_fwk_simulation_ca
 )
 # 可执行程序运行依赖的配置, 脚本配置
 add_custom_command(

@@ -15,6 +15,7 @@
 
 #include "test_suite_stest_ops.h"
 #include "models/deepseek/deepseek_mla.h"
+#include "test_static.h"
 
 using namespace npu::tile_fwk;
 
@@ -98,6 +99,7 @@ void TestQkvPre(std::vector<int> &params, string dataPath) {
             output_kv = q_kv[1];
         }
     }
+    RunStatic();
 
     std::vector<T> q_golden(capacity_q);
     std::vector<T> q_npu(capacity_q);
@@ -443,6 +445,7 @@ void TestQkvPreFp32(std::vector<int> &params, string dataPath) {
             output_kv = std::get<1>(q_kv);
         }
     }
+    RunStatic();
 
     std::vector<float> q_golden(capacity_q);
     std::vector<float> q_npu(capacity_q);

@@ -15,7 +15,7 @@
 
 #pragma once
 
-#include "machine/host/machine_agent.h"
+#include "machine/host/device_agent_task.h"
 
 namespace npu::tile_fwk {
 enum class KernelContextType : int64_t {

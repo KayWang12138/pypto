@@ -15,6 +15,7 @@
 
 #include "test_suite_stest_ops.h"
 #include "models/deepseek/deepseek_mla.h"
+#include "test_static.h"
 
 using namespace npu::tile_fwk;
 
@@ -169,6 +170,7 @@ void TestMlaProlog(std::vector<int> &params, string dataPath, bool isQuant = fal
             }
         }
     }
+    RunStatic();
     auto end_op = std::chrono::high_resolution_clock::now();
     std::vector<outDtype> q_golden(capacity_q);
     std::vector<outDtype> q_npu(capacity_q);
@@ -356,7 +358,6 @@ void Attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
     uint8_t* k1_ptr = allocDevAddr(k1_size);
     uint8_t* v0_ptr = allocDevAddr(v0_size);
 
-
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     uint64_t outputSize0 = capacity_q * sizeof(T);
@@ -408,7 +409,6 @@ void Attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
         void *kRopeCacheData = readToDev(GetGoldenDir() + "/k_cache_rope.bin", kRopeCacheSize);
         void *vNopeCacheData = readToDev(GetGoldenDir() + "/v_cache.bin", vNopeCacheSize);
 
-
         Tensor qNope(DT_BF16, {b * s1 * nq, kvLoraRank}, (uint8_t *)qNopeData, "qNope");
         Tensor qRope(DT_BF16, {b * s1 * nq, qkRopeHeadDim}, (uint8_t *)qRopeData, "qRope");
         Tensor kNopeCache(
@@ -423,7 +423,6 @@ void Attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
         Tensor k0(DT_BF16, {blockNum * blockSize * nkv, kvLoraRank}, k0_ptr, "k0");
         Tensor k1(DT_BF16, {blockNum * blockSize * nkv, qkRopeHeadDim}, k1_ptr, "k1");
         Tensor v0(DT_BF16, {blockNum * blockSize * nkv, kvLoraRank}, v0_ptr, "v0");
-
 
         // blockTable: (b, maxBlockNumPerBatch)
         int maxSeqAllBatch = *(std::max_element(actSeqs.begin(), actSeqs.end()));
@@ -456,9 +455,6 @@ void Attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
         Tensor w_o_i(dType, wOShape, (uint8_t *)w_o_ptr, "C");
         Tensor outputT(dType, outputShapeT, out_ptr, "D1");
         Tensor t1_i(dType, t1Shape, (uint8_t *)t1_ptr, "E");
-
-
-
 
         if (isQuant) {
             void *w_qb_scale_ptr = readToDev<float>(dataPath + "/w_qb_scale.bin", capacity_w_qb_scale);
@@ -575,6 +571,7 @@ void Attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
             }
         }
     }
+    RunStatic();
 
     std::vector<outDtype> q_golden(capacity_q);
     std::vector<outDtype> q_npu(capacity_q);
@@ -694,8 +691,6 @@ void attention_high(std::vector<int> &params, string dataPath, bool isQuant = fa
     tileConfig.v1TileShape = {32, 128};
     tileConfig.c2TileShape = {32, 32, 64, 64, 64, 64};
     tileConfig.v2TileShape = {32, 128};
-
-
 
     // 输出size
     int outCap = b * 1 * nq * kv_lora_rank;
@@ -994,6 +989,7 @@ void attention_high(std::vector<int> &params, string dataPath, bool isQuant = fa
             }
         }
     }
+    RunStatic();
 
     std::vector<outDtype> q_golden(capacity_q);
     std::vector<outDtype> q_npu(capacity_q);
@@ -1074,7 +1070,6 @@ void attention_high(std::vector<int> &params, string dataPath, bool isQuant = fa
         config::SetPassConfig("PVC2_OOO", "SplitReshapeOpPVC2", "DISABLE_PASS", false);
     }
 }
-
 
 TEST_F(MlaPrologOnBoardTest, test_MlaProlog_float16_32_2_1_256_256_512) {  // b_n_s_s2_h_q_lora_rank
     int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
@@ -1586,7 +1581,6 @@ TEST_F(MlaPrologOnBoardTest, attention_bf16_low) {  // b_n_s_s2_h_q_lora_rank
         kvLoraRank, vHeadDim};
     Attention<npu::tile_fwk::bfloat16>(params, GetGoldenDir(), false);
 }
-
 
 //test_MlaProlog_float16_2_32_1_256_256_256
 TEST_F(MlaPrologOnBoardTest, attention_bf16_4_1024_1024_32_256) {  // b_n_s_s2_h_q_lora_rank

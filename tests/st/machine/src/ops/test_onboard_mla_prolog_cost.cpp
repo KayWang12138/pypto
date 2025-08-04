@@ -23,9 +23,10 @@
 #include "test_common.h"
 #include "test_suite_stest_ops.h"
 #include "interface/tensor/float.h"
-#include "machine/runtime.h"
-#include "machine/host/device_runner.h"
+#include "runtime.h"
+#include "device_runner.h"
 #include "models/deepseek/deepseek_mla.h"
+#include "test_static.h"
 
 using namespace npu::tile_fwk;
 
@@ -201,6 +202,7 @@ void TestMlaProlog(std::vector<int> &params, string dataPath, bool isQuant = fal
             ALOG_INFO_F("MlaProlog function aicpu stream sync failed");
         }
     }
+    RunStatic();
 
     std::vector<outDtype> q_golden(capacity_q);
     std::vector<outDtype> q_npu(capacity_q);
@@ -604,6 +606,7 @@ void attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
             }
         }
     }
+    RunStatic();
 
     std::vector<outDtype> q_golden(capacity_q);
     std::vector<outDtype> q_npu(capacity_q);

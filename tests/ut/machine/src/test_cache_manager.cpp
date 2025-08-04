@@ -17,10 +17,8 @@
 #include "interface/configs/config_manager.h"
 #include "models/deepseek/page_attention.h"
 #define private public
-#define protected public
 #include "machine/cache_manager/cache_manager.h"
 #undef private
-#undef protected
 
 namespace npu::tile_fwk {
 class CacheManagerUnitTest : public testing::Test {

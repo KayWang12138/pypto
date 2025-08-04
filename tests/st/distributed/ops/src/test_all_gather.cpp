@@ -18,6 +18,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "tilefwk/data_type.h"
+#include "test_static.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {
@@ -56,7 +57,7 @@ void TestAllGather(OpTestParam &testParam)
             out = AllGather(in, testParam.group);
         }
     }
-
+    RunStatic();
     EXPECT_TRUE(CompareWithGolden<uint8_t *>(dType, "/output_rank_", outSize, outPtr, testParam));
 }
 
@@ -99,7 +100,7 @@ void TestAllGatherEx(OpTestParam &testParam)
             Distributed::AllGather(in, outs, testParam.group);
         }
     }
-    
+    RunStatic();
     EXPECT_TRUE(outPtrs.size() > 0);
     EXPECT_TRUE(CompareWithGolden<std::vector<uint8_t *>>(dType, "/output_rank_", size * testParam.rankSize, outPtrs,
         testParam));

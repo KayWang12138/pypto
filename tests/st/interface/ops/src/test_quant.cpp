@@ -16,6 +16,7 @@
 #include "test_suite_stest_ops.h"
 #include "models/llama/llama_def.h"
 #include "models/deepseek/deepseek_spec.h"
+#include "test_static.h"
 
 namespace {
 int capacity;
@@ -83,6 +84,7 @@ TEST_F(QuantTest, Test_ScalarDivS) {
                                 true);
         }
     }
+    RunStatic();
     QuantPost(out_ptr, outSize);
 }
 
@@ -105,6 +107,7 @@ TEST_F(QuantTest, Test_ScalarAddS) {
                                 true);
         }
     }
+    RunStatic();
     QuantPost(out_ptr, outSize);
 }
 
@@ -127,6 +130,7 @@ TEST_F(QuantTest, Test_ScalarSubS) {
                                 true);
         }
     }
+    RunStatic();
     QuantPost(out_ptr, outSize);
 }
 
@@ -149,6 +153,7 @@ TEST_F(QuantTest, Test_ScalarMulS) {
                                 true);
         }
     }
+    RunStatic();
     QuantPost(out_ptr, outSize);
 }
 
@@ -171,6 +176,7 @@ TEST_F(QuantTest, Test_ScalarMaxS) {
                                 true);
         }
     }
+    RunStatic();
     QuantPost(out_ptr, outSize);
 }
 
@@ -199,5 +205,6 @@ TEST_F(QuantTest, Test_ScalarOp) {
             output = ScalarMaxS(output_d, Element(DataType::DT_FP32, F_127), true);
         }
     }
+    RunStatic();
     QuantPost(out_ptr, outSize);
 }

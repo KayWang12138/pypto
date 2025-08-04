@@ -23,8 +23,8 @@
 #include "test_suite_stest_ops.h"
 #include "interface/tensor/float.h"
 #include "models/deepseek/mla_prolog.h"
-#include "machine/runtime.h"
-#include "machine/host/device_runner.h"
+#include "runtime.h"
+#include "device_runner.h"
 
 using namespace npu::tile_fwk;
 

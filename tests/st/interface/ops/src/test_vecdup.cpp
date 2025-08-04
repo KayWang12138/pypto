@@ -14,6 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
+#include "test_static.h"
 
 using namespace npu::tile_fwk;
 
@@ -37,6 +38,7 @@ TEST_F(VecdupTest, TestVecDup) {
                 output = npu::tile_fwk::VectorDuplicate(src, DT_FP32, shape);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -66,6 +68,7 @@ TEST_F(VecdupTest, TestVecDupUnaligned) {
                 output = npu::tile_fwk::VectorDuplicate(src, DT_FP32, shape);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);

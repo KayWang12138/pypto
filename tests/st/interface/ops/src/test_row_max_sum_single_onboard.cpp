@@ -14,6 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
+#include "test_static.h"
 
 using namespace npu::tile_fwk;
 
@@ -44,6 +45,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single) {
             output = RowMaxSingle(input_a, -1);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -80,6 +82,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single) {
             output = RowSumSingle(input_a, -1);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -117,6 +120,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_3dim) {
             output = RowMaxSingle(input_a, -1);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -155,6 +159,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_mla_rmsNor
             output = RowSumSingle(input_a, -1);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -194,6 +199,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax) {
             output = RowMaxSingle(input_a, -1);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -233,6 +239,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax_un
             output = RowMaxSingle(input_a, -1);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -272,6 +279,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_4dim_softmax) {
             output = RowSumSingle(input_a, -1);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -309,6 +317,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_moe) {
             output = RowSumSingle(input_a, 1);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -346,6 +355,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_big_moe) {
             output = RowSumSingle(input_a, 1);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -381,6 +391,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_2dim_moe) {
             output = RowSumSingle(input_a, 0);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -417,6 +428,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis0_unalign) {
             output = RowSumSingle(input_a, 0);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -453,6 +465,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis1_unalign) {
             output = RowSumSingle(input_a, 1);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -488,6 +501,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis2_unalign) {
             output = RowSumSingle(input_a, 2);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -523,6 +537,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign) {
             output = RowSumSingle(input_a, -1);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -559,6 +574,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4_93) {
             output = RowSumSingle(input_a, -1);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -597,6 +613,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4d) {
             output = RowSumSingle(input_a, -1);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -633,6 +650,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign) {
             output = RowMaxSingle(input_a, -1);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -669,6 +687,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign_4_93) {
             output = RowMaxSingle(input_a, -1);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -707,6 +726,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign_4d) {
             output = RowMaxSingle(input_a, -1);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);

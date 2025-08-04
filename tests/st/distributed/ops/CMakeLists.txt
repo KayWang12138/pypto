@@ -23,4 +23,6 @@ target_link_libraries(${_Target}
         PRIVATE
             ${TileFwkSTestNamePrefix}_utils
             tile_fwk_interface
+            tile_fwk_compiler
+            tile_fwk_runtime
 )

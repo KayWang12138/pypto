@@ -20,7 +20,7 @@
 #include <cstdlib>
 #include <mutex>
 #include "securec.h"
-#include "machine/runtime.h"
+#include "runtime.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/kernel/aicore.h"
 #include "interface/utils/log.h"

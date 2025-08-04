@@ -15,6 +15,7 @@
 
 #include "test_suite_stest_ops.h"
 #include "models/deepseek/deepseek_mla.h"
+#include "test_static.h"
 
 using namespace npu::tile_fwk;
 
@@ -140,6 +141,7 @@ void TestMlaPrologAb(std::vector<int> &params, string dataPath, bool isQuant = f
             }
         }
     }
+    RunStatic();
 
     std::vector<outDtype> q_golden(capacity_q);
     std::vector<outDtype> q_npu(capacity_q);

@@ -27,7 +27,7 @@
 #include "driver/ascend_hal_define.h"
 #include "acl/acl.h"
 #include "runtime/rt.h"
-#include  "runtime/rt_preload_task.h"
+#include "runtime/rt_preload_task.h"
 #endif
 #include "interface/utils/log.h"
 #include "interface/utils/common.h"

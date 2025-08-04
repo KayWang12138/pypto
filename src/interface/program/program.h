@@ -28,8 +28,6 @@ public: // public api for torch
     void *Compile(); // 返回handle
     int SubmitDyndev();
     uint64_t GetWorkSpaceSize(const void *handle);
-    int RunAsync(const void *stream, const void *workSpaceGmAddr, void *handle, const std::vector<void *> &opOriginArgs,
-        const std::vector<size_t> &argsSize);
     TileShape tileShape;
     MatrixSize matrixSize;
 
@@ -121,6 +119,17 @@ public: // public api for torch
     Function *GetLastFunction() const { return lastFunc_; }
 
     void SubmitAllStashTask();
+
+    void ResetCurrentFunction() {
+        if (currentFunctionPtr_ == nullptr) {
+            return;
+        }
+        if (currentFunctionPtr_->HasParent()) {
+            currentFunctionPtr_ = &(currentFunctionPtr_->Parent());
+        } else {
+            currentFunctionPtr_ = nullptr;
+        }
+    }
 
 private:
     std::string name_;

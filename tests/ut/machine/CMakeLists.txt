@@ -42,7 +42,7 @@ set(_CaseFilterList
         "SlabWsAllocatorTest.*"
 )
 
-set(_Target ${TileFwkUTestNamePrefix}_runtime)
+set(_Target ${TileFwkUTestNamePrefix}_machine)
 
 file(GLOB_RECURSE _Sources src/*.cpp)
 list(APPEND _Sources ${TILE_FWK_SRC_ROOT}/src/machine/device/aicore_prof.cpp)
@@ -53,7 +53,8 @@ list(APPEND _Sources ${TILE_FWK_SRC_ROOT}/src/machine/device/distributed/comm_wa
 TileFwk_UTest_AddCaseLib(
         TARGET ${_Target}
         SOURCES ${_Sources}
-        PUBLIC_LINK_LIBRARIES tile_fwk_runtime tile_fwk_interface dl
+        PUBLIC_LINK_LIBRARIES tile_fwk_compiler tile_fwk_runtime tile_fwk_interface dl
+        PRIVATE_INCLUDE_DIRECTORIES ${TILE_FWK_SRC_ROOT}/tests/runtime
         GTEST_FILTER_LIST ${_CaseFilterList}
 )
 target_compile_definitions(${_Target}

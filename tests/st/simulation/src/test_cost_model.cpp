@@ -20,8 +20,8 @@
 #include "models/llama/llama_def.h"
 #include "simulation/common/CommonType.h"
 #include "test_common.h"
-#include "simulation/common/CommonType.h"
 #include "test_cost_model.h"
+#include "test_static.h"
 
 using namespace npu::tile_fwk;
 
@@ -102,6 +102,7 @@ void TestMatmulTrans(int m, int k, int n, string dataPath) {
             mat_c = npu::tile_fwk::Matrix::Matmul<false, true>(OutputDtype, mat_a, mat_b);  // result dtype
         }
     }
+    RunStatic();
     std::vector<OnputT> dev_res(capacity_c);
     std::vector<OnputT> golden(capacity_c);
     machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), c_ptr, outputSize);

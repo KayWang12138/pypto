@@ -14,7 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
-
+#include "test_static.h"
 
 using namespace npu::tile_fwk;
 
@@ -90,6 +90,7 @@ TEST_F(MlpTest, test_16_7168_tileop)
             output = Matrix::Matmul<false, true, true>(DataType::DT_FP32, swish_fp16, Cast(ffnweigth3, DataType::DT_FP16));
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);

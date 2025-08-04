@@ -19,7 +19,7 @@
 #include <iostream>
 #include "machine/utils/machine_ws_intf.h"
 #include "interface/machine/host/machine_task.h"
-#include "machine/host/machine_agent.h"
+#include "machine/host/device_agent_task.h"
 
 namespace npu::tile_fwk {
 class MachineDump {

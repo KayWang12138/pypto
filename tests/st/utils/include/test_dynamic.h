@@ -20,8 +20,8 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/device/dynamic/costmodel_utils.h"
-#include "machine/runtime.h"
-#include "machine/host/device_runner.h"
+#include "runtime.h"
+#include "device_runner.h"
 #include "simulation/backend.h"
 
 using namespace npu::tile_fwk;

@@ -14,6 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
+#include "test_static.h"
 
 using namespace npu::tile_fwk;
 
@@ -55,6 +56,7 @@ TEST_F(GatherOnBoardTest, test_gather_float_32_64_1_32) {
             output = Gather(input_src0, input_src1, axis);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity2);
     std::vector<float> dev_res(capacity2);
@@ -102,6 +104,7 @@ TEST_F(GatherOnBoardTest, test_gather_float_32_65_1_33) {
             output = Gather(input_src0, input_src1, axis);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity2);
     std::vector<float> dev_res(capacity2);
@@ -147,6 +150,7 @@ TEST_F(GatherOnBoardTest, test_gather_float_64_256_1_64) {
         FUNCTION("GATHER_T", FunctionType::STATIC, {input_src0, input_src1, output}) {
             output = Gather(input_src0, input_src1, axis);
         }
+        RunStatic();
 
         std::vector<float> golden(capacity2);
         std::vector<float> dev_res(capacity2);
@@ -195,6 +199,7 @@ TEST_F(GatherOnBoardTest, test_gather_float_1_64_32_1) {
             output = Gather(input_src0, input_src1, axis);
         }
     }
+    RunStatic();
     std::vector<float> golden(capacity2);
     std::vector<float> dev_res(capacity2);
     machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)out_ptr, outputSize);
@@ -239,6 +244,7 @@ TEST_F(GatherOnBoardTest, test_gather_float_64_512_16_64) {
             output = Gather(input_src0, input_src1, axis);
         }
     }
+    RunStatic();
     std::vector<float> golden(capacity2);
     std::vector<float> dev_res(capacity2);
     machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)out_ptr, outputSize);
@@ -281,6 +287,7 @@ TEST_F(GatherOnBoardTest, test_gather_float_8_7168_64) {
             output = Gather(input_src0, input_src1, axis);
         }
     }
+    RunStatic();
     std::vector<float> golden(capacity2);
     std::vector<float> dev_res(capacity2);
     machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)out_ptr, outputSize);
@@ -323,6 +330,7 @@ TEST_F(GatherOnBoardTest, test_gather_float_8_7169_64) {
             output = Gather(input_src0, input_src1, axis);
         }
     }
+    RunStatic();
     std::vector<float> golden(capacity2);
     std::vector<float> dev_res(capacity2);
     machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)out_ptr, outputSize);

@@ -14,6 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
+#include "test_static.h"
 
 using namespace npu::tile_fwk;
 
@@ -68,6 +69,7 @@ TEST_F(MoEGatePart1OnBoardTest, test_moe_gate_part1) {
             output_score4choice = Add(output_score, input_e_score_bias);
         }
     }
+    RunStatic();
 
     // test with golden data
     std::vector<float> res_scores(outputSize);

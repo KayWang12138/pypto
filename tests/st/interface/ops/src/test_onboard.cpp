@@ -15,6 +15,7 @@
 
 #include "test_suite_stest_ops.h"
 #include"models/llama/llama_def.h"
+#include "test_static.h"
 
 namespace {
 int in0 = 2;
@@ -73,6 +74,7 @@ TEST_F(OnBoardTest, test_sin_dim2_float32) {
             output = Sin(input_x);
         }
     }
+    RunStatic();
 
     std::vector<float> x(cap);
     std::vector<float> golden(cap);
@@ -102,6 +104,7 @@ TEST_F(OnBoardTest, test_cos_dim4_float16) {
             output = Cos(input_x);
         }
     }
+    RunStatic();
 
     std::vector<npu::tile_fwk::float16> x(cap);
     std::vector<npu::tile_fwk::float16> golden(cap);
@@ -150,6 +153,7 @@ TEST_F(OnBoardTest, test_gather_float_case1) {
             output = Gather(input_src0, input_src1, axis);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity2);
     std::vector<float> dev_res(capacity2);
@@ -197,6 +201,7 @@ TEST_F(OnBoardTest, test_gather_float_case2) {
             output = Gather(input_src0, input_src1, axis);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity2);
     std::vector<float> dev_res(capacity2);
@@ -247,6 +252,7 @@ TEST_F(OnBoardTest, test_gather_float_case3) {
             output = Gather(input_src0, input_src1, axis);
         }
     }
+    RunStatic();
     std::vector<float> golden(capacity2);
     std::vector<float> dev_res(capacity2);
     machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)out_ptr, outputSize);
@@ -293,6 +299,7 @@ TEST_F(OnBoardTest, test_gather_float_case4) {
             output = Gather(input_src0, input_src1, axis);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity2);
     std::vector<float> dev_res(capacity2);
@@ -320,6 +327,7 @@ TEST_F(OnBoardTest, test_concat_all2all) {
             output = Concat(std::vector<Tensor>{input_a, input_b}, 1);
         }
     }
+    RunStatic();
     uint64_t outputSize = Program::GetInstance().GetHostMachine().outputStubPara.at(0).rawShapeSize;
     uint8_t *outputGmAddr = Program::GetInstance().GetHostMachine().outputStubPara.at(0).rawTensorAddr;
     assert(outputSize == capacity * 2 * sizeof(float));
@@ -354,6 +362,7 @@ TEST_F(OnBoardTest, test_concat_4) {
             output = Concat(std::vector<Tensor>{input_a, input_b, input_c}, 0);
         }
     }
+    RunStatic();
     uint64_t outputSize = Program::GetInstance().GetHostMachine().outputStubPara.at(0).rawShapeSize;
     uint8_t *outputGmAddr = Program::GetInstance().GetHostMachine().outputStubPara.at(0).rawTensorAddr;
     assert(outputSize == 13 * 2 * 10 * 10 * sizeof(float));
@@ -387,6 +396,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_add) {
             output = Add(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_16_16_64_64);
     std::vector<float> res(capacity_16_16_64_64);
@@ -417,6 +427,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_64_65_tileop_add_unalign) {
             output = Add(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(shapeSize);
     std::vector<float> res(shapeSize);
@@ -448,6 +459,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_39_65_tileop_add_unalign) {
             output = Add(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(shapeSize);
     std::vector<float> res(shapeSize);
@@ -479,6 +491,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_1_tileop_add_unalign) {
             output = Add(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(shapeSize);
     std::vector<float> res(shapeSize);
@@ -510,6 +523,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_1_tileop_sub_unalign) {
             output = Sub(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(shapeSize);
     std::vector<float> res(shapeSize);
@@ -541,6 +555,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_1_tileop_mul_unalign) {
             output = Mul(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(shapeSize);
     std::vector<float> res(shapeSize);
@@ -570,6 +585,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_sub) {
             output = Sub(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_16_16_64_64);
     std::vector<float> res(capacity_16_16_64_64);
@@ -598,6 +614,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_mul) {
             output = Mul(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_16_16_64_64);
     std::vector<float> res(capacity_16_16_64_64);
@@ -626,6 +643,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_div) {
             output = Div(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_16_16_64_64);
     std::vector<float> res(capacity_16_16_64_64);
@@ -654,6 +672,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_add) {
             output = Add(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_8_80_80);
     std::vector<float> res(capacity_8_80_80);
@@ -682,6 +701,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_sub) {
             output = Sub(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_8_80_80);
     std::vector<float> res(capacity_8_80_80);
@@ -710,6 +730,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_mul) {
             output = Mul(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_8_80_80);
     std::vector<float> res(capacity_8_80_80);
@@ -738,6 +759,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_div) {
             output = Div(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_8_80_80);
     std::vector<float> res(capacity_8_80_80);
@@ -766,6 +788,7 @@ TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_add) {
             output = Add(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_64_128);
     std::vector<float> res(capacity_64_128);
@@ -794,6 +817,7 @@ TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_sub) {
             output = Sub(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_64_128);
     std::vector<float> res(capacity_64_128);
@@ -822,6 +846,7 @@ TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_mul) {
             output = Mul(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_64_128);
     std::vector<float> res(capacity_64_128);
@@ -850,6 +875,7 @@ TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_div) {
             output = Div(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_64_128);
     std::vector<float> res(capacity_64_128);
@@ -878,6 +904,7 @@ TEST_F(OnBoardTest, test_operation_tensor_dim4_add) {
             output = Add(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_dim4);
     std::vector<float> res(capacity_dim4);
@@ -905,6 +932,7 @@ TEST_F(OnBoardTest, test_operation_tensor_dim2_add) {
             output = Add(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity);
     std::vector<float> res(capacity);
@@ -936,6 +964,7 @@ TEST_F(OnBoardTest, test_operation_tensor_2_2_8_8_expand_add) {
             output = Add(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_2_2_8_8);
     std::vector<float> res(capacity_2_2_8_8);
@@ -970,6 +999,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_n_to_m_n_mul) {
             output = Mul(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(64 * 32);
     std::vector<float> res(64 * 32);
@@ -999,6 +1029,7 @@ TEST_F(OnBoardTest, test_operation_tensor_4_4_16_16_expand_add) {
             output = Add(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_4_4_16_16);
     std::vector<float> res(capacity_4_4_16_16);
@@ -1033,6 +1064,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_1_32_to_16_32_32_expand_add) {
             output = Add(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_16_32_32);
     std::vector<float> res(capacity_16_32_32);
@@ -1067,6 +1099,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_16_1_to_8_16_16_expand_add) {
             output = Add(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_8_16_16);
     std::vector<float> res(capacity_8_16_16);
@@ -1096,6 +1129,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_8_1_to_8_8_7168_expand_Mul_moe) {
             output = Mul(input_b, input_a);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_8_8_7168);
     std::vector<float> res(capacity_8_8_7168);
@@ -1125,6 +1159,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_8_1_to_8_8_7168_expand_sub) {
             output = Sub(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_8_8_7168);
     std::vector<float> res(capacity_8_8_7168);
@@ -1154,6 +1189,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_1_16_to_8_16_16_expand_add) {
             output = Add(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_8_16_16);
     std::vector<float> res(capacity_8_16_16);
@@ -1182,6 +1218,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_16_16_to_8_16_16_expand_add) {
             output = Add(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_8_16_16);
     std::vector<float> res(capacity_8_16_16);
@@ -1210,6 +1247,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_1_1_to_8_16_16_expand_add) {
             output = Add(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_8_16_16);
     std::vector<float> res(capacity_8_16_16);
@@ -1238,6 +1276,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_1_1_to_8_16_16_expand_add) {
             output = Add(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_8_16_16);
     std::vector<float> res(capacity_8_16_16);
@@ -1269,6 +1308,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_add) {
             output = Add(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(size0);
     std::vector<float> res(size0);
@@ -1299,6 +1339,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_sub) {
             output = Sub(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(size0);
     std::vector<float> res(size0);
@@ -1329,6 +1370,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_mul) {
             output = Mul(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(size0);
     std::vector<float> res(size0);
@@ -1359,6 +1401,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_div) {
             output = Div(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(size0);
     std::vector<float> res(size0);
@@ -1389,6 +1432,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_8_1_1_to_8_8_1_256_tileop_sub) {
             output = Sub(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_8_8_1_256);
     std::vector<float> res(capacity_8_8_1_256);
@@ -1419,6 +1463,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_1_1_64_to_1_128_1_64_tileop_mul01) {
             output = Mul(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capShape2);
     std::vector<float> res(capShape2);
@@ -1450,6 +1495,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_1_1_64_to_1_128_1_64_tileop_mul02) {
             output = Mul(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capShape1);
     std::vector<float> res(capShape1);
@@ -1481,6 +1527,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_1_64_to_32_1_64_tileop_mul03) {
             output = Mul(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capShape1);
     std::vector<float> res(capShape1);
@@ -1511,6 +1558,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_8_1_to_8_8_7168_expand_mul) {
             output = Mul(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(8*8*ccc);
     std::vector<float> res(8*8*ccc);
@@ -1538,6 +1586,7 @@ TEST_F(OnBoardTest, test_unary_operation_32_32_tileop_exp) {
             output = Exp(input_a);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_32_32);
     std::vector<float> res(capacity_32_32);
@@ -1563,6 +1612,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_32_32_tileop_exp) {
             output = Exp(input_a);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_16_32_32);
     std::vector<float> res(capacity_16_32_32);
@@ -1589,6 +1639,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_16_64_64_tileop_exp) {
             output = Exp(input_a);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_16_16_64_64);
     std::vector<float> res(capacity_16_16_64_64);
@@ -1615,6 +1666,7 @@ TEST_F(OnBoardTest, test_unary_operation_32_32_tileop_sqrt) {
             output = Sqrt(input_a);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_32_32);
     std::vector<float> res(capacity_32_32);
@@ -1641,6 +1693,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_32_32_tileop_sqrt) {
             output = Sqrt(input_a);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_16_32_32);
     std::vector<float> res(capacity_16_32_32);
@@ -1667,6 +1720,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_16_64_64_tileop_sqrt) {
             output = Sqrt(input_a);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_16_16_64_64);
     std::vector<float> res(capacity_16_16_64_64);
@@ -1694,6 +1748,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_16_64_70_tileop_sqrt) {
             output = Sqrt(input_a);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_16_16_64_70);
     std::vector<float> res(capacity_16_16_64_70);
@@ -1720,6 +1775,7 @@ TEST_F(OnBoardTest, test_unary_operation_32_32_tileop_reciprocal) {
             output = Reciprocal(input_a);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_32_32);
     std::vector<float> res(capacity_32_32);
@@ -1746,6 +1802,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_32_32_tileop_reciprocal) {
             output = Reciprocal(input_a);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_16_32_32);
     std::vector<float> res(capacity_16_32_32);
@@ -1772,6 +1829,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_16_64_64_tileop_reciprocal) {
             output = Reciprocal(input_a);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_16_16_64_64);
     std::vector<float> res(capacity_16_16_64_64);
@@ -1799,6 +1857,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_add) {
             output = AddS(input_a, value);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity);
     std::vector<float> res(capacity);
@@ -1826,6 +1885,7 @@ TEST_F(OnBoardTest, test_operation_add_vs_dim2_unalign) {
             output = AddS(input_a, value);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(shapeSize);
     std::vector<float> res(shapeSize);
@@ -1853,6 +1913,7 @@ TEST_F(OnBoardTest, test_operation_mul_vs_dim3_unalign) {
             output = MulS(input_a, value);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(shapeSize);
     std::vector<float> res(shapeSize);
@@ -1880,6 +1941,7 @@ TEST_F(OnBoardTest, test_operation_sub_vs_dim4_unalign) {
             output = SubS(input_a, value);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(shapeSize);
     std::vector<float> res(shapeSize);
@@ -1907,6 +1969,7 @@ TEST_F(OnBoardTest, test_operation_div_vs_dim1_unalign) {
             output = DivS(input_a, value);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(shapeSize);
     std::vector<float> res(shapeSize);
@@ -1932,6 +1995,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_add_FP16) {
             output = AddS(input_a, value);
         }
     }
+    RunStatic();
 
     std::vector<npu::tile_fwk::float16> golden(capacity);
     std::vector<npu::tile_fwk::float16> res(capacity);
@@ -1961,6 +2025,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_sub) {
             output = SubS(input_a, value);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity);
     std::vector<float> res(capacity);
@@ -1987,6 +2052,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_mul) {
             output = MulS(input_a, value);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity);
     std::vector<float> res(capacity);
@@ -2013,6 +2079,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_div) {
             output = DivS(input_a, value);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity);
     std::vector<float> res(capacity);
@@ -2041,6 +2108,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim1_div) {
             // output = Reshape(reshapeOutput, shape);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(64);
     std::vector<float> res(64);
@@ -2067,6 +2135,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim3_add) {
             output = AddS(input_a, value);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_dim3);
     std::vector<float> res(capacity_dim3);
@@ -2093,6 +2162,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim4_add) {
             output = AddS(input_a, value);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(2 * 2 * capacity);
     std::vector<float> res(2 * 2 * capacity);
@@ -2119,6 +2189,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim3_sub) {
             output = SubS(input_a, value);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_dim3);
     std::vector<float> res(capacity_dim3);
@@ -2145,6 +2216,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim4_sub) {
             output = SubS(input_a, value);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(2 * 2 * capacity);
     std::vector<float> res(2 * 2 * capacity);
@@ -2171,6 +2243,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim3_mul) {
             output = MulS(input_a, value);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_dim3);
     std::vector<float> res(capacity_dim3);
@@ -2197,6 +2270,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim4_mul) {
             output = MulS(input_a, value);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(2 * 2 * capacity);
     std::vector<float> res(2 * 2 * capacity);
@@ -2224,6 +2298,7 @@ TEST_F(OnBoardTest, test_operation_scalar_32_32_1_256_mul) {
             output = MulS(input_a, value);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(cap);
     std::vector<float> res(cap);
@@ -2250,6 +2325,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim3_div) {
             output = DivS(input_a, value);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capacity_dim3);
     std::vector<float> res(capacity_dim3);
@@ -2276,6 +2352,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim4_div) {
             output = DivS(input_a, value);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(2 * 2 * capacity);
     std::vector<float> res(2 * 2 * capacity);
@@ -2307,6 +2384,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_32_32_to_16_32_1_tileop_mul) {
             output = Mul(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(capShape1);
     std::vector<float> res(capShape1);
@@ -2353,6 +2431,7 @@ TEST_F(OnBoardTest, test_scatterupdate_case1) {
             past_key_states_new = ScatterUpdate(past_key_states, kv_len, key_states, -2);
         }
     }
+    RunStatic();
 
     uint64_t outputSize = Program::GetInstance().GetHostMachine().outputStubPara.at(0).rawShapeSize;
     uint8_t* outputGmAddr = Program::GetInstance().GetHostMachine().outputStubPara.at(0).rawTensorAddr;
@@ -2387,6 +2466,7 @@ TEST_F(OnBoardTest, test_mul_large_row) {
             output = Mul(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(shapeSize);
     std::vector<float> res(shapeSize);

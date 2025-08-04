@@ -13,20 +13,20 @@
  * \brief
  */
 
-#include "backend.h"
+#include "machine/host/backend.h"
+#include "tilefwk/tilefwk.h"
+#include "codegen/codegen.h"
+#include "interface/inner/tilefwk.h"
+#include "interface/program/program.h"
 #include "interface/operation/operation.h"
-#include "machine/host/machine_agent.h"
+#include "interface/configs/config_manager.h"
+#include "interface/utils/common.h"
+#include "interface/utils/file_utils.h"
 #include "machine/dump/kernel_dump_utils.h"
 #include "machine/host/machine_compiler.h"
 #include "machine/cache_manager/cache_manager.h"
 #include "machine/utils/dynamic/dev_encode.h"
-#include "tilefwk/tilefwk.h"
-#include "interface/inner/tilefwk.h"
-#include "interface/program/program.h"
-#include "interface/configs/config_manager.h"
-#include "codegen/codegen.h"
-#include "interface/utils/common.h"
-#include "interface/utils/file_utils.h"
+#include "machine/host/device_agent_task.h"
 
 using namespace npu::tile_fwk::dynamic;
 namespace npu::tile_fwk {
@@ -46,7 +46,7 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
         ALOG_INFO("draw graph switch enabled, push finish queue.");
         return 0;
     }
-    auto deviceAgentTask = std::make_unique<DeviceAgentTask>(task);
+    auto deviceAgentTask = std::make_shared<DeviceAgentTask>(task);
     auto function = deviceAgentTask->compileTask->GetFunction();
     deviceAgentTask->SetAsync(false);
     deviceAgentTask->SetOpOriginArgsInfo(function->GetOpOriginArgsInfo());
@@ -93,13 +93,7 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
         return 0;
     }
 
-    MachineAgent agent;
-    agent.AgentProc(deviceAgentTask.get());
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
-    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-#endif
-    MachinePipe piple;
-    piple.PipeProc(deviceAgentTask.get());
+    gDeviceAgentTaskPtr = deviceAgentTask;
     return 0;
 }
 

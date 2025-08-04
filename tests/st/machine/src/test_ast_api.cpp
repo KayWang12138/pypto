@@ -21,7 +21,7 @@
 #include "tilefwk/data_type.h"
 #include "test_common.h"
 #include "models/llama/llama_def.h"
-#include "machine/runtime.h"
+#include "runtime.h"
 
 namespace npu::tile_fwk {
 

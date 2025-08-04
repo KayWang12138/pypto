@@ -18,6 +18,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "tilefwk/data_type.h"
+#include "test_static.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {
@@ -60,7 +61,7 @@ void TestReduceScatter(OpTestParam &testParam)
                 npu::tile_fwk::Distributed::DistReduceType::DIST_REDUCE_ADD);
         }
     }
-
+    RunStatic();
     EXPECT_TRUE(CompareWithGolden<uint8_t *>(dType, "/output_rank_", outSize, outPtr, testParam));
 }
 
@@ -108,7 +109,7 @@ void TestReduceScatterEx(OpTestParam &testParam)
                 npu::tile_fwk::Distributed::DistReduceType::DIST_REDUCE_ADD);
         }
     }
-
+    RunStatic();
     EXPECT_TRUE(CompareWithGolden<uint8_t *>(dType, "/output_rank_", outSize, outPtr, testParam));
 }
 

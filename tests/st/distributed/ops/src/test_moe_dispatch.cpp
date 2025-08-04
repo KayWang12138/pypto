@@ -18,6 +18,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "tilefwk/data_type.h"
+#include "test_static.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {
@@ -65,7 +66,7 @@ void TestMoeDispatch(OpTestParam &testParam)
             expandX = MoeDispatch(tokenTensor, tokenExpertTable, validCnt, testParam.group);
         }
     }
-
+    RunStatic();
     EXPECT_TRUE(CompareWithGolden<uint8_t *>(dType, "/y_rank_", expandXSize, expandXPtr, testParam));
 
     if (testParam.rankId >= shareNum) {

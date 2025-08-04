@@ -23,7 +23,7 @@
 #include "test_common.h"
 #include "machine/dump/machine_dump.h"
 #include "models/llama/llama_def.h"
-#include "machine/runtime.h"
+#include "runtime.h"
 
 namespace npu::tile_fwk {
 

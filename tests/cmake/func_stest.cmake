@@ -326,7 +326,7 @@ function(TileFwk_STest_AddExe_RunExe)
     TileFwk_GTest_AddExe(
             TARGET                      ${TMP_TARGET}
             SOURCES                     ${_Sources}
-            PRIVATE_LINK_LIBRARIES      ${TileFwkSTestNamePrefix}_intf_pub tile_fwk_runtime ${TileFwkSTestCaseLibraries}
+            PRIVATE_LINK_LIBRARIES      ${TileFwkSTestNamePrefix}_intf_pub tile_fwk_compiler ${TileFwkSTestCaseLibraries}
     )
 
     #

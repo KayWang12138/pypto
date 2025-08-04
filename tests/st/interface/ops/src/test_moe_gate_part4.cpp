@@ -14,6 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
+#include "test_static.h"
 
 using namespace npu::tile_fwk;
 
@@ -51,6 +52,7 @@ TEST_F(MoEPart4OnBoardTest, test_operation_b_2) {
             outputTensor = Div(topk_weight, denominator); // [b*s,numExpertsPerTok]
         }
     }
+    RunStatic();
 
     std::vector<float> golden_val(B * S * numExpertsPerTopk);
     std::vector<float> dev_res(B * S * numExpertsPerTopk);

@@ -19,9 +19,11 @@ target_include_directories(${_Target}
         PUBLIC
             include
             ../ops/include
+            ${TILE_FWK_SRC_ROOT}/tests/runtime
 )
 target_link_libraries(${_Target}
         PRIVATE
             ${TileFwkSTestNamePrefix}_intf_pub
+            tile_fwk_compiler
             tile_fwk_runtime
 )

@@ -15,6 +15,7 @@
 
 #include <functional>
 #include "test_suite_stest_ops.h"
+#include "test_static.h"
 
 using namespace npu::tile_fwk;
 
@@ -42,6 +43,7 @@ TEST_F(OnBoardIFATest, test_32_128_sub_32_1) {
             output = Sub(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outCap);
     std::vector<float> res(outCap);
@@ -73,6 +75,7 @@ TEST_F(OnBoardIFATest, test_32_1_sub_32_1) {
             output = Sub(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outCap);
     std::vector<float> res(outCap);
@@ -104,6 +107,7 @@ TEST_F(OnBoardIFATest, test_32_512_add_32_1) {
             output = Add(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outCap);
     std::vector<float> res(outCap);
@@ -136,6 +140,7 @@ TEST_F(OnBoardIFATest, test_32_1_mul_32_1) {
             output = Mul(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outCap);
     std::vector<float> res(outCap);
@@ -169,6 +174,7 @@ TEST_F(OnBoardIFATest, test_32_512_mul_32_1) {
             output = Mul(input_a, input_c);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outCap);
     std::vector<float> res(outCap);
@@ -196,6 +202,7 @@ TEST_F(OnBoardIFATest, test_32_128_tileop_exp) {
             output = Exp(input_a);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outCap);
     std::vector<float> res(outCap);
@@ -224,6 +231,7 @@ TEST_F(OnBoardIFATest, test_32_1_tileop_exp) {
             output = Exp(input_a);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outCap);
     std::vector<float> res(outCap);
@@ -256,6 +264,7 @@ TEST_F(OnBoardIFATest, test_32_1_maximum) {
             output = Maximum(input_a, input_b);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outCap);
     std::vector<float> res(outCap);
@@ -284,6 +293,7 @@ TEST_F(OnBoardIFATest, test_32_1_reciprocal) {
             output = Reciprocal(input_a);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outCap);
     std::vector<float> res(outCap);
@@ -319,6 +329,7 @@ TEST_F(OnBoardIFATest, test_operation_32_128_row_max_single) {
             output = RowMaxSingle(input_a, -1);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -354,6 +365,7 @@ TEST_F(OnBoardIFATest, test_operation_32_128_row_sum_single) {
             output = RowSumSingle(input_a, -1);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
@@ -391,6 +403,7 @@ TEST_F(OnBoardIFATest, test_concat_32_512_32_64) {
             output = Concat(std::vector<Tensor>{input_a, input_b}, -1);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outCap);
     std::vector<float> res(outCap);
@@ -434,6 +447,7 @@ TEST_F(OnBoardIFATest, test_concat_32_tensor) {
             output = Concat(inputTensors, 0);
         }
     }
+    RunStatic();
 
     std::vector<float> golden(outCap);
     std::vector<float> res(outCap);

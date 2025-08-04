@@ -54,7 +54,7 @@
       ]
     }
   },
-  "libtile_fwk_runtime.so": {
+  "libtile_fwk_compiler.so": {
     "Source-Header": {
       "Self": [
         "src/machine/"
@@ -69,6 +69,25 @@
       ],
       "WhiteList": [
         "tests/cost_model/simulation/"
+      ],
+      "BlackList": [
+      ]
+    }
+  },
+  "libtile_fwk_runtime.so": {
+    "Source-Header": {
+      "Self": [
+        "tests/runtime/"
+      ],
+      "Area": [
+        "src/interface/",
+        "src/passes/",
+        "src/machine/"
+      ],
+      "Include": [
+        "include/"
+      ],
+      "WhiteList": [
       ],
       "BlackList": [
       ]
@@ -145,6 +164,7 @@
         "src/interface/",
         "src/passes/",
         "src/machine/",
+        "tests/runtime/",
         "tests/st/utils"
       ],
       "Include": [
@@ -169,6 +189,7 @@
         "src/passes/",
         "src/codegen/",
         "src/machine/",
+        "tests/runtime/",
         "tests/st/utils"
       ],
       "Include": [
@@ -183,7 +204,7 @@
       ]
     }
   },
-  "libtile_fwk_stest_runtime.a": {
+  "libtile_fwk_stest_machine.a": {
     "Source-Header": {
       "Self": [
         "tests/st/machine/"
@@ -193,6 +214,7 @@
         "src/interface/",
         "src/passes/",
         "src/machine/",
+        "tests/runtime/",
         "tests/st/utils"
       ],
       "Include": [
@@ -202,7 +224,6 @@
         "tests/cost_model/simulation/"
       ],
       "BlackList": [
-        "include/tileop/",
         "interface/program/program.h"
       ]
     }
@@ -217,6 +238,7 @@
         "src/interface/",
         "src/passes/",
         "src/machine/",
+        "tests/runtime/",
         "tests/st/utils"
       ],
       "Include": [
@@ -353,7 +375,7 @@
       ]
     }
   },
-  "libtile_fwk_utest_runtime.a": {
+  "libtile_fwk_utest_machine.a": {
     "Source-Header": {
       "Self": [
         "tests/ut/machine/"
@@ -362,7 +384,8 @@
         "src/models/",
         "src/interface/",
         "src/passes/",
-        "src/machine/"
+        "src/machine/",
+        "tests/runtime/"
       ],
       "Include": [
         "include/"

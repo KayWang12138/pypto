@@ -9,19 +9,22 @@
  */
 
 /*!
- * \file task_dump_utils.h
- * \brief dump and recover for DeviceAgentTask
+ * \file test_static.h
+ * \brief
  */
 
 #pragma once
 
-#include "interface/machine/host/machine_task.h"
 #include "machine/host/device_agent_task.h"
+#include "machine_agent.h"
 
 namespace npu::tile_fwk {
-class TaskDumpUtils {
- public:
-    static bool DumpTaskToBinFile(const DeviceAgentTask *deviceAgentTask, const std::string &dumpFileName);
-    static bool RecoverTaskFromBinFile(const std::string &binFilePath, DeviceAgentTask *deviceAgentTask);
-};
+static void RunStatic() {
+    if (gDeviceAgentTaskPtr == nullptr) {
+        return;
+    }
+    MachineAgent::AgentProc(gDeviceAgentTaskPtr.get());
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    MachinePipe::PipeProc(gDeviceAgentTaskPtr.get());
+}
 }

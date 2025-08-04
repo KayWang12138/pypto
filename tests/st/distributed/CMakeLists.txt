@@ -15,7 +15,7 @@ add_subdirectory(framework)
 set(_Target ${TileFwkSTestNamePrefix}_distributed)
 file(GLOB_RECURSE _Sources src/*.cpp)
 set(_PrivateLinkLibraries
-        tile_fwk_runtime
+        tile_fwk_compiler
         tile_fwk_interface
         ${TileFwkSTestNamePrefix}_utils
         ${TileFwkSTestNamePrefix}_distributed_ops
@@ -43,7 +43,7 @@ set(_DistributedGTestCaseFilterConfig
         "DistributedTest.aivWaitFlag_single_test_moe_combine_bfloat16_rank_size_4" "4"
 )
 set(_LdLibrariesExt
-        tile_fwk_runtime
+        tile_fwk_compiler
         ${TileFwkSTestNamePrefix}_distributed_framework
 )
 set(CmdSetup
