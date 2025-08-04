@@ -921,6 +921,9 @@ struct EncodeDevAscendFunctionInfo {
                         // should not happen
                         tiles += 1;
                     }
+                    if (tiles < 0) {
+                        tiles = 0;
+                    }
                     inoutOpAttr.minimalTileListSize *= tiles;
                 } else {
                     inoutOpAttr.minimalTileListSize = 0;

@@ -94,17 +94,11 @@ void TestDynamicMlaProlog(const TestShapeParams &params, const MlaTileConfig &ti
     std::vector<int> gammaCqShape = {qLoraRank};
     std::vector<int> gammaCkvShape = {kvLoraRank};
     std::vector<int> kvLenShape = {b, s};
-    std::vector<int> kvCacheShape = {b, n2, s2, kvLoraRank};
-    std::vector<int> krCacheShape = {b, n2, s2, qkRopeHeadDim};
-    std::vector<int> kvCacheOutShape = {b, n2, s2, kvLoraRank};
-    std::vector<int> krCacheOutShape = {b, n2, s2, qkRopeHeadDim};
-    if (cacheMode != "BNSD") {
-        int blockNum = b * (s2 / blockSize);
-        kvCacheShape = {blockNum, blockSize, n2, kvLoraRank};
-        krCacheShape = {blockNum, blockSize, n2, qkRopeHeadDim};
-        kvCacheOutShape = {blockNum * blockSize, n2 * kvLoraRank};
-        krCacheOutShape = {blockNum * blockSize, n2 * qkRopeHeadDim};
-    }
+    int blockNum = b * (s2 / blockSize);
+    std::vector<int> kvCacheShape = {blockNum, blockSize, n2, kvLoraRank};
+    std::vector<int> krCacheShape = {blockNum, blockSize, n2, qkRopeHeadDim};
+    std::vector<int> kvCacheOutShape = {blockNum * blockSize, n2 * kvLoraRank};
+    std::vector<int> krCacheOutShape = {blockNum, blockSize, n2 * qkRopeHeadDim};
     std::vector<int> wQbScaleShape = {1, n * qHeadDim};
     std::vector<int> smoothCqShape{1, qLoraRank};
     // output
@@ -130,12 +124,19 @@ void TestDynamicMlaProlog(const TestShapeParams &params, const MlaTileConfig &ti
     Tensor krCache(dType, krCacheShape, "krCache");
     Tensor wQbScale(DT_FP32, wQbScaleShape, "wQbScale");
     Tensor smoothCq(DT_FP32, smoothCqShape, "smoothCq");
-
     // output
     Tensor outputKvCache(dType, kvCacheOutShape, "outputKvCache");
     Tensor outputKrCache(dType, krCacheOutShape, "outputKrCache");
     Tensor outputQ(dType, qOutShape, "outputQ");
     Tensor outputQRope(dType, qRopeOutShape, "outputQRope");
+
+    // dynamic shape
+    Tensor dynamicX(dType, {-1, -1, h}, "dynamicX");
+    Tensor dynamicCos(dType, {-1, -1, qkRopeHeadDim}, "dynamicCos");
+    Tensor dynamicSin(dType, {-1, -1, qkRopeHeadDim}, "dynamicSin");
+    Tensor dynamicCacheIndex(DT_INT64, {-1, -1}, "dynamicCacheIndex"); // int64
+    Tensor dynamicOutputQ(dType, {-1, GetInputShapeDim(dynamicX, 1), n, kvLoraRank}, "dynamicOutputQ");
+    Tensor dynamicOutputQRope(dType, {-1, GetInputShapeDim(dynamicX, 1), n, qkRopeHeadDim}, "dynamicOutputQRope");
 
     // output
     std::vector<T> golden1 = getGoldenVec<T>(qOutShape, "/q_golden.bin");
@@ -179,8 +180,9 @@ void TestDynamicMlaProlog(const TestShapeParams &params, const MlaTileConfig &ti
         inputDataList.emplace_back(nullptr); // quantInputs.smoothScalesCq
     }
 
-    MlaProlog(x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache, quantInputs,
-        tileConfig, outputQ, outputQRope, outputKvCache, outputKrCache, 1e-5f, 1e-5f, cacheMode);
+    MlaProlog(dynamicX, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, dynamicSin, dynamicCos, dynamicCacheIndex,
+        kvCache, krCache, quantInputs, tileConfig,
+        dynamicOutputQ, dynamicOutputQRope, outputKvCache, outputKrCache, 1e-5f, 1e-5f, cacheMode);
 
     auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
