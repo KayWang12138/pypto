@@ -20,6 +20,7 @@
 #include "tilefwk/data_type.h"
 #include "models/llama/llama_def.h"
 #include "runtime.h"
+#include "tilefwk_runtime_api.h"
 #include "interface/utils/file_utils.h"
 #include "interface/registry/tile_fwk_op_registry.h"
 

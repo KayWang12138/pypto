@@ -120,17 +120,6 @@ public: // public api for torch
 
     void SubmitAllStashTask();
 
-    void ResetCurrentFunction() {
-        if (currentFunctionPtr_ == nullptr) {
-            return;
-        }
-        if (currentFunctionPtr_->HasParent()) {
-            currentFunctionPtr_ = &(currentFunctionPtr_->Parent());
-        } else {
-            currentFunctionPtr_ = nullptr;
-        }
-    }
-
 private:
     std::string name_;
     HostMachine hostMachine_;

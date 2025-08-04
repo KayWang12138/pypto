@@ -27,6 +27,7 @@
 #include "device_runner.h"
 #include "models/deepseek/deepseek_mla.h"
 #include "test_static.h"
+#include "tilefwk_runtime_api.h"
 
 using namespace npu::tile_fwk;
 

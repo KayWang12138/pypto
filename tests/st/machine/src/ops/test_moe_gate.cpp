@@ -22,6 +22,7 @@
 #include "test_suite_stest_ops.h"
 #include "runtime.h"
 #include "device_runner.h"
+#include "tilefwk_runtime_api.h"
 
 using namespace npu::tile_fwk;
 

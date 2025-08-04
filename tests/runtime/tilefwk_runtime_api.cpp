@@ -8,8 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "interface/inner/tilefwk/tilefwk_api.h"
-#include "interface/program/program.h"
+#include "tilefwk_runtime_api.h"
 #include "machine/host/device_agent_task.h"
 #include "machine_agent.h"
 
@@ -25,7 +24,6 @@ void RunAsync(const void *stream, const void *workSpaceGmAddr, void *handle,
 int32_t TileFwkRunAsync(void *handle, const void *workspace, const void *stream, const std::vector<void *> &opArgs,
                         const std::vector<size_t> &prefetchSizes) {
     RunAsync(stream, workspace, handle, opArgs, prefetchSizes);
-    Program::GetInstance().ResetCurrentFunction(); // reset init function
     return 0;
 }
 }
