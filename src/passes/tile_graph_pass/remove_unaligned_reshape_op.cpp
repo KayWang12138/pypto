@@ -92,6 +92,7 @@ void RemoveUnalignedReshapeOp::CollectReshapeOps(Function &function) {
             CopyInOpMemUnalign{output->GetMemoryTypeOriginal(), output->offset, newReshapeOutput, output});
         op.ReplaceOutput(newReshapeOutput, output);
         output->tensor->actualRawmagic = -1;
+        output->memorymap[op.GetSubgraphID()].memId = output->GetRawMagic();
         op.GetOOperands().front()->tensor->actualRawmagic = op.GetIOperands().front()->tensor->GetRawMagic();
     }
 }
