@@ -335,6 +335,9 @@ public:
 
     Json ToJson() const;
     Json DumpJson() const;
+    void LoadIncastFromJson(const Json& incastJson, Function* belongTo);
+    void LoadOutcastFromJson(const Json& outcastJson, Function* belongTo);
+    void LoadTensorFromJson(const Json& tensorJson, Function* belongTo);
     void LoadJson(const Json &invokeInfoJson, Function *belongTo);
     void Print(const std::string &extInfo) const;
 

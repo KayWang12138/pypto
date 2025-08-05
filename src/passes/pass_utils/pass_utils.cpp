@@ -285,11 +285,7 @@ void SubfuncInvokeInfoTy::Print(const std::string &extInfo) const {
         osm << "seqNo: " << icInfo.seqNo << ",";
         osm << "DstOprn: " << icInfo.operandIdx << ",";
         int ddrId = icInfo.realIncastDDRId;
-        if (ddrId != -1) {
-            osm << "ddrId: $" << ddrId << "\n";
-        } else {
-            osm << "ddrId: NOT_CONNECTED" << "\n";
-        }
+        osm << "ddrId: " << (ddrId != -1 ? ("$" + std::to_string(ddrId)) : "NOT_CONNECTED") << "\n";
     };
 
     ss << "---- Incast: \n";
@@ -303,11 +299,7 @@ void SubfuncInvokeInfoTy::Print(const std::string &extInfo) const {
         ss << "SrcSeqNo: " << outCast.seqNo << ", ";
         ss << "RefCount: " << outCast.refCount << ", ";
         int ddrId = outCast.realOutCastDDRId;
-        if (ddrId != -1) {
-            ss << "ddrId: $" << ddrId;
-        } else {
-            ss << "ddrId: NOT_CONNECTED";
-        }
+        ss << "ddrId: " << (ddrId != -1 ? "$" + ddrId : "NOT_CONNECTED");
         auto printLeadingSpace = [](std::ostream &osm, const int numSpace) {
             for (int i = 0; i < numSpace; i++) {
                 osm << " ";
@@ -376,57 +368,82 @@ Json SubfuncInvokeInfoTy::DumpJson() const {
     return ret;
 }
 
+void SubfuncInvokeInfoTy::LoadIncastFromJson(const Json& incastJson, Function* belongTo) {
+    int paramLoc = incastJson["param_loc"].get<int>();
+    int opMagic = incastJson["op_magic"].get<int>();
+    int operandIdx = incastJson["operandIdx"].get<int>();
+    std::shared_ptr<LogicalTensor> tensorPtr = belongTo->GetTensorMap().GetTensorByMagic(
+        incastJson["tensor"].get<int>());
+    if (tensorPtr == nullptr) {
+        ALOG_ERROR_F("Tile FWK for incast %d op %d is nullptr, function type %d name %s",
+            incastJson["tensor"].get<int>(), opMagic, belongTo->GetFunctionType(),
+            belongTo->GetMagicName().c_str());
+        return;
+    }
+    incastTensorParamList_.emplace_back(IncastParamPackTy(
+        paramLoc, tensorPtr->GetRawMagic(),
+        incastJson["offset"].get<std::vector<int>>(), 
+        incastJson["shape"].get<std::vector<int>>(),
+        tensorPtr->tensor->rawshape, tensorPtr->tensor->GetDataType(), 
+        tensorPtr, opMagic, operandIdx));
+}
+
+void SubfuncInvokeInfoTy::LoadOutcastFromJson(const Json& outcastJson, Function* belongTo) {
+    int paramLoc = outcastJson["param_loc"].get<int>();
+    int refCount = outcastJson["ref_count"].get<int>();
+    int opMagic = outcastJson["op_magic"].get<int>();
+    int operandIdx = outcastJson["operandIdx"].get<int>();
+    std::shared_ptr<LogicalTensor> tensorPtr = belongTo->GetTensorMap().GetTensorByMagic(
+        outcastJson["tensor"].get<int>());
+    if (tensorPtr == nullptr) {
+        ALOG_ERROR_F("Tile FWK for outcast %d op %d is nullptr function type %d name %s",
+            outcastJson["tensor"].get<int>(), opMagic, belongTo->GetFunctionType(),
+            belongTo->GetMagicName().c_str());
+        return;
+    }
+    outcastTensorParamList_.emplace_back(OutcastParamPackTy(
+        paramLoc, tensorPtr->GetRawMagic(), refCount,
+        outcastJson["shape"].get<std::vector<int>>(), 
+        tensorPtr->tensor->rawshape,
+        outcastJson["offset"].get<std::vector<int>>(), 
+        tensorPtr->tensor->GetDataType(), tensorPtr, opMagic,
+        operandIdx));
+}
+
+void SubfuncInvokeInfoTy::LoadTensorFromJson(const Json& tensorJson, Function* belongTo) {
+    int paramLoc = tensorJson["param_loc"].get<int>();
+    int opMagic = tensorJson["op_magic"].get<int>();
+    int operandIdx = tensorJson["operandIdx"].get<int>();
+    std::shared_ptr<LogicalTensor> tensorPtr = belongTo->GetTensorMap().GetTensorByMagic(
+        tensorJson["tensor"].get<int>());
+    if (tensorPtr == nullptr) {
+        ALOG_ERROR_F("Tile FWK for tensor %d op %d is nullptr, function type %d name %s",
+            tensorJson["tensor"].get<int>(), opMagic, belongTo->GetFunctionType(),
+            belongTo->GetMagicName().c_str());
+        return;
+    }
+    bool isOutput = tensorJson["is_output"].get<bool>();
+    tensorParamList_.emplace_back(TensorParamPackTy(
+        paramLoc, tensorPtr->GetRawMagic(),
+        tensorJson["offset"].get<std::vector<int>>(),
+        tensorJson["shape"].get<std::vector<int>>(),
+        tensorPtr->tensor->rawshape, tensorPtr->tensor->GetDataType(), 
+        isOutput, tensorPtr, opMagic, operandIdx));
+}
+
 void SubfuncInvokeInfoTy::LoadJson(const Json &invokeInfoJson, Function *belongTo) {
     for (const Json &incastJson : invokeInfoJson["incast_params"]) {
-        int paramLoc = incastJson["param_loc"].get<int>();
-        int opMagic = incastJson["op_magic"].get<int>();
-        int operandIdx = incastJson["operandIdx"].get<int>();
-        std::shared_ptr<LogicalTensor> tensorPtr = belongTo->GetTensorMap().GetTensorByMagic(incastJson["tensor"].get<int>());
-        if (tensorPtr == nullptr) {
-            ALOG_ERROR_F("Tile FWK for incast %d op %d is nullptr, function type %d name %s",
-                incastJson["tensor"].get<int>(), opMagic, belongTo->GetFunctionType(),
-                belongTo->GetMagicName().c_str());
-            continue;
-        }
-        incastTensorParamList_.emplace_back(IncastParamPackTy(paramLoc, tensorPtr->GetRawMagic(),
-            incastJson["offset"].get<std::vector<int>>(), incastJson["shape"].get<std::vector<int>>(),
-            tensorPtr->tensor->rawshape, tensorPtr->tensor->GetDataType(), tensorPtr, opMagic, operandIdx));
+        LoadIncastFromJson(incastJson, belongTo);
     }
 
     for (const Json &outcastJson : invokeInfoJson["outcast_params"]) {
-        int paramLoc = outcastJson["param_loc"].get<int>();
-        int refCount = outcastJson["ref_count"].get<int>();
-        int opMagic = outcastJson["op_magic"].get<int>();
-        int operandIdx = outcastJson["operandIdx"].get<int>();
-        std::shared_ptr<LogicalTensor> tensorPtr = belongTo->GetTensorMap().GetTensorByMagic(outcastJson["tensor"].get<int>());
-        if (tensorPtr == nullptr) {
-            ALOG_ERROR_F("Tile FWK for outcast %d op %d is nullptr function type %d name %s",
-                outcastJson["tensor"].get<int>(), opMagic, belongTo->GetFunctionType(),
-                belongTo->GetMagicName().c_str());
-            continue;
-        }
-        outcastTensorParamList_.emplace_back(OutcastParamPackTy(paramLoc, tensorPtr->GetRawMagic(), refCount,
-            outcastJson["shape"].get<std::vector<int>>(), tensorPtr->tensor->rawshape,
-            outcastJson["offset"].get<std::vector<int>>(), tensorPtr->tensor->GetDataType(), tensorPtr, opMagic,
-            operandIdx));
+        LoadOutcastFromJson(outcastJson, belongTo);
     }
+
     for (const Json &tensorJson : invokeInfoJson["tensor_params"]) {
-        int paramLoc = tensorJson["param_loc"].get<int>();
-        int opMagic = tensorJson["op_magic"].get<int>();
-        int operandIdx = tensorJson["operandIdx"].get<int>();
-        std::shared_ptr<LogicalTensor> tensorPtr = belongTo->GetTensorMap().GetTensorByMagic(tensorJson["tensor"].get<int>());
-        if (tensorPtr == nullptr) {
-            ALOG_ERROR_F("Tile FWK for tensor %d op %d is nullptr, function type %d name %s",
-                tensorJson["tensor"].get<int>(), opMagic, belongTo->GetFunctionType(),
-                belongTo->GetMagicName().c_str());
-            continue;
-        }
-        bool isOutput = tensorJson["is_output"].get<bool>();
-        tensorParamList_.emplace_back(TensorParamPackTy(paramLoc, tensorPtr->GetRawMagic(),
-            tensorJson["offset"].get<std::vector<int>>(),
-            tensorJson["shape"].get<std::vector<int>>(),
-            tensorPtr->tensor->rawshape, tensorPtr->tensor->GetDataType(), isOutput, tensorPtr, opMagic, operandIdx));
+        LoadTensorFromJson(tensorJson, belongTo);
     }
+    
     programSubgraphId_ = invokeInfoJson["program_id"].get<int>();
     graphType_ = static_cast<CoreType>(invokeInfoJson["graph_type"].get<int>());
 }
