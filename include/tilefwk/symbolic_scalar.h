@@ -12,6 +12,7 @@
  * \file symbolic_scalar.h
  * \brief
  */
+
 #pragma once
 
 #include <memory>

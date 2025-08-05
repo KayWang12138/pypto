@@ -28,12 +28,11 @@ class Tensor {
 public:
     /**
      * \brief Constructs a new default Tensor object
-     *
      */
     Tensor();
+
     /**
      * \brief Destroy the Tensor object
-     *
      */
     ~Tensor();
 
@@ -47,88 +46,89 @@ public:
     /**
      * \brief Construct a new Tensor object with 5 input parameters
      *
-     * \param t : Data type of the tensor.
-     * \param tshape : A vector that stores the shape of the tensor.
-     * \param tname : Name of the tensor. The default value is "".
-     * \param tnodetype : The type of the node. The default value is NodeType::LOCAL.
-     * \param tensorfmt : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
-     * \attention : The parameters tand tshape are required parameters.
+     * \param dataType : Data type of the tensor.
+     * \param shape : A vector that stores the shape of the tensor.
+     * \param name : Name of the tensor. The default value is "".
+     * \param nodeType : The type of the node. The default value is NodeType::LOCAL.
+     * \param format : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
+     * \attention : The parameters dataType and shape are required parameters.
      */
-    Tensor(DataType t, std::vector<int> tshape, std::string tname = "", NodeType tnodetype = NodeType::LOCAL,
-        TileOpFormat tensorfmt = TileOpFormat::TILEOP_ND);
+    Tensor(DataType dataType, std::vector<int> shape, std::string name = "", NodeType nodeType = NodeType::LOCAL,
+        TileOpFormat format = TileOpFormat::TILEOP_ND);
 
     /**
      * \brief Construct a new Tensor object with 6 input parameters
      *
-     * \param t : Data type of the tensor.
-     * \param tshape : A vector that stores the shape of the tensor.
-     * \param data : Pointer to the data of the tensor.
-     * \param tname : Name of the tensor.
-     * \param tnodetype : Type of the node. The default value is NodeType::LOCAL.
-     * \param tensorfmt : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
-     * \attention : The parameters t,tshape,data and tname are required parameters.
+     * \param dataType : Data type of the tensor.
+     * \param shape : A vector that stores the shape of the tensor.
+     * \param dataPtr : Pointer to the dataPtr of the tensor.
+     * \param name : Name of the tensor.
+     * \param nodeType : Type of the node. The default value is NodeType::LOCAL.
+     * \param format : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
+     * \attention : The parameters dataType,shape,dataPtr and name are required parameters.
      */
-    Tensor(DataType t, std::vector<int> tshape, uint8_t *data, std::string tname, NodeType tnodetype = NodeType::LOCAL,
-        TileOpFormat tensorfmt = TileOpFormat::TILEOP_ND)
-        : Tensor(t, tshape, tname, tnodetype, tensorfmt) {
-        SetData(data);
+    Tensor(DataType dataType, std::vector<int> shape, uint8_t *dataPtr, std::string name,
+        NodeType nodeType = NodeType::LOCAL, TileOpFormat format = TileOpFormat::TILEOP_ND)
+        : Tensor(dataType, shape, name, nodeType, format) {
+        SetData(dataPtr);
     }
 
     /**
      * \brief Construct a new Tensor object
      *
-     * \param t : Datatype
-     * \param tshape : Shape of the tensor
-     * \param tname : Name of the tensor.
-     * \param tensorfmt : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
+     * \param dataType : Datatype
+     * \param shape : Shape of the tensor
+     * \param name : Name of the tensor.
+     * \param format : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
      */
-    Tensor(DataType t, std::vector<SymbolicScalar> tshape, std::string tname = "",
-        TileOpFormat tensorfmt = TileOpFormat::TILEOP_ND);
+    Tensor(DataType dataType, std::vector<SymbolicScalar> shape, std::string name = "",
+        TileOpFormat format = TileOpFormat::TILEOP_ND);
 
     /**
      * \brief Construct a new Tensor object
      *
      * \param t : Datatype
-     * \param tshape : Shape of the tensor
-     * \param tname : Name of the tensor.
-     * \param tensorfmt : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
+     * \param shape : Shape of the tensor
+     * \param name : Name of the tensor.
+     * \param format : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
      * \code {.cpp}
      * Tensor t0(DT_FP32, {32, 32}) // shape with fixed type
      * Tensor t1(DT_FP32, {?, 32})  // first axis use dynamic shape
      * Tensor t2(DT_FP32, {GetInputShapeDim(t1, 0), 32}) // shape same as t1
      * \endcode
      */
-    Tensor(DataType t, std::initializer_list<SymbolicScalar> tshape, std::string tname = "",
-        TileOpFormat tensorfmt = TileOpFormat::TILEOP_ND)
-        :Tensor(t, std::vector<SymbolicScalar>(tshape), tname, tensorfmt) {}
+    Tensor(DataType t, std::initializer_list<SymbolicScalar> shape, std::string name = "",
+        TileOpFormat format = TileOpFormat::TILEOP_ND)
+        : Tensor(t, std::vector<SymbolicScalar>(shape), name, format) {}
 
     /**
      * \brief Construct a new Tensor object with 5 input parameters
      *
      * \param t : Data type of the tensor.
-     * \param tshape : A vector that stores the shape of the tensor.
+     * \param shape : A vector that stores the shape of the tensor.
      * \param dynDims : A vector that stores the dynamic dimensions of the tensor.
-     * \param tname : Name of the tensor. The default value is "".
-     * \param tensorfmt : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
+     * \param name : Name of the tensor. The default value is "".
+     * \param format : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
      */
-    Tensor(DataType t, std::vector<int> tshape, std::vector<int> dynDims, std::string tname = "",
-        TileOpFormat tensorfmt = TileOpFormat::TILEOP_ND);
+    Tensor(DataType t, std::vector<int> shape, std::vector<int> dynDims, std::string name = "",
+        TileOpFormat format = TileOpFormat::TILEOP_ND);
 
     /**
      * \brief Construct a new Tensor object with 5 input parameters
      *
-     * \param rawtensor : A shared pointer to a RawTensor object.
-     * \param toffset : A vector that stores the offset of the tensor.
-     * \param tshape : A vector that stores the shape of the tensor.
-     * \param tnodetype : The type of the node. The default value is NodeType::LOCAL.
-     * \param tensorfmt : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
-     * \attention : The parameters rawtensor,toffset and tshape are required parameters.
+     * \param rawTensor : A shared pointer to a RawTensor object.
+     * \param offset : A vector that stores the offset of the tensor.
+     * \param shape : A vector that stores the shape of the tensor.
+     * \param nodeType : The type of the node. The default value is NodeType::LOCAL.
+     * \param format : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
+     * \attention : The parameters rawTensor,offset and shape are required parameters.
      */
-    Tensor(std::shared_ptr<RawTensor> rawtensor, std::vector<int> toffset, std::vector<int> tshape,
-        NodeType tnodetype = NodeType::LOCAL, TileOpFormat tensorfmt = TileOpFormat::TILEOP_ND);
+    Tensor(std::shared_ptr<RawTensor> rawTensor, std::vector<int> offset, std::vector<int> shape,
+        NodeType nodeType = NodeType::LOCAL, TileOpFormat format = TileOpFormat::TILEOP_ND);
 
     /**
-     * \brief Overload the assignment operator to assign the value of another Tensor object to the current Tensor object.
+     * \brief Overload the assignment operator to assign the value of another Tensor object to the current Tensor
+     * object.
      *
      * \param rhs : A constant reference to another Tensor object.
      * \return Tensor& : A reference to the current Tensor object.
@@ -192,7 +192,7 @@ public:
      * \brief Get the const Storage object.
      *
      * \param readSlot : This parameter indicates whether slot reading is required. The default value is true.
-     * \return const std::shared_ptr<LogicalTensor>& : A constant reference to the storage object.
+     * \return const std::shared_ptr<LogicalTensor>& : A constant reference to the storage_ object.
      * \attention : The const keyword indicates that the function does not modify the object.
      */
     const std::shared_ptr<LogicalTensor> &GetStorage(bool readSlot = true) const;
@@ -201,7 +201,7 @@ public:
      * \brief Get the Storage object.
      *
      * \param readSlot : This parameter indicates whether slot reading is required. The default value is true.
-     * \return std::shared_ptr<LogicalTensor>& : A reference to the storage object.
+     * \return std::shared_ptr<LogicalTensor>& : A reference to the storage_ object.
      */
     std::shared_ptr<LogicalTensor> &GetStorage(bool readSlot = true);
 
@@ -209,7 +209,8 @@ public:
     /**
      * \brief Prefetch the tensor to L2 cache.
      *
-     * \param preloadDep : This parameter is used to control the timing of L2 prefetching for this Tensor. The default value is 0.
+     * \param preloadDep : This parameter is used to control the timing of L2 prefetching for this Tensor. The default
+     * value is 0.
      * \attention : This parameter is still in its infancy and has no actual function.
      */
     void Prefetch(int preloadDep = 0);
@@ -258,14 +259,14 @@ public:
     auto GetData() const { return data_; }
 
 private:
-    std::shared_ptr<LogicalTensor> storage;
+    std::shared_ptr<LogicalTensor> storage_;
     int index_{-1};
     BinDataPtr data_{};
 };
 
 /**
  * @brief Get the Input Shape Dim Size object
- * 
+ *
  * @param t input tensor
  * @return SymbolicScalar : dimension of tensor
  */
@@ -273,7 +274,7 @@ SymbolicScalar GetInputShapeDimSize(const Tensor &t);
 
 /**
  * @brief Get the size of a special dimension of input tensor
- * 
+ *
  * @param t input tensor
  * @param n dimension index
  * @return SymbolicScalar : size of a special dimension of tensor
@@ -281,8 +282,8 @@ SymbolicScalar GetInputShapeDimSize(const Tensor &t);
 SymbolicScalar GetInputShapeDim(const Tensor &t, int n);
 
 /**
- * @brief Get the Input Data of a 1D tensor 
- * 
+ * @brief Get the Input Data of a 1D tensor
+ *
  * @param t input tensor
  * @param off0 positional shift applied to the first axis of the tensor
  * @return SymbolicScalar : the data of a 1D tensor starting from off0
@@ -290,7 +291,7 @@ SymbolicScalar GetInputShapeDim(const Tensor &t, int n);
 SymbolicScalar GetInputDataInt32Dim1(const Tensor &t, SymbolicScalar off0);
 
 /**
- * @brief Get the Input Data of a 2D tensor 
+ * @brief Get the Input Data of a 2D tensor
  * @param t input tensor
  * @param off0 positional shift applied to the first axis of the tensor
  * @param off1 positional shift applied to the second axis of the tensor
@@ -299,19 +300,19 @@ SymbolicScalar GetInputDataInt32Dim1(const Tensor &t, SymbolicScalar off0);
 SymbolicScalar GetInputDataInt32Dim2(const Tensor &t, SymbolicScalar off0, SymbolicScalar off1);
 
 /**
- * @brief Get the Input Data of a 3D tensor 
- * 
+ * @brief Get the Input Data of a 3D tensor
+ *
  * @param t input tensor
  * @param off0 positional shift applied to the first axis of the tensor
  * @param off1 positional shift applied to the second axis of the tensor
  * @param off2 positional shift applied to the third axis of the tensor
- * @return SymbolicScalar 
+ * @return SymbolicScalar
  */
 SymbolicScalar GetInputDataInt32Dim3(const Tensor &t, SymbolicScalar off0, SymbolicScalar off1, SymbolicScalar off2);
 
 /**
  * @brief Determines if the current iteration is the start of loop
- * 
+ *
  * @param symbol current loop index
  * @param begin begin loop index
  * @return SymbolicScalar : expression to determine if currently at loop start
@@ -320,7 +321,7 @@ SymbolicScalar IsLoopBegin(const SymbolicScalar &symbol, const SymbolicScalar &b
 
 /**
  * @brief Determines if the current iteration is the end of loop
- * 
+ *
  * @param symbol current loop index
  * @param end end loop index
  * @return SymbolicScalar : expression to determine if currently at loop start
@@ -329,8 +330,10 @@ SymbolicScalar IsLoopEnd(const SymbolicScalar &symbol, const SymbolicScalar &end
 
 SymbolicScalar GetTensorDataInt32(const Tensor &t, const SymbolicScalar &off0);
 SymbolicScalar GetTensorDataInt32(const Tensor &t, const SymbolicScalar &off0, const SymbolicScalar &off1);
-SymbolicScalar GetTensorDataInt32(const Tensor &t, const SymbolicScalar &off0, const SymbolicScalar &off1, const SymbolicScalar &off2);
-SymbolicScalar GetTensorDataInt32(const Tensor &t, const SymbolicScalar &off0, const SymbolicScalar &off1, const SymbolicScalar &off2, const SymbolicScalar &off3);
+SymbolicScalar GetTensorDataInt32(
+    const Tensor &t, const SymbolicScalar &off0, const SymbolicScalar &off1, const SymbolicScalar &off2);
+SymbolicScalar GetTensorDataInt32(const Tensor &t, const SymbolicScalar &off0, const SymbolicScalar &off1,
+    const SymbolicScalar &off2, const SymbolicScalar &off3);
 SymbolicScalar GetTensorDataInt32(const Tensor &t, const std::vector<SymbolicScalar> &off);
 void SetTensorDataInt32(const SymbolicScalar &v, const std::vector<SymbolicScalar> &off, Tensor &dst);
 } // namespace npu::tile_fwk

@@ -60,7 +60,7 @@
 
 /**
  * @brief Describe an 'else' branch in dynamic scen.
- * 
+ *
  */
 #define ELSE else
 

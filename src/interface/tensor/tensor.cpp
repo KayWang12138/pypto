@@ -26,7 +26,7 @@
 
 using namespace npu::tile_fwk;
 
-Tensor::Tensor() : storage(nullptr), index_(IdGen<IdType::TENSOR_INDEX>::Inst().NewId()) {
+Tensor::Tensor() : storage_(nullptr), index_(IdGen<IdType::TENSOR_INDEX>::Inst().NewId()) {
     Program::GetInstance().InsertAliveTensor(this);
 }
 
@@ -34,17 +34,17 @@ Tensor::~Tensor() {
     Program::GetInstance().GetTensorSlotManager()->TensorDestruct(*this);
 
     Program::GetInstance().EraseAliveTensor(this);
-    if (storage == nullptr) {
+    if (storage_ == nullptr) {
         return;
     }
-    ASSERT(storage->tensor != nullptr);
-    storage->tensor->AddRefCount(-1);
+    ASSERT(storage_->tensor != nullptr);
+    storage_->tensor->AddRefCount(-1);
 }
 
-Tensor::Tensor(std::shared_ptr<LogicalTensor> s) : storage(std::move(s)), index_(IdGen<IdType::TENSOR_INDEX>::Inst().NewId()) {
-    ASSERT(storage != nullptr && storage->tensor != nullptr);
+Tensor::Tensor(std::shared_ptr<LogicalTensor> s) : storage_(std::move(s)), index_(IdGen<IdType::TENSOR_INDEX>::Inst().NewId()) {
+    ASSERT(storage_ != nullptr && storage_->tensor != nullptr);
     Program::GetInstance().InsertAliveTensor(this);
-    storage->tensor->AddRefCount(1);
+    storage_->tensor->AddRefCount(1);
 
     Program::GetInstance().GetTensorSlotManager()->TensorWrite(*this);
 }
@@ -63,67 +63,65 @@ static std::vector<SymbolicScalar> ToDynShape(const std::string &tname, const st
     return dynShape;
 }
 
-Tensor::Tensor(DataType t, std::vector<int> tshape, std::string tname, NodeType tnodetype,
-    TileOpFormat tensorfmt)
+Tensor::Tensor(DataType dataType, std::vector<int> shape, std::string name, NodeType nodeType,
+    TileOpFormat format)
     : index_(IdGen<IdType::TENSOR_INDEX>::Inst().NewId()) {
-    auto dynShape = ToDynShape(tname, tshape);
-    storage = std::make_shared<LogicalTensor>(*Program::GetInstance().GetCurrentFunction(),
-        t, tshape, tname, tnodetype, tensorfmt);
-    storage->tensor->AddRefCount(1);
+    auto dynShape = ToDynShape(name, shape);
+    storage_ = std::make_shared<LogicalTensor>(*Program::GetInstance().GetCurrentFunction(), dataType, shape, name, nodeType, format);
+    storage_->tensor->AddRefCount(1);
 
-    storage->GetRawTensor()->UpdateDynRawShape(dynShape);
+    storage_->GetRawTensor()->UpdateDynRawShape(dynShape);
 
     Program::GetInstance().InsertAliveTensor(this);
     Program::GetInstance().GetTensorSlotManager()->TensorWrite(*this);
-    Program::GetInstance().GetTensorSlotManager()->TensorSymbol(*this, tname);
+    Program::GetInstance().GetTensorSlotManager()->TensorSymbol(*this, name);
 }
 
-Tensor::Tensor(DataType t, std::vector<SymbolicScalar> tshape, std::string tname, TileOpFormat tensorfmt)
-    :Tensor(t, SymbolicScalar::Concrete(tshape, -1), tname, NodeType::LOCAL, tensorfmt)
+Tensor::Tensor(DataType dataType, std::vector<SymbolicScalar> shape, std::string name, TileOpFormat format)
+    :Tensor(dataType, SymbolicScalar::Concrete(shape, -1), name, NodeType::LOCAL, format)
 {
-    auto rawTensor = storage->GetRawTensor();
-    for (size_t axis = 0; axis  < tshape.size(); axis++) {
-        if (tshape[axis].ConcreteValid() && tshape[axis].Concrete() == -1) {
-            tshape[axis] = rawTensor->GetDynRawShape(axis);
+    auto rawTensor = storage_->GetRawTensor();
+    for (size_t axis = 0; axis  < shape.size(); axis++) {
+        if (shape[axis].ConcreteValid() && shape[axis].Concrete() == -1) {
+            shape[axis] = rawTensor->GetDynRawShape(axis);
         }
     }
-    rawTensor->UpdateDynRawShape(tshape);
+    rawTensor->UpdateDynRawShape(shape);
 }
 
 void Tensor::SetData(BinDataPtr data) {
     data_ = data;
 }
 
-Tensor::Tensor(std::shared_ptr<RawTensor> rawtensor, std::vector<int> toffset, std::vector<int> tshape,
-    NodeType tnodetype, TileOpFormat tensorfmt)
+Tensor::Tensor(std::shared_ptr<RawTensor> rawTensor, std::vector<int> offset, std::vector<int> shape,
+    NodeType nodeType, TileOpFormat format)
     : index_(IdGen<IdType::TENSOR_INDEX>::Inst().NewId()) {
-    ASSERT(rawtensor != nullptr);
+    ASSERT(rawTensor != nullptr);
     Program::GetInstance().InsertAliveTensor(this);
-    storage = std::make_shared<LogicalTensor>(*Program::GetInstance().GetCurrentFunction(), std::move(rawtensor),
-        toffset, tshape, tnodetype, tensorfmt);
-    storage->tensor->AddRefCount(1);
+    storage_ = std::make_shared<LogicalTensor>(*Program::GetInstance().GetCurrentFunction(), std::move(rawTensor), offset, shape, nodeType, format);
+    storage_->tensor->AddRefCount(1);
 
     Program::GetInstance().GetTensorSlotManager()->TensorWrite(*this);
 }
 
 const LogicalTensor *Tensor::operator->() const {
     Program::GetInstance().GetTensorSlotManager()->TensorRead(*this);
-    return storage.get();
+    return storage_.get();
 }
 
 LogicalTensor *Tensor::operator->() {
     Program::GetInstance().GetTensorSlotManager()->TensorRead(*this);
-    return storage.get();
+    return storage_.get();
 }
 
 const LogicalTensor &Tensor::operator*() const {
     Program::GetInstance().GetTensorSlotManager()->TensorRead(*this);
-    return *storage;
+    return *storage_;
 }
 
 LogicalTensor &Tensor::operator*() {
     Program::GetInstance().GetTensorSlotManager()->TensorRead(*this);
-    return *storage;
+    return *storage_;
 }
 
 const std::shared_ptr<LogicalTensor> &Tensor::GetStorage(bool readSlot) const
@@ -131,7 +129,7 @@ const std::shared_ptr<LogicalTensor> &Tensor::GetStorage(bool readSlot) const
     if (readSlot) {
         Program::GetInstance().GetTensorSlotManager()->TensorRead(*this);
     }
-    return storage;
+    return storage_;
 }
 
 std::shared_ptr<LogicalTensor> &Tensor::GetStorage(bool readSlot)
@@ -139,7 +137,7 @@ std::shared_ptr<LogicalTensor> &Tensor::GetStorage(bool readSlot)
     if (readSlot) {
         Program::GetInstance().GetTensorSlotManager()->TensorRead(*this);
     }
-    return storage;
+    return storage_;
 }
 
 namespace npu {
@@ -161,17 +159,17 @@ Tensor &Tensor::operator=(const Tensor &rhs) {
         return *this;
     }
     AssignTensorData(*this, rhs);
-    if (storage != nullptr && storage->tensor != nullptr) {
-        rhs.GetStorage()->tensor->symbol = storage->tensor->symbol;
+    if (storage_ != nullptr && storage_->tensor != nullptr) {
+        rhs.GetStorage()->tensor->symbol = storage_->tensor->symbol;
     }
-    if (storage != nullptr) {
-        storage->tensor->AddRefCount(-1);
+    if (storage_ != nullptr) {
+        storage_->tensor->AddRefCount(-1);
     }
-    storage = rhs.GetStorage();
-    if (storage != nullptr) {
-        storage->tensor->AddRefCount(1);
+    storage_ = rhs.GetStorage();
+    if (storage_ != nullptr) {
+        storage_->tensor->AddRefCount(1);
     }
-    if (storage != nullptr) {
+    if (storage_ != nullptr) {
         Program::GetInstance().GetTensorSlotManager()->TensorRead(rhs);
         Program::GetInstance().GetTensorSlotManager()->TensorWrite(*this);
     }
@@ -184,65 +182,65 @@ Tensor &Tensor::operator=(Tensor &&rhs) noexcept {
     }
     AssignTensorData(*this, rhs);
     rhs.SetData(nullptr);
-    if (storage != nullptr && storage->tensor != nullptr) {
-        rhs.GetStorage()->tensor->symbol = storage->tensor->symbol;
+    if (storage_ != nullptr && storage_->tensor != nullptr) {
+        rhs.GetStorage()->tensor->symbol = storage_->tensor->symbol;
     }
-    if (storage != nullptr) {
-        storage->tensor->AddRefCount(-1);
+    if (storage_ != nullptr) {
+        storage_->tensor->AddRefCount(-1);
     }
-    storage = std::move(rhs.GetStorage());
-    if (storage != nullptr) {
+    storage_ = std::move(rhs.GetStorage());
+    if (storage_ != nullptr) {
         Program::GetInstance().GetTensorSlotManager()->TensorRead(rhs);
         Program::GetInstance().GetTensorSlotManager()->TensorWrite(*this);
     }
     return *this;
 }
 
-Tensor::Tensor(const Tensor &rhs) : storage(rhs.GetStorage()), index_(IdGen<IdType::TENSOR_INDEX>::Inst().NewId()) {
-    if (storage != nullptr) {
-        storage->tensor->AddRefCount(1);
+Tensor::Tensor(const Tensor &rhs) : storage_(rhs.GetStorage()), index_(IdGen<IdType::TENSOR_INDEX>::Inst().NewId()) {
+    if (storage_ != nullptr) {
+        storage_->tensor->AddRefCount(1);
     }
     SetData(rhs.GetData());
     Program::GetInstance().InsertAliveTensor(this);
-    if (storage != nullptr) {
+    if (storage_ != nullptr) {
         Program::GetInstance().GetTensorSlotManager()->TensorRead(rhs);
         Program::GetInstance().GetTensorSlotManager()->TensorWrite(*this);
     }
 }
 
-Tensor::Tensor(Tensor &&rhs) : storage(std::move(rhs.GetStorage())), index_(IdGen<IdType::TENSOR_INDEX>::Inst().NewId()) {
+Tensor::Tensor(Tensor &&rhs) : storage_(std::move(rhs.GetStorage())), index_(IdGen<IdType::TENSOR_INDEX>::Inst().NewId()) {
     Program::GetInstance().InsertAliveTensor(this);
     SetData(rhs.GetData());
     rhs.SetData(nullptr);
-    if (storage != nullptr) {
+    if (storage_ != nullptr) {
         Program::GetInstance().GetTensorSlotManager()->TensorRead(rhs);
         Program::GetInstance().GetTensorSlotManager()->TensorWrite(*this);
     }
 }
 
 DataType Tensor::GetDataType() const {
-    return storage->Datatype();
+    return storage_->Datatype();
  }
 
 const std::vector<int> &Tensor::GetShape() const
 {
-    return storage->shape;
+    return storage_->shape;
 }
 
 int Tensor::GetShape(int axis) const {
-    const size_t dimCount = storage->shape.size();
+    const size_t dimCount = storage_->shape.size();
     ASSERT(dimCount > 0) << "Tensor has no dimensions!";
     if (axis < 0) {
         axis += static_cast<int>(dimCount);
     }
     ASSERT(axis >= 0 && static_cast<size_t>(axis) < dimCount) << "Axis index " << axis <<
         " is out of range [0, " << (dimCount - 1) << "].";
-    return storage->shape[axis];
+    return storage_->shape[axis];
 }
 
 void Tensor::Prefetch(int preloadDep) {
-  if (storage != nullptr) {
-      storage->SetPrefetch(preloadDep);
+  if (storage_ != nullptr) {
+      storage_->SetPrefetch(preloadDep);
   }
   return;
 }
@@ -346,7 +344,7 @@ SymbolicScalar DoGetTensorDataInt32(SymbolHandlerId handlerId, const Tensor &t, 
 
     auto &desc = currDynAttr->getTensorDataDict[getTensorDataIndex];
     desc.outcastTensor = extract;
-    
+
     std::string getName = SymbolHandler::GetNameByHandlerId(handlerId);
     std::string getRuntimeName = AddRuntimePrefix(getName);
     SymbolicScalar getRuntimeHandler(getRuntimeName);

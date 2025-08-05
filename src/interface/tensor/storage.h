@@ -29,7 +29,7 @@ public:
     uint64_t length_ = 0; // bytes
     Storage(MemoryType type, int64_t id, uint64_t length) : type_(type), id_(id), length_(length) {}
 
-    nlohmann::json DumpJson() const 
+    nlohmann::json DumpJson() const
     {
         nlohmann::json ret;
         ret["type"] = type_;
