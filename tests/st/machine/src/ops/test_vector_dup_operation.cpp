@@ -15,7 +15,7 @@
 
 #include "test_operation.h"
 
-using namespace ascend::test_operation;
+using namespace tile_fwk::test_operation;
 namespace {
 struct VectorDupOpFuncArgs : public OpFuncArgs {
     VectorDupOpFuncArgs(std::vector<int> shape, std::vector<int> vecViewShapes, std::vector<int> vecTileShapes,

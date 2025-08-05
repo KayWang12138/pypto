@@ -15,7 +15,7 @@
 
 #include "test_operation.h"
 
-using namespace ascend::test_operation;
+using namespace tile_fwk::test_operation;
 namespace {
 struct DivsOpFuncArgs : public OpFuncArgs {
     DivsOpFuncArgs(std::vector<int> shape, std::vector<int> vecTileShape, std::vector<int> tileShape, DataType dType) :

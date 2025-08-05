@@ -520,7 +520,7 @@ public:
 
     void ProcessIOData() {
         // 设置输入数据
-        std::vector<RawTensorDataPtr> ascendInputs;
+        std::vector<RawTensorDataPtr> inputs;
         ASSERT_EQ(testCase.inputTensors.size(), testCase.inputPaths.size());
         for (size_t i = 0; i < testCase.inputTensors.size(); ++i) {
             size_t elementCount = 1;
@@ -529,16 +529,16 @@ public:
             }
             std::vector<uint8_t> input(elementCount * BytesOf(testCase.inputTensors[i].GetDataType()), 0);
             readInput<uint8_t>(testCase.inputPaths[i], input);
-            ascendInputs.push_back(RawTensorData::CreateTensor(testCase.inputTensors[i], input));
+            inputs.push_back(RawTensorData::CreateTensor(testCase.inputTensors[i], input));
         }
-        ProgramData::GetInstance().AppendInputs({ascendInputs});
+        ProgramData::GetInstance().AppendInputs({inputs});
 
         // 设置输出Tensor
-        std::vector<RawTensorDataPtr> ascendOutputs;
+        std::vector<RawTensorDataPtr> outputs;
         for (auto &tensor : testCase.outputTensors) {
-            ascendOutputs.push_back(RawTensorData::CreateTensorZero(tensor));
+            outputs.push_back(RawTensorData::CreateTensorZero(tensor));
         }
-        ProgramData::GetInstance().AppendOutputs({ascendOutputs});
+        ProgramData::GetInstance().AppendOutputs({outputs});
     }
 
     void CmpResults() {

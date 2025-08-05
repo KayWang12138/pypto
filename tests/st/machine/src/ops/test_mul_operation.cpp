@@ -15,7 +15,7 @@
 
 #include "test_operation.h"
 
-using namespace ascend::test_operation;
+using namespace tile_fwk::test_operation;
 namespace {
 struct MulOpFuncArgs : public OpFuncArgs {
     MulOpFuncArgs(std::vector<std::vector<int>> inputShapes, std::vector<int> viewShape, std::vector<int> vecTileShape, DataType dType) :

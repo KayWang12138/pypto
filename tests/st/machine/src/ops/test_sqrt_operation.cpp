@@ -15,7 +15,7 @@
 
 #include "test_operation.h"
 
-using namespace ascend::test_operation;
+using namespace tile_fwk::test_operation;
 namespace {
 struct SqrtOpFuncArgs : public OpFuncArgs {
     SqrtOpFuncArgs(std::vector<int> inputShape0, std::vector<int> viewShape, std::vector<int> vecTileShape, DataType dType) :
