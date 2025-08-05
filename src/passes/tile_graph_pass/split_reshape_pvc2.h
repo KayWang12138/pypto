@@ -28,7 +28,7 @@ using InputMaigc = int;
 using OutputMaigc = int;
 using OverlaprawMagic = int;
 
-class ReshapeOp{
+class ReshapeOp {
     public:
         ReshapeOp(std::shared_ptr<LogicalTensor> aInput, std::shared_ptr<LogicalTensor> aOutput)
             : input(aInput), output(aOutput) {}
@@ -37,44 +37,120 @@ class ReshapeOp{
         std::shared_ptr<LogicalTensor> output;
 };
 
+struct ReshapeTilePara {
+    std::vector<int> shape;
+    std::vector<int> newShape;
+    std::vector<int> tileOffset;
+    std::vector<int> tileShape;
+};
+
+struct copyOutTilePara {
+    LogicalTensorPtr reshapeSource;
+    LogicalTensorPtr inputView;
+    LogicalTensorPtr newInputView;
+    std::vector<int32_t> alignedShape;
+    std::vector<SymbolicScalar> validShape;
+};
+
+struct PerfectlyMatchPara {
+    LogicalTensorPtr input;
+    LogicalTensorPtr output;
+    LogicalTensorPtr overlap;
+    LogicalTensorPtr reshapeSource;
+    LogicalTensorPtr reshapeOutput;
+};
+
+struct BeCoveredPara {
+    LogicalTensorPtr overlap;
+    LogicalTensorPtr input;
+    LogicalTensorPtr reshapeOutput;
+    LogicalTensorPtr reshapeSource;
+    std::vector<int32_t> newOffset;
+};
+
+struct PerfectlyMatchWithAllPara {
+    LogicalTensorPtr input;
+    LogicalTensorPtr output;
+    LogicalTensorPtr overlap;
+    LogicalTensorPtr reshapeOutput;
+    LogicalTensorPtr newReshapeSource;
+};
+
+struct AssemblePara {
+    LogicalTensorPtr input;
+    LogicalTensorPtr output;
+    LogicalTensorPtr reshapeSource;
+    LogicalTensorPtr newInput;
+    LogicalTensorPtr newReshapeOutput;
+    LogicalTensorPtr inputView;
+    LogicalTensorPtr overlap;
+    std::vector<int32_t> newReshapeOutputTileOffset;
+};
+
+struct OpPara {
+    LogicalTensorPtr oldInput;
+    LogicalTensorPtr oldOutput;
+    LogicalTensorPtr newInput;
+    LogicalTensorPtr newOutput;
+};
+
 struct CalcOverlapPara {
-    std::vector<int> &alignedShape;
-    std::shared_ptr<LogicalTensor> &reshapeSource;
-    std::pair<std::vector<int>, std::vector<int>> &newinputviewTileinfo;
-    std::vector<std::shared_ptr<LogicalTensor>> &overlaps;
-    std::vector<std::shared_ptr<LogicalTensor>> &newOverlaps;
-    std::shared_ptr<LogicalTensor> &input;
-    std::shared_ptr<LogicalTensor> &inputView;
-    std::shared_ptr<LogicalTensor> &output;
+    std::vector<int32_t> alignedShape;
+    LogicalTensorPtr reshapeSource;
+    std::vector<int32_t> newInputViewTileOffset;
+    std::vector<int32_t> newInputViewTileShape;
+    LogicalTensors overlaps;
+    LogicalTensors newOverlaps;
+    LogicalTensorPtr input;
+    LogicalTensorPtr inputView;
+    LogicalTensorPtr output;
 };
 
 class SplitReshapeOpPVC2 : public Pass, public DeadOperationEliminator {
 public:
     SplitReshapeOpPVC2() : Pass("SplitReshapeOpPVC2") {}
     ~SplitReshapeOpPVC2() override = default;
-    Status RunOnFunction(Function &function) override;
-
 private:
-    void CollectCopyOut(Function &function);
-    void CheckCopyIn(Function &function);
-    void EraseReshape(Function &function);
-    void UpdateForPerfectlyMatchWithAll(Function &function, Operation &op, const CalcOverlapPara &para);
-    void UpdateForAssembleAfterReshape(Function &function, Operation &op, const CalcOverlapPara &para);
+    Status RunOnFunction(Function &function) override;
+    Status Init();
+    Status CollectCopyOut(Function &function);
+    Status CheckCopyIn(Function &function);
+    Status AddOperation(Function &function);
+    Status EraseReshape(Function &function);
+    Status SetMemoryType(Function &function);
 
+    Status AddReshapeRemoveView(Operation &op, const OpPara &para);
+    Status AddReshape(Operation &op, const OpPara &para);
+    Status ObtainCopyOutTile(Function &function, const copyOutTilePara &copyOutTile, LogicalTensors &overlaps, LogicalTensors &newOverlaps);
+    Status ConstructShapeOffset(const ReshapeTilePara &shapePara, size_t &i, size_t j, std::vector<int32_t> &newOffset, std::vector<int32_t> &newShape);
+
+    Status UpdateForPerfectlyMatchWithUB(Operation &op, const PerfectlyMatchPara &para);
+    Status UpdateForPerfectlyMatchWithDDR(Operation &op, const PerfectlyMatchPara &para);
+    Status UpdateForPerfectlyMatchOtherCase(Function &function, Operation &op, const PerfectlyMatchPara &para);
+    Status UpdateForPerfectlyMatch(Function &function, Operation &op, const CalcOverlapPara &para);
+    Status UpdateForBeCoveredUBDDR(Operation &op, const BeCoveredPara &para);
+    Status UpdateForBeCoveredOtherCase(Function &function, Operation &op, const BeCoveredPara &para);
+    Status UpdateForBeCovered(Function &function, Operation &op, const CalcOverlapPara &para);
+    Status UpdateForAssembleAfterReshapeWithUB(Operation &op, const AssemblePara &para);
+    Status UpdateForAssembleAfterReshapeWithDDR(Operation &op, const AssemblePara &para);
+    Status UpdateForAssembleAfterReshapeOtherCase(Function &function, Operation &op, const AssemblePara &para);
+    Status UpdateForAssembleAfterReshape(Function &function, Operation &op, const CalcOverlapPara &para);
+    Status UpdateForPerfectlyMatchWithAllWithUB(Operation &op, const PerfectlyMatchWithAllPara &para);
+    Status UpdateForPerfectlyMatchWithAllOtherCase(Operation &op, const PerfectlyMatchWithAllPara &para);
+    Status UpdateForPerfectlyMatchWithAll(Function &function, Operation &op, const CalcOverlapPara &para);
+
+    bool CheckSplit(const LogicalTensorPtr &reshapeSource);
     std::shared_ptr<ReshapeOp> ReshapeOperationExist(const std::shared_ptr<ReshapeOp> &isAddReshapeop);
-    unsigned long ComputeReshapeHash(
-        const std::shared_ptr<LogicalTensor> &input, const std::shared_ptr<LogicalTensor> &output) const;
-    unsigned long ComputeReshapeHashOrderless(
-        const std::shared_ptr<LogicalTensor> &input, const std::shared_ptr<LogicalTensor> &output) const;
-    std::vector<int> ShapeAlign(std::vector<int> shape1, std::vector<int> shape2);
-    std::pair<std::vector<int>, std::vector<int>> ReshapeTile(const std::vector<int> &shape,
-        const std::vector<int> &alignedShape, const std::vector<int> &tileOffset, const std::vector<int> &tileShape);
-    std::pair<std::vector<int>, std::vector<int>> ReshapeTile2(const std::vector<int> &rawshape,
-        const std::vector<int> &newRawshape, const std::vector<int> &tileOffset, const std::vector<int> &tileShape);
+    unsigned long ComputeReshapeHash(const LogicalTensorPtr &input, const LogicalTensorPtr &output) const;
+    unsigned long ComputeReshapeHashOrderless(const LogicalTensorPtr &input, const LogicalTensorPtr &output) const;
+    
+    Status ShapeAlign(std::vector<int32_t> shape1, std::vector<int32_t> shape2, std::vector<int32_t> &alignedShape);
+    Status ReshapeTile(const ReshapeTilePara &shapePara, std::vector<int32_t> &newOffset, std::vector<int32_t> &newShape);
+    Status ReshapeTile2(const ReshapeTilePara &shapePara, std::vector<int32_t> &newOffset, std::vector<int32_t> &newShape);
 
-    std::unordered_map<int, std::set<std::shared_ptr<LogicalTensor>, TensorPtrComparator>> copyOutSources;
-    std::unordered_map<InputMaigc, std::unordered_map<OutputMaigc, std::vector<int>>> mappingOffset;
-    std::unordered_map<int, std::shared_ptr<LogicalTensor>> reshapeSources;
+    std::unordered_map<int, std::set<LogicalTensorPtr, TensorPtrComparator>> copyOutSources;
+    std::unordered_map<InputMaigc, std::unordered_map<OutputMaigc, std::vector<int>>> mapOffset;
+    std::unordered_map<int, LogicalTensorPtr> reshapeSources;
     std::vector<AssembleOp> assembles;
     std::unordered_map<unsigned long, std::shared_ptr<ReshapeOp>> reshapes;
     std::unordered_set<Operation *> redundentViewops;
