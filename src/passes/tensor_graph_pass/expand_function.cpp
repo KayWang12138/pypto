@@ -30,26 +30,31 @@ using namespace npu::tile_fwk;
 namespace npu::tile_fwk {
 namespace {
 bool CheckAssembleNeedCopy(Function &function, const std::shared_ptr<Operation> &op) {
-    if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
-        auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(op->GetOpAttribute().get());
-        if (assembleOpAttribute == nullptr) {
-            return false;
-        }
-        if (assembleOpAttribute->GetToDynOffset().empty()) {
-            return false;
-        }
-        auto producers = function.FindProducers(*op);
-        if ((producers.size() == 1) && ((*producers.begin()) != nullptr) &&
-            ((*producers.begin())->GetOpcode() == Opcode::OP_RESHAPE) &&
-            (!op->oOperand.empty()) && (!op->iOperand.empty())) {
-            for (size_t i = 1; i < op->oOperand[0]->shape.size(); i++) {
-                int shapeScale = op->oOperand[0]->shape[i] / op->iOperand[0]->shape[i];
-                if (shapeScale != 1) {
-                    op->SetAttr("NeedCopy", true);
-                    ALOG_INFO_F("assemble %d need to check expansion.",  op->GetOpMagic());
-                    return true;
-                }
-            }
+    if (op->GetOpcode() != Opcode::OP_ASSEMBLE) {
+        return false;
+    }
+    if (op->oOperand.empty() || op->iOperand.empty()) {
+        return false;
+    }
+    auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(op->GetOpAttribute().get());
+    if (assembleOpAttribute == nullptr) {
+        return false;
+    }
+    if (assembleOpAttribute->GetToDynOffset().empty()) {
+        return false;
+    }
+    auto producers = function.FindProducers(*op);
+    if (producers.size() != 1) {
+        return false;
+    }
+    if (((*producers.begin()) == nullptr) || ((*producers.begin())->GetOpcode() != Opcode::OP_RESHAPE)) {
+        return false;
+    }
+    for (size_t i = 1; i < op->oOperand[0]->shape.size(); i++) {
+        if (op->oOperand[0]->shape[i] != op->iOperand[0]->shape[i]) {
+            op->SetAttr("NeedCopy", true);
+            ALOG_INFO_F("assemble %d need to check expansion.",  op->GetOpMagic());
+            return true;
         }
     }
     return false;

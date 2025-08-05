@@ -160,14 +160,10 @@ void FindFirstQualifiedCopyIn(Function *leafFunc, Operation *op,
 }
 
 void HandleOneOutCast(Function *leafFunc, WorkspaceInfo &wspInfo,
-    std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inWspCnt,
-    std::vector<WorkspaceInfo> &outReuseInCasts) {
+    std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inWspCnt, std::vector<WorkspaceInfo> &outReuseInCasts) {
     auto &out = wspInfo.tensor;
     if (wspInfo.count != 1) {
         ALOG_DEBUG_F("magic %d raw %d not 1", out->magic, out->tensor->rawmagic);
-        return;
-    }
-    if (out->tensor->actualRawmagic != -1) {
         return;
     }
 
@@ -181,6 +177,9 @@ void HandleOneOutCast(Function *leafFunc, WorkspaceInfo &wspInfo,
     }
 
     auto producer = *(producers.begin());
+    if (OpcodeManager::Inst().IsCopyOut(producer->GetOpcode())) {
+        return;
+    }
     auto &producerIn = producer->GetIOperands()[0];
     // 通过copyOut的输入来检查输入和输出的shape是否相等, 不相等的话，意味着多写入，判断复用难度较大。
     if (producerIn->oriShape != out->shape || producerIn->oriShape != out->tensor->rawshape) {
@@ -191,6 +190,9 @@ void HandleOneOutCast(Function *leafFunc, WorkspaceInfo &wspInfo,
 
 bool GetCopyInSize(LogicalTensorPtr &in, Operation *copyIn, uint64_t &size) {
     if (copyIn == nullptr) {
+        return false;
+    }
+    if (OpcodeManager::Inst().IsCopyIn(copyIn->GetOpcode())) {
         return false;
     }
     auto attr = dynamic_cast<CopyOpAttribute *>(copyIn->GetOpAttribute().get());
@@ -241,6 +243,9 @@ void Allocator::CheckOneLeaf(Function *leafFunc) {
             continue;
         }
         if (HasReshapeConsumer(out)) {
+            continue;
+        }
+        if (out->tensor->actualRawmagic != -1) {
             continue;
         }
         auto iter = tensorToInfo.find(out);
@@ -370,6 +375,7 @@ void Allocator::CheckConsumerNoOverLap() {
                 continue;
             }
             if (out->GetConsumers().size() == 1) {
+                out->SetAttr("MemoryReuseNoOverlap", true);
                 continue;
             }
 
@@ -402,9 +408,7 @@ void Allocator::InitInnerLeafReuse() {
    其余场景，如果previous tensor的所有consumer到tensor的一个producer之间有连接，那么意味着，tensor的producer的执行，一定要
    等到preivous的所有consumer都执行完。 */
 bool TensorBucket::HasTopoDependency(const std::set<LogicalTensorPtr> &previousTensors,
-    const std::set<LogicalTensorPtr> &tensors,
-    const ConnectionMatrix &connMatrix) const
-{
+    const std::set<LogicalTensorPtr> &tensors, const ConnectionMatrix &connMatrix) const {
     for (auto previous : previousTensors) {
         ALOG_DEBUG_F("PreviousTensor %d %d",  previous->GetRawMagic(), previous->magic);
         for (auto &cons : previous->GetConsumers()) {
@@ -501,9 +505,8 @@ bool Allocator::CheckTopoDependancy(const LogicalTensorPtr &tensor, Operation &o
     return true;
 }
 
-bool Allocator::CheckReuseInnerCall(Operation &callOp, size_t outputIdx, LogicalTensorPtr &previous,
-    uint64_t &storageOffset) const
-{
+bool Allocator::CheckReuseInnerCall(
+    Operation &callOp, size_t outputIdx, LogicalTensorPtr &previous, uint64_t &storageOffset) const {
     // CallOp需要满足Topo序
     auto cacheValue = Program::GetInstance().GetHostMachine().TryHitCahce(callOp.GetCalleeHash());
     Function *program = nullptr;
@@ -532,10 +535,9 @@ bool Allocator::CheckReuseInnerCall(Operation &callOp, size_t outputIdx, Logical
     }
     auto &inputs = callOp.GetIOperands();
     auto &input = inputs[incastIdx];
-    auto consumerSize = input->GetConsumers().size();
     bool consumerNoOverLap = false;
     (void)input->GetAttr("MemoryReuseNoOverlap", consumerNoOverLap);
-    if (consumerSize > 1 && consumerNoOverLap == false) {
+    if (consumerNoOverLap == false) {
         if (!CheckTopoDependancy(input, callOp)) {
             ALOG_DEBUG_F("input %d contains more than one consumer and does not directly linked to %d",
                 input->magic, callOp.opmagic);
@@ -613,11 +615,11 @@ void Allocator::Init() {
     connectionMatrix_.Generate(function_);
     storageMap_.clear();
     for (auto &in : function_->inCasts_) {
-        rootInCasts_.emplace(in->tensor->rawmagic);
+        rootInCasts_.emplace(in->GetRawMagic());
     }
 
     for (auto &out : function_->outCasts_) {
-        rootOutCasts_.emplace(out->tensor->rawmagic);
+        rootOutCasts_.emplace(out->GetRawMagic());
     }
     InitInnerLeafReuse();
     auto callOps = function_->Operations();
