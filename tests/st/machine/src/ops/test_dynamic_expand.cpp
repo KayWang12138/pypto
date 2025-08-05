@@ -20,7 +20,7 @@
 #include "machine/utils/dynamic/dev_encode.h"
 #include "runtime.h"
 #include "device_runner.h"
-#include "simulation/backend.h"
+#include "cost_model/simulation/backend.h"
 #include "test_dynamic.h"
 
 using namespace npu::tile_fwk;

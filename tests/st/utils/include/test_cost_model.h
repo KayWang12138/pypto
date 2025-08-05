@@ -19,8 +19,8 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "device_runner.h"
-#include "simulation/pv/PvModel.h"
-#include "simulation/pv/PvModelFactory.h"
+#include "cost_model/simulation/pv/PvModel.h"
+#include "cost_model/simulation/pv/PvModelFactory.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;

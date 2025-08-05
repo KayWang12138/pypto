@@ -27,7 +27,7 @@ target_include_directories(tile_fwk_runtime
             $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<NOT:$<BOOL:${AC_ENABLE_FRAMEWORK_WITHOUT_CANN}>>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/msprof>
         PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}
-            ${TILE_FWK_SRC_ROOT}/tests/cost_model
+            ${TILE_FWK_SRC_ROOT}/src/cost_model
 )
 target_compile_definitions(tile_fwk_runtime
         PUBLIC

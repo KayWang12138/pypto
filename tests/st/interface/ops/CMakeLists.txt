@@ -378,9 +378,9 @@ TileFwk_STest_AddLib(
 add_custom_command(
         TARGET ${_Target} PRE_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory ${TileFwkSTestExePath}/scripts/
-        COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/tests/cost_model/simulation/scripts/print_swim_lane.py ${TileFwkSTestExePath}/scripts/
-        COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/tests/cost_model/simulation/scripts/draw_comm_swim_lane_png.py ${TileFwkSTestExePath}/scripts/
-        COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/tests/cost_model/simulation/scripts/draw_pipe_swim_lane.py ${TileFwkSTestExePath}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/src/cost_model/simulation/scripts/print_swim_lane.py ${TileFwkSTestExePath}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/src/cost_model/simulation/scripts/draw_comm_swim_lane_png.py ${TileFwkSTestExePath}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/src/cost_model/simulation/scripts/draw_pipe_swim_lane.py ${TileFwkSTestExePath}/scripts/
         COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/tools/draw_swim_lane.py ${TileFwkSTestExePath}/scripts/
         COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/tools/function_json_convert.py ${TileFwkSTestExePath}/scripts/
         COMMENT "Copy ${_Target} dependence scripts file."

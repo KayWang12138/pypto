@@ -533,7 +533,7 @@ class BuildCtrl:
         return cmd
 
     def _save_simulation_json(self, simulation_json):
-        temp_json_path = os.path.join(str(self.src_root), "tests/cost_model/simulation/scripts/tmp_simulation.json")
+        temp_json_path = os.path.join(str(self.src_root), "src/cost_model/simulation/scripts/tmp_simulation.json")
         os.makedirs(os.path.dirname(temp_json_path), exist_ok=True)
         with open(temp_json_path, 'w') as f:
             json.dump(simulation_json, f, indent=4)

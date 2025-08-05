@@ -16,13 +16,13 @@
 #include "gtest/gtest.h"
 #include <dlfcn.h>
 
-#include "simulation/backend.h"
+#include "cost_model/simulation/backend.h"
 #include "interface/machine/host/host_machine.h"
 #include "models/llama/llama_def.h"
-#include "simulation/common/CommonType.h"
+#include "cost_model/simulation/common/CommonType.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "simulation/pv/PvModelFactory.h"
+#include "cost_model/simulation/pv/PvModelFactory.h"
 
 using namespace npu::tile_fwk;
 

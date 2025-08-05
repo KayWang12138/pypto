@@ -24,8 +24,8 @@
 #include "operation/tilefwk_op.h"
 #include "interface/tensor/float.h"
 #include "interface/tensor/logical_tensor.h"
-#include "simulation/pv/PvData.h"
-#include "simulation/emulator/SoftMemory.h"
+#include "cost_model/simulation/pv/PvData.h"
+#include "cost_model/simulation/emulator/SoftMemory.h"
 
 using namespace npu::tile_fwk;
 using Json = nlohmann::json;

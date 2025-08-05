@@ -13,7 +13,6 @@ include(cmake/func.cmake)
 include(cmake/func_utest.cmake)
 include(cmake/func_stest.cmake)
 
-add_subdirectory(cost_model)
 add_subdirectory(runtime)
 
 add_subdirectory(st)

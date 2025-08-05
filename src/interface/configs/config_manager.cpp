@@ -89,7 +89,7 @@ Status ConfigManager::Initialize(const std::string &jsonPath) {
     }
 
     // update Json_ through genJson
-    std::string genJsonPath = std::string(SRC_PATH) + "/tests/cost_model/simulation/scripts/";
+    std::string genJsonPath = std::string(SRC_PATH) + "/src/cost_model/simulation/scripts/";
     if (IsPathExist(genJsonPath)) {
         auto files = GetFiles(genJsonPath, "json");
         if (!files.empty()) {

@@ -15,8 +15,8 @@
 
 #include <fstream>
 #include "gtest/gtest.h"
-#include "simulation_pv/PvModelImpl.h"
-#include "simulation/pv/PvModelFactory.h"
+#include "cost_model/simulation_pv/PvModelImpl.h"
+#include "cost_model/simulation/pv/PvModelFactory.h"
 
 namespace CostModel {
 

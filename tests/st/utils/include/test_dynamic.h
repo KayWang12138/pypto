@@ -22,7 +22,7 @@
 #include "machine/device/dynamic/costmodel_utils.h"
 #include "runtime.h"
 #include "device_runner.h"
-#include "simulation/backend.h"
+#include "cost_model/simulation/backend.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;

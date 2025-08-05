@@ -15,7 +15,7 @@
 
 #pragma once
 
-#include "simulation/common/CommonType.h"
+#include "cost_model/simulation/common/CommonType.h"
 
 namespace CostModel {
 

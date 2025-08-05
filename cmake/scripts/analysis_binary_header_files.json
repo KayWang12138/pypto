@@ -68,7 +68,7 @@
         "include/"
       ],
       "WhiteList": [
-        "tests/cost_model/simulation/"
+        "src/cost_model/simulation/"
       ],
       "BlackList": [
       ]
@@ -96,7 +96,7 @@
   "libtile_fwk_simulation.so": {
     "Source-Header": {
       "Self": [
-        "tests/cost_model/simulation/"
+        "src/cost_model/simulation/"
       ],
       "Area": [
         "src/interface/",
@@ -115,13 +115,13 @@
   "libtile_fwk_simulation_pv.so": {
     "Source-Header": {
       "Self": [
-        "tests/cost_model/simulation_pv/"
+        "src/cost_model/simulation_pv/"
       ],
       "Area": [
         "src/interface/",
         "src/passes/",
         "src/codegen/",
-        "tests/cost_model/simulation/"
+        "src/cost_model/simulation/"
       ],
       "Include": [
         "include/"
@@ -136,13 +136,13 @@
   "libtile_fwk_simulation_ca.so": {
     "Source-Header": {
       "Self": [
-        "tests/cost_model/simulation_ca/"
+        "src/cost_model/simulation_ca/"
       ],
       "Area": [
         "src/interface/",
         "src/passes/",
         "src/codegen/",
-        "tests/cost_model/simulation/"
+        "src/cost_model/simulation/"
       ],
       "Include": [
         "include/"
@@ -171,7 +171,7 @@
         "include/"
       ],
       "WhiteList": [
-        "tests/cost_model/simulation/"
+        "src/cost_model/simulation/"
       ],
       "BlackList": [
         "include/tileop/",
@@ -196,7 +196,7 @@
         "include/"
       ],
       "WhiteList": [
-        "tests/cost_model/simulation/"
+        "src/cost_model/simulation/"
       ],
       "BlackList": [
         "include/tileop/",
@@ -221,7 +221,7 @@
         "include/"
       ],
       "WhiteList": [
-        "tests/cost_model/simulation/"
+        "src/cost_model/simulation/"
       ],
       "BlackList": [
         "interface/program/program.h"
@@ -245,7 +245,7 @@
         "include/"
       ],
       "WhiteList": [
-        "tests/cost_model/simulation/"
+        "src/cost_model/simulation/"
       ],
       "BlackList": [
         "include/tileop/",
@@ -407,8 +407,8 @@
         "src/interface/",
         "src/passes/",
         "src/codegen/",
-        "tests/cost_model/simulation/",
-        "tests/cost_model/simulation_pv/"
+        "src/cost_model/simulation/",
+        "src/cost_model/simulation_pv/"
       ],
       "Include": [
         "include/"

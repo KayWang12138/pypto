@@ -18,7 +18,7 @@
 
 #include "interface/machine/host/host_machine.h"
 #include "models/llama/llama_def.h"
-#include "simulation/common/CommonType.h"
+#include "cost_model/simulation/common/CommonType.h"
 #include "test_common.h"
 #include "test_cost_model.h"
 #include "test_static.h"

@@ -27,7 +27,7 @@ target_include_directories(${_Target}
             $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<NOT:$<BOOL:${AC_ENABLE_FRAMEWORK_WITHOUT_CANN}>>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/msprof>
         INTERFACE
             ${TILE_FWK_SRC_ROOT}/tests/runtime
-            ${TILE_FWK_SRC_ROOT}/tests/cost_model
+            ${TILE_FWK_SRC_ROOT}/src/cost_model
 )
 target_link_directories(${_Target}
         INTERFACE

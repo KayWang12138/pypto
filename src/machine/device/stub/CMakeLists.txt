@@ -32,7 +32,7 @@ target_include_directories(slog_stub
             ${TILE_FWK_SRC_ROOT}/src
             ${TILE_FWK_SRC_ROOT}/src/include
             ${TILE_FWK_SRC_ROOT}/include
-            ${TILE_FWK_SRC_ROOT}/tests/cost_model
+            ${TILE_FWK_SRC_ROOT}/src/cost_model
             $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/include>
 )
 target_link_directories(slog_stub

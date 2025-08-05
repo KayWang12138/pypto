@@ -44,7 +44,7 @@ file(GLOB_RECURSE _Sources src/*.cpp)
 TileFwk_UTest_AddCaseLib(
         TARGET ${_Target}
         SOURCES ${_Sources}
-        PRIVATE_INCLUDE_DIRECTORIES ${TILE_FWK_SRC_ROOT}/tests/cost_model
+        PRIVATE_INCLUDE_DIRECTORIES ${TILE_FWK_SRC_ROOT}/src/cost_model
 
         PUBLIC_LINK_LIBRARIES tile_fwk_simulation tile_fwk_passes tile_fwk_interface dl
         GTEST_FILTER_LIST ${_CaseFilterList}
@@ -57,9 +57,9 @@ add_custom_command(
         COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/config/* ${TileFwkUTestExePath}/config/
         COMMENT "Copy ${_Target} dependence config file."
         COMMAND ${CMAKE_COMMAND} -E make_directory ${TileFwkUTestExePath}/scripts/
-        COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/tests/cost_model/simulation/scripts/print_swim_lane.py ${TileFwkUTestExePath}/scripts/
-        COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/tests/cost_model/simulation/scripts/draw_comm_swim_lane_png.py ${TileFwkUTestExePath}/scripts/
-        COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/tests/cost_model/simulation/scripts/draw_pipe_swim_lane.py ${TileFwkUTestExePath}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/src/cost_model/simulation/scripts/print_swim_lane.py ${TileFwkUTestExePath}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/src/cost_model/simulation/scripts/draw_comm_swim_lane_png.py ${TileFwkUTestExePath}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/src/cost_model/simulation/scripts/draw_pipe_swim_lane.py ${TileFwkUTestExePath}/scripts/
         COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/tools/draw_swim_lane.py ${TileFwkUTestExePath}/scripts/
         COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/tools/function_json_convert.py ${TileFwkUTestExePath}/scripts/
         COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/tools/parse_pipe_time_trace.py ${TileFwkUTestExePath}/scripts/
