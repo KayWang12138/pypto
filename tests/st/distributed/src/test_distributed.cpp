@@ -120,5 +120,11 @@ TEST_F(DistributedTest, aivWaitFlag_single_test_moe_combine_bfloat16_rank_size_4
     Distributed::TestMoeCombine(testParam);
 }
 
+TEST_F(DistributedTest, allgather_attn_post_reducescatter_b64_s1_n32_lora256_dim128_h128_rank4_bf16)
+{
+    config::SetDistConfig(KEY_AICPU_WAIT_FLAG_ENABLE, false);
+    Distributed::TestAllGatherAttentionPostReducescatter(testParam);
+}
+
 } // namespace Distributed
 } // namespace npu::tile_fwk

@@ -47,7 +47,7 @@ inline DataType GetDataTypeNum(const int64_t typeNum)
 
 template <typename T, typename PtrType>
 bool DoCompare(const std::string &goldenFilename, const uint64_t outSize, const size_t dTypeSize, PtrType &outPtrs,
-    const OpTestParam &testParam)
+    const OpTestParam &testParam, float threshold)
 {
     std::vector<T> res(outSize);
     std::vector<T> resGolden(outSize);
@@ -64,12 +64,12 @@ bool DoCompare(const std::string &goldenFilename, const uint64_t outSize, const 
     }
     // 读取Golden数据并比较
     readInput<T>(GetGoldenDir() + goldenFilename + std::to_string(testParam.rankId) + ".bin", resGolden);
-    return resultCmp<T>(resGolden, res, 0.001f);
+    return resultCmp<T>(resGolden, res, threshold);
 }
 
 template <typename PtrType>
 bool CompareWithGolden(const DataType dType, const std::string &goldenFilename, const uint64_t outSize,
-    PtrType &outPtrs, const OpTestParam &testParam)
+    PtrType &outPtrs, const OpTestParam &testParam, float threshold = 0.001f)
 {
     static_assert((std::is_same_v<PtrType, uint8_t *>) || (std::is_same_v<PtrType, std::vector<uint8_t *>>),
         "PtrType must be either uint8_t* or std::vector<uint8_t*>");
@@ -79,16 +79,16 @@ bool CompareWithGolden(const DataType dType, const std::string &goldenFilename, 
 
     switch (dType) {
         case DataType::DT_FP32:
-            result = DoCompare<float>(goldenFilename, outSize, dTypeSize, outPtrs, testParam);
+            result = DoCompare<float>(goldenFilename, outSize, dTypeSize, outPtrs, testParam, threshold);
             break;
         case DataType::DT_FP16:
-            result = DoCompare<npu::tile_fwk::float16>(goldenFilename, outSize, dTypeSize, outPtrs, testParam);
+            result = DoCompare<npu::tile_fwk::float16>(goldenFilename, outSize, dTypeSize, outPtrs, testParam, threshold);
             break;
         case DataType::DT_BF16:
-            result = DoCompare<npu::tile_fwk::bfloat16>(goldenFilename, outSize, dTypeSize, outPtrs, testParam);
+            result = DoCompare<npu::tile_fwk::bfloat16>(goldenFilename, outSize, dTypeSize, outPtrs, testParam, threshold);
             break;
         case DataType::DT_INT32:
-            result = DoCompare<int32_t>(goldenFilename, outSize, dTypeSize, outPtrs, testParam);
+            result = DoCompare<int32_t>(goldenFilename, outSize, dTypeSize, outPtrs, testParam, threshold);
             break;
         default:
             ALOG_ERROR_F("Unsupported dType: %lu", static_cast<uint64_t>(dType));
@@ -151,6 +151,10 @@ private:
 };
 
 std::vector<uint64_t> GetHcclContext(const std::vector<std::string> &groupNames);
+
+int GetEleNumFromShape(std::vector<int32_t>& shape);
+
+Tensor CreateTensorFromFile(std::vector<int32_t>& shape, DataType dtype, std::string& file, std::string tname = "");
 
 } // namespace Distributed
 } // namespace npu::tile_fwk
