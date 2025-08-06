@@ -25,6 +25,7 @@
 #include "interface/utils/assert.h"
 // tensor graph pass
 #include "passes/tensor_graph_pass/remove_redundent_reshape.h"
+#include "passes/tensor_graph_pass/remove_redundant_cast.h"
 #include "passes/tensor_graph_pass/expand_function.h"
 //  tile graph pass
 #include "passes/tile_graph_pass/generate_move_op.h"
@@ -82,6 +83,7 @@ void RegPass() {
     REG_PASS(AssignMemoryType);
     REG_PASS(DuplicateView);
     REG_PASS(RemoveRedundentReshape);
+    REG_PASS(RemoveRedundantCast);
     REG_PASS(InsertConvertOp);
     REG_PASS(NBufferMergePass);
     REG_PASS(L1CopyInReusePass);

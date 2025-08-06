@@ -1143,7 +1143,7 @@ void Function::EraseOperations(bool eraseRelatedTensor, bool sorted) {
         ASSERT(op->IsDeleted());
         for (auto &input : op->GetIOperands()) {
             input->RemoveConsumer(op.get());
-            if (input->GetConsumers().empty() && eraseRelatedTensor && input->nodetype != NodeType::INCAST) {
+            if (input->GetConsumers().empty() && eraseRelatedTensor && input->nodetype == NodeType::LOCAL) {
                 GetTensorMap().Erase(input);
                 for (auto &producer : input->GetProducers()) {
                     if (producer->BelongTo() == this) {
@@ -1155,7 +1155,7 @@ void Function::EraseOperations(bool eraseRelatedTensor, bool sorted) {
 
         for (auto &output : op->GetOOperands()) {
             output->RemoveProducer(op.get());
-            if (output->GetProducers().empty() && eraseRelatedTensor && output->nodetype != NodeType::OUTCAST) {
+            if (output->GetProducers().empty() && eraseRelatedTensor && output->nodetype == NodeType::LOCAL) {
                 GetTensorMap().Erase(output);
                 for (auto &consumer : output->GetConsumers()) {
                     if (consumer->BelongTo() == this) {

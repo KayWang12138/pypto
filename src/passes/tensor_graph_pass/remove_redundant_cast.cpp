@@ -1,0 +1,309 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file remove_redundant_cast.cpp
+ * \brief
+ */
+
+#include "remove_redundant_cast.h"
+#include "interface/tensor/logical_tensor.h"
+#include "passes/tile_graph_pass/dead_operation_eliminate.h"
+
+namespace npu {
+namespace tile_fwk {
+
+Status RemoveRedundantCast::GetInOutConnectedTensor(Function &function) {
+    inCastConnectedTensors_.clear();
+    outCastConnectedTensors_.clear();
+
+    std::vector<std::shared_ptr<LogicalTensor>> inCastConnected(function.inCasts_);
+    while (inCastConnected.size() > 0) {
+        std::shared_ptr<LogicalTensor> currTensor = inCastConnected.back();
+        inCastConnected.pop_back();
+        if (inCastConnectedTensors_.count(currTensor->GetMagic()) > 0) {
+            continue;
+        }
+        inCastConnectedTensors_.insert(currTensor->GetMagic());
+        for (auto &consumer : currTensor->GetConsumers()) {
+            if (consumer->GetOpcode() != Opcode::OP_VIEW) {
+                continue;
+            }
+            for (auto &tensor : consumer->GetOOperands()) {
+                inCastConnected.push_back(tensor);
+            }
+        }
+    }
+
+    std::vector<std::shared_ptr<LogicalTensor>> outCastConnected(function.outCasts_);
+    while (outCastConnected.size() > 0) {
+        std::shared_ptr<LogicalTensor> currTensor = outCastConnected.back();
+        outCastConnected.pop_back();
+        if (outCastConnectedTensors_.count(currTensor->GetMagic()) > 0) {
+            continue;
+        }
+        outCastConnectedTensors_.insert(currTensor->GetMagic());
+        for (auto &producer : currTensor->GetProducers()) {
+            if (producer->GetOpcode() != Opcode::OP_ASSEMBLE) {
+                continue;
+            }
+            for (auto &tensor : producer->GetIOperands()) {
+                outCastConnected.push_back(tensor);
+            }
+        }
+    }
+    return SUCCESS;
+}
+
+Status RemoveRedundantCast::RunOnFunction(Function &function) {
+    ALOG_INFO_F("===> Start RemoveRedundentCast for function [%s].", function.GetRawName().c_str());
+    if (GetInOutConnectedTensor(function) != SUCCESS) {
+        ALOG_ERROR_F("Failed to get InOutCast-connected tensor.");
+        return FAILED;
+    }
+    if (InsertCast(function) != SUCCESS) {
+        ALOG_ERROR_F("Failed to insert CAST for BF16 unsupported Operations.");
+        return FAILED;
+    }
+    if (RemoveRedundantCastChain(function) != SUCCESS) {
+        ALOG_ERROR_F("Failed to remove redundant CAST.");
+        return FAILED;
+    }
+    if (DeadOperationEliminator::EliminateDeadOperation(function) != SUCCESS) {
+        ALOG_ERROR_F("Eliminate dead operation failed in RemoveRedundantCast.");
+        return FAILED;
+    }
+    ALOG_INFO_F("===> End RemoveRedundentCast for function [%s].", function.GetRawName().c_str());
+    return SUCCESS;
+}
+
+bool RemoveRedundantCast::SupportBF16(Operation *op) {
+    std::unordered_set<OpCalcType> calTypes{OpCalcType::ELMWISE, OpCalcType::BROADCAST, OpCalcType::REDUCE,
+                                            OpCalcType::CONV};
+    OpCalcType opCalType = OpcodeManager::Inst().GetOpCalcType(op->GetOpcode());
+    if (calTypes.count(opCalType) > 0) {
+        return false;
+    }
+    return true;
+}
+
+Status RemoveRedundantCast::InsertCast(Function &function) {
+    std::vector<Operation *> opList = function.Operations().DuplicatedOpList();
+    std::unordered_map<int, std::shared_ptr<LogicalTensor>> oldMagic2Input;
+    for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
+        Operation *op = opList[opIdx];
+        if (SupportBF16(op)) {
+            continue;
+        }
+        auto iOperands = op->GetIOperands();
+        std::unordered_set<int> visitedIOp;
+        for (auto &iop : iOperands) {
+            if (visitedIOp.count(iop->GetMagic()) > 0 || iop->Datatype() != DataType::DT_BF16) {
+                continue;
+            }
+            visitedIOp.insert(iop->GetMagic());
+            if (oldMagic2Input.count(iop->GetMagic()) > 0) {
+                auto newInput = oldMagic2Input[iop->GetMagic()];
+                op->ReplaceInput(newInput, iop);
+            } else {
+                auto newInput = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, iop->shape);
+                Operation &newCast = function.AddRawOperation(Opcode::OP_CAST, {iop}, {newInput});
+                newCast.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
+                op->ReplaceInput(newInput, iop);
+                oldMagic2Input[iop->GetMagic()] = newInput;
+                if (inCastConnectedTensors_.count(iop->GetMagic()) > 0) {
+                    inCastConnectedTensors_.insert(newInput->GetMagic());
+                }
+            }
+        }
+        auto oOperands = op->GetOOperands();
+        std::unordered_set<int> visitedOOp;
+        for (auto &oop : oOperands) {
+            if (visitedOOp.count(oop->GetMagic()) > 0 || oop->Datatype() != DataType::DT_BF16) {
+                continue;
+            }
+            visitedOOp.insert(oop->GetMagic());
+            if (oop->Datatype() == DataType::DT_BF16) {
+                auto newOutput = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, oop->shape);
+                op->ReplaceOutput(newOutput, oop);
+                Operation &newCast = function.AddRawOperation(Opcode::OP_CAST, {newOutput}, {oop});
+                newCast.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
+                oldMagic2Input[oop->GetMagic()] = newOutput;
+                if (outCastConnectedTensors_.count(oop->GetMagic()) > 0) {
+                    outCastConnectedTensors_.insert(newOutput->GetMagic());
+                }
+            }
+        }
+    }
+    return SUCCESS;
+}
+
+bool RemoveRedundantCast::IsLegalCast(DataType ds, DataType dt) {
+    const std::set<std::pair<DataType, DataType>> legalCastPair {
+        {DataType::DT_FP32, DataType::DT_FP16},
+        {DataType::DT_FP16, DataType::DT_FP32},
+        {DataType::DT_FP32, DataType::DT_BF16},
+        {DataType::DT_BF16, DataType::DT_FP32},
+        {DataType::DT_FP32, DataType::DT_BF16},
+        {DataType::DT_BF16, DataType::DT_FP32},
+        {DataType::DT_FP32, DataType::DT_INT16},
+        {DataType::DT_INT16, DataType::DT_FP32},
+        {DataType::DT_FP32, DataType::DT_INT32},
+        {DataType::DT_INT32, DataType::DT_FP32},
+        {DataType::DT_INT32, DataType::DT_FP16},
+        {DataType::DT_FP16, DataType::DT_INT8},
+        {DataType::DT_INT8, DataType::DT_FP16},
+        {DataType::DT_FP32, DataType::DT_FP32},
+        {DataType::DT_BF16, DataType::DT_INT32}
+    };
+    if (legalCastPair.count(std::make_pair(ds, dt)) > 0) {
+        return true;
+    }
+    return false;
+}
+
+std::vector<Operation *> RemoveRedundantCast::GetCastChain(Operation *tailOp)
+{
+    std::vector<Operation *> tailToHeadChain;
+    bool isFront = false;
+    Operation *currOp = tailOp;
+    while (!isFront) {
+        if (currOp->ProducerOps().size() != 1 ||
+            (*currOp->ProducerOps().begin())->GetOpcode() != Opcode::OP_CAST) {
+            isFront = true;
+            tailToHeadChain.push_back(currOp);
+            break;
+        }
+        tailToHeadChain.push_back(currOp);
+        currOp = *(currOp->ProducerOps().begin());
+    }
+    return tailToHeadChain;
+}
+
+Status RemoveRedundantCast::ShortenChain(Function &function, const std::vector<Operation *> &castChain, Operation *tailOp)
+{
+    std::shared_ptr<LogicalTensor> tgtTensor = *(tailOp->GetOOperands().begin());
+    DataType tgtType = tgtTensor->Datatype();
+    bool isTgtOut = (tgtTensor->nodetype == NodeType::OUTCAST);
+    bool isTgtOutConnected = (outCastConnectedTensors_.count(tgtTensor->GetMagic()) > 0);
+    for (int i = static_cast<int>(castChain.size()) - 1; i >= 0; i--) {
+        std::shared_ptr<LogicalTensor> srcTensor = *(castChain[i]->GetIOperands().begin());
+        DataType srcType = srcTensor->Datatype();
+        bool isSrcIn = (srcTensor->nodetype == NodeType::INCAST);
+        bool isSrcOut = (srcTensor->nodetype == NodeType::OUTCAST);
+        bool isSrcInConnected = (inCastConnectedTensors_.count(srcTensor->GetMagic()) > 0);
+        if (srcType == tgtType && !(isTgtOutConnected && isSrcInConnected)) {
+            if (!isTgtOut) {
+                auto consumers = tgtTensor->GetConsumers();
+                for (auto &consumerOp : consumers) {
+                    consumerOp->ReplaceInput(srcTensor, tgtTensor);
+                }
+                break;
+            }
+            if (!isSrcIn && !isSrcOut) {
+                auto srcProducers = srcTensor->GetProducers();
+                auto srcConsumers = srcTensor->GetConsumers();
+                auto tgtProducers = tgtTensor->GetProducers();
+                for (auto &tgtProducerOp : tgtProducers) {
+                    tgtProducerOp->ReplaceOutput(srcTensor, tgtTensor);
+                }
+                for (auto &srcProducerOp : srcProducers) {
+                    srcProducerOp->ReplaceOutput(tgtTensor, srcTensor);
+                }
+                for (auto &srcConsumerOp : srcConsumers) {
+                    srcConsumerOp->ReplaceInput(tgtTensor, srcTensor);
+                }
+                break;
+            }
+        }
+        if (i != 0 && IsLegalCast(srcType, tgtType)) {
+            tgtTensor->RemoveProducer(tailOp);
+            Operation &newCast = function.AddRawOperation(Opcode::OP_CAST, {srcTensor}, {tgtTensor});
+            newCast.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
+            break;
+        }
+    }
+    return SUCCESS;
+}
+
+Status RemoveRedundantCast::RemoveRedundantCastChain(Function &function) {
+    std::vector<Operation *> opList = function.Operations().DuplicatedOpList();
+    for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
+        Operation *op = opList[opIdx];
+        if (op->GetOpcode() != Opcode::OP_CAST) {
+            continue;
+        }
+        bool allCast = true;
+        for (auto &nextOp : op->ConsumerOps()) {
+            if (nextOp->GetOpcode() != Opcode::OP_CAST) {
+                allCast = false;
+                break;
+            }
+        }
+        if (allCast && op->ConsumerOps().size() > 0) {
+            continue;
+        }
+        std::vector<Operation *> castChain = GetCastChain(op);
+        ShortenChain(function, castChain, op);
+    }
+    return SUCCESS;
+}
+
+Status RemoveRedundantCast::PreCheck(Function &function) {
+    ALOG_INFO_F("PreCheck for RemoveRedundentCast");
+    std::vector<Operation *> opList = function.Operations().DuplicatedOpList();
+    for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
+        Operation *op = opList[opIdx];
+        if (op->GetOpcode() != Opcode::OP_CAST) {
+            continue;
+        }
+        if (op->GetIOperands().size() != 1) {
+            ALOG_ERROR_F("CAST op %d has %d input tensor, which should be 1.",
+                         op->GetOpMagic(), static_cast<int>(op->GetIOperands().size()));
+            return FAILED;
+        }
+        if (op->GetOOperands().size() != 1) {
+            ALOG_ERROR_F("CAST op %d has %d output tensor, which should be 1.",
+                         op->GetOpMagic(), static_cast<int>(op->GetOOperands().size()));
+            return FAILED;
+        }
+    }
+    return SUCCESS;
+}
+
+Status RemoveRedundantCast::PostCheck(Function &function) {
+    ALOG_INFO_F("PostCheck for RemoveRedundentCast");
+    std::vector<Operation *> opList = function.Operations().DuplicatedOpList();
+    for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
+        Operation *op = opList[opIdx];
+        if (SupportBF16(op)) {
+            continue;
+        }
+        auto iOperands = op->GetIOperands();
+        for (auto &iop : iOperands) {
+            if (iop->Datatype() == DataType::DT_BF16) {
+                ALOG_ERROR_F("Exist unsupported BF16 compute between op %d and tensor %d",
+                             op->GetOpMagic(), iop->GetMagic());
+                return FAILED;
+            }
+        }
+        auto oOperands = op->GetOOperands();
+        for (auto &oop : oOperands) {
+            if (oop->Datatype() == DataType::DT_BF16) {
+                ALOG_ERROR_F("Exist unsupported BF16 compute between op %d and tensor %d",
+                             op->GetOpMagic(), oop->GetMagic());
+                return FAILED;
+            }
+        }
+    }
+    return SUCCESS;
+}
+} // namespace tile_fwk
+} // namespace npu

@@ -28,6 +28,9 @@ Status DeadOperationEliminator::EliminateDeadOperation(Function &function) {
 
 // Delete Operation without oOperand
 void DeadOperationEliminator::EliminateDeadOperationBackward(Function &function) {
+    for (auto &op : function.Operations()) {
+        op.SetAsNotDeleted();
+    }
     std::queue<Operation *> q;
     std::unordered_set<Operation*> visited;
     for (auto &op : function.Operations()) {

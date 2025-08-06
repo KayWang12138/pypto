@@ -132,6 +132,7 @@ bool ComputationalGraphBuilder::SetInCast(std::vector<std::string> ioperands)
             return false;
         }
         itensors.push_back(tensors_[iop]);
+        tensors_[iop]->nodetype = NodeType::INCAST;
     }
     function->inCasts_ = itensors;
     return true;
@@ -145,6 +146,7 @@ bool ComputationalGraphBuilder::SetOutCast(std::vector<std::string> ooperands)
             return false;
         }
         otensors.push_back(tensors_[oop]);
+        tensors_[oop]->nodetype = NodeType::OUTCAST;
     }
     function->outCasts_ = otensors;
     return true;

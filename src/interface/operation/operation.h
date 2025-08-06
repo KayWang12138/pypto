@@ -376,6 +376,7 @@ public:
     std::string GetSemanticLabelsStr() const;
 
     void SetAsDeleted() { isDeleted_ = true; }
+    void SetAsNotDeleted() { isDeleted_ = false; }
     [[nodiscard]] bool IsDeleted() const { return isDeleted_; }
 
     void SetSubFuncInvokeInfo(const SubfuncInvokeInfoTy &invokeInfo);
