@@ -2,6 +2,7 @@
 # For execute info
 statisticReportToFile = false
 heartInterval=50000
+drawPngThresholdCycle = 500000
 testDeadLock=false
 
 startFunctionLabel = "root"

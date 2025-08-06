@@ -598,6 +598,9 @@ void SimSys::DumpFunctionExecuteTime(std::string prefix)
 
 void SimSys::OutputLogForPipeSwimLane(std::string prefix)
 {
+    if (globalCycles > config.drawPngThresholdCycle) {
+        return;
+    }
     std::string pipeDetailPath = GetFileName(outdir, jsonPath, prefix, "pipe.swim.json");
     std::ofstream osPipeSwim(pipeDetailPath);
     totalTraceLogger->ToPipeTrace(osPipeSwim);
@@ -628,6 +631,9 @@ void SimSys::OutputLogForSwimLane(std::string prefix)
     }
     // Get Draw PND Python Scripts Path
     osSwim.close();
+    if (globalCycles > config.drawPngThresholdCycle) {
+        return;
+    }
     MLOG_WARN("SwimLane Graph Generated (PNG):", outSwimPath);
     std::string drawScriptPath("./scripts/print_swim_lane.py");
     std::string cmd = "python3 " + drawScriptPath + " " + outSwimPath + " -t";

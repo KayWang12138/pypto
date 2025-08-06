@@ -124,16 +124,6 @@ Json CostModelAgent::ParseDynTopo(std::string &path)
     Json topoJson = Json::array();
     std::ifstream file(path);
     std::string line;
-    uint64_t seqPos = 0;
-    uint64_t taskIdPos = 1;
-    uint64_t rootIndexPos = 2;
-    uint64_t leafIndexPos = 3;
-    uint64_t opmagicPos = 4;
-    uint64_t coreTypePos = 5;
-    uint64_t psgIdPos = 6;
-    uint64_t funcHashPos = 7;
-    uint64_t succStartPos = 8;
-    uint64_t seqNumOffset = 32;
     while (std::getline(file, line)) {
         if (line.empty() || isalpha(line[0])) {
             continue;
@@ -162,7 +152,8 @@ Json CostModelAgent::ParseDynTopo(std::string &path)
             successorsJson.push_back(fields[i]);
         }
         taskJson["successors"] = successorsJson;
-        taskJson["coreType"] = npu::tile_fwk::CoreTypeToStr(static_cast<npu::tile_fwk::CoreType>(fields[coreTypePos]));
+        auto coreType = static_cast<npu::tile_fwk::CoreType>(fields[coreTypePos]);
+        taskJson["coreType"] = npu::tile_fwk::GetCoreTypeDict().Find(coreType);
         taskJson["rootIndex"] = fields[rootIndexPos];
         taskJson["leafIndex"] = fields[leafIndexPos];
         taskJson["opmagic"] = fields[opmagicPos];

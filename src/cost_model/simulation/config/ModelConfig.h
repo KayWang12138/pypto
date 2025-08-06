@@ -25,6 +25,7 @@ struct ModelConfig : public Config {
     ModelConfig();
     bool statisticReportToFile = false;
     uint64_t heartInterval = 50000;
+    uint64_t drawPngThresholdCycle = 500000;
     bool testDeadLock = false;
     std::string startFunctionLabel = "root";
     bool useOOOPassSeq = true;

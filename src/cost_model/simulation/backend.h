@@ -30,6 +30,17 @@ public:
     void SubmitToCostModel(Function *rootFunc);
     void SubmitSingleFuncToCostModel(Function *func);
     void SubmitLeafFunctionsToCostModel();
+
+    uint64_t seqPos = 0;
+    uint64_t taskIdPos = 1;
+    uint64_t rootIndexPos = 2;
+    uint64_t leafIndexPos = 3;
+    uint64_t opmagicPos = 4;
+    uint64_t coreTypePos = 5;
+    uint64_t psgIdPos = 6;
+    uint64_t funcHashPos = 7;
+    uint64_t succStartPos = 8;
+    uint64_t seqNumOffset = 32;
     Json ParseDynTopo(std::string &path);
     void SubmitTopo(std::string &path);
     void RunCostModel();

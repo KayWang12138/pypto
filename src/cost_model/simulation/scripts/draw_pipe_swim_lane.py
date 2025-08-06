@@ -196,7 +196,7 @@ def draw_pipe_swim_lane_png(path):
     core_centers = [(core_id * stages_per_core) + stages_per_core/2 
                     for core_id in range(num_cores)]
     ax.set_yticks(core_centers)
-    ax.set_yticklabels([f'{total_cores[i].core_type}_{i}' for i in range(num_cores)])
+    ax.set_yticklabels([f'{total_cores[i].core_type}_{i}' for i in sorted(total_cores.keys())])
 
     legend_elements = []
     for i, color in enumerate(colors):
@@ -271,7 +271,7 @@ def draw_pipe_swim_lane_html(path):
             tickmode='array',
             range=[0, num_cores * stages_per_core],
             tickvals=list(range(0, num_cores * stages_per_core, stages_per_core)),
-            ticktext=[f'{total_cores[i].core_type}_{i}' for i in range(num_cores)],
+            ticktext=[f'{total_cores[i].core_type}_{i}' for i in sorted(total_cores.keys())],
             showgrid=False
         ),
         xaxis=dict(

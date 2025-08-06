@@ -198,26 +198,6 @@ enum PipeType {
 
 enum class CoreType { AIV = 0, AIC = 1, MIX = 2, AICPU = 3, HUB = 4, GMATOMIC = 5, INVALID = 20 };
 
-inline std::string CoreTypeToStr(CoreType ct)
-{
-    switch (ct) {
-        case CoreType::AIV:
-            return "AIV";
-        case CoreType::AIC:
-            return "AIC";
-        case CoreType::MIX:
-            return "MIX";
-        case CoreType::AICPU:
-            return "AICPU";
-        case CoreType::HUB:
-            return "HUB";
-        case CoreType::GMATOMIC:
-            return "GMATOMIC";
-        default:
-            return "INVALID";
-    }
-}
-
 template <typename T>
 inline std::string IntVecToStr(const std::vector<T> &shape) {
     std::stringstream ss;
@@ -280,6 +260,21 @@ public:
 private:
     std::unordered_map<T, std::string> type2strDict;
     std::unordered_map<std::string, T> str2typeDict;
+};
+
+inline const BiMap<CoreType> &GetCoreTypeDict()
+{
+    static BiMap<CoreType> dict {
+        {
+            {CoreType::AIV, "AIV"},
+            {CoreType::AIC, "AIC"},
+            {CoreType::MIX, "MIX"},
+            {CoreType::AICPU, "AICPU"},
+            {CoreType::HUB, "HUB"},
+            {CoreType::GMATOMIC, "GMATOMIC"},
+        }
+    };
+    return dict;
 };
 
 template <typename T>

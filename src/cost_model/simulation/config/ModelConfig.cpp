@@ -24,6 +24,7 @@ ModelConfig::ModelConfig()
     Config::dispatcher = {
         {"statisticReportToFile", [&](string v){ statisticReportToFile = ParseBoolean(v); }},
         {"heartInterval", [&](string v){ heartInterval = ParseInteger(v); }},
+        {"drawPngThresholdCycle", [&](string v){ drawPngThresholdCycle = ParseInteger(v); }},
         {"testDeadLock", [&](string v){ testDeadLock = ParseBoolean(v); }},
         {"startFunctionLabel", [&](string v){ startFunctionLabel = ParseString(v); }},
         {"useOOOPassSeq", [&](string v){ useOOOPassSeq = ParseBoolean(v); }},
@@ -51,6 +52,7 @@ ModelConfig::ModelConfig()
     Config::recorder = {
         {"statisticReportToFile", [&](){ return "statisticReportToFile = " + ParameterToStr(statisticReportToFile); }},
         {"heartInterval", [&](){ return "heartInterval = " + ParameterToStr(heartInterval); }},
+        {"drawPngThresholdCycle", [&](){ return "drawPngThresholdCycle = " + ParameterToStr(drawPngThresholdCycle); }},
         {"testDeadLock", [&](){ return "testDeadLock = " + ParameterToStr(testDeadLock); }},
         {"startFunctionLabel", [&](){ return "startFunctionLabel = " + startFunctionLabel; }},
         {"useOOOPassSeq", [&](){ return "useOOOPassSeq = " + ParameterToStr(useOOOPassSeq); }},

@@ -303,6 +303,10 @@ void CoreMachine::ProcessDeviceTaskPacket(const TaskPack &packet)
         exectingFixLatencyTask = true;
         fixedLatencyTaskEndCycle = GetSim()->GetCycles() + packet.task.taskPtr->fixedLatencyVal;
         PrintRelativeCycleInfo(function, packet.task.taskPtr);
+    } else if (function->hasRecordInfo) {
+        exectingFixLatencyTask = true;
+        fixedLatencyTaskEndCycle = GetSim()->GetCycles() + function->totalCycles;
+        PrintRelativeCycleInfo(function, packet.task.taskPtr);
     }
     InitCore();
     GenDependence(function);
@@ -895,7 +899,7 @@ void CoreMachine::PrintRelativeCycleInfo(FunctionPtr func, std::shared_ptr<Task>
     for (auto &opMagic : func->opMagicSequence) {
         auto &tileOp = func->tileOpMap[opMagic];
         std::string info = tileOp->Dump(true);
-        info += (" Task[" + std::to_string(task->taskId) + "]");
+        info += (" Task[" + std::to_string(task->taskId) + "]-r");
         LoggerRecordTileOp(info, tileOp->exeInfo.exePipeId, tileOp->exeInfo.cycleInfo.relativeStartCycle,
                            tileOp->exeInfo.cycleInfo.relativeEndCycle);
     }
