@@ -192,6 +192,8 @@ public:
     void LogPipeInfo(Event &start, Event &end);
     void LogCoreInfo(Duration &duration);
 
+    void EraseLogInfo(uint64_t startCycle);
+
     // Get Queue Counter based on CountEvents.
     void GetTotalMachineQueueSize(TimeStamp interval);
     void GetFunctionCacheSize(TimeStamp interval,

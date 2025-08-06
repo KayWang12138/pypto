@@ -26,6 +26,11 @@ struct DeviceConfig : public Config {
     uint64_t stitchLatency = 10000;
     uint64_t submitLatency = 100;
     uint64_t stitchMaxSize = 100;
-    std::vector<std::string> submachineTypes = {"AIC", "AIV"};
+    std::vector<std::string> submachineTypes = {"AIC", "AIV", "HUB"};
+    bool submitTopo = false;
+    std::string submitTopoPath = "";
+    bool replayEnable = false;
+    std::string replayFile = "_simulate.swim.json";
+    bool replayTaskTimeScaling = false;
 };
 }

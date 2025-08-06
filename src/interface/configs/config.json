@@ -4,6 +4,7 @@
             "USE_SSA": true,
             "ENABLE_COST_MODEL": false,
             "ENABLE_DYN_COST_MODEL": false,
+            "ENABLE_DYN_FULL_COST_MODEL": false,
             "ENABLE_AIHAC_BACKEND": false,
             "ONLY_TENSOR_GRAPH": false,
             "ONLY_HOST_COMPILE": false,

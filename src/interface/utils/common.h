@@ -198,6 +198,26 @@ enum PipeType {
 
 enum class CoreType { AIV = 0, AIC = 1, MIX = 2, AICPU = 3, HUB = 4, GMATOMIC = 5, INVALID = 20 };
 
+inline std::string CoreTypeToStr(CoreType ct)
+{
+    switch (ct) {
+        case CoreType::AIV:
+            return "AIV";
+        case CoreType::AIC:
+            return "AIC";
+        case CoreType::MIX:
+            return "MIX";
+        case CoreType::AICPU:
+            return "AICPU";
+        case CoreType::HUB:
+            return "HUB";
+        case CoreType::GMATOMIC:
+            return "GMATOMIC";
+        default:
+            return "INVALID";
+    }
+}
+
 template <typename T>
 inline std::string IntVecToStr(const std::vector<T> &shape) {
     std::stringstream ss;

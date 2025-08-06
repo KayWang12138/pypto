@@ -45,9 +45,6 @@ ModelConfig::ModelConfig()
         {"pipeBoardVibration", [&](string v){ pipeBoardVibration = ParseInteger(v); }},
         {"calendarMode", [&](string v){ calendarMode = ParseInteger(v); }},
         {"calendarFile", [&](string v){ calendarFile = ParseString(v); }},
-        {"replayDispatchMode", [&](string v){ replayDispatchMode = ParseInteger(v); }},
-        {"replayAllMode", [&](string v){ replayAllMode = ParseInteger(v); }},
-        {"replayFile", [&](string v){ replayFile = ParseString(v); }},
         {"workerMachineNumber", [&](string v){ workerMachineNumber = ParseInteger(v); }},
     };
 
@@ -75,9 +72,6 @@ ModelConfig::ModelConfig()
         {"pipeBoardVibration", [&](){ return "pipeBoardVibration = " + ParameterToStr(pipeBoardVibration); }},
         {"calendarMode", [&](){ return "calendarMode = " + ParameterToStr(calendarMode); }},
         {"calendarFile", [&](){ return "calendarFile = " + calendarFile; }},
-        {"replayDispatchMode", [&](){ return "replayDispatchMode = " + ParameterToStr(replayDispatchMode); }},
-        {"replayAllMode", [&](){ return "replayAllMode = " + ParameterToStr(replayAllMode); }},
-        {"replayFile", [&](){ return "replayFile = " + replayFile; }},
         {"workerMachineNumber", [&](){ return "workerMachineNumber = " + ParameterToStr(workerMachineNumber); }},
     };
 }

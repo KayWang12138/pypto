@@ -45,6 +45,9 @@ struct CycleInfo {
     uint64_t cacheHitCycle = 0;
     uint64_t cacheRespCycle = 0;
     uint64_t pktRetToSenderCycle = 0;
+
+    uint64_t relativeStartCycle = 0;
+    uint64_t relativeEndCycle = 0;
     void Reset();
 };
 

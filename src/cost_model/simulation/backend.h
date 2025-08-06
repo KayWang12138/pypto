@@ -25,10 +25,13 @@ class CostModelAgent {
 public:
     bool getFunctionFromJson = false;
     std::string agentJsonPath = "";
+    std::string topoJsonPath = "";
     void BuildCostModel();
     void SubmitToCostModel(Function *rootFunc);
     void SubmitSingleFuncToCostModel(Function *func);
     void SubmitLeafFunctionsToCostModel();
+    Json ParseDynTopo(std::string &path);
+    void SubmitTopo(std::string &path);
     void RunCostModel();
     void TerminateCostModel();
     void DebugSingleFunc(Function *func);

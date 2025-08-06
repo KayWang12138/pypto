@@ -171,6 +171,7 @@ private:
                 std::cout << "!!! Run TestModel " << i << "\n";
                 RunTestMode(&kArgs);
             }
+            RunDynCostModel();
     }
 
     bool HasInplaceArgs() {
@@ -219,6 +220,20 @@ private:
             modelData->functionTime[index] = time;
         }
         kArgs->costmodeldata = modelData;
+    }
+
+    void RunDynCostModel()
+    {
+        if (!config::GetPlatformConfig("ENABLE_DYN_FULL_COST_MODEL", true)) {
+            return;
+        }
+        config::SetSimConfig("SIM_MODE", CostModel::SimMode::NORMAL);
+        CostModelAgent costModelAgent;
+        std::string path = "./output/dyn_topo.txt";
+        costModelAgent.SubmitTopo(path);
+        costModelAgent.SubmitLeafFunctionsToCostModel();
+        costModelAgent.RunCostModel();
+        costModelAgent.TerminateCostModel();
     }
 
     void RunTestMode(AstKernelArgs *kArgs) {

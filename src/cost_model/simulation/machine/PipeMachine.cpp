@@ -137,7 +137,6 @@ void PipeMachine::RunAtEnd()
         return;
     }
     auto corePtr = std::dynamic_pointer_cast<CoreMachine>(parentMachine);
-    corePtr->stats->totalPipeUseCycles[int(pipeType)]++;
     if (retireCycle <= GetSim()->GetCycles()) {
         PushCompletion(executingTaskId, magic);
         std::string info;
@@ -164,6 +163,7 @@ void PipeMachine::RunAtEnd()
             eCycle = tile->exeInfo.cycleInfo.executeEndCycle;
         }
         parentMachine->LoggerRecordTileOp(info, pipeId, sCycle, eCycle);
+        corePtr->stats->totalPipeUseCycles[int(pipeType)]++;
         tileOp = nullptr;
         tile = nullptr;
         SetMachineExecuting(false);

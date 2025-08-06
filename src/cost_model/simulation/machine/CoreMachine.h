@@ -79,6 +79,9 @@ public:
     std::vector<std::vector<int>> tileAllocSequence;
     bool                                coreNextNeedStep = false;
 
+    // local stat
+    std::unordered_map<CostModel::CorePipeType, uint64_t> leafPipeExecuteTime;
+
     uint64_t totalOperations = 0;
     uint64_t commitOperations = 0;
     uint64_t executionStartCycle = 0;
@@ -121,6 +124,10 @@ public:
     void CheckReleaseSrcTile(int magic);
 
     uint64_t GetPipeNum(CorePipeType type) const;
+    void ResetLeafPipeExecuteTime();
+    void RecordLeafPipeExecuteTime();
+
+    void PrintRelativeCycleInfo(FunctionPtr func, std::shared_ptr<Task> task);
 
     void Step() override;
     void Xfer() override;

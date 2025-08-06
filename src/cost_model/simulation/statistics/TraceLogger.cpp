@@ -368,6 +368,45 @@ void TraceLogger::AddCounterEvent(CostModel::Pid pid, CostModel::Tid tid, CostMo
     mCounts[PTid{pid, tid}].emplace_back(sizeCount);
 }
 
+void TraceLogger::EraseLogInfo(uint64_t startCycle)
+{
+    for (auto it = mEvents.begin(); it != mEvents.end(); ) {
+        if ((*it).timestamp > startCycle) {
+            it = mEvents.erase(it);
+        } else {
+            it++;
+        }
+    }
+
+    for (auto it = mDurations.begin(); it != mDurations.end(); ) {
+        if ((*it).second.start.timestamp > startCycle) {
+            it = mDurations.erase(it);
+        } else {
+            it++;
+        }
+    }
+
+    for (auto it = mCounters.begin(); it != mCounters.end(); ) {
+        if ((*it).timestamp > startCycle) {
+            it = mCounters.erase(it);
+        } else {
+            it++;
+        }
+    }
+
+    for (auto &counts : mCounts) {
+        for (auto it = counts.second.begin(); it != counts.second.end(); ) {
+            if ((*it).timestamp > startCycle) {
+                it = counts.second.erase(it);
+            } else {
+                it++;
+            }
+        }
+    }
+
+    mTaskIDToDurationIndex.clear();
+}
+
 void TraceLogger::GetTotalMachineQueueSize(CostModel::TimeStamp interval)
 {
     std::map<int, std::map<int, int>> machinesQueueIntervalCount;
@@ -779,7 +818,7 @@ void TraceLogger::ToFilterTrace(std::ofstream &os, std::map<int, std::pair<std::
     for (auto it : mProcesses) {
         auto machineType = GetMachineType(it.first);
         if (IsCoreMachine(machineType)) {
-            coreTasks[it.second.coreIdx] = {it.second.name, {}};
+            coreTasks[it.second.coreIdx] = {MachineName(static_cast<MachineType>(machineType)), {}};
             mCoreInfoLogs[it.second.coreIdx] =
                 CoreInfoLog(it.second.coreIdx, MachineName(static_cast<MachineType>(machineType)));
         }
@@ -802,6 +841,9 @@ void TraceLogger::ToFilterTrace(std::ofstream &os, std::map<int, std::pair<std::
         // Get CoreID
         int coreId = mProcesses[start.pid].coreIdx;
 
+        std::string seqKey = "SeqNo:";
+        int seqNo = start.ExtraHintInfo(seqKey);
+
         // Get TaskID
         std::string taskKey = "TaskId:";
         int taskId = start.ExtraHintInfo(taskKey);
@@ -814,6 +856,7 @@ void TraceLogger::ToFilterTrace(std::ofstream &os, std::map<int, std::pair<std::
 
         // 创建任务JSON对象（不再包含coreType）
         Json taskJson;
+        taskJson["seqNo"] = seqNo;
         taskJson["taskId"] = taskId;
         taskJson["execStart"] = sTime;
         taskJson["execEnd"] = eTime;
@@ -862,6 +905,9 @@ void TraceLogger::ToCalendarGlobalJson(std::ofstream &osCalendar, std::map<int, 
     for (auto &it : coreTasks) {
         Json core;
         core["coreId"] = it.first;
+        if (it.second.first.find("HUB") != std::string::npos) {
+            continue;
+        }
         core["tasks"] = Json::array();
         for (const auto& taskJson : it.second.second) {
             int taskId = taskJson["taskId"];

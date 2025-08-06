@@ -202,6 +202,7 @@ struct DynDeviceTask {
         for (size_t funcIdx = 0; funcIdx < stitchedList.size(); funcIdx++) {
             stitchedList[funcIdx].DumpTopo(of, header->seqNo, funcIdx, cceBinary);
         }
+        of.flush();
     }
 };
 

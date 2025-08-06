@@ -39,12 +39,15 @@ public:
     static void CheckTileOp(FunctionPtr func);
     static void CheckFunction(npu::tile_fwk::Function *parentFunc, FunctionPtr func);
     static void ParseFunction(std::shared_ptr<CostModel::SimSys> sim,
-                                    std::vector<npu::tile_fwk::Function *> &inputFuncs, bool inputTopoinfo);
+                                    std::vector<npu::tile_fwk::Function *> &inputFuncs, bool topoFromRootFunc);
     static void ParseSingleFunction(std::shared_ptr<CostModel::SimSys> sim, npu::tile_fwk::Function *func);
     static void ParseFixedLatencyTask(std::shared_ptr<CostModel::SimSys> sim, std::string const &path);
     void ParseJsonConfig(std::string const &path, std::vector<std::string> &cfg) const;
     void ParseConfig(std::string const &path, std::vector<std::string> &cfg) const;
     void ParseCalendarJson(std::shared_ptr<CostModel::SimSys> sim, const std::string &jsonPath) const;
+    static void ParseTopoJson(std::string path, std::deque<TaskMap> &taskMapQueue);
+    static void ParseReplayInfoJson(const std::string &path,
+                                    std::unordered_map<uint64_t, std::deque<ReplayTaskEntry>> &replayTasksInfoMap);
 };
 }
 #endif

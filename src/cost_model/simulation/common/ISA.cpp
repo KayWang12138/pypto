@@ -290,4 +290,36 @@ Json Function::DumpExecuteInfo()
     res["pipes"] = pipe;
     return res;
 }
+
+uint64_t Function::GetOpRelativeReadyCycle(TileOpPtr tileOp, uint64_t newBaseCycle)
+{
+    uint64_t relativeStartCycle = tileOp->exeInfo.cycleInfo.executeStartCycle - startCycles;
+    uint64_t pipeFreeCycle = pipeLastEndCycle[tileOp->pipeType];
+    uint64_t res = newBaseCycle + relativeStartCycle; // base start cycle;
+    res = std::max(res, pipeFreeCycle);
+    for (auto &srcTile : tileOp->iOperand) {
+        for (auto &producer : srcTile->producers) {
+            res = std::max(res, producer->exeInfo.cycleInfo.relativeEndCycle);
+        }
+    }
+    return res;
+}
+
+void Function::CalculateRelativeCycle(uint64_t newBaseCycle, double proportion)
+{
+    pipeLastEndCycle.clear();
+    for (const auto& m : opMagicSequence) {
+        auto tileOp = tileOpMap[m];
+        uint64_t simCycle = tileOp->exeInfo.cycleInfo.executeEndCycle - tileOp->exeInfo.cycleInfo.executeStartCycle;
+        uint64_t realCycle = simCycle;
+        if (IsMTEPipe(tileOp->pipeType)) {
+            // scale mte tile op cycles
+            realCycle = uint64_t(double(simCycle) * proportion);
+        }
+        uint64_t readyCycle = GetOpRelativeReadyCycle(tileOp, newBaseCycle);
+        tileOp->exeInfo.cycleInfo.relativeStartCycle = readyCycle;
+        tileOp->exeInfo.cycleInfo.relativeEndCycle = readyCycle + realCycle;
+        pipeLastEndCycle[tileOp->pipeType] = tileOp->exeInfo.cycleInfo.relativeEndCycle;
+    }
+}
 }

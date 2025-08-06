@@ -24,5 +24,5 @@ namespace npu::tile_fwk {
 * 返 回 值: 0表示成功，非零表示失败。
   **********************************************************************************************************/
 int32_t TileFwkRunAsync(void *handle, const void *workspace, const void *stream, const std::vector<void *> &opArgs,
-    const std::vector<size_t> &prefetchSizes = {});
+    const std::vector<std::size_t> &prefetchSizes = {});
 }

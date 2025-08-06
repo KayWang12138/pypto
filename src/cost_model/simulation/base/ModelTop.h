@@ -123,6 +123,7 @@ public:
     std::shared_ptr<SimSys> GetShared();
     uint64_t GetCycles() const;
     void UpdateNextCycles(uint64_t nextCycle);
+    void ResetCycles(uint64_t cycles);
     void AddCycles(uint64_t overTime = 1);
     std::shared_ptr<TraceLogger> GetLogger();
     std::shared_ptr<GenCalendar> GetCalendarGenerator();
@@ -137,6 +138,9 @@ public:
     void InitMachineStartSeq();
     void BuildCaches();
     void BuildPvModel();
+
+    void BuildHUBCore();
+    MachinePtr GetHUBCore();
     UnifiedPipeMachinePtr GetPipeImpl(CorePipeType pType);
     void BuildPipes(uint64_t index, std::shared_ptr<CoreMachine> coreMachine);
     void BuildCore(DevicePtr device, AICPUPtr cpu, uint64_t idInCPU, MachineType type);
@@ -171,11 +175,11 @@ public:
     void OutputLogForPipeSwimLane(std::string prefix = "");
     void OutputLogForCommSwimLane(std::string prefix = "");
     void OutputCalendarScheduleCpp(std::string prefix = "");
-    void ProcessTaskMap(TaskMap &taskMap);
-    void DrawTasks(const TaskMap &taskMap);
+    void ProcessTaskMap(TaskMap &taskMap, std::string prefix = "");
+    void DrawTasks(const TaskMap &taskMap, std::string prefix = "");
     void DebugDrawFunc(FunctionPtr func, std::unordered_map<int, TilePtr> &tiles,
                        std::unordered_map<int, TileOpPtr> &tileOps);
-    void DumpTasksTopo(const TaskMap &taskMap);
+    void DumpTasksTopo(const TaskMap &taskMap, std::string prefix = "");
     void ResetStat(bool start);
     void PrintCoreStat();
     void PrintStat();

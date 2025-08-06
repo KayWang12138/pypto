@@ -306,6 +306,7 @@ void ParseInput::BuildFunction(std::shared_ptr<CostModel::SimSys> sim, npu::tile
             continue;
         }
         func->opSequenceAfterOOO_[op.GetOpMagic()] = seq++;
+        func->opMagicSequence.emplace_back(op.GetOpMagic());
     }
     const auto &operations = parentFunc->Operations();
     for (auto &op : operations) {
@@ -477,10 +478,10 @@ void ParseInput::CheckFunction(npu::tile_fwk::Function *parentFunc, FunctionPtr 
 }
 
 void ParseInput::ParseFunction(std::shared_ptr<CostModel::SimSys> sim,
-                                     std::vector<npu::tile_fwk::Function *> &inputFuncs, bool inputTopoinfo)
+                                     std::vector<npu::tile_fwk::Function *> &inputFuncs, bool topoFromRootFunc)
 {
-    sim->enableExpectValue = true;
-    if (inputTopoinfo) {
+    if (topoFromRootFunc) {
+        sim->enableExpectValue = true;
         ASSERT(inputFuncs.size() == 1);
         for (const auto &rootFunction : inputFuncs) {
             if (sim->pvLevel != PVModelLevel::PV_NON) {
@@ -508,7 +509,7 @@ void ParseInput::ParseFunction(std::shared_ptr<CostModel::SimSys> sim,
                 ModelVisualizer visualizer;
                 visualizer.DrawFunction(func, sim->graphsOutdir);
             }
-            func->useInputTopo = true;
+            func->topoFromRootFunc = true;
             sim->functionCache.Insert(func);
 
             // Build Leaf Functions
@@ -536,6 +537,7 @@ void ParseInput::ParseFunction(std::shared_ptr<CostModel::SimSys> sim,
         return;
     }
 
+    sim->enableExpectValue = false;
     // Get Function From parentFunctions Input
     bool foundStartFunc = false;
     for (const auto &function : inputFuncs) {
@@ -694,7 +696,7 @@ void ParseInput::ParseFixedLatencyTask(std::shared_ptr<CostModel::SimSys> sim, s
         leafMachineTypeMap[funcName] = entry.mType;
         func->inputTopo.push_back(entry);
     }
-    func->useInputTopo = true;
+    func->topoFromRootFunc = true;
     sim->functionCache.Insert(func);
 
     // Build virtual leaf function
@@ -704,6 +706,74 @@ void ParseInput::ParseFixedLatencyTask(std::shared_ptr<CostModel::SimSys> sim, s
         leafFunc->machineType = leafMachineTypeMap[funcName];
         leafFunc->funcName = funcName;
         sim->functionCache.Insert(leafFunc);
+    }
+}
+
+void ParseInput::ParseTopoJson(std::string path, std::deque<TaskMap> &taskMapQueue)
+{
+    std::ifstream jsonInput(path);
+    if (!jsonInput.is_open()) {
+        std::cerr << "Error: fail to open file:" << path << std::endl;
+    }
+    Json topoJson;
+    jsonInput >> topoJson;
+    std::map<uint64_t, TaskMap> groupTaskMap;
+    for (const auto& item : topoJson) {
+        auto subtask = std::make_shared<Task>();
+        subtask->seqNo = item.value("seqNo", 0);
+        subtask->taskId = item.value("taskId", 0);
+        subtask->leafIndex = item.value("leafIndex", 0);
+        subtask->opmagic = item.value("opmagic", 0);
+        subtask->psgId = item.value("psgId", -1);
+        subtask->rootIndex = item.value("rootIndex", 0);
+        subtask->uniqueKey = item.value("uniqueKey", subtask->taskId);
+        subtask->functionHash = item["funcHash"].get<uint64_t>();
+        subtask->machineType = ToMachineType(item["coreType"]);
+        subtask->successors = item["successors"].get<std::vector<uint64_t>>();
+        groupTaskMap[subtask->seqNo][subtask->taskId] = subtask;
+    }
+    for (auto &taskMap : groupTaskMap) {
+        for (auto &task : taskMap.second) {
+            for (auto &successor : task.second->successors) {
+                taskMap.second.at(successor)->predecessors.push_back(task.first);
+            }
+        }
+        for (auto &task : taskMap.second) {
+            task.second->remainingPredecessors = task.second->predecessors.size();
+        }
+    }
+    for (auto &entry : groupTaskMap) {
+        taskMapQueue.push_back(entry.second);
+    }
+}
+
+void ParseInput::ParseReplayInfoJson(const std::string &path,
+                                     std::unordered_map<uint64_t, std::deque<ReplayTaskEntry>> &replayTasksInfoMap)
+{
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        std::cerr << "Error: fail to open file:" << path << std::endl;
+    }
+    Json j;
+    file >> j;
+    for (const auto &item : j) {
+        uint64_t blockIdx = item["blockIdx"];
+        std::string coreTypeStr = item["copyType"];
+        MachineType coreType = ToMachineType(coreTypeStr);
+        if (!IsCoreMachine(coreType)) {
+            continue;
+        }
+        uint64_t machineId = GetProcessID(coreType, blockIdx);
+        const auto& tasks = item["tasks"];
+        replayTasksInfoMap[machineId] = std::deque<ReplayTaskEntry>();
+        auto &machineTaskQ = replayTasksInfoMap[machineId];
+        for (const auto& task : tasks) {
+            uint64_t seqNo = task["seqNo"];
+            uint64_t taskId = task["taskId"];
+            uint64_t beginCycle = task["execStart"];
+            uint64_t endCycle = task["execEnd"];
+            machineTaskQ.push_back(ReplayTaskEntry(seqNo, taskId, beginCycle, endCycle));
+        }
     }
 }
 }

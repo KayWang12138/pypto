@@ -65,7 +65,6 @@ struct TaskPack {
     std::vector<DataMeta> outcasts;
 
     uint64_t taskId;
-    std::string semanticLabels;
     std::vector<DataIDType> incastIdsOnParent;
     std::vector<DataIDType> outcastIdsOnParent;
     TaskCycleInfo cycleInfo;

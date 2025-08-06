@@ -4,4 +4,10 @@ stitchLatency = 10000
 submitLatency = 100
 stitchMaxSize = 100
 
-submachineTypes = ["AIC", "AIV"]
+submachineTypes = ["AIC", "AIV", "HUB"]
+
+submitTopo = false
+submitTopoPath = ""
+replayEnable = false
+replayFile = "_simulate.swim.json"
+replayTaskTimeScaling = false

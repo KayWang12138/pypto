@@ -232,7 +232,7 @@ void CoreMachine::PushCompletion(uint64_t taskId)
     if (sim->config.calendarMode != static_cast<uint64_t>(CalendarMode::DEVICE)) {
         return;
     }
-    executingFunctionPtr->totalCycles = GetSim()->GetCycles() - executionStartCycle;
+    RecordLeafPipeExecuteTime();
     CompletedPacket packet;
     packet.taskId = taskId;
     packet.currentType = machineType;
@@ -294,23 +294,16 @@ void CoreMachine::ProcessDeviceTaskPacket(const TaskPack &packet)
     FunctionPtr function = sim->functionCache.GetFunction(functionHash);
     MLOG_INFO("[Cycle:", GetSim()->GetCycles(), "][CoreMachine][ReceivePacket] ", "CoreMachine: ", machineId,
               " Receive Function:", function->funcName);
-    std::string logLabel = std::to_string(packet.taskId) + "-" + std::to_string(function->pSgId);
-    std::string colorLable;
-    if (config.logLabelMode == 1) {
-        colorLable = packet.semanticLabels;
-    } else if (config.logLabelMode > 1) {
-        colorLable = packet.semanticLabels + " " + DecimalTo26(function->pSgId);
-    }
-    if (colorLable.empty()) {
-        colorLable = DecimalTo26(function->pSgId);
-    }
 
-    logLabel += (" (" + colorLable + ")");
-    std::string logInfo = "Executing TaskId:" + std::to_string(packet.taskId);
-    logInfo += (" pSgId:" + std::to_string(function->pSgId));
-    logInfo += (" Function " + function->funcName);
-    logInfo += (" Hash " + std::to_string(function->functionHash));
+    std::string logLabel = packet.task.taskPtr->GetTaskName();
+    logLabel += (" (" + packet.task.taskPtr->GetColorLabel(config.logLabelMode) + ")");
+    std::string logInfo = packet.task.taskPtr->GetTaskFullName();
     LoggerRecordTaskStart(logLabel, logInfo);
+    if (packet.task.taskPtr != nullptr && packet.task.taskPtr->fixedLatency) {
+        exectingFixLatencyTask = true;
+        fixedLatencyTaskEndCycle = GetSim()->GetCycles() + packet.task.taskPtr->fixedLatencyVal;
+        PrintRelativeCycleInfo(function, packet.task.taskPtr);
+    }
     InitCore();
     GenDependence(function);
     SortTileAndTileOp(function);
@@ -323,10 +316,6 @@ void CoreMachine::ProcessDeviceTaskPacket(const TaskPack &packet)
     executingFunctionPtr = function;
     executionStartCycle = GetSim()->GetCycles();
     GetSim()->taskToCounter[packet.taskId].push_back(GetSim()->globalCounter++);
-    if (packet.task.taskPtr != nullptr && packet.task.taskPtr->fixedLatency) {
-        exectingFixLatencyTask = true;
-        fixedLatencyTaskEndCycle = GetSim()->GetCycles() + packet.task.taskPtr->fixedLatencyVal;
-    }
 }
 
 void CoreMachine::InitCore()
@@ -343,10 +332,14 @@ void CoreMachine::InitCore()
     tileAllocSequence.clear();
     tileAllocSequence.resize(static_cast<int>(CorePipeType::TOTAL_CORE_PIPE_TYPE));
     local = std::make_shared<TileState>();
+    ResetLeafPipeExecuteTime();
 }
 
 void CoreMachine::GenDependence(std::shared_ptr<CostModel::Function> func)
 {
+    if (exectingFixLatencyTask) {
+        return;
+    }
     MLOG_INFO("[Cycle:", GetSim()->GetCycles(), "][CoreMachine][GenDependence] ", "***** Generate Dependence ******");
     // The function can be called multiple times.
     // Therefore, we need to build new TilePtr and TileOpPtr.
@@ -434,6 +427,9 @@ void CoreMachine::GenDependence(std::shared_ptr<CostModel::Function> func)
 
 void CoreMachine::SortTileAndTileOp(FunctionPtr func)
 {
+    if (exectingFixLatencyTask) {
+        return;
+    }
     MLOG_INFO("[Cycle:", GetSim()->GetCycles(), "][CoreMachine][SortTileAndTileOp] ****** Sort Tile Alloc ******");
     if (func->hasSchedule) {
         tileAllocSequence = func->tileAllocSequence;
@@ -460,6 +456,9 @@ void CoreMachine::MarkTileAlloc(std::vector<int> &sequence)
 
 void CoreMachine::Dispatch()
 {
+    if (exectingFixLatencyTask) {
+        return;
+    }
     // Put all tile alloc into ready queue
     for (size_t i = 0; i < tileAllocSequence.size(); i++) {
         auto &sequence = tileAllocSequence[i];
@@ -498,6 +497,9 @@ void CoreMachine::SelectPipeToIssue(int qId, int &pipeSelect, int &pipeIndexSele
 
 void CoreMachine::IssueTileOp()
 {
+    if (exectingFixLatencyTask) {
+        return;
+    }
     for (size_t qid = 0; qid < readyQueues.size(); qid++) {
         // pick one tile operation if:
         // 1. ready tile operation in queue
@@ -580,7 +582,7 @@ void CoreMachine::RetirePipeCompletion(std::shared_ptr<PipeMachine> pipeMachine,
         WakeupTileConsumers(tile->magic);
         tile->exeInfo.cycleInfo.retireCycle = GetSim()->GetCycles();
         stats->retiredTileAllocNum++;
-        executingFunctionPtr->pipeExecuteTime[pipeMachine->pipeType] += tile->exeInfo.latency;
+        leafPipeExecuteTime[pipeMachine->pipeType] += tile->exeInfo.latency;
         logInfo = tile->Dump();
     } else {
         commitOperations++;
@@ -600,7 +602,7 @@ void CoreMachine::RetirePipeCompletion(std::shared_ptr<PipeMachine> pipeMachine,
         }
         tileop->exeInfo.cycleInfo.retireCycle = GetSim()->GetCycles();
         stats->retiredTileOpNum++;
-        executingFunctionPtr->pipeExecuteTime[pipeMachine->pipeType] += tileop->exeInfo.latency;
+        leafPipeExecuteTime[pipeMachine->pipeType] += tileop->exeInfo.latency;
         logInfo = tileop->Dump();
     }
     MLOG_INFO("[Cycle:", GetSim()->GetCycles(), "][CoreMachine][RetireTileOp] MachineId:", machineId, " retire: ",
@@ -609,6 +611,9 @@ void CoreMachine::RetirePipeCompletion(std::shared_ptr<PipeMachine> pipeMachine,
 
 void CoreMachine::RetireTileOp()
 {
+    if (exectingFixLatencyTask) {
+        return;
+    }
     // Retire Stage
     for (size_t qid = 0; qid < pipeMachineIndex.size(); qid++) {
         for (size_t k = 0; k < pipeMachineIndex[qid].size(); k++) {
@@ -846,6 +851,62 @@ uint64_t CoreMachine::GetPipeNum(CostModel::CorePipeType type) const
             return config.pipeMteOutNum;
         default:
             return 1;
+    }
+}
+
+void CoreMachine::ResetLeafPipeExecuteTime()
+{
+    leafPipeExecuteTime.clear();
+    leafPipeExecuteTime[CorePipeType::PIPE_VECTOR_BMU] = 0;
+    leafPipeExecuteTime[CorePipeType::PIPE_CUBE_BMU_L1] = 0;
+    leafPipeExecuteTime[CorePipeType::PIPE_CUBE_BMU_L0A] = 0;
+    leafPipeExecuteTime[CorePipeType::PIPE_CUBE_BMU_L0B] = 0;
+    leafPipeExecuteTime[CorePipeType::PIPE_CUBE_BMU_L0C] = 0;
+    leafPipeExecuteTime[CorePipeType::PIPE_MTE_IN] = 0;
+    leafPipeExecuteTime[CorePipeType::PIPE_MTE1] = 0;
+    leafPipeExecuteTime[CorePipeType::PIPE_VECTOR_ALU] = 0;
+    leafPipeExecuteTime[CorePipeType::PIPE_CUBE] = 0;
+    leafPipeExecuteTime[CorePipeType::PIPE_MTE_OUT] = 0;
+}
+
+void CoreMachine::RecordLeafPipeExecuteTime()
+{
+    if (executingFunctionPtr->hasRecordInfo) {
+        return;
+    }
+    executingFunctionPtr->hasRecordInfo = true;
+    executingFunctionPtr->pipeExecuteTime = leafPipeExecuteTime;
+    executingFunctionPtr->startCycles = executionStartCycle;
+    executingFunctionPtr->totalCycles = GetSim()->GetCycles() - executionStartCycle;
+    for (auto &tileOp : tileOps) {
+        executingFunctionPtr->tileOpMap[tileOp.first]->exeInfo = tileOp.second->exeInfo;
+    }
+    for (auto &tile : tiles) {
+        executingFunctionPtr->tileMap[tile.first]->exeInfo = tile.second->exeInfo;
+    }
+}
+
+void CoreMachine::PrintRelativeCycleInfo(FunctionPtr func, std::shared_ptr<Task> task)
+{
+    // Calculate Relative cycle
+    func->CalculateRelativeCycle(GetSim()->GetCycles(), task->proportion);
+
+    // Log TileOp trace
+    for (auto &opMagic : func->opMagicSequence) {
+        auto &tileOp = func->tileOpMap[opMagic];
+        std::string info = tileOp->Dump(true);
+        info += (" Task[" + std::to_string(task->taskId) + "]");
+        LoggerRecordTileOp(info, tileOp->exeInfo.exePipeId, tileOp->exeInfo.cycleInfo.relativeStartCycle,
+                           tileOp->exeInfo.cycleInfo.relativeEndCycle);
+    }
+
+    // Add stat
+    for (auto &pipe : func->pipeExecuteTime) {
+        uint64_t pipeStat = pipe.second;
+        if (IsMTEPipe(pipe.first)) {
+            pipeStat = uint64_t(double(pipeStat) * task->proportion);
+        }
+        stats->totalPipeUseCycles[int(pipe.first)] += pipeStat;
     }
 }
 

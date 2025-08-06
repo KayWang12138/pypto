@@ -34,17 +34,24 @@
 namespace CostModel {
 class DeviceMachine : public Machine {
 public:
+    // base info
     bool cubeVecMix = false;
-    std::map<MachineType, std::deque<uint64_t>> readyQueues;
     std::size_t readyQueuePid;
     std::size_t readyQueueTotalTid;
     std::map<MachineType, std::size_t> readyQueueTid;
-    TaskMap taskMap;
 
-    uint64_t globalSubtaskId;
-    uint64_t currentEnd;
+    // status info
+    bool taskBuilded = false;
+    bool replayPreExecute = false;
+    bool hasPreExecute = false;
+    uint64_t replayPreStartTime = 0;
+    uint64_t lastHeartModulo = 0;
+    uint64_t currentHeartModulo = 0;
+    std::map<MachineType, std::deque<uint64_t>> readyQueues;
+    std::set<uint64_t> readySet; // For replay mode
+    
+    TaskMap taskMap;
     std::deque<TaskMap> taskMapQueue;
-    std::deque<uint64_t> functionQueue;
     std::map<uint64_t, uint64_t> executingTaskMap;
 
     DeviceConfig config;
@@ -52,10 +59,10 @@ public:
     std::shared_ptr<TileState> tileStateGolden;
     std::shared_ptr<TileState> tileState;
 
-    uint64_t lastHeartModulo = 0;
-    uint64_t currentHeartModulo = 0;
-
-    bool taskBuilded = false;
+    // For Replay Mode
+    uint64_t currentSeq = 0;
+    // key: machineId, value: tasks queue
+    std::unordered_map<uint64_t, std::deque<ReplayTaskEntry>> replayTasksInfoMap;
 
     void RunAtBegin();
     void RunAtEnd();
@@ -65,11 +72,23 @@ public:
     TaskMap BuildATaskMap();
     void InitFunctions();
     void BuildLeafFunctionTasks();
-    void BuildSubtasksFromTopo();
+    void BuildSubtasksFromRootFuncTopo();
+    void BuildSubTasksFromTopoJson();
     void BuildSingleFuncTask();
     void PushReadyQueue(MachineType mType, uint64_t taskId);
     uint64_t PopReadyQueue(MachineType mType);
     bool EraseReadyQueue(MachineType mType, uint64_t taskId);
+
+    // For replay mode
+    void BuildReplayInfo();
+    bool IsReady(uint64_t taskId);
+    void InsertReadySet(uint64_t taskId);
+    void CheckHUBTaskReplayInfo(uint64_t taskId);
+    void EraseReadySet(uint64_t taskId);
+    void SetReplayPreStart();
+    void SetReplayPreEnd();
+    void EnableScaleTaskExecuteTime();
+    void ScaleTaskExecuteTime(ReplayTaskEntry &replayInfo);
 
     void Step() override;
     void Xfer() override;
@@ -80,21 +99,6 @@ public:
     void InitQueueDelay() override;
     void StepQueue() override;
     bool IsTerminate() override;
-
-    // Static Sim
-    struct CoreMachineQueue {
-        CostModel::MachineType coreType;
-        int blockIdx;
-        // queue <int, <begin_cycle, end_cycle>>, <int, <begin_cycle, end_cycle>>
-        std::deque<std::pair<uint64_t, std::pair<uint64_t, uint64_t>>> taskIds;
-    };
-
-    struct AICPUMachineGroup {
-        std::vector<CoreMachineQueue> coreMachines;
-    };
-
-    std::vector<AICPUMachineGroup> ParseSimulateJson(const std::string& filename);
-    std::vector<AICPUMachineGroup> staticSimData;
 
 private:
     void CalculateTileGolden();

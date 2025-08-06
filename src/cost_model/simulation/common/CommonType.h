@@ -47,6 +47,15 @@ enum class SimMode {
     PV_MODEL
 };
 
+inline bool IsNeedInput(CostModel::SimMode simMode)
+{
+    if (simMode == CostModel::SimMode::NORMAL || simMode == CostModel::SimMode::LEAF_FUNCTION ||
+        simMode == CostModel::SimMode::EMULATOR) {
+        return true;
+    }
+    return false;
+}
+
 enum class PVModelLevel {
     PV_NON = 0,
     PV_UT,
@@ -207,6 +216,14 @@ inline bool IsWriteCache(CorePipeType type)
     return false;
 }
 
+inline bool IsMTEPipe(CorePipeType type)
+{
+    if (type == CorePipeType::PIPE_MTE_IN || type == CorePipeType::PIPE_MTE1 || type == CorePipeType::PIPE_MTE_OUT) {
+        return true;
+    }
+    return false;
+}
+
 inline std::string CorePipeName(CorePipeType type)
 {
     switch (type) {
@@ -239,7 +256,8 @@ inline std::string CorePipeName(CorePipeType type)
     }
 }
 
-enum class MachineType { UNKNOWN, DEVICE, CPU, AIC, AIV, MIXAICORE, PIPE, CACHE, ATTN, FFN, MIXED, SWITCH, TOTAL_MACHINE_TYPE };
+enum class MachineType { UNKNOWN, DEVICE, CPU, AIC, AIV, MIXAICORE, PIPE, CACHE, ATTN, FFN, MIXED, SWITCH, HUB,
+                         TOTAL_MACHINE_TYPE };
 
 inline std::string MachineName(MachineType type)
 {
@@ -264,6 +282,8 @@ inline std::string MachineName(MachineType type)
             return "FFN";
         case MachineType::MIXED:
             return "MIXED";
+        case MachineType::HUB:
+            return "HUB";
         default:
             return "ILLEGAL";
     }
@@ -271,7 +291,8 @@ inline std::string MachineName(MachineType type)
 
 inline bool IsCoreMachine(MachineType type)
 {
-    if (type == MachineType::AIC || type == MachineType::AIV || type == MachineType::MIXAICORE) {
+    if (type == MachineType::AIC || type == MachineType::AIV || type == MachineType::MIXAICORE ||
+        type == MachineType::HUB) {
         return true;
     }
     return false;
@@ -291,6 +312,8 @@ inline MachineType ToMachineType(const std::string& machineTypeStr)
         return MachineType::AIC;
     } else if (machineTypeStr == "MIXAICORE") {
         return MachineType::MIXAICORE;
+    } else if (machineTypeStr == "HUB") {
+        return MachineType::HUB;
     }
     return MachineType::UNKNOWN;
 }
@@ -350,39 +373,6 @@ inline std::string CacheRequestName(CacheRequestType type)
     }
 }
 
-class Task {
-public:
-    uint64_t taskId = -1;
-    uint64_t functionHash;
-    std::string functionName = "";
-    bool status = false;
-    int remainingPredecessors = 0;
-    std::vector<uint64_t> predecessors;
-    std::vector<uint64_t> successors;
-    std::vector<int> incasts;
-    std::vector<int> outcasts;
-    std::string semanticLabels;
-    MachineType machineType = MachineType::UNKNOWN;
-
-    // fixed latency
-    bool fixedLatency = false;
-    uint64_t fixedLatencyVal = 0;
-};
-
-using TaskMap = std::map<uint64_t, std::shared_ptr<Task>>;
-
-struct TopoInfoEntry {
-    uint64_t eSgId;
-    int readyState;
-    uint64_t calleeHash = 0;
-    
-    // fixed latency
-    bool fixedLatency = false;
-    uint64_t fixedLatencyVal = 0;
-    MachineType mType = MachineType::UNKNOWN;
-    setType outGraph;
-};
-
 const std::vector<std::string> LETTERS = {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
                                           "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"};
 
@@ -401,6 +391,99 @@ inline std::string DecimalTo26(int num)
     }
     return result;
 }
+
+const uint64_t TASK_ID_OFFSET20 = 20;
+const uint64_t TASK_ID_OFFSET11 = 11;
+
+class ReplayTaskEntry {
+public:
+    uint64_t seqNo;
+    uint64_t taskId;
+    uint64_t sCycles;
+    uint64_t eCycles;
+    ReplayTaskEntry(uint64_t seq, uint64_t id, uint64_t sTime, uint64_t eTime)
+    : seqNo(seq), taskId(id), sCycles(sTime), eCycles(eTime) {}
+};
+
+class Task {
+public:
+    uint64_t seqNo = 0;
+    uint64_t taskId = -1;
+    uint64_t functionHash;
+    std::string functionName = "";
+    bool status = false;
+    int remainingPredecessors = 0;
+    std::vector<uint64_t> predecessors;
+    std::vector<uint64_t> successors;
+    std::vector<int> incasts;
+    std::vector<int> outcasts;
+    std::string semanticLabels;
+    MachineType machineType = MachineType::UNKNOWN;
+
+    // fixed latency
+    bool fixedLatency = false;
+    uint64_t fixedLatencyVal = 0;
+
+    bool scaleExecuteTime = false;
+    double proportion = 1.0;
+    bool printRelativeCycle = false;
+
+    uint64_t leafIndex = 0;
+    uint64_t opmagic = 0;
+    int psgId = -1;
+    uint64_t rootIndex = 0;
+    uint64_t uniqueKey = 0;
+
+    std::string GetColorLabel(uint64_t mode)
+    {
+        std::string colorLabel;
+        if (mode == 1) {
+            colorLabel = semanticLabels;
+        } else if (mode > 1) {
+            colorLabel = semanticLabels + " " + DecimalTo26(psgId);
+        }
+        if (colorLabel.empty()) {
+            colorLabel = DecimalTo26(psgId);
+        }
+        return colorLabel;
+    }
+
+    std::string GetFormalName()
+    {
+        std::ostringstream os;
+        uint64_t funcIdStitch = ((taskId >> TASK_ID_OFFSET20) & ((1 << TASK_ID_OFFSET11) - 1));
+        uint64_t opIndex = (taskId & ((1 << TASK_ID_OFFSET20) - 1));
+        os << seqNo << "-" << funcIdStitch << "-" << opIndex;
+        return os.str();
+    }
+
+    std::string GetTaskName()
+    {
+        return GetFormalName() + "-" + std::to_string(rootIndex) + "-" + std::to_string(psgId);
+    }
+
+    std::string GetTaskFullName()
+    {
+        std::ostringstream os;
+        os << "[" << GetTaskName() << "] Executing SeqNo:" << seqNo << " TaskId:" << taskId << " pSgId:" << psgId;
+        os << " Function:" << functionName << ", hash:" << functionHash;
+        return os.str();
+    }
+};
+
+using TaskMap = std::map<uint64_t, std::shared_ptr<Task>>;
+
+struct TopoInfoEntry {
+    uint64_t eSgId;
+    int readyState;
+    uint64_t calleeHash = 0;
+    
+    // fixed latency
+    bool fixedLatency = false;
+    uint64_t fixedLatencyVal = 0;
+    MachineType mType = MachineType::UNKNOWN;
+    setType outGraph;
+};
 
 // For AICPU workload balance dispatch task.(SMT)
 struct AICoreWorkLoadStatus {

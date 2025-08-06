@@ -13,7 +13,10 @@
  * \brief
  */
 
-#include "cost_model/simulation/backend.h"
+#include "simulation/backend.h"
+
+#include <cctype>
+
 #include "interface/configs/config_manager.h"
 
 namespace {
@@ -24,11 +27,9 @@ namespace npu::tile_fwk {
 
 void CostModelAgent::BuildCostModel()
 {
-    // Get CostModel parameter from config.json
     ALOG_INFO("Init CostModel Simulation.");
     ALOG_INFO("Using Config A2A3.");
     costModel = std::make_shared<CostModel::CostModelInterface>();
-
     std::vector<std::string> inputArgs = config::GetSimConfig("args", inputArgs);
     int mode = config::GetSimConfig("SIM_MODE", 0);
     int accLevel = config::GetSimConfig("ACCURACY_LEVEL", 2);
@@ -39,7 +40,6 @@ void CostModelAgent::BuildCostModel()
     agentJsonPath = config::GetSimConfig("AGENT_JSON_PATH", "");
     auto folder = config::LogTopFolder() + "/" + ("CostModelSimulationOutput");
     std::vector<std::string> configs;
-
     if (!jsonPath.empty()) {
         configs.push_back("-f");
         configs.push_back(jsonPath);
@@ -47,7 +47,6 @@ void CostModelAgent::BuildCostModel()
     if (!agentJsonPath.empty()) {
         getFunctionFromJson = true;
     }
-
     configs.push_back("-m");
     configs.push_back(std::to_string(mode));
     configs.push_back("-o");
@@ -71,6 +70,11 @@ void CostModelAgent::BuildCostModel()
         for (auto &arg : inputArgs) {
             configs.push_back(arg);
         }
+    }
+    if (!topoJsonPath.empty()) {
+        configs.push_back("-s");
+        configs.push_back("Device.submitTopo=true");
+        configs.push_back("Device.submitTopoPath=" + topoJsonPath);
     }
     costModel->BuildCostModel(configs);
 }
@@ -112,7 +116,70 @@ void CostModelAgent::SubmitLeafFunctionsToCostModel() {
         }
         funcs.push_back(func.second.get());
     }
-    costModel->parser.ParseFunction(costModel->sim, funcs, false);
+    costModel->Submit(funcs, false, "");
+}
+
+Json CostModelAgent::ParseDynTopo(std::string &path)
+{
+    Json topoJson = Json::array();
+    std::ifstream file(path);
+    std::string line;
+    uint64_t seqPos = 0;
+    uint64_t taskIdPos = 1;
+    uint64_t rootIndexPos = 2;
+    uint64_t leafIndexPos = 3;
+    uint64_t opmagicPos = 4;
+    uint64_t coreTypePos = 5;
+    uint64_t psgIdPos = 6;
+    uint64_t funcHashPos = 7;
+    uint64_t succStartPos = 8;
+    uint64_t seqNumOffset = 32;
+    while (std::getline(file, line)) {
+        if (line.empty() || isalpha(line[0])) {
+            continue;
+        }
+        std::vector<uint64_t> fields;
+        std::stringstream ss(line);
+        std::string item;
+        while (std::getline(ss, item, ',')) {
+            try {
+                uint64_t num = std::stoull(item);
+                fields.push_back(num);
+            } catch (const std::invalid_argument& e) {
+                std::cerr << "Invalid argument: " << e.what() << std::endl;
+            } catch (const std::out_of_range& e) {
+                std::cerr << "Out of range: " << e.what() << std::endl;
+            }
+        }
+        uint64_t seqNo = fields[seqPos];
+        uint64_t taskId = fields[taskIdPos];
+        Json taskJson;
+        taskJson["uniqueKey"] = static_cast<uint64_t>(seqNo) << seqNumOffset | taskId;
+        taskJson["seqNo"] = seqNo;
+        taskJson["taskId"] = taskId;
+        Json successorsJson = Json::array();
+        for (size_t i = succStartPos; i < fields.size(); i++) {
+            successorsJson.push_back(fields[i]);
+        }
+        taskJson["successors"] = successorsJson;
+        taskJson["coreType"] = npu::tile_fwk::CoreTypeToStr(static_cast<npu::tile_fwk::CoreType>(fields[coreTypePos]));
+        taskJson["rootIndex"] = fields[rootIndexPos];
+        taskJson["leafIndex"] = fields[leafIndexPos];
+        taskJson["opmagic"] = fields[opmagicPos];
+        taskJson["psgId"] = fields[psgIdPos];
+        taskJson["funcHash"] = fields[funcHashPos];
+        topoJson.push_back(taskJson);
+    }
+    return topoJson;
+}
+
+void CostModelAgent::SubmitTopo(std::string &path)
+{
+    Json res = ParseDynTopo(path);
+    topoJsonPath = config::LogTopFolder() + "/tmp_topo_json.json";
+    std::ofstream file(topoJsonPath);
+    file << res.dump(1) << std::endl;
+    file.close();
 }
 
 uint64_t CostModelAgent::GetLeafFunctionTimeCost(uint64_t hash)

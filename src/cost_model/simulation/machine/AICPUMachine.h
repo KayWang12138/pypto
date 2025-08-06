@@ -74,6 +74,8 @@ public:
     void RecordDependency(std::shared_ptr<Task> task);
     void ResolveDependence(const std::shared_ptr<CoreMachine> &core, uint64_t threadId,
                            std::vector<uint64_t> &threadCompletionCycles);
+    void WakeupSuccessors(uint64_t threadId, uint64_t &resCycles, std::vector<uint64_t> successors,
+                          std::vector<uint64_t> &threadCompletionCycles);
     void CheckDeadlock();
 
     Task taskInfo;
@@ -96,18 +98,16 @@ public:
     void StatTaskType(const MachineType &type, uint64_t &threadId);
     void SendTask(uint64_t taskId, std::shared_ptr<Machine> subMachine, uint64_t delay, uint64_t threadId);
     void DispatchTasksForThread(uint64_t threadId, std::vector<uint64_t>& threadSchedulerCycles,
-                                std::vector<uint64_t>& currentCycle, size_t& lastSubmachineIdx);
+                                std::vector<uint64_t>& currentCycle);
     void DispatchTasksInReplayMode(uint64_t threadId, std::vector<uint64_t>& threadSchedulerCycles,
-                                                std::vector<uint64_t>& currentCycle, size_t& lastSubmachineIdx, uint64_t delayCycle);
+                                   std::vector<uint64_t>& currentCycle, uint64_t delayCycle);
     void DispatchTasksInNormalMode(uint64_t threadId, std::vector<uint64_t>& threadSchedulerCycles,
                                                 std::vector<uint64_t>& currentCycle, uint64_t delayCycle);
 
-    void ReplayAll();
-    void ReplayWithTimeStamp(std::shared_ptr<CostModel::Machine> &submachine,
-                             DeviceMachine::CoreMachineQueue &cm, uint64_t aicpuIdx,
-                             uint64_t &delayCycle);
-    void ProcessCompletionPacket(std::shared_ptr<Machine> &submachine, DeviceMachine::CoreMachineQueue &cm,
-		                               uint64_t &taskId, uint64_t &currentRecordCycles, uint64_t &currentGlobalDelay);
+    void DispatchHUBTask();
+    void DispatchHUBTaskInReplay();
+    void LogHUBTask(std::shared_ptr<Task> task, uint64_t cycle);
+    void LoggerDispatch(uint64_t taskId, uint64_t threadId, uint64_t sCycle, uint64_t eCycle);
 
     uint64_t GetTaskLoad(MachineType type);
 };

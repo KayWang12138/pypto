@@ -104,10 +104,10 @@ int CostModelInterface::BuildCostModel(std::vector<std::string> &inputConfigs)
     return 0;
 }
 
-void CostModelInterface::GetInput(std::vector<npu::tile_fwk::Function *> &inputFuncs, bool inputTopoInfo,
+void CostModelInterface::GetInput(std::vector<npu::tile_fwk::Function *> &inputFuncs, bool topoFromRootFunc,
                                std::string &startFuncName)
 {
-    if (sim->mode == SimMode::NORMAL || sim->mode == SimMode::EMULATOR) {
+    if (IsNeedInput(sim->mode)) {
         if (!startFuncName.empty()) {
             sim->config.startFunctionLabel = startFuncName;
         }
@@ -116,7 +116,7 @@ void CostModelInterface::GetInput(std::vector<npu::tile_fwk::Function *> &inputF
         } else if (sim->config.simulationFixedLatencyTask) {
             parser.ParseFixedLatencyTask(sim, sim->config.fixedLatencyTaskInfoPath);
         } else {
-            parser.ParseFunction(sim, inputFuncs, inputTopoInfo);
+            parser.ParseFunction(sim, inputFuncs, topoFromRootFunc);
         }
 
         // load json with calendar information
@@ -127,10 +127,10 @@ void CostModelInterface::GetInput(std::vector<npu::tile_fwk::Function *> &inputF
     }
 }
 
-void CostModelInterface::Submit(std::vector<npu::tile_fwk::Function *> &inputFuncs, bool inputTopoInfo,
+void CostModelInterface::Submit(std::vector<npu::tile_fwk::Function *> &inputFuncs, bool topoFromRootFunc,
                              std::string startFuncName)
 {
-    GetInput(inputFuncs, inputTopoInfo, startFuncName);
+    GetInput(inputFuncs, topoFromRootFunc, startFuncName);
 }
 
 void CostModelInterface::SubmitSingleFunction(npu::tile_fwk::Function *func)

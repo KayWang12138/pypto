@@ -25,6 +25,7 @@
 #include "cost_model/simulation/common/CommonType.h"
 #include "cost_model/simulation/common/CommonTools.h"
 #include "tilefwk/data_type.h"
+#include "tilefwk/element.h"
 #include "interface/operation/operation.h"
 
 namespace CostModel {
@@ -305,7 +306,7 @@ public:
     std::unordered_map<int, FunctionInvokeInfo> invoke;
 
     // For root function
-    bool useInputTopo = false;
+    bool topoFromRootFunc = false;
     std::vector<TopoInfoEntry> inputTopo;
 
     // Schedule info.
@@ -314,14 +315,20 @@ public:
 
     // TILEOP sequence from ooo pass. <magic, seq>
     std::unordered_map<int, uint64_t> opSequenceAfterOOO_;
+    std::vector<int> opMagicSequence;
     void GetOpSequeceAfterOOO(int opmagic, uint64_t &index);
 
     // semanticLabels
     std::string semanticLabels;
 
+    bool hasRecordInfo = false;
+    uint64_t startCycles = 0;
     uint64_t totalCycles = 0;
+    std::unordered_map<CostModel::CorePipeType, uint64_t> pipeLastEndCycle;
     std::unordered_map<CostModel::CorePipeType, uint64_t> pipeExecuteTime;
     void InitPipeExecTime();
     Json DumpExecuteInfo();
+    uint64_t GetOpRelativeReadyCycle(TileOpPtr tileOp, uint64_t newBaseCycle);
+    void CalculateRelativeCycle(uint64_t newBaseCycle, double proportion);
 };
 }  // namespace CostModel

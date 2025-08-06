@@ -26,18 +26,13 @@ void Machine::LoggerRecordTaskStart(std::string name, std::string hint)
 
 void Machine::LoggerRecordTaskEnd()
 {
-    if (!sim) {
+    if (!GetSim()) {
         return;
     }
 
-    sim->LoggerRecordCoreCompleted(machineId);
+    GetSim()->LoggerRecordCoreCompleted(machineId);
 
-    auto logger = sim->GetLogger();
-    if (!logger) {
-        return;
-    }
-
-    logger->AddEventEnd(machineId, coreTid, sim->GetCycles());
+    GetSim()->GetLogger()->AddEventEnd(machineId, coreTid, sim->GetCycles());
 }
 
 void Machine::LoggerRecordPipe(std::string name, size_t pipeId)

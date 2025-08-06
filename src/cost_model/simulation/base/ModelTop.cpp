@@ -91,6 +91,7 @@ void SimSys::InitMachineStartSeq()
     machineTypeSeq[MachineType::DEVICE] = config.deviceMachineNumber * config.aicpuMachineNumber *
                                           config.coreMachineNumberPerAICPU;
     machineTypeSeq[MachineType::CPU] = machineTypeSeq[MachineType::DEVICE] + config.deviceMachineNumber;
+    machineTypeSeq[MachineType::HUB] = machineTypeSeq[MachineType::CPU] + config.aicpuMachineNumber;
     machineTypeSeq[MachineType::PIPE] = 0;
 }
 
@@ -203,6 +204,23 @@ void SimSys::InitCalendarMode()
     }
 }
 
+void SimSys::BuildHUBCore()
+{
+    auto type = MachineType::HUB;
+    int coreIdx = machineTypeSeq[type]++;
+    auto coreMachine = std::make_shared<CoreMachine>(type);
+    coreMachine->machineId = GetProcessID(coreMachine->machineType, coreIdx);
+    coreMachine->sim = GetShared();
+    coreMachine->Build();
+    LogRegisterMachine(coreMachine, coreIdx, coreIdx);
+    AddMachine(coreMachine);
+}
+
+MachinePtr SimSys::GetHUBCore()
+{
+    return machineGroup[int(MachineType::HUB)][0];
+}
+
 void SimSys::BuildCore(DevicePtr device, AICPUPtr cpu, uint64_t idInCPU, MachineType type)
 {
     int coreIdx = machineTypeSeq[type]++;
@@ -294,6 +312,7 @@ void SimSys::BuildDevice()
         for (size_t aicpuId = 0; aicpuId < config.aicpuMachineNumber; aicpuId++) {
             BuildAICPU(deviceMachine, aicpuId);
         }
+        BuildHUBCore();
     }
 }
 
@@ -322,7 +341,7 @@ void SimSys::AddExtraConfigs()
     }
 
     if (config.cubeVecMixMode) {
-        cfgs.emplace_back("Device.submachineTypes=MIXAICORE");
+        cfgs.emplace_back("Device.submachineTypes=MIXAICORE,HUB");
     }
 
     if (config.genCalendarScheduleCpp) {
@@ -492,18 +511,18 @@ std::string SimSys::GetFileName(const std::string &dir, const std::string &input
     return outPath;
 }
 
-void SimSys::ProcessTaskMap(TaskMap &taskMap)
+void SimSys::ProcessTaskMap(TaskMap &taskMap, std::string prefix)
 {
-    DumpTasksTopo(taskMap);
-    DrawTasks(taskMap);
+    DumpTasksTopo(taskMap, prefix);
+    DrawTasks(taskMap, prefix);
     GetCalendarGenerator()->InitTaskTopoInfo(taskMap);
 }
 
-void SimSys::DrawTasks(const TaskMap &taskMap)
+void SimSys::DrawTasks(const TaskMap &taskMap, std::string prefix)
 {
     if (drawGraph) {
         ModelVisualizer visualizer;
-        std::string outPath = GetFileName(graphsOutdir, jsonPath, "", startFuncName + ".taskGraph.dot");
+        std::string outPath = GetFileName(graphsOutdir, jsonPath, prefix, startFuncName + ".taskGraph.dot");
         visualizer.DrawTasks(taskMap, true, outPath);
         MLOG_WARN("Task Graph Path:", outPath);
     }
@@ -516,7 +535,7 @@ void SimSys::DebugDrawFunc(FunctionPtr func, std::unordered_map<int, TilePtr> &t
     visualizer.DebugFunction(func, tiles, tileOps, outdir);
 }
 
-void SimSys::DumpTasksTopo(const TaskMap &taskMap)
+void SimSys::DumpTasksTopo(const TaskMap &taskMap, std::string prefix)
 {
     Json totalTopoJson;
     for (const auto &task : taskMap) {
@@ -536,7 +555,7 @@ void SimSys::DumpTasksTopo(const TaskMap &taskMap)
         totalTopoJson.push_back(sJson);
     }
 
-    std::string fileName = GetFileName(outdir, jsonPath, "", "topo.json");
+    std::string fileName = GetFileName(outdir, jsonPath, prefix, "topo.json");
     topoOutFile = fileName;
     MLOG_WARN("Topo File Path:", fileName);
     std::ofstream ofs(fileName);
@@ -810,6 +829,12 @@ uint64_t SimSys::GetCycles() const
 void SimSys::UpdateNextCycles(uint64_t nextCycle) {
     ASSERT(nextCycle > globalCycles);
     nextSimulationCycles = std::min(nextSimulationCycles, nextCycle);
+}
+
+void SimSys::ResetCycles(uint64_t cycles)
+{
+    globalCycles = cycles;
+    nextSimulationCycles = cycles + 1;
 }
 
 void SimSys::AddCycles(uint64_t overTime)
