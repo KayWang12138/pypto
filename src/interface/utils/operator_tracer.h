@@ -53,5 +53,5 @@ struct OperatorTracer {
 };
 } // namespace npu::tile_fwk
 
-#define DECLARE_TRACER()
-#define DECLARE_TRACER1()
+#define DECLARE_TRACER() (void)npu::tile_fwk::OperatorTracer(__builtin_return_address(0))
+#define DECLARE_TRACERX(lr) (void)npu::tile_fwk::OperatorTracer(lr)

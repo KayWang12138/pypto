@@ -180,19 +180,19 @@ namespace Matrix {
 /***************** matmul intf *************/
 namespace Internel {
 // inner impl
-Tensor A_MUL_Bt(DataType dataType, const Tensor &operand1, const Tensor &operand2);
-Tensor A_MUL_Bt(DataType dataType, const Tensor &operand1, const Tensor &operand2, const Tensor &operand3);
-Tensor A_MUL_B(DataType dataType, const Tensor &operand1, const Tensor &operand2);
-Tensor A_MUL_B(DataType dataType, const Tensor &operand1, const Tensor &operand2, const Tensor &operand3);
+Tensor A_MUL_Bt(DataType dataType, const Tensor &operand1, const Tensor &operand2, const void *lr);
+Tensor A_MUL_Bt(DataType dataType, const Tensor &operand1, const Tensor &operand2, const Tensor &operand3, const void *lr);
+Tensor A_MUL_B(DataType dataType, const Tensor &operand1, const Tensor &operand2, const void *lr);
+Tensor A_MUL_B(DataType dataType, const Tensor &operand1, const Tensor &operand2, const Tensor &operand3, const void *lr);
 } // namespace Internel
 
 // regular intf: c = a * b
 template <bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false>
 Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix) {
     if constexpr (!isATrans && !isBTrans) {
-        return Internel::A_MUL_B(outType, aMatrix, bMatrix);
+        return Internel::A_MUL_B(outType, aMatrix, bMatrix, __builtin_return_address(0));
     } else if constexpr (!isATrans && isBTrans) {
-        return Internel::A_MUL_Bt(outType, aMatrix, bMatrix);
+        return Internel::A_MUL_Bt(outType, aMatrix, bMatrix, __builtin_return_address(0));
     } else {
         assert("only support B trans currently!");
     }
@@ -203,9 +203,9 @@ Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix) {
 template <bool isATrans = false, bool isBTrans = false, bool IsCMatrixNZ = false>
 Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const Tensor &cMatrix) {
     if constexpr (!isATrans && !isBTrans) {
-        return Internel::A_MUL_B(outType, aMatrix, bMatrix, cMatrix);
+        return Internel::A_MUL_B(outType, aMatrix, bMatrix, cMatrix, __builtin_return_address(0));
     } else if constexpr (!isATrans && isBTrans) {
-        return Internel::A_MUL_Bt(outType, aMatrix, bMatrix, cMatrix);
+        return Internel::A_MUL_Bt(outType, aMatrix, bMatrix, cMatrix, __builtin_return_address(0));
     } else {
         assert("only support B trans currently!");
     }

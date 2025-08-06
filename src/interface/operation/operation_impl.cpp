@@ -3227,24 +3227,21 @@ void MatmulImpl(DataType dataType, const std::vector<LogicalTensorPtr>& iOperand
 }
 
 namespace Internel {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wframe-address"
-Tensor A_MUL_B(DataType dataType, const Tensor &operand1, const Tensor &operand2) {
-    DECLARE_TRACER1();
+Tensor A_MUL_B(DataType dataType, const Tensor &operand1, const Tensor &operand2, const void *lr) {
+    DECLARE_TRACERX(lr);
     Tensor result(dataType, {operand1->shape[0], operand2->shape[1]});
     MatmulImpl(dataType, {operand1.GetStorage(), operand2.GetStorage()}, result.GetStorage());
     return result;
 }
 
 /* Add for Matmul acc*/
-Tensor A_MUL_B(DataType dataType, const Tensor &operand1, const Tensor &operand2,
-    const Tensor &operand3) {
-    DECLARE_TRACER1();
+Tensor A_MUL_B(
+    DataType dataType, const Tensor &operand1, const Tensor &operand2, const Tensor &operand3, const void *lr) {
+    DECLARE_TRACERX(lr);
     Tensor result(dataType, {operand3->shape[0], operand3->shape[1]});
     MatmulImpl(dataType, {operand1.GetStorage(), operand2.GetStorage(), operand3.GetStorage()}, result.GetStorage());
     return result;
 }
-#pragma GCC diagnostic pop
 }
 
 void TensorInnerAMulBt(Function &function, const LogicalTensorPtr &operand1,
@@ -3280,25 +3277,22 @@ void AMulBtImpl(DataType dataType, const LogicalTensorPtr &operand1, const Logic
 
 // normal matmul intf c = a * b
 namespace Internel {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wframe-address"
 // A mul transpose B
-Tensor A_MUL_Bt(DataType dataType, const Tensor &operand1, const Tensor &operand2) {
-    DECLARE_TRACER1();
+Tensor A_MUL_Bt(DataType dataType, const Tensor &operand1, const Tensor &operand2, const void *lr) {
+    DECLARE_TRACERX(lr);
     Tensor result(dataType, {operand1->shape[0], operand2->shape[0]});
     AMulBtImpl(dataType, operand1.GetStorage(), operand2.GetStorage(), result.GetStorage());
     return result;
 }
 
-Tensor A_MUL_Bt(DataType dataType, const Tensor &operand1, const Tensor &operand2,
-    const Tensor &operand3) {
-    DECLARE_TRACER1();
+Tensor A_MUL_Bt(
+    DataType dataType, const Tensor &operand1, const Tensor &operand2, const Tensor &operand3, const void *lr) {
+    DECLARE_TRACERX(lr);
     Tensor result(dataType, {operand1->shape[0], operand2->shape[0]});
     AMulBtImpl(dataType, operand1.GetStorage(), operand2.GetStorage(), operand3.GetStorage(), result.GetStorage());
     return result;
 }
-#pragma GCC diagnostic pop
-}
+} // namespace Internel
 
 Tensor ABatchMulB3D(DataType dataType, const Tensor &operand1, const Tensor &operand2) {
     assert(operand1->shape.size() == operand2->shape.size() && operand1->shape.size() == NUM_VALUE_3);
