@@ -1705,11 +1705,11 @@ std::string CodeGenOpCloudNPU::GenExtractOp() const {
 }
 
 std::string CodeGenOpCloudNPU::GenVectorScalarOp() const {
-    return GenVectorScalarOpByMode(false);
+    return GenVectorScalarOpByMode(VecScalMode::VEC_MODE);
 }
 
 std::string CodeGenOpCloudNPU::GenVectorScalarOpScalarMode() const {
-    return GenVectorScalarOpByMode(true);
+    return GenVectorScalarOpByMode(VecScalMode::SCALAR_MODE);
 }
 
 std::string CodeGenOpCloudNPU::PrintBinaryScalarStatic(const PrintBinaryScalarParam &param) const {
@@ -1812,7 +1812,7 @@ std::string CodeGenOpCloudNPU::PrintBinaryScalar(const PrintBinaryScalarParam &p
     return PrintBinaryScalarStatic(param);
 }
 
-std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(bool isUseScalar) const {
+std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
     auto kS0 = sm->CreateAllocKey(operandWithMagic[ID1]);
     auto kDst = sm->CreateAllocKey(operandWithMagic[ID0]);
     std::string s0Var = sm->QueryVariableName(kS0);
@@ -1834,7 +1834,7 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(bool isUseScalar) const {
     std::vector<int> s0 = NormalizeShape(rawShape[1], SHAPE_DIM4);
     std::vector<int> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
 
-    if (isUseScalar) {
+    if (mode == VecScalMode::SCALAR_MODE) {
         // Scalar op
         return PrintBinaryScalar({s0Var, dVar, dstDtypeStr, dstDtypeStr, shape[0].size()});
     }

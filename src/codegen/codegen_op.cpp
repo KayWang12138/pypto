@@ -68,18 +68,13 @@ void CodeGenOp::UpdateShape(const Operation &oper, const LogicalTensor &logicalT
 }
 
 void CodeGenOp::UpdateOffsetValueForGM(const std::vector<OpImmediate> &offsets, int operandIdx) {
-    std::vector<int> attrOffset(offsets.size(), 0);
     std::vector<SymbolicScalar> dynOffset(offsets.size());
     for (size_t i = 0; i < offsets.size(); ++i) {
         if (offsets[i].IsSpecified()) {
             auto val = offsets[i].GetSpecifiedValue();
             dynOffset[i] = val;
-            if (val.ConcreteValid()) {
-                attrOffset[i] = static_cast<int>(val.Concrete());
-            }
         }
     }
-    offset[operandIdx] = attrOffset;
     offsetGmSymbolic[operandIdx] = dynOffset;
     ALOG_INFO_F("UpdateOffsetValueForGM , offsetGmSymbolic is %s", IntVecToStr(dynOffset).c_str());
 }

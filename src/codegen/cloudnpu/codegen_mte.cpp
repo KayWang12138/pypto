@@ -498,19 +498,19 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CStatic(const PrintMemCopyWithL
     const std::string *addrExpr = param.addrExpr;
     const std::vector<int> &gmShape = param.gmShape;
     const std::vector<int> &tileShapeForMT = param.tileShapeForMT;
-    const std::vector<int> &outputOffset = offset[gmIdx];
+    const std::vector<SymbolicScalar> &outputOffset = offsetGmSymbolic[gmIdx];
     const std::string *dataTypeExpr = param.dataTypeExpr;
 
     int oriTileShape0 = std::min(originShape[localIdx][0], tileShapeForMT[0]);
     int oriTileShape1 = std::min(originShape[localIdx][1], tileShapeForMT[1]);
 
     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
-    int printRet =
-        sprintf_s(buffer, BUFFER_SIZE_1024, "%s<%s, %s, %u, %u, %d, %d, %d, %d, %d, %d %s>((%s %s*)%s, (%s %s*)%s, %u);\n",
-            tileOpName.c_str(), dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), tileShapeForMT[0],
-            tileShapeForMT[1], gmShape[0], gmShape[1], outputOffset[0], outputOffset[1], oriTileShape0, oriTileShape1,
-            GenOpAttr().c_str(), addrTypeHead[0].c_str(), dataTypeExpr[0].c_str(), addrExpr[0].c_str(),
-            addrTypeHead[1].c_str(), dataTypeExpr[1].c_str(), addrExpr[1].c_str(), uf);
+    int printRet = sprintf_s(buffer, BUFFER_SIZE_1024,
+        "%s<%s, %s, %u, %u, %d, %d, %s, %s, %d, %d %s>((%s %s*)%s, (%s %s*)%s, %u);\n", tileOpName.c_str(),
+        dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), tileShapeForMT[0], tileShapeForMT[1], gmShape[0],
+        gmShape[1], outputOffset[0].Dump().c_str(), outputOffset[1].Dump().c_str(), oriTileShape0, oriTileShape1,
+        GenOpAttr().c_str(), addrTypeHead[0].c_str(), dataTypeExpr[0].c_str(), addrExpr[0].c_str(),
+        addrTypeHead[1].c_str(), dataTypeExpr[1].c_str(), addrExpr[1].c_str(), uf);
     ASSERT(printRet >= 0) << "sprintf_s failed in genMemCopyVar(BUF_L0C), return value:" << printRet;
     return buffer;
 }
@@ -604,14 +604,15 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Static(const PrintMemCopyWithL1
             addrExpr[0].c_str(), addrTypeHead[1].c_str(), dataTypeExpr[1].c_str(), addrBuffer, oriAddrBuffer, uf);
         ASSERT(printRet >= 0) << "sprintf_s failed in genMemCopyVar, return value:" << printRet;
     } else {
-        std::vector<int> gmOffset = this->offset[gmIdx];
+        std::vector<SymbolicScalar> gmOffset = this->offsetGmSymbolic[gmIdx];
         printRet = sprintf_s(addrBuffer, BUFFER_SIZE_1024, "%s", addrExpr[1].c_str());
         ASSERT(printRet >= 0) << "sprintf_s failed in PrintMemCopyWithL1Static, return value:" << printRet;
-        printRet = sprintf_s(buffer, BUFFER_SIZE_1024, "%s<%s, %s, %u, %u, %d, %d, %d, %d>((%s %s*)%s, (%s %s*)%s, %u);\n",
-            opName.c_str(), dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), tileShapeForMT[0],
-            tileShapeForMT[1], gmOffset[0], gmOffset[1], gmShape[0], gmShape[1], addrTypeHead[0].c_str(),
-            dataTypeExpr[0].c_str(), addrExpr[0].c_str(), addrTypeHead[1].c_str(), dataTypeExpr[1].c_str(), addrBuffer,
-            uf);
+        printRet =
+            sprintf_s(buffer, BUFFER_SIZE_1024, "%s<%s, %s, %u, %u, %s, %s, %d, %d>((%s %s*)%s, (%s %s*)%s, %u);\n",
+                opName.c_str(), dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), tileShapeForMT[0],
+                tileShapeForMT[1], gmOffset[0].Dump().c_str(), gmOffset[1].Dump().c_str(), gmShape[0], gmShape[1],
+                addrTypeHead[0].c_str(), dataTypeExpr[0].c_str(), addrExpr[0].c_str(), addrTypeHead[1].c_str(),
+                dataTypeExpr[1].c_str(), addrBuffer, uf);
     }
     ASSERT(printRet >= 0) << "sprintf_s failed in PrintMemCopyWithL1Static, return value:" << printRet;
     return buffer;

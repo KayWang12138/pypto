@@ -148,6 +148,10 @@ namespace CostModel
     template <typename Simulator>
     uint64_t PipeSimulator<Simulator>::Simulate(const TileOpPtr& tileOp)
     {
+        if(tileOp->opcode == "RESHAPE"){
+            MLOG_INFO("ignore reshape op");
+            return 0;
+        }
         std::string buf = GenerateBuf(tileOp);
         if (buf == "" || buf == "CODEGEN_ERROR") {
             MLOG_ERROR("can't generate buf");

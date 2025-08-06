@@ -81,6 +81,11 @@ const std::map<OperandType, const char *> BUFFER_TYPE_TO_PREFIX = {
     {OperandType::BUF_DDR,  "DDR"},
 };
 
+enum class VecScalMode {
+    VEC_MODE,
+    SCALAR_MODE
+};
+
 struct CodeGenCtx {
     std::string includePath = "";
     std::string ccePath = "";

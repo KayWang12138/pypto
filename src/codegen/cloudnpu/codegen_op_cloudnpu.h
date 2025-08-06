@@ -124,7 +124,7 @@ private:
 
     std::string GenMemUBTransfer(bool isCopyUBToGM) const;
     std::string GenMemUBSpillIntoGM(bool isCopyUBToGM) const;
-    std::string GenVectorScalarOpByMode(bool isUseScalar) const;
+    std::string GenVectorScalarOpByMode(VecScalMode mode) const;
     std::string GenVectorScalarOpScalarMode() const;
     std::string GenCubeOp(bool zeroC) const;
 
