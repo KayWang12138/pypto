@@ -11,8 +11,9 @@ if (ENABLE_TESTS_STEST OR ENABLE_TESTS_STEST_DISTRIBUTED)
     add_subdirectory(utils)
 
     if (ENABLE_TESTS_STEST)
+        add_subdirectory(operator)
+        add_subdirectory(operation)
         add_subdirectory(machine)
-        add_subdirectory(interface)
         add_subdirectory(simulation)
 
         # 可执行程序

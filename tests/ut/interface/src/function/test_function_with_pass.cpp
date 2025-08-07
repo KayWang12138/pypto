@@ -892,11 +892,11 @@ TEST_F(FunctionWithPass, CalculateHashTest) {
     std::vector<int> attrs;
     RawExpectedOperator op1(Opcode::OP_MUL, attrs);
     RawExpectedOperator op2(Opcode::OP_MUL, attrs);
-    
+
     // 计算哈希值
     size_t hash1 = op1.CalculateHash();
     size_t hash2 = op2.CalculateHash();
-    
+
     // 确保不同的操作符生成不同的哈希值
     EXPECT_EQ(hash1, hash2);
 }
@@ -921,11 +921,11 @@ TEST_F(FunctionWithPass, OperatorEqualsTest) {
     ExpectedValue ev1(vector<int>{2, 3}, DT_FP16, "input1");
     ExpectedValue ev2(vector<int>{2, 3}, DT_FP16, "input1");
     EXPECT_TRUE(ev1 == ev2);
-    
+
     // 测试不同类型的ExpectedValue对象
     ExpectedValue ev3(ExpectedOperator(Opcode::OP_SUB, {}), {});
     EXPECT_FALSE(ev1 == ev3);
-    
+
     // 测试不同形状的ExpectedValue对象
     ExpectedValue ev4(vector<int>{2, 3}, DT_FP16, "input2");
     EXPECT_FALSE(ev1 == ev4);
@@ -935,21 +935,21 @@ TEST_F(FunctionWithPass, ConstructorTest) {
     // 测试输入值构造函数
     ExpectedValue ev1(vector<int>{2, 3}, DT_FP16, "input1");
     EXPECT_NE(ev1.Get(), nullptr);
-    
+
     // 测试操作值构造函数
     ExpectedValue ev2(ExpectedOperator(Opcode::OP_ADD, {}), {});
     EXPECT_NE(ev2.Get(), nullptr);
-    
+
     // 测试提取值构造函数
     ExpectedValue source(vector<int>{2, 3}, DT_FP16, "source");
     ExpectedValue ev3(source, vector<int>{2, 3}, vector<int>{0, 0}, vector<int>{1, 1});
     EXPECT_NE(ev3.Get(), nullptr);
-    
+
     // 测试插入值构造函数
     vector<RawExpectedInsertValueElement> elements;
     ExpectedValue ev4(vector<int>{2, 3}, elements);
     EXPECT_NE(ev4.Get(), nullptr);
-    
+
     // 测试结果值构造函数
     ExpectedValue resultof(vector<int>{2, 3}, DT_FP16, "resultof");
     ExpectedValue ev5(resultof, 0);
@@ -961,24 +961,24 @@ TEST_F(FunctionWithPass, CastTest) {
     ExpectedValue ev1(vector<int>{2, 3}, DT_FP16, "input1");
     auto castInput = ev1.CastInputValue();
     EXPECT_NE(castInput, nullptr);
-    
+
     // 测试操作值类型转换
     ExpectedValue ev2(ExpectedOperator(Opcode::OP_ADD, {}), {});
     auto castOperation = ev2.CastOperationValue();
     EXPECT_NE(castOperation, nullptr);
-    
+
     // 测试提取值类型转换
     ExpectedValue source(vector<int>{2, 3}, DT_FP16, "source");
     ExpectedValue ev3(source, vector<int>{2, 3}, vector<int>{0, 0}, vector<int>{1, 1});
     auto castExtract = ev3.CastExtractValue();
     EXPECT_NE(castExtract, nullptr);
-    
+
     // 测试插入值类型转换
     vector<RawExpectedInsertValueElement> elements;
     ExpectedValue ev4(vector<int>{2, 3}, elements);
     auto castInsert = ev4.CastInsertValue();
     EXPECT_NE(castInsert, nullptr);
-    
+
     // 测试结果值类型转换
     ExpectedValue resultof(vector<int>{2, 3}, DT_FP16, "resultof");
     ExpectedValue ev5(resultof, 0);
@@ -1104,7 +1104,7 @@ TEST_F(FunctionWithPass, OperatorEquals4) {
 // 测试 ListExpectedValue
 TEST_F(FunctionWithPass, CalculateHash5) {
     std::vector<int> shape = {1, 2, 3};
-    std::vector<ExpectedValue> elements = {ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"), 
+    std::vector<ExpectedValue> elements = {ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"),
         ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp2")};
     ListExpectedValue listValue(elements);
 
@@ -1114,7 +1114,7 @@ TEST_F(FunctionWithPass, CalculateHash5) {
 
 TEST_F(FunctionWithPass, OperatorEquals5) {
     std::vector<int> shape = {1, 2, 3};
-    std::vector<ExpectedValue> elements = {ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"), 
+    std::vector<ExpectedValue> elements = {ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"),
         ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp2")};
     ListExpectedValue listValue1(elements);
     ListExpectedValue listValue2(elements);
@@ -1141,7 +1141,7 @@ TEST_F(FunctionWithPass, IsOperationValue) {
     std::vector<int> attr;
     ExpectedOperator oper = ExpectedOperator(Opcode::OP_ADD, attr);
     std::vector<int> shape = {1, 2, 3};
-    std::vector<ExpectedValue> operands = {ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"), 
+    std::vector<ExpectedValue> operands = {ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"),
         ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp2")};
     ExpectedValue value(oper, operands);
 
@@ -1161,7 +1161,7 @@ TEST_F(FunctionWithPass, IsExtractValue) {
 TEST_F(FunctionWithPass, IsInsertValue) {
     std::vector<int> shape = {1, 2, 3};
     std::vector<RawExpectedInsertValueElement> elements = {
-        RawExpectedInsertValueElement({0, 0, 0}, {1, 1, 1}, 
+        RawExpectedInsertValueElement({0, 0, 0}, {1, 1, 1},
         ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"))
     };
     ExpectedValue value(shape, elements);
@@ -1182,10 +1182,10 @@ TEST_F(FunctionWithPass, ValueLookupTest) {
     ExpectedValueBuilder builder;
     ExpectedValue value1(vector<int>{2, 3}, npu::tile_fwk::DT_FP32, "input1");
     ExpectedValue value2(vector<int>{2, 3}, npu::tile_fwk::DT_FP32, "input1");
-    
+
     // 测试值不存在时插入
     EXPECT_NE(builder.ValueLookup(value1).Get(), nullptr);
-    
+
     // 测试值存在时返回已有的值
     EXPECT_EQ(builder.ValueLookup(value2).Get(), value1.Get());
 }
@@ -1195,11 +1195,11 @@ TEST_F(FunctionWithPass, CreateValueTest) {
     vector<int> shape{2, 3};
     DataType dataType = npu::tile_fwk::DT_FP32;
     string name = "input1";
-    
+
 
     ExpectedValue value = builder.CreateValue(shape, dataType, name);
     EXPECT_NE(value.Get(), nullptr);
-    
+
     LogicalTensors iOperands;
     LogicalTensors oOperands;
     FUNCTION("test") {
@@ -1226,9 +1226,9 @@ TEST_F(FunctionWithPass, CreateOperationOOperandsTest) {
 TEST_F(FunctionWithPass, CreateListTest) {
     ExpectedValueBuilder builder;
     vector<int> shape{2, 3};
-    std::vector<ExpectedValue> elements = {ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"), 
+    std::vector<ExpectedValue> elements = {ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"),
         ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp2")};
-    
+
     ListExpectedValue list1 = builder.CreateList(elements);
     EXPECT_EQ(list1.GetElements().size(), 2);
 }

@@ -90,6 +90,20 @@ set(_CaseFilterList
         "DyNsa.GenTopk_b1_s1_fp_6k1_dyn"
         "DyNsa.GenSlc_b1_s1_fp_6k1"
 
+        # PA
+        "DynamicPATest.TestDD"
+        "DynamicPATest.dynamic_pa_low_lantency_unroll"
+        "DynamicPATest.dynamic_pa_low_lantency_manual_unroll"
+        "DynamicPATest.dynamic_pa_high_throughput_only_batch_loop"
+        "DynamicPATest.AllocatorCoverage"
+
+        #
+        "DynamicAttentionUtTest.dynamic_attention_low"
+        "DynamicAttentionUtTest.dynamic_attention_low_nz"
+        "DynamicKvSlcUtTest.test_kv_slc"
+        "DynamicTestGenAtten.TestOnboardGenAttenTest_FP16"
+        "DynamicTestWinAttenUt.TestOnboardWinAttnTest_FP16"
+
 )
 
 set(_Target ${TileFwkUTestNamePrefix}_operator)

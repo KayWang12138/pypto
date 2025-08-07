@@ -7,5 +7,59 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
-add_subdirectory(function)
-add_subdirectory(configs)
+set(_CaseFilterList
+        # Cache
+
+        # Configs
+        "TestConfigManager.PassDefaultConfig"
+        "TestConfigManager.PassGloablConfig"
+        "TestConfigManager.PassStrategies2"
+        "TestConfigManager.PassStrategies3"
+
+        # Function
+        "ExpectedValueTest.TestCheck"
+        "FunctionCoverageTest.*"
+        # "FunctionUtilsTest.TestRemoveOperationCase1"
+
+        # Tensor
+        "TestTensor.*"
+        "TensorElement.*"
+
+        # Function
+        "SubFunctionTest.*"
+        "FunctionWithPass.*"
+        "DynamicOpsTest.*"
+        "DynamicFunctionTest.TestGetInputDataInt32Dim3"
+        "DynamicFunctionTest.TestSymbolic"
+        "DynamicFunctionTest.TestLoopRange"
+        "DynamicFunctionTest.TestOnlyExpression"
+        "DynamicFunctionTest.TestOnlySymbol"
+        "DynamicFunctionTest.TestStaticLoopStatic"
+        "DynamicFunctionTest.TestHybridLoopIf"
+        "DynamicFunctionTest.TestLoopWithRank"
+        "DynamicFunctionTest.TestLoopIfWithRank"
+        "DynamicFunctionTest.TestLoopWithManualRank"
+        "DynamicFunctionTest.TestSymbolicScalarDumpLoad"
+        "DynamicFunctionTest.TestDynOffset"
+        "DynamicFunctionTest.MopCall"
+
+        # Interpreter
+        "ThreadPoolTest.*"
+
+        # Utils
+        "CommonTest.*"
+        "StringUtils.*"
+)
+
+set(_Target ${TileFwkUTestNamePrefix}_interface)
+
+file(GLOB_RECURSE _Sources
+        src/*.cpp
+)
+
+TileFwk_UTest_AddCaseLib(
+        TARGET ${_Target}
+        SOURCES ${_Sources}
+        PUBLIC_LINK_LIBRARIES tile_fwk_interface
+        GTEST_FILTER_LIST ${_CaseFilterList}
+)

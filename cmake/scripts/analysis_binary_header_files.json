@@ -154,10 +154,10 @@
       ]
     }
   },
-  "libtile_fwk_stest_interface_ops.a": {
+  "libtile_fwk_stest_operator.a": {
     "Source-Header": {
       "Self": [
-        "tests/st/interface/ops/"
+        "tests/st/operator/"
       ],
       "Area": [
         "src/models/",
@@ -174,15 +174,14 @@
         "src/cost_model/simulation/"
       ],
       "BlackList": [
-        "include/tileop/",
-        "interface/program/program.h"
+        "include/tileop/"
       ]
     }
   },
-  "libtile_fwk_stest_interface_tile_op.a": {
+  "libtile_fwk_stest_operation.a": {
     "Source-Header": {
       "Self": [
-        "tests/st/interface/tile_op/"
+        "tests/st/operation/"
       ],
       "Area": [
         "src/interface/",
@@ -199,8 +198,7 @@
         "src/cost_model/simulation/"
       ],
       "BlackList": [
-        "include/tileop/",
-        "interface/program/program.h"
+        "include/tileop/"
       ]
     }
   },
@@ -224,7 +222,6 @@
         "src/cost_model/simulation/"
       ],
       "BlackList": [
-        "interface/program/program.h"
       ]
     }
   },
@@ -248,8 +245,7 @@
         "src/cost_model/simulation/"
       ],
       "BlackList": [
-        "include/tileop/",
-        "interface/program/program.h"
+        "include/tileop/"
       ]
     }
   },
@@ -273,31 +269,10 @@
       ]
     }
   },
-  "libtile_fwk_utest_interface_function.a": {
+  "libtile_fwk_utest_interface.a": {
     "Source-Header": {
       "Self": [
-        "tests/ut/interface/function/"
-      ],
-      "Area": [
-        "src/models/",
-        "src/interface/",
-        "src/passes/"
-      ],
-      "Include": [
-        "include/"
-      ],
-      "WhiteList": [
-      ],
-      "BlackList": [
-        "include/tileop/",
-        "interface/program/program.h"
-      ]
-    }
-  },
-  "libtile_fwk_utest_interface_configs.a": {
-    "Source-Header": {
-      "Self": [
-        "tests/ut/interface/configs/"
+        "tests/ut/interface/"
       ],
       "Area": [
         "src/interface/",
@@ -329,8 +304,7 @@
       "WhiteList": [
       ],
       "BlackList": [
-        "include/tileop/",
-        "interface/program/program.h"
+        "include/tileop/"
       ]
     }
   },
@@ -350,8 +324,7 @@
       "WhiteList": [
       ],
       "BlackList": [
-        "include/tileop/",
-        "interface/program/program.h"
+        "include/tileop/"
       ]
     }
   },
@@ -395,8 +368,7 @@
       "WhiteList": [
       ],
       "BlackList": [
-        "include/tileop/",
-        "interface/program/program.h"
+        "include/tileop/"
       ]
     }
   }

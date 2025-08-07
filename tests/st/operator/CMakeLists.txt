@@ -360,10 +360,9 @@ set(_CaseFilterList
 
         # vduplicate
         "VecdupTest.TestVecDup"
-
 )
 
-set(_Target ${TileFwkSTestNamePrefix}_interface_ops)
+set(_Target ${TileFwkSTestNamePrefix}_operator)
 
 file(GLOB_RECURSE _Sources src/*.cpp)
 
