@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "interface/platform/platform_manager.h"
+#include "machine/platform/platform_manager.h"
 #include <fstream>
 #include "interface/utils/log.h"
 #include "interface/utils/string_utils.h"

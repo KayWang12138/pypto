@@ -18,13 +18,13 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
-#include "interface/platform/platform_manager.h"
 #include "interface/registry/tile_fwk_op_registry.h"
 #include "machine/host/backend.h"
 #include "machine/host/device_agent_task.h"
 #include "machine/dump/kernel_dump_utils.h"
 #include "machine/host/machine_compiler.h"
 #include "machine/cache_manager/cache_manager.h"
+#include "machine/platform/platform_manager.h"
 
 namespace npu::tile_fwk {
 int32_t TileFwkInit(const std::string &socVersion) {

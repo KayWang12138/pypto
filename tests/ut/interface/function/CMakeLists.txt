@@ -16,8 +16,6 @@ set(_CaseFilterList
         "FunctionCoverageTest.*"
         # Dynamic Function
         "FunctionWithPass.*"
-        # Platform
-        "PlatformTest.TestPlatfromCase1"
         "SubFunctionTest.*"
         #workflow verify tools
         "DynamicOpsTest.*"
@@ -61,12 +59,4 @@ TileFwk_UTest_AddCaseLib(
         SOURCES ${_Sources}
         PUBLIC_LINK_LIBRARIES tile_fwk_interface
         GTEST_FILTER_LIST ${_CaseFilterList}
-)
-# 可执行程序运行依赖的配置, 脚本配置
-add_custom_command(
-        TARGET ${_Target} PRE_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${TileFwkUTestExePath}/stubs/compiler/data/platform_config/
-        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/stubs/compiler/data/platform_config/Ascend910B1.ini
-                                         ${TileFwkUTestExePath}/stubs/compiler/data/platform_config/
-        COMMENT "Copy ${_Target} dependence config file."
 )

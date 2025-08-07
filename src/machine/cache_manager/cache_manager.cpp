@@ -17,11 +17,11 @@
 #include "interface/utils/log.h"
 #include "interface/utils/file_utils.h"
 #include "interface/configs/config_manager.h"
-#include "interface/platform/platform_manager.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "machine/dump/task_dump_utils.h"
+#include "machine/platform/platform_manager.h"
 
 namespace npu::tile_fwk {
 namespace {

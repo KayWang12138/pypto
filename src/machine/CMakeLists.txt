@@ -17,7 +17,7 @@ if (NOT AC_ENABLE_FRAMEWORK_WITHOUT_CANN)
     ExternalProject_Add(tile_fwk_server
             SOURCE_DIR ${TILE_FWK_SRC_ROOT}/src/machine/device
             CONFIGURE_COMMAND ${CMAKE_COMMAND}
-                -G ${CMAKE_GENERATOR} 
+                -G ${CMAKE_GENERATOR}
                 -DBUILD_OPEN_PROJECT=${BUILD_OPEN_PROJECT}
                 -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                 -DASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH}
@@ -37,6 +37,7 @@ endif ()
 file(GLOB_RECURSE _Compiler_Srcs
         host/*.cpp
         dump/*.cpp
+        platform/*.cpp
         utils/*.cpp
         cache_manager/*.cpp)
 

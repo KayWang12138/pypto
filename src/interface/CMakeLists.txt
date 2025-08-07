@@ -8,21 +8,18 @@
 # ======================================================================================================================
 
 file(GLOB_RECURSE _Interface_Srcs
-        # 算子
-        ${TILE_FWK_SRC_ROOT}/src/models/llama/*.cpp
-        ${TILE_FWK_SRC_ROOT}/src/models/deepseek/*.cpp
-        ${TILE_FWK_SRC_ROOT}/src/models/nsa/*.cpp
-
         # 前端框架
         configs/*.cpp
         tensor/*.cpp
         program/*.cpp
         function/*.cpp
         interpreter/*.cpp
+        utils/*.cpp
 
-        # Operation / Operator
-        operation/*.cpp
-        operation/distributed/*.cpp
+        # Operator
+        ${TILE_FWK_SRC_ROOT}/src/models/llama/*.cpp
+        ${TILE_FWK_SRC_ROOT}/src/models/deepseek/*.cpp
+        ${TILE_FWK_SRC_ROOT}/src/models/nsa/*.cpp
         operator/activation/*.cpp
         operator/convolution/*.cpp
         operator/geometric/*.cpp
@@ -30,12 +27,12 @@ file(GLOB_RECURSE _Interface_Srcs
         operator/matmul/*.cpp
         operator/normalization/*.cpp
         operator/quantize/*.cpp
-        utils/*.cpp
-        
-        # Passes
-        platform/*.cpp
 
-        # Runtime / Machine
+        # Operation
+        operation/*.cpp
+        operation/distributed/*.cpp
+
+        # Machine
         cache/*.cpp
         machine/*.cpp
         registry/*.cpp

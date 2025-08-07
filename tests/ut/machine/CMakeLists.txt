@@ -40,6 +40,8 @@ set(_CaseFilterList
         # distributed
         "CommWaitFlagTest.CommWaitFlag_EnqueueOp_and_PollCompleted_success"
         "SlabWsAllocatorTest.*"
+        # Platform
+        "PlatformTest.TestPlatfromCase1"
 )
 
 set(_Target ${TileFwkUTestNamePrefix}_machine)
@@ -60,4 +62,12 @@ TileFwk_UTest_AddCaseLib(
 target_compile_definitions(${_Target}
         PRIVATE
             NO_NEON_SUPPORT
+)
+# 可执行程序运行依赖的配置, 脚本配置
+add_custom_command(
+        TARGET ${_Target} PRE_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${TileFwkUTestExePath}/stubs/compiler/data/platform_config/
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/stubs/compiler/data/platform_config/Ascend910B1.ini
+                                         ${TileFwkUTestExePath}/stubs/compiler/data/platform_config/
+        COMMENT "Copy ${_Target} dependence config file."
 )

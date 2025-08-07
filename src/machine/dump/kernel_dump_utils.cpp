@@ -21,7 +21,7 @@
 #include "interface/machine/host/host_machine.h"
 #include "interface/operation/distributed/comm_barrier_manager.h"
 #include "interface/program/program.h"
-#include "interface/platform/platform_manager.h"
+#include "machine/platform/platform_manager.h"
 #include "machine/dump/machine_dump.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include <nlohmann/json.hpp>

@@ -14,8 +14,8 @@
  */
 
 #include "gtest/gtest.h"
-#include "interface/platform/platform_manager.h"
 #include "interface/utils/file_utils.h"
+#include "machine/platform/platform_manager.h"
 
 using namespace npu::tile_fwk;
 
