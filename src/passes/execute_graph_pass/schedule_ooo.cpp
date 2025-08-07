@@ -397,7 +397,7 @@ void OoOScheduler::PrintDependenciesAndRelations() {
     }
 }
 
-void OoOScheduler::CheckOpBufferSize(Operation *op) {
+Status OoOScheduler::CheckOpBufferSize(Operation *op) {
     std::map<MemoryType, int64_t> bufferSize;
     std::set<int> memIdMap;
     for (auto &inTensor : op->GetIOperands()) {
@@ -418,9 +418,11 @@ void OoOScheduler::CheckOpBufferSize(Operation *op) {
                 ALOG_ERROR_F("OP %s[%d] in/output total size[%d] exceeds %s size[%d]!", op->GetOpcodeStr().c_str(), 
                     op->GetOpMagic(), buffer.second, MemoryTypeToString(buffer.first).c_str(), 
                     inChipMemorySize[buffer.first]);
+                return FAILED;
             }
         }
     }
+    return SUCCESS;
 }
 
 void OoOScheduler::AddDependencies(IssueEntryPtr issue, 
@@ -485,12 +487,38 @@ Status OoOScheduler::InitDependencies() {
 }
 
 Status OoOScheduler::CheckAllocIssue() {
+    std::map<int, IssueEntryPtr> tensorAllocMap;
     for (const auto &issue : issueEntries) {
         if (issue->isAlloc) {
             if (issue->reqMemIds.size() != 1) {
                 ALOG_ERROR_F("ALLOC[%d] reqMemIds size not equal to 0.", issue->tileOp->GetOpMagic());
                 return FAILED;
             }
+        }
+        for (auto outTensor : issue->tileOp->GetOOperands()) {
+            if (outTensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+                continue;
+            }
+            int memId = outTensor->memorymap[subGraphID].memId;
+            if (tensorAllocMap.find(memId) == tensorAllocMap.end()) {
+                tensorAllocMap[memId] = issue;
+            }
+        }
+        for (auto inTensor : issue->tileOp->GetIOperands()) {
+            if (inTensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+                continue;
+            }
+            int memId = inTensor->memorymap[subGraphID].memId;
+            if (tensorAllocMap.find(memId) == tensorAllocMap.end()) {
+                tensorAllocMap[memId] = issue;
+            }
+        }
+    }
+    for (auto tensorAlloc : tensorAllocMap) {
+        if (!tensorAlloc.second->isAlloc) {
+            ALOG_ERROR_F("%s[%d] Tensor[%d] is missing Alloc.", tensorAlloc.second->tileOp->GetOpcodeStr().c_str(), 
+                tensorAlloc.second->tileOp->GetOpMagic(), tensorAlloc.first);
+            return FAILED;
         }
     }
     return SUCCESS;
@@ -539,11 +567,15 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
     uint64_t issueId = 0;
     for (const auto &op : newOperations) {
         maxOpMagic = std::max(maxOpMagic, op->GetOpMagic());
-        CheckOpBufferSize(op);
+        if (CheckOpBufferSize(op) != SUCCESS) {
+            ALOG_ERROR_F("%s[%d] CheckOpBufferSize failed!", op->GetOpcodeStr().c_str(), op->GetOpMagic()); 
+            return FAILED; 
+        }
         auto issue = std::make_shared<IssueEntry>(op, issueId++);
         if (issue == nullptr) { 
             ALOG_ERROR_F("IssueEntry %s, %d init failed!", op->GetOpcodeStr().c_str(), op->GetOpMagic()); 
-            return FAILED; }
+            return FAILED; 
+        }
         issueEntries.emplace_back(issue);
     }
     numTotalIssues = issueEntries.size();

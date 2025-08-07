@@ -153,7 +153,7 @@ private:
     Status InitLocalBuffer(LogicalTensorPtr oOperand, int memId);
     Status CheckAllocIssue();
     void InitIssueQueuesAndBufferManager();
-    void CheckOpBufferSize(Operation *op);
+    Status CheckOpBufferSize(Operation *op);
     void AddDependencies(IssueEntryPtr issue, std::map<int, IssueEntryPtr> lastWriteOpMap, 
         LogicalTensorPtr tensor);
 
