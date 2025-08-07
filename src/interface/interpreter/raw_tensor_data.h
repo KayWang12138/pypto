@@ -25,7 +25,6 @@
 #include "tilefwk/tensor.h"
 #include "interface/inner/element.h"
 #include "interface/tensor/tensor_offset.h"
-#include "securec.h"
 
 
 namespace npu::tile_fwk {
@@ -163,10 +162,7 @@ struct RawTensorData : public std::vector<uint8_t> {
         auto tensorData = std::make_shared<RawTensorData>(t.GetDataType(), t.GetShape());
         tensorData->l2Disable_ = l2Disable;
         T *data = reinterpret_cast<T *>(tensorData->data());
-        errno_t ret = memcpy_s(data, tensorData->GetDataSize(), values.data(), values.size() * sizeof(T));
-        if(ret != EOK) {
-            std::cerr << "memcpy_s not success!\n";
-        }
+        StringUtils::DataCopy(data, tensorData->GetDataSize(), values.data(), values.size() * sizeof(T));
         return tensorData;
     }
 
@@ -174,7 +170,7 @@ struct RawTensorData : public std::vector<uint8_t> {
         auto tensorData = std::make_shared<RawTensorData>(t.GetDataType(), t.GetShape());
 
         uint8_t *data = reinterpret_cast<uint8_t *>(tensorData->data());
-        (void)memset_s(data, tensorData->GetDataSize(), 0, tensorData->GetDataSize());
+        StringUtils::DataSet(data, tensorData->GetDataSize(), 0, tensorData->GetDataSize());
         return tensorData;
     }
 
@@ -354,7 +350,7 @@ inline std::shared_ptr<RawTensorData> RawTensorData::CreateTensor<uint8_t>(const
     auto tensorData = std::make_shared<RawTensorData>(t.GetDataType(), t.GetShape());
     tensorData->l2Disable_ = l2Disable;
     uint8_t *data = reinterpret_cast<uint8_t *>(tensorData->data());
-    (void)memcpy_s(data, tensorData->GetDataSize(), values.data(), values.size());
+    StringUtils::DataCopy(data, tensorData->GetDataSize(), values.data(), values.size());
     return tensorData;
 }
 
