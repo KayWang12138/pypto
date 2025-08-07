@@ -14,7 +14,7 @@
  */
 
 #include "interface/inner/element.h"
-#include "interface/utils/assert.h"
+#include "tilefwk/error.h"
 
 namespace npu::tile_fwk {
 

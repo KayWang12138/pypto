@@ -23,7 +23,7 @@
 #include <functional>
 #include <string>
 #include <regex>
-#include "interface/utils/assert.h"
+#include "tilefwk/error.h"
 
 namespace CostModel {
 

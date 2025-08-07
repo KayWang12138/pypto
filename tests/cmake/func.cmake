@@ -167,5 +167,6 @@ function(TileFwk_GTest_AddExe)
                 ${TMP_PRIVATE_LINK_LIBRARIES}
                 -Wl,--as-needed
                 -Wl,--no-whole-archive
+                -rdynamic
     )
 endfunction()

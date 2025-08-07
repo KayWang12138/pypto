@@ -16,6 +16,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -58,6 +59,13 @@ public:
                 return false;
         }
         return true;
+    }
+
+    static std::string BaseName(const char *fname) {
+        if (auto start = strrchr(fname, '/')) {
+            return start + 1;
+        }
+        return fname;
     }
 };
 }

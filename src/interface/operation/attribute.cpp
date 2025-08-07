@@ -15,7 +15,6 @@
 
 #include <sstream>
 #include <iomanip>
-#include "interface/utils/assert.h"
 #include "attribute.h"
 #include "passes/pass_utils/pass_utils.h"
 
@@ -326,7 +325,7 @@ std::string CallOpAttribute::DumpAttr(int idx) const {
 
 const std::vector<SymbolicScalar> &CallOpAttribute::GetLinearArgList() {
     if (linearArgList_.empty()) {
-        // The first attr is callee info.        
+        // The first attr is callee info.
         linearArgList_.push_back(SymbolicScalar((int64_t)0));
         for (auto &l : argList_) {
             for (auto &arg : l) {

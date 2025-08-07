@@ -23,7 +23,7 @@
 #include <unordered_map>
 #include "interface/utils/common.h"
 #include "tilefwk/data_type.h"
-#include "interface/utils/assert.h"
+#include "tilefwk/error.h"
 namespace npu::tile_fwk {
 enum class Opcode {
     // Unary Vector

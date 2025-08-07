@@ -93,8 +93,8 @@ std::vector<Tensor> mlaPre(const Tensor &tokenX, const Tensor &wDq, const Tensor
 void MlaProlog(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wUk, const Tensor &wDkvKr,
     const Tensor &gammaCq, const Tensor &gammaCkv, const Tensor &sin, const Tensor &cos, const Tensor &cacheIndex,
     Tensor &kvCache, Tensor &krCache, const MlaQuantInputs &quantInputs, const RoPETileShapeConfigNew &ropeConfig,
-    Tensor &queryOut, Tensor &queryRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut, Tensor &fakeOut, Tensor &fakeOut1,
-    float epsilonCq = 1e-5f, float epsilonCkv = 1e-5f, std::string cacheMode = "BNSD", bool splitK = false, bool isSmooth = true);
+    Tensor &queryOut, Tensor &queryRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut, float epsilonCq = 1e-5f,
+    float epsilonCkv = 1e-5f, std::string cacheMode = "BNSD", bool splitK = false, bool isSmooth = true);
 
 // tile config
 struct MlaTileConfig {

@@ -20,7 +20,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "tilefwk/data_type.h"
-#include "interface/utils/assert.h"
+#include "tilefwk/error.h"
 #include "interface/utils/id_gen.h"
 
 

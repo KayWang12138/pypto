@@ -128,8 +128,8 @@ std::vector<Tensor> mlaPre(const Tensor &tokenX, const Tensor &wDq, const Tensor
 void MlaProlog(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wUk, const Tensor &wDkvKr,
     const Tensor &gammaCq, const Tensor &gammaCkv, const Tensor &sin, const Tensor &cos, const Tensor &cacheIndex,
     Tensor &kvCache, Tensor &krCache, const MlaQuantInputs &quantInputs, const RoPETileShapeConfigNew &ropeConfig,
-    Tensor &queryOut, Tensor &queryRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut, Tensor &fakeOut, Tensor &fakeOut1,
-    float epsilonCq, float epsilonCkv, std::string cacheMode, bool splitK, bool isSmooth) {
+    Tensor &queryOut, Tensor &queryRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut, float epsilonCq, float epsilonCkv,
+    std::string cacheMode, bool splitK, bool isSmooth) {
     // params check
     assert(tokenX->shape.size() == SHAPE_DIM3 && wUk->shape.size() == SHAPE_DIM3 && sin->shape.size() == SHAPE_DIM3);
     assert(cacheMode == "BNSD" || cacheMode == "PA_BSND" || cacheMode == "PA_NZ");
@@ -152,7 +152,7 @@ void MlaProlog(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
     FUNCTION("main", FunctionType::DYNAMIC,
         {tokenX, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache,
             quantInputs.dequantScaleWUqQr, quantInputs.smoothScalesCq},
-        {queryOut, queryRopeOut, kvCacheOut, krCacheOut, fakeOut, fakeOut1}) {
+        {queryOut, queryRopeOut, kvCacheOut, krCacheOut}) {
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1)) {
             SymbolicScalar bOffset = bIdx * tileB;
             std::vector<SymbolicScalar> outputOffset = {bOffset, 0, 0, 0};

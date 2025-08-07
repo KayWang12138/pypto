@@ -20,7 +20,7 @@
 #include <unordered_map>
 #include <tilefwk/symbolic_scalar.h>
 
-#include "interface/utils/assert.h"
+#include "tilefwk/error.h"
 #include "interface/utils/log.h"
 
 namespace npu::tile_fwk {

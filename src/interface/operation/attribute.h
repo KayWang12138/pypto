@@ -19,12 +19,11 @@
 #include <vector>
 #include <cstdint>
 #include <memory>
-#include "interface/utils/assert.h"
+#include "tilefwk/error.h"
 #include "tilefwk/data_type.h"
 #include "interface/cache/hash.h"
 #include "interface/cache/hash_buffer.h"
 #include "interface/cache/hash.h"
-#include "interface/utils/assert.h"
 #include "interface/tensor/symbolic_scalar.h"
 #include "interface/tensor/logical_tensor.h"
 
@@ -107,8 +106,8 @@ public:
         arg = value;
     }
 
-    static void NormalizeValue(std::vector<SymbolicScalar> &operandCoaList, int operandCoaIndex, 
-                               std::vector<OpImmediate> &opImmList, int coaIndex, bool valueToIndex) {
+    static void NormalizeValue(std::vector<SymbolicScalar> &operandCoaList, int operandCoaIndex,
+        std::vector<OpImmediate> &opImmList, int coaIndex, bool valueToIndex) {
         int offset = 0;
         for (auto &op : opImmList) {
             ASSERT(op.IsSpecified());
@@ -263,11 +262,11 @@ private:
  * [dim+1, 2*dim]: shape
  * [2*dim+1, 3*dim]: rawshape
  * [3*dim+1, 4*dim]: validshape
- * 
+ *
  * linearArgList:
  * [0]: cceIndex
  * [1 ... 1 + argList[0].size() - 1]: argList[0]
- * [1 + argList[0].size() ... 1 + argList[0].size() + argList[1].size() - 1]: argList[1] 
+ * [1 + argList[0].size() ... 1 + argList[0].size() + argList[1].size() - 1]: argList[1]
  * ...
  */
 constexpr int COA_INDEX_TYPE_OFFSET = 0;

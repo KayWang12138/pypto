@@ -71,17 +71,6 @@ TEST_F(TestTensor, AssignWithData) {
         EXPECT_EQ(b.GetData(), ptr2.get());
         EXPECT_EQ(a.GetData(), ptr2.get());
     }
-
-    {
-        reset();
-        a.SetData(ptr1.get());
-        b.SetData(ptr2.get());
-        ASSERT_DEATH({
-            b = a;
-        }, ".*");
-        EXPECT_EQ(b.GetData(), ptr2.get());
-        EXPECT_EQ(a.GetData(), ptr1.get());
-    }
 }
 
 TEST_F(TestTensor, AssignWithData2) {
@@ -124,17 +113,6 @@ TEST_F(TestTensor, AssignWithData2) {
         b.SetData(ptr1.get());
         b = std::move(a);
         EXPECT_EQ(b.GetData(), ptr1.get());
-    }
-
-    {
-        npu::tile_fwk::Tensor a(npu::tile_fwk::DT_FP32, tshape, "A");
-        reset();
-        a.SetData(ptr1.get());
-        b.SetData(ptr2.get());
-        ASSERT_DEATH({
-            b = std::move(a);
-        }, ".*");
-        EXPECT_EQ(b.GetData(), ptr2.get());
     }
 }
 

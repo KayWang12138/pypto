@@ -30,7 +30,7 @@
 #include <cstdint>
 #include <set>
 
-#include "interface/utils/assert.h"
+#include "tilefwk/error.h"
 #include "securec.h"
 
 namespace npu::tile_fwk {

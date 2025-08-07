@@ -22,7 +22,7 @@
 #include <unordered_set>
 #include <functional>
 
-#include "interface/utils/assert.h"
+#include "tilefwk/error.h"
 #include "symbolic_scalar.h"
 
 namespace npu::tile_fwk {
@@ -43,7 +43,7 @@ namespace npu::tile_fwk {
             }
             return ret;
         }
- 
+
         static std::vector<int> Add(const std::vector<int> &lhs, const std::vector<int> &rhs) {
             return AddRaw<int, int, int>(lhs, rhs);
         }

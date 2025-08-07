@@ -24,7 +24,7 @@
 #include <mutex>
 
 #include "passes/pass_interface/pass.h"
-#include "interface/utils/assert.h"
+#include "tilefwk/error.h"
 
 namespace npu::tile_fwk {
 class PassRegistry {

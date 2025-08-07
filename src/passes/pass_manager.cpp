@@ -22,7 +22,7 @@
 #include "pass_interface/pass_type.h"
 #include "pass_registry.h"
 #include "interface/tensor/expected_value.h"
-#include "interface/utils/assert.h"
+#include "tilefwk/error.h"
 // tensor graph pass
 #include "passes/tensor_graph_pass/remove_redundent_reshape.h"
 #include "passes/tensor_graph_pass/remove_redundant_cast.h"

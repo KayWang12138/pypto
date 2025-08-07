@@ -96,8 +96,6 @@ void TestMlaPrologV2(const SimpleParams &params) {
     std::vector<int> q_rope_out_shape = {b, s, n, qkRopeHeadDim};
     std::vector<int> kv_cache_out_shape = {b, 1, s2, kvLoraRank};
     std::vector<int> kr_cache_out_shape = {b, 1, s2, qkRopeHeadDim};
-    std::vector<int> fake_out_shape = {b * s, n, qkNopeHeadDim};
-    std::vector<int> fake_out_shape1 = {n, b * s, qkNopeHeadDim};
 
     Tensor x(dType, x_shape, "x");
     TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
@@ -124,8 +122,6 @@ void TestMlaPrologV2(const SimpleParams &params) {
     Tensor output_kr_cache(dType, kr_cache_shape, "output_kr_cache");
     Tensor output_q(dType, q_out_shape, "output_q");
     Tensor output_q_rope(dType, q_rope_out_shape, "output_q_rope");
-    Tensor fakeOut(dType, fake_out_shape, "fakeOut");
-    Tensor fakeOut1(dType, fake_out_shape1, "fakeOut1");
 
     RoPETileShapeConfigNew ropeConfig{
         {b, 1, 64}, // (b,s,d)
@@ -141,8 +137,6 @@ void TestMlaPrologV2(const SimpleParams &params) {
     std::vector<T> golden3 = getGoldenVec<T>(kv_cache_shape, "/kv_cache_golden.bin");
     std::vector<T> golden31 = getGoldenVec<T>(kv_cache_shape, "/kv_cache.bin");
     std::vector<T> golden4 = getGoldenVec<T>(kr_cache_shape, "/kr_cache_golden.bin");
-    std::vector<T> golden5 = getGoldenVec<T>(fake_out_shape, "/q_nope_r.bin");
-    std::vector<T> golden6 = getGoldenVec<T>(fake_out_shape1, "/q_nope_t.bin");
 
     auto xData = CreateTensorData<T>(x, x_shape, "/x.bin");
     auto wDqData = CreateTensorData<T>(wDq, wDqShape, "/wDq.bin");
@@ -160,21 +154,16 @@ void TestMlaPrologV2(const SimpleParams &params) {
     auto smoothCqData = CreateTensorData<float>(smooth_cq, smooth_cq_shape, "/smooth_cq.bin");
     auto outputQData = RawTensorData::CreateConstantTensor<T>(output_q, 0.0);
     auto outputQRopeData = RawTensorData::CreateConstantTensor<T>(output_q_rope, 0.0);
-    auto fakeOutData = RawTensorData::CreateConstantTensor<T>(fakeOut, 0.0);
-    auto fakeOutData1 = RawTensorData::CreateConstantTensor<T>(fakeOut1, 0.0);
 
     auto golden1Data = CreateTensorData<T>(output_q, q_out_shape, "/q_golden.bin");
     auto golden2Data = CreateTensorData<T>(output_q_rope, q_rope_out_shape, "/q_rope_golden.bin");
     auto golden3Data = CreateTensorData<T>(kv_cache, kv_cache_shape, "/kv_cache_golden.bin");
     auto golden4Data = CreateTensorData<T>(kr_cache, kr_cache_shape, "/kr_cache_golden.bin");
-    auto golden5Data = CreateTensorData<T>(fakeOut, fake_out_shape, "/q_nope_r.bin");
-    auto golden6Data = CreateTensorData<T>(fakeOut1, fake_out_shape1, "/q_nope_t.bin");
 
     ProgramData::GetInstance().PrepareData(
         {xData, wDqData, wUqQrData, wUkData, wDkvKrData, gammaCqData, gammaCkvData, sinData, cosData, kvLenData,
             kvCacheData, krCacheData, wQbScaleData, smoothCqData},
-        {outputQData, outputQRopeData, kvCacheData, krCacheData, fakeOutData, fakeOutData1},
-        {golden1Data, golden2Data, golden3Data, golden4Data, golden5Data, golden6Data});
+        {outputQData, outputQRopeData, kvCacheData, krCacheData}, {golden1Data, golden2Data, golden3Data, golden4Data});
     if (isQuant) {
         quantInputs.dequantScaleWUqQr = w_qb_scale;
         if (isSmooth) {
@@ -182,14 +171,14 @@ void TestMlaPrologV2(const SimpleParams &params) {
         }
     }
     MlaProlog(x, wDq, wUqQr, wUk, wDkvKr, gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache, quantInputs,
-        ropeConfig, output_q, output_q_rope, output_kv_cache, output_kr_cache, fakeOut, fakeOut1, 1e-5f, 1e-5f,
-        params.cacheMode, splitK, isSmooth);
+        ropeConfig, output_q, output_q_rope, output_kv_cache, output_kr_cache, 1e-5f, 1e-5f, params.cacheMode, splitK,
+        isSmooth);
     auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
     DynFuncRunner::Run(funcOp,
         {xData, wDqData, wUqQrData, wUkData, wDkvKrData, gammaCqData, gammaCkvData, sinData, cosData, kvLenData,
             kvCacheData, krCacheData, wQbScaleData, smoothCqData},
-        {outputQData, outputQRopeData, kvCacheData, krCacheData, fakeOutData, fakeOutData1});
+        {outputQData, outputQRopeData, kvCacheData, krCacheData});
     std::cout << "qNope ====== " << std::endl;
     EXPECT_TRUE(resultCmp<T>(golden1, (T *)outputQData->data(), 0.008f, 16));
     std::cout << "qRope ======" << std::endl;
@@ -198,10 +187,6 @@ void TestMlaPrologV2(const SimpleParams &params) {
     EXPECT_TRUE(resultCmp<T>(golden3, (T *)kvCacheData->data(), 0.003f, 16));
     std::cout << "kr ====== " << std::endl;
     EXPECT_TRUE(resultCmp<T>(golden4, (T *)krCacheData->data(), 0.003f, 16));
-//    std::cout << "fakeout ====== capacity_fake_out: " << capacity_fake_out << std::endl;
-//    EXPECT_TRUE(resultCmp<T>(golden5, (T *)fakeOutData->data(), 0.008, 16));
-//    std::cout << "fakeout1 ====== capacity_fake_out1: " << capacity_fake_out1 << std::endl;
-//    EXPECT_TRUE(resultCmp<T>(golden6, (T *)fakeOutData1->data(), 0.008, 8));
 #endif
 }
 

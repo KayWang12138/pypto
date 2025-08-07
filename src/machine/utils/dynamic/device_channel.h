@@ -22,7 +22,7 @@
 #include "machine/utils/barrier.h"
 #include "securec.h"
 #include "machine/utils/device_log.h"
-#include "interface/utils/assert.h"
+#include "tilefwk/error.h"
 
 #define ALIGN_UP_PTR(ptr, al) \
   (reinterpret_cast<decltype(ptr)>( \

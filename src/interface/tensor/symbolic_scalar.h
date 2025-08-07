@@ -24,7 +24,7 @@
 
 #include <tilefwk/symbolic_scalar.h>
 
-#include "interface/utils/assert.h"
+#include "tilefwk/error.h"
 #include "interface/cache/hash_buffer.h"
 #include "symbol_handler.h"
 #include "interface/utils/string_utils.h"
@@ -665,7 +665,7 @@ struct SymbolicExpressionTable {
     }
 
     static std::string BuildExpression(const SymbolicScalar &ss);
-    
+
     int LookupExpressionIndex(const SymbolicScalar &ss) const {
         std::string str = BuildExpression(ss);
         ASSERT(expressionIndexTable.count(str));
@@ -763,7 +763,8 @@ struct SymbolicExpressionTableBuilder {
     static std::string GetExprNameGet(const std::string &prefix, int index) { return prefix + "_" + std::to_string(index) + "_GET"; }
 
     static std::string BuildExpressionByRaw(const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
-private:    
+
+private:
     static std::string BuildExpressionCode(const RawSymbolicExpression *expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
 
     void AddExpression(const RawSymbolicScalarPtr &raw) {
@@ -776,7 +777,7 @@ private:
                 for (auto &operand : raw->GetExpressionOperandList()) {
                     AddExpression(operand);
                 }
-                expressionSet.Insert(raw);                
+                expressionSet.Insert(raw);
             } break;
             default: ASSERT(false); break;
         }

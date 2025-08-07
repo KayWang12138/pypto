@@ -58,11 +58,11 @@ std::vector<std::vector<int>> BufferPool::GetSpillGroup(size_t sizeNeedSpill) {
     for (auto &[memId, bufferSlice] : bufferSlices) {
         allocatedBufs.push_back(std::make_tuple(memId, bufferSlice.offset, bufferSlice.offset + bufferSlice.size));
     }
-    std::sort(allocatedBufs.begin(), allocatedBufs.end(), 
-        [&](std::tuple<int, size_t, size_t>& a, std::tuple<int, size_t, size_t>& b) {
-        return std::get<1>(a) < std::get<1>(b); 
-    });
- 
+    std::sort(allocatedBufs.begin(), allocatedBufs.end(),
+        [&](std::tuple<int, size_t, size_t> &a, std::tuple<int, size_t, size_t> &b) {
+            return std::get<1>(a) < std::get<1>(b);
+        });
+
     std::vector<std::vector<int>> canSpillGroups;
     size_t i = 0;
     while (i < allocatedBufs.size()) {
@@ -72,31 +72,31 @@ std::vector<std::vector<int>> BufferPool::GetSpillGroup(size_t sizeNeedSpill) {
         } else {
             startAddr = std::get<START_ADDR_IDX>(allocatedBufs[i - 1]);
         }
- 
+
         if ((memSize_ - startAddr) < sizeNeedSpill) {
             break;
         }
- 
+
         size_t j = i;
         while (j < allocatedBufs.size() && (std::get<1>(allocatedBufs[j]) - startAddr) < sizeNeedSpill) {
             j += 1;
         }
- 
+
         size_t endAddr = memSize_;
         if (j < allocatedBufs.size()) {
             endAddr = std::get<1>(allocatedBufs[j]);
         }
- 
+
         while (i < (j-1) && (endAddr - std::get<START_ADDR_IDX>(allocatedBufs[i])) >= sizeNeedSpill) {
             i += 1;
         }
-        assert(i != j);
- 
+        ASSERT(i != j);
+
         std::vector<int> group;
         for (size_t k = i; k < j; k++) {
             group.push_back(std::get<0>(allocatedBufs[k]));
         }
- 
+
         canSpillGroups.push_back(group);
         i += 1;
     }

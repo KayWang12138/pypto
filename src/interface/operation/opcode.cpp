@@ -20,7 +20,7 @@
 #include <unordered_set>
 #include "interface/utils/common.h"
 #include "tilefwk/data_type.h"
-#include "interface/utils/assert.h"
+#include "tilefwk/error.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"

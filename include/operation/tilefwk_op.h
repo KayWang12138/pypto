@@ -189,12 +189,11 @@ Tensor A_MUL_B(DataType dataType, const Tensor &operand1, const Tensor &operand2
 // regular intf: c = a * b
 template <bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false>
 Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix) {
+    static_assert(!isATrans); // A trans not supported now
     if constexpr (!isATrans && !isBTrans) {
         return Internel::A_MUL_B(outType, aMatrix, bMatrix, __builtin_return_address(0));
     } else if constexpr (!isATrans && isBTrans) {
         return Internel::A_MUL_Bt(outType, aMatrix, bMatrix, __builtin_return_address(0));
-    } else {
-        assert("only support B trans currently!");
     }
     return Tensor();
 }
@@ -202,12 +201,11 @@ Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix) {
 // intf: k spilt
 template <bool isATrans = false, bool isBTrans = false, bool IsCMatrixNZ = false>
 Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const Tensor &cMatrix) {
+    static_assert(!isATrans); // A trans not supported now
     if constexpr (!isATrans && !isBTrans) {
         return Internel::A_MUL_B(outType, aMatrix, bMatrix, cMatrix, __builtin_return_address(0));
     } else if constexpr (!isATrans && isBTrans) {
         return Internel::A_MUL_Bt(outType, aMatrix, bMatrix, cMatrix, __builtin_return_address(0));
-    } else {
-        assert("only support B trans currently!");
     }
     return Tensor();
 }

@@ -28,7 +28,7 @@
 #include <variant>
 #include <typeinfo>
 
-#include "interface/utils/assert.h"
+#include "tilefwk/error.h"
 #include "tilefwk/data_type.h"
 #include "interface/utils/common.h"
 #include "interface/cache/hash_buffer.h"
@@ -88,11 +88,8 @@ public:
         try {
             return std::get<T>(it->second);
         } catch (const std::bad_variant_access&) {
-            std::stringstream ss;
-            ss << "Type mismatch for config key: " << key 
-            << ", expected: " << typeid(T).name()
-            << ", actual type index: " << it->second.index();
-            throw std::runtime_error(ss.str());
+            throw TILEFWK_ERROR() << "Type mismatch for config key: " << key << ", expected: " << typeid(T).name()
+                                  << ", actual type index: " << it->second.index();
         }
     }
 

@@ -27,8 +27,7 @@
 #include "tilefwk/data_type.h"
 #include "interface/utils/common.h"
 #include "interface/utils/log.h"
-#include "interface/utils/assert.h"
-
+#include "tilefwk/error.h"
 
 #define PRIOR_SCHEDULING // comment it to disable PriorScheduling pass
 
@@ -477,7 +476,7 @@ struct TopoInfoEntry {
     uint64_t eSgId;
     int readyState;
     uint64_t calleeHash = 0;
-    
+
     // fixed latency
     bool fixedLatency = false;
     uint64_t fixedLatencyVal = 0;

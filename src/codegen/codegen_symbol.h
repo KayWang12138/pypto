@@ -20,7 +20,7 @@
 #include <cstdint>
 #include <string>
 #include "interface/utils/log.h"
-#include "interface/utils/assert.h"
+#include "tilefwk/error.h"
 #include "interface/utils/common.h"
 #include "interface/tensor/logical_tensor.h"
 #include "codegen_common.h"
