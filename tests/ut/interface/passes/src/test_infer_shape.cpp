@@ -255,6 +255,8 @@ TEST_F(InferShapeTest, TestReduce) {
     copyin_op.SetOpAttribute(copyin_Attr);
 
     auto &reduce_op = currFunctionPtr->AddOperation(Opcode::OP_ROWMAX_SINGLE, {inTensor}, {outTensor});
+    auto axis = inshape.size() - 1;
+    reduce_op.SetAttribute(OP_ATTR_PREFIX + "AXIS", static_cast<int>(axis));
     (void) reduce_op;
 
     auto &copyout_op = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {outTensor}, {outcast});
