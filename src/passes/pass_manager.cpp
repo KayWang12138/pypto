@@ -33,7 +33,6 @@
 #include "passes/tile_graph_pass/common_operation_eliminate.h"
 #include "passes/tile_graph_pass/assign_memory_type.h"
 #include "passes/tile_graph_pass/duplicate_view.h"
-#include "passes/tile_graph_pass/insert_convert_op.h"
 #include "passes/tile_graph_pass/l1_copy_reuse.h"
 #include "passes/tile_graph_pass/merge_view_assemble.h"
 #include "passes/tile_graph_pass/insert_copy_op.h"
@@ -84,7 +83,6 @@ void RegPass() {
     REG_PASS(DuplicateView);
     REG_PASS(RemoveRedundentReshape);
     REG_PASS(RemoveRedundantCast);
-    REG_PASS(InsertConvertOp);
     REG_PASS(NBufferMergePass);
     REG_PASS(L1CopyInReusePass);
     REG_PASS(MergeViewAssemble);

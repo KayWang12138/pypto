@@ -57,7 +57,6 @@ TEST_F(InsertCopyOpTest, InsertCopy) {
         passManager.RegisterStrategy("InsertCopyOpTestStrategy", {
             {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
             {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
-            {          "InsertConvertOp",          "InsertConvertOp",    PassType::TYPE_TILE_GRAPH},
             {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
             {           "GenerateMoveOp",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
             {        "GraphPartitionPass",        "GraphPartitionPass",    PassType::TYPE_TILE_GRAPH},

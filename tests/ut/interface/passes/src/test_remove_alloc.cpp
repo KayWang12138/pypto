@@ -12,6 +12,8 @@
  * \file test_remove_alloc.cpp
  * \brief Unit test for Remove Alloc pass.
  */
+#include <vector>
+#include <string>
 
 #include "gtest/gtest.h"
 #include "operation/tilefwk_op.h"
@@ -21,8 +23,7 @@
 #include "interface/configs/config_manager.h"
 #include "ut_json/ut_json_tool.h"
 #include "passes/execute_graph_pass/remove_alloc.h"
-#include <vector>
-#include <string>
+#include "computational_graph_builder.h"
 
 using namespace npu::tile_fwk;
 
@@ -43,87 +44,31 @@ public:
 };
 
 TEST_F(RemoveAllocTest, RemoveAlloc) {
-    PROGRAM("RemoveAllocTest") {
-        int N = 2;
-        int T = 8;
-        std::vector<int> shape{N * T, N * T};
-        Program::GetInstance().GetTileShape().SetVecTileShapes({2, 2});
+    constexpr int CP_NUM16 = 16;
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestSaveGmTensorParamIdxToOp", "TestSaveGmTensorParamIdxToOp", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestSaveGmTensorParamIdxToOpLeaf", "TestSaveGmTensorParamIdxToOpLeaf", rootFuncPtr.get());
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    currFunctionPtr->SetGraphType(GraphType::LEAF_GRAPH);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
 
-        Tensor a(DT_FP32, shape, "a");
-        Tensor b(DT_FP32, shape, "b");
-        Tensor mulResult(DT_FP32, {T, T}, "mulResult");
-        PassManager &passManager = PassManager::Instance();
-        passManager.RegisterStrategy("RemoveAllocTestStrategy", {
-            {   "RemoveRedundentReshape",   "RemoveRedundentReshape",  PassType::TYPE_TENSOR_GRAPH},
-            {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
-            {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
-            {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
-            {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
-            {       "InsertConvertOp_01",          "InsertConvertOp",    PassType::TYPE_TILE_GRAPH},
-            {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
-            {       "SplitReshapeOpPVC2",       "SplitReshapeOpPVC2",    PassType::TYPE_TILE_GRAPH},
-            {        "RemoveRedundentOp",        "RemoveRedundentOp",    PassType::TYPE_TILE_GRAPH},
-            {        "GenerateMoveOp_01",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
-            {        "GraphPartitionPass",        "GraphPartitionPass",    PassType::TYPE_TILE_GRAPH},
-            {         "NBufferMergePass",         "NBufferMergePass",    PassType::TYPE_TILE_GRAPH},
-            {          "UpdateMemoryMap",          "UpdateMemoryMap",    PassType::TYPE_TILE_GRAPH},
-            {       "InsertConvertOp_02",          "InsertConvertOp",    PassType::TYPE_TILE_GRAPH},
-            {        "GenerateMoveOp_02",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
-            {   "SplitLargeLocalRawPass",   "SplitLargeLocalRawPass",    PassType::TYPE_TILE_GRAPH},
-            {         "InsertCopyOpPass",         "InsertCopyOpPass",    PassType::TYPE_TILE_GRAPH},
-            { "CommonOperationEliminate", "CommonOperationEliminate",    PassType::TYPE_TILE_GRAPH},
-            {        "L1CopyInReusePass",        "L1CopyInReusePass",    PassType::TYPE_TILE_GRAPH},
-            {             "PreGraphPass",             "PreGraphPass",    PassType::TYPE_TILE_GRAPH},
-            {           "PadLocalBuffer",           "PadLocalBuffer",    PassType::TYPE_TILE_GRAPH},
-            {       "SubgraphToFunction",       "SubgraphToFunction", PassType::TYPE_EXECUTE_GRAPH},
-            {    "SrcDstBufferMergePass",    "SrcDstBufferMergePass", PassType::TYPE_EXECUTE_GRAPH},
-            {             "AddAllocPass",             "AddAllocPass", PassType::TYPE_EXECUTE_GRAPH},
-            {          "OoOSchedulePass",          "OoOSchedulePass", PassType::TYPE_EXECUTE_GRAPH},
-            {              "MemoryReuse",              "MemoryReuse", PassType::TYPE_EXECUTE_GRAPH},
+    std::vector<int> shape = {CP_NUM16, CP_NUM16};
+    auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto tensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto tensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto tensor5 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto tensor6 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor3});
+    currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor2}, {tensor4});
+    currFunctionPtr->AddRawOperation(Opcode::OP_ADD, {tensor3, tensor4}, {tensor5});
+    currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {tensor5}, {tensor6});
+    currFunctionPtr->AddRawOperation(Opcode::OP_UB_ALLOC, {}, {tensor5});
 
-        });
-        ConfigManager::Instance();
+    npu::tile_fwk::RemoveAllocPass removeAllocPass;
+    removeAllocPass.RemoveAlloc(*rootFuncPtr);
 
-        std::vector<int> originOpmagic;
-        FUNCTION("PerfectlyMatch") {
-            config::SetPassStrategy("RemoveAllocTestStrategy");
-
-            auto resultTmp = View(a, {10, 10}, {2, 2});
-            auto c = View(resultTmp, {4, 4}, {0, 0});
-            auto d = View(resultTmp, {4, 4}, {0, 4});
-            auto e = View(resultTmp, {4, 4}, {4, 0});
-            auto f = View(resultTmp, {4, 4}, {4, 4});
-
-            auto addResult0 = Add(c, d);
-            Program::GetInstance().GetTileShape().SetVecTileShapes({2, 2});
-            auto addResult1 = Add(e, f);
-            mulResult = Mul(addResult0, addResult1);
-        }
-        std::string jsonFilePath = "./config/pass/json/remove_alloc.json";
-        bool dumpJsonFlag = true;
-        if (dumpJsonFlag) {
-            auto programJson = Program::GetInstance().DumpJson();
-            DumpJsonFile(programJson, jsonFilePath);
-        }
-        Json readData = LoadJsonFile(jsonFilePath);
-        Program::GetInstance().LoadJson(readData);
-
-        // Call the pass
-        Function* func = Program::GetInstance().GetCurrentFunction();
-        npu::tile_fwk::RemoveAllocPass removeAllocPass;
-        removeAllocPass.PreCheck(*func);
-        removeAllocPass.RunOnFunction(*func);
-        removeAllocPass.PostCheck(*func);
-
-        // ================== Verify Pass Effect ==================
-        auto updatedOperations = Program::GetInstance().GetFunctionByRawName("TENSOR_PerfectlyMatch")->Operations();
-        int allocNum = 0;
-        for (size_t i = 0; i < updatedOperations.size(); i++) {
-            if (updatedOperations[i].GetOpcodeStr().find("ALLOC") != std::string::npos) {
-                allocNum++;
-            }
-        }
-        constexpr int allocNumExpected = 0;
-        EXPECT_EQ(allocNum, allocNumExpected) << "0 alloc operations";
-    }
+    // ================== Verify Pass Effect ==================
+    constexpr int expectOpNum = 4;
+    EXPECT_EQ(currFunctionPtr->Operations().size(), expectOpNum) << expectOpNum << " operations";
 }

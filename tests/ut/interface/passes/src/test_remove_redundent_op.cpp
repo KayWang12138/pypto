@@ -78,7 +78,6 @@ TEST_F(RemoveRedundentOpTest, TestIntermediateOutcast) {
     {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
     {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
     {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
-    {       "InsertConvertOp_01",          "InsertConvertOp",    PassType::TYPE_TILE_GRAPH},
     {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
     {       "SplitReshapeOpPVC2",       "SplitReshapeOpPVC2",    PassType::TYPE_TILE_GRAPH},
     });
@@ -146,7 +145,6 @@ TEST_F(RemoveRedundentOpTest, TestInternalAssembleView) {
     {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
     {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
     {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
-    {       "InsertConvertOp_01",          "InsertConvertOp",    PassType::TYPE_TILE_GRAPH},
     {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
     {       "SplitReshapeOpPVC2",       "SplitReshapeOpPVC2",    PassType::TYPE_TILE_GRAPH},
     });

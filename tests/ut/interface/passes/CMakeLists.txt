@@ -182,6 +182,7 @@ set(_CaseFilterList
         "CubeProcessTest.TestAnzBnd"
         "CubeProcessTest.TestAnzBndL1"
         "TestPriorScheduling.TestMainSchedule"
+        "RemoveAllocTest.RemoveAlloc"
         "InsertSyncTest.TestEnableDebug"
         "InsertSyncTest.TestFindDep"
         "InsertSyncTest.TestPhaseKernelProcess"
