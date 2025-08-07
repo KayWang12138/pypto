@@ -8,7 +8,4 @@
 # ======================================================================================================================
 
 add_subdirectory(function)
-add_subdirectory(machine)
-add_subdirectory(ops)
-add_subdirectory(passes)
 add_subdirectory(configs)

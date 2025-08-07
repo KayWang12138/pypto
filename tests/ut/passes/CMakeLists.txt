@@ -262,7 +262,7 @@ set(_CaseFilterList
         "TestDeadOperationEliminatePass.DeadOperationEliminateUTest1"
 )
 
-set(_Target ${TileFwkUTestNamePrefix}_interface_passes)
+set(_Target ${TileFwkUTestNamePrefix}_passes)
 
 file(GLOB_RECURSE _Sources src/*.cpp)
 

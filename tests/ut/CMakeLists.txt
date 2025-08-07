@@ -10,7 +10,9 @@
 if (ENABLE_TESTS_UTEST)
     add_subdirectory(stubs)
 
+    add_subdirectory(operator)
     add_subdirectory(interface)
+    add_subdirectory(passes)
     add_subdirectory(simulation)
 
     if (NOT AC_ENABLE_FRAMEWORK_WITHOUT_CANN)

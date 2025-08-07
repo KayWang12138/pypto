@@ -294,26 +294,6 @@
       ]
     }
   },
-  "libtile_fwk_utest_interface_machine.a": {
-    "Source-Header": {
-      "Self": [
-        "tests/ut/interface/machine/"
-      ],
-      "Area": [
-        "src/interface/",
-        "src/passes/"
-      ],
-      "Include": [
-        "include/"
-      ],
-      "WhiteList": [
-      ],
-      "BlackList": [
-        "include/tileop/",
-        "interface/program/program.h"
-      ]
-    }
-  },
   "libtile_fwk_utest_interface_configs.a": {
     "Source-Header": {
       "Self": [
@@ -333,10 +313,10 @@
       ]
     }
   },
-  "libtile_fwk_utest_interface_ops.a": {
+  "libtile_fwk_utest_operator.a": {
     "Source-Header": {
       "Self": [
-        "tests/ut/interface/ops/"
+        "tests/ut/operator/"
       ],
       "Area": [
         "src/models/",
@@ -354,10 +334,10 @@
       ]
     }
   },
-  "libtile_fwk_utest_interface_passes.a": {
+  "libtile_fwk_utest_passes.a": {
     "Source-Header": {
       "Self": [
-        "tests/ut/interface/passes/"
+        "tests/ut/passes/"
       ],
       "Area": [
         "src/models/",
@@ -393,7 +373,6 @@
       "WhiteList": [
       ],
       "BlackList": [
-        "interface/program/program.h"
       ]
     }
   },

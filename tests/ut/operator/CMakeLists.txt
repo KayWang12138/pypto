@@ -92,7 +92,7 @@ set(_CaseFilterList
 
 )
 
-set(_Target ${TileFwkUTestNamePrefix}_interface_ops)
+set(_Target ${TileFwkUTestNamePrefix}_operator)
 
 file(GLOB_RECURSE _Sources src/*.cpp)
 
