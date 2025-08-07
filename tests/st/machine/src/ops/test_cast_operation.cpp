@@ -18,103 +18,148 @@
 using namespace tile_fwk::test_operation;
 namespace {
 struct CastOpFuncArgs : public OpFuncArgs {
-    CastOpFuncArgs(
-        std::vector<int> shape, std::vector<int> vecTileShapes, DataType dTypeIn, DataType dTypeOut, CastMode castMode)
-        : shape_(shape), vecTileShapes_(vecTileShapes), dTypeIn_(dTypeIn), dTypeOut_(dTypeOut), castMode_(castMode) {}
-    std::vector<int> shape_;
-    std::vector<int> vecTileShapes_;
-    DataType dTypeIn_;
-    DataType dTypeOut_;
+    CastOpFuncArgs(std::vector<int> shape, std::vector<int> vecTileShapes, CastMode castMode)
+        : viewShape_(shape), tileShape_(vecTileShapes), castMode_(castMode) {}
+
+    std::vector<int> viewShape_;
+    std::vector<int> tileShape_;
     CastMode castMode_;
 };
- 
- struct CastOperationMetadata {
-     CastOperationMetadata(std::vector<int> shape, std::vector<int> vecTileShapes, DataType dTypeIn, DataType dTypeOut,
-         CastMode castMode, OpFunc opFunc)
-         : args_(shape, vecTileShapes, dTypeIn, dTypeOut, castMode), opFunc_(opFunc) {}
 
-     CastOpFuncArgs args_;
-     OpFunc opFunc_;
- };
- 
- [[maybe_unused]]static void CastOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
-                                 const OpFuncArgs* opArgs) {
-     FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
-         SymbolicScalar firstDim = inputs[0]->shape[0];
-         SymbolicScalar secondDim = inputs[0]->shape[1];
-         const int firstl0LoopLengthTile = 128;
-         DataType castDType = outputs[0].GetDataType();
+struct CastOpMetaData {
+    explicit CastOpMetaData(const std::vector<OpFunc> &funcs) : opFuncs_(funcs) {}
 
-         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, CeilDivSymbolicScalar(firstDim, firstl0LoopLengthTile), 1)) {
-             auto tileTensor0 = DViewPad(inputs[0], {firstl0LoopLengthTile, secondDim},
-                 {std::min(firstDim - bIdx * firstl0LoopLengthTile, firstl0LoopLengthTile), secondDim},
-                 {bIdx * firstl0LoopLengthTile, 0});
-             Program::GetInstance().GetTileShape().SetVecTileShapes(
-                 (static_cast<const CastOpFuncArgs*>(opArgs))->vecTileShapes_);
-             auto res = Cast(tileTensor0, castDType, (static_cast<const CastOpFuncArgs*>(opArgs))->castMode_);
-             DAssemble(res, {bIdx * firstl0LoopLengthTile, 0}, outputs[0]);
-         }
-     }
- }
- 
- static void CastOperationExeFuncDoubleCut(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
-                                          const OpFuncArgs* opArgs) {
-     FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
-         SymbolicScalar firstDim = inputs[0]->shape[0];
-         SymbolicScalar secondDim = inputs[0]->shape[1];
-         const int firstViewShape = 128;
-         const int secondViewShape = 128;
-         DataType castDType = outputs[0].GetDataType();
+    std::vector<OpFunc> opFuncs_;
+};
 
-         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx,
-             LoopRange(0, CeilDivSymbolicScalar(firstDim, firstViewShape), 1)) {
-             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, CeilDivSymbolicScalar(secondDim, secondViewShape), 1)) {
-                 auto tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape},
-                     {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                         std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                     {bIdx * firstViewShape, sIdx * secondViewShape});
-                 Program::GetInstance().GetTileShape().SetVecTileShapes(
-                     (static_cast<const CastOpFuncArgs*>(opArgs))->vecTileShapes_);
-                 auto res = Cast(tileTensor0, castDType, (static_cast<const CastOpFuncArgs*>(opArgs))->castMode_);
-                 DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
-             }
-         }
-     }
- }
+static void CastOperationExeFuncDoubleCut(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
+        SymbolicScalar firstDim = inputs[0]->shape[0];
+        SymbolicScalar secondDim = inputs[0]->shape[1];
+        auto args = static_cast<const CastOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        const int bloop = CeilDiv(firstDim, firstViewShape);
+        const int sloop = CeilDiv(secondDim, secondViewShape);
 
- static const CastOperationMetadata testDataLists[] = {
-     CastOperationMetadata({512, 128}, {64, 128}, DataType::DT_FP32, DataType::DT_FP16, CAST_NONE, CastOperationExeFunc),
-     CastOperationMetadata({1024, 256}, {64, 128}, DataType::DT_FP32, DataType::DT_BF16, CAST_NONE, CastOperationExeFunc),
-     CastOperationMetadata({512, 256}, {64, 64}, DataType::DT_FP32, DataType::DT_INT16, CAST_RINT, CastOperationExeFuncDoubleCut),
-     CastOperationMetadata({512, 128}, {64, 64}, DataType::DT_FP16, DataType::DT_FP32, CAST_NONE, CastOperationExeFuncDoubleCut),
-     CastOperationMetadata({32, 32}, {32, 32}, DataType::DT_FP16,  DataType::DT_INT32, CAST_ROUND, CastOperationExeFuncDoubleCut),
-     CastOperationMetadata({64, 64}, {32, 32}, DataType::DT_FP16,  DataType::DT_INT8, CAST_FLOOR, CastOperationExeFuncDoubleCut),
-     CastOperationMetadata({90 + 17, 128 + 17}, {16, 16}, DataType::DT_INT32,  DataType::DT_FP16, CAST_NONE, CastOperationExeFuncDoubleCut),
-     CastOperationMetadata({1, 1}, {16, 16}, DataType::DT_INT32, DataType::DT_FP32, CAST_NONE, CastOperationExeFuncDoubleCut),
-     CastOperationMetadata({32, 32}, {16, 16}, DataType::DT_INT16, DataType::DT_FP32, CAST_NONE, CastOperationExeFuncDoubleCut),
-     CastOperationMetadata({128, 128}, {64, 64}, DataType::DT_INT8, DataType::DT_FP16, CAST_NONE, CastOperationExeFuncDoubleCut),
- };
+        DataType castDType = outputs[0].GetDataType();
 
- class CastOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<CastOperationMetadata> {};
- 
- INSTANTIATE_TEST_SUITE_P(
-     TestCast,
-     CastOperationTest,
-     ::testing::ValuesIn(testDataLists)
- );
- 
- TEST_P(CastOperationTest, test_cast) {
-     TestCaseDesc testCase;
-     testCase.inputTensors = {
-         Tensor(GetParam().args_.dTypeIn_, GetParam().args_.shape_, "input0")
-     };
-     testCase.outputTensors = {
-         Tensor(GetParam().args_.dTypeOut_, GetParam().args_.shape_, "output")
-     };
-     testCase.inputPaths = {GetGoldenDir() + "/x.bin"};
-     testCase.goldenPaths = {GetGoldenDir() + "/res.bin"};
-     testCase.args = &(GetParam().args_);
-     testCase.opFunc = GetParam().opFunc_;
-     TestExecutor::runTest(testCase);
- }
- } // namespace
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                auto tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape},
+                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                        std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                    {bIdx * firstViewShape, sIdx * secondViewShape});
+                Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                auto res = Cast(tileTensor0, castDType, args->castMode_);
+                DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
+            }
+        }
+    }
+}
+
+static void CastOperationExeFuncTripleCut(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
+        SymbolicScalar firstDim = inputs[0]->shape[0];
+        SymbolicScalar secondDim = inputs[0]->shape[1];
+        SymbolicScalar thirdDim = inputs[0]->shape[2];
+        auto args = static_cast<const CastOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        const int thirdViewShape = args->viewShape_[2];
+        const int bloop = CeilDiv(firstDim, firstViewShape);
+        const int sloop = CeilDiv(secondDim, secondViewShape);
+        const int nloop = CeilDiv(thirdDim, thirdViewShape);
+
+        DataType castDType = outputs[0].GetDataType();
+
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
+                    auto tileTensor = DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                            std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
+                    Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                    auto res = Cast(tileTensor, castDType, args->castMode_);
+                    DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
+                }
+            }
+        }
+    }
+}
+
+static void CastOperationExeFuncQuadrupleCut(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
+        SymbolicScalar firstDim = inputs[0]->shape[0];
+        SymbolicScalar secondDim = inputs[0]->shape[1];
+        SymbolicScalar thirdDim = inputs[0]->shape[2];
+        SymbolicScalar fourthDim = inputs[0]->shape[3];
+        auto args = static_cast<const CastOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        const int thirdViewShape = args->viewShape_[2];
+        const int fourthViewShape = args->viewShape_[3];
+
+        const int bloop = CeilDiv(firstDim, firstViewShape);
+        const int sloop = CeilDiv(secondDim, secondViewShape);
+        const int mloop = CeilDiv(thirdDim, thirdViewShape);
+        const int nloop = CeilDiv(fourthDim, fourthViewShape);
+
+        DataType castDType = outputs[0].GetDataType();
+
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mloop, 1)) {
+                    LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
+                        Tensor tileTensor0 =
+                            DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                                {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                    std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                    std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
+                                    std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
+                                {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                    nIdx * fourthViewShape});
+                        Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                        auto res = Cast(tileTensor0, castDType, args->castMode_);
+                        DAssemble(res,
+                            {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                nIdx * fourthViewShape},
+                            outputs[0]);
+                    }
+                }
+            }
+        }
+    }
+}
+
+static const CastOpMetaData metaData =
+    CastOpMetaData({CastOperationExeFuncDoubleCut, CastOperationExeFuncTripleCut, CastOperationExeFuncQuadrupleCut});
+
+class CastOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<CastOpMetaData> {};
+
+INSTANTIATE_TEST_SUITE_P(TestCast, CastOperationTest, ::testing::Values(metaData));
+
+TEST_P(CastOperationTest, TestCast) {
+    TestCaseDesc testCase;
+    auto config = GetGoldenDir() + "/test_case_data.json";
+    testCase.inputTensors = GetInputTensors(config);
+    testCase.outputTensors = GetOutputTensors(config);
+    auto mode = static_cast<CastMode>(GetValueByName<int>(config, "mode"));
+    auto args = CastOpFuncArgs(GetViewShape(config), GetTileShape(config), mode);
+    testCase.args = &args;
+    auto func_id = GetFuncId(config);
+    if (func_id < 0 || static_cast<size_t>(func_id) >= GetParam().opFuncs_.size()) {
+        func_id = args.viewShape_.size() - 2;
+    }
+    testCase.opFunc = GetParam().opFuncs_[func_id];
+    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin"};
+    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
+    TestExecutor::runTest(testCase);
+}
+} // namespace

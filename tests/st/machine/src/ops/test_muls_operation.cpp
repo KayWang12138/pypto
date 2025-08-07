@@ -1,4 +1,4 @@
-/**MulsOperationTest
+/**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
  * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
@@ -9,33 +9,27 @@
  */
 
 /*!
- * \file test_muls_operation.cpp
+ * \file test_add_operation.cpp
  * \brief
  */
 
-#include <cmath>
 #include "test_operation.h"
 
 using namespace tile_fwk::test_operation;
 namespace {
 struct MulsOpFuncArgs : public OpFuncArgs {
-    MulsOpFuncArgs(const std::vector<int> &input0Shape, const std::vector<int> &viewShape,
-        const std::vector<int> tileShape, const DataType &dType)
-        : input0Shape_(input0Shape), viewShape_(viewShape), tileShape_(tileShape), dType_(dType) {}
+    MulsOpFuncArgs(const Element &value, const std::vector<int> &viewShape, const std::vector<int> tileShape)
+        : value_(value), viewShape_(viewShape), tileShape_(tileShape) {}
 
-    std::vector<int> input0Shape_;
+    Element value_;
     std::vector<int> viewShape_;
     std::vector<int> tileShape_;
-    DataType dType_;
 };
 
-struct MulsOperationMetadata {
-    MulsOperationMetadata(int case_index, const MulsOpFuncArgs &args, const OpFunc &opFunc)
-        : case_index_(case_index), args_(args), opFunc_(opFunc) {}
+struct MulsOpMetaData {
+    explicit MulsOpMetaData(const std::vector<OpFunc> &funcs) : opFuncs_(funcs) {}
 
-    int case_index_;
-    MulsOpFuncArgs args_;
-    OpFunc opFunc_;
+    std::vector<OpFunc> opFuncs_;
 };
 
 static void MulsOperationExeFuncDoubleCut(
@@ -44,16 +38,11 @@ static void MulsOperationExeFuncDoubleCut(
     FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
-
         auto args = static_cast<const MulsOpFuncArgs *>(opArgs);
         const int firstViewShape = args->viewShape_[0];
-        const int secondViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
         int bloop = CeilDiv(firstDim, firstViewShape);
         int sloop = CeilDiv(secondDim, secondViewShape);
-
-        std::vector<float> inputData(1, 0);
-        readInput<float>(GetGoldenDir() + "/y.bin", inputData);
-        Element value(DataType::DT_FP32, inputData[0]);
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
@@ -62,7 +51,7 @@ static void MulsOperationExeFuncDoubleCut(
                         std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
                 Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
-                auto res = MulS(tileTensor0, value);
+                auto res = MulS(tileTensor0, args->value_);
                 DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
         }
@@ -76,18 +65,13 @@ static void MulsOperationExeFuncTripleCut(
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar thirdDim = inputs[0]->shape[2];
-
         auto args = static_cast<const MulsOpFuncArgs *>(opArgs);
         const int firstViewShape = args->viewShape_[0];
-        const int secondViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
         const int thirdViewShape = args->viewShape_[2];
         int bloop = CeilDiv(firstDim, firstViewShape);
         int sloop = CeilDiv(secondDim, secondViewShape);
         int nloop = CeilDiv(thirdDim, thirdViewShape);
-
-        std::vector<float> inputData(1, 0);
-        readInput<float>(GetGoldenDir() + "/y.bin", inputData);
-        Element value(DataType::DT_FP32, inputData[0]);
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
@@ -98,7 +82,7 @@ static void MulsOperationExeFuncTripleCut(
                             std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
                     Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
-                    auto res = MulS(tileTensor0, value);
+                    auto res = MulS(tileTensor0, args->value_);
                     DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
             }
@@ -114,20 +98,15 @@ static void MulsOperationExeFuncQuadrupleCut(
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar thirdDim = inputs[0]->shape[2];
         SymbolicScalar fourthDim = inputs[0]->shape[3];
-
         auto args = static_cast<const MulsOpFuncArgs *>(opArgs);
         const int firstViewShape = args->viewShape_[0];
-        const int secondViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
         const int thirdViewShape = args->viewShape_[2];
         const int fourthViewShape = args->viewShape_[3];
         int bloop = CeilDiv(firstDim, firstViewShape);
         int sloop = CeilDiv(secondDim, secondViewShape);
         int nloop = CeilDiv(thirdDim, thirdViewShape);
         int qloop = CeilDiv(fourthDim, fourthViewShape);
-
-        std::vector<float> inputData(1, 0);
-        readInput<float>(GetGoldenDir() + "/y.bin", inputData);
-        Element value(DataType::DT_FP32, inputData[0]);
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
@@ -142,7 +121,7 @@ static void MulsOperationExeFuncQuadrupleCut(
                                 {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
                                     qIdx * fourthViewShape});
                         Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
-                        auto res = MulS(tileTensor0, value);
+                        auto res = MulS(tileTensor0, args->value_);
                         DAssemble(res,
                             {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
                                 qIdx * fourthViewShape},
@@ -154,59 +133,29 @@ static void MulsOperationExeFuncQuadrupleCut(
     }
 }
 
-static const MulsOperationMetadata testDataLists[] = {
+static const MulsOpMetaData metaData =
+    MulsOpMetaData({MulsOperationExeFuncDoubleCut, MulsOperationExeFuncTripleCut, MulsOperationExeFuncQuadrupleCut});
 
-    MulsOperationMetadata(
-        0, MulsOpFuncArgs{        {64 * 48, 512},       {128, 128},     {32, 32}, DataType::DT_FP32},
-         MulsOperationExeFuncDoubleCut),
-    MulsOperationMetadata(
-        1, MulsOpFuncArgs{    {64 * 48, 128 * 3},       {128, 128},     {32, 32}, DataType::DT_FP32},
-         MulsOperationExeFuncDoubleCut),
-    MulsOperationMetadata(
-        2, MulsOpFuncArgs{     {64 * 32, 16 * 3},        {128, 64},     {32, 32}, DataType::DT_FP32},
-         MulsOperationExeFuncDoubleCut),
-    MulsOperationMetadata(3, MulsOpFuncArgs{{64 * 48 + 3, 128 * 3},       {128, 128},     {32, 32}, DataType::DT_FP32},
-        MulsOperationExeFuncDoubleCut),
-    MulsOperationMetadata(
-        4, MulsOpFuncArgs{    {64 * 48, 128 * 3},       {128, 127},     {32, 32}, DataType::DT_FP32},
-         MulsOperationExeFuncDoubleCut),
-    MulsOperationMetadata(5, MulsOpFuncArgs{    {48 * 128, 64, 64},     {64, 64, 64}, {32, 32, 32}, DataType::DT_FP32},
-        MulsOperationExeFuncTripleCut),
-    MulsOperationMetadata(6, MulsOpFuncArgs{ {16, 16, 128, 64 / 2}, {16, 16, 16, 16}, {8, 8, 8, 8}, DataType::DT_FP32},
-        MulsOperationExeFuncQuadrupleCut),
-    MulsOperationMetadata(
-        7, MulsOpFuncArgs{    {64 * 48, 128 * 3},       {128, 128},     {32, 32}, DataType::DT_FP32},
-         MulsOperationExeFuncDoubleCut),
-    MulsOperationMetadata(
-        8, MulsOpFuncArgs{    {64 * 48, 128 * 3},       {128, 128},     {32, 32}, DataType::DT_FP32},
-         MulsOperationExeFuncDoubleCut),
-    MulsOperationMetadata(
-        9, MulsOpFuncArgs{          {64 * 48, 0},       {128, 128},     {32, 32}, DataType::DT_FP32},
-         MulsOperationExeFuncDoubleCut),
-    MulsOperationMetadata(
-        11, MulsOpFuncArgs{                {1, 1},         {32, 32},     {16, 16}, DataType::DT_FP32},
-         MulsOperationExeFuncDoubleCut),
-    MulsOperationMetadata(
-        12, MulsOpFuncArgs{              {32, 32},         {32, 32},     {16, 16}, DataType::DT_FP32},
-         MulsOperationExeFuncDoubleCut),
-    MulsOperationMetadata(
-        13, MulsOpFuncArgs{            {128, 128},         {32, 32},     {64, 64}, DataType::DT_FP32},
-         MulsOperationExeFuncDoubleCut)
-};
+class MulsOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<MulsOpMetaData> {};
 
-class MulsOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<MulsOperationMetadata> {};
+INSTANTIATE_TEST_SUITE_P(TestMuls, MulsOperationTest, ::testing::Values(metaData));
 
-INSTANTIATE_TEST_SUITE_P(TestMuls, MulsOperationTest, ::testing::ValuesIn(testDataLists));
-
-TEST_P(MulsOperationTest, test_muls) {
+TEST_P(MulsOperationTest, TestMuls) {
     TestCaseDesc testCase;
-    auto args = GetParam().args_;
-    testCase.inputTensors = {Tensor(args.dType_, args.input0Shape_, "input0")};
-    testCase.outputTensors = {Tensor(args.dType_, args.input0Shape_, "output")};
-    testCase.args = &(GetParam().args_);
-    testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/x.bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/res.bin"};
+    auto config = GetGoldenDir() + "/test_case_data.json";
+    testCase.inputTensors = GetInputTensors(config);
+    testCase.outputTensors = GetOutputTensors(config);
+    auto dtype = GetDataType(GetValueByName<std::string>(config, "scalar_type"));
+    Element value(dtype, GetValueByName<float>(config, "scalar"));
+    auto args = MulsOpFuncArgs(value, GetViewShape(config), GetTileShape(config));
+    testCase.args = &args;
+    auto func_id = GetFuncId(config);
+    if (func_id < 0 || static_cast<size_t>(func_id) >= GetParam().opFuncs_.size()) {
+        func_id = args.viewShape_.size() - 2;
+    }
+    testCase.opFunc = GetParam().opFuncs_[func_id];
+    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin"};
+    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
     TestExecutor::runTest(testCase);
 }
 } // namespace

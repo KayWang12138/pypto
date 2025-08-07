@@ -13,67 +13,70 @@
  * \brief
  */
 
+#include <nlohmann/json.hpp>
 #include "test_operation.h"
 
 using namespace tile_fwk::test_operation;
 namespace {
 struct AddOpFuncArgs : public OpFuncArgs {
-    AddOpFuncArgs(std::vector<int> shape, std::vector<int> vecTileShapes, DataType dType) :
-        shape_(shape), vecTileShapes_(vecTileShapes), dType_(dType) {}
-    std::vector<int> shape_;
-    std::vector<int> vecTileShapes_;
-    DataType dType_;
+    AddOpFuncArgs(const std::vector<int> &viewShape, const std::vector<int> tileShape)
+        : viewShape_(viewShape), tileShape_(tileShape) {}
+
+    std::vector<int> viewShape_;
+    std::vector<int> tileShape_;
 };
 
-struct AddOperationMetadata {
-    AddOperationMetadata(std::vector<int> shape, std::vector<int> vecTileShapes, DataType dType, OpFunc opFunc) :
-        args_(shape, vecTileShapes, dType), opFunc_(opFunc) {}
-    AddOpFuncArgs args_;
-    OpFunc opFunc_;
+struct AddOpMetaData {
+    explicit AddOpMetaData(const std::vector<OpFunc> &funcs) : opFuncs_(funcs) {}
+
+    std::vector<OpFunc> opFuncs_;
 };
 
-static void AddOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
-                                const OpFuncArgs* opArgs) {
+static void AddOperationExeFunc2Dims(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", FunctionType::DYNAMIC, {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
-        const int firstl0LoopLengthTile = 128;
+        auto args = static_cast<const AddOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
 
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, CeilDivSymbolicScalar(firstDim, firstl0LoopLengthTile), 1)) {
-            auto tileTensor0 = DViewPad(inputs[0], {firstl0LoopLengthTile, secondDim},
-                {std::min(firstDim - bIdx * firstl0LoopLengthTile, firstl0LoopLengthTile), secondDim},
-                {bIdx * firstl0LoopLengthTile, 0});
-            auto tileTensor1 = DViewPad(inputs[1], {firstl0LoopLengthTile, secondDim},
-                {std::min(firstDim - bIdx * firstl0LoopLengthTile, firstl0LoopLengthTile), secondDim},
-                {bIdx * firstl0LoopLengthTile, 0});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(
-                (static_cast<const AddOpFuncArgs*>(opArgs))->vecTileShapes_);
-            auto res = Add(tileTensor0, tileTensor1);
-            DAssemble(res, {bIdx * firstl0LoopLengthTile, 0}, outputs[0]);
-        }
-    }
-}
-
-static void AddOperationExeFuncDoubleCut(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
-                                         const OpFuncArgs* opArgs) {
-    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0], inputs[1]}, {outputs[0]}) {
-        SymbolicScalar firstDim = inputs[0]->shape[0];
-        SymbolicScalar secondDim = inputs[0]->shape[1];
-        const int firstViewShape = 128;
-        const int secondViewShape = 128;
-
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, CeilDivSymbolicScalar(firstDim, firstViewShape), 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, CeilDivSymbolicScalar(secondDim, secondViewShape), 1)) {
-                auto tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape},
-                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                        std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                    {bIdx * firstViewShape, sIdx * secondViewShape});
-                auto tileTensor1 = DViewPad(inputs[1], {firstViewShape, secondViewShape},
-                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                        std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                    {bIdx * firstViewShape, sIdx * secondViewShape});
-                Program::GetInstance().GetTileShape().SetVecTileShapes(
-                    (static_cast<const AddOpFuncArgs*>(opArgs))->vecTileShapes_);
+        const int bloop = CeilDiv(firstDim, firstViewShape);
+        const int sloop = CeilDiv(secondDim, secondViewShape);
+        const int broadcastFlag = 1;
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                Tensor tileTensor0;
+                Tensor tileTensor1;
+                IF(inputs[0]->shape[1] != broadcastFlag && inputs[1]->shape[1] == broadcastFlag) {
+                    tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                    tileTensor1 = DViewPad(inputs[1], {firstViewShape, 1},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape), 1}, {bIdx * firstViewShape, 0});
+                }
+                ELSE IF(inputs[0]->shape[0] != broadcastFlag && inputs[1]->shape[0] == broadcastFlag) {
+                    tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                    tileTensor1 = DViewPad(inputs[1], {1, secondViewShape},
+                        {1, std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {0, sIdx * secondViewShape});
+                }
+                ELSE {
+                    tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                    tileTensor1 = DViewPad(inputs[1], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                }
+                Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
                 auto res = Add(tileTensor0, tileTensor1);
                 DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
@@ -81,116 +84,111 @@ static void AddOperationExeFuncDoubleCut(const std::vector<Tensor>& inputs, std:
     }
 }
 
-[[maybe_unused]] static void AddOperationExeFuncDoubleCutWithBrocast(
+static void AddOperationExeFunc3Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0], inputs[1]}, {outputs[0]}) {
-        SymbolicScalar firstDim = inputs[0]->shape[0];
-        SymbolicScalar secondDim = inputs[0]->shape[1];
-        const int firstViewShape = 128;
-        const int secondViewShape = 128;
-
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx,
-            LoopRange(0, CeilDivSymbolicScalar(firstDim, firstViewShape), 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx,
-                LoopRange(0, CeilDivSymbolicScalar(secondDim, secondViewShape), 1)) {
-                auto tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape},
-                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                        std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                    {bIdx * firstViewShape, sIdx * secondViewShape});
-                auto tileTensor1 = DViewPad(inputs[1], {firstViewShape, 1},
-                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape), 1}, {bIdx * firstViewShape, 0});
-                Program::GetInstance().GetTileShape().SetVecTileShapes(
-                    (static_cast<const AddOpFuncArgs *>(opArgs))->vecTileShapes_);
-                auto res = Add(tileTensor0, tileTensor1);
-                DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
-            }
-        }
-    }
-}
-
-[[maybe_unused]] static void AddOperationExeFuncFourCut(
-    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", FunctionType::DYNAMIC, {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar thirdDim = inputs[0]->shape[2];
-        SymbolicScalar fourthDim = inputs[0]->shape[3];
-        const int firstViewShape = 128;
-        const int secondViewShape = 128;
-        const int thirdViewShape = 128;
-        const int fourthViewShape = 128;
+        auto args = static_cast<const AddOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        const int thirdViewShape = args->viewShape_[2];
 
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx,
-            LoopRange(0, CeilDivSymbolicScalar(firstDim, firstViewShape), 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx,
-                LoopRange(0, CeilDivSymbolicScalar(secondDim, secondViewShape), 1)) {
-                LOOP("LOOP_L2_sIdx", FunctionType::DYNAMIC_LOOP, nIdx,
-                    LoopRange(0, CeilDivSymbolicScalar(thirdDim, thirdViewShape), 1)) {
-                    LOOP("LOOP_L3_sIdx", FunctionType::DYNAMIC_LOOP, dIdx,
-                        LoopRange(0, CeilDivSymbolicScalar(fourthDim, fourthViewShape), 1)) {
-                        auto tileTensor0 =
-                            DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
-                                {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                    std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                                    std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape),
-                                    std::min(fourthDim - dIdx * fourthViewShape, fourthViewShape)},
-                                {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape, dIdx * fourthViewShape});
-                        auto tileTensor1 = DViewPad(inputs[1], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                                std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape),
-                                std::min(fourthDim - dIdx * fourthViewShape, fourthViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape, dIdx * fourthViewShape});
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(
-                            (static_cast<const AddOpFuncArgs *>(opArgs))->vecTileShapes_);
-                        auto res = Add(tileTensor0, tileTensor1);
-                        DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape, dIdx * fourthViewShape}, outputs[0]);
-                    }
+        const int bloop = CeilDiv(firstDim, firstViewShape);
+        const int sloop = CeilDiv(secondDim, secondViewShape);
+        const int nloop = CeilDiv(thirdDim, thirdViewShape);
+
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
+                    auto tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                            std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
+                    auto tileTensor1 = DViewPad(inputs[1], {firstViewShape, secondViewShape, thirdViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                            std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
+                    Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                    auto res = Add(tileTensor0, tileTensor1);
+                    DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
             }
         }
     }
 }
 
-[[maybe_unused]] static void AddOperationExeFuncFourCutWithLastDimBrocast(
+static void AddOperationExeFunc4Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", FunctionType::DYNAMIC, {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar thirdDim = inputs[0]->shape[2];
         SymbolicScalar fourthDim = inputs[0]->shape[3];
-        const int firstViewShape = 128;
-        const int secondViewShape = 128;
-        const int thirdViewShape = 128;
-        const int fourthViewShape = 128;
+        auto args = static_cast<const AddOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        const int thirdViewShape = args->viewShape_[2];
+        const int fourthViewShape = args->viewShape_[3];
+        const int broadcastFlag = 1;
 
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx,
-            LoopRange(0, CeilDivSymbolicScalar(firstDim, firstViewShape), 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx,
-                LoopRange(0, CeilDivSymbolicScalar(secondDim, secondViewShape), 1)) {
-                LOOP("LOOP_L2_sIdx", FunctionType::DYNAMIC_LOOP, nIdx,
-                    LoopRange(0, CeilDivSymbolicScalar(thirdDim, thirdViewShape), 1)) {
-                    LOOP("LOOP_L3_sIdx", FunctionType::DYNAMIC_LOOP, dIdx,
-                        LoopRange(0, CeilDivSymbolicScalar(fourthDim, fourthViewShape), 1)) {
-                        auto tileTensor0 =
-                            DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+        const int bloop = CeilDiv(firstDim, firstViewShape);
+        const int sloop = CeilDiv(secondDim, secondViewShape);
+        const int mloop = CeilDiv(thirdDim, thirdViewShape);
+        const int nloop = CeilDiv(fourthDim, fourthViewShape);
+
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mloop, 1)) {
+                    LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
+                        Tensor tileTensor0;
+                        Tensor tileTensor1;
+                        // broadcast dim 2 of the second input tensor
+                        IF(inputs[1]->shape[2] == broadcastFlag && inputs[0]->shape[2] != broadcastFlag) {
+                            // case 26 [16, 16, 1, 16] broadcast场景
+                            // case 27 [1, 1, 1, 16] broadcast场景
+                            tileTensor0 =
+                                DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                        std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                        std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
+                                        std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
+                                    {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                        nIdx * fourthViewShape});
+                            tileTensor1 = DViewPad(inputs[1], {firstViewShape, secondViewShape, 1, fourthViewShape},
                                 {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                    std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                                    std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape),
-                                    std::min(fourthDim - dIdx * fourthViewShape, fourthViewShape)},
-                                {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
-                                    dIdx * fourthViewShape});
-                        auto tileTensor1 = DViewPad(inputs[1], {firstViewShape, secondViewShape, thirdViewShape, 1},
-                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                                std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape), 1},
-                            {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape, 0});
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(
-                            (static_cast<const AddOpFuncArgs *>(opArgs))->vecTileShapes_);
+                                    std::min(secondDim - sIdx * secondViewShape, secondViewShape), 1,
+                                    std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
+                                {bIdx * firstViewShape, sIdx * secondViewShape, 0, nIdx * fourthViewShape});
+                        }
+                        ELSE {
+                            tileTensor0 =
+                                DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                        std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                        std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
+                                        std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
+                                    {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                        nIdx * fourthViewShape});
+                            tileTensor1 =
+                                DViewPad(inputs[1], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                        std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                        std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
+                                        std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
+                                    {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                        nIdx * fourthViewShape});
+                        }
+                        Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
                         auto res = Add(tileTensor0, tileTensor1);
                         DAssemble(res,
-                            {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
-                                dIdx * fourthViewShape},
+                            {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                nIdx * fourthViewShape},
                             outputs[0]);
                     }
                 }
@@ -199,41 +197,28 @@ static void AddOperationExeFuncDoubleCut(const std::vector<Tensor>& inputs, std:
     }
 }
 
-static const AddOperationMetadata testDataLists[] = {
-    AddOperationMetadata({512, 128}, {64, 128}, DataType::DT_FP32, AddOperationExeFunc),
-    AddOperationMetadata({1024, 256}, {64, 128}, DataType::DT_FP32, AddOperationExeFunc),
-    AddOperationMetadata({512, 256}, {64, 64}, DataType::DT_FP32, AddOperationExeFuncDoubleCut),
-    AddOperationMetadata({512, 128}, {64, 64}, DataType::DT_FP32, AddOperationExeFuncDoubleCut),
-    AddOperationMetadata({128 + 17, 128}, {32, 32}, DataType::DT_FP32, AddOperationExeFuncDoubleCut),
-    AddOperationMetadata({90 + 17, 128}, {32, 32}, DataType::DT_FP32, AddOperationExeFuncDoubleCut),
-    AddOperationMetadata({90 + 17, 128 + 17}, {16, 16}, DataType::DT_FP32, AddOperationExeFuncDoubleCut),
-    AddOperationMetadata({1, 1}, {16, 16}, DataType::DT_FP32, AddOperationExeFuncDoubleCut),
-    AddOperationMetadata({32, 32}, {16, 16}, DataType::DT_FP32, AddOperationExeFuncDoubleCut),
-    AddOperationMetadata({128, 128}, {64, 64}, DataType::DT_FP32, AddOperationExeFuncDoubleCut),
-    AddOperationMetadata({192, 512}, {32, 32}, DataType::DT_FP32, AddOperationExeFuncDoubleCut),
-};
+static const AddOpMetaData metaData =
+    AddOpMetaData({AddOperationExeFunc2Dims, AddOperationExeFunc3Dims, AddOperationExeFunc4Dims});
 
-class AddOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<AddOperationMetadata> {};
+class AddOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<AddOpMetaData> {};
 
-INSTANTIATE_TEST_SUITE_P(
-    TestAdd,
-    AddOperationTest,
-    ::testing::ValuesIn(testDataLists)
-);
+INSTANTIATE_TEST_SUITE_P(TestAdd, AddOperationTest, ::testing::Values(metaData));
 
-TEST_P(AddOperationTest, test_add) {
+TEST_P(AddOperationTest, TestAdd) {
     TestCaseDesc testCase;
-    testCase.inputTensors = {
-        Tensor(GetParam().args_.dType_, GetParam().args_.shape_, "input0"),
-        Tensor(GetParam().args_.dType_, GetParam().args_.shape_, "input1")
-    };
-    testCase.outputTensors = {
-        Tensor(GetParam().args_.dType_, GetParam().args_.shape_, "output")
-    };
-    testCase.inputPaths = {GetGoldenDir() + "/x.bin", GetGoldenDir() + "/y.bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/res.bin"};
-    testCase.args = &(GetParam().args_);
-    testCase.opFunc = GetParam().opFunc_;
+    auto config = GetGoldenDir() + "/test_case_data.json";
+    testCase.inputTensors = GetInputTensors(config);
+    testCase.outputTensors = GetOutputTensors(config);
+    auto args = AddOpFuncArgs(GetViewShape(config), GetTileShape(config));
+    testCase.args = &args;
+    auto func_id = GetFuncId(config);
+    if (func_id < 0 || static_cast<size_t>(func_id) >= GetParam().opFuncs_.size()) {
+        func_id = args.viewShape_.size() - 2;
+    }
+    testCase.opFunc = GetParam().opFuncs_[func_id];
+    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin",
+        GetGoldenDir() + "/" + testCase.inputTensors[1]->Symbol() + ".bin"};
+    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
     TestExecutor::runTest(testCase);
 }
 } // namespace

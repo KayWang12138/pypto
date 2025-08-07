@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file test_divs_operation.cpp
+ * \file test_add_operation.cpp
  * \brief
  */
 
@@ -18,76 +18,71 @@
 using namespace tile_fwk::test_operation;
 namespace {
 struct DivsOpFuncArgs : public OpFuncArgs {
-    DivsOpFuncArgs(std::vector<int> shape, std::vector<int> vecTileShape, std::vector<int> tileShape, DataType dType) :
-        shape_(shape), vecTileShape_(vecTileShape), tileShape_(tileShape), dType_(dType) {}
-    std::vector<int> shape_;
-    std::vector<int> vecTileShape_;
+    DivsOpFuncArgs(const Element &value, const std::vector<int> &viewShape, const std::vector<int> tileShape)
+        : value_(value), viewShape_(viewShape), tileShape_(tileShape) {}
+
+    Element value_;
+    std::vector<int> viewShape_;
     std::vector<int> tileShape_;
-    DataType dType_;
-};
-struct DivsOperationMetaData {
-    DivsOperationMetaData(std::vector<int> shape, std::vector<int> vecTileShape, std::vector<int> tileShape,
-        DataType dType, OpFunc opFunc) :
-        args_(shape, vecTileShape, tileShape, dType), opFunc_(opFunc) {}
-    DivsOpFuncArgs args_;
-    OpFunc opFunc_;
 };
 
-static void DivsOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs *opArgs) {
+struct DivsOpMetaData {
+    explicit DivsOpMetaData(const std::vector<OpFunc> &funcs) : opFuncs_(funcs) {}
+
+    std::vector<OpFunc> opFuncs_;
+};
+
+static void DivsOperationExeFuncDoubleCut(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
-        const DivsOpFuncArgs* args = static_cast<const DivsOpFuncArgs*>(opArgs);
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
-        std::vector<float> divNum(1, 0);
-        readInput<float>(GetGoldenDir() + "/y.bin", divNum);
-        const int firstViewShape = args->vecTileShape_[0];
-        const int secondViewShape = args->vecTileShape_[1];
+        auto args = static_cast<const DivsOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
         int bloop = CeilDiv(firstDim, firstViewShape);
         int sloop = CeilDiv(secondDim, secondViewShape);
+
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
                 auto tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape},
                     {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                         std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
-                if (args->tileShape_[0] != 0 && args->tileShape_[1] != 0) {
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
-                }
-                auto res = DivS(tileTensor0, Element(args->dType_, divNum[0]));
+                Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                auto res = DivS(tileTensor0, args->value_);
                 DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
         }
     }
 }
 
-static void DivsOperationExeFuncDim3(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);                              
+static void DivsOperationExeFuncTripleCut(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
-        const DivsOpFuncArgs* args = static_cast<const DivsOpFuncArgs*>(opArgs);
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar thirdDim = inputs[0]->shape[2];
-        std::vector<float> divNum(1, 0);
-        readInput<float>(GetGoldenDir() + "/y.bin", divNum);
-        const int firstViewShape = args->vecTileShape_[0];
-        const int secondViewShape = args->vecTileShape_[1];
-        const int thirdViewShape = args->vecTileShape_[2];
+        auto args = static_cast<const DivsOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        const int thirdViewShape = args->viewShape_[2];
         int bloop = CeilDiv(firstDim, firstViewShape);
         int sloop = CeilDiv(secondDim, secondViewShape);
         int nloop = CeilDiv(thirdDim, thirdViewShape);
+
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
                 LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
                     auto tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
-                        {
-                            std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                             std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                            std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)
-                        },
+                            std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
                     Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
-                    auto res = DivS(tileTensor0, Element(args->dType_, divNum[0]));
+                    auto res = DivS(tileTensor0, args->value_);
                     DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
             }
@@ -95,39 +90,42 @@ static void DivsOperationExeFuncDim3(const std::vector<Tensor>& inputs, std::vec
     }
 }
 
-static void DivsOperationExeFuncDim4(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);                                  
+static void DivsOperationExeFuncQuadrupleCut(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
-        const DivsOpFuncArgs* args = static_cast<const DivsOpFuncArgs*>(opArgs);
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar thirdDim = inputs[0]->shape[2];
         SymbolicScalar fourthDim = inputs[0]->shape[3];
-        std::vector<float> divNum(1, 0);
-        readInput<float>(GetGoldenDir() + "/y.bin", divNum);
-        const int firstViewShape = args->vecTileShape_[0];
-        const int secondViewShape = args->vecTileShape_[1];
-        const int thirdViewShape = args->vecTileShape_[2];
-        const int fourthViewShape = args->vecTileShape_[3];
+        auto args = static_cast<const DivsOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        const int thirdViewShape = args->viewShape_[2];
+        const int fourthViewShape = args->viewShape_[3];
         int bloop = CeilDiv(firstDim, firstViewShape);
         int sloop = CeilDiv(secondDim, secondViewShape);
         int nloop = CeilDiv(thirdDim, thirdViewShape);
         int qloop = CeilDiv(fourthDim, fourthViewShape);
+
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
                 LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
                     LOOP("LOOP_L3_qIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(0, qloop, 1)) {
-                        auto tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
-                            {
-                                std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                                std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape),
-                                std::min(fourthDim - qIdx * fourthViewShape, fourthViewShape)
-                            },
-                            {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape, qIdx * fourthViewShape});
+                        auto tileTensor0 =
+                            DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                                {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                    std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                    std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape),
+                                    std::min(fourthDim - qIdx * fourthViewShape, fourthViewShape)},
+                                {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
+                                    qIdx * fourthViewShape});
                         Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
-                        auto res = DivS(tileTensor0, Element(args->dType_, divNum[0]));
-                        DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape, qIdx * fourthViewShape}, outputs[0]);
+                        auto res = DivS(tileTensor0, args->value_);
+                        DAssemble(res,
+                            {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
+                                qIdx * fourthViewShape},
+                            outputs[0]);
                     }
                 }
             }
@@ -135,50 +133,29 @@ static void DivsOperationExeFuncDim4(const std::vector<Tensor>& inputs, std::vec
     }
 }
 
-static const DivsOperationMetaData testDataLists[] = {
-    DivsOperationMetaData{{64*48, 512}, {128, 128}, {32, 32}, DataType::DT_FP32, DivsOperationExeFunc},
-    DivsOperationMetaData{{64*48, 128*3}, {128, 128}, {32, 32}, DataType::DT_FP32, DivsOperationExeFunc},
-    DivsOperationMetaData{{64*32, 16*3}, {128, 128}, {32, 32}, DataType::DT_FP32, DivsOperationExeFunc},
-    DivsOperationMetaData{{64*32+3, 16*3}, {128, 128}, {32, 32}, DataType::DT_FP32, DivsOperationExeFunc},
-    DivsOperationMetaData{{64*48, 128*3}, {128, 127}, {32, 32}, DataType::DT_FP32, DivsOperationExeFunc},
-    DivsOperationMetaData{{48*128, 64, 64}, {64, 64, 64}, {32, 32, 32}, DataType::DT_FP32, DivsOperationExeFuncDim3},
-    DivsOperationMetaData{{16, 16, 128, 32}, {16, 16, 16, 16}, {8, 8, 8, 8}, DataType::DT_FP32, DivsOperationExeFuncDim4},
-    DivsOperationMetaData{{64*48, 128*3}, {128, 128}, {32, 32}, DataType::DT_FP32, DivsOperationExeFunc},
-    DivsOperationMetaData{{64*48, 128*3}, {128, 128}, {32, 32}, DataType::DT_FP32, DivsOperationExeFunc},
-    DivsOperationMetaData{{64*48, 0}, {128, 128}, {32, 32}, DataType::DT_FP32, DivsOperationExeFunc},
-    DivsOperationMetaData{{64*48, 128*3}, {128, 128}, {32, 32}, DataType::DT_FP32, DivsOperationExeFunc},
-    DivsOperationMetaData{{64*48, 128*3}, {128, 128}, {32, 32}, DataType::DT_FP32, DivsOperationExeFunc},
-    DivsOperationMetaData{{64*48, 128*3}, {128, 128}, {32, 32}, DataType::DT_FP32, DivsOperationExeFunc},
-    DivsOperationMetaData{{64*48, 128*3}, {128, 128}, {32, 32}, DataType::DT_FP32, DivsOperationExeFunc},
-    DivsOperationMetaData{{64*48, 128*3}, {128, 128}, {32, 32}, DataType::DT_FP32, DivsOperationExeFunc},
-    DivsOperationMetaData{{1, 1}, {32, 32}, {16, 16}, DataType::DT_FP32, DivsOperationExeFunc},
-    DivsOperationMetaData{{32, 32}, {32, 32}, {16, 16}, DataType::DT_FP32, DivsOperationExeFunc},
-    DivsOperationMetaData{{128, 128}, {32, 32}, {64, 64}, DataType::DT_FP32, DivsOperationExeFunc},
-    DivsOperationMetaData{{16, 1536}, {32, 32}, {64, 64}, DataType::DT_FP32, DivsOperationExeFunc},
-    DivsOperationMetaData{{16, 512}, {32, 32}, {64, 64}, DataType::DT_FP32, DivsOperationExeFunc},
-    DivsOperationMetaData{{16, 128*3}, {32, 32}, {64, 64}, DataType::DT_FP32, DivsOperationExeFunc},
-};
+static const DivsOpMetaData metaData =
+    DivsOpMetaData({DivsOperationExeFuncDoubleCut, DivsOperationExeFuncTripleCut, DivsOperationExeFuncQuadrupleCut});
 
-class DivsOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<DivsOperationMetaData> {};
+class DivsOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<DivsOpMetaData> {};
 
-INSTANTIATE_TEST_SUITE_P(
-    TestDivs,
-    DivsOperationTest,
-    ::testing::ValuesIn(testDataLists)
-);
+INSTANTIATE_TEST_SUITE_P(TestDivs, DivsOperationTest, ::testing::Values(metaData));
 
-TEST_P(DivsOperationTest, test_divs) {
+TEST_P(DivsOperationTest, TestDivs) {
     TestCaseDesc testCase;
-    testCase.inputTensors = {
-        Tensor(GetParam().args_.dType_, GetParam().args_.shape_, "input0")
-    };
-    testCase.outputTensors = {
-        Tensor(GetParam().args_.dType_, GetParam().args_.shape_, "output")
-    };
-    testCase.inputPaths = {GetGoldenDir() + "/x.bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/res.bin"};
-    testCase.args = &GetParam().args_;
-    testCase.opFunc = GetParam().opFunc_;
+    auto config = GetGoldenDir() + "/test_case_data.json";
+    testCase.inputTensors = GetInputTensors(config);
+    testCase.outputTensors = GetOutputTensors(config);
+    auto dtype = GetDataType(GetValueByName<std::string>(config, "scalar_type"));
+    Element value(dtype, GetValueByName<float>(config, "scalar"));
+    auto args = DivsOpFuncArgs(value, GetViewShape(config), GetTileShape(config));
+    testCase.args = &args;
+    auto func_id = GetFuncId(config);
+    if (func_id < 0 || static_cast<size_t>(func_id) >= GetParam().opFuncs_.size()) {
+        func_id = args.viewShape_.size() - 2;
+    }
+    testCase.opFunc = GetParam().opFuncs_[func_id];
+    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin"};
+    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
     TestExecutor::runTest(testCase);
 }
 } // namespace

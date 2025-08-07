@@ -13,58 +13,69 @@
  * \brief
  */
 
+#include <nlohmann/json.hpp>
 #include "test_operation.h"
 
 using namespace tile_fwk::test_operation;
 namespace {
 struct SubOpFuncArgs : public OpFuncArgs {
-    SubOpFuncArgs(const std::vector<int> &input0Shape, const std::vector<int> &input1Shape,
-        const std::vector<int> &viewShape, const std::vector<int> tileShape, const DataType &dType)
-        : input0Shape_(input0Shape),
-          input1Shape_(input1Shape),
-          viewShape_(viewShape),
-          tileShape_(tileShape),
-          dType_(dType) {}
+    SubOpFuncArgs(const std::vector<int> &viewShape, const std::vector<int> tileShape)
+        : viewShape_(viewShape), tileShape_(tileShape) {}
 
-    std::vector<int> input0Shape_;
-    std::vector<int> input1Shape_;
     std::vector<int> viewShape_;
     std::vector<int> tileShape_;
-    DataType dType_;
 };
 
-struct SubOperationMetadata {
-    SubOperationMetadata(int case_index, const SubOpFuncArgs &args, const OpFunc &opFunc)
-        : case_index_(case_index), args_(args), opFunc_(opFunc) {}
+struct SubOpMetaData {
+    explicit SubOpMetaData(const std::vector<OpFunc> &funcs) : opFuncs_(funcs) {}
 
-    int case_index_;
-    SubOpFuncArgs args_;
-    OpFunc opFunc_;
+    std::vector<OpFunc> opFuncs_;
 };
 
-static void SubOperationExeFuncDoubleCut(
+static void SubOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", FunctionType::DYNAMIC, {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
-
         auto args = static_cast<const SubOpFuncArgs *>(opArgs);
         const int firstViewShape = args->viewShape_[0];
-        const int secondViewShape = args->viewShape_[0];
-        int bloop = CeilDiv(firstDim, firstViewShape);
-        int sloop = CeilDiv(secondDim, secondViewShape);
+        const int secondViewShape = args->viewShape_[1];
 
+        const int bloop = CeilDiv(firstDim, firstViewShape);
+        const int sloop = CeilDiv(secondDim, secondViewShape);
+        const int broadcastFlag = 1;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                auto tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape},
-                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                        std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                    {bIdx * firstViewShape, sIdx * secondViewShape});
-                auto tileTensor1 = DViewPad(inputs[1], {firstViewShape, secondViewShape},
-                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                        std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                    {bIdx * firstViewShape, sIdx * secondViewShape});
+                Tensor tileTensor0;
+                Tensor tileTensor1;
+                IF(inputs[0]->shape[1] != broadcastFlag && inputs[1]->shape[1] == broadcastFlag) {
+                    tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                    tileTensor1 = DViewPad(inputs[1], {firstViewShape, 1},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape), 1}, {bIdx * firstViewShape, 0});
+                }
+                ELSE IF(inputs[0]->shape[0] != broadcastFlag && inputs[1]->shape[0] == broadcastFlag) {
+                    tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                    tileTensor1 = DViewPad(inputs[1], {1, secondViewShape},
+                        {1, std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {0, sIdx * secondViewShape});
+                }
+                ELSE {
+                    tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                    tileTensor1 = DViewPad(inputs[1], {firstViewShape, secondViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape});
+                }
                 Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
                 auto res = Sub(tileTensor0, tileTensor1);
                 DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
@@ -73,29 +84,141 @@ static void SubOperationExeFuncDoubleCut(
     }
 }
 
-static const SubOperationMetadata testDataLists[] = {
-    // shape0,shape1,viewshape,tileshape,dtype
-    SubOperationMetadata(
-        3, SubOpFuncArgs{{128 + 17, 128}, {128 + 17, 128}, {128, 128}, {32, 32}, DataType::DT_FP32}, SubOperationExeFuncDoubleCut),
-    SubOperationMetadata(
-        4, SubOpFuncArgs{{90 + 17, 128}, {90 + 17, 128}, {45, 46}, {32, 32}, DataType::DT_FP32}, SubOperationExeFuncDoubleCut),
+static void SubOperationExeFunc3Dims(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0], inputs[1]}, {outputs[0]}) {
+        SymbolicScalar firstDim = inputs[0]->shape[0];
+        SymbolicScalar secondDim = inputs[0]->shape[1];
+        SymbolicScalar thirdDim = inputs[0]->shape[2];
+        auto args = static_cast<const SubOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        const int thirdViewShape = args->viewShape_[2];
 
-};
+        const int bloop = CeilDiv(firstDim, firstViewShape);
+        const int sloop = CeilDiv(secondDim, secondViewShape);
+        const int nloop = CeilDiv(thirdDim, thirdViewShape);
 
-class SubOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<SubOperationMetadata> {};
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
+                    auto tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                            std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
+                    auto tileTensor1 = DViewPad(inputs[1], {firstViewShape, secondViewShape, thirdViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                            std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
+                    Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                    auto res = Sub(tileTensor0, tileTensor1);
+                    DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
+                }
+            }
+        }
+    }
+}
 
-INSTANTIATE_TEST_SUITE_P(TestSub, SubOperationTest, ::testing::ValuesIn(testDataLists));
+static void SubOperationExeFunc4Dims(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0], inputs[1]}, {outputs[0]}) {
+        SymbolicScalar firstDim = inputs[0]->shape[0];
+        SymbolicScalar secondDim = inputs[0]->shape[1];
+        SymbolicScalar thirdDim = inputs[0]->shape[2];
+        SymbolicScalar fourthDim = inputs[0]->shape[3];
+        auto args = static_cast<const SubOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        const int thirdViewShape = args->viewShape_[2];
+        const int fourthViewShape = args->viewShape_[3];
+        const int broadcastFlag = 1;
 
-TEST_P(SubOperationTest, test_sub) {
+        const int bloop = CeilDiv(firstDim, firstViewShape);
+        const int sloop = CeilDiv(secondDim, secondViewShape);
+        const int mloop = CeilDiv(thirdDim, thirdViewShape);
+        const int nloop = CeilDiv(fourthDim, fourthViewShape);
+
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mloop, 1)) {
+                    LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
+                        Tensor tileTensor0;
+                        Tensor tileTensor1;
+                        // broadcast dim 2 of the second input tensor
+                        IF(inputs[1]->shape[2] == broadcastFlag && inputs[0]->shape[2] != broadcastFlag) {
+                            // case 26 [16, 16, 1, 16] broadcast场景
+                            // case 27 [1, 1, 1, 16] broadcast场景
+                            tileTensor0 =
+                                DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                        std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                        std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
+                                        std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
+                                    {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                        nIdx * fourthViewShape});
+                            tileTensor1 = DViewPad(inputs[1], {firstViewShape, secondViewShape, 1, fourthViewShape},
+                                {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                    std::min(secondDim - sIdx * secondViewShape, secondViewShape), 1,
+                                    std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
+                                {bIdx * firstViewShape, sIdx * secondViewShape, 0, nIdx * fourthViewShape});
+                        }
+                        ELSE {
+                            tileTensor0 =
+                                DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                        std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                        std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
+                                        std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
+                                    {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                        nIdx * fourthViewShape});
+                            tileTensor1 =
+                                DViewPad(inputs[1], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                        std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                        std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
+                                        std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
+                                    {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                        nIdx * fourthViewShape});
+                        }
+                        Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                        auto res = Sub(tileTensor0, tileTensor1);
+                        DAssemble(res,
+                            {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                nIdx * fourthViewShape},
+                            outputs[0]);
+                    }
+                }
+            }
+        }
+    }
+}
+
+static const SubOpMetaData metaData =
+    SubOpMetaData({SubOperationExeFunc2Dims, SubOperationExeFunc3Dims, SubOperationExeFunc4Dims});
+
+class SubOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<SubOpMetaData> {};
+
+INSTANTIATE_TEST_SUITE_P(TestSub, SubOperationTest, ::testing::Values(metaData));
+
+TEST_P(SubOperationTest, TestSub) {
     TestCaseDesc testCase;
-    auto args = GetParam().args_;
-    testCase.inputTensors = {
-        Tensor(args.dType_, args.input0Shape_, "input0"), Tensor(args.dType_, args.input1Shape_, "input1")};
-    testCase.outputTensors = {Tensor(args.dType_, args.input0Shape_, "output")};
-    testCase.args = &(GetParam().args_);
-    testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/x.bin", GetGoldenDir() + "/y.bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/res.bin"};
+    auto config = GetGoldenDir() + "/test_case_data.json";
+    testCase.inputTensors = GetInputTensors(config);
+    testCase.outputTensors = GetOutputTensors(config);
+    auto args = SubOpFuncArgs(GetViewShape(config), GetTileShape(config));
+    testCase.args = &args;
+    auto func_id = GetFuncId(config);
+    if (func_id < 0 || static_cast<size_t>(func_id) >= GetParam().opFuncs_.size()) {
+        func_id = args.viewShape_.size() - 2;
+    }
+    testCase.opFunc = GetParam().opFuncs_[func_id];
+    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin",
+        GetGoldenDir() + "/" + testCase.inputTensors[1]->Symbol() + ".bin"};
+    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
     TestExecutor::runTest(testCase);
 }
 } // namespace

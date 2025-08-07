@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file test_add_operation.cpp
+ * \file test_vector_dup_operation.cpp
  * \brief
  */
 
@@ -17,126 +17,110 @@
 
 using namespace tile_fwk::test_operation;
 namespace {
-struct VectorDupOpFuncArgs : public OpFuncArgs {
-    VectorDupOpFuncArgs(std::vector<int> shape, std::vector<int> vecViewShapes, std::vector<int> vecTileShapes,
-        DataType dType) : shape_(shape), vecViewShapes_(vecViewShapes), vecTileShapes_(vecTileShapes), dType_(dType) {}
-    std::vector<int> shape_;
-    std::vector<int> vecViewShapes_;
-    std::vector<int> vecTileShapes_;
-    DataType dType_;
+struct VectorDuplicateOpFuncArgs : public OpFuncArgs {
+    VectorDuplicateOpFuncArgs(const Element &value, const std::vector<int> &viewShape, const std::vector<int> tileShape)
+        : value_(value), viewShape_(viewShape), tileShape_(tileShape) {}
+
+    Element value_;
+    std::vector<int> viewShape_;
+    std::vector<int> tileShape_;
 };
 
-struct VectorDupOperationMetadata {
-    VectorDupOperationMetadata(int caseIndex, VectorDupOpFuncArgs args, OpFunc opFunc) :
-        caseIndex_(caseIndex), args_(args), opFunc_(opFunc) {}
-    int caseIndex_;
-    VectorDupOpFuncArgs args_;
-    OpFunc opFunc_;
+struct VectorDuplicateOpMetaData {
+    explicit VectorDuplicateOpMetaData(const std::vector<OpFunc> &funcs) : opFuncs_(funcs) {}
+
+    std::vector<OpFunc> opFuncs_;
 };
 
-static void VectorDupOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
-                                 const OpFuncArgs* opArgs) {                               
+static void VectorDuplicateOperationExeFunc2Dims(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
-        const struct VectorDupOpFuncArgs *args = static_cast<const VectorDupOpFuncArgs*>(opArgs);
-        const int firstl0LoopLengthTile = args->vecViewShapes_[0];
-        const int bloop = CeilDiv(firstDim, firstl0LoopLengthTile);
-        Program::GetInstance().GetTileShape().SetVecTileShapes(args->vecTileShapes_);
-
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            auto tileTensor0 = VectorDuplicate(Element(DataType::DT_FP32, 1e-5f), DT_FP32, {firstl0LoopLengthTile, secondDim},
-                {std::min(firstDim - bIdx * firstl0LoopLengthTile, firstl0LoopLengthTile), secondDim});
-            DAssemble(tileTensor0, {bIdx * firstl0LoopLengthTile, 0}, outputs[0]);
-        }
-    }
-}
-
-static void VectorDupOperationExeFuncDoubleCut(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
-                                          const OpFuncArgs* opArgs) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);                                
-    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
-        SymbolicScalar firstDim = inputs[0]->shape[0];
-        SymbolicScalar secondDim = inputs[0]->shape[1];
-        std::vector<float> inputData(1, 0);
-        readInput<float>(GetGoldenDir() + "/x.bin", inputData);
-        Element value(DataType::DT_FP32, inputData[0]);
-        auto args = static_cast<const VectorDupOpFuncArgs*>(opArgs);
-        const int firstViewShape = args->vecViewShapes_[0];
-        const int secondViewShape = args->vecViewShapes_[1];
-        int bloop = CeilDiv(firstDim, firstViewShape);
-        int sloop = CeilDiv(secondDim, secondViewShape);
-        Program::GetInstance().GetTileShape().SetVecTileShapes(args->vecTileShapes_);
+        auto args = static_cast<const VectorDuplicateOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        const int bloop = CeilDiv(firstDim, firstViewShape);
+        const int sloop = CeilDiv(secondDim, secondViewShape);
+        Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                auto tileTensor0 = VectorDuplicate(value, DT_FP32, {firstViewShape, secondViewShape},
+                auto tileTensor = VectorDuplicate(args->value_, DataType::DT_FP32, {firstViewShape, secondViewShape},
                     {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                         std::min(secondDim - sIdx * secondViewShape, secondViewShape)});
-                DAssemble(tileTensor0, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
+                DAssemble(tileTensor, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
         }
     }
 }
 
-static void VectorDupOperationExeFuncTripleCut(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
-                                          const OpFuncArgs* opArgs) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);                              
+static void VectorDuplicateOperationExeFunc3Dims(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar thirdDim = inputs[0]->shape[2];
-        auto args = static_cast<const VectorDupOpFuncArgs*>(opArgs);
-        const int firstViewShape = args->vecViewShapes_[0];
-        const int secondViewShape = args->vecViewShapes_[1];
-        const int thirdViewShape = args->vecViewShapes_[2];
-        int bloop = CeilDiv(firstDim, firstViewShape);
-        int sloop = CeilDiv(secondDim, secondViewShape);
-        int nloop = CeilDiv(thirdDim, thirdViewShape);
-        Program::GetInstance().GetTileShape().SetVecTileShapes(args->vecTileShapes_);
+        auto args = static_cast<const VectorDuplicateOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        const int thirdViewShape = args->viewShape_[2];
+        const int bloop = CeilDiv(firstDim, firstViewShape);
+        const int sloop = CeilDiv(secondDim, secondViewShape);
+        const int nloop = CeilDiv(thirdDim, thirdViewShape);
+        Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                    auto tileTensor0 = VectorDuplicate(Element(DataType::DT_FP32, 2.0f), DT_FP32, {firstViewShape, secondViewShape, thirdViewShape},
+                LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
+                    auto tileTensor = VectorDuplicate(args->value_, DataType::DT_FP32,
+                        {firstViewShape, secondViewShape, thirdViewShape},
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                             std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                                std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)});
-                    DAssemble(tileTensor0, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
+                            std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)});
+                    DAssemble(
+                        tileTensor, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
             }
         }
     }
 }
 
-static void VectorDupOperationExeFuncQuadrupleCut(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
-                                             const OpFuncArgs* opArgs) {
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);                                  
+static void VectorDuplicateOperationExeFunc4Dims(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar thirdDim = inputs[0]->shape[2];
         SymbolicScalar fourthDim = inputs[0]->shape[3];
-        auto args = static_cast<const VectorDupOpFuncArgs*>(opArgs);
-        const int firstViewShape = args->vecViewShapes_[0];
-        const int secondViewShape = args->vecViewShapes_[1];
-        const int thirdViewShape = args->vecViewShapes_[2];
-        const int fourthViewShape = args->vecViewShapes_[3];
-        int bloop = CeilDiv(firstDim, firstViewShape);
-        int sloop = CeilDiv(secondDim, secondViewShape);
-        int nloop = CeilDiv(thirdDim, thirdViewShape);
-        int qloop = CeilDiv(fourthDim, fourthViewShape);
-        Program::GetInstance().GetTileShape().SetVecTileShapes(args->vecTileShapes_);
+        auto args = static_cast<const VectorDuplicateOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        const int thirdViewShape = args->viewShape_[2];
+        const int fourthViewShape = args->viewShape_[3];
+
+        const int bloop = CeilDiv(firstDim, firstViewShape);
+        const int sloop = CeilDiv(secondDim, secondViewShape);
+        const int mloop = CeilDiv(thirdDim, thirdViewShape);
+        const int nloop = CeilDiv(fourthDim, fourthViewShape);
+
+        Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                    LOOP("LOOP_L3_qIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(0, qloop, 1)) {
-                        auto tileTensor0 = VectorDuplicate(Element(DataType::DT_FP32, 2.0f), DT_FP32, {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mloop, 1)) {
+                    LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
+                        Tensor tileTensor0 = VectorDuplicate(args->value_, DataType::DT_FP32,
+                            {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
                             {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                                 std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                                    std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape),
-                                        std::min(fourthDim - qIdx * fourthViewShape, fourthViewShape)});
-                        DAssemble(tileTensor0, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape, qIdx * fourthViewShape}, outputs[0]);
+                                std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
+                                std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)});
+                        DAssemble(tileTensor0,
+                            {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                nIdx * fourthViewShape},
+                            outputs[0]);
                     }
                 }
             }
@@ -144,61 +128,30 @@ static void VectorDupOperationExeFuncQuadrupleCut(const std::vector<Tensor>& inp
     }
 }
 
-static const VectorDupOperationMetadata testDataLists[] = {
-    VectorDupOperationMetadata{0, VectorDupOpFuncArgs{{64*48, 1}, {128, 1}, {32, 32}, DataType::DT_FP32},
-                               VectorDupOperationExeFunc},
-    VectorDupOperationMetadata{1, VectorDupOpFuncArgs{{64*48, 128*3}, {128, 128}, {32, 32}, DataType::DT_FP32},
-                               VectorDupOperationExeFuncDoubleCut},
-    VectorDupOperationMetadata{2, VectorDupOpFuncArgs{{64*32, 16*3}, {128, 128}, {32, 32}, DataType::DT_FP32},
-                               VectorDupOperationExeFuncDoubleCut},
-    VectorDupOperationMetadata{3, VectorDupOpFuncArgs{{64*32 + 3, 16*3}, {128, 128}, {32, 32}, DataType::DT_FP32},
-                               VectorDupOperationExeFuncDoubleCut},
-    VectorDupOperationMetadata{4, VectorDupOpFuncArgs{{64*48, 128*3}, {128, 127}, {32, 32}, DataType::DT_FP32},
-                               VectorDupOperationExeFuncDoubleCut},
-    VectorDupOperationMetadata{5, VectorDupOpFuncArgs{{48*128, 64, 64}, {64, 64, 64}, {32, 32, 32}, DataType::DT_FP32},
-                               VectorDupOperationExeFuncTripleCut},
-    VectorDupOperationMetadata{6, VectorDupOpFuncArgs{{1, 1}, {32, 32}, {16, 16}, DataType::DT_FP32},
-                               VectorDupOperationExeFuncDoubleCut},
-    VectorDupOperationMetadata{7, VectorDupOpFuncArgs{{32, 32}, {32, 32}, {16, 16}, DataType::DT_FP32},
-                               VectorDupOperationExeFuncDoubleCut},
-    VectorDupOperationMetadata{8, VectorDupOpFuncArgs{{128, 128}, {32, 32}, {64, 64}, DataType::DT_FP32},
-                               VectorDupOperationExeFuncDoubleCut},
-    VectorDupOperationMetadata{9,
-                               VectorDupOpFuncArgs{{48, 64, 128, 32}, {48, 64, 32, 16}, {16, 16, 16, 8},
-                                                   DataType::DT_FP32},
-                               VectorDupOperationExeFuncQuadrupleCut},
-    VectorDupOperationMetadata{10, VectorDupOpFuncArgs{{64*48, 0}, {128, 128}, {32, 32}, DataType::DT_FP32},
-                               VectorDupOperationExeFuncDoubleCut},
-    VectorDupOperationMetadata{11, VectorDupOpFuncArgs{{0, 128*3}, {128, 128}, {32, 32}, DataType::DT_FP32},
-                               VectorDupOperationExeFuncDoubleCut},
-    VectorDupOperationMetadata{12, VectorDupOpFuncArgs{{64*48, 1536}, {256, 256}, {32, 32}, DataType::DT_FP32},
-                               VectorDupOperationExeFuncDoubleCut},
-    VectorDupOperationMetadata{13, VectorDupOpFuncArgs{{64*48, 512}, {256, 128}, {32, 32}, DataType::DT_FP32},
-                               VectorDupOperationExeFuncDoubleCut},
-    VectorDupOperationMetadata{14, VectorDupOpFuncArgs{{64*48, 7168*4}, {256, 4096}, {32, 512}, DataType::DT_FP32},
-                               VectorDupOperationExeFuncDoubleCut},
-};
+static const VectorDuplicateOpMetaData metaData = VectorDuplicateOpMetaData(
+    {VectorDuplicateOperationExeFunc2Dims, VectorDuplicateOperationExeFunc3Dims, VectorDuplicateOperationExeFunc4Dims});
 
-class VectorDupOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<VectorDupOperationMetadata> {};
+class VectorDuplicateOperationTest
+    : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<VectorDuplicateOpMetaData> {};
 
-INSTANTIATE_TEST_SUITE_P(
-    TestVectorDup,
-    VectorDupOperationTest,
-    ::testing::ValuesIn(testDataLists)
-);
+INSTANTIATE_TEST_SUITE_P(TestVectorDuplicate, VectorDuplicateOperationTest, ::testing::Values(metaData));
 
-TEST_P(VectorDupOperationTest, test_vector_dup) {
-    TestCaseDesc testVectorDupCase;
-    testVectorDupCase.inputTensors = {
-        Tensor(GetParam().args_.dType_, GetParam().args_.shape_, "input0")
-    };
-    testVectorDupCase.outputTensors = {
-        Tensor(GetParam().args_.dType_, GetParam().args_.shape_, "output")
-    };
-    testVectorDupCase.inputPaths = {GetGoldenDir() + "/x.bin"};
-    testVectorDupCase.goldenPaths = {GetGoldenDir() + "/res.bin"};
-    testVectorDupCase.args = &(GetParam().args_);
-    testVectorDupCase.opFunc = GetParam().opFunc_;
-    TestExecutor::runTest(testVectorDupCase);
+TEST_P(VectorDuplicateOperationTest, TestVectorDuplicate) {
+    TestCaseDesc testCase;
+    auto config = GetGoldenDir() + "/test_case_data.json";
+    testCase.inputTensors = GetInputTensors(config);
+    testCase.outputTensors = GetOutputTensors(config);
+    auto dtype = GetDataType(GetValueByName<std::string>(config, "scalar_type"));
+    Element value(dtype, GetValueByName<float>(config, "scalar"));
+    auto args = VectorDuplicateOpFuncArgs(value, GetViewShape(config), GetTileShape(config));
+    testCase.args = &args;
+    auto func_id = GetFuncId(config);
+    if (func_id < 0 || static_cast<size_t>(func_id) >= GetParam().opFuncs_.size()) {
+        func_id = args.viewShape_.size() - 2;
+    }
+    testCase.opFunc = GetParam().opFuncs_[func_id];
+    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin"};
+    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
+    TestExecutor::runTest(testCase);
 }
 } // namespace

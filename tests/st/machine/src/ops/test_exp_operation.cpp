@@ -18,53 +18,27 @@
 using namespace tile_fwk::test_operation;
 namespace {
 struct ExpOpFuncArgs : public OpFuncArgs {
-    ExpOpFuncArgs(std::vector<int> shape, std::vector<int> vecViewShapes, std::vector<int> vecTileShapes,
-        DataType dType) : shape_(shape), vecViewShapes_(vecViewShapes), vecTileShapes_(vecTileShapes), dType_(dType) {}
-    std::vector<int> shape_;
-    std::vector<int> vecViewShapes_;
-    std::vector<int> vecTileShapes_;
-    DataType dType_;
+    ExpOpFuncArgs(const std::vector<int> &viewShape, const std::vector<int> tileShape)
+        : viewShape_(viewShape), tileShape_(tileShape) {}
+
+    std::vector<int> viewShape_;
+    std::vector<int> tileShape_;
 };
 
-struct ExpOperationMetadata {
-    ExpOperationMetadata(std::vector<int> shape, std::vector<int> vecViewShapes,
-        std::vector<int> vecTileShapes, DataType dType, OpFunc opFunc) :
-        args_(shape, vecViewShapes, vecTileShapes, dType), opFunc_(opFunc) {}
-    ExpOpFuncArgs args_;
-    OpFunc opFunc_;
+struct ExpOpMetaData {
+    explicit ExpOpMetaData(const std::vector<OpFunc> &funcs) : opFuncs_(funcs) {}
+
+    std::vector<OpFunc> opFuncs_;
 };
 
-static void ExpOperationExeFuncView1Dims(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
-                                const OpFuncArgs* opArgs)
-{
+static void ExpOperationExeFunc2Dims(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
-        const struct ExpOpFuncArgs *args = static_cast<const ExpOpFuncArgs*>(opArgs);
-        const int firstViewShape = args->vecViewShapes_[0];
-        const int bloop = CeilDiv(firstDim, firstViewShape);
-
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            /* view切分 {firstViewShape，secondDim} = viewshape  */
-            auto tileTensor = DViewPad(inputs[0], {firstViewShape, secondDim},
-                {std::min(firstDim - bIdx * firstViewShape, firstViewShape), secondDim},
-                {bIdx * firstViewShape, 0});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(args->vecTileShapes_);
-            auto res = Exp(tileTensor);
-            DAssemble(res, {bIdx * firstViewShape, 0}, outputs[0]);
-        }
-    }
-}
-
-static void ExpOperationExeFunc2Dims(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
-                                    const OpFuncArgs* opArgs)
-{
-    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
-        SymbolicScalar firstDim = inputs[0]->shape[0];
-        SymbolicScalar secondDim = inputs[0]->shape[1];
-        const struct ExpOpFuncArgs *args = static_cast<const ExpOpFuncArgs*>(opArgs);
-        const int firstViewShape = args->vecViewShapes_[0];
-        const int secondViewShape = args->vecViewShapes_[1];
+        const struct ExpOpFuncArgs *args = static_cast<const ExpOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
         const int bloop = CeilDiv(firstDim, firstViewShape);
         const int sloop = CeilDiv(secondDim, secondViewShape);
 
@@ -74,7 +48,7 @@ static void ExpOperationExeFunc2Dims(const std::vector<Tensor>& inputs, std::vec
                     {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                         std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
-                Program::GetInstance().GetTileShape().SetVecTileShapes(args->vecTileShapes_);
+                Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
                 auto res = Exp(tileTensor);
                 DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
@@ -82,30 +56,29 @@ static void ExpOperationExeFunc2Dims(const std::vector<Tensor>& inputs, std::vec
     }
 }
 
-static void ExpOperationExeFunc3Dims(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
-                                    const OpFuncArgs* opArgs)
-{
+static void ExpOperationExeFunc3Dims(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar thirdDim = inputs[0]->shape[2];
-        const struct ExpOpFuncArgs *args = static_cast<const ExpOpFuncArgs*>(opArgs);
-        const int firstViewShape = args->vecViewShapes_[0];
-        const int secondViewShape = args->vecViewShapes_[1];
-        const int thirdViewShape = args->vecViewShapes_[2];
+        const struct ExpOpFuncArgs *args = static_cast<const ExpOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        const int thirdViewShape = args->viewShape_[2];
         const int bloop = CeilDiv(firstDim, firstViewShape);
         const int sloop = CeilDiv(secondDim, secondViewShape);
-        const int nloop = CeilDiv(thirdDim, secondViewShape);
+        const int nloop = CeilDiv(thirdDim, thirdViewShape);
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
                 LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
                     auto tileTensor = DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                        std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                        std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                            std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(args->vecTileShapes_);
+                    Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
                     auto res = Exp(tileTensor);
                     DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
@@ -114,47 +87,71 @@ static void ExpOperationExeFunc3Dims(const std::vector<Tensor>& inputs, std::vec
     }
 }
 
-static const ExpOperationMetadata testDataLists[] = {
-    ExpOperationMetadata{{64 * 48, 1}, {128, 1}, {32, 32}, DataType::DT_FP32, ExpOperationExeFuncView1Dims}, // 0: 1dims
-    ExpOperationMetadata{{64 * 48, 128 * 3}, {128, 128}, {32, 32}, DataType::DT_FP32, ExpOperationExeFunc2Dims}, // 1: 2dims
-    ExpOperationMetadata{{64 * 48, 16 * 3}, {128, 128}, {32, 32}, DataType::DT_FP32, ExpOperationExeFunc2Dims}, // 2: tile shape nonaligned
-    ExpOperationMetadata{{64 * 48, 128 * 3}, {128, 127}, {32, 32}, DataType::DT_FP32, ExpOperationExeFunc2Dims, }, // 3: view shape nonaligned
-    ExpOperationMetadata{{48 * 128, 64, 64}, {64, 64, 64}, {32, 32, 32}, DataType::DT_FP32, ExpOperationExeFunc3Dims}, // 5: 3dims
-    ExpOperationMetadata{{64 * 48, 128 * 3}, {128, 128}, {32, 32}, DataType::DT_FP16, ExpOperationExeFunc2Dims}, // 7: dtype:fp16
-    ExpOperationMetadata{{64 * 48, 128 * 3}, {128, 128}, {32, 32}, DataType::DT_FP32, ExpOperationExeFunc2Dims}, // 8: inf
-    ExpOperationMetadata{{64 * 48, 128 * 3}, {128, 128}, {32, 32}, DataType::DT_FP32, ExpOperationExeFunc2Dims}, // 9: nan
-    ExpOperationMetadata{{64 * 48, 0}, {128, 128}, {32, 32}, DataType::DT_FP32, ExpOperationExeFunc2Dims}, // 10: empty tensor
-    ExpOperationMetadata{{64 * 48, 128 * 3}, {128, 128}, {32, 32}, DataType::DT_FP32, ExpOperationExeFunc2Dims}, // 11: max
-    ExpOperationMetadata{{64 * 48, 128 * 3}, {128, 128}, {32, 32}, DataType::DT_FP32, ExpOperationExeFunc2Dims}, // 12: min
-    ExpOperationMetadata{{1, 1}, {32, 32}, {16, 16}, DataType::DT_FP32, ExpOperationExeFunc2Dims}, // 14: oshape < vshape
-    ExpOperationMetadata{{32, 32}, {32, 32}, {16, 16}, DataType::DT_FP32, ExpOperationExeFunc2Dims}, // 15: oshape = vshape
-    ExpOperationMetadata{{128, 128}, {32, 32}, {64, 64}, DataType::DT_FP32, ExpOperationExeFunc2Dims}, // 16: vshape < tshape
-    ExpOperationMetadata{{1, 64*192}, {128, 128}, {32, 32}, DataType::DT_FP32, ExpOperationExeFunc2Dims}, // 19: k_dim 192 b min
-    ExpOperationMetadata{{96, 64*192}, {128, 128}, {32, 32}, DataType::DT_FP32, ExpOperationExeFunc2Dims}, // 20: k_dim 192 b max
-    ExpOperationMetadata{{1, 64*128}, {128, 128}, {32, 32}, DataType::DT_FP32, ExpOperationExeFunc2Dims}, // 21: v_dim 128 b min
-    ExpOperationMetadata{{96, 64*128}, {128, 128}, {32, 32}, DataType::DT_FP32, ExpOperationExeFunc2Dims}, // 22: v_dim 128 b max
-};
+static void ExpOperationExeFunc4Dims(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
+        SymbolicScalar firstDim = inputs[0]->shape[0];
+        SymbolicScalar secondDim = inputs[0]->shape[1];
+        SymbolicScalar thirdDim = inputs[0]->shape[2];
+        SymbolicScalar fourthDim = inputs[0]->shape[3];
+        auto args = static_cast<const ExpOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        const int thirdViewShape = args->viewShape_[2];
+        const int fourthViewShape = args->viewShape_[3];
 
-class ExpOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<ExpOperationMetadata> {};
+        const int bloop = CeilDiv(firstDim, firstViewShape);
+        const int sloop = CeilDiv(secondDim, secondViewShape);
+        const int mloop = CeilDiv(thirdDim, thirdViewShape);
+        const int nloop = CeilDiv(fourthDim, fourthViewShape);
 
-INSTANTIATE_TEST_SUITE_P(
-    TestExp,
-    ExpOperationTest,
-    ::testing::ValuesIn(testDataLists)
-);
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mloop, 1)) {
+                    LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
+                        Tensor tileTensor0 =
+                            DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                                {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                    std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                    std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
+                                    std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
+                                {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                    nIdx * fourthViewShape});
+                        Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                        auto res = Exp(tileTensor0);
+                        DAssemble(res,
+                            {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                nIdx * fourthViewShape},
+                            outputs[0]);
+                    }
+                }
+            }
+        }
+    }
+}
+
+static const ExpOpMetaData metaData =
+    ExpOpMetaData({ExpOperationExeFunc2Dims, ExpOperationExeFunc3Dims, ExpOperationExeFunc4Dims});
+
+class ExpOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<ExpOpMetaData> {};
+
+INSTANTIATE_TEST_SUITE_P(TestExp, ExpOperationTest, ::testing::Values(metaData));
 
 TEST_P(ExpOperationTest, TestExp) {
     TestCaseDesc testCase;
-    testCase.inputTensors = {
-        Tensor(GetParam().args_.dType_, GetParam().args_.shape_, "input"),
-    };
-    testCase.outputTensors = {
-        Tensor(GetParam().args_.dType_, GetParam().args_.shape_, "output")
-    };
-    testCase.inputPaths = {GetGoldenDir() + "/x.bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/res.bin"};
-    testCase.args = &(GetParam().args_);
-    testCase.opFunc = GetParam().opFunc_;
+    auto config = GetGoldenDir() + "/test_case_data.json";
+    testCase.inputTensors = GetInputTensors(config);
+    testCase.outputTensors = GetOutputTensors(config);
+    auto args = ExpOpFuncArgs(GetViewShape(config), GetTileShape(config));
+    testCase.args = &args;
+    auto func_id = GetFuncId(config);
+    if (func_id < 0 || static_cast<size_t>(func_id) >= GetParam().opFuncs_.size()) {
+        func_id = args.viewShape_.size() - 2;
+    }
+    testCase.opFunc = GetParam().opFuncs_[func_id];
+    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin"};
+    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
     TestExecutor::runTest(testCase);
 }
-} //namespace
+} // namespace

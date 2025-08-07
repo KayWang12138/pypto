@@ -487,6 +487,81 @@ struct GraphInvokeInfoTest {
     return fullPath;
 }
 
+static DataType GetDataType(const std::string &name) {
+    static const std::map<std::string, DataType> name_to_dtype = {
+        {  "int4",   DataType::DT_INT4},
+        {  "int8",   DataType::DT_INT8},
+        { "int16",  DataType::DT_INT16},
+        { "int32",  DataType::DT_INT32},
+        { "int64",  DataType::DT_INT64},
+        {   "fp8",    DataType::DT_FP8},
+        {  "fp16",   DataType::DT_FP16},
+        {  "fp32",   DataType::DT_FP32},
+        {  "bf16",   DataType::DT_BF16},
+        {   "hf4",    DataType::DT_HF4},
+        {   "hf8",    DataType::DT_HF8},
+        { "uint8",  DataType::DT_UINT8},
+        {"uint16", DataType::DT_UINT16},
+        {"uint32", DataType::DT_UINT32},
+        {"uint64", DataType::DT_UINT64},
+        {  "bool",   DataType::DT_BOOL},
+        {"double", DataType::DT_DOUBLE},
+    };
+    if (name_to_dtype.find(name) == name_to_dtype.end()) {
+        ALOG_ERROR << "Not support type " << name << " yet, return fp32 as default.";
+        return DataType::DT_FP32;
+    }
+    return name_to_dtype.at(name);
+}
+
+static std::vector<Tensor> GetTensors(const std::string &config, bool is_input = true) {
+    std::ifstream json_file(config);
+    ASSERT(json_file.is_open()) << "Fail to open " << config << ".";
+    nlohmann::json json_data = nlohmann::json::parse(json_file);
+    std::cout << "Create Tensors For " << json_data << std::endl;
+    std::vector<Tensor> tensors;
+    auto key = is_input ? "input_tensors" : "output_tensors";
+    for (const auto &tensor_config : json_data.at(key)) {
+        auto shape = tensor_config.at("shape").get<std::vector<int>>();
+        auto dtype = GetDataType(tensor_config.at("dtype").get<std::string>());
+        auto name = tensor_config.at("name").get<std::string>();
+        tensors.push_back(Tensor(dtype, shape, name));
+    }
+    return tensors;
+}
+
+[[maybe_unused]] static std::vector<Tensor> GetInputTensors(const std::string &config) {
+    return GetTensors(config, true);
+}
+
+[[maybe_unused]] static std::vector<Tensor> GetOutputTensors(const std::string &config) {
+    return GetTensors(config, false);
+}
+
+template <typename T>
+T GetValueByName(const std::string &config, const std::string &name) {
+    std::ifstream json_file(config);
+    ASSERT(json_file.is_open()) << "Fail to open " << config << ".";
+    nlohmann::json json_data = nlohmann::json::parse(json_file);
+    if (json_data.find(name) == json_data.end()) {
+        json_data = json_data.at("params");
+    }
+    ASSERT(json_data.find(name) != json_data.end()) << "failed to load " << name << " in " << config << "!";
+    return json_data.at(name).get<T>();
+}
+
+[[maybe_unused]] static std::vector<int> GetViewShape(const std::string &config) {
+    return GetValueByName<std::vector<int>>(config, "view_shape");
+}
+
+[[maybe_unused]] static std::vector<int> GetTileShape(const std::string &config) {
+    return GetValueByName<std::vector<int>>(config, "tile_shape");
+}
+
+[[maybe_unused]] static int GetFuncId(const std::string &config) {
+    return GetValueByName<int>(config, "func_id");
+}
+
 inline int calcOffset(std::vector<int> shape, std::vector<int> offset) {
     int base = 1;
     int res = 0;
