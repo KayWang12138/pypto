@@ -30,6 +30,7 @@ class DynamicWinAttenTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aih
 
 constexpr int NUM_2 = 2;
 constexpr int NUM_16 = 16;
+constexpr int NUM_32 = 32;
 constexpr int NUM_64 = 64;
 constexpr int NUM_128 = 128;
 constexpr int NUM_256 = 256;
@@ -138,8 +139,8 @@ TEST_F(DynamicWinAttenTest, test_DynAttn_nas_win_attn_s1_2_actseqlen_1024_mla_fp
     tileConfig.vRopeTileShape = {NUM_128, NUM_64};
     tileConfig.outTileShape = {NUM_16, NUM_256};
     tileConfig.c1TileShape = {gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, dN+dR) @ (s2Tile, dN+dR) -> (n1, s2Tile)
-    tileConfig.v1TileShape = {NUM_16, NUM_256}; // (n1, s2Tile)
-    tileConfig.c2TileShape = {gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, s2Tile) @ (s2Tile, dN) -> (n1, d)
+    tileConfig.v1TileShape = {NUM_32, NUM_128}; // (n1, s2Tile)
+    tileConfig.c2TileShape = {gTileSize, gTileSize, NUM_128, NUM_128, NUM_128, NUM_128}; // (n1, s2Tile) @ (s2Tile, dN) -> (n1, d)
     tileConfig.v2TileShape = {NUM_16, NUM_256}; // (n1, d)
     // WinConfig config;
     TestWinAtten<npu::tile_fwk::float16>(tileConfig);
@@ -154,8 +155,8 @@ TEST_F(DynamicWinAttenTest, test_DynAttn_nas_win_attn_s1_2_actseqlen_1023_mla_fp
     tileConfig.vRopeTileShape = {NUM_128, NUM_64};
     tileConfig.outTileShape = {NUM_16, NUM_256};
     tileConfig.c1TileShape = {gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, dN+dR) @ (winSize, dN+dR) -> (n1, s2Tile)
-    tileConfig.v1TileShape = {NUM_16, NUM_256}; // (n1, s2Tile)
-    tileConfig.c2TileShape = {gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, winSize) @ (winSize, dN) -> (n1, d)
+    tileConfig.v1TileShape = {NUM_32, NUM_128}; // (n1, s2Tile)
+    tileConfig.c2TileShape = {gTileSize, gTileSize, NUM_128, NUM_128, NUM_128, NUM_128}; // (n1, winSize) @ (winSize, dN) -> (n1, d)
     tileConfig.v2TileShape = {NUM_16, NUM_256}; // (n1, d)
     // WinConfig config;
     TestWinAtten<npu::tile_fwk::float16>(tileConfig);
@@ -170,8 +171,8 @@ TEST_F(DynamicWinAttenTest, test_DynAttn_nas_win_attn_s1_2_actseqlen_1024_mla_bf
     tileConfig.vRopeTileShape = {NUM_128, NUM_64};
     tileConfig.outTileShape = {NUM_16, NUM_256};
     tileConfig.c1TileShape = {gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, dN+dR) @ (winSize, dN+dR) -> (n1, s2Tile)
-    tileConfig.v1TileShape = {NUM_16, NUM_256}; // (n1, s2Tile)
-    tileConfig.c2TileShape = {gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, winSize) @ (winSize, dN) -> (n1, d)
+    tileConfig.v1TileShape = {NUM_32, NUM_128}; // (n1, s2Tile)
+    tileConfig.c2TileShape = {gTileSize, gTileSize, NUM_128, NUM_128, NUM_128, NUM_128}; // (n1, winSize) @ (winSize, dN) -> (n1, d)
     tileConfig.v2TileShape = {NUM_16, NUM_256}; // (n1, d)
     // WinConfig config;
     TestWinAtten<npu::tile_fwk::bfloat16>(tileConfig);
@@ -184,10 +185,10 @@ TEST_F(DynamicWinAttenTest, test_DynAttn_nas_win_attn_s1_2_actseqlen_1023_mla_bf
     tileConfig.gTile = gTileSize;
     tileConfig.vNopeTileShape = {NUM_16, NUM_256};
     tileConfig.vRopeTileShape = {NUM_128, NUM_64};
-    tileConfig.outTileShape = {NUM_16, NUM_256};
+    tileConfig.outTileShape = {NUM_32, NUM_256};
     tileConfig.c1TileShape = {gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, dN+dR) @ (winSize, dN+dR) -> (n1, s2Tile)
-    tileConfig.v1TileShape = {NUM_16, NUM_256}; // (n1, s2Tile)
-    tileConfig.c2TileShape = {gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, winSize) @ (winSize, dN) -> (n1, d)
+    tileConfig.v1TileShape = {NUM_32, NUM_128}; // (n1, s2Tile)
+    tileConfig.c2TileShape = {gTileSize, gTileSize, NUM_128, NUM_128, NUM_128, NUM_128}; // (n1, winSize) @ (winSize, dN) -> (n1, d)
     tileConfig.v2TileShape = {NUM_16, NUM_256}; // (n1, d)
     // WinConfig config;
     TestWinAtten<npu::tile_fwk::bfloat16>(tileConfig);
