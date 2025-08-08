@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "models/deepseek/deepseek_mla.h"
+#include "operator/models/deepseek/deepseek_mla.h"
 #include "interface/operation/operation_impl.h"
 #include "interface/operation/operation.h"
 #include "interface/function/function.h"

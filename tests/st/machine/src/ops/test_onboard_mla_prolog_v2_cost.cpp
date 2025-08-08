@@ -22,7 +22,7 @@
 #include "test_common.h"
 #include "test_suite_stest_ops.h"
 #include "interface/tensor/float.h"
-#include "models/deepseek/mla_prolog.h"
+#include "operator/models/deepseek/mla_prolog.h"
 #include "runtime.h"
 #include "device_runner.h"
 #include "tilefwk_runtime_api.h"

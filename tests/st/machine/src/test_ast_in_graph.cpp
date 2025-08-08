@@ -22,7 +22,7 @@
 #include "tilefwk/data_type.h"
 #include "test_common.h"
 #include "machine/dump/machine_dump.h"
-#include "models/llama/llama_def.h"
+#include "operator/models/llama/llama_def.h"
 #include "runtime.h"
 #include "tilefwk_runtime_api.h"
 

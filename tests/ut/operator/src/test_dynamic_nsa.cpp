@@ -13,7 +13,7 @@
  * \brief
  */
 #include "gtest/gtest.h"
-#include "models/deepseek/dynamic_nsa.h"
+#include "operator/models/deepseek/dynamic_nsa.h"
 
 using namespace npu::tile_fwk;
 

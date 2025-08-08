@@ -14,8 +14,8 @@
  */
 
 #include "test_suite_stest_ops.h"
-#include "models/llama/llama_def.h"
-#include "models/deepseek/deepseek_spec.h"
+#include "operator/models/llama/llama_def.h"
+#include "operator/models/deepseek/deepseek_spec.h"
 #include "test_static.h"
 
 namespace {

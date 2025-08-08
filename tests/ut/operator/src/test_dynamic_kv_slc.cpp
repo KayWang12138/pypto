@@ -13,7 +13,7 @@
  * \brief
  */
 #include <gtest/gtest.h>
-#include "models/deepseek/gen_kv_slc.h"
+#include "operator/models/deepseek/gen_kv_slc.h"
 #include "interface/tensor/float.h"
 
 using namespace npu::tile_fwk;

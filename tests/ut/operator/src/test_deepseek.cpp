@@ -19,13 +19,13 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_storage.h"
-#include "models/deepseek/deepseek_mla.h"
+#include "operator/models/deepseek/deepseek_mla.h"
 #include "interface/configs/config_manager.h"
-#include "models/llama/llama_def.h"
-#include "models/deepseek/deepseek_spec.h"
-#include "models/deepseek/page_attention.h"
+#include "operator/models/llama/llama_def.h"
+#include "operator/models/deepseek/deepseek_spec.h"
+#include "operator/models/deepseek/page_attention.h"
 #include "interface/interpreter/raw_tensor_data.h"
-#include "models/deepseek/dynamic_mla.h"
+#include "operator/models/deepseek/dynamic_mla.h"
 
 using namespace npu::tile_fwk;
 

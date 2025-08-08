@@ -15,7 +15,7 @@
 
 #include <gtest/gtest.h>
 #include "interface/configs/config_manager.h"
-#include "models/deepseek/page_attention.h"
+#include "operator/models/deepseek/page_attention.h"
 #define private public
 #include "machine/cache_manager/cache_manager.h"
 #undef private

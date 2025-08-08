@@ -14,7 +14,7 @@
  */
 
 #include <gtest/gtest.h>
-#include "models/nsa/gen_Attention.h"
+#include "operator/models/nsa/gen_Attention.h"
 #include "passes/execute_graph_pass/memory_reuse.h"
 
 using namespace npu::tile_fwk;

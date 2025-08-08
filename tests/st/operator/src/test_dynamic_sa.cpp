@@ -20,7 +20,7 @@
 #include "tilefwk/tilefwk.h"
 #include "test_suite_stest_ops.h"
 #include "interface/interpreter/raw_tensor_data.h"
-#include "models/nsa/selected_attention.h"
+#include "operator/models/nsa/selected_attention.h"
 #include "test_dynamic.h"
 
 using namespace npu::tile_fwk;

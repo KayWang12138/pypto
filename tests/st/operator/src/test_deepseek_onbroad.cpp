@@ -14,8 +14,8 @@
  */
 
 #include "test_suite_stest_ops.h"
-#include "models/deepseek/deepseek_spec.h"
-#include "models/deepseek/deepseek_mla.h"
+#include "operator/models/deepseek/deepseek_spec.h"
+#include "operator/models/deepseek/deepseek_mla.h"
 #include "test_static.h"
 
 using namespace npu::tile_fwk;

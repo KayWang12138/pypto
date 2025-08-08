@@ -21,11 +21,11 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/configs/config_storage.h"
-#include "models/nsa/selected_attention.h"
-#include "models/deepseek/gen_kv_slc.h"
-#include "models/deepseek/dynamic_mla.h"
-#include "models/nsa/win_attention.h"
-#include "models/nsa/attention_post.h"
+#include "operator/models/nsa/selected_attention.h"
+#include "operator/models/deepseek/gen_kv_slc.h"
+#include "operator/models/deepseek/dynamic_mla.h"
+#include "operator/models/nsa/win_attention.h"
+#include "operator/models/nsa/attention_post.h"
 
 namespace npu::tile_fwk {
 constexpr int NUM_65536 = 65536;

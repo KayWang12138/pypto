@@ -14,7 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
-#include "models/llama/llama_def.h"
+#include "operator/models/llama/llama_def.h"
 #include "test_static.h"
 
 using namespace npu::tile_fwk;

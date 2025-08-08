@@ -19,8 +19,8 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/machine/host/host_machine.h"
-#include "models/llama/llama_def.h"
-#include "models/deepseek/page_attention.h"
+#include "operator/models/llama/llama_def.h"
+#include "operator/models/deepseek/page_attention.h"
 #include "interface/configs/config_manager.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 

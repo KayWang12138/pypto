@@ -22,7 +22,7 @@
 #include "interface/tensor/logical_tensor.h"
 #include "interface/tensor/raw_tensor.h"
 #include "interface/interpreter/raw_tensor_data.h"
-#include "models/nsa/dynamic_nsa_v1.h"
+#include "operator/models/nsa/dynamic_nsa_v1.h"
 #include "interface/configs/config_manager.h"
 #include "interface/tensor/float.h"
 

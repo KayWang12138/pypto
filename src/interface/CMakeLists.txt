@@ -16,18 +16,6 @@ file(GLOB_RECURSE _Interface_Srcs
         interpreter/*.cpp
         utils/*.cpp
 
-        # Operator
-        ${TILE_FWK_SRC_ROOT}/src/models/llama/*.cpp
-        ${TILE_FWK_SRC_ROOT}/src/models/deepseek/*.cpp
-        ${TILE_FWK_SRC_ROOT}/src/models/nsa/*.cpp
-        operator/activation/*.cpp
-        operator/convolution/*.cpp
-        operator/geometric/*.cpp
-        operator/logic/*.cpp
-        operator/matmul/*.cpp
-        operator/normalization/*.cpp
-        operator/quantize/*.cpp
-
         # Operation
         operation/*.cpp
         operation/distributed/*.cpp

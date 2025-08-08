@@ -1,11 +1,30 @@
 {
+  "libtile_fwk_operator.so": {
+    "Source-Header": {
+      "Self": [
+        "src/operator/"
+      ],
+      "Area": [
+        "src/interface/",
+        "src/passes/"
+      ],
+      "Include": [
+        "include/"
+      ],
+      "WhiteList": [
+      ],
+      "BlackList": [
+        "include/tileop/"
+      ]
+    }
+  },
   "libtile_fwk_interface.so": {
     "Source-Header": {
       "Self": [
         "src/interface/"
       ],
       "Area": [
-        "src/models/",
+        "src/operator/",
         "src/passes/"
       ],
       "Include": [
@@ -160,7 +179,7 @@
         "tests/st/operator/"
       ],
       "Area": [
-        "src/models/",
+        "src/operator/",
         "src/interface/",
         "src/passes/",
         "src/machine/",
@@ -208,7 +227,7 @@
         "tests/st/machine/"
       ],
       "Area": [
-        "src/models/",
+        "src/operator/",
         "src/interface/",
         "src/passes/",
         "src/machine/",
@@ -231,7 +250,7 @@
         "tests/st/simulation/"
       ],
       "Area": [
-        "src/models/",
+        "src/operator/",
         "src/interface/",
         "src/passes/",
         "src/machine/",
@@ -255,7 +274,7 @@
         "tests/ut/codegen/"
       ],
       "Area": [
-        "src/models/",
+        "src/operator/",
         "src/interface/",
         "src/passes/",
         "src/codegen/"
@@ -294,7 +313,7 @@
         "tests/ut/operator/"
       ],
       "Area": [
-        "src/models/",
+        "src/operator/",
         "src/interface/",
         "src/passes/"
       ],
@@ -314,7 +333,7 @@
         "tests/ut/passes/"
       ],
       "Area": [
-        "src/models/",
+        "src/operator/",
         "src/interface/",
         "src/passes/"
       ],
@@ -334,7 +353,7 @@
         "tests/ut/machine/"
       ],
       "Area": [
-        "src/models/",
+        "src/operator/",
         "src/interface/",
         "src/passes/",
         "src/machine/",
@@ -355,7 +374,7 @@
         "tests/ut/simulation/"
       ],
       "Area": [
-        "src/models/",
+        "src/operator/",
         "src/interface/",
         "src/passes/",
         "src/codegen/",

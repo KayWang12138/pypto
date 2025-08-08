@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "models/llama/llama_def.h"
+#include "operator/models/llama/llama_def.h"
 
 #include "interface/function/function.h"
 #include "tilefwk/tensor.h"

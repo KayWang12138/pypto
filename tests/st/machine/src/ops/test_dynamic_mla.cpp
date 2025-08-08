@@ -15,7 +15,7 @@
 
 #include "test_dynamic.h"
 #include "test_suite_stest_ops.h"
-#include "models/deepseek/dynamic_mla.h"
+#include "operator/models/deepseek/dynamic_mla.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;

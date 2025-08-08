@@ -14,7 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
-#include "models/deepseek/mla_prolog.h"
+#include "operator/models/deepseek/mla_prolog.h"
 #include "test_static.h"
 
 using namespace npu::tile_fwk;

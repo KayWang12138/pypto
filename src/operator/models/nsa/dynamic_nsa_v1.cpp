@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "models/nsa/dynamic_nsa_v1.h"
+#include "operator/models/nsa/dynamic_nsa_v1.h"
 
 #include "interface/operation/operation.h"
 #include "interface/function/function.h"

@@ -20,10 +20,10 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/machine/host/host_machine.h"
-#include "models/llama/llama_def.h"
-#include "models/deepseek/deepseek_mla.h"
-#include "models/deepseek/mla_prolog.h"
-#include "models/deepseek/deepseek_spec.h"
+#include "operator/models/llama/llama_def.h"
+#include "operator/models/deepseek/deepseek_mla.h"
+#include "operator/models/deepseek/mla_prolog.h"
+#include "operator/models/deepseek/deepseek_spec.h"
 #include "tilefwk/data_type.h"
 
 using namespace npu::tile_fwk;

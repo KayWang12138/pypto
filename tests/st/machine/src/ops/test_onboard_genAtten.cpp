@@ -22,7 +22,7 @@
 #include "machine/device/dynamic/device_utils.h"
 #include "test_suite_stest_ops.h"
 #include "interface/interpreter/raw_tensor_data.h"
-#include "models/nsa/gen_Attention.h"
+#include "operator/models/nsa/gen_Attention.h"
 #include "test_dynamic.h"
 
 using namespace npu::tile_fwk;

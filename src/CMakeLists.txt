@@ -9,6 +9,7 @@
 
 find_package(Threads REQUIRED)
 
+add_subdirectory(operator)
 add_subdirectory(interface)
 add_subdirectory(passes)
 add_subdirectory(codegen)

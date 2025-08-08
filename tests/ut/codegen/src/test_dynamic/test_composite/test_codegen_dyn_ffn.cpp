@@ -18,7 +18,7 @@
 #include "codegen/codegen.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "models/deepseek/deepseek_moeinfer.h"
+#include "operator/models/deepseek/deepseek_moeinfer.h"
 #include "interface/configs/config_manager.h"
 
 namespace npu::tile_fwk {

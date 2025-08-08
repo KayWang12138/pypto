@@ -369,7 +369,7 @@ file(GLOB_RECURSE _Sources src/*.cpp)
 TileFwk_STest_AddLib(
         TARGET ${_Target}
         SOURCES ${_Sources}
-        PUBLIC_LINK_LIBRARIES tile_fwk_interface tile_fwk_compiler tile_fwk_runtime tile_fwk_simulation tile_fwk_simulation_ca
+        PUBLIC_LINK_LIBRARIES tile_fwk_interface tile_fwk_operator tile_fwk_compiler tile_fwk_runtime tile_fwk_simulation tile_fwk_simulation_ca
         GTEST_FILTER_LIST ${_CaseFilterList}
         LD_LIBRARIES_EXT tile_fwk_compiler tile_fwk_simulation tile_fwk_simulation_ca tile_fwk_simulation_pv
         GOLDEN_SCRIPT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src

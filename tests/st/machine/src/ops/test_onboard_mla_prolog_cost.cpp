@@ -25,7 +25,7 @@
 #include "interface/tensor/float.h"
 #include "runtime.h"
 #include "device_runner.h"
-#include "models/deepseek/deepseek_mla.h"
+#include "operator/models/deepseek/deepseek_mla.h"
 #include "test_static.h"
 #include "tilefwk_runtime_api.h"
 

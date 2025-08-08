@@ -21,7 +21,7 @@
 #include "interface/tensor/logical_tensor.h"
 #include "interface/tensor/raw_tensor.h"
 #include "interface/interpreter/raw_tensor_data.h"
-#include "models/deepseek/dynamic_mla.h"
+#include "operator/models/deepseek/dynamic_mla.h"
 #include "interface/configs/config_manager.h"
 #include "interface/tensor/float.h"
 

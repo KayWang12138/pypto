@@ -18,7 +18,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "tilefwk/data_type.h"
-#include "models/llama/llama_def.h"
+#include "operator/models/llama/llama_def.h"
 #include "runtime.h"
 #include "tilefwk_runtime_api.h"
 #include "interface/utils/file_utils.h"

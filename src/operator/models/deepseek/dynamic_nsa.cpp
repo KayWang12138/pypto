@@ -13,8 +13,8 @@
  * \brief
  */
 
-#include "models/deepseek/deepseek_mla.h"
-#include "models/deepseek/dynamic_nsa.h"
+#include "operator/models/deepseek/deepseek_mla.h"
+#include "operator/models/deepseek/dynamic_nsa.h"
 
 #include "interface/operation/operation.h"
 #include "interface/function/function.h"

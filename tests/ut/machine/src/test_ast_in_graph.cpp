@@ -20,7 +20,7 @@
 #include "interface/inner/tilefwk.h"
 #include "tilefwk/data_type.h"
 #include "interface/utils/file_utils.h"
-#include "models/llama/llama_def.h"
+#include "operator/models/llama/llama_def.h"
 #include "machine/dump/task_dump_utils.h"
 #include "runtime.h"
 #define private public

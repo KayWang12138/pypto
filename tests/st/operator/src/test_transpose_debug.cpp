@@ -26,7 +26,7 @@
 #include "machine/mem.h"
 #include "test_common.h"
 #include "interface/machine/host/host_machine.h"
-#include "models/llama/llama_def.h"
+#include "operator/models/llama/llama_def.h"
 #include "interface/inner/tilefwk/tilefwk_api.h"
 #include <Python.h>
 #include "test_static.h"

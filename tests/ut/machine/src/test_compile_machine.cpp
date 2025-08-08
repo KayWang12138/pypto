@@ -21,7 +21,7 @@
 #include "tilefwk/data_type.h"
 #include "interface/operation/operation.h"
 #include "interface/tensor/float.h"
-#include "models/deepseek/deepseek_mla.h"
+#include "operator/models/deepseek/deepseek_mla.h"
 #include "machine_agent.h"
 #include "machine/host/backend.h"
 using namespace npu::tile_fwk;

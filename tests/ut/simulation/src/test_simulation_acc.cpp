@@ -21,10 +21,10 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_storage.h"
-#include "models/deepseek/deepseek_mla.h"
+#include "operator/models/deepseek/deepseek_mla.h"
 #include "interface/configs/config_manager.h"
-#include "models/llama/llama_def.h"
-#include "models/deepseek/deepseek_spec.h"
+#include "operator/models/llama/llama_def.h"
+#include "operator/models/deepseek/deepseek_spec.h"
 
 using namespace npu::tile_fwk;
 

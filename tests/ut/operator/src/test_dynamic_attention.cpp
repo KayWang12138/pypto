@@ -14,7 +14,7 @@
  */
 
 #include <gtest/gtest.h>
-#include "models/deepseek/attention.h"
+#include "operator/models/deepseek/attention.h"
 #include "interface/tensor/float.h"
 
 using namespace npu::tile_fwk;
