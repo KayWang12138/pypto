@@ -47,14 +47,13 @@ private:
     Status PostCheckHelpFunc(const LogicalTensor &singleTensor);
     Status PostCheckReshape(const Operation &op);
     Status RunOnFunction(Function &function) override;
+    Status PreColorSort(Function &function);
     void DeleteRedundantAssemble(Function &function) const;
     void ProcessSpecialMTEOperation(Operation &op) const;
     void InsertTemporaryCopyIn(Function &function, Operation &op) const;
     void ResetMemoryMap(Function &function) const;
     void ProcessInplaceOp(Function &function) const;
     void UpdateCopyOpIsCube(Operation &op) const;
-    void SortColor(Function &function);
-    void DFSColor(int color, int &count, SubgraphColorInfo &info);
     void InitializeTensorMemorymap(Operation &op) const;
     void ProcessSameInOutOp(Function &function) const;
     void SetTensorBoundary(Function &function) const;
@@ -63,10 +62,6 @@ private:
     void HandleForAssembleFromInOut(Function &function, std::unordered_set<Operation *> &concurrentAssembles, 
         std::set<Operation *, LogicalTensor::CompareOp> &producersBackup) const;
     void HandleForReshapeToOutcast(Function &function) const;
-
-    std::vector<std::set<int>> inColorGraph;
-    std::vector<std::set<int>> outColorGraph;
-    std::map<int, int> oldToNewColor;
 };
 } // namespace npu::tile_fwk
 #endif // PRE_GRAPH_PASS_H

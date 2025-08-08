@@ -377,66 +377,6 @@ void PreGraphPass::InsertTemporaryCopyIn(Function &function, Operation &op) cons
     }
 }
 
-void PreGraphPass::DFSColor(int color, int &count, SubgraphColorInfo &info) {
-    if (info.visited[color]) {
-        return;
-    }
-    for (auto inputColor : inColorGraph[color]) {
-        if (!info.visited[inputColor]) {
-            DFSColor(inputColor, count, info);
-        }
-    }
-    if (!info.visited[color]) {
-        info.visited[color] = true;
-        count--;
-        info.newColor.push_back(color);
-    }
-    for (auto outputColor : outColorGraph[color]) {
-        if (!info.visited[outputColor]) {
-            DFSColor(outputColor, count, info);
-        }
-    }
-}
-
-void PreGraphPass::SortColor(Function &function) {
-    int colorCount = function.GetTotalSubGraphCount();
-    inColorGraph.resize(colorCount);
-    outColorGraph.resize(colorCount);
-    std::set<int> graphIds;
-    auto opList = function.Operations();
-    for (size_t i = 0; i < opList.size(); i++) {
-        auto &op = opList[i];
-        if (op.GetSubgraphID() > -1) {
-            auto curColor = op.GetSubgraphID();
-            graphIds.insert(curColor);
-            for (auto outTensor : op.GetOOperands()) {
-                for (auto consumer : outTensor->GetConsumers()) {
-                    if (consumer->GetSubgraphID() == -1) {
-                        continue;
-                    }
-                    auto outColor = consumer->GetSubgraphID();
-                    if (curColor != outColor) {
-                        inColorGraph[outColor].insert(curColor);
-                        outColorGraph[curColor].insert(outColor);
-                    }
-                }
-            }
-        }
-    }
-    if (graphIds.size() != static_cast<size_t>(colorCount)) {
-        ALOG_ERROR_F("graphIds size is %zu, but graphIds count is %d", graphIds.size(), colorCount);
-    }
-    if (inColorGraph.size() != static_cast<size_t>(colorCount) || outColorGraph.size() != static_cast<size_t>(colorCount)) {
-        ALOG_ERROR_F("subgraphs in&out relationship invalid.");
-    }
-    /* 原使用递归处理子图编号重排，子图过多时会触发越界，临时删除规避，后续整改使用stack*/
-
-    for (int i = 0; i < colorCount; i++) {
-        // oldToNewColor[colorInfo.newColor[i]] = i;
-        oldToNewColor[i] = i;
-    }
-}
-
 void PreGraphPass::ProcessInplaceOp(Function &function) const {
     for (auto &op : function.Operations()) {
         /*
@@ -543,7 +483,7 @@ void PreGraphPass::UpdateCopyOpIsCube(Operation &op) const {
 }
 
 void PreGraphPass::InitializeTensorMemorymap(Operation &op) const {
-    const int newColor = oldToNewColor.at(op.GetSubgraphID());
+    const int newColor = op.GetSubgraphID();
     for (auto &input : op.GetIOperands()) {
         TileRange range;
         range.memId = input->tensor->GetRawMagic();
@@ -601,17 +541,60 @@ void PreGraphPass::SetTensorBoundary(Function &function) const {
     }
 }
 
+Status PreGraphPass::PreColorSort(Function &function)
+{
+    int colorNum = function.GetTotalSubGraphCount();
+    std::vector<std::unordered_set<int>> colorInGraph(colorNum);
+    std::vector<std::unordered_set<int>> colorOutGraph(colorNum);
+    for (auto &op : function.Operations()) {
+        int opColor = op.GetSubgraphID();
+        for (auto &consumer : op.ConsumerOps()) {
+            int consumerColor = consumer->GetSubgraphID();
+            if (opColor != consumerColor) {
+                colorInGraph[consumerColor].insert(opColor);
+                colorOutGraph[opColor].insert(consumerColor);
+            }
+        }
+    }
+    std::vector<int> inLinkNum(colorNum);
+    std::deque<int> zeroInLinkColor;
+    for (int i = 0; i < colorNum; i++) {
+        inLinkNum[i] = colorInGraph[i].size();
+        if (inLinkNum[i] == 0) {
+            zeroInLinkColor.push_back(i);
+        }
+    }
+    int currColorIdx = 0;
+    std::unordered_map<int, int> newColorMap;
+    while(zeroInLinkColor.size() > 0) {
+        int currColor = zeroInLinkColor.front();
+        zeroInLinkColor.pop_front();
+        newColorMap[currColor] = currColorIdx;
+        currColorIdx += 1;
+        for (int consumerColor : colorOutGraph[currColor]) {
+            inLinkNum[consumerColor] -= 1;
+            if (inLinkNum[consumerColor] == 0) {
+                zeroInLinkColor.push_back(consumerColor);
+            }
+        }
+    }
+    for (auto &op : function.Operations()) {
+        int opColor = op.GetSubgraphID();
+        op.UpdateSubgraphID(newColorMap[opColor]);
+    }
+    return SUCCESS;
+}
+
 Status PreGraphPass::RunOnFunction(Function &function) {
     ALOG_INFO_F("===> start PreGraph");
+    PreColorSort(function);
     ResetMemoryMap(function);
-    SortColor(function);
     auto opList = function.Operations();
     for (auto &op : opList) {
         if (op.GetSubgraphID() > -1) {
             auto curColor = op.GetSubgraphID();
-            assert(oldToNewColor.find(curColor) != oldToNewColor.end());
             InitializeTensorMemorymap(op);
-            op.UpdateSubgraphID(oldToNewColor[curColor]);
+            op.UpdateSubgraphID(curColor);
             UpdateCopyOpIsCube(op);
         }
     }
