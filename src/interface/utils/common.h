@@ -289,6 +289,11 @@ struct OrderedSet : std::unordered_map<T, int> {
         return false;
     }
 
+    int InsertAndGetIndex(const T &data) {
+        Insert(data);
+        return GetIndex(data);
+    }
+
     typedef T OrderElementType;
     typename std::vector<OrderElementType>::iterator begin() { return order.begin(); }
     typename std::vector<OrderElementType>::iterator end() { return order.end(); }
@@ -333,6 +338,8 @@ struct OrderedSet : std::unordered_map<T, int> {
         }
         return true;
     }
+
+    const std::vector<OrderElementType> &GetOrder() const { return order; }
 
     std::vector<OrderElementType> order;
 };

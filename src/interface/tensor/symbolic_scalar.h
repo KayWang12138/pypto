@@ -605,7 +605,7 @@ private:
     }
 };
 
-struct SymbolicSymbolTable {
+struct SymbolicSymbolTableX {
     std::map<std::string, int> symbolIndexTable;
 
     std::string Dump() const {
@@ -618,41 +618,18 @@ struct SymbolicSymbolTable {
 
     int GetSymbolTableSize() const { return symbolIndexTable.size(); }
 
-    std::vector<SymbolHandler> GetSymbolHandlerList() const {
-        std::vector<SymbolHandler> handlerList;
-        for (auto &[name, index] : symbolIndexTable) {
-            if (symbolHandlerIndexDict.count(name)) {
-                handlerList.emplace_back(symbolHandlerIndexDict.find(name)->second, index);
-            }
-        }
-        return handlerList;
-    }
-
-    int LookupSymbolIndex(const std::string &name) const {
-        ASSERT(symbolIndexTable.count(name));
-        return symbolIndexTable.find(name)->second;
-    }
-
-    std::string BuildHeader() const {
-        std::ostringstream oss;
-        oss << "#include \"machine/utils/codegen/codegen.h\"\n";
-        return oss.str();
-    }
-
     std::string BuildSymbolList() const {
         std::ostringstream oss;
         for (auto &[name, index] : symbolIndexTable) {
-            oss << "#define INDEX_" << name << " " << index << "\n";
-        }
-        for (auto &[name, index] : symbolIndexTable) {
-            (void) index;
-            oss << "#define VALUE_" << name << " ((symbolTable)[INDEX_" << name << "])\n";
+            oss << "\n"
+                << "#define INDEX_" << name << " " << index << "\n"
+                << "#define VALUE_" << name << " (RUNTIME_GetSymbol(INDEX_" << name << "))\n";
         }
         return oss.str();
     }
 };
 
-struct SymbolicExpressionTable {
+struct SymbolicExpressionTableX {
     std::map<std::string, int> expressionIndexTable;
     std::vector<std::string> sourceList;
 
@@ -677,8 +654,9 @@ struct SymbolicExpressionTable {
     }
 };
 
-struct SymbolicSymbolTableBuilder {
-    std::set<std::string> symbolTable;
+struct SymbolicSymbolTable {
+    OrderedSet<std::string> symbolTable_;
+    std::unordered_map<std::string, RawSymbolicScalarPtr> symbolTableDict_;
 
     void AddSymbolFromExpression(const SymbolicScalar &ss) {
         if (ss.Raw()->IsImmediate()) {
@@ -687,18 +665,51 @@ struct SymbolicSymbolTableBuilder {
         AddAllSymbol(ss.Raw());
     }
 
+    const OrderedSet<std::string> &GetSymbolTable() const { return symbolTable_; }
+    const std::unordered_map<std::string, RawSymbolicScalarPtr> &GetSymbolTableDict() const { return symbolTableDict_; }
+
     void AddSymbol(const SymbolicScalar &ss) {
-        ASSERT(ss.Raw()->Kind() == SymbolicScalarKind::T_SCALAR_SYMBOLIC_SYMBOL);
         auto raw = ss.Raw();
-        symbolTable.insert(dynamic_cast<RawSymbolicSymbol *>(raw.get())->Name());
+        AddSymbol(raw);
     }
 
-    SymbolicSymbolTable BuildAndLoad();
+    void AddSymbol(const RawSymbolicScalarPtr &raw) {
+        ASSERT(raw->Kind() == SymbolicScalarKind::T_SCALAR_SYMBOLIC_SYMBOL);
+        std::string name = raw->GetSymbolName();
+        if (symbolTable_.count(name)) {
+            return;
+        }
+        symbolTable_.Insert(name);
+        symbolTableDict_[name] = raw;        
+    }
+
+    void NormalizeForSymbol() {
+        std::set<std::string> nameSet;
+        for (auto &[name, ss] : symbolTableDict_) {
+            (void)ss;
+            nameSet.insert(name);
+        }
+        symbolTable_.Clear();
+        for (auto &name : nameSet) {
+            symbolTable_.Insert(name);
+        }
+    }
 
     std::string Dump() const {
         std::ostringstream oss;
-        for (auto &name : symbolTable) {
+        for (auto &name : symbolTable_) {
             oss << "name:" << name << "\n";
+        }
+        return oss.str();
+    }
+
+    std::string BuildSymbolList() const {
+        std::ostringstream oss;
+        for (size_t index = 0; index < GetSymbolTable().size(); index++) {
+            std::string name = GetSymbolTable()[index];
+            oss << "\n"
+                << "#define INDEX_" << name << " " << index << "\n"
+                << "#define VALUE_" << name << " (RUNTIME_GetSymbol(INDEX_" << name << "))\n";
         }
         return oss.str();
     }
@@ -708,8 +719,7 @@ private:
         switch (raw->Kind()) {
             case SymbolicScalarKind::T_SCALAR_SYMBOLIC_IMMEDIATE: break;
             case SymbolicScalarKind::T_SCALAR_SYMBOLIC_SYMBOL: {
-                RawSymbolicSymbol *symbol = dynamic_cast<RawSymbolicSymbol *>(raw.get());
-                symbolTable.insert(symbol->Name());
+                AddSymbol(raw);
             } break;
             case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION: {
                 RawSymbolicExpression *expr = dynamic_cast<RawSymbolicExpression *>(raw.get());
@@ -722,48 +732,89 @@ private:
     }
 };
 
-struct SymbolicExpressionTableBuilder {
-    std::map<std::string, RawSymbolicScalarPtr> expressionTable;
+struct SymbolicExpressionTable {
     OrderedSet<RawSymbolicScalarPtr> expressionSet;
+    std::map<std::string, RawSymbolicScalarPtr> primaryExpressionDict_;
     OrderedSet<RawSymbolicScalarPtr> primaryExpressionSet;
+    std::string elementKey_;
+    std::string title_;
+
+    void SetElementKeyOnce(const std::string &key);
+    void SetTitleOnce(const std::string &title);
 
     void AddPrimaryExpression(const SymbolicScalar &ss) {
-        if (ss.Raw()->IsImmediate()) {
+        if (ss.IsImmediate()) {
             return;
         }
         std::string str = BuildExpressionByRaw(ss.Raw(), {});
-        expressionTable.emplace(str, ss.Raw());
+        if (primaryExpressionDict_.count(str)) {
+            return;
+        }
+        primaryExpressionDict_.emplace(str, ss.Raw());
         primaryExpressionSet.Insert(ss.Raw());
         AddExpression(ss.Raw());
     }
 
-    SymbolicExpressionTable BuildAndLoad();
-    const OrderedSet<RawSymbolicScalarPtr> &GetExpressionSet() const {
-        return expressionSet;
+    void NormalizeForSymbolTable(const SymbolicSymbolTable &symbolTable) {
+        primaryExpressionSet.Clear();
+        auto symTable = symbolTable.GetSymbolTable();
+        auto symExprTable = symbolTable.GetSymbolTableDict();
+        ASSERT(symTable.size() == symExprTable.size());
+        auto symOrder = symTable.GetOrder();
+        //// symOrder.clear(); // clear pre index
+        for (auto &sym : symOrder) {
+            RawSymbolicScalarPtr symbol;
+            if (CheckRuntimePrefix(sym)) {
+                symbol = std::make_shared<RawSymbolicImmediate>(0);
+            } else {
+                symbol = symExprTable.find(sym)->second;
+            }
+            primaryExpressionSet.Insert(symbol);
+        }
+        for (auto &[str, expr] : primaryExpressionDict_) {
+            (void)str;
+            primaryExpressionSet.Insert(expr);
+        }
+    }
+
+    int LookupPrimaryExpressionIndex(const SymbolicScalar &ss) const {
+        std::string str = BuildExpressionByRaw(ss.Raw(), {});
+        ASSERT(primaryExpressionDict_.count(str));
+        auto raw = primaryExpressionDict_.find(str)->second;
+        ASSERT(primaryExpressionSet.count(raw));
+        return primaryExpressionSet.GetIndex(raw);
+    }
+
+    int GetPrimaryExpressionSize() const { return primaryExpressionSet.size(); }
+    const OrderedSet<RawSymbolicScalarPtr> &GetPrimaryExpressionSet() const {
+        return primaryExpressionSet;
     }
 
     std::string Dump() const {
         std::ostringstream oss;
-        for (auto &expr: expressionTable) {
+        for (auto &expr: primaryExpressionDict_) {
             oss << "expr:" << BuildExpressionByRaw(expr.second, {}) << "\n";
         }
         return oss.str();
     }
 
-    std::string BuildExpressionList(const std::string &prefix, const std::string &title) const;
+    std::string BuildExpressionList() const;
+    std::string BuildExpressionTempVarInit(int indent);
 
-    static std::string GetExprNameLoopPrefix(int funcKey) { return "EXPR_LOOP_" + std::to_string(funcKey); }
-    static std::string GetExprNameRootPrefix(int funcKey) { return "EXPR_ROOT_" + std::to_string(funcKey); }
-    static std::string GetExprNameLeafPrefix(int funcKey) { return "EXPR_LEAF_" + std::to_string(funcKey); }
+    static std::string GetExprKeyLoopBes(int funcKey) { return "EXPR_LOOP_BES_" + std::to_string(funcKey); }
+    static std::string GetExprKeyLoopIf(int funcKey, int condKey) { return "EXPR_LOOP_IF_" + std::to_string(funcKey) + "_" + std::to_string(condKey); }
+    static std::string GetExprKeyDevRootCoa(int funcKey) { return "EXPR_DEV_ROOT_COA_" + std::to_string(funcKey); }
+    static std::string GetExprKeyDevLeafOp(int funcKey, int opKey) { return "EXPR_DEV_LEAF_OP_" + std::to_string(funcKey) + "_" + std::to_string(opKey); }
 
-    static std::string GetExprNameTempVarFlag(const std::string &prefix, int index) { return prefix + "_" + std::to_string(index) + "_TEMP_VAR_FLAG"; }
-    static std::string GetExprNameTempVar(const std::string &prefix, int index) { return prefix + "_" + std::to_string(index) + "_TEMP_VAR"; }
-    static std::string GetExprNameTempVarInit(const std::string &prefix, int index) { return prefix + "_" + std::to_string(index) + "_TEMP_INIT"; }
-    static std::string GetExprNameCalc(const std::string &prefix, int index) { return prefix + "_" + std::to_string(index) + "_CALC"; }
-    static std::string GetExprNameGet(const std::string &prefix, int index) { return prefix + "_" + std::to_string(index) + "_GET"; }
+    static std::string GetExprNameTempVarFlag(const std::string &exprKey, int index) { return exprKey + "_" + std::to_string(index) + "_TEMP_VAR_FLAG"; }
+    static std::string GetExprNameTempVar(const std::string &exprKey, int index) { return exprKey + "_" + std::to_string(index) + "_TEMP_VAR"; }
+    static std::string GetExprNameTempVarInit(const std::string &exprKey, int index) { return exprKey + "_" + std::to_string(index) + "_TEMP_INIT"; }
+    static std::string GetExprNameCalc(const std::string &exprKey, int index) { return exprKey + "_" + std::to_string(index) + "_CALC"; }
+    static std::string GetExprNameUse(const std::string &exprKey, int index) { return exprKey + "_" + std::to_string(index) + "_USE"; }
 
     static std::string BuildExpressionByRaw(const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
-
+    static std::string BuildExpression(const SymbolicScalar &ss);
+    static std::string BuildExpression(const RawSymbolicScalarPtr &ss);    
 private:
     static std::string BuildExpressionCode(const RawSymbolicExpression *expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
 

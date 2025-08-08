@@ -20,9 +20,7 @@
 
 #include <cstdint>
 
-#ifndef __gm__
-#define __gm__
-#endif
+#include "common_data.h"
 
 inline constexpr uint32_t DIST_COMM_GROUP_NUM = 8;
 constexpr int MAX_DIMS = 8;
@@ -180,6 +178,7 @@ struct DynFuncData {
     uint64_t stackWorkSpaceSize;
     uint64_t hcclContext[HCCL_GROUP_NUM]{0, 0};
     uint64_t commGroupNum{0};
+    __gm__ DevStartArgsBase *startArgs;
 };
 
 struct DynFuncBin {

@@ -104,7 +104,8 @@ std::vector<std::string> CodeGenOpCloudNPU::GenParamIdxExprByIndex(
 std::vector<std::string> CodeGenOpCloudNPU::GenSymbolicArgument(const std::vector<SymbolicScalar> &exprList) const {
     std::vector<std::string> argList;
     for (auto &expr : exprList) {
-        argList.push_back(expr.Dump());
+        std::string exprStr = SymbolicExpressionTable::BuildExpression(expr);
+        argList.push_back(exprStr);
     }
     return argList;
 }

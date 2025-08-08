@@ -946,11 +946,13 @@ static void MaybeAppendGetTensorData(Operation *op, const std::vector<SymbolicSc
     for (auto &[getTensorDataIndex, _] : getTensorDataDict) {
         (void)_;
         ASSERT(currDynAttr->getTensorDataDict.count(getTensorDataIndex)) << "Invalid index!";
-        auto tensor = currDynAttr->getTensorDataDict[getTensorDataIndex].outcastTensor;
+        auto import = *currDynAttr->getTensorDataDict[getTensorDataIndex].outcastTensor;
         // The goal of this view is to add the tensor as incast.
-        auto tensorLoad = View(*tensor, {1}, {getTensorDataIndex});
-        auto tensorLoadOp = *tensorLoad->GetProducers().begin();
-        tensorLoadOp->SetAttr<int>(OP_EMUOP_PREFIX + "GetTensorData_tensor_to_scalar", getTensorDataIndex);
+        std::vector<int> importShape(import.GetShape().size(), 1);
+        std::vector<int> importOffset(import.GetShape().size(), 0);
+        auto importLoad = View(import, importShape, importOffset);
+        auto importLoadOp = *importLoad->GetProducers().begin();
+        importLoadOp->SetAttr<int>(OP_EMUOP_PREFIX + "GetTensorData_tensor_to_scalar", getTensorDataIndex);
     }
 }
 

@@ -35,7 +35,7 @@
 #include "machine/kernel/aicore.h"
 #include "machine/utils/dynamic/allocator/allocators.h"
 #include "machine/utils/dynamic/vector.h"
-#include "machine/utils/dynamic/codegen/codegen.h"
+#include "machine/utils/dynamic/codegen/aicpu_runtime.h"
 #include "machine/device/dynamic/device_utils.h"
 
 namespace npu::tile_fwk {

@@ -80,29 +80,32 @@ std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::s
     return binary;
 }
 
-std::string SymbolicExpressionTable::BuildExpression(const SymbolicScalar &ss) {    
-    return SymbolicExpressionTableBuilder::BuildExpressionByRaw(ss.Raw(), {});
-}
-
-SymbolicSymbolTable SymbolicSymbolTableBuilder::BuildAndLoad() {
-    SymbolicSymbolTable table;
-    int symbolIndex = 0;
-    for (auto &name : symbolTable) {
-        table.symbolIndexTable[name] = symbolIndex++;
+void SymbolicExpressionTable::SetElementKeyOnce(const std::string &key) {
+    if (elementKey_.size() == 0) {
+        elementKey_ = key;
+    } else {
+        ASSERT(elementKey_ == key);
     }
-    return table;
 }
 
-SymbolicExpressionTable SymbolicExpressionTableBuilder::BuildAndLoad() {
-    SymbolicExpressionTable table;
-    int expressionIndex = 0;
-    for (auto &ele : expressionTable) {
-        table.InsertExpressionIndex(ele.first, expressionIndex++);        
+void SymbolicExpressionTable::SetTitleOnce(const std::string &title) {
+    if (title_.size() == 0) {
+        title_ = title;
+    } else {
+        ASSERT(title_ == title);
     }
-    return table;
 }
 
-std::string SymbolicExpressionTableBuilder::BuildExpressionByRaw(const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict) {
+std::string SymbolicExpressionTable::BuildExpression(const SymbolicScalar &ss) {
+    return BuildExpression(ss.Raw());    
+}
+
+std::string SymbolicExpressionTable::BuildExpression(const RawSymbolicScalarPtr &ss) {
+    std::string expr = BuildExpressionByRaw(ss, {});
+    return expr;
+}
+
+std::string SymbolicExpressionTable::BuildExpressionByRaw(const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict) {
     if (exprDict.count(raw)) {
         return exprDict.find(raw)->second;
     }
@@ -131,7 +134,7 @@ std::string SymbolicExpressionTableBuilder::BuildExpressionByRaw(const RawSymbol
     return result;
 }
 
-std::string SymbolicExpressionTableBuilder::BuildExpressionCode(const RawSymbolicExpression *expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict) {
+std::string SymbolicExpressionTable::BuildExpressionCode(const RawSymbolicExpression *expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict) {
     std::ostringstream oss;
     oss << "(";
     if (SymbolicOpcode::T_UOP_BEGIN <= expr->Opcode() && expr->Opcode() < SymbolicOpcode::T_UOP_END) {
@@ -165,9 +168,9 @@ std::string SymbolicExpressionTableBuilder::BuildExpressionCode(const RawSymboli
         } else {
             oss << "((Call" << expr->OperandList().size() << "EntryType)" << callee << ")";
         }
-        oss << "(ctx";
+        oss << "(";
         for (size_t idx = 1; idx < expr->OperandList().size(); idx++) {
-            oss << ", ";
+            oss << (idx == 1 ? "" : ", ");
             oss << BuildExpressionByRaw(expr->OperandList()[idx], exprDict);
         }
         oss << ")";
@@ -176,20 +179,20 @@ std::string SymbolicExpressionTableBuilder::BuildExpressionCode(const RawSymboli
     return oss.str();
 }
 
-std::string SymbolicExpressionTableBuilder::BuildExpressionList(const std::string &prefix, const std::string &title) const {
+std::string SymbolicExpressionTable::BuildExpressionList() const {
     constexpr int INDENT = 0x20;
     std::ostringstream oss;
     std::unordered_map<RawSymbolicScalarPtr, std::string> exprDict;
 
     oss << "\n";
-    oss << "/* Function info " << prefix << ": " << title << " */\n";
+    oss << "/* Function info " << elementKey_ << ": " << title_ << " */\n";
     for (auto &expr : expressionSet) {
         int index = expressionSet.GetIndex(expr);
-        std::string exprNameTempVarFlag = GetExprNameTempVarFlag(prefix, index);
-        std::string exprNameTempVar = GetExprNameTempVar(prefix, index);
-        std::string exprNameTempVarInit = GetExprNameTempVarInit(prefix, index);
-        std::string exprNameCalc = GetExprNameCalc(prefix, index);
-        std::string exprNameGet = GetExprNameGet(prefix, index);
+        std::string exprNameTempVarFlag = GetExprNameTempVarFlag(elementKey_, index);
+        std::string exprNameTempVar = GetExprNameTempVar(elementKey_, index);
+        std::string exprNameTempVarInit = GetExprNameTempVarInit(elementKey_, index);
+        std::string exprNameCalc = GetExprNameCalc(elementKey_, index);
+        std::string exprNameGet = GetExprNameUse(elementKey_, index);
         std::string calc = BuildExpressionByRaw(expr, exprDict);
 
         if (primaryExpressionSet.count(expr)) {
@@ -198,7 +201,7 @@ std::string SymbolicExpressionTableBuilder::BuildExpressionList(const std::strin
         }
 
         oss << "#define " << std::left << std::setw(INDENT) << exprNameTempVarFlag << 0 << "\n";
-        oss << "#define " << std::left << std::setw(INDENT) << exprNameTempVar << "tempVar_" << prefix << "_" << index << "\n";
+        oss << "#define " << std::left << std::setw(INDENT) << exprNameTempVar << "tempVar_" << elementKey_ << "_" << index << "\n";
         oss << "#define " << std::left << std::setw(INDENT) << exprNameCalc << calc << "\n";
         oss << "#if     " << exprNameTempVarFlag << "\n";        
         oss << "#define " << std::left << std::setw(INDENT) << exprNameTempVarInit << "int64_t " << exprNameTempVar << " = " << exprNameCalc << "\n";
@@ -208,6 +211,16 @@ std::string SymbolicExpressionTableBuilder::BuildExpressionList(const std::strin
         oss << "#define " << std::left << std::setw(INDENT) << exprNameGet << exprNameCalc << "\n";
         oss << "#endif/*" << exprNameTempVarFlag << " */\n";
         exprDict[expr] = exprNameGet;
+    }
+    return oss.str();
+}
+
+std::string SymbolicExpressionTable::BuildExpressionTempVarInit(int indent) {
+    std::ostringstream oss;
+    for (auto &expr : expressionSet) {
+        int index = expressionSet.GetIndex(expr);
+        std::string exprNameTempVarInit = GetExprNameTempVarInit(elementKey_, index);
+        oss << std::setw(indent) << " " << exprNameTempVarInit << ";";
     }
     return oss.str();
 }

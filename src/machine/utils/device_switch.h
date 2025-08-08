@@ -24,7 +24,11 @@ namespace npu::tile_fwk {
 // Disable DFX during performance testing, disable logging and partial traceability data collection.
 #define DEBUG_SWITCH 0
 
+#if DEBUG_SWITCH == 0
 #define DEBUG_PLOG 1
+#else
+#define DEBUG_PLOG 0
+#endif/*DEBUG_PLOG*/
 
 // whether to use the pending and running async task mode(set macro 1) or just use running sync mode(set macro 0)
 #define SCHEDULE_USE_PENDING_AND_RUNING_SWITCH 1

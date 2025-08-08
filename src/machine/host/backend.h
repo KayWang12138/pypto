@@ -21,27 +21,93 @@ MachineTask *GenCode(
     MachineTask *task, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset, FunctionCache &cache);
 
 struct Linker {
-    SymbolicSymbolTableBuilder symbolTableBuilder;
-    SymbolicSymbolTable symbolTable;
-    std::unordered_map<Function *, SymbolicExpressionTableBuilder> rootExpressionTableBuilderDict;
-    std::unordered_map<Function *, SymbolicExpressionTable> rootExpressionTableDict;
+    SymbolicSymbolTable &symbolTable_;
 
-    void AddSymbol([[maybe_unused]] Function *func, SymbolicScalar &ss) {
-        symbolTableBuilder.AddSymbol(ss);
-    }
-    void AddFunction(Function *func) {
-        rootExpressionTableBuilderDict[func] = SymbolicExpressionTableBuilder();
-    }
-    void AddPrimaryExpression(Function *func, const SymbolicScalar &ss) {
-        symbolTableBuilder.AddSymbolFromExpression(ss);
-        rootExpressionTableBuilderDict[func].AddPrimaryExpression(ss);
+    DyndevFunctionAttribute::FunctionGroup &funcGroup_;
+    DyndevFunctionAttribute::ExpressionTableDictGroup &exprTableDictGroup_;
+
+    Linker(SymbolicSymbolTable &symbolTable,
+           DyndevFunctionAttribute::FunctionGroup &funcGroup,
+           DyndevFunctionAttribute::ExpressionTableDictGroup &exprTableDictGroup)
+        : symbolTable_(symbolTable), funcGroup_(funcGroup), exprTableDictGroup_(exprTableDictGroup) {}
+
+    void AddSymbol(SymbolicScalar &ss) {
+        symbolTable_.AddSymbol(ss);
     }
 
-    void BuildAndLoad() {
-        symbolTable = symbolTableBuilder.BuildAndLoad();
-        for (auto &[func, builder] : rootExpressionTableBuilderDict) {
-            rootExpressionTableDict[func] = builder.BuildAndLoad();
+    const DyndevFunctionAttribute::ExpressionTableDictGroup &GetExpressionTableDictGroup() const { return exprTableDictGroup_; }
+    DyndevFunctionAttribute::ExpressionTableDictGroup &GetExpressionTableDictGroup() { return exprTableDictGroup_; }
+
+    static std::string GetTitle(Function *func) {
+        std::string title = "name=" + func->GetRawName() + " hash=" + std::to_string(func->GetFunctionHash().GetHash());
+        return title;
+    }
+
+    void AddPrimaryExpressionForLoopBes(Function*func, const SymbolicScalar &ss) {
+        AddSymbolFromExpression(ss);
+
+        auto funcKey = funcGroup_.loopList.InsertAndGetIndex(func);
+        std::string key = SymbolicExpressionTable::GetExprKeyLoopBes(funcKey);
+        
+        auto &exprTable = exprTableDictGroup_.loopBesDict[func];
+        exprTable.AddPrimaryExpression(ss);
+        exprTable.SetElementKeyOnce(key);
+        exprTable.SetTitleOnce(GetTitle(func));
+    }
+
+    void AddPrimaryExpressionForLoopIf(Function *func, const SymbolicScalar &ss) {
+        AddSymbolFromExpression(ss);
+
+        auto funcKey = funcGroup_.loopList.InsertAndGetIndex(func);
+        auto condKey = funcGroup_.loopIfList[func].InsertAndGetIndex(ss.Raw());
+        std::string key = SymbolicExpressionTable::GetExprKeyLoopIf(funcKey, condKey);
+
+        auto &exprTable = exprTableDictGroup_.loopIfDict[func][ss.Raw()];
+        exprTable.AddPrimaryExpression(ss);
+        exprTable.SetElementKeyOnce(key);
+        exprTable.SetTitleOnce(GetTitle(func));
+    }
+
+    void AddPrimaryExpressionForDevRootCoa(Function *func, const SymbolicScalar &ss) {
+        AddSymbolFromExpression(ss);
+
+        auto funcKey = funcGroup_.devRootList.InsertAndGetIndex(func);
+        std::string key = SymbolicExpressionTable::GetExprKeyDevRootCoa(funcKey);
+
+        auto &exprTable = exprTableDictGroup_.devRootCoaDict[func];
+        exprTable.AddPrimaryExpression(ss);
+        exprTable.SetElementKeyOnce(key);
+        exprTable.SetTitleOnce(GetTitle(func));
+    }
+
+    void AddPrimaryExpressionForDevLeafOp(Function *func, Operation *op, const SymbolicScalar &ss) {
+        AddSymbolFromExpression(ss);
+
+        auto funcKey = funcGroup_.devLeafList.InsertAndGetIndex(func);
+        auto opKey = funcGroup_.devLeafOpList[func].InsertAndGetIndex(op);
+        std::string key = SymbolicExpressionTable::GetExprKeyDevLeafOp(funcKey, opKey);
+
+        auto &exprTable = exprTableDictGroup_.devLeafOpDict[func][op];
+        exprTable.AddPrimaryExpression(ss);
+        exprTable.SetElementKeyOnce(key);
+        exprTable.SetTitleOnce(GetTitle(func));
+    }
+
+    SymbolicExpressionTable *LookupDevRootCoa(Function *func) {
+        if (exprTableDictGroup_.devRootCoaDict.count(func)) {
+            return &exprTableDictGroup_.devRootCoaDict[func];
+        } else {
+            return nullptr;
         }
+    }
+
+    SymbolicSymbolTable *GetSymbolTable() {
+        return &symbolTable_;
+    }
+    
+private:
+    void AddSymbolFromExpression(const SymbolicScalar &ss) {
+        symbolTable_.AddSymbolFromExpression(ss);
     }
 };
 }

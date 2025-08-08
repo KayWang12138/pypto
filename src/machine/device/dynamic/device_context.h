@@ -28,6 +28,7 @@
 #include <sys/mman.h>
 #endif
 
+#include "interface/cache/common_data.h"
 #include "interface/cache/core_func_data.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/utils/dynamic/allocator/allocators.h"
@@ -1434,8 +1435,9 @@ const uint32_t CCE_BINARY_MOD = 8;
 const size_t DUP_PRED_COUNT_LOOP_MAX = 8;
 const size_t DUP_PRED_COUNT_PRE_LOOP_CNT = 4;
 struct DeviceTaskContext {
-    void InitAllocator(DeviceWorkspaceAllocator &workspace) {
+    void InitAllocator(DeviceWorkspaceAllocator &workspace, npu::tile_fwk::DevStartArgsBase *startArgs) {
         workspace_ = &workspace;
+        startArgs_ = startArgs;
     }
 
     DynDeviceTask *BuildDeviceTaskData(DeviceStitchContext &stitchContext, DevAscendProgram *devProg, bool withoutTail) {
@@ -1478,6 +1480,7 @@ private:
     uint64_t leafFuncDataSize {0};
 private:
     DeviceWorkspaceAllocator *workspace_{nullptr};
+    npu::tile_fwk::DevStartArgsBase *startArgs_{nullptr};
 private:
     void BuildReadyQueue(DynDeviceTask *dyntask) {
         uint32_t size = sizeof(ReadyCoreFunctionQueue) + dyntask->devTask.coreFunctionCnt * sizeof(taskid_t);
@@ -1570,6 +1573,7 @@ private:
             dyndata->exprTbl = funcDup.GetExpressionAddr();
             dyndata->rawTensorAddr = (uint64_t *)&funcDup.GetIncastAddress(0);
             dyndata->rawTensorDesc = funcDup.GetSource()->GetRawTensorDesc(0);
+            dyndata->startArgs = this->startArgs_;
             dyndata->workspaceAddr = funcDup.RuntimeWorkspace();
             dyndata->stackWorkSpaceSize = workspace_->StandardStackWorkspacePerCore();
             dyndata->stackWorkSpaceAddr = workspace_->StackWorkspaceAddr();
@@ -1777,7 +1781,7 @@ struct DeviceExecuteContext {
 
         stitchContext.Init(devProg, workspace);
 
-        taskContext.InitAllocator(workspace);
+        taskContext.InitAllocator(workspace, startArgs);
 
         workspace.SetupVector(symbolTable);
         symbolTable.resize(devProg->symbolTable.size());

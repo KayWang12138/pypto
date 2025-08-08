@@ -328,8 +328,26 @@ struct DyndevFunctionAttribute {
     };
     std::unordered_map<int, GetTensorDataDesc> getTensorDataDict;
 
+    struct FunctionGroup {
+        /* loop */
+        OrderedSet<Function *> loopList;
+        std::unordered_map<Function *, OrderedSet<RawSymbolicScalarPtr>> loopIfList;
+        /* devRoot */
+        OrderedSet<Function *> devRootList;
+        /* devLeaf */
+        OrderedSet<Function *> devLeafList;
+        std::unordered_map<Function *, OrderedSet<Operation *>> devLeafOpList;                
+    } funcGroup;
+    
     SymbolicSymbolTable symbolTable;
-    std::unordered_map<Function *, SymbolicExpressionTable> rootExpressionTableDict;
+
+    struct ExpressionTableDictGroup {
+        std::unordered_map<Function *, SymbolicExpressionTable> loopBesDict;
+        std::unordered_map<Function *, std::unordered_map<RawSymbolicScalarPtr, SymbolicExpressionTable>> loopIfDict;
+        std::unordered_map<Function *, SymbolicExpressionTable> devRootCoaDict;
+        std::unordered_map<Function *, std::unordered_map<Operation *, SymbolicExpressionTable>> devLeafOpDict;
+    } exprTableDictGroup;
+    
     /*
      *  AOT code for expression table:
      *      signature: uint64_t(*)(uint64_t *symbolTable)
@@ -342,12 +360,6 @@ struct DyndevFunctionAttribute {
 
     IncastOutcastLink inoutLink;
 
-    struct FunctionGroup {
-        OrderedSet<Function *> loopList;
-        OrderedSet<Function *> devRootList;
-        OrderedSet<Function *> devLeafList;
-    } group;    
-    
     std::vector<std::vector<uint8_t>> devEncodeList;
     std::vector<std::vector<uint8_t>> cceCodeList;
     std::vector<CceCodeInfo> cceCodeInfo;

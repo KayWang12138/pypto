@@ -208,6 +208,12 @@ struct CoreFuncParam {
 
 #define RAW_TENSOR_ADDR_MASK ((1UL << 63) - 1)
 
+INLINE __gm__ npu::tile_fwk::DevStartArgsBase *RuntimeGetStartArgs(CoreFuncParam *param) {
+    auto func = param->funcData;
+    auto startArgs = func->startArgs;
+    return startArgs;
+}
+
 INLINE uint64_t GetTensorAddr(CoreFuncParam *ctx, int idx) {
     auto func = ctx->funcData;
     auto desc = &func->rawTensorDesc[ctx->opAttrs[idx]];
@@ -280,11 +286,26 @@ INLINE uint32_t GetTensorDataInt32(CoreFuncParam *ctx, uint64_t address) {
 #define RUNTIME_COA_GET_PARAM_ADDR(_, idx)                                          GET_PARAM_ADDR(param, _, idx)
 #define RUNTIME_COA_GET_PARAM(idx)                                                  GetCoa(param, idx)
 
+#define RuntimeGetInputDataInt32Dim1(input, off0) (((int32_t *)(input)->address)[(off0)])
+#define RuntimeGetInputDataInt32Dim2(input, off0, off1) \
+    (((int32_t *)(input)->address)[(off0) * (input)->shape.dim[1] + (off1)])
+#define RuntimeGetInputDataInt32Dim3(input, off0, off1, off2) \
+    (((int32_t *)(input)->address)[(off0) * (input)->shape.dim[1] * (input)->shape.dim[2] + (off1) * (input)->shape.dim[2] + (off2)])
+
+#define RUNTIME_GetInputDataInt32Dim1(inputIndex, off0) \
+    RuntimeGetInputDataInt32Dim1(&(RuntimeGetStartArgs(param))->inputTensorList[(inputIndex)], (off0))
+#define RUNTIME_GetInputDataInt32Dim2(inputIndex, off0, off1) \
+    RuntimeGetInputDataInt32Dim2(&(RuntimeGetStartArgs(param))->inputTensorList[(inputIndex)], (off0), (off1))
+#define RUNTIME_GetInputDataInt32Dim3(inputIndex, off0, off1, off2) \
+    RuntimeGetInputDataInt32Dim3(&(RuntimeGetStartArgs(param))->inputTensorList[(inputIndex)], (off0), (off1), (off2))
+
 #define RUNTIME_TensorExtract(type, mem, dst, src) \
     do { \
         pipe_barrier(PIPE_ALL); \
         *(mem type *)(dst) = *(mem type *)(src); \
         pipe_barrier(PIPE_ALL); \
     } while(0)
+
+#define RUNTIME_GetSymbol(idx)          (param->exprTbl[idx])
 
 #endif // AST_RUNTIME_H

@@ -293,7 +293,7 @@ void CodeGenCloudNPU::GenCode(
             // expression fusion
             if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, false)) {
                 std::string expressionFileName = "../kernel_aicpu/expression.h";
-                funCode = "#include \"" + expressionFileName + "\"\n" + funCode;
+                funCode = "#define __TILE_FWK_AICORE__ 1\n#include \"" + expressionFileName + "\"\n" + funCode;
             }
 
             bool needDump = false;

@@ -143,7 +143,8 @@ std::string CodeGenOpCloudNPU::GenDupOp() const {
         auto scalar = opAttrs.at(OpAttributeKey::dynScalar);
         ASSERT((scalar.HasValue()) && (scalar.Type() == typeid(SymbolicScalar)))
             << npu::tile_fwk::AnyCast<SymbolicScalar>(scalar).IsValid() << "SCALAR attribute has to have symbolic value.";
-        dupV = npu::tile_fwk::AnyCast<SymbolicScalar>(scalar).Dump();
+        auto scalarExpr = npu::tile_fwk::AnyCast<SymbolicScalar>(scalar);
+        dupV = SymbolicExpressionTable::BuildExpression(scalarExpr);
     } else if (dstDtypeStr == "float") {
         auto scalar = opAttrs.at(OpAttributeKey::scalar);
         ASSERT((scalar.HasValue()) && (scalar.Type() == typeid(Element)))

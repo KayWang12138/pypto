@@ -19,26 +19,9 @@
 #include <cstdint>
 #include <vector>
 
+#include "interface/cache/common_data.h"
+
 namespace npu::tile_fwk {
-
-constexpr int32_t DEV_SHAPE_DIM_MAX = 5;
-
-struct DevAscendShape {
-    int dimSize{0};
-    int dim[DEV_SHAPE_DIM_MAX];
-};
-
-struct DevAscendTensorData {
-    uint64_t address{0};
-    DevAscendShape shape;
-};
-
-struct DevStartArgsBase {
-    DevAscendTensorData *inputTensorList;
-    uint64_t inputTensorSize;
-    DevAscendTensorData *outputTensorList;
-    uint64_t outputTensorSize;
-};
 
 using CallRootEntryType = void *(*)(void *, uint64_t);
 
@@ -73,22 +56,8 @@ using Call5EntryType = uint64_t (*)(uint64_t, uint64_t, uint64_t, uint64_t, uint
 #define RuntimeIsLoopBegin(idx, begin) (idx) == (begin)
 #define RuntimeIsLoopEnd(idx, end) (idx) >= (end)
 
-#define RUNTIME_GetInputShapeDimSize(ctx, inputIndex) \
-    RuntimeGetInputShapeDimSize(&(startArgs)->inputTensorList[(inputIndex)])
-#define RUNTIME_GetInputShapeDim(ctx, inputIndex, n) \
-    RuntimeGetInputShapeDim(&(startArgs)->inputTensorList[(inputIndex)], (n))
-#define RUNTIME_GetInputDataInt32Dim1(ctx, inputIndex, off0) \
-    RuntimeGetInputDataInt32Dim1(&(startArgs)->inputTensorList[(inputIndex)], (off0))
-#define RUNTIME_GetInputDataInt32Dim2(ctx, inputIndex, off0, off1) \
-    RuntimeGetInputDataInt32Dim2(&(startArgs)->inputTensorList[(inputIndex)], (off0), (off1))
-#define RUNTIME_GetInputDataInt32Dim3(ctx, inputIndex, off0, off1, off2) \
-    RuntimeGetInputDataInt32Dim3(&(startArgs)->inputTensorList[(inputIndex)], (off0), (off1), (off2))
-#define RUNTIME_IsLoopBegin(ctx, idx, begin) RuntimeIsLoopBegin((idx), (begin))
-#define RUNTIME_IsLoopEnd(ctx, idx, end) RuntimeIsLoopEnd((idx), (end))
-
 __always_inline
-int64_t RUNTIME_GetViewValidShapeDim(void *ctx, int64_t validshape, int64_t viewOffset, int64_t viewshape) {
-    (void)ctx;
+int64_t RuntimeGetViewValidShapeDim(int64_t validshape, int64_t viewOffset, int64_t viewshape) {
     validshape -= viewOffset;
     if (validshape > viewshape)
         validshape = viewshape;
@@ -98,7 +67,7 @@ int64_t RUNTIME_GetViewValidShapeDim(void *ctx, int64_t validshape, int64_t view
 }
 
 __always_inline
-int64_t RUNTIME_Max(int64_t input1, int64_t input2) {
+int64_t RuntimeMax(int64_t input1, int64_t input2) {
     if (input1 > input2)
         return input1;
     else
@@ -106,10 +75,30 @@ int64_t RUNTIME_Max(int64_t input1, int64_t input2) {
 }
 
 __always_inline
-int64_t RUNTIME_Min(int64_t input1, int64_t input2) {
+int64_t RuntimeMin(int64_t input1, int64_t input2) {
     if (input1 < input2)
         return input1;
     else
         return input2;
 }
+
+#define RUNTIME_GetInputShapeDimSize(inputIndex) \
+    RuntimeGetInputShapeDimSize(&(startArgs)->inputTensorList[(inputIndex)])
+#define RUNTIME_GetInputShapeDim(inputIndex, n) \
+    RuntimeGetInputShapeDim(&(startArgs)->inputTensorList[(inputIndex)], (n))
+#define RUNTIME_GetInputDataInt32Dim1(inputIndex, off0) \
+    RuntimeGetInputDataInt32Dim1(&(startArgs)->inputTensorList[(inputIndex)], (off0))
+#define RUNTIME_GetInputDataInt32Dim2(inputIndex, off0, off1) \
+    RuntimeGetInputDataInt32Dim2(&(startArgs)->inputTensorList[(inputIndex)], (off0), (off1))
+#define RUNTIME_GetInputDataInt32Dim3(inputIndex, off0, off1, off2) \
+    RuntimeGetInputDataInt32Dim3(&(startArgs)->inputTensorList[(inputIndex)], (off0), (off1), (off2))
+#define RUNTIME_IsLoopBegin(idx, begin) RuntimeIsLoopBegin((idx), (begin))
+#define RUNTIME_IsLoopEnd(idx, end) RuntimeIsLoopEnd((idx), (end))
+
+#define RUNTIME_GetViewValidShapeDim(validShape, viewOffset, viewShape) RuntimeGetViewValidShapeDim(validShape, viewOffset, viewShape)
+#define RUNTIME_Max(lhs, rhs) RuntimeMax(lhs, rhs)
+#define RUNTIME_Min(lhs, rhs) RuntimeMin(lhs, rhs)
+
+#define RUNTIME_GetSymbol(idx)          (symbolTable[idx])
+
 }  // namespace npu::tile_fwk

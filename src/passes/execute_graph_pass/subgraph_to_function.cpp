@@ -809,14 +809,14 @@ void SubgraphToFunction::InitializeRootFunction(Function& function, Function* ro
         rootFunc->GetTensorMap().inverseMap_.size(), rootFunc->GetTensorMap().tensorMap_.size());
 }
 
-void SubgraphToFunction::GetTensorDataDependencyInsert(Function &function) {
+struct GetTensorDataOutcastDesc {
+    std::unordered_map<Opcode, std::vector<Operation *>> opListDict;
+    Operation *mark;
+    Operation *copyout;
+    std::shared_ptr<LogicalTensor> outcast;
+};
+static std::unordered_map<int, GetTensorDataOutcastDesc> GetTensorDataBuildOutcastDescDict(Function &function) {
     auto operationViewer = function.Operations(false);
-    struct GetTensorDataOutcastDesc {
-        std::unordered_map<Opcode, std::vector<Operation *>> opListDict;
-        Operation *mark;
-        Operation *copyout;
-        std::shared_ptr<LogicalTensor> outcast;
-    };
     std::unordered_map<int, GetTensorDataOutcastDesc> getTensorDataOutcastDescDict;
     for (size_t i = 0; i < operationViewer.size(); i++) {
         auto &op = operationViewer[i];
@@ -840,16 +840,20 @@ void SubgraphToFunction::GetTensorDataDependencyInsert(Function &function) {
         desc.copyout = copyout;
         desc.outcast = outcast;
     }
+    return getTensorDataOutcastDescDict;
+}
 
-    struct GetTensorDataDesc {
-        Operation *refOp;
-        std::vector<int> indexList;
-        MemoryType subgraphMemoryType;
-        int subgraphID;
+struct GetTensorDataDesc {
+    Operation *refOp;
+    std::vector<int> indexList;
+    MemoryType subgraphMemoryType;
+    int subgraphID;
 
-        GetTensorDataDesc(Operation *refOp_, std::vector<int> indexList_, MemoryType subgraphMemoryType_, int subgraphID_)
-            : refOp(refOp_), indexList(indexList_), subgraphMemoryType(subgraphMemoryType_), subgraphID(subgraphID_) {}
-    };
+    GetTensorDataDesc(Operation *refOp_, std::vector<int> indexList_, MemoryType subgraphMemoryType_, int subgraphID_)
+        : refOp(refOp_), indexList(indexList_), subgraphMemoryType(subgraphMemoryType_), subgraphID(subgraphID_) {}
+};
+std::vector<GetTensorDataDesc> GetTensorDataBuildDataDesc(Function &function) {
+    auto operationViewer = function.Operations(false);
     std::vector<GetTensorDataDesc> getTensorDataDescList;
     for (size_t i = 0; i < operationViewer.size(); i++) {
         auto &refOp = operationViewer[i];
@@ -892,6 +896,13 @@ void SubgraphToFunction::GetTensorDataDependencyInsert(Function &function) {
         }
         getTensorDataDescList.emplace_back(&refOp, indexList, subgraphMemoryType, subgraphID);
     }
+    return getTensorDataDescList;
+}
+
+void SubgraphToFunction::GetTensorDataDependencyInsert(Function &function) {
+    std::unordered_map<int, GetTensorDataOutcastDesc> getTensorDataOutcastDescDict = GetTensorDataBuildOutcastDescDict(function);
+    std::vector<GetTensorDataDesc> getTensorDataDescList = GetTensorDataBuildDataDesc(function);
+
     for (auto &[refOp, indexList, subgraphMemoryType, subgraphID] : getTensorDataDescList) {
         for (int index : indexList) {
             ASSERT(getTensorDataOutcastDescDict.count(index)) << "Index: " << index << " not found!\n";

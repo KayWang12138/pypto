@@ -541,6 +541,51 @@ TEST_F(DynamicBasicTest, TestGetTensorData) {
 #endif
 }
 
+TEST_F(DynamicBasicTest, TestGetTensorDataExpr) {    
+    int tiling = 32;
+    ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
+    Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling);
+    Program::GetInstance().GetTileShape().SetCubeTileShapes({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
+
+    int n = tiling * 1;
+    int s = n * 8;
+    Tensor inputA(DT_INT32, {n, n}, "inputA");
+    Tensor inputC(DT_FP32, {n, s}, "inputC");
+    Tensor output(DT_FP32, {n, n}, "output");
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<int32_t>(inputA, 1),
+        RawTensorData::CreateConstantTensor<float>(inputC, 2.0),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(output, 0.0f),
+    });
+
+    FUNCTION("main", FunctionType::DYNAMIC, {inputA, inputC}, {output}) {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            Tensor t0 = AddS(inputA, Element(DT_INT32, (int64_t)2));
+            SymbolicScalar v0 = GetTensorDataInt32(t0, 0, 1); // t0[0, 1] == 3
+            SymbolicScalar v1 = GetTensorDataInt32(t0, 0, 2); // t0[0, 2] == 3
+            SymbolicScalar v2 = GetInputDataInt32Dim2(inputA, 0, 1); // inputA[0, 1] == 3
+            SymbolicScalar v3 = GetInputDataInt32Dim2(inputA, 0, 2); // inputA[0, 2] == 3
+            auto t2 = DView(inputC, {n, n}, {0, (v0 + v2 + i / i) * n});
+            auto t3 = DView(inputC, {n, n}, {0, (v1 + v3 + i / i) * n});
+            output = Mul(t2, t3);
+        }
+    }
+
+    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+    (void)funcOp;
+#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+    DynFuncRunner::Run(funcOp);
+    std::vector<float> golden(n * n, 4.0f);
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+#endif
+}
+
+
 TEST_F(DynamicBasicTest, TestVectorDup) {
     int tiling = 32;
     Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling);
@@ -619,8 +664,8 @@ TEST_F(DynamicBasicTest, TestSetTensorData) {
     });
 
     FUNCTION("main", FunctionType::DYNAMIC, {}, {output}) {
-        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) {            
-            SetTensorDataInt32(30, {i}, output);
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) {
+            SetTensorDataInt32(30, {i / 2 * 2 + i % 2}, output);
         }
     }
 
@@ -637,12 +682,11 @@ TEST_F(DynamicBasicTest, TestSetTensorData) {
 TEST_F(DynamicBasicTest, TestSetTensorDataExpr) {
     ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
 
-    int tiling = 32;    
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
+    int tiling = 32;
+    Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling, tiling);
 
     int n = tiling * 1;
-    Tensor output(DT_INT32, {n}, "output");
+    Tensor output(DT_INT32, {n, n, n}, "output");
 
     ProgramData::GetInstance().AppendInputs({
     });
@@ -651,8 +695,12 @@ TEST_F(DynamicBasicTest, TestSetTensorDataExpr) {
     });
 
     FUNCTION("main", FunctionType::DYNAMIC, {}, {output}) {
-        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) {            
-            SetTensorDataInt32(i + 100, {i}, output);
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) {
+            LOOP("Step1", FunctionType::DYNAMIC_LOOP, j, LoopRange(n)) {
+                for (int k = 0; k < n; k++) {
+                    SetTensorDataInt32(i * tiling * tiling + j * tiling + k, {i, j, k}, output);
+                }                
+            }
         }
     }
 
@@ -660,9 +708,52 @@ TEST_F(DynamicBasicTest, TestSetTensorDataExpr) {
     (void)funcOp;
 #ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
     DynFuncRunner::Run(funcOp);
-    std::vector<int32_t> golden(n);
-    for (int i = 0; i < n; i++) {
-        golden[i] = i + 100;
+    std::vector<int32_t> golden(n * n * n);
+    for (int i = 0; i < n * n * n; i++) {
+        golden[i] = i;
+    }
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (int32_t *)outs->data(), 0.001f));
+#endif
+}
+
+TEST_F(DynamicBasicTest, TestGetSetTensorDataExpr) {
+    ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
+
+    int tiling = 32;
+    Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling, tiling);
+
+    int n = tiling * 1;
+    int init = 10;
+    Tensor input(DT_INT32, {n, n, n}, "input");
+    Tensor output(DT_INT32, {n, n, n}, "output");
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<int32_t>(input, init),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<int32_t>(output, 0),
+    });
+
+    FUNCTION("main", FunctionType::DYNAMIC, {input}, {output}) {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) {
+            LOOP("Step1", FunctionType::DYNAMIC_LOOP, j, LoopRange(n)) {
+                auto add = Add(input, input);
+                for (int k = 0; k < n; k++) {
+                    SymbolicScalar s = GetTensorDataInt32(add, {i, j, k});
+                    SetTensorDataInt32(s + i * tiling * tiling + j * tiling + k, {i, j, k}, output);
+                }                
+            }
+        }
+    }
+
+    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+    (void)funcOp;
+#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+    DynFuncRunner::Run(funcOp);
+    std::vector<int32_t> golden(n * n * n);
+    for (int i = 0; i < n * n * n; i++) {
+        golden[i] = init + init + i;
     }
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (int32_t *)outs->data(), 0.001f));

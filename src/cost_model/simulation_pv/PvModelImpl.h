@@ -254,8 +254,8 @@ public:
     void Codegen(npu::tile_fwk::Function *func) {
         auto attr = func->GetDyndevAttribute();
         std::map<std::string, npu::tile_fwk::Function *> leafDict;
-        for (size_t i = 0; i < attr->group.devRootList.size(); i++) {
-            npu::tile_fwk::Function *devRoot = attr->group.devRootList[i];
+        for (size_t i = 0; i < attr->funcGroup.devRootList.size(); i++) {
+            npu::tile_fwk::Function *devRoot = attr->funcGroup.devRootList[i];
             for (auto &[hash, leaf] : devRoot->programs_) {
                 (void) hash;
                 if (!leafDict.count(leaf->GetRawName())) {

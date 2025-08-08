@@ -69,12 +69,12 @@ void DevAscendFunction::InitOperationDynamicField(
             auto callop = std::static_pointer_cast<CallOpAttribute>(callList[i]->GetOpAttribute());
         }
     };
-    expressionList.HostInitDataSizeOffset(initOffset, expressionTable->expressionIndexTable.size());
+    expressionList.HostInitDataSizeOffset(initOffset, expressionTable->GetPrimaryExpressionSize());
 
     uint64_t operationSize = callList.size();
     uint64_t incastSize = incastTensorList.size();
     uint64_t outcastSize = outcastTensorList.size();
-    uint64_t expressionSize = expressionTable->expressionIndexTable.size();
+    uint64_t expressionSize = expressionTable->GetPrimaryExpressionSize();
 
     uint64_t predCountListDataSize = ALIGN_UP(operationSize * sizeof(predcount_t), sizeof(uint64_t));
     uint64_t incastDataSize = ALIGN_UP(incastSize * sizeof(void *), sizeof(uint64_t));
@@ -209,7 +209,7 @@ static void EncodeRawShape(const SymbolicExpressionTable *expressionTable,
         if (x.IsImmediate()) {
             shape.emplace_back(x.Concrete());
         } else {
-            shape.emplace_back(true, expressionTable->LookupExpressionIndex(x));
+            shape.emplace_back(true, expressionTable->LookupPrimaryExpressionIndex(x));
             isDyn = true;
         }
     }
@@ -434,7 +434,7 @@ void DevAscendFunction::InitOperation(
                         fillValue = callArgs[j].Concrete();
                     }
                 } else {
-                    fillValue = expressionTable->LookupExpressionIndex(callArgs[j]);
+                    fillValue = expressionTable->LookupPrimaryExpressionIndex(callArgs[j]);
                 }
                 At(staticField.attrList, j) = SymInt(!callArgs[j].IsImmediate(), fillValue);
             }
@@ -1310,11 +1310,12 @@ void EncodeDevAscendFunction(const EncodeDevAscendFunctionParam &param, uint64_t
 
 void DevAscendProgram::InitSymbolTable(
         uintdevptr_t &initOffset, SymbolicSymbolTable *symbolTableInput, bool fillContent) {
-    symbolTable.HostInitDataSizeOffset(initOffset, symbolTableInput->symbolIndexTable.size());
+    symbolTable.HostInitDataSizeOffset(initOffset, symbolTableInput->GetSymbolTable().size());
 
     symbolTableNameList.HostInitDataSizeOffset(initOffset, 0);
     uint64_t offset = 0;
-    for (auto &[name, index] : symbolTableInput->symbolIndexTable) {
+    for (size_t index = 0; index < symbolTableInput->GetSymbolTable().size(); index++) {
+        std::string name = symbolTableInput->GetSymbolTable()[index];    
         ONFILLCONTENT {
             symbolTable[index].index = index;
         };
@@ -1452,9 +1453,9 @@ struct EncodeDevAscendProgramInfo {
         devProg->InitSymbolTable(initOffset, &dyndevAttr->symbolTable, fillContent);
         devProg->InitExpressionTableBinary(initOffset, dyndevAttr->expressionTableBinaryList, fillContent);
         uint64_t expressionTableSize = 0;
-        for (auto &[root, exprTable] : dyndevAttr->rootExpressionTableDict) {
+        for (auto &[root, exprTable] : dyndevAttr->exprTableDictGroup.devRootCoaDict) {
             (void) root;
-            expressionTableSize = std::max(expressionTableSize, exprTable.expressionIndexTable.size());
+            expressionTableSize = std::max(expressionTableSize, (uint64_t)exprTable.GetPrimaryExpressionSize());
         }
         devProg->expressionTableSize = expressionTableSize;
         devProg->InitControlFlowBinary(initOffset, dyndevAttr->hostControlFlowBinary, dyndevAttr->devControlFlowBinary,
