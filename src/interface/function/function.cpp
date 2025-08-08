@@ -1034,7 +1034,8 @@ void Function::ProducerMagicLookup(const Function *function, const std::set<Oper
                 if (!op->oOperand[0]->isSubGraphBoundary) {
                     ss << " " << op->GetOpAttribute()->Dump();
                 }
-            } else if ((!isInBoundary && !isOutBoundary) || function->GetGraphType() != GraphType::LEAF_GRAPH) {
+            } else if ((!IsCopyIn(op->GetOpcode()) && !IsCopyOut(op->GetOpcode())) ||
+                function->GetGraphType() != GraphType::LEAF_GRAPH) {
                 ss << " " << op->GetOpAttribute()->Dump();
             }
         }
