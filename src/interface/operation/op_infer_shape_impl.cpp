@@ -115,6 +115,12 @@ REGISTER_INFER_SHAPE_FUNC(OP_MAX_BRC, Opcode::OP_MAX_BRC, ElewiseBrcInferFunc);
 void BroadcastInferFunc(Operation* op,
                         std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     std::vector<SymbolicScalar> outValidShape;
+    if (op->GetAttr(OP_ATTR_PREFIX + "validShape", outValidShape)) {
+        for (auto output : op->GetOOperands()) {
+            outValidShapes.push_back(outValidShape);
+        }
+        return;
+    }
     auto outTensor = op->GetOOperands()[0]; // one in, one out
     // broadcast 1对应的维度采用tileshap
     for (size_t i = 0; i < op->GetIOperands()[0]->GetDynValidShape().size(); ++i) {
