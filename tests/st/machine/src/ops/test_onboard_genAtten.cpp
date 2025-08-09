@@ -90,7 +90,7 @@ void genAtten(GenAttenConfig &inputConfig) {
     GenAttention(cmpAtten, selAtten, winAtten, gatingScore, out_npu);
 
     auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcop);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(out_goldenData, (T *)outs->data(), 0.001f));

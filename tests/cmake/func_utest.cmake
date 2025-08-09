@@ -147,7 +147,7 @@ function(TileFwk_UTest_AddExe_RunExe)
 
     set(_PrivateLinkLibraries
             ${TileFwkUTestNamePrefix}_intf_pub
-            $<$<NOT:$<BOOL:${AC_ENABLE_FRAMEWORK_WITHOUT_CANN}>>:${TileFwkUTestNamePrefix}_stubs>
+            $<$<BOOL:${ENABLE_BUILD_WITH_CANN}>:${TileFwkUTestNamePrefix}_stubs>
     )
 
     # 支持由 ENABLE_TESTS_UTEST 传入指定的 Filter

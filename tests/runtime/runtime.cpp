@@ -13,7 +13,7 @@
  * \brief
  */
 
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
 
 #include "runtime.h"
 
@@ -97,4 +97,4 @@ int RuntimeAgent::GetAicoreRegInfo(std::vector<int64_t> &aic, std::vector<int64_
 } // namespace runtime
 } // namespace npu::tile_fwk
 
-#endif // AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#endif // ENABLE_BUILD_WITH_CANN

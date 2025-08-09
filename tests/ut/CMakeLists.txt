@@ -15,7 +15,7 @@ if (ENABLE_TESTS_UTEST)
     add_subdirectory(passes)
     add_subdirectory(simulation)
 
-    if (NOT AC_ENABLE_FRAMEWORK_WITHOUT_CANN)
+    if (ENABLE_BUILD_WITH_CANN)
         add_subdirectory(machine)
         add_subdirectory(codegen)
     endif ()

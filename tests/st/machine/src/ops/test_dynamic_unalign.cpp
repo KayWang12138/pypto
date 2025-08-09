@@ -67,7 +67,7 @@ TEST_F(DynamicUnalignTest, TestTailBlock) {
     });
 
     auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcop);
     std::vector<float> golden(n * s * s, 2.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);

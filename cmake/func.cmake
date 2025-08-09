@@ -93,7 +93,7 @@ function(TileFwk_AnalysisTargetHeaderFiles)
         list(APPEND _Args "-f=${SYS_ROOT}/usr/include")
         list(APPEND _Args "-f=${SYS_ROOT}/usr/lib")
         # CANN
-        if (NOT AC_ENABLE_FRAMEWORK_WITHOUT_CANN)
+        if (ENABLE_BUILD_WITH_CANN)
             list(APPEND _Args "-f=${ASCEND_CANN_PACKAGE_PATH}/include")
         endif ()
         # OpenSource

@@ -99,7 +99,7 @@ void TestNsa(const SimpleParams &params) {
         {xData, gateW1Data, gateW2Data, gateSimW1Data}, {gatingScoreZeroData}, {gatingScoreData});
     GenGatedScore(x, gateW1, gateW2, gateSimW1, gatingScore, mm1Out, tempOut, GateMode::standard);
     auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(
         funcOp, {xData, gateW1Data, gateW2Data, gateSimW1Data}, {gatingScoreZeroData, mm1ZeroData, tempZeroData});
     std::cout << "gatingScore ====== " << std::endl;
@@ -128,7 +128,7 @@ void TestViewPad() {
     }
 
     auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcOp, {xData}, {outputData});
     std::cout << "trans0 ====== " << std::endl;
     EXPECT_TRUE(resultCmp<float>(outputGolden, (float *)outputData->data(), 0.008f, 0, 1000, false, false, NUM_16));
@@ -166,7 +166,7 @@ void TestAlignRead(bool isAlign) {
     }
 
     auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcOp, {xData}, {outputData});
     std::cout << "trans0 ====== " << std::endl;
     EXPECT_TRUE(resultCmp<float>(outputGolden, (float *)outputData->data(), 0.008f, 0, 1000, false, false, NUM_16));
@@ -202,7 +202,7 @@ void TestMultiLoopAlignRead() {
     }
 
     auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcOp, {xData}, {outputData});
     std::cout << "trans0 ====== " << std::endl;
     EXPECT_TRUE(resultCmp<float>(outputGolden, (float *)outputData->data(), 0.008f, 0, 1000, false, false, NUM_16));
@@ -276,7 +276,7 @@ void TestGenslc(const SimpleParams &params, int topk_actual_len = 0, bool isGenS
     }
 
     auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(
         funcOp, {xData}, {trans0Data, reduce0Data, trans1Data, reduce1Data, topkIndData, topkValData, resZeroData});
     if (isGenSlc) {

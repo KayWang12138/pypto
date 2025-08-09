@@ -185,7 +185,7 @@ void TestDynamicMlaProlog(const TestShapeParams &params, const MlaTileConfig &ti
         dynamicOutputQ, dynamicOutputQRope, outputKvCache, outputKrCache, 1e-5f, 1e-5f, cacheMode);
 
     auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcOp, inputDataList, outputDataList);
 
     std::cout << "qNope ====== " << std::endl;

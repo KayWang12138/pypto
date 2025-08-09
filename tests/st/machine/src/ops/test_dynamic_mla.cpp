@@ -174,7 +174,7 @@ void TestMlaPrologV2(const SimpleParams &params) {
         ropeConfig, output_q, output_q_rope, output_kv_cache, output_kr_cache, 1e-5f, 1e-5f, params.cacheMode, splitK,
         isSmooth);
     auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcOp,
         {xData, wDqData, wUqQrData, wUkData, wDkvKrData, gammaCqData, gammaCkvData, sinData, cosData, kvLenData,
             kvCacheData, krCacheData, wQbScaleData, smoothCqData},

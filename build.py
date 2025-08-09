@@ -347,9 +347,9 @@ class BuildCtrl:
         # common 相关配置
         #    SocVersion, Backend 相关配置, SocVersion相关配置暂不支持
         if self.backend_type == "npu":
-            cmd += f" -DAC_ENABLE_FRAMEWORK_WITHOUT_CANN=OFF"
+            cmd += f" -DENABLE_BUILD_WITH_CANN=ON"
         if self.backend_type == "cost_model":
-            cmd += f" -DAC_ENABLE_FRAMEWORK_WITHOUT_CANN=ON"
+            cmd += f" -DENABLE_BUILD_WITH_CANN=OFF"
         cmd += f" -DCMAKE_BUILD_TYPE={self.build_type}" if self.build_type else ""
         cmd += self._gen_cmd(opt="ENABLE_HCCL_STUB", ctr=self.hccl_stub)
         # tests 相关配置

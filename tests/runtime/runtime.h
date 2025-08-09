@@ -23,7 +23,7 @@
 #include <dlfcn.h>
 #include <map>
 #include <cassert>
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
 #include "driver/ascend_hal_define.h"
 #include "acl/acl.h"
 #include "runtime/rt.h"
@@ -38,7 +38,7 @@ using HalHostRegisterFunc = int (*)(void *srcPtr, uint64_t size, uint32_t flag, 
 
 namespace npu::tile_fwk {
 namespace machine {
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
 
 struct HugePageDesc {
   uint8_t *baseAddr;

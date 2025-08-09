@@ -7,7 +7,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
-if (NOT AC_ENABLE_FRAMEWORK_WITHOUT_CANN)
+if (ENABLE_BUILD_WITH_CANN)
     # stub ascendcl
     add_library(ascendcl SHARED)
     target_sources(ascendcl

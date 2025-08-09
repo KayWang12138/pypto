@@ -331,7 +331,7 @@ void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig, W
         outputQ, outputQRope, outputKvCache, outputKrCache, qNope, qRope, kvSlcActSeqsMidOut, kSlc, vSlc, slcAttn, attenOut, postOut);
 
     auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     // 5. 更新输入输出list
     DynFuncRunner::Run(funcOp, inputDataList, outputDataList); // output list
 

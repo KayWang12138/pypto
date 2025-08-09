@@ -131,7 +131,7 @@ TEST_F(DynamicBasicTest, TestDD) {
     });
 
     auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcop);
     std::vector<float> golden(n * s * s, 128.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
@@ -164,7 +164,7 @@ TEST_F(DynamicBasicTest, TestTT) {
     }
 
     auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcop);
     std::vector<float> golden(n * s * s, 3.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
@@ -198,7 +198,7 @@ TEST_F(DynamicBasicTest, DynamicRawShape) {
     });
 
     auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcop);
     std::vector<float> golden(n * s * s, 64.0f);
     auto outs = ProgramData::GetInstance().GetOutputData(0);
@@ -241,7 +241,7 @@ TEST_F(DynamicBasicTest, DynamicRawShapeUnalign) {
     });
 
     auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcop, DynFuncRunnerConfig(arg0->GetDataSize()));
     std::vector<float> golden(s0, 5.0f);
     auto outs = ProgramData::GetInstance().GetOutputData(0);
@@ -273,7 +273,7 @@ TEST_F(DynamicBasicTest, TestInplace) {
     });
 
     auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcop);
     std::vector<float> golden(32 * 32, 3.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetInputData(0);
@@ -302,7 +302,7 @@ TEST_F(DynamicBasicTest, TestStaticUnderDynDev) {
     });
 
     auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcop);
     std::vector<float> golden(n * s, 1.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
@@ -339,7 +339,7 @@ TEST_F(DynamicBasicTest, TestStaticLoop) {
     });
 
     auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcop);
     std::vector<float> outGolden(n * s, 4.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
@@ -452,7 +452,7 @@ TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard) {
 
     auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcop, {true, 15, 4});
     std::vector<float> golden(n * s * s, 128.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
@@ -493,7 +493,7 @@ TEST_F(DynamicBasicTest, TestTensorExtract) {
 
     auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
     (void)funcOp;
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcOp);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_EQ(v + 2, *(int32_t *)outs->data());
@@ -533,7 +533,7 @@ TEST_F(DynamicBasicTest, TestGetTensorData) {
 
     auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
     (void)funcOp;
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcOp);
     std::vector<float> golden(n * n, 4.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
@@ -541,7 +541,7 @@ TEST_F(DynamicBasicTest, TestGetTensorData) {
 #endif
 }
 
-TEST_F(DynamicBasicTest, TestGetTensorDataExpr) {    
+TEST_F(DynamicBasicTest, TestGetTensorDataExpr) {
     int tiling = 32;
     ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
     Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling);
@@ -577,7 +577,7 @@ TEST_F(DynamicBasicTest, TestGetTensorDataExpr) {
 
     auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
     (void)funcOp;
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcOp);
     std::vector<float> golden(n * n, 4.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
@@ -610,7 +610,7 @@ TEST_F(DynamicBasicTest, TestVectorDup) {
 
     auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
     (void)funcOp;
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcOp);
     std::vector<int32_t> golden(n * n, 50);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
@@ -641,7 +641,7 @@ TEST_F(DynamicBasicTest, TestTensorInsert) {
 
     auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
     (void)funcOp;
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcOp);
     std::vector<int32_t> golden(n, 20);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
@@ -671,7 +671,7 @@ TEST_F(DynamicBasicTest, TestSetTensorData) {
 
     auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
     (void)funcOp;
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcOp);
     std::vector<int32_t> golden(n, 30);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
@@ -699,14 +699,14 @@ TEST_F(DynamicBasicTest, TestSetTensorDataExpr) {
             LOOP("Step1", FunctionType::DYNAMIC_LOOP, j, LoopRange(n)) {
                 for (int k = 0; k < n; k++) {
                     SetTensorDataInt32(i * tiling * tiling + j * tiling + k, {i, j, k}, output);
-                }                
+                }
             }
         }
     }
 
     auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
     (void)funcOp;
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcOp);
     std::vector<int32_t> golden(n * n * n);
     for (int i = 0; i < n * n * n; i++) {
@@ -742,14 +742,14 @@ TEST_F(DynamicBasicTest, TestGetSetTensorDataExpr) {
                 for (int k = 0; k < n; k++) {
                     SymbolicScalar s = GetTensorDataInt32(add, {i, j, k});
                     SetTensorDataInt32(s + i * tiling * tiling + j * tiling + k, {i, j, k}, output);
-                }                
+                }
             }
         }
     }
 
     auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
     (void)funcOp;
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcOp);
     std::vector<int32_t> golden(n * n * n);
     for (int i = 0; i < n * n * n; i++) {

@@ -8,12 +8,12 @@
 # ======================================================================================================================
 
 
-if (NOT AC_ENABLE_FRAMEWORK_WITHOUT_CANN)
+if (ENABLE_BUILD_WITH_CANN)
     add_subdirectory(kernel)
 endif ()
 
 
-if (NOT AC_ENABLE_FRAMEWORK_WITHOUT_CANN)
+if (ENABLE_BUILD_WITH_CANN)
     ExternalProject_Add(tile_fwk_server
             SOURCE_DIR ${TILE_FWK_SRC_ROOT}/src/machine/device
             CONFIGURE_COMMAND ${CMAKE_COMMAND}
@@ -45,22 +45,22 @@ add_library(tile_fwk_compiler SHARED)
 target_sources(tile_fwk_compiler PRIVATE ${_Compiler_Srcs})
 target_include_directories(tile_fwk_compiler
         PUBLIC  # 编译 CANN 场景依赖
-            $<$<AND:$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>,$<NOT:$<BOOL:${AC_ENABLE_FRAMEWORK_WITHOUT_CANN}>>>:${TOP_DIR}/inc>
-            $<$<AND:$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>,$<NOT:$<BOOL:${AC_ENABLE_FRAMEWORK_WITHOUT_CANN}>>>:${TOP_DIR}/abl/msprof/inc>
+            $<$<AND:$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>,$<BOOL:${ENABLE_BUILD_WITH_CANN}>>:${TOP_DIR}/inc>
+            $<$<AND:$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>,$<BOOL:${ENABLE_BUILD_WITH_CANN}>>:${TOP_DIR}/abl/msprof/inc>
         PUBLIC  # 使用 CANN 场景依赖
-            $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<NOT:$<BOOL:${AC_ENABLE_FRAMEWORK_WITHOUT_CANN}>>>:${ASCEND_CANN_PACKAGE_PATH}/include>
-            $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<NOT:$<BOOL:${AC_ENABLE_FRAMEWORK_WITHOUT_CANN}>>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment>
-            $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<NOT:$<BOOL:${AC_ENABLE_FRAMEWORK_WITHOUT_CANN}>>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/msprof>
+            $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${ENABLE_BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include>
+            $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${ENABLE_BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment>
+            $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${ENABLE_BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/msprof>
         PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}
 )
 target_compile_definitions(tile_fwk_compiler
         PUBLIC
-            $<$<BOOL:${AC_ENABLE_FRAMEWORK_WITHOUT_CANN}>:AC_ENABLE_FRAMEWORK_WITHOUT_CANN>
+            $<$<BOOL:${ENABLE_BUILD_WITH_CANN}>:ENABLE_BUILD_WITH_CANN>
 )
 target_link_directories(tile_fwk_compiler
         PUBLIC
-            $<$<NOT:$<BOOL:${AC_ENABLE_FRAMEWORK_WITHOUT_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/lib64>
+            $<$<BOOL:${ENABLE_BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/lib64>
 )
 target_link_libraries(tile_fwk_compiler
         PUBLIC

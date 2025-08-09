@@ -70,7 +70,7 @@ TEST_F(DynamicFFNTest, TestOnbroadDynamicFFN) {
         RawTensorData::CreateConstantTensor<float>(ffnout, 0),
     });
     auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcop);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
@@ -146,7 +146,7 @@ TEST_F(DynamicFFNTest, TestOnbroadDynamicFFNQuant) {
     auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
     // KernelLaunchPrecheck(funcop);
     devProgBinary = funcop->devProgBinary;
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcop);
     // KernelLaunch(devProgBinary);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);

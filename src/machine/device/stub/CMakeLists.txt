@@ -38,7 +38,7 @@ target_include_directories(slog_stub
 target_link_directories(slog_stub
         PRIVATE
             $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/devlib/linux/aarch64/>
-            $<$<BOOL:${AC_ENABLE_FRAMEWORK_WITHOUT_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/lib64>
+            $<$<BOOL:${ENABLE_BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/lib64>
 )
 target_link_libraries(slog_stub
         PRIVATE

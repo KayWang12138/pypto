@@ -324,7 +324,7 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
         program = funcOp->devProgBinary;
     }
 
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(program,
         {xData, wDqData, wUqQrData, wUkData, wDkvKrData, gammaCqData, gammaCkvData, sinData, cosData, kvLenData,
          kvCacheData, krCacheData, wQbScaleData, smoothCqData,

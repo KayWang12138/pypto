@@ -106,7 +106,7 @@ void TestAttentionPost(const TestPostParams &params, const PostTileConfig &tileC
     AttentionPost(x, wUv, wo, woScale, smoothWo, tileConfig, postOut);
 
     auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+#ifdef ENABLE_BUILD_WITH_CANN
     DynFuncRunner::Run(funcOp, inputDataList, outputDataList);
 
     std::cout << "postOut ====== " << std::endl;
