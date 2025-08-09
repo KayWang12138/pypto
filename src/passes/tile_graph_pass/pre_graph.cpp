@@ -544,8 +544,8 @@ void PreGraphPass::SetTensorBoundary(Function &function) const {
 Status PreGraphPass::PreColorSort(Function &function)
 {
     int colorNum = function.GetTotalSubGraphCount();
-    std::vector<std::unordered_set<int>> colorInGraph(colorNum);
-    std::vector<std::unordered_set<int>> colorOutGraph(colorNum);
+    std::vector<std::set<int>> colorInGraph(colorNum);
+    std::vector<std::set<int>> colorOutGraph(colorNum);
     for (auto &op : function.Operations()) {
         int opColor = op.GetSubgraphID();
         for (auto &consumer : op.ConsumerOps()) {
