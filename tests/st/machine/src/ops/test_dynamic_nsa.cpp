@@ -233,7 +233,7 @@ void TestGenslc(const SimpleParams &params, int topk_actual_len = 0, bool isGenS
     std::vector<int> reduce0Shape = {n2, s_slc, g};
     std::vector<int> trans1Shape = {n2, g, s_slc};
     std::vector<int> reduce1Shape = {n2, 1, s_slc};
-    std::vector<int> resShape = {1, 16};
+    std::vector<int> resShape = {1, 13};
 
     Tensor x(dType, x_shape, "x");
     Tensor trans0(dType, trans0Shape, "trans0");
@@ -299,10 +299,47 @@ void TestGenslc(const SimpleParams &params, int topk_actual_len = 0, bool isGenS
 #endif
 }
 
+template <typename T = npu::tile_fwk::float16>
+void TestGenslcV2(const SimpleParams &params, int topk_actual_len = 0) {
+    int n = params.n;
+    int s2 = params.s2;
+    int windowStride = 16, windowSize = 32;
+    int s_cmp = (s2 - windowSize) / windowStride + 1;
+    int s_cmp_valid = (topk_actual_len - windowSize) / windowStride + 1;
+    int validSize = (s_cmp_valid + 3) / 4;
+
+    DataType dType = (std::is_same<T, npu::tile_fwk::float16>::value) ? DT_FP16 : DT_BF16;
+
+    std::vector<int> x_shape = {n, s_cmp};
+    std::vector<int> resShape = {1, 13};
+
+    Tensor x(dType, x_shape, "x");
+    Tensor res(DT_FP32, resShape, "res");
+
+    std::vector<float> topkIndicesGolden = getGoldenVec<float>(resShape, "/topk_indices.bin");
+
+    auto xData = CreateTensorData<T>(x, "/p_cmp.bin");
+    auto resZeroData = RawTensorData::CreateConstantTensor<float>(res, 0.0);
+
+    GenSlcV2(x, res, validSize);
+
+#ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
+    DynFuncRunner::Run(Program::GetInstance().GetLastFunction()->GetDyndevAttribute(), {xData}, {resZeroData});
+    EXPECT_TRUE(
+        resultCmp<float>(topkIndicesGolden, (float *)resZeroData->data(), 0.008f, 0, NUM_16, false, false, NUM_20));
+#endif
+}
+
 TEST_F(DyNsa, GateScore_b16_s1_fp) {
     SimpleParams params = SimpleParams::getHighParams();
     params.b = NUM_16;
     TestNsa<npu::tile_fwk::float16>(params);
+}
+
+TEST_F(DyNsa, GateScore_b16_s1_fp_bf16) {
+    SimpleParams params = SimpleParams::getHighParams();
+    params.b = NUM_16;
+    TestNsa<npu::tile_fwk::bfloat16 >(params);
 }
 
 TEST_F(DyNsa, GateScore_b16_s1_bf) {
@@ -354,6 +391,13 @@ TEST_F(DyNsa, gateScore_mini_mtp) {
     TestNsa<npu::tile_fwk::float16>(params);
 }
 
+TEST_F(DyNsa, gateScore_mini_mtp_bf16) {
+    SimpleParams params = SimpleParams::getHighParams();
+    params.h = NUM_128;
+    params.s = NUM_2;
+    TestNsa<npu::tile_fwk::bfloat16>(params);
+}
+
 TEST_F(DyNsa, GenSlc_b1_s1_fp_8k) {
     SimpleParams params = SimpleParams::getHighParams();
     params.b = 1;
@@ -376,8 +420,17 @@ TEST_F(DyNsa, GenSlc_b1_s1_fp_6k1) {
     params.b = 1;
     params.s2 = NUM_8192;
     params.n2 = 1;
-    TestGenslc<npu::tile_fwk::float16>(params, NUM_6144 + 1, true);
+    TestGenslcV2<npu::tile_fwk::float16>(params, NUM_6144 + 1);
 }
+
+TEST_F(DyNsa, GenSlc_b1_s1_bf_1k1) {
+    SimpleParams params = SimpleParams::getHighParams();
+    params.b = 1;
+    params.s2 = NUM_8192;
+    params.n2 = 1;
+    TestGenslcV2<npu::tile_fwk::bfloat16 >(params, NUM_1024 + 1);
+}
+
 
 TEST_F(DyNsa, GenSlc_b1_s1_fp_4k1) {
     SimpleParams params = SimpleParams::getHighParams();

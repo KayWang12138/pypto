@@ -48,7 +48,7 @@ public:
 
 template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool isSmooth = false, bool nz = false>
 void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig, WinAttenTileShapeConfig &winAttntileConfig, SaTileShapeConfig& saTileConfig,
-    KvSlcTileShapeConfig& kvSlcTileConfig, PostTileConfig& postConfig, std::string cacheMode = "PA_BSND") {
+    KvSlcTileShapeConfig& kvSlcTileConfig, PostTileConfig& postConfig, CmpAttnTile &cmpTileConfig, std::string cacheMode = "PA_BSND") {
     float eps = params.eps;
     int b = params.b;
     int s1 = params.s1;
@@ -77,6 +77,7 @@ void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig, W
     for (auto seqItem : kvCacheActSeqVec) {
         blockNum += CeilDiv(seqItem, blockSize);
     }
+    std::cout << "========= blockNum " << blockNum << std::endl;
     int maxSeqAllBatch = *(std::max_element(kvCacheActSeqVec.begin(), kvCacheActSeqVec.end()));
     int maxBlockNumPerBatch = CeilDiv(maxSeqAllBatch, blockSize);
 
@@ -101,6 +102,8 @@ void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig, W
     std::vector<int> kvCacheOutShape = {b, n2, s2, v_dim};
     std::vector<int> krCacheOutShape = {b, n2, s2, qkRopeHeadDim};
     if (cacheMode != "BNSD") {
+        int blockNum2 = b * (s2 / blockSize);
+        std::cout << "========= blockNum2 " << blockNum2 << std::endl;
         kvCacheShape = {blockNum, blockSize, n2, v_dim};
         krCacheShape = {blockNum, blockSize, n2, qkRopeHeadDim};
         kvCacheOutShape = {blockNum * blockSize, n2 * v_dim};
@@ -166,8 +169,6 @@ void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig, W
     // MlaProlog output
     Tensor outputKvCache(dType, kvCacheOutShape, "outputKvCache");
     Tensor outputKrCache(dType, krCacheOutShape, "outputKrCache");
-    Tensor outputQ(dType, qOutShape, "outputQ");
-    Tensor outputQRope(dType, qRopeOutShape, "outputQRope");
 
     Tensor topkIndices(DT_INT32, topkIndicesShape, "topkTensor");
     Tensor topkTensorShape(DT_INT32, topkTensorShapeShape, "topkTensorShape");
@@ -177,8 +178,8 @@ void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig, W
     Tensor blockTable(DT_INT32, blockTableShape, "blockTable");
 
     Tensor slcActSeqs(DT_INT32, slcActSeqsShape, "slcActSeqs");
-    Tensor qNope(dType, qNopeShape, "qNope");
-    Tensor qRope(dType, qRopeShape, "qRope");
+    // Tensor qNope(dType, qNopeShape, "qNope");
+    // Tensor qRope(dType, qRopeShape, "qRope");
     Tensor kSlc(dType, kSlcShape, "kSlc");
     Tensor vSlc(dType, vSlcShape, "vSlc");
 
@@ -189,7 +190,7 @@ void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig, W
 
     Tensor cmpAtten(dType, shape_cmpAtten, "cmpAtten");
     Tensor slcAttn(DT_FP32, shape_selAtten, "selAtten"); // fp32输入
-    Tensor winAtten(dType, shape_winAtten, "winAtten");
+    // Tensor winAtten(DT_FP32, shape_winAtten, "winAtten");
 
     Tensor kvSlcActSeqsMidOut(DT_INT32, slcActSeqsShape, "kvSlcActSeqsMidOut");
     Tensor attenOut(dType, shape_attentionOut, "attenOut");
@@ -201,27 +202,74 @@ void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig, W
     Tensor smoothWo;
     Tensor postOut(dType, outShape, "postOut");
 
-    MlaQuantInputs quantInputs;
-    if (isQuant) {
-        std::vector<int> w_qb_scale_shape = {1, n1 * qHeadDim};
-        Tensor w_qb_scale = Tensor(DataType::DT_FP32, w_qb_scale_shape, "w_qb_scale");
-        quantInputs.dequantScaleWUqQr = w_qb_scale;
-        if (isSmooth) {
-            std::vector<int> smooth_cq_shape = {1, qLoraRank};
-            Tensor smooth_cq = Tensor(DT_FP32, smooth_cq_shape, "smooth_cq");
-            quantInputs.smoothScalesCq = smooth_cq;
-        }
-    }
+    int paramsSize = 10;
+    std::vector<int> input_param(paramsSize);
 
-    // 3. 计算接口
+    const int b_v2 = params.b;;
+    const int dq = v_dim+ dr;
+    const int dv = v_dim;
+    const int cmpBlockSize = NUM_32;
+    const int cmpStride = NUM_16;
+    softmaxScale = static_cast<float>(1.0 / sqrtf((dq)));
+
+    DataType qType = dType;
+    DataType kType = dType;
+
+    // Read actSeqLen_v2
+    std::vector<int> actSeq(b_v2,s2);
+    //    int blockNum = 0;
+    for (auto s : actSeq) {
+        blockNum += CeilDiv(s, blockSize);
+    }
+    // blockTable_v2: (b_v2, maxBlockNum)
+    int maxBlockNum = CeilDiv(s2, blockSize);
+
+    // Read actCmpSeqLen_v2
+    std::vector<int> actCmpSeq(b_v2, (s2-cmpBlockSize)/cmpStride+1);
+    int cmpBlockNum = 0;
+    for (auto s : actCmpSeq) {
+        cmpBlockNum += CeilDiv(s, blockSize);
+    }
+    // cmpBlockTable_v2: (b_v2, maxCmpBlockNum)
+    int maxCmpSeq = *(std::max_element(actCmpSeq.begin(), actCmpSeq.end()));
+    int maxCmpBlockNum = CeilDiv(maxCmpSeq, blockSize);
+
+    // Construct input tensors
+    Tensor cmpKvCache_v2(kType, {cmpBlockNum * blockSize, n2 * dv}, "cmpKvCache_v2");
+    Tensor cmpKrCache_v2(kType, {cmpBlockNum * blockSize, n2 * dr}, "cmpKrCache_v2");
+    Tensor cmpBlockTable_v2(DT_INT32, {b_v2, maxCmpBlockNum}, "cmpBlockTable_v2");
+    Tensor actSeqLen_v2(DT_INT32, {b_v2}, "actSeqLen_v2");
+    Tensor actCmpSeqLen_v2(DT_INT32, {b_v2}, "actCmpSeqLen_v2");
+    Tensor mlpWk1_v2(kType, {cmpBlockSize * dq, 2 * cmpBlockSize * dq}, "mlpWk1_v2");
+    Tensor mlpWk2_v2(kType, {2 * cmpBlockSize * dq, dq}, "mlpWk2_v2");
+    Tensor mlpCos_v2(kType, {b_v2, cmpBlockSize, dr}, "mlpCos_v2");
+    Tensor mlpSin_v2(kType, {b_v2, cmpBlockSize, dr}, "mlpSin_v2");
+    Tensor cmpAttn(DT_FP32, {b_v2 * s1 * n1, dv}, "cmpAttnOut");
+    Tensor cmpAttn16(DT_FP16, {b, s1, n1, dv}, "cmpAttnOut16");
+    Tensor cmpSoftmax(DT_FP32, {b_v2 * s1 * n1, maxCmpSeq}, "cmpSoftmax");
+    Tensor fullK(kType, {maxBlockNum * blockSize, n2, dq}, "fullK");
+    Tensor cmpK(DT_FP32, {b_v2, maxCmpSeq, n2, dq}, "cmpK");
+    Tensor firstRope(qType, {maxCmpSeq, cmpBlockSize, n2, dr}, "firstRope");
+    Tensor firstRopeInput(qType, {maxCmpSeq, cmpBlockSize, dr}, "firstRopeInput");
+    Tensor topkRes(DT_INT32, {b, s1, 16}, "topkRes");
+    int a = (((int((s2 - 32) / 16)) + 1) + 3) / 4;
+    std::cout << "xxxxxxxxxxxxxxxxxx  s2:" << s2 << ", a: " << a << std::endl;
+    Tensor topkInput(DT_FP32, {b, a}, "topkInput");
+
+    MlaQuantInputs quantInputs;
+
+
+    // 4. 计算接口
     DynamicNsa(x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache, quantInputs,
-        prologConfig, eps, eps, cacheMode,
-        topkIndices, topkTensorShape, /*kvNopeCache, kRopeCache,*/ kvCacheActSeq, blockTable, front, near, topk, slcBlockSize, blockSize, kvSlcTileConfig, // genKvSlc
-        /*qNope, qRope,*/ slcActSeqs, softmaxScale, saTileConfig, // slcAttn
-        /*x, */gateW1, gateW2, gateSimW1, GateMode::standard, // gatedscore
-        cmpAtten, winAtten, winSize, winAttntileConfig,// gen win
-        wUv, wo, woScale, smoothWo, postConfig, // post
-        outputQ, outputQRope, outputKvCache, outputKrCache, qNope, qRope, kvSlcActSeqsMidOut, kSlc, vSlc, slcAttn, attenOut, postOut);
+        prologConfig, eps, eps, cacheMode, topkIndices, topkTensorShape, /*kvNopeCache, kRopeCache,*/ kvCacheActSeq,
+        blockTable, front, near, topk, slcBlockSize, blockSize, kvSlcTileConfig, // genKvSlc
+        /*qNope, qRope,*/ slcActSeqs, softmaxScale, saTileConfig,                // slcAttn
+        /*x, */ gateW1, gateW2, gateSimW1, GateMode::standard,                   // gatedscore
+        cmpAtten, winSize, winAttntileConfig,                                    // gen win
+        wUv, wo, woScale, smoothWo, postConfig,                                  // post
+        outputKvCache, outputKrCache, postOut, cmpKvCache_v2, cmpKrCache_v2, cmpBlockTable_v2, actSeqLen_v2,
+        actCmpSeqLen_v2, mlpWk1_v2, mlpWk2_v2, mlpCos_v2, mlpSin_v2, cmpAttn, cmpSoftmax, fullK, cmpK, firstRope,
+        firstRopeInput, topkRes, topkInput, cmpBlockSize, cmpStride, cmpTileConfig);
 }
 
 TEST_F(NSAUtest, nsa_b_16_fp16) {
@@ -264,14 +312,35 @@ TEST_F(NSAUtest, nsa_b_16_fp16) {
     PostTileConfig postConfig = {16, 1};
     MlaTileConfig prologConfig = {16, 1};
 
+
+    CmpAttnTile config;
+    // Block concat tile
+    config.castTile = {128, 64}; // {blockSize, n2 * d}
+    // MlpRope
+    config.mlpRopeTile.twoDim = {64, 64};           // (cmpBlockSize, n2*dk)
+    config.mlpRopeTile.threeDim = {1, 64, 64};      // (1, cmpBlockSize, dk)
+    config.mlpRopeTile.fourDim = {1, 64, 1, 64};    // (1, cmpBlockSize, n2, dK) * (1, cmpBlockSize, 1, dK) & RotateHalf
+    config.mlpRopeTile.fiveDim = {1, 64, 1, 64, 2}; // (1, cmpBlockSize, n2, dk / 2, 2)
+    // MlpCmp
+    config.mlpCmpTile.transTileShape = {32, 1, 192};              // (cmpBlockSize, n2, d)
+    config.mlpCmpTile.c1TileShape = {16, 16, 128, 128, 128, 128}; // (n2, 2 * cmpBlockSize * d)
+    config.mlpCmpTile.v1TileShape = {1, 128};                     // (n2, 2 * cmpBlockSize * d)
+    config.mlpCmpTile.c2TileShape = {16, 16, 128, 128, 128, 128}; // // (n2, d)
+    config.mlpCmpTile.v2TileShape = {1, 1, 128};                  // (1, n2, d)
+    // CmpAttn
+    config.attnTile.c1TileShape = {16, 16, 128, 128, 128, 128}; // (g, effSeq)
+    config.attnTile.v1TileShape = {16, 128};                    // (g, effSeq)
+    config.attnTile.c2TileShape = {16, 16, 128, 128, 128, 128}; // (g, dN)
+
+
     std::string cacheMode = "PA_BSND";
     if (isQuant == 1) {
         if (isSmooth == 1) {
-            TestNsa<npu::tile_fwk::float16, int8_t, true>(params, prologConfig, winAttnTileConfig, saTileConfig, kvSlcTileConfig, postConfig, cacheMode);
+            TestNsa<npu::tile_fwk::float16, int8_t, true>(params, prologConfig, winAttnTileConfig, saTileConfig, kvSlcTileConfig, postConfig, config, cacheMode);
         } else {
-            TestNsa<npu::tile_fwk::float16, int8_t, false>(params, prologConfig, winAttnTileConfig, saTileConfig, kvSlcTileConfig, postConfig, cacheMode);
+            TestNsa<npu::tile_fwk::float16, int8_t, false>(params, prologConfig, winAttnTileConfig, saTileConfig, kvSlcTileConfig, postConfig, config, cacheMode);
         }
     } else {
-        TestNsa<npu::tile_fwk::float16, npu::tile_fwk::float16, false>(params, prologConfig, winAttnTileConfig, saTileConfig, kvSlcTileConfig, postConfig, cacheMode);
+        TestNsa<npu::tile_fwk::float16, npu::tile_fwk::float16, false>(params, prologConfig, winAttnTileConfig, saTileConfig, kvSlcTileConfig, postConfig, config, cacheMode);
     }
 }

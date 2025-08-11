@@ -26,6 +26,7 @@
 #include "operator/models/deepseek/dynamic_mla.h"
 #include "operator/models/nsa/win_attention.h"
 #include "operator/models/nsa/attention_post.h"
+#include "fused_compress_kv_select.h"
 
 namespace npu::tile_fwk {
 constexpr int NUM_65536 = 65536;
@@ -116,10 +117,15 @@ void DynamicNsa(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, co
     int front, int near, int topk, int slcBlockSize, int blockSize, KvSlcTileShapeConfig &kvSlcTileConfig,
     Tensor &kvSlcActSeqs, float softmaxScale, SaTileShapeConfig saTileConfig,
     const Tensor &gateW1, const Tensor &gateW2, const Tensor &gateSimW1, GateMode gateMode,
-    Tensor &cmpAtten, Tensor &winAtten, int winSize, WinAttenTileShapeConfig &winAttntileConfig,
+    Tensor &cmpAtten, int winSize, WinAttenTileShapeConfig &winAttntileConfig,
     Tensor &weightUV, Tensor &weightO, Tensor &weightOScale, Tensor &smoothScalesWo, const PostTileConfig &postConfig,
-    Tensor &queryOut, Tensor &queryRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut, Tensor &qNope, Tensor &qRope,
-    Tensor &kvSlcActSeqOut, Tensor &kSlc, Tensor &vSlc, Tensor &slcAttn, Tensor &attentionOut, Tensor &postOut);
+    Tensor &kvCacheOut, Tensor &krCacheOut, Tensor &postOut,
+    const Tensor &cmpKvCache, const Tensor &cmpKrCache, const Tensor &cmpBlockTable,
+    const Tensor &actSeqLen, const Tensor &actCmpSeqLen, const Tensor &mlpWk1, const Tensor &mlpWk2,
+    const Tensor &mlpCos, const Tensor &mlpSin, Tensor &cmpAttnOut, Tensor &cmpSoftmax, Tensor &fullK, Tensor &cmpK,
+    Tensor &firstRope, Tensor &firstRopeInput, Tensor &topkRes, Tensor &topkInput,
+    const int cmpBlockSize, const int cmpStride,
+    CmpAttnTile &tileConfig_v2);
 
 } // namespace npu::tile_fwk
 

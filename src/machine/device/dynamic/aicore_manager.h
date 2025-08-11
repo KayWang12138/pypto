@@ -638,6 +638,7 @@ public:
                 ret = DEVICE_MACHINE_ERROR;
                 goto FINISH;
             }
+            (void)start;
         }
         PerfMtBegin(PERF_EVT_WAIT_AICORE_FINISH, aicpuIdx_);
         rc = WaitAllAicoreFinish(aicStart_, aicEnd_);

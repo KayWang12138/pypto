@@ -538,7 +538,9 @@ def testDviewPad(output_dir: Path):
     case_names=[
         "DyNsa.gateScore_mini",
         "DyNsa.gateScore_mini_mtp",
+        "DyNsa.gateScore_mini_mtp_bf16",
         "DyNsa.GateScore_b16_s1_fp",
+        "DyNsa.GateScore_b16_s1_fp_bf16",
         "DyNsa.GateScore_b16_s1_bf",
         "DyNsa.GateScore_b32_s1_fp",
         "DyNsa.GateScore_b32_s2_fp",
@@ -560,6 +562,7 @@ def testDviewPad(output_dir: Path):
         "DyNsa.GenTopk_b1_s1_fp_4k_dyn",
         "DyNsa.GenTopk_b1_s1_fp_4k1_dyn",
         "DyNsa.GenTopk_b1_s1_fp_6k1_dyn",
+        "DyNsa.GenSlc_b1_s1_bf_1k1"
 
     ]
 )
@@ -582,6 +585,8 @@ def gen_mla_prolog_date_v2(case_name: str, output: Path) -> bool:
     else:
         if case_name == "DyNsa.GateScore_b16_s1_fp":
             nsa_entry((np.float16, np.float16), (16, 1, 65536, 7168), "GatingScore", output)
+        elif case_name=="DyNsa.GateScore_b16_s1_fp_bf16":
+            nsa_entry((bfloat16, bfloat16), (16, 1, 65536, 7168), "GatingScore", output)
         elif case_name == "DyNsa.GateScore_b16_s1_bf":
             nsa_entry((bfloat16, bfloat16), (16, 1, 65536, 7168), "GatingScore", output)
         elif case_name == "DyNsa.GateScore_b32_s1_fp":
@@ -598,6 +603,8 @@ def gen_mla_prolog_date_v2(case_name: str, output: Path) -> bool:
             nsa_entry((np.float16, np.float16), (16, 1, 65536, 128), "GatingScore", output)
         elif case_name == "DyNsa.gateScore_mini_mtp":
             nsa_entry((np.float16, np.float16), (32, 2, 65536, 128), "GatingScore", output)
+        elif case_name == "DyNsa.gateScore_mini_mtp_bf16":
+            nsa_entry((bfloat16, bfloat16), (32, 2, 65536, 128), "GatingScore", output)
         elif case_name == "DyNsa.GenSlc_b1_s1_fp_8k":
             nsa_entry((np.float16, np.float16), (1, 1, 8192, 128), "GenSlc", output,8192)
         elif case_name == "DyNsa.GenSlc_b1_s1_fp_4k":
@@ -606,6 +613,8 @@ def gen_mla_prolog_date_v2(case_name: str, output: Path) -> bool:
             nsa_entry((np.float16, np.float16), (1, 1, 8192, 128), "GenSlc", output,6145)
         elif case_name == "DyNsa.GenSlc_b1_s1_fp_4k1":
             nsa_entry((np.float16, np.float16), (1, 1, 8192, 128), "GenSlc", output,4097)
+        elif case_name == "DyNsa.GenSlc_b1_s1_bf_1k1":
+            nsa_entry((bfloat16, bfloat16), (1, 1, 8192, 128), "GenSlc", output,1025)
 
 
         elif case_name == "DyNsa.GenTopk_b1_s1_fp_8k" or case_name == "DyNsa.GenTopk_b1_s1_fp_8k_dyn":

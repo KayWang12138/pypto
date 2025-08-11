@@ -312,6 +312,10 @@ static bool resultCmp(const vector<T> &outDataValExp, const T *outDataValAct, fl
         auto eErr = ((diff > eps && relRatio > eps) || (zeroCount > zeroCountThreshold));
         errCount += eErr ? 1 : 0;
 
+        if (std::isnan(expVal) || std::isnan(actVal)) {
+            std::cout << "idx: " << eIdx << ", exp->" << expVal << ", act->" << actVal << std::endl;
+        }
+
         if ((printAll) || (eErr && printErr) || (testNum > 0)) {
             std::cout << "diff threshold: " << eps << ", idx: " << eIdx << ", exp->" << expVal << ", act->" << actVal
                       << ", diff->" << diff << ", diff ratio->" << relRatio << ", zero count->" << zeroCount
@@ -329,6 +333,7 @@ static bool resultCmp(const vector<T> &outDataValExp, const T *outDataValAct, fl
     if (rst || printAll || printErr) {
         return rst;
     }
+
     errCount = 0;
     zeroCount = 0;
     for (size_t eIdx = 0; eIdx < eSize; eIdx++) {
@@ -341,6 +346,11 @@ static bool resultCmp(const vector<T> &outDataValExp, const T *outDataValAct, fl
 
         auto eErr = ((diff > eps && relRatio > eps) || (zeroCount > zeroCountThreshold));
         errCount += eErr ? 1 : 0;
+
+        if (std::isnan(expVal) || std::isnan(actVal)) {
+            std::cout << "idx: " << eIdx << ", exp->" << expVal << ", act->" << actVal << std::endl;
+        }
+
         if (eErr) {
             std::cout << "diff threshold: " << eps << ", idx: " << eIdx << ", exp->" << expVal << ", act->" << actVal
                       << ", diff->" << diff << ", diff ratio->" << relRatio << ", zero count->" << zeroCount

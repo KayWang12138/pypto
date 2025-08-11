@@ -398,6 +398,7 @@ void TransposeInferFunc(Operation* op,
 }
 
 REGISTER_INFER_SHAPE_FUNC(OP_TRANSPOSE_VNCHWCONV, Opcode::OP_TRANSPOSE_VNCHWCONV, TransposeInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_TRANSPOSE_DATAMOVE, Opcode::OP_TRANSPOSE_DATAMOVE, TransposeInferFunc);
 
 void ViewInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op->GetOpAttribute().get());
@@ -527,7 +528,7 @@ REGISTER_INFER_SHAPE_FUNC(OP_VEC_DUP, Opcode::OP_VEC_DUP, VecDupInferFunc);
 
 void ReshapeInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &validShapes) {
     std::vector<SymbolicScalar> validShape;
-    if (op->GetAttr(OP_ATTR_PREFIX + "validShape", validShape)) {
+    if (op->GetAttr(OP_ATTR_PREFIX + "validShape", validShape) && validShape.size() != 0) {
         validShapes.push_back(validShape);
     } else {
         auto dstShape = op->GetOOperands()[0]->GetShape();

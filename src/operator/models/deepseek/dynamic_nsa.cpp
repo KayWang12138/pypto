@@ -62,18 +62,19 @@ void GenGatedScore(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, 
 
                 res = Transpose(Cast(res, DataType::DT_FP32), {2, 3});
 
-                DAssemble(Cast(res, DataType::DT_FP16), {bOfs, sIdx, 0, 0}, gatingScore);
+                DAssemble(Cast(res, dType), {bOfs, sIdx, 0, 0}, gatingScore);
             }
         }
     }
 }
 
-std::vector<Tensor> GenTopkIndices(const Tensor &tmpOut, int s_slc, int actualTopk, int actualValidLen, bool isDyn) {
+std::vector<Tensor> GenTopkIndices(
+    const Tensor &tmpOut, int s_slc, int actualTopk, SymbolicScalar validSize, bool isDyn) {
     std::vector<Tensor> res;
     Program::GetInstance().GetTileShape().SetVecTileShapes({1, s_slc});
-    auto view0 = DViewPad(tmpOut, {1, 128}, {1, actualValidLen}, {0, 1});
+    auto view0 = DViewPad(tmpOut, {1, 128}, {1, validSize}, {0, 1});
     if (!isDyn) {
-        view0 = View(tmpOut, {1, actualValidLen}, {0, 1});
+        view0 = View(tmpOut, {1, validSize}, {0, 1});
     }
     Program::GetInstance().GetTileShape().SetVecTileShapes({1, s_slc});
     auto topk_idx = std::get<1>(TopK(view0, 16, -1, true)); // 13
@@ -85,7 +86,7 @@ std::vector<Tensor> GenTopkIndices(const Tensor &tmpOut, int s_slc, int actualTo
     if (!isDyn) {
         topk_idx = View(topk_idx, {1, actualTopk}, {0, 0});
     }
-    auto out32 = std::get<0>(TopK(topk_idx, actualTopk, -1, false));
+    auto out32 = std::get<0>(TopK(topk_idx, 16, -1, false));
     res.emplace_back(out32);
     return res;
 }
@@ -165,6 +166,55 @@ void GenSlc(const Tensor &x, Tensor &trans0res, Tensor &reduce0res, Tensor &tran
     }
 }
 
+void GenSlcV2(const Tensor &x, Tensor &out, int validSize, int l_prime, int d, int front, int near, int topk) {
+    int n = x->shape[0];         // 128
+    int s_cmp = x->shape[1];     // 511
+    int s_slc = (s_cmp + 3) / 4; // 128
+    int loop = s_slc;
+    int out_loop = l_prime / d;                      // 4
+    int actualTopk = topk - (front + near);          // 13
+    int actualVaildLen = validSize - (front + near); // 125
+    Tensor tmpOut(DataType::DT_FP32, {1, s_slc}, "tmpout");
+    FUNCTION("main", FunctionType::DYNAMIC, {x}, {out}) {
+        LOOP("LOOP_L0_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1), {}, true) {
+            (void)sIdx;
+            Program::GetInstance().GetTileShape().SetVecTileShapes({4, s_cmp});
+            auto viewer = DView(x, {n, s_cmp}, {0, 0});
+            auto input32 = Cast(viewer, DataType::DT_FP32); // 128,511
+            auto tmpTrans = Transpose(input32, {0, 1});     // 511,128
+            Program::GetInstance().GetTileShape().SetVecTileShapes({16, n});
+            Tensor abc(DataType::DT_FP16, {loop, n}, "reduce0");
+            for (int i = 0; i < loop; i++) {
+                auto maxLen0 = std::min(out_loop, s_cmp - i * out_loop);
+                auto view0 = View(tmpTrans, {maxLen0, n}, {i * out_loop, 0}); // 4,128
+                auto maxLen1 = std::min(out_loop, s_cmp - i * out_loop - 1);
+                Program::GetInstance().GetTileShape().SetVecTileShapes({8, n});
+                auto reduce0 = RowSumSingle(view0, 0); // 1,128
+                if (maxLen1 > 0) {
+                    auto view1 = View(tmpTrans, {maxLen1, n}, {i * out_loop + 1, 0}); // 4,128
+                    auto reduce1 = RowSumSingle(view1, 0);                            // 1,128
+                    auto sum = Add(reduce0, reduce1);                                 // 1,128
+                    auto sumTmp = Cast(sum, DataType::DT_FP16);
+                    DAssemble(sumTmp, {i, 0}, abc);
+                } else {
+                    auto reduceTmp = Cast(reduce0, DataType::DT_FP16);
+                    DAssemble(reduceTmp, {i, 0}, abc);
+                }
+            }
+            auto trans1 = Transpose(Cast(abc, DataType::DT_FP32), {0, 1}); // 128,128
+            Program::GetInstance().GetTileShape().SetVecTileShapes({n, 8});
+            auto reduce2 = RowSumSingle(trans1, 0); // 1,128
+            tmpOut = Reshape(reduce2, {1, s_slc});
+        }
+        LOOP("LOOP_topk1", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1), {}, true) {
+            (void)sIdx;
+            config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+            std::vector<Tensor> res = GenTopkIndices(tmpOut, s_slc, actualTopk, actualVaildLen, true);
+            out = res[1];
+        }
+    }
+}
+
 void GenTopkIndicesFun(const Tensor &x, Tensor &trans0res, Tensor &reduce0res, Tensor &trans1res, Tensor &reduce1res,
     Tensor &topkInd, Tensor &topkVal, Tensor &out, int actualLen, int front, int near) {
     int s_slc = x->shape[1];                         // 128
@@ -190,7 +240,7 @@ void GenTopkIndicesFun(const Tensor &x, Tensor &trans0res, Tensor &reduce0res, T
             out = res[1];
             topkInd = res[0];
 #endif
+        }
     }
-}
 }
 } // namespace npu::tile_fwk

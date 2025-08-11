@@ -35,15 +35,20 @@ namespace npu::tile_fwk {
 constexpr float F_1 = 1.0;
 constexpr float F_NEGA_1 = -1.0;
 
-Tensor Sigmoid(const Tensor &input) {
+Tensor Sigmoid(Tensor &input) {
     // 1/(1+exp(-x))
-    auto fp32Operand = Cast(input, DataType::DT_FP32);
-    auto expRes = Exp(MulS(fp32Operand, Element(DataType::DT_FP32, F_NEGA_1)));
+    auto dtype = input->Datatype();
+    if (dtype != DT_FP32) {
+        input = Cast(input, DataType::DT_FP32);
+    }
+    auto expRes = Exp(MulS(input, Element(DataType::DT_FP32, F_NEGA_1)));
     auto res = AddS(expRes, Element(DataType::DT_FP32, F_1));
     Element src(DataType::DT_FP32, 1.0f);
     auto ones = VectorDuplicate(src, DataType::DT_FP32, res.GetShape());
     res = Div(ones, res);
-    res = Cast(res, input->Datatype());
+    if (dtype != DT_FP32) {
+        res = Cast(res, dtype);
+    }
     return res;
 }
 

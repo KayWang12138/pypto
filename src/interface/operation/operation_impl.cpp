@@ -2253,9 +2253,9 @@ void TiledInnerReshape(Function &function, const LogicalTensorPtr &operand, cons
     op.oOperand.front()->SetIsDummy();
 }
 
-void TensorInnerReshape(Function &function, const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
+void TensorInnerReshape(Function &function, const LogicalTensorPtr &operand, const LogicalTensorPtr &result, const std::vector<SymbolicScalar> &validShape) {
     auto &operation = function.AddOperation(Opcode::OP_RESHAPE, {operand}, {result});
-    result->UpdateDynValidShape(SymbolicScalar::FromConcrete(result->GetShape()));
+    result->UpdateDynValidShape(validShape);
     operation.SetAttribute("reshape", result->shape);
 }
 
@@ -2305,9 +2305,7 @@ static bool ReshapeNeedCopy(const Tensor &operand) {
     return false;
 }
 
-Tensor Reshape(const Tensor &operand, const std::vector<int> &dstshape) {
-    DECLARE_TRACER();
-
+Tensor Reshape(const Tensor &operand, const std::vector<int> &dstshape, const std::vector<SymbolicScalar> &validShape) {
     if (operand->shape == dstshape) {
         return operand;
     }
@@ -2318,11 +2316,11 @@ Tensor Reshape(const Tensor &operand, const std::vector<int> &dstshape) {
             copyOperand.GetStorage());
         Tensor result(copyOperand->Datatype(), newShape, "", operand->nodetype, operand->tensorfmt);
         CALL(InnerReshape, *Program::GetInstance().GetCurrentFunction(), copyOperand.GetStorage(),
-            result.GetStorage());
+            result.GetStorage(), validShape);
         return result;
     } else {
         Tensor result(operand->Datatype(), newShape, "", operand->nodetype, operand->tensorfmt);
-        CALL(InnerReshape, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage());
+        CALL(InnerReshape, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage(), validShape);
         return result;
     }
 }

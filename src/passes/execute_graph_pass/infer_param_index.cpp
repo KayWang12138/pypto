@@ -36,7 +36,7 @@ std::string InferParamIndex::DumpParamIndex(const std::map<std::string, DynParam
 }
 
 Status InferParamIndex::ResetDynValidShape(Function& function) {
-    const std::set<Opcode> specifiedOps = {Opcode::OP_VEC_DUP, Opcode::OP_EXPAND};
+    const std::set<Opcode> specifiedOps = {Opcode::OP_VEC_DUP, Opcode::OP_EXPAND, Opcode::OP_RESHAPE};
     for (auto &op : function.Operations()) {
         std::vector<SymbolicScalar> validShape;
         for (auto outOperand : op.GetOOperands()) {

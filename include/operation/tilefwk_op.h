@@ -39,7 +39,7 @@ Tensor Sqrt(const Tensor &operand);
 Tensor Reciprocal(const Tensor &operand);
 Tensor Abs(const Tensor &operand);
 
-Tensor Reshape(const Tensor &operand, const std::vector<int> &dstshape);
+Tensor Reshape(const Tensor &operand, const std::vector<int> &dstshape, const std::vector<SymbolicScalar> &validShape={});
 Tensor Duplicate(const Tensor &operand);
 Tensor Gather(const Tensor &params, const Tensor &indices, int axis);
 Tensor GatherElement(const Tensor &params, const Tensor &indices, int axis);
@@ -97,7 +97,7 @@ Tensor SoftmaxNew(const Tensor &operand);
 Tensor RotateHalf(const Tensor &input);
 
 // moe
-Tensor Sigmoid(const Tensor &input);
+Tensor Sigmoid(Tensor &input);
 
 std::tuple<Tensor, Tensor> Quant(
     const Tensor &input, bool isSymmetry = true, bool hasSmoothFactor = false, const Tensor &smoothFactor = Tensor());

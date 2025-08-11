@@ -273,6 +273,10 @@ INLINE uint64_t RUNTIME_Min(uint64_t input1, uint64_t input2) {
     return input1 < input2 ? input1 : input2;
 }
 
+INLINE uint64_t RUNTIME_Max(uint64_t input1, uint64_t input2) {
+    return input1 > input2 ? input1 : input2;
+}
+
 INLINE uint32_t GetTensorDataInt32(CoreFuncParam *ctx, uint64_t address) {
     return *(__gm__ uint32_t *)(address);
 }

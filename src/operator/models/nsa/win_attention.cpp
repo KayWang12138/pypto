@@ -56,7 +56,7 @@ void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &
     ASSERT(bTile != 0) << "bTile can't be zero!";
     ASSERT(nQ != 0) << "nQ can't be zero!";
     SymbolicScalar bLoop = bSize / bTile;
-    SymbolicScalar s1Size = GetInputShapeDim(qNope, 0) / bSize / nQ; // [B_s1_N1, D]
+    SymbolicScalar s1Size = qNope->shape[0] / bSize / nQ; // [B_s1_N1, D]
     SymbolicScalar s1Tile = 1;
     ASSERT(s1Tile != 0) << "s1Tile can't be zero!";
     SymbolicScalar s1Loop = s1Size / s1Tile;
@@ -72,7 +72,7 @@ void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &
     SymbolicScalar winActualSize = 0;
     SymbolicScalar tableLoop = 0;
 
-    LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1)) {
+    LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1), {}, true) {
         SymbolicScalar curActualSeqSize = GetInputDataInt32Dim1(actSeqs, bIdx);
         LOOP("LOOP_L1_s1Idx", FunctionType::DYNAMIC_LOOP, s1Idx, LoopRange(0, s1Loop, 1)) {
             winActualSize = std::min(windowSize, (curActualSeqSize - s1Size + s1Idx + 1));

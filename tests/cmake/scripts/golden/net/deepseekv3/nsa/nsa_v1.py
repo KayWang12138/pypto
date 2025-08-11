@@ -24,12 +24,20 @@ import time
 
 import numpy as np
 from bfloat16 import bfloat16
+import os
+# np.random.seed(0)
+# 添加 golden 所在目录的父路径（例如项目根目录）
+project_root = os.path.dirname(os.path.abspath(__file__))  # 当前脚本目录
+golden_parent = os.path.join(project_root, "../../../../")  # 假设 golden 在上级目录
+sys.path.insert(0, golden_parent)
 
 from golden.net.deepseekv3.nsa.gen_slc_attn import compute_attention
 from golden.op.kv_slc import kv_slc_compute
 from golden.net.deepseekv3.nsa.attention_post_golden import post_compute, gen_post_input_data
 from golden.net.deepseekv3.nsa.win_atten import win_attn_calc
 from golden.net.deepseekv3.mla.mla_prolog_golden_v2 import gen_prolog_input_data, mla_prolog_compute
+from golden.net.deepseekv3.nsa.gen_fused_compress_kv_select import compress_attention_data_gen, compress_attention_compute
+
 
 
 if __name__ == "__main__":
@@ -305,6 +313,7 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
     logging.debug(f"gen_nsa_golden  dtype:{dtype}, w_dtype:{w_dtype}")
     b = params.get("b")
     s = params.get("s")
+    s1 = params.get("s")
     s2 = params.get("s2")
     h = params.get("h")
     n1 = params.get("n1")
@@ -393,7 +402,7 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
                               block_size, cache_mode)
 
     # gen kv_slc
-    s_slc = 128 # TODO: 中间输出，后续topk子图拼接后，需要删除topk_indices的生成
+    s_slc = (((s2-32)//16+1)+3)//4  # TODO: 中间输出，后续topk子图拼接后，需要删除topk_indices的生成
     topk_indices = gen_uniform_data(shape_topk_indices, 0, s_slc, dtype=np.int32)
     topk_tensor_shape = np.zeros([b, s], dtype=np.int32)
     for batchIdx in range(b):
@@ -458,8 +467,37 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
 
     # cmp atten
     # gen_cmp_attn()
+    params = {}
+    b_compress = b
+    s2_compress = s2
+    params["b"] = b_compress
+    params["s"] = s1
+    params["n1"] = n1
+    params["d"] = q_dim
+    params["dtype"] = dtype
+    params["s2"] = s2_compress
+    params["n2"] = n2
+    params["dv"] = v_dim
+    act_seq = [s2 for _ in range(b_compress)]
+    params["act_seq"] = act_seq
+    params["block_size"] = block_size
+    params["cmp_block_size"] = cmp_block_size
+    params["cmp_stride"] = cmp_stride
+    params["softmax_scale"] = float(1.0) / np.sqrt(q_dim)
+    act_cmp_seq = [
+        (cur_s - cmp_block_size) // cmp_stride + 1 for cur_s in act_seq
+    ]
+    params["act_cmp_seq"] = act_cmp_seq
+    scmp = max(act_cmp_seq)
+    params["scmp"] = scmp
 
-    # win atten
+    input_data_map = compress_attention_data_gen(output_dir, params, (q_bsnd,k_cache_bsnd,block_table))
+    # compress_attention_out = compress_attention_compute(output_dir, input_data_map, params)
+    compress_attention_out, topk_full = compress_attention_compute(output_dir, input_data_map, params)
+
+
+
+# win atten
     win_atten = np.zeros(win_atten_shape, dtype = np.float32)
     input_params_win_attn = [b, s, n2, n1, q_dim, win_size, k_dim, v_dim, softmax_scale]
     win_attn_calc(input_params_win_attn, kv_cache_actual_seq, q_bsnd, k_cache_bsnd, v_cache_bsnd, dtypes, win_atten)
@@ -468,7 +506,8 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
     # gen kv_slc
     print("========== gen kv_slc ==============")
     compute_input_params = [block_size, n2, front, near, topk, slc_block_size]
-    k_slc_out, v_slc_out, kv_slc_actual_seqs = kv_slc_compute(compute_input_params, topk_indices, topk_tensor_shape, kv_nope_cache, k_rope_cache, block_table, kv_cache_actual_seq)
+    # k_slc_out, v_slc_out, kv_slc_actual_seqs = kv_slc_compute(compute_input_params, topk_indices, topk_tensor_shape, kv_nope_cache, k_rope_cache, block_table, kv_cache_actual_seq)
+    k_slc_out, v_slc_out, kv_slc_actual_seqs = kv_slc_compute(compute_input_params, topk_full, topk_tensor_shape, kv_nope_cache, k_rope_cache, block_table, kv_cache_actual_seq)
     dump_gen_kv_slc_file(topk_indices, topk_tensor_shape, k_slc_out, v_slc_out, kv_slc_actual_seqs, dtype, output_dir)
 
     # slc atten
@@ -487,6 +526,7 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
 
     # gen atten
     print("========== gen attn ==============")
+    cmp_atten = compress_attention_out.reshape(cmp_atten_shape)
     attention_out = gen_atten_golden_data(cmp_atten, slc_atten, win_atten, gating_score, dtype)
     dump_gen_atten_file(cmp_atten, slc_atten, win_atten, attention_out, dtype, output_dir)
     print("========== attention_out: ", attention_out.shape, attention_out.dtype)
@@ -566,7 +606,13 @@ def nsa_entry(dtypes, bs1s2h, quant_smooth, output_dir: Path):
 @GoldenRegister.reg_golden_func(
     case_names=[
         "DynamicNSATest.nsa_b_16_s1_1_s2_8192_h_7168_fp16",
+        "DynamicNSATest.nsa_b_1_s1_1_s2_8192_h_7168_fp16",
         "DynamicNSATest.nsa_b_16_s1_1_s2_8192_h_7168_fp16_quant",
+        "DynamicNSATest.s2_1024",
+        "DynamicNSATest.s2_2048",
+        "DynamicNSATest.s2_8192",
+        "DynamicNSATest.s2_4096",
+        "DynamicNSATest.mini",
     ]
 )
 def gen_nsa_v1_func(case_name: str, output: Path) -> bool:
@@ -577,20 +623,32 @@ def gen_nsa_v1_func(case_name: str, output: Path) -> bool:
         # 获取当前时间（Unix 时间戳）
         current_time = time.time()
         # 判断文件的修改时间是否超过1小时（3600秒）
-        if current_time - file_mod_time > 3600:
+        if current_time - file_mod_time > 3600 * 24 *30:
             logging.info("文件的修改时间超过1小时，重新生成文件...")
             complete = False
         else:
             logging.info("文件的修改时间在1小时内，无需重新生成。")
 
-    complete = False # TODO: del complete
+    complete = False if case_name != "DynamicNSATest.mini" else True # TODO: del complete
     if complete:
         logging.info("Case(%s), Golden data exits. cache catch", case_name)
     else:
         if case_name == "DynamicNSATest.nsa_b_16_s1_1_s2_8192_h_7168_fp16": # gen_slc_attn + gen_gated_score + gen_attn nsa_b_16_s1_1_s2_8192_h_7168_fp16
-            nsa_entry((np.float16, np.float16), (16, 1, 8192, 7168), (False, False), output)
+            nsa_entry((np.float16, np.float16), (16, 1, 1024, 7168), (False, False), output)
         elif case_name == "DynamicNSATest.nsa_b_16_s1_1_s2_8192_h_7168_fp16_quant": # quant
             nsa_entry((np.float16, np.float16), (16, 1, 8192, 7168), (True, True), output)
+        elif case_name == "DynamicNSATest.nsa_b_1_s1_1_s2_8192_h_7168_fp16": # quant
+            nsa_entry((np.float16, np.float16), (1, 1, 1024, 7168), (False, False), output)
+        elif case_name == "DynamicNSATest.s2_1024": # quant
+            nsa_entry((np.float16, np.float16), (16, 1, 1024, 7168), (False, False), output)
+        elif case_name == "DynamicNSATest.s2_2048": # quant
+            nsa_entry((np.float16, np.float16), (16, 1, 2048, 7168), (False, False), output)
+        elif case_name == "DynamicNSATest.s2_8192": # quant
+            nsa_entry((np.float16, np.float16), (16, 1, 8192, 7168), (False, False), output)   
+        elif case_name == "DynamicNSATest.s2_4096": # quant
+            nsa_entry((np.float16, np.float16), (16, 1, 4096, 7168), (False, False), output)  
+        elif case_name == "DynamicNSATest.mini": # quant
+            nsa_entry((np.float16, np.float16), (16, 1, 1024, 7168), (False, False), output)
         else:
             logging.error("Can't get func to gen golden, Case(%s)", case_name)
             return False
@@ -603,7 +661,7 @@ def main() -> bool:
     """
     # 用例名称
     case_name_list: List[str] = [
-        "DynamicNSATest.nsa_b_16_s1_1_s2_8192_h_7168_fp16",
+        "DynamicNSATest.s2_2048",
     ]
     # 函数调用
     ret: bool = True
