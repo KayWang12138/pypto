@@ -104,9 +104,9 @@ const std::map<std::string, CorePipeType> SCHED_CORE_PIPE_TYPE { // Unary Vector
     // ANY
     {"DUPLICATE", CorePipeType::PIPE_VECTOR_ALU},
     // Move
-    {"RESHAPE", CorePipeType::PIPE_VECTOR_ALU},
-    {"ASSEMBLE", CorePipeType::PIPE_MTE_OUT},
-    {"VIEW", CorePipeType::PIPE_MTE_IN},
+    {"RESHAPE", CorePipeType::PIPE_S},
+    {"ASSEMBLE", CorePipeType::PIPE_S},
+    {"VIEW", CorePipeType::PIPE_S},
     {"INDEX_OUTCAST", CorePipeType::PIPE_VECTOR_ALU},
     {"REGISTER_COPY", CorePipeType::PIPE_VECTOR_ALU},
     {"FROM_INCAST", CorePipeType::PIPE_MTE_IN},

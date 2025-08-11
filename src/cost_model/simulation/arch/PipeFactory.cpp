@@ -63,7 +63,7 @@ namespace CostModel
             } else {
                 throw std::invalid_argument("unknown arch type " + archType);
             }
-        } else if (pipeType == CorePipeType::PIPE_VECTOR_ALU) {
+        } else if (pipeType == CorePipeType::PIPE_VECTOR_ALU || pipeType == CorePipeType::PIPE_S) {
             if (archType == "A2A3") {
                 if (accLevel == 1) {
                     return CreatePipeSimulatorFast<PostSimulatorA2A3>();

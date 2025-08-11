@@ -175,6 +175,7 @@ enum class CorePipeType {
     PIPE_VECTOR_ALU,
     PIPE_CUBE,
     PIPE_MTE_OUT,  // FOR TILE_COPY_OUT
+    PIPE_S, // FOR VIEW,ASSEMBLE,RESHAPE
     PIPE_CALL,
     TOTAL_CORE_PIPE_TYPE
 };
@@ -250,6 +251,8 @@ inline std::string CorePipeName(CorePipeType type)
             return "CUBE";
         case CorePipeType::PIPE_CALL:
             return "SIM_CALL";
+        case CorePipeType::PIPE_S:
+            return "PIPE_S";
         default:
             return "ILLEGAL";
     }
