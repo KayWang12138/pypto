@@ -23,10 +23,10 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 namespace npu::tile_fwk {
-class NBufferMergePass : public Pass {
+class NBufferMerge : public Pass {
 public:
-    NBufferMergePass() : Pass("NBufferMergePass") {}
-    ~NBufferMergePass() override = default;
+    NBufferMerge() : Pass("NBufferMerge") {}
+    ~NBufferMerge() override = default;
 private:
     Status RunOnFunction(Function &function) override;
 };

@@ -21,10 +21,10 @@
 #include "interface/utils/log.h"
 namespace npu::tile_fwk {
 
-class SrcDstBufferMerge {
+class SrcDstBufferMergeImpl {
 public:
-    SrcDstBufferMerge() = default;
-    ~SrcDstBufferMerge() = default;
+    SrcDstBufferMergeImpl() = default;
+    ~SrcDstBufferMergeImpl() = default;
     Status Run(Function &func);
 
 private:
@@ -44,19 +44,19 @@ private:
     int subGraphID_{-1};
 };
 
-class SrcDstBufferMergePass : public Pass {
+class SrcDstBufferMerge : public Pass {
 public:
-    SrcDstBufferMergePass() : Pass("SrcDstBufferMergePass") {}
+    SrcDstBufferMerge() : Pass("SrcDstBufferMerge") {}
 
 private:
     Status RunOnFunction(Function &function) override {
-        ALOG_INFO_F("===> Start SrcDstBufferMergePass.");
-        SrcDstBufferMerge merge;
+        ALOG_INFO_F("===> Start SrcDstBufferMerge.");
+        SrcDstBufferMergeImpl merge;
         if (merge.Run(function) != SUCCESS) {
-			ALOG_INFO_F("===> Stop SrcDstBufferMergePass.");
+			ALOG_INFO_F("===> Stop SrcDstBufferMerge.");
 			return SUCCESS;
 		}
-        ALOG_INFO_F("===> Finish SrcDstBufferMergePass.");
+        ALOG_INFO_F("===> Finish SrcDstBufferMerge.");
         return SUCCESS;
     }
 };

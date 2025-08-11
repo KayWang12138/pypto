@@ -1204,7 +1204,7 @@ Status OoOScheduler::Schedule(Function &function, const std::vector<Operation *>
     return SUCCESS;
 }
 
-bool OoOSchedulePass::IsAicpuProgram(std::vector<Operation *> opList) {
+bool OoOSchedule::IsAicpuProgram(std::vector<Operation *> opList) {
     for (auto &op : opList) {
         if (op->GetCoreType() == CoreType::AICPU) {
             return true;
@@ -1213,8 +1213,8 @@ bool OoOSchedulePass::IsAicpuProgram(std::vector<Operation *> opList) {
     return false;
 }
 
-Status OoOSchedulePass::RunOnFunction(Function &function) {
-    ALOG_INFO_F("=============== START OoOSchedulePass ===============");
+Status OoOSchedule::RunOnFunction(Function &function) {
+    ALOG_INFO_F("=============== START OoOSchedule ===============");
     int maxWorkeSpaceSize = 0;
 
     for (auto &program : function.rootFunc_->programs_) {
@@ -1235,7 +1235,7 @@ Status OoOSchedulePass::RunOnFunction(Function &function) {
         maxWorkeSpaceSize = std::max(maxWorkeSpaceSize, (*program.second).GetStackWorkespaceSize());
         function.SetStackWorkespaceSize(maxWorkeSpaceSize);
     }
-    ALOG_INFO_F("=============== END OoOSchedulePass =================");
+    ALOG_INFO_F("=============== END OoOSchedule =================");
     return SUCCESS;
 }
 

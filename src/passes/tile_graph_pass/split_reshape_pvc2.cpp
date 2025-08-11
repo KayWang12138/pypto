@@ -17,8 +17,8 @@
 #include "interface/tensor/logical_tensor.h"
 
 namespace npu::tile_fwk {
-Status SplitReshapeOpPVC2::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===> start SplitReshapeOpPVC2");
+Status SplitReshape::RunOnFunction(Function &function) {
+    ALOG_INFO_F("===> start SplitReshape");
     if (Init() != SUCCESS) {return FAILED;}
     if (CollectCopyOut(function) != SUCCESS) {return FAILED;}
     if (CheckCopyIn(function) != SUCCESS) {return FAILED;}
@@ -26,11 +26,11 @@ Status SplitReshapeOpPVC2::RunOnFunction(Function &function) {
     if (EraseReshape(function) != SUCCESS) {return FAILED;}
     if (EliminateDeadOperation(function) != SUCCESS) {return FAILED;}
     if (SetMemoryType(function) != SUCCESS) {return FAILED;}
-    ALOG_INFO_F("===> end SplitReshapeOpPVC2");
+    ALOG_INFO_F("===> end SplitReshape");
     return SUCCESS;
 }
 
-Status SplitReshapeOpPVC2::Init() {
+Status SplitReshape::Init() {
     copyOutSources.clear();
     reshapeSources.clear();
     mapOffset.clear();
@@ -41,7 +41,7 @@ Status SplitReshapeOpPVC2::Init() {
     return SUCCESS;
 }
 
-bool SplitReshapeOpPVC2::CheckSplit(const LogicalTensorPtr &reshapeSource) {
+bool SplitReshape::CheckSplit(const LogicalTensorPtr &reshapeSource) {
     auto copySources = copyOutSources[reshapeSource->tensor->rawmagic];
     auto copyoutSourceFirst = copySources.begin();
     if (copyoutSourceFirst == copySources.end()) {
@@ -55,7 +55,7 @@ bool SplitReshapeOpPVC2::CheckSplit(const LogicalTensorPtr &reshapeSource) {
     return true;
 }
 
-std::shared_ptr<ReshapeOp> SplitReshapeOpPVC2::ReshapeOperationExist(const std::shared_ptr<ReshapeOp> &isAddReshapeop) {
+std::shared_ptr<ReshapeOp> SplitReshape::ReshapeOperationExist(const std::shared_ptr<ReshapeOp> &isAddReshapeop) {
     const auto hashKey = ComputeReshapeHash(isAddReshapeop->input, isAddReshapeop->output);
     auto it = reshapes.find(hashKey);
     if (it != reshapes.end()) {
@@ -65,12 +65,12 @@ std::shared_ptr<ReshapeOp> SplitReshapeOpPVC2::ReshapeOperationExist(const std::
     return nullptr;
 }
 
-unsigned long SplitReshapeOpPVC2::ComputeReshapeHash(const LogicalTensorPtr &input, const LogicalTensorPtr &output) const {
+unsigned long SplitReshape::ComputeReshapeHash(const LogicalTensorPtr &input, const LogicalTensorPtr &output) const {
     unsigned long operationHash = ComputeReshapeHashOrderless(input, output);
     return operationHash;
 }
 
-unsigned long SplitReshapeOpPVC2::ComputeReshapeHashOrderless(
+unsigned long SplitReshape::ComputeReshapeHashOrderless(
     const LogicalTensorPtr &input, const LogicalTensorPtr &output) const {
     std::stringstream ss;
     ss << "[i";
@@ -103,7 +103,7 @@ unsigned long SplitReshapeOpPVC2::ComputeReshapeHashOrderless(
     return result;
 }
 
-Status SplitReshapeOpPVC2::CollectCopyOut(Function &function) {
+Status SplitReshape::CollectCopyOut(Function &function) {
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
             auto input = op.GetIOperands().front();
@@ -130,7 +130,7 @@ Status SplitReshapeOpPVC2::CollectCopyOut(Function &function) {
 // example2: [2,4] + [4,2] -> [2,2,2]
 // example3: [2,3] + [5] -> FAILED
 // 返回对齐后的shape
-Status SplitReshapeOpPVC2::ShapeAlign(std::vector<int32_t> shape1, std::vector<int32_t> shape2, std::vector<int32_t> &alignedShape) {
+Status SplitReshape::ShapeAlign(std::vector<int32_t> shape1, std::vector<int32_t> shape2, std::vector<int32_t> &alignedShape) {
     size_t i1 = 0UL;
     size_t i2 = 0UL;
     int32_t prod1 = 1;
@@ -170,7 +170,7 @@ Status SplitReshapeOpPVC2::ShapeAlign(std::vector<int32_t> shape1, std::vector<i
     return SUCCESS;
 }
 
-Status SplitReshapeOpPVC2::ConstructShapeOffset(const ReshapeTilePara &shapePara, size_t &i, size_t j, std::vector<int32_t> &newOffset, std::vector<int32_t> &newShape) {
+Status SplitReshape::ConstructShapeOffset(const ReshapeTilePara &shapePara, size_t &i, size_t j, std::vector<int32_t> &newOffset, std::vector<int32_t> &newShape) {
     auto shape = shapePara.shape;
     auto alignedShape = shapePara.newShape;
     auto tileOffset = shapePara.tileOffset;
@@ -211,7 +211,7 @@ Status SplitReshapeOpPVC2::ConstructShapeOffset(const ReshapeTilePara &shapePara
 // offset: [0, 1, 0], shape = [1, 1, 2]
 // shape = [64, 64], alignedShape = [32, 2, 64], tileOffset = [32, 32], tileShape = [32, 32]
 // offset: [16, 0, 32], shape = [16, 2, 32]
-Status SplitReshapeOpPVC2::ReshapeTile(const ReshapeTilePara &shapePara,
+Status SplitReshape::ReshapeTile(const ReshapeTilePara &shapePara,
                                        std::vector<int32_t> &newOffset, std::vector<int32_t> &newShape) {
     auto shape = shapePara.shape;
     auto alignedShape = shapePara.newShape;
@@ -244,7 +244,7 @@ Status SplitReshapeOpPVC2::ReshapeTile(const ReshapeTilePara &shapePara,
 //          newOffset = [0], newShape = [1]
 // example3 : rawShape = [32, 2, 64], newRawshape = [64, 64], tileOffset = [16, 0, 32], tileShape = [16, 2, 32]
 //          newOffset = [32, 32], newShape = [32, 32]
-Status SplitReshapeOpPVC2::ReshapeTile2(const ReshapeTilePara &shapePara,
+Status SplitReshape::ReshapeTile2(const ReshapeTilePara &shapePara,
                                         std::vector<int32_t> &newOffset, std::vector<int32_t> &newShape) {
     auto rawShape = shapePara.shape;
     auto newRawshape = shapePara.newShape;
@@ -288,7 +288,7 @@ Status SplitReshapeOpPVC2::ReshapeTile2(const ReshapeTilePara &shapePara,
     return SUCCESS;
 }
 
-Status SplitReshapeOpPVC2::AddReshapeRemoveView(Operation &op, const OpPara &para) {
+Status SplitReshape::AddReshapeRemoveView(Operation &op, const OpPara &para) {
     auto overlap = para.newInput;
     auto output = para.oldOutput;
     auto reshapeOutput = para.newOutput;
@@ -311,7 +311,7 @@ Status SplitReshapeOpPVC2::AddReshapeRemoveView(Operation &op, const OpPara &par
     return SUCCESS;
 }
 
-Status SplitReshapeOpPVC2::AddReshape(Operation &op, const OpPara &para) {
+Status SplitReshape::AddReshape(Operation &op, const OpPara &para) {
     auto input = para.oldInput;
     auto overlap = para.newInput;
     auto reshapeOutput = para.newOutput;
@@ -330,7 +330,7 @@ Status SplitReshapeOpPVC2::AddReshape(Operation &op, const OpPara &para) {
     return SUCCESS;
 }
 
-Status SplitReshapeOpPVC2::ObtainCopyOutTile(Function &function, const copyOutTilePara &copyOutTile, LogicalTensors &overlaps, LogicalTensors &newOverlaps) {
+Status SplitReshape::ObtainCopyOutTile(Function &function, const copyOutTilePara &copyOutTile, LogicalTensors &overlaps, LogicalTensors &newOverlaps) {
     auto reshapeSource = copyOutTile.reshapeSource;
     auto inputView = copyOutTile.inputView;
     auto alignedShape = copyOutTile.alignedShape;
@@ -358,7 +358,7 @@ Status SplitReshapeOpPVC2::ObtainCopyOutTile(Function &function, const copyOutTi
     return SUCCESS;
 }
 
-Status SplitReshapeOpPVC2::UpdateForPerfectlyMatchWithUB(Operation &op, const PerfectlyMatchPara &para) {
+Status SplitReshape::UpdateForPerfectlyMatchWithUB(Operation &op, const PerfectlyMatchPara &para) {
     auto overlap = para.overlap;
     auto output = para.output;
     auto reshapeOutput = para.reshapeOutput;
@@ -367,7 +367,7 @@ Status SplitReshapeOpPVC2::UpdateForPerfectlyMatchWithUB(Operation &op, const Pe
     return SUCCESS;
 }
 
-Status SplitReshapeOpPVC2::UpdateForPerfectlyMatchWithDDR(Operation &op, const PerfectlyMatchPara &para) {
+Status SplitReshape::UpdateForPerfectlyMatchWithDDR(Operation &op, const PerfectlyMatchPara &para) {
     auto overlap = para.overlap;
     auto reshapeOutput = para.reshapeOutput;
     auto input = para.input;
@@ -376,7 +376,7 @@ Status SplitReshapeOpPVC2::UpdateForPerfectlyMatchWithDDR(Operation &op, const P
     return SUCCESS;
 }
 
-Status SplitReshapeOpPVC2::UpdateForPerfectlyMatchOtherCase(Function &function, Operation &op, const PerfectlyMatchPara &para) {
+Status SplitReshape::UpdateForPerfectlyMatchOtherCase(Function &function, Operation &op, const PerfectlyMatchPara &para) {
     auto overlap = para.overlap;
     auto reshapeSource = para.reshapeSource;
     auto input = para.input;
@@ -405,7 +405,7 @@ Status SplitReshapeOpPVC2::UpdateForPerfectlyMatchOtherCase(Function &function, 
     return SUCCESS;
 }
 
-Status SplitReshapeOpPVC2::UpdateForPerfectlyMatch(Function &function, Operation &op, const CalcOverlapPara &para) {
+Status SplitReshape::UpdateForPerfectlyMatch(Function &function, Operation &op, const CalcOverlapPara &para) {
     std::vector<int32_t> alignedShape = para.alignedShape;
     LogicalTensors newOverlaps = para.newOverlaps;
     LogicalTensors overlaps = para.overlaps;
@@ -439,7 +439,7 @@ Status SplitReshapeOpPVC2::UpdateForPerfectlyMatch(Function &function, Operation
     return SUCCESS;
 }
 
-Status SplitReshapeOpPVC2::UpdateForBeCoveredUBDDR(Operation &op, const BeCoveredPara &para) {
+Status SplitReshape::UpdateForBeCoveredUBDDR(Operation &op, const BeCoveredPara &para) {
     auto input = para.input;
     auto overlap = para.overlap;
     auto reshapeOutput = para.reshapeOutput;
@@ -461,7 +461,7 @@ Status SplitReshapeOpPVC2::UpdateForBeCoveredUBDDR(Operation &op, const BeCovere
     return SUCCESS;
 }
 
-Status SplitReshapeOpPVC2::UpdateForBeCoveredOtherCase(Function &function, Operation &op, const BeCoveredPara &para) {
+Status SplitReshape::UpdateForBeCoveredOtherCase(Function &function, Operation &op, const BeCoveredPara &para) {
     auto input = para.input;
     auto overlap = para.overlap;
     auto reshapeOutput = para.reshapeOutput;
@@ -492,7 +492,7 @@ Status SplitReshapeOpPVC2::UpdateForBeCoveredOtherCase(Function &function, Opera
     return SUCCESS;
 }
 
-Status SplitReshapeOpPVC2::UpdateForBeCovered(Function &function, Operation &op, const CalcOverlapPara &para) {
+Status SplitReshape::UpdateForBeCovered(Function &function, Operation &op, const CalcOverlapPara &para) {
     std::vector<int32_t> alignedShape = para.alignedShape;
     std::vector<int32_t> newInputViewTileOffset = para.newInputViewTileOffset;
     std::vector<int32_t> newInputViewTileShape = para.newInputViewTileShape;
@@ -540,7 +540,7 @@ Status SplitReshapeOpPVC2::UpdateForBeCovered(Function &function, Operation &op,
     return SUCCESS;
 }
 
-Status SplitReshapeOpPVC2::UpdateForAssembleAfterReshapeWithUB(Operation &op, const AssemblePara &para) {
+Status SplitReshape::UpdateForAssembleAfterReshapeWithUB(Operation &op, const AssemblePara &para) {
     auto input = para.input;
     auto output = para.output;
     auto overlap = para.overlap;
@@ -566,7 +566,7 @@ Status SplitReshapeOpPVC2::UpdateForAssembleAfterReshapeWithUB(Operation &op, co
     return SUCCESS;
 }
 
-Status SplitReshapeOpPVC2::UpdateForAssembleAfterReshapeWithDDR(Operation &op, const AssemblePara &para) {
+Status SplitReshape::UpdateForAssembleAfterReshapeWithDDR(Operation &op, const AssemblePara &para) {
     auto input = para.input;
     auto newInput = para.newInput;
     auto output = para.output;
@@ -598,7 +598,7 @@ Status SplitReshapeOpPVC2::UpdateForAssembleAfterReshapeWithDDR(Operation &op, c
     return SUCCESS;
 }
 
-Status SplitReshapeOpPVC2::UpdateForAssembleAfterReshapeOtherCase(Function &function, Operation &op, const AssemblePara &para) {
+Status SplitReshape::UpdateForAssembleAfterReshapeOtherCase(Function &function, Operation &op, const AssemblePara &para) {
     auto input = para.input;
     auto newInput = para.newInput;
     auto output = para.output;
@@ -641,7 +641,7 @@ Status SplitReshapeOpPVC2::UpdateForAssembleAfterReshapeOtherCase(Function &func
     return SUCCESS;
 }
 
-Status SplitReshapeOpPVC2::UpdateForAssembleAfterReshape(Function &function, Operation &op, const CalcOverlapPara &para) {
+Status SplitReshape::UpdateForAssembleAfterReshape(Function &function, Operation &op, const CalcOverlapPara &para) {
     std::vector<int32_t> alignedShape = para.alignedShape;
     LogicalTensorPtr reshapeSource = para.reshapeSource;
     LogicalTensors overlaps = para.overlaps;
@@ -683,7 +683,7 @@ Status SplitReshapeOpPVC2::UpdateForAssembleAfterReshape(Function &function, Ope
     return SUCCESS;
 }
 
-Status SplitReshapeOpPVC2::UpdateForPerfectlyMatchWithAllWithUB(Operation &op, const PerfectlyMatchWithAllPara &para) {
+Status SplitReshape::UpdateForPerfectlyMatchWithAllWithUB(Operation &op, const PerfectlyMatchWithAllPara &para) {
     auto output = para.output;
     auto overlap = para.overlap;
     auto reshapeOutput = para.reshapeOutput;
@@ -694,7 +694,7 @@ Status SplitReshapeOpPVC2::UpdateForPerfectlyMatchWithAllWithUB(Operation &op, c
     return SUCCESS;
 }
 
-Status SplitReshapeOpPVC2::UpdateForPerfectlyMatchWithAllOtherCase(Operation &op, const PerfectlyMatchWithAllPara &para) {
+Status SplitReshape::UpdateForPerfectlyMatchWithAllOtherCase(Operation &op, const PerfectlyMatchWithAllPara &para) {
     auto input = para.input;
     auto reshapeOutput = para.reshapeOutput;
     auto newReshapeSource = para.newReshapeSource;
@@ -704,7 +704,7 @@ Status SplitReshapeOpPVC2::UpdateForPerfectlyMatchWithAllOtherCase(Operation &op
     return SUCCESS;
 }
 
-Status SplitReshapeOpPVC2::UpdateForPerfectlyMatchWithAll(Function &function, Operation &op, const CalcOverlapPara &para) {
+Status SplitReshape::UpdateForPerfectlyMatchWithAll(Function &function, Operation &op, const CalcOverlapPara &para) {
     std::vector<int32_t> alignedShape = para.alignedShape;
     std::vector<int32_t> newInputViewTileOffset = para.newInputViewTileOffset;
     std::vector<int32_t> newInputViewTileShape = para.newInputViewTileShape;
@@ -754,7 +754,7 @@ Status SplitReshapeOpPVC2::UpdateForPerfectlyMatchWithAll(Function &function, Op
     return SUCCESS;
 }
 
-Status SplitReshapeOpPVC2::CheckCopyIn(Function &function) {
+Status SplitReshape::CheckCopyIn(Function &function) {
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_VIEW) {
             continue;
@@ -799,7 +799,7 @@ Status SplitReshapeOpPVC2::CheckCopyIn(Function &function) {
     return SUCCESS;
 }
 
-Status SplitReshapeOpPVC2::AddOperation(Function &function) {
+Status SplitReshape::AddOperation(Function &function) {
     for (auto &a : assembles) {
         auto &newCopyOut = function.AddOperation(Opcode::OP_ASSEMBLE, {a.input}, {a.output});
         newCopyOut.SetOpAttribute(std::make_shared<AssembleOpAttribute>(a.from, a.toOffset));
@@ -815,7 +815,7 @@ Status SplitReshapeOpPVC2::AddOperation(Function &function) {
     return SUCCESS;
 }
 
-Status SplitReshapeOpPVC2::EraseReshape(Function &function) {
+Status SplitReshape::EraseReshape(Function &function) {
     // 先删除view使reshape的Consumers为空
     for (auto &opView : redundentViewops) {
         if (opView == nullptr) {return FAILED;}
@@ -853,7 +853,7 @@ Status SplitReshapeOpPVC2::EraseReshape(Function &function) {
     return SUCCESS;
 }
 
-Status SplitReshapeOpPVC2::SetMemoryType(Function &function) {
+Status SplitReshape::SetMemoryType(Function &function) {
     for (auto& op: function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_VIEW) {
             continue;

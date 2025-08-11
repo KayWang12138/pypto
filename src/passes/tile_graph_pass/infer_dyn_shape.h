@@ -21,10 +21,10 @@
 #include "passes/pass_utils/topo_program.h"
 namespace npu {
 namespace tile_fwk {
-class InferDynShapePass : public Pass {
+class InferDynShape : public Pass {
 public:
-    InferDynShapePass() : Pass("InferDynShapePass") {}
-    ~InferDynShapePass() override {}
+    InferDynShape() : Pass("InferDynShape") {}
+    ~InferDynShape() override {}
     Status RunOnFunction(Function &function) override;
     Status PostCheck(Function &function) override;
 private:

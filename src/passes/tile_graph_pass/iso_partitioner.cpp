@@ -24,28 +24,28 @@
 
 namespace npu::tile_fwk {
 
-Status GraphPartitionPass::RunOnFunction(Function &function)
+Status GraphPartition::RunOnFunction(Function &function)
 {
-    ALOG_INFO_F("===> Start GraphPartitionPass.");
+    ALOG_INFO_F("===> Start GraphPartition.");
     IsoPartitioner partitioner;
     if (partitioner.SetParameter(function.paramConfigs_.sgCycleUpperBound,
                                  function.paramConfigs_.sgParallelNum,
                                  function.paramConfigs_.sgCycleLowerBound,
                                  function.paramConfigs_.useNodeHash) != SUCCESS) {
-        ALOG_ERROR_F("Set parameters of GraphPartitionPass failed.");
+        ALOG_ERROR_F("Set parameters of GraphPartition failed.");
         return FAILED;
     }
     if (partitioner.PartitionGraph(function) != SUCCESS) {
-        ALOG_ERROR_F("GraphPartitionPass failed.");
+        ALOG_ERROR_F("GraphPartition failed.");
         return FAILED;
     }
-    ALOG_INFO_F("===> End GraphPartitionPass.");
+    ALOG_INFO_F("===> End GraphPartition.");
     return SUCCESS;
 }
 
-Status GraphPartitionPass::PreCheck(Function &function)
+Status GraphPartition::PreCheck(Function &function)
 {
-    ALOG_INFO_F("PreCheck for pass: GraphPartitionPass.");
+    ALOG_INFO_F("PreCheck for pass: GraphPartition.");
     for (auto &op : function.Operations().DuplicatedOpList()) {
         if (op == nullptr) {
             ALOG_ERROR_F("Null pointer in Operations.");
@@ -55,7 +55,7 @@ Status GraphPartitionPass::PreCheck(Function &function)
     return SUCCESS;
 }
 
-Status GraphPartitionPass::PostOperationCheck(Function &function)
+Status GraphPartition::PostOperationCheck(Function &function)
 {
     for (auto &op : function.Operations()) {
         int32_t curSubgraphID = op.GetSubgraphID();
@@ -105,7 +105,7 @@ Status GraphPartitionPass::PostOperationCheck(Function &function)
     return SUCCESS;
 }
 
-Status GraphPartitionPass::PostSubgraphCheck(const std::vector<std::vector<Operation*>> &subgraphs)
+Status GraphPartition::PostSubgraphCheck(const std::vector<std::vector<Operation*>> &subgraphs)
 {
     for (auto subgraph : subgraphs) {
         if (subgraph.empty()) {
@@ -150,9 +150,9 @@ Status GraphPartitionPass::PostSubgraphCheck(const std::vector<std::vector<Opera
     return SUCCESS;
 }
 
-Status GraphPartitionPass::PostCheck(Function &function)
+Status GraphPartition::PostCheck(Function &function)
 {
-    ALOG_INFO("PostCheck for pass: GraphPartitionPass.");
+    ALOG_INFO("PostCheck for pass: GraphPartition.");
     std::vector<std::vector<Operation*>> subgraphs(function.GetTotalSubGraphCount());
     for (auto &op : function.Operations()) {
         int32_t curSubgraphID = op.GetSubgraphID();
@@ -173,7 +173,7 @@ Status GraphPartitionPass::PostCheck(Function &function)
         }
     }
     if (!function.LoopCheck().empty()) {
-        ALOG_ERROR("Loopcheck failed after pass: GraphPartitionPass.");
+        ALOG_ERROR("Loopcheck failed after pass: GraphPartition.");
         return FAILED;
     }
     if (PostOperationCheck(function) != SUCCESS) {

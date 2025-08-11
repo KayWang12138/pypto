@@ -10,7 +10,7 @@
 
 /*!
  * \file test_insert_sync.cpp
- * \brief Unit test for InsertSyncPass.
+ * \brief Unit test for InsertSync.
  */
 #include <gtest/gtest.h>
 #include "passes/execute_graph_pass/insert_sync.h"
@@ -140,7 +140,7 @@ TEST_F(InsertSyncTest, TestEnableDebug) {
     currFunctionPtr->inCasts_.push_back(incast1);
     currFunctionPtr->inCasts_.push_back(incast2);
     currFunctionPtr->outCasts_.push_back(outCast);
-    InsertSyncPass syncPass;
+    InsertSync syncPass;
     syncPass.SetEnableDebug(true);
     syncPass.RunOnFunction(*rootFuncPtr);
     EXPECT_TRUE(true);

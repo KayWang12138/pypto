@@ -21,7 +21,7 @@
 
 namespace npu {
 namespace tile_fwk {
-std::string InferParamIndexPass::DumpParamIndex(const std::map<std::string, DynParamInfo>& dynParamTable)
+std::string InferParamIndex::DumpParamIndex(const std::map<std::string, DynParamInfo>& dynParamTable)
 {
     std::ostringstream ss;
     for (auto paramInfo : dynParamTable) {
@@ -35,7 +35,7 @@ std::string InferParamIndexPass::DumpParamIndex(const std::map<std::string, DynP
     return ss.str();
 }
 
-Status InferParamIndexPass::ResetDynValidShape(Function& function) {
+Status InferParamIndex::ResetDynValidShape(Function& function) {
     const std::set<Opcode> specifiedOps = {Opcode::OP_VEC_DUP, Opcode::OP_EXPAND};
     for (auto &op : function.Operations()) {
         std::vector<SymbolicScalar> validShape;
@@ -77,7 +77,7 @@ Status InferParamIndexPass::ResetDynValidShape(Function& function) {
     return SUCCESS;
 }
 
-Status InferParamIndexPass::InferShape(Function &function)
+Status InferParamIndex::InferShape(Function &function)
 {
     size_t i = 0U;
     std::map<int, size_t> opMagic2Idx;
@@ -103,9 +103,9 @@ Status InferParamIndexPass::InferShape(Function &function)
     return SUCCESS;
 }
 
-Status InferParamIndexPass::RunOnFunction(Function &function)
+Status InferParamIndex::RunOnFunction(Function &function)
 {
-    ALOG_INFO_F("===> Start InferParamIndexPass.");
+    ALOG_INFO_F("===> Start InferParamIndex.");
     for (auto &subProgram : function.rootFunc_->programs_) {
         auto &subFunc = *subProgram.second;
         if (ResetDynValidShape(subFunc) != SUCCESS) {
@@ -150,7 +150,7 @@ Status InferParamIndexPass::RunOnFunction(Function &function)
         }
         ALOG_DEBUG(DumpParamIndex(subFunc.GetDynParamTable()));
     }
-    ALOG_INFO_F("===> End InferParamIndexPass By Sequential Execution.");
+    ALOG_INFO_F("===> End InferParamIndex By Sequential Execution.");
     return SUCCESS;
 }
 }  // namespace tile_fwk

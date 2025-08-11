@@ -21,19 +21,19 @@
 #include "passes/pass_utils/pass_utils.h"
 
 namespace npu::tile_fwk {
-class RemoveAllocPass : public Pass {
+class RemoveAlloc : public Pass {
 public:
-    RemoveAllocPass() : Pass("RemoveAllocPass") {}
-    ~RemoveAllocPass() override = default;
+    RemoveAlloc() : Pass("RemoveAlloc") {}
+    ~RemoveAlloc() override = default;
 
 private:
     Status RunOnFunction(Function &function) override {
-        ASLOGI("===> Start RemoveAllocPass.");
-        RemoveAlloc(function);
-        ASLOGI("===> End RemoveAllocPass.");
+        ASLOGI("===> Start RemoveAlloc.");
+        RemoveAllocCall(function);
+        ASLOGI("===> End RemoveAlloc.");
         return SUCCESS;
     }
-    void RemoveAlloc(Function &function) const;
+    void RemoveAllocCall(Function &function) const;
 };
 
 

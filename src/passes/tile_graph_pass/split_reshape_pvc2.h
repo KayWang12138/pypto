@@ -106,10 +106,10 @@ struct CalcOverlapPara {
     LogicalTensorPtr output;
 };
 
-class SplitReshapeOpPVC2 : public Pass, public DeadOperationEliminator {
+class SplitReshape : public Pass, public DeadOperationEliminator {
 public:
-    SplitReshapeOpPVC2() : Pass("SplitReshapeOpPVC2") {}
-    ~SplitReshapeOpPVC2() override = default;
+    SplitReshape() : Pass("SplitReshape") {}
+    ~SplitReshape() override = default;
 private:
     Status RunOnFunction(Function &function) override;
     Status Init();

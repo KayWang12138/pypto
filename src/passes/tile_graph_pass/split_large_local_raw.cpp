@@ -19,7 +19,7 @@ using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
 
-std::vector<int> SplitLargeLocalRawPass::UpdateOffset(std::vector<int> &offset, std::vector<int> &diff) const {
+std::vector<int> SplitLargeLocalRawTensor::UpdateOffset(std::vector<int> &offset, std::vector<int> &diff) const {
     std::vector<int> result = offset;
     for (size_t i = 0; i < offset.size(); i++) {
         if (offset[i] >= diff[i]) {
@@ -29,7 +29,7 @@ std::vector<int> SplitLargeLocalRawPass::UpdateOffset(std::vector<int> &offset, 
     return result;
 }
 
-void SplitLargeLocalRawPass::UpdateConsumerView(const LogicalTensorPtr &logicalTensor, std::vector<int> &diff) const {
+void SplitLargeLocalRawTensor::UpdateConsumerView(const LogicalTensorPtr &logicalTensor, std::vector<int> &diff) const {
     /* All the consumer View op's attr offset should be corret */
     /* 1. 更新View相关的属性 */
     for (auto &viewOp : logicalTensor->GetConsumers()) {
@@ -51,7 +51,7 @@ void SplitLargeLocalRawPass::UpdateConsumerView(const LogicalTensorPtr &logicalT
     }
 }
 
-void SplitLargeLocalRawPass::UpdateProducerAssemble(const LogicalTensorPtr &logicalTensor, std::vector<int> &diff) const {
+void SplitLargeLocalRawTensor::UpdateProducerAssemble(const LogicalTensorPtr &logicalTensor, std::vector<int> &diff) const {
     /* 1. 更新Assemble相关的属性 */
     // Assemble1 ->
     //              logicalTensor(UB) -> Reshape -> UB
@@ -75,7 +75,7 @@ void SplitLargeLocalRawPass::UpdateProducerAssemble(const LogicalTensorPtr &logi
     }
 }
 
-void SplitLargeLocalRawPass::UpdateMemID(Function &function) const {
+void SplitLargeLocalRawTensor::UpdateMemID(Function &function) const {
     for (auto &op : function.Operations()) {
         for (auto &input : op.GetIOperands()) {
             for (auto &rangePair : input->memorymap) {
@@ -95,7 +95,7 @@ void SplitLargeLocalRawPass::UpdateMemID(Function &function) const {
 且rawTensor不是InCast和OutCast(当前Incast、OutCast的Symbol不在tensormap里)、且tensor不是ddr，
 那么需要将重新创建一个shape和当前tensor相同的rawTensor
 */
-void SplitLargeLocalRawPass::SplitLargeLocalRaw(Function &function) const {
+void SplitLargeLocalRawTensor::SplitLargeLocalRaw(Function &function) const {
     std::vector<int> rawIdNeedDelete;
     std::vector<std::pair<int, std::set<std::shared_ptr<LogicalTensor>, TensorPtrComparator>>> newRawVec;
     // 为了按序访问tensormap, 将tensormap转化为有序map
@@ -147,7 +147,7 @@ void SplitLargeLocalRawPass::SplitLargeLocalRaw(Function &function) const {
     }
 }
 
-Status SplitLargeLocalRawPass::RunOnFunction(Function &function) {
+Status SplitLargeLocalRawTensor::RunOnFunction(Function &function) {
     ALOG_INFO_F("===> Start SplitLargeLocalRaw.");
     SplitLargeLocalRaw(function);
     UpdateMemID(function);

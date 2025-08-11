@@ -10,7 +10,7 @@
 
 /*!
  * \file test_schedule_ooo.cpp
- * \brief Unit test for OoOSchedulePass.
+ * \brief Unit test for OoOSchedule.
  */
 
 #include <gtest/gtest.h>
@@ -151,7 +151,7 @@ TEST_F(ScheduleOoOTest, TestMainScheduleOoO) {
     for (auto &program : rootFuncPtr->rootFunc_->programs_) {
         ReorderOperations(*(program.second));
     }
-    OoOSchedulePass oooSchedule;
+    OoOSchedule oooSchedule;
     EXPECT_EQ(oooSchedule.PreCheck(*rootFuncPtr), SUCCESS);
     oooSchedule.RunOnFunction(*rootFuncPtr);
     EXPECT_EQ(oooSchedule.PostCheck(*rootFuncPtr), SUCCESS);

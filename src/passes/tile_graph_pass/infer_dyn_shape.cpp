@@ -19,7 +19,7 @@
 #include "passes/pass_utils/parallel_tool.h"
 namespace npu {
 namespace tile_fwk {
-Status InferDynShapePass::PostCheck(Function &function) {
+Status InferDynShape::PostCheck(Function &function) {
     for (auto& op : function.Operations()) {
         if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode())) {
             const std::shared_ptr<OpAttribute> &attr = op.GetOpAttribute();
@@ -40,7 +40,7 @@ Status InferDynShapePass::PostCheck(Function &function) {
     return SUCCESS;
 }
 
-Status InferDynShapePass::InferShape(Function& function){
+Status InferDynShape::InferShape(Function& function){
     size_t i = 0U;
     std::map<int, size_t> opMagic2Idx;
     std::vector<Operation*> opList = function.Operations().DuplicatedOpList();
@@ -67,16 +67,16 @@ Status InferDynShapePass::InferShape(Function& function){
     return SUCCESS;
 }
 
-Status InferDynShapePass::RunOnFunction(Function &function)
+Status InferDynShape::RunOnFunction(Function &function)
 {
     // 遍历每一个op，调用对应的infershape函数
     // 遍历顺序，按照入度解依赖
-    ALOG_INFO_F("===> Start InferDynShapePass.");
+    ALOG_INFO_F("===> Start InferDynShape.");
     if (InferShape(function) != SUCCESS) {
         return FAILED;
     }
     ALOG_DEBUG(function.Dump());
-    ALOG_INFO_F("===> End InferDynShapePass.");
+    ALOG_INFO_F("===> End InferDynShape.");
     return SUCCESS;
 }
 } 

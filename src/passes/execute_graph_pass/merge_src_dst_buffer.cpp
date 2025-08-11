@@ -17,7 +17,7 @@
 
 namespace npu::tile_fwk {
 
-void SrcDstBufferMerge::InitTensorMaxSize(const LogicalTensorPtr &output) {
+void SrcDstBufferMergeImpl::InitTensorMaxSize(const LogicalTensorPtr &output) {
     for (auto &consumer : output->GetConsumers()) {
         tensorConsumers_[output->memorymap[subGraphID_].memId].insert(consumer->GetOpMagic());
         if (tensorMaxSize_.find(output->memorymap[subGraphID_].memId) == tensorMaxSize_.end()) {
@@ -29,7 +29,7 @@ void SrcDstBufferMerge::InitTensorMaxSize(const LogicalTensorPtr &output) {
     }
 }
 
-Status SrcDstBufferMerge::Init(const std::vector<Operation *> &opList) {
+Status SrcDstBufferMergeImpl::Init(const std::vector<Operation *> &opList) {
     if (opList.empty()) {
         ALOG_ERROR_F("opList empty");
         return FAILED;
@@ -75,7 +75,7 @@ Status SrcDstBufferMerge::Init(const std::vector<Operation *> &opList) {
     return SUCCESS;
 }
 
-bool SrcDstBufferMerge::CheckIgnoreScene(const Operation *oriOps) {
+bool SrcDstBufferMergeImpl::CheckIgnoreScene(const Operation *oriOps) {
     /* use opcode is unfavorable for reading and modification, maybe use opcalctype */
     const std::set<Opcode> ignoreOps = {Opcode::OP_UB_COPY_IN, Opcode::OP_UB_COPY_OUT, Opcode::OP_UB_ALLOC,
         Opcode::OP_L0C_COPY_OUT, Opcode::OP_ROWMAX, Opcode::OP_ROWEXPSUM, Opcode::OP_REMOTE_GATHER,
@@ -102,7 +102,7 @@ bool SrcDstBufferMerge::CheckIgnoreScene(const Operation *oriOps) {
     return false;
 }
 
-std::pair<bool, Status> SrcDstBufferMerge::CheckHasInplaced(const Operation *oriOps, const Operation *ops,
+std::pair<bool, Status> SrcDstBufferMergeImpl::CheckHasInplaced(const Operation *oriOps, const Operation *ops,
     std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors, int &inIdx) {
     if (oriOps->HasAttr(OpAttributeKey::inplaceIdx)) {
         inIdx = oriOps->GetIntAttribute(OpAttributeKey::inplaceIdx);
@@ -128,7 +128,7 @@ std::pair<bool, Status> SrcDstBufferMerge::CheckHasInplaced(const Operation *ori
     return std::make_pair(false, SUCCESS);
 }
 
-bool SrcDstBufferMerge::FindReplaced(const Operation *oriOps, const Operation *ops,
+bool SrcDstBufferMergeImpl::FindReplaced(const Operation *oriOps, const Operation *ops,
     std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors, int &inIdx) {
     for (auto in : oriOps->GetIOperands()) {
         if (in != nullptr && CanSrcDstReuse(oriOps, in, true)) {
@@ -155,7 +155,7 @@ bool SrcDstBufferMerge::FindReplaced(const Operation *oriOps, const Operation *o
     return false;
 }
 
-void SrcDstBufferMerge::NotFindReplacedProcess(const Operation *ops,
+void SrcDstBufferMergeImpl::NotFindReplacedProcess(const Operation *ops,
     std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors) {
     for (auto &out : ops->GetOOperands()) {
         auto outTensorMagic = out->memorymap[subGraphID_].memId;
@@ -168,7 +168,7 @@ void SrcDstBufferMerge::NotFindReplacedProcess(const Operation *ops,
     }
 }
 
-Status SrcDstBufferMerge::Run(Function &func) {
+Status SrcDstBufferMergeImpl::Run(Function &func) {
     if (func.rootFunc_ == nullptr) {
         ALOG_ERROR_F("rootFunc is null");
         return FAILED;
@@ -203,7 +203,7 @@ Status SrcDstBufferMerge::Run(Function &func) {
     return SUCCESS;
 }
 
-bool SrcDstBufferMerge::CanSrcDstReuse(const Operation *ops,
+bool SrcDstBufferMergeImpl::CanSrcDstReuse(const Operation *ops,
     std::shared_ptr<LogicalTensor> ioperand, bool strict) {
     if (ops->GetOOperands().size() == 0) {
         return false;

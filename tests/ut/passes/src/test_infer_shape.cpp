@@ -89,7 +89,7 @@ TEST_F(InferShapeTest, TestAdd) {
     currFunctionPtr->inCasts_.push_back(incast2);
     currFunctionPtr->outCasts_.push_back(outCast);
 
-    InferDynShapePass inferShapeTest;
+    InferDynShape inferShapeTest;
     inferShapeTest.RunOnFunction(*currFunctionPtr);
     std::cout << currFunctionPtr->Dump() << std::endl;
     EXPECT_EQ(inferShapeTest.PostCheck(*currFunctionPtr), SUCCESS);
@@ -143,7 +143,7 @@ TEST_F(InferShapeTest, TestAddAlignCase) {
     currFunctionPtr->inCasts_.push_back(incast2);
     currFunctionPtr->outCasts_.push_back(outCast);
 
-    InferDynShapePass inferShapeTest;
+    InferDynShape inferShapeTest;
     inferShapeTest.RunOnFunction(*currFunctionPtr);
     std::cout << currFunctionPtr->Dump() << std::endl;
     EXPECT_EQ(inferShapeTest.PostCheck(*currFunctionPtr), SUCCESS);
@@ -220,7 +220,7 @@ TEST_F(InferShapeTest, TestAddExp) {
     currFunctionPtr->inCasts_.push_back(incast2);
     currFunctionPtr->outCasts_.push_back(outCast);
 
-    InferDynShapePass inferShapeTest;
+    InferDynShape inferShapeTest;
     inferShapeTest.RunOnFunction(*currFunctionPtr);
     std::cout << currFunctionPtr->Dump() << std::endl;
     EXPECT_EQ(inferShapeTest.PostCheck(*currFunctionPtr), SUCCESS);
@@ -265,7 +265,7 @@ TEST_F(InferShapeTest, TestReduce) {
     currFunctionPtr->inCasts_.push_back(incast);
     currFunctionPtr->outCasts_.push_back(outcast);
 
-    InferDynShapePass inferShapeTest;
+    InferDynShape inferShapeTest;
     inferShapeTest.RunOnFunction(*currFunctionPtr);
     std::cout << currFunctionPtr->Dump() << std::endl;
     EXPECT_EQ(inferShapeTest.PostCheck(*currFunctionPtr), SUCCESS);
@@ -297,7 +297,7 @@ TEST_F(InferShapeTest, TestView) {
     currFunctionPtr->inCasts_.push_back(incast);
     currFunctionPtr->outCasts_.push_back(outcast);
 
-    InferDynShapePass inferShapeTest;
+    InferDynShape inferShapeTest;
     inferShapeTest.RunOnFunction(*currFunctionPtr);
     std::cout << currFunctionPtr->Dump() << std::endl;
     std::cout << view_op.GetOOperands()[0]->Dump() << std::endl;
@@ -329,7 +329,7 @@ TEST_F(InferShapeTest, TestViewAlign) {
     currFunctionPtr->inCasts_.push_back(incast);
     currFunctionPtr->outCasts_.push_back(outcast);
 
-    InferDynShapePass inferShapeTest;
+    InferDynShape inferShapeTest;
     inferShapeTest.RunOnFunction(*currFunctionPtr);
     std::cout << currFunctionPtr->Dump() << std::endl;
     std::cout << view_op.GetOOperands()[0]->Dump() << std::endl;
@@ -363,7 +363,7 @@ TEST_F(InferShapeTest, TestAssemble) {
     currFunctionPtr->inCasts_.push_back(incast);
     currFunctionPtr->outCasts_.push_back(outcast);
 
-    InferDynShapePass inferShapeTest;
+    InferDynShape inferShapeTest;
     inferShapeTest.RunOnFunction(*currFunctionPtr);
     std::cout << currFunctionPtr->Dump() << std::endl;
     std::cout << assemble_op.GetOOperands()[0]->Dump() << std::endl;
@@ -388,7 +388,7 @@ TEST_F(InferShapeTest, TestFailCopyOut) {
     currFunctionPtr->inCasts_.push_back(incast);
     currFunctionPtr->outCasts_.push_back(outcast);
 
-    InferDynShapePass inferShapeTest;
+    InferDynShape inferShapeTest;
     inferShapeTest.RunOnFunction(*currFunctionPtr);
     std::cout << currFunctionPtr->Dump() << std::endl;
     EXPECT_EQ(inferShapeTest.PostCheck(*currFunctionPtr), FAILED);
@@ -421,7 +421,7 @@ TEST_F(InferShapeTest, TestCopyOut) {
     currFunctionPtr->inCasts_.push_back(incast);
     currFunctionPtr->outCasts_.push_back(outcast);
 
-    InferDynShapePass inferShapeTest;
+    InferDynShape inferShapeTest;
     inferShapeTest.RunOnFunction(*currFunctionPtr);
     std::cout << currFunctionPtr->Dump() << std::endl;
     std::cout << copyout_op.GetOOperands()[0]->Dump() << std::endl;
@@ -455,7 +455,7 @@ TEST_F(InferShapeTest, TestCopyIn) {
     currFunctionPtr->inCasts_.push_back(incast);
     currFunctionPtr->outCasts_.push_back(outcast);
 
-    InferDynShapePass inferShapeTest;
+    InferDynShape inferShapeTest;
     inferShapeTest.RunOnFunction(*currFunctionPtr);
     std::cout << currFunctionPtr->Dump() << std::endl;
     std::cout << copyin_op.GetOOperands()[0]->Dump() << std::endl;
@@ -501,7 +501,7 @@ TEST_F(InferShapeTest, TestReshape) {
     currFunctionPtr->inCasts_.push_back(incast);
     currFunctionPtr->outCasts_.push_back(outcast);
 
-    InferDynShapePass inferShapeTest;
+    InferDynShape inferShapeTest;
     inferShapeTest.RunOnFunction(*currFunctionPtr);
     std::cout << currFunctionPtr->Dump() << std::endl;
     std::cout << reshape_op.GetOOperands()[0]->Dump() << std::endl;

@@ -155,11 +155,11 @@ private:
     int32_t smallGraphThreshold_ = -1;
 };
 
-class GraphPartitionPass : public Pass {
+class GraphPartition : public Pass {
 public:
-    GraphPartitionPass() : Pass("GraphPartitionPass")
+    GraphPartition() : Pass("GraphPartition")
     {}
-    ~GraphPartitionPass() override = default;
+    ~GraphPartition() override = default;
     Status PreCheck(Function &function) override;
     Status PostCheck(Function &function) override;
     Status PostOperationCheck(Function &function);

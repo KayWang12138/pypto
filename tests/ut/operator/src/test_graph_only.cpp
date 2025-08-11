@@ -83,8 +83,8 @@ TEST_F(GraphTest, llama_1_1_512_128)
 
 TEST_F(GraphTest, llama_1_1_256_128_mix)
 {
-    config::SetPassConfig("PVC2_OOO", "PreGraphPass", "PRE_CHECK", false);
-    config::SetPassConfig("PVC2_OOO", "PreGraphPass", "POST_CHECK", false);
+    config::SetPassConfig("PVC2_OOO", "PreGraphProcess", "PRE_CHECK", false);
+    config::SetPassConfig("PVC2_OOO", "PreGraphProcess", "POST_CHECK", false);
     AttentionDims dimsCfg = {1, 1, 256, 128, DFT_SINGLE_M, DFT_SINGLE_N};
     RunLLamaLayerGraph(dimsCfg);
 }

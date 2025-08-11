@@ -31,10 +31,10 @@ struct CopyOp {
     std::shared_ptr<LogicalTensor> output;
     Operation *usedOp;
 };
-class InsertCopyOpPass : public Pass {
+class InsertInterGraphCopy : public Pass {
 public:
-    InsertCopyOpPass() : Pass("InsertCopyOpPass") {}
-    ~InsertCopyOpPass() override = default;
+    InsertInterGraphCopy() : Pass("InsertInterGraphCopy") {}
+    ~InsertInterGraphCopy() override = default;
 
 private:
     Status RunOnFunction(Function &function) override;

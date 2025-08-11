@@ -405,7 +405,7 @@ void L1CopyInReuseRunner::RemoveUselessViews(Function &func) const {
     }
 }
 
-void L1CopyInReusePass::L1CopyInReuse(Function &func) const {
+void L1CopyInReuseMerge::L1CopyInReuseMergeCall(Function &func) const {
     auto numLR = func.paramConfigs_.l1ReuseNum;
     auto numLRMap = func.paramConfigs_.l1ReuseMap;
     auto numDB = func.paramConfigs_.cubeNBufferNum;

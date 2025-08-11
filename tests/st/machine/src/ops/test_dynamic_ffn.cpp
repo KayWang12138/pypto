@@ -81,6 +81,7 @@ TEST_F(DynamicFFNTest, TestOnbroadDynamicFFNQuant) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     Program::GetInstance().GetTileShape().SetVecTileShapes(32, 256);
     Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {256, 256}, {128, 128}, true);
+    Program::GetInstance().GetConfig().Set<int>(DB_TYPE, 1);      // 是否开启db切分 1开启
     Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 2);
     Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, 10*1024*1024);
 

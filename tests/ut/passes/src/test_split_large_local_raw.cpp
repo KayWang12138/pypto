@@ -53,8 +53,8 @@ TEST_F(SplitLargeLocalRawTest, SplitLocalRaw) {
             {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
             {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
             {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
-            {       "SplitReshapeOpPVC2",       "SplitReshapeOpPVC2",    PassType::TYPE_TILE_GRAPH},
-            {        "GraphPartitionPass",        "GraphPartitionPass",    PassType::TYPE_TILE_GRAPH},
+            {       "SplitReshape",       "SplitReshape",    PassType::TYPE_TILE_GRAPH},
+            {        "GraphPartition",        "GraphPartition",    PassType::TYPE_TILE_GRAPH},
 
         });
         ConfigManager::Instance();
@@ -91,7 +91,7 @@ TEST_F(SplitLargeLocalRawTest, SplitLocalRaw) {
 
         // Call the pass
         Function* func = Program::GetInstance().GetCurrentFunction();
-        npu::tile_fwk::SplitLargeLocalRawPass splitLargeLocalRawPass;
+        npu::tile_fwk::SplitLargeLocalRawTensor splitLargeLocalRawPass;
         splitLargeLocalRawPass.PreCheck(*func);
         splitLargeLocalRawPass.RunOnFunction(*func);
         splitLargeLocalRawPass.PostCheck(*func);
@@ -183,7 +183,7 @@ TEST_F(SplitLargeLocalRawTest, GraphBoundaryOnUb) {
     */
 
     // Call the pass
-    npu::tile_fwk::SplitLargeLocalRawPass splitLargeLocalRawPass;
+    npu::tile_fwk::SplitLargeLocalRawTensor splitLargeLocalRawPass;
     splitLargeLocalRawPass.PreCheck(*function);
     splitLargeLocalRawPass.RunOnFunction(*function);
     splitLargeLocalRawPass.PostCheck(*function);

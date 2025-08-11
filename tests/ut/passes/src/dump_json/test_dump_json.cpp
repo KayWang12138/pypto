@@ -39,8 +39,8 @@ protected:
         Program::GetInstance().GetConfig().Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
-        config::SetPassConfig("PVC2_OOO", "CodegenPreprocPass", "PRINT_FUNCTION", true);
-        config::SetPassConfig("PVC2_OOO", "CodegenPreprocPass", "DUMP_FUNCTION_GRAPH_AFTER_PASS", true);
+        config::SetPassConfig("PVC2_OOO", "CodegenPreproc", "PRINT_FUNCTION", true);
+        config::SetPassConfig("PVC2_OOO", "CodegenPreproc", "DUMP_FUNCTION_GRAPH_AFTER_PASS", true);
         constexpr int32_t tilex = 8;
         constexpr int32_t tiley = 8;
         Program::GetInstance().GetTileShape().SetVecTileShapes(tilex, tiley);

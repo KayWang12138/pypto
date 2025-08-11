@@ -495,7 +495,7 @@ void Attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
                     qNope, kNopeCache, vNopeCache, qRope, kRopeCache,
                     input_i, t1_i, w_uv_i, w_o_i, outputT}) {
                 if (skipReshape){
-                    config::SetPassConfig("PVC2_OOO", "SplitReshapeOpPVC2", "DISABLE_PASS", true);
+                    config::SetPassConfig("PVC2_OOO", "SplitReshape", "DISABLE_PASS", true);
                 }
 
                 auto q_kv = Attention.MlaPrologFoward(
@@ -649,7 +649,7 @@ void Attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
        EXPECT_EQ(ret, true);
    }
    if (skipReshape){
-       config::SetPassConfig("PVC2_OOO", "SplitReshapeOpPVC2", "DISABLE_PASS", false);
+       config::SetPassConfig("PVC2_OOO", "SplitReshape", "DISABLE_PASS", false);
    }
 }
 
@@ -920,7 +920,7 @@ void attention_high(std::vector<int> &params, string dataPath, bool isQuant = fa
                     qNope, kNopeCache, vNopeCache, qRope, kRopeCache,
                     input_i, t1_i, w_uv_i, w_o_i, outputT}) {
                 if (skipReshape){
-                    config::SetPassConfig("PVC2_OOO", "SplitReshapeOpPVC2", "DISABLE_PASS", true);
+                    config::SetPassConfig("PVC2_OOO", "SplitReshape", "DISABLE_PASS", true);
                 }
 
                 auto q_kv = attention.MlaPrologFoward(
@@ -1067,7 +1067,7 @@ void attention_high(std::vector<int> &params, string dataPath, bool isQuant = fa
         EXPECT_EQ(ret, true);
     }
     if (skipReshape){
-        config::SetPassConfig("PVC2_OOO", "SplitReshapeOpPVC2", "DISABLE_PASS", false);
+        config::SetPassConfig("PVC2_OOO", "SplitReshape", "DISABLE_PASS", false);
     }
 }
 

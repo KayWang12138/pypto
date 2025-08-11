@@ -16,7 +16,7 @@
 #include "add_alloc.h"
 
 namespace npu::tile_fwk {
-Status AddAllocPass::PreCheck(Function &function) {
+Status AddAlloc::PreCheck(Function &function) {
     for (auto &[psgID, subFunc] : function.rootFunc_->programs_) {
         (void)psgID;
         if (subFunc->Operations().size() == 0) {
@@ -35,7 +35,7 @@ Status AddAllocPass::PreCheck(Function &function) {
     return SUCCESS;
 }
 
-Status AddAllocPass::AddAndCheckAlloc(Function &function) {
+Status AddAlloc::AddAndCheckAlloc(Function &function) {
     std::unordered_map<int, TensorAllocMsg> tensorAllocMsgMap;
     for (auto& op : function.Operations().DuplicatedOpList()) {
         if (FindTensorAllocMsg(op, tensorAllocMsgMap) != SUCCESS) {
@@ -61,7 +61,7 @@ Status AddAllocPass::AddAndCheckAlloc(Function &function) {
     return SUCCESS;
 }
 
-Status AddAllocPass::FindTensorAllocMsg(Operation *op, 
+Status AddAlloc::FindTensorAllocMsg(Operation *op, 
     std::unordered_map<int, TensorAllocMsg> &tensorAllocMsgMap) const {
     // 遍历所有节点，找到需要分配Alloc的tensor以及其第一次出现时候的位置
     std::vector<int> allocMagic;
@@ -101,7 +101,7 @@ Status AddAllocPass::FindTensorAllocMsg(Operation *op,
     return SUCCESS;
 }
 
-Status AddAllocPass::CreateAllocNode(const TensorAllocMsg& tensorAllocMsg, Function& function) {
+Status AddAlloc::CreateAllocNode(const TensorAllocMsg& tensorAllocMsg, Function& function) {
     auto subgraphID = function.Operations().begin()->GetSubgraphID();
     auto iter = allocOpcodeMap.find(tensorAllocMsg.memType);
     if (iter != allocOpcodeMap.end()) {

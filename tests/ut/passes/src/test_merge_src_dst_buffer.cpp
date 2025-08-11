@@ -10,7 +10,7 @@
 
 /*!
  * \file test_merge_src_dst_buffer.cpp
- * \brief Unit test for SrcDstBufferMergePass pass.
+ * \brief Unit test for SrcDstBufferMerge pass.
  */
 
 #include <gtest/gtest.h>
@@ -57,19 +57,19 @@ TEST_F(MergeSrcDstBufferTest, NoReplaced) {
                                  {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
                                  {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
                                  {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
-                                 {       "SplitReshapeOpPVC2",       "SplitReshapeOpPVC2",    PassType::TYPE_TILE_GRAPH},
+                                 {       "SplitReshape",       "SplitReshape",    PassType::TYPE_TILE_GRAPH},
                                  {        "RemoveRedundentOp",        "RemoveRedundentOp",    PassType::TYPE_TILE_GRAPH},
                                  {           "GenerateMoveOp",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
-                                 {        "GraphPartitionPass",        "GraphPartitionPass",    PassType::TYPE_TILE_GRAPH},
-                                 {   "SplitLargeLocalRawPass",   "SplitLargeLocalRawPass",    PassType::TYPE_TILE_GRAPH},
-                                 {         "InsertCopyOpPass",         "InsertCopyOpPass",    PassType::TYPE_TILE_GRAPH},
-                                 {      "L1CopyInReusePass",       "L1CopyInReusePass",    PassType::TYPE_TILE_GRAPH},
+                                 {        "GraphPartition",        "GraphPartition",    PassType::TYPE_TILE_GRAPH},
+                                 {   "SplitLargeLocalRawTensor",   "SplitLargeLocalRawTensor",    PassType::TYPE_TILE_GRAPH},
+                                 {         "InsertInterGraphCopy",         "InsertInterGraphCopy",    PassType::TYPE_TILE_GRAPH},
+                                 {      "L1CopyInReuseMerge",       "L1CopyInReuseMerge",    PassType::TYPE_TILE_GRAPH},
                                  { "CommonOperationEliminate", "CommonOperationEliminate",    PassType::TYPE_TILE_GRAPH},
                                  {           "InplaceProcess",           "InplaceProcess",    PassType::TYPE_TILE_GRAPH},
-                                 {             "PreGraphPass",             "PreGraphPass",    PassType::TYPE_TILE_GRAPH},
+                                 {             "PreGraphProcess",             "PreGraphProcess",    PassType::TYPE_TILE_GRAPH},
                                  {           "PadLocalBuffer",           "PadLocalBuffer",    PassType::TYPE_TILE_GRAPH},
                                  {       "SubgraphToFunction",       "SubgraphToFunction", PassType::TYPE_EXECUTE_GRAPH},
-                                 {"SrcDstBufferMergePass","SrcDstBufferMergePass", PassType::TYPE_EXECUTE_GRAPH},
+                                 {"SrcDstBufferMerge","SrcDstBufferMerge", PassType::TYPE_EXECUTE_GRAPH},
     });
     config::SetHostConfig(KEY_STRATEGY, "SrcDstBufferMergeIncludePrePassStrategy");
     config::SetPlatformConfig("TEST_IS_TIG", true);
@@ -167,7 +167,7 @@ TEST_F(MergeSrcDstBufferTest, AppointInplace) {
     FunctionUtils::AddControlEdge(alloc3, add1);
     add1.SetAttr(OpAttributeKey::inplaceIdx, 0);
 
-    SrcDstBufferMerge srcDstMerge;
+    SrcDstBufferMergeImpl srcDstMerge;
     Function func(Program::GetInstance(), "", "", nullptr);
     Function func1(Program::GetInstance(), "", "", nullptr);
     Function *rootFunc = &func1;
@@ -225,7 +225,7 @@ TEST_F(MergeSrcDstBufferTest, AddReplaced) {
         function->DumpJsonFile(jsonFilePath);
     }
 
-    SrcDstBufferMergePass mergePass;
+    SrcDstBufferMerge mergePass;
     mergePass.RunOnFunction(*function);
 
     for (const auto &op : function->Operations()) {
@@ -274,7 +274,7 @@ TEST_F(MergeSrcDstBufferTest, AddNotReplaced) {
         }
     }
 
-    SrcDstBufferMergePass mergePass;
+    SrcDstBufferMerge mergePass;
     mergePass.RunOnFunction(*function);
 
     for (const auto &op : function->Operations()) {
@@ -314,7 +314,7 @@ TEST_F(MergeSrcDstBufferTest, AddHasInReplaced) {
         }
     }
 
-    SrcDstBufferMergePass mergePass;
+    SrcDstBufferMerge mergePass;
     mergePass.RunOnFunction(*function);
 
     for (const auto &op : function->Operations()) {
@@ -345,7 +345,7 @@ TEST_F(MergeSrcDstBufferTest, CopyInNotReplaced) {
     /* stub params */
     StubInputOutput(function, true);
 
-    SrcDstBufferMergePass mergePass;
+    SrcDstBufferMerge mergePass;
     mergePass.RunOnFunction(*function);
 
     for (const auto &op : function->Operations()) {
@@ -378,7 +378,7 @@ TEST_F(MergeSrcDstBufferTest, PairMaxNotReplaced) {
     function->GetRootFunction()->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->GetRootFunction()->SetGraphType(GraphType::ROOT_GRAPH);
 
-    SrcDstBufferMergePass mergePass;
+    SrcDstBufferMerge mergePass;
     mergePass.RunOnFunction(*function);
 
     for (const auto &op : function->Operations()) {
@@ -415,7 +415,7 @@ TEST_F(MergeSrcDstBufferTest, IsCubeNotReplaced) {
         }
     }
 
-    SrcDstBufferMergePass mergePass;
+    SrcDstBufferMerge mergePass;
     mergePass.RunOnFunction(*function);
 
     for (const auto &op : function->Operations()) {
@@ -460,7 +460,7 @@ TEST_F(MergeSrcDstBufferTest, AddDiffMemTypeNotReplaced) {
         }
     }
 
-    SrcDstBufferMergePass mergePass;
+    SrcDstBufferMerge mergePass;
     mergePass.RunOnFunction(*function);
 
     for (const auto &op : function->Operations()) {
@@ -493,7 +493,7 @@ TEST_F(MergeSrcDstBufferTest, AddDiffShapeNotReplaced) {
     /* stub params */
     StubInputOutput(function, false);
 
-    SrcDstBufferMergePass mergePass;
+    SrcDstBufferMerge mergePass;
     mergePass.RunOnFunction(*function);
 
     for (const auto &op : function->Operations()) {
@@ -526,7 +526,7 @@ TEST_F(MergeSrcDstBufferTest, AddDiffDataTypeNotReplaced) {
     /* stub params */
     StubInputOutput(function, false);
 
-    SrcDstBufferMergePass mergePass;
+    SrcDstBufferMerge mergePass;
     mergePass.RunOnFunction(*function);
 
     for (const auto &op : function->Operations()) {
@@ -580,7 +580,7 @@ TEST_F(MergeSrcDstBufferTest, AssembleNotReplaced) {
         }
     }
 
-    SrcDstBufferMergePass mergePass;
+    SrcDstBufferMerge mergePass;
     mergePass.RunOnFunction(*function);
 
     for (const auto &op : function->Operations()) {
@@ -612,7 +612,7 @@ TEST_F(MergeSrcDstBufferTest, AddMultiConsumerNotReplaced) {
     /* stub params */
     StubInputOutput(function, false);
 
-    SrcDstBufferMergePass mergePass;
+    SrcDstBufferMerge mergePass;
     mergePass.RunOnFunction(*function);
 
     for (const auto &op : function->Operations()) {

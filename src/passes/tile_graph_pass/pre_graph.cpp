@@ -17,7 +17,7 @@
 
 namespace npu::tile_fwk {
 
-void PreGraphPass::ResetMemoryMap(Function &function) const {
+void PreGraphProcess::ResetMemoryMap(Function &function) const {
     /* 初始化所有tensor的memorymap */
     for (auto &op : function.Operations()) {
         for (auto &input : op.GetIOperands()) {
@@ -179,7 +179,7 @@ void HandleDynOffsetForReshape(const LogicalTensorPtr &oriBackUp, std::unordered
     }
 }
 
-void PreGraphPass::HandleForAssembleFromInOut(Function &function, std::unordered_set<Operation *> &concurrentAssembles,
+void PreGraphProcess::HandleForAssembleFromInOut(Function &function, std::unordered_set<Operation *> &concurrentAssembles,
     std::set<Operation *, LogicalTensor::CompareOp> &producersBackup) const {
     LogicalTensorPtr inOrOutTensor = nullptr;
     for (auto &assemble : concurrentAssembles) {
@@ -216,7 +216,7 @@ op1 --> tensor1 ---> Assemble1-2 --> OCAST
                 /--> Assemble2-1 --> Tensor
 op2 --> tensor2 ---> Assemble2-2 --> OCAST
 */
-void PreGraphPass::HandleForAssembleToOutcast(Function &function, std::unordered_set<Operation *> &concurrentAssembles,
+void PreGraphProcess::HandleForAssembleToOutcast(Function &function, std::unordered_set<Operation *> &concurrentAssembles,
     std::set<Operation *, LogicalTensor::CompareOp> &producersBackup) const {
     int outCastMagic = -1;
     for (auto &assemble : concurrentAssembles) {
@@ -234,7 +234,7 @@ void PreGraphPass::HandleForAssembleToOutcast(Function &function, std::unordered
     }
 }
 
-void PreGraphPass::HandleForReshapeToOutcast(Function &function) const {
+void PreGraphProcess::HandleForReshapeToOutcast(Function &function) const {
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
             if (function.IsFromOutCast(op.GetOOperands()[0])) {
@@ -262,7 +262,7 @@ void PreGraphPass::HandleForReshapeToOutcast(Function &function) const {
     Producer2 --> Tensor1 --> Op1
                     \---> Consumer ------> Tensor2 --> Op2
 */
-void PreGraphPass::DeleteRedundantAssemble(Function &function) const {
+void PreGraphProcess::DeleteRedundantAssemble(Function &function) const {
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_ASSEMBLE) {
             continue;
@@ -313,7 +313,7 @@ void PreGraphPass::DeleteRedundantAssemble(Function &function) const {
     HandleForReshapeToOutcast(function);
 }
 
-void PreGraphPass::ProcessSpecialMTEOperation(Operation &op) const {
+void PreGraphProcess::ProcessSpecialMTEOperation(Operation &op) const {
     ALOG_DEBUG_F("Process Special MTE Operation %d", op.opmagic);
     auto inputTensor = op.iOperand.front();
     auto outputTensor = op.oOperand.front();
@@ -334,7 +334,7 @@ void PreGraphPass::ProcessSpecialMTEOperation(Operation &op) const {
     }
 }
 
-void PreGraphPass::InsertTemporaryCopyIn(Function &function, Operation &op) const {
+void PreGraphProcess::InsertTemporaryCopyIn(Function &function, Operation &op) const {
     if (op.GetOpcode() == Opcode::OP_REMOTE_REDUCE ||
         op.GetOpcode() == Opcode::OP_WRITE_REMOTE ||
         op.GetOpcode() == Opcode::OP_LOCAL_COPY_OUT ||
@@ -377,7 +377,7 @@ void PreGraphPass::InsertTemporaryCopyIn(Function &function, Operation &op) cons
     }
 }
 
-void PreGraphPass::ProcessInplaceOp(Function &function) const {
+void PreGraphProcess::ProcessInplaceOp(Function &function) const {
     for (auto &op : function.Operations()) {
         /*
         正式方案：需要inplace的op帶有attribute, 通过attribute判斷
@@ -424,7 +424,7 @@ void PreGraphPass::ProcessInplaceOp(Function &function) const {
     }
 }
 
-void PreGraphPass::ProcessSameInOutOp(Function &function) const {
+void PreGraphProcess::ProcessSameInOutOp(Function &function) const {
     for (auto &op : function.Operations()) {
         Opcode prod;
         if (!op.GetAttr(OpAttributeKey::sameInOut, prod)) {
@@ -452,7 +452,7 @@ void PreGraphPass::ProcessSameInOutOp(Function &function) const {
     }
 }
 
-void PreGraphPass::UpdateCopyOpIsCube(Operation &op) const {
+void PreGraphProcess::UpdateCopyOpIsCube(Operation &op) const {
     /*
     后续考虑移到InsertCopyOp
     copy_out for producer
@@ -482,7 +482,7 @@ void PreGraphPass::UpdateCopyOpIsCube(Operation &op) const {
     }
 }
 
-void PreGraphPass::InitializeTensorMemorymap(Operation &op) const {
+void PreGraphProcess::InitializeTensorMemorymap(Operation &op) const {
     const int newColor = op.GetSubgraphID();
     for (auto &input : op.GetIOperands()) {
         TileRange range;
@@ -500,7 +500,7 @@ void PreGraphPass::InitializeTensorMemorymap(Operation &op) const {
     }
 }
 
-void PreGraphPass::SetTensorBoundary(Function &function) const {
+void PreGraphProcess::SetTensorBoundary(Function &function) const {
     for (auto &op : function.Operations()) {
         /* memory map size > 1 代表该tensor被多个子图使用，那么标记为boundary*/
         for (auto &input : op.GetIOperands()) {
@@ -541,7 +541,7 @@ void PreGraphPass::SetTensorBoundary(Function &function) const {
     }
 }
 
-Status PreGraphPass::PreColorSort(Function &function)
+Status PreGraphProcess::PreColorSort(Function &function)
 {
     int colorNum = function.GetTotalSubGraphCount();
     std::vector<std::set<int>> colorInGraph(colorNum);
@@ -585,7 +585,7 @@ Status PreGraphPass::PreColorSort(Function &function)
     return SUCCESS;
 }
 
-Status PreGraphPass::RunOnFunction(Function &function) {
+Status PreGraphProcess::RunOnFunction(Function &function) {
     ALOG_INFO_F("===> start PreGraph");
     PreColorSort(function);
     ResetMemoryMap(function);
@@ -624,7 +624,7 @@ Status PreGraphPass::RunOnFunction(Function &function) {
     return SUCCESS;
 }
 
-Status PreGraphPass::PreCheck(Function &function) {
+Status PreGraphProcess::PreCheck(Function &function) {
     ALOG_INFO_F("PreCheck for PreGraph");
     Pass::PreCheck(function);
     if (!function.LoopCheck().empty()) {
@@ -653,7 +653,7 @@ Status PreGraphPass::PreCheck(Function &function) {
     return SUCCESS;
 }
 
-Status PreGraphPass::PostCheckHelpFunc(const LogicalTensor &singleTensor) {
+Status PreGraphProcess::PostCheckHelpFunc(const LogicalTensor &singleTensor) {
     if (singleTensor.subGraphID == NOT_IN_SUBGRAPH) {
         // tensor 的子图编号是否被设置过
         ALOG_ERROR_F(
@@ -692,7 +692,7 @@ Status PreGraphPass::PostCheckHelpFunc(const LogicalTensor &singleTensor) {
     return SUCCESS;
 }
 
-Status PreGraphPass::PostCheckReshape(const Operation &op) {
+Status PreGraphProcess::PostCheckReshape(const Operation &op) {
     auto reshapeIn = op.GetIOperands().front();
     auto reshapeOut = op.GetOOperands().front();
     if (reshapeOut->tensor->GetRawMagic() != reshapeIn->GetRawMagic()) {
@@ -740,7 +740,7 @@ Status PreGraphPass::PostCheckReshape(const Operation &op) {
     return SUCCESS;
 }
 
-Status PreGraphPass::PostCheck(Function &function) {
+Status PreGraphProcess::PostCheck(Function &function) {
     ALOG_INFO_F("PostCheck for PreGraph");
     // 检测是否成环
     if (!function.LoopCheck().empty()) {

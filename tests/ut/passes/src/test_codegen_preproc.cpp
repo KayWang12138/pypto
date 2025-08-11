@@ -81,7 +81,7 @@ TEST_F(CodegenPreprocTest, TestSaveGmTensorParamIdxToOp) {
         }
     }
 
-    CodegenPreprocPass codegenPreprocPass;
+    CodegenPreproc codegenPreprocPass;
     codegenPreprocPass.SaveGmTensorParamIdxToOp(*rootFuncPtr);
 
     for (const auto &op : opLogPtr) {
@@ -129,7 +129,7 @@ TEST_F(CodegenPreprocTest, TestForceCombineAxis) {
     copyout.SetAttr(OpAttributeKey::inputCombineAxis, AXIS_COMBINED);
     opLogPtr.emplace_back(&copyout);
 
-    CodegenPreprocPass codegenPreprocPass;
+    CodegenPreproc codegenPreprocPass;
     codegenPreprocPass.ForceCombineAxis(*rootFuncPtr);
     bool inputRes{false};
     add.GetAttr(OpAttributeKey::inputCombineAxisDone, inputRes);

@@ -436,7 +436,7 @@ bool NBufferMerger::NBufferMerge(Function &func, int dbMerging, int numDB, int c
     return true;
 }
 
-void NBufferMerge(Function &func) {
+void NBufferMergeCall(Function &func) {
     auto dbMerge = func.paramConfigs_.dbType;
     auto numDB = func.paramConfigs_.NbufferNum;
     auto copyInThreshold = func.paramConfigs_.sgCopyInThreshold;
@@ -448,10 +448,10 @@ void NBufferMerge(Function &func) {
     }
 }
 
-Status NBufferMergePass::RunOnFunction(Function &function) {
-    ASLOGI("===> Start NBufferMergePass.");
-    NBufferMerge(function);
-    ALOG_INFO_F("===> Finish NBufferMergePass.");
+Status NBufferMerge::RunOnFunction(Function &function) {
+    ASLOGI("===> Start NBufferMerge.");
+    NBufferMergeCall(function);
+    ALOG_INFO_F("===> Finish NBufferMerge.");
     return SUCCESS;
 }
 }  // namespae npu::tile_fwk

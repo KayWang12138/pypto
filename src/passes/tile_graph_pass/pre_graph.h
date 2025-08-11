@@ -36,10 +36,10 @@ struct SubgraphColorInfo {
     std::vector<int> newColor;
 };
 
-class PreGraphPass : public Pass {
+class PreGraphProcess : public Pass {
 public:
-    PreGraphPass() : Pass("PreGraphPass") {}
-    ~PreGraphPass() override = default;
+    PreGraphProcess() : Pass("PreGraphProcess") {}
+    ~PreGraphProcess() override = default;
 
 private:
     Status PreCheck(Function &function) override;

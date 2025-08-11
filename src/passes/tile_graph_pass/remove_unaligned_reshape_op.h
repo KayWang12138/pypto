@@ -43,10 +43,10 @@ struct CopyInOpMemUnalign {
 /*
  移除尾轴非对齐的reshape，插入copy_out, copy_in
 */
-class RemoveUnalignedReshapeOp : public Pass {
+class RemoveUnalignedReshape : public Pass {
 public:
-    RemoveUnalignedReshapeOp() : Pass("RemoveUnalignedReshapeOp") {}
-    ~RemoveUnalignedReshapeOp() override = default;
+    RemoveUnalignedReshape() : Pass("RemoveUnalignedReshape") {}
+    ~RemoveUnalignedReshape() override = default;
     Status RunOnFunction(Function &function) override;
 
 private:

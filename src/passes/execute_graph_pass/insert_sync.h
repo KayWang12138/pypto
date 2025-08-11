@@ -244,10 +244,10 @@ private:
     std::unordered_map<PipePair, std::vector<int>, PipePairHash> doublePipeOp; // pipepair, opmagic
 };
 
-class InsertSyncPass : public Pass {
+class InsertSync : public Pass {
 public:
-    InsertSyncPass() : Pass("InsertSyncPass") {}
-    ~InsertSyncPass() override {}
+    InsertSync() : Pass("InsertSync") {}
+    ~InsertSync() override {}
     void SetEnableDebug(bool enableDebug) { enableDebug_ = enableDebug; }
 
 private:

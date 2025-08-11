@@ -239,7 +239,7 @@ void RescheduleUtils::PrintColorNode(Function &func) {
         auto color = op.GetSubgraphID();
         colorNode[color].push_back(i);
     }
-    ALOG_DEBUG_F("After L1CopyInReusePass :");
+    ALOG_DEBUG_F("After L1CopyInReuseMerge :");
     for (auto color : colorNode) {
         std::string colorInfo;
         colorInfo += "color " + std::to_string(color.first) + " : {";

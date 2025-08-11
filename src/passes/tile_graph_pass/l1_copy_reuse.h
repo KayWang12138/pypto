@@ -63,18 +63,18 @@ class L1CopyInReuseRunner {
     bool isLoadBalance;
 };
 
-class L1CopyInReusePass : public Pass, public DeadOperationEliminator {
+class L1CopyInReuseMerge : public Pass, public DeadOperationEliminator {
 public:
-    L1CopyInReusePass() : Pass("L1CopyInReusePass") {}
-    ~L1CopyInReusePass() override = default;
+    L1CopyInReuseMerge() : Pass("L1CopyInReuseMerge") {}
+    ~L1CopyInReuseMerge() override = default;
 
 private:
-    void L1CopyInReuse(Function &func) const;
+    void L1CopyInReuseMergeCall(Function &func) const;
     Status RunOnFunction(Function &function) override {
-        ASLOGI("===> Start L1CopyInReusePass.");
-        L1CopyInReuse(function);
+        ASLOGI("===> Start L1CopyInReuseMerge.");
+        L1CopyInReuseMergeCall(function);
         EliminateDeadOperationBackward(function);
-        ALOG_INFO_F("===> Finish L1CopyInReusePass.");
+        ALOG_INFO_F("===> Finish L1CopyInReuseMerge.");
         return SUCCESS;
     }
 };

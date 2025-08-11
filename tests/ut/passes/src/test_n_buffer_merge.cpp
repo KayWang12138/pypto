@@ -84,7 +84,7 @@ TEST_F(NBufferMergeTest, TestNBufferMerge) {
     currFunctionPtr->outCasts_.push_back(tensor4);
 
     // Call the pass
-    NBufferMergePass nPass;
+    NBufferMerge nPass;
     Pass &nbufferPass = nPass;
     nbufferPass.PreCheck(*currFunctionPtr);
     nbufferPass.Run(*currFunctionPtr, "", "");

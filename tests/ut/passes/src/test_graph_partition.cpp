@@ -10,7 +10,7 @@
 
 /*!
  * \file test_graph_partition.cpp
- * \brief Unit test for GraphPartitionPass pass.
+ * \brief Unit test for GraphPartition pass.
  */
 
 #include <fstream>
@@ -250,7 +250,7 @@ TEST_F(GraphPartitionTest, TestEmptyGraph) {
     ComputationalGraphBuilder G;
     Function *function = G.GetFunction();
     EXPECT_EQ(function->Operations().size(), 0);
-    GraphPartitionPass gpp;
+    GraphPartition gpp;
     EXPECT_EQ(gpp.RunOnFunction(*function), SUCCESS);
     EXPECT_EQ(function->GetTotalSubGraphCount(), 0);
 }
@@ -577,7 +577,7 @@ TEST_F(GraphPartitionTest, TestAvoidSuperNodeLoop) {
     EXPECT_EQ(G.SetInCast({"t1", "t2", "t5", "t7"}), true);
     EXPECT_EQ(G.SetOutCast({"t8"}), true);
     Function *function = G.GetFunction();
-    GraphPartitionPass gpp;
+    GraphPartition gpp;
     EXPECT_EQ(gpp.RunOnFunction(*function), SUCCESS);
     EXPECT_EQ(gpp.PostCheck(*function), SUCCESS);
 }

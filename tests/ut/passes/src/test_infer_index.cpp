@@ -59,7 +59,7 @@ TEST_F(InferIndexTest, TestReset) {
     currFunctionPtr->inCasts_.push_back(incast);
     currFunctionPtr->outCasts_.push_back(outcast);
 
-    InferParamIndexPass inferParamIndex;
+    InferParamIndex inferParamIndex;
     std::cout << currFunctionPtr->Dump() << std::endl;
     std::cout << copyin_op.GetOOperands()[0]->Dump() << std::endl;
     EXPECT_EQ(inferParamIndex.ResetDynValidShape(*currFunctionPtr), SUCCESS);
@@ -71,7 +71,7 @@ TEST_F(InferIndexTest, TestResetNoneOp) {
                                                       "TestReset", 
                                                       nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    InferParamIndexPass inferParamIndex;
+    InferParamIndex inferParamIndex;
     EXPECT_EQ(inferParamIndex.ResetDynValidShape(*currFunctionPtr), SUCCESS);
 }
 
@@ -90,7 +90,7 @@ TEST_F(InferIndexTest, TestResetNoneOut) {
     (void) copyin_op;
     currFunctionPtr->inCasts_.push_back(incast);
 
-    InferParamIndexPass inferParamIndex;
+    InferParamIndex inferParamIndex;
     EXPECT_EQ(inferParamIndex.ResetDynValidShape(*currFunctionPtr), FAILED);
 }
 
@@ -122,7 +122,7 @@ TEST_F(InferIndexTest, TestResetView) {
     currFunctionPtr->inCasts_.push_back(incast);
     currFunctionPtr->outCasts_.push_back(outcast);
 
-    InferParamIndexPass inferParamIndex;
+    InferParamIndex inferParamIndex;
     std::cout << currFunctionPtr->Dump() << std::endl;
     EXPECT_EQ(inferParamIndex.ResetDynValidShape(*currFunctionPtr), SUCCESS);
 }
@@ -154,7 +154,7 @@ TEST_F(InferIndexTest, TestInferShape) {
     currFunctionPtr->inCasts_.push_back(incast);
     currFunctionPtr->outCasts_.push_back(outcast);
     std::cout << currFunctionPtr->Dump() << std::endl;
-    InferParamIndexPass inferIndexTest;
+    InferParamIndex inferIndexTest;
     EXPECT_EQ(inferIndexTest.InferShape(*currFunctionPtr), SUCCESS);
 }
 
@@ -164,7 +164,7 @@ TEST_F(InferIndexTest, TestInferShapeNoneOp) {
                                                       "TestInferShape", 
                                                       nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    InferParamIndexPass inferIndexTest;
+    InferParamIndex inferIndexTest;
     EXPECT_EQ(inferIndexTest.InferShape(*currFunctionPtr), FAILED);
 }
 

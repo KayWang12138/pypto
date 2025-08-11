@@ -1,4 +1,29 @@
 {
+  "ASCEND_910B1" : {
+      "MEMORY_LIMITS": {
+        "MEM_UB" : 196608,
+        "MEM_L1" : 524288,
+        "MEM_L0A" : 65536,
+        "MEM_L0B" : 65536,
+        "MEM_L0C" : 131072,
+        "MEM_DEVICE_DDR" : 68719476736,
+        "MEM_HOST1" : 68719476736
+      },
+      "CORE_NUM": {
+        "AICORE": 24,
+        "CUBE_CORE": 24,
+        "VECTOR_CORE": 48
+      },
+      "PATHS" : [
+        ["MEM_UB", "MEM_DEVICE_DDR"],
+        ["MEM_DEVICE_DDR", "MEM_UB"],
+        ["MEM_L1", "MEM_DEVICE_DDR"],
+        ["MEM_DEVICE_DDR", "MEM_L1"],
+        ["MEM_L1", "MEM_L0A"],
+        ["MEM_L1", "MEM_L0B"],
+        ["MEM_L0C", "MEM_DEVICE_DDR"]
+      ]
+  },
   "ASCEND_910B2" : {
       "MEMORY_LIMITS": {
         "MEM_UB" : 196608,
@@ -13,6 +38,56 @@
         "AICORE": 24,
         "CUBE_CORE": 24,
         "VECTOR_CORE": 48
+      },
+      "PATHS" : [
+        ["MEM_UB", "MEM_DEVICE_DDR"],
+        ["MEM_DEVICE_DDR", "MEM_UB"],
+        ["MEM_L1", "MEM_DEVICE_DDR"],
+        ["MEM_DEVICE_DDR", "MEM_L1"],
+        ["MEM_L1", "MEM_L0A"],
+        ["MEM_L1", "MEM_L0B"],
+        ["MEM_L0C", "MEM_DEVICE_DDR"]
+      ]
+  },
+  "ASCEND_910B3" : {
+      "MEMORY_LIMITS": {
+        "MEM_UB" : 196608,
+        "MEM_L1" : 524288,
+        "MEM_L0A" : 65536,
+        "MEM_L0B" : 65536,
+        "MEM_L0C" : 131072,
+        "MEM_DEVICE_DDR" : 68719476736,
+        "MEM_HOST1" : 68719476736
+      },
+      "CORE_NUM": {
+        "AICORE": 20,
+        "CUBE_CORE": 20,
+        "VECTOR_CORE": 40
+      },
+      "PATHS" : [
+        ["MEM_UB", "MEM_DEVICE_DDR"],
+        ["MEM_DEVICE_DDR", "MEM_UB"],
+        ["MEM_L1", "MEM_DEVICE_DDR"],
+        ["MEM_DEVICE_DDR", "MEM_L1"],
+        ["MEM_L1", "MEM_L0A"],
+        ["MEM_L1", "MEM_L0B"],
+        ["MEM_L0C", "MEM_DEVICE_DDR"]
+      ]
+  },
+  "ASCEND_910B4" : {
+      "MEMORY_LIMITS": {
+        "MEM_UB" : 196608,
+        "MEM_L1" : 524288,
+        "MEM_L0A" : 65536,
+        "MEM_L0B" : 65536,
+        "MEM_L0C" : 131072,
+        "MEM_DEVICE_DDR" : 68719476736,
+        "MEM_HOST1" : 68719476736
+      },
+      "CORE_NUM": {
+        "AICORE": 20,
+        "CUBE_CORE": 20,
+        "VECTOR_CORE": 40
       },
       "PATHS" : [
         ["MEM_UB", "MEM_DEVICE_DDR"],

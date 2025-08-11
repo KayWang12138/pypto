@@ -283,18 +283,18 @@ TEST_F(PreGraphTest, TestVCPartition) {
     {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
     {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
     {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
-    {       "SplitReshapeOpPVC2",       "SplitReshapeOpPVC2",    PassType::TYPE_TILE_GRAPH},
+    {       "SplitReshape",       "SplitReshape",    PassType::TYPE_TILE_GRAPH},
     {        "RemoveRedundentOp",        "RemoveRedundentOp",    PassType::TYPE_TILE_GRAPH},
     {        "GenerateMoveOp_01",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
     {              "CubeProcess",              "CubeProcess",    PassType::TYPE_TILE_GRAPH},
-    {        "GraphPartitionPass",        "GraphPartitionPass",    PassType::TYPE_TILE_GRAPH},
-    {         "NBufferMergePass",         "NBufferMergePass",    PassType::TYPE_TILE_GRAPH},
+    {        "GraphPartition",        "GraphPartition",    PassType::TYPE_TILE_GRAPH},
+    {         "NBufferMerge",         "NBufferMerge",    PassType::TYPE_TILE_GRAPH},
     {          "UpdateMemoryMap",          "UpdateMemoryMap",    PassType::TYPE_TILE_GRAPH},
     {        "GenerateMoveOp_02",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
-    {   "SplitLargeLocalRawPass",   "SplitLargeLocalRawPass",    PassType::TYPE_TILE_GRAPH},
-    {         "InsertCopyOpPass",         "InsertCopyOpPass",    PassType::TYPE_TILE_GRAPH},
+    {   "SplitLargeLocalRawTensor",   "SplitLargeLocalRawTensor",    PassType::TYPE_TILE_GRAPH},
+    {         "InsertInterGraphCopy",         "InsertInterGraphCopy",    PassType::TYPE_TILE_GRAPH},
     { "CommonOperationEliminate", "CommonOperationEliminate",    PassType::TYPE_TILE_GRAPH},
-    {        "L1CopyInReusePass",        "L1CopyInReusePass",    PassType::TYPE_TILE_GRAPH},
+    {        "L1CopyInReuseMerge",        "L1CopyInReuseMerge",    PassType::TYPE_TILE_GRAPH},
 
     });
     ConfigManager::Instance();
@@ -338,7 +338,7 @@ TEST_F(PreGraphTest, TestVCPartition) {
     }
     // Call the pass
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_PreGraphFunction");
-    npu::tile_fwk::PreGraphPass preGraphPass;
+    npu::tile_fwk::PreGraphProcess preGraphPass;
     preGraphPass.PreCheck(*func);
     preGraphPass.RunOnFunction(*func);
     preGraphPass.PostCheck(*func);
@@ -369,12 +369,12 @@ TEST_F(PreGraphTest, TestAssemble) {
     {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
     {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
     {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
-    {       "SplitReshapeOpPVC2",       "SplitReshapeOpPVC2",    PassType::TYPE_TILE_GRAPH},
+    {       "SplitReshape",       "SplitReshape",    PassType::TYPE_TILE_GRAPH},
     {        "RemoveRedundentOp",        "RemoveRedundentOp",    PassType::TYPE_TILE_GRAPH},
     {           "GenerateMoveOp",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
-    {        "GraphPartitionPass",        "GraphPartitionPass",    PassType::TYPE_TILE_GRAPH},
-    {   "SplitLargeLocalRawPass",   "SplitLargeLocalRawPass",    PassType::TYPE_TILE_GRAPH},
-    {         "InsertCopyOpPass",         "InsertCopyOpPass",    PassType::TYPE_TILE_GRAPH},
+    {        "GraphPartition",        "GraphPartition",    PassType::TYPE_TILE_GRAPH},
+    {   "SplitLargeLocalRawTensor",   "SplitLargeLocalRawTensor",    PassType::TYPE_TILE_GRAPH},
+    {         "InsertInterGraphCopy",         "InsertInterGraphCopy",    PassType::TYPE_TILE_GRAPH},
     { "CommonOperationEliminate", "CommonOperationEliminate",    PassType::TYPE_TILE_GRAPH},
 
     });
@@ -401,7 +401,7 @@ TEST_F(PreGraphTest, TestAssemble) {
 
     // Call the pass
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_TestAssign");
-    npu::tile_fwk::PreGraphPass preGraphPass;
+    npu::tile_fwk::PreGraphProcess preGraphPass;
     preGraphPass.PreCheck(*func);
     preGraphPass.RunOnFunction(*func);
     preGraphPass.PostCheck(*func);
@@ -434,18 +434,18 @@ config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
     {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
     {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
     {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
-    {       "SplitReshapeOpPVC2",       "SplitReshapeOpPVC2",    PassType::TYPE_TILE_GRAPH},
+    {       "SplitReshape",       "SplitReshape",    PassType::TYPE_TILE_GRAPH},
     {        "RemoveRedundentOp",        "RemoveRedundentOp",    PassType::TYPE_TILE_GRAPH},
     {        "GenerateMoveOp_01",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
     {              "CubeProcess",              "CubeProcess",    PassType::TYPE_TILE_GRAPH},
-    {        "GraphPartitionPass",        "GraphPartitionPass",    PassType::TYPE_TILE_GRAPH},
-    {         "NBufferMergePass",         "NBufferMergePass",    PassType::TYPE_TILE_GRAPH},
+    {        "GraphPartition",        "GraphPartition",    PassType::TYPE_TILE_GRAPH},
+    {         "NBufferMerge",         "NBufferMerge",    PassType::TYPE_TILE_GRAPH},
     {          "UpdateMemoryMap",          "UpdateMemoryMap",    PassType::TYPE_TILE_GRAPH},
     {        "GenerateMoveOp_02",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
-    {   "SplitLargeLocalRawPass",   "SplitLargeLocalRawPass",    PassType::TYPE_TILE_GRAPH},
-    {         "InsertCopyOpPass",         "InsertCopyOpPass",    PassType::TYPE_TILE_GRAPH},
+    {   "SplitLargeLocalRawTensor",   "SplitLargeLocalRawTensor",    PassType::TYPE_TILE_GRAPH},
+    {         "InsertInterGraphCopy",         "InsertInterGraphCopy",    PassType::TYPE_TILE_GRAPH},
     { "CommonOperationEliminate", "CommonOperationEliminate",    PassType::TYPE_TILE_GRAPH},
-    {        "L1CopyInReusePass",        "L1CopyInReusePass",    PassType::TYPE_TILE_GRAPH},
+    {        "L1CopyInReuseMerge",        "L1CopyInReuseMerge",    PassType::TYPE_TILE_GRAPH},
     });
     ConfigManager::Instance();
 
@@ -482,7 +482,7 @@ config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     // Call the pass
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_PreGraphFunction");
-    npu::tile_fwk::PreGraphPass preGraphPass;
+    npu::tile_fwk::PreGraphProcess preGraphPass;
     preGraphPass.PreCheck(*func);
     preGraphPass.RunOnFunction(*func);
     preGraphPass.PostCheck(*func);
@@ -509,12 +509,12 @@ TEST_F(PreGraphTest, TestROWMAX_SINGLE) {
     {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
     {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
     {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
-    {       "SplitReshapeOpPVC2",       "SplitReshapeOpPVC2",    PassType::TYPE_TILE_GRAPH},
+    {       "SplitReshape",       "SplitReshape",    PassType::TYPE_TILE_GRAPH},
     {        "RemoveRedundentOp",        "RemoveRedundentOp",    PassType::TYPE_TILE_GRAPH},
     {           "GenerateMoveOp",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
-    {        "GraphPartitionPass",        "GraphPartitionPass",    PassType::TYPE_TILE_GRAPH},
-    {   "SplitLargeLocalRawPass",   "SplitLargeLocalRawPass",    PassType::TYPE_TILE_GRAPH},
-    {         "InsertCopyOpPass",         "InsertCopyOpPass",    PassType::TYPE_TILE_GRAPH},
+    {        "GraphPartition",        "GraphPartition",    PassType::TYPE_TILE_GRAPH},
+    {   "SplitLargeLocalRawTensor",   "SplitLargeLocalRawTensor",    PassType::TYPE_TILE_GRAPH},
+    {         "InsertInterGraphCopy",         "InsertInterGraphCopy",    PassType::TYPE_TILE_GRAPH},
     { "CommonOperationEliminate", "CommonOperationEliminate",    PassType::TYPE_TILE_GRAPH},
 
     });
@@ -545,7 +545,7 @@ TEST_F(PreGraphTest, TestROWMAX_SINGLE) {
 
     // Call the pass
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_A");
-    npu::tile_fwk::PreGraphPass preGraphPass;
+    npu::tile_fwk::PreGraphProcess preGraphPass;
     preGraphPass.PreCheck(*func);
     preGraphPass.RunOnFunction(*func);
     preGraphPass.PostCheck(*func);
@@ -602,7 +602,7 @@ TEST_F(PreGraphTest, TestTransposeDatamove) {
     function->DumpJsonFile(jsonFilePath);
     */
     // 单独执行pass
-    npu::tile_fwk::PreGraphPass preGraph;
+    npu::tile_fwk::PreGraphProcess preGraph;
     preGraph.PreCheck(*function);
     preGraph.RunOnFunction(*function);
     preGraph.PostCheck(*function);
@@ -666,7 +666,7 @@ TEST_F(PreGraphTest, TestTransposeDatamoveExp) {
     function->DumpJsonFile(jsonFilePath);
     */
     // 单独执行pass
-    npu::tile_fwk::PreGraphPass preGraph;
+    npu::tile_fwk::PreGraphProcess preGraph;
     preGraph.PreCheck(*function);
     preGraph.RunOnFunction(*function);
     preGraph.PostCheck(*function);
@@ -741,7 +741,7 @@ TEST_F(PreGraphTest, TestAddExp) {
     function->DumpJsonFile(jsonFilePath);
     */
     // 单独执行pass
-    npu::tile_fwk::PreGraphPass preGraph;
+    npu::tile_fwk::PreGraphProcess preGraph;
     preGraph.PreCheck(*function);
     preGraph.RunOnFunction(*function);
     preGraph.PostCheck(*function);
@@ -780,7 +780,7 @@ TEST_F(PreGraphTest, PreGraphReShapeOnOcast) {
     // run pass
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
-    PreGraphPass passLocal;
+    PreGraphProcess passLocal;
     passLocal.Run(*function, "", "", 0);
     // check after pass
     auto inRawMagicAfter = vec_in->GetRawMagic();

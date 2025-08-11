@@ -57,7 +57,7 @@ TEST_F(AddAllocTest, TestAddAlloc) {
         op->UpdateSubgraphID(0);
     }
 
-    AddAllocPass addalloc;
+    AddAlloc addalloc;
     Status res = addalloc.AddAndCheckAlloc(*function);
     EXPECT_EQ(res, SUCCESS);
     EXPECT_EQ(function->Operations().DuplicatedOpList().size(), 13);
@@ -90,7 +90,7 @@ TEST_F(AddAllocTest, TestAddAllocInplace) {
         op->UpdateSubgraphID(0);
     }
 
-    AddAllocPass addalloc;
+    AddAlloc addalloc;
     Status res = addalloc.AddAndCheckAlloc(*function);
     EXPECT_EQ(res, SUCCESS);
     EXPECT_EQ(function->Operations().DuplicatedOpList().size(), 12);
@@ -124,7 +124,7 @@ TEST_F(AddAllocTest, TestAddAllocAssemble) {
         op->UpdateSubgraphID(0);
     }
 
-    AddAllocPass addalloc;
+    AddAlloc addalloc;
     Status res = addalloc.AddAndCheckAlloc(*function);
     EXPECT_EQ(res, SUCCESS);
     EXPECT_EQ(function->Operations().DuplicatedOpList().size(), 13);
@@ -156,7 +156,7 @@ TEST_F(AddAllocTest, TestAddAllocView) {
         op->UpdateSubgraphID(0);
     }
 
-    AddAllocPass addalloc;
+    AddAlloc addalloc;
     Status res = addalloc.AddAndCheckAlloc(*function);
     EXPECT_EQ(res, SUCCESS);
     EXPECT_EQ(function->Operations().DuplicatedOpList().size(), 12);
@@ -188,7 +188,7 @@ TEST_F(AddAllocTest, TestAddAllocErrorMemId) {
         op->UpdateSubgraphID(0);
     }
 
-    AddAllocPass addalloc;
+    AddAlloc addalloc;
     Status res = addalloc.AddAndCheckAlloc(*function);
     EXPECT_EQ(res, FAILED);
 }
@@ -219,7 +219,7 @@ TEST_F(AddAllocTest, TestAddAllocErrorMemorymap) {
         op->UpdateSubgraphID(0);
     }
 
-    AddAllocPass addalloc;
+    AddAlloc addalloc;
     Status res = addalloc.AddAndCheckAlloc(*function);
     EXPECT_EQ(res, FAILED);
 }

@@ -84,7 +84,7 @@ TEST_F(GetParamIdxTest, TestAdd) {
     currFunctionPtr->inCasts_.push_back(incast2);
     currFunctionPtr->outCasts_.push_back(outCast);
 
-    InferParamIndexPass getParamIndexTest;
+    InferParamIndex getParamIndexTest;
     getParamIndexTest.RunOnFunction(*rootFuncPtr);
     EXPECT_TRUE(true);
 }
@@ -158,7 +158,7 @@ TEST_F(GetParamIdxTest, TestAddExp) {
     subGraphPtr1->inCasts_.push_back(tmpCast);
     subGraphPtr1->outCasts_.push_back(outCast);
 
-    InferParamIndexPass getParamIndexTest;
+    InferParamIndex getParamIndexTest;
     getParamIndexTest.RunOnFunction(*rootGraphPtr);
     EXPECT_TRUE(true);
 }

@@ -65,8 +65,8 @@ TEST_F(RemoveAllocTest, RemoveAlloc) {
     currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {tensor5}, {tensor6});
     currFunctionPtr->AddRawOperation(Opcode::OP_UB_ALLOC, {}, {tensor5});
 
-    npu::tile_fwk::RemoveAllocPass removeAllocPass;
-    removeAllocPass.RemoveAlloc(*rootFuncPtr);
+    npu::tile_fwk::RemoveAlloc removeAllocPass;
+    removeAllocPass.RemoveAllocCall(*rootFuncPtr);
 
     // ================== Verify Pass Effect ==================
     constexpr int expectOpNum = 4;

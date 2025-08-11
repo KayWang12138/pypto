@@ -1208,7 +1208,7 @@ Status PipeSync::ProcessViewAssembleOrder(std::vector<Operation *> &opLog, std::
     return SUCCESS;
 }
 
-void InsertSyncPass::InsertPipeAll(Function *subGraphFunc) {
+void InsertSync::InsertPipeAll(Function *subGraphFunc) {
     std::vector<Operation*> oriOpList(subGraphFunc->Operations().DuplicatedOpList());
     std::vector<Operation*> newOpList;
     for (auto op : oriOpList) {
@@ -1225,7 +1225,7 @@ void InsertSyncPass::InsertPipeAll(Function *subGraphFunc) {
     subGraphFunc->ScheduleBy(newOpList);
 }
 
-Status InsertSyncPass::InsertSyncMainLoop(Function *subGraphFunc) {
+Status InsertSync::InsertSyncMainLoop(Function *subGraphFunc) {
     if (enableDebug_) {
         InsertPipeAll(subGraphFunc);
         return SUCCESS;
@@ -1256,7 +1256,7 @@ Status InsertSyncPass::InsertSyncMainLoop(Function *subGraphFunc) {
 }
 
 // regist pass
-Status InsertSyncPass::RunOnFunction(Function &function) {
+Status InsertSync::RunOnFunction(Function &function) {
     ALOG_INFO_F("===============================================================> Start InsertSync.");
     const unsigned hardwareConcurrency = config::GetPassGlobalConfig("pass_thread_num", 1);
     uint64_t index = 0;

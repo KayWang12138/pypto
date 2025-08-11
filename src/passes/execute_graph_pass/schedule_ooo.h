@@ -210,10 +210,10 @@ public:
     }
 };
 
-class OoOSchedulePass : public Pass {
+class OoOSchedule : public Pass {
 public:
-    OoOSchedulePass() : Pass("OoOSchedulePass") {}
-    ~OoOSchedulePass() override {}
+    OoOSchedule() : Pass("OoOSchedule") {}
+    ~OoOSchedule() override {}
 
 private:
     Status RunOnFunction(Function &function) override;

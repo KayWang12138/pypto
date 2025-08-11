@@ -26,12 +26,12 @@
 namespace npu {
 namespace tile_fwk {
 // only save general gm input/output, not contain spill-out scene
-bool CodegenPreprocPass::IsNeedSave(const Operation &op) const {
+bool CodegenPreproc::IsNeedSave(const Operation &op) const {
     return OpcodeManager::Inst().IsCopyInOrOut(op.GetOpcode()) && (!op.IsNeedStackGM());
 }
 
 // only used in DYNAMIC_LOOP_PATH scene
-Status CodegenPreprocPass::SaveGmTensorParamIdxToOp(Function &func) const {
+Status CodegenPreproc::SaveGmTensorParamIdxToOp(Function &func) const {
     if (!func.IsUnderDynamicFunction()) {
         return SUCCESS;
     }
@@ -61,12 +61,12 @@ Status CodegenPreprocPass::SaveGmTensorParamIdxToOp(Function &func) const {
     return SUCCESS;
 }
 
-void CodegenPreprocPass::CombineTailAxis(std::vector<int> &shape, size_t shapeSize) const {
+void CodegenPreproc::CombineTailAxis(std::vector<int> &shape, size_t shapeSize) const {
     shape[shapeSize - 1] = shape[shapeSize - 1] * shape[shapeSize - NUM2];
     shape[shapeSize - NUM2] = 1;
 }
 
-Status CodegenPreprocPass::ProcessAxis(Operation &op, std::vector<bool> attr, bool isInput) const {
+Status CodegenPreproc::ProcessAxis(Operation &op, std::vector<bool> attr, bool isInput) const {
     LogicalTensors operands{};
     if (isInput) {
         operands = op.GetIOperands();
@@ -93,7 +93,7 @@ Status CodegenPreprocPass::ProcessAxis(Operation &op, std::vector<bool> attr, bo
     return SUCCESS;
 }
 
-Status CodegenPreprocPass::ForceCombineAxis(Function &func) const {
+Status CodegenPreproc::ForceCombineAxis(Function &func) const {
     for (auto &subProgram : func.rootFunc_->programs_) {
         for (auto &op : subProgram.second->Operations()) {
             if (op.HasAttr(OP_ATTR_PREFIX + "input_combine_axis")) {
@@ -123,7 +123,7 @@ Status CodegenPreprocPass::ForceCombineAxis(Function &func) const {
     return SUCCESS;
 }
 
-Status CodegenPreprocPass::RunOnFunction(Function &function) {
+Status CodegenPreproc::RunOnFunction(Function &function) {
     ALOG_INFO_F("===============================================================> Start CodegenPreproc.");
     if (SaveGmTensorParamIdxToOp(function) != SUCCESS) {
         ALOG_ERROR_F("CodegenPreproc RunOnFunction failed at function SaveGmTensorParamIdxToOp!");

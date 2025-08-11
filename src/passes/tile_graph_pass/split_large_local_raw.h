@@ -31,10 +31,10 @@ namespace npu::tile_fwk {
 
 const std::string LOCAL_RAW_SYMBOL_PREFIX = "raw_for_";
 
-class SplitLargeLocalRawPass : public Pass {
+class SplitLargeLocalRawTensor : public Pass {
 public:
-    SplitLargeLocalRawPass() : Pass("SplitLargeLocalRawPass") {}
-    ~SplitLargeLocalRawPass() override = default;
+    SplitLargeLocalRawTensor() : Pass("SplitLargeLocalRawTensor") {}
+    ~SplitLargeLocalRawTensor() override = default;
 
 private:
     Status RunOnFunction(Function &function) override;

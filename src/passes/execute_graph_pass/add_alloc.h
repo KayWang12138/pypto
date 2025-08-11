@@ -29,20 +29,20 @@
 #include <atomic>
 
 namespace npu::tile_fwk {
-class AddAllocPass : public Pass {
+class AddAlloc : public Pass {
 public:
-    AddAllocPass() : Pass("AddAllocPass") {}
-    ~AddAllocPass() override = default;
+    AddAlloc() : Pass("AddAlloc") {}
+    ~AddAlloc() override = default;
 
     Status PreCheck(Function &function) override;
 
 private:
     Status RunOnFunction(Function &function) override {
-        ASLOGI("===> Start AddAllocPass.");
+        ASLOGI("===> Start AddAlloc.");
         for (auto &program : function.rootFunc_->programs_) {
             if (AddAndCheckAlloc(*program.second) != SUCCESS) { ALOG_ERROR_F("AddAndCheckAlloc failed."); return FAILED; }
         }
-        ASLOGI("===> End AddAllocPass.");
+        ASLOGI("===> End AddAlloc.");
         return SUCCESS;
     }
     struct TensorAllocMsg {

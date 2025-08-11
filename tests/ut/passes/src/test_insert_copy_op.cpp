@@ -59,7 +59,7 @@ TEST_F(InsertCopyOpTest, InsertCopy) {
             {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
             {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
             {           "GenerateMoveOp",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
-            {        "GraphPartitionPass",        "GraphPartitionPass",    PassType::TYPE_TILE_GRAPH},
+            {        "GraphPartition",        "GraphPartition",    PassType::TYPE_TILE_GRAPH},
             {          "UpdateMemoryMap",          "UpdateMemoryMap",    PassType::TYPE_TILE_GRAPH},
 
         });
@@ -92,7 +92,7 @@ TEST_F(InsertCopyOpTest, InsertCopy) {
         Function* func = Program::GetInstance().GetCurrentFunction();
 
         Program testProgram(HostMachineMode::SERVER);
-        npu::tile_fwk::InsertCopyOpPass insertCopyOpPass;
+        npu::tile_fwk::InsertInterGraphCopy insertCopyOpPass;
         insertCopyOpPass.PreCheck(*func);
         insertCopyOpPass.RunOnFunction(*func);
         insertCopyOpPass.PostCheck(*func);

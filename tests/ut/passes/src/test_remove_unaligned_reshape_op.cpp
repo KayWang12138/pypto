@@ -167,7 +167,7 @@ TEST_F(TestRemoveUnalignedReshapeOp, reshaped_padded_ub) {
     ConstructGraph1(currFunctionPtr);
     PadLocalBuffer padLocalBufferTest;
     padLocalBufferTest.RunOnFunction(*currFunctionPtr);
-    RemoveUnalignedReshapeOp removeUnalignedReshapeOpTest;
+    RemoveUnalignedReshape removeUnalignedReshapeOpTest;
     removeUnalignedReshapeOpTest.RunOnFunction(*currFunctionPtr);
     for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
@@ -225,7 +225,7 @@ TEST_F(TestRemoveUnalignedReshapeOp, reshaped_unpadded_ub) {
     ConstructGraph2(currFunctionPtr);
     PadLocalBuffer padLocalBufferTest;
     padLocalBufferTest.RunOnFunction(*currFunctionPtr);
-    RemoveUnalignedReshapeOp removeUnalignedReshapeOpTest;
+    RemoveUnalignedReshape removeUnalignedReshapeOpTest;
     removeUnalignedReshapeOpTest.RunOnFunction(*currFunctionPtr);
     for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
@@ -283,7 +283,7 @@ TEST_F(TestRemoveUnalignedReshapeOp, reshaped_unpadded_ub_gm) {
     ConstructGraph3(currFunctionPtr);
     PadLocalBuffer padLocalBufferTest;
     padLocalBufferTest.RunOnFunction(*currFunctionPtr);
-    RemoveUnalignedReshapeOp removeUnalignedReshapeOpTest;
+    RemoveUnalignedReshape removeUnalignedReshapeOpTest;
     removeUnalignedReshapeOpTest.RunOnFunction(*currFunctionPtr);
     for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
@@ -337,7 +337,7 @@ TEST_F(TestRemoveUnalignedReshapeOp, reshaped_unpadded_ub_gm_last_dim_1) {
     ConstructGraph4(currFunctionPtr);
     PadLocalBuffer padLocalBufferTest;
     padLocalBufferTest.RunOnFunction(*currFunctionPtr);
-    RemoveUnalignedReshapeOp removeUnalignedReshapeOpTest;
+    RemoveUnalignedReshape removeUnalignedReshapeOpTest;
     removeUnalignedReshapeOpTest.RunOnFunction(*currFunctionPtr);
     for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {

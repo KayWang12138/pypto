@@ -18,14 +18,14 @@
 using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
-Status InsertCopyOpPass::RunOnFunction(Function &function) {
+Status InsertInterGraphCopy::RunOnFunction(Function &function) {
     copysToCreate.clear();
     SplitTensor(function);
     CreateCopyOp(function);
     return SUCCESS;
 }
 
-void InsertCopyOpPass::SplitTensor(Function &function) {
+void InsertInterGraphCopy::SplitTensor(Function &function) {
     std::unordered_map<int, std::unordered_map<int, std::shared_ptr<LogicalTensor>>> tensorSplits;
     for (auto &op : function.Operations()) {
         for (auto &input : op.GetIOperands()) {
@@ -65,7 +65,7 @@ void InsertCopyOpPass::SplitTensor(Function &function) {
         }
     }
 }
-void InsertCopyOpPass::CreateCopyOp(Function &function) {
+void InsertInterGraphCopy::CreateCopyOp(Function &function) {
     for (auto &copy : copysToCreate) {
         auto &copyOut = function.AddOperation(Opcode::OP_COPY_OUT, std::vector<std::shared_ptr<LogicalTensor>>({copy.input}), std::vector<std::shared_ptr<LogicalTensor>>({copy.ddr}));
         copyOut.UpdateSubgraphID(copy.input->subGraphID);

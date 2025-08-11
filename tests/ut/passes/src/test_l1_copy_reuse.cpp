@@ -10,7 +10,7 @@
 
 /*!
  * \file test_l1_copy_reuse.cpp
- * \brief Unit test for L1CopyInReuse pass.
+ * \brief Unit test for L1CopyInReuseMerge pass.
  */
 
 #include <gtest/gtest.h>
@@ -50,7 +50,7 @@ public:
 TEST_F(L1CopyInReuseTest, TwoCopyIn) {
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("L1ReusePassStrategy", {
-        {        "L1CopyInReusePass",        "L1CopyInReusePass",    PassType::TYPE_TILE_GRAPH},
+        {        "L1CopyInReuseMerge",        "L1CopyInReuseMerge",    PassType::TYPE_TILE_GRAPH},
     });
     config::SetHostConfig(KEY_STRATEGY, "L1ReusePassStrategy");
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestL1CopyInReuse", "TestL1CopyInReuse", nullptr);
@@ -99,8 +99,8 @@ TEST_F(L1CopyInReuseTest, TwoCopyIn) {
     currFunctionPtr->outCasts_.push_back(tensor4);
 
     // Call the pass
-    const std::string passName = "L1CopyInReusePass";
-    const std::string identifier = "L1CopyInReusePass";
+    const std::string passName = "L1CopyInReuseMerge";
+    const std::string identifier = "L1CopyInReuseMerge";
     auto pass = PassRegistry::GetInstance().CreatePass(passName);
     pass->PreCheck(*currFunctionPtr);
     pass->Run(*currFunctionPtr, config::GetPassStrategy(), identifier);

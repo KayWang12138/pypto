@@ -23,8 +23,8 @@ before:
 after:
     add->copyout->reshape->copyin->mul
 */
-Status RemoveUnalignedReshapeOp::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===> start RemoveUnalignedReshapeOp");
+Status RemoveUnalignedReshape::RunOnFunction(Function &function) {
+    ALOG_INFO_F("===> start RemoveUnalignedReshape");
     CollectReshapeOps(function);
     for (auto &a : copyOuts) {
         auto &newCopyOut = function.AddRawOperation(Opcode::OP_COPY_OUT, {a.input}, {a.output});
@@ -45,11 +45,11 @@ Status RemoveUnalignedReshapeOp::RunOnFunction(Function &function) {
         ALOG_INFO_F("ADD OP_VIEW, magic %d ,IOperand tensor magic %d OOperand tensor magic %d", newCopyIn.opmagic,
             b.input->magic, b.output->magic);
     }
-    ALOG_INFO_F("===> end RemoveUnalignedReshapeOp");
+    ALOG_INFO_F("===> end RemoveUnalignedReshape");
     return SUCCESS;
 }
 
-LogicalTensorPtr RemoveUnalignedReshapeOp::InsertIOTensor(Function &function, Operation &op, std::unordered_map<OverlaprawMagic, std::shared_ptr<RawTensor>> &rawIO, LogicalTensorPtr &ioTensor) {
+LogicalTensorPtr RemoveUnalignedReshape::InsertIOTensor(Function &function, Operation &op, std::unordered_map<OverlaprawMagic, std::shared_ptr<RawTensor>> &rawIO, LogicalTensorPtr &ioTensor) {
     if (rawIO.count(ioTensor->tensor->rawmagic) == 0) {
         auto reshapeRawTensor = std::make_shared<RawTensor>(ioTensor->Datatype(), ioTensor->tensor->oriRawshape);
         reshapeRawTensor->oriRawshape = reshapeRawTensor->rawshape;
@@ -64,7 +64,7 @@ LogicalTensorPtr RemoveUnalignedReshapeOp::InsertIOTensor(Function &function, Op
     return newReshapeIO;
 }
 
-void RemoveUnalignedReshapeOp::CollectReshapeOps(Function &function) {
+void RemoveUnalignedReshape::CollectReshapeOps(Function &function) {
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_RESHAPE) {
             continue;

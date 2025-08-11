@@ -25,7 +25,7 @@
 namespace npu {
 namespace tile_fwk {
 
-bool OoOSchedulePass::PreCheckTensorInfo(const int subGraphId, const LogicalTensorPtr tensor) {
+bool OoOSchedule::PreCheckTensorInfo(const int subGraphId, const LogicalTensorPtr tensor) {
     // memorytypeOriginal和Tobe要一致
     if (tensor->GetMemoryTypeOriginal() != tensor->GetMemoryTypeToBe()) {
         ALOG_ERROR_F("SubgraphId %d: %d Tensor memorytypeOriginal is not equal to memorytypeTobe, OoOSchedule Precheck failed!", subGraphId, tensor->GetMagic());
@@ -59,7 +59,7 @@ bool OoOSchedulePass::PreCheckTensorInfo(const int subGraphId, const LogicalTens
     return true;
 }
 
-bool OoOSchedulePass::PreCheckOpInfo(const int subGraphId, const Operation *op) {
+bool OoOSchedule::PreCheckOpInfo(const int subGraphId, const Operation *op) {
     //检查oplist里每个op的subgraphid都与首个op的subgraphid一致
     if (op->GetSubgraphID() != subGraphId) {
         ALOG_ERROR_F("SubgraphId %d: %d Op subgraphid does not match each other, OoOSchedule Precheck failed!", subGraphId, op->GetOpMagic());
@@ -106,7 +106,7 @@ bool OoOSchedulePass::PreCheckOpInfo(const int subGraphId, const Operation *op) 
     return true;
 }
 
-Status OoOSchedulePass::PreCheck(Function &function) {
+Status OoOSchedule::PreCheck(Function &function) {
     ALOG_INFO_F("Start OoOSchedule Precheck.");
     Status baseStatus = Pass::PreCheck(function);
     if (baseStatus != SUCCESS) { ALOG_ERROR_F("PreCheck failed in base class."); return baseStatus; }
@@ -155,7 +155,7 @@ Status OoOSchedulePass::PreCheck(Function &function) {
     return SUCCESS;
 }
 
-bool OoOSchedulePass::PostCheckOpMagic(std::set<int> opSet, const Operation *op, const int programIdx) {
+bool OoOSchedule::PostCheckOpMagic(std::set<int> opSet, const Operation *op, const int programIdx) {
     if (!opSet.insert(op->GetOpMagic()).second) {
         ALOG_ERROR_F("Program %d: %d opmagic is not unique, OoOSchedule Postcheck failed!", programIdx, op->GetOpMagic());
         return false;
@@ -163,7 +163,7 @@ bool OoOSchedulePass::PostCheckOpMagic(std::set<int> opSet, const Operation *op,
     return true;
 }
 
-bool OoOSchedulePass::PostCheckNewOpConnection(const std::vector<Operation *> opListBeforePass, const std::vector<int> opMagicListBeforePass, const Operation *op, const int programIdx) {
+bool OoOSchedule::PostCheckNewOpConnection(const std::vector<Operation *> opListBeforePass, const std::vector<int> opMagicListBeforePass, const Operation *op, const int programIdx) {
     auto it = std::find(opMagicListBeforePass.begin(), opMagicListBeforePass.end(), op->GetOpMagic());
     if (it == opMagicListBeforePass.end()) {
         return true;
@@ -214,7 +214,7 @@ bool OoOSchedulePass::PostCheckNewOpConnection(const std::vector<Operation *> op
     return true;
 }
 
-bool OoOSchedulePass::PostCheckSpecialOp(const Operation *op, const int subGraphId) {
+bool OoOSchedule::PostCheckSpecialOp(const Operation *op, const int subGraphId) {
     if (op->GetOpcode() == Opcode::OP_ASSEMBLE || op->GetOpcode() == Opcode::OP_RESHAPE ||
         op->GetOpcode() == Opcode::OP_VIEW) {
         // 检查输出不在DDR的op: alloc标签不允许打在ASSEMBLE/RESHAPE/VIEW的输出tensor上
@@ -229,7 +229,7 @@ bool OoOSchedulePass::PostCheckSpecialOp(const Operation *op, const int subGraph
     return true;
 }
 
-bool OoOSchedulePass::PostCheckTensorMagic(std::set<int> tensorSet, const LogicalTensorPtr tensor, const int programIdx) {
+bool OoOSchedule::PostCheckTensorMagic(std::set<int> tensorSet, const LogicalTensorPtr tensor, const int programIdx) {
     if (!tensorSet.insert(tensor->GetMagic()).second) {
         ALOG_ERROR_F("Program %d: %d tensormagic is not unique, OoOSchedule Postcheck failed!", programIdx, tensor->GetMagic());
         return false;
@@ -237,7 +237,7 @@ bool OoOSchedulePass::PostCheckTensorMagic(std::set<int> tensorSet, const Logica
     return true;
 }
 
-bool OoOSchedulePass::PostCheckLocalTensor(const LogicalTensorPtr tensor, const int subGraphId, const int programIdx) {
+bool OoOSchedule::PostCheckLocalTensor(const LogicalTensorPtr tensor, const int subGraphId, const int programIdx) {
     MemoryType memType = tensor->GetMemoryTypeOriginal();
     if (memType == MemoryType::MEM_UB || memType == MemoryType::MEM_L1 || memType == MemoryType::MEM_L0A || memType == MemoryType::MEM_L0B || memType == MemoryType::MEM_L0C) {
         int memoryrange = tensor->memorymap[subGraphId].end - tensor->memorymap[subGraphId].start;
@@ -258,7 +258,7 @@ bool OoOSchedulePass::PostCheckLocalTensor(const LogicalTensorPtr tensor, const 
     return true;
 }
 
-bool OoOSchedulePass::PostCheckGlobalTensor(const LogicalTensorPtr tensor, const int subGraphId, const int programIdx) {
+bool OoOSchedule::PostCheckGlobalTensor(const LogicalTensorPtr tensor, const int subGraphId, const int programIdx) {
     MemoryType memType = tensor->GetMemoryTypeOriginal();
     if (memType == MemoryType::MEM_DEVICE_DDR && !(tensor->isSubGraphBoundary)) {
         if (tensor->memorymap[subGraphId].memId == -1) {
@@ -269,7 +269,7 @@ bool OoOSchedulePass::PostCheckGlobalTensor(const LogicalTensorPtr tensor, const
     return true;
 }
 
-bool OoOSchedulePass::PostCheckDynValidShape(const LogicalTensorPtr tensor, const int programIdx) {
+bool OoOSchedule::PostCheckDynValidShape(const LogicalTensorPtr tensor, const int programIdx) {
     if (tensor->dynValidShape_.empty()) {
         ALOG_ERROR_F("Program %d: %d Dyn validshape is empty, OoOSchedule Postcheck failed!", programIdx, tensor->GetMagic());
         return false;
@@ -277,7 +277,7 @@ bool OoOSchedulePass::PostCheckDynValidShape(const LogicalTensorPtr tensor, cons
     return true;
 }
 
-bool OoOSchedulePass::PostCheckNewTensor(const int subGraphId, std::pair<const int, Function*> program, const int programIdx) {
+bool OoOSchedule::PostCheckNewTensor(const int subGraphId, std::pair<const int, Function*> program, const int programIdx) {
     std::vector<LogicalTensorPtr> newTensors;
     std::unordered_set<int> tensorMagicBeforePass;
     std::unordered_set<int> tensorMagicAfterPass;
@@ -316,7 +316,7 @@ bool OoOSchedulePass::PostCheckNewTensor(const int subGraphId, std::pair<const i
     return true;
 }
 
-Status OoOSchedulePass::PostCheck(Function &function) {
+Status OoOSchedule::PostCheck(Function &function) {
     ALOG_INFO_F("Start OoOSchedule Postcheck.");
     Status baseStatus = Pass::PostCheck(function);
     if (baseStatus != SUCCESS) { ALOG_ERROR_F("Postcheck failed in base class."); return baseStatus; }

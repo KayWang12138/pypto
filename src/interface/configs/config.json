@@ -87,7 +87,7 @@
             }
         },
         "PVC1_OOO": {
-            "OoOSchedulePass": {
+            "OoOSchedule": {
                 "PRINT_FUNCTION": false
             }
         },
@@ -99,7 +99,7 @@
                 "DUMP_FUNCTION_GRAPH_BEFORE_PASS": false,
                 "DUMP_FUNCTION_GRAPH_AFTER_PASS": false
             },
-            "InsertCopyOpPass": {
+            "InsertInterGraphCopy": {
                 "EXPECTED_VALUE_CHECK": false,
                 "DUMP_FUNCTION_GRAPH_BEFORE_PASS": false,
                 "DUMP_FUNCTION_GRAPH_AFTER_PASS": false
@@ -122,7 +122,7 @@
                 "POST_CHECK": false,
                 "EXPECTED_VALUE_CHECK": false
             },
-            "SplitReshapeOpPVC2": {
+            "SplitReshape": {
                 "EXPECTED_VALUE_CHECK": false
             },
             "SplitLargeFanoutTensor": {
@@ -133,37 +133,37 @@
                 "POST_CHECK": false,
                 "USE_MAX_FREQ_LABEL": true
             },
-            "SrcDstBufferMergePass": {
+            "SrcDstBufferMerge": {
                 "POST_CHECK": false
             },
             "AddAllocNewPass": {
                 "POST_CHECK": false
             },
-            "OoOSchedulePass": {
+            "OoOSchedule": {
                 "PRE_CHECK": false,
                 "POST_CHECK": false,
                 "DUMP_FUNCTION_GRAPH_BEFORE_PASS": false,
                 "DUMP_FUNCTION_GRAPH_AFTER_PASS": false
             },
-            "RemoveAllocPass": {
+            "RemoveAlloc": {
                 "POST_CHECK": false
             },
-            "InsertSyncPass": {
+            "InsertSync": {
                 "DUMP_FUNCTION_GRAPH_BEFORE_PASS": false,
                 "DUMP_FUNCTION_GRAPH_AFTER_PASS": false
             },
-            "GraphPartitionPass": {
+            "GraphPartition": {
                 "PRE_CHECK": false,
                 "POST_CHECK": false,
                 "DUMP_FUNCTION_GRAPH_BEFORE_PASS": false,
                 "DUMP_FUNCTION_GRAPH_AFTER_PASS": false
             },
-            "CodegenPreprocPass": {
+            "CodegenPreproc": {
                 "POST_CHECK": false
             },
             "MemoryReuse": {
             },
-            "L1CopyInReusePass": {
+            "L1CopyInReuseMerge": {
             },
             "VFFusionPass": {
                 "DISABLE_PASS": true

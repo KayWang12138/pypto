@@ -16,7 +16,7 @@
 #include "remove_alloc.h"
 
 namespace npu::tile_fwk {
-void RemoveAllocPass::RemoveAlloc(Function &function) const {
+void RemoveAlloc::RemoveAllocCall(Function &function) const {
     for (auto &program : function.rootFunc_->programs_) {
         std::vector<std::shared_ptr<Operation>>& opList = program.second->GetProgramOp();
         opList.erase(std::remove_if(opList.begin(), opList.end(), [](std::shared_ptr<npu::tile_fwk::Operation>& op) {

@@ -119,7 +119,7 @@ TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
             {     "MergeViewAssemble",      "MergeViewAssemble",   PassType::TYPE_TILE_GRAPH},
             {      "AssignMemoryType",       "AssignMemoryType",   PassType::TYPE_TILE_GRAPH},
             {"SplitLargeFanoutTensor", "SplitLargeFanoutTensor",   PassType::TYPE_TILE_GRAPH},
-            {    "SplitReshapeOpPVC2",     "SplitReshapeOpPVC2",   PassType::TYPE_TILE_GRAPH},
+            {    "SplitReshape",     "SplitReshape",   PassType::TYPE_TILE_GRAPH},
             {     "RemoveRedundentOp",      "RemoveRedundentOp",   PassType::TYPE_TILE_GRAPH},
             {        "GenerateMoveOp",         "GenerateMoveOp",   PassType::TYPE_TILE_GRAPH},
     });

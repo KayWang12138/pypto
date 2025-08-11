@@ -24,10 +24,10 @@
 
 namespace npu {
 namespace tile_fwk {
-class InferParamIndexPass : public Pass {
+class InferParamIndex : public Pass {
 public:
-    InferParamIndexPass() : Pass("InferParamIndexPass") {}
-    ~InferParamIndexPass() override {}
+    InferParamIndex() : Pass("InferParamIndex") {}
+    ~InferParamIndex() override {}
     Status RunOnFunction(Function &function) override;
 
 private:

@@ -23,10 +23,10 @@
 
 namespace npu {
 namespace tile_fwk {
-class CodegenPreprocPass : public Pass {
+class CodegenPreproc : public Pass {
 public:
-    CodegenPreprocPass() : Pass("CodegenPreprocPass") {}
-    ~CodegenPreprocPass() override = default;
+    CodegenPreproc() : Pass("CodegenPreproc") {}
+    ~CodegenPreproc() override = default;
     Status RunOnFunction(Function &function) override;
 
 private:

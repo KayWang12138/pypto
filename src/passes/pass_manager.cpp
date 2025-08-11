@@ -73,9 +73,9 @@ void RegPass() {
     REG_PASS(MemoryReuse);
     REG_PASS(UpdateMemoryMap);
     REG_PASS(SubgraphToFunction);
-    REG_PASS(GraphPartitionPass);
-    REG_PASS(InsertSyncPass);
-    REG_PASS(OoOSchedulePass);
+    REG_PASS(GraphPartition);
+    REG_PASS(InsertSync);
+    REG_PASS(OoOSchedule);
     REG_PASS(ExpandFunction);
     REG_PASS(CommonOperationEliminate);
     REG_PASS(GenerateMoveOp);
@@ -83,26 +83,26 @@ void RegPass() {
     REG_PASS(DuplicateView);
     REG_PASS(RemoveRedundentReshape);
     REG_PASS(RemoveRedundantCast);
-    REG_PASS(NBufferMergePass);
-    REG_PASS(L1CopyInReusePass);
+    REG_PASS(NBufferMerge);
+    REG_PASS(L1CopyInReuseMerge);
     REG_PASS(MergeViewAssemble);
-    REG_PASS(InsertCopyOpPass);
+    REG_PASS(InsertInterGraphCopy);
     REG_PASS(IntraSubgraphAdapter);
     REG_PASS(PadLocalBuffer);
     REG_PASS(InplaceProcess);
-    REG_PASS(PreGraphPass);
+    REG_PASS(PreGraphProcess);
     REG_PASS(RemoveRedundentOp);
-    REG_PASS(SplitLargeLocalRawPass);
-    REG_PASS(SplitReshapeOpPVC2);
-    REG_PASS(RemoveUnalignedReshapeOp);
-    REG_PASS(CodegenPreprocPass);
+    REG_PASS(SplitLargeLocalRawTensor);
+    REG_PASS(SplitReshape);
+    REG_PASS(RemoveUnalignedReshape);
+    REG_PASS(CodegenPreproc);
     REG_PASS(SplitLargeFanoutTensor);
     REG_PASS(CubeProcess);
-    REG_PASS(InferDynShapePass);
-    REG_PASS(InferParamIndexPass);
-    REG_PASS(AddAllocPass);
-    REG_PASS(RemoveAllocPass);
-    REG_PASS(SrcDstBufferMergePass);
+    REG_PASS(InferDynShape);
+    REG_PASS(InferParamIndex);
+    REG_PASS(AddAlloc);
+    REG_PASS(RemoveAlloc);
+    REG_PASS(SrcDstBufferMerge);
 }
 
 void PassManager::RegDefaultStrategy() {
@@ -114,32 +114,32 @@ void PassManager::RegDefaultStrategy() {
             {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
             {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
             {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
-            {       "SplitReshapeOpPVC2",       "SplitReshapeOpPVC2",    PassType::TYPE_TILE_GRAPH},
+            {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
             {        "RemoveRedundentOp",        "RemoveRedundentOp",    PassType::TYPE_TILE_GRAPH},
             {        "GenerateMoveOp_01",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
             {              "CubeProcess",              "CubeProcess",    PassType::TYPE_TILE_GRAPH},
-            {        "GraphPartitionPass",      "GraphPartitionPass",    PassType::TYPE_TILE_GRAPH},
-            {         "NBufferMergePass",         "NBufferMergePass",    PassType::TYPE_TILE_GRAPH},
+            {           "GraphPartition",           "GraphPartition",    PassType::TYPE_TILE_GRAPH},
+            {             "NBufferMerge",             "NBufferMerge",    PassType::TYPE_TILE_GRAPH},
             {          "UpdateMemoryMap",          "UpdateMemoryMap",    PassType::TYPE_TILE_GRAPH},
             {        "GenerateMoveOp_02",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
-            {   "SplitLargeLocalRawPass",   "SplitLargeLocalRawPass",    PassType::TYPE_TILE_GRAPH},
-            {         "InsertCopyOpPass",         "InsertCopyOpPass",    PassType::TYPE_TILE_GRAPH},
+            { "SplitLargeLocalRawTensor", "SplitLargeLocalRawTensor",    PassType::TYPE_TILE_GRAPH},
+            {     "InsertInterGraphCopy",     "InsertInterGraphCopy",    PassType::TYPE_TILE_GRAPH},
             { "CommonOperationEliminate", "CommonOperationEliminate",    PassType::TYPE_TILE_GRAPH},
-            {        "L1CopyInReusePass",        "L1CopyInReusePass",    PassType::TYPE_TILE_GRAPH},
+            {       "L1CopyInReuseMerge",       "L1CopyInReuseMerge",    PassType::TYPE_TILE_GRAPH},
             {           "InplaceProcess",           "InplaceProcess",    PassType::TYPE_TILE_GRAPH},
-            {             "PreGraphPass",             "PreGraphPass",    PassType::TYPE_TILE_GRAPH},
+            {          "PreGraphProcess",          "PreGraphProcess",    PassType::TYPE_TILE_GRAPH},
             {           "PadLocalBuffer",           "PadLocalBuffer",    PassType::TYPE_TILE_GRAPH},
-            {  "RemoveUnalignedReshapeOp","RemoveUnalignedReshapeOp",    PassType::TYPE_TILE_GRAPH},
-            {        "InferDynShapePass",        "InferDynShapePass",    PassType::TYPE_TILE_GRAPH},
+            {   "RemoveUnalignedReshape",   "RemoveUnalignedReshape",    PassType::TYPE_TILE_GRAPH},
+            {            "InferDynShape",            "InferDynShape",    PassType::TYPE_TILE_GRAPH},
             {       "SubgraphToFunction",       "SubgraphToFunction", PassType::TYPE_EXECUTE_GRAPH},
-            {      "InferParamIndexPass",      "InferParamIndexPass", PassType::TYPE_EXECUTE_GRAPH},
-            {    "SrcDstBufferMergePass",    "SrcDstBufferMergePass", PassType::TYPE_EXECUTE_GRAPH},
-            {             "AddAllocPass",             "AddAllocPass", PassType::TYPE_EXECUTE_GRAPH},
-            {          "OoOSchedulePass",          "OoOSchedulePass", PassType::TYPE_EXECUTE_GRAPH},
+            {          "InferParamIndex",          "InferParamIndex", PassType::TYPE_EXECUTE_GRAPH},
+            {        "SrcDstBufferMerge",        "SrcDstBufferMerge", PassType::TYPE_EXECUTE_GRAPH},
+            {                 "AddAlloc",                 "AddAlloc", PassType::TYPE_EXECUTE_GRAPH},
+            {              "OoOSchedule",              "OoOSchedule", PassType::TYPE_EXECUTE_GRAPH},
             {              "MemoryReuse",              "MemoryReuse", PassType::TYPE_EXECUTE_GRAPH},
-            {          "RemoveAllocPass",          "RemoveAllocPass", PassType::TYPE_EXECUTE_GRAPH},
-            {           "InsertSyncPass",           "InsertSyncPass", PassType::TYPE_EXECUTE_GRAPH},
-            {       "CodegenPreprocPass",       "CodegenPreprocPass", PassType::TYPE_EXECUTE_GRAPH},
+            {              "RemoveAlloc",              "RemoveAlloc", PassType::TYPE_EXECUTE_GRAPH},
+            {               "InsertSync",               "InsertSync", PassType::TYPE_EXECUTE_GRAPH},
+            {           "CodegenPreproc",           "CodegenPreproc", PassType::TYPE_EXECUTE_GRAPH},
     });
 }
 
