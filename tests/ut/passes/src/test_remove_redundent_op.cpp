@@ -79,7 +79,7 @@ TEST_F(RemoveRedundentOpTest, TestIntermediateOutcast) {
     {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
     {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
     {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
-    {       "SplitReshape",       "SplitReshape",    PassType::TYPE_TILE_GRAPH},
+    {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
     });
     ConfigManager::Instance();
 
@@ -146,7 +146,7 @@ TEST_F(RemoveRedundentOpTest, TestInternalAssembleView) {
     {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
     {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
     {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
-    {       "SplitReshape",       "SplitReshape",    PassType::TYPE_TILE_GRAPH},
+    {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
     });
     ConfigManager::Instance();
 

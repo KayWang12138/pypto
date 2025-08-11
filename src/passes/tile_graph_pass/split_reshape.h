@@ -9,12 +9,12 @@
  */
 
 /*!
- * \file split_reshape_pvc2.h
+ * \file split_reshape.h
  * \brief
  */
 
-#ifndef PASS_SPLIT_RESHAPE_PVC2_H_
-#define PASS_SPLIT_RESHAPE_PVC2_H_
+#ifndef PASS_SPLIT_RESHAPE_H_
+#define PASS_SPLIT_RESHAPE_H_
 
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
@@ -27,6 +27,7 @@ namespace npu::tile_fwk {
 using InputMaigc = int;
 using OutputMaigc = int;
 using OverlaprawMagic = int;
+inline constexpr uint32_t WARNING = 2;
 
 class ReshapeOp {
     public:
@@ -124,6 +125,7 @@ private:
     Status ObtainCopyOutTile(Function &function, const copyOutTilePara &copyOutTile, LogicalTensors &overlaps, LogicalTensors &newOverlaps);
     Status ConstructShapeOffset(const ReshapeTilePara &shapePara, size_t &i, size_t j, std::vector<int32_t> &newOffset, std::vector<int32_t> &newShape);
 
+    Status CheckOp(Function &function, Operation &op);
     Status UpdateForPerfectlyMatchWithUB(Operation &op, const PerfectlyMatchPara &para);
     Status UpdateForPerfectlyMatchWithDDR(Operation &op, const PerfectlyMatchPara &para);
     Status UpdateForPerfectlyMatchOtherCase(Function &function, Operation &op, const PerfectlyMatchPara &para);
@@ -145,8 +147,8 @@ private:
     unsigned long ComputeReshapeHashOrderless(const LogicalTensorPtr &input, const LogicalTensorPtr &output) const;
     
     Status ShapeAlign(std::vector<int32_t> shape1, std::vector<int32_t> shape2, std::vector<int32_t> &alignedShape);
-    Status ReshapeTile(const ReshapeTilePara &shapePara, std::vector<int32_t> &newOffset, std::vector<int32_t> &newShape);
-    Status ReshapeTile2(const ReshapeTilePara &shapePara, std::vector<int32_t> &newOffset, std::vector<int32_t> &newShape);
+    Status RawToAlign(const ReshapeTilePara &shapePara, std::vector<int32_t> &newOffset, std::vector<int32_t> &newShape);
+    Status AlignToRaw(const ReshapeTilePara &shapePara, std::vector<int32_t> &newOffset, std::vector<int32_t> &newShape);
 
     std::unordered_map<int, std::set<LogicalTensorPtr, TensorPtrComparator>> copyOutSources;
     std::unordered_map<InputMaigc, std::unordered_map<OutputMaigc, std::vector<int>>> mapOffset;
@@ -159,4 +161,4 @@ private:
 };
 
 } // namespace npu::tile_fwk
-#endif // PASS_SPLIT_RESHAPE_PVC2_H_
+#endif // PASS_SPLIT_RESHAPE_H_

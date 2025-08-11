@@ -47,7 +47,7 @@
 #include "passes/tile_graph_pass/split_large_fanout_tensor.h"
 #include "passes/tile_graph_pass/cube_process.h"
 #include "passes/tile_graph_pass/remove_unaligned_reshape_op.h"
-#include "passes/tile_graph_pass/split_reshape_pvc2.h"
+#include "passes/tile_graph_pass/split_reshape.h"
 #include "passes/tile_graph_pass/infer_dyn_shape.h"
 #include "passes/tile_graph_pass/iso_partitioner.h"
 #include "passes/tile_graph_pass/infer_dyn_shape.h"

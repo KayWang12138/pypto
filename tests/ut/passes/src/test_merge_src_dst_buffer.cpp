@@ -57,7 +57,7 @@ TEST_F(MergeSrcDstBufferTest, NoReplaced) {
                                  {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
                                  {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
                                  {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
-                                 {       "SplitReshape",       "SplitReshape",    PassType::TYPE_TILE_GRAPH},
+                                 {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
                                  {        "RemoveRedundentOp",        "RemoveRedundentOp",    PassType::TYPE_TILE_GRAPH},
                                  {           "GenerateMoveOp",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
                                  {        "GraphPartition",        "GraphPartition",    PassType::TYPE_TILE_GRAPH},

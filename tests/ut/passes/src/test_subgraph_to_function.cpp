@@ -683,7 +683,7 @@ TEST_F(SubgraphToFunctionTest, VerifyPassResumeByJson) {
         {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
         {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
         {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
-        {       "SplitReshape",       "SplitReshape",    PassType::TYPE_TILE_GRAPH},
+        {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
         {        "RemoveRedundentOp",        "RemoveRedundentOp",    PassType::TYPE_TILE_GRAPH},
         {        "GenerateMoveOp_01",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
         {              "CubeProcess",              "CubeProcess",    PassType::TYPE_TILE_GRAPH},
