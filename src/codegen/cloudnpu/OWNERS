@@ -4,6 +4,7 @@ files:
       - eric_tech
       - githjp423
       - bee-hujun
+      - yangxu19921206
   "codegen_distributed.cpp":
     approvers:
       - eric_tech
