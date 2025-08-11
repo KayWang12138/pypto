@@ -34,31 +34,30 @@ struct WorkspaceInfo {
 
 struct TensorsDesc {
     bool isDummy = false;
+    LargeBitmap connectionOpsBitmap; // 作为新tensor，判断是否可以复用bucket时使用的连接bitmap
     std::set<LogicalTensorPtr> tensors;
+    std::unordered_set<uint64_t> consumerOpIdxs; // 放入bucket后，作为内存桶是否可以再次复用，需要判断的consumerOp集合
+    TensorsDesc(): connectionOpsBitmap(0) {}
+    TensorsDesc(Function *func): connectionOpsBitmap(func->Operations().size()) {}
 };
 
 class TensorBucket {
 public:
     uint64_t GetSize() const { return size_; }
 
-    bool IsReusable(const TensorsDesc &tensorsDesc, const ConnectionMatrix &connMatrix);
-
     void UpdateOffset(const uint64_t offset);
 
-    void AddRef(const std::set<LogicalTensorPtr> &tensors);
+    void AddRef(const TensorsDesc &tensorsDesc);
 
     // 检查previous的所有consumer是否有一条到tensor的producer的通路
     // 保证tensor在写的时候，previous的所有consumer都已经读取完毕
-    bool HasTopoDependency(const std::set<LogicalTensorPtr> &previousTensors, 
-        const std::set<LogicalTensorPtr> &tensors,
-        const ConnectionMatrix &connMatrix) const;
-
-    bool isDummy_{false};
+    bool HasTopoDependency(const LargeBitmap &PreducersOp) const;
 private:
     
     uint64_t offset_{0};
     uint64_t size_{0};
     std::vector<std::set<LogicalTensorPtr>> refs_; // 所有rawTensor相同的tensor构成了一个ref
+    std::unordered_set<uint64_t> consumerOpIdxs_;  // 新tensor能否复用本bucket，需要判断的consumerOp集合
 };
 
 class Allocator {
@@ -84,6 +83,8 @@ public:
     }
     
 private:
+    void storageNeedToAllocatePreProcess(TensorsDesc &tensorsDesc);
+    void UpdateStorageId(TensorsDesc &tensorsDesc, std::unordered_map<int64_t, int> &idMap, int &storageId);
     void CheckConsumerNoOverLap();
     void InitInnerLeafReuse();
     void CheckOneLeaf(Function *leafFunc);
@@ -96,6 +97,9 @@ private:
     TensorBucket &GetBestFitBucket(const TensorsDesc &tensorsDesc);
 
     std::vector<TensorBucket> buckets_;
+    std::map<int64_t, std::vector<int64_t>> bucketsSizeToIdx_; // first为buckets的最新一个tensor的size，second是对应的bucket index集合
+
+    TensorBucket dummyPackets_; // dummy tensor的bucket
     std::unordered_map<int, size_t> storageMap_;
     // 按照topo序排列
     std::vector<TensorsDesc> storageNeedToAllocate_;

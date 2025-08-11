@@ -28,15 +28,20 @@ public:
 
     bool IsConnected(const Operation &a, const Operation &b) const;
 
+    bool IsConnected(uint64_t indexA, uint64_t indexB) const;
+
     void SetConnectivity(const std::unordered_set<Operation *> &producers, Operation &op);
 
     int Generate(Function *func);
 
-private:
-    ConnectionMatrixImpl() = delete;
     uint64_t GetIndex(const Operation &op) const;
 
     const LargeBitmap &GetBitMap(const Operation &op) const;
+
+    const LargeBitmap &GetBitMap(uint64_t index) const;
+
+private:
+    ConnectionMatrixImpl() = delete;
 
     LargeBitmap &GetBitMap(const Operation &op);
 

@@ -26,6 +26,13 @@ bool ConnectionMatrix::IsConnected(const Operation &a, const Operation &b) const
     return impl_->IsConnected(a, b);
 }
 
+bool ConnectionMatrix::IsConnected(uint64_t indexA, uint64_t indexB) const {
+    if (impl_ == nullptr) {
+        return false;
+    }
+    return impl_->IsConnected(indexA, indexB);
+}
+
 void ConnectionMatrix::SetConnectivity(const std::unordered_set<Operation *> &producers,
     Operation &op) {
     if (impl_ == nullptr) {
@@ -36,6 +43,23 @@ void ConnectionMatrix::SetConnectivity(const std::unordered_set<Operation *> &pr
 
 int ConnectionMatrix::Generate(Function *func) {
     return impl_->Generate(func);
+}
+
+uint64_t ConnectionMatrix::GetIndex(const Operation &op) const {
+    if (impl_ == nullptr) {
+        return false;
+    }
+    return impl_->GetIndex(op);
+}
+
+const LargeBitmap& ConnectionMatrix::GetBitMap(const Operation &op) const {
+    const ConnectionMatrixImpl& const_impl = *impl_;
+    return const_impl.GetBitMap(op); 
+}
+
+const LargeBitmap& ConnectionMatrix::GetBitMap(uint64_t index) const {
+    const ConnectionMatrixImpl& const_impl = *impl_;
+    return const_impl.GetBitMap(index); 
 }
 
 ConnectionMatrixImpl::ConnectionMatrixImpl(Function *func) : func_(func) {
@@ -90,12 +114,20 @@ bool ConnectionMatrixImpl::IsConnected(const Operation &a, const Operation &b) c
     return GetBitMap(b).GetBit(static_cast<size_t>(GetIndex(a)));
 }
 
+bool ConnectionMatrixImpl::IsConnected(uint64_t indexA, uint64_t indexB) const {
+    return GetBitMap(indexB).GetBit(static_cast<size_t>(indexA));
+}
+
 const LargeBitmap &ConnectionMatrixImpl::GetBitMap(const Operation &op) const {
     return bitMaps_[static_cast<uint64_t>(GetIndex(op))];
 }
 
 LargeBitmap &ConnectionMatrixImpl::GetBitMap(const Operation &op) {
     return bitMaps_[static_cast<uint64_t>(GetIndex(op))];
+}
+
+const LargeBitmap &ConnectionMatrixImpl::GetBitMap(uint64_t index) const {
+    return bitMaps_[index];
 }
 
 LargeBitmap &ConnectionMatrixImpl::GetBitMap(uint64_t index) {
