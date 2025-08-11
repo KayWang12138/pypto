@@ -139,7 +139,6 @@ set(_CaseFilterList
         "GenerateMoveOpPassTest.Transpose"
         "GenerateMoveOpPassTest.ScatterUpdate"
         "GenerateMoveOpPassTest.L1TOL0"
-        "InsertCopyOpTest.InsertCopy"
         "SplitLargeFanoutTensorTest.Unmatched"
         "SplitLargeFanoutTensorTest.BeCovered_Full"
         "SplitLargeFanoutTensorTest.PerfectlyMatchWithAll_Full"
