@@ -49,7 +49,11 @@
         "codegen_configs": {
             "PARALLEL_THREAD_NUM" : 8,
             "SUPPORT_DYNAMIC_UNALIGNED" : false,
-            "CODEGEN_BY_JSON" : false
+            "CODEGEN_BY_JSON": false,
+            "CODEGEN_DUMP_TO_OUTPUT": true,
+            "CODEGEN_FORCE_DUMP_CCE_ON_EXIST": true,
+            "CODEGEN_EXPRESSION_FUSION": false,
+            "COMPILE_CCE_BY_MACHINE": false
         },
         "operation_configs": {
             "FORCE_COMBINE_AXIS" : false

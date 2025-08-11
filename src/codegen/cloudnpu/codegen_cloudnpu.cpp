@@ -14,6 +14,10 @@
  */
 
 #include "codegen_op_cloudnpu.h"
+
+#include <cstring>
+#include <nlohmann/json.hpp>
+
 #include "interface/utils/log.h"
 #include "codegen/parallel_execute.h"
 #include "interface/utils/file_utils.h"
@@ -22,14 +26,9 @@
 #include "interface/configs/config_manager.h"
 #include "securec.h"
 #include "tilefwk/tilefwk.h"
-#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "codegen_vf.h"
 #include "codegen_cloudnpu.h"
-
-#include <cstring>
-
-#include <nlohmann/json.hpp>
 
 namespace npu::tile_fwk {
 #ifdef SRCPATH
@@ -107,7 +106,68 @@ bool HasAllocAttr(const std::shared_ptr<LogicalTensor> &tensor) {
     return needAlloc;
 }
 
-std::string CodeGenCloudNPU::GenCodeImpl(Function &subFunc, Function &topFunc) {
+std::string CodeGenCloudNPU::GenInclude(const VFCodegen &vfCg) const {
+    std::stringstream include;
+    // expression fusion
+    if (ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_EXPRESSION_FUSION, false)) {
+        std::string expressionFileName = "../kernel_aicpu/expression.h";
+        // expression.h depend on __TILE_FWK_AICORE__
+        include << "#define __TILE_FWK_AICORE__ 1\n#include \"" << expressionFileName << "\"\n";
+    }
+
+    if (vfCg.IsGenSuccess()) {
+        include << vfCg.GetVFHeaderForInclude() << "\n\n";
+    }
+
+    include << "#include \"TileOpImpl.h\"\n\n";
+
+    return include.str();
+}
+
+std::string CodeGenCloudNPU::GenCommentBeforeFuncHeader(Function &subFunc) {
+    std::stringstream comment;
+    comment << "// funcHash: " << subFunc.GetFunctionHash() << "\n\n";
+    return comment.str();
+}
+
+std::string CodeGenCloudNPU::GenKernelName(Function &topFunc, uint64_t programId) {
+    std::stringstream kernelName;
+    kernelName << topFunc.GetMagicName() << "_" << programId;
+    return kernelName.str();
+}
+
+std::string CodeGenCloudNPU::GenFuncHeader(uint64_t programId, Function &topFunc) const {
+    std::stringstream funcHeader;
+    funcHeader << "[aicore] ";
+
+    bool isCompileByMachine = ConfigManager::Instance().GetCodeGenConfig(KEY_COMPILE_CCE_BY_MACHINE, false);
+    bool isUnderDyn = topFunc.rootFunc_->IsUnderDynamicFunction();
+    std::string declare = isCompileByMachine && isUnderDyn ? "__attribute__((always_inline)) inline " : "";
+    funcHeader << declare << "void ";
+    // kernel name
+    funcHeader << GenKernelName(topFunc, programId);
+    // kernel func param
+    std::string paramType = GetParamType(topFunc);
+    funcHeader << "(" << paramType
+               << "* param, uint64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {\n";
+
+    return funcHeader.str();
+}
+
+std::string CodeGenCloudNPU::GenFuncBodyBefore(
+    const std::pair<uint64_t, Function *> &subFuncPair, Function &topFunc, const VFCodegen &vfCg) const {
+    std::stringstream codeBefore;
+    codeBefore << GenInclude(vfCg);
+    codeBefore << GenCommentBeforeFuncHeader(*subFuncPair.second);
+    codeBefore << GenFuncHeader(subFuncPair.first, topFunc);
+    return codeBefore.str();
+}
+
+std::string CodeGenCloudNPU::GenFuncEnd() {
+    return "}\n";
+}
+
+std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) const {
     OperationsViewer operationList = subFunc.Operations();
     if (operationList.IsEmpty()) {
         ALOG_ERROR("operationList is empty");
@@ -209,34 +269,11 @@ std::string CodeGenCloudNPU::GenDynParamForExpr(const npu::tile_fwk::Function &f
     return dynParamList;
 }
 
-std::string CodeGenCloudNPU::GetParamType(const Function &func) {
-    if (isUnderDynamicFunction) {
+std::string CodeGenCloudNPU::GetParamType(const Function &func) const {
+    if (isUnderDynamicFunction_) {
         return GM_PARAM_TYPE_FOR_DYN;
     }
     return func.GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH ? GM_PARAM_TYPE_FOR_DYN : GM_PARAM_TYPE_FOR_STATIC;
-}
-
-std::string CodeGenCloudNPU::GenFuncCodeAfterReplace(
-    const Function &func, std::pair<uint64_t, Function *> subFuncPair, const std::string &subProgramCode) {
-    std::string tpl = R"!!!(
-#include "TileOpImpl.h"
-
-// funcHash: ${funcHash}$
-
-[aicore] void ${FunctionName}$_${ProgramId}$(${ParamType}$* param, uint64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
-${SubProgCode}$
-}
-)!!!";
-    SubstMap substMap = {
-        {"FunctionName",                   func.GetMagicName()},
-        {   "ProgramId",     std::to_string(subFuncPair.first)},
-        { "SubProgCode",                        subProgramCode},
-        {   "ParamType",                    GetParamType(func)},
-        {    "funcHash", subFuncPair.second->GetFunctionHash()}
-    };
-
-    std::string funCode = StringSubstitute(tpl, substMap);
-    return funCode;
 }
 
 void CodeGenCloudNPU::GenCode(
@@ -263,67 +300,21 @@ void CodeGenCloudNPU::GenCode(
         std::function task = [this, subFuncPair, &topFunc]() {
             ALOG_INFO_F(" ----- subprogram id [%d] -----", subFuncPair.first);
             auto subFunc = subFuncPair.second;
-            if (subFunc->IsAicpuSubFunction()) {
-                subFunc->SetCoreType(CoreType::AICPU);
-                subFunc->SetBinPath("");
+            if (HandleForAICpuSubFunc(*subFunc)) {
                 return;
             }
-            isUnderDynamicFunction = subFunc->IsUnderDynamicFunction();
-            std::string subProgramCode = GenCodeImpl(*subFunc, topFunc);
-            std::string funCode = GenFuncCodeAfterReplace(topFunc, subFuncPair, subProgramCode);
+            isUnderDynamicFunction_ = subFunc->IsUnderDynamicFunction();
             bool isCube = IsCube(subFunc->Operations());
-            std::string coreType = isCube ? "_aic" : "_aiv";
-            std::stringstream ss;
-            ss << ctx.ccePath << "/" << topFunc.GetMagicName() << "_" << topFunc.GetFunctionHash() << "_" << subFuncPair.first
-               << coreType << "_rankId_" << npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId();
-
-            std::string fileNameStub = ss.str();
-            std::string inputFile = fileNameStub + ".cpp";
-            std::string outputFile = fileNameStub + ".o";
-            std::string configJson = fileNameStub + ".json";
-
-            // vf codegen
-            std::string vfFile = fileNameStub + ".h";
+            CompileInfo compileInfo(topFunc, ctx.ccePath, subFuncPair.first, isCube, isUnderDynamicFunction_);
             VFCodegen vfCodegen;
-            auto vfCodeRet = vfCodegen.GenCode(subFunc, vfFile);
-            if (vfCodeRet) {
-                funCode = "#include \"" + vfFile + "\"\n" + funCode;
-            }
-
-            // expression fusion
-            if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, false)) {
-                std::string expressionFileName = "../kernel_aicpu/expression.h";
-                funCode = "#define __TILE_FWK_AICORE__ 1\n#include \"" + expressionFileName + "\"\n" + funCode;
-            }
-
-            bool needDump = false;
-            if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_FORCE_DUMP_CCE_ON_EXIST, true)) {
-                // force dump, default is true
-                needDump = true;
-            } else {
-                // not force dump
-                if (npu::tile_fwk::FileExist(inputFile)) {
-                    needDump = false;
-                } else {
-                    needDump = true;
-                }
-            }
-            bool ret = true;
-            if (needDump) {
-                ret = DumpCCE(inputFile, funCode);
-                ASSERT(ret) << "Dump cce code failed!!";
-            }
-
-            int errCode = CompileCCE(inputFile, outputFile, isCube, "");
-            ASSERT(errCode == 0) << "CompileCCE failed. errCode = " << errCode << ", cce file: " << inputFile;
-
-            ret = GenConfigJson(
-                configJson, inputFile, outputFile, topFunc.GetMagicName(), subFunc->GetStackWorkespaceSize());
-            ASSERT(ret) << "Gen config json failed!!";
-
-            // update bin path
-            subFunc->SetBinPath(outputFile);
-            subFunc->SetCoreType(isCube ? CoreType::AIC : CoreType::AIV);
+            vfCodegen.GenCode(subFunc, compileInfo.GetVFHeaderAbsPath());
+            std::stringstream leafKernelFunc;
+            leafKernelFunc << GenFuncBodyBefore(subFuncPair, topFunc, vfCodegen);
+            leafKernelFunc << GenFuncBody(*subFunc, topFunc);
+            leafKernelFunc << GenFuncEnd();
+            DumpCCE(compileInfo.GetCCEAbsPath(), leafKernelFunc.str());
+            DoCompileCCE(compileInfo, "");
+            UpdateSubFunc(topFunc, subFuncPair, compileInfo);
         };
         tasks.push_back(task);
     }
@@ -331,25 +322,41 @@ void CodeGenCloudNPU::GenCode(
     util::ParallelExecuteAndWait(threadNum, tasks);
 }
 
-bool CodeGenCloudNPU::DumpCCE(const std::string &name, const std::string &code) const {
-    std::ofstream file;
-    file.open(name);
-    file << code;
-    return !file.fail();
+void CodeGenCloudNPU::UpdateSubFunc(
+    Function &topFunc, std::pair<uint64_t, Function *> subFuncPair, const CompileInfo &compileInfo) const {
+    uint64_t subProgramId = subFuncPair.first;
+    auto subFunc = subFuncPair.second;
+    std::string kernelName = GenKernelName(topFunc, subProgramId);
+    subFunc->SetKernelName(kernelName);
+    // update bin path
+    subFunc->SetBinPath(compileInfo.GetBinAbsPath());
+    subFunc->SetSrcCodePath(compileInfo.GetCCEFileAsHeader());
+    subFunc->SetCoreType(compileInfo.IsCube() ? CoreType::AIC : CoreType::AIV);
 }
 
-bool CodeGenCloudNPU::GenConfigJson(const std::string &configJson, const std::string &cppName,
-    const std::string &binName, const std::string &kernelName, int workspaceSize) const {
+bool CodeGenCloudNPU::IsNeedDumpCCE(const std::string &inputFile) const {
+    if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(
+            npu::tile_fwk::KEY_CODEGEN_FORCE_DUMP_CCE_ON_EXIST, true)) {
+        // force dump, default is true
+        return true;
+    }
+    // not force dump
+    if (npu::tile_fwk::FileExist(inputFile)) {
+        return false;
+    }
+    return true;
+}
+
+void CodeGenCloudNPU::DumpCCE(const std::string &fileName, const std::string &code) const {
+    if (!IsNeedDumpCCE(fileName)) {
+        return;
+    }
+
     std::ofstream file;
-    file.open(configJson);
-    file << "{\n"
-         << R"(    "kernelFile": ")" << cppName << "\",\n"
-         << R"(    "kernelBin": ")" << binName << "\",\n"
-         << R"(    "kernelName": ")" << kernelName + "_main"
-         << "\",\n"
-         << "    \"workspaceSize\": " << workspaceSize << "\n"
-         << "}";
-    return !file.fail();
+    file.open(fileName);
+    file << code;
+    bool ret = !file.fail();
+    ASSERT(ret) << "Dump cce code failed!!";
 }
 
 std::optional<std::string> CodeGenCloudNPU::GenExtraAlloc(
@@ -432,9 +439,20 @@ int CheckInjectStr(char cmdStr[], size_t strLen) {
     return 0;
 }
 
-int CodeGenCloudNPU::CompileCCE(
-    const std::string &srcFile, const std::string &objFile, bool isCube, const std::string &compileOptions) const {
-    std::string coreType = isCube ? "dav-c220-cube" : "dav-c220-vec";
+void CodeGenCloudNPU::DoCompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const {
+    int errCode = CompileCCE(compileInfo, compileOptions);
+    ASSERT(errCode == 0) << "CompileCCE failed. errCode = " << errCode << ", cce file: " << compileInfo.GetCCEAbsPath();
+}
+
+int CodeGenCloudNPU::CompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const {
+    if (!compileInfo.IsNeedCompileCCE()) {
+        return 0;
+    }
+
+    const std::string srcFile = compileInfo.GetCCEAbsPath();
+    const std::string objFile = compileInfo.GetBinAbsPath();
+
+    std::string coreType = compileInfo.IsCube() ? "dav-c220-cube" : "dav-c220-vec";
 
     char ccecCmd[2048];
     std::string includePath = ctx.IsIncludePathEmpty() ? SRC_PATH : ctx.includePath;
@@ -459,15 +477,23 @@ int CodeGenCloudNPU::CompileCCE(
     }
 
     ALOG_INFO_F("compile kernel...\n%s", ccecCmd);
-    if (CheckInjectStr(ccecCmd, strlen(ccecCmd)) != 0) {
-        ALOG_INFO_F("CheckInjectStr failed...\n");
-        return -1;
-    }
+    ret = CheckInjectStr(ccecCmd, strlen(ccecCmd));
+    ASSERT(ret == 0) << "CheckInjectStr failed. errCode = " << ret;
     ret = std::system(ccecCmd);
     if (ret != 0) {
         ALOG_INFO_F("CompileCce ccec failed %d", ret);
     }
     return ret;
+}
+
+bool CodeGenCloudNPU::HandleForAICpuSubFunc(Function &subFunc) {
+    if (!subFunc.IsAicpuSubFunction()) {
+        return false;
+    }
+
+    subFunc.SetCoreType(CoreType::AICPU);
+    subFunc.SetBinPath("");
+    return true;
 }
 
 } // namespace npu::tile_fwk

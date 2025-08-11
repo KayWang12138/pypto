@@ -35,7 +35,7 @@ class VFCodegen {
 public:
     VFCodegen(){};
 
-    bool GenCode(Function *func, std::string file);
+    void GenCode(Function *func, const std::string &file);
 
     std::string genVFHeader(const std::string &KernelName, std::vector<std::shared_ptr<LogicalTensor>> &ubIn,
         std::vector<std::shared_ptr<LogicalTensor>> &ubOut);
@@ -48,6 +48,8 @@ public:
     std::string genSingleOp(Operation *op);
     std::string genVFEnd();
     std::string genVarName(std::string loc, int id);
+    bool IsGenSuccess() const { return isGenSuccess_; };
+    std::string GetVFHeaderForInclude() const;
 
 private:
     std::string path_;
@@ -57,9 +59,9 @@ private:
     std::vector<int> shape[MAX_OPERANDS] = {};
     std::vector<int> rawShape[MAX_OPERANDS] = {};
     std::vector<int> originShape[MAX_OPERANDS] = {};
+    bool isGenSuccess_{false};
     DataType operandDtype[MAX_OPERANDS] = {DataType::DT_BOTTOM, DataType::DT_BOTTOM, DataType::DT_BOTTOM,
-        DataType::DT_BOTTOM, DataType::DT_BOTTOM, DataType::DT_BOTTOM, DataType::DT_BOTTOM,
-        DataType::DT_BOTTOM};
+        DataType::DT_BOTTOM, DataType::DT_BOTTOM, DataType::DT_BOTTOM, DataType::DT_BOTTOM, DataType::DT_BOTTOM};
     void UpdateVarOffset(std::vector<std::string *> vars, std::vector<unsigned int> operandIdxes) const;
     void InitOpParm(Operation *op);
     void AllocBufferId(Function *func, std::vector<Operation *> &opList);

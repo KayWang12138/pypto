@@ -46,7 +46,8 @@ std::map<Opcode, const std::string> VFTileOpNameMap{
     { Opcode::OP_VST,  "vsts"},
 };
 
-bool VFCodegen::GenCode(Function *func, std::string file) {
+void VFCodegen::GenCode(Function *func, const std::string &file) {
+    path_ = file;
     std::string vfcodeList;
     for (auto &program : func->programs_) {
         std::string KernelName = program.second->GetMagicName();
@@ -60,12 +61,12 @@ bool VFCodegen::GenCode(Function *func, std::string file) {
         vfcodeList += vfcode;
     }
     if (vfcodeList.empty()) {
-        return false;
+        return;
     }
     std::ofstream os;
     os.open(file);
     os << vfcodeList;
-    return !os.fail();
+    isGenSuccess_ = !os.fail();
 }
 
 std::string VFCodegen::genVFBody(const std::vector<Operation *> &OpList) {
@@ -134,7 +135,8 @@ void VFCodegen::InitOpParm(Operation *op) {
             attrOffset.resize(opImmList.size());
             for (size_t i = 0; i < opImmList.size(); ++i) {
                 attrOffset[i] = opImmList[i].GetSpecifiedValue().ConcreteValid() ?
-                    static_cast<int>(opImmList[i].GetSpecifiedValue()) : -1;
+                                    static_cast<int>(opImmList[i].GetSpecifiedValue()) :
+                                    -1;
             }
         }
         if (opCode == Opcode::OP_VST) {
@@ -142,7 +144,8 @@ void VFCodegen::InitOpParm(Operation *op) {
             attrOffset.resize(opImmList.size());
             for (size_t i = 0; i < opImmList.size(); ++i) {
                 attrOffset[i] = opImmList[i].GetSpecifiedValue().ConcreteValid() ?
-                    static_cast<int>(opImmList[i].GetSpecifiedValue()) : -1;
+                                    static_cast<int>(opImmList[i].GetSpecifiedValue()) :
+                                    -1;
             }
         }
         useAttrShape = true;
@@ -269,8 +272,8 @@ std::string VFCodegen::genVLD(const std::string &code) {
     std::string S0Name = genVarName("UB", operand[1]);
     UpdateVarOffset({&S0Name}, {1});
     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
-    int ret = sprintf_s(
-        buffer, BUFFER_SIZE_1024, "%s(%s, %s, ELE_CNT_B16, %s);\n", code.c_str(), DName.c_str(), S0Name.c_str(), "NORM");
+    int ret = sprintf_s(buffer, BUFFER_SIZE_1024, "%s(%s, %s, ELE_CNT_B16, %s);\n", code.c_str(), DName.c_str(),
+        S0Name.c_str(), "NORM");
     ASSERT(ret >= 0) << "sprintf_s failed, return value:" << ret;
     std::string ostring(buffer);
     return ostring;
@@ -281,8 +284,8 @@ std::string VFCodegen::genVST(const std::string &code) {
     std::string S0Name = genVarName("REG", operand[1]);
     UpdateVarOffset({&DName}, {0});
     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
-    int ret = sprintf_s(buffer, BUFFER_SIZE_1024, "%s(%s, %s, ELE_CNT_B16, %s, allMask);\n", code.c_str(), S0Name.c_str(),
-        DName.c_str(), "NORM_B16");
+    int ret = sprintf_s(buffer, BUFFER_SIZE_1024, "%s(%s, %s, ELE_CNT_B16, %s, allMask);\n", code.c_str(),
+        S0Name.c_str(), DName.c_str(), "NORM_B16");
     ASSERT(ret >= 0) << "sprintf_s failed, return value:" << ret;
     std::string ostring(buffer);
     return ostring;
@@ -310,7 +313,8 @@ std::string VFCodegen::genUnaryRegOp(const std::string &UnaryOp) {
     std::string DName = genVarName("REG", operand[0]);
     std::string S0Name = genVarName("REG", operand[1]);
     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
-    int ret = sprintf_s(buffer, BUFFER_SIZE_1024, "%s(%s, %s, allMask);\n", UnaryOp.c_str(), DName.c_str(), S0Name.c_str());
+    int ret =
+        sprintf_s(buffer, BUFFER_SIZE_1024, "%s(%s, %s, allMask);\n", UnaryOp.c_str(), DName.c_str(), S0Name.c_str());
     ASSERT(ret >= 0) << "sprintf_s failed, return value:" << ret;
     std::string ostring(buffer);
     return ostring;
@@ -318,6 +322,10 @@ std::string VFCodegen::genUnaryRegOp(const std::string &UnaryOp) {
 
 std::string VFCodegen::genVFEnd() {
     return std::string{"    }\n}\n}\n"};
+}
+
+std::string VFCodegen::GetVFHeaderForInclude() const {
+    return "#include \"" + path_ + "\"\n";
 }
 
 } // namespace npu::tile_fwk

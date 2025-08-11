@@ -19,6 +19,7 @@
 #include "PvModelConfig.h"
 #include "codegen/codegen.h"
 #include "PvModelImpl.h"
+#include "codegen/cloudnpu/codegen_cloudnpu.h"
 
 namespace CostModel {
 template <typename SystemConfig, typename CaseConfig>
@@ -210,7 +211,12 @@ void PvModelImpl<SystemConfig, CaseConfig>::CodeGen(npu::tile_fwk::Function *fun
         PvModelCodegen::AddGlobalAttr(srcPath);
         npu::tile_fwk::CodeGenCtx ctx;
         npu::tile_fwk::CodeGenCloudNPU cga(ctx);
-        cga.CompileCCE(srcPath, binPath, subFuncPair.second->GetCoreType() == npu::tile_fwk::CoreType::AIC,"");
+        bool isCube = subFuncPair.second->GetCoreType() == npu::tile_fwk::CoreType::AIC;
+        npu::tile_fwk::CompileInfo compileInfo(
+            *func, ctx.ccePath, subFuncPair.first, isCube, subFuncPair.second->IsUnderDynamicFunction());
+        compileInfo.SetCCEAbsPath(srcPath);
+        compileInfo.SetBinAbsPath(binPath);
+        cga.CompileCCE(compileInfo, "");
     }
 }
 

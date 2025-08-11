@@ -383,6 +383,8 @@ struct DyndevFunctionAttribute {
 
     std::vector<uint8_t> devProgBinary;
 
+    std::vector<uint8_t> kernelBinary;
+
     // for costmodel
     std::map<int, uint64_t> devLeafIndex2Hash;
 };
@@ -435,6 +437,8 @@ public:
     int magicSeed_{0};
     int opSeed_{FUNCTION_MAX_INCASTS};
 
+    std::string kernelName_;
+    std::string srcCodePath_;
     SubfuncTopologyInfoTy topoInfo_; // root function持有，对应1.0的SubgraphTopologyInfoTy
     std::map<uint64_t, Function*> programs_; // root function持有，所有异构的leaf function
     Function *rootFunc_ = nullptr; // TileGraph和RootGraph都需要保留，且需要映射关系
@@ -671,6 +675,12 @@ public:
 
     const std::string &GetBinPath() const { return binPath_; }
     void SetBinPath(const std::string &binPath) { binPath_ = binPath; }
+
+    const std::string &GetKernelName() const { return kernelName_; }
+    void SetKernelName(const std::string &kernelName) { kernelName_ = kernelName; }
+
+    const std::string &GetSrcCodePath() const { return srcCodePath_; }
+    void SetSrcCodePath(const std::string &srcCodePath) { srcCodePath_ = srcCodePath; }
 
     void SetReadySubGraphIds(CoreType coreType, const std::vector<int> &readySubGraphIds) {
         readySubGraphIds_[coreType] = readySubGraphIds;

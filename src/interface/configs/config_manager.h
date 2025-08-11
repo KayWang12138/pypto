@@ -88,6 +88,7 @@ const std::string KEY_CODEGEN_BY_JSON = "CODEGEN_BY_JSON";
 const std::string KEY_CODEGEN_DUMP_TO_OUTPUT = "CODEGEN_DUMP_TO_OUTPUT"; // if true, dump cce to output directory
 const std::string KEY_CODEGEN_FORCE_DUMP_CCE_ON_EXIST = "CODEGEN_FORCE_DUMP_CCE_ON_EXIST"; // if true, don't dump cce when file exists
 const std::string KEY_CODEGEN_EXPRESSION_FUSION = "CODEGEN_EXPRESSION_FUSION"; // if true, add inclue to fusion header
+const std::string KEY_COMPILE_CCE_BY_MACHINE = "COMPILE_CCE_BY_MACHINE";       // if true, compile cce in machine agent
 
 enum class DPlatform {
     ASCEND_910B1,

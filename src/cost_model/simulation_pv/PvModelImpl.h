@@ -281,7 +281,12 @@ public:
                 auto objPath = srcPath.substr(0, srcPath.length() - Len3) + "o";
                 npu::tile_fwk::CodeGenCtx ctx;
                 npu::tile_fwk::CodeGenCloudNPU cga(ctx);
-                cga.CompileCCE(srcPath, objPath, leaf->GetCoreType() == npu::tile_fwk::CoreType::AIC, "");
+                bool isCube = leaf->GetCoreType() == npu::tile_fwk::CoreType::AIC;
+                npu::tile_fwk::CompileInfo compileInfo(
+                    *func, ctx.ccePath, leaf->GetProgramId(), isCube, leaf->IsUnderDynamicFunction());
+                compileInfo.SetCCEAbsPath(srcPath);
+                compileInfo.SetBinAbsPath(objPath);
+                cga.CompileCCE(compileInfo, "");
 
                 binPath = srcPath.substr(0, srcPath.length() - Len3) + "bin";
                 constexpr int cmdLen = 2048;

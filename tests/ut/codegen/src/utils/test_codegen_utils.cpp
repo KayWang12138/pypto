@@ -12,6 +12,7 @@
 
 #include <iostream>
 
+#include "interface/configs/config_manager.h"
 #include "interface/function/function.h"
 
 namespace npu::tile_fwk {
@@ -39,7 +40,10 @@ std::shared_ptr<LogicalTensor> CreateLogicalTensor(const LogicalTensorInfo &info
 std::string GetResultFromCpp(const Function &function) {
     const auto &subFunc = function.rootFunc_->programs_[0];
     std::string binPath = subFunc->GetBinPath();
-    std::string cppFile = binPath.substr(0, binPath.rfind('.')) + ".cpp";
+    bool isCompileByMachine = ConfigManager::Instance().GetCodeGenConfig(KEY_COMPILE_CCE_BY_MACHINE, false);
+    bool isUnderDyn = subFunc->IsUnderDynamicFunction();
+    std::string suffix = isCompileByMachine && isUnderDyn ? ".h" : ".cpp";
+    std::string cppFile = binPath.substr(0, binPath.rfind('.')) + suffix;
     std::ifstream ifs(cppFile);
     std::string res((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
     ifs.close();
