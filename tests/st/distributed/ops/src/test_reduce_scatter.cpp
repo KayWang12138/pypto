@@ -48,12 +48,12 @@ void TestReduceScatter(OpTestParam &testParam)
 
         Tensor in(dType, inShape,  (uint8_t *)xPtr, "in");
         Tensor out(dType, outShape, outPtr, "out");
-        
+
         ConfigManager::Instance();
 
         FUNCTION("REDUCESCATTER_F", FunctionType::STATIC, {in, out}) {
             Program::GetInstance().GetTileShape().SetDistTileShapes(
-                {outM / 2, 2, 0},
+                {M / 2, 2, 0},
                 {N / 2, 2, 0},
                 {1, testParam.rankSize, 0});
             Program::GetInstance().GetTileShape().SpecifyStaticRankId(testParam.rankId);
@@ -98,10 +98,10 @@ void TestReduceScatterEx(OpTestParam &testParam)
         std::vector<std::reference_wrapper<Tensor>> paras(inVec.begin(), inVec.end());
         paras.emplace_back(out);
         ConfigManager::Instance();
- 
+
         FUNCTION("REDUCESCATTER_EX", FunctionType::STATIC, paras) {
             Program::GetInstance().GetTileShape().SetDistTileShapes(
-                {outM / 2, 2, 0},
+                {M / 2, 2, 0},
                 {N / 2, 2, 0},
                 {1, testParam.rankSize, 0});
             Program::GetInstance().GetTileShape().SpecifyStaticRankId(testParam.rankId);
