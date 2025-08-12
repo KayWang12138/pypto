@@ -48,7 +48,6 @@ class BuildCtrl:
         self.timeout = None if args.timeout == 0 else args.timeout  # 构建超时时长
         self.build_type: Optional[str] = args.build_type
         self.init_param_common()
-        self.hccl_stub: bool = args.enable_hccl_stub
         # 控制标记/参数预处理(tests)
         self.utest_enable: bool = False  # UTest 使能标记
         self.utest_cases_filter: Optional[str] = None  # 指定 UTest 所需执行用例
@@ -122,7 +121,6 @@ class BuildCtrl:
                  f" PrintJson({self.stest_dump_json}),"
                  f" BinaryCache({self.stest_enable_binary_cache})")
         desc += f"\n\tTests Changed            : File({self.tests_changed_file})"
-        desc += f"\n\tEnable hccl stub         : {self.hccl_stub}"
         desc += f"\nOthers"
         desc += f"\n\tSource  Root Dir         : {self.src_root}"
         desc += f"\n\tBuild   Root Dir         : {self.build_root}"
@@ -150,8 +148,6 @@ class BuildCtrl:
         parser.add_argument("--build_type", nargs="?", type=str, default=None,
                             choices=["Debug", "Release", "MinSizeRel", "RelWithDebInfo"],
                             help="build type.")
-        parser.add_argument("--enable_hccl_stub", action="store_true", default=False,
-                            help="Enable hccl stub, do not link hccl while compiling.")
         cls._add_argument_tests(parser=parser)
         cls._add_argument_build_tools(parser=parser)
         cls._add_argument_tools(sub_parser=sub_parser)
@@ -351,7 +347,6 @@ class BuildCtrl:
         if self.backend_type == "cost_model":
             cmd += f" -DENABLE_BUILD_WITH_CANN=OFF"
         cmd += f" -DCMAKE_BUILD_TYPE={self.build_type}" if self.build_type else ""
-        cmd += self._gen_cmd(opt="ENABLE_HCCL_STUB", ctr=self.hccl_stub)
         # tests 相关配置
         cmd += self._configure_tests()
         # tools_build 相关配置

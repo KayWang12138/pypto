@@ -17,15 +17,12 @@ target_include_directories(tile_fwk_simulation
         PRIVATE
             ${TILE_FWK_SRC_ROOT}/src/cost_model
 )
-target_compile_definitions(tile_fwk_simulation
-        PRIVATE
-            SRCPATH="${TILE_FWK_SRC_ROOT}"
-)
 target_link_libraries(tile_fwk_simulation
         PUBLIC
             dl
             $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>
             tile_fwk_interface
+            tile_fwk_passes
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub

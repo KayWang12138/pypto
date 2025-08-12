@@ -66,12 +66,12 @@ def compile():
 
 def changeAccLevel(new_value):
     """
-    :param file_path: 配置文件路径（如'config.json'）
+    :param file_path: 配置文件路径（如'tile_fwk_config.json'）
     :param key: 要修改的键（支持嵌套，如'log.level'）
     :param new_value: 新值
     :return: 成功状态及提示信息
     """
-    file_path = f"src/configs/config.json"
+    file_path = f"src/configs/tile_fwk_config.json"
     key = f"global_configs.simulation_configs.ACCURACY_LEVEL"
     try:
         # 读取原始配置

@@ -148,7 +148,7 @@ public:
     ConfigManager(const ConfigManager &) = delete;
     ConfigManager &operator=(const ConfigManager &) = delete;
 
-    Status Initialize(const std::string &jsonPath);
+    Status Initialize();
 
     const GlobalPassConfigs &GetGlobalConfigs() const { return globalPassConfigs_; }
     PassType GetEnabledLastPassType() const { return globalPassConfigs_.enabledLastPassType; }

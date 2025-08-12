@@ -20,11 +20,6 @@
 #include "passes/pass_config/json_node_paser.h"
 namespace npu{
 namespace tile_fwk {
-#ifdef SRCPATH
-constexpr const char *ROOT_SRC_PATH = SRCPATH;
-#else
-constexpr const char *ROOT_SRC_PATH = ".";
-#endif
 const std::string MEM_L1_STR = "MEM_L1";
 const std::string MEM_L0A_STR = "MEM_L0A";
 const std::string MEM_L0B_STR = "MEM_L0B";
@@ -85,7 +80,7 @@ inline void AddCoreNum(const nlohmann::json *node, std::unordered_map<NpuCoreTyp
 Status PlatformConfig::InitPlatformConfig(DPlatform platformId) {
     platformId_ = platformId;
     auto platformIdStr = PlatformIdToString(platformId);
-    auto modelConfigPath = std::string(ROOT_SRC_PATH) + "/src/passes/pass_config/platform_info.json";
+    auto modelConfigPath = GetCurrentSharedLibPath() + "/../conf/tile_fwk_platform_info.json";
     JsonNodeParser jsonParser;
     if (jsonParser.Initialize(modelConfigPath) != SUCCESS) {
         ALOG_WARN_F("Platform %s built in config is not availbale, please set memory and add path manually.");

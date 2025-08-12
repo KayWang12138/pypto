@@ -16,9 +16,9 @@
 #include "interface/inner/tilefwk/tilefwk_api.h"
 
 #include "tilefwk/tilefwk.h"
+#include "tilefwk/tile_fwk_op_registry.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
-#include "interface/registry/tile_fwk_op_registry.h"
 #include "machine/host/backend.h"
 #include "machine/host/device_agent_task.h"
 #include "machine/dump/kernel_dump_utils.h"

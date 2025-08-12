@@ -117,7 +117,7 @@ ge::graphStatus TileFwkOpUtils::GenerateAicpuTask(const ge::Node &node, const in
     printf("Node[%s, %s]: failed to get block dim.\n", node.GetNamePtr(), node.GetTypePtr());
     return ge::GRAPH_FAILED;
   }
-  printf("Node[%s, %s]: block dim is %ld.", node.GetNamePtr(), node.GetTypePtr(), block_dim);
+  printf("Node[%s, %s]: block dim is %d.", node.GetNamePtr(), node.GetTypePtr(), block_dim);
   auto aicore_context = aicore_kernel_def->mutable_context();
   if (TileFwkOpUtils::InsertHiddenInput(node, aicore_context) != ge::GRAPH_SUCCESS) {
     printf("Node[%s, %s]: failed to insert hidden input.\n", node.GetNamePtr(), node.GetTypePtr());

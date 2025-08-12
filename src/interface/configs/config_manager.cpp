@@ -49,8 +49,7 @@ static const nlohmann::json *GetJsonChild(const nlohmann::json &root, const std:
 }
 
 ConfigManager::ConfigManager() {
-    std::string configJsonFilePath = std::string(SRC_PATH) + "/src/interface/configs/config.json";
-    Initialize(configJsonFilePath);
+    Initialize();
     LoggerManager::FileLoggerRegister(LogFile(), true);
 }
 
@@ -77,13 +76,14 @@ static PassType StringToPassType(const std::string &str, PassType defaultValue) 
     return defaultValue;
 }
 
-Status ConfigManager::Initialize(const std::string &jsonPath) {
+Status ConfigManager::Initialize() {
     if (isInit_) {
         ASLOGI("ConfigManager has been initialized.");
         return SUCCESS;
     }
-    ASLOGI("Start to parse op_json_file %s", jsonPath.c_str());
-    if (!ReadJsonFile(jsonPath, json_)) {
+    std::string configJsonFilePath = GetCurrentSharedLibPath() + "/../conf/tile_fwk_config.json";
+    ASLOGI("Start to parse op_json_file %s", configJsonFilePath.c_str());
+    if (!ReadJsonFile(configJsonFilePath, json_)) {
         ASLOGE("ReadJsonFile failed.");
         return FAILED;
     }

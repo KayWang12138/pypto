@@ -32,7 +32,6 @@ target_include_directories(tile_fwk_runtime
 target_compile_definitions(tile_fwk_runtime
         PUBLIC
             $<$<BOOL:${ENABLE_BUILD_WITH_CANN}>:ENABLE_BUILD_WITH_CANN>
-            $<$<BOOL:${ENABLE_HCCL_STUB}>:ENABLE_HCCL_STUB>
 )
 target_link_directories(tile_fwk_runtime
         PUBLIC
@@ -47,7 +46,7 @@ target_link_libraries(tile_fwk_runtime
             $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>
             $<$<BOOL:${ENABLE_BUILD_WITH_CANN}>:ascendcl>
             $<$<BOOL:${ENABLE_BUILD_WITH_CANN}>:runtime>
-            $<$<AND:$<BOOL:${ENABLE_BUILD_WITH_CANN}>,$<NOT:$<BOOL:${ENABLE_HCCL_STUB}>>>:hccl>
+            $<$<BOOL:${ENABLE_BUILD_WITH_CANN}>:hccl>
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub

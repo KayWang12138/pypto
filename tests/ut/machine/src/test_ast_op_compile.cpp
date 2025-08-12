@@ -21,7 +21,7 @@
 #include "operator/models/llama/llama_def.h"
 #include "runtime.h"
 #include "interface/utils/file_utils.h"
-#include "interface/registry/tile_fwk_op_registry.h"
+#include "tilefwk/tile_fwk_op_registry.h"
 
 using namespace npu::tile_fwk;
 class TestAstOpCompile : public testing::Test {

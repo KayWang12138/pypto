@@ -17,10 +17,6 @@ target_include_directories(tile_fwk_simulation_pv
         PRIVATE
             ${TILE_FWK_SRC_ROOT}/src/cost_model
 )
-target_compile_definitions(tile_fwk_simulation_pv
-        PRIVATE
-            SRCPATH="${TILE_FWK_SRC_ROOT}"
-)
 target_link_libraries(tile_fwk_simulation_pv
         PUBLIC
             tile_fwk_codegen

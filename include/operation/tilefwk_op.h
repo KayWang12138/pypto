@@ -15,13 +15,13 @@
 
 #pragma once
 
-#include "interface/utils/common.h"
 #include "tilefwk/tensor.h"
 #include "tilefwk/element.h"
 #include "common/pre_def.h"
 
 namespace npu::tile_fwk {
-
+constexpr const int TILE_VEC_DIMS = 2;
+constexpr const int TILE_CUBE_DIMS = 6;
 Tensor View(const Tensor &operand, const std::vector<int> &shapes, const std::vector<int> &offsets);
 Tensor DView(const Tensor &operand, const std::vector<int> &shapes, const std::vector<SymbolicScalar> &newOffsets);
 Tensor DViewPad(const Tensor &operand, const std::vector<int> &shapes,

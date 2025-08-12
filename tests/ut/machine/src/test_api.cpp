@@ -22,7 +22,7 @@
 #include "runtime.h"
 #include "tilefwk_runtime_api.h"
 #include "interface/utils/file_utils.h"
-#include "interface/registry/tile_fwk_op_registry.h"
+#include "tilefwk/tile_fwk_op_registry.h"
 
 using namespace npu::tile_fwk;
 

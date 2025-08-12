@@ -169,4 +169,11 @@ function(TileFwk_GTest_AddExe)
                 -Wl,--no-whole-archive
                 -rdynamic
     )
+    add_custom_command(
+        TARGET ${TMP_TARGET} POST_BUILD
+        COMMAND mkdir -p "${TILE_FWK_BIN_ROOT}/src/conf"
+        COMMAND ln -sf "${TILE_FWK_SRC_ROOT}/src/interface/configs/tile_fwk_config.json" "${TILE_FWK_BIN_ROOT}/src/conf/tile_fwk_config.json"
+        COMMAND ln -sf "${TILE_FWK_SRC_ROOT}/src/passes/pass_config/tile_fwk_platform_info.json" "${TILE_FWK_BIN_ROOT}/src/conf/tile_fwk_platform_info.json"
+        COMMENT "Soft link of tile_fwk_config.json and tile_fwk_platform_info.json has been created at ${TILE_FWK_BIN_ROOT}/src/conf"
+    )
 endfunction()

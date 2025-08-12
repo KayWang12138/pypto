@@ -8,12 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "interface/registry/tile_fwk_op_registry.h"
-#include "interface/machine/host/host_machine.h"
-#include "interface/operation/distributed/comm_group_recorder.h"
-#include "interface/operation/distributed/comm_barrier_manager.h"
-#include "interface/inner/tilefwk.h"
 #include "tilefwk/tilefwk.h"
+#include "tilefwk/tile_fwk_op_registry.h"
+#include "interface/inner/tilefwk.h"
 
 namespace npu::tile_fwk {
 void DynamicDD(uint64_t configKey) {

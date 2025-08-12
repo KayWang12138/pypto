@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "interface/registry/tile_fwk_op_registry.h"
+#include "tilefwk/tile_fwk_op_registry.h"
 
 namespace npu::tile_fwk {
 OpImplRegister::OpImplRegister(const std::string &opType) : opType_(opType) {}

@@ -26,33 +26,10 @@
 
 #ifdef ENABLE_BUILD_WITH_CANN
 #include "securec.h"
-#ifndef ENABLE_HCCL_STUB
 #include "hccl/hcom.h"
-#endif
 #include "kernel_tiling/kernel_tiling.h"
 
-#ifndef ENABLE_HCCL_STUB
 extern "C" HcclResult HcclAllocComResourceByTiling(HcclComm comm, void *stream, void *mc2Tiling, void **commContext);
-#else
-typedef void *HcclComm;
-enum HcclResult {
-    HCCL_SUCCESS = 0
-};
-HcclResult HcclAllocComResourceByTiling(HcclComm comm, void *stream, void *mc2Tiling, void **commContext) {
-    (void)comm;
-    (void)stream;
-    (void)mc2Tiling;
-    (void)commContext;
-    return HcclResult::HCCL_SUCCESS;
-}
-
-HcclResult HcomGetCommHandleByGroup(const char *group, HcclComm comm) {
-    (void)group;
-    (void)comm;
-    return HcclResult::HCCL_SUCCESS;
-}
-#endif
-
 #endif
 extern "C" __attribute__((weak)) int AdxDataDumpServerInit();
 

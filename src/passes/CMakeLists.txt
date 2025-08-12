@@ -12,10 +12,6 @@ file(GLOB_RECURSE _Passes_Srcs *.cpp)
 
 add_library(tile_fwk_passes SHARED)
 target_sources(tile_fwk_passes PRIVATE ${_Passes_Srcs})
-target_compile_definitions(tile_fwk_passes
-        PRIVATE
-            SRCPATH="${TILE_FWK_SRC_ROOT}"
-)
 target_link_libraries(tile_fwk_passes
         PUBLIC
             $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>

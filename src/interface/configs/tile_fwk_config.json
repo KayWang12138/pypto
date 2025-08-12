@@ -16,7 +16,7 @@
         },
         "host_configs": {
             "STRATEGY": "PVC2_OOO",
-            "ENABLE_BINARY_CACHE": true,
+            "ENABLE_BINARY_CACHE": false,
             "workspace_recycle_period": 10,
             "estimated_stitching_count": 50,
             "ONLY_CODEGEN":false,

@@ -96,6 +96,8 @@ TEST(OnBoardTestAstInGraph, test_fa_all2all_128_2) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     TileFwkInit();
+    CacheManager::Instance().cacheMode_ = CacheMode::Enable;
+    CacheManager::Instance().cacheDirPath_ = ".";
     AttentionDims atDims = {1, 2, 128, 128, DFT_SINGLE_M, DFT_SINGLE_N};
     int b = atDims.b;
     int n = atDims.n;
@@ -134,5 +136,6 @@ TEST(OnBoardTestAstInGraph, test_fa_all2all_128_2) {
 
     EXPECT_EQ(TaskDumpUtils::RecoverTaskFromBinFile(binFilePath, deviceAgentTask), true);
     delete deviceAgentTask;
+    CacheManager::Instance().cacheMode_ = CacheMode::Disable;
 }
 }

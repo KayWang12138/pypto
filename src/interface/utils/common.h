@@ -68,16 +68,12 @@ constexpr const int SHAPE_DIM5 = 5;
 constexpr const int ALIGN_SIZE_512 = 512;
 constexpr const int ALIGN_SIZE_32 = 32;
 constexpr const int VNCHWCONV_REPEAT = 16;
-
 constexpr const int MAX_CAT_NUM_ONCE = 64;
-
-constexpr const int TILE_VEC_DIMS = 2;
 constexpr const int TILE_VEC_FOUR_DIMS = 4;
-constexpr const int TILE_CUBE_DIMS = 6;
 
 constexpr const int SHAPE_INNER_AXIS_MAX_SIZE = 65535;
 
-constexpr  const int SHAPE_BUFFER_MAX_SIZE = 32;
+constexpr const int SHAPE_BUFFER_MAX_SIZE = 32;
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 enum class SemanticLabelType {

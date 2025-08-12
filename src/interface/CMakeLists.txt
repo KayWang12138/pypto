@@ -51,6 +51,6 @@ install(TARGETS tile_fwk_interface
         LIBRARY DESTINATION lib OPTIONAL
 )
 
-install(FILES configs/config.json
+install(FILES configs/tile_fwk_config.json
         DESTINATION lib/config/ OPTIONAL
 )
