@@ -168,7 +168,7 @@ static void writeInput(std::string filename, LogicalTensor outData) {
 
 template <typename T = float>
 static bool resultCmpUnary(const vector<T> &x, const vector<T> &outDataValExp, const vector<T> &outDataValAct,
-    float eps, int threshold = 1, bool printAll = false, bool printErr = false) {
+    float eps, size_t threshold = 1, bool printAll = false, bool printErr = false) {
     if (outDataValExp.size() != outDataValAct.size()) {
         std::cout << "out size is not eq, golden: " << outDataValExp.size() << ", act: " << outDataValAct.size()
                   << std::endl;
@@ -176,7 +176,7 @@ static bool resultCmpUnary(const vector<T> &x, const vector<T> &outDataValExp, c
     }
     float maxDiff = 0;
     float maxDiffRatio = 0;
-    int errCount = 0;
+    size_t errCount = 0;
 
     bool rst = true;
     size_t eSize = outDataValExp.size();
@@ -228,7 +228,7 @@ static bool resultCmpUnary(const vector<T> &x, const vector<T> &outDataValExp, c
 
 template <typename Ts, typename Td>
 static bool resultCmpCast(const vector<Ts> &x, const vector<Td> &outDataValExp, const vector<Td> &outDataValAct,
-    float eps, int threshold = 1, bool printAll = false, bool printErr = false) {
+    float eps, size_t threshold = 1, bool printAll = false, bool printErr = false) {
     if (outDataValExp.size() != outDataValAct.size()) {
         std::cout << "out size is not eq, golden: " << outDataValExp.size() << ", act: " << outDataValAct.size()
                   << std::endl;
@@ -237,7 +237,7 @@ static bool resultCmpCast(const vector<Ts> &x, const vector<Td> &outDataValExp, 
 
     float maxDiff = 0;
     float maxDiffRatio = 0;
-    int errCount = 0;
+    size_t errCount = 0;
 
     bool rst = true;
     size_t eSize = outDataValExp.size();
@@ -287,15 +287,15 @@ static bool resultCmpCast(const vector<Ts> &x, const vector<Td> &outDataValExp, 
 }
 
 template <typename T = float>
-static bool resultCmp(const vector<T> &outDataValExp, const T *outDataValAct, float eps, int threshold = 0,
-    int zeroCountThreshold = 1000, bool printAll = false, bool printErr = false, int testNum = 0) {
+static bool resultCmp(const vector<T> &outDataValExp, const T *outDataValAct, float eps, size_t threshold = 0,
+    size_t zeroCountThreshold = 1000, bool printAll = false, bool printErr = false, size_t testNum = 0) {
     //
     threshold = threshold == 0 ? static_cast<int>(outDataValExp.size() * eps) : threshold;
 
     float maxDiff = 0;
     float maxDiffRatio = 0;
-    int zeroCount = 0;
-    int errCount = 0;
+    size_t zeroCount = 0;
+    size_t errCount = 0;
 
     bool rst = true;
     size_t eSize = outDataValExp.size();
@@ -365,8 +365,8 @@ static bool resultCmp(const vector<T> &outDataValExp, const T *outDataValAct, fl
 }
 
 template <typename T = float>
-static bool resultCmp(const vector<T> &outDataValExp, const vector<T> &outDataValAct, float eps, int threshold = 0,
-    int zeroCountThreshold = 1000, bool printAll = false, bool printErr = false, int testNum = 0) {
+static bool resultCmp(const vector<T> &outDataValExp, const vector<T> &outDataValAct, float eps, size_t threshold = 0,
+    size_t zeroCountThreshold = 1000, bool printAll = false, bool printErr = false, size_t testNum = 0) {
     if (outDataValExp.size() != outDataValAct.size()) {
         std::cout << "out size is not eq, golden: " << outDataValExp.size() << ", act: " << outDataValAct.size()
                   << std::endl;

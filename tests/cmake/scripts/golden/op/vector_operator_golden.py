@@ -24,26 +24,26 @@ from bfloat16 import bfloat16
 import torch
 
 
-def get_dtype_by_name(name: str):
+def get_dtype_by_name(name: str, is_torch: bool = False):
     str_to_dtype = {
-        "int8": np.int8,
-        "int16": np.int16,
-        "int32": np.int32,
-        "int64": np.int64,
-        "fp16": np.float16,
-        "fp32": np.float32,
-        "fp64": np.float64,
-        "uint8": np.uint8,
-        "uint16": np.uint16,
-        "uint32": np.uint32,
-        "uint64": np.uint64,
-        "bool": np.bool_,
-        "double": np.float64,
-        "complex64": np.complex64,
-        "complex128": np.complex128,
-        "bf16": bfloat16,
+        "int8": [np.int8, torch.int8],
+        "int16": [np.int16, torch.int16],
+        "int32": [np.int32, torch.int32],
+        "int64": [np.int64, torch.int64],
+        "fp16": [np.float16, torch.float16],
+        "fp32": [np.float32, torch.float32],
+        "fp64": [np.float64, torch.float64],
+        "uint8": [np.uint8, torch.uint8],
+        "uint16": [np.uint16, None],
+        "uint32": [np.uint32, None],
+        "uint64": [np.uint64, None],
+        "bool": [np.bool_, torch.bool],
+        "double": [np.float64, torch.double],
+        "complex64": [np.complex64, torch.complex64],
+        "complex128": [np.complex128, torch.complex64],
+        "bf16": [bfloat16, torch.bfloat16],
     }
-    return str_to_dtype.get(name, np.float32)
+    return str_to_dtype.get(name, [np.float32, torch.float32])[is_torch]
 
 
 if __name__ == "__main__":
@@ -285,15 +285,16 @@ def gen_topk_op_golden(case_name: str, output: Path, case_index: int = None) -> 
 def gen_cast_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
     def golden_func(inputs, params: dict):
-        cast_type = params["mode"]
-        dtype_out = get_dtype_by_name(params["dst_dtype"])
-        # {CAST_NONE{0}, CAST_RINT{1}, CAST_ROUND{2}, CAST_FLOOR{3}, CAST_CEIL{4}, CAST_TRUNC{5}, CAST_ODD{6}}
-        cast_type_func = {1: np.rint, 2: np.round, 3: np.floor, 4: np.ceil, 5: np.trunc}
-        x = inputs[0]
-        if cast_type in cast_type_func.keys():
-            x = cast_type_func.get(cast_type)(x)
+        dtype_out = get_dtype_by_name(params["dst_dtype"], True)
+        if dtype_out is None:
+            return [inputs[0].astype(get_dtype_by_name(params["dst_dtype"]))]
+        x = torch.from_numpy(inputs[0])
+        if dtype_out == torch.bfloat16:
+            x = x.to(torch.float32).numpy().astype(bfloat16)
+        else:
+            x = x.to(dtype_out).numpy()
 
-        return [x.astype(dtype_out)]
+        return [x]
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Cast", golden_func, output, case_index)
