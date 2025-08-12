@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <sys/time.h>
 #include <algorithm>
 #include <memory>
 #include <map>
@@ -540,6 +541,21 @@ public:
 
 private:
     std::function<void()> callback_;
+};
+
+struct TimeStamp {
+    TimeStamp() { Reset(); }
+    uint64_t Duration() { return CurrentTime() - startTime; }
+    void Reset() { startTime = CurrentTime(); }
+
+    static uint64_t CurrentTime() {
+        struct timeval tv;
+        gettimeofday(&tv, NULL);
+        return tv.tv_sec * 1000000 + tv.tv_usec; // 1000000 is us per sec
+    }
+
+private:
+    uint64_t startTime;
 };
 
 } // namespace npu::tile_fwk

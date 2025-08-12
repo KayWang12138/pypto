@@ -275,6 +275,11 @@ struct FunctionInterpreter {
     std::vector<std::shared_ptr<FunctionFrame>> execDumpStack;
     int frameCount{0};
 
+    std::map<std::string, uint64_t> opUsage;
+    uint64_t dumpTensorUsage{0};
+    uint64_t dumpOperationUsage{0};
+    uint64_t totalTimeUsage{0};
+
     int GetThreadCount() const { return operationInterpreter->GetThreadCount(); }
 
     std::vector<std::shared_ptr<LogicalTensorData>> &GetInputDataViewList() {
@@ -434,14 +439,19 @@ struct FunctionInterpreter {
         if(op->GetOpcode() == Opcode::OP_CALL) {
             ExecuteOpCallLeaf(&ctx);
         } else {
+            TimeStamp ts;
             operationInterpreter->ExecuteOperation(&ctx);
+            opUsage[op->GetOpcodeStr()] += ts.Duration();
         }
         std::vector<std::shared_ptr<LogicalTensorData>> *ooperandDumpList =
             (&ctx)->ooperandInplaceDataViewList ? (&ctx)->ooperandInplaceDataViewList : (&ctx)->ooperandDataViewList;
+        TimeStamp ts;
         DumpOperationTensor((&ctx)->op, ooperandDumpList, (&ctx)->ioperandDataViewList);
+        dumpOperationUsage += ts.Duration();
     }
 
     void ExecuteHandleFunctionBegin(Function *func, std::shared_ptr<FunctionFrame> frame) {
+        TimeStamp ts;
         execDumpStack.push_back(frame);
         DumpFunctionHead(func);
         if (frame->inoutDataPair != nullptr) {
@@ -450,11 +460,14 @@ struct FunctionInterpreter {
                 DumpTensorBinary(func->GetIncast()[k], frame->inoutDataPair->incastDataViewList[k]);
             }
         }
+        dumpTensorUsage += ts.Duration();
     }
     void ExecuteHandleFunctionEnd() { execDumpStack.pop_back(); }
     void ExecuteHandleOperationBegin(Operation *op) {
         execDumpStack.back()->UpdateCurrentOperation(op);
+        TimeStamp ts;
         DumpOperation(op);
+        dumpOperationUsage += ts.Duration();
     }
     void ExecuteHandleOperationEnd() {}
 
@@ -672,7 +685,35 @@ struct FunctionInterpreter {
 
     void DumpSetLevelOperation() { execDumpLevel = EXEC_DUMP_LEVEL_OPERATION; }
     void DumpSetLevelTensor() { execDumpLevel = EXEC_DUMP_LEVEL_TENSOR; }
-    void DumpSetLevelReset() { execDumpLevel = 0; }
+
+    void DumpReset() {
+        execDumpLevel = 0;
+        opUsage.clear();
+        totalTimeUsage = 0;
+        dumpTensorUsage = 0;
+        dumpOperationUsage = 0;
+    }
+
+    std::string DumpStatistics() const {
+        std::stringstream ss;
+        const int labelWidth = 24;
+        uint64_t totalOpUsage = 0;
+        for (auto &[opcode, time] : opUsage) {
+            if (time) {
+                totalOpUsage += time;
+                ss << std::left << std::setw(labelWidth) << opcode << ": " << time << "\n";
+            }
+        }
+        ss << std::left << std::setw(labelWidth) << "TotalTimeUsage" << ": " << totalTimeUsage << "\n";
+        ss << std::left << std::setw(labelWidth) << "TotalOpUsage" << ": " << totalOpUsage << "\n";
+        if (dumpTensorUsage) {
+            ss << std::left << std::setw(labelWidth) << "TotalDumpTensorUsage:" << ": " << dumpTensorUsage << "\n";
+        }
+        if (dumpOperationUsage) {
+            ss << std::left << std::setw(labelWidth) << "TotalDumpOperationUsage" << ": " << dumpOperationUsage << "\n";
+        }
+        return ss.str();
+    }
 
     std::shared_ptr<FunctionCaptureExecution> ExecuteUnit(
             Function *func,
@@ -726,10 +767,15 @@ struct FunctionInterpreter {
         }
 
         DumpBegin();
+        TimeStamp ts;
         ExecuteControlFlow(entry_, *execution);
 
         std::vector<std::shared_ptr<LogicalTensor>> empty(goldenDataViewList.size(), nullptr);
+        TimeStamp ts1;
         DumpTensorList("Golden", &empty, &goldenDataViewList);
+        dumpTensorUsage += ts1.Duration();
+        totalTimeUsage += ts.Duration();
+
         DumpEnd();
         return execution;
     }
@@ -741,9 +787,13 @@ struct FunctionInterpreter {
         execDumpFuncKey = funcKey;
 
         DumpBegin();
+        TimeStamp ts;
         std::shared_ptr<FunctionCaptureExecution> unitCapture = ExecuteUnit(func, capture);
         DumpEnd();
+        TimeStamp ts1;
         DumpPassTensorDiff(unitCapture, capture);
+        dumpTensorUsage += ts1.Duration();
+        totalTimeUsage += ts.Duration();
         return unitCapture;
     }
 
@@ -754,7 +804,9 @@ struct FunctionInterpreter {
         execDumpFuncKey = funcKey;
 
         DumpBegin();
+        TimeStamp ts;
         std::shared_ptr<FunctionCaptureExecution> unitCapture = ExecuteUnit(func, capture);
+        totalTimeUsage += ts.Duration();
         DumpEnd();
         return unitCapture;
     }

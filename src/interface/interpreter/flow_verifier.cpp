@@ -128,7 +128,8 @@ void FlowVerifier::VerifyTensorGraph(
     }
     controlFlowExecution_ =
         functionInterpreter_->RunForControlFlow("tensor_graph", goldenDataViewList_, slotTileOpFormatDict, slotDataViewDict, outputSlotSet, controlFlowSymbolDict);
-    functionInterpreter_->DumpSetLevelReset();
+    ALOG_EVENT(entry->GetMagicName() + "_tensor_graph\n", functionInterpreter_->DumpStatistics());
+    functionInterpreter_->DumpReset();
     if (config::GetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true)) {
         auto tensorGraphResult = VerifyResult("Tensor graph", goldenDataViewList_, outputDataViewList_, static_cast<float>(1e-3));
         ASSERT(tensorGraphResult) << "Verify Tensor Graph Fail!";
@@ -219,7 +220,8 @@ void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &
             ASSERT(passResult) << "Verify Pass Fail!";
         }
     }
-    functionInterpreter_->DumpSetLevelReset();
+    ALOG_EVENT(func->GetMagicName() + "_" + passIdentifier + "\n", functionInterpreter_->DumpStatistics());
+    functionInterpreter_->DumpReset();
 }
 
 void FlowVerifier::VerifyExecuteGraph() {
@@ -240,7 +242,8 @@ void FlowVerifier::VerifyExecuteGraph() {
             }
             auto &capture = captureList[captureIndex];
             auto captureExecution = functionInterpreter_->RunForExecuteGraph(key, func, capture);
-            functionInterpreter_->DumpSetLevelReset();
+            ALOG_EVENT(func->GetMagicName() + "_tensor_graph\n", functionInterpreter_->DumpStatistics());
+            functionInterpreter_->DumpReset();
             if (config::GetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_CHECK_PRECISION, true)) {
                 auto executeResult = VerifyResult(key, capture->golden->outcastDataViewList, captureExecution->golden->outcastDataViewList,
                     static_cast<float>(1e-3));
