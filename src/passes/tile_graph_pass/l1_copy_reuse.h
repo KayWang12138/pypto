@@ -69,10 +69,12 @@ public:
     ~L1CopyInReuseMerge() override = default;
 
 private:
-    void L1CopyInReuseMergeCall(Function &func) const;
+    Status L1CopyInReuse(Function &func) const;
     Status RunOnFunction(Function &function) override {
-        ASLOGI("===> Start L1CopyInReuseMerge.");
-        L1CopyInReuseMergeCall(function);
+        ASLOGI("===> Start L1CopyInReusePass.");
+        if (L1CopyInReuse(function) == FAILED) {
+          return FAILED;
+        }
         EliminateDeadOperationBackward(function);
         ALOG_INFO_F("===> Finish L1CopyInReuseMerge.");
         return SUCCESS;

@@ -29,6 +29,41 @@ public:
     ~NBufferMerge() override = default;
 private:
     Status RunOnFunction(Function &function) override;
+    Status NBufferMergeProcess(Function &func, int numDB);
+    Status Init(Function &func);
+    void InitParam(OperationsViewer &opOriList);
+    void GetOpHash(std::vector<uint64_t> &hashList, const std::string op, int idx);
+    void GetOpHashReverse(std::vector<uint64_t> &hashList, const std::string op, int idx);
+    void GetColorHash(const OperationsViewer &opOriList, 
+                      std::vector<uint64_t> &hashColor, 
+                      std::map<uint64_t, std::vector<int>> &hashMap);
+    Status CheckAndFixColorOrder(OperationsViewer &opOriList, 
+                               int &color1, std::vector<int> &colorCycles1,
+                               std::vector<std::vector<int>> &colorNode1);
+    std::map<uint64_t, size_t> GetIsoColorMergeNum(const OperationsViewer &opOriList,
+                                                   const std::map<uint64_t, std::vector<int>> &hashMap) const;
+    std::vector<std::vector<int>> SortColorWithInput(std::vector<int> &colorValues) const;
+    Status MergeProcess(const OperationsViewer &opOriList, 
+                        std::map<uint64_t, std::vector<int>> &hashMap, 
+                        std::map<uint64_t, size_t> &hashMergeNum, 
+                        std::vector<uint64_t> &hashColor);
+    Status ColorTopo(int &color1, 
+                     std::vector<std::vector<int>> &inputColor, 
+                     std::vector<std::vector<int>> &outputColor, 
+                     OperationsViewer &opOriList);
+    void MergePingPong(std::vector<std::vector<int>> &sortedColors, 
+                       const OperationsViewer &opOriList, 
+                       std::vector<uint64_t> &hashColor, 
+                       std::map<uint64_t, size_t> &hashMergeNum, 
+                       uint64_t &colorHashValue);
+private:
+    int color_{0};
+    std::vector<std::vector<int>> inGraph_;
+    std::vector<std::vector<int>> outGraph_;
+    std::vector<std::vector<int>> inColor_;
+    std::vector<std::vector<int>> outColor_;
+    std::vector<std::vector<int>> colorNode_;
+    std::vector<int> colorCycles_;
 };
 }  // namespace npu::tile_fwk
 #endif  // PASS_N_BUFFER_MERGE_H_

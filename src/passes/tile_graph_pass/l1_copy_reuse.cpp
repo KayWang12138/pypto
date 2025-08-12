@@ -19,6 +19,10 @@
 namespace npu::tile_fwk {
 inline std::vector<int> GetGMInputFeature(const Operation &op) { // 提取GM tensor的特征
     auto ioperand = op.GetIOperands()[0];
+    if (ioperand == nullptr) {
+        ALOG_ERROR_F("[L1CopyReuse] op %d ioperand is nullptr", op.GetOpMagic());
+        return {};
+    }
     std::vector<int> vec = {ioperand->GetRawTensor()->GetRawMagic()};
     std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
     std::vector<OpImmediate> opImmList = attr->GetCopyInAttr().first;
@@ -44,7 +48,7 @@ void L1CopyInReuseRunner::GetDuplicateOps(std::vector<Operation *> &opOriList,
     replacedCopyMap_.clear();
     tensormagic2Op_.clear();
     for (auto i : opIdx) {
-        if (opOriList[i]->GetOpcodeStr() == "COPY_IN" && MemoryTypeToString(opOriList[i]->GetOOperands()[0]->GetMemoryTypeOriginal()) == "MEM_L1") {
+        if (opOriList[i]->GetOpcode() == Opcode::OP_COPY_IN && opOriList[i]->GetOOperands()[0]->GetMemoryTypeOriginal() == MEM_L1) {
             auto outputMagic = opOriList[i]->GetOOperands()[0]->GetRawTensor()->GetRawMagic();
             auto feature = GetGMInputFeature(*opOriList[i]);
             if (tensor2Op.find(feature) != tensor2Op.end() && tensor2Op[feature] != i) {
@@ -58,10 +62,10 @@ void L1CopyInReuseRunner::GetDuplicateOps(std::vector<Operation *> &opOriList,
 }
 
 void L1CopyInReuseRunner::TackleOp(int i, Operation *op, std::vector<std::vector<int>> &replacedInputs, std::vector<std::vector<int>> &replacedOutputs) {
-    if (op->GetOpcodeStr() == "COPY_IN" && MemoryTypeToString(op->GetOOperands()[0]->GetMemoryTypeOriginal()) == "MEM_L1") {
+    if (op->GetOpcode() == Opcode::OP_COPY_IN && op->GetOOperands()[0]->GetMemoryTypeOriginal() == MEM_L1) {
         auto allocedL1BufId = op->GetOOperands()[0]->GetRawTensor()->GetRawMagic();
         if (tensormagic2Op_.find(allocedL1BufId) != tensormagic2Op_.end()) {
-            ALOG_INFO_F("Remove useless op [%d, %s]", op->GetOpMagic(), op->GetOpcodeStr().c_str());
+            ALOG_INFO_F("[L1CopyReuse] Remove useless op [%d, %s]", op->GetOpMagic(), op->GetOpcodeStr().c_str());
             op->SetAsDeleted();
         }
     } else {
@@ -103,7 +107,7 @@ void L1CopyInReuseRunner::MergeDupL1CopyIn(
         }
         // 重新连边
         for (auto &replacedInput : replacedInputs) {
-            ALOG_INFO_F("Relink op [%d] input [%d] to op [%d] output [%d]", oriList[replacedInput[0]]->GetOpMagic(), replacedInput[1],
+            ALOG_INFO_F("[L1CopyReuse] Relink op [%d] input [%d] to op [%d] output [%d]", oriList[replacedInput[0]]->GetOpMagic(), replacedInput[1],
                         oriList[replacedInput[2]]->GetOpMagic(), replacedInput[3]);
             FunctionUtils::RelinkOperationInput(oriList[replacedInput[0]], replacedInput[1],
                                                 oriList[replacedInput[2]], replacedInput[3]);
@@ -137,7 +141,7 @@ inline std::vector<int> GetCopyIn(const OperationsViewer &opOriList, int color, 
     std::vector<int> colorCopyIn(color, 0);
     for (int i = 0; i < color; i++) {
         for (int j : colorNode[i]) {
-            if (opOriList[j].GetOpcodeStr() == "COPY_IN" && MemoryTypeToString(opOriList[j].GetOOperands()[0]->GetMemoryTypeOriginal()) == "MEM_L1") {
+            if (opOriList[j].GetOpcode() == Opcode::OP_COPY_IN && opOriList[j].GetOOperands()[0]->GetMemoryTypeOriginal() == MEM_L1) {
                 int volume = BytesOf(opOriList[j].GetOOperands()[0]->Datatype());
                 std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(opOriList[j].GetOpAttribute());
                 auto shape = attr->GetSpecifiedShape(1);
@@ -168,7 +172,7 @@ void L1CopyInReuseRunner::GetColorHash(const OperationsViewer &opOriList, std::v
     std::vector<uint64_t> hashTileOp(opOriList.size(), 0);
     for (size_t i = 0; i < opOriList.size(); i++) {
             GetOpHash(hashTileOp, opOriList[i].GetOpcodeStr(), i);
-        }
+    }
     uint64_t a = 0x12345678;
     uint64_t p = 23;
     std::set<int32_t> mulaccGraph;
@@ -176,7 +180,7 @@ void L1CopyInReuseRunner::GetColorHash(const OperationsViewer &opOriList, std::v
         if (opOriList[i].GetSubgraphID() < 0) {
             continue;
         }
-        if (opOriList[i].GetOpcodeStr() == "COPY_IN" && MemoryTypeToString(opOriList[i].GetOOperands()[0]->GetMemoryTypeOriginal()) == "MEM_L1") {
+        if (opOriList[i].GetOpcode() == Opcode::OP_COPY_IN && opOriList[i].GetOOperands()[0]->GetMemoryTypeOriginal() == MEM_L1) {
             mulaccGraph.insert(opOriList[i].GetSubgraphID());
         }
         hashColor[opOriList[i].GetSubgraphID()] = hashColor[opOriList[i].GetSubgraphID()] * p + (hashTileOp[i] ^ a);
@@ -190,10 +194,10 @@ void L1CopyInReuseRunner::GetColorHash(const OperationsViewer &opOriList, std::v
         }
     }
     for (auto& entry : hashMap) {
-        ALOG_INFO_F("Subgraph hash: %lu, Subgraph ID: %s.", entry.first, IntVecToStr(entry.second).c_str());
+        ALOG_INFO_F("[L1CopyReuse] Subgraph hash: %lu, Subgraph ID: %s.", entry.first, IntVecToStr(entry.second).c_str());
     }
     for (auto& entry : hashOrder) {
-        ALOG_INFO_F("Subgraph hash: %lu, Hash order: %d.", entry.first, entry.second);
+        ALOG_INFO_F("[L1CopyReuse] Subgraph hash: %lu, Hash order: %d.", entry.first, entry.second);
     }
 }
 
@@ -215,10 +219,10 @@ inline void HashUpdate(std::unordered_map<uint64_t, std::vector<int>> &hashMap, 
         }
     }
     for (auto& entry : hashMap) {
-        ALOG_INFO_F("Subgraph hash: %lu, Subgraph ID: %s.", entry.first, IntVecToStr(entry.second).c_str());
+        ALOG_INFO_F("[L1CopyReuse] Subgraph hash: %lu, Subgraph ID: %s.", entry.first, IntVecToStr(entry.second).c_str());
     }
     for (auto& entry : hashOrder) {
-        ALOG_INFO_F("Subgraph hash: %lu, Hash order: %d.", entry.first, entry.second);
+        ALOG_INFO_F("[L1CopyReuse] Subgraph hash: %lu, Hash order: %d.", entry.first, entry.second);
     }
 }
 
@@ -236,22 +240,17 @@ std::vector<int> L1CopyInReuseRunner::SetNumLR() {
 void L1CopyInReuseRunner::Phase1(Function &func, int color, std::vector<std::vector<int>> &colorNode,
                                             std::vector<int> &colorCopyIn, std::vector<uint64_t> &hashColor) {
     // 针对matmul的L1 copy reuse进行子图合并
-    // 字典：op搬运的矩阵块 映射 颜色
     auto opOriList = func.Operations();
     std::map<std::vector<int>, int> l1InputList;
-    // L1Reuse参数设置
-    std::vector<int> numLRList = SetNumLR();
-    // 记录某颜色现有子图个数
+    std::vector<int> numLRList = SetNumLR();  //L1Reuse参数设置
     std::vector<int> mergedNum(color, 1);
-    // L1 Reuse
     for (int i = 0; i < color; i++) {
         int tmpColor = -1;
-        // 检查当前子图可否合入前面的子图
         auto maxInColor = GetMaxInColor(colorNode[i], opOriList, i);
         size_t j = 0;
         while (colorCopyIn[i] <= copyInThreshold && j < colorNode[i].size()) {
             auto opIdx = colorNode[i][j];
-            if (opOriList[opIdx].GetOpcodeStr() == "COPY_IN" && MemoryTypeToString(opOriList[opIdx].GetOOperands()[0]->GetMemoryTypeOriginal()) == "MEM_L1") {
+            if (opOriList[opIdx].GetOpcode() == Opcode::OP_COPY_IN && opOriList[opIdx].GetOOperands()[0]->GetMemoryTypeOriginal() == MEM_L1) {
                 auto vec = GetGMInputFeature(opOriList[opIdx]);
                 auto copyId = l1InputList.find(vec);
                 if (copyId != l1InputList.end() && copyId->second >= maxInColor && colorCopyIn[copyId->second] + colorCopyIn[i] <= copyInThreshold &&
@@ -265,20 +264,18 @@ void L1CopyInReuseRunner::Phase1(Function &func, int color, std::vector<std::vec
         if (tmpColor == -1) {
             tmpColor = i;
         }
-        // 记录当前子图所有的L1_COPY_IN搬入的tensor特征
         for (auto opIdx : colorNode[i]) {
-            if (opOriList[opIdx].GetOpcodeStr() == "COPY_IN" && MemoryTypeToString(opOriList[opIdx].GetOOperands()[0]->GetMemoryTypeOriginal()) == "MEM_L1") {
+            if (opOriList[opIdx].GetOpcode() == Opcode::OP_COPY_IN && opOriList[opIdx].GetOOperands()[0]->GetMemoryTypeOriginal() == MEM_L1) {
                 auto vec = GetGMInputFeature(opOriList[opIdx]);
                 l1InputList[vec] = tmpColor;
             }
-        }
-        // 合入子图
+        }  // 记录当前子图所有的L1_COPY_IN搬入的tensor特征
         if (tmpColor != i) {
             for (auto t : colorNode[i]) {
                 opOriList[t].UpdateSubgraphID(tmpColor);
                 colorNode[tmpColor].push_back(t);
             }
-            ALOG_INFO_F("Subgraph merge: %lu, %lu.", i, tmpColor);
+            ALOG_INFO_F("[L1CopyReuse] Subgraph merge: %lu, %lu.", i, tmpColor);
             colorNode[i].clear();
             colorCopyIn[tmpColor] = colorCopyIn[tmpColor] + colorCopyIn[i];
             mergedNum[i] = 0;
@@ -288,7 +285,7 @@ void L1CopyInReuseRunner::Phase1(Function &func, int color, std::vector<std::vec
             hashColor[tmpColor] += hashColor[i];
             hashColor[i] = 0;
             hashMap[hashColor[tmpColor]].push_back(tmpColor);
-        }
+        }  // 合入子图
     }
 }
 
@@ -336,21 +333,18 @@ void L1CopyInReuseRunner::Run(Function &func, int color, std::vector<std::vector
     auto colorCopyIn = GetCopyIn(opOriList, color, colorNode);
     // 合并阈值参数设置
     copyInThreshold = func.paramConfigs_.sgCopyInThreshold;
-    // L1Reuse
     numLR = func.paramConfigs_.l1ReuseNum;
     numDB_ = func.paramConfigs_.cubeNBufferNum;
     numLRMap = func.paramConfigs_.l1ReuseMap;
     numDBMap = func.paramConfigs_.cubeNBufferMap;
-
-    isLoadBalance = func.paramConfigs_.loadBalance; 
-
+    isLoadBalance = func.paramConfigs_.loadBalance;
+    ALOG_INFO_F("[L1CopyReuse] Param Setting numLR %d, numDB %d, isLoadBalance %d, copyInThreshold %d.", 
+                                                            numLR, numDB_, isLoadBalance, copyInThreshold);
     if (numLR != 0 || numLRMap.size() != 0) {
         Phase1(func, color, colorNode, colorCopyIn, hashColor);
         HashUpdate(hashMap, hashOrder, color, hashColor);
     }
-    // NBuffer参数设置
-    std::vector<int> hashMergeNum = SetNumDB();
-    // NBuffer
+    std::vector<int> hashMergeNum = SetNumDB();  //NBuffer参数设置
     for (auto &entry : hashMap) {
         uint64_t colorHashValue = entry.first;
         std::vector<int> &colorValues = entry.second;
@@ -368,7 +362,7 @@ void L1CopyInReuseRunner::Run(Function &func, int color, std::vector<std::vector
                     opOriList[opIdxMergedDB].UpdateSubgraphID(pingColor);
                     colorNode[pingColor].push_back(opIdxMergedDB);
                 }
-                ALOG_INFO_F("Subgraph merge: %lu, %lu.", pingColor, pongColor);
+                ALOG_INFO_F("[L1CopyReuse] Subgraph merge: %lu, %lu.", pingColor, pongColor);
                 colorNode[pongColor].clear();
             }
         }
@@ -377,8 +371,7 @@ void L1CopyInReuseRunner::Run(Function &func, int color, std::vector<std::vector
     for (auto &op : func.Operations()) {
         assert(static_cast<size_t>(op.GetSubgraphID()) <= func.GetTotalSubGraphCount());
     }
-    RemoveUselessViews(func);
-    //删除节点
+    RemoveUselessViews(func); //删除节点
     func.EraseOperations(true);
     RescheduleUtils::PrintColorNode(func);
 }
@@ -405,22 +398,27 @@ void L1CopyInReuseRunner::RemoveUselessViews(Function &func) const {
     }
 }
 
-void L1CopyInReuseMerge::L1CopyInReuseMergeCall(Function &func) const {
+Status L1CopyInReuseMerge::L1CopyInReuse(Function &func) const {
     auto numLR = func.paramConfigs_.l1ReuseNum;
     auto numLRMap = func.paramConfigs_.l1ReuseMap;
     auto numDB = func.paramConfigs_.cubeNBufferNum;
     auto numDBMap = func.paramConfigs_.cubeNBufferMap;
-    ALOG_INFO_F("L1 Reuse Setting: %d", numLR);
+    ALOG_INFO_F("[L1CopyReuse] L1 Reuse Setting: %d", numLR);
     if (numLR == 0 && numDB == 1 && numLRMap.size() == 0 && numDBMap.size() == 0) {
-        return;
+        ALOG_INFO_F("[L1CopyReuse] Init Param default.");
+        return SUCCESS;
     }
     int colorMax{0};
     std::set<int> colorSet;
     auto opOriList = func.Operations();
     for (size_t i = 0; i < opOriList.size(); i++) {
-        if (opOriList[i].GetOpcodeStr() == "COPY_IN" && MemoryTypeToString(opOriList[i].GetOOperands()[0]->GetMemoryTypeOriginal()) == "MEM_L1") {
+        if (opOriList[i].GetOpcode() == Opcode::OP_COPY_IN && opOriList[i].GetOOperands()[0]->GetMemoryTypeOriginal() == MEM_L1) {
             auto feature = GetGMInputFeature(opOriList[i]);
-            ALOG_INFO_F("Op %d feature: %s", i, IntVecToStr(feature).c_str());
+            if (feature.size() == 0) {
+                ALOG_ERROR_F("[L1CopyReuse] Get Feature FAILED.");
+                return FAILED;
+            }
+            ALOG_INFO_F("[L1CopyReuse] Op %d feature: %s", i, IntVecToStr(feature).c_str());
         }
         auto opColor = opOriList[i].GetSubgraphID();
         colorSet.insert(opColor);
@@ -445,5 +443,6 @@ void L1CopyInReuseMerge::L1CopyInReuseMergeCall(Function &func) const {
     auto &inGraph = inOutGraph[0];
     L1CopyInReuseRunner runner(inGraph);
     runner.Run(func, color, colorNode);
+    return SUCCESS;
 }
 }  // namespace npu::tile_fwk

@@ -20,33 +20,8 @@
 #include "passes/pass_config/pass_config_manager.h"
 
 namespace npu::tile_fwk {
-class NBufferMerger {
-  public:
-    bool NBufferMerge(Function &func, int dbMerging, int numDB, int copyInThreshold);
-  private:
-    std::vector<std::vector<int>> inGraph_;
-    std::vector<std::vector<int>> outGraph_;
-    std::vector<std::vector<int>> inColor_;
-    std::vector<std::vector<int>> outColor_;
-    int color_;
-    std::vector<std::vector<int>> colorNode_;
-    std::vector<int> colorCycles_;
-  private:
-    bool Init(Function &func);
-    void GetOpHash(std::vector<uint64_t> &hashList, const std::string op, int idx);
-    void GetOpHashReverse(std::vector<uint64_t> &hashList, const std::string op, int idx);
-    void GetColorHash(const OperationsViewer &opOriList,const int dbMerging,
-                      std::vector<uint64_t> &hashColor, std::map<uint64_t, std::vector<int>> &hashMap);
-    void CheckAndFixColorOrder(OperationsViewer &opOriList, int &color1, std::vector<int> &colorCycles1,
-        std::vector<std::vector<int>> &colorNode1);
-    std::map<uint64_t, size_t> GetIsoColorMergeNum(const OperationsViewer &opOriList,
-        const std::map<uint64_t, std::vector<int>> &hashMap) const;
-    std::vector<std::vector<int>> SortColorWithInput(std::vector<int> &colorValues) const;
-    bool Process(const OperationsViewer &opOriList, std::map<uint64_t, std::vector<int>> &hashMap, int copyInThreshold,
-        std::map<uint64_t, size_t> &hashMergeNum, std::vector<uint64_t> &hashColor);
-};
 
-void NBufferMerger::GetOpHash(std::vector<uint64_t> &hashList, const std::string op, int idx) {
+void NBufferMerge::GetOpHash(std::vector<uint64_t> &hashList, const std::string op, int idx) {
     uint64_t a = 0x12345678;
     uint64_t p = 37;
     uint64_t hash = 0;
@@ -59,7 +34,7 @@ void NBufferMerger::GetOpHash(std::vector<uint64_t> &hashList, const std::string
     hashList[idx] = hash;
 }
 
-void NBufferMerger::GetOpHashReverse(std::vector<uint64_t> &hashList, const std::string op, int idx) {
+void NBufferMerge::GetOpHashReverse(std::vector<uint64_t> &hashList, const std::string op, int idx) {
     uint64_t a = 0x12345678;
     uint64_t p = 37;
     uint64_t hash = 0;
@@ -72,8 +47,10 @@ void NBufferMerger::GetOpHashReverse(std::vector<uint64_t> &hashList, const std:
     hashList[idx] = hash;
 }
 
-void UpdateOpColor(OperationsViewer &opOriList, int &color, std::vector<int> &colorCycles,
-    std::vector<std::vector<int>> &colorNode) {
+void UpdateOpColor(OperationsViewer &opOriList, 
+                   int &color, 
+                   std::vector<int> &colorCycles,
+                   std::vector<std::vector<int>> &colorNode) {
     std::vector<int> oriColor2NewColor(color);
     int colorCount = 0;
     for (int i = 0; i < color; i++) {
@@ -93,23 +70,10 @@ void UpdateOpColor(OperationsViewer &opOriList, int &color, std::vector<int> &co
     }
 }
 
-void NBufferMerger::CheckAndFixColorOrder(OperationsViewer &opOriList, int &color1, std::vector<int> &colorCycles1,
-    std::vector<std::vector<int>> &colorNode1) {
-    UpdateOpColor(opOriList, color1, colorCycles1, colorNode1);
-    // 颜色拓扑排序
-    std::vector<std::vector<int>> inputColor(color1);
-    std::vector<std::vector<int>> outputColor(color1);
-    for (size_t i = 0; i < opOriList.size(); i++) {
-        for (int j : outGraph_[i]) {
-            if (opOriList[i].GetSubgraphID() < 0 || opOriList[j].GetSubgraphID() < 0) {
-                continue;
-            }
-            if (opOriList[i].GetSubgraphID() != opOriList[j].GetSubgraphID()) {
-                outputColor[opOriList[i].GetSubgraphID()].push_back(opOriList[j].GetSubgraphID());
-                inputColor[opOriList[j].GetSubgraphID()].push_back(opOriList[i].GetSubgraphID());
-            }
-        }
-    }
+Status NBufferMerge::ColorTopo(int &color1, 
+                                   std::vector<std::vector<int>> &inputColor, 
+                                   std::vector<std::vector<int>> &outputColor, 
+                                   OperationsViewer &opOriList) {
     std::vector<int> colorQueue(color1);
     std::vector<int> colorInDegree(color1);
     int colorQueueHead = 0;
@@ -134,8 +98,8 @@ void NBufferMerger::CheckAndFixColorOrder(OperationsViewer &opOriList, int &colo
     // 这里1.0中遍历了前color个节点，这里修改成遍历所有的color
     for (int i = 0; i < color1; i++) {
         if (colorInDegree[i] != 0) {
-            ALOG_ERROR_F("Color [%d] has cycle in graph", i);
-            assert(false);
+            ALOG_ERROR_F("[NBUFFER_MERGE] Color [%d] has cycle in graph", i);
+            return FAILED;
         }
     }
     std::vector<int> colorQueueReverse(color1);
@@ -148,7 +112,31 @@ void NBufferMerger::CheckAndFixColorOrder(OperationsViewer &opOriList, int &colo
         }
         opOriList[i].UpdateSubgraphID(colorQueueReverse[opOriList[i].GetSubgraphID()]);
     }
+    return SUCCESS;
+}
 
+Status NBufferMerge::CheckAndFixColorOrder(OperationsViewer &opOriList, 
+                                            int &color1, 
+                                            std::vector<int> &colorCycles1,
+                                            std::vector<std::vector<int>> &colorNode1) {
+    UpdateOpColor(opOriList, color1, colorCycles1, colorNode1);
+    // 颜色拓扑排序
+    std::vector<std::vector<int>> inputColor(color1);
+    std::vector<std::vector<int>> outputColor(color1);
+    for (size_t i = 0; i < opOriList.size(); i++) {
+        for (int j : outGraph_[i]) {
+            if (opOriList[i].GetSubgraphID() < 0 || opOriList[j].GetSubgraphID() < 0) {
+                continue;
+            }
+            if (opOriList[i].GetSubgraphID() != opOriList[j].GetSubgraphID()) {
+                outputColor[opOriList[i].GetSubgraphID()].push_back(opOriList[j].GetSubgraphID());
+                inputColor[opOriList[j].GetSubgraphID()].push_back(opOriList[i].GetSubgraphID());
+            }
+        }
+    }
+    if (ColorTopo(color1, inputColor, outputColor, opOriList) == FAILED) {
+        return FAILED;
+    }
     // 重新统计colorNode等
     for (size_t i = 0; i < opOriList.size(); i++) {
         if (opOriList[i].GetSubgraphID() < 0) {
@@ -157,33 +145,13 @@ void NBufferMerger::CheckAndFixColorOrder(OperationsViewer &opOriList, int &colo
         colorCycles1[opOriList[i].GetSubgraphID()] += opOriList[i].GetLatency();
         colorNode1[opOriList[i].GetSubgraphID()].push_back(i);
     }
+    return SUCCESS;
 }
 
-bool NBufferMerger::Init(Function &func) {
-    size_t colorMax{0U};
-    std::set<int> colorSet;
-    auto opOriList = func.Operations();
-    for (size_t i = 0; i < opOriList.size(); i++) {
-        if (opOriList[i].GetSubgraphID() < 0) {
-            continue;
-        }
-        colorSet.insert(opOriList[i].GetSubgraphID());
-        if (opOriList[i].GetSubgraphID() > static_cast<int>(colorMax)) {
-            colorMax = opOriList[i].GetSubgraphID();
-        }
-    }
-    if (colorSet.size() != colorMax + 1) {
-        ALOG_ERROR_F("[NBUFFER_MERGE] colors are not continously numbered from 0");
-        return false;
-    }
-    color_ = colorMax + 1;
-    colorNode_.resize(color_);
-    colorCycles_.resize(color_, 0);
-    inColor_.resize(color_);
-    outColor_.resize(color_);
-    std::vector<std::mutex> subgraphMtx(colorMax+1);
-    std::vector<std::mutex> inColorMtx(colorMax+1);
-    std::vector<std::mutex> outColorMtx(colorMax+1);
+void NBufferMerge::InitParam(OperationsViewer &opOriList) {
+    std::vector<std::mutex> subgraphMtx(color_);
+    std::vector<std::mutex> inColorMtx(color_);
+    std::vector<std::mutex> outColorMtx(color_);
     ParallelTool::Instance().Parallel_for(0, opOriList.size(),1,[&](int st,int et,int tid) {
         (void) tid;
         for (int i = st; i < et; i++) {
@@ -213,6 +181,35 @@ bool NBufferMerger::Init(Function &func) {
             }
         }
     });
+}
+
+Status NBufferMerge::Init(Function &func) {
+    size_t colorMax{0U};
+    std::set<int> colorSet;
+    auto opOriList = func.Operations();
+    for (size_t i = 0; i < opOriList.size(); i++) {
+        if (opOriList[i].GetSubgraphID() < 0) {
+            continue;
+        }
+        colorSet.insert(opOriList[i].GetSubgraphID());
+        if (opOriList[i].GetSubgraphID() > static_cast<int>(colorMax)) {
+            colorMax = opOriList[i].GetSubgraphID();
+        }
+    }
+    if (colorSet.size() == 0) {
+        ALOG_INFO_F("[NBUFFER_MERGE] color size is 0, skip nbuffer merge.");
+        return SUCCESS;
+    }
+    if (colorSet.size() != colorMax + 1) {
+        ALOG_ERROR_F("[NBUFFER_MERGE] colors are not continously numbered from 0");
+        return FAILED;
+    }
+    color_ = colorMax + 1;
+    colorNode_.resize(color_);
+    colorCycles_.resize(color_, 0);
+    inColor_.resize(color_);
+    outColor_.resize(color_);
+    InitParam(opOriList);
     std::vector<Operation *> opList;
     for (auto &op : func.Operations()) {
         opList.emplace_back(&op);
@@ -220,12 +217,12 @@ bool NBufferMerger::Init(Function &func) {
     auto inOutGraph = RescheduleUtils::GetInOutGraphs(opList, func.GetFuncMagic());
     inGraph_ = inOutGraph[0];
     outGraph_ = inOutGraph[1];
-    ALOG_INFO_F("Before Nbuffer merge");
+    ALOG_INFO_F("[NBUFFER_MERGE] Before Nbuffer merge");
     RescheduleUtils::PrintColorNode(func);
-    return true;
+    return SUCCESS;
 }
 
-std::map<uint64_t, size_t> NBufferMerger::GetIsoColorMergeNum(const OperationsViewer &opOriList,
+std::map<uint64_t, size_t> NBufferMerge::GetIsoColorMergeNum(const OperationsViewer &opOriList,
     const std::map<uint64_t, std::vector<int>> &hashMap) const {
     std::map<uint64_t, size_t> hashCoreNum;
     for (auto& entry : hashMap) {
@@ -243,7 +240,8 @@ std::map<uint64_t, size_t> NBufferMerger::GetIsoColorMergeNum(const OperationsVi
         if (hashCoreNum.find(entry.first) == hashCoreNum.end()) {
             hashCoreNum[entry.first] = PassConfigManager::Instance().GetPlatformConfig().GetCoreNum(NpuCoreType::VECTORCORE);
         }
-        ALOG_INFO_F("Subgraph hash: %lu, size %zu, core num: %zu.", entry.first, entry.second.size(), hashCoreNum[entry.first]);
+        ALOG_INFO_F("[NBUFFER_MERGE] Subgraph hash: %lu, size %zu, core num: %zu.", 
+                    entry.first, entry.second.size(), hashCoreNum[entry.first]);
         if (entry.second.size() <= hashCoreNum[entry.first]) {
             hashCoreNum[entry.first] = 1U;
             continue;
@@ -255,23 +253,17 @@ std::map<uint64_t, size_t> NBufferMerger::GetIsoColorMergeNum(const OperationsVi
             usedCore = (entry.second.size() + initNum - 1) / initNum;
         }
         hashCoreNum[entry.first] = initNum;
-        ALOG_INFO_F("Subgraph hash: %lu, merge num: %zu.", entry.first, hashCoreNum[entry.first]);
+        ALOG_INFO_F("[NBUFFER_MERGE] Subgraph hash: %lu, merge num: %zu.", entry.first, hashCoreNum[entry.first]);
     }
     return hashCoreNum;
 }
 
-void NBufferMerger::GetColorHash(const OperationsViewer &opOriList, const int dbMerging,
+void NBufferMerge::GetColorHash(const OperationsViewer &opOriList, 
                                  std::vector<uint64_t> &hashColor,
                                  std::map<uint64_t, std::vector<int>> &hashMap) {
     std::vector<uint64_t> hashTileOp(opOriList.size(), 0);
-    if (dbMerging == 1) {
-        for (size_t i = 0; i < opOriList.size(); i++) {
-            GetOpHash(hashTileOp, opOriList[i].GetOpcodeStr(), i);
-        }
-    } else {
-        for (int i = opOriList.size() - 1; i > -1; i--) {
-            GetOpHashReverse(hashTileOp, opOriList[i].GetOpcodeStr(), i);
-        }
+    for (size_t i = 0; i < opOriList.size(); i++) {
+        GetOpHash(hashTileOp, opOriList[i].GetOpcodeStr(), i);
     }
     uint64_t a = 0x12345678;
     uint64_t p = 23;
@@ -303,10 +295,13 @@ inline int GetCopyIn(const OperationsViewer &opOriList, std::vector<int> &colorN
     // 获取子图CopyIn数据量
     int colorCopyIn = 0;
     for (int j : colorNode) {
-        if (opOriList[j].GetOpcodeStr() == "COPY_IN") {
+        if (opOriList[j].GetOpcode() == Opcode::OP_COPY_IN) { //getopcode == opcode::OP_COPY_IN
             int volume = BytesOf(opOriList[j].GetOOperands()[0]->Datatype());
             std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(opOriList[j].GetOpAttribute());
-            if (attr == nullptr) {return colorCopyIn;}
+            if (attr == nullptr) {
+                ALOG_ERROR_F("[NBUFFER_MERGE] CopyOpAttribute is nullptr.");
+                return -1;
+            }
             auto shape = attr->GetSpecifiedShape(1);
             for (int k : shape) {
                 volume *= k;
@@ -317,7 +312,7 @@ inline int GetCopyIn(const OperationsViewer &opOriList, std::vector<int> &colorN
     return colorCopyIn;
 }
 
-std::vector<std::vector<int>> NBufferMerger::SortColorWithInput(std::vector<int> &colorValues) const {
+std::vector<std::vector<int>> NBufferMerge::SortColorWithInput(std::vector<int> &colorValues) const {
     std::map<int, std::vector<int>> inColorToOutColor;
     int inCount = -1;
     for (auto color : colorValues) {
@@ -359,8 +354,36 @@ std::vector<std::vector<int>> NBufferMerger::SortColorWithInput(std::vector<int>
     return res;
 }
 
-bool NBufferMerger::Process(const OperationsViewer &opOriList, std::map<uint64_t, std::vector<int>> &hashMap, int copyInThreshold,
-                            std::map<uint64_t, size_t> &hashMergeNum, std::vector<uint64_t> &hashColor) {
+void NBufferMerge::MergePingPong(std::vector<std::vector<int>> &sortedColors, 
+                                     const OperationsViewer &opOriList, 
+                                     std::vector<uint64_t> &hashColor, 
+                                     std::map<uint64_t, size_t> &hashMergeNum, 
+                                     uint64_t &colorHashValue) {
+    int pingColor = -1;
+    for (auto &input2Color : sortedColors) {
+        for (size_t i = 0; i < input2Color.size(); i++) {
+            if (i % hashMergeNum[colorHashValue] == 0) {
+                pingColor = input2Color[i];
+            } else {
+                int pongColor = input2Color[i];
+                for (auto opIdxMergedDB : colorNode_[pongColor]) {
+                    opOriList[opIdxMergedDB].UpdateSubgraphID(pingColor);
+                    colorNode_[pingColor].push_back(opIdxMergedDB);
+                }
+                colorCycles_[pingColor] += colorCycles_[pongColor];
+                hashColor[pingColor] += hashColor[pongColor];
+                colorCycles_[pongColor] = 0;
+                colorNode_[pongColor].clear();
+                hashColor[pongColor] = 0;
+            }
+        }
+    }
+}
+
+Status NBufferMerge::MergeProcess(const OperationsViewer &opOriList, 
+                                      std::map<uint64_t, std::vector<int>> &hashMap, 
+                                      std::map<uint64_t, size_t> &hashMergeNum, 
+                                      std::vector<uint64_t> &hashColor) {
     std::vector<uint64_t> hashMapKeys;
     for (auto &entry : hashMap) {
         hashMapKeys.push_back(entry.first);
@@ -369,88 +392,69 @@ bool NBufferMerger::Process(const OperationsViewer &opOriList, std::map<uint64_t
         (void) tid;
         for(int hashMapKeyIdx = st; hashMapKeyIdx < et; hashMapKeyIdx++) {
             uint64_t colorHashValue = hashMapKeys[hashMapKeyIdx];
-            if (colorHashValue == 0) {
-                continue;
-            }
+            if (colorHashValue == 0) continue;
             std::vector<int> &colorValues = hashMap[colorHashValue];
             auto sortedColors = SortColorWithInput(colorValues);
-            if (sortedColors.empty()) {
-                continue;
-            }
-            if (GetCopyIn(opOriList , colorNode_[sortedColors[0][0]]) > copyInThreshold) {
-                continue;
-            }
-            int pingColor = -1;
-            for (auto& input2Color : sortedColors) {
-                for (size_t i = 0; i < input2Color.size(); i++) {
-                    if (i % hashMergeNum[colorHashValue] == 0) {
-                        pingColor = input2Color[i];
-                    } else {
-                        int pongColor = input2Color[i];
-                        for (auto opIdxMergedDB : colorNode_[pongColor]) {
-                            opOriList[opIdxMergedDB].UpdateSubgraphID(pingColor);
-                            colorNode_[pingColor].push_back(opIdxMergedDB);
-                        }
-                        colorCycles_[pingColor] += colorCycles_[pongColor];
-                        hashColor[pingColor] += hashColor[pongColor];
-                        colorCycles_[pongColor] = 0;
-                        colorNode_[pongColor].clear();
-                        hashColor[pongColor] = 0;
-                    }
-                }
-            }
+            if (sortedColors.empty()) continue;
+            MergePingPong(sortedColors, opOriList, hashColor, hashMergeNum, colorHashValue);
         }
     });
-    return true;
+    return SUCCESS;
 }
 
-bool NBufferMerger::NBufferMerge(Function &func, int dbMerging, int numDB, int copyInThreshold) {
-    if (Init(func) == false) {
-        return false;
+Status NBufferMerge::NBufferMergeProcess(Function &func, int numDB) {
+    if (Init(func) == FAILED) {
+        ALOG_ERROR_F("[NBUFFER_MERGE] Init Failed.");
+        return FAILED;
+    }
+    if (color_ == 0) {
+        return SUCCESS;
     }
     // 如果子图个数已经少于核数； 后续按照core的类型来判断
     int coreNum = PassConfigManager::Instance().GetPlatformConfig().GetCoreNum(NpuCoreType::AICORE);
     if (color_ <= coreNum) {
-        ALOG_INFO_F("NBufferMerge is skipped. color: %d, aiCoreNum: %d", color_, coreNum);
-        return true;
+        ALOG_INFO_F("[NBUFFER_MERGE] NBufferMerge is skipped. color: %d, aiCoreNum: %d", color_, coreNum);
+        return SUCCESS;
     }
-    ALOG_INFO_F("User set nbuffer num: %d", numDB);
+    ALOG_INFO_F("[NBUFFER_MERGE] User set nbuffer num: %d", numDB);
     // 获取节点和子图的hash
     auto opOriList = func.Operations();
     std::vector<uint64_t> hashColor(color_, 0);
     std::map<uint64_t, std::vector<int>> hashMap;
-    GetColorHash(opOriList, dbMerging, hashColor, hashMap);
+    GetColorHash(opOriList, hashColor, hashMap);
     std::map<uint64_t, size_t> hashMergeNum;
-    if (numDB > 1) {
+    if (numDB == 1) {
+        ALOG_INFO_F("[NBUFFER_MERGE] Manually Set NumDB 1, Automatically Calculate MergeNum.");
+        hashMergeNum = GetIsoColorMergeNum(opOriList, hashMap);
+    } else {
+        ALOG_INFO_F("[NBUFFER_MERGE] Manually Set NumDB %d.", numDB);
         for (auto& entry : hashMap) {
             hashMergeNum[entry.first] = numDB;
         }
-    } else {
-        hashMergeNum = GetIsoColorMergeNum(opOriList, hashMap);
     }
-    Process(opOriList, hashMap, copyInThreshold, hashMergeNum, hashColor);
-    CheckAndFixColorOrder(opOriList, color_, colorCycles_, colorNode_);
+    if (MergeProcess(opOriList, hashMap, hashMergeNum, hashColor) == FAILED) {
+        return FAILED;
+    }
+    if (CheckAndFixColorOrder(opOriList, color_, colorCycles_, colorNode_) == FAILED) {
+        return FAILED;
+    }
     func.SetTotalSubGraphCount(color_);
-    ALOG_DEBUG_F("After Nbuffer merge");
+    ALOG_DEBUG_F("[NBUFFER_MERGE] After Nbuffer merge");
     RescheduleUtils::PrintColorNode(func);
-    return true;
-}
-
-void NBufferMergeCall(Function &func) {
-    auto dbMerge = func.paramConfigs_.dbType;
-    auto numDB = func.paramConfigs_.NbufferNum;
-    auto copyInThreshold = func.paramConfigs_.sgCopyInThreshold;
-    ALOG_INFO_F("Do DB merge : %d nbuffer num: %d", dbMerge, numDB);
-    dbMerge = 1;
-    if (dbMerge != 0) {
-        NBufferMerger nbMerge;
-        nbMerge.NBufferMerge(func, dbMerge, numDB, copyInThreshold);
-    }
+    return SUCCESS;
 }
 
 Status NBufferMerge::RunOnFunction(Function &function) {
-    ASLOGI("===> Start NBufferMerge.");
-    NBufferMergeCall(function);
+    ALOG_INFO_F("===> Start NBufferMerge.");
+    auto numDB = function.paramConfigs_.NbufferNum;
+    ALOG_INFO_F("[NBUFFER_MERGE] nbuffer num: %d", numDB);
+    if (numDB == 0) {
+        ALOG_INFO_F("[NBUFFER_MERGE] Manually Set NumDB 0, Skip NBufferMerge.");
+        return SUCCESS;
+    }
+    if (NBufferMergeProcess(function, numDB) == FAILED) {
+        return FAILED;
+    }
     ALOG_INFO_F("===> Finish NBufferMerge.");
     return SUCCESS;
 }
