@@ -330,6 +330,9 @@ private:
 
     std::string PrintReduceLastAxis(const PrintUnaryTmpBuffParam &param) const;
 
+    std::string PrintExtractStatic() const;
+    std::string PrintExtractDynamicUnaligned() const;
+
     const std::unordered_map<Opcode, std::function<std::string()>> opsGenMap_ = {
         // UB <-> GM
         {                Opcode::OP_UB_COPY_IN,                 [this]() { return GenUBCopyIn(); }},

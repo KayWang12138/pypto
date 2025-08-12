@@ -97,10 +97,8 @@ struct CodeGenCtx {
 };
 
 struct SortParam {
-    unsigned dstShape0;
-    unsigned dstShape1;
-    unsigned srcShape0;
-    unsigned srcShape1;
+    std::vector<int> dstShape{4, 1};
+    std::vector<int> srcShape{4, 1};
     const std::string s0Var = "";
     const std::string dVar = "";
     const std::string srcDtypeStr = "";

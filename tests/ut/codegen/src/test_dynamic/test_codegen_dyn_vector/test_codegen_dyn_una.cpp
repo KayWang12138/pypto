@@ -138,7 +138,8 @@ TEST_F(TestCodegenDynUna, TestDynBitSort) {
 
     cop.Init(op);
     std::string res = cop.GenOpCode();
-    std::string expect = R"!!!(TileOp::DynBitSort<float, 64, 64, 64, 64, 1, 1>((__ubuf__ float*)UB_S1_E1, (__ubuf__ float*)UB_S0_E0, 64, 64);
+    std::string expect =
+        R"!!!(TileOp::DynBitSort<float, 1, 1, 64, 64, 1, 1, 64, 64, 1, 1>((__ubuf__ float*)UB_S1_E1, (__ubuf__ float*)UB_S0_E0, 1, 1, 64, 64);
 )!!!";
     EXPECT_EQ(res, expect);
 }
@@ -197,7 +198,68 @@ TEST_F(TestCodegenDynUna, TestDynMrgSort) {
     function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
     cop.Init(op);
     std::string res = cop.GenOpCode();
-    std::string expect = R"!!!(TileOp::DynMrgSort<float, 64, 64, 64, 64, 1, 1, 1>((__ubuf__ float*)UB_S1_E1, (__ubuf__ float*)UB_S0_E0, 64, 64);
+    std::string expect =
+        R"!!!(TileOp::DynMrgSort<float, 1, 1, 64, 64, 1, 1, 64, 64, 1, 1, 1>((__ubuf__ float*)UB_S1_E1, (__ubuf__ float*)UB_S0_E0, 1, 1, 64, 64);
+)!!!";
+    EXPECT_EQ(res, expect);
+}
+
+TEST_F(TestCodegenDynUna, TestDynExtract) {
+    std::vector<int> shape = {64, 64};
+
+    auto shapeImme = OpImmediate::Specified(shape);
+    Program::GetInstance().GetTileShape().SetVecTileShapes(shape);
+    ConfigManager::Instance().SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    Tensor inputA(DT_FP32, shape, "A");
+    Tensor inputB(DT_FP32, shape, "B");
+    Tensor output(DT_FP32, shape, "C");
+
+    std::string funcName = "ADD";
+    FUNCTION(funcName, FunctionType::STATIC, {inputA, inputB, output}) {
+        output = Add(inputA, inputB);
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    function->SetUnderDynamicFunction(true);
+    std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    auto localTensor = std::make_shared<LogicalTensor>(*function, DT_FP32, shape);
+    localTensor->UpdateSubgraphID(0);
+    localTensor->SetMemoryTypeOriginal(MemoryType::MEM_UB);
+    localTensor->SetMemoryTypeToBe(MemoryType::MEM_UB);
+    localTensor->SetMagic(OP_MAGIC3);
+    localTensor->SetAttr(OpAttributeKey::needAlloc, true);
+    localTensor->UpdateDynValidShape(dynValidShape);
+    localTensor->memorymap[0].memId = 0;
+    localTensor->memorymap[0].start = 0;
+    localTensor->memorymap[0].end = 0;
+
+    auto localOutTensor = std::make_shared<LogicalTensor>(*function, DT_FP32, shape);
+    localOutTensor->UpdateSubgraphID(0);
+    localOutTensor->SetMemoryTypeOriginal(MemoryType::MEM_UB);
+    localOutTensor->SetMemoryTypeToBe(MemoryType::MEM_UB);
+    localOutTensor->SetMagic(OP_MAGIC4);
+    localOutTensor->SetAttr(OpAttributeKey::needAlloc, true);
+    localOutTensor->UpdateDynValidShape(dynValidShape);
+    localOutTensor->memorymap[0].memId = 1;
+    localOutTensor->memorymap[0].start = 1;
+    localOutTensor->memorymap[0].end = 1;
+
+    auto &op = function->AddOperation(Opcode::OP_EXTRACT, {localTensor}, {localOutTensor});
+    op.SetAttribute(OP_ATTR_PREFIX + "kvalue", 1);
+    op.SetAttribute(OP_ATTR_PREFIX + "mode", 1);
+    op.SetAttribute(OP_ATTR_PREFIX + "order", 1);
+    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+
+    SymbolManager memAlloc;
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, memAlloc);
+    CodeGenOpCloudNPU cop(memAlloc, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
+    function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
+    cop.Init(op);
+    std::string res = cop.GenOpCode();
+    std::string expect =
+        R"!!!(TileOp::DynExtract<float, float, 1, 1, 1>((__ubuf__ float*)UB_S1_E1, (__ubuf__ float*)UB_S0_E0, 1, 1, 64, 64);
 )!!!";
     EXPECT_EQ(res, expect);
 }

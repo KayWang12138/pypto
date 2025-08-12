@@ -1198,6 +1198,24 @@ TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
     }
 }
 
+template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned dstShape2, unsigned dstShape3,
+    unsigned srcShape0, unsigned srcShape1, unsigned srcShape2, unsigned srcShape3, int axis, int isLargest>
+TILEOP void DynBitSort(
+    __ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, unsigned oriShape1, unsigned oriShape2, unsigned oriShape3) {
+    for (int i = 0; i < oriShape0; ++i) {
+        __ubuf__ T *dst_ = dst;
+        __ubuf__ T *src_ = src;
+        for (int j = 0; j < oriShape1; ++j) {
+            TileOp::DynBitSort<T, dstShape2, dstShape3, srcShape2, srcShape3, axis, isLargest>(dst_, src_, oriShape2, oriShape3);
+            dst_ += dstShape2 * dstShape3;
+            src_ += srcShape2 * srcShape3;
+            pipe_barrier(PIPE_V);
+        }
+        dst += dstShape1 * dstShape2 * dstShape3;
+        src += srcShape1 * srcShape2 * srcShape3;
+    }
+}
+
 template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0, unsigned srcShape1, int axis, int k, int isLargest>
 TILEOP void DynMrgSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, unsigned oriShape1) {
     constexpr int32_t kAlign = (k + 3) / 4 * 4; // k需要向32Bytes取整,否则最后搬运出问题
@@ -1281,9 +1299,27 @@ TILEOP void DynMrgSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
     }
 }
 
+template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned dstShape2, unsigned dstShape3,
+    unsigned srcShape0, unsigned srcShape1, unsigned srcShape2, unsigned srcShape3, int axis, int k, int isLargest>
+TILEOP void DynMrgSort(
+    __ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, unsigned oriShape1, unsigned oriShape2, unsigned oriShape3) {
+    for (int i = 0; i < oriShape0; ++i) {
+        __ubuf__ T *dst_ = dst;
+        __ubuf__ T *src_ = src;
+        for (int j = 0; j < oriShape1; ++j) {
+            TileOp::DynMrgSort<T, dstShape2, dstShape3, srcShape2, srcShape3, axis, k, isLargest>(dst_, src_, oriShape2, oriShape3);
+            dst_ += dstShape2 * dstShape3;
+            src_ += srcShape2 * srcShape3;
+            pipe_barrier(PIPE_V);
+        }
+        dst += dstShape1 * dstShape2 * dstShape3;
+        src += srcShape1 * srcShape2 * srcShape3;
+    }
+}
+
 template <typename T, typename U, int k, int extractMode, int isLargest>
 TILEOP void DynExtract(__ubuf__ T *dst, __ubuf__ U *src, unsigned TShape0, unsigned TShape1) {
-    constexpr uint64_t repeat = static_cast<uint64_t>(TShape0 * TShape1 * 2 * sizeof(T) / REPEAT_BYTE);
+    uint64_t repeat = static_cast<uint64_t>(TShape0 * TShape1 * 2 * sizeof(T) / REPEAT_BYTE);
     constexpr uint8_t dstBlockStride = 1;
     constexpr uint8_t srcBlockStride = 1;
     constexpr uint8_t dstRepeatStride = 8;
@@ -1294,7 +1330,7 @@ TILEOP void DynExtract(__ubuf__ T *dst, __ubuf__ U *src, unsigned TShape0, unsig
         patternMode = 2;
     }
     __ubuf__ U *nullsrc1 = REPEAT_BYTE * sizeof(U) + src;
-    if constexpr (repeat < 1) {
+    if (repeat < 1) {
         uint64_t elems = TShape0 * TShape1;
         set_mask_count();
         set_vector_mask(0, elems * 2);
@@ -1323,6 +1359,23 @@ TILEOP void DynExtract(__ubuf__ T *dst, __ubuf__ U *src, unsigned TShape0, unsig
         set_mask_norm();
         set_vector_mask(-1, -1);
         pipe_barrier(PIPE_V);
+    }
+}
+
+template <typename T, typename U, int k, int extractMode, int isLargest>
+TILEOP void DynExtract(
+    __ubuf__ T *dst, __ubuf__ U *src, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3) {
+    for (int i = 0; i < TShape0; ++i) {
+        __ubuf__ T *dst_ = dst;
+        __ubuf__ U *src_ = src;
+        for (int j = 0; j < TShape1; ++j) {
+            TileOp::DynExtract<T, U, k, extractMode, isLargest>(dst_, src_, TShape2, TShape3);
+            dst_ += TShape2 * TShape3;
+            src_ += TShape2 * TShape3 * 2;
+            pipe_barrier(PIPE_V);
+        }
+        dst += TShape1 * TShape2 * TShape3;
+        src += TShape1 * TShape2 * TShape3 * 2;
     }
 }
 
