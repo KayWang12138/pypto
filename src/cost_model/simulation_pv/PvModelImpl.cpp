@@ -206,12 +206,14 @@ void PvModelImpl<SystemConfig, CaseConfig>::CodeGen(npu::tile_fwk::Function *fun
 
     // add global function
     for (auto &subFuncPair : func->programs_) {
-        auto binPath = subFuncPair.second->GetBinPath();
+        auto leafFuncAttr = subFuncPair.second->GetLeafFuncAttribute();
+        auto binPath = leafFuncAttr == nullptr ? "" : leafFuncAttr->binPath;
         auto srcPath = binPath.substr(0, binPath.length()-1) + "cpp";
         PvModelCodegen::AddGlobalAttr(srcPath);
         npu::tile_fwk::CodeGenCtx ctx;
         npu::tile_fwk::CodeGenCloudNPU cga(ctx);
-        bool isCube = subFuncPair.second->GetCoreType() == npu::tile_fwk::CoreType::AIC;
+        auto coreType = leafFuncAttr == nullptr ? npu::tile_fwk::CoreType::INVALID : leafFuncAttr->coreType;
+        bool isCube = coreType == npu::tile_fwk::CoreType::AIC;
         npu::tile_fwk::CompileInfo compileInfo(
             *func, ctx.ccePath, subFuncPair.first, isCube, subFuncPair.second->IsUnderDynamicFunction());
         compileInfo.SetCCEAbsPath(srcPath);
@@ -236,11 +238,13 @@ uint64_t PvModelImpl<SystemConfig, CaseConfig>::GetBinSize(std::string path) {
 template <typename SystemConfig, typename CaseConfig>
 void PvModelImpl<SystemConfig, CaseConfig>::BinGen(npu::tile_fwk::Function *func) {
     for (auto &subFuncPair : func->programs_) {
-        auto binPath = subFuncPair.second->GetBinPath();
+        auto leafFuncAttr = subFuncPair.second->GetLeafFuncAttribute();
+        auto binPath = leafFuncAttr == nullptr ? "" : leafFuncAttr->binPath;
         task_.objPath[subFuncPair.first] = binPath;
         task_.binPath[subFuncPair.first] =
             binPath.length() > 1 ? binPath.substr(0, binPath.length() - 1) + "bin" : std::string("null.bin");
-        task_.binType[subFuncPair.first] = subFuncPair.second->GetCoreType();
+        task_.binType[subFuncPair.first] =
+            leafFuncAttr == nullptr ? npu::tile_fwk::CoreType::INVALID : leafFuncAttr->coreType;
 
         if (level_ > 0) {
             char cmd[2048];

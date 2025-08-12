@@ -1794,8 +1794,8 @@ Json Function::DumpJson(bool useTable) {
     std::sort(resultSemanticLabels.begin(), resultSemanticLabels.end());
     funcDump["semantic_label"] = resultSemanticLabels;
 
-    if (coreType_ != CoreType::INVALID) {
-        funcDump["coretype"] = coreType_;
+    if (leafFuncAttr_ != nullptr && leafFuncAttr_->coreType != CoreType::INVALID) {
+        funcDump["leaf_func_attr"]["coretype"] = leafFuncAttr_->coreType;
     }
 
     if (rootFunc_ != nullptr) {
@@ -2076,8 +2076,10 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     std::vector<std::string> semanticLabelData = funcDump["semantic_label"].get<std::vector<std::string>>();
     func->semanticLabels_.insert(semanticLabelData.begin(), semanticLabelData.end());
 
-    if (funcDump.count("coretype") != 0) {
-        func->coreType_ = static_cast<CoreType>(funcDump["coretype"].get<int>());
+    if (funcDump.count("leaf_func_attr") != 0 && funcDump["leaf_func_attr"].count("coretype") != 0) {
+        std::shared_ptr<LeafFuncAttribute> attr = std::make_shared<LeafFuncAttribute>();
+        attr->coreType = static_cast<CoreType>(funcDump["leaf_func_attr"]["coretype"].get<int>());
+        func->SetLeafFuncAttribute(attr);
     }
 
     if (funcDump.count("root_func_magic") != 0) {

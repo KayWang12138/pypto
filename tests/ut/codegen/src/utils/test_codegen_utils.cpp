@@ -39,7 +39,9 @@ std::shared_ptr<LogicalTensor> CreateLogicalTensor(const LogicalTensorInfo &info
 
 std::string GetResultFromCpp(const Function &function) {
     const auto &subFunc = function.rootFunc_->programs_[0];
-    std::string binPath = subFunc->GetBinPath();
+    auto leafFuncAttr = subFunc->GetLeafFuncAttribute();
+    ASSERT(leafFuncAttr != nullptr);
+    std::string binPath = leafFuncAttr->binPath;
     bool isCompileByMachine = ConfigManager::Instance().GetCodeGenConfig(KEY_COMPILE_CCE_BY_MACHINE, false);
     bool isUnderDyn = subFunc->IsUnderDynamicFunction();
     std::string suffix = isCompileByMachine && isUnderDyn ? ".h" : ".cpp";

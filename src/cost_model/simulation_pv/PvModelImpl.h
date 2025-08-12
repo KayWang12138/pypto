@@ -272,7 +272,8 @@ public:
             if (leaf->IsDummyFunction()) {
                 cceBin.emplace_back(PvModelCceBin(leaf->GetProgramId(), leaf->GetFunctionHash().GetHash(), npu::tile_fwk::CoreType::HUB));
             } else {
-                auto binPath = leaf->GetBinPath();
+                auto leafFuncAttr = leaf->GetLeafFuncAttribute();
+                auto binPath = leafFuncAttr == nullptr ? "" : leafFuncAttr->binPath;
                 auto orgSrcPath = binPath.substr(0, binPath.length() - 1) + "cpp";
                 auto srcPath = binPath.substr(0, binPath.length() - Len2) + "_pvmodel.cpp";
                 npu::tile_fwk::CopyFile(orgSrcPath, srcPath);
@@ -281,7 +282,8 @@ public:
                 auto objPath = srcPath.substr(0, srcPath.length() - Len3) + "o";
                 npu::tile_fwk::CodeGenCtx ctx;
                 npu::tile_fwk::CodeGenCloudNPU cga(ctx);
-                bool isCube = leaf->GetCoreType() == npu::tile_fwk::CoreType::AIC;
+                auto coreType = leafFuncAttr == nullptr ? npu::tile_fwk::CoreType::INVALID : leafFuncAttr->coreType;
+                bool isCube = coreType == npu::tile_fwk::CoreType::AIC;
                 npu::tile_fwk::CompileInfo compileInfo(
                     *func, ctx.ccePath, leaf->GetProgramId(), isCube, leaf->IsUnderDynamicFunction());
                 compileInfo.SetCCEAbsPath(srcPath);
@@ -294,7 +296,8 @@ public:
                 (void)snprintf_s(cmd, sizeof(cmd), sizeof(cmd)-1, "llvm-objcopy -O -binary -j .text %s %s", objPath.c_str(), binPath.c_str());
                 (void)std::system(cmd);
 
-                cceBin.emplace_back(PvModelCceBin(leaf->GetProgramId(), leaf->GetFunctionHash().GetHash(), leaf->GetCoreType(), srcPath, binPath));
+                cceBin.emplace_back(
+                    PvModelCceBin(leaf->GetProgramId(), leaf->GetFunctionHash().GetHash(), coreType, srcPath, binPath));
             }
         }
     }

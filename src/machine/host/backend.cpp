@@ -570,13 +570,15 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache) {
 
     int leafIndex = 1;
     for (auto &[name, leaf] : leafDict) {
-        attr->cceCodeList[leafIndex] = LoadBinData(leaf->GetBinPath());
+        auto leafFuncAttr = leaf->GetLeafFuncAttribute();
+        ASSERT(leafFuncAttr != nullptr);
+        auto binPath = leafFuncAttr->binPath;
+        attr->cceCodeList[leafIndex] = LoadBinData(binPath);
         AlignUpTo(attr->cceCodeList[leafIndex], ALIGN_SIZE_8, 0);
         encodeDevAscendFunctionParam.calleeHashIndexDict[leaf->ComputeHash().GetHash()] = leafIndex;
         attr->devLeafIndex2Hash[leafIndex] = leaf->GetFunctionHash().GetHash();
-        ALOG_INFO("Dyndev.codegen: [", leafIndex, "] hash=", leaf->ComputeHash(), " name=", name,
-            " binpath=", leaf->GetBinPath());
-        attr->cceCodeInfo[leafIndex].coreType = static_cast<uint32_t>(leaf->GetCoreType());
+        ALOG_INFO("Dyndev.codegen: [", leafIndex, "] hash=", leaf->ComputeHash(), " name=", name, " binpath=", binPath);
+        attr->cceCodeInfo[leafIndex].coreType = static_cast<uint32_t>(leafFuncAttr->coreType);
         if (leaf->IsDummyFunction())
             attr->cceCodeInfo[leafIndex].coreType = static_cast<uint32_t>(CoreType::HUB);
         attr->cceCodeInfo[leafIndex].psgId = leaf->GetProgramId();

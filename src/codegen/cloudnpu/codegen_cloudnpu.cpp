@@ -326,12 +326,14 @@ void CodeGenCloudNPU::UpdateSubFunc(
     Function &topFunc, std::pair<uint64_t, Function *> subFuncPair, const CompileInfo &compileInfo) const {
     uint64_t subProgramId = subFuncPair.first;
     auto subFunc = subFuncPair.second;
+    std::shared_ptr<LeafFuncAttribute> attr = std::make_shared<LeafFuncAttribute>();
     std::string kernelName = GenKernelName(topFunc, subProgramId);
-    subFunc->SetKernelName(kernelName);
-    // update bin path
-    subFunc->SetBinPath(compileInfo.GetBinAbsPath());
-    subFunc->SetSrcCodePath(compileInfo.GetCCEFileAsHeader());
-    subFunc->SetCoreType(compileInfo.IsCube() ? CoreType::AIC : CoreType::AIV);
+    attr->kernelName = kernelName;
+    attr->binPath = compileInfo.GetBinAbsPath();
+    attr->srcHeaderPath = compileInfo.GetCCEFileAsHeader();
+    CoreType coreType = compileInfo.IsCube() ? CoreType::AIC : CoreType::AIV;
+    attr->coreType = coreType;
+    subFunc->SetLeafFuncAttribute(attr);
 }
 
 bool CodeGenCloudNPU::IsNeedDumpCCE(const std::string &inputFile) const {
@@ -491,8 +493,9 @@ bool CodeGenCloudNPU::HandleForAICpuSubFunc(Function &subFunc) {
         return false;
     }
 
-    subFunc.SetCoreType(CoreType::AICPU);
-    subFunc.SetBinPath("");
+    std::shared_ptr<LeafFuncAttribute> attr = std::make_shared<LeafFuncAttribute>();
+    attr->coreType = CoreType::AICPU;
+    subFunc.SetLeafFuncAttribute(attr);
     return true;
 }
 

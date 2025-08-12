@@ -126,17 +126,20 @@ void FunctionCache::UpdateBinCache(const Function &func, CacheValue &value) {
     uint64_t totalSize = 0;
 
     for (auto &ele : func.programs_) {
-        if (!RealPath(ele.second->GetBinPath()).empty()) {
-            auto binData = LoadBinData(ele.second->GetBinPath());
+        auto leafFuncAttr = ele.second->GetLeafFuncAttribute();
+        ASSERT(leafFuncAttr != nullptr);
+        auto binPath = leafFuncAttr->binPath;
+        if (!RealPath(binPath).empty()) {
+            auto binData = LoadBinData(binPath);
             assert(binData.size() != 0);
             totalSize += binData.size() + sizeof(uint64_t);
             binMap[ele.first] = std::move(binData);
-        } else if (ele.second->GetCoreType() == CoreType::AICPU) {
+        } else if (leafFuncAttr->coreType == CoreType::AICPU) {
             std::vector<uint8_t> binData(0, 0);
             totalSize += binData.size() + sizeof(uint64_t);
             binMap[ele.first] = std::move(binData);
         } else {
-            ALOG_ERROR("bin path %s is not existed", ele.second->GetBinPath().c_str());
+            ALOG_ERROR("bin path %s is not existed", binPath.c_str());
             abort();
         }
     }

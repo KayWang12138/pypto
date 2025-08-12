@@ -389,6 +389,7 @@ struct DyndevFunctionAttribute {
     std::map<int, uint64_t> devLeafIndex2Hash;
 };
 
+
 enum class DynParamInfoType{VALID_SHAPE, OFFSET, END};
 
 struct DynParamInfo{
@@ -437,8 +438,6 @@ public:
     int magicSeed_{0};
     int opSeed_{FUNCTION_MAX_INCASTS};
 
-    std::string kernelName_;
-    std::string srcCodePath_;
     SubfuncTopologyInfoTy topoInfo_; // root function持有，对应1.0的SubgraphTopologyInfoTy
     std::map<uint64_t, Function*> programs_; // root function持有，所有异构的leaf function
     Function *rootFunc_ = nullptr; // TileGraph和RootGraph都需要保留，且需要映射关系
@@ -604,6 +603,10 @@ public:
     const std::shared_ptr<DyndevFunctionAttribute> &GetDyndevAttribute() const { return dyndevAttr_; }
     std::shared_ptr<DyndevFunctionAttribute> &GetDyndevAttribute() { return dyndevAttr_; }
 
+    void SetLeafFuncAttribute(const std::shared_ptr<LeafFuncAttribute> &attr) { leafFuncAttr_ = attr; }
+    const std::shared_ptr<LeafFuncAttribute> &GetLeafFuncAttribute() const { return leafFuncAttr_; }
+    std::shared_ptr<LeafFuncAttribute> &GetLeafFuncAttribute() { return leafFuncAttr_; }
+
     void SetSlotScope(const std::shared_ptr<TensorSlotScope> &slotScope) { slotScope_ = slotScope; }
     const std::shared_ptr<TensorSlotScope> &GetSlotScope() const { return slotScope_; }
     std::shared_ptr<TensorSlotScope> &GetSlotScope() { return slotScope_; }
@@ -622,16 +625,8 @@ public:
         return (operations_.size() == 1UL) && (operations_[0]->GetCoreType() == CoreType::AICPU);
     }
 
-    CoreType GetCoreType() const {
-        return coreType_;
-    }
-
     bool IsDummyFunction() const {
         return std::all_of(operations_.begin(), operations_.end(), [](auto &op) {  return op->GetOpcode() == Opcode::OP_RESHAPE; });
-    }
-
-    void SetCoreType(CoreType binType) {
-        coreType_ = binType;
     }
 
     const std::map<std::string, DynParamInfo> &GetDynParamTable() const {
@@ -672,15 +667,6 @@ public:
 
     int GetProgramId() const { return programId_; }
     void SetProgramId(int programId) { programId_ = programId; }
-
-    const std::string &GetBinPath() const { return binPath_; }
-    void SetBinPath(const std::string &binPath) { binPath_ = binPath; }
-
-    const std::string &GetKernelName() const { return kernelName_; }
-    void SetKernelName(const std::string &kernelName) { kernelName_ = kernelName; }
-
-    const std::string &GetSrcCodePath() const { return srcCodePath_; }
-    void SetSrcCodePath(const std::string &srcCodePath) { srcCodePath_ = srcCodePath; }
 
     void SetReadySubGraphIds(CoreType coreType, const std::vector<int> &readySubGraphIds) {
         readySubGraphIds_[coreType] = readySubGraphIds;
@@ -747,7 +733,6 @@ private:
     int stackWorkespaceSize_ = 0;
     FunctionHash functionHash_{0};
     std::vector<std::string> calleeMagicNameList_;
-    CoreType coreType_{CoreType::INVALID};
     bool isUnderDynamicFunction_{false};
 
     std::vector<std::shared_ptr<LogicalTensor>> originInCasts_;
@@ -767,7 +752,6 @@ private:
     // -----------------------子图信息------------------------
     SubfuncParam parameter_; // 每一个异构子图的形参
     int programId_; // 异构子图的id
-    std::string binPath_; // 异构子图的文件路径
 
     // we use int instead of int64 to reduce memory usage and cache miss on aicpu
     std::map<CoreType, std::vector<int>> readySubGraphIds_;
@@ -788,6 +772,7 @@ private:
 
     std::shared_ptr<DynloopFunctionAttribute> dynloopAttr_;
     std::shared_ptr<DyndevFunctionAttribute> dyndevAttr_;
+    std::shared_ptr<LeafFuncAttribute> leafFuncAttr_;
     std::shared_ptr<Distributed::TilingManager> distTilingManager_ = std::make_shared<Distributed::TilingManager>();
     std::shared_ptr<TensorSlotScope> slotScope_;
 
