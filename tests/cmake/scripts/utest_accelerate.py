@@ -376,7 +376,7 @@ class UTestAccelerate:
         rate: float = float((duration_sum - self.dfx_process_duration) / self.dfx_process_duration) * 100
         desc: str = f"Duration {self.dfx_process_duration.total_seconds():.2f} secs, Revenue(Act/Ori, "
         desc += f"{self.dfx_process_duration.total_seconds():.2f}/{duration_sum.total_seconds():.2f}) {rate:.2f}%"
-        return f"\n\nJob Execution Brief:{brief}", desc
+        return f"\n\nJob Execution Brief:\n{brief}", desc
 
     def _post_case_exec_info(self) -> Tuple[str, bool]:
         """获取 Case 执行信息.
@@ -401,7 +401,7 @@ class UTestAccelerate:
         case_execution_datas = [[len(self.case_list), len(self.case_list) - case_remaining_count,
                                  case_terminate_count, case_exception_count, case_remaining_count]]
         case_execution_brief = self._table(datas=case_execution_datas, headers=case_execution_heads)
-        case_execution_brief = f"\n\nCase Execution Brief:{case_execution_brief}"
+        case_execution_brief = f"\n\nCase Execution Brief:\n{case_execution_brief}"
 
         rst: bool = (case_terminate_count + case_exception_count + case_remaining_count) == 0
         out: str = case_execution_brief + case_duration_brief + case_terminate_brief + case_exception_brief
@@ -428,7 +428,7 @@ class UTestAccelerate:
         if len(datas) != 0:
             datas = [[f"{idx}/{len(datas)}"] + ele for idx, ele in enumerate(datas)]
             brief = self._table(datas=datas, headers=heads)
-        return f"\n\nCase Terminate Brief({len(datas)}):{brief}", len(datas)
+        return f"\n\nCase Terminate Brief({len(datas)}):\n{brief}", len(datas)
 
     def _post_case_exec_exception_info(self) -> Tuple[str, int]:
         """获取 Case 执行异常信息.
@@ -446,7 +446,7 @@ class UTestAccelerate:
         brief = " None" if len(datas) == 0 else ""
         for idx, data in enumerate(datas, start=1):
             brief += f"\nIdx:{idx}/{len(datas)}\n{data}"
-        return f"\n\nCase Exception Brief:{brief}", len(datas)
+        return f"\n\nCase Exception Brief:\n{brief}", len(datas)
 
     def _post_case_exec_duration_info(self) -> str:
         """获取 Case 执行耗时统计信息.
@@ -472,7 +472,7 @@ class UTestAccelerate:
         brief: str = " None"
         if len(datas) != 0:
             brief = self._table(datas=datas, headers=heads)
-        return f"\n\nCase Duration Brief:{brief}"
+        return f"\n\nCase Duration Brief:\n{brief}"
 
 
 if __name__ == "__main__":

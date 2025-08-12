@@ -245,15 +245,16 @@ TEST_F(DynamicFunctionTest, TestOnlyExpression) {
 
     constexpr int LOOP_END = 4;
     constexpr int CHILD_SHAPE_OFFSET = 16;
-
-    LOOP("D3", FunctionType::DYNAMIC_LOOP, k, LoopRange(0, LOOP_END)) {
-        auto a0 = DView(a, childShape, {0, k * CHILD_SHAPE_OFFSET});
-        auto b0 = DView(b, childShape, {0, k * CHILD_SHAPE_OFFSET});
-        auto c0 = Add(a0, b0);
-        DAssemble(c0, {0, k * CHILD_SHAPE_OFFSET}, c);
+    FUNCTION("main", FunctionType::DYNAMIC, {a, b}, {c}) {
+        LOOP("D3", FunctionType::DYNAMIC_LOOP, k, LoopRange(0, LOOP_END)) {
+            auto a0 = DView(a, childShape, {0, k * CHILD_SHAPE_OFFSET});
+            auto b0 = DView(b, childShape, {0, k * CHILD_SHAPE_OFFSET});
+            auto c0 = Add(a0, b0);
+            DAssemble(c0, {0, k * CHILD_SHAPE_OFFSET}, c);
+        }
     }
 
-    auto rootFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_D3_Unroll1_PATH0_root_4");
+    auto rootFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_D3_Unroll1_PATH0_root_5");
     EXPECT_NE(rootFunc, nullptr);
     EXPECT_EQ(rootFunc->GetCallopAttrList().size(), 1);
     auto attr = rootFunc->GetCallopAttrList().front();
@@ -272,15 +273,15 @@ TEST_F(DynamicFunctionTest, TestOnlySymbol) {
     Tensor c(DataType::DT_FP32, shape, "c");
 
     constexpr int LOOP_END = 4;
-
-    LOOP("DynSymbol", FunctionType::DYNAMIC_LOOP, k, LoopRange(0, LOOP_END)) {
-        auto a0 = DView(a, childShape, {k, 0});
-        auto b0 = DView(b, childShape, {k, 0});
-        auto c0 = Add(a0, b0);
-        DAssemble(c0, {k, 0}, c);
+    FUNCTION("main", FunctionType::DYNAMIC, {a, b}, {c}) {
+        LOOP("DynSymbol", FunctionType::DYNAMIC_LOOP, k, LoopRange(0, LOOP_END)) {
+            auto a0 = DView(a, childShape, {k, 0});
+            auto b0 = DView(b, childShape, {k, 0});
+            auto c0 = Add(a0, b0);
+            DAssemble(c0, {k, 0}, c);
+        }
     }
-
-    auto rootFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_DynSymbol_Unroll1_PATH0_root_4");
+    auto rootFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_DynSymbol_Unroll1_PATH0_root_5");
     EXPECT_NE(rootFunc, nullptr);
     EXPECT_EQ(rootFunc->GetCallopAttrList().size(), 1);
     auto attr = rootFunc->GetCallopAttrList().front();

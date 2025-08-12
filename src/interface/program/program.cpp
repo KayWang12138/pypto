@@ -250,16 +250,11 @@ std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string 
     PopStackAndUpdateCurrent();
 
     if (result->IsGraphType(GraphType::TENSOR_GRAPH) || result->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
-        if (!config::GetPlatformConfig(KEY_ONLY_TENSOR_GRAPH, false) &&
-            !config::GetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, false)) {
-            if (result->IsUnderDynamicFunction() || currentDynamicFunctionPtr_ != nullptr) {
-                hostMachine_.StashTask(result);
-            } else {
-                hostMachine_.SubTask(result);
-                hostMachine_.WaitTaskFinish();
-            }
-        } else {
-            functionSequence_.push_back(result);
+        if (result->IsUnderDynamicFunction() || currentDynamicFunctionPtr_ != nullptr) {
+            hostMachine_.StashTask(result);
+        } else if (!config::GetPlatformConfig(KEY_ONLY_TENSOR_GRAPH, false)){
+            hostMachine_.SubTask(result);
+            hostMachine_.WaitTaskFinish();
         }
     }
     return std::make_tuple(result, callop, hit);
@@ -715,15 +710,12 @@ RecordFunc::~RecordFunc() {
         Program::GetInstance().SetLastFunction(dynFunc_);
         if (dynFunc_->IsDyndev()) {
             dynFunc_->ApplyLoopCallOrderGroup();
+            if (config::GetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, false)) {
+                Program::GetInstance().VerifyTensorGraph();
+            }
             Program::GetInstance().SubmitAllStashTask();
-            if (config::GetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, false)) {
-                if (config::GetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, false)) {
-                    Program::GetInstance().VerifyTensorGraph();
-                }
-                Program::GetInstance().SubmitDyndev();
-                if (config::GetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, false)) {
-                    Program::GetInstance().VerifyExecuteGraph();
-                }
+            if (config::GetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, false)) {
+                Program::GetInstance().VerifyExecuteGraph();
             }
         }
         Program::GetInstance().SetCurrentDynamicFunction(nullptr);
