@@ -163,7 +163,7 @@ void PipeMachine::RunAtEnd()
             eCycle = tile->exeInfo.cycleInfo.executeEndCycle;
         }
         parentMachine->LoggerRecordTileOp(info, pipeId, sCycle, eCycle);
-        corePtr->stats->totalPipeUseCycles[int(pipeType)]++;
+        corePtr->stats->totalPipeUseCycles[int(pipeType)] += (eCycle - sCycle);
         tileOp = nullptr;
         tile = nullptr;
         SetMachineExecuting(false);

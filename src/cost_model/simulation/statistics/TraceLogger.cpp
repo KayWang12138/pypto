@@ -24,11 +24,12 @@
 
 using namespace std;
 namespace CostModel {
-Json Event::ToJson() const
+Json Event::ToJson()
 {
     Json root;
 
     root["name"] = name;
+    root["color"] = this->GetColor();
     if (!catagory.empty()) {
         root["cat"] = catagory;
     }
@@ -78,6 +79,20 @@ Json Event::ToFlowEndJson(int flowId) const
     root["tid"] = tid;
     root["ts"] = timestamp;
     return root;
+}
+
+std::string Event::GetColor()
+{
+    size_t pos1 = name.find('(');
+    if (pos1 == std::string::npos) {
+        return "";
+    }
+
+    size_t pos2 = name.find(')');
+    if (pos2 == std::string::npos) {
+        return "";
+    }
+    return name.substr(pos1 + 1, pos2 - pos1 - 1);
 }
 
 int Event::ExtraHintInfo(std::string &key)

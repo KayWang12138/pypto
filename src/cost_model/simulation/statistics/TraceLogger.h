@@ -50,7 +50,7 @@ struct Event {
     Tid tid;
     std::string hint;
 
-    Json ToJson() const;
+    Json ToJson();
     Json ToFlowStartJson(int flowId) const;
     Json ToFlowEndJson(int flowId) const;
 
@@ -59,6 +59,7 @@ struct Event {
         return EventId{PTid{pid, tid}, id};
     }
 
+    std::string GetColor();
     int ExtraHintInfo(std::string &key);
 };
 

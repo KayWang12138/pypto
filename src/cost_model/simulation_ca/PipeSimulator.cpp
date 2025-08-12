@@ -142,6 +142,8 @@ namespace CostModel
         result = std::regex_replace(result, getParamPattern, "charArray2");
         std::regex oriAddrPattern(R"(\(\(__gm__ GMTensorInfo\*\)\(oriAddrParam\) \+ \d+\)->Addr)");
         result = std::regex_replace(result, oriAddrPattern, "charArray3");
+        std::regex runtimeCoaPattern(R"(RUNTIME_COA_GET_PARAM_OFFSET\(\d+,\d+,\d+\))");
+        result = std::regex_replace(result, runtimeCoaPattern, "0");
         return result;
     }
 

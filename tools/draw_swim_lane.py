@@ -104,6 +104,7 @@ class TaskInfo:
         res["cat"] = "event"
         res["id"] = event_id
         res["name"] = self.get_task_name()
+        res["color"] = self.color_label
         res["ph"] = "X"
         res["pid"] = pid
         res["tid"] = tid
