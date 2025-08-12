@@ -136,16 +136,12 @@ TEST_F(ScheduleOoOTest, TestMainScheduleOoO) {
     auto &alloc6 = CreateAllocOp(*currFunctionPtr, tensor9, 1, 0);
     auto &copyin1 = CreateCopyOp(*currFunctionPtr, Opcode::OP_COPY_IN, tensor1, tensor3, shape);
     auto &copyin2 = CreateCopyOp(*currFunctionPtr, Opcode::OP_COPY_IN, tensor2, tensor4, shape);
-    FunctionUtils::AddControlEdge(alloc1, copyin1);
-    FunctionUtils::AddControlEdge(alloc2, copyin2);
     auto &add1 = CreateAddOp(*currFunctionPtr, tensor3, tensor4, tensor5, 0);
     auto &add2 = CreateAddOp(*currFunctionPtr, tensor3, tensor4, tensor6, 0);
     auto &add3 = CreateAddOp(*currFunctionPtr, tensor6, tensor4, tensor8, 0);
     auto &add4 = CreateAddOp(*currFunctionPtr, tensor8, tensor5, tensor9, 0);
-    FunctionUtils::AddControlEdge(alloc3, add1);
-    FunctionUtils::AddControlEdge(alloc4, add2);
-    FunctionUtils::AddControlEdge(alloc5, add3);
-    FunctionUtils::AddControlEdge(alloc6, add4);
+    (void)alloc1, (void)alloc2, (void)alloc3, (void)alloc4, (void)alloc5, (void)alloc6,
+    (void)copyin1, (void)copyin2, (void)add1, (void)add2, (void)add3, (void)add4;
     auto &copyout = CreateCopyOp(*currFunctionPtr, Opcode::OP_COPY_OUT, tensor9, tensor7, shape);
     copyout.UpdateSubgraphID(0);
     for (auto &program : rootFuncPtr->rootFunc_->programs_) {

@@ -314,7 +314,6 @@ Status OoOScheduler::CreateSpillReloadIssue(Function &func, LogicalTensorPtr spi
 
     UpdateOpAttr(spillAllocOp, 1, localTensor, {}, spillIssue);
     UpdateOpAttr(spillCopyInOp, DEFAULT_LATENCY, localTensor, spillOutTensor->GetOffset(), spillIssue);
-    FunctionUtils::AddControlEdge(spillAllocOp, spillCopyInOp);
 
     // 初始化OP_COPY_IN/OP_ALLOC的issueEntry
     IssueEntryPtr spillAllocInst = std::make_shared<IssueEntry>(&spillAllocOp, issueEntries.size());

@@ -144,7 +144,6 @@ TEST_F(MergeSrcDstBufferTest, AppointInplace) {
     copyin1.SetOpAttribute(std::make_shared<CopyOpAttribute>(
             OpImmediate::Specified(offset), MEM_UB, shapeImme, shapeImme, std::vector<npu::tile_fwk::OpImmediate>()));
     copyin1.UpdateSubgraphID(0);
-    FunctionUtils::AddControlEdge(alloc1, copyin1);
 
     auto &alloc2 = function.AddOperation(Opcode::OP_UB_ALLOC, {}, std::vector<std::shared_ptr<LogicalTensor>>({tensor4}));
     alloc2.UpdateLatency(1);
@@ -155,7 +154,6 @@ TEST_F(MergeSrcDstBufferTest, AppointInplace) {
     copyin2.SetOpAttribute(std::make_shared<CopyOpAttribute>(
             OpImmediate::Specified(offset), MEM_UB, shapeImme, shapeImme, std::vector<npu::tile_fwk::OpImmediate>()));
     copyin2.UpdateSubgraphID(0);
-    FunctionUtils::AddControlEdge(alloc2, copyin2);
 
     auto &alloc3 = function.AddOperation(Opcode::OP_UB_ALLOC, {}, std::vector<std::shared_ptr<LogicalTensor>>({tensor5}));
     alloc3.UpdateLatency(1);
@@ -164,7 +162,6 @@ TEST_F(MergeSrcDstBufferTest, AppointInplace) {
         function.AddOperation(Opcode::OP_ADD, std::vector<std::shared_ptr<LogicalTensor>>({tensor3, tensor4}),
                               std::vector<std::shared_ptr<LogicalTensor>>({tensor5}));
     add1.UpdateSubgraphID(0);
-    FunctionUtils::AddControlEdge(alloc3, add1);
     add1.SetAttr(OpAttributeKey::inplaceIdx, 0);
 
     SrcDstBufferMergeImpl srcDstMerge;

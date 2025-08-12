@@ -126,7 +126,6 @@ Status AddAlloc::CreateAllocNode(const TensorAllocMsg& tensorAllocMsg, Function&
                 allocOp.SetAttribute(OpAttributeKey::tag, tensorAllocMsg.producer[0]->GetStringAttribute(OpAttributeKey::tag));
             }
             allocOp.opmagic = maxOpMagic + 1;
-            FunctionUtils::AddControlEdge(allocOp, *tensorAllocMsg.producer[0]);
         }
     }
     return SUCCESS;

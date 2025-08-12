@@ -29,10 +29,6 @@ using setType = std::conditional<false, std::unordered_set<int>, std::set<int>>:
 
 class FunctionUtils {
 public:
-    static void AddControlEdge(Operation &outOperation, Operation &inOperation);
-
-    static void RemoveControlEdge(Operation &outOperation, Operation &inOperation);
-
     static void RelinkOperationInput(Operation *op, const size_t inputIndex, const Operation *targetOp,
                                      const size_t outputIndex);
 

@@ -20,15 +20,6 @@
 #include "interface/function/function.h"
 
 namespace npu::tile_fwk {
-void FunctionUtils::AddControlEdge(Operation &outOperation, Operation &inOperation) {
-    outOperation.AddOutCtrlOperation(inOperation);
-    inOperation.AddInCtrlOperation(outOperation);
-}
-
-void FunctionUtils::RemoveControlEdge(Operation &outOperation, Operation &inOperation) {
-    outOperation.RemoveOutCtrlOperation(inOperation);
-    inOperation.RemoveInCtrlOperation(outOperation);
-}
 
 void FunctionUtils::RelinkOperationInput(Operation *op, const size_t inputIndex, const Operation *targetOp,
                                          const size_t outputIndex) {

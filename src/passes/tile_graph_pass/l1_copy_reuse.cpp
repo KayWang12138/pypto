@@ -116,8 +116,6 @@ void L1CopyInReuseRunner::MergeDupL1CopyIn(
             auto rewriteOp = oriList[replacedOutput[0]];
             auto copyinOp = oriList[replacedOutput[2]];
             assert(func.TensorReuse(rewriteOp->GetOOperands()[replacedOutput[1]], copyinOp->GetOOperands()[0]));
-            // 添加了控制依赖
-            FunctionUtils::AddControlEdge(*copyinOp, *rewriteOp);
         }
     }
     func.SetTotalSubGraphCount(colorCount);
