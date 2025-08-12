@@ -388,6 +388,11 @@ bool SubgraphToFunction::CompareParamListsImpl(
     for (size_t i = 0; i < esgParams.size(); i++) {
         const auto& e = esgParams[i];
         const auto& p = psgParams[i];
+        // 动态shape豁免检查
+        if (p.shape[0] == kShapePlaceholderForParameterized) {
+            ALOG_DEBUG_F("Skip dynamic shape check");
+            continue;
+        }
         if (!(p.CompareParam(e))) {
             ALOG_ERROR_F("Psg %d esg %d %s shape mismatch at %zu", psgId, esgId, paramType.c_str(), i);
             return false;

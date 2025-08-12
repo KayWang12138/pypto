@@ -100,6 +100,7 @@ private:
     std::vector<int64_t> subgTopoParamOffsets;
     std::vector<SubfuncInvokeInfoTy> subFuncInvokeInfos;
     bool printDetails = false;
+    static constexpr int kShapePlaceholderForParameterized = -2;
 };
 } // namespace npu::tile_fwk
 #endif // PASS_SUGGRAPH_TO_FUNCTION_H_

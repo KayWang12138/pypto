@@ -475,7 +475,7 @@ void SubgraphToFunction::ProcessCopyInOperand(Operation& tileOp, std::vector<int
         return;
     }
     std::vector<OpImmediate> opImmList = attr->GetCopyInAttr().first;
-    shape = attr->GetSpecifiedShape(1);
+    shape = attr->GetSpecifiedShape(kShapePlaceholderForParameterized);
     if (!opImmList.empty() && opImmList[0].IsParameter()) {
         ALOG_DEBUG_F("CopyinOperand: First operand is paramter, skip offset processiong");
         return;
@@ -493,7 +493,7 @@ void SubgraphToFunction::ProcessCopyOutOperand(Operation& tileOp, std::vector<in
         return;
     }
     std::vector<OpImmediate> opImmList = attr->GetCopyOutAttr().second;
-    shape = attr->GetSpecifiedShape(1);
+    shape = attr->GetSpecifiedShape(kShapePlaceholderForParameterized);
     if (!opImmList.empty() && opImmList[0].IsParameter()) {
         ALOG_DEBUG_F("CopyOutOperand: First operand is paramter, skip offset processiong");
         return;
