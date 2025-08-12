@@ -92,12 +92,29 @@ void FindFirstQualifiedCopyIn(Function *leafFunc, Operation *op,
     std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inWspCnt,
     std::vector<WorkspaceInfo> &outReuseInCasts) {
     std::deque<Operation *> parents;
+    
+    std::unordered_set<Operation*> visited; // 已访问标记集合
+    
     parents.push_back(op);
+    visited.insert(op); // 标记初始操作已访问
+
     auto &out = outWspInfo.tensor;
     while (!parents.empty()) {
-        auto &parent = parents.front();
+        auto parent = parents.front();
+        parents.pop_front();
+
         for (auto &in : parent->GetIOperands()) {
+            // 在leafFunc边界停止遍历
+            if (std::find(leafFunc->inCasts_.begin(), leafFunc->inCasts_.end(), in) != leafFunc->inCasts_.end()) {
+                continue;
+            }
             for (auto &producerOfParent : in->GetProducers()) {
+                // 跳过已访问的操作
+                if (visited.find(producerOfParent) != visited.end()) {
+                    continue;
+                }
+                visited.insert(producerOfParent); // 标记当前操作为已访问
+
                 if (OpcodeManager::Inst().IsCopyIn(producerOfParent->GetOpcode())) {
                     auto &copyInInput = producerOfParent->GetIOperands()[0];
                     auto iter = inWspCnt.find(copyInInput);
@@ -121,7 +138,6 @@ void FindFirstQualifiedCopyIn(Function *leafFunc, Operation *op,
                 }
             }
         }
-        parents.pop_front();
     }
 }
 
