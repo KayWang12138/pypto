@@ -83,11 +83,19 @@ public:
     }
     
 private:
+    void InitializeRootCasts();
+    void ProcessOperations();
+    void ProcessSingleOperation(Operation& callOp);
+    bool TryProcessTensor(Operation& callOp, size_t outputIdx);
+    bool HandleNewTensor(Operation& callOp, size_t outputIdx, LogicalTensorPtr& output);
+    void HandleExistingTensor(size_t storageIndex, LogicalTensorPtr &output);
+    bool SetupReusedTensor(Operation &callOp, size_t outputIdx, LogicalTensorPtr &output, LogicalTensorPtr &previous);
+    void CreateNewTensorStorage(LogicalTensorPtr& output);
     void storageNeedToAllocatePreProcess(TensorsDesc &tensorsDesc);
     void UpdateStorageId(TensorsDesc &tensorsDesc, std::unordered_map<int64_t, int> &idMap, int &storageId);
-    void CheckConsumerNoOverLap();
-    void InitInnerLeafReuse();
-    void CheckOneLeaf(Function *leafFunc);
+    void MarkNonOverlappingConsumerTensors();
+    void InitializeLeafMemoryReuse();
+    void ProcessLeafMemoryReuse(Function *leafFunc);
 
     bool CheckTopoDependancy(const LogicalTensorPtr &tensor, Operation &op) const;
     // 检查某个CallOp的输出是否可以复用输入

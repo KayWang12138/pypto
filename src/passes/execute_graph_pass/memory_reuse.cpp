@@ -211,7 +211,7 @@ bool HasReshapeConsumer(const LogicalTensorPtr &out)
 // 4. 如果incast的size大于outcast，那么也可以复用，但是要给outcast的tensor上打上偏移量。
 // 5. 如果outcast的shape不等于rawshape，那么不能复用，这种场景较为复杂，有优化空间
 // 6. 如果outcast在leafFunction中存在后继的reshape，那么不需要复用
-void Allocator::CheckOneLeaf(Function *leafFunc) {
+void Allocator::ProcessLeafMemoryReuse(Function *leafFunc) {
     std::unordered_map<LogicalTensorPtr, size_t> tensorToInfo;
     std::vector<WorkspaceInfo> outWspInfo;
 
@@ -268,7 +268,7 @@ void Allocator::CheckOneLeaf(Function *leafFunc) {
     }
 }
 
-bool CheckAllNoOverlap(const std::vector<std::vector<int>> &allOffsets,
+bool CheckAllConsumerAccessNoOverlap(const std::vector<std::vector<int>> &allOffsets,
     const std::vector<std::vector<int>> &allShapes) {
     if (allOffsets.size() == 1) {
         return true;
@@ -349,7 +349,7 @@ void RecordAllConsumerShapeAndOffset(LogicalTensorPtr &out, std::vector<std::vec
     }
 }
 
-void Allocator::CheckConsumerNoOverLap() {
+void Allocator::MarkNonOverlappingConsumerTensors() {
     for (auto &op : function_->Operations()) {
         for (auto &out : op.GetOOperands()) {
             bool canReuse = true;
@@ -357,7 +357,7 @@ void Allocator::CheckConsumerNoOverLap() {
                 continue;
             }
             if (out->GetConsumers().size() == 1) {
-                out->SetAttr("MemoryReuseNoOverlap", true);
+                out->SetAttr("ConsumerAccessNoOverlap", true);
                 continue;
             }
 
@@ -367,23 +367,23 @@ void Allocator::CheckConsumerNoOverLap() {
             if (canReuse == false) {
                 continue;
             }
-            bool ret= CheckAllNoOverlap(allOffsets, allShapes);
+            bool ret= CheckAllConsumerAccessNoOverlap(allOffsets, allShapes);
             if (ret) {
-                out->SetAttr("MemoryReuseNoOverlap", true);
+                out->SetAttr("ConsumerAccessNoOverlap", true);
             }
         }
     }
 }
 
-void Allocator::InitInnerLeafReuse() {
+void Allocator::InitializeLeafMemoryReuse() {
     if (function_->GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH) {
         return;
     }
     auto &programs = function_->programs_;
     for (auto &program : programs) {
-        CheckOneLeaf(program.second);
+        ProcessLeafMemoryReuse(program.second);
     }
-    CheckConsumerNoOverLap();
+    MarkNonOverlappingConsumerTensors();
 }
 
 /* 如果previous tensor的consumer中包含了tensor的producer，那么不能复用。
@@ -514,7 +514,7 @@ bool Allocator::CheckReuseInnerCall(
     auto &inputs = callOp.GetIOperands();
     auto &input = inputs[incastIdx];
     bool consumerNoOverLap = false;
-    (void)input->GetAttr("MemoryReuseNoOverlap", consumerNoOverLap);
+    (void)input->GetAttr("ConsumerAccessNoOverlap", consumerNoOverLap);
     if (consumerNoOverLap == false) {
         if (!CheckTopoDependancy(input, callOp)) {
             ALOG_DEBUG_F("input %d contains more than one consumer and does not directly linked to %d",
@@ -589,68 +589,103 @@ void RefreshCallRawShape(Operation &callOp, size_t j, const LogicalTensorPtr &ou
     }
 }
 
-void Allocator::Init() {
-    connectionMatrix_.Generate(function_);
-    storageMap_.clear();
-    for (auto &in : function_->inCasts_) {
-        rootInCasts_.emplace(in->GetRawMagic());
+bool Allocator::SetupReusedTensor(Operation& callOp, size_t outputIdx, 
+                                 LogicalTensorPtr& output, LogicalTensorPtr& previous) {
+    output->storage_ = previous->storage_;
+    auto iterPrevious = storageMap_.find(previous->GetRawMagic());
+    if (iterPrevious == storageMap_.end()) {
+        ALOG_ERROR_F("Cannot find previous %d rawmagic %d", previous->magic, previous->GetRawMagic());
+        return false;
     }
+    RefreshCallRawShape(callOp, outputIdx, output, previous);
+    auto &tensorsDesc = storageNeedToAllocate_.at(iterPrevious->second);
+    tensorsDesc.tensors.emplace(output);
+    storageMap_.emplace(output->GetRawMagic(), iterPrevious->second);
+    ALOG_DEBUG_F("Tensor %d can inner reuse %d", output->magic, previous->magic);
+    return true;
+}
 
-    for (auto &out : function_->outCasts_) {
-        rootOutCasts_.emplace(out->GetRawMagic());
+void Allocator::CreateNewTensorStorage(LogicalTensorPtr& output) {
+    output->storage_ = std::make_shared<Storage>(MemoryType::MEM_WORKSPACE, output->GetRawMagic(),
+        Align(static_cast<uint64_t>(output->tensor->GetRawDataSize())));
+    TensorsDesc tensorsDesc(function_);
+    tensorsDesc.tensors.emplace(output);
+    tensorsDesc.isDummy = output->GetProducers().empty();
+    storageNeedToAllocate_.emplace_back(tensorsDesc);
+    storageMap_.emplace(output->GetRawMagic(), (storageNeedToAllocate_.size() - 1));
+    UpdateActualRaw(output);
+}
+
+bool Allocator::HandleNewTensor(Operation& callOp, size_t outputIdx, LogicalTensorPtr& output) {
+    // 判断是否可以复用输入
+    LogicalTensorPtr previous = nullptr;
+    if (CheckReuseInnerCall(callOp, outputIdx, previous, output->storageOffset_) && previous != nullptr) {
+        return SetupReusedTensor(callOp, outputIdx, output, previous);
+    } else {
+        CreateNewTensorStorage(output);
+        return false;
     }
-    InitInnerLeafReuse();
+}
+
+void Allocator::HandleExistingTensor(size_t storageIndex, LogicalTensorPtr& output) {
+    auto& tensorsDesc = storageNeedToAllocate_.at(storageIndex);
+    auto& firstTensor = *(tensorsDesc.tensors.begin());
+    output->storage_ = firstTensor->storage_;
+    tensorsDesc.tensors.emplace(output);
+}
+
+bool Allocator::TryProcessTensor(Operation& callOp, size_t outputIdx) {
+    auto &output = callOp.GetOOperands()[outputIdx];
+    if (function_->IsFromInCast(output) || function_->IsFromOutCast(output)) {
+        return false;
+    }
+    if (output->storage_ != nullptr) {
+        return false;
+    }
+    auto iter = storageMap_.find(output->GetRawMagic());
+    if (iter == storageMap_.end()) {
+        return HandleNewTensor(callOp, outputIdx, output);
+    } else {
+        HandleExistingTensor(iter->second, output);
+        return false;
+    }
+}
+
+void Allocator::ProcessSingleOperation(Operation& callOp) {
+    int reuseCount = 0;
+    for (size_t j = 0; j < callOp.GetOOperands().size(); ++j) {
+        if (TryProcessTensor(callOp, j)) {
+            reuseCount++;
+        }
+    }
+    ALOG_DEBUG_F("Call %d reuse count is %d", callOp.opmagic, reuseCount);
+}
+
+void Allocator::ProcessOperations() {
     auto callOps = function_->Operations();
     // StorageId(initialized as rawmagic) to position in storageNeedToAllocate_
     for (size_t i = 0; i < callOps.size(); ++i) {
-        auto &callOp = callOps[i];
-        int reuseCount = 0;
-        for (size_t j = 0; j < callOp.GetOOperands().size(); ++j) {
-            auto &output = callOp.GetOOperands()[j];
-            if (function_->IsFromInCast(output) || function_->IsFromOutCast(output)) {
-                continue;
-            }
-
-            if (output->storage_ != nullptr) {
-                continue;
-            }
-            auto iter = storageMap_.find(output->GetRawMagic());
-            if (iter == storageMap_.end()) {
-                // 判断是否可以复用输入
-                LogicalTensorPtr previous = nullptr;
-                if (CheckReuseInnerCall(callOp, j, previous, output->storageOffset_) && previous != nullptr) {
-                    output->storage_ = previous->storage_;
-                    auto iterPrevious = storageMap_.find(previous->GetRawMagic());
-                    if (iterPrevious == storageMap_.end()) {
-                        ALOG_ERROR_F("Cannot find previous %d rawmagic %d", previous->magic, previous->GetRawMagic());
-                        continue;
-                    }
-                    RefreshCallRawShape(callOp, j, output, previous);
-                    auto &tensorsDesc = storageNeedToAllocate_.at(iterPrevious->second);
-                    tensorsDesc.tensors.emplace(output);
-                    storageMap_.emplace(output->GetRawMagic(), iterPrevious->second);
-                    ALOG_DEBUG_F("Tensor %d can inner reuse %d", output->magic, previous->magic);
-                    reuseCount++;
-                } else {
-                    output->storage_ = std::make_shared<Storage>(MemoryType::MEM_WORKSPACE, output->GetRawMagic(),
-                        Align(static_cast<uint64_t>(output->tensor->GetRawDataSize())));
-                    TensorsDesc tensorsDesc(function_);
-                    tensorsDesc.tensors.emplace(output);
-                    tensorsDesc.isDummy = output->GetProducers().empty();
-                    storageNeedToAllocate_.emplace_back(tensorsDesc);
-                    storageMap_.emplace(output->GetRawMagic(), (storageNeedToAllocate_.size() - 1));
-                    UpdateActualRaw(output);
-                }
-            } else {
-                auto &tensorsDesc = storageNeedToAllocate_.at(iter->second);
-                auto &firstTensor = *(tensorsDesc.tensors.begin());
-                output->storage_ = firstTensor->storage_;
-                tensorsDesc.tensors.emplace(output);
-            }
-        }
-        ALOG_DEBUG_F("Call %d reuse count is %d", callOp.opmagic, reuseCount);
+        ProcessSingleOperation(callOps[i]);
     }
 }
+
+void Allocator::InitializeRootCasts() {
+    for (auto &in : function_->inCasts_) {
+        rootInCasts_.emplace(in->GetRawMagic());
+    }
+    for (auto &out : function_->outCasts_) {
+        rootOutCasts_.emplace(out->GetRawMagic());
+    }
+}
+
+void Allocator::Init() {
+    connectionMatrix_.Generate(function_);
+    storageMap_.clear();
+    InitializeRootCasts();
+    InitializeLeafMemoryReuse();
+    ProcessOperations();
+}
+
 void Allocator::storageNeedToAllocatePreProcess(TensorsDesc &tensorsDesc) {
     for (auto &tensor : tensorsDesc.tensors) {
         for (auto &cons : tensor->GetConsumers()) {
