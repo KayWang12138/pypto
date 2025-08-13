@@ -446,6 +446,21 @@ def gen_vector_dup_op_golden(
     return gen_op_golden("VectorDuplicate", golden_func, output, case_index)
 
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestSubs/SubsOperationTest.TestSubs",
+    ]
+)
+def gen_subs_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs, params: dict):
+        scalar = get_dtype_by_name(params["scalar_type"])(params["scalar"])
+        return [inputs[0] - scalar]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Subs", golden_func, output, case_index)
+
+
 def main() -> bool:
     # 用例名称
     case_name_list: List[str] = [

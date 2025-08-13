@@ -1,0 +1,161 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file test_subs_operation.cpp
+ * \brief
+ */
+
+#include "test_operation.h"
+
+using namespace tile_fwk::test_operation;
+namespace {
+struct SubsOpFuncArgs : public OpFuncArgs {
+    SubsOpFuncArgs(const Element &value, const std::vector<int> &viewShape, const std::vector<int> tileShape)
+        : value_(value), viewShape_(viewShape), tileShape_(tileShape) {}
+
+    Element value_;
+    std::vector<int> viewShape_;
+    std::vector<int> tileShape_;
+};
+
+struct SubsOpMetaData {
+    explicit SubsOpMetaData(const std::vector<OpFunc> &funcs) : opFuncs_(funcs) {}
+
+    std::vector<OpFunc> opFuncs_;
+};
+
+static void SubsOperationExeFuncDoubleCut(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
+        SymbolicScalar firstDim = inputs[0]->shape[0];
+        SymbolicScalar secondDim = inputs[0]->shape[1];
+        auto args = static_cast<const SubsOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        int bloop = CeilDiv(firstDim, firstViewShape);
+        int sloop = CeilDiv(secondDim, secondViewShape);
+
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                auto tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape},
+                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                        std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                    {bIdx * firstViewShape, sIdx * secondViewShape});
+                Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                auto res = SubS(tileTensor0, args->value_);
+                DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
+            }
+        }
+    }
+}
+
+static void SubsOperationExeFuncTripleCut(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
+        SymbolicScalar firstDim = inputs[0]->shape[0];
+        SymbolicScalar secondDim = inputs[0]->shape[1];
+        SymbolicScalar thirdDim = inputs[0]->shape[2];
+        auto *args = static_cast<const SubsOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        const int thirdViewShape = args->viewShape_[2];
+        int bloop = CeilDiv(firstDim, firstViewShape);
+        int sloop = CeilDiv(secondDim, secondViewShape);
+        int nloop = CeilDiv(thirdDim, thirdViewShape);
+
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
+                    auto tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                            std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
+                    Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                    auto res = SubS(tileTensor0, args->value_);
+                    DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
+                }
+            }
+        }
+    }
+}
+
+static void SubsOperationExeFuncQuadrupleCut(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
+        SymbolicScalar firstDim = inputs[0]->shape[0];
+        SymbolicScalar secondDim = inputs[0]->shape[1];
+        SymbolicScalar thirdDim = inputs[0]->shape[2];
+        SymbolicScalar fourthDim = inputs[0]->shape[3];
+        auto args = static_cast<const SubsOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        const int thirdViewShape = args->viewShape_[2];
+        const int fourthViewShape = args->viewShape_[3];
+        int bloop = CeilDiv(firstDim, firstViewShape);
+        int sloop = CeilDiv(secondDim, secondViewShape);
+        int nloop = CeilDiv(thirdDim, thirdViewShape);
+        int qloop = CeilDiv(fourthDim, fourthViewShape);
+
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
+                    LOOP("LOOP_L3_qIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(0, qloop, 1)) {
+                        auto tileTensor0 =
+                            DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                                {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                    std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                    std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape),
+                                    std::min(fourthDim - qIdx * fourthViewShape, fourthViewShape)},
+                                {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
+                                    qIdx * fourthViewShape});
+                        Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                        auto res = SubS(tileTensor0, args->value_);
+                        DAssemble(res,
+                            {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
+                                qIdx * fourthViewShape},
+                            outputs[0]);
+                    }
+                }
+            }
+        }
+    }
+}
+
+static const SubsOpMetaData metaData =
+    SubsOpMetaData({SubsOperationExeFuncDoubleCut, SubsOperationExeFuncTripleCut, SubsOperationExeFuncQuadrupleCut});
+
+class SubsOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<SubsOpMetaData> {};
+
+INSTANTIATE_TEST_SUITE_P(TestSubs, SubsOperationTest, ::testing::Values(metaData));
+
+TEST_P(SubsOperationTest, TestSubs) {
+    TestCaseDesc testCase;
+    auto config = GetGoldenDir() + "/test_case_data.json";
+    testCase.inputTensors = GetInputTensors(config);
+    testCase.outputTensors = GetOutputTensors(config);
+    auto dtype = GetDataType(GetValueByName<std::string>(config, "scalar_type"));
+    Element value(dtype, GetValueByName<float>(config, "scalar"));
+    auto args = SubsOpFuncArgs(value, GetViewShape(config), GetTileShape(config));
+    testCase.args = &args;
+    auto func_id = GetFuncId(config);
+    if (func_id < 0 || static_cast<size_t>(func_id) >= GetParam().opFuncs_.size()) {
+        func_id = args.viewShape_.size() - 2;
+    }
+    testCase.opFunc = GetParam().opFuncs_[func_id];
+    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin"};
+    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
+    TestExecutor::runTest(testCase);
+}
+} // namespace
