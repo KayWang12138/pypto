@@ -63,7 +63,7 @@ private:
 class Allocator {
 public:
     explicit Allocator(Function *function) : connectionMatrix_(function), function_(function) {}
-    uint64_t Allocate();
+    Status Allocate();
     void Init();
     static bool IsRawQualified(const WorkspaceInfo &outWspInfo, const WorkspaceInfo &inWspInfo);
 
@@ -91,8 +91,8 @@ private:
     void HandleExistingTensor(size_t storageIndex, LogicalTensorPtr &output);
     bool SetupReusedTensor(Operation &callOp, size_t outputIdx, LogicalTensorPtr &output, LogicalTensorPtr &previous);
     void CreateNewTensorStorage(LogicalTensorPtr& output);
-    void storageNeedToAllocatePreProcess(TensorsDesc &tensorsDesc);
-    void UpdateStorageId(TensorsDesc &tensorsDesc, std::unordered_map<int64_t, int> &idMap, int &storageId);
+    void StorageNeedToAllocatePreProcess(TensorsDesc &tensorsDesc);
+    Status UpdateStorageId(TensorsDesc &tensorsDesc, std::unordered_map<int64_t, int> &idMap, int &storageId);
     void MarkNonOverlappingConsumerTensors();
     void InitializeLeafMemoryReuse();
     void ProcessLeafMemoryReuse(Function *leafFunc);
@@ -103,6 +103,8 @@ private:
         uint64_t &storageOffset) const;
     void UpdateActualRaw(LogicalTensorPtr &input) const;
     TensorBucket &GetBestFitBucket(const TensorsDesc &tensorsDesc);
+    void UpdateTensorMagicToBucketIdx(const std::set<LogicalTensorPtr> &tensors, int idx);
+    Status UpdateIncastOutCast();
 
     std::vector<TensorBucket> buckets_;
     std::map<int64_t, std::vector<int64_t>> bucketsSizeToIdx_; // first为buckets的最新一个tensor的size，second是对应的bucket index集合
@@ -120,6 +122,9 @@ private:
     // 使用 map 存储，key 为 function 指针
     // function内，outcast可以和哪个incast复用gm内存，-1表示不能复用
     std::unordered_map<Function*, std::vector<WorkspaceInfo>> outReuseInCasts_;
+
+    std::unordered_map<int, int> tensorMagicToBucketIdx_;
+    std::unordered_map<int, int64_t> bucketsIdxToSize_;
 };
 
 class MemoryReuse : public Pass {

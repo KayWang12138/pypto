@@ -398,6 +398,13 @@ bool TensorBucket::HasTopoDependency(const LargeBitmap &PreducersOp) const {
     return true;
 }
 
+void Allocator::UpdateTensorMagicToBucketIdx(const std::set<LogicalTensorPtr> &tensors, int idx)
+{
+    for (auto tensor : tensors) {
+        tensorMagicToBucketIdx_[tensor->GetMagic()] = idx;
+    }
+}
+
 TensorBucket &Allocator::GetBestFitBucket(const TensorsDesc &tensorsDesc)
 {
     if (tensorsDesc.isDummy) {
@@ -406,24 +413,42 @@ TensorBucket &Allocator::GetBestFitBucket(const TensorsDesc &tensorsDesc)
     auto &first = *(tensorsDesc.tensors.begin());
     int64_t rawDataSize = first->tensor->GetRawDataSize();
     int64_t rawDataSizeKey = rawDataSize / MEM_PROPORTION_COEFF;
-    for (auto it = bucketsSizeToIdx_.lower_bound(rawDataSizeKey); it != bucketsSizeToIdx_.end(); ++it) {
-        for (auto bucketIdxIt = it->second.begin(); bucketIdxIt != it->second.end(); bucketIdxIt++) {
-            // 此处编译时调用次数较多，对编译时长硬件较大，谨慎添加新逻辑
-            if (!buckets_[*bucketIdxIt].HasTopoDependency(tensorsDesc.connectionOpsBitmap)) {
+
+    std::deque<LogicalTensorPtr> predecessorTensors(tensorsDesc.tensors.begin(), tensorsDesc.tensors.end());
+    std::unordered_set<int> visitedTensor;
+    std::unordered_set<int> visitedBucket;
+    while (predecessorTensors.size() > 0) {
+        LogicalTensorPtr ptr = predecessorTensors.front();
+        predecessorTensors.pop_front();
+        if (visitedTensor.count(ptr->GetMagic()) > 0) {
+            continue;
+        }
+        visitedTensor.insert(ptr->GetMagic());
+
+        if (tensorMagicToBucketIdx_.count(ptr->GetMagic()) > 0) {
+            int bucketIdx = tensorMagicToBucketIdx_[ptr->GetMagic()];
+            if (visitedBucket.count(bucketIdx) > 0) {
                 continue;
             }
-            size_t bucketIdx = *bucketIdxIt;
-            it->second.erase(bucketIdxIt);
-            if (it->second.empty()) {
-                bucketsSizeToIdx_.erase(it);
+            visitedBucket.insert(bucketIdx);
+            if (bucketsIdxToSize_[bucketIdx] >= rawDataSizeKey &&
+                buckets_[bucketIdx].HasTopoDependency(tensorsDesc.connectionOpsBitmap)) {
+                bucketsIdxToSize_[bucketIdx] = rawDataSize;
+                UpdateTensorMagicToBucketIdx(tensorsDesc.tensors, bucketIdx);
+                return buckets_[bucketIdx];
             }
-            // 插入新键值对
-            bucketsSizeToIdx_[rawDataSize].push_back(bucketIdx);
-            return buckets_[bucketIdx];
+        }
+
+        for (auto &op : ptr->GetProducers()) {
+            for (auto &tensor : op->GetIOperands()) {
+                predecessorTensors.push_back(tensor);
+            }
         }
     }
-    bucketsSizeToIdx_[rawDataSize].push_back(buckets_.size());
+
     buckets_.emplace_back();
+    UpdateTensorMagicToBucketIdx(tensorsDesc.tensors, buckets_.size() - 1);
+    bucketsIdxToSize_[buckets_.size() - 1] = rawDataSize;
     return buckets_.back();
 }
 
@@ -686,7 +711,7 @@ void Allocator::Init() {
     ProcessOperations();
 }
 
-void Allocator::storageNeedToAllocatePreProcess(TensorsDesc &tensorsDesc) {
+void Allocator::StorageNeedToAllocatePreProcess(TensorsDesc &tensorsDesc) {
     for (auto &tensor : tensorsDesc.tensors) {
         for (auto &cons : tensor->GetConsumers()) {
             if (cons->GetOpcode() != Opcode::OP_CALL) {
@@ -725,14 +750,16 @@ void Allocator::storageNeedToAllocatePreProcess(TensorsDesc &tensorsDesc) {
         }
     }
 }
-void Allocator::UpdateStorageId(TensorsDesc &tensorsDesc, std::unordered_map<int64_t, int> &idMap, int &storageId) {
+
+Status Allocator::UpdateStorageId(TensorsDesc &tensorsDesc, std::unordered_map<int64_t, int> &idMap, int &storageId) {
     if (tensorsDesc.tensors.empty()) {
         ALOG_DEBUG_F("Storage tensors is empty");
-        return;
+        return SUCCESS;
     }
     auto &tensor = *(tensorsDesc.tensors.begin());
     if (tensor->storage_ == nullptr) {
-        return;
+        ALOG_ERROR_F("tensor rawMagic:%d, storage is nullptr", tensor->GetRawMagic());
+        return FAILED;
     }
 
     auto iter = idMap.find(tensor->storage_->start_);
@@ -743,15 +770,49 @@ void Allocator::UpdateStorageId(TensorsDesc &tensorsDesc, std::unordered_map<int
     } else {
         tensor->storage_->id_ = iter->second;
     }
+    return SUCCESS;
 }
-uint64_t Allocator::Allocate() {
+
+Status Allocator::UpdateIncastOutCast() {
+    auto callOps = function_->Operations();
+    for (auto &callOp : callOps) {
+        auto callAttr = dynamic_cast<CallOpAttribute *>(callOp.GetOpAttribute().get());
+        auto &incasts = callAttr->invokeInfo_->incastTensorParamList_;
+        auto &outcasts = callAttr->invokeInfo_->outcastTensorParamList_;
+        if (incasts.size() > callOp.iOperand.size()) {
+            ALOG_ERROR_F("incasts.size:%ld, is larger than iOperand.size:%ld, opCode:%d",
+                incasts.size(), callOp.iOperand.size(), callOp.GetOpcode());
+            return FAILED;
+        }
+        if (outcasts.size() > callOp.oOperand.size()) {
+            ALOG_ERROR_F("incasts.size:%ld, is larger than iOperand.size:%ld, opCode:%d",
+                incasts.size(), callOp.iOperand.size(), callOp.GetOpcode());
+            return FAILED;
+        }
+        for (size_t i = 0; i < incasts.size(); ++i) {
+            auto &incast = incasts[i];
+            incast.tensor = callOp.iOperand[i];
+        }
+        for (size_t i = 0; i < outcasts.size(); ++i) {
+            auto &outcast = outcasts[i];
+            outcast.tensor = callOp.oOperand[i];
+        }
+    }
+    return SUCCESS;
+}
+
+Status Allocator::Allocate() {
     uint64_t sizeBeforeReuse = 0;
     for (auto &tensorsDesc : storageNeedToAllocate_) {
-        storageNeedToAllocatePreProcess(tensorsDesc);
+        StorageNeedToAllocatePreProcess(tensorsDesc);
         TensorBucket &bucket = GetBestFitBucket(tensorsDesc);
         bucket.AddRef(tensorsDesc);
         auto &tensor = *(tensorsDesc.tensors.begin());
         ALOG_DEBUG_F("Start to allocate tensor rawmagic %d",tensor->GetRawMagic());
+        if (tensor->storage_ == nullptr) {
+            ALOG_ERROR_F("tensor rawMagic:%d, storage is nullptr", tensor->GetRawMagic());
+            return FAILED;
+        }
         sizeBeforeReuse += tensor->storage_->length_;
     }
     for (auto &bucket : buckets_) {
@@ -766,26 +827,12 @@ uint64_t Allocator::Allocate() {
     std::unordered_map<int64_t, int> idMap;
     int storageId = 0;
     for (auto &tensorsDesc : storageNeedToAllocate_) {
-        UpdateStorageId(tensorsDesc, idMap, storageId);
+        if (UpdateStorageId(tensorsDesc, idMap, storageId) == FAILED) {
+            return FAILED;
+        }
     }
 
-    auto callOps = function_->Operations();
-    for (auto &callOp : callOps) {
-        auto callAttr = dynamic_cast<CallOpAttribute *>(callOp.GetOpAttribute().get());
-        auto &incasts = callAttr->invokeInfo_->incastTensorParamList_;
-        auto &outcasts = callAttr->invokeInfo_->outcastTensorParamList_;
-        ASSERT(incasts.size() <= callOp.iOperand.size());
-        ASSERT(outcasts.size() <= callOp.oOperand.size());
-        for (size_t i = 0; i < incasts.size(); ++i) {
-            auto &incast = incasts[i];
-            incast.tensor = callOp.iOperand[i];
-        }
-        for (size_t i = 0; i < outcasts.size(); ++i) {
-            auto &outcast = outcasts[i];
-            outcast.tensor = callOp.oOperand[i];
-        }
-    }
-    return size_;
+    return UpdateIncastOutCast();
 }
 
 Status MemoryReuse::RunOnFunction(Function &function) {
@@ -793,7 +840,6 @@ Status MemoryReuse::RunOnFunction(Function &function) {
     /* 标注每个CallOp输出Tensor生命周期，生命周期 */
     Allocator allocator(function.rootFunc_);
     allocator.Init();
-    allocator.Allocate();
-    return SUCCESS;
+    return allocator.Allocate();
 }
 } // namespace npu::tile_fwk
