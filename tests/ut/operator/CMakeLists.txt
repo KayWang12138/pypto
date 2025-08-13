@@ -38,6 +38,7 @@ set(_CaseFilterList
         # NSA
         "NSAUtest.nsa_b_16_fp16"
         "SlcAttnUtest.slc_attn_fp16"
+        "KvSlcAttnUtest.kv_slc_attn_ut"
 
         # 前端表达'单 Op'用例
         "FunctionTest.TestAddTensorFunctionDim4"

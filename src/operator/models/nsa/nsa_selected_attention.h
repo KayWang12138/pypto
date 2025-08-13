@@ -9,22 +9,27 @@
  */
 
 /*!
- * \file selected_attention.h
+ * \file nsa_selected_attention.h
  * \brief
  */
 
 #pragma once
-#ifndef SELECTED_ATTENTION
-#define SELECTED_ATTENTION
+#ifndef NSA_SELECTED_ATTENTION
+#define NSA_SELECTED_ATTENTION
 
 #include "operation/tilefwk_op.h"
 #include "common/pre_def.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/configs/config_storage.h"
 
+#include "operator/models/nsa/slc_attn.h"
+#include "operator/models/deepseek/gen_kv_slc.h"
+
 namespace npu::tile_fwk {
 
-struct SaTileShapeConfig {
+struct SATileShapeConfig {
+    std::array<int, TILE_VEC_DIMS> kvSlcV0TileShape;
+
     int gTile; // 由于没有处理尾块，当前仅支持因子切分
     int sKvTile;
     std::array<int, TILE_CUBE_DIMS> c1TileShape; // (m, M), (k, K), (n, N)
@@ -33,12 +38,11 @@ struct SaTileShapeConfig {
     std::array<int, TILE_VEC_DIMS> v2TileShape;
 };
 
-void SlcAttn(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc, const Tensor &vSlc, const Tensor &kvSlcActSeqs, int nQ, int nKv,
-    float softmaxScale, Tensor &attentionOut, SaTileShapeConfig tileConfig={});
-
-void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc, const Tensor &vSlc, const Tensor &kvSlcActSeqs, int nQ, int nKv,
-    float softmaxScale, Tensor &attentionOut, SaTileShapeConfig tileConfig={});
+void SelectedAttention(Tensor &topKIndcies, Tensor &topKTensorShape, Tensor &kvNopeCache, Tensor &kRopeCache, Tensor &kvActSeqs, Tensor &blockTable,
+    const Tensor &qNope, const Tensor &qRope, Tensor &attentionOut,
+    int nQ, int nKv, float softmaxScale, int front, int near, int topk, int blockSize, int slcBlockSize,
+    SATileShapeConfig saTileConfig);
 
 } // namespace npu::tile_fwk
 
-#endif // SELECTED_ATTENTION
+#endif // NSA_SELECTED_ATTENTION

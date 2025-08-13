@@ -151,7 +151,7 @@ def compute_attention(q, k, v, actualSeq, scalar, atten_out_shape):
         # sa
         "DynamicSATest.slc_attn_fp16",
         "DynamicSATest.slc_attn_mtp_s1_2_fp16",
-        "DynamicSATest.slc_attn_bf16",
+        "DynamicSATest.slc_attn_bf16_b48_s1_perf",
     ]
 )
 def sa_func(case_name: str, output: Path) -> bool:
@@ -162,7 +162,7 @@ def sa_func(case_name: str, output: Path) -> bool:
     selectBlockSize = 64
 
     if case_name == "DynamicSATest.slc_attn_fp16":
-        b = 96
+        b = 32
         n_q = 128
         n_kv = 1
         s_q = 1
@@ -175,8 +175,8 @@ def sa_func(case_name: str, output: Path) -> bool:
         s_q = 2
         skv = 1024
         dtype = np.float16
-    elif case_name == "DynamicSATest.slc_attn_bf16":
-        b = 32
+    elif case_name == "DynamicSATest.slc_attn_bf16_b48_s1_perf":
+        b = 48
         n_q = 128
         n_kv = 1
         s_q = 1
