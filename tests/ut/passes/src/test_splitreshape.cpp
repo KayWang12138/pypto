@@ -60,7 +60,7 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestSplitReshapePass, SplitReshapeUTest1) {
+TEST_F(TestSplitReshapePass, TestInit) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDuplicateView", "TestDuplicateView", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     
@@ -77,7 +77,7 @@ TEST_F(TestSplitReshapePass, SplitReshapeUTest1) {
     EXPECT_EQ(pass.reshapeRawOutputs.size(), kSizeZero);
 }
 
-TEST_F(TestSplitReshapePass, SplitReshapeUTest2) {
+TEST_F(TestSplitReshapePass, TestInitCollectCopyOut) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDuplicateView", "TestDuplicateView", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
@@ -130,7 +130,7 @@ TEST_F(TestSplitReshapePass, SplitReshapeUTest2) {
     EXPECT_EQ(pass.mapOffset[input2->magic][ubTensor->magic], offset2);
 }
 
-TEST_F(TestSplitReshapePass, SplitReshapeUTest3) {
+TEST_F(TestSplitReshapePass, TestCheckSplit) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDuplicateView", "TestDuplicateView", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
@@ -190,7 +190,60 @@ TEST_F(TestSplitReshapePass, SplitReshapeUTest3) {
     EXPECT_EQ(pass.CheckSplit(case4UbTensor), true);
 }
 
-TEST_F(TestSplitReshapePass, SplitReshapeUTest4) {
+TEST_F(TestSplitReshapePass, TestCheckDynStatus) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDuplicateView", "TestDuplicateView", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    // Prepare the graph
+
+    std::vector<int> shape = {kNumTwo, kNumOne, kNumEight};
+    std::vector<int> offset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int> shape1 = {kNumOne, kNumOne, kNumEight};
+    std::vector<int> shape2 = {kNumTwo, kNumOne, kNumEight};
+    std::vector<int> shape3 = {kNumTwo, kNumEight};
+    
+    std::shared_ptr<RawTensor> ddrRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
+    
+    auto case1Input = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset, shape1);
+    auto case1UbTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    auto case1Output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
+    auto &assemble_op1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {case1Input}, {case1UbTensor});
+    auto assemble_Attr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset);
+    assemble_op1.SetOpAttribute(assemble_Attr1);
+    currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {case1UbTensor}, {case1Output});
+
+    auto case2Input = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset, shape1);
+    auto case2UbTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    auto case2Output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
+    std::vector<SymbolicScalar> case2DynUbShape = {SymbolicScalar(kNumTwo), SymbolicScalar(kNumOne), SymbolicScalar(kNumEight)};
+    std::vector<SymbolicScalar> case2DynOutputShape = {SymbolicScalar(kNumTwo), SymbolicScalar(kNumEight)};
+    case2UbTensor->UpdateDynValidShape(case2DynUbShape);
+    case2Output->UpdateDynValidShape(case2DynOutputShape);
+    auto &assemble_op2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {case2Input}, {case2UbTensor});
+    auto assemble_Attr2 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset);
+    assemble_op2.SetOpAttribute(assemble_Attr2);
+    currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {case2UbTensor}, {case2Output});
+
+    auto case3Input = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset, shape1);
+    auto case3UbTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    auto case3Output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
+    std::vector<SymbolicScalar> case3DynUbShape = {SymbolicScalar("s0"), SymbolicScalar(kNumOne), SymbolicScalar(kNumEight)};
+    std::vector<SymbolicScalar> case3DynOutputShape = {SymbolicScalar("s0"), SymbolicScalar(kNumEight)};
+    case3UbTensor->UpdateDynValidShape(case3DynUbShape);
+    case3Output->UpdateDynValidShape(case3DynOutputShape);
+    auto &assemble_op3 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {case3Input}, {case3UbTensor});
+    auto assemble_Attr3 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset);
+    assemble_op3.SetOpAttribute(assemble_Attr3);
+    currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {case3UbTensor}, {case3Output});
+
+    SplitReshape pass;
+    auto status = pass.CollectCopyOut(*currFunctionPtr);
+    EXPECT_EQ(status, SUCCESS);
+    EXPECT_EQ(pass.CheckDynStatus(case1UbTensor, case1Output), true);
+    EXPECT_EQ(pass.CheckDynStatus(case2UbTensor, case2Output), true);
+    EXPECT_EQ(pass.CheckDynStatus(case3UbTensor, case3Output), false);
+}
+
+TEST_F(TestSplitReshapePass, TestShapeAlign) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDuplicateView", "TestDuplicateView", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
@@ -231,7 +284,7 @@ TEST_F(TestSplitReshapePass, SplitReshapeUTest4) {
     EXPECT_EQ(status, WARNING);
 }
 
-TEST_F(TestSplitReshapePass, SplitReshapeUTest5) {
+TEST_F(TestSplitReshapePass, TestRawToAlign) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDuplicateView", "TestDuplicateView", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
@@ -295,9 +348,17 @@ TEST_F(TestSplitReshapePass, SplitReshapeUTest5) {
     expectShape = {kNumOne, kNumTwo, kNumTwo, kExpFive};
     EXPECT_EQ(newShape, expectShape);
     EXPECT_EQ(newOffset, expectOffset);
+
+    rawShape = {kExpFive, kNumFour, kNumNineSix};
+    alignedShape = {kExpFive, kNumFour, kNumFour, kExpFive};
+    tileOffset = {kNumOne, kNumOne, kExpSeven};
+    tileShape = {kNumOne, kNumTwo, kExpSix};
+    shapePara = {rawShape, alignedShape, tileOffset, tileShape};
+    status = pass.RawToAlign(shapePara, newOffset, newShape);
+    EXPECT_EQ(status, WARNING);
 }
 
-TEST_F(TestSplitReshapePass, SplitReshapeUTest6) {
+TEST_F(TestSplitReshapePass, TestAlignToRaw) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDuplicateView", "TestDuplicateView", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
@@ -363,7 +424,7 @@ TEST_F(TestSplitReshapePass, SplitReshapeUTest6) {
     EXPECT_EQ(newOffset, expectOffset);
 }
 
-TEST_F(TestSplitReshapePass, SplitReshapeUTest7) {
+TEST_F(TestSplitReshapePass, TestAlignToRawSpecialCase) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDuplicateView", "TestDuplicateView", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
@@ -404,7 +465,7 @@ TEST_F(TestSplitReshapePass, SplitReshapeUTest7) {
 rawShape = {2, 4}
 {2, 4} -> assemble -> {2, 4} -> reshape -> {2, 2, 2}
 */
-TEST_F(TestSplitReshapePass, SplitReshapeUTest8) {
+TEST_F(TestSplitReshapePass, TestObtainCopyOutTileBeCovered) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDuplicateView", "TestDuplicateView", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
@@ -452,7 +513,7 @@ TEST_F(TestSplitReshapePass, SplitReshapeUTest8) {
 rawShape = {2, 2, 2}
 {2, 2, 2} -> assemble -> {2, 2, 2} -> reshape -> {4, 2}
 */
-TEST_F(TestSplitReshapePass, SplitReshapeUTest9) {
+TEST_F(TestSplitReshapePass, TestObtainCopyOutTilePerfectlyMatched) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDuplicateView", "TestDuplicateView", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
@@ -496,7 +557,7 @@ rawShape = {2, 2, 2}
 {2, 2, 2}(ub) -> assemble -> {2, 2, 2} -> reshape -> {4, 2} -> view -> {4,2}(ub) -> OP
 {2, 2, 2}(ub) -> reshape(一个ReshapeOp成员) -> {4, 2}(ub) -> OP
 */
-TEST_F(TestSplitReshapePass, SplitReshapeUTest10) {
+TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchForUB) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDuplicateView", "TestDuplicateView", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
@@ -555,7 +616,7 @@ rawShape = {2, 2, 2}
 {2, 2, 2}(ddr) -> assemble -> {2, 2, 2} -> reshape -> {4, 2}(unknown) -> view -> {4,2}(ub) -> OP
 {2, 2, 2}(ddr) -> reshape(一个ReshapeOp成员) -> {4, 2}(unknown) -> view -> {4,2}(ub) -> OP
 */
-TEST_F(TestSplitReshapePass, SplitReshapeUTest11) {
+TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchForDDR) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDuplicateView", "TestDuplicateView", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
@@ -615,7 +676,7 @@ rawShape = {2, 2, 2}
 {2, 2, 2}(ddr) -> assemble -> {2, 2, 2}(unknown) -> reshape -> {4, 2}(unknown) -> view -> {4,2}(ddr) -> OP
 {2, 2, 2}(ddr) -> assemble -> {2, 2, 2}(unknown) -> reshape(一个ReshapeOp成员) -> {4, 2}(unknown) -> view -> {4,2}(ddr) -> OP
 */
-TEST_F(TestSplitReshapePass, SplitReshapeUTest12) {
+TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchOtherCase) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDuplicateView", "TestDuplicateView", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
@@ -685,7 +746,7 @@ rawShape = {2, 2, 2}
 {2, 2, 2}(ub) -> reshape -> {2, 4}(ub) -> view -> {2, 2}
                                        -> view -> {2, 2}           
 */
-TEST_F(TestSplitReshapePass, SplitReshapeUTest13) {
+TEST_F(TestSplitReshapePass, TestUpdateForBeCoveredForUB) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDuplicateView", "TestDuplicateView", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
@@ -763,7 +824,7 @@ rawShape = {2, 2, 2}
 {2, 2, 2}(ddr) -> assemble -> {2, 2, 2} -> reshape -> {2, 4}(unknown) -> view -> {2, 2}
                                                                       -> view -> {2, 2}           
 */
-TEST_F(TestSplitReshapePass, SplitReshapeUTest14) {
+TEST_F(TestSplitReshapePass, TestUpdateForBeCoveredOtherCase) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDuplicateView", "TestDuplicateView", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
@@ -848,7 +909,7 @@ rawShape = {2, 4}
 {2, 2}(ub) -> {2, 4}(unknown) -> reshape -> {2, 2, 2}(ub)        
 {2, 2}(ub) -> 
 */
-TEST_F(TestSplitReshapePass, SplitReshapeUTest15) {
+TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchWithAllForUB) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDuplicateView", "TestDuplicateView", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
@@ -926,7 +987,7 @@ rawShape = {2, 4}
 {2, 2}(ddr) -> {2, 4}(unknown) -> reshape -> {2, 2, 2}(ddr) -> view -> {2, 2}          
 {2, 2}(ddr) -> 
 */
-TEST_F(TestSplitReshapePass, SplitReshapeUTest16) {
+TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchWithAllForDDR) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDuplicateView", "TestDuplicateView", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
@@ -1002,7 +1063,7 @@ rawShape = {2, 4}
 {2, 2}(ub) -> reshape -> {2, 1, 2}(ub) -> assemble -> {2, 2, 2}(ub)        
 {2, 2}(ub) -> reshape -> {2, 1, 2}(ub) -> assemble
 */
-TEST_F(TestSplitReshapePass, SplitReshapeUTest17) {
+TEST_F(TestSplitReshapePass, TestUpdateForAssembleAfterReshapeForUB) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDuplicateView", "TestDuplicateView", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
@@ -1109,7 +1170,7 @@ rawShape = {2, 4}
 {2, 2}(ddr) -> reshape -> {2, 1, 2}(unknown) -> assemble -> {2, 2, 2} -> view -> {2, 2, 2}(ub)
 {2, 2}(ddr) -> reshape -> {2, 1, 2}(unknown) -> assemble
 */
-TEST_F(TestSplitReshapePass, SplitReshapeUTest18) {
+TEST_F(TestSplitReshapePass, TestUpdateForAssembleAfterReshapeForDDR) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDuplicateView", "TestDuplicateView", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
@@ -1219,7 +1280,7 @@ rawShape = {2, 4}
 {2, 2}(ddr) -> assemble -> {2, 2}(unknown) -> reshape -> {2, 1, 2}(ub) -> assemble -> {2, 2, 2}(unknown) -> view -> {2, 2, 2}(ddr)
 {2, 2}(ddr) -> assemble -> {2, 2}(unknown) -> reshape -> {2, 1, 2}(ub) -> assemble -> 
 */
-TEST_F(TestSplitReshapePass, SplitReshapeUTest19) {
+TEST_F(TestSplitReshapePass, TestUpdateForAssembleAfterReshapeOtherCase) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDuplicateView", "TestDuplicateView", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
@@ -1340,7 +1401,7 @@ exp -> {2,2,2} -> assemble                         -> view -> {2,2,1,2} -> exp -
 exp -> {2,2,2} -> assemble -> reshape -> {2,2,1,2} -> view -> {2,2,1,2} -> exp -> {2,2,1,2}
 exp -> {2,2,2} -> assemble -> reshape -> {2,2,1,2} -> view -> {2,2,1,2} -> exp -> {2,2,1,2}
 */
-TEST_F(TestSplitReshapePass, SplitReshapeSTest1) {
+TEST_F(TestSplitReshapePass, TestPerfectlyMatchedSTest) {
     //Define the shape of the Tensors
     std::vector<int> origShape = {kNumTwo, kNumTwo, kNumFour};
     std::vector<int> reshapeShape = {kNumTwo, kNumTwo, kNumOne, kNumFour};
@@ -1436,7 +1497,7 @@ exp -> {2,2,2} -> assemble -> reshape -> {2,4} -> view -> {2,2} -> exp -> {2,2}
 exp -> {2,2,2} -> assemble -> reshape -> {2,4} -> view -> {2,2} -> exp -> {2,2}
                                                -> view -> {2,2} -> exp -> {2,2}
 */
-TEST_F(TestSplitReshapePass, SplitReshapeSTest2) {
+TEST_F(TestSplitReshapePass, TestBeCoveredSTest) {
     //Define the shape of the Tensors
     std::vector<int> origShape = {kNumFour, kNumTwo, kNumTwo};
     std::vector<int> reshapeShape = {kNumFour, kNumFour};
@@ -1535,7 +1596,7 @@ exp -> {2,2,2} -> assemble -> reshape -> {2,2,2,2} -> view -> {2,2,2,2} -> exp -
 exp -> {2,2,2} -> assemble -> reshape -> {2,2,2,2} -> view -> {2,2,2,2} -> exp -> {2,2,2,2}
 exp -> {2,2,2} -> assemble ->
 */
-TEST_F(TestSplitReshapePass, SplitReshapeSTest3) {
+TEST_F(TestSplitReshapePass, TestPerfectlyMatchedWithallSTest) {
     //Define the shape of the Tensors
     std::vector<int> origShape = {kNumTwo, kNumFour, kNumFour};
     std::vector<int> reshapeShape = {kNumTwo, kNumFour, kNumTwo, kNumTwo};
@@ -1637,7 +1698,7 @@ exp -> {1,4} -> assemble -> {1,4} -> reshape -> {1,1,2,2} -> assemble -> {1,1,2,
 exp -> {1,4} -> assemble -> {1,4} -> reshape -> {1,1,2,2} -> assemble -> {1,1,2,4} -> view -> {1,1,2,4} -> exp -> {1,1,2,4}
 exp -> {1,4} -> assemble -> {1,4} -> reshape -> {1,1,2,2} -> assemble
 */
-TEST_F(TestSplitReshapePass, SplitReshapeSTest4) {
+TEST_F(TestSplitReshapePass, TestPerfectlyMatchedWithallAssembleSTest) {
     //Define the shape of the Tensors
     std::vector<int> origShape = {kNumOne, kExpFour};
     std::vector<int> reshapeShape = {kNumOne, kNumOne, kNumTwo, kNumEight};
@@ -1740,7 +1801,7 @@ exp -> {1,1,2,4} -> assemble                      -> view -> {1,4} -> exp -> {1,
                                                   -> view -> {1,4} -> exp -> {1,4}
                                                   -> view -> {1,4} -> exp -> {1,4}
 */
-TEST_F(TestSplitReshapePass, SplitReshapeSTest5) {
+TEST_F(TestSplitReshapePass, TestExceptionCase1) {
     //Define the shape of the Tensors
     std::vector<int> origShape = {kNumOne, kNumOne, kNumTwo, kNumEight};
     std::vector<int> reshapeShape = {kNumOne, kExpFour};
@@ -1808,7 +1869,7 @@ exp -> {32,2} -> assemble                                -> view -> {32,2} -> ex
 exp -> {32,2} -> assemble                                -> view -> {32,2} -> exp -> {32,2}
 exp -> {32,2} -> assemble                                -> view -> {32,2} -> exp -> {32,2}
 */
-TEST_F(TestSplitReshapePass, SplitReshapeSTest6) {
+TEST_F(TestSplitReshapePass, TestExceptionCase2) {
     //Define the shape of the Tensors
     std::vector<int> origShape = {kExpSix, kNumSix};
     std::vector<int> reshapeShape = {kNumNineSix, kNumFour};
@@ -1869,7 +1930,7 @@ exp -> {2,4} -> assemble                               -> view -> {4,2} -> exp -
 exp -> {2,4} -> assemble                               -> view -> {4,2} -> exp -> {4,2}
 exp -> {2,4} -> assemble                               -> view -> {4,2} -> exp -> {4,2}
 */
-TEST_F(TestSplitReshapePass, SplitReshapeSTest7) {
+TEST_F(TestSplitReshapePass, TestExceptionCase3) {
     //Define the shape of the Tensors
     std::vector<int> origShape = {kNumEight, kNumEight};
     std::vector<int> reshapeShape = {kExpFour, kNumFour};
@@ -1888,6 +1949,65 @@ TEST_F(TestSplitReshapePass, SplitReshapeSTest7) {
     }
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase7");
+    
+    PassManager &passManager = PassManager::Instance();
+    passManager.RegisterStrategy("ExpandFunctionStrategy", {
+        {   "ExpandFunction",   "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
+    });
+    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "ExpandFunctionStrategy"), SUCCESS);
+    
+    int reshapeOp = 0;
+    for (auto &op : func->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+            reshapeOp++;
+        }
+    }
+    EXPECT_EQ(reshapeOp, kNumOne);
+
+    passManager.RegisterStrategy("SplitReshapeTestStrategy", {
+        {   "SplitReshape",   "SplitReshape",  PassType::TYPE_TILE_GRAPH},
+    });
+    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "SplitReshapeTestStrategy"), SUCCESS);
+    
+    reshapeOp = 0;
+    for (auto &op : func->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+            reshapeOp++;
+        }
+    }
+    EXPECT_EQ(reshapeOp, kNumOne);
+}
+
+/*
+splitreshape pass不起作用的场景
+动态shape
+1) 用例设置：
+{2,4} -> exp -> {2,4} -> reshape -> {1,1,2,4} -> exp -> {1,1,2,4}
+validShape = {1,1,a,b}
+2) expandfunction：
+exp -> {2,2} -> assemble -> {2,4} -> reshape -> {1,1,2,4} -> view -> {1,1,2,2} -> exp -> {1,1,2,2}
+exp -> {2,2} -> assemble                                  -> view -> {1,1,2,2} -> exp -> {1,1,2,2}
+*/
+TEST_F(TestSplitReshapePass, TestExceptionCase4) {
+    //Define the shape of the Tensors
+    std::vector<int> origShape = {kNumTwo, kNumFour};
+    std::vector<int> reshapeShape = {kNumOne, kNumOne, kNumTwo, kNumFour};
+    std::vector<int> tiledShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
+    SymbolicScalar a = SymbolicScalar("a");
+    SymbolicScalar b = SymbolicScalar("b");
+    std::vector<SymbolicScalar> validShape = {SymbolicScalar(kNumOne), SymbolicScalar(kNumOne), a, b};
+
+    Program::GetInstance().GetTileShape().SetVecTileShapes(tiledShape);
+    Tensor input(DT_FP32, origShape, "input");
+    Tensor output(DT_FP32, reshapeShape, "output");
+
+    FUNCTION("STCase8", FunctionType::DYNAMIC, {input}, {output}) {
+        Tensor exp = Exp(input);
+        Tensor reshape = Reshape(exp, reshapeShape, validShape);
+        output = Exp(reshape);
+    }
+
+    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase8");
     
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("ExpandFunctionStrategy", {

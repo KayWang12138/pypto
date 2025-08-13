@@ -126,6 +126,7 @@ private:
     Status ConstructShapeOffset(const ReshapeTilePara &shapePara, size_t &i, size_t j, std::vector<int32_t> &newOffset, std::vector<int32_t> &newShape);
 
     Status CheckOp(Function &function, Operation &op);
+    Status UpdateReshapeOp(Function &function, Operation &op, const OverlapStatus &status, const CalcOverlapPara &calcpara);
     Status UpdateForPerfectlyMatchWithUB(Operation &op, const PerfectlyMatchPara &para);
     Status UpdateForPerfectlyMatchWithDDR(Operation &op, const PerfectlyMatchPara &para);
     Status UpdateForPerfectlyMatchOtherCase(Function &function, Operation &op, const PerfectlyMatchPara &para);
@@ -141,6 +142,7 @@ private:
     Status UpdateForPerfectlyMatchWithAllOtherCase(Operation &op, const PerfectlyMatchWithAllPara &para);
     Status UpdateForPerfectlyMatchWithAll(Function &function, Operation &op, const CalcOverlapPara &para);
 
+    bool CheckDynStatus(const LogicalTensorPtr &input, const LogicalTensorPtr &output);
     bool CheckSplit(const LogicalTensorPtr &reshapeSource);
     std::shared_ptr<ReshapeOp> ReshapeOperationExist(const std::shared_ptr<ReshapeOp> &isAddReshapeop);
     unsigned long ComputeReshapeHash(const LogicalTensorPtr &input, const LogicalTensorPtr &output) const;

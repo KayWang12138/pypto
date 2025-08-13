@@ -579,7 +579,6 @@ TEST_F(DynamicNSATest, nsa_b_16_s1_1_s2_8192_h_7168_fp16_quant) {
 template <bool debug = true>
 void test_common(NSASimpleParams params) {
     int paramsSize = 7;
-    config::SetPassConfig("PVC2_OOO", "SplitReshapeOpPVC2", "DISABLE_PASS", true);
     std::vector<int> inputParams(paramsSize);
     readInput<int>(GetGoldenDir() + "/input_params.bin", inputParams); // 在golden中保存了变化的参数，便于调试
     params.b = inputParams[0];                                         // 16

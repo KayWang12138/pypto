@@ -90,15 +90,18 @@ Status ProcessPostCheckAssemble(const Operation &op) {
     auto assemble_out = op.oOperand.front();
     if (assemble_out == nullptr) {return FAILED;}
     auto parentOp = *assemble_in->GetProducers().begin();
-    if (parentOp == nullptr) {return FAILED;}
+    if (parentOp == nullptr) {
+        ALOG_ERROR_F("The input of assemble [%d] has no producer!", op.GetOpMagic());
+        return FAILED;
+    }
     if (assemble_in->shape == assemble_out->shape) {
         if (assemble_in->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
             assemble_out->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-            ALOG_ERROR_F("PostCheck for assembleDDR op[%d] failed!", op.GetOpMagic());
+            ALOG_ERROR_F("PostCheck for assembleDDR op[%d] failed with the same shape!", op.GetOpMagic());
             return FAILED;
         } else if (assemble_in->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
             assemble_out->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-            ALOG_ERROR_F("PostCheck for assembleUB op[%d] failed!", op.GetOpMagic());
+            ALOG_ERROR_F("PostCheck for assembleUB op[%d] failed with the same shape!", op.GetOpMagic());
             return FAILED;
         }
     }
@@ -111,14 +114,17 @@ Status ProcessPostCheckView(const Operation &op) {
     auto view_out = op.oOperand.front();
     if (view_out == nullptr) {return FAILED;}
     auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
-    if (viewOpAttribute && viewOpAttribute->GetToDynValidShape().empty() &&
+    if (viewOpAttribute != nullptr && viewOpAttribute->GetToDynValidShape().empty() &&
         view_in->shape == view_out->shape && view_in->GetMemoryTypeOriginal() == view_out->GetMemoryTypeOriginal()) {
-        ALOG_ERROR_F("PostCheck for view op[%d] failed!", op.GetOpMagic());
+        ALOG_ERROR_F("PostCheck for view op[%d] failed, DynValidShape is empty with the same shape and memory type!", op.GetOpMagic());
         return FAILED;
     } else if  (view_out->GetConsumers().size() == 1) {
         auto childOp = *(view_out->GetConsumers().begin());
         if (childOp == nullptr) {return FAILED;}
-        if (childOp->GetOpcode() == Opcode::OP_COMM_WAIT_FLAG) {return FAILED;}
+        if (childOp->GetOpcode() == Opcode::OP_COMM_WAIT_FLAG) {
+            ALOG_ERROR_F("View op[%d] has only one commit wait child!", op.GetOpMagic());
+            return FAILED;
+        }
     }
     return SUCCESS;
 }
@@ -171,15 +177,30 @@ Status ProcessPostExpand(const Operation &op) {
 
 Status ProcessPostCheck(const Operation &op) {
     if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
-        if (ProcessPostCheckAssemble(op) != SUCCESS) {return FAILED;}
+        if (ProcessPostCheckAssemble(op) != SUCCESS) {
+            ALOG_ERROR_F("PostCheck for Assemble failed!");
+            return FAILED;
+        }
     } else if (op.GetOpcode() == Opcode::OP_VIEW) {
-        if (ProcessPostCheckView(op) != SUCCESS) {return FAILED;}
+        if (ProcessPostCheckView(op) != SUCCESS) {
+            ALOG_ERROR_F("PostCheck for View failed!");
+            return FAILED;
+        }
     } else if (op.GetOpcode() == Opcode::OP_REGISTER_COPY) {
-        if (ProcessPostRegCopy(op) != SUCCESS) {return FAILED;}
+        if (ProcessPostRegCopy(op) != SUCCESS) {
+            ALOG_ERROR_F("PostCheck for RegCopy failed!");
+            return FAILED;
+        }
     } else if (op.GetOpcode() == Opcode::OP_COPY_IN) {
-        if (ProcessPostCopyIn(op) != SUCCESS) {return FAILED;}
+        if (ProcessPostCopyIn(op) != SUCCESS) {
+            ALOG_ERROR_F("PostCheck for CopyIn failed!");
+            return FAILED;
+        }
     } else if (op.GetOpcode() == Opcode::OP_EXPAND) {
-        if (ProcessPostExpand(op) != SUCCESS) {return FAILED;}
+        if (ProcessPostExpand(op) != SUCCESS) {
+            ALOG_ERROR_F("PostCheck for Expand failed!");
+            return FAILED;
+        }
     }
     return SUCCESS;
 }

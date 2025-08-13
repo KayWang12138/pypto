@@ -44,8 +44,9 @@ Status DuplicateView::RunOnOperation(Function &function, Operation &operation, s
                 continue;
             }
             auto viewResult = std::make_shared<LogicalTensor>(function, oOperand->Datatype(), oOperand->shape,
-                "View_" + oOperand->tensor->symbol, oOperand->nodetype);
+                oOperand->GetDynValidShape(), "View_" + oOperand->tensor->symbol, oOperand->nodetype);
             if (viewResult == nullptr) {return FAILED;}
+            viewResult->UpdateOffset(oOperand->GetTensorOffset());
             viewResults.emplace_back(std::make_pair(oOperand, viewResult));
             consumer->ReplaceInput(viewResult, oOperand);
         }
@@ -60,7 +61,8 @@ Status DuplicateView::DuplicateViewPass(Function &function) const {
     }
     for (auto &viewResult : viewResults) {
         auto &viewOp = function.AddRawOperation(Opcode::OP_VIEW, {viewResult.first}, {viewResult.second});
-        viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int>(viewResult.second->GetOffset().size())));
+        auto &tensorOffset = viewResult.second->GetTensorOffset();
+        viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(tensorOffset.GetOffset(), tensorOffset.GetDynOffset(), viewResult.second->GetDynValidShape()));
     }
     return SUCCESS;
 }
