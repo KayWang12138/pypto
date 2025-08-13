@@ -13,7 +13,6 @@
  * \brief
  */
 
-#include <nlohmann/json.hpp>
 #include "test_operation.h"
 
 using namespace tile_fwk::test_operation;
@@ -27,9 +26,11 @@ struct MulOpFuncArgs : public OpFuncArgs {
 };
 
 struct MulOpMetaData {
-    explicit MulOpMetaData(const std::vector<OpFunc> &funcs) : opFuncs_(funcs) {}
+    explicit MulOpMetaData(const OpFunc &opFunc, const nlohmann::json &test_data)
+        : opFunc_(opFunc), test_data_(test_data) {}
 
-    std::vector<OpFunc> opFuncs_;
+    OpFunc opFunc_;
+    nlohmann::json test_data_;
 };
 
 static void MulOperationExeFunc2Dims(
@@ -196,25 +197,20 @@ static void MulOperationExeFunc4Dims(
     }
 }
 
-static const MulOpMetaData metaData =
-    MulOpMetaData({MulOperationExeFunc2Dims, MulOperationExeFunc3Dims, MulOperationExeFunc4Dims});
-
 class MulOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<MulOpMetaData> {};
 
-INSTANTIATE_TEST_SUITE_P(TestMul, MulOperationTest, ::testing::Values(metaData));
+INSTANTIATE_TEST_SUITE_P(TestMul, MulOperationTest,
+    ::testing::ValuesIn(GetOpMetaData<MulOpMetaData>(
+        {MulOperationExeFunc2Dims, MulOperationExeFunc3Dims, MulOperationExeFunc4Dims}, "Mul")));
 
 TEST_P(MulOperationTest, TestMul) {
     TestCaseDesc testCase;
-    auto config = GetGoldenDir() + "/test_case_data.json";
-    testCase.inputTensors = GetInputTensors(config);
-    testCase.outputTensors = GetOutputTensors(config);
-    auto args = MulOpFuncArgs(GetViewShape(config), GetTileShape(config));
+    auto test_data = GetParam().test_data_;
+    testCase.inputTensors = GetInputTensors(test_data);
+    testCase.outputTensors = GetOutputTensors(test_data);
+    auto args = MulOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data));
     testCase.args = &args;
-    auto func_id = GetFuncId(config);
-    if (func_id < 0 || static_cast<size_t>(func_id) >= GetParam().opFuncs_.size()) {
-        func_id = args.viewShape_.size() - 2;
-    }
-    testCase.opFunc = GetParam().opFuncs_[func_id];
+    testCase.opFunc = GetParam().opFunc_;
     testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin",
         GetGoldenDir() + "/" + testCase.inputTensors[1]->Symbol() + ".bin"};
     testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};

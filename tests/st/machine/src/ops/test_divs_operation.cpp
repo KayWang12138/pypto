@@ -27,9 +27,11 @@ struct DivsOpFuncArgs : public OpFuncArgs {
 };
 
 struct DivsOpMetaData {
-    explicit DivsOpMetaData(const std::vector<OpFunc> &funcs) : opFuncs_(funcs) {}
+    explicit DivsOpMetaData(const OpFunc &opFunc, const nlohmann::json &test_data)
+        : opFunc_(opFunc), test_data_(test_data) {}
 
-    std::vector<OpFunc> opFuncs_;
+    OpFunc opFunc_;
+    nlohmann::json test_data_;
 };
 
 static void DivsOperationExeFuncDoubleCut(
@@ -133,27 +135,22 @@ static void DivsOperationExeFuncQuadrupleCut(
     }
 }
 
-static const DivsOpMetaData metaData =
-    DivsOpMetaData({DivsOperationExeFuncDoubleCut, DivsOperationExeFuncTripleCut, DivsOperationExeFuncQuadrupleCut});
-
 class DivsOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<DivsOpMetaData> {};
 
-INSTANTIATE_TEST_SUITE_P(TestDivs, DivsOperationTest, ::testing::Values(metaData));
+INSTANTIATE_TEST_SUITE_P(TestDivs, DivsOperationTest,
+    ::testing::ValuesIn(GetOpMetaData<DivsOpMetaData>(
+        {DivsOperationExeFuncDoubleCut, DivsOperationExeFuncTripleCut, DivsOperationExeFuncQuadrupleCut}, "Divs")));
 
 TEST_P(DivsOperationTest, TestDivs) {
     TestCaseDesc testCase;
-    auto config = GetGoldenDir() + "/test_case_data.json";
-    testCase.inputTensors = GetInputTensors(config);
-    testCase.outputTensors = GetOutputTensors(config);
-    auto dtype = GetDataType(GetValueByName<std::string>(config, "scalar_type"));
-    Element value(dtype, GetValueByName<float>(config, "scalar"));
-    auto args = DivsOpFuncArgs(value, GetViewShape(config), GetTileShape(config));
+    auto test_data = GetParam().test_data_;
+    testCase.inputTensors = GetInputTensors(test_data);
+    testCase.outputTensors = GetOutputTensors(test_data);
+    auto dtype = GetDataType(GetValueByName<std::string>(test_data, "scalar_type"));
+    Element value(dtype, GetValueByName<float>(test_data, "scalar"));
+    auto args = DivsOpFuncArgs(value, GetViewShape(test_data), GetTileShape(test_data));
     testCase.args = &args;
-    auto func_id = GetFuncId(config);
-    if (func_id < 0 || static_cast<size_t>(func_id) >= GetParam().opFuncs_.size()) {
-        func_id = args.viewShape_.size() - 2;
-    }
-    testCase.opFunc = GetParam().opFuncs_[func_id];
+    testCase.opFunc = GetParam().opFunc_;
     testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin"};
     testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
     TestExecutor::runTest(testCase);

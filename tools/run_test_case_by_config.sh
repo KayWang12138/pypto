@@ -15,18 +15,18 @@ function generate_test_case_data() {
 function run_test_case() {
     test_case_files=$(find $test_case_data_path -maxdepth 1 -type f -name "*.json")
     export ASCEND_PROCESS_LOG_PATH=$plog_path
+    index=0
     for file in $test_case_files; do
         file_name=$(basename $file .json)
         IFS='_' read -ra strs <<< "$file_name"
         case_op=${strs[0]}
         case_index=${strs[${#strs[@]}-1]}
         # run test
-        test_case="Test$case_op/${case_op}OperationTest.Test$case_op/0"
+        test_case="Test$case_op/${case_op}OperationTest.Test$case_op/$index"
         test_case_path=$(dirname $file)/$test_case
         if [ ! -e $test_case_path ]; then
             mkdir -p $test_case_path
         fi
-        cp -f $file $test_case_path/test_case_data.json
         CMD="python3 build.py -s='$test_case' -d=$device_id"
         LOG_FILE="${case_op}_test_case_$case_index.log"
         echo "Start exec : $CMD"
@@ -35,7 +35,9 @@ function run_test_case() {
         find build/tests/st/golden/ -name "*.bin" -type f -exec rm -f {} \;
         # generate test report
         generate_test_report $case_index $case_op $LOG_FILE $test_case_result $file
+        index=$(($index+1))
     done
+    rm -rf $test_case_data_path
     unset ASCEND_PROCESS_LOG_PATH
 }
 
@@ -87,7 +89,7 @@ test_case_log_path="$(dirname '$test_case_result')/test_case_log"
 # clear test case log files
 rm -rf $test_case_log_path
 # clear test case data
-test_case_data_path="build/tests/st/golden"
+test_case_data_path="build/tests/st/golden/test_cases"
 if [ ! -e $test_case_data_path ]; then
     mkdir -p $test_case_data_path
 fi

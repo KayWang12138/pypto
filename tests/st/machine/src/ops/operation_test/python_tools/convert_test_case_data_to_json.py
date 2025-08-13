@@ -239,72 +239,29 @@ class TestDataReader:
         return ret_list
 
 
-def handle_excel_sheet(
-    sheet_data: pd.DataFrame, start_index: int, end_index: int, json_path: str
-):
-    if start_index < 0:
-        start_index = 0
-    case_cnt = len(sheet_data)
-    if start_index >= case_cnt:
-        print(f"The start index [{start_index}] exceeds the max index[{case_cnt}].")
-        return False
-    if end_index < 0 or end_index >= case_cnt:
-        end_index = case_cnt
-
-    dump_json_cnt = 0
-    for index in range(start_index, end_index + 1):
-        row_data = sheet_data.iloc[index]
-        if (
-            "skip" in sheet_data.columns
-            and not pd.isnull(row_data["skip"])
-            and not pd.isna(pd.isnull(row_data["skip"]))
-            and bool(row_data["skip"])
-        ):
-            print(
-                f"Test case[{index}] will be skipped due to column 'skip' set to {row_data['skip']}."
-            )
-            continue
-        if "case_index" not in sheet_data.columns:
-            row_data["case_index"] = index
-        reader = TestDataReader(index, row_data, json_path)
-        reader.dump_to_json()
-        dump_json_cnt = dump_json_cnt + 1
-    return dump_json_cnt > 0
-
-
-def read_test_cases_from_csv(file_name: str, op: list) -> pd.DataFrame:
+def read_test_cases_from_csv(file_name: str, op: list) -> list:
     data_frame = pd.read_csv(file_name)
     if "operation" not in data_frame.columns:
-        assert len(op) == 1, "Not set operation for test cases."
+        if not isinstance(op, list) or len(op) != 1:
+            raise ValueError("Must set operation for test cases.")
         data_frame["operation"] = op[0]
-    return data_frame.query(f"operation in {op}")
+    return [data_frame]
 
 
-def read_test_cases_from_excel(file_name: str, op: list) -> pd.DataFrame:
-    data_frame = None
-    try:
-        file_handler = pd.ExcelFile(file_name)
-        sheet_names = op if op is not None else list(file_handler.sheet_names)
-        for sheet_name in sheet_names:
-            df = pd.read_excel(file_handler, sheet_name=sheet_name)
-            if "operation" not in df.columns:
-                df["operation"] = sheet_name
-            data_frame = (
-                df
-                if data_frame is None
-                else pd.concat(
-                    [data_frame, df],
-                    ignore_index=True,
-                )
-            )
-        return data_frame
-    except Exception as e:
-        raise e
-    finally:
-        file_handler.close()
+def read_test_cases_from_excel(file_name: str, op: list) -> list:
+    data_frames = []
+    file_handler = pd.ExcelFile(file_name)
+    sheet_names = op if op is not None else list(file_handler.sheet_names)
+    for sheet_name in sheet_names:
+        df = pd.read_excel(file_handler, sheet_name=sheet_name)
+        if "operation" not in df.columns:
+            df["operation"] = sheet_name
+        data_frames.append(df)
+    file_handler.close()
+    return data_frames
 
 
-def load_test_cases(file_name: str, op: str) -> pd.DataFrame:
+def load_test_cases(file_name: str, op: str) -> list:
     if not os.path.exists(file_name):
         print(f"Process File {file_name} failed, file not exist.")
         return None
@@ -312,15 +269,49 @@ def load_test_cases(file_name: str, op: str) -> pd.DataFrame:
         op = None
     else:
         op = [op]
-    try:
-        return (
-            read_test_cases_from_csv(file_name, op)
-            if file_name.endswith(".csv")
-            else read_test_cases_from_excel(file_name, op)
-        )
-    except Exception as e:
-        logging.error("Try to process %s fail, exception is %s.", file_name, e)
-    return None
+    return (
+        read_test_cases_from_csv(file_name, op)
+        if file_name.endswith(".csv")
+        else read_test_cases_from_excel(file_name, op)
+    )
+
+
+def clean_data_frame(
+    data_frame: pd.DataFrame, op: str, start_index: int, end_index: int
+) -> pd.DataFrame:
+    if "case_index" not in data_frame.columns:
+        data_frame.loc[:, "case_index"] = data_frame.index
+    if start_index < 0:
+        start_index = 0
+    case_cnt = len(data_frame)
+    if start_index >= case_cnt:
+        print(f"The start index [{start_index}] exceeds the max index[{case_cnt}].")
+        return False
+    if end_index < 0 or end_index >= case_cnt:
+        end_index = case_cnt
+
+    data_frame = data_frame.iloc[start_index : end_index + 1]
+    if "skip" in data_frame.columns:
+        data_frame = data_frame.iloc[
+            not pd.isnull(data_frame["skip"])
+            and not pd.isna(pd.isnull(data_frame["skip"]))
+            and bool(data_frame["skip"])
+        ]
+    data_frame.query(f"operation == '{op}'")
+    return data_frame
+
+
+def dump_data_frame_to_json(data_frames: list, json_path: str):
+    data_frame = pd.concat(
+        data_frames,
+        ignore_index=True,
+    )
+    if len(data_frame) == 0:
+        return False
+    for _, row_data in data_frame.iterrows():
+        reader = TestDataReader(row_data["case_index"], row_data, json_path)
+        reader.dump_to_json()
+    return True
 
 
 def main(file_name: str, op: str, index_range: list, json_path: str) -> bool:
@@ -328,7 +319,11 @@ def main(file_name: str, op: str, index_range: list, json_path: str) -> bool:
     if test_cases is None or len(test_cases) == 0:
         return False
 
-    return handle_excel_sheet(test_cases, index_range[0], index_range[1], json_path)
+    test_cases = [
+        clean_data_frame(data_frame, op, index_range[0], index_range[1])
+        for data_frame in test_cases
+    ]
+    return dump_data_frame_to_json(test_cases, json_path)
 
 
 if __name__ == "__main__":

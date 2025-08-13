@@ -606,21 +606,6 @@ public:
 
     static std::vector<std::pair<std::string, std::string>> LoadAllTestCases() {
         std::vector<std::pair<std::string, std::string>> testCases;
-        for (const auto &file : caseFiles) {
-            try {
-                std::ifstream inFile(file);
-                if (!inFile.is_open()) {
-                    throw std::runtime_error("Failed to open file: " + file);
-                }
-
-                json config = json::parse(inFile);
-                for (const auto &testCase : config["test_cases"]) {
-                    testCases.emplace_back(file, testCase["name"].get<std::string>());
-                }
-            } catch (const std::exception &ex) {
-                std::cerr << "Error parsing JSON file [" << file << "] " << ex.what() << std::endl;
-            }
-        }
 
         return testCases;
     }

@@ -13,6 +13,7 @@
 本脚本有 2 种执行模式:
 1. CI批跑时, 由 tests/cmake/scripts/golden_ctrl.py 调用, 为避免日志过多, 此时 logging 级别为 logging.INFO;
 """
+import os
 import sys
 import logging
 import json
@@ -77,8 +78,64 @@ def gen_uniform_data(data_shape, min_value, max_value, dtype):
     )
 
 
+def load_test_cases_from_json(op: str, json_file: str) -> list:
+    with open(json_file, "r") as data_file:
+        json_data = json.load(data_file)
+    if json_data is None:
+        raise ValueError(f"Json file {json_file} is invalid.")
+    if "test_cases" in json_data:
+        test_cases = json_data["test_cases"]
+    else:
+        test_cases = [json_data]
+    return [
+        test_case
+        for test_case in test_cases
+        if test_case["operation"].lower() == op.lower()
+    ]
+
+
+def load_test_cases(op: str, json_path: str) -> list:
+    if not os.path.isdir(json_path):
+        raise ValueError(f"{json_path} is not a dir.")
+    logging.info(f"Try to load test cases from {json_path}.")
+    json_files = [
+        os.path.join(json_path, file)
+        for file in os.listdir(json_path)
+        if os.path.isfile(os.path.join(json_path, file))
+        and os.path.splitext(file)[1] == ".json"
+    ]
+    if len(json_files) == 0:
+        logging.info(f"Not find test case from {json_path}.")
+        json_path = os.path.join(
+            json_path, "../../../../tests/st/machine/src/ops/operation_test/test_case"
+        )
+        logging.info(f"Try to load test cases from {json_path}.")
+        json_files = [
+            os.path.join(json_path, file)
+            for file in os.listdir(json_path)
+            if os.path.isfile(os.path.join(json_path, file))
+            and os.path.splitext(file)[1] == ".json"
+        ]
+    test_cases = []
+    for json_file in json_files:
+        test_cases = test_cases + load_test_cases_from_json(op, json_file)
+    test_cases.sort(key=lambda x: x["case_index"])
+    return test_cases
+
+
+def write_test_cases_json(json_data, file_path: str):
+    if not os.path.exists(file_path):
+        os.mkdir(file_path)
+    json_file = f"{file_path}/test_cases_data.json"
+    try:
+        with open(json_file, "w", encoding="utf-8") as outfile:
+            json.dump(json_data, outfile, ensure_ascii=False, indent=4)
+    except Exception as e:
+        logging.error("Exception occur when writing %s, exception is %s.", json_file, e)
+
+
 def gen_op_golden(
-    operation: str, golden_func, output_path: Path, case_index: int = None
+    op: str, golden_func, output_path: Path, case_index: int = None
 ) -> bool:
     def generate_golden_files(golden_func, output_path: Path, config: dict) -> bool:
         input_tensors = []
@@ -124,19 +181,25 @@ def gen_op_golden(
             )
         return True
 
-    case_data_file = str(output_path) + "/test_case_data.json"
-    with open(case_data_file, "r") as data_file:
-        test_config = json.load(data_file)
-    assert test_config is not None, f"Load {case_data_file} failed."
+    golden_path = str(output_path) + ("/../../" if case_index is None else "/../../../")
+    tool_golden_path = golden_path + "/test_cases"
+    test_configs = load_test_cases(
+        op, tool_golden_path if os.path.exists(tool_golden_path) else golden_path
+    )
+    if len(test_configs) == 0:
+        raise ValueError("Not find test cases, please check.")
 
     # 1.跑测试套还是单个用例，生成不同场景的文件夹，一般不用改
     # 2.涉及test_configs数据结构变更，generate_golden_files的接口形式和调用传参可能需联动修改
     if case_index is None:
-        output_path = Path(str(output_path) + "/" + str(case_index))
-        output_path.mkdir(parents=True, exist_ok=True)
-        generate_golden_files(golden_func, output_path, test_config)
+        for index, test_config in enumerate(test_configs):
+            output_path = Path(output_path, str(index))
+            output_path.mkdir(parents=True, exist_ok=True)
+            generate_golden_files(golden_func, output_path, test_config)
     else:
-        generate_golden_files(golden_func, output_path, test_config)
+        generate_golden_files(golden_func, output_path, test_configs[case_index])
+    test_cases = {"test_cases": test_configs}
+    write_test_cases_json(test_cases, golden_path + "/running_test_cases")
     return True
 
 

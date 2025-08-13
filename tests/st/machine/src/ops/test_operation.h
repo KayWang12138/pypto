@@ -137,5 +137,102 @@ private:
         EXPECT_EQ(ret, true);
     }
 };
+
+static DataType GetDataType(const std::string &name) {
+    static const std::map<std::string, DataType> name_to_dtype = {
+        {  "int4",   DataType::DT_INT4},
+        {  "int8",   DataType::DT_INT8},
+        { "int16",  DataType::DT_INT16},
+        { "int32",  DataType::DT_INT32},
+        { "int64",  DataType::DT_INT64},
+        {   "fp8",    DataType::DT_FP8},
+        {  "fp16",   DataType::DT_FP16},
+        {  "fp32",   DataType::DT_FP32},
+        {  "bf16",   DataType::DT_BF16},
+        {   "hf4",    DataType::DT_HF4},
+        {   "hf8",    DataType::DT_HF8},
+        { "uint8",  DataType::DT_UINT8},
+        {"uint16", DataType::DT_UINT16},
+        {"uint32", DataType::DT_UINT32},
+        {"uint64", DataType::DT_UINT64},
+        {  "bool",   DataType::DT_BOOL},
+        {"double", DataType::DT_DOUBLE},
+    };
+    if (name_to_dtype.find(name) == name_to_dtype.end()) {
+        ALOG_ERROR << "Not support type " << name << " yet, return fp32 as default.";
+        return DataType::DT_FP32;
+    }
+    return name_to_dtype.at(name);
+}
+
+static std::vector<Tensor> GetTensors(const nlohmann::json &json_data, bool is_input = true) {
+    std::cout << "Create Tensors For " << json_data << std::endl;
+    std::vector<Tensor> tensors;
+    auto key = is_input ? "input_tensors" : "output_tensors";
+    for (const auto &tensor_config : json_data.at(key)) {
+        auto shape = tensor_config.at("shape").get<std::vector<int>>();
+        auto dtype = GetDataType(tensor_config.at("dtype").get<std::string>());
+        auto name = tensor_config.at("name").get<std::string>();
+        tensors.push_back(Tensor(dtype, shape, name));
+    }
+    return tensors;
+}
+
+[[maybe_unused]] static std::vector<Tensor> GetInputTensors(const nlohmann::json &json_data) {
+    return GetTensors(json_data, true);
+}
+
+[[maybe_unused]] static std::vector<Tensor> GetOutputTensors(const nlohmann::json &json_data) {
+    return GetTensors(json_data, false);
+}
+
+template <typename T>
+T GetValueByName(const nlohmann::json &json_data, const std::string &name) {
+    nlohmann::json data = json_data;
+    if (json_data.find(name) == json_data.end()) {
+        data = json_data.at("params");
+    }
+    ASSERT(data.find(name) != data.end()) << "failed to load " << name << " in " << json_data << "!";
+    return data.at(name).get<T>();
+}
+
+[[maybe_unused]] static std::vector<int> GetViewShape(const nlohmann::json &json_data) {
+    return GetValueByName<std::vector<int>>(json_data, "view_shape");
+}
+
+[[maybe_unused]] static std::vector<int> GetTileShape(const nlohmann::json &json_data) {
+    return GetValueByName<std::vector<int>>(json_data, "tile_shape");
+}
+
+[[maybe_unused]] static int GetFuncId(const nlohmann::json &json_data) {
+    return GetValueByName<int>(json_data, "func_id");
+}
+
+template <typename T>
+std::vector<T> GetOpMetaData(const std::vector<OpFunc> &opFuncs, const std::string &op) {
+    // 先读取 AST_STEST_GOLDEN_PATH 环境变量, 否则使用当前目录
+    auto path = getenv("AST_STEST_GOLDEN_PATH");
+    std::string fullPath = path == nullptr ? "./golden" : path;
+    fullPath += "/running_test_cases/test_cases_data.json";
+    std::ifstream json_file(fullPath);
+    if (!json_file.is_open()) {
+        ALOG_ERROR << "Fail to open " << fullPath << ".";
+        return {};
+    }
+    nlohmann::json json_data = nlohmann::json::parse(json_file);
+    std::vector<T> test_case_list;
+    for (const auto &test_case : json_data.at("test_cases")) {
+        if (test_case.at("operation") != op) {
+            continue;
+        }
+        auto func_id = GetFuncId(test_case);
+        if (func_id < 0 || static_cast<size_t>(func_id) >= opFuncs.size()) {
+            // cut function start from 2 dim 
+            func_id = GetViewShape(test_case).size() - 2;
+        }
+        test_case_list.push_back(T(opFuncs[func_id], test_case));
+    }
+    return test_case_list;
+}
 } // namespace test_operation
 } // namespace tile_fwk
