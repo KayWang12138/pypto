@@ -46,6 +46,12 @@ Status Pass::CreateLogFolder(const std::string &topFolder, size_t i) const {
     return SUCCESS;
 }
 
+void Pass::DoHealthCheck(Function &function, const std::string &folderPath) {
+    (void) function;
+    (void) folderPath;
+    return;
+}
+
 Status Pass::Run(Function &function, const std::string &strategy,
                  const std::string &identifier, size_t runtimeIdx) {
     identifier_ = identifier;
@@ -72,15 +78,27 @@ Status Pass::Run(Function &function, const std::string &strategy,
     return SUCCESS;
 }
 
-Status Pass::PrintFunction(Function& function, const std::string &logFolder, bool beforeFunction = true) {
+std::string Pass::GetDumpFilePrefix(Function& function, Function* subFunction, int subFuncId) {
     constexpr int printWide = 3;
     constexpr int funcPrintWide = 2;
     const auto &filePrefix = identifier_ + "_" + function.GetMagicName();
+    std::stringstream ss;
+    if (subFunction == nullptr) {
+        ss << std::setw(printWide) << std::setfill('0') << passRuntimeIndex_ << "_" << filePrefix;
+    } else {
+        ss << std::setw(printWide) << std::setfill('0') << passRuntimeIndex_ << "_" << filePrefix
+              << "_LEAF_program_id_" << std::setw(funcPrintWide) << std::setfill('0') << subFuncId << "_"
+                << subFunction->GetFunctionHash().GetHash();
+    }
+    return ss.str();
+}
+
+Status Pass::PrintFunction(Function& function, const std::string &logFolder, bool beforeFunction = true) {
     std::string stageName = beforeFunction ? "Before" : "After";
     ALOG_INFO_F("Dump function %s pass [%s].", stageName.c_str(), identifier_.c_str());
     if (function.rootFunc_ != nullptr) {
         std::stringstream ssRoot;
-        ssRoot << stageName << "_" << std::setw(printWide) << std::setfill('0') << passRuntimeIndex_ << "_" << filePrefix << "_Root_.tifwkgr";
+        ssRoot << stageName << "_" << GetDumpFilePrefix(function) << "_Root_.tifwkgr";
         std::ofstream file(logFolder + "/" + ssRoot.str());
         if (file.is_open()) {
             file << function.rootFunc_->Dump();
@@ -89,9 +107,7 @@ Status Pass::PrintFunction(Function& function, const std::string &logFolder, boo
         std::stringstream ss;
         for (auto &subProgram : function.rootFunc_->programs_) {
             ss.str("");
-            ss << stageName << "_" << std::setw(printWide) << std::setfill('0') << passRuntimeIndex_ << "_" << filePrefix
-                << "_LEAF_program_id_" << std::setw(funcPrintWide) << std::setfill('0') << subProgram.first << "_"
-                << subProgram.second->GetFunctionHash().GetHash() << ".tifwkgr";
+            ss << stageName << "_" << GetDumpFilePrefix(function, subProgram.second, subProgram.first) << ".tifwkgr";
             std::ofstream subFile(logFolder + "/" + ss.str());
             if (subFile.is_open()) {
                 subFile << subProgram.second->Dump();
@@ -101,7 +117,7 @@ Status Pass::PrintFunction(Function& function, const std::string &logFolder, boo
     }
     {
         std::stringstream ssInner;
-        ssInner << stageName << "_" << std::setw(printWide) << std::setfill('0') << passRuntimeIndex_ << "_" << filePrefix << ".tifwkgr";
+        ssInner << stageName << "_" << GetDumpFilePrefix(function) << ".tifwkgr";
         std::ofstream file(logFolder + "/" + ssInner.str());
         if (file.is_open()) {
             file << function.Dump();
@@ -112,24 +128,18 @@ Status Pass::PrintFunction(Function& function, const std::string &logFolder, boo
 }
 
 Status Pass::DumpFunctionJson(Function& function, const std::string &logFolder, bool beforeFunction = true) {
-    constexpr int printWide = 3;
-    constexpr int funcPrintWide = 2;
-    const auto &filePrefix = identifier_ + "_" + function.GetMagicName();
     std::string stageName = beforeFunction ? "Before" : "After";
     ALOG_INFO_F("Dump function %s pass [%s].", stageName.c_str(), identifier_.c_str());
     std::stringstream ss;
-    ss << stageName << "_" << std::setw(printWide) << std::setfill('0') << passRuntimeIndex_ << "_" << filePrefix << ".json";
+    ss << stageName << "_" << GetDumpFilePrefix(function) << ".json";
     function.DumpJsonFile(logFolder + "/" + ss.str());
     if (function.rootFunc_ != nullptr) {
         ss.str("");
-        ss << stageName << "_" << std::setw(printWide) << std::setfill('0') << passRuntimeIndex_ << "_" << filePrefix
-            << "_ROOT.json";
+        ss << stageName << "_" << GetDumpFilePrefix(function) << "_ROOT.json";
         function.rootFunc_->DumpJsonFile(logFolder + "/" + ss.str());
         for (auto &subProgram : function.rootFunc_->programs_) {
             ss.str("");
-            ss << stageName << "_" << std::setw(printWide) << std::setfill('0') << passRuntimeIndex_ << "_" << filePrefix
-                << "_LEAF_program_id_" << std::setw(funcPrintWide) << std::setfill('0') << subProgram.first << "_"
-                << subProgram.second->GetFunctionHash().GetHash() << ".json";
+            ss << stageName << "_" << GetDumpFilePrefix(function, subProgram.second, subProgram.first) << ".json";
             subProgram.second->DumpJsonFile(logFolder + "/" + ss.str());
         }
     }
@@ -172,6 +182,9 @@ Status Pass::PostRun(Function &function) {
             ALOG_ERROR_F("Postcheck of pass [%s] failed.", identifier_.c_str());
             return FAILED;
         }
+    }
+    if (passDfxconfigs_.healthCheck) {
+        DoHealthCheck(function, passFolder_);
     }
     return SUCCESS;
 }
