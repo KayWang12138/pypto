@@ -629,7 +629,7 @@ def gen_nsa_v1_func(case_name: str, output: Path) -> bool:
         else:
             logging.info("文件的修改时间在1小时内，无需重新生成。")
 
-    complete = False if case_name != "DynamicNSATest.mini" else True # TODO: del complete
+    # complete = False if case_name != "DynamicNSATest.mini" else True # TODO: del complete
     if complete:
         logging.info("Case(%s), Golden data exits. cache catch", case_name)
     else:

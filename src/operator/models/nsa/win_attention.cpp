@@ -84,6 +84,7 @@ void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &
                 LOOP("LOOP_L2_gIdx", FunctionType::DYNAMIC_LOOP, gIdx, LoopRange(0, gLoop, 1)) {
                     std::vector<SymbolicScalar> outOffset = {bIdx , s1Idx , n2Idx * gGroup + gIdx * gTile, 0};
                     Tensor kPart(dtype, {5 * blockSize, (dNopeSize + dRopeSize)}, "kPart");
+                    Tensor vPart(dtype, {5 * blockSize, dNopeSize}, "vPart");
                     LOOP("LOOP_L2_tIdx", FunctionType::DYNAMIC_LOOP, tIdx, LoopRange(0, tableLoop, 1), {}, true) {
                         SymbolicScalar curidx = blockStartIndex + tIdx;
                         SymbolicScalar curBlockIdx = GetInputDataInt32Dim2(blockTable, bIdx, curidx);
@@ -99,13 +100,19 @@ void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &
                         auto tmpKR1 = Cast(kRope, DataType::DT_FP32);
                         auto tmpKR2 = Cast(tmpKR1, dtype);
                         DAssemble(tmpKR2, {tIdx * blockSize, dNopeSize}, kPart);
+
+                        auto vNope = DView(vNopeCache, {blockSize, dNopeSize}, {curBlockIdx * blockSize, n2Idx * dNopeSize});
+                        Program::GetInstance().GetTileShape().SetVecTileShapes(nopeTile[0], nopeTile[1]);
+                        auto tmpV1 = Cast(vNope, DataType::DT_FP32);
+                        auto tmpV2 = Cast(tmpV1, dtype);
+                        DAssemble(tmpV2, {tIdx * blockSize, 0}, vPart);
                     }
                     LOOP("LOOP_L2_Idx", FunctionType::DYNAMIC_LOOP, oIdx, LoopRange(1), {}, true) {
                         (void) oIdx;
                         SymbolicScalar curOffset = bIdx * s1Size * nQ + s1Idx * nQ + n2Idx * gGroup + gIdx * gTile;
                         auto kActualPart = DViewPad(kPart, {windowSize, dNopeSize + dRopeSize},
                             {winActualSize, dNopeSize + dRopeSize}, {blockStartOffset, 0});
-                        auto vActualPart = DViewPad(kPart, {windowSize, dNopeSize}, {winActualSize, dNopeSize},
+                        auto vActualPart = DViewPad(vPart, {windowSize, dNopeSize}, {winActualSize, dNopeSize},
                             {blockStartOffset, 0});
                         Tensor qPart(dtype, {gTile, dNopeSize + dRopeSize}, "qPart");
                         // query
