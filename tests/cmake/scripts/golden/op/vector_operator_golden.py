@@ -524,6 +524,38 @@ def gen_subs_op_golden(case_name: str, output: Path, case_index: int = None) -> 
     return gen_op_golden("Subs", golden_func, output, case_index)
 
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestReduceSum/ReduceSumOperationTest.TestReduceSum",
+    ]
+)
+def gen_reduce_sum_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs, params: dict):
+        x = inputs[0]
+        dims = params["dims"]
+        return [x.sum(axis=dims[0], keepdims=True)]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("ReduceSum", golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestReduceMax/ReduceMaxOperationTest.TestReduceMax",
+    ]
+)
+def gen_reduce_max_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs, params: dict):
+        x = inputs[0]
+        dims = params["dims"]
+        return [x.max(axis=dims[0], keepdims=True)]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("ReduceMax", golden_func, output, case_index)
+
+
 def main() -> bool:
     # 用例名称
     case_name_list: List[str] = [

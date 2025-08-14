@@ -17,175 +17,115 @@
 
 using namespace tile_fwk::test_operation;
 namespace {
+const unsigned IDX_DIM0 = 0;
+const unsigned IDX_DIM1 = 1;
+const unsigned IDX_DIM2 = 2;
+
 struct ReduceMaxOpFuncArgs : public OpFuncArgs {
-    ReduceMaxOpFuncArgs(std::vector<int> shape, std::vector<int> outputShape, std::vector<std::string> attrs,
-        std::vector<int> vecTileShapes, DataType dType) :
-        shape_(shape), outputShape_(outputShape), attrs_(attrs), vecTileShapes_(vecTileShapes), dType_(dType) {}
-    std::vector<int> shape_;
-    std::vector<int> outputShape_;
-    std::vector<std::string> attrs_;
-    std::vector<int> vecTileShapes_;
-    DataType dType_;
+    ReduceMaxOpFuncArgs(std::vector<int> viewShape, const std::vector<int> tileShape, std::vector<int> dims)
+        : viewShape_(viewShape), tileShape_(tileShape), dims_(dims) {}
+    std::vector<int> viewShape_;
+    std::vector<int> tileShape_;
+    std::vector<int> dims_;
 };
 
-struct ReduceMaxOperationMetadata {
-    ReduceMaxOperationMetadata(std::vector<int> shape, std::vector<int> outputShape, std::vector<std::string> attrs,
-        std::vector<int> vecTileShapes, DataType dType, OpFunc opFunc) :
-        args_(shape, outputShape, attrs, vecTileShapes, dType), opFunc_(opFunc) {}
-    ReduceMaxOpFuncArgs args_;
-    OpFunc opFunc_;
+struct ReduceMaxOpMetadata {
+    explicit ReduceMaxOpMetadata(const std::vector<OpFunc> &funcs) : opFuncs_(funcs) {}
+    std::vector<OpFunc> opFuncs_;
 };
 
 void ReduceMaxOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
                                 const OpFuncArgs* opArgs) {
-    int dim = std::atoi((static_cast<const ReduceMaxOpFuncArgs*>(opArgs))->attrs_[0].c_str());
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    auto args = static_cast<const ReduceMaxOpFuncArgs *>(opArgs);
     FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
-        const int firstViewShape = 128;
-        int batch = (firstDim + firstViewShape -1) / firstViewShape;
-
+        const int dim = args->dims_[0];
+        SymbolicScalar viewShape[] = {args->viewShape_[0], args->viewShape_[1]};
+        viewShape[dim] = 0;
+        const int batch = CeilDiv(inputs[0]->shape[1 - dim], viewShape[1 - dim]);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(batch)) {
-            auto viewTensor = DViewPad(inputs[0], {firstViewShape, secondDim},
-                {std::min(firstDim - bIdx * firstViewShape, firstViewShape), secondDim},
-                {bIdx * firstViewShape, 0});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(
-                (static_cast<const ReduceMaxOpFuncArgs*>(opArgs))->vecTileShapes_);
+            auto viewTensor = DViewPad(inputs[0],
+                {
+                    viewShape[0] == 0 ? firstDim : viewShape[0],
+                    viewShape[1] == 0 ? secondDim : viewShape[1]
+                },
+                {
+                    viewShape[0] == 0 ? firstDim : std::min(firstDim - bIdx * viewShape[0], viewShape[0]),
+                    viewShape[1] == 0 ? secondDim : std::min(secondDim - bIdx * viewShape[1], viewShape[1])
+                },
+                {bIdx * viewShape[0], bIdx * viewShape[1]});
+            Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
             auto res = RowMaxSingle(viewTensor, dim);
-            DAssemble(res, {bIdx * firstViewShape, 0}, outputs[0]);
+            DAssemble(res, {bIdx * viewShape[0], bIdx * viewShape[1]}, outputs[0]);
         }
     }
 }
 
-static const ReduceMaxOperationMetadata testDataLists[] = {
-    ReduceMaxOperationMetadata({512, 128}, {512, 1}, {"1"}, {64, 128}, DataType::DT_FP32, ReduceMaxOperationExeFunc),
-    ReduceMaxOperationMetadata({4, 1000}, {4, 1}, {"1"}, {4, 200}, DataType::DT_FP32, ReduceMaxOperationExeFunc),
-};
-
-class ReduceMaxOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<ReduceMaxOperationMetadata> {};
-
-INSTANTIATE_TEST_SUITE_P(
-    TestReduceMax,
-    ReduceMaxOperationTest,
-    ::testing::ValuesIn(testDataLists)
-);
-
-TEST_P(ReduceMaxOperationTest, test_reduce_max) {
-    TestCaseDesc testCase;
-    testCase.inputTensors = {
-        Tensor(GetParam().args_.dType_, GetParam().args_.shape_, "input0"),
-    };
-    testCase.outputTensors = {
-        Tensor(GetParam().args_.dType_, GetParam().args_.outputShape_, "output")
-    };
-    testCase.inputPaths = {GetGoldenDir() + "/x.bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/res.bin"};
-    testCase.args = &(GetParam().args_);
-    testCase.opFunc = GetParam().opFunc_;
-    TestExecutor::runTest(testCase);
-}
-
 void ReduceMax3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
-                                const OpFuncArgs* opArgs) {
-    int dim = std::atoi((static_cast<const ReduceMaxOpFuncArgs*>(opArgs))->attrs_[0].c_str());
+                                 const OpFuncArgs* opArgs) {
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    auto args = static_cast<const ReduceMaxOpFuncArgs *>(opArgs);
     FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar lastDim = inputs[0]->shape[2];
-        const int firstViewShape = 48;
-        const int secondViewShape = 32;
-        int batch = (firstDim + firstViewShape -1) / firstViewShape;
-
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(batch)) {
-            LOOP("LOOP_L1_bIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange((secondDim + secondViewShape -1) / secondViewShape)) {
-                auto viewTensor = DViewPad(inputs[0], {firstViewShape, secondViewShape, lastDim},
-                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                    std::min(secondDim - sIdx * secondViewShape, secondViewShape), lastDim},
-                    {bIdx * firstViewShape, sIdx * secondViewShape, 0});
-                Program::GetInstance().GetTileShape().SetVecTileShapes(
-                    (static_cast<const ReduceMaxOpFuncArgs*>(opArgs))->vecTileShapes_);
-                auto res = RowMaxSingle(viewTensor, dim);
-                DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, 0}, outputs[0]);
+        const int dim = args->dims_[0];
+        SymbolicScalar viewShape[] = {args->viewShape_[0], args->viewShape_[1], args->viewShape_[2]};
+        int loops[] = {
+            CeilDiv(inputs[0]->shape[0], viewShape[0]),
+            CeilDiv(inputs[0]->shape[1], viewShape[1]),
+            CeilDiv(inputs[0]->shape[2], viewShape[2])
+        };
+        viewShape[dim] = 0;
+        loops[dim] = 1;
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loops[IDX_DIM0])) {
+            LOOP("LOOP_L1_bIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loops[IDX_DIM1])) {
+                LOOP("LOOP_L2_bIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(loops[IDX_DIM2])) {
+                    auto viewTensor = DViewPad(inputs[0],
+                        {
+                            viewShape[0] == 0 ? firstDim : viewShape[0],
+                            viewShape[1] == 0 ? secondDim : viewShape[1],
+                            viewShape[2] == 0 ? lastDim : viewShape[2]
+                        },
+                        {
+                            viewShape[0] == 0 ? firstDim : std::min(firstDim - bIdx * viewShape[0], viewShape[0]),
+                            viewShape[1] == 0 ? secondDim : std::min(secondDim - sIdx * viewShape[1], viewShape[1]),
+                            viewShape[2] == 0 ? lastDim : std::min(lastDim - nIdx * viewShape[2], viewShape[2])
+                        },
+                        {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]});
+                    Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                    auto res = RowMaxSingle(viewTensor, dim);
+                    DAssemble(res, {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]}, outputs[0]);
+                }
             }
         }
     }
 }
 
-static const ReduceMaxOperationMetadata testDataLists3D[] = {
-    ReduceMaxOperationMetadata({48, 32, 32}, {48, 32, 1}, {"2"}, {8, 32, 32}, DataType::DT_FP32, ReduceMax3DOperationExeFunc),
-};
+static const ReduceMaxOpMetadata metaData =
+    ReduceMaxOpMetadata({ReduceMaxOperationExeFunc, ReduceMax3DOperationExeFunc});
 
-class ReduceMax3DOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<ReduceMaxOperationMetadata> {};
+class ReduceMaxOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<ReduceMaxOpMetadata> {};
 
-INSTANTIATE_TEST_SUITE_P(
-    TestReduceMax,
-    ReduceMax3DOperationTest,
-    ::testing::ValuesIn(testDataLists3D)
-);
+INSTANTIATE_TEST_SUITE_P(TestReduceMax, ReduceMaxOperationTest, ::testing::Values(metaData));
 
-TEST_P(ReduceMax3DOperationTest, test_reduce_max) {
+TEST_P(ReduceMaxOperationTest, TestReduceMax) {
     TestCaseDesc testCase;
-    testCase.inputTensors = {
-        Tensor(GetParam().args_.dType_, GetParam().args_.shape_, "input0"),
-    };
-    testCase.outputTensors = {
-        Tensor(GetParam().args_.dType_, GetParam().args_.outputShape_, "output")
-    };
-    testCase.inputPaths = {GetGoldenDir() + "/x.bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/res.bin"};
-    testCase.args = &(GetParam().args_);
-    testCase.opFunc = GetParam().opFunc_;
-    TestExecutor::runTest(testCase);
-}
-
-void ReduceMax4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
-                                const OpFuncArgs* opArgs) {
-    int dim = std::atoi((static_cast<const ReduceMaxOpFuncArgs*>(opArgs))->attrs_[0].c_str());
-    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
-        SymbolicScalar firstDim = inputs[0]->shape[0];
-        SymbolicScalar secondDim = inputs[0]->shape[1];
-        SymbolicScalar threeDim = inputs[0]->shape[2];
-        SymbolicScalar lastDim = inputs[0]->shape[3];
-        const int firstViewShape = 48;
-        int batch = (firstDim + firstViewShape -1) / firstViewShape;
-
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(batch)) {
-            auto viewTensor = DViewPad(inputs[0], {firstViewShape, secondDim, threeDim, lastDim},
-                {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                secondDim, threeDim, lastDim},
-                {bIdx * firstViewShape, 0, 0, 0});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(
-                (static_cast<const ReduceMaxOpFuncArgs*>(opArgs))->vecTileShapes_);
-            auto res = RowMaxSingle(viewTensor, dim);
-            DAssemble(res, {bIdx * firstViewShape, 0, 0, 0}, outputs[0]);
-        }
+    auto config = GetGoldenDir() + "/test_case_data.json";
+    testCase.inputTensors = GetInputTensors(config);
+    testCase.outputTensors = GetOutputTensors(config);
+    auto args = ReduceMaxOpFuncArgs(GetViewShape(config), GetTileShape(config),
+        GetValueByName<std::vector<int>>(config, "dims"));
+    testCase.args = &args;
+    auto func_id = GetFuncId(config);
+    if (func_id < 0 || static_cast<size_t>(func_id) >= GetParam().opFuncs_.size()) {
+        func_id = args.viewShape_.size() - 2;
     }
-}
-
-static const ReduceMaxOperationMetadata testDataLists4D[] = {
-    ReduceMaxOperationMetadata({8, 6, 10, 8}, {8, 6, 10, 1}, {"3"}, {4,4,4,16}, DataType::DT_FP32, ReduceMax4DOperationExeFunc),
-};
-
-class ReduceMax4DOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<ReduceMaxOperationMetadata> {};
-
-INSTANTIATE_TEST_SUITE_P(
-    TestReduceMax,
-    ReduceMax4DOperationTest,
-    ::testing::ValuesIn(testDataLists4D)
-);
-
-TEST_P(ReduceMax4DOperationTest, test_reduce_max) {
-    TestCaseDesc testCase;
-    testCase.inputTensors = {
-        Tensor(GetParam().args_.dType_, GetParam().args_.shape_, "input0"),
-    };
-    testCase.outputTensors = {
-        Tensor(GetParam().args_.dType_, GetParam().args_.outputShape_, "output")
-    };
-    testCase.inputPaths = {GetGoldenDir() + "/x.bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/res.bin"};
-    testCase.args = &(GetParam().args_);
-    testCase.opFunc = GetParam().opFunc_;
+    testCase.opFunc = GetParam().opFuncs_[func_id];
+    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin"};
+    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
     TestExecutor::runTest(testCase);
 }
 
