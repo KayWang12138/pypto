@@ -159,7 +159,7 @@ void HandleOneOutCast(Function *leafFunc, WorkspaceInfo &wspInfo,
     }
 
     auto producer = *(producers.begin());
-    if (OpcodeManager::Inst().IsCopyOut(producer->GetOpcode())) {
+    if (!OpcodeManager::Inst().IsCopyOut(producer->GetOpcode())) {
         return;
     }
     auto &producerIn = producer->GetIOperands()[0];
@@ -174,7 +174,7 @@ bool GetCopyInSize(LogicalTensorPtr &in, Operation *copyIn, uint64_t &size) {
     if (copyIn == nullptr) {
         return false;
     }
-    if (OpcodeManager::Inst().IsCopyIn(copyIn->GetOpcode())) {
+    if (!OpcodeManager::Inst().IsCopyIn(copyIn->GetOpcode())) {
         return false;
     }
     auto attr = dynamic_cast<CopyOpAttribute *>(copyIn->GetOpAttribute().get());
