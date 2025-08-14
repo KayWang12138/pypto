@@ -63,9 +63,9 @@ struct MachineManager {
             (void)sprintf_s(logfile, sizeof(logfile), "/tmp/aicpu%d.txt", threadIdx);
             GetLogger(logfile);
 #endif
-            DEV_INFO("threadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum%u \n", threadIdx, args->nrAic,
+            DEV_INFO("ThreadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum%u \n", threadIdx, args->nrAic,
                 args->nrAiv, args->nrAicpu, args->nrValidAic);
-            DEV_INFO("devQueueAddr %lx, sharedBuffer %lx coreRegAddr %lx corePmuAdr %lx\n", args->devQueueAddr,
+            DEV_INFO("SharedBuffer %lx coreRegAddr %lx corePmuAdr %lx\n", args->devQueueAddr,
                 args->sharedBuffer, args->coreRegAddr, args->corePmuAddr);
             ret = machine.Run(threadIdx, args);
             DEV_INFO("threadIdx %d finished, ret %d\n", threadIdx, ret);

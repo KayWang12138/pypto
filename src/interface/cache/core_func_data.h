@@ -182,8 +182,8 @@ struct DynFuncData {
 };
 
 struct DynFuncBin {
-    uint32_t psgId;
     uint32_t coreType;
+    uint32_t psgId;
     uint64_t funcHash;
     uint64_t size;
     uint64_t *binAddr;

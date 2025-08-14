@@ -113,6 +113,7 @@ struct DeviceTaskCtrl {
     uint64_t finishedAicFunctionCnt{0}; // 所有aicpu处理完成的aic function个数，多线程增加修改
     uint64_t finishedAivFunctionCnt{0}; // 所有aicpu处理完成的aiv function个数，多线程增加修改
     uint64_t finishedAicpuFunctionCnt{0}; // 所有aicpu处理完成的aicpu function个数，多线程增加修改
+    uint64_t finishedHubFunctionCnt{0}; // 所有aicpu处理完成的hub function个数，多线程增加修改
     std::atomic<uint64_t> finishedFunctionCnt{0};
     std::atomic<int> refcnt{-1};
     std::atomic<int> runcnt{0};
@@ -206,7 +207,7 @@ public:
     }
 
     inline void WriteReg32All(int aicNum, int aivNum, int offset, uint32_t val) {
-        for (int i = 0; i < aicNum + aivNum; i++) {
+        for (int i = 0; i < aicNum + aivNum; ++i) {
             if (regAddrs_[i] != 0) {
                 *(reinterpret_cast<volatile uint32_t *>(regAddrs_[i] + offset)) = val;
             }
@@ -506,8 +507,8 @@ public:
         volatile int64_t *shakeBuffer = args->shakeBuffer;
         uint32_t cycles_start = GetCycles();
         while ((*shakeBuffer & 0xFFFFFFFF) != AICORE_SAY_HELLO) {
-            if (GetCycles() - cycles_start > TIMEOUT_CYCLES) {
-                DEV_ERROR("hand shake %d timeout.", coreIdx);
+            if (GetCycles() - cycles_start > HAND_SHAKE_TIMEOUT) {
+                DEV_ERROR("hand shake %d timeout.\n", coreIdx);
                 return -1;
             }
         }
@@ -596,13 +597,14 @@ public:
         __sync_fetch_and_add(&(taskCtrl->finishedAicFunctionCnt), sentAic);
         __sync_fetch_and_add(&(taskCtrl->finishedAivFunctionCnt), sentAiv);
         __sync_fetch_and_add(&(taskCtrl->finishedAicpuFunctionCnt), sent);
+        __sync_fetch_and_add(&(taskCtrl->finishedHubFunctionCnt), resolveHubCnt_);
         procAicCoreFunctionCnt_ += sentAic;
         procAivCoreFunctionCnt_ += sentAiv;
         procAicpuFunctionCnt_ += sent;
         DEV_DEBUG("finish send  aic task cnt: %lu,  aiv task cnt: %lu, hub task cnt:%lu,"
             "aicpu task cnt:%lu, target totalcnt: %lu.",
             taskCtrl->finishedAicFunctionCnt, taskCtrl->finishedAivFunctionCnt,
-            resolveHubCnt_, taskCtrl->finishedAicpuFunctionCnt, curDevTask_->coreFunctionCnt);
+            taskCtrl->finishedHubFunctionCnt, taskCtrl->finishedAicpuFunctionCnt, curDevTask_->coreFunctionCnt);
 #endif
         sent += (sentAic + sentAiv + resolveHubCnt_);
         resolveHubCnt_ = 0;
@@ -1469,10 +1471,10 @@ private:
     }
 
     inline void ForEachManageAicoreReverse(std::function<void(int coreIdx)> func) const {
-        for (int i = aicEnd_ - 1; i >= aicStart_; i--) {
+        for (int i = aicEnd_ - 1; i >= aicStart_; --i) {
             func(i);
         }
-        for (int i = aivEnd_ -1; i >= aivStart_ ; i--) {
+        for (int i = aivEnd_ -1; i >= aivStart_ ; --i) {
             func(i);
         }
     }

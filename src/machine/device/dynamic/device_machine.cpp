@@ -28,6 +28,7 @@ using namespace npu::tile_fwk::dynamic;
 
 namespace {
 constexpr uint64_t CPUS_PER_CLUSTER = 4;
+bool g_initFlag = false;
 
 void DySdmaPrefetch(DevStartArgs *devArgs) {
     if (devArgs == nullptr || devArgs->devProg == nullptr) {
@@ -64,25 +65,24 @@ void DySdmaPrefetch(DevStartArgs *devArgs) {
     close(fd);
     return;
 }
-}
 
 struct DynMachineManager {
     int allocThreadIdx(int nrAicpu) {
         int threadIdx = -1;
-        if (schAicpuNum == 1) {
+        if (schAicpuNum_ == 1) {
             return threadIdx_++;
         }
         int cpu = sched_getcpu();
-        cpumask.fetch_or(1 << cpu, std::memory_order_release);
-        while (__builtin_popcount(cpumask.load(std::memory_order_acquire)) != nrAicpu) {
+        cpumask_.fetch_or(1 << cpu, std::memory_order_release);
+        while (__builtin_popcount(cpumask_.load(std::memory_order_acquire)) != nrAicpu) {
             sched_yield();
         }
 
-        auto maskval = cpumask.load(std::memory_order_relaxed);
+        auto maskval = cpumask_.load(std::memory_order_relaxed);
         int cpuoff = 0;
-        for (int i = 0; i < static_cast<int>(sizeof(uint64_t)); i++) {
+        for (int i = 0; i < static_cast<int>(sizeof(uint64_t)); ++i) {
             int mask = (maskval >> cpuoff) & 0xF;
-            if (__builtin_popcount(static_cast<uint32_t>(mask)) >= schAicpuNum) {
+            if (__builtin_popcount(static_cast<uint32_t>(mask)) >= schAicpuNum_) {
                 threadIdx = threadIdx_++;
                 break;
             }
@@ -100,7 +100,7 @@ struct DynMachineManager {
         int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
         auto devArgs = PtrToPtr<int64_t, DeviceArgs>(args->cfgdata);
         int threadIdx = allocThreadIdx(devArgs->nrAicpu);
-        if ((threadIdx != -1) && threadIdx < schAicpuNum) {
+        if ((threadIdx != -1) && threadIdx < schAicpuNum_) {
 #if !DEBUG_PLOG || !defined(__DEVICE__)
             (void)sprintf_s(logfile, sizeof(logfile), "/tmp/tile_fwk_aicpu_sch%d.txt", threadIdx);
             GetLogger(logfile);
@@ -110,16 +110,16 @@ struct DynMachineManager {
                 devArgs->nrAiv, devArgs->nrAicpu, devArgs->nrValidAic);
             DEV_INFO("devQueueAddr %lx, sharedBuffer %lx coreRegAddr %lx corePmuAdr %lx.", devArgs->devQueueAddr,
                 devArgs->sharedBuffer, devArgs->coreRegAddr, devArgs->corePmuAddr);
-            ret = machine.Run(threadIdx, devArgs);
+            ret = machine_.Run(threadIdx, devArgs);
         } else {
-            threadIdx = ctrlcpuIdx.fetch_add(1);
+            threadIdx = ctrlcpuIdx_.fetch_add(1);
             DEV_INFO("devArgs->taskType %d.",  static_cast<int>(devArgs->taskType));
             if (devArgs->taskType == DEVICE_TASK_TYPE_DYN && threadIdx == MAX_SCHEDULE_AICPU_NUM) {
 #if !DEBUG_PLOG || !defined(__DEVICE__)
                 (void)sprintf_s(logfile, sizeof(logfile), "/tmp/tile_fwk_aicpu_ctrl.txt");
                 GetLogger(logfile);
 #endif
-                ret = machine.ExecDyn(threadIdx, devArgs->taskId, args);
+                ret = machine_.ExecDyn(threadIdx, devArgs->taskId, args);
             } else if (threadIdx == MAX_SCHEDULE_AICPU_NUM + 1){
 #if !DEBUG_PLOG || !defined(__DEVICE__)
                 (void)sprintf_s(logfile, sizeof(logfile), "/tmp/tile_fwk_aicpu_prefetch.txt");
@@ -134,48 +134,44 @@ struct DynMachineManager {
                 }
             }
         }
-     
-        DEV_INFO("threadIdx %d finished, ret %d.", threadIdx, ret);
+        DEV_INFO("ThreadIdx %d finished, ret %d.", threadIdx, ret);
 #if !DEBUG_PLOG || !defined(__DEVICE__)
         GetLogger().Flush();
 #endif
-        if (++finished == static_cast<std::atomic<int>>(devArgs->nrAicpu)) {
+        if (++finished_ == static_cast<std::atomic<int>>(devArgs->nrAicpu)) {
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_FINISHED;
         }
         return ret;
     }
 
-    void init(DeviceArgs *args) {
-        schAicpuNum = CalcSchAicpuNumByBlockDim(args->nrValidAic);
-        machine.init(args);
+    void Init(DeviceArgs *args) {
+        schAicpuNum_ = CalcSchAicpuNumByBlockDim(args->nrValidAic);
+        machine_.init(args, schAicpuNum_);
+    }
+
+    void DeInit() {
+      threadIdx_ = 0;
+      finished_ = 0;
+      cpumask_ = 0;
+      ctrlcpuIdx_ = MAX_SCHEDULE_AICPU_NUM;
     }
 
     std::atomic<int> threadIdx_{0};
-    std::atomic<int> finished{0};
-    std::atomic<uint64_t> cpumask{0};
-    std::atomic<int> ctrlcpuIdx{MAX_SCHEDULE_AICPU_NUM};
-    int schAicpuNum{MAX_SCHEDULE_AICPU_NUM};
-    DeviceMachine machine;
+    std::atomic<int> finished_{0};
+    std::atomic<uint64_t> cpumask_{0};
+    std::atomic<int> ctrlcpuIdx_{MAX_SCHEDULE_AICPU_NUM};
+    int schAicpuNum_{MAX_SCHEDULE_AICPU_NUM};
+    DeviceMachine machine_;
 };
 
-
-static std::mutex g_mutex;
+DynMachineManager g_machine_mgr;
+}
 
 static int RunDynamic(AstKernelArgs *kargs) {
-    auto devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
-    g_mutex.lock();
-    DynMachineManager *machine = reinterpret_cast<DynMachineManager *>(devArgs->opaque);
-    if (machine == nullptr) {
-        machine = new DynMachineManager();
-        machine->init(devArgs);
-        devArgs->opaque = reinterpret_cast<uint64_t>(machine);
-    }
-    g_mutex.unlock();
-    int rc = machine->Run(kargs);
+    int rc = g_machine_mgr.Run(kargs);
     if (rc == npu::tile_fwk::dynamic::DEVICE_MACHINE_FINISHED) {
-        DEV_INFO("all exited destroy the machine.");
-        delete machine;
-        devArgs->opaque = 0;
+        DEV_INFO("All schedule exited, destroy the machine.\n");
+        g_machine_mgr.DeInit();
         return DEVICE_MACHINE_OK;
     }
     return rc;
@@ -185,7 +181,10 @@ static bool CheckValidArgs(AstKernelArgs *kargs) {
     if (kargs == nullptr) {
         return false;
     }
-    if (kargs->inputs == nullptr || kargs->outputs == nullptr || kargs->workspace == nullptr || kargs->cfgdata == nullptr) {
+    if (kargs->inputs == nullptr || kargs->outputs == nullptr || kargs->workspace == nullptr
+        || kargs->cfgdata == nullptr) {
+        DEV_INFO("Args has null in inputs[%p] outputs[%p] work[%p] or cfg[%p].\n", kargs->inputs,
+                 kargs->outputs, kargs->workspace, kargs->cfgdata);
         return false;
     }
     return true;
@@ -198,7 +197,12 @@ extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelSer
         DEV_INFO("invalid parameter.");
         return -EINVAL;
     }
+    auto devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
     DeviceMachine::InitDyn(kargs);
+    if (!g_initFlag || !IsDeviceMode()) {
+      g_machine_mgr.Init(devArgs);
+      g_initFlag = true;
+    }
     PerfEnd(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
     return 0;
 }

@@ -22,7 +22,6 @@
 #include "device_utils.h"
 #include "device_context.h"
 #include "machine/utils/dynamic/dev_encode.h"
-#include "machine/utils/dynamic/device_channel.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/utils/device_log.h"
 #include "device_utils.h"
@@ -30,18 +29,15 @@ namespace npu::tile_fwk::dynamic {
 
 class DeviceMachine {
 public:
-    DeviceMachine() {}
+    DeviceMachine() {
+        for (uint32_t i = 0; i < MAX_SCHEDULE_AICPU_NUM; ++i) {
+            aicoreManager_[i] = std::make_unique<AiCoreManager>(aicpuTaskManager_);
+        }
+    }
 
-    void init(DeviceArgs *args) {
-        DEV_INFO("device machine init .");
-        if (args->devQueueAddr != 0) {
-            serverMode_ = true;
-            receiver.init(reinterpret_cast<uint8_t *>(args->devQueueAddr), DEVICE_QUEUE_SIZE);
-        }
-        schAicpuNum_ = CalcSchAicpuNumByBlockDim(args->nrValidAic);
-        for (uint32_t i = 0; i < schAicpuNum_; ++i) {
-            aicoreManager_.push_back(std::make_unique<AiCoreManager>(aicpuTaskManager_));
-        }
+    void init(DeviceArgs *args, uint32_t schNum) {
+        DEV_INFO("device machine init.\n");
+        schAicpuNum_ = schNum;
 
         coreNum_ = args->nrAic + args->nrAiv;
         sharedBuffer_ = args->sharedBuffer;
@@ -60,7 +56,6 @@ public:
             initTaskCtrl = &taskctrl_[idx];
         }
     }
-
     int AllocNewTaskCtrl() {
         while (true) {
             if (taskCtrlIndex_ == MAX_DEVICE_TASK_NUM)
@@ -105,16 +100,16 @@ public:
     int PushTask(int type, uint64_t taskId, DeviceTask *devTask, DeviceExecuteContext *ctx, FinishCallback callback = nullptr) {
         auto idx = AllocNewTaskCtrl();
         InitTaskCtrl(idx, type, taskId, devTask, ctx, callback);
-        for (auto &m : aicoreManager_) {
-            m->PushTask(&taskctrl_[idx]);
+        for (uint32_t i = 0; i < schAicpuNum_; ++i) {
+          aicoreManager_[i]->PushTask(&taskctrl_[idx]);
         }
         return idx;
     }
 
     void StopAicoreManager() {
-        for (auto &m : aicoreManager_) {
-            m->PushTask(nullptr);
-        }
+      for (uint32_t i = 0; i < schAicpuNum_; ++i) {
+          aicoreManager_[i]->PushTask(nullptr);
+      }
     }
 
     int SyncTask(int idx) {
@@ -211,21 +206,19 @@ public:
             PushTask(DEVICE_TASK_TYPE_DYN, dynTaskId, devTask, ctx_, DeviceExecuteContext::TaskFinish);
         });
         DEV_INFO("end control flow.");
+        PerfBegin(PERF_EVT_STAGE_STOP_AICORE);
+        StopAicoreManager();
+        PerfEnd(PERF_EVT_STAGE_STOP_AICORE);
 
         PerfBegin(PERF_EVT_STAGE_TASK_SYNC);
         ret = SyncTask(&ctx.taskContext);
         PerfEnd(PERF_EVT_STAGE_TASK_SYNC);
-
-        PerfBegin(PERF_EVT_STAGE_STOP_AICORE);
-        StopAicoreManager();
-        PerfEnd(PERF_EVT_STAGE_STOP_AICORE);
         PerfEnd(PERF_EVT_EXEC_DYN);
-
+#if PERF_SWITCH
         ctx.ShowStats();
-
         PerfEvtMgr::Instance().Dump();
         PerfettoMgr::Instance().Dump("/tmp/perfetto.txt");
-
+#endif
         (void)threadIdx;
         (void)taskId;
         return ret;
@@ -287,7 +280,6 @@ private:
     }
 
 private:
-    DeviceTaskReceiver receiver;
     uint64_t sharedBuffer_{0};
     uint64_t coreNum_{0};
     bool serverMode_{false};
@@ -296,6 +288,6 @@ private:
     DeviceTaskCtrl *initTaskCtrl{nullptr};
     AicpuTaskManager aicpuTaskManager_;
     uint32_t schAicpuNum_{MAX_SCHEDULE_AICPU_NUM};
-    std::vector<std::unique_ptr<AiCoreManager>> aicoreManager_;
+    std::unique_ptr<AiCoreManager> aicoreManager_[MAX_SCHEDULE_AICPU_NUM];
 };
 } // namespace npu::tile_fwk

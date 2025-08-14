@@ -453,19 +453,17 @@ public:
 
         // assign outcast address separately first, will be reassigned when corresponding slot was replaced
         uintdevptr_t outcastBaseAddr = devRootDup.RuntimeOutcastBase();
-        for (size_t i = 0; i < devRootSrc->GetOutcastSize(); i++) {
+        for (size_t i = 0; i < devRootSrc->GetOutcastSize(); ++i) {
             int slotIndex = -1;
-            AddressDescriptor desc;
-
             auto &toSlotList = devRootSrc->GetOutcast(i).toSlotList;
-            for (size_t k = 0; k < toSlotList.size(); k++) {
+            for (size_t k = 0; k < toSlotList.size(); ++k) {
                 auto idx = devRootSrc->At(toSlotList, k);
                 if (slotList[idx].IsFixedAddress()) { // true表示固定地址，用户输出/Assemble的结果
                     slotIndex = idx;
                     break;
                 }
             }
-
+            AddressDescriptor desc;
             if (slotIndex != -1) {
                 desc = slotList[slotIndex].desc;
                 if (desc.IsNullAddress()) {
@@ -477,13 +475,12 @@ public:
             } else {
                 desc = AddressDescriptor(outcastBaseAddr + devRootSrc->GetOutcastRawTensor(i)->addrOffset);
             }
-
             devRootDup.GetOutcastAddress(i) = desc;
             DEV_DEBUG("get outcast %zu slot %d address %s.", i, slotIndex, desc.ToString().c_str());
         }
 
         // assign incast address descriptor
-        for (size_t i = 0; i < devRootSrc->GetIncastSize(); i++) {
+        for (size_t i = 0; i < devRootSrc->GetIncastSize(); ++i) {
             DEV_DEBUG_ASSERT(devRootSrc->GetIncast(i).fromSlotList.size() > 0);
 
             int slotIndex = devRootSrc->At(devRootSrc->GetIncast(i).fromSlotList, 0);
@@ -625,10 +622,7 @@ public:
             ptr = aicpuMetaSlabAllocator_.Alloc(ToUnderlying(type));
         } else if (type < WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT) {
             ptr = aicpuStitchSlabAllocator_.Alloc(ToUnderlying(type));
-        } else {
-            DEV_ASSERT(false);
         }
-
         DEV_ASSERT(ptr != nullptr);
         WsAllocation allocation;
         allocation.ptr = reinterpret_cast<uintdevptr_t>(ptr);
@@ -775,7 +769,7 @@ private:
         uint32_t slabSize = 0;
         constexpr uint32_t extendBuf = 1024;
         uint32_t allocNumOneSlab = 4; // default
-        for (size_t i = 0; i < ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT); i++) {
+        for (size_t i = 0; i < ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT); ++i) {
             if (slabMemObjSizeFunc[i] != nullptr) {
                 uint32_t currentSize = (this->*slabMemObjSizeFunc[i])();
                 if (currentSize > slabSize) {
@@ -799,7 +793,7 @@ private:
         constexpr uint32_t slabSize = 4 * 1024; // fix size
         aicpuStitchSlabAllocator_.Init(memBase, totalSize, slabSize);
         for (size_t i = ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT) + 1;
-            i < ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT); i++) {
+            i < ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT); ++i) {
             if (slabMemObjSizeFunc[i] != nullptr) {
                 uint32_t objSize = (this->*slabMemObjSizeFunc[i])();
                 DEV_ASSERT(slabSize > objSize);
@@ -874,20 +868,20 @@ struct DeviceSlotContext {
 
 public:
     void FillInputOutputSlot(DeviceExecuteSlot *slotList, size_t slotSize, DevAscendProgram *devProg, DevStartArgs *args) {
-        for (int i = 0; i < args->GetInputTensorSize(); i++) {
+        for (int i = 0; i < args->GetInputTensorSize(); ++i) {
             DevAscendTensorData &param = args->GetInputTensor(i);
             int slotIndex = devProg->startArgsInputTensorSlotIndexList[i];
             slotList[slotIndex].desc = AddressDescriptor(param.address);
             DEV_INFO("Param %d Input Slot %d = %lx.", i, slotIndex, param.address);
         }
-        for (int i = 0; i < args->GetOutputTensorSize(); i++) {
+        for (int i = 0; i < args->GetOutputTensorSize(); ++i) {
             DevAscendTensorData &param = args->GetOutputTensor(i);
             int slotIndex = devProg->startArgsOutputTensorSlotIndexList[i];
             slotList[slotIndex].desc = AddressDescriptor(param.address);
             slotList[slotIndex].isOutputSlot = true;
             DEV_INFO("Param %d Output Slot %d = %lx.", i, slotIndex, param.address);
         }
-        for (size_t i = static_cast<size_t>(args->GetOutputTensorSize()); i < devProg->startArgsOutputTensorSlotIndexList.size(); i++) {
+        for (size_t i = static_cast<size_t>(args->GetOutputTensorSize()); i < devProg->startArgsOutputTensorSlotIndexList.size(); ++i) {
             int outSlot = devProg->startArgsOutputTensorSlotIndexList[i];
             int inSlot = devProg->inplaceSlotList[i];
             if (inSlot != -1) {
@@ -896,7 +890,7 @@ public:
                 DEV_INFO("Param %zu Output Slot %d = inSlot %d.", i, outSlot, inSlot);
             }
         }
-        for (size_t i = 0; i < devProg->assembleSlotIndexList.size(); i++) {
+        for (size_t i = 0; i < devProg->assembleSlotIndexList.size(); ++i) {
             int slotIndex = devProg->assembleSlotIndexList[i];
             slotList[slotIndex].isAssemble = true;
             DEV_INFO("Assemble Slot %d.", slotIndex);
@@ -912,10 +906,10 @@ public:
         AutoScopedPerf asp(PERF_EVT_UPDATE_SLOT);
         DevAscendFunction *devRootSrc = devRootDup.GetSource();
         size_t outcastSize = devRootSrc->GetOutcastSize();
-        for (size_t i = 0; i < outcastSize; i++) {
+        for (size_t i = 0; i < outcastSize; ++i) {
             auto &srcDesc = devRootDup.GetOutcastAddress(i);
             auto &outcast = devRootSrc->GetOutcast(i);
-            for (size_t j = 0; j < outcast.toSlotList.size(); j++) {
+            for (size_t j = 0; j < outcast.toSlotList.size(); ++j) {
                 int slotIdx = devRootSrc->At(outcast.toSlotList, j);
                 auto &slot = slotList[slotIdx];
                 if (slot.refCnt != nullptr && slot.DerefAndCheckIfZeroRefCnt(slotRefCntPool)) {
@@ -1023,7 +1017,7 @@ struct DeviceStitchContext {
         static constexpr uint64_t NON_ADDR_MASK = UINT64_C(1) << 62;
 
         DumpSlotInfo("Update before", slotList, slotSize);
-        for (size_t slotIdx = 0; slotIdx < slotSize; slotIdx++) {
+        for (size_t slotIdx = 0; slotIdx < slotSize; ++slotIdx) {
             auto &slot = slotList[slotIdx];
             auto &desc = slot.desc;
             if (desc.IsAddress()) {
@@ -1052,7 +1046,7 @@ struct DeviceStitchContext {
             }
         }
 
-        for (size_t slotIdx = 0; slotIdx < slotSize; slotIdx++) {
+        for (size_t slotIdx = 0; slotIdx < slotSize; ++slotIdx) {
             auto &slot = slotList[slotIdx];
             auto &desc = slot.desc;
             if (desc.IsAddress() || slot.IsFixedAddress()) {
@@ -1074,11 +1068,11 @@ struct DeviceStitchContext {
     }
 
     void DecideIncastOutcast() {
-        for (size_t funcIdx = 0; funcIdx < stitchedList_.size(); funcIdx++) {
+        for (size_t funcIdx = 0; funcIdx < stitchedList_.size(); ++funcIdx) {
             auto &dup = stitchedList_[funcIdx];
             // decide incast address
             size_t incastSize = dup.GetSource()->GetIncastSize();
-            for (size_t i = 0; i < incastSize; i++) {
+            for (size_t i = 0; i < incastSize; ++i) {
                 auto &desc = dup.GetIncastAddress(i);
                 if (!desc.IsAddress()) {
                     desc = stitchedList_[desc.dupIdx].GetOutcastAddress(desc.outcastIdx);;
@@ -1090,7 +1084,7 @@ struct DeviceStitchContext {
 
             // decide outcast address
             size_t outcastSize = dup.GetSource()->GetOutcastSize();
-            for (size_t i = 0; i < outcastSize; i++) {
+            for (size_t i = 0; i < outcastSize; ++i) {
                 auto &desc = dup.GetOutcastAddress(i);
                 if (!desc.IsAddress()) {
                     desc = stitchedList_[desc.dupIdx].GetOutcastAddress(desc.outcastIdx);
@@ -1110,7 +1104,7 @@ struct DeviceStitchContext {
 
         DEV_ASSERT(dynTask->stitchedList.size() <= MAX_CACHED_FUNC_NUM);
         int size = static_cast<int>(dynTask->stitchedList.size());
-        for (int i = 0; i < size; i++) {
+        for (int i = 0; i < size; ++i) {
             auto &funcDup = dynTask->stitchedList[i];
             dynTask->cacheList[i] = {funcDup.GetSource(), &funcDup.GetOperationCurrPredCount(0), funcDup.GetSource()->GetCalleeIndexAddr()};
         }
@@ -1416,10 +1410,10 @@ private:
         }
 
         // Graph has been optimized when encoding, we just put trivial full connection logics here
-        for (size_t i = 0; i < prevNoSuccOpSize; i++) {
+        for (size_t i = 0; i < prevNoSuccOpSize; ++i) {
             int prevNoSucc = prevSrc->GetNoSuccOpIdx(i);
             auto &stitch = prevDup.GetOperationStitch(prevNoSucc);
-            for (size_t j = 0; j < currNoPredOpSize; j++) {
+            for (size_t j = 0; j < currNoPredOpSize; ++j) {
                 int currNoPred = currSrc->GetNoPredOpIdx(j);
                 PushBackTask(stitch, MakeTaskID(devCurrIdx, currNoPred), workspace);
                 currDup.GetOperationCurrPredCount(currNoPred)++;
@@ -1486,7 +1480,7 @@ private:
         uint32_t size = sizeof(ReadyCoreFunctionQueue) + dyntask->devTask.coreFunctionCnt * sizeof(taskid_t);
         DEV_ASSERT(dyntask->devTask.coreFunctionCnt <= MAX_READY_QUE_ELM_SIZE);
         ReadyCoreFunctionQueue *queue[0x2];
-        for (int coreType = 0; coreType < 0x2; coreType++) {
+        for (int coreType = 0; coreType < 0x2; ++coreType) {
             ReadyCoreFunctionQueue *q = workspace_->SlabAlloc(size, WsAicpuSlabMemType::READY_QUE).As<ReadyCoreFunctionQueue>();
             q->head = 0;
             q->tail = 0;
@@ -1504,7 +1498,7 @@ private:
         uint32v8 one = {1, 1, 1, 1, 1, 1, 1, 1};
         uint32v8 base = {0, 1, 2, 3, 4, 5, 6, 7};
         size_t funcSize = dyntask->stitchedList.size();
-        for (size_t funcIndex = 0; funcIndex < funcSize; funcIndex++) {
+        for (size_t funcIndex = 0; funcIndex < funcSize; ++funcIndex) {
             auto &dup = dyntask->stitchedList[funcIndex];
             predcount_t *dupPredCountList = &dup.GetOperationCurrPredCount(0);
 
@@ -1521,7 +1515,7 @@ private:
 #endif
                     aivQueueTail += DUP_PRED_COUNT_LOOP_MAX;
                 } else {
-                    for (size_t idx = 0; idx < DUP_PRED_COUNT_LOOP_MAX; idx++) {
+                    for (size_t idx = 0; idx < DUP_PRED_COUNT_LOOP_MAX; ++idx) {
                         if (likely(dupPredCountList[opIndex + idx] == 0)) {
                             aivQueueElemList[aivQueueTail] = MakeTaskID(funcIndex, opIndex + idx);
                             aivQueueTail++;
@@ -1529,7 +1523,7 @@ private:
                     }
                 }
             }
-            for (size_t opIndex = totalZeroPredAIVBatchEnd; opIndex < predInfo.totalZeroPredAIV; opIndex++) {
+            for (size_t opIndex = totalZeroPredAIVBatchEnd; opIndex < predInfo.totalZeroPredAIV; ++opIndex) {
                 if (likely(dupPredCountList[opIndex] == 0)) {
                     aivQueue->elem[aivQueueTail] = MakeTaskID(funcIndex, opIndex);
                     aivQueueTail++;
@@ -1537,7 +1531,7 @@ private:
             }
 
             auto aicEnd = predInfo.totalZeroPredAIV + predInfo.totalZeroPredAIC;
-            for (size_t opIndex = predInfo.totalZeroPredAIV; opIndex < aicEnd; opIndex++) {
+            for (size_t opIndex = predInfo.totalZeroPredAIV; opIndex < aicEnd; ++opIndex) {
                 if (likely(dupPredCountList[opIndex] == 0)) {
                     aicQueue->elem[aicQueueTail] = MakeTaskID(funcIndex, opIndex);
                     aicQueueTail++;
@@ -1565,7 +1559,7 @@ private:
         DEV_ASSERT((uint64_t)header->cceBinary % CCE_BINARY_MOD == 0);
 
         rootFuncNum += dyntask->stitchedList.size();
-        for (size_t funcIndex = 0; funcIndex < dyntask->stitchedList.size(); funcIndex++) {
+        for (size_t funcIndex = 0; funcIndex < dyntask->stitchedList.size(); ++funcIndex) {
             auto &funcDup = dyntask->stitchedList[funcIndex];
             dyndata->opAttrs = (uint64_t *) const_cast<SymInt *>(funcDup.GetSource()->GetSymoffset(0));
             dyndata->opAtrrOffsets = funcDup.GetSource()->GetOpAttrOffsetAddr();
@@ -1622,7 +1616,7 @@ private:
         auto succList = func->GetOperationSuccAddr(opIdx, succSize);
         auto callList = dyntask->cacheList[funcIdx].calleList;
 
-        for (size_t i = 0; i < succSize; i++) {
+        for (size_t i = 0; i < succSize; ++i) {
             auto succIdx = succList[i];
             doResolve(dyntask, cceBinary[callList[succIdx]].coreType, funcIdx, succIdx, predList);
         }
@@ -1631,7 +1625,7 @@ private:
         auto &stitchList = funcDup.GetOperationStitch(opIdx);
         for (auto *node = stitchList.Head(); node != nullptr; node = node->Next()) {
             uint32_t listSize = node->Size();
-            for (uint32_t i = 0; i < listSize; i++) {
+            for (uint32_t i = 0; i < listSize; ++i) {
                 uint32_t id = node->At(i);
                 auto succFuncIdx = FuncID(id);
                 auto succIdx = TaskID(id);
@@ -1644,7 +1638,7 @@ private:
 
     void ResolveEarlyDepends(DynDeviceTask *dyntask) {
         size_t funcSize = dyntask->stitchedList.size();
-        for (size_t funcIdx = 0; funcIdx < funcSize; funcIdx++) {
+        for (size_t funcIdx = 0; funcIdx < funcSize; ++funcIdx) {
             auto func = dyntask->cacheList[funcIdx].devFunc;
             auto predList = dyntask->cacheList[funcIdx].predCount;
             auto &predInfo = func->GetPredInfo();
@@ -1785,14 +1779,14 @@ struct DeviceExecuteContext {
 
         workspace.SetupVector(symbolTable);
         symbolTable.resize(devProg->symbolTable.size());
-        for (int i = 0; i < startArgs->GetInputSymbolSize(); i++) {
+        for (int i = 0; i < startArgs->GetInputSymbolSize(); ++i) {
             DevInputSymbol &param = startArgs->GetInputSymbol(i);
             int inputSymbolIndex = this->devProg->startArgsInputSymbolIndexList[i];
             symbolTable[inputSymbolIndex] = param.value;
             DEV_INFO("Param %d Symbol Table %d = %lu.", i, inputSymbolIndex, param.value);
         }
 
-        for (size_t i = 0; i < this->devProg->startArgsSymbolHandlerList.size(); i++) {
+        for (size_t i = 0; i < this->devProg->startArgsSymbolHandlerList.size(); ++i) {
             SymbolHandler &symbolHandler = this->devProg->startArgsSymbolHandlerList[i];
             void *handler = SymbolHandlerIdToHandler(symbolHandler.handlerId);
             DEV_ASSERT_MSG(handler, "handler not found.");
@@ -1893,11 +1887,9 @@ struct DeviceExecuteContext {
         }
 
         PROF_STAGE_BEGIN(PERF_EVT_STAGE_DUP_ROOT, "dup.before\n");
-        DevAscendFunctionDupped devRootDup = workspace.DuplicateRoot(devRoot);
+        currDevRootDup = workspace.DuplicateRoot(devRoot);
         PROF_STAGE_END(PERF_EVT_STAGE_DUP_ROOT, "dup.after\n");
-
-        currDevRootDup = devRootDup;
-        return (void *)&devRootDup.GetExpression(0);
+        return (void *)&currDevRootDup.GetExpression(0);
     }
 
     void *CallRootFunctionStitch(uint64_t rootKey) {
@@ -1907,10 +1899,8 @@ struct DeviceExecuteContext {
             return nullptr;
         }
 
-        DevAscendFunctionDupped devRootDup = currDevRootDup;
-
         // dyn rawshape size depend expresstable calculated
-        while (!workspace.TryAllocateFunctionMemory(devRootDup, slotContext.GetSlotList())) {
+        while (!workspace.TryAllocateFunctionMemory(currDevRootDup, slotContext.GetSlotList())) {
             // Failed to allocate, failed to stitch, submit existing stitched window to aicore and recycle memory
             // If nothing stitched, wait for aicore to finish tasks and release enough memory
             SubmitToAicoreAndRecycleMemory(true);
@@ -1921,9 +1911,9 @@ struct DeviceExecuteContext {
         }
 
         PROF_STAGE_BEGIN(PERF_EVT_STAGE_STITCH, "stitch.before\n");
-        stitchContext.Stitch(slotContext, devRootDup);
+        stitchContext.Stitch(slotContext, currDevRootDup);
 
-        slotContext.UpdateSlots(devRootDup, stitchContext.Size() - 1);
+        slotContext.UpdateSlots(currDevRootDup, stitchContext.Size() - 1);
         PROF_STAGE_END(PERF_EVT_STAGE_STITCH, "stitch.after\n");
         return nullptr;
     }

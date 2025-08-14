@@ -62,6 +62,7 @@ constexpr uint64_t NUM_FIFTY = 50;
 constexpr uint64_t US_PER_SEC = 1000000;
 constexpr uint64_t NSEC_PER_USEC = 1000;
 constexpr uint64_t NSEC_PER_SEC = 1000000000;
+constexpr uint64_t HAND_SHAKE_TIMEOUT = 10000000000;
 constexpr int32_t MAX_MNG_AICORE_AVG_NUM = 8;
 constexpr uint32_t NEED_LAUNCH_AICPU_MINNUM = 3;
 
@@ -449,31 +450,49 @@ private:
 };
 
 inline void PerfBegin(int type) {
+#if PERF_SWITCH
     if (PerfEvtEnable[type]) {
         PerfEvtMgr::Instance().PerfBegin(type);
         PerfettoMgr::Instance().PerfBegin(type, MAX_SCHEDULE_AICPU_NUM);
     }
+#else
+    (void)type;
+#endif
 }
 
 inline void PerfEnd(int type) {
+#if PERF_SWITCH
     if (PerfEvtEnable[type]) {
         PerfEvtMgr::Instance().PerfEnd(type);
         PerfettoMgr::Instance().PerfEnd(type, MAX_SCHEDULE_AICPU_NUM);
     }
+#else
+  (void)type;
+#endif
 }
 
 inline void PerfMtBegin(int type, int tid) {
+#if PERF_SWITCH
     if (PerfEvtEnable[type]) {
         PerfEvtMgr::Instance().PerfBegin(type + tid);
         PerfettoMgr::Instance().PerfBegin(type, tid);
     }
+#else
+  (void)type;
+  (void)tid;
+#endif
 }
 
 inline void PerfMtEnd(int type, int tid) {
+#if PERF_SWITCH
     if (PerfEvtEnable[type]) {
         PerfEvtMgr::Instance().PerfEnd(type + tid);
         PerfettoMgr::Instance().PerfEnd(type, tid);
     }
+#else
+  (void)type;
+  (void)tid;
+#endif
 }
 
 inline void PerfMtEvent(int type, int tid, uint64_t start, uint64_t end, std::string name = "-") {
