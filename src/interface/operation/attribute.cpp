@@ -337,6 +337,25 @@ const std::vector<SymbolicScalar> &CallOpAttribute::GetLinearArgList() {
     return linearArgList_;
 }
 
+std::vector<int> CallOpAttribute::GetlinearImmediateArgList(int begin, int end, bool returnEmptyForSymbolic) {
+    std::vector<int> result;
+
+    auto &linearArgList = GetLinearArgList();
+    for (int i = begin; i < end; i++) {
+        if (linearArgList[i].IsImmediate()) {
+            result.push_back(linearArgList[i].Concrete());
+        } else {
+            if (returnEmptyForSymbolic)
+                return {};
+            else
+                ASSERT(false) << "Invalid Immediate in " << Dump() << " index " << i << " = "
+                              << linearArgList[i].Dump();
+        }
+    }
+
+    return result;
+}
+
 std::shared_ptr<CallOpAttribute> CallOpAttribute::DeserializeFrom(const Json& attrJson,
     [[maybe_unused]] Function *function) {
     // CallOp特殊：attrJson为整体的Json而不是单独的attr Json

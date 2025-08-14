@@ -300,6 +300,7 @@ public:
     const std::vector<std::vector<SymbolicScalar>> &GetArgList() const { return argList_; }
     std::vector<std::vector<SymbolicScalar>> &GetArgList() { return argList_; }
     const std::vector<SymbolicScalar> &GetLinearArgList();
+    std::vector<int> GetlinearImmediateArgList(int begin, int end, bool returnEmptyForSymbolic);
 
     std::shared_ptr<SubfuncInvokeInfoTy> invokeInfo_;
 

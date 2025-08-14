@@ -135,6 +135,7 @@ struct IncastOutcastSlot {
      */
     std::vector<std::vector<int>> incastSlot;
     std::vector<std::vector<int>> outcastSlot;
+    std::vector<int> partialUpdateOutcastList;
 };
 
 struct TensorSlotScope {
@@ -149,6 +150,8 @@ struct TensorSlotScope {
 
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::unordered_set<std::shared_ptr<LogicalTensor>>> incastToInOriginalDict;
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::unordered_set<std::shared_ptr<LogicalTensor>>> outcastToOutOriginalDict;
+
+    std::unordered_set<LogicalTensorPtr> partialUpdateOutcastSet;
 
     IncastOutcastSlot ioslot;
 
@@ -193,6 +196,7 @@ struct IncastOutcastLink {
     std::vector<int> outputSlotIndexList;
     std::vector<int> assembleSlotIndexList;
     std::vector<int> inplaceSlotIndexList;
+    std::vector<int> partialUpdateSlotIdexList;
 };
 
 struct TensorSlotCheckpoint {
@@ -222,6 +226,8 @@ struct TensorSlotManager {
     std::unordered_map<TensorSlot, int> outputSlotDict;
     std::vector<std::string> outputNameList;
     std::unordered_map<TensorSlot, TensorSlot> inplaceDict;
+
+    std::set<int> partialUpdateSlotIndexSet;
 
     std::vector<TensorSlotCheckpoint> checkpointStack;
 

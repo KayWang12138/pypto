@@ -15,6 +15,8 @@
 
 #pragma once
 
+#include <array>
+
 #include "tilefwk/tensor.h"
 #include "tilefwk/element.h"
 #include "common/pre_def.h"

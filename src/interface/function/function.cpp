@@ -334,7 +334,7 @@ std::unordered_map<int, GetTensorDataIODesc> Function::GetTensorDataForTensorGra
                     iodescDict[getTensorDataIndex] = GetTensorDataIODesc(GET_TENSOR_DATA_OPERAND_IOTYPE_OUTCAST, outcastIndex, 0);
                 }
             }
-        }        
+        }
     }
     return iodescDict;
 }
@@ -363,9 +363,8 @@ void Function::GetTensorDataRefreshIO(std::unordered_map<int, GetTensorDataIODes
                     auto viewAttr = std::static_pointer_cast<ViewOpAttribute>(op.GetOpAttribute());
                     if (viewAttr != nullptr) {
                         std::vector<SymbolicScalar> &viewFromDynOffset = viewAttr->GetFromDynOffset();
-                        std::for_each(viewFromDynOffset.begin(), viewFromDynOffset.end(), [&](SymbolicScalar &offset) {
-                            offset = GetTensorDataFillIO(iodescDict, offset);                
-                        });
+                        std::for_each(viewFromDynOffset.begin(), viewFromDynOffset.end(),
+                            [&](SymbolicScalar &offset) { offset = GetTensorDataFillIO(iodescDict, offset); });
                     }
                 } break;
             case Opcode::OP_ASSEMBLE:
@@ -1578,6 +1577,9 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
                     assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(offset, dynOffset));
                     producer->SetAsDeleted();
                 }
+                if (scope) {
+                    scope->partialUpdateOutcastSet.insert(rawSymbol);
+                }
             } else {
                 auto &assembleOp = AddOperation(Opcode::OP_ASSEMBLE, {iOperand[i]}, oOperand);
                 assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(newOutcastOffsets[i]));
@@ -2234,7 +2236,7 @@ static std::vector<SymbolicScalar> NormalizeCopyOut(Operation *op, const Symboli
     std::vector<SymbolicScalar> operandCoaList(COA_INDEX_DIM_BASE + dim * COA_INDEX_TYPE_COUNT, 0);
 
     auto opImmList = copyAttr->GetToOffset();
-    MaybeNormalizeValue(getParamOffset, operandCoaList, operandCoaIndex, opImmList, coaIndexBase, valueToIndex);        
+    MaybeNormalizeValue(getParamOffset, operandCoaList, operandCoaIndex, opImmList, coaIndexBase, valueToIndex);
     copyAttr->SetToOffset(opImmList);
     operandCoaIndex += dim;
     coaIndex += dim;
@@ -2360,7 +2362,7 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
 
     auto getParam = SymbolicScalar(AddRuntimeCoaPrefix("GET_PARAM"));
     for (auto &op : operations_) {
-        if (op->GetOpcode() == Opcode::OP_VEC_DUP) {            
+        if (op->GetOpcode() == Opcode::OP_VEC_DUP) {
             if (op->HasAttr(OpAttributeKey::dynScalar)) {
                 SymbolicScalar dynScalar = op->GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
                 std::vector<SymbolicScalar> valueCoaList;
@@ -2368,7 +2370,7 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
                 op->SetAttribute(OpAttributeKey::dynScalar, dynScalar);
                 coaLists.emplace_back(valueCoaList);
                 coaIndex += 1;
-            }            
+            }
         }
     }
 

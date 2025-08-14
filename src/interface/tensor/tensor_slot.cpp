@@ -106,6 +106,11 @@ void TensorSlotScope::BuildIncastOutcastSlot(const std::unordered_map<TensorSlot
             ioslot.outcastSlot[idx].push_back(slotIndexDict.find(h)->second);
         }
         std::sort(ioslot.outcastSlot[idx].begin(), ioslot.outcastSlot[idx].end());
+
+        auto outcast = tensorFunc->GetOutcast()[idx];
+        if (partialUpdateOutcastSet.count(outcast)) {
+            ioslot.partialUpdateOutcastList.push_back(idx);
+        }
     }
 }
 
@@ -356,8 +361,8 @@ std::string TensorSlotManager::Dump() const {
         slotList[index] = slot;
     }
     constexpr int width2 = 2;
-    constexpr int width6 = 2;
-    constexpr int width7 = 2;
+    constexpr int width6 = 6;
+    constexpr int width7 = 7;
 
     std::ostringstream oss;
     for (size_t i = 0; i < slotList.size(); i++) {
@@ -366,10 +371,12 @@ std::string TensorSlotManager::Dump() const {
         bool input = inputSlotDict.count(slotList[i]);
         bool output = outputSlotDict.count(slotList[i]);
         bool named = slotNameDict.count(slotList[i]);
+        bool parial = partialUpdateSlotIndexSet.count(i);
         if (live || input || output || named) {
             oss << "slot[" << std::setw(width2) << i << "]: ";
             oss << std::setw(width2) << (live ? 'L' : ' ');
             oss << std::setw(width2) << (assemble ? 'A' : ' ');
+            oss << std::setw(width2) << (parial ? 'P' : ' ');
             oss << std::setw(width6) << (input ? "in:" + std::to_string(inputSlotDict.find(slotList[i])->second) : std::string(" "));
             oss << std::setw(width7) << (output ? "out:" + std::to_string(outputSlotDict.find(slotList[i])->second) : std::string(" "));
             if (live) {
@@ -392,6 +399,11 @@ IncastOutcastLink TensorSlotManager::BuildIncastOutcastLink([[maybe_unused]]cons
             continue;
         }
         link.ioslotDict[tensorFunc] = scope->ioslot;
+        for (auto &outcast : scope->ioslot.partialUpdateOutcastList) {
+            for (auto &slot : scope->ioslot.outcastSlot[outcast]) {
+                partialUpdateSlotIndexSet.insert(slot);
+            }
+        }
     }
 
     for (auto &input : inputSlotList) {
@@ -412,6 +424,9 @@ IncastOutcastLink TensorSlotManager::BuildIncastOutcastLink([[maybe_unused]]cons
         if (assembleSlotSet.count(slot)) {
             link.assembleSlotIndexList.push_back(index);
         }
+    }
+    for (auto &slotIndex : partialUpdateSlotIndexSet) {
+        link.partialUpdateSlotIdexList.push_back(slotIndex);
     }
 
     for (auto &[func, ioslot] : link.ioslotDict) {
