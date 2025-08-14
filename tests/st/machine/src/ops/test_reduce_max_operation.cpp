@@ -30,8 +30,10 @@ struct ReduceMaxOpFuncArgs : public OpFuncArgs {
 };
 
 struct ReduceMaxOpMetadata {
-    explicit ReduceMaxOpMetadata(const std::vector<OpFunc> &funcs) : opFuncs_(funcs) {}
-    std::vector<OpFunc> opFuncs_;
+    explicit ReduceMaxOpMetadata(const OpFunc &opFunc, const nlohmann::json &test_data)
+        : opFunc_(opFunc), test_data_(test_data) {}
+    OpFunc opFunc_;
+    nlohmann::json test_data_;
 };
 
 void ReduceMaxOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
@@ -104,26 +106,20 @@ void ReduceMax3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<
     }
 }
 
-static const ReduceMaxOpMetadata metaData =
-    ReduceMaxOpMetadata({ReduceMaxOperationExeFunc, ReduceMax3DOperationExeFunc});
-
 class ReduceMaxOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<ReduceMaxOpMetadata> {};
 
-INSTANTIATE_TEST_SUITE_P(TestReduceMax, ReduceMaxOperationTest, ::testing::Values(metaData));
+INSTANTIATE_TEST_SUITE_P(TestReduceMax, ReduceMaxOperationTest, ::testing::ValuesIn(
+    GetOpMetaData<ReduceMaxOpMetadata>({ReduceMaxOperationExeFunc, ReduceMax3DOperationExeFunc}, "ReduceMax")));
 
 TEST_P(ReduceMaxOperationTest, TestReduceMax) {
     TestCaseDesc testCase;
-    auto config = GetGoldenDir() + "/test_case_data.json";
-    testCase.inputTensors = GetInputTensors(config);
-    testCase.outputTensors = GetOutputTensors(config);
-    auto args = ReduceMaxOpFuncArgs(GetViewShape(config), GetTileShape(config),
-        GetValueByName<std::vector<int>>(config, "dims"));
+    auto test_data = GetParam().test_data_;
+    testCase.inputTensors = GetInputTensors(test_data);
+    testCase.outputTensors = GetOutputTensors(test_data);
+    auto args = ReduceMaxOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data),
+        GetValueByName<std::vector<int>>(test_data, "dims"));
     testCase.args = &args;
-    auto func_id = GetFuncId(config);
-    if (func_id < 0 || static_cast<size_t>(func_id) >= GetParam().opFuncs_.size()) {
-        func_id = args.viewShape_.size() - 2;
-    }
-    testCase.opFunc = GetParam().opFuncs_[func_id];
+    testCase.opFunc = GetParam().opFunc_;
     testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin"};
     testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
     TestExecutor::runTest(testCase);
