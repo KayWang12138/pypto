@@ -348,14 +348,18 @@ def gen_topk_op_golden(case_name: str, output: Path, case_index: int = None) -> 
 def gen_cast_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
     def golden_func(inputs, params: dict):
-        dtype_out = get_dtype_by_name(params["dst_dtype"], True)
-        if dtype_out is None:
-            return [inputs[0].astype(get_dtype_by_name(params["dst_dtype"]))]
-        x = torch.from_numpy(inputs[0])
-        if dtype_out == torch.bfloat16:
-            x = x.to(torch.float32).numpy().astype(bfloat16)
+        if inputs[0].dtype == bfloat16:
+            dtype_out = get_dtype_by_name(params["dst_dtype"])
+            x = inputs[0].astype(dtype_out)
         else:
-            x = x.to(dtype_out).numpy()
+            dtype_out = get_dtype_by_name(params["dst_dtype"], True)
+            if dtype_out is None:
+                return [inputs[0].astype(get_dtype_by_name(params["dst_dtype"]))]
+            x = torch.from_numpy(inputs[0])
+            if dtype_out == torch.bfloat16:
+                x = x.to(torch.float32).numpy().astype(bfloat16)
+            else:
+                x = x.to(dtype_out).numpy()
 
         return [x]
 
