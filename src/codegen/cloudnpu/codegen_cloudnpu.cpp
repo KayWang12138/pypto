@@ -79,7 +79,7 @@ bool CompareStrings(const std::string &s1, const std::string &s2) {
 bool CodeGenCloudNPU::IsCube(const OperationsViewer &operationList) const {
     auto isL1CopyIn = [](const Operation &op) {
         return op.GetOpcode() == Opcode::OP_COPY_IN && !(op.oOperand.empty()) &&
-               op.oOperand[0]->GetMemoryTypeOriginal() == npu::tile_fwk::MemoryType::MEM_L1;
+               op.oOperand[ID0]->GetMemoryTypeOriginal() == npu::tile_fwk::MemoryType::MEM_L1;
     };
 
     for (const auto &oper : operationList) {
@@ -403,7 +403,6 @@ std::string CodeGenCloudNPU::GenAlloc(SymbolManager &manager, SymbolManager::Buf
 
     const char *prefix = BUFFER_TYPE_TO_PREFIX.at(bufferType);
     const std::string &addrSpaceQualifier = npu::tile_fwk::OPERAND_TYPE_TO_ADDR_TYPE.at(bufferType);
-
     std::string allocVarName = GenAllocVarName(prefix, range);
 
     // must conform to CodeGenOpCloudNPU::createAllocKey
@@ -418,15 +417,15 @@ std::string CodeGenCloudNPU::GenAlloc(SymbolManager &manager, SymbolManager::Buf
 
     std::string dataTypeStr = DataType2CCEStr(dataType);
 
-    char buffer[256] = "CG_ERROR";
-    int ret = sprintf_s(buffer, sizeof(buffer), "%s %s *%s = (%s %s *)get_imm(0x%x); // size: %x \n",
-        dataTypeStr.c_str(), addrSpaceQualifier.c_str(), allocVarName.c_str(), dataTypeStr.c_str(),
-        addrSpaceQualifier.c_str(), static_cast<unsigned>(range.start), static_cast<unsigned>(range.Size()));
-    ASSERT(ret >= 0) << "GenAlloc sprintf_s failed ";
-    return buffer;
+    std::ostringstream oss;
+    oss << dataTypeStr << " " << addrSpaceQualifier << " *" << allocVarName << " = (" << dataTypeStr << " "
+        << addrSpaceQualifier << " *)get_imm(0x" << std::hex << static_cast<unsigned>(range.start) << "); // size: 0x"
+        << std::hex << static_cast<unsigned>(range.Size()) << " \n";
+
+    return oss.str();
 }
 
-int CheckInjectStr(char cmdStr[], size_t strLen) {
+int CheckInjectStr(const char cmdStr[], size_t strLen) {
     if (cmdStr == nullptr) {
         return -1;
     }
@@ -455,33 +454,30 @@ int CodeGenCloudNPU::CompileCCE(const CompileInfo &compileInfo, const std::strin
     const std::string objFile = compileInfo.GetBinAbsPath();
 
     std::string coreType = compileInfo.IsCube() ? "dav-c220-cube" : "dav-c220-vec";
-
-    char ccecCmd[2048];
     std::string includePath = ctx.IsIncludePathEmpty() ? SRC_PATH : ctx.includePath;
-    int ret = snprintf_s(ccecCmd, sizeof(ccecCmd), sizeof(ccecCmd) - 1,
-        "ccec %s -c -O3 -g -x cce -std=c++17 "
-        "--cce-aicore-only "
-        "--cce-aicore-arch=%s "
-        "-mllvm -cce-aicore-stack-size=0x8000 "
-        "-mllvm -cce-aicore-function-stack-size=0x8000 "
-        "-mllvm -cce-aicore-record-overflow=false "
-        "-mllvm -cce-aicore-addr-transform "
-        "-mllvm -cce-aicore-dcci-insert-for-scalar=false "
-        "-I%s/include/tileop/a2a3 "
-        "-I%s/src/machine/kernel "
-        "-I%s/src/ "
-        "-o %s "
-        "%s",
-        compileOptions.c_str(), coreType.c_str(), includePath.c_str(), includePath.c_str(), includePath.c_str(),
-        objFile.c_str(), srcFile.c_str());
-    if (ret < 0) {
-        ALOG_INFO_F("CompileCCE snprintf_s failed %d", ret);
-    }
 
-    ALOG_INFO_F("compile kernel...\n%s", ccecCmd);
-    ret = CheckInjectStr(ccecCmd, strlen(ccecCmd));
+    std::ostringstream oss;
+    oss << "ccec " << compileOptions << " -c -O3 -g -x cce -std=c++17 "
+        << "--cce-aicore-only "
+        << "--cce-aicore-arch=" << coreType << " "
+        << "-mllvm -cce-aicore-stack-size=0x8000 "
+        << "-mllvm -cce-aicore-function-stack-size=0x8000 "
+        << "-mllvm -cce-aicore-record-overflow=false "
+        << "-mllvm -cce-aicore-addr-transform "
+        << "-mllvm -cce-aicore-dcci-insert-for-scalar=false "
+        << "-I" << includePath << "/include/tileop/a2a3 "
+        << "-I" << includePath << "/src/machine/kernel "
+        << "-I" << includePath << "/src/ "
+        << "-o " << objFile << " " << srcFile;
+
+    std::string ccecCmd = oss.str();
+
+    ALOG_INFO_F("compile kernel...\n%s", ccecCmd.c_str());
+
+    int ret = CheckInjectStr(ccecCmd.c_str(), ccecCmd.length());
     ASSERT(ret == 0) << "CheckInjectStr failed. errCode = " << ret;
-    ret = std::system(ccecCmd);
+
+    ret = std::system(ccecCmd.c_str());
     if (ret != 0) {
         ALOG_INFO_F("CompileCce ccec failed %d", ret);
     }

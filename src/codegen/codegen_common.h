@@ -29,7 +29,6 @@ constexpr const int MAX_DIM = 5;
 
 const std::string GET_PARAM_VALID_SHAPE_BY_IDX = "GET_PARAM_VALID_SHAPE_BY_IDX";
 const std::string GET_PARAM_OFFSET_BY_IDX = "GET_PARAM_OFFSET_BY_IDX";
-const std::string SUPPORT_DYNAMIC_UNALIGNED = "SUPPORT_DYNAMIC_UNALIGNED";
 
 const std::string GM_PARAM_TYPE_FOR_STATIC = "__gm__ GMTensorInfo";
 const std::string GM_PARAM_TYPE_FOR_DYN = "CoreFuncParam";

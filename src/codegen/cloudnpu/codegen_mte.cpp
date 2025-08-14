@@ -32,26 +32,26 @@ bool CodeGenOpCloudNPU::GetAttr(const std::string &key, T &value) const {
     return false;
 }
 
-CodeGenOpCloudNPU::DynamicParamPack CodeGenOpCloudNPU::PrepareDynamicShapeInfo(
-    int dynShapeIdx, int ShapeDim, bool gmOffsetCond) const {
-    CodeGenOpCloudNPU::DynamicParamPack pack;
+CodeGenOpCloudNPU::DynamicParamPackMTE CodeGenOpCloudNPU::PrepareDynamicShapeInfoforMTE(
+    int dynShapeIdx, int ShapeDim, bool isNeedGmOffset) const {
+    CodeGenOpCloudNPU::DynamicParamPackMTE pack;
     int dim = static_cast<int>(paramIdxForDynShape[dynShapeIdx].size());
     pack.gmShapeExpr = GenGetParamMacroPacked(dynShapeIdx, dim, PREFIX_STR_RAW_SHAPE);
     FillIntVecWithDummyInHead<std::string>(pack.gmShapeExpr, ShapeDim - dim, "1");
     ALOG_INFO_F("dynamic gmShape param: %s", IntVecToStr(pack.gmShapeExpr).c_str());
 
-    if (offsetGmSymbolic[dynShapeIdx][0].IsValid()) {
+    if (offsetGmSymbolic[dynShapeIdx][ID0].IsValid()) {
         pack.gmOffsetExpr = GenSymbolicArgument(offsetGmSymbolic[dynShapeIdx]);
     } else {
         pack.gmOffsetExpr = GenGetParamMacroPacked(dynShapeIdx, dim, PREFIX_STR_OFFSET);
-    } 
+    }
     FillIntVecWithDummyInHead<std::string>(pack.gmOffsetExpr, ShapeDim - dim, "0");
     ALOG_INFO_F("dynamic gmOffset param: %s", IntVecToStr(pack.gmOffsetExpr).c_str());
 
     for (const auto &gs : pack.gmShapeExpr) {
         pack.paramList.emplace_back(gs);
     }
-    if (gmOffsetCond) {
+    if (isNeedGmOffset) {
         for (const auto &go : pack.gmOffsetExpr) {
             pack.paramList.emplace_back(go);
         }
@@ -100,7 +100,7 @@ std::string CodeGenOpCloudNPU::GenMemL1SpillIntoGM(
     DataType gmDtype = (isCopyL0CToGM || isCopyL1ToGM) ? opInfo.dataTypes[ID0] : opInfo.dataTypes[ID1];
     DataType l1Dtype = (isCopyL0CToGM || isCopyL1ToGM) ? opInfo.dataTypes[ID1] : opInfo.dataTypes[ID0];
 
-    std::string addrTypeHead[2];
+    std::string addrTypeHead[ID2];
     addrTypeHead[gmIdx] = GetAddrTypeByOperandType(BUF_DDR);
     addrTypeHead[l1Idx] = isCopyL0CToGM ? GetAddrTypeByOperandType(BUF_L0C) : GetAddrTypeByOperandType(BUF_L1);
 
@@ -108,8 +108,8 @@ std::string CodeGenOpCloudNPU::GenMemL1SpillIntoGM(
     auto l1AllocKey = sm->CreateAllocKey(opInfo.operands[ID0]);
     std::vector<int> gmOffset = offset[gmIdx];
     std::vector<int> l1TileOffset = offset[l1Idx];
-    unsigned l1Offset = l1TileOffset[0] * l1TileOffset[1];
-    std::string addrExpr[2];
+    unsigned l1Offset = l1TileOffset[ID0] * l1TileOffset[ID1];
+    std::string addrExpr[ID2];
     addrExpr[gmIdx] = GenGMAddrExprWithOffset(GM_STACK_BASE, gmIdx);
     addrExpr[l1Idx] = GenAddrExpr(sm->QueryVariableName(l1AllocKey), l1Offset);
 
@@ -121,29 +121,32 @@ std::string CodeGenOpCloudNPU::GenMemL1SpillIntoGM(
 
     // Spilling out scene only support 2-dim shape
     ASSERT(l1Shape.size() == SHAPE_DIM2) << "!";
-    int tileShape0 = l1Shape[0];
-    int tileShape1 = l1Shape[1];
+    int tileShape0 = l1Shape[ID0];
+    int tileShape1 = l1Shape[ID1];
 
-    std::string typeExpr[2];
+    std::string typeExpr[ID2];
     typeExpr[gmIdx] = DataType2CCEStr(gmDtype);
     typeExpr[l1Idx] = DataType2CCEStr(l1Dtype);
 
     int ret{0};
     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
     if (isSupportDynamicUnaligned) {
-        // The layout of gm stack data is continuous, so just use dynValidShape[1] as gm stride to match the
+        // The layout of gm stack data is continuous, so just use dynValidShape[ID1] as gm stride to match the
         // implementation of "Copy TileOp" in order to make gm gap value be zero in copy intrinsic.
         auto dynValidShape = dynamicValidShape[l1Idx];
-        ret = sprintf_s(buffer, BUFFER_SIZE_1024, "%s<%s, %s>((%s %s*)%s, (%s %s*)%s, %s, %s, %s, %s, %u);\n",
-            tileOpName.c_str(), typeExpr[gmIdx].c_str(), typeExpr[l1Idx].c_str(), addrTypeHead[0].c_str(),
-            typeExpr[0].c_str(), addrExpr[0].c_str(), addrTypeHead[1].c_str(), typeExpr[1].c_str(), addrExpr[1].c_str(),
-            dynValidShape[0].Dump().c_str(), dynValidShape[1].Dump().c_str(), dynValidShape[0].Dump().c_str(),
-            dynValidShape[1].Dump().c_str(), uf);
+        std::ostringstream oss;
+        oss << tileOpName << "<" << typeExpr[gmIdx] << ", " << typeExpr[l1Idx] << ">"
+            << "((" << addrTypeHead[ID0] << " " << typeExpr[ID0] << "*)" << addrExpr[ID0] << ", "
+            << "(" << addrTypeHead[ID1] << " " << typeExpr[ID1] << "*)" << addrExpr[ID1] << ", "
+            << dynValidShape[ID0].Dump() << ", " << dynValidShape[ID1].Dump() << ", " << dynValidShape[ID0].Dump()
+            << ", " << dynValidShape[ID1].Dump() << ", " << uf << ");\n";
+
+        return oss.str();
     } else {
         ret = sprintf_s(buffer, BUFFER_SIZE_1024, "%s<%s, %s, %d, %d, %d, %d>((%s %s*)%s, (%s %s*)%s, %u);\n",
-            tileOpName.c_str(), typeExpr[gmIdx].c_str(), typeExpr[l1Idx].c_str(), tileShape0, tileShape1, gmShape[0],
-            gmShape[1], addrTypeHead[0].c_str(), typeExpr[0].c_str(), addrExpr[0].c_str(), addrTypeHead[1].c_str(),
-            typeExpr[1].c_str(), addrExpr[1].c_str(), uf);
+            tileOpName.c_str(), typeExpr[gmIdx].c_str(), typeExpr[l1Idx].c_str(), tileShape0, tileShape1, gmShape[ID0],
+            gmShape[ID1], addrTypeHead[ID0].c_str(), typeExpr[ID0].c_str(), addrExpr[ID0].c_str(),
+            addrTypeHead[ID1].c_str(), typeExpr[ID1].c_str(), addrExpr[ID1].c_str(), uf);
     }
     ASSERT(ret >= 0) << "sprintf_s failed in genMemOp_L1, return value:" << ret;
     return buffer;
@@ -152,39 +155,37 @@ std::string CodeGenOpCloudNPU::GenMemL1SpillIntoGM(
 std::string CodeGenOpCloudNPU::GenMemL1ToL0() const {
     std::string paramStr = GenParamsStr();
 
-    std::vector l1Shape = this->rawShape[1];
+    std::vector<int> l1Shape = this->rawShape[ID1];
     ALOG_INFO_F("GenMemL1ToL0 %s, l1Shape is %s", tileOpName.c_str(), IntVecToStr(l1Shape).c_str());
 
-    std::vector l0Shape = this->rawShape[0];
+    std::vector<int> l0Shape = this->rawShape[ID0];
     ALOG_INFO_F("GenMemL1ToL0 %s, l0Shape is %s", tileOpName.c_str(), IntVecToStr(l0Shape).c_str());
 
-    std::vector<int> l1Offset = this->offset[1];
+    std::vector<int> l1Offset = this->offset[ID1];
 
-    unsigned srcOffset0 = l1Offset[0];
-    unsigned srcOffset1 = l1Offset[1];
-    unsigned srcShape0 = l1Shape[0];
-    unsigned srcShape1 = l1Shape[1];
-    unsigned tileShape0 = l0Shape[0];
-    unsigned tileShape1 = l0Shape[1];
+    unsigned srcOffset0 = l1Offset[ID0];
+    unsigned srcOffset1 = l1Offset[ID1];
+    unsigned srcShape0 = l1Shape[ID0];
+    unsigned srcShape1 = l1Shape[ID1];
+    unsigned tileShape0 = l0Shape[ID0];
+    unsigned tileShape1 = l0Shape[ID1];
 
     std::string dtypeStr = DataType2CCEStr(operandDtype[ID0]);
-    char buffer[BUFFER_SIZE_512] = "CG_ERROR";
-    int ret{0};
-    auto l1ShapeDyn = dynamicValidShape[1];
-    auto l0ShapeDyn = dynamicValidShape[0];
+    auto l1ShapeDyn = dynamicValidShape[ID1];
+    auto l0ShapeDyn = dynamicValidShape[ID0];
+
+    std::ostringstream oss;
     if (isSupportDynamicUnaligned) {
-        ret = sprintf_s(buffer, BUFFER_SIZE_512, "%s<%s, %u, %u>(%s, %s, %s, %s, %s);\n", tileOpName.c_str(),
-            dtypeStr.c_str(), srcOffset0, srcOffset1, paramStr.c_str(), l0ShapeDyn[0].Dump().c_str(),
-            l0ShapeDyn[1].Dump().c_str(), l1ShapeDyn[0].Dump().c_str(), l1ShapeDyn[1].Dump().c_str());
-        ASSERT(ret >= 0) << "sprintf_s failed in genMemOp_L0, return value:" << ret;
-        return buffer;
+        oss << tileOpName << "<" << dtypeStr << ", " << srcOffset0 << ", " << srcOffset1 << ">"
+            << "(" << paramStr << ", " << l0ShapeDyn[ID0].Dump() << ", " << l0ShapeDyn[ID1].Dump() << ", "
+            << l1ShapeDyn[ID0].Dump() << ", " << l1ShapeDyn[ID1].Dump() << ");\n";
+    } else {
+        oss << tileOpName << "<" << dtypeStr << ", " << tileShape0 << ", " << tileShape1 << ", " << srcOffset0 << ", "
+            << srcOffset1 << ", " << srcShape0 << ", " << srcShape1 << ">"
+            << "(" << paramStr << ");\n";
     }
 
-    ret = sprintf_s(buffer, BUFFER_SIZE_512, "%s<%s, %u, %u, %u, %u, %u, %u>(%s);\n", tileOpName.c_str(), dtypeStr.c_str(),
-        tileShape0, tileShape1, srcOffset0, srcOffset1, srcShape0, srcShape1, paramStr.c_str());
-    ASSERT(ret >= 0) << "sprintf_s failed in genMemOp_L0, return value:" << ret;
-    std::string ostring(buffer);
-    return ostring;
+    return oss.str();
 }
 
 std::string CodeGenOpCloudNPU::GenMemUBSpillIntoGM(bool isCopyUBToGM) const {
@@ -193,7 +194,7 @@ std::string CodeGenOpCloudNPU::GenMemUBSpillIntoGM(bool isCopyUBToGM) const {
     std::vector<int> gmShape = this->rawShape[gmIdx];
     std::vector<int> gmOffset = this->offset[gmIdx];
 
-    std::string addrTypeHead[2];
+    std::string addrTypeHead[ID2];
     addrTypeHead[gmIdx] = GetAddrTypeByOperandType(BUF_DDR);
     addrTypeHead[ubIdx] = GetAddrTypeByOperandType(BUF_UB);
 
@@ -201,13 +202,13 @@ std::string CodeGenOpCloudNPU::GenMemUBSpillIntoGM(bool isCopyUBToGM) const {
     auto ubAllocKey = sm->CreateAllocKey(operandWithMagic[ubIdx]);
     std::string ubVarName = sm->QueryVariableName(ubAllocKey);
 
-    std::string addrExpr[2];
+    std::string addrExpr[ID2];
     addrExpr[ubIdx] = sm->QueryVariableName(ubAllocKey);
     // In spilling out scene,  GM offset is added after "GMStackBase" var.
     // "GMStackBase" is a base address of a gm workspace which is using for spilled tensors.
     addrExpr[gmIdx] = GenGMAddrExprWithOffset(GM_STACK_BASE, gmIdx);
 
-    std::string dataTypeExpr[2];
+    std::string dataTypeExpr[ID2];
     dataTypeExpr[gmIdx] = DataType2CCEStr(operandDtype[gmIdx]);
     dataTypeExpr[ubIdx] = DataType2CCEStr(operandDtype[ubIdx]);
 
@@ -239,8 +240,8 @@ std::string CodeGenOpCloudNPU::GenIndexOutCastOp() const {
     auto blockSize = npu::tile_fwk::AnyCast<int>(opAttrs.at(OpAttributeKey::panzBlockSize));
     unsigned gmIdx = 0;
     unsigned localIdx = 1;
-    std::string addrTypeHead[2];
-    std::string addrExpr[2];
+    std::string addrTypeHead[ID2];
+    std::string addrExpr[ID2];
     OperandType localType = OperandType::BUF_UB;
     addrTypeHead[gmIdx] = GetAddrTypeByOperandType(BUF_DDR);
     addrTypeHead[localIdx] = GetAddrTypeByOperandType(localType);
@@ -255,15 +256,15 @@ std::string CodeGenOpCloudNPU::GenIndexOutCastOp() const {
 
     addrExpr[gmIdx] = GenGmParamVar(gmIdx);
 
-    std::vector<int> src0OriginShape = this->originShape[1];
-    std::vector<int> src1OriginShape = this->originShape[2];
-    std::vector<int> src0RawShape = this->rawShape[1];
-    std::vector<int> src1RawShape = this->rawShape[2];
+    std::vector<int> src0OriginShape = this->originShape[ID1];
+    std::vector<int> src1OriginShape = this->originShape[ID2];
+    std::vector<int> src0RawShape = this->rawShape[ID1];
+    std::vector<int> src1RawShape = this->rawShape[ID2];
 
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID1]);
     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
     std::string src1DtypeStr = DataType2CCEStr(operandDtype[ID2]);
-    std::string dataTypeExpr[3] = {dstDtypeStr, src0DtypeStr, src1DtypeStr};
+    std::string dataTypeExpr[ID3] = {dstDtypeStr, src0DtypeStr, src1DtypeStr};
 
     AppendLocalBufferVarOffset({&s0Var}, {localIdx});
 
@@ -305,21 +306,21 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastStatic(const PrintIndexOutCastPa
     // template param
     std::ostringstream oss;
     std::vector<std::string> paramList;
-    paramList.insert(paramList.end(), {dataTypeExpr[0], dataTypeExpr[2]});
-    paramList.insert(paramList.end(),
-        {std::to_string(src0OriginShape[0]), std::to_string(src0OriginShape[1]), std::to_string(src0OriginShape[3])});
-    paramList.insert(paramList.end(), {std::to_string(src0RawShape[2]), std::to_string(src0RawShape[3])});
-    paramList.emplace_back(std::to_string(src1OriginShape[1]));
-    paramList.emplace_back(std::to_string(src1RawShape[3]));
-    paramList.insert(paramList.end(), {std::to_string(gmShape[2]), std::to_string(gmShape[3])});
+    paramList.insert(paramList.end(), {dataTypeExpr[ID0], dataTypeExpr[ID2]});
+    paramList.insert(paramList.end(), {std::to_string(src0OriginShape[ID0]), std::to_string(src0OriginShape[ID1]),
+                                          std::to_string(src0OriginShape[ID3])});
+    paramList.insert(paramList.end(), {std::to_string(src0RawShape[ID2]), std::to_string(src0RawShape[ID3])});
+    paramList.emplace_back(std::to_string(src1OriginShape[ID1]));
+    paramList.emplace_back(std::to_string(src1RawShape[ID3]));
+    paramList.insert(paramList.end(), {std::to_string(gmShape[ID2]), std::to_string(gmShape[ID3])});
     paramList.emplace_back(std::to_string(cacheModeFlag));
     paramList.emplace_back(param.blockSize);
     std::string templateParam = JoinString(paramList, ", ");
     // func actual param
     paramList.clear();
-    std::string dst = "(__gm__ " + dataTypeExpr[0] + "*)" + addrExpr[0];
-    std::string src0 = "(__ubuf__ " + dataTypeExpr[1] + "*)" + s0Var;
-    std::string src1 = "(__ubuf__ " + dataTypeExpr[2] + "*)" + s1Var;
+    std::string dst = "(__gm__ " + dataTypeExpr[ID0] + "*)" + addrExpr[ID0];
+    std::string src0 = "(__ubuf__ " + dataTypeExpr[ID1] + "*)" + s0Var;
+    std::string src1 = "(__ubuf__ " + dataTypeExpr[ID2] + "*)" + s1Var;
     paramList.insert(paramList.end(), {dst, src0, src1});
     std::string tiloOpCallParam = JoinString(paramList, ", ");
     oss << tileOpName << "<" << templateParam << ">"
@@ -340,19 +341,19 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastDynamic(const PrintIndexOutCastP
     const std::string *dataTypeExpr = param.dataTypeExpr;
     int cacheModeFlag = (param.cacheMode == "PA_NZ") ? 1 : 0;
 
-    auto paramPack = PrepareDynamicShapeInfo(ID0);
+    auto paramPack = PrepareDynamicShapeInfoforMTE(ID0);
     std::vector<std::string> gmShapeExpr = paramPack.gmOffsetExpr;
     std::vector<std::string> gmOffsetExpr = paramPack.gmOffsetExpr;
 
     std::ostringstream os;
     std::vector<std::string> paramList;
     // template param
-    paramList.insert(paramList.end(), {dataTypeExpr[0], dataTypeExpr[2]});
-    paramList.insert(paramList.end(),
-        {std::to_string(src0OriginShape[0]), std::to_string(src0OriginShape[1]), std::to_string(src0OriginShape[3])});
-    paramList.insert(paramList.end(), {std::to_string(src0RawShape[2]), std::to_string(src0RawShape[3])});
-    paramList.emplace_back(std::to_string(src1OriginShape[1]));
-    paramList.emplace_back(std::to_string(src1RawShape[3]));
+    paramList.insert(paramList.end(), {dataTypeExpr[ID0], dataTypeExpr[ID2]});
+    paramList.insert(paramList.end(), {std::to_string(src0OriginShape[ID0]), std::to_string(src0OriginShape[ID1]),
+                                          std::to_string(src0OriginShape[ID3])});
+    paramList.insert(paramList.end(), {std::to_string(src0RawShape[ID2]), std::to_string(src0RawShape[ID3])});
+    paramList.emplace_back(std::to_string(src1OriginShape[ID1]));
+    paramList.emplace_back(std::to_string(src1RawShape[ID3]));
     paramList.emplace_back(std::to_string(cacheModeFlag));
     paramList.emplace_back(param.blockSize);
 
@@ -360,9 +361,9 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastDynamic(const PrintIndexOutCastP
 
     // func actual param
     paramList.clear();
-    std::string dst = "(__gm__ " + dataTypeExpr[0] + "*)" + addrExpr[0];
-    std::string src0 = "(__ubuf__ " + dataTypeExpr[1] + "*)" + s0Var;
-    std::string src1 = "(__ubuf__ " + dataTypeExpr[2] + "*)" + s1Var;
+    std::string dst = "(__gm__ " + dataTypeExpr[ID0] + "*)" + addrExpr[ID0];
+    std::string src0 = "(__ubuf__ " + dataTypeExpr[ID1] + "*)" + s0Var;
+    std::string src1 = "(__ubuf__ " + dataTypeExpr[ID2] + "*)" + s1Var;
     paramList.insert(paramList.end(), {dst, src0, src1});
     paramList.insert(paramList.end(), paramPack.paramList.begin(), paramPack.paramList.end());
 
@@ -383,32 +384,33 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastDynamicUnaligned(const PrintInde
     const std::string *dataTypeExpr = param.dataTypeExpr;
     int cacheModeFlag = (param.cacheMode == "PA_NZ") ? 1 : 0;
 
-    auto paramPack = PrepareDynamicShapeInfo(ID0);
+    auto paramPack = PrepareDynamicShapeInfoforMTE(ID0);
     std::vector<std::string> gmShapeExpr = paramPack.gmOffsetExpr;
     std::vector<std::string> gmOffsetExpr = paramPack.gmOffsetExpr;
 
-    auto src0ValidShape = dynamicValidShape[1];
-    FillIntVecWithDummyInHead<SymbolicScalar>(src0ValidShape, SHAPE_DIM4 - dynamicValidShape[1].size(), 1);
-    auto src1ValidShape = dynamicValidShape[2];
+    auto src0ValidShape = dynamicValidShape[ID1];
+    FillIntVecWithDummyInHead<SymbolicScalar>(src0ValidShape, SHAPE_DIM4 - dynamicValidShape[ID1].size(), 1);
+    auto src1ValidShape = dynamicValidShape[ID2];
 
     std::ostringstream os;
     std::vector<std::string> paramList;
     // template param
-    paramList.insert(paramList.end(), {dataTypeExpr[0], dataTypeExpr[2]});
-    paramList.insert(paramList.end(), {std::to_string(src0RawShape[2]), std::to_string(src0RawShape[3])});
-    paramList.emplace_back(std::to_string(src1RawShape[3]));
+    paramList.insert(paramList.end(), {dataTypeExpr[ID0], dataTypeExpr[ID2]});
+    paramList.insert(paramList.end(), {std::to_string(src0RawShape[ID2]), std::to_string(src0RawShape[ID3])});
+    paramList.emplace_back(std::to_string(src1RawShape[ID3]));
     paramList.emplace_back(std::to_string(cacheModeFlag));
     paramList.emplace_back(param.blockSize);
     std::string templateParam = JoinString(paramList, ", ");
 
     // func actual param
     paramList.clear();
-    std::string dst = "(__gm__ " + dataTypeExpr[0] + "*)" + addrExpr[0];
-    std::string src0 = "(__ubuf__ " + dataTypeExpr[1] + "*)" + s0Var;
-    std::string src1 = "(__ubuf__ " + dataTypeExpr[2] + "*)" + s1Var;
+    std::string dst = "(__gm__ " + dataTypeExpr[ID0] + "*)" + addrExpr[ID0];
+    std::string src0 = "(__ubuf__ " + dataTypeExpr[ID1] + "*)" + s0Var;
+    std::string src1 = "(__ubuf__ " + dataTypeExpr[ID2] + "*)" + s1Var;
     paramList.insert(paramList.end(), {dst, src0, src1});
-    paramList.insert(paramList.end(), {src0ValidShape[0].Dump(), src0ValidShape[1].Dump(), src0ValidShape[3].Dump()});
-    paramList.emplace_back(src1ValidShape[1].Dump());
+    paramList.insert(
+        paramList.end(), {src0ValidShape[ID0].Dump(), src0ValidShape[ID1].Dump(), src0ValidShape[ID3].Dump()});
+    paramList.emplace_back(src1ValidShape[ID1].Dump());
     paramList.insert(paramList.end(), paramPack.paramList.begin(), paramPack.paramList.end());
 
     std::string tiloOpCallParam = JoinString(paramList, ", ");
@@ -421,24 +423,24 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastDynamicUnaligned(const PrintInde
 std::vector<int> CodeGenOpCloudNPU::GetTileShapeForMemTransfer(
     OperandType localType, std::vector<int> gmShape, unsigned localIdx) const {
     std::vector<int> tileShapeForMT;
-    if (localIdx == 0 && localType == BUF_UB) { // copy gm to local, use shape[1]
-        ASSERT(gmShape.size() == shape[1].size())
-            << "gmShape size: " << gmShape.size() << ",shape[1] size: " << shape[1].size() << ", is not equal !!";
-        for (size_t i = 0; i < shape[1].size(); ++i) {
-            tileShapeForMT.emplace_back(std::min(gmShape[i], shape[1][i]));
+    if (localIdx == 0 && localType == BUF_UB) { // copy gm to local, use shape[ID1]
+        ASSERT(gmShape.size() == shape[ID1].size())
+            << "gmShape size: " << gmShape.size() << ",shape[ID1] size: " << shape[ID1].size() << ", is not equal !!";
+        for (size_t i = 0; i < shape[ID1].size(); ++i) {
+            tileShapeForMT.emplace_back(std::min(gmShape[i], shape[ID1][i]));
         }
     } else if (localType == BUF_L1 || localType == BUF_L0C) {
         std::vector l1Shape = this->rawShape[localIdx];
-        ALOG_INFO_F("getTileShape src1Shape is [%d,%d]", l1Shape[0], l1Shape[1]);
+        ALOG_INFO_F("getTileShape src1Shape is [%d,%d]", l1Shape[ID0], l1Shape[ID1]);
         for (size_t i = 0; i < this->rawShape[localIdx].size(); ++i) {
             tileShapeForMT.emplace_back(rawShape[localIdx][i]);
         }
     } else {
         // NEXTNEXT: verify if this branch could be merged with "localIdx == 0 && localType == BUF_UB" branch before
-        ASSERT(gmShape.size() == shape[0].size())
-            << "gmShape size: " << gmShape.size() << ",shape[0] size: " << shape[0].size() << ", is not equal !!";
-        for (size_t i = 0; i < shape[0].size(); ++i) {
-            tileShapeForMT.emplace_back(std::min(gmShape[i], shape[0][i]));
+        ASSERT(gmShape.size() == shape[ID0].size())
+            << "gmShape size: " << gmShape.size() << ",shape[ID0] size: " << shape[ID0].size() << ", is not equal !!";
+        for (size_t i = 0; i < shape[ID0].size(); ++i) {
+            tileShapeForMT.emplace_back(std::min(gmShape[i], shape[ID0][i]));
         }
     }
 
@@ -450,22 +452,22 @@ std::vector<int> CodeGenOpCloudNPU::GetTileShapeForMemTransfer(
 std::string CodeGenOpCloudNPU::GenMemCopyVar(bool isCopyLocalToGM, OperandType localType, unsigned uf) const {
     unsigned gmIdx = isCopyLocalToGM ? 0 : 1;
     unsigned localIdx = isCopyLocalToGM ? 1 : 0;
-    std::string addrTypeHead[2];
+    std::string addrTypeHead[ID2];
     addrTypeHead[gmIdx] = GetAddrTypeByOperandType(BUF_DDR);
     addrTypeHead[localIdx] = GetAddrTypeByOperandType(localType);
 
     std::vector<int> gmShape = this->rawShape[gmIdx];
     ALOG_INFO_F("gmShape is %s", IntVecToStr(gmShape).c_str());
     std::vector<int> tileShapeForMT = GetTileShapeForMemTransfer(localType, gmShape, localIdx);
-    ALOG_INFO_F("========dst shape is %s", IntVecToStr(shape[0]).c_str());
+    ALOG_INFO_F("========dst shape is %s", IntVecToStr(shape[ID0]).c_str());
     ALOG_INFO_F("========tileShapeForMT is %s", IntVecToStr(tileShapeForMT).c_str());
 
     auto localAllocKey = sm->CreateAllocKey(operandWithMagic[localIdx]);
-    std::string addrExpr[2];
+    std::string addrExpr[ID2];
     addrExpr[localIdx] = sm->QueryVariableName(localAllocKey);
     addrExpr[gmIdx] = GenGmParamVar(gmIdx);
 
-    std::string dataTypeExpr[2];
+    std::string dataTypeExpr[ID2];
     dataTypeExpr[gmIdx] = DataType2CCEStr(operandDtype[gmIdx]);
     dataTypeExpr[localIdx] = DataType2CCEStr(operandDtype[localIdx]);
 
@@ -501,16 +503,16 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CStatic(const PrintMemCopyWithL
     const std::vector<SymbolicScalar> &outputOffset = offsetGmSymbolic[gmIdx];
     const std::string *dataTypeExpr = param.dataTypeExpr;
 
-    int oriTileShape0 = std::min(originShape[localIdx][0], tileShapeForMT[0]);
-    int oriTileShape1 = std::min(originShape[localIdx][1], tileShapeForMT[1]);
+    int oriTileShape0 = std::min(originShape[localIdx][ID0], tileShapeForMT[ID0]);
+    int oriTileShape1 = std::min(originShape[localIdx][ID1], tileShapeForMT[ID1]);
 
     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
     int printRet = sprintf_s(buffer, BUFFER_SIZE_1024,
         "%s<%s, %s, %u, %u, %d, %d, %s, %s, %d, %d %s>((%s %s*)%s, (%s %s*)%s, %u);\n", tileOpName.c_str(),
-        dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), tileShapeForMT[0], tileShapeForMT[1], gmShape[0],
-        gmShape[1], outputOffset[0].Dump().c_str(), outputOffset[1].Dump().c_str(), oriTileShape0, oriTileShape1,
-        GenOpAttr().c_str(), addrTypeHead[0].c_str(), dataTypeExpr[0].c_str(), addrExpr[0].c_str(),
-        addrTypeHead[1].c_str(), dataTypeExpr[1].c_str(), addrExpr[1].c_str(), uf);
+        dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), tileShapeForMT[ID0], tileShapeForMT[ID1],
+        gmShape[ID0], gmShape[ID1], outputOffset[ID0].Dump().c_str(), outputOffset[ID1].Dump().c_str(), oriTileShape0,
+        oriTileShape1, GenOpAttr().c_str(), addrTypeHead[ID0].c_str(), dataTypeExpr[ID0].c_str(), addrExpr[ID0].c_str(),
+        addrTypeHead[ID1].c_str(), dataTypeExpr[ID1].c_str(), addrExpr[ID1].c_str(), uf);
     ASSERT(printRet >= 0) << "sprintf_s failed in genMemCopyVar(BUF_L0C), return value:" << printRet;
     return buffer;
 }
@@ -524,8 +526,8 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CDynamic(const PrintMemCopyWith
     const std::vector<int> &tileShapeForMT = param.tileShapeForMT;
     const std::string *dataTypeExpr = param.dataTypeExpr;
 
-    int oriTileShape0 = std::min(originShape[localIdx][0], tileShapeForMT[0]);
-    int oriTileShape1 = std::min(originShape[localIdx][1], tileShapeForMT[1]);
+    int oriTileShape0 = std::min(originShape[localIdx][ID0], tileShapeForMT[ID0]);
+    int oriTileShape1 = std::min(originShape[localIdx][ID1], tileShapeForMT[ID1]);
 
     std::vector<std::string> gmShapeExpr = GenGetParamMacroPacked(param.gmIdx, SHAPE_DIM2, PREFIX_STR_RAW_SHAPE);
     ALOG_INFO_F("dynamic gmShape param: %s", IntVecToStr(gmShapeExpr).c_str());
@@ -541,18 +543,19 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CDynamic(const PrintMemCopyWith
         auto dynValidShape = dynamicValidShape[localIdx];
         printRet = sprintf_s(buffer, BUFFER_SIZE_1024, "%s<%s, %s %s>((%s %s*)%s, (%s %s*)%s, %s, %s, %s, %s, %u);\n",
             tileOpName.c_str(), dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), GenOpAttr().c_str(),
-            addrTypeHead[0].c_str(), dataTypeExpr[0].c_str(), addrExpr[0].c_str(), addrTypeHead[1].c_str(),
-            dataTypeExpr[1].c_str(), addrExpr[1].c_str(), dynValidShape[0].Dump().c_str(),
-            dynValidShape[1].Dump().c_str(), gmShapeExpr[0].c_str(), gmOffsetExpr[0].c_str(), uf);
+            addrTypeHead[ID0].c_str(), dataTypeExpr[ID0].c_str(), addrExpr[ID0].c_str(), addrTypeHead[ID1].c_str(),
+            dataTypeExpr[ID1].c_str(), addrExpr[ID1].c_str(), dynValidShape[ID0].Dump().c_str(),
+            dynValidShape[ID1].Dump().c_str(), gmShapeExpr[ID0].c_str(), gmOffsetExpr[ID0].c_str(), uf);
         ASSERT(printRet >= 0) << "sprintf_s failed in genMemCopyVar(BUF_L0C), return value:" << printRet;
         return buffer;
     }
 
-    printRet = sprintf_s(buffer, BUFFER_SIZE_1024, "%s<%s, %s, %d, %d, %d, %d %s>((%s %s*)%s, (%s %s*)%s, %s, %s, %u);\n",
-        tileOpName.c_str(), dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), tileShapeForMT[0],
-        tileShapeForMT[1], oriTileShape0, oriTileShape1, GenOpAttr().c_str(), addrTypeHead[0].c_str(),
-        dataTypeExpr[0].c_str(), addrExpr[0].c_str(), addrTypeHead[1].c_str(), dataTypeExpr[1].c_str(),
-        addrExpr[1].c_str(), gmShapeExpr[0].c_str(), gmOffsetExpr[0].c_str(), uf);
+    printRet =
+        sprintf_s(buffer, BUFFER_SIZE_1024, "%s<%s, %s, %d, %d, %d, %d %s>((%s %s*)%s, (%s %s*)%s, %s, %s, %u);\n",
+            tileOpName.c_str(), dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), tileShapeForMT[ID0],
+            tileShapeForMT[ID1], oriTileShape0, oriTileShape1, GenOpAttr().c_str(), addrTypeHead[ID0].c_str(),
+            dataTypeExpr[ID0].c_str(), addrExpr[ID0].c_str(), addrTypeHead[ID1].c_str(), dataTypeExpr[ID1].c_str(),
+            addrExpr[ID1].c_str(), gmShapeExpr[ID0].c_str(), gmOffsetExpr[ID0].c_str(), uf);
     ASSERT(printRet >= 0) << "sprintf_s failed in genMemCopyVar(BUF_L0C), return value:" << printRet;
     return buffer;
 }
@@ -576,12 +579,12 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Static(const PrintMemCopyWithL1
 
     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
 
-    std::shared_ptr<LogicalTensor> tensor = sm->GetTensorByMagic(operandWithMagic[1]);
+    std::shared_ptr<LogicalTensor> tensor = sm->GetTensorByMagic(operandWithMagic[ID1]);
     std::string opName = tileOpName;
     char addrBuffer[BUFFER_SIZE_1024] = "";
     char oriAddrBuffer[BUFFER_SIZE_1024] = "";
 
-    int printRet = sprintf_s(addrBuffer, BUFFER_SIZE_1024, "%s", addrExpr[1].c_str());
+    int printRet = sprintf_s(addrBuffer, BUFFER_SIZE_1024, "%s", addrExpr[ID1].c_str());
     ASSERT(printRet >= 0) << "sprintf_s failed in PrintMemCopyWithL1Static, return value:" << printRet;
     int nzValue = 0, outerValue = 0, innerValue = 0;
     auto ret = GetAttr("op_attr_is_nz", nzValue);
@@ -591,35 +594,35 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Static(const PrintMemCopyWithL1
         ret = GetAttr("op_attr_inner_value", innerValue);
         std::string curAddrBuffer =
             "((__gm__ GMTensorInfo*)(oriAddrParam) + " + std::to_string(paramLocation[gmIdx]) + ")->Addr";
-        printRet =
-            sprintf_s(oriAddrBuffer, BUFFER_SIZE_1024, "(__gm__ %s*)%s", dataTypeExpr[1].c_str(), curAddrBuffer.c_str());
+        printRet = sprintf_s(
+            oriAddrBuffer, BUFFER_SIZE_1024, "(__gm__ %s*)%s", dataTypeExpr[ID1].c_str(), curAddrBuffer.c_str());
         ASSERT(printRet >= 0) << "sprintf_s failed in PrintMemCopyWithL1Static, return value:" << printRet;
-        printRet = sprintf_s(addrBuffer, BUFFER_SIZE_1024, "%s", addrExpr[1].c_str());
-        outerValue = outerValue == 0 ? gmShape[0] : outerValue;
-        innerValue = innerValue == 0 ? gmShape[1] : innerValue;
+        printRet = sprintf_s(addrBuffer, BUFFER_SIZE_1024, "%s", addrExpr[ID1].c_str());
+        outerValue = outerValue == 0 ? gmShape[ID0] : outerValue;
+        innerValue = innerValue == 0 ? gmShape[ID1] : innerValue;
         printRet = sprintf_s(buffer, BUFFER_SIZE_1024,
             "%s<%s, %s, %u, %u, %d, %d, %d, %d>((%s %s*)%s, (%s %s*)%s, %s, %u);\n", opName.c_str(),
-            dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), tileShapeForMT[0], tileShapeForMT[1],
-            gmShape[0], gmShape[1], outerValue, innerValue, addrTypeHead[0].c_str(), dataTypeExpr[0].c_str(),
-            addrExpr[0].c_str(), addrTypeHead[1].c_str(), dataTypeExpr[1].c_str(), addrBuffer, oriAddrBuffer, uf);
+            dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), tileShapeForMT[ID0], tileShapeForMT[ID1],
+            gmShape[ID0], gmShape[ID1], outerValue, innerValue, addrTypeHead[ID0].c_str(), dataTypeExpr[ID0].c_str(),
+            addrExpr[ID0].c_str(), addrTypeHead[ID1].c_str(), dataTypeExpr[ID1].c_str(), addrBuffer, oriAddrBuffer, uf);
         ASSERT(printRet >= 0) << "sprintf_s failed in genMemCopyVar, return value:" << printRet;
     } else {
         std::vector<SymbolicScalar> gmOffset = this->offsetGmSymbolic[gmIdx];
-        printRet = sprintf_s(addrBuffer, BUFFER_SIZE_1024, "%s", addrExpr[1].c_str());
+        printRet = sprintf_s(addrBuffer, BUFFER_SIZE_1024, "%s", addrExpr[ID1].c_str());
         ASSERT(printRet >= 0) << "sprintf_s failed in PrintMemCopyWithL1Static, return value:" << printRet;
         printRet =
             sprintf_s(buffer, BUFFER_SIZE_1024, "%s<%s, %s, %u, %u, %s, %s, %d, %d>((%s %s*)%s, (%s %s*)%s, %u);\n",
-                opName.c_str(), dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), tileShapeForMT[0],
-                tileShapeForMT[1], gmOffset[0].Dump().c_str(), gmOffset[1].Dump().c_str(), gmShape[0], gmShape[1],
-                addrTypeHead[0].c_str(), dataTypeExpr[0].c_str(), addrExpr[0].c_str(), addrTypeHead[1].c_str(),
-                dataTypeExpr[1].c_str(), addrBuffer, uf);
+                opName.c_str(), dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), tileShapeForMT[ID0],
+                tileShapeForMT[ID1], gmOffset[ID0].Dump().c_str(), gmOffset[ID1].Dump().c_str(), gmShape[ID0],
+                gmShape[ID1], addrTypeHead[ID0].c_str(), dataTypeExpr[ID0].c_str(), addrExpr[ID0].c_str(),
+                addrTypeHead[ID1].c_str(), dataTypeExpr[ID1].c_str(), addrBuffer, uf);
     }
     ASSERT(printRet >= 0) << "sprintf_s failed in PrintMemCopyWithL1Static, return value:" << printRet;
     return buffer;
 }
 
 std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL1Param &param) const {
-    char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
+    std::ostringstream oss;
 
     unsigned uf = param.uf;
     unsigned gmIdx = param.gmIdx;
@@ -635,11 +638,10 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL
     std::vector<std::string> gmOffsetExpr = GenGetParamMacroPacked(param.gmIdx, SHAPE_DIM2, PREFIX_STR_OFFSET);
     ALOG_INFO_F("dynamic gmOffset param: %s", IntVecToStr(gmOffsetExpr).c_str());
 
-    std::shared_ptr<LogicalTensor> tensor = sm->GetTensorByMagic(operandWithMagic[1]);
+    std::shared_ptr<LogicalTensor> tensor = sm->GetTensorByMagic(operandWithMagic[ID1]);
     std::string opName = tileOpName;
-    char addrBuffer[BUFFER_SIZE_1024] = "";
-    int printRet = sprintf_s(addrBuffer, BUFFER_SIZE_1024, "%s", addrExpr[1].c_str());
-    ASSERT(printRet >= 0) << "sprintf_s failed in PrintMemCopyWithL1Dynamic, return value:" << printRet;
+    std::string addrBuffer = addrExpr[ID1];
+
     int nzValue = 0;
     auto ret = GetAttr(OP_ATTR_PREFIX + "is_nz", nzValue);
     if (ret && nzValue == 1) {
@@ -648,44 +650,44 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL
         int innerValue = 0;
         ret = GetAttr("op_attr_outer_value", outerValue);
         ret = GetAttr("op_attr_inner_value", innerValue);
-        ASSERT(printRet >= 0) << "sprintf_s failed in PrintMemCopyWithL1Dynamic, return value:" << printRet;
+
         auto gmShapeExprByIndex = GenParamIdxExprByIndex(param.gmIdx, SHAPE_DIM2, PREFIX_STR_RAW_SHAPE);
-        std::string outerValueStr = outerValue == 0 ? gmShapeExprByIndex[0] : std::to_string(outerValue);
-        std::string innerValueStr = innerValue == 0 ? gmShapeExprByIndex[1] : std::to_string(innerValue);
+        std::string outerValueStr = outerValue == 0 ? gmShapeExprByIndex[ID0] : std::to_string(outerValue);
+        std::string innerValueStr = innerValue == 0 ? gmShapeExprByIndex[ID1] : std::to_string(innerValue);
+
         if (isSupportDynamicUnaligned) {
             auto dynValidShape = dynamicValidShape[localIdx];
-            printRet = sprintf_s(buffer, BUFFER_SIZE_1024,
-                "%s<%s, %s>((%s %s*)%s, (%s %s*)%s, %s, %s, %s, %s, %s, %s, %u);\n", opName.c_str(),
-                dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), addrTypeHead[0].c_str(),
-                dataTypeExpr[0].c_str(), addrExpr[0].c_str(), addrTypeHead[1].c_str(), dataTypeExpr[1].c_str(),
-                addrBuffer, dynValidShape[0].Dump().c_str(), dynValidShape[1].Dump().c_str(), gmShapeExpr[0].c_str(),
-                gmOffsetExpr[0].c_str(), outerValueStr.c_str(), innerValueStr.c_str(), uf);
+            oss << opName << "<" << dataTypeExpr[gmIdx] << ", " << dataTypeExpr[localIdx] << ">"
+                << "((" << addrTypeHead[ID0] << " " << dataTypeExpr[ID0] << "*)" << addrExpr[ID0] << ", "
+                << "(" << addrTypeHead[ID1] << " " << dataTypeExpr[ID1] << "*)" << addrBuffer << ", "
+                << dynValidShape[ID0].Dump() << ", " << dynValidShape[ID1].Dump() << ", " << gmShapeExpr[ID0] << ", "
+                << gmOffsetExpr[ID0] << ", " << outerValueStr << ", " << innerValueStr << ", " << uf << ");\n";
         } else {
-            printRet =
-                sprintf_s(buffer, BUFFER_SIZE_1024, "%s<%s, %s, %u, %u>((%s %s*)%s, (%s %s*)%s, %s, %s, %s, %s, %u);\n",
-                    opName.c_str(), dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), tileShapeForMT[0],
-                    tileShapeForMT[1], addrTypeHead[0].c_str(), dataTypeExpr[0].c_str(), addrExpr[0].c_str(),
-                    addrTypeHead[1].c_str(), dataTypeExpr[1].c_str(), addrBuffer, gmShapeExpr[0].c_str(),
-                    gmOffsetExpr[0].c_str(), outerValueStr.c_str(), innerValueStr.c_str(), uf);
+            oss << opName << "<" << dataTypeExpr[gmIdx] << ", " << dataTypeExpr[localIdx] << ", " << tileShapeForMT[ID0]
+                << ", " << tileShapeForMT[ID1] << ">"
+                << "((" << addrTypeHead[ID0] << " " << dataTypeExpr[ID0] << "*)" << addrExpr[ID0] << ", "
+                << "(" << addrTypeHead[ID1] << " " << dataTypeExpr[ID1] << "*)" << addrBuffer << ", "
+                << gmShapeExpr[ID0] << ", " << gmOffsetExpr[ID0] << ", " << outerValueStr << ", " << innerValueStr
+                << ", " << uf << ");\n";
         }
     } else {
         if (isSupportDynamicUnaligned) {
             auto dynValidShape = dynamicValidShape[localIdx];
-            printRet = sprintf_s(buffer, BUFFER_SIZE_1024, "%s<%s, %s>((%s %s*)%s, (%s %s*)%s, %s, %s, %s, %s, %u);\n",
-                opName.c_str(), dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), addrTypeHead[0].c_str(),
-                dataTypeExpr[0].c_str(), addrExpr[0].c_str(), addrTypeHead[1].c_str(), dataTypeExpr[1].c_str(),
-                addrBuffer, dynValidShape[0].Dump().c_str(), dynValidShape[1].Dump().c_str(), gmShapeExpr[0].c_str(),
-                gmOffsetExpr[0].c_str(), uf);
+            oss << opName << "<" << dataTypeExpr[gmIdx] << ", " << dataTypeExpr[localIdx] << ">"
+                << "((" << addrTypeHead[ID0] << " " << dataTypeExpr[ID0] << "*)" << addrExpr[ID0] << ", "
+                << "(" << addrTypeHead[ID1] << " " << dataTypeExpr[ID1] << "*)" << addrBuffer << ", "
+                << dynValidShape[ID0].Dump() << ", " << dynValidShape[ID1].Dump() << ", " << gmShapeExpr[ID0] << ", "
+                << gmOffsetExpr[ID0] << ", " << uf << ");\n";
         } else {
-            printRet = sprintf_s(buffer, BUFFER_SIZE_1024, "%s<%s, %s, %u, %u>((%s %s*)%s, (%s %s*)%s, %s, %s, %u);\n",
-                opName.c_str(), dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), tileShapeForMT[0],
-                tileShapeForMT[1], addrTypeHead[0].c_str(), dataTypeExpr[0].c_str(), addrExpr[0].c_str(),
-                addrTypeHead[1].c_str(), dataTypeExpr[1].c_str(), addrBuffer, gmShapeExpr[0].c_str(),
-                gmOffsetExpr[0].c_str(), uf);
+            oss << opName << "<" << dataTypeExpr[gmIdx] << ", " << dataTypeExpr[localIdx] << ", " << tileShapeForMT[ID0]
+                << ", " << tileShapeForMT[ID1] << ">"
+                << "((" << addrTypeHead[ID0] << " " << dataTypeExpr[ID0] << "*)" << addrExpr[ID0] << ", "
+                << "(" << addrTypeHead[ID1] << " " << dataTypeExpr[ID1] << "*)" << addrBuffer << ", "
+                << gmShapeExpr[ID0] << ", " << gmOffsetExpr[ID0] << ", " << uf << ");\n";
         }
     }
-    ASSERT(printRet >= 0) << "sprintf_s failed in PrintMemCopyWithL1Dynamic, return value:" << printRet;
-    return buffer;
+
+    return oss.str();
 }
 
 std::string CodeGenOpCloudNPU::PrintMemCopyWithUB(PrintMemCopyWithUBParam &param) const {
@@ -714,8 +716,8 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBStatic(const PrintMemCopyWithUB
     std::string *dataTypeExpr = param.dataTypeExpr;
 
     std::vector<int> os = NormalizeShape(originShape[localIdx], SHAPE_DIM5);
-    std::vector<int> dstStride = NormalizeShape(rawShape[0], SHAPE_DIM5);
-    std::vector<int> srcStride = NormalizeShape(rawShape[1], SHAPE_DIM5);
+    std::vector<int> dstStride = NormalizeShape(rawShape[ID0], SHAPE_DIM5);
+    std::vector<int> srcStride = NormalizeShape(rawShape[ID1], SHAPE_DIM5);
 
     std::vector<std::vector<int> *> container = {&os, &dstStride, &srcStride};
     if (!CombineAxis(container)) {
@@ -733,10 +735,10 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBStatic(const PrintMemCopyWithUB
     int printRet = sprintf_s(buffer, BUFFER_SIZE_1024,
         "%s<%s, %u, %u, %u, %u, %u, /*dst stride*/ %u, %u, %u, %u,"
         "/*src stride*/ %u, %u, %u, %u %s>((%s %s*)%s, (%s %s*)%s);\n",
-        tileOpName.c_str(), dataTypeExpr[localIdx].c_str(), os[0], os[1], os[2], os[3], os[4], dstStride[1],
-        dstStride[2], dstStride[3], dstStride[4], srcStride[1], srcStride[2], srcStride[3], srcStride[4],
-        GenOpAttr().c_str(), addrTypeHead[0].c_str(), dataTypeExpr[localIdx].c_str(), addrExpr[0].c_str(),
-        addrTypeHead[1].c_str(), dataTypeExpr[localIdx].c_str(), addrExpr[1].c_str());
+        tileOpName.c_str(), dataTypeExpr[localIdx].c_str(), os[ID0], os[ID1], os[ID2], os[ID3], os[4], dstStride[ID1],
+        dstStride[ID2], dstStride[ID3], dstStride[4], srcStride[ID1], srcStride[ID2], srcStride[ID3], srcStride[4],
+        GenOpAttr().c_str(), addrTypeHead[ID0].c_str(), dataTypeExpr[localIdx].c_str(), addrExpr[ID0].c_str(),
+        addrTypeHead[ID1].c_str(), dataTypeExpr[localIdx].c_str(), addrExpr[ID1].c_str());
     ASSERT(printRet >= 0) << "sprintf_s failed in genMemCopyVar(BUF_UB), return value:" << printRet;
     return buffer;
 }
@@ -752,7 +754,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamic(const PrintMemCopyWithU
     FillIntVecWithDummyInHead<int>(newOriginShape, MAX_DIM - originShape[localIdx].size(), 1);
     const std::vector<int> &localRawShape = NormalizeShape(rawShape[localIdx], SHAPE_DIM5);
 
-    auto paramPack = PrepareDynamicShapeInfo(gmIdx, MAX_DIM, !param.isSpillIntoGM);
+    auto paramPack = PrepareDynamicShapeInfoforMTE(gmIdx, MAX_DIM, !param.isSpillIntoGM);
 
     std::ostringstream os;
     std::vector<std::string> paramList;
@@ -766,8 +768,8 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamic(const PrintMemCopyWithU
     std::string templateParam = JoinString(paramList, ", ");
 
     paramList.clear();
-    std::string dst = "(" + addrTypeHead[0] + " " + dataTypeExpr[localIdx] + "*)" + addrExpr[0];
-    std::string src = "(" + addrTypeHead[1] + " " + dataTypeExpr[localIdx] + "*)" + addrExpr[1];
+    std::string dst = "(" + addrTypeHead[ID0] + " " + dataTypeExpr[localIdx] + "*)" + addrExpr[ID0];
+    std::string src = "(" + addrTypeHead[ID1] + " " + dataTypeExpr[localIdx] + "*)" + addrExpr[ID1];
     paramList.emplace_back(dst);
     paramList.emplace_back(src);
     paramList.insert(paramList.end(), paramPack.paramList.begin(), paramPack.paramList.end());
@@ -790,7 +792,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamicSupportUnaligned(const P
     FillIntVecWithDummyInHead<SymbolicScalar>(newDynamicShape, MAX_DIM - dynamicValidShape[localIdx].size(), 1);
     const std::vector<int> &localRawShape = NormalizeShape(rawShape[localIdx], SHAPE_DIM5);
 
-    auto paramPack = PrepareDynamicShapeInfo(gmIdx, MAX_DIM, !param.isSpillIntoGM);
+    auto paramPack = PrepareDynamicShapeInfoforMTE(gmIdx, MAX_DIM, !param.isSpillIntoGM);
     std::vector<std::string> gmShapeExpr = paramPack.gmOffsetExpr;
     std::vector<std::string> gmOffsetExpr = paramPack.gmOffsetExpr;
 
@@ -803,8 +805,8 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamicSupportUnaligned(const P
     std::string templateParam = JoinString(paramList, ", ");
 
     paramList.clear();
-    std::string dst = "(" + addrTypeHead[0] + " " + dataTypeExpr[localIdx] + "*)" + addrExpr[0];
-    std::string src = "(" + addrTypeHead[1] + " " + dataTypeExpr[localIdx] + "*)" + addrExpr[1];
+    std::string dst = "(" + addrTypeHead[ID0] + " " + dataTypeExpr[localIdx] + "*)" + addrExpr[ID0];
+    std::string src = "(" + addrTypeHead[ID1] + " " + dataTypeExpr[localIdx] + "*)" + addrExpr[ID1];
     paramList.emplace_back(dst);
     paramList.emplace_back(src);
     for (auto ts : newDynamicShape) {
@@ -820,35 +822,28 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamicSupportUnaligned(const P
 }
 
 std::string CodeGenOpCloudNPU::GenGMAddrExprWithOffset(const std::string &addrExpr, unsigned gmIdx) const {
-    char buf[BUFFER_SIZE_256];
-    int printRet;
-
     // gm offset of spilling workspace is calculated by pass, the value is saved in dim 0.
-    SymbolicScalar gmOffset = this->offsetGmSymbolic[gmIdx][0];
+    SymbolicScalar gmOffset = this->offsetGmSymbolic[gmIdx][ID0];
     bool isZero = gmOffset.IsValid() && gmOffset.ConcreteValid() && static_cast<int>(gmOffset.Concrete()) == 0;
+
+    std::ostringstream oss;
     if (isZero) {
-        printRet = sprintf_s(buf, sizeof(buf), "%s", addrExpr.c_str());
-        ASSERT(printRet >= 0) << "sprintf_s failed in genGMAddrExpr isZero=true, return value:" << printRet;
+        oss << addrExpr;
     } else {
-        printRet = sprintf_s(buf, sizeof(buf), "((__gm__ uint8_t*)%s + %s)", addrExpr.c_str(), gmOffset.Dump().c_str());
-        ASSERT(printRet >= 0) << "sprintf_s failed in genGMAddrExpr, return value:" << printRet;
+        oss << "((__gm__ uint8_t*)" << addrExpr << " + " << gmOffset.Dump() << ")";
     }
 
-    return buf;
+    return oss.str();
 }
 
 std::string CodeGenOpCloudNPU::GenAddrExpr(const std::string &addrExpr, unsigned offsetParam) const {
-    char buf[BUFFER_SIZE_256];
-    int printRet;
+    std::ostringstream oss;
     if (offsetParam != 0) {
-        printRet = sprintf_s(buf, sizeof(buf), "%s + 0x%x", addrExpr.c_str(), offsetParam);
-        ASSERT(printRet >= 0) << "sprintf_s failed in GenAddrExpr(offsetParam != 0), return value:" << printRet;
+        oss << addrExpr << " + 0x" << std::hex << offsetParam;
     } else {
-        printRet = sprintf_s(buf, sizeof(buf), "%s", addrExpr.c_str());
-        ASSERT(printRet >= 0) << "sprintf_s failed in GenAddrExpr, return value:" << printRet;
+        oss << addrExpr;
     }
 
-    std::string expr(buf);
-    return expr;
+    return oss.str();
 }
 } // namespace npu::tile_fwk

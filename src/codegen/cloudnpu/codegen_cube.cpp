@@ -41,40 +41,37 @@ std::string CodeGenOpCloudNPU::GenCubeOp(bool zeroC) const {
     std::string bVar = sm->QueryVariableName(kL0B);
     std::string cVar = sm->QueryVariableName(kL0C);
 
-    char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
     std::string aDtypeStr = DataType2CCEStr(operandDtype[ID1]);
     std::string bDtypeStr = DataType2CCEStr(operandDtype[ID2]);
     std::string cDtypeStr = DataType2CCEStr(operandDtype[ID0]);
 
-    int ret{0};
+    std::ostringstream oss;
+
     if (isSupportDynamicUnaligned) {
-        auto l0cShapeDyn = dynamicValidShape[0];
-        auto l0aShapeDyn = dynamicValidShape[1];
-        auto l0bShapeDyn = dynamicValidShape[2];
-        auto mSymbol = l0cShapeDyn[0];
-        auto kSymbol = l0aShapeDyn[1];
-        auto nSymbol = l0cShapeDyn[1];
-        ret = sprintf_s(buffer, sizeof(buffer),
-            "%s<%s, %s, %s,  %u, %u>((%s %s*)%s, (%s %s*)%s, (%s %s*)%s, %s, %s, %s, %s, %u, %s, %s);\n",
-            tileOpName.c_str(), cDtypeStr.c_str(), aDtypeStr.c_str(), bDtypeStr.c_str(), offset[ID0][ID0],
-            offset[ID0][ID1], GetAddrTypeByOperandType(operandType[0]).c_str(), cDtypeStr.c_str(), cVar.c_str(),
-            GetAddrTypeByOperandType(operandType[ID1]).c_str(), aDtypeStr.c_str(), aVar.c_str(),
-            GetAddrTypeByOperandType(operandType[ID2]).c_str(), bDtypeStr.c_str(), bVar.c_str(), mSymbol.Dump().c_str(),
-            kSymbol.Dump().c_str(), nSymbol.Dump().c_str(), zeroC ? "true" : "false", uf, l0cShapeDyn[0].Dump().c_str(),
-            l0cShapeDyn[1].Dump().c_str());
-        ASSERT(ret >= 0) << "GenCubeOp sprintf_s failed ";
+        auto l0cShapeDyn = dynamicValidShape[ID0];
+        auto l0aShapeDyn = dynamicValidShape[ID1];
+        auto l0bShapeDyn = dynamicValidShape[ID2];
+        auto mSymbol = l0cShapeDyn[ID0];
+        auto kSymbol = l0aShapeDyn[ID1];
+        auto nSymbol = l0cShapeDyn[ID1];
+
+        oss << tileOpName << "<" << cDtypeStr << ", " << aDtypeStr << ", " << bDtypeStr << ", " << offset[ID0][ID0]
+            << ", " << offset[ID0][ID1] << ">"
+            << "((" << GetAddrTypeByOperandType(operandType[ID0]) << " " << cDtypeStr << "*)" << cVar << ", "
+            << "(" << GetAddrTypeByOperandType(operandType[ID1]) << " " << aDtypeStr << "*)" << aVar << ", "
+            << "(" << GetAddrTypeByOperandType(operandType[ID2]) << " " << bDtypeStr << "*)" << bVar << ", "
+            << mSymbol.Dump() << ", " << kSymbol.Dump() << ", " << nSymbol.Dump() << ", " << (zeroC ? "true" : "false")
+            << ", " << uf << ", " << l0cShapeDyn[ID0].Dump() << ", " << l0cShapeDyn[ID1].Dump() << ");\n";
     } else {
-        ret = sprintf_s(buffer, sizeof(buffer),
-            "%s<%s, %s, %s, %u, %u, %u, %u>((%s %s*)%s, (%s %s*)%s, (%s %s*)%s, %d, %d, %d, %s, %u);\n",
-            tileOpName.c_str(), cDtypeStr.c_str(), aDtypeStr.c_str(), bDtypeStr.c_str(), offset[ID0][ID0],
-            offset[ID0][ID1], shape[ID0][ID0], shape[ID0][ID1], GetAddrTypeByOperandType(operandType[0]).c_str(),
-            cDtypeStr.c_str(), cVar.c_str(), GetAddrTypeByOperandType(operandType[1]).c_str(), aDtypeStr.c_str(),
-            aVar.c_str(), GetAddrTypeByOperandType(operandType[ID2]).c_str(), bDtypeStr.c_str(), bVar.c_str(), m, k, n,
-            zeroC ? "true" : "false", uf);
-        ASSERT(ret >= 0) << "GenCubeOp sprintf_s failed ";
+        oss << tileOpName << "<" << cDtypeStr << ", " << aDtypeStr << ", " << bDtypeStr << ", " << offset[ID0][ID0]
+            << ", " << offset[ID0][ID1] << ", " << shape[ID0][ID0] << ", " << shape[ID0][ID1] << ">"
+            << "((" << GetAddrTypeByOperandType(operandType[ID0]) << " " << cDtypeStr << "*)" << cVar << ", "
+            << "(" << GetAddrTypeByOperandType(operandType[ID1]) << " " << aDtypeStr << "*)" << aVar << ", "
+            << "(" << GetAddrTypeByOperandType(operandType[ID2]) << " " << bDtypeStr << "*)" << bVar << ", " << m
+            << ", " << k << ", " << n << ", " << (zeroC ? "true" : "false") << ", " << uf << ");\n";
     }
 
-    return buffer;
+    return oss.str();
 }
 
 std::string CodeGenOpCloudNPU::GenCubeOpMatmul() const{
@@ -92,40 +89,35 @@ std::string CodeGenOpCloudNPU::GenParamsStr() const {
             continue;
         }
 
+        std::string dtypeStr = DataType2CCEStr(operandDtype[i]);
+        std::string prefix = GetAddrTypeByOperandType(operandType[i]);
+
         if (operandType[i] == BUF_DDR) {
             std::string var = GenGmParamVar(i);
-            std::string dtypeStr = DataType2CCEStr(operandDtype[i]);
-            std::string prefix = GetAddrTypeByOperandType(BUF_DDR);
-            char paramBuffer[256] = "CG_ERROR";
-            int ret = sprintf_s(
-                paramBuffer, sizeof(paramBuffer), "(%s %s *)%s", prefix.c_str(), dtypeStr.c_str(), var.c_str());
-            ASSERT(ret >= 0) << "GenParamsStr sprintf_s failed ";
-            params.emplace_back(paramBuffer);
+            std::ostringstream oss;
+            oss << "(" << prefix << " " << dtypeStr << "*)" << var;
+            params.emplace_back(oss.str());
         } else {
             auto localAllocKey = sm->CreateAllocKey(operandWithMagic[i]);
             std::string var = sm->QueryVariableName(localAllocKey);
-            std::string dtypeStr = DataType2CCEStr(operandDtype[i]);
-            std::string prefix = GetAddrTypeByOperandType(operandType[i]);
-            char paramBuffer[512] = "CG_ERROR";
-            int ret = 0;
+
             if (opCode != Opcode::OP_L1_TO_L0A && opCode != Opcode::OP_L1_TO_L0B && opCode != Opcode::OP_L1_TO_L0_BT) {
                 // 大包搬运场景下，L1搬运至L0不需要计算L1地址偏移
                 // 非大包搬运场景下，L1与L0数据大小一致，也不需要地址偏移
                 // 偏移计算仅用于L1_Copy_In 和 L1_Copy_Out
                 AppendLocalBufferVarOffset({&var}, {static_cast<unsigned>(i)});
             }
+
+            std::ostringstream oss;
             if (this->addrOffset[i] == 0) {
                 ALOG_DEBUG_F("GenParamsStr var: %s", var.c_str());
-                ret = sprintf_s(
-                    paramBuffer, sizeof(paramBuffer), "(%s %s *)%s", prefix.c_str(), dtypeStr.c_str(), var.c_str());
+                oss << "(" << prefix << " " << dtypeStr << "*)" << var;
             } else {
-                std::stringstream offsetSs;
-                offsetSs << "0x" << std::hex << this->addrOffset[i];
-                ret = sprintf_s(paramBuffer, sizeof(paramBuffer), "(%s %s *)((%s uint8_t *)%s + %s)", prefix.c_str(),
-                    dtypeStr.c_str(), prefix.c_str(), var.c_str(), offsetSs.str().c_str());
+                oss << "(" << prefix << " " << dtypeStr << "*)"
+                    << "((" << prefix << " uint8_t*)" << var << " + 0x" << std::hex << this->addrOffset[i] << ")";
             }
-            ASSERT(ret >= 0) << "GenParamsStr sprintf_s failed ";
-            params.emplace_back(paramBuffer);
+
+            params.emplace_back(oss.str());
         }
     }
     return JoinString(params, ", ");

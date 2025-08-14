@@ -83,12 +83,12 @@ std::string VFCodegen::genSingleOp(Operation *op) {
     InitOpParm(op);
     auto opCode = op->GetOpcode();
     if (opCode == Opcode::OP_REG_ALLOC) {
-        auto tensorMagic = (*op->GetOutCtrlOperations().begin())->GetOOperands()[0]->GetMagic();
+        auto tensorMagic = (*op->GetOutCtrlOperations().begin())->GetOOperands()[ID0]->GetMagic();
         if (!magicToBufferId_.count(tensorMagic)) {
             ASSERT(false) << "magic has not allocated buffer. magic " << tensorMagic << " op " << op->GetOpcodeStr();
         }
-        operand[0] = magicToBufferId_[tensorMagic];
-        operandDtype[0] = (*op->GetOutCtrlOperations().begin())->GetOOperands()[0]->tensor->datatype;
+        operand[ID0] = magicToBufferId_[tensorMagic];
+        operandDtype[ID0] = (*op->GetOutCtrlOperations().begin())->GetOOperands()[ID0]->tensor->datatype;
         return genRegAlloc();
     }
     auto iter = VFTileOpNameMap.find(opCode);
@@ -196,7 +196,7 @@ void VFCodegen::AllocBufferId(Function *func, std::vector<Operation *> &opList) 
     }
     for (auto &op : opList) {
         if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
-            auto tensorMagic = (*op->GetOutCtrlOperations().begin())->GetOOperands()[0]->GetMagic();
+            auto tensorMagic = (*op->GetOutCtrlOperations().begin())->GetOOperands()[ID0]->GetMagic();
             if (magicToBufferId_.count(tensorMagic)) {
                 ASSERT(false) << "already allocated buffer or duplicate magic. tensor magic " << tensorMagic
                               << " op magic " << op->GetOpMagic() << " op " << op->GetOpcodeStr();
@@ -268,56 +268,52 @@ void VFCodegen::UpdateVarOffset(std::vector<std::string *> vars, std::vector<uns
 }
 
 std::string VFCodegen::genVLD(const std::string &code) {
-    std::string DName = genVarName("REG", operand[0]);
-    std::string S0Name = genVarName("UB", operand[1]);
+    std::string DName = genVarName("REG", operand[ID0]);
+    std::string S0Name = genVarName("UB", operand[ID1]);
     UpdateVarOffset({&S0Name}, {1});
-    char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
-    int ret = sprintf_s(buffer, BUFFER_SIZE_1024, "%s(%s, %s, ELE_CNT_B16, %s);\n", code.c_str(), DName.c_str(),
-        S0Name.c_str(), "NORM");
-    ASSERT(ret >= 0) << "sprintf_s failed, return value:" << ret;
-    std::string ostring(buffer);
-    return ostring;
+
+    std::ostringstream oss;
+    oss << code << "(" << DName << ", " << S0Name << ", ELE_CNT_B16, NORM);\n";
+
+    return oss.str();
 }
 
 std::string VFCodegen::genVST(const std::string &code) {
-    std::string DName = genVarName("UB", operand[0]);
-    std::string S0Name = genVarName("REG", operand[1]);
+    std::string DName = genVarName("UB", operand[ID0]);
+    std::string S0Name = genVarName("REG", operand[ID1]);
     UpdateVarOffset({&DName}, {0});
-    char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
-    int ret = sprintf_s(buffer, BUFFER_SIZE_1024, "%s(%s, %s, ELE_CNT_B16, %s, allMask);\n", code.c_str(),
-        S0Name.c_str(), DName.c_str(), "NORM_B16");
-    ASSERT(ret >= 0) << "sprintf_s failed, return value:" << ret;
-    std::string ostring(buffer);
-    return ostring;
+
+    std::ostringstream oss;
+    oss << code << "(" << S0Name << ", " << DName << ", ELE_CNT_B16, NORM_B16, allMask);\n";
+
+    return oss.str();
 }
 
 std::string VFCodegen::genRegAlloc() {
-    std::string VarName = genVarName("REG", operand[0]);
-    std::string dtypeStr = DataType2VectorRegStr(operandDtype[0]);
+    std::string VarName = genVarName("REG", operand[ID0]);
+    std::string dtypeStr = DataType2VectorRegStr(operandDtype[ID0]);
     return dtypeStr + " " + VarName + ";\n";
 }
 
 std::string VFCodegen::genBinaryRegOp(const std::string &BinaryOp) {
-    std::string DName = genVarName("REG", operand[0]);
-    std::string S0Name = genVarName("REG", operand[1]);
-    std::string S1Name = genVarName("REG", operand[2]);
-    char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
-    int ret = sprintf_s(buffer, BUFFER_SIZE_1024, "%s(%s, %s, %s, allMask);\n", BinaryOp.c_str(), DName.c_str(),
-        S0Name.c_str(), S1Name.c_str());
-    ASSERT(ret >= 0) << "sprintf_s failed, return value:" << ret;
-    std::string ostring(buffer);
-    return ostring;
+    std::string DName = genVarName("REG", operand[ID0]);
+    std::string S0Name = genVarName("REG", operand[ID1]);
+    std::string S1Name = genVarName("REG", operand[ID2]);
+
+    std::ostringstream oss;
+    oss << BinaryOp << "(" << DName << ", " << S0Name << ", " << S1Name << ", allMask);\n";
+
+    return oss.str();
 }
 
 std::string VFCodegen::genUnaryRegOp(const std::string &UnaryOp) {
-    std::string DName = genVarName("REG", operand[0]);
-    std::string S0Name = genVarName("REG", operand[1]);
-    char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
-    int ret =
-        sprintf_s(buffer, BUFFER_SIZE_1024, "%s(%s, %s, allMask);\n", UnaryOp.c_str(), DName.c_str(), S0Name.c_str());
-    ASSERT(ret >= 0) << "sprintf_s failed, return value:" << ret;
-    std::string ostring(buffer);
-    return ostring;
+    std::string DName = genVarName("REG", operand[ID0]);
+    std::string S0Name = genVarName("REG", operand[ID1]);
+
+    std::ostringstream oss;
+    oss << UnaryOp << "(" << DName << ", " << S0Name << ", allMask);\n";
+
+    return oss.str();
 }
 
 std::string VFCodegen::genVFEnd() {

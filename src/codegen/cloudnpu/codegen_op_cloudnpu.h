@@ -320,14 +320,14 @@ private:
     std::string PrintExpand(const std::string &s0Var, const std::string &dVar, const std::string &srcDtypeStr,
         const std::string &dstDtypeStr) const;
 
-    struct DynamicParamPack {
+    struct DynamicParamPackMTE {
         std::vector<std::string> gmShapeExpr;
         std::vector<std::string> gmOffsetExpr;
         std::vector<std::string> paramList;
     };
 
-    DynamicParamPack PrepareDynamicShapeInfo(
-        int dynShapeIdx, int ShapeDim = SHAPE_DIM4, bool gmOffsetCond = true) const;
+    DynamicParamPackMTE PrepareDynamicShapeInfoforMTE(
+        int dynShapeIdx, int ShapeDim = SHAPE_DIM4, bool isNeedGmOffset = true) const;
 
     std::string PrintReduceLastAxis(const PrintUnaryTmpBuffParam &param) const;
 
