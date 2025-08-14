@@ -31,7 +31,7 @@ Status GraphPartition::RunOnFunction(Function &function)
     if (partitioner.SetParameter(function.paramConfigs_.sgCycleUpperBound,
                                  function.paramConfigs_.sgParallelNum,
                                  function.paramConfigs_.sgCycleLowerBound,
-                                 function.paramConfigs_.useNodeHash) != SUCCESS) {
+                                 true) != SUCCESS) {
         ALOG_ERROR_F("Set parameters of GraphPartition failed.");
         return FAILED;
     }
