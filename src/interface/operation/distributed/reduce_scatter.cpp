@@ -174,6 +174,7 @@ Tensor TensorReduceScatter(const T &in, const Tensor &tilingTensor, const CommGr
             oper.SetAttr(OpAttributeKey::commGroupInfo, groupInfo);
             oper.SetAttr(OpAttributeKey::distTilingInfo, tilingInfo);
             oper.SetAttr("tiling_tensor_symbol", tilingTensor.GetStorage()->Symbol());
+            oper.SetAttribute(OP_ATTR_PREFIX + "rankOffset", tilingInfo.rankOffset);
         } else {
             auto &oper = function.AddOperation("DIST_REDUCE", {inTile.GetStorage(), tilingTensor.GetStorage()},
                 {out.GetStorage()});

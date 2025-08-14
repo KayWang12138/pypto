@@ -247,7 +247,8 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_REMOTE_REDUCE, OpCoreType::ANY, "REMOTE_REDUCE", {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB}, {"TileOp::Distributed::RemoteReduce", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED);
     registerInfo(Opcode::OP_COMM_WAIT_FLAG, OpCoreType::AICPU, "COMM_WAIT_FLAG", {MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_DEVICE_DDR}, TileOpCfg(), OpCalcType::DISTRIBUTED, {OP_ATTR_PREFIX + "distributed"});
     registerInfo(Opcode::OP_DIST_REDUCE, OpCoreType::ANY, "DIST_REDUCE", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_DEVICE_DDR}, TileOpCfg(), OpCalcType::DISTRIBUTED);
-    registerInfo(Opcode::OP_DIST_SCATTER, OpCoreType::ANY, "DIST_SCATTER", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {}, TileOpCfg(), OpCalcType::DISTRIBUTED);
+    registerInfo(Opcode::OP_DIST_SCATTER, OpCoreType::ANY, "DIST_SCATTER", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {},
+        TileOpCfg(), OpCalcType::DISTRIBUTED, {OP_ATTR_PREFIX + "rankOffset"});
     registerInfo(Opcode::OP_DIST_GATHER, OpCoreType::ANY, "DIST_GATHER", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_DEVICE_DDR}, TileOpCfg(), OpCalcType::DISTRIBUTED);
     registerInfo(Opcode::OP_DIST_BROADCAST, OpCoreType::ANY, "DIST_BROADCAST", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_DEVICE_DDR}, TileOpCfg(), OpCalcType::DISTRIBUTED);
     registerInfo(Opcode::OP_DEPEND_ON, OpCoreType::AICPU, "DEPEND_ON", {MemoryType::MEM_UB}, {MemoryType::MEM_DEVICE_DDR}, TileOpCfg(), OpCalcType::DISTRIBUTED);

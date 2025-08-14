@@ -31,7 +31,6 @@ public:
     void SetUp() override
     {
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
-        config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, false);
         Program::GetInstance().Reset();
         Distributed::TestFrameworkInit(testParam, hcomTestParam);
     }
