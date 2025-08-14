@@ -483,6 +483,50 @@ std::string CodeGenOpCloudNPU::GenUnaryOp() const {
     return "CG_ERROR";
 }
 
+std::string CodeGenOpCloudNPU::PrintExpandDynamicUnaligned(const PrintUnaryParam &param, int expandAxis) const {
+    const std::string &dstDtypeStr = param.dstDtypeStr;
+    const std::string &srcDtypeStr = param.srcDtypeStr;
+    const std::string &dVar = param.dVar;
+    const std::string &s0Var = param.s0Var;
+    auto dynDstShape = dynamicValidShape[0];
+    std::vector<SymbolicScalar> newDynDstShape = dynDstShape;
+    FillIntVecWithDummyInHead<SymbolicScalar>(newDynDstShape, SHAPE_DIM4 - dynDstShape.size(), 1);
+    auto dynSrcShape = dynamicValidShape[1];
+    std::vector<SymbolicScalar> newDynSrcShape = dynSrcShape;
+    FillIntVecWithDummyInHead<SymbolicScalar>(newDynSrcShape, SHAPE_DIM4 - dynSrcShape.size(), 1);
+    std::ostringstream os;
+    std::vector<std::string> paramList;
+    std::vector<int> ss = NormalizeShape(rawShape[1], SHAPE_DIM4);
+    std::vector<int> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
+    paramList.emplace_back(dstDtypeStr);
+    paramList.emplace_back("/*DS*/");
+    for (int i = ID1; i < SHAPE_DIM4; i++) {
+        paramList.emplace_back(std::to_string(ds[i]));
+    }
+    paramList.emplace_back("/*SS*/");
+    for (int i = ID1; i < SHAPE_DIM4; i++) {
+        paramList.emplace_back(std::to_string(ss[i]));
+    }
+    paramList.emplace_back(std::to_string(expandAxis));
+    std::string templateParam = JoinString(paramList, ", ");
+    paramList.clear();
+    std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
+    std::string src = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
+    paramList.insert(paramList.end(), {dst, src});
+    for (int i = ID0; i < SHAPE_DIM4; i++) {
+        paramList.emplace_back(newDynDstShape[i].Dump());
+    }
+    for (int i = ID0; i < SHAPE_DIM4; i++) {
+        paramList.emplace_back(newDynSrcShape[i].Dump());
+    }
+
+    std::string tiloOpCallParam = JoinString(paramList, ", ");
+
+    os << tileOpName << "_<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+
+    return os.str();
+}
+
 std::string CodeGenOpCloudNPU::PrintExpand(const std::string &s0Var, const std::string &dVar,
     const std::string &srcDtypeStr, const std::string &dstDtypeStr) const {
     char buffer[256] = "CG_ERROR";
@@ -501,22 +545,7 @@ std::string CodeGenOpCloudNPU::PrintExpand(const std::string &s0Var, const std::
     expandAxis += SHAPE_DIM4 - shape[1].size();
 
     if (isSupportDynamicUnaligned) {
-        auto dynDstShape = dynamicValidShape[0];
-        std::vector<SymbolicScalar> newDynDstShape = dynDstShape;
-        FillIntVecWithDummyInHead<SymbolicScalar>(newDynDstShape, SHAPE_DIM4 - dynDstShape.size(), 1);
-        auto dynSrcShape = dynamicValidShape[1];
-        std::vector<SymbolicScalar> newDynSrcShape = dynSrcShape;
-        FillIntVecWithDummyInHead<SymbolicScalar>(newDynSrcShape, SHAPE_DIM4 - dynSrcShape.size(), 1);
-        ret = sprintf_s(buffer, sizeof(buffer),
-            "%s_<%s, /*DS*/ %d, %d, %d, /*SS*/ %d, %d, %d, %d>((__ubuf__ %s*)%s, (__ubuf__ %s*)%s, %s, %s, %s, %s, %s, "
-            "%s, %s, %s);\n",
-            tileOpName.c_str(), dstDtypeStr.c_str(), ds[ID1], ds[ID2], ds[ID3], ss[ID1], ss[ID2], ss[ID3], expandAxis,
-            dstDtypeStr.c_str(), dVar.c_str(), srcDtypeStr.c_str(), s0Var.c_str(), newDynDstShape[0].Dump().c_str(),
-            newDynDstShape[1].Dump().c_str(), newDynDstShape[2].Dump().c_str(), newDynDstShape[3].Dump().c_str(),
-            newDynSrcShape[0].Dump().c_str(), newDynSrcShape[1].Dump().c_str(), newDynSrcShape[2].Dump().c_str(),
-            newDynSrcShape[3].Dump().c_str());
-        ASSERT(ret >= 0) << "GenUnaryOp" << OpcodeManager::Inst().GetOpcodeStr(opCode) << " sprintf_s failed " << ret;
-        return buffer;
+        return PrintExpandDynamicUnaligned({s0Var, dVar, srcDtypeStr, dstDtypeStr}, expandAxis);
     }
 
     ret = sprintf_s(buffer, sizeof(buffer),

@@ -29,6 +29,7 @@ set(_CaseFilterList
         "TestCodegenDynUna.TestDynBitSort"
         "TestCodegenDynUna.TestDynMrgSort"
         "TestCodegenDynUna.TestDynExtract"
+        "TestCodegenDynUna.TestDynExpand"
         "TestCodegenDynBinary.TestAddsDynamic"
         "TestCodegenDynGather.TestGather"
         "TestCodegenDynScalar.TestScalarAdds"

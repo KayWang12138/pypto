@@ -316,6 +316,7 @@ private:
     std::string PrintIndexOutCastDynamic(const PrintIndexOutCastParam &param) const;
     std::string PrintIndexOutCastDynamicUnaligned(const PrintIndexOutCastParam &param) const;
 
+    std::string PrintExpandDynamicUnaligned(const PrintUnaryParam &param, int expandAxis) const;
     std::string PrintExpand(const std::string &s0Var, const std::string &dVar, const std::string &srcDtypeStr,
         const std::string &dstDtypeStr) const;
 

@@ -24,6 +24,7 @@
 #include "codegen/codegen_symbol.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "codegen/cloudnpu/codegen_op_cloudnpu.h"
+#include "test_codegen_utils.h"
 
 namespace npu::tile_fwk {
 constexpr const unsigned OP_MAGIC3 = 3;
@@ -260,6 +261,48 @@ TEST_F(TestCodegenDynUna, TestDynExtract) {
     std::string res = cop.GenOpCode();
     std::string expect =
         R"!!!(TileOp::DynExtract<float, float, 1, 1, 1>((__ubuf__ float*)UB_S1_E1, (__ubuf__ float*)UB_S0_E0, 1, 1, 64, 64);
+)!!!";
+    EXPECT_EQ(res, expect);
+}
+
+TEST_F(TestCodegenDynUna, TestDynExpand) {
+    std::vector<int> shape = {64, 64};
+    std::vector<int> shape1 = {1, 64};
+    auto shapeImme = OpImmediate::Specified(shape);
+    Program::GetInstance().GetTileShape().SetVecTileShapes(shape);
+    ConfigManager::Instance().SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    Tensor inputA(DT_FP32, shape, "A");
+    Tensor inputB(DT_FP32, shape, "B");
+    Tensor output(DT_FP32, shape, "C");
+
+    std::string funcName = "ADD";
+    FUNCTION(funcName, FunctionType::STATIC, {inputA, inputB, output}) {
+        output = Add(inputA, inputB);
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    function->SetUnderDynamicFunction(true);
+    std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    std::vector<SymbolicScalar> dynValidShape1 = {1, 64};
+    auto localTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape1});
+    auto localOutTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
+    localTensor->UpdateDynValidShape(dynValidShape1);
+    localOutTensor->UpdateDynValidShape(dynValidShape);
+
+    auto &op = function->AddOperation(Opcode::OP_EXPAND, {localTensor}, {localOutTensor});
+    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", 0);
+
+    SymbolManager memAlloc;
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, memAlloc);
+    CodeGenOpCloudNPU cop(memAlloc, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
+    function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
+
+    cop.Init(op);
+    std::string res = cop.GenOpCode();
+    std::string expect = R"!!!(TileOp::DynTexpand_<float, /*DS*/ 1, 64, 64, /*SS*/ 1, 1, 64, 2>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 1, 1, 64, 64, 1, 1, 1, 64);
 )!!!";
     EXPECT_EQ(res, expect);
 }
