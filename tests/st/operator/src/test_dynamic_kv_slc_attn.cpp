@@ -199,3 +199,29 @@ TEST_F(DynamicKvSATest, kv_slc_attn_b32_s2_bf16) {
 
     TestKvSlcAttn<npu::tile_fwk::bfloat16>(params, saTileConfig);
 }
+
+TEST_F(DynamicKvSATest, kv_slc_attn_b2_s1_fp16) { // 2batch, 128K, 带尾块场景, kvCacheActSeq=[128*1024, 64*1024+35], kvSlcActSeq=[16*64, 15*64+35]
+    NSASimpleParams params = NSASimpleParams::getDecodeParams();
+
+    int paramsSize = 7;
+    std::vector<int> inputParams(paramsSize);
+    readInput<int>(GetGoldenDir() + "/input_params.bin", inputParams); // 在golden中保存了变化的参数，便于调试
+    params.b = inputParams[0]; // 16
+    params.s1 = inputParams[1];
+    params.s2 = inputParams[2];
+    params.n1 = inputParams[3];
+    params.n2 = inputParams[4];
+
+    SATileShapeConfig saTileConfig;
+    saTileConfig.kvSlcV0TileShape = {64, 256}; // slcBlockSize=64
+    const int gTile = 128; // for gLoop split
+    const int sTile = 1024; // for s2Loop split
+    saTileConfig.gTile = gTile;
+    saTileConfig.sKvTile = sTile;
+    saTileConfig.c1TileShape = {gTile, gTile, 64, 64, 256, 256}; // (n1, dn+dr) @ (s2Tile, dn+dr) -> (n1, s2Tile)
+    saTileConfig.v1TileShape = {16, 256}; // (n1, s2Tile)
+    saTileConfig.c2TileShape = {gTile, gTile, 128, 128, 128, 128}; // (n1, s2Tile) @ (s2Tile, dn) -> (n1, d)
+    saTileConfig.v2TileShape = {64, 128}; // (n1, d)
+
+    TestKvSlcAttn<npu::tile_fwk::float16>(params, saTileConfig);
+}
