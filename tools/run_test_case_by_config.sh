@@ -65,7 +65,7 @@ function generate_test_report() {
 }
 
 CASE_DATA_HOME=`pwd`
-OP_PY_TOOLS_PATH="tests/st/machine/src/ops/operation_test/python_tools"
+OP_PY_TOOLS_PATH="tests/st/operation/python/"
 # define var
 start=$1
 end=$2

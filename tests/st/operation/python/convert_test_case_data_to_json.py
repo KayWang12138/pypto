@@ -292,11 +292,9 @@ def clean_data_frame(
 
     data_frame = data_frame.iloc[start_index : end_index + 1]
     if "skip" in data_frame.columns:
-        data_frame = data_frame.iloc[
-            not pd.isnull(data_frame["skip"])
-            and not pd.isna(pd.isnull(data_frame["skip"]))
-            and bool(data_frame["skip"])
-        ]
+        data_frame = data_frame.query(
+            "skip != 1 and skip != '1' and skip != True and skip != 'TRUE'"
+        )
     data_frame.query(f"operation == '{op}'")
     return data_frame
 

@@ -107,7 +107,7 @@ def load_test_cases(op: str, json_path: str) -> list:
     if len(json_files) == 0:
         logging.info(f"Not find test case from {json_path}.")
         json_path = os.path.join(
-            json_path, "../../../../tests/st/machine/src/ops/operation_test/test_case"
+            json_path, "../../../../tests/st/operation/test_case"
         )
         logging.info(f"Try to load test cases from {json_path}.")
         json_files = [
