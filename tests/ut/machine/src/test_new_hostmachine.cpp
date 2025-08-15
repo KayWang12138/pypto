@@ -39,16 +39,15 @@ public:
 TEST_F(HostMachineTest, HostMachineTest_test1) {
     std::cout.rdbuf()->pubsetbuf(NULL, std::ios::out);
 
-    HostMachine& hostMachine = Program::GetInstance().GetHostMachine();
-    hostMachine.Init(HostMachineMode::SERVER);
+    HostMachine::GetInstance().Init(HostMachineMode::SERVER);
 
     Function func(Program::GetInstance(), "", "", nullptr);
     for (int i = 0; i < 100; ++i) {
-        hostMachine.SubTask(&func);
+        HostMachine::GetInstance().SubTask(&func);
     }
 
     std::cout << "hostmachine test1 end" << std::endl;
-    hostMachine.Destroy();
+    HostMachine::GetInstance().Destroy();
 }
 
 } // namespace npu::tile_fwk

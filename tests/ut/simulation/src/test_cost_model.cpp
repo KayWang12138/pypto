@@ -17,12 +17,12 @@
 #include <dlfcn.h>
 
 #include "cost_model/simulation/backend.h"
-#include "interface/machine/host/host_machine.h"
 #include "operator/models/llama/llama_def.h"
 #include "cost_model/simulation/common/CommonType.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "cost_model/simulation/pv/PvModelFactory.h"
+#include "interface/configs/config_manager.h"
 
 using namespace npu::tile_fwk;
 

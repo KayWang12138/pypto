@@ -18,7 +18,6 @@
 #include <dlfcn.h>
 #include "tilefwk/function.h"
 #include "interface/utils/file_utils.h"
-#include "interface/machine/host/host_machine.h"
 #include "interface/operation/distributed/comm_barrier_manager.h"
 #include "interface/program/program.h"
 #include "machine/platform/platform_manager.h"

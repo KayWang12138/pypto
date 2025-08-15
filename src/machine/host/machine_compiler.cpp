@@ -16,14 +16,14 @@
 #include "machine/host/machine_compiler.h"
 #include <functional>
 #include <unistd.h>
-#include "interface/machine/host/host_machine.h"
 #include "tilefwk/data_type.h"
+#include "tilefwk/tilefwk.h"
+#include "interface/inner/tilefwk.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/tensor/raw_tensor.h"
 #include "interface/function/function.h"
-#include "tilefwk/tilefwk.h"
-#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
+#include "interface/machine/host/host_machine.h"
 
 constexpr int DUMP_INCAST = 2;
 constexpr int DUMP_OUTCAST = 3;

@@ -149,38 +149,6 @@ private:
     const std::unordered_map<const Operation *, int> &opPosition_;
 };
 
-class LoopRange {
-public:
-    LoopRange(const SymbolicScalar &rangeBegin, const SymbolicScalar &rangeEnd, const SymbolicScalar &rangeStep)
-        : begin_(rangeBegin), end_(rangeEnd), step_(rangeStep) {}
-
-    explicit LoopRange(const SymbolicScalar &rangeBegin, const SymbolicScalar &rangeEnd)
-        : LoopRange(rangeBegin, rangeEnd, 1) {}
-
-    explicit LoopRange(const SymbolicScalar &rangeEnd)
-        : LoopRange(0, rangeEnd, 1) {}
-
-    SymbolicScalar &Begin() { return begin_; }
-    const SymbolicScalar &Begin() const { return begin_; }
-
-    SymbolicScalar &End() { return end_; }
-    const SymbolicScalar &End() const { return end_; }
-
-    SymbolicScalar &Step() { return step_; }
-    const SymbolicScalar &Step() const { return step_; }
-
-    std::string Dump() {
-        std::stringstream ss;
-        ss << "LoopRange(" << begin_.Dump() << ", " << end_.Dump() << ", " << step_.Dump() << ")";
-        return ss.str();
-    }
-
-private:
-    SymbolicScalar begin_;
-    SymbolicScalar end_;
-    SymbolicScalar step_;
-};
-
 struct DynloopFunctionPathCondition {
     bool isSat_;
     SymbolicScalar cond_;

@@ -18,6 +18,7 @@
 #include "interface/inner/tilefwk/tilefwk_api.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
+#include "machine/cache_manager/cache_manager.h"
 #include "tilefwk/data_type.h"
 #include "test_common.h"
 #include "operator/models/llama/llama_def.h"

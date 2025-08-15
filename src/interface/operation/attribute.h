@@ -19,10 +19,10 @@
 #include <vector>
 #include <cstdint>
 #include <memory>
+#include "tilefwk/hash_buffer.h"
 #include "tilefwk/error.h"
 #include "tilefwk/data_type.h"
 #include "interface/cache/hash.h"
-#include "interface/cache/hash_buffer.h"
 #include "interface/cache/hash.h"
 #include "interface/tensor/symbolic_scalar.h"
 #include "interface/tensor/logical_tensor.h"

@@ -15,6 +15,7 @@
 #include <gtest/gtest.h>
 #include "operator/models/deepseek/gen_kv_slc.h"
 #include "interface/tensor/float.h"
+#include "interface/configs/config_manager.h"
 
 using namespace npu::tile_fwk;
 class DynamicKvSlcUtTest : public testing::Test {

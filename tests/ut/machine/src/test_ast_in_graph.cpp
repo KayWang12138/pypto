@@ -20,6 +20,7 @@
 #include "interface/inner/tilefwk.h"
 #include "tilefwk/data_type.h"
 #include "interface/utils/file_utils.h"
+#include "interface/configs/config_manager.h"
 #include "operator/models/llama/llama_def.h"
 #include "machine/dump/task_dump_utils.h"
 #include "runtime.h"
@@ -86,7 +87,7 @@ TEST(OnBoardTestAstInGraph, test_fa_all2all_128) {
     /* torch compile */
     void* handle = TileFwkCompile();
     (void)handle;
-    auto filePath = bin_path + "/" + "FA_1.json";
+    auto filePath = bin_path + "/" + "FA_2.json";
     struct stat st = {};
     bool outPathExist = stat(filePath.c_str(), &st) == 0;
     EXPECT_EQ(outPathExist, true);

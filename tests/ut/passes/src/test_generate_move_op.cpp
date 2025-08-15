@@ -204,7 +204,7 @@ TEST_F(GenerateMoveOpPassTest, AssembleViewToCopy) {
             std::cout << "opmagic: " << op.opmagic << "op type " << op.GetOpcodeStr() << std::endl;
             originOpmagic.emplace_back(op.opmagic);
         }
-        Program testProgram(HostMachineMode::SERVER);
+        Program testProgram;
         GenerateMoveOp generateMoveOp;
         generateMoveOp.RunOnFunction(*originFunction);
 
@@ -359,7 +359,7 @@ TEST_F(GenerateMoveOpPassTest, Transpose) {
         Program::GetInstance().LoadJson(readData);
 
         Function* originFunction = Program::GetInstance().GetCurrentFunction();
-        Program testProgram(HostMachineMode::SERVER);
+        Program testProgram;
         GenerateMoveOp generateMoveOp;
         generateMoveOp.RunOnFunction(*originFunction);
 
@@ -443,7 +443,7 @@ TEST_F(GenerateMoveOpPassTest, ScatterUpdate) {
         }
 
         Function* originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_ScatterUpdate");
-        Program testProgram(HostMachineMode::SERVER);
+        Program testProgram;
         GenerateMoveOp generateMoveOp;
         generateMoveOp.RunOnFunction(*originFunction);
 

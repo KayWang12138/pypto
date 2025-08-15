@@ -14,6 +14,7 @@
  */
 #include "gtest/gtest.h"
 #include "operator/models/deepseek/dynamic_nsa.h"
+#include "interface/configs/config_manager.h"
 
 using namespace npu::tile_fwk;
 

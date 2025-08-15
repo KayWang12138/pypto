@@ -20,10 +20,12 @@
 #include "interface/inner/tilefwk.h"
 #include "tilefwk/data_type.h"
 #include "interface/operation/operation.h"
+#include "interface/configs/config_manager.h"
 #include "interface/tensor/float.h"
 #include "operator/models/deepseek/deepseek_mla.h"
 #include "machine_agent.h"
 #include "machine/host/backend.h"
+
 using namespace npu::tile_fwk;
 
 class HostMachineCompileTest : public testing::Test {
@@ -165,9 +167,8 @@ TEST_F(HostMachineCompileTest, test_codegen_by_json) {
 
     config::SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_BY_JSON, true);
 
-    HostMachine machine = HostMachine(HostMachineMode::API);
     MachineTask *task = new MachineTask(0, Program::GetInstance().GetCurrentFunction());
     auto deviceAgentTask = new DeviceAgentTask(task);
-    auto &cache = machine.GetFunctionCache();
+    auto &cache = Program::GetInstance().GetFunctionCache();
     (void)GenCode(deviceAgentTask->compileTask, deviceAgentTask->compileInfo.invokeParaOffset, cache);
 }

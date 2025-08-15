@@ -57,11 +57,10 @@ MatrixSize &MatrixSize::Current() {
 }
 
 // Program Definitions
-Program::Program(const HostMachineMode mode)
-    : hostMachine_(mode), currentFunctionPtr_(nullptr) {
+Program::Program() : currentFunctionPtr_(nullptr) {
     CreateInitFunction();
 
-    hostMachine_.Init(mode);
+    HostMachine::GetInstance().Init(HostMachineMode::SERVER);
     std::string envLogLevel;
     GetEnv("GLOBAL_LOG_LEVEL", envLogLevel);
     if (envLogLevel.empty()) {
@@ -82,7 +81,7 @@ Program::Program(const HostMachineMode mode)
 }
 
 Program::~Program() {
-    hostMachine_.Destroy();
+    HostMachine::GetInstance().Destroy();
 }
 
 Program &Program::GetInstance() {
@@ -98,7 +97,7 @@ void Program::Reset() {
     operatorChecker_ = false;
     config_.Reset();
     aliveTensors_.clear();
-    hostMachine_.GetFunctionCache().Reset();
+    functionCache_.Reset();
     functionSequence_.clear();
     CreateInitFunction();
     tensorSlotManager_ = nullptr;
@@ -221,8 +220,8 @@ Operation *Program::FinishCurrentFunction(const std::shared_ptr<TensorSlotScope>
 int Program::SubmitDyndev() {
     Program::GetInstance().DumpJsonFile(config::LogTopFolder() + "/tensor_graph.json");
     for (auto func : functionSequence_) {
-        hostMachine_.SubTask(func);
-        hostMachine_.WaitTaskFinish();
+        HostMachine::GetInstance().SubTask(func);
+        HostMachine::GetInstance().WaitTaskFinish();
     }
     return 0;
 }
@@ -251,10 +250,10 @@ std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string 
 
     if (result->IsGraphType(GraphType::TENSOR_GRAPH) || result->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
         if (result->IsUnderDynamicFunction() || currentDynamicFunctionPtr_ != nullptr) {
-            hostMachine_.StashTask(result);
-        } else if (!config::GetPlatformConfig(KEY_ONLY_TENSOR_GRAPH, false)){
-            hostMachine_.SubTask(result);
-            hostMachine_.WaitTaskFinish();
+            HostMachine::GetInstance().StashTask(result);
+        } else if (!config::GetPlatformConfig(KEY_ONLY_TENSOR_GRAPH, false)) {
+            HostMachine::GetInstance().SubTask(result);
+            HostMachine::GetInstance().WaitTaskFinish();
         }
     }
     return std::make_tuple(result, callop, hit);
@@ -583,9 +582,9 @@ void Program::GraphCheck() const {
 }
 
 bool Program::QueryAndUpdateCurrentFunction() {
-    auto cacheValue = hostMachine_.TryHitCahce(currentFunctionPtr_->GetFunctionHash());
+    auto cacheValue = TryHitCahce(currentFunctionPtr_->GetFunctionHash());
     if (cacheValue == std::nullopt) {
-        hostMachine_.AddFunctionCache(currentFunctionPtr_);
+        functionCache_.Insert(currentFunctionPtr_->GetFunctionHash(), *currentFunctionPtr_);
         if (currentFunctionPtr_->HasParent()) {
             auto &parent = currentFunctionPtr_->Parent();
             parent.AppendCalleeMagicName(currentFunctionMagicName_);
@@ -612,9 +611,9 @@ int Program::EndFunction(const bool isWaitTaskFinished)
         callop.SetOpAttribute(currentFunctionPtr_->CreateCallOpAttribute(funcArgs.argList));
         callop.SetOpOffset(funcArgs.iOpAttrOffset, funcArgs.oOpAttrOffset);
     }
-    hostMachine_.SubTask(currentFunctionPtr_);
+    HostMachine::GetInstance().SubTask(currentFunctionPtr_);
     if (isWaitTaskFinished) {
-        hostMachine_.WaitTaskFinish();
+        HostMachine::GetInstance().WaitTaskFinish();
     }
     ALOG_INFO("End func: name = ", currentFunctionPtr_->GetRawName());
     return 0;
@@ -652,10 +651,6 @@ void Program::VerifyExecuteGraph() {
     }
     auto &flowVerifier = FlowVerifier::GetInstance();
     flowVerifier.VerifyExecuteGraph();
-}
-
-void Program::SubmitAllStashTask() {
-    hostMachine_.SubAllStashedTask();
 }
 
 RecordFunc::RecordFunc(const std::string &name) : funcName(FUNCTION_PREFIX + name) {
@@ -713,7 +708,7 @@ RecordFunc::~RecordFunc() {
             if (config::GetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, false)) {
                 Program::GetInstance().VerifyTensorGraph();
             }
-            Program::GetInstance().SubmitAllStashTask();
+            HostMachine::GetInstance().SubAllStashedTask();
             if (config::GetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, false)) {
                 Program::GetInstance().VerifyExecuteGraph();
             }

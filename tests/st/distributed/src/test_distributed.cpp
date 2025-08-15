@@ -16,6 +16,7 @@
 #include <gtest/gtest.h>
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
+#include "interface/configs/config_manager.h"
 #include "test_common.h"
 #include "distributed_op_test_suite.h"
 #include "distributed_test_framework.h"

@@ -511,7 +511,7 @@ bool Allocator::CheckTopoDependancy(const LogicalTensorPtr &tensor, Operation &o
 bool Allocator::CheckReuseInnerCall(
     Operation &callOp, size_t outputIdx, LogicalTensorPtr &previous, uint64_t &storageOffset) const {
     // CallOp需要满足Topo序
-    auto cacheValue = Program::GetInstance().GetHostMachine().TryHitCahce(callOp.GetCalleeHash());
+    auto cacheValue = Program::GetInstance().TryHitCahce(callOp.GetCalleeHash());
     Function *program = nullptr;
     if (cacheValue == std::nullopt) {
         ALOG_ERROR_F("Cannot find program hash %lu by op %d", callOp.GetCalleeHash().GetHash(), callOp.opmagic);

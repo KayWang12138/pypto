@@ -19,6 +19,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include <iostream>
+#include "interface/configs/config_manager.h"
 using namespace npu::tile_fwk;
 
 class RuntimeTest : public testing::Test {

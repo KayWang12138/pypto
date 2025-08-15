@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <cstdint>
 #include "interface/interpreter/raw_tensor_data.h"
+#include "interface/configs/config_manager.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/device/dynamic/costmodel_utils.h"
 #include "runtime.h"

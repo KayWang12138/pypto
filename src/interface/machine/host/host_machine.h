@@ -24,9 +24,10 @@
 #include <atomic>
 #include <cstdint>
 #include <tuple>
+#include <nlohmann/json.hpp>
 #include "interface/machine/host/machine_task.h"
-#include "interface/cache/function_cache.h"
 #include "interface/configs/config_manager.h"
+#include "interface/cache/function_cache.h"
 
 namespace npu::tile_fwk {
 #if defined(MACHINE_DEBUG) && MACHINE_DEBUG == 1
@@ -39,6 +40,8 @@ extern "C" {
 typedef int (*InitFuncPtr)();
 typedef int (*ExecuteFuncPtr)(MachineTask*, FunctionCache&);
 typedef bool (*MatchCacheFuncPtr)(const std::string&);
+typedef bool (*RunPassFuncPtr)(Program&, Function&, const std::string&);
+typedef std::string (*ResumePathGetFuncPtr)(const std::string&);
 }
 
 enum class HostMachineMode {
@@ -83,11 +86,10 @@ private:
 
 class HostMachine {
 public:
-    explicit HostMachine(HostMachineMode mode = HostMachineMode::SERVER) : mode_(mode) {}
-    ~HostMachine() { DestroyThread(); }
+    static HostMachine& GetInstance();
 
-    int Init(HostMachineMode mode); // init resource & launch device machine core machine
-    int Destroy(); // release resource & stop device machine core machine
+    bool Init(const HostMachineMode mode); // init resource & launch device machine core machine
+    void Destroy(); // release resource & stop device machine core machine
 
     void SubTask(Function* function);
     void WaitTaskFinish(); // wait all task finish
@@ -95,19 +97,14 @@ public:
     void StashTask(Function* function);
     void SubAllStashedTask();
 
-    std::optional<CacheValue> TryHitCahce(const FunctionHash &functionHash) { return cache_.Get(functionHash); }
-    void AddFunctionCache(Function* function ) { cache_.Insert(function->GetFunctionHash(), *function); }
-
-    std::vector<InvokeParaOffset> outputStubPara;
-
-    FunctionCache& GetFunctionCache() { return cache_; }
-
     bool ForceEnableBackend();
 
 public: // api mode
     MachineTask* Compile(MachineTask* task = nullptr) const;
 
 private:
+    HostMachine() : initialized_(false), mode_(HostMachineMode::SERVER) {}
+    ~HostMachine() { DestroyThread(); }
     void InitThread();
     void DestroyThread();
 
@@ -122,12 +119,10 @@ private:
     static std::string GetCacheKeyFromFunction(Function *function);
 
 private:
+    std::atomic<bool> initialized_;
     HostMachineMode mode_;
     MachineTask* curTask;
 
-    std::atomic<bool> initialized_;
-
-    FunctionCache cache_;
     std::atomic<uint64_t> curTaskId_{0};
     std::atomic<bool> stopFlag_{false};
 
@@ -148,16 +143,19 @@ private:
                          nlohmann::json>> stashedFuncQueue_; // stash func
 
     /* 后端管理 */
+    void* mPassBackendHandle = nullptr;
     void* mNpuBackendHandle = nullptr;
     void* mSimulationBackendHandle = nullptr;
+    RunPassFuncPtr mPassRunFunc = nullptr;
+    ResumePathGetFuncPtr mResumePathGetFunc = nullptr;
     InitFuncPtr mNpuInitFunc = nullptr;
     MatchCacheFuncPtr mNpuMatchCacheFunc = nullptr;
     ExecuteFuncPtr mNpuExecuteFunc = nullptr;
     ExecuteFuncPtr mSimulationExecuteFunc = nullptr;
 
-    int32_t InitBackend(const bool forceEnableBackend = false);
+    bool InitBackend(const bool forceEnableBackend = false);
+    bool InitPassHandle();
     void DestroyBackend();
 };
-
 
 } // namespace npu::tile_fwk

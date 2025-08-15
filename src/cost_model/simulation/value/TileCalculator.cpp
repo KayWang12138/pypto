@@ -14,10 +14,8 @@
  */
 
 #include "cost_model/simulation/value/TileCalculator.h"
-
 #include <vector>
-
-#include "interface/cache/hash_buffer.h"
+#include "tilefwk/hash_buffer.h"
 #include "cost_model/simulation/base/ModelLogger.h"
 
 

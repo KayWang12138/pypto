@@ -17,7 +17,7 @@
 
 #include <unordered_map>
 
-#include "interface/cache/hash_buffer.h"
+#include "tilefwk/hash_buffer.h"
 #include "interface/utils/common.h"
 #include "cost_model/simulation/common/ISA.h"
 

@@ -15,11 +15,11 @@
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
-
-#include "interface/inner/tilefwk/tilefwk_api.h"
-#include "tilefwk/tilefwk.h"
-#include "interface/inner/tilefwk.h"
 #include "tilefwk/data_type.h"
+#include "tilefwk/tilefwk.h"
+#include "interface/inner/tilefwk/tilefwk_api.h"
+#include "interface/inner/tilefwk.h"
+#include "interface/configs/config_manager.h"
 #include "test_common.h"
 #include "machine/dump/machine_dump.h"
 #include "operator/models/llama/llama_def.h"

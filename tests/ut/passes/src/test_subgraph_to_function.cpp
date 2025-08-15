@@ -42,7 +42,6 @@ public:
         Program::GetInstance().Reset();
         Program::GetInstance().GetConfig().Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-        Program::GetInstance().GetHostMachine().cache_.Reset();
     }
 
     void TearDown() override {}

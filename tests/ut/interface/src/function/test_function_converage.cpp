@@ -44,7 +44,6 @@ public:
     void SetUp() override {
         std::cout << "FunctionCoverageTest SetUp" << std::endl;
         Program::GetInstance().Reset();
-        Program::GetInstance().GetHostMachine().GetFunctionCache().Reset();
     }
 
     void TearDown() override {

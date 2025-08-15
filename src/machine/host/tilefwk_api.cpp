@@ -19,6 +19,8 @@
 #include "tilefwk/tile_fwk_op_registry.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
+#include "interface/configs/config_manager.h"
+#include "interface/machine/host/host_machine.h"
 #include "machine/host/backend.h"
 #include "machine/host/device_agent_task.h"
 #include "machine/dump/kernel_dump_utils.h"
@@ -29,7 +31,8 @@
 namespace npu::tile_fwk {
 int32_t TileFwkInit(const std::string &socVersion) {
     (void)PlatformManager::Instance().Initialize(socVersion);
-    Program::GetInstance().HostMachineInit(HostMachineMode::API);
+    Program::GetInstance().Reset();
+    HostMachine::GetInstance().Init(HostMachineMode::API);
     return 0;
 }
 
@@ -74,7 +77,7 @@ void TileFwkAssign(Tensor &dst, const Tensor &src) {
 /* 返回compile handle */
 void *Program::Compile() {
     (void)CacheManager::Instance().Initialize();
-    MachineTask *task = hostMachine_.Compile();
+    MachineTask *task = HostMachine::GetInstance().Compile();
     auto deviceAgentTask = new DeviceAgentTask(task); // need free somewhere
     auto function = deviceAgentTask->compileTask->GetFunction();
     deviceAgentTask->compileInfo.distTilingManager = function->GetDistTilingManager();
@@ -93,7 +96,7 @@ void *Program::Compile() {
         deviceAgentTask->compileInfo.PrintDistributed();
 
         deviceAgentTask->compileInfo.workSpaceStackSize = function->GetStackWorkespaceSize();
-        auto &cache = hostMachine_.GetFunctionCache();
+        auto &cache = GetFunctionCache();
         (void)GenCode(deviceAgentTask->compileTask, deviceAgentTask->compileInfo.invokeParaOffset, cache);
         /* finish compile add function cache */
         cache.Insert(function->GetFunctionHash(), *function);
@@ -186,7 +189,7 @@ extern "C" bool TileFwkCompileFatbin(const char *opType, const char *socVersion,
  */
 bool TileOpCompile(const std::string &opType, const uint64_t configKey, const std::string &kernelName,
     const std::string &dumpPath) {
-    if (!Program::GetInstance().GetHostMachine().ForceEnableBackend()) {
+    if (!HostMachine::GetInstance().ForceEnableBackend()) {
         ALOG_WARN("Fail to init host machine backend.");
         return false;
     }

@@ -15,6 +15,7 @@
 
 #include <gtest/gtest.h>
 #include "interface/inner/tilefwk/tilefwk_api.h"
+#include "interface/configs/config_manager.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "tilefwk/data_type.h"

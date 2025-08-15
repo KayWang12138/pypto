@@ -23,7 +23,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
-#include "interface/cache/hash_buffer.h"
+#include "tilefwk/hash_buffer.h"
 
 namespace npu::tile_fwk {
 

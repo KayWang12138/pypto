@@ -313,7 +313,8 @@ TEST_F(OnBoardTest, test_gather_float_case4) {
 TEST_F(OnBoardTest, test_concat_all2all) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-
+    uint64_t outputSize = capacity * 2 * sizeof(float);
+    uint8_t* outputGmAddr = allocDevAddr(outputSize);
     PROGRAM("CONCAT") {
         std::vector<int> shape = {row, col};
         void *x_ptr = readToDev("../tests/AsmdTensor/concat_2dim_x.bin", capacity);
@@ -328,9 +329,6 @@ TEST_F(OnBoardTest, test_concat_all2all) {
         }
     }
     RunStatic();
-    uint64_t outputSize = Program::GetInstance().GetHostMachine().outputStubPara.at(0).rawShapeSize;
-    uint8_t *outputGmAddr = Program::GetInstance().GetHostMachine().outputStubPara.at(0).rawTensorAddr;
-    assert(outputSize == capacity * 2 * sizeof(float));
     std::vector<float> golden(capacity * 2);
     std::vector<float> res(capacity * 2);
     machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)outputGmAddr, outputSize);
@@ -345,6 +343,8 @@ TEST_F(OnBoardTest, test_concat_all2all) {
 TEST_F(OnBoardTest, test_concat_4) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = 13 * 2 * 10 * 10 * sizeof(float);
+    uint8_t* outputGmAddr = allocDevAddr(outputSize);
     PROGRAM("CONCAT") {
         std::vector<int> shape1 = {2, 2, 10, 10};
         std::vector<int> shape2 = {3, 2, 10, 10};
@@ -363,9 +363,6 @@ TEST_F(OnBoardTest, test_concat_4) {
         }
     }
     RunStatic();
-    uint64_t outputSize = Program::GetInstance().GetHostMachine().outputStubPara.at(0).rawShapeSize;
-    uint8_t *outputGmAddr = Program::GetInstance().GetHostMachine().outputStubPara.at(0).rawTensorAddr;
-    assert(outputSize == 13 * 2 * 10 * 10 * sizeof(float));
     std::vector<float> golden(13 * 2 * 10 * 10);
     std::vector<float> res(13 * 2 * 10 * 10);
     machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)outputGmAddr, outputSize);
@@ -2413,6 +2410,8 @@ TEST_F(OnBoardTest, test_scatterupdate_case1) {
 
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    uint64_t outputSize = capacity0 * sizeof(float);
+    uint8_t* outputGmAddr = allocDevAddr(outputSize);
 
     PROGRAM("SCATTERUPDATE") {
         readToDev(inputDir + "x.bin", capacity0);
@@ -2433,9 +2432,6 @@ TEST_F(OnBoardTest, test_scatterupdate_case1) {
     }
     RunStatic();
 
-    uint64_t outputSize = Program::GetInstance().GetHostMachine().outputStubPara.at(0).rawShapeSize;
-    uint8_t* outputGmAddr = Program::GetInstance().GetHostMachine().outputStubPara.at(0).rawTensorAddr;
-    assert(outputSize == capacity0 * sizeof(float));
     std::vector<float> golden(capacity0);
     std::vector<float> dev_res(capacity0);
     machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)outputGmAddr, outputSize);

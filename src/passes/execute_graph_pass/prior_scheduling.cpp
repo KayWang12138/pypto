@@ -17,6 +17,8 @@
 
  #include <queue>
  #include <climits>
+ #include "interface/function/function.h"
+ 
  using namespace npu::tile_fwk;
  
  namespace npu::tile_fwk {

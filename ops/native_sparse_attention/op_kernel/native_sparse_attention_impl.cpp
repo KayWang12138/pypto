@@ -8,9 +8,10 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include "common/tile_shape.h"
 #include "tilefwk/tilefwk.h"
 #include "tilefwk/tile_fwk_op_registry.h"
-#include "interface/inner/tilefwk.h"
+#include "operation/tilefwk_op.h"
 
 namespace npu::tile_fwk {
 void DynamicDD(uint64_t configKey) {
@@ -22,8 +23,9 @@ void DynamicDD(uint64_t configKey) {
     Tensor t1(DT_FP32, {s, s}, "x1");
     Tensor blockTable(DT_INT32, {n, 1}, "x2");
     Tensor out(DT_FP32, {n * s, s}, "y0");
-    Program::GetInstance().GetTileShape().SetVecTileShapes(s, s);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({s, s}, {s, s}, {s, s});
+
+    TileShape::Current().SetVecTileShapes(s, s);
+    TileShape::Current().SetCubeTileShapes({s, s}, {s, s}, {s, s});
     FUNCTION("main", FunctionType::DYNAMIC, {t0, t1, blockTable}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShapeDim(t0, 0) / s)) {
             SymbolicScalar idx = GetInputDataInt32Dim2(blockTable, i, 0);

@@ -20,6 +20,7 @@
 #include "tilefwk/tensor.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/utils/common.h"
+#include "interface/configs/config_manager.h"
 
 namespace npu::tile_fwk {
 

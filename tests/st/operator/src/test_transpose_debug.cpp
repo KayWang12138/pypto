@@ -25,7 +25,6 @@
 #include "tilefwk/data_type.h"
 #include "machine/mem.h"
 #include "test_common.h"
-#include "interface/machine/host/host_machine.h"
 #include "operator/models/llama/llama_def.h"
 #include "interface/inner/tilefwk/tilefwk_api.h"
 #include <Python.h>

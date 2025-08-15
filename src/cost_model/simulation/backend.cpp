@@ -16,8 +16,9 @@
 #include "simulation/backend.h"
 
 #include <cctype>
-
 #include "interface/configs/config_manager.h"
+#include "interface/cache/function_cache.h"
+#include "interface/machine/host/machine_task.h"
 
 namespace {
 const std::string PROGRAM_ENTRY_FUNCTION_NAME = "PROGRAM_ENTRY";

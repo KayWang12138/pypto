@@ -25,7 +25,7 @@
 #include <tilefwk/symbolic_scalar.h>
 
 #include "tilefwk/error.h"
-#include "interface/cache/hash_buffer.h"
+#include "tilefwk/hash_buffer.h"
 #include "symbol_handler.h"
 #include "interface/utils/string_utils.h"
 #include "interface/utils/common.h"

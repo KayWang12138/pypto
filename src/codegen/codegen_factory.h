@@ -23,6 +23,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
+#include "interface/configs/config_manager.h"
 #include "cloudnpu/codegen_cloudnpu.h"
 
 namespace npu::tile_fwk {

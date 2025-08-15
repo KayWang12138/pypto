@@ -8,20 +8,14 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
- * \file hash_buffer.cpp
- * \brief
- */
-
-#include "tilefwk/hash_buffer.h"
+#include "pass_manager.h"
 
 namespace npu::tile_fwk {
+extern "C" bool RunPass(Program &program, Function &function, const std::string &strategy) {
+    return PassManager::Instance().RunPass(program, function, strategy) == SUCCESS;
+}
 
-    template<>
-    uint64_t HashBuffer::Get<uint64_t>(int index) const {
-        uint64_t l = this->at(index);
-        uint64_t h = this->at(index + 1);
-        return l + (h << 32);
-    }
-
+extern "C" std::string GetResumePath(const std::string &strategy) {
+    return PassManager::Instance().GetResumePath(strategy);
+}
 }

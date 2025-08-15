@@ -17,9 +17,9 @@
 #include "gtest/gtest.h"
 
 #include "interface/tensor/logical_tensor.h"
+#include "interface/configs/config_manager.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/machine/host/host_machine.h"
 #include "operator/models/llama/llama_def.h"
 #include "operator/models/deepseek/deepseek_mla.h"
 #include "operator/models/deepseek/mla_prolog.h"

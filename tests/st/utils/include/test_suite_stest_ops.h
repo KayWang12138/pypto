@@ -21,6 +21,7 @@
 #include "test_common.h"
 #include "tilefwk/data_type.h"
 #include "interface/interpreter/raw_tensor_data.h"
+#include "interface/configs/config_manager.h"
 
 namespace npu::tile_fwk::stest {
 template<typename TestBase>

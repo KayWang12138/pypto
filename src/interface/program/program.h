@@ -15,15 +15,14 @@
 
 #pragma once
 
-#include "interface/machine/host/host_machine.h"
 #include "interface/operation/distributed/comm_group_recorder.h"
 #include "interface/operation/distributed/comm_barrier_manager.h"
+#include "interface/function/function.h"
+#include "interface/cache/function_cache.h"
 
 namespace npu::tile_fwk {
 class Program {
 public: // public api for torch
-    int HostMachineInit(const HostMachineMode mode) { return hostMachine_.Init(mode); }
-    HostMachine &GetHostMachine() { return hostMachine_; }
     int EndFunction(const bool isWaitTaskFinished);
     void *Compile(); // 返回handle
     int SubmitDyndev();
@@ -32,7 +31,7 @@ public: // public api for torch
     MatrixSize matrixSize;
 
     std::vector<Function *> functionSequence_;
-    explicit Program(const HostMachineMode mode = HostMachineMode::SERVER);
+    Program();
     ~Program();
 
     static Program &GetInstance();
@@ -118,17 +117,18 @@ public: // public api for torch
     void SetLastFunction(Function *func) { lastFunc_ = func; }
     Function *GetLastFunction() const { return lastFunc_; }
 
-    void SubmitAllStashTask();
+    std::optional<CacheValue> TryHitCahce(const FunctionHash &functionHash) { return functionCache_.Get(functionHash); }
+    FunctionCache& GetFunctionCache() { return functionCache_; }
 
 private:
     std::string name_;
-    HostMachine hostMachine_;
     std::vector<std::string> functionMagicNameStack_;
     std::string currentFunctionMagicName_;
     Function *currentFunctionPtr_;
     Function *lastFunc_{nullptr};
     ConfigStorage config_;    
     Function *currentDynamicFunctionPtr_{nullptr};
+    FunctionCache functionCache_;
     bool operatorChecker_{false};
     std::unordered_set<Tensor *> aliveTensors_;
     std::map<std::string, std::shared_ptr<npu::tile_fwk::Function>> functionmap_;

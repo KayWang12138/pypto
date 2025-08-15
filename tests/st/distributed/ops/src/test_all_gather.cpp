@@ -17,6 +17,7 @@
 #include "distributed_op_test_common.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
+#include "interface/configs/config_manager.h"
 #include "tilefwk/data_type.h"
 #include "test_static.h"
 

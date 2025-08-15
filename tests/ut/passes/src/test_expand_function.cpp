@@ -77,7 +77,7 @@ TEST_F(TestExpandFunction, ExpandFunctionTest) {
             divNumBefore++;
         }
     }
-    Program testProgram(HostMachineMode::SERVER);
+    Program testProgram;
     ExpandFunction expandFunction;
     expandFunction.RunOnFunction(*currentFunction);
     auto opListAfter = currentFunction->Operations().DuplicatedOpList();

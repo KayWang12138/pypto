@@ -24,6 +24,7 @@
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/codegen_common.h"
 #include "codegen/cloudnpu/codegen_vf.h"
+#include "interface/configs/config_manager.h"
 
 namespace npu::tile_fwk {
 class CompileInfo {

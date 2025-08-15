@@ -18,6 +18,7 @@
 #include "passes/pass_utils/pass_utils.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
+#include "interface/configs/config_manager.h"
 
 using namespace npu::tile_fwk;
 

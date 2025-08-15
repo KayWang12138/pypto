@@ -16,12 +16,12 @@
 #include "gtest/gtest.h"
 #include <dlfcn.h>
 
-#include "interface/machine/host/host_machine.h"
 #include "operator/models/llama/llama_def.h"
 #include "cost_model/simulation/common/CommonType.h"
 #include "test_common.h"
 #include "test_cost_model.h"
 #include "test_static.h"
+#include "interface/configs/config_manager.h"
 
 using namespace npu::tile_fwk;
 

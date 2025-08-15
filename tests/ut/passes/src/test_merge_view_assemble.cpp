@@ -90,7 +90,6 @@ TEST_F(MergeViewAssembleTest, TestMergeViewAssemble) {
 
     Function* currentFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_AddFunction");
 
-    Program testProgram(HostMachineMode::SERVER);
     MergeViewAssemble mergeViewAssemble;
     mergeViewAssemble.PreCheck(*currentFunction);
     mergeViewAssemble.RunOnFunction(*currentFunction);

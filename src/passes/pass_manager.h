@@ -22,6 +22,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/function/function.h"
+#include "passes/pass_interface/pass_type.h"
 
 namespace npu::tile_fwk {
 

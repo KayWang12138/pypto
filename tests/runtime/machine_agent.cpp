@@ -20,7 +20,6 @@
 #include <vector>
 #include <iostream>
 #include "machine/utils/machine_ws_intf.h"
-#include "interface/machine/host/host_machine.h"
 #include "interface/utils/common.h"
 #include "device_runner.h"
 

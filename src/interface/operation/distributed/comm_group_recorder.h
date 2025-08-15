@@ -18,6 +18,8 @@
 #include <string>
 #include <vector>
 #include <sstream>
+#include "tilefwk/error.h"
+#include "interface/cache/core_func_data.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {

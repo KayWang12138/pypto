@@ -633,7 +633,7 @@ Status SubgraphToFunction::ProcessCacheResult(const std::tuple<Function*, Operat
         psgToESgMap.insert({std::get<0>(result)->GetProgramId(), i});
         auto callAttr = dynamic_cast<CallOpAttribute *>(callOp->GetOpAttribute().get());
         if (callAttr == nullptr) { ALOG_ERROR_F("Failed to get CallOpAttribute for operation %zu", i); return FAILED; }
-        auto cacheValue = Program::GetInstance().GetHostMachine().TryHitCahce(callAttr->GetCalleeHash());
+        auto cacheValue = Program::GetInstance().TryHitCahce(callAttr->GetCalleeHash());
         if (!cacheValue) { ALOG_ERROR_F("Cache miss for callee hash %lu", callAttr->GetCalleeHash()); return FAILED; }
         callAttr->SetCalleeMagicName(cacheValue->cacheFunction->GetMagicName());
         callAttr->invokeInfo_->UpdateProgramSubgraphId(std::get<0>(result)->GetProgramId());

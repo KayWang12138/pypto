@@ -16,6 +16,7 @@
 #ifndef TILE_FWK_ASSIGN_MEMORY_TYPE_H
 #define TILE_FWK_ASSIGN_MEMORY_TYPE_H
 
+#include <queue>
 #include "passes/pass_interface/pass.h"
 #include "interface/operation/opcode.h"
 #include "passes/tile_graph_pass/convert_op_inserter.h"

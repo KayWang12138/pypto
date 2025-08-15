@@ -24,6 +24,7 @@
 #include "interface/utils/common.h"
 #include "tilefwk/tensor.h"
 #include "interface/operation/operation.h"
+#include "interface/function/function.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {

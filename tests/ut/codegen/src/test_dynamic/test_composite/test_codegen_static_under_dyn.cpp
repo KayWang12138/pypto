@@ -18,7 +18,6 @@
 #include "codegen/codegen.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/machine/host/host_machine.h"
 #include "interface/configs/config_manager.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 

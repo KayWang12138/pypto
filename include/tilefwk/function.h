@@ -17,6 +17,7 @@
 
 #include <vector>
 #include <string>
+#include <sstream>
 #include <set>
 #include <unordered_set>
 #include "tilefwk/tensor.h"
@@ -77,7 +78,6 @@
 #define UNROLL_DEFAULT if (npu::tile_fwk::RecordLoopFunc::MatchUnrollTimes(1))
 
 namespace npu::tile_fwk {
-class LoopRange;
 class DynloopFunctionAttribute;
 
 enum class FunctionType {
@@ -91,6 +91,38 @@ enum class FunctionType {
 };
 
 const std::string FUNCTION_PREFIX = "TENSOR_";
+
+class LoopRange {
+public:
+    LoopRange(const SymbolicScalar &rangeBegin, const SymbolicScalar &rangeEnd, const SymbolicScalar &rangeStep)
+        : begin_(rangeBegin), end_(rangeEnd), step_(rangeStep) {}
+
+    explicit LoopRange(const SymbolicScalar &rangeBegin, const SymbolicScalar &rangeEnd)
+        : LoopRange(rangeBegin, rangeEnd, 1) {}
+
+    explicit LoopRange(const SymbolicScalar &rangeEnd)
+        : LoopRange(0, rangeEnd, 1) {}
+
+    SymbolicScalar &Begin() { return begin_; }
+    const SymbolicScalar &Begin() const { return begin_; }
+
+    SymbolicScalar &End() { return end_; }
+    const SymbolicScalar &End() const { return end_; }
+
+    SymbolicScalar &Step() { return step_; }
+    const SymbolicScalar &Step() const { return step_; }
+
+    std::string Dump() {
+        std::stringstream ss;
+        ss << "LoopRange(" << begin_.Dump() << ", " << end_.Dump() << ", " << step_.Dump() << ")";
+        return ss.str();
+    }
+
+private:
+    SymbolicScalar begin_;
+    SymbolicScalar end_;
+    SymbolicScalar step_;
+};
 
 class RecordFunc {
 public:

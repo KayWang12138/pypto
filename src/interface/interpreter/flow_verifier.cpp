@@ -60,7 +60,7 @@ bool FlowVerifier::VerifyResult(const std::string &key,
 }
 
 void FlowVerifier::UpdateInterpreterCache() {
-    auto &cache = Program::GetInstance().GetHostMachine().GetFunctionCache();
+    auto &cache = Program::GetInstance().GetFunctionCache();
     std::unordered_map<FunctionHash, Function *> hashDict;
     cache.BuildHashDict(functionInterpreter_->GetEntry(), hashDict);
     functionInterpreter_->UpdateHashDict(hashDict);
