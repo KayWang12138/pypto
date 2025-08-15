@@ -39,6 +39,8 @@ public:
     const LargeBitmap &GetBitMap(const Operation &op) const;
 
     const LargeBitmap &GetBitMap(uint64_t index) const;
+    
+    static constexpr uint64_t INVALID_INDEX = std::numeric_limits<uint64_t>::max();
 
 private:
     ConnectionMatrixImplPtr impl_{nullptr};

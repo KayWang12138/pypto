@@ -49,7 +49,11 @@ void LargeBitmap::ResizeBits(size_t newSize) {
 
 // Shifting right by 6 bits is equivalent to dividing by 64
 void LargeBitmap::ClearBit(size_t bitIdx) {
-    bits_[bitIdx >> 6] &= ~(1UL << (bitIdx % BITS_EACH_VALUE));
+    if (bitIdx >= size_) {
+        ALOG_WARN_F("Func LargeBitmap::ClearBit bitIdx %zu is not valid. Total size is %zu.", bitIdx, size_);
+        return;
+    }
+    bits_[bitIdx >> RIGHT_SHIFT_SIZE] &= ~(1UL << (bitIdx % BITS_EACH_VALUE));
 }
 
 LargeBitmap::LargeBitmap(const size_t &size)

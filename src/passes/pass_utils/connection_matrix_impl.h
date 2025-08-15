@@ -49,6 +49,8 @@ private:
 
     size_t size_ = 0;
 
+    LargeBitmap invalidBitmap_ = LargeBitmap(0);
+
     std::vector<LargeBitmap> bitMaps_;
 
     Function *func_;

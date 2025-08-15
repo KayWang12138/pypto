@@ -47,7 +47,8 @@ int ConnectionMatrix::Generate(Function *func) {
 
 uint64_t ConnectionMatrix::GetIndex(const Operation &op) const {
     if (impl_ == nullptr) {
-        return false;
+        ALOG_WARN_F("func ConnectionMatrix::GetIndex impl_ is nullptr.");
+        return INVALID_INDEX;
     }
     return impl_->GetIndex(op);
 }
@@ -65,6 +66,7 @@ const LargeBitmap& ConnectionMatrix::GetBitMap(uint64_t index) const {
 ConnectionMatrixImpl::ConnectionMatrixImpl(Function *func) : func_(func) {
     auto operations = func->Operations();
     size_ = operations.size();
+    invalidBitmap_.ResizeBits(size_);
     bitMaps_.reserve(size_);
     for (size_t i = 0; i < size_; ++i) {
         bitMaps_.emplace_back(size_);
@@ -97,10 +99,10 @@ void ConnectionMatrixImpl::SetConnectivity(const std::unordered_set<Operation *>
     }
 
     bitmap.SetBit(static_cast<size_t>(GetIndex(op)));
-    for (Operation *prod : producers) {
-        if (prod != &op) {
-            bitmap.Or(GetBitMap(*prod));
-            ALOG_DEBUG_F("222222SetConnectivity for op %s %d and op %s %d", prod->GetOpcodeStr().c_str(), prod->opmagic,
+    for (Operation *producer : producers) {
+        if (producer != &op) {
+            bitmap.Or(GetBitMap(*producer));
+            ALOG_DEBUG_F("222222SetConnectivity for op %s %d and op %s %d.", producer->GetOpcodeStr().c_str(), producer->opmagic,
                 op.GetOpcodeStr().c_str(), op.opmagic);
         }
     }
@@ -115,6 +117,10 @@ bool ConnectionMatrixImpl::IsConnected(const Operation &a, const Operation &b) c
 }
 
 bool ConnectionMatrixImpl::IsConnected(uint64_t indexA, uint64_t indexB) const {
+    if (indexA >= size_ || indexB >= size_) {
+        ALOG_WARN_F("Func ConnectionMatrixImpl::IsConnected invalid index: indexA %d, indexB, %d.", indexA, indexB);
+        return false;
+    }
     return GetBitMap(indexB).GetBit(static_cast<size_t>(indexA));
 }
 
@@ -127,10 +133,18 @@ LargeBitmap &ConnectionMatrixImpl::GetBitMap(const Operation &op) {
 }
 
 const LargeBitmap &ConnectionMatrixImpl::GetBitMap(uint64_t index) const {
+    if (index >= size_) {
+        ALOG_WARN_F("Func ConnectionMatrixImpl::GetBitMap invalid index: index %d.", index);
+        return invalidBitmap_;
+    }
     return bitMaps_[index];
 }
 
 LargeBitmap &ConnectionMatrixImpl::GetBitMap(uint64_t index) {
+    if (index >= size_) {
+        ALOG_WARN_F("Func ConnectionMatrixImpl::GetBitMap invalid index: index %d.", index);
+        return invalidBitmap_;
+    }
     return bitMaps_[index];
 }
 }

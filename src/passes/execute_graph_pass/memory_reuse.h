@@ -47,16 +47,16 @@ public:
 
     void UpdateOffset(const uint64_t offset);
 
-    void AddRef(const TensorsDesc &tensorsDesc);
+    bool AddTensorGroup(const TensorsDesc &tensorsDesc);
 
     // 检查previous的所有consumer是否有一条到tensor的producer的通路
     // 保证tensor在写的时候，previous的所有consumer都已经读取完毕
-    bool HasTopoDependency(const LargeBitmap &PreducersOp) const;
+    bool HasTopoDependency(const LargeBitmap &producerOpsBitmap) const;
 private:
     
     uint64_t offset_{0};
     uint64_t size_{0};
-    std::vector<std::set<LogicalTensorPtr>> refs_; // 所有rawTensor相同的tensor构成了一个ref
+    std::vector<std::set<LogicalTensorPtr>> tensorGroups_; // 所有rawTensor相同的tensor构成了一个tensorGroup
     std::unordered_set<uint64_t> consumerOpIdxs_;  // 新tensor能否复用本bucket，需要判断的consumerOp集合
 };
 
@@ -67,43 +67,43 @@ public:
     void Init();
     static bool IsRawQualified(const WorkspaceInfo &outWspInfo, const WorkspaceInfo &inWspInfo);
 
-    const std::vector<WorkspaceInfo>& GetOutReuseInCasts(Function* leafFunc) const { 
-        auto it = outReuseInCasts_.find(leafFunc);
-        if (it != outReuseInCasts_.end()) {
+    const std::vector<WorkspaceInfo>& GetLeafFuncOutputInputReuseMap(Function* leafFunc) const { 
+        auto it = leafFuncOutputInputReuseMap_.find(leafFunc);
+        if (it != leafFuncOutputInputReuseMap_.end()) {
             return it->second;
         }
         static std::vector<WorkspaceInfo> empty;
         return empty;
     }
-    std::vector<WorkspaceInfo>& GetOutReuseInCasts(Function* leafFunc) { 
-        return outReuseInCasts_[leafFunc];
+    std::vector<WorkspaceInfo>& GetLeafFuncOutputInputReuseMap(Function* leafFunc) { 
+        return leafFuncOutputInputReuseMap_[leafFunc];
     }
-    void SetOutReuseInCasts(Function* leafFunc, const std::vector<WorkspaceInfo>& outReuseInCasts) { 
-        outReuseInCasts_[leafFunc] = outReuseInCasts;
+    void SetLeafFuncOutputInputReuseMap(Function* leafFunc, const std::vector<WorkspaceInfo>& leafFuncOutputInputReuseMap) { 
+        leafFuncOutputInputReuseMap_[leafFunc] = leafFuncOutputInputReuseMap;
     }
     
 private:
     void InitializeRootCasts();
     void ProcessOperations();
-    void ProcessSingleOperation(Operation& callOp);
-    bool TryProcessTensor(Operation& callOp, size_t outputIdx);
-    bool HandleNewTensor(Operation& callOp, size_t outputIdx, LogicalTensorPtr& output);
-    void HandleExistingTensor(size_t storageIndex, LogicalTensorPtr &output);
-    bool SetupReusedTensor(Operation &callOp, size_t outputIdx, LogicalTensorPtr &output, LogicalTensorPtr &previous);
-    void CreateNewTensorStorage(LogicalTensorPtr& output);
+    void HandleNewTensor(Operation& callOp, size_t outputIdx, LogicalTensorPtr& outputTensor);
     void StorageNeedToAllocatePreProcess(TensorsDesc &tensorsDesc);
     Status UpdateStorageId(TensorsDesc &tensorsDesc, std::unordered_map<int64_t, int> &idMap, int &storageId);
     void MarkNonOverlappingConsumerTensors();
     void InitializeLeafMemoryReuse();
     void ProcessLeafMemoryReuse(Function *leafFunc);
 
-    bool CheckTopoDependancy(const LogicalTensorPtr &tensor, Operation &op) const;
+    bool CheckAllConsumersConnectedToOp(const LogicalTensorPtr &tensor, Operation &op) const;
     // 检查某个CallOp的输出是否可以复用输入
-    bool CheckReuseInnerCall(Operation &callOp, size_t outputIdx, LogicalTensorPtr &previous, 
+    bool TryReuseInputForOutput(Operation &callOp, size_t outputIdx, LogicalTensorPtr &reusedInput, 
         uint64_t &storageOffset) const;
-    void UpdateActualRaw(LogicalTensorPtr &input) const;
+    bool GetStorageOffsetByCall(Operation& callOp, size_t inputIdx, uint64_t& storageOffset) const;
+    void UpdateStorageForActualRaw(LogicalTensorPtr &input) const;
     TensorBucket &GetBestFitBucket(const TensorsDesc &tensorsDesc);
-    void UpdateTensorMagicToBucketIdx(const std::set<LogicalTensorPtr> &tensors, int idx);
+    void UpdateTensorMagicToBucketIdx(const std::set<LogicalTensorPtr> &tensors, int bucketIdx);
+    void FindReusableInputForOutput(Function *leafFunc, Operation *op, const WorkspaceInfo &outWspInfo,
+        std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inWspCnt, std::vector<WorkspaceInfo> &leafFuncReuseMap);
+    void ProcessOutputForMemoryReuse(Function *leafFunc, WorkspaceInfo &wspInfo,
+        std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inWspCnt, std::vector<WorkspaceInfo> &leafFuncReuseMap);
     Status UpdateIncastOutCast();
 
     std::vector<TensorBucket> buckets_;
@@ -121,7 +121,7 @@ private:
     
     // 使用 map 存储，key 为 function 指针
     // function内，outcast可以和哪个incast复用gm内存，-1表示不能复用
-    std::unordered_map<Function*, std::vector<WorkspaceInfo>> outReuseInCasts_;
+    std::unordered_map<Function*, std::vector<WorkspaceInfo>> leafFuncOutputInputReuseMap_;
 
     std::unordered_map<int, int> tensorMagicToBucketIdx_;
     std::unordered_map<int, int64_t> bucketsIdxToSize_;
