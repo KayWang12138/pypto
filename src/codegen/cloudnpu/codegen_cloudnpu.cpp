@@ -19,7 +19,7 @@
 #include <nlohmann/json.hpp>
 
 #include "interface/utils/log.h"
-#include "codegen/parallel_execute.h"
+#include "codegen/utils/parallel_execute.h"
 #include "interface/utils/file_utils.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/function/function.h"
@@ -168,7 +168,7 @@ std::string CodeGenCloudNPU::GenFuncEnd() {
 }
 
 std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) const {
-    OperationsViewer operationList = subFunc.Operations();
+    OperationsViewer operationList = subFunc.Operations(false);
     if (operationList.IsEmpty()) {
         ALOG_ERROR("operationList is empty");
         return {};
@@ -319,7 +319,7 @@ void CodeGenCloudNPU::GenCode(
         tasks.push_back(task);
     }
     unsigned threadNum = ConfigManager::Instance().GetCodeGenConfig(KEY_PARALLEL_THREAD_NUM, 1u);
-    util::ParallelExecuteAndWait(threadNum, tasks);
+    ParallelExecuteAndWait(threadNum, tasks);
 }
 
 void CodeGenCloudNPU::UpdateSubFunc(
@@ -413,7 +413,7 @@ std::string CodeGenCloudNPU::GenAlloc(SymbolManager &manager, SymbolManager::Buf
     }
 
     ALOG_INFO_F(
-        "%s: bind key to name: %s->%s", __FUNCTION__, npu::tile_fwk::FormatAllocKey(key).c_str(), allocVarName.c_str());
+        "%s: bind key to name: %s->%s", __FUNCTION__, manager.FormatAllocKey(key).c_str(), allocVarName.c_str());
 
     std::string dataTypeStr = DataType2CCEStr(dataType);
 
@@ -441,15 +441,14 @@ int CheckInjectStr(const char cmdStr[], size_t strLen) {
 }
 
 void CodeGenCloudNPU::DoCompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const {
+    if (!compileInfo.IsNeedCompileCCE()) {
+        return;
+    }
     int errCode = CompileCCE(compileInfo, compileOptions);
     ASSERT(errCode == 0) << "CompileCCE failed. errCode = " << errCode << ", cce file: " << compileInfo.GetCCEAbsPath();
 }
 
 int CodeGenCloudNPU::CompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const {
-    if (!compileInfo.IsNeedCompileCCE()) {
-        return 0;
-    }
-
     const std::string srcFile = compileInfo.GetCCEAbsPath();
     const std::string objFile = compileInfo.GetBinAbsPath();
 

@@ -15,9 +15,10 @@
 
 #include "codegen_utils.h"
 
-#include "codegen_common.h"
 #include <cstring>
 #include <algorithm>
+
+#include "codegen/codegen_common.h"
 
 namespace npu::tile_fwk {
 std::string JoinString(std::vector<std::string> &strList, const std::string &conj) {

@@ -19,8 +19,6 @@
 #include <functional>
 
 namespace npu::tile_fwk {
-namespace util {
 using Task = std::function<void(void)>;
 void ParallelExecuteAndWait(unsigned threadNum, std::deque<Task> tasks);
-} // namespace util
 } // namespace npu::tile_fwk

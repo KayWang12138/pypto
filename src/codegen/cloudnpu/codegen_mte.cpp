@@ -14,8 +14,8 @@
  */
 
 #include "codegen_op_cloudnpu.h"
-#include "codegen/codegen_symbol.h"
-#include "codegen/codegen_utils.h"
+#include "codegen/symbol_mgr/codegen_symbol.h"
+#include "codegen/utils/codegen_utils.h"
 #include "securec.h"
 
 namespace npu::tile_fwk {

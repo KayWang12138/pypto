@@ -30,7 +30,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
-#include "codegen/codegen_symbol.h"
+#include "codegen/symbol_mgr/codegen_symbol.h"
 
 namespace npu::tile_fwk {
 const std::unordered_set<Opcode> SKIP_OPCODE = {

@@ -21,7 +21,7 @@
 
 #include "interface/operation/operation.h"
 #include "codegen/codegen_cce.h"
-#include "codegen/codegen_symbol.h"
+#include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/codegen_common.h"
 #include "codegen/cloudnpu/codegen_vf.h"
 

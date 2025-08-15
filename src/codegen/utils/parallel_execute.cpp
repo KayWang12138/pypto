@@ -14,16 +14,15 @@
  */
 
 #include "parallel_execute.h"
-#include "interface/utils/log.h"
 
 #include <thread>
 #include <mutex>
 #include <optional>
 #include <deque>
 
-namespace npu::tile_fwk {
-namespace util {
+#include "interface/utils/log.h"
 
+namespace npu::tile_fwk {
 namespace {
 class ThreadSafeTaskQueue {
 public:
@@ -90,5 +89,4 @@ void ParallelExecuteAndWait(unsigned threadNum, std::deque<Task> tasks) {
         tth.join();
     }
 }
-} // namespace util
 } // namespace npu::tile_fwk

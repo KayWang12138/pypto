@@ -15,7 +15,7 @@
 
 #pragma once
  
-#include "codegen/codegen_symbol.h"
+#include "codegen/symbol_mgr/codegen_symbol.h"
  
 namespace CostModel {
 class SimplifiedMemoryAllocator : public npu::tile_fwk::SymbolManager {

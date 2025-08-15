@@ -17,8 +17,8 @@
 #include "interface/tensor/logical_tensor.h"
 #include "codegen_op_cloudnpu.h"
 #include "securec.h"
-#include "codegen/codegen_utils.h"
-#include "codegen/codegen_symbol.h"
+#include "codegen/utils/codegen_utils.h"
+#include "codegen/symbol_mgr/codegen_symbol.h"
 
 namespace npu::tile_fwk {
 std::string CodeGenOpCloudNPU::GenCastOp() const {
