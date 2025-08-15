@@ -954,4 +954,22 @@ void SubgraphToFunction::GetTensorDataDependencyClear(Function &function) {
     }
 }
 
+void SubgraphToFunction::GenerateAndExportCombinedReport(
+    Function& func,
+    const std::multimap<int, int>& psgToESgMapParam,
+    const std::vector<std::vector<OperationPtr>>& subgraphGroups,
+    const std::string& filename)
+{
+    json combined_report;
+    ExecutionGraphStatistic execAnalyzer;
+    combined_report["execution_graph_analysis"] = execAnalyzer.AnalyzeExecutionGraph(func);
+    KernelGraphStatistic kernelAnalyzer;
+    combined_report["kernel_graph_analysis"] = kernelAnalyzer.AnalyzeKernelGraph(psgToESgMapParam, subgraphGroups);
+
+    std::ofstream outfile(filename);
+    constexpr int JSON_INDENTATION_SPACES = 4;
+    outfile << combined_report.dump(JSON_INDENTATION_SPACES);
+    outfile.close();
+}
+
 } // namespace npu::tile_fwk

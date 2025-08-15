@@ -21,6 +21,8 @@
 #include "interface/operation/opcode.h"
 #include "tilefwk/data_type.h"
 #include "passes/pass_utils/pass_utils.h"
+#include "passes/statistics/execute_graph_statistic.h"
+#include "passes/statistics/kernel_graph_statistic.h"
 
 namespace npu::tile_fwk {
 class SubgraphToFunction : public Pass {
@@ -87,6 +89,10 @@ private:
     void ProcessCopyInOperand(Operation& tileOp, std::vector<int>& offset, std::vector<int>& shape) const;
     void ProcessCopyOutOperand(Operation& tileOp, std::vector<int>& offset, std::vector<int>& shape) const;
     void SymbolizeEachFunction(Function *rootFunc, std::vector<Function *> &mergedFuncList1, size_t i) const;
+    void GenerateAndExportCombinedReport(Function& func,
+    const std::multimap<int, int>& psgToESgMapParam,
+    const std::vector<std::vector<OperationPtr>>& subgraphGroups,
+    const std::string& filename="execute_kernel_report.json");
 
     std::vector<std::vector<OperationPtr>> nLIST;
     std::vector<std::vector<size_t>> inGraph;
