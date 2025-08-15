@@ -424,6 +424,164 @@ TEST_F(TestSplitReshapePass, TestAlignToRaw) {
     EXPECT_EQ(newOffset, expectOffset);
 }
 
+TEST_F(TestSplitReshapePass, TestDynRawToAlign) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDuplicateView", "TestDuplicateView", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    // Prepare the graph
+    SplitReshape pass;
+    Status status;
+    std::vector<int32_t> rawShape;
+    std::vector<int32_t> alignedShape;
+    std::vector<SymbolicScalar> dynOffset;
+    std::vector<SymbolicScalar> dynShape;
+    std::vector<SymbolicScalar> expectOffset;
+    std::vector<SymbolicScalar> expectShape;
+    std::vector<SymbolicScalar> newOffset;
+    std::vector<SymbolicScalar> newShape;
+
+    DynReshapeTilePara shapePara;
+
+    rawShape = {kNumTwo, kNumEight};
+    alignedShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
+    dynOffset = {SymbolicScalar("b"), kNumZero};
+    dynShape = {SymbolicScalar("a"), kNumTwo};
+    shapePara = {rawShape, alignedShape, dynOffset, dynShape};
+    status = pass.DynRawToAlign(shapePara, newOffset, newShape);
+    EXPECT_EQ(status, SUCCESS);
+    expectOffset = {SymbolicScalar("b"), SymbolicScalar(kNumZero), SymbolicScalar(kNumZero), SymbolicScalar(kNumZero)};
+    expectShape = {SymbolicScalar("a"), SymbolicScalar(kNumOne), SymbolicScalar(kNumOne), SymbolicScalar(kNumTwo)};
+    EXPECT_EQ(newShape.size(), expectShape.size());
+    for (size_t i = 0; i < newShape.size(); ++i) {
+        EXPECT_EQ(newShape[i].Dump(), expectShape[i].Dump());
+    }
+    EXPECT_EQ(newOffset.size(), expectOffset.size());
+    for (size_t i = 0; i < newOffset.size(); ++i) {
+        EXPECT_EQ(newOffset[i].Dump(), expectOffset[i].Dump());
+    }
+
+    rawShape = {kNumEight};
+    alignedShape = {kNumTwo, kNumTwo, kNumTwo};
+    dynOffset = {SymbolicScalar("b")};
+    dynShape = {SymbolicScalar("a")};
+    shapePara = {rawShape, alignedShape, dynOffset, dynShape};
+    status = pass.DynRawToAlign(shapePara, newOffset, newShape);
+    EXPECT_EQ(status, WARNING);
+}
+
+TEST_F(TestSplitReshapePass, TestDynAlignToRaw) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDuplicateView", "TestDuplicateView", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    // Prepare the graph
+    SplitReshape pass;
+    Status status;
+    std::vector<int32_t> rawShape;
+    std::vector<int32_t> alignedShape;
+    std::vector<SymbolicScalar> dynOffset;
+    std::vector<SymbolicScalar> dynShape;
+    std::vector<SymbolicScalar> expectOffset;
+    std::vector<SymbolicScalar> expectShape;
+    std::vector<SymbolicScalar> newOffset;
+    std::vector<SymbolicScalar> newShape;
+
+    DynReshapeTilePara shapePara;
+
+    alignedShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
+    rawShape = {kNumTwo, kNumEight};
+    dynShape = {SymbolicScalar("a"), kNumOne, kNumTwo, kNumTwo};
+    dynOffset = {SymbolicScalar("b"), kNumOne, kNumOne, kNumZero};
+    shapePara = {alignedShape, rawShape, dynOffset, dynShape};
+    status = pass.DynAlignToRaw(shapePara, newOffset, newShape);
+    EXPECT_EQ(status, SUCCESS);
+    expectOffset = {SymbolicScalar("b") * 1, SymbolicScalar(kNumSix)};
+    expectShape = {SymbolicScalar("a") * 1, SymbolicScalar(kNumFour)};
+    EXPECT_EQ(newShape.size(), expectShape.size());
+    for (size_t i = 0; i < newShape.size(); ++i) {
+        EXPECT_EQ(newShape[i].Dump(), expectShape[i].Dump());
+    }
+    EXPECT_EQ(newOffset.size(), expectOffset.size());
+    for (size_t i = 0; i < newOffset.size(); ++i) {
+        EXPECT_EQ(newOffset[i].Dump(), expectOffset[i].Dump());
+    }
+    
+    alignedShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
+    rawShape = {kNumTwo, kNumEight};
+    dynShape = {kNumOne, SymbolicScalar("a"), kNumTwo, kNumTwo};
+    dynOffset = {kNumOne, SymbolicScalar("b"), kNumZero, kNumZero};
+    shapePara = {alignedShape, rawShape, dynOffset, dynShape};
+    status = pass.DynAlignToRaw(shapePara, newOffset, newShape);
+    EXPECT_EQ(status, SUCCESS);
+    expectShape = {SymbolicScalar(kNumOne), SymbolicScalar("a") * 4};
+    expectOffset = {SymbolicScalar(kNumOne), SymbolicScalar("b") * 4};
+    EXPECT_EQ(newShape.size(), expectShape.size());
+    for (size_t i = 0; i < newShape.size(); ++i) {
+        EXPECT_EQ(newShape[i].Dump(), expectShape[i].Dump());
+    }
+    EXPECT_EQ(newOffset.size(), expectOffset.size());
+    for (size_t i = 0; i < newOffset.size(); ++i) {
+        EXPECT_EQ(newOffset[i].Dump(), expectOffset[i].Dump());
+    }
+    
+    alignedShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
+    rawShape = {kNumTwo, kNumEight};
+    dynShape = {kNumOne, kNumOne, SymbolicScalar("a"), kNumTwo};
+    dynOffset = {kNumOne, kNumOne, SymbolicScalar("b"), kNumZero};
+    shapePara = {alignedShape, rawShape, dynOffset, dynShape};
+    status = pass.DynAlignToRaw(shapePara, newOffset, newShape);
+    EXPECT_EQ(status, SUCCESS);
+    expectShape = {SymbolicScalar(kNumOne), SymbolicScalar("a") * 2};
+    expectOffset = {SymbolicScalar(kNumOne), SymbolicScalar("b") * 2 + 4};
+    EXPECT_EQ(newShape.size(), expectShape.size());
+    for (size_t i = 0; i < newShape.size(); ++i) {
+        EXPECT_EQ(newShape[i].Dump(), expectShape[i].Dump());
+    }
+    EXPECT_EQ(newOffset.size(), expectOffset.size());
+    for (size_t i = 0; i < newOffset.size(); ++i) {
+        EXPECT_EQ(newOffset[i].Dump(), expectOffset[i].Dump());
+    }
+    
+    alignedShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
+    rawShape = {kNumTwo, kNumEight};
+    dynShape = {kNumOne, kNumOne, kNumOne, SymbolicScalar("a")};
+    dynOffset = {kNumOne, kNumOne, kNumOne, SymbolicScalar("b")};
+    shapePara = {alignedShape, rawShape, dynOffset, dynShape};
+    status = pass.DynAlignToRaw(shapePara, newOffset, newShape);
+    EXPECT_EQ(status, SUCCESS);
+    expectShape = {SymbolicScalar(kNumOne), SymbolicScalar("a") * 1};
+    expectOffset = {SymbolicScalar(kNumOne), SymbolicScalar("b") * 1 + 6};
+    EXPECT_EQ(newShape.size(), expectShape.size());
+    for (size_t i = 0; i < newShape.size(); ++i) {
+        EXPECT_EQ(newShape[i].Dump(), expectShape[i].Dump());
+    }
+    EXPECT_EQ(newOffset.size(), expectOffset.size());
+    for (size_t i = 0; i < newOffset.size(); ++i) {
+        EXPECT_EQ(newOffset[i].Dump(), expectOffset[i].Dump());
+    }
+    
+    alignedShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
+    rawShape = {kNumTwo, kNumEight};
+    dynShape = {kNumOne, kNumOne, SymbolicScalar("a"), kNumTwo};
+    dynOffset = {kNumOne, kNumOne, SymbolicScalar("b"), kNumOne};
+    shapePara = {alignedShape, rawShape, dynOffset, dynShape};
+    status = pass.DynAlignToRaw(shapePara, newOffset, newShape);
+    EXPECT_EQ(status, FAILED);
+    
+    alignedShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
+    rawShape = {kNumTwo, kNumEight};
+    dynShape = {kNumOne, kNumTwo, SymbolicScalar("a"), kNumTwo};
+    dynOffset = {kNumOne, kNumOne, SymbolicScalar("b"), kNumZero};
+    shapePara = {alignedShape, rawShape, dynOffset, dynShape};
+    status = pass.DynAlignToRaw(shapePara, newOffset, newShape);
+    EXPECT_EQ(status, FAILED);
+    
+    alignedShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
+    rawShape = {kNumTwo, kNumEight};
+    dynShape = {kNumOne, kNumOne, SymbolicScalar("a"), kNumOne};
+    dynOffset = {kNumOne, kNumOne, SymbolicScalar("b"), kNumZero};
+    shapePara = {alignedShape, rawShape, dynOffset, dynShape};
+    status = pass.DynAlignToRaw(shapePara, newOffset, newShape);
+    EXPECT_EQ(status, FAILED);
+}
+
 TEST_F(TestSplitReshapePass, TestAlignToRawSpecialCase) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestDuplicateView", "TestDuplicateView", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);

@@ -38,11 +38,30 @@ class ReshapeOp {
         std::shared_ptr<LogicalTensor> output;
 };
 
+struct UpdatePara {
+    int64_t ShapeVal;
+    int64_t OffsetVal;
+    int64_t stride;
+};
+
 struct ReshapeTilePara {
     std::vector<int> shape;
     std::vector<int> newShape;
     std::vector<int> tileOffset;
     std::vector<int> tileShape;
+};
+
+struct DynReshapeTilePara {
+    std::vector<int> shape;
+    std::vector<int> newShape;
+    std::vector<SymbolicScalar> dynOffset;
+    std::vector<SymbolicScalar> dynShape;
+};
+
+struct CheckParam {
+    LogicalTensorPtr input;
+    LogicalTensorPtr output;
+    LogicalTensorPtr inputView;
 };
 
 struct copyOutTilePara {
@@ -120,11 +139,13 @@ private:
     Status EraseReshape(Function &function);
     Status SetMemoryType(Function &function);
 
+    Status ObtainReshapeSource(Function &function, const CheckParam &para, LogicalTensorPtr &newReshapeSource);
     Status AddReshapeRemoveView(Operation &op, const OpPara &para);
     Status AddReshape(Operation &op, const OpPara &para);
     Status ObtainCopyOutTile(Function &function, const copyOutTilePara &copyOutTile, LogicalTensors &overlaps, LogicalTensors &newOverlaps);
     Status ConstructShapeOffset(const ReshapeTilePara &shapePara, size_t &i, size_t j, std::vector<int32_t> &newOffset, std::vector<int32_t> &newShape);
 
+    Status CheckValidOp(const CheckParam &para, LogicalTensorPtr &reshapeSource, std::vector<int32_t> &alignedShape, std::vector<int32_t> &newInputViewTileOffset, std::vector<int32_t> &newInputViewTileShape);
     Status CheckOp(Function &function, Operation &op);
     Status UpdateReshapeOp(Function &function, Operation &op, const OverlapStatus &status, const CalcOverlapPara &calcpara);
     Status UpdateForPerfectlyMatchWithUB(Operation &op, const PerfectlyMatchPara &para);
@@ -133,11 +154,13 @@ private:
     Status UpdateForPerfectlyMatch(Function &function, Operation &op, const CalcOverlapPara &para);
     Status UpdateForBeCoveredUBDDR(Operation &op, const BeCoveredPara &para);
     Status UpdateForBeCoveredOtherCase(Function &function, Operation &op, const BeCoveredPara &para);
+    Status ProcessBeCovered(Function &function, Operation &op, const CalcOverlapPara &para, const BeCoveredPara &beCoveredPara, LogicalTensorPtr &reshapeOutput);
     Status UpdateForBeCovered(Function &function, Operation &op, const CalcOverlapPara &para);
     Status UpdateForAssembleAfterReshapeWithUB(Operation &op, const AssemblePara &para);
     Status UpdateForAssembleAfterReshapeWithDDR(Operation &op, const AssemblePara &para);
     Status UpdateForAssembleAfterReshapeOtherCase(Function &function, Operation &op, const AssemblePara &para);
     Status UpdateForAssembleAfterReshape(Function &function, Operation &op, const CalcOverlapPara &para);
+    Status ProcessMultitoOne(Function &function, Operation &op, const CalcOverlapPara &para, const std::vector<int32_t> &newReshapeSourceTileShape, const std::vector<int32_t> &newReshapeSourceTileOffset);
     Status UpdateForPerfectlyMatchWithAllWithUB(Operation &op, const PerfectlyMatchWithAllPara &para);
     Status UpdateForPerfectlyMatchWithAllOtherCase(Operation &op, const PerfectlyMatchWithAllPara &para);
     Status UpdateForPerfectlyMatchWithAll(Function &function, Operation &op, const CalcOverlapPara &para);
@@ -148,10 +171,12 @@ private:
     unsigned long ComputeReshapeHash(const LogicalTensorPtr &input, const LogicalTensorPtr &output) const;
     unsigned long ComputeReshapeHashOrderless(const LogicalTensorPtr &input, const LogicalTensorPtr &output) const;
     
+    Status UpdateShapeOffset(UpdatePara &para, bool &flag, int &currentShape, int &currentOffset);
     Status ShapeAlign(std::vector<int32_t> shape1, std::vector<int32_t> shape2, std::vector<int32_t> &alignedShape);
     Status RawToAlign(const ReshapeTilePara &shapePara, std::vector<int32_t> &newOffset, std::vector<int32_t> &newShape);
     Status AlignToRaw(const ReshapeTilePara &shapePara, std::vector<int32_t> &newOffset, std::vector<int32_t> &newShape);
-
+    Status DynRawToAlign(const DynReshapeTilePara &shapePara, std::vector<SymbolicScalar> &newOffset, std::vector<SymbolicScalar> &newShape);
+    Status DynAlignToRaw(const DynReshapeTilePara &shapePara, std::vector<SymbolicScalar> &newOffset, std::vector<SymbolicScalar> &newShape);
     std::unordered_map<int, std::set<LogicalTensorPtr, TensorPtrComparator>> copyOutSources;
     std::unordered_map<InputMaigc, std::unordered_map<OutputMaigc, std::vector<int>>> mapOffset;
     std::unordered_map<int, LogicalTensorPtr> reshapeSources;
