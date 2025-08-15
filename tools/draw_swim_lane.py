@@ -101,10 +101,10 @@ class TaskInfo:
         res["args"]["ioperand-hint"] = self.inoperand_label
         res["args"]["ooperand-hint"] = self.outoperand_label
         res["args"]["execution-hint"] = self.get_task_execution_time_analysis()
+        res["args"]["color"] = self.color_label
         res["cat"] = "event"
         res["id"] = event_id
         res["name"] = self.get_task_name()
-        res["color"] = self.color_label
         res["ph"] = "X"
         res["pid"] = pid
         res["tid"] = tid
@@ -571,6 +571,8 @@ def process_ooo_mem_usage(outjson):
         time_events[i] = dict()
 
     for _, task in total_tasks.items():
+        if task.tensors_life_range['max_range'] == 0:
+            continue
         time_unit = (task.exec_end - task.exec_start) / task.tensors_life_range['max_range']
         for t_magic, t_life_range in task.tensors_life_range['data'].items():
             if len(t_life_range) == 0:
@@ -902,9 +904,9 @@ def load_dyn_topo(file_path, func_table_data, func_data):
                     "out_operands": fcvt.get_in_out_operands_data(
                         False, root_index, opmagic, func_table_data
                     ),
-                    "tensors_life_range": fcvt.get_tensors_life_range(func_hash, func_hash_data),
-                    "tensors": fcvt.get_tensors(func_hash, func_hash_data),
-                    "rawtensors": fcvt.get_rawtensors(func_hash, func_hash_data),
+                    "tensors_life_range": fcvt.get_tensors_life_range(str(func_hash), func_hash_data),
+                    "tensors": fcvt.get_tensors(str(func_hash), func_hash_data),
+                    "rawtensors": fcvt.get_rawtensors(str(func_hash), func_hash_data),
                 }
             )
     return topo
@@ -1108,7 +1110,7 @@ if __name__ == "__main__":
         func_data = func_table_data['functions']
         func_key = 0
         for _, func in enumerate(func_data):
-            if func['functype'] == 7:
+            if func['graphtype'] == 2:
                 func['funcKey'] = func_key
                 func_key += 1
                 root_func_table.append(func)

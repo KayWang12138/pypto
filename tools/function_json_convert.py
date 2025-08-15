@@ -139,9 +139,9 @@ def get_in_out_operand_str(is_inoperand, func_key, opmagic, func_table_data):
         return ""
     for call_op in func_table_data[func_key]["operations"]:
         if is_inoperand:
-            return convert_operands_to_str(call_op["ioperands"])
+            return convert_operands_data(call_op['ioperands'])
         else:
-            return convert_operands_to_str(call_op["ooperands"])
+            return convert_operands_data(call_op['ooperands'])
     return ""
 
 
@@ -150,9 +150,9 @@ def get_in_out_operands_data(is_inoperand, func_key, opmagic, func_table_data):
         return []
     for call_op in func_table_data[func_key]["operations"]:
         if is_inoperand:
-            return convert_operands_data(call_op["ioperands"])
+            return convert_operands_data(call_op['ioperands'])
         else:
-            return convert_operands_data(call_op["ooperands"])
+            return convert_operands_data(call_op['ooperands'])
     return []
 
 
@@ -181,6 +181,10 @@ def get_tensors_life_range(func_hash, func_hash_data):
     tensors_life_data = dict()
     tensors = func_hash_data[func_hash]['tensors']
     max_life_range = 0
+    tensors_life_range['data'] = tensors_life_data
+    tensors_life_range['max_range'] = max_life_range
+    if func_hash == '0':
+        return tensors_life_range
     for tensor in tensors:
         life_range = []
         for it in tensor.get('life_range').values():

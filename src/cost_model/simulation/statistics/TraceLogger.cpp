@@ -29,7 +29,6 @@ Json Event::ToJson()
     Json root;
 
     root["name"] = name;
-    root["color"] = this->GetColor();
     if (!catagory.empty()) {
         root["cat"] = catagory;
     }
@@ -47,7 +46,7 @@ Json Event::ToJson()
     if (!hint.empty()) {
         Json args;
         args["event-hint"] = hint;
-
+        args["color"] = this->GetColor();
         root["args"] = std::move(args);
     }
 
