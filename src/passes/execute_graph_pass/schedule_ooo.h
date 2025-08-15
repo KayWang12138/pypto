@@ -29,6 +29,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "passes/execute_graph_pass/buffer_pool.h"
+#include "passes/statistics/ooo_schedule_statistic.h"
 
 namespace npu::tile_fwk {
 
@@ -144,9 +145,7 @@ private:
     int workspaceMemId{SYMBOL_STACK_BASE};
     int maxTensorMagic{-1};
     int maxOpMagic{-1};
-    int workspaceOffset{0}; 
     uint64_t numTotalIssues{0};
-    int clock{0};
 
     Status Init(const std::vector<Operation *> &operations);
     Status InitDependencies();
@@ -171,7 +170,7 @@ private:
     bool GetBufNextUseTime(int curMemId, size_t& nextUseTime);
     bool GetBufLastUseTime(int curMemId, size_t& lastUseTime);
     bool GetBufLastWriteTime(int curMemId, size_t& lastWriteTime);
-    Status SpillBuffer(Function &function, int spillMemId, size_t &pcIdx);
+    Status SpillBuffer(Function &function, int spillMemId, size_t &pcIdx, LocalBufferPtr allocBuffer);
     Status CreateSpillCopyout(Function &func, IssueEntryPtr spillIssue, LogicalTensorPtr spillTensor, 
         int spillMemId, IssueEntryPtr &spillCopyout);
     Status CreateSpillReloadIssue(Function &func, LogicalTensorPtr spillOutTensor, 
@@ -200,6 +199,8 @@ private:
     size_t ShapeCeilAlign(std::vector<int> shape, DataType dtype);
     Status DelBufRefCount(const int memId);
     void PrintDependenciesAndRelations();
+    void UpdateBufferUsage(MemoryType bufferType, int memId, bool isFree);
+    OoOSchedulerCheck::SpillInfo RecordSpillInfo(MemoryType bufferType, int memId, LocalBufferPtr allocIssue, LogicalTensorPtr spillOutTensor, bool needCopyOut);
 
 public:
     Status Schedule(Function &function, const std::vector<Operation *> &operations, 
@@ -208,6 +209,9 @@ public:
     int GetSubgraphID() { 
         return subGraphID; 
     }
+    int workspaceOffset{0};
+    int clock{0};
+    OoOSchedulerCheck oooCheck;
 };
 
 class OoOSchedule : public Pass {
