@@ -21,8 +21,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/configs/config_storage.h"
-#include "operator/models/nsa/slc_attn.h"
-#include "operator/models/deepseek/gen_kv_slc.h"
+#include "operator/models/nsa/nsa_selected_attention.h"
 #include "operator/models/deepseek/dynamic_mla.h"
 #include "operator/models/nsa/win_attention.h"
 #include "operator/models/nsa/attention_post.h"
@@ -115,9 +114,9 @@ void DynamicNsa(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, co
     const Tensor &wDkvKr, const Tensor &gammaCq, const Tensor &gammaCkv, const Tensor &sin, const Tensor &cos,
     const Tensor &cacheIndex, Tensor &kvCache, Tensor &krCache, const MlaQuantInputs &quantInputs,
     const MlaTileConfig &tileConfig, float epsilonCq, float epsilonCkv, std::string cacheMode,
-    Tensor &topkIndices, Tensor &topkTensorShape, Tensor &kvActSeqs, Tensor &blockTable,
-    int front, int near, int topk, int slcBlockSize, int blockSize, KvSlcTileShapeConfig &kvSlcTileConfig,
-    Tensor &kvSlcActSeqs, float softmaxScale, SaTileShapeConfig saTileConfig,
+    Tensor &topkIndices, Tensor &kvActSeqs, Tensor &blockTable,
+    int front, int near, int topk, int slcBlockSize, int blockSize,
+    float softmaxScale, SATileShapeConfig saTileConfig,
     const Tensor &gateW1, const Tensor &gateW2, const Tensor &gateSimW1, GateMode gateMode,
     Tensor &cmpAtten, int winSize, WinAttenTileShapeConfig &winAttntileConfig,
     Tensor &weightUV, Tensor &weightO, Tensor &weightOScale, Tensor &smoothScalesWo, const PostTileConfig &postConfig,

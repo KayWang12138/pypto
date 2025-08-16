@@ -57,6 +57,7 @@ void TestKvSlcAttn(const NSASimpleParams &params, SATileShapeConfig& saTileConfi
     int dr = params.rope_dim;
     float softmaxScale = static_cast<float>(1.0 / sqrtf((dn + dr)));
     int blockSize = params.blockSize;
+    int cmpBlockSize = params.cmpBlockSize;
     int slcBlockSize = params.slcBlockSize;
     int front = params.front;
     int near = params.near;
@@ -129,16 +130,16 @@ void TestKvSlcAttn(const NSASimpleParams &params, SATileShapeConfig& saTileConfi
     std::vector<T> vSlcOutGolden = getGoldenVec<T>(vSlcShape, "/kr_slc_out.bin");
     std::vector<float> attenOutGolden = getGoldenVec<float>(shape_selAtten, "/slc_attn_out.bin");
     // 4. 计算接口
-    SelectedAttention(topkIndices, topkTensorShape, kvNopeCache, kRopeCache, kvCacheActSeq, blockTable,
+    SelectedAttention(topkIndices, kvNopeCache, kRopeCache, kvCacheActSeq, blockTable,
         qNope, qRope, attenOut,
-        n1, n2, softmaxScale, front, near, topk, blockSize, slcBlockSize,
+        n1, n2, softmaxScale, front, near, topk, blockSize, cmpBlockSize, slcBlockSize,
         saTileConfig);
 
     auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
     // 5. 更新输入输出list
     DynFuncRunner::Run(funcOp,
-        {topkIndicesData, topkTensorShapeData, kvNopeCacheData, kRopeCacheData, kvCacheActSeqData, blockTableData, // genkvSlc
+        {topkIndicesData, kvNopeCacheData, kRopeCacheData, kvCacheActSeqData, blockTableData, // genkvSlc
          qNopeData, qRopeData// slcAtten
         }, // input list
         {attenOutZeroData}); // output list

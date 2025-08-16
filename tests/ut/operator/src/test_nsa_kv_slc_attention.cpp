@@ -59,6 +59,7 @@ void TestKvSlcAttn(const NSASimpleParams &params, SATileShapeConfig& saTileConfi
     int dr = params.rope_dim;
     float softmaxScale = static_cast<float>(1.0 / sqrtf((dn + dr)));
     int blockSize = params.blockSize;
+    int cmpBlockSize = params.cmpBlockSize;
     int slcBlockSize = params.slcBlockSize;
     int front = params.front;
     int near = params.near;
@@ -106,9 +107,9 @@ void TestKvSlcAttn(const NSASimpleParams &params, SATileShapeConfig& saTileConfi
     Tensor attenOut(DT_FP32, shape_selAtten, "attenOut");
 
 
-    SelectedAttention(topkIndices, topkTensorShape, kvNopeCache, kRopeCache, kvCacheActSeq, blockTable,
+    SelectedAttention(topkIndices, kvNopeCache, kRopeCache, kvCacheActSeq, blockTable,
         qNope, qRope, attenOut,
-        n1, n2, softmaxScale, front, near, topk, blockSize, slcBlockSize,
+        n1, n2, softmaxScale, front, near, topk, blockSize, cmpBlockSize, slcBlockSize,
         saTileConfig);
 }
 

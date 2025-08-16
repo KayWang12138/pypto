@@ -47,8 +47,8 @@ public:
 };
 
 template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool isSmooth = false, bool nz = false>
-void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig, WinAttenTileShapeConfig &winAttntileConfig, SaTileShapeConfig& saTileConfig,
-    KvSlcTileShapeConfig& kvSlcTileConfig, PostTileConfig& postConfig, CmpAttnTile &cmpTileConfig, std::string cacheMode = "PA_BSND") {
+void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig, WinAttenTileShapeConfig &winAttntileConfig, SATileShapeConfig& saTileConfig,
+    PostTileConfig& postConfig, CmpAttnTile &cmpTileConfig, std::string cacheMode = "PA_BSND") {
     float eps = params.eps;
     int b = params.b;
     int s1 = params.s1;
@@ -258,18 +258,18 @@ void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig, W
 
     MlaQuantInputs quantInputs;
 
-
     // 4. 计算接口
     DynamicNsa(x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache, quantInputs,
-        prologConfig, eps, eps, cacheMode, topkIndices, topkTensorShape, /*kvNopeCache, kRopeCache,*/ kvCacheActSeq,
-        blockTable, front, near, topk, slcBlockSize, blockSize, kvSlcTileConfig, // genKvSlc
-        /*qNope, qRope,*/ slcActSeqs, softmaxScale, saTileConfig,                // slcAttn
+        prologConfig, eps, eps, cacheMode, topkIndices, /*kvNopeCache, kRopeCache,*/ kvCacheActSeq,
+        blockTable, front, near, topk, slcBlockSize, blockSize, // genKvSlc
+        /*qNope, qRope, slcActSeqs,*/ softmaxScale, saTileConfig,                // slcAttn
         /*x, */ gateW1, gateW2, gateSimW1, GateMode::standard,                   // gatedscore
         cmpAtten, winSize, winAttntileConfig,                                    // gen win
         wUv, wo, woScale, smoothWo, postConfig,                                  // post
         outputKvCache, outputKrCache, postOut, cmpKvCache_v2, cmpKrCache_v2, cmpBlockTable_v2, actSeqLen_v2,
         actCmpSeqLen_v2, mlpWk1_v2, mlpWk2_v2, mlpCos_v2, mlpSin_v2, cmpAttn, cmpSoftmax, fullK, cmpK, firstRope,
         firstRopeInput, topkRes, topkInput, cmpBlockSize, cmpStride, cmpTileConfig);
+
 }
 
 TEST_F(NSAUtest, nsa_b_16_fp16) {
@@ -285,7 +285,8 @@ TEST_F(NSAUtest, nsa_b_16_fp16) {
     int isQuant = inputParams[5];
     int isSmooth = inputParams[6];
 
-    SaTileShapeConfig saTileConfig;
+    SATileShapeConfig saTileConfig;
+    saTileConfig.kvSlcV0TileShape = {64, 256}; // slcBlockSize=64
     const int gTile = 128; // for gLoop split
     const int sTile = 1024; // for s2Loop split
     saTileConfig.gTile = gTile;
@@ -305,9 +306,6 @@ TEST_F(NSAUtest, nsa_b_16_fp16) {
     winAttnTileConfig.v1TileShape = {NUM_16, NUM_256}; // (n1, s2Tile)
     winAttnTileConfig.c2TileShape = {gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, winSize) @ (winSize, dN) -> (n1, d)
     winAttnTileConfig.v2TileShape = {NUM_16, NUM_256}; // (n1, d)
-
-    KvSlcTileShapeConfig kvSlcTileConfig;
-    kvSlcTileConfig.v0TileShape = {32, 32};
 
     PostTileConfig postConfig = {16, 1};
     MlaTileConfig prologConfig = {16, 1};
@@ -336,11 +334,11 @@ TEST_F(NSAUtest, nsa_b_16_fp16) {
     std::string cacheMode = "PA_BSND";
     if (isQuant == 1) {
         if (isSmooth == 1) {
-            TestNsa<npu::tile_fwk::float16, int8_t, true>(params, prologConfig, winAttnTileConfig, saTileConfig, kvSlcTileConfig, postConfig, config, cacheMode);
+            TestNsa<npu::tile_fwk::float16, int8_t, true>(params, prologConfig, winAttnTileConfig, saTileConfig, postConfig, config, cacheMode);
         } else {
-            TestNsa<npu::tile_fwk::float16, int8_t, false>(params, prologConfig, winAttnTileConfig, saTileConfig, kvSlcTileConfig, postConfig, config, cacheMode);
+            TestNsa<npu::tile_fwk::float16, int8_t, false>(params, prologConfig, winAttnTileConfig, saTileConfig, postConfig, config, cacheMode);
         }
     } else {
-        TestNsa<npu::tile_fwk::float16, npu::tile_fwk::float16, false>(params, prologConfig, winAttnTileConfig, saTileConfig, kvSlcTileConfig, postConfig, config, cacheMode);
+        TestNsa<npu::tile_fwk::float16, npu::tile_fwk::float16, false>(params, prologConfig, winAttnTileConfig, saTileConfig, postConfig, config, cacheMode);
     }
 }

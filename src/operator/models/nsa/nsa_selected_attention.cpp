@@ -33,9 +33,9 @@ using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
 
-void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &topKTensorShape, Tensor &kvNopeCache, Tensor &kRopeCache, Tensor &kvActSeqs, Tensor &blockTable,
+void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &kRopeCache, Tensor &kvActSeqs, Tensor &blockTable,
     const Tensor &qNope, const Tensor &qRope, Tensor &attentionOut,
-    int nQ, int nKv, float softmaxScale, int front, int near, int topk, int blockSize, int slcBlockSize,
+    int nQ, int nKv, float softmaxScale, int front, int near, int topk, int blockSize, int cmpBlockSize, int slcBlockSize,
     SATileShapeConfig saTileConfig) {
     auto dtype = qNope->Datatype();
     int dN = qNope->shape[1];
@@ -67,16 +67,17 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &topKTensorShape, Tens
 
     LOOP("LOOP_L0_b_SA", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, batchSizeSym, 1), {}, true) {
         SymbolicScalar curActSeq = GetInputDataInt32Dim1(kvActSeqs, bIdx);
+        curActSeq.AsIntermediateVariable();
         LOOP("LOOP_L1_s1_SA", FunctionType::DYNAMIC_LOOP, s1Idx, LoopRange(0, s1Sym, 1)) {
             LOOP("LOOP_L2_n2_SA", FunctionType::DYNAMIC_LOOP, n2Idx, LoopRange(0, n2Sym, 1)) { // GQA场景
                 Tensor kSlc(dtype, {topk * slcBlockSize, dN + dR}, "kSlc");
+                Tensor vSlc(dtype, {topk * slcBlockSize, dN + dR}, "vSlc");
 
                 SymbolicScalar curKvSlcSeq = 0;
                 config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, false);
+                SymbolicScalar sSlc = (curActSeq - s1Sym + 1 + s1Idx - cmpBlockSize + slcBlockSize) / slcBlockSize;
                 LOOP("LOOP_L3_kv_slc_SA", FunctionType::DYNAMIC_LOOP, kvSlcIdx, LoopRange(0, 1, 1), {}, true) { // kv_slc
                     (void)kvSlcIdx;
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
-                    SymbolicScalar sSlc = GetInputDataInt32Dim2(topKTensorShape, bIdx, s1Idx);
                     SymbolicScalar positions = 0;
                     SymbolicScalar slcSeqLen = 0;
                     for (int topKIdx = 0; topKIdx < topk; topKIdx++) {
@@ -110,6 +111,7 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &topKTensorShape, Tens
                         SymbolicScalar slcOutSOffset = topKIdx * slcBlockSize; // 需要调整kv_slc拼接时，near和topk的顺序
                         DAssemble(kvSlcBlock_fp16, {slcOutSOffset, 0}, kSlc);
                         DAssemble(krSlcBlock_fp16, {slcOutSOffset, dN}, kSlc);
+                        DAssemble(kvSlcBlock_fp16, {slcOutSOffset, 0}, vSlc);
                     }
                 }
 
@@ -137,7 +139,7 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &topKTensorShape, Tens
 
                         auto kj = DViewPad(kSlc, {curS2Tile, dN + dR}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN + dR},
                                         {s2Idx * curS2Tile, 0}); // kSlc已经合并了rope和nope
-                        auto vj = DViewPad(kSlc, {curS2Tile, dN}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN},
+                        auto vj = DViewPad(vSlc, {curS2Tile, dN}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN},
                                         {s2Idx * curS2Tile, 0});
 
                         // C1
@@ -221,16 +223,16 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &topKTensorShape, Tens
     }
 }
 
-void SelectedAttention(Tensor &topKIndcies, Tensor &topKTensorShape, Tensor &kvNopeCache, Tensor &kRopeCache, Tensor &kvActSeqs, Tensor &blockTable,
+void SelectedAttention(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &kRopeCache, Tensor &kvActSeqs, Tensor &blockTable,
     const Tensor &qNope, const Tensor &qRope, Tensor &attentionOut,
-    int nQ, int nKv, float softmaxScale, int front, int near, int topk, int blockSize, int slcBlockSize,
+    int nQ, int nKv, float softmaxScale, int front, int near, int topk, int blockSize, int cmpBlockSize, int slcBlockSize,
     SATileShapeConfig saTileConfig) {
     FUNCTION("SA_MAIN", FunctionType::DYNAMIC, 
-        {topKIndcies, topKTensorShape, kvNopeCache, kRopeCache, kvActSeqs, blockTable, qNope, qRope},
+        {topKIndcies, kvNopeCache, kRopeCache, kvActSeqs, blockTable, qNope, qRope},
         {attentionOut}) {
-        SelectedAttentionCompute(topKIndcies, topKTensorShape, kvNopeCache, kRopeCache, kvActSeqs, blockTable,
+        SelectedAttentionCompute(topKIndcies, kvNopeCache, kRopeCache, kvActSeqs, blockTable,
             qNope, qRope, attentionOut,
-            nQ, nKv, softmaxScale, front, near, topk, blockSize, slcBlockSize,saTileConfig);
+            nQ, nKv, softmaxScale, front, near, topk, blockSize, cmpBlockSize, slcBlockSize, saTileConfig);
     }
 }
 

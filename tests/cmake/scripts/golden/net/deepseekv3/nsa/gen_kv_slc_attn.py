@@ -223,7 +223,7 @@ def kv_slc_compute(compute_input_params, topk_indecies, topk_tensor_shape, kvNop
 
                     slcBlockIdx = block_table[batchIdx][block_idx_in_batch]
                     
-                    slcSeqLen += max(l_prime - max(position * l_prime + l_prime - actual_seq_len[batchIdx], 0), 0)
+                    slcSeqLen += min(l_prime, actual_seq_len[batchIdx] - position * l_prime)
                     
                     preIdx_out_base = batchIdx * s * n2 * topK * l_prime + seqIdx * n2 * topK * l_prime + nkvIdx * topK * l_prime + topKIdx * l_prime
                     preIdx_cache_base = slcBlockIdx * block_size + tail

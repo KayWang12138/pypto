@@ -395,13 +395,14 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
         gen_prolog_input_data(prolog_params, [dtype, dtype], epsilon, output_dir, is_quant, is_nz, has_smooth,
                               block_size, cache_mode)
 
-    # gen kv_slc
-    s_slc = (((s2-32)//16+1)+3)//4  # TODO: 中间输出，后续topk子图拼接后，需要删除topk_indices的生成
-    topk_indices = gen_uniform_data(shape_topk_indices, 0, s_slc, dtype=np.int32)
+    # 计算公式：s_slc = (act_seq_len[bIdx] + s1Idx - s1 + 1 - cmp_block_size + slc_block_size) // slc_block_size
     topk_tensor_shape = np.zeros([b, s], dtype=np.int32)
-    for batchIdx in range(b):
-        for seqIdx in range(s):
-            topk_tensor_shape[batchIdx][seqIdx] = s_slc
+    topk_indices = np.zeros(shape_topk_indices, dtype=np.int32)
+    for bIdx in range(b):
+        for s1Idx in range(s):
+            s_slc = (kv_cache_actual_seq[bIdx] + s1Idx - s + 1 - cmp_block_size + slc_block_size) // slc_block_size
+            topk_tensor_shape[bIdx][s1Idx] = s_slc
+            topk_indices[bIdx][s1Idx] = gen_uniform_data([shape_topk_indices[-1]], 0, s_slc, dtype=np.int32)
 
     # gen gated_score
     # x = gen_uniform_data(x_shape, -1, 1, dtype)
