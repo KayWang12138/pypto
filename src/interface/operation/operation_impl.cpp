@@ -1841,6 +1841,21 @@ Tensor VectorDuplicate(const SymbolicScalar &dynSrc, DataType dtype, std::vector
     RETURN_CALL(VectorDuplicateOperation, *Program::GetInstance().GetCurrentFunction(), Element(dtype, (int64_t)0), dynSrc, dtype, dstShape, validShape);
 }
 
+void Print(const Tensor &operand, const std::string &msg, SymbolicScalar cond) {
+    auto function = Program::GetInstance().GetCurrentFunction();
+    auto &op = function->AddOperation(Opcode::OP_PRINT, {operand.GetStorage()}, {});
+    op.SetAttribute(OP_ATTR_PREFIX + "msg", msg);
+    op.SetAttribute(OP_ATTR_PREFIX + "cond", cond);
+}
+
+void ToFile(const Tensor &operand, const std::string &fname, SymbolicScalar cond) {
+    auto function = Program::GetInstance().GetCurrentFunction();
+    auto &op = function->AddOperation(Opcode::OP_PRINT, {operand.GetStorage()}, {});
+    ASSERT(!fname.empty()) << "Invalid file name";
+    op.SetAttribute(OP_ATTR_PREFIX + "fname", fname);
+    op.SetAttribute(OP_ATTR_PREFIX + "cond", cond);
+}
+
 Tensor GatherElement(const Tensor &params, const Tensor &indices, int axis) {
     DECLARE_TRACER();
 

@@ -107,6 +107,7 @@ enum class Opcode {
     // Special
     OP_CALL,
     OP_CALL_NOT_EXPAND,
+    OP_PRINT,
     OP_NOP,
 
     OP_UB_ALLOC,

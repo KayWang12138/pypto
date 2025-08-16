@@ -221,6 +221,7 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_COPY_OUT, OpCoreType::ANY, "COPY_OUT", {}, {}, {}, OpCalcType::MOVE_OUT, {OP_ATTR_PREFIX + "atomic_add", OpAttributeKey::inputCombineAxis});
     // Special
     registerInfo(Opcode::OP_CALL, OpCoreType::ANY, "CALL", {}, {}, {}, OpCalcType::SYS);
+    registerInfo(Opcode::OP_PRINT, OpCoreType::ANY, "OP_DUMP", {}, {}, {}, OpCalcType::SYS, {});
     registerInfo(Opcode::OP_CALL_NOT_EXPAND, OpCoreType::ANY, "CALL_NOT_EXPAND", {}, {}, {}, OpCalcType::SYS);
     // Begin: add for TOPK and ArgSort
     registerInfo(Opcode::OP_BITSORT, OpCoreType::ANY, "BITSORT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::BitSort", PIPE_S, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "order"});

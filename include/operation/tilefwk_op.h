@@ -24,6 +24,27 @@
 namespace npu::tile_fwk {
 constexpr const int TILE_VEC_DIMS = 2;
 constexpr const int TILE_CUBE_DIMS = 6;
+
+/**
+ * \brief Print a tensor
+ *
+ * \param operand tensor to print
+ * \param msg extra message, symbols are allowed, eg: "i={i}"
+ * \param cond print only the result `cond` evaluate result  is not zero
+ * \attention Only takes in flow verifier
+ */
+void Print(const Tensor &operand, const std::string &msg, SymbolicScalar cond = 1);
+
+/**
+ * \brief Dump a tensor to file
+ *
+ * \param operand tensor to dump
+ * \param fname filename, symbols are allowed, eg: "t_{i}.bin"
+ * \param cond Dump the tensor only `cond` evaluate result is none zero
+ * \attention Only takes in flow verifier
+ */
+void ToFile(const Tensor &operand, const std::string &fname, SymbolicScalar cond = 1);
+
 Tensor View(const Tensor &operand, const std::vector<int> &shapes, const std::vector<int> &offsets);
 Tensor DView(const Tensor &operand, const std::vector<int> &shapes, const std::vector<SymbolicScalar> &newOffsets);
 Tensor DViewPad(const Tensor &operand, const std::vector<int> &shapes,

@@ -85,6 +85,7 @@ TEST_F(DynamicOpsTest, AssembleFp16) {
     config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
     config::SetPlatformConfig(KEY_VERIFY_PASS, true);
     config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, true);
+    // config::SetPlatformConfig(KEY_VERIFY_DUMP_PERF_DATA, true);
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
     Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
@@ -108,14 +109,15 @@ TEST_F(DynamicOpsTest, AssembleFp16) {
     });
 
     FUNCTION("main", FunctionType::DYNAMIC, {t0, t1}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(3)) {
             auto t0a = View(t0, {s, s}, {0, 0});
             auto t0b = View(t0, {s, s}, {s, 0});
             auto t1a = View(t1, {s, s}, {0, 0});
             auto t1b = View(t1, {s, s}, {s, 0});
             auto t2a = Add(t0a, t1a);
             auto t2b = Add(t0b, t1b);
+            ToFile(t2b, "t2b_{i}.bin", i % 2 == 0);
+            Print(t2b, "i={i}", i == 1);
             std::vector<std::pair<Tensor, std::vector<int>>> data = {
                 {t2a, {0, 0}},
                 {t2b, {s, 0}},

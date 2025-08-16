@@ -254,6 +254,8 @@ struct FunctionControlFlowExecution {
 constexpr int EXEC_DUMP_LEVEL_OPERATION = 1;
 constexpr int EXEC_DUMP_LEVEL_TENSOR = 2;
 
+enum class VerifyType { INVALID, TENSOR_GRAPH, PASS, EXECUTE_GRAPH };
+
 struct FunctionInterpreter {
     FunctionInterpreter(int threadCount)
         : operationInterpreter(std::make_shared<OperationInterpreter>(threadCount)) {}
@@ -279,6 +281,8 @@ struct FunctionInterpreter {
     uint64_t dumpTensorUsage{0};
     uint64_t dumpOperationUsage{0};
     uint64_t totalTimeUsage{0};
+
+    VerifyType verifyType{VerifyType::INVALID};
 
     int GetThreadCount() const { return operationInterpreter->GetThreadCount(); }
 
@@ -488,6 +492,8 @@ struct FunctionInterpreter {
 
         ExecuteHandleFunctionBegin(func, frame);
         for (auto &op : func->Operations()) {
+            if (op.GetOpcode() == Opcode::OP_PRINT && verifyType != VerifyType::TENSOR_GRAPH)
+                continue;
             ExecuteHandleOperationBegin(&op);
             ExecuteOperation(*frame, &op);
             ExecuteHandleOperationEnd();

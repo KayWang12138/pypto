@@ -18,6 +18,8 @@
 
 #include "interface/interpreter/thread_pool.h"
 #include "interface/operation/attribute.h"
+#include "interface/configs/config_manager.h"
+#include "interface/utils/file_utils.h"
 #include "interface/tensor/symbolic_scalar_evaluate.h"
 #include "calculator.h"
 #include "tilefwk/data_type.h"
@@ -158,6 +160,53 @@ private:
         auto &oop = ctx->ooperandInplaceDataViewList->at(0);
         auto &iop = ctx->ioperandDataViewList->at(0);
         Calculator::CalcCopy(oop.get(), iop.get(), &pool);
+    }
+
+    std::string FormatString(const std::string &s) {
+        std::stringstream ss;
+        size_t pos = 0;
+        while (pos < s.size()) {
+            if (s[pos] == '{') {
+                size_t end = s.find('}', pos + 1);
+                if (end == std::string::npos) {
+                    ss << s.substr(pos);
+                    break;
+                } else {
+                    auto symbol = s.substr(pos + 1, end - pos - 1);
+                    ss << EvaluateSymbolicScalar(symbol);
+                    pos = end + 1;
+                }
+            } else {
+                ss << s[pos];
+                pos++;
+            }
+        }
+        return ss.str();
+    }
+
+    void ExecutePrint(ExecuteOperationContext *ctx) {
+        auto &iop = ctx->ioperandDataViewList->at(0);
+        auto cond = ctx->op->GetSymbolicScalarAttribute(OP_ATTR_PREFIX + "cond");
+        if (!EvaluateSymbolicScalar(cond)) {
+            return;
+        }
+
+        if (ctx->op->HasAttribute(OP_ATTR_PREFIX + "fname")) {
+            auto fname = ctx->op->GetStringAttribute(OP_ATTR_PREFIX + "fname");
+            auto fpath = config::LogTopFolder() + "/tensor/" + FormatString(fname);
+            auto shape = iop->GetValidShape();
+            if (shape.empty()) {
+                shape = iop->GetShape();
+            }
+            auto oop = LogicalTensorData::CreateEmpty(iop->GetDataType(), shape, shape);
+            Calculator::CalcCopy(oop.get(), iop.get(), &pool);
+            oop->GetData()->ToFile(fpath);
+        }
+
+        if (ctx->op->HasAttribute(OP_ATTR_PREFIX + "msg")) {
+            auto msg = ctx->op->GetStringAttribute(OP_ATTR_PREFIX + "msg");
+            std::cout << FormatString(msg) << "\n" << iop->Dump() << std::endl;
+        }
     }
 
     void ExecuteOpReshape(ExecuteOperationContext *ctx) {

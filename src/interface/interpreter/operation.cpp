@@ -35,7 +35,7 @@ std::vector<int> OperationInterpreter::EvaluateOpImmediate(
                 res = EvaluateSymbolicScalar(attr);
             } else {
                 res = EvaluateSymbolicScalar(opImm.GetSpecifiedValue());
-            }            
+            }
         } else {
             int index = opImm.GetParameterIndex();
             auto attr = frame->callopAttr->GetLinearArgList()[index];
@@ -125,6 +125,7 @@ void OperationInterpreter::ExecuteOperation(ExecuteOperationContext *ctx) {
         {Opcode::OP_COPY_OUT, &OperationInterpreter::ExecuteOpCopyOut},
         {Opcode::OP_COPY_IN, &OperationInterpreter::ExecuteOpCopyIn},
         {Opcode::OP_REGISTER_COPY, &OperationInterpreter::ExecuteOpCopy},
+        {Opcode::OP_PRINT, &OperationInterpreter::ExecutePrint},
     };
     // clang-format on
 

@@ -118,6 +118,7 @@ void FlowVerifier::VerifyTensorGraph(
     int threadCount = config::GetPlatformConfig(KEY_VERIFY_THREAD_NUMBER, 64);
     functionInterpreter_ = std::make_shared<FunctionInterpreter>(threadCount);
     functionInterpreter_->Initialize(entry, inputDataViewList_);
+    functionInterpreter_->verifyType = VerifyType::TENSOR_GRAPH;
     UpdateInterpreterCache();
 
     if (config::GetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_DUMP_OPERATION, false)) {
@@ -126,10 +127,18 @@ void FlowVerifier::VerifyTensorGraph(
     if (config::GetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_DUMP_TENSOR, false)) {
         functionInterpreter_->DumpSetLevelTensor();
     }
+
+    auto tensorDir = config::LogTopFolder() + "/tensor";
+    CreateMultiLevelDir(tensorDir);
+
     controlFlowExecution_ =
         functionInterpreter_->RunForControlFlow("tensor_graph", goldenDataViewList_, slotTileOpFormatDict, slotDataViewDict, outputSlotSet, controlFlowSymbolDict);
-    ALOG_EVENT(entry->GetMagicName() + "_tensor_graph\n", functionInterpreter_->DumpStatistics());
+
+    if (config::GetPlatformConfig(KEY_VERIFY_DUMP_PERF_DATA, false)) {
+        ALOG_EVENT(entry->GetMagicName() + "_tensor_graph\n", functionInterpreter_->DumpStatistics());
+    }
     functionInterpreter_->DumpReset();
+
     if (config::GetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true)) {
         auto tensorGraphResult = VerifyResult("Tensor graph", goldenDataViewList_, outputDataViewList_, static_cast<float>(1e-3));
         ASSERT(tensorGraphResult) << "Verify Tensor Graph Fail!";
@@ -172,6 +181,7 @@ static std::string ToString(const T &val, size_t totalSize) {
 }
 
 void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &passIdentifier) {
+    functionInterpreter_->verifyType = VerifyType::PASS;
     UpdateInterpreterCache();
     //只有执行过的才需要verify
     if (controlFlowExecution_->executionListDict.count(func) == 0) {
@@ -220,11 +230,15 @@ void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &
             ASSERT(passResult) << "Verify Pass Fail!";
         }
     }
-    ALOG_EVENT(func->GetMagicName() + "_" + passIdentifier + "\n", functionInterpreter_->DumpStatistics());
+
+    if (config::GetPlatformConfig(KEY_VERIFY_DUMP_PERF_DATA, false)) {
+        ALOG_EVENT(func->GetMagicName() + "_" + passIdentifier + "\n", functionInterpreter_->DumpStatistics());
+    }
     functionInterpreter_->DumpReset();
 }
 
 void FlowVerifier::VerifyExecuteGraph() {
+    functionInterpreter_->verifyType = VerifyType::EXECUTE_GRAPH;
     UpdateInterpreterCache();
 
     for (auto &[func, captureList]: controlFlowExecution_->executionListDict) {
@@ -242,8 +256,12 @@ void FlowVerifier::VerifyExecuteGraph() {
             }
             auto &capture = captureList[captureIndex];
             auto captureExecution = functionInterpreter_->RunForExecuteGraph(key, func, capture);
-            ALOG_EVENT(func->GetMagicName() + "_tensor_graph\n", functionInterpreter_->DumpStatistics());
+
+            if (config::GetPlatformConfig(KEY_VERIFY_DUMP_PERF_DATA, false)) {
+                ALOG_EVENT(func->GetMagicName() + "_tensor_graph\n", functionInterpreter_->DumpStatistics());
+            }
             functionInterpreter_->DumpReset();
+
             if (config::GetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_CHECK_PRECISION, true)) {
                 auto executeResult = VerifyResult(key, capture->golden->outcastDataViewList, captureExecution->golden->outcastDataViewList,
                     static_cast<float>(1e-3));

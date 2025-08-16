@@ -147,7 +147,7 @@ Status ExpandFunction::Expandfunction(Function &function) const {
 
     for (auto &op : tensorOperations) {
         if (op == nullptr) {return FAILED;}
-        if (op->GetOpcode() == Opcode::OP_NOP) {
+        if (op->GetOpcode() == Opcode::OP_NOP || op->GetOpcode() == Opcode::OP_PRINT) {
             continue;
         }
         bool needCopy = CheckAssembleNeedCopy(function, op);
