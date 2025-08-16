@@ -9,13 +9,13 @@
  */
 
 /*!
- * \file dynamic_nsa.h
+ * \file DYNAMIC_NSA_V1.h
  * \brief
  */
 
 #pragma once
-#ifndef DYNAMIC_NSA
-#define DYNAMIC_NSA
+#ifndef DYNAMIC_NSA_V1
+#define DYNAMIC_NSA_V1
 
 #include "common/pre_def.h"
 #include "tilefwk/tilefwk.h"
@@ -103,6 +103,8 @@ struct NSASimpleParams {
         return params;
     }
 };
+void GenGatedScoreCompute(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, const Tensor &gateSimW1,
+    Tensor &gatingScore, GateMode gateMode) ;
 
 void GenGatedScore(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, const Tensor &gateSimW1,
     Tensor& gatingScore, GateMode gateMode);
@@ -129,4 +131,4 @@ void DynamicNsa(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, co
 
 } // namespace npu::tile_fwk
 
-#endif // DYNAMIC_NSA
+#endif // DYNAMIC_NSA_V1

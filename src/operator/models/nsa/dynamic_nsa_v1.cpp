@@ -24,6 +24,13 @@
 
 namespace npu::tile_fwk {
 
+void GenGatedScoreCompute(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, const Tensor &gateSimW1,
+    Tensor &gatingScore, GateMode gateMode) {
+    FUNCTION("FusedCompressKvSelect", FunctionType::DYNAMIC, {x, gateW1, gateW2, gateSimW1}, {gatingScore}) {
+        GenGatedScore(x, gateW1, gateW2, gateSimW1, gatingScore, gateMode);
+    }
+}
+
 void GenGatedScore(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, const Tensor &gateSimW1,
     Tensor &gatingScore, GateMode gateMode) {
     (void)gateSimW1;
@@ -63,8 +70,10 @@ void GenGatedScore(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, 
             Program::GetInstance().GetTileShape().SetVecTileShapes({2, tileS, 3, n1});
 
             res = Transpose(res, {2, 3});
-
-            DAssemble(Cast(res, dType), {bOfs, sIdx, 0, 0}, gatingScore);
+            if (gatingScore->Datatype() != DT_FP32) {
+                res = Cast(res, dType);
+            }
+            DAssemble(res, {bOfs, sIdx, 0, 0}, gatingScore);
         }
     }
 }

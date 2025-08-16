@@ -16,6 +16,7 @@
 #include "test_dynamic.h"
 #include "test_suite_stest_ops.h"
 #include "operator/models/deepseek/dynamic_nsa.h"
+#include "operator/models/nsa/dynamic_nsa_v1.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -50,60 +51,40 @@ static std::vector<T> getGoldenVec(std::vector<int> shape, std::string fileName)
     return golden;
 }
 
-template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool splitK = false, bool nz = true,
-    bool isSmooth = true, bool usePrefetch = true>
+template <typename T = float16, typename outputT = float, bool nz = false>
 void TestNsa(const SimpleParams &params) {
     int b = params.b;
     int s = params.s;
     int n = params.n;
     int h = params.h;
 
-    DataType dType = (std::is_same<T, npu::tile_fwk::float16>::value) ? DT_FP16 : DT_BF16;
+    DataType dType = (std::is_same<T, float16>::value) ? DT_FP16 : DT_BF16;
+    DataType outputDtype = (std::is_same<outputT, float>::value) ? DT_FP32 : dType;
+    TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
+    std::vector<int> outputShape = {b, s, n, 3};
 
-    std::vector<int> x_shape = {b, s, h};
-    std::vector<int> gateW1Shape = {h, 4 * h};
-    std::vector<int> gateW2Shape = {4 * h, 3 * n};
-    std::vector<int> gateSimW1Shape = {h, 3 * n};
-    //    std::vector<int> gatingScoreShape = {b, n, s, 3};
-    std::vector<int> gatingScoreShape = {b, s, n, 3};
-    std::vector<int> tempShape = {b * s, n * 3};
-    std::vector<int> mm1Shape = {b * s, 4 * h};
+    Tensor x(dType, {b, s, h}, "x");
+    Tensor w1(dType, {h, 4 * h}, "w1", NodeType::LOCAL, weightFormat);
+    Tensor w2(dType, {4 * h, 3 * n}, "w2", NodeType::LOCAL, weightFormat);
+    Tensor simW1(dType, {h, 3 * n}, "simW1");
+    Tensor output(outputDtype, outputShape, "output");
 
-    Tensor x(dType, x_shape, "x");
-    Tensor gateW1(dType, gateW1Shape, "gateW1");
-    Tensor gateW2(dType, gateW2Shape, "gateW2");
-    Tensor gateSimW1(dType, gateSimW1Shape, "gateSimW1");
-    Tensor gatingScore(dType, gatingScoreShape, "gatingScore");
-    Tensor tempOut(dType, tempShape, "tempout");
-    Tensor mm1Out(dType, mm1Shape, "mm1");
-
-    std::vector<T> xGolden = getGoldenVec<T>(x_shape, "/x.bin");
-    std::vector<T> gateW1Golden = getGoldenVec<T>(gateW1Shape, "/gate_w1.bin");
-
-    std::vector<T> gatingScoreGolden = getGoldenVec<T>(gatingScoreShape, "/gating_score.bin");
-    std::vector<T> tempGolden = getGoldenVec<T>(tempShape, "/temp.bin");
-    std::vector<T> mm1Golden = getGoldenVec<T>(mm1Shape, "/mm1.bin");
+    string outputPath = (std::is_same<outputT, float>::value) ? "/gating_score_fp32.bin" : "/gating_score.bin";
+    std::vector<outputT> outputGolden = getGoldenVec<outputT>(outputShape, outputPath);
 
     auto xData = CreateTensorData<T>(x, "/x.bin");
-    auto gateW1Data = CreateTensorData<T>(gateW1, "/gate_w1.bin");
-    auto gateW2Data = CreateTensorData<T>(gateW2, "/gate_w2.bin");
-    auto gateSimW1Data = CreateTensorData<T>(gateSimW1, "/gate_sim_w1.bin");
+    auto w1Data = CreateTensorData<T>(w1, nz ? "/gate_w1_nz.bin" : "/gate_w1.bin");
+    auto w2Data = CreateTensorData<T>(w2, nz ? "/gate_w2_nz.bin" : "/gate_w2.bin");
+    auto simW1Data = CreateTensorData<T>(simW1, "/gate_sim_w1.bin");
 
-    auto gatingScoreZeroData = RawTensorData::CreateConstantTensor<T>(gatingScore, 0.0);
-    auto mm1ZeroData = RawTensorData::CreateConstantTensor<T>(mm1Out, 0.0);
-    auto tempZeroData = RawTensorData::CreateConstantTensor<T>(tempOut, 0.0);
-
-    auto gatingScoreData = CreateTensorData<T>(gatingScore, "/gating_score.bin");
-
-    ProgramData::GetInstance().PrepareData(
-        {xData, gateW1Data, gateW2Data, gateSimW1Data}, {gatingScoreZeroData}, {gatingScoreData});
-    GenGatedScore(x, gateW1, gateW2, gateSimW1, gatingScore, mm1Out, tempOut, GateMode::standard);
+    auto outputData = RawTensorData::CreateConstantTensor<outputT>(output, 0.0);
+    GenGatedScoreCompute(x, w1, w2, simW1, output, GateMode::standard);
     auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(
-        funcOp, {xData, gateW1Data, gateW2Data, gateSimW1Data}, {gatingScoreZeroData, mm1ZeroData, tempZeroData});
-    std::cout << "gatingScore ====== " << std::endl;
-    EXPECT_TRUE(resultCmp<T>(gatingScoreGolden, (T *)gatingScoreZeroData->data(), 0.008f, NUM_16));
+    DynFuncRunner::Run(funcOp, {xData, w1Data, w2Data, simW1Data}, {outputData});
+    std::cout << "======= GateScore ====== " << std::endl;
+    EXPECT_TRUE(
+        resultCmp<outputT>(outputGolden, (outputT *)outputData->data(), 0.001f, NUM_16, 1000, false, false, NUM_16));
 #endif
 }
 
@@ -209,8 +190,8 @@ void TestMultiLoopAlignRead() {
 #endif
 }
 
-template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool splitK = false, bool nz = true,
-    bool isSmooth = true, bool usePrefetch = true>
+template <typename T = float16, typename wDtype = int8_t, bool splitK = false, bool nz = true, bool isSmooth = true,
+    bool usePrefetch = true>
 void TestGenslc(const SimpleParams &params, int topk_actual_len = 0, bool isGenSlc = false) {
     int n2 = params.n2;
     int n = params.n;
@@ -223,7 +204,7 @@ void TestGenslc(const SimpleParams &params, int topk_actual_len = 0, bool isGenS
     int tmp_s_scmp = (topk_actual_len - 32) / 16 + 1;
     int tmp_s_slc = (tmp_s_scmp + 3) / 4;
 
-    DataType dType = (std::is_same<T, npu::tile_fwk::float16>::value) ? DT_FP16 : DT_BF16;
+    DataType dType = (std::is_same<T, float16>::value) ? DT_FP16 : DT_BF16;
 
     std::vector<int> x_shape = {n2, g, s_cmp};
     if (!isGenSlc) {
@@ -299,7 +280,7 @@ void TestGenslc(const SimpleParams &params, int topk_actual_len = 0, bool isGenS
 #endif
 }
 
-template <typename T = npu::tile_fwk::float16>
+template <typename T = float16>
 void TestGenslcV2(const SimpleParams &params, int topk_actual_len = 0) {
     int n = params.n;
     int s2 = params.s2;
@@ -308,7 +289,7 @@ void TestGenslcV2(const SimpleParams &params, int topk_actual_len = 0) {
     int s_cmp_valid = (topk_actual_len - windowSize) / windowStride + 1;
     int validSize = (s_cmp_valid + 3) / 4;
 
-    DataType dType = (std::is_same<T, npu::tile_fwk::float16>::value) ? DT_FP16 : DT_BF16;
+    DataType dType = (std::is_same<T, float16>::value) ? DT_FP16 : DT_BF16;
 
     std::vector<int> x_shape = {n, s_cmp};
     std::vector<int> resShape = {1, 13};
@@ -333,13 +314,7 @@ void TestGenslcV2(const SimpleParams &params, int topk_actual_len = 0) {
 TEST_F(DyNsa, GateScore_b16_s1_fp) {
     SimpleParams params = SimpleParams::getHighParams();
     params.b = NUM_16;
-    TestNsa<npu::tile_fwk::float16>(params);
-}
-
-TEST_F(DyNsa, GateScore_b16_s1_fp_bf16) {
-    SimpleParams params = SimpleParams::getHighParams();
-    params.b = NUM_16;
-    TestNsa<npu::tile_fwk::bfloat16 >(params);
+    TestNsa<float16>(params);
 }
 
 TEST_F(DyNsa, GateScore_b16_s1_bf) {
@@ -349,46 +324,59 @@ TEST_F(DyNsa, GateScore_b16_s1_bf) {
 }
 
 TEST_F(DyNsa, GateScore_b32_s1_fp) {
-    TestNsa<npu::tile_fwk::float16>(SimpleParams::getHighParams());
+    TestNsa<float16>(SimpleParams::getHighParams());
 }
 
 TEST_F(DyNsa, GateScore_b32_s2_fp) {
     SimpleParams params = SimpleParams::getHighParams();
     params.s = NUM2;
-    TestNsa<npu::tile_fwk::float16>(params);
+    TestNsa<float16>(params);
 }
 
 TEST_F(DyNsa, GateScore_b24_s1_fp) {
     SimpleParams params = SimpleParams::getHighParams();
     params.b = NUM_24;
-    TestNsa<npu::tile_fwk::float16>(params);
+    TestNsa<float16>(params);
 }
 
 TEST_F(DyNsa, GateScore_b48_s2_fp) {
     SimpleParams params = SimpleParams::getHighParams();
     params.b = NUM_48;
     params.s = NUM2;
-    TestNsa<npu::tile_fwk::float16>(params);
+    TestNsa<float16>(params);
+}
+
+// IMPORTANT
+TEST_F(DyNsa, GateScore_b32_s2_bf) {
+    SimpleParams params = SimpleParams::getHighParams();
+    params.s = NUM2;
+    TestNsa<bfloat16, float, true>(params);
+}
+
+TEST_F(DyNsa, GateScore_b48_s1_fp) {
+    SimpleParams params = SimpleParams::getHighParams();
+    params.b = NUM_48;
+    TestNsa<float16, float, true>(params);
 }
 
 TEST_F(DyNsa, gateScore_mini) {
     SimpleParams params = SimpleParams::getHighParams();
     params.h = NUM_128;
-    TestNsa<npu::tile_fwk::float16>(params);
+    TestNsa<float16>(params);
 }
 
 TEST_F(DyNsa, gateScore_mini_batch16) {
     SimpleParams params = SimpleParams::getHighParams();
     params.h = NUM_128;
     params.b = NUM_16;
-    TestNsa<npu::tile_fwk::float16>(params);
+    TestNsa<float16>(params);
 }
 
 TEST_F(DyNsa, gateScore_mini_mtp) {
     SimpleParams params = SimpleParams::getHighParams();
     params.h = NUM_128;
     params.s = NUM_2;
-    TestNsa<npu::tile_fwk::float16>(params);
+    TestNsa<float16>(params);
 }
 
 TEST_F(DyNsa, gateScore_mini_mtp_bf16) {
@@ -404,7 +392,7 @@ TEST_F(DyNsa, GenSlc_b1_s1_fp_8k) {
     params.s2 = NUM_8192;
     params.n2 = 1;
 
-    TestGenslc<npu::tile_fwk::float16>(params, params.s2, true);
+    TestGenslc<float16>(params, params.s2, true);
 }
 
 TEST_F(DyNsa, GenSlc_b1_s1_fp_4k) {
@@ -412,7 +400,7 @@ TEST_F(DyNsa, GenSlc_b1_s1_fp_4k) {
     params.b = 1;
     params.s2 = NUM_8192;
     params.n2 = 1;
-    TestGenslc<npu::tile_fwk::float16>(params, NUM_4096, true);
+    TestGenslc<float16>(params, NUM_4096, true);
 }
 
 TEST_F(DyNsa, GenSlc_b1_s1_fp_6k1) {
@@ -420,7 +408,7 @@ TEST_F(DyNsa, GenSlc_b1_s1_fp_6k1) {
     params.b = 1;
     params.s2 = NUM_8192;
     params.n2 = 1;
-    TestGenslcV2<npu::tile_fwk::float16>(params, NUM_6144 + 1);
+    TestGenslcV2<float16>(params, NUM_6144 + 1);
 }
 
 TEST_F(DyNsa, GenSlc_b1_s1_bf_1k1) {
@@ -428,16 +416,15 @@ TEST_F(DyNsa, GenSlc_b1_s1_bf_1k1) {
     params.b = 1;
     params.s2 = NUM_8192;
     params.n2 = 1;
-    TestGenslcV2<npu::tile_fwk::bfloat16 >(params, NUM_1024 + 1);
+    TestGenslcV2<npu::tile_fwk::bfloat16>(params, NUM_1024 + 1);
 }
-
 
 TEST_F(DyNsa, GenSlc_b1_s1_fp_4k1) {
     SimpleParams params = SimpleParams::getHighParams();
     params.b = 1;
     params.s2 = NUM_8192;
     params.n2 = 1;
-    TestGenslc<npu::tile_fwk::float16>(params, NUM_4096 + 1, true);
+    TestGenslc<float16>(params, NUM_4096 + 1, true);
 }
 
 TEST_F(DyNsa, GenTopk_b1_s1_fp_8k_dyn) {
@@ -446,7 +433,7 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_8k_dyn) {
     params.s2 = NUM_8192;
     params.n2 = 1;
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    TestGenslc<npu::tile_fwk::float16>(params, params.s2);
+    TestGenslc<float16>(params, params.s2);
 }
 
 TEST_F(DyNsa, GenTopk_b1_s1_fp_4k_dyn) {
@@ -455,7 +442,7 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_4k_dyn) {
     params.s2 = NUM_4096;
     params.n2 = 1;
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    TestGenslc<npu::tile_fwk::float16>(params, params.s2);
+    TestGenslc<float16>(params, params.s2);
 }
 
 TEST_F(DyNsa, GenTopk_b1_s1_fp_4k1_dyn) {
@@ -464,7 +451,7 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_4k1_dyn) {
     params.s2 = NUM_4096;
     params.n2 = 1;
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    TestGenslc<npu::tile_fwk::float16>(params, params.s2 + 1);
+    TestGenslc<float16>(params, params.s2 + 1);
 }
 
 TEST_F(DyNsa, GenTopk_b1_s1_fp_6k1_dyn) {
@@ -473,7 +460,7 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_6k1_dyn) {
     params.s2 = NUM_6144;
     params.n2 = 1;
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    TestGenslc<npu::tile_fwk::float16>(params, params.s2 + 1);
+    TestGenslc<float16>(params, params.s2 + 1);
 }
 
 TEST_F(DyNsa, GenTopk_b1_s1_fp_8k) {
@@ -481,7 +468,7 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_8k) {
     params.b = 1;
     params.s2 = NUM_8192;
     params.n2 = 1;
-    TestGenslc<npu::tile_fwk::float16>(params, params.s2);
+    TestGenslc<float16>(params, params.s2);
 }
 
 TEST_F(DyNsa, GenTopk_b1_s1_fp_4k) {
@@ -489,7 +476,7 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_4k) {
     params.b = 1;
     params.s2 = NUM_4096;
     params.n2 = 1;
-    TestGenslc<npu::tile_fwk::float16>(params, params.s2);
+    TestGenslc<float16>(params, params.s2);
 }
 
 TEST_F(DyNsa, GenTopk_b1_s1_fp_4k1) {
@@ -497,7 +484,7 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_4k1) {
     params.b = 1;
     params.s2 = NUM_4096;
     params.n2 = 1;
-    TestGenslc<npu::tile_fwk::float16>(params, params.s2 + 1);
+    TestGenslc<float16>(params, params.s2 + 1);
 }
 
 TEST_F(DyNsa, GenTopk_b1_s1_fp_6k1) {
@@ -505,7 +492,7 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_6k1) {
     params.b = 1;
     params.s2 = NUM_8192;
     params.n2 = 1;
-    TestGenslc<npu::tile_fwk::float16>(params, NUM_6144 + 1);
+    TestGenslc<float16>(params, NUM_6144 + 1);
 }
 
 TEST_F(DyNsa, TestViewPad) {

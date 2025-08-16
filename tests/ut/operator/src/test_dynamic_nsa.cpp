@@ -15,6 +15,7 @@
 #include "gtest/gtest.h"
 #include "operator/models/deepseek/dynamic_nsa.h"
 #include "interface/configs/config_manager.h"
+#include "operator/models/nsa/dynamic_nsa_v1.h"
 
 using namespace npu::tile_fwk;
 
@@ -56,9 +57,7 @@ void TestNsa(const SimpleParams &params) {
     Tensor gateW2(dType, gateW2Shape, "gateW2");
     Tensor gateSimW1(dType, gateSimW1Shape, "gateSimW1");
     Tensor gatingScore(dType, gatingScoreShape, "gatingScore");
-    Tensor tempOut(dType, tempShape, "tempout");
-    Tensor mm1Out(dType, mm1Shape, "mm1");
-    GenGatedScore(x, gateW1, gateW2, gateSimW1, gatingScore, mm1Out, tempOut, GateMode::standard);
+    GenGatedScoreCompute(x, gateW1, gateW2, gateSimW1, gatingScore, GateMode::standard);
 }
 
 

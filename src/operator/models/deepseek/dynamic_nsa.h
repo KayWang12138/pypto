@@ -14,8 +14,8 @@
  */
 
 #pragma once
-#ifndef MLA_DYNAMIC
-#define MLA_DYNAMIC
+#ifndef DYNAMIC_NSA
+#define DYNAMIC_NSA
 
 #include "common/pre_def.h"
 #include "tilefwk/tilefwk.h"
@@ -24,77 +24,6 @@
 #include "operator/models/deepseek/deepseek_mla.h"
 
 namespace npu::tile_fwk {
-
-enum GateMode { standard, simple };
-
-struct MlaQuantInputs {
-    Tensor dequantScaleX;
-    Tensor dequantScaleWDq;
-    Tensor dequantScaleWUqQr;
-    Tensor dequantScaleWDkvKr;
-    Tensor quantScaleCkv;
-    Tensor quantScaleCkr;
-    Tensor smoothScalesCq;
-};
-
-struct SimpleParams {
-    int b;
-    int s;
-    int s2;
-    int d;
-    int m;
-    int k;
-    int n;
-    int right;
-    int h;
-    int n2;
-    int q_lora_rank;
-    int kv_lora_rank;
-    int qk_rope_head_dim;
-    int qk_nope_head_dim;
-    int q_head_dim;
-    std::string cacheMode;
-    int blockSize;
-    std::vector<int> vecTile;
-    std::vector<int> cubeMTile;
-    std::vector<int> cubeKTile;
-    std::vector<int> cubeNTile;
-    int tileB;
-    static SimpleParams getCommonParams() {
-        SimpleParams params;
-        params.s = 1;
-        params.h = NUM_7168;
-        params.q_lora_rank = NUM_1536;
-        params.kv_lora_rank = NUM_512;
-        params.qk_rope_head_dim = NUM_64;
-        params.qk_nope_head_dim = NUM_128;
-        params.q_head_dim = params.qk_rope_head_dim + params.qk_nope_head_dim;
-        params.cacheMode = "BNSD";
-        params.blockSize = NUM_128;
-        params.n2 = 1;
-        return params;
-    }
-
-    static SimpleParams getLowParams() {
-        SimpleParams params = getCommonParams();
-        params.b = NUM_4;
-        params.n = NUM_32;
-        params.s2 = NUM_256;
-        return params;
-    }
-
-    static SimpleParams getHighParams() {
-        SimpleParams params = getCommonParams();
-        params.b = NUM_32;
-        params.n = NUM_128;
-        params.s2 = NUM_4096;
-        return params;
-    }
-};
-
-void GenGatedScore(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, const Tensor &gateSimW1,
-    Tensor &gatingScore, Tensor &mm1, Tensor &tempOut, GateMode gateMode = standard);
-
 void GenSlc(const Tensor &x, Tensor &trans0res, Tensor &reduce0res, Tensor &trans1res, Tensor &reduce1res,
     Tensor &topkInd, Tensor &topkVal, Tensor &out, int actualLen, int l_prime = 64, int d = 16, int front = 1,
     int near = 2, int topk = 16);
@@ -110,4 +39,4 @@ std::vector<Tensor> GenTopkIndices(const Tensor &tmpOut, int s_slc, int actualTo
 
 } // namespace npu::tile_fwk
 
-#endif // MLA_DYNAMIC
+#endif // DYNAMIC_NSA

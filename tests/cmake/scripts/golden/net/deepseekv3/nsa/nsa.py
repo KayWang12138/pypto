@@ -24,6 +24,11 @@ import time
 import torch
 import numpy as np
 from bfloat16 import bfloat16
+import os
+
+project_root = os.path.dirname(os.path.abspath(__file__))  # 当前脚本目录
+golden_parent = os.path.join(project_root, "../../../../")  # 假设 golden 在上级目录
+sys.path.insert(0, golden_parent)
 
 np.random.seed(0)
 if __name__ == "__main__":
@@ -45,7 +50,7 @@ fp32 = np.float32
 
 
 def sigmoid(x):
-    return 1 / (1 + np.exp(-x))
+    return 1 / (1 + torch.exp(-x))
 
 
 def softmax(x, axis=-1):
@@ -172,7 +177,7 @@ def gen_p_slc_ast(p_cmp, l_prime=64, l=32, d=16):
 def gen_topk_indices(p_slc, front=1, near=2, topk=16, actual_len=0):
     b, s, reduce_len = p_slc.shape
     front_indices = np.arange(front)
-    near_indices = np.arange((reduce_len if actual_len == 0  else actual_len) - near, reduce_len)
+    near_indices = np.arange((reduce_len if actual_len == 0 else actual_len) - near, reduce_len)
     required_indices = np.concatenate([front_indices, near_indices])
 
     mask = np.zeros_like(p_slc, dtype=bool)
@@ -244,25 +249,16 @@ def gated_score_mlp_standard(x, w_1, w_2, output: Path):
     b, s, h = x.shape
     _, n3 = w_2.shape
     n = n3 // 3
-    print(f'b {b} s {s} h {h} n {n} \n')
-    x_path = Path(output, 'x.bin')
-    w1_path = Path(output, 'w1.bin')
-    w2_path = Path(output, 'w2.bin')
-    score_path = Path(output, 'score.bin')
-    _, n_heads = w_2.shape
-    n = n_heads // 3
+    print(f'b {b} s {s} h {h} n {n}\n')
+
     x_2d = x.reshape(-1, h)
-    mm1 = np.matmul(x_2d, w_1)
-    mm1_sigmoid = sigmoid(mm1)
-    mm2 = np.matmul(mm1_sigmoid, w_2)
-    gating_score = mm2.reshape(b, s, 3, n)
-
-    x.astype(np.float16).tofile(x_path)
-    w_1.astype(np.float16).tofile(w1_path)
-    w_2.astype(np.float16).tofile(w2_path)
-    gating_score.astype(np.float16).tofile(score_path)
-
-    return gating_score, mm1_sigmoid, mm2
+    print(f'torch version {torch.__version__}')
+    print(f'矩阵 x_2d:\n {x_2d} \n  {x_2d.shape} \n w_1 \n{w_1} \n {w_1.shape}\n')
+    mm1 = torch.matmul(x_2d.to(torch.float32), w_1.to(torch.float32))
+    mm1_sigmoid = torch.sigmoid(mm1)
+    mm2 = torch.matmul(mm1_sigmoid.to(w_2.dtype).to(torch.float32), w_2.to(torch.float32))
+    gating_score = mm2.view(b, s, 3, n)  # 使用 view 替代 reshape
+    return gating_score
 
 
 def gated_score_mlp_simple(x, w_1, output: Path):
@@ -279,12 +275,35 @@ def gated_score_mlp_simple(x, w_1, output: Path):
 
 def gen_gated_score(x, gate_sim_w1, gate_w1, gate_w2, output: Path, mode='standard'):
     if mode == 'standard':
-        gating_score, mm1, mm2 = gated_score_mlp_standard(x, gate_w1, gate_w2, output)
-    else:
-        gating_score = gated_score_mlp_simple(x, gate_sim_w1, output)
+        gating_score = gated_score_mlp_standard(x, gate_w1, gate_w2, output)
+    gating_score = gating_score.permute(0, 1, 3, 2)  # 使用 permute 替代 transpose
+    h, n = gate_w1.shape[0], gate_w2.shape[1] // 3
+    inputDtype = bfloat16 if x.dtype == torch.bfloat16 else np.float16
+    # 保存输入和权重
+    x_path = output / 'x.bin'
+    x.to(torch.float32).cpu().numpy().astype(inputDtype).tofile(x_path)
+    gate_sim_w1_path = output / 'gate_sim_w1.bin'
+    gate_sim_w1.to(torch.float32).cpu().numpy().astype(inputDtype).tofile(gate_sim_w1_path)
+    gate_w1_path = output / 'gate_w1.bin'
+    gate_w1.to(torch.float32).cpu().numpy().astype(inputDtype).tofile(gate_w1_path)
+    gate_w2_path = output / 'gate_w2.bin'
+    gate_w2.to(torch.float32).cpu().numpy().astype(inputDtype).tofile(gate_w2_path)
 
-    gating_score = gating_score.transpose((0, 1, 3, 2))
-    return gating_score, mm1, mm2
+    gate_w1_nz_path = output / 'gate_w1_nz.bin'
+    gate_w1.to(torch.float32).cpu().numpy().reshape(h, 4 * h // 16, 16).transpose(1, 0, 2).astype(inputDtype).tofile(
+        gate_w1_nz_path)
+    gate_w2_nz_path = output / 'gate_w2_nz.bin'
+    gate_w2.to(torch.float32).cpu().numpy().reshape(4 * h, 3 * n // 16, 16).transpose(1, 0, 2).astype(
+        inputDtype).tofile(
+        gate_w2_nz_path)
+
+    gating_score_fp32_path = output / 'gating_score_fp32.bin'
+    gating_score.to(torch.float32).cpu().numpy().astype(np.float32).tofile(gating_score_fp32_path)
+
+    gating_score_path = output / 'gating_score.bin'
+    gating_score.to(torch.float32).cpu().numpy().astype(inputDtype).tofile(gating_score_path)
+    print(f'gating_score_path: {gating_score_path}')
+    return gating_score
 
 
 def gen_attn(cmp_attn, slc_attn, win_attn, gating_score):
@@ -304,22 +323,14 @@ def gen_attn(cmp_attn, slc_attn, win_attn, gating_score):
 def nsa(x, q, k, v, avg_wk, avg_wv, mlp_wk1, mlp_wk2, mlp_wv1, mlp_wv2, cos, sin, pos_ids, gate_sim_w1, gate_w1,
         gate_w2, output: Path, params,
         cmp_mode='avg', l_prime=64, l=32, d=16, front=1, near=2, topk=16, win=512, gate_mode='standard'):
-    gating_score, mm1, mm2 = gen_gated_score(x, gate_sim_w1, gate_w1, gate_w2, output, mode=gate_mode)
-
-    mm2.reshape(32, 2, 3, 128).transpose((0, 1, 3, 2)).transpose(0, 2, 1, 3) - gating_score
-    mm2.reshape(32, 2, 128 * 3).transpose((0, 2, 1)).reshape(32, 128, 3, 2).transpose(0, 1, 3, 2) - gating_score
-    mm2.reshape(32, 2 * 128 * 3).transpose((1, 0)).reshape(2, 128, 3, 32).transpose((1, 0, 2, 3)).reshape(128 * 2 * 3,
-                                                                                                          32).transpose(
-        (1, 0)).reshape(32, 128, 2, 3) - gating_score
+    gating_score = gen_gated_score(x, gate_sim_w1, gate_w1, gate_w2, output, mode=gate_mode)
 
     gating_score_path = Path(output, 'gating_score.bin')
     gating_score.astype(np.float16).tofile(gating_score_path)
 
     temp_path = Path(output, 'temp.bin')
-    mm2.astype(np.float16).tofile(temp_path)
 
     mm1_path = Path(output, 'mm1.bin')
-    mm1.astype(np.float16).tofile(mm1_path)
     print(f"{mm1_path} {temp_path} {gating_score_path}")
 
     x_path = Path(output, 'x.bin')
@@ -393,18 +404,35 @@ def nsa(x, q, k, v, avg_wk, avg_wv, mlp_wk1, mlp_wk2, mlp_wv1, mlp_wv2, cos, sin
     return attention
 
 
+def gen_uniform_data(shape, low, high, dtype):
+    return (high - low) * torch.rand(shape, dtype=dtype) + low
+
+
+def gen_gate_score_golden(params, dtype):
+    b = params.get("b")
+    s = params.get("s")
+    h = params.get("h")
+    n = params.get("n")
+    x = gen_uniform_data((b, s, h), -0.1, 0.1, dtype)
+    gate_sim_w1 = gen_uniform_data((h, n * 3), -0.1, 0.1, dtype)
+    gate_w1 = gen_uniform_data((h, h * 4), -0.1, 0.1, dtype)
+    gate_w2 = gen_uniform_data((h * 4, n * 3), -0.1, 0.1, dtype)
+    return {
+        "x": x,
+        "gate_sim_w1": gate_sim_w1,
+        "gate_w1": gate_w1,
+        "gate_w2": gate_w2
+    }
+
+
 def gen_nsa_golden(params, dtypes, output: Path):
     dtype, w_dtype = dtypes
     logging.debug(f"gen_nsa_golden  dtype:{dtype}, w_dtype:{w_dtype}")
     b = params.get("b")
     s = params.get("s")  # s=1
     s2 = params.get("s2")  # s2=4k
-    h = params.get("h")
     n = params.get("n")
-    q_dim = params.get("q_dim")
-    k_dim = params.get("k_dim")
-    v_dim = params.get("v_dim")
-    rope_dim = params.get("rope_dim")
+
     l = params.get("l")
     l_prime = params.get("l_prime")
     d = params.get("d")
@@ -414,50 +442,14 @@ def gen_nsa_golden(params, dtypes, output: Path):
     op = params.get("op")
     gen_topk_actual_len = params.get("gen_topk_actual_len")
 
-    x = np.random.rand(b, s, h)
-    q = np.random.rand(b, n, s, q_dim)
-    k = np.random.rand(b, 1, s2, k_dim)
-    v = np.random.rand(b, 1, s2, v_dim)
-
-    # initialize weight
-    avg_wk = np.random.rand(1, k_dim)
-    avg_wv = np.random.rand(1, v_dim)
-    mlp_wk1 = np.random.rand(32 * k_dim, 64 * k_dim)
-    mlp_wk2 = np.random.rand(64 * k_dim, 1 * k_dim)
-    mlp_wv1 = np.random.rand(32 * v_dim, 64 * v_dim)
-    mlp_wv2 = np.random.rand(64 * v_dim, 1 * v_dim)
-    gate_sim_w1 = np.random.rand(h, n * 3)
-    gate_w1 = np.random.rand(h, h * 4)
-    gate_w2 = np.random.rand(h * 4, n * 3)
-
-    # initialize local rope
-    cos = np.random.rand(l, rope_dim)
-    sin = np.random.rand(l, rope_dim)
-    pos_ids = np.tile(np.arange(l), (b, 1))
+    gate_score_input = gen_gate_score_golden(params, dtype)
+    x = gate_score_input.get("x")
+    gate_sim_w1 = gate_score_input.get("gate_sim_w1")
+    gate_w1 = gate_score_input.get("gate_w1")
+    gate_w2 = gate_score_input.get("gate_w2")
 
     if op == "GatingScore":
-
-        gating_score, mm1, mm2 = gen_gated_score(x, gate_sim_w1, gate_w1, gate_w2, output, mode='standard')
-
-        gating_score_path = Path(output, 'gating_score.bin')
-        gating_score.astype(dtype).tofile(gating_score_path)
-
-        temp_path = Path(output, 'temp.bin')
-        mm2.astype(dtype).tofile(temp_path)
-
-        mm1_path = Path(output, 'mm1.bin')
-        mm1.astype(dtype).tofile(mm1_path)
-        print(f"{mm1_path} {temp_path} {gating_score_path}")
-
-        x_path = Path(output, 'x.bin')
-        x.astype(dtype).tofile(x_path)
-        gate_sim_w1_path = Path(output, 'gate_sim_w1.bin')
-        gate_sim_w1.astype(dtype).tofile(gate_sim_w1_path)
-        gate_w1_path = Path(output, 'gate_w1.bin')
-        gate_w1.astype(dtype).tofile(gate_w1_path)
-        gate_w2_path = Path(output, 'gate_w2.bin')
-        gate_w2.astype(dtype).tofile(gate_w2_path)
-
+        gen_gated_score(x, gate_sim_w1, gate_w1, gate_w2, output, 'standard')
     elif op == "GenSlc" or op == "GenTop":
         s_cmp_len = (s2 - l) // d + 1
         p_cmp = np.random.rand(b, n, s, s_cmp_len)
@@ -465,10 +457,10 @@ def gen_nsa_golden(params, dtypes, output: Path):
         p_slc = gen_p_slc(p_cmp, l_prime=l_prime, l=l, d=d)
         trans0, reduce0, trans1, reduce1 = gen_p_slc_ast(p_cmp, l_prime=l_prime, l=l, d=d)
         reduce1 = reduce1.reshape(1, 1, s_slc)
-        tmp_s_smp = (gen_topk_actual_len-32)//16+1
-        tmp_s_slc = (tmp_s_smp+3)//4
+        tmp_s_smp = (gen_topk_actual_len - 32) // 16 + 1
+        tmp_s_slc = (tmp_s_smp + 3) // 4
 
-        topk_indices,_ = gen_topk_indices(reduce1, front=front, near=near, topk=topk, actual_len =tmp_s_slc)
+        topk_indices, _ = gen_topk_indices(reduce1, front=front, near=near, topk=topk, actual_len=tmp_s_slc)
         p_cmp_path = Path(output, 'p_cmp.bin')
         p_cmp.astype(dtype).tofile(p_cmp_path)
         topk_indices_path = Path(output, 'topk_indices.bin')
@@ -481,15 +473,9 @@ def gen_nsa_golden(params, dtypes, output: Path):
         trans1.astype(dtype).tofile(trans1_path)
         reduce1_path = Path(output, 'reduce1.bin')
         reduce1.astype(dtype).tofile(reduce1_path)
-    else:
-        attention = nsa(x, q, k, v, avg_wk, avg_wv, mlp_wk1, mlp_wk2, mlp_wv1, mlp_wv2, cos, sin, pos_ids, gate_sim_w1,
-                        gate_w1, gate_w2, output, params, cmp_mode='avg', l_prime=64, l=32, d=16, front=1, near=2,
-                        topk=16,
-                        win=512, gate_mode='standard')
-        print(attention.shape)
 
 
-def nsa_entry(dtypes, bs1s2, op, output_dir: Path,gen_topk_actual_len=0):
+def nsa_entry(dtypes, bs1s2, op, output_dir: Path, gen_topk_actual_len=0):
     b, s1, s2, h = bs1s2
     kv_lora_rank = 512
     rope_dim = 64
@@ -520,19 +506,20 @@ def nsa_entry(dtypes, bs1s2, op, output_dir: Path,gen_topk_actual_len=0):
         "near": 2,
         "topk": 16,
         "actual_seq": s2,
-        "gen_topk_actual_len":gen_topk_actual_len,
+        "gen_topk_actual_len": gen_topk_actual_len,
     }
     gen_nsa_golden(params, dtypes, output_dir)
 
 
-def testDviewPad(output_dir: Path):
+def dviewPad(output_dir: Path):
     shape0, shape1 = 1, 128
     input = np.arange(0, shape0 * shape1, 1).reshape(shape0, shape1).astype(np.float32)
-    output = input[:,1:14]
+    output = input[:, 1:14]
     input_path = Path(output_dir, 'input.bin')
     input.tofile(input_path)
     output_path = Path(output_dir, 'output.bin')
     output.tofile(output_path)
+
 
 @GoldenRegister.reg_golden_func(
     case_names=[
@@ -540,12 +527,14 @@ def testDviewPad(output_dir: Path):
         "DyNsa.gateScore_mini_mtp",
         "DyNsa.gateScore_mini_mtp_bf16",
         "DyNsa.GateScore_b16_s1_fp",
-        "DyNsa.GateScore_b16_s1_fp_bf16",
         "DyNsa.GateScore_b16_s1_bf",
         "DyNsa.GateScore_b32_s1_fp",
         "DyNsa.GateScore_b32_s2_fp",
         "DyNsa.GateScore_b24_s1_fp",
         "DyNsa.GateScore_b48_s2_fp",
+        "DyNsa.GateScore_b32_s2_bf",
+        "DyNsa.GateScore_b48_s1_fp",
+
         "DyNsa.GenSlc_b1_s1_fp_4k",
         "DyNsa.GenSlc_b1_s1_fp_6k1",
         "DyNsa.GenSlc_b1_s1_fp_4k1",
@@ -585,8 +574,6 @@ def gen_mla_prolog_date_v2(case_name: str, output: Path) -> bool:
     else:
         if case_name == "DyNsa.GateScore_b16_s1_fp":
             nsa_entry((np.float16, np.float16), (16, 1, 65536, 7168), "GatingScore", output)
-        elif case_name=="DyNsa.GateScore_b16_s1_fp_bf16":
-            nsa_entry((bfloat16, bfloat16), (16, 1, 65536, 7168), "GatingScore", output)
         elif case_name == "DyNsa.GateScore_b16_s1_bf":
             nsa_entry((bfloat16, bfloat16), (16, 1, 65536, 7168), "GatingScore", output)
         elif case_name == "DyNsa.GateScore_b32_s1_fp":
@@ -597,6 +584,10 @@ def gen_mla_prolog_date_v2(case_name: str, output: Path) -> bool:
             nsa_entry((np.float16, np.float16), (24, 1, 65536, 7168), "GatingScore", output)
         elif case_name == "DyNsa.GateScore_b48_s2_fp":
             nsa_entry((np.float16, np.float16), (48, 2, 65536, 7168), "GatingScore", output)
+        elif case_name == "DyNsa.GateScore_b32_s2_bf":
+            nsa_entry((torch.bfloat16, torch.bfloat16), (32, 2, 65536, 7168), "GatingScore", output)
+        elif case_name == "DyNsa.GateScore_b48_s1_fp":
+            nsa_entry((torch.float16, torch.float16), (48, 1, 65536, 7168), "GatingScore", output)
         elif case_name == "DyNsa.gateScore_mini":
             nsa_entry((np.float16, np.float16), (32, 1, 65536, 128), "GatingScore", output)
         elif case_name == "DyNsa.gateScore_mini_16":
@@ -606,15 +597,15 @@ def gen_mla_prolog_date_v2(case_name: str, output: Path) -> bool:
         elif case_name == "DyNsa.gateScore_mini_mtp_bf16":
             nsa_entry((bfloat16, bfloat16), (32, 2, 65536, 128), "GatingScore", output)
         elif case_name == "DyNsa.GenSlc_b1_s1_fp_8k":
-            nsa_entry((np.float16, np.float16), (1, 1, 8192, 128), "GenSlc", output,8192)
+            nsa_entry((np.float16, np.float16), (1, 1, 8192, 128), "GenSlc", output, 8192)
         elif case_name == "DyNsa.GenSlc_b1_s1_fp_4k":
             nsa_entry((np.float16, np.float16), (1, 1, 8192, 128), "GenSlc", output, 4096)
         elif case_name == "DyNsa.GenSlc_b1_s1_fp_6k1":
-            nsa_entry((np.float16, np.float16), (1, 1, 8192, 128), "GenSlc", output,6145)
+            nsa_entry((np.float16, np.float16), (1, 1, 8192, 128), "GenSlc", output, 6145)
         elif case_name == "DyNsa.GenSlc_b1_s1_fp_4k1":
-            nsa_entry((np.float16, np.float16), (1, 1, 8192, 128), "GenSlc", output,4097)
+            nsa_entry((np.float16, np.float16), (1, 1, 8192, 128), "GenSlc", output, 4097)
         elif case_name == "DyNsa.GenSlc_b1_s1_bf_1k1":
-            nsa_entry((bfloat16, bfloat16), (1, 1, 8192, 128), "GenSlc", output,1025)
+            nsa_entry((bfloat16, bfloat16), (1, 1, 8192, 128), "GenSlc", output, 1025)
 
 
         elif case_name == "DyNsa.GenTopk_b1_s1_fp_8k" or case_name == "DyNsa.GenTopk_b1_s1_fp_8k_dyn":
@@ -626,7 +617,7 @@ def gen_mla_prolog_date_v2(case_name: str, output: Path) -> bool:
         elif case_name == "DyNsa.GenTopk_b1_s1_fp_6k1" or case_name == "DyNsa.GenTopk_b1_s1_fp_6k1_dyn":
             nsa_entry((np.float16, np.float16), (1, 1, 8192, 128), "GenTop", output, 6145)
         elif case_name == "DyNsa.TestViewPad" or case_name == "DyNsa.TestAlignRead" or case_name == "DyNsa.TestUnAlignRead" or case_name == "DyNsa.TestMultiLoopAlignRead":
-            testDviewPad(output)
+            dviewPad(output)
         else:
             logging.error("Can't get func to gen golden, Case(%s)", case_name)
             return False
@@ -639,20 +630,16 @@ def main() -> bool:
     """
     # 用例名称
     case_name_list: List[str] = [
-        "DyNsa.GenTopk_b1_s1_fp_6k1_dyn",
+        "DyNsa.GateScore_b32_s2_bf",
     ]
     # 函数调用
     ret: bool = True
-    print(f'case_name_list is {case_name_list}')
     for cs in case_name_list:
-        print(f'cs is {cs}')
-        output: Path = Path(g_src_root, "build/tests/st/golden", cs).resolve()
-        output.mkdir(parents=True, exist_ok=True)
-        ret = gen_mla_prolog_date_v2(case_name=cs, output=output)
+        output_dir: Path = Path(g_src_root, "build/tests/st/golden", cs).resolve()
+        output_dir.mkdir(parents=True, exist_ok=True)
+        ret = gen_mla_prolog_date_v2(case_name=cs, output=output_dir)
     return ret
 
 
 if __name__ == "__main__":
-    logging.basicConfig(format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s',
-                        level=logging.DEBUG)
     exit(0 if main() else 1)

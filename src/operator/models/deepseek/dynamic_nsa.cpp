@@ -23,52 +23,6 @@
 #include "interface/tensor/logical_tensor.h"
 #include "interface/utils/common.h"
 namespace npu::tile_fwk {
-void GenGatedScore(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, const Tensor &gateSimW1,
-    Tensor &gatingScore, Tensor &mm1, Tensor &tempOut, GateMode gateMode) {
-    int b = x->shape[0];
-    int s = x->shape[1]; // s=1
-    int h = x->shape[2];
-    int n = gateW2->shape[1] / 3;
-    int tileB = b;
-    int tileS = s;
-    int tileBS = tileB * tileS;
-    SymbolicScalar bLoop = b / tileB;
-    SymbolicScalar sLoop = s / tileS;
-    DataType dType = x->Datatype();
-    if (gateMode != standard) {
-        return;
-    }
-    FUNCTION("main", FunctionType::DYNAMIC, {x, gateW1, gateW2, gateSimW1}, {gatingScore, mm1, tempOut}) {
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1)) {
-            LOOP("LOOP_L0_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sLoop, 1)) {
-                Program::GetInstance().GetTileShape().SetVecTileShapes({tileB, tileS, h});
-                Program::GetInstance().GetTileShape().SetCubeTileShapes(
-                    {tileBS, tileBS}, {NUM_128, NUM_128}, {NUM_128, NUM_128});
-                SymbolicScalar bOfs = bIdx * tileB;
-                SymbolicScalar sOfs = sIdx * tileS;
-                SymbolicScalar bsOfs = bOfs * sOfs;
-
-                auto xReshape = Reshape(x, {b * s, h});
-                auto xView = DView(xReshape, {tileBS, h}, {bsOfs, 0});
-                auto mm1Res = Matrix::Matmul(dType, xReshape, gateW1);
-
-                Program::GetInstance().GetTileShape().SetVecTileShapes({1, h});
-                auto sigmoidRes = Sigmoid(mm1Res);
-
-                auto mm2Res = Matrix::Matmul(dType, sigmoidRes, gateW2);
-                Program::GetInstance().GetTileShape().SetVecTileShapes({tileBS, n});
-
-                auto res = Reshape(mm2Res, {tileB, tileS, 3, n});
-                Program::GetInstance().GetTileShape().SetVecTileShapes({2, tileS, 3, n});
-
-                res = Transpose(Cast(res, DataType::DT_FP32), {2, 3});
-
-                DAssemble(Cast(res, dType), {bOfs, sIdx, 0, 0}, gatingScore);
-            }
-        }
-    }
-}
-
 std::vector<Tensor> GenTopkIndices(
     const Tensor &tmpOut, int s_slc, int actualTopk, SymbolicScalar validSize, bool isDyn) {
     std::vector<Tensor> res;

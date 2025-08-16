@@ -77,14 +77,8 @@ def gated_score_mlp_standard(x, w_1, w_2, output: Path):
     x_2d = x.reshape(-1, h)
     mm1 = np.matmul(x_2d, w_1)
     mm1_sigmoid = sigmoid(mm1)
-    mm2 = np.matmul(mm1_sigmoid, w_2)
+    mm2 = np.matmul(mm1_sigmoid.astype(w_2.dtype), w_2)
     gating_score = mm2.reshape(b, s, 3, n)
-
-    # x.astype(np.float16).tofile(x_path)
-    w_1.astype(np.float16).tofile(w1_path)
-    w_2.astype(np.float16).tofile(w2_path)
-    gating_score.astype(np.float16).tofile(score_path)
-
     return gating_score, mm1_sigmoid, mm2
 
 
@@ -520,8 +514,7 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
 
     # gen gated_score
     print("========== gen gated_score ==============")
-    gating_score, _, _ = gen_gated_score(x.astype(np.float64), gate_sim_w1.astype(np.float64),
-        gate_w1.astype(np.float64), gate_w2.astype(np.float64), output_dir, mode='standard') # 升精度运算
+    gating_score, _, _ = gen_gated_score(x, gate_sim_w1, gate_w1, gate_w2, output_dir, mode='standard') # 升精度运算
     dump_gated_score_file(gate_sim_w1, gate_w1, gate_w2, gating_score, dtype, output_dir)
 
     # gen atten
@@ -661,7 +654,7 @@ def main() -> bool:
     """
     # 用例名称
     case_name_list: List[str] = [
-        "DynamicNSATest.s2_2048",
+        "DynamicNSATest.s2_1024",
     ]
     # 函数调用
     ret: bool = True

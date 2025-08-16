@@ -42,6 +42,7 @@ struct SimpleParams {
     int m;
     int k;
     int n;
+    int n2;
     int right;
     int h;
     int q_lora_rank;
@@ -58,6 +59,7 @@ struct SimpleParams {
     int tileB;
     static SimpleParams getCommonParams() {
         SimpleParams params;
+        params.n2 = 1;
         params.s = 1;
         params.h = 7168; // 7168
         params.q_lora_rank = 1536; // 1536
