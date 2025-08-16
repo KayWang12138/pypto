@@ -68,7 +68,7 @@ TEST_F(TestMemoryReuse, test_connection_matrix) {
     ASSERT_NE(function, nullptr);
     auto rootFunc = function->rootFunc_;
     auto callOps = rootFunc->Operations();
-    size_t totalSize = 14;
+    size_t totalSize = 17; // transpose支持尾轴切分，operation数目有变化
     EXPECT_EQ(callOps.size(), totalSize);
     std::unordered_set<int64_t> storageSet;
     uint64_t totalLength = 0;
@@ -106,7 +106,7 @@ TEST_F(TestMemoryReuse, test_connection_matrix) {
     size_t nodeId7 = 7;
     // 下面的值请勿随意修改，校验存在一定价值
     EXPECT_EQ(allocator.connectionMatrix_.IsConnected(callOps.at(nodeId0), callOps.at(nodeId1)), false);
-    EXPECT_EQ(allocator.connectionMatrix_.IsConnected(callOps.at(nodeId0), callOps.at(nodeId4)), true);
+    EXPECT_EQ(allocator.connectionMatrix_.IsConnected(callOps.at(nodeId0), callOps.at(nodeId4)), false);
     EXPECT_EQ(allocator.connectionMatrix_.IsConnected(callOps.at(nodeId0), callOps.at(nodeId5)), true);
     EXPECT_EQ(allocator.connectionMatrix_.IsConnected(callOps.at(nodeId0), callOps.at(nodeId6)), true);
     EXPECT_EQ(allocator.connectionMatrix_.IsConnected(callOps.at(nodeId5), callOps.at(nodeId13)), true);

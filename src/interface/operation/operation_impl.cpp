@@ -1252,12 +1252,12 @@ void TensorScatterElement(Function &function, const ScatterElementPara& scatterP
     op.SetAttribute(OpAttributeKey::scalar, scatterPara.scalar);
 }
 
-void UnalignPadTmpBufTile(std::vector<int> &shape) {
+void UnalignPadTmpBufTile(std::vector<int> &shape, int blockElem) {
     // tmpbuf按16 8对齐
     auto size = shape.size();
     if (size >= NUM_VALUE_2) {
-        shape[size - NUM_VALUE_2] = (shape[size - NUM_VALUE_2] + NUM_VALUE_16 - 1) / NUM_VALUE_16 * NUM_VALUE_16;
-        shape[size - 1] = (shape[size - 1] + NUM_VALUE_8 - 1) / NUM_VALUE_8 * NUM_VALUE_8;
+        shape[size - NUM_VALUE_2] = AlignUp(shape[size - NUM_VALUE_2], NUM_VALUE_16);
+        shape[size - 1] = AlignUp(shape[size - 1], blockElem);
     }
 }
 
@@ -1273,14 +1273,14 @@ void TiledInnerTranspose(Function &function, const TileShape &tileShape, const i
         std::swap(resultTileOfs[shape[0]], resultTileOfs[shape[1]]);
         auto resultTile = result->View(function, resultTileShape, resultTileOfs);
         std::vector<int> tmpShape(input.tileInfo.shape);
+        int blockElem = BLOCK_SIZE / static_cast<int>(BytesOf(tile->Datatype()));
         if (tmpShape.size() == SHAPE_DIM5) {
             // 临时tensor的transpose轴对应的shape对齐: 受指令限制，last轴按32Byte对齐，nlast轴按16对齐
-            int blockNum = BLOCK_SIZE / static_cast<int>(BytesOf(tile->Datatype()));
-            tmpShape[SHAPE_DIM5 - 1] = AlignUp(tmpShape[SHAPE_DIM5 - 1], blockNum);
+            tmpShape[SHAPE_DIM5 - 1] = AlignUp(tmpShape[SHAPE_DIM5 - 1], blockElem);
             tmpShape[SHAPE_DIM5 - 2] = AlignUp(tmpShape[SHAPE_DIM5 - 2], VNCHWCONV_REPEAT);
         }
         if (T == TransposeOpType::TRANSPOSE_VNCHWCONV) {
-            UnalignPadTmpBufTile(tmpShape);
+            UnalignPadTmpBufTile(tmpShape, blockElem);
         }
         auto tempTensor = std::make_shared<LogicalTensor>(function, tile->Datatype(), tmpShape);
         if (T == TransposeOpType::TRANSPOSE_DATAMOVE) {
@@ -1293,13 +1293,7 @@ void TiledInnerTranspose(Function &function, const TileShape &tileShape, const i
         return;
     }
     for (int i = 0; i < input.tensor->shape[cur]; i += tileShape.V(cur)) {
-        int dimTileSize = tileShape.V(cur);
-        if (cur == shapeSize - 1 && tileShape.V(cur) != input.tensor->shape[cur]) {
-            dimTileSize = input.tensor->shape[cur];
-            ALOG_INFO_F("transpose dont tile last dim ,tensor shape %d, tile shape %d.", input.tensor->shape[cur],
-                tileShape.V(cur));
-        }
-        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - i, dimTileSize);
+        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - i, tileShape.V(cur));
         input.tileInfo.offset[cur] = i;
         TiledInnerTranspose<T>(function, tileShape, cur + 1, input, result, shape);
     }

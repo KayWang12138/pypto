@@ -143,7 +143,7 @@ TILEOP void DynTtransposeDataMoveBase(__gm__ T *dst, __ubuf__ T *src, unsigned d
         unsigned nBurst = TShape1;
         unsigned lenBurst = TShape2 * sizeof(T);
         unsigned srcStride = 0;
-        unsigned dstStride = (dstShape1 - 1) * dstShape2 * sizeof(T);
+        unsigned dstStride = (dstShape1 * dstShape2 - TShape2) * sizeof(T);
         for (int b = 0; b < TShape0; b++) {
             copy_ubuf_to_gm_align_b32(dst_, src_, 0, nBurst, lenBurst, 0, 0, srcStride, dstStride);
             dst_ += dstShape2;
@@ -828,7 +828,7 @@ TILEOP void DynTtransposeDataMoveBase_(__gm__ T *dst, __ubuf__ T *src, unsigned 
         unsigned nBurst = TShape1;
         unsigned lenBurst = TShape2 * sizeof(T);
         unsigned srcStride = 0;
-        unsigned dstStride = (dstShape1 - 1) * dstShape2 * sizeof(T);
+        unsigned dstStride = (dstShape1 * dstShape2 - TShape2) * sizeof(T);
         for (int b = 0; b < TShape0; b++) {
             copy_ubuf_to_gm_align_b32(dst_, src_, 0, nBurst, lenBurst, 0, 0, srcStride, dstStride);
             dst_ += dstShape2;
@@ -883,7 +883,8 @@ TILEOP void DynTgatherElement(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *sr
 template <typename T, unsigned DS, unsigned SS>
 TILEOP void DynTtranspose_vnchwconv_(
     __ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp, unsigned T0, unsigned T1, unsigned TS) {
-    if (((DS % 16) != 0) || ((SS % 8) != 0) || ((TS % 16) != 0)) {
+    constexpr int block_elem = BLOCK_SIZE / sizeof(T);
+    if (((DS % 16) != 0) || ((SS % block_elem) != 0) || ((TS % 16) != 0)) {
         set_flag(PIPE_V, PIPE_S, EVENT_ID7);
         wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
         for (int i = 0; i < T0; i++) {
@@ -895,9 +896,7 @@ TILEOP void DynTtranspose_vnchwconv_(
         wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
         return;
     }
-    static_assert(sizeof(T) == 4);
-    // 16 x 32B subtile
-    constexpr int block_elem = BLOCK_SIZE / sizeof(T);
+    static_assert(sizeof(T) == 4 || sizeof(T) == 2);
     // go by subtile column, a.k.a. iter in row direction
     int num_subtile_x = (T1 + block_elem - 1) / block_elem;
     int num_subtile_y = T0 / 16;
@@ -905,17 +904,26 @@ TILEOP void DynTtranspose_vnchwconv_(
         for (int i = 0; i < num_subtile_x; i++) {
             uint64_t srcUb[16] = {0}, tmpUb[16] = {0};
             for (int j = 0; j < 16; j++) {
-                srcUb[j] = (uint64_t)(src + i * 8 + j * SS);
-                tmpUb[j] = (uint64_t)(tmp + ((j >> 1) + i * 8) * TS + (j & 1) * block_elem);
+                srcUb[j] = (uint64_t)(src + i * block_elem + j * SS);
+                tmpUb[j] = (sizeof(T) == 2) ? (uint64_t)(tmp + (j + i * block_elem) * TS) :
+                                              (uint64_t)(tmp + ((j >> 1) + i * block_elem) * TS + (j & 1) * block_elem);
             }
             set_va_reg_sb(VA2, srcUb);
             set_va_reg_sb(VA3, &srcUb[8]);
             set_va_reg_sb(VA0, tmpUb);
             set_va_reg_sb(VA1, &tmpUb[8]);
-            if (num_subtile_y == 1) {
-                scatter_vnchwconv_b32(VA0, VA2, 1, 0, 0);
+            if (sizeof(T) == 2) {
+                if (num_subtile_y == 1) {
+                    scatter_vnchwconv_b16(VA0, VA2, 1, 0, 0);
+                } else {
+                    scatter_vnchwconv_b16(VA0, VA2, num_subtile_y, 2, 16 * SS * sizeof(T) / BLOCK_SIZE);
+                }
             } else {
-                scatter_vnchwconv_b32(VA0, VA2, num_subtile_y, 2, 16 * SS * sizeof(T) / BLOCK_SIZE);
+                if (num_subtile_y == 1) {
+                    scatter_vnchwconv_b32(VA0, VA2, 1, 0, 0);
+                } else {
+                    scatter_vnchwconv_b32(VA0, VA2, num_subtile_y, 2, 16 * SS * sizeof(T) / BLOCK_SIZE);
+                }
             }
         }
     }
@@ -926,17 +934,26 @@ TILEOP void DynTtranspose_vnchwconv_(
         for (int i = 0; i < remain_y; i++) {
             srcUb[i] = (uint64_t)(src + (num_subtile_y * 16 + i) * SS);
         }
-        for (int i = 0; i <16; i++) {
-            tmpUb[i] = (uint64_t)(tmp + num_subtile_y * 16 + (i & 1) * block_elem + (i >> 1) * TS);
+        for (int i = 0; i < 16; i++) {
+            tmpUb[i] = (sizeof(T) == 2) ? (uint64_t)(tmp + num_subtile_y * 16 + i * TS) :
+                                          (uint64_t)(tmp + num_subtile_y * 16 + (i & 1) * block_elem + (i >> 1) * TS);
         }
         set_va_reg_sb(VA2, srcUb);
         set_va_reg_sb(VA3, &srcUb[8]);
         set_va_reg_sb(VA0, tmpUb);
         set_va_reg_sb(VA1, &tmpUb[8]);
-        if (num_subtile_x == 1) {
-            scatter_vnchwconv_b32(VA0, VA2, 1, 0, 0);
+        if (sizeof(T) == 2) {
+            if (num_subtile_x == 1) {
+                scatter_vnchwconv_b16(VA0, VA2, 1, 0, 0);
+            } else {
+                scatter_vnchwconv_b16(VA0, VA2, num_subtile_x, block_elem * TS * sizeof(T) / BLOCK_SIZE, 1);
+            }
         } else {
-            scatter_vnchwconv_b32(VA0, VA2, num_subtile_x, 8 * TS * sizeof(T) / BLOCK_SIZE, 1);
+            if (num_subtile_x == 1) {
+                scatter_vnchwconv_b32(VA0, VA2, 1, 0, 0);
+            } else {
+                scatter_vnchwconv_b32(VA0, VA2, num_subtile_x, block_elem * TS * sizeof(T) / BLOCK_SIZE, 1);
+            }
         }
     }
     // copy to dst
@@ -951,9 +968,10 @@ template <typename T, unsigned DS1, unsigned DS2, unsigned DS3, unsigned DS4, un
     unsigned SS4>
 TILEOP void DynTtranspose_vnchwconv_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp, unsigned T0, unsigned T1,
     unsigned T2, unsigned T3, unsigned T4) {
+    constexpr int block_elem = BLOCK_SIZE / sizeof(T);
     unsigned TS1 = DS1;
     unsigned TS2 = DS2;
-    unsigned TS3 = (T4 + 7) / 8 * 8;
+    unsigned TS3 = (T4 + block_elem - 1) / block_elem * block_elem;
     unsigned TS4 = (T3 + 15) / 16 * 16;
     for (unsigned i = 0; i < T0; i++) {
         __ubuf__ T *dst0 = dst;

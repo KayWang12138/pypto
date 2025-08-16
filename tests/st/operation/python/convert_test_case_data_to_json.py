@@ -192,6 +192,12 @@ class TestDataReader:
         dims = row_data.get("dims", None)
         if dims is not None and not pd.isna(dims) and not pd.isnull(dims):
             params["dims"] = self.str_to_list(row_data.get("dims"))
+        first_dim = row_data.get("first_dim", None)
+        if first_dim is not None and not pd.isna(first_dim) and not pd.isnull(first_dim):
+            params["first_dim"] = int(first_dim)
+        second_dim = row_data.get("second_dim", None)
+        if second_dim is not None and not pd.isna(second_dim) and not pd.isnull(second_dim):
+            params["second_dim"] = int(second_dim)
         return TestCaseData(
             row_data.get("case_index"),
             row_data.get("case_name"),

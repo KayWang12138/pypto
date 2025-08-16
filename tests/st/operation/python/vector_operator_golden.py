@@ -118,6 +118,7 @@ def load_test_cases(op: str, json_path: str) -> list:
         ]
     test_cases = []
     for json_file in json_files:
+        logging.info(f"Try to load test cases from file {json_file}.")
         test_cases = test_cases + load_test_cases_from_json(op, json_file)
     test_cases.sort(key=lambda x: x["case_index"])
     return test_cases
@@ -558,6 +559,20 @@ def gen_reduce_max_op_golden(case_name: str, output: Path, case_index: int = Non
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("ReduceMax", golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestTranspose/TransposeOperationTest.TestTranspose",
+    ]
+)
+def gen_transpose_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs, params: dict):
+        return [np.transpose(inputs[0], axes=tuple(params["dims"]))]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Transpose", golden_func, output, case_index)
 
 
 def main() -> bool:

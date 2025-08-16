@@ -1,0 +1,127 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file test_transpose_operation.cpp
+ * \brief
+ */
+
+#include "test_operation.h"
+
+using namespace tile_fwk::test_operation;
+namespace {
+struct TransposeOpFuncArgs : public OpFuncArgs {
+    TransposeOpFuncArgs(
+        int first_dim, int second_dim, const std::vector<int> &viewShape, const std::vector<int> tileShape)
+        : first_dim_(first_dim), second_dim_(second_dim), viewShape_(viewShape), tileShape_(tileShape) {}
+    int first_dim_;
+    int second_dim_;
+    std::vector<int> viewShape_;
+    std::vector<int> tileShape_;
+};
+
+struct TransposeOpMetaData {
+    explicit TransposeOpMetaData(const OpFunc &opFunc, const nlohmann::json &test_data)
+        : opFunc_(opFunc), test_data_(test_data) {}
+    OpFunc opFunc_;
+    nlohmann::json test_data_;
+};
+
+static void TransposeOperationExeFunc3Dims(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    const TransposeOpFuncArgs *transposeInfo = static_cast<const TransposeOpFuncArgs *>(opArgs);
+    const int firstViewShape = transposeInfo->viewShape_[0];
+    const int secondViewShape = transposeInfo->viewShape_[1];
+    const int thirdViewShape = transposeInfo->viewShape_[2];
+    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
+        SymbolicScalar firstDim = inputs[0]->shape[0];
+        SymbolicScalar secondDim = inputs[0]->shape[1];
+        SymbolicScalar thirdDim = inputs[0]->shape[2];
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, CeilDiv(firstDim, firstViewShape), 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx,
+                LoopRange(0, CeilDiv(secondDim, secondViewShape), 1)) {
+                LOOP("LOOP_L2_tIdx", FunctionType::DYNAMIC_LOOP, tIdx,
+                    LoopRange(0, CeilDiv(thirdDim, thirdViewShape), 1)) {
+                    Tensor tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                            std::min(thirdDim - tIdx * thirdViewShape, thirdViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape, tIdx * thirdViewShape});
+                    Program::GetInstance().GetTileShape().SetVecTileShapes(transposeInfo->tileShape_);
+                    auto res = Transpose(tileTensor0, {transposeInfo->first_dim_, transposeInfo->second_dim_});
+                    DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, tIdx * thirdViewShape}, outputs[0]);
+                }
+            }
+        }
+    }
+}
+
+static void TransposeOperationExeFunc4Dims(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    const TransposeOpFuncArgs *transposeInfo = static_cast<const TransposeOpFuncArgs *>(opArgs);
+    const int firstViewShape = transposeInfo->viewShape_[0];
+    const int secondViewShape = transposeInfo->viewShape_[1];
+    const int thirdViewShape = transposeInfo->viewShape_[2];
+    const int forthViewShape = transposeInfo->viewShape_[3];
+    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
+        SymbolicScalar firstDim = inputs[0]->shape[0];
+        SymbolicScalar secondDim = inputs[0]->shape[1];
+        SymbolicScalar thirdDim = inputs[0]->shape[2];
+        SymbolicScalar forthDim = inputs[0]->shape[3];
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, CeilDiv(firstDim, firstViewShape), 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx,
+                LoopRange(0, CeilDiv(secondDim, secondViewShape), 1)) {
+                LOOP("LOOP_L2_tIdx", FunctionType::DYNAMIC_LOOP, tIdx,
+                    LoopRange(0, CeilDiv(thirdDim, thirdViewShape), 1)) {
+                    LOOP("LOOP_L3_tIdx", FunctionType::DYNAMIC_LOOP, pIdx,
+                        LoopRange(0, CeilDiv(forthDim, forthViewShape), 1)) {
+                        Tensor tileTensor0 =
+                            DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, forthViewShape},
+                                {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                    std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                    std::min(thirdDim - tIdx * thirdViewShape, thirdViewShape),
+                                    std::min(forthDim - pIdx * forthViewShape, forthViewShape)},
+                                {bIdx * firstViewShape, sIdx * secondViewShape, tIdx * thirdViewShape,
+                                    pIdx * forthViewShape});
+                        Program::GetInstance().GetTileShape().SetVecTileShapes(transposeInfo->tileShape_);
+                        auto res = Transpose(tileTensor0, {transposeInfo->first_dim_, transposeInfo->second_dim_});
+                        DAssemble(res,
+                            {bIdx * firstViewShape, sIdx * secondViewShape, tIdx * thirdViewShape,
+                                pIdx * forthViewShape},
+                            outputs[0]);
+                    }
+                }
+            }
+        }
+    }
+}
+
+class TransposeOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<TransposeOpMetaData> {};
+
+INSTANTIATE_TEST_SUITE_P(TestTranspose, TransposeOperationTest,
+    ::testing::ValuesIn(GetOpMetaData<TransposeOpMetaData>(
+        {TransposeOperationExeFunc3Dims, TransposeOperationExeFunc3Dims, TransposeOperationExeFunc4Dims},
+        "Transpose")));
+
+TEST_P(TransposeOperationTest, TestTranspose) {
+    TestCaseDesc testCase;
+    auto test_data = GetParam().test_data_;
+    testCase.inputTensors = GetInputTensors(test_data);
+    testCase.outputTensors = GetOutputTensors(test_data);
+    int first_dim = GetValueByName<int>(test_data, "first_dim");
+    int second_dim = GetValueByName<int>(test_data, "second_dim");
+    auto args = TransposeOpFuncArgs(first_dim, second_dim, GetViewShape(test_data), GetTileShape(test_data));
+    testCase.args = &args;
+    testCase.opFunc = GetParam().opFunc_;
+    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin"};
+    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
+    TestExecutor::runTest(testCase);
+}
+} // namespace
