@@ -57,6 +57,7 @@ option(ENABLE_TESTS_STEST_TOOLS_PROF_LEVEL "Specify STest Tools Profiling Level"
 option(ENABLE_TESTS_STEST_TOOLS_PROF_WARN_UP_CNT "Specify STest Tools Profiling Warn-up cnt" OFF)
 option(ENABLE_TESTS_STEST_TOOLS_PROF_TRY_CNT "Specify STest Tools Profiling Try cnt" OFF)
 option(ENABLE_TESTS_STEST_TOOLS_PROF_MAX_CNT "Specify STest Tools Profiling Max cnt" OFF)
+option(ENABLE_TORCH_VERIFIER "Flow verify with libtorch" OFF)
 
 # 缺省编译配置, 编译函数
 include(ExternalProject)

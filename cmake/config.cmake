@@ -263,3 +263,15 @@ if (BUILD_OPEN_PROJECT)
         add_dependencies(boundscheck ExternalProject_BoundsCheck)
     endif ()
 endif ()
+
+## torch optional
+if (ENABLE_TESTS_UTEST OR ENABLE_TESTS_STEST)
+    execute_process(
+        COMMAND ${TILE_FWK_PYTHON3_EXE} -c "import torch; print(torch.__version__)"
+        OUTPUT_VARIABLE TORCH_VERSION
+    )
+    message(STATUS "Torch=${TORCH_VERSION}")
+    if ("${TORCH_VERSION}" STRGREATER_EQUAL "2.1.0")
+        set(ENABLE_TORCH_VERIFIER ON)
+    endif()
+endif()

@@ -20,7 +20,6 @@
 #include <string>
 #include <memory>
 
-#include "interface/interpreter/thread_pool.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/tensor.h"
 #include "interface/inner/element.h"
@@ -234,6 +233,15 @@ struct LogicalTensorData {
     int GetSize() const { return size_; }
     DataType GetDataType() const { return GetData()->GetDataType(); }
 
+    int64_t GetStorageOffset() const {
+        auto &strides = data_->GetStride();
+        int64_t offset = 0;
+        for (size_t i = 0; i < strides.size(); i++) {
+            offset += strides[i] * offset_[i];
+        }
+        return offset;
+    }
+
     int ViewIndexToDataIndex(int viewIndex) const {
         int offset[0x8];
         for (size_t i = 0; i < GetShape().size(); i++) {
@@ -316,6 +324,9 @@ struct LogicalTensorData {
     void SaveFile(const char *filepath) const;
     static std::shared_ptr<LogicalTensorData> Load(const std::string &filepath);
 
+    void SetAxisCombine(bool val) { axisCombine = val; }
+    bool IsAxisCombine() const { return axisCombine; }
+
 private:
     template <typename T>
     void HandleSave(FILE *fdata, int totalSize, int rowSize) const {
@@ -342,7 +353,10 @@ private:
     std::vector<int64_t> stride_;
     int64_t size_;
     bool isSpilled_;
+    bool axisCombine{false};
 };
+
+using LogicalTensorDataPtr = std::shared_ptr<LogicalTensorData>;
 
 template <>
 inline std::shared_ptr<RawTensorData> RawTensorData::CreateTensor<uint8_t>(const Tensor &t,
