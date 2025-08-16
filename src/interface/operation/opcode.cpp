@@ -152,6 +152,8 @@ OpcodeManager::OpcodeManager() {
         {MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Trowsumsinglecombine", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::REDUCE, {OP_ATTR_PREFIX + "AXIS", OpAttributeKey::outputCombineAxis});
     registerInfo(Opcode::OP_ROWSUMLINE, OpCoreType::AIV, "ROWSUMLINE",
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Trowsumline", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::REDUCE);
+    registerInfo(Opcode::OP_ROWMAXLINE, OpCoreType::AIV, "ROWMAXLINE",
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Trowmaxline", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::REDUCE);
     // AIV ALLOC
     registerInfo(Opcode::OP_VEC_DUP, OpCoreType::AIV, "VEC_DUP", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tduplicate", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OpAttributeKey::scalar, OP_ATTR_PREFIX + "shape", OP_ATTR_PREFIX + "validShape"});
     registerInfo(Opcode::OP_UB_ALLOC, OpCoreType::AIV, "UB_ALLOC", {}, {MemoryType::MEM_UB}, {"UB_ALLOC", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::SYS);

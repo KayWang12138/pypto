@@ -395,6 +395,7 @@ private:
         {                 Opcode::OP_ROWEXPMAX,                  [this]() { return GenUnaryOp(); }},
         {             Opcode::OP_COPY_UB_TO_UB,                  [this]() { return GenUnaryOp(); }},
         {                Opcode::OP_ROWSUMLINE,                  [this]() { return GenUnaryOp(); }},
+        {                Opcode::OP_ROWMAXLINE,                  [this]() { return GenUnaryOp(); }},
         {                       Opcode::OP_ABS,                  [this]() { return GenUnaryOp(); }},
 
         // unary with temp buffer

@@ -831,17 +831,13 @@ void ReduceSingle(size_t cur, const std::string &op, Input &input, const Logical
     if (cur == static_cast<size_t>(axis) && static_cast<size_t>(axis) == input.tileInfo.shape.size() - 1) {
         auto inputTile = input.tensor->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
-        if (static_cast<size_t>(axis) <  input.tileInfo.shape.size() - 1) {
-            auto &newOp  = function.AddOperation(Opcode::OP_ROWSUMLINE, {inputTile}, {resultTile});
-            newOp .SetAttribute(OP_ATTR_PREFIX + "AXIS", axis);
-        } else {
-            TileReduceNew(function, tileShape, op, npu::tile_fwk::ReduceType::SINGLE, inputTile, resultTile, axis);
-        }
+        TileReduceNew(function, tileShape, op, npu::tile_fwk::ReduceType::SINGLE, inputTile, resultTile, axis);
         return;
     } else if (cur == input.tileInfo.shape.size() && static_cast<size_t>(axis) < input.tileInfo.shape.size() - 1){
         auto inputTile = input.tensor->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
-        auto &newOp = function.AddOperation(Opcode::OP_ROWSUMLINE, {inputTile}, {resultTile});
+        auto newOpcode = op == "SUM" ? Opcode::OP_ROWSUMLINE : Opcode::OP_ROWMAXLINE;
+        auto &newOp = function.AddOperation(newOpcode, {inputTile}, {resultTile});
         newOp.SetAttribute(OP_ATTR_PREFIX + "AXIS", axis);
         return;
     }
@@ -3094,7 +3090,8 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
         }
         case Opcode::OP_ROWMAX_SINGLE: {
             UnaryOperationOperandCheck(iOperand, oOperand);
-            TiledReduceSingle(function, tileShape, "MAX", iOperand[0], oOperand[0]);
+            auto axis = op.GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
+            TiledReduceSingle(function, tileShape, "MAX", iOperand[0], oOperand[0], axis);
             break;
         }
         case Opcode::OP_ROWSUM_SINGLE: {
