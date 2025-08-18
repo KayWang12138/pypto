@@ -164,14 +164,14 @@ TEST_F(GenerateMoveOpPassTest, AssembleViewToCopy) {
         Tensor output(DT_FP32, shape2, "output");
         PassManager &passManager = PassManager::Instance();
         passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
-            {   "RemoveRedundentReshape",   "RemoveRedundentReshape",  PassType::TYPE_TENSOR_GRAPH},
+            {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
             {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
             {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
             {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
             {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
             {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
             {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
-            {        "RemoveRedundentOp",        "RemoveRedundentOp",    PassType::TYPE_TILE_GRAPH},
+            {        "RemoveRedundantOp",        "RemoveRedundantOp",    PassType::TYPE_TILE_GRAPH},
 
         });
         ConfigManager::Instance();
@@ -258,14 +258,14 @@ TEST_F(GenerateMoveOpPassTest, ConvertToCopy) {
         Tensor output(DT_FP32, shape2, "output");
         PassManager &passManager = PassManager::Instance();
         passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
-            {   "RemoveRedundentReshape",   "RemoveRedundentReshape",  PassType::TYPE_TENSOR_GRAPH},
+            {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
             {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
             {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
             {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
             {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
             {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
             {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
-            {        "RemoveRedundentOp",        "RemoveRedundentOp",    PassType::TYPE_TILE_GRAPH},
+            {        "RemoveRedundantOp",        "RemoveRedundantOp",    PassType::TYPE_TILE_GRAPH},
             {           "GenerateMoveOp",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
         });
         ConfigManager::Instance();
@@ -333,14 +333,14 @@ TEST_F(GenerateMoveOpPassTest, Transpose) {
 
         PassManager &passManager = PassManager::Instance();
         passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
-            {   "RemoveRedundentReshape",   "RemoveRedundentReshape",  PassType::TYPE_TENSOR_GRAPH},
+            {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
             {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
             {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
             {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
             {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
             {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
             {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
-            {        "RemoveRedundentOp",        "RemoveRedundentOp",    PassType::TYPE_TILE_GRAPH},
+            {        "RemoveRedundantOp",        "RemoveRedundantOp",    PassType::TYPE_TILE_GRAPH},
 
         });
         ConfigManager::Instance();
@@ -416,14 +416,14 @@ TEST_F(GenerateMoveOpPassTest, ScatterUpdate) {
 
         PassManager &passManager = PassManager::Instance();
         passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
-            {   "RemoveRedundentReshape",   "RemoveRedundentReshape",  PassType::TYPE_TENSOR_GRAPH},
+            {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
             {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
             {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
             {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
             {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
             {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
             {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
-            {        "RemoveRedundentOp",        "RemoveRedundentOp",    PassType::TYPE_TILE_GRAPH},
+            {        "RemoveRedundantOp",        "RemoveRedundantOp",    PassType::TYPE_TILE_GRAPH},
 
         });
         ConfigManager::Instance();

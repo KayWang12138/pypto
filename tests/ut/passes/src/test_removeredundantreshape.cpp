@@ -23,7 +23,7 @@
 #include "ut_json/ut_json_tool.h"
 
 #define private public
-#include "passes/tensor_graph_pass/remove_redundent_reshape.h"
+#include "passes/tensor_graph_pass/remove_redundant_reshape.h"
 
 namespace npu {
 namespace tile_fwk{
@@ -83,8 +83,8 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeUTest1) {
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
 
-    RemoveRedundentReshape removeredundentpass;
-    auto status = removeredundentpass.RunOnFunction(*currFunctionPtr);
+    RemoveRedundantReshape removeredundantpass;
+    auto status = removeredundantpass.RunOnFunction(*currFunctionPtr);
     EXPECT_EQ(status, SUCCESS);
 
     uint32_t reshape_num = kNumZero;
@@ -123,8 +123,8 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeUTest2) {
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
 
-    RemoveRedundentReshape removeredundentpass;
-    auto status = removeredundentpass.RunOnFunction(*currFunctionPtr);
+    RemoveRedundantReshape removeredundantpass;
+    auto status = removeredundantpass.RunOnFunction(*currFunctionPtr);
     EXPECT_EQ(status, SUCCESS);
 
     uint32_t reshape_num = kNumZero;
@@ -170,9 +170,9 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeUTest3) {
     currFunctionPtr->outCasts_.push_back(outCast2);
     currFunctionPtr->outCasts_.push_back(outCast3);
 
-    RemoveRedundentReshape removeredundentpass;
-    EXPECT_NE(removeredundentpass.PreCheck(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(removeredundentpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    RemoveRedundantReshape removeredundantpass;
+    EXPECT_NE(removeredundantpass.PreCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.RunOnFunction(*currFunctionPtr), SUCCESS);
 
     uint32_t reshape_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
@@ -219,8 +219,8 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeUTest4) {
     currFunctionPtr->outCasts_.push_back(outCast1);
     currFunctionPtr->outCasts_.push_back(outCast2);
 
-    RemoveRedundentReshape removeredundentpass;
-    auto status = removeredundentpass.RunOnFunction(*currFunctionPtr);
+    RemoveRedundantReshape removeredundantpass;
+    auto status = removeredundantpass.RunOnFunction(*currFunctionPtr);
     EXPECT_EQ(status, SUCCESS);
 
     uint32_t reshape_num = kNumZero;
@@ -278,10 +278,10 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeSTest1) {
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase1");
     EXPECT_EQ(func->Operations().size(), kSizeThirteen);
 
-    passManager.RegisterStrategy("RemoveRedundentReshapeTestStrategy", {
-        {   "RemoveRedundentReshape",   "RemoveRedundentReshape",  PassType::TYPE_TENSOR_GRAPH},
+    passManager.RegisterStrategy("RemoveRedundantReshapeTestStrategy", {
+        {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
     });
-    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "RemoveRedundentReshapeTestStrategy"), SUCCESS);
+    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "RemoveRedundantReshapeTestStrategy"), SUCCESS);
     
     // ================== Verify the effect of the Pass ==================
     auto updated_operations = func->Operations();

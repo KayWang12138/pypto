@@ -9,11 +9,11 @@
  */
 
 /*!
- * \file remove_redundent_reshape.cpp
+ * \file remove_redundant_reshape.cpp
  * \brief
  */
 
-#include "remove_redundent_reshape.h"
+#include "remove_redundant_reshape.h"
 #include "interface/tensor/logical_tensor.h"
 
 using namespace npu::tile_fwk;
@@ -56,15 +56,15 @@ Status ProcessPreCheck(const Operation *op) {
 }
 }
 
-Status RemoveRedundentReshape::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===> Start RemoveRedundentShapePass for function [%s].", function.GetRawName().c_str());
+Status RemoveRedundantReshape::RunOnFunction(Function &function) {
+    ALOG_INFO_F("===> Start RemoveRedundantShapePass for function [%s].", function.GetRawName().c_str());
     if (RemoveReshape(function) != SUCCESS) {return FAILED;}
-    ALOG_INFO_F("===> End RemoveRedundentShapePass for function [%s].", function.GetRawName().c_str());
+    ALOG_INFO_F("===> End RemoveRedundantShapePass for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
 
-Status RemoveRedundentReshape::RemoveReshape(Function &function) const {
-    std::unordered_set<Operation *> redundentResapes;
+Status RemoveRedundantReshape::RemoveReshape(Function &function) const {
+    std::unordered_set<Operation *> redundantResapes;
     LogicalTensorPtr in;
     LogicalTensorPtr out;
     for (auto &op : function.Operations()) {
@@ -84,11 +84,11 @@ Status RemoveRedundentReshape::RemoveReshape(Function &function) const {
         }
         if (allConsumersIsReshape == true) {
             ALOG_DEBUG_F("All consummers of op [%d] are reshape.", op.GetOpMagic());
-            redundentResapes.insert(&op);
+            redundantResapes.insert(&op);
         }
     }
-    if (!redundentResapes.empty()) {
-        for (auto &ele : redundentResapes) {
+    if (!redundantResapes.empty()) {
+        for (auto &ele : redundantResapes) {
             ALOG_DEBUG_F("Delete OP_RESHAPE, magic %d", ele->GetOpMagic());
             if (ele->IsDeleted()) {return FAILED;}
             ele->SetAsDeleted();
@@ -98,8 +98,8 @@ Status RemoveRedundentReshape::RemoveReshape(Function &function) const {
     return SUCCESS;
 }
 
-Status RemoveRedundentReshape::PreCheck(Function &function) {
-    ALOG_INFO_F("PreCheck for RemoveRedundentReshape");
+Status RemoveRedundantReshape::PreCheck(Function &function) {
+    ALOG_INFO_F("PreCheck for RemoveRedundantReshape");
     auto ops = function.Operations().DuplicatedOpList();
     for (const auto &op : ops) {
         if (op == nullptr) {return FAILED;}
@@ -107,15 +107,15 @@ Status RemoveRedundentReshape::PreCheck(Function &function) {
     if (!function.LoopCheck().empty()) {return FAILED;}
     for (const auto &op : ops) {
         if (ProcessPreCheck(op)) {
-            ALOG_ERROR_F("Precheck RemoveRedundentReshape failed");
+            ALOG_ERROR_F("Precheck RemoveRedundantReshape failed");
             return FAILED;
         }
     }
     return SUCCESS;
 }
 
-Status RemoveRedundentReshape::PostCheck(Function &function) {
-    ALOG_INFO_F("PostCheck for RemoveRedundentReshape");
+Status RemoveRedundantReshape::PostCheck(Function &function) {
+    ALOG_INFO_F("PostCheck for RemoveRedundantReshape");
     if (!function.LoopCheck().empty()) {return FAILED;}
     return SUCCESS;
 }

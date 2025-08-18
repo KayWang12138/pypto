@@ -9,8 +9,8 @@
  */
 
 /*!
- * \file test_remove_redundent_op.cpp
- * \brief Unit test for RemoveRedundentOp pass.
+ * \file test_remove_redundant_op.cpp
+ * \brief Unit test for RemoveRedundantOp pass.
  */
 
 #include "gtest/gtest.h"
@@ -21,14 +21,14 @@
 #include "passes/pass_manager.h"
 #include "interface/configs/config_manager.h"
 #include "ut_json/ut_json_tool.h"
-#include "passes/tile_graph_pass/remove_redundent_op.h"
+#include "passes/tile_graph_pass/remove_redundant_op.h"
 #include <fstream>
 #include <vector>
 #include <string>
 
 using namespace npu::tile_fwk;
 
-void PrintGraphInfoRemoveRedundentOp(Function* func) {
+void PrintGraphInfoRemoveRedundantOp(Function* func) {
     std::cout << "func->Operations().size() = "  << func->Operations().size() << std::endl;
     for (auto &op : func->Operations()) {
         std::cout << "Op:" << op.GetOpMagic() << " " <<  op.GetOpcodeStr() << std::endl;
@@ -48,7 +48,7 @@ void PrintGraphInfoRemoveRedundentOp(Function* func) {
     }
 }
 
-class RemoveRedundentOpTest : public testing::Test {
+class RemoveRedundantOpTest : public testing::Test {
 public:
     static void SetUpTestCase() {}
 
@@ -58,13 +58,13 @@ public:
         Program::GetInstance().Reset();
         Program::GetInstance().GetConfig().Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-        config::SetHostConfig(KEY_STRATEGY, "RemoveRedundentOpTestStrategy");
+        config::SetHostConfig(KEY_STRATEGY, "RemoveRedundantOpTestStrategy");
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
     }
     void TearDown() override {}
 };
 
-TEST_F(RemoveRedundentOpTest, TestIntermediateOutcast) {
+TEST_F(RemoveRedundantOpTest, TestIntermediateOutcast) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
     int bs = 1;
     int n = 32;
@@ -72,8 +72,8 @@ TEST_F(RemoveRedundentOpTest, TestIntermediateOutcast) {
     std::vector<int> shape{bs, n, d};
     std::vector<int> resShape{bs, n, d};
     PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("RemoveRedundentOpTestStrategy", {
-    {   "RemoveRedundentReshape",   "RemoveRedundentReshape",  PassType::TYPE_TENSOR_GRAPH},
+    passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
+    {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
     {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
     {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
     {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
@@ -86,15 +86,15 @@ TEST_F(RemoveRedundentOpTest, TestIntermediateOutcast) {
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape, "res");
     Tensor output_add(DataType::DT_FP32, resShape, "res_add");
-    FUNCTION("RemoveRedundentOpFunction", FunctionType::STATIC, {input, output, output_add}) {
+    FUNCTION("RemoveRedundantOpFunction", FunctionType::STATIC, {input, output, output_add}) {
         Program::GetInstance().GetTileShape().SetVecTileShapes(1, 32, 128);
         output = Transpose(input, {0, 1});
         Program::GetInstance().GetTileShape().SetVecTileShapes(8, 1, 128);
         output_add = AddS(output, Element(DataType::DT_FP32, 0.0));
     }
 
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_RemoveRedundentOpFunction");
-    npu::tile_fwk::RemoveRedundentOp removeRedundentOp;
+    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_RemoveRedundantOpFunction");
+    npu::tile_fwk::RemoveRedundantOp removeRedundantOp;
     auto oriOpList = func->Operations(true);
     EXPECT_EQ(oriOpList.size(), 15) << "Before the Pass, there should be 15 operations";
     int ori_view_count = 0;
@@ -106,12 +106,12 @@ TEST_F(RemoveRedundentOpTest, TestIntermediateOutcast) {
             ori_assemble_count += 1;
         }
     }
-    EXPECT_EQ(ori_view_count, 5) << "There shoule be 5 VIEW op before RemoveRedundentOp";
-    EXPECT_EQ(ori_assemble_count, 5) << "There shoule be 5 ASSEMBLE op before RemoveRedundentOp";
-    removeRedundentOp.PreCheck(*func);
-    removeRedundentOp.RunOnFunction(*func);
-    removeRedundentOp.PostCheck(*func);
-    PrintGraphInfoRemoveRedundentOp(func);
+    EXPECT_EQ(ori_view_count, 5) << "There shoule be 5 VIEW op before RemoveRedundantOp";
+    EXPECT_EQ(ori_assemble_count, 5) << "There shoule be 5 ASSEMBLE op before RemoveRedundantOp";
+    removeRedundantOp.PreCheck(*func);
+    removeRedundantOp.RunOnFunction(*func);
+    removeRedundantOp.PostCheck(*func);
+    PrintGraphInfoRemoveRedundantOp(func);
     // ================== Verify the effect of the Pass ==================
     auto updated_operations = func->Operations(true);
     int opSize = 14;
@@ -127,11 +127,11 @@ TEST_F(RemoveRedundentOpTest, TestIntermediateOutcast) {
             assemble_count += 1;
         }
     }
-    EXPECT_EQ(view_count, 5) << "There shoule be 5 ASSEMBLE op after RemoveRedundentOp";
-    EXPECT_EQ(assemble_count, 4) << "There shoule be 5 ASSEMBLE op after RemoveRedundentOp";
+    EXPECT_EQ(view_count, 5) << "There shoule be 5 ASSEMBLE op after RemoveRedundantOp";
+    EXPECT_EQ(assemble_count, 4) << "There shoule be 5 ASSEMBLE op after RemoveRedundantOp";
 }
 
-TEST_F(RemoveRedundentOpTest, TestInternalAssembleView) {
+TEST_F(RemoveRedundantOpTest, TestInternalAssembleView) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
     int bs = 4;
     int n = 32;
@@ -139,8 +139,8 @@ TEST_F(RemoveRedundentOpTest, TestInternalAssembleView) {
     std::vector<int> shape{bs, n, d};
     std::vector<int> resShape{bs, n, d};
     PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("RemoveRedundentOpTestStrategy", {
-    {   "RemoveRedundentReshape",   "RemoveRedundentReshape",  PassType::TYPE_TENSOR_GRAPH},
+    passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
+    {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
     {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
     {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
     {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
@@ -152,15 +152,15 @@ TEST_F(RemoveRedundentOpTest, TestInternalAssembleView) {
 
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape, "res");
-    FUNCTION("RemoveRedundentOpFunction", FunctionType::STATIC, {input, output}) {
+    FUNCTION("RemoveRedundantOpFunction", FunctionType::STATIC, {input, output}) {
         Program::GetInstance().GetTileShape().SetVecTileShapes(1, 32, 128);
         auto tmp = Transpose(input, {0, 1}); // [32, 4, 128]
         Program::GetInstance().GetTileShape().SetVecTileShapes(8, 1, 64);
         output = AddS(tmp, Element(DataType::DT_FP32, 3.0));
     }
 
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_RemoveRedundentOpFunction");
-    npu::tile_fwk::RemoveRedundentOp removeRedundentOp;
+    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_RemoveRedundantOpFunction");
+    npu::tile_fwk::RemoveRedundantOp removeRedundantOp;
     auto oriOpList = func->Operations(true);
     int ori_view_count = 0;
     int ori_assemble_count = 0;
@@ -171,10 +171,10 @@ TEST_F(RemoveRedundentOpTest, TestInternalAssembleView) {
             ori_assemble_count += 1;
         }
     }
-    removeRedundentOp.PreCheck(*func);
-    removeRedundentOp.RunOnFunction(*func);
-    removeRedundentOp.PostCheck(*func);
-    PrintGraphInfoRemoveRedundentOp(func);
+    removeRedundantOp.PreCheck(*func);
+    removeRedundantOp.RunOnFunction(*func);
+    removeRedundantOp.PostCheck(*func);
+    PrintGraphInfoRemoveRedundantOp(func);
     // ================== Verify the effect of the Pass ==================
     auto updated_operations = func->Operations(true);
     int view_count = 0;
@@ -187,7 +187,7 @@ TEST_F(RemoveRedundentOpTest, TestInternalAssembleView) {
             assemble_count += 1;
         }
     }
-    EXPECT_EQ(updated_operations.size(), oriOpList.size()) << "No op should be removed in RemoveRedundentOp";
-    EXPECT_EQ(view_count, ori_view_count) << "No VIEW op should be removed in RemoveRedundentOp";
-    EXPECT_EQ(assemble_count, ori_assemble_count) << "No ASSEMBLE op should be removed in RemoveRedundentOp";
+    EXPECT_EQ(updated_operations.size(), oriOpList.size()) << "No op should be removed in RemoveRedundantOp";
+    EXPECT_EQ(view_count, ori_view_count) << "No VIEW op should be removed in RemoveRedundantOp";
+    EXPECT_EQ(assemble_count, ori_assemble_count) << "No ASSEMBLE op should be removed in RemoveRedundantOp";
 }

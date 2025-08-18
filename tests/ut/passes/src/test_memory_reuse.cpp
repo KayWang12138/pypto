@@ -10,7 +10,7 @@
 
 /*!
  * \file test_memory_reuse.cpp
- * \brief Unit test for RemoveRedundentReshape pass.
+ * \brief Unit test for RemoveRedundantReshape pass.
  */
 
 #include <gtest/gtest.h>

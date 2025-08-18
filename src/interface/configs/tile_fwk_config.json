@@ -86,7 +86,7 @@
             }
         },
         "TIG": {
-            "RemoveRedundentReshape": {
+            "RemoveRedundantReshape": {
                 "DUMP_FUNCTION_GRAPH_BEFORE_PASS": false
             }
         },
@@ -96,7 +96,7 @@
             }
         },
         "PVC2_OOO": {
-            "RemoveRedundentReshape": {
+            "RemoveRedundantReshape": {
                 "EXPECTED_VALUE_CHECK": false
             },
             "MergeViewAssemble": {
@@ -112,7 +112,7 @@
                 "DUMP_FUNCTION_GRAPH_BEFORE_PASS": false,
                 "DUMP_FUNCTION_GRAPH_AFTER_PASS": false
             },
-            "RemoveRedundentOp": {
+            "RemoveRedundantOp": {
                 "EXPECTED_VALUE_CHECK": false
             },
             "CommonOperationEliminate": {

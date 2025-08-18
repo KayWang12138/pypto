@@ -9,11 +9,11 @@
  */
 
 /*!
- * \file remove_redundent_op.cpp
+ * \file remove_redundant_op.cpp
  * \brief
  */
 
-#include "remove_redundent_op.h"
+#include "remove_redundant_op.h"
 
 using namespace npu::tile_fwk;
 
@@ -224,7 +224,7 @@ Status ProcessRegCopy(const Operation &op, const Function &function, bool &needT
             consumerOp->ReplaceInput(regCopyIn, regCopyOut);
         }
         needToDelete = true;
-        ALOG_DEBUG_F("[RemoveRedundentOp] Delete Redundent OP_REGISTER_COPY opmagic: %d", op.opmagic);
+        ALOG_DEBUG_F("[RemoveRedundantOp] Delete Redundant OP_REGISTER_COPY opmagic: %d", op.opmagic);
     }
     return SUCCESS;
 }
@@ -237,7 +237,7 @@ Status ProcessAssembleDDR(const Operation &op, const LogicalTensorPtr &assembleI
         /* DDR --> Assemble --> OUTCAST */
         if (assembleOut->nodetype != NodeType::OUTCAST) {return FAILED;}
         if (!function.IsFromOutCast(assembleOut)) {return FAILED;}
-        ALOG_DEBUG_F("[RemoveRedundentOp] OP_ASSEMBLE has no consumers, opmagic: %d", op.opmagic);
+        ALOG_DEBUG_F("[RemoveRedundantOp] OP_ASSEMBLE has no consumers, opmagic: %d", op.opmagic);
         auto childOpsBackup = assembleIn->GetConsumers();
         for (auto &childOp : childOpsBackup) {
             if (childOp->GetOpMagic() == op.GetOpMagic()) {
@@ -259,7 +259,7 @@ Status ProcessAssembleDDR(const Operation &op, const LogicalTensorPtr &assembleI
         }
     }
     needToDelete = true;
-    ALOG_DEBUG_F("[RemoveRedundentOp] Delete Redundent OP_ASSEMBLE on DDR opmagic: %d", op.opmagic);
+    ALOG_DEBUG_F("[RemoveRedundantOp] Delete Redundant OP_ASSEMBLE on DDR opmagic: %d", op.opmagic);
     return SUCCESS;
 }
 
@@ -277,7 +277,7 @@ Status ProcessAssembleUB(const Operation &op, const LogicalTensorPtr &ASSEMBLE_i
         consumerOp->ReplaceInput(ASSEMBLE_in, ASSEMBLE_out);
     }
     needToDelete = true;
-    ALOG_DEBUG_F("[RemoveRedundentOp] Delete Redundent OP_ASSEMBLE on UB opmagic: %d", op.opmagic);
+    ALOG_DEBUG_F("[RemoveRedundantOp] Delete Redundant OP_ASSEMBLE on UB opmagic: %d", op.opmagic);
     return SUCCESS;
 }
 
@@ -326,7 +326,7 @@ Status ProcessView(const Operation &op, Function &function, bool &needToDelete) 
             }
         }
         needToDelete = true;
-        ALOG_DEBUG_F("[RemoveRedundentOp] Delete Redundent OP_VIEW opmagic: %d", op.opmagic);
+        ALOG_DEBUG_F("[RemoveRedundantOp] Delete Redundant OP_VIEW opmagic: %d", op.opmagic);
     }
     if (out->GetConsumers().size() == 1) {
         auto childOp = *(out->GetConsumers().begin());
@@ -420,42 +420,42 @@ Status ProcessExpand(const Operation &op, bool &needToDelete) {
 }
 }
 
-Status RemoveRedundentOp::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===> Start RemoveRedundentOp");
+Status RemoveRedundantOp::RunOnFunction(Function &function) {
+    ALOG_INFO_F("===> Start RemoveRedundantOp");
     if (DeleteRedundantOps(function) != SUCCESS) {return FAILED;}
     if (RemoveDummyExpand(function) != SUCCESS) {return FAILED;}
-    ALOG_INFO_F("===> End RemoveRedundentOp");
+    ALOG_INFO_F("===> End RemoveRedundantOp");
     return SUCCESS;
 }
 
-Status RemoveRedundentOp::PreCheck(Function &function) {
-    ALOG_INFO_F("PreCheck for RemoveRedundentOp");
+Status RemoveRedundantOp::PreCheck(Function &function) {
+    ALOG_INFO_F("PreCheck for RemoveRedundantOp");
     for (const auto &op : function.Operations().DuplicatedOpList()) {
         if (op == nullptr) {return FAILED;}
     }
     if (!function.LoopCheck().empty()) {return FAILED;}
     for (auto &op : function.Operations()) {
         if (ProcessPreCheck(op) != SUCCESS) {
-            ALOG_ERROR_F("PreCheck for RemoveRedundentOp failed!");
+            ALOG_ERROR_F("PreCheck for RemoveRedundantOp failed!");
             return FAILED;
         }
     }
     return SUCCESS;
 }
 
-Status RemoveRedundentOp::PostCheck(Function &function) {
-    ALOG_INFO_F("PostCheck for RemoveRedundentOp");
+Status RemoveRedundantOp::PostCheck(Function &function) {
+    ALOG_INFO_F("PostCheck for RemoveRedundantOp");
     if (!function.LoopCheck().empty()) {return FAILED;}
     for (auto &op : function.Operations()) {
         if (ProcessPostCheck(op) != SUCCESS) {
-            ALOG_ERROR_F("PostCheck for RemoveRedundentOp failed!");
+            ALOG_ERROR_F("PostCheck for RemoveRedundantOp failed!");
             return FAILED;
         }
     }
     return SUCCESS;
 }
 
-Status RemoveRedundentOp::RemoveDummyExpand(Function &function) const {
+Status RemoveRedundantOp::RemoveDummyExpand(Function &function) const {
     std::vector<Operation *> dummyOp;
     bool needToDelete;
     for (auto &op: function.Operations()) {
@@ -478,7 +478,7 @@ Status RemoveRedundentOp::RemoveDummyExpand(Function &function) const {
     return SUCCESS;
 }
 
-Status RemoveRedundentOp::NeedToDelete(const Operation &op, Function &function, bool &needToDelete) const {
+Status RemoveRedundantOp::NeedToDelete(const Operation &op, Function &function, bool &needToDelete) const {
     needToDelete = false;
     auto opcode = op.GetOpcode();
     switch (opcode) {
@@ -500,7 +500,7 @@ Status RemoveRedundentOp::NeedToDelete(const Operation &op, Function &function, 
     return SUCCESS;
 }
 
-Status RemoveRedundentOp::DeleteCopyIn(Operation &op, Function &function, bool &needToDelete) const {
+Status RemoveRedundantOp::DeleteCopyIn(Operation &op, Function &function, bool &needToDelete) const {
     needToDelete = false;
     switch (op.GetOpcode()) {
         case Opcode::OP_COPY_IN:
@@ -512,26 +512,26 @@ Status RemoveRedundentOp::DeleteCopyIn(Operation &op, Function &function, bool &
     return SUCCESS;
 }
 
-Status RemoveRedundentOp::DeleteRedundantOps(Function &function) const {
-    std::vector<Operation *> redundentOp;
+Status RemoveRedundantOp::DeleteRedundantOps(Function &function) const {
+    std::vector<Operation *> redundantOp;
     bool needToDelete;
     for (auto &op : function.Operations()) {
         if (NeedToDelete(op, function, needToDelete) != SUCCESS) {return FAILED;}
         if (needToDelete) {
-            redundentOp.push_back(&op);
+            redundantOp.push_back(&op);
         }
     }
-    for (const auto &op : redundentOp) {
-        function.HandleControlOps(*op, redundentOp);
+    for (const auto &op : redundantOp) {
+        function.HandleControlOps(*op, redundantOp);
         function.UpdateOperandBeforeRemoveOp(*op, false);
     }
     for (auto &op : function.Operations()) {
         if (DeleteCopyIn(op, function, needToDelete) != SUCCESS) {return FAILED;}
         if (needToDelete) {
-            redundentOp.push_back(&op);
+            redundantOp.push_back(&op);
         }
     }
-    for (auto op : redundentOp) {
+    for (auto op : redundantOp) {
         if (op->IsDeleted()) {return FAILED;}
         op->SetAsDeleted();
     }

@@ -76,7 +76,7 @@ Status SplitReshape::Init() {
     mapOffset.clear();
     assembles.clear();
     reshapes.clear();
-    redundentViewops.clear();
+    redundantViewops.clear();
     reshapeRawOutputs.clear();
     return SUCCESS;
 }
@@ -520,7 +520,7 @@ Status SplitReshape::AddReshapeRemoveView(Operation &op, const OpPara &para) {
             consumerOp->ReplaceInput(reshapeOutput, output);
         }
     }
-    redundentViewops.insert(&op);
+    redundantViewops.insert(&op);
     return SUCCESS;
 }
 
@@ -856,7 +856,7 @@ Status SplitReshape::UpdateForAssembleAfterReshapeWithUB(Operation &op, const As
         assembles.emplace_back(
             AssembleOp{newReshapeOutput->GetMemoryTypeOriginal(), newOffset, newReshapeOutput, output});
     }
-    redundentViewops.insert(&op);
+    redundantViewops.insert(&op);
     return SUCCESS;
 }
 
@@ -1223,7 +1223,7 @@ Status SplitReshape::AddOperation(Function &function) {
 
 Status SplitReshape::EraseReshape(Function &function) {
     // 先删除view使reshape的Consumers为空
-    for (auto &opView : redundentViewops) {
+    for (auto &opView : redundantViewops) {
         if (opView == nullptr) {
             return FAILED;
         }

@@ -9,9 +9,9 @@
 
 set(_CaseFilterList
         # PassUT
-        "RemoveRedundentReshapeTest.TestSameInputOutputShape"
-        "RemoveRedundentReshapeTest.TestReshapeChain"
-        "RemoveRedundentReshapeTest.TestReplaceInput"
+        "RemoveRedundantReshapeTest.TestSameInputOutputShape"
+        "RemoveRedundantReshapeTest.TestReshapeChain"
+        "RemoveRedundantReshapeTest.TestReplaceInput"
         "TestRemoveRedundantReshapePass.RemoveRedundantReshapeUTest1"
         "TestRemoveRedundantReshapePass.RemoveRedundantReshapeUTest2"
         "TestRemoveRedundantReshapePass.RemoveRedundantReshapeUTest3"
@@ -131,8 +131,8 @@ set(_CaseFilterList
         "TestRemoveRedundantOpPass.RemoveRedundantOpSTest2"
         "TestRemoveRedundantOpPass.RemoveRedundantOpSTest3"
         "TestRemoveRedundantOpPass.RemoveRedundantOpSTest4"
-        "RemoveRedundentOpTest.TestIntermediateOutcast"
-        "RemoveRedundentOpTest.TestInternalAssembleView"
+        "RemoveRedundantOpTest.TestIntermediateOutcast"
+        "RemoveRedundantOpTest.TestInternalAssembleView"
         "GenerateMoveOpPassTest.MergeCopyInCopyOut"
         "GenerateMoveOpPassTest.AssembleViewToCopy"
         "GenerateMoveOpPassTest.ConvertToCopy"

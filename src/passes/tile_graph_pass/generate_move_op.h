@@ -34,7 +34,7 @@ private:
     void CreateMoveOp(Function &function) const;
     void MergeMoveOp(Function &function) const;
     void MergeCopyInCopyOut(Function &function, Operation &operation) const;
-    void EraseRedundentCopyOut(Function &function) const;
+    void EraseRedundantCopyOut(Function &function) const;
     void CreateMoveOpForView(Operation &op) const;
     void CreateMoveOpForAssemble(Operation &op) const;
     void CreateMoveOpForConvert(Operation &op) const;

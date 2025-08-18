@@ -47,7 +47,7 @@ TEST_F(SplitLargeLocalRawTest, SplitLocalRaw) {
     PROGRAM("SplitLargeLocalRawTest") {
         PassManager &passManager = PassManager::Instance();
         passManager.RegisterStrategy("SplitLargeLocalRawTestStrategy", {
-            {   "RemoveRedundentReshape",   "RemoveRedundentReshape",  PassType::TYPE_TENSOR_GRAPH},
+            {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
             {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
             {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
             {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},

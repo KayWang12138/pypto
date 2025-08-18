@@ -24,7 +24,7 @@
 #include "interface/tensor/expected_value.h"
 #include "tilefwk/error.h"
 // tensor graph pass
-#include "passes/tensor_graph_pass/remove_redundent_reshape.h"
+#include "passes/tensor_graph_pass/remove_redundant_reshape.h"
 #include "passes/tensor_graph_pass/remove_redundant_cast.h"
 #include "passes/tensor_graph_pass/expand_function.h"
 //  tile graph pass
@@ -40,7 +40,7 @@
 #include "passes/tile_graph_pass/pad_local_buffer.h"
 #include "passes/tile_graph_pass/inplace_process.h"
 #include "passes/tile_graph_pass/pre_graph.h"
-#include "passes/tile_graph_pass/remove_redundent_op.h"
+#include "passes/tile_graph_pass/remove_redundant_op.h"
 #include "passes/tile_graph_pass/n_buffer_merge.h"
 #include "passes/tile_graph_pass/split_large_local_raw.h"
 #include "passes/tile_graph_pass/update_memory_map.h"
@@ -81,7 +81,7 @@ void RegPass() {
     REG_PASS(GenerateMoveOp);
     REG_PASS(AssignMemoryType);
     REG_PASS(DuplicateView);
-    REG_PASS(RemoveRedundentReshape);
+    REG_PASS(RemoveRedundantReshape);
     REG_PASS(RemoveRedundantCast);
     REG_PASS(NBufferMerge);
     REG_PASS(L1CopyInReuseMerge);
@@ -91,7 +91,7 @@ void RegPass() {
     REG_PASS(PadLocalBuffer);
     REG_PASS(InplaceProcess);
     REG_PASS(PreGraphProcess);
-    REG_PASS(RemoveRedundentOp);
+    REG_PASS(RemoveRedundantOp);
     REG_PASS(SplitLargeLocalRawTensor);
     REG_PASS(SplitReshape);
     REG_PASS(RemoveUnalignedReshape);
@@ -108,14 +108,14 @@ void RegPass() {
 void PassManager::RegDefaultStrategy() {
     RegisterStrategy(
         "PVC2_OOO", {
-            {   "RemoveRedundentReshape",   "RemoveRedundentReshape",  PassType::TYPE_TENSOR_GRAPH},
+            {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
             {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
             {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
             {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
             {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
             {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
             {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
-            {        "RemoveRedundentOp",        "RemoveRedundentOp",    PassType::TYPE_TILE_GRAPH},
+            {        "RemoveRedundantOp",        "RemoveRedundantOp",    PassType::TYPE_TILE_GRAPH},
             {        "GenerateMoveOp_01",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
             {              "CubeProcess",              "CubeProcess",    PassType::TYPE_TILE_GRAPH},
             {           "GraphPartition",           "GraphPartition",    PassType::TYPE_TILE_GRAPH},

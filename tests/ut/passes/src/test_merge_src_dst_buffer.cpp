@@ -51,14 +51,14 @@ public:
 TEST_F(MergeSrcDstBufferTest, NoReplaced) {
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("SrcDstBufferMergeIncludePrePassStrategy", {
-         {   "RemoveRedundentReshape",   "RemoveRedundentReshape",  PassType::TYPE_TENSOR_GRAPH},
+         {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
                                  {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
                                  {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
                                  {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
                                  {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
                                  {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
                                  {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
-                                 {        "RemoveRedundentOp",        "RemoveRedundentOp",    PassType::TYPE_TILE_GRAPH},
+                                 {        "RemoveRedundantOp",        "RemoveRedundantOp",    PassType::TYPE_TILE_GRAPH},
                                  {           "GenerateMoveOp",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
                                  {        "GraphPartition",        "GraphPartition",    PassType::TYPE_TILE_GRAPH},
                                  {   "SplitLargeLocalRawTensor",   "SplitLargeLocalRawTensor",    PassType::TYPE_TILE_GRAPH},

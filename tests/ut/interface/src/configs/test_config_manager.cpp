@@ -90,33 +90,33 @@ TEST_F(TestConfigManager, PassDefaultConfig) {
 
 TEST_F(TestConfigManager, PassStrategies1) {
     {
-        auto ret = ConfigManager::Instance().GetPassConfigs("PVC2_OOO", "RemoveRedundentReshape");
+        auto ret = ConfigManager::Instance().GetPassConfigs("PVC2_OOO", "RemoveRedundantReshape");
         EXPECT_EQ(ret.expectedValueCheck, false);
 
-        config::SetPassConfig("PVC2_OOO", "RemoveRedundentReshape", KEY_EXPECTED_VALUE_CHECK, true);
-        ret = ConfigManager::Instance().GetPassConfigs("PVC2_OOO", "RemoveRedundentReshape");
+        config::SetPassConfig("PVC2_OOO", "RemoveRedundantReshape", KEY_EXPECTED_VALUE_CHECK, true);
+        ret = ConfigManager::Instance().GetPassConfigs("PVC2_OOO", "RemoveRedundantReshape");
         EXPECT_EQ(ret.expectedValueCheck, true);
     }
 }
 
 TEST_F(TestConfigManager, PassStrategies2) {
     {
-        auto ret = ConfigManager::Instance().GetPassConfigs("PVC2_OOO", "RemoveRedundentReshape");
+        auto ret = ConfigManager::Instance().GetPassConfigs("PVC2_OOO", "RemoveRedundantReshape");
         EXPECT_EQ(ret.dumpFunctionGraphBeforePass, false);
 
         // set default config useful
         config::SetPassDefaultConfig(npu::tile_fwk::KEY_DUMP_FUNCTION_GRAPH_BEFORE_PASS, true);
-        ret = ConfigManager::Instance().GetPassConfigs("PVC2_OOO", "RemoveRedundentReshape");
+        ret = ConfigManager::Instance().GetPassConfigs("PVC2_OOO", "RemoveRedundantReshape");
         EXPECT_EQ(ret.dumpFunctionGraphBeforePass, true);
     }
 }
 
 TEST_F(TestConfigManager, PassStrategies3) {
     // set default config useless
-    auto ret = ConfigManager::Instance().GetPassConfigs("PVC2_OOO", "RemoveRedundentReshape");
+    auto ret = ConfigManager::Instance().GetPassConfigs("PVC2_OOO", "RemoveRedundantReshape");
     EXPECT_EQ(ret.expectedValueCheck, false);
 
     config::SetPassDefaultConfig(KEY_EXPECTED_VALUE_CHECK, true);
-    ret = ConfigManager::Instance().GetPassConfigs("PVC2_OOO", "RemoveRedundentReshape");
+    ret = ConfigManager::Instance().GetPassConfigs("PVC2_OOO", "RemoveRedundantReshape");
     EXPECT_EQ(ret.expectedValueCheck, false);
 }

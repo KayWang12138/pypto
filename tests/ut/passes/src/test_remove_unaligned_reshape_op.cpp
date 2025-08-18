@@ -10,7 +10,7 @@
 
 /*!
  * \file test_assign_memory_type_unalign.cpp
- * \brief Unit test for RemoveRedundentReshape pass.
+ * \brief Unit test for RemoveRedundantReshape pass.
  */
 
 #include <gtest/gtest.h>

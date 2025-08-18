@@ -182,7 +182,7 @@ private:
     std::unordered_map<int, LogicalTensorPtr> reshapeSources;
     std::vector<AssembleOp> assembles;
     std::unordered_map<unsigned long, std::shared_ptr<ReshapeOp>> reshapes;
-    std::unordered_set<Operation *> redundentViewops;
+    std::unordered_set<Operation *> redundantViewops;
     std::unordered_map<OverlaprawMagic, std::shared_ptr<RawTensor>> reshapeRawOutputs;
     std::unordered_map<OverlaprawMagic, std::shared_ptr<RawTensor>> reshapeRawInputs;
 };

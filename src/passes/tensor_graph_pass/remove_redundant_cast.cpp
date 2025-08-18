@@ -63,7 +63,7 @@ Status RemoveRedundantCast::GetInOutConnectedTensor(Function &function) {
 }
 
 Status RemoveRedundantCast::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===> Start RemoveRedundentCast for function [%s].", function.GetRawName().c_str());
+    ALOG_INFO_F("===> Start RemoveRedundantCast for function [%s].", function.GetRawName().c_str());
     if (GetInOutConnectedTensor(function) != SUCCESS) {
         ALOG_ERROR_F("Failed to get InOutCast-connected tensor.");
         return FAILED;
@@ -80,7 +80,7 @@ Status RemoveRedundantCast::RunOnFunction(Function &function) {
         ALOG_ERROR_F("Eliminate dead operation failed in RemoveRedundantCast.");
         return FAILED;
     }
-    ALOG_INFO_F("===> End RemoveRedundentCast for function [%s].", function.GetRawName().c_str());
+    ALOG_INFO_F("===> End RemoveRedundantCast for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
 
@@ -257,7 +257,7 @@ Status RemoveRedundantCast::RemoveRedundantCastChain(Function &function) {
 }
 
 Status RemoveRedundantCast::PreCheck(Function &function) {
-    ALOG_INFO_F("PreCheck for RemoveRedundentCast");
+    ALOG_INFO_F("PreCheck for RemoveRedundantCast");
     std::vector<Operation *> opList = function.Operations().DuplicatedOpList();
     for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
         Operation *op = opList[opIdx];
@@ -279,7 +279,7 @@ Status RemoveRedundantCast::PreCheck(Function &function) {
 }
 
 Status RemoveRedundantCast::PostCheck(Function &function) {
-    ALOG_INFO_F("PostCheck for RemoveRedundentCast");
+    ALOG_INFO_F("PostCheck for RemoveRedundantCast");
     std::vector<Operation *> opList = function.Operations().DuplicatedOpList();
     for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
         Operation *op = opList[opIdx];

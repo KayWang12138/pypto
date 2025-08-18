@@ -654,7 +654,7 @@ TEST_F(SubgraphToFunctionTest, VerifyPassResumeByJson) {
     config::SetHostConfig(KEY_STRATEGY, "PreJsonResumeStrategy");
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("PreJsonResumeStrategy", {
-        {   "RemoveRedundentReshape",   "RemoveRedundentReshape",  PassType::TYPE_TENSOR_GRAPH},
+        {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
         {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
         {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
     });
@@ -676,14 +676,14 @@ TEST_F(SubgraphToFunctionTest, VerifyPassResumeByJson) {
     config::SetPlatformConfig("ENABLE_COST_MODEL", false);
     PassManager &passManager1 = PassManager::Instance();
     passManager1.RegisterStrategy("JsonResumeStrategy", {
-        {   "RemoveRedundentReshape",   "RemoveRedundentReshape",  PassType::TYPE_TENSOR_GRAPH},
+        {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
         {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
         {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
         {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
         {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
         {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
         {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
-        {        "RemoveRedundentOp",        "RemoveRedundentOp",    PassType::TYPE_TILE_GRAPH},
+        {        "RemoveRedundantOp",        "RemoveRedundantOp",    PassType::TYPE_TILE_GRAPH},
         {        "GenerateMoveOp_01",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
         {              "CubeProcess",              "CubeProcess",    PassType::TYPE_TILE_GRAPH},
         {        "GraphPartition",        "GraphPartition",    PassType::TYPE_TILE_GRAPH},

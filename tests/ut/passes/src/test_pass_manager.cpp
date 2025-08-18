@@ -123,7 +123,7 @@ TEST_F(PassManagerTest, TestPassBase) {
 
 TEST_F(PassManagerTest, TestPassStrategy) {
     PassManager::Instance().RegisterStrategy("StrategyTest", {
-                        {   "RemoveRedundentReshape",   "RemoveRedundentReshape",  PassType::TYPE_TENSOR_GRAPH},
+                        {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
                         {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH}});
     // user define
     auto strategyPasses = PassManager::Instance().GetStrategyPasses("StrategyTest");
@@ -138,8 +138,8 @@ TEST_F(PassManagerTest, TestPassStrategy) {
 
 TEST_F(PassManagerTest, TestPassReg) {
     PassManager::Instance().RegisterStrategy("TestPassReg", {
-                        {   "RemoveRedundentReshape",   "RemoveRedundentReshape",  PassType::TYPE_TENSOR_GRAPH},
-                        {   "RemoveRedundentReshape",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH}});
+                        {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
+                        {   "RemoveRedundantReshape",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH}});
     // user define
     auto strategyPasses = PassManager::Instance().GetStrategyPasses("TestPassReg");
     EXPECT_TRUE(strategyPasses.size() == 1);
@@ -160,29 +160,29 @@ void GetGraph(ComputationalGraphBuilder &G) {
 
 TEST_F(PassManagerTest, TestPassDFX) {
     PassManager::Instance().RegisterStrategy("TestPassDFX", {
-                        {   "RemoveRedundentReshape",   "RemoveRedundentReshape",  PassType::TYPE_TENSOR_GRAPH}});
+                        {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH}});
     ComputationalGraphBuilder G;
     GetGraph(G);
     Function *function = G.GetFunction();
     auto rootPath = config::LogTopFolder();
     PassManager::Instance().RunPass(Program::GetInstance(), *function, "TestPassDFX");
-    auto afterJsonPath = rootPath + "/Pass_00_RemoveRedundentReshape/After_000_RemoveRedundentReshape_PROGRAM_ENTRY.json";
-    auto beforeJsonPath = rootPath + "/Pass_00_RemoveRedundentReshape/Before_000_RemoveRedundentReshape_PROGRAM_ENTRY.json";
-    auto beforeIRPath = rootPath + "/Pass_00_RemoveRedundentReshape/Before_000_RemoveRedundentReshape_PROGRAM_ENTRY.tifwkgr";
-    auto afterIRPath = rootPath + "/Pass_00_RemoveRedundentReshape/After_000_RemoveRedundentReshape_PROGRAM_ENTRY.tifwkgr";
+    auto afterJsonPath = rootPath + "/Pass_00_RemoveRedundantReshape/After_000_RemoveRedundantReshape_PROGRAM_ENTRY.json";
+    auto beforeJsonPath = rootPath + "/Pass_00_RemoveRedundantReshape/Before_000_RemoveRedundantReshape_PROGRAM_ENTRY.json";
+    auto beforeIRPath = rootPath + "/Pass_00_RemoveRedundantReshape/Before_000_RemoveRedundantReshape_PROGRAM_ENTRY.tifwkgr";
+    auto afterIRPath = rootPath + "/Pass_00_RemoveRedundantReshape/After_000_RemoveRedundantReshape_PROGRAM_ENTRY.tifwkgr";
     EXPECT_FALSE(IsPathExist(afterJsonPath));
     EXPECT_FALSE(IsPathExist(beforeJsonPath));
     EXPECT_FALSE(IsPathExist(beforeJsonPath));
     EXPECT_FALSE(IsPathExist(afterJsonPath));
-    config::SetPassConfig("TestPassDFX", "RemoveRedundentReshape", "PRINT_FUNTION", true);
-    config::SetPassConfig("TestPassDFX", "RemoveRedundentReshape", "DUMP_FUNCTION_GRAPH_BEFORE_PASS", true);
-    config::SetPassConfig("TestPassDFX", "RemoveRedundentReshape", "DUMP_FUNCTION_GRAPH_AFTER_PASS", true);
+    config::SetPassConfig("TestPassDFX", "RemoveRedundantReshape", "PRINT_FUNTION", true);
+    config::SetPassConfig("TestPassDFX", "RemoveRedundantReshape", "DUMP_FUNCTION_GRAPH_BEFORE_PASS", true);
+    config::SetPassConfig("TestPassDFX", "RemoveRedundantReshape", "DUMP_FUNCTION_GRAPH_AFTER_PASS", true);
     PassManager::Instance().RunPass(Program::GetInstance(), *function, "TestPassDFX");
     EXPECT_TRUE(IsPathExist(afterJsonPath));
     EXPECT_TRUE(IsPathExist(beforeJsonPath));
     EXPECT_TRUE(IsPathExist(beforeJsonPath));
     EXPECT_TRUE(IsPathExist(afterJsonPath));
-    config::SetPassConfig("TestPassDFX", "RemoveRedundentReshape", "DISABLE_PASS", true);
+    config::SetPassConfig("TestPassDFX", "RemoveRedundantReshape", "DISABLE_PASS", true);
     PassManager::Instance().RunPass(Program::GetInstance(), *function, "TestPassDFX");
 }
 }

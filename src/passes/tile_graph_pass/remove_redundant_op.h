@@ -9,12 +9,12 @@
  */
 
 /*!
- * \file remove_redundent_op.h
+ * \file remove_redundant_op.h
  * \brief
  */
 
-#ifndef REMOVE_REDUNDENT_OP_H
-#define REMOVE_REDUNDENT_OP_H
+#ifndef REMOVE_REDUNDANT_OP_H
+#define REMOVE_REDUNDANT_OP_H
 #include "interface/operation/opcode.h"
 #include "tilefwk/data_type.h"
 
@@ -32,13 +32,13 @@
 namespace npu::tile_fwk {
 
 /*
-    RemoveRedundentOp: 如果op的类型为VIEW且op的输入tensor和输出tensor相同，则认为该VIEW op为冗余op，将其删除，
+    RemoveRedundantOp: 如果op的类型为VIEW且op的输入tensor和输出tensor相同，则认为该VIEW op为冗余op，将其删除，
     并改变图中的连接关系.
 */
-class RemoveRedundentOp : public Pass {
+class RemoveRedundantOp : public Pass {
 public:
-    RemoveRedundentOp() : Pass("RemoveRedundentOp") {}
-    ~RemoveRedundentOp() override = default;
+    RemoveRedundantOp() : Pass("RemoveRedundantOp") {}
+    ~RemoveRedundantOp() override = default;
 private:
     Status PreCheck(Function &function) override;
     Status PostCheck(Function &function) override;
@@ -49,4 +49,4 @@ private:
     Status DeleteRedundantOps(Function &function) const;
 };
 } // namespace npu::tile_fwk
-#endif  // REMOVE_REDUNDENT_OP_H
+#endif  // REMOVE_REDUNDANT_OP_H

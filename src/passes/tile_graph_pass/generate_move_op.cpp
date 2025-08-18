@@ -27,7 +27,7 @@ Status GenerateMoveOp::RunOnFunction(Function &function) {
     ASLOGI("===> Start GenerateMoveOp");
     CreateMoveOp(function);
     MergeMoveOp(function);
-    EraseRedundentCopyOut(function);
+    EraseRedundantCopyOut(function);
     DeadOperationEliminator::EliminateDeadOperation(function);
 
     ASLOGI("===> End GenerateMoveOp");
@@ -332,23 +332,23 @@ void GenerateMoveOp::MergeCopyInCopyOut(Function &function, Operation &operation
 }
 
 // 将输入tensor的producers为空的copyout节点删除
-void GenerateMoveOp::EraseRedundentCopyOut(Function &function) const {
-    std::vector<Operation *> redundentCopyOuts;
+void GenerateMoveOp::EraseRedundantCopyOut(Function &function) const {
+    std::vector<Operation *> redundantCopyOuts;
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() !=  Opcode::OP_COPY_OUT) {
             continue;
         }
 
         if (op.iOperand.front()->GetProducers().empty()) {
-            redundentCopyOuts.push_back(&op);
+            redundantCopyOuts.push_back(&op);
         }
     }
-    for (const auto &op : redundentCopyOuts) {
-        function.HandleControlOps(*op, redundentCopyOuts);
+    for (const auto &op : redundantCopyOuts) {
+        function.HandleControlOps(*op, redundantCopyOuts);
         function.UpdateOperandBeforeRemoveOp(*op, false);
     }
 
-    for (auto op : redundentCopyOuts) {
+    for (auto op : redundantCopyOuts) {
         ASSERT(!op->IsDeleted());
         op->SetAsDeleted();
     }

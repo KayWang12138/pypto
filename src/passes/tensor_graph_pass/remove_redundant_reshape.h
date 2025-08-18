@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file remove_redundent_reshape.h
+ * \file remove_redundant_reshape.h
  * \brief
  */
 
@@ -20,10 +20,10 @@
 #include "interface/function/function.h"
 
 namespace npu::tile_fwk {
-class RemoveRedundentReshape : public Pass {
+class RemoveRedundantReshape : public Pass {
 public:
-    RemoveRedundentReshape() : Pass("RemoveRedundentReshape") {}
-    ~RemoveRedundentReshape() override = default;
+    RemoveRedundantReshape() : Pass("RemoveRedundantReshape") {}
+    ~RemoveRedundantReshape() override = default;
 private:
     Status PreCheck(Function &function) override;
     Status PostCheck(Function &function) override;

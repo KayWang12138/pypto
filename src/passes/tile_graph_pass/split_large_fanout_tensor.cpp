@@ -187,7 +187,7 @@ void SplitLargeFanoutTensor::UpdateForRedundantAssemble(Operation &op) {
 }
 
 void SplitLargeFanoutTensor::EraseRedundantCopyOut(Function &function) {
-    std::vector<Operation *> redundentCopyOuts;
+    std::vector<Operation *> redundantCopyOuts;
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_ASSEMBLE) {
             continue;
@@ -202,22 +202,22 @@ void SplitLargeFanoutTensor::EraseRedundantCopyOut(Function &function) {
             continue;
         }
         if (output->nodetype == NodeType::LOCAL && output->GetConsumers().empty()) {
-            redundentCopyOuts.push_back(&op);
+            redundantCopyOuts.push_back(&op);
         }
         if (output->GetProducers().size() == 1 && output->GetConsumers().size() == 1) {
             auto consumerOp = *(output->GetConsumers().begin());
             bool requireCopy = (input->tensor->GetRawShapeSize() != output->tensor->GetRawShapeSize());
             if (consumerOp->GetOpcode() == Opcode::OP_VIEW && !requireCopy) {
-                redundentCopyOuts.push_back(&op);
+                redundantCopyOuts.push_back(&op);
             } else if (input->shape == output->shape && input->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
                        output->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
                 UpdateForRedundantAssemble(op);
-                redundentCopyOuts.push_back(&op);
+                redundantCopyOuts.push_back(&op);
             }
         }
     }
-    if (!redundentCopyOuts.empty()) {
-        RemoveOps(function, redundentCopyOuts);
+    if (!redundantCopyOuts.empty()) {
+        RemoveOps(function, redundantCopyOuts);
     }
 }
 
@@ -264,7 +264,7 @@ after:
 tensor -> View2_new -> tensor2
 */
 void SplitLargeFanoutTensor::EraseRedundantCopyIn(Function &function) {
-    std::vector<Operation *> redundentView;
+    std::vector<Operation *> redundantView;
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_VIEW) {
             continue;
@@ -276,11 +276,11 @@ void SplitLargeFanoutTensor::EraseRedundantCopyIn(Function &function) {
             for (auto &consumer : consumers) {
                 UpdateForRedundantView(op, *consumer);
             }
-            redundentView.push_back(&op);
+            redundantView.push_back(&op);
         }
     }
-    if (!redundentView.empty()) {
-        RemoveOps(function, redundentView);
+    if (!redundantView.empty()) {
+        RemoveOps(function, redundantView);
     }
 }
 

@@ -10,7 +10,7 @@
 
 /*!
  * \file test_pad_local_buffer.cpp
- * \brief Unit test for RemoveRedundentReshape pass.
+ * \brief Unit test for RemoveRedundantReshape pass.
  */
 
 #include <gtest/gtest.h>

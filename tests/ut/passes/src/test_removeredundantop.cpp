@@ -23,7 +23,7 @@
 #include "interface/configs/config_manager.h"
 
 #define private public
-#include "passes/tile_graph_pass/remove_redundent_op.h"
+#include "passes/tile_graph_pass/remove_redundant_op.h"
 
 namespace npu {
 namespace tile_fwk{
@@ -95,10 +95,10 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest1) {
     currFunctionPtr->outCasts_.push_back(outCast2);
     currFunctionPtr->outCasts_.push_back(outCast3);
 
-    RemoveRedundentOp removeredundentpass;
-    EXPECT_NE(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(removeredundentpass.RunOnFunction(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
+    RemoveRedundantOp removeredundantpass;
+    EXPECT_NE(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
 
     uint32_t expand_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
@@ -142,10 +142,10 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest2) {
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
 
-    RemoveRedundentOp removeredundentpass;
-    EXPECT_NE(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(removeredundentpass.RunOnFunction(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
+    RemoveRedundantOp removeredundantpass;
+    EXPECT_NE(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
 
     uint32_t regcopy_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
@@ -197,10 +197,10 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest3) {
     currFunctionPtr->outCasts_.push_back(outCast1);
     currFunctionPtr->outCasts_.push_back(outCast2);
 
-    RemoveRedundentOp removeredundentpass;
-    EXPECT_NE(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(removeredundentpass.RunOnFunction(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
+    RemoveRedundantOp removeredundantpass;
+    EXPECT_NE(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
 
     uint32_t assemble_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
@@ -250,11 +250,11 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest4) {
     currFunctionPtr->outCasts_.push_back(outCast2);
     currFunctionPtr->outCasts_.push_back(outCast3);
 
-    RemoveRedundentOp removeredundentpass;
-    EXPECT_NE(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
-    EXPECT_NE(removeredundentpass.PreCheck(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(removeredundentpass.RunOnFunction(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
+    RemoveRedundantOp removeredundantpass;
+    EXPECT_NE(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_NE(removeredundantpass.PreCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
 
     uint32_t assemble_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
@@ -299,9 +299,9 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest5) {
     currFunctionPtr->outCasts_.push_back(outCast1);
     currFunctionPtr->outCasts_.push_back(outCast2);
 
-    RemoveRedundentOp removeredundentpass;
-    EXPECT_NE(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(removeredundentpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    RemoveRedundantOp removeredundantpass;
+    EXPECT_NE(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.RunOnFunction(*currFunctionPtr), SUCCESS);
     
     uint32_t assemble_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
@@ -350,9 +350,9 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest6) {
     currFunctionPtr->outCasts_.push_back(outCast2);
     currFunctionPtr->outCasts_.push_back(outCast3);
     currFunctionPtr->outCasts_.push_back(outCast4);
-    RemoveRedundentOp removeredundentpass;
-    EXPECT_EQ(removeredundentpass.RunOnFunction(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
+    RemoveRedundantOp removeredundantpass;
+    EXPECT_EQ(removeredundantpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
     
     uint32_t view_num = kNumZero;
     uint32_t output_ubTensor1 = kNumZero;
@@ -396,10 +396,10 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest7) {
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
 
-    RemoveRedundentOp removeredundentpass;
-    EXPECT_NE(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(removeredundentpass.RunOnFunction(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
+    RemoveRedundantOp removeredundantpass;
+    EXPECT_NE(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
 
     uint32_t view_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
@@ -440,10 +440,10 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest8) {
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
 
-    RemoveRedundentOp removeredundentpass;
-    EXPECT_NE(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(removeredundentpass.RunOnFunction(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
+    RemoveRedundantOp removeredundantpass;
+    EXPECT_NE(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
 
     uint32_t copy_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
@@ -486,9 +486,9 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest9) {
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
 
-    RemoveRedundentOp removeredundentpass;
-    EXPECT_EQ(removeredundentpass.RunOnFunction(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
+    RemoveRedundantOp removeredundantpass;
+    EXPECT_EQ(removeredundantpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
 
     uint32_t copy_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
@@ -527,9 +527,9 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest10) {
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
 
-    RemoveRedundentOp removeredundentpass;
-    EXPECT_EQ(removeredundentpass.RunOnFunction(*currFunctionPtr), SUCCESS);
-    EXPECT_NE(removeredundentpass.PostCheck(*currFunctionPtr), SUCCESS);
+    RemoveRedundantOp removeredundantpass;
+    EXPECT_EQ(removeredundantpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_NE(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
 }
 
 /*
@@ -563,10 +563,10 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest1) {
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase1");
     EXPECT_EQ(func->Operations().size(), kSizeEleven);
 
-    passManager.RegisterStrategy("RemoveRedundentOpTestStrategy", {
-        {   "RemoveRedundentOp",   "RemoveRedundentOp",  PassType::TYPE_TILE_GRAPH},
+    passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
+        {   "RemoveRedundantOp",   "RemoveRedundantOp",  PassType::TYPE_TILE_GRAPH},
     });
-    auto ret = passManager.RunPass(Program::GetInstance(), *func, "RemoveRedundentOpTestStrategy");
+    auto ret = passManager.RunPass(Program::GetInstance(), *func, "RemoveRedundantOpTestStrategy");
     EXPECT_EQ(ret, SUCCESS);
     
     // ================== Verify the effect of the Pass ==================
@@ -619,10 +619,10 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest2) {
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase2");
     EXPECT_EQ(func->Operations().size(), kSizeEleven);
 
-    passManager.RegisterStrategy("RemoveRedundentOpTestStrategy", {
-        {   "RemoveRedundentOp",   "RemoveRedundentOp",  PassType::TYPE_TILE_GRAPH},
+    passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
+        {   "RemoveRedundantOp",   "RemoveRedundantOp",  PassType::TYPE_TILE_GRAPH},
     });
-    auto ret = passManager.RunPass(Program::GetInstance(), *func, "RemoveRedundentOpTestStrategy");
+    auto ret = passManager.RunPass(Program::GetInstance(), *func, "RemoveRedundantOpTestStrategy");
     EXPECT_EQ(ret, SUCCESS);
     
     // ================== Verify the effect of the Pass ==================
@@ -678,10 +678,10 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest3) {
     }
     EXPECT_EQ(assemble_before, kNumThree);
 
-    passManager.RegisterStrategy("RemoveRedundentOpTestStrategy", {
-        {   "RemoveRedundentOp",   "RemoveRedundentOp",  PassType::TYPE_TILE_GRAPH},
+    passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
+        {   "RemoveRedundantOp",   "RemoveRedundantOp",  PassType::TYPE_TILE_GRAPH},
     });
-    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "RemoveRedundentOpTestStrategy"), SUCCESS);
+    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "RemoveRedundantOpTestStrategy"), SUCCESS);
     EXPECT_EQ(func->Operations().size(), kSizeSeven);
 
     // ================== Verify the effect of the Pass ==================
@@ -736,10 +736,10 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest4) {
     }
     EXPECT_EQ(assemble_before, kNumFive);
 
-    passManager.RegisterStrategy("RemoveRedundentOpTestStrategy", {
-        {   "RemoveRedundentOp",   "RemoveRedundentOp",  PassType::TYPE_TILE_GRAPH},
+    passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
+        {   "RemoveRedundantOp",   "RemoveRedundantOp",  PassType::TYPE_TILE_GRAPH},
     });
-    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "RemoveRedundentOpTestStrategy"), SUCCESS);
+    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "RemoveRedundantOpTestStrategy"), SUCCESS);
     EXPECT_EQ(func->Operations().size(), kSizeThirteen);
 
     // ================== Verify the effect of the Pass ==================

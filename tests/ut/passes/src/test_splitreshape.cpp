@@ -73,7 +73,7 @@ TEST_F(TestSplitReshapePass, TestInit) {
     EXPECT_EQ(pass.mapOffset.size(), kSizeZero);
     EXPECT_EQ(pass.assembles.size(), kSizeZero);
     EXPECT_EQ(pass.reshapes.size(), kSizeZero);
-    EXPECT_EQ(pass.redundentViewops.size(), kSizeZero);
+    EXPECT_EQ(pass.redundantViewops.size(), kSizeZero);
     EXPECT_EQ(pass.reshapeRawOutputs.size(), kSizeZero);
 }
 
@@ -754,11 +754,11 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchForUB) {
     para.inputView = ubTensor2;
     
     SplitReshape pass;
-    EXPECT_EQ(pass.redundentViewops.size(), kSizeZero);
+    EXPECT_EQ(pass.redundantViewops.size(), kSizeZero);
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(pass.UpdateForPerfectlyMatch(*currFunctionPtr, view_op, para), SUCCESS);
-    EXPECT_EQ(pass.redundentViewops.size(), kSizeOne);
-    EXPECT_NE(pass.redundentViewops.find(&view_op), pass.redundentViewops.end());
+    EXPECT_EQ(pass.redundantViewops.size(), kSizeOne);
+    EXPECT_NE(pass.redundantViewops.find(&view_op), pass.redundantViewops.end());
     auto newReshapeOutput = post_op.GetInputOperand(kSizeZero);
     EXPECT_NE(newReshapeOutput, output);
     EXPECT_EQ(newReshapeOutput->GetMemoryTypeOriginal(), MemoryType::MEM_UB);
@@ -1122,11 +1122,11 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchWithAllForUB) {
     para.newInputViewTileOffset = {kNumZero, kNumZero, kNumZero};
     auto inputView = std::make_shared<LogicalTensor>(*currFunctionPtr, ubTensor2->tensor, view_offset, shape3);
     para.inputView = inputView;
-    EXPECT_EQ(pass.redundentViewops.size(), kSizeZero);
+    EXPECT_EQ(pass.redundantViewops.size(), kSizeZero);
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(pass.UpdateForPerfectlyMatchWithAll(*currFunctionPtr, view_op, para), SUCCESS);
-    EXPECT_EQ(pass.redundentViewops.size(), kSizeOne);
-    EXPECT_NE(pass.redundentViewops.find(&view_op), pass.redundentViewops.end());
+    EXPECT_EQ(pass.redundantViewops.size(), kSizeOne);
+    EXPECT_NE(pass.redundantViewops.find(&view_op), pass.redundantViewops.end());
     auto newReshapeOutput = post_op.GetInputOperand(kSizeZero);
     EXPECT_NE(newReshapeOutput, output);
     EXPECT_EQ(pass.reshapes.size(), kSizeOne);
@@ -1201,7 +1201,7 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchWithAllForDDR) {
     para.inputView = inputView;
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(pass.UpdateForPerfectlyMatchWithAll(*currFunctionPtr, view_op, para), SUCCESS);
-    EXPECT_EQ(pass.redundentViewops.size(), kSizeZero);
+    EXPECT_EQ(pass.redundantViewops.size(), kSizeZero);
     EXPECT_EQ(pass.reshapes.size(), kSizeOne);
     auto reshape = pass.reshapes.begin()->second;
     auto newReshapeSource = reshape->input;
@@ -1274,10 +1274,10 @@ TEST_F(TestSplitReshapePass, TestUpdateForAssembleAfterReshapeForUB) {
     std::vector<int> InputViewTileShape = {kNumTwo, kNumTwo, kNumTwo};
     auto inputView = std::make_shared<LogicalTensor>(*currFunctionPtr, ubTensor2->tensor, view_offset, InputViewTileShape);
     para.inputView = inputView;
-    EXPECT_EQ(pass.redundentViewops.size(), kSizeZero);
+    EXPECT_EQ(pass.redundantViewops.size(), kSizeZero);
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(pass.UpdateForAssembleAfterReshape(*currFunctionPtr, view_op, para), SUCCESS);
-    EXPECT_EQ(pass.redundentViewops.size(), kSizeOne);
+    EXPECT_EQ(pass.redundantViewops.size(), kSizeOne);
     EXPECT_EQ(pass.reshapes.size(), kSizeTwo);
     EXPECT_EQ(pass.assembles.size(), kSizeTwo);
 
@@ -1384,7 +1384,7 @@ TEST_F(TestSplitReshapePass, TestUpdateForAssembleAfterReshapeForDDR) {
     para.inputView = inputView;
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(pass.UpdateForAssembleAfterReshape(*currFunctionPtr, view_op, para), SUCCESS);
-    EXPECT_EQ(pass.redundentViewops.size(), kSizeZero);
+    EXPECT_EQ(pass.redundantViewops.size(), kSizeZero);
     EXPECT_EQ(pass.reshapes.size(), kSizeTwo);
     EXPECT_EQ(pass.assembles.size(), kSizeTwo);
 
@@ -1493,7 +1493,7 @@ TEST_F(TestSplitReshapePass, TestUpdateForAssembleAfterReshapeOtherCase) {
     para.inputView = inputView;
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(pass.UpdateForAssembleAfterReshape(*currFunctionPtr, view_op, para), SUCCESS);
-    EXPECT_EQ(pass.redundentViewops.size(), kSizeZero);
+    EXPECT_EQ(pass.redundantViewops.size(), kSizeZero);
     EXPECT_EQ(pass.reshapes.size(), kSizeTwo);
     EXPECT_EQ(pass.assembles.size(), kSizeFour);
 

@@ -10,7 +10,7 @@
 
 /*!
  * \file test_remove_redundant_reshape.cpp
- * \brief Unit test for RemoveRedundentReshape pass.
+ * \brief Unit test for RemoveRedundantReshape pass.
  */
 
 #include <gtest/gtest.h>
@@ -25,7 +25,7 @@
 
 using namespace npu::tile_fwk;
 
-class RemoveRedundentReshapeTest : public ::testing::Test {
+class RemoveRedundantReshapeTest : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
 
@@ -42,7 +42,7 @@ public:
 };
 
 // Verify that Reshape whose output shape is the same as its input shape can be removed and consumer's inputs are updated
-TEST_F(RemoveRedundentReshapeTest, TestSameInputOutputShape) {
+TEST_F(RemoveRedundantReshapeTest, TestSameInputOutputShape) {
     // Define the shape of the Tensors
     std::vector<int> shape1{1, 256, 512};
     std::vector<int> shape2{1, 512, 256};
@@ -55,7 +55,7 @@ TEST_F(RemoveRedundentReshapeTest, TestSameInputOutputShape) {
     // Initialize PassManager
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("ReshapeTestStrategy", {
-        { "RemoveRedundentReshape", "RemoveRedundentReshape", PassType::TYPE_TENSOR_GRAPH},
+        { "RemoveRedundantReshape", "RemoveRedundantReshape", PassType::TYPE_TENSOR_GRAPH},
     });
     ConfigManager::Instance();
 
@@ -93,7 +93,7 @@ TEST_F(RemoveRedundentReshapeTest, TestSameInputOutputShape) {
     EXPECT_EQ(assemble_op.GetIOperands()[0], remaining_reshape_op.GetOOperands()[0]) << "The output of the remaining Reshape should be connected to the input of Assemble";
 }
 
-TEST_F(RemoveRedundentReshapeTest, TestReshapeChain) {
+TEST_F(RemoveRedundantReshapeTest, TestReshapeChain) {
     // Define Tensor shapes
     std::vector<int> shape1{1, 256, 512};
     std::vector<int> shape2{1, 512, 256};
@@ -105,7 +105,7 @@ TEST_F(RemoveRedundentReshapeTest, TestReshapeChain) {
     // Initialize PassManager
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("ReshapeTestStrategy", {
-        { "RemoveRedundentReshape", "RemoveRedundentReshape", PassType::TYPE_TENSOR_GRAPH},
+        { "RemoveRedundantReshape", "RemoveRedundantReshape", PassType::TYPE_TENSOR_GRAPH},
     });
     ConfigManager::Instance();
 
@@ -130,7 +130,7 @@ TEST_F(RemoveRedundentReshapeTest, TestReshapeChain) {
     // ================== Verify the effect of the Pass ==================
     auto updated_operations = currentFunction->Operations();
 
-    // Verify if the RemoveRedundentReshape Pass removes redundant Reshape operation
+    // Verify if the RemoveRedundantReshape Pass removes redundant Reshape operation
     EXPECT_EQ(updated_operations.size(), 3) << "After the Pass, there should be 3 operations (View + Reshape + Assemble)";
     EXPECT_EQ(updated_operations[0].GetOpcode(), Opcode::OP_VIEW) << "View operation should be kept";
     EXPECT_EQ(updated_operations[1].GetOpcode(), Opcode::OP_RESHAPE) << "The second Reshape (valid) should be kept";
@@ -149,7 +149,7 @@ TEST_F(RemoveRedundentReshapeTest, TestReshapeChain) {
     EXPECT_EQ(reshape_output->shape, shape3) << "The output shape of the remaining Reshape operation should be the same as shape3";
 }
 
-TEST_F(RemoveRedundentReshapeTest, TestReplaceInput) {
+TEST_F(RemoveRedundantReshapeTest, TestReplaceInput) {
     // Define Tensor shapes
     std::vector<int> shape1{1, 256, 512};
     std::vector<int> shape2{1, 512, 256};
@@ -163,7 +163,7 @@ TEST_F(RemoveRedundentReshapeTest, TestReplaceInput) {
     // Initialize PassManager
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("ReshapeTestStrategy", {
-        { "RemoveRedundentReshape", "RemoveRedundentReshape", PassType::TYPE_TENSOR_GRAPH},
+        { "RemoveRedundantReshape", "RemoveRedundantReshape", PassType::TYPE_TENSOR_GRAPH},
     });
     ConfigManager::Instance();
 
@@ -209,6 +209,6 @@ TEST_F(RemoveRedundentReshapeTest, TestReplaceInput) {
         }
     }
 
-    // Verify if the RemoveRedundentReshape Pass replaces Input of the reshape operation
+    // Verify if the RemoveRedundantReshape Pass replaces Input of the reshape operation
     EXPECT_EQ(updated_operations.size(), 7) << "After the Pass, there should be 5 operations (View + Reshape + Reshape + Add + Assemble)";
 }

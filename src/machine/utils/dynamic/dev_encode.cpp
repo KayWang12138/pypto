@@ -966,7 +966,7 @@ struct EncodeDevAscendFunctionInfo {
         return cceCodeInfoList[leafIndex].coreType;
     }
 
-    void removeRedundentCall(std::vector<Operation *> &/* callOpList */) {
+    void removeRedundantCall(std::vector<Operation *> &/* callOpList */) {
         std::vector<Operation *> deadCallOps;
         for (auto &[callOp, succOps] : callOpSuccDict) {
             if (GetCoreType(callOp) == static_cast<int>(CoreType::HUB) && succOps.size() == 0) {
@@ -1193,7 +1193,7 @@ struct EncodeDevAscendFunctionInfo {
         EraseRedundantColorEdges(callopList);
         PrintColorGraph(callopList.size());
 
-        removeRedundentCall(callopList);
+        removeRedundantCall(callopList);
         optimizeCallopSuccs(callopList, 10); // add dummp op at least 10 depends can be reduced
 
         AddDummyCallsAtBeginningAndEnding(callopList);
