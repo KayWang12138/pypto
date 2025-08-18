@@ -18,6 +18,7 @@
 
 #include <nlohmann/json.hpp>
 #include "passes/pass_config/pass_config_manager.h"
+#include "interface/function/function.h"
 
 using Json = nlohmann::json;
 
@@ -25,7 +26,11 @@ namespace npu {
 namespace tile_fwk {
 class OoOSchedulerCheck {
 public:
-    Json HealthCheckOoOSchedule();
+    void DoHealthCheck(Function *function, const std::string &fileName);
+    void HealthCheckSpillInfo();
+    void HealthCheckOoOSchedule();
+    void HealthCheckKernelGraph(Function *function);
+    std::string jsonFileName;
     bool doHealthCheck{false};
     int workspaceOffset{0};
     int clock{0};
@@ -77,6 +82,7 @@ public:
         int spillTensorMagic; // spill tensor的magic
     };
     std::vector<SpillInfo> spillInfoVec; // size为spill的次数
+    Json report;
 };
 
 } // namespace tile_fwk

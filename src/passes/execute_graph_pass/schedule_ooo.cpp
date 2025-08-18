@@ -1293,11 +1293,24 @@ Status OoOSchedule::RunOnFunction(Function &function) {
         if (oooSchedule.oooCheck.doHealthCheck) {
             oooSchedule.oooCheck.workspaceOffset = oooSchedule.workspaceOffset;
             oooSchedule.oooCheck.clock = oooSchedule.clock;
-            oooSchedule.oooCheck.HealthCheckOoOSchedule();
+            oooSchedule.oooCheck.jsonFileName = GetDumpFilePrefix(function, program.second, program.first);
+            schedulerMap.insert({program.first, oooSchedule});
         }
     }
     ALOG_INFO_F("=============== END OoOSchedule =================");
     return SUCCESS;
+}
+
+void OoOSchedule::DoHealthCheck(Function &function, const std::string &folderPath) {
+    (void) function;
+    for (auto &scheduler : schedulerMap) {
+        auto fileName = folderPath + '/' + scheduler.second.oooCheck.jsonFileName + "_Kernel_Graph_Health_Report.json";
+        auto it = function.rootFunc_->programs_.find(scheduler.first);
+        if (it != function.rootFunc_->programs_.end()) {
+            auto subFunc = it->second;
+            scheduler.second.oooCheck.DoHealthCheck(subFunc, fileName);
+        }
+    }
 }
 
 } // namespace npu::tile_fwk

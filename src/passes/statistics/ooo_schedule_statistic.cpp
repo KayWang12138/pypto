@@ -19,63 +19,122 @@ namespace tile_fwk {
 
 constexpr int32_t percent = 100;
 
-Json OoOSchedulerCheck::HealthCheckOoOSchedule() {
-    Json report;
+void OoOSchedulerCheck::HealthCheckSpillInfo() {
+    int spillIdx = 0;
+    Json spill = Json::array();
+    for (auto spillInfo : spillInfoVec) {
+        Json spillDetails;
+        spillDetails["spillEventIdx"] = spillIdx++;
+        spillDetails["spillBufferType"] = MemoryTypeToString(spillInfo.spillType);
+        spillDetails["bufferCurrentUsage"] = spillInfo.bufferCurrUsage;
+        spillDetails["bufferCurrentUsageRate"] = static_cast<float>(spillInfo.bufferCurrUsage) / PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(spillInfo.spillType);
+        spillDetails["bufferOccupiedByAllocSize"] = spillInfo.allocOccupiedSize;
+        spillDetails["spillTensorSize"] = spillInfo.spillTensorSize;
+        spillDetails["triggerTensorSize"] = spillInfo.triggerTensorSize;
+        spillDetails["spillCopyoutSize"] = spillInfo.spillCopyoutSize;
+        spill.emplace_back(spillDetails);
+    }
+    report["spillDetails"] = spill;
+}
+
+void OoOSchedulerCheck::HealthCheckOoOSchedule() {
     int64_t maxL0ASize = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L0A);
     int64_t maxL0BSize = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L0B);
     int64_t maxL0CSize = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L0C);
     int64_t maxUBSize = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB);
     int64_t maxL1Size = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L1);
     // Workspace Info
-    report["Workspace Offset (bytes)"] = workspaceOffset;
+    report["workspaceOffset"] = workspaceOffset;
     // Execution Info
-    report["Total Cycles"] = clock;
+    report["totalCycles"] = clock;
     // Pipe Usage Rate
-    report["PIPE_S Usage Rate (%)"] = static_cast<float>(pipeUsageCount.at(PipeType::PIPE_S)) / clock * percent;
-    report["PIPE_V Usage Rate (%)"] = static_cast<float>(pipeUsageCount.at(PipeType::PIPE_V)) / clock * percent;
-    report["PIPE_M Usage Rate (%)"] = static_cast<float>(pipeUsageCount.at(PipeType::PIPE_M)) / clock * percent;
-    report["PIPE_MTE1 Usage Rate (%)"] = static_cast<float>(pipeUsageCount.at(PipeType::PIPE_MTE1)) / clock * percent;
-    report["PIPE_MTE2 Usage Rate (%)"] = static_cast<float>(pipeUsageCount.at(PipeType::PIPE_MTE2)) / clock * percent;
-    report["PIPE_MTE3 Usage Rate (%)"] = static_cast<float>(pipeUsageCount.at(PipeType::PIPE_MTE3)) / clock * percent;
-    report["PIPE_FIX Usage Rate (%)"] = static_cast<float>(pipeUsageCount.at(PipeType::PIPE_FIX)) / clock * percent;
-    
+    Json pipeUsageRate;
+    pipeUsageRate["PIPE_S_Usage_Rate"] = static_cast<float>(pipeUsageCount.at(PipeType::PIPE_S)) / clock * percent;
+    pipeUsageRate["PIPE_V_Usage_Rate"] = static_cast<float>(pipeUsageCount.at(PipeType::PIPE_V)) / clock * percent;
+    pipeUsageRate["PIPE_M_Usage_Rate"] = static_cast<float>(pipeUsageCount.at(PipeType::PIPE_M)) / clock * percent;
+    pipeUsageRate["PIPE_MTE1_Usage_Rate"] = static_cast<float>(pipeUsageCount.at(PipeType::PIPE_MTE1)) / clock * percent;
+    pipeUsageRate["PIPE_MTE2_Usage_Rate"] = static_cast<float>(pipeUsageCount.at(PipeType::PIPE_MTE2)) / clock * percent;
+    pipeUsageRate["PIPE_MTE3_Usage_Rate"] = static_cast<float>(pipeUsageCount.at(PipeType::PIPE_MTE3)) / clock * percent;
+    pipeUsageRate["PIPE_FIX_Usage_Rate"] = static_cast<float>(pipeUsageCount.at(PipeType::PIPE_FIX)) / clock * percent;
+    report["pipeUsageRate"] = pipeUsageRate;
+
     uint64_t maxUsage = 0;
     for (const auto& entry : pipeUsageCount) {
         if (entry.second > maxUsage) {
             maxUsage = entry.second;
         }
     }
-    report["Theoretical Minimum Cycles"] = maxUsage;
+    report["theoreticalMinimumCycles"] = maxUsage;
     // Memory Usage
-    report["MEM_UB Peak Usage (%)"] = static_cast<float>(bufferMaxUsage.at(MemoryType::MEM_UB)) / maxUBSize * percent;
-    report["MEM_UB Average Usage (%)"] = static_cast<float>(bufferTotalUsage.at(MemoryType::MEM_UB)) / clock / maxUBSize * percent;
-    report["MEM_L1 Peak Usage (%)"] = static_cast<float>(bufferMaxUsage.at(MemoryType::MEM_L1)) / maxL1Size * percent;
-    report["MEM_L1 Average Usage (%)"] = static_cast<float>(bufferTotalUsage.at(MemoryType::MEM_L1)) / clock / maxL1Size * percent;
-    report["MEM_L0A Peak Usage (%)"] = static_cast<float>(bufferMaxUsage.at(MemoryType::MEM_L0A)) / maxL0ASize * percent;
-    report["MEM_L0A Average Usage (%)"] = static_cast<float>(bufferTotalUsage.at(MemoryType::MEM_L0A)) / clock / maxL0ASize * percent;
-    report["MEM_L0B Peak Usage (%)"] = static_cast<float>(bufferMaxUsage.at(MemoryType::MEM_L0B)) / maxL0BSize * percent;
-    report["MEM_L0B Average Usage (%)"] = static_cast<float>(bufferTotalUsage.at(MemoryType::MEM_L0B)) / clock / maxL0BSize * percent;
-    report["MEM_L0C Peak Usage (%)"] = static_cast<float>(bufferMaxUsage.at(MemoryType::MEM_L0C)) / maxL0CSize * percent;
-    report["MEM_L0C Average Usage (%)"] = static_cast<float>(bufferTotalUsage.at(MemoryType::MEM_L0C)) / clock / maxL0CSize * percent;
+    Json memoryUsage;
+    memoryUsage["MEM_UB_Peak_Usage"] = static_cast<float>(bufferMaxUsage.at(MemoryType::MEM_UB)) / maxUBSize * percent;
+    memoryUsage["MEM_UB_Average_Usage"] = static_cast<float>(bufferTotalUsage.at(MemoryType::MEM_UB)) / clock / maxUBSize * percent;
+    memoryUsage["MEM_L1_Peak_Usage"] = static_cast<float>(bufferMaxUsage.at(MemoryType::MEM_L1)) / maxL1Size * percent;
+    memoryUsage["MEM_L1_Average_Usage"] = static_cast<float>(bufferTotalUsage.at(MemoryType::MEM_L1)) / clock / maxL1Size * percent;
+    memoryUsage["MEM_L0A_Peak_Usage"] = static_cast<float>(bufferMaxUsage.at(MemoryType::MEM_L0A)) / maxL0ASize * percent;
+    memoryUsage["MEM_L0A_Average_Usage"] = static_cast<float>(bufferTotalUsage.at(MemoryType::MEM_L0A)) / clock / maxL0ASize * percent;
+    memoryUsage["MEM_L0B_Peak_Usage"] = static_cast<float>(bufferMaxUsage.at(MemoryType::MEM_L0B)) / maxL0BSize * percent;
+    memoryUsage["MEM_L0B_Average_Usage"] = static_cast<float>(bufferTotalUsage.at(MemoryType::MEM_L0B)) / clock / maxL0BSize * percent;
+    memoryUsage["MEM_L0C_Peak_Usage"] = static_cast<float>(bufferMaxUsage.at(MemoryType::MEM_L0C)) / maxL0CSize * percent;
+    memoryUsage["MEM_L0C_Average_Usage"] = static_cast<float>(bufferTotalUsage.at(MemoryType::MEM_L0C)) / clock / maxL0CSize * percent;
+    report["memoryUsage"] = memoryUsage;
     // Spill Info
-    report["Spill Count"] = spillInfoVec.size();
+    report["spillCount"] = spillInfoVec.size();
     // Detailed spill information
-    int spillIdx = 0;
-    Json spill = Json::array();
-    for (auto spillInfo : spillInfoVec) {
-        Json spillDetails;
-        spillDetails["Spill Event Idx"] = spillIdx++;
-        spillDetails["Spill Buffer Type"] = MemoryTypeToString(spillInfo.spillType);
-        spillDetails["Buffer Current Usage"] = spillInfo.bufferCurrUsage;
-        spillDetails["Buffer Current Usage Rate (%)"] = static_cast<float>(spillInfo.bufferCurrUsage) / PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(spillInfo.spillType) * percent;
-        spillDetails["Buffer Occupied By Alloc Size"] = spillInfo.allocOccupiedSize;
-        spillDetails["Spill Tensor Size"] = spillInfo.spillTensorSize;
-        spillDetails["Trigger Tensor Size"] = spillInfo.triggerTensorSize;
-        spillDetails["Spill Copyout Size"] = spillInfo.spillCopyoutSize;
-        spill.emplace_back(spillDetails);
+    HealthCheckSpillInfo();
+}
+
+void OoOSchedulerCheck::HealthCheckKernelGraph(Function *function) {
+    report["totalOpCount"] = function->Operations().size();
+    auto &tensors = function->GetTensorMap().inverseMap_;
+    size_t maxProducers = 0;
+    size_t maxConsumers = 0;
+    std::vector<int> maxProducersTensors;
+    std::vector<int> maxConsumersTensors;
+    for (auto &tensor : tensors) {
+        maxProducers = std::max(tensor.second->GetProducers().size(), maxProducers);
+        maxConsumers = std::max(tensor.second->GetConsumers().size(), maxConsumers);
     }
-    report["Spill Info"] = spill;
-    return report;
+    for (auto &tensor : tensors) {
+        if (tensor.second->GetProducers().size() == maxProducers) {
+            maxProducersTensors.emplace_back(tensor.second->GetMagic());
+        }
+        if (tensor.second->GetConsumers().size() == maxConsumers) {
+            maxConsumersTensors.emplace_back(tensor.second->GetMagic());
+        }
+    }
+    size_t maxInputs = 0;
+    size_t maxOutputs = 0;
+    std::vector<int> maxInputsOps;
+    std::vector<int> maxOutputsOps;
+    for (auto operation : function->Operations().DuplicatedOpList()) {
+        maxInputs = std::max(operation->GetIOperands().size(), maxInputs);
+        maxOutputs = std::max(operation->GetOOperands().size(), maxOutputs);
+    }
+    for (auto operation : function->Operations().DuplicatedOpList()) {
+        if (operation->GetIOperands().size() == maxInputs) {
+            maxInputsOps.emplace_back(operation->GetOpMagic());
+        }
+        if (operation->GetOOperands().size() == maxOutputs) {
+            maxOutputsOps.emplace_back(operation->GetOpMagic());
+        }
+    }
+    report["maxProducers"] = maxProducers;
+    report["maxProducersTensors"] = maxProducersTensors;
+    report["maxConsumers"] = maxConsumers;
+    report["maxConsumersTensors"] = maxConsumersTensors;
+    report["maxInputs"] = maxInputs;
+    report["maxInputsOps"] = maxInputsOps;
+    report["maxOutputs"] = maxOutputs;
+    report["maxOutputsOps"] = maxOutputsOps;
+}
+
+void OoOSchedulerCheck::DoHealthCheck(Function *function, const std::string &fileName) {
+    HealthCheckOoOSchedule();
+    HealthCheckKernelGraph(function);
+    std::ofstream file(fileName);
+    file << report.dump(1) << std::endl;
+    file.close();
 }
 
 } // namespace tile_fwk
