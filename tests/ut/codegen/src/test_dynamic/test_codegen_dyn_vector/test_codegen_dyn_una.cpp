@@ -260,7 +260,7 @@ TEST_F(TestCodegenDynUna, TestDynExtract) {
     cop.Init(op);
     std::string res = cop.GenOpCode();
     std::string expect =
-        R"!!!(TileOp::DynExtract<float, float, 1, 1, 1>((__ubuf__ float*)UB_S1_E1, (__ubuf__ float*)UB_S0_E0, 1, 1, 64, 64);
+        R"!!!(TileOp::DynExtract<float, float, 1, 64, 64, 1, 1, 1>((__ubuf__ float*)UB_S1_E1, (__ubuf__ float*)UB_S0_E0, 1, 1, 64);
 )!!!";
     EXPECT_EQ(res, expect);
 }

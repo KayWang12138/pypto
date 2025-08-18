@@ -1529,9 +1529,9 @@ TILEOP void DynMrgSort(
     }
 }
 
-template <typename T, typename U, int k, int extractMode, int isLargest>
-TILEOP void DynExtract(__ubuf__ T *dst, __ubuf__ U *src, unsigned TShape0, unsigned TShape1) {
-    uint64_t repeat = static_cast<uint64_t>(TShape0 * TShape1 * 2 * sizeof(T) / REPEAT_BYTE);
+template <typename T, typename U, int k, unsigned dstRawShape1, int extractMode, int isLargest>
+TILEOP void DynExtract(__ubuf__ T *dst, __ubuf__ U *src, unsigned TShape0) {
+    uint64_t repeat = static_cast<uint64_t>(TShape0 * dstRawShape1 * 2 * sizeof(T) / REPEAT_BYTE);
     constexpr uint8_t dstBlockStride = 1;
     constexpr uint8_t srcBlockStride = 1;
     constexpr uint8_t dstRepeatStride = 8;
@@ -1543,7 +1543,7 @@ TILEOP void DynExtract(__ubuf__ T *dst, __ubuf__ U *src, unsigned TShape0, unsig
     }
     __ubuf__ U *nullsrc1 = REPEAT_BYTE * sizeof(U) + src;
     if (repeat < 1) {
-        uint64_t elems = TShape0 * TShape1;
+        uint64_t elems = TShape0 * dstRawShape1;
         set_mask_count();
         set_vector_mask(0, elems * 2);
         vreducev2((__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)src, (__ubuf__ uint32_t *)nullsrc1, 1, srcBlockStride,
@@ -1554,7 +1554,7 @@ TILEOP void DynExtract(__ubuf__ T *dst, __ubuf__ U *src, unsigned TShape0, unsig
     } else {
         uint8_t repeatMod = static_cast<uint8_t>(repeat % REPEAT_MAX);
         if (repeatMod != 0) {
-            uint64_t elems = TShape0 * TShape1;
+            uint64_t elems = TShape0 * dstRawShape1;
             set_mask_norm();
             set_vector_mask(-1, -1);
             vreducev2((__ubuf__ uint32_t *)(dst), (__ubuf__ uint32_t *)(src), (__ubuf__ uint32_t *)nullsrc1, repeatMod,
@@ -1566,7 +1566,7 @@ TILEOP void DynExtract(__ubuf__ T *dst, __ubuf__ U *src, unsigned TShape0, unsig
     if constexpr (extractMode == 0 && isLargest == 0) {
         // 按照升序排序时,对于value需要乘以-1,恢复原始值
         set_mask_count();
-        set_vector_mask(0, TShape0 * TShape1);
+        set_vector_mask(0, TShape0 * dstRawShape1);
         vmuls((__ubuf__ float *)dst, (__ubuf__ float *)dst, -1.0f, 1, 1, 1, 8, 8);
         set_mask_norm();
         set_vector_mask(-1, -1);
@@ -1574,20 +1574,20 @@ TILEOP void DynExtract(__ubuf__ T *dst, __ubuf__ U *src, unsigned TShape0, unsig
     }
 }
 
-template <typename T, typename U, int k, int extractMode, int isLargest>
-TILEOP void DynExtract(
-    __ubuf__ T *dst, __ubuf__ U *src, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3) {
+template <typename T, typename U, unsigned dstRawShape1, unsigned dstRawShape2, unsigned dstRawShape3, int k,
+    int extractMode, int isLargest>
+TILEOP void DynExtract(__ubuf__ T *dst, __ubuf__ U *src, unsigned TShape0, unsigned TShape1, unsigned TShape2) {
     for (int i = 0; i < TShape0; ++i) {
         __ubuf__ T *dst_ = dst;
         __ubuf__ U *src_ = src;
         for (int j = 0; j < TShape1; ++j) {
-            TileOp::DynExtract<T, U, k, extractMode, isLargest>(dst_, src_, TShape2, TShape3);
-            dst_ += TShape2 * TShape3;
-            src_ += TShape2 * TShape3 * 2;
+            TileOp::DynExtract<T, U, k, dstRawShape3, extractMode, isLargest>(dst_, src_, TShape2);
+            dst_ += dstRawShape2 * dstRawShape3;
+            src_ += dstRawShape2 * dstRawShape3 * 2;
             pipe_barrier(PIPE_V);
         }
-        dst += TShape1 * TShape2 * TShape3;
-        src += TShape1 * TShape2 * TShape3 * 2;
+        dst += dstRawShape1 * dstRawShape2 * dstRawShape3;
+        src += dstRawShape1 * dstRawShape2 * dstRawShape3 * 2;
     }
 }
 

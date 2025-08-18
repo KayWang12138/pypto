@@ -1737,11 +1737,13 @@ std::string CodeGenOpCloudNPU::PrintExtractDynamicUnaligned() const {
 
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
-    std::vector src0Shape = this->rawShape[0];
     AppendLocalBufferVarOffset({&dVar, &s0Var}, {0, 1});
 
     std::vector<std::string> paramList;
     paramList.insert(paramList.end(), {dstDtypeStr, src0DtypeStr});
+    std::vector dstShape = this->rawShape[0];
+    std::vector<int> ds = NormalizeShape(dstShape, SHAPE_DIM4);
+    paramList.insert(paramList.end(), {std::to_string(ds[ID1]), std::to_string(ds[ID2]), std::to_string(ds[ID3])});
 
     std::string templateParam = JoinString(paramList, ", ");
     templateParam += GenOpAttr();
@@ -1754,7 +1756,7 @@ std::string CodeGenOpCloudNPU::PrintExtractDynamicUnaligned() const {
     FillIntVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM4 - dynamicValidShape[1].size(), 1);
     auto dynDstShape = dynamicValidShape[0];
     FillIntVecWithDummyInHead<SymbolicScalar>(dynDstShape, SHAPE_DIM4 - dynamicValidShape[0].size(), 1);
-    for (int i = 0; i < SHAPE_DIM4; ++i) {
+    for (int i = 0; i < SHAPE_DIM3; ++i) {
         auto tShape = dynSrcShape[i].Min(dynDstShape[i]);
         paramList.emplace_back(tShape.Dump());
     }
