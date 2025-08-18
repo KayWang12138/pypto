@@ -43,7 +43,10 @@ void ReduceSumOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Te
     FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
-        const int dim = args->dims_[0];
+        int dim = args->dims_[0];
+        if (dim < 0) {
+            dim = static_cast<int>(inputs[0]->shape.size()) + dim;
+        }
         SymbolicScalar viewShape[] = {args->viewShape_[0], args->viewShape_[1]};
         viewShape[dim] = 0;
         const int batch = CeilDiv(inputs[0]->shape[1 - dim], viewShape[1 - dim]);
@@ -59,7 +62,7 @@ void ReduceSumOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Te
                 },
                 {bIdx * viewShape[0], bIdx * viewShape[1]});
             Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
-            auto res = RowSumSingle(viewTensor, dim);
+            auto res = RowSumSingle(viewTensor, args->dims_[0]);
             DAssemble(res, {bIdx * viewShape[0], bIdx * viewShape[1]}, outputs[0]);
         }
     }
@@ -73,7 +76,10 @@ void ReduceSum3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar lastDim = inputs[0]->shape[2];
-        const int dim = args->dims_[0];
+        int dim = args->dims_[0];
+        if (dim < 0) {
+            dim = static_cast<int>(inputs[0]->shape.size()) + dim;
+        }
         SymbolicScalar viewShape[] = {args->viewShape_[0], args->viewShape_[1], args->viewShape_[2]};
         int loops[] = {
             CeilDiv(inputs[0]->shape[0], viewShape[0]),
@@ -98,7 +104,7 @@ void ReduceSum3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<
                         },
                         {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]});
                     Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
-                    auto res = RowSumSingle(viewTensor, dim);
+                    auto res = RowSumSingle(viewTensor, args->dims_[0]);
                     DAssemble(res, {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]}, outputs[0]);
                 }
             }
