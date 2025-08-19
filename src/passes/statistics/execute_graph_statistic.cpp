@@ -17,6 +17,7 @@
 #include <fstream>
 #include <queue>
 #include <unordered_set>
+#include "interface/utils/log.h"
 
 using json = nlohmann::json;
 
@@ -102,15 +103,126 @@ ConcurrencyStats ExecutionGraphStatistic::CalculateConcurrency(Function& func) {
     return stats;
 }
 
-json ExecutionGraphStatistic::AnalyzeExecutionGraph(Function& func)
+template <typename tType>
+uint64_t CalcTensorSize(const std::vector<tType> &curShape) {
+    uint64_t res = 1;
+    for (auto &dim : curShape) {
+        res *= dim;
+    }
+    return res;
+}
+
+json ExecutionGraphStatistic::AnalyzeExecutionGraph(
+    Function& func,
+    const std::multimap<int, int>& psgToESgMap,
+    const std::vector<std::vector<OperationPtr>>& subgraphGroups)
 {
     json report;
-    report["executeGraph"] = {
-        {"total_operations", func.rootFunc_ ? func.rootFunc_->Operations().size() : 0},
-        {"critical_path", FindLongestPath(func).maxLength},
-        {"max_concurrency", CalculateConcurrency(func).maxConcurrency},
-        {"dependencies", AnalyzeGraphDependencies(func)}
+
+    uint64_t peakMemoryUsage = 0;
+    std::vector<int> peakMemoryUsageSubgraphs;
+    std::unordered_map<int, uint64_t> callOpMemoryUsage; // key: callOp magic, value: memory usage
+    Function* rootFunc = func.GetRootFunction();
+    if (!rootFunc) {
+        ALOG_ERROR_F("Root function is null");
+        return report;
+    }
+    int totalSubgraphNum = func.GetTotalSubGraphCount();
+    std::unordered_map<CoreType, int> coreTypeCounts;
+    std::vector<uint64_t> subgraphLatencies(totalSubgraphNum, 0);
+    auto operations = rootFunc->Operations();
+    for (size_t i = 0; i < operations.size(); i++) {
+        auto& op = operations[i];
+        auto callAttr = dynamic_cast<CallOpAttribute*>(op.GetOpAttribute().get());
+        if (!callAttr || !callAttr->invokeInfo_) {
+            ALOG_WARN_F("Invalid CallOpAttribute at index %zu", i);
+            continue;
+        }
+        // 统计内存使用
+        uint64_t currentOpMemory = 0;
+        // 统计输入tensor的内存占用
+        for (auto& iOperand : op.GetIOperands()) {
+            if (iOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+                uint64_t tensorSize = CalcTensorSize(iOperand->GetShape()) * BytesOf(iOperand->Datatype());
+                currentOpMemory += tensorSize;
+            }
+        }
+        // 统计输出tensor的内存占用
+        for (auto& oOperand : op.GetOOperands()) {
+            if (oOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+                uint64_t tensorSize = CalcTensorSize(oOperand->GetShape()) * BytesOf(oOperand->Datatype());
+                currentOpMemory += tensorSize;
+            }
+        }
+        callOpMemoryUsage[op.GetOpMagic()] = currentOpMemory;
+        if (currentOpMemory > peakMemoryUsage) {
+            peakMemoryUsage = currentOpMemory;
+            peakMemoryUsageSubgraphs.clear();
+            peakMemoryUsageSubgraphs.push_back(op.GetSubgraphID());
+        } else if (currentOpMemory == peakMemoryUsage) {
+            peakMemoryUsageSubgraphs.push_back(op.GetSubgraphID());
+        }
+
+        CoreType graphType = callAttr->invokeInfo_->GetGraphType();
+        coreTypeCounts[graphType]++;
+    }
+
+    std::vector<int> maxLatencySubgraphs;
+    std::vector<int> minLatencySubgraphs;
+    // 收集每个子图的latency
+    auto operationViewer = func.Operations();
+    for (size_t i = 0; i < operationViewer.size(); i++) {
+        int subGraphId = operationViewer[i].GetSubgraphID();
+        subgraphLatencies[subGraphId] += operationViewer[i].GetLatency();
+    }
+    // 计算最大值、最小值和平均值
+    uint64_t totalLatency = 0;
+    uint64_t maxLatency = 0;
+    uint64_t minLatency = UINT64_MAX;
+
+    for (int i = 0; i < totalSubgraphNum; i++) {
+        uint64_t latency = subgraphLatencies[i];
+        totalLatency += latency;
+        if (latency > maxLatency) {
+            maxLatency = latency;
+            maxLatencySubgraphs = {i};
+        } else if (latency == maxLatency) {
+            maxLatencySubgraphs.push_back(i);
+        }
+         if (latency < minLatency) {
+            minLatency = latency;
+            minLatencySubgraphs = {i};
+        } else if (latency == minLatency) {
+            minLatencySubgraphs.push_back(i);
+        }
+    }
+
+    // 计算依赖关系
+    auto dependencies = AnalyzeGraphDependencies(func);
+    report = {
+        {"totalSubgraphCount", totalSubgraphNum},
+        {"maxSubgraphDepth", FindLongestPath(func).maxLength},
+        {"maxSubgraphWidth", CalculateConcurrency(func).maxConcurrency},
+        {"maxSubgraphFanin", dependencies["Predecessors"]["MAX"]["value"]},
+        {"maxFaninSubgraphs", dependencies["Predecessors"]["MAX"]["subgraph"]},
+        {"maxSubgraphFanout", dependencies["Successors"]["MAX"]["value"]},
+        {"maxFanoutSubgraphs", dependencies["Successors"]["MAX"]["subgraph"]},
+        {"maxSubgraphCycle", maxLatency},
+        {"minSubgraphCycle", minLatency == UINT64_MAX ? 0 : minLatency},
+        {"avgSubgraphCycle", totalSubgraphNum > 0 ? totalLatency / totalSubgraphNum : 0},
+        {"maxCycleSubgraphs", maxLatencySubgraphs},
+        {"minCycleSubgraphs", minLatencySubgraphs},
+        {"peakMemoryUsage", peakMemoryUsage},
+        {"peakMemoryUsageSubgraphs", peakMemoryUsageSubgraphs},
+        {"aivSubgraphCount", coreTypeCounts[CoreType::AIV]},
+        {"aicSubgraphCount", coreTypeCounts[CoreType::AIC]},
+        {"aicpuSubgraphCount", coreTypeCounts[CoreType::AICPU]},
+        {"gmatomicSubgraphCount", coreTypeCounts[CoreType::GMATOMIC]},
+        {"hubSubgraphCount", coreTypeCounts[CoreType::HUB]},
+        {"invalidSubgraphCount", coreTypeCounts[CoreType::INVALID]},
+        {"mixSubgraphCount", coreTypeCounts[CoreType::MIX]}
     };
+    AnalyzeIsomorphism(report, psgToESgMap, subgraphGroups);
     return report;
 }
 
@@ -186,6 +298,31 @@ json ExecutionGraphStatistic::FormatDependencyStats(const DependencyStats& stats
             }},
             {"AVG", avg_successors}
         }}
-    };       
+    };
+}
+
+// 基于psgToESgMap的同构性分析
+void ExecutionGraphStatistic::AnalyzeIsomorphism(
+    json& report,
+    const std::multimap<int, int>& psgToESgMap,
+    const std::vector<std::vector<OperationPtr>>& subgraphGroups) {
+    // 统计同构子图分布
+    std::unordered_map<int, std::vector<int>> isomorphicGroups;
+    for (const auto& [psgId, esgId] : psgToESgMap) {
+        isomorphicGroups[psgId].push_back(esgId);
+    }
+
+    // 计算同构率
+    double homogeneityRatio = subgraphGroups.empty() ? 0.0 : static_cast<double>(subgraphGroups.size()) / isomorphicGroups.size();
+
+    report["uniqueSubgraphTypes"] = isomorphicGroups.size();
+    report["homogeneityRatio"] = homogeneityRatio;
+    
+    // 构建实例映射关系
+    json instanceMapping = json::object();
+    for (const auto& [psgId, esgIds] : isomorphicGroups) {
+        instanceMapping[std::to_string(psgId)] = esgIds;
+    }
+    report["instanceMapping"] = instanceMapping;
 }
 } // namespace npu::tile_fwk

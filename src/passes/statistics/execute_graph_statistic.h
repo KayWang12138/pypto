@@ -56,7 +56,16 @@ struct MinMaxStats {
 
 class ExecutionGraphStatistic {
 public:
-    json AnalyzeExecutionGraph(Function& func);
+    json AnalyzeExecutionGraph(
+        Function& func,
+        const std::multimap<int, int>& psgToESgMap,          
+        const std::vector<std::vector<OperationPtr>>& subgraphGroups 
+    );
+    void AnalyzeIsomorphism(
+        json& report,
+        const std::multimap<int, int>& psgToESgMap,
+        const std::vector<std::vector<OperationPtr>>& subgraphGroups
+    );
 
 private:
     PathResult FindLongestPath(Function& func);

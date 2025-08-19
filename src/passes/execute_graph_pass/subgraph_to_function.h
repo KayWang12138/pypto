@@ -22,7 +22,6 @@
 #include "tilefwk/data_type.h"
 #include "passes/pass_utils/pass_utils.h"
 #include "passes/statistics/execute_graph_statistic.h"
-#include "passes/statistics/kernel_graph_statistic.h"
 
 namespace npu::tile_fwk {
 class SubgraphToFunction : public Pass {
@@ -52,7 +51,8 @@ private:
     Status ColorOutGraphCheck(Function &function) const;
     Status PreCheck(Function &function) override;
     Status PostCheck(Function &function) override;
-    Status CheckSinglePsgEsgMapping(Function &function, uint32_t psgId, uint32_t esgId);
+    void DoHealthCheck(Function &function, const std::string &folderPath) override;
+    Status CheckSinglePsgEsgMapping(Function &function, uint32_t psgId, uint32_t esgId);  
     Status VerifySingleOpTopology(Function &function, size_t opIndex);
     Status CheckReadyStateConsistency(Function &function, size_t opIndex);
     template <typename ESGParamType, typename PSGParamContainer>
@@ -92,7 +92,7 @@ private:
     void GenerateAndExportCombinedReport(Function& func,
     const std::multimap<int, int>& psgToESgMapParam,
     const std::vector<std::vector<OperationPtr>>& subgraphGroups,
-    const std::string& filename="execute_kernel_report.json");
+    const std::string& filename="ExecuteGraph_Health_Report.json");
 
     std::vector<std::vector<OperationPtr>> nLIST;
     std::vector<std::vector<size_t>> inGraph;

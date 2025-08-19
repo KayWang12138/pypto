@@ -954,21 +954,31 @@ void SubgraphToFunction::GetTensorDataDependencyClear(Function &function) {
     }
 }
 
+void SubgraphToFunction::DoHealthCheck(Function &function, const std::string &folderPath) {
+    // 使用GetDumpFilePrefix生成前缀
+    std::string prefix = GetDumpFilePrefix(function);
+    
+    // 构建完整路径：前缀 + 固定后缀
+    std::string reportPath = folderPath + "/" + prefix + "_ExecuteGraph_Health_Report.json";
+    
+    // 生成并导出报告
+    GenerateAndExportCombinedReport(function, psgToESgMap, nLIST, reportPath);
+}
+
 void SubgraphToFunction::GenerateAndExportCombinedReport(
     Function& func,
     const std::multimap<int, int>& psgToESgMapParam,
     const std::vector<std::vector<OperationPtr>>& subgraphGroups,
     const std::string& filename)
 {
-    json combined_report;
+    json report;
     ExecutionGraphStatistic execAnalyzer;
-    combined_report["execution_graph_analysis"] = execAnalyzer.AnalyzeExecutionGraph(func);
-    KernelGraphStatistic kernelAnalyzer;
-    combined_report["kernel_graph_analysis"] = kernelAnalyzer.AnalyzeKernelGraph(psgToESgMapParam, subgraphGroups);
-
+    report["execution_graph_analysis"] = execAnalyzer.AnalyzeExecutionGraph(func, psgToESgMapParam, subgraphGroups);
+    
+    // 写入文件
     std::ofstream outfile(filename);
     constexpr int JSON_INDENTATION_SPACES = 4;
-    outfile << combined_report.dump(JSON_INDENTATION_SPACES);
+    outfile << report.dump(JSON_INDENTATION_SPACES); // 4空格缩进
     outfile.close();
 }
 
