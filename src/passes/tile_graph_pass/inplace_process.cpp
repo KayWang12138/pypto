@@ -38,7 +38,7 @@ Status InplaceProcess::RunOnFunction(Function &function) {
                     assembleOut->magic, assembleOut->tensor->GetRawDataSize());
                 return FAILED;
             }
-            ProcessAssemble(op);
+            ProcessAssemble(function, op);
         } else if (op.GetOpcode() == Opcode::OP_RESHAPE) {
             if (!ValidMeaninglessOp(op)) {
                 return FAILED;
@@ -139,9 +139,11 @@ void InplaceProcess::ReplaceRawTensor(std::shared_ptr<LogicalTensor> logicalTens
     ALOG_DEBUG_F("update the offset for Tensor %d.", logicalTensor->magic);
 }
 
-void InplaceProcess::ProcessAssemble(Operation &op) {
+void InplaceProcess::ProcessAssemble(Function &function, Operation &op) {
     auto assembleIn = op.GetIOperands().front();
     auto assembleOut = op.GetOOperands().front();
+    bool fromIncast = function.IsFromInCast(assembleIn);
+    ALOG_DEBUG_F("assembleIn from Incast: %d", fromIncast);
     if (op.iOperand[0]->tensor->GetRawDataSize() > assembleOut->tensor->GetRawDataSize()) {
         if (assembleOut->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
             ALOG_DEBUG_F(" Invalid Assemble case, opmagic: %d.", op.opmagic);

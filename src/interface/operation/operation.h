@@ -162,6 +162,7 @@ public:
     Function *BelongTo() const { return function_; }
 
     const TileShape &GetTileShape() const { return tileShape_; }
+    void UpdateTileShape(const TileShape newTileShape) { tileShape_ = newTileShape; }
 
     [[nodiscard]] std::string GetStringAttribute(const std::string &key) const;
     void SetAttribute(const std::string &key, const std::string &value);

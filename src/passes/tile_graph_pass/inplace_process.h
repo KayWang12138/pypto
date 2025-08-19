@@ -52,7 +52,7 @@ private:
     */
     Status RunOnFunction(Function &function) override;
     void ProcessView(Operation &op) const;
-    void ProcessAssemble(Operation &op);
+    void ProcessAssemble(Function &function, Operation &op);
     void AlignCopyInConsumer(std::shared_ptr<LogicalTensor> tensorGm) const;
     void AlignCopyOutProducer(std::shared_ptr<LogicalTensor> tensorGm) const;
     void ProcessReshape(Function &function, Operation &op) const;

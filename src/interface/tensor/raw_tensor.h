@@ -42,6 +42,7 @@ public:
 
 public:
     int rawmagic;
+    int memoryId{-1};
     int actualRawmagic = -1;
     std::vector<int> rawshape;
     std::vector<int> oriRawshape;

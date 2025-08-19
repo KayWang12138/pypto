@@ -26,6 +26,7 @@ RawTensor::RawTensor(DataType t, std::vector<int> tshape, std::string tname, int
     : rawmagic((trawmagic == -1) ? IdGen<IdType::RAW_TENSOR>::Inst().NewId() : trawmagic),
       rawshape(std::move(tshape)), datatype(t), symbol(std::move(tname)) {
     dynRawShape = SymbolicScalar::FromConcrete(rawshape);
+    memoryId = rawmagic;
 }
 
 void RawTensor::InitData(const Element &value) {
