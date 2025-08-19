@@ -27,6 +27,7 @@ public:
 private:
     Status RunOnFunction(Function &function) override;
     Status Expandfunction(Function &function) const;
+    void DoHealthCheck(Function &function, const std::string &folderPath) override;
 };
 }
 #endif // PASS_EXPAND_FUNCTION_H_

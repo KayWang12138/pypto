@@ -26,6 +26,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/utils/log.h"
+#include "passes/statistic/tensor_and_tile_graph_statistic.h"
 
 namespace npu::tile_fwk {
 class L1CopyInReuseRunner {
@@ -79,6 +80,7 @@ private:
         ALOG_INFO_F("===> Finish L1CopyInReuseMerge.");
         return SUCCESS;
     }
+    void DoHealthCheck(Function &function, const std::string &folderPath) override;
 };
 } // namespace npu::tile_fwk
 #endif // PASS_L1_COPY_REUSE_H_

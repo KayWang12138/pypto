@@ -443,4 +443,11 @@ Status L1CopyInReuseMerge::L1CopyInReuse(Function &func) const {
     runner.Run(func, color, colorNode);
     return SUCCESS;
 }
+
+void L1CopyInReuseMerge::DoHealthCheck(Function &function, const std::string &folderPath) {
+    ALOG_INFO_F("After L1CopyInReuseMerge, Health Report: TileGraph START");
+    std::string fileName = GetDumpFilePrefix(function);
+    HealthCheckTileGraph(function, folderPath, fileName);
+    ALOG_INFO_F("After L1CopyInReuseMerge, Health Report: TileGraph END");
+}
 }  // namespace npu::tile_fwk

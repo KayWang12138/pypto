@@ -24,6 +24,7 @@
 #include "interface/operation/operation_impl.h"
 #include "interface/configs/config_manager.h"
 #include "passes/tensor_graph_pass/expand_function.h"
+#include "passes/statistic/tensor_and_tile_graph_statistic.h"
 
 using namespace npu::tile_fwk;
 
@@ -170,5 +171,12 @@ Status ExpandFunction::Expandfunction(Function &function) const {
     }
     function.expandFunctionAccelerate = false;
     return SUCCESS;
+}
+
+void ExpandFunction::DoHealthCheck(Function &function, const std::string &folderPath) {
+    ALOG_INFO_F("Before ExpandFunction, Health Report: TensorGraph START");
+    std::string fileName = GetDumpFilePrefix(function);
+    HealthCheckTensorGraph(function, folderPath, fileName);
+    ALOG_INFO_F("Before ExpandFunction, Health Report: TensorGraph END");
 }
 } // namespace npu::tile_fwk
