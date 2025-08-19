@@ -38,6 +38,7 @@ CoreConfig::CoreConfig()
         {"calendarSetQueueWDelay", [&](string v){ calendarSetQueueWDelay = ParseInteger(v); }},
         {"bufferBackPressure", [&](string v){ bufferBackPressure = ParseBoolean(v); }},
         {"logLabelMode", [&](string v){ logLabelMode = ParseInteger(v); }},
+        {"enableTileOpFlow", [&](string v){ enableTileOpFlow = ParseBoolean(v); }},
     };
 
     Config::recorder = {
@@ -57,6 +58,7 @@ CoreConfig::CoreConfig()
         {"calendarSetQueueWDelay", [&](){ return "calendarSetQueueWDelay = " + ParameterToStr(calendarSetQueueWDelay); }},
         {"bufferBackPressure", [&](){ return "bufferBackPressure = " + ParameterToStr(bufferBackPressure); }},
         {"logLabelMode", [&](){ return "logLabelMode = " + ParameterToStr(logLabelMode); }},
+        {"enableTileOpFlow", [&](){ return "enableTileOpFlow = " + ParameterToStr(enableTileOpFlow); }},
     };
 }
 }

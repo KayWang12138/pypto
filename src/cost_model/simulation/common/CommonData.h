@@ -68,6 +68,7 @@ struct EventId {
 };
 
 struct LogData {
+    bool isLogTileOp = false;
     std::string name = "";
     Pid pid = 0;
     Tid tid = 0;

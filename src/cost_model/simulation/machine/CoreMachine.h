@@ -128,6 +128,7 @@ public:
     void RecordLeafPipeExecuteTime();
 
     void PrintRelativeCycleInfo(FunctionPtr func, std::shared_ptr<Task> task);
+    void LoggerRecordTileOpFlow(TileOpPtr tileOp);
 
     void Step() override;
     void Xfer() override;

@@ -81,6 +81,7 @@ void Tile::Print()
 std::string Tile::Dump()
 {
     std::stringstream oss;
+    oss << magic << " ";
     oss << OperandTypeToStr(bufType);
     oss << "_[";
     for (size_t i = 0; i < offset.size(); ++i) {

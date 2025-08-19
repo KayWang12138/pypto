@@ -151,6 +151,7 @@ public:
     std::map<PTid, std::vector<CounterEvent>> mCounts;
     std::map<int, Duration> mDurations;
     std::map<int, int> mTaskIDToDurationIndex;
+    std::map<Pid, std::map<int, int>> mMachineTileOpMap;
     std::map<PTid, std::stack<Event>> m_eventStacks;
 
     std::map<PTid, std::vector<CounterEvent>> eachMachineQueueSize;
@@ -187,6 +188,7 @@ public:
     Event AddEventEnd(Pid pid, Tid tid, TimeStamp timestamp);
     void AddDuration(const LogData &data);
     void AddFlow(uint64_t srcTask, uint64_t dstTask);
+    void AddTileOpFlow(Pid pid, uint64_t srcMagic, uint64_t dstMagic);
     void AddFlow(std::string name, EventId from, EventId to);
     void AddCounterEvent(Pid pid, Tid tid, CounterType type);
     void LogTaskInfo(Event &start, Event &end);

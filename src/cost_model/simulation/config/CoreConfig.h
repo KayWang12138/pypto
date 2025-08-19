@@ -39,5 +39,6 @@ struct CoreConfig : public Config {
     uint64_t calendarSetQueueWDelay = 140;
     bool bufferBackPressure = true;
     uint64_t logLabelMode = 1;
+    bool enableTileOpFlow = false;
 };
 }

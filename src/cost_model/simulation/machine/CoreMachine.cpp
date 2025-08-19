@@ -890,6 +890,26 @@ void CoreMachine::RecordLeafPipeExecuteTime()
     }
 }
 
+void CoreMachine::LoggerRecordTileOpFlow(TileOpPtr tileOp)
+{
+    if (!config.enableTileOpFlow || tileOp == nullptr) {
+        return;
+    }
+    auto logger = GetSim()->GetLogger();
+    auto curMagic = tileOp->magic;
+    for (auto &in : tileOp->iOperand) {
+        for (auto &prodOp : in->producers) {
+            logger->AddTileOpFlow(machineId, prodOp->magic, curMagic);
+        }
+    }
+    for (auto &out : tileOp->oOperand) {
+        if (out->exeInfo.exePipeId < 0) {
+            continue;
+        }
+        logger->AddTileOpFlow(machineId, out->magic, curMagic);
+    }
+}
+
 void CoreMachine::PrintRelativeCycleInfo(FunctionPtr func, std::shared_ptr<Task> task)
 {
     // Calculate Relative cycle
@@ -902,6 +922,7 @@ void CoreMachine::PrintRelativeCycleInfo(FunctionPtr func, std::shared_ptr<Task>
         info += (" Task[" + std::to_string(task->taskId) + "]-r");
         LoggerRecordTileOp(info, tileOp->exeInfo.exePipeId, tileOp->exeInfo.cycleInfo.relativeStartCycle,
                            tileOp->exeInfo.cycleInfo.relativeEndCycle);
+        LoggerRecordTileOpFlow(tileOp);
     }
 
     // Add stat

@@ -48,6 +48,7 @@ void Machine::LoggerRecordTileOp(std::string name, size_t pipeId, size_t sTime, 
     data.tid = pipeId + reversedTidNum;
     data.sTime = sTime;
     data.eTime = eTime;
+    data.isLogTileOp = true;
     GetSim()->GetLogger()->AddDuration(data);
 }
 

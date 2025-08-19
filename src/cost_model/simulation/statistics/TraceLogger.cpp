@@ -260,6 +260,7 @@ void TraceLogger::SetProcessName(std::string name, CostModel::Pid pid, size_t co
         .pid = pid,
         .coreIdx = coreIdx,
     };
+    mMachineTileOpMap[pid] = std::map<int, int>();
 }
 
 void TraceLogger::SetThreadName(std::string name, CostModel::Pid pid, CostModel::Tid tid)
@@ -317,6 +318,7 @@ Event TraceLogger::AddEventEnd(CostModel::Pid pid, CostModel::Tid tid, CostModel
             int taskId = beginEvent.ExtraHintInfo(taskKey);
             mTaskIDToDurationIndex[taskId] = beginEvent.id;
         }
+        mMachineTileOpMap[pid].clear();
     }
     return endEvent;
 }
@@ -349,6 +351,12 @@ void TraceLogger::AddDuration(const LogData &data)
     mEvents.push_back(beginEvent);
     mEvents.push_back(endEvent);
     mDurations.emplace(beginEvent.id, Duration{beginEvent, endEvent});
+    if (data.isLogTileOp) {
+        std::istringstream iss(data.name);
+        int magic;
+        iss >> magic;
+        mMachineTileOpMap[data.pid][magic] = mEventIdPtr;
+    }
 }
 
 void TraceLogger::AddFlow(uint64_t srcTask, uint64_t dstTask)
@@ -357,6 +365,22 @@ void TraceLogger::AddFlow(uint64_t srcTask, uint64_t dstTask)
     EventId dstId;
     srcId.eid = mTaskIDToDurationIndex[srcTask];
     dstId.eid = mTaskIDToDurationIndex[dstTask];
+    AddFlow("flow", srcId, dstId);
+}
+
+void TraceLogger::AddTileOpFlow(Pid pid, uint64_t srcMagic, uint64_t dstMagic)
+{
+    if (mMachineTileOpMap.find(pid) == mMachineTileOpMap.end()) {
+        return;
+    }
+    if (mMachineTileOpMap[pid].find(srcMagic) == mMachineTileOpMap[pid].end() || 
+        mMachineTileOpMap[pid].find(dstMagic) == mMachineTileOpMap[pid].end()) {
+        return;
+    }
+    EventId srcId;
+    EventId dstId;
+    srcId.eid = mMachineTileOpMap[pid][srcMagic];
+    dstId.eid = mMachineTileOpMap[pid][dstMagic];
     AddFlow("flow", srcId, dstId);
 }
 
