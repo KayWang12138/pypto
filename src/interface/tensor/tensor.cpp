@@ -238,11 +238,17 @@ int Tensor::GetShape(int axis) const {
     return storage_->shape[axis];
 }
 
-void Tensor::Prefetch(int preloadDep) {
+void Tensor::SetCachePolicy(CachePolicy policy, bool value) {
   if (storage_ != nullptr) {
-      storage_->SetPrefetch(preloadDep);
+    storage_->SetCachePolicy(policy, value);
   }
-  return;
+}
+
+bool Tensor::GetCachePolicy(CachePolicy policy) const {
+  if (storage_ != nullptr) {
+    storage_->GetCachePolicy(policy);
+  }
+  return false;
 }
 
 SymbolicScalar npu::tile_fwk::GetInputShapeDimSize(const Tensor &t) {

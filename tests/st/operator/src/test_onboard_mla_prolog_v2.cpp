@@ -124,8 +124,8 @@ void TestMlaPrologV2(std::vector<int> &params, string dataPath, bool isQuant = f
     Tensor wDq(dType, w_qa_shape, (uint8_t *)wDqPtr, "wDq", NodeType::LOCAL, weightFormat);
     Tensor wUqQr(dTypeQuantIn, w_qb_shape, (uint8_t *)wUqQrPtr, "wUqQr", NodeType::LOCAL, weightFormat);
         if constexpr (usePrefetch) {
-            wDq.Prefetch();
-            wUqQr.Prefetch();
+            wDq.SetCachePolicy(CachePolicy::PREFETCH, true);
+            wUqQr.SetCachePolicy(CachePolicy::PREFETCH, true);
         }
     Tensor wDkvKr(dType, w_kv_a_shape, (uint8_t *)wDkvKrPtr, "wDkvKr", NodeType::LOCAL, weightFormat);
     Tensor wUk(dType, w_kv_b_k_shape, (uint8_t *)wUkPtr, "wUk", NodeType::LOCAL, weightFormat);
@@ -157,7 +157,7 @@ void TestMlaPrologV2(std::vector<int> &params, string dataPath, bool isQuant = f
             Tensor smooth_cq = Tensor(DT_FP32, smooth_cq_shape, (uint8_t *)smooth_cq_ptr, "smooth_cq");
             if (hasSmooth) {
                 quantInputs.smoothScalesCq = smooth_cq;
-                smooth_cq.Prefetch();
+                smooth_cq.SetCachePolicy(CachePolicy::PREFETCH, true);
             }
             FUNCTION("MlaProlog_T", FunctionType::STATIC, {x, wDq, wUqQr, w_qb_scale, smooth_cq, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, kv_len, kv_cache, kr_cache, output_q, output_q_rope}) {
                 MlaProlog(x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, kv_len, kv_cache, kr_cache,

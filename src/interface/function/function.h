@@ -337,6 +337,7 @@ struct DyndevFunctionAttribute {
     std::vector<std::vector<uint8_t>> cceCodeList;
     std::vector<CceCodeInfo> cceCodeInfo;
     std::vector<L2Info> l2InfoList;
+    std::vector<uint8_t> disableL2List;
     /*
      *  AOT code for control flow graph binary code:
      *      signature: uint64_t(*)(uint64_t *symbolTable, void (*call)(void *ctx, uint64_t rootKey), void *ctx)

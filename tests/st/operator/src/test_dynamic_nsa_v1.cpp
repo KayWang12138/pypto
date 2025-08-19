@@ -156,8 +156,8 @@ void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig,
     Tensor wUqQr(dTypeQuant, wUqQrShape, "wUqQr", NodeType::LOCAL, weightFormat);
     const bool usePrefetch = true;
     if constexpr (usePrefetch) {
-        wDq.Prefetch();
-        wUqQr.Prefetch();
+        wDq.SetCachePolicy(CachePolicy::PREFETCH, true);
+        wUqQr.SetCachePolicy(CachePolicy::PREFETCH, true);
     }
     Tensor wDkvKr(dType, wDkvKrShape, "wDkvKr", NodeType::LOCAL, weightFormat);
     Tensor wUk(dType, wUkShape, "wUk", NodeType::LOCAL, weightFormat);

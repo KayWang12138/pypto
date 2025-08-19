@@ -177,13 +177,17 @@ public:
     const std::vector<SymbolicScalar> &GetDynOffset() const { return dynOffset_; }
     const std::vector<SymbolicScalar> &GetDynValidShape() const { return dynValidShape_; }
 
-    void SetPrefetch(int preloadDep = 0) {
-        if (tensor != nullptr) {
-          tensor->SetPrefetch(preloadDep);
-        }
+    void SetCachePolicy(CachePolicy policy, bool value) {
+      if (tensor != nullptr) {
+        tensor->SetCachePolicy(policy, value);
+      }
     }
-    bool NeedPrefetch() const { return tensor->NeedPrefetch(); }
-    int GetPrefetchDep() const { return tensor->PrefetchDep(); }
+    bool GetCachePolicy(CachePolicy policy) const {
+      if (tensor != nullptr) {
+        return tensor->GetCachePolicy(policy);
+      }
+      return false;
+    }
 private:
     MemoryType memoryTypeOriginal_{MemoryType::MEM_UNKNOWN};
     MemoryType memoryTypeToBe_{MemoryType::MEM_UNKNOWN};

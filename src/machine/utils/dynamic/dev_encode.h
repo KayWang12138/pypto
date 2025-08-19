@@ -1505,6 +1505,7 @@ struct DevAscendProgramSymbol {
 struct DevAscendProgram {
     DeviceArgs devArgs;
     uint64_t workspaceSize;
+    uint64_t l2CacheOffset;
     uint64_t hashKey;
     uint64_t slotSize;
     uint64_t aicoreLocalWorkspaceSize;
@@ -1537,7 +1538,8 @@ struct DevAscendProgram {
     DevRelocVector<int> assembleSlotIndexList;
     DevRelocVector<int> inplaceSlotList;
     DevRelocVector<PrefetchInfo> prefetchInfoList;
-#define programLastField                              prefetchInfoList
+    DevRelocVector<uint8_t> disableL2List;
+#define programLastField                              disableL2List
     uint8_t data[0];
 
     /*
@@ -1801,6 +1803,7 @@ struct DevAscendProgram {
         assembleSlotIndexList.DeviceRelocData(shift);
         inplaceSlotList.DeviceRelocData(shift);
         prefetchInfoList.DeviceRelocData(shift);
+        disableL2List.DeviceRelocData(shift);
         if (relocFunc) {
             for (int i = 0; i < static_cast<int>(GetFunctionSize()); i++) {
                 DevAscendFunction *func = GetFunction(i);
@@ -1831,6 +1834,7 @@ private:
             const std::vector<CceCodeInfo> &cceInfo, bool fillContent);
     void InitPrefetchInfoList(
             uintdevptr_t &initOffset, const std::vector<L2Info> &l2InfoList, bool fillContent);
+    void InitDisableL2List(uintdevptr_t &initOffset, const std::vector<uint8_t> &disableL2, bool fillContent);
     void InitStartArgsABIParamList(uintdevptr_t &initOffset, const std::vector<int> &tStartArgsInputTensorSlotIndexList,
         const std::vector<int> &tStartArgsOutputTensorSlotIndexList,
         const std::vector<int> &tStartArgsInputSymbolIndexList,
@@ -1869,7 +1873,8 @@ struct DevAscendTensorDataCreator {
         }
     }
 
-    static int Decode(int64_t *inputs, DevAscendTensorData *tensorData) {
+    static int Decode(int64_t *inputs, DevAscendProgram* devProg, int idxOffset,
+                      DevAscendTensorData *tensorData) {
         int64_t addrOffset = *inputs;
         int64_t *ptrBase = reinterpret_cast<int64_t *>(reinterpret_cast<uint64_t>(inputs) + addrOffset);
 
@@ -1877,7 +1882,12 @@ struct DevAscendTensorDataCreator {
         InputsHeader *h = reinterpret_cast<InputsHeader *>(inputs + 1);
         int64_t *ptr = ptrBase;
         while (reinterpret_cast<int64_t *>(h) < ptrBase) {
-            Init(&tensorData[n], *ptr, h->dimVal, h->dim);
+            int64_t addr = *ptr;
+            if (devProg->disableL2List[idxOffset + n] == 1) {
+              DEV_INFO("Tensor index %d disable l2.", idxOffset + n);
+              addr += static_cast<int64_t>(devProg->l2CacheOffset);
+            }
+            Init(&tensorData[n], addr, h->dimVal, h->dim);
             n++;
             ptr++;
             h = h->next();

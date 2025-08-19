@@ -158,8 +158,8 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
     Tensor wDq(dType, w_qa_shape, "wDq", NodeType::LOCAL, weightFormat);
     Tensor wUqQr(dTypeQuantIn, w_qb_shape, "wUqQr", NodeType::LOCAL, weightFormat);
     if constexpr (usePrefetch) {
-        wDq.Prefetch();
-        wUqQr.Prefetch();
+        wDq.SetCachePolicy(CachePolicy::PREFETCH, true);
+        wUqQr.SetCachePolicy(CachePolicy::PREFETCH, true);
     }
     Tensor wDkvKr(dType, w_kv_a_shape, "wDkvKr", NodeType::LOCAL, weightFormat);
     Tensor wUk(dType, w_kv_b_k_shape, "wUk", NodeType::LOCAL, weightFormat);
@@ -191,10 +191,14 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
     Tensor paOut(DT_FP32, {b * n * s, kvLoraRank}, "paOut");
     // post
     Tensor weightUV(dType, {n, kvLoraRank, vHeadDim}, "weightUV");
+    weightUV.SetCachePolicy(CachePolicy::NONE_CACHEABLE, true);
     Tensor weightO(DT_INT8, {n * vHeadDim, h}, "weightO", NodeType::LOCAL, weightFormat); // NZ
+    weightO.SetCachePolicy(CachePolicy::NONE_CACHEABLE, true);
     Tensor weightOScaleW(DT_FP32, {1, h}, "weightOScaleW");
+    weightOScaleW.SetCachePolicy(CachePolicy::NONE_CACHEABLE, true);
     // output
     Tensor postOut(dType, x_shape, "postOut");
+    postOut.SetCachePolicy(CachePolicy::NONE_CACHEABLE, true);
 
     int tileB = b;
     RoPETileShapeConfigNew ropeConfig {
@@ -300,9 +304,9 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
     auto actSeqsData = RawTensorData::CreateTensor<int32_t>(actSeqs, actSeqsValue);
     auto paOutData = RawTensorData::CreateConstantTensor<float>(paOut, 0.0);
     // post
-    auto weightUVData = RawTensorData::CreateTensor<T>(weightUV, weightUVValue, true);
-    auto weightOData = RawTensorData::CreateTensor<int8_t>(weightO, weightOValue, true);
-    auto weightOScaleWData = RawTensorData::CreateTensor<float>(weightOScaleW, weightOScaleWValue, true);
+    auto weightUVData = RawTensorData::CreateTensor<T>(weightUV, weightUVValue);
+    auto weightOData = RawTensorData::CreateTensor<int8_t>(weightO, weightOValue);
+    auto weightOScaleWData = RawTensorData::CreateTensor<float>(weightOScaleW, weightOScaleWValue);
     // output
     auto postOutData = RawTensorData::CreateConstantTensor<T>(postOut, 0.0);
 

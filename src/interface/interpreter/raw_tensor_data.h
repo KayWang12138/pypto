@@ -157,9 +157,8 @@ struct RawTensorData : public std::vector<uint8_t> {
     }
 
     template <typename T>
-    static std::shared_ptr<RawTensorData> CreateTensor(const Tensor &t, const std::vector<T> &values, bool l2Disable = false) {
+    static std::shared_ptr<RawTensorData> CreateTensor(const Tensor &t, const std::vector<T> &values) {
         auto tensorData = std::make_shared<RawTensorData>(t.GetDataType(), t.GetShape());
-        tensorData->l2Disable_ = l2Disable;
         T *data = reinterpret_cast<T *>(tensorData->data());
         StringUtils::DataCopy(data, tensorData->GetDataSize(), values.data(), values.size() * sizeof(T));
         return tensorData;
@@ -196,7 +195,6 @@ private:
     std::vector<int64_t> stride_;
     size_t nelem;
     size_t elemSize_;
-    bool l2Disable_{false};
 };
 
 using RawTensorDataPtr = std::shared_ptr<RawTensorData>;
@@ -360,9 +358,8 @@ using LogicalTensorDataPtr = std::shared_ptr<LogicalTensorData>;
 
 template <>
 inline std::shared_ptr<RawTensorData> RawTensorData::CreateTensor<uint8_t>(const Tensor &t,
-                                                const std::vector<uint8_t> &values, bool l2Disable) {
+                                                const std::vector<uint8_t> &values) {
     auto tensorData = std::make_shared<RawTensorData>(t.GetDataType(), t.GetShape());
-    tensorData->l2Disable_ = l2Disable;
     uint8_t *data = reinterpret_cast<uint8_t *>(tensorData->data());
     StringUtils::DataCopy(data, tensorData->GetDataSize(), values.data(), values.size());
     return tensorData;

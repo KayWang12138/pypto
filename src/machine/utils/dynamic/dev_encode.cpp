@@ -1400,6 +1400,13 @@ void DevAscendProgram::InitPrefetchInfoList(uintdevptr_t &initOffset, const std:
     return;
 }
 
+void DevAscendProgram::InitDisableL2List(uintdevptr_t &initOffset, const std::vector<uint8_t> &disableL2,
+                                         bool fillContent) {
+  disableL2List.HostInitDataSizeOffset(initOffset, disableL2.size());
+  ONFILLCONTENT { (void)memcpy_s(disableL2List.Data(), disableL2.size(), disableL2.data(), disableL2.size()); };
+  return;
+}
+
 void DevAscendProgram::InitStartArgsABIParamList(
         uintdevptr_t &initOffset,
         const std::vector<int> &tStartArgsInputTensorSlotIndexList,
@@ -1472,6 +1479,7 @@ struct EncodeDevAscendProgramInfo {
             dyndevAttr->inoutLink.inplaceSlotIndexList,
             fillContent);
         devProg->InitPrefetchInfoList(initOffset, dyndevAttr->l2InfoList, fillContent);
+        devProg->InitDisableL2List(initOffset, dyndevAttr->disableL2List, fillContent);
     }
 };
 

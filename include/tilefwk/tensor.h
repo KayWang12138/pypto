@@ -205,15 +205,25 @@ public:
      */
     std::shared_ptr<LogicalTensor> &GetStorage(bool readSlot = true);
 
-    // Mark this tensor do L2 Prefetch. (Now max prefetch num is 4.)
     /**
-     * \brief Prefetch the tensor to L2 cache.
+     * \brief Set tensor cache policy.
      *
-     * \param preloadDep : This parameter is used to control the timing of L2 prefetching for this Tensor. The default
-     * value is 0.
-     * \attention : This parameter is still in its infancy and has no actual function.
+     * \param policy : PREFETCH mark this tensor will prefetch to cache before calculate.(Max num is 4.)
+     *               NO_CACHEABLE mark this tensor will not get into cache.
+     *        value : true mean enable, default is false.
+     * \attention : NONE_CACHEABLE will only effect function input.
+     *              NO_CACHEABLE will only effect function input and output.
+     *              Two policy can not apply in one tensor.
      */
-    void Prefetch(int preloadDep = 0);
+     void SetCachePolicy(CachePolicy policy, bool value);
+
+    /**
+    * \brief Get tensor cache policy.
+    *
+    * \param policy : CachePolicy enum.
+    * \return bool : policy value.
+    */
+    bool GetCachePolicy(CachePolicy policy) const;
 
     /**
      * \brief Get the Data Type object

@@ -157,15 +157,25 @@ public:
         DEV_INFO("AscendCppDyInitTask begin");
         DevStartArgs *devArgs = PtrToPtr<int64_t, DevStartArgs>(kargs->workspace);
 
+        auto devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
+        PerfBegin(PERF_EVT_INIT);
+        if (devProg->controlFlowBinaryAddr == nullptr) {
+          devProg->Reloc((uint64_t)devProg, true);
+          auto execProg = DeviceExecuteProgram(devProg, nullptr);
+          devProg->controlFlowBinaryAddr = execProg.GetControlFlowEntry();
+        }
+        devArgs->controlFlowEntry = devProg->controlFlowBinaryAddr;
+
+        PerfEnd(PERF_EVT_INIT);
+
         auto inputPtr = PtrToPtr<DevStartArgs, DevAscendTensorData>(devArgs + 1);
-        auto inputSize = DevAscendTensorDataCreator::Decode(kargs->inputs, inputPtr);
+        auto inputSize = DevAscendTensorDataCreator::Decode(kargs->inputs, devProg, 0, inputPtr);
 
         auto outputPtr = inputPtr + inputSize;
-        auto outputSize = DevAscendTensorDataCreator::Decode(kargs->outputs, outputPtr);
+        auto outputSize = DevAscendTensorDataCreator::Decode(kargs->outputs, devProg, inputSize, outputPtr);
         auto workspaceAddr = ALIGN_UP((uint64_t)(outputPtr + outputSize), 512);
         auto devArgsSize = workspaceAddr - PtrToValue(kargs->workspace);
 
-        auto devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
         devArgs->inputTensorList = inputPtr;
         devArgs->inputTensorSize = static_cast<uint64_t>(inputSize);
         devArgs->outputTensorList = outputPtr;
@@ -177,15 +187,6 @@ public:
         devArgs->inputSymbolList = nullptr;
         devArgs->inputSymbolSize = 0;
 
-        PerfBegin(PERF_EVT_INIT);
-        if (devProg->controlFlowBinaryAddr == nullptr) {
-            devProg->Reloc((uint64_t)devProg, true);
-            auto execProg = DeviceExecuteProgram(devProg, nullptr);
-            devProg->controlFlowBinaryAddr = execProg.GetControlFlowEntry();
-        }
-        devArgs->controlFlowEntry = devProg->controlFlowBinaryAddr;
-
-        PerfEnd(PERF_EVT_INIT);
         DEV_INFO("AscendCppDyInitTask done.");
         return 0;
     }

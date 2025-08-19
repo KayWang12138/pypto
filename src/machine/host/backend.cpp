@@ -418,8 +418,31 @@ static void FillL2PrefetchInfo(std::shared_ptr<DyndevFunctionAttribute> attr) {
     for (auto &param : attr->startArgsInputTensorList) {
         const auto &tensor = param.get();
         auto asc_tensor = tensor.GetStorage();
-        if (asc_tensor != nullptr && tensor->NeedPrefetch()) {
+        if (asc_tensor == nullptr) {
+          idx++;
+          continue;
+        }
+        if (tensor->GetCachePolicy(CachePolicy::PREFETCH)) {
           attr->l2InfoList.emplace_back(L2Info(tensor->MemorySize(), idx));
+        }
+        if (tensor->GetCachePolicy(CachePolicy::NONE_CACHEABLE)) {
+          attr->disableL2List.emplace_back(1);
+        } else {
+          attr->disableL2List.emplace_back(0);
+        }
+        idx++;
+    }
+    for (auto &param : attr->startArgsOutputTensorList) {
+        const auto &tensor = param.get();
+        auto asc_tensor = tensor.GetStorage();
+        if (asc_tensor == nullptr) {
+          idx++;
+          continue;
+        }
+        if (tensor->GetCachePolicy(CachePolicy::NONE_CACHEABLE)) {
+          attr->disableL2List.emplace_back(1);
+        } else {
+          attr->disableL2List.emplace_back(0);
         }
         idx++;
     }

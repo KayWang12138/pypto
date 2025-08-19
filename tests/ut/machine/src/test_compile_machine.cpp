@@ -84,9 +84,9 @@ void TestMlaProlog(std::vector<int> &params) {
     PROGRAM("MlaProlog") {
         Tensor x(dType, x_shape, "x");
         Tensor w_qa(dType, w_qa_shape, "w_qa");
-        w_qa.Prefetch();
+        w_qa.SetCachePolicy(CachePolicy::PREFETCH, true);
         Tensor w_qb(dType, w_qb_shape, "w_qb");
-        w_qb.Prefetch();
+        w_qb.SetCachePolicy(CachePolicy::PREFETCH, true);
         Tensor w_kv_a(dType, w_kv_a_shape, "w_kv_a");
         Tensor w_kv_b_k(dType, w_kv_b_k_shape, "w_kv_b_k");
         Tensor position_ids(DataType::DT_INT32, position_ids_shape, "position_ids");

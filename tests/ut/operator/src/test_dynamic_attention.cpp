@@ -115,8 +115,8 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
     Tensor wDq(dType, w_qa_shape, "wDq", NodeType::LOCAL, weightFormat);
     Tensor wUqQr(dTypeQuantIn, w_qb_shape, "wUqQr", NodeType::LOCAL, weightFormat);
     if constexpr (usePrefetch) {
-        wDq.Prefetch();
-        wUqQr.Prefetch();
+        wDq.SetCachePolicy(CachePolicy::PREFETCH, true);
+        wUqQr.SetCachePolicy(CachePolicy::PREFETCH, true);
     }
     Tensor wDkvKr(dType, w_kv_a_shape, "wDkvKr", NodeType::LOCAL, weightFormat);
     Tensor wUk(dType, w_kv_b_k_shape, "wUk", NodeType::LOCAL, weightFormat);

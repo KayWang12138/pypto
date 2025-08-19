@@ -2780,7 +2780,7 @@ std::vector<OriArgInfo> Function::GetOpOriginArgsInfo() {
         }
         maxSubscript = std::max(maxSubscript, subscript);
         OriArgInfo info{reinterpret_cast<uint64_t>(incast->GetRawTensor()->GetRawDataPtr()), incast->MemorySize(),
-            incast->NeedPrefetch()};
+            incast->GetCachePolicy(CachePolicy::PREFETCH)};
         if (args.count(subscript) > 0) {
             ASSERT(args.at(subscript) == info);
         } else {
@@ -2794,7 +2794,7 @@ std::vector<OriArgInfo> Function::GetOpOriginArgsInfo() {
         }
         maxSubscript = std::max(maxSubscript, subscript);
         OriArgInfo info{reinterpret_cast<uint64_t>(outcast->GetRawTensor()->GetRawDataPtr()), outcast->MemorySize(),
-            outcast->NeedPrefetch()};
+            outcast->GetCachePolicy(CachePolicy::PREFETCH)};
         if (args.count(subscript) > 0) {
             ASSERT(args.at(subscript) == info);
         } else {

@@ -102,8 +102,8 @@ void TestMlaPrologV2(const SimpleParams &params) {
     Tensor wDq(dType, wDqShape, "wDq", NodeType::LOCAL, weightFormat);
     Tensor wUqQr(dTypeQuant, wUqQrShape, "wUqQr", NodeType::LOCAL, weightFormat);
     if constexpr (usePrefetch) {
-        wDq.Prefetch();
-        wUqQr.Prefetch();
+        wDq.SetCachePolicy(CachePolicy::PREFETCH, true);
+        wUqQr.SetCachePolicy(CachePolicy::PREFETCH, true);
     }
     Tensor wDkvKr(dType, wDkvKrShape, "wDkvKr", NodeType::LOCAL, weightFormat);
     Tensor wUk(dType, wUkShape, "wUk", NodeType::LOCAL, weightFormat);

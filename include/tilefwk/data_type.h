@@ -273,6 +273,12 @@ inline size_t BytesOf(DataType t) {
         default: throw std::invalid_argument("Unknown CastMode");
     }
 }
+
+enum class CachePolicy {
+    PREFETCH,
+    NONE_CACHEABLE,
+    MAX_NUM
+};
 } // namespace npu::tile_fwk
 
 namespace std {

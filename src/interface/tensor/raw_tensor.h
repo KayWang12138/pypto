@@ -20,12 +20,12 @@
 #include <memory>
 #include <utility>
 #include <vector>
-
+#include <nlohmann/json.hpp>
 #include "tilefwk/tilefwk.h"
 #include "common/pre_def.h"
 #include "tilefwk/data_type.h"
+#include "interface/utils/log.h"
 
-#include <nlohmann/json.hpp>
 using Json = nlohmann::json;
 
 namespace npu::tile_fwk {
@@ -112,19 +112,25 @@ public:
     void SetTensorInfo(const TensorInfo &other) { tensorInfo_ = other; }
 
     const auto &GetTensorInfo() const { return tensorInfo_; }
-    void SetPrefetch(int preloadDep) {
-        needPrefetch_ = true;
-        preloadDep_ = preloadDep;
+
+    void SetCachePolicy(CachePolicy policy, bool value) {
+      cachePolicy_[static_cast<int>(policy)] = value;
+      if (value && (cachePolicy_[static_cast<int>(CachePolicy::PREFETCH)] ==
+          cachePolicy_[static_cast<int>(CachePolicy::NONE_CACHEABLE)])) {
+          ALOG_WARN_F("Prefetch and none cacheable can not apply at same time, use the first config policy.");
+          cachePolicy_[static_cast<int>(policy)] = false;
+      }
     }
-    bool NeedPrefetch() const { return needPrefetch_; }
-    int PrefetchDep() const { return preloadDep_; }
+
+    bool GetCachePolicy(CachePolicy policy) const {
+      return cachePolicy_[static_cast<int>(policy)];
+    }
 private:
     std::vector<Element> data;
     BinDataPtr rawData{nullptr};
     bool isDummy_{false};
     int refCount_{0}; // 被 npu::tile_fwk::Tensor引用的次数，用于outcast自动推导
     TensorInfo tensorInfo_{};
-    bool needPrefetch_{false};
-    int preloadDep_{0};
+    bool cachePolicy_[static_cast<int>(CachePolicy::MAX_NUM)] = {false};
 };
 } // namespace npu::tile_fwk

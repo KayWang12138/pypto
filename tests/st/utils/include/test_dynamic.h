@@ -32,11 +32,7 @@ constexpr uint32_t kDefaultAicNum = 25;
 constexpr uint32_t kDefaultAivNum = 50;
 
 struct MemoryHelper {
-    MemoryHelper(bool isTest) : isTest_(isTest) {
-        if (!isTest_) {
-            l2Offset = machine::GetRA()->GetL2Offset();
-        }
-    }
+    MemoryHelper(bool isTest) : isTest_(isTest) {}
 
     uint8_t *CopyToDev(uint8_t *data, uint64_t size) {
         uint8_t *devPtr = AllocDev(size);
@@ -88,7 +84,6 @@ struct MemoryHelper {
     void CopyFromDev(RawTensorData &t) { CopyFromDev(t.data(), t.GetDevPtr(), t.size()); }
 
     bool isTest_{true};
-    uint64_t l2Offset{0};
 };
 
 extern "C" int DynTileFwkBackendKernelServer(void *targ);
@@ -156,6 +151,7 @@ private:
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
         devProg->workspaceSize = devProg->aicoreLocalWorkspaceSize + devProg->aicpuCoherentWorkspaceSize
                                  + config_.dynWorkspaceSize;
+        devProg->l2CacheOffset = machine::GetRA()->GetL2Offset();
         kArgs.workspace = (int64_t *)h.AllocDev(devProg->workspaceSize);
         kArgs.cfgdata = (int64_t *)h.CopyToDev(devProg_);
         kArgs.machineConfig = devProg->devArgs.machineConfig;
@@ -284,9 +280,6 @@ private:
             for (auto &t : tensorList) {
                 if (t) {
                     auto addrs = h.CopyToDev(*t);
-                    if (t->l2Disable_) {
-                        addrs += h.l2Offset;
-                    }
                     geTensors.emplace_back(DevAscendTensorDataCreator::Create((uint64_t)addrs, t->GetShape()));
                     ALOG_ERROR_F("addrs is %zu, ptr %p\n", t->GetSize(), addrs);
                 } else {
