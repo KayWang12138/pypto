@@ -86,8 +86,8 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_RECIPROCAL, OpCoreType::AIV, "RECIPROCAL", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Trec", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE, {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis});
     registerInfo(Opcode::OP_ABS, OpCoreType::AIV, "ABS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tabs", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE, {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis});
 
-    registerInfo(Opcode::OP_TRANSPOSE_DATAMOVE, OpCoreType::ANY, "TRANSPOSE_DATAMOVE",
-        {MemoryType::MEM_UB}, {MemoryType::MEM_DEVICE_DDR}, {"TileOp::TtransposeDataMove", PIPE_MTE3, PIPE_MTE3, CoreType::AIV}, OpCalcType::MOVE_OUT, {OP_ATTR_PREFIX + "shape"});
+    registerInfo(Opcode::OP_TRANSPOSE_MOVEOUT, OpCoreType::ANY, "TRANSPOSE_MOVEOUT",
+        {MemoryType::MEM_UB}, {MemoryType::MEM_DEVICE_DDR}, {"TileOp::TtransposeMoveOut", PIPE_MTE3, PIPE_MTE3, CoreType::AIV}, OpCalcType::MOVE_OUT, {OP_ATTR_PREFIX + "shape"});
     registerInfo(Opcode::OP_TRANSPOSE_VNCHWCONV, OpCoreType::ANY, "TRANSPOSE_VNCHWCONV",
         {MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Ttranspose_vnchwconv", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::MOVE_LOCAL, {OP_ATTR_PREFIX + "shape"});
 

@@ -28,7 +28,7 @@ namespace npu::tile_fwk {
 namespace {
 bool IsCopyOpWithShapeOffsetAttr(Opcode opcode) {
     bool result = opcode == Opcode::OP_COPY_IN || opcode == Opcode::OP_COPY_OUT ||
-                  opcode == Opcode::OP_TRANSPOSE_DATAMOVE || opcode == Opcode::OP_INDEX_OUTCAST ||
+                  opcode == Opcode::OP_TRANSPOSE_MOVEOUT || opcode == Opcode::OP_INDEX_OUTCAST ||
                   opcode == Opcode::OP_LOCAL_COPY_OUT || opcode == Opcode::OP_REMOTE_REDUCE ||
                   opcode == Opcode::OP_REMOTE_GATHER || opcode == Opcode::OP_FFN_SCHED ||
                   opcode == Opcode::OP_FFN_BATCHING || opcode == Opcode::OP_COPY_TO_LOCAL_EXPERT;

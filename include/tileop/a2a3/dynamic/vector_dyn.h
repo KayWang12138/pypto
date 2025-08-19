@@ -136,7 +136,7 @@ namespace TileOp {
 
 template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned srcRawShape1,
     unsigned srcRawShape2, unsigned axis0, unsigned axis1>
-TILEOP void DynTtransposeDataMoveBase(__gm__ T *dst, __ubuf__ T *src, unsigned dstShape1, unsigned dstShape2) {
+TILEOP void DynTtransposeMoveOutBase(__gm__ T *dst, __ubuf__ T *src, unsigned dstShape1, unsigned dstShape2) {
     if constexpr (axis0 == 0 && axis1 == 1) {
         __gm__ T *dst_ = dst;
         __ubuf__ T *src_ = src;
@@ -156,7 +156,7 @@ TILEOP void DynTtransposeDataMoveBase(__gm__ T *dst, __ubuf__ T *src, unsigned d
 
 template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned srcRawShape1,
     unsigned srcRawShape2, unsigned srcRawShape3, unsigned axis0, unsigned axis1>
-TILEOP void DynTtransposeDataMove(__gm__ T *dst, __ubuf__ T *src, unsigned dstShape0, unsigned dstShape1,
+TILEOP void DynTtransposeMoveOut(__gm__ T *dst, __ubuf__ T *src, unsigned dstShape0, unsigned dstShape1,
     unsigned dstShape2, unsigned dstShape3, unsigned GmOffset0, unsigned GmOffset1, unsigned GmOffset2,
     unsigned GmOffset3) {
     if constexpr (axis0 == 1 && axis1 == 2) {
@@ -164,7 +164,7 @@ TILEOP void DynTtransposeDataMove(__gm__ T *dst, __ubuf__ T *src, unsigned dstSh
             dst + CalcLinearOffset(dstShape1, dstShape2, dstShape3, GmOffset0, GmOffset1, GmOffset2, GmOffset3);
         __ubuf__ T *src_ = src;
         for (int b = 0; b < TShape0; b++) {
-            DynTtransposeDataMoveBase<T, TShape1, TShape2, TShape3, srcRawShape2, srcRawShape3, axis0 - 1, axis1 - 1>(
+            DynTtransposeMoveOutBase<T, TShape1, TShape2, TShape3, srcRawShape2, srcRawShape3, axis0 - 1, axis1 - 1>(
                 dst_, src_, dstShape2, dstShape3);
             dst_ += dstShape1 * dstShape2 * dstShape3;
             src_ += srcRawShape1 * srcRawShape2 * srcRawShape3;
@@ -1014,7 +1014,7 @@ TILEOP void DynTrowmaxline_(
 }
 
 template <typename T, unsigned srcRawShape1, unsigned srcRawShape2, unsigned axis0, unsigned axis1>
-TILEOP void DynTtransposeDataMoveBase_(__gm__ T *dst, __ubuf__ T *src, unsigned TShape0, unsigned TShape1,
+TILEOP void DynTtransposeMoveOutBase_(__gm__ T *dst, __ubuf__ T *src, unsigned TShape0, unsigned TShape1,
     unsigned TShape2, unsigned dstShape1, unsigned dstShape2) {
     if constexpr (axis0 == 0 && axis1 == 1) {
         __gm__ T *dst_ = dst;
@@ -1035,7 +1035,7 @@ TILEOP void DynTtransposeDataMoveBase_(__gm__ T *dst, __ubuf__ T *src, unsigned 
 
 template <typename T, unsigned srcRawShape1, unsigned srcRawShape2, unsigned srcRawShape3, unsigned axis0,
     unsigned axis1>
-TILEOP void DynTtransposeDataMove_(__gm__ T *dst, __ubuf__ T *src, unsigned TShape0, unsigned TShape1,
+TILEOP void DynTtransposeMoveOut_(__gm__ T *dst, __ubuf__ T *src, unsigned TShape0, unsigned TShape1,
     unsigned TShape2, unsigned TShape3, unsigned dstShape0, unsigned dstShape1, unsigned dstShape2, unsigned dstShape3,
     unsigned GmOffset0, unsigned GmOffset1, unsigned GmOffset2, unsigned GmOffset3) {
     if constexpr (axis0 == 1 && axis1 == 2) {
@@ -1043,7 +1043,7 @@ TILEOP void DynTtransposeDataMove_(__gm__ T *dst, __ubuf__ T *src, unsigned TSha
             dst + CalcLinearOffset(dstShape1, dstShape2, dstShape3, GmOffset0, GmOffset1, GmOffset2, GmOffset3);
         __ubuf__ T *src_ = src;
         for (int b = 0; b < TShape0; b++) {
-            DynTtransposeDataMoveBase_<T, srcRawShape2, srcRawShape3, axis0 - 1, axis1 - 1>(
+            DynTtransposeMoveOutBase_<T, srcRawShape2, srcRawShape3, axis0 - 1, axis1 - 1>(
                 dst_, src_, TShape1, TShape2, TShape3, dstShape2, dstShape3);
             dst_ += dstShape1 * dstShape2 * dstShape3;
             src_ += srcRawShape1 * srcRawShape2 * srcRawShape3;

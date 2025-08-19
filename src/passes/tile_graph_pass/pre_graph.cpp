@@ -320,7 +320,7 @@ void PreGraphProcess::ProcessSpecialMTEOperation(Operation &op) const {
     if ((inputTensor == nullptr) || (outputTensor == nullptr)) {
         return;
     }
-    if (op.GetOpcode() == Opcode::OP_TRANSPOSE_DATAMOVE) {
+    if (op.GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT) {
         /* transpose datamove 输入和输出的shape不相同 */
         op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MemoryType::MEM_UB,
             OpImmediate::Specified(outputTensor->GetTensorOffset()), OpImmediate::Specified(outputTensor->GetShape()),
@@ -603,7 +603,7 @@ Status PreGraphProcess::RunOnFunction(Function &function) {
 
     // Processing Special Ops
     for (auto &op : opList) {
-        if (op.GetOpcode() == Opcode::OP_TRANSPOSE_DATAMOVE || op.GetOpcode() == Opcode::OP_INDEX_OUTCAST ||
+        if (op.GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT || op.GetOpcode() == Opcode::OP_INDEX_OUTCAST ||
             op.GetOpcode() == Opcode::OP_REMOTE_GATHER || op.GetOpcode() == Opcode::OP_LOCAL_COPY_OUT ||
             op.GetOpcode() == Opcode::OP_REMOTE_REDUCE || op.GetOpcode() == Opcode::OP_FFN_SCHED ||
             op.GetOpcode() == Opcode::OP_FFN_BATCHING || op.GetOpcode() == Opcode::OP_COPY_TO_LOCAL_EXPERT) {

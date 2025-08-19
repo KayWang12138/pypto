@@ -203,7 +203,7 @@ void GenerateMoveOp::CreateMoveOpForAssemble(Operation &op) const {
     bool needCreate = true;
     if (op.iOperand.front()->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR &&
         op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
-        parentOp->GetOpcode() != Opcode::OP_TRANSPOSE_DATAMOVE && parentOp->GetOpcode() != Opcode::OP_INDEX_OUTCAST) {
+        parentOp->GetOpcode() != Opcode::OP_TRANSPOSE_MOVEOUT && parentOp->GetOpcode() != Opcode::OP_INDEX_OUTCAST) {
         op.SetOpCode(Opcode::OP_COPY_OUT);
     } else {
         needCreate = false;

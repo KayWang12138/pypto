@@ -399,7 +399,7 @@ void TransposeInferFunc(Operation* op,
 }
 
 REGISTER_INFER_SHAPE_FUNC(OP_TRANSPOSE_VNCHWCONV, Opcode::OP_TRANSPOSE_VNCHWCONV, TransposeInferFunc);
-REGISTER_INFER_SHAPE_FUNC(OP_TRANSPOSE_DATAMOVE, Opcode::OP_TRANSPOSE_DATAMOVE, TransposeInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_TRANSPOSE_MOVEOUT, Opcode::OP_TRANSPOSE_MOVEOUT, TransposeInferFunc);
 
 void ViewInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op->GetOpAttribute().get());

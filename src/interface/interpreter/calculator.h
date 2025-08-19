@@ -620,7 +620,7 @@ struct CalcTransposeAdjDimContext {
 };
 template <Opcode opcode, typename DataType, typename CalcType>
 struct CalcTransposeAdjDimHandler {
-    static_assert(opcode == Opcode::OP_TRANSPOSE_DATAMOVE, "invalid opcode");
+    static_assert(opcode == Opcode::OP_TRANSPOSE_MOVEOUT, "invalid opcode");
     static void Entry(void *c) {
         auto [ret, oper, indexBegin, indexEnd, axis, retStride, operStride, retShape, operShape] =
             *(CalcTransposeAdjDimContext *)c;
@@ -634,7 +634,7 @@ struct CalcTransposeAdjDimHandler {
             int operMidDimIndex = retMidColIndex * operShape[axis + 1] + retMidRowIndex;
             int operIndex = operHighDimIndex + operMidDimIndex * operStride[axis + 1] + operLowDimIndex;
             switch (opcode) {
-                case Opcode::OP_TRANSPOSE_DATAMOVE: {
+                case Opcode::OP_TRANSPOSE_MOVEOUT: {
                     DataType val = oper->Get<DataType>(operIndex);
                     ret->Get<DataType>(i) = val;
                 } break;
@@ -1130,7 +1130,7 @@ public:
 
     static void CalcTransposeAdjDim(
         LogicalTensorData *ret, const LogicalTensorData *oper, int axis, util::ThreadPool *pool) {
-        HandleDataType<CalcTransposeAdjDimHandler, Opcode::OP_TRANSPOSE_DATAMOVE>(
+        HandleDataType<CalcTransposeAdjDimHandler, Opcode::OP_TRANSPOSE_MOVEOUT>(
             oper->GetDataType(), ret, oper, axis, pool);
     }
 

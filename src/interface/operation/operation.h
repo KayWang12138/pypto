@@ -301,7 +301,7 @@ public:
             case Opcode::OP_COPY_IN:
             case Opcode::OP_COPY_OUT:
             case Opcode::OP_INDEX_OUTCAST:
-            case Opcode::OP_TRANSPOSE_DATAMOVE:
+            case Opcode::OP_TRANSPOSE_MOVEOUT:
             case Opcode::OP_REMOTE_GATHER:
             case Opcode::OP_LOCAL_COPY_OUT:
             case Opcode::OP_REMOTE_REDUCE:

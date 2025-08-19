@@ -2386,7 +2386,7 @@ TILEOP void TSmaxs(__ubuf__ T *dst, __ubuf__ T *src, float scalar) {
 
 template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned dstRawShape1,
     unsigned dstRawShape2, unsigned srcRawShape1, unsigned srcRawShape2, unsigned axis0, unsigned axis1>
-TILEOP void TtransposeDataMove_(__gm__ T *dst, __ubuf__ T *src) {
+TILEOP void TtransposeMoveOut_(__gm__ T *dst, __ubuf__ T *src) {
     if constexpr (axis0 == 0 && axis1 == 1) {
         __gm__ T *dst_ = dst;
         __ubuf__ T *src_ = src;
@@ -2407,12 +2407,12 @@ TILEOP void TtransposeDataMove_(__gm__ T *dst, __ubuf__ T *src) {
 template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned dstRawShape1,
     unsigned dstRawShape2, unsigned dstRawShape3, unsigned srcRawShape1, unsigned srcRawShape2, unsigned srcRawShape3,
     unsigned axis0, unsigned axis1>
-TILEOP void TtransposeDataMove_(__gm__ T *dst, __ubuf__ T *src) {
+TILEOP void TtransposeMoveOut_(__gm__ T *dst, __ubuf__ T *src) {
     if constexpr (axis0 == 1 && axis1 == 2) {
         __gm__ T *dst_ = dst;
         __ubuf__ T *src_ = src;
         for (int b = 0; b < TShape0; b++) {
-            TtransposeDataMove_<T, TShape1, TShape2, TShape3, dstRawShape2, dstRawShape3, srcRawShape2, srcRawShape3,
+            TtransposeMoveOut_<T, TShape1, TShape2, TShape3, dstRawShape2, dstRawShape3, srcRawShape2, srcRawShape3,
                 axis0 - 1, axis1 - 1>(dst_, src_);
             dst_ += dstRawShape1 * dstRawShape2 * dstRawShape3;
             src_ += srcRawShape1 * srcRawShape2 * srcRawShape3;

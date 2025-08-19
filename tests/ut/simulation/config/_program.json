@@ -4246,7 +4246,7 @@
           2
          ]
         },
-        "opcode": "TRANSPOSE_DATAMOVE",
+        "opcode": "TRANSPOSE_MOVEOUT",
         "opmagic": 10035,
         "out_param_loc": [
          536870912
@@ -4878,7 +4878,7 @@
           1
          ]
         },
-        "opcode": "TRANSPOSE_DATAMOVE",
+        "opcode": "TRANSPOSE_MOVEOUT",
         "opmagic": 10055,
         "out_param_loc": [
          536870914
@@ -12433,7 +12433,7 @@
           1
          ]
         },
-        "opcode": "TRANSPOSE_DATAMOVE",
+        "opcode": "TRANSPOSE_MOVEOUT",
         "opmagic": 10256,
         "out_param_loc": [
          536870913
@@ -33507,7 +33507,7 @@
           2
          ]
         },
-        "opcode": "TRANSPOSE_DATAMOVE",
+        "opcode": "TRANSPOSE_MOVEOUT",
         "opmagic": 10027,
         "semantic_label": [
          ""
@@ -33647,7 +33647,7 @@
           2
          ]
         },
-        "opcode": "TRANSPOSE_DATAMOVE",
+        "opcode": "TRANSPOSE_MOVEOUT",
         "opmagic": 10029,
         "semantic_label": [
          ""
@@ -33787,7 +33787,7 @@
           2
          ]
         },
-        "opcode": "TRANSPOSE_DATAMOVE",
+        "opcode": "TRANSPOSE_MOVEOUT",
         "opmagic": 10031,
         "semantic_label": [
          ""
@@ -33927,7 +33927,7 @@
           2
          ]
         },
-        "opcode": "TRANSPOSE_DATAMOVE",
+        "opcode": "TRANSPOSE_MOVEOUT",
         "opmagic": 10033,
         "semantic_label": [
          ""
@@ -34965,7 +34965,7 @@
           2
          ]
         },
-        "opcode": "TRANSPOSE_DATAMOVE",
+        "opcode": "TRANSPOSE_MOVEOUT",
         "opmagic": 10035,
         "out_param_loc": [
          536870912
@@ -35111,7 +35111,7 @@
           2
          ]
         },
-        "opcode": "TRANSPOSE_DATAMOVE",
+        "opcode": "TRANSPOSE_MOVEOUT",
         "opmagic": 10037,
         "semantic_label": [
          ""
@@ -35251,7 +35251,7 @@
           2
          ]
         },
-        "opcode": "TRANSPOSE_DATAMOVE",
+        "opcode": "TRANSPOSE_MOVEOUT",
         "opmagic": 10039,
         "semantic_label": [
          ""
@@ -35391,7 +35391,7 @@
           2
          ]
         },
-        "opcode": "TRANSPOSE_DATAMOVE",
+        "opcode": "TRANSPOSE_MOVEOUT",
         "opmagic": 10041,
         "semantic_label": [
          ""
@@ -36340,7 +36340,7 @@
           1
          ]
         },
-        "opcode": "TRANSPOSE_DATAMOVE",
+        "opcode": "TRANSPOSE_MOVEOUT",
         "opmagic": 10053,
         "semantic_label": [
          ""
@@ -36464,7 +36464,7 @@
           1
          ]
         },
-        "opcode": "TRANSPOSE_DATAMOVE",
+        "opcode": "TRANSPOSE_MOVEOUT",
         "opmagic": 10057,
         "semantic_label": [
          ""
@@ -36588,7 +36588,7 @@
           1
          ]
         },
-        "opcode": "TRANSPOSE_DATAMOVE",
+        "opcode": "TRANSPOSE_MOVEOUT",
         "opmagic": 10061,
         "semantic_label": [
          ""
@@ -36712,7 +36712,7 @@
           1
          ]
         },
-        "opcode": "TRANSPOSE_DATAMOVE",
+        "opcode": "TRANSPOSE_MOVEOUT",
         "opmagic": 10065,
         "semantic_label": [
          ""
@@ -37733,7 +37733,7 @@
           1
          ]
         },
-        "opcode": "TRANSPOSE_DATAMOVE",
+        "opcode": "TRANSPOSE_MOVEOUT",
         "opmagic": 10055,
         "out_param_loc": [
          536870914
@@ -37863,7 +37863,7 @@
           1
          ]
         },
-        "opcode": "TRANSPOSE_DATAMOVE",
+        "opcode": "TRANSPOSE_MOVEOUT",
         "opmagic": 10059,
         "semantic_label": [
          ""
@@ -37987,7 +37987,7 @@
           1
          ]
         },
-        "opcode": "TRANSPOSE_DATAMOVE",
+        "opcode": "TRANSPOSE_MOVEOUT",
         "opmagic": 10063,
         "semantic_label": [
          ""
@@ -38111,7 +38111,7 @@
           1
          ]
         },
-        "opcode": "TRANSPOSE_DATAMOVE",
+        "opcode": "TRANSPOSE_MOVEOUT",
         "opmagic": 10067,
         "semantic_label": [
          ""
@@ -53848,7 +53848,7 @@
           1
          ]
         },
-        "opcode": "TRANSPOSE_DATAMOVE",
+        "opcode": "TRANSPOSE_MOVEOUT",
         "opmagic": 10254,
         "semantic_label": [
          ""
@@ -54181,7 +54181,7 @@
           1
          ]
         },
-        "opcode": "TRANSPOSE_DATAMOVE",
+        "opcode": "TRANSPOSE_MOVEOUT",
         "opmagic": 10256,
         "out_param_loc": [
          536870913

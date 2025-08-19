@@ -25,7 +25,7 @@ namespace CostModel {
     TileCalculator TileCalculator::instance;
 
     static inline bool IsCopyOutOp(const Opcode &op){
-        return(op == Opcode::OP_COPY_OUT || op == Opcode::OP_L0C_COPY_OUT || op == Opcode::OP_TRANSPOSE_DATAMOVE || op == Opcode::OP_INDEX_OUTCAST);
+        return(op == Opcode::OP_COPY_OUT || op == Opcode::OP_L0C_COPY_OUT || op == Opcode::OP_TRANSPOSE_MOVEOUT || op == Opcode::OP_INDEX_OUTCAST);
     }
 
     static inline bool IsCopyInOp(const Opcode &op){
@@ -106,7 +106,7 @@ namespace CostModel {
 
     inline bool IsCopyOut(const std::string &op){
         return (op == "COPY_OUT" || op == "L0C_COPY_OUT"
-        || op == "TRANSPOSE_DATAMOVE" || op == "INDEX_OUTCAST");
+        || op == "TRANSPOSE_MOVEOUT" || op == "INDEX_OUTCAST");
     }
 
     void TileCalculator::Calculate(TileOpPtr op, FunctionInvokeInfo &invoke,

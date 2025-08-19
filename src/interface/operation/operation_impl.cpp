@@ -54,7 +54,7 @@ struct Input {
 };
 
 enum class TransposeOpType {
-    TRANSPOSE_DATAMOVE,
+    TRANSPOSE_MOVEOUT,
     TRANSPOSE_VNCHWCONV,
 };
 
@@ -63,7 +63,7 @@ Opcode GetTransposeOpName() {
 #define CASE(X) \
 case TransposeOpType::X: return Opcode::OP_##X
     switch (T) {
-        CASE(TRANSPOSE_DATAMOVE);
+        CASE(TRANSPOSE_MOVEOUT);
         CASE(TRANSPOSE_VNCHWCONV);
         default: assert(false && "unknown unary op type");
     }
@@ -1279,7 +1279,7 @@ void TiledInnerTranspose(Function &function, const TileShape &tileShape, const i
             UnalignPadTmpBufTile(tmpShape, blockElem);
         }
         auto tempTensor = std::make_shared<LogicalTensor>(function, tile->Datatype(), tmpShape);
-        if (T == TransposeOpType::TRANSPOSE_DATAMOVE) {
+        if (T == TransposeOpType::TRANSPOSE_MOVEOUT) {
             auto &op = function.AddOperation(GetTransposeOpName<T>(), {tile}, {resultTile});
             op.SetAttribute(OP_ATTR_PREFIX + "shape", shape);
         } else {
@@ -1309,7 +1309,7 @@ void TensorInnerTranspose(Function &function, const LogicalTensorPtr &operand,
     constexpr size_t dimSizeTwo = 2;
     if (operand->shape.size() != dimSizeTwo && (transposeShape[0] != static_cast<int>(operand->shape.size() - dimSizeTwo) ||
         transposeShape[1] != static_cast<int>(operand->shape.size() - 1))) {
-        auto &operation = function.AddOperation(Opcode::OP_TRANSPOSE_DATAMOVE, {operand}, {result});
+        auto &operation = function.AddOperation(Opcode::OP_TRANSPOSE_MOVEOUT, {operand}, {result});
         operation.SetAttribute(OP_ATTR_PREFIX + "shape", transposeShape);
     } else {
         auto &operation = function.AddOperation(Opcode::OP_TRANSPOSE_VNCHWCONV, {operand}, {result});
@@ -3127,9 +3127,9 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
             TiledReduceSingle(function, tileShape, "SUM_COMBINE_AXIS", iOperand[0], oOperand[0], axis);
             break;
         }
-        case Opcode::OP_TRANSPOSE_DATAMOVE: {
+        case Opcode::OP_TRANSPOSE_MOVEOUT: {
             auto shape = op.GetVectorIntAttribute(OP_ATTR_PREFIX + "shape");
-            TiledInnerTranspose<TransposeOpType::TRANSPOSE_DATAMOVE>(function, tileShape, iOperand[0], oOperand[0], shape);
+            TiledInnerTranspose<TransposeOpType::TRANSPOSE_MOVEOUT>(function, tileShape, iOperand[0], oOperand[0], shape);
             break;
         }
         case Opcode::OP_TRANSPOSE_VNCHWCONV: {

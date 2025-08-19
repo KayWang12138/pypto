@@ -123,7 +123,7 @@ public:
                 outputGm->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
                 outputGm->tensor = tempOut->tensor;
                 outputGm->UpdateOffset(offsetNew);
-                G.AddOp(Opcode::OP_TRANSPOSE_DATAMOVE, {input_ub}, {outputPartial}, "Transpose_Datamove_" + std::to_string(subgraphId));
+                G.AddOp(Opcode::OP_TRANSPOSE_MOVEOUT, {input_ub}, {outputPartial}, "Transpose_Datamove_" + std::to_string(subgraphId));
                 auto transposeOp = G.GetOp("Transpose_Datamove_" + std::to_string(subgraphId));
                 transposeOp->UpdateSubgraphID(subgraphId);
 

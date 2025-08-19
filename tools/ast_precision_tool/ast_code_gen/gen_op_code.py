@@ -1415,7 +1415,7 @@ def _gen_op_scatter_element(meta_op=None):
     return code_lines
 
 
-# TRANSPOSE_DATAMOVE
+# TRANSPOSE_MOVEOUT
 def _gen_op_transpose_datamove(meta_op=None):
     return __gen_op_transpose(meta_op, True)
 
@@ -1638,7 +1638,7 @@ _gen_op_code_dict = {
     'SYNC_DST': _gen_op_none,
     'SCATTER_ELEMENT': _gen_op_scatter_element,
 
-    'TRANSPOSE_DATAMOVE': _gen_op_transpose_datamove,
+    'TRANSPOSE_MOVEOUT': _gen_op_transpose_datamove,
     'TRANSPOSE_VNCHWCONV': _gen_op_transpose_vnchwconv,
 
     'UB_ALLOC': _gen_op_none,

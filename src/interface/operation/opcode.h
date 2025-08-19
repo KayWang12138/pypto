@@ -49,7 +49,7 @@ enum class Opcode {
     OP_S_DIVS,
     OP_S_MAXS,
     OP_S_MINS,
-    OP_TRANSPOSE_DATAMOVE,
+    OP_TRANSPOSE_MOVEOUT,
     OP_TRANSPOSE_VNCHWCONV,
     OP_ABS,
     // Binary Vector
@@ -315,7 +315,7 @@ public:
 
     inline bool IsCopyOut(Opcode opCode) const {
         return opCode == Opcode::OP_COPY_OUT || opCode == Opcode::OP_UB_COPY_OUT || opCode == Opcode::OP_L0C_COPY_OUT ||
-               opCode == Opcode::OP_L1_COPY_OUT || opCode == Opcode::OP_TRANSPOSE_DATAMOVE ||
+               opCode == Opcode::OP_L1_COPY_OUT || opCode == Opcode::OP_TRANSPOSE_MOVEOUT ||
                opCode == Opcode::OP_INDEX_OUTCAST || opCode == Opcode::OP_REMOTE_GATHER ||
                opCode == Opcode::OP_LOCAL_COPY_OUT || opCode == Opcode::OP_REMOTE_REDUCE ||
                opCode == Opcode::OP_FFN_SCHED || opCode == Opcode::OP_FFN_BATCHING ||
@@ -409,7 +409,7 @@ const std::unordered_set<Opcode> GATHER_ELEMENT_OPS{Opcode::OP_GATHER_ELEMENT};
 const std::unordered_set<Opcode> SCATTER_ELEMENT_OPS{Opcode::OP_SCATTER_ELEMENT};
 
 const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_TRANSPOSE_VNCHWCONV,
-    Opcode::OP_GATHER_ELEMENT, Opcode::OP_COPY_IN, Opcode::OP_COPY_OUT, Opcode::OP_TRANSPOSE_DATAMOVE,
+    Opcode::OP_GATHER_ELEMENT, Opcode::OP_COPY_IN, Opcode::OP_COPY_OUT, Opcode::OP_TRANSPOSE_MOVEOUT,
     Opcode::OP_INDEX_OUTCAST, Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL, Opcode::OP_DIV, Opcode::OP_EXP,
     Opcode::OP_ABS, Opcode::OP_SQRT, Opcode::OP_RECIPROCAL, Opcode::OP_CAST, Opcode::OP_ADDS, Opcode::OP_SUBS,
     Opcode::OP_MULS, Opcode::OP_DIVS, Opcode::OP_PAIRMAX, Opcode::OP_PAIRSUM, Opcode::OP_ROWMAX_SINGLE,
@@ -439,7 +439,7 @@ inline bool IsCopyIn(const Opcode opCode) {
 }
 
 inline bool IsCopyOut(const Opcode &op) {
-    return (op == Opcode::OP_COPY_OUT || op == Opcode::OP_L0C_COPY_OUT || op == Opcode::OP_TRANSPOSE_DATAMOVE ||
+    return (op == Opcode::OP_COPY_OUT || op == Opcode::OP_L0C_COPY_OUT || op == Opcode::OP_TRANSPOSE_MOVEOUT ||
             op == Opcode::OP_INDEX_OUTCAST || op == Opcode::OP_REMOTE_GATHER || op == Opcode::OP_LOCAL_COPY_OUT ||
             op == Opcode::OP_REMOTE_REDUCE || op == Opcode::OP_FFN_SCHED || op == Opcode::OP_FFN_BATCHING ||
             op == Opcode::OP_COPY_TO_LOCAL_EXPERT);

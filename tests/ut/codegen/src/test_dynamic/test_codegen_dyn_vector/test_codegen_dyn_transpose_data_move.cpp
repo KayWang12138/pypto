@@ -82,7 +82,7 @@ void TestTransposeDataMoveBody(int dim = 3) {
     localTensor->memorymap[0].start = 0;
     localTensor->memorymap[0].end = 0;
 
-    auto &op = function->AddOperation(Opcode::OP_TRANSPOSE_DATAMOVE, {localTensor}, {ddrTensor});
+    auto &op = function->AddOperation(Opcode::OP_TRANSPOSE_MOVEOUT, {localTensor}, {ddrTensor});
     op.SetAttribute(OP_ATTR_PREFIX + "shape", shape);
     auto to_offset = OpImmediate::Specified({0, 0, 0});
     if (dim == SHAPE_DIM4) {

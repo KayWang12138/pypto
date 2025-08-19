@@ -431,10 +431,10 @@ def gen_op_input(op_code, meta_op, meta_fn=None):
     code_lines_mod = []
     key = 0
     if gen_op_code_fn(meta_op):
-        if meta_op['opcode'] in ['TRANSPOSE_DATAMOVE']:
+        if meta_op['opcode'] in ['TRANSPOSE_MOVEOUT']:
             key = 0 if len(meta_op['data_i_list'][0]['producers']) != 0 else 1
         for d_idx, d in enumerate(meta_op['data_i_list']):
-            if (meta_op['opcode'] in ['TRANSPOSE_DATAMOVE']) and (d_idx != key):
+            if (meta_op['opcode'] in ['TRANSPOSE_MOVEOUT']) and (d_idx != key):
                 meta_op['meta_fn']['state_']['data_dump_done_set'].add(d['t_name'])
                 continue
             if (meta_op['opcode'] in ['ROWSUM_SINGLE', 'TRANSPOSE_VNCHWCONV', 'ROWMAX_SINGLE', 
@@ -547,7 +547,7 @@ def gen_op_output(op_code, meta_op, meta_fn=None):
             if (get_gen_conf('check_mode') == 5) and meta_op['out_param_loc'] is not None:
                 assert_shape = d['shape'].copy()
                 # leaf图上的输出和invoke info的shape不一致，要以invoke info的信息为准
-                if meta_op['opcode'] in ['COPY_OUT', 'TRANSPOSE_DATAMOVE', 'INDEX_OUTCAST']:
+                if meta_op['opcode'] in ['COPY_OUT', 'TRANSPOSE_MOVEOUT', 'INDEX_OUTCAST']:
                     dims = len(meta_op['data_i_list'][0]['ori_shape'])
                     for i in range(dims):
                         assert_shape[i] = gen_symbol_scalar_expr(meta_op['attr']['axis'][4 + dims * 2 + 2 * i])

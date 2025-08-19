@@ -412,7 +412,7 @@ private:
         {           Opcode::OP_SCATTER_ELEMENT,         [this]() { return GenScatterElementOp(); }},
 
         // transpose with gm
-        {        Opcode::OP_TRANSPOSE_DATAMOVE,        [this]() { return GenTransposeDataMove(); }},
+        {        Opcode::OP_TRANSPOSE_MOVEOUT,        [this]() { return GenTransposeDataMove(); }},
 
         // vector dup
         {                   Opcode::OP_VEC_DUP,                    [this]() { return GenDupOp(); }},

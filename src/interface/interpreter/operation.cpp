@@ -99,7 +99,7 @@ void OperationInterpreter::ExecuteOperation(ExecuteOperationContext *ctx) {
 
         {Opcode::OP_RESHAPE, &OperationInterpreter::ExecuteOpReshape},
         {Opcode::OP_EXPAND, &OperationInterpreter::ExecuteOpExpand},
-        {Opcode::OP_TRANSPOSE_DATAMOVE, &OperationInterpreter::ExecuteOpTransposeDataMove},
+        {Opcode::OP_TRANSPOSE_MOVEOUT, &OperationInterpreter::ExecuteOpTransposeDataMove},
         {Opcode::OP_TRANSPOSE_VNCHWCONV, &OperationInterpreter::ExecuteOpTranspose},
         {Opcode::OP_INDEX_OUTCAST, &OperationInterpreter::ExecuteOpIndexOutcast},
 
