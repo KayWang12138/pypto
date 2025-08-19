@@ -36,11 +36,11 @@ if __name__ == "__main__":
 else:
     from golden_register import GoldenRegister
 
-fp32 = np.float32
-fp16 = np.float16
-bf16 = bfloat16
-int32 = np.int32
-int8 = np.int8
+FP32 = np.float32
+FP16 = np.float16
+BF16 = bfloat16
+INT32 = np.int32
+INT8 = np.int8
 
 
 def gen_axes_for_transpose(offset, base):
@@ -57,10 +57,13 @@ def nd_to_fractal_nz(data: np.ndarray):
     batch_ori = ori_shape[:-2]
     batch_num = len(batch_ori)
     batch_padding = ((0, 0),) * batch_num
-    if data.dtype == "int8":
+    if data.dtype == INT8:
         m0, n0 = 16, 32
-    else:
+    elif data.dtype == FP16 or data.dtype == BF16 or data.dtype == INT32:
         m0, n0 = 16, 16
+    elif data.dtype == FP32:
+        m0, n0 = 16, 8
+
     m1, n1 = ceil_div(m_ori, m0), ceil_div(n_ori, n0)
     padding_m = m1 * m0 - m_ori
     padding_n = n1 * n0 - n_ori
@@ -71,15 +74,21 @@ def nd_to_fractal_nz(data: np.ndarray):
 
 
 class ShapeConfig:
-    def __init__(self, m: int, k: int, n: int, dtype: str, out_dtype: str):
+    def __init__(self, m: int, k: int, n: int, in_dtype: np.dtype, out_dtype: np.dtype, trans_a: bool, trans_b: bool,
+    a_nz_flag: bool, b_nz_flag: bool, c_nz_flag: bool):
         self.m = m
         self.k = k
         self.n = n
-        self.dtype = dtype
+        self.in_dtype = in_dtype
         self.out_dtype = out_dtype
+        self.trans_a = trans_a
+        self.trans_b = trans_b
+        self.a_nz_flag = a_nz_flag
+        self.b_nz_flag = b_nz_flag
+        self.c_nz_flag = c_nz_flag
 
 
-def gen_mm_data(input_config: ShapeConfig, output_dir: Path, is_b_trans=False, is_b_nz=False):
+def gen_mm_data(input_config: ShapeConfig, output_dir: Path):
     shape_a = [input_config.m, input_config.k]
     shape_b = [input_config.k, input_config.n]
     shape_c = [input_config.m, input_config.n]
@@ -88,24 +97,37 @@ def gen_mm_data(input_config: ShapeConfig, output_dir: Path, is_b_trans=False, i
     b_path = Path(output_dir, 'mat_b.bin')
     c_path = Path(output_dir, 'mat_c.bin')
 
-    if input_config.dtype == 'int8':
-        a = np.random.randint(-4, 5, shape_a).astype(int8)
-        b = np.random.randint(-4, 5, shape_b).astype(int8)
-        c = np.matmul(a.astype(int32), b.astype(int32)).astype(int32)
-    elif input_config.dtype == 'fp16':
-        a = np.random.uniform(-1, 1, shape_a).astype(fp16)
-        b = np.random.uniform(-1, 1, shape_b).astype(fp16)
-        c = np.matmul(a.astype(fp32), b.astype(fp32))
-    else:
-        a = np.random.uniform(-1, 1, shape_a).astype(bf16)
-        b = np.random.uniform(-1, 1, shape_b).astype(bf16)
-        c = np.matmul(a.astype(fp32), b.astype(fp32))
+    if input_config.in_dtype == INT8:
+        a = np.random.randint(-4, 5, shape_a).astype(INT8)
+        b = np.random.randint(-4, 5, shape_b).astype(INT8)
+        c = np.matmul(a.astype(INT32), b.astype(INT32)).astype(INT32)
+    elif input_config.in_dtype == FP16:
+        a = np.random.uniform(-1, 1, shape_a).astype(FP16)
+        b = np.random.uniform(-1, 1, shape_b).astype(FP16)
+        c = np.matmul(a.astype(FP32), b.astype(FP32))
+    elif input_config.in_dtype == BF16:
+        a = np.random.uniform(-1, 1, shape_a).astype(BF16)
+        b = np.random.uniform(-1, 1, shape_b).astype(BF16)
+        c = np.matmul(a.astype(FP32), b.astype(FP32))
+    elif input_config.in_dtype == FP32:
+        a = np.random.uniform(-1, 1, shape_a).astype(FP32)
+        b = np.random.uniform(-1, 1, shape_b).astype(FP32)
+        c = np.matmul(a.astype(FP32), b.astype(FP32))
+
+    if input_config.trans_a:
+        a = a.transpose(1, 0)
+    if input_config.a_nz_flag:
+        a = nd_to_fractal_nz(a)
     a.tofile(a_path)
-    if is_b_trans:
+
+    if input_config.trans_b:
         b = b.transpose(1, 0)
-    if is_b_nz:
+    if input_config.b_nz_flag:
         b = nd_to_fractal_nz(b)
     b.tofile(b_path)
+
+    if input_config.c_nz_flag:
+        c = nd_to_fractal_nz(c)
     c.tofile(c_path)
 
 
@@ -122,48 +144,53 @@ def gen_mm_data(input_config: ShapeConfig, output_dir: Path, is_b_trans=False, i
         "DynamicMatmulTest.mm_A_Bt_ND_fp16_tile2",
         "DynamicMatmulTest.mm_A_B_NZ_int8_tile3",
         "DynamicMatmulTest.mm_A_Bt_NZ_int8_tile4",
+        "DynamicMatmulTest.mm_A_ND_B_ND_C_NZ",
     ]
 )
 def gen_dynamic_mm_golden(case_name: str, output: Path) -> bool:
     if case_name == "DynamicMatmulTest.mm_A_B_ND_bf16":
-        input_config = ShapeConfig(128, 256, 512, 'bf16', 'fp32')
-        gen_mm_data(input_config, output, False, False)
+        input_config = ShapeConfig(128, 256, 512, BF16, FP32, False, False, False, False, False)
+        gen_mm_data(input_config, output)
         return True
     if case_name == "DynamicMatmulTest.mm_A_B_NZ_bf16":
-        input_config = ShapeConfig(16, 32, 512, 'bf16', 'fp32')
-        gen_mm_data(input_config, output, False, True)
+        input_config = ShapeConfig(16, 32, 512, BF16, FP32, False, False, False, True, False)
+        gen_mm_data(input_config, output)
         return True
     if case_name == "DynamicMatmulTest.mm_A_Bt_ND_fp16":
-        input_config = ShapeConfig(128, 257, 511, 'fp16', 'fp32')
-        gen_mm_data(input_config, output, True, False)
+        input_config = ShapeConfig(128, 257, 511, FP16, FP32, False, True, False, False, False)
+        gen_mm_data(input_config, output)
         return True
     if case_name == "DynamicMatmulTest.mm_A_Bt_NZ_fp16":
-        input_config = ShapeConfig(1, 512, 256, 'fp16', 'fp32')
-        gen_mm_data(input_config, output, True, True)
+        input_config = ShapeConfig(1, 512, 256, FP16, FP32, False, True, False, True, False)
+        gen_mm_data(input_config, output)
         return True
     if case_name == "DynamicMatmulTest.mm_A_B_NZ_int8":
-        input_config = ShapeConfig(16, 32, 512, 'int8', 'int32')
-        gen_mm_data(input_config, output, False, True)
+        input_config = ShapeConfig(16, 32, 512, INT8, INT32, False, False, False, True, False)
+        gen_mm_data(input_config, output)
         return True
     if case_name == "DynamicMatmulTest.mm_A_Bt_NZ_int8":
-        input_config = ShapeConfig(1, 512, 256, 'int8', 'int32')
-        gen_mm_data(input_config, output, True, True)
+        input_config = ShapeConfig(1, 512, 256, INT8, INT32, False, True, False, True, False)
+        gen_mm_data(input_config, output)
         return True
     if case_name == "DynamicMatmulTest.mm_A_B_ND_bf16_tile1":
-        input_config = ShapeConfig(128, 256, 512, 'bf16', 'fp32')
-        gen_mm_data(input_config, output, False, False)
+        input_config = ShapeConfig(128, 256, 512, BF16, FP32, False, False, False, False, False)
+        gen_mm_data(input_config, output)
         return True
     if case_name == "DynamicMatmulTest.mm_A_Bt_ND_fp16_tile2":
-        input_config = ShapeConfig(16, 512, 512, 'fp16', 'fp32')
-        gen_mm_data(input_config, output, True, False)
+        input_config = ShapeConfig(16, 512, 512, FP16, FP32, False, True, False, False, False)
+        gen_mm_data(input_config, output)
         return True
     if case_name == "DynamicMatmulTest.mm_A_B_NZ_int8_tile3":
-        input_config = ShapeConfig(16, 32, 512, 'int8', 'int32')
-        gen_mm_data(input_config, output, False, True)
+        input_config = ShapeConfig(16, 32, 512, INT8, INT32, False, False, False, True, False)
+        gen_mm_data(input_config, output)
         return True
     if case_name == "DynamicMatmulTest.mm_A_Bt_NZ_int8_tile4":
-        input_config = ShapeConfig(1, 512, 256, 'int8', 'int32')
-        gen_mm_data(input_config, output, True, True)
+        input_config = ShapeConfig(1, 512, 256, INT8, INT32, False, True, False, True, False)
+        gen_mm_data(input_config, output)
+        return True
+    if case_name == "DynamicMatmulTest.mm_A_ND_B_ND_C_NZ":
+        input_config = ShapeConfig(16, 192, 128, FP16, FP32, False, False, False, False, True)
+        gen_mm_data(input_config, output)
         return True
     else:
         logging.error("Can't get func to gen golden, case(%s)", case_name)

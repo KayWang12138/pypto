@@ -200,30 +200,24 @@ void PrologPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &q
     Tensor &postOut, PaTileShapeConfig &tileConfig);
 
 namespace Matrix {
-// regular intf: c = a * b
 template <bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false>
 Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix);
 
-// intf: k spilt
 template <bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false>
 Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const Tensor &cMatrix);
 
-// matmul extend intf with MatmulParams(Bias/Quant)
 template <typename ScaleT>
 struct MatmulParams {
     Tensor biasTensor;
     ScaleT quantScale;
 };
 
-/*****************batch matmul intf *************/
-// intf: c = a * b
-template <bool isATrans = false, bool isBTrans = false>
-Tensor BatchMatmul(DataType dataType, const Tensor &aMatrix, const Tensor &bMatrix);
-
-// batch mamtul extend intf with MatmulParams(Bias/Quant)
 template <typename ScaleT, bool isATrans = false, bool isBTrans = false>
 Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const Tensor &cMatrix,
     const MatmulParams<ScaleT> &params);
+
+template <bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false>
+Tensor BatchMatmul(DataType dataType, const Tensor &aMatrix, const Tensor &bMatrix);
 
 Tensor QuantMM(const Tensor &operand1, const Tensor &operand2, const Tensor &dequantScaleW);
 } // namespace Matrix

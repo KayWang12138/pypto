@@ -297,49 +297,63 @@ TILEOP void DynL1CopyInND(__cbuf__ L1T *dst, __gm__ GMT *src, unsigned TShape0, 
     copy_gm_to_cbuf(dst, src, 0 /*sid*/, nBurst, lenBurst, srcStride, dstStride, PAD_NONE);
 }
 
-template <typename GMT, typename L0CT>
-TILEOP void DynL0CCopyOut(__gm__ GMT *dst, __cc__ L0CT *src, unsigned oriTShape0, unsigned oriTShape1,
-    unsigned GmShape0, unsigned GmShape1, unsigned GmOffset0, unsigned GmOffset1, int uf) { // NZ2ND
-    uint16_t MSize = oriTShape0;
-    uint16_t NSize = oriTShape1;
-    uint32_t dstStride_dst_D = GmShape1;
+template <typename GMT, typename L0CT, bool enableNZ2ND>
+TILEOP void DynL0CCopyOut(__gm__ GMT *dst, __cc__ L0CT *src, unsigned oriTShape0, unsigned oriTShape1, unsigned GmShape0,
+    unsigned GmShape1, unsigned GmOffset0, unsigned GmOffset1, unsigned curH, unsigned curW, int uf) {
+    uint16_t mSize = oriTShape0;
+    uint16_t nSize = oriTShape1; // should be multiples of 8 when fp32 & channel split
+    uint32_t dstStrideDstD = GmShape1;
     uint16_t srcStride = CeilAlign<uint16_t>(oriTShape0, BLOCK_CUBE_M_N);
+    bool channelSplit = false;
+    int64_t gmOffset = (GmOffset0 * GmShape1) + GmOffset1;
+
+    if constexpr (!enableNZ2ND) {
+        // s32搬出不涉及channel split，因此C0=16
+        int64_t c0Size = std::is_same<GMT, int32_t>::value ? BLOCK_CUBE_M_N : BLOCK_ALIGN_BYTE / sizeof(GMT);
+        int64_t hAlign = CeilAlign<int64_t>(curH, BLOCK_CUBE_M_N);
+        int64_t wAlign = CeilAlign<int64_t>(curW, c0Size);
+        int64_t elemPerBatch = hAlign * wAlign;
+        int64_t batchIdx = gmOffset / elemPerBatch;
+        gmOffset = batchIdx * elemPerBatch + (GmOffset1 * hAlign) + (GmOffset0 - batchIdx * hAlign) * c0Size;
+        // fp32搬出默认开启channel split
+        channelSplit = std::is_same<GMT, float>::value;
+        // dst stride between the start addresses of different bursts in unit of 32B
+        dstStrideDstD = hAlign;
+    }
 
     uint64_t ndNum = 1;
-    uint64_t src_nd_stride = 0;
-    uint64_t dst_nd_stride = 0;
+    uint64_t srcNdStride = 0;
+    uint64_t dstNdStride = 0;
+    uint64_t ndPara = 0;
+    ndPara = ndPara | (ndNum & 0xffff);
+    ndPara = ndPara | ((srcNdStride & 0xffff) << 16);
+    ndPara = ndPara | ((dstNdStride & 0xffff) << 32);
+    set_nd_para(ndPara);
 
-    uint8_t UnitFlagMode = uf;
-    uint64_t QuantPRE = NoQuant;
-    uint8_t ReLUPRE = 0;
-    bool channelSplit = false;
-    bool NZ2ND_EN = true;
-
-    uint64_t config = 0, nd_para = 0;
-    nd_para = nd_para | (ndNum & 0xffff);
-    nd_para = nd_para | ((src_nd_stride & 0xffff) << 16);
-    nd_para = nd_para | ((dst_nd_stride & 0xffff) << 32);
-
+    uint8_t unitFlagMode = uf;
+    uint64_t quantPre = NoQuant;
+    uint8_t reluPre = 0;
     if (std::is_same<L0CT, float>::value) {
         if (std::is_same<GMT, half>::value) {
-            QuantPRE = QuantMode_t::F322F16;
+            quantPre = QuantMode_t::F322F16;
         } else if (std::is_same<GMT, bfloat16_t>::value) {
-            QuantPRE = QuantMode_t::F322BF16;
+            quantPre = QuantMode_t::F322BF16;
         } else {
-            QuantPRE = QuantMode_t::NoQuant;
+            quantPre = QuantMode_t::NoQuant;
         }
     }
-    set_nd_para(nd_para);
-    copy_matrix_cc_to_gm((__gm__ GMT *)(dst + (GmOffset0 * GmShape1) + GmOffset1), (__cc__ L0CT *)src, 0, NSize, MSize,
-        dstStride_dst_D, srcStride, UnitFlagMode, QuantPRE, ReLUPRE, channelSplit, NZ2ND_EN);
+
+    copy_matrix_cc_to_gm((__gm__ GMT *)(dst + gmOffset), (__cc__ L0CT *)src, 0, nSize, mSize, dstStrideDstD,
+        srcStride, unitFlagMode, quantPre, reluPre, channelSplit, enableNZ2ND);
 }
 
-template <typename GMT, typename L0CT, int isAcc>
+template <typename GMT, typename L0CT, int isAcc, bool enableNZ2ND>
 TILEOP void DynL0CCopyOut(__gm__ GMT *dst, __cc__ L0CT *src, unsigned oriTShape0, unsigned oriTShape1,
-    unsigned GmShape0, unsigned GmShape1, unsigned GmOffset0, unsigned GmOffset1, int uf) {
+    unsigned GmShape0, unsigned GmShape1, unsigned GmOffset0, unsigned GmOffset1, unsigned curH, unsigned curW,
+    int uf) {
     SetAtomicAdd<GMT>();
-    DynL0CCopyOut<GMT, L0CT>(
-        dst, src, oriTShape0, oriTShape1, GmShape0, GmShape1, GmOffset0, GmOffset1, uf);
+    DynL0CCopyOut<GMT, L0CT, enableNZ2ND>(
+        dst, src, oriTShape0, oriTShape1, GmShape0, GmShape1, GmOffset0, GmOffset1, curH, curW, uf);
     if constexpr (isAcc == 1) {
         set_atomic_none();
     }

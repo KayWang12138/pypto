@@ -48,7 +48,7 @@ bool CubeProcess::IsInt(const std::shared_ptr<LogicalTensor> tensor) const {
     if ((dataType == DT_INT8) || (dataType == DT_INT16) || (dataType == DT_INT32)) {
         return true;
     }
-    return false;   
+    return false;
 }
 
 Status CubeProcess::EliminateReduceAcc(Function &function) {
@@ -141,12 +141,15 @@ Status CubeProcess::UpdateCubeOp(Function &function) {
                 }
             }
         }
-        UpdateL1CopyInNz(op);
+        if (UpdateCopyAttr(op) != SUCCESS) {
+            ALOG_ERROR_F("Set Attr for %s[%d] failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            return FAILED;
+        }
     }
     return SUCCESS;
 }
 
-void CubeProcess::AddL1CopyInAttr(
+Status CubeProcess::AddL1CopyInAttr(
     const std::shared_ptr<LogicalTensor> input, int nzValue, int mValue, int kValue, int nValue) const {
     auto copyInOp = *(input->GetProducers().begin());
     auto tensorL0 = copyInOp->GetIOperands().front();
@@ -161,7 +164,7 @@ void CubeProcess::AddL1CopyInAttr(
         L1CopyInOp = *(tensorL0->GetProducers().begin());
     }
     if (L1CopyInOp != nullptr && L1CopyInOp->GetOpcode() == Opcode::OP_COPY_IN) {
-        L1CopyInOp->SetAttribute(L1_COPY_IN_IS_NZ, nzValue);
+        L1CopyInOp->SetAttribute(COPY_IS_NZ, nzValue);
         if (copyInOp->GetOpcode() == Opcode::OP_L1_TO_L0A) {
             L1CopyInOp->SetAttribute(L1_COPY_IN_OUTER, mValue);
             L1CopyInOp->SetAttribute(L1_COPY_IN_INNER, kValue);
@@ -172,59 +175,61 @@ void CubeProcess::AddL1CopyInAttr(
             L1CopyInOp->SetAttribute(L1_COPY_IN_OUTER, nValue);
             L1CopyInOp->SetAttribute(L1_COPY_IN_INNER, kValue);
         } else {
-            ALOG_DEBUG_F("Invalid Cube input %d, produced by %s[%d]", input->GetMagic(), copyInOp->GetOpcodeStr().c_str(),
-                copyInOp->GetOpMagic());
-            return;
+            ALOG_DEBUG_F("Invalid Cube input %d, produced by %s[%d]", input->GetMagic(),
+                copyInOp->GetOpcodeStr().c_str(), copyInOp->GetOpMagic());
+            return FAILED;
         }
-        ALOG_DEBUG_F("Op: %s, magic: %d, is_nz: %d", L1CopyInOp->GetOpcodeStr().c_str(), L1CopyInOp->GetOpMagic(),
-            L1CopyInOp->GetIntAttribute(L1_COPY_IN_IS_NZ));
+        ALOG_DEBUG_F("Update %s[%d] attr is_Nz: %d, outer: %d, inner: %d",
+            L1CopyInOp->GetOpcodeStr().c_str(), L1CopyInOp->GetOpMagic(), L1CopyInOp->GetIntAttribute(COPY_IS_NZ),
+            L1CopyInOp->GetIntAttribute(L1_COPY_IN_OUTER), L1CopyInOp->GetIntAttribute(L1_COPY_IN_INNER));
     }
+    return SUCCESS;
 }
 
-void CubeProcess::UpdateL1CopyInNz(Operation &op) const {
-    auto nzAttr = op.GetIntAttribute(A_MUL_B_NZ_ATTR);
+Status CubeProcess::AddL0cCopyOutAttr(const std::shared_ptr<LogicalTensor> output, int nzValue, int mValue, int nValue) const {
+    for (auto &childOp : output->GetConsumers()) {
+        if (childOp->GetOpcode() != Opcode::OP_COPY_OUT) {
+            continue;
+        }
+        childOp->SetAttribute(COPY_IS_NZ, nzValue);
+        childOp->SetAttribute(L0C_COPY_OUT_OUTER, mValue);
+        childOp->SetAttribute(L0C_COPY_OUT_INNER, nValue);
+        ALOG_DEBUG_F("Update %s[%d] attr is_Nz: %d, curH: %d, curW: %d",
+            childOp->GetOpcodeStr().c_str(), childOp->GetOpMagic(), nzValue, mValue, nValue);
+    }
+    return SUCCESS;
+}
+
+Status CubeProcess::UpdateCopyAttr(Operation &op) const {
+    int32_t nzAttr = op.GetIntAttribute(MATMUL_NZ_ATTR);
     auto mValue = (op.HasAttr(A_MUL_B_ACT_M)) ? op.GetIntAttribute(A_MUL_B_ACT_M) : 0;
     auto kValue = (op.HasAttr(A_MUL_B_ACT_K)) ? op.GetIntAttribute(A_MUL_B_ACT_K) : 0;
     auto nValue = (op.HasAttr(A_MUL_B_ACT_N)) ? op.GetIntAttribute(A_MUL_B_ACT_N) : 0;
 
-    const int8_t abNDFormat = 0;
-    const int8_t aNZbNDFormat = 1;
-    const int8_t aNDbNZFormat = 2;
-    const int8_t abNZFormat = 3;
-    int aIsNz = 0;
-    int bIsNz = 0;
-    switch (nzAttr) {
-        case abNDFormat: {
-            // (A ND， B ND)
-            break;
-        }
-        case aNZbNDFormat: {
-            // (A NZ, B ND)
-            aIsNz = 1;
-            break;
-        }
-        case aNDbNZFormat: {
-            // (A ND, B NZ)
-            bIsNz = 1;
-            break;
-        }
-        case abNZFormat: {
-            // (A NZ, B NZ)
-            aIsNz = 1;
-            bIsNz = 1;
-            break;
-        }
-        default: {
-            ALOG_INFO_F("Invalid is_nz value: %d, opmagic: %d", nzAttr, op.opmagic);
-            break;
-        }
-    }
+    int aIsNz = nzAttr % 2;
+    int bIsNz = (nzAttr >> 1) % 2;
+    int cIsNz = (nzAttr >> 2) % 2;
+    ALOG_DEBUG_F("Retrive %s[%d] attr done, aIsNz: %d, bIsNz: %d, cIsNz: %d, mValue: %d, kValue: %d, nValue: %d",
+            op.GetOpcodeStr().c_str(), op.GetOpMagic(), aIsNz, bIsNz, cIsNz, mValue, kValue, nValue);
     for (auto &input : op.GetIOperands()) {
         if (input->GetMemoryTypeOriginal() == MemoryType::MEM_L0A) {
-            AddL1CopyInAttr(input, aIsNz, mValue, kValue, nValue);
+            if (AddL1CopyInAttr(input, aIsNz, mValue, kValue, nValue) != SUCCESS) {
+                ALOG_ERROR_F("Set Attr for matrix A L1_COPY_IN of %s[%d] failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+                return FAILED;
+            }
         } else if (input->GetMemoryTypeOriginal() == MemoryType::MEM_L0B) {
-            AddL1CopyInAttr(input, bIsNz, mValue, kValue, nValue);
+            if (AddL1CopyInAttr(input, bIsNz, mValue, kValue, nValue) != SUCCESS) {
+                ALOG_ERROR_F("Set Attr for matrix B L1_COPY_IN of %s[%d] failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+                return FAILED;
+            }
         }
     }
+    for (auto &output : op.GetOOperands()) {
+        if (AddL0cCopyOutAttr(output, cIsNz, mValue, nValue) != SUCCESS) {
+            ALOG_ERROR_F("Set Attr for L0C_COPY_OUT of %s[%d] failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            return FAILED;
+        }
+    }
+    return SUCCESS;
 }
 } // namespace npu::tile_fwk

@@ -15,7 +15,6 @@
 
 #include "operation_impl.h"
 #include <memory>
-#include "cube_operation.h"
 #include "tilefwk/data_type.h"
 #include "interface/operation/operation.h"
 #include "distributed/distributed_expand.h"
@@ -391,12 +390,6 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, Logica
     auto input2 = Input{operand2, tileInfo2};
     TiledBinaryOperation<T>(function, tileShape, 0, input1, input2, result, resultTileInfo, withBrc);
 }
-
-const std::string ACC_A_MUL_B = OP_ATTR_PREFIX + "atomic_add";
-const std::string A_MUL_B_NZ_ATTR = OP_ATTR_PREFIX + "matmul_nz_attr";
-const std::string A_MUL_B_ACT_M = OP_ATTR_PREFIX + "act_m";
-const std::string A_MUL_B_ACT_K = OP_ATTR_PREFIX + "act_k";
-const std::string A_MUL_B_ACT_N = OP_ATTR_PREFIX + "act_n";
 
 std::vector<int> BinaryOperationResultShape(
     LogicalTensorPtr operand1, LogicalTensorPtr operand2) {
@@ -2857,7 +2850,7 @@ Tensor Reduce(const std::vector<Tensor> &aggregation, const ReduceMode reduceMod
     auto o0 = iOperand[0];
     Tensor result(o0->Datatype(), o0->shape);
     auto& op = Program::GetInstance().AddOperation(Opcode::OP_REDUCE_ACC, iOperand, { result.GetStorage() });
-    op.SetAttribute(ACC_A_MUL_B, 1);
+    op.SetAttribute(Matrix::ACC_A_MUL_B, 1);
     return result;
 }
 
@@ -2872,7 +2865,7 @@ void TiledReduceAcc(Function &function, const TileShape &tileShape, size_t cur,
 
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
         auto &op = function.AddOperation(Opcode::OP_REDUCE_ACC, inputTileVec, {resultTile});
-        op.SetAttribute(ACC_A_MUL_B, 1);
+        op.SetAttribute(Matrix::ACC_A_MUL_B, 1);
         return;
     }
     for (auto i = 0; i < result->shape[cur]; i += tileShape.V(cur)) {
@@ -3150,14 +3143,14 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
             auto mValue = (op.HasAttr(OP_ATTR_PREFIX + "act_m")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_m") : 0;
             auto kValue = (op.HasAttr(OP_ATTR_PREFIX + "act_k")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_k") : 0;
             auto nValue = (op.HasAttr(OP_ATTR_PREFIX + "act_n")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_n") : 0;
-            npu::tile_fwk::Matrix::TiledInnerAMulB(function, tileShape, iOperand, oOperand[0], {mValue, kValue, nValue});
+            Matrix::TiledInnerAMulB(function, tileShape, iOperand, oOperand[0], {mValue, kValue, nValue});
             break;
         }
         case Opcode::OP_A_MUL_BT: {
             auto mValue = (op.HasAttr(OP_ATTR_PREFIX + "act_m")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_m") : 0;
             auto kValue = (op.HasAttr(OP_ATTR_PREFIX + "act_k")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_k") : 0;
             auto nValue = (op.HasAttr(OP_ATTR_PREFIX + "act_n")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_n") : 0;
-            npu::tile_fwk::Matrix::TiledInnerAMulB<false, true>(
+            Matrix::TiledInnerAMulB<false, true>(
                 function, tileShape, iOperand, oOperand[0], {mValue, kValue, nValue});
             break;
         }

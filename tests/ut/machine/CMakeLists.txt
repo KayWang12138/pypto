@@ -49,12 +49,6 @@ set(_CaseFilterList
         "TestSuite_Backend.AihacBackend_Err1"
         "TestSuite_Backend.SimulationBackend_Err1"
         "DynamicMatmulUTest.mm_A_B_ND_bf16"
-        "DynamicMatmulUTest.mm_A_B_NZ_bf16"
-        "DynamicMatmulUTest.mm_A_B_NZ_int8"
-        "DynamicMatmulUTest.mm_A_Bt_NZ_int8"
-        "DynamicMatmulUTest.mm_A_B_ND_bf16_tile1"
-        "DynamicMatmulUTest.mm_A_B_NZ_int8_tile3"
-        "DynamicMatmulUTest.mm_A_Bt_NZ_int8_tile4"
 )
 
 set(_Target ${TileFwkUTestNamePrefix}_machine)

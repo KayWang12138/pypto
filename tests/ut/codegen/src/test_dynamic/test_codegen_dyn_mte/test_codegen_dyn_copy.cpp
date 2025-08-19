@@ -46,7 +46,7 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynCopy, L0CToOut) {
+std::string TestL0COutBody(bool isDynamicUnalign) {
     const std::vector<int> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
     Program::GetInstance().GetTileShape().SetVecTileShapes(shape);
@@ -61,6 +61,9 @@ TEST_F(TestCodegenDynCopy, L0CToOut) {
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     function->SetUnderDynamicFunction(true);
+    if (isDynamicUnalign) {
+        ConfigManager::Instance().SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    }
     std::shared_ptr<RawTensor> ddrRawTensor =
         std::make_shared<RawTensor>(DataType::DT_FP32, shape, "L0CToOut", dummyRawMagic);
     const std::vector<int> offset = {0, 0};
@@ -78,12 +81,19 @@ TEST_F(TestCodegenDynCopy, L0CToOut) {
     localTensor->memorymap[0].memId = 0;
     localTensor->memorymap[0].start = 0;
     localTensor->memorymap[0].end = 0;
-
+    if(isDynamicUnalign){
+        std::vector<SymbolicScalar> dynValidShape = {64, 64};
+        localTensor->UpdateDynValidShape(dynValidShape);
+        ddrTensor->UpdateDynValidShape(dynValidShape);
+    }
     auto &op = function->AddOperation(Opcode::OP_COPY_OUT, {localTensor}, {ddrTensor});
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_L0C, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
     auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
     op.SetOOpAttrOffset(0, 0);
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    if(isDynamicUnalign){
+        op.SetAttribute("op_attr_is_nz", 1);
+    }
 
     SymbolManager memAlloc;
     CodeGenCtx ctx;
@@ -95,10 +105,20 @@ TEST_F(TestCodegenDynCopy, L0CToOut) {
     cop.Init(op);
     cop.originShape[0] = shape;
     cop.originShape[1] = shape;
+    return cop.GenOpCode();
+}
 
-    std::string res = cop.GenOpCode();
+TEST_F(TestCodegenDynCopy, L0CToOut) {
+    std::string res = TestL0COutBody(false);
     std::string expect =
-        R"!!!(TileOp::DynL0CCopyOut<float, float, 64, 64, 64, 64 >((__gm__ float*)GET_PARAM_ADDR(param, 0, 0), (__cc__ float*)L0C_S0_E0, GET_PARAM_RAWSHAPE_2(param, 0, 0), GET_PARAM_OFFSET_2(param, 0, 0), 0);
+        R"!!!(TileOp::DynL0CCopyOut<float, float, 64, 64, 64, 64>((__gm__ float*)GET_PARAM_ADDR(param, 0, 0), (__cc__ float*)L0C_S0_E0, GET_PARAM_RAWSHAPE_2(param, 0, 0), GET_PARAM_OFFSET_2(param, 0, 0), 0);
+)!!!";
+    EXPECT_EQ(res, expect);
+}
+
+TEST_F(TestCodegenDynCopy, L0CToOutUnalign) {
+    std::string res = TestL0COutBody(true);
+    std::string expect = R"!!!(TileOp::DynL0CCopyOut<float, float, false>((__gm__ float*)GET_PARAM_ADDR(param, 0, 0), (__cc__ float*)L0C_S0_E0, 64, 64, GET_PARAM_RAWSHAPE_2(param, 0, 0), GET_PARAM_OFFSET_2(param, 0, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 0, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 0, 2, 1), 0);
 )!!!";
     EXPECT_EQ(res, expect);
 }

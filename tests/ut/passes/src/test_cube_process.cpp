@@ -46,7 +46,7 @@ public:
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
     }
 
-    void SetMatMulAttr(ComputationalGraphBuilder &G, const std::string name, 
+    void SetMatMulAttr(ComputationalGraphBuilder &G, const std::string name,
         bool isAtomic = false, const int nzFormat = 0) {
         auto op = G.GetOp(name);
         if (op == nullptr) {
@@ -57,7 +57,7 @@ public:
         } else {
             op->SetAttribute(ACC_A_MUL_B, 0);
         }
-        op->SetAttribute(A_MUL_B_NZ_ATTR, nzFormat);
+        op->SetAttribute(MATMUL_NZ_ATTR, nzFormat);
         op->SetAttribute(A_MUL_B_ACT_M, 0);
         op->SetAttribute(A_MUL_B_ACT_K, 0);
         op->SetAttribute(A_MUL_B_ACT_N, 0);
@@ -677,10 +677,10 @@ TEST_F(CubeProcessTest, TestAnzBnd) {
     // check after pass
     auto opL1CopyInA = G.GetOp("L1_Copy_In_A");
     EXPECT_NE(opL1CopyInA, nullptr);
-    EXPECT_EQ(opL1CopyInA->GetIntAttribute(L1_COPY_IN_IS_NZ), 1);
+    EXPECT_EQ(opL1CopyInA->GetIntAttribute(COPY_IS_NZ), 1);
     auto opL1CopyInB = G.GetOp("L1_Copy_In_B");
     EXPECT_NE(opL1CopyInB, nullptr);
-    EXPECT_EQ(opL1CopyInB->GetIntAttribute(L1_COPY_IN_IS_NZ), 0);
+    EXPECT_EQ(opL1CopyInB->GetIntAttribute(COPY_IS_NZ), 0);
 }
 
 TEST_F(CubeProcessTest, TestAnzBndL1) {
@@ -762,10 +762,10 @@ TEST_F(CubeProcessTest, TestAnzBndL1) {
     // check after pass
     auto opL1CopyInA = G.GetOp("L1_Copy_In_A");
     EXPECT_NE(opL1CopyInA, nullptr);
-    EXPECT_EQ(opL1CopyInA->GetIntAttribute(L1_COPY_IN_IS_NZ), 1);
+    EXPECT_EQ(opL1CopyInA->GetIntAttribute(COPY_IS_NZ), 1);
     auto opL1CopyInB = G.GetOp("L1_Copy_In_B");
     EXPECT_NE(opL1CopyInB, nullptr);
-    EXPECT_EQ(opL1CopyInB->GetIntAttribute(L1_COPY_IN_IS_NZ), 0);
+    EXPECT_EQ(opL1CopyInB->GetIntAttribute(COPY_IS_NZ), 0);
 }
 } // namespace tile_fwk
 } // namespace npu

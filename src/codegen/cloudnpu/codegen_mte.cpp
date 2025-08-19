@@ -508,13 +508,63 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CStatic(const PrintMemCopyWithL
 
     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
     int printRet = sprintf_s(buffer, BUFFER_SIZE_1024,
-        "%s<%s, %s, %u, %u, %d, %d, %s, %s, %d, %d %s>((%s %s*)%s, (%s %s*)%s, %u);\n", tileOpName.c_str(),
+        "%s<%s, %s, %u, %u, %d, %d, %s, %s, %d, %d>((%s %s*)%s, (%s %s*)%s, %u);\n", tileOpName.c_str(),
         dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), tileShapeForMT[ID0], tileShapeForMT[ID1],
         gmShape[ID0], gmShape[ID1], outputOffset[ID0].Dump().c_str(), outputOffset[ID1].Dump().c_str(), oriTileShape0,
-        oriTileShape1, GenOpAttr().c_str(), addrTypeHead[ID0].c_str(), dataTypeExpr[ID0].c_str(), addrExpr[ID0].c_str(),
+        oriTileShape1, addrTypeHead[ID0].c_str(), dataTypeExpr[ID0].c_str(), addrExpr[ID0].c_str(),
         addrTypeHead[ID1].c_str(), dataTypeExpr[ID1].c_str(), addrExpr[ID1].c_str(), uf);
     ASSERT(printRet >= 0) << "sprintf_s failed in genMemCopyVar(BUF_L0C), return value:" << printRet;
     return buffer;
+}
+
+std::string CodeGenOpCloudNPU::PrintL0CCopyOutDynamicUnalign(const PrintMemCopyWithL0CParam &param,
+    std::vector<std::string> &gmShapeExpr, std::vector<std::string> &gmOffsetExpr) const {
+    std::ostringstream os;
+    std::vector<std::string> paramList;
+    const std::string *dataTypeExpr = param.dataTypeExpr;
+    const std::string *addrTypeHead = param.addrTypeHead;
+    const std::string *addrExpr = param.addrExpr;
+    unsigned gmIdx = param.gmIdx;
+    unsigned localIdx = param.localIdx;
+    paramList.emplace_back(dataTypeExpr[gmIdx]);
+    paramList.emplace_back(dataTypeExpr[localIdx]);
+    int nzValue = 0;
+    int isAcc = 0;
+    auto ret = GetAttr(OP_ATTR_PREFIX + "atomic_add", isAcc);
+    if (ret) {
+        paramList.emplace_back(std::to_string(isAcc));
+    }
+    ret = GetAttr("op_attr_is_nz", nzValue);
+    if (ret && nzValue == 1) {
+        paramList.emplace_back("false");
+    } else {
+        paramList.emplace_back("true");
+    }
+    std::string templateParam = JoinString(paramList, ", ");
+
+    paramList.clear();
+    std::string dst = "(" + addrTypeHead[0] + " " + dataTypeExpr[0] + "*)" + addrExpr[0];
+    std::string src = "(" + addrTypeHead[1] + " " + dataTypeExpr[1] + "*)" + addrExpr[1];
+    paramList.insert(paramList.end(), {dst, src});
+    auto dynValidShape = dynamicValidShape[localIdx];
+    for (int i = 0; i < SHAPE_DIM2; i++) {
+        paramList.emplace_back(dynValidShape[i].Dump());
+    }
+    paramList.emplace_back(gmShapeExpr[0]);
+    paramList.emplace_back(gmOffsetExpr[0]);
+    int outerValue = 0;
+    int innerValue = 0;
+    ret = GetAttr("op_attr_curH", outerValue);
+    ret = GetAttr("op_attr_curW", innerValue);
+    auto gmShapeExprByIndex = GenParamIdxExprByIndex(gmIdx, SHAPE_DIM2, PREFIX_STR_RAW_SHAPE);
+    std::string outerValueStr = outerValue == 0 ? gmShapeExprByIndex[0] : std::to_string(outerValue);
+    std::string innerValueStr = innerValue == 0 ? gmShapeExprByIndex[1] : std::to_string(innerValue);
+    paramList.emplace_back(outerValueStr);
+    paramList.emplace_back(innerValueStr);
+    paramList.emplace_back(std::to_string(param.uf));
+    std::string tiloOpCallParam = JoinString(paramList, ", ");
+    os << tileOpName << "<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+    return os.str();
 }
 
 std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CDynamic(const PrintMemCopyWithL0CParam &param) const {
@@ -540,20 +590,13 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CDynamic(const PrintMemCopyWith
     int printRet{0};
 
     if (isSupportDynamicUnaligned) {
-        auto dynValidShape = dynamicValidShape[localIdx];
-        printRet = sprintf_s(buffer, BUFFER_SIZE_1024, "%s<%s, %s %s>((%s %s*)%s, (%s %s*)%s, %s, %s, %s, %s, %u);\n",
-            tileOpName.c_str(), dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), GenOpAttr().c_str(),
-            addrTypeHead[ID0].c_str(), dataTypeExpr[ID0].c_str(), addrExpr[ID0].c_str(), addrTypeHead[ID1].c_str(),
-            dataTypeExpr[ID1].c_str(), addrExpr[ID1].c_str(), dynValidShape[ID0].Dump().c_str(),
-            dynValidShape[ID1].Dump().c_str(), gmShapeExpr[ID0].c_str(), gmOffsetExpr[ID0].c_str(), uf);
-        ASSERT(printRet >= 0) << "sprintf_s failed in genMemCopyVar(BUF_L0C), return value:" << printRet;
-        return buffer;
+        return PrintL0CCopyOutDynamicUnalign(param, gmShapeExpr, gmOffsetExpr);
     }
 
     printRet =
-        sprintf_s(buffer, BUFFER_SIZE_1024, "%s<%s, %s, %d, %d, %d, %d %s>((%s %s*)%s, (%s %s*)%s, %s, %s, %u);\n",
+        sprintf_s(buffer, BUFFER_SIZE_1024, "%s<%s, %s, %d, %d, %d, %d>((%s %s*)%s, (%s %s*)%s, %s, %s, %u);\n",
             tileOpName.c_str(), dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), tileShapeForMT[ID0],
-            tileShapeForMT[ID1], oriTileShape0, oriTileShape1, GenOpAttr().c_str(), addrTypeHead[ID0].c_str(),
+            tileShapeForMT[ID1], oriTileShape0, oriTileShape1, addrTypeHead[ID0].c_str(),
             dataTypeExpr[ID0].c_str(), addrExpr[ID0].c_str(), addrTypeHead[ID1].c_str(), dataTypeExpr[ID1].c_str(),
             addrExpr[ID1].c_str(), gmShapeExpr[ID0].c_str(), gmOffsetExpr[ID0].c_str(), uf);
     ASSERT(printRet >= 0) << "sprintf_s failed in genMemCopyVar(BUF_L0C), return value:" << printRet;

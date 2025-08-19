@@ -136,7 +136,7 @@ private:
     std::string PrintDupOp(const PrintDupOpParam &param) const;
     std::string PrintDupOpDynUnaligned(const PrintDupOpParam &param) const;
     std::string PrintDupOpStatic(const PrintDupOpParam &param) const;
-    
+
     struct PrintUnaryParam {
         const std::string &s0Var;
         const std::string &dVar;
@@ -184,6 +184,8 @@ private:
     std::string PrintMemCopyWithL0C(const PrintMemCopyWithL0CParam &param) const;
     std::string PrintMemCopyWithL0CStatic(const PrintMemCopyWithL0CParam &param) const;
     std::string PrintMemCopyWithL0CDynamic(const PrintMemCopyWithL0CParam &param) const;
+    std::string PrintL0CCopyOutDynamicUnalign(const PrintMemCopyWithL0CParam &param,
+        std::vector<std::string> &gmShapeExpr, std::vector<std::string> &gmOffsetExpr) const;
 
     struct PrintMemCopyWithL1Param {
         unsigned uf;

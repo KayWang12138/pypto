@@ -14,6 +14,7 @@
  */
 
 #pragma once
+#include <tuple>
 #include <vector>
 #include <string>
 #include <unordered_set>
@@ -84,5 +85,48 @@ struct ExpandInfo {
 void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode opCode,
     const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
+
+
+namespace Matrix {
+const size_t M_INDEX = 0;
+const size_t K_INDEX = 1;
+const size_t N_INDEX = 2;
+const int32_t MATRIX_MAXSIZE = 3;
+
+const std::string OP_ATTR_PREFIX = "op_attr_";
+const std::string ACC_A_MUL_B = OP_ATTR_PREFIX + "atomic_add";
+const std::string MATMUL_NZ_ATTR = OP_ATTR_PREFIX + "matmul_nz_attr";
+const std::string A_MUL_B_ACT_M = OP_ATTR_PREFIX + "act_m";
+const std::string A_MUL_B_ACT_K = OP_ATTR_PREFIX + "act_k";
+const std::string A_MUL_B_ACT_N = OP_ATTR_PREFIX + "act_n";
+
+struct L1DataLoadParam {
+    const LogicalTensorPtr &cTilePtr;
+    const int &mL1Idx;
+    const int &nL1Idx;
+    const int &stepK;
+    const int &mL1Size;
+    const int &nL1Size;
+    const int &orgK;
+};
+
+struct CollectSubAMulBPara {
+    const TileShape &tileShape;
+    const std::array<int, 3> &posK;
+    const LogicalTensorPtr &aTensorPtr;
+    const LogicalTensorPtr &bTensorPtr;
+    const LogicalTensorPtr &cTensorPtr;
+};
+
+struct DoAMulBParam {
+    const TileShape &tileShape;
+    const LogicalTensorPtr &cTensorPtr;
+};
+
+template <bool isTransA = false, bool isTransB = false>
+void TiledInnerAMulB(Function &function, const TileShape &tileShape, const std::vector<LogicalTensorPtr> &operandVec,
+    const LogicalTensorPtr &result, const std::vector<int32_t> &matmulSize);
+
+} // namespace Matrix
 } // namespace npu::tile_fwk
 

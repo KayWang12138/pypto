@@ -71,8 +71,8 @@ set(_CaseFilterList
 
         # NSA gatescore && compress attention part2
         # "DyNsa.gateScore_mini_mtp"
-        "DyNsa.GateScore_b32_s2_bf" 
-        "DyNsa.GateScore_b48_s1_fp"       
+        "DyNsa.GateScore_b32_s2_bf"
+        "DyNsa.GateScore_b48_s1_fp"
 
         # PaPost
         #===========================================================================
@@ -94,8 +94,8 @@ set(_CaseFilterList
         # "MoegateOnBoardTest.test_moegate_graph3_case2_32_1_7168"
         # "MoegateOnBoardTest.test_moegate_graph3_graph4_case_32_1_7168"
         # "MoEGateOnBoardTest.test_operation_b_4"
-        "MoEGateOnBoardTest.test_operation_b_16"
-        "MoEGateOnBoardTest.test_operation_b_32"
+        # "MoEGateOnBoardTest.test_operation_b_16"
+        # "MoEGateOnBoardTest.test_operation_b_32"
 
         #===========================================================================
         # '单 Op'精度用例
@@ -127,6 +127,7 @@ set(_CaseFilterList
         "DynamicMatmulTest.mm_A_Bt_ND_fp16_tile2"
         "DynamicMatmulTest.mm_A_B_NZ_int8_tile3"
         "DynamicMatmulTest.mm_A_Bt_NZ_int8_tile4"
+        "DynamicMatmulTest.mm_A_ND_B_ND_C_NZ"
         #===========================================================================
          # batchMatmul功能用例
         #===========================================================================

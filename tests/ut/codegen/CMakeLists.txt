@@ -77,6 +77,7 @@ set(_CaseFilterList
         ########################## DYNAMIC ##########################
         # mte
         "TestCodegenDynCopy.L0CToOut"
+        "TestCodegenDynCopy.L0CToOutUnalign"
         "TestCodegenDynCopy.L1CopyIn"
         "TestCodegenDynCopy.L1CopyInNZ"
         "TestCodegenDynCopy.L1CopyInNZWithValue"
