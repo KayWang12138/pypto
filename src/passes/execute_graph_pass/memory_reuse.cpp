@@ -503,11 +503,8 @@ bool Allocator::GetStorageOffsetByCall(Operation& callOp, size_t inputIdx, uint6
     if (input == nullptr) {
         return false;
     }
-    // 尝试获取预计算的偏移量
-    if (input->storageOffset_ != 0) {
-        storageOffset = input->storageOffset_;
-        return true;
-    }
+    // 以input的storageOffset_为基准，计算output的storageOffset_
+    storageOffset = input->storageOffset_;
 
     // 获取参数列表
     CallOpAttribute* callAttr = dynamic_cast<CallOpAttribute*>(callOp.GetOpAttribute().get());
@@ -791,6 +788,7 @@ void Allocator::ProcessOperations() {
             
             // 共享已有存储
             outputTensor->storage_ = firstTensor->storage_;
+            outputTensor->storageOffset_ = firstTensor->storageOffset_;
             tensorsDesc.tensors.emplace(outputTensor);
         }
     }
