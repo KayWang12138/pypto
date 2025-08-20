@@ -771,7 +771,7 @@ void TileReduceNew(Function &function, const TileShape &tileShape, const std::st
                                   REPEAT_BYTE / BytesOf(in->Datatype());
                 }
             } else {
-                tmpShape[1] = REPEAT_BLOCK_NUM;
+                tmpShape[1] = REPEAT_BYTE / BytesOf(in->Datatype());
             }
             if ((sourceReg->shape[0] % BLOCK_NUM == 0) &&
                 ((tileShape.V(axis) == LEN1024 && sourceReg->shape[0] * NUM_VALUE_16 <= MAX_REPEAT) ||
@@ -1692,8 +1692,12 @@ Tensor RowMaxSingle(const Tensor &operand, int axis) {
 
     resultShape[axis] = 1;
 
-    ASSERT(Program::GetInstance().tileShape.V(axis) % NUM_VALUE_8 == 0)
-    << "RowMaxSingle op: the tileShape of reduce axis need to align 8!";
+    const int lastDim = operand->shape.size() - 1;
+    const int alignNum = BLOCK_SIZE / BytesOf(operand->tensor->datatype);
+    if (axis == lastDim) {
+        ASSERT(Program::GetInstance().tileShape.V(lastDim) % alignNum == 0)
+        << "RowMaxSingle op: the tileShape of last axis need to 32Byte align!";
+    }
 
     Tensor result(operand->tensor->datatype, resultShape);
     int shapeSize = static_cast<int>(resultShape.size());
@@ -1730,9 +1734,13 @@ Tensor RowSumSingle(const Tensor &operand, int axis) {
 
     resultShape[axis] = 1;
 
-    ASSERT(Program::GetInstance().tileShape.V(axis) % NUM_VALUE_8 == 0)
-    << "RowSumSingle op: the tileShape of reduce axis need to align 8!";
-
+    const int lastDim = operand->shape.size() - 1;
+    const int alignNum = BLOCK_SIZE / BytesOf(operand->tensor->datatype);
+    if (axis == lastDim) {
+        ASSERT(Program::GetInstance().tileShape.V(lastDim) % alignNum == 0)
+        << "RowSumSingle op: the tileShape of last axis need to 32Byte align!";
+    }
+   
     Tensor result(operand->tensor->datatype, resultShape);
     int shapeSize = static_cast<int>(resultShape.size());
     auto tileShape = Program::GetInstance().GetTileShape().GetVecTileShapes();

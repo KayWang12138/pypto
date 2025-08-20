@@ -1315,6 +1315,7 @@ TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
     for (int32_t j = 0; j < oriShape1; j++) {
         *(idx + j) = j;
     }
+    float FLOAT_MIN = -(0.0 / 0.0);
     set_flag(PIPE_S, PIPE_V, EVENT_ID7);
     wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
 
@@ -1326,20 +1327,21 @@ TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
             srcShape1_Align_Block_Num, 0, dstShape1_Block_Num - srcShape1_Align_Block_Num);
         pipe_barrier(PIPE_V);
         if constexpr (isLargest == 0) {
-            set_mask_count();
-            set_vector_mask(0, oriShape1);
-            // 按照升序排列时,需要首先将数据乘以-1,同时不可以污染src
-            vmuls((__ubuf__ float *)dst + 3 * srcShape1Align, (__ubuf__ float *)dst + 3 * srcShape1Align, -1.0f, 1, 1,
-                1, 8, 8);
-            pipe_barrier(PIPE_V);
-            set_mask_norm();
-            set_vector_mask(-1, -1);
+            for (int32_t i = 0; i < oriShape0; ++i) {
+                set_mask_count();
+                set_vector_mask(0, oriShape1);
+                // 按照升序排列时,需要首先将数据加上0x80000000,同时不可以污染src
+                vadds((__ubuf__ int32_t *)dst + 3 * srcShape1Align + i * dstShape1,
+                 (__ubuf__ int32_t *)dst + 3 * srcShape1Align + i * dstShape1, 0x80000000, 1, 1, 1, 8, 8);
+                pipe_barrier(PIPE_V);
+                set_mask_norm();
+                set_vector_mask(-1, -1);
+            }
         }
         // 需要将尾块部分置为-inf，之后再排序
         // 计算duplicate的mask
         uint64_t mask = ~(((static_cast<uint64_t>(1)) << oriShape1) - 1);
         mask = mask & 0xFFFFFFFF;
-        float FLOAT_MIN = -1.0e38f;
         set_mask_norm();
         set_vector_mask(0, mask);
         vector_dup(dst + 3 * srcShape1Align, FLOAT_MIN, oriShape0, 1, 1, dstShape1 * sizeof(float) / 32, (int64_t)0);
@@ -1360,14 +1362,15 @@ TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
             if constexpr (isLargest == 0) {
                 set_mask_count();
                 set_vector_mask(0, oriShape1);
-                // 按照升序排列时,需要首先将数据乘以-1,同时不可以污染src
+                // 按照升序排列时,需要首先将数据加上0x80000000,同时不可以污染src
                 srcData = reinterpret_cast<__ubuf__ float *>(dst) + rowIdx * dstShape1 + 3 * srcShape1Align;
-                vmuls(srcData, reinterpret_cast<__ubuf__ float *>(src) + rowIdx * srcShape1, -1.0f, 1, 1, 1, 8, 8);
+                vadds(reinterpret_cast<__ubuf__ int32_t *>(srcData), reinterpret_cast<__ubuf__ int32_t *>(src) + rowIdx * srcShape1,
+                 0x80000000, 1, 1, 1, 8, 8);
                 pipe_barrier(PIPE_V);
                 set_mask_norm();
                 set_vector_mask(-1, -1);
             }
-            vbitsort(dstData, srcData, idx, 1);
+            vbitsort((__ubuf__ float *)dstData, (__ubuf__ float *)srcData, idx, 1);
             pipe_barrier(PIPE_V);
         }
     }
@@ -1383,15 +1386,15 @@ TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
                 set_vector_mask(0, oriShape1);
                 // 按照升序排列时,需要首先将数据乘以-1,同时不可以污染src
                 srcData = reinterpret_cast<__ubuf__ float *>(dst) + rowIdx * dstShape1 + 3 * srcShape1Align;
-                vmuls(srcData, reinterpret_cast<__ubuf__ float *>(src) + rowIdx * srcShape1, -1.0f, 1, 1, 1, 8, 8);
+                vadds(reinterpret_cast<__ubuf__ int32_t *>(srcData), reinterpret_cast<__ubuf__ int32_t *>(src) + rowIdx * srcShape1,
+                 0x80000000, 1, 1, 1, 8, 8);
                 pipe_barrier(PIPE_V);
                 set_mask_norm();
                 set_vector_mask(-1, -1);
             }
             // 首先逐32个数进行排序,需要补齐不对齐的部分
             if (tail_sort32 > 0) {
-                // 非整块的时候,首先对尾部补充-inf
-                float FLOAT_MIN = -1.0e38f;
+                // 非整块的时候,首先对尾部补充-nan
                 uint64_t mask = ~(((static_cast<uint64_t>(1)) << ( tail_sort32)) - 1);
                 set_mask_norm();
                 set_vector_mask(0, mask);
@@ -1567,7 +1570,8 @@ TILEOP void DynExtract(__ubuf__ T *dst, __ubuf__ U *src, unsigned TShape0) {
         // 按照升序排序时,对于value需要乘以-1,恢复原始值
         set_mask_count();
         set_vector_mask(0, TShape0 * dstRawShape1);
-        vmuls((__ubuf__ float *)dst, (__ubuf__ float *)dst, -1.0f, 1, 1, 1, 8, 8);
+        vadds(reinterpret_cast<__ubuf__ int32_t *>(dst), reinterpret_cast<__ubuf__ int32_t *>(dst),
+                 0x80000000, 1, 1, 1, 8, 8);
         set_mask_norm();
         set_vector_mask(-1, -1);
         pipe_barrier(PIPE_V);
