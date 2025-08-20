@@ -2168,8 +2168,12 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     return func;
 }
 
+static const SymbolicScalar RUNTIME_COA_GetOffset = AddRuntimeCoaPrefix("GET_PARAM_OFFSET");
+static const SymbolicScalar RUNTIME_COA_GetValidShape = AddRuntimeCoaPrefix("GET_PARAM_VALID_SHAPE");
+static const SymbolicScalar RUNTIME_COA_GetParam = AddRuntimeCoaPrefix("GET_PARAM");
+
 static void MaybeNormalizeValue(
-        const SymbolicScalar &getParamOffset,
+        const SymbolicScalar &caafunc,
         std::vector<SymbolicScalar> &operandCoaList,
         int operandCoaIndex,
         std::vector<OpImmediate> &opImmList,
@@ -2180,13 +2184,12 @@ static void MaybeNormalizeValue(
         SymbolicScalar scalar = opImm.GetSpecifiedValue();
         auto getTensorDataDict = GetTensorDataDict(scalar);
         if (getTensorDataDict.size() == 0) {
-            OpImmediate::NormalizeValue(operandCoaList[operandCoaIndex + dimIndex], opImm, getParamOffset(opImmList.size(), coaIndex, dimIndex), valueToIndex);
+            OpImmediate::NormalizeValue(operandCoaList[operandCoaIndex + dimIndex], opImm, caafunc(opImmList.size(), coaIndex, dimIndex), valueToIndex);
         }
     }
 };
 
 static void MaybeNormalizeValue(
-        const SymbolicScalar &getParam,
         std::vector<SymbolicScalar> &valueCoa,
         SymbolicScalar &value,
         int coaIndex,
@@ -2195,12 +2198,12 @@ static void MaybeNormalizeValue(
     if (getTensorDataDict.size() == 0) {
         valueCoa.push_back(value);
         if (valueToIndex) {
-            value = getParam(coaIndex);
+            value = RUNTIME_COA_GetParam(coaIndex);
         }
     }
 }
 
-static std::vector<SymbolicScalar> NormalizeCopyIn(Operation *op, const SymbolicScalar &getParamOffset, int coaIndexBase, bool valueToIndex) {
+static std::vector<SymbolicScalar> NormalizeCopyIn(Operation *op, int coaIndexBase, bool valueToIndex) {
     auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
     int dim = copyAttr->GetShape().size();
     int operandCoaIndex = COA_INDEX_DIM_BASE;
@@ -2208,7 +2211,7 @@ static std::vector<SymbolicScalar> NormalizeCopyIn(Operation *op, const Symbolic
     std::vector<SymbolicScalar> operandCoaList(COA_INDEX_DIM_BASE + dim * COA_INDEX_TYPE_COUNT, 0);
 
     auto opImmList = copyAttr->GetFromOffset();
-    MaybeNormalizeValue(getParamOffset, operandCoaList, operandCoaIndex, opImmList, coaIndexBase, valueToIndex);
+    MaybeNormalizeValue(RUNTIME_COA_GetOffset, operandCoaList, operandCoaIndex, opImmList, coaIndexBase, valueToIndex);
     copyAttr->SetFromOffset(opImmList);
     operandCoaIndex += dim;
     coaIndex += dim;
@@ -2227,14 +2230,13 @@ static std::vector<SymbolicScalar> NormalizeCopyIn(Operation *op, const Symbolic
     coaIndex += dim;
 
     opImmList = copyAttr->GetToDynValidShape();
-    MaybeNormalizeValue(getParamOffset, operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
-    // 精度工具 OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
+    MaybeNormalizeValue(RUNTIME_COA_GetValidShape, operandCoaList, operandCoaIndex, opImmList, coaIndexBase, valueToIndex);
     copyAttr->SetToDynValidShape(opImmList);
 
     return operandCoaList;
 }
 
-static std::vector<SymbolicScalar> NormalizeCopyOut(Operation *op, const SymbolicScalar &getParamOffset, int coaIndexBase, bool valueToIndex) {
+static std::vector<SymbolicScalar> NormalizeCopyOut(Operation *op, int coaIndexBase, bool valueToIndex) {
     auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
     int dim = copyAttr->GetShape().size();
     int operandCoaIndex = COA_INDEX_DIM_BASE;
@@ -2242,7 +2244,7 @@ static std::vector<SymbolicScalar> NormalizeCopyOut(Operation *op, const Symboli
     std::vector<SymbolicScalar> operandCoaList(COA_INDEX_DIM_BASE + dim * COA_INDEX_TYPE_COUNT, 0);
 
     auto opImmList = copyAttr->GetToOffset();
-    MaybeNormalizeValue(getParamOffset, operandCoaList, operandCoaIndex, opImmList, coaIndexBase, valueToIndex);
+    MaybeNormalizeValue(RUNTIME_COA_GetOffset, operandCoaList, operandCoaIndex, opImmList, coaIndexBase, valueToIndex);
     copyAttr->SetToOffset(opImmList);
     operandCoaIndex += dim;
     coaIndex += dim;
@@ -2261,8 +2263,7 @@ static std::vector<SymbolicScalar> NormalizeCopyOut(Operation *op, const Symboli
     coaIndex += dim;
 
     opImmList = copyAttr->GetFromDynValidShape();
-    MaybeNormalizeValue(getParamOffset, operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
-    // 精度工具 OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
+    MaybeNormalizeValue(RUNTIME_COA_GetValidShape, operandCoaList, operandCoaIndex, opImmList, coaIndexBase, valueToIndex);
     copyAttr->SetFromDynValidShape(opImmList);
 
     return operandCoaList;
@@ -2334,7 +2335,7 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
         auto op = opmagicToOp[opmagic];
         std::vector<SymbolicScalar> operandCoaList;
         if (IsCopyIn(op->GetOpcode()) && k == 0) {
-            operandCoaList = NormalizeCopyIn(op, getParamOffset, coaIndex, valueToIndex);
+            operandCoaList = NormalizeCopyIn(op, coaIndex, valueToIndex);
             op->SetAttr<int>(OP_EMUOP_PREFIX + "GetTensorData_coaIndex", coaIndex);
         } else {
             operandCoaList = NormalizeTensor(op->GetIOperands()[k], coaIndex);
@@ -2350,7 +2351,7 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
         auto op = opmagicToOp[opmagic];
         std::vector<SymbolicScalar> operandCoaList;
         if (IsCopyOut(op->GetOpcode()) && k == 0) {
-            operandCoaList = NormalizeCopyOut(op, getParamOffset, coaIndex, valueToIndex);
+            operandCoaList = NormalizeCopyOut(op, coaIndex, valueToIndex);
             op->SetAttr<int>(OP_EMUOP_PREFIX + "GetTensorData_coaIndex", coaIndex);
         } else {
             operandCoaList = NormalizeTensor(op->GetOOperands()[k], coaIndex);
@@ -2371,13 +2372,12 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
         coaLists.emplace_back(std::move(operandCoaList));
     }
 
-    auto getParam = SymbolicScalar(AddRuntimeCoaPrefix("GET_PARAM"));
     for (auto &op : operations_) {
         if (op->GetOpcode() == Opcode::OP_VEC_DUP) {
             if (op->HasAttr(OpAttributeKey::dynScalar)) {
                 SymbolicScalar dynScalar = op->GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
                 std::vector<SymbolicScalar> valueCoaList;
-                MaybeNormalizeValue(getParam, valueCoaList, dynScalar, coaIndex, valueToIndex);
+                MaybeNormalizeValue(valueCoaList, dynScalar, coaIndex, valueToIndex);
                 op->SetAttribute(OpAttributeKey::dynScalar, dynScalar);
                 coaLists.emplace_back(valueCoaList);
                 coaIndex += 1;

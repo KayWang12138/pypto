@@ -287,6 +287,7 @@ INLINE uint32_t GetTensorDataInt32(CoreFuncParam *ctx, uint64_t address) {
 #define RUNTIME_GetTensorDataInt32Dim5(index, ioType, ioTypeIndex, address, ...)    GetTensorDataInt32(param, address)
 
 #define RUNTIME_COA_GET_PARAM_OFFSET(dim, base, idx)                                GET_PARAM_OFFSET_BY_IDX(param, 0, base, dim, idx)
+#define RUNTIME_COA_GET_PARAM_VALID_SHAPE(dim, base, idx)                           GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, base, dim, idx)
 #define RUNTIME_COA_GET_PARAM_ADDR(_, idx)                                          GET_PARAM_ADDR(param, _, idx)
 #define RUNTIME_COA_GET_PARAM(idx)                                                  GetCoa(param, idx)
 

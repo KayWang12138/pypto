@@ -9,17 +9,25 @@
  */
 
 #include "interface/interpreter/function.h"
+#include "interface/utils/log.h"
 #include "interface/interpreter/operation.h"
 
 namespace npu::tile_fwk {
 
 static int GetAsParameterCoaIndex(const RawSymbolicScalarPtr &value) {
-    if (!value->IsExpressionCall(AddRuntimeCoaPrefix("GET_PARAM_OFFSET"))) {
-        return -1;
+    if (value->IsExpressionCall("RUNTIME_COA_GET_PARAM_OFFSET")) {
+        auto &operands = value->GetExpressionOperandList();
+        auto base = operands[RUNTIME_GET_PARAM_OFFSET_OPERAND_INDEX_COA_INDEX]->GetImmediateValue();
+        auto dimIdx = operands[RUNTIME_GET_PARAM_OFFSET_OPERAND_INDEX_DIM_INDEX]->GetImmediateValue();
+        return base + COA_INDEX_DIM_BASE + dimIdx;
+    } else if (value->IsExpressionCall("RUNTIME_COA_GET_PARAM_VALID_SHAPE")) {
+        auto &operands = value->GetExpressionOperandList();
+        auto dim = operands[RUNTIME_GET_PARAM_OFFSET_OPERAND_INDEX_DIM_SIZE_INDEX]->GetImmediateValue();
+        auto base = operands[RUNTIME_GET_PARAM_OFFSET_OPERAND_INDEX_COA_INDEX]->GetImmediateValue();
+        auto dimIdx = operands[RUNTIME_GET_PARAM_OFFSET_OPERAND_INDEX_DIM_INDEX]->GetImmediateValue();
+        return base + COA_INDEX_DIM_BASE + dim * 3 + dimIdx;
     }
-    auto tensorIndex = value->GetExpressionOperandList()[RUNTIME_GET_PARAM_OFFSET_OPERAND_INDEX_COA_INDEX];
-    auto offsetDimIndex = value->GetExpressionOperandList()[RUNTIME_GET_PARAM_OFFSET_OPERAND_INDEX_DIM_INDEX];
-    return tensorIndex->GetImmediateValue() + COA_INDEX_DIM_BASE + offsetDimIndex->GetImmediateValue();
+    return -1;
 }
 
 std::vector<int> OperationInterpreter::EvaluateOpImmediate(
