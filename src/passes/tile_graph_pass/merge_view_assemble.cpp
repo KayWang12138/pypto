@@ -20,28 +20,28 @@
 namespace npu::tile_fwk {
 Status MergeViewAssemble::RunOnFunction(Function &function) {
     Status status = Initialize();
-    if (status != SUCCESS) 
+    if (status != SUCCESS)
     {
-        ALOG_ERROR_F("MergeViewAssemble initialization failed"); 
-        return status; 
+        ALOG_ERROR_F("MergeViewAssemble initialization failed");
+        return status;
     }
     status = ProcessViewOperations(function);
-    if (status != SUCCESS) 
+    if (status != SUCCESS)
     {
-        ALOG_ERROR_F("Processing view operations failed"); 
-        return status; 
+        ALOG_ERROR_F("Processing view operations failed");
+        return status;
     }
     status = ProcessAssembleOperations(function);
-    if (status != SUCCESS) 
-    { 
-        ALOG_ERROR_F("Processing assemble operations failed"); 
-        return status; 
+    if (status != SUCCESS)
+    {
+        ALOG_ERROR_F("Processing assemble operations failed");
+        return status;
     }
     status = CleanUp(function);
-    if (status != SUCCESS) 
-    { 
-        ALOG_ERROR_F("Cleanup phase failed"); 
-        return status; 
+    if (status != SUCCESS)
+    {
+        ALOG_ERROR_F("Cleanup phase failed");
+        return status;
     }
     return SUCCESS;
 }
@@ -81,7 +81,7 @@ Status MergeViewAssemble::ProcessAssembleOperations(Function &function) {
 Status MergeViewAssemble::AppendMergedViewOperations(Function &function) {
     /* Process View ops first to avoid View output being cleared in View-Assemble scenarios */
     for (auto &viewOp : viewOpToAppend_) {
-        auto attr = std::make_shared<ViewOpAttribute>(viewOp.offset, viewOp.dynOffset, 
+        auto attr = std::make_shared<ViewOpAttribute>(viewOp.offset, viewOp.dynOffset,
                      viewOp.dynValidShape);
         if (!attr) { ALOG_ERROR_F("Failed to create ViewOpAttribute"); return FAILED; }
         auto &mergedViewOp = function.AddRawOperation(Opcode::OP_VIEW, {viewOp.input}, {viewOp.output});
@@ -103,10 +103,10 @@ Status MergeViewAssemble::AppendMergedAssembleOperations(Function &function) {
 
 Status MergeViewAssemble::CleanUp(Function &function) {
     Status status = EraseRedundantAssemble(function);
-    if (status != SUCCESS) 
-    { 
-        ALOG_ERROR_F("EraseRedundantAssemble failed"); 
-        return status; 
+    if (status != SUCCESS)
+    {
+        ALOG_ERROR_F("EraseRedundantAssemble failed");
+        return status;
     }
     DeadOperationEliminator eliminator;
     eliminator.EliminateDeadOperationBackward(function);
@@ -118,7 +118,7 @@ Status MergeViewAssemble::MergeViewChain(
     Function &function, Operation &operation, std::vector<Operation *> &chain) {
     // 1. 初始化操作链
     InitOperationChain(operation, chain);
-    
+
     // 2. 处理消费者链
     auto consumers = function.FindConsumers(operation);
     bool chainEnd = true;
@@ -133,7 +133,7 @@ Status MergeViewAssemble::MergeViewChain(
     return SUCCESS;
 }
 
-void MergeViewAssemble::InitOperationChain(Operation &operation, std::vector<Operation *> &chain) 
+void MergeViewAssemble::InitOperationChain(Operation &operation, std::vector<Operation *> &chain)
 {
     visitedOp_.insert(operation.opmagic);
     chain.emplace_back(&operation);
@@ -175,11 +175,11 @@ Status MergeViewAssemble::ProcessChainEnd(
 
     // 4. 记录合并操作
     RecordMergedViewOperation(startTensor, endTensor, newOffset, newDynOffset, newDynValidShape);
-    
+
     // 5. 清理链尾
     chain.back()->oOperand.clear();
     function.GetTensorMap().Erase(endTensor);
-    
+
     return SUCCESS;
 }
 
@@ -197,7 +197,7 @@ Status MergeViewAssemble::CalculateMergedOffsets(
         if (i == 0) {
             newOffset = viewOpAttribute->GetFromOffset();
             newDynOffset = viewOpAttribute->GetFromDynOffset();
-            if (newDynValidShape.empty() && !viewOpAttribute->GetToDynValidShape().empty()) {
+            if (!viewOpAttribute->GetToDynValidShape().empty()) {
                 newDynValidShape = viewOpAttribute->GetToDynValidShape();
             }
         } else {
@@ -206,7 +206,7 @@ Status MergeViewAssemble::CalculateMergedOffsets(
                 newOffset = ret.first;
                 newDynOffset = ret.second;
             }
-            if (newDynValidShape.empty() && !viewOpAttribute->GetToDynValidShape().empty()) {
+            if (!viewOpAttribute->GetToDynValidShape().empty()) {
                 newDynValidShape = viewOpAttribute->GetToDynValidShape();
             } else {
                 newDynValidShape = GetViewValidShape(newDynValidShape, viewOpAttribute->GetFromOffset(),
@@ -231,7 +231,7 @@ void MergeViewAssemble::RecordMergedViewOperation(
 Status MergeViewAssemble::MergeAssembleChain(Function &function, Operation &operation, std::vector<Operation *> &chain) {
     // 1. 初始化操作链
     InitAssembleChain(operation, chain);
-    
+
     // 2. 处理消费者
     auto consumers = function.FindConsumers(operation);
     bool chainEnd = consumers.empty();
@@ -249,8 +249,8 @@ Status MergeViewAssemble::MergeAssembleChain(Function &function, Operation &oper
 }
 
 void MergeViewAssemble::InitAssembleChain(
-    Operation &operation, 
-    std::vector<Operation *> &chain) 
+    Operation &operation,
+    std::vector<Operation *> &chain)
 {
     visitedOp_.insert(operation.opmagic);
     chain.emplace_back(&operation);
@@ -295,7 +295,7 @@ Status MergeViewAssemble::ProcessAssembleChainEnd(
     return SUCCESS;
 }
 
-std::pair<std::vector<int32_t>, std::vector<SymbolicScalar>> 
+std::pair<std::vector<int32_t>, std::vector<SymbolicScalar>>
 MergeViewAssemble::CalculateAssembleOffsets(
     const std::vector<Operation *> &chain,
     size_t offsetSize)

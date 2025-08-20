@@ -1458,7 +1458,7 @@ void TiledCastOperation(Function &function, const TileShape &tileShape,
 template <CastOpType T>
 LogicalTensorPtr TensorCastOperation(Function &function, LogicalTensorPtr operand,
     const DataType &newType, const CastMode &mode) {
-    auto result = std::make_shared<LogicalTensor>(function, newType, operand->shape);
+    auto result = std::make_shared<LogicalTensor>(function, newType, operand->shape, operand->dynValidShape_);
     auto &op = function.AddOperation(GetCastOpName<T>(), {operand}, {result});
     op.SetAttribute(OP_ATTR_PREFIX + "mode", mode);
     return result;
@@ -2180,32 +2180,9 @@ Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int>>> &tensors)
     return result;
 }
 
-void InferDassembleValidShape(const LogicalTensorPtr &operand, const LogicalTensorPtr &result,
-    const std::vector<int> &offset, std::vector<SymbolicScalar> &resultValidShape) {
-    const std::vector<SymbolicScalar> operandDynValidShape = operand->GetDynValidShape();
-    const std::vector<SymbolicScalar> resultDynValidShape = result->GetDynValidShape();
-
-    for (size_t i = 0; i < offset.size(); i++) {
-        if (resultDynValidShape.empty()) {
-            resultValidShape.push_back(operandDynValidShape[i] + offset[i]);
-        } else {
-            resultValidShape.push_back(std::max(resultDynValidShape[i], operandDynValidShape[i] + offset[i]));
-        }
-    }
-    return;
-}
-
 void TensorDInnerAssemble(Function &function, const LogicalTensorPtr &operand,
     const LogicalTensorPtr &result, const std::vector<SymbolicScalar> &dynOffset) {
     std::vector<int> offset = SymbolicScalar::Concrete(dynOffset, 0);
-
-    std::vector<SymbolicScalar> resultValidShape;
-    resultValidShape.reserve(offset.size());
-    if (!operand->GetDynValidShape().empty()) {
-        InferDassembleValidShape(operand, result, offset, resultValidShape);
-        result->UpdateDynValidShape(resultValidShape);
-    }
-
     auto &op = function.AddOperation(Opcode::OP_ASSEMBLE, {operand}, {result});
     op.SetAssembleOpAttribute(offset, dynOffset);
     op.SetAttribute("dassemble", true);
@@ -2254,7 +2231,11 @@ void TiledInnerReshape(Function &function, const LogicalTensorPtr &operand, cons
 
 void TensorInnerReshape(Function &function, const LogicalTensorPtr &operand, const LogicalTensorPtr &result, const std::vector<SymbolicScalar> &validShape) {
     auto &operation = function.AddOperation(Opcode::OP_RESHAPE, {operand}, {result});
-    result->UpdateDynValidShape(validShape);
+    if(validShape.empty()) {
+        result->UpdateDynValidShape(SymbolicScalar::FromConcrete(result->GetShape()));
+    } else {
+        result->UpdateDynValidShape(validShape);
+    }
     operation.SetAttribute("reshape", result->shape);
 }
 
@@ -2308,6 +2289,10 @@ Tensor Reshape(const Tensor &operand, const std::vector<int> &dstshape, const st
     if (operand->shape == dstshape) {
         return operand;
     }
+    std::vector<SymbolicScalar> validShapeDefault = validShape;
+    if (validShape.empty()) {
+        validShapeDefault = SymbolicScalar::FromConcrete(dstshape);
+    }
     auto newShape = CheckAndInferShape(operand->shape, dstshape);
     if (ReshapeNeedCopy(operand)) {
         Tensor copyOperand(operand->Datatype(), operand->shape, "", operand->nodetype, operand->tensorfmt);
@@ -2315,11 +2300,11 @@ Tensor Reshape(const Tensor &operand, const std::vector<int> &dstshape, const st
             copyOperand.GetStorage());
         Tensor result(copyOperand->Datatype(), newShape, "", operand->nodetype, operand->tensorfmt);
         CALL(InnerReshape, *Program::GetInstance().GetCurrentFunction(), copyOperand.GetStorage(),
-            result.GetStorage(), validShape);
+            result.GetStorage(), validShapeDefault);
         return result;
     } else {
         Tensor result(operand->Datatype(), newShape, "", operand->nodetype, operand->tensorfmt);
-        CALL(InnerReshape, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage(), validShape);
+        CALL(InnerReshape, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage(), validShapeDefault);
         return result;
     }
 }

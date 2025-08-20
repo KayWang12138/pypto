@@ -63,14 +63,12 @@ static std::vector<SymbolicScalar> ToDynShape(const std::string &tname, const st
     return dynShape;
 }
 
-Tensor::Tensor(DataType dataType, std::vector<int> shape, std::string name, NodeType nodeType,
-    TileOpFormat format)
+Tensor::Tensor(DataType dataType, std::vector<int> shape, std::string name, NodeType nodeType, TileOpFormat format)
     : index_(IdGen<IdType::TENSOR_INDEX>::Inst().NewId()) {
     auto dynShape = ToDynShape(name, shape);
-    storage_ = std::make_shared<LogicalTensor>(*Program::GetInstance().GetCurrentFunction(), dataType, shape, name, nodeType, format);
+    storage_ = std::make_shared<LogicalTensor>(
+        *Program::GetInstance().GetCurrentFunction(), dataType, shape, dynShape, name, nodeType, format);
     storage_->tensor->AddRefCount(1);
-
-    storage_->GetRawTensor()->UpdateDynRawShape(dynShape);
 
     Program::GetInstance().InsertAliveTensor(this);
     Program::GetInstance().GetTensorSlotManager()->TensorWrite(*this);
@@ -78,30 +76,19 @@ Tensor::Tensor(DataType dataType, std::vector<int> shape, std::string name, Node
 }
 
 Tensor::Tensor(DataType dataType, std::vector<SymbolicScalar> shape, std::string name, TileOpFormat format)
-    :Tensor(dataType, SymbolicScalar::Concrete(shape, -1), name, NodeType::LOCAL, format)
-{
+    : Tensor(dataType, SymbolicScalar::Concrete(shape, -1), name, NodeType::LOCAL, format) {
     auto rawTensor = storage_->GetRawTensor();
-    for (size_t axis = 0; axis  < shape.size(); axis++) {
+    for (size_t axis = 0; axis < shape.size(); axis++) {
         if (shape[axis].ConcreteValid() && shape[axis].Concrete() == -1) {
             shape[axis] = rawTensor->GetDynRawShape(axis);
         }
     }
+    storage_->UpdateDynValidShape(shape);
     rawTensor->UpdateDynRawShape(shape);
 }
 
 void Tensor::SetData(BinDataPtr data) {
     data_ = data;
-}
-
-Tensor::Tensor(std::shared_ptr<RawTensor> rawTensor, std::vector<int> offset, std::vector<int> shape,
-    NodeType nodeType, TileOpFormat format)
-    : index_(IdGen<IdType::TENSOR_INDEX>::Inst().NewId()) {
-    ASSERT(rawTensor != nullptr);
-    Program::GetInstance().InsertAliveTensor(this);
-    storage_ = std::make_shared<LogicalTensor>(*Program::GetInstance().GetCurrentFunction(), std::move(rawTensor), offset, shape, nodeType, format);
-    storage_->tensor->AddRefCount(1);
-
-    Program::GetInstance().GetTensorSlotManager()->TensorWrite(*this);
 }
 
 const LogicalTensor *Tensor::operator->() const {

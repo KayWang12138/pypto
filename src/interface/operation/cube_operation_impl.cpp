@@ -91,8 +91,14 @@ void CollectSubAMulB(Function &function, const CollectSubAMulBPara &args, Aggreg
                 auto aL0LogicalTensor = std::make_shared<LogicalTensor>(function, aTensorPtr->Datatype(),
                     std::vector<int>{mL0size, kL0size}, aL0Tensor->GetDynValidShape(), "a_l0", aTensorPtr->nodetype,
                     aTensorPtr->tensorfmt);
+
+                auto validShape = bL0Tensor->GetDynValidShape();
+                if (isTransB) {
+                    std::swap(validShape[0], validShape[1]);
+                }
+
                 auto bL0LogicalTensor = std::make_shared<LogicalTensor>(function, bTensorPtr->Datatype(),
-                    std::vector<int>{kL0size, nL0size}, bL0Tensor->GetDynValidShape(), "b_l0", bTensorPtr->nodetype,
+                    std::vector<int>{kL0size, nL0size}, validShape, "b_l0", bTensorPtr->nodetype,
                     bTensorPtr->tensorfmt);
                 function.AddOperation(Opcode::OP_L1_TO_L0A, {aL0Tensor}, {aL0LogicalTensor});
                 function.AddOperation(opCode, {bL0Tensor}, {bL0LogicalTensor});

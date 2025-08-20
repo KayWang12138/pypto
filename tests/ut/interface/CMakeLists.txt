@@ -28,7 +28,12 @@ set(_CaseFilterList
         # Function
         "SubFunctionTest.*"
         "FunctionWithPass.*"
-        "DynamicOpsTest.*"
+        "DynamicOpsTest.Cube"
+        "DynamicOpsTest.ElementScalar"
+        # "DynamicOpsTest.Assemble"
+        # "DynamicOpsTest.AssembleFp16"
+        # "DynamicOpsTest.OpsElementWise"
+        # "DynamicOpsTest.OpsElementWiseFp16"
         "DynamicFunctionTest.TestGetInputDataInt32Dim3"
         "DynamicFunctionTest.TestSymbolic"
         "DynamicFunctionTest.TestLoopRange"

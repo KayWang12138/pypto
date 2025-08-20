@@ -33,9 +33,9 @@ struct ExecuteOperationContext {
     FunctionFrame *frame;
 
     Operation *op;
-    const std::vector<std::shared_ptr<LogicalTensorData>> *ioperandDataViewList;
-    std::vector<std::shared_ptr<LogicalTensorData>> *ooperandDataViewList;
-    std::vector<std::shared_ptr<LogicalTensorData>> *ooperandInplaceDataViewList;
+    const std::vector<LogicalTensorDataPtr> *ioperandDataViewList;
+    std::vector<LogicalTensorDataPtr> *ooperandDataViewList;
+    std::vector<LogicalTensorDataPtr> *ooperandInplaceDataViewList;
 };
 
 class OperationInterpreter {
@@ -63,14 +63,14 @@ public:
     int GetThreadCount() const { return pool.GetThreadCount(); }
 
 private:
-    std::vector<std::shared_ptr<LogicalTensorData>> GetValidDataView(
-        const std::vector<std::shared_ptr<LogicalTensorData>> &dataViewList) const {
-        std::vector<std::shared_ptr<LogicalTensorData>> result = dataViewList;
-        for (size_t index = 0; index < dataViewList.size(); index++) {
-            auto operand = dataViewList[index];
-            if ((!operand->GetValidShape().empty()) && (operand->GetValidShape() != operand->GetShape())) {
-                result[index] =
-                    operand->View(operand->GetValidShape(), std::vector<int>(operand->GetValidShape().size(), 0));
+    std::vector<LogicalTensorDataPtr> GetValidDataView(const std::vector<LogicalTensorDataPtr> &dataViewList) const {
+        std::vector<LogicalTensorDataPtr> result;
+        for (auto &dataView : dataViewList) {
+            auto &validShape = dataView->GetValidShape();
+            if (validShape == dataView->GetShape()) {
+                result.emplace_back(dataView);
+            } else {
+                result.emplace_back(dataView->View(validShape, std::vector<int>(validShape.size(), 0)));
             }
         }
         return result;
@@ -83,11 +83,7 @@ private:
 
         auto view = std::static_pointer_cast<ViewOpAttribute>(ctx->op->GetOpAttribute());
         std::vector<int> offset = EvaluateOffset(view->GetFromOffset(), view->GetFromDynOffset());
-        std::vector<int> shape = ctx->op->GetOOperands().front()->GetShape();
-        for (size_t k = 0; k < shape.size(); k++) {
-            // Aligned
-            ASSERT(offset[k] + shape[k] <= iop->GetData()->GetShape()[k]);
-        }
+        std::vector<int> shape = EvaluateOpImmediate(ctx->frame, OpImmediate::Specified(view->GetToDynValidShape()));
 
         auto iopValid = std::make_shared<LogicalTensorData>(iop->GetData(), shape, offset);
         auto oop = ctx->ooperandInplaceDataViewList->at(0);
@@ -104,7 +100,7 @@ private:
         bool outputCombineAxisDone = ctx->op->GetBoolAttribute("input_combine_axis_done");
         std::vector<int> oopShape = oop->GetShape();
         std::vector<int> axises = {0, 1};
-        std::shared_ptr<LogicalTensorData> oopTrans;
+        LogicalTensorDataPtr oopTrans;
         if (outputCombineAxisDone && oopShape.size() == SIZE_TWO) {
             std::vector<int> transShape = {oopShape[1], oopShape[0]};
             oopTrans = LogicalTensorData::CreateEmpty(oop->GetDataType(), transShape, std::vector<int>(0));
@@ -120,11 +116,11 @@ private:
             std::vector<int> dynvalidshape = EvaluateOpImmediate(ctx->frame, copyin->GetToDynValidShape());
 
             // HACK: copyin's ooperand's shape might be different from copy shape
-            iopValid = iop->View(shape, fromOffset);
+            iopValid = iop->View(dynvalidshape, fromOffset);
             if (outputCombineAxisDone && oopShape.size() == SIZE_TWO) {
-                oopTrans = oopTrans->View(shape, std::vector<int>(fromOffset.size(), 0));
+                oopTrans = oopTrans->View(dynvalidshape, std::vector<int>(fromOffset.size(), 0));
             } else {
-                oopValid = oop->View(shape, std::vector<int>(fromOffset.size(), 0));
+                oopValid = oop->View(dynvalidshape, std::vector<int>(fromOffset.size(), 0));
             }
         }
 
@@ -325,8 +321,8 @@ private:
         }
 
         // HACK: copyin's ooperand's shape might be different from copy shape
-        auto iopValid = iop->View(shape, std::vector<int>(toOffset.size(), 0));
-        auto oopValid = oop->View(shape, toOffset);
+        auto iopValid = iop;
+        auto oopValid = oop->View(iopValid->GetShape(), toOffset);
         if (from == MemoryType::MEM_L0C) {
             if (ctx->op->HasAttribute(OP_ATTR_PREFIX + "atomic_add")) {
                 // HACK: l0c copy out might add
@@ -505,7 +501,7 @@ private:
         if (opcode == Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE || opcode == Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE) {
             outputCombineAxisDone = ctx->op->GetBoolAttribute("output_combine_axis_done");
         }
-        std::shared_ptr<LogicalTensorData> oopTrans;
+        LogicalTensorDataPtr oopTrans;
         switch (opcode) {
             case Opcode::OP_ROWSUM_SINGLE:
             case Opcode::OP_ROWSUMLINE:

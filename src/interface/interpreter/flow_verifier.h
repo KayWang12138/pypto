@@ -29,12 +29,10 @@ class FlowVerifier {
 public:
     static FlowVerifier &GetInstance();
 
-    void VerifyTensorGraph(
-            Function *entry,
-            const std::vector<std::shared_ptr<LogicalTensorData>> &inputDataViewList,
-            const std::vector<std::shared_ptr<LogicalTensorData>> &outputDataViewList,
-            const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
-            const std::shared_ptr<TensorSlotManager> &slotManager);
+    void VerifyTensorGraph(Function *entry, const std::vector<std::shared_ptr<LogicalTensorData>> &inputDataViewList,
+        const std::vector<std::shared_ptr<LogicalTensorData>> &outputDataViewList,
+        const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
+        const std::shared_ptr<TensorSlotManager> &slotManager);
     void VerifyPass(Function *func, int passIndex, const std::string &passIdentifier);
     void VerifyExecuteGraph();
 
@@ -91,8 +89,8 @@ public:
             CompareElement maxRelElement;
             std::ostringstream oss;
             std::string space(indent, ' ');
-            std::string infoError = "Error eps=" + std::to_string(eps_);
-            std::string infoZero = "Zero";
+            std::string infoError = "\n  " + space + "Error eps=" + std::to_string(eps_);
+            std::string infoZero = "\n  " + space + "Zero";
             for (auto &element : *this) {
                 auto [isError, index, goldenValue, outputValue, absDiff, relDiff] = element;
                 (void)index;
@@ -116,10 +114,10 @@ public:
                     info = infoZero.c_str();
                 }
                 if (errorCount_ + zeroCount_ <= maxPrint) {
-                    oss << space << info << " " << element.Dump() << "\n";
+                    oss << space << info << " " << element.Dump() << "";
                 }
             }
-            oss << space << "size:" << size_
+            oss << "\n" << space << "All size:" << size_
                 << " maxAbsDiff:" << maxAbsDiff
                 << " maxRelDiff:" << maxRelDiff
                 << " errorCount:" << errorCount_
@@ -149,39 +147,47 @@ public:
             auto goldenValue = static_cast<float>(goldenValueList[index]);
             auto outputValue = static_cast<float>(outputValueList[index]);
             auto absDiff = std::abs(goldenValue - outputValue);
-            auto relDiff = std::abs(goldenValue - 0.0f) < 1e-6 ? 0 : std::abs(absDiff / goldenValue);
-            if (std::abs(outputValue - 0.0f) <= 1e-6) {
+            auto relDiff = 0.0f;
+            if (std::abs(goldenValue) < 1e-6) {
+                relDiff = std::abs(absDiff) < 1e-6 ? 0 : 1;
+            } else {
+                relDiff = std::abs(absDiff / goldenValue);
+            }
+            if (std::abs(outputValue) <= 1e-6 && std::abs(goldenValue) > 1e-6) {
                 compareResult.AppendZero(false, index, goldenValue, outputValue, absDiff, relDiff);
-            } else if (absDiff > compareResult.GetEps() && relDiff > compareResult.GetEps()) {
+            }
+            if (absDiff > compareResult.GetEps() && relDiff > compareResult.GetEps()) {
                 compareResult.AppendError(true, index, goldenValue, outputValue, absDiff, relDiff);
             }
         }
     }
 
     template <typename DataType>
-    static void CompareData(CompareResult &compareResult,
-                            const std::shared_ptr<LogicalTensorData> &goldenDataView,
-                            const std::shared_ptr<LogicalTensorData> &outputDataView) {
-        bool goldenFull = goldenDataView->GetShape() == goldenDataView->GetData()->GetShape() && TensorOffset::IsZero(goldenDataView->GetOffset());
-        bool outputFull = outputDataView->GetShape() == outputDataView->GetData()->GetShape() && TensorOffset::IsZero(outputDataView->GetOffset());
-        if (goldenFull && outputFull) {
-            CompareData<DataType>(compareResult, goldenDataView->GetSize(), &goldenDataView->Get<DataType>(0), &outputDataView->Get<DataType>(0));
+    static void CompareDataRecursive(CompareResult &compareResult, size_t axis, int64_t goldenOffset,
+        int64_t outputOffset, const std::shared_ptr<LogicalTensorData> &goldenDataView,
+        const std::shared_ptr<LogicalTensorData> &outputDataView) {
+        auto &validShape = goldenDataView->GetValidShape();
+        if (axis == validShape.size() - 1) {
+            CompareData<DataType>(compareResult, validShape[axis], &goldenDataView->Get<DataType>(goldenOffset),
+                &outputDataView->Get<DataType>(outputOffset));
         } else {
-            int rowSize = goldenDataView->GetShape().back();
-            int rowCount = goldenDataView->GetSize() / rowSize;
-            for (int row = 0; row < rowCount; row++) {
-                CompareData<DataType>(compareResult, rowSize, &goldenDataView->Get<DataType>(row * rowSize), &outputDataView->Get<DataType>(row * rowSize));
+            for (int i = 0; i < validShape[axis]; i++) {
+                int nGoldenOffset = goldenOffset + goldenDataView->GetStride(axis) * i;
+                int nOutputOffset = outputOffset + outputDataView->GetStride(axis) * i;
+                CompareDataRecursive<DataType>(
+                    compareResult, axis + 1, nGoldenOffset, nOutputOffset, goldenDataView, outputDataView);
             }
         }
     }
 
     template <typename DataType>
-    static CompareResult CompareData(int size,
-                                     const std::shared_ptr<LogicalTensorData> &goldenDataView,
-                                     const std::shared_ptr<LogicalTensorData> &outputDataView,
-                                     float eps, int errorCountThreshold = 0, int zeroCountThreshold = 0) {
+    static CompareResult CompareData(const std::shared_ptr<LogicalTensorData> &goldenDataView,
+        const std::shared_ptr<LogicalTensorData> &outputDataView, float eps, int errorCountThreshold = 0,
+        int zeroCountThreshold = 0) {
+        auto &validShape = goldenDataView->GetValidShape();
+        auto size = std::accumulate(validShape.begin(), validShape.end(), 1, std::multiplies<>());
         CompareResult compareResult(size, eps, errorCountThreshold, zeroCountThreshold);
-        CompareData<DataType>(compareResult, goldenDataView, outputDataView);
+        CompareDataRecursive<DataType>(compareResult, 0, 0, 0, goldenDataView, outputDataView);
         return compareResult;
     }
 

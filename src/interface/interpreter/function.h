@@ -351,13 +351,11 @@ struct FunctionInterpreter {
          *      2. transpose to <a0 * a1 * ... * an, K, B>
          *      3. reshape to <a0, a1, ..., an, K * B>
          */
-        int amul = 1;
+        ASSERT(view->GetShape().size() >= 2 && view->GetShape().size() <= 4);
         constexpr int NZ_BLOCK_SIZE = 32;
         int block = NZ_BLOCK_SIZE / RawTensorData::GetDataSize(view->GetDataType());
         ASSERT(view->GetShape().back() % block == 0);
-        for (size_t index = 0; index < view->GetShape().size() - 1; index++) {
-            amul *= view->GetShape()[index];
-        }
+        int amul = view->GetShape()[view->GetShape().size() - 2];
         int k = view->GetShape().back() / block;
 
         std::shared_ptr<LogicalTensorData> step0 =
@@ -367,9 +365,28 @@ struct FunctionInterpreter {
         std::shared_ptr<LogicalTensorData> step2 =
             LogicalTensorData::CreateEmpty(view->GetDataType(), view->GetShape(), view->GetValidShape());
 
-        Calculator::CalcReshape(step0.get(), view.get(), &operationInterpreter->GetPool());
-        Calculator::CalcTransposeAdjDim(step1.get(), step0.get(), 0, &operationInterpreter->GetPool());
-        Calculator::CalcReshape(step2.get(), step1.get(), &operationInterpreter->GetPool());
+        int batchSize = 1;
+        for (size_t index = 0; index < view->GetShape().size() - 2; index++) {
+            batchSize *= view->GetShape()[index];
+        }
+
+        std::vector<int> shapeT = view->GetShape();
+        if (view->GetShape().size() > 2) {
+            std::fill(shapeT.begin(), shapeT.end() - 2, 1);
+        }
+        
+        std::vector<int> shapeOffsetT(view->GetShape().size(), 0);
+        for (int i = 0; i < batchSize; i++) {
+            if (view->GetShape().size() == 4) {
+                shapeOffsetT[0] = i / view->GetShape()[view->GetShape().size() - 3];
+                shapeOffsetT[1] = i % view->GetShape()[view->GetShape().size() - 3];
+            } else if (view->GetShape().size() == 3) {
+                shapeOffsetT[0] = i % view->GetShape()[view->GetShape().size() - 3];
+            }
+            Calculator::CalcReshape(step0.get(), view->View(shapeT, shapeOffsetT).get(), &operationInterpreter->GetPool());
+            Calculator::CalcTransposeAdjDim(step1.get(), step0.get(), 0, &operationInterpreter->GetPool());
+            Calculator::CalcReshape(step2->View(shapeT, shapeOffsetT).get(), step1.get(), &operationInterpreter->GetPool());
+        }
         return step2;
     }
 
@@ -402,8 +419,7 @@ struct FunctionInterpreter {
     std::shared_ptr<LogicalTensorData> AllocateDataView(
         FunctionFrame &frame, const std::shared_ptr<LogicalTensor> &tensor) {
         std::vector<int> offset = EvaluateOffset(tensor->GetOffset(), tensor->GetDynOffset());
-        // 方案待定std::vector<int> validShape = EvaluateValidShape(tensor->GetDynValidShape());.
-        std::vector<int> validShape(0);
+        auto validShape = EvaluateValidShape(tensor->GetDynValidShape());
         auto ret = frame.AllocateDataView(tensor, offset, validShape);
         return ret;
     }
@@ -413,8 +429,7 @@ struct FunctionInterpreter {
         std::vector<std::vector<int>> validShapeList(tensorList.size());
         for (size_t k = 0; k < tensorList.size(); k++) {
             offsetList[k] = EvaluateOffset(tensorList[k]->GetOffset(), tensorList[k]->GetDynOffset());
-            // 方案待定validShapeList[k] =  EvaluateValidShape(tensorList[k]->GetDynValidShape());
-            validShapeList[k] =  {};
+            validShapeList[k] = EvaluateValidShape(tensorList[k]->GetDynValidShape());
         }
         auto ret = frame.AllocateDataViewList(tensorList, offsetList, validShapeList);
         return ret;
@@ -428,7 +443,7 @@ struct FunctionInterpreter {
     }
 
     void ExecuteOperation(FunctionFrame &frame, Operation *op) {
-        std::vector<std::shared_ptr<LogicalTensorData>> ioperandDataViewList = frame.GetDataViewList(op->GetIOperands());
+        auto ioperandDataViewList = frame.GetDataViewList(op->GetIOperands());
         for (size_t index = 0; index < ioperandDataViewList.size(); index++) {
             if (ioperandDataViewList[index] == nullptr) {
                 auto iop = op->GetIOperands()[index];
@@ -436,8 +451,7 @@ struct FunctionInterpreter {
                 ioperandDataViewList[index] = AllocateDataView(frame, iop);
             }
         }
-        std::vector<std::shared_ptr<LogicalTensorData>> ooperandDataViewList =
-            AllocateDataViewList(frame, op->GetOOperands());
+        auto ooperandDataViewList = AllocateDataViewList(frame, op->GetOOperands());
         ExecuteOperationContext ctx = {&frame, op, &ioperandDataViewList, {}, &ooperandDataViewList};
 
         if(op->GetOpcode() == Opcode::OP_CALL) {
@@ -447,7 +461,7 @@ struct FunctionInterpreter {
             operationInterpreter->ExecuteOperation(&ctx);
             opUsage[op->GetOpcodeStr()] += ts.Duration();
         }
-        std::vector<std::shared_ptr<LogicalTensorData>> *ooperandDumpList =
+        auto *ooperandDumpList =
             (&ctx)->ooperandInplaceDataViewList ? (&ctx)->ooperandInplaceDataViewList : (&ctx)->ooperandDataViewList;
         TimeStamp ts;
         DumpOperationTensor((&ctx)->op, ooperandDumpList, (&ctx)->ioperandDataViewList);
@@ -605,8 +619,7 @@ struct FunctionInterpreter {
                         outcastView = slotDataViewDict_[outputSlot];
                     } else {
                         auto outcast = func->GetOutcast()[i];
-                        // 方案待定std::vector<int> validShape = EvaluateValidShape(outcast->GetDynValidShape());
-                        std::vector<int> validShape = {};
+                        auto validShape = EvaluateValidShape(outcast->GetDynValidShape());
                         outcastView =
                             LogicalTensorData::CreateEmpty(outcast->Datatype(), outcast->GetShape(), validShape);
                     }

@@ -48,13 +48,11 @@ public:
     }
 
     std::vector<int> EvaluateValidShape(const std::vector<SymbolicScalar> &dynValidShape) {
-        std::vector<int> resultValidShape(0);
-        if (dynValidShape.size() != 0) {
-            for (auto &shape : dynValidShape) {
-                resultValidShape.push_back(EvaluateSymbolicScalar(shape));
-            }
+        std::vector<int> result;
+        for (auto &shape : dynValidShape) {
+            result.push_back(EvaluateSymbolicScalar(shape));
         }
-        return resultValidShape;
+        return result;
     }
 
     std::vector<int> EvaluateOffset(const std::vector<int> &offset, const std::vector<SymbolicScalar> &dynOffset) {
@@ -156,7 +154,7 @@ public:
         ASSERT(dataList.size() == SIZE_THREE);
         auto validshape = dataList[0];
         auto viewOffset = dataList[1];
-        auto viewshape = dataList[1];
+        auto viewshape = dataList[2];
         validshape -= viewOffset;
         if (validshape > viewshape)
             validshape = viewshape;

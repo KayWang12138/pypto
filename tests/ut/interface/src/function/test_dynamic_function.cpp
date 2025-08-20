@@ -259,7 +259,7 @@ TEST_F(DynamicFunctionTest, TestOnlyExpression) {
     EXPECT_EQ(rootFunc->GetCallopAttrList().size(), 1);
     auto attr = rootFunc->GetCallopAttrList().front();
     ALOG_INFO(attr->DumpAttr());
-    EXPECT_EQ(attr->DumpAttr(2), "attr[2][  0,  0,(k*16), 16, 16, 16, 64,  0,  0]]");
+    EXPECT_EQ(attr->DumpAttr(2), "attr[2][  0,  0,(k*16), 16, 16, 16, 64, 16,RUNTIME_GetViewValidShapeDim(64,(k*16),16)]]");
 }
 
 TEST_F(DynamicFunctionTest, TestOnlySymbol) {
@@ -286,7 +286,7 @@ TEST_F(DynamicFunctionTest, TestOnlySymbol) {
     EXPECT_EQ(rootFunc->GetCallopAttrList().size(), 1);
     auto attr = rootFunc->GetCallopAttrList().front();
     ALOG_INFO(attr->DumpAttr());
-    EXPECT_EQ(attr->DumpAttr(2), "attr[2][  0,  k,  0,  1, 64,  4, 64,  0,  0]]");
+    EXPECT_EQ(attr->DumpAttr(2), "attr[2][  0,  k,  0,  1, 64,  4, 64,RUNTIME_GetViewValidShapeDim(4,k,1), 64]]");
 }
 
 void TestHybridLoopIf(

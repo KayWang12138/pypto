@@ -58,7 +58,8 @@ LogicalTensor::LogicalTensor(
       tensorfmt(ttensorfmt),
       function_(&function)
 {
-    if (!tValidShape.empty()) {
+    auto getTensorDataDict = GetTensorDataDict(tValidShape);
+    if (!tValidShape.empty() && getTensorDataDict.size() == 0) {
         tensor->UpdateDynRawShape(tValidShape);
     }
 }
@@ -554,15 +555,17 @@ SymbolicScalar npu::tile_fwk::GetViewValidShapeDim(
     const SymbolicScalar &viewOffsetDim,
     const SymbolicScalar &viewShapeDim) {
     SymbolicScalar result;
-    if (validShapeDim.IsImmediate() && viewOffsetDim.IsImmediate() && viewShapeDim.IsImmediate()) {
-        std::shared_ptr<RawSymbolicImmediate> validShapeImm = std::static_pointer_cast<RawSymbolicImmediate>(validShapeDim.Raw());
-        std::shared_ptr<RawSymbolicImmediate> viewOffsetImm = std::static_pointer_cast<RawSymbolicImmediate>(viewOffsetDim.Raw());
-        std::shared_ptr<RawSymbolicImmediate> viewShapeImm = std::static_pointer_cast<RawSymbolicImmediate>(viewShapeDim.Raw());
-        ScalarImmediateType validShapeData = validShapeImm->Immediate();
-        ScalarImmediateType viewOffsetData = viewOffsetImm->Immediate();
-        ScalarImmediateType viewShapeData = viewShapeImm->Immediate();
-        ScalarImmediateType shape = std::max(std::min(validShapeData - viewOffsetData, viewShapeData), 0LL);
-        result = SymbolicScalar(shape);
+    if (validShapeDim.ConcreteValid() && viewOffsetDim.ConcreteValid() && viewShapeDim.ConcreteValid()) {
+        auto validShapeData = validShapeDim.Concrete();
+        auto viewOffsetData = viewOffsetDim.Concrete();
+        auto viewShapeData = viewShapeDim.Concrete();
+        if (viewShapeData == -1) {
+            result = std::max(validShapeData - viewOffsetData, 0L);
+        } else {
+            result = std::max(std::min(validShapeData - viewOffsetData, viewShapeData), 0L);
+        }
+    } else if (viewShapeDim.ConcreteValid() && viewShapeDim.Concrete() == -1) {
+        return std::max(validShapeDim - viewOffsetDim, 0L);
     } else {
         std::string getViewValidShapeName = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::GetViewValidShapeDim);
         getViewValidShapeName = AddRuntimePrefix(getViewValidShapeName);

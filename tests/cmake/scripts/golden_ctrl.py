@@ -137,7 +137,7 @@ class GoldenCtrl:
         if self.job_num <= 1:
             ret = self.run_all_task_single_process()
         else:
-            ret = self.run_all_task_multi_process()
+            ret = self.run_all_task_single_process()
         logging.info("Generate golden finish[%s], Cost %s secs, Return(%s)", len(self.cases),
                      (datetime.now(tz=timezone.utc) - ts).seconds, ret)
         return ret

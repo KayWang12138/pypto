@@ -36,7 +36,7 @@ namespace npu::tile_fwk {
         const std::vector<SymbolicScalar> &GetDynOffset() const { return dynOffset_; }
         template<typename Tret, typename Tlhs, typename Trhs>
         static std::vector<Tret> AddRaw(const std::vector<Tlhs> &lhs, const std::vector<Trhs> &rhs) {
-            ASSERT(lhs.size() == rhs.size());
+            ASSERT(lhs.size() == rhs.size()) << "lhs:" << lhs.size() <<"  rhs:"<< rhs.size();
             std::vector<Tret> ret(lhs.size());
             for (size_t k = 0; k < lhs.size(); k++) {
                 ret[k] = lhs[k] + rhs[k];

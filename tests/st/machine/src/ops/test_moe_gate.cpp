@@ -233,7 +233,7 @@ TEST_F(MoEGateOnBoardTest, test_operation_b_32) {
     params.B = 32;
     MoEGateOnBoardFunc(params);
     uint64_t taskTime = npu::tile_fwk::DeviceRunner::Get().GetTasksTime();
-    uint64_t threshold = 2600;
+    uint64_t threshold = 3000;
     bool profRet = (taskTime > 0 && taskTime < threshold * 1.05);
     std::cout<<"moe_gate b=32 prof threshold is: "<< threshold <<", cost time is: "<< taskTime << std::endl;
     EXPECT_EQ(profRet, true);

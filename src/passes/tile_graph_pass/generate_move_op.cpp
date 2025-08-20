@@ -221,7 +221,8 @@ void GenerateMoveOp::CreateMoveOpForAssemble(Operation &op) const {
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(ASSEMBLE_in->GetMemoryTypeOriginal(),
         OpImmediate::Specified(assembleOpAttribute->GetToTensorOffset()),
         OpImmediate::Specified(op.iOperand.front()->shape),
-        OpImmediate::Specified(op.oOperand.front()->tensor->GetDynRawShape())));
+        OpImmediate::Specified(op.oOperand.front()->tensor->GetDynRawShape()),
+        OpImmediate::Specified(op.iOperand.front()->GetDynValidShape())));
 }
 
 void GenerateMoveOp::CreateMoveOpForConvert(Operation &op) const {

@@ -1402,10 +1402,15 @@ void Function::CreateFromIncast(const std::shared_ptr<LogicalTensor> &symbol,
                                       const std::shared_ptr<LogicalTensor> &originIncast) {
     auto &incastOp = AddOperation(Opcode::OP_VIEW, {symbol}, {newIncast});
     incastOp.SetAttr(OpAttributeKey::isGlobalInput, true);
-    incastOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(originIncast->GetOffset(), originIncast->GetDynOffset(), originIncast->GetDynValidShape()));
-    if (!originIncast->GetDynValidShape().empty()) {
-        newIncast->UpdateDynValidShape(originIncast->GetDynValidShape());
+
+    auto validShape = originIncast->GetDynValidShape();
+    if (validShape.empty()) {
+        validShape = GetViewValidShape(symbol->GetDynValidShape(), originIncast->GetOffset(),
+            originIncast->GetDynOffset(), newIncast->GetShape());
     }
+    incastOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(originIncast->GetOffset(),
+        originIncast->GetDynOffset(), validShape));
+    newIncast->UpdateDynValidShape(validShape);
 }
 
 void Function::ReplaceMaybeParams(const std::shared_ptr<LogicalTensor> &newIncast,
@@ -1463,7 +1468,7 @@ LogicalTensors Function::MakeIncasts(const std::shared_ptr<TensorSlotScope> &sco
                 newIncast = newincastMap[viewKey];
             } else {
                 newIncast = std::make_shared<LogicalTensor>(*this, originIncast->tensor->datatype, originIncast->shape,
-                    originIncast->GetDynValidShape(), "INCAST_LOCAL_BUF" + std::to_string(idx++), NodeType::LOCAL, originIncast->tensorfmt);
+                    "INCAST_LOCAL_BUF" + std::to_string(idx++), NodeType::LOCAL, originIncast->tensorfmt);
                 ASSERT(originIncast->conflicterTensors.empty());
                 newIncast->CopyMemoryType(originIncast);
 
@@ -2222,7 +2227,8 @@ static std::vector<SymbolicScalar> NormalizeCopyIn(Operation *op, const Symbolic
     coaIndex += dim;
 
     opImmList = copyAttr->GetToDynValidShape();
-    OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
+    MaybeNormalizeValue(getParamOffset, operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
+    // 精度工具 OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
     copyAttr->SetToDynValidShape(opImmList);
 
     return operandCoaList;
@@ -2253,6 +2259,11 @@ static std::vector<SymbolicScalar> NormalizeCopyOut(Operation *op, const Symboli
     copyAttr->SetRawShape(opImmList);
     operandCoaIndex += dim;
     coaIndex += dim;
+
+    opImmList = copyAttr->GetFromDynValidShape();
+    MaybeNormalizeValue(getParamOffset, operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
+    // 精度工具 OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
+    copyAttr->SetFromDynValidShape(opImmList);
 
     return operandCoaList;
 }
@@ -2950,8 +2961,9 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
 
     switch (overlapStatus) {
         case OverlapStatus::PERFECTLY_MATCH_WITH_ALL: {
-            auto assembleResult = std::make_shared<LogicalTensor>(
-                *this, iOperand->Datatype(), iOperand->shape, "Assemble_" + matches[0]->Symbol(), iOperand->nodetype, iOperand->tensorfmt);
+            auto assembleResult = std::make_shared<LogicalTensor>(*this, iOperand->Datatype(), iOperand->shape,
+                iOperand->GetDynValidShape(), "Assemble_" + matches[0]->Symbol(), iOperand->nodetype,
+                iOperand->tensorfmt);
             ASSERT(assembleResult->GetProducers().empty());
             for (size_t i = 0; i < matches.size(); i++) {
                 auto &assembleOp = AddRawOperation(Opcode::OP_ASSEMBLE, {matches[i]}, {assembleResult});

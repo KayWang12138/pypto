@@ -19,22 +19,22 @@ namespace npu::tile_fwk {
 FlowVerifier::CompareResult FlowVerifier::VerifyResult(
         const std::shared_ptr<LogicalTensorData> &goldenDataView,
         const std::shared_ptr<LogicalTensorData> &outputDataView, float eps) {
-    ASSERT(goldenDataView->GetShape() == outputDataView->GetShape());
-    ASSERT(goldenDataView->GetSize() != 0);
+    // tensor maybe padded during PadLocalBuffer Pass, tensor shape maybe changed, just check the valid data
+    ASSERT(goldenDataView->GetValidShape() == outputDataView->GetValidShape());
 
     switch (goldenDataView->GetDataType()) {
-        case DT_INT8: return CompareData<int8_t>(goldenDataView->GetSize(), goldenDataView, outputDataView, eps);
-        case DT_INT16: return CompareData<int16_t>(goldenDataView->GetSize(), goldenDataView, outputDataView, eps);
-        case DT_INT32: return CompareData<int32_t>(goldenDataView->GetSize(), goldenDataView, outputDataView, eps);
-        case DT_INT64: return CompareData<int64_t>(goldenDataView->GetSize(), goldenDataView, outputDataView, eps);
-        case DT_FP16: return CompareData<npu::tile_fwk::float16>(goldenDataView->GetSize(), goldenDataView, outputDataView, eps);
-        case DT_FP32: return CompareData<float>(goldenDataView->GetSize(), goldenDataView, outputDataView, eps);
-        case DT_BF16: return CompareData<npu::tile_fwk::bfloat16>(goldenDataView->GetSize(), goldenDataView, outputDataView, eps);
-        case DT_UINT8: return CompareData<uint8_t>(goldenDataView->GetSize(), goldenDataView, outputDataView, eps);
-        case DT_UINT16: return CompareData<uint16_t>(goldenDataView->GetSize(), goldenDataView, outputDataView, eps);
-        case DT_UINT32: return CompareData<uint32_t>(goldenDataView->GetSize(), goldenDataView, outputDataView, eps);
-        case DT_UINT64: return CompareData<uint64_t>(goldenDataView->GetSize(), goldenDataView, outputDataView, eps);
-        case DT_DOUBLE: return CompareData<double>(goldenDataView->GetSize(), goldenDataView, outputDataView, eps);
+        case DT_INT8: return CompareData<int8_t>(goldenDataView, outputDataView, eps);
+        case DT_INT16: return CompareData<int16_t>(goldenDataView, outputDataView, eps);
+        case DT_INT32: return CompareData<int32_t>(goldenDataView, outputDataView, eps);
+        case DT_INT64: return CompareData<int64_t>(goldenDataView, outputDataView, eps);
+        case DT_FP16: return CompareData<npu::tile_fwk::float16>(goldenDataView, outputDataView, eps);
+        case DT_FP32: return CompareData<float>(goldenDataView, outputDataView, eps);
+        case DT_BF16: return CompareData<npu::tile_fwk::bfloat16>(goldenDataView, outputDataView, eps);
+        case DT_UINT8: return CompareData<uint8_t>(goldenDataView, outputDataView, eps);
+        case DT_UINT16: return CompareData<uint16_t>(goldenDataView, outputDataView, eps);
+        case DT_UINT32: return CompareData<uint32_t>(goldenDataView, outputDataView, eps);
+        case DT_UINT64: return CompareData<uint64_t>(goldenDataView, outputDataView, eps);
+        case DT_DOUBLE: return CompareData<double>(goldenDataView, outputDataView, eps);
         default: ASSERT(false); break;
     }
     return CompareResult();
@@ -49,7 +49,7 @@ bool FlowVerifier::VerifyResult(const std::string &key,
         auto &outputView = outputDataViewList[k];
         auto result = VerifyResult(goldenView, outputView, eps);
         if (!result.Check()) {
-            ALOG_ERROR(key, ": Verify for data ", k, " result ", TTY_RED("FAILED"));
+            ALOG_ERROR(key, ":\n    Verify for ", goldenDataViewList.size(), " data view list index ", k, " result ", TTY_RED("FAILED"));
             ALOG_ERROR(key, result.Dump());
             return false;
         } else {
@@ -66,12 +66,11 @@ void FlowVerifier::UpdateInterpreterCache() {
     functionInterpreter_->UpdateHashDict(hashDict);
 }
 
-void FlowVerifier::VerifyTensorGraph(
-        Function *entry,
-        const std::vector<std::shared_ptr<LogicalTensorData>> &inputDataViewList,
-        const std::vector<std::shared_ptr<LogicalTensorData>> &outputDataViewList,
-        const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
-        const std::shared_ptr<TensorSlotManager> &slotManager) {
+void FlowVerifier::VerifyTensorGraph(Function *entry,
+    const std::vector<std::shared_ptr<LogicalTensorData>> &inputDataViewList,
+    const std::vector<std::shared_ptr<LogicalTensorData>> &outputDataViewList,
+    const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
+    const std::shared_ptr<TensorSlotManager> &slotManager) {
     entry_ = entry;
     inputDataViewList_ = inputDataViewList;
     outputDataViewList_ = outputDataViewList;
@@ -150,7 +149,7 @@ static bool VerifyPassDumpOperation(int passIndex) {
         return true;
     }
     std::vector<int> select = config::GetPlatformConfig<std::vector<int>>(KEY_VERIFY_PASS_DUMP_OPERATION_SELECT, {});
-    for (auto &i: select) {
+    for (auto &i : select) {
         if (i == passIndex) {
             return true;
         }
@@ -162,7 +161,7 @@ static bool VerifyPassDumpTensor(int passIndex) {
         return true;
     }
     std::vector<int> select = config::GetPlatformConfig<std::vector<int>>(KEY_VERIFY_PASS_DUMP_TENSOR_SELECT, {});
-    for (auto &i: select) {
+    for (auto &i : select) {
         if (i == passIndex) {
             return true;
         }
@@ -170,7 +169,7 @@ static bool VerifyPassDumpTensor(int passIndex) {
     return false;
 }
 
-template<typename T>
+template <typename T>
 static std::string ToString(const T &val, size_t totalSize) {
     std::string data = std::to_string(val);
     if (totalSize < data.size()) {
@@ -183,12 +182,11 @@ static std::string ToString(const T &val, size_t totalSize) {
 void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &passIdentifier) {
     functionInterpreter_->verifyType = VerifyType::PASS;
     UpdateInterpreterCache();
-    //只有执行过的才需要verify
     if (controlFlowExecution_->executionListDict.count(func) == 0) {
         return;
     }
-    auto &captureList = controlFlowExecution_->executionListDict.find(func)->second;
 
+    auto &captureList = controlFlowExecution_->executionListDict.find(func)->second;
     if (!lastCaptureExecution_.count(func)) {
         lastCaptureExecution_[func].resize(captureList.size());
     }
@@ -200,10 +198,8 @@ void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &
         functionInterpreter_->DumpSetLevelTensor();
     }
     for (size_t captureIndex = 0; captureIndex < captureList.size(); captureIndex++) {
-        const std::string key =
-            "function_" + func->GetMagicName() +
-            ".pass_" + ToString(passIndex, 2) + "_" + passIdentifier +
-            ".capture_" + ToString(captureIndex, 3);
+        const std::string key = "function_" + func->GetMagicName() + ".pass_" + ToString(passIndex, 2) + "_" +
+                                passIdentifier + ".capture_" + ToString(captureIndex, 3);
         ALOG_INFO(key, ": Verify");
 
         std::shared_ptr<FunctionCaptureExecution> capture = nullptr;
@@ -244,9 +240,7 @@ void FlowVerifier::VerifyExecuteGraph() {
     for (auto &[func, captureList]: controlFlowExecution_->executionListDict) {
         for (size_t captureIndex = 0; captureIndex < captureList.size(); captureIndex++) {
             const std::string key =
-                "function_" + func->GetMagicName() +
-                ".exec_graph" +
-                ".capture_" + ToString(captureIndex, 3);
+                "function_" + func->GetMagicName() + ".exec_graph.capture_" + ToString(captureIndex, 3);
             ALOG_INFO(key, ": Verify");
             if (config::GetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_OPERATION, false)) {
                 functionInterpreter_->DumpSetLevelOperation();

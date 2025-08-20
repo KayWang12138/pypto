@@ -20,6 +20,7 @@
 #include "interface/program/program.h"
 #include "interface/utils/serialization.h"
 #include "raw_tensor.h"
+#include <string>
 
 using namespace npu::tile_fwk;
 RawTensor::RawTensor(DataType t, std::vector<int> tshape, std::string tname, int trawmagic)
@@ -146,11 +147,8 @@ std::shared_ptr<RawTensor> RawTensor::LoadJson(const Json &rawTensorDump) {
 
 std::string RawTensor::DumpType() const {
     std::string result = "<";
-    for (auto &value : dynRawShape) {
-        if (value.ConcreteValid())
-            result += std::to_string(value.Concrete()) + " x ";
-        else
-            result += "? x ";
+    for (auto &value : rawshape) {
+        result += std::to_string((value)) + " x ";
     }
     result += DataType2String(datatype);
     result += ">";

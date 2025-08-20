@@ -85,6 +85,7 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
                     Tensor kj(dtype, {curS2Tile, dN + dR}, "kj", NodeType::LOCAL, kjFormat);
                     DAssemble(kn, {0, 0}, kj);
                     DAssemble(kr, {0, dN}, kj);
+                    kj = DViewPad(kj, {curS2Tile, dN + dR}, {std::min(curSeq - bn * blockSize, blockSize), dR + dN}, {0, 0});
                     auto vj = DViewPad(vNopeCache, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},
                                                   {curBlockIdx * blockSize, 0});
 
