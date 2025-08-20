@@ -24,3 +24,7 @@ target_link_libraries(tile_fwk_operator
 )
 TileFwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_operator)
 TileFwk_AnalysisTargetSymbols(TARGET tile_fwk_operator)
+
+install(TARGETS tile_fwk_operator
+        LIBRARY DESTINATION lib OPTIONAL
+)

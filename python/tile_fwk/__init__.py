@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+# -*- coding:utf-8 -*-
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This file is a part of the CANN Open Software.
 # Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
@@ -6,21 +8,6 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
-
-if (ENABLE_TESTS_UTEST)
-    add_subdirectory(stubs)
-
-    add_subdirectory(operator)
-    add_subdirectory(interface)
-    add_subdirectory(passes)
-    add_subdirectory(simulation)
-
-    if (ENABLE_BUILD_WITH_CANN)
-        add_subdirectory(machine)
-        add_subdirectory(execute)
-        add_subdirectory(codegen)
-    endif ()
-
-    # 可执行程序
-    TileFwk_UTest_AddExe_RunExe(TARGET ${TileFwkUTestNamePrefix})
-endif ()
+"""
+tile fwk init
+"""

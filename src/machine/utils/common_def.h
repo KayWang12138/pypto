@@ -66,5 +66,4 @@ struct DeviceArgs {
 
     uint64_t GetBlockNum() { return nrValidAic * (nrAiv / nrAic + 1); }
 };
-
 #endif

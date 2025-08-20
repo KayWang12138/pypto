@@ -93,6 +93,24 @@
       ]
     }
   },
+  "libtile_fwk_executor.so": {
+    "Source-Header": {
+      "Self": [
+        "src/execute/"
+      ],
+      "Area": [
+        "src/interface/",
+        "src/machine/",
+        "third_party/metadef/inc/"
+      ],
+      "Include": [
+      ],
+      "WhiteList": [
+      ],
+      "BlackList": [
+      ]
+    }
+  },
   "libtile_fwk_runtime.so": {
     "Source-Header": {
       "Self": [
@@ -361,6 +379,24 @@
       ],
       "Include": [
         "include/"
+      ],
+      "WhiteList": [
+      ],
+      "BlackList": [
+      ]
+    }
+  },
+  "libtile_fwk_utest_execute.a": {
+    "Source-Header": {
+      "Self": [
+        "tests/ut/execute/"
+      ],
+      "Area": [
+        "src/execute/",
+        "src/machine/",
+        "third_party/metadef/inc/"
+      ],
+      "Include": [
       ],
       "WhiteList": [
       ],

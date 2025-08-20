@@ -70,6 +70,7 @@ include(cmake/func.cmake)
 ########################################################################################################################
 
 add_subdirectory(src)
+add_subdirectory(python)
 
 if (ENABLE_TESTS_UTEST OR ENABLE_TESTS_STEST OR ENABLE_TESTS_STEST_DISTRIBUTED)
     enable_testing()
