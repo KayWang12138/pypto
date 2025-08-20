@@ -200,7 +200,7 @@ void CostModelPipe::CalcNdNzOutL1(PInstrParam &instr)
     }
     instr->popTime = module_.empty() ? GetTime() : max(module_.back()->exeTime, GetTime());
     instr->exeTime = instr->popTime + uopNum;
-    uint32_t movdelay = latency + ddrRdLatency_ + rand() % ddrRdLatencyDiver_;
+    uint32_t movdelay = latency + ddrRdLatency_ + ddrRdLatencyDiver_;
     instr->endTime = module_.empty() ? instr->exeTime + movdelay : module_.back()->endTime + movdelay;
 }
 
@@ -227,7 +227,7 @@ void CostModelPipe::CalcMovOutUb(PInstrParam &instr)
     }
     instr->popTime = module_.empty() ? GetTime() : max(module_.back()->exeTime, GetTime());
     instr->exeTime = instr->popTime + uopNum;
-    uint32_t movdelay = latency + ddrRdLatency_ + rand() % ddrRdLatencyDiver_;
+    uint32_t movdelay = latency + ddrRdLatency_ + ddrRdLatencyDiver_;
     instr->endTime = module_.empty() ? instr->exeTime + movdelay : module_.back()->endTime + movdelay;
 }
 
@@ -254,7 +254,7 @@ void CostModelPipe::CalcMovUbOut(PInstrParam &instr)
     }
     instr->popTime = module_.empty() ? GetTime() : max(module_.back()->exeTime, GetTime());
     instr->exeTime = instr->popTime + uopNum;
-    uint32_t movdelay = latency + ddrWrLatency_ + rand() % ddrWrLatencyDiver_;
+    uint32_t movdelay = latency + ddrWrLatency_ + ddrWrLatencyDiver_;
     instr->endTime = module_.empty() ? instr->exeTime + movdelay : module_.back()->endTime + movdelay;
 }
 
@@ -283,7 +283,7 @@ void CostModelPipe::CalcMovOutUbAlign(PInstrParam &instr)
     }
     instr->popTime = module_.empty() ? GetTime() : max(module_.back()->exeTime, GetTime());
     instr->exeTime = instr->popTime + uopNum;
-    uint32_t movdelay = latency + ddrRdLatency_ + rand() % ddrRdLatencyDiver_;
+    uint32_t movdelay = latency + ddrRdLatency_ + ddrRdLatencyDiver_;
     instr->endTime = module_.empty() ? instr->exeTime + movdelay : module_.back()->endTime + movdelay;
 }
 
@@ -312,7 +312,7 @@ void CostModelPipe::CalcMovUbOutAlign(PInstrParam &instr)
     }
     instr->popTime = module_.empty() ? GetTime() : max(module_.back()->exeTime, GetTime());
     instr->exeTime = instr->popTime + uopNum;
-    uint32_t movdelay = latency + ddrWrLatency_ + rand() % ddrWrLatencyDiver_;
+    uint32_t movdelay = latency + ddrWrLatency_ + ddrWrLatencyDiver_;
     instr->endTime = module_.empty() ? instr->exeTime + movdelay : module_.back()->endTime + movdelay;
 }
 
@@ -362,7 +362,7 @@ void CostModelPipe::CalcFixL0cOut(PInstrParam &instr)
     latency = ndNum * mlen * max(Ceiling(burstSize, ddrWrBandWidth_), Ceiling(burstSize, l0cRdBandWidth_));
     instr->popTime = module_.empty() ? GetTime() : max(module_.back()->exeTime, GetTime());
     instr->exeTime = instr->popTime + uopNum;
-    uint32_t movdelay = latency + ddrWrLatency_ + rand() % ddrWrLatencyDiver_;
+    uint32_t movdelay = latency + ddrWrLatency_ + ddrWrLatencyDiver_;
     instr->endTime = module_.empty() ? instr->exeTime + movdelay : module_.back()->endTime + movdelay;
 }
 
