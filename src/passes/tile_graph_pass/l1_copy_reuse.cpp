@@ -444,7 +444,7 @@ Status L1CopyInReuseMerge::L1CopyInReuse(Function &func) const {
     return SUCCESS;
 }
 
-void L1CopyInReuseMerge::DoHealthCheck(Function &function, const std::string &folderPath) {
+void L1CopyInReuseMerge::DoHealthCheckAfter(Function &function, const std::string &folderPath) {
     ALOG_INFO_F("After L1CopyInReuseMerge, Health Report: TileGraph START");
     std::string fileName = GetDumpFilePrefix(function);
     HealthCheckTileGraph(function, folderPath, fileName);

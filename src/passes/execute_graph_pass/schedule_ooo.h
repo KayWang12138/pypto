@@ -235,7 +235,7 @@ private:
     bool PostCheckGlobalTensor(const LogicalTensorPtr tensor, const int subGraphId, const int programIdx);
     bool PostCheckDynValidShape(const LogicalTensorPtr tensor, const int programIdx);
     bool PostCheckNewTensor(const int subGraphId, std::pair<const int, Function*> program, const int programIdx);
-    void DoHealthCheck(Function &function, const std::string &folderPath) override;
+    void DoHealthCheckAfter(Function &function, const std::string &folderPath) override;
     std::vector<std::unordered_set<LogicalTensorPtr>> tensorListBeforePass;
     std::vector<std::unordered_set<LogicalTensorPtr>> tensorListAfterPass;
     std::vector<Function *> oriFunctions;

@@ -173,9 +173,9 @@ Status ExpandFunction::Expandfunction(Function &function) const {
     return SUCCESS;
 }
 
-void ExpandFunction::DoHealthCheck(Function &function, const std::string &folderPath) {
+void ExpandFunction::DoHealthCheckBefore(Function &function, const std::string &folderPath) {
     ALOG_INFO_F("Before ExpandFunction, Health Report: TensorGraph START");
-    std::string fileName = GetDumpFilePrefix(function);
+    std::string fileName = GetDumpFilePrefix(function, true);
     HealthCheckTensorGraph(function, folderPath, fileName);
     ALOG_INFO_F("Before ExpandFunction, Health Report: TensorGraph END");
 }

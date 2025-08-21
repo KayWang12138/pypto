@@ -217,7 +217,7 @@ void HealthCheckTensorGraph(Function &function, const std::string &reportPath, c
     CalcGraphMetrics(inMap, outMap, actualMagic, tensorGraphReport);
 
     // 5. 写出健康报告
-    std::string graphName = fileName + "_TensorGraphHealthReport";
+    std::string graphName = fileName + "_TensorGraphHealthReport.json";
     WriteHealthReport(tensorGraphReport, reportPath, graphName);
 }
 
@@ -243,7 +243,7 @@ void HealthCheckTileGraph(Function &function, const std::string &reportPath, con
     CalcGraphMetrics(inMap, outMap, actualMagic, tileGraphReport);
 
     // 5. 写出健康报告
-    std::string graphName = fileName + "_TileGraphHealthReport";
+    std::string graphName = fileName + "_TileGraphHealthReport.json";
     WriteHealthReport(tileGraphReport, reportPath, graphName);
 }
 

@@ -948,7 +948,7 @@ Status Allocator::Allocate() {
     dummyPackets_.UpdateOffset(size_);
     size_ += dummyPackets_.GetSize();
 
-    ALOG_EVENT_F("Total memory allocated: %lu bytes across %zu buckets.", size_, buckets_.size());
+    ALOG_DEBUG_F("Total memory allocated: %lu bytes across %zu buckets.", size_, buckets_.size());
     // 根据storage id刷新 DDRId, start相同认为是一个storage
     std::unordered_map<int64_t, int> idMap;
     int storageId = 0;

@@ -50,10 +50,12 @@ protected:
     virtual Status PreRun(Function &function);
     virtual Status PostRun(Function &function);
     // folderPath: dump路径
-    virtual void DoHealthCheck(Function &function, const std::string &folderPath);
+    virtual void DoHealthCheckBefore(Function &function, const std::string &folderPath);
+    virtual void DoHealthCheckAfter(Function &function, const std::string &folderPath);
     mutable PassConfigs passDfxconfigs_;
     // 获取dump的文件名，如果是leaffunction，后面两个参数需要配置
-    std::string GetDumpFilePrefix(Function& function, Function* subFunction = nullptr, int subFuncId = -1);
+    std::string GetDumpFilePrefix(Function& function, bool before = false,
+                                  Function* subFunction = nullptr, int subFuncId = -1);
 
 private:
     mutable std::string identifier_;

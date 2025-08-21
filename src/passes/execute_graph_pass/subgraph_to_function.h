@@ -51,7 +51,7 @@ private:
     Status ColorOutGraphCheck(Function &function) const;
     Status PreCheck(Function &function) override;
     Status PostCheck(Function &function) override;
-    void DoHealthCheck(Function &function, const std::string &folderPath) override;
+    void DoHealthCheckAfter(Function &function, const std::string &folderPath) override;
     Status CheckSinglePsgEsgMapping(Function &function, uint32_t psgId, uint32_t esgId);  
     Status VerifySingleOpTopology(Function &function, size_t opIndex);
     Status CheckReadyStateConsistency(Function &function, size_t opIndex);

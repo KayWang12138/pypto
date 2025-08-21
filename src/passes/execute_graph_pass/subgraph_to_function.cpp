@@ -954,7 +954,7 @@ void SubgraphToFunction::GetTensorDataDependencyClear(Function &function) {
     }
 }
 
-void SubgraphToFunction::DoHealthCheck(Function &function, const std::string &folderPath) {
+void SubgraphToFunction::DoHealthCheckAfter(Function &function, const std::string &folderPath) {
     // 使用GetDumpFilePrefix生成前缀
     std::string prefix = GetDumpFilePrefix(function);
     

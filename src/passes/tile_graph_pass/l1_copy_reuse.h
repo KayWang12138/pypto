@@ -80,7 +80,7 @@ private:
         ALOG_INFO_F("===> Finish L1CopyInReuseMerge.");
         return SUCCESS;
     }
-    void DoHealthCheck(Function &function, const std::string &folderPath) override;
+    void DoHealthCheckAfter(Function &function, const std::string &folderPath) override;
 };
 } // namespace npu::tile_fwk
 #endif // PASS_L1_COPY_REUSE_H_

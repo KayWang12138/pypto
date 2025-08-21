@@ -1281,7 +1281,6 @@ Status OoOSchedule::RunOnFunction(Function &function) {
         }
         std::vector<Operation *> newOperations;
         OoOScheduler oooSchedule;
-        oooSchedule.oooCheck.doHealthCheck = GetConfig<bool>("HEALTH_CHECK", false);
         ALOG_INFO_F("Subgraph[%d] OOOSchedule start.", program.first);
         if (oooSchedule.Schedule(*program.second, opList, newOperations) != SUCCESS) { ALOG_ERROR_F("Subgraph[%d] OoO Schedule failed.", program.first); return FAILED;}
         ALOG_INFO_F("Subgraph[%d] OOOSchedule end.", program.first);
@@ -1290,10 +1289,11 @@ Status OoOSchedule::RunOnFunction(Function &function) {
         RescheduleUtils::UpdateTensorConsProd(program.second);
         maxWorkeSpaceSize = std::max(maxWorkeSpaceSize, (*program.second).GetStackWorkespaceSize());
         function.SetStackWorkespaceSize(maxWorkeSpaceSize);
+        oooSchedule.oooCheck.doHealthCheck = passDfxconfigs_.healthCheck;
         if (oooSchedule.oooCheck.doHealthCheck) {
             oooSchedule.oooCheck.workspaceOffset = oooSchedule.workspaceOffset;
             oooSchedule.oooCheck.clock = oooSchedule.clock;
-            oooSchedule.oooCheck.jsonFileName = GetDumpFilePrefix(function, program.second, program.first);
+            oooSchedule.oooCheck.jsonFileName = GetDumpFilePrefix(function, false, program.second, program.first);
             schedulerMap.insert({program.first, oooSchedule});
         }
     }
@@ -1301,8 +1301,7 @@ Status OoOSchedule::RunOnFunction(Function &function) {
     return SUCCESS;
 }
 
-void OoOSchedule::DoHealthCheck(Function &function, const std::string &folderPath) {
-    (void) function;
+void OoOSchedule::DoHealthCheckAfter(Function &function, const std::string &folderPath) {
     for (auto &scheduler : schedulerMap) {
         auto fileName = folderPath + '/' + scheduler.second.oooCheck.jsonFileName + "_Kernel_Graph_Health_Report.json";
         auto it = function.rootFunc_->programs_.find(scheduler.first);

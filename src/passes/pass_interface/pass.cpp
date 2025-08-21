@@ -46,7 +46,13 @@ Status Pass::CreateLogFolder(const std::string &topFolder, size_t i) const {
     return SUCCESS;
 }
 
-void Pass::DoHealthCheck(Function &function, const std::string &folderPath) {
+void Pass::DoHealthCheckBefore(Function &function, const std::string &folderPath) {
+    (void) function;
+    (void) folderPath;
+    return;
+}
+
+void Pass::DoHealthCheckAfter(Function &function, const std::string &folderPath) {
     (void) function;
     (void) folderPath;
     return;
@@ -78,11 +84,13 @@ Status Pass::Run(Function &function, const std::string &strategy,
     return SUCCESS;
 }
 
-std::string Pass::GetDumpFilePrefix(Function& function, Function* subFunction, int subFuncId) {
+std::string Pass::GetDumpFilePrefix(Function& function, bool before, Function* subFunction, int subFuncId) {
     constexpr int printWide = 3;
     constexpr int funcPrintWide = 2;
     const auto &filePrefix = identifier_ + "_" + function.GetMagicName();
+    std::string stageName = before ? "Before" : "After";
     std::stringstream ss;
+    ss << stageName << "_";
     if (subFunction == nullptr) {
         ss << std::setw(printWide) << std::setfill('0') << passRuntimeIndex_ << "_" << filePrefix;
     } else {
@@ -98,7 +106,7 @@ Status Pass::PrintFunction(Function& function, const std::string &logFolder, boo
     ALOG_INFO_F("Dump function %s pass [%s].", stageName.c_str(), identifier_.c_str());
     if (function.rootFunc_ != nullptr) {
         std::stringstream ssRoot;
-        ssRoot << stageName << "_" << GetDumpFilePrefix(function) << "_Root_.tifwkgr";
+        ssRoot << GetDumpFilePrefix(function, beforeFunction) << "_Root_.tifwkgr";
         std::ofstream file(logFolder + "/" + ssRoot.str());
         if (file.is_open()) {
             file << function.rootFunc_->Dump();
@@ -107,7 +115,7 @@ Status Pass::PrintFunction(Function& function, const std::string &logFolder, boo
         std::stringstream ss;
         for (auto &subProgram : function.rootFunc_->programs_) {
             ss.str("");
-            ss << stageName << "_" << GetDumpFilePrefix(function, subProgram.second, subProgram.first) << ".tifwkgr";
+            ss << GetDumpFilePrefix(function, beforeFunction, subProgram.second, subProgram.first) << ".tifwkgr";
             std::ofstream subFile(logFolder + "/" + ss.str());
             if (subFile.is_open()) {
                 subFile << subProgram.second->Dump();
@@ -117,7 +125,7 @@ Status Pass::PrintFunction(Function& function, const std::string &logFolder, boo
     }
     {
         std::stringstream ssInner;
-        ssInner << stageName << "_" << GetDumpFilePrefix(function) << ".tifwkgr";
+        ssInner << GetDumpFilePrefix(function, beforeFunction) << ".tifwkgr";
         std::ofstream file(logFolder + "/" + ssInner.str());
         if (file.is_open()) {
             file << function.Dump();
@@ -131,15 +139,15 @@ Status Pass::DumpFunctionJson(Function& function, const std::string &logFolder, 
     std::string stageName = beforeFunction ? "Before" : "After";
     ALOG_INFO_F("Dump function %s pass [%s].", stageName.c_str(), identifier_.c_str());
     std::stringstream ss;
-    ss << stageName << "_" << GetDumpFilePrefix(function) << ".json";
+    ss << GetDumpFilePrefix(function, beforeFunction) << ".json";
     function.DumpJsonFile(logFolder + "/" + ss.str());
     if (function.rootFunc_ != nullptr) {
         ss.str("");
-        ss << stageName << "_" << GetDumpFilePrefix(function) << "_ROOT.json";
+        ss << GetDumpFilePrefix(function, beforeFunction) << "_ROOT.json";
         function.rootFunc_->DumpJsonFile(logFolder + "/" + ss.str());
         for (auto &subProgram : function.rootFunc_->programs_) {
             ss.str("");
-            ss << stageName << "_" << GetDumpFilePrefix(function, subProgram.second, subProgram.first) << ".json";
+            ss << GetDumpFilePrefix(function, beforeFunction, subProgram.second, subProgram.first) << ".json";
             subProgram.second->DumpJsonFile(logFolder + "/" + ss.str());
         }
     }
@@ -163,6 +171,9 @@ Status Pass::PreRun(Function &function) {
             return FAILED;
         }
     }
+    if (passDfxconfigs_.healthCheck) {
+        DoHealthCheckBefore(function, passFolder_);
+    }
     return SUCCESS;
 }
 
@@ -184,7 +195,7 @@ Status Pass::PostRun(Function &function) {
         }
     }
     if (passDfxconfigs_.healthCheck) {
-        DoHealthCheck(function, passFolder_);
+        DoHealthCheckAfter(function, passFolder_);
     }
     return SUCCESS;
 }
