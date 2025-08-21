@@ -570,6 +570,9 @@ bool Allocator::CheckAllConsumersConnectedToOp(const LogicalTensorPtr &tensor, O
 
 bool Allocator::TryReuseInputForOutput(
     Operation &callOp, size_t outputIdx, LogicalTensorPtr &reusedInput, uint64_t &storageOffset) const {
+    if (callOp.GetOpcode() != Opcode::OP_CALL) {
+        return false;
+    }
     const auto calleeHash = callOp.GetCalleeHash();
     auto cacheValue = Program::GetInstance().TryHitCahce(calleeHash);
     if (cacheValue == std::nullopt) {
@@ -893,6 +896,9 @@ Status Allocator::UpdateStorageId(TensorsDesc &tensorsDesc, std::unordered_map<i
 Status Allocator::UpdateIncastOutCast() {
     auto callOps = function_->Operations();
     for (auto &callOp : callOps) {
+        if (callOp.GetOpcode() != Opcode::OP_CALL) {
+            continue;
+        }
         auto callAttr = dynamic_cast<CallOpAttribute *>(callOp.GetOpAttribute().get());
         if (callAttr == nullptr) {
             ALOG_ERROR_F("Op %d callAttr is nullptr.", callOp.opmagic);
@@ -926,19 +932,19 @@ Status Allocator::Allocate() {
     uint64_t sizeBeforeReuse = 0;
     ALOG_INFO_F("Starting memory allocation with %zu storage entries.", storageNeedToAllocate_.size());
     for (auto &tensorsDesc : storageNeedToAllocate_) {
+        auto &tensor = *(tensorsDesc.tensors.begin());
+        if (tensor->storage_ == nullptr) {
+            ALOG_ERROR_F("Tensor rawMagic:%d, storage is nullptr.", tensor->GetRawMagic());
+            return FAILED;
+        }
         StorageNeedToAllocatePreProcess(tensorsDesc);
         TensorBucket &bucket = GetBestFitBucket(tensorsDesc);
         if(!bucket.AddTensorGroup(tensorsDesc)) {
-            ALOG_ERROR_F("tensorsDesc.tensors is empty, Cannot add empty tensor group to bucket.");
+            ALOG_ERROR_F("TensorsDesc.tensors is empty, Cannot add empty tensor group to bucket.");
             return FAILED;
         }
-        auto &tensor = *(tensorsDesc.tensors.begin());
         ALOG_DEBUG_F("Allocating storage for tensor: rawmagic=%d size=%ld.", tensor->GetRawMagic(),
             tensor->storage_->length_);
-        if (tensor->storage_ == nullptr) {
-            ALOG_ERROR_F("tensor rawMagic:%d, storage is nullptr.", tensor->GetRawMagic());
-            return FAILED;
-        }
         sizeBeforeReuse += tensor->storage_->length_;
     }
     for (auto &bucket : buckets_) {
@@ -965,6 +971,9 @@ Status MemoryReuse::RunOnFunction(Function &function) {
     /* 为incast、outcast类型申请storage，需要正确处理actual rawmagic */
     /* 标注每个CallOp输出Tensor生命周期，生命周期 */
     ALOG_INFO_F("===> Start MemoryReuse pass on function: %s.", function.GetMagicName().c_str());
+    if (function.rootFunc_ == nullptr) {
+        return FAILED;
+    }
     Allocator allocator(function.rootFunc_);
     allocator.Init();
     Status status = allocator.Allocate();
