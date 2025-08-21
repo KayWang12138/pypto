@@ -243,7 +243,7 @@ struct DevSymShape {
 
     uint64_t At(size_t idx, const uint64_t *exprTbl) const {
         if (dim[idx].IsExpression())
-            return exprTbl[idx];
+            return exprTbl[dim[idx].Value()];
         else
             return dim[idx].Value();
     }
@@ -1683,7 +1683,7 @@ struct DevAscendProgram {
         oss << "}";
         return oss.str();
     }
-    
+
     void DumpFile(const std::string &filePath) const {
         std::ofstream ofs(filePath);
         ofs << Dump();

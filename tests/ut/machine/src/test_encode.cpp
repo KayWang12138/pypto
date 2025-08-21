@@ -22,11 +22,11 @@ using namespace npu::tile_fwk::dynamic;
 
 TEST(DevEncode, DevSymShape) {
   DevSymShape shape;
-  shape.SetShape({SymInt(true, 0), SymInt(2), SymInt(2)});
-  uint64_t exprTbl[] = {4};
+  shape.SetShape({SymInt(true, 0), SymInt(true, 2), SymInt(2)}); // 4, 8, 2
+  uint64_t exprTbl[] = {4, 6, 8};
   uint64_t strides[3] = {0};
   shape.ToStride(strides, exprTbl);
-  EXPECT_EQ(strides[0], 4);
+  EXPECT_EQ(strides[0], 16);
   EXPECT_EQ(strides[1], 2);
   EXPECT_EQ(strides[2], 1);
 }
