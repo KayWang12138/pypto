@@ -2173,7 +2173,7 @@ static const SymbolicScalar RUNTIME_COA_GetValidShape = AddRuntimeCoaPrefix("GET
 static const SymbolicScalar RUNTIME_COA_GetParam = AddRuntimeCoaPrefix("GET_PARAM");
 
 static void MaybeNormalizeValue(
-        const SymbolicScalar &caafunc,
+        const SymbolicScalar &coaFunc,
         std::vector<SymbolicScalar> &operandCoaList,
         int operandCoaIndex,
         std::vector<OpImmediate> &opImmList,
@@ -2184,7 +2184,7 @@ static void MaybeNormalizeValue(
         SymbolicScalar scalar = opImm.GetSpecifiedValue();
         auto getTensorDataDict = GetTensorDataDict(scalar);
         if (getTensorDataDict.size() == 0) {
-            OpImmediate::NormalizeValue(operandCoaList[operandCoaIndex + dimIndex], opImm, caafunc(opImmList.size(), coaIndex, dimIndex), valueToIndex);
+            OpImmediate::NormalizeValue(operandCoaList[operandCoaIndex + dimIndex], opImm, coaFunc(opImmList.size(), coaIndex, dimIndex), valueToIndex);
         }
     }
 };
