@@ -420,6 +420,7 @@ static void FillL2PrefetchInfo(std::shared_ptr<DyndevFunctionAttribute> attr) {
         auto asc_tensor = tensor.GetStorage();
         if (asc_tensor == nullptr) {
           idx++;
+          attr->disableL2List.emplace_back(0);
           continue;
         }
         if (tensor->GetCachePolicy(CachePolicy::PREFETCH)) {
@@ -437,6 +438,7 @@ static void FillL2PrefetchInfo(std::shared_ptr<DyndevFunctionAttribute> attr) {
         auto asc_tensor = tensor.GetStorage();
         if (asc_tensor == nullptr) {
           idx++;
+          attr->disableL2List.emplace_back(0);
           continue;
         }
         if (tensor->GetCachePolicy(CachePolicy::NONE_CACHEABLE)) {
