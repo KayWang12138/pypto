@@ -17,208 +17,161 @@
 
 using namespace tile_fwk::test_operation;
 namespace {
+const unsigned IDX_DIM0 = 0;
+const unsigned IDX_DIM1 = 1;
+const unsigned IDX_DIM2 = 2;
+const unsigned IDX_DIM3 = 3;
+
 struct TopKOpFuncArgs : public OpFuncArgs {
-    TopKOpFuncArgs(std::vector<int> shape, std::vector<int> outputShape, std::vector<std::string> attrs,
-        std::vector<int> veiwShape, std::vector<int> vecTileShape, DataType dType) :
-        shape_(shape), outputShape_(outputShape), attrs_(attrs), veiwShape_(veiwShape), vecTileShape_(vecTileShape), dType_(dType) {}
-    std::vector<int> shape_;
-    std::vector<int> outputShape_;
-    std::vector<std::string> attrs_;
-    std::vector<int> veiwShape_;
-    std::vector<int> vecTileShape_;
-    DataType dType_;
+    TopKOpFuncArgs(std::vector<int> viewShape, const std::vector<int> tileShape, std::vector<int> count,
+        std::vector<int> dims, std::vector<bool> largest) :
+        viewShape_(viewShape), tileShape_(tileShape), count_(count), dims_(dims), largest_(largest){}
+    std::vector<int> viewShape_;
+    std::vector<int> tileShape_;
+    std::vector<int> count_;
+    std::vector<int> dims_;
+    std::vector<bool> largest_;
 };
 
-struct TopKOperationMetadata {
-    TopKOperationMetadata(std::vector<int> shape, std::vector<int> outputShape, std::vector<std::string> attrs,
-        std::vector<int> veiwShape, std::vector<int> vecTileShape, DataType dType, OpFunc opFunc) :
-        args_(shape, outputShape, attrs, veiwShape, vecTileShape, dType), opFunc_(opFunc) {}
-    TopKOpFuncArgs args_;
+struct TopKOpMetadata {
+    TopKOpMetadata(const OpFunc &opFunc, const nlohmann::json &test_data) :
+        opFunc_(opFunc), test_data_(test_data) {}
     OpFunc opFunc_;
+    nlohmann::json test_data_;
 };
 
-void TopKOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
+void TopKOpExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
                                 const OpFuncArgs* opArgs) {
-    int k = std::atoi((static_cast<const TopKOpFuncArgs*>(opArgs))->attrs_[0].c_str());
-    int dim = std::atoi((static_cast<const TopKOpFuncArgs*>(opArgs))->attrs_[1].c_str());
-    const char* str = (static_cast<const TopKOpFuncArgs*>(opArgs))->attrs_[2].c_str();
-    bool isLargest = (strcmp(str, "true") == 0) || (strcmp(str, "1") == 0);
+    auto args = static_cast<const TopKOpFuncArgs*>(opArgs);
+    SymbolicScalar firstDim = inputs[0]->shape[0];
+    SymbolicScalar secondDim = inputs[0]->shape[1];
+    const int firstViewShape = args->viewShape_[0];
+    const int secondViewShape = args->viewShape_[1];
+    int loop[] = {
+        CeilDiv(firstDim, firstViewShape),
+        CeilDiv(secondDim, secondViewShape)
+    };
     FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0], outputs[1]}) {
-        SymbolicScalar firstDim = inputs[0]->shape[0];
-        SymbolicScalar secondDim = inputs[0]->shape[1];
-        auto args = static_cast<const TopKOpFuncArgs*>(opArgs);
-        const int firstViewShape = args->veiwShape_[0];
-        const int bloop = CeilDiv(firstDim, firstViewShape);
-
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(bloop)) {
-            auto viewTensor = DViewPad(inputs[0], {firstViewShape, secondDim},
-                {std::min(firstDim - bIdx * firstViewShape, firstViewShape), secondDim},
-                {bIdx * firstViewShape, 0});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(
-                (static_cast<const TopKOpFuncArgs*>(opArgs))->vecTileShape_);
-            auto res = TopK(viewTensor, k, dim, isLargest);
-            DAssemble(std::get<0>(res), {bIdx * firstViewShape, 0}, outputs[0]);
-            DAssemble(std::get<1>(res), {bIdx * firstViewShape, 0}, outputs[1]);
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop[IDX_DIM0])) {
+            LOOP("LOOP_L1_bIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loop[IDX_DIM1])) {
+                std::vector<SymbolicScalar> offset = { bIdx * args->viewShape_[0], sIdx * args->viewShape_[1] };
+                auto viewTensor = DViewPad(inputs[0], args->viewShape_, {
+                    std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                    std::min(secondDim - sIdx * secondViewShape, secondViewShape)
+                }, offset);
+                Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                auto res = TopK(viewTensor, args->count_[0], args->dims_[0], args->largest_[0]);
+                DAssemble(std::get<0>(res), offset, outputs[0]);
+                DAssemble(std::get<1>(res), offset, outputs[1]);
+            }
         }
     }
 }
 
-static const TopKOperationMetadata testDataLists[] = {
-    TopKOperationMetadata({128, 32}, {128, 8}, {"8", "-1", "true"}, {128, 32}, {8, 8}, DataType::DT_FP32, TopKOperationExeFunc),
-};
-
-class TopKOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<TopKOperationMetadata> {};
-
-INSTANTIATE_TEST_SUITE_P(
-    TestTopK,
-    TopKOperationTest,
-    ::testing::ValuesIn(testDataLists)
-);
-
-TEST_P(TopKOperationTest, test_topk) {
-    TestCaseDesc testCase;
-    testCase.inputTensors = {
-        Tensor(GetParam().args_.dType_, GetParam().args_.shape_, "input0"),
-    };
-    testCase.outputTensors = {
-        Tensor(GetParam().args_.dType_, GetParam().args_.outputShape_, "output0"),
-        Tensor(DataType::DT_INT32, GetParam().args_.outputShape_, "output1")
-    };
-    testCase.inputPaths = {GetGoldenDir() + "/x.bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/value.bin", GetGoldenDir() + "/index.bin"};
-    testCase.args = &(GetParam().args_);
-    testCase.opFunc = GetParam().opFunc_;
-    TestExecutor::runTest(testCase);
-}
-
-void TopK3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
+void TopKOpExeFunc3D(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
                                 const OpFuncArgs* opArgs) {
-    int k = std::atoi((static_cast<const TopKOpFuncArgs*>(opArgs))->attrs_[0].c_str());
-    int dim = std::atoi((static_cast<const TopKOpFuncArgs*>(opArgs))->attrs_[1].c_str());
-    const char* str = (static_cast<const TopKOpFuncArgs*>(opArgs))->attrs_[2].c_str();
-    bool isLargest = (strcmp(str, "true") == 0) || (strcmp(str, "1") == 0);
+    auto args = static_cast<const TopKOpFuncArgs*>(opArgs);
+    SymbolicScalar firstDim = inputs[0]->shape[0];
+    SymbolicScalar secondDim = inputs[0]->shape[1];
+    SymbolicScalar thirdDim = inputs[0]->shape[2];
+    const int firstViewShape = args->viewShape_[0];
+    const int secondViewShape = args->viewShape_[1];
+    const int thirdViewShape = args->viewShape_[2];
+    int loop[] = {
+        CeilDiv(firstDim, firstViewShape),
+        CeilDiv(secondDim, secondViewShape),
+        CeilDiv(thirdDim, thirdViewShape)
+    };
     FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0], outputs[1]}) {
-        SymbolicScalar firstDim = inputs[0]->shape[0];
-        SymbolicScalar secondDim = inputs[0]->shape[1];
-        SymbolicScalar thirdDim = inputs[0]->shape[2];
-        auto args = static_cast<const TopKOpFuncArgs*>(opArgs);
-        const int firstViewShape = args->veiwShape_[0];
-        const int secondViewShape = args->veiwShape_[1];
-        const int thirdViewShape = args->veiwShape_[2];
-        const int bloop = CeilDiv(firstDim, firstViewShape);
-        const int sloop = CeilDiv(secondDim, secondViewShape);
-        const int nloop = CeilDiv(thirdDim, thirdViewShape);
-
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(bloop)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(sloop)) {
-                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(nloop)) {
-                    auto viewTensor = DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
-                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop[IDX_DIM0])) {
+            LOOP("LOOP_L1_bIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loop[IDX_DIM1])) {
+                LOOP("LOOP_L2_bIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(loop[IDX_DIM2])) {
+                    std::vector<SymbolicScalar> offset = {
+                        bIdx * args->viewShape_[0],
+                        sIdx * args->viewShape_[1],
+                        nIdx * args->viewShape_[2],
+                    };
+                    auto viewTensor = DViewPad(inputs[0], args->viewShape_, {
+                        std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                         std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                        std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
-                        {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(
-                        (static_cast<const TopKOpFuncArgs*>(opArgs))->vecTileShape_);
-                    auto res = TopK(viewTensor, k, dim, isLargest);
-                    DAssemble(std::get<0>(res), {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
-                    DAssemble(std::get<1>(res), {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[1]);
+                        std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)
+                    }, offset);
+                    Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                    auto res = TopK(viewTensor, args->count_[0], args->dims_[0], args->largest_[0]);
+                    DAssemble(std::get<0>(res), offset, outputs[0]);
+                    DAssemble(std::get<1>(res), offset, outputs[1]);
                 }
             }
         }
     }
 }
 
-static const TopKOperationMetadata test3DDataLists[] = {
-    TopKOperationMetadata({8, 2, 8}, {8, 2, 8}, {"8", "-1", "true"}, {8, 2, 8}, {8, 2, 8}, DataType::DT_FP32, TopK3DOperationExeFunc),
-};
-
-class TopK3DOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<TopKOperationMetadata> {};
-
-INSTANTIATE_TEST_SUITE_P(
-    TestTopK,
-    TopK3DOperationTest,
-    ::testing::ValuesIn(test3DDataLists)
-);
-
-TEST_P(TopK3DOperationTest, test_topk) {
-    TestCaseDesc testCase;
-    testCase.inputTensors = {
-        Tensor(GetParam().args_.dType_, GetParam().args_.shape_, "input0"),
-    };
-    testCase.outputTensors = {
-        Tensor(GetParam().args_.dType_, GetParam().args_.outputShape_, "output0"),
-        Tensor(DataType::DT_INT32, GetParam().args_.outputShape_, "output1")
-    };
-    testCase.inputPaths = {GetGoldenDir() + "/x.bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/value.bin", GetGoldenDir() + "/index.bin"};
-    testCase.args = &(GetParam().args_);
-    testCase.opFunc = GetParam().opFunc_;
-    TestExecutor::runTest(testCase);
-}
-
-void TopK4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
+void TopKOpExeFunc4D(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
                                 const OpFuncArgs* opArgs) {
-    int k = std::atoi((static_cast<const TopKOpFuncArgs*>(opArgs))->attrs_[0].c_str());
-    int dim = std::atoi((static_cast<const TopKOpFuncArgs*>(opArgs))->attrs_[1].c_str());
-    const char* str = (static_cast<const TopKOpFuncArgs*>(opArgs))->attrs_[2].c_str();
-    bool isLargest = (strcmp(str, "true") == 0) || (strcmp(str, "1") == 0);
+    auto args = static_cast<const TopKOpFuncArgs*>(opArgs);
+    SymbolicScalar firstDim = inputs[0]->shape[0];
+    SymbolicScalar secondDim = inputs[0]->shape[1];
+    SymbolicScalar thirdDim = inputs[0]->shape[2];
+    SymbolicScalar forthDim = inputs[0]->shape[3];
+    const int firstViewShape = args->viewShape_[0];
+    const int secondViewShape = args->viewShape_[1];
+    const int thirdViewShape = args->viewShape_[2];
+    const int forthViewShape = args->viewShape_[3];
+    int loop[] = {
+        CeilDiv(firstDim, firstViewShape),
+        CeilDiv(secondDim, secondViewShape),
+        CeilDiv(thirdDim, thirdViewShape),
+        CeilDiv(forthDim, forthViewShape)
+    };
     FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0], outputs[1]}) {
-        SymbolicScalar firstDim = inputs[0]->shape[0];
-        SymbolicScalar secondDim = inputs[0]->shape[1];
-        SymbolicScalar thirdDim = inputs[0]->shape[2];
-        SymbolicScalar fourDim = inputs[0]->shape[3];
-        auto args = static_cast<const TopKOpFuncArgs*>(opArgs);
-        const int firstViewShape = args->veiwShape_[0];
-        const int secondViewShape = args->veiwShape_[1];
-        const int thirdViewShape = args->veiwShape_[2];
-        const int bloop = CeilDiv(firstDim, firstViewShape);
-        const int sloop = CeilDiv(secondDim, secondViewShape);
-        const int nloop = CeilDiv(thirdDim, thirdViewShape);
-
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(bloop)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(sloop)) {
-                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(nloop)) {
-                    auto viewTensor = DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourDim},
-                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                        std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                        std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape), fourDim},
-                        {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape, 0});
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(
-                        (static_cast<const TopKOpFuncArgs*>(opArgs))->vecTileShape_);
-                    auto res = TopK(viewTensor, k, dim, isLargest);
-                    DAssemble(std::get<0>(res), {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape, 0}, outputs[0]);
-                    DAssemble(std::get<1>(res), {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape, 0}, outputs[1]);
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop[IDX_DIM0])) {
+            LOOP("LOOP_L1_bIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loop[IDX_DIM1])) {
+                LOOP("LOOP_L2_bIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(loop[IDX_DIM2])) {
+                    LOOP("LOOP_L3_bIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(loop[IDX_DIM3])) {
+                        std::vector<SymbolicScalar> offset = {
+                            bIdx * args->viewShape_[0],
+                            sIdx * args->viewShape_[1],
+                            nIdx * args->viewShape_[2],
+                            qIdx * args->viewShape_[3],
+                        };
+                        auto viewTensor = DViewPad(inputs[0], args->viewShape_, {
+                            std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                            std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape),
+                            std::min(forthDim - qIdx * forthViewShape, forthViewShape)
+                        }, offset);
+                        Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                        auto res = TopK(viewTensor, args->count_[0], args->dims_[0], args->largest_[0]);
+                        DAssemble(std::get<0>(res), offset, outputs[0]);
+                        DAssemble(std::get<1>(res), offset, outputs[1]);
+                    }
                 }
             }
         }
     }
 }
 
-static const TopKOperationMetadata test4DDataLists[] = {
-    TopKOperationMetadata({2, 8, 2, 8}, {2, 8, 2, 8}, {"8", "-1", "true"}, {2, 8, 2, 8}, {2, 8, 2, 8}, DataType::DT_FP32, TopK4DOperationExeFunc),
-};
+class TopKOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<TopKOpMetadata> {};
 
-class TopK4DOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<TopKOperationMetadata> {};
+INSTANTIATE_TEST_SUITE_P(TestTopK, TopKOperationTest, ::testing::ValuesIn(
+    GetOpMetaData<TopKOpMetadata>({TopKOpExeFunc, TopKOpExeFunc3D, TopKOpExeFunc4D}, "TopK")));
 
-INSTANTIATE_TEST_SUITE_P(
-    TestTopK,
-    TopK4DOperationTest,
-    ::testing::ValuesIn(test4DDataLists)
-);
-
-TEST_P(TopK4DOperationTest, test_topk) {
+TEST_P(TopKOperationTest, TestTopK) {
     TestCaseDesc testCase;
-    testCase.inputTensors = {
-        Tensor(GetParam().args_.dType_, GetParam().args_.shape_, "input0"),
-    };
-    testCase.outputTensors = {
-        Tensor(GetParam().args_.dType_, GetParam().args_.outputShape_, "output0"),
-        Tensor(DataType::DT_INT32, GetParam().args_.outputShape_, "output1")
-    };
-    testCase.inputPaths = {GetGoldenDir() + "/x.bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/value.bin", GetGoldenDir() + "/index.bin"};
-    testCase.args = &(GetParam().args_);
+    auto test_data = GetParam().test_data_;
+    testCase.inputTensors = GetInputTensors(test_data);
+    testCase.outputTensors = GetOutputTensors(test_data);
+    auto args = TopKOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data),
+        GetValueByName<std::vector<int>>(test_data, "count"),
+        GetValueByName<std::vector<int>>(test_data, "dims"),
+        GetValueByName<std::vector<bool>>(test_data, "islargest"));
+    testCase.args = &args;
     testCase.opFunc = GetParam().opFunc_;
+    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin"};
+    testCase.goldenPaths = {
+        GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin",
+        GetGoldenDir() + "/" + testCase.outputTensors[1]->Symbol() + ".bin"
+    };
     TestExecutor::runTest(testCase);
 }
 

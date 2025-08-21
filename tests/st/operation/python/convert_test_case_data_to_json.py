@@ -198,6 +198,12 @@ class TestDataReader:
         second_dim = row_data.get("second_dim", None)
         if second_dim is not None and not pd.isna(second_dim) and not pd.isnull(second_dim):
             params["second_dim"] = int(second_dim)
+        count = row_data.get("count", None)
+        if count is not None:
+            params["count"] = self.str_to_list(row_data.get("count"))
+        islargest = row_data.get("islargest", None)
+        if islargest is not None:
+            params["islargest"] = [bool(x) for x in self.str_to_list(row_data.get("islargest"))]
         return TestCaseData(
             row_data.get("case_index"),
             row_data.get("case_name"),

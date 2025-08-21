@@ -575,6 +575,25 @@ def gen_transpose_op_golden(case_name: str, output: Path, case_index: int = None
     return gen_op_golden("Transpose", golden_func, output, case_index)
 
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestTopK/TopKOperationTest.TestTopK",
+    ]
+)
+def gen_reduce_max_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs, params: dict):
+        x = torch.from_numpy(inputs[0])
+        dims = params["dims"]
+        count = params["count"]
+        islargest = params["islargest"]
+        val, idx = x.topk(count[0], dim=dims[0], largest=islargest[0], sorted=True)
+        return [val.numpy(), idx.numpy()]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("TopK", golden_func, output, case_index)
+
+
 def main() -> bool:
     # 用例名称
     case_name_list: List[str] = [
