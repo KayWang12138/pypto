@@ -46,7 +46,7 @@ public:
     void TearDown() override {}
 };
 
-template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool isSmooth = false, bool nz = false>
+template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool isSmooth = false, bool nz = false, bool debug = false>
 void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig, WinAttenTileShapeConfig &winAttntileConfig, SATileShapeConfig& saTileConfig,
     PostTileConfig& postConfig, CmpAttnTile &cmpTileConfig, std::string cacheMode = "PA_BSND") {
     float eps = params.eps;
@@ -268,8 +268,7 @@ void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig, W
         wUv, wo, woScale, smoothWo, postConfig,                                  // post
         outputKvCache, outputKrCache, postOut, cmpKvCache_v2, cmpKrCache_v2, cmpBlockTable_v2, actSeqLen_v2,
         actCmpSeqLen_v2, mlpWk1_v2, mlpWk2_v2, mlpCos_v2, mlpSin_v2, cmpAttn, cmpSoftmax, fullK, cmpK, firstRope,
-        firstRopeInput, topkRes, topkInput, cmpBlockSize, cmpStride, cmpTileConfig);
-
+        firstRopeInput, topkRes, topkInput, cmpBlockSize, cmpStride, cmpTileConfig, debug);
 }
 
 TEST_F(NSAUtest, nsa_b_16_fp16) {
@@ -340,5 +339,79 @@ TEST_F(NSAUtest, nsa_b_16_fp16) {
         }
     } else {
         TestNsa<npu::tile_fwk::float16, npu::tile_fwk::float16, false>(params, prologConfig, winAttnTileConfig, saTileConfig, postConfig, config, cacheMode);
+    }
+}
+
+
+TEST_F(NSAUtest, nsa_b_16_fp16_debug) {
+    NSASimpleParams params = NSASimpleParams::getDecodeParams();
+    ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
+    std::vector<int> inputParams = {16, 1, 8192, 128, 1, 0, 0};
+
+    params.b = inputParams[0]; // 16
+    params.s1 = inputParams[1];
+    params.s2 = inputParams[2];
+    params.n1 = inputParams[3];
+    params.n2 = inputParams[4];
+    int isQuant = inputParams[5];
+    int isSmooth = inputParams[6];
+
+    SATileShapeConfig saTileConfig;
+    const int gTile = 128; // for gLoop split
+    const int sTile = 1024; // for s2Loop split
+    saTileConfig.gTile = gTile;
+    saTileConfig.sKvTile = sTile;
+    saTileConfig.c1TileShape = {gTile, gTile, 64, 64, 128, 128}; // (n1, dn+dr) @ (s2Tile, dn+dr) -> (n1, s2Tile)
+    saTileConfig.v1TileShape = {16, 256}; // (n1, s2Tile)
+    saTileConfig.c2TileShape = {gTile, gTile, 64, 64, 128, 128}; // (n1, s2Tile) @ (s2Tile, dn) -> (n1, d)
+    saTileConfig.v2TileShape = {16, 256}; // (n1, d)
+
+    WinAttenTileShapeConfig winAttnTileConfig;
+    const int gTileSize = NUM_128; // for gLoop split
+    winAttnTileConfig.gTile = gTileSize;
+    winAttnTileConfig.vNopeTileShape = {NUM_16, NUM_256};
+    winAttnTileConfig.vRopeTileShape = {NUM_128, NUM_64};
+    winAttnTileConfig.outTileShape = {NUM_16, NUM_256};
+    winAttnTileConfig.c1TileShape = {gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, dN+dR) @ (winSize, dN+dR) -> (n1, s2Tile)
+    winAttnTileConfig.v1TileShape = {NUM_16, NUM_256}; // (n1, s2Tile)
+    winAttnTileConfig.c2TileShape = {gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, winSize) @ (winSize, dN) -> (n1, d)
+    winAttnTileConfig.v2TileShape = {NUM_16, NUM_256}; // (n1, d)
+
+    KvSlcTileShapeConfig kvSlcTileConfig;
+    kvSlcTileConfig.v0TileShape = {32, 32};
+
+    PostTileConfig postConfig = {16, 1};
+    MlaTileConfig prologConfig = {16, 1};
+
+
+    CmpAttnTile config;
+    // Block concat tile
+    config.castTile = {128, 64}; // {blockSize, n2 * d}
+    // MlpRope
+    config.mlpRopeTile.twoDim = {64, 64};           // (cmpBlockSize, n2*dk)
+    config.mlpRopeTile.threeDim = {1, 64, 64};      // (1, cmpBlockSize, dk)
+    config.mlpRopeTile.fourDim = {1, 64, 1, 64};    // (1, cmpBlockSize, n2, dK) * (1, cmpBlockSize, 1, dK) & RotateHalf
+    config.mlpRopeTile.fiveDim = {1, 64, 1, 64, 2}; // (1, cmpBlockSize, n2, dk / 2, 2)
+    // MlpCmp
+    config.mlpCmpTile.transTileShape = {32, 1, 192};              // (cmpBlockSize, n2, d)
+    config.mlpCmpTile.c1TileShape = {16, 16, 128, 128, 128, 128}; // (n2, 2 * cmpBlockSize * d)
+    config.mlpCmpTile.v1TileShape = {1, 128};                     // (n2, 2 * cmpBlockSize * d)
+    config.mlpCmpTile.c2TileShape = {16, 16, 128, 128, 128, 128}; // // (n2, d)
+    config.mlpCmpTile.v2TileShape = {1, 1, 128};                  // (1, n2, d)
+    // CmpAttn
+    config.attnTile.c1TileShape = {16, 16, 128, 128, 128, 128}; // (g, effSeq)
+    config.attnTile.v1TileShape = {16, 128};                    // (g, effSeq)
+    config.attnTile.c2TileShape = {16, 16, 128, 128, 128, 128}; // (g, dN)
+
+
+    std::string cacheMode = "PA_BSND";
+    if (isQuant == 1) {
+        if (isSmooth == 1) {
+            TestNsa<npu::tile_fwk::float16, int8_t, true, false, true>(params, prologConfig, winAttnTileConfig, saTileConfig, postConfig, config, cacheMode);
+        } else {
+            TestNsa<npu::tile_fwk::float16, int8_t, false, false, true>(params, prologConfig, winAttnTileConfig, saTileConfig, postConfig, config, cacheMode);
+        }
+    } else {
+        TestNsa<npu::tile_fwk::float16, npu::tile_fwk::float16, false, false, true>(params, prologConfig, winAttnTileConfig, saTileConfig, postConfig, config, cacheMode);
     }
 }

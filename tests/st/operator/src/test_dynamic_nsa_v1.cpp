@@ -45,7 +45,7 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::strin
 }
 
 template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool isSmooth = false, bool nz = false,
-    bool debug = false>
+    bool ci = false, bool debug = false>
 void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig,
     WinAttenTileShapeConfig &winAttntileConfig, SATileShapeConfig &saTileConfig,
     PostTileConfig &postConfig, CmpAttnTile &cmpTileConfig, float precision, std::string cacheMode = "PA_BSND") {
@@ -448,13 +448,13 @@ void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig,
         wUv, wo, woScale, smoothWo, postConfig,                                  // post
         outputKvCache, outputKrCache, postOut, cmpKvCache_v2, cmpKrCache_v2, cmpBlockTable_v2, actSeqLen_v2,
         actCmpSeqLen_v2, mlpWk1_v2, mlpWk2_v2, mlpCos_v2, mlpSin_v2, cmpAttn, cmpSoftmax, fullK, cmpK, firstRope,
-        firstRopeInput, topkRes, topkInput, cmpBlockSize, cmpStride, cmpTileConfig);
+        firstRopeInput, topkRes, topkInput, cmpBlockSize, cmpStride, cmpTileConfig, debug);
 
     auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifdef ENABLE_BUILD_WITH_CANN
     // 5. 更新输入输出list
     DynFuncRunner::Run(funcOp, inputDataList, outputDataList); // output list
-    if constexpr (debug) {
+    if constexpr (!ci) {
         std::cout << "MlaProlog kv ====== " << std::endl;
         EXPECT_TRUE(resultCmp<T>(golden3, (T *)outKvCacheData->data(), 0.003f));
         std::cout << "MlaProlog kr ====== " << std::endl;
@@ -488,7 +488,7 @@ void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig,
         EXPECT_TRUE(resultCmp<T>(postGolden, (T *)outputData->data(), 0.05f));
     }
     std::cout << "post out ====== print" << std::endl;
-    resultCmp<T>(postGolden, (T *)outputData->data(), 0.09f, int(0.05 * postGolden.size()), 1000, false, false, 128);
+    EXPECT_TRUE(resultCmp<T>(postGolden, (T *)outputData->data(), 0.13f, int(0.05 * postGolden.size()), 1000, false, false, 128));
 #endif
 }
 
@@ -574,9 +574,10 @@ TEST_F(DynamicNSATest, nsa_b_16_s1_1_s2_8192_h_7168_fp16_quant) {
     }
 }
 
-template <bool debug = true>
+template <bool ci = false, bool debug = false>
 void test_common(NSASimpleParams params) {
     int paramsSize = 7;
+    ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, debug);
     config::SetPassConfig("PVC2_OOO", "SplitReshape", "DISABLE_PASS", true);
     std::vector<int> inputParams(paramsSize);
     readInput<int>(GetGoldenDir() + "/input_params.bin", inputParams); // 在golden中保存了变化的参数，便于调试
@@ -643,14 +644,14 @@ void test_common(NSASimpleParams params) {
     std::string cacheMode = "PA_BSND";
     if (isQuant == 1) {
         if (isSmooth == 1) {
-            TestNsa<npu::tile_fwk::float16, int8_t, true, false, debug>(params, prologConfig, winAttnTileConfig,
+            TestNsa<npu::tile_fwk::float16, int8_t, true, false, ci, debug>(params, prologConfig, winAttnTileConfig,
                 saTileConfig, postConfig, config, 0.06f, cacheMode);
         } else {
-            TestNsa<npu::tile_fwk::float16, int8_t, false, false, debug>(params, prologConfig, winAttnTileConfig,
+            TestNsa<npu::tile_fwk::float16, int8_t, false, false, ci, debug>(params, prologConfig, winAttnTileConfig,
                 saTileConfig, postConfig, config, 0.06f, cacheMode);
         }
     } else {
-        TestNsa<npu::tile_fwk::float16, npu::tile_fwk::float16, false, false, debug>(params, prologConfig,
+        TestNsa<npu::tile_fwk::float16, npu::tile_fwk::float16, false, false, ci, debug>(params, prologConfig,
             winAttnTileConfig, saTileConfig, postConfig, config, 0.02f, cacheMode);
     }
 }
@@ -682,5 +683,10 @@ TEST_F(DynamicNSATest, s2_4096) {
 
 TEST_F(DynamicNSATest, mini) {
     NSASimpleParams params = NSASimpleParams::getDecodeParams();
-    test_common<false>(params);
+    test_common<true>(params);
+}
+
+TEST_F(DynamicNSATest, mini_debug) {
+    NSASimpleParams params = NSASimpleParams::getDecodeParams();
+    test_common<true, true>(params);
 }

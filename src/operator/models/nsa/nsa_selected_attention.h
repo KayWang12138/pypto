@@ -41,7 +41,7 @@ struct SATileShapeConfig {
 void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &kRopeCache, Tensor &kvActSeqs, Tensor &blockTable,
     const Tensor &qNope, const Tensor &qRope, Tensor &attentionOut,
     int nQ, int nKv, float softmaxScale, int front, int near, int topk, int blockSize, int cmpBlockSize, int slcBlockSize,
-    SATileShapeConfig saTileConfig);
+    SATileShapeConfig saTileConfig, bool debug=false);
 
 void SelectedAttention(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &kRopeCache, Tensor &kvActSeqs, Tensor &blockTable,
     const Tensor &qNope, const Tensor &qRope, Tensor &attentionOut,

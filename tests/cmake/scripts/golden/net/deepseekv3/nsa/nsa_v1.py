@@ -607,6 +607,7 @@ def nsa_entry(dtypes, bs1s2h, quant_smooth, output_dir: Path):
         "DynamicNSATest.s2_8192",
         "DynamicNSATest.s2_4096",
         "DynamicNSATest.mini",
+        "DynamicNSATest.mini_debug",
     ]
 )
 def gen_nsa_v1_func(case_name: str, output: Path) -> bool:
@@ -642,6 +643,8 @@ def gen_nsa_v1_func(case_name: str, output: Path) -> bool:
         elif case_name == "DynamicNSATest.s2_4096": # quant
             nsa_entry((np.float16, np.float16), (16, 1, 4096, 7168), (False, False), output)  
         elif case_name == "DynamicNSATest.mini": # quant
+            nsa_entry((np.float16, np.float16), (16, 1, 1024, 7168), (False, False), output)
+        elif case_name == "DynamicNSATest.mini_debug": # quant
             nsa_entry((np.float16, np.float16), (16, 1, 1024, 7168), (False, False), output)
         else:
             logging.error("Can't get func to gen golden, Case(%s)", case_name)

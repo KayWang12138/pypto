@@ -37,6 +37,7 @@ set(_CaseFilterList
         "AttentionPostUTest.b32_s1_nz_fp16_quant"
         # NSA
         "NSAUtest.nsa_b_16_fp16"
+        "NSAUtest.nsa_b_16_fp16_debug"
         "SlcAttnUtest.slc_attn_fp16"
         "KvSlcAttnUtest.kv_slc_attn_ut"
 

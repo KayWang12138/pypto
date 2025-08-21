@@ -36,7 +36,7 @@ namespace npu::tile_fwk {
 void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &kRopeCache, Tensor &kvActSeqs, Tensor &blockTable,
     const Tensor &qNope, const Tensor &qRope, Tensor &attentionOut,
     int nQ, int nKv, float softmaxScale, int front, int near, int topk, int blockSize, int cmpBlockSize, int slcBlockSize,
-    SATileShapeConfig saTileConfig) {
+    SATileShapeConfig saTileConfig, bool debug) {
     auto dtype = qNope->Datatype();
     int dN = qNope->shape[1];
     int dR = qRope->shape[1];
@@ -90,7 +90,14 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
                             positions = (sSlc - near + (topKIdx - (topk - front - near)) - 1) * slcBlockSize;
                         } else {
                             // 中间的topk-front-near个
-                            SymbolicScalar topkIndex = GetInputDataInt32Dim3(topKIndcies, bIdx, s1Idx, topKIdx - front);
+                            SymbolicScalar topkIndex;
+                            if (debug) {
+                                Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, NUM16);
+                                topkIndex = GetTensorDataInt32(topKIndcies, bIdx, s1Idx, topKIdx - front);
+                            } else {
+                                topkIndex = GetInputDataInt32Dim3(topKIndcies, bIdx, s1Idx, topKIdx - front);
+                            }
+
                             positions = topkIndex * slcBlockSize;
                         }
                         curKvSlcSeq = curKvSlcSeq + std::min(slcBlockSize, curActSeq - positions);
@@ -127,7 +134,7 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
 
                     SymbolicScalar curSeq = std::max(curKvSlcSeq - s1Sym + 1 + s1Idx, 0); // for MTP s1!= 1 casual计算
                     curSeq.AsIntermediateVariable();
-                    SymbolicScalar bnPerBatch = (curSeq + curS2Tile - 1) / curS2Tile;
+                    SymbolicScalar bnPerBatch = (topk * slcBlockSize + curS2Tile - 1) / curS2Tile;
                     LOOP("LOOP_L4_s2_SA", FunctionType::DYNAMIC_LOOP, s2Idx, LoopRange(0, bnPerBatch, 1), PowersOf2(1)) {
                         ConfigManager::Instance().SetSemanticLabel("Sa");
                         // DView, 临时规避改成 DViewPad

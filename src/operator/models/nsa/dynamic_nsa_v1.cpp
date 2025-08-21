@@ -63,11 +63,13 @@ void GenGatedScore(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, 
             Program::GetInstance().GetTileShape().SetVecTileShapes({1, h});
             auto sigmoidRes = Sigmoid(mm1Res);
             sigmoidRes = Cast(sigmoidRes, dType);
+            Program::GetInstance().GetTileShape().SetCubeTileShapes(
+                {tileBS, tileBS}, {NUM_128, NUM_128}, {NUM_16, NUM_16});            
             auto mm2Res = Matrix::Matmul(DT_FP32, sigmoidRes, gateW2);
             Program::GetInstance().GetTileShape().SetVecTileShapes({tileBS, n1});
 
             auto res = Reshape(mm2Res, {tileB, tileS, 3, n1});
-            Program::GetInstance().GetTileShape().SetVecTileShapes({2, tileS, 3, n1});
+            Program::GetInstance().GetTileShape().SetVecTileShapes({1, tileS, 3, n1});
 
             res = Transpose(res, {2, 3});
             if (gatingScore->Datatype() != DT_FP32) {
@@ -139,7 +141,7 @@ void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const T
     const Tensor &cmpBlockTable, const Tensor &actSeqLen, const Tensor &actCmpSeqLen, const Tensor &mlpWk1,
     const Tensor &mlpWk2, const Tensor &mlpCos, const Tensor &mlpSin, Tensor &cmpAttnOut, Tensor &cmpSoftmax,
     Tensor &fullK, Tensor &cmpK, Tensor &firstRope, Tensor &firstRopeInput, Tensor &topkRes, Tensor &topkInput,
-    const int cmpBlockSize, const int cmpStride, CmpAttnTile &tileConfig_v2) {
+    const int cmpBlockSize, const int cmpStride, CmpAttnTile &tileConfig_v2,bool debug) {
     ASSERT(gateMode == standard); // 当前仅支持standard模式
 
     FUNCTION("main", FunctionType::DYNAMIC,
@@ -229,17 +231,29 @@ void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const T
 
         config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
         Tensor cmpAttnOut16Tmp(dtype, {b, s, n1, vDim}, "cmpAttnOut16Tmp");
-        FusedCompressKvSelectCompute(qNope, qRope, kvCacheOut, krCacheOut, cmpKvCache, cmpKrCache, blockTable,
-            cmpBlockTable, actSeqLen, actCmpSeqLen, mlpWk1, mlpWk2, mlpCos, mlpSin, cmpAttnOut, cmpAttnOut16Tmp,
-            cmpSoftmax, fullK, cmpK, firstRope, firstRopeInput, topkRes, topkInput, blockSize, cmpBlockSize, cmpStride,
-            softmaxScale, n1, n2, tileConfig_v2);
+        Tensor topkResTmp(DT_INT32, {b, s, 16}, "topkRes");
+        if (debug) {
+            FusedCompressKvSelectCompute(qNope, qRope, kvCacheOut, krCacheOut, cmpKvCache, cmpKrCache, blockTable,
+                cmpBlockTable, actSeqLen, actCmpSeqLen, mlpWk1, mlpWk2, mlpCos, mlpSin, cmpAttnOut, cmpAttnOut16Tmp,
+                cmpSoftmax, fullK, cmpK, firstRope, firstRopeInput, topkResTmp, topkInput, blockSize, cmpBlockSize, cmpStride,
+                softmaxScale, n1, n2, tileConfig_v2);
+        } else {
+            FusedCompressKvSelectCompute(qNope, qRope, kvCacheOut, krCacheOut, cmpKvCache, cmpKrCache, blockTable,
+                cmpBlockTable, actSeqLen, actCmpSeqLen, mlpWk1, mlpWk2, mlpCos, mlpSin, cmpAttnOut, cmpAttnOut16Tmp,
+                cmpSoftmax, fullK, cmpK, firstRope, firstRopeInput, topkRes, topkInput, blockSize, cmpBlockSize, cmpStride,
+                softmaxScale, n1, n2, tileConfig_v2);
+        }
 
         // subgraph-4
         // kv_slc+slc_attn
         Tensor slcAttn(DT_FP32, {b, s, n1, vDim}, "slcAttn");
-        SelectedAttentionCompute(topkIndices, kvCacheOut, krCacheOut, kvActSeqs, blockTable,
-            qNope, qRope, slcAttn,
-            n1, n2, softmaxScale, front, near, topk, blockSize, cmpBlockSize, slcBlockSize, saTileConfig);
+        if (debug) {
+            SelectedAttentionCompute(topkResTmp, kvCacheOut, krCacheOut, kvActSeqs, blockTable, qNope, qRope, slcAttn,
+                n1, n2, softmaxScale, front, near, topk, blockSize, cmpBlockSize, slcBlockSize, saTileConfig, debug);
+        } else {
+            SelectedAttentionCompute(topkIndices, kvCacheOut, krCacheOut, kvActSeqs, blockTable, qNope, qRope, slcAttn,
+                n1, n2, softmaxScale, front, near, topk, blockSize, cmpBlockSize, slcBlockSize, saTileConfig, debug);
+        }
 
         // subgraph-5
         config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, false); // 非参数化

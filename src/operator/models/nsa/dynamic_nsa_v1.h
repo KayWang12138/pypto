@@ -126,7 +126,7 @@ void DynamicNsa(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, co
     const Tensor &mlpCos, const Tensor &mlpSin, Tensor &cmpAttnOut, Tensor &cmpSoftmax, Tensor &fullK, Tensor &cmpK,
     Tensor &firstRope, Tensor &firstRopeInput, Tensor &topkRes, Tensor &topkInput,
     const int cmpBlockSize, const int cmpStride,
-    CmpAttnTile &tileConfig_v2);
+    CmpAttnTile &tileConfig_v2,bool debug = false);
 
 } // namespace npu::tile_fwk
 

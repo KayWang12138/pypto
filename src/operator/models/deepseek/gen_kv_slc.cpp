@@ -31,7 +31,7 @@ using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
 void KvSlcCompute(Tensor &topK_indcies, Tensor &topK_tensor_shape, Tensor &kvNopeCache, Tensor &kRopeCache, Tensor &kvActSeqs, int front, int near, int topk, int l_prime,
-                  int n2, Tensor &blockTable, int blockSize, Tensor &k_slcOut, Tensor &v_slcOut, Tensor &kvSlcActSeqs, KvSlcTileShapeConfig &tileConfig) {
+                  int n2, Tensor &blockTable, int blockSize, Tensor &k_slcOut, Tensor &v_slcOut, Tensor &kvSlcActSeqs, KvSlcTileShapeConfig &tileConfig, bool debug) {
     auto v0Tile = tileConfig.v0TileShape;
     SymbolicScalar b = topK_indcies->shape[0];
     SymbolicScalar s = topK_indcies->shape[1];
@@ -56,7 +56,13 @@ void KvSlcCompute(Tensor &topK_indcies, Tensor &topK_tensor_shape, Tensor &kvNop
                         positions = (s_slc - near + (topKIdx - (topk - front - near)) - 1) * l_prime;
                     } else {
                         // 中间的topk-front-near个
-                        SymbolicScalar topk_index = GetInputDataInt32Dim3(topK_indcies, batchIdx, slcIdx, topKIdx - front);
+                        SymbolicScalar topk_index;
+                        if (debug) {
+                            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, NUM16);
+                            topk_index = GetTensorDataInt32(topK_indcies, batchIdx, slcIdx, topKIdx - front);
+                        } else {
+                            topk_index = GetInputDataInt32Dim3(topK_indcies, batchIdx, slcIdx, topKIdx - front);
+                        }
                         positions = topk_index * prime_value;
                     }
                     slcSeqLen = slcSeqLen + prime_value;
