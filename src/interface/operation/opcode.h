@@ -95,10 +95,11 @@ enum class Opcode {
     OP_L1_TO_L0B,
     // ANY
     OP_DUPLICATE,
-    // Move
+    // View
     OP_RESHAPE,
     OP_ASSEMBLE,
     OP_VIEW,
+    // Move
     OP_INDEX_OUTCAST,
     OP_REGISTER_COPY,
     OP_CONVERT,

@@ -225,9 +225,11 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
         const OrderedSet<std::shared_ptr<RawTensor>> &rawList,
         const std::unordered_map<int, std::shared_ptr<RawTensor>> &rawMagicToRawTensor,
         const std::vector<EncodeRawTensorAttr> &rawAttrs,
-        const IncastOutcastLink *inoutLink, const IncastOutcastSlot *slot,
+        const EncodeDevAscendFunctionParam &param,
         const SymbolicExpressionTable *expressionTable,
         bool fillContent) {
+    auto inoutLink = param.inoutLink;
+    auto slot = param.slot;
     rawTensorList_.HostInitDataSizeOffset(initOffset, rawList.size());
     rawTensorDescList_.HostInitDataSizeOffset(initOffset, rawList.size());
 
@@ -304,6 +306,20 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                 auto &actualRaw = it->second;
                 ASSERT(rawTensor->GetRawShapeSize() == actualRaw->GetRawShapeSize());
                 ASSERT(rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize());
+            }
+        }
+
+        // file linkedIncastId
+        auto outIncastLinkMap = param.devRoot->outIncastLinkMap;
+        ALOG_ERROR_F("devRoot is %s", param.devRoot->GetRawName().c_str());
+        for (size_t i = 0; i < rawList.size(); i++) {
+            auto &encoded = *GetRawTensor(i);
+            if (outIncastLinkMap.find(rawList[i]) != outIncastLinkMap.end()) {
+                encoded.linkedIncastId = incastRawList.GetIndex(outIncastLinkMap[rawList[i]]); //换成incast的下标 ioidx
+                ALOG_ERROR_F("linkedIncastId is %d", encoded.linkedIncastId);
+            } else {
+                encoded.linkedIncastId = -1;
+                ALOG_ERROR_F("linkedIncastId is %d", encoded.linkedIncastId);
             }
         }
     }; // ONFILLCONTENT
@@ -1278,7 +1294,8 @@ struct EncodeDevAscendFunctionInfo {
         EncodeOutCasts();
     }
 
-    void Init(DevAscendFunction *devFunc, const IncastOutcastLink *inoutLink, const IncastOutcastSlot *slot, bool fillContent) {
+    void Init(DevAscendFunction *devFunc, const EncodeDevAscendFunctionParam &param, bool fillContent) {
+        auto slot = param.slot;
         uintdevptr_t initOffset = reinterpret_cast<uintdevptr_t>(&devFunc->data) - reinterpret_cast<uintdevptr_t>(devFunc);
         DevAscendFunctionPredInfo predInfo = {totalZeroPred, totalZeroPredAIV, totalZeroPredAIC, totalZeroPredHub};
         devFunc->sourceFunc = nullptr;
@@ -1286,7 +1303,7 @@ struct EncodeDevAscendFunctionInfo {
         devFunc->InitOperationDynamicField(initOffset, predInfo, outcastStitchCount, calleeHashIndexDict,
             expressionTable, callList, incastList, outcastList, callOpSuccDict, fillContent);
         devFunc->InitRawTensorAndMemoryRequirement(initOffset, incastRawTensorList, outcastRawTensorList,
-            rawTensorList, rawMagicToRawTensor, rawAttrs, inoutLink, slot, expressionTable, fillContent);
+            rawTensorList, rawMagicToRawTensor, rawAttrs, param, expressionTable, fillContent);
         devFunc->InitTensor(initOffset, tensorList, rawTensorList, fillContent);
         devFunc->InitOperation(initOffset, expressionTable, callList, tensorList, rawTensorList, callOpPredDict,
             callOpSuccDict, calleeHashIndexDict, outcastStitchIndexList, fillContent);
@@ -1300,10 +1317,10 @@ void EncodeDevAscendFunction(const EncodeDevAscendFunctionParam &param, uint64_t
 
     if (base == nullptr) {
         DevAscendFunction devfunc;
-        encodeInfo.Init(&devfunc, param.inoutLink, param.slot, false);
+        encodeInfo.Init(&devfunc, param, false);
         offset = devfunc.GetSize();
     } else {
-        encodeInfo.Init(base, param.inoutLink, param.slot, true);
+        encodeInfo.Init(base, param, true);
         offset = base->GetSize();
     }
 }

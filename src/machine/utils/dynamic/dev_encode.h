@@ -265,6 +265,7 @@ struct DevAscendRawTensor {
     DevSymShape shape;
     DevIOProperty ioProperty{DevIOProperty::NONE};
     int32_t ioIndex;
+    int32_t linkedIncastId; //outcast shared same addr with incast
 
     int GetDim() const { return shape.dimSize; }
 
@@ -444,6 +445,16 @@ struct DevAscendFunctionPredInfo {
     uint64_t totalZeroPredAIV;
     uint64_t totalZeroPredAIC;
     uint64_t totalZeroPredHub;
+};
+
+struct EncodeDevAscendFunctionParam {
+    std::unordered_map<uint64_t, int> calleeHashIndexDict;
+    std::vector<CceCodeInfo> cceCodeInfoList;
+    const SymbolicSymbolTable *symbolTable;
+    const SymbolicExpressionTable *expressionTable;
+    const IncastOutcastLink *inoutLink;
+    const IncastOutcastSlot *slot;
+    Function *devRoot;
 };
 
 struct DevAscendFunction {
@@ -1001,7 +1012,7 @@ private:
             const OrderedSet<std::shared_ptr<RawTensor>> &rawList,
             const std::unordered_map<int, std::shared_ptr<RawTensor>> &rawMagicToRawTensor,
             const std::vector<EncodeRawTensorAttr> &rawAttrs,
-            const IncastOutcastLink *inoutLink, const IncastOutcastSlot *slot,
+            const EncodeDevAscendFunctionParam &param,
             const SymbolicExpressionTable *expressionTable,
             bool fillContent);
 
@@ -1480,16 +1491,6 @@ private:
 private:
     DynFuncData *funcData{nullptr}; // used by aicore
     WsAllocation dupTiny_;
-};
-
-struct EncodeDevAscendFunctionParam {
-    std::unordered_map<uint64_t, int> calleeHashIndexDict;
-    std::vector<CceCodeInfo> cceCodeInfoList;
-    const SymbolicSymbolTable *symbolTable;
-    const SymbolicExpressionTable *expressionTable;
-    const IncastOutcastLink *inoutLink;
-    const IncastOutcastSlot *slot;
-    Function *devRoot;
 };
 
 void EncodeDevAscendFunction(const EncodeDevAscendFunctionParam &param, uint64_t &offset, DevAscendFunction *base);

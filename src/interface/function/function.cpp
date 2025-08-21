@@ -1233,6 +1233,15 @@ const Opcode opCode, const LogicalTensors &iOperands, const LogicalTensors &oOpe
     return *operations_.back();
 }
 
+void Function::SetSameMemId(const Tensor &operand, Tensor &dst) {
+    ASSERT(operand.GetDataType() == dst.GetDataType()) << " Check Dtype failed!";
+
+    auto dstRaw = dst.GetStorage()->GetRawTensor();
+    auto operandRaw = operand.GetStorage()->GetRawTensor();
+    dstRaw->memoryId = operandRaw->memoryId;
+    outIncastLinkMap[dstRaw] = operandRaw;
+}
+
 std::vector<Operation *> Function::GetAllInputOperations(const Operation &op) const {
     std::vector<Operation *> retOps;
     if (op.BelongTo() != this) {
@@ -1380,6 +1389,26 @@ void Function::RemoveOriginIncastConsumer(const std::shared_ptr<LogicalTensor> &
     }
 }
 
+void Function::UpdateLinkMap(const std::shared_ptr<LogicalTensor> &oriLogicalTensor, const std::shared_ptr<LogicalTensor> &newLogicalTensor, const bool isOutCast) {
+    if (isOutCast) {
+        //  update outcast
+        auto it = outIncastLinkMap.find(oriLogicalTensor->tensor);
+        if (it != outIncastLinkMap.end()) {
+            outIncastLinkMap[newLogicalTensor->tensor] = it->second;
+            newLogicalTensor->tensor->memoryId = it->second->memoryId;
+            ALOG_DEBUG_F("UpdateLinkMap memoryId to %d  \n", it->second->memoryId);
+            outIncastLinkMap.erase(it);
+        }
+    } else {
+        //  update incast
+        for (auto &ele : outIncastLinkMap) {
+            if (ele.second == oriLogicalTensor->tensor) {
+                ele.second = newLogicalTensor->tensor;
+            }
+        }
+    }
+}
+
 std::pair<std::shared_ptr<LogicalTensor>, std::shared_ptr<LogicalTensor>> Function::CreateIncastTensor(const std::shared_ptr<LogicalTensor> &inArgument) {
     auto idx = inCasts_.size();
     auto newSymbol = inArgument->tensor->GetSymbol();
@@ -1394,6 +1423,7 @@ std::pair<std::shared_ptr<LogicalTensor>, std::shared_ptr<LogicalTensor>> Functi
     inCasts_.push_back(incastSymbol);
     incastToInArgumentDict[incastSymbol] = inArgument;
 
+    UpdateLinkMap(inArgument, incastSymbol);
     return std::pair<std::shared_ptr<LogicalTensor>, std::shared_ptr<LogicalTensor>>{incastSymbol, nullptr};
 }
 
@@ -1542,6 +1572,7 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
         rawSymbol->tensor->SetTensorInfo(rawOutcast->GetTensorInfo());
         Parent().tensorMap_.Insert(outArgument);
         outArgumentList.push_back(outArgument);
+        UpdateLinkMap(outArgument, rawSymbol, true);
         outCasts_.emplace_back(rawSymbol);
         if (scope) {
             scope->outcastToOutArgumentDict[rawSymbol] = outArgument;

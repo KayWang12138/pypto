@@ -30,10 +30,6 @@
 
 using namespace npu::tile_fwk;
 
-namespace npu::tile_fwk {
-
-} // namespace npu::tile_fwk
-
 namespace {
 
 struct TileInfo {
@@ -924,67 +920,6 @@ constexpr int BIAS_DIM_NUM = 1;
 constexpr int SMALL_CHANNEL_4 = 4;
 constexpr int SMALL_CHANNEL_8 = 8;
 constexpr int SMALL_CHANNEL_16 = 16;
-
-static void MaybeAppendGetTensorData(Operation *op, const std::vector<SymbolicScalar> &offset) {
-    (void)op;
-    auto currDynFunc = Program::GetInstance().GetCurrentDynamicFunction();
-    if (currDynFunc == nullptr) {
-        return;
-    }
-
-    auto currDynAttr = currDynFunc->GetDyndevAttribute();
-    auto getTensorDataDict = GetTensorDataDict(offset);
-    for (auto &[getTensorDataIndex, _] : getTensorDataDict) {
-        (void)_;
-        ASSERT(currDynAttr->getTensorDataDict.count(getTensorDataIndex)) << "Invalid index!";
-        auto import = *currDynAttr->getTensorDataDict[getTensorDataIndex].outcastTensor;
-        // The goal of this view is to add the tensor as incast.
-        std::vector<int> importShape(import.GetShape().size(), 1);
-        std::vector<int> importOffset(import.GetShape().size(), 0);
-        auto importLoad = View(import, importShape, importOffset);
-        auto importLoadOp = *importLoad->GetProducers().begin();
-        importLoadOp->SetAttr<int>(OP_EMUOP_PREFIX + "GetTensorData_tensor_to_scalar", getTensorDataIndex);
-    }
-}
-
-Tensor View(const Tensor &operand, const std::vector<int> &shapes, const std::vector<int> &offsets) {
-    DECLARE_TRACER();
-    Tensor result(operand->Datatype(), shapes, "View_" + operand->GetRawTensor()->GetSymbol(), operand->nodetype, operand->tensorfmt);
-    auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(
-        Opcode::OP_VIEW, {operand.GetStorage()}, {result.GetStorage()});
-    auto validShape = GetViewValidShape(operand->GetDynValidShape(), offsets, {}, shapes);
-    result->UpdateDynValidShape(validShape);
-    auto newOffsets = SymbolicScalar::FromConcrete(offsets);
-    op.SetOpAttribute(std::make_shared<ViewOpAttribute>(offsets, newOffsets, validShape));
-    return result;
-}
-
-Tensor DView(const Tensor &operand, const std::vector<int> &shapes, const std::vector<SymbolicScalar> &newOffsets) {
-    DECLARE_TRACER();
-    Tensor result(operand->Datatype(), shapes, "DView_" + operand->GetRawTensor()->GetSymbol(), operand->nodetype, operand->tensorfmt);
-    result->UpdateDynValidShape(SymbolicScalar::FromConcrete(shapes));
-    auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(
-        Opcode::OP_VIEW, {operand.GetStorage()}, {result.GetStorage()});
-    auto validShape = GetViewValidShape(operand->GetDynValidShape(), {}, newOffsets, shapes);
-    result->UpdateDynValidShape(validShape);
-    std::vector<int> newOffsetsConcrete = SymbolicScalar::Concrete(newOffsets, 0);
-    op.SetOpAttribute(std::make_shared<ViewOpAttribute>(newOffsetsConcrete, newOffsets, validShape));
-    MaybeAppendGetTensorData(&op, newOffsets);
-    return result;
-}
-
-Tensor DViewPad(const Tensor &operand, const std::vector<int> &shapes,
-    const std::vector<SymbolicScalar> &newValidShapes, const std::vector<SymbolicScalar> &newOffsets) {
-    DECLARE_TRACER();
-    Tensor result(operand->Datatype(), shapes, "DViewPad_" + operand->GetRawTensor()->GetSymbol(), operand->nodetype, operand->tensorfmt);
-    auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(
-        Opcode::OP_VIEW, {operand.GetStorage()}, {result.GetStorage()});
-    std::vector<int> newOffsetsConcrete = SymbolicScalar::Concrete(newOffsets, 0);
-    op.SetOpAttribute(std::make_shared<ViewOpAttribute>(newOffsetsConcrete, newOffsets, newValidShapes));
-    result->UpdateDynValidShape(newValidShapes);
-    MaybeAppendGetTensorData(&op, newOffsets);
-    return result;
-}
 
 void TiledGatherOperation(Function &function, const TileShape &tileShape, size_t cur, Input &paramsInput,
     Input &indicesInput, int axis, const LogicalTensorPtr &result, TileInfo &resultTileInfo) {
@@ -2126,93 +2061,6 @@ Tensor IndexPut(const Tensor &src, std::vector<Tensor> indices, const Tensor &va
     return result;
 }
 
-void TensorInnerAssemble(Function &function, const LogicalTensorPtr &operand,
-    const LogicalTensorPtr &result, const VecTileShapes &offset) {
-    auto &op = function.AddOperation(Opcode::OP_ASSEMBLE, {operand}, {result});
-    op.SetOpAttribute(std::make_shared<AssembleOpAttribute>(offset));
-}
-
-void InnerAssemble(Function &function, const LogicalTensorPtr &operand,
-    const LogicalTensorPtr &result, const VecTileShapes &offset) {
-    CALL(InnerAssemble, function, operand, result, offset);
-}
-
-Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int>>> &tensors) {
-    DECLARE_TRACER();
-
-    ASSERT(!tensors.empty());
-    std::vector<int> shape = tensors.front().first->shape;
-    for (const auto &[tensor, offset] : tensors) {
-        // 目前只支持2维操作
-        if (tensor->shape.size() != 2) {
-            ASSERT(false) << "unsupported dimension";
-        }
-        ASSERT(tensor->shape.size() == tensor->offset.size());
-        ASSERT(tensor->shape.size() == offset.size());
-    }
-
-    auto shapeSize = tensors[0].first->shape.size(); // 2
-
-    std::vector<int> rawShape(shapeSize, 0);
-
-    std::set<std::vector<int>> position;
-    for (const auto &[tensor, offset] : tensors) {
-        (void)tensor;
-        ASSERT(position.find(offset) == position.end());
-        position.emplace(offset);
-    }
-    ASSERT(position.find(std::vector<int>(shapeSize, 0)) != position.end());
-
-    for (const auto &[tensor, offset] : tensors) {
-        for (int j = 0; static_cast<size_t>(j) < shapeSize; j++) {
-            rawShape[j] = std::max(rawShape[j], tensor->shape[j] + offset[j]);
-            ASSERT(offset[j] % shape[j] == 0);
-            if (offset[j] > 0) {
-                auto tmpOffset = offset;
-                tmpOffset[j] -= shape[j];
-                ASSERT(position.find(tmpOffset) != position.end());
-            }
-        }
-    }
-
-    for (int i = 0; static_cast<size_t>(i) < shapeSize; i++) {
-        ASSERT(rawShape[i] > 0);
-    }
-
-    Tensor result(tensors[0].first->Datatype(), rawShape, "", NodeType::LOCAL, tensors[0].first->tensorfmt);
-    auto &curFunc = *Program::GetInstance().GetCurrentFunction();
-    for (const auto &[tensor, offset] : tensors) {
-        InnerAssemble(curFunc, tensor.GetStorage(), result.GetStorage(), offset);
-    }
-    Program::GetInstance().GetTensorSlotManager()->TensorWrite(result, true);
-    return result;
-}
-
-void TensorDInnerAssemble(Function &function, const LogicalTensorPtr &operand,
-    const LogicalTensorPtr &result, const std::vector<SymbolicScalar> &dynOffset) {
-    std::vector<int> offset = SymbolicScalar::Concrete(dynOffset, 0);
-    auto &op = function.AddOperation(Opcode::OP_ASSEMBLE, {operand}, {result});
-    op.SetAssembleOpAttribute(offset, dynOffset);
-    op.SetAttribute("dassemble", true);
-    MaybeAppendGetTensorData(&op, dynOffset);
-}
-
-void DInnerAssemble(Function &function, const LogicalTensorPtr &operand,
-    const LogicalTensorPtr &result, const std::vector<SymbolicScalar> &dynOffset) {
-    CALL(DInnerAssemble, function, operand, result, dynOffset);
-}
-
-void DAssemble(const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset, Tensor &dest) {
-    DECLARE_TRACER();
-
-    ASSERT(dest.GetStorage(false)->tensorfmt == tensor.GetStorage(false)->tensorfmt)<<"DAssemble: src and dest requires same format";
-    ASSERT(dest.GetShape().size() == tensor.GetShape().size())<<"DAssemble: src and dest requires same shape";
-    ASSERT(dest.GetShape().size() == dynOffset.size())<<"DAssemble: dynOffset and dest requires same shape";
-    DInnerAssemble(*Program::GetInstance().GetCurrentFunction(), tensor.GetStorage(), dest.GetStorage(), dynOffset);
-
-    Program::GetInstance().GetTensorSlotManager()->TensorWrite(dest, true);
-}
-
 void TensorInnerAssign(Function &function, const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
     function.AddOperation(Opcode::OP_REGISTER_COPY, {operand}, {result});
 }
@@ -2221,100 +2069,6 @@ Tensor Assign(const Tensor &operand) {
     Tensor result(operand->Datatype(), operand->shape);
     CALL(InnerAssign, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage());
     return result;
-}
-
-static int64_t CalculateCapacity(const std::vector<int> &shape) {
-    int64_t capacity = 1;
-    for (size_t i = 0; i < shape.size(); i++) {
-        capacity = capacity * shape[i];
-    }
-    return capacity;
-}
-
-void TiledInnerReshape(Function &function, const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
-    auto &op = function.AddOperation("TILE_RESHAPE", {operand}, {result});
-    op.SetAttribute(OP_ATTR_PREFIX + "validShape", result->GetDynValidShape());
-    op.oOperand.front()->SetIsDummy();
-}
-
-void TensorInnerReshape(Function &function, const LogicalTensorPtr &operand, const LogicalTensorPtr &result, const std::vector<SymbolicScalar> &validShape) {
-    auto &operation = function.AddOperation(Opcode::OP_RESHAPE, {operand}, {result});
-    if(validShape.empty()) {
-        result->UpdateDynValidShape(SymbolicScalar::FromConcrete(result->GetShape()));
-    } else {
-        result->UpdateDynValidShape(validShape);
-    }
-    operation.SetAttribute("reshape", result->shape);
-}
-
-static std::vector<int> CheckAndInferShape(const std::vector<int> &oriShape, const std::vector<int> &dstshape) {
-    int negIdx = -1;
-    std::vector<int> newShape = dstshape;
-    auto capacity = CalculateCapacity(oriShape);
-
-    for (size_t i = 0; i < newShape.size(); i++) {
-        int x = newShape[i];
-        ASSERT(x >= -1) << "Invalid shape " << x;
-        if (x == -1) {
-            ASSERT(negIdx == -1) << "Only one dim can be inferred";
-            negIdx = i;
-        }
-        ASSERT(capacity % x == 0) << "Invalid dstshape";
-        capacity /= x;
-    }
-
-    if (negIdx != -1) {
-        newShape[negIdx] = capacity;
-        capacity = 1;
-    }
-    ASSERT(capacity == 1) << "Shape size not match";
-    return newShape;
-}
-
-static bool ReshapeNeedCopy(const Tensor &operand) {
-    if (operand->shape != operand->tensor->rawshape) {
-        return true;
-    }
-    if (operand->GetProducers().empty()) {
-        return false;
-    }
-
-    auto op = *operand->GetProducers().begin();
-    while (op->GetOpcode() == Opcode::OP_VIEW) {
-        if (op->GetInputOperand(0)->GetShape() != op->GetOutputOperand(0)->GetShape()) {
-            return true;
-        }
-        if (op->GetInputOperand(0) != nullptr && !op->GetInputOperand(0)->GetProducers().empty()) {
-            op = *op->GetInputOperand(0)->GetProducers().begin();
-        } else {
-            break;
-        }
-    }
-    return false;
-}
-
-Tensor Reshape(const Tensor &operand, const std::vector<int> &dstshape, const std::vector<SymbolicScalar> &validShape) {
-    if (operand->shape == dstshape) {
-        return operand;
-    }
-    std::vector<SymbolicScalar> validShapeDefault = validShape;
-    if (validShape.empty()) {
-        validShapeDefault = SymbolicScalar::FromConcrete(dstshape);
-    }
-    auto newShape = CheckAndInferShape(operand->shape, dstshape);
-    if (ReshapeNeedCopy(operand)) {
-        Tensor copyOperand(operand->Datatype(), operand->shape, "", operand->nodetype, operand->tensorfmt);
-        CALL(InnerAssign, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(),
-            copyOperand.GetStorage());
-        Tensor result(copyOperand->Datatype(), newShape, "", operand->nodetype, operand->tensorfmt);
-        CALL(InnerReshape, *Program::GetInstance().GetCurrentFunction(), copyOperand.GetStorage(),
-            result.GetStorage(), validShapeDefault);
-        return result;
-    } else {
-        Tensor result(operand->Datatype(), newShape, "", operand->nodetype, operand->tensorfmt);
-        CALL(InnerReshape, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage(), validShapeDefault);
-        return result;
-    }
 }
 
 #define CALL(n, ...) Tensor##n(__VA_ARGS__)
@@ -2889,7 +2643,257 @@ void TiledReduceAcc(Function &function, const TileShape &tileShape,
     }
     TiledReduceAcc(function, tileShape, 0, inputVec, result, resultTileInfo);
 }
-/* Begin: Start for Reduce*/
+
+// view op
+static void MaybeAppendGetTensorData(Operation *op, const std::vector<SymbolicScalar> &offset) {
+    (void)op;
+    auto currDynFunc = Program::GetInstance().GetCurrentDynamicFunction();
+    if (currDynFunc == nullptr) {
+        return;
+    }
+
+    auto currDynAttr = currDynFunc->GetDyndevAttribute();
+    auto getTensorDataDict = GetTensorDataDict(offset);
+    for (auto &[getTensorDataIndex, _] : getTensorDataDict) {
+        (void)_;
+        ASSERT(currDynAttr->getTensorDataDict.count(getTensorDataIndex)) << "Invalid index!";
+        auto import = *currDynAttr->getTensorDataDict[getTensorDataIndex].outcastTensor;
+        // The goal of this view is to add the tensor as incast.
+        std::vector<int> importShape(import.GetShape().size(), 1);
+        std::vector<int> importOffset(import.GetShape().size(), 0);
+        auto importLoad = View(import, importShape, importOffset);
+        auto importLoadOp = *importLoad->GetProducers().begin();
+        importLoadOp->SetAttr<int>(OP_EMUOP_PREFIX + "GetTensorData_tensor_to_scalar", getTensorDataIndex);
+    }
+}
+
+Tensor View(const Tensor &operand, const std::vector<int> &shapes, const std::vector<int> &offsets) {
+    DECLARE_TRACER();
+    Tensor result(operand->Datatype(), shapes, "View_" + operand->GetRawTensor()->GetSymbol(), operand->nodetype, operand->tensorfmt);
+    auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(
+        Opcode::OP_VIEW, {operand.GetStorage()}, {result.GetStorage()});
+    auto validShape = GetViewValidShape(operand->GetDynValidShape(), offsets, {}, shapes);
+    result->UpdateDynValidShape(validShape);
+    auto newOffsets = SymbolicScalar::FromConcrete(offsets);
+    op.SetOpAttribute(std::make_shared<ViewOpAttribute>(offsets, newOffsets, validShape));
+    return result;
+}
+
+Tensor DView(const Tensor &operand, const std::vector<int> &shapes, const std::vector<SymbolicScalar> &newOffsets) {
+    DECLARE_TRACER();
+    Tensor result(operand->Datatype(), shapes, "DView_" + operand->GetRawTensor()->GetSymbol(), operand->nodetype, operand->tensorfmt);
+    result->UpdateDynValidShape(SymbolicScalar::FromConcrete(shapes));
+    auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(
+        Opcode::OP_VIEW, {operand.GetStorage()}, {result.GetStorage()});
+    auto validShape = GetViewValidShape(operand->GetDynValidShape(), {}, newOffsets, shapes);
+    result->UpdateDynValidShape(validShape);
+    std::vector<int> newOffsetsConcrete = SymbolicScalar::Concrete(newOffsets, 0);
+    op.SetOpAttribute(std::make_shared<ViewOpAttribute>(newOffsetsConcrete, newOffsets, validShape));
+    MaybeAppendGetTensorData(&op, newOffsets);
+    return result;
+}
+
+Tensor DViewPad(const Tensor &operand, const std::vector<int> &shapes,
+    const std::vector<SymbolicScalar> &newValidShapes, const std::vector<SymbolicScalar> &newOffsets) {
+    DECLARE_TRACER();
+    Tensor result(operand->Datatype(), shapes, "DViewPad_" + operand->GetRawTensor()->GetSymbol(), operand->nodetype, operand->tensorfmt);
+    auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(
+        Opcode::OP_VIEW, {operand.GetStorage()}, {result.GetStorage()});
+    std::vector<int> newOffsetsConcrete = SymbolicScalar::Concrete(newOffsets, 0);
+    op.SetOpAttribute(std::make_shared<ViewOpAttribute>(newOffsetsConcrete, newOffsets, newValidShapes));
+    result->UpdateDynValidShape(newValidShapes);
+    MaybeAppendGetTensorData(&op, newOffsets);
+    return result;
+}
+
+void TensorInnerAssemble(Function &function, const LogicalTensorPtr &operand,
+    const LogicalTensorPtr &result, const VecTileShapes &offset) {
+    auto &op = function.AddOperation(Opcode::OP_ASSEMBLE, {operand}, {result});
+    op.SetOpAttribute(std::make_shared<AssembleOpAttribute>(offset));
+}
+
+void InnerAssemble(Function &function, const LogicalTensorPtr &operand,
+    const LogicalTensorPtr &result, const VecTileShapes &offset) {
+    CALL(InnerAssemble, function, operand, result, offset);
+}
+
+Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int>>> &tensors) {
+    DECLARE_TRACER();
+
+    ASSERT(!tensors.empty());
+    std::vector<int> shape = tensors.front().first->shape;
+    for (const auto &[tensor, offset] : tensors) {
+        // 目前只支持2维操作
+        if (tensor->shape.size() != 2) {
+            ASSERT(false) << "unsupported dimension";
+        }
+        ASSERT(tensor->shape.size() == tensor->offset.size());
+        ASSERT(tensor->shape.size() == offset.size());
+    }
+
+    auto shapeSize = tensors[0].first->shape.size(); // 2
+
+    std::vector<int> rawShape(shapeSize, 0);
+
+    std::set<std::vector<int>> position;
+    for (const auto &[tensor, offset] : tensors) {
+        (void)tensor;
+        ASSERT(position.find(offset) == position.end());
+        position.emplace(offset);
+    }
+    ASSERT(position.find(std::vector<int>(shapeSize, 0)) != position.end());
+
+    for (const auto &[tensor, offset] : tensors) {
+        for (int j = 0; static_cast<size_t>(j) < shapeSize; j++) {
+            rawShape[j] = std::max(rawShape[j], tensor->shape[j] + offset[j]);
+            ASSERT(offset[j] % shape[j] == 0);
+            if (offset[j] > 0) {
+                auto tmpOffset = offset;
+                tmpOffset[j] -= shape[j];
+                ASSERT(position.find(tmpOffset) != position.end());
+            }
+        }
+    }
+
+    for (int i = 0; static_cast<size_t>(i) < shapeSize; i++) {
+        ASSERT(rawShape[i] > 0);
+    }
+
+    Tensor result(tensors[0].first->Datatype(), rawShape, "", NodeType::LOCAL, tensors[0].first->tensorfmt);
+    auto &curFunc = *Program::GetInstance().GetCurrentFunction();
+    for (const auto &[tensor, offset] : tensors) {
+        InnerAssemble(curFunc, tensor.GetStorage(), result.GetStorage(), offset);
+    }
+    Program::GetInstance().GetTensorSlotManager()->TensorWrite(result, true);
+    return result;
+}
+
+void TensorDInnerAssemble(Function &function, const LogicalTensorPtr &operand,
+    const LogicalTensorPtr &result, const std::vector<SymbolicScalar> &dynOffset) {
+    std::vector<int> offset = SymbolicScalar::Concrete(dynOffset, 0);
+    auto &op = function.AddOperation(Opcode::OP_ASSEMBLE, {operand}, {result});
+    op.SetAssembleOpAttribute(offset, dynOffset);
+    op.SetAttribute("dassemble", true);
+    MaybeAppendGetTensorData(&op, dynOffset);
+}
+
+void DInnerAssemble(Function &function, const LogicalTensorPtr &operand,
+    const LogicalTensorPtr &result, const std::vector<SymbolicScalar> &dynOffset) {
+    CALL(DInnerAssemble, function, operand, result, dynOffset);
+}
+
+void DAssemble(const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset, Tensor &dest) {
+    DECLARE_TRACER();
+
+    ASSERT(dest.GetStorage(false)->tensorfmt == tensor.GetStorage(false)->tensorfmt)<<"DAssemble: src and dest requires same format";
+    ASSERT(dest.GetShape().size() == tensor.GetShape().size())<<"DAssemble: src and dest requires same shape";
+    ASSERT(dest.GetShape().size() == dynOffset.size())<<"DAssemble: dynOffset and dest requires same shape";
+    DInnerAssemble(*Program::GetInstance().GetCurrentFunction(), tensor.GetStorage(), dest.GetStorage(), dynOffset);
+
+    Program::GetInstance().GetTensorSlotManager()->TensorWrite(dest, true);
+}
+
+static int64_t CalculateCapacity(const std::vector<int> &shape) {
+    int64_t capacity = 1;
+    for (size_t i = 0; i < shape.size(); i++) {
+        capacity = capacity * shape[i];
+    }
+    return capacity;
+}
+
+void TiledInnerReshape(Function &function, const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
+    auto &op = function.AddOperation("TILE_RESHAPE", {operand}, {result});
+    op.SetAttribute(OP_ATTR_PREFIX + "validShape", result->GetDynValidShape());
+    op.oOperand.front()->SetIsDummy();
+}
+
+void TensorInnerReshape(Function &function, const LogicalTensorPtr &operand, const LogicalTensorPtr &result, const std::vector<SymbolicScalar> &validShape) {
+    auto &operation = function.AddOperation(Opcode::OP_RESHAPE, {operand}, {result});
+    if(validShape.empty()) {
+        result->UpdateDynValidShape(SymbolicScalar::FromConcrete(result->GetShape()));
+    } else {
+        result->UpdateDynValidShape(validShape);
+    }
+    operation.SetAttribute("reshape", result->shape);
+}
+
+static std::vector<int> CheckAndInferShape(const std::vector<int> &oriShape, const std::vector<int> &dstshape) {
+    int negIdx = -1;
+    std::vector<int> newShape = dstshape;
+    auto capacity = CalculateCapacity(oriShape);
+
+    for (size_t i = 0; i < newShape.size(); i++) {
+        int x = newShape[i];
+        ASSERT(x >= -1) << "Invalid shape " << x;
+        if (x == -1) {
+            ASSERT(negIdx == -1) << "Only one dim can be inferred";
+            negIdx = i;
+        }
+        ASSERT(capacity % x == 0) << "Invalid dstshape";
+        capacity /= x;
+    }
+
+    if (negIdx != -1) {
+        newShape[negIdx] = capacity;
+        capacity = 1;
+    }
+    ASSERT(capacity == 1) << "Shape size not match";
+    return newShape;
+}
+
+static bool ReshapeNeedCopy(const Tensor &operand) {
+    if (operand->shape != operand->tensor->rawshape) {
+        return true;
+    }
+    if (operand->GetProducers().empty()) {
+        return false;
+    }
+
+    auto op = *operand->GetProducers().begin();
+    while (op->GetOpcode() == Opcode::OP_VIEW) {
+        if (op->GetInputOperand(0)->GetShape() != op->GetOutputOperand(0)->GetShape()) {
+            return true;
+        }
+        if (op->GetInputOperand(0) != nullptr && !op->GetInputOperand(0)->GetProducers().empty()) {
+            op = *op->GetInputOperand(0)->GetProducers().begin();
+        } else {
+            break;
+        }
+    }
+    return false;
+}
+
+Tensor Reshape(const Tensor &operand, const std::vector<int> &dstshape, const std::vector<SymbolicScalar> &validShape) {
+    if (operand->shape == dstshape) {
+        return operand;
+    }
+    std::vector<SymbolicScalar> validShapeDefault = validShape;
+    if (validShape.empty()) {
+        validShapeDefault = SymbolicScalar::FromConcrete(dstshape);
+    }
+    auto newShape = CheckAndInferShape(operand->shape, dstshape);
+    if (ReshapeNeedCopy(operand)) {
+        Tensor copyOperand(operand->Datatype(), operand->shape, "", operand->nodetype, operand->tensorfmt);
+        CALL(InnerAssign, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(),
+            copyOperand.GetStorage());
+        Tensor result(copyOperand->Datatype(), newShape, "", operand->nodetype, operand->tensorfmt);
+        CALL(InnerReshape, *Program::GetInstance().GetCurrentFunction(), copyOperand.GetStorage(),
+            result.GetStorage(), validShapeDefault);
+        return result;
+    } else {
+        Tensor result(operand->Datatype(), newShape, "", operand->nodetype, operand->tensorfmt);
+        CALL(InnerReshape, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage(), validShapeDefault);
+        return result;
+    }
+}
+
+void ReshapeInplace(const Tensor &operand, Tensor &dst) {
+    auto &operation = Program::GetInstance().GetCurrentFunction()->AddOperation(Opcode::OP_RESHAPE, {operand.GetStorage()}, {dst.GetStorage()});
+    operation.SetAttribute("isInplace", true);
+    Program::GetInstance().GetTensorSlotManager()->TensorWrite(dst, true);
+    Program::GetInstance().GetCurrentFunction()->SetSameMemId(operand, dst);
+}
+
 } // namespace npu::tile_fwk
 
 static void BinaryOperationOperandCheck(const std::vector<LogicalTensorPtr> &iOperand,

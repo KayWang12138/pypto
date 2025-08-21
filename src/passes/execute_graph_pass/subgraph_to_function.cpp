@@ -799,11 +799,26 @@ void SubgraphToFunction::InitializeRootFunction(Function& function, Function* ro
     if (function.IsFunctionTypeAndGraphType(FunctionType::DYNAMIC_LOOP_PATH, {GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) {
         rootFunc->SetDynloopAttribute(function.GetDynloopAttribute());
     }
-    for (auto &tensor: function.inCasts_) {
-        rootFunc->inCasts_.push_back(tensor->Clone(*rootFunc));
-    }
+    
     for (auto &tensor: function.outCasts_) {
-        rootFunc->outCasts_.push_back(tensor->Clone(*rootFunc));
+        auto newOutcast = tensor->Clone(*rootFunc);
+        rootFunc->outCasts_.push_back(newOutcast);
+        // update outcast
+        auto it = function.outIncastLinkMap.find(tensor->tensor);
+        if (it != function.outIncastLinkMap.end()) {
+            rootFunc->outIncastLinkMap[newOutcast->tensor] = it->second;
+        }
+    }
+
+    for (auto &tensor: function.inCasts_) {
+        auto newIncast = tensor->Clone(*rootFunc);
+        rootFunc->inCasts_.push_back(newIncast);
+        //update rootFunc incast
+        for (auto it : rootFunc->outIncastLinkMap) {
+            if (it.second == tensor->tensor) {
+                rootFunc->outIncastLinkMap[it.first] = newIncast->tensor;
+            }
+        }
     }
     ALOG_DEBUG_F("Root function tensor map size is %zu %zu",
         rootFunc->GetTensorMap().inverseMap_.size(), rootFunc->GetTensorMap().tensorMap_.size());

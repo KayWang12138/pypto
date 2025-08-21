@@ -136,6 +136,11 @@ set(_CaseFilterList
         "DynamicBatchMatmulTest.test_bmm_A_B_NZ_bf16"
         "DynamicBatchMatmulTest.test_bmm_A_Bt_NZ_fp16"
         "DynamicBatchMatmulTest.test_bmm_A_B_ND_bf16_tile1"
+
+        #===========================================================================
+         # Reshape功能用例
+        #===========================================================================
+        "DynamicReshapeTest.test_only_reshape"
 )
 
 set(_Target ${TileFwkSTestNamePrefix}_machine)

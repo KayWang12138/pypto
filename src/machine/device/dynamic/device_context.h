@@ -451,6 +451,15 @@ public:
             devRootDup.RuntimeWorkspace() = 0;
         }
 
+        // assign incast address descriptor
+        for (size_t i = 0; i < devRootSrc->GetIncastSize(); ++i) {
+            DEV_DEBUG_ASSERT(devRootSrc->GetIncast(i).fromSlotList.size() > 0);
+
+            int slotIndex = devRootSrc->At(devRootSrc->GetIncast(i).fromSlotList, 0);
+            devRootDup.GetIncastAddress(i) = slotList[slotIndex].desc;
+            DEV_DEBUG("get incast %zu, from slot %d address %s.", i, slotIndex, devRootDup.GetIncastAddress(i).ToString().c_str());
+        }
+
         // assign outcast address separately first, will be reassigned when corresponding slot was replaced
         uintdevptr_t outcastBaseAddr = devRootDup.RuntimeOutcastBase();
         for (size_t i = 0; i < devRootSrc->GetOutcastSize(); ++i) {
@@ -475,18 +484,17 @@ public:
             } else {
                 desc = AddressDescriptor(outcastBaseAddr + devRootSrc->GetOutcastRawTensor(i)->addrOffset);
             }
+
+            //判断是否与incast 共地址
+            auto rawTensor = devRootSrc->GetOutcastRawTensor(i);
+            if (rawTensor->linkedIncastId != -1) {
+                desc = devRootDup.GetIncastAddress(rawTensor->linkedIncastId);
+            }
+
             devRootDup.GetOutcastAddress(i) = desc;
             DEV_DEBUG("get outcast %zu slot %d address %s.", i, slotIndex, desc.ToString().c_str());
         }
 
-        // assign incast address descriptor
-        for (size_t i = 0; i < devRootSrc->GetIncastSize(); ++i) {
-            DEV_DEBUG_ASSERT(devRootSrc->GetIncast(i).fromSlotList.size() > 0);
-
-            int slotIndex = devRootSrc->At(devRootSrc->GetIncast(i).fromSlotList, 0);
-            devRootDup.GetIncastAddress(i) = slotList[slotIndex].desc;
-            DEV_DEBUG("get incast %zu, from slot %d address %s.", i, slotIndex, devRootDup.GetIncastAddress(i).ToString().c_str());
-        }
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
         funcAllocDfx.DelayedDumpAsRootFuncAndReset(wsMemDelayedDumper_, devRootDup.GetSource()->GetRawName());
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
@@ -1027,12 +1035,14 @@ struct DeviceStitchContext {
             auto &dup = stitchedList_[desc.dupIdx];
             auto &outcastDesc = dup.GetOutcastAddress(desc.outcastIdx);
             DEV_DEBUG_ASSERT(outcastDesc.IsAddress());
-            if (slot.IsFixedAddress()) {
-                desc = outcastDesc;
-                continue;
-            }
 
+            // todo 如果slot 里的  rawTensor 复用的reshape的输入 那么进入if
             auto *outcastRawTensor = dup.GetSource()->GetOutcastRawTensor(desc.outcastIdx);
+            if (slot.IsFixedAddress() || outcastRawTensor->linkedIncastId != -1) {
+                 desc = outcastDesc;
+                 continue;
+             }
+
             uintdevptr_t outcastWsStandardAddr = dup.RuntimeOutcastBase() + outcastRawTensor->addrOffset;
             if (outcastDesc.addr == outcastWsStandardAddr) {
                 // First time meet this unsolved slot

@@ -50,6 +50,12 @@ Tensor DView(const Tensor &operand, const std::vector<int> &shapes, const std::v
 Tensor DViewPad(const Tensor &operand, const std::vector<int> &shapes,
     const std::vector<SymbolicScalar> &newValidShapes, const std::vector<SymbolicScalar> &newOffsets);
 
+Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int>>> &tensors);
+void DAssemble(const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset, Tensor &dest);
+
+Tensor Reshape(const Tensor &operand, const std::vector<int> &dstshape, const std::vector<SymbolicScalar> &validShape={});
+void ReshapeInplace(const Tensor &operand, Tensor &dst);
+
 Tensor VectorDuplicate(const Element &src, DataType dtype, std::vector<int> dstShape,
     std::vector<SymbolicScalar> validShape = {});
 Tensor VectorDuplicate(const SymbolicScalar &src, DataType dtype, std::vector<int> dstShape,
@@ -62,7 +68,6 @@ Tensor Sqrt(const Tensor &operand);
 Tensor Reciprocal(const Tensor &operand);
 Tensor Abs(const Tensor &operand);
 
-Tensor Reshape(const Tensor &operand, const std::vector<int> &dstshape, const std::vector<SymbolicScalar> &validShape={});
 Tensor Duplicate(const Tensor &operand);
 Tensor Gather(const Tensor &params, const Tensor &indices, int axis);
 Tensor GatherElement(const Tensor &params, const Tensor &indices, int axis);
@@ -96,9 +101,6 @@ Tensor ScatterUpdate(const Tensor &dst, const Tensor &index, const Tensor &src, 
 
 Tensor Expand(const Tensor &operand, const std::vector<int> &dstShape);
 Tensor Expand(const Tensor &operand, DataType dataType, const std::vector<int> &shape);
-
-Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int>>> &tensors);
-void DAssemble(const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset, Tensor &dest);
 
 Tensor Sin(Tensor operand);
 Tensor Cos(Tensor operand);

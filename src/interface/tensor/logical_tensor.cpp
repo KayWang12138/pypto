@@ -114,6 +114,7 @@ std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function &dstFunc) const {
             std::make_shared<RawTensor>(tensor->datatype, tensor->rawshape, tensor->symbol, tensor->rawmagic);
         rawTensor->actualRawmagic = tensor->actualRawmagic;
         rawTensor->UpdateDynRawShape(tensor->GetDynRawShape());
+        rawTensor->memoryId = tensor->memoryId;
     }
 
     std::shared_ptr<LogicalTensor> newTensor = std::make_shared<LogicalTensor>(dstFunc, rawTensor,

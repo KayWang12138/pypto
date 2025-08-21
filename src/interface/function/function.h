@@ -464,6 +464,10 @@ public:
     Operation &AddRawOperation(const Opcode opCode, const LogicalTensors &iOperands, const LogicalTensors &oOperands,
         bool updateTensorMap = true);
 
+    std::map<std::shared_ptr<RawTensor>, std::shared_ptr<RawTensor>> outIncastLinkMap; //记录outcast 共享地址的 incast
+    void SetSameMemId(const Tensor &operand, Tensor &dst);
+    void UpdateLinkMap(const std::shared_ptr<LogicalTensor> &oriLogicalTensor, const std::shared_ptr<LogicalTensor> &newLogicalTensor, const bool isOutCast=false);
+
     std::vector<Operation *> GetAllInputOperations(const Operation &op) const;
     std::vector<Operation *> GetAllOutputOperations(const Operation &op) const;
 
