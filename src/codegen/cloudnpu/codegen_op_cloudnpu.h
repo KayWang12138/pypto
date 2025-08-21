@@ -332,9 +332,14 @@ private:
         int dynShapeIdx, int ShapeDim = SHAPE_DIM4, bool isNeedGmOffset = true) const;
 
     std::string PrintReduceLastAxis(const PrintUnaryTmpBuffParam &param) const;
+    std::string PrintReduceLastAxisDynamicUnalign(const PrintUnaryTmpBuffParam &param) const;
 
     std::string PrintExtractStatic() const;
     std::string PrintExtractDynamicUnaligned() const;
+
+    std::string PrintCastDynamicUnaligned(const PrintUnaryParam &param) const;
+    std::string PrintReduceCombine(const PrintUnaryTmpBuffParam &param) const;
+    std::string PrintVectorScalarOpDynamicUnalign(const PrintUnaryParam &param) const;
 
     const std::unordered_map<Opcode, std::function<std::string()>> opsGenMap_ = {
         // UB <-> GM
