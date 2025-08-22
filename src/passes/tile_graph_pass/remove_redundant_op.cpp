@@ -16,7 +16,6 @@
 #include "remove_redundant_op.h"
 
 using namespace npu::tile_fwk;
-
 namespace npu::tile_fwk {
 namespace {
 // Precheck for assemble
@@ -134,8 +133,8 @@ Status ProcessPostRegCopy(const Operation &op) {
     if (regcopy_in == nullptr) {return FAILED;}
     auto regcopy_out = op.oOperand.front();
     if (regcopy_out == nullptr) {return FAILED;}
-    if (regcopy_in->shape == regcopy_out->shape) {
-        ALOG_ERROR_F("PostCheck for regcopy op[%d] failed!", op.GetOpMagic());
+    if (regcopy_in->shape == regcopy_out->shape && regcopy_in->GetMemoryTypeOriginal() == regcopy_out->GetMemoryTypeOriginal()) {
+        ALOG_ERROR_F("PostCheck for regcopy op[%d] failed, in->shape == out->shape!", op.GetOpMagic());
         return FAILED;
     }
     return SUCCESS;
@@ -210,9 +209,9 @@ Status ProcessRegCopy(const Operation &op, const Function &function, bool &needT
     if (regCopyIn == nullptr) {return FAILED;}
     auto regCopyOut= op.oOperand.front();
     if (regCopyOut == nullptr) {return FAILED;}
-    if (regCopyIn->shape == regCopyOut->shape) {
+    if (regCopyIn->shape == regCopyOut->shape && regCopyIn->GetMemoryTypeOriginal() == regCopyOut->GetMemoryTypeOriginal()) {
         /*
-        register copy 输入和输出相同，无拷贝意义
+        register copy 输入和输出且memtype相同，无拷贝意义
         view -> ub -> register copy -> ub -> op
         view -> ub  -> op
         */

@@ -533,6 +533,53 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest10) {
 }
 
 /*
+TESTRemoveDummyRegCopy
+inCast{8,16}/{a0,16}->regcopy->ubTensor1{8,16}/{a1,16}->regcopy->ubTensor2{16,8}/{a1,16}->exp->outCast1{16,8}
+inCast{8,16}/{a0,16}->regcopy->ubTensor1{8,16}/{a1,16}->exp->outCast1{16,8}
+*/
+TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest11) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestRemoveRedundantOp", "TestRemoveRedundantOp", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    // Prepare the graph
+    std::vector<int> shape1 = {kNumEight, kNumExpFour};
+    auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    inCast->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR);
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    ubTensor1->SetMemoryTypeBoth(MemoryType::MEM_UB);
+    auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    ubTensor2->SetMemoryTypeBoth(MemoryType::MEM_UB);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    outCast->SetMemoryTypeBoth(MemoryType::MEM_UB);
+    
+    auto &regcopy = currFunctionPtr->AddOperation(Opcode::OP_REGISTER_COPY, {inCast}, {ubTensor1});
+    currFunctionPtr->AddOperation(Opcode::OP_REGISTER_COPY, {ubTensor1}, {ubTensor2});
+    currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor2}, {outCast});
+    
+    currFunctionPtr->inCasts_.push_back(inCast);
+    currFunctionPtr->outCasts_.push_back(outCast);
+
+    RemoveRedundantOp removeredundantpass;
+    EXPECT_NE(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
+
+    uint32_t regcopy_num = kNumZero;
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_REGISTER_COPY) {
+            EXPECT_EQ(op.GetOpMagic(), regcopy.GetOpMagic());
+            EXPECT_EQ(op.GetInputOperandSize(), kSizeOne);
+            EXPECT_EQ(op.GetInputOperand(kSizeZero), inCast);
+            ++regcopy_num;
+        } else if (op.GetOpcode() == Opcode::OP_EXP) {
+            EXPECT_EQ(op.GetInputOperandSize(), kSizeOne);
+            EXPECT_EQ(op.GetInputOperand(kSizeZero), ubTensor1);
+        }
+    }
+    EXPECT_EQ(regcopy_num, kNumOne);
+}
+
+/*
 view->exp(end assemble)->view(end assemble)->expand(end assemble)->exp(end assemble)
                                                                  ->exp(end assemble)
 
