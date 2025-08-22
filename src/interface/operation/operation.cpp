@@ -750,6 +750,16 @@ void Operation::RemoveOutCtrlOperation(Operation &operation) {
     }
 }
 
+Operation &Operation::CloneOperation(
+    Function &func, const LogicalTensors &iOperandList, const LogicalTensors &oOperandList) const {
+    Operation &op = func.AddOperation(opcode_, iOperandList, oOperandList);
+    if (opAttribute_) {
+        op.opAttribute_ = opAttribute_->Clone();
+    }
+    op.attributes = attributes;
+    return op;
+}
+
 std::string Operation::GetOpcodeStr(bool appendTile) const {
     if (!OpcodeManager::Inst().HasOpcode(opcode_)) {
         return "";

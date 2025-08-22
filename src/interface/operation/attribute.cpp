@@ -164,6 +164,10 @@ std::shared_ptr<ViewOpAttribute> ViewOpAttribute::DeserializeFrom(const Json& at
     return std::make_shared<ViewOpAttribute>(fromOffset, static_cast<MemoryType>(memType), fromDynOffset, toDynValidShape);
 }
 
+std::shared_ptr<OpAttribute> ViewOpAttribute::Clone() const {
+    return std::make_shared<ViewOpAttribute>(fromOffset_, to_, fromDynOffset_, toDynValidShape_);
+}
+
 std::string AssembleOpAttribute::Dump() const {
     ASSERT(!toOffset_.empty());
     std::stringstream ss;
@@ -243,6 +247,10 @@ std::shared_ptr<AssembleOpAttribute> AssembleOpAttribute::DeserializeFrom(const 
         fromDynValidShape.push_back(LoadSymbolicScalar(attrJson[despos++]));
     }
     return std::make_shared<AssembleOpAttribute>(static_cast<MemoryType>(memType), toOffset, toDynOffset, fromDynValidShape);
+}
+
+std::shared_ptr<OpAttribute> AssembleOpAttribute::Clone() const {
+    return std::make_shared<AssembleOpAttribute>(from_, toOffset_, toDynOffset_, fromDynValidShape_);
 }
 
 CallOpAttribute::CallOpAttribute(const FunctionHash &calleeHash, const std::vector<std::vector<SymbolicScalar>> &argList,
@@ -383,6 +391,10 @@ std::shared_ptr<CallOpAttribute> CallOpAttribute::DeserializeFrom(const Json& at
     return ret;
 }
 
+std::shared_ptr<OpAttribute> CallOpAttribute::Clone() const {
+    return std::make_shared<CallOpAttribute>(calleeHash_, argList_, calleMagicName_, linearArgList_);
+}
+
 Json CallOpAttribute::DumpInvokeInfoJson()
 {
     return invokeInfo_->DumpJson();
@@ -408,6 +420,10 @@ std::shared_ptr<ConvertOpAttribute> ConvertOpAttribute::DeserializeFrom(const Js
     HashBuffer buffer = attrJson.get<HashBuffer>();
     return std::make_shared<ConvertOpAttribute>(
         static_cast<MemoryType>(buffer[0]), static_cast<MemoryType>(buffer[1]));
+}
+
+std::shared_ptr<OpAttribute> ConvertOpAttribute::Clone() const {
+    return std::make_shared<ConvertOpAttribute>(from_, to_);
 }
 
 std::pair<MemoryType, std::vector<OpImmediate>> CopyOpAttribute::GetCopyOutAttr() const {
@@ -624,4 +640,12 @@ std::shared_ptr<CopyOpAttribute> CopyOpAttribute::DeserializeFrom(const Json& at
         result = std::make_shared<CopyOpAttribute>(offset, static_cast<MemoryType>(to), shape, rawShape, dynValidShape);
     }
     return result;
+}
+
+std::shared_ptr<OpAttribute> CopyOpAttribute::Clone() const {
+    if (isCopyOut_) {
+        return std::make_shared<CopyOpAttribute>(from_, toOffset_, tensorShape_, rawShape_, fromDynValidShape_);
+    } else {
+        return std::make_shared<CopyOpAttribute>(fromOffset_, to_, tensorShape_, rawShape_, toDynValidShape_);
+    }
 }

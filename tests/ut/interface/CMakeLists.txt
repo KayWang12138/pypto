@@ -19,6 +19,7 @@ set(_CaseFilterList
         # Function
         "ExpectedValueTest.TestCheck"
         "FunctionCoverageTest.*"
+        "FunctionUtilsTest.TestCloneOperation"
         # "FunctionUtilsTest.TestRemoveOperationCase1"
 
         # Tensor

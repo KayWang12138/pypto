@@ -37,6 +37,7 @@ public:
     virtual std::string Dump() const = 0;
     virtual Json DumpDynJson() = 0;
     virtual void LoadJson(const Json &attrJson) = 0;
+    virtual std::shared_ptr<OpAttribute> Clone() const = 0;
 
     virtual ~OpAttribute() = default;
 };
@@ -187,6 +188,7 @@ public:
     std::string Dump() const override;
     Json DumpDynJson() override;
     void LoadJson([[maybe_unused]] const Json &attrJson) override {};
+    virtual std::shared_ptr<OpAttribute> Clone() const override;
 
     void SetToType(MemoryType to) { to_ = to; }
     MemoryType GetTo() const { return to_; }
@@ -229,6 +231,7 @@ public:
     std::string Dump() const override;
     Json DumpDynJson() override;
     void LoadJson([[maybe_unused]] const Json &attrJson) override {};
+    virtual std::shared_ptr<OpAttribute> Clone() const override;
 
     void SetFromType(MemoryType from) { from_ = from; }
     MemoryType GetFrom() const { return from_; }
@@ -289,6 +292,7 @@ public:
     std::string DumpAttr(int idx = -1) const;
     Json DumpInvokeInfoJson();
     void LoadJson([[maybe_unused]] const Json &attrJson) override {};
+    virtual std::shared_ptr<OpAttribute> Clone() const override;
 
     const std::string &GetCalleeMagicName() const { return calleMagicName_; }
     const std::string &GetCalleeBracketName() const { return calleeBracketName_; }
@@ -322,6 +326,7 @@ public:
 
     std::string Dump() const override;
     void LoadJson([[maybe_unused]] const Json &attrJson) override {};
+    virtual std::shared_ptr<OpAttribute> Clone() const override;
     Json DumpDynJson() override;
     std::pair<MemoryType, MemoryType> GetConvertPath() const;
     static std::shared_ptr<ConvertOpAttribute> DeserializeFrom(const Json& attrJson,
@@ -348,6 +353,7 @@ public:
 
     [[nodiscard]] std::string Dump() const override;
     void LoadJson([[maybe_unused]] const Json &attrJson) override {};
+    virtual std::shared_ptr<OpAttribute> Clone() const override;
 
     void SetFromOffset(std::vector<OpImmediate> fromOffset) {
         fromOffset_ = std::move(fromOffset);

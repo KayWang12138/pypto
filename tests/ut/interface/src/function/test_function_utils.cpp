@@ -44,6 +44,36 @@ public:
     }
 };
 
+TEST_F(FunctionUtilsTest, TestCloneOperation) {
+    std::vector<int> shape{8, 16};
+    Tensor input(DT_FP32, shape, "input");
+    Tensor output(DT_FP32, shape, "output");
+    Program::GetInstance().GetTileShape().SetVecTileShapes(shape);
+    FUNCTION("main", FunctionType::STATIC) {
+        output = AddS(input, Element(DT_FP32, 1.0));
+    }
+
+    Function *func = Program::GetInstance().GetFunctionByRawName("TENSOR_main");
+    ASSERT_NE(func, nullptr);
+    for (const auto &op : func->Operations(false)) {
+        if (op.GetOpcode() == Opcode::OP_ADDS) {
+            std::vector<std::shared_ptr<LogicalTensor>> ioperands;
+            std::vector<std::shared_ptr<LogicalTensor>> ooperands;
+            for (auto iOperand : op.GetIOperands()) {
+                std::shared_ptr<LogicalTensor> tensor = iOperand->Clone(*func, true);
+                ioperands.push_back(tensor);
+            }
+            for (auto oOperand : op.GetOOperands()) {
+                std::shared_ptr<LogicalTensor> tensor = oOperand->Clone(*func, true);
+                ooperands.push_back(tensor);
+            }
+            Operation &opClone = op.CloneOperation(*func, ioperands, ooperands);
+            EXPECT_EQ(op.GetOOperands()[0]->GetShape(), opClone.GetOOperands()[0]->GetShape());
+            break;
+        }
+    }
+}
+
 TEST_F(FunctionUtilsTest, TestRemoveOperationCase1) {
     Program::GetInstance().GetTileShape().SetVecTileShapes({32, 32});
     std::vector<int> shape{32, 32};

@@ -261,6 +261,9 @@ public:
 
     void RemoveOutCtrlOperation(Operation &operation);
 
+    Operation &CloneOperation(
+        Function &func, const LogicalTensors &iOperandList, const LogicalTensors &oOperandList) const;
+
     [[nodiscard]] std::string GetOpcodeStr(bool appendTile = false) const;
     [[nodiscard]] CoreType GetCoreType() const { return coreType_; }
     void SetCoreType(CoreType ct) { coreType_ = ct; }

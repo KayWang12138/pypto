@@ -31,7 +31,7 @@ const std::string OP_ATTR_PREFIX = "op_attr_";
 const std::string OP_EMUOP_PREFIX = "op_emuop_";
 
 class AttrHolder {
-private:
+protected:
     std::map<std::string, npu::tile_fwk::Any> attributes;
 
 public:

@@ -100,12 +100,13 @@ LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawT
     ASSERT(shape.size() == offset.size());
 }
 
-std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function &dstFunc) const {
+std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function &dstFunc, bool create) const {
     /* Clone is only for dstFunc to simplify the process of creating OP_CALL's input and output. */
-    ASSERT(dstFunc.GetGraphType() == GraphType::ROOT_GRAPH);
-    auto cloned = dstFunc.GetTensorMap().GetTensorByMagic(magic);
-    if (cloned != nullptr) {
-        return cloned;
+    if (!create) {
+        auto cloned = dstFunc.GetTensorMap().GetTensorByMagic(magic);
+        if (cloned != nullptr) {
+            return cloned;
+        }
     }
 
     std::shared_ptr<RawTensor> rawTensor = dstFunc.GetTensorMap().GetRawTensorByRawMagic(tensor->rawmagic);
@@ -121,9 +122,13 @@ std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function &dstFunc) const {
         offset, shape, nodetype, tensorfmt);
     newTensor->isSubGraphBoundary = isSubGraphBoundary;
     newTensor->subGraphID = subGraphID;
-    newTensor->magic = magic;
-    if (magic >= dstFunc.magicSeed_) {
-        dstFunc.magicSeed_ = (magic + 1);
+    if (!create) {
+        newTensor->magic = magic;
+        if (magic >= dstFunc.magicSeed_) {
+            dstFunc.magicSeed_ = (magic + 1);
+        }
+    } else {
+        newTensor->magic = dstFunc.magicSeed_++;
     }
     newTensor->tensorfmt = tensorfmt;
 
