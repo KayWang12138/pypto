@@ -91,7 +91,6 @@ TEST_F(GraphTest, llama_1_1_256_128_mix)
 
 TEST_F(GraphTest, llama_1_1_1024_128)
 {
-    Program::GetInstance().GetConfig().Set<bool>(USE_NODE_HASH, true);
     AttentionDims dimsCfg = {1, 1, 1024, 128, DFT_SINGLE_M, DFT_SINGLE_N};
     RunLLamaLayerGraph(dimsCfg);
 }

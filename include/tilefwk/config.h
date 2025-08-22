@@ -39,11 +39,9 @@ public:
      */
     Config& SetCycleUpperBound(int sgCycleUpperBound);
 
-    Config& SetCyclesThreshold(int sgCycleLowerBound);
+    Config& SetCycleLowerBound(int sgCycleLowerBound);
 
-    Config& SetParallelThreshold(int sgParallelNum);
-
-    Config& SetUseNodeHash(bool useNodeHash);
+    Config& SetParallelNum(int sgParallelNum);
 
     /**
      * @brief Set the Machine Sch Mode object

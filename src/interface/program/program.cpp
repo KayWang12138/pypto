@@ -168,12 +168,11 @@ bool Program::BeginFunction(const std::string &funcName,
 
     currentFunctionPtr_->paramConfigs_.l1ReuseNum = GetConfig().Get<int>(L1_REUSE);
     currentFunctionPtr_->paramConfigs_.cubeNBufferNum = GetConfig().Get<int>(CUBE_NBUFFER);
-    currentFunctionPtr_->paramConfigs_.sgCycleUpperBound = GetConfig().Get<int>(CYCLE_UPPER_BOUND);
-    currentFunctionPtr_->paramConfigs_.sgCycleLowerBound = GetConfig().Get<int>(CYCLES_THRESHOLD);
-    currentFunctionPtr_->paramConfigs_.sgParallelNum = GetConfig().Get<int>(PARALLEL_THRESHOLD);
+    currentFunctionPtr_->paramConfigs_.sgCycleUpperBound = GetConfig().Get<int>(SG_CYCLE_UPPER_BOUND);
+    currentFunctionPtr_->paramConfigs_.sgCycleLowerBound = GetConfig().Get<int>(SG_CYCLE_LOWER_BOUND);
+    currentFunctionPtr_->paramConfigs_.sgParallelNum = GetConfig().Get<int>(SG_PARALLEL_NUM);
     currentFunctionPtr_->paramConfigs_.sgCopyInThreshold = GetConfig().Get<int>(COPYIN_THRESHOLD);
     currentFunctionPtr_->paramConfigs_.dbType = GetConfig().Get<int>(DB_TYPE);
-    currentFunctionPtr_->paramConfigs_.useNodeHash = GetConfig().Get<bool>(USE_NODE_HASH);
     currentFunctionPtr_->paramConfigs_.NbufferNum = GetConfig().Get<int>(NBUFFER_NUM);
     currentFunctionPtr_->paramConfigs_.machineConfig_ = GetConfig().Get<uint8_t>(MACHINE_CONFIG);
     currentFunctionPtr_->paramConfigs_.l1ReuseMap = GetConfig().Get<std::map<int, int>>(L1_REUSE_MAP);

@@ -1757,7 +1757,6 @@ Json Function::DumpJson(bool useTable) {
     funcDump["_sg_parallel_num"] = paramConfigs_.sgParallelNum;
     funcDump["_sg_copyin_threshold"] = paramConfigs_.sgCopyInThreshold;
     funcDump["_dbtype"] = paramConfigs_.dbType;
-    funcDump["_use_node_hash"] = paramConfigs_.useNodeHash;
     funcDump["_nbuffer_num"] = paramConfigs_.NbufferNum;
     funcDump["_total_subgraph_count"] = totalSubGraphCount_;
 
@@ -2076,7 +2075,6 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     func->paramConfigs_.sgParallelNum = funcDump["_sg_parallel_num"].get<int>();
     func->paramConfigs_.sgCopyInThreshold = funcDump["_sg_copyin_threshold"].get<int>();
     func->paramConfigs_.dbType = funcDump["_dbtype"].get<int>();
-    func->paramConfigs_.useNodeHash = funcDump["_use_node_hash"].get<bool>();
     func->paramConfigs_.NbufferNum = funcDump["_nbuffer_num"].get<int>();
     auto subGraphCount = funcDump["_total_subgraph_count"].get<size_t>();
     func->SetTotalSubGraphCount(subGraphCount);

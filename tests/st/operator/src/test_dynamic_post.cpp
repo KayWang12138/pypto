@@ -116,7 +116,8 @@ void TestAttentionPost(const TestPostParams &params, const PostTileConfig &tileC
 }
 
 void PerformanceConfig() {
-    Program::GetInstance().GetConfig().Set<int>(CYCLE_UPPER_BOUND, 500000);
+    const int cycle_upper_bound = 500000;
+    Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, cycle_upper_bound);
     Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{0, 4}});
 }
 

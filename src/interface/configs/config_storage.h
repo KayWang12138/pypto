@@ -36,10 +36,9 @@
 namespace npu::tile_fwk {
 
 /* RuntimeConfig KEYS*/
-const std::string PARALLEL_THRESHOLD = "parallel_threshold";
-const std::string CYCLE_UPPER_BOUND = "cycle_upper_bound";
-const std::string USE_NODE_HASH = "use_node_hash";
-const std::string CYCLES_THRESHOLD = "cycles_threshold";
+const std::string SG_PARALLEL_NUM = "parallel_threshold";
+const std::string SG_CYCLE_UPPER_BOUND = "cycle_upper_bound";
+const std::string SG_CYCLE_LOWER_BOUND = "cycles_threshold";
 const std::string DB_TYPE = "db_type";
 const std::string NBUFFER_NUM = "nbuffer_num";
 const std::string L1_REUSE = "l1_reuse";
@@ -58,10 +57,13 @@ public:
     }
 
     void Reset() {
-        configs_[PARALLEL_THRESHOLD] = 20;  // default threshold
-        configs_[CYCLE_UPPER_BOUND] = 10000; // defalt cycle upper bound
-        configs_[USE_NODE_HASH] = false;
-        configs_[CYCLES_THRESHOLD] = 512; // default cycle threshold
+        const int parallel_num = 20;
+        const int cycle_upper_bound = 10000;
+        const int cycle_lower_bound = 512;
+        const int copyin_threshold = 1024 * 1024;
+        configs_[SG_PARALLEL_NUM] = parallel_num;  // default threshold
+        configs_[SG_CYCLE_UPPER_BOUND] = cycle_upper_bound; // defalt cycle upper bound
+        configs_[SG_CYCLE_LOWER_BOUND] = cycle_lower_bound; // default cycle threshold
         configs_[DB_TYPE] = 0;
         configs_[NBUFFER_NUM] = 1;
         configs_[L1_REUSE] = 0;
@@ -69,7 +71,7 @@ public:
         configs_[CUBE_NBUFFER] = 1;
         configs_[CUBE_NBUFFER_MAP] = std::map<int,int>({});
         configs_[LOAD_BALANCE] = false;
-        configs_[COPYIN_THRESHOLD] = 1024 * 1024; // default copyin threshold
+        configs_[COPYIN_THRESHOLD] = copyin_threshold; // default copyin threshold
         configs_[MACHINE_CONFIG] = static_cast<uint8_t>(0);
     }
 

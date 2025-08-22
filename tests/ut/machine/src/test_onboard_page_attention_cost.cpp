@@ -113,9 +113,12 @@ TEST_F(OnBoardPaCostTest, test_page_attention_hight_throughput) {
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    Program::GetInstance().GetConfig().Set<int>(CYCLES_THRESHOLD, 2048);
-    Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 4);
-    Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, 2*1024*1024);
+    const int cycle_lower_bound = 2048;
+    const int l1_reuse = 4;
+    const int copyin_threshold = 2 * 1024 * 1024;
+    Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_LOWER_BOUND, cycle_lower_bound);
+    Program::GetInstance().GetConfig().Set<int>(L1_REUSE, l1_reuse);
+    Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, copyin_threshold);
 
     TileFwkInit("");
     std::unordered_map<std::string, int> params = {

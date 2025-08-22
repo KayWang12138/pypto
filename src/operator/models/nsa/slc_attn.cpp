@@ -61,8 +61,8 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
     // Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {});
     // Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 0);
     // Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, 1 * 1024 * 1024);
-    // Program::GetInstance().GetConfig().Set<int>(CYCLE_UPPER_BOUND, 100000);
-    // Program::GetInstance().GetConfig().Set<int>(PARALLEL_THRESHOLD, 2);
+    // Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, 100000);
+    // Program::GetInstance().GetConfig().Set<int>(SG_PARALLEL_NUM, 2);
     // Program::GetInstance().GetConfig().Set<int>(CUBE_NBUFFER, 2);
     // config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
 

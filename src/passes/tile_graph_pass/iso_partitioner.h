@@ -96,7 +96,7 @@ public:
                          std::unordered_set<int32_t> &currentNodeSet, std::vector<int32_t> &idxInLinkNum,
                          std::deque<int32_t> &zeroInQueue);
     Status ExpandIsoGraphs(std::unordered_set<int32_t> &currentNodeSet, std::vector<int32_t> &idxInLinkNum,
-                         std::deque<int32_t> &zeroInQueue, int32_t cycleThreshold);
+                         std::deque<int32_t> &zeroInQueue, int32_t cycleUpperBound);
     static bool IsoGraphMerge(std::shared_ptr<IsomorphismGraphGroup> &currGraph,
                               std::shared_ptr<IsomorphismGraphGroup> &mergeGraph,
                               std::vector<std::pair<int32_t, int32_t>> &isoSubIdxs);
@@ -106,7 +106,7 @@ public:
     int32_t GetLatency() const;
     Status InLinkCountDelete(int32_t nodeIdx, std::vector<int32_t> &idxInLinkNum, std::deque<int32_t> &zeroInQueue);
     bool IsLegalIsoGraphExtender(std::vector<int32_t> &expandCandidate, std::unordered_set<int32_t> &currentNodeSet,
-                                 std::vector<int32_t> &idxInLinkNum, int32_t cycleThreshold);
+                                 std::vector<int32_t> &idxInLinkNum, int32_t cycleUpperBound);
     bool IsLegalSubGraphMerge(SubGraph *sg1, SubGraph *sg2);
     std::shared_ptr<SubGraph> GetSubGraph(int32_t idx);
     std::vector<std::shared_ptr<SubGraph>> isoGraphs_;
@@ -119,7 +119,7 @@ public:
 class IsoPartitioner {
 public:
     Status PartitionGraph(Function &function);
-    Status SetParameter(int32_t cycleThreshold, int32_t parallelThreshold, int32_t smallGraphThreshold, 
+    Status SetParameter(int32_t cycleUpperBound, int32_t parallelNum, int32_t cycleLowerBound, 
                         bool useReduceBalanceHash);
 
 private:
@@ -148,11 +148,11 @@ private:
     std::shared_ptr<NodeGraphInfo> superNodeInfo_;
     std::vector<std::shared_ptr<IsomorphismGraphGroup>> isoSubGroups_;
     int32_t tryMergeLoopNum_ = 100;
-    bool useReduceBalanceHash_ = false;
+    bool useReduceBalanceHash_ = true;
     bool useCVMixPartition_ = false;
-    int32_t cycleThreshold_ = -1;
-    int32_t parallelThreshold_ = -1;
-    int32_t smallGraphThreshold_ = -1;
+    int32_t cycleUB_ = -1;
+    int32_t parallelNum_ = -1;
+    int32_t cycleLB_ = -1;
 };
 
 class GraphPartition : public Pass {

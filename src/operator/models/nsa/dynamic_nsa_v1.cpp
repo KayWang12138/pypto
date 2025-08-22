@@ -267,7 +267,7 @@ void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const T
         Tensor attentionOut(dtype, {b, s, n1, vDim}, "attentionOut");
         GenAttn(gatingScore, cmpAttnOut16Tmp, slcAttn, winAtten, attentionOut); // [b,s,n1,vDim] fp16
 
-        Program::GetInstance().GetConfig().Set<int>(CYCLE_UPPER_BOUND, 500000); // 500000
+        Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, 500000); // 500000
         Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {
                                                                                          {0, 4}
         });

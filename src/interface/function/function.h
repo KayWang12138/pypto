@@ -374,7 +374,6 @@ struct DynParamInfo{
     int dimIndex;
 };
 struct ParamConfigs {
-    bool useNodeHash{false};
     int NbufferNum{1};
     int l1ReuseNum{0};
     int cubeNBufferNum{1};

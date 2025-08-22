@@ -2081,7 +2081,7 @@ void PaPostDebugCastFirstMm5SplitK(Tensor &postIn, Tensor &weightUV, Tensor &wei
         {postIn, weightUV, weightO, weightOScaleW}, {postOut}) {
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 32;
-        Program::GetInstance().GetConfig().Set<int>(CYCLE_UPPER_BOUND, 500000);  // 300000(1024/167us)   700000(512/174us)   500000(512/171us)
+        Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, 500000);  // 300000(1024/167us)   700000(512/174us)   500000(512/171us)
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = DView(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
             auto r1Res = Reshape(postInUnit, {bTile*S, N, kvLoraRank}); // 128个
@@ -2158,7 +2158,7 @@ void PaPostDebugCastFirstMm5NormalUnSplitK(Tensor &postIn, Tensor &weightUV, Ten
         {postIn, weightUV, weightO, weightOScaleW}, {postOut}) {
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 32;
-        Program::GetInstance().GetConfig().Set<int>(CYCLE_UPPER_BOUND, 500000);  // 300000(1024/167us)   700000(512/174us)   500000(512/171us)
+        Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, 500000);  // 300000(1024/167us)   700000(512/174us)   500000(512/171us)
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = DView(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
             auto r1Res = Reshape(postInUnit, {bTile*S, N, kvLoraRank}); // 128个
@@ -2664,7 +2664,7 @@ void PageAttentionPostBf16(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache
         }
 
         SymbolicScalar B = attentionOut->shape[0] / N; // S=1
-        Program::GetInstance().GetConfig().Set<int>(CYCLE_UPPER_BOUND, NUM_500000);
+        Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, NUM_500000);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / (bTile <= 0 ? 1 : bTile), 1), PowersOf2(maxUnrollTimes), true) {
             auto postInUnit = DView(attentionOut, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(NUM_32, bTile*S*N), kvLoraRank});

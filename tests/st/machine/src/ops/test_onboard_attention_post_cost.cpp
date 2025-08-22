@@ -705,7 +705,7 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_n128_onlymm5K) {
     Tensor mm5fp32(DT_FP32, mm5Int32ShapeT, mm5fp32_ptr, "mm5fp32");
     Tensor t1I(dType, t1Shape, (uint8_t *)t1Ptr, "E");
 
-    Program::GetInstance().GetConfig().Set<int>(CYCLE_UPPER_BOUND, 300000);  // 300000(167us)
+    Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, 300000);  // 300000(167us)
     TileFwkBeginFunction("ATTENTION_POST_T", {inputI, wUvI, wUvScaleWi, wOi, wOscaleWi, outputT, mm5Int32, mm5fp32});
     {
         Program::GetInstance().GetTileShape().SetVecTileShapes({B, 2, 1, kvLoraRank}); // 128个

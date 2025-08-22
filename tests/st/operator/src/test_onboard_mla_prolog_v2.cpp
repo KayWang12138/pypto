@@ -877,9 +877,11 @@ TEST_F(MlaPrologV2OnBoardTest, test_mla_bf16_low_quant_smooth) {  // b_n_s_s2_h_
 }
 
 TEST_F(MlaPrologV2OnBoardTest, test_mla_bf16_high_quant_smooth) {  // b_n_s_s2_h_q_lora_rank
+    const int nbuffer_num = 2;
+    const int cycle_upper_bound = 20000;
     Program::GetInstance().GetConfig().Set<int>(DB_TYPE, 1);
-    Program::GetInstance().GetConfig().Set<int>(NBUFFER_NUM, 2);
-    Program::GetInstance().GetConfig().Set<int>(CYCLE_UPPER_BOUND, 20000);
+    Program::GetInstance().GetConfig().Set<int>(NBUFFER_NUM, nbuffer_num);
+    Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, cycle_upper_bound);
     int b = 32;
     int s = 1;
     int s2 = 4096;

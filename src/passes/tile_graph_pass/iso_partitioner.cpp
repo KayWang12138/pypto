@@ -189,7 +189,7 @@ Status GraphPartition::PostCheck(Function &function)
 
 Status IsoPartitioner::PartitionGraph(Function &function)
 {
-    if (cycleThreshold_ == -1 || parallelThreshold_ == -1 || smallGraphThreshold_ == -1) {
+    if (cycleUB_ == -1 || parallelNum_ == -1 || cycleLB_ == -1) {
         ALOG_ERROR_F("Partition parameters not initialized.");
         return FAILED;
     }
@@ -903,7 +903,7 @@ Status IsoPartitioner::BuildIsomorphismGroups()
         }
         if (currentGraphGroup->GetMergeable()) {
             if (currentGraphGroup->ExpandIsoGraphs(currentNodeSet, idxInLinkNum,
-                                                   zeroInQueue, cycleThreshold_) != SUCCESS) {
+                                                   zeroInQueue, cycleUB_) != SUCCESS) {
                 ALOG_ERROR_F("Expand the isomorphism group failed.");
                 return FAILED;
             }
@@ -983,7 +983,7 @@ void SubGraph::AddNode(int32_t nodeIdx)
 
 Status IsomorphismGraphGroup::ExpandIsoGraphs(std::unordered_set<int32_t> &currentNodeSet,
                                               std::vector<int32_t> &idxInLinkNum, std::deque<int32_t> &zeroInQueue,
-                                              int32_t cycleThreshold)
+                                              int32_t cycleUpperBound)
 {
     size_t expandNodeIdx = 0;
     size_t expandLinkIdx = 0;
@@ -1000,7 +1000,7 @@ Status IsomorphismGraphGroup::ExpandIsoGraphs(std::unordered_set<int32_t> &curre
             continue;
         } else if (extendStatus == GraphExtendResult::EXTEND_NODE_EXHAUST) {
             break;
-        } else if (!IsLegalIsoGraphExtender(expandCandidate, currentNodeSet, idxInLinkNum, cycleThreshold)) {
+        } else if (!IsLegalIsoGraphExtender(expandCandidate, currentNodeSet, idxInLinkNum, cycleUpperBound)) {
             expandLinkIdx += 1;
             continue;
         }
@@ -1028,7 +1028,7 @@ bool SubGraph::HasNode(int32_t nodeIdx) const
 
 bool IsomorphismGraphGroup::IsLegalIsoGraphExtender(std::vector<int32_t> &expandCandidate,
                                                     std::unordered_set<int32_t> &currentNodeSet,
-                                                    std::vector<int32_t> &idxInLinkNum, int32_t cycleThreshold)
+                                                    std::vector<int32_t> &idxInLinkNum, int32_t cycleUpperBound)
 {
     if (!superNodeInfo_->nodeMergeable_[expandCandidate[0]]) {
         return false;
@@ -1054,7 +1054,7 @@ bool IsomorphismGraphGroup::IsLegalIsoGraphExtender(std::vector<int32_t> &expand
         }
     }
     int32_t newLatency = isoGraphs_[0]->GetLatency() + superNodeInfo_->GetNodeCycle(expandCandidate[0]);
-    if (newLatency > cycleThreshold) {
+    if (newLatency > cycleUpperBound) {
         return false;
     }
     std::set<int32_t> candSet(expandCandidate.begin(), expandCandidate.end());
@@ -1252,7 +1252,7 @@ bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor
         latencyMerged = isoSubGroups_[currColor]->GetLatency() * (currColorSize / mergeColorSize) +
                         isoSubGroups_[mergeColor]->GetLatency();
     }
-    bool cycleMergable = latencyMerged <= cycleThreshold_;
+    bool cycleMergable = latencyMerged <= cycleUB_;
     if (nonIsoGraphsMerge) {
         bool shouldMerge = coreTypeMergable && cycleMergable;
         ALOG_DEBUG_F("Try merge current group: %d [%s]\n\t with: %d [%s], is suitable for merge: %d.",
@@ -1261,10 +1261,10 @@ bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor
         return shouldMerge;
     } 
     bool isSuitableForMerge = (currColorSize == mergeColorSize);
-    isSuitableForMerge = isSuitableForMerge || (std::min(currColorSize, mergeColorSize) > parallelThreshold_);
+    isSuitableForMerge = isSuitableForMerge || (std::min(currColorSize, mergeColorSize) > parallelNum_);
     isSuitableForMerge = isSuitableForMerge ||
                          (std::min(isoSubGroups_[currColor]->GetLatency(), isoSubGroups_[mergeColor]->GetLatency()) <
-                          smallGraphThreshold_);
+                          cycleLB_);
     isSuitableForMerge = coreTypeMergable && isSuitableForMerge && cycleMergable;
     ALOG_DEBUG_F("Try merge current group: %d [%s]\n\t with: %d [%s], is suitable for merge: %d.",
                  currColor, isoSubGroups_[currColor]->GetSubGraph(0)->DumpStr().c_str(),
@@ -1464,24 +1464,24 @@ Status IsoPartitioner::UpdatePartitionResult(Function &function)
     return SUCCESS;
 }
 
-Status IsoPartitioner::SetParameter(int32_t cycleThreshold, int32_t parallelThreshold, int32_t smallGraphThreshold, 
+Status IsoPartitioner::SetParameter(int32_t cycleUpperBound, int32_t parallelNum, int32_t cycleLowerBound, 
                                     bool useReduceBalanceHash)
 {
-    if (cycleThreshold < 0) {
-        ALOG_ERROR_F("Illegal cycle threshold : %d.", cycleThreshold);
+    if (cycleUpperBound < 0) {
+        ALOG_ERROR_F("Illegal cycleUpperBound: %d.", cycleUpperBound);
         return FAILED;
     }
-    if (parallelThreshold < 0) {
-        ALOG_ERROR_F("Illegal parallel threshold : %d.", parallelThreshold);
+    if (parallelNum < 0) {
+        ALOG_ERROR_F("Illegal parallelNum: %d.", parallelNum);
         return FAILED;
     }
-    if (smallGraphThreshold < 0) {
-        ALOG_ERROR_F("Illegal small graph threshold : %d.", smallGraphThreshold);
+    if (cycleLowerBound < 0) {
+        ALOG_ERROR_F("Illegal cycleLowerBound: %d.", cycleLowerBound);
         return FAILED;
     }
-    cycleThreshold_ = cycleThreshold;
-    parallelThreshold_ = parallelThreshold;
-    smallGraphThreshold_ = smallGraphThreshold;
+    cycleUB_ = cycleUpperBound;
+    parallelNum_ = parallelNum;
+    cycleLB_ = cycleLowerBound;
     useReduceBalanceHash_ = useReduceBalanceHash;
     return SUCCESS;
 }

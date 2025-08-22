@@ -23,22 +23,17 @@ Config &Config::GetInstance() {
 }
 
 Config& Config::SetCycleUpperBound(int sgCycleUpperBound) {
-    Program::GetInstance().GetConfig().Set<int>(CYCLE_UPPER_BOUND, sgCycleUpperBound);
+    Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, sgCycleUpperBound);
     return *this;
 }
  
-Config& Config::SetCyclesThreshold(int sgCycleLowerBound) {
-    Program::GetInstance().GetConfig().Set<int>(CYCLES_THRESHOLD, sgCycleLowerBound);
+Config& Config::SetCycleLowerBound(int sgCycleLowerBound) {
+    Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_LOWER_BOUND, sgCycleLowerBound);
     return *this;
 }
  
-Config& Config::SetParallelThreshold(int sgParallelNum) {
-    Program::GetInstance().GetConfig().Set<int>(PARALLEL_THRESHOLD, sgParallelNum);
-    return *this;
-}
-
-Config& Config::SetUseNodeHash(bool useNodeHash) {
-    Program::GetInstance().GetConfig().Set<bool>(USE_NODE_HASH, useNodeHash);
+Config& Config::SetParallelNum(int sgParallelNum) {
+    Program::GetInstance().GetConfig().Set<int>(SG_PARALLEL_NUM, sgParallelNum);
     return *this;
 }
 
