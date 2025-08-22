@@ -127,6 +127,12 @@ struct IssueQueue {
     }
 };
 
+enum class SortOpMethod : int
+{
+    PriorDFS =  0,
+    LayerBasedDFS
+};
+
 class OoOScheduler {
 private:
     std::vector<IssueEntryPtr> issueEntries;
@@ -156,8 +162,9 @@ private:
     void AddDependencies(IssueEntryPtr issue, std::map<int, IssueEntryPtr> lastWriteOpMap, 
         LogicalTensorPtr tensor);
 
-    Status SortOps();
+    Status SortOps(SortOpMethod sortMethod = SortOpMethod::PriorDFS);
     Status PriorDFS(std::unordered_map<Opcode, int> preNodePriority);
+    Status LayerBasedDFS(int layerDepth);
     void DFSFromSingleNode(IssueEntryPtr issue, std::map<IssueEntryPtr, bool>& visited,
         std::vector<IssueEntryPtr>& newIssueEntries, std::unordered_map<Opcode, int> preNodePriority);
     IssueEntryPtr FindNodeMinNumUnvisitedPreNode(std::map<IssueEntryPtr, bool> visited, 

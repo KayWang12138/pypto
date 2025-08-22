@@ -1759,6 +1759,7 @@ Json Function::DumpJson(bool useTable) {
     funcDump["_dbtype"] = paramConfigs_.dbType;
     funcDump["_nbuffer_num"] = paramConfigs_.NbufferNum;
     funcDump["_total_subgraph_count"] = totalSubGraphCount_;
+    funcDump["_ooo_preschedule_method_default"] = paramConfigs_.OoOPreScheduleMethodDefault;
 
     if (useTable) {
         std::vector<std::pair<int, std::vector<int>>> incasts;
@@ -2078,6 +2079,7 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     func->paramConfigs_.NbufferNum = funcDump["_nbuffer_num"].get<int>();
     auto subGraphCount = funcDump["_total_subgraph_count"].get<size_t>();
     func->SetTotalSubGraphCount(subGraphCount);
+    func->paramConfigs_.OoOPreScheduleMethodDefault = funcDump["_ooo_preschedule_method_default"].get<std::string>();
 
     std::vector<std::vector<int>> incastSlot;
     for (auto &iDump : funcDump["incasts"]) {

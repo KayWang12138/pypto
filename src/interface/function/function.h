@@ -386,6 +386,8 @@ struct ParamConfigs {
     std::map<int, int> l1ReuseMap;
     bool loadBalance;
     std::map<int, int> cubeNBufferMap;
+    std::string OoOPreScheduleMethodDefault{"PriorDFS"};
+    std::map<std::string,std::string> OoOPreScheduleMethodMap;
 };
 
 struct FunctionParamInfo {

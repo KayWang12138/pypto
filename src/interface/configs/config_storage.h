@@ -48,10 +48,12 @@ const std::string CUBE_NBUFFER_MAP = "cube_nbuffer_map";
 const std::string LOAD_BALANCE = "load_balance";
 const std::string COPYIN_THRESHOLD = "copyin_threshold";
 const std::string MACHINE_CONFIG = "machine_config";
+const std::string OOO_PRESCHEDULE_METHOD_DEFAULT = "ooo_preschedule_method_default";
+const std::string OOO_PRESCHEDULE_METHOD = "ooo_preschedule_method";
 
 class ConfigStorage {
 public:
-    using ConfigValue = std::variant<int, bool, std::string, std::map<int, int>, uint8_t>;
+    using ConfigValue = std::variant<int, bool, std::string, std::map<int, int>, uint8_t, std::map<std::string,std::string>>;
     explicit ConfigStorage() {
         Reset();
     }
@@ -73,6 +75,8 @@ public:
         configs_[LOAD_BALANCE] = false;
         configs_[COPYIN_THRESHOLD] = copyin_threshold; // default copyin threshold
         configs_[MACHINE_CONFIG] = static_cast<uint8_t>(0);
+        configs_[OOO_PRESCHEDULE_METHOD_DEFAULT] = std::move(std::string("PriorDFS"));
+        configs_[OOO_PRESCHEDULE_METHOD] = std::map<std::string,std::string>({});
     }
 
     template <typename T>

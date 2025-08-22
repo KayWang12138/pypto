@@ -736,6 +736,176 @@ void OoOScheduler::DFSFromSingleNode(IssueEntryPtr issue, std::map<IssueEntryPtr
     }
 }
 
+Status EntryInOutGraph(std::vector<IssueEntryPtr> &issueEntries, std::vector<std::set<int>> &entryInGraph, std::vector<std::set<int>> &entryOutGraph)
+{
+    entryInGraph.clear();
+    entryOutGraph.clear();
+    entryInGraph.resize(issueEntries.size());
+    entryOutGraph.resize(issueEntries.size());
+    std::unordered_map<IssueEntry*, int> entryPtr2Idx;
+    for (int ptrIdx = 0; ptrIdx < static_cast<int>(issueEntries.size()); ptrIdx++) {
+        entryPtr2Idx[issueEntries[ptrIdx].get()] = ptrIdx;
+    }
+    for (int ptrIdx = 0; ptrIdx < static_cast<int>(issueEntries.size()); ptrIdx++) {
+        for (auto outPtr : issueEntries[ptrIdx]->successors) {
+            entryOutGraph[ptrIdx].insert(entryPtr2Idx[outPtr.get()]);
+            entryInGraph[entryPtr2Idx[outPtr.get()]].insert(ptrIdx);
+        }
+    }
+    return SUCCESS;
+}
+
+Status EntryTopoSort(std::vector<std::set<int32_t>> &entryInGraph, std::vector<std::set<int32_t>> &entryOutGraph,
+    std::vector<int32_t> &seqToColor, std::vector<int32_t> &colorToSeq)
+{
+    seqToColor.clear();
+    colorToSeq.resize(entryInGraph.size());
+    std::vector<int> inLinkNum(entryInGraph.size());
+    std::deque<int> zeroInLinkColor;
+    for (size_t i = 0; i < entryInGraph.size(); i++) {
+        inLinkNum[i] = entryInGraph[i].size();
+        if (inLinkNum[i] == 0) {
+            zeroInLinkColor.push_back(i);
+        }
+    }
+    int currColorIdx = 0;
+    std::vector<int32_t> visitOrder;
+    while (zeroInLinkColor.size() > 0) {
+        int currColor = zeroInLinkColor.front();
+        zeroInLinkColor.pop_front();
+        colorToSeq[currColor] = seqToColor.size();
+        seqToColor.push_back(currColor);
+        currColorIdx += 1;
+        for (int consumerColor : entryOutGraph[currColor]) {
+            inLinkNum[consumerColor] -= 1;
+            if (inLinkNum[consumerColor] == 0) {
+                zeroInLinkColor.push_back(consumerColor);
+            }
+        }
+    }
+    return SUCCESS;
+}
+
+Status OutputFixBasedDepth(std::vector<int32_t> &depth, std::vector<std::set<int32_t>> &entryInGraph,
+        std::vector<std::set<int32_t>> &entryOutGraph, std::vector<int32_t> &seqToColor)
+{
+    for (int idx = static_cast<int>(entryInGraph.size())-1; idx >= 0; idx--) {
+        int currEntryIdx = seqToColor[idx];
+        if (entryOutGraph[currEntryIdx].size() == 0) {
+            continue;
+        }
+        int minDepth = static_cast<int>(entryInGraph.size()) + 1;
+        for (auto succIdx : entryOutGraph[currEntryIdx]) {
+            minDepth = minDepth < depth[succIdx] ? minDepth : depth[succIdx];
+        }
+        depth[currEntryIdx] = minDepth - 1;
+    }
+    return SUCCESS;
+}
+
+Status InputFixBasedDepth(std::vector<int32_t> &depth, std::vector<std::set<int32_t>> &entryInGraph,
+        std::vector<std::set<int32_t>> &entryOutGraph, std::vector<int32_t> &seqToColor)
+{
+    (void)entryOutGraph;
+    for (int idx = 0; idx < static_cast<int>(entryInGraph.size()); idx++) {
+        int currEntryIdx = seqToColor[idx];
+        if (entryInGraph[currEntryIdx].size() == 0) {
+            continue;
+        }
+        int maxDepth = -static_cast<int>(entryInGraph.size()) - 1;
+        for (auto predIdx : entryInGraph[currEntryIdx]) {
+            maxDepth = maxDepth > depth[predIdx] ? maxDepth : depth[predIdx];
+        }
+        depth[currEntryIdx] = maxDepth + 1;
+    }
+    return SUCCESS;
+}
+
+Status DFSVisit(std::unordered_set<int> &visited, std::vector<int32_t> &tasks, std::vector<int> &visitEntrySeq,
+        std::vector<std::set<int32_t>> &entryInGraph)
+{
+    while (tasks.size() > 0) {
+        int currTask = tasks.back();
+        if (visited.count(currTask) > 0) {
+            tasks.pop_back();
+            continue;
+        }
+        bool allVisited = true;
+        for (auto prevIdx : entryInGraph[currTask]) {
+            if (visited.count(prevIdx) == 0) {
+                allVisited = false;
+                tasks.push_back(prevIdx);
+            }
+        }
+        if (allVisited) {
+            visited.insert(currTask);
+            visitEntrySeq.push_back(currTask);
+            tasks.pop_back();
+        }
+    }
+    return SUCCESS;
+}
+
+std::vector<int32_t> GetLayerTasks(std::map<int, std::set<int>> &depthToEntries,
+                                   std::vector<std::set<int>> &entryOutGraph, int lastDepth, int currDepth)
+{
+    std::vector<int32_t> tasks;
+    for (int dp = lastDepth; dp < currDepth; dp++) {
+        for (int entryIdx : depthToEntries[dp]) {
+            if (entryOutGraph[dp].size() == 0) {
+                tasks.push_back(entryIdx);
+            }
+        }
+    }
+    for (int entryIdx : depthToEntries[currDepth]) {
+        tasks.push_back(entryIdx);
+    }
+    return tasks;
+}
+
+Status OoOScheduler::LayerBasedDFS(int layerDepth)
+{
+    std::vector<std::set<int>> entryInGraph;
+    std::vector<std::set<int>> entryOutGraph;
+    EntryInOutGraph(issueEntries, entryInGraph, entryOutGraph);
+    std::vector<int32_t> seqToColor;
+    std::vector<int32_t> colorToSeq;
+    EntryTopoSort(entryInGraph, entryOutGraph, seqToColor, colorToSeq);
+    std::vector<int32_t> depth(entryInGraph.size(), 0);
+    OutputFixBasedDepth(depth, entryInGraph, entryOutGraph, seqToColor);
+    InputFixBasedDepth(depth, entryInGraph, entryOutGraph, seqToColor);
+    std::map<int, std::set<int>> depthToEntries;
+    int lowerDepth = static_cast<int>(entryInGraph.size()) + 1;
+    int upperDepth = -static_cast<int>(entryInGraph.size()) - 1;
+    for (int idx = 0; idx < static_cast<int>(depth.size()); idx++) {
+        lowerDepth = lowerDepth < depth[idx] ? lowerDepth : depth[idx];
+        upperDepth = upperDepth > depth[idx] ? upperDepth : depth[idx];
+        depthToEntries[depth[idx]].insert(idx);
+    }
+    std::vector<IssueEntryPtr> newIssueEntries;
+    std::unordered_set<int> visited;
+    std::vector<int> visitEntrySeq;
+    int lastDepth = lowerDepth;
+    int currDepth = lowerDepth + layerDepth - 1;
+    currDepth = currDepth <= upperDepth ? currDepth : upperDepth;
+    bool keepVisit = true;
+    while (keepVisit) {
+        std::vector<int32_t> tasks = GetLayerTasks(depthToEntries, entryOutGraph, lastDepth, currDepth);
+        DFSVisit(visited, tasks, visitEntrySeq, entryInGraph);
+        if (currDepth == upperDepth) {
+            keepVisit = false;
+        }
+        lastDepth = currDepth;
+        currDepth += layerDepth;
+        currDepth = currDepth <= upperDepth ? currDepth : upperDepth;
+    }
+    for (auto idx : visitEntrySeq) {
+        newIssueEntries.push_back(issueEntries[idx]);
+    }
+    issueEntries = newIssueEntries;
+    return SUCCESS;
+}
+
 Status OoOScheduler::PriorDFS(std::unordered_map<Opcode, int> preNodePriority) {
     std::vector<IssueEntryPtr> newIssueEntries;
     std::map<IssueEntryPtr, bool> visited;
@@ -769,39 +939,47 @@ Status OoOScheduler::PriorDFS(std::unordered_map<Opcode, int> preNodePriority) {
     return SUCCESS;
 }
 
-Status OoOScheduler::SortOps() {
-    std::unordered_map<Opcode, int> preNodePriority = {
-        // ALLOC 节点优先级最高，因为一个节点的前序ALLOC节点要在最靠近该节点的地方访问。
-        {Opcode::OP_UB_ALLOC, 0},
-        {Opcode::OP_L1_ALLOC, 0},
-        {Opcode::OP_L0A_ALLOC, 0},
-        {Opcode::OP_L0B_ALLOC, 0},
-        {Opcode::OP_L0C_ALLOC, 0},
-        {Opcode::OP_BT_ALLOC, 0},
-        {Opcode::OP_FIX_ALLOC, 0},
-        // 其次是L0级数据搬运Op。
-        {Opcode::OP_L1_TO_L0A, 1},
-        {Opcode::OP_L1_TO_L0B, 1},
-        {Opcode::OP_L1_TO_L0_BT, 1},
-        {Opcode::OP_FIX_COPY_IN, 1},
-        {Opcode::OP_FIX_COPY_IN_QUANT_PRE, 1},
-        {Opcode::OP_FIX_COPY_IN_RELU_PRE, 1},
-        {Opcode::OP_FIX_COPY_IN_RELU_POST, 1},
-        {Opcode::OP_FIX_COPY_IN_QUANT_POST, 1},
-        {Opcode::OP_FIX_COPY_IN_ELT_ANTIQ, 1},
-        {Opcode::OP_FIX_COPY_IN_MTE2_ANTIQ, 1},
-        {Opcode::OP_BT_COPY_IN, 1},
-        // 再其次是L1级数据搬运Op。
-        {Opcode::OP_COPY_IN, 2},
-        {Opcode::OP_UB_COPY_IN, 2},
-        {Opcode::OP_L1_COPY_IN, 2},
-        {Opcode::OP_L1_COPY_IN_FRACTAL_Z, 2},
-        {Opcode::OP_L1_COPY_UB, 2},
-        {Opcode::OP_L0C_COPY_UB, 2},
-        {Opcode::OP_UB_COPY_L1, 2},
-        // 最后访问其它计算节点（其它节点默认的优先级为10）。
-    };
-    if (PriorDFS(preNodePriority) != SUCCESS) { ALOG_ERROR_F("PriorDFS failed."); return FAILED; }
+Status OoOScheduler::SortOps(SortOpMethod sortMethod) {
+    if (sortMethod == SortOpMethod::PriorDFS) {
+        std::unordered_map<Opcode, int> preNodePriority = {
+            // ALLOC 节点优先级最高，因为一个节点的前序ALLOC节点要在最靠近该节点的地方访问。
+            {Opcode::OP_UB_ALLOC, 0},
+            {Opcode::OP_L1_ALLOC, 0},
+            {Opcode::OP_L0A_ALLOC, 0},
+            {Opcode::OP_L0B_ALLOC, 0},
+            {Opcode::OP_L0C_ALLOC, 0},
+            {Opcode::OP_BT_ALLOC, 0},
+            {Opcode::OP_FIX_ALLOC, 0},
+            // 其次是L0级数据搬运Op。
+            {Opcode::OP_L1_TO_L0A, 1},
+            {Opcode::OP_L1_TO_L0B, 1},
+            {Opcode::OP_L1_TO_L0_BT, 1},
+            {Opcode::OP_FIX_COPY_IN, 1},
+            {Opcode::OP_FIX_COPY_IN_QUANT_PRE, 1},
+            {Opcode::OP_FIX_COPY_IN_RELU_PRE, 1},
+            {Opcode::OP_FIX_COPY_IN_RELU_POST, 1},
+            {Opcode::OP_FIX_COPY_IN_QUANT_POST, 1},
+            {Opcode::OP_FIX_COPY_IN_ELT_ANTIQ, 1},
+            {Opcode::OP_FIX_COPY_IN_MTE2_ANTIQ, 1},
+            {Opcode::OP_BT_COPY_IN, 1},
+            // 再其次是L1级数据搬运Op。
+            {Opcode::OP_COPY_IN, 2},
+            {Opcode::OP_UB_COPY_IN, 2},
+            {Opcode::OP_L1_COPY_IN, 2},
+            {Opcode::OP_L1_COPY_IN_FRACTAL_Z, 2},
+            {Opcode::OP_L1_COPY_UB, 2},
+            {Opcode::OP_L0C_COPY_UB, 2},
+            {Opcode::OP_UB_COPY_L1, 2},
+            // 最后访问其它计算节点（其它节点默认的优先级为10）。
+        };
+        if (PriorDFS(preNodePriority) != SUCCESS) { ALOG_ERROR_F("PriorDFS failed."); return FAILED; }
+    } else if (sortMethod == SortOpMethod::LayerBasedDFS) {
+        const int layerDepth = 10;
+        if (LayerBasedDFS(layerDepth) != SUCCESS) { ALOG_ERROR_F("LayerBasedDFS failed."); return FAILED; }
+    } else {
+         ALOG_ERROR_F("Op sort method not recognized.");
+         return FAILED;
+    }
     return SUCCESS;
 }
 
@@ -1245,17 +1423,31 @@ Status OoOScheduler::Schedule(Function &function, const std::vector<Operation *>
             op->oOperand[0]->memorymap[op->GetSubgraphID()].memId);
     }
     subGraphID = operations.front()->GetSubgraphID();
-
     if (Init(operations) != SUCCESS) { ALOG_ERROR_F("Init failed!"); return FAILED; }
-
     // op执行排序
-    if (SortOps() != SUCCESS) { ALOG_ERROR_F("SortOps failed!"); return FAILED; }
-
+    SortOpMethod sortMethod;
+    std::string sortMethodStr;
+    std::string funcName = function.GetMagicName();
+    auto funcNameToSortMethod = function.paramConfigs_.OoOPreScheduleMethodMap;
+    if (funcNameToSortMethod.count(funcName) > 0) {
+        sortMethodStr = funcNameToSortMethod[funcName];
+    } else {
+        sortMethodStr = function.paramConfigs_.OoOPreScheduleMethodDefault;
+    }
+    if (sortMethodStr == "PriorDFS") {
+        sortMethod = SortOpMethod::PriorDFS;
+    } else if (sortMethodStr == "LayerBasedDFS") {
+        sortMethod = SortOpMethod::LayerBasedDFS;
+    } else {
+        ALOG_ERROR_F("PreSchedule method not recognized.");
+        return FAILED;
+    }
+    if (SortOps(sortMethod) != SUCCESS) { ALOG_ERROR_F("SortOps failed!"); return FAILED; }
     // 生成spill指令
     if (GenSpillSchedule(function) != SUCCESS) { ALOG_ERROR_F("GenSpillSchedule failed!"); return FAILED; }
-    
     // 模拟调度
-    if (ScheduleMainLoop(function, newOperations) != SUCCESS) { ALOG_ERROR_F("ScheduleMainLoop failed"); return FAILED; }
+    if (ScheduleMainLoop(function, newOperations) != SUCCESS) {
+        ALOG_ERROR_F("ScheduleMainLoop failed"); return FAILED;}
     function.SetStackWorkespaceSize(workspaceOffset);
     return SUCCESS;
 }
