@@ -1110,7 +1110,7 @@ TILEOP void DynTtranspose_vnchwconv_(
                 if (num_subtile_y == 1) {
                     scatter_vnchwconv_b16(VA0, VA2, 1, 0, 0);
                 } else {
-                    scatter_vnchwconv_b16(VA0, VA2, num_subtile_y, 2, 16 * SS * sizeof(T) / BLOCK_SIZE);
+                    scatter_vnchwconv_b16(VA0, VA2, num_subtile_y, 1, 16 * SS * sizeof(T) / BLOCK_SIZE);
                 }
             } else {
                 if (num_subtile_y == 1) {
