@@ -41,8 +41,8 @@ void ConnectionMatrix::SetConnectivity(const std::unordered_set<Operation *> &pr
     impl_->SetConnectivity(producers, op);
 }
 
-int ConnectionMatrix::Generate(Function *func) {
-    return impl_->Generate(func);
+void ConnectionMatrix::Generate(Function *func) {
+    impl_->Generate(func);
 }
 
 uint64_t ConnectionMatrix::GetIndex(const Operation &op) const {
@@ -77,18 +77,17 @@ ConnectionMatrixImpl::~ConnectionMatrixImpl() {
     bitMaps_.clear();
 }
 
-int ConnectionMatrixImpl::Generate(Function *func) {
-    if (func != nullptr) {
-        func_ = func;
-    } else {
-        return 0;
+void ConnectionMatrixImpl::Generate(Function *func) {
+    if (func == nullptr) {
+        return;
     }
+    func_ = func;
 
     for (auto &op : func->Operations()) {
         std::unordered_set<Operation *> producers = op.ProducerOps();
         SetConnectivity(producers, op);
     }
-    return 0;
+    return;
 }
 
 void ConnectionMatrixImpl::SetConnectivity(const std::unordered_set<Operation *> &producers,

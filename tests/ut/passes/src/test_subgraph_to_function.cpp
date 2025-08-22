@@ -703,7 +703,7 @@ TEST_F(SubgraphToFunctionTest, VerifyPassResumeByJson) {
         {    "SrcDstBufferMerge",    "SrcDstBufferMerge", PassType::TYPE_EXECUTE_GRAPH},
         {             "AddAlloc",             "AddAlloc", PassType::TYPE_EXECUTE_GRAPH},
         {          "OoOSchedule",          "OoOSchedule", PassType::TYPE_EXECUTE_GRAPH},
-        {              "MemoryReuse",              "MemoryReuse", PassType::TYPE_EXECUTE_GRAPH},
+        {    "GlobalMemoryReuse",    "GlobalMemoryReuse", PassType::TYPE_EXECUTE_GRAPH},
         {          "RemoveAlloc",          "RemoveAlloc", PassType::TYPE_EXECUTE_GRAPH},
         {           "InsertSync",           "InsertSync", PassType::TYPE_EXECUTE_GRAPH},
         {       "CodegenPreproc",       "CodegenPreproc", PassType::TYPE_EXECUTE_GRAPH},

@@ -240,7 +240,7 @@ set(_CaseFilterList
         "TestRemoveUnalignedReshapeOp.reshaped_unpadded_ub_gm_last_dim_1"
         "TestSplitReshapeOpPVC2.Test_Reshape_1to1"
         "TestSplitReshapeOpPVC2.Test_Reshape_1toMulti"
-        "TestMemoryReuse.*"
+        "TestGlobalMemoryReuse.*"
         "InferShapeTest.*"
         "GetParamIdxTest.*"
         "GeneralizetionTest.TestReshape"

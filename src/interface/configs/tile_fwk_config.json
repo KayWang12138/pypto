@@ -165,7 +165,7 @@
             "CodegenPreproc": {
                 "POST_CHECK": false
             },
-            "MemoryReuse": {
+            "GlobalMemoryReuse": {
             },
             "L1CopyInReuseMerge": {
             },

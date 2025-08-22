@@ -48,9 +48,9 @@ public:
     // the result of final bitmap is 0.
     void And(const LargeBitmap &anotherBm);
 
-    void ClearBit(size_t bitIdx);
+    void ClearBit(const size_t bitIdx);
 
-    void ResizeBits(size_t newSize);
+    void ResizeBits(const size_t newSize);
 private:
     // Number of element in vector bits
     size_t size_;

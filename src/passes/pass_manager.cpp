@@ -71,7 +71,7 @@ PassManager &PassManager::Instance() {
 }
 
 void RegPass() {
-    REG_PASS(MemoryReuse);
+    REG_PASS(GlobalMemoryReuse);
     REG_PASS(UpdateMemoryMap);
     REG_PASS(SubgraphToFunction);
     REG_PASS(GraphPartition);
@@ -138,7 +138,7 @@ void PassManager::RegDefaultStrategy() {
             {        "SrcDstBufferMerge",        "SrcDstBufferMerge", PassType::TYPE_EXECUTE_GRAPH},
             {                 "AddAlloc",                 "AddAlloc", PassType::TYPE_EXECUTE_GRAPH},
             {              "OoOSchedule",              "OoOSchedule", PassType::TYPE_EXECUTE_GRAPH},
-            {              "MemoryReuse",              "MemoryReuse", PassType::TYPE_EXECUTE_GRAPH},
+            {        "GlobalMemoryReuse",        "GlobalMemoryReuse", PassType::TYPE_EXECUTE_GRAPH},
             {              "RemoveAlloc",              "RemoveAlloc", PassType::TYPE_EXECUTE_GRAPH},
             {               "InsertSync",               "InsertSync", PassType::TYPE_EXECUTE_GRAPH},
             {           "CodegenPreproc",           "CodegenPreproc", PassType::TYPE_EXECUTE_GRAPH},

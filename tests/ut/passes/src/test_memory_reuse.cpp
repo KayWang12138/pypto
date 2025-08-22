@@ -31,7 +31,7 @@
 namespace npu {
 namespace tile_fwk {
 
-class TestMemoryReuse : public ::testing::Test {
+class TestGlobalMemoryReuse : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
 
@@ -47,7 +47,7 @@ public:
     }
 };
 
-TEST_F(TestMemoryReuse, test_connection_matrix) {
+TEST_F(TestGlobalMemoryReuse, test_connection_matrix) {
     int b = 2;
     int n = 2;
     int s = 1;
@@ -115,7 +115,7 @@ TEST_F(TestMemoryReuse, test_connection_matrix) {
     EXPECT_EQ(allocator.connectionMatrix_.IsConnected(callOps.at(nodeId2), callOps.at(nodeId7)), true);
 }
 
-TEST_F(TestMemoryReuse, CanReuseSeriesOpConn) {
+TEST_F(TestGlobalMemoryReuse, CanReuseSeriesOpConn) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7"};
     std::vector<Opcode> opCodes{Opcode::OP_CALL, Opcode::OP_CALL, Opcode::OP_CALL, Opcode::OP_CALL, Opcode::OP_CALL};
@@ -151,7 +151,7 @@ TEST_F(TestMemoryReuse, CanReuseSeriesOpConn) {
     EXPECT_EQ(allocator.size_, 16 * 16 * 4 * 2); // shape: 16*16, size: 4, allocate 2 tensor memory
 }
 
-TEST_F(TestMemoryReuse, NotReuseParallelOpConn) {
+TEST_F(TestGlobalMemoryReuse, NotReuseParallelOpConn) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7"};
     std::vector<Opcode> opCodes{Opcode::OP_CALL, Opcode::OP_CALL, Opcode::OP_CALL, Opcode::OP_CALL};
@@ -180,7 +180,7 @@ TEST_F(TestMemoryReuse, NotReuseParallelOpConn) {
     EXPECT_EQ(allocator.size_, 16 * 16 * 4 * 4); // shape: 16*16, size: 4, allocate 4 tensor memory
 }
 
-TEST_F(TestMemoryReuse, NotReuseMultiInputOutput) {
+TEST_F(TestGlobalMemoryReuse, NotReuseMultiInputOutput) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"};
     std::vector<Opcode> opCodes{Opcode::OP_CALL, Opcode::OP_CALL, Opcode::OP_CALL};
@@ -209,7 +209,7 @@ TEST_F(TestMemoryReuse, NotReuseMultiInputOutput) {
     EXPECT_EQ(allocator.size_, 16 * 16 * 4 * 5); // shape: 16*16, size: 4, allocate 5 tensor memory
 }
 
-TEST_F(TestMemoryReuse, NotReuseViewOp) {
+TEST_F(TestGlobalMemoryReuse, NotReuseViewOp) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7"};
     std::vector<Opcode> opCodes{Opcode::OP_CALL, Opcode::OP_VIEW, Opcode::OP_CALL, Opcode::OP_ASSEMBLE, Opcode::OP_CALL};
@@ -245,7 +245,7 @@ TEST_F(TestMemoryReuse, NotReuseViewOp) {
     EXPECT_EQ(allocator.size_, 16 * 16 * 4 * 2); // shape: 16*16, size: 4, allocate 4 tensor memory
 }
 
-TEST_F(TestMemoryReuse, NotReuseSeriesOpConnSizeDiff) {
+TEST_F(TestGlobalMemoryReuse, NotReuseSeriesOpConnSizeDiff) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4"};
     std::vector<std::string> tensorNames1{"t5", "t6", "t7"};
@@ -276,7 +276,7 @@ TEST_F(TestMemoryReuse, NotReuseSeriesOpConnSizeDiff) {
     EXPECT_EQ(allocator.size_, 16 * 16 * 4 * 2 + 64 * 64 * 4 * 2); // allocate 2 + 2 tensor memory
 }
 
-TEST_F(TestMemoryReuse, CanReuseSeriesOpConnSizeDiff) {
+TEST_F(TestGlobalMemoryReuse, CanReuseSeriesOpConnSizeDiff) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4"};
     std::vector<std::string> tensorNames1{"t5", "t6", "t7"};
@@ -307,7 +307,7 @@ TEST_F(TestMemoryReuse, CanReuseSeriesOpConnSizeDiff) {
     EXPECT_EQ(allocator.size_, 64 * 32 * 4 * 2); // allocate 2 big tensor memory
 }
 
-TEST_F(TestMemoryReuse, CanReuseSeriesOpConnMultiSizeDiff) {
+TEST_F(TestGlobalMemoryReuse, CanReuseSeriesOpConnMultiSizeDiff) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t4"};
     std::vector<std::string> tensorNames1{"t3"};
@@ -342,7 +342,7 @@ TEST_F(TestMemoryReuse, CanReuseSeriesOpConnMultiSizeDiff) {
     EXPECT_EQ(allocator.size_, 64 * 64 * 4 + 32 * 32 * 4); // allocate 2 large tensor memory
 }
 
-TEST_F(TestMemoryReuse, AbnormalNullRootFunction) {
+TEST_F(TestGlobalMemoryReuse, AbnormalNullRootFunction) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4"};
     std::vector<std::string> tensorNames1{"t5", "t6", "t7"};
@@ -364,13 +364,13 @@ TEST_F(TestMemoryReuse, AbnormalNullRootFunction) {
         op->SetOpAttribute(std::make_shared<CallOpAttribute>(function->ComputeHash(), list, function->GetMagicName()));
     }
 
-    MemoryReuse reusePass;
+    GlobalMemoryReuse reusePass;
     Status status = reusePass.RunOnFunction(*function);
 
     EXPECT_EQ(status, FAILED);
 }
 
-TEST_F(TestMemoryReuse, AbnormalNullStorage) {
+TEST_F(TestGlobalMemoryReuse, AbnormalNullStorage) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4"};
     std::vector<std::string> tensorNames1{"t5", "t6", "t7"};

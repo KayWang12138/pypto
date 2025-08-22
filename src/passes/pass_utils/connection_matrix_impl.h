@@ -32,7 +32,7 @@ public:
 
     void SetConnectivity(const std::unordered_set<Operation *> &producers, Operation &op);
 
-    int Generate(Function *func);
+    void Generate(Function *func);
 
     uint64_t GetIndex(const Operation &op) const;
 

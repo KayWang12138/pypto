@@ -28,7 +28,7 @@ constexpr size_t AlignArraySize(size_t bitSize) {
     return AlignBitSize(bitSize) >> RIGHT_SHIFT_SIZE;
 }
 
-void LargeBitmap::ResizeBits(size_t newSize) {
+void LargeBitmap::ResizeBits(const size_t newSize) {
     if (newSize < size_) {
         return;
     }
@@ -48,7 +48,7 @@ void LargeBitmap::ResizeBits(size_t newSize) {
 }
 
 // Shifting right by 6 bits is equivalent to dividing by 64
-void LargeBitmap::ClearBit(size_t bitIdx) {
+void LargeBitmap::ClearBit(const size_t bitIdx) {
     if (bitIdx >= size_) {
         ALOG_WARN_F("Func LargeBitmap::ClearBit bitIdx %zu is not valid. Total size is %zu.", bitIdx, size_);
         return;
@@ -94,7 +94,7 @@ void LargeBitmap::Or(const LargeBitmap &anotherBm) {
     const size_t anotherSize = anotherBm.bits_.size();
     for (auto &bit : bits_) {
         if (index >= anotherSize) {
-        return;
+            return;
         }
         bit |= anotherBm.bits_[index];
         ++index;
@@ -106,7 +106,7 @@ void LargeBitmap::And(const LargeBitmap &anotherBm) {
     const size_t anotherSize = anotherBm.bits_.size();
     for (auto &bit : bits_) {
         if (index >= anotherSize) {
-        return;
+            return;
         }
         bit &= anotherBm.bits_[index];
         ++index;

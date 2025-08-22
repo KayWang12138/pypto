@@ -155,7 +155,7 @@ void Allocator::FindReusableInputForOutput(Function *leafFunc, Operation *op, co
     }
 }
 
-void Allocator::ProcessOutputForMemoryReuse(Function *leafFunc, WorkspaceInfo &wspInfo,
+void Allocator::ProcessOutputForGlobalMemoryReuse(Function *leafFunc, WorkspaceInfo &wspInfo,
     std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inWspCnt, std::vector<WorkspaceInfo> &leafFuncReuseMap) {
     auto &out = wspInfo.tensor;
     if (wspInfo.count != 1) {
@@ -220,7 +220,7 @@ bool HasReshapeConsumer(const LogicalTensorPtr &tensor) {
 // 4. 如果incast的size大于outcast，那么也可以复用，但是要给outcast的tensor上打上偏移量。
 // 5. 如果outcast的shape不等于rawshape，那么不能复用，这种场景较为复杂，有优化空间
 // 6. 如果outcast在leafFunction中存在后继的reshape，那么不需要复用
-void Allocator::ProcessLeafMemoryReuse(Function *leafFunc) {
+void Allocator::ProcessLeafGlobalMemoryReuse(Function *leafFunc) {
     ALOG_DEBUG_F("[LeafReuse] Processing leaf function: %s hash=%lu.", 
                 leafFunc->GetMagicName().c_str(), leafFunc->GetFunctionHash().GetHash());
     std::unordered_map<LogicalTensorPtr, size_t> tensorToInfo;
@@ -272,7 +272,7 @@ void Allocator::ProcessLeafMemoryReuse(Function *leafFunc) {
     
     // 处理每个输出tensor的内存复用
     for (auto &wspInfo : outWspInfo) {
-        ProcessOutputForMemoryReuse(leafFunc, wspInfo, inWspCnt, leafFuncReuseMap);
+        ProcessOutputForGlobalMemoryReuse(leafFunc, wspInfo, inWspCnt, leafFuncReuseMap);
         ALOG_DEBUG_F("[LeafReuse] Checking output: magic=%d rawmagic=%d size=%lu count=%d.",
                      wspInfo.tensor->magic, wspInfo.tensor->tensor->rawmagic,
                      wspInfo.size, wspInfo.count);
@@ -417,13 +417,13 @@ void Allocator::MarkNonOverlappingConsumerTensors() {
     }
 }
 
-void Allocator::InitializeLeafMemoryReuse() {
+void Allocator::InitializeLeafGlobalMemoryReuse() {
     if (function_->GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH) {
         return;
     }
     for (auto& program : function_->programs_) {
         Function* leafProgram = program.second;
-        ProcessLeafMemoryReuse(leafProgram);
+        ProcessLeafGlobalMemoryReuse(leafProgram);
     }
     // 标记无重叠的消费者张量
     MarkNonOverlappingConsumerTensors();
@@ -814,7 +814,7 @@ void Allocator::Init() {
     connectionMatrix_.Generate(function_);
     storageMap_.clear();
     InitializeRootCasts();
-    InitializeLeafMemoryReuse();
+    InitializeLeafGlobalMemoryReuse();
     ProcessOperations();
 }
 
@@ -967,17 +967,17 @@ Status Allocator::Allocate() {
     return UpdateIncastOutCast();
 }
 
-Status MemoryReuse::RunOnFunction(Function &function) {
+Status GlobalMemoryReuse::RunOnFunction(Function &function) {
     /* 为incast、outcast类型申请storage，需要正确处理actual rawmagic */
     /* 标注每个CallOp输出Tensor生命周期，生命周期 */
-    ALOG_INFO_F("===> Start MemoryReuse pass on function: %s.", function.GetMagicName().c_str());
+    ALOG_INFO_F("===> Start GlobalMemoryReuse pass on function: %s.", function.GetMagicName().c_str());
     if (function.rootFunc_ == nullptr) {
         return FAILED;
     }
     Allocator allocator(function.rootFunc_);
     allocator.Init();
     Status status = allocator.Allocate();
-    ALOG_INFO_F("===> Completed MemoryReuse pass. Status: %d.", status);
+    ALOG_INFO_F("===> Completed GlobalMemoryReuse pass. Status: %d.", status);
     return status;
 }
 } // namespace npu::tile_fwk

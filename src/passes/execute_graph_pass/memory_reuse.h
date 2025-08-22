@@ -89,8 +89,8 @@ private:
     void StorageNeedToAllocatePreProcess(TensorsDesc &tensorsDesc);
     Status UpdateStorageId(TensorsDesc &tensorsDesc, std::unordered_map<int64_t, int> &idMap, int &storageId);
     void MarkNonOverlappingConsumerTensors();
-    void InitializeLeafMemoryReuse();
-    void ProcessLeafMemoryReuse(Function *leafFunc);
+    void InitializeLeafGlobalMemoryReuse();
+    void ProcessLeafGlobalMemoryReuse(Function *leafFunc);
 
     bool CheckAllConsumersConnectedToOp(const LogicalTensorPtr &tensor, Operation &op) const;
     // 检查某个CallOp的输出是否可以复用输入
@@ -102,7 +102,7 @@ private:
     void UpdateTensorMagicToBucketIdx(const std::set<LogicalTensorPtr> &tensors, int bucketIdx);
     void FindReusableInputForOutput(Function *leafFunc, Operation *op, const WorkspaceInfo &outWspInfo,
         std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inWspCnt, std::vector<WorkspaceInfo> &leafFuncReuseMap);
-    void ProcessOutputForMemoryReuse(Function *leafFunc, WorkspaceInfo &wspInfo,
+    void ProcessOutputForGlobalMemoryReuse(Function *leafFunc, WorkspaceInfo &wspInfo,
         std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inWspCnt, std::vector<WorkspaceInfo> &leafFuncReuseMap);
     Status UpdateIncastOutCast();
 
@@ -127,10 +127,10 @@ private:
     std::unordered_map<int, int64_t> bucketsIdxToSize_;
 };
 
-class MemoryReuse : public Pass {
+class GlobalMemoryReuse : public Pass {
 public:
-    MemoryReuse() : Pass("MemoryReuse") {}
-    ~MemoryReuse() override {}
+    GlobalMemoryReuse() : Pass("GlobalMemoryReuse") {}
+    ~GlobalMemoryReuse() override {}
     Status RunOnFunction(Function &function) override;
 };
 } // namespace npu::tile_fwk
