@@ -101,7 +101,8 @@ std::string CodeGenOpCloudNPU::GenParamsStr() const {
             auto localAllocKey = sm->CreateAllocKey(operandWithMagic[i]);
             std::string var = sm->QueryVariableName(localAllocKey);
 
-            if (opCode != Opcode::OP_L1_TO_L0A && opCode != Opcode::OP_L1_TO_L0B && opCode != Opcode::OP_L1_TO_L0_BT) {
+            if (opCode != Opcode::OP_L1_TO_L0A && opCode != Opcode::OP_L1_TO_L0B && opCode != Opcode::OP_L1_TO_L0_BT &&
+                opCode != Opcode::OP_L1_TO_L0_AT) {
                 // 大包搬运场景下，L1搬运至L0不需要计算L1地址偏移
                 // 非大包搬运场景下，L1与L0数据大小一致，也不需要地址偏移
                 // 偏移计算仅用于L1_Copy_In 和 L1_Copy_Out

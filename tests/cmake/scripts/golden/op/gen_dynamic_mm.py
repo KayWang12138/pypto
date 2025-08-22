@@ -14,13 +14,13 @@
 本脚本有 2 种执行模式:
 1. CI批跑时, 由 tests/cmake/scripts/golden_ctrl.py 调用, 为避免日志过多, 此时 logging 级别为 logging.INFO;
 """
-import math
 import sys
+import math
 import logging
 from pathlib import Path
 
-import numpy as np
 from bfloat16 import bfloat16
+import numpy as np
 
 if __name__ == "__main__":
     # 日志级别
@@ -118,12 +118,12 @@ def gen_mm_data(input_config: ShapeConfig, output_dir: Path):
         a = a.transpose(1, 0)
     if input_config.a_nz_flag:
         a = nd_to_fractal_nz(a)
-    a.tofile(a_path)
-
+        
     if input_config.trans_b:
         b = b.transpose(1, 0)
     if input_config.b_nz_flag:
         b = nd_to_fractal_nz(b)
+    a.tofile(a_path)
     b.tofile(b_path)
 
     if input_config.c_nz_flag:
@@ -145,6 +145,9 @@ def gen_mm_data(input_config: ShapeConfig, output_dir: Path):
         "DynamicMatmulTest.mm_A_B_NZ_int8_tile3",
         "DynamicMatmulTest.mm_A_Bt_NZ_int8_tile4",
         "DynamicMatmulTest.mm_A_ND_B_ND_C_NZ",
+        "DynamicMatmulTest.mm_AT_B_ANZ_BND_bf16",
+        "DynamicMatmulTest.mm_AT_BT_AND_BND_bf16",
+        "DynamicMatmulTest.mm_AT_B_ANZ_BND_fp16_UNALIGN",
     ]
 )
 def gen_dynamic_mm_golden(case_name: str, output: Path) -> bool:
@@ -190,6 +193,18 @@ def gen_dynamic_mm_golden(case_name: str, output: Path) -> bool:
         return True
     if case_name == "DynamicMatmulTest.mm_A_ND_B_ND_C_NZ":
         input_config = ShapeConfig(16, 192, 128, FP16, FP32, False, False, False, False, True)
+        gen_mm_data(input_config, output)
+        return True
+    if case_name == "DynamicMatmulTest.mm_AT_B_ANZ_BND_bf16":
+        input_config = ShapeConfig(128, 256, 512, BF16, FP32, True, False, True, False, True)
+        gen_mm_data(input_config, output)
+        return True
+    if case_name == "DynamicMatmulTest.mm_AT_BT_AND_BND_bf16":
+        input_config = ShapeConfig(128, 256, 512, BF16, FP32, True, True, False, False, True)
+        gen_mm_data(input_config, output)
+        return True
+    if case_name == "DynamicMatmulTest.mm_AT_B_ANZ_BND_fp16_UNALIGN":
+        input_config = ShapeConfig(127, 255, 511, FP16, FP32, True, False, False, False, False)
         gen_mm_data(input_config, output)
         return True
     else:

@@ -166,8 +166,8 @@ void TestDynMatmul(
     int n = mmShape[MM_SHAPE_N_IDX];
     Tensor tensor_a = transA ? constructMatmulTensor<inputDtype>({k, m}, "tensor_a", isANz) :
                                constructMatmulTensor<inputDtype>({m, k}, "tensor_a", isANz);
-    Tensor tensor_b = transB ? constructMatmulTensor<inputDtype>({n, k}, "tensor_a", isBNz) :
-                               constructMatmulTensor<inputDtype>({k, n}, "tensor_a", isBNz);
+    Tensor tensor_b = transB ? constructMatmulTensor<inputDtype>({n, k}, "tensor_b", isBNz) :
+                               constructMatmulTensor<inputDtype>({k, n}, "tensor_b", isBNz);
     Tensor tensor_c = constructMatmulTensor<outputDtype>({m, n}, "tensor_c", isCNz);
 
     int viewM = viewShape[0];
@@ -333,4 +333,40 @@ TEST_F(DynamicMatmulTest, mm_A_ND_B_ND_C_NZ) {
     TestDynMatmul<npu::tile_fwk::float16, float, false, false, true>(
         {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
 }
+
+TEST_F(DynamicMatmulTest, mm_AT_B_ANZ_BND_bf16) {
+    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    int m = 128;
+    int k = 256;
+    int n = 512;
+    bool isANz = true;
+    bool isBNz = false;
+    std::vector<int> viewShape = {-1, -1};
+    TestDynMatmul<npu::tile_fwk::bfloat16, float, true, false, true>(
+        {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
+}
+
+TEST_F(DynamicMatmulTest, mm_AT_BT_AND_BND_bf16) {
+    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    int m = 128;
+    int k = 256;
+    int n = 512;
+    bool isANz = false;
+    bool isBNz = false;
+    std::vector<int> viewShape = {-1, -1};
+    TestDynMatmul<npu::tile_fwk::bfloat16, float, true, true, true>(
+        {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
+}
+
+TEST_F(DynamicMatmulTest, mm_AT_B_ANZ_BND_fp16_UNALIGN) {
+    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    int m = 127;
+    int k = 255;
+    int n = 511;
+    bool isANz = false;
+    bool isBNz = false;
+    std::vector<int> viewShape = {-1, -1};
+    TestDynMatmul<npu::tile_fwk::float16, float, true, false, false>(
+        {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
+} 
 } // namespace

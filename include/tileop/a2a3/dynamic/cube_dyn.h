@@ -383,6 +383,37 @@ TILEOP void DynL1ToL0A(__ca__ T *dst, __cbuf__ T *src, unsigned dstM, unsigned d
     }
 }
 
+// Nz2Zz
+template <typename T, unsigned Offset0, unsigned Offset1>
+TILEOP void DynL1ToL0At(__ca__ T *dst, __cbuf__ T *src, unsigned dstM, unsigned dstK, unsigned srcM, unsigned srcK) {
+    constexpr uint16_t c0Size = BLOCK_ALIGN_BYTE / sizeof(T);
+    dstM = CeilAlign<uint16_t>(dstM, c0Size);
+    dstK = CeilAlign<uint16_t>(dstK, BLOCK_CUBE_M_N);
+    srcM = CeilAlign<uint16_t>(srcM, c0Size);
+    srcK = CeilAlign<uint16_t>(srcK, BLOCK_CUBE_M_N);
+
+    if (dstK == srcK) {
+        uint8_t repeat = (dstK / BLOCK_CUBE_M_N) * (dstM / c0Size); // 表示搬运的次数
+        uint16_t srcStride = 1;                                     // fract between fract
+        uint16_t dstStride = 0;                                     // gap between fract
+        load_cbuf_to_ca(dst, src, 0, repeat, srcStride, dstStride, 0, 1, inc);
+    } else {
+        uint8_t repeat = dstK / BLOCK_CUBE_M_N;
+        uint16_t srcStride = 1;
+        uint16_t dstStride = 0;
+        int32_t dstOffset = 0;
+        int32_t dstOffsetStep = BLOCK_CUBE_M_N * dstK;
+        int32_t srcOffset = Offset0 * c0Size + Offset1 * srcK;
+        int32_t srcOffsetStep = srcK * c0Size;
+
+        for (int32_t mIdx = 0; mIdx < static_cast<int32_t>(dstM / c0Size); ++mIdx) {
+            load_cbuf_to_ca(dst + dstOffset, src + srcOffset, 0, repeat, srcStride, dstStride, 0, 1, inc);
+            dstOffset += dstOffsetStep;
+            srcOffset += srcOffsetStep;
+        }
+    }
+}
+
 // Nz2Zn
 template <typename T, unsigned Offset0, unsigned Offset1>
 TILEOP void DynL1ToL0B(__cb__ T *dst, __cbuf__ T *src, unsigned dstK, unsigned dstN, unsigned srcK, unsigned srcN) {

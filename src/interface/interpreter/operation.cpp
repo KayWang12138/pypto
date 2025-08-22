@@ -125,6 +125,7 @@ void OperationInterpreter::ExecuteOperation(ExecuteOperationContext *ctx) {
         {Opcode::OP_L1_ALLOC, &OperationInterpreter::ExecuteOpAlloc},
         {Opcode::OP_L1_TO_L0A, &OperationInterpreter::ExecuteDuplicate},
         {Opcode::OP_L1_TO_L0B, &OperationInterpreter::ExecuteDuplicate},
+        {Opcode::OP_L1_TO_L0_AT, &OperationInterpreter::ExecuteDuplicate},
         {Opcode::OP_L1_TO_L0_BT, &OperationInterpreter::ExecuteDuplicate},
         {Opcode::OP_CONVERT, &OperationInterpreter::ExecuteDuplicate},
 

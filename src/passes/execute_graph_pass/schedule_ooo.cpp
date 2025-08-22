@@ -953,6 +953,7 @@ Status OoOScheduler::SortOps(SortOpMethod sortMethod) {
             // 其次是L0级数据搬运Op。
             {Opcode::OP_L1_TO_L0A, 1},
             {Opcode::OP_L1_TO_L0B, 1},
+            {Opcode::OP_L1_TO_L0_AT, 1},
             {Opcode::OP_L1_TO_L0_BT, 1},
             {Opcode::OP_FIX_COPY_IN, 1},
             {Opcode::OP_FIX_COPY_IN_QUANT_PRE, 1},

@@ -286,7 +286,7 @@ private:
         auto &ret = ctx->ooperandInplaceDataViewList->at(0);
         auto &oper = ctx->ioperandDataViewList->at(0);
         Opcode opCode = ctx->op->GetOpcode();
-        if (opCode == Opcode::OP_L1_TO_L0_BT) {
+        if (opCode == Opcode::OP_L1_TO_L0_BT || opCode == Opcode::OP_L1_TO_L0_AT) {
             std::vector<int> axises = {0, 1};
             Calculator::CalcTransposeAdjDim(ret.get(), oper.get(), axises[0], &pool);
         } else {

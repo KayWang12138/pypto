@@ -171,6 +171,9 @@ Status CubeProcess::AddL1CopyInAttr(
         } else if (copyInOp->GetOpcode() == Opcode::OP_L1_TO_L0B) {
             L1CopyInOp->SetAttribute(L1_COPY_IN_OUTER, kValue);
             L1CopyInOp->SetAttribute(L1_COPY_IN_INNER, nValue);
+        } else if (copyInOp->GetOpcode() == Opcode::OP_L1_TO_L0_AT) {
+            L1CopyInOp->SetAttribute(L1_COPY_IN_OUTER, kValue);
+            L1CopyInOp->SetAttribute(L1_COPY_IN_INNER, mValue);
         } else if (copyInOp->GetOpcode() == Opcode::OP_L1_TO_L0_BT) {
             L1CopyInOp->SetAttribute(L1_COPY_IN_OUTER, nValue);
             L1CopyInOp->SetAttribute(L1_COPY_IN_INNER, kValue);

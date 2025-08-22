@@ -3151,6 +3151,22 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
                 function, tileShape, iOperand, oOperand[0], {mValue, kValue, nValue});
             break;
         }
+        case Opcode::OP_AT_MUL_B: {
+            auto mValue = (op.HasAttr(OP_ATTR_PREFIX + "act_m")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_m") : 0;
+            auto kValue = (op.HasAttr(OP_ATTR_PREFIX + "act_k")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_k") : 0;
+            auto nValue = (op.HasAttr(OP_ATTR_PREFIX + "act_n")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_n") : 0;
+            Matrix::TiledInnerAMulB<true, false>(
+                function, tileShape, iOperand, oOperand[0], {mValue, kValue, nValue});
+            break;
+        }
+        case Opcode::OP_AT_MUL_BT: {
+            auto mValue = (op.HasAttr(OP_ATTR_PREFIX + "act_m")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_m") : 0;
+            auto kValue = (op.HasAttr(OP_ATTR_PREFIX + "act_k")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_k") : 0;
+            auto nValue = (op.HasAttr(OP_ATTR_PREFIX + "act_n")) ? op.GetIntAttribute(OP_ATTR_PREFIX + "act_n") : 0;
+            Matrix::TiledInnerAMulB<true, true>(
+                function, tileShape, iOperand, oOperand[0], {mValue, kValue, nValue});
+            break;
+        }
         case Opcode::OP_BITSORT: {
             int axis = op.GetIntAttribute(TOPK_AXIS);
             int isLargest = op.GetIntAttribute(TOPK_ORDER);

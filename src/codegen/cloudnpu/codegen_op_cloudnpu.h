@@ -357,7 +357,7 @@ private:
         {                 Opcode::OP_L1_TO_L0A,                [this]() { return GenMemL1ToL0(); }},
         {                 Opcode::OP_L1_TO_L0B,                [this]() { return GenMemL1ToL0(); }},
         {               Opcode::OP_L1_TO_L0_BT,                [this]() { return GenMemL1ToL0(); }},
-
+        {               Opcode::OP_L1_TO_L0_AT,                [this]() { return GenMemL1ToL0(); }},
         // cast op
         {                      Opcode::OP_CAST,                   [this]() { return GenCastOp(); }},
 

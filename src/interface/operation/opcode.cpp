@@ -166,6 +166,8 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_A_MULACC_B, OpCoreType::AIC, "A_MULACC_B", {MemoryType::MEM_L0A, MemoryType::MEM_L0B, MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_L0C}, {"TileOp::Tmad", PIPE_M, PIPE_M, CoreType::AIC}, OpCalcType::MATMUL);
     registerInfo(Opcode::OP_A_MUL_BT, OpCoreType::AIC, "A_MUL_Bt", {MemoryType::MEM_L0A, MemoryType::MEM_L0B, MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_L0C}, {"TileOp::Tmad", PIPE_M, PIPE_M, CoreType::AIC}, OpCalcType::MATMUL);
     registerInfo(Opcode::OP_A_MULACC_BT, OpCoreType::AIC, "A_MULACC_Bt", {MemoryType::MEM_L0A, MemoryType::MEM_L0B, MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_L0C}, {"TileOp::Tmad", PIPE_M, PIPE_M, CoreType::AIC}, OpCalcType::MATMUL);
+    registerInfo(Opcode::OP_AT_MUL_B, OpCoreType::AIC, "At_MUL_B", {MemoryType::MEM_L0A, MemoryType::MEM_L0B, MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_L0C}, {"TileOp::Tmad", PIPE_M, PIPE_M, CoreType::AIC}, OpCalcType::MATMUL);
+    registerInfo(Opcode::OP_AT_MUL_BT, OpCoreType::AIC, "At_MUL_Bt", {MemoryType::MEM_L0A, MemoryType::MEM_L0B, MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_L0C}, {"TileOp::Tmad", PIPE_M, PIPE_M, CoreType::AIC}, OpCalcType::MATMUL);
 
     registerInfo(Opcode::OP_CONV, OpCoreType::AIC, "CONV", {}, {}, {"CUBE_CONV", PIPE_M, PIPE_M, CoreType::AIC}, OpCalcType::CONV, convAttrStrList);
     registerInfo(Opcode::OP_CONV_ADD, OpCoreType::AIC, "CONV_ADD", {}, {}, {"CUBE_CONV_ADD", PIPE_M, PIPE_M, CoreType::AIC}, OpCalcType::CONV, convAttrStrList);
@@ -189,6 +191,7 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_L1_COPY_OUT_DMA, OpCoreType::AIC, "L1_COPY_OUT_DMA", {MemoryType::MEM_L1}, {MemoryType::MEM_DEVICE_DDR}, {"TileOp::L1CopyOutDMA", PIPE_MTE3, PIPE_MTE3, CoreType::AIC}, OpCalcType::MOVE_OUT);
     registerInfo(Opcode::OP_L1_TO_L0A, OpCoreType::AIC, "L1_TO_L0A", {MemoryType::MEM_L1}, {MemoryType::MEM_L0A}, {"TileOp::L1ToL0A", PIPE_MTE1, PIPE_MTE1, CoreType::AIC}, OpCalcType::MOVE_LOCAL);
     registerInfo(Opcode::OP_L1_TO_L0B, OpCoreType::AIC, "L1_TO_L0B", {MemoryType::MEM_L1}, {MemoryType::MEM_L0B}, {"TileOp::L1ToL0B", PIPE_MTE1, PIPE_MTE1, CoreType::AIC}, OpCalcType::MOVE_LOCAL);
+    registerInfo(Opcode::OP_L1_TO_L0_AT, OpCoreType::AIC, "L1_TO_L0At", {MemoryType::MEM_L1}, {MemoryType::MEM_L0A}, {"TileOp::L1ToL0At", PIPE_MTE1, PIPE_MTE1, CoreType::AIC}, OpCalcType::MOVE_LOCAL);
     registerInfo(Opcode::OP_L1_TO_L0_BT, OpCoreType::AIC, "L1_TO_L0Bt", {MemoryType::MEM_L1}, {MemoryType::MEM_L0B}, {"TileOp::L1ToL0Bt", PIPE_MTE1, PIPE_MTE1, CoreType::AIC}, OpCalcType::MOVE_LOCAL);
     registerInfo(Opcode::OP_L0C_COPY_OUT, OpCoreType::AIC, "L0C_COPY_OUT", {MemoryType::MEM_L0C}, {MemoryType::MEM_DEVICE_DDR}, {"TileOp::L0CCopyOut", PIPE_FIX, PIPE_FIX, CoreType::AIC}, OpCalcType::MOVE_OUT);
     registerInfo(Opcode::OP_FIX_COPY_IN, OpCoreType::AIC, "FIX_COPY_IN", {MemoryType::MEM_L1}, {MemoryType::MEM_FIX}, {"TileOp::L1CopyFix", PIPE_MTE1, PIPE_MTE1, CoreType::AIC}, OpCalcType::MOVE_LOCAL, {FixpOpAttributeKey::fbAddrSpace});
