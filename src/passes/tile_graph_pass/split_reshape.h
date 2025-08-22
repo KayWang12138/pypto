@@ -62,6 +62,8 @@ struct CheckParam {
     LogicalTensorPtr input;
     LogicalTensorPtr output;
     LogicalTensorPtr inputView;
+    std::vector<SymbolicScalar> dynShape;
+    std::vector<SymbolicScalar> dynOffset;
 };
 
 struct copyOutTilePara {
@@ -69,7 +71,6 @@ struct copyOutTilePara {
     LogicalTensorPtr inputView;
     LogicalTensorPtr newInputView;
     std::vector<int32_t> alignedShape;
-    std::vector<SymbolicScalar> validShape;
 };
 
 struct PerfectlyMatchPara {
@@ -86,6 +87,7 @@ struct BeCoveredPara {
     LogicalTensorPtr reshapeOutput;
     LogicalTensorPtr reshapeSource;
     std::vector<int32_t> newOffset;
+    std::vector<SymbolicScalar> fromDynOffset;
 };
 
 struct PerfectlyMatchWithAllPara {
@@ -105,6 +107,7 @@ struct AssemblePara {
     LogicalTensorPtr inputView;
     LogicalTensorPtr overlap;
     std::vector<int32_t> newReshapeOutputTileOffset;
+    std::vector<SymbolicScalar> newReshapeOutputDynOffset;
 };
 
 struct OpPara {
@@ -119,11 +122,37 @@ struct CalcOverlapPara {
     LogicalTensorPtr reshapeSource;
     std::vector<int32_t> newInputViewTileOffset;
     std::vector<int32_t> newInputViewTileShape;
+    std::vector<SymbolicScalar> newInputViewDynOffset;
+    std::vector<SymbolicScalar> newInputViewDynShape;
     LogicalTensors overlaps;
     LogicalTensors newOverlaps;
     LogicalTensorPtr input;
     LogicalTensorPtr inputView;
     LogicalTensorPtr output;
+};
+
+struct CheckOutputParam {
+    LogicalTensorPtr reshapeSource;
+    std::vector<int32_t> alignedShape;
+    std::vector<int32_t> newInputViewTileOffset;
+    std::vector<int32_t> newInputViewTileShape;
+    std::vector<SymbolicScalar> newInputViewDynOffset;
+    std::vector<SymbolicScalar> newInputViewDynShape;
+};
+
+struct ReshapeSourcePara {
+    std::vector<int32_t> newReshapeSourceTileShape;
+    std::vector<int32_t> newReshapeSourceTileOffset;
+    std::vector<SymbolicScalar> newReshapeSourceDynShape;
+    std::vector<SymbolicScalar> newReshapeSourceDynOffset;
+};
+
+struct DynAssembleOp {
+    MemoryType from;
+    std::vector<int> toOffset;
+    std::vector<SymbolicScalar> toDynOffset;
+    std::shared_ptr<LogicalTensor> input;
+    std::shared_ptr<LogicalTensor> output;
 };
 
 class SplitReshape : public Pass, public DeadOperationEliminator {
@@ -139,28 +168,33 @@ private:
     Status EraseReshape(Function &function);
     Status SetMemoryType(Function &function);
 
-    Status ObtainReshapeSource(Function &function, const CheckParam &para, LogicalTensorPtr &newReshapeSource);
+    Status ObtainReshapeSource(Function &function, const OpPara &para, LogicalTensorPtr &newReshapeSource);
     Status AddReshapeRemoveView(Operation &op, const OpPara &para);
     Status AddReshape(Operation &op, const OpPara &para);
     Status ObtainCopyOutTile(Function &function, const copyOutTilePara &copyOutTile, LogicalTensors &overlaps, LogicalTensors &newOverlaps);
+    Status ConstructDynShapeOffset(const DynReshapeTilePara &shapePara, size_t &i, size_t j, std::vector<SymbolicScalar> &newOffset, std::vector<SymbolicScalar> &newShape);
     Status ConstructShapeOffset(const ReshapeTilePara &shapePara, size_t &i, size_t j, std::vector<int32_t> &newOffset, std::vector<int32_t> &newShape);
 
-    Status CheckValidOp(const CheckParam &para, LogicalTensorPtr &reshapeSource, std::vector<int32_t> &alignedShape, std::vector<int32_t> &newInputViewTileOffset, std::vector<int32_t> &newInputViewTileShape);
+    Status CalcTileInfo(const CalcOverlapPara &para, std::vector<int32_t> &newShape, std::vector<int32_t> &newOffset, std::vector<int32_t> &reshapeTileShape, std::vector<int32_t> &reshapeTileOffset);
+    Status CheckValidOp(const CheckParam &para, CheckOutputParam &checkOutputParam);
     Status CheckOp(Function &function, Operation &op);
     Status UpdateReshapeOp(Function &function, Operation &op, const OverlapStatus &status, const CalcOverlapPara &calcpara);
     Status UpdateForPerfectlyMatchWithUB(Operation &op, const PerfectlyMatchPara &para);
     Status UpdateForPerfectlyMatchWithDDR(Operation &op, const PerfectlyMatchPara &para);
     Status UpdateForPerfectlyMatchOtherCase(Function &function, Operation &op, const PerfectlyMatchPara &para);
+    Status ProcessPerfectlyMatch(Function &function, Operation &op, const CalcOverlapPara &para, const PerfectlyMatchPara &perfectlyMatchPara, LogicalTensorPtr &reshapeOutput);
     Status UpdateForPerfectlyMatch(Function &function, Operation &op, const CalcOverlapPara &para);
     Status UpdateForBeCoveredUBDDR(Operation &op, const BeCoveredPara &para);
     Status UpdateForBeCoveredOtherCase(Function &function, Operation &op, const BeCoveredPara &para);
     Status ProcessBeCovered(Function &function, Operation &op, const CalcOverlapPara &para, const BeCoveredPara &beCoveredPara, LogicalTensorPtr &reshapeOutput);
     Status UpdateForBeCovered(Function &function, Operation &op, const CalcOverlapPara &para);
+    Status ProcessForAssembleAfterReshape(Function &function, Operation &op, const CalcOverlapPara &para, const AssemblePara &assemblePara);
     Status UpdateForAssembleAfterReshapeWithUB(Operation &op, const AssemblePara &para);
     Status UpdateForAssembleAfterReshapeWithDDR(Operation &op, const AssemblePara &para);
     Status UpdateForAssembleAfterReshapeOtherCase(Function &function, Operation &op, const AssemblePara &para);
     Status UpdateForAssembleAfterReshape(Function &function, Operation &op, const CalcOverlapPara &para);
-    Status ProcessMultitoOne(Function &function, Operation &op, const CalcOverlapPara &para, const std::vector<int32_t> &newReshapeSourceTileShape, const std::vector<int32_t> &newReshapeSourceTileOffset);
+    Status UpdateForMultitoOne(Operation &op, const CalcOverlapPara &para, const PerfectlyMatchWithAllPara &perfectlyMatchwithAllPara);
+    Status ProcessMultitoOne(Function &function, Operation &op, const CalcOverlapPara &para, const ReshapeSourcePara &sourcePara);
     Status UpdateForPerfectlyMatchWithAllWithUB(Operation &op, const PerfectlyMatchWithAllPara &para);
     Status UpdateForPerfectlyMatchWithAllOtherCase(Operation &op, const PerfectlyMatchWithAllPara &para);
     Status UpdateForPerfectlyMatchWithAll(Function &function, Operation &op, const CalcOverlapPara &para);
@@ -179,8 +213,9 @@ private:
     Status DynAlignToRaw(const DynReshapeTilePara &shapePara, std::vector<SymbolicScalar> &newOffset, std::vector<SymbolicScalar> &newShape);
     std::unordered_map<int, std::set<LogicalTensorPtr, TensorPtrComparator>> copyOutSources;
     std::unordered_map<InputMaigc, std::unordered_map<OutputMaigc, std::vector<int>>> mapOffset;
+    std::unordered_map<InputMaigc, std::unordered_map<OutputMaigc, std::vector<SymbolicScalar>>> dynMapOffset;
     std::unordered_map<int, LogicalTensorPtr> reshapeSources;
-    std::vector<AssembleOp> assembles;
+    std::vector<DynAssembleOp> assembles;
     std::unordered_map<unsigned long, std::shared_ptr<ReshapeOp>> reshapes;
     std::unordered_set<Operation *> redundantViewops;
     std::unordered_map<OverlaprawMagic, std::shared_ptr<RawTensor>> reshapeRawOutputs;
