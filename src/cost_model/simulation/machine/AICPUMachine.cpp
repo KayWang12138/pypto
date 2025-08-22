@@ -659,8 +659,7 @@ void AICPUMachine::CheckDeadlock()
     bool execute = false;
 
     for (auto &submachine : subMachines) {
-        if (submachine &&
-            (submachine->machineType == MachineType::AIC || submachine->machineType == MachineType::AIV)) {
+        if (submachine && IsCoreMachine(submachine->machineType)) {
             if (!submachine->completionQueue.Empty()) {
                 execute = true;
                 break;

@@ -99,6 +99,7 @@ std::string Tile::Dump()
         }
     }
     oss << "]-" << magic << "-" << rawMagic;
+    oss << " " << SizeinBytes() << "B";
     return oss.str();
 }
 

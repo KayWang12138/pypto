@@ -707,6 +707,12 @@ void CoreMachine::AnalysisDeadlock(std::set<int> &unissuedTileMagics)
             MLOG_WARN("[AnalysisDeadlock] unissued tile: ", tile.second->Dump());
         }
     }
+    for (auto &alive : aliveBuffer) {
+        MLOG_WARN("[AnalysisDeadlock] Alive Buffer [", CorePipeName(alive.first), "]");
+        for (auto &magic : alive.second) {
+            MLOG_WARN("[AnalysisDeadlock] Alive Tile:", tiles[magic]->Dump());
+        }
+    }
     for (auto &magic : deadLockSrcOpMagic) {
         MLOG_WARN("[AnalysisDeadlock] DeadLock Source Tileop:", tileOps[magic]->Dump());
     }
@@ -715,7 +721,6 @@ void CoreMachine::AnalysisDeadlock(std::set<int> &unissuedTileMagics)
             int front = readyQ.Front();
             MLOG_WARN("[AnalysisDeadlock] ReadyQ[", CorePipeName(readyQ.iqType), "] size:", readyQ.readyQueue.size(),
                       ", front: ", tiles[front]->Dump());
-            break;
         }
     }
     MLOG_WARN("[Cycle:", GetSim()->GetCycles(), "][CoreMachine][AnalysisDeadlock] ERROR: DEADLOCK!!! [MachineID:",

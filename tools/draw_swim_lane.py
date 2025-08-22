@@ -571,7 +571,7 @@ def process_ooo_mem_usage(outjson):
         time_events[i] = dict()
 
     for _, task in total_tasks.items():
-        if task.tensors_life_range['max_range'] == 0:
+        if 'max_range' not in task.tensors_life_range.keys() or task.tensors_life_range['max_range'] == 0:
             continue
         time_unit = (task.exec_end - task.exec_start) / task.tensors_life_range['max_range']
         for t_magic, t_life_range in task.tensors_life_range['data'].items():
