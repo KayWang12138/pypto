@@ -94,9 +94,9 @@ title = "PV Config"
     total_size              = 16384
     wrap_en                 = 0
     start_address           = 262144
-    sys_va_base_config      = 0           # 0: config by model spr    1: config by spec
+    sys_va_base_config      = 1           # 0: config by model spr    1: config by spec
     sys_va_base             = 0           # sys va base adress
-    stack_phy_base_config   = 0           # 0: config by model spr    1: config by spec
+    stack_phy_base_config   = 1           # 0: config by model spr    1: config by spec
     stack_phy_base          = 34603008    # (stack_va_base_addr[48:25] == sys_va_addr[48:25]) == > stack in ub  0x2100000
 
 [SMASK]
@@ -113,6 +113,11 @@ title = "PV Config"
 void PvModelCaseConfigBase::SetTitle(std::string title)
 {
     title_ = title;
+}
+
+void PvModelCaseConfigBase::SetCoreType(uint64_t coreType)
+{
+    subcoreId_ = coreType;
 }
 
 void PvModelCaseConfigBase::SetBin(uint64_t addr, std::string path) {
@@ -141,7 +146,7 @@ void PvModelCaseConfigA2A3::Dump(std::string path) {
     file << "path = \"./\"" << std::endl;
     file << "hbm_para_addr = 0xffff8000" << std::endl;
     file << "chip_version = 6" << std::endl;
-    file << "subcore_id = 0" << std::endl;
+    file << "subcore_id = " << subcoreId_ << std::endl;
     file << "block_idx = 0" << std::endl;
     file << std::endl;
 

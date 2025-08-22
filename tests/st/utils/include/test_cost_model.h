@@ -21,17 +21,45 @@
 #include "device_runner.h"
 #include "cost_model/simulation/pv/PvModel.h"
 #include "cost_model/simulation/pv/PvModelFactory.h"
+#include "machine/device/dynamic/costmodel_utils.h"
+#include "interface/cache/core_func_data.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 using namespace CostModel;
 
 extern "C" int DynTileFwkBackendKernelServer(void *targ);
+extern "C" int DynTileFwkBackendKernelServerInit(void *targ);
+
+class AiCorePvModelImpl : public AiCoreModel 
+{
+private:
+    std::shared_ptr<DynPvModel> pv_;
+    std::unordered_map<int, uint64_t> funcdata_;
+    std::mutex mtx_;
+
+public:
+    explicit AiCorePvModelImpl(std::shared_ptr<DynPvModel> pv) : pv_(pv) {
+    }
+
+    void InitData(int coreIdx, int64_t funcdata) {
+        std::lock_guard<std::mutex> lock(mtx_);
+        funcdata_[coreIdx] = funcdata;
+    }
+
+    void SendTask(int coreIdx, uint64_t taskId) {
+        auto funcdata = funcdata_[coreIdx];
+        DynFuncHeader *header = reinterpret_cast<DynFuncHeader*>(funcdata);
+        DynFuncData *data = reinterpret_cast<DynFuncData*>(header + 1);
+        pv_->Run(data, coreIdx, FuncID(taskId), TaskID(taskId));
+    } 
+};
 
 class CostModelDynFuncRunner {
 public:
     CostModelDynFuncRunner(Function *func): func_(func), devProg_(func->GetDyndevAttribute()->devProgBinary) {
         pv_ = CostModel::PvModelFactory::CreateDyn();
+        model_ = std::make_shared<AiCorePvModelImpl>(pv_);
     }
 
     static void Run(Function* func,
@@ -72,6 +100,8 @@ private:
         constexpr int threadNum = 6;
         std::thread aicpus[threadNum];
         std::atomic<int> idx{0};
+        auto rc0 = DynTileFwkBackendKernelServerInit(kArgs);
+        EXPECT_EQ(rc0, 0);
         for (int i = 0; i < threadNum; i++) {
             aicpus[i] = std::thread([&]() {
                 int tidx = idx++;
@@ -83,6 +113,8 @@ private:
                 sprintf_s(name, sizeof(name), "aicput%d", tidx);
                 pthread_setname_np(pthread_self(), name);
                 pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+                auto rc = DynTileFwkBackendKernelServer(kArgs);
+                EXPECT_EQ(rc, 0);
             });
         }
 
@@ -106,7 +138,7 @@ private:
             std::vector<DevAscendTensorData> geTensors;
             for (auto &t : tensorList) {
                 if (t) {
-                    auto addrs = pv_->CopyToDev((uint8_t*)t->data(), t->size());
+                    auto addrs = pv_->CopyTensorToDev((uint8_t*)t->data(), t->size());
                     geTensors.emplace_back(DevAscendTensorDataCreator::Create((uint64_t)addrs, t->GetShape()));
                 } else {
                     std::vector<int> shape;
@@ -135,9 +167,10 @@ private:
 
         kArgs.inputs = buildInouts(inputs);
         kArgs.outputs = buildInouts(outputs);
-        kArgs.workspace = (int64_t *)pv_->AllocDev(devProg->aicoreLocalWorkspaceSize + devProg->aicpuCoherentWorkspaceSize);
+        kArgs.workspace = (int64_t *)pv_->AllocWorkspaceDev(devProg->aicoreLocalWorkspaceSize + devProg->aicpuCoherentWorkspaceSize);
         kArgs.cfgdata = (int64_t *)pv_->CopyToDev(devProg_.data(), devProg_.size());
         kArgs.machineConfig  = devProg->devArgs.machineConfig;
+        kArgs.aicoreModel = model_.get();
         return kArgs;
     }
 
@@ -162,4 +195,5 @@ private:
     Function *func_;
     const std::vector<uint8_t> &devProg_;
     std::shared_ptr<DynPvModel> pv_;
+    std::shared_ptr<AiCoreModel> model_;
 };

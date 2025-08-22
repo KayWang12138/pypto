@@ -17,12 +17,16 @@
 
 #include <vector>
 #include <string>
+#include <sstream>
+#include <iterator>
 #include <list>
 #include <regex>
 #include "interface/utils/file_utils.h"
 #include "cost_model/simulation/pv/PvModel.h"
 #include "cost_model/simulation_pv/PvMemAllocator.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "interface/cache/core_func_data.h"
+#include "interface/configs/config_manager.h"
 
 
 constexpr size_t INVALID_ARG_INDEX = 0xFFFFFFFF;
@@ -103,6 +107,13 @@ public:
     std::map<int, uint64_t> stubOutRawTensorAddr;
 };
 
+class PvModelBinHelper {
+public:
+    static void ReadBin(std::string path, std::vector<uint8_t> &bytes);
+    static uint64_t GetBinSize(std::string path);
+    static void DumpBin(std::vector<uint8_t> &bytes, uint64_t size, std::string path);
+};
+
 template <typename SystemConfig, typename CaseConfig>
 class PvModelImpl : public PvModel {
 private:
@@ -125,9 +136,6 @@ private:
     void CodeGen(npu::tile_fwk::Function *func);
     void BinGen(npu::tile_fwk::Function *func);
     void CalcInvokeWorkespace(npu::tile_fwk::Function *function, PvModelInvoke &invoke);
-    uint64_t GetBinSize(std::string path);
-    void DumpBin(std::vector<uint8_t> bytes, uint64_t size, std::string path);
-    void ReadBin(std::string path, std::vector<uint8_t> &bytes);
     void PrepareInvoke(int esgId, std::vector<uint64_t> &invokeOffsetVec, std::vector<uint64_t> &invokeOffsetOriVec);
     void SetUp(int esgId, int psgId, std::string esgDir);
     void RunModel(std::string esgDir);
@@ -177,22 +185,47 @@ public:
             return;
         }
 
-        outFile << content;
+        std::string line;
+        std::string include_lines;
+        std::string other_lines;
+        SeparateHeadersAndContent(content, include_lines, other_lines);
+
+        outFile << include_lines;
         auto name = ExtractFunctionName(content);
 
+        std::string decName = R"!!!(
+extern "C" [aicore] void {KernelName}(CoreFuncParam* param, uint64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam);
+
+)!!!";
         std::string entry = R"!!!(
-extern "C" __global__ [aicore] void PvModelKernelEntry(__gm__ npu::tile_fwk::DynFuncData *funcData, __gm__ uint64_t *opAttrs, __gm__ uint64_t *exprTbl, uint64_t GMStackBase, __gm__ int64_t *hcclContext) {
-    CoreFuncParam param = {funcData, opAttrs, exprTbl};
-    {KernelName}(&param, GMStackBase, hcclContext, (__gm__ GMTensorInfo*)NULL);
+extern "C" __global__ [aicore] void PvModelKernelEntry(__gm__ npu::tile_fwk::DynFuncData *funcData, __gm__ uint64_t *opAttrOffset) {
+    CoreFuncParam param = {funcData, &funcData->opAttrs[opAttrOffset[0]], funcData->exprTbl};
+    {KernelName}(&param, funcData->stackWorkSpaceAddr, (__gm__ int64_t *)funcData->hcclContext, (__gm__ GMTensorInfo*)NULL);
 }
 
 )!!!";
+        decName = ReplaceAll(decName, "{KernelName}", name);
         entry = ReplaceAll(entry, "{KernelName}", name);
+        outFile << decName;
         outFile << entry;
+        outFile << other_lines;
         outFile.close();
     }
 
 private:
+    static void SeparateHeadersAndContent(const std::string &content, std::string &headers, std::string &otherContent) {
+        std::istringstream stream(content);
+        std::string line;
+
+        while(std::getline(stream, line)){
+            if(line.find("#include") == 0){
+                headers += line +"\n";
+            }else{
+                otherContent += line + "\n";
+            }
+        }
+    }
+
     static std::string ReplaceAll(std::string str, const std::string &from, const std::string &to) {
         size_t startPos = 0;
         while ((startPos = str.find(from, startPos)) != std::string::npos) {
@@ -224,8 +257,6 @@ private:
     std::string arch_;
     npu::tile_fwk::Function *func_;
     std::string dir_;
-    std::string funcDir_;
-    int level_;
     std::unique_ptr<PvMemAllocator> allocator_;
     struct DataMap {
         uint64_t hostPtr;
@@ -233,6 +264,7 @@ private:
         uint64_t size;
     };
     std::vector<DataMap> data_;
+    DataMap workspace_;
     std::vector<std::vector<uint8_t>> storage_;
 
     struct PvModelCceBin {
@@ -248,7 +280,12 @@ private:
 
 public:
     explicit DynPvModelImpl(std::string arch) : arch_(arch) { 
-        allocator_ = std::make_unique<PvMemAllocator>(); 
+        allocator_ = std::make_unique<PvMemAllocator>();
+        dir_ = npu::tile_fwk::config::LogTopFolder() + "/PvModelOutput";
+        if (npu::tile_fwk::IsPathExist(dir_)) {
+            npu::tile_fwk::DeleteDir(dir_);
+        }
+        npu::tile_fwk::CreateDir(dir_); 
     }
 
     void Codegen(npu::tile_fwk::Function *func) {
@@ -293,7 +330,7 @@ public:
                 binPath = srcPath.substr(0, srcPath.length() - Len3) + "bin";
                 constexpr int cmdLen = 2048;
                 char cmd[cmdLen];
-                (void)snprintf_s(cmd, sizeof(cmd), sizeof(cmd)-1, "llvm-objcopy -O -binary -j .text %s %s", objPath.c_str(), binPath.c_str());
+                (void)snprintf_s(cmd, sizeof(cmd), sizeof(cmd)-1, "llvm-objcopy -O binary -j .text %s %s", objPath.c_str(), binPath.c_str());
                 (void)std::system(cmd);
 
                 cceBin.emplace_back(
@@ -306,25 +343,41 @@ public:
         std::vector<uint8_t> s(data, data + size);
         uint8_t *hostPtr = s.data();
         storage_.emplace_back(std::move(s));
+        return hostPtr;
+    }
+
+    uint8_t *CopyTensorToDev(const uint8_t *data, uint64_t size) {
+        std::vector<uint8_t> s(data, data + size);
+        uint8_t *hostPtr = s.data();
+        storage_.emplace_back(std::move(s));
         uint64_t devPtr = allocator_->AllocArg(size);
         DataMap m = {reinterpret_cast<uint64_t>(hostPtr), devPtr, size};
         data_.emplace_back(m);
-        std::cout << "[PVMODEL]arg map host: " << std::hex << m.hostPtr << ", dev: " << std::hex << m.devPtr << ", size: " << m.size << std::endl;
+        std::cout << "[PVMODEL]tensor map host: " << std::hex << m.hostPtr << ", dev: " << std::hex << m.devPtr << ", size: " << m.size << std::endl;
         return hostPtr;
     }
 
     void CopyFromDev(uint8_t *data, uint8_t *devPtr, uint64_t size) { memcpy_s(data, size, devPtr, size); }
 
-    uint8_t *AllocDev(size_t size) {
+    uint8_t *AllocWorkspaceDev(size_t size) {
         std::vector<uint8_t> s(size, 0);
         uint8_t *hostPtr = s.data();
         storage_.emplace_back(std::move(s));
         uint64_t devPtr = allocator_->AllocWorkspace(size);
         DataMap m = {reinterpret_cast<uint64_t>(hostPtr), devPtr, size};
-        data_.emplace_back(m);
+        workspace_ = m;
         std::cout << "[PVMODEL]workspace map host: " << std::hex << m.hostPtr << ", dev: " << std::hex << m.devPtr << ", size: " << m.size << std::endl;
         return hostPtr;
     }
-};
 
+    void Run(npu::tile_fwk::DynFuncData *funcdata, int coreId, int funcId, int taskId);
+
+private:
+    void SetUp(PvModelCceBin *cce, npu::tile_fwk::DynFuncData *funcdata, uint64_t opAttrOffset, std::string dir, npu::tile_fwk::DynFuncData *dupData);
+    void RunModel(std::string dir);
+    void TearDown(std::string dir, npu::tile_fwk::DynFuncData *fundata);
+    void BuildFuncData(npu::tile_fwk::DynFuncData *funcdata, std::string dir, npu::tile_fwk::DynFuncData *dupData, uint64_t *refAddr, uint64_t *refSize);
+    uint64_t LookupWorkspace(uint64_t addr);
+    uint64_t LookupData(uint64_t addr);
+};
 } // namespace CostModel

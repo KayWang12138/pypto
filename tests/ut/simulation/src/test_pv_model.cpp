@@ -76,7 +76,7 @@ TEST(PvModelTest, TestDynImpl) {
     std::vector<uint8_t> test(16);
     auto addr = pv->CopyToDev(test.data(), test.size());
     EXPECT_NE(addr, nullptr);
-    addr = pv->AllocDev(128);
+    addr = pv->AllocWorkspaceDev(128);
     EXPECT_NE(addr, nullptr);
     std::vector<uint8_t> copy(16);
 }
@@ -100,16 +100,19 @@ TEST(PvModelTest, TestDynCodegen) {
     buffer << file.rdbuf();
     std::string content = buffer.str();
     file.close();
-    std::string expect = R"!!!(
-#include "TileOpImpl.h"
+    std::string expect = R"!!!(#include "TileOpImpl.h"
+
+extern "C" [aicore] void TENSOR_PATH0_4_0(CoreFuncParam* param, uint64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam);
+
+
+extern "C" __global__ [aicore] void PvModelKernelEntry(__gm__ npu::tile_fwk::DynFuncData *funcData, __gm__ uint64_t *opAttrOffset) {
+    CoreFuncParam param = {funcData, &funcData->opAttrs[opAttrOffset[0]], funcData->exprTbl};
+    TENSOR_PATH0_4_0(&param, funcData->stackWorkSpaceAddr, (__gm__ int64_t *)funcData->hcclContext, (__gm__ GMTensorInfo*)NULL);
+}
+
+
 [aicore] void TENSOR_PATH0_4_0(CoreFuncParam *param, uint64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo *oriAddrParam) {
 }
-
-extern "C" __global__ [aicore] void PvModelKernelEntry(__gm__ npu::tile_fwk::DynFuncData *funcData, __gm__ uint64_t *opAttrs, __gm__ uint64_t *exprTbl, uint64_t GMStackBase, __gm__ int64_t *hcclContext) {
-    CoreFuncParam param = {funcData, opAttrs, exprTbl};
-    TENSOR_PATH0_4_0(&param, GMStackBase, hcclContext, (__gm__ GMTensorInfo*)NULL);
-}
-
 )!!!";
     EXPECT_EQ(expect, content);
 }

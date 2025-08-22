@@ -21,7 +21,59 @@
 #include "PvModelImpl.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 
+using namespace npu::tile_fwk;
+
 namespace CostModel {
+void PvModelBinHelper::DumpBin(std::vector<uint8_t> &bytes, uint64_t size, std::string path)
+{
+    std::ofstream outFile(path, std::ios::binary);
+    if (!outFile.is_open()) {
+        return;
+    }
+
+    outFile.write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+    if (bytes.size() < size) {
+        std::vector<uint8_t> zeros(size-bytes.size(), 0);
+        outFile.write(reinterpret_cast<const char*>(zeros.data()), zeros.size());
+    }
+
+    outFile.close();
+    return;
+}
+
+void PvModelBinHelper::ReadBin(std::string path, std::vector<uint8_t> &bytes)
+{
+    std::ifstream inFile(path, std::ios::binary);
+
+    if (!inFile.is_open()) {
+        std::cerr << "open bin file error: " << path << std::endl;
+        return;
+    }
+
+    for (size_t i = 0; i < bytes.size(); i++) {
+        char ch = 0;
+        if (!inFile.eof()) {
+            inFile.read(&ch, 1);
+        }
+        bytes[i] = ch;
+    }
+
+    inFile.close();
+    return;
+}
+
+uint64_t PvModelBinHelper::GetBinSize(std::string path) {
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    if (!file) {
+        std::cerr << "open file error: " << path << std::endl;
+        return 0;
+    }
+
+    uint64_t fileSize = file.tellg();
+    file.close();
+    return fileSize;
+}
+
 template <typename SystemConfig, typename CaseConfig>
 void PvModelImpl<SystemConfig, CaseConfig>::Submit(npu::tile_fwk::Function *func, PvData *data, int level, std::string dir) {
     dir_ = dir;
@@ -223,19 +275,6 @@ void PvModelImpl<SystemConfig, CaseConfig>::CodeGen(npu::tile_fwk::Function *fun
 }
 
 template <typename SystemConfig, typename CaseConfig>
-uint64_t PvModelImpl<SystemConfig, CaseConfig>::GetBinSize(std::string path) {
-    std::ifstream file(path, std::ios::binary | std::ios::ate);
-    if (!file) {
-        std::cerr << "open file error: " << path << std::endl;
-        return 0;
-    }
-
-    uint64_t fileSize = file.tellg();
-    file.close();
-    return fileSize;
-}
-
-template <typename SystemConfig, typename CaseConfig>
 void PvModelImpl<SystemConfig, CaseConfig>::BinGen(npu::tile_fwk::Function *func) {
     for (auto &subFuncPair : func->programs_) {
         auto leafFuncAttr = subFuncPair.second->GetLeafFuncAttribute();
@@ -252,7 +291,7 @@ void PvModelImpl<SystemConfig, CaseConfig>::BinGen(npu::tile_fwk::Function *func
                 task_.objPath[subFuncPair.first].c_str(), task_.binPath[subFuncPair.first].c_str());
             (void)std::system(cmd);
 
-            auto size = GetBinSize(task_.binPath[subFuncPair.first]);
+            auto size = PvModelBinHelper::GetBinSize(task_.binPath[subFuncPair.first]);
             task_.binAddr[subFuncPair.first] = allocator_->AllocCode(size);
         }
     }
@@ -289,45 +328,6 @@ void PvModelImpl<SystemConfig, CaseConfig>::PrepareInvoke(
     return;
 }
 
-template <typename SystemConfig, typename CaseConfig>
-void PvModelImpl<SystemConfig, CaseConfig>::DumpBin(std::vector<uint8_t> bytes, uint64_t size, std::string path)
-{
-    std::ofstream outFile(path, std::ios::binary);
-    if (!outFile.is_open()) {
-        return;
-    }
-
-    if (bytes.size() < size) {
-        bytes.insert(bytes.end(), size-bytes.size(), 0);
-    }
-
-    outFile.write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
-    outFile.close();
-    return;
-}
-
-template <typename SystemConfig, typename CaseConfig>
-void PvModelImpl<SystemConfig, CaseConfig>::ReadBin(std::string path, std::vector<uint8_t> &bytes)
-{
-    std::ifstream inFile(path, std::ios::binary);
-
-    if (!inFile.is_open()) {
-        std::cerr << "open bin file error: " << path << std::endl;
-        return;
-    }
-
-    for (size_t i = 0; i < bytes.size(); i++) {
-        char ch = 0;
-        if (!inFile.eof()) {
-            inFile.read(&ch, 1);
-        }
-        bytes[i] = ch;
-    }
-
-    inFile.close();
-    return;
-}
-
 static std::string FileName(const std::string& path) {
     const char* separator = "/";
 
@@ -361,18 +361,19 @@ void PvModelImpl<SystemConfig, CaseConfig>::SetUp(int esgId, int psgId, std::str
     const uint8_t* src = reinterpret_cast<const uint8_t*>(invokeOffsetVec.data());
     std::copy(src, src + invokeOffsetVec.size() * sizeof(uint64_t), std::back_inserter(invokeOffsetByte));
     std::string paramPath = esgDir + "/param.bin";
-    DumpBin(invokeOffsetByte, invokeOffsetByte.size(), paramPath);
+    PvModelBinHelper::DumpBin(invokeOffsetByte, invokeOffsetByte.size(), paramPath);
     auto addr = allocator_->AllocArg(invokeOffsetByte.size());
     cconfig.AddInputArg(addr, invokeOffsetByte.size(), "param.bin");
 
     // stack
     std::string stackPath = esgDir + "/stack.bin";
-    DumpBin(task_.stack, task_.stackSize, stackPath);
+    PvModelBinHelper::DumpBin(task_.stack, task_.stackSize, stackPath);
     cconfig.AddInputArg(task_.stackAddr, task_.stackSize, "stack.bin");
 
     // hccl context
     std::string hcclContextPath = esgDir + "/hcclContext.bin";
-    DumpBin(std::vector<uint8_t>(task_.hcclContextSize, 0), task_.hcclContextSize, hcclContextPath);
+    std::vector<uint8_t> hccl(task_.hcclContextSize, 0);
+    PvModelBinHelper::DumpBin(hccl, task_.hcclContextSize, hcclContextPath);
     cconfig.AddInputArg(task_.hcclContextAddr, task_.hcclContextSize, "hcclContext.bin");
 
     // oriAddrParam
@@ -381,18 +382,18 @@ void PvModelImpl<SystemConfig, CaseConfig>::SetUp(int esgId, int psgId, std::str
     src = reinterpret_cast<const uint8_t*>(invokeOffsetOriVec.data());
     std::copy(src, src + invokeOffsetOriVec.size() * sizeof(uint64_t), std::back_inserter(invokeOffsetOriByte));
     std::string oriAddrParamPath = esgDir + "/oriAddrParam.bin";
-    DumpBin(invokeOffsetOriByte, invokeOffsetOriByte.size(), oriAddrParamPath);
+    PvModelBinHelper::DumpBin(invokeOffsetOriByte, invokeOffsetOriByte.size(), oriAddrParamPath);
     addr = allocator_->AllocArg(invokeOffsetOriByte.size());
     cconfig.AddInputArg(addr, invokeOffsetOriByte.size(), "oriAddrParam.bin");
 
     // workspace
-    DumpBin(task_.workspace, task_.workspaceSize, esgDir+"/workspace.bin");
+    PvModelBinHelper::DumpBin(task_.workspace, task_.workspaceSize, esgDir+"/workspace.bin");
     cconfig.AddInputArg(task_.workspaceAddr, task_.workspaceSize, "workspace.bin");
 
     // args
     for (size_t i = 0; i < task_.oriArgs.size(); i++) {
         std::string argPath = esgDir + "/" + std::to_string(i) + ".bin";
-        DumpBin(task_.args[i], task_.oriArgs[i].size, argPath);
+        PvModelBinHelper::DumpBin(task_.args[i], task_.oriArgs[i].size, argPath);
         cconfig.AddInputArg(task_.oriArgsAddr[i], task_.args[i].size(), std::to_string(i) + ".bin");
     }
 
@@ -434,12 +435,228 @@ void PvModelImpl<SystemConfig, CaseConfig>::RunModel(std::string esgDir)
 template <typename SystemConfig, typename CaseConfig>
 void PvModelImpl<SystemConfig, CaseConfig>::TearDown(std::string esgDir)
 {
-    ReadBin(esgDir+"/stack_out.bin", task_.stack);
-    ReadBin(esgDir+"/workspace_out.bin", task_.workspace);
+    PvModelBinHelper::ReadBin(esgDir+"/stack_out.bin", task_.stack);
+    PvModelBinHelper::ReadBin(esgDir+"/workspace_out.bin", task_.workspace);
 
     // out args
     for (size_t i = 0; i < task_.oriArgs.size(); i++) {
-        ReadBin(esgDir + "/" + std::to_string(i) + "_out.bin", task_.args[i]);
+        PvModelBinHelper::ReadBin(esgDir + "/" + std::to_string(i) + "_out.bin", task_.args[i]);
+    }
+}
+
+template <typename SystemConfig, typename CaseConfig>
+void DynPvModelImpl<SystemConfig, CaseConfig>::Run(DynFuncData *funcdata, int coreId, int funcId, int taskId) 
+{
+    std::cout << "[AICORE]core " << coreId << ", func " << funcId << ", task " << taskId << std::endl;
+    auto data = &funcdata[funcId];
+    auto opAttrs = &data->opAttrs[data->opAtrrOffsets[taskId]];
+    auto psgId = opAttrs[0];
+    auto cce = &cceBin[psgId];
+    std::string dir(dir_+"/leaf_"+std::to_string(funcId)+"_"+std::to_string(taskId));
+    std::string coreType[] = {
+        "AIV", "AIC", "MIX", "AICPU", "HUB", "GMATOMIC", "INVALID"
+    };
+    dir += "_" + coreType[static_cast<int>(cce->coreType)];
+    (void)CreateDir(dir);
+
+    if (cce->coreType != CoreType::AIV
+    && cce->coreType != CoreType::AIC
+    && cce->coreType != CoreType::MIX) {
+        return;
+    }
+
+    DynFuncData dupData;
+    memset_s(&dupData, sizeof(dupData), 0, sizeof(dupData));
+    SetUp(cce, data, static_cast<uint64_t>(data->opAtrrOffsets[taskId]+1), dir, &dupData);
+    RunModel(dir);
+    TearDown(dir, &dupData);
+}
+
+template <typename SystemConfig, typename CaseConfig>
+uint64_t DynPvModelImpl<SystemConfig, CaseConfig>::LookupWorkspace(uint64_t addr) 
+{
+    if (addr >= workspace_.hostPtr && addr <= workspace_.hostPtr + workspace_.size) {
+        return addr - workspace_.hostPtr + workspace_.devPtr;
+    }
+    return 0;
+}
+
+template <typename SystemConfig, typename CaseConfig>
+uint64_t DynPvModelImpl<SystemConfig, CaseConfig>::LookupData(uint64_t addr) 
+{
+    for (auto &d : data_) {
+        if (addr >= d.hostPtr && addr <= d.hostPtr + d.size) {
+            return addr - d.hostPtr + d.devPtr;
+        }
+    }
+    return 0;
+}
+
+template <typename SystemConfig, typename CaseConfig>
+void DynPvModelImpl<SystemConfig, CaseConfig>::BuildFuncData(DynFuncData *funcdata, std::string dir, DynFuncData *dupData, uint64_t *refAddr, uint64_t *refSize) 
+{
+    uint64_t opAttrSize = funcdata->opAttrSize * sizeof(uint64_t);
+    uint64_t exprSize = funcdata->exprNum * sizeof(uint64_t);
+    uint64_t rawDescSize = funcdata->rawTensorDescSize * sizeof(DevRawTensorDesc);
+    uint64_t rawTensorSize = funcdata->rawTensorAddrSize * sizeof(uint64_t);
+    *refSize = opAttrSize + exprSize + rawTensorSize + rawDescSize;
+
+    std::vector<uint8_t> ref(*refSize, 0);
+    uint64_t offset = 0;
+    auto p = reinterpret_cast<uint8_t*>(funcdata->opAttrs);
+    std::copy(p, p+opAttrSize, ref.begin()+offset);
+    offset += opAttrSize;
+
+    p = reinterpret_cast<uint8_t*>(funcdata->exprTbl);
+    std::copy(p, p+exprSize, ref.begin()+offset);
+    offset += exprSize;
+
+    p = reinterpret_cast<uint8_t*>(funcdata->rawTensorDesc);
+    std::copy(p, p+rawDescSize, ref.begin()+offset);
+    offset += rawDescSize;
+
+    constexpr uint32_t RAW_TENSOR_OFFSET_SIZE = 63;
+    std::vector<uint64_t> tensorAddr(funcdata->rawTensorAddrSize);
+    for (size_t i = 0; i < funcdata->rawTensorAddrSize; i++) {
+        auto addr = reinterpret_cast<uint64_t>(funcdata->rawTensorAddr[i]) & ((1UL << RAW_TENSOR_OFFSET_SIZE) - 1);
+        tensorAddr[i] = LookupData(addr);
+        if (!tensorAddr[i]) {
+            throw std::runtime_error(std::string("bad incast tensor addr: ") + std::to_string(addr));
+        }
+    }
+    std::copy(tensorAddr.begin(), tensorAddr.end(), ref.begin()+offset);
+    PvModelBinHelper::DumpBin(ref, ref.size(), dir+"/ref.bin");
+    
+    auto addr = allocator_->AllocArg(*refSize);
+    *refAddr = addr;
+    dupData->opAttrs = reinterpret_cast<uint64_t*>(addr);
+    addr += opAttrSize;
+    dupData->exprTbl = reinterpret_cast<uint64_t*>(addr);
+    addr += exprSize;
+    dupData->rawTensorDesc = reinterpret_cast<DevRawTensorDesc*>(addr);
+    addr += rawDescSize;
+    dupData->rawTensorAddr = reinterpret_cast<uint64_t*>(addr);
+    dupData->opAttrSize = funcdata->opAttrSize;
+    dupData->rawTensorAddrSize = funcdata->rawTensorAddrSize;
+    dupData->rawTensorDescSize = funcdata->rawTensorDescSize;
+    dupData->exprNum = funcdata->exprNum;
+
+    if (funcdata->workspaceAddr) {
+        constexpr int workspaceSize = 10 * 1024 * 1024;
+        dupData->workspaceAddr = allocator_->AllocWorkspace(workspaceSize);
+        if (!dupData->workspaceAddr) {
+            throw std::runtime_error(std::string("bad workspace addr: ") + std::to_string(funcdata->workspaceAddr));
+        }
+    } else {
+        dupData->workspaceAddr = 0;
+    }
+
+    if (funcdata->stackWorkSpaceSize) {
+        dupData->stackWorkSpaceAddr = LookupWorkspace(funcdata->stackWorkSpaceAddr);
+        if (!dupData->stackWorkSpaceAddr) {
+            throw std::runtime_error(std::string("bad stack addr: ") + std::to_string(funcdata->stackWorkSpaceAddr));
+        }
+    } else {
+        dupData->stackWorkSpaceAddr = 0;
+    }
+    dupData->stackWorkSpaceSize = funcdata->stackWorkSpaceSize;
+} 
+
+template <typename SystemConfig, typename CaseConfig>
+void DynPvModelImpl<SystemConfig, CaseConfig>::SetUp(PvModelCceBin *cce, DynFuncData *funcdata, uint64_t opAttrOffset, std::string dir, DynFuncData *dupData) 
+{
+    SystemConfig sconfig;
+    sconfig.Dump(dir+"/spec.toml");
+
+    CaseConfig cconfig;
+    cconfig.SetTitle(std::string("func_") + std::to_string(cce->funcHash));
+
+    // program
+    auto binName = FileName(cce->binPath);
+    (void)CopyFile(cce->binPath, dir+"/"+binName);
+    auto srcName = FileName(cce->srcPath);
+    (void)CopyFile(cce->srcPath, dir+"/"+srcName);
+    auto binSize = PvModelBinHelper::GetBinSize(cce->binPath);
+    auto binAddr = allocator_->AllocCode(binSize);
+    cconfig.SetBin(binAddr, "./"+binName);
+
+    // aic/aic flag
+    uint64_t aicFlag = 0;
+    if(binName.find("aiv") != std::string::npos){
+        aicFlag = static_cast<uint64_t>(1);
+    }
+    cconfig.SetCoreType(aicFlag);
+
+    // funcdata
+    uint64_t refAddr;
+    uint64_t refSize;
+    BuildFuncData(funcdata, dir, dupData, &refAddr, &refSize);
+    std::vector<uint8_t> dup(reinterpret_cast<uint8_t*>(dupData), reinterpret_cast<uint8_t*>(dupData)+sizeof(DynFuncData));
+    PvModelBinHelper::DumpBin(dup, dup.size(), dir+"/funcdata.bin");
+    auto addr = allocator_->AllocArg(dup.size());
+    cconfig.AddInputArg(addr, dup.size(), "funcdata.bin");
+
+    // attr offset
+    std::vector<uint8_t> offset(sizeof(uint64_t));
+    std::copy(&opAttrOffset, &opAttrOffset+1, offset.begin());
+    PvModelBinHelper::DumpBin(offset, offset.size(), dir+"/offset.bin");
+    addr = allocator_->AllocArg(offset.size());
+    cconfig.AddInputArg(addr, offset.size(), "offset.bin");
+
+    // input tensor
+    for (size_t i = 0; i < data_.size(); i++) {
+        std::string name = std::string("tensor_") + std::to_string(i) + ".bin";
+        std::vector<uint8_t> tensorData(reinterpret_cast<uint8_t*>(data_[i].hostPtr), reinterpret_cast<uint8_t*>(data_[i].hostPtr)+data_[i].size);
+        PvModelBinHelper::DumpBin(tensorData, data_[i].size, dir+"/"+name);
+        cconfig.AddInputArg(data_[i].devPtr, data_[i].size, name);
+    }
+
+    // input stack workspace, coherent workspace ?
+    if (funcdata->stackWorkSpaceSize) {
+        std::vector<uint8_t> stackData(reinterpret_cast<uint8_t*>(funcdata->stackWorkSpaceAddr), reinterpret_cast<uint8_t*>(funcdata->stackWorkSpaceAddr)+funcdata->stackWorkSpaceSize);
+        PvModelBinHelper::DumpBin(stackData, stackData.size(), dir+"/stack.bin");
+        cconfig.AddInputArg(dupData->stackWorkSpaceAddr, dupData->stackWorkSpaceSize, "stack.bin");
+    }
+
+    // output tensor
+     for (size_t i = 0; i < data_.size(); i++) {
+        std::string name = std::string("tensor_") + std::to_string(i) + "_out.bin";
+        cconfig.AddOutputArg(data_[i].devPtr, data_[i].size, name);
+    }
+
+    // output stack
+    if (funcdata->stackWorkSpaceSize) {
+        cconfig.AddOutputArg(dupData->stackWorkSpaceAddr, dupData->stackWorkSpaceSize, "stack_out.bin");
+    }
+
+    cconfig.Dump(dir+"/config.toml");
+}
+
+
+template <typename SystemConfig, typename CaseConfig>
+void DynPvModelImpl<SystemConfig, CaseConfig>::RunModel(std::string dir) 
+{
+    char cmd[2048];
+    (void)snprintf_s(cmd, sizeof(cmd), sizeof(cmd) - 1,
+    "cd %s/ && ../../../../../../../PvModel%s --gtest_filter=test_st_case.test_st_pv --spec=spec.toml", dir.c_str(), arch_.c_str());
+    std::cout << "[PVMODEL]" << std::string(cmd) << std::endl;
+    (void)std::system(cmd);
+}
+
+template <typename SystemConfig, typename CaseConfig>
+void DynPvModelImpl<SystemConfig, CaseConfig>::TearDown(std::string dir, DynFuncData *fundata) 
+{
+     // update tensor
+     for (size_t i = 0; i < data_.size(); i++) {
+        std::string name = std::string("tensor_") + std::to_string(i) + "_out.bin";
+        std::vector<uint8_t> d(reinterpret_cast<uint8_t*>(data_[i].hostPtr), reinterpret_cast<uint8_t*>(data_[i].hostPtr)+data_[i].size);
+        PvModelBinHelper::ReadBin(dir+"/"+name, d);
+    }
+
+    // update stack
+    if (fundata->stackWorkSpaceSize) {
+        std::vector<uint8_t> s(reinterpret_cast<uint8_t*>(fundata->stackWorkSpaceAddr), reinterpret_cast<uint8_t*>(fundata->stackWorkSpaceAddr)+fundata->stackWorkSpaceSize);
+        PvModelBinHelper::ReadBin(dir+"/stack_out.bin", s);
     }
 }
 
