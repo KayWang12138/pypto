@@ -313,4 +313,10 @@ rtError_t halMemCtl(int type, void *paramValue, size_t paramValueSize, void *out
     (void) outSizeRet;
     return RT_ERROR_NONE;
 }
+
+rtError_t rtGetL2CacheOffset(uint32_t deviceId, uint64_t *offset) {
+    (void)deviceId;
+    (void)offset;
+    return RT_ERROR_NONE;
+}
 }

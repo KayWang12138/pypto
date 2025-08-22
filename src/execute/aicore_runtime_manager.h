@@ -18,6 +18,7 @@ namespace npu::tile_fwk {
 struct DevAscendProgram {
     DeviceArgs devArgs;
     uint64_t workspaceSize;
+    uint64_t l2CacheOffset;
     uint64_t configKey;
 };
 
@@ -35,9 +36,10 @@ public:
     bool AllocDevAddr(uint8_t **dev_addr, size_t size);
     void InsertHiddenInput(const int64_t &op_id, void *hidden_input);
     void* GetHiddenInput(const int64_t &op_id);
-    bool GetAicoreRegInfo(const ge::OpDescPtr &op_desc, std::vector<int64_t> &aic, std::vector<int64_t> &aiv);
+    bool GetAicoreRegInfo(const ge::OpDescPtr &op_desc, std::vector<int64_t> &aic, std::vector<int64_t> &aiv,
+                          int32_t deviceId);
     bool InitDyBinData(const ge::OpDescPtr &op_desc, std::vector<int64_t> &aic, std::vector<int64_t> &aiv,
-                       DevAscendProgram *host_args);
+                       DevAscendProgram *host_args, int32_t deviceId);
     ge::graphStatus TileFwkHiddenInput(const ge::OpDescPtr &op_desc, std::vector<void *> &contexts);
 
 private:

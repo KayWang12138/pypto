@@ -14,6 +14,7 @@
 #include "graph/debug/ge_attr_define.h"
 #include "register/hidden_inputs_func_registry.h"
 #include "runtime/rt.h"
+#include "runtime/rt_preload_task.h"
 #include "driver/ascend_hal_define.h"
 #include "interface/utils/log.h"
 
@@ -80,11 +81,9 @@ bool GetPgmsk(uint64_t &valid, int32_t &deviceId) {
 }
 
 bool AicoreRtManager::GetAicoreRegInfo(const ge::OpDescPtr &op_desc, std::vector<int64_t> &aic,
-                                       std::vector<int64_t> &aiv) {
+                                       std::vector<int64_t> &aiv, int32_t deviceId) {
   int nrCore = 25;
   int nrSubCore = 3;
-  int32_t deviceId = 0;
-  (void)rtGetDevice(&deviceId);
   uint64_t valid = 0;
   if (!GetPgmsk(valid, deviceId)) {
       ALOG_ERROR_F("Node[%s, %s]: failed to get device info or no valid core exists.",
@@ -131,7 +130,7 @@ bool AicoreRtManager::GetAicoreRegInfo(const ge::OpDescPtr &op_desc, std::vector
 }
 
 bool AicoreRtManager::InitDyBinData(const ge::OpDescPtr &op_desc, std::vector<int64_t> &aic, std::vector<int64_t> &aiv,
-                                    DevAscendProgram *host_args) {
+                                    DevAscendProgram *host_args, int32_t deviceId) {
   int64_t block_dim = 0;
   (void)ge::AttrUtils::GetInt(op_desc, ge::TVM_ATTR_NAME_BLOCKDIM, block_dim);
   ALOG_DEBUG_F("Node[%s, %s]: block dim is %ld.", op_desc->GetNamePtr(), op_desc->GetTypePtr(), block_dim);
@@ -143,6 +142,7 @@ bool AicoreRtManager::InitDyBinData(const ge::OpDescPtr &op_desc, std::vector<in
   host_args->devArgs.nrAicpu = AICPU_COUNT;
   host_args->devArgs.nrValidAic = block_dim;
   host_args->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
+  (void)rtGetL2CacheOffset(deviceId, &host_args->l2CacheOffset);
   std::vector<int64_t> workspaces = op_desc->GetWorkspaceBytes();
   if (workspaces.empty()) {
     ALOG_ERROR_F("Node[%s, %s]: failed to get workspace.", op_desc->GetNamePtr(), op_desc->GetTypePtr());
@@ -201,11 +201,13 @@ ge::graphStatus AicoreRtManager::TileFwkHiddenInput(const ge::OpDescPtr &op_desc
   }
   std::vector<int64_t> aic;
   std::vector<int64_t> aiv;
-  if (!AicoreRtManager::Instance().GetAicoreRegInfo(op_desc, aic, aiv)) {
+  int32_t deviceId = 0;
+  (void)rtGetDevice(&deviceId);
+  if (!AicoreRtManager::Instance().GetAicoreRegInfo(op_desc, aic, aiv, deviceId)) {
     ALOG_ERROR_F("Node[%s, %s]: failed to get aicore reg info.", op_desc->GetNamePtr(), op_desc->GetTypePtr());
     return ge::GRAPH_FAILED;
   }
-  if (!AicoreRtManager::Instance().InitDyBinData(op_desc, aic, aiv, host_args)) {
+  if (!AicoreRtManager::Instance().InitDyBinData(op_desc, aic, aiv, host_args, deviceId)) {
     ALOG_ERROR_F("Node[%s, %s]: failed to init bin data.", op_desc->GetNamePtr(), op_desc->GetTypePtr());
     return ge::GRAPH_FAILED;
   }  

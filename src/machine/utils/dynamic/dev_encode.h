@@ -1507,6 +1507,7 @@ struct DevAscendProgram {
     DeviceArgs devArgs;
     uint64_t workspaceSize;
     uint64_t l2CacheOffset;
+    uint64_t configKey;
     uint64_t hashKey;
     uint64_t slotSize;
     uint64_t aicoreLocalWorkspaceSize;
