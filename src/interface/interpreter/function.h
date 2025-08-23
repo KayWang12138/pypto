@@ -452,7 +452,7 @@ struct FunctionInterpreter {
             }
         }
         auto ooperandDataViewList = AllocateDataViewList(frame, op->GetOOperands());
-        ExecuteOperationContext ctx = {&frame, op, &ioperandDataViewList, {}, &ooperandDataViewList};
+        ExecuteOperationContext ctx = {&frame, {}, op, &ioperandDataViewList, {}, &ooperandDataViewList};
 
         if(op->GetOpcode() == Opcode::OP_CALL) {
             ExecuteOpCallLeaf(&ctx);
