@@ -81,7 +81,7 @@ bool SrcDstBufferMergeImpl::CheckIgnoreScene(const Operation *oriOps) {
         Opcode::OP_L0C_COPY_OUT, Opcode::OP_ROWMAX, Opcode::OP_ROWEXPSUM, Opcode::OP_REMOTE_GATHER,
         Opcode::OP_ROWEXPMAX, Opcode::OP_TRANSPOSE_VNCHWCONV, Opcode::OP_COPY_IN, Opcode::OP_COPY_OUT,
         Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_MAX_POOL, Opcode::OP_COPY_UB_TO_UB,
-        Opcode::OP_PAIRMAX, Opcode::OP_PAIRSUM};
+        Opcode::OP_PAIRMAX,  Opcode::OP_PAIRMIN, Opcode::OP_PAIRSUM, Opcode::OP_ROWMIN_SINGLE};
 
     if (ignoreOps.count(oriOps->GetOpcode()) != 0) {
         return true;

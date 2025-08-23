@@ -38,6 +38,7 @@ namespace CostModel
             {"RECIPROCAL", {0.98673, 0.00989}},
             {"ROWSUMLINE", {14.58731, 0.07288}},
             {"ROWMAX_SINGLE", {15.58731, 0.00888}},
+            {"ROWMIN_SINGLE", {15.58731, 0.00888}},
             {"EXPAND", {0.58, 0.014}},
             {"CAST", {0.91250, 0.015687}},
             {"TRANSPOSE_MOVEOUT", {0.00025893, 0.03350}},

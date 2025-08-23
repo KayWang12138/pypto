@@ -825,7 +825,14 @@ void ReduceSingle(size_t cur, const std::string &op, Input &input, const Logical
     } else if (cur == input.tileInfo.shape.size() && static_cast<size_t>(axis) < input.tileInfo.shape.size() - 1){
         auto inputTile = input.tensor->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
-        auto newOpcode = op == "SUM" ? Opcode::OP_ROWSUMLINE : Opcode::OP_ROWMAXLINE;
+        static const std::unordered_map<std::string, Opcode> opcodeMap = {
+            {"SUM",Opcode::OP_ROWSUMLINE},
+            {"MIN",Opcode::OP_ROWMINLINE},
+            {"MAX",Opcode::OP_ROWMAXLINE},
+        };
+        auto it = opcodeMap.find(op);
+        ASSERT(it != opcodeMap.end()) << "Invalid operation: " + op;
+        auto newOpcode = it->second;
         auto &newOp = function.AddOperation(newOpcode, {inputTile}, {resultTile});
         newOp.SetAttribute(OP_ATTR_PREFIX + "AXIS", axis);
         return;
@@ -841,7 +848,7 @@ void ReduceSingle(size_t cur, const std::string &op, Input &input, const Logical
 
 void TiledReduceSingle(Function &function, const TileShape &tileShape, const std::string &op,
     const LogicalTensorPtr &operand, const LogicalTensorPtr &result, int axis = -1) {
-    ASSERT(op == "MAX" || op == "SUM" || op == "MAX_COMBINE_AXIS" || op == "SUM_COMBINE_AXIS");
+    ASSERT(op == "MAX" || op == "MIN" || op == "SUM" || op == "MAX_COMBINE_AXIS" || op == "SUM_COMBINE_AXIS");
     assert(operand->shape.size() == operand->offset.size());
 
     if (axis < 0) {
@@ -872,11 +879,13 @@ void TensorReduceExpand(Function &function, const std::string &op,
 
 [[maybe_unused]] void TensorReduceSingle(Function &function, const std::string &op,
     const Tensor &operand, Tensor &result, int axis) {
-    ASSERT(op == "MAX" || op == "SUM" || op == "MAX_COMBINE_AXIS" || op == "SUM_COMBINE_AXIS");
+    ASSERT(op == "MAX" || op == "MIN" || op == "SUM" || op == "MAX_COMBINE_AXIS" || op == "SUM_COMBINE_AXIS");
     assert(operand->shape.size() == operand->offset.size());
     auto opCode = Opcode::OP_ROWMAX_SINGLE;
     if (op == "MAX") {
         opCode = Opcode::OP_ROWMAX_SINGLE;
+    } else if (op == "MIN") {
+        opCode = Opcode::OP_ROWMIN_SINGLE;
     } else if (op == "SUM") {
         opCode = Opcode::OP_ROWSUM_SINGLE;
     } else if (op == "MAX_COMBINE_AXIS") {
@@ -1654,11 +1663,23 @@ Tensor RowMinSingle(const Tensor &operand, int axis) {
 
     resultShape[axis] = 1;
 
-    ASSERT(Program::GetInstance().tileShape.V(axis) % BLOCK_NUM == 0)
-    << "RowMinSingle op: the tileShape of reduce axis need to align 8!";
+    const int lastDim = operand->shape.size() - 1;
+    const int alignNum = BLOCK_SIZE / BytesOf(operand->tensor->datatype);
+    if (axis == lastDim) {
+        ASSERT(Program::GetInstance().tileShape.V(lastDim) % alignNum == 0)
+        << "RowMinSingle op: the tileShape of last axis need to 32Byte align!";
+    }
 
     Tensor result(operand->tensor->datatype, resultShape);
-    CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "MIN", operand, result, axis);
+    int shapeSize = static_cast<int>(resultShape.size());
+    auto tileShape = Program::GetInstance().GetTileShape().GetVecTileShapes();
+    if (ConfigManager::Instance().GetOperationConfig("FORCE_COMBINE_AXIS", false) &&
+        axis == shapeSize - 1 && shapeSize >= NUM2 &&
+        (resultShape[shapeSize - NUM2] % NUM_VALUE_8 == 0 && tileShape[tileShape.size() - NUM2] % NUM_VALUE_8 == 0)) {
+        CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "MIN_COMBINE_AXIS", operand, result, axis);
+    } else {
+        CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "MIN", operand, result, axis);
+    }
     return result;
 }
 
@@ -3097,6 +3118,12 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
             UnaryOperationOperandCheck(iOperand, oOperand);
             auto axis = op.GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
             TiledReduceSingle(function, tileShape, "MAX", iOperand[0], oOperand[0], axis);
+            break;
+        }
+        case Opcode::OP_ROWMIN_SINGLE: {
+            UnaryOperationOperandCheck(iOperand, oOperand);
+            auto axis = op.GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
+            TiledReduceSingle(function, tileShape, "MIN", iOperand[0], oOperand[0], axis);
             break;
         }
         case Opcode::OP_ROWSUM_SINGLE: {

@@ -491,7 +491,7 @@ std::string CodeGenOpCloudNPU::GenUnaryOp() const {
         return PrintExpand(s0Var, dVar, srcDtypeStr, dstDtypeStr);
     } else if (opCode == Opcode::OP_ROWMAX || opCode == Opcode::OP_ROWEXPMAX || opCode == Opcode::OP_ROWEXPSUM) {
         return PrintReduceEx({s0Var, dVar, srcDtypeStr, dstDtypeStr});
-    } else if (opCode == Opcode::OP_ROWSUMLINE || opCode == Opcode::OP_ROWMAXLINE) {
+    } else if (opCode == Opcode::OP_ROWSUMLINE || opCode == Opcode::OP_ROWMAXLINE || opCode == Opcode::OP_ROWMINLINE) {
         return PrintRowSumline({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     } else if (opCode == Opcode::OP_EXP || opCode == Opcode::OP_SQRT || opCode == Opcode::OP_ABS ||
                opCode == Opcode::OP_RECIPROCAL) {
@@ -914,7 +914,7 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
         return PrintVnchwconv({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
 
-    if (opCode == Opcode::OP_ROWSUM_SINGLE || opCode == Opcode::OP_ROWMAX_SINGLE) {
+    if (opCode == Opcode::OP_ROWSUM_SINGLE || opCode == Opcode::OP_ROWMAX_SINGLE || opCode == Opcode::OP_ROWMIN_SINGLE) {
         return PrintReduceLastAxis({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
 
@@ -1043,7 +1043,7 @@ std::string CodeGenOpCloudNPU::PrintBinaryStatic(const PrintBinaryParam &param) 
         paramList.emplace_back(std::to_string(s1[i]));
     }
     bool copyFlag = false;
-    if (opCode == Opcode::OP_PAIRMAX || opCode == Opcode::OP_PAIRSUM) {
+    if (opCode == Opcode::OP_PAIRMAX || opCode == Opcode::OP_PAIRMIN || opCode == Opcode::OP_PAIRSUM) {
         copyFlag = true;
     }
     paramList.emplace_back("/*copyFlag*/");
@@ -1109,7 +1109,7 @@ std::string CodeGenOpCloudNPU::PrintBinaryDynamicUnaligned(const PrintBinaryPara
     }
     paramList.emplace_back(dynSrcShape1[ID3].Dump());
     bool copyFlag = false;
-    if (opCode == Opcode::OP_PAIRMAX || opCode == Opcode::OP_PAIRSUM) {
+    if (opCode == Opcode::OP_PAIRMAX || opCode == Opcode::OP_PAIRMIN || opCode == Opcode::OP_PAIRSUM) {
         copyFlag = true;
     }
     paramList.emplace_back(std::to_string(copyFlag));

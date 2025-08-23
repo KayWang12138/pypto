@@ -275,7 +275,7 @@ struct CalcBinary {
                       opcode == Opcode::OP_DIV || opcode == Opcode::OP_S_DIV || opcode == Opcode::OP_S_MAX ||
                       opcode == Opcode::OP_S_MIN || opcode == Opcode::OP_MAXIMUM || opcode == Opcode::OP_PAIRMAX ||
                       opcode == Opcode::OP_PAIRSUM || opcode == Opcode::OP_ADD_BRC || opcode == Opcode::OP_SUB_BRC ||
-                      opcode == Opcode::OP_MUL_BRC || opcode == Opcode::OP_DIV_BRC,
+                      opcode == Opcode::OP_MUL_BRC || opcode == Opcode::OP_DIV_BRC || opcode == Opcode::OP_PAIRMIN,
         "invalid opcode");
     static void Entry(void *c) {
         auto [ret, lhs, rhs, indexBegin, indexEnd] = *(CalcBinaryContext *)c;
@@ -307,6 +307,7 @@ struct CalcBinary {
                     break;
                 case Opcode::OP_MAXIMUM:
                 case Opcode::OP_PAIRMAX:
+                case Opcode::OP_PAIRMIN:
                 case Opcode::OP_S_MAX:
                     retValue = std::max(static_cast<CalcType>(lhsValue), static_cast<CalcType>(rhsValue));
                     break;
@@ -452,7 +453,7 @@ struct CalcReduceContext {
 template <Opcode opcode, typename DataType, typename CalcType>
 struct CalcReduce {
     static_assert(
-        opcode == Opcode::OP_ROWSUMLINE || opcode == Opcode::OP_ROWMAX_SINGLE || opcode == Opcode::OP_ROWSUM_SINGLE,
+        opcode == Opcode::OP_ROWSUMLINE || opcode == Opcode::OP_ROWMAX_SINGLE || opcode == Opcode::OP_ROWMIN_SINGLE || opcode == Opcode::OP_ROWSUM_SINGLE,
         "invalid opcode");
     static void Entry(void *c) {
         auto [ret, oper, indexBegin, indexEnd, axis, retStride, operStride] = *(CalcReduceContext *)c;
@@ -482,6 +483,13 @@ struct CalcReduce {
                     CalcType val = static_cast<CalcType>(oper->Get<DataType>(operBeginIndex));
                     for (int k = 1; k < rowSize; k++) {
                         val = std::max(val, static_cast<CalcType>(oper->Get<DataType>(operBeginIndex + operStep * k)));
+                    }
+                    ret->Get<DataType>(i) = static_cast<DataType>(val);
+                } break;
+                case Opcode::OP_ROWMIN_SINGLE: {
+                    CalcType val = static_cast<CalcType>(oper->Get<DataType>(operBeginIndex));
+                    for (int k = 1; k < rowSize; k++) {
+                        val = std::min(val, static_cast<CalcType>(oper->Get<DataType>(operBeginIndex + operStep * k)));
                     }
                     ret->Get<DataType>(i) = static_cast<DataType>(val);
                 } break;
@@ -1073,6 +1081,11 @@ public:
         HandleDataType<CalcBinary, Opcode::OP_PAIRMAX>(lhs->GetDataType(), ret, lhs, rhs, pool);
     }
 
+    static void CalcPairMin(LogicalTensorData *ret, const LogicalTensorData *lhs, const LogicalTensorData *rhs,
+        util::ThreadPool *pool) {
+        HandleDataType<CalcBinary, Opcode::OP_PAIRMIN>(lhs->GetDataType(), ret, lhs, rhs, pool);
+    }
+
     static void CalcMin(LogicalTensorData *ret, const LogicalTensorData *lhs, const LogicalTensorData *rhs,
         util::ThreadPool *pool) {
         HandleDataType<CalcBinary, Opcode::OP_S_MIN>(lhs->GetDataType(), ret, lhs, rhs, pool);
@@ -1121,6 +1134,11 @@ public:
     static void CalcRowMaxSingle(
         LogicalTensorData *ret, const LogicalTensorData *oper, int axis, util::ThreadPool *pool) {
         HandleDataType<CalcReduce, Opcode::OP_ROWMAX_SINGLE>(oper->GetDataType(), ret, oper, axis, pool);
+    }
+
+    static void CalcRowMinSingle(
+        LogicalTensorData *ret, const LogicalTensorData *oper, int axis, util::ThreadPool *pool) {
+        HandleDataType<CalcReduce, Opcode::OP_ROWMIN_SINGLE>(oper->GetDataType(), ret, oper, axis, pool);
     }
 
     static void CalcExpand(

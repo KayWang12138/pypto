@@ -39,6 +39,7 @@ enum class Opcode {
     OP_ROWEXPSUM,
     OP_ROWSUMLINE,
     OP_ROWMAXLINE,
+    OP_ROWMINLINE,
     OP_ADDS,
     OP_SUBS,
     OP_MULS,
@@ -77,8 +78,10 @@ enum class Opcode {
     OP_SCATTER_UPDATE,
     OP_SCATTER_SCALAR,
     OP_PAIRMAX,
+    OP_PAIRMIN,
     OP_PAIRSUM,
     OP_ROWMAX_SINGLE,
+    OP_ROWMIN_SINGLE,
     OP_ROWSUM_SINGLE,
     OP_ROWMAX_COMBINE_AXIS_SINGLE,
     OP_ROWSUM_COMBINE_AXIS_SINGLE,
@@ -383,6 +386,7 @@ const std::unordered_set<Opcode> BINARY_OPS{
     Opcode::OP_MAXIMUM,
     Opcode::OP_PAIRSUM,
     Opcode::OP_PAIRMAX,
+    Opcode::OP_PAIRMIN,
 };
 
 const std::unordered_set<Opcode> BINARY_WITH_BRC_OPS{
@@ -398,7 +402,7 @@ const std::unordered_set<Opcode> UNARY_OPS{Opcode::OP_EXP, Opcode::OP_SQRT, Opco
     Opcode::OP_COPY_L1_TO_L1, Opcode::OP_COPY_UB_TO_UB, Opcode::OP_ROWSUMLINE, Opcode::OP_ABS};
 
 const std::unordered_set<Opcode> UNARY_OPS_WITH_TMP{
-    Opcode::OP_COMPACT, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_ROWMAX_SINGLE, Opcode::OP_TRANSPOSE_VNCHWCONV,
+    Opcode::OP_COMPACT, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWMIN_SINGLE, Opcode::OP_TRANSPOSE_VNCHWCONV,
     Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE};
 
 const std::unordered_set<Opcode> VECTOR_SCALAR_OPS{Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_DIVS};
@@ -424,7 +428,7 @@ Opcode::OP_ABS, Opcode::OP_SQRT, Opcode::OP_RECIPROCAL, Opcode::OP_CAST, Opcode:
     Opcode::OP_ROWSUMLINE, Opcode::OP_ADD_BRC, Opcode::OP_ADD_BRC, Opcode::OP_SUB_BRC,
     Opcode::OP_MUL_BRC, Opcode::OP_DIV_BRC, Opcode::OP_MAX_BRC, Opcode::OP_GATHER, Opcode::OP_S_ADDS, Opcode::OP_S_SUBS,
     Opcode::OP_S_DIVS, Opcode::OP_S_MULS, Opcode::OP_S_MAXS, Opcode::OP_BITSORT, Opcode::OP_MRGSORT,
-    Opcode::OP_EXTRACT, Opcode::OP_ROWMAXLINE};
+    Opcode::OP_EXTRACT, Opcode::OP_ROWMAXLINE, Opcode::OP_PAIRMIN,Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWMINLINE,};
 
 const std::unordered_set<Opcode> FIX_COPY_IN_OPS{Opcode::OP_FIX_COPY_IN, Opcode::OP_FIX_COPY_IN_QUANT_PRE,
     Opcode::OP_FIX_COPY_IN_RELU_PRE, Opcode::OP_FIX_COPY_IN_RELU_POST, Opcode::OP_FIX_COPY_IN_QUANT_POST,

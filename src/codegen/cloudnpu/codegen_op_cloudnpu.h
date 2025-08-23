@@ -369,6 +369,7 @@ private:
         {                   Opcode::OP_MAXIMUM,                 [this]() { return GenBinaryOp(); }},
         {                   Opcode::OP_PAIRSUM,                 [this]() { return GenBinaryOp(); }},
         {                   Opcode::OP_PAIRMAX,                 [this]() { return GenBinaryOp(); }},
+        {                   Opcode::OP_PAIRMIN,                 [this]() { return GenBinaryOp(); }},
 
         // binary op: broadcast associated vector
         {                   Opcode::OP_ADD_BRC,            [this]() { return GenBinaryWithBrc(); }},
@@ -403,12 +404,14 @@ private:
         {             Opcode::OP_COPY_UB_TO_UB,                  [this]() { return GenUnaryOp(); }},
         {                Opcode::OP_ROWSUMLINE,                  [this]() { return GenUnaryOp(); }},
         {                Opcode::OP_ROWMAXLINE,                  [this]() { return GenUnaryOp(); }},
+        {                Opcode::OP_ROWMINLINE,                  [this]() { return GenUnaryOp(); }},
         {                       Opcode::OP_ABS,                  [this]() { return GenUnaryOp(); }},
 
         // unary with temp buffer
         {                   Opcode::OP_COMPACT,       [this]() { return GenUnaryOpWithTmpBuff(); }},
         {             Opcode::OP_ROWSUM_SINGLE,       [this]() { return GenUnaryOpWithTmpBuff(); }},
         {             Opcode::OP_ROWMAX_SINGLE,       [this]() { return GenUnaryOpWithTmpBuff(); }},
+        {             Opcode::OP_ROWMIN_SINGLE,       [this]() { return GenUnaryOpWithTmpBuff(); }},
         {       Opcode::OP_TRANSPOSE_VNCHWCONV,       [this]() { return GenUnaryOpWithTmpBuff(); }},
         {Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE,       [this]() { return GenUnaryOpWithTmpBuff(); }},
         {Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE,       [this]() { return GenUnaryOpWithTmpBuff(); }},

@@ -388,7 +388,7 @@ private:
                           opcode == Opcode::OP_DIV || opcode == Opcode::OP_S_MAX || opcode == Opcode::OP_S_MIN ||
                           opcode == Opcode::OP_PAIRMAX || opcode == Opcode::OP_PAIRSUM ||
                           opcode == Opcode::OP_ADD_BRC || opcode == Opcode::OP_SUB_BRC ||
-                          opcode == Opcode::OP_MUL_BRC || opcode == Opcode::OP_DIV_BRC,
+                          opcode == Opcode::OP_MUL_BRC || opcode == Opcode::OP_DIV_BRC || opcode == Opcode::OP_PAIRMIN,
             "Invalid opcode");
         if (opcode == Opcode::OP_ADD_BRC || opcode == Opcode::OP_SUB_BRC || opcode == Opcode::OP_MUL_BRC ||
             opcode == Opcode::OP_DIV_BRC) {
@@ -457,6 +457,7 @@ private:
             case Opcode::OP_DIV_BRC: Calculator::CalcDivBrc(ret.get(), lhs.get(), rhs.get(), &pool); break;
             case Opcode::OP_S_MAX: Calculator::CalcMax(ret.get(), lhs.get(), rhs.get(), &pool); break;
             case Opcode::OP_PAIRMAX: Calculator::CalcPairMax(ret.get(), lhs.get(), rhs.get(), &pool); break;
+            case Opcode::OP_PAIRMIN: Calculator::CalcPairMin(ret.get(), lhs.get(), rhs.get(), &pool); break;
             case Opcode::OP_S_MIN: Calculator::CalcMin(ret.get(), lhs.get(), rhs.get(), &pool); break;
             default: ASSERT(false);
         }
@@ -489,7 +490,7 @@ private:
     template <Opcode opcode>
     void ExecuteOpReduce(ExecuteOperationContext *ctx) {
         static_assert(opcode == Opcode::OP_ROWSUM_SINGLE || opcode == Opcode::OP_ROWMAX_SINGLE ||
-                          opcode == Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE ||
+                          opcode == Opcode::OP_ROWMIN_SINGLE || opcode == Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE ||
                           opcode == Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE || opcode == Opcode::OP_ROWSUMLINE,
             "Invalid opcode");
         ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
@@ -506,6 +507,13 @@ private:
             case Opcode::OP_ROWSUM_SINGLE:
             case Opcode::OP_ROWSUMLINE:
             case Opcode::OP_ROWMAX_SINGLE: {
+                if (oop->GetShape()[axis] != 1) {
+                    std::vector<int> oopShape = oop->GetShape();
+                    oopShape[axis] = 1;
+                    oop = oop->View(oopShape, std::vector<int>(oopShape.size(), 0));
+                }
+            } break;
+            case Opcode::OP_ROWMIN_SINGLE: {
                 if (oop->GetShape()[axis] != 1) {
                     std::vector<int> oopShape = oop->GetShape();
                     oopShape[axis] = 1;
@@ -535,6 +543,7 @@ private:
                 }
             } break;
             case Opcode::OP_ROWMAX_SINGLE:
+            case Opcode::OP_ROWMIN_SINGLE:
             case Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE: {
                 if (outputCombineAxisDone) {
                     std::vector<int> axises = {0, 1};

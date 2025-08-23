@@ -78,6 +78,7 @@ void OperationInterpreter::ExecuteOperation(ExecuteOperationContext *ctx) {
         {Opcode::OP_S_DIV, &OperationInterpreter::ExecuteOpBinary<Opcode::OP_DIV>},
         {Opcode::OP_S_MAX, &OperationInterpreter::ExecuteOpBinary<Opcode::OP_S_MAX>},
         {Opcode::OP_PAIRMAX, &OperationInterpreter::ExecuteOpBinary<Opcode::OP_PAIRMAX>},
+        {Opcode::OP_PAIRMIN, &OperationInterpreter::ExecuteOpBinary<Opcode::OP_PAIRMIN>},
         {Opcode::OP_PAIRSUM, &OperationInterpreter::ExecuteOpBinary<Opcode::OP_PAIRSUM>},
         {Opcode::OP_S_MIN, &OperationInterpreter::ExecuteOpBinary<Opcode::OP_S_MIN>},
         {Opcode::OP_MAXIMUM, &OperationInterpreter::ExecuteOpBinary<Opcode::OP_S_MAX>},
@@ -102,6 +103,7 @@ void OperationInterpreter::ExecuteOperation(ExecuteOperationContext *ctx) {
         {Opcode::OP_ROWSUM_SINGLE, &OperationInterpreter::ExecuteOpReduce<Opcode::OP_ROWSUM_SINGLE>},
         {Opcode::OP_ROWSUMLINE, &OperationInterpreter::ExecuteOpReduce<Opcode::OP_ROWSUMLINE>},
         {Opcode::OP_ROWMAX_SINGLE, &OperationInterpreter::ExecuteOpReduce<Opcode::OP_ROWMAX_SINGLE>},
+        {Opcode::OP_ROWMIN_SINGLE, &OperationInterpreter::ExecuteOpReduce<Opcode::OP_ROWMIN_SINGLE>},
         {Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, &OperationInterpreter::ExecuteOpReduce<Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE>},
         {Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, &OperationInterpreter::ExecuteOpReduce<Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE>},
 

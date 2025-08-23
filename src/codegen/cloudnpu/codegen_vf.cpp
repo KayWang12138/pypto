@@ -24,7 +24,7 @@
 
 namespace npu::tile_fwk {
 const std::unordered_set<Opcode> BinaryOps{Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL, Opcode::OP_DIV,
-    Opcode::OP_PAIRMAX, Opcode::OP_PAIRSUM, Opcode::OP_EXPAND, Opcode::OP_FUSED_OP};
+    Opcode::OP_PAIRMAX, Opcode::OP_PAIRMIN, Opcode::OP_PAIRSUM, Opcode::OP_EXPAND, Opcode::OP_FUSED_OP};
 const std::unordered_set<Opcode> UnaryOps{
     Opcode::OP_EXP,
     Opcode::OP_SQRT,

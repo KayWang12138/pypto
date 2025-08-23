@@ -560,6 +560,19 @@ def gen_reduce_max_op_golden(case_name: str, output: Path, case_index: int = Non
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("ReduceMax", golden_func, output, case_index)
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestReduceMin/ReduceMinOperationTest.TestReduceMin",
+    ]
+)
+def gen_reduce_min_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs, params: dict):
+        dims = params["dims"]
+        return [inputs[0].min(axis=dims[0],keepdims=True)]
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("ReduceMin", golden_func, output, case_index)
+
 
 @GoldenRegister.reg_golden_func(
     case_names=[

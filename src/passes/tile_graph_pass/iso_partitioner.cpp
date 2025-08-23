@@ -696,7 +696,7 @@ bool OperationGraphInfo::CoreTypeMergeable(const std::set<OpCoreType> &coreTypes
 
 std::vector<std::pair<int32_t, int32_t>> IsoPartitioner::GetReduceNodeMergePair() const
 {
-    std::unordered_set<Opcode> reduceType{Opcode::OP_PAIRMAX, Opcode::OP_PAIRSUM};
+    std::unordered_set<Opcode> reduceType{Opcode::OP_PAIRMAX, Opcode::OP_PAIRMIN, Opcode::OP_PAIRSUM};
     std::vector<Operation*> &opList = operationInfo_->opList_;
     std::vector<std::pair<int32_t, int32_t>> mergePair;
     for (size_t i = 0; i < opList.size(); i++) {
