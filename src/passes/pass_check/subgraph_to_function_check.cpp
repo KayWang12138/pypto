@@ -366,7 +366,22 @@ Status SubgraphToFunction::PostCheck(Function &function) {
 Status SubgraphToFunction::CheckSinglePsgEsgMapping(Function &function, uint32_t psgId, uint32_t esgId) {
     auto iter = function.rootFunc_->programs_.find(psgId);
     if (iter == function.rootFunc_->programs_.end()) { ALOG_ERROR_F("Psg %d not found in program", psgId); return FAILED; }
-    auto &esg = function.rootFunc_->Operations()[esgId].GetSubFuncInvokeInfo();
+    auto operations = function.rootFunc_->Operations();
+    const Operation* targetCallOp = nullptr;
+    for (size_t i = 0; i < operations.size(); ++i) {
+        const auto& op = operations[i];
+        uint32_t currentSubgraphId = op.GetSubgraphID();
+        if (currentSubgraphId == esgId) {
+            targetCallOp = &op;
+            break;
+        }
+    }
+    if (!targetCallOp) {
+        ALOG_ERROR_F("No callOp found with subgraphId %u", esgId);
+        return FAILED;
+    }
+    Operation* nonConstTargetCallOp = const_cast<Operation*>(targetCallOp);
+    auto &esg = nonConstTargetCallOp->GetSubFuncInvokeInfo();
     auto &psg = iter->second->GetParameter();
     ALOG_DEBUG_F("start match psg %d - esg %d\n", psgId, esgId);
     if (!CompareParamLists(esg.GetIncastTensorParamList(), psg.inCastArgs_, "Incast", psgId, esgId)) { ALOG_ERROR_F("Incast parameter lists mismatch between psg %d and esg %d", psgId, esgId); return FAILED; }
@@ -427,8 +442,22 @@ bool SubgraphToFunction::CompareParamLists(
         
 Status SubgraphToFunction::VerifySingleOpTopology(Function &function, size_t opIndex) {
     const auto &callOps = function.rootFunc_->Operations();
-    auto consumers = callOps[opIndex].ConsumerOps();
-    auto producers = callOps.at(opIndex).ProducerOps();
+    // 通过 subgraphId 查找对应的 currentOp
+    Operation* currentOp = nullptr;
+    for (const auto& op : callOps) {
+        if (static_cast<size_t>(op.GetSubgraphID()) == opIndex) {
+            currentOp = const_cast<Operation*>(&op);
+            break;
+        }
+    }
+    
+    if (currentOp == nullptr) {
+        ALOG_ERROR_F("Cannot find operation with subgraphId %zu", opIndex);
+        return FAILED;
+    }
+    
+    auto consumers = currentOp->ConsumerOps();
+    auto producers = currentOp->ProducerOps();
     ALOG_DEBUG_F("=================Call ===============%zu", opIndex);
     for (auto &prod : producers) {
         ALOG_DEBUG_F("Producer %s %d", prod->GetOpcodeStr().c_str(), prod->opmagic);
@@ -436,13 +465,28 @@ Status SubgraphToFunction::VerifySingleOpTopology(Function &function, size_t opI
     auto &topoInfo = function.rootFunc_->topoInfo_.topology_[opIndex];
     std::unordered_set<Operation *> consumersNoSelf;
     for (auto *cons : consumers) {
-        if (cons->opmagic != callOps[opIndex].opmagic) {
+        if (cons->opmagic != currentOp->opmagic) {
             consumersNoSelf.insert(cons);
         }
     }
-    if (consumersNoSelf.size() < topoInfo.outGraph.size()) { ALOG_ERROR_F("Call %zu %d consumers size are %zu and %zu", opIndex, callOps.at(opIndex).opmagic, consumersNoSelf.size(), topoInfo.outGraph.size()); return FAILED; }
+    if (consumersNoSelf.size() < topoInfo.outGraph.size()) { ALOG_ERROR_F("Call %zu %d consumers size are %zu and %zu", opIndex, currentOp->opmagic, consumersNoSelf.size(), topoInfo.outGraph.size()); return FAILED; }
     for (auto succ : topoInfo.outGraph) {
-        if (consumers.count(&(callOps.at(succ))) == 0) { ALOG_ERROR_F("Cannot find consumer %d for call %zu", succ, opIndex); return FAILED; }
+        const int consumerSubgraphId = static_cast<int>(succ); 
+        
+        // 通过 subgraphId 查找预期的消费者op
+        Operation* expectedConsumer = nullptr;
+        for (const auto& op : callOps) {
+            if (op.GetSubgraphID() == consumerSubgraphId) {
+                expectedConsumer = const_cast<Operation*>(&op);
+                break;
+            }
+        }
+        
+        if (expectedConsumer == nullptr) {
+            ALOG_ERROR_F("Cannot find expected consumer with subgraphId %d", consumerSubgraphId);
+            return FAILED;
+        }
+        if (consumers.count(expectedConsumer) == 0) { ALOG_ERROR_F("Cannot find consumer %d for call %zu", succ, opIndex); return FAILED; }
     }
     return SUCCESS;
 }        
