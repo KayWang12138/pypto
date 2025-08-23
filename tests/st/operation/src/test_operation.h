@@ -53,6 +53,15 @@ struct TestCaseDesc {
     OpFunc opFunc;
 };
 
+struct MatmulTestCaseParam {
+    bool transA;
+    bool transB;
+    bool isAMatrixNz;
+    bool isBMatrixNz;
+    bool isCMatrixNz;
+    DataType outDtype;
+};
+
 class TestExecutor {
 public:
     static void runTest(const TestCaseDesc& testCase) {
@@ -80,7 +89,7 @@ private:
             inputs.push_back(RawTensorData::CreateTensor(testCase.inputTensors[i], input));
         }
         ProgramData::GetInstance().AppendInputs({inputs});
-        
+
         // 设置输出Tensor
         std::vector<RawTensorDataPtr> outputs;
         for (const auto& tensor : testCase.outputTensors) {
@@ -182,6 +191,25 @@ static std::vector<Tensor> GetTensors(const nlohmann::json &json_data, bool is_i
     return GetTensors(json_data, true);
 }
 
+[[maybe_unused]] static std::vector<Tensor> GetMatmulTensors(const nlohmann::json &json_data, const std::string key) {
+    std::cout << "Create Matmul Tensors For " << json_data << std::endl;
+    std::vector<Tensor> tensors;
+    for (const auto &tensor_config : json_data.at(key)) {
+        auto shape = tensor_config.at("shape").get<std::vector<int>>();
+        auto dtype = GetDataType(tensor_config.at("dtype").get<std::string>());
+        auto name = tensor_config.at("name").get<std::string>();
+        auto format = tensor_config.at("format").get<std::string>();
+        if (format == "ND") {
+            std::cout << "Create ND Tensors" << std::endl;
+            tensors.push_back(Tensor(dtype, shape, name));
+        } else {
+            std::cout << "Create NZ Tensors" << std::endl;
+            tensors.push_back(Tensor(dtype, shape, name, NodeType::LOCAL, TileOpFormat::TILEOP_NZ));
+        }
+    }
+    return tensors;
+}
+
 [[maybe_unused]] static std::vector<Tensor> GetOutputTensors(const nlohmann::json &json_data) {
     return GetTensors(json_data, false);
 }
@@ -208,6 +236,29 @@ T GetValueByName(const nlohmann::json &json_data, const std::string &name) {
     return GetValueByName<int>(json_data, "func_id");
 }
 
+[[maybe_unused]] static std::vector<std::vector<int>> GetMatmulTileShape(const nlohmann::json &json_data) {
+    std::vector<std::vector<int>> tileShape;
+    for (const auto &shape : json_data["tile_shape"]) {
+        std::vector<int> tile;
+        for (const auto &num : shape) {
+            tile.push_back(num);
+        }
+        tileShape.push_back(tile);
+    }
+    return tileShape;
+}
+
+[[maybe_unused]] static MatmulTestCaseParam GetMatmulParam(const nlohmann::json &json_data) {
+    MatmulTestCaseParam param;
+    param.transA = GetValueByName<bool>(json_data, "transA");
+    param.transB = GetValueByName<bool>(json_data, "transB");
+    param.isAMatrixNz = GetValueByName<bool>(json_data, "isAMatrixNz");
+    param.isBMatrixNz = GetValueByName<bool>(json_data, "isBMatrixNz");
+    param.isCMatrixNz = GetValueByName<bool>(json_data, "isCMatrixNz");
+    param.outDtype = GetDataType(GetValueByName<std::string>(json_data, "outDtype"));
+    return param;
+}
+
 template <typename T>
 std::vector<T> GetOpMetaData(const std::vector<OpFunc> &opFuncs, const std::string &op) {
     // 先读取 AST_STEST_GOLDEN_PATH 环境变量, 否则使用当前目录
@@ -227,7 +278,7 @@ std::vector<T> GetOpMetaData(const std::vector<OpFunc> &opFuncs, const std::stri
         }
         auto func_id = GetFuncId(test_case);
         if (func_id < 0 || static_cast<size_t>(func_id) >= opFuncs.size()) {
-            // cut function start from 2 dim 
+            // cut function start from 2 dim
             func_id = GetViewShape(test_case).size() - 2;
         }
         test_case_list.push_back(T(opFuncs[func_id], test_case));

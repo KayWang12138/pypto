@@ -34,13 +34,16 @@ class DataRange:
 
 
 class TensorData:
-    def __init__(self, name: str, shape: list, dtype: str, data_range: list):
+    def __init__(self, name: str, shape: list, dtype: str, data_range: list,
+        tensor_format: str = None, is_trans: bool = None):
         self._name = name
         self._shape = shape
         self._dtype = dtype
         self._data_range = (
             None if data_range is None else DataRange(data_range[0], data_range[1])
         )
+        self._format = tensor_format
+        self._is_trans = is_trans
 
     @property
     def name(self) -> str:
@@ -62,6 +65,10 @@ class TensorData:
         json_content = {"name": self._name, "shape": self._shape, "dtype": self._dtype}
         if self._data_range is not None:
             json_content["data_range"] = self._data_range.dump_to_json()
+        if self._format is not None:
+            json_content["format"] = self._format
+        if self._is_trans is not None:
+            json_content["is_trans"] = self._is_trans
         return json_content
 
 
@@ -148,6 +155,22 @@ class TestDataReader:
         data_range = self.str_to_list(row_data.get("input_datarange"))
         if not isinstance(data_range[0], (list, tuple)):
             data_range = [data_range]
+
+        input_format_list = [None] * len(input_shape)
+        if row_data.get("input_format") is not None:
+            input_format_list = self.str_to_list(row_data.get("input_format"))
+            assert len(input_format_list) == len(input_shape)
+
+        is_trans_list = []
+        # 转换布尔值（支持TRUE/FALSE/1/0）
+        if row_data.get("isATrans") is not None and row_data.get("isBTrans") is not None:
+            is_a_trans = self.str_to_bool(row_data.get("isATrans"))
+            is_b_trans = self.str_to_bool(row_data.get("isBTrans"))
+            is_trans_list = [is_a_trans, is_b_trans]
+        # 若输入数量超过2个，剩余默认不转置
+        while len(is_trans_list) < len(input_shape):
+            is_trans_list.append(None)
+
         assert len(input_shape) == len(input_dtype)
         assert len(input_shape) == len(data_range)
         input_tensors = []
@@ -158,17 +181,26 @@ class TestDataReader:
                     input_shape[idx],
                     input_dtype[idx],
                     data_range[idx],
+                    tensor_format=input_format_list[idx],
+                    is_trans=is_trans_list[idx]
                 )
             )
         output_shape = self.str_to_list(row_data.get("output_shape"))
         if not isinstance(output_shape[0], (list, tuple)):
             output_shape = [output_shape]
         output_dtype = self.str_to_list(row_data.get("output_dtype"))
+
+        output_format_list = [None] * len(output_shape)
+        if row_data.get("output_format") is not None:
+            output_format_list = self.str_to_list(row_data.get("output_format"))
+            assert len(output_format_list) == len(output_shape)
+
         output_tensors = []
         for idx in range(len(output_shape)):
             output_tensors.append(
                 TensorData(
-                    "output" + str(idx), output_shape[idx], output_dtype[idx], None
+                    "output" + str(idx), output_shape[idx], output_dtype[idx], None,
+                    tensor_format=output_format_list[idx], is_trans=None
                 )
             )
         view_shape = self.str_to_list(row_data.get("view_shape"))
@@ -204,6 +236,9 @@ class TestDataReader:
         islargest = row_data.get("islargest", None)
         if islargest is not None:
             params["islargest"] = [bool(x) for x in self.str_to_list(row_data.get("islargest"))]
+
+        self.extend_matmul_param(params, is_trans_list, input_format_list, output_format_list, row_data)
+
         return TestCaseData(
             row_data.get("case_index"),
             row_data.get("case_name"),
@@ -249,6 +284,26 @@ class TestDataReader:
                 )
                 ret_list.append(int(sub_str) if is_num else sub_str)
         return ret_list
+
+    def str_to_bool(self, input_str: str):
+        if input_str is None:
+            return False
+        input_str = str(input_str).strip().upper()
+        logging.debug("caseindex: %s, input str: %s", self._case_index, input_str)
+        return input_str in ("TRUE", "1")
+
+    def extend_matmul_param(self, params: dict, trans_list: list, input_format_list: list, output_format_list: list,
+        row_data: dict):
+        if row_data.get("operation") not in ("Matmul", "BatchMatmul"):
+            return
+        params["transA"] = trans_list[0]
+        params["transB"] = trans_list[1]
+        params["isAMatrixNz"] = input_format_list[0] == "NZ"
+        params["isBMatrixNz"] = input_format_list[1] == "NZ"
+        params["isCMatrixNz"] = output_format_list[0] == "NZ"
+        output_dtype_str = self.str_to_list(row_data.get("output_dtype"))[0]
+        params["outDtype"] = str(output_dtype_str).strip()
+        params["func_id"] = 0
 
 
 def read_test_cases_from_csv(file_name: str, op: list) -> list:
@@ -306,6 +361,10 @@ def clean_data_frame(
     if "skip" in data_frame.columns:
         data_frame = data_frame.query(
             "skip != 1 and skip != '1' and skip != True and skip != 'TRUE'"
+        )
+    if "enable" in data_frame.columns:
+        data_frame = data_frame.query(
+            "(enable == 1 or enable == '1' or enable == True or enable == 'TRUE')"
         )
     data_frame.query(f"operation == '{op}'")
     return data_frame

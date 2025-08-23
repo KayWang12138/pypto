@@ -64,6 +64,32 @@ else:
     from golden_register import GoldenRegister
 
 
+def trans_nd_to_fractal_nz(data: np.ndarray):
+    def _gen_axes_for_transpose(offset, base):
+        return [x for x in range(offset)] + [x + offset for x in base]
+
+    def _ceil_div(a, b):
+        return (a + b - 1) // b
+    ori_shape = data.shape
+    m_ori, n_ori = ori_shape[-2:]
+    batch_ori = ori_shape[:-2]
+    batch_num = len(batch_ori)
+    batch_padding = ((0, 0),) * batch_num
+    if data.dtype == np.int8:
+        m0, n0 = 16, 32
+    elif data.dtype == np.float16 or data.dtype == bfloat16 or data.dtype == np.int32:
+        m0, n0 = 16, 16
+    else:
+        m0, n0 = 16, 8
+    m1, n1 = _ceil_div(m_ori, m0), _ceil_div(n_ori, n0)
+    padding_m = m1 * m0 - m_ori
+    padding_n = n1 * n0 - n_ori
+    data = np.pad(data, (batch_padding + ((0, padding_m), (0, padding_n))), 'constant')
+    array_trans = _gen_axes_for_transpose(len(data.shape) - 2, [2, 0, 1, 3])
+    data = data.reshape(batch_ori + (m1, m0, n1, n0)).transpose(*array_trans)
+    return data
+
+
 def dump_file(data_pool, data_path, type_str):
     np.array(data_pool).astype(get_dtype_by_name(type_str.lower())).tofile(data_path)
 
@@ -169,6 +195,8 @@ def gen_op_golden(
                     dtype=get_dtype_by_name(input_tensor["dtype"]),
                 )
             input_tensors.append(tensor)
+            if config.get("operation") in ("Matmul", "BatchMatmul") and input_tensor.get("format") == "NZ":
+                tensor = trans_nd_to_fractal_nz(tensor)
             tensor.tofile(Path(output_path, input_tensor["name"] + ".bin"))
 
         res = (
@@ -366,6 +394,47 @@ def gen_cast_op_golden(case_name: str, output: Path, case_index: int = None) -> 
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Cast", golden_func, output, case_index)
+
+
+def matmul_golden_func(inputs, params: dict):
+    tensor_a = inputs[0] if not params.get("transA") else \
+        np.swapaxes(inputs[0], inputs[0].ndim - 2, inputs[0].ndim - 1)
+    tensor_b = inputs[1] if not params.get("transB") else \
+        np.swapaxes(inputs[1], inputs[1].ndim - 2, inputs[1].ndim - 1)
+
+    assert params.get("outDtype") in ("fp32", "fp16", "bf16", "int32")
+    if params.get("outDtype") in ("fp32", "fp16", "bf16"):
+        tensor_c = np.matmul(tensor_a.astype(np.float32), tensor_b.astype(np.float32))
+    else:
+        tensor_c = np.matmul(tensor_a.astype(np.int32), tensor_b.astype(np.int32))
+    tensor_c = tensor_c.astype(get_dtype_by_name(params.get("outDtype")))
+
+    if params.get("isCMatrixNz"):
+        tensor_c = trans_nd_to_fractal_nz(tensor_c)
+
+    return [tensor_c]
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestMatmul/MatmulOperationTest.TestMatmul",
+    ]
+)
+def gen_matmul_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Matmul", matmul_golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestBatchMatmul/BatchMatmulOperationTest.TestBatchMatmul",
+    ]
+)
+def gen_batchmatmul_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("BatchMatmul", matmul_golden_func, output, case_index)
 
 
 @GoldenRegister.reg_golden_func(
