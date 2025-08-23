@@ -21,20 +21,27 @@
 #include "codegen/codegen_common.h"
 
 namespace npu::tile_fwk {
-std::string JoinString(std::vector<std::string> &strList, const std::string &conj) {
-    std::string ostring;
+std::string JoinString(const std::vector<std::string> &strList, const std::string &conj) {
+    std::ostringstream oss;
     std::string prefix = "/*";
     for (size_t i = 0; i < strList.size(); i++) {
         if (i != 0) {
             if (strList[i - 1].substr(0, prefix.length()) == prefix) {
-                ostring += " ";
+                oss << " ";
             } else {
-                ostring += conj;
+                oss << conj;
             }
         }
-        ostring += strList[i];
+        oss << strList[i];
     }
-    return ostring;
+    return oss.str();
+}
+
+std::string PrintParams(const std::pair<std::string, std::string> &delimiter, const std::vector<std::string> &params,
+    const std::string &conj) {
+    std::ostringstream oss;
+    oss << delimiter.first << JoinString(params, conj) << delimiter.second;
+    return oss.str();
 }
 
 std::vector<int> NormalizeShape(const std::vector<int> &shapeVec, unsigned dim) {

@@ -117,6 +117,7 @@ bool CodeGenOp::Init(const npu::tile_fwk::Operation &ops) {
 
     isSupportDynamicUnaligned = functionType == FunctionType::DYNAMIC_LOOP_PATH &&
                                 ConfigManager::Instance().GetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, false);
+    isSupportLayout = ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_SUPPORT_LAYOUT, false);
 
     UpdateTileOpInfo(ops);
     if (tileOpName.empty()) {
@@ -142,6 +143,8 @@ bool CodeGenOp::Init(const npu::tile_fwk::Operation &ops) {
         UpdateCodegenOpInfoByTensor(ops, true, input, operandIdx);
     }
 
+    operandCnt = ops.oOperand.size() + ops.iOperand.size();
+
     GetGmParamIdx(ops);
     syncQueue = ops.syncQueue_;
 
@@ -155,8 +158,8 @@ bool CodeGenOp::Init(const npu::tile_fwk::Operation &ops) {
 
 void CodeGenOp::UpdateCodegenOpInfoByTensor(
     const Operation &ops, bool isInput, const std::shared_ptr<LogicalTensor> &tensor, int &operandIdx) {
-    operand[operandIdx] =
-        tensor->GetMemoryTypeOriginal() == MEM_DEVICE_DDR ? tensor->tensor->GetRawMagic() : -tensor->tensor->GetRawMagic();
+    operand[operandIdx] = tensor->GetMemoryTypeOriginal() == MEM_DEVICE_DDR ? tensor->tensor->GetRawMagic() :
+                                                                              -tensor->tensor->GetRawMagic();
     operandWithMagic[operandIdx] = tensor->GetMagic();
     UpdateShape(ops, *tensor, operandIdx);
     if (isInput) {
@@ -363,7 +366,7 @@ void CodeGenOp::GetGmParamIdx(const npu::tile_fwk::Operation &oper) {
         ASSERT(attr != nullptr) << "Copy In attr is null";
         std::shared_ptr<CopyOpAttribute> copyAttr = std::static_pointer_cast<CopyOpAttribute>(attr);
         paramLocation[1] = oper.GetIOpAttrOffset(0);
-        ALOG_INFO_F("Gm Param Index of Copy In Op %s is %d", GetTileOpName(oper.GetOpcode()), paramLocation[1]);
+        ALOG_INFO_F("Gm Param Index of Copy In Op %s is %d", tileOpName.c_str(), paramLocation[1]);
         GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
         ALOG_INFO_F("%s GmTensorParamIdxInCallFunc: %d", __FUNCTION__, GmTensorParamIdxInCallFunc);
         return;
@@ -374,7 +377,7 @@ void CodeGenOp::GetGmParamIdx(const npu::tile_fwk::Operation &oper) {
         ASSERT(attr != nullptr) << "Copy In attr is null";
         std::shared_ptr<CopyOpAttribute> copyAttr = std::static_pointer_cast<CopyOpAttribute>(attr);
         paramLocation[0] = oper.GetOOpAttrOffset(0);
-        ALOG_INFO_F("Gm Param Index of Copy Out Op %s is %d", GetTileOpName(oper.GetOpcode()), paramLocation[0]);
+        ALOG_INFO_F("Gm Param Index of Copy Out Op %s is %d", tileOpName.c_str(), paramLocation[0]);
         GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
         ALOG_INFO_F("%s GmTensorParamIdxInCallFunc: %d", __FUNCTION__, GmTensorParamIdxInCallFunc);
         return;

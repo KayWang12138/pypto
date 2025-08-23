@@ -17,7 +17,7 @@
 #include "codegen/codegen_common.h"
 
 namespace npu::tile_fwk {
-SymbolManager::AllocKey SymbolManager::CreateAllocKey(std::shared_ptr<LogicalTensor> tensor) const {
+AllocKey SymbolManager::CreateAllocKey(const std::shared_ptr<LogicalTensor> &tensor) const {
     const auto &memMap = tensor->memorymap;
     if (memMap.count(tensor->subGraphID) == 0) {
         ALOG_ERROR_F("%s: can not find subGraphID(%d) in the memorymap of tensor: ", __FUNCTION__, tensor->subGraphID);
@@ -39,11 +39,11 @@ SymbolManager::AllocKey SymbolManager::CreateAllocKey(std::shared_ptr<LogicalTen
 
     const TileRange &range = memMap.at(tensor->subGraphID);
     auto bufferType = OPERAND_TYPE_TO_MEMORY_TYPE.at(memType);
-    SymbolManager::AllocKey key = SymbolManager::AllocKey(bufferType, range.start, range.end);
+    AllocKey key = AllocKey(bufferType, range.start, range.end);
     return key;
 }
 
-SymbolManager::AllocKey SymbolManager::CreateAllocKey(int tensorMagicNum) const {
+AllocKey SymbolManager::CreateAllocKey(int tensorMagicNum) const {
     std::shared_ptr<LogicalTensor> tensor = SymbolManager::GetTensorByMagic(tensorMagicNum);
     if (!tensor) {
         ALOG_ERROR_F("%s: can not query tensor object from tensor magicnum: %d", __FUNCTION__, tensorMagicNum);
@@ -73,16 +73,16 @@ std::shared_ptr<LogicalTensor> SymbolManager::GetTensorByMagic(int magicNum) con
     }
 }
 
-std::string SymbolManager::FormatAllocKey(const SymbolManager::AllocKey &key) {
+std::string SymbolManager::FormatAllocKey(const AllocKey &key) {
+    auto [bufType, start, end] = key;
     std::ostringstream os;
-    os << "alloc identifier <buf_type="
-       << OperandTypeToStr(std::get<static_cast<size_t>(SymbolManager::AllocKeyIdx::BufType)>(key)).c_str() << ", ";
-    os << "range_start=" << std::get<static_cast<size_t>(SymbolManager::AllocKeyIdx::RangeStart)>(key) << ", ";
-    os << "range_end=" << std::get<static_cast<size_t>(SymbolManager::AllocKeyIdx::RangeEnd)>(key) << ">";
+    os << "alloc identifier <buf_type=" << OperandTypeToStr(bufType) << ", ";
+    os << "range_start=" << start << ", ";
+    os << "range_end=" << end << ">";
     return os.str();
 }
 
-std::string SymbolManager::QueryVariableName(const SymbolManager::AllocKey &key) {
+std::string SymbolManager::QueryVariableName(const AllocKey &key) {
     ALOG_INFO_F("%s: query varname by identifier: %s", __FUNCTION__, FormatAllocKey(key).c_str());
 
     auto iter = key2VariableName_.find(key);
@@ -93,6 +93,56 @@ std::string SymbolManager::QueryVariableName(const SymbolManager::AllocKey &key)
     ALOG_ERROR_F("%s: failed to query by identifier: %s", __FUNCTION__, FormatAllocKey(key).c_str());
     ASSERT(false) << " UNDEFINED_VAR !!! ";
     return "UNDEFINED_VAR";
+}
+
+std::string SymbolManager::QueryVarNameByTensorMagic(int magic) {
+    AllocKey key = CreateAllocKey(magic);
+    std::string varName = QueryVariableName(key);
+    return varName;
+}
+
+std::string SymbolManager::AddTileTensorUsing(const TileTensorUsing &tileTensorUsing) {
+    std::string tensorUsingType = tileTensorUsing.GenName();
+    tileTensorUsing_.insert({tensorUsingType, tileTensorUsing});
+    return tensorUsingType;
+}
+
+void SymbolManager::AddTileTensor(const TileTensor &tileTensor) {
+    auto result = tileTensor_.insert({tileTensor, tileTensor.tensorName});
+    if (result.second) {
+        tileTensorByMagic_.insert({tileTensor.magic, tileTensor.tensorName});
+    } else {
+        tileTensorByMagic_.insert({tileTensor.magic, result.first->second});
+    }
+}
+
+std::string SymbolManager::QueryTileTensorByMagic(int magic) {
+    auto iterByMagic = tileTensorByMagic_.find(magic);
+    if (iterByMagic != tileTensorByMagic_.end()) {
+        return iterByMagic->second;
+    }
+
+    ASSERT(false) << "tensor magic " << magic << " is not found !!! ";
+    return "";
+}
+
+std::string SymbolManager::GenUsingList() {
+    std::ostringstream oss;
+    for (const auto &usingPair : tileTensorUsing_) {
+        const std::string &usingName = usingPair.first;
+        const TileTensorUsing &tileTensorUsing = usingPair.second;
+        oss << "using " << usingName << " = " << tileTensorUsing.ToString();
+    }
+    return oss.str();
+}
+
+std::string SymbolManager::GenTileTensorDefList() {
+    std::ostringstream oss;
+    for (const auto &tensorPair : tileTensor_) {
+        const TileTensor &tileTensor = tensorPair.first;
+        oss << tileTensor.ToString();
+    }
+    return oss.str();
 }
 
 } // namespace npu::tile_fwk

@@ -24,6 +24,7 @@
 namespace npu::tile_fwk {
 const std::string GM_TENSOR_PARAM_STR = "param";
 const std::string PREFIX_STR_RAW_SHAPE = "RAWSHAPE";
+const std::string PREFIX_STR_STRIDE = "STRIDE";
 const std::string PREFIX_STR_OFFSET = "OFFSET";
 constexpr const int MAX_DIM = 5;
 
@@ -47,6 +48,19 @@ constexpr const int BUFFER_SIZE_256 = 256;
 constexpr const int BUFFER_SIZE_512 = 512;
 constexpr const int BUFFER_SIZE_1024 = 1024;
 
+// single input single output
+enum class SISOIdx : int {
+    DST_IDX = 0,
+    SRC_IDX = 1,
+};
+
+// dual input single output
+enum class DISIIdx : int {
+    DST_IDX = 0,
+    SRC0_IDX = 1,
+    SRC1_IDX = 2,
+};
+
 const std::unordered_map<OperandType, std::string> OPERAND_TYPE_TO_ADDR_TYPE{
     {BUF_DDR,   "__gm__"},
     { BUF_UB, "__ubuf__"},
@@ -69,7 +83,7 @@ const std::map<PipeType, std::string> PIPE_ID{
     { PIPE_ALL,  "PIPE_ALL"},
 };
 
-const std::map<OperandType, const char *> BUFFER_TYPE_TO_PREFIX = {
+const std::map<OperandType, std::string> BUFFER_TYPE_TO_PREFIX = {
     { OperandType::BUF_UB,   "UB"},
     { OperandType::BUF_L1,   "L1"},
     {OperandType::BUF_L0A,  "L0A"},
@@ -77,7 +91,19 @@ const std::map<OperandType, const char *> BUFFER_TYPE_TO_PREFIX = {
     {OperandType::BUF_L0C,  "L0C"},
     {OperandType::BUF_FIX, "FBUF"},
     { OperandType::BUF_BT,   "BT"},
-    {OperandType::BUF_DDR,  "DDR"},
+    {OperandType::BUF_DDR,  "GM"},
+};
+
+//lowercase version
+const std::map<OperandType, std::string> BUFFER_TYPE_TO_PREFIX_LC = {
+    { OperandType::BUF_UB,   "ub"},
+    { OperandType::BUF_L1,   "l1"},
+    {OperandType::BUF_L0A,  "l0a"},
+    {OperandType::BUF_L0B,  "l0b"},
+    {OperandType::BUF_L0C,  "l0c"},
+    {OperandType::BUF_FIX, "fbuf"},
+    { OperandType::BUF_BT,   "bt"},
+    {OperandType::BUF_DDR,  "gm"},
 };
 
 enum class VecScalMode {

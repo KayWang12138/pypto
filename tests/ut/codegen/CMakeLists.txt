@@ -89,6 +89,7 @@ set(_CaseFilterList
         # dynamic support unaligned
         "TestCodegenDynIndexOutCast.DynIndexOutUnaligned"
         "TestCodegenDynBinary.TestGatherEle"
+        "TestCodegenDynBinary.AddUnalignLayout"
         "TestCodegenDynDataMove.TestDatamoveUnalignDim3"
         "TestCodegenDynDataMove.TestDatamoveUnalignDim4"
         "TestCodegenDynVdup.TestDynVdupUnaligned"

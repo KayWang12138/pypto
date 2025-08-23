@@ -21,6 +21,13 @@
 #include "securec.h"
 
 namespace npu::tile_fwk {
+// NEXTNEXT: delete after tile op register has supported tile tensor
+const std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
+    { Opcode::OP_UB_COPY_IN, "DataCopy"},
+    {Opcode::OP_UB_COPY_OUT, "DataCopy"},
+    {        Opcode::OP_ADD,      "Add"},
+};
+
 void CodeGenOpCloudNPU::AppendLocalBufferVarOffset(
     const std::vector<std::string *> &vars, const std::vector<unsigned> &operandIdxes) const {
     ASSERT(vars.size() == operandIdxes.size())
@@ -164,6 +171,57 @@ bool CodeGenOpCloudNPU::CombineAxis(std::vector<std::vector<int> *> &shapes, boo
     }
 
     return true;
+}
+
+TileTensor CodeGenOpCloudNPU::BuildTileTensor(int paramIdx, const std::string &usingType) {
+    TileTensor tileTensor;
+    tileTensor.magic = operandWithMagic[paramIdx];
+    tileTensor.dim = dynamicValidShape[paramIdx].size();
+    tileTensor.dtype = operandDtype[paramIdx];
+    tileTensor.bufType = operandType[paramIdx];
+    if (tileTensor.bufType == OperandType::BUF_DDR) {
+        tileTensor.bufVar = GenGmParamVar(paramIdx);
+    } else {
+        tileTensor.bufVar = sm->QueryVarNameByTensorMagic(tileTensor.magic);
+    }
+    tileTensor.usingType = usingType;
+    tileTensor.tensorName = BUFFER_TYPE_TO_PREFIX_LC.at(tileTensor.bufType) + "Tensor_" + std::to_string(tileTensor.magic);
+
+    if (tileTensor.bufType == OperandType::BUF_DDR) {
+        tileTensor.shape = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_RAW_SHAPE);
+        tileTensor.stride = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_STRIDE);
+    } else {
+        for (const auto &s : dynamicValidShape[paramIdx]) {
+            tileTensor.shape.emplace_back(s.Dump());
+        }
+        for (int i = 1; i < tileTensor.dim; ++i) {
+            tileTensor.stride.emplace_back(std::to_string(rawShape[paramIdx][i]));
+        }
+    }
+
+    // default last axis stride is 1, which means data is consecutive in memory
+    tileTensor.stride.emplace_back("1");
+
+    return tileTensor;
+}
+
+void CodeGenOpCloudNPU::UpdateTileTensorInfo() {
+    if (!isSupportLayout) {
+        return;
+    }
+
+    auto iter = SUPPORT_TILETENSOR_OPS.find(opCode);
+    if (iter == SUPPORT_TILETENSOR_OPS.end()) {
+        return;
+    }
+
+    tileOpName = iter->second;
+    for (int i = 0; i < operandCnt; ++i) {
+        TileTensorUsing tileTensorUsing{operandDtype[i], operandType[i], static_cast<int>(rawShape[i].size())};
+        std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
+        TileTensor tileTensor = BuildTileTensor(i, usingType);
+        sm->AddTileTensor(tileTensor);
+    }
 }
 
 } // namespace npu::tile_fwk

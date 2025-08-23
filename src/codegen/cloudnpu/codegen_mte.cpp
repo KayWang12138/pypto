@@ -199,10 +199,8 @@ std::string CodeGenOpCloudNPU::GenMemUBSpillIntoGM(bool isCopyUBToGM) const {
     addrTypeHead[ubIdx] = GetAddrTypeByOperandType(BUF_UB);
 
     // Query ub variable name
-    auto ubAllocKey = sm->CreateAllocKey(operandWithMagic[ubIdx]);
-    std::string ubVarName = sm->QueryVariableName(ubAllocKey);
-
     std::string addrExpr[ID2];
+    auto ubAllocKey = sm->CreateAllocKey(operandWithMagic[ubIdx]);
     addrExpr[ubIdx] = sm->QueryVariableName(ubAllocKey);
     // In spilling out scene,  GM offset is added after "GMStackBase" var.
     // "GMStackBase" is a base address of a gm workspace which is using for spilled tensors.
@@ -593,12 +591,11 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CDynamic(const PrintMemCopyWith
         return PrintL0CCopyOutDynamicUnalign(param, gmShapeExpr, gmOffsetExpr);
     }
 
-    printRet =
-        sprintf_s(buffer, BUFFER_SIZE_1024, "%s<%s, %s, %d, %d, %d, %d>((%s %s*)%s, (%s %s*)%s, %s, %s, %u);\n",
-            tileOpName.c_str(), dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), tileShapeForMT[ID0],
-            tileShapeForMT[ID1], oriTileShape0, oriTileShape1, addrTypeHead[ID0].c_str(),
-            dataTypeExpr[ID0].c_str(), addrExpr[ID0].c_str(), addrTypeHead[ID1].c_str(), dataTypeExpr[ID1].c_str(),
-            addrExpr[ID1].c_str(), gmShapeExpr[ID0].c_str(), gmOffsetExpr[ID0].c_str(), uf);
+    printRet = sprintf_s(buffer, BUFFER_SIZE_1024, "%s<%s, %s, %d, %d, %d, %d>((%s %s*)%s, (%s %s*)%s, %s, %s, %u);\n",
+        tileOpName.c_str(), dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), tileShapeForMT[ID0],
+        tileShapeForMT[ID1], oriTileShape0, oriTileShape1, addrTypeHead[ID0].c_str(), dataTypeExpr[ID0].c_str(),
+        addrExpr[ID0].c_str(), addrTypeHead[ID1].c_str(), dataTypeExpr[ID1].c_str(), addrExpr[ID1].c_str(),
+        gmShapeExpr[ID0].c_str(), gmOffsetExpr[ID0].c_str(), uf);
     ASSERT(printRet >= 0) << "sprintf_s failed in genMemCopyVar(BUF_L0C), return value:" << printRet;
     return buffer;
 }
@@ -741,6 +738,9 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUB(PrintMemCopyWithUBParam &param
     if (!param.isSpillIntoGM) {
         AppendLocalBufferVarOffset({&addrExpr[localIdx]}, {localIdx});
     }
+    if (isSupportLayout) {
+        return PrintMemCopyWithUBTileTensor();
+    }
     if (isSupportDynamicUnaligned) {
         return PrintMemCopyWithUBDynamicSupportUnaligned(param);
     }
@@ -862,6 +862,14 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamicSupportUnaligned(const P
        << "(" << tiloOpCallParam << ");\n";
 
     return os.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintMemCopyWithUBTileTensor() const {
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(SISOIdx::DST_IDX)]);
+    std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(SISOIdx::SRC_IDX)]);
+    std::ostringstream oss;
+    oss << tileOpName << "(" << dstTensor << ", " << srcTensor << ");\n";
+    return oss.str();
 }
 
 std::string CodeGenOpCloudNPU::GenGMAddrExprWithOffset(const std::string &addrExpr, unsigned gmIdx) const {

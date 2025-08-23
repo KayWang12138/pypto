@@ -15,18 +15,21 @@
 
 #include "gtest/gtest.h"
 
-#include "interface/tensor/logical_tensor.h"
 #include "tilefwk/tilefwk.h"
-#include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
+#include "interface/inner/tilefwk.h"
+#include "interface/interpreter/raw_tensor_data.h"
+#include "interface/tensor/logical_tensor.h"
 #include "interface/operation/operation.h"
+#include "interface/utils/id_gen.h"
 #include "tilefwk/data_type.h"
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "test_codegen_utils.h"
+#include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
-
 class TestCodegenDynBinary : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
@@ -38,6 +41,7 @@ public:
         Program::GetInstance().GetConfig().Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
@@ -168,5 +172,90 @@ TEST_F(TestCodegenDynBinary, TestGatherEle) {
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
+}
+
+TEST_F(TestCodegenDynBinary, AddUnalignLayout) {
+    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    Program::GetInstance().GetTileShape().SetVecTileShapes(64, 64);
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_LAYOUT, true);
+    // NEXTNEXT: delete after tileop adapted layout mode
+    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+
+    int b = 1;
+    int sq = 128;
+    int d = 64;
+    std::vector<int> inputShape = {b * sq, d};
+    std::vector<int> outShape = {b * sq, d};
+
+    Tensor input1(DT_FP32, inputShape, "intput1");
+    Tensor input2(DT_FP32, inputShape, "intput2");
+    Tensor curSeq(DT_FP32, {b, 1}, "curSeq");
+    Tensor out(DT_FP32, outShape, "out");
+
+    std::string loopName = "L0";
+    FUNCTION("main", FunctionType::DYNAMIC, {input1, input2, curSeq}, {out}) {
+        LOOP(loopName, FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
+            auto seq = GetInputDataInt32Dim2(curSeq, batchId, 0);
+            Tensor intput11 = DViewPad(input1, {sq, d}, {seq, d}, {batchId, 0});
+            Tensor intput22 = DViewPad(input2, {sq, d}, {seq, d}, {batchId, 0});
+            auto tmp = Add(intput11, intput22);
+            DAssemble(tmp, {batchId * sq, 0}, out);
+        }
+    }
+
+    std::vector<int> actSeqsData(b, 100);
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(input1, 1.0),
+        RawTensorData::CreateConstantTensor<float>(input2, 1.0),
+        RawTensorData::CreateTensor<int32_t>(curSeq, actSeqsData),
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, 0.001f),
+    });
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + loopName + SUB_FUNC_SUFFIX);
+
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+
+    std::string res = GetResultFromCpp(*function);
+    std::string expect = R"!!!(#include "TileOpImpl.h"
+
+// funcHash: 7819871227693154888
+
+[aicore] void TENSOR_L0_Unroll1_PATH0_3_0(CoreFuncParam* param, uint64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
+float __ubuf__ *UB_S0_E16384 = (float __ubuf__ *)get_imm(0x0); // size: 0x4000 
+float __ubuf__ *UB_S16384_E32768 = (float __ubuf__ *)get_imm(0x4000); // size: 0x4000 
+uint64_t sym_18_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 0);
+uint64_t sym_18_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 1);
+uint64_t sym_19_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 0);
+uint64_t sym_19_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 1);
+uint64_t sym_7_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 2, 19, 2, 0);
+uint64_t sym_7_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 2, 19, 2, 1);
+using GMTileTensorFP32Dim2 = TileTensor<__gm__ float, LayoutDim2, Hardware::GM>;
+using UBTileTensorFP32Dim2 = TileTensor<__ubuf__ float, LayoutDim2, Hardware::UB>;
+GMTileTensorFP32Dim2 gmTensor_7((__gm__ float*)GET_PARAM_ADDR(param, 2, 19), LayoutDim2(Shape<int, int>(GET_PARAM_RAWSHAPE_2(param, 2, 19)), Stride<int, int>(GET_PARAM_STRIDE_2(param, 2, 19), 1)));
+GMTileTensorFP32Dim2 gmTensor_3((__gm__ float*)GET_PARAM_ADDR(param, 0, 1), LayoutDim2(Shape<int, int>(GET_PARAM_RAWSHAPE_2(param, 0, 1)), Stride<int, int>(GET_PARAM_STRIDE_2(param, 0, 1), 1)));
+UBTileTensorFP32Dim2 ubTensor_19((__ubuf__ float*)UB_S16384_E32768, LayoutDim2(Shape<int, int>(sym_19_dim_0, sym_19_dim_1), Stride<int, int>(64, 1)));
+GMTileTensorFP32Dim2 gmTensor_5((__gm__ float*)GET_PARAM_ADDR(param, 1, 10), LayoutDim2(Shape<int, int>(GET_PARAM_RAWSHAPE_2(param, 1, 10)), Stride<int, int>(GET_PARAM_STRIDE_2(param, 1, 10), 1)));
+UBTileTensorFP32Dim2 ubTensor_18((__ubuf__ float*)UB_S0_E16384, LayoutDim2(Shape<int, int>(sym_18_dim_0, sym_18_dim_1), Stride<int, int>(64, 1)));
+SUBKERNEL_PHASE1
+DataCopy(ubTensor_18, gmTensor_5);
+DataCopy(ubTensor_19, gmTensor_3);
+SUBKERNEL_PHASE2
+set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+Add(ubTensor_18, ubTensor_18, ubTensor_19);
+set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+DataCopy(gmTensor_7, ubTensor_18);
+}
+)!!!";
+
+    EXPECT_EQ(res, expect);
 }
 } // namespace npu::tile_fwk

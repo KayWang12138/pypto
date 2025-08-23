@@ -248,6 +248,12 @@ INLINE uint64_t GetCoa(CoreFuncParam *ctx, int idx) {
                                                   GET_PARAM_##name##_BY_IDX(param, n, base, 5, 2), GET_PARAM_##name##_BY_IDX(param, n, base, 5, 3), \
                                                   GET_PARAM_##name##_BY_IDX(param, n, base, 5, 4)
 
+#define GET_PARAM_ATTR_2_STRIDE(name, param, n, base) GET_PARAM_##name##_BY_IDX(param, n, base, 2, 1)
+#define GET_PARAM_ATTR_3_STRIDE(name, param, n, base) GET_PARAM_##name##_BY_IDX(param, n, base, 3, 1), GET_PARAM_##name##_BY_IDX(param, n, base, 3, 2)
+#define GET_PARAM_ATTR_4_STRIDE(name, param, n, base) GET_PARAM_##name##_BY_IDX(param, n, base, 4, 1), GET_PARAM_##name##_BY_IDX(param, n, base, 4, 2),\
+                                                        GET_PARAM_##name##_BY_IDX(param, n, base, 4, 3)
+#define GET_PARAM_ATTR_5_STRIDE(name, param, n, base) GET_PARAM_##name##_BY_IDX(param, n, base, 5, 1), GET_PARAM_##name##_BY_IDX(param, n, base, 5, 2), \
+                                                        GET_PARAM_##name##_BY_IDX(param, n, base, 5, 3), GET_PARAM_##name##_BY_IDX(param, n, base, 5, 4)
 
 #define GET_PARAM_OFFSET_1(param, n, base) GET_PARAM_ATTR_1(OFFSET, param, n, base)
 #define GET_PARAM_SHAPE_1(param, n, base)  GET_PARAM_ATTR_1(SHAPE, param, n, base)
@@ -256,18 +262,22 @@ INLINE uint64_t GetCoa(CoreFuncParam *ctx, int idx) {
 #define GET_PARAM_OFFSET_2(param, n, base) GET_PARAM_ATTR_2(OFFSET, param, n, base)
 #define GET_PARAM_SHAPE_2(param, n, base)  GET_PARAM_ATTR_2(SHAPE, param, n, base)
 #define GET_PARAM_RAWSHAPE_2(param, n, base) GET_PARAM_ATTR_2(RAWSHAPE, param, n, base)
+#define GET_PARAM_STRIDE_2(param, n, base) GET_PARAM_ATTR_2_STRIDE(RAWSHAPE, param, n, base)
 
 #define GET_PARAM_OFFSET_3(param, n, base) GET_PARAM_ATTR_3(OFFSET, param, n, base)
 #define GET_PARAM_SHAPE_3(param, n, base)  GET_PARAM_ATTR_3(SHAPE, param, n, base)
 #define GET_PARAM_RAWSHAPE_3(param, n, base) GET_PARAM_ATTR_3(RAWSHAPE, param, n, base)
+#define GET_PARAM_STRIDE_3(param, n, base) GET_PARAM_ATTR_3_STRIDE(RAWSHAPE, param, n, base)
 
 #define GET_PARAM_OFFSET_4(param, n, base) GET_PARAM_ATTR_4(OFFSET, param, n, base)
 #define GET_PARAM_SHAPE_4(param, n, base)  GET_PARAM_ATTR_4(SHAPE, param, n, base)
 #define GET_PARAM_RAWSHAPE_4(param, n, base) GET_PARAM_ATTR_4(RAWSHAPE, param, n, base)
+#define GET_PARAM_STRIDE_4(param, n, base) GET_PARAM_ATTR_4_STRIDE(RAWSHAPE, param, n, base)
 
 #define GET_PARAM_OFFSET_5(param, n, base) GET_PARAM_ATTR_5(OFFSET, param, n, base)
 #define GET_PARAM_SHAPE_5(param, n, base)  GET_PARAM_ATTR_5(SHAPE, param, n, base)
 #define GET_PARAM_RAWSHAPE_5(param, n, base) GET_PARAM_ATTR_5(RAWSHAPE, param, n, base)
+#define GET_PARAM_STRIDE_5(param, n, base) GET_PARAM_ATTR_5_STRIDE(RAWSHAPE, param, n, base)
 
 INLINE uint64_t RUNTIME_Min(uint64_t input1, uint64_t input2) {
     return input1 < input2 ? input1 : input2;

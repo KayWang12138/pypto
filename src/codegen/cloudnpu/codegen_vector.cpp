@@ -164,7 +164,8 @@ std::string CodeGenOpCloudNPU::GenDupOp() const {
     if (opAttrs.count(OpAttributeKey::dynScalar)) {
         auto scalar = opAttrs.at(OpAttributeKey::dynScalar);
         ASSERT((scalar.HasValue()) && (scalar.Type() == typeid(SymbolicScalar)))
-            << npu::tile_fwk::AnyCast<SymbolicScalar>(scalar).IsValid() << "SCALAR attribute has to have symbolic value.";
+            << npu::tile_fwk::AnyCast<SymbolicScalar>(scalar).IsValid()
+            << "SCALAR attribute has to have symbolic value.";
         auto scalarExpr = npu::tile_fwk::AnyCast<SymbolicScalar>(scalar);
         dupV = SymbolicExpressionTable::BuildExpression(scalarExpr);
     } else if (dstDtypeStr == "float") {
@@ -1120,6 +1121,9 @@ std::string CodeGenOpCloudNPU::PrintBinaryDynamicUnaligned(const PrintBinaryPara
 }
 
 std::string CodeGenOpCloudNPU::PrintBinary(const PrintBinaryParam &param) const {
+    if (isSupportLayout) {
+        return PrintBinaryTileTensor();
+    }
     if (isSupportDynamicUnaligned) {
         return PrintBinaryDynamicUnaligned(param);
     }
@@ -1228,6 +1232,15 @@ std::string CodeGenOpCloudNPU::PrintBinaryBrcDynamicUnaligned(const PrintBinaryB
     return os.str();
 }
 
+std::string CodeGenOpCloudNPU::PrintBinaryTileTensor() const {
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISIIdx::DST_IDX)]);
+    std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISIIdx::SRC0_IDX)]);
+    std::string src1Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISIIdx::SRC1_IDX)]);
+    std::ostringstream oss;
+    oss << tileOpName << "(" << dstTensor << ", " << src0Tensor << ", " << src1Tensor << ");\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::PrintBinaryBrc(const PrintBinaryBrcParam &param) const {
     if (isSupportDynamicUnaligned) {
         return PrintBinaryBrcDynamicUnaligned(param);
@@ -1272,7 +1285,7 @@ std::string CodeGenOpCloudNPU::GenBinaryWithBrc() const {
 
     auto kS1 = sm->CreateAllocKey(operandWithMagic[ID3]);
     std::string s1Var = sm->QueryVariableName(kS1);
-    SymbolManager::AllocKey kTmp;
+    AllocKey kTmp;
     std::string tmpVar;
     std::string tmpDtypeStr;
     kTmp = sm->CreateAllocKey(operandWithMagic[ID1]);
@@ -2035,10 +2048,11 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
         // Hack: should be optimized to memory copy in pass
         int emuopc = AnyCast<int>(opAttrs.find(npu::tile_fwk::OP_EMUOP_PREFIX + "opc")->second);
         if (emuopc == npu::tile_fwk::EMUOP_TENSOR_EXTRACT) {
-            ret = sprintf_s(buffer, sizeof(buffer), "RUNTIME_TensorExtract(/*type=*/%s, /*mem=*/__ubuf__, /*dst*/%s, /*src*/%s);\n",
-                            dstDtypeStr.c_str(), dVar.c_str(), s0Var.c_str());
-            ASSERT(ret >= 0) << "GenVectorScalarOpByMode " << OpcodeManager::Inst().GetOpcodeStr(opCode)
-                             << " failed " << ret;
+            ret = sprintf_s(buffer, sizeof(buffer),
+                "RUNTIME_TensorExtract(/*type=*/%s, /*mem=*/__ubuf__, /*dst*/%s, /*src*/%s);\n", dstDtypeStr.c_str(),
+                dVar.c_str(), s0Var.c_str());
+            ASSERT(ret >= 0) << "GenVectorScalarOpByMode " << OpcodeManager::Inst().GetOpcodeStr(opCode) << " failed "
+                             << ret;
             return buffer;
         }
     }

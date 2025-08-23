@@ -45,12 +45,9 @@ public:
     std::string GetBinAbsPath() const { return binAbsPath_; }
     void SetBinAbsPath(const std::string &binAbsPath) { binAbsPath_ = binAbsPath; }
 
-    bool IsNeedCompileCCE() const {
-        bool isCompileByMachine = ConfigManager::Instance().GetCodeGenConfig(KEY_COMPILE_CCE_BY_MACHINE, false);
-        if (isUnderDyn_ && isCompileByMachine) {
-            return false;
-        }
-        return true;
+    static bool IsNeedCompileCCE() {
+        bool isNeedCompile = ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, true);
+        return isNeedCompile;
     }
 
     bool IsCube() const { return isCube_; }
@@ -58,7 +55,7 @@ public:
 private:
     void Init(Function &topFunc, uint64_t subProgramId) {
         std::string coreType = isCube_ ? "aic" : "aiv";
-        std::stringstream ss;
+        std::ostringstream ss;
         ss << topFunc.GetMagicName() << "_" << topFunc.GetFunctionHash() << "_" << subProgramId << "_" << coreType
            << "_rankId_" << npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId();
         cceFileName_ = ss.str();
@@ -89,7 +86,7 @@ private:
 
 class CodeGenCloudNPU : public CodeGenCCE {
 public:
-    explicit CodeGenCloudNPU(const CodeGenCtx &cctx) : CodeGenCCE(cctx){};
+    explicit CodeGenCloudNPU(const CodeGenCtx &cctx) : CodeGenCCE(cctx) {};
     ~CodeGenCloudNPU() override = default;
 
     void GenCode(Function &topFunc, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) override;
@@ -115,7 +112,7 @@ private:
 
     void DoCompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const;
 
-    std::string GenAlloc(SymbolManager &manager, SymbolManager::BufferType bufferType, npu::tile_fwk::DataType dataType,
+    std::string GenAlloc(SymbolManager &manager, BufferType bufferType, npu::tile_fwk::DataType dataType,
         const npu::tile_fwk::TileRange &range) const;
 
     bool IsCube(const OperationsViewer &operationList) const;

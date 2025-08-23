@@ -53,7 +53,9 @@
             "CODEGEN_DUMP_TO_OUTPUT": true,
             "CODEGEN_FORCE_DUMP_CCE_ON_EXIST": true,
             "CODEGEN_EXPRESSION_FUSION": false,
-            "COMPILE_CCE_BY_MACHINE": false
+            "COMPILE_CCE_BY_MACHINE": false,
+            "CODEGEN_SUPPORT_LAYOUT": false,
+            "CODEGEN_NEED_COMPILE": true
         },
         "operation_configs": {
             "FORCE_COMBINE_AXIS" : false

@@ -34,7 +34,7 @@ class CodeGenOpCloudNPU : public CodeGenOp {
 public:
     explicit CodeGenOpCloudNPU(SymbolManager &symbolManager, FunctionType funcType,
         const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false)
-        : CodeGenOp(symbolManager, funcType, locToOffset, isUnderDynamicFunc){};
+        : CodeGenOp(symbolManager, funcType, locToOffset, isUnderDynamicFunc) {};
     ~CodeGenOpCloudNPU() override = default;
 
     std::string GenMemL1CopyIn() const;
@@ -52,24 +52,24 @@ public:
     std::string GenBinaryOp() const;
     std::string GenVectorScalarOp() const;
 
-    std::string GenCubeOpMatmul() const ;
-    std::string GenCubeOpMatmulAcc() const ;
+    std::string GenCubeOpMatmul() const;
+    std::string GenCubeOpMatmulAcc() const;
 
-    std::string GenCastOp() const ;
+    std::string GenCastOp() const;
 
-    std::string GenDupOp() const ;
+    std::string GenDupOp() const;
 
-    std::string GenTransposeDataMove() const ;
+    std::string GenTransposeDataMove() const;
 
-    std::string GenGatherElementOp() const ;
+    std::string GenGatherElementOp() const;
 
-    std::string GenScatterElementOp() const ;
+    std::string GenScatterElementOp() const;
 
-    std::string GenIndexOutCastOp() const ;
+    std::string GenIndexOutCastOp() const;
 
-    std::string GenFusedOp() const ;
+    std::string GenFusedOp() const;
 
-    std::string GenGatherOp() const ;
+    std::string GenGatherOp() const;
 
     std::string GenMemCopyCube(
         const struct OpInfo &opInfo, bool isCopyL0CToGM, bool isCopyL1ToGM, unsigned uf = 0) const;
@@ -97,9 +97,13 @@ public:
         return std::string{"CAN NOT HANDLE OP: " + opCodeStr};
     }
 
+    void UpdateTileTensorInfo();
+
 private:
     template <typename T>
     bool GetAttr(const std::string &key, T &value) const;
+
+    TileTensor BuildTileTensor(int paramIdx, const std::string& usingType);
 
     std::vector<int> GetTileShapeForMemTransfer(
         OperandType localType, std::vector<int> gmShape, unsigned localIdx) const;
@@ -213,6 +217,7 @@ private:
     std::string PrintMemCopyWithUBStatic(const PrintMemCopyWithUBParam &param) const;
     std::string PrintMemCopyWithUBDynamic(const PrintMemCopyWithUBParam &param) const;
     std::string PrintMemCopyWithUBDynamicSupportUnaligned(const PrintMemCopyWithUBParam &param) const;
+    std::string PrintMemCopyWithUBTileTensor() const;
 
     struct PrintGatherParam {
         const std::string &s0Var;
@@ -259,6 +264,7 @@ private:
     };
     std::string PrintBinaryStatic(const PrintBinaryParam &param) const;
     std::string PrintBinaryDynamicUnaligned(const PrintBinaryParam &param) const;
+    std::string PrintBinaryTileTensor() const;
     std::string PrintBinary(const PrintBinaryParam &param) const;
 
     struct PrintBinaryBrcParam {

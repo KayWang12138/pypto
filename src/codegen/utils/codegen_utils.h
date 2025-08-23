@@ -32,7 +32,9 @@ inline void FillIntVecWithDummyInHead(std::vector<T> &input, unsigned padNum, T 
     }
 }
 
-std::string JoinString(std::vector<std::string> &str_list, const std::string &conj);
+std::string JoinString(const std::vector<std::string> &str_list, const std::string &conj);
+std::string PrintParams(const std::pair<std::string, std::string> &delimiter, const std::vector<std::string> &params,
+    const std::string &conj);
 
 std::vector<int> NormalizeShape(const std::vector<int> &shapeVec, unsigned dim);
 

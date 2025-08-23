@@ -29,6 +29,7 @@
 #include "codegen/cloudnpu/codegen_op_cloudnpu.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "test_codegen_utils.h"
+#include "test_codegen_common.h"
 #include "interface/utils/id_gen.h"
 
 namespace npu::tile_fwk {
@@ -137,7 +138,7 @@ TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
             output = ScatterUpdate(output, idxs, keyStates, minusTwo);
         }        
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + "_Unroll1_PATH0");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX);
     ConfigManager::Instance().SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     for (auto &subFunc : function->rootFunc_->programs_) {
         for (auto &op : subFunc.second->Operations()) {

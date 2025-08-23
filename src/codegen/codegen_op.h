@@ -126,8 +126,10 @@ protected:
     std::string tileOpName;
     bool isInputForceCombineAxis{false};
     bool isSupportDynamicUnaligned{false};
+    bool isSupportLayout{false};
     const std::map<int, int> &paramLocToParamListOffset{};
     bool isUnderDynamicFunction;
+    int operandCnt{0};
 
 private:
     void UpdateCodegenOpInfoByTensor(

@@ -90,6 +90,8 @@ const std::string KEY_CODEGEN_DUMP_TO_OUTPUT = "CODEGEN_DUMP_TO_OUTPUT"; // if t
 const std::string KEY_CODEGEN_FORCE_DUMP_CCE_ON_EXIST = "CODEGEN_FORCE_DUMP_CCE_ON_EXIST"; // if true, don't dump cce when file exists
 const std::string KEY_CODEGEN_EXPRESSION_FUSION = "CODEGEN_EXPRESSION_FUSION"; // if true, add inclue to fusion header
 const std::string KEY_COMPILE_CCE_BY_MACHINE = "COMPILE_CCE_BY_MACHINE";       // if true, compile cce in machine agent
+const std::string KEY_CODEGEN_SUPPORT_LAYOUT = "CODEGEN_SUPPORT_LAYOUT";       // if true, gen code with layout mode
+const std::string KEY_CODEGEN_NEED_COMPILE = "CODEGEN_NEED_COMPILE";       // if true, gen code & compile code
 
 enum class DPlatform {
     ASCEND_910B1,
