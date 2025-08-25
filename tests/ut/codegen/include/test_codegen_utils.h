@@ -27,12 +27,22 @@ struct LogicalTensorInfo {
     LogicalTensorInfo(
         Function &func, DataType dataType, MemoryType memoryType, const std::vector<int> &tShape, std::string tName)
         : function(func), dType(dataType), memType(memoryType), shape(tShape), tensorName(std::move(tName)){};
+    LogicalTensorInfo(Function &func, DataType dataType, MemoryType memoryType, const std::vector<int> &tShape,
+        int magicVal, std::vector<SymbolicScalar> dynShape)
+        : function(func),
+          dType(dataType),
+          memType(memoryType),
+          shape(tShape),
+          magic(magicVal),
+          dynValidShape(dynShape){};
 
     Function &function;
     DataType dType;
     MemoryType memType;
     const std::vector<int> &shape;
     const std::string tensorName;
+    int magic = -1;
+    std::vector<SymbolicScalar> dynValidShape;
 };
 
 std::shared_ptr<LogicalTensor> CreateLogicalTensor(const LogicalTensorInfo &info);

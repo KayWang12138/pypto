@@ -34,6 +34,12 @@ std::shared_ptr<LogicalTensor> CreateLogicalTensor(const LogicalTensorInfo &info
     localTensor->memorymap[0].memId = 0;
     localTensor->memorymap[0].start = 0;
     localTensor->memorymap[0].end = 0;
+    if (info.magic != -1) {
+        localTensor->SetMagic(info.magic);
+    }
+    if (!info.dynValidShape.empty()) {
+        localTensor->UpdateDynValidShape(info.dynValidShape);
+    }
     return localTensor;
 }
 
