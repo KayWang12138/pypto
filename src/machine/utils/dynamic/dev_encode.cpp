@@ -63,12 +63,6 @@ void DevAscendFunction::InitOperationDynamicField(
         const std::vector<std::shared_ptr<LogicalTensor>> &incastTensorList,
         const std::vector<std::shared_ptr<LogicalTensor>> &outcastTensorList,
         const std::unordered_map<Operation *, OrderedSet<Operation *>> & /* callOpSuccDict */, bool fillContent) {
-    opDynamicFieldList.HostInitDataSizeOffset(initOffset, callList.size());
-    ONFILLCONTENT {
-        for (size_t i = 0; i < callList.size(); i++) {
-            auto callop = std::static_pointer_cast<CallOpAttribute>(callList[i]->GetOpAttribute());
-        }
-    };
     expressionList.HostInitDataSizeOffset(initOffset, expressionTable->GetPrimaryExpressionSize());
 
     uint64_t operationSize = callList.size();
@@ -218,6 +212,18 @@ static void EncodeRawShape(const SymbolicExpressionTable *expressionTable,
     encoded->memoryRequirement = isDyn ? 0: rawTensor->GetRawDataSize();
 }
 
+void DevAscendFunction::FillOutputSlotMark(const IncastOutcastLink *inoutLink, std::vector<bool>& isOutputSlotMarks) {
+    for (int slotIdx : inoutLink->outputSlotIndexList) {
+        isOutputSlotMarks[slotIdx] = true;
+    }
+    for (int slotIdx: inoutLink->assembleSlotIndexList) {
+        isOutputSlotMarks[slotIdx] = true;
+    }
+    for (int slotIdx: inoutLink->partialUpdateSlotIdexList) {
+        isOutputSlotMarks[slotIdx] = true;
+    }
+}
+
 void DevAscendFunction::InitRawTensorAndMemoryRequirement(
         uintdevptr_t &initOffset,
         const OrderedSet<std::shared_ptr<RawTensor>> &incastRawList,
@@ -235,12 +241,7 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
 
     ONFILLCONTENT {
         std::vector<bool> isOutputSlotMarks(inoutLink->totalSlot);
-        for (int slotIdx : inoutLink->outputSlotIndexList) {
-            isOutputSlotMarks[slotIdx] = true;
-        }
-        for (int slotIdx: inoutLink->assembleSlotIndexList) {
-            isOutputSlotMarks[slotIdx] = true;
-        }
+        FillOutputSlotMark(inoutLink, isOutputSlotMarks);
         ALOG_DEBUG_F("incast raw size %zu, outcast raw size %zu, rawlist size %zu", incastRawList.size(), outcastRawList.size(),
             rawList.size());
         rawTensorWsMemoryRequirement = 0;
@@ -347,18 +348,9 @@ void DevAscendFunction::InitOperation(
         const std::unordered_map<Operation *, OrderedSet<Operation *>> &callOpSuccDict,
         const std::unordered_map<uint64_t, int> &calleeHashIndexDict,
         const std::vector<int32_t> &outcastStitchIndexList,
+        const std::vector<int> &noPredOpList,
+        const std::vector<int> &noSuccOpList,
         bool fillContent) {
-    std::vector<int> noPredOpList;
-    std::vector<int> noSuccOpList;
-    for (size_t i = 0; i < callList.size(); i++) {
-        Operation *op = callList[i];
-        if (!callOpPredDict.count(op) || callOpPredDict.at(op) == 0) {
-            noPredOpList.push_back(i);
-        }
-        if (!callOpSuccDict.count(op) || callOpSuccDict.at(op).empty()) {
-            noSuccOpList.push_back(i);
-        }
-    }
     noPredOpList_.HostInitDataSizeOffset(initOffset, noPredOpList.size());
     noSuccOpList_.HostInitDataSizeOffset(initOffset, noSuccOpList.size());
 
@@ -412,7 +404,7 @@ void DevAscendFunction::InitOperation(
             DevAscendOperation &staticField = At(operationList_, i);
 
             staticField.outcastStitchIndex = outcastStitchIndexList[i];
-            staticField.opmagic = op->GetOpMagic();
+            staticField.debugOpmagic = op->GetOpMagic();
             staticField.ioperandList.AssignRangeOffsetSize(
                 operationOperandInfoList_, operandSize, op->GetIOperands().size());
             std::map<int, int> rawTensorIndex;
@@ -461,11 +453,11 @@ void DevAscendFunction::InitOperation(
 
             // Fill succ
             int opSuccSize = callOpSuccDict.find(op)->second.size();
-            staticField.succList.AssignRangeOffsetSize(operationSuccList_, succSize, opSuccSize);
+            staticField.depGraphSuccList.AssignRangeOffsetSize(operationSuccList_, succSize, opSuccSize);
             for (int j = 0; j < opSuccSize; j++) {
                 int succ = callList.GetIndex(callOpSuccDict.find(op)->second[j]);
-                At(staticField.succList, j) = succ;
-                At(operationList_, succ).predCount++;
+                At(staticField.depGraphSuccList, j) = succ;
+                At(operationList_, succ).depGraphPredCount++;
                 dupData->GetOperationCurrPredCount(succ)++;
             }
             succSize += opSuccSize;
@@ -473,7 +465,7 @@ void DevAscendFunction::InitOperation(
         for (size_t i = 0; i < callList.size(); i++) {
             Operation *op = callList[i];
             ASSERT(callOpPredDict.count(op));
-            ASSERT(At(operationList_, i).predCount == callOpPredDict.find(op)->second);
+            ASSERT(At(operationList_, i).depGraphPredCount == callOpPredDict.find(op)->second);
             ASSERT(dupData->GetOperationCurrPredCount(i) == callOpPredDict.find(op)->second);
         }
         dupData->GetSource() = this;
@@ -492,291 +484,187 @@ void DevAscendFunction::InitIncastOutcast(
         const std::vector<std::shared_ptr<LogicalTensor>> &incastTensorList,
         const std::vector<std::shared_ptr<LogicalTensor>> &outcastTensorList,
         const OrderedSet<std::shared_ptr<LogicalTensor>> &tlist,
-        const std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> &inoutOpAttrs,
+        const std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> &incastOpAttrDict,
+        const std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> &outcastOpAttrDict,
         const IncastOutcastSlot *slot, const std::string &initRawName, bool fillContent) {
-    incastList.HostInitDataSizeOffset(initOffset, incastTensorList.size());
-    outcastList.HostInitDataSizeOffset(initOffset, outcastTensorList.size());
-
-    slotList.HostInitDataSizeOffset(initOffset, 0);
-    uint64_t slotSize = 0;
-    uint64_t opSize = 0;
-    uint64_t dimSize = 0;
-    for (size_t i = 0; i < incastTensorList.size(); i++) {
-        auto &inAttr = inoutOpAttrs.at(incastTensorList[i]);
-        ONFILLCONTENT {
-            At(incastList, i).tensorIndex = tlist.GetIndex(incastTensorList[i]);
-        };
-        ONFILLCONTENT {
-            At(incastList, i).dim = inAttr.dim;
-        }
-        ONFILLCONTENT {
-            At(incastList, i).fromSlotList.AssignRangeOffsetSize(slotList, slotSize, slot->incastSlot[i].size());
-        };
-        for (size_t j = 0; j < slot->incastSlot[i].size(); j++) {
+    {
+        // Fill metadata
+        incastList.HostInitDataSizeOffset(initOffset, incastTensorList.size());
+        outcastList.HostInitDataSizeOffset(initOffset, outcastTensorList.size());
+        for (size_t i = 0; i < incastTensorList.size(); i++) {
+            auto &inAttr = incastOpAttrDict.at(incastTensorList[i]);
+            auto &incast = At(incastList, i);
             ONFILLCONTENT {
-                At(At(incastList, i).fromSlotList, j) = slot->incastSlot[i][j];
-            };
+                incast.tensorIndex = tlist.GetIndex(incastTensorList[i]);
+                incast.dim = inAttr.dim;
+                incast.cellMatchTableDesc = inAttr.cellMatchTableDesc;
+            }
         }
-        slotSize += slot->incastSlot[i].size();
-        opSize += inAttr.offsetAttrIdx.size();
-    }
-    for (size_t i = 0; i < outcastTensorList.size(); i++) {
-        auto &outAttr = inoutOpAttrs.at(outcastTensorList[i]);
-        ONFILLCONTENT {
-            At(outcastList, i).tensorIndex = tlist.GetIndex(outcastTensorList[i]);
-        };
-        ONFILLCONTENT {
-            At(outcastList, i).dim = outAttr.dim;
-        };
-        ONFILLCONTENT {
-            At(outcastList, i).toSlotList.AssignRangeOffsetSize(slotList, slotSize, slot->outcastSlot[i].size());
-        };
-        for (size_t j = 0; j < slot->outcastSlot[i].size(); j++) {
-            ONFILLCONTENT {
-                At(At(outcastList, i).toSlotList, j) = slot->outcastSlot[i][j];
-            };
-        }
-        slotSize += slot->outcastSlot[i].size();
-        opSize += outAttr.offsetAttrIdx.size();
-        dimSize += outAttr.dim;
-    }
-    slotList.HostInitDataSizeOffset(initOffset, slotSize);
-    minimalShapeList.HostInitDataSizeOffset(initOffset, dimSize);
-    dimSize = 0;
-    for (size_t i = 0; i < outcastTensorList.size(); i++) {
-        auto &outAttr = inoutOpAttrs.at(outcastTensorList[i]);
-        ONFILLCONTENT {
-            At(outcastList, i).minimalShape.AssignRangeOffsetSize(minimalShapeList, dimSize, outAttr.dim);
-        };
-        for (int j = 0; j < outAttr.dim; j++) {
-            ONFILLCONTENT {
-                At(At(outcastList, i).minimalShape, j) = outAttr.minimalShape[j];
-            };
-        }
-        dimSize += outAttr.dim;
-    }
-    offsetIdxList.HostInitDataSizeOffset(initOffset, opSize);
-    shapeIdxList.HostInitDataSizeOffset(initOffset, opSize);
-    producerConsumerList.HostInitDataSizeOffset(initOffset, opSize);
-    inoutOperandIdxList.HostInitDataSizeOffset(initOffset, opSize);
-    opSize = 0;
-    for (size_t i = 0; i < incastTensorList.size(); i++) {
-        auto &inAttr = inoutOpAttrs.at(incastTensorList[i]);
-        ONFILLCONTENT {
-            At(incastList, i).offsetAttrIdx.AssignRangeOffsetSize(offsetIdxList, opSize, inAttr.offsetAttrIdx.size());
-        };
-        for (size_t j = 0; j < inAttr.offsetAttrIdx.size(); j++) {
-            ONFILLCONTENT {
-                At(At(incastList, i).offsetAttrIdx, j) = inAttr.offsetAttrIdx[j];
-            };
-        }
-        ONFILLCONTENT {
-            At(incastList, i).shapeAttrIdx.AssignRangeOffsetSize(shapeIdxList, opSize, inAttr.shapeAttrIdx.size());
-        };
-        for (size_t j = 0; j < inAttr.shapeAttrIdx.size(); j++) {
-            ONFILLCONTENT {
-                At(At(incastList, i).shapeAttrIdx, j) = inAttr.shapeAttrIdx[j];
-            };
-        }
-        ONFILLCONTENT {
-            At(incastList, i).consumer.AssignRangeOffsetSize(producerConsumerList, opSize, inAttr.ops.size());
-        };
-        for (size_t j = 0; j < inAttr.ops.size(); j++) {
-            ONFILLCONTENT {
-                At(At(incastList, i).consumer, j) = inAttr.ops[j];
-            };
-        }
-        ONFILLCONTENT {
-            At(incastList, i).operandIdx.AssignRangeOffsetSize(inoutOperandIdxList, opSize, inAttr.ops.size());
-        };
-        for (size_t j = 0; j < inAttr.ops.size(); j++) {
-            ONFILLCONTENT {
-                At(At(incastList, i).operandIdx, j) = inAttr.operandIdx[j];
-            };
-        }
-        opSize += inAttr.ops.size();
-    }
-    uint64_t tileListSize = 0;
-    minimalTileIdxList.HostInitDataSizeOffset(initOffset, 0);
-    for (size_t i = 0; i < outcastTensorList.size(); i++) {
-        auto &outAttr = inoutOpAttrs.at(outcastTensorList[i]);
-        ONFILLCONTENT {
-            At(outcastList, i).offsetAttrIdx.AssignRangeOffsetSize(offsetIdxList, opSize, outAttr.offsetAttrIdx.size());
-        };
-        for (size_t j = 0; j < outAttr.offsetAttrIdx.size(); j++) {
-            ONFILLCONTENT {
-                At(At(outcastList, i).offsetAttrIdx, j) = outAttr.offsetAttrIdx[j];
-            };
-        }
-        ONFILLCONTENT {
-            At(outcastList, i).shapeAttrIdx.AssignRangeOffsetSize(shapeIdxList, opSize, outAttr.shapeAttrIdx.size());
-        };
-        for (size_t j = 0; j < outAttr.shapeAttrIdx.size(); j++) {
-            ONFILLCONTENT {
-                At(At(outcastList, i).shapeAttrIdx, j) = outAttr.shapeAttrIdx[j];
-            };
-        }
-        ONFILLCONTENT {
-            At(outcastList, i).producer.AssignRangeOffsetSize(producerConsumerList, opSize, outAttr.ops.size());
-        };
-        for (size_t j = 0; j < outAttr.ops.size(); j++) {
-            ONFILLCONTENT {
-                At(At(outcastList, i).producer, j) = outAttr.ops[j];
-            };
-        }
-        ONFILLCONTENT {
-            At(outcastList, i).operandIdx.AssignRangeOffsetSize(inoutOperandIdxList, opSize, outAttr.ops.size());
-        };
-        for (size_t j = 0; j < outAttr.ops.size(); j++) {
-            ONFILLCONTENT {
-                At(At(outcastList, i).operandIdx, j) = outAttr.operandIdx[j];
-            };
-        }
-        ONFILLCONTENT {
-            At(outcastList, i)
-                .minimalTileIdx.AssignRangeOffsetSize(minimalTileIdxList, tileListSize, outAttr.minimalTileListSize);
-        };
-        for (int j = 0; j < outAttr.minimalTileListSize; j++) {
-            ONFILLCONTENT {
-                At(At(outcastList, i).minimalTileIdx, j) = -1;
-            };
-        }
-        opSize += outAttr.ops.size();
-        tileListSize += outAttr.minimalTileListSize;
-    }
-    minimalTileIdxList.HostInitDataSizeOffset(initOffset, tileListSize);
-
-    // outcast fast stitch
-    tileListSize = 0;
-    outcastMinimalTileIdxList.HostInitDataSizeOffset(initOffset, 0);
-    for (size_t i = 0; i < outcastTensorList.size(); i++) {
-        auto &outAttr = inoutOpAttrs.at(outcastTensorList[i]);
-        ONFILLCONTENT {
-            At(outcastList, i)
-                .fastStitchTileIdx.AssignRangeOffsetSize(outcastMinimalTileIdxList, tileListSize, outAttr.minimalTileListSize);
-        };
-        for (int j = 0; j < outAttr.minimalTileListSize; j++) {
-            ONFILLCONTENT {
-                At(At(outcastList, i).fastStitchTileIdx, j) = -1;
-            };
-        }
-        tileListSize += outAttr.minimalTileListSize;
-    }
-    outcastMinimalTileIdxList.HostInitDataSizeOffset(initOffset, tileListSize);
-    ONFILLCONTENT {
-        for (size_t i = 0; i < outcastList.size(); i++) {
+        for (size_t i = 0; i < outcastTensorList.size(); i++) {
+            auto &outAttr = outcastOpAttrDict.at(outcastTensorList[i]);
             auto &outcast = At(outcastList, i);
-            bool fastStitchEnable = true;
-            auto &outAttr = inoutOpAttrs.at(outcastTensorList[i]);
+            ONFILLCONTENT {
+                outcast.tensorIndex = tlist.GetIndex(outcastTensorList[i]);
+                outcast.dim = outAttr.dim;
+                outcast.cellMatchTableDesc = outAttr.cellMatchTableDesc;
+            }
+        }
+    }
+    {
+        // Fill slot list
+        slotList.HostInitDataSizeOffset(initOffset, 0);
+        uint64_t slotSize = 0;
+        for (size_t i = 0; i < incastTensorList.size(); i++) {
+            auto &incast = At(incastList, i);
+            ONFILLCONTENT {
+                incast.fromSlotList.AssignRangeOffsetSize(slotList, slotSize, slot->incastSlot[i].size());
+                for (size_t j = 0; j < slot->incastSlot[i].size(); j++) {
+                    At(incast.fromSlotList, j) = slot->incastSlot[i][j];
+                }
+            }
+            slotSize += slot->incastSlot[i].size();
+        }
+        for (size_t i = 0; i < outcastTensorList.size(); i++) {
+            auto &outcast = At(outcastList, i);
+            ONFILLCONTENT {
+                outcast.toSlotList.AssignRangeOffsetSize(slotList, slotSize, slot->outcastSlot[i].size());
+                for (size_t j = 0; j < slot->outcastSlot[i].size(); j++) {
+                    At(outcast.toSlotList, j) = slot->outcastSlot[i][j];
+                }
+            }
+            slotSize += slot->outcastSlot[i].size();
+        }
+        slotList.HostInitDataSizeOffset(initOffset, slotSize);
+    }
+    {
+        // Fill use list
+        useList.HostInitDataSizeOffset(initOffset, 0);
+        uint64_t useSize = 0;
+        for (size_t i = 0; i < incastTensorList.size(); i++) {
+            auto &inAttr = incastOpAttrDict.at(incastTensorList[i]);
+            auto &incast = At(incastList, i);
+            ONFILLCONTENT {
+                incast.consumerList.AssignRangeOffsetSize(useList, useSize, inAttr.useList.size());
+                for (size_t j = 0; j < inAttr.useList.size(); j++) {
+                    At(incast.consumerList, j) = inAttr.useList[j];
+                }
+            }
+            useSize += inAttr.useList.size();
+        }
+        for (size_t i = 0; i < outcastTensorList.size(); i++) {
+            auto &outAttr = outcastOpAttrDict.at(outcastTensorList[i]);
+            auto &outcast = At(outcastList, i);
+            ONFILLCONTENT {
+                outcast.producerList.AssignRangeOffsetSize(useList, useSize, outAttr.useList.size());
+                for (size_t j = 0; j < outAttr.useList.size(); j++) {
+                    At(outcast.producerList, j) = outAttr.useList[j];
+                }
+            }
+            useSize += outAttr.useList.size();
+        }
+        useList.HostInitDataSizeOffset(initOffset, useSize);
+    }
+    {
+        // Fill runtime full update table
+        uint64_t cellMatchSizeOutcastTotal = 0;
+        cellMatchRuntimeFullUpdateTableList.HostInitDataSizeOffset(initOffset, 0);
+        for (size_t i = 0; i < outcastTensorList.size(); i++) {
+            auto &outAttr = outcastOpAttrDict.at(outcastTensorList[i]);
+            auto &outcast = At(outcastList, i);
+            ONFILLCONTENT {
+                outcast.cellMatchRuntimeFullUpdateTable.AssignRangeOffsetSize(cellMatchRuntimeFullUpdateTableList, cellMatchSizeOutcastTotal, outAttr.cellMatchSize);
+                for (int j = 0; j < outAttr.cellMatchSize; j++) {
+                    At(outcast.cellMatchRuntimeFullUpdateTable, j) = (uint32_t)-1;
+                };
+            }
+            cellMatchSizeOutcastTotal += outAttr.cellMatchSize;
+        }
+        cellMatchRuntimeFullUpdateTableList.HostInitDataSizeOffset(initOffset, cellMatchSizeOutcastTotal);
+    }
+    {
+        // Fill stitchPolicyFullCoverProducerList
+        uint64_t fullCoverTotal = 0;
+        stitchPolicyFullCoverProducerList_.HostInitDataSizeOffset(initOffset, 0);
+        for (size_t i = 0; i < outcastTensorList.size(); i++) {
+            auto &outAttr = outcastOpAttrDict.at(outcastTensorList[i]);
+            auto &outcast = At(outcastList, i);
+            ONFILLCONTENT {
+                outcast.stitchPolicyFullCoverProducerHubOpIdx = outAttr.stitchPolicyFullCoverProducerHubOpIdx;
+                outcast.stitchPolicyFullCoverProducerList.AssignRangeOffsetSize(stitchPolicyFullCoverProducerList_, fullCoverTotal, outAttr.stitchPolicyFullCoverProducerList.size());
+                for (size_t j = 0; j < outAttr.stitchPolicyFullCoverProducerList.size(); j++) {
+                    At(outcast.stitchPolicyFullCoverProducerList, j) = outAttr.stitchPolicyFullCoverProducerList[j];
+                };
+            }
+            fullCoverTotal += outAttr.stitchPolicyFullCoverProducerList.size();
+        }
+        stitchPolicyFullCoverProducerList_.HostInitDataSizeOffset(initOffset, fullCoverTotal);
+    }
+    {
+        // Fill stitchPolicyFullCoverOpList_
+        uint32_t fullCoverOpTotal = 0;
+        stitchPolicyFullCoverOpList_.HostInitDataSizeOffset(initOffset, 0);
+        for (size_t i = 0; i < incastTensorList.size(); i++) {
+            auto &inAttr = incastOpAttrDict.at(incastTensorList[i]);
+            auto &incast = At(incastList, i);
+            ONFILLCONTENT {
+                incast.stitchPolicyFullCoverConsumerAllOpIdxList.AssignRangeOffsetSize(stitchPolicyFullCoverOpList_, fullCoverOpTotal, inAttr.useOpList.size());
+                for (size_t j = 0; j < inAttr.useOpList.size(); j++) {
+                    At(incast.stitchPolicyFullCoverConsumerAllOpIdxList, j) = inAttr.useOpList[j];
+                }
+            }
+            fullCoverOpTotal += inAttr.useOpList.size();
+        }
+        for (size_t i = 0; i < outcastTensorList.size(); i++) {
+            auto &outAttr = outcastOpAttrDict.at(outcastTensorList[i]);
+            auto &outcast = At(outcastList, i);
+            ONFILLCONTENT {
+                outcast.stitchPolicyFullCoverProducerAllOpIdxList.AssignRangeOffsetSize(stitchPolicyFullCoverOpList_, fullCoverOpTotal, outAttr.useOpList.size());
+                for (size_t j = 0; j < outAttr.useOpList.size(); j++) {
+                    At(outcast.stitchPolicyFullCoverProducerAllOpIdxList, j) = outAttr.useOpList[j];
+                }
+            }
+            fullCoverOpTotal += outAttr.useOpList.size();
+        }
+        stitchPolicyFullCoverOpList_.HostInitDataSizeOffset(initOffset, fullCoverOpTotal);
+    }
+    {
+        // Fill incast & outcast all full update table
+        uint64_t cellMatchSizeIncastTotal = 0;
+        cellMatchStaticIncastTableList.HostInitDataSizeOffset(initOffset, 0);
+        for (size_t i = 0; i < incastTensorList.size(); i++) {
+            auto &inAttr = incastOpAttrDict.at(incastTensorList[i]);
+            auto &incast = At(incastList, i);
+            ONFILLCONTENT {
+                incast.cellMatchStaticIncastTable.AssignRangeOffsetSize(cellMatchStaticIncastTableList, cellMatchSizeIncastTotal, inAttr.cellMatchSize);
 
-            for (size_t j = 0; j < outAttr.ops.size(); j++) {
-                auto producerIdx = outAttr.ops[j];
-                auto oOperandIdx = outAttr.operandIdx[j];
-                DevAscendOperation &staticField = At(operationList_, producerIdx);
-                auto &oOperand = At(staticField.ooperandList, oOperandIdx);
-                auto staticOffsetAttrBeginIndex = oOperand.staticOffsetAttrBeginIndex;
-                uint64_t tileIndex = 0;
-                if (oOperand.GetDim() != static_cast<int>(outcastTensorList[i]->shape.size())) {
-                    fastStitchEnable = false;
-                    break;
-                }
-                for (size_t dimIndex = 0; dimIndex < outcastTensorList[i]->shape.size(); ++dimIndex) {
-                    auto &offset = At(staticField.attrList, staticOffsetAttrBeginIndex + dimIndex);
-                    if (offset.IsExpression()) {
-                        fastStitchEnable = false;
-                        break;
-                    } else {
-                        int tileThisDim = offset.Value() / outAttr.minimalShape[dimIndex];
-                        if (dimIndex == outcastTensorList[i]->shape.size() - 1) {
-                            tileIndex += tileThisDim;
-                        } else {
-                            tileIndex += tileThisDim * outAttr.tileEachDim[dimIndex + 1];
-                        }
-                        ALOG_DEBUG_F("tileIndex for outcast %zu in op %zu dim %zu is %lu", i, j, dimIndex, tileIndex);
-                    }
-                }
-                if (tileIndex < outcast.fastStitchTileIdx.size()) {
-                    At(outcast.fastStitchTileIdx, tileIndex) = producerIdx;
-                } else {
-                    ALOG_ERROR_F("producer %d, operand %d offset not valid", producerIdx, oOperandIdx);
-                    fastStitchEnable = false;
-                    break;
-                }
-            }
-            outcast.fastStitchEnable = fastStitchEnable;
-        }
-    }
-    // incast fast stitch
-    uint64_t inTileListSize = 0;
-    incastMinimalTileIdxList.HostInitDataSizeOffset(initOffset, 0);
-    for (size_t i = 0; i < incastList.size(); i++) {
-        bool fastStitchEnable = true;
-        auto &inAttr = inoutOpAttrs.at(incastTensorList[i]);
-        if (inAttr.minimalTileListSize > MINI_TILE_LIST_SIZE_THRESHOLD) {
-            ONFILLCONTENT {
-                At(incastList, i).fastStitchEnable = false;
-            }
-            continue;
-        }
-        ONFILLCONTENT {
-            At(incastList, i).fastStitchTileIdx.AssignRangeOffsetSize(incastMinimalTileIdxList,
-                inTileListSize, inAttr.minimalTileListSize);
-        };
-        inTileListSize += inAttr.minimalTileListSize;
-        for (int j = 0; j < inAttr.minimalTileListSize; j++) {
-            ONFILLCONTENT {
-                At(At(incastList, i).fastStitchTileIdx, j) = -1;
+                auto consumerList = &At(incast.consumerList, 0);
+                auto tableData = &At(incast.cellMatchStaticIncastTable, 0);
+                bool stitchByAllFullMatch = CellMatchFillIncastOutcast<true>(
+                        consumerList, incast.consumerList.size(), nullptr, true, incast.cellMatchTableDesc, tableData);
+                incast.stitchByAllFullMatch = stitchByAllFullMatch;
             };
+            cellMatchSizeIncastTotal += inAttr.cellMatchSize;
         }
-        ONFILLCONTENT {
-            int minConsumerIdx = 0x7fffffff;
-            for (size_t j = 0; j < inAttr.ops.size(); j++) {
-                auto consumerIdx = inAttr.ops[j];
-                if (consumerIdx < minConsumerIdx) {
-                    minConsumerIdx = consumerIdx;
-                }
-                auto iOperandIdx = inAttr.operandIdx[j];
-                DevAscendOperation &staticField = At(operationList_, consumerIdx);
-                auto &iOperand = At(staticField.ioperandList, iOperandIdx);
-                auto staticOffsetAttrBeginIndex = iOperand.staticOffsetAttrBeginIndex;
-                uint64_t tileIndex = 0;
-                if (iOperand.GetDim() != static_cast<int>(incastTensorList[i]->shape.size())) {
-                    fastStitchEnable = false;
-                    break;
-                }
-                for (size_t dimIndex = 0; dimIndex < incastTensorList[i]->shape.size(); ++dimIndex) {
-                    auto &offset = At(staticField.attrList, staticOffsetAttrBeginIndex + dimIndex);
-                    if (offset.IsExpression()) {
-                        fastStitchEnable = false;
-                        break;
-                    } else {
-                        int tileThisDim = offset.Value() / inAttr.minimalShape[dimIndex];
-                        if (dimIndex == incastTensorList[i]->shape.size() - 1) {
-                            tileIndex += tileThisDim;
-                        } else {
-                            tileIndex += tileThisDim * inAttr.tileEachDim[dimIndex + 1];
-                        }
-                        ALOG_DEBUG_F("tileIndex for incast %zu in op %zu dim %zu is %lu", i, j, dimIndex, tileIndex);
-                    }
-                }
-                if (tileIndex < At(incastList, i).fastStitchTileIdx.size()) {
-                    At(At(incastList, i).fastStitchTileIdx, tileIndex) = consumerIdx;
-                } else {
-                    ALOG_ERROR_F("consumer %d, operand %d offset not valid", consumerIdx, iOperandIdx);
-                    fastStitchEnable = false;
-                    break;
-                }
+        cellMatchStaticIncastTableList.HostInitDataSizeOffset(initOffset, cellMatchSizeIncastTotal);
+
+        uint64_t cellMatchSizeOutcastTotal = 0;
+        cellMatchStaticOutcastTableList.HostInitDataSizeOffset(initOffset, 0);
+        for (size_t i = 0; i < outcastTensorList.size(); i++) {
+            auto &outAttr = outcastOpAttrDict.at(outcastTensorList[i]);
+            auto &outcast = At(outcastList, i);
+            ONFILLCONTENT {
+                outcast.cellMatchStaticOutcastTable.AssignRangeOffsetSize(cellMatchStaticOutcastTableList, cellMatchSizeOutcastTotal, outAttr.cellMatchSize);
+
+                auto producerList = &At(outcast.producerList, 0);
+                auto tableData = &At(outcast.cellMatchStaticOutcastTable, 0);
+                bool stitchByAllFullMatch = CellMatchFillIncastOutcast<true>(
+                        producerList, outcast.producerList.size(), nullptr, false, outcast.cellMatchTableDesc, tableData);
+                outcast.stitchByAllFullMatch = stitchByAllFullMatch;
             }
-            if (fastStitchEnable) {
-                At(incastList, i).fastStitchEnable = minConsumerIdx;
-                ALOG_DEBUG_F("######## incast %zu is fastStitchEnable", i);
-            } else {
-                At(incastList, i).fastStitchEnable = -1;
-                ALOG_DEBUG_F("######## incast %zu is not fastStitchEnable", i);
-            }
+            cellMatchSizeOutcastTotal += outAttr.cellMatchSize;
         }
+        cellMatchStaticOutcastTableList.HostInitDataSizeOffset(initOffset, cellMatchSizeOutcastTotal);
     }
-    incastMinimalTileIdxList.HostInitDataSizeOffset(initOffset, inTileListSize);
 
     rawName_.HostInitDataSizeOffset(initOffset, (initRawName.size() / 8 + 1) * 8); // 8 byte align
     ONFILLCONTENT {
@@ -807,6 +695,9 @@ struct EncodeDevAscendFunctionInfo {
     std::unordered_map<int, std::vector<int>> colorOutGraph;
     std::vector<std::shared_ptr<Operation>> dummyOpList;
 
+    std::vector<int> noSuccOpList;
+    std::vector<int> noPredOpList;
+
     uint32_t outcastStitchCount{0};
     std::vector<int32_t> outcastStitchIndexList;
 
@@ -824,16 +715,81 @@ struct EncodeDevAscendFunctionInfo {
     std::unordered_set<std::shared_ptr<LogicalTensor>> incastSet;
     std::unordered_set<std::shared_ptr<LogicalTensor>> outcastSet;
 
-    std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> inoutOpAttrs;
+    std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> incastOpAttrDict;
+    std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> outcastOpAttrDict;
 
-    void UpdateMinimalShape(InoutOperationAttr &inoutOpAttr, CallOpAttribute *callAttr, int dim, int shapeIndex) {
-        for (int i = 0; i < dim; ++i) {
-            if (inoutOpAttr.minimalShape[i] < 0 ||
-                inoutOpAttr.minimalShape[i] > callAttr->GetLinearArgList()[shapeIndex + i]) {
-                inoutOpAttr.minimalShape[i] = callAttr->GetLinearArgList()[shapeIndex + i];
-                assert(inoutOpAttr.minimalShape[i]);
+    static DevAscendShape InitShape(const std::vector<int> &shape) {
+        DevAscendShape initShape;
+        initShape.dimSize = shape.size();
+        for (size_t i = 0; i < DEV_SHAPE_DIM_MAX; i++) {
+            if (i < shape.size()) {
+                initShape.dim[i] = shape[i];
+            } else {
+                initShape.dim[i] = 0;
             }
         }
+        return initShape;
+    }
+    static DevAscendStride InitStride(const std::vector<int> &stride) {
+        DevAscendStride initStride;
+        initStride.dimSize = stride.size();
+        for (size_t i = 0; i < DEV_SHAPE_DIM_MAX; i++) {
+            if (i < stride.size()) {
+                initStride.dimStride[i] = stride[i];
+            } else {
+                initStride.dimStride[i] = 0;
+            }
+        }
+        return initStride;
+    }
+    static DevCellMatchTableDesc InitCellMatchTableDesc(const std::vector<int> &shape, const std::vector<int> &stride) {
+        DevCellMatchTableDesc desc = {
+            InitShape(shape),
+            InitStride(stride),
+        };
+        return desc;
+    }
+
+    std::vector<int> ShapeToVector(const DevAscendShape &shape) {
+        std::vector<int> data(&shape.dim[0], &shape.dim[shape.dimSize]);
+        return data;
+    }
+    std::vector<int> StrideToVector(const DevAscendStride &stride) {
+        std::vector<int> data(&stride.dimStride[0], &stride.dimStride[stride.dimSize]);
+        return data;
+    }
+
+    void UpdateCellMatchShape(DevCellMatchTableDesc &cellMatchTableDesc, const std::vector<int> &shape) {
+        auto &cellMatchShape = cellMatchTableDesc.cellShape;
+        for (size_t i = 0; i < shape.size(); ++i) {
+            auto dimValue = shape[i];
+            if (cellMatchShape.dim[i] > dimValue) {
+                cellMatchShape.dim[i] = dimValue;
+                DEV_ASSERT(cellMatchShape.dim[i]);
+            }
+        }
+    }
+
+    void UpdateCellMatchStrideAndSize(int &cellMatchSize, DevCellMatchTableDesc &cellMatchTableDesc, const std::shared_ptr<LogicalTensor> &tensor, int dim) {
+        auto &cellMatchShape = cellMatchTableDesc.cellShape;
+        auto &cellMatchStride = cellMatchTableDesc.stride;
+
+        cellMatchSize = 1;
+        cellMatchStride.dimSize = dim;
+        for (int l = (dim - 1); l >= 0; --l) {
+            auto tiles = tensor->shape[l] / cellMatchShape.dim[l];
+            if (tensor->shape[l] % cellMatchShape.dim[l] != 0) {
+                // should not happen
+                tiles += 1;
+            }
+            cellMatchSize *= tiles;
+            cellMatchStride[l] = cellMatchSize;
+        }
+        ALOG_DEBUG_F("incast %d raw %d shape %s | cellMatchSize %d cellMatchShape %s cellMatchStride %s\n", tensor->magic, tensor->GetRawMagic(),
+            IntVecToStr(tensor->shape).c_str(),
+            cellMatchSize,
+            IntVecToStr(ShapeToVector(cellMatchShape)).c_str(),
+            IntVecToStr(StrideToVector(cellMatchStride)).c_str());
     }
 
     void RecordRawTensor(const std::shared_ptr<LogicalTensor> &tensor) {
@@ -845,55 +801,107 @@ struct EncodeDevAscendFunctionInfo {
         }
     }
 
+    void EncodeAnalysisOpUseOutCasts(const std::shared_ptr<LogicalTensor>& o, std::set<uint32_t>& allOutcastUseOpSet, InoutOperationAttr& outcastOpAttr) {
+        std::set<uint32_t> outcastUseOpSet;
+        int dim = outcastOpAttr.dim;
+        for (size_t j = 0; j < callList.size(); j++) {
+            auto &op = *callList[j];
+            auto callAttr = dynamic_cast<CallOpAttribute *>(op.GetOpAttribute().get());
+            std::vector<DevAscendFunctionCallOperandUse> useList;
+            DevAscendFunctionCallOperandUse stitchPolicyFullCoverProducer;
+            for (size_t k = 0; k < op.GetOOperands().size(); ++k) {
+                auto &oOperand = op.GetOOperands()[k];
+                if (o->tensor->rawmagic != oOperand->tensor->rawmagic) {
+                    continue;
+                }
+
+                auto coaIndex = op.GetOOpAttrOffset(k) + COA_INDEX_DIM_BASE;
+                std::vector<int> offset = callAttr->GetLinearImmediateArgList(coaIndex, coaIndex + dim, true);
+                std::vector<int> shape = callAttr->GetLinearImmediateArgList(coaIndex + dim, coaIndex + dim * 2, false);
+                if (offset == std::vector<int>(dim, 0) && shape == oOperand->GetShape()) {
+                    stitchPolicyFullCoverProducer = DevAscendFunctionCallOperandUse(j, k, coaIndex, coaIndex + dim);
+                } else {
+                    useList.emplace_back(j, k, coaIndex, coaIndex + dim);
+                }
+                ALOG_DEBUG_F("outcast oOperandIdx for outcast %d %d is %d", o->magic, o->GetRawMagic(), k);
+                outcastUseOpSet.insert(j);
+            }
+
+            if (stitchPolicyFullCoverProducer.operationIdx != -1) {
+                outcastOpAttr.stitchPolicyFullCoverProducerList.push_back(stitchPolicyFullCoverProducer);
+            } else {
+                outcastOpAttr.useList.insert(outcastOpAttr.useList.end(), useList.begin(), useList.end());
+                for (auto &[operationIdx, operandIdx, offsetAttrIdx, shapeAttrIdx] : useList) {
+                    UNUSED(operationIdx);
+                    UNUSED(operandIdx);
+                    UNUSED(offsetAttrIdx);
+                    auto shape = callAttr->GetLinearImmediateArgList(shapeAttrIdx, shapeAttrIdx + dim, false);
+                    UpdateCellMatchShape(outcastOpAttr.cellMatchTableDesc, shape);
+                    ALOG_DEBUG_F("minimal shape for outcast %d raw %d op %d %d is %s\n", o->magic, o->GetRawMagic(), j,
+                        op.GetOpMagic(), IntVecToStr(ShapeToVector(outcastOpAttr.cellMatchTableDesc.cellShape)).c_str());
+                }
+            }
+        }
+        UpdateCellMatchStrideAndSize(outcastOpAttr.cellMatchSize, outcastOpAttr.cellMatchTableDesc, o, dim);
+        outcastOpAttr.useOpList.insert(outcastOpAttr.useOpList.end(), outcastUseOpSet.begin(), outcastUseOpSet.end());
+        allOutcastUseOpSet.insert(outcastUseOpSet.begin(), outcastUseOpSet.end());
+        outcastOpAttrDict.insert({o, outcastOpAttr});
+    }
+
     void EncodeOutCasts() {
+        std::set<uint32_t> allOutcastUseOpSet;
         for (auto &o : outcastList) {
             tensorList.Insert(o);
             outcastRawTensorList.Insert(o->GetRawTensor());
             RecordRawTensor(o);
-            InoutOperationAttr inoutOpAttr;
+            InoutOperationAttr outcastOpAttr;
             auto dim = o->shape.size();
-            inoutOpAttr.minimalShape = std::vector<int>(dim, -1);
-            inoutOpAttr.tileEachDim = std::vector<int>(dim, -1);
-            for (size_t j = 0; j < callList.size(); j++) {
-                auto &op = *callList[j];
-                auto callAttr = dynamic_cast<CallOpAttribute *>(op.GetOpAttribute().get());
-                for (size_t k = 0; k < op.GetOOperands().size(); ++k) {
-                    auto &oOperand = op.GetOOperands()[k];
-                    if (o->tensor->rawmagic == oOperand->tensor->rawmagic) {
-                        ASSERT(oOperand->GetShape().size() == dim);
-                        auto coaIndex = op.GetOOpAttrOffset(k) + COA_INDEX_DIM_BASE;
-                        inoutOpAttr.dim = dim;
-                        inoutOpAttr.offsetAttrIdx.push_back(coaIndex + dim * COA_INDEX_TYPE_OFFSET);
-                        inoutOpAttr.shapeAttrIdx.push_back(coaIndex + dim * COA_INDEX_TYPE_SHAPE);
-                        inoutOpAttr.ops.push_back(j);
-                        inoutOpAttr.operandIdx.push_back(k);
-                        ALOG_DEBUG_F("outcast oOperandIdx for outcast %d %d is %d", o->magic, o->GetRawMagic(), k);
+            outcastOpAttr.dim = dim;
+            outcastOpAttr.cellMatchTableDesc = InitCellMatchTableDesc(o->GetShape(), std::vector<int>(dim, 1));
+            EncodeAnalysisOpUseOutCasts(o, allOutcastUseOpSet, outcastOpAttr);
+        }
 
-                        // callopAttr does not resrve cce index, put one pos back
-                        UpdateMinimalShape(inoutOpAttr, callAttr, dim, coaIndex + dim * COA_INDEX_TYPE_SHAPE);
-                        ALOG_DEBUG_F("minimal shape for outcast %d raw %d op %d %d is %s\n", o->magic, o->GetRawMagic(), j,
-                            op.opmagic, IntVecToStr(inoutOpAttr.minimalShape).c_str());
-                    }
+        // Add edge from all stitchPolicyFullCoverProducerList's node to the single node
+        for (auto &o : outcastList) {
+            auto &outcastOpAttr = outcastOpAttrDict[o];
+            if (outcastOpAttr.stitchPolicyFullCoverProducerList.size() != 0) {
+                outcastOpAttr.stitchPolicyFullCoverProducerHubOpIdx = callList.size();
+
+                auto dummyOp = MakeDummyCall();
+                callList.Insert(dummyOp);
+
+                callOpPredDict[dummyOp] = outcastOpAttr.stitchPolicyFullCoverProducerList.size();
+                for (auto &producer : outcastOpAttr.stitchPolicyFullCoverProducerList) {
+                    auto callOp = callList[producer.operationIdx];
+                    callOpSuccDict[callOp].Insert(dummyOp);
                 }
+                callOpSuccDict[dummyOp].Clear();
+            } else {
+                outcastOpAttr.stitchPolicyFullCoverProducerHubOpIdx = -1;
             }
+        }
 
-            inoutOpAttr.minimalTileListSize = 1;
-            for (int l = (dim - 1); l >= 0; --l) {
-                auto tiles = o->shape[l] / inoutOpAttr.minimalShape[l];
-                if (o->shape[l] % inoutOpAttr.minimalShape[l] != 0) {
-                    // should not happen
-                    tiles += 1;
-                }
-                inoutOpAttr.minimalTileListSize *= tiles;
-                inoutOpAttr.tileEachDim[l] = inoutOpAttr.minimalTileListSize;
+        std::set<int> noSuccOpSet;
+        for (size_t i = 0; i < callList.size(); i++) {
+            Operation *op = callList[i];
+            if (!callOpSuccDict.count(op) || callOpSuccDict.at(op).empty()) {
+                noSuccOpList.push_back(i);
+                noSuccOpSet.insert(i);
             }
-            ALOG_DEBUG_F("outcast %d raw %d shape %s tile %s | minimalTileListSize %d, tileEachDim %s\n", o->magic, o->GetRawMagic(),
-                IntVecToStr(o->shape).c_str(),
-                IntVecToStr(inoutOpAttr.minimalShape).c_str(),
-                inoutOpAttr.minimalTileListSize,
-                IntVecToStr(inoutOpAttr.tileEachDim).c_str());
+        }
 
-            inoutOpAttrs.insert({o, inoutOpAttr});
+        /*
+         * As we need a reference of null, we use the 0-th element for the reference of null for DevAscendFunctionDuppedData
+         * So outcastStitchCount starts from 1, as the 0-th is for the reference of null.
+         */
+        outcastStitchCount = 1;
+        for (size_t i = 0; i < callList.size(); i++) {
+            if (allOutcastUseOpSet.count(i) || noSuccOpSet.count(i)) {
+                outcastStitchIndexList.push_back(outcastStitchCount);
+                outcastStitchCount++;
+            } else {
+                outcastStitchIndexList.push_back(0);
+            }
         }
     }
 
@@ -902,65 +910,50 @@ struct EncodeDevAscendFunctionInfo {
             tensorList.Insert(i);
             incastRawTensorList.Insert(i->GetRawTensor());
             RecordRawTensor(i);
-            InoutOperationAttr inoutOpAttr;
+            InoutOperationAttr incastOpAttr;
             auto dim = i->shape.size();
-            inoutOpAttr.minimalShape = std::vector<int>(dim, -1);
-            inoutOpAttr.tileEachDim = std::vector<int>(dim, -1);
+            incastOpAttr.dim = dim;
+            incastOpAttr.cellMatchTableDesc = InitCellMatchTableDesc(i->GetShape(), std::vector<int>(dim, 1));
+
+            std::set<uint32_t> incastUseOpSet;
             for (size_t j = 0; j < callList.size(); j++) {
                 auto &op = *callList[j];
                 auto callAttr = dynamic_cast<CallOpAttribute *>(op.GetOpAttribute().get());
                 // add icast and oper io's relationship
                 for (size_t k = 0; k < op.GetIOperands().size(); ++k) {
                     auto &iOperand = op.GetIOperands()[k];                    
+                    auto coaIndex = op.GetIOpAttrOffset(k) + COA_INDEX_DIM_BASE;
                     if (i->tensor->rawmagic == iOperand->tensor->rawmagic) {
                         ASSERT(iOperand->GetShape().size() == dim);
-                        auto coaIndex = op.GetIOpAttrOffset(k) + COA_INDEX_DIM_BASE;
-                        inoutOpAttr.dim = dim;
-                        inoutOpAttr.offsetAttrIdx.push_back(coaIndex + dim * COA_INDEX_TYPE_OFFSET);
-                        inoutOpAttr.shapeAttrIdx.push_back(coaIndex + dim * COA_INDEX_TYPE_SHAPE);
-                        inoutOpAttr.ops.push_back(j);
-                        inoutOpAttr.operandIdx.push_back(k);
-
-                        // callopAttr does not reserve cce index, put one pos back
-                        UpdateMinimalShape(inoutOpAttr, callAttr, dim, coaIndex + dim * COA_INDEX_TYPE_SHAPE);
+                        std::vector<int> shape = callAttr->GetLinearImmediateArgList(coaIndex + dim, coaIndex + dim * 2, false);
+                        incastOpAttr.useList.emplace_back(j, k, coaIndex + 1, coaIndex + dim + 1);
+                        UpdateCellMatchShape(incastOpAttr.cellMatchTableDesc, shape);
                         ALOG_DEBUG_F("minimal shape for incast %d raw %d op %d %d is %s\n", i->magic, i->GetRawMagic(), j,
-                            op.opmagic, IntVecToStr(inoutOpAttr.minimalShape).c_str());
+                            op.GetOpMagic(), IntVecToStr(ShapeToVector(incastOpAttr.cellMatchTableDesc.cellShape)).c_str());
+                        incastUseOpSet.insert(j);
                     }
                 }
             }
 
-            inoutOpAttr.minimalTileListSize = 1;
-            for (int l = (dim - 1); l >= 0; --l) {
-                if (inoutOpAttr.minimalShape[l] != -1) {
-                    auto tiles = i->shape[l] / inoutOpAttr.minimalShape[l];
-                    if (i->shape[l] % inoutOpAttr.minimalShape[l] != 0) {
-                        // should not happen
-                        tiles += 1;
-                    }
-                    if (tiles < 0) {
-                        tiles = 0;
-                    }
-                    inoutOpAttr.minimalTileListSize *= tiles;
-                } else {
-                    inoutOpAttr.minimalTileListSize = 0;
-                }
-                inoutOpAttr.tileEachDim[l] = inoutOpAttr.minimalTileListSize;
-            }
-            ALOG_DEBUG_F("incast %d raw %d shape %s tile %s | minimalTileListSize %d, tileEachDim %s\n", i->magic, i->GetRawMagic(),
-                IntVecToStr(i->shape).c_str(),
-                IntVecToStr(inoutOpAttr.minimalShape).c_str(),
-                inoutOpAttr.minimalTileListSize,
-                IntVecToStr(inoutOpAttr.tileEachDim).c_str());
+            UpdateCellMatchStrideAndSize(incastOpAttr.cellMatchSize, incastOpAttr.cellMatchTableDesc, i, dim);
+            incastOpAttr.useOpList.insert(incastOpAttr.useOpList.end(), incastUseOpSet.begin(), incastUseOpSet.end());
 
-            inoutOpAttrs.insert({i, inoutOpAttr});
+            incastOpAttrDict.insert({i, incastOpAttr});
+        }
+
+        for (size_t i = 0; i < callList.size(); i++) {
+            Operation *op = callList[i];
+            if (!callOpPredDict.count(op) || callOpPredDict.at(op) == 0) {
+                noPredOpList.push_back(i);
+            }
         }
     }
 
     struct Hasher {
         template<typename T>
-        std::size_t operator()(const OrderedSet<T> &ops) const {
+        std::size_t operator()(const OrderedSet<T> &operationSet) const {
             size_t res = 0;
-            for (auto op : ops) {
+            for (auto op : operationSet) {
                 res ^= std::hash<Operation *>{}(op);
             }
             return res;
@@ -1265,31 +1258,6 @@ struct EncodeDevAscendFunctionInfo {
             callList.Insert(op);
         }
 
-        /*
-         * As we need a reference of null, we use the 0-th element for the reference of null for DevAscendFunctionDuppedData
-         * So outcastStitchCount starts from 1, as the 0-th is for the reference of null.
-         */
-        outcastStitchCount = 1;
-        for (size_t i = 0; i < callList.size(); i++) {
-            bool maybeStitch = false;
-            if (callOpSuccDict[callList[i]].empty()) {
-                maybeStitch = true;
-            } else {
-                for (auto &o : callList[i]->GetOOperands()) {
-                    if (outcastSet.count(o)) {
-                        maybeStitch = true;
-                        break;
-                    }
-                }
-            }
-            if (maybeStitch) {
-                outcastStitchIndexList.push_back(outcastStitchCount);
-                outcastStitchCount++;
-            } else {
-                outcastStitchIndexList.push_back(0);
-            }
-        }
-
         EncodeIncasts();
         EncodeOutCasts();
     }
@@ -1305,10 +1273,8 @@ struct EncodeDevAscendFunctionInfo {
         devFunc->InitRawTensorAndMemoryRequirement(initOffset, incastRawTensorList, outcastRawTensorList,
             rawTensorList, rawMagicToRawTensor, rawAttrs, param, expressionTable, fillContent);
         devFunc->InitTensor(initOffset, tensorList, rawTensorList, fillContent);
-        devFunc->InitOperation(initOffset, expressionTable, callList, tensorList, rawTensorList, callOpPredDict,
-            callOpSuccDict, calleeHashIndexDict, outcastStitchIndexList, fillContent);
-        devFunc->InitIncastOutcast(initOffset, incastList, outcastList, tensorList, inoutOpAttrs, slot,
-            rawName, fillContent);
+        devFunc->InitOperation(initOffset, expressionTable, callList, tensorList, rawTensorList, callOpPredDict, callOpSuccDict, calleeHashIndexDict, outcastStitchIndexList, noPredOpList, noSuccOpList, fillContent);
+        devFunc->InitIncastOutcast(initOffset, incastList, outcastList, tensorList, incastOpAttrDict, outcastOpAttrDict, slot, rawName, fillContent);
     }
 };
 
@@ -1363,26 +1329,31 @@ void DevAscendProgram::InitControlFlowBinary(
         uintdevptr_t &initOffset,
         const std::vector<uint8_t> &hostControlFlowBinaryInput, const std::vector<uint8_t> &devControlFlowBinaryInput,
         bool fillContent) {
-    hostControlFlowBinary.HostInitDataSizeOffset(initOffset, hostControlFlowBinaryInput.size());
+    uint64_t alignedHostControlFlowBinaryInputSize = ALIGN_UP(hostControlFlowBinaryInput.size(), sizeof(uint64_t));
+    hostControlFlowBinary.HostInitDataSizeOffset(initOffset, alignedHostControlFlowBinaryInputSize);
     ONFILLCONTENT { memcpy_s(hostControlFlowBinary.Data(), hostControlFlowBinaryInput.size(), hostControlFlowBinaryInput.data(), hostControlFlowBinaryInput.size()); }
 
-    devControlFlowBinary.HostInitDataSizeOffset(initOffset, devControlFlowBinaryInput.size());
+    uint64_t alignedDevControlFlowBinaryInputSize = ALIGN_UP(devControlFlowBinaryInput.size(), sizeof(uint64_t));
+    devControlFlowBinary.HostInitDataSizeOffset(initOffset, alignedDevControlFlowBinaryInputSize);
     ONFILLCONTENT { memcpy_s(devControlFlowBinary.Data(), devControlFlowBinaryInput.size(), devControlFlowBinaryInput.data(), devControlFlowBinaryInput.size()); }
 }
 void DevAscendProgram::InitDevEncodeList(
-        uintdevptr_t &initOffset, const std::vector<std::vector<uint8_t>> &devEncodeListInput, bool fillContent) {
+        uintdevptr_t &initOffset,
+        const std::vector<std::vector<uint8_t>> &devEncodeListInput,
+        bool fillContent) {
     devEncodeList.HostInitDataSizeOffset(initOffset, devEncodeListInput.size());
     devEncodeDataList.HostInitDataSizeOffset(initOffset, 0);
     uint64_t offset = 0;
     for (size_t i = 0; i < devEncodeListInput.size(); i++) {
+        uint64_t alignedDevEncodeListInputSize = ALIGN_UP(devEncodeListInput[i].size(), sizeof(uint64_t));
         ONFILLCONTENT {
-            devEncodeList[i].HostAssignRangeOffsetSize(devEncodeDataList, offset, devEncodeListInput[i].size());
+            devEncodeList[i].HostAssignRangeOffsetSize(devEncodeDataList, offset, alignedDevEncodeListInputSize);
         };
         ONFILLCONTENT {
             memcpy_s(devEncodeList[i].Data(), devEncodeList[i].size(), devEncodeListInput[i].data(),
                 devEncodeListInput[i].size());
         };
-        offset += ALIGN_UP(devEncodeListInput[i].size(), sizeof(uint64_t));
+        offset += alignedDevEncodeListInputSize;
     }
     devEncodeDataList.HostInitDataSizeOffset(initOffset, offset);
 }
@@ -1462,6 +1433,87 @@ void DevAscendProgram::InitStartArgsABIParamList(
     }
 }
 
+static void InitPartialUpdateCellMatch(
+        const std::vector<const DevAscendFunctionOutcast *> &outcastList,
+        DevCellMatchTableDesc *partialUpdateCellMatchTableDesc) {
+    std::vector<int> tensorShape;
+    for (size_t i = 0; i < outcastList.size(); i++) {
+        std::vector<int> outcastShape;
+        for (int d = 0; d < outcastList[i]->dim; d++) {
+            outcastShape.push_back(outcastList[i]->cellMatchTableDesc.GetCellShape(d) * outcastList[i]->cellMatchTableDesc.GetStrideShape(d));
+        }
+        if (i == 0) {
+            tensorShape = outcastShape;
+        } else {
+            ASSERT(tensorShape == outcastShape);
+        }
+    }
+
+    std::vector<int> cellShape;
+    for (size_t d = 0; d < tensorShape.size(); d++) {
+        int dim = 0;
+        for (size_t i = 0; i < outcastList.size(); i++) {
+            if (i == 0) {
+                dim = outcastList[i]->cellMatchTableDesc.GetCellShape(d);
+            } else {
+                dim = std::gcd(dim, outcastList[i]->cellMatchTableDesc.GetCellShape(d));
+            }
+        }
+        cellShape.push_back(dim);
+    }
+    partialUpdateCellMatchTableDesc->SetCellShape(cellShape);
+
+    std::vector<int> strideShape;
+    for (size_t d = 0; d < tensorShape.size(); d++) {
+        strideShape.push_back(tensorShape[d] / cellShape[d]);
+    }
+    partialUpdateCellMatchTableDesc->SetStrideShape(strideShape);
+}
+
+void DevAscendProgram::InitPartialUpdateSlot(
+        uintdevptr_t &initOffset,
+        const std::vector<std::vector<uint8_t>> &devEncodeListInput,
+        const std::unordered_map<Function *, int> &rootFuncKeyDict,
+        const std::unordered_map<int, std::unordered_map<Function *, int>> &slotRootIncastDict,
+        const std::unordered_map<int, std::unordered_map<Function *, int>> &slotRootOutcastDict,
+        const std::vector<int> &tPartialUpdateSlotIndexList,
+        bool fillContent) {
+    (void)slotRootIncastDict;
+    (void)slotRootOutcastDict;
+    this->partialUpdateList.HostInitDataSizeOffset(initOffset, slotSize);
+
+    this->cellMatchRuntimePartialUpdateTableList.HostInitDataSizeOffset(initOffset, 0);
+    int totalCellMatchSize = 0;
+    for (size_t i = 0; i < tPartialUpdateSlotIndexList.size(); i++) {
+        std::vector<const DevAscendFunctionOutcast *> outcastList;
+        auto slotIndex = tPartialUpdateSlotIndexList[i];
+        ASSERT(slotRootOutcastDict.count(slotIndex));
+        for (auto &[root, outcastIndex] : slotRootOutcastDict.find(slotIndex)->second) {
+            ASSERT(rootFuncKeyDict.count(root));
+            int funcKey = rootFuncKeyDict.find(root)->second;
+            DevAscendFunction *devFunc = reinterpret_cast<DevAscendFunction *>(const_cast<uint8_t *>(devEncodeListInput[funcKey].data()));
+            outcastList.push_back(&devFunc->GetOutcast(outcastIndex));
+        }
+        DevCellMatchTableDesc partialUpdateCellMatchTableDesc;
+        InitPartialUpdateCellMatch(outcastList, &partialUpdateCellMatchTableDesc);
+        size_t tableSize = partialUpdateCellMatchTableDesc.GetStride(0);
+
+        ONFILLCONTENT {
+            auto &partialUpdate = At(partialUpdateList, slotIndex);
+            partialUpdate.slotIndex = slotIndex;
+            partialUpdate.cellMatchTableDesc = partialUpdateCellMatchTableDesc;
+            partialUpdate.cellMatchRuntimePartialUpdateTable.HostAssignRangeOffsetSize(cellMatchRuntimePartialUpdateTableList, totalCellMatchSize, tableSize);
+            auto tableData = partialUpdate.cellMatchRuntimePartialUpdateTable.Data();
+            for (size_t j = 0; j < tableSize; j++) {
+                tableData[j] = AICORE_TASK_INIT;
+            }
+        }
+        totalCellMatchSize += tableSize;
+    }
+    totalCellMatchSize = ALIGN_UP(totalCellMatchSize, sizeof(uint64_t) * FRIENDLY_CACHE_ALIGN_U64_SIZE / sizeof(uint32_t));
+    this->cellMatchRuntimePartialUpdateTableList.HostInitDataSizeOffset(initOffset, totalCellMatchSize);
+}
+
 struct EncodeDevAscendProgramInfo {
     Function *func;
     std::shared_ptr<DyndevFunctionAttribute> dyndevAttr;
@@ -1495,6 +1547,14 @@ struct EncodeDevAscendProgramInfo {
             dyndevAttr->inoutLink.assembleSlotIndexList,
             dyndevAttr->inoutLink.inplaceSlotIndexList,
             fillContent);
+        devProg->InitPartialUpdateSlot(
+                initOffset,
+                dyndevAttr->devEncodeList,
+                dyndevAttr->rootFuncKeyDict,
+                dyndevAttr->slotRootIncastDict,
+                dyndevAttr->slotRootOutcastDict,
+                dyndevAttr->inoutLink.partialUpdateSlotIdexList,
+                fillContent);
         devProg->InitPrefetchInfoList(initOffset, dyndevAttr->l2InfoList, fillContent);
         devProg->InitDisableL2List(initOffset, dyndevAttr->disableL2List, fillContent);
     }

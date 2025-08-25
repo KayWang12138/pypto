@@ -988,6 +988,9 @@ private:
         memcpy_s(
             &readyQue->elem[readyQue->tail], idCnt * sizeof(uint32_t), (uint8_t *)idList, idCnt * sizeof(uint32_t));
          __atomic_fetch_add(&readyQue->tail, idCnt, std::memory_order_release);
+        DEV_IF_NONDEVICE {
+            DEV_ASSERT(readyQue->tail < readyQue->capacity);
+        }
         ReadyQueueUnLock(readyQue);
     }
 
@@ -1294,7 +1297,7 @@ private:
         auto callList = dyntask->cacheList[funcId].calleList;
 
         size_t succSize;
-        auto succList = func->GetOperationSuccAddr(opIndex, succSize);
+        auto succList = func->GetOperationDepGraphSuccAddr(opIndex, succSize);
         for (size_t i = 0; i < succSize; i++) {
             auto succIdx = succList[i];
             if (predCounts[succIdx] == 1 ||

@@ -25,6 +25,7 @@ enum class MachineStatus { START = 0, FINISH = 1, STOP = 2 };
 struct ReadyCoreFunctionQueue {
   uint32_t head;
   uint32_t tail;
+  uint32_t capacity;
   uint32_t* elem;
   size_t lock;
 

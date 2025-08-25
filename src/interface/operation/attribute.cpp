@@ -345,7 +345,7 @@ const std::vector<SymbolicScalar> &CallOpAttribute::GetLinearArgList() {
     return linearArgList_;
 }
 
-std::vector<int> CallOpAttribute::GetlinearImmediateArgList(int begin, int end, bool returnEmptyForSymbolic) {
+std::vector<int> CallOpAttribute::GetLinearImmediateArgList(int begin, int end, bool returnEmptyForSymbolic) {
     std::vector<int> result;
 
     auto &linearArgList = GetLinearArgList();
@@ -353,11 +353,12 @@ std::vector<int> CallOpAttribute::GetlinearImmediateArgList(int begin, int end, 
         if (linearArgList[i].IsImmediate()) {
             result.push_back(linearArgList[i].Concrete());
         } else {
-            if (returnEmptyForSymbolic)
+            if (returnEmptyForSymbolic) {
                 return {};
-            else
+            } else {
                 ASSERT(false) << "Invalid Immediate in " << Dump() << " index " << i << " = "
                               << linearArgList[i].Dump();
+            }
         }
     }
 

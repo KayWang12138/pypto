@@ -52,6 +52,7 @@ struct CceCodeInfo;
 struct L2Info;
 constexpr uint32_t IDENT_SIZE = 2;
 constexpr uint32_t IDENT2_SIZE = 4;
+constexpr uint32_t FRIENDLY_CACHE_ALIGN_U64_SIZE = 2; // 友好的cache对齐是2个u64
 
 namespace dynamic {
 struct EncodeRawTensorAttr;
@@ -155,12 +156,16 @@ struct DevRelocVector {
         HostAssignDataSize(reinterpret_cast<uintdevptr_t>((base.Data() + offset)), size);
     }
     void HostInitDataSizeOffset(uintdevptr_t &offset, size_t size) {
-        HostAssign(data_, ALIGN_UP(offset, alignof(T)));
+        ASSERT(offset % alignof(T) == 0); // Ensure offset is aligned
+        HostAssign(data_, offset);
         size_ = size;
         offset = reinterpret_cast<uintdevptr_t>(data_ + size);
     }
     void DeviceRelocData(intdevptr_t shift) { DeviceReloc(data_, ALIGN_UP(shift, alignof(T))); }
     uintdevptr_t End() const { return reinterpret_cast<uintdevptr_t>(data_ + size_); }
+
+    static uint64_t ElementSize() { return sizeof(T); }
+    typedef T ElementType;
 
 private:
     size_t size_{0};
@@ -197,6 +202,64 @@ private:
     size_t size_{0};
 };
 
+struct DevAscendStride {
+    int64_t dimSize;
+    uint64_t dimStride[DEV_SHAPE_DIM_MAX];
+
+    const uint64_t &operator[](int index) const { return dimStride[index]; }
+    uint64_t &operator[](int index) { return dimStride[index]; }
+
+    int GetShape(int dim) const {
+        if (dim == dimSize - 1) {
+            return dimStride[dim];
+        } else {
+            return dimStride[dim] / dimStride[dim + 1];
+        }
+    }
+
+    void SetShape(const int *shape, int dim) {
+        /* For shape [d0, d1, d2], the stride is [d0 * d1 * d2, d1 * d2, d2] */
+        dimSize = dim;
+        for (int i = DEV_SHAPE_DIM_MAX - 1; i >= 0; i--) {
+            if (i > dimSize - 1) {
+                dimStride[i] = 0;
+            } else if (i == dimSize - 1) {
+                dimStride[i] = shape[i];
+            } else {
+                dimStride[i] = shape[i] * dimStride[i + 1];
+            }
+        }
+    }
+    void SetShape(const std::vector<int> &shape) {
+        SetShape(shape.data(), (int)shape.size());
+    }
+    void SetShape(const DevAscendShape &shape) {
+        SetShape(shape.dim, shape.dimSize);
+    }
+};
+
+struct DevCellMatchTableDesc {
+    DevAscendShape cellShape;
+    DevAscendStride stride;
+
+    int GetDimSize() const { return cellShape.dimSize; }
+
+    const int &GetCellShape(int index) const { return cellShape.dim[index]; }
+
+    const uint64_t &GetStride(int index) const { return stride.dimStride[index]; }
+    int GetStrideShape(int index) const { return stride.GetShape(index); }
+
+    void SetCellShape(const std::vector<int> &shape) {
+        cellShape.dimSize = shape.size();
+        for (size_t i = 0; i < shape.size(); i++) {
+            cellShape.dim[i] = shape[i];
+        }
+    }
+    void SetStrideShape(const std::vector<int> &shape) {
+        stride.SetShape(shape);
+    }
+};
+
 struct DevCceBinary {
     uint32_t coreType;
     uint32_t psgId;
@@ -228,6 +291,10 @@ static inline const BiMap<DevIOProperty> &GetDevIOPropertyDict() {
 
 static inline std::string DevIOProperty2String(DevIOProperty property) {
     return GetDevIOPropertyDict().Find(property);
+}
+
+static inline std::string Delim(bool cond, const std::string &delim) {
+    return cond ? delim : "";
 }
 
 struct DevSymShape {
@@ -339,11 +406,6 @@ inline bool IsTaskFinish(uint32_t id, uint32_t finValue) {
 
 using DevStitch = Vector<uint32_t, WsMemCategory::VECTOR_DEV_STITCH>;
 
-struct DevAscendOperationDynamicField {
-    predcount_t currPredCount{0};
-    DevStitch stitch;
-};
-
 struct DevAscendOperationOperandInfo {
     int tensorIndex{0};
     int staticOffsetAttrBeginIndex{0};
@@ -362,9 +424,20 @@ struct DevAscendOperation {
     DevLocalVector<DevAscendOperationOperandInfo> ooperandList;
     DevLocalVector<SymInt> attrList; // opattr[0] -> hash
     int32_t outcastStitchIndex;
-    uint32_t predCount;
-    uint64_t opmagic;
-    DevLocalVector<int> succList;
+    uint32_t depGraphPredCount;
+    DevLocalVector<int> depGraphSuccList;
+    uint64_t debugOpmagic; // DEBUG_ONLY
+};
+
+struct DevAscendFunctionCallOperandUse {
+    int operationIdx{-1};
+    int operandIdx{-1};
+    int offsetAttrIdx{-1};
+    int shapeAttrIdx{-1};
+
+    DevAscendFunctionCallOperandUse() = default;
+    DevAscendFunctionCallOperandUse(int operationIdx_, int operandIdx_, int offsetAttrIdx_, int shapeAttrIdx_)
+        : operationIdx(operationIdx_), operandIdx(operandIdx_), offsetAttrIdx(offsetAttrIdx_), shapeAttrIdx(shapeAttrIdx_) {}
 };
 
 struct DevAscendFunctionIncast {
@@ -372,12 +445,13 @@ struct DevAscendFunctionIncast {
     DevLocalVector<int> fromSlotList;
 
     int dim;
-    int fastStitchEnable;
-    DevLocalVector<int> shapeAttrIdx;
-    DevLocalVector<int> offsetAttrIdx;
-    DevLocalVector<int> consumer;
-    DevLocalVector<int> operandIdx;
-    DevLocalVector<int> fastStitchTileIdx;
+    int stitchByAllFullMatch;
+    DevLocalVector<DevAscendFunctionCallOperandUse> consumerList;
+
+    DevCellMatchTableDesc cellMatchTableDesc;
+    DevLocalVector<uint32_t> cellMatchStaticIncastTable;
+
+    DevLocalVector<uint32_t> stitchPolicyFullCoverConsumerAllOpIdxList;
 };
 
 struct DevAscendFunctionOutcast {
@@ -385,25 +459,17 @@ struct DevAscendFunctionOutcast {
     DevLocalVector<int> toSlotList;
 
     int dim;
-    int fastStitchEnable;
-    DevLocalVector<int> shapeAttrIdx;
-    DevLocalVector<int> offsetAttrIdx;
-    DevLocalVector<int> producer;
-    DevLocalVector<int> operandIdx;
-    DevLocalVector<int> minimalShape;
-    DevLocalVector<int> minimalTileIdx;
-    DevLocalVector<int> fastStitchTileIdx;
-};
+    int stitchByAllFullMatch;
 
-struct InoutOperationAttr {
-    int dim;
-    int minimalTileListSize;
-    std::vector<int> tileEachDim;
-    std::vector<int> minimalShape;
-    std::vector<int> offsetAttrIdx;
-    std::vector<int> shapeAttrIdx;
-    std::vector<int> operandIdx;
-    std::vector<int> ops;
+    DevLocalVector<DevAscendFunctionCallOperandUse> producerList;
+
+    DevCellMatchTableDesc cellMatchTableDesc;
+    DevLocalVector<uint32_t> cellMatchStaticOutcastTable;
+    DevLocalVector<uint32_t> cellMatchRuntimeFullUpdateTable;
+
+    int stitchPolicyFullCoverProducerHubOpIdx;
+    DevLocalVector<DevAscendFunctionCallOperandUse> stitchPolicyFullCoverProducerList;
+    DevLocalVector<uint32_t> stitchPolicyFullCoverProducerAllOpIdxList;
 };
 
 struct AddressDescriptor {
@@ -419,21 +485,32 @@ struct AddressDescriptor {
         };
     };
 
-    std::string ToString() {
-        std::stringstream ss;
-        if (isAddress)
-            ss  << std::hex << addr;
-        else
-            ss  << '(' << dupIdx << ", " << outcastIdx << ')';
-        return ss.str();
-    }
-
     bool IsAddress() const { return isAddress; }
     uint64_t GetAddress() const { DEV_ASSERT(isAddress); return addr; }
     bool IsNullAddress() const { return IsAddress() && addr == 0; }
 
     explicit AddressDescriptor(uint64_t address = 0): addr(address) { isAddress = true; }
     AddressDescriptor(int tdupIdx, int toutcastIdx): outcastIdx(toutcastIdx) , dupIdx(tdupIdx) { isAddress = false; }
+
+public:
+    static std::string DumpAddress(uintdevptr_t addr, int width = 0) {
+        char bufData[0x20];
+        (void)sprintf_s(bufData, sizeof(bufData), "%lx", addr);
+        std::string buf = bufData;
+        if (buf.size() < static_cast<size_t>(width)) {
+            buf = std::string(width - buf.size(), '0') + buf;
+        }
+        return "&0x" + buf;
+    }
+    std::string Dump() const {
+        std::stringstream ss;
+        if (isAddress) {
+            ss << DumpAddress(addr);
+        } else {
+            ss << "&&" << dupIdx << ":" << outcastIdx;
+        }
+        return ss.str();
+    }
 };
 
 constexpr int INVALID_INDEX = -1;
@@ -457,6 +534,19 @@ struct EncodeDevAscendFunctionParam {
     Function *devRoot;
 };
 
+struct InoutOperationAttr {
+    int dim;
+    std::vector<DevAscendFunctionCallOperandUse> useList;
+    int cellMatchSize;
+
+    std::vector<DevAscendFunctionCallOperandUse> stitchPolicyFullCoverProducerList;
+    int stitchPolicyFullCoverProducerHubOpIdx;
+
+    DevCellMatchTableDesc cellMatchTableDesc;
+
+    std::vector<uint32_t> useOpList;
+};
+
 struct DevAscendFunction {
     uint64_t funcKey;
     // source root function after duplication
@@ -474,8 +564,6 @@ struct DevAscendFunction {
     DevLocalVector<AddressDescriptor> incastAddressList;
     DevLocalVector<AddressDescriptor> outcastAddressList;
 
-    DevLocalVector<DevAscendOperationDynamicField> opDynamicFieldList;
-#define duplicateLastField opDynamicFieldList
     DevLocalVector<uint64_t> expressionList;
 #define allocateLastField expressionList
 
@@ -504,14 +592,14 @@ private:
     DevLocalVector<DevAscendFunctionIncast> incastList;
     DevLocalVector<DevAscendFunctionOutcast> outcastList;
     DevLocalVector<int> slotList;
-    DevLocalVector<int> minimalShapeList;
-    DevLocalVector<int> offsetIdxList;
-    DevLocalVector<int> shapeIdxList;
-    DevLocalVector<int> producerConsumerList;
-    DevLocalVector<int> inoutOperandIdxList;
-    DevLocalVector<int> minimalTileIdxList;
-    DevLocalVector<int> outcastMinimalTileIdxList;
-    DevLocalVector<int> incastMinimalTileIdxList;
+
+    DevLocalVector<DevAscendFunctionCallOperandUse> useList;
+    DevLocalVector<DevAscendFunctionCallOperandUse> stitchPolicyFullCoverProducerList_;
+    DevLocalVector<uint32_t> stitchPolicyFullCoverOpList_;
+
+    DevLocalVector<uint32_t> cellMatchRuntimeFullUpdateTableList;
+    DevLocalVector<uint32_t> cellMatchStaticOutcastTableList;
+    DevLocalVector<uint32_t> cellMatchStaticIncastTableList;
     DevLocalVector<char> rawName_;
 #define sharedLastField rawName_
 public:
@@ -544,8 +632,6 @@ public:
      *      uint8_t                                             duppedData[];
      */
 
-    void Verify(uintptr_t /*base*/) { DEV_ASSERT(opDynamicFieldList.size() == operationList_.size()); }
-
     template <typename T>
     const T &At(const DevLocalVector<T> &localvec, int index) const {
         return *reinterpret_cast<T *>((reinterpret_cast<uint64_t>(this) + localvec.Offset(index)));
@@ -571,31 +657,67 @@ private:
     }
 
 public:
-    static std::string DumpAddress(uintdevptr_t addr, int width = 0) {
-        char bufData[0x20];
-        (void)sprintf_s(bufData, sizeof(bufData), "%lx", addr);
-        std::string buf = bufData;
-        if (buf.size() < static_cast<size_t>(width)) {
-            buf = std::string(width - buf.size(), '0') + buf;
-        }
-        return "&0x" + buf;
-    }
     static std::string DumpByte(uint8_t byte) {
         char buf[0x10];
         (void)sprintf_s(buf, sizeof(buf), "0x%02x", byte);
         return buf;
     }
 
+    static std::string DumpShape(const DevAscendShape &shape) {
+        std::ostringstream oss;
+        oss << "<";
+        for (int k = 0; k < shape.dimSize; k++) {
+            oss << Delim(k != 0, ",") << shape.dim[k];
+        }
+        oss << ">";
+        return oss.str();
+    }
+
+    static std::string DumpStride(const DevAscendStride &stride) {
+        std::ostringstream oss;
+        oss << "<";
+        for (int k = 0; k < stride.dimSize; k++) {
+            oss << Delim(k != 0, ",") << stride.dimStride[k];
+        }
+        oss << ">";
+        return oss.str();
+    }
+
+    static std::string DumpCellMatchTableDesc(const DevCellMatchTableDesc &desc) {
+        return DumpShape(desc.cellShape) + " x " + DumpStride(desc.stride);
+    }
+
+    static std::string DumpSymInt(const SymInt &s, const uint64_t *runtimeExpressionList) {
+        std::ostringstream oss;
+        if (s.IsExpression()) {
+            if (runtimeExpressionList == nullptr) {
+                oss << "?" << s.Value();
+            } else {
+                oss << runtimeExpressionList[s.Value()];
+            }
+        } else {
+            oss << s.Value();
+        }
+        return oss.str();
+    }
+
+    static std::string DumpSymIntList(const SymInt *s, int count, uint64_t *runtimeExpressionList) {
+        std::ostringstream oss;
+        oss << "<";
+        for (int i = 0; i < count; i++) {
+            oss << Delim(i != 0, ",") << DumpSymInt(s[i], runtimeExpressionList);
+        }
+        oss << ">";
+        return oss.str();
+    }
+
     std::string DumpOperation(int operationIndex, int &totalAttrStartIdx, const std::vector<uintdevptr_t> &ooperandAddrList = {},
-        const std::vector<uintdevptr_t> &ioperandAddrList = {}, const std::vector<uint64_t> &exprList = {}) const {
+        const std::vector<uintdevptr_t> &ioperandAddrList = {}, uint64_t *runtimeExpressionList = nullptr) const {
         std::ostringstream oss;
         for (size_t j = 0; j < GetOperationOOperandSize(operationIndex); j++) {
-            if (j != 0) {
-                oss << ", ";
-            }
-            oss << DumpTensor(GetOperationOOperandInfo(operationIndex, j).tensorIndex);
+            oss << Delim(j != 0, ",") << DumpTensor(GetOperationOOperandInfo(operationIndex, j).tensorIndex);
             if (j < ooperandAddrList.size()) {
-                oss << DumpAddress(ooperandAddrList[j]);
+                oss << AddressDescriptor::DumpAddress(ooperandAddrList[j]);
             }
         }
         oss << " = "
@@ -603,42 +725,25 @@ public:
         oss << "[";
         for (size_t j = 0; j < GetOperationAttrSize(operationIndex); j++) {
             const SymInt &s = GetOperationAttr(operationIndex, j);
-            if (j != 0) {
-                oss << ",";
-            }
-            oss << "[" << j << "]=";
-            if (s.IsExpression()) {
-                if (s.Value() < exprList.size()) {
-                    oss << exprList[s.Value()];
-                } else {
-                    oss << "?" << s.Value();
-                }
-            } else {
-                oss << s.Value();
-            }
+            oss << Delim(j != 0, ",") << "[" << j << "]=" << DumpSymInt(s, runtimeExpressionList);
         }
-        totalAttrStartIdx += static_cast<int>(GetOperationAttrSize(operationIndex));
+        totalAttrStartIdx += GetOperationAttrSize(operationIndex);
         oss << "] ";
         for (size_t j = 0; j < GetOperationIOperandSize(operationIndex); j++) {
-            if (j != 0) {
-                oss << ", ";
-            }
-            oss << DumpTensor(GetOperationIOperandInfo(operationIndex, j).tensorIndex);
+            oss << Delim(j != 0, ",") << DumpTensor(GetOperationIOperandInfo(operationIndex, j).tensorIndex);
             if (j < ioperandAddrList.size()) {
-                oss << DumpAddress(ioperandAddrList[j]);
+                oss << AddressDescriptor::DumpAddress(ioperandAddrList[j]);
             }
         }
 
-        oss << " #pred:" << GetOperationPredCount(operationIndex);
+        oss << " #pred:" << GetOperationDepGraphPredCount(operationIndex);
         oss << " #succ:[";
-        const DevLocalVector<int> &succList = GetOperationSuccList(operationIndex);
+        const DevLocalVector<int> &succList = GetOperationDepGraphSuccList(operationIndex);
         for (size_t j = 0; j < succList.size(); j++) {
-            if (j != 0) {
-                oss << ",";
-            }
-            oss << "!" << At(succList, j);
+            oss << Delim(j != 0, ",") << "[" << j << "]=!" << At(succList, j);
         }
         oss << "]";
+        oss << " #stitchIndex:" << GetOperationOutcastStitchIndex(operationIndex);
         return oss.str();
     }
 
@@ -646,12 +751,12 @@ public:
         std::ostringstream oss;
         oss << "@" << rawIndex << " = " << GetRawTensor(rawIndex)->Dump();
         if (addr != 0) {
-            oss << DumpAddress(addr);
+            oss << AddressDescriptor::DumpAddress(addr);
         }
         return oss.str();
     }
 
-    std::string DumpIncast(int incastIndex, const std::string &indent, const std::vector<uintdevptr_t> &slotAddrList = {}) const {
+    std::string DumpIncast(int incastIndex, const std::string &indent, uint64_t *runtimeExpressionList = nullptr, const std::vector<uintdevptr_t> &slotAddrList = {}) const {
         std::ostringstream oss;
         const DevAscendFunctionIncast &incast = GetIncast(incastIndex);
         oss << "#incast:" << incastIndex << " = " << DumpTensor(incast.tensorIndex);
@@ -659,26 +764,40 @@ public:
             int slot = At(incast.fromSlotList, j);
             oss << " <- #slot:" << slot;
             if (slot < static_cast<int>(slotAddrList.size())) {
-                oss << DumpAddress(slotAddrList[slot]);
+                oss << AddressDescriptor::DumpAddress(slotAddrList[slot]);
             }
         }
         oss << "\n";
-        for (size_t j = 0; j < incast.consumer.size(); j++) {
-            int consumer = At(incast.consumer, j);
-            int operandIdx = At(incast.operandIdx, j);
-            int offsetAttrIdx = At(incast.offsetAttrIdx, j);
-            int shapeAttrIdx = At(incast.shapeAttrIdx, j);
+        oss << indent;
+        oss << " | #cellMatchTableDesc:" << DumpCellMatchTableDesc(incast.cellMatchTableDesc);
+        oss << " | #cellMatchStaticTable:" << incast.cellMatchStaticIncastTable.size();
+        oss << "\n";
+
+        oss << indent << " | #stitchPolicyFullCoverConsumerAllOpIdxList:[";
+        for (size_t j = 0; j < incast.stitchPolicyFullCoverConsumerAllOpIdxList.size(); j++) {
+            oss << Delim(j != 0, ",") << At(incast.stitchPolicyFullCoverConsumerAllOpIdxList, j);
+        }
+        oss << "]\n";
+
+        for (size_t j = 0; j < incast.consumerList.size(); j++) {
+            auto &consumer = At(incast.consumerList, j);
+            int consumerIdx = consumer.operationIdx;
+            int operandIdx = consumer.operandIdx;
+            int offsetAttrIdx = consumer.offsetAttrIdx;
+            int shapeAttrIdx = consumer.shapeAttrIdx;
             oss << indent;
-            oss << " | #consumer:!" << consumer;
+            oss << " | #consumerIdx:!" << consumerIdx;
             oss << " | #operandIdx:" << operandIdx;
             oss << " | #offsetAttrIdx:" << offsetAttrIdx;
             oss << " | #shapeAttrIdx:" << shapeAttrIdx;
+            oss << " | #offsetAttr:" << DumpSymIntList(&GetOperationAttr(consumerIdx, offsetAttrIdx), incast.dim, runtimeExpressionList);
+            oss << " | #shapeAttr:" << DumpSymIntList(&GetOperationAttr(consumerIdx, shapeAttrIdx), incast.dim, runtimeExpressionList);
             oss << "\n";
         }
         return oss.str();
     }
 
-    std::string DumpOutcast(int outcastIndex, const std::string &indent, const std::vector<uintdevptr_t> &slotAddrList = {}) const {
+    std::string DumpOutcast(int outcastIndex, const std::string &indent, uint64_t *runtimeExpressionList = nullptr, const std::vector<uintdevptr_t> &slotAddrList = {}) const {
         std::ostringstream oss;
         const DevAscendFunctionOutcast &outcast = GetOutcast(outcastIndex);
         oss << "#outcast:" << outcastIndex << " = " << DumpTensor(outcast.tensorIndex);
@@ -686,26 +805,41 @@ public:
             int slot = At(outcast.toSlotList, j);
             oss << " -> #slot:" << slot;
             if (slot < static_cast<int>(slotAddrList.size())) {
-                oss << DumpAddress(slotAddrList[slot]);
+                oss << AddressDescriptor::DumpAddress(slotAddrList[slot]);
             }
         }
-        oss << " #minimalTileIdx size:" << outcast.minimalTileIdx.size();
         oss << "\n";
-        for (size_t j = 0; j < outcast.producer.size(); j++) {
-            int producer = At(outcast.producer, j);
-            int operandIdx = At(outcast.operandIdx, j);
-            int offsetAttrIdx = At(outcast.offsetAttrIdx, j);
-            int shapeAttrIdx = At(outcast.shapeAttrIdx, j);
+        oss << indent;
+        oss << " | #cellMatchTableDesc:" << DumpCellMatchTableDesc(outcast.cellMatchTableDesc);
+        oss << " | #cellMatchStaticTable:" << outcast.cellMatchStaticOutcastTable.size();
+        oss << " | #cellMatchFullUpdateTable:" << outcast.cellMatchRuntimeFullUpdateTable.size();
+        oss << "\n";
+
+        oss << indent << " | #stitchPolicyFullCoverProducerList:[";
+        for (size_t j = 0; j < outcast.stitchPolicyFullCoverProducerList.size(); j++) {
+            oss << Delim(j != 0, ",") << At(outcast.stitchPolicyFullCoverProducerList, j).operationIdx;
+        }
+        oss << "]\n";
+        oss << indent << " | #stitchPolicyFullCoverProducerHubOpIdx:" << outcast.stitchPolicyFullCoverProducerHubOpIdx << "\n";
+        oss << indent << " | #stitchPolicyFullCoverProducerAllOpIdxList:[";
+        for (size_t j = 0; j < outcast.stitchPolicyFullCoverProducerAllOpIdxList.size(); j++) {
+            oss << Delim(j != 0, ",") << At(outcast.stitchPolicyFullCoverProducerAllOpIdxList, j);
+        }
+        oss << "]\n";
+
+        for (size_t j = 0; j < outcast.producerList.size(); j++) {
+            auto &producer = At(outcast.producerList, j);
+            int producerIdx = producer.operationIdx;
+            int operandIdx = producer.operandIdx;
+            int offsetAttrIdx = producer.offsetAttrIdx;
+            int shapeAttrIdx = producer.shapeAttrIdx;
             oss << indent;
-            oss << " | #producer:!" << producer;
+            oss << " | #producerIdx:!" << producerIdx;
             oss << " | #operandIdx:" << operandIdx;
             oss << " | #offsetAttrIdx:" << offsetAttrIdx;
             oss << " | #shapeAttrIdx:" << shapeAttrIdx;
-            oss << " | #minimalShape:";
-            for (size_t k = 0; k < static_cast<size_t>(outcast.dim); k++) {
-                int minimalShape = At(outcast.minimalShape,  k);
-                oss << minimalShape << ",";
-            }
+            oss << " | #offsetAttr:" << DumpSymIntList(&GetOperationAttr(producerIdx, offsetAttrIdx), outcast.dim, runtimeExpressionList);
+            oss << " | #shapeAttr:" << DumpSymIntList(&GetOperationAttr(producerIdx, shapeAttrIdx), outcast.dim, runtimeExpressionList);
             oss << "\n";
         }
         return oss.str();
@@ -750,12 +884,7 @@ public:
 
     void Reloc(intptr_t /* shift */, bool /* relocShared */) {}
 
-    void DuplicateTo(DevAscendFunction *func) {
-        auto size = GetDuplicateSize();
-        memcpy_s(func, size, this, size);
-        func->sourceFunc = this;
-        func->Reloc(reinterpret_cast<intptr_t>(this) - reinterpret_cast<intptr_t>(func), false);
-    }
+    int GetFuncKey() const { return funcKey; }
 
     const DevAscendFunction *GetSource() const { return sourceFunc; }
     DevAscendFunction *GetSource() { return sourceFunc; }
@@ -767,8 +896,6 @@ public:
     uint64_t GetDuppedDataAllocSize() const { return duppedDataAllocSize_; }
     uint64_t GetDuppedDataCopySize() const { return duppedDataCopySize_; }
     DevAscendFunctionDuppedData *GetDuppedData() const { return reinterpret_cast<DevAscendFunctionDuppedData *>(const_cast<uint8_t*>(&At(duppedData_, 0))); }
-
-    uint64_t GetDuplicateSize() const { return GetEndOffset(duplicateLastField); }
 
     int32_t *GetOpAttrOffsetAddr() { return &At(opAttrOffsetList_, 0); }
     int *GetCalleeIndexAddr() { return &At(opCalleeList_, 0); }
@@ -813,8 +940,8 @@ public:
     inline uint32_t GetOperationOutcastStitchIndex(int operationIndex) const {
         return At(operationList_, operationIndex).outcastStitchIndex;
     }
-    inline uint32_t GetOperationOpmagic(int operationIndex) const {
-        return At(operationList_, operationIndex).opmagic;
+    inline uint32_t GetOperationDebugOpmagic(int operationIndex) const {
+        return At(operationList_, operationIndex).debugOpmagic;
     }
     inline size_t GetOperationIOperandSize(int operationIndex) const {
         return At(operationList_, operationIndex).ioperandList.size();
@@ -864,15 +991,19 @@ public:
         (void)cceInfo;
     }
 
-    inline const uint32_t &GetOperationPredCount(int operationIndex) const { return At(operationList_, operationIndex).predCount; }
-    inline uint32_t &GetOperationPredCount(int operationIndex) { return At(operationList_, operationIndex).predCount; }
-
-    inline const DevLocalVector<int> &GetOperationSuccList(int operationIndex) const {
-        return At(operationList_, operationIndex).succList;
+    inline const uint32_t &GetOperationDepGraphPredCount(int operationIndex) const {
+        return At(operationList_, operationIndex).depGraphPredCount;
+    }
+    inline uint32_t &GetOperationDepGraphPredCount(int operationIndex) {
+        return At(operationList_, operationIndex).depGraphPredCount;
     }
 
-    inline const int *GetOperationSuccAddr(int operationIndex, size_t &size) const {
-        auto &succList = At(operationList_, operationIndex).succList;
+    inline const DevLocalVector<int> &GetOperationDepGraphSuccList(int operationIndex) const {
+        return At(operationList_, operationIndex).depGraphSuccList;
+    }
+
+    inline const int *GetOperationDepGraphSuccAddr(int operationIndex, size_t &size) const {
+        auto &succList = At(operationList_, operationIndex).depGraphSuccList;
         size = succList.size();
         return &At(succList, 0);
     }
@@ -966,26 +1097,201 @@ public:
 
     inline const SymInt *GetSymoffset(int offset) const { return &At(operationAttrList_, offset); }
 
-    inline const char *GetRawName() const { return &At(rawName_, 0); }
-
-    std::string DumpIncastOutcast() const {
-        std::ostringstream oss;
-        for (size_t i = 0; i < GetIncastSize(); i++) {
-            auto &incast = GetIncast(i);
-            for (size_t j = 0; j < incast.fromSlotList.size(); j++) {
-                int slot = At(incast.fromSlotList, j);
-                oss << "INCAST:" << i << " <- slot: " << slot << "\n";
-            }
-        }
-        for (size_t i = 0; i < GetOutcastSize(); i++) {
-            auto &outcast = GetOutcast(i);
-            for (size_t j = 0; j < outcast.toSlotList.size(); j++) {
-                int slot = At(outcast.toSlotList, j);
-                oss << "OUTCAST:" << i << " <- slot: " << slot << "\n";
-            }
-        }
-        return oss.str();
+    struct SymIntPair {
+        const SymInt *offsetSymList;
+        const SymInt *shapeSymList;
+    };
+    inline SymIntPair GetTensorOffsetShapeSymList(
+            int operationIndex, int operandIndex, bool isIOperand = true) const {
+        auto &operandInfo = GetOperationOperandInfo(operationIndex, operandIndex, isIOperand);
+        const SymInt *offsetSymList = &GetOperationAttr(operationIndex, operandInfo.staticOffsetAttrBeginIndex);
+        const SymInt *shapeSymList = &GetOperationAttr(operationIndex, operandInfo.staticShapeAttrBeginIndex);
+        return SymIntPair{offsetSymList, shapeSymList};
     }
+
+    template<bool skipExpression>
+    inline bool GetTensorOffsetAndShape(
+            uint64_t offset[DEV_SHAPE_DIM_MAX],
+            uint64_t shape[DEV_SHAPE_DIM_MAX],
+            const uint64_t *runtimeExpressionList, int dims, int operationIndex, int operandIndex,
+            bool isIOperand = true) const {
+        auto [offsetSymList, shapeSymList] = GetTensorOffsetShapeSymList(operationIndex, operandIndex, isIOperand);
+
+        bool paramConcrete = true;
+        for (int i = 0; i < dims; i++) {
+            auto value = offsetSymList[i].Value();
+            if (offsetSymList[i].IsExpression()) {
+                if (skipExpression) {
+                    paramConcrete = false;
+                } else {
+                    offset[i] = runtimeExpressionList[value];
+                }
+            } else {
+                offset[i] = value;
+            }
+        }
+        for (int i = 0; i < dims; i++) {
+            auto value = shapeSymList[i].Value();
+            if (shapeSymList[i].IsExpression()) {
+                if (skipExpression) {
+                    paramConcrete = false;
+                } else {
+                    shape[i] = runtimeExpressionList[value];
+                }
+            } else {
+                shape[i] = value;
+            }
+        }
+        return paramConcrete;
+    }
+
+    static void CellMatchGetIndexRange(
+            const uint64_t offset[DEV_SHAPE_DIM_MAX],
+            const uint64_t shape[DEV_SHAPE_DIM_MAX],
+            const DevCellMatchTableDesc &cellMatchTableDesc,
+            uint64_t rangeBegin[DEV_SHAPE_DIM_MAX],
+            uint64_t rangeEnd[DEV_SHAPE_DIM_MAX]) {
+        for (int i = 0; i < cellMatchTableDesc.GetDimSize(); ++i) {
+            auto cellMatchShapeDim = cellMatchTableDesc.GetCellShape(i);
+            if(cellMatchShapeDim != 0) {
+                rangeBegin[i] = offset[i] / cellMatchShapeDim;
+                rangeEnd[i] = (offset[i] + shape[i] - 1) / cellMatchShapeDim;
+            } else {
+                DEV_ASSERT(0);
+            }
+        }
+    }
+
+    template<typename HandleType, typename ...TyArgs>
+    static void CellMatch5Dimension(const DevCellMatchTableDesc &cellMatchTableDesc, uint64_t* rangeBegin, uint64_t* rangeEnd, TyArgs ... args) {
+        int s0 = cellMatchTableDesc.GetStride(1), s1 = cellMatchTableDesc.GetStride(2);
+        int s2 = cellMatchTableDesc.GetStride(3), s3 = cellMatchTableDesc.GetStride(4), s4 = 1;
+        for (int d0 =  0 + rangeBegin[0] * s0, e0 =  0 + rangeEnd[0] * s0; d0 <= e0; d0 += s0)
+        for (int d1 = d0 + rangeBegin[1] * s1, e1 = d0 + rangeEnd[1] * s1; d1 <= e1; d1 += s1)
+        for (int d2 = d1 + rangeBegin[2] * s2, e2 = d1 + rangeEnd[2] * s2; d2 <= e2; d2 += s2)
+        for (int d3 = d2 + rangeBegin[3] * s3, e3 = d2 + rangeEnd[3] * s3; d3 <= e3; d3 += s3)
+        for (int d4 = d3 + rangeBegin[4] * s4, e4 = d3 + rangeEnd[4] * s4; d4 <= e4; d4 += s4) {
+            HandleType::Process(d4, args...);
+        }
+    }
+    
+    template<typename HandleType, typename ...TyArgs>
+    static void CellMatch4Dimension(const DevCellMatchTableDesc &cellMatchTableDesc, uint64_t* rangeBegin, uint64_t* rangeEnd, TyArgs ... args) {
+        int s0 = cellMatchTableDesc.GetStride(1), s1 = cellMatchTableDesc.GetStride(2);
+        int s2 = cellMatchTableDesc.GetStride(3), s3 = 1;
+        for (int d0 =  0 + rangeBegin[0] * s0, e0 =  0 + rangeEnd[0] * s0; d0 <= e0; d0 += s0)
+        for (int d1 = d0 + rangeBegin[1] * s1, e1 = d0 + rangeEnd[1] * s1; d1 <= e1; d1 += s1)
+        for (int d2 = d1 + rangeBegin[2] * s2, e2 = d1 + rangeEnd[2] * s2; d2 <= e2; d2 += s2)
+        for (int d3 = d2 + rangeBegin[3] * s3, e3 = d2 + rangeEnd[3] * s3; d3 <= e3; d3 += s3) {
+            HandleType::Process(d3, args...);
+        }
+    }
+
+    template<typename HandleType, typename ...TyArgs>
+    static void CellMatchHandle(
+            const uint64_t offset[DEV_SHAPE_DIM_MAX],
+            const uint64_t shape[DEV_SHAPE_DIM_MAX],
+            const DevCellMatchTableDesc &cellMatchTableDesc,
+            TyArgs ... args) {
+        uint64_t rangeBegin[DEV_SHAPE_DIM_MAX];
+        uint64_t rangeEnd[DEV_SHAPE_DIM_MAX];
+        CellMatchGetIndexRange(offset, shape, cellMatchTableDesc, rangeBegin, rangeEnd);
+        switch (cellMatchTableDesc.cellShape.dimSize) {
+        case 1:
+            {
+                int s0 = 1;
+                for (int d0 =  0 + rangeBegin[0] * s0, e0 =  0 + rangeEnd[0] * s0; d0 <= e0; d0 += s0) {
+                    HandleType::Process(d0, args...);
+                }
+            }
+            break;
+        case DEV_SHAPE_DIM_NUM_2:
+            {
+                int s0 = cellMatchTableDesc.GetStride(1), s1 = 1;
+                for (int d0 =  0 + rangeBegin[0] * s0, e0 =  0 + rangeEnd[0] * s0; d0 <= e0; d0 += s0) 
+                for (int d1 = d0 + rangeBegin[1] * s1, e1 = d0 + rangeEnd[1] * s1; d1 <= e1; d1 += s1) {
+                    HandleType::Process(d1, args...);
+                }
+            }
+            break;
+        case DEV_SHAPE_DIM_NUM_3:
+            {
+                int s0 = cellMatchTableDesc.GetStride(1), s1 = cellMatchTableDesc.GetStride(2), s2 = 1;
+                for (int d0 =  0 + rangeBegin[0] * s0, e0 =  0 + rangeEnd[0] * s0; d0 <= e0; d0 += s0)
+                for (int d1 = d0 + rangeBegin[1] * s1, e1 = d0 + rangeEnd[1] * s1; d1 <= e1; d1 += s1)
+                for (int d2 = d1 + rangeBegin[2] * s2, e2 = d1 + rangeEnd[2] * s2; d2 <= e2; d2 += s2) {
+                    HandleType::Process(d2, args...);
+                }
+            }
+            break;
+        case DEV_SHAPE_DIM_NUM_4:
+            {
+                CellMatch4Dimension<HandleType>(cellMatchTableDesc, rangeBegin, rangeEnd, args...);
+            }
+            break;
+        case DEV_SHAPE_DIM_NUM_5:
+            {
+                CellMatch5Dimension<HandleType>(cellMatchTableDesc, rangeBegin, rangeEnd, args...);
+            }
+            break;
+        default:
+            DEV_ERROR("[Stitch] Too many dimension: %d\n", (int)cellMatchTableDesc.GetDimSize());
+            break;
+        }
+    }
+
+    static void CellMatchFill(
+            const uint64_t offset[DEV_SHAPE_DIM_MAX],
+            const uint64_t shape[DEV_SHAPE_DIM_MAX],
+            uint32_t operationIdx,
+            const DevCellMatchTableDesc &cellMatchTableDesc,
+            uint32_t *cellMatchTableData) {
+        struct HandleFill {
+            static inline void Process(int index, uint32_t *cellMatchTableData, uint32_t operationIdx) {
+                cellMatchTableData[index] = operationIdx;
+            }
+        };
+        CellMatchHandle<HandleFill>(offset, shape, cellMatchTableDesc, cellMatchTableData, operationIdx);
+    }
+
+    static void CellMatchFill(
+            const uint64_t offset[DEV_SHAPE_DIM_MAX],
+            const uint64_t shape[DEV_SHAPE_DIM_MAX],
+            uint32_t operationIdx,
+            const DevCellMatchTableDesc &cellMatchTableDesc,
+            uint32_t *cellMatchTableData,
+            uint32_t funcIdx) {
+        struct HandleFill {
+            static inline void Process(int index, uint32_t *cellMatchTableData, uint32_t funcIdx, uint32_t operationIdx) {
+                cellMatchTableData[index] = MakeTaskID(funcIdx, operationIdx);
+            }
+        };
+        CellMatchHandle<HandleFill>(offset, shape, cellMatchTableDesc, cellMatchTableData, funcIdx, operationIdx);
+    }
+
+    template<bool skipExpression, typename ... TyArgs>
+    bool CellMatchFillIncastOutcast(
+            DevAscendFunctionCallOperandUse *operandUseList,
+            size_t useSize,
+            const uint64_t *runtimeExpressionList,
+            bool isIOperand,
+            const DevCellMatchTableDesc &cellMatchTableDesc,
+            TyArgs... args) {
+        bool allConcrete = true;
+        for (size_t i = 0; i < useSize; i++) {
+            auto &use = operandUseList[i];
+            uint64_t offset[DEV_SHAPE_DIM_MAX];
+            uint64_t shape[DEV_SHAPE_DIM_MAX];
+            bool paramConcrete = GetTensorOffsetAndShape<skipExpression>(offset, shape, runtimeExpressionList, cellMatchTableDesc.GetDimSize(), use.operationIdx, use.operandIdx, isIOperand);
+            if (paramConcrete) {
+                CellMatchFill(offset, shape, use.operationIdx, cellMatchTableDesc, args...);
+            }
+            allConcrete &= paramConcrete;
+        }
+        return allConcrete;
+    }
+
+    inline const char *GetRawName() const { return &At(rawName_, 0); }
 
 private:
     friend struct EncodeDevAscendFunctionInfo;
@@ -1004,7 +1310,7 @@ private:
             const std::vector<std::shared_ptr<LogicalTensor>> &incastTensorList,
             const std::vector<std::shared_ptr<LogicalTensor>> &outcastTensorList,
             const std::unordered_map<Operation *, OrderedSet<Operation *>> &callOpSuccDict, bool fillContent);
-
+    void FillOutputSlotMark(const IncastOutcastLink *inoutLink, std::vector<bool>& isOutputSlotMarks);
     void InitRawTensorAndMemoryRequirement(
             uintdevptr_t &initOffset,
             const OrderedSet<std::shared_ptr<RawTensor>> &incastRawList,
@@ -1034,12 +1340,15 @@ private:
             const std::unordered_map<Operation *, OrderedSet<Operation *>> &callOpSuccDict,
             const std::unordered_map<uint64_t, int> &calleeHashIndexDict,
             const std::vector<int32_t> &outcastStitchIndexList,
+            const std::vector<int> &noPredOpList,
+            const std::vector<int> &noSuccOpList,
             bool fillContent);
 
     void InitIncastOutcast(uintdevptr_t &initOffset, const std::vector<std::shared_ptr<LogicalTensor>> &incastTensorList,
         const std::vector<std::shared_ptr<LogicalTensor>> &outcastTensorList,
         const OrderedSet<std::shared_ptr<LogicalTensor>> &tlist,
-        const std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> &inoutOpAttrs,
+        const std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> &incastOpAttrDict,
+        const std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> &outcastOpAttrDict,
         const IncastOutcastSlot *slot, const std::string &initRawName, bool fillContent);
 };
 
@@ -1053,7 +1362,7 @@ struct DevAscendFunctionDuppedVector {
     uint32_t base;
 };
 
-constexpr uint32_t DUPPED_STITCH_SIZE  = 13;
+constexpr uint32_t DUPPED_STITCH_SIZE  = 0x10 - (sizeof(void *) / sizeof(uint32_t)) - 0x1;
 struct DevAscendFunctionDuppedStitch {
     void InitWithNext(DevAscendFunctionDuppedStitch *next) {
         next_ = next;
@@ -1108,19 +1417,37 @@ struct DevAscendFunctionDuppedStitchList {
         head_->PushBack(taskId);
     }
 
-    friend std::ostream &operator<<(std::ostream &os, DevAscendFunctionDuppedStitchList ptr) {
-        os << "[";
-        bool isFirstElem = true;
-        ptr.ForEach([&isFirstElem, &os](uint32_t id) {
-            if (isFirstElem) {
-                isFirstElem = false;
-            } else {
-                os << ", ";
+    static std::string DumpTask(uint32_t id) {
+        std::ostringstream oss;
+        oss << FuncID(id) << "!" << TaskID(id);
+        return oss.str();
+    }
+
+    static std::string DumpTask(uint32_t *idx, int size) {
+        std::ostringstream oss;
+        oss << "{";
+        for (int i = 0; i < size; i++) {
+            oss << Delim(i != 0, ",");
+            oss << "[" << std::dec << i << "]=" << DumpTask(idx[i]);
+        }
+        oss << "}";
+        return oss.str();
+    }
+
+    std::string Dump() const {
+        std::ostringstream oss;
+
+        uint32_t index = 0;
+        oss << "[";
+        for (auto p = head_; p != nullptr; p = p->Next()) {
+            oss << Delim(p != head_, ";");
+            for (uint32_t i = 0; i < p->Size(); i++) {
+                oss << Delim(i != 0, ",");
+                oss << "[" << index++ << "]=" << DumpTask(p->At(i));
             }
-            os << id;
-        });
-        os << "]";
-        return os;
+        }
+        oss << "]";
+        return oss.str();
     }
 
 private:
@@ -1154,12 +1481,11 @@ struct DevAscendFunctionDuppedData {
      */
 #define GET_DATA(type, data, base, index) ((reinterpret_cast<type *>(const_cast<uint8_t *>((data) + (base)))[index]))
     uint16_t GetOperationSize() const { return operationList_.size; }
-    predcount_t &GetOperationCurrPredCount(int index) {
-        return GET_DATA(predcount_t, data_, operationList_.predCountBase, index);
-    }
+    const predcount_t &GetOperationCurrPredCount(int index) const { return GET_DATA(predcount_t, data_, operationList_.predCountBase, index); }
+    predcount_t &GetOperationCurrPredCount(int index) { return GET_DATA(predcount_t, data_, operationList_.predCountBase, index); }
 
     uint64_t GetExpressionSize() const { return expressionList_.size; }
-    uint64_t GetExpression(int index) const { return GET_DATA(uint64_t, data_, expressionList_.base, index); }
+    const uint64_t &GetExpression(int index) const { return GET_DATA(uint64_t, data_, expressionList_.base, index); }
     uint64_t &GetExpression(int index) { return GET_DATA(uint64_t, data_, expressionList_.base, index); }
 
     uint64_t *GetExpressionAddr() const {
@@ -1186,9 +1512,55 @@ struct DevAscendFunctionDuppedData {
     DevAscendFunction *GetSource() const { return source_; }
     DevAscendFunction *&GetSource() { return source_; }
 
-    DevAscendFunctionDuppedStitchList &GetOperationStitch(int operationIndex) {
-        int outcastStitchIndex = static_cast<int>(GetSource()->GetOperationOutcastStitchIndex(operationIndex));
+    const DevAscendFunctionDuppedStitchList &GetOperationStitch(int operationIndex, bool maybeNull = true) const {
+        int outcastStitchIndex = GetSource()->GetOperationOutcastStitchIndex(operationIndex);
+        DEV_IF_NONDEVICE {
+            DEV_ASSERT(maybeNull || outcastStitchIndex != 0);
+        }
         return GET_DATA(DevAscendFunctionDuppedStitchList, data_, operationList_.stitchBase, outcastStitchIndex);
+    }
+    DevAscendFunctionDuppedStitchList &GetOperationStitch(int operationIndex, bool maybeNull = true) {
+        int outcastStitchIndex = GetSource()->GetOperationOutcastStitchIndex(operationIndex);
+        DEV_IF_NONDEVICE {
+            DEV_ASSERT(maybeNull || outcastStitchIndex != 0);
+        }
+        return GET_DATA(DevAscendFunctionDuppedStitchList, data_, operationList_.stitchBase, outcastStitchIndex);
+    }
+
+    std::string Dump(int indent = 0) const {
+        DEV_ASSERT(GetSource()->GetOperationSize() == GetOperationSize());
+        std::string INDENT(indent, ' ');
+        std::string INDENTINNER(indent + IDENT_SIZE, ' ');
+
+        std::ostringstream oss;
+        oss << INDENT << "DevFunctionDupped " << GetSource()->GetFuncKey() << " {\n";
+        for (size_t incastIndex = 0; incastIndex < GetIncastSize(); incastIndex++) {
+            oss << INDENTINNER << "#incast:" << incastIndex << " = " << GetIncastAddress(incastIndex).Dump() << "\n";
+        }
+        for (size_t outcastIndex = 0; outcastIndex < GetOutcastSize(); outcastIndex++) {
+            oss << INDENTINNER << "#outcast:" << outcastIndex << " = " << GetOutcastAddress(outcastIndex).Dump() << "\n";
+        }
+        for (size_t operationIndex = 0; operationIndex < GetOperationSize(); operationIndex++) {
+            oss << INDENTINNER << "!" << operationIndex;
+            oss << " #pred:" << GetSource()->GetOperationDepGraphPredCount(operationIndex);
+            oss << " #succ:[";
+            size_t succSize;
+            auto succList = GetSource()->GetOperationDepGraphSuccAddr(operationIndex, succSize);
+            for (size_t j = 0; j < succSize; j++) {
+                oss << Delim(j != 0, ",") << "[" << j << "]=!" << succList[j];
+            }
+            oss << "]";
+            oss << " #dynpred:" << GetOperationCurrPredCount(operationIndex);
+            oss << " #dynsucc:" << GetOperationStitch(operationIndex).Dump();
+            oss << "\n";
+        }
+        oss << INDENTINNER << "#expr:[";
+        for (size_t exprIndex = 0; exprIndex < GetExpressionSize(); exprIndex++) {
+            oss << Delim(exprIndex != 0, ",") << "[" << exprIndex << "]=" << GetExpression(exprIndex);
+        }
+        oss << "]";
+        oss << INDENT << "}\n";
+        return oss.str();
     }
 };
 const uint32_t RAW_TENSOR_OFFSET_SIZE = 63;
@@ -1240,12 +1612,15 @@ struct DevAscendFunctionDupped {
     const DevAscendFunction *GetSource() const { return DupData()->GetSource(); }
     DevAscendFunction *GetSource() { return DupData()->GetSource(); }
 
-    inline uint64_t GetExpression(int arg) const { return DupData()->GetExpression(arg); };
+    inline const uint64_t &GetExpression(int arg) const { return DupData()->GetExpression(arg); };
     inline uint64_t &GetExpression(int arg) { return DupData()->GetExpression(arg); };
     inline uint64_t *GetExpressionAddr() const { return DupData()->GetExpressionAddr(); }
 
+    inline auto GetOperationSize() const { return DupData()->GetOperationSize(); }
+    inline const predcount_t &GetOperationCurrPredCount(int arg) const { return DupData()->GetOperationCurrPredCount(arg); };
     inline predcount_t &GetOperationCurrPredCount(int arg) { return DupData()->GetOperationCurrPredCount(arg); };
-    inline auto &GetOperationStitch(int arg) { return DupData()->GetOperationStitch(arg); };
+    inline const auto &GetOperationStitch(int arg, bool maybeNull = true) const { return DupData()->GetOperationStitch(arg, maybeNull); };
+    inline auto &GetOperationStitch(int arg, bool maybeNull = true) { return DupData()->GetOperationStitch(arg, maybeNull); };
 
     inline AddressDescriptor GetIncastAddress(int arg) const { return DupData()->GetIncastAddress(arg); };
     inline AddressDescriptor &GetIncastAddress(int arg) { return DupData()->GetIncastAddress(arg); };
@@ -1294,38 +1669,11 @@ struct DevAscendFunctionDupped {
     inline void GetTensorOffsetAndShape(uint64_t offset[DEV_SHAPE_DIM_MAX], uint64_t shape[DEV_SHAPE_DIM_MAX], int dims,
         int operationIndex, int operandIndex, bool isIOperand = true) const {
         auto func = GetSource();
-        auto &operandInfo = func->GetOperationOperandInfo(operationIndex, operandIndex, isIOperand);
-
-        const SymInt *offsetSymList = &func->GetOperationAttr(operationIndex, operandInfo.staticOffsetAttrBeginIndex);
-        for (int i = 0; i < dims; i++) {
-            offset[i] =
-                offsetSymList[i].IsExpression() ? GetExpression(offsetSymList[i].Value()) : offsetSymList[i].Value();
-        }
-
-        const SymInt *shapeSymList = &func->GetOperationAttr(operationIndex, operandInfo.staticShapeAttrBeginIndex);
-        for (int i = 0; i < dims; i++) {
-            shape[i] =
-                shapeSymList[i].IsExpression() ? GetExpression(shapeSymList[i].Value()) : shapeSymList[i].Value();
-        }
+        func->GetTensorOffsetAndShape<false>(offset, shape, &GetExpression(0), dims, operationIndex, operandIndex, isIOperand);
     }
 
-    std::string Dump(const std::vector<uintdevptr_t> &slotAddrList, int indent = 0) {
-        std::string INDENT(indent, ' ');
-        std::string INDENTINNER(indent + IDENT_SIZE, ' ');
-        std::ostringstream oss;
-
-        oss << INDENT << "DevFunction " << GetSource()->funcKey << " #Dup():" << GetSource()->GetFuncidx() << " {\n";
-        for (size_t i = 0; i < GetSource()->GetRawTensorSize(); i++) {
-            oss << INDENTINNER << GetSource()->DumpRawTensor(i, GetRawTensorAddr(i)) << "\n";
-        }
-        for (size_t i = 0; i < GetSource()->GetIncastSize(); i++) {
-            oss << INDENTINNER << GetSource()->DumpIncast(i, INDENTINNER, slotAddrList) << "\n";
-        }
-        for (size_t i = 0; i < GetSource()->GetOutcastSize(); i++) {
-            oss << INDENTINNER << GetSource()->DumpOutcast(i, INDENTINNER, slotAddrList) << "\n";
-        }
-        oss << INDENT << "}";
-        return oss.str();
+    std::string Dump(int indent = 0) const {
+        return DupData()->Dump(indent);
     }
 
     inline int64_t GetValue(const SymInt *attrs, int idx) {
@@ -1382,10 +1730,10 @@ struct DevAscendFunctionDupped {
         auto func = GetSource();
         for (size_t opIdx = 0; opIdx < DupData()->GetSource()->GetOperationSize(); opIdx++) {
             os << seqNo << "," << MakeTaskID(funcIdx, opIdx) << "," << func->funcKey << "," << func->GetOperationAttrCalleeIndex(opIdx) << ","
-               << func->GetOperationOpmagic(opIdx) << ",";
+               << func->GetOperationDebugOpmagic(opIdx) << ",";
             auto &cceInfo = cceBinary[func->GetOperationAttrCalleeIndex(opIdx)];
             os << cceInfo.coreType << "," << cceInfo.psgId << "," << cceInfo.funcHash;
-            auto &succList = func->GetOperationSuccList(opIdx);
+            auto &succList = func->GetOperationDepGraphSuccList(opIdx);
             for (size_t j = 0; j < succList.size(); j++) {
                 os << "," << MakeTaskID(funcIdx, func->At(succList, j));
             }
@@ -1403,7 +1751,7 @@ struct DevAscendFunctionDupped {
 
         for (size_t opIdx = 0; opIdx < DupData()->GetSource()->GetOperationSize(); opIdx++) {
             oss << std::hex << "[" << opIdx << "] #predCnt:" << GetOperationCurrPredCount(opIdx);
-            auto &succList = func->GetOperationSuccList(opIdx);
+            auto &succList = func->GetOperationDepGraphSuccList(opIdx);
             oss << " #succList: [";
             for (size_t j = 0; j < succList.size(); j++) {
                 if (j != 0)
@@ -1413,7 +1761,7 @@ struct DevAscendFunctionDupped {
             oss << ']';
             auto &stitch = GetOperationStitch(opIdx);
             if (!stitch.IsNull())
-                oss << std::hex << " #stitch:" << stitch;
+                oss << std::hex << " #stitch:" << stitch.Dump();
             oss << "\n";
         }
 
@@ -1448,7 +1796,7 @@ struct DevAscendFunctionDupped {
             oss << "  [" << operIdx << "]  #funcHash: " << std::to_string(cceBinary[funcIndex].funcHash)
                 << " #funcIndex: " << funcIndex
                 << " #funcAddr: " << reinterpret_cast<uint64_t>(cceBinary[funcIndex].binary.Data())
-                << " #taskID:" << MakeTaskID(funcIdx, operIdx) << " #opMagic: " << func->GetOperationOpmagic(operIdx)
+                << " #taskID:" << MakeTaskID(funcIdx, operIdx) << " #opMagic: " << func->GetOperationDebugOpmagic(operIdx)
                 << "\n";
             oss << "  #invokeAttrs : ";
 
@@ -1500,6 +1848,17 @@ struct DevAscendProgramSymbol {
     uint64_t index;
 };
 
+struct DevAscendProgramPartialUpdate {
+    int slotIndex;
+
+    DevCellMatchTableDesc cellMatchTableDesc;
+    DevRelocVector<uint32_t> cellMatchRuntimePartialUpdateTable;
+
+    bool Empty() const {
+        return cellMatchRuntimePartialUpdateTable.size() == 0;
+    }
+};
+
 #ifndef PAGE_SIZE
 #define PAGE_SIZE       4096
 #endif
@@ -1533,12 +1892,14 @@ struct DevAscendProgram {
     DevRelocVector<uint8_t> devEncodeDataList;
     DevRelocVector<DevCceBinary> cceCodeList;
     DevRelocVector<uint8_t> cceCodeDataList;
-    DevRelocVector<int> startArgsInputTensorSlotIndexList;
-    DevRelocVector<int> startArgsOutputTensorSlotIndexList;
-    DevRelocVector<int> startArgsInputSymbolIndexList;
+    DevRelocVector<uint64_t> startArgsInputTensorSlotIndexList;
+    DevRelocVector<uint64_t> startArgsOutputTensorSlotIndexList;
+    DevRelocVector<uint64_t> startArgsInputSymbolIndexList;
     DevRelocVector<SymbolHandler> startArgsSymbolHandlerList;
-    DevRelocVector<int> assembleSlotIndexList;
-    DevRelocVector<int> inplaceSlotList;
+    DevRelocVector<uint64_t> assembleSlotIndexList;
+    DevRelocVector<uint64_t> inplaceSlotList;
+    DevRelocVector<DevAscendProgramPartialUpdate> partialUpdateList;
+    DevRelocVector<uint32_t> cellMatchRuntimePartialUpdateTableList;
     DevRelocVector<PrefetchInfo> prefetchInfoList;
     DevRelocVector<uint8_t> disableL2List;
 #define programLastField                              disableL2List
@@ -1556,11 +1917,14 @@ struct DevAscendProgram {
      *      uint8_t devEncodeDataList[]
      *      DevRelocVector<uint8_t> cceCodeList[]
      *      uint8_t cceCodeDataList[]
-     *      int startArgsInputTensorSlotIndexListData[]
-     *      int startArgsOutputTensorSlotIndexListData[]
-     *      int startArgsInputSymbolIndexListData[]
+     *      uint64_t startArgsInputTensorSlotIndexListData[]
+     *      uint64_t startArgsOutputTensorSlotIndexListData[]
+     *      uint64_t startArgsInputSymbolIndexListData[]
      *      SymbolHandler startArgsSymbolHandlerListData[]
-     *      int assembleSlotIndexList[]
+     *      uint64_t assembleSlotIndexList[]
+	 *      uint64_t inplaceSlotList[];
+     *      DevAscendProgramPartialUpdate partialUpdateList[]
+     *      DevAscendProgramSlot slotList[]
      */
 
     template <typename T>
@@ -1570,6 +1934,32 @@ struct DevAscendProgram {
     template <typename T>
     T &At(DevRelocVector<T> &localvec, int index) {
         return localvec[index];
+    }
+
+    void DumpCce(std::ostringstream& oss, int indent, bool dumpAddr = false) const {
+        const int WIDTH = 16;
+        const int ADDRESS_MIN_WIDTH = 6;
+        std::string INDENTINNER(indent + IDENT_SIZE, ' ');
+        std::string INDENTINNERINNER(indent + IDENT2_SIZE, ' ');
+        oss << INDENTINNER << "#cce:" << cceCodeList.size() << "\n";
+        for (size_t i = 1; i < cceCodeList.size(); i++) {
+            const DevCceBinary &cceCode = At(cceCodeList, i);
+            oss << INDENTINNER << "#cce-" << i << " #CoreType:" << cceCode.coreType
+                << " #FuncHash:" << cceCode.funcHash;
+            if (dumpAddr) {
+                std::string address = AddressDescriptor::DumpAddress(reinterpret_cast<uintdevptr_t>(&At(cceCode.binary, 0)));
+                oss << " #CoreAddr:" << address;
+            }
+            oss << "\n";
+
+            for (size_t j = 0; j < cceCode.binary.size(); j += WIDTH) {
+                oss << INDENTINNERINNER << AddressDescriptor::DumpAddress(j, ADDRESS_MIN_WIDTH) << ":";
+                for (size_t off = j; off < std::min(j + WIDTH, cceCode.binary.size()); off++) {
+                    oss << " " << DevAscendFunction::DumpByte(At(cceCode.binary, off));
+                }
+                oss << "\n";
+            }
+        }
     }
 
     std::string Dump(int indent = 0, bool dumpAddr = false) const {
@@ -1600,6 +1990,15 @@ struct DevAscendProgram {
         for (size_t i = 0; i < inplaceSlotList.size(); i++) {
             oss << INDENTINNER << "#inplace:" << i << " <- #slot:" << At(inplaceSlotList, i) << "\n";
         }
+        for (size_t i = 0; i < partialUpdateList.size(); i++) {
+            auto &partialUpdate = At(partialUpdateList, i);
+            oss << INDENTINNER << "#slot-partial-update-" << i << ":" << !partialUpdate.Empty();
+            if (!partialUpdate.Empty()) {
+                oss << " | #cellMatchTableDesc:" << DevAscendFunction::DumpCellMatchTableDesc(partialUpdate.cellMatchTableDesc)
+                    << " | #cellMatchStaticTable:" << partialUpdate.cellMatchRuntimePartialUpdateTable.size();
+            }
+            oss << "\n";
+        }
         for (size_t i = 0; i < startArgsInputSymbolIndexList.size(); i++) {
             oss << INDENTINNER << "#symbol:" << i << " -> #symbolTable:" << At(startArgsInputSymbolIndexList, i) << "\n";
         }
@@ -1608,17 +2007,23 @@ struct DevAscendProgram {
         oss << INDENTINNER << "#ExprCodeSize:" << expressionTableBinary.size();
         if (dumpAddr) {
             if (expressionTableBinary.size() != 0) {
-                oss << " #ExprCodeAddr:" << DevAscendFunction::DumpAddress(reinterpret_cast<uintdevptr_t>(&At(expressionTableBinary, 0)));
+                oss << " #ExprCodeAddr:" << AddressDescriptor::DumpAddress(reinterpret_cast<uintdevptr_t>(&At(expressionTableBinary, 0)));
             }
         }
         oss << "\n";
 
         for (size_t i = 0; i < expressionTableBinary.size(); i += WIDTH) {
-            oss << INDENTINNERINNER << DevAscendFunction::DumpAddress(i, ADDRESS_MIN_WIDTH) << ":";
+            oss << INDENTINNERINNER << AddressDescriptor::DumpAddress(i, ADDRESS_MIN_WIDTH) << ":";
             for (size_t off = i; off < std::min(i + WIDTH, expressionTableBinary.size()); off++) {
                 oss << " " << DevAscendFunction::DumpByte(At(expressionTableBinary, off));
             }
             oss << "\n";
+        }
+
+        oss << INDENTINNER << "#func:" << devEncodeList.size() << "\n";
+        for (size_t i = 0; i < devEncodeList.size(); i++) {
+            const DevAscendFunction *func = reinterpret_cast<const DevAscendFunction *>(&At(At(devEncodeList, i), 0));
+            oss << func->Dump(IDENT_SIZE) << "\n";
         }
 
         oss << "====\n"; // Dump control flow code (begin)
@@ -1626,12 +2031,12 @@ struct DevAscendProgram {
         oss << INDENTINNER << "#HostControlCodeSize:" << hostControlFlowBinary.size();
         if (dumpAddr) {
             oss << " #HostControlCodeAddr:" <<
-                DevAscendFunction::DumpAddress(reinterpret_cast<uintdevptr_t>(&At(hostControlFlowBinary, 0)));
+                AddressDescriptor::DumpAddress(reinterpret_cast<uintdevptr_t>(&At(hostControlFlowBinary, 0)));
         }
         oss << "\n";
 
         for (size_t i = 0; i < hostControlFlowBinary.size(); i += WIDTH) {
-            oss << INDENTINNERINNER << DevAscendFunction::DumpAddress(i, ADDRESS_MIN_WIDTH) << ":";
+            oss << INDENTINNERINNER << AddressDescriptor::DumpAddress(i, ADDRESS_MIN_WIDTH) << ":";
             for (size_t off = i; off < std::min(i + WIDTH, hostControlFlowBinary.size()); off++) {
                 oss << " " << DevAscendFunction::DumpByte(At(hostControlFlowBinary, off));
             }
@@ -1643,12 +2048,12 @@ struct DevAscendProgram {
         oss << INDENTINNER << "#DevControlCodeSize:" << devControlFlowBinary.size();
         if (dumpAddr) {
             oss << " #DevControlCodeAddr:" <<
-                DevAscendFunction::DumpAddress(reinterpret_cast<uintdevptr_t>(&At(devControlFlowBinary, 0)));
+                AddressDescriptor::DumpAddress(reinterpret_cast<uintdevptr_t>(&At(devControlFlowBinary, 0)));
         }
         oss << "\n";
 
         for (size_t i = 0; i < devControlFlowBinary.size(); i += WIDTH) {
-            oss << INDENTINNERINNER << DevAscendFunction::DumpAddress(i, ADDRESS_MIN_WIDTH) << ":";
+            oss << INDENTINNERINNER << AddressDescriptor::DumpAddress(i, ADDRESS_MIN_WIDTH) << ":";
             for (size_t off = i; off < std::min(i + WIDTH, devControlFlowBinary.size()); off++) {
                 oss << " " << DevAscendFunction::DumpByte(At(devControlFlowBinary, off));
             }
@@ -1657,30 +2062,7 @@ struct DevAscendProgram {
 
         oss << "====\n"; // Dump control flow code (ends)
 
-        oss << INDENTINNER << "#func:" << devEncodeList.size() << "\n";
-        for (size_t i = 0; i < devEncodeList.size(); i++) {
-            const DevAscendFunction *func = reinterpret_cast<const DevAscendFunction *>(&At(At(devEncodeList, i), 0));
-            oss << func->Dump(IDENT_SIZE) << "\n";
-        }
-        oss << INDENTINNER << "#cce:" << cceCodeList.size() << "\n";
-        for (size_t i = 1; i < cceCodeList.size(); i++) {
-            const DevCceBinary &cceCode = At(cceCodeList, i);
-            oss << INDENTINNER << "#cce-" << i << " #CoreType:" << cceCode.coreType
-                << " #FuncHash:" << cceCode.funcHash;
-            if (dumpAddr) {
-                std::string address = DevAscendFunction::DumpAddress(reinterpret_cast<uintdevptr_t>(&At(cceCode.binary, 0)));
-                oss << " #CoreAddr:" << address;
-            }
-            oss << "\n";
-
-            for (size_t j = 0; j < cceCode.binary.size(); j += WIDTH) {
-                oss << INDENTINNERINNER << DevAscendFunction::DumpAddress(j, ADDRESS_MIN_WIDTH) << ":";
-                for (size_t off = j; off < std::min(j + WIDTH, cceCode.binary.size()); off++) {
-                    oss << " " << DevAscendFunction::DumpByte(At(cceCode.binary, off));
-                }
-                oss << "\n";
-            }
-        }
+        DumpCce(oss, indent, dumpAddr);
         oss << "}";
         return oss.str();
     }
@@ -1712,6 +2094,13 @@ struct DevAscendProgram {
             indexList.push_back(At(assembleSlotIndexList, i));
         }
         return indexList;
+    }
+
+    std::vector<int> GetPartialUpdateTensorSlotIndexList() const {
+        const int &front = At(assembleSlotIndexList, 0);
+        const int &back = At(assembleSlotIndexList, assembleSlotIndexList.size() - 1);
+        std::vector<int> slotIndexList(&front, &back + 1);
+        return slotIndexList;
     }
 
     std::tuple<const void *, uint64_t> GetDevControlFlowBinary() const {
@@ -1756,61 +2145,59 @@ struct DevAscendProgram {
 
     const DevCceBinary *GetCceBinary(int index) const { return &cceCodeList[index]; }
 
-    void Reloc(intptr_t shift, bool relocFunc = false) {
-        auto symbolTablePtr = AddOffset<DevAscendProgramSymbol>(data, 0);
-        symbolTable.DeviceRelocData(shift);
+    template<typename Ty>
+    typename Ty::ElementType *RelocOffset(intptr_t shift, void *&offset, Ty &list) {
+        typename Ty::ElementType *ptr = (typename Ty::ElementType *)offset;
+        offset = (void *)((uintptr_t)(offset) + list.ElementSize() * list.size());
+        list.DeviceRelocData(shift);
+        return ptr;
+    }
+
+    void RelocProgram(intptr_t shift, bool relocFunc = false) {
+        void *offset = data;
+
+        auto symbolTablePtr = RelocOffset(shift, offset, symbolTable);
         for (size_t i = 0; i < symbolTable.size(); i++) {
             symbolTablePtr[i].name.DeviceRelocData(shift);
         }
 
-        auto symbolTableNameListPtr = AddOffset<uint8_t>(symbolTablePtr, symbolTable.size());
-        symbolTableNameList.DeviceRelocData(shift);
+        RelocOffset(shift, offset, symbolTableNameList);
+        RelocOffset(shift, offset, expressionTableOffsetList);
+        RelocOffset(shift, offset, preGuardPage);
+        RelocOffset(shift, offset, expressionTableBinary);
+        RelocOffset(shift, offset, hostControlFlowBinary);
+        RelocOffset(shift, offset, devControlFlowBinary);
 
-        auto expressionTableOffsetListPtr = AddOffset<uint64_t>(symbolTableNameListPtr, symbolTableNameList.size());
-        expressionTableOffsetList.DeviceRelocData(shift);
-
-        auto preGuardPagePtr = AddOffset<uint8_t>(expressionTableOffsetListPtr, expressionTableOffsetList.size());
-        preGuardPage.DeviceRelocData(shift);
-
-        auto expressionTableBinaryPtr = AddOffset<uint8_t>(preGuardPagePtr, preGuardPage.size());
-        expressionTableBinary.DeviceRelocData(shift);
-
-        auto hostControlFlowBinaryPtr = AddOffset<uint8_t>(expressionTableBinaryPtr, expressionTableBinary.size());
-        hostControlFlowBinary.DeviceRelocData(shift);
-
-        auto devControlFlowBinaryPtr = AddOffset<uint8_t>(hostControlFlowBinaryPtr, hostControlFlowBinary.size());
-        devControlFlowBinary.DeviceRelocData(shift);
-
-        auto devEncodeListPtr = AddOffset<DevRelocVector<uint8_t>>(devControlFlowBinaryPtr, devControlFlowBinary.size());
-        devEncodeList.DeviceRelocData(shift);
+        auto devEncodeListPtr = RelocOffset(shift, offset, devEncodeList);
         for (size_t i = 0; i < devEncodeList.size(); i++) {
             devEncodeListPtr[i].DeviceRelocData(shift);
         }
+        RelocOffset(shift, offset, devEncodeDataList);
 
-        auto devEncodeDataListPtr = AddOffset<uint8_t>(devEncodeListPtr, devEncodeList.size());
-        devEncodeDataList.DeviceRelocData(shift);
-
-        auto cceCodeListPtr = AddOffset<DevCceBinary>(devEncodeDataListPtr, devEncodeDataList.size());
-        shift = ALIGN_UP(shift, alignof(DevCceBinary));
-        cceCodeList.DeviceRelocData(shift);
+        auto cceCodeListPtr = RelocOffset(shift, offset, cceCodeList);
         for (size_t i = 0; i < cceCodeList.size(); i++) {
             cceCodeListPtr[i].binary.DeviceRelocData(shift);
         }
-        cceCodeDataList.DeviceRelocData(shift);
+        RelocOffset(shift, offset, cceCodeDataList);
 
-        startArgsInputTensorSlotIndexList.DeviceRelocData(shift);
-        startArgsOutputTensorSlotIndexList.DeviceRelocData(shift);
-        startArgsSymbolHandlerList.DeviceRelocData(shift);
-        startArgsInputSymbolIndexList.DeviceRelocData(shift);
-        assembleSlotIndexList.DeviceRelocData(shift);
-        inplaceSlotList.DeviceRelocData(shift);
-        prefetchInfoList.DeviceRelocData(shift);
-        disableL2List.DeviceRelocData(shift);
+        RelocOffset(shift, offset, startArgsInputTensorSlotIndexList);
+        RelocOffset(shift, offset, startArgsOutputTensorSlotIndexList);
+        RelocOffset(shift, offset, startArgsSymbolHandlerList);
+        RelocOffset(shift, offset, startArgsInputSymbolIndexList);
+        RelocOffset(shift, offset, assembleSlotIndexList);
+        RelocOffset(shift, offset, inplaceSlotList);
+        auto partialUpdateListPtr = RelocOffset(shift, offset, partialUpdateList);
+        for (size_t i = 0; i < partialUpdateList.size(); i++) {
+            partialUpdateListPtr[i].cellMatchRuntimePartialUpdateTable.DeviceRelocData(shift);
+        }
+        RelocOffset(shift, offset, cellMatchRuntimePartialUpdateTableList);
+
+        RelocOffset(shift, offset, prefetchInfoList);
+        RelocOffset(shift, offset, disableL2List);
         if (relocFunc) {
             for (int i = 0; i < static_cast<int>(GetFunctionSize()); i++) {
                 DevAscendFunction *func = GetFunction(i);
                 func->Reloc(reinterpret_cast<uint64_t>(func), true);
-                func->Verify(reinterpret_cast<uint64_t>(func));
             }
         }
     }
@@ -1843,6 +2230,14 @@ private:
         const std::vector<SymbolHandler> &tStartArgsSymbolHandlerList,
         const std::vector<int> &tAsembleSlotIndexList,
         const std::vector<int> &tInplaceSlotIndexList, bool fillContent);
+    void InitPartialUpdateSlot(
+            uintdevptr_t &initOffset,
+            const std::vector<std::vector<uint8_t>> &devEncodeListInput,
+            const std::unordered_map<Function *, int> &rootFuncKeyDict,
+            const std::unordered_map<int, std::unordered_map<Function *, int>> &slotRootIncastDict,
+            const std::unordered_map<int, std::unordered_map<Function *, int>> &slotRootOutcastDict,
+            const std::vector<int> &tPartialUpdateSlotIndexList,
+            bool fillContent);
 };
 
 void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *base);
@@ -1988,7 +2383,7 @@ public:
         oss << "DevStartArgs {" << "\n";
         for (int i = 0; i < GetInputTensorSize(); i++) {
             const DevAscendTensorData &input = GetInputTensor(i);
-            oss << INDENTINNER << "#input-" << i << ": #address:" << DevAscendFunction::DumpAddress(input.address);
+            oss << INDENTINNER << "#input-" << i << ": #address:" << AddressDescriptor::DumpAddress(input.address);
             oss << " #shape:[";
             for (int j = 0; j < input.shape.dimSize; j++) {
                 if (j != 0) {
@@ -2000,7 +2395,7 @@ public:
         }
         for (int i = 0; i < GetOutputTensorSize(); i++) {
             const DevAscendTensorData &output = GetOutputTensor(i);
-            oss << INDENTINNER << "#output-" << i << ": #address:" << DevAscendFunction::DumpAddress(output.address);
+            oss << INDENTINNER << "#output-" << i << ": #address:" << AddressDescriptor::DumpAddress(output.address);
             oss << " #shape:[";
             for (int j = 0; j < output.shape.dimSize; j++) {
                 if (j != 0) {
@@ -2010,10 +2405,10 @@ public:
             }
             oss << "]\n";
         }
-        oss << INDENTINNER << "#workspaceAddr:" << DevAscendFunction::DumpAddress(workspaceAddr) << "\n";
+        oss << INDENTINNER << "#workspaceAddr:" << AddressDescriptor::DumpAddress(workspaceAddr) << "\n";
         oss << INDENTINNER << "#aicoreLocalWorkspaceSize:" << aicoreLocalWorkspaceSize << "\n";
         oss << INDENTINNER << "#aicpuCoherentWorkspaceSize:" << aicpuCoherentWorkspaceSize << "\n";
-        oss << INDENTINNER << "#devProg:" << DevAscendFunction::DumpAddress(reinterpret_cast<uintdevptr_t>(devProg)) << "\n";
+        oss << INDENTINNER << "#devProg:" << AddressDescriptor::DumpAddress(reinterpret_cast<uintdevptr_t>(devProg)) << "\n";
         oss << "}";
         return oss.str();
     }

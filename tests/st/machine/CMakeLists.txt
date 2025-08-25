@@ -21,6 +21,7 @@ set(_CaseFilterList
         #===========================================================================
         # "DyMla.high_PA_NZ"
         "DyMla.low_PA_BSND"
+        "DynamicTest.TestPartial"
 
         # Flash Attention
         #===========================================================================

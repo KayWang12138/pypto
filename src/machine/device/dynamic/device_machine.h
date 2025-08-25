@@ -160,7 +160,7 @@ public:
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
         PerfBegin(PERF_EVT_INIT);
         if (devProg->controlFlowBinaryAddr == nullptr) {
-          devProg->Reloc((uint64_t)devProg, true);
+          devProg->RelocProgram((uint64_t)devProg, true);
           auto execProg = DeviceExecuteProgram(devProg, nullptr);
           devProg->controlFlowBinaryAddr = execProg.GetControlFlowEntry();
         }

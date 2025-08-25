@@ -43,6 +43,11 @@ const uint64_t SHARED_BUFFER_SIZE = 512;
 const uint64_t PMU_BUFFER_SIZE = 4096;
 const uint64_t DEVICE_QUEUE_SIZE = 512;
 
+constexpr const int DEV_SHAPE_DIM_NUM_2 = 2;
+constexpr const int DEV_SHAPE_DIM_NUM_3 = 3;
+constexpr const int DEV_SHAPE_DIM_NUM_4 = 4;
+constexpr const int DEV_SHAPE_DIM_NUM_5 = 5;
+
 #define DEVICE_TASK_STOP 0x7FFFFFFE
 
 #define DEVICE_TASK_TYPE_STATIC  0

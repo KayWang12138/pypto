@@ -30,6 +30,10 @@
 #include "toolchain/slog.h"
 #endif
 namespace npu::tile_fwk {
+
+#define DEV_IF_NONDEVICE                                                        \
+    if constexpr (!IsDeviceMode())
+
 #if DEBUG_PLOG && defined(__DEVICE__)
 #define GET_TID() syscall(__NR_gettid)
 const std::string TILE_FWK_DEVICE_MACHINE = "AI_CPU";
