@@ -197,6 +197,8 @@ void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig, W
 
     // post: Tensor
     Tensor wUv(dType, wUvShape, "wUv");
+    Tensor wUvScale;
+    Tensor smoothWUv;
     Tensor wo(dTypeQuant, woShape, "wo", NodeType::LOCAL, weightFormat);
     Tensor woScale;
     Tensor smoothWo;
@@ -258,6 +260,7 @@ void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig, W
 
     MlaQuantInputs quantInputs;
 
+    PostTensors postTensors{wUv, wo, wUvScale, smoothWUv, woScale, smoothWo};
     // 4. 计算接口
     DynamicNsa(x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache, quantInputs,
         prologConfig, eps, eps, cacheMode, topkIndices, /*kvNopeCache, kRopeCache,*/ kvCacheActSeq,
@@ -265,7 +268,7 @@ void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig, W
         /*qNope, qRope, slcActSeqs,*/ softmaxScale, saTileConfig,                // slcAttn
         /*x, */ gateW1, gateW2, gateSimW1, GateMode::standard,                   // gatedscore
         cmpAtten, winSize, winAttntileConfig,                                    // gen win
-        wUv, wo, woScale, smoothWo, postConfig,                                  // post
+        postTensors, postConfig,                                  // post
         outputKvCache, outputKrCache, postOut, cmpKvCache_v2, cmpKrCache_v2, cmpBlockTable_v2, actSeqLen_v2,
         actCmpSeqLen_v2, mlpWk1_v2, mlpWk2_v2, mlpCos_v2, mlpSin_v2, cmpAttn, cmpSoftmax, fullK, cmpK, firstRope,
         firstRopeInput, topkRes, topkInput, cmpBlockSize, cmpStride, cmpTileConfig, debug);

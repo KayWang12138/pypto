@@ -33,7 +33,7 @@ sys.path.insert(0, golden_parent)
 
 from golden.net.deepseekv3.nsa.gen_slc_attn import compute_attention
 from golden.op.kv_slc import kv_slc_compute
-from golden.net.deepseekv3.nsa.attention_post_golden import post_compute, gen_post_input_data
+from golden.net.deepseekv3.nsa.attention_post_golden import PostConfig, post_compute, gen_post_input_data
 from golden.net.deepseekv3.nsa.win_atten import win_attn_calc
 from golden.net.deepseekv3.mla.mla_prolog_golden_v2 import gen_prolog_input_data, mla_prolog_compute
 from golden.net.deepseekv3.nsa.gen_fused_compress_kv_select import compress_attention_data_gen, compress_attention_compute
@@ -416,9 +416,8 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
     # win_atten = np.random.uniform(-1, 1, win_atten_shape).astype(dtype)
 
     # post
-    post_params = [b, n1, s, h, kv_lora_rank, v_head_dim]
-    w_uv, w_o, w_o_scale, smooth_wo = gen_post_input_data(output_dir, post_params, dtype, is_quant, has_smooth, is_nz)
-
+    post_config = PostConfig((b, n1, s, h, kv_lora_rank, v_head_dim), dtype, False, False, is_quant, has_smooth, is_nz)
+    w_uv, w_uv_scale, smooth_wuv, w_o, w_o_scale, smooth_wo = gen_post_input_data(output_dir, post_config)
 
     # 3. 计算 & dump file
     # mla_prolog
@@ -527,14 +526,14 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
 
     # post
     print("========== gen post output ==============")
-    post_inputs = {"dtype": dtype, "is_quant": is_quant, "has_smooth": has_smooth}
+    post_inputs = {"dtype": dtype, "is_quant_w_uv": False, "has_smooth_w_uv": False, "is_quant_w_o": is_quant, "has_smooth_w_o": has_smooth}
     post_inputs["x"] = attention_out
     post_inputs["w_uv"] = w_uv
     post_inputs["w_o"] = w_o
     if is_quant:
         post_inputs["w_o_scale"] = w_o_scale
         if has_smooth:
-            post_inputs["smooth_wo"] = smooth_wo
+            post_inputs["smooth_w_o"] = smooth_wo
     post_out = post_compute(post_inputs)
 
     # dump output to file

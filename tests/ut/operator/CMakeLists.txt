@@ -35,6 +35,7 @@ set(_CaseFilterList
         "MlaPrologUTest.b16_s1_pa_nz_fp16_quant"
         # NSA AttentionPost
         "AttentionPostUTest.b32_s1_nz_fp16_quant"
+        "AttentionPostUTest.b32_s2_nz_bf16_quant_all"
         # NSA
         "NSAUtest.nsa_b_16_fp16"
         "NSAUtest.nsa_b_16_fp16_debug"

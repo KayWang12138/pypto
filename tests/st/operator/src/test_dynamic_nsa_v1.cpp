@@ -13,8 +13,12 @@
  * \brief
  */
 
+#include <functional>
+#include <vector>
+#include "operator/models/nsa/attention_post.h"
 #include "test_dynamic.h"
 #include "test_common.h"
+#include "test_data_prepare.h"
 #include "test_suite_stest_ops.h"
 #include "operator/models/nsa/dynamic_nsa_v1.h"
 #include "operator/models/nsa/fused_compress_kv_select.h"
@@ -33,15 +37,6 @@ static std::vector<T> getGoldenVec(std::vector<int> shape, std::string fileName)
     std::vector<T> golden(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, golden);
     return golden;
-}
-
-template <typename T>
-static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::string fileName) {
-    auto shape = tensor.GetShape();
-    int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
-    std::vector<T> values(capacity, 0);
-    readInput<T>(GetGoldenDir() + fileName, values);
-    return RawTensorData::CreateTensor<T>(tensor, values);
 }
 
 template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool isSmooth = false, bool nz = false,
@@ -143,6 +138,8 @@ void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig,
 
     // post: shape
     std::vector<int> wUvShape = {n1, v_dim, vHeadDim};
+    std::vector<int> wUvScaleShape = {n1, 1, vHeadDim};
+    std::vector<int> smoothWUvShape = {1, v_dim};
     std::vector<int> woShape = {n1 * vHeadDim, h};
     std::vector<int> woScaleShape = {1, h};
     std::vector<int> smoothWoShape = {1, n1 * vHeadDim};
@@ -204,8 +201,6 @@ void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig,
     // post: Tensor
     Tensor wUv(dType, wUvShape, "wUv");
     Tensor wo(dTypeQuant, woShape, "wo", NodeType::LOCAL, weightFormat);
-    Tensor woScale;
-    Tensor smoothWo;
     Tensor postOut(dType, outShape, "postOut");
 
     // 3. 为输入填充数据
@@ -422,30 +417,28 @@ void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig,
         wUvData, woData,                                                                              // post
     };
     inputDataList.insert(inputDataList.end(), tmpInputDataList.begin(), tmpInputDataList.end());
-    if (isQuant) {
-        Tensor scale(DT_FP32, woScaleShape, "woScale");
-        woScale = scale;
-        auto woScaleData = CreateTensorData<float>(woScale, "/w_o_scale.bin");
-        inputDataList.emplace_back(woScaleData);
-        if (isSmooth) {
-            Tensor smooth(DT_FP32, smoothWoShape, "smoothWo");
-            smoothWo = smooth;
-            auto smoothWoData = CreateTensorData<float>(smoothWo, "/smooth_wo.bin");
-            inputDataList.emplace_back(smoothWoData);
-        }
-    } else {
-        inputDataList.emplace_back(nullptr); // woScaleData
-        inputDataList.emplace_back(nullptr); // smoothWoData
-    }
+    
+    QuantTensorWithData wUvQuant{
+        false, false, wUvScaleShape, smoothWUvShape, "wUvScale", "smoothWUv", "/w_uv_scale.bin", "/smooth_w_uv.bin"};
+    CreateQuantTensorAndData(wUvQuant);
+    inputDataList.emplace_back(wUvQuant.scale.dataPtr);
+    inputDataList.emplace_back(wUvQuant.smooth.dataPtr);
+    QuantTensorWithData wOQuant{
+        isQuant, isSmooth, woScaleShape, smoothWoShape, "woScale", "smoothWo", "/w_o_scale.bin", "/smooth_w_o.bin"};
+    CreateQuantTensorAndData(wOQuant);
+    inputDataList.emplace_back(wOQuant.scale.dataPtr);
+    inputDataList.emplace_back(wOQuant.smooth.dataPtr);
 
+    PostTensors postTensors{
+        wUv, wo, wUvQuant.scale.tensor, wUvQuant.smooth.tensor, wOQuant.scale.tensor, wOQuant.smooth.tensor};
     // 4. 计算接口
     DynamicNsa(x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache, quantInputs,
         prologConfig, eps, eps, cacheMode, topkIndices, /*kvNopeCache, kRopeCache,*/ kvCacheActSeq,
-        blockTable, front, near, topk, slcBlockSize, blockSize, // genKvSlc
-        /*qNope, qRope, slcActSeqs,*/ softmaxScale, saTileConfig,                // slcAttn
-        /*x, */ gateW1, gateW2, gateSimW1, GateMode::standard,                   // gatedscore
-        cmpAtten, winSize, winAttntileConfig,                                    // gen win
-        wUv, wo, woScale, smoothWo, postConfig,                                  // post
+        blockTable, front, near, topk, slcBlockSize, blockSize,     // genKvSlc
+        /*qNope, qRope, slcActSeqs,*/ softmaxScale, saTileConfig,   // slcAttn
+        /*x, */ gateW1, gateW2, gateSimW1, GateMode::standard,      // gatedscore
+        cmpAtten, winSize, winAttntileConfig,                       // gen win
+        postTensors, postConfig,                                    // post
         outputKvCache, outputKrCache, postOut, cmpKvCache_v2, cmpKrCache_v2, cmpBlockTable_v2, actSeqLen_v2,
         actCmpSeqLen_v2, mlpWk1_v2, mlpWk2_v2, mlpCos_v2, mlpSin_v2, cmpAttn, cmpSoftmax, fullK, cmpK, firstRope,
         firstRopeInput, topkRes, topkInput, cmpBlockSize, cmpStride, cmpTileConfig, debug);

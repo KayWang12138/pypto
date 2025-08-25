@@ -1,0 +1,75 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file test_data_prepare.h
+ * \brief Data preparation manager for test utilities
+ */
+
+#pragma once
+
+#include <string>
+#include <vector>
+#include "test_common.h"
+#include "interface/interpreter/raw_tensor_data.h"
+
+using namespace npu::tile_fwk;
+
+template <typename T>
+static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::string fileName) {
+    auto shape = tensor.GetShape();
+    int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+    std::vector<T> values(capacity, 0);
+    readInput<T>(GetGoldenDir() + fileName, values);
+    return RawTensorData::CreateTensor<T>(tensor, values);
+}
+
+struct TensorWithData {
+    Tensor tensor;
+    RawTensorDataPtr dataPtr = nullptr;
+};
+
+struct QuantTensorWithData {
+    bool isQuant = false;
+    bool isSmooth = false;
+    std::vector<int> scaleShape;
+    std::vector<int> smoothShape;
+    std::string scaleTensorName;
+    std::string smoothTensorName;
+    std::string scaleDataPath;
+    std::string smoothDataPath;
+    TensorWithData scale;
+    TensorWithData smooth;
+
+QuantTensorWithData(bool isQuantT, bool isSmoothT, std::vector<int> scaleShapeT, std::vector<int> smoothShapeT,
+    std::string scaleName, std::string smoothName, std::string scalePath, std::string smoothPath)
+    : isQuant(isQuantT),
+      isSmooth(isSmoothT),
+      scaleShape(scaleShapeT),
+      smoothShape(smoothShapeT),
+      scaleTensorName(scaleName),
+      smoothTensorName(smoothName),
+      scaleDataPath(scalePath),
+      smoothDataPath(smoothPath) {}
+};
+
+inline void CreateQuantTensorAndData(QuantTensorWithData &quant) {
+    if (quant.isQuant) {
+        Tensor quantTmp(DT_FP32, quant.scaleShape, quant.scaleTensorName);
+        quant.scale.tensor = quantTmp;
+        quant.scale.dataPtr = CreateTensorData<float>(quant.scale.tensor, quant.scaleDataPath);
+
+        if (quant.isSmooth) {
+            Tensor smoothTmp(DT_FP32, quant.smoothShape, quant.smoothTensorName);
+            quant.smooth.tensor = smoothTmp;
+            quant.smooth.dataPtr = CreateTensorData<float>(quant.smooth.tensor, quant.smoothDataPath);
+        }
+    }
+}

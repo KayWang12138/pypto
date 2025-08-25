@@ -119,7 +119,7 @@ void DynamicNsa(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, co
     float softmaxScale, SATileShapeConfig saTileConfig,
     const Tensor &gateW1, const Tensor &gateW2, const Tensor &gateSimW1, GateMode gateMode,
     Tensor &cmpAtten, int winSize, WinAttenTileShapeConfig &winAttntileConfig,
-    Tensor &weightUV, Tensor &weightO, Tensor &weightOScale, Tensor &smoothScalesWo, const PostTileConfig &postConfig,
+    PostTensors &postTensors, const PostTileConfig &postConfig,
     Tensor &kvCacheOut, Tensor &krCacheOut, Tensor &postOut,
     const Tensor &cmpKvCache, const Tensor &cmpKrCache, const Tensor &cmpBlockTable,
     const Tensor &actSeqLen, const Tensor &actCmpSeqLen, const Tensor &mlpWk1, const Tensor &mlpWk2,

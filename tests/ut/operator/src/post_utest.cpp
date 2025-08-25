@@ -50,7 +50,8 @@ struct TestPostParams {
     int vHeadDim;
 };
 
-template <typename T = npu::tile_fwk::float16, bool nz = true, typename wDtype = int8_t, bool isSmooth = false>
+template <typename T = npu::tile_fwk::float16, bool nz = true, typename wUvDtype = int8_t, bool isSmoothWuv = false,
+    typename wODtype = int8_t, bool isSmoothWo = false>
 void TestAttentionPostUt(const TestPostParams &params, const PostTileConfig &tileConfig) {
     int b = params.b;
     int n = params.n;
@@ -60,11 +61,13 @@ void TestAttentionPostUt(const TestPostParams &params, const PostTileConfig &til
     int vHeadDim = params.vHeadDim;
 
     DataType dType = (std::is_same<T, npu::tile_fwk::float16>::value) ? DT_FP16 : DT_BF16;
-    bool isQuant = std::is_same<wDtype, int8_t>::value;
-    DataType dTypeQuant = isQuant ? DT_INT8 : dType;
+    bool isQuantWUv = std::is_same<wUvDtype, int8_t>::value;
+    bool isQuantWo = std::is_same<wODtype, int8_t>::value;
 
     std::vector<int> xShape = {b, s, n, kvLoraRank};
     std::vector<int> wUvShape = {n, kvLoraRank, vHeadDim};
+    std::vector<int> wUvScaleShape = {n, 1, vHeadDim};
+    std::vector<int> smoothWUvShape = {1, kvLoraRank};
     std::vector<int> woShape = {n * vHeadDim, h};
     std::vector<int> woScaleShape = {1, h};
     std::vector<int> smoothWoShape = {1, n * vHeadDim};
@@ -72,22 +75,33 @@ void TestAttentionPostUt(const TestPostParams &params, const PostTileConfig &til
 
     TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
     Tensor x(dType, xShape, "x");
-    Tensor wUv(dType, wUvShape, "wUv");
-    Tensor wo(dTypeQuant, woShape, "wo", NodeType::LOCAL, weightFormat);
+    Tensor wUv(isQuantWUv ? DT_INT8 : dType, wUvShape, "wUv");
+    Tensor wUvScale;
+    Tensor smoothWUv;
+    Tensor wo(isQuantWo ? DT_INT8 : dType, woShape, "wo", NodeType::LOCAL, weightFormat);
     Tensor woScale;
     Tensor smoothWo;
     Tensor postOut(dType, outShape, "postOut");
 
-    if (isQuant) {
+    if(isQuantWUv) {
+        Tensor scale(DT_FP32, wUvScaleShape, "wUvScale");
+        wUvScale =scale;
+        if(isSmoothWuv) {
+            Tensor smooth(DT_FP32, smoothWUvShape, "smoothWUv");
+            smoothWUv =smooth;
+        }
+    }
+    if (isQuantWo) {
         Tensor scale(DT_FP32, woScaleShape, "woScale");
         woScale = scale;
-        if (isSmooth) {
+        if (isSmoothWo) {
             Tensor smooth(DT_FP32, smoothWoShape, "smoothWo");
             smoothWo = smooth;
         }
     }
-
-    AttentionPost(x, wUv, wo, woScale, smoothWo, tileConfig, postOut);
+    
+    PostTensors postTensors{wUv, wo, wUvScale, smoothWUv, woScale, smoothWo};
+    AttentionPostStandalone(x, postTensors, tileConfig, postOut);
 }
 
 TEST_F(AttentionPostUTest, b32_s1_nz_fp16_quant) {
@@ -95,5 +109,13 @@ TEST_F(AttentionPostUTest, b32_s1_nz_fp16_quant) {
     TestPostParams params = {32, 128, 1, 7168, 512, 128};
     PostTileConfig tileConfig = {16, 1};
 
-    TestAttentionPostUt<npu::tile_fwk::float16, true, int8_t, true>(params, tileConfig);
+    TestAttentionPostUt<npu::tile_fwk::float16, true, npu::tile_fwk::float16, false, int8_t, true>(params, tileConfig);
+}
+
+TEST_F(AttentionPostUTest, b32_s2_nz_bf16_quant_all) {
+    // b, n, s, h, kvLoraRank, vHeadDim
+    TestPostParams params = {32, 128, 2, 7168, 512, 128};
+    PostTileConfig tileConfig = {16, 1};
+
+    TestAttentionPostUt<bfloat16, true, int8_t, true, int8_t, true>(params, tileConfig);
 }

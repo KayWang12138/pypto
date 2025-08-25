@@ -219,7 +219,6 @@ Tensor LlamaLayer(Tensor hiddenStates, const Tensor &attnWight, const Tensor &de
     // down_proj
     // [b*s, n*d*3] [n*d, n*d*3]^T => [b*s, n*d]
     mlpRes = Matrix::Matmul<false, true>(DataType::DT_FP32, swishFp16, ffnWeight);
-    hiddenStates = Add(residual, mlpRes);
-    return hiddenStates;
+    return Add(residual, mlpRes);
 }
 } // namespace npu::tile_fwk

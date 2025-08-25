@@ -30,11 +30,18 @@ struct PostTileConfig {
     int tileS = 1;
 };
 
-void PostCompute(Tensor &input, Tensor &weightUV, Tensor &weightO, Tensor &weightOScale, Tensor &smoothScalesWo,
-                 const PostTileConfig &tileConfig, Tensor &postOut);
+struct PostTensors {
+    Tensor weightUV;
+    Tensor weightO;
+    Tensor weightUvScale;
+    Tensor smoothScalesWUv;
+    Tensor weightOScale;
+    Tensor smoothScalesWo;
+};
 
-void AttentionPost(Tensor &input, Tensor &weightUV, Tensor &weightO, Tensor &weightOScale, Tensor &smoothScalesWo,
-                   const PostTileConfig &tileConfig, Tensor &postOut);
+void PostCompute(Tensor &input, PostTensors &postTensors, const PostTileConfig &tileConfig, Tensor &postOut);
+
+void AttentionPostStandalone(Tensor &input, PostTensors &postTensors, const PostTileConfig &tileConfig, Tensor &postOut);
 
 } // namespace npu::tile_fwk
 

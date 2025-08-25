@@ -17,6 +17,7 @@
 
 #include "interface/operation/operation.h"
 #include "interface/function/function.h"
+#include "operator/models/nsa/attention_post.h"
 #include "tilefwk/tensor.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/utils/common.h"
@@ -135,9 +136,10 @@ void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const T
     Tensor &topkIndices, Tensor &kvActSeqs, Tensor &blockTable, int front, int near, int topk,
     int slcBlockSize, int blockSize, float softmaxScale,
     SATileShapeConfig saTileConfig, const Tensor &gateW1, const Tensor &gateW2, const Tensor &gateSimW1,
-    GateMode gateMode, Tensor &cmpAtten, int winSize, WinAttenTileShapeConfig &winAttntileConfig, Tensor &weightUV,
-    Tensor &weightO, Tensor &weightOScale, Tensor &smoothScalesWo, const PostTileConfig &postConfig, Tensor &kvCacheOut,
-    Tensor &krCacheOut, Tensor &postOut, const Tensor &cmpKvCache, const Tensor &cmpKrCache,
+    GateMode gateMode, Tensor &cmpAtten, int winSize, 
+    WinAttenTileShapeConfig &winAttntileConfig,                  // gen win
+    PostTensors &postTensors, const PostTileConfig &postConfig,  // post
+    Tensor &kvCacheOut, Tensor &krCacheOut, Tensor &postOut, const Tensor &cmpKvCache, const Tensor &cmpKrCache,
     const Tensor &cmpBlockTable, const Tensor &actSeqLen, const Tensor &actCmpSeqLen, const Tensor &mlpWk1,
     const Tensor &mlpWk2, const Tensor &mlpCos, const Tensor &mlpSin, Tensor &cmpAttnOut, Tensor &cmpSoftmax,
     Tensor &fullK, Tensor &cmpK, Tensor &firstRope, Tensor &firstRopeInput, Tensor &topkRes, Tensor &topkInput,
@@ -153,8 +155,9 @@ void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const T
             topkIndices, kvActSeqs, // genKvSlc
             gateW1, gateW2, gateSimW1, // gatedScore
             cmpAtten, // genAttn
-            weightUV, weightO, weightOScale, smoothScalesWo
-    },          // paPost
+            postTensors.weightUV, postTensors.weightO, postTensors.weightUvScale, postTensors.smoothScalesWUv,
+            postTensors.weightOScale, postTensors.smoothScalesWo,      //  paPost
+    },  
         {postOut, cmpAttnOut, cmpSoftmax, fullK, cmpK, topkRes, topkInput},
         {{kvCacheOut, kvCache}, {krCacheOut, krCache}}) {
         Program::GetInstance().GetConfig().Set<int>(DB_TYPE, 1);
@@ -273,7 +276,7 @@ void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const T
         });
         // Loop_barrier
         // subgraph-7: postOut [b,s,h]
-        PostCompute(attentionOut, weightUV, weightO, weightOScale, smoothScalesWo, postConfig, postOut);
+        PostCompute(attentionOut, postTensors, postConfig, postOut);
     }
 }
 
