@@ -25,10 +25,6 @@ import numpy as np
 from bfloat16 import bfloat16
 
 
-from golden.net.deepseekv3.nsa.gen_slc_attn import compute_attention
-from golden.op.kv_slc import kv_slc_compute
-
-
 if __name__ == "__main__":
     """ 单独调试时配置 """
     # 日志级别
@@ -159,12 +155,12 @@ def compute_attention(q, k, v, actualSeq, scalar, atten_out_shape):
             # MM1: 矩阵乘法
             qk_bmm_res = torch.matmul(q_bs.float(), k_bs.transpose(1, 0).float())
             qk_ele_res = qk_bmm_res * scalar
-            
+
             # Softmax计算
             softmax_res, softmax_sum, softmax_max = softmax(qk_ele_res)
 
             # MM2: 矩阵乘法
-            bmm2_res = torch.matmul(softmax_res, v_bs.float()) / softmax_sum
+            bmm2_res = torch.matmul(softmax_res / softmax_sum, v_bs.float())
 
             # 存储结果
             attention_output[i, j] = bmm2_res
@@ -240,6 +236,7 @@ def kv_slc_compute(compute_input_params, topk_indecies, topk_tensor_shape, kvNop
 
 def gen_kv_cache(params, actual_seq_list, dtype, output_dir):
     '''生成kv_cache, 包括kv_nope_cache, k_rope_cache, block_table'''
+    print("============= gen kv_cache ================")
     b = params.get("b")
     s1 = params.get("s")
     n2 = params.get("n2")
@@ -461,13 +458,13 @@ def gen_kv_slc_attn_entry(dtypes, bs1s2h, quant_smooth, kv_cache_actual_seq, out
 
 @GoldenRegister.reg_golden_func(
     case_names=[
-        "DynamicKvSATest.kv_slc_attn_b48_s1_fp16",
-        "DynamicKvSATest.kv_slc_attn_b32_s2_bf16",
+        "DynamicKvSATest.kv_slc_attn_b48_s1_fp16_perf",
+        "DynamicKvSATest.kv_slc_attn_b32_s2_bf16_perf",
         "DynamicKvSATest.kv_slc_attn_b2_s1_fp16",
     ]
 )
 def gen_kv_slc_attn_func(case_name: str, output: Path) -> bool:
-    input_path = Path(output, 'x.bin')
+    input_path = Path(output, 'slc_attn_out.bin')
     complete = input_path.exists()
     if complete:
         file_mod_time = input_path.stat().st_mtime
@@ -480,13 +477,13 @@ def gen_kv_slc_attn_func(case_name: str, output: Path) -> bool:
         else:
             logging.info("文件的修改时间在1小时内，无需重新生成。")
 
-    complete = False  # TODO: del complete
+    # complete = False  # TODO: del complete
     if complete:
         logging.info("Case(%s), Golden data exits. cache catch", case_name)
     else:
-        if case_name == "DynamicKvSATest.kv_slc_attn_b48_s1_fp16":
+        if case_name == "DynamicKvSATest.kv_slc_attn_b48_s1_fp16_perf":
             gen_kv_slc_attn_entry((torch.float16, torch.float16), (48, 1, 8192, 7168), (False, False), [8192] * 48, output)
-        elif case_name == "DynamicKvSATest.kv_slc_attn_b32_s2_bf16":
+        elif case_name == "DynamicKvSATest.kv_slc_attn_b32_s2_bf16_perf":
             gen_kv_slc_attn_entry((torch.bfloat16, torch.bfloat16), (32, 2, 32768, 7168), (False, False), 32768, output)
         elif case_name == "DynamicKvSATest.kv_slc_attn_b2_s1_fp16":
             gen_kv_slc_attn_entry((torch.float16, torch.float16), (2, 1, 131072, 7168), (False, False), [131072, 64 * 1024 + 35], output)
@@ -500,7 +497,7 @@ def main() -> bool:
     """单独调试 入口函数"""
     # 用例名称
     case_name_list: List[str] = [
-        "DynamicKvSATest.kv_slc_attn_b48_s1_fp16",
+        "DynamicKvSATest.kv_slc_attn_b48_s1_fp16_perf",
     ]
     # 函数调用
     ret: bool = True

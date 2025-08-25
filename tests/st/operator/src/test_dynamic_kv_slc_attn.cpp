@@ -95,7 +95,7 @@ void TestKvSlcAttn(const NSASimpleParams &params, SATileShapeConfig& saTileConfi
     Tensor topkIndices(DT_INT32, topkIndicesShape, "topkTensor");
     Tensor topkTensorShape(DT_INT32, topkTensorShapeShape, "topkTensorShape");
     Tensor kvNopeCache(dType, kvNopeCacheShape, "kNopeCache");
-    Tensor kRopeCache(dType, kRopeCacheShape, "vNopeCache");
+    Tensor kRopeCache(dType, kRopeCacheShape, "kRopeCache");
     Tensor kvCacheActSeq(DT_INT32, kvCacheActSeqShape, "kvCacheActSeq");
     Tensor blockTable(DT_INT32, blockTableShape, "blockTable");
     Tensor slcActSeqs(DT_INT32, slcActSeqsShape, "slcActSeqs");
@@ -149,7 +149,7 @@ void TestKvSlcAttn(const NSASimpleParams &params, SATileShapeConfig& saTileConfi
 #endif
 }
 
-TEST_F(DynamicKvSATest, kv_slc_attn_b48_s1_fp16) {
+TEST_F(DynamicKvSATest, kv_slc_attn_b48_s1_fp16_perf) {
     NSASimpleParams params = NSASimpleParams::getDecodeParams();
 
     int paramsSize = 7;
@@ -175,7 +175,7 @@ TEST_F(DynamicKvSATest, kv_slc_attn_b48_s1_fp16) {
     TestKvSlcAttn<npu::tile_fwk::float16>(params, saTileConfig);
 }
 
-TEST_F(DynamicKvSATest, kv_slc_attn_b32_s2_bf16) {
+TEST_F(DynamicKvSATest, kv_slc_attn_b32_s2_bf16_perf) {
     NSASimpleParams params = NSASimpleParams::getDecodeParams();
 
     int paramsSize = 7;

@@ -32,12 +32,181 @@
 using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
+/**
+ * normal attention: q=qNope+qRope, kv是连续的
+ * input:
+    * topKIndcies: [b, s1, topk]
+    * kvNopeCache: [blockNum * blockSize, n2 * v_dim]
+    * kRopeCache: [blockNum * blockSize, n2 * rope_dim]
+    * kvActSeqs: [b]
+    * blockTableL {b, maxBlockNumPerBatch}
+    * qNope: [b*s1*n2*g, k_dim] fp16/bf16
+    * qRope: [b*s1*n2*g, rope_dim] fp16/bf16
+ * output:
+    * attentionOut: [b, s1, n2, g, v_dim] fp32
 
+ * middle tensor:
+    * kSlc: [b*s1*n2*s2, k_dim + rope_dim], nope与rope在gen_kv_slc中已经合并起来了 fp16/bf16
+    * vSlc: [b*s1*n2*s2, v_dim] fp16/bf16
+    * kvSlcActSeqs: [b, s1] int32
+*/
 void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &kRopeCache, Tensor &kvActSeqs, Tensor &blockTable,
     const Tensor &qNope, const Tensor &qRope, Tensor &attentionOut,
     int nQ, int nKv, float softmaxScale, int front, int near, int topk, int blockSize, int cmpBlockSize, int slcBlockSize,
     SATileShapeConfig saTileConfig, bool debug) {
     auto dtype = qNope->Datatype();
+    int dN = qNope->shape[1];
+    int dR = qRope->shape[1];
+    int group = nQ / nKv;
+
+    auto v0Tile = saTileConfig.kvSlcV0TileShape;
+    int gTile = saTileConfig.gTile;
+    auto c1Tile = saTileConfig.c1TileShape;
+    auto v1Tile = saTileConfig.v1TileShape;
+    auto c2Tile = saTileConfig.c2TileShape;
+    auto v2Tile = saTileConfig.v2TileShape;
+
+    /******** tune params ********/
+    // Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {});
+    // Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 0);
+    // Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, 1 * 1024 * 1024);
+    // Program::GetInstance().GetConfig().Set<int>(CYCLE_UPPER_BOUND, 100000);
+    // Program::GetInstance().GetConfig().Set<int>(PARALLEL_THRESHOLD, 2);
+    // Program::GetInstance().GetConfig().Set<int>(CUBE_NBUFFER, 2);
+    // config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
+
+    SymbolicScalar batchSizeSym = topKIndcies->shape[0]; // b
+    SymbolicScalar s1N2GSym = qNope->shape[0] / batchSizeSym; // s1n2
+    SymbolicScalar s1Sym = s1N2GSym / nQ; // s1
+    SymbolicScalar gLoopSym = group / gTile;
+    SymbolicScalar n2Sym = nKv;
+
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+
+    LOOP("LOOP_L0_b_SA", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, batchSizeSym, 1), {}, true) {
+        SymbolicScalar curActSeq = GetInputDataInt32Dim1(kvActSeqs, bIdx);
+        curActSeq.AsIntermediateVariable();
+        LOOP("LOOP_L1_s1_SA", FunctionType::DYNAMIC_LOOP, s1Idx, LoopRange(0, s1Sym, 1)) {
+            LOOP("LOOP_L2_n2_SA", FunctionType::DYNAMIC_LOOP, n2Idx, LoopRange(0, n2Sym, 1)) { // GQA场景
+                LOOP("LOOP_L3_g_SA", FunctionType::DYNAMIC_LOOP, gIdx, LoopRange(0, gLoopSym, 1)) { // slc_attn
+                    int curGTile = gTile;
+                    SymbolicScalar curOffset = bIdx * s1N2GSym + s1Idx * nQ + n2Idx * group + gIdx * curGTile;
+                    std::vector<SymbolicScalar> oiOffset = {bIdx, s1Idx, n2Idx * group + gIdx * curGTile, 0}; // 按最终结果(B,S1,N1,D)进行assemble
+
+                    LOOP("LOOP_L4_s2_SA", FunctionType::DYNAMIC_LOOP, s2Idx, LoopRange(0, 1, 1), PowersOf2(1)) { // 非Flash
+                        int curS2Tile = topk * slcBlockSize;
+                        // kv_slc
+                        ConfigManager::Instance().SetSemanticLabel("kv_slc");
+                        Tensor kSlc(dtype, {topk * slcBlockSize, dN + dR}, "kSlc");
+                        SymbolicScalar curKvSlcSeq = 0;
+                        SymbolicScalar sSlc = (curActSeq - s1Sym + 1 + s1Idx - cmpBlockSize + slcBlockSize) / slcBlockSize;
+                        sSlc.AsIntermediateVariable();
+                        SymbolicScalar positions = 0;
+                        for (int topKIdx = 0; topKIdx < topk; topKIdx++) {
+                            if (topKIdx < front) {
+                                // 获取到topk的position
+                                // 头部的front个
+                                positions = topKIdx * slcBlockSize;
+                            } else if (topKIdx > (topk - near - front)) {
+                                // 尾部的near个
+                                positions = (sSlc - near + (topKIdx - (topk - front - near)) - 1) * slcBlockSize;
+                            } else {
+                                // 中间的topk-front-near个
+                                SymbolicScalar topkIndex;
+                                if (debug) {
+                                    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, NUM16);
+                                    topkIndex = GetTensorDataInt32(topKIndcies, bIdx, s1Idx, topKIdx - front);
+                                } else {
+                                    topkIndex = GetInputDataInt32Dim3(topKIndcies, bIdx, s1Idx, topKIdx - front);
+                                }
+
+                                positions = topkIndex * slcBlockSize;
+                            }
+                            curKvSlcSeq = curKvSlcSeq + std::min(slcBlockSize, curActSeq - positions);
+                            SymbolicScalar blockIdxInBatch = positions / blockSize;
+                            SymbolicScalar tail = positions % blockSize;
+                            SymbolicScalar slcBlockIdx = GetInputDataInt32Dim2(blockTable, bIdx, blockIdxInBatch);
+                            Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
+                            auto kvSlcBlock = DView(kvNopeCache, {slcBlockSize, dN}, {slcBlockIdx * blockSize + tail, n2Idx * dN});
+                            auto krSlcBlock = DView(kRopeCache, {slcBlockSize, dR}, {slcBlockIdx * blockSize + tail, n2Idx * dR});
+
+                            ConfigManager::Instance().SetSemanticLabel("kv_slc_cast_fp32");
+                            Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
+                            auto kvSlcBlock_fp32 = Cast(kvSlcBlock, DataType::DT_FP32);
+                            auto krSlcBlock_fp32 = Cast(krSlcBlock, DataType::DT_FP32);
+                            ConfigManager::Instance().SetSemanticLabel("kv_slc_cast");
+                            Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
+                            auto kvSlcBlock_fp16 = Cast(kvSlcBlock_fp32, kSlc->Datatype());
+                            auto krSlcBlock_fp16 = Cast(krSlcBlock_fp32, kSlc->Datatype());
+                            Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
+
+                            SymbolicScalar slcOutSOffset = topKIdx * slcBlockSize;
+                            DAssemble(kvSlcBlock_fp16, {slcOutSOffset, 0}, kSlc);
+                            DAssemble(krSlcBlock_fp16, {slcOutSOffset, dN}, kSlc);
+                        }
+
+                        // qAssemble
+                        ConfigManager::Instance().SetSemanticLabel("Sa");
+                        // DView, 临时规避改成 DViewPad
+                        auto qn = DViewPad(qNope, {curGTile, dN}, {curGTile, dN}, {curOffset, 0});
+                        auto qr = DViewPad(qRope, {curGTile, dR}, {curGTile, dR}, {curOffset, 0});
+                        Tensor qi(dtype, {curGTile, dN + dR}, "qi");
+                        DAssemble(qn, {0, 0}, qi);
+                        DAssemble(qr, {0, dN}, qi);
+
+                        // slc_attn
+                        SymbolicScalar curSeq = std::max(curKvSlcSeq - s1Sym + 1 + s1Idx, 0); // for MTP s1!= 1 casual计算
+                        curSeq.AsIntermediateVariable();
+                        auto kj = DViewPad(kSlc, {curS2Tile, dN + dR}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN + dR},
+                                        {s2Idx * curS2Tile, 0}); // kSlc已经合并了rope和nope
+                        auto vj = DViewPad(kSlc, {curS2Tile, dN}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN},
+                                        {s2Idx * curS2Tile, 0});
+
+                        // C1
+                        ConfigManager::Instance().SetSemanticLabel("Sa_QkMM");
+                        Program::GetInstance().GetTileShape().SetCubeTileShapes(
+                            {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, true);
+                        Program::GetInstance().GetMatrixSize().SetMatrixSize({qi.GetShape()[0], 0, kj.GetShape()[0]});
+                        auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj);
+
+                        // V1
+                        ConfigManager::Instance().SetSemanticLabel("Sa_Qkvec1");
+                        Program::GetInstance().GetTileShape().SetVecTileShapes(v1Tile[0], v1Tile[1]);
+                        auto sijScale = MulS(sij, Element(sij->Datatype(), softmaxScale));
+                        auto tildaMij = RowMaxSingle(sijScale); // (curGTile, curS2Tile) -> (curGTile, 1)
+                        auto tsub = Sub(sijScale, tildaMij); // (curGTile, curS2Tile), (curGTile, 1) -> (curGTile, curS2Tile)
+                        auto tildaPij = Exp(tsub);  // (curGTile, curS2Tile) -> (curGTile, curS2Tile)
+                        auto tildaLij = RowSumSingle(tildaPij);
+                        auto tSoftmax = Div(tildaPij, tildaLij);
+                        auto tildaPijF16 = Cast(tSoftmax, dtype);
+
+                        // C2
+                        ConfigManager::Instance().SetSemanticLabel("Sa_KvMm");
+                        Program::GetInstance().GetTileShape().SetCubeTileShapes(
+                            {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
+                        Program::GetInstance().GetMatrixSize().SetMatrixSize(
+                            {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
+                        auto oi = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
+
+                        // V2
+                        ConfigManager::Instance().SetSemanticLabel("Sa_KvVec2");
+                        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, v2Tile[0], v2Tile[1]);
+                        auto oi4Dim = AddS(Reshape(oi, {1, 1, curGTile, dN}), Element(oi->Datatype(), float(0)));
+                        DAssemble(oi4Dim, oiOffset, attentionOut);
+                    }
+                }
+            }
+        }
+    }
+}
+
+void SelectedAttentionFlashCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &kRopeCache, Tensor &kvActSeqs, Tensor &blockTable,
+    const Tensor &qNope, const Tensor &qRope, Tensor &attentionOut,
+    int nQ, int nKv, float softmaxScale, int front, int near, int topk, int blockSize, int cmpBlockSize, int slcBlockSize,
+    SATileShapeConfig saTileConfig, bool debug) {
+    auto dtype = qNope->Datatype();
+    int b = topKIndcies->shape[0];
+    int s1 = topKIndcies->shape[1];
     int dN = qNope->shape[1];
     int dR = qRope->shape[1];
     int group = nQ / nKv;
@@ -65,18 +234,23 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
     SymbolicScalar gLoopSym = group / gTile;
     SymbolicScalar n2Sym = nKv;
 
+    Tensor kSlc(dtype, {b * s1 * nKv * topk * slcBlockSize, dN + dR}, "kSlc");
+
+    SymbolicScalar s1N2S2Sym = kSlc->shape[0] / batchSizeSym; // s1n2s2
+    SymbolicScalar n2S2Sym = s1N2S2Sym / s1Sym; // n2s2
+    SymbolicScalar s2Sym = n2S2Sym / n2Sym; // s2
+
     LOOP("LOOP_L0_b_SA", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, batchSizeSym, 1), {}, true) {
         SymbolicScalar curActSeq = GetInputDataInt32Dim1(kvActSeqs, bIdx);
         curActSeq.AsIntermediateVariable();
         LOOP("LOOP_L1_s1_SA", FunctionType::DYNAMIC_LOOP, s1Idx, LoopRange(0, s1Sym, 1)) {
             LOOP("LOOP_L2_n2_SA", FunctionType::DYNAMIC_LOOP, n2Idx, LoopRange(0, n2Sym, 1)) { // GQA场景
-                Tensor kSlc(dtype, {topk * slcBlockSize, dN + dR}, "kSlc");
-                Tensor vSlc(dtype, {topk * slcBlockSize, dN + dR}, "vSlc");
 
                 SymbolicScalar curKvSlcSeq = 0;
                 config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, false);
                 SymbolicScalar sSlc = (curActSeq - s1Sym + 1 + s1Idx - cmpBlockSize + slcBlockSize) / slcBlockSize;
-                LOOP("LOOP_L3_kv_slc_SA", FunctionType::DYNAMIC_LOOP, kvSlcIdx, LoopRange(0, 1, 1), {}, true) { // kv_slc
+                sSlc.AsIntermediateVariable();
+                LOOP("LOOP_L3_kv_slc_SA", FunctionType::DYNAMIC_LOOP, kvSlcIdx, LoopRange(0, 1, 1)) { // kv_slc
                     (void)kvSlcIdx;
                     SymbolicScalar positions = 0;
                     SymbolicScalar slcSeqLen = 0;
@@ -107,18 +281,9 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
                         Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
                         auto kvSlcBlock = DView(kvNopeCache, {slcBlockSize, dN}, {slcBlockIdx * blockSize + tail, n2Idx * dN});
                         auto krSlcBlock = DView(kRopeCache, {slcBlockSize, dR}, {slcBlockIdx * blockSize + tail, n2Idx * dR});
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
-                        auto kvSlcBlock_fp32 = Cast(kvSlcBlock, DataType::DT_FP32);
-                        auto krSlcBlock_fp32 = Cast(krSlcBlock, DataType::DT_FP32);
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
-                        auto kvSlcBlock_fp16 = Cast(kvSlcBlock_fp32, kSlc->Datatype());
-                        auto krSlcBlock_fp16 = Cast(krSlcBlock_fp32, kSlc->Datatype());
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
-
-                        SymbolicScalar slcOutSOffset = topKIdx * slcBlockSize; // 需要调整kv_slc拼接时，near和topk的顺序
-                        DAssemble(kvSlcBlock_fp16, {slcOutSOffset, 0}, kSlc);
-                        DAssemble(krSlcBlock_fp16, {slcOutSOffset, dN}, kSlc);
-                        DAssemble(kvSlcBlock_fp16, {slcOutSOffset, 0}, vSlc);
+                        SymbolicScalar slcOutSOffset = bIdx * s1N2S2Sym + s1Idx * n2S2Sym + n2Idx * s2Sym + topKIdx * slcBlockSize;
+                        DAssemble(kvSlcBlock, {slcOutSOffset, 0}, kSlc);
+                        DAssemble(krSlcBlock, {slcOutSOffset, dN}, kSlc);
                     }
                 }
 
@@ -136,6 +301,8 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
                     curSeq.AsIntermediateVariable();
                     SymbolicScalar bnPerBatch = (topk * slcBlockSize + curS2Tile - 1) / curS2Tile;
                     LOOP("LOOP_L4_s2_SA", FunctionType::DYNAMIC_LOOP, s2Idx, LoopRange(0, bnPerBatch, 1), PowersOf2(1)) {
+                        SymbolicScalar curKvOffset = bIdx * s1N2S2Sym + s1Idx * n2S2Sym + n2Idx * s2Sym + s2Idx * curS2Tile;
+
                         ConfigManager::Instance().SetSemanticLabel("Sa");
                         // DView, 临时规避改成 DViewPad
                         auto qn = DViewPad(qNope, {curGTile, dN}, {curGTile, dN}, {curOffset, 0});
@@ -145,9 +312,9 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
                         DAssemble(qr, {0, dN}, qi);
 
                         auto kj = DViewPad(kSlc, {curS2Tile, dN + dR}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN + dR},
-                                        {s2Idx * curS2Tile, 0}); // kSlc已经合并了rope和nope
-                        auto vj = DViewPad(vSlc, {curS2Tile, dN}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN},
-                                        {s2Idx * curS2Tile, 0});
+                                        {curKvOffset, 0}); // kSlc已经合并了rope和nope
+                        auto vj = DViewPad(kSlc, {curS2Tile, dN}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN},
+                                        {curKvOffset, 0});
 
                         // C1
                         Program::GetInstance().GetTileShape().SetCubeTileShapes(

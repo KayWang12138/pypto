@@ -16,8 +16,8 @@ set(_CaseFilterList
         "DynamicNSATest.mini"
         "DynamicSATest.slc_attn_mtp_s1_2_fp16"
         "DynamicSATest.slc_attn_bf16_b48_s1_perf"
-        "DynamicKvSATest.kv_slc_attn_b48_s1_fp16"
-        "DynamicKvSATest.kv_slc_attn_b32_s2_bf16"
+        "DynamicKvSATest.kv_slc_attn_b48_s1_fp16_perf"
+        "DynamicKvSATest.kv_slc_attn_b32_s2_bf16_perf"
         "DynamicKvSATest.kv_slc_attn_b2_s1_fp16"
 
         # NSA MlaProlog
