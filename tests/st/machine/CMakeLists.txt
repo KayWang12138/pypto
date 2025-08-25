@@ -132,6 +132,20 @@ set(_CaseFilterList
         "DynamicMatmulTest.mm_AT_BT_AND_BND_bf16"
         "DynamicMatmulTest.mm_AT_B_ANZ_BND_fp16_UNALIGN"
         #===========================================================================
+        # matmul Interpreter 功能用例
+        #===========================================================================
+        # "DynamicMatmulInterpreterTest.mm_A_B_ND_bf16"
+        "DynamicMatmulInterpreterTest.mm_A_B_NZ_bf16"
+        "DynamicMatmulInterpreterTest.mm_A_Bt_ND_fp16"
+        "DynamicMatmulInterpreterTest.mm_A_Bt_NZ_fp16"
+        # "DynamicMatmulInterpreterTest.mm_A_B_NZ_int8"
+        # "DynamicMatmulInterpreterTest.mm_A_Bt_NZ_int8"
+        # "DynamicMatmulInterpreterTest.mm_A_B_ND_bf16_tile1"
+        "DynamicMatmulInterpreterTest.mm_A_Bt_ND_fp16_tile2"
+        # "DynamicMatmulInterpreterTest.mm_A_B_NZ_int8_tile3"
+        "DynamicMatmulInterpreterTest.mm_A_Bt_NZ_int8_tile4"
+        # "DynamicMatmulInterpreterTest.mm_A_ND_B_ND_C_NZ"
+        #===========================================================================
          # batchMatmul功能用例
         #===========================================================================
         "DynamicBatchMatmulTest.test_bmm_A_B_ND_bf16"
