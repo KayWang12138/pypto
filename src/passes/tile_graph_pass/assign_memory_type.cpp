@@ -61,7 +61,8 @@ Status AssignMemoryType::RunOnFunction(Function &function) {
     AssignL1CopyIn(function);
 
     // 插入convert op
-    inserter.DoInsertion(function);
+    Status insertionStatus = inserter.DoInsertion(function);
+    if(insertionStatus != SUCCESS) {return insertionStatus;}
     ALOG_INFO_F("===> End AssignMemoryType.");
     return SUCCESS;
 }

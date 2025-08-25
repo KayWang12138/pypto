@@ -78,7 +78,7 @@ public:
     void RefreshTensorTobeMap(Function &function);
 
     // 遍历所有tensor，如果有Mem conflict，记录到converts中
-    void RecordConflict(Function &function);
+    Status RecordConflict(Function &function);
 
     // 根据已记录的converts插入OP_CONVERT
     void InsertConvertOps(Function &function);
@@ -94,7 +94,11 @@ public:
     void CheckUnknown(Function &function) const;
 
     // 对外总接口
-    void DoInsertion(Function &function);
+    Status DoInsertion(Function &function);
+
+    //构建转换路径
+    Status ConstructPath(MemoryType from, MemoryType to, std::vector<MemoryType> &paths,
+        const std::shared_ptr<LogicalTensor> &oOperand,const Operation &op) const;
 
     // 检查tensor是否需要跳过
     bool SkipOperand(const std::shared_ptr<LogicalTensor> &oOperand, const std::vector<int> visitedTensor) const;

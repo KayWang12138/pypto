@@ -172,7 +172,7 @@ void ConvertInserter::UpdateConsumerAndReconnect(
 }
 
 // 遍历所有tensor，如果有Mem conflict，记录到converts中
-void ConvertInserter::RecordConflict(Function &function) {
+Status ConvertInserter::RecordConflict(Function &function) {
     oldRawToNewRaw.clear();
     converts.clear();
     std::vector<int> visitedTensor;
@@ -211,13 +211,14 @@ void ConvertInserter::RecordConflict(Function &function) {
                 if (canSetBoth && crossCore) {
                     requiredMemoryType = MEM_DEVICE_DDR;
                 }
-                //step4:构造转换路径
-                std::vector<MemoryType> paths;
-                PassConfigManager::Instance().GetPlatformConfig().FindNearestPath(
-                    oOperand->GetMemoryTypeOriginal(), requiredMemoryType, paths);
-                if (paths.size() <= 1) {
+                if (requiredMemoryType == oOperand->GetMemoryTypeOriginal()) {
                     continue;
                 }
+                //step4:构造转换路径
+                std::vector<MemoryType> paths;
+                Status status = ConstructPath(oOperand->GetMemoryTypeOriginal(),requiredMemoryType,paths,oOperand,op);
+                if (status != SUCCESS) {return status;}
+                               
                 //step5：记录需要插入的Convert Op
                 auto output = RecordInsertConvertOp(oOperand,paths,function,op);
 
@@ -229,7 +230,25 @@ void ConvertInserter::RecordConflict(Function &function) {
             }
         }
     } 
+    return SUCCESS;
 }
+//检查from和to之间是否不存在数据通路
+Status ConvertInserter::ConstructPath(MemoryType from, MemoryType to, std::vector<MemoryType> &paths,
+    const std::shared_ptr<LogicalTensor> &oOperand,const Operation &op) const{
+    PassConfigManager::Instance().GetPlatformConfig().FindNearestPath(from,to,paths);
+    if (paths.empty()) {
+        //path为空的两种场景:1、from和to内存类型一致；2、from和to不一致，且未找到数据通路。这里处理场景2，报错退出
+        ALOG_ERROR_F("No memory path found from %s to %s for tensor %d in operation %s[%d].",
+            BriefMemoryTypeToString(from).c_str(),
+            BriefMemoryTypeToString(to).c_str(),
+            oOperand->magic,
+            op.GetOpcodeStr().c_str(),
+            op.GetOpMagic());
+        return FAILED;
+    }
+    return SUCCESS;   
+}
+
 //检查tensor是否需要跳过
 bool ConvertInserter::SkipOperand(const std::shared_ptr<LogicalTensor> &oOperand, const std::vector<int> visitedTensor) const{
     return ((conflictMap.find(oOperand->magic) == conflictMap.end()) || 
@@ -348,12 +367,14 @@ void ConvertInserter::InsertConvertOps(Function &function) {
 }
 
 // 对外总接口
-void ConvertInserter::DoInsertion(Function &function) {
+Status ConvertInserter::DoInsertion(Function &function) {
     FilterConflictTensor();
-    RecordConflict(function);
+    Status status = RecordConflict(function);
+    if(status != SUCCESS) { return status; }
     InsertConvertOps(function);
     CheckUnknown(function);
     ALOG_INFO_F("After Insert Convert, total op Num: %d.", function.Operations().size());
+    return SUCCESS;
 }
 } //namespace tile_fwk
 } // namespace npu
