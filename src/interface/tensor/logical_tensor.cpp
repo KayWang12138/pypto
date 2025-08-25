@@ -119,7 +119,7 @@ std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function &dstFunc, bool crea
     }
 
     std::shared_ptr<LogicalTensor> newTensor = std::make_shared<LogicalTensor>(dstFunc, rawTensor,
-        offset, shape, nodetype, tensorfmt);
+        offset, shape, dynValidShape_, nodetype, tensorfmt);
     newTensor->isSubGraphBoundary = isSubGraphBoundary;
     newTensor->subGraphID = subGraphID;
     if (!create) {
