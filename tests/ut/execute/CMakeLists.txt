@@ -8,7 +8,8 @@
 # ======================================================================================================================
 
 set(_CaseFilterList
-        "AicoreRuntimeManagerUnitTest.test_tile_fwk_hidden_input"
+        "AicoreRuntimeManagerUnitTest.test_tile_fwk_hidden_input_for_ge"
+        "AicoreRuntimeManagerUnitTest.test_tile_fwk_hidden_input_for_aclnn"
 )
 
 set(_Target ${TileFwkUTestNamePrefix}_execute)

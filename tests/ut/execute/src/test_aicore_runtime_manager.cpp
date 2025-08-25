@@ -21,6 +21,8 @@
 
 using namespace ge;
 namespace npu::tile_fwk {
+extern ge::graphStatus TileFwkHiddenInputsFunc(const ge::OpDescPtr &op_desc, std::vector<void *> &contexts);
+
 class AicoreRuntimeManagerUnitTest : public testing::Test {
 public:
     static void SetUpTestCase() {}
@@ -32,7 +34,7 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(AicoreRuntimeManagerUnitTest, test_tile_fwk_hidden_input) {
+TEST_F(AicoreRuntimeManagerUnitTest, test_tile_fwk_hidden_input_for_ge) {
   OpDescPtr op_desc_ptr = make_shared<ge::OpDesc>("sigmod", "sigmod");
   DevAscendProgram args;
   args.devArgs.nrAic = 0;
@@ -57,10 +59,39 @@ TEST_F(AicoreRuntimeManagerUnitTest, test_tile_fwk_hidden_input) {
   ge::Buffer op_binary_buffer =
       ge::Buffer::CopyFrom(reinterpret_cast<uint8_t*>(op_binary_bin.data()), op_binary_bin.size());
   ge::AttrUtils::SetBytes(op_desc_ptr, "_subkernel_op_binary", op_binary_buffer);
-  (void)ge::AttrUtils::SetInt(op_desc_ptr, "tvm_blockdim", 24);
+  ge::AttrUtils::SetInt(op_desc_ptr, "tvm_blockdim", 24);
+  ge::AttrUtils::SetInt(op_desc_ptr, "_tile_fwk_op_config_key", 123);
   op_desc_ptr->SetWorkspaceBytes({100});
   std::vector<void *> contexts;
-  AicoreRtManager::Instance().TileFwkHiddenInput(op_desc_ptr, contexts);
-  AicoreRtManager::Instance().TileFwkHiddenInput(op_desc_ptr, contexts);
+  TileFwkHiddenInputsFunc(op_desc_ptr, contexts);
+  EXPECT_EQ(contexts.size(), 1);
+  TileFwkHiddenInputsFunc(op_desc_ptr, contexts);
+  EXPECT_EQ(contexts.size(), 2);
+}
+
+TEST_F(AicoreRuntimeManagerUnitTest, test_tile_fwk_hidden_input_for_aclnn) {
+  OpDescPtr op_desc_ptr = make_shared<ge::OpDesc>("sigmod", "sigmod");
+  DevAscendProgram args;
+  args.devArgs.nrAic = 0;
+  args.devArgs.nrAiv = 0;
+  args.devArgs.nrAicpu = 0;
+  args.devArgs.nrValidAic = 0;
+  args.devArgs.opaque = 0;
+  args.devArgs.devQueueAddr = 0;
+  args.devArgs.sharedBuffer = 0;
+  args.devArgs.coreRegAddr = 0;
+  args.devArgs.corePmuRegAddr = 0;
+  args.devArgs.corePmuAddr = 0;
+  args.devArgs.pmuEventAddr = 0;
+  args.devArgs.taskType = 0;
+  args.devArgs.machineConfig = 0;
+  args.devArgs.taskId = 0;
+  args.devArgs.taskData = 0;
+  args.workspaceSize = 0;
+
+  std::vector<uint8_t> op_binary_bin(sizeof(args), 0);
+  memcpy_s(op_binary_bin.data(), sizeof(args), &args, sizeof(args));
+  int64_t *dev_args = AicoreRtManager::Instance().TileFwkHiddenInput(op_binary_bin, 234, 24, 100);
+  EXPECT_NE(dev_args, nullptr);
 }
 }

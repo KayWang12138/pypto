@@ -9,10 +9,6 @@
 
 #include "aicore_runtime_manager.h"
 #include <dlfcn.h>
-#include "graph/buffer.h"
-#include "graph/utils/attr_utils.h"
-#include "graph/debug/ge_attr_define.h"
-#include "register/hidden_inputs_func_registry.h"
 #include "runtime/rt.h"
 #include "runtime/rt_preload_task.h"
 #include "driver/ascend_hal_define.h"
@@ -25,44 +21,7 @@ const int32_t MODULE_TYPE_AI_CORE = 4;
 const int32_t INFO_TYPE_OCCUPY = 8;
 const uint64_t SHARE_BUFFER_SIZE = 512;
 const uint64_t AICPU_COUNT = 5;
-const std::string kAttrSubkernelOpBinaryStr = "_subkernel_op_binary";
-}
-AicoreRtManager::AicoreRtManager() {}
-
-AicoreRtManager::~AicoreRtManager() {
-    ALOG_DEBUG_F("DeInit with mem size %zu.", allocated_addrs_.size());
-    for (uint8_t* addr : allocated_addrs_) {
-        rtFree(addr);
-    }
-    allocated_addrs_.clear();
-    op_to_hiddeninput_.clear();
-}
-
-bool AicoreRtManager::AllocDevAddr(uint8_t **dev_addr, size_t size) {
-  ALOG_DEBUG_F("Alloc size is %zu.", size);
-  int res = rtMalloc((void **)dev_addr, size, RT_MEMORY_HBM, 0);
-  if (res != 0) {
-    ALOG_ERROR_F("Failed to alloc mem with size %zu.");
-    return false;
-  }
-  allocated_addrs_.emplace_back(*dev_addr);
-  return true;
-}
-
-void AicoreRtManager::InsertHiddenInput(const int64_t &op_id, void *hidden_input) {
-  op_to_hiddeninput_[op_id] = hidden_input;
-}
-
-void* AicoreRtManager::GetHiddenInput(const int64_t &op_id) {
-  if (op_to_hiddeninput_.count(op_id) == 1) {
-    ALOG_DEBUG_F("Op: %ld hit hidden input.", op_id);
-    return op_to_hiddeninput_[op_id];
-  }
-  return nullptr;
-}
-
-bool GetPgmsk(uint64_t &valid, int32_t &deviceId) {
-  rtGetDevice(&deviceId);
+bool GetPgmsk(const int32_t deviceId, uint64_t &valid) {
   uint64_t aicore_bitmap[AICORE_MAP_BUFF_LEN] = {0};
   int32_t size_n = static_cast<int32_t>(sizeof(uint64_t)) * AICORE_MAP_BUFF_LEN;
   auto halFuncDevInfo = (int (*)(uint32_t deviceId, int32_t moduleType, int32_t infoType,
@@ -79,18 +38,64 @@ bool GetPgmsk(uint64_t &valid, int32_t &deviceId) {
   valid = aicore_bitmap[0];
   return true;
 }
+}
+AicoreRtManager::AicoreRtManager() {}
 
-bool AicoreRtManager::GetAicoreRegInfo(const ge::OpDescPtr &op_desc, std::vector<int64_t> &aic,
-                                       std::vector<int64_t> &aiv, int32_t deviceId) {
+AicoreRtManager::~AicoreRtManager() {
+    ALOG_DEBUG_F("DeInit with mem size %zu.", allocated_addrs_.size());
+    BatchFreeDevAddr(allocated_addrs_);
+    cache_hidden_input_map_.clear();
+}
+
+bool AicoreRtManager::AllocDevAddr(void **dev_addr, size_t size, std::vector<void *> &allocated_addrs) {
+  ALOG_DEBUG_F("Alloc size is %zu.", size);
+  int res = rtMalloc(dev_addr, size, RT_MEMORY_HBM, 0);
+  if (res != 0) {
+    ALOG_ERROR_F("Failed to alloc mem with size %zu.");
+    return false;
+  }
+  allocated_addrs.emplace_back(*dev_addr);
+  return true;
+}
+
+void AicoreRtManager::BatchFreeDevAddr(std::vector<void *> &allocated_addrs) {
+  if (allocated_addrs.empty()) {
+    return;
+  }
+  for (void* addr : allocated_addrs) {
+    if (addr != nullptr) {
+      rtFree(addr);
+    }
+  }
+  allocated_addrs.clear();
+}
+
+void AicoreRtManager::SaveAllocatedAddrs(const std::vector<void *> &allocated_addrs) {
+  allocated_addrs_.insert(allocated_addrs_.end(), allocated_addrs.begin(), allocated_addrs.end());
+}
+
+void AicoreRtManager::AddHiddenInputCache(const int64_t &cache_id, int64_t *hidden_input) {
+  cache_hidden_input_map_[cache_id] = hidden_input;
+}
+
+int64_t* AicoreRtManager::GetHiddenInputCache(const int64_t &cache_id) const {
+  auto iter = cache_hidden_input_map_.find(cache_id);
+  if (iter == cache_hidden_input_map_.end()) {
+    return nullptr;
+  }
+  ALOG_DEBUG_F("Cache %ld hit hidden input.", cache_id);
+  return iter->second;
+}
+
+bool AicoreRtManager::GetAicoreRegInfo(const int32_t device_id, std::vector<int64_t> &aic, std::vector<int64_t> &aiv) {
   int nrCore = 25;
   int nrSubCore = 3;
   uint64_t valid = 0;
-  if (!GetPgmsk(valid, deviceId)) {
-      ALOG_ERROR_F("Node[%s, %s]: failed to get device info or no valid core exists.",
-              op_desc->GetNamePtr(), op_desc->GetTypePtr());
+  if (!GetPgmsk(device_id, valid)) {
+      ALOG_ERROR_F("Failed to get device info or no valid core exists.");
       return false;
   }
-  ALOG_INFO_F("Node[%s, %s]: the valid cores are %ld", op_desc->GetNamePtr(), op_desc->GetTypePtr(), valid);
+  ALOG_INFO_F("The valid cores are %ld", valid);
   uint64_t coreStride = 8 * 1024 * 1024; // 8M
   uint64_t subCoreStride = 0x100000ULL;  
   auto isValid = [&valid](int id) {
@@ -100,17 +105,17 @@ bool AicoreRtManager::GetAicoreRegInfo(const ge::OpDescPtr &op_desc, std::vector
   auto halFunc = (int (*)(int type, void *paramValue, size_t paramValueSize, void *outValue,
       size_t *outSizeRet))dlsym(nullptr, "halMemCtl");
   if (halFunc == nullptr) {
-    ALOG_ERROR_F("Node[%s, %s]: failed to find halMemCtlSpeical function.", op_desc->GetNamePtr(), op_desc->GetTypePtr());
+    ALOG_ERROR_F("Failed to find halMemCtlSpeical function.");
     return false;
   }  
   struct AddrMapInPara inMapPara;
   struct AddrMapOutPara outMapPara;
-  inMapPara.devid = deviceId;
+  inMapPara.devid = device_id;
   inMapPara.addr_type = ADDR_MAP_TYPE_REG_AIC_CTRL;
   auto ret = halFunc(0, reinterpret_cast<void *>(&inMapPara), sizeof(struct AddrMapInPara),
       reinterpret_cast<void *>(&outMapPara), nullptr);
   if (ret != 0) {
-    ALOG_ERROR_F("Node[%s, %s]: CTRL_TYPE_ADDR_MAP fail. (ret=%d).", op_desc->GetNamePtr(), op_desc->GetTypePtr(), ret);
+    ALOG_ERROR_F("CTRL_TYPE_ADDR_MAP fail. (ret=%d).", ret);
     return false;
   }
   for (int i = 0; i < nrCore; i++) {
@@ -129,101 +134,95 @@ bool AicoreRtManager::GetAicoreRegInfo(const ge::OpDescPtr &op_desc, std::vector
   return true;
 }
 
-bool AicoreRtManager::InitDyBinData(const ge::OpDescPtr &op_desc, std::vector<int64_t> &aic, std::vector<int64_t> &aiv,
-                                    DevAscendProgram *host_args, int32_t deviceId) {
-  int64_t block_dim = 0;
-  (void)ge::AttrUtils::GetInt(op_desc, ge::TVM_ATTR_NAME_BLOCKDIM, block_dim);
-  ALOG_DEBUG_F("Node[%s, %s]: block dim is %ld.", op_desc->GetNamePtr(), op_desc->GetTypePtr(), block_dim);
+bool AicoreRtManager::InitDyBinData(const std::vector<int64_t> &aic, const std::vector<int64_t> &aiv,
+                                    DevAscendProgram *host_args, std::vector<void *> &allocated_addrs) {
+  host_args->devArgs.nrAic = aic.size();
+  host_args->devArgs.nrAiv = aiv.size();
   std::vector<int64_t> regs;
   regs.insert(regs.end(), aic.begin(), aic.end());
   regs.insert(regs.end(), aiv.begin(), aiv.end());
-  host_args->devArgs.nrAic = aic.size();
-  host_args->devArgs.nrAiv = aiv.size();
-  host_args->devArgs.nrAicpu = AICPU_COUNT;
-  host_args->devArgs.nrValidAic = block_dim;
-  host_args->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
-  (void)rtGetL2CacheOffset(deviceId, &host_args->l2CacheOffset);
-  std::vector<int64_t> workspaces = op_desc->GetWorkspaceBytes();
-  if (workspaces.empty()) {
-    ALOG_ERROR_F("Node[%s, %s]: failed to get workspace.", op_desc->GetNamePtr(), op_desc->GetTypePtr());
-    return false;
-  }
-  host_args->workspaceSize = static_cast<uint64_t>(workspaces[0]);
-  (void)ge::AttrUtils::GetInt(op_desc, "_tile_fwk_op_config_key", host_args->configKey);
-  ALOG_DEBUG_F("Node[%s, %s]: config key is %lu.", op_desc->GetNamePtr(), op_desc->GetTypePtr(), host_args->configKey);
-  int nrCore = regs.size();
-  size_t shared_size = nrCore * SHARE_BUFFER_SIZE;
-  if (!AicoreRtManager::Instance().AllocDevAddr((uint8_t**)&host_args->devArgs.sharedBuffer, shared_size)) {
-    ALOG_ERROR_F("Node[%s, %s]: failed to alloc shared buffer.", op_desc->GetNamePtr(), op_desc->GetTypePtr());
+  size_t shared_size = regs.size() * SHARE_BUFFER_SIZE;
+  if (!AllocDevAddr((void**)&host_args->devArgs.sharedBuffer, shared_size, allocated_addrs)) {
+    ALOG_ERROR_F("Failed to alloc shared buffer.");
     return false;
   }
   if (rtMemset((void*)host_args->devArgs.sharedBuffer, shared_size, 0U, shared_size) != RT_ERROR_NONE) {
-    ALOG_ERROR_F("Node[%s, %s]: failed to copy shared buffer to device.", op_desc->GetNamePtr(), op_desc->GetTypePtr());
+    ALOG_ERROR_F("Failed to copy shared buffer to device.");
     return false;
   }
-  size_t core_reg_size = nrCore * sizeof(uint64_t);
-  if (!AicoreRtManager::Instance().AllocDevAddr((uint8_t**)&host_args->devArgs.coreRegAddr, core_reg_size)) {
-    ALOG_ERROR_F("Node[%s, %s]: failed to alloc core reg addr.", op_desc->GetNamePtr(), op_desc->GetTypePtr());
+
+  size_t core_reg_size = regs.size() * sizeof(uint64_t);
+  if (!AllocDevAddr((void**)&host_args->devArgs.coreRegAddr, core_reg_size, allocated_addrs)) {
+    ALOG_ERROR_F("Failed to alloc core reg addr.");
     return false;
   }
   if (rtMemcpy((void*)host_args->devArgs.coreRegAddr, core_reg_size, regs.data(), core_reg_size, 
       RT_MEMCPY_HOST_TO_DEVICE) != RT_ERROR_NONE) {
-    ALOG_ERROR_F("Node[%s, %s]: failed to copy core reg addr to device.", op_desc->GetNamePtr(), op_desc->GetTypePtr());
+    ALOG_ERROR_F("Failed to copy core reg addr to device.");
     return false;
   }
-  ALOG_DEBUG_F("Node[%s, %s]: aic %d, aiv %d, block dim %d, sharedBuffer %lx, coreRegAddr %lx, workspace size %lu.",
-          op_desc->GetNamePtr(), op_desc->GetTypePtr(), host_args->devArgs.nrAic, host_args->devArgs.nrAiv,
-          host_args->devArgs.nrValidAic, host_args->devArgs.sharedBuffer, host_args->devArgs.coreRegAddr,
-          host_args->workspaceSize);
+  ALOG_DEBUG_F("DevAscendProgram: aic %lu, aiv %lu, block dim %lu, sharedBuffer %lx, coreRegAddr %lx, workspace %lu.",
+               host_args->devArgs.nrAic, host_args->devArgs.nrAiv, host_args->devArgs.nrValidAic,
+               host_args->devArgs.sharedBuffer, host_args->devArgs.coreRegAddr, host_args->workspaceSize);
   return true;
 }
 
-ge::graphStatus AicoreRtManager::TileFwkHiddenInput(const ge::OpDescPtr &op_desc, std::vector<void *> &contexts) {
-  auto hit_ret = AicoreRtManager::Instance().GetHiddenInput(op_desc->GetId());
-  if (hit_ret != nullptr) {
-    contexts.emplace_back(hit_ret);
-    return ge::GRAPH_SUCCESS;
-  }
-  ge::Buffer op_binary_buffer;
-  ge::AttrUtils::GetBytes(op_desc, kAttrSubkernelOpBinaryStr, op_binary_buffer);
-  size_t bin_size = op_binary_buffer.GetSize();
-  if (op_binary_buffer.GetData() == nullptr || bin_size == 0) {
-    ALOG_ERROR_F("Node[%s, %s]: failed to get subkernel binary data.", op_desc->GetNamePtr(), op_desc->GetTypePtr());
-    return ge::GRAPH_FAILED;
-  }
-  ALOG_DEBUG_F("Node[%s, %s]: subkernel binary data size is %zu.", op_desc->GetNamePtr(), op_desc->GetTypePtr(), bin_size);
-  auto bin_data = reinterpret_cast<uint8_t*>(op_binary_buffer.GetData());
-  auto host_args = (DevAscendProgram*)bin_data;
-  void *dev_args = nullptr;
-  if (!AicoreRtManager::Instance().AllocDevAddr((uint8_t**)&dev_args, bin_size)) {
-    ALOG_ERROR_F("Node[%s, %s]: failed to alloc dev args.", op_desc->GetNamePtr(), op_desc->GetTypePtr());
-    return ge::GRAPH_FAILED;
-  }
+int64_t* AicoreRtManager::TileFwkHiddenInput(const std::vector<uint8_t> &op_bin, const uint64_t config_key,
+                                             const uint32_t block_dim, const uint64_t workspace_size) {
+  std::vector<uint8_t> op_bin_copy = op_bin;
+  DevAscendProgram *host_args = reinterpret_cast<DevAscendProgram*>(op_bin_copy.data());
+  host_args->configKey = config_key;
+  host_args->workspaceSize = workspace_size;
+  host_args->devArgs.nrValidAic = block_dim;
+  host_args->devArgs.nrAicpu = AICPU_COUNT;
+  host_args->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
+
+  int32_t device_id = 0;
+  rtGetDevice(&device_id);
+  (void)rtGetL2CacheOffset(device_id, &host_args->l2CacheOffset);
+  ALOG_DEBUG_F("L2 cache offset of device id [%d] is [%lu].", device_id, host_args->l2CacheOffset);
+
   std::vector<int64_t> aic;
   std::vector<int64_t> aiv;
-  int32_t deviceId = 0;
-  (void)rtGetDevice(&deviceId);
-  if (!AicoreRtManager::Instance().GetAicoreRegInfo(op_desc, aic, aiv, deviceId)) {
-    ALOG_ERROR_F("Node[%s, %s]: failed to get aicore reg info.", op_desc->GetNamePtr(), op_desc->GetTypePtr());
-    return ge::GRAPH_FAILED;
+  if (!GetAicoreRegInfo(device_id, aic, aiv)) {
+    ALOG_ERROR_F("Failed to get aicore reg info.");
+    return nullptr;
   }
-  if (!AicoreRtManager::Instance().InitDyBinData(op_desc, aic, aiv, host_args, deviceId)) {
-    ALOG_ERROR_F("Node[%s, %s]: failed to init bin data.", op_desc->GetNamePtr(), op_desc->GetTypePtr());
-    return ge::GRAPH_FAILED;
-  }  
-  if (rtMemcpy(dev_args, bin_size, (void*)op_binary_buffer.GetData(), bin_size, RT_MEMCPY_HOST_TO_DEVICE) !=
+  ALOG_DEBUG_F("After get aicore reg info, size of aic and aiv is [%zu] and [%zu].", aic.size(), aiv.size());
+
+  std::vector<void *> allocated_addrs;
+  if (!InitDyBinData(aic, aiv, host_args, allocated_addrs)) {
+    ALOG_ERROR_F("Failed to init bin data.");
+    BatchFreeDevAddr(allocated_addrs);
+    return nullptr;
+  }
+
+  int64_t *dev_args = nullptr;
+  if (!AllocDevAddr((void**)&dev_args, op_bin_copy.size(), allocated_addrs)) {
+    ALOG_ERROR_F("Failed to alloc dev args.");
+    BatchFreeDevAddr(allocated_addrs);
+    return nullptr;
+  }
+  if (rtMemcpy(dev_args, op_bin_copy.size(), (void*)op_bin_copy.data(), op_bin_copy.size(), RT_MEMCPY_HOST_TO_DEVICE) !=
       RT_ERROR_NONE) {
-    ALOG_ERROR_F("Node[%s, %s]: failed to copy bin data to device.", op_desc->GetNamePtr(), op_desc->GetTypePtr());
-    return ge::GRAPH_FAILED;
+    ALOG_ERROR_F("Failed to copy bin data to device.");
+    BatchFreeDevAddr(allocated_addrs);
+    return nullptr;
   }
-  AicoreRtManager::Instance().InsertHiddenInput(op_desc->GetId(), dev_args);
-  contexts.emplace_back(dev_args);
-  return ge::GRAPH_SUCCESS;
+  SaveAllocatedAddrs(allocated_addrs);
+  return dev_args;
 }
 
-ge::graphStatus TileFwkHiddenInputsFunc(const ge::OpDescPtr &op_desc, std::vector<void *> &contexts) {
-  return AicoreRtManager::Instance().TileFwkHiddenInput(op_desc, contexts);
+int64_t* AicoreRtManager::TileFwkHiddenInputWithCache(const std::vector<uint8_t> &op_bin, const uint64_t config_key,
+    const uint32_t block_dim, const uint64_t workspace_size, const int64_t cache_id) {
+  int64_t *dev_args = GetHiddenInputCache(cache_id);
+  if (dev_args != nullptr) {
+    return dev_args;
+  }
+  dev_args = TileFwkHiddenInput(op_bin, config_key, block_dim, workspace_size);
+  if (dev_args != nullptr) {
+    AddHiddenInputCache(cache_id, dev_args);
+  }
+  return dev_args;
 }
-
-REG_HIDDEN_INPUTS_FUNC(ge::HiddenInputsType::TILEFWK, TileFwkHiddenInputsFunc);
-} // namespace fe
+} // namespace npu::tile_fwk

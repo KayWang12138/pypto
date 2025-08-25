@@ -11,7 +11,6 @@
 
 #include <vector>
 #include <unordered_map>
-#include "graph/op_desc.h"
 #include "machine/utils/common_def.h"
 
 namespace npu::tile_fwk {
@@ -33,17 +32,21 @@ public:
         static AicoreRtManager Inst;
         return Inst;
     }
-    bool AllocDevAddr(uint8_t **dev_addr, size_t size);
-    void InsertHiddenInput(const int64_t &op_id, void *hidden_input);
-    void* GetHiddenInput(const int64_t &op_id);
-    bool GetAicoreRegInfo(const ge::OpDescPtr &op_desc, std::vector<int64_t> &aic, std::vector<int64_t> &aiv,
-                          int32_t deviceId);
-    bool InitDyBinData(const ge::OpDescPtr &op_desc, std::vector<int64_t> &aic, std::vector<int64_t> &aiv,
-                       DevAscendProgram *host_args, int32_t deviceId);
-    ge::graphStatus TileFwkHiddenInput(const ge::OpDescPtr &op_desc, std::vector<void *> &contexts);
+    int64_t* TileFwkHiddenInput(const std::vector<uint8_t> &op_bin, const uint64_t config_key, const uint32_t block_dim,
+                                const uint64_t workspace_size);
+    int64_t* TileFwkHiddenInputWithCache(const std::vector<uint8_t> &op_bin, const uint64_t config_key,
+                                         const uint32_t block_dim, const uint64_t workspace_size, const int64_t cache_id);
 
 private:
-    std::vector<uint8_t *> allocated_addrs_;
-    std::unordered_map<int64_t, void *> op_to_hiddeninput_;
+    static bool AllocDevAddr(void **dev_addr, size_t size, std::vector<void *> &allocated_addrs);
+    static void BatchFreeDevAddr(std::vector<void *> &allocated_addrs);
+    void SaveAllocatedAddrs(const std::vector<void *> &allocated_addrs);
+    void AddHiddenInputCache(const int64_t &cache_id, int64_t *hidden_input);
+    int64_t* GetHiddenInputCache(const int64_t &cache_id) const;
+    static bool GetAicoreRegInfo(const int32_t device_id, std::vector<int64_t> &aic, std::vector<int64_t> &aiv);
+    static bool InitDyBinData(const std::vector<int64_t> &aic, const std::vector<int64_t> &aiv,
+                              DevAscendProgram *host_args, std::vector<void *> &allocated_addrs);
+    std::vector<void *> allocated_addrs_;
+    std::unordered_map<int64_t, int64_t *> cache_hidden_input_map_;
 };
 } // namespace fe

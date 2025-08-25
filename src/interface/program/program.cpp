@@ -218,15 +218,6 @@ Operation *Program::FinishCurrentFunction(const std::shared_ptr<TensorSlotScope>
     return &ConnectCallerGusket(currentFunctionPtr_->Parent(), funcArgs);
 }
 
-int Program::SubmitDyndev() {
-    Program::GetInstance().DumpJsonFile(config::LogTopFolder() + "/tensor_graph.json");
-    for (auto func : functionSequence_) {
-        HostMachine::GetInstance().SubTask(func);
-        HostMachine::GetInstance().WaitTaskFinish();
-    }
-    return 0;
-}
-
 // End the current function and pop the function index from the stack
 std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string &funcName,
                                                                           bool generateCall) {

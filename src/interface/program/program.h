@@ -24,9 +24,6 @@ namespace npu::tile_fwk {
 class Program {
 public: // public api for torch
     int EndFunction(const bool isWaitTaskFinished);
-    void *Compile(); // 返回handle
-    int SubmitDyndev();
-    uint64_t GetWorkSpaceSize(const void *handle);
     TileShape tileShape;
     MatrixSize matrixSize;
 

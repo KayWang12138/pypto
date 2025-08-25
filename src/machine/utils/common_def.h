@@ -15,6 +15,9 @@
 
 #ifndef RUNTIME_COMMON_DEF_H
 #define RUNTIME_COMMON_DEF_H
+
+#include <cstdint>
+
 const uint64_t AICORE_TASK_INIT = 0xFFFFFFFF;
 const uint64_t AICORE_TASK_STOP = 0x7FFFFFF0;
 const uint64_t AICORE_FUNC_STOP = 0x7FFFFFE0;

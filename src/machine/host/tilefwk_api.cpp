@@ -44,38 +44,8 @@ int32_t TileFwkEndFunction(const bool isWaitTaskFinished) {
     return Program::GetInstance().EndFunction(isWaitTaskFinished);
 }
 
-void *TileFwkCompile() {
-    return Program::GetInstance().Compile();
-}
-
-int32_t TileFwkGetWorkspaceSize(const void *handle, uint64_t *workspaceSize) {
-    *workspaceSize = Program::GetInstance().GetWorkSpaceSize(handle);
-    return 0;
-}
-
-void TileFwkFreeHandle(const void *handle) {
-    /* handle 当前在AstRun结束后释放， 此接口暂时后续保留扩展使用 */
-    (void)handle;
-}
-
-void TileFwkFinalize() {
-    Program::GetInstance().Reset();
-}
-
-void TileFwkSetVecTileShapes(const std::vector<int> &tileShape) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
-}
-
-void TileFwkSetCubeTileShapes(const std::array<int, 2> &m, const std::vector<int> &k, const std::array<int, 2> &n) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes(m, k, n);
-}
-
-void TileFwkAssign(Tensor &dst, const Tensor &src) {
-    dst = src;
-}
-
 /* 返回compile handle */
-void *Program::Compile() {
+void *TileFwkCompile() {
     (void)CacheManager::Instance().Initialize();
     MachineTask *task = HostMachine::GetInstance().Compile();
     auto deviceAgentTask = new DeviceAgentTask(task); // need free somewhere
@@ -96,7 +66,7 @@ void *Program::Compile() {
         deviceAgentTask->compileInfo.PrintDistributed();
 
         deviceAgentTask->compileInfo.workSpaceStackSize = function->GetStackWorkespaceSize();
-        auto &cache = GetFunctionCache();
+        auto &cache = Program::GetInstance().GetFunctionCache();
         (void)GenCode(deviceAgentTask->compileTask, deviceAgentTask->compileInfo.invokeParaOffset, cache);
         /* finish compile add function cache */
         cache.Insert(function->GetFunctionHash(), *function);
@@ -122,8 +92,30 @@ void *Program::Compile() {
     return reinterpret_cast<void *>(deviceAgentTask);
 }
 
-uint64_t Program::GetWorkSpaceSize(const void *handle) {
-    return (reinterpret_cast<const DeviceAgentTask *>(handle))->GetWorkSpaceSize();
+int32_t TileFwkGetWorkspaceSize(const void *handle, uint64_t *workspaceSize) {
+    *workspaceSize = (reinterpret_cast<const DeviceAgentTask *>(handle))->GetWorkSpaceSize();
+    return 0;
+}
+
+void TileFwkFreeHandle(const void *handle) {
+    /* handle 当前在AstRun结束后释放， 此接口暂时后续保留扩展使用 */
+    (void)handle;
+}
+
+void TileFwkFinalize() {
+    Program::GetInstance().Reset();
+}
+
+void TileFwkSetVecTileShapes(const std::vector<int> &tileShape) {
+    Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
+}
+
+void TileFwkSetCubeTileShapes(const std::array<int, 2> &m, const std::vector<int> &k, const std::array<int, 2> &n) {
+    Program::GetInstance().GetTileShape().SetCubeTileShapes(m, k, n);
+}
+
+void TileFwkAssign(Tensor &dst, const Tensor &src) {
+    dst = src;
 }
 
 extern "C" bool TileFwkCompileFatbin(const char *opType, const char *socVersion,
