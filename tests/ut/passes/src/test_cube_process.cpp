@@ -62,6 +62,14 @@ public:
         op->SetAttribute(A_MUL_B_ACT_K, 0);
         op->SetAttribute(A_MUL_B_ACT_N, 0);
     }
+
+    void SetMatmulMatrixSize(ComputationalGraphBuilder &G, const std::string name, const std::vector<int32_t> &matrixSize) {
+        auto op = G.GetOp(name);
+        op->SetAttribute(A_MUL_B_ACT_M, matrixSize[0]);
+        op->SetAttribute(A_MUL_B_ACT_K, matrixSize[1]);
+        op->SetAttribute(A_MUL_B_ACT_N, matrixSize[2]);
+    }
+
     void CheckL0cType(DataType inputAstDtype, DataType outputAstDtype, DataType l0cDtype) {
         ComputationalGraphBuilder G;
         // add tensor
@@ -766,6 +774,103 @@ TEST_F(CubeProcessTest, TestAnzBndL1) {
     auto opL1CopyInB = G.GetOp("L1_Copy_In_B");
     EXPECT_NE(opL1CopyInB, nullptr);
     EXPECT_EQ(opL1CopyInB->GetIntAttribute(COPY_IS_NZ), 0);
+}
+
+TEST_F(CubeProcessTest, TestAndBndCnz) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    DataType inputAstDtype = DataType::DT_FP16;
+    DataType outputAstDtype = DataType::DT_FP16;
+    G.AddTensor(inputAstDtype, {64, 128}, "mat_a");
+    auto mat_a = G.GetTensor("mat_a");
+    mat_a->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(inputAstDtype, {128, 128}, "mat_b");
+    auto mat_b = G.GetTensor("mat_b");
+    mat_b->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "mat_c_0");
+    auto mat_c_0 = G.GetTensor("mat_c_0");
+    mat_c_0->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "mat_c_1");
+    auto mat_c_1 = G.GetTensor("mat_c_1");
+    mat_c_1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(inputAstDtype, {64, 128}, "l1_a");
+    auto l1_a = G.GetTensor("l1_a");
+    l1_a->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {128, 128}, "l1_b");
+    auto l1_b = G.GetTensor("l1_b");
+    l1_b->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {64, 128}, "l1_a_0");
+    auto l1_a_0 = G.GetTensor("l1_a_0");
+    l1_a_0->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {128, 128}, "l1_b_0");
+    auto l1_b_0 = G.GetTensor("l1_b_0");
+    l1_b_0->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {64, 128}, "l1_a_1");
+    auto l1_a_1 = G.GetTensor("l1_a_1");
+    l1_a_1->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {128, 128}, "l1_b_1");
+    auto l1_b_1 = G.GetTensor("l1_b_1");
+    l1_b_1->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    G.AddTensor(inputAstDtype, {64, 128}, "l0_a_0");
+    auto l0_a_0 = G.GetTensor("l0_a_0");
+    l0_a_0->SetMemoryTypeBoth(MemoryType::MEM_L0A, true);
+    G.AddTensor(inputAstDtype, {128, 128}, "l0_b_0");
+    auto l0_b_0 = G.GetTensor("l0_b_0");
+    l0_b_0->SetMemoryTypeBoth(MemoryType::MEM_L0B, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "l0_c_0");
+    auto l0_c_0 = G.GetTensor("l0_c_0");
+    l0_c_0->SetMemoryTypeBoth(MemoryType::MEM_L0C, true);
+    G.AddTensor(inputAstDtype, {64, 128}, "l0_a_1");
+    auto l0_a_1 = G.GetTensor("l0_a_1");
+    l0_a_1->SetMemoryTypeBoth(MemoryType::MEM_L0A, true);
+    G.AddTensor(inputAstDtype, {128, 128}, "l0_b_1");
+    auto l0_b_1 = G.GetTensor("l0_b_1");
+    l0_b_1->SetMemoryTypeBoth(MemoryType::MEM_L0B, true);
+    G.AddTensor(outputAstDtype, {64, 128}, "l0_c_1");
+    auto l0_c_1 = G.GetTensor("l0_c_1");
+    l0_c_1->SetMemoryTypeBoth(MemoryType::MEM_L0C, true);
+    // add op
+    G.AddOp(Opcode::OP_COPY_IN, {"mat_a"}, {"l1_a"}, "L1_Copy_In_A");
+    G.AddOp(Opcode::OP_COPY_IN, {"mat_b"}, {"l1_b"}, "L1_Copy_In_B");
+    G.AddOp(Opcode::OP_VIEW, {"l1_a"}, {"l1_a_0","l1_a_1"}, "A_OP_VIEW");
+    G.AddOp(Opcode::OP_VIEW, {"l1_b"}, {"l1_b_0","l1_b_1"}, "B_OP_VIEW");
+    G.AddOp(Opcode::OP_L1_TO_L0A, {"l1_a_0"}, {"l0_a_0"}, "L1_To_L0A_0");
+    G.AddOp(Opcode::OP_L1_TO_L0A, {"l1_a_1"}, {"l0_a_1"}, "L1_To_L0A_1");
+    G.AddOp(Opcode::OP_L1_TO_L0B, {"l1_b_0"}, {"l0_b_0"}, "L1_To_L0B_0");
+    G.AddOp(Opcode::OP_L1_TO_L0B, {"l1_b_1"}, {"l0_b_1"}, "L1_To_L0B_1");
+    G.AddOp(Opcode::OP_A_MUL_B, {"l0_a_0", "l0_b_0"}, {"l0_c_0"}, "A_MUL_B_0");
+    G.AddOp(Opcode::OP_A_MUL_B, {"l0_a_1", "l0_b_1"}, {"l0_c_1"}, "A_MUL_B_1");
+    G.AddOp(Opcode::OP_COPY_OUT, {"l0_c_0"}, {"mat_c_0"}, "L0C_Copy_out_0");
+    G.AddOp(Opcode::OP_COPY_OUT, {"l0_c_1"}, {"mat_c_1"}, "L0C_Copy_out_1");
+    SetMatMulAttr(G, "A_MUL_B_0", false, 4);
+    SetMatmulMatrixSize(G, "A_MUL_B_0", {64, 128, 128});
+    SetMatMulAttr(G, "A_MUL_B_1", false, 4);
+    SetMatmulMatrixSize(G, "A_MUL_B_1", {64, 128, 128});
+    // set incast and outcast
+    G.SetInCast({"mat_a", "mat_b"});
+    G.SetOutCast({"mat_c_0", "mat_c_1"});
+    // run pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    CubeProcess passLocal;
+    passLocal.Run(*function, "", "", 0);
+    // check after pass
+    auto opL1CopyInA = G.GetOp("L1_Copy_In_A");
+    EXPECT_NE(opL1CopyInA, nullptr);
+    EXPECT_EQ(opL1CopyInA->GetIntAttribute(COPY_IS_NZ), 0);
+    auto opL1CopyInB = G.GetOp("L1_Copy_In_B");
+    EXPECT_NE(opL1CopyInB, nullptr);
+    EXPECT_EQ(opL1CopyInB->GetIntAttribute(COPY_IS_NZ), 0);
+    auto opL0cCopyOut0 = G.GetOp("L0C_Copy_out_0");
+    EXPECT_NE(opL0cCopyOut0, nullptr);
+    EXPECT_EQ(opL0cCopyOut0->GetIntAttribute(COPY_IS_NZ), 1);
+    EXPECT_EQ(opL0cCopyOut0->GetIntAttribute(L0C_COPY_OUT_OUTER), 64);
+    EXPECT_EQ(opL0cCopyOut0->GetIntAttribute(L0C_COPY_OUT_INNER), 128);
+    auto opL0cCopyOut1 = G.GetOp("L0C_Copy_out_1");
+    EXPECT_NE(opL0cCopyOut1, nullptr);
+    EXPECT_EQ(opL0cCopyOut1->GetIntAttribute(COPY_IS_NZ), 1);
+    EXPECT_EQ(opL0cCopyOut1->GetIntAttribute(L0C_COPY_OUT_OUTER), 64);
+    EXPECT_EQ(opL0cCopyOut1->GetIntAttribute(L0C_COPY_OUT_INNER), 128);
 }
 } // namespace tile_fwk
 } // namespace npu
