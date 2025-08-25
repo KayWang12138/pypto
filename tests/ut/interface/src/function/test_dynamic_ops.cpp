@@ -16,6 +16,7 @@
 #include <gtest/gtest.h>
 #include "interface/configs/config_manager.h"
 #include "interface/interpreter/raw_tensor_data.h"
+#include "interface/interpreter/calc.h"
 #include "operation/tilefwk_op.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
@@ -30,9 +31,28 @@ public:
         Program::GetInstance().GetConfig().Reset();
         ProgramData::GetInstance().Reset();
         config::SetPlatformConfig(KEY_VERIFY_THREAD_NUMBER, 2);
+        config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+        if (strcmp(calc::Model(), "torch")) {
+            GTEST_SKIP() << "torch missing skip the verify test";
+        }
+        Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
+        Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
     }
 
-    void TearDown() override {}
+    void TearDown() override {
+        config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, false);
+        config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, false);
+        config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_DUMP_OPERATION, false);
+        config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_DUMP_TENSOR, false);
+        config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, false);
+        config::SetPlatformConfig(KEY_VERIFY_PASS, false);
+        config::SetPlatformConfig(KEY_VERIFY_PASS_DUMP_OPERATION, false);
+        config::SetPlatformConfig(KEY_VERIFY_PASS_DUMP_TENSOR, false);
+        config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, false);
+        config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_OPERATION, false);
+        config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_TENSOR, false);
+        config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_CHECK_PRECISION, false);
+    }
 };
 
 TEST_F(DynamicOpsTest, Assemble) {
@@ -40,9 +60,6 @@ TEST_F(DynamicOpsTest, Assemble) {
     config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
     config::SetPlatformConfig(KEY_VERIFY_PASS, true);
     config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, true);
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
 
     int s = 32;
     int n = 2;
@@ -85,10 +102,6 @@ TEST_F(DynamicOpsTest, AssembleFp16) {
     config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
     config::SetPlatformConfig(KEY_VERIFY_PASS, true);
     config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, true);
-    // config::SetPlatformConfig(KEY_VERIFY_DUMP_PERF_DATA, true);
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
 
     int s = 32;
     int n = 2;
@@ -140,9 +153,6 @@ TEST_F(DynamicOpsTest, OpsElementWise) {
     config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_OPERATION, true);
     config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_TENSOR, true);
     config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_CHECK_PRECISION, true);
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
 
     std::vector<uint8_t> devProgBinary;
 
@@ -249,9 +259,6 @@ TEST_F(DynamicOpsTest, OpsElementWiseFp16) {
     config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_OPERATION, true);
     config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_TENSOR, true);
     config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_CHECK_PRECISION, true);
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
 
     std::vector<uint8_t> devProgBinary;
 
@@ -349,9 +356,6 @@ TEST_F(DynamicOpsTest, Cube) {
     config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, false);
     config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_TENSOR, true);
     config::SetPlatformConfig(KEY_VERIFY_THREAD_NUMBER, 1);
-    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {64, 64}, {64, 64});
 
     int n = 4;
     int k = 1024;
@@ -477,4 +481,34 @@ TEST_F(DynamicOpsTest, ElementScalar) {
 
     BoolRes = intElement >= intElement;
     EXPECT_EQ(BoolRes, true);
+}
+
+TEST_F(DynamicOpsTest, MatmulAcc) {
+    config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
+    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
+    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true);
+    config::SetPlatformConfig(KEY_VERIFY_PASS, true);
+    config::SetPlatformConfig(KEY_VERIFY_PASS_CHECK_PRECISION, true);
+
+    Tensor t0(DT_FP32, {128, 128}, "t0");
+    Tensor t1(DT_FP32, {128, 128}, "t1");
+    Tensor t2(DT_FP32, {64, 64}, "t2");
+    Tensor out(DT_FP32, {64, 64}, "out");
+
+    auto d0 = RawTensorData::CreateConstantTensor<float>(t0, 1.0f);
+    auto d1 = RawTensorData::CreateConstantTensor<float>(t1, 1.0f);
+    auto d2 = RawTensorData::CreateConstantTensor<float>(t2, 1.0f);
+    auto out0 = RawTensorData::CreateConstantTensor<float>(out, 1.0f);
+    auto golden = RawTensorData::CreateConstantTensor<float>(out, 65.0f);
+    ProgramData::GetInstance().PrepareData({d0, d1, d2}, {out0}, {golden});
+
+    FUNCTION("main", FunctionType::DYNAMIC, {t0, t1, t2}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            auto v0 = DView(t0, {64, 64}, {64, 64});
+            auto v1 = DView(t1, {64, 64}, {64, 64});
+            auto m0 = Matrix::Matmul<false, true>(DT_FP32, v0, v1);
+            out = Add(m0, t2);
+        }
+    }
 }

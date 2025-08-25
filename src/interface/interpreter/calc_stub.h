@@ -9,6 +9,9 @@
  */
 #pragma once
 
+inline const char *Model() {
+    return "nop";
+}
 inline void Dump(std::ostream &, LogicalTensorDataPtr) {}
 inline bool AllClose(LogicalTensorDataPtr, LogicalTensorDataPtr, double, double) { return true; }
 
@@ -50,4 +53,5 @@ inline void Transpose(LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, int64
 inline void ReduceAcc(LogicalTensorDataPtr, const std::vector<LogicalTensorDataPtr> &) {}
 inline void Copy(LogicalTensorDataPtr, LogicalTensorDataPtr, bool) {}
 
-inline void MatMul(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, bool, bool, bool, int64_t) {}
+inline void MatMul(
+    LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, bool, bool, int64_t) {}

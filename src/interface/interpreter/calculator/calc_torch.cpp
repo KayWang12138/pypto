@@ -94,6 +94,10 @@ void Dump(std::ostream &os, LogicalTensorDataPtr self) {
     os << From(self);
 }
 
+const char *Model() {
+    return "torch";
+}
+
 bool AllClose(LogicalTensorDataPtr self, LogicalTensorDataPtr other, double atol, double rtol) {
     return From(self).allclose(From(other), atol, rtol);
 }
@@ -194,8 +198,8 @@ static void MatmulSplitK(torch::Tensor &out, const torch::Tensor &lhs, const tor
     }
 }
 
-void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, bool atrans, bool btrans,
-    bool acc, int64_t kstep) {
+void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, LogicalTensorDataPtr acc,
+    bool atrans, bool btrans, int64_t kstep) {
     auto tout = From(out);
     auto tself = From(self);
     auto tother = From(other);
@@ -206,7 +210,9 @@ void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDa
     if (btrans) {
         tother.transpose_(-1, AXIS_TO_LAST);
     }
-    if (!acc) {
+    if (acc) {
+        tout.copy_(From(acc));
+    } else {
         tout.zero_();
     }
     if (tself.scalar_type() != tout.scalar_type()) {
@@ -215,7 +221,7 @@ void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDa
     if (tother.scalar_type() != tout.scalar_type()) {
         tother = tother.to(tout.scalar_type());
     }
-    if (!kstep) {
+    if (!kstep || kstep == self->GetShape(-1)) {
         tout.add_(torch::matmul(tself, tother));
     } else {
         MatmulSplitK(tout, tself, tother, kstep);

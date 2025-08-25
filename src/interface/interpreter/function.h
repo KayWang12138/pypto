@@ -195,9 +195,7 @@ private:
         tensorDataViewDict[tensor] = dataView;
     }
     void DoAddRawTensorDataView(
-            const std::shared_ptr<RawTensor> &rawTensor,
-            const std::shared_ptr<RawTensorData> &data) {
-        ASSERT(!rawTensorDataDict.count(rawTensor));
+        const std::shared_ptr<RawTensor> &rawTensor, const std::shared_ptr<RawTensorData> &data) {
         rawTensorDataDict[rawTensor] = data;
     }
     void DoAddSpillRawTensor(
@@ -374,7 +372,7 @@ struct FunctionInterpreter {
         if (view->GetShape().size() > 2) {
             std::fill(shapeT.begin(), shapeT.end() - 2, 1);
         }
-        
+
         std::vector<int> shapeOffsetT(view->GetShape().size(), 0);
         for (int i = 0; i < batchSize; i++) {
             if (view->GetShape().size() == 4) {
@@ -591,6 +589,7 @@ struct FunctionInterpreter {
             } else {
                 auto &incastSlot = func->GetSlotScope()->ioslot.incastSlot;
                 auto &outcastSlot = func->GetSlotScope()->ioslot.outcastSlot;
+                auto &partialSlot = func->GetSlotScope()->ioslot.partialUpdateOutcastList;
 
                 auto getOutputSlot = [this](const std::vector<int> &slotList) {
                     for (auto &slot : slotList) {
@@ -614,9 +613,12 @@ struct FunctionInterpreter {
                 ASSERT(func->GetOutcast().size() == outcastSlot.size());
                 for (size_t i = 0; i < func->GetOutcast().size(); i++) {
                     int outputSlot = getOutputSlot(outcastSlot[i]);
+                    bool isPartialSlot = std::find(partialSlot.begin(), partialSlot.end(), i) != partialSlot.end();
                     std::shared_ptr<LogicalTensorData> outcastView;
                     if (outputSlot != -1) {
                         outcastView = slotDataViewDict_[outputSlot];
+                    } else if (isPartialSlot && slotDataViewDict_[outcastSlot[i][0]]) {
+                        outcastView = slotDataViewDict_[outcastSlot[i][0]];
                     } else {
                         auto outcast = func->GetOutcast()[i];
                         auto validShape = EvaluateValidShape(outcast->GetDynValidShape());

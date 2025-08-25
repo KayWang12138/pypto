@@ -20,50 +20,34 @@ void ExecuteOpAMulB(ExecuteOperationContext *ctx) {
     auto ret = ctx->ooperandInplaceDataViewList->at(0);
     auto lhs = ctx->ioperandDataViewList->at(0);
     auto rhs = ctx->ioperandDataViewList->at(1);
-    if (ret->GetDataType() != lhs->GetDataType()) {
-        // HACK: matmul type might be different between ioperand and ooperand
-        auto lhsCast = LogicalTensorData::CreateEmpty(ret->GetDataType(), lhs->GetShape(), lhs->GetValidShape());
-        auto rhsCast = LogicalTensorData::CreateEmpty(ret->GetDataType(), rhs->GetShape(), rhs->GetValidShape());
-        Calculator::CalcCast(lhsCast.get(), lhs.get(), ret->GetDataType(), CastMode::CAST_NONE, ctx->opInter->GetPoolPtr());
-        Calculator::CalcCast(rhsCast.get(), rhs.get(), ret->GetDataType(), CastMode::CAST_NONE, ctx->opInter->GetPoolPtr());
-        lhs = lhsCast;
-        rhs = rhsCast;
-    }
 
     int k1 = ctx->op->GetTileShape().K(1);
     int k2 = ctx->op->GetTileShape().K(2);
-    int kStep = lhs->GetShape()[1];
-    if (k1 != 0 && k2 != 0) {
-        kStep = std::gcd(k1, k2);
-    }
+    int kStep = std::gcd(k1, k2);
     switch (ctx->op->GetOpcode()) {
-        case Opcode::OP_A_MUL_B: Calculator::CalcMatMul(ret.get(), lhs.get(), rhs.get(), kStep, ctx->opInter->GetPoolPtr()); break;
-        case Opcode::OP_A_MULACC_B:
-            Calculator::CalcMatMulAcc(
-                ret.get(), lhs.get(), rhs.get(), kStep, ctx->ioperandDataViewList->at(SIZE_TWO).get(), ctx->opInter->GetPoolPtr());
-            break;
-        case Opcode::OP_A_MUL_BT: Calculator::CalcMatMulTrans(ret.get(), lhs.get(), rhs.get(), kStep, ctx->opInter->GetPoolPtr()); break;
+        case Opcode::OP_A_MUL_B: calc::MatMul(ret, lhs, rhs, kStep); break;
+        case Opcode::OP_A_MULACC_B: calc::AccMatMul(ret, lhs, rhs, ctx->ioperandDataViewList->at(0x2), kStep); break;
+        case Opcode::OP_A_MUL_BT: calc::MatMul<false, true>(ret, lhs, rhs, kStep); break;
         case Opcode::OP_A_MULACC_BT:
-            Calculator::CalcMatMulTransAcc(
-                ret.get(), lhs.get(), rhs.get(), kStep, ctx->ioperandDataViewList->at(SIZE_TWO).get(), ctx->opInter->GetPoolPtr());
+            calc::AccMatMul<false, true>(ret, lhs, rhs, ctx->ioperandDataViewList->at(0x2), kStep);
             break;
         default: ASSERT(false); break;
     }
 }
-REGISTER_CLACOP_FUNC(OP_A_MUL_B, Opcode::OP_A_MUL_B, ExecuteOpAMulB);
-REGISTER_CLACOP_FUNC(OP_A_MULACC_B, Opcode::OP_A_MULACC_B, ExecuteOpAMulB);
-REGISTER_CLACOP_FUNC(OP_A_MUL_BT, Opcode::OP_A_MUL_BT, ExecuteOpAMulB);
-REGISTER_CLACOP_FUNC(OP_A_MULACC_BT, Opcode::OP_A_MULACC_BT, ExecuteOpAMulB);
+REGISTER_CALC_OP(OP_A_MUL_B, Opcode::OP_A_MUL_B, ExecuteOpAMulB);
+REGISTER_CALC_OP(OP_A_MULACC_B, Opcode::OP_A_MULACC_B, ExecuteOpAMulB);
+REGISTER_CALC_OP(OP_A_MUL_BT, Opcode::OP_A_MUL_BT, ExecuteOpAMulB);
+REGISTER_CALC_OP(OP_A_MULACC_BT, Opcode::OP_A_MULACC_BT, ExecuteOpAMulB);
 
 void ExecuteOpAlloc(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() <= 1);
     ASSERT(ctx->ioperandDataViewList->size() == 0);
 }
-REGISTER_CLACOP_FUNC(OP_UB_ALLOC, Opcode::OP_UB_ALLOC, ExecuteOpAlloc);
-REGISTER_CLACOP_FUNC(OP_L0A_ALLOC, Opcode::OP_L0A_ALLOC, ExecuteOpAlloc);
-REGISTER_CLACOP_FUNC(OP_L0B_ALLOC, Opcode::OP_L0B_ALLOC, ExecuteOpAlloc);
-REGISTER_CLACOP_FUNC(OP_L0C_ALLOC, Opcode::OP_L0C_ALLOC, ExecuteOpAlloc);
-REGISTER_CLACOP_FUNC(OP_L1_ALLOC, Opcode::OP_L1_ALLOC, ExecuteOpAlloc);
+REGISTER_CALC_OP(OP_UB_ALLOC, Opcode::OP_UB_ALLOC, ExecuteOpAlloc);
+REGISTER_CALC_OP(OP_L0A_ALLOC, Opcode::OP_L0A_ALLOC, ExecuteOpAlloc);
+REGISTER_CALC_OP(OP_L0B_ALLOC, Opcode::OP_L0B_ALLOC, ExecuteOpAlloc);
+REGISTER_CALC_OP(OP_L0C_ALLOC, Opcode::OP_L0C_ALLOC, ExecuteOpAlloc);
+REGISTER_CALC_OP(OP_L1_ALLOC, Opcode::OP_L1_ALLOC, ExecuteOpAlloc);
 
 void ExecuteDuplicate(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
@@ -71,16 +55,12 @@ void ExecuteDuplicate(ExecuteOperationContext *ctx) {
     auto &ret = ctx->ooperandInplaceDataViewList->at(0);
     auto &oper = ctx->ioperandDataViewList->at(0);
     Opcode opCode = ctx->op->GetOpcode();
-    if (opCode == Opcode::OP_L1_TO_L0_BT || opCode == Opcode::OP_L1_TO_L0_AT) {
-        std::vector<int> axises = {0, 1};
-        Calculator::CalcTransposeAdjDim(ret.get(), oper.get(), axises[0], ctx->opInter->GetPoolPtr());
-    } else {
-        Calculator::CalcCopy(ret.get(), oper.get(), ctx->opInter->GetPoolPtr());
-    }
+    bool trans = opCode == Opcode::OP_L1_TO_L0_BT || opCode == Opcode::OP_L1_TO_L0_AT;
+    calc::Copy(ret, oper, trans);
 }
-REGISTER_CLACOP_FUNC(OP_L1_TO_L0A, Opcode::OP_L1_TO_L0A, ExecuteDuplicate);
-REGISTER_CLACOP_FUNC(OP_L1_TO_L0B, Opcode::OP_L1_TO_L0B, ExecuteDuplicate);
-REGISTER_CLACOP_FUNC(OP_L1_TO_L0_AT, Opcode::OP_L1_TO_L0_AT, ExecuteDuplicate);
-REGISTER_CLACOP_FUNC(OP_L1_TO_L0_BT, Opcode::OP_L1_TO_L0_BT, ExecuteDuplicate);
-REGISTER_CLACOP_FUNC(OP_CONVERT, Opcode::OP_CONVERT, ExecuteDuplicate);
+REGISTER_CALC_OP(OP_L1_TO_L0A, Opcode::OP_L1_TO_L0A, ExecuteDuplicate);
+REGISTER_CALC_OP(OP_L1_TO_L0B, Opcode::OP_L1_TO_L0B, ExecuteDuplicate);
+REGISTER_CALC_OP(OP_L1_TO_L0_AT, Opcode::OP_L1_TO_L0_AT, ExecuteDuplicate);
+REGISTER_CALC_OP(OP_L1_TO_L0_BT, Opcode::OP_L1_TO_L0_BT, ExecuteDuplicate);
+REGISTER_CALC_OP(OP_CONVERT, Opcode::OP_CONVERT, ExecuteDuplicate);
 }

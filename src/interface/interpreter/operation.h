@@ -21,6 +21,7 @@
 #include "interface/configs/config_manager.h"
 #include "interface/utils/file_utils.h"
 #include "interface/tensor/symbolic_scalar_evaluate.h"
+#include "calc.h"
 #include "calculator.h"
 #include "tilefwk/data_type.h"
 
@@ -66,7 +67,7 @@ public:
     util::ThreadPool* GetPoolPtr() { return &pool; }
 
     int GetThreadCount() const { return pool.GetThreadCount(); }
- 
+
     // 注册默认函数
     static void RegisterFunc(const Opcode opcode, Funcs func) {
         operationInterpreterFuncs_()[opcode] = std::move(func);
@@ -106,7 +107,7 @@ private:
     util::ThreadPool pool{64};
 };
 
-#define REGISTER_CLACOP_FUNC(OpCoreStr, OpType, FuncName) \
+#define REGISTER_CALC_OP(OpCoreStr, OpType, FuncName) \
 class OpCoreStr##ClacOpRegister { \
 public: \
     OpCoreStr##ClacOpRegister() { \

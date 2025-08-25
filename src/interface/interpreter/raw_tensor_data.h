@@ -215,10 +215,13 @@ struct LogicalTensorData {
           stride_(RawTensorData::ShapeToStride(shape)),
           size_(shape_[0] * stride_[0]),
           isSpilled_(false) {
-            if (validShape.empty()) {
-                validShape_ = shape;
-            }
-          }
+        if (validShape.empty()) {
+            validShape_ = shape;
+        }
+        for (size_t i = 0; i < shape.size(); i++) {
+            validShape_[i] = std::min(shape[i], validShape_[i]);
+        }
+    }
 
     LogicalTensorData(RawTensorDataPtr data, const std::vector<int> &shape, const std::vector<int> &offset)
         : LogicalTensorData(data, shape, shape, offset) {}
@@ -305,6 +308,12 @@ struct LogicalTensorData {
 
     std::shared_ptr<LogicalTensorData> View(const std::vector<int> &viewShape, const std::vector<int> &viewOffset) {
         std::vector<int> resultOffset = TensorOffset::Add(GetOffset(), viewOffset);
+        auto rawShape = GetData()->GetShape();
+        for (size_t i = 0; i < resultOffset.size(); i++) {
+            ASSERT(resultOffset[i] + viewShape[i] <= rawShape[i])
+                << "view shape out of range, offset " << resultOffset[i] << " view shape " << viewShape[i]
+                << " raw shape " << rawShape[i];
+        }
         return std::make_shared<LogicalTensorData>(GetData(), viewShape, viewShape, resultOffset);
     }
 

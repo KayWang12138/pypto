@@ -183,7 +183,8 @@ void L1MultiDataLoadAL1Tiles(Function &function, const std::vector<LogicalTensor
         auto &copyInA = function.AddOperation(Opcode::OP_COPY_IN, {aL1TileTensor}, {inputATile});
         copyInA.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MemoryType::MEM_L1,
             OpImmediate::Specified(inputATile->GetShape()),
-            OpImmediate::Specified(inputATile->tensor->GetDynRawShape())));
+            OpImmediate::Specified(inputATile->tensor->GetDynRawShape()),
+            OpImmediate::Specified(aL1TileTensor->GetDynValidShape())));
         aL1Tiles.push_back(inputATile);
     }
 }
@@ -210,7 +211,8 @@ void L1MultiDataLoadBL1Tiles(Function &function, const std::vector<LogicalTensor
         auto &copyInB = function.AddOperation(Opcode::OP_COPY_IN, {bL1TileTensor}, {inputBTile});
         copyInB.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MemoryType::MEM_L1,
             OpImmediate::Specified(inputBTile->GetShape()),
-            OpImmediate::Specified(inputBTile->tensor->GetDynRawShape())));
+            OpImmediate::Specified(inputBTile->tensor->GetDynRawShape()),
+            OpImmediate::Specified(bL1TileTensor->GetDynValidShape())));
         bL1Tiles.push_back(inputBTile);
     }
 }

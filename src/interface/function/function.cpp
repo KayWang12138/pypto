@@ -21,6 +21,7 @@
 #include "interface/cache/hash.h"
 #include "interface/operation/opcode.h"
 #include "interface/operation/operation.h"
+#include "interface/tensor/tensor_offset.h"
 #include "interface/utils/id_gen.h"
 #include "interface/utils/log.h"
 #include "tilefwk/symbolic_scalar.h"
@@ -3011,7 +3012,8 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
             auto viewResult = std::make_shared<LogicalTensor>(*this, matches.front()->tensor->datatype, iOperand->shape,
                 "View_" + matches.front()->tensor->symbol, matches.front()->nodetype, iOperand->tensorfmt);
             auto &viewOp = AddRawOperation(Opcode::OP_VIEW, {matches.front()}, {viewResult});
-            viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(iOperand->GetOffset(), iOperand->GetDynOffset(), iOperand->GetDynValidShape()));
+            viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(
+                iOperand->GetOffset(), iOperand->GetDynOffset(), iOperand->GetDynValidShape()));
             if (!iOperand->GetDynValidShape().empty()) {
                 viewResult->UpdateDynValidShape(iOperand->GetDynValidShape());
             }

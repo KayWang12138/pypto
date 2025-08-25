@@ -24,9 +24,9 @@ void ExecuteOpView(ExecuteOperationContext *ctx) {
     std::vector<int> shape = ctx->opInter->EvaluateOpImmediate(ctx->frame, OpImmediate::Specified(view->GetToDynValidShape()));
     auto iopValid = std::make_shared<LogicalTensorData>(iop->GetData(), shape, offset);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
-    Calculator::CalcCopy(oop.get(), iopValid.get(), ctx->opInter->GetPoolPtr());
+    calc::Copy(oop, iopValid);
 }
-REGISTER_CLACOP_FUNC(OP_VIEW, Opcode::OP_VIEW, ExecuteOpView);
+REGISTER_CALC_OP(OP_VIEW, Opcode::OP_VIEW, ExecuteOpView);
 
 void ExecuteOpAssemble(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
@@ -37,19 +37,19 @@ void ExecuteOpAssemble(ExecuteOperationContext *ctx) {
     auto assemble = std::static_pointer_cast<AssembleOpAttribute>(ctx->op->GetOpAttribute());
     std::vector<int> offset = ctx->opInter->EvaluateOffset(assemble->GetToOffset(), assemble->GetToDynOffset());
     auto ret = oop->View(iop->GetShape(), offset);
-    Calculator::CalcCopy(ret.get(), iop.get(), ctx->opInter->GetPoolPtr());
+    calc::Copy(ret, iop);
 }
-REGISTER_CLACOP_FUNC(OP_ASSEMBLE, Opcode::OP_ASSEMBLE, ExecuteOpAssemble);
+REGISTER_CALC_OP(OP_ASSEMBLE, Opcode::OP_ASSEMBLE, ExecuteOpAssemble);
 
 void ExecuteOpNone(ExecuteOperationContext *ctx) {
     (void)ctx;
 }
-REGISTER_CLACOP_FUNC(OP_PHASE1, Opcode::OP_PHASE1, ExecuteOpNone);
-REGISTER_CLACOP_FUNC(OP_PHASE2, Opcode::OP_PHASE2, ExecuteOpNone);
-REGISTER_CLACOP_FUNC(OP_SYNC_SRC, Opcode::OP_SYNC_SRC, ExecuteOpNone);
-REGISTER_CLACOP_FUNC(OP_SYNC_DST, Opcode::OP_SYNC_DST, ExecuteOpNone);
-REGISTER_CLACOP_FUNC(OP_BAR_V, Opcode::OP_BAR_V, ExecuteOpNone);
-REGISTER_CLACOP_FUNC(OP_BAR_M, Opcode::OP_BAR_M, ExecuteOpNone);
+REGISTER_CALC_OP(OP_PHASE1, Opcode::OP_PHASE1, ExecuteOpNone);
+REGISTER_CALC_OP(OP_PHASE2, Opcode::OP_PHASE2, ExecuteOpNone);
+REGISTER_CALC_OP(OP_SYNC_SRC, Opcode::OP_SYNC_SRC, ExecuteOpNone);
+REGISTER_CALC_OP(OP_SYNC_DST, Opcode::OP_SYNC_DST, ExecuteOpNone);
+REGISTER_CALC_OP(OP_BAR_V, Opcode::OP_BAR_V, ExecuteOpNone);
+REGISTER_CALC_OP(OP_BAR_M, Opcode::OP_BAR_M, ExecuteOpNone);
 
 void ExecuteOpCopyOut(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
@@ -68,32 +68,20 @@ void ExecuteOpCopyOut(ExecuteOperationContext *ctx) {
         std::fill(toOffset.begin(), toOffset.end(), 0);
     }
 
-    bool inputCombineAxisDone = ctx->op->GetBoolAttribute("input_combine_axis_done");
-    if (inputCombineAxisDone && iopShape.size() == SIZE_TWO) {
-        std::vector<int> iopTransShape = {iopShape[1], iopShape[0]};
-        std::vector<int> axises = {0, 1};
-        auto iopTrans = LogicalTensorData::CreateEmpty(iop->GetDataType(), iopTransShape, std::vector<int>(0));
-        Calculator::CalcTransposeAdjDim(iopTrans.get(), iop.get(), axises[0], ctx->opInter->GetPoolPtr());
-        iop = iopTrans;
-    }
+    bool axisCombine = ctx->op->GetBoolAttribute("input_combine_axis");
+    auto oopValid = std::make_shared<LogicalTensorData>(oop->GetData(), shape, toOffset);
 
-    // HACK: copyin's ooperand's shape might be different from copy shape
-    auto iopValid = iop;
-    auto oopValid = oop->View(iopValid->GetShape(), toOffset);
     if (from == MemoryType::MEM_L0C) {
         if (ctx->op->HasAttribute(OP_ATTR_PREFIX + "atomic_add")) {
-            // HACK: l0c copy out might add
-            Calculator::CalcAdd(oopValid.get(), iopValid.get(), oopValid.get(), ctx->opInter->GetPoolPtr());
+            calc::Add(oopValid, iop, oopValid);
         } else {
-            // HACK: l0c copy out might result in different data type
-            Calculator::CalcCast(
-                oopValid.get(), iopValid.get(), oopValid->GetDataType(), CastMode::CAST_NONE, ctx->opInter->GetPoolPtr());
+            calc::Cast(oopValid, iop);
         }
     } else {
-        Calculator::CalcCopy(oopValid.get(), iopValid.get(), ctx->opInter->GetPoolPtr());
+        calc::Copy(oopValid, iop, axisCombine);
     }
 }
-REGISTER_CLACOP_FUNC(OP_COPY_OUT, Opcode::OP_COPY_OUT, ExecuteOpCopyOut);
+REGISTER_CALC_OP(OP_COPY_OUT, Opcode::OP_COPY_OUT, ExecuteOpCopyOut);
 
 void ExecuteOpCopyIn(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 1);
@@ -119,9 +107,11 @@ void ExecuteOpCopyIn(ExecuteOperationContext *ctx) {
         std::vector<int> rawShape = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetRawShape());
         std::vector<int> fromOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetFromOffset());
         std::vector<int> dynvalidshape = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetToDynValidShape());
+        if (dynvalidshape.empty()) {
+            dynvalidshape = shape;
+        }
 
-        // HACK: copyin's ooperand's shape might be different from copy shape
-        iopValid = iop->View(dynvalidshape, fromOffset);
+        iopValid = std::make_shared<LogicalTensorData>(iopValid->GetData(), dynvalidshape, fromOffset);
         if (outputCombineAxisDone && oopShape.size() == SIZE_TWO) {
             oopTrans = oopTrans->View(dynvalidshape, std::vector<int>(fromOffset.size(), 0));
         } else {
@@ -130,21 +120,20 @@ void ExecuteOpCopyIn(ExecuteOperationContext *ctx) {
     }
 
     if (outputCombineAxisDone && oopShape.size() == SIZE_TWO) {
-        Calculator::CalcCopy(oopTrans.get(), iopValid.get(), ctx->opInter->GetPoolPtr());
-        Calculator::CalcTransposeAdjDim(oopValid.get(), oopTrans.get(), axises[0], ctx->opInter->GetPoolPtr());
+        calc::Copy(oopValid, iopValid, true);
     } else {
-        Calculator::CalcCopy(oopValid.get(), iopValid.get(), ctx->opInter->GetPoolPtr());
+        calc::Copy(oopValid, iopValid);
     }
 }
-REGISTER_CLACOP_FUNC(OP_COPY_IN, Opcode::OP_COPY_IN, ExecuteOpCopyIn);
+REGISTER_CALC_OP(OP_COPY_IN, Opcode::OP_COPY_IN, ExecuteOpCopyIn);
 
 void ExecuteOpCopy(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 1);
     auto &oop = ctx->ooperandInplaceDataViewList->at(0);
     auto &iop = ctx->ioperandDataViewList->at(0);
-    Calculator::CalcCopy(oop.get(), iop.get(), ctx->opInter->GetPoolPtr());
+    calc::Copy(oop, iop);
 }
-REGISTER_CLACOP_FUNC(OP_REGISTER_COPY, Opcode::OP_REGISTER_COPY, ExecuteOpCopy);
+REGISTER_CALC_OP(OP_REGISTER_COPY, Opcode::OP_REGISTER_COPY, ExecuteOpCopy);
 
 std::string FormatString(const std::string &s, OperationInterpreter *opInter) {
     std::stringstream ss;
@@ -183,7 +172,7 @@ void ExecutePrint(ExecuteOperationContext *ctx) {
             shape = iop->GetShape();
         }
         auto oop = LogicalTensorData::CreateEmpty(iop->GetDataType(), shape, shape);
-        Calculator::CalcCopy(oop.get(), iop.get(), ctx->opInter->GetPoolPtr());
+        calc::Copy(oop, iop);
         oop->GetData()->ToFile(fpath);
     }
 
@@ -192,5 +181,14 @@ void ExecutePrint(ExecuteOperationContext *ctx) {
         std::cout << FormatString(msg, ctx->opInter) << "\n" << iop->Dump() << std::endl;
     }
 }
-REGISTER_CLACOP_FUNC(OP_PRINT, Opcode::OP_PRINT, ExecutePrint);
+REGISTER_CALC_OP(OP_PRINT, Opcode::OP_PRINT, ExecutePrint);
+
+void ExecuteOpReshape(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto &oop = ctx->ooperandInplaceDataViewList->at(0);
+    auto &iop = ctx->ioperandDataViewList->at(0);
+    calc::Reshape(oop, iop);
+}
+REGISTER_CALC_OP(OP_RESHAPE, Opcode::OP_RESHAPE, ExecuteOpReshape);
 }
