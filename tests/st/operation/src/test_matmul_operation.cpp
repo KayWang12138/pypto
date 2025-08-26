@@ -44,8 +44,14 @@ static Tensor CallMatmulOp(const Tensor &tensorA, const Tensor &tensorB, const M
         return Matrix::Matmul<false, true, false>(param.outDtype, tensorA, tensorB);
     } else if (!param.transA && param.transB && param.isCMatrixNz) {
         return Matrix::Matmul<false, true, true>(param.outDtype, tensorA, tensorB);
+    } else if (param.transA && !param.transB && !param.isCMatrixNz) {
+        return Matrix::Matmul<true, false, false>(param.outDtype, tensorA, tensorB);
+    } else if (param.transA && !param.transB && param.isCMatrixNz) {
+        return Matrix::Matmul<true, false, true>(param.outDtype, tensorA, tensorB);
+    } else if (param.transA && param.transB && !param.isCMatrixNz) {
+        return Matrix::Matmul<true, true, false>(param.outDtype, tensorA, tensorB);
     } else {
-        return Tensor();
+        return Matrix::Matmul<true, true, true>(param.outDtype, tensorA, tensorB);
     }
 }
 

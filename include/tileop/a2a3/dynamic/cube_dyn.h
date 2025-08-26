@@ -385,7 +385,7 @@ TILEOP void DynL1ToL0A(__ca__ T *dst, __cbuf__ T *src, unsigned dstM, unsigned d
 
 // Nz2Zz
 template <typename T, unsigned Offset0, unsigned Offset1>
-TILEOP void DynL1ToL0At(__ca__ T *dst, __cbuf__ T *src, unsigned dstM, unsigned dstK, unsigned srcM, unsigned srcK) {
+TILEOP void DynL1ToL0At(__ca__ T *dst, __cbuf__ T *src, unsigned dstM, unsigned dstK, unsigned srcK, unsigned srcM) {
     constexpr uint16_t c0Size = BLOCK_ALIGN_BYTE / sizeof(T);
     dstM = CeilAlign<uint16_t>(dstM, c0Size);
     dstK = CeilAlign<uint16_t>(dstK, BLOCK_CUBE_M_N);

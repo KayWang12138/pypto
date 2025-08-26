@@ -91,8 +91,14 @@ static Tensor CallBatchMatmulOp(const Tensor &tensorA, const Tensor &tensorB, co
         return Matrix::BatchMatmul<false, true, false>(param.outDtype, tensorA, tensorB);
     } else if (!param.transA && param.transB && param.isCMatrixNz) {
         return Matrix::BatchMatmul<false, true, true>(param.outDtype, tensorA, tensorB);
+    } else if (param.transA && !param.transB && !param.isCMatrixNz) {
+        return Matrix::BatchMatmul<true, false, false>(param.outDtype, tensorA, tensorB);
+    } else if (param.transA && !param.transB && param.isCMatrixNz) {
+        return Matrix::BatchMatmul<true, false, true>(param.outDtype, tensorA, tensorB);
+    } else if (param.transA && param.transB && !param.isCMatrixNz) {
+        return Matrix::BatchMatmul<true, true, false>(param.outDtype, tensorA, tensorB);
     } else {
-        return Tensor();
+        return Matrix::BatchMatmul<true, true, true>(param.outDtype, tensorA, tensorB);
     }
 }
 

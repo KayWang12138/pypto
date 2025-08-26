@@ -92,17 +92,23 @@ void CollectSubAMulB(Function &function, const CollectSubAMulBPara &args, Aggreg
                                 aTensorPtr->View(function, sizeVecA, {mL0Idx, posK[0] + kL0Idx});
                 auto bL0Tensor = isTransB ? bTensorPtr->View(function, sizeVecB, {nL0Idx, posK[1] + kL0Idx}) :
                                             bTensorPtr->View(function, sizeVecB, {posK[1] + kL0Idx, nL0Idx});
+                
+                auto validShapeA = aL0Tensor->GetDynValidShape();
+                if (isTransA) {
+                    std::swap(validShapeA[0], validShapeA[1]);
+                }
+
                 auto aL0LogicalTensor = std::make_shared<LogicalTensor>(function, aTensorPtr->Datatype(),
-                    std::vector<int>{mL0size, kL0size}, aL0Tensor->GetDynValidShape(), "a_l0", aTensorPtr->nodetype,
+                    std::vector<int>{mL0size, kL0size}, validShapeA, "a_l0", aTensorPtr->nodetype,
                     aTensorPtr->tensorfmt);
 
-                auto validShape = bL0Tensor->GetDynValidShape();
+                auto validShapeB = bL0Tensor->GetDynValidShape();
                 if (isTransB) {
-                    std::swap(validShape[0], validShape[1]);
+                    std::swap(validShapeB[0], validShapeB[1]);
                 }
 
                 auto bL0LogicalTensor = std::make_shared<LogicalTensor>(function, bTensorPtr->Datatype(),
-                    std::vector<int>{kL0size, nL0size}, validShape, "b_l0", bTensorPtr->nodetype,
+                    std::vector<int>{kL0size, nL0size}, validShapeB, "b_l0", bTensorPtr->nodetype,
                     bTensorPtr->tensorfmt);
                 function.AddOperation(opCodeA, {aL0Tensor}, {aL0LogicalTensor});
                 function.AddOperation(opCodeB, {bL0Tensor}, {bL0LogicalTensor});
