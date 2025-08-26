@@ -541,6 +541,37 @@ void PreGraphProcess::SetTensorBoundary(Function &function) const {
     }
 }
 
+Status DFSVisit(std::unordered_set<int> &visited, int preColor, std::unordered_map<int, int> &newColorMap,
+                std::vector<std::set<int>> &colorInGraph, std::vector<std::set<int>> &colorOutGraph)
+{
+    std::vector<int> visitStack{preColor};
+    while (visitStack.size() > 0) {
+        int currColor = visitStack.back();
+        if (visited.count(currColor) > 0) {
+            visitStack.pop_back();
+            continue;
+        }
+        bool allVisited = true;
+        for (int pred : colorInGraph[currColor]) {
+            if (visited.count(pred) == 0) {
+                visitStack.push_back(pred);
+                allVisited = false;
+            }
+        }
+        if (!allVisited) {
+            continue;
+        }
+        int currColorNum = newColorMap.size();
+        newColorMap[currColor] = currColorNum;
+        visited.insert(currColor);
+        visitStack.pop_back();
+        for (int succ : colorOutGraph[currColor]) {
+            visitStack.push_back(succ);
+        }
+    }
+    return SUCCESS;
+}
+
 Status PreGraphProcess::PreColorSort(Function &function)
 {
     int colorNum = function.GetTotalSubGraphCount();
@@ -556,27 +587,13 @@ Status PreGraphProcess::PreColorSort(Function &function)
             }
         }
     }
-    std::vector<int> inLinkNum(colorNum);
-    std::deque<int> zeroInLinkColor;
-    for (int i = 0; i < colorNum; i++) {
-        inLinkNum[i] = colorInGraph[i].size();
-        if (inLinkNum[i] == 0) {
-            zeroInLinkColor.push_back(i);
-        }
-    }
-    int currColorIdx = 0;
     std::unordered_map<int, int> newColorMap;
-    while(zeroInLinkColor.size() > 0) {
-        int currColor = zeroInLinkColor.front();
-        zeroInLinkColor.pop_front();
-        newColorMap[currColor] = currColorIdx;
-        currColorIdx += 1;
-        for (int consumerColor : colorOutGraph[currColor]) {
-            inLinkNum[consumerColor] -= 1;
-            if (inLinkNum[consumerColor] == 0) {
-                zeroInLinkColor.push_back(consumerColor);
-            }
+    std::unordered_set<int> visited;
+    for (int preColor = 0; preColor < colorNum; preColor++) {
+        if (visited.count(preColor) > 0) {
+            continue;
         }
+        DFSVisit(visited, preColor, newColorMap, colorInGraph, colorOutGraph);
     }
     for (auto &op : function.Operations()) {
         int opColor = op.GetSubgraphID();
