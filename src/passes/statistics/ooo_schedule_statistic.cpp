@@ -30,6 +30,7 @@ void OoOSchedulerCheck::HealthCheckSpillInfo() {
         spillDetails["bufferCurrentUsageRate"] = static_cast<float>(spillInfo.bufferCurrUsage) / PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(spillInfo.spillType);
         spillDetails["bufferOccupiedByAllocSize"] = spillInfo.allocOccupiedSize;
         spillDetails["spillTensorSize"] = spillInfo.spillTensorSize;
+        spillDetails["spillTensorMagic"] = spillInfo.spillTensorMagic;
         spillDetails["triggerTensorSize"] = spillInfo.triggerTensorSize;
         spillDetails["spillCopyoutSize"] = spillInfo.spillCopyoutSize;
         spill.emplace_back(spillDetails);
