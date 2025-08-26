@@ -170,6 +170,7 @@ set(_CaseFilterList
          # Reshape功能用例
         #===========================================================================
         "DynamicReshapeTest.test_only_reshape"
+        "DynamicReshapeTest.test_dyn_reshape2"       
 )
 
 set(_Target ${TileFwkSTestNamePrefix}_machine)

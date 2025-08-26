@@ -2311,6 +2311,7 @@ static std::vector<SymbolicScalar> NormalizeTensor(LogicalTensorPtr operand, int
     auto dynOffset = OpImmediate::Specified(operand->GetDynOffset());
     auto shape = OpImmediate::Specified(operand->GetShape());
     auto rawshape = OpImmediate::Specified(operand->GetRawTensor()->GetRawShape());
+    auto dynRawshape = OpImmediate::Specified(operand->GetRawTensor()->GetDynRawShape());
     auto dynValidShape = OpImmediate::Specified(operand->GetDynValidShape());
 
     int dim = shape.size();
@@ -2330,7 +2331,12 @@ static std::vector<SymbolicScalar> NormalizeTensor(LogicalTensorPtr operand, int
     operandCoaIndex += dim;
     coaIndex += dim;
 
-    OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, rawshape, coaIndex, false);
+    if (dynRawshape.size()) {
+        OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, dynRawshape, coaIndex, false);
+    } else {
+        OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, rawshape, coaIndex, false);
+    }
+    
     operandCoaIndex += dim;
     coaIndex += dim;
 

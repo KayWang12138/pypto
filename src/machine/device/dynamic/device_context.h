@@ -484,9 +484,11 @@ public:
                 desc = slotList[slotIndex].desc;
                 if (desc.IsNullAddress()) {
                     auto rawTensor = devRootSrc->GetOutcastRawTensor(i);
-                    auto memReq = rawTensor->GetMemoryRequirement(devRootDup.GetExpressionAddr());
-                    auto allocation = aicoreGlobalAllocator_.Allocate<uint8_t>(memReq);
-                    desc = AddressDescriptor(allocation.ptr);
+                    if (rawTensor->linkedIncastId == -1) {
+                        auto memReq = rawTensor->GetMemoryRequirement(devRootDup.GetExpressionAddr());
+                        auto allocation = aicoreGlobalAllocator_.Allocate<uint8_t>(memReq);
+                        desc = AddressDescriptor(allocation.ptr);
+                    }
                 }
             } else {
                 desc = AddressDescriptor(outcastBaseAddr + devRootSrc->GetOutcastRawTensor(i)->addrOffset);
@@ -1123,7 +1125,6 @@ struct DeviceStitchContext {
             auto &outcastDesc = dup.GetOutcastAddress(desc.outcastIdx);
             DEV_DEBUG_ASSERT(outcastDesc.IsAddress());
 
-            // todo 如果slot 里的  rawTensor 复用的reshape的输入 那么进入if
             auto *outcastRawTensor = dup.GetSource()->GetOutcastRawTensor(desc.outcastIdx);
             if (slot.IsFixedAddress() || outcastRawTensor->linkedIncastId != -1) {
                  desc = outcastDesc;

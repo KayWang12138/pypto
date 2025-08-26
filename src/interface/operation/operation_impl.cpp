@@ -2822,8 +2822,9 @@ static int64_t CalculateCapacity(const std::vector<int> &shape) {
     return capacity;
 }
 
-void TiledInnerReshape(Function &function, const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
+void TiledInnerReshape(Function &function, const LogicalTensorPtr &operand, const LogicalTensorPtr &result, const bool isInplace = false) {
     auto &op = function.AddOperation("TILE_RESHAPE", {operand}, {result});
+    op.SetAttribute(OP_ATTR_PREFIX + "isInplace", isInplace);
     op.SetAttribute(OP_ATTR_PREFIX + "validShape", result->GetDynValidShape());
     op.oOperand.front()->SetIsDummy();
 }
@@ -2910,7 +2911,7 @@ Tensor Reshape(const Tensor &operand, const std::vector<int> &dstshape, const st
 
 void ReshapeInplace(const Tensor &operand, Tensor &dst) {
     auto &operation = Program::GetInstance().GetCurrentFunction()->AddOperation(Opcode::OP_RESHAPE, {operand.GetStorage()}, {dst.GetStorage()});
-    operation.SetAttribute("isInplace", true);
+    operation.SetAttribute(OP_ATTR_PREFIX + "isInplace", true);
     Program::GetInstance().GetTensorSlotManager()->TensorWrite(dst, true);
     Program::GetInstance().GetCurrentFunction()->SetSameMemId(operand, dst);
 }
@@ -3154,10 +3155,6 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
             TiledInnerTranspose<TransposeOpType::TRANSPOSE_VNCHWCONV>(function, tileShape, iOperand[0], oOperand[0], shape);
             break;
         }
-        case Opcode::OP_RESHAPE: {
-            TiledInnerReshape(function, iOperand[0], oOperand[0]);
-            break;
-        }
         case Opcode::OP_REGISTER_COPY: {
             UnaryOperationOperandCheck(iOperand, oOperand);
             TiledInnerRegisterCopy(function, tileShape, iOperand[0], oOperand[0]);
@@ -3263,6 +3260,12 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
         case Opcode::OP_ASSEMBLE: {
             auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(op.GetOpAttribute().get());
             TiledAssemble(function, tileShape, iOperand[0], oOperand[0], assembleOpAttribute);
+            break;
+        }
+        case Opcode::OP_RESHAPE: {
+            bool isInplace = false;
+            op.GetAttr(OP_ATTR_PREFIX + "isInplace", isInplace);
+            TiledInnerReshape(function, iOperand[0], oOperand[0], isInplace);
             break;
         }
         case Opcode::OP_MAX_POOL: {

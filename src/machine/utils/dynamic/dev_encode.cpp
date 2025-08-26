@@ -305,8 +305,10 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                 auto it = rawMagicToRawTensor.find(rawTensor->actualRawmagic);
                 ASSERT(it != rawMagicToRawTensor.end());
                 auto &actualRaw = it->second;
-                ASSERT(rawTensor->GetRawShapeSize() == actualRaw->GetRawShapeSize());
-                ASSERT(rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize());
+                if (rawTensor->GetRawShapeSize() > 0) {
+                    ASSERT(rawTensor->GetRawShapeSize() == actualRaw->GetRawShapeSize());
+                    ASSERT(rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize());
+                }
             }
         }
 
