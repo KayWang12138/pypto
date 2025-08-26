@@ -1364,14 +1364,14 @@ TILEOP void DynTtransposeMoveOut_(__gm__ T *dst, __ubuf__ T *src, unsigned TShap
     }
 }
 
-template <typename T, typename T2, unsigned src0Shape1, unsigned dstShape1, unsigned axis>
+template <typename T, typename T2, unsigned src0Shape1, unsigned src1Shape1, unsigned dstShape1, unsigned axis>
 TILEOP void DynTgatherElement(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, unsigned TShape0, unsigned TShape1) {
     constexpr uint16_t lenBurst = 1;
     set_flag(PIPE_V, PIPE_S, EVENT_ID7);
     wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
     for (int i = 0; i < TShape0; ++i) {
         for (int j = 0; j < TShape1; ++j) {
-            T2 index = (T2)(*(src1 + i * TShape1 + j)); // src1[i,j]
+            T2 index = (T2)(*(src1 + i * src1Shape1 + j)); // src1[i,j]
             int srcOffset = 0;
             if constexpr (axis == 0) {
                 srcOffset = index * src0Shape1 + j;

@@ -1518,12 +1518,14 @@ std::string CodeGenOpCloudNPU::PrintGatherElementDynamicUnaligned(const PrintGat
     const std::string &s1Var = param.s1Var;
     std::vector<int> &dstRawShape = param.dstRawShape;
     std::vector<int> &src0RawShape = param.src0RawShape;
+    std::vector<int> &src1RawShape = param.src1RawShape;
     const std::string *dataTypeExpr = param.dataTypeExpr;
     // template param
     std::ostringstream oss;
     std::vector<std::string> paramList;
     paramList.insert(paramList.end(), {dataTypeExpr[ID1], dataTypeExpr[ID2]});
     paramList.emplace_back(std::to_string(src0RawShape[ID1]));
+    paramList.emplace_back(std::to_string(src1RawShape[ID1]));
     paramList.emplace_back(std::to_string(dstRawShape[ID1]));
     paramList.emplace_back(std::to_string(param.axis));
     std::string templateParam = JoinString(paramList, ", ");
@@ -1563,7 +1565,10 @@ std::string CodeGenOpCloudNPU::GenGatherElementOp() const {
     ALOG_INFO_F("GenGatherElementOp, dst Shape is %s ", IntVecToStr(dstShape).c_str());
 
     std::vector src0Shape = this->rawShape[1];
-    ALOG_INFO_F("GenGatherElementOp, src Shape is %s ", IntVecToStr(src0Shape).c_str());
+    ALOG_INFO_F("GenGatherElementOp, src0 Shape is %s ", IntVecToStr(src0Shape).c_str());
+
+    std::vector src1Shape = this->rawShape[2];
+    ALOG_INFO_F("GenGatherElementOp, src1 Shape is %s ", IntVecToStr(src1Shape).c_str());
 
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
@@ -1573,7 +1578,8 @@ std::string CodeGenOpCloudNPU::GenGatherElementOp() const {
 
     // [case1] src0: [S2,D], src1: [B,S], axis: 0, dst: [B,S,D]
     std::vector<int> dos = NormalizeShape(originShape[0], SHAPE_DIM2);
-    std::vector<int> ss = NormalizeShape(src0Shape, SHAPE_DIM2);
+    std::vector<int> s0s = NormalizeShape(src0Shape, SHAPE_DIM2);
+    std::vector<int> s1s = NormalizeShape(src1Shape, SHAPE_DIM2);
     std::vector<int> ds = NormalizeShape(dstShape, SHAPE_DIM2);
     std::string dataTypeExpr[3] = {dstDtypeStr, src0DtypeStr, src1DtypeStr};
     int gatherAxis{-1};
@@ -1582,9 +1588,9 @@ std::string CodeGenOpCloudNPU::GenGatherElementOp() const {
         gatherAxis = npu::tile_fwk::AnyCast<int>(axis);
     }
     if (isSupportDynamicUnaligned) {
-        return PrintGatherElementDynamicUnaligned({gatherAxis, dVar, s0Var, s1Var, dos, ds, ss, dataTypeExpr});
+        return PrintGatherElementDynamicUnaligned({gatherAxis, dVar, s0Var, s1Var, dos, ds, s0s, s1s, dataTypeExpr});
     }
-    return PrintGatherElementStatic({gatherAxis, dVar, s0Var, s1Var, dos, ds, ss, dataTypeExpr});
+    return PrintGatherElementStatic({gatherAxis, dVar, s0Var, s1Var, dos, ds, s0s, s1s, dataTypeExpr});
 }
 
 std::string CodeGenOpCloudNPU::GenScatterElementOp() const {

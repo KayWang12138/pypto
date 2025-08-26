@@ -301,6 +301,7 @@ private:
         std::vector<int> &dstOriginShape;
         std::vector<int> &dstRawShape;
         std::vector<int> &src0RawShape;
+        std::vector<int> &src1RawShape;
         const std::string *dataTypeExpr;
     };
     std::string PrintGatherElementDynamicUnaligned(const PrintGatherEleParam &param) const;

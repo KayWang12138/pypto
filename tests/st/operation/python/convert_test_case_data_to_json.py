@@ -236,6 +236,9 @@ class TestDataReader:
         islargest = row_data.get("islargest", None)
         if islargest is not None:
             params["islargest"] = [bool(x) for x in self.str_to_list(row_data.get("islargest"))]
+        axis = row_data.get("axis", None)
+        if axis is not None and not pd.isna(axis) and not pd.isnull(axis):
+            params["axis"] = int(axis)
 
         self.extend_matmul_param(params, is_trans_list, input_format_list, output_format_list, row_data)
 
