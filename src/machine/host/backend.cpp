@@ -695,7 +695,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache) {
 MachineTask *GenCode(
     MachineTask *task, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset, FunctionCache &cache) {        
     npu::tile_fwk::CodeGenCtx codeGenCtx("", GetEmitPath("kernel_aicore"));
-    npu::tile_fwk::CreateMultiLevelDir(codeGenCtx.ccePath);
+    npu::tile_fwk::CreateMultiLevelDir(codeGenCtx.cceDir);
 
     npu::tile_fwk::CodeGen codeGen(codeGenCtx);
     auto function = task->GetFunction();

@@ -113,11 +113,11 @@ enum class VecScalMode {
 
 struct CodeGenCtx {
     std::string includePath = "";
-    std::string ccePath = "";
+    std::string cceDir = "";
     CodeGenCtx() = default;
     CodeGenCtx(std::string inPath, std::string cmpPath)
-        : includePath(std::move(inPath)), ccePath(std::move(cmpPath)) {}
-    bool IsCCEPathEmpty() const { return ccePath.empty(); }
+        : includePath(std::move(inPath)), cceDir(std::move(cmpPath)) {}
+    bool IsCCEPathEmpty() const { return cceDir.empty(); }
     bool IsIncludePathEmpty() const { return includePath.empty(); }
 };
 

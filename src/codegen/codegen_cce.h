@@ -27,7 +27,7 @@ namespace npu::tile_fwk {
 
 class CodeGenCCE {
 public:
-    explicit CodeGenCCE(const CodeGenCtx &cctx) : ctx(cctx.includePath, cctx.ccePath) {
+    explicit CodeGenCCE(const CodeGenCtx &cctx) : ctx(cctx.includePath, cctx.cceDir) {
         if (ctx.IsCCEPathEmpty()) {
             PrepareDefaultOutputPath();
         }

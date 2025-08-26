@@ -29,8 +29,8 @@
 namespace npu::tile_fwk {
 class CompileInfo {
 public:
-    CompileInfo(Function &topFunc, std::string ccePath, uint64_t subProgramId, bool isCube, bool isUnderDyn)
-        : ccePath_(std::move(ccePath)), isCube_(isCube), isUnderDyn_(isUnderDyn) {
+    CompileInfo(Function &topFunc, std::string cceDir, uint64_t subProgramId, bool isCube, bool isUnderDyn)
+        : userSpecCCEDir_(std::move(cceDir)), isCube_(isCube), isUnderDyn_(isUnderDyn) {
         Init(topFunc, subProgramId);
     };
 
@@ -60,13 +60,13 @@ private:
            << "_rankId_" << npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId();
         cceFileName_ = ss.str();
         ss.str("");
-        ss << ccePath_ << "/" << cceFileName_ << GetSuffix();
+        ss << userSpecCCEDir_ << "/" << cceFileName_ << GetSuffix();
         cceAbsPath_ = ss.str();
         ss.str("");
-        ss << ccePath_ << "/" << cceFileName_ << ".o";
+        ss << userSpecCCEDir_ << "/" << cceFileName_ << ".o";
         binAbsPath_ = ss.str();
         ss.str("");
-        ss << ccePath_ << "/" << cceFileName_ << "_vf.h";
+        ss << userSpecCCEDir_ << "/" << cceFileName_ << "_vf.h";
         vfHeaderAbsPath_ = ss.str();
     }
     std::string GetSuffix() const {
@@ -75,7 +75,7 @@ private:
         return suffix;
     }
 
-    std::string ccePath_;
+    std::string userSpecCCEDir_;
     bool isCube_{false};
     bool isUnderDyn_{false};
     std::string cceFileName_;
