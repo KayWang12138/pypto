@@ -205,7 +205,7 @@ def gen_op_golden(
             else golden_func(input_tensors, config["params"])
         )
         for idx in range(len(config["output_tensors"])):
-            res[idx].tofile(
+            res[idx].astype(get_dtype_by_name(config["output_tensors"][idx]["dtype"])).tofile(
                 Path(output_path, config["output_tensors"][idx]["name"] + ".bin")
             )
         return True
@@ -662,7 +662,7 @@ def gen_transpose_op_golden(case_name: str, output: Path, case_index: int = None
         "TestTopK/TopKOperationTest.TestTopK",
     ]
 )
-def gen_reduce_max_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+def gen_topk_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
     def golden_func(inputs, params: dict):
         x = torch.from_numpy(inputs[0])
