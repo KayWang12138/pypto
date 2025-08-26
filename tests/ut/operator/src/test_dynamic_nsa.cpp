@@ -22,7 +22,7 @@ using namespace npu::tile_fwk;
 class DyNsa : public testing::Test {
     void SetUp() override {
         config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-        Program::GetInstance().GetConfig().Set<int>(DB_TYPE, 1);
+        Program::GetInstance().GetConfig().Set<int>(NBUFFER_MERGE_MODE, 1);
         Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 4);
         Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {
                                                                                          {3, 4}

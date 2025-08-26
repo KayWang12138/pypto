@@ -265,7 +265,7 @@ TEST_F(MlaPrologV2OnBoardCostTest, test_mla_bf16_low_quant_smooth) { // b_n_s_s2
 }
 
 TEST_F(MlaPrologV2OnBoardCostTest, test_mla_bf16_high_quant_smooth) {  // b_n_s_s2_h_q_lora_rank
-    Program::GetInstance().GetConfig().Set<int>(DB_TYPE, 1);
+    Program::GetInstance().GetConfig().Set<int>(NBUFFER_MERGE_MODE, 1);
     Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 4);
     Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{3,4}});
     Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, 2*1024*1024);

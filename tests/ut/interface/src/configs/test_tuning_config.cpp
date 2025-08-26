@@ -35,11 +35,11 @@ TEST_F(TestConfigStorage, InitialGet) {
     const int cycle_upper_bound = 10000;
     const int cycle_lower_bound = 512;
     const int copyin_threshold = 1024 * 1024;
+    const int sg_cube_parallel_num = 24;
+    const int sg_vec_parallel_num = 48;
     EXPECT_EQ(config.Get<int>(SG_PARALLEL_NUM), parallel_num);
     EXPECT_EQ(config.Get<int>(SG_CYCLE_UPPER_BOUND), cycle_upper_bound);
     EXPECT_EQ(config.Get<int>(SG_CYCLE_LOWER_BOUND), cycle_lower_bound);
-    EXPECT_EQ(config.Get<int>(DB_TYPE), 0);
-    EXPECT_EQ(config.Get<int>(NBUFFER_NUM), 1);
     EXPECT_EQ(config.Get<int>(L1_REUSE), 0);
     EXPECT_EQ((config.Get<std::map<int,int>>(L1_REUSE_MAP)), nullMap);
     EXPECT_EQ(config.Get<int>(CUBE_NBUFFER), 1);
@@ -47,6 +47,10 @@ TEST_F(TestConfigStorage, InitialGet) {
     EXPECT_EQ(config.Get<bool>(LOAD_BALANCE), false);
     EXPECT_EQ(config.Get<int>(COPYIN_THRESHOLD), copyin_threshold);
     EXPECT_EQ(config.Get<uint8_t>(MACHINE_CONFIG), 0);
+    EXPECT_EQ(config.Get<int>(NBUFFER_MERGE_MODE), 0);
+    EXPECT_EQ(config.Get<int>(SG_CUBE_PARALLEL_NUM), sg_cube_parallel_num);
+    EXPECT_EQ(config.Get<int>(SG_VEC_PARALLEL_NUM), sg_vec_parallel_num);
+    EXPECT_EQ((config.Get<std::map<int, int>>(VEC_NBUFFER_MAP)), nullMap);
 }
 
 TEST_F(TestConfigStorage, HasConfig) {

@@ -39,8 +39,6 @@ namespace npu::tile_fwk {
 const std::string SG_PARALLEL_NUM = "parallel_threshold";
 const std::string SG_CYCLE_UPPER_BOUND = "cycle_upper_bound";
 const std::string SG_CYCLE_LOWER_BOUND = "cycles_threshold";
-const std::string DB_TYPE = "db_type";
-const std::string NBUFFER_NUM = "nbuffer_num";
 const std::string L1_REUSE = "l1_reuse";
 const std::string L1_REUSE_MAP = "l1_reuse_map";
 const std::string CUBE_NBUFFER = "cube_nbuffer";
@@ -50,6 +48,10 @@ const std::string COPYIN_THRESHOLD = "copyin_threshold";
 const std::string MACHINE_CONFIG = "machine_config";
 const std::string OOO_PRESCHEDULE_METHOD_DEFAULT = "ooo_preschedule_method_default";
 const std::string OOO_PRESCHEDULE_METHOD = "ooo_preschedule_method";
+const std::string NBUFFER_MERGE_MODE = "nbuffer_merge_mode";
+const std::string VEC_NBUFFER_MAP = "vec_nbuffer_map";
+const std::string SG_CUBE_PARALLEL_NUM = "sg_cube_parallel_num";
+const std::string SG_VEC_PARALLEL_NUM = "sg_vec_parallel_num";
 
 class ConfigStorage {
 public:
@@ -63,11 +65,11 @@ public:
         const int cycle_upper_bound = 10000;
         const int cycle_lower_bound = 512;
         const int copyin_threshold = 1024 * 1024;
+        const int sg_vec_parallel_num = 48;
+        const int sg_cube_parallel_num = 24;
         configs_[SG_PARALLEL_NUM] = parallel_num;  // default threshold
         configs_[SG_CYCLE_UPPER_BOUND] = cycle_upper_bound; // defalt cycle upper bound
         configs_[SG_CYCLE_LOWER_BOUND] = cycle_lower_bound; // default cycle threshold
-        configs_[DB_TYPE] = 0;
-        configs_[NBUFFER_NUM] = 1;
         configs_[L1_REUSE] = 0;
         configs_[L1_REUSE_MAP] = std::map<int,int>({});
         configs_[CUBE_NBUFFER] = 1;
@@ -77,6 +79,10 @@ public:
         configs_[MACHINE_CONFIG] = static_cast<uint8_t>(0);
         configs_[OOO_PRESCHEDULE_METHOD_DEFAULT] = std::move(std::string("PriorDFS"));
         configs_[OOO_PRESCHEDULE_METHOD] = std::map<std::string,std::string>({});
+        configs_[NBUFFER_MERGE_MODE] = 0;
+        configs_[SG_VEC_PARALLEL_NUM] = sg_vec_parallel_num;
+        configs_[SG_CUBE_PARALLEL_NUM] = sg_cube_parallel_num;
+        configs_[VEC_NBUFFER_MAP] = std::map<int, int>({});
     }
 
     template <typename T>

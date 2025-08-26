@@ -374,20 +374,22 @@ struct DynParamInfo{
     int dimIndex;
 };
 struct ParamConfigs {
-    int NbufferNum{1};
     int l1ReuseNum{0};
     int cubeNBufferNum{1};
     int sgCycleUpperBound{1};
     int sgCycleLowerBound{1};
     int sgParallelNum{1};
     int sgCopyInThreshold{2*1024*1024};
-    int dbType{0};
     uint8_t machineConfig_{0}; // machine config
     std::map<int, int> l1ReuseMap;
     bool loadBalance;
     std::map<int, int> cubeNBufferMap;
     std::string OoOPreScheduleMethodDefault{"PriorDFS"};
     std::map<std::string,std::string> OoOPreScheduleMethodMap;
+    int nBufferMergeMode{0};
+    int sgVecParallelNum{48};
+    int sgCubeParallelNum{24};
+    std::map<int, int> vecNBufferMap;
 };
 
 struct FunctionParamInfo {

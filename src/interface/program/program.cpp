@@ -172,14 +172,16 @@ bool Program::BeginFunction(const std::string &funcName,
     currentFunctionPtr_->paramConfigs_.sgCycleLowerBound = GetConfig().Get<int>(SG_CYCLE_LOWER_BOUND);
     currentFunctionPtr_->paramConfigs_.sgParallelNum = GetConfig().Get<int>(SG_PARALLEL_NUM);
     currentFunctionPtr_->paramConfigs_.sgCopyInThreshold = GetConfig().Get<int>(COPYIN_THRESHOLD);
-    currentFunctionPtr_->paramConfigs_.dbType = GetConfig().Get<int>(DB_TYPE);
-    currentFunctionPtr_->paramConfigs_.NbufferNum = GetConfig().Get<int>(NBUFFER_NUM);
     currentFunctionPtr_->paramConfigs_.machineConfig_ = GetConfig().Get<uint8_t>(MACHINE_CONFIG);
     currentFunctionPtr_->paramConfigs_.l1ReuseMap = GetConfig().Get<std::map<int, int>>(L1_REUSE_MAP);
     currentFunctionPtr_->paramConfigs_.loadBalance = GetConfig().Get<bool>(LOAD_BALANCE);
     currentFunctionPtr_->paramConfigs_.cubeNBufferMap = GetConfig().Get<std::map<int, int>>(CUBE_NBUFFER_MAP);
     currentFunctionPtr_->paramConfigs_.OoOPreScheduleMethodDefault = GetConfig().Get<std::string>(OOO_PRESCHEDULE_METHOD_DEFAULT);
     currentFunctionPtr_->paramConfigs_.OoOPreScheduleMethodMap = GetConfig().Get<std::map<std::string,std::string>>(OOO_PRESCHEDULE_METHOD);
+    currentFunctionPtr_->paramConfigs_.vecNBufferMap = GetConfig().Get<std::map<int, int>>(VEC_NBUFFER_MAP);
+    currentFunctionPtr_->paramConfigs_.nBufferMergeMode = GetConfig().Get<int>(NBUFFER_MERGE_MODE);
+    currentFunctionPtr_->paramConfigs_.sgCubeParallelNum = GetConfig().Get<int>(SG_CUBE_PARALLEL_NUM);
+    currentFunctionPtr_->paramConfigs_.sgVecParallelNum = GetConfig().Get<int>(SG_VEC_PARALLEL_NUM);
     return true;
 }
 

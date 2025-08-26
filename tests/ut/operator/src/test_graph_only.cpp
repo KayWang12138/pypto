@@ -585,8 +585,8 @@ void TestMlaProlog(std::vector<int> &params) {
 }
 
 TEST_F(GraphTest, test_attention_bf16_4_1024_1024_32_256) {  // b_n_s_s2_h_q_lora_rank
-    Program::GetInstance().GetConfig().Set<int>(DB_TYPE, 1);
-    Program::GetInstance().GetConfig().Set<int>(NBUFFER_NUM, 2);
+    Program::GetInstance().GetConfig().Set<int>(NBUFFER_MERGE_MODE, 2);
+    Program::GetInstance().GetConfig().Set<std::map<int, int>>(VEC_NBUFFER_MAP, {{-1, 2}});
     int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
     int& n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
     int& qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);

@@ -39,10 +39,8 @@ public:
         Program::GetInstance().GetConfig().Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-        constexpr int DbType = 1;
-        constexpr int NBuffer = 2;
-        Program::GetInstance().GetConfig().Set<int>(DB_TYPE, DbType);
-        Program::GetInstance().GetConfig().Set<int>(NBUFFER_NUM, NBuffer);
+        Program::GetInstance().GetConfig().Set<int>(NBUFFER_MERGE_MODE, 2);
+    Program::GetInstance().GetConfig().Set<std::map<int, int>>(VEC_NBUFFER_MAP, {{-1, 2}});
     }
 
     void TearDown() override {}

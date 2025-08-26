@@ -80,7 +80,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
         {postOut}, {{kvCacheOut, kvCache}, {krCacheOut, krCache}}) {
         /******** mla_prolog ********/
         SymbolicScalar bLoop = b / tileB;
-        Program::GetInstance().GetConfig().Set<int>(DB_TYPE, 1);      // 是否开启db切分 1开启
+        Program::GetInstance().GetConfig().Set<int>(NBUFFER_MERGE_MODE, 1);
         Program::GetInstance().GetConfig().Set<int>(L1_REUSE, NUM_4); //L1reuse合并的左矩阵或者右矩阵数量
         Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{NUM_3, NUM_4}});   //从NUM_3个mm开始设置CubeNBuffer数量为NUM_4；CubeNBuffer：设置同构的mm计算合并入一个图
         Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, NUM_2 * NUM_1024 * NUM_1024);   // CubeNBuffer、L1reuse合并时copyin的cycle上限

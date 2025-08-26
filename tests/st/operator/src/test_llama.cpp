@@ -32,7 +32,7 @@ public:
         Program::GetInstance().GetConfig().Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, false);
         config::SetHostConfig(KEY_STRATEGY, "PVC2_OOO");
-        Program::GetInstance().GetConfig().Set<int>(DB_TYPE, 1);
+        Program::GetInstance().GetConfig().Set<int>(NBUFFER_MERGE_MODE, 1);
         Program::GetInstance().GetConfig().Set<int>(L1_REUSE, LLMA_L1REUSE_THRESHOLD);
         Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_LOWER_BOUND, LLMA_CYCLE_THRESHOLD);
     }

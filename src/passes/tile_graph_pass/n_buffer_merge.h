@@ -29,7 +29,7 @@ public:
     ~NBufferMerge() override = default;
 private:
     Status RunOnFunction(Function &function) override;
-    Status NBufferMergeProcess(Function &func, int numDB);
+    Status NBufferMergeProcess(Function &func);
     Status Init(Function &func);
     void InitParam(OperationsViewer &opOriList);
     void GetOpHash(std::vector<uint64_t> &hashList, const std::string op, int idx);
@@ -40,12 +40,12 @@ private:
     Status CheckAndFixColorOrder(OperationsViewer &opOriList, 
                                int &color1, std::vector<int> &colorCycles1,
                                std::vector<std::vector<int>> &colorNode1);
-    std::map<uint64_t, size_t> GetIsoColorMergeNum(const OperationsViewer &opOriList,
+    std::map<int, size_t> GetIsoColorMergeNum(const OperationsViewer &opOriList,
                                                    const std::map<uint64_t, std::vector<int>> &hashMap) const;
     std::vector<std::vector<int>> SortColorWithInput(std::vector<int> &colorValues) const;
     Status MergeProcess(const OperationsViewer &opOriList, 
                         std::map<uint64_t, std::vector<int>> &hashMap, 
-                        std::map<uint64_t, size_t> &hashMergeNum, 
+                        std::map<int, size_t> &hashMergeNum, 
                         std::vector<uint64_t> &hashColor);
     Status ColorTopo(int &color1, 
                      std::vector<std::vector<int>> &inputColor, 
@@ -54,8 +54,8 @@ private:
     void MergePingPong(std::vector<std::vector<int>> &sortedColors, 
                        const OperationsViewer &opOriList, 
                        std::vector<uint64_t> &hashColor, 
-                       std::map<uint64_t, size_t> &hashMergeNum, 
-                       uint64_t &colorHashValue);
+                       int &numDBmerge);
+    std::map<int, size_t> SetNumDB(std::map<uint64_t, std::vector<int>> &hashMap);
 private:
     int color_{0};
     std::vector<std::vector<int>> inGraph_;
@@ -64,6 +64,14 @@ private:
     std::vector<std::vector<int>> outColor_;
     std::vector<std::vector<int>> colorNode_;
     std::vector<int> colorCycles_;
+    int nBufferMergeMode;
+    int sgVecParallelNum;
+    int sgCubeParallelNum;
+    std::map<int, int> vecNBufferMap;
+    std::unordered_map<uint64_t, int> hashOrder;
+    int noMerge = 0;
+    int autoMerge = 1;
+    int manualMerge = 2;
 };
 }  // namespace npu::tile_fwk
 #endif  // PASS_N_BUFFER_MERGE_H_

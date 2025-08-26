@@ -67,8 +67,7 @@ TEST(OnBoardTestAstInGraph, test_fa_all2all_128) {
     config::SetHostConfig(KEY_DUMP_BIN_AND_JSON, true);
     config::SetHostConfig(KEY_DUMP_BIN_AND_JSON_PATH, bin_path);
 
-    Program::GetInstance().GetConfig().Set<int>(DB_TYPE, 1);
-    Program::GetInstance().GetConfig().Set<int>(NBUFFER_NUM, 1);
+    Program::GetInstance().GetConfig().Set<int>(NBUFFER_MERGE_MODE, 1);
 
     Tensor Q(DataType::DT_FP16, shape, "Q");
     Tensor K(DataType::DT_FP16, shape, "K");
@@ -110,8 +109,7 @@ TEST(OnBoardTestAstInGraph, test_fa_all2all_128_2) {
     std::vector<int> shape_reduce = {dim0, 1};
 
     Program::GetInstance().GetConfig().Reset();
-    Program::GetInstance().GetConfig().Set<int>(DB_TYPE, 1);
-    Program::GetInstance().GetConfig().Set<int>(NBUFFER_NUM, 1);
+    Program::GetInstance().GetConfig().Set<int>(NBUFFER_MERGE_MODE, 1);
 
     Tensor Q(DataType::DT_FP16, shape, "Q");
     Tensor K(DataType::DT_FP16, shape, "K");

@@ -1762,8 +1762,9 @@ Json Function::DumpJson(bool useTable) {
     funcDump["_sg_cycle_lowerbound"] = paramConfigs_.sgCycleLowerBound;
     funcDump["_sg_parallel_num"] = paramConfigs_.sgParallelNum;
     funcDump["_sg_copyin_threshold"] = paramConfigs_.sgCopyInThreshold;
-    funcDump["_dbtype"] = paramConfigs_.dbType;
-    funcDump["_nbuffer_num"] = paramConfigs_.NbufferNum;
+    funcDump["_nbuffer_merge_mode"] = paramConfigs_.nBufferMergeMode;
+    funcDump["_sg_vec_parallel_num"] = paramConfigs_.sgVecParallelNum;
+    funcDump["_sg_cube_parallel_num"] = paramConfigs_.sgCubeParallelNum;
     funcDump["_total_subgraph_count"] = totalSubGraphCount_;
     funcDump["_ooo_preschedule_method_default"] = paramConfigs_.OoOPreScheduleMethodDefault;
 
@@ -2081,8 +2082,9 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     func->paramConfigs_.sgCycleLowerBound = funcDump["_sg_cycle_lowerbound"].get<int>();
     func->paramConfigs_.sgParallelNum = funcDump["_sg_parallel_num"].get<int>();
     func->paramConfigs_.sgCopyInThreshold = funcDump["_sg_copyin_threshold"].get<int>();
-    func->paramConfigs_.dbType = funcDump["_dbtype"].get<int>();
-    func->paramConfigs_.NbufferNum = funcDump["_nbuffer_num"].get<int>();
+    func->paramConfigs_.nBufferMergeMode = funcDump["_nbuffer_merge_mode"].get<int>();
+    func->paramConfigs_.sgVecParallelNum = funcDump["_sg_vec_parallel_num"].get<int>();
+    func->paramConfigs_.sgCubeParallelNum = funcDump["_sg_cube_parallel_num"].get<int>();
     auto subGraphCount = funcDump["_total_subgraph_count"].get<size_t>();
     func->SetTotalSubGraphCount(subGraphCount);
     func->paramConfigs_.OoOPreScheduleMethodDefault = funcDump["_ooo_preschedule_method_default"].get<std::string>();

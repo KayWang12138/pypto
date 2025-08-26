@@ -222,23 +222,22 @@ Status NBufferMerge::Init(Function &func) {
     return SUCCESS;
 }
 
-std::map<uint64_t, size_t> NBufferMerge::GetIsoColorMergeNum(const OperationsViewer &opOriList,
+std::map<int, size_t> NBufferMerge::GetIsoColorMergeNum(const OperationsViewer &opOriList,
     const std::map<uint64_t, std::vector<int>> &hashMap) const {
-    std::map<uint64_t, size_t> hashCoreNum;
+    std::map<int, size_t> hashCoreNum;
     for (auto& entry : hashMap) {
         if (entry.first == 0 || entry.second.empty()) {
             continue;
         }
         auto subGraphIdx = entry.second.front();
         for (auto& opIdx : colorNode_[subGraphIdx]) {
-            if (opOriList[opIdx].HasAttr(OpAttributeKey::isCube) &&
-                opOriList[opIdx].GetBoolAttribute(OpAttributeKey::isCube)) {
-                hashCoreNum[entry.first] = PassConfigManager::Instance().GetPlatformConfig().GetCoreNum(NpuCoreType::AICORE);
+            if (OpcodeManager::Inst().GetCoreType(opOriList[opIdx].GetOpcode()) == OpCoreType::AIC) {
+                hashCoreNum[entry.first] = sgCubeParallelNum;
                 break;
             }
         }
         if (hashCoreNum.find(entry.first) == hashCoreNum.end()) {
-            hashCoreNum[entry.first] = PassConfigManager::Instance().GetPlatformConfig().GetCoreNum(NpuCoreType::VECTORCORE);
+            hashCoreNum[entry.first] = sgVecParallelNum;
         }
         ALOG_INFO_F("[NBUFFER_MERGE] Subgraph hash: %lu, size %zu, core num: %zu.", 
                     entry.first, entry.second.size(), hashCoreNum[entry.first]);
@@ -286,8 +285,13 @@ void NBufferMerge::GetColorHash(const OperationsViewer &opOriList,
     for (auto subgraphId : mulaccGraph) {
         hashColor[subgraphId] = 0;
     }
+    int order = 0;
     for (int i = 0; i < color_; i++) {
         hashMap[hashColor[i]].push_back(i);
+        if (hashMap[hashColor[i]].size() == 1) {
+            hashOrder[hashColor[i]] = order;
+            order++;
+        }
     }
 }
 
@@ -357,12 +361,14 @@ std::vector<std::vector<int>> NBufferMerge::SortColorWithInput(std::vector<int> 
 void NBufferMerge::MergePingPong(std::vector<std::vector<int>> &sortedColors, 
                                      const OperationsViewer &opOriList, 
                                      std::vector<uint64_t> &hashColor, 
-                                     std::map<uint64_t, size_t> &hashMergeNum, 
-                                     uint64_t &colorHashValue) {
+                                     int &numDBmerge) {
     int pingColor = -1;
     for (auto &input2Color : sortedColors) {
         for (size_t i = 0; i < input2Color.size(); i++) {
-            if (i % hashMergeNum[colorHashValue] == 0) {
+            if (numDBmerge == 0) {
+                continue;
+            }
+            if (i % numDBmerge == 0) {
                 pingColor = input2Color[i];
             } else {
                 int pongColor = input2Color[i];
@@ -382,7 +388,7 @@ void NBufferMerge::MergePingPong(std::vector<std::vector<int>> &sortedColors,
 
 Status NBufferMerge::MergeProcess(const OperationsViewer &opOriList, 
                                       std::map<uint64_t, std::vector<int>> &hashMap, 
-                                      std::map<uint64_t, size_t> &hashMergeNum, 
+                                      std::map<int, size_t> &hashMergeNum, 
                                       std::vector<uint64_t> &hashColor) {
     std::vector<uint64_t> hashMapKeys;
     for (auto &entry : hashMap) {
@@ -396,13 +402,41 @@ Status NBufferMerge::MergeProcess(const OperationsViewer &opOriList,
             std::vector<int> &colorValues = hashMap[colorHashValue];
             auto sortedColors = SortColorWithInput(colorValues);
             if (sortedColors.empty()) continue;
-            MergePingPong(sortedColors, opOriList, hashColor, hashMergeNum, colorHashValue);
+            int numDBMerge;
+            if (nBufferMergeMode == 1) {
+                numDBMerge = hashMergeNum[colorHashValue];
+            } else {
+                numDBMerge = hashMergeNum[hashOrder[colorHashValue]];
+            }
+            MergePingPong(sortedColors, opOriList, hashColor, numDBMerge);
         }
     });
     return SUCCESS;
 }
 
-Status NBufferMerge::NBufferMergeProcess(Function &func, int numDB) {
+std::map<int, size_t> NBufferMerge::SetNumDB(std::map<uint64_t, std::vector<int>> &hashMap) {
+    std::map<int, size_t> numDBList;
+    auto it = vecNBufferMap.find(-1);
+    if (it != vecNBufferMap.end()) {
+        int defaultVal = it->second;
+        for (int i = 0; i < static_cast<int>(hashMap.size()); i++) {
+            numDBList[i] = defaultVal;
+        }
+        vecNBufferMap.erase(it);
+    } else {
+        for (int i = 0; i < static_cast<int>(hashMap.size()); i++) {
+            numDBList[i] = 1;
+        }
+    }
+    for (auto &entry : vecNBufferMap) {
+        if (entry.first >= 0 && entry.first < static_cast<int>(hashMap.size())) {
+            numDBList[entry.first] = entry.second;
+        }
+    }
+    return numDBList;
+}
+
+Status NBufferMerge::NBufferMergeProcess(Function &func) {
     if (Init(func) == FAILED) {
         ALOG_ERROR_F("[NBUFFER_MERGE] Init Failed.");
         return FAILED;
@@ -416,21 +450,27 @@ Status NBufferMerge::NBufferMergeProcess(Function &func, int numDB) {
         ALOG_INFO_F("[NBUFFER_MERGE] NBufferMerge is skipped. color: %d, aiCoreNum: %d", color_, coreNum);
         return SUCCESS;
     }
-    ALOG_INFO_F("[NBUFFER_MERGE] User set nbuffer num: %d", numDB);
+    ALOG_INFO_F("[NBUFFER_MERGE] User set nbuffer mode: %d", nBufferMergeMode);
     // 获取节点和子图的hash
     auto opOriList = func.Operations();
     std::vector<uint64_t> hashColor(color_, 0);
     std::map<uint64_t, std::vector<int>> hashMap;
     GetColorHash(opOriList, hashColor, hashMap);
-    std::map<uint64_t, size_t> hashMergeNum;
-    if (numDB == 1) {
-        ALOG_INFO_F("[NBUFFER_MERGE] Manually Set NumDB 1, Automatically Calculate MergeNum.");
+    std::map<int, size_t> hashMergeNum;
+    if (nBufferMergeMode == 1) {
+        if (vecNBufferMap.size() != 0) {
+            ALOG_ERROR_F("[NBUFFER_MERGE] Manually Set nBufferMergeMode 1, You shoule Set vecNBufferMap Empty.");
+            return FAILED;
+        }
+        ALOG_INFO_F("[NBUFFER_MERGE] Manually Set nBufferMergeMode 1, Automatically Calculate MergeNum.");
         hashMergeNum = GetIsoColorMergeNum(opOriList, hashMap);
     } else {
-        ALOG_INFO_F("[NBUFFER_MERGE] Manually Set NumDB %d.", numDB);
-        for (auto& entry : hashMap) {
-            hashMergeNum[entry.first] = numDB;
+        if (vecNBufferMap.size() == 0) {
+            ALOG_ERROR_F("[NBUFFER_MERGE] Manually Set nBufferMergeMode 2, You shoule Set vecNBufferMap.");
+            return FAILED;
         }
+        ALOG_INFO_F("[NBUFFER_MERGE] Manually Set nBufferMergeMode %d.", nBufferMergeMode);
+        hashMergeNum = SetNumDB(hashMap);
     }
     if (MergeProcess(opOriList, hashMap, hashMergeNum, hashColor) == FAILED) {
         return FAILED;
@@ -446,13 +486,20 @@ Status NBufferMerge::NBufferMergeProcess(Function &func, int numDB) {
 
 Status NBufferMerge::RunOnFunction(Function &function) {
     ALOG_INFO_F("===> Start NBufferMerge.");
-    auto numDB = function.paramConfigs_.NbufferNum;
-    ALOG_INFO_F("[NBUFFER_MERGE] nbuffer num: %d", numDB);
-    if (numDB == 0) {
-        ALOG_INFO_F("[NBUFFER_MERGE] Manually Set NumDB 0, Skip NBufferMerge.");
+    nBufferMergeMode = function.paramConfigs_.nBufferMergeMode;
+    if (nBufferMergeMode != noMerge && nBufferMergeMode != autoMerge && nBufferMergeMode != manualMerge) {
+        ALOG_ERROR_F("[NBUFFER_MERGE] nBufferMergeMode Set %d, Should Be 0, 1 OR 2.", nBufferMergeMode);
+        return FAILED;
+    }
+    ALOG_INFO_F("[NBUFFER_MERGE] nbuffer mode: %d", nBufferMergeMode);
+    if (nBufferMergeMode == noMerge) {
+        ALOG_INFO_F("[NBUFFER_MERGE] Manually Set nBufferMergeMode 0, Skip NBufferMerge.");
         return SUCCESS;
     }
-    if (NBufferMergeProcess(function, numDB) == FAILED) {
+    sgCubeParallelNum = function.paramConfigs_.sgCubeParallelNum;
+    sgVecParallelNum = function.paramConfigs_.sgVecParallelNum;
+    vecNBufferMap = function.paramConfigs_.vecNBufferMap;
+    if (NBufferMergeProcess(function) == FAILED) {
         return FAILED;
     }
     ALOG_INFO_F("===> Finish NBufferMerge.");

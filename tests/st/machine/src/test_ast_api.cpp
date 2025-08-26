@@ -70,8 +70,7 @@ TEST(OnBoardTestAstApi, test_fa_all2all_ast_api_mode) {
     readInput(GetGoldenDir() + "/sum_golden.bin", sum_golden_data);
 
     Program::GetInstance().GetConfig().Reset();
-    Program::GetInstance().GetConfig().Set<int>(DB_TYPE, 1);
-    Program::GetInstance().GetConfig().Set<int>(NBUFFER_NUM, 1);
+    Program::GetInstance().GetConfig().Set<int>(NBUFFER_MERGE_MODE, 1);
     Tensor Q(DataType::DT_FP16, shape, (uint8_t *)q_ptr, "Q");
     Tensor K(DataType::DT_FP16, shape, (uint8_t *)k_ptr, "K");
     Tensor V(DataType::DT_FP16, shape, (uint8_t *)v_ptr, "V");

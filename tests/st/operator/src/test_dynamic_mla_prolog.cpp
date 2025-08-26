@@ -38,7 +38,7 @@ struct TestShapeParams {
 };
 
 void PerformanceConfig() {
-    Program::GetInstance().GetConfig().Set<int>(DB_TYPE, 1);
+    Program::GetInstance().GetConfig().Set<int>(NBUFFER_MERGE_MODE, 1);
     Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 4);
     Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {
         {3, 4}

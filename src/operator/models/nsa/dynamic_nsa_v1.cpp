@@ -160,7 +160,7 @@ void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const T
     },  
         {postOut, cmpAttnOut, cmpSoftmax, fullK, cmpK, topkRes, topkInput},
         {{kvCacheOut, kvCache}, {krCacheOut, krCache}}) {
-        Program::GetInstance().GetConfig().Set<int>(DB_TYPE, 1);
+        Program::GetInstance().GetConfig().Set<int>(NBUFFER_MERGE_MODE, 1);
         Program::GetInstance().GetConfig().Set<int>(L1_REUSE, NUM_4);
         Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {
                                                                                          {NUM_3, NUM_4}
