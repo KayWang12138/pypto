@@ -68,7 +68,7 @@ bool TensorBucket::AddTensorGroup(const TensorsDesc &tensorsDesc) {
 bool Allocator::IsRawQualified(const WorkspaceInfo &outWspInfo, const WorkspaceInfo &inWspInfo) {
     const auto &outTensor = outWspInfo.tensor->tensor;
     const auto &inTensor = inWspInfo.tensor->tensor;
-    if (outWspInfo.size == inWspInfo.size) {
+    if (outTensor->GetRawDataSize() == inTensor->GetRawDataSize()) {
         return true;
     }
     if (outTensor->GetDataType() != inTensor->GetDataType()) {

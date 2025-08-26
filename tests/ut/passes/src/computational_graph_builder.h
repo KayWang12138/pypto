@@ -35,6 +35,11 @@ public:
         function->ResetOperations();
         function->SetFunctionType(FunctionType::STATIC);
     }
+    explicit ComputationalGraphBuilder(Function *func) : function(func) {
+        function->GetTensorMap().Reset();
+        function->ResetOperations();
+        function->SetFunctionType(FunctionType::STATIC);
+    }
     bool AddTensor(DataType dataType, const std::vector<int>& tileShape, const std::string& name);
     bool AddTensor(DataType dataType, const std::vector<int>& tileShape, MemoryType memType, const std::string& name, 
         int subGraphID = -1);
