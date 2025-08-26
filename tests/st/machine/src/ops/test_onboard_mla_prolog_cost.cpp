@@ -26,7 +26,7 @@
 #include "runtime.h"
 #include "device_runner.h"
 #include "operator/models/deepseek/deepseek_mla.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 #include "tilefwk_runtime_api.h"
 
 using namespace npu::tile_fwk;
@@ -203,7 +203,7 @@ void TestMlaProlog(std::vector<int> &params, string dataPath, bool isQuant = fal
             ALOG_INFO_F("MlaProlog function aicpu stream sync failed");
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<outDtype> q_golden(capacity_q);
     std::vector<outDtype> q_npu(capacity_q);
@@ -607,7 +607,7 @@ void attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
             }
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<outDtype> q_golden(capacity_q);
     std::vector<outDtype> q_npu(capacity_q);

@@ -14,7 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 
@@ -51,7 +51,7 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_70_8_40_1) {
             output = GatherElement(input_src0, input_src1, axis);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> golden(capacity2);
     std::vector<float> dev_res(capacity2);
     machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)out_ptr, outputSize);
@@ -93,7 +93,7 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_8_32_1) {
             output = GatherElement(input_src0, input_src1, axis);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> golden(capacity2);
     std::vector<float> dev_res(capacity2);
     machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)out_ptr, outputSize);
@@ -136,7 +136,7 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_7_32_1) {
             output = GatherElement(input_src0, input_src1, axis);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(capacity2);
     std::vector<float> dev_res(capacity2);
@@ -178,7 +178,7 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_7_32_0) {
         FUNCTION("GATHER_ELEMET_T", FunctionType::STATIC, {input_src0, input_src1, output}) {
             output = GatherElement(input_src0, input_src1, axis);
         }
-        RunStatic();
+        DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
         std::vector<float> golden(capacity2);
         std::vector<float> dev_res(capacity2);

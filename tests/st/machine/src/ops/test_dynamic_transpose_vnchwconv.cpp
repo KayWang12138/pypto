@@ -20,7 +20,7 @@
 #include "runtime.h"
 #include "device_runner.h"
 #include "cost_model/simulation/backend.h"
-#include "test_dynamic.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -68,8 +68,7 @@ TEST_F(DynamicTransposeTest, TestDynamicVnchwconv) {
     });
 
     // excute
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));

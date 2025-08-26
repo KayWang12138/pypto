@@ -14,7 +14,7 @@
  */
 
 #include <gtest/gtest.h>
-#include "test_dynamic.h"
+#include "test_dev_func_runner.h"
 #include "test_suite_stest_ops.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "operator/models/deepseek/deepseek_moeinfer.h"
@@ -69,9 +69,8 @@ TEST_F(DynamicFFNTest, TestOnbroadDynamicFFN) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(ffnout, 0),
     });
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 #endif
@@ -144,15 +143,11 @@ TEST_F(DynamicFFNTest, TestOnbroadDynamicFFNQuant) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(ffnout, 0),
     });
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    // KernelLaunchPrecheck(funcop);
-    devProgBinary = funcop->devProgBinary;
+
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcop);
-    // KernelLaunch(devProgBinary);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 #endif
 }
-
 }

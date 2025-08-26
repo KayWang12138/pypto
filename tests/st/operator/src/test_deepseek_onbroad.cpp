@@ -16,7 +16,7 @@
 #include "test_suite_stest_ops.h"
 #include "operator/models/deepseek/deepseek_spec.h"
 #include "operator/models/deepseek/deepseek_mla.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 
@@ -85,7 +85,7 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer) {
                 ffnWeight3, idxs, sortedTokens, outs, nRoutedExperts);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<int32_t> goldenIdxs(b * s * numExpertsPerTok);
     std::vector<float> goldenSortedTokens(b * s * numExpertsPerTok * h);
@@ -183,7 +183,7 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout) {
                 finalout = deepseekMoEInfer.MoeInfer(hiddenStates, topkIdx, topkWeight, ffnWeight1, ffnWeight2, ffnWeight3, nRoutedExperts);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> goldenFinalWeight(hiddenStatesSize);
     std::vector<float> devFinalWeight(hiddenStatesSize);
@@ -253,7 +253,7 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout_singlemlp) {
                 finalout = deepseekMoEInfer.MoeInferSingleMlp(hiddenStates, topkIdx, topkWeight, ffnWeight1, ffnWeight2, ffnWeight3, nRoutedExperts);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> goldenFinalWeight(hiddenStatesSize);
     std::vector<float> devFinalWeight(hiddenStatesSize);
@@ -333,7 +333,7 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout_singlemlp_withquant)
                 finalout = deepseekMoEInfer.MoeInferSingleMlpQuant(hiddenStates, topkIdx, topkWeight, ffnWeight1, ffnWeight2, ffnWeight3,  ffnwight1Scale, ffnwight2Scale, ffnwight3Scale, nRoutedExperts);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> goldenFinalWeight(hiddenStatesSize);
     std::vector<float> devFinalWeight(hiddenStatesSize);

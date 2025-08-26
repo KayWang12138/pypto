@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "test_dynamic.h"
+#include "test_dev_func_runner.h"
 #include "test_suite_stest_ops.h"
 #include "operator/models/deepseek/dynamic_nsa.h"
 #include "operator/models/nsa/dynamic_nsa_v1.h"
@@ -79,9 +79,8 @@ void TestNsa(const SimpleParams &params) {
 
     auto outputData = RawTensorData::CreateConstantTensor<outputT>(output, 0.0);
     GenGatedScoreCompute(x, w1, w2, simW1, output, GateMode::standard);
-    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcOp, {xData, w1Data, w2Data, simW1Data}, {outputData});
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {xData, w1Data, w2Data, simW1Data}, {outputData});
     std::cout << "======= GateScore ====== " << std::endl;
     EXPECT_TRUE(
         resultCmp<outputT>(outputGolden, (outputT *)outputData->data(), 0.001f, NUM_16, 1000, false, false, NUM_16));
@@ -108,9 +107,8 @@ void TestViewPad() {
         }
     }
 
-    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcOp, {xData}, {outputData});
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {xData}, {outputData});
     std::cout << "trans0 ====== " << std::endl;
     EXPECT_TRUE(resultCmp<float>(outputGolden, (float *)outputData->data(), 0.008f, 0, 1000, false, false, NUM_16));
 #endif
@@ -146,9 +144,8 @@ void TestAlignRead(bool isAlign) {
         }
     }
 
-    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcOp, {xData}, {outputData});
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {xData}, {outputData});
     std::cout << "trans0 ====== " << std::endl;
     EXPECT_TRUE(resultCmp<float>(outputGolden, (float *)outputData->data(), 0.008f, 0, 1000, false, false, NUM_16));
 #endif
@@ -182,9 +179,8 @@ void TestMultiLoopAlignRead() {
         }
     }
 
-    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcOp, {xData}, {outputData});
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {xData}, {outputData});
     std::cout << "trans0 ====== " << std::endl;
     EXPECT_TRUE(resultCmp<float>(outputGolden, (float *)outputData->data(), 0.008f, 0, 1000, false, false, NUM_16));
 #endif
@@ -256,10 +252,9 @@ void TestGenslc(const SimpleParams &params, int topk_actual_len = 0, bool isGenS
         GenTopkIndicesFun(x, trans0, reduce0, trans1, reduce1, topkInd, topkVal, res, tmp_s_slc);
     }
 
-    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(
-        funcOp, {xData}, {trans0Data, reduce0Data, trans1Data, reduce1Data, topkIndData, topkValData, resZeroData});
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(),
+        {xData}, {trans0Data, reduce0Data, trans1Data, reduce1Data, topkIndData, topkValData, resZeroData});
     if (isGenSlc) {
         std::cout << "trans0 ====== " << std::endl;
         EXPECT_TRUE(resultCmp<T>(trans0Golden, (T *)trans0Data->data(), 0.008f, NUM_16));
@@ -305,7 +300,7 @@ void TestGenslcV2(const SimpleParams &params, int topk_actual_len = 0) {
     GenSlcV2(x, res, validSize);
 
 #ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
-    DynFuncRunner::Run(Program::GetInstance().GetLastFunction()->GetDyndevAttribute(), {xData}, {resZeroData});
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {xData}, {resZeroData});
     EXPECT_TRUE(
         resultCmp<float>(topkIndicesGolden, (float *)resZeroData->data(), 0.008f, 0, NUM_16, false, false, NUM_20));
 #endif

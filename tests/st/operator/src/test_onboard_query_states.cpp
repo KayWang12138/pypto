@@ -14,7 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 
@@ -77,7 +77,7 @@ TEST_F(OnBoardTest, test_query_states_fp16_b32_n2) {
             query_states = Concat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<npu::tile_fwk::float16> q(cap);
     std::vector<npu::tile_fwk::float16> golden(outputCap);
     std::vector<npu::tile_fwk::float16> res(outputCap);
@@ -144,7 +144,7 @@ TEST_F(OnBoardTest, test_query_states_fp16_b32_n16) {
             query_states = Concat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<npu::tile_fwk::float16> q(cap);
     std::vector<npu::tile_fwk::float16> golden(outputCap);
     std::vector<npu::tile_fwk::float16> res(outputCap);
@@ -211,7 +211,7 @@ TEST_F(OnBoardTest, test_query_states_fp16_b32_n32) {
             query_states = Concat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<npu::tile_fwk::float16> q(cap);
     std::vector<npu::tile_fwk::float16> golden(outputCap);
     std::vector<npu::tile_fwk::float16> res(outputCap);
@@ -279,7 +279,7 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n2) {
             query_states = Concat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<npu::tile_fwk::bfloat16> q(cap);
     std::vector<npu::tile_fwk::bfloat16> golden(outputCap);
     std::vector<npu::tile_fwk::bfloat16> res(outputCap);
@@ -330,7 +330,7 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n2_concat) {
             query_states = Concat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<npu::tile_fwk::bfloat16> q(cap);
     std::vector<npu::tile_fwk::bfloat16> golden(outputCap);
     std::vector<npu::tile_fwk::bfloat16> res(outputCap);
@@ -398,7 +398,7 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n2_nocat) {
             // query_states = Concat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<npu::tile_fwk::bfloat16> q(cap);
     std::vector<npu::tile_fwk::bfloat16> golden(outputCap);
     std::vector<npu::tile_fwk::bfloat16> res(outputCap);
@@ -466,7 +466,7 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n16) {
             query_states = Concat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<npu::tile_fwk::bfloat16> q(cap);
     std::vector<npu::tile_fwk::bfloat16> golden(outputCap);
     std::vector<npu::tile_fwk::bfloat16> res(outputCap);
@@ -534,7 +534,7 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n32) {
             query_states = Concat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<npu::tile_fwk::bfloat16> q(cap);
     std::vector<npu::tile_fwk::bfloat16> golden(outputCap);
     std::vector<npu::tile_fwk::bfloat16> res(outputCap);

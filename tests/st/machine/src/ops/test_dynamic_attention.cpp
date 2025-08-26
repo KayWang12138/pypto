@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "test_dynamic.h"
+#include "test_dev_func_runner.h"
 #include "test_suite_stest_ops.h"
 #include "operator/models/deepseek/attention.h"
 
@@ -22,40 +22,6 @@ using namespace npu::tile_fwk::dynamic;
 class DynamicAttention : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 namespace {
-
-std::vector<uint8_t> LoadFile(const std::string &filePath) {
-    std::vector<uint8_t> binary;
-    FILE *file = fopen(filePath.c_str(), "rb");
-    if (file != nullptr) {
-        fseek(file, 0, SEEK_END);
-        int size = ftell(file);
-        binary.resize(size);
-        fseek(file, 0, SEEK_SET);
-        fread(binary.data(), 1, size, file);
-        fclose(file);
-    }
-    return binary;
-}
-
-#define AST_DYNKERN_PATH            "AST_DYNKERN_PATH"
-std::vector<uint8_t> KernelLoad() {
-    std::vector<uint8_t> devProgBinary;
-    const char *dynKernelFilePath = std::getenv(AST_DYNKERN_PATH);
-    if (dynKernelFilePath != nullptr) {
-        devProgBinary = LoadFile(dynKernelFilePath);
-    }
-
-    if (!devProgBinary.empty()) {
-        std::cout << "Successfully loading kernel from " << dynKernelFilePath << "\n";
-    } else if (dynKernelFilePath == nullptr || strlen(dynKernelFilePath) == 0) {
-        std::cout << "No AST_DYNKERN_PATH specified, skip loading kernel\n";
-    } else {
-        std::cout << "Failed to load kernel from " << dynKernelFilePath << "\n";
-    }
-
-    return devProgBinary;
-}
-
 template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool splitK = false, bool nz = false, bool usePrefetch = false>
 void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileConfig, string dataPath,
         uint64_t timeThreshold, bool isQuant = false, bool isSmooth = false) {
@@ -311,25 +277,19 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
     auto postOutData = RawTensorData::CreateConstantTensor<T>(postOut, 0.0);
 
     MlaQuantInputs quantInputs;
-    auto program = KernelLoad();
-    if (program.empty()) {
-        if (isQuant) {
-            quantInputs.dequantScaleWUqQr = w_qb_scale;
-            if (isSmooth) {
-                quantInputs.smoothScalesCq = smooth_cq;
-            }
+    if (isQuant) {
+        quantInputs.dequantScaleWUqQr = w_qb_scale;
+        if (isSmooth) {
+            quantInputs.smoothScalesCq = smooth_cq;
         }
-        Attention(x, wDq, wUqQr, wUk, wDkvKr, gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache,
-                output_q, output_q_rope, output_kv_cache, output_kr_cache, quantInputs, ropeConfig, /*---*/
-                blockTable, actSeqs, paOut, blockSize, softmaxScale, paTileConfig, /*---*/
-                weightUV, weightO, weightOScaleW, postOut, 1e-5f, 1e-5f, cacheMode);
-
-        auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-        program = funcOp->devProgBinary;
     }
+    Attention(x, wDq, wUqQr, wUk, wDkvKr, gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache,
+            output_q, output_q_rope, output_kv_cache, output_kr_cache, quantInputs, ropeConfig, /*---*/
+            blockTable, actSeqs, paOut, blockSize, softmaxScale, paTileConfig, /*---*/
+            weightUV, weightO, weightOScaleW, postOut, 1e-5f, 1e-5f, cacheMode);
 
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(program,
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(),
         {xData, wDqData, wUqQrData, wUkData, wDkvKrData, gammaCqData, gammaCkvData, sinData, cosData, kvLenData,
          kvCacheData, krCacheData, wQbScaleData, smoothCqData,
          blockTableData, actSeqsData, weightUVData, weightOData, weightOScaleWData},

@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "test_dynamic.h"
+#include "test_dev_func_runner.h"
 #include "test_common.h"
 #include "test_suite_stest_ops.h"
 #include "operator/models/nsa/nsa_selected_attention.h"
@@ -135,10 +135,9 @@ void TestKvSlcAttn(const NSASimpleParams &params, SATileShapeConfig& saTileConfi
         n1, n2, softmaxScale, front, near, topk, blockSize, cmpBlockSize, slcBlockSize,
         saTileConfig);
 
-    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifndef AC_ENABLE_FRAMEWORK_WITHOUT_CANN
     // 5. 更新输入输出list
-    DynFuncRunner::Run(funcOp,
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(),
         {topkIndicesData, kvNopeCacheData, kRopeCacheData, kvCacheActSeqData, blockTableData, // genkvSlc
          qNopeData, qRopeData// slcAtten
         }, // input list

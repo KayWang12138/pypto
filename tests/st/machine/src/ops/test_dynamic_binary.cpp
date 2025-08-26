@@ -17,7 +17,7 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "operator/models/deepseek/page_attention.h"
 #include "machine/utils/dynamic/dev_encode.h"
-#include "test_dynamic.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -67,8 +67,7 @@ TEST_F(DynamicBinTest, TestDynamicAddUnalign) {
     });
 
     // excute
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
@@ -111,8 +110,7 @@ TEST_F(DynamicBinTest, testDynMulsUnalign) {
         RawTensorData::CreateConstantTensor<float>(out, 0.001f),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(b * sq * d, 0.001f);
     for (int bidx = 0; bidx < b; ++bidx) {
@@ -172,8 +170,7 @@ TEST_F(DynamicBinTest, testScalarDivsUnalign) {
         RawTensorData::CreateConstantTensor<float>(out, 0.001f),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));

@@ -14,7 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 
@@ -53,7 +53,7 @@ TEST_F(TensorIndexOnBoardTest, test_tensorindex_float_32_64_1_32) {
             output = TensorIndex(input_src0, input_src1);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(capacity2);
     std::vector<float> dev_res(capacity2);
@@ -98,7 +98,7 @@ TEST_F(TensorIndexOnBoardTest, test_tensorindex_float_64_256_1_64) {
             output = TensorIndex(input_src0, input_src1);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(capacity2);
     std::vector<float> dev_res(capacity2);
@@ -145,7 +145,7 @@ TEST_F(TensorIndexOnBoardTest, test_tensorindex_float_1_64_32_1) {
             output = TensorIndex(input_src0, input_src1);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(capacity2);
     std::vector<float> dev_res(capacity2);
@@ -189,7 +189,7 @@ TEST_F(TensorIndexOnBoardTest, test_tensorindex_float_64_512_16_64) {
             output = TensorIndex(input_src0, input_src1);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(capacity2);
     std::vector<float> dev_res(capacity2);
@@ -232,7 +232,7 @@ TEST_F(TensorIndexOnBoardTest, test_tensorindex_float_8_7168_64_moe) {
             output = TensorIndex(input_src0, input_src1);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(capacity2);
     std::vector<float> dev_res(capacity2);

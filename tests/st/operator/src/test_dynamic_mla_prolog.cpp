@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "test_dynamic.h"
+#include "test_dev_func_runner.h"
 #include "test_suite_stest_ops.h"
 #include "operator/models/deepseek/dynamic_mla.h"
 
@@ -184,10 +184,8 @@ void TestDynamicMlaProlog(const TestShapeParams &params, const MlaTileConfig &ti
         kvCache, krCache, quantInputs, tileConfig,
         dynamicOutputQ, dynamicOutputQRope, outputKvCache, outputKrCache, 1e-5f, 1e-5f, cacheMode);
 
-    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcOp, inputDataList, outputDataList);
-
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
     std::cout << "qNope ====== " << std::endl;
     EXPECT_TRUE(resultCmp<T>(golden1, (T *)outputQData->data(), 0.008f));
     std::cout << "qRope ======" << std::endl;

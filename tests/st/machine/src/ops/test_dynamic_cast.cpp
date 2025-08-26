@@ -17,7 +17,7 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "operator/models/deepseek/page_attention.h"
 #include "machine/utils/dynamic/dev_encode.h"
-#include "test_dynamic.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -63,8 +63,7 @@ TEST_F(DynamicCastTest, testDynCastUnalign) {
         RawTensorData::CreateConstantTensor<int32_t>(out, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop, DynFuncRunnerConfig(0, 3)); // 看护可重入，连续执行3次
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), FuncRunnerConfig(0, 3)); // 看护可重入，连续执行3次
 
     std::vector<int32_t> golden(b * sq * d, 0);
     for (int bidx = 0; bidx < b; ++bidx) {

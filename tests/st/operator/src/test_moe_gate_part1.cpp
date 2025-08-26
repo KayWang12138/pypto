@@ -14,7 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 
@@ -69,7 +69,7 @@ TEST_F(MoEGatePart1OnBoardTest, test_moe_gate_part1) {
             output_score4choice = Add(output_score, input_e_score_bias);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     // test with golden data
     std::vector<float> res_scores(outputSize);

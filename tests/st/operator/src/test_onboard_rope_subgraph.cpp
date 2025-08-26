@@ -14,7 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 
@@ -84,7 +84,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3) {
             ApplyRotaryPosEmb(qPeTrans, kPeReshape, cos, sin, positionIds, qEmbed, kEmbed, 1, ropeTileConfig);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     // qEmbed
     std::vector<float> qEmbedRes(qEmbedSize);
@@ -184,7 +184,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_fp16) {
             ApplyRotaryPosEmb(qPeTrans, kPeReshape, cos, sin, positionIds, qEmbed, kEmbed, 1, ropeTileConfig);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     // qEmbed
     std::vector<npu::tile_fwk::float16> qEmbedRes(qEmbedSize);
@@ -267,7 +267,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_fp16_2ba
             ApplyRotaryPosEmb(qPeTrans, kPeReshape, cos, sin, positionIds, qEmbed, kEmbed, 1, ropeTileConfig);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     // qEmbed
     std::vector<npu::tile_fwk::float16> qEmbedRes(qEmbedSize);
@@ -349,7 +349,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_bf16) {
             ApplyRotaryPosEmb(qPeTrans, kPeReshape, cos, sin, positionIds, qEmbed, kEmbed, 1, ropeTileConfig);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     // qEmbed
     std::vector<npu::tile_fwk::bfloat16> qEmbedRes(qEmbedSize);
@@ -431,7 +431,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_bf16_32b
             ApplyRotaryPosEmb(qPeTrans, kPeReshape, cos, sin, positionIds, qEmbed, kEmbed, 1, ropeTileConfig);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     // qEmbed
     std::vector<npu::tile_fwk::bfloat16> qEmbedRes(qEmbedSize);
@@ -514,7 +514,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_bf16_2ba
             ApplyRotaryPosEmb(qPeTrans, kPeReshape, cos, sin, positionIds, qEmbed, kEmbed, 1, ropeTileConfig);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     // qEmbed
     std::vector<npu::tile_fwk::bfloat16> qEmbedRes(qEmbedSize);
@@ -635,7 +635,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_CD_bf16_32batch) {
 
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     // qEmbed
     std::vector<npu::tile_fwk::bfloat16> qEmbedRes(qEmbedSize);
@@ -761,7 +761,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_CD_bf16_32batch_4k) {
 
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     // qEmbed
     std::vector<npu::tile_fwk::bfloat16> qEmbedRes(qEmbedSize);

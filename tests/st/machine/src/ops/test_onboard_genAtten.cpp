@@ -23,7 +23,7 @@
 #include "test_suite_stest_ops.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "operator/models/nsa/gen_Attention.h"
-#include "test_dynamic.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -89,9 +89,8 @@ void genAtten(GenAttenConfig &inputConfig) {
 
     GenAttention(cmpAtten, selAtten, winAtten, gatingScore, out_npu);
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(out_goldenData, (T *)outs->data(), 0.001f));
 #endif

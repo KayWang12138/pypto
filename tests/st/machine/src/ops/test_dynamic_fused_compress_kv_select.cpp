@@ -23,7 +23,7 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "operator/models/nsa/fused_compress_kv_select.h"
 #include "machine/utils/dynamic/dev_encode.h"
-#include "test_dynamic.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -179,8 +179,7 @@ void TestCmpKvSel(CmpAttnTile &tileConfig) {
     FusedCompressKvSelect(qNope_v2, qRope_v2, kvCache_v2, krCache_v2, cmpKvCache_v2, cmpKrCache_v2, blockTable_v2,
         cmpBlockTable_v2, actSeqLen_v2, actCmpSeqLen_v2, mlpWk1_v2, mlpWk2_v2, mlpCos_v2, mlpSin_v2, cmpAttn, cmpAttn16, cmpSoftmax, fullK, cmpK, firstRope, firstRopeInput,topkRes, topkInput, blockSize, cmpBlockSize, cmpStride, softmaxScale, n1, n2, tileConfig);
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop, inputDataList, outputDataList);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
 
     std::cout << "========================fullKCast==============================" << std::endl;
     EXPECT_TRUE(resultCmp(fullKGolden, (T *)fullK_v3->data(), 0.005f));

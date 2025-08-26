@@ -15,7 +15,7 @@
 
 #include "test_suite_stest_ops.h"
 #include "operator/models/deepseek/deepseek_mla.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 
@@ -170,7 +170,7 @@ void TestMlaProlog(std::vector<int> &params, string dataPath, bool isQuant = fal
             }
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto end_op = std::chrono::high_resolution_clock::now();
     std::vector<outDtype> q_golden(capacity_q);
     std::vector<outDtype> q_npu(capacity_q);
@@ -571,7 +571,7 @@ void Attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
             }
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<outDtype> q_golden(capacity_q);
     std::vector<outDtype> q_npu(capacity_q);
@@ -989,7 +989,7 @@ void attention_high(std::vector<int> &params, string dataPath, bool isQuant = fa
             }
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<outDtype> q_golden(capacity_q);
     std::vector<outDtype> q_npu(capacity_q);

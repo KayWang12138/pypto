@@ -19,7 +19,7 @@
 #include "operation/tilefwk_op.h"
 #include "test_suite_stest_ops.h"
 #include "interface/interpreter/raw_tensor_data.h"
-#include "test_dynamic.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -66,9 +66,8 @@ TEST_F(DynamicUnalignTest, TestTailBlock) {
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> golden(n * s * s, 2.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
@@ -162,8 +161,7 @@ TEST_F(DynamicUnalignTest, test_mm_unalign) {
     });
 
     // excute
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.005f));
 // #endif
@@ -225,8 +223,7 @@ TEST_F(DynamicUnalignTest, test_mm2_unalign) {
     });
 
     // excute
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.005f));
 // #endif
@@ -276,8 +273,7 @@ TEST_F(DynamicUnalignTest, test_rowmaxsingle_unalign) {
     });
 
     // excute
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 }
@@ -326,8 +322,7 @@ TEST_F(DynamicUnalignTest, test_rowsumsingle_unalign) {
     });
 
     // excute
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 }
@@ -366,8 +361,7 @@ TEST_F(DynamicUnalignTest, test_unary_unalign) {
     });
 
     // excute
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(b * sq * d, 0.001f);
     for (int bidx = 0; bidx < b; ++bidx) {

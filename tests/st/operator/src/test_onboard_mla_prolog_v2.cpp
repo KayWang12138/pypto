@@ -15,7 +15,7 @@
 
 #include "test_suite_stest_ops.h"
 #include "operator/models/deepseek/mla_prolog.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 
@@ -170,7 +170,7 @@ void TestMlaPrologV2(std::vector<int> &params, string dataPath, bool isQuant = f
             };
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<outDtype> q_golden(capacity_q_out);
     std::vector<outDtype> q_npu(capacity_q_out);
@@ -551,7 +551,7 @@ void TestAttentionV2(std::vector<int> &params, string dataPath, IfaTileShapeConf
             //            };
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<outDtype> q_golden(capacity_q_out);
     std::vector<outDtype> q_npu(capacity_q_out);

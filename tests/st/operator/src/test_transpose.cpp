@@ -14,7 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 
 namespace {
 int capacity;
@@ -59,7 +59,7 @@ TEST_F(TransposeTest, TestTranspose_BNSD_BSND) {
             output = Transpose(input, {1, 2});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -82,7 +82,7 @@ TEST_F(TransposeTest, TestTranspose_ABC_BAC) {
             output = Transpose(input, {0, 1});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -107,7 +107,7 @@ TEST_F(TransposeTest, TestTranspose_ABCD_ABDC_1_2_16_31) {
             output = Transpose(input, {2, 3});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -131,7 +131,7 @@ TEST_F(TransposeTest, TestTranspose_BNSD2_BNS2D_small) {
             output = Transpose(input, {3, 4});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -155,7 +155,7 @@ TEST_F(TransposeTest, TestTranspose_BNDS_BNSD) {
             output = Transpose(input, {2, 3});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -179,7 +179,7 @@ TEST_F(TransposeTest, TestTranspose_AB_BA) {
             output = Transpose(input, {0, 1});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -203,7 +203,7 @@ TEST_F(TransposeTest, TestTranspose_ROPE_5D) {
             output = Transpose(input, {3, 4});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -226,7 +226,7 @@ TEST_F(TransposeTest, TestTranspose_MLA_3D_0) {
             output = Transpose(input, {0, 1});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -249,7 +249,7 @@ TEST_F(TransposeTest, TestTranspose_MLA_3D_1) {
             output = Transpose(input, {0, 1});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -273,7 +273,7 @@ TEST_F(TransposeTest, TestTranspose_MLA_4D_0) {
             output = Transpose(input, {1, 2});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -297,7 +297,7 @@ TEST_F(TransposeTest, TestTranspose_MLA_4D_1) {
             output = Transpose(input, {1, 2});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -322,7 +322,7 @@ TEST_F(TransposeTest, TestTranspose_MLA_4D_3) {
             output = Transpose(output, {1, 2});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -347,7 +347,7 @@ TEST_F(TransposeTest, TestTranspose_MLA_4D_4) {
             output = Transpose(output, {1, 2});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -371,7 +371,7 @@ TEST_F(TransposeTest, TestTranspose_MLA_4D_5) {
             output = Transpose(input, {2, 3});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -395,7 +395,7 @@ TEST_F(TransposeTest, TestTranspose_MLA_4D_50) {
             output = Transpose(input, {2, 3});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -420,7 +420,7 @@ TEST_F(TransposeTest, TestTranspose_MLA_4D_6) {
             output = Transpose(input, {1, 2});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -443,7 +443,7 @@ TEST_F(TransposeTest, TestTranspose_MLA_3D_2) {
             output = Transpose(input, {0, 1});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -468,7 +468,7 @@ TEST_F(TransposeTest, TestTranspose_MLA_4D_7) {
             output = AddS(tmp, Element(DataType::DT_FP32, 0.0));
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -492,7 +492,7 @@ TEST_F(TransposeTest, Test_Datamove_Nonalign_Dim4) {
             output = Transpose(input, {1, 2});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -515,7 +515,7 @@ TEST_F(TransposeTest, Test_Datamove_Nonalign_Dim3) {
             output = Transpose(input, {0, 1});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -537,7 +537,7 @@ TEST_F(TransposeTest, Test_AB_BA_32_768) {
             output = Transpose(input, {0, 1});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -559,7 +559,7 @@ TEST_F(TransposeTest, Test_AB_BA_768_32) {
             output = Transpose(input, {0, 1});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -581,7 +581,7 @@ TEST_F(TransposeTest, Test_AB_BA_128_511) {
             output = Transpose(input, {0, 1});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -603,7 +603,7 @@ TEST_F(TransposeTest, Test_AB_BA_128_255) {
             output = Transpose(input, {0, 1});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -626,7 +626,7 @@ TEST_F(TransposeTest, Test_AB_BA_128_63) {
             output = Transpose(input, {0, 1});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -648,7 +648,7 @@ TEST_F(TransposeTest, Test_AB_BA_1_128_511) {
             output = Transpose(input, {1, 2});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -670,7 +670,7 @@ TEST_F(TransposeTest, Test_AB_BA_1_128_255) {
             output = Transpose(input, {1,2});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -693,7 +693,7 @@ TEST_F(TransposeTest, Test_AB_BA_1_128_63) {
             output = Transpose(input, {1,2});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);
 }
 
@@ -718,6 +718,6 @@ TEST_F(TransposeTest, TestTranspose_abcd_bacd_2_128_3_32) {
             output = Transpose(input, {0, 1});
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     TransposePost(out_ptr, outSize);;
 }

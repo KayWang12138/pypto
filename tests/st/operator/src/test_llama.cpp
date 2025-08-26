@@ -15,7 +15,7 @@
 
 #include "test_suite_stest_ops.h"
 #include "operator/models/llama/llama_def.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 
@@ -66,7 +66,7 @@ void RunLLamaLayer(const AttentionDims &dimsCfg, float threadhold = 0.001f) {
             Res = LlamaLayer(H, AW, DW, FW, dimsCfg, SMALL_DFS_VEC_CFG, DFS_CUBE_CFG);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::cout << std::hex << "addr----" << (uint64_t)out_ptr << std::endl;
     std::vector<float> res(size0);
     machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);

@@ -8,7 +8,10 @@
 # ======================================================================================================================
 
 set(_Target ${TileFwkSTestNamePrefix}_distributed_ops)
+
 file(GLOB_RECURSE _Sources src/*.cpp)
+file(GLOB_RECURSE _Device_Srcs ${TILE_FWK_SRC_ROOT}/src/machine/device/*.cpp)
+list(APPEND _Sources ${_Device_Srcs})
 
 add_library(${_Target} SHARED)
 target_sources(${_Target}
@@ -25,4 +28,5 @@ target_link_libraries(${_Target}
             tile_fwk_interface
             tile_fwk_compiler
             tile_fwk_runtime
+            tile_fwk_simulation
 )

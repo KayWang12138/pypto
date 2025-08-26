@@ -16,7 +16,7 @@
 #include <functional>
 #include <vector>
 #include "operator/models/nsa/attention_post.h"
-#include "test_dynamic.h"
+#include "test_dev_func_runner.h"
 #include "test_common.h"
 #include "test_data_prepare.h"
 #include "test_suite_stest_ops.h"
@@ -443,10 +443,9 @@ void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig,
         actCmpSeqLen_v2, mlpWk1_v2, mlpWk2_v2, mlpCos_v2, mlpSin_v2, cmpAttn, cmpSoftmax, fullK, cmpK, firstRope,
         firstRopeInput, topkRes, topkInput, cmpBlockSize, cmpStride, cmpTileConfig, debug);
 
-    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifdef ENABLE_BUILD_WITH_CANN
     // 5. 更新输入输出list
-    DynFuncRunner::Run(funcOp, inputDataList, outputDataList); // output list
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList); // output list
     if constexpr (!ci) {
         std::cout << "MlaProlog kv ====== " << std::endl;
         EXPECT_TRUE(resultCmp<T>(golden3, (T *)outKvCacheData->data(), 0.003f));

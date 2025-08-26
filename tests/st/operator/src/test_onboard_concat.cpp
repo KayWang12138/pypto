@@ -14,7 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 
@@ -42,7 +42,7 @@ TEST_F(ConcatOnBoardTest, test_concat_dim4_float32) {
             output = Concat(std::vector<Tensor>{input_x, input_y}, -1);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(resCap);
     std::vector<float> dev_res(resCap);
@@ -77,7 +77,7 @@ TEST_F(ConcatOnBoardTest, test_concat_exp_dim4_float32) {
             output2 = Exp(output1);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(resCap);
     std::vector<float> dev_res(resCap);
@@ -113,7 +113,7 @@ TEST_F(ConcatOnBoardTest, test_exp_concat_dim4_float32) {
             output2 = Concat(std::vector<Tensor>{input_x_1, input_y_1}, -1);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(resCap);
     std::vector<float> dev_res(resCap);
@@ -149,7 +149,7 @@ TEST_F(ConcatOnBoardTest, test_concat_sqrt_dim4_float32) {
             output2 = Sqrt(output1);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(resCap);
     std::vector<float> dev_res(resCap);
@@ -188,7 +188,7 @@ TEST_F(ConcatOnBoardTest, test_concat_100_inputs_float32) {
             output = Concat(inputs, -1);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> golden(resCap);
     std::vector<float> dev_res(resCap);
     machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)out_ptr, outputSize);
@@ -225,7 +225,7 @@ TEST_F(ConcatOnBoardTest, test_concat_128_inputs_float32) {
             output = Concat(inputs, -2);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> golden(resCap);
     std::vector<float> dev_res(resCap);
     machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), (uint8_t *)out_ptr, outputSize);
@@ -260,7 +260,7 @@ TEST_F(ConcatOnBoardTest, test_concat_dim2_float32_moe) {
             output = Concat(std::vector<Tensor>{input_x, input_y}, -2);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(resCap);
     std::vector<float> dev_res(resCap);

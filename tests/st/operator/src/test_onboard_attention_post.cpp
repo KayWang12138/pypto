@@ -14,7 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 
@@ -104,7 +104,7 @@ TEST_F(OnBoardTest, test_attention_post_bf16_real_batch4) {
     if (config::GetPlatformConfig(KEY_ONLY_HOST_COMPILE, true)) {
         std::cout << Program::GetInstance().Dump() << std::endl;
     } else {
-        RunStatic();
+        DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
         std::vector<T> golden(outputSize);
         std::vector<T> res(outputSize);
         machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputByteSize);
@@ -198,7 +198,7 @@ TEST_F(OnBoardTest, test_attention_post_bf16_real_n128) {
     if (config::GetPlatformConfig(KEY_ONLY_HOST_COMPILE, true)) {
         std::cout << Program::GetInstance().Dump() << std::endl;
     } else {
-        RunStatic();
+        DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
         std::vector<T> golden(outputSize);
         std::vector<T> res(outputSize);
         machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputByteSize);

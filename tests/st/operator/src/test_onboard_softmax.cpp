@@ -14,7 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 
@@ -40,7 +40,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_cast_in) {
             o_x = Cast(i_x, oType);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<npu::tile_fwk::float16> x(cap);
     std::vector<float> golden(cap);
     std::vector<float> res(cap);
@@ -71,7 +71,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_cast_out) {
             o_x = Cast(i_x, oType);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> x(cap);
     std::vector<npu::tile_fwk::float16> golden(cap);
     std::vector<npu::tile_fwk::float16> res(cap);
@@ -102,7 +102,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_sum_single) {
             o_x = RowSumSingle(i_x);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> x(icap);
     std::vector<float> golden(oCap);
     std::vector<float> res(oCap);
@@ -133,7 +133,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_max_single) {
             o_x = RowMaxSingle(i_x);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> x(icap);
     std::vector<float> golden(oCap);
     std::vector<float> res(oCap);
@@ -162,7 +162,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_exp) {
             output = Exp(input_x);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> x(cap);
     std::vector<float> golden(cap);
     std::vector<float> res(cap);
@@ -197,7 +197,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_div) {
             output = Div(input_x, input_y);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> golden(ocap);
     std::vector<float> res(ocap);
     machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), out_ptr, outputSize);
@@ -226,7 +226,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_sum_all) {
             o_x = SoftmaxNew(i_x);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<npu::tile_fwk::float16> x(icap);
     std::vector<npu::tile_fwk::float16> golden(oCap);
     std::vector<npu::tile_fwk::float16> res(oCap);
@@ -257,7 +257,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_full_inference) {
             o_x = SoftmaxNew(i_x);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<npu::tile_fwk::float16> x(icap);
     std::vector<npu::tile_fwk::float16> golden(oCap);
     std::vector<npu::tile_fwk::float16> res(oCap);
@@ -288,7 +288,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_deepseek) {
             o_x = SoftmaxNew(i_x);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<npu::tile_fwk::float16> x(icap);
     std::vector<npu::tile_fwk::float16> golden(oCap);
     std::vector<npu::tile_fwk::float16> res(oCap);
@@ -319,7 +319,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_flash_attention) {
             o_x = SoftmaxNew(i_x);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> x(icap);
     std::vector<float> golden(oCap);
     std::vector<float> res(oCap);

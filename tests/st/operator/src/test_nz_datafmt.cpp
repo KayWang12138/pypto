@@ -14,7 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 
@@ -51,7 +51,7 @@ void TestNZFormat(int bs, int m, int k, int n) {
             matC = npu::tile_fwk::Matrix::Matmul(outputType, matA, matB);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> res(capacity_mat_c);
     machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), mat_c_ptr, outputSize);
 
@@ -142,7 +142,7 @@ void TestNZFormatBatch(int bs, int m, int k, int n) {
             matC = Assemble(assembleVec);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> res(capacity_mat_c);
     machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), mat_c_ptr, outputSize);
 
@@ -204,7 +204,7 @@ void TestNZFormatACC(int bs, int m, int k, int n) {
         Program::GetInstance().GetTileShape().SetVecTileShapes(16, 128);
         mat_c = AddS(tmpC, Element(DataType::DT_FP32, 0.0));
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> res(capacity_mat_c);
     machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), mat_c_ptr, outputSize);

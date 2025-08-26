@@ -14,7 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 using namespace npu::tile_fwk;
 
 class ArgsortOnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
@@ -37,7 +37,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_128_32_argsort) {
             output = ArgSort(input_a, -1);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<int32_t> golden_idx(shape0 * shape1);
     std::vector<int32_t> res2(shape0 * shape1);
     machine::GetRA()->CopyFromTensor((uint8_t *)res2.data(), (uint8_t *)out_ptr1, outputSize);
@@ -64,7 +64,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_4_32_argsort) {
             output = ArgSort(input_a, -1);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<int32_t> golden_idx(shape0 * shape1);
     std::vector<int32_t> res2(shape0 * shape1);
     machine::GetRA()->CopyFromTensor((uint8_t *)res2.data(), (uint8_t *)out_ptr1, outputSize);
@@ -91,7 +91,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_2_16_argsort) {
             output = ArgSort(input_a, -1);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<int32_t> golden_idx(shape0 * shape1);
     std::vector<int32_t> res2(shape0 * shape1);
 
@@ -118,7 +118,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_32_argsort) {
             output = ArgSort(input_a, -1);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<int32_t> golden_idx(shape0);
     std::vector<int32_t> res2(shape0);
 
@@ -145,7 +145,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_64_argsort) {
             output = ArgSort(input_a, -1);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<int32_t> golden_idx(shape0);
     std::vector<int32_t> res2(shape0);
 
@@ -173,7 +173,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_4_32__argsort) {
             output = ArgSort(input_a, -1, false);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<int32_t> golden_idx(shape0 * shape1);
     std::vector<int32_t> res2(shape0 * shape1);
     machine::GetRA()->CopyFromTensor((uint8_t *)res2.data(), (uint8_t *)out_ptr1, outputSize);
@@ -199,7 +199,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_64__argsort_moe) {
             output = ArgSort(input_a, -1, false);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<int32_t> golden_idx(shape0);
     std::vector<int32_t> res2(shape0);
 

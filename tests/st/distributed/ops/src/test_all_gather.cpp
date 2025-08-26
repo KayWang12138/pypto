@@ -19,7 +19,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "tilefwk/data_type.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {
@@ -58,7 +58,7 @@ void TestAllGather(OpTestParam &testParam)
             out = AllGather(in, testParam.group);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     EXPECT_TRUE(CompareWithGolden<uint8_t *>(dType, "/output_rank_", outSize, outPtr, testParam));
 }
 
@@ -101,7 +101,7 @@ void TestAllGatherEx(OpTestParam &testParam)
             Distributed::AllGather(in, outs, testParam.group);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     EXPECT_TRUE(outPtrs.size() > 0);
     EXPECT_TRUE(CompareWithGolden<std::vector<uint8_t *>>(dType, "/output_rank_", size * testParam.rankSize, outPtrs,
         testParam));

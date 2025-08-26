@@ -437,10 +437,6 @@ TEST_F(DynamicFunctionTest, TestStaticLoopStatic) {
     });
 
     TestStaticLoopStatic(t0, t1, t2, t3, t4, out, s);
-
-    std::shared_ptr<DyndevFunctionAttribute> attr = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-
 }
 
 TEST_F(DynamicFunctionTest, TestHybridLoopIf) {

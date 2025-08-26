@@ -18,7 +18,7 @@
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/device/dynamic/device_context.h"
 
-#include "test_dynamic.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -112,8 +112,7 @@ TEST_F(DynamicPAPOSTTest, dynamic_prolog_post_low_lantency) {
         RawTensorData::CreateConstantTensor<float>(postOut, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.004f));
 }
@@ -195,8 +194,7 @@ void testPaAdds(PaTileShapeConfig& tileConfig, int maxUnrollTimes = 1, bool manu
             RawTensorData::CreateConstantTensor<float>(postOut, 0),
         });
 
-        auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-        DynFuncRunner::Run(funcop);
+        DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
         auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
         auto outs1 = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(1);
         EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.0005f));
@@ -206,8 +204,7 @@ void testPaAdds(PaTileShapeConfig& tileConfig, int maxUnrollTimes = 1, bool manu
             RawTensorData::CreateConstantTensor<float>(postOut, 0),
         });
 
-        auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-        DynFuncRunner::Run(funcop);
+        DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
         auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
         EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.0005f));
     }
@@ -518,8 +515,7 @@ void testPaPost(PaTileShapeConfig& tileConfig, int maxUnrollTimes = 1, bool manu
         RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(postOut, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(paPostgolden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.04f));
 }

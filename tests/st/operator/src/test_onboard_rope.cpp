@@ -14,7 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 
@@ -82,7 +82,7 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_reshape_transpose_reshape_muls) {
             // qEmbed = RotateHalf(qReshape); // 待reshape+view+muls精度解决后再验证
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     // qEmbed
     std::vector<float> qEmbedRes(qEmbedSize);
@@ -166,7 +166,7 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_tensorIndex_unsqueeze_mul) {
             qEmbed = Mul(sinUnsqueeze, cosUnsqueeze);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     // qEmbed
     std::vector<float> qEmbedRes(qEmbedSize);
@@ -241,7 +241,7 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_reshape_view_muls) {
             qEmbed = MulS(x1, Element(DataType::DT_FP32, -1.0));
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     // qEmbed
     std::vector<float> qEmbedRes(qEmbedSize);
@@ -334,7 +334,7 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_reshape_view_muls_concat) {
             kEmbed = RotateHalf(kReshape); // view+muls+concat
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     // qEmbed
     std::vector<float> qEmbedRes(qEmbedSize);
@@ -426,7 +426,7 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_deepseekv3) {
             ApplyRotaryPosEmb(q, k, cos, sin, positionIds, qEmbed, kEmbed, 1, ropeTileConfig);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     // qEmbed
     std::vector<float> qEmbedRes(qEmbedSize);
@@ -512,7 +512,7 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_v2_deepseekv3) {
             ApplyRotaryPosEmbV2(q, k, cos, sin, qEmbed, kEmbed, 2, ropeTileConfig);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     // qEmbed
     std::vector<float> qEmbedRes(qEmbedSize);
@@ -581,7 +581,7 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_v2_deepseekv3_b32) {
             ApplyRotaryPosEmbV2(q, k, cos, sin, qEmbed, kEmbed, 2, ropeTileConfig);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     // qEmbed
     std::vector<float> qEmbedRes(qEmbedSize);

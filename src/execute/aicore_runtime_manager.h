@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <vector>
 #include <unordered_map>
 #include "machine/utils/common_def.h"

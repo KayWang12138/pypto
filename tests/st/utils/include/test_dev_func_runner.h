@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file test_dynamic.h
+ * \file test_dev_func_runner.h
  * \brief
  */
 
@@ -19,15 +19,18 @@
 #include <cstdint>
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/configs/config_manager.h"
+#include "interface/function/function.h"
+#include "machine/host/device_agent_task.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/device/dynamic/costmodel_utils.h"
+#include "machine_agent.h"
 #include "runtime.h"
 #include "device_runner.h"
 #include "cost_model/simulation/backend.h"
 
-using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 
+namespace npu::tile_fwk {
 constexpr uint32_t kDefaultAicNum = 25;
 constexpr uint32_t kDefaultAivNum = 50;
 
@@ -89,61 +92,63 @@ struct MemoryHelper {
 extern "C" int DynTileFwkBackendKernelServer(void *targ);
 extern "C" int DynTileFwkBackendKernelServerInit(void *targ);
 
-struct DynFuncRunnerConfig {
+struct FuncRunnerConfig {
     bool onBoard{true};
     int blockdim{25};
     int aicpuNum{5};
     int64_t dynWorkspaceSize{0};
     int64_t repeatNum{1};
 
-    DynFuncRunnerConfig() = default;
-    DynFuncRunnerConfig(bool onboard, int tblockdim, int taicpunum) : onBoard(onboard), blockdim(tblockdim), aicpuNum(taicpunum) {}
-    DynFuncRunnerConfig(int tdynWorkspaceSize) : dynWorkspaceSize(tdynWorkspaceSize) {}
-    DynFuncRunnerConfig(int tdynWorkspaceSize, int64_t trepeatNum) : dynWorkspaceSize(tdynWorkspaceSize),
-                                                                     repeatNum(trepeatNum){}
+    FuncRunnerConfig() = default;
+    FuncRunnerConfig(bool onboard, int tblockdim, int taicpunum) : onBoard(onboard), blockdim(tblockdim), aicpuNum(taicpunum) {}
+    FuncRunnerConfig(int tdynWorkspaceSize) : dynWorkspaceSize(tdynWorkspaceSize) {}
+    FuncRunnerConfig(int tdynWorkspaceSize, int64_t trepeatNum) : dynWorkspaceSize(tdynWorkspaceSize), repeatNum(trepeatNum){}
 };
 
-class DynFuncRunner {
+class DevFuncRunner {
 public:
-    DynFuncRunner(const std::vector<uint8_t> &devProg, const DynFuncRunnerConfig &config)
-        : devProg_(devProg), config_(config){}
-
-    static void RunModel(std::shared_ptr<DyndevFunctionAttribute> funcop, const std::vector<RawTensorDataPtr> &inputs,
-        const std::vector<RawTensorDataPtr> &outputs, const DynFuncRunnerConfig &config = DynFuncRunnerConfig()) {
-        auto runner = DynFuncRunner(funcop->devProgBinary, config);
-        runner.RunModel(inputs, outputs);
-    }
-
-    static void Run(std::shared_ptr<DyndevFunctionAttribute> funcop, const std::vector<RawTensorDataPtr> &inputs,
-        const std::vector<RawTensorDataPtr> &outputs, const DynFuncRunnerConfig &config = DynFuncRunnerConfig()) {
-        auto runner = DynFuncRunner(funcop->devProgBinary, config);
-        runner.KernelLaunchPrecheck(funcop, inputs, outputs);
-        runner.RunModel(inputs, outputs);
-        runner.Run(inputs, outputs);
+    static void Run(Function *function, const std::vector<RawTensorDataPtr> &inputs,
+        const std::vector<RawTensorDataPtr> &outputs, const FuncRunnerConfig &config = FuncRunnerConfig()) {
+        auto runner = DevFuncRunner(function, config);
+        runner.RunDynamic(inputs, outputs);
+        RunStatic();
     }
 
     // Run with incast/outcast from ProgramData
-    static void Run(std::shared_ptr<DyndevFunctionAttribute> funcop, const DynFuncRunnerConfig &config = DynFuncRunnerConfig()) {
-        auto runner = DynFuncRunner(funcop->devProgBinary, config);
+    static void Run(Function *function, const FuncRunnerConfig &config = FuncRunnerConfig()) {
         auto &inputs = ProgramData::GetInstance().GetInputDataList();
         auto &outputs = ProgramData::GetInstance().GetOutputDataList();
-        runner.KernelLaunchPrecheck(funcop, inputs, outputs);
-        runner.RunModel(inputs, outputs);
-        if (config.onBoard) {
-            runner.Run(inputs, outputs);
-        }
+        auto runner = DevFuncRunner(function, config);
+        runner.RunDynamic(inputs, outputs);
+        RunStatic();
     }
 
-    static void Run(const std::vector<uint8_t> &devProg, const std::vector<RawTensorDataPtr> &inputs,
-        const std::vector<RawTensorDataPtr> &outputs, const DynFuncRunnerConfig &config = DynFuncRunnerConfig()) {
-        auto runner = DynFuncRunner(devProg, config);
-        runner.RunModel(inputs, outputs);
-        runner.Run(inputs, outputs);
-    }
 private:
+    DevFuncRunner(Function *function, const FuncRunnerConfig &config) : function_(function), config_(config) {}
+    const std::vector<uint8_t>& GetDevProg() const {
+        return function_->GetDyndevAttribute()->devProgBinary;
+    }
+    void RunDynamic(const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs) {
+        if (function_ == nullptr || function_->GetDyndevAttribute() == nullptr) {
+            return;
+        }
+        KernelLaunchPrecheck(inputs, outputs);
+        RunModel(inputs, outputs);
+        if (config_.onBoard) {
+            RunOnBoard(inputs, outputs);
+        }
+    }
+    static void RunStatic() {
+        if (gDeviceAgentTaskPtr == nullptr) {
+            return;
+        }
+        MachineAgent::AgentProc(gDeviceAgentTaskPtr.get());
+        rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+        MachinePipe::PipeProc(gDeviceAgentTaskPtr.get());
+    }
     void InitTilingData(AstKernelArgs &kArgs, bool isTest) {
         MemoryHelper h{isTest};
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProg_.data()));
+        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg().data()));
         devProg->devArgs.nrAic = kDefaultAicNum;
         devProg->devArgs.nrAiv = kDefaultAivNum;
         devProg->devArgs.nrAicpu = config_.aicpuNum;
@@ -153,7 +158,7 @@ private:
                                  + config_.dynWorkspaceSize;
         devProg->l2CacheOffset = machine::GetRA()->GetL2Offset();
         kArgs.workspace = (int64_t *)h.AllocDev(devProg->workspaceSize);
-        kArgs.cfgdata = (int64_t *)h.CopyToDev(devProg_);
+        kArgs.cfgdata = (int64_t *)h.CopyToDev(GetDevProg());
         kArgs.machineConfig = devProg->devArgs.machineConfig;
         return;
     }
@@ -172,11 +177,11 @@ private:
     }
 
     bool HasInplaceArgs() {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProg_.data()));
+        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg().data()));
         return devProg->inplaceSlotList.size() != 0;
     }
 
-    void Run(const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs) {
+    void RunOnBoard(const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs) {
         std::cout << "!!! Kernel Launch " << "\n";
         int rc = aclInit(nullptr);
         if (rc == 0 || rc == ACL_ERROR_REPEAT_INITIALIZE) {
@@ -263,8 +268,8 @@ private:
         }
     }
 
-    void CopyFromDev(const std::vector<RawTensorDataPtr> &outputs, bool isTest_) {
-        MemoryHelper h{isTest_};
+    static void CopyFromDev(const std::vector<RawTensorDataPtr> &outputs, bool isTest) {
+        MemoryHelper h{isTest};
         for (auto &output : outputs) {
             if (output)
                 h.CopyFromDev(*output);
@@ -305,8 +310,7 @@ private:
         return;
     }
 
-    void KernelLaunchPrecheck(std::shared_ptr<DyndevFunctionAttribute> funcop,
-        const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs) {
+    void KernelLaunchPrecheck(const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs) {
         auto checkInouts = [&](std::vector<std::reference_wrapper<const Tensor>> &tensorList,
                                const std::vector<RawTensorDataPtr> &dataList) {
             EXPECT_EQ(tensorList.size(), dataList.size()) << "argument num not match !!!!";
@@ -326,11 +330,12 @@ private:
             }
         };
 
-        checkInouts(funcop->startArgsInputTensorList, inputs);
-        checkInouts(funcop->startArgsOutputTensorList, outputs);
+        checkInouts(function_->GetDyndevAttribute()->startArgsInputTensorList, inputs);
+        checkInouts(function_->GetDyndevAttribute()->startArgsOutputTensorList, outputs);
     }
 
 private:
-    const std::vector<uint8_t> &devProg_;
-    DynFuncRunnerConfig config_;
+    Function *function_;
+    FuncRunnerConfig config_;
 };
+}

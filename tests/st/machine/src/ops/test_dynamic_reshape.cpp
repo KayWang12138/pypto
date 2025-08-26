@@ -16,7 +16,7 @@
 #include <gtest/gtest.h>
 #include "tilefwk/function.h"
 #include "test_suite_stest_ops.h"
-#include "test_dynamic.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -77,8 +77,7 @@ TEST_F(DynamicReshapeTest, test_only_reshape) {
     });
 
     // excute
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(b * sq * d, exp(1.0f) + 1.0f);
 
@@ -126,8 +125,7 @@ TEST_F(DynamicReshapeTest, test_only_reshape2) {
     });
 
     // excute
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(b * sq * d, exp(1.0f));
 
@@ -175,8 +173,7 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape) {
     });
 
     // excute
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop, DynFuncRunnerConfig(q_real->GetDataSize()));
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), FuncRunnerConfig(q_real->GetDataSize()));
 
     std::vector<float> golden(b * sq * d, exp(1.0f));
 
@@ -232,8 +229,7 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape2) {
     });
 
     // excute
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop, DynFuncRunnerConfig(q_real->GetDataSize()));
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), FuncRunnerConfig(q_real->GetDataSize()));
 
     std::vector<float> golden(b * sq * d, exp(1.0f) + 1.0f);
 
@@ -275,8 +271,7 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape1111) {
     });
 
     // excute
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(256*64, 3.0f);
 
@@ -309,8 +304,7 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape22222) {
     });
 
     // excute
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(128*64, 1.0f);
 

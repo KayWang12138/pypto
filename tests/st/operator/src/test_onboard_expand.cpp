@@ -14,7 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 
@@ -46,7 +46,7 @@ TEST_F(ExpandOnBoardTest, test_expand_32_1_to_32_32) {
             output = Expand(input_a, dstShape);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(dstCapacity);
     std::vector<float> res(dstCapacity);
@@ -88,7 +88,7 @@ TEST_F(ExpandOnBoardTest, test_expand_32_8_1_to_32_8_32) {
             output = Expand(input_a, dstShape);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(dstCapacity);
     std::vector<float> res(dstCapacity);
@@ -125,7 +125,7 @@ TEST_F(ExpandOnBoardTest, test_expand_32_1_to_32_23) {
             output = Expand(input_a, dstShape);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(dstCapacity);
     std::vector<float> res(dstCapacity);
@@ -163,7 +163,7 @@ TEST_F(ExpandOnBoardTest, test_expand_32_8_1_to_32_8_23) {
             output = Expand(input_a, dstShape);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(dstCapacity);
     std::vector<float> res(dstCapacity);
@@ -196,7 +196,7 @@ TEST_F(ExpandOnBoardTest, test_expand_for_4_dim) {
             output = Expand(input_a, dstShape);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(dstCapacity);
     std::vector<float> res(dstCapacity);
@@ -233,7 +233,7 @@ TEST_F(ExpandOnBoardTest, test_expand_1_1_to_1_16384) {
             output = Expand(input_a, dstShape);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(dstCapacity);
     std::vector<float> res(dstCapacity);

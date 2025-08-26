@@ -14,7 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 using namespace npu::tile_fwk;
 
 class TopkOnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
@@ -52,7 +52,7 @@ void TopKOnBoardFunc(TopKParams& params){
             output = TopK(input_a, k, -1, isLargest);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden_val(shape0 * k);
     std::vector<int32_t> golden_idx(shape0 * k);

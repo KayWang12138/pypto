@@ -21,7 +21,7 @@
 #include "machine/device/dynamic/device_utils.h"
 #include "test_suite_stest_ops.h"
 #include "interface/interpreter/raw_tensor_data.h"
-#include "test_dynamic.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -78,8 +78,7 @@ TEST_F(DynamicBasicTest, TestHybridLoopIf2) {
         }
     }
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     // EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.004f));
 }
@@ -130,9 +129,8 @@ TEST_F(DynamicBasicTest, TestDD) {
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> golden(n * s * s, 128.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
@@ -163,9 +161,8 @@ TEST_F(DynamicBasicTest, TestTT) {
         }
     }
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> golden(n * s * s, 3.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
@@ -197,9 +194,8 @@ TEST_F(DynamicBasicTest, DynamicRawShape) {
         RawTensorData::CreateConstantTensor<float>(out0, 0.0f),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> golden(n * s * s, 64.0f);
     auto outs = ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
@@ -240,9 +236,8 @@ TEST_F(DynamicBasicTest, DynamicRawShapeUnalign) {
         RawTensorData::CreateConstantTensor<float>(out0, 0.0f),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcop, DynFuncRunnerConfig(arg0->GetDataSize()));
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), FuncRunnerConfig(arg0->GetDataSize()));
     std::vector<float> golden(s0, 5.0f);
     auto outs = ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
@@ -272,9 +267,8 @@ TEST_F(DynamicBasicTest, TestInplace) {
         RawTensorData::CreateConstantTensor<float>(t3, 0.0f),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> golden(32 * 32, 3.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetInputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
@@ -301,9 +295,8 @@ TEST_F(DynamicBasicTest, TestStaticUnderDynDev) {
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> golden(n * s, 1.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
@@ -338,9 +331,8 @@ TEST_F(DynamicBasicTest, TestStaticLoop) {
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> outGolden(n * s, 4.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(outGolden, (float *)outs->data(), 0.001f));
@@ -409,20 +401,19 @@ TEST_F(DynamicBasicTest, TestDeviceMachineOnModel) {
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop, {false, 25, 5});
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {false, 25, 5});
 
     std::cout << "test -> blockdim = 16, aicpunum = 4" << std::endl;
-    DynFuncRunner::Run(funcop, {false, 16, 4});
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {false, 16, 4});
 
     std::cout << "test -> blockdim = 9, aicpunum = 4" << std::endl;
-    DynFuncRunner::Run(funcop, {false, 9, 4});
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {false, 9, 4});
 
     std::cout << "test -> blockdim = 8, aicpunum = 3" << std::endl;
-    DynFuncRunner::Run(funcop, {false, 8, 3});
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {false, 8, 3});
 
     std::cout << "test -> blockdim = 1, aicpunum = 3" << std::endl;
-    DynFuncRunner::Run(funcop, {false, 1, 3});
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {false, 1, 3});
 }
 
 TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard) {
@@ -450,10 +441,8 @@ TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard) {
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcop, {true, 15, 4});
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {true, 15, 4});
     std::vector<float> golden(n * s * s, 128.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
@@ -485,10 +474,8 @@ TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard1) {
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
     });
 
-auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcop, {true, 7, 3});
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {true, 7, 3});
     auto outs1 = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     std::vector<float> golden(n * s * s, 128.0f);
     EXPECT_TRUE(resultCmp(golden, (float *)outs1->data(), 0.001f));
@@ -523,10 +510,8 @@ TEST_F(DynamicBasicTest, TestTensorExtract) {
         }
     }
 
-    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    (void)funcOp;
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcOp);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_EQ(v + 2, *(int32_t *)outs->data());
 #endif
@@ -563,10 +548,8 @@ TEST_F(DynamicBasicTest, TestGetTensorData) {
         }
     }
 
-    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    (void)funcOp;
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcOp);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> golden(n * n, 4.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
@@ -607,10 +590,8 @@ TEST_F(DynamicBasicTest, TestGetTensorDataExpr) {
         }
     }
 
-    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    (void)funcOp;
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcOp);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<float> golden(n * n, 4.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
@@ -640,10 +621,8 @@ TEST_F(DynamicBasicTest, TestVectorDup) {
         }
     }
 
-    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    (void)funcOp;
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcOp);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<int32_t> golden(n * n, 50);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (int32_t *)outs->data(), 0.001f));
@@ -671,10 +650,8 @@ TEST_F(DynamicBasicTest, TestTensorInsert) {
         }
     }
 
-    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    (void)funcOp;
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcOp);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<int32_t> golden(n, 20);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (int32_t *)outs->data(), 0.001f));
@@ -701,10 +678,8 @@ TEST_F(DynamicBasicTest, TestSetTensorData) {
         }
     }
 
-    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    (void)funcOp;
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcOp);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<int32_t> golden(n, 30);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (int32_t *)outs->data(), 0.001f));
@@ -736,10 +711,8 @@ TEST_F(DynamicBasicTest, TestSetTensorDataExpr) {
         }
     }
 
-    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    (void)funcOp;
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcOp);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<int32_t> golden(n * n * n);
     for (int i = 0; i < n * n * n; i++) {
         golden[i] = i;
@@ -779,10 +752,8 @@ TEST_F(DynamicBasicTest, TestGetSetTensorDataExpr) {
         }
     }
 
-    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    (void)funcOp;
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcOp);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<int32_t> golden(n * n * n);
     for (int i = 0; i < n * n * n; i++) {
         golden[i] = init + init + i;

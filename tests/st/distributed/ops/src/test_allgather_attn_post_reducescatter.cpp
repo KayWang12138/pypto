@@ -19,7 +19,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "tilefwk/data_type.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {
@@ -81,7 +81,7 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam)
         Program::GetInstance().GetTileShape().SpecifyStaticRankId(rankId);
         out = ReduceScatter(attnOut, group, DistReduceType::DIST_REDUCE_ADD);
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     EXPECT_TRUE(CompareWithGolden<uint8_t *>(dtype, "/rs_out_rank_", outEleNum, outPtr, testParam, 0.1f));
 }
 

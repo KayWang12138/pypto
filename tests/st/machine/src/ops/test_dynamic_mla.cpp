@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "test_dynamic.h"
+#include "test_dev_func_runner.h"
 #include "test_suite_stest_ops.h"
 #include "operator/models/deepseek/dynamic_mla.h"
 
@@ -173,9 +173,8 @@ void TestMlaPrologV2(const SimpleParams &params) {
     MlaProlog(x, wDq, wUqQr, wUk, wDkvKr, gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache, quantInputs,
         ropeConfig, output_q, output_q_rope, output_kv_cache, output_kr_cache, 1e-5f, 1e-5f, params.cacheMode, splitK,
         isSmooth);
-    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcOp,
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(),
         {xData, wDqData, wUqQrData, wUkData, wDkvKrData, gammaCqData, gammaCkvData, sinData, cosData, kvLenData,
             kvCacheData, krCacheData, wQbScaleData, smoothCqData},
         {outputQData, outputQRopeData, kvCacheData, krCacheData});

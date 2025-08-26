@@ -15,7 +15,7 @@
 
 #include "test_suite_stest_ops.h"
 #include "operator/models/llama/llama_def.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 
@@ -45,7 +45,7 @@ TEST_F(OnBoardTest, test_operation_gm_reshape) {
             output = Div(input_a, input_b);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(capacity_8_8_8);
     std::vector<float> res(capacity_8_8_8);
@@ -84,7 +84,7 @@ TEST_F(OnBoardTest, test_operation_ub_reshape) {
             output = Div(input_a, input_b);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(capacity_8_8_8);
     std::vector<float> res(capacity_8_8_8);
@@ -121,7 +121,7 @@ TEST_F(OnBoardTest, test_operation_gm_reshape_2dimto3dim) {
             output = Div(input_a, input_b);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(capacity);
     std::vector<float> res(capacity);
@@ -157,7 +157,7 @@ TEST_F(OnBoardTest, test_operation_ub_reshape_3dimto2dim) {
             output = Div(input_a, input_b);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(capacity);
     std::vector<float> res(capacity);
@@ -194,7 +194,7 @@ TEST_F(OnBoardTest, test_operation_ub_withoutreshape_3dimto2dim) {
             output = Div(input_a_r_exp, input_b);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(capacity_8_8_8);
     std::vector<float> res(capacity_8_8_8);
@@ -243,7 +243,7 @@ TEST_F(OnBoardTest, test_reshape_matmul_mul) {
             RES = Mul(D, E);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     assert(outputSize == c_size * sizeof(float));
     std::vector<float> res(c_size);

@@ -16,17 +16,15 @@
 #include "gtest/gtest.h"
 #include <dlfcn.h>
 
+#include "interface/configs/config_manager.h"
 #include "operator/models/llama/llama_def.h"
 #include "cost_model/simulation/common/CommonType.h"
 #include "test_common.h"
 #include "test_cost_model.h"
-#include "test_static.h"
-#include "interface/configs/config_manager.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
-
 namespace CostModel {
-
 class CostModelTest : public testing::Test {
 public:
     static void SetUpTestCase() {}
@@ -102,7 +100,7 @@ void TestMatmulTrans(int m, int k, int n, string dataPath) {
             mat_c = npu::tile_fwk::Matrix::Matmul<false, true>(OutputDtype, mat_a, mat_b);  // result dtype
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<OnputT> dev_res(capacity_c);
     std::vector<OnputT> golden(capacity_c);
     machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), c_ptr, outputSize);

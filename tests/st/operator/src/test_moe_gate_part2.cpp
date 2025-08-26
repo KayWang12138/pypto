@@ -14,7 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 
@@ -56,7 +56,7 @@ TEST_F(MoEGatePart2OnBoardTest, test_operation_b_2) {
             output_group_mask = MulS(std::get<0>(output_topk4), Element(DataType::DT_FP32, 0.0));
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<int32_t> golden_idx(B * topkGroup);
     std::vector<int32_t> golden_mask(B * topkGroup);
@@ -121,7 +121,7 @@ TEST_F(MoEGatePart2OnBoardTest, test_operation_b_1024) {
             output_group_mask = MulS(std::get<0>(output_topk4), Element(DataType::DT_FP32, 0.0));
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<int32_t> golden_idx(B * topkGroup);
     std::vector<int32_t> golden_mask(B * topkGroup);

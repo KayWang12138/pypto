@@ -19,7 +19,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "tilefwk/data_type.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {
@@ -76,7 +76,7 @@ void TestMoeCombine(OpTestParam &testParam)
             out = Distributed::MoeCombine(in, scale, combineInfo, testParam.group);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     EXPECT_TRUE(CompareWithGolden<uint8_t *>(dType, "/y_rank_", outEleNum, outPtr, testParam));
 }
 

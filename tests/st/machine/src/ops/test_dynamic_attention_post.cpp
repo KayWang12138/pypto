@@ -18,7 +18,7 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "operator/models/deepseek/page_attention.h"
 #include "machine/utils/dynamic/dev_encode.h"
-#include "test_dynamic.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -82,8 +82,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_r1) {
         RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(r1Out, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.005f));
 }
@@ -143,8 +142,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_t1) {
         RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(t1Out, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.005f));
 }
@@ -216,8 +214,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_bmm4) {
         RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(bmm4Out, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.005f));
 }
@@ -295,8 +292,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_crtb4tr) {
         RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(r2Out, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.005f));
 }
@@ -354,8 +350,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_onlyt1) {
         RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(t1Out, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.005f));
 }
@@ -425,8 +420,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_onlybmm4) {
         RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(bmm4Out, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.005f));
 }
@@ -496,8 +490,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_onlybmm4_fail) {
         RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(bmm4Out, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.005f));
 }
@@ -567,8 +560,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_onlymm5_nd) {
         RawTensorData::CreateConstantTensor<int32_t>(mm5Out, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (int32_t *)outs->data(), 0.005f));
 }
@@ -650,8 +642,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_onlymm5_ndk) {
 
     PaPostNewOnlyMm5NdK(quant0In, weightO, mm5Out);
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (int32_t *)outs->data(), 0.005f));
 }
@@ -752,8 +743,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_mm5ndk_unquant_r3) {
         RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(postOut, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.005f));
 }
@@ -823,8 +813,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_onlymm5_nz) {
         RawTensorData::CreateConstantTensor<int32_t>(mm5Out, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (int32_t *)outs->data(), 0.005f));
 }
@@ -906,8 +895,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_onlymm5_nzk) {
         RawTensorData::CreateConstantTensor<int32_t>(mm5Out, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (int32_t *)outs->data(), 0.005f));
 }
@@ -965,8 +953,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first) {
         RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(cast1Out, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.005f));
 }
@@ -1051,8 +1038,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_quant) {
         RawTensorData::CreateConstantTensor<float>(quantFp32Out, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::cout<<"=======================QuantInt8Out: "<<std::endl;
     auto outs0 = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden0, (int8_t *)outs0->data(), 0.005f));
@@ -1132,8 +1118,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_t3r2) {
         RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(r2Out, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.005f));
 }
@@ -1191,8 +1176,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_t3) {
         RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(t3Out, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.005f));
 }
@@ -1251,8 +1235,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_r2) {
         RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(r2Out, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.005f));
 }
@@ -1336,8 +1319,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_unquant_r3) {
         RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(postOut, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.005f));
 }
@@ -1426,8 +1408,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_crtb4tr_quant) {
         RawTensorData::CreateConstantTensor<float>(quantFp32Out, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::cout<<"=======================QuantInt8Out: "<<std::endl;
     auto outs0 = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden0, (int8_t *)outs0->data(), 0.005f));
@@ -1520,8 +1501,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_crtb4tr_quant_fail) 
         RawTensorData::CreateConstantTensor<float>(quantFp32Out, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::cout<<"=======================QuantInt8Out: "<<std::endl;
     auto outs0 = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden0, (int8_t *)outs0->data(), 0.005f));
@@ -1622,8 +1602,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_crtb4trq_mm5nd) {
         RawTensorData::CreateConstantTensor<int32_t>(mm5Out, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (int32_t *)outs->data(), 0.005f));
 }
@@ -1733,8 +1712,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_crtb4trq_mm5ndk) {
         RawTensorData::CreateConstantTensor<int32_t>(mm5Out, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (int32_t *)outs->data(), 0.005f));
 }
@@ -1846,8 +1824,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_new_mm5nd_unsplitk_low) {
         RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(postOut, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.005f));
 }
@@ -1897,8 +1874,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_new_mm5nz_unsplitk_low) {
         RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(postOut, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.005f));
 }
@@ -2010,8 +1986,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_new_mm5nd_unsplitk) {
         RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(postOut, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.005f));
 }
@@ -2061,8 +2036,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_new_mm5nz_unsplitk) {
         RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(postOut, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.005f));
 }
@@ -2256,8 +2230,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_new_mm5nz_splitk) {
         RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(postOut, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.004f));
 }
@@ -2307,8 +2280,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_new_mm5nz_normal_unsplitk) {
         RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(postOut, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.004f));
 }
@@ -2358,8 +2330,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_new_mm5nd_splitk) {
         RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(postOut, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.004f));
 }
@@ -2483,8 +2454,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_new_mm5nz_splitk_low) {
         RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(postOut, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.0001f));
 }
@@ -2534,8 +2504,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_new_mm5nd_splitk_low) {
         RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(postOut, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.0001f));
 }
@@ -2812,8 +2781,7 @@ void testPaPostBf16(PaTileShapeConfig& tileConfig, int maxUnrollTimes, int bTile
         RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(postOut, 0),
     });
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(postInData, (float *)outs->data(), 0.005f));
     auto outs1 = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(1);

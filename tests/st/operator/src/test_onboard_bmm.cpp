@@ -14,7 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 
@@ -57,7 +57,7 @@ void TestBatchMatmul3D(std::vector<int> shape_a, std::vector<int>shape_b ,string
             matC = npu::tile_fwk::Matrix::BatchMatmul<false, transpose>(OutputAstDtype, matA, matB);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<OnputT> res(capacity_mat_c);
     machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), mat_c_ptr, outputSize);
     std::vector<OnputT> golden(capacity_mat_c);
@@ -94,7 +94,7 @@ void TestBatchMatmul4D(std::vector<int> shape_a, std::vector<int>shape_b ,string
             matC = npu::tile_fwk::Matrix::BatchMatmul<false, transpose>(OutputAstDtype, matA, matB);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<OnputT> res(capacity_mat_c);
     machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), mat_c_ptr, outputSize);
     std::vector<OnputT> golden(capacity_mat_c);
@@ -224,7 +224,7 @@ void TestBatchMatmulA8W8O32(std::vector<int> shape_a_in, std::vector<int> shape_
             matC = npu::tile_fwk::Matrix::BatchMatmul<false, false>(DataType::DT_INT32, matA, matB);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<int32_t> res(capacity_mat_c);
     machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), mat_c_ptr, outputSize);
@@ -282,7 +282,7 @@ void TestBatchMatmulA8W8O32ACC(std::vector<int> shape_a_in, std::vector<int> sha
             matC = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<int32_t> res(capacity_mat_c);
     machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), mat_c_ptr, outputSize);

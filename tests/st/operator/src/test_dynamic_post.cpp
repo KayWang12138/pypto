@@ -15,7 +15,7 @@
 
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/tensor/float.h"
-#include "test_dynamic.h"
+#include "test_dev_func_runner.h"
 #include "test_data_prepare.h"
 #include "test_suite_stest_ops.h"
 #include "operator/models/nsa/attention_post.h"
@@ -101,9 +101,8 @@ void TestAttentionPost(const TestPostParams &params, const PostTileConfig &tileC
         wUv, wo, wUvQuant.scale.tensor, wUvQuant.smooth.tensor, wOQuant.scale.tensor, wOQuant.smooth.tensor};
     AttentionPostStandalone(x, postTensors, tileConfig, postOut);
     
-    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 #ifdef ENABLE_BUILD_WITH_CANN
-    DynFuncRunner::Run(funcOp, inputDataList, outputDataList);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
 
     std::cout << "postOut ====== " << std::endl;
     EXPECT_TRUE(resultCmp<T>(goldenDate, (T *)outputData->data(), precision));

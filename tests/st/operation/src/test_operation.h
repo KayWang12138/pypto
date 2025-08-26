@@ -22,7 +22,7 @@
 #include "test_suite_stest_ops.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "machine/utils/dynamic/dev_encode.h"
-#include "test_dynamic.h"
+#include "test_dev_func_runner.h"
 #include "interface/tensor/float.h"
 
 namespace tile_fwk {
@@ -100,8 +100,7 @@ private:
         std::vector<Tensor> nonConstOutputs = testCase.outputTensors;
         testCase.opFunc(testCase.inputTensors, nonConstOutputs, testCase.args);
 
-        auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-        DynFuncRunner::Run(funcop);
+        DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
         ASSERT_EQ(testCase.goldenPaths.size(), testCase.outputTensors.size());
         for (size_t i = 0; i < testCase.outputTensors.size(); ++i) {

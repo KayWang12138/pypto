@@ -14,7 +14,7 @@
  */
 
 #include "test_suite_stest_ops.h"
-#include "test_static.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 constexpr int DIM2 = 2;
@@ -80,7 +80,7 @@ void TestQuant(std::vector<int>& inputShape) {
             scaleDeQuant = std::get<1>(res);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<dtype> output_golden(capacity);
     std::vector<dtype> output_npu(capacity);
@@ -150,7 +150,7 @@ void TestQuant3D(std::vector<int>& inputShape) {
             scaleDeQuant = std::get<1>(res);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<dtype> output_golden(capacity);
     std::vector<dtype> output_npu(capacity);
@@ -221,7 +221,7 @@ void TestQuantWithSmoothFactor(std::vector<int>& inputShape) {
             scaleDeQuant = std::get<1>(res);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<dstType> output_golden(capacity);
     std::vector<dstType> output_npu(capacity);
@@ -296,7 +296,7 @@ void TestQuantMM(std::vector<int>& shapeA, std::vector<int>& shapeW) {
             matRes = npu::tile_fwk::Matrix::QuantMM(matA, matW, matScaleW);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<dstType> res(capacityRes);
     machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), matRes_ptr, outputSize);
@@ -350,7 +350,7 @@ void TestQuantMM3D(std::vector<int>& shapeA, std::vector<int>& shapeW) {
             matRes = npu::tile_fwk::Matrix::QuantMM(matA, matW, matScaleW);
         }
     }
-    RunStatic();
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<dstType> res(capacityRes);
     machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), matRes_ptr, outputSize);
