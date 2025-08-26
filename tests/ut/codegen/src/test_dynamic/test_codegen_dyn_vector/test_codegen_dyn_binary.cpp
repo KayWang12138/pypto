@@ -225,7 +225,7 @@ TEST_F(TestCodegenDynBinary, AddUnalignLayout) {
     std::string res = GetResultFromCpp(*function);
     std::string expect = R"!!!(#include "TileOpImpl.h"
 
-// funcHash: 7819871227693154888
+// funcHash: 553887321078969729
 
 [aicore] void TENSOR_L0_Unroll1_PATH0_3_0(CoreFuncParam* param, uint64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
 float __ubuf__ *UB_S0_E16384 = (float __ubuf__ *)get_imm(0x0); // size: 0x4000 

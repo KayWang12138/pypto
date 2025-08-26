@@ -1057,6 +1057,11 @@ void Function::MagicLookup(const Function *function, const std::vector<LogicalTe
         for (const auto &dim : t->shape) {
             ss << dim << " ";
         }
+        if (function->IsFunctionType(FunctionType::STATIC)) {
+            for (const auto &dim : t->oriShape) {
+                ss << dim << " ";
+            }
+        }
         if (t->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
             for (const auto &dim : t->offset) {
                 ss << dim << " ";

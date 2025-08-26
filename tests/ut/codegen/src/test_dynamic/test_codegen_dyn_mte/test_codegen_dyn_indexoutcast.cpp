@@ -163,7 +163,7 @@ TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
     std::string res = GetResultFromCpp(*function);
     std::string expect = R"!!!(#include "TileOpImpl.h"
 
-// funcHash: 7673751692681773590
+// funcHash: 11454048016934523463
 
 [aicore] void TENSOR_ScatterUpdate_Unroll1_PATH0_3_0(CoreFuncParam* param, uint64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
 int32_t __ubuf__ *UB_S0_E4096 = (int32_t __ubuf__ *)get_imm(0x0); // size: 0x1000 

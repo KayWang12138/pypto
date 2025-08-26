@@ -156,6 +156,15 @@ set(_CaseFilterList
         "DynamicBatchMatmulTest.test_bmm_A_B_ND_bf16_tile1"
         "DynamicBatchMatmulTest.test_bmm_At_Bt_ND_fp16"
         "DynamicBatchMatmulTest.test_bmm_At_Bt_ANZ_BND_fp16"
+        #===========================================================================
+         # batchMatmul Interpreter 功能用例
+        #===========================================================================
+        "DynamicBatchMatmulInterpreterTest.test_bmm_A_B_ND_bf16"
+        "DynamicBatchMatmulInterpreterTest.test_bmm_A_Bt_ND_fp16"
+        "DynamicBatchMatmulInterpreterTest.test_bmm_A_B_NZ_bf16"
+        "DynamicBatchMatmulInterpreterTest.test_bmm_A_Bt_NZ_fp16"
+        "DynamicBatchMatmulInterpreterTest.test_bmm_A_B_ND_bf16_tile1"
+        "DynamicBatchMatmulInterpreterTest.bmm4D_A_B_NZ"
 
         #===========================================================================
          # Reshape功能用例
