@@ -42,11 +42,9 @@ std::string CodeGenOpCloudNPU::GenDistOp() const {
         extraTemplateParam = ", " + npu::tile_fwk::AnyCast<std::string>(opAttrs.at("extraTemplateParam"));
     }
 
-    char buffer[BUFFER_SIZE_1024];
-    int ret = sprintf_s(buffer, sizeof(buffer), "%s<%s%s>(%s, %s);\n", tileOpName.c_str(), dtypeStr.c_str(),
-        extraTemplateParam.c_str(), paramStr.c_str(), "hcclContext");
-    ASSERT(ret >= 0) << "genDistOp sprintf_s failed ";
-    return std::string(buffer);
+    std::ostringstream oss;
+    oss << tileOpName << "<" << dtypeStr << extraTemplateParam << ">(" << paramStr << ", hcclContext);\n";
+    return oss.str();
 }
 
 } // namespace npu::tile_fwk
