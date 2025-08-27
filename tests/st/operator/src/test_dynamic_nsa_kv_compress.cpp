@@ -22,7 +22,7 @@
 #include "test_suite_stest_ops.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "machine/utils/dynamic/dev_encode.h"
-#include "test_dynamic.h"
+#include "test_dev_func_runner.h"
 #include "operator/models/nsa/kv_compress.h"
 
 using namespace npu::tile_fwk;
@@ -146,8 +146,7 @@ KVCompress params:
     compressKv(kvCache, krCache, cmpKvCache, cmpKrCache, blockTable, cmpCacheIndex, actSeqLen, mlpWk1, mlpWk2, mlpCos,
         mlpSin, cmpKvCache, cmpKrCache, auxTensor, cmpBlockSize, cmpStride, rs, tileConfig);
 
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto actualCmpKvCacheOutput = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     auto actualCmpKrCacheOutput = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(1);
     auto actualAuxTensorOutput = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(2);
@@ -263,8 +262,7 @@ void TestAuxTensor() {
     auto auxTensorOutput = RawTensorData::CreateConstantTensor<T>(auxTensor, 0.0f);
     std::vector<RawTensorDataPtr> inputDataList = {};
     std::vector<RawTensorDataPtr> outputDataList = {auxTensorOutput};
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop, inputDataList, outputDataList);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(),inputDataList, outputDataList);
 
     EXPECT_TRUE(resultCmp<T>(auxTensorGolden, (T *)auxTensorOutput->data(), 0.008f));
 }

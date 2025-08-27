@@ -17,7 +17,7 @@
 
 #include "tilefwk/function.h"
 #include "test_suite_stest_ops.h"
-#include "test_dynamic.h"
+#include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -70,8 +70,7 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_add_dim) {
     });
 
     // excute
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(b * sq * d, initValue);
     for (int bidx = 0; bidx < b; ++bidx) {
@@ -125,8 +124,7 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_merge_dim) {
     });
 
     // excute
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(b * sq * d, initValue);
     for (int bidx = 0; bidx < b; ++bidx) {
@@ -183,8 +181,7 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_split_dim) {
     });
 
     // excute
-    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    DynFuncRunner::Run(funcop);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(b * sq * d, initValue);
     int count = 0;
