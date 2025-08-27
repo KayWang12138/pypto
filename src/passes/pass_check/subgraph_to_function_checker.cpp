@@ -13,19 +13,11 @@
  * \brief
  */
 
-#include "passes/execute_graph_pass/subgraph_to_function.h"
-#include "interface/function/function.h"
-#include "interface/tensor/logical_tensor.h"
-#include "passes/pass_utils/pass_utils.h"
-#include "tilefwk/tilefwk.h"
-#include "interface/inner/tilefwk.h"
-#include "interface/program/program.h"
-#include "passes/pass_utils/parallel_tool.h"
+#include "passes/pass_check/subgraph_to_function_checker.h"
 
 namespace npu {
 namespace tile_fwk {
-
-Status SubgraphToFunction::NOPCheck(const Operation &op) const {
+Status SubGraphToFuncChecker::NOPCheck(const Operation &op) const {
     if (!op.IsNOP()) {
         ALOG_ERROR_F("op is not an NOP");
         return FAILED;
@@ -49,7 +41,7 @@ Status SubgraphToFunction::NOPCheck(const Operation &op) const {
     return SUCCESS;
 }
 
-Status SubgraphToFunction::CheckSubGraphTopo(Function &function) const {
+Status SubGraphToFuncChecker::CheckSubGraphTopo(Function &function) const {
     auto operations = function.Operations();
     int totalSubGraphNum = function.GetTotalSubGraphCount();
     if (operations.size() > 0 && totalSubGraphNum <= 0) {
@@ -90,8 +82,80 @@ Status SubgraphToFunction::CheckSubGraphTopo(Function &function) const {
     return SUCCESS;
 }
 
+Status SubGraphToFuncChecker::EdgeIndexCheck(const bool found, const int newIndex, const size_t graphSize) const {
+    if (!found) {
+        ALOG_ERROR_F("op magic not found");
+        return FAILED;
+    }
+    if (static_cast<size_t>(newIndex) >= graphSize) {
+        ALOG_ERROR_F("parent index %d is larger than operations_ size %zu", newIndex, graphSize);
+        return FAILED;
+    }
+    return SUCCESS;
+}
+
+Status SubGraphToFuncChecker::BuildInGraph(Function &function) {
+    auto operationViewer = function.Operations();
+    for (size_t i = 0; i < operationViewer.size(); i++) {
+        inGraph_[i].clear();
+        // inGraph
+        for (auto &inOperand : operationViewer[i].GetIOperands()) {
+            for (auto &parentOp : inOperand->GetProducers()) {
+                auto [parentSeqNo, found] = operationViewer.FindOpPosition(*parentOp);
+                if (EdgeIndexCheck(found, parentSeqNo, inGraph_.size()) != SUCCESS) {
+                    ALOG_ERROR_F("error inserting op magic %d in function %d %s to inGraph", parentOp->GetOpMagic(), function.GetFuncMagic(),
+                        function.GetRawName().c_str());
+                    return FAILED;
+                }
+                inGraph_[i].push_back(parentSeqNo);
+            }
+        }
+
+        for (const auto &inControlOp : operationViewer[i].GetInCtrlOperations()) {
+            auto [parentSeqNo, found] = operationViewer.FindOpPosition(*inControlOp);
+            if (EdgeIndexCheck(found, parentSeqNo, inGraph_.size()) != SUCCESS) {
+                ALOG_ERROR_F("error inserting op magic %d in function %d %s to inGraph", inControlOp->GetOpMagic(), function.GetFuncMagic(),
+                    function.GetRawName().c_str());
+                return FAILED;
+            }
+            inGraph_[i].push_back(parentSeqNo);
+        }
+    }
+    return SUCCESS;
+}
+
+Status SubGraphToFuncChecker::BuildOutGraph(Function &function) {
+    auto operationViewer = function.Operations();
+    for (size_t i = 0; i < operationViewer.size(); i++) {
+        outGraph_[i].clear();
+        for (auto &outOperand : operationViewer[i].GetOOperands()) {
+            for (auto &childOp : outOperand->GetConsumers()) {
+                auto [childSeqNo, found] = operationViewer.FindOpPosition(*childOp);
+                if (EdgeIndexCheck(found, childSeqNo, inGraph_.size()) != SUCCESS) {
+                    ALOG_ERROR_F("error inserting op magic %d in function %d %s to outGraph_", childOp->GetOpMagic(), function.GetFuncMagic(),
+                        function.GetRawName().c_str());
+                    return FAILED;
+                }
+                outGraph_[i].push_back(childSeqNo);
+            }
+        }
+
+        for (const auto &outControlOp : operationViewer[i].GetOutCtrlOperations()) {
+            auto [childSeqNo, found] = operationViewer.FindOpPosition(*outControlOp);
+            if (EdgeIndexCheck(found, childSeqNo, inGraph_.size()) != SUCCESS) {
+                ALOG_ERROR_F("error inserting op magic %d in function %d %s to outGraph_", outControlOp->GetOpMagic(), function.GetFuncMagic(),
+                    function.GetRawName().c_str());
+                return FAILED;
+            }
+            outGraph_[i].push_back(childSeqNo);
+        }
+        std::sort(outGraph_[i].begin(), outGraph_[i].end());
+    }
+    return SUCCESS;
+}
+
 template <typename eType>
-Status SubgraphToFunction::InAndOutGraphConsistencyCheck(
+Status SubGraphToFuncChecker::InAndOutGraphConsistencyCheck(
     const std::vector<std::vector<eType>> &inEdgeGraph,
     const std::vector<std::vector<eType>> &outEdgeGraph)
 {
@@ -130,83 +194,30 @@ Status SubgraphToFunction::InAndOutGraphConsistencyCheck(
     return SUCCESS;
 }
 
-Status SubgraphToFunction::EdgeIndexCheck(const bool found, const int newIndex, const size_t graphSize) const {
-    if (!found) {
-        ALOG_ERROR_F("op magic not found");
-        return FAILED;
-    }
-    if (static_cast<size_t>(newIndex) >= graphSize) {
-        ALOG_ERROR_F("parent index %d is larger than operations_ size %zu", newIndex, graphSize);
-        return FAILED;
-    }
-    return SUCCESS;
-}
-
-Status SubgraphToFunction::BuildOutGraph(Function &function) {
+Status SubGraphToFuncChecker::CheckInAndOutGraphMatch(Function &function) {
     auto operationViewer = function.Operations();
+    inGraph_.resize(operationViewer.size());
+    outGraph_.resize(operationViewer.size());
     for (size_t i = 0; i < operationViewer.size(); i++) {
-        for (auto &outOperand : operationViewer[i].GetOOperands()) {
-            for (auto &childOp : outOperand->GetConsumers()) {
-                auto [childSeqNo, found] = operationViewer.FindOpPosition(*childOp);
-                if (EdgeIndexCheck(found, childSeqNo, inGraph.size()) != SUCCESS) {
-                    ALOG_ERROR_F("error inserting op magic %d in function %d %s to outGraph", childOp->GetOpMagic(), function.GetFuncMagic(),
-                        function.GetRawName().c_str());
-                    return FAILED;
-                }
-                outGraph[i].push_back(childSeqNo);
-            }
-        }
-
-        for (const auto &outControlOp : operationViewer[i].GetOutCtrlOperations()) {
-            auto [childSeqNo, found] = operationViewer.FindOpPosition(*outControlOp);
-            if (EdgeIndexCheck(found, childSeqNo, inGraph.size()) != SUCCESS) {
-                ALOG_ERROR_F("error inserting op magic %d in function %d %s to outGraph", outControlOp->GetOpMagic(), function.GetFuncMagic(),
-                    function.GetRawName().c_str());
-                return FAILED;
-            }
-            outGraph[i].push_back(childSeqNo);
-        }
-        std::sort(outGraph[i].begin(), outGraph[i].end());
+        std::sort(inGraph_[i].begin(), inGraph_[i].end());   
     }
-    return SUCCESS;
-}
-
-Status SubgraphToFunction::CheckInAndOutGraphMatch(Function &function) {
-    auto operationViewer = function.Operations();
-    inGraph.resize(operationViewer.size());
-    outGraph.resize(operationViewer.size());
-    // 1. Build inGraph and outGraph
     if (BuildInGraph(function) != SUCCESS) {
         ALOG_ERROR_F("Build inGraph failed");
         return FAILED;
     }
-    for (size_t i = 0; i < operationViewer.size(); i++) {
-        std::sort(inGraph[i].begin(), inGraph[i].end());   
-    }
-
     if (BuildOutGraph(function) != SUCCESS) {
         ALOG_ERROR_F("Build outGraph failed");
         return FAILED;
     }
-
-    // 2. Check inGraph and outGraph
-    if (InAndOutGraphConsistencyCheck(inGraph, outGraph) != SUCCESS) {
-        ALOG_ERROR_F("Consistency check for input inGraph and outGraph failed");
+    // 2. Check inGraph_ and outGraph_
+    if (InAndOutGraphConsistencyCheck(inGraph_, outGraph_) != SUCCESS) {
+        ALOG_ERROR_F("Consistency check for input inGraph_ and outGraph_ failed");
         return FAILED;
     }
-
-    // 3. Clear inGraph and outGraph
-    for (size_t i = 0; i < inGraph.size(); i++) {
-        inGraph[i].clear();
-        outGraph[i].clear();
-    }
-    inGraph.clear();
-    outGraph.clear();
-
     return SUCCESS;
 }
 
-Status SubgraphToFunction::CheckSubGraphBoundary(Function &function) {
+Status SubGraphToFuncChecker::CheckSubGraphBoundary(Function &function) {
     auto operations = function.Operations();
     for (size_t i = 0; i < operations.size(); i++) {
         auto &op = operations[i];
@@ -234,11 +245,9 @@ Status SubgraphToFunction::CheckSubGraphBoundary(Function &function) {
     return SUCCESS;
 }
 
-Status SubgraphToFunction::PreCheck(Function &function) {
-    Status baseStatus = Pass::PreCheck(function);
-    if (baseStatus != SUCCESS) { ALOG_ERROR_F("PreCheck failed in base Pass class"); return baseStatus; }
-
+Status SubGraphToFuncChecker::DoPreCheck(Function &function) {
     // Check subgraph topology
+    ALOG_INFO_F("Start PreCheck for SubgraphToFunction!");
     if (CheckSubGraphTopo(function) != SUCCESS) {
         ALOG_ERROR_F("CheckSubGraphTopo failed");
         return FAILED;
@@ -255,12 +264,10 @@ Status SubgraphToFunction::PreCheck(Function &function) {
         ALOG_ERROR_F("check input ioperands and ooperands relation failed");
         return FAILED;
     }
-    
-    ALOG_INFO_F("SubgraphToFunction PreCheck completed successfully!");
     return SUCCESS;
 }
 
-bool SubgraphToFunction::foundNodeInNeighbor(const int dstNode, const std::vector<int> &searchGraph) const {
+bool SubGraphToFuncChecker::foundNodeInNeighbor(const int dstNode, const std::vector<int> &searchGraph) const {
     auto it = std::find(searchGraph.begin(), searchGraph.end(), dstNode);
     if (it != searchGraph.end()) {
         return true;
@@ -268,29 +275,29 @@ bool SubgraphToFunction::foundNodeInNeighbor(const int dstNode, const std::vecto
     return false;
 }
 
-Status SubgraphToFunction::VerifyRedundantEdge(const int srcNode, const int dstNode) const {
+Status SubGraphToFuncChecker::VerifyRedundantEdge(const int srcNode, const int dstNode) const {
     // dstNode需要在srcNode的三跳之内
-    if (foundNodeInNeighbor(dstNode, colorOutGraph[srcNode])) {
+    if (foundNodeInNeighbor(dstNode, colorOutGraph_[srcNode])) {
         return SUCCESS;
     }
-    for (int firstNbr : colorOutGraph[srcNode]) {
-        if (foundNodeInNeighbor(dstNode, colorOutGraph[firstNbr])) {
+    for (int firstNbr : colorOutGraph_[srcNode]) {
+        if (foundNodeInNeighbor(dstNode, colorOutGraph_[firstNbr])) {
             return SUCCESS;
         }
-        for (int secondNbr : colorOutGraph[firstNbr]) {
-            if (foundNodeInNeighbor(dstNode, colorOutGraph[secondNbr])) {
+        for (int secondNbr : colorOutGraph_[firstNbr]) {
+            if (foundNodeInNeighbor(dstNode, colorOutGraph_[secondNbr])) {
                 return SUCCESS;
             }
         }
     }
-    ALOG_ERROR_F("source node %d and destination node %d are not related in colorOutGraph within three jumps", srcNode, dstNode);
+    ALOG_ERROR_F("source node %d and destination node %d are not related in colorOutGraph_ within three jumps", srcNode, dstNode);
     return FAILED;
 }
 
-Status SubgraphToFunction::ColorOutGraphCheck(Function &function) const {
-    std::vector<std::vector<bool>> hitEdgeMark = std::vector<std::vector<bool>>(colorOutGraph.size());
-    for (size_t i = 0; i < colorOutGraph.size(); i++) {
-        hitEdgeMark[i] = std::vector<bool>(colorOutGraph[i].size(), false);
+Status SubGraphToFuncChecker::ColorOutGraphCheck(Function &function) const {
+    std::vector<std::vector<bool>> hitEdgeMark = std::vector<std::vector<bool>>(colorOutGraph_.size());
+    for (size_t i = 0; i < colorOutGraph_.size(); i++) {
+        hitEdgeMark[i] = std::vector<bool>(colorOutGraph_[i].size(), false);
     }
 
     auto list = function.Operations();
@@ -299,18 +306,18 @@ Status SubgraphToFunction::ColorOutGraphCheck(Function &function) const {
         if (iSubGraphId < 0) {
             continue;
         }
-        for (int j : outGraph[i]) {
+        for (int j : outGraph_[i]) {
             int jSubGraphId = list[j].GetSubgraphID();
             if (iSubGraphId == jSubGraphId || jSubGraphId < 0) {
                 continue;
             }
             
-            auto it = std::find(colorOutGraph[iSubGraphId].begin(), colorOutGraph[iSubGraphId].end(), jSubGraphId);
-            if (it != colorOutGraph[iSubGraphId].end()) { // found edge
-                int index = std::distance(colorOutGraph[iSubGraphId].begin(), it);
+            auto it = std::find(colorOutGraph_[iSubGraphId].begin(), colorOutGraph_[iSubGraphId].end(), jSubGraphId);
+            if (it != colorOutGraph_[iSubGraphId].end()) { // found edge
+                int index = std::distance(colorOutGraph_[iSubGraphId].begin(), it);
                 hitEdgeMark[iSubGraphId][index] = true;
             } else if (VerifyRedundantEdge(iSubGraphId, jSubGraphId) != SUCCESS) { // check whether is redundant edge
-                ALOG_ERROR_F("edge between original operator %d with subgraph ID %d and operator %d with subgraph ID %d is missed in colorOutGraph", i, iSubGraphId, j, jSubGraphId);
+                ALOG_ERROR_F("edge between original operator %d with subgraph ID %d and operator %d with subgraph ID %d is missed in colorOutGraph_", i, iSubGraphId, j, jSubGraphId);
                 return FAILED;
             }
         }
@@ -320,7 +327,7 @@ Status SubgraphToFunction::ColorOutGraphCheck(Function &function) const {
     for (size_t i = 0; i < hitEdgeMark.size(); i++) {
         for (size_t j = 0; j < hitEdgeMark[i].size(); j++) {
             if (hitEdgeMark[i][j] == false) {
-                ALOG_ERROR_F("edge between %d and %d on colorOutGraph has no correspondent edge in outGraph", i, colorOutGraph[i][j]);
+                ALOG_ERROR_F("edge between %d and %d on colorOutGraph_ has no correspondent edge in outGraph_", i, colorOutGraph_[i][j]);
                 return FAILED;
             }
         }
@@ -329,41 +336,43 @@ Status SubgraphToFunction::ColorOutGraphCheck(Function &function) const {
     return SUCCESS;
 }
 
-Status SubgraphToFunction::PostCheck(Function &function) {
-    Status baseStatus = Pass::PostCheck(function);
-    if (baseStatus != SUCCESS) { ALOG_ERROR_F("PostCheck failed in base Pass class"); return baseStatus; }
-
-    // Check colorInGraph and colorOutGraph consistency
-    if (InAndOutGraphConsistencyCheck(colorInGraph, colorOutGraph) != SUCCESS) {
-        ALOG_ERROR_F("Consistency check for input colorInGraph and colorOutGraph failed");
+Status SubGraphToFuncChecker::DoPostCheck(Function &function) {
+    // Check colorInGraph_ and colorOutGraph_ consistency
+    ALOG_INFO_F("Start PostCheck for SubgraphToFunction!");
+    if (InAndOutGraphConsistencyCheck(colorInGraph_, colorOutGraph_) != SUCCESS) {
+        ALOG_ERROR_F("Consistency check for input colorInGraph_ and colorOutGraph_ failed");
         return FAILED;
     }
 
-    // Check colorOutGraph matches outGraph
+    // Check colorOutGraph_ matches outGraph_
     if (ColorOutGraphCheck(function) != SUCCESS) {
-        ALOG_ERROR_F("Consistency check for colorOutGraph and input failed");
+        ALOG_ERROR_F("Consistency check for colorOutGraph_ and input failed");
         return FAILED;
     }
 
     // Check the mapping relationships in psgToESgMap
-    for (auto [psgId, esgId] : psgToESgMap) {
+    for (auto [psgId, esgId] : psgToESgMap_) {
         if (CheckSinglePsgEsgMapping(function, psgId, esgId) != SUCCESS) { ALOG_ERROR_F("Failed to check mapping between psg %d and esg %d", psgId, esgId); return FAILED; }
     }
 
     for (size_t i = 0; i < function.rootFunc_->Operations().size(); ++i) {
-        if (VerifySingleOpTopology(function, i) != SUCCESS) { ALOG_ERROR_F("Failed to verify topology for operation %zu", i); return FAILED; }
+        if (VerifySingleOpTopology(function, i) != SUCCESS) {
+            ALOG_ERROR_F("Failed to verify topology for operation %zu", i);
+            return FAILED;
+        }
     }
 
     // Verify readyState matches negative predecessor count
     for (size_t i = 0; i < function.rootFunc_->topoInfo_.topology_.size(); i++) {
-        if (CheckReadyStateConsistency(function, i) != SUCCESS) { ALOG_ERROR_F("Ready state inconsistency found for topology entry %zu", i); return FAILED; }
+        if (CheckReadyStateConsistency(function, i) != SUCCESS) {
+            ALOG_ERROR_F("Ready state inconsistency found for topology entry %zu", i);
+            return FAILED;
+        }
     }
-
-    ALOG_INFO_F("SubgraphToFunction PostCheck completed successfully!");
     return SUCCESS;
 }
     
-Status SubgraphToFunction::CheckSinglePsgEsgMapping(Function &function, uint32_t psgId, uint32_t esgId) {
+Status SubGraphToFuncChecker::CheckSinglePsgEsgMapping(Function &function, uint32_t psgId, uint32_t esgId) {
     auto iter = function.rootFunc_->programs_.find(psgId);
     if (iter == function.rootFunc_->programs_.end()) { ALOG_ERROR_F("Psg %d not found in program", psgId); return FAILED; }
     auto operations = function.rootFunc_->Operations();
@@ -391,7 +400,7 @@ Status SubgraphToFunction::CheckSinglePsgEsgMapping(Function &function, uint32_t
 }
 
 template <typename ESGParamType, typename PSGParamContainer>
-bool SubgraphToFunction::CompareParamListsImpl(
+bool SubGraphToFuncChecker::CompareParamListsImpl(
     const std::vector<ESGParamType>& esgParams, 
     const PSGParamContainer& psgParams, 
     const std::string &paramType, uint32_t psgId, uint32_t esgId) const
@@ -416,7 +425,7 @@ bool SubgraphToFunction::CompareParamListsImpl(
     return true;
 }
 
-bool SubgraphToFunction::CompareParamLists(
+bool SubGraphToFuncChecker::CompareParamLists(
     const std::vector<SubfuncInvokeInfoTy::IncastParamPackTy>& esgParams, 
     const SubfuncParam::InCastParamListTy& psgParams, 
     const std::string &paramType, uint32_t psgId, uint32_t esgId) const
@@ -424,7 +433,7 @@ bool SubgraphToFunction::CompareParamLists(
     return CompareParamListsImpl(esgParams, psgParams, paramType, psgId, esgId);
 }
         
-bool SubgraphToFunction::CompareParamLists(
+bool SubGraphToFuncChecker::CompareParamLists(
     const std::vector<SubfuncInvokeInfoTy::OutcastParamPackTy>& esgParams, 
     const SubfuncParam::OutCastParamListTy& psgParams, 
     const std::string &paramType, uint32_t psgId, uint32_t esgId) const   
@@ -432,7 +441,7 @@ bool SubgraphToFunction::CompareParamLists(
     return CompareParamListsImpl(esgParams, psgParams, paramType, psgId, esgId);
 }
 
-bool SubgraphToFunction::CompareParamLists(
+bool SubGraphToFuncChecker::CompareParamLists(
     const std::vector<SubfuncInvokeInfoTy::TensorParamPackTy>& esgParams, 
     const SubfuncParam::TensorParamListTy& psgParams, 
     const std::string& paramType, uint32_t psgId, uint32_t esgId) const
@@ -440,7 +449,7 @@ bool SubgraphToFunction::CompareParamLists(
     return CompareParamListsImpl(esgParams, psgParams, paramType, psgId, esgId);  
 }
         
-Status SubgraphToFunction::VerifySingleOpTopology(Function &function, size_t opIndex) {
+Status SubGraphToFuncChecker::VerifySingleOpTopology(Function &function, size_t opIndex) {
     const auto &callOps = function.rootFunc_->Operations();
     // 通过 subgraphId 查找对应的 currentOp
     Operation* currentOp = nullptr;
@@ -491,7 +500,7 @@ Status SubgraphToFunction::VerifySingleOpTopology(Function &function, size_t opI
     return SUCCESS;
 }        
         
-Status SubgraphToFunction::CheckReadyStateConsistency(Function &function, size_t opIndex) {
+Status SubGraphToFuncChecker::CheckReadyStateConsistency(Function &function, size_t opIndex) {
     auto &topology = function.rootFunc_->topoInfo_.topology_;
     // Calculate actual predecessor count
     int actualPredCount = 0;
@@ -509,6 +518,21 @@ Status SubgraphToFunction::CheckReadyStateConsistency(Function &function, size_t
     if (topology[opIndex].readyState != -actualPredCount) { ALOG_ERROR_F("Subgraph %zu has inconsistent readyState: actual=%d, expected=%d", opIndex, topology[opIndex].readyState, -actualPredCount); return FAILED; }
     return SUCCESS;
 }
-    
+
+void SubGraphToFuncChecker::SetInOutGraph(const std::vector<std::vector<size_t>> &inGraph,
+                const std::vector<std::vector<size_t>> &outGraph) {
+    inGraph_ = inGraph;
+    outGraph_ = outGraph;
+}
+
+void SubGraphToFuncChecker::SetColorGraph(const std::vector<std::vector<int>> &colorInGraph,
+                                        const std::vector<std::vector<int>> &colorOutGraph) {
+    colorInGraph_ = colorInGraph;
+    colorOutGraph_ = colorOutGraph;
+}
+
+void SubGraphToFuncChecker::SetPsgToESgMap(const std::multimap<int, int> &psgToESgMap) {
+    psgToESgMap_ = psgToESgMap;
+}
 } // namespace tile_fwk
 } // namespace npu

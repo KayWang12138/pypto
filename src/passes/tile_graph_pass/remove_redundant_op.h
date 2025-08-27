@@ -17,12 +17,13 @@
 #define REMOVE_REDUNDANT_OP_H
 #include "interface/operation/opcode.h"
 #include "tilefwk/data_type.h"
-
-#include "passes/pass_interface/pass.h"
 #include "tilefwk/tilefwk.h"
+
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
-#include "interface/function/function.h"
+
+#include "passes/pass_check/remove_redundant_op_checker.h"
+#include "passes/pass_interface/pass.h"
 #include "passes/pass_utils/pass_utils.h"
 
 #include "interface/function/function.h"

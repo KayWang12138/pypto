@@ -1505,4 +1505,12 @@ void OoOSchedule::DoHealthCheckAfter(Function &function, const std::string &fold
     }
 }
 
+Status OoOSchedule::PreCheck(Function &function) {
+    return checker.DoPreCheck(function);
+}
+
+Status OoOSchedule::PostCheck(Function &function) {
+    checker.SetOriFunctions(oriFunctions);
+    return checker.DoPostCheck(function);
+}
 } // namespace npu::tile_fwk

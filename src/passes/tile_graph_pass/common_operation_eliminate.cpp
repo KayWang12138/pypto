@@ -36,49 +36,14 @@ Status CommonOperationEliminate::RunOnFunction(Function &function)
 
 Status CommonOperationEliminate::PreCheck(Function &function)
 {
-    ALOG_INFO_F("PreCheck for CommonOperationEliminate.");
-    operationCache_.clear();
-    for (auto &op : function.Operations().DuplicatedOpList()) {
-        if (op->GetOpAttribute() != nullptr) {
-            size_t fromOffsetSize = -1;
-            if (auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(op->GetOpAttribute().get())) {
-                auto &fromOffset = viewOpAttribute->GetFromOffset();
-                fromOffsetSize = fromOffset.size();
-            } else if (auto copyOpAttribute = dynamic_cast<CopyOpAttribute*>(op->GetOpAttribute().get())) {
-                if (copyOpAttribute->IsCopyOut()) {
-                    continue;
-                }
-                auto [fromOffset, memType] = copyOpAttribute->GetCopyInAttr();
-                (void)memType;
-                fromOffsetSize = fromOffset.size();
-            } else {
-                continue;
-            }
-            auto& ioperands = op->GetIOperands();
-            if (ioperands.size() != 1) {
-                ALOG_ERROR_F("View or Copy_In Operation %d with not one input operand.", op->GetOpMagic());
-                return FAILED;
-            }
-            if (ioperands.front()->offset.size() != fromOffsetSize) {
-                ALOG_ERROR_F("View or Copy_In Operation %d with mismatch input offset shape.", op->GetOpMagic());
-                return FAILED;
-            }
-        }
-    }
-    return SUCCESS;
+    CommonOperationEliminateChecker checker;
+    return checker.DoPreCheck(function);
 }
 
 Status CommonOperationEliminate::PostCheck(Function &function)
 {
-    ALOG_INFO_F("PostCheck for CommonOperationEliminate.");
-    operationCache_.clear();
-    for (auto &op : function.Operations().DuplicatedOpList()) {
-        if (OpAlreadyExist(op)) {
-            ALOG_ERROR_F("Redundant Operation %d still exist after CommonOperationEliminate.", op->GetOpMagic());
-            return FAILED;
-        }
-    }
-    return SUCCESS;
+    CommonOperationEliminateChecker checker;
+    return checker.DoPostCheck(function);
 }
 
 Operation *CommonOperationEliminate::OperationExist(Operation *operation)

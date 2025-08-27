@@ -18,6 +18,7 @@
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "passes/pass_interface/pass.h"
+#include "passes/pass_check/iso_partitioner_checker.h"
 
 namespace npu::tile_fwk {
 
@@ -162,8 +163,6 @@ public:
     ~GraphPartition() override = default;
     Status PreCheck(Function &function) override;
     Status PostCheck(Function &function) override;
-    Status PostOperationCheck(Function &function);
-    Status PostSubgraphCheck(const std::vector<std::vector<Operation*>> &subgraphs);
     Status RunOnFunction(Function &function) override;
 };
 }  // namespace npu::tile_fwk

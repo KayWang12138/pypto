@@ -17,6 +17,7 @@
 #define PASS_REMOVE_REDUNDANT_CAST_H_
 
 #include "passes/pass_interface/pass.h"
+#include "passes/pass_check/remove_redundant_cast_checker.h"
 #include "interface/function/function.h"
 
 namespace npu {

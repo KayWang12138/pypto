@@ -67,50 +67,10 @@ Status AssignMemoryType::RunOnFunction(Function &function) {
     return SUCCESS;
 }
 Status AssignMemoryType::PreCheck(Function &function){
-    ALOG_INFO_F("===> Start Precheck.");
-    auto operations = function.Operations();
-    for(auto &operation : operations){
-        Operation *op_ptr = &operation;
-        //创建队列，包含当前操作和嵌套深度
-        std::queue<std::pair<Operation*,int>> opQueue;
-        std::unordered_set<Operation* > visited;
-
-        opQueue.emplace(op_ptr,1);
-        visited.insert(op_ptr);
-
-        while(!opQueue.empty()){
-            auto[currentOp,depth] = opQueue.front();
-            opQueue.pop();
-
-            //嵌套深度达到3失败
-            if(depth>3){
-                ALOG_WARN_F("MEMORY WARNING:View/Assemble/Reshape depth is over 3. Potential suboptimal allocation!");
-                return SUCCESS;
-            }
-            CheckPattern(currentOp,opQueue,depth,visited);
-        }
-    }
-    ALOG_INFO_F("===> End Precheck.");
-    return SUCCESS;
+    AssignMemoryTypeChecker checker;
+    return checker.DoPreCheck(function);
 }
-//检查view/assemble/reshape的嵌套深度是否大于等于3
-void AssignMemoryType::CheckPattern(Operation *operation,std::queue<std::pair<Operation*,int>> &opQueue,
-    int depth,std::unordered_set<Operation* > &visited){
-    for(auto &tensor : operation->oOperand){
-        for(auto &consumerOp : tensor-> GetConsumers()){
-            if(consumerOp->GetOpcode() == Opcode::OP_VIEW ||
-                consumerOp->GetOpcode() == Opcode::OP_ASSEMBLE ||
-                consumerOp->GetOpcode() == Opcode::OP_RESHAPE){
-                Operation* consumerOpPtr = consumerOp;
-                if(visited.find(consumerOpPtr) == visited.end()){
-                    opQueue.emplace(consumerOpPtr,depth+1);
-                    visited.insert(consumerOpPtr);
-                    break;
-                }
-            }
-        }
-    }
-}
+
 void AssignMemoryType::RunOnOperation(Operation &operation) {
     ALOG_DEBUG_F("===== AssignMemoryType::RunOnOperation %s[%d] =====", operation.GetOpcodeStr().c_str(),
         operation.GetOpMagic());

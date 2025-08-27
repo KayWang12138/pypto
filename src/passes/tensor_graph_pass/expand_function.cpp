@@ -79,47 +79,14 @@ Status UpdateIOOperand(const std::vector<OperationPtr> &tensorOperations) {
 }
 }
 
-Status ExpandFunction::PreCheck(Function &function)
-{
-    ALOG_INFO_F("PreCheck for ExpandFunction.");
-    if (!function.OperationLoopCheck()) {
-        ALOG_ERROR_F("Operation Loop detected before expand function.");
-        return FAILED;
-    }
-    std::unordered_set<OpCalcType> calTypes{OpCalcType::ELMWISE, OpCalcType::BROADCAST, OpCalcType::REDUCE,
-                                            OpCalcType::CONV};
-    for (auto &op : function.Operations().DuplicatedOpList()) {
-        OpCalcType opCalType = OpcodeManager::Inst().GetOpCalcType(op->GetOpcode());
-        if (calTypes.count(opCalType) > 0) {
-            for (auto &itensor: op->GetIOperands()) {
-                if (itensor->tensor->datatype == DT_BF16) {
-                    ALOG_ERROR_F("Calculation Op %d has BF16 operand %d.", op->GetOpMagic(), itensor->GetMagic());
-                    return FAILED;
-                }
-            }
-            for (auto &otensor: op->GetOOperands()) {
-                if (otensor->tensor->datatype == DT_BF16) {
-                    ALOG_ERROR_F("Calculation Op %d has BF16 operand %d.", op->GetOpMagic(), otensor->GetMagic());
-                    return FAILED;
-                }
-            }
-        }
-    }
-    return SUCCESS;
+Status ExpandFunction::PreCheck(Function &function) {
+    ExpandFunctionChecker checker;
+    return checker.DoPreCheck(function);
 }
 
-Status ExpandFunction::PostCheck(Function &function)
-{
-    ALOG_INFO_F("PostCheck for ExpandFunction.");
-    if (function.expandFunctionAccelerate != false) {
-        ALOG_ERROR_F("expandFunctionAccelerate should equal to false after ExpandFunction.");
-        return FAILED;
-    }
-    if (!function.OperationLoopCheck()) {
-        ALOG_ERROR_F("Operation Loop detected after expand function.");
-        return FAILED;
-    }
-    return SUCCESS;
+Status ExpandFunction::PostCheck(Function &function) {
+    ExpandFunctionChecker checker;
+    return checker.DoPostCheck(function);
 }
 
 Status ExpandFunction::RunOnFunction(Function &function) {

@@ -21,6 +21,7 @@
 #include "tilefwk/data_type.h"
 
 #include "passes/pass_interface/pass.h"
+#include "passes/pass_check/pre_graph_checker.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
@@ -44,8 +45,6 @@ public:
 private:
     Status PreCheck(Function &function) override;
     Status PostCheck(Function &function) override;
-    Status PostCheckHelpFunc(const LogicalTensor &singleTensor);
-    Status PostCheckReshape(const Operation &op);
     Status RunOnFunction(Function &function) override;
     Status PreColorSort(Function &function);
     void DeleteRedundantAssemble(Function &function) const;

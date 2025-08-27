@@ -983,8 +983,6 @@ TEST_F(SubgraphToFunctionTest, EliminateRedundantEdges) {
     // 4. 构建颜色图并消除冗余边
     pass.BuildColorGraph(*function);
     pass.EraseRedundantColorEdges(*function);
-    auto status = pass.ColorOutGraphCheck(*function);
-    EXPECT_EQ(status, SUCCESS) << "SubgraphToFunction ColorOutGraphCheck failed";
 
     // 5. 验证冗余边已被移除
     auto& pass_ref = static_cast<SubgraphToFunctionFriend&>(pass);

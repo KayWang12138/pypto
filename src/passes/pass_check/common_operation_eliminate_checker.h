@@ -9,28 +9,30 @@
  */
 
 /*!
- * \file infer_dyn_shape.h
+ * \file common_operation_eliminate_checker.h
  * \brief
  */
 
-#ifndef INFER_DYN_SHAPE_PASS_H_
-#define INFER_DYN_SHAPE_PASS_H_
-#include "interface/operation/op_infer_shape_impl.h"
-#include "passes/pass_interface/pass.h"
+#ifndef COMMON_OPERATION_ELIMINATE_CHECKER_H
+#define COMMON_OPERATION_ELIMINATE_CHECKER_H
+
+#include "checker.h"
+#include "interface/operation/opcode.h"
 #include "interface/function/function.h"
-#include "passes/pass_utils/topo_program.h"
-#include "passes/pass_check/infer_dyn_shape_checker.h"
+#include "interface/operation/operation.h"
+#include "interface/tensor/logical_tensor.h"
+
 namespace npu {
 namespace tile_fwk {
-class InferDynShape : public Pass {
+class CommonOperationEliminateChecker : Checker {
 public:
-    InferDynShape() : Pass("InferDynShape") {}
-    ~InferDynShape() override {}
-    Status RunOnFunction(Function &function) override;
-    Status PostCheck(Function &function) override;
+    Status DoPreCheck(Function &function) override;
+    Status DoPostCheck(Function &function) override;
 private:
-    Status InferShape(Function& function);
+    bool OpAlreadyExist(Operation *op);
+    Operation *OperationExist(Operation *operation);
+    std::unordered_map<unsigned long, Operation*> operationCache_;
 };
-}
-}
-#endif
+} // namespace tile_fwk
+} // namespace npu
+#endif  // COMMON_OPERATION_ELIMINATE_CHECKER_H

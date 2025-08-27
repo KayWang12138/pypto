@@ -257,53 +257,13 @@ Status RemoveRedundantCast::RemoveRedundantCastChain(Function &function) {
 }
 
 Status RemoveRedundantCast::PreCheck(Function &function) {
-    ALOG_INFO_F("PreCheck for RemoveRedundantCast");
-    std::vector<Operation *> opList = function.Operations().DuplicatedOpList();
-    for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
-        Operation *op = opList[opIdx];
-        if (op->GetOpcode() != Opcode::OP_CAST) {
-            continue;
-        }
-        if (op->GetIOperands().size() != 1) {
-            ALOG_ERROR_F("CAST op %d has %d input tensor, which should be 1.",
-                         op->GetOpMagic(), static_cast<int>(op->GetIOperands().size()));
-            return FAILED;
-        }
-        if (op->GetOOperands().size() != 1) {
-            ALOG_ERROR_F("CAST op %d has %d output tensor, which should be 1.",
-                         op->GetOpMagic(), static_cast<int>(op->GetOOperands().size()));
-            return FAILED;
-        }
-    }
-    return SUCCESS;
+    RemoveRedundantCastChecker checker;
+    return checker.DoPreCheck(function);
 }
 
 Status RemoveRedundantCast::PostCheck(Function &function) {
-    ALOG_INFO_F("PostCheck for RemoveRedundantCast");
-    std::vector<Operation *> opList = function.Operations().DuplicatedOpList();
-    for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
-        Operation *op = opList[opIdx];
-        if (SupportBF16(op)) {
-            continue;
-        }
-        auto iOperands = op->GetIOperands();
-        for (auto &iop : iOperands) {
-            if (iop->Datatype() == DataType::DT_BF16) {
-                ALOG_ERROR_F("Exist unsupported BF16 compute between op %d and tensor %d",
-                             op->GetOpMagic(), iop->GetMagic());
-                return FAILED;
-            }
-        }
-        auto oOperands = op->GetOOperands();
-        for (auto &oop : oOperands) {
-            if (oop->Datatype() == DataType::DT_BF16) {
-                ALOG_ERROR_F("Exist unsupported BF16 compute between op %d and tensor %d",
-                             op->GetOpMagic(), oop->GetMagic());
-                return FAILED;
-            }
-        }
-    }
-    return SUCCESS;
+    RemoveRedundantCastChecker checker;
+    return checker.DoPostCheck(function);
 }
 } // namespace tile_fwk
 } // namespace npu

@@ -22,6 +22,7 @@
 #include "tilefwk/data_type.h"
 #include "passes/pass_utils/pass_utils.h"
 #include "passes/statistics/execute_graph_statistic.h"
+#include "passes/pass_check/subgraph_to_function_checker.h"
 
 namespace npu::tile_fwk {
 class SubgraphToFunction : public Pass {
@@ -30,36 +31,17 @@ public:
     ~SubgraphToFunction() override = default;
 
 private:
+    Status PreCheck(Function &function) override;
+    Status PostCheck(Function &function) override;
     Status RunOnFunction(Function &function) override;
+    
     void GetTensorDataDependencyInsert(Function &function);
     void GetTensorDataDependencyClear(Function &function);
     Status BuildGraph(Function &function);
     void InsertParameter(size_t i, Function* leafFunc);
-    Status NOPCheck(const Operation &op) const;
-    Status CheckSubGraphTopo(Function &function) const;
-    template <typename eType>
-    Status InAndOutGraphConsistencyCheck(
-        const std::vector<std::vector<eType>> &inEdgeGraph,
-        const std::vector<std::vector<eType>> &outEdgeGraph);
-    Status EdgeIndexCheck(const bool found, const int newIndex, const size_t graphSize) const;
     Status BuildInGraph(Function &function);
-    Status BuildOutGraph(Function &function);
-    Status CheckInAndOutGraphMatch(Function &function);
-    Status CheckSubGraphBoundary(Function &function);
-    bool foundNodeInNeighbor(const int dstNode, const std::vector<int> &searchGraph) const;
-    Status VerifyRedundantEdge(const int srcNode, const int dstNode) const;
-    Status ColorOutGraphCheck(Function &function) const;
-    Status PreCheck(Function &function) override;
-    Status PostCheck(Function &function) override;
+    Status EdgeIndexCheck(const bool found, const int newIndex, const size_t graphSize) const;
     void DoHealthCheckAfter(Function &function, const std::string &folderPath) override;
-    Status CheckSinglePsgEsgMapping(Function &function, uint32_t psgId, uint32_t esgId);  
-    Status VerifySingleOpTopology(Function &function, size_t opIndex);
-    Status CheckReadyStateConsistency(Function &function, size_t opIndex);
-    template <typename ESGParamType, typename PSGParamContainer>
-    bool CompareParamListsImpl(const std::vector<ESGParamType>& esgParams, const PSGParamContainer& psgParams, const std::string &paramType, uint32_t psgId, uint32_t esgId) const;
-    bool CompareParamLists(const std::vector<SubfuncInvokeInfoTy::IncastParamPackTy>& esgParams, const SubfuncParam::InCastParamListTy& psgParams, const std::string &paramType, uint32_t psgId, uint32_t esgId) const;
-    bool CompareParamLists(const std::vector<SubfuncInvokeInfoTy::OutcastParamPackTy>& esgParams, const SubfuncParam::OutCastParamListTy& psgParams, const std::string &paramType, uint32_t psgId, uint32_t esgId) const;
-    bool CompareParamLists(const std::vector<SubfuncInvokeInfoTy::TensorParamPackTy>& esgParams, const SubfuncParam::TensorParamListTy& psgParams, const std::string& paramType, uint32_t psgId, uint32_t esgId) const;
     void ConstructParamMap(Function &function);
     Status ProcessSubgraph(Function& function, size_t i, size_t& programIdx, std::vector<Function*>& outputFuncList);
     Status ProcessCacheResult(const std::tuple<Function*, Operation*, bool>& result, size_t i, size_t& programIdx, std::vector<Function*>& outputFuncList, Operation* callOp);

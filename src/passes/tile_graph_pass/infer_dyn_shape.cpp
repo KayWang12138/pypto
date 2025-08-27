@@ -20,24 +20,8 @@
 namespace npu {
 namespace tile_fwk {
 Status InferDynShape::PostCheck(Function &function) {
-    for (auto& op : function.Operations()) {
-        if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode())) {
-            const std::shared_ptr<OpAttribute> &attr = op.GetOpAttribute();
-            ASSERT(attr != nullptr) << "Copy In attr is null";
-            std::shared_ptr<CopyOpAttribute> copyAttr = std::static_pointer_cast<CopyOpAttribute>(attr);
-            if (copyAttr->GetToDynValidShape().empty()) {
-                ALOG_ERROR_F("Op %s[%d] has no dyn to shape attr.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
-                return FAILED;
-            }
-        }
-        for (auto opOut : op.GetOOperands()) {
-            if (opOut->GetDynValidShape().empty()) {
-                ALOG_ERROR_F("Op %s[%d] output [%d] has no dynamic valid shape.", op.GetOpcodeStr().c_str(), op.GetOpMagic(), opOut->GetMagic());
-                return FAILED;
-            }
-        }
-    }
-    return SUCCESS;
+    InferDynShapeChecker checker;
+    return checker.DoPostCheck(function);
 }
 
 Status InferDynShape::InferShape(Function& function){

@@ -17,22 +17,8 @@
 
 namespace npu::tile_fwk {
 Status AddAlloc::PreCheck(Function &function) {
-    for (auto &[psgID, subFunc] : function.rootFunc_->programs_) {
-        (void)psgID;
-        if (subFunc->Operations().size() == 0) {
-            return SUCCESS;
-        }
-        auto subgraphID = subFunc->Operations().begin()->GetSubgraphID();
-        for (auto &op : subFunc->Operations()) {
-            if (op.GetSubgraphID() == NOT_IN_SUBGRAPH) {
-                return FAILED;
-            }
-            if (op.GetSubgraphID() != subgraphID) {
-                return FAILED;
-            }
-        }
-    }
-    return SUCCESS;
+    AddAllocChecker checker;
+    return checker.DoPreCheck(function);
 }
 
 Status AddAlloc::AddAndCheckAlloc(Function &function) {

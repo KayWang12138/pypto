@@ -13,6 +13,7 @@
  * \brief
  */
 
+#include "schedule_ooo_checker.h"
 #include "passes/execute_graph_pass/schedule_ooo.h"
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
@@ -24,8 +25,7 @@
 
 namespace npu {
 namespace tile_fwk {
-
-bool OoOSchedule::PreCheckTensorInfo(const int subGraphId, const LogicalTensorPtr tensor) {
+bool OoOScheduleChecker::PreCheckTensorInfo(const int subGraphId, const LogicalTensorPtr tensor) {
     // memorytypeOriginal和Tobe要一致
     if (tensor->GetMemoryTypeOriginal() != tensor->GetMemoryTypeToBe()) {
         ALOG_ERROR_F("SubgraphId %d: %d Tensor memorytypeOriginal is not equal to memorytypeTobe, OoOSchedule Precheck failed!", subGraphId, tensor->GetMagic());
@@ -59,7 +59,7 @@ bool OoOSchedule::PreCheckTensorInfo(const int subGraphId, const LogicalTensorPt
     return true;
 }
 
-bool OoOSchedule::PreCheckOpInfo(const int subGraphId, const Operation *op) {
+bool OoOScheduleChecker::PreCheckOpInfo(const int subGraphId, const Operation *op) {
     //检查oplist里每个op的subgraphid都与首个op的subgraphid一致
     if (op->GetSubgraphID() != subGraphId) {
         ALOG_ERROR_F("SubgraphId %d: %d Op subgraphid does not match each other, OoOSchedule Precheck failed!", subGraphId, op->GetOpMagic());
@@ -106,14 +106,11 @@ bool OoOSchedule::PreCheckOpInfo(const int subGraphId, const Operation *op) {
     return true;
 }
 
-Status OoOSchedule::PreCheck(Function &function) {
+Status OoOScheduleChecker::DoPreCheck(Function &function) {
     ALOG_INFO_F("Start OoOSchedule Precheck.");
-    Status baseStatus = Pass::PreCheck(function);
-    if (baseStatus != SUCCESS) { ALOG_ERROR_F("PreCheck failed in base class."); return baseStatus; }
     int programIdx = 0;
     int programSize = function.rootFunc_->programs_.size();
-    tensorListBeforePass.resize(programSize);
-    tensorListAfterPass.resize(programSize);
+    tensorListBeforePass_.resize(programSize);
     for (auto &program : function.rootFunc_->programs_) { // 对每个子图分别进行precheck
         ALOG_INFO_F("Subgraph[%d] OoOSchedule Precheck begin.", program.first);
         auto opList = program.second->Operations().DuplicatedOpList();
@@ -147,7 +144,7 @@ Status OoOSchedule::PreCheck(Function &function) {
             std::copy(ioperands.begin(), ioperands.end(), std::inserter(tensorList, tensorList.end()));
             std::copy(ooperands.begin(), ooperands.end(), std::inserter(tensorList, tensorList.end()));
         }
-        tensorListBeforePass[programIdx] = tensorList;
+        tensorListBeforePass_[programIdx] = tensorList;
         programIdx++;
         ALOG_INFO_F("Subgraph[%d] OoOSchedule Precheck end.", program.first);
     }
@@ -155,7 +152,7 @@ Status OoOSchedule::PreCheck(Function &function) {
     return SUCCESS;
 }
 
-bool OoOSchedule::PostCheckOpMagic(std::set<int> opSet, const Operation *op, const int programIdx) {
+bool OoOScheduleChecker::PostCheckOpMagic(std::set<int> opSet, const Operation *op, const int programIdx) {
     if (!opSet.insert(op->GetOpMagic()).second) {
         ALOG_ERROR_F("Program %d: %d opmagic is not unique, OoOSchedule Postcheck failed!", programIdx, op->GetOpMagic());
         return false;
@@ -163,7 +160,7 @@ bool OoOSchedule::PostCheckOpMagic(std::set<int> opSet, const Operation *op, con
     return true;
 }
 
-bool OoOSchedule::PostCheckNewOpConnection(const std::vector<Operation *> opListBeforePass, const std::vector<int> opMagicListBeforePass, const Operation *op, const int programIdx) {
+bool OoOScheduleChecker::PostCheckNewOpConnection(const std::vector<Operation *> opListBeforePass, const std::vector<int> opMagicListBeforePass, const Operation *op, const int programIdx) {
     auto it = std::find(opMagicListBeforePass.begin(), opMagicListBeforePass.end(), op->GetOpMagic());
     if (it == opMagicListBeforePass.end()) {
         return true;
@@ -214,7 +211,7 @@ bool OoOSchedule::PostCheckNewOpConnection(const std::vector<Operation *> opList
     return true;
 }
 
-bool OoOSchedule::PostCheckSpecialOp(const Operation *op, const int subGraphId) {
+bool OoOScheduleChecker::PostCheckSpecialOp(const Operation *op, const int subGraphId) {
     if (op->GetOpcode() == Opcode::OP_ASSEMBLE || op->GetOpcode() == Opcode::OP_RESHAPE ||
         op->GetOpcode() == Opcode::OP_VIEW) {
         // 检查输出不在DDR的op: alloc标签不允许打在ASSEMBLE/RESHAPE/VIEW的输出tensor上
@@ -229,7 +226,7 @@ bool OoOSchedule::PostCheckSpecialOp(const Operation *op, const int subGraphId) 
     return true;
 }
 
-bool OoOSchedule::PostCheckTensorMagic(std::set<int> tensorSet, const LogicalTensorPtr tensor, const int programIdx) {
+bool OoOScheduleChecker::PostCheckTensorMagic(std::set<int> tensorSet, const LogicalTensorPtr tensor, const int programIdx) {
     if (!tensorSet.insert(tensor->GetMagic()).second) {
         ALOG_ERROR_F("Program %d: %d tensormagic is not unique, OoOSchedule Postcheck failed!", programIdx, tensor->GetMagic());
         return false;
@@ -237,7 +234,7 @@ bool OoOSchedule::PostCheckTensorMagic(std::set<int> tensorSet, const LogicalTen
     return true;
 }
 
-bool OoOSchedule::PostCheckLocalTensor(const LogicalTensorPtr tensor, const int subGraphId, const int programIdx) {
+bool OoOScheduleChecker::PostCheckLocalTensor(const LogicalTensorPtr tensor, const int subGraphId, const int programIdx) {
     MemoryType memType = tensor->GetMemoryTypeOriginal();
     if (memType == MemoryType::MEM_UB || memType == MemoryType::MEM_L1 || memType == MemoryType::MEM_L0A || memType == MemoryType::MEM_L0B || memType == MemoryType::MEM_L0C) {
         int memoryrange = tensor->memorymap[subGraphId].end - tensor->memorymap[subGraphId].start;
@@ -258,7 +255,7 @@ bool OoOSchedule::PostCheckLocalTensor(const LogicalTensorPtr tensor, const int 
     return true;
 }
 
-bool OoOSchedule::PostCheckGlobalTensor(const LogicalTensorPtr tensor, const int subGraphId, const int programIdx) {
+bool OoOScheduleChecker::PostCheckGlobalTensor(const LogicalTensorPtr tensor, const int subGraphId, const int programIdx) {
     MemoryType memType = tensor->GetMemoryTypeOriginal();
     if (memType == MemoryType::MEM_DEVICE_DDR && !(tensor->isSubGraphBoundary)) {
         if (tensor->memorymap[subGraphId].memId == -1) {
@@ -269,7 +266,7 @@ bool OoOSchedule::PostCheckGlobalTensor(const LogicalTensorPtr tensor, const int
     return true;
 }
 
-bool OoOSchedule::PostCheckDynValidShape(const LogicalTensorPtr tensor, const int programIdx) {
+bool OoOScheduleChecker::PostCheckDynValidShape(const LogicalTensorPtr tensor, const int programIdx) {
     if (tensor->dynValidShape_.empty()) {
         ALOG_ERROR_F("Program %d: %d Dyn validshape is empty, OoOSchedule Postcheck failed!", programIdx, tensor->GetMagic());
         return false;
@@ -277,17 +274,17 @@ bool OoOSchedule::PostCheckDynValidShape(const LogicalTensorPtr tensor, const in
     return true;
 }
 
-bool OoOSchedule::PostCheckNewTensor(const int subGraphId, std::pair<const int, Function*> program, const int programIdx) {
+bool OoOScheduleChecker::PostCheckNewTensor(const int subGraphId, std::pair<const int, Function*> program, const int programIdx) {
     std::vector<LogicalTensorPtr> newTensors;
     std::unordered_set<int> tensorMagicBeforePass;
     std::unordered_set<int> tensorMagicAfterPass;
-    for (auto &tensor : tensorListBeforePass[programIdx]) {
+    for (auto &tensor : tensorListBeforePass_[programIdx]) {
         tensorMagicBeforePass.insert(tensor->GetMagic());
     }
-    for (auto &tensor : tensorListAfterPass[programIdx]) {
+    for (auto &tensor : tensorListAfterPass_[programIdx]) {
         tensorMagicAfterPass.insert(tensor->GetMagic());
     }
-    for (auto &tensor : tensorListAfterPass[programIdx]) {
+    for (auto &tensor : tensorListAfterPass_[programIdx]) {
         int magic = tensor->GetMagic();
         if (tensorMagicBeforePass.find(magic) == tensorMagicBeforePass.end()) {
             newTensors.emplace_back(tensor);
@@ -316,49 +313,83 @@ bool OoOSchedule::PostCheckNewTensor(const int subGraphId, std::pair<const int, 
     return true;
 }
 
-Status OoOSchedule::PostCheck(Function &function) {
+Status OoOScheduleChecker::PostCheckTensor(const LogicalTensorPtr &tensor, const std::set<int> &tensorSet, int programIdx, int subGraphId) {
+    if (!PostCheckTensorMagic(tensorSet, tensor, programIdx)) {
+        return FAILED; // tensor magic不能重复
+    };
+    if (!PostCheckLocalTensor(tensor, subGraphId, programIdx)) {
+        return FAILED; // 0 < memoryrange < shape*dtype
+    };
+    if (!PostCheckGlobalTensor(tensor, subGraphId, programIdx)) {
+        return FAILED; // global tensor memid不为-1
+    };
+    if (!PostCheckDynValidShape(tensor, programIdx)) {
+        return FAILED; // valid shape存在
+    };
+    return SUCCESS;
+}
+
+Status OoOScheduleChecker::PostCheckSubGraph(const std::pair<uint64_t, Function*> &program, int programIdx) {
+    auto opList = program.second->Operations().DuplicatedOpList();
+    if (opList.empty()) {
+        ALOG_INFO_F("Operation List is empty! \nSubgraph[%d] OoOSchedule Precheck end.", program.first);
+        return SUCCESS;
+    }
+    for (auto &op : opList) {
+        if (op == nullptr) {
+            ALOG_ERROR_F("Operation is nullptr, OoOSchedule Postcheck failed!");
+            return FAILED;
+        }
+    }
+    int subGraphId = opList.front()->GetSubgraphID();
+    std::unordered_set<LogicalTensorPtr> tensorList;
+    std::set<int> opSet;
+    auto opListBeforePass = oriFunctions_[programIdx]->Operations().DuplicatedOpList();
+    std::vector<int> opMagicListBeforePass;
+    for (auto &op : opListBeforePass) {
+        opMagicListBeforePass.emplace_back(op->GetOpMagic());
+    }
+    for (auto &op : opList) {
+        if (!PostCheckOpMagic(opSet, op, programIdx)) {
+            return FAILED; //opmagic 不能重复
+        };
+        if (!PostCheckNewOpConnection(opListBeforePass, opMagicListBeforePass, op, programIdx)) {
+            return FAILED; // 图连接关系找全
+        };
+        if (!PostCheckSpecialOp(op, subGraphId)) {
+            return FAILED; // 特别检查ASSEMBLE/RESHAPE/VIEW op
+        };
+        // 记录所有op的输入tensor和输出tensor
+        auto ioperands = op->GetIOperands();
+        auto ooperands = op->GetOOperands();
+        std::copy(ioperands.begin(), ioperands.end(), std::inserter(tensorList, tensorList.end()));
+        std::copy(ooperands.begin(), ooperands.end(), std::inserter(tensorList, tensorList.end()));
+    }
+    tensorListAfterPass_[programIdx] = tensorList;
+    std::set<int> tensorSet;
+    for (auto &tensor : tensorList) {
+        if (PostCheckTensor(tensor, tensorSet, programIdx, subGraphId) != SUCCESS) {
+            return FAILED;
+        }
+    }
+    // 新增tensor要出现在tensormap中, 且subgraphid要一致; 新增tensor的orishape不为0
+    if (!PostCheckNewTensor(subGraphId, program, programIdx)) {
+        return FAILED;
+    };
+    return SUCCESS;
+}
+
+Status OoOScheduleChecker::DoPostCheck(Function &function) {
     ALOG_INFO_F("Start OoOSchedule Postcheck.");
-    Status baseStatus = Pass::PostCheck(function);
-    if (baseStatus != SUCCESS) { ALOG_ERROR_F("Postcheck failed in base class."); return baseStatus; }
+    int programSize = function.rootFunc_->programs_.size();
+    tensorListAfterPass_.resize(programSize);
     int programIdx = 0;
     for (auto &program : function.rootFunc_->programs_) { // 对每个子图分别进行postcheck
         ALOG_INFO_F("Subgraph[%d] OoOSchedule Postcheck begin.", program.first);
-        auto opList = program.second->Operations().DuplicatedOpList();
-        if (opList.empty()) {
-            ALOG_INFO_F("Operation List is empty! \nSubgraph[%d] OoOSchedule Precheck end.", program.first);
-            continue;
+        if (PostCheckSubGraph(program, programIdx) != SUCCESS) {
+            ALOG_ERROR_F("Subgraph[%d] OoOSchedule Postcheck failed!", programIdx);
+            return FAILED;
         }
-        for (auto &op : opList) {
-            if (op == nullptr) { ALOG_ERROR_F("Operation is nullptr, OoOSchedule Postcheck failed!"); return FAILED; }
-        }
-        int subGraphId = opList.front()->GetSubgraphID();
-        std::unordered_set<LogicalTensorPtr> tensorList;
-        std::set<int> opSet;
-        auto opListBeforePass = oriFunctions[programIdx]->Operations().DuplicatedOpList();
-        std::vector<int> opMagicListBeforePass;
-        for (auto &op : opListBeforePass) {
-            opMagicListBeforePass.emplace_back(op->GetOpMagic());
-        }
-        for (auto &op : opList) {
-            if (!PostCheckOpMagic(opSet, op, programIdx)) { return FAILED; }; //opmagic 不能重复
-            if (!PostCheckNewOpConnection(opListBeforePass, opMagicListBeforePass, op, programIdx)) { return FAILED; }; // 图连接关系找全
-            if (!PostCheckSpecialOp(op, subGraphId)) { return FAILED; }; // 特别检查ASSEMBLE/RESHAPE/VIEW op
-            // 记录所有op的输入tensor和输出tensor
-            auto ioperands = op->GetIOperands();
-            auto ooperands = op->GetOOperands();
-            std::copy(ioperands.begin(), ioperands.end(), std::inserter(tensorList, tensorList.end()));
-            std::copy(ooperands.begin(), ooperands.end(), std::inserter(tensorList, tensorList.end()));
-        }
-        tensorListAfterPass[programIdx] = tensorList;
-        std::set<int> tensorSet;
-        for (auto &tensor : tensorList) {
-            if (!PostCheckTensorMagic(tensorSet, tensor, programIdx)) { return FAILED; }; // tensor magic不能重复
-            if (!PostCheckLocalTensor(tensor, subGraphId, programIdx)) { return FAILED; }; // 0 < memoryrange < shape*dtype
-            if (!PostCheckGlobalTensor(tensor, subGraphId, programIdx)) { return FAILED; }; // global tensor memid不为-1
-            if (!PostCheckDynValidShape(tensor, programIdx)) { return FAILED; }; // valid shape存在
-        }
-        // 新增tensor要出现在tensormap中, 且subgraphid要一致; 新增tensor的orishape不为0
-        if (!PostCheckNewTensor(subGraphId, program, programIdx)) { return FAILED; };
         programIdx++;
         ALOG_INFO_F("Subgraph[%d] OoOSchedule Postcheck end.", program.first);
     }
@@ -366,6 +397,8 @@ Status OoOSchedule::PostCheck(Function &function) {
     return SUCCESS;
 }
 
-} // namespace npu::tile_fwk
-
+void OoOScheduleChecker::SetOriFunctions(const std::vector<Function *> &oriFunctions) {
+    oriFunctions_ = oriFunctions;
+}
+} // namespace tile_fwk
 } // namespace npu

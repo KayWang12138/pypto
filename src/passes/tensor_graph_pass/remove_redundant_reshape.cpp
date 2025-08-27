@@ -29,31 +29,6 @@ Status CheckIOOperands(const Operation &op, LogicalTensorPtr &in, LogicalTensorP
     if (out == nullptr) {return FAILED;}
     return SUCCESS;
 }
-
-// PreCheck for reshape
-// ..->reshape->out (will be removed regardless of its function)
-Status PreCheckReshape(const LogicalTensorPtr &in) {
-    for (auto &childOp : in->GetConsumers()) {
-        if (childOp->GetOpcode() == Opcode::OP_RESHAPE) {
-            if (childOp->ConsumerOps().empty()) {
-                ALOG_ERROR_F("At least one reshape op without consumer!");
-                return FAILED;
-            }
-        }
-    }
-    return SUCCESS;
-}
-
-Status ProcessPreCheck(const Operation *op) {
-    if (op->GetOpcode() == Opcode::OP_RESHAPE) {
-        auto in = op->iOperand.front();
-        if (in == nullptr) {return FAILED;}
-        if (PreCheckReshape(in) != SUCCESS) {
-            return FAILED;
-        }
-    }
-    return SUCCESS;
-}
 }
 
 Status RemoveRedundantReshape::RunOnFunction(Function &function) {
@@ -99,24 +74,12 @@ Status RemoveRedundantReshape::RemoveReshape(Function &function) const {
 }
 
 Status RemoveRedundantReshape::PreCheck(Function &function) {
-    ALOG_INFO_F("PreCheck for RemoveRedundantReshape");
-    auto ops = function.Operations().DuplicatedOpList();
-    for (const auto &op : ops) {
-        if (op == nullptr) {return FAILED;}
-    }
-    if (!function.LoopCheck().empty()) {return FAILED;}
-    for (const auto &op : ops) {
-        if (ProcessPreCheck(op)) {
-            ALOG_ERROR_F("Precheck RemoveRedundantReshape failed");
-            return FAILED;
-        }
-    }
-    return SUCCESS;
+    RemoveRedundantReshapeChecker checker;
+    return checker.DoPreCheck(function);
 }
 
 Status RemoveRedundantReshape::PostCheck(Function &function) {
-    ALOG_INFO_F("PostCheck for RemoveRedundantReshape");
-    if (!function.LoopCheck().empty()) {return FAILED;}
-    return SUCCESS;
+    RemoveRedundantReshapeChecker checker;
+    return checker.DoPostCheck(function);
 }
 } // namespace npu::tile_fwk

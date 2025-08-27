@@ -9,27 +9,25 @@
  */
 
 /*!
- * \file remove_redundant_reshape.h
+ * \file add_alloc_checker.h
  * \brief
  */
 
-#ifndef PASS_REMOVE_REDUNDEN_RESHAPE_H_
-#define PASS_REMOVE_REDUNDEN_RESHAPE_H_
+#ifndef ADD_ALLOC_CHECKER_H
+#define ADD_ALLOC_CHECKER_H
 
-#include "passes/pass_interface/pass.h"
-#include "passes/pass_check/remove_redundant_reshape_checker.h"
+#include "checker.h"
+#include "interface/operation/opcode.h"
 #include "interface/function/function.h"
+#include "interface/operation/operation.h"
+#include "interface/tensor/logical_tensor.h"
 
-namespace npu::tile_fwk {
-class RemoveRedundantReshape : public Pass {
+namespace npu {
+namespace tile_fwk {
+class AddAllocChecker : Checker {
 public:
-    RemoveRedundantReshape() : Pass("RemoveRedundantReshape") {}
-    ~RemoveRedundantReshape() override = default;
-private:
-    Status PreCheck(Function &function) override;
-    Status PostCheck(Function &function) override;
-    Status RunOnFunction(Function &function) override;
-    Status RemoveReshape(Function &function) const;
+    Status DoPreCheck(Function &function) override;
 };
-}
-#endif // PASS_REMOVE_REDUNDEN_RESHAPE_H_
+} // namespace tile_fwk
+} // namespace npu
+#endif  // ADD_ALLOC_CHECKER_H

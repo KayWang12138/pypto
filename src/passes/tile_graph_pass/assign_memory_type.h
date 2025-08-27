@@ -20,6 +20,7 @@
 #include "passes/pass_interface/pass.h"
 #include "interface/operation/opcode.h"
 #include "passes/tile_graph_pass/convert_op_inserter.h"
+#include "passes/pass_check/assign_memory_type_checker.h"
 #include "tilefwk/data_type.h"
 
 namespace npu::tile_fwk {
@@ -37,8 +38,6 @@ private:
     void AssignMemUnknown(Function &function);
     void AssignL1CopyIn(Function &function);
     void AssignSpecialOpMemtype(Operation &op);
-    void CheckPattern(Operation *operation,std::queue<std::pair<Operation*,int>> &opQueue,
-        int depth,std::unordered_set<Operation* > &visited);
     std::string PrintTensorMem(std::shared_ptr<LogicalTensor>& tensor) const;
     ConvertInserter inserter;
 };

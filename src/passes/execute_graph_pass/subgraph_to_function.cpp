@@ -530,6 +530,18 @@ void SubgraphToFunction::SymbolizeFunction(Function *rootFunc, std::vector<Funct
     }
 }
 
+Status SubgraphToFunction::EdgeIndexCheck(const bool found, const int newIndex, const size_t graphSize) const {
+    if (!found) {
+        ALOG_ERROR_F("op magic not found");
+        return FAILED;
+    }
+    if (static_cast<size_t>(newIndex) >= graphSize) {
+        ALOG_ERROR_F("parent index %d is larger than operations_ size %zu", newIndex, graphSize);
+        return FAILED;
+    }
+    return SUCCESS;
+}
+
 Status SubgraphToFunction::BuildInGraph(Function &function) {
     auto operationViewer = function.Operations();
     for (size_t i = 0; i < operationViewer.size(); i++) {
@@ -995,6 +1007,19 @@ void SubgraphToFunction::GenerateAndExportCombinedReport(
     constexpr int JSON_INDENTATION_SPACES = 4;
     outfile << report.dump(JSON_INDENTATION_SPACES); // 4空格缩进
     outfile.close();
+}
+
+Status SubgraphToFunction::PreCheck(Function &function) {
+    SubGraphToFuncChecker checker;
+    return checker.DoPreCheck(function);
+}
+
+Status SubgraphToFunction::PostCheck(Function &function) {
+    SubGraphToFuncChecker checker;
+    checker.SetInOutGraph(inGraph, outGraph);
+    checker.SetColorGraph(colorInGraph, colorOutGraph);
+    checker.SetPsgToESgMap(psgToESgMap);
+    return checker.DoPostCheck(function);
 }
 
 } // namespace npu::tile_fwk

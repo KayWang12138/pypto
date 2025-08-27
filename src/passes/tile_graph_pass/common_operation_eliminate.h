@@ -18,6 +18,7 @@
 
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_interface/pass.h"
+#include "passes/pass_check/common_operation_eliminate_checker.h"
 #include "interface/function/function.h"
 
 namespace npu::tile_fwk {

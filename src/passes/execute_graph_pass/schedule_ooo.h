@@ -25,6 +25,7 @@
 #include "passes/pass_interface/pass.h"
 #include "passes/pass_utils/pass_utils.h"
 #include "passes/pass_utils/reschedule_utils.h"
+#include "passes/pass_check/schedule_ooo_checker.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
@@ -243,10 +244,9 @@ private:
     bool PostCheckDynValidShape(const LogicalTensorPtr tensor, const int programIdx);
     bool PostCheckNewTensor(const int subGraphId, std::pair<const int, Function*> program, const int programIdx);
     void DoHealthCheckAfter(Function &function, const std::string &folderPath) override;
-    std::vector<std::unordered_set<LogicalTensorPtr>> tensorListBeforePass;
-    std::vector<std::unordered_set<LogicalTensorPtr>> tensorListAfterPass;
     std::vector<Function *> oriFunctions;
     std::map<uint64_t, OoOScheduler> schedulerMap;
+    OoOScheduleChecker checker;
 };
 } // namespace npu::tile_fwk
 #endif // PASS_SCHEDULE_OOO_H

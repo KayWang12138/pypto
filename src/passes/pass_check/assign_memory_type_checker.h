@@ -9,27 +9,28 @@
  */
 
 /*!
- * \file remove_redundant_reshape.h
+ * \file assign_memory_type_checker.h
  * \brief
  */
 
-#ifndef PASS_REMOVE_REDUNDEN_RESHAPE_H_
-#define PASS_REMOVE_REDUNDEN_RESHAPE_H_
+#ifndef ASSIGN_MEMORY_TYPE_CHECKER_H
+#define ASSIGN_MEMORY_TYPE_CHECKER_H
 
-#include "passes/pass_interface/pass.h"
-#include "passes/pass_check/remove_redundant_reshape_checker.h"
+#include <queue>
+#include "checker.h"
+#include "interface/operation/opcode.h"
 #include "interface/function/function.h"
+#include "interface/operation/operation.h"
+#include "interface/tensor/logical_tensor.h"
 
-namespace npu::tile_fwk {
-class RemoveRedundantReshape : public Pass {
+namespace npu {
+namespace tile_fwk {
+class AssignMemoryTypeChecker : Checker {
 public:
-    RemoveRedundantReshape() : Pass("RemoveRedundantReshape") {}
-    ~RemoveRedundantReshape() override = default;
+    Status DoPreCheck(Function &function) override;
 private:
-    Status PreCheck(Function &function) override;
-    Status PostCheck(Function &function) override;
-    Status RunOnFunction(Function &function) override;
-    Status RemoveReshape(Function &function) const;
+    void CheckPattern(Operation *operation, std::queue<std::pair<Operation*, int>> &opQueue, int depth, std::unordered_set<Operation*> &visited);
 };
-}
-#endif // PASS_REMOVE_REDUNDEN_RESHAPE_H_
+} // namespace tile_fwk
+} // namespace npu
+#endif  // ASSIGN_MEMORY_TYPE_CHECKER_H
