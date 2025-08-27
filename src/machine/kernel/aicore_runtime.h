@@ -231,6 +231,18 @@ INLINE uint64_t GetCoa(CoreFuncParam *ctx, int idx) {
         return SYM_VALUE(val);
 }
 
+INLINE
+int64_t RuntimeGetViewValidShapeDim(int64_t validshape, int64_t viewOffset, int64_t viewshape) {
+    validshape -= viewOffset;
+    if (validshape > viewshape)
+        validshape = viewshape;
+    else if (validshape < 0)
+        validshape = 0;
+    return validshape;
+}
+
+#define RUNTIME_GetViewValidShapeDim(validShape, viewOffset, viewShape) RuntimeGetViewValidShapeDim(validShape, viewOffset, viewShape)
+
 #define GET_PARAM_ADDR(param, n, base) GetTensorAddr(param, base)
 
 #define GET_PARAM_OFFSET_BY_IDX(param, n, base, dim, idx)         GetCoa(param, ((base) + 1) + 0 * (dim) + idx)
