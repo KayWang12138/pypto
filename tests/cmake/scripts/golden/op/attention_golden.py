@@ -42,10 +42,11 @@ def gen_attention_test_data(dtypes, bns2, epsilon, output_dir: Path, is_quant=Fa
         "kv_lora_rank": 512,
         "v_head_dim": 128,
     }
+    quant_choice = (False, is_quant)
     # [b,s,n,kv_lora_rank], [b,s,n,qk_rope_head_dim], [b,n2,s2,kv_lora_rank], [b,n2,s2,qk_rope_head_dim]
     print("gen_attention_test_data cache_mode is ", cache_mode)
     q_out, q_rope_out, kv_cache_out, kr_cache_out = \
-        gen_mla_prolog_data(params, dtypes, epsilon, output_dir, is_quant, is_nz, is_smooth, block_size, cache_mode)
+        gen_mla_prolog_data(params, dtypes, epsilon, output_dir, quant_choice, is_nz, is_smooth, block_size, cache_mode)
 
     # reshape
     q_out = q_out.reshape(b, n, s, params["kv_lora_rank"])

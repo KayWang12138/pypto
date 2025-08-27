@@ -35,7 +35,7 @@ from golden.net.deepseekv3.nsa.gen_slc_attn import compute_attention
 from golden.op.kv_slc import kv_slc_compute
 from golden.net.deepseekv3.nsa.attention_post_golden import PostConfig, post_compute, gen_post_input_data
 from golden.net.deepseekv3.nsa.win_atten import win_attn_calc
-from golden.net.deepseekv3.mla.mla_prolog_golden_v2 import gen_prolog_input_data, mla_prolog_compute
+from golden.net.deepseekv3.mla.mla_prolog_golden_v2 import gen_prolog_input_data, mla_prolog_compute, gen_block_table
 from golden.net.deepseekv3.nsa.gen_fused_compress_kv_select import compress_attention_data_gen, compress_attention_compute
 
 
@@ -116,36 +116,6 @@ def gen_uniform_data(data_shape, min_value, max_value, dtype):
     return np.random.uniform(low=min_value, high=max_value, size=data_shape).astype(
         dtype
     )
-
-
-def gen_block_table(b, actual_seq_len, block_size):
-    block_num_per_batch = []
-    block_num_min = 0
-    block_num = 0
-    for actual_seq in actual_seq_len:
-        block_num_per_batch.append(math.ceil(actual_seq / block_size))
-        block_num_min += math.ceil(actual_seq / block_size)
-
-    slc_s_max = max(actual_seq_len)
-    # gen block table [b, slc_s_max/block_size]
-    block_table_shape = [b, math.ceil(slc_s_max / block_size)]
-    block_num = block_num_min
-
-    block_idx_list = np.arange(0, block_num, 1)
-    block_idx_list = np.random.permutation(block_idx_list).astype(np.int32)
-
-    block_idx = 0
-    block_table = [-1] * block_table_shape[1]
-
-    block_table = np.tile(block_table, (block_table_shape[0], 1)).astype(np.int32)
-    block_table_batch_idx = 0
-    for idx in block_num_per_batch:
-        for j in range(idx):
-            block_table[block_table_batch_idx][j] = (block_idx_list[block_idx])
-            block_idx += 1
-        block_table_batch_idx += 1
-
-    return block_num, block_table
 
 
 def gen_kv_cache(params, actual_seq_list, dtype, output_dir):
@@ -391,8 +361,8 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
         "block_table": block_table,
         "skv_max": skv_max,
     }
-    x, wDq, wUqQr, smooth_cq, w_qb_scale, wDkvKr, wUk, gamma_cq, gamma_ckv, cos, sin, kv_len, kv_cache, kr_cache = \
-        gen_prolog_input_data(prolog_params, [dtype, dtype], epsilon, output_dir, is_quant, is_nz, has_smooth,
+    x, w_dq, w_uqqr, smooth_cq, scale_data, w_dkvkr, w_uk, gamma_cq, gamma_ckv, cos, sin, kv_len, kv_cache, kr_cache = \
+        gen_prolog_input_data(prolog_params, [dtype, dtype], epsilon, output_dir, (False, is_quant), is_nz, has_smooth,
                               block_size, cache_mode)
 
     # 计算公式：s_slc = (act_seq_len[bIdx] + s1Idx - s1 + 1 - cmp_block_size + slc_block_size) // slc_block_size
@@ -421,23 +391,23 @@ def gen_nsa_golden(params, dtypes, output_dir: Path, is_nz=False):
 
     # 3. 计算 & dump file
     # mla_prolog
-    prolog_inputs = {"dtype": dtype, "is_quant": is_quant, "has_smooth": has_smooth}
+    prolog_inputs = {"dtype": dtype, "is_quant_a": False, "is_quant_b": is_quant, "has_smooth": has_smooth}
     prolog_inputs["cache_mode"] = cache_mode
     prolog_inputs["gamma_cq"] = gamma_cq
     prolog_inputs["gamma_ckv"] = gamma_ckv
     prolog_inputs["epsilon"] = epsilon
     prolog_inputs["x"] = x
-    prolog_inputs["wDq"] = wDq
-    prolog_inputs["wUqQr"] = wUqQr
-    prolog_inputs["wUk"] = wUk
-    prolog_inputs["wDkvKr"] = wDkvKr
+    prolog_inputs["w_dq"] = w_dq
+    prolog_inputs["w_uqqr"] = w_uqqr
+    prolog_inputs["w_uk"] = w_uk
+    prolog_inputs["w_dkvkr"] = w_dkvkr
     prolog_inputs["cos"] = cos
     prolog_inputs["sin"] = sin
     prolog_inputs["kv_cache"] = kv_cache
     prolog_inputs["kr_cache"] = kr_cache
     prolog_inputs["cache_index"] = kv_len
     if is_quant:
-        prolog_inputs["w_qb_scale"] = w_qb_scale
+        prolog_inputs["w_qb_scale"] = scale_data["w_uqqr"]
         if has_smooth:
             prolog_inputs["smooth_cq"] = smooth_cq
     # q_out: [b, s, n1, kv_lora_rank], q_rope_out: [b, s, n1, rope_dim]

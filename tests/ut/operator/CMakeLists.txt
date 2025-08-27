@@ -32,7 +32,7 @@ set(_CaseFilterList
         "FunctionTest.dynamic_page_attention_adds"
         "FunctionTest.dynamic_page_attention_adds_single_single_out"
         # NSA MlaProlog
-        "MlaPrologUTest.b16_s1_pa_nz_fp16_quant"
+        "MlaPrologUTest.b16_s1_pa_nd_fp16_allquant"
         # NSA AttentionPost
         "AttentionPostUTest.b32_s1_nz_fp16_quant"
         "AttentionPostUTest.b32_s2_nz_bf16_quant_all"

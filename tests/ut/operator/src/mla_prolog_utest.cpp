@@ -53,8 +53,8 @@ struct TestShapeParams {
     int blockSize;
 };
 
-template <typename T = npu::tile_fwk::float16, bool nz = true, typename wDtype = int8_t,
-    bool isSmooth = true, bool usePrefetch = true>
+template <typename T = npu::tile_fwk::float16,  typename wDtype = int8_t, bool isQuantA = false, bool isQuantB = true, 
+    bool isSmooth = true, bool nz = true, bool usePrefetch = true>
 void TestMlaPrologUt(const TestShapeParams &params, const MlaTileConfig &tileConfig, std::string cacheMode = "PA_NZ") {
     int b = params.b;
     int s = params.s;
@@ -69,8 +69,8 @@ void TestMlaPrologUt(const TestShapeParams &params, const MlaTileConfig &tileCon
     int qHeadDim = qkNopeHeadDim + qkRopeHeadDim;
 
     DataType dType = (std::is_same<T, npu::tile_fwk::float16>::value) ? DT_FP16 : DT_BF16;
-    bool isQuant = std::is_same<wDtype, int8_t>::value;
-    DataType dTypeQuant = isQuant ? DT_INT8 : dType;
+    DataType dTypeQuantA = (std::is_same<wDtype, int8_t>::value && isQuantA) ? DT_INT8 : dType;
+    DataType dTypeQuantB = (std::is_same<wDtype, int8_t>::value && isQuantB) ? DT_INT8 : dType;
 
     std::vector<int> xShape = {b, s, h};
     std::vector<int> wDqShape = {h, qLoraRank};
@@ -88,7 +88,9 @@ void TestMlaPrologUt(const TestShapeParams &params, const MlaTileConfig &tileCon
         kvCacheShape = {blockNum, blockSize, 1, kvLoraRank};
         krCacheShape = {blockNum, blockSize, 1, qkRopeHeadDim};
     }
-    std::vector<int> wQbScaleShape = {1, n * qHeadDim};
+    std::vector<int> scaleWDqShape = {1, qLoraRank};
+    std::vector<int> scaleWUqQrShape = {1, n * qHeadDim};
+    std::vector<int> scaleWDkvKrShape = {1, kvLoraRank + qkRopeHeadDim};
     std::vector<int> smoothCqShape{1, qLoraRank};
     // output
     std::vector<int> qOutShape = {b, s, n, kvLoraRank};
@@ -96,9 +98,9 @@ void TestMlaPrologUt(const TestShapeParams &params, const MlaTileConfig &tileCon
 
     Tensor x(dType, xShape, "x");
     TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
-    Tensor wDq(dType, wDqShape, "wDq", NodeType::LOCAL, weightFormat);
-    Tensor wUqQr(dTypeQuant, wUqQrShape, "wUqQr", NodeType::LOCAL, weightFormat);
-    Tensor wDkvKr(dType, wDkvKrShape, "wDkvKr", NodeType::LOCAL, weightFormat);
+    Tensor wDq(dTypeQuantA, wDqShape, "wDq", NodeType::LOCAL, weightFormat);
+    Tensor wUqQr(dTypeQuantB, wUqQrShape, "wUqQr", NodeType::LOCAL, weightFormat);
+    Tensor wDkvKr(dTypeQuantA, wDkvKrShape, "wDkvKr", NodeType::LOCAL, weightFormat);
     Tensor wUk(dType, wUkShape, "wUk", NodeType::LOCAL, weightFormat);
     Tensor gammaCq(dType, gammaCqShape, "gammaCq");
     Tensor gammaCkv(dType, gammaCkvShape, "gammaCkv");
@@ -107,7 +109,9 @@ void TestMlaPrologUt(const TestShapeParams &params, const MlaTileConfig &tileCon
     Tensor cacheIndex(DT_INT64, kvLenShape, "cacheIndex"); // int64
     Tensor kvCache(dType, kvCacheShape, "kvCache");
     Tensor krCache(dType, krCacheShape, "krCache");
-    Tensor wQbScale(DT_FP32, wQbScaleShape, "wQbScale");
+    Tensor scaleWDq(DT_FP32, scaleWDqShape, "scaleWDq");
+    Tensor scaleWUqQr(DT_FP32, scaleWUqQrShape, "scaleWUqQr");
+    Tensor scaleWDkvKr(DT_FP32, scaleWDkvKrShape, "scaleWDkvKr");
     Tensor smoothCq(DT_FP32, smoothCqShape, "smoothCq");
 
     // output
@@ -117,8 +121,12 @@ void TestMlaPrologUt(const TestShapeParams &params, const MlaTileConfig &tileCon
     Tensor outputQRope(dType, qRopeOutShape, "outputQRope");
 
     MlaQuantInputs quantInputs;
-    if (isQuant) {
-        quantInputs.dequantScaleWUqQr = wQbScale;
+    if (isQuantA) {
+        quantInputs.dequantScaleWDq = scaleWDq;
+        quantInputs.dequantScaleWDkvKr = scaleWDkvKr;
+    }
+    if (isQuantB) {
+        quantInputs.dequantScaleWUqQr = scaleWUqQr;
         if (isSmooth) {
             quantInputs.smoothScalesCq = smoothCq;
         }
@@ -128,11 +136,11 @@ void TestMlaPrologUt(const TestShapeParams &params, const MlaTileConfig &tileCon
         tileConfig, outputQ, outputQRope, outputKvCache, outputKrCache, 1e-5f, 1e-5f, cacheMode);
 }
 
-TEST_F(MlaPrologUTest, b16_s1_pa_nz_fp16_quant) {
+TEST_F(MlaPrologUTest, b16_s1_pa_nd_fp16_allquant) {
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {16, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";
     MlaTileConfig tileConfig = {16, 1};
 
-    TestMlaPrologUt<npu::tile_fwk::float16, true, int8_t, true, true>(params, tileConfig, cacheMode);
+    TestMlaPrologUt<npu::tile_fwk::float16, int8_t, true, true, true, true, true>(params, tileConfig, cacheMode);
 }
