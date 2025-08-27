@@ -69,7 +69,7 @@ void ExecuteOpCopyOut(ExecuteOperationContext *ctx) {
     }
 
     bool axisCombine = ctx->op->GetBoolAttribute("input_combine_axis");
-    auto oopValid = std::make_shared<LogicalTensorData>(oop->GetData(), shape, toOffset);
+    auto oopValid = std::make_shared<LogicalTensorData>(oop->GetData(), iopShape, toOffset);
 
     if (from == MemoryType::MEM_L0C) {
         if (ctx->op->HasAttribute(OP_ATTR_PREFIX + "atomic_add")) {

@@ -3051,7 +3051,7 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
             std::vector<int> newOffset = TensorOffset::Sub(iOperand->GetOffset(), minimumOffset);
             std::vector<SymbolicScalar> newDynOffset = TensorOffset::Sub(iOperand->GetDynOffset(), minimumOffset);
             // fill valid shape
-            viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(newOffset, newDynOffset));
+            viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(newOffset, newDynOffset, iOperand->GetDynValidShape()));
             return viewResult;
         }
         default: ASSERT(false) << "unexpected behavior";

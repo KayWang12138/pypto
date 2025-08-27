@@ -237,6 +237,44 @@ TEST_F(TorchAdaptorTest, BinaryOpsS) {
     }
 }
 
+LogicalTensorDataPtr makePartialGolden(int n, int p, float v1, float v2) {
+    std::vector<float> ret(n * n, 0);
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            ret[i *n + j] = j < p ? v1 : v2;
+        }
+    }
+    return makeTensorData(DT_FP32, {n, n}, ret);
+}
+ 
+TEST_F(TorchAdaptorTest, BinaryPairOps) {
+    int n = 16, p = 5;
+    {
+        auto self = makeTensorData(DT_FP32, {n, n}, 4.0f);
+        auto other = makeTensorData(DT_FP32, {n, p}, 3.0f);
+        auto out = makeTensorData(DT_FP32, {n, n}, 0.0f);
+        auto golden = makePartialGolden(n, p, 7.0, 4.0);
+        calc::PairSum(out, self, other);
+        ASSERT_ALLCLOSE(out, golden);
+    }
+    {
+        auto self = makeTensorData(DT_FP32, {n, p}, 4.0f);
+        auto other = makeTensorData(DT_FP32, {n, n}, 3.0f);
+        auto out = makeTensorData(DT_FP32, {n, n}, 0.0f);
+        auto golden = makePartialGolden(n, p, 7.0, 3.0);
+        calc::PairSum(out, self, other);
+        ASSERT_ALLCLOSE(out, golden);
+    }
+    {
+       auto self = makeTensorData(DT_FP32, {n, n}, 4.0f);
+        auto other = makeTensorData(DT_FP32, {n, p}, 3.0f);
+        auto out = makeTensorData(DT_FP32, {n, n}, 0.0f);
+        auto golden = makePartialGolden(n, p, 3.0, 4.0);
+        calc::PairMin(out, self, other);
+        ASSERT_ALLCLOSE(out, golden);
+    }
+}
+
 TEST_F(TorchAdaptorTest, MulMul) {
     {
         // matmul

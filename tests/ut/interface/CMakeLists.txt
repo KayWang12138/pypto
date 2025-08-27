@@ -55,6 +55,8 @@ set(_CaseFilterList
         # Utils
         "CommonTest.*"
         "StringUtils.*"
+ 
+        "TorchAdaptorTest.*"
 )
 
 set(_Target ${TileFwkUTestNamePrefix}_interface)

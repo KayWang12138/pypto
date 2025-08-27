@@ -178,6 +178,24 @@ void MaxS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &el
     torch::clamp_min_out(tout, From(self), From(elem));
 }
 
+#define DEFINE_BINARY_PAIR_OPS(Name, bop)                                                              \
+    void Pair##Name(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) { \
+        auto big = self, small = other;                                                                \
+        if (self->GetShape() < other->GetShape()) {                                                    \
+            big = other, small = self;                                                                 \
+        }                                                                                              \
+        auto tout = From(out);                                                                         \
+        std::vector<int64_t> offset(self->GetShape().size(), 0);                                       \
+        auto tbig = View(tout, ToShape64(big->GetShape()), offset);                                    \
+        tbig.copy_(From(big));                                                                         \
+        auto tsmall = View(tout, ToShape64(small->GetShape()), offset);                                \
+        torch::bop(tsmall, tsmall, From(small));                                                       \
+    }
+ 
+DEFINE_BINARY_PAIR_OPS(Sum, add_out)
+DEFINE_BINARY_PAIR_OPS(Max, max_out)
+DEFINE_BINARY_PAIR_OPS(Min, min_out)
+
 static void MatmulSplitK(torch::Tensor &out, const torch::Tensor &lhs, const torch::Tensor &rhs, int64_t kstep) {
     auto shapeL = lhs.sizes().vec();
     auto shapeR = rhs.sizes().vec();
@@ -234,7 +252,12 @@ void ExpandS(LogicalTensorDataPtr out, const Element &elem) {
 }
 
 void Expand(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
-    From(out) = From(self);
+    auto tself = From(self);
+    if (self->GetShape(-1) != out->GetShape(-1) && self->GetShape(-1) != 1) {
+        // possible block align
+        tself = tself.slice(tself.dim() - 1, 0, 1);
+    }
+    From(out) = tself;
 }
 
 void Copy(LogicalTensorDataPtr out, LogicalTensorDataPtr self, bool trans) {

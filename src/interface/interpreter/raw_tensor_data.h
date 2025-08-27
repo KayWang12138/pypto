@@ -230,7 +230,7 @@ struct LogicalTensorData {
     RawTensorDataPtr GetData() { return data_; }
 
     const std::vector<int> &GetShape() const { return shape_; }
-    int GetShape(int axis) const { return shape_[axis]; }
+    int GetShape(int axis) const { if (axis < 0) axis += shape_.size(); return shape_[axis]; }
     const std::vector<int> &GetValidShape() const { return validShape_; }
     const std::vector<int64_t> &GetStride() const { return stride_; }
     int64_t GetStride(int axis) const { return stride_[axis]; }
@@ -310,7 +310,7 @@ struct LogicalTensorData {
         std::vector<int> resultOffset = TensorOffset::Add(GetOffset(), viewOffset);
         auto rawShape = GetData()->GetShape();
         for (size_t i = 0; i < resultOffset.size(); i++) {
-            ASSERT(resultOffset[i] + viewShape[i] <= rawShape[i])
+            ASSERT(resultOffset[i] + viewShape[i] <= rawShape[i] || viewShape[i] == 0)
                 << "view shape out of range, offset " << resultOffset[i] << " view shape " << viewShape[i]
                 << " raw shape " << rawShape[i];
         }

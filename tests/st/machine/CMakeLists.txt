@@ -139,17 +139,12 @@ set(_CaseFilterList
         #===========================================================================
         # matmul Interpreter 功能用例
         #===========================================================================
-        # "DynamicMatmulInterpreterTest.mm_A_B_ND_bf16"
+        "DynamicMatmulInterpreterTest.mm_A_B_ND_bf16"
         "DynamicMatmulInterpreterTest.mm_A_B_NZ_bf16"
         "DynamicMatmulInterpreterTest.mm_A_Bt_ND_fp16"
         "DynamicMatmulInterpreterTest.mm_A_Bt_NZ_fp16"
-        # "DynamicMatmulInterpreterTest.mm_A_B_NZ_int8"
-        # "DynamicMatmulInterpreterTest.mm_A_Bt_NZ_int8"
-        # "DynamicMatmulInterpreterTest.mm_A_B_ND_bf16_tile1"
         "DynamicMatmulInterpreterTest.mm_A_Bt_ND_fp16_tile2"
-        # "DynamicMatmulInterpreterTest.mm_A_B_NZ_int8_tile3"
         "DynamicMatmulInterpreterTest.mm_A_Bt_NZ_int8_tile4"
-        # "DynamicMatmulInterpreterTest.mm_A_ND_B_ND_C_NZ"
         #===========================================================================
          # batchMatmul功能用例
         #===========================================================================
@@ -169,6 +164,10 @@ set(_CaseFilterList
         "DynamicBatchMatmulInterpreterTest.test_bmm_A_Bt_NZ_fp16"
         "DynamicBatchMatmulInterpreterTest.test_bmm_A_B_ND_bf16_tile1"
         "DynamicBatchMatmulInterpreterTest.bmm4D_A_B_NZ"
+        #===========================================================================
+        # NSA native spare attention Interpreter
+        #===========================================================================
+        "DynamicWinAttenInterpreterTest.test_DynAttn_nas_win_attn_s1_2_actseqlen_1024_mla_fp16_inter"
 
         #===========================================================================
          # Reshape功能用例

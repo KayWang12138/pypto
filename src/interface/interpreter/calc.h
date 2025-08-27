@@ -44,6 +44,11 @@ void Max(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataP
 void MinS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar);
 void MaxS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar);
 
+/* used by reducc op, if shape are not same, need masked */
+void PairSum(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other);
+void PairMax(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other);
+void PairMin(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other);
+
 void RowSumExpand(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim);
 void RowMinExpand(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim);
 void RowMaxExpand(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim);
