@@ -412,7 +412,7 @@ TEST_F(PreGraphTest, TestAssemble) {
 
     // ================== Verify the effect of the Pass ==================
     auto updated_operations = func->Operations();
-    int opSize = 30;
+    int opSize = 28;
 
     EXPECT_EQ(updated_operations.size(), opSize) << "After the Pass, there should be 30 operations";
     EXPECT_NE(memoryMapSize, 0) << "All op memory size should not be 0";

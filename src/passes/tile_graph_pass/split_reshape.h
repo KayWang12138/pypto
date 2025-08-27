@@ -188,11 +188,6 @@ private:
     Status UpdateForBeCoveredOtherCase(Function &function, Operation &op, const BeCoveredPara &para);
     Status ProcessBeCovered(Function &function, Operation &op, const CalcOverlapPara &para, const BeCoveredPara &beCoveredPara, LogicalTensorPtr &reshapeOutput);
     Status UpdateForBeCovered(Function &function, Operation &op, const CalcOverlapPara &para);
-    Status ProcessForAssembleAfterReshape(Function &function, Operation &op, const CalcOverlapPara &para, const AssemblePara &assemblePara);
-    Status UpdateForAssembleAfterReshapeWithUB(Operation &op, const AssemblePara &para);
-    Status UpdateForAssembleAfterReshapeWithDDR(Operation &op, const AssemblePara &para);
-    Status UpdateForAssembleAfterReshapeOtherCase(Function &function, Operation &op, const AssemblePara &para);
-    Status UpdateForAssembleAfterReshape(Function &function, Operation &op, const CalcOverlapPara &para);
     Status UpdateForMultitoOne(Operation &op, const CalcOverlapPara &para, const PerfectlyMatchWithAllPara &perfectlyMatchwithAllPara);
     Status ProcessMultitoOne(Function &function, Operation &op, const CalcOverlapPara &para, const ReshapeSourcePara &sourcePara);
     Status UpdateForPerfectlyMatchWithAllWithUB(Operation &op, const PerfectlyMatchWithAllPara &para);
