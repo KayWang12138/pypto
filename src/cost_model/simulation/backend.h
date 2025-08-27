@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <sys/types.h>
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "cost_model/simulation/CostModelInterface.h"
@@ -31,15 +32,17 @@ public:
     void SubmitSingleFuncToCostModel(Function *func);
     void SubmitLeafFunctionsToCostModel();
 
-    uint64_t seqPos = 0;
-    uint64_t taskIdPos = 1;
-    uint64_t rootIndexPos = 2;
-    uint64_t leafIndexPos = 3;
-    uint64_t opmagicPos = 4;
-    uint64_t coreTypePos = 5;
-    uint64_t psgIdPos = 6;
-    uint64_t funcHashPos = 7;
-    uint64_t succStartPos = 8;
+    uint64_t pos = 0;
+    uint64_t seqPos = pos++;
+    uint64_t taskIdPos = pos++;
+    uint64_t rootIndexPos = pos++;
+    uint64_t rootHashpos = pos++;
+    uint64_t opmagicPos = pos++;
+    uint64_t leafIndexPos = pos++;
+    uint64_t funcHashPos = pos++;
+    uint64_t coreTypePos = pos++;
+    uint64_t psgIdPos = pos++;
+    uint64_t succStartPos = pos++;
     uint64_t seqNumOffset = 32;
     Json ParseDynTopo(std::string &path);
     void SubmitTopo(std::string &path);

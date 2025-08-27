@@ -156,6 +156,7 @@ Json CostModelAgent::ParseDynTopo(std::string &path)
         auto coreType = static_cast<npu::tile_fwk::CoreType>(fields[coreTypePos]);
         taskJson["coreType"] = npu::tile_fwk::GetCoreTypeDict().Find(coreType);
         taskJson["rootIndex"] = fields[rootIndexPos];
+        taskJson["rootHash"] =  fields[rootHashpos];
         taskJson["leafIndex"] = fields[leafIndexPos];
         taskJson["opmagic"] = fields[opmagicPos];
         taskJson["psgId"] = fields[psgIdPos];

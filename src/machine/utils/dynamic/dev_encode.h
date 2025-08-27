@@ -548,6 +548,7 @@ struct InoutOperationAttr {
 };
 
 struct DevAscendFunction {
+    uint64_t rootHash;
     uint64_t funcKey;
     // source root function after duplication
     DevAscendFunction *sourceFunc{nullptr};
@@ -1729,10 +1730,10 @@ struct DevAscendFunctionDupped {
     void DumpTopo(std::ofstream &os, int seqNo, int funcIdx, const DevCceBinary *cceBinary) {
         auto func = GetSource();
         for (size_t opIdx = 0; opIdx < DupData()->GetSource()->GetOperationSize(); opIdx++) {
-            os << seqNo << "," << MakeTaskID(funcIdx, opIdx) << "," << func->funcKey << "," << func->GetOperationAttrCalleeIndex(opIdx) << ","
-               << func->GetOperationDebugOpmagic(opIdx) << ",";
             auto &cceInfo = cceBinary[func->GetOperationAttrCalleeIndex(opIdx)];
-            os << cceInfo.coreType << "," << cceInfo.psgId << "," << cceInfo.funcHash;
+            os << seqNo << "," << MakeTaskID(funcIdx, opIdx) << "," << func->funcKey << "," << func->rootHash << ","
+               <<func->GetOperationDebugOpmagic(opIdx) << "," << func->GetOperationAttrCalleeIndex(opIdx) << ","
+               << cceInfo.funcHash << "," << cceInfo.coreType << "," << cceInfo.psgId << ",";
             auto &succList = func->GetOperationDepGraphSuccList(opIdx);
             for (size_t j = 0; j < succList.size(); j++) {
                 os << "," << MakeTaskID(funcIdx, func->At(succList, j));

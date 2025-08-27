@@ -61,6 +61,7 @@ constexpr const unsigned MAX_TMP_BUF_SHAPE = 32 << 10;
 constexpr const int RANK1 = 1;
 constexpr const int RANK2 = 2;
 constexpr const int RANK3 = 3;
+constexpr const int SHAPE_DIM0 = 0;
 constexpr const int SHAPE_DIM1 = 1;
 constexpr const int SHAPE_DIM2 = 2;
 constexpr const int SHAPE_DIM3 = 3;

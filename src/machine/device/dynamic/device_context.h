@@ -23,6 +23,9 @@
 #include <utility>
 #include "machine/utils/device_log.h"
 #include "interface/utils/common.h"
+#ifndef __DEVICE__
+#include "interface/configs/config_manager.h"
+#endif
 
 #ifndef CONFIG_BAREMETAL
 #include <sys/mman.h>
@@ -195,15 +198,18 @@ struct DynDeviceTask {
     }
 
     void DumpTopo() {
+#ifndef __DEVICE__
         auto header = dynFuncData;
-        static std::ofstream of("./output/dyn_topo.txt");
+        std::string path = config::LogTopFolder() + "/dyn_topo.txt";
+        static std::ofstream of(path);
         if (of.tellp() == 0) {
-            of << "seqNo,taskId,rootIndex,leafIndex,opmagic,coreType,psgId,funcHash,successors\n";
+            of << "seqNo,taskId,rootIndex,rootHash,opmagic,leafIndex,leafHash,coreType,psgId,successors\n";
         }
         for (size_t funcIdx = 0; funcIdx < stitchedList.size(); funcIdx++) {
             stitchedList[funcIdx].DumpTopo(of, header->seqNo, funcIdx, cceBinary);
         }
         of.flush();
+#endif
     }
 };
 

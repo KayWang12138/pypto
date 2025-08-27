@@ -268,11 +268,18 @@ public:
      */
     auto GetData() const { return data_; }
 
+    void SetSymbol(std::initializer_list<std::string> symbols) const;
+
 private:
     std::shared_ptr<LogicalTensor> storage_;
     int index_{-1};
     BinDataPtr data_{};
 };
+
+/**
+ * Tensor Debug symbol
+*/
+#define ANNOTATE(X, ...) (X).SetSymbol({#X, ##__VA_ARGS__})
 
 /**
  * @brief Get the Input Shape Dim Size object

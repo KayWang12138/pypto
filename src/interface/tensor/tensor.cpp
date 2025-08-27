@@ -26,6 +26,10 @@
 
 using namespace npu::tile_fwk;
 
+namespace {
+    constexpr int MAX_SYMBOLS = 2;
+}
+
 Tensor::Tensor() : storage_(nullptr), index_(IdGen<IdType::TENSOR_INDEX>::Inst().NewId()) {
     Program::GetInstance().InsertAliveTensor(this);
 }
@@ -237,6 +241,16 @@ bool Tensor::GetCachePolicy(CachePolicy policy) const {
   }
   return false;
 }
+
+void Tensor::SetSymbol(std::initializer_list<std::string> symbols) const {
+    ASSERT(!empty(symbols) && symbols.size() <= MAX_SYMBOLS);
+    auto it = symbols.begin();
+    if (symbols.size() > 1) {
+        it++;
+    }
+    storage_->tensor->SetSymbol(*it);
+}
+
 
 SymbolicScalar npu::tile_fwk::GetInputShapeDimSize(const Tensor &t) {
     std::string getInputShapeDimSizeName = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::GetInputShapeDimSize);

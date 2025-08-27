@@ -23,15 +23,6 @@ def get_sematic(root_index, opmagic, func_table_data):
     return ""
 
 
-def get_leaf_name(root_index, opmagic, func_table_data):
-    if root_index >= len(func_table_data):
-        return ""
-    for call_op in func_table_data[root_index]["operations"]:
-        if call_op["opmagic"] == opmagic:
-            return call_op["funcName"]
-    return ""
-
-
 dt_mem_usage = {
     0: 0.5,
     1: 1,
@@ -161,6 +152,7 @@ def convert_operand_data(operand):
     tensor_info = dict()
     tensor_info['shape'] = operand['shape']
     tensor_info['dtype'] = operand['rawtensor']['datatype']
+    tensor_info['rawmagic'] = operand['rawtensor']['rawmagic']
     mem = dt_mem_usage[tensor_info['dtype']]
     for s in tensor_info['shape']:
         mem *= s

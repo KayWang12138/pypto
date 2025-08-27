@@ -231,7 +231,8 @@ private:
         }
         config::SetSimConfig("SIM_MODE", CostModel::SimMode::NORMAL);
         CostModelAgent costModelAgent;
-        std::string path = "./output/dyn_topo.txt";
+    
+        std::string path = config::LogTopFolder() + "/dyn_topo.txt";
         costModelAgent.SubmitTopo(path);
         costModelAgent.SubmitLeafFunctionsToCostModel();
         costModelAgent.RunCostModel();

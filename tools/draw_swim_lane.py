@@ -25,6 +25,8 @@ class TaskInfo:
             id  # task_id is stitchedStatic << 32 + stitchedRootIndex << 20 + opIndex
         )
         self.root_index = -1
+        self.root_hash = 0
+        self.opmagic = 0
         self.core_idx = 0
         self.core_type = ""
         self.psg_id_within_static = -1
@@ -67,9 +69,9 @@ class TaskInfo:
     def get_task_full_name(self):
         return (
             f"Task:[{self.formal_name()}], "
-            f"rootIndexInDynamic:{self.root_index}, "
-            f"psgIdInStatic:{self.psg_id_within_static}, "
-            f"func:{self.func_name}"
+            f"rootHash:{self.root_hash}, "
+            f"callOpMagic:{self.opmagic}, "
+            f"leafHash:{self.func_hash}"
         )
 
     def get_task_execution_time_analysis(self):
@@ -405,13 +407,13 @@ def build_swim_info(swim_data, topo_data, label_type: int = 0):
             )
             build_fake_entry(task_id)
             fake_task_list.append(task_id)
-        func_name = topo_task.get("funcName", "")
-        if func_name == "":
-            func_name = topo_task.get("leafFuncName", "")
-        func_name += f'[{str(topo_task.get("funcHash", ""))}]'
+        func_name = topo_task.get("funcName", "")        
         sematic_label = topo_task.get("semanticLabel", "")
         entry = total_tasks[task_id]
         entry.root_index = topo_task.get("rootIndex", -1)
+        entry.root_hash = topo_task.get("rootHash", -1)
+        entry.opmagic = topo_task.get("opMagic", -1)
+
         # should assert entry.psg_id_in_dyn == topo_task.get('leafIndex', -1) after dyn-static same code
         if label_type == 1:
             entry.color_label += sematic_label
@@ -865,18 +867,19 @@ def load_dyn_topo(file_path, func_table_data, func_data):
         for line in file:
             if len(line) > 0 and line[0].isalpha():
                 continue
-            fields = [int(x) for x in line.split(",")]
+            fields = [int(x) for x in line.strip().split(",") if x.strip()]
             (
                 seq_no,
                 task_id,
                 root_index,
-                leaf_index,
+                root_hash,
                 opmagic,
+                leaf_index,
+                func_hash,
                 core_type,
                 psg_id_within_root,
-                func_hash,
-            ) = fields[:8]
-            succs = fields[8:]
+            ) = fields[:9]
+            succs = fields[9:]
             topo.append(
                 {
                     "taskId": seq_no << 32 | task_id,
@@ -884,12 +887,11 @@ def load_dyn_topo(file_path, func_table_data, func_data):
                     "coreType": core_type,
                     "rootIndex": root_index,
                     "leafIndex": leaf_index,
+                    "rootHash": root_hash,
+                    "opMagic": opmagic,
                     "psgId": psg_id_within_root,
                     "funcHash": func_hash,
                     "semanticLabel": fcvt.get_sematic(
-                        root_index, opmagic, func_table_data
-                    ),
-                    "leafFuncName": fcvt.get_leaf_name(
                         root_index, opmagic, func_table_data
                     ),
                     "inoperandLabel": fcvt.get_in_out_operand_str(
@@ -1044,7 +1046,7 @@ def calculate_pipe_usage(path):
         elif 'AIV' in value.core_type:
             aiv_num += 1
         for entry in value.tasks:
-            func_name = entry.get_func_name_only()
+            func_name = entry.func_name()
             if func_name in leaf_funcs:
                 leaf_func = leaf_funcs[func_name]
                 entry.leaf_total_cycles = leaf_func.leaf_total_time

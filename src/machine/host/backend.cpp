@@ -675,6 +675,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache) {
 
         attr->devEncodeList[devRootKey].resize(size);
         DevAscendFunction *funcBin = reinterpret_cast<DevAscendFunction *>(&attr->devEncodeList[devRootKey][0]);
+        funcBin->rootHash = devRoot->GetFunctionHash().GetHash();
         funcBin->funcKey = devRootKey;
         funcBin->stackWorkSpaceSize = devTile->GetStackWorkespaceSize();
         EncodeDevAscendFunction(encodeDevAscendFunctionParam, size, funcBin);
