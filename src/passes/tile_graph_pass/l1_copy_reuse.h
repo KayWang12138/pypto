@@ -26,7 +26,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/utils/log.h"
-#include "passes/statistic/tensor_and_tile_graph_statistic.h"
+#include "passes/statistics/tensor_and_tile_graph_statistic.h"
 
 namespace npu::tile_fwk {
 class L1CopyInReuseRunner {

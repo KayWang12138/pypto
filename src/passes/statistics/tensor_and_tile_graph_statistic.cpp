@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "tensor_and_tile_graph_statistic.h"
+#include "../statistics/tensor_and_tile_graph_statistic.h"
 
 #include <sstream>
 #include <stdexcept>
@@ -99,8 +99,8 @@ void CalcTensorInfo(Function &function, json &report) {
     report["totalTensorCount"] = function.GetTensorMap().inverseMap_.size();
     report["maxConsumerCount"] = consumerMetric.GetMaxSize();
     report["maxConsumerTensors"] = *consumerMetric.GetMaxNodes();
-    report["maxProduerCount"] = producerMetric.GetMaxSize();
-    report["maxProduerTensors"] = *producerMetric.GetMaxNodes();
+    report["maxproducerCount"] = producerMetric.GetMaxSize();
+    report["maxproducerTensors"] = *producerMetric.GetMaxNodes();
 }
 
 void GetOpConnectionMap(Function &function,

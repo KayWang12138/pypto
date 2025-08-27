@@ -311,6 +311,7 @@ set(_CaseFilterList
         "TestSplitReshapePass.TestExceptionCase2"
         "TestSplitReshapePass.TestExceptionCase3"
         "TestSplitReshapePass.TestExceptionCase4"
+        "HealthReportTest.TestDD"
 )
 
 set(_Target ${TileFwkUTestNamePrefix}_passes)
