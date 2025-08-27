@@ -42,6 +42,7 @@ struct AttnTile {
     std::array<int, TILE_CUBE_DIMS> c1TileShape; // (m, M), (k, K), (n, N)
     std::array<int, TILE_VEC_DIMS> v1TileShape;
     std::array<int, TILE_CUBE_DIMS> c2TileShape; // (m, M), (k, K), (n, N)
+    std::array<int, TILE_VEC_DIMS> v2TileShape={16, 16};
 };
 
 struct CmpAttnTile {
@@ -50,6 +51,12 @@ struct CmpAttnTile {
     AttnTile attnTile;
     std::array<int, SHAPE_DIM2> castTile;
 };
+
+Tensor MlpSingleRope(const Tensor &x, const Tensor &cos, const Tensor &sin, MlpRopeTile &tileConfig);
+Tensor MlpCompress(const Tensor &x, const Tensor &w1, const Tensor &w2, MlpCmpTile &tileConfig);
+
+Tensor BatchMlpSingleRope(const Tensor &x, const Tensor &cos, const Tensor &sin, MlpRopeTile &tileConfig);
+Tensor BatchMlpCompress(const Tensor &x, const Tensor &w1, const Tensor &w2, MlpCmpTile &tileConfig);
 
 void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kvCache, const Tensor &krCache,
     const Tensor &cmpKvCache, const Tensor &cmpKrCache, const Tensor &blockTable, const Tensor &cmpBlockTable,

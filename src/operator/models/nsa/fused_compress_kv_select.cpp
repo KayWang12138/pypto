@@ -16,6 +16,7 @@
 #include "interface/operation/operation_impl.h"
 #include "interface/operation/operation.h"
 #include "interface/function/function.h"
+#include "operator/models/deepseek/deepseek_mla.h"
 #include "tilefwk/tensor.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/tensor/raw_tensor.h"
@@ -34,8 +35,8 @@ using namespace npu::tile_fwk;
 namespace npu::tile_fwk {
 
 Tensor MlpSingleRope(const Tensor &x, const Tensor &cos, const Tensor &sin, MlpRopeTile &tileConfig) {
-    // x: [cmpBlockSize, n2, dR], cos: [1, cmpBlockSize, dR], sin: [1, cmpBlockSize, dR]
-    assert(x->shape.size() == SHAPE_DIM3 && cos->shape.size() == SHAPE_DIM3 && sin->shape.size() == SHAPE_DIM3);
+    // x: [cmpBlockSize, dR], cos: [1, cmpBlockSize, dR], sin: [1, cmpBlockSize, dR]
+    ASSERT(x->shape.size() == SHAPE_DIM3 && cos->shape.size() == SHAPE_DIM3 && sin->shape.size() == SHAPE_DIM3);
 
     auto cmpSize = x->shape[NUM_VALUE_0];
     auto n2 = x->shape[NUM_VALUE_1];
@@ -71,6 +72,60 @@ Tensor MlpSingleRope(const Tensor &x, const Tensor &cos, const Tensor &sin, MlpR
     return res;
 }
 
+Tensor BatchMlpSingleRope(const Tensor &x, const Tensor &cos, const Tensor &sin, MlpRopeTile &tileConfig) {
+    (void)tileConfig;
+    assert(x->shape.size() == SHAPE_DIM2 && cos->shape.size() == SHAPE_DIM3 && sin->shape.size() == SHAPE_DIM3);
+
+    auto cmpSize = x->shape[NUM_VALUE_0];
+    auto dR = x->shape[NUM_VALUE_1];
+    auto xDtype = x->Datatype();
+
+    Program::GetInstance().GetTileShape().SetVecTileShapes(
+        tileConfig.threeDim[NUM_VALUE_0], tileConfig.threeDim[NUM_VALUE_1], tileConfig.threeDim[NUM_VALUE_2]);
+    auto castX = Cast(x, DT_FP32);
+    auto castCos = Cast(cos, DT_FP32);
+    auto castSin = Cast(sin, DT_FP32);
+
+    auto xView = Reshape(castX, {1, cmpSize, dR / NUM_2, NUM_2}); // (1, cmpBlockSize, dR / 2, 2)
+    Program::GetInstance().GetTileShape().SetVecTileShapes(tileConfig.fourDim[NUM_VALUE_0],
+        tileConfig.fourDim[NUM_VALUE_1], tileConfig.fourDim[NUM_VALUE_2], tileConfig.fourDim[NUM_VALUE_3]);
+    auto xTrans = Transpose(xView, {NUM_2, NUM_3});
+    auto xReSecond = Reshape(xTrans, {1, cmpSize, dR}); // (1, cmpBlockSize, dR)
+
+    Program::GetInstance().GetTileShape().SetVecTileShapes(
+        tileConfig.threeDim[NUM_VALUE_0], tileConfig.threeDim[NUM_VALUE_1], tileConfig.threeDim[NUM_VALUE_2]);
+    auto xEmbed = Add(Mul(xReSecond, castCos), Mul(RotateHalf(xReSecond), castSin)); // (1, cmpBlockSize, dR)
+    auto res = Cast(xEmbed, xDtype);                                                 // (n2, cmpBlockSize, dR)
+    return res;
+}
+
+Tensor BatchMlpCompress(const Tensor &x, const Tensor &w1, const Tensor &w2, MlpCmpTile &tileConfig) {
+    auto xDtype = x->Datatype();
+    auto c1Tile = tileConfig.c1TileShape;
+    auto c2Tile = tileConfig.c2TileShape;
+    auto v1Tile = tileConfig.v1TileShape;
+
+    Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_128, NUM_128);
+    ConfigManager::Instance().SetSemanticLabel("MlpCompress-1");
+    Program::GetInstance().GetTileShape().SetCubeTileShapes({c1Tile[NUM_VALUE_0], c1Tile[NUM_VALUE_1]},
+        {c1Tile[NUM_VALUE_2], c1Tile[NUM_VALUE_3]}, {c1Tile[NUM_VALUE_4], c1Tile[NUM_VALUE_5]}, true);
+    auto firstMm = Matrix::Matmul<false, false>(DT_FP32, x, w1); // (b, 2 * cmpBlockSize * d)
+    Program::GetInstance().GetTileShape().SetVecTileShapes(v1Tile[NUM_VALUE_0], v1Tile[NUM_VALUE_1]);
+    ConfigManager::Instance().SetSemanticLabel("MlpCompress-2");
+    auto sigTensor = Sigmoid(firstMm);
+    ConfigManager::Instance().SetSemanticLabel("MlpCompress-3");
+    auto castTensor = Cast(sigTensor, xDtype);
+
+    ConfigManager::Instance().SetSemanticLabel("MlpCompress-4");
+    Program::GetInstance().GetTileShape().SetCubeTileShapes({c2Tile[NUM_VALUE_0], c2Tile[NUM_VALUE_1]},
+        {c2Tile[NUM_VALUE_2], c2Tile[NUM_VALUE_3]}, {c2Tile[NUM_VALUE_4], c2Tile[NUM_VALUE_5]}, true);
+    auto res = Matrix::Matmul<false, false>(xDtype, castTensor, w2); // (b, d)
+    ConfigManager::Instance().SetSemanticLabel("MlpCompress-5");
+    Program::GetInstance().GetTileShape().SetVecTileShapes(v1Tile[NUM_VALUE_0], v1Tile[NUM_VALUE_1]);
+    ConfigManager::Instance().SetSemanticLabel("");
+    return res;
+}
+
 Tensor MlpCompress(const Tensor &x, const Tensor &w1, const Tensor &w2, MlpCmpTile &tileConfig) {
     // x: (cmpBlockSize, n2, d) , w1: (cmpBlockSize*d, 2*cmpBlockSize*d), w2: (2*cmpBlockSize*d, d)
     auto xDtype = x->Datatype();
@@ -84,29 +139,39 @@ Tensor MlpCompress(const Tensor &x, const Tensor &w1, const Tensor &w2, MlpCmpTi
     const int n = x->shape[NUM_VALUE_1];
     const int d = x->shape[NUM_VALUE_2];
 
+    ConfigManager::Instance().SetSemanticLabel("MlpCompress-0");
     Program::GetInstance().GetTileShape().SetVecTileShapes(
         transTile[NUM_VALUE_0], transTile[NUM_VALUE_1], transTile[NUM_VALUE_2]);
     auto xCast = Cast(x, DT_FP32);
     auto xTrans = Transpose(xCast, {NUM_VALUE_0, NUM_VALUE_1}); // (n2, cmpBlockSize, d)
     Program::GetInstance().GetTileShape().SetVecTileShapes(1, NUM_32, NUM_128);
+    ConfigManager::Instance().SetSemanticLabel("MlpCompress-1");
     auto xRe2 = Reshape(xTrans, {n, s * d}); // (n2, cmpBlockSize * d)
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, NUM_128);
+    Program::GetInstance().GetTileShape().SetVecTileShapes(1, NUM_64);
+    ConfigManager::Instance().SetSemanticLabel("MlpCompress-1.5");
     auto xCast2 = Cast(xRe2, xDtype);
 
+    ConfigManager::Instance().SetSemanticLabel("MlpCompress-2");
     Program::GetInstance().GetTileShape().SetCubeTileShapes({c1Tile[NUM_VALUE_0], c1Tile[NUM_VALUE_1]},
         {c1Tile[NUM_VALUE_2], c1Tile[NUM_VALUE_3]}, {c1Tile[NUM_VALUE_4], c1Tile[NUM_VALUE_5]}, true);
     auto firstMm = Matrix::Matmul<false, false>(DT_FP32, xCast2, w1); // (n2, 2 * cmpBlockSize * d)
     Program::GetInstance().GetTileShape().SetVecTileShapes(v1Tile[NUM_VALUE_0], v1Tile[NUM_VALUE_1]);
+    ConfigManager::Instance().SetSemanticLabel("MlpCompress-3");
     auto sigTensor = Sigmoid(firstMm);
+    ConfigManager::Instance().SetSemanticLabel("MlpCompress-4");
     auto castTensor = Cast(sigTensor, x->Datatype());
 
+    ConfigManager::Instance().SetSemanticLabel("MlpCompress-5");
     Program::GetInstance().GetTileShape().SetCubeTileShapes({c2Tile[NUM_VALUE_0], c2Tile[NUM_VALUE_1]},
         {c2Tile[NUM_VALUE_2], c2Tile[NUM_VALUE_3]}, {c2Tile[NUM_VALUE_4], c2Tile[NUM_VALUE_5]}, true);
     auto res = Matrix::Matmul<false, false>(DT_FP32, castTensor, w2); // (n2, d)
+    ConfigManager::Instance().SetSemanticLabel("MlpCompress-6");
     auto resRe = Reshape(res, {NUM_VALUE_1, n, d});
+    ConfigManager::Instance().SetSemanticLabel("MlpCompress-7");
     Program::GetInstance().GetTileShape().SetVecTileShapes(
         v2Tile[NUM_VALUE_0], v2Tile[NUM_VALUE_1], v2Tile[NUM_VALUE_2]);
     auto resCast = Cast(resRe, xDtype); // (1, n2, d)
+    ConfigManager::Instance().SetSemanticLabel("");
     return resCast;
 }
 

@@ -41,6 +41,7 @@ set(_CaseFilterList
         "NSAUtest.nsa_b_16_fp16_debug"
         "SlcAttnUtest.slc_attn_fp16"
         "KvSlcAttnUtest.kv_slc_attn_ut"
+        "KvCmpUtest.kv_compress_ut"
 
         # 前端表达'单 Op'用例
         "FunctionTest.TestAddTensorFunctionDim4"
