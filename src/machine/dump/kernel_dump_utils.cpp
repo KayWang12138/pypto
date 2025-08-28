@@ -39,22 +39,23 @@ inline size_t DataSizeAlign(const size_t bytes, const uint32_t aligns = 32U) {
     const size_t alignSize = (aligns == 0U) ? sizeof(uintptr_t) : aligns;
     return (((bytes + alignSize) - 1U) / alignSize) * alignSize;
 }
+}
 
-std::string GetCurrentLibPath() {
-    std::string currentLibPath;
-    Dl_info info;
-    if (dladdr(reinterpret_cast<void*>(GetCurrentLibPath), &info)) {
-        currentLibPath = std::string(info.dli_fname);
-        int32_t pos = currentLibPath.rfind('/');
-        if (pos >= 0) {
-            currentLibPath = currentLibPath.substr(0, pos);
-        }
+std::string GetDumpKernelPath() {
+  std::string currentLibPath;
+  Dl_info info;
+  if (dladdr(reinterpret_cast<void*>(GetDumpKernelPath), &info)) {
+    currentLibPath = std::string(info.dli_fname);
+    int32_t pos = currentLibPath.rfind('/');
+    if (pos >= 0) {
+      currentLibPath = currentLibPath.substr(0, pos);
     }
-    return currentLibPath;
-}
+  }
+  return currentLibPath;
 }
 
-bool KernelDumpUtils::DumpKernelFile(const DeviceAgentTask *deviceAgentTask, const std::string &kernelName, const std::string &dumpDirPath) {
+bool KernelDumpUtils::DumpKernelFile(const DeviceAgentTask *deviceAgentTask, const std::string &kernelName,
+                                     const std::string &dumpDirPath, const std::string &dyKernelPath) {
     if (deviceAgentTask == nullptr || deviceAgentTask->GetFunction() == nullptr) {
         return false;
     }
@@ -66,7 +67,7 @@ bool KernelDumpUtils::DumpKernelFile(const DeviceAgentTask *deviceAgentTask, con
         realDumpDirPath = RealPath(dumpDirPath);
     }
     std::string finalKernelName = kernelName.empty() ? deviceAgentTask->GetFunction()->GetMagicName() : kernelName;
-    if (!DumpBinFile(deviceAgentTask, finalKernelName, realDumpDirPath)) {
+    if (!DumpBinFile(deviceAgentTask, finalKernelName, realDumpDirPath, dyKernelPath)) {
         return false;
     }
 
@@ -74,14 +75,16 @@ bool KernelDumpUtils::DumpKernelFile(const DeviceAgentTask *deviceAgentTask, con
     return true;
 }
 
-bool KernelDumpUtils::DumpBinFile(const DeviceAgentTask *deviceAgentTask, const std::string &kernelName, const std::string &dumpDirPath) {
+bool KernelDumpUtils::DumpBinFile(const DeviceAgentTask *deviceAgentTask, const std::string &kernelName,
+                                  const std::string &dumpDirPath, const std::string &dyKernelPath) {
     KernelHeader kernelHeader;
     size_t offset = sizeof(kernelHeader);
     // op binary
     kernelHeader.dataOffset[static_cast<size_t>(KernelContextType::OpBinary)] = offset;
     Function *function = deviceAgentTask->GetFunction();
     std::vector<uint8_t> opBinData;
-    if (function->IsFunctionType(FunctionType::DYNAMIC) && function->GetDyndevAttribute() != nullptr) {
+    bool isDynamic = function->IsFunctionType(FunctionType::DYNAMIC);
+    if (isDynamic && function->GetDyndevAttribute() != nullptr) {
         opBinData = function->GetDyndevAttribute()->devProgBinary;
     }
 
@@ -99,10 +102,14 @@ bool KernelDumpUtils::DumpBinFile(const DeviceAgentTask *deviceAgentTask, const 
     offset += DataSizeAlign(opBinData.size());
 
     // kernel.o
-    std::string kernelPath = GetCurrentLibPath() + "/" + AICORE_KERNEL_FILE_NAME;
-    std::vector<uint8_t> kernelBinData = LoadFile(kernelPath);
-    if (kernelBinData.empty()) {
-        kernelPath = GetCurrentLibPath() + "/" + AICORE_KERNEL_FILE_PATH;
+    std::string kernelPath = GetDumpKernelPath() + "/" + AICORE_KERNEL_FILE_NAME;
+    std::vector<uint8_t> kernelBinData;
+    if (isDynamic) {
+      ALOG_INFO_F("Dynamic Kernel path %s.", dyKernelPath.c_str());
+      kernelBinData = LoadFile(dyKernelPath);
+    } else if (kernelBinData.empty()) {
+        kernelPath = GetDumpKernelPath() + "/" + AICORE_KERNEL_FILE_PATH;
+      ALOG_INFO_F("Kernel dump to %s.", kernelPath.c_str());
         kernelBinData = LoadFile(kernelPath);
         if (kernelBinData.empty()) {
             ALOG_ERROR_F("Kernel path[%] is not existed.", kernelPath.c_str());

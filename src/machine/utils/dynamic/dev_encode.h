@@ -264,7 +264,6 @@ struct DevCceBinary {
     uint32_t coreType;
     uint32_t psgId;
     uint64_t funcHash;
-    DevRelocVector<uint8_t> binary;
 };
 
 static_assert(sizeof(DynFuncBin) == sizeof(DevCceBinary));
@@ -1796,7 +1795,6 @@ struct DevAscendFunctionDupped {
             auto funcIndex = attrBase[0].Value();
             oss << "  [" << operIdx << "]  #funcHash: " << std::to_string(cceBinary[funcIndex].funcHash)
                 << " #funcIndex: " << funcIndex
-                << " #funcAddr: " << reinterpret_cast<uint64_t>(cceBinary[funcIndex].binary.Data())
                 << " #taskID:" << MakeTaskID(funcIdx, operIdx) << " #opMagic: " << func->GetOperationDebugOpmagic(operIdx)
                 << "\n";
             oss << "  #invokeAttrs : ";
@@ -1892,7 +1890,6 @@ struct DevAscendProgram {
     DevRelocVector<DevRelocVector<uint8_t>> devEncodeList;
     DevRelocVector<uint8_t> devEncodeDataList;
     DevRelocVector<DevCceBinary> cceCodeList;
-    DevRelocVector<uint8_t> cceCodeDataList;
     DevRelocVector<uint64_t> startArgsInputTensorSlotIndexList;
     DevRelocVector<uint64_t> startArgsOutputTensorSlotIndexList;
     DevRelocVector<uint64_t> startArgsInputSymbolIndexList;
@@ -1917,7 +1914,6 @@ struct DevAscendProgram {
      *      DevRelocVector<uint8_t> devEncodeList[]
      *      uint8_t devEncodeDataList[]
      *      DevRelocVector<uint8_t> cceCodeList[]
-     *      uint8_t cceCodeDataList[]
      *      uint64_t startArgsInputTensorSlotIndexListData[]
      *      uint64_t startArgsOutputTensorSlotIndexListData[]
      *      uint64_t startArgsInputSymbolIndexListData[]
@@ -1937,9 +1933,7 @@ struct DevAscendProgram {
         return localvec[index];
     }
 
-    void DumpCce(std::ostringstream& oss, int indent, bool dumpAddr = false) const {
-        const int WIDTH = 16;
-        const int ADDRESS_MIN_WIDTH = 6;
+    void DumpCce(std::ostringstream& oss, int indent) const {
         std::string INDENTINNER(indent + IDENT_SIZE, ' ');
         std::string INDENTINNERINNER(indent + IDENT2_SIZE, ' ');
         oss << INDENTINNER << "#cce:" << cceCodeList.size() << "\n";
@@ -1947,19 +1941,7 @@ struct DevAscendProgram {
             const DevCceBinary &cceCode = At(cceCodeList, i);
             oss << INDENTINNER << "#cce-" << i << " #CoreType:" << cceCode.coreType
                 << " #FuncHash:" << cceCode.funcHash;
-            if (dumpAddr) {
-                std::string address = AddressDescriptor::DumpAddress(reinterpret_cast<uintdevptr_t>(&At(cceCode.binary, 0)));
-                oss << " #CoreAddr:" << address;
-            }
             oss << "\n";
-
-            for (size_t j = 0; j < cceCode.binary.size(); j += WIDTH) {
-                oss << INDENTINNERINNER << AddressDescriptor::DumpAddress(j, ADDRESS_MIN_WIDTH) << ":";
-                for (size_t off = j; off < std::min(j + WIDTH, cceCode.binary.size()); off++) {
-                    oss << " " << DevAscendFunction::DumpByte(At(cceCode.binary, off));
-                }
-                oss << "\n";
-            }
         }
     }
 
@@ -2063,7 +2045,7 @@ struct DevAscendProgram {
 
         oss << "====\n"; // Dump control flow code (ends)
 
-        DumpCce(oss, indent, dumpAddr);
+        DumpCce(oss, indent);
         oss << "}";
         return oss.str();
     }
@@ -2174,13 +2156,7 @@ struct DevAscendProgram {
             devEncodeListPtr[i].DeviceRelocData(shift);
         }
         RelocOffset(shift, offset, devEncodeDataList);
-
-        auto cceCodeListPtr = RelocOffset(shift, offset, cceCodeList);
-        for (size_t i = 0; i < cceCodeList.size(); i++) {
-            cceCodeListPtr[i].binary.DeviceRelocData(shift);
-        }
-        RelocOffset(shift, offset, cceCodeDataList);
-
+        RelocOffset(shift, offset, cceCodeList);
         RelocOffset(shift, offset, startArgsInputTensorSlotIndexList);
         RelocOffset(shift, offset, startArgsOutputTensorSlotIndexList);
         RelocOffset(shift, offset, startArgsSymbolHandlerList);
@@ -2219,9 +2195,7 @@ private:
             bool fillContent);
     void InitDevEncodeList(
             uintdevptr_t &initOffset, const std::vector<std::vector<uint8_t>> &devEncodeListInput, bool fillContent);
-    void InitCceCodeList(
-            uintdevptr_t &initOffset, const std::vector<std::vector<uint8_t>> &cceCodeListInput,
-            const std::vector<CceCodeInfo> &cceInfo, bool fillContent);
+    void InitCceCodeList(uintdevptr_t &initOffset, const std::vector<CceCodeInfo> &cceInfo, bool fillContent);
     void InitPrefetchInfoList(
             uintdevptr_t &initOffset, const std::vector<L2Info> &l2InfoList, bool fillContent);
     void InitDisableL2List(uintdevptr_t &initOffset, const std::vector<uint8_t> &disableL2, bool fillContent);

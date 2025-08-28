@@ -14,6 +14,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <cstdlib>
 #include "interface/inner/tilefwk/tilefwk_api.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"

@@ -52,6 +52,7 @@ void *TileFwkCompile() {
     auto function = deviceAgentTask->compileTask->GetFunction();
     deviceAgentTask->compileInfo.distTilingManager = function->GetDistTilingManager();
     deviceAgentTask->compileInfo.commGroups = Program::GetInstance().GetCommGroupRecorder().Output();
+    std::string kernelPath;
     // if disk cache is matched, try to recover task info and bin
     if (task->GetCacheReuseType() == CacheReuseType::Bin) {
         if (!CacheManager::Instance().RecoverTask(task->GetCacheKey(), deviceAgentTask)) {
@@ -67,7 +68,7 @@ void *TileFwkCompile() {
 
         deviceAgentTask->compileInfo.workSpaceStackSize = function->GetStackWorkespaceSize();
         auto &cache = Program::GetInstance().GetFunctionCache();
-        (void)GenCode(deviceAgentTask->compileTask, deviceAgentTask->compileInfo.invokeParaOffset, cache);
+        (void)GenCode(deviceAgentTask->compileTask, deviceAgentTask->compileInfo.invokeParaOffset, cache, kernelPath);
         /* finish compile add function cache */
         cache.Insert(function->GetFunctionHash(), *function);
         deviceAgentTask->SetFunctionCache(cache.Get(function->GetFunctionHash()));
@@ -82,7 +83,7 @@ void *TileFwkCompile() {
     if (config::GetHostConfig(KEY_DUMP_BIN_AND_JSON, false)) {
         if (!KernelDumpUtils::DumpKernelFile(deviceAgentTask,
                     config::GetHostConfig(KEY_DUMP_KERNEL_NAME, ""),
-                    config::GetHostConfig(KEY_DUMP_BIN_AND_JSON_PATH, ""))) {
+                    config::GetHostConfig(KEY_DUMP_BIN_AND_JSON_PATH, ""), kernelPath)) {
             ALOG_ERROR_F("dump ast bin failed");
             return nullptr;
         }
@@ -185,7 +186,6 @@ bool TileOpCompile(const std::string &opType, const uint64_t configKey, const st
         ALOG_WARN("Fail to init host machine backend.");
         return false;
     }
-
     Program::GetInstance().GetConfig().Reset();
     config::SetHostConfig(KEY_DUMP_BIN_AND_JSON, true);
     config::SetHostConfig(KEY_DUMP_BIN_AND_JSON_PATH, dumpPath);

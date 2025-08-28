@@ -124,7 +124,6 @@ std::vector<uint8_t> LoadBinData(const std::string &binPath) {
 void FunctionCache::UpdateBinCache(const Function &func, CacheValue &value) {
     std::map<uint64_t, std::vector<uint8_t>> binMap;
     uint64_t totalSize = 0;
-
     for (auto &ele : func.programs_) {
         auto leafFuncAttr = ele.second->GetLeafFuncAttribute();
         ASSERT(leafFuncAttr != nullptr);

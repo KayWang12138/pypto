@@ -415,7 +415,7 @@ private:
 struct LeafFuncAttribute {
     std::string kernelName;    // 异构子图kernel函数名
     std::string binPath;       // 异构子图二进制文件路径
-    std::string srcHeaderPath; // 异构子图代码作为头文件的路径，用于machine生成代码时进行include
+    std::string kernelDeclare; // 异构子图代码的kernel声明，用于后续整体调用
     CoreType coreType{CoreType::INVALID};
 };
 

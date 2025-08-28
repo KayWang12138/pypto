@@ -227,7 +227,7 @@ TEST_F(TestCodegenDynBinary, AddUnalignLayout) {
 
 // funcHash: 553887321078969729
 
-[aicore] void TENSOR_L0_Unroll1_PATH0_3_0(CoreFuncParam* param, uint64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
+extern "C" [aicore] void TENSOR_L0_Unroll1_PATH0_3_0_4503599627370496(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
 float __ubuf__ *UB_S0_E16384 = (float __ubuf__ *)get_imm(0x0); // size: 0x4000 
 float __ubuf__ *UB_S16384_E32768 = (float __ubuf__ *)get_imm(0x4000); // size: 0x4000 
 uint64_t sym_18_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 0);

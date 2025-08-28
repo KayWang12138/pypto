@@ -18,7 +18,8 @@
 #include "interface/cache/function_cache.h"
 namespace npu::tile_fwk {
 MachineTask *GenCode(
-    MachineTask *task, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset, FunctionCache &cache);
+    MachineTask *task, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset, FunctionCache &cache,
+    std::string &kernelPath);
 
 struct Linker {
     SymbolicSymbolTable &symbolTable_;

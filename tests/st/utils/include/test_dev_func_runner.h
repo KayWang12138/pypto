@@ -124,7 +124,11 @@ public:
     }
 
 private:
-    DevFuncRunner(Function *function, const FuncRunnerConfig &config) : function_(function), config_(config) {}
+    DevFuncRunner(Function *function, const FuncRunnerConfig &config) : function_(function), config_(config) {
+        if (function != nullptr && function->GetDyndevAttribute() != nullptr) {
+            DeviceRunner::SetBinData(function->GetDyndevAttribute()->kernelBinary);
+        }
+    }
     const std::vector<uint8_t>& GetDevProg() const {
         return function_->GetDyndevAttribute()->devProgBinary;
     }

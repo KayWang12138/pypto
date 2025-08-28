@@ -64,6 +64,7 @@ public:
     int DynamicRun(rtStream_t stream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim = 25, int launchAicpuNum = 5);
     void InitDynamicArgs(DeviceArgs &args, int nrCore = CORE_DEFAULT_NUM);
     static int RegiserKernelBin(void **hdl);
+    static void SetBinData(const std::vector<uint8_t> &binBuf);
 private:
     DeviceRunner() = default;
     void *DevAlloc(int size);

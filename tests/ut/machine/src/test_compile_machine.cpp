@@ -169,6 +169,7 @@ TEST_F(HostMachineCompileTest, test_codegen_by_json) {
 
     MachineTask *task = new MachineTask(0, Program::GetInstance().GetCurrentFunction());
     auto deviceAgentTask = new DeviceAgentTask(task);
+    std::string kernelName;
     auto &cache = Program::GetInstance().GetFunctionCache();
-    (void)GenCode(deviceAgentTask->compileTask, deviceAgentTask->compileInfo.invokeParaOffset, cache);
+    (void)GenCode(deviceAgentTask->compileTask, deviceAgentTask->compileInfo.invokeParaOffset, cache, kernelName);
 }

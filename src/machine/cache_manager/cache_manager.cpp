@@ -27,6 +27,7 @@ namespace npu::tile_fwk {
 namespace {
 const std::string CACHE_FILE_PREFIX = "ast_op_";
 const std::string CACHE_BIN_FILE_SUFFIX = ".o";
+const std::string CACHE_KERNEL_FILE_SUFFIX = "_kernel.o";
 const std::string CACHE_LOCK_FILE_SUFFIX = ".lock";
 }
 CacheManager& CacheManager::Instance() {
@@ -90,8 +91,9 @@ void CacheManager::SaveTaskFile(const DeviceAgentTask *deviceAgentTask) const {
         return;
     }
     Function *function = deviceAgentTask->GetFunction();
-    std::string binFilePath =
-        cacheDirPath_ + "/" + CACHE_FILE_PREFIX + deviceAgentTask->compileTask->GetCacheKey() + CACHE_BIN_FILE_SUFFIX;
+    std::string basePath = cacheDirPath_ + "/" + CACHE_FILE_PREFIX + deviceAgentTask->compileTask->GetCacheKey();
+    std::string binFilePath = basePath + CACHE_BIN_FILE_SUFFIX;
+    std::string kernelFilePath = basePath + CACHE_KERNEL_FILE_SUFFIX;
     ALOG_DEBUG_F("Try to save bin file[%s], function type is [%s].", binFilePath.c_str(),
                  function->GetFunctionTypeStr().c_str());
     std::lock_guard<std::mutex> lock_guard(cacheMutex_);
@@ -109,6 +111,7 @@ void CacheManager::SaveTaskFile(const DeviceAgentTask *deviceAgentTask) const {
         }
         if (RealPath(binFilePath).empty()) {
             SaveFile(binFilePath, function->GetDyndevAttribute()->devProgBinary);
+            SaveFile(kernelFilePath, function->GetDyndevAttribute()->kernelBinary);
         }
         UnlockAndCloseFile(fp);
     }
@@ -139,13 +142,16 @@ bool CacheManager::RecoverTask(const std::string &cacheKey, DeviceAgentTask *dev
     }
     Function *function = deviceAgentTask->GetFunction();
     std::string cacheBinFile = cacheDirPath_ + "/" + CACHE_FILE_PREFIX + cacheKey + CACHE_BIN_FILE_SUFFIX;
+    std::string cacheKernelFile = cacheDirPath_ + "/" + CACHE_FILE_PREFIX + cacheKey + CACHE_KERNEL_FILE_SUFFIX;
     ALOG_DEBUG_F("Try to recover device task from bin file[%s], function type is [%s].", cacheBinFile.c_str(),
                  function->GetFunctionTypeStr().c_str());
+    auto attr = function->GetDyndevAttribute();
     std::lock_guard<std::mutex> lock_guard(cacheMutex_);
     if (function->IsFunctionType(FunctionType::DYNAMIC)) {
-        ALOG_INFO_F("Recover devProgBinary from bin file[%s].", cacheBinFile.c_str());
-        function->GetDyndevAttribute()->devProgBinary = LoadFile(cacheBinFile);
-        return !function->GetDyndevAttribute()->devProgBinary.empty();
+        ALOG_INFO_F("Recover binary from file[%s][%s].", cacheBinFile.c_str(), cacheKernelFile.c_str());
+        attr->devProgBinary = LoadFile(cacheBinFile);
+        attr->kernelBinary = LoadFile(cacheKernelFile);
+        return !attr->devProgBinary.empty() && !attr->kernelBinary.empty();
     }
     // recover binary for static graph, exclude static graph in dyn graph
     if ((deviceAgentTask->GetFunction()->IsFunctionTypeAndGraphType({FunctionType::STATIC}, {GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) &&

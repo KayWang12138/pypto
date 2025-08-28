@@ -33,14 +33,17 @@
 #define INLINE __attribute__((always_inline)) inline __aicore__
 #endif
 
+#define TO_ENTRY_IMPL(name, line, key, type) (name##line##key##type)
+#define TO_ENTRY(name, key, type) TO_ENTRY_IMPL(name, _, key, type)
+
 #ifdef __MIX__
 #ifdef __AIV__
-#define KERNEL_ENTRY(x) x##_0_mix_aiv
+#define KERNEL_ENTRY(x, y) TO_ENTRY(x, y, _mix_aiv)
 #else
-#define KERNEL_ENTRY(x) x##_0_mix_aic
+#define KERNEL_ENTRY(x, y) TO_ENTRY(x, y, _mix_aic)
 #endif
 #else
-#define KERNEL_ENTRY(x) x
+#define KERNEL_ENTRY(x, y) x
 #endif
 
 

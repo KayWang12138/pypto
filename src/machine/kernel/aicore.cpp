@@ -20,6 +20,17 @@
 #include <stdint.h>
 #include <cstdint>
 
+#define TO_STRING_IMPL(str) #str
+#define TO_STRING(str) TO_STRING_IMPL(str)
+
+#ifdef __HAS_SUB_FUNC__
+#if defined(__MIX__) && defined(__AIV__)
+#include TO_STRING(__HEAD_FILE__)
+#else
+#include TO_STRING(__HEAD_FILE__)
+#endif
+#endif
+
 using npu::tile_fwk::DynFuncHeader;
 using npu::tile_fwk::DynFuncData;
 using npu::tile_fwk::DynFuncBin;
@@ -51,13 +62,12 @@ enum DFX_STAGE_STATUS {
 struct ExecuteContext {
     __gm__ KernelArgs *args;
     uint32_t seqNo;
-    __gm__ DynFuncBin *funcBins;
     __gm__ DynFuncData *funcDataList;
     __gm__ CoreFunctionData *staticFuncData;
 };
 
-typedef void (*DynKernelFunc)(CoreFuncParam *ctx, int64_t gmStackAddr, __gm__ int64_t *hcclContext);
-typedef void (*StaticKernelFunc)(__gm__ int64_t *param, int64_t gmStackAddr, __gm__ int64_t *hcclContext, __gm__ int64_t *oriAddrPtr);
+typedef void (*StaticKernelFunc)(__gm__ int64_t *param, int64_t gmStackAddr, __gm__ int64_t *hcclContext, __gm__ int64_t *oriAddr);
+
 INLINE uint32_t GetNextTask(uint32_t lastTaskIdx) {
     uint32_t nextLowIdx;
     uint64_t coreStatus;
@@ -162,7 +172,7 @@ INLINE uint64_t getCoreFuncionData(__gm__ KernelArgs *args, int64_t lastFunc) {
         volatile __gm__ int64_t *shakebuffer = args->shakeBuffer;
         dcci(shakebuffer, SINGLE_CACHE_LINE, CACHELINE_OUT);
         auto newFunc = args->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX];
-        if (newFunc != lastFunc) {
+        if (newFunc != lastFunc && newFunc != 0) {
             dcci((__gm__ void *)newFunc, SINGLE_CACHE_LINE, CACHELINE_OUT);
             return newFunc;
         }
@@ -224,6 +234,7 @@ INLINE void ExecStaticCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
     AddMetricStatistic(ctx->args, 0, taskId, (int32_t)functionInfo->psgId, t1);
 }
 
+#ifdef __HAS_SUB_FUNC__
 INLINE void ExecDynCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
     uint64_t t1 = get_sys_cnt();
 
@@ -231,9 +242,9 @@ INLINE void ExecDynCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
 
     auto funcData = &ctx->funcDataList[FuncID(taskId)];
     auto opAttrs = &funcData->opAttrs[funcData->opAtrrOffsets[TaskID(taskId)]];
-    DynKernelFunc kernel = (DynKernelFunc)ctx->funcBins[opAttrs[0]].binAddr;
     CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl};
-    kernel(&param, funcData->stackWorkSpaceAddr + blockIdx * funcData->stackWorkSpaceSize, (__gm__ int64_t *)funcData->hcclContext);
+    CallSubFuncTask(opAttrs[0], &param, funcData->stackWorkSpaceAddr + blockIdx * funcData->stackWorkSpaceSize,
+                    (__gm__ int64_t *)funcData->hcclContext);
     SetStatus(ctx->args, STAGE_FINISH_EXEC_COREFUNC_KERNEL);
     PipeSync();
     SetStatus(ctx->args, STAGE_FINISH_PIPE_SYNC);
@@ -243,12 +254,12 @@ INLINE void ExecDynCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
     SetTaskStatistic(ctx->args, taskDfxPos, taskId, opAttrs[0], t1);
 #endif
 }
+#endif
 
 INLINE void InitCtx(ExecuteContext *ctx, uint64_t coreFuncData, bool isDyn) {
     if (isDyn) {
         __gm__ DynFuncHeader *header = (__gm__ DynFuncHeader *)coreFuncData;
         ctx->seqNo = header->seqNo;
-        ctx->funcBins = header->cceBinary;
         ctx->funcDataList = (__gm__ npu::tile_fwk::DynFuncData *)(header + 1);
         dcci((__gm__ void *)0, ENTIRE_DATA_CACHE, CACHELINE_OUT);
         return;
@@ -258,16 +269,17 @@ INLINE void InitCtx(ExecuteContext *ctx, uint64_t coreFuncData, bool isDyn) {
 }
 
 INLINE void ExecCoreFunctionKernel(ExecuteContext *ctx, uint32_t curTaskIdx, bool isDyn) {
+#ifdef __HAS_SUB_FUNC__
     if (isDyn) {
         ExecDynCoreFunctionKernel(ctx, curTaskIdx);
         return;
     }
-
+#endif
     ExecStaticCoreFunctionKernel(ctx, curTaskIdx);
 }
 
-extern "C" __global__ __aicore__ void KERNEL_ENTRY(ast_main)(int64_t ffts_addr, int64_t inputs, int64_t outputs,
-        int64_t workspace, int64_t tilingdata, int64_t cfgdata) {
+extern "C" __global__ __aicore__ void KERNEL_ENTRY(__OPTYPE__, __TILINGKEY__)(int64_t ffts_addr, int64_t inputs,
+        int64_t outputs, int64_t workspace, int64_t tilingdata, int64_t cfgdata) {
 #if defined(__AIV__) and defined(__MIX__)
     blockIdx = get_block_idx() * get_subblockdim() + get_subblockid() + get_block_num();
 #else
@@ -285,7 +297,6 @@ extern "C" __global__ __aicore__ void KERNEL_ENTRY(ast_main)(int64_t ffts_addr, 
     uint32_t lastTaskIdx;
     int64_t coreFuncData = 0;
     ExecuteContext ctx = {.args = args };
-
     //get core task data
     while (true) {
         lastTaskIdx = AICORE_TASK_INIT;

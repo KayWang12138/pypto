@@ -22,7 +22,6 @@
 #include <dirent.h>
 #include <dlfcn.h>
 #include <ftw.h>
-#include <fcntl.h>
 #include "interface/utils/log.h"
 
 namespace npu::tile_fwk {

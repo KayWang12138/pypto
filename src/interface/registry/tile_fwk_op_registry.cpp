@@ -14,6 +14,7 @@
  */
 
 #include "tilefwk/tile_fwk_op_registry.h"
+#include "interface/utils/op_info_manager.h"
 
 namespace npu::tile_fwk {
 OpImplRegister::OpImplRegister(const std::string &opType) : opType_(opType) {}
@@ -72,6 +73,8 @@ OpImplFunc OpImplRegistry::GetOpImplFunc(const std::string &opType, const uint64
     if (iter == opRegisterMap_.end()) {
         return nullptr;
     }
+    OpInfoManager::GetInstance().SetOpTilingKey(configKey);
+    OpInfoManager::GetInstance().SetOpType(opType);
     return iter->second->GetOpImplFunc(configKey);
 }
 

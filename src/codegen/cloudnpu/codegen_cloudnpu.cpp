@@ -28,6 +28,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/program/program.h"
 #include "codegen_vf.h"
+#include "interface/utils/op_info_manager.h"
 #include "codegen_cloudnpu.h"
 
 namespace npu::tile_fwk {
@@ -110,9 +111,10 @@ std::string CodeGenCloudNPU::GenInclude(const VFCodegen &vfCg) const {
     std::ostringstream include;
     // expression fusion
     if (ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_EXPRESSION_FUSION, false)) {
-        std::string expressionFileName = "../kernel_aicpu/expression.h";
+        uint64_t tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
+        std::string expFileName = "../kernel_aicpu/expression_" + std::to_string(tilingKey) + ".h";
         // expression.h depend on __TILE_FWK_AICORE__
-        include << "#define __TILE_FWK_AICORE__ 1\n#include \"" << expressionFileName << "\"\n";
+        include << "#define __TILE_FWK_AICORE__ 1\n#include \"" << expFileName << "\"\n";
     }
 
     if (vfCg.IsGenSuccess()) {
@@ -133,33 +135,34 @@ std::string CodeGenCloudNPU::GenCommentBeforeFuncHeader(Function &subFunc) {
 std::string CodeGenCloudNPU::GenKernelName(Function &topFunc, uint64_t programId) {
     std::ostringstream kernelName;
     kernelName << topFunc.GetMagicName() << "_" << programId;
+    uint64_t tilingKey = OpInfoManager::GetInstance().GetNewSubTilingKey();
+    kernelName << "_" << std::to_string(tilingKey);
     return kernelName.str();
 }
 
-std::string CodeGenCloudNPU::GenFuncHeader(uint64_t programId, Function &topFunc) const {
+std::string CodeGenCloudNPU::GenFuncHeader(uint64_t programId, Function &topFunc, CompileInfo &compileInfo) const {
     std::ostringstream funcHeader;
-    funcHeader << "[aicore] ";
-
-    bool isCompileByMachine = ConfigManager::Instance().GetCodeGenConfig(KEY_COMPILE_CCE_BY_MACHINE, false);
-    bool isUnderDyn = topFunc.rootFunc_->IsUnderDynamicFunction();
-    std::string declare = isCompileByMachine && isUnderDyn ? "__attribute__((always_inline)) inline " : "";
-    funcHeader << declare << "void ";
+    funcHeader << "extern \"C\" [aicore] void ";
     // kernel name
-    funcHeader << GenKernelName(topFunc, programId);
+    auto kernelName = GenKernelName(topFunc, programId);
+    compileInfo.SetKernelName(kernelName);
+    funcHeader << kernelName;
     // kernel func param
     std::string paramType = GetParamType(topFunc);
     funcHeader << "(" << paramType
-               << "* param, uint64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {\n";
-
+               << "* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam)";
+    auto funcDec = funcHeader.str() + ";";
+    compileInfo.SetFuncDeclare(funcDec);
+    funcHeader <<  " {\n";
     return funcHeader.str();
 }
 
-std::string CodeGenCloudNPU::GenFuncBodyBefore(
-    const std::pair<uint64_t, Function *> &subFuncPair, Function &topFunc, const VFCodegen &vfCg) const {
+std::string CodeGenCloudNPU::GenFuncBodyBefore(const std::pair<uint64_t, Function *> &subFuncPair,
+    Function &topFunc, const VFCodegen &vfCg, CompileInfo &compileInfo) const {
     std::ostringstream codeBefore;
     codeBefore << GenInclude(vfCg);
     codeBefore << GenCommentBeforeFuncHeader(*subFuncPair.second);
-    codeBefore << GenFuncHeader(subFuncPair.first, topFunc);
+    codeBefore << GenFuncHeader(subFuncPair.first, topFunc, compileInfo);
     return codeBefore.str();
 }
 
@@ -314,12 +317,12 @@ void CodeGenCloudNPU::GenCode(
             VFCodegen vfCodegen;
             vfCodegen.GenCode(subFunc, compileInfo.GetVFHeaderAbsPath());
             std::ostringstream leafKernelFunc;
-            leafKernelFunc << GenFuncBodyBefore(subFuncPair, topFunc, vfCodegen);
+            leafKernelFunc << GenFuncBodyBefore(subFuncPair, topFunc, vfCodegen, compileInfo);
             leafKernelFunc << GenFuncBody(*subFunc, topFunc);
             leafKernelFunc << GenFuncEnd();
             DumpCCE(compileInfo.GetCCEAbsPath(), leafKernelFunc.str());
             DoCompileCCE(compileInfo, "");
-            UpdateSubFunc(topFunc, subFuncPair, compileInfo);
+            UpdateSubFunc(subFuncPair, compileInfo);
         };
         tasks.push_back(task);
     }
@@ -327,15 +330,12 @@ void CodeGenCloudNPU::GenCode(
     ParallelExecuteAndWait(threadNum, tasks);
 }
 
-void CodeGenCloudNPU::UpdateSubFunc(
-    Function &topFunc, std::pair<uint64_t, Function *> subFuncPair, const CompileInfo &compileInfo) const {
-    uint64_t subProgramId = subFuncPair.first;
+void CodeGenCloudNPU::UpdateSubFunc(std::pair<uint64_t, Function *> subFuncPair, const CompileInfo &compileInfo) const {
     auto subFunc = subFuncPair.second;
     std::shared_ptr<LeafFuncAttribute> attr = std::make_shared<LeafFuncAttribute>();
-    std::string kernelName = GenKernelName(topFunc, subProgramId);
-    attr->kernelName = kernelName;
+    attr->kernelName = compileInfo.GetKernelName();
     attr->binPath = compileInfo.GetBinAbsPath();
-    attr->srcHeaderPath = compileInfo.GetCCEFileAsHeader();
+    attr->kernelDeclare = compileInfo.GetFuncDeclare();
     CoreType coreType = compileInfo.IsCube() ? CoreType::AIC : CoreType::AIV;
     attr->coreType = coreType;
     subFunc->SetLeafFuncAttribute(attr);

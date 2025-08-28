@@ -48,10 +48,7 @@ std::string GetResultFromCpp(const Function &function) {
     auto leafFuncAttr = subFunc->GetLeafFuncAttribute();
     ASSERT(leafFuncAttr != nullptr);
     std::string binPath = leafFuncAttr->binPath;
-    bool isCompileByMachine = ConfigManager::Instance().GetCodeGenConfig(KEY_COMPILE_CCE_BY_MACHINE, false);
-    bool isUnderDyn = subFunc->IsUnderDynamicFunction();
-    std::string suffix = isCompileByMachine && isUnderDyn ? ".h" : ".cpp";
-    std::string cppFile = binPath.substr(0, binPath.rfind('.')) + suffix;
+    std::string cppFile = binPath.substr(0, binPath.rfind('.')) + ".cpp";
     std::ifstream ifs(cppFile);
     std::string res((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
     ifs.close();

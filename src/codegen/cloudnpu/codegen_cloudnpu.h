@@ -33,23 +33,21 @@ public:
         : userSpecCCEDir_(std::move(cceDir)), isCube_(isCube), isUnderDyn_(isUnderDyn) {
         Init(topFunc, subProgramId);
     };
-
-    std::string GetCCEFileAsHeader() const {
-        bool isCompileByMachine = ConfigManager::Instance().GetCodeGenConfig(KEY_COMPILE_CCE_BY_MACHINE, false);
-        return isCompileByMachine && isUnderDyn_ ? cceFileName_ + ".h" : "";
-    }
     std::string GetVFHeaderAbsPath() const { return vfHeaderAbsPath_; }
     std::string GetCCEAbsPath() const { return cceAbsPath_; }
     void SetCCEAbsPath(const std::string &cceAbsPath) { cceAbsPath_ = cceAbsPath; }
 
     std::string GetBinAbsPath() const { return binAbsPath_; }
     void SetBinAbsPath(const std::string &binAbsPath) { binAbsPath_ = binAbsPath; }
-
     static bool IsNeedCompileCCE() {
         bool isNeedCompile = ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, true);
         return isNeedCompile;
     }
 
+    void SetKernelName(const std::string &kernelName) { kernelName_ = kernelName; }
+    std::string GetKernelName() const { return kernelName_; }
+    void SetFuncDeclare(const std::string &funcDeclare) { funcDeclare_ = funcDeclare; }
+    std::string GetFuncDeclare() const { return funcDeclare_; }
     bool IsCube() const { return isCube_; }
 
 private:
@@ -70,8 +68,7 @@ private:
         vfHeaderAbsPath_ = ss.str();
     }
     std::string GetSuffix() const {
-        bool isCompileByMachine = ConfigManager::Instance().GetCodeGenConfig(KEY_COMPILE_CCE_BY_MACHINE, false);
-        std::string suffix = isCompileByMachine && isUnderDyn_ ? ".h" : ".cpp";
+        std::string suffix = ".cpp";
         return suffix;
     }
 
@@ -81,6 +78,8 @@ private:
     std::string cceFileName_;
     std::string cceAbsPath_;
     std::string binAbsPath_;
+    std::string kernelName_;
+    std::string funcDeclare_;
     std::string vfHeaderAbsPath_;
 };
 
@@ -98,11 +97,11 @@ public:
     std::string GenAllocForLocalBuffer(const Operation &op, SymbolManager &memAlloc) const;
 
 private:
-    std::string GenFuncBodyBefore(
-        const std::pair<uint64_t, Function *> &subFuncPair, Function &topFunc, const VFCodegen &vfCg) const;
+    std::string GenFuncBodyBefore(const std::pair<uint64_t, Function *> &subFuncPair, Function &topFunc,
+                                  const VFCodegen &vfCg, CompileInfo &compileInfo) const;
     std::string GenInclude(const VFCodegen &vfCg) const;
     static std::string GenCommentBeforeFuncHeader(Function &subFunc);
-    std::string GenFuncHeader(uint64_t programId, Function &topFunc) const;
+    std::string GenFuncHeader(uint64_t programId, Function &topFunc, CompileInfo &compileInfo) const;
     std::string GenFuncBody(Function &subFunc, Function &topFunc) const;
     static std::string GenFuncEnd();
     static std::string GenKernelName(Function &topFunc, uint64_t programId);
@@ -122,8 +121,7 @@ private:
 
     bool HandleForAICpuSubFunc(Function &subFunc);
 
-    void UpdateSubFunc(
-        Function &topFunc, std::pair<uint64_t, Function *> subFuncPair, const CompileInfo &compileInfo) const;
+    void UpdateSubFunc(std::pair<uint64_t, Function *> subFuncPair, const CompileInfo &compileInfo) const;
 
     bool isUnderDynamicFunction_{false};
 };

@@ -45,9 +45,12 @@ struct KernelHeader
 };
 #pragma pack()
 
+std::string GetDumpKernelPath();
+
 class KernelDumpUtils {
 public:
-    static bool DumpKernelFile(const DeviceAgentTask *deviceAgentTask, const std::string &kernelName, const std::string &dumpDirPath);
+    static bool DumpKernelFile(const DeviceAgentTask *deviceAgentTask, const std::string &kernelName,
+                               const std::string &dumpDirPath, const std::string &dyKernelPath);
     static void WriteFatbinJson(const std::vector<JsonInfo> &allBinJsonInfo, const std::string &fatbinJsonPath,
                                 const std::string &binFileName);
     static bool WriteBufferToFatbin(FatbinHeadInfo &fatbinHeadInfo, const std::string &path,
@@ -57,7 +60,8 @@ public:
     static void* LoadTileFwkImplOpLib();
     static void FreeOpHandle(void *opLibHandle);
 private:
-    static bool DumpBinFile(const DeviceAgentTask *deviceAgentTask, const std::string &kernelName, const std::string &dumpDirPath);
+    static bool DumpBinFile(const DeviceAgentTask *deviceAgentTask, const std::string &kernelName,
+                            const std::string &dumpDirPath, const std::string &dyKernelPath);
     static void DumpJsonFile(const DeviceAgentTask *deviceAgentTask, const std::string &kernelName, const std::string &dumpDirPath);
 };
 }

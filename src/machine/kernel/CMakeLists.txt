@@ -17,6 +17,9 @@ set(AI_CORE_FLAGS
     -mllvm -cce-aicore-addr-transform \
     -mllvm -cce-aicore-dcci-insert-for-scalar=false \
     -D__MIX__ \
+    -D__STATIC_KERNEL__ \
+    -D__TILINGKEY__=0   \
+    -D__OPTYPE__=tilefwk   \
     -I${TILE_FWK_SRC_ROOT}/src"
 )
 

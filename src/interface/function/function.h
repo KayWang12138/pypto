@@ -334,7 +334,6 @@ struct DyndevFunctionAttribute {
     std::unordered_map<int, std::unordered_map<Function *, int>> slotRootOutcastDict; // sloIndex -> root -> utcastIndex
 
     std::vector<std::vector<uint8_t>> devEncodeList;
-    std::vector<std::vector<uint8_t>> cceCodeList;
     std::vector<CceCodeInfo> cceCodeInfo;
     std::vector<L2Info> l2InfoList;
     std::vector<uint8_t> disableL2List;
@@ -413,7 +412,6 @@ public:
 
     int magicSeed_{0};
     int opSeed_{FUNCTION_MAX_INCASTS};
-
     SubfuncTopologyInfoTy topoInfo_; // root function持有，对应1.0的SubgraphTopologyInfoTy
     std::map<uint64_t, Function*> programs_; // root function持有，所有异构的leaf function
     Function *rootFunc_ = nullptr; // TileGraph和RootGraph都需要保留，且需要映射关系

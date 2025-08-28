@@ -1359,26 +1359,16 @@ void DevAscendProgram::InitDevEncodeList(
     }
     devEncodeDataList.HostInitDataSizeOffset(initOffset, offset);
 }
-void DevAscendProgram::InitCceCodeList(
-        uintdevptr_t &initOffset, const std::vector<std::vector<uint8_t>> &cceCodeListInput,
-    const std::vector<CceCodeInfo> &cceInfo, bool fillContent) {
-    cceCodeList.HostInitDataSizeOffset(initOffset, cceCodeListInput.size());
-    cceCodeDataList.HostInitDataSizeOffset(initOffset, 0);
-    uint64_t offset = 0;
-    for (size_t i = 0; i < cceCodeListInput.size(); i++) {
+void DevAscendProgram::InitCceCodeList(uintdevptr_t &initOffset, const std::vector<CceCodeInfo> &cceInfo,
+                                       bool fillContent) {
+    cceCodeList.HostInitDataSizeOffset(initOffset, cceInfo.size());
+    for (size_t i = 0; i < cceInfo.size(); i++) {
         ONFILLCONTENT {
-            cceCodeList[i].binary.HostAssignRangeOffsetSize(cceCodeDataList, offset, cceCodeListInput[i].size());
             cceCodeList[i].coreType = cceInfo[i].coreType;
             cceCodeList[i].psgId = cceInfo[i].psgId;
             cceCodeList[i].funcHash = cceInfo[i].funcHash;
         };
-        ONFILLCONTENT {
-            memcpy_s(cceCodeList[i].binary.Data(), cceCodeList[i].binary.size(), cceCodeListInput[i].data(),
-                cceCodeListInput[i].size());
-        };
-        offset += ALIGN_UP(cceCodeListInput[i].size(), sizeof(uint64_t));
     }
-    cceCodeDataList.HostInitDataSizeOffset(initOffset, offset);
 }
 
 void DevAscendProgram::InitPrefetchInfoList(uintdevptr_t &initOffset, const std::vector<L2Info> &l2InfoList,
@@ -1539,7 +1529,7 @@ struct EncodeDevAscendProgramInfo {
         devProg->InitControlFlowBinary(initOffset, dyndevAttr->hostControlFlowBinary, dyndevAttr->devControlFlowBinary,
             fillContent);
         devProg->InitDevEncodeList(initOffset, dyndevAttr->devEncodeList, fillContent);
-        devProg->InitCceCodeList(initOffset, dyndevAttr->cceCodeList, dyndevAttr->cceCodeInfo, fillContent);
+        devProg->InitCceCodeList(initOffset, dyndevAttr->cceCodeInfo, fillContent);
         devProg->InitStartArgsABIParamList(
             initOffset,
             dyndevAttr->inoutLink.inputSlotIndexList,

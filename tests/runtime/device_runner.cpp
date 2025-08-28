@@ -27,10 +27,12 @@
 #include "runtime/mem.h"
 #include "machine/utils/device_switch.h"
 #include "interface/utils/common.h"
+#include "interface/utils/file_utils.h"
+#include "interface/configs/config_manager.h"
+#include "interface/utils/op_info_manager.h"
 
 extern char _binary_kernel_o_start[];
 extern char _binary_kernel_o_end[];
-
 
 constexpr int32_t AICORE_ADDR_TYPE = 2; // nocache Addr type for aicore/aicpu map
 constexpr int32_t PMU_ADDR_TYPE = 3;    // nGnRnE Addr type for Geting pmuInfo
@@ -359,7 +361,8 @@ int DeviceRunner::launchDynamicAiCore(rtStream_t stream, AstKernelArgs *kernelAr
     std::vector<void *> kArgs = {nullptr, nullptr, nullptr, nullptr, nullptr, kernelArgs->cfgdata};
     rtArgs.args = kArgs.data();
     rtArgs.argsSize = kArgs.size() * sizeof(int64_t);
-    return rtKernelLaunchWithHandleV2(binHdl_, 0, blockDim_, &rtArgs, nullptr, stream, nullptr);
+    uint64_t tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
+    return rtKernelLaunchWithHandleV2(binHdl_, tilingKey, blockDim_, &rtArgs, nullptr, stream, nullptr);
 }
 
 int DeviceRunner::launchDynamicAiCpu(rtStream_t stream, AstKernelArgs *kArgs) {
@@ -480,17 +483,32 @@ int DeviceRunner::DynamicRun(rtStream_t stream, int64_t taskId, AstKernelArgs *k
     return Synchronize(stream);
 }
 /**************************** DynamicFunction *****************************/
+std::vector<uint8_t> g_binBuf;
+
+void DeviceRunner::SetBinData(const std::vector<uint8_t> &binBuf) {
+  g_binBuf = binBuf;
+  ALOG_DEBUG_F("Set kernel size:%zu.", g_binBuf.size());
+  return;
+}
 
 int DeviceRunner::RegiserKernelBin(void **hdl) {
-    ALOG_INFO_F("start RegiserKernelBin...");
-    void *bin = _binary_kernel_o_start;
-    size_t binSize = _binary_kernel_o_end - _binary_kernel_o_start;
+    void *bin = nullptr;
+    size_t binSize = 0;
+    if (g_binBuf.size() != 0) {
+        bin = g_binBuf.data();
+        binSize = g_binBuf.size();
+        ALOG_DEBUG_F("Reg dynamic bin size %zu.", binSize);
+    } else {
+        bin = _binary_kernel_o_start;
+        binSize = _binary_kernel_o_end - _binary_kernel_o_start;
+        ALOG_DEBUG_F("Reg static bin size %zu.", binSize);
+    }
     rtDevBinary_t binary{.magic = RT_DEV_BINARY_MAGIC_ELF, .version = 0, .data = bin, .length = binSize};
     int rc = rtRegisterAllKernel(&binary, hdl);
     if (rc != 0) {
         ALOG_ERROR("RegiserKernelBin failed\n");
     }
-    ALOG_INFO_F("finish RegiserKernelBin...");
+    ALOG_DEBUG_F("finish RegiserKernelBin...");
     return rc;
 }
 
