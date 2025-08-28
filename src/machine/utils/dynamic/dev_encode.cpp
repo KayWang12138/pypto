@@ -314,15 +314,15 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
 
         // file linkedIncastId
         auto outIncastLinkMap = param.devRoot->outIncastLinkMap;
-        ALOG_ERROR_F("devRoot is %s", param.devRoot->GetRawName().c_str());
+        ALOG_DEBUG_F("devRoot is %s", param.devRoot->GetRawName().c_str());
         for (size_t i = 0; i < rawList.size(); i++) {
             auto &encoded = *GetRawTensor(i);
             if (outIncastLinkMap.find(rawList[i]) != outIncastLinkMap.end()) {
                 encoded.linkedIncastId = incastRawList.GetIndex(outIncastLinkMap[rawList[i]]); //换成incast的下标 ioidx
-                ALOG_ERROR_F("linkedIncastId is %d", encoded.linkedIncastId);
+                ALOG_DEBUG_F("linkedIncastId is %d", encoded.linkedIncastId);
             } else {
                 encoded.linkedIncastId = -1;
-                ALOG_ERROR_F("linkedIncastId is %d", encoded.linkedIncastId);
+                ALOG_DEBUG_F("linkedIncastId is %d", encoded.linkedIncastId);
             }
         }
     }; // ONFILLCONTENT
