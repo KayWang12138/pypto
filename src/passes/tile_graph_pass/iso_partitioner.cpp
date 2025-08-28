@@ -100,11 +100,19 @@ uint64_t OperationGraphInfo::GetHash(const Operation *op) const
         hashString.append("IOperand-");
         hashString.append(std::to_string(tensor->GetMemoryTypeOriginal()));
         hashString.append(std::to_string(tensor->tensor->datatype));
+        for (auto tensorDim : tensor->shape) {
+            hashString.append(std::to_string(tensorDim));
+            hashString.append("-");
+        }
     }
     for (auto tensor : op->GetOOperands()) {
         hashString.append("OOperand-");
         hashString.append(std::to_string(tensor->GetMemoryTypeOriginal()));
         hashString.append(std::to_string(tensor->tensor->datatype));
+        for (auto tensorDim : tensor->shape) {
+            hashString.append(std::to_string(tensorDim));
+            hashString.append("-");
+        }
     }
     return std::hash<std::string>{}(hashString);
 }
@@ -347,7 +355,9 @@ Status NodeGraphInfo::MergeSrcToDstIsland(const std::shared_ptr<OperationGraphIn
     if (operationGraphInfo->CoreTypeMergeable(coreTypes)) {
         parent[srcParent] = dstParent;
     } else {
-        ALOG_ERROR_F("Try to merge not mergeable operation pair.");
+        ALOG_ERROR_F("Try to merge not mergeable operations: %d, %d, %d, %d.",
+            operationGraphInfo->opList_[src]->GetOpMagic(), operationGraphInfo->opList_[dst]->GetOpMagic(),
+            operationGraphInfo->opList_[srcParent]->GetOpMagic(), operationGraphInfo->opList_[dstParent]->GetOpMagic());
         return FAILED;
     }
     return SUCCESS;
