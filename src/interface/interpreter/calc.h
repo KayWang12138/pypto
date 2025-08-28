@@ -19,6 +19,12 @@
 
 namespace npu::tile_fwk::calc {
 
+struct MatMulSetParam {
+    bool aTrans = false;
+    bool bTrans = false;
+    int64_t kStep = 0;
+};
+
 extern "C" {
 const char *Model();
 void Dump(std::ostream &os, LogicalTensorDataPtr self);
@@ -69,8 +75,10 @@ void ReduceAcc(LogicalTensorDataPtr out, const std::vector<LogicalTensorDataPtr>
 void Copy(LogicalTensorDataPtr out, LogicalTensorDataPtr self, bool trans = false);
 
 // matmul
+void FormatND2NZ(LogicalTensorDataPtr inputTensor);
+
 void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, LogicalTensorDataPtr acc,
-    bool atrans, bool btrans, int64_t kstep);
+            MatMulSetParam &param);
 }
 
 #ifndef ENABLE_VERIFIER
@@ -83,14 +91,16 @@ inline std::ostream &operator<<(std::ostream &os, LogicalTensorDataPtr self) {
 }
 
 template <bool aTrans = false, bool bTrans = false>
-inline void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, int64_t kstep = 0) {
-    MatMul(out, self, other, nullptr, aTrans, bTrans, kstep);
+inline void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, int64_t kStep = 0) {
+    MatMulSetParam param = {aTrans, bTrans, kStep};
+    MatMul(out, self, other, nullptr, param);
 }
 
 template <bool aTrans = false, bool bTrans = false>
 inline void AccMatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
-    LogicalTensorDataPtr acc, int64_t kstep = 0) {
-    MatMul(out, self, other, acc, aTrans, bTrans, kstep);
+                      LogicalTensorDataPtr acc = nullptr, int64_t kStep = 0) {
+    MatMulSetParam param = {aTrans, bTrans, kStep};
+    MatMul(out, self, other, acc, param);
 }
 
 } // namespace npu::tile_fwk::calc

@@ -64,6 +64,19 @@ void SetMatmulAttr(Operation &op, const std::tuple<LogicalTensorPtr, LogicalTens
     op.SetAttribute(A_MUL_B_ACT_N, matrixSize[N_INDEX]);
 }
 
+template <bool isTrans>
+std::vector<SymbolicScalar> GetValidShapeFromTranspose(LogicalTensorPtr &l0Tensor)
+{
+    auto l0ValidShape = l0Tensor->GetDynValidShape();
+    if (l0ValidShape.empty()) {
+        return l0ValidShape;
+    }
+    if constexpr (isTrans) {
+        std::swap(l0ValidShape.at(0), l0ValidShape.at(1));
+    }
+    return l0ValidShape;
+}
+
 template <bool isTransA = false, bool isTransB = false>
 void CollectSubAMulB(Function &function, const CollectSubAMulBPara &args, AggregationMap &aggregations,
     const std::vector<int> &l1Offset) {
@@ -92,23 +105,14 @@ void CollectSubAMulB(Function &function, const CollectSubAMulBPara &args, Aggreg
                                 aTensorPtr->View(function, sizeVecA, {mL0Idx, posK[0] + kL0Idx});
                 auto bL0Tensor = isTransB ? bTensorPtr->View(function, sizeVecB, {nL0Idx, posK[1] + kL0Idx}) :
                                             bTensorPtr->View(function, sizeVecB, {posK[1] + kL0Idx, nL0Idx});
-                
-                auto validShapeA = aL0Tensor->GetDynValidShape();
-                if (isTransA) {
-                    std::swap(validShapeA[0], validShapeA[1]);
-                }
 
+                auto aL0ValidShape = GetValidShapeFromTranspose<isTransA>(aL0Tensor);
                 auto aL0LogicalTensor = std::make_shared<LogicalTensor>(function, aTensorPtr->Datatype(),
-                    std::vector<int>{mL0size, kL0size}, validShapeA, "a_l0", aTensorPtr->nodetype,
+                    std::vector<int>{mL0size, kL0size}, aL0ValidShape, "a_l0", aTensorPtr->nodetype,
                     aTensorPtr->tensorfmt);
-
-                auto validShapeB = bL0Tensor->GetDynValidShape();
-                if (isTransB) {
-                    std::swap(validShapeB[0], validShapeB[1]);
-                }
-
+                auto bL0ValidShape = GetValidShapeFromTranspose<isTransB>(bL0Tensor);
                 auto bL0LogicalTensor = std::make_shared<LogicalTensor>(function, bTensorPtr->Datatype(),
-                    std::vector<int>{kL0size, nL0size}, validShapeB, "b_l0", bTensorPtr->nodetype,
+                    std::vector<int>{kL0size, nL0size}, bL0ValidShape, "b_l0", bTensorPtr->nodetype,
                     bTensorPtr->tensorfmt);
                 function.AddOperation(opCodeA, {aL0Tensor}, {aL0LogicalTensor});
                 function.AddOperation(opCodeB, {bL0Tensor}, {bL0LogicalTensor});
@@ -388,7 +392,7 @@ void CheckMatMulOperandsValid(const Tensor &operand1, const Tensor &operand2) {
         ASSERT(operand1->shape.back() <= SHAPE_INNER_AXIS_MAX_SIZE);
         if (isTransA) { // nd A转置 ml0需要32B对齐
             ASSERT(mL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0);
-        } 
+        }
     } else {
         if (isTransA) {
             ASSERT(mL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0);
@@ -456,7 +460,7 @@ void TensorInnerAtMulB(Function &function, const LogicalTensorPtr &operand1, con
     const LogicalTensorPtr &result) {
     ASSERT(operand1->shape.size() == operand2->shape.size());
     if (!operand1->GetDynValidShape().empty() && !operand2->GetDynValidShape().empty()) {
-        result->UpdateDynValidShape({operand1->GetDynValidShape()[0], operand2->GetDynValidShape()[0]});
+        result->UpdateDynValidShape({operand1->GetDynValidShape()[1], operand2->GetDynValidShape()[1]});
     }
     auto &op = function.AddOperation(Opcode::OP_AT_MUL_B, {operand1, operand2}, {result});
     SetMatmulAttr(op);
@@ -466,7 +470,7 @@ void TensorInnerAtMulBt(Function &function, const LogicalTensorPtr &operand1, co
     const LogicalTensorPtr &result) {
     ASSERT(operand1->shape.size() == operand2->shape.size());
     if (!operand1->GetDynValidShape().empty() && !operand2->GetDynValidShape().empty()) {
-        result->UpdateDynValidShape({operand1->GetDynValidShape()[0], operand2->GetDynValidShape()[0]});
+        result->UpdateDynValidShape({operand1->GetDynValidShape()[1], operand2->GetDynValidShape()[0]});
     }
     auto &op = function.AddOperation(Opcode::OP_AT_MUL_BT, {operand1, operand2}, {result});
     SetMatmulAttr(op);
@@ -621,7 +625,7 @@ Tensor ABatchMulB3D(DataType dataType, const Tensor &operand1, const Tensor &ope
 
     const int orgM = isTransA ? operand1->shape[SHAPE_DIM2] : operand1->shape[1];
     const int orgKa = isTransA ? operand1->shape[1] : operand1->shape[SHAPE_DIM2];
-    const int orgKb = isTransB ? operand2->shape[2] : operand2->shape[1]; 
+    const int orgKb = isTransB ? operand2->shape[2] : operand2->shape[1];
     const int orgN = isTransB ? operand2->shape[1] :operand2->shape[SHAPE_DIM2];
     ASSERT(orgKa == orgKb);
     int firstDimA = isTransA ? orgKa : orgM;

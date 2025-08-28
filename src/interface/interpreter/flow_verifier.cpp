@@ -101,6 +101,11 @@ void FlowVerifier::VerifyTensorGraph(Function *entry,
     ASSERT(outputDataViewList.size() == outputSlotList.size());
     for (size_t i = 0; i < outputDataViewList.size(); i++) {
         slotDataViewDict[outputSlotList[i]] = outputDataViewList[i];
+        auto outputTensor = attr->startArgsOutputTensorList[i].get().GetStorage();
+        auto tileop = outputTensor->GetTileOpFormat();
+        if (tileop == TileOpFormat::TILEOP_NZ) {
+            slotTileOpFormatDict[outputSlotList[i]] = TileOpFormat::TILEOP_NZ;
+        }
     }
     outputSlotSet.insert(outputSlotList.begin(), outputSlotList.end());
 

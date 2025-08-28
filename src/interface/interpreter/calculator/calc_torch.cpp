@@ -191,10 +191,75 @@ void MaxS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &el
         auto tsmall = View(tout, ToShape64(small->GetShape()), offset);                                \
         torch::bop(tsmall, tsmall, From(small));                                                       \
     }
- 
+
 DEFINE_BINARY_PAIR_OPS(Sum, add_out)
 DEFINE_BINARY_PAIR_OPS(Max, max_out)
 DEFINE_BINARY_PAIR_OPS(Min, min_out)
+
+std::vector<int64_t> GenAxesForTranspose(const int64_t offset, const std::vector<int64_t>& base) {
+    std::vector<int64_t> axes;
+    for (int64_t i = 0; i < offset; i++) {
+        axes.push_back(i);
+    }
+    for (auto x : base) {
+        axes.push_back(x + offset);
+    }
+    return axes;
+}
+
+void FormatND2NZ(LogicalTensorDataPtr inputTensor) {
+    auto inputData = From(inputTensor);
+    auto oriShape = inputData.sizes();
+    constexpr int minAxes = 2;
+    if (oriShape.size() < minAxes) {
+        return;
+    }
+    int64_t oriM = oriShape[oriShape.size() - minAxes];
+    int64_t oriN = oriShape.back();
+
+    std::vector<int64_t> oriBatch(oriShape.begin(), oriShape.end() - minAxes);
+    int64_t batchNum = oriBatch.size();
+
+    int64_t m0 = 16;
+    constexpr int NZ_BLOCK_SIZE = 32;
+    auto dtype = inputData.scalar_type();
+    ASSERT(c10::elementSize(dtype) != 0);
+    int64_t n0 = (dtype == at::ScalarType::Int) ? m0 : NZ_BLOCK_SIZE / c10::elementSize(dtype);
+    ASSERT(n0 != 0);
+    int64_t m1 = (oriM + m0 - 1) / m0;
+    int64_t n1 = (oriN + n0 - 1) / n0;
+    int64_t paddingM = m1 * m0 - oriM;
+    int64_t paddingN = n1 * n0 - oriN;
+
+    // Prepare padding vector
+    std::vector<int64_t> padWidth;
+    for (int64_t i = 0; i < batchNum; i++) {
+        padWidth.push_back(0);
+        padWidth.push_back(0);
+    }
+    padWidth.push_back(0);
+    padWidth.push_back(paddingM);
+    padWidth.push_back(0);
+    padWidth.push_back(paddingN);
+
+    auto paddedData = torch::constant_pad_nd(inputData, padWidth, 0);
+
+    // Reshape and transpose
+    std::vector<int64_t> newShape = oriBatch;
+    newShape.push_back(m1);
+    newShape.push_back(m0);
+    newShape.push_back(n1);
+    newShape.push_back(n0);
+
+    auto reshaped = paddedData.reshape(newShape);
+    std::vector<int64_t> axisToNZ = {2, 0, 1, 3};
+    auto axes = GenAxesForTranspose(batchNum, axisToNZ);
+
+    auto transposed = reshaped.permute(axes);
+    auto restored = transposed.reshape({m1 * m0, n1 * n0});
+
+    inputData.copy_(restored);
+}
 
 static void MatmulSplitK(torch::Tensor &out, const torch::Tensor &lhs, const torch::Tensor &rhs, int64_t kstep) {
     auto shapeL = lhs.sizes().vec();
@@ -217,32 +282,38 @@ static void MatmulSplitK(torch::Tensor &out, const torch::Tensor &lhs, const tor
 }
 
 void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, LogicalTensorDataPtr acc,
-    bool atrans, bool btrans, int64_t kstep) {
-    auto tout = From(out);
-    auto tself = From(self);
-    auto tother = From(other);
-
-    if (atrans) {
-        tself.transpose_(-1, AXIS_TO_LAST);
+            MatMulSetParam &param) {
+    auto tensorOut = From(out);
+    auto outDtype = tensorOut.scalar_type();
+    if (outDtype == at::ScalarType::Half) {
+        outDtype = at::ScalarType::Float;
     }
-    if (btrans) {
-        tother.transpose_(-1, AXIS_TO_LAST);
-    }
+    auto tensorSelf = From(self);
+    auto tensorOther = From(other);
     if (acc) {
-        tout.copy_(From(acc));
+        tensorOut.copy_(From(acc));
     } else {
-        tout.zero_();
+        tensorOut.zero_();
     }
-    if (tself.scalar_type() != tout.scalar_type()) {
-        tself = tself.to(tout.scalar_type());
+    if (param.aTrans) {
+        tensorSelf.transpose_(-1, AXIS_TO_LAST);
     }
-    if (tother.scalar_type() != tout.scalar_type()) {
-        tother = tother.to(tout.scalar_type());
+    if (param.bTrans) {
+        tensorOther.transpose_(-1, AXIS_TO_LAST);
     }
-    if (!kstep || kstep == self->GetShape(-1)) {
-        tout.add_(torch::matmul(tself, tother));
+    if (tensorSelf.scalar_type() != outDtype) {
+        tensorSelf = tensorSelf.to(outDtype);
+    }
+    if (tensorOther.scalar_type() != outDtype) {
+        tensorOther = tensorOther.to(outDtype);
+    }
+    if (!param.kStep || param.kStep == self->GetShape(-1)) {
+        tensorOut.add_(torch::matmul(tensorSelf, tensorOther));
     } else {
-        MatmulSplitK(tout, tself, tother, kstep);
+        MatmulSplitK(tensorOut, tensorSelf, tensorOther, param.kStep);
+    }
+    if (tensorOut.scalar_type() == at::ScalarType::Half) {
+        tensorOut = tensorOut.to(at::ScalarType::Half);
     }
 }
 

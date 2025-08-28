@@ -24,7 +24,7 @@
 #include "calc.h"
 #include "calculator.h"
 #include "tilefwk/data_type.h"
-
+#include "calc.h"
 namespace npu::tile_fwk {
 
 constexpr int DATATYPE_EIGHT = 8;

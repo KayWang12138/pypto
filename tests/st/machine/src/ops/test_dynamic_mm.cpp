@@ -123,7 +123,7 @@ static void MNSplitFunc(
     const auto &bShape = tensor_b.GetShape();
     std::vector<SymbolicScalar> bValidShape = {bShape[0], bShape[1]};
 
-    FUNCTION("testNSplit", FunctionType::DYNAMIC, {tensor_a, tensor_b}, {tensor_c}) {
+    FUNCTION("testMNSplit", FunctionType::DYNAMIC, {tensor_a, tensor_b}, {tensor_c}) {
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx,
             LoopRange(0, CeilDivSymbolicScalar(transA ? aShape[1] : aShape[0], viewShape[0]), 1)) {
             LOOP("nLoop", FunctionType::DYNAMIC_LOOP, nIdx,

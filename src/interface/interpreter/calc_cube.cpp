@@ -11,6 +11,7 @@
 #include "interface/interpreter/function.h"
 #include "interface/utils/log.h"
 #include "interface/interpreter/operation.h"
+#include "calc.h"
 
 namespace npu::tile_fwk {
 
@@ -25,12 +26,20 @@ void ExecuteOpAMulB(ExecuteOperationContext *ctx) {
     int k2 = ctx->op->GetTileShape().K(2);
     int kStep = std::gcd(k1, k2);
     switch (ctx->op->GetOpcode()) {
-        case Opcode::OP_A_MUL_B: calc::MatMul(ret, lhs, rhs, kStep); break;
-        case Opcode::OP_A_MULACC_B: calc::AccMatMul(ret, lhs, rhs, ctx->ioperandDataViewList->at(0x2), kStep); break;
-        case Opcode::OP_A_MUL_BT: calc::MatMul<false, true>(ret, lhs, rhs, kStep); break;
-        case Opcode::OP_A_MULACC_BT:
-            calc::AccMatMul<false, true>(ret, lhs, rhs, ctx->ioperandDataViewList->at(0x2), kStep);
-            break;
+        case Opcode::OP_A_MUL_B: npu::tile_fwk::calc::MatMul<false, false>(ret, lhs, rhs, kStep); break;
+        case Opcode::OP_A_MULACC_B: {
+            ASSERT(ctx->ioperandDataViewList->size() == SIZE_THREE);
+            auto acc = ctx->ioperandDataViewList->at(2);
+            npu::tile_fwk::calc::AccMatMul<false, false>(ret, lhs, rhs, acc, kStep);
+        } break;
+        case Opcode::OP_A_MUL_BT: npu::tile_fwk::calc::MatMul<false, true>(ret, lhs, rhs, kStep); break;
+        case Opcode::OP_A_MULACC_BT: {
+            ASSERT(ctx->ioperandDataViewList->size() == SIZE_THREE);
+            auto acc = ctx->ioperandDataViewList->at(2);
+            npu::tile_fwk::calc::AccMatMul<false, true>(ret, lhs, rhs, acc, kStep);
+        } break;
+        case Opcode::OP_AT_MUL_B: npu::tile_fwk::calc::MatMul<true, false>(ret, lhs, rhs, kStep); break;
+        case Opcode::OP_AT_MUL_BT: npu::tile_fwk::calc::MatMul<true, true>(ret, lhs, rhs, kStep); break;
         default: ASSERT(false); break;
     }
 }
@@ -38,6 +47,8 @@ REGISTER_CALC_OP(OP_A_MUL_B, Opcode::OP_A_MUL_B, ExecuteOpAMulB);
 REGISTER_CALC_OP(OP_A_MULACC_B, Opcode::OP_A_MULACC_B, ExecuteOpAMulB);
 REGISTER_CALC_OP(OP_A_MUL_BT, Opcode::OP_A_MUL_BT, ExecuteOpAMulB);
 REGISTER_CALC_OP(OP_A_MULACC_BT, Opcode::OP_A_MULACC_BT, ExecuteOpAMulB);
+REGISTER_CALC_OP(OP_AT_MUL_B, Opcode::OP_AT_MUL_B, ExecuteOpAMulB);
+REGISTER_CALC_OP(OP_AT_MUL_BT, Opcode::OP_AT_MUL_BT, ExecuteOpAMulB);
 
 void ExecuteOpAlloc(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() <= 1);

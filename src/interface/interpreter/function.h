@@ -19,7 +19,7 @@
 #include "interface/tensor/tensor_slot.h"
 #include "interface/interpreter/operation.h"
 #include "interface/tensor/symbolic_scalar_evaluate.h"
-
+#include "calc.h"
 
 namespace npu::tile_fwk {
 
@@ -777,7 +777,7 @@ struct FunctionInterpreter {
         slotDataViewDict_ = slotDataViewDict;
         outputSlotSet_ = outputSlotSet;
         for (auto &[slot, tileOpFormat]: slotTileOpFormatDict) {
-            if (tileOpFormat == TileOpFormat::TILEOP_NZ) {
+            if (tileOpFormat == TileOpFormat::TILEOP_NZ && !outputSlotSet_.count(slot)) {
                 ASSERT(slotDataViewDict_.count(slot));
                 auto dataView = slotDataViewDict_.find(slot)->second;
                 auto inputIndex = findInputIndex(dataView);
@@ -790,6 +790,12 @@ struct FunctionInterpreter {
         DumpBegin();
         TimeStamp ts;
         ExecuteControlFlow(entry_, *execution);
+        for (auto &slot : outputSlotSet_) {
+            if (slotTileOpFormatDict.count(slot) && slotTileOpFormatDict.at(slot) == TileOpFormat::TILEOP_NZ) {
+                auto dataView = slotDataViewDict.find(slot)->second;
+                npu::tile_fwk::calc::FormatND2NZ(dataView);
+            }
+        }
 
         std::vector<std::shared_ptr<LogicalTensor>> empty(goldenDataViewList.size(), nullptr);
         TimeStamp ts1;

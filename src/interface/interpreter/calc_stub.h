@@ -53,5 +53,6 @@ inline void Transpose(LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, int64
 inline void ReduceAcc(LogicalTensorDataPtr, const std::vector<LogicalTensorDataPtr> &) {}
 inline void Copy(LogicalTensorDataPtr, LogicalTensorDataPtr, bool) {}
 
-inline void MatMul(
-    LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, bool, bool, int64_t) {}
+inline void FormatND2NZ(LogicalTensorDataPtr) {}
+inline void MatMul(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr,
+                   MatMulSetParam &) {}
