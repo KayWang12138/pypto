@@ -10,36 +10,45 @@
 # ======================================================================================================================
 """STest Golden 处理函数注册管理.
 """
+import dataclasses
 import logging
+from pathlib import Path
 from typing import Dict, Callable, Union, List, Optional, Tuple
 
 
-def match_gtest_filter(test_case_list: List[str], filter_pattern: str) -> int:
-    has_fuzzy_match = False
+@dataclasses.dataclass
+class GoldenRegInfo:
+    func: Optional[Callable]
+    version: int = 0 # Golden 实现版本
+    timeout: Optional[int] = None # Golden 超时时间
 
-    for test_case in test_case_list:
-        if filter_pattern == test_case:
-            return -2
-
-        expected_prefix = test_case + '/'
-        if filter_pattern.startswith(expected_prefix):
-            index_part = filter_pattern[len(expected_prefix):]
-            if index_part.isdigit():
-                return int(index_part)
-
-        if filter_pattern == test_case + '*':
-            has_fuzzy_match = True
-
-    return -1 if has_fuzzy_match else -3
+@dataclasses.dataclass
+class GoldenParam:
+    name: str
+    idx: int  # TEST_P 场景需要
+    output: Path
 
 
 class GoldenRegister:
     # 全局回调函数注册表
-    _REG_MAP: Dict[str, Callable] = {}
+    _REG_MAP: Dict[str, GoldenRegInfo] = {}
 
     @classmethod
-    def reg_golden_func(cls, case_names: Union[str, List[str]]) -> Callable:
-        # 注册回调函数的装饰器
+    def reg_golden_func(cls, case_names: Union[str, List[str]],
+                        version: int = 0, timeout: Optional[int] = None) -> Callable:
+        """注册回调函数
+
+        version 0 支持两种函数原型
+            func(case_name: str, output: Path)
+            func(case_name: str, output: Path, case_index: int)
+
+        version > 0 支持一种函数原型
+            func(case_param: GoldenParam)
+
+        :param case_names: CaseName
+        :param version: 实现版本, 由 Golden 脚本控制. 当框架感知 version 大于缓存内的 version, 会触发重新生成 Golden
+        :param timeout: 超时时长(单位秒), 当框架感知 Golden 文件已超过指定时长, 会触发重新生成 Golden
+        """
         def decorator(func: Callable) -> Callable:
             case_name_list = [case_names] if isinstance(case_names, str) else case_names
             for name in case_name_list:
@@ -48,24 +57,52 @@ class GoldenRegister:
                     logging.debug("Case(%s) update func %s -> %s to %s", name, ori_func, func, hex(id(cls._REG_MAP)))
                 else:
                     logging.debug("Case(%s) register func %s to %s", name, func, hex(id(cls._REG_MAP)))
-                cls._REG_MAP[name] = func
+                cls._REG_MAP[name] = GoldenRegInfo(func=func, version=version, timeout=timeout)
             return func
         return decorator
 
     @classmethod
-    def get_golden_func(cls, case_name: str) -> Tuple[Optional[Callable], int]:
-        """根据名称获取回调函数"""
-        filter_ret = match_gtest_filter(list(cls._REG_MAP.keys()), case_name)
-        if filter_ret == -3:
-            return None, filter_ret
-        elif filter_ret == -2:
-            func = cls._REG_MAP[case_name]
-        elif filter_ret == -1:
-            func = cls._REG_MAP[case_name.rstrip('*')]
-        else:
-            func = cls._REG_MAP[case_name[:-len(f"\\{filter_ret}")]]
-        logging.debug("Case(%s) get func %s from %s", case_name, func, hex(id(cls._REG_MAP)))
-        return func, filter_ret
+    def get_golden_func(cls, case_name: str) -> Tuple[Optional[GoldenRegInfo], Optional[int]]:
+        """根据名称获取回调函数
+
+        支持以下用例名传入
+        1. TEST/TEST_F 场景下:
+            TestSuiteName.TestCaseName
+        2. TEST_P 场景下:
+            TestInstanceName/TestSuiteName.TestCaseName
+            TestInstanceName/TestSuiteName.TestCaseName/
+            TestInstanceName/TestSuiteName.TestCaseName/*
+            TestInstanceName/TestSuiteName.TestCaseName*
+            TestInstanceName/TestSuiteName.TestCaseName/{int}
+
+        对应注册用例名支持以下场景
+        1. TEST/TEST_F 场景下:
+            TestSuiteName.TestCaseName
+        2. TEST_P 场景下:
+            TestInstanceName/TestSuiteName.TestCaseName
+
+        :param case_name: CaseName
+        """
+        # 用例名归一化
+        #   TestSuiteName.TestCaseName
+        #   TestInstanceName/TestSuiteName.TestCaseName
+        #   TestInstanceName/TestSuiteName.TestCaseName/{int}
+        cs: str = case_name.replace("*", "")
+        cs = cs[:-1] if cs.endswith("/") else cs
+
+        # 提取用例编号(可选)
+        cs_idx: Optional[int] = None
+        cs_split: List[str] = cs.split("/")
+        if cs_split[-1].isdigit():
+            cs_idx = int(cs_split[-1])
+            cs_split = cs_split[:-1]
+
+        # 用例名再归一
+        #   TestSuiteName.TestCaseName
+        #   TestInstanceName/TestSuiteName.TestCaseName
+        cs = "/".join(cs_split)
+
+        return cls._REG_MAP.get(cs, None), cs_idx
 
     @classmethod
     def get_golden_func_num(cls) -> int:
