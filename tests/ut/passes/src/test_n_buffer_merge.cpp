@@ -24,6 +24,7 @@
 #include <fstream>
 #include <vector>
 #include <string>
+#include "computational_graph_builder.h"
 
 namespace npu {
 namespace tile_fwk{
@@ -40,7 +41,7 @@ public:
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
         Program::GetInstance().GetConfig().Set<int>(NBUFFER_MERGE_MODE, 2);
-    Program::GetInstance().GetConfig().Set<std::map<int, int>>(VEC_NBUFFER_MAP, {{-1, 2}});
+        Program::GetInstance().GetConfig().Set<std::map<int, int>>(VEC_NBUFFER_MAP, {{-1, 2}});
     }
 
     void TearDown() override {}
@@ -87,6 +88,202 @@ TEST_F(NBufferMergeTest, TestNBufferMerge) {
     nbufferPass.PreCheck(*currFunctionPtr);
     nbufferPass.Run(*currFunctionPtr, "", "");
     nbufferPass.PostCheck(*currFunctionPtr);
+}
+
+TEST_F(NBufferMergeTest, TestMode0) {
+    ComputationalGraphBuilder G;
+    std::vector<int> tileShape{16, 16};
+    const int vecParallelNum = 6;
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"incast0", "incast1", "outcast"}), true);
+    EXPECT_EQ(G.AddOps({Opcode::OP_COPY_IN}, {{"incast0"}}, {{"incast1"}}, {"copy_in"}, true), true);
+    G.GetOp("copy_in")->UpdateSubgraphID(0);
+    const int subGraphNum = 20;
+    for (int i = 1; i < subGraphNum; i++) {
+        std::string strID = std::to_string(i);
+        EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"tensor1" + strID, "tensor2" + strID, "tensor3" + strID}), true);
+        std::vector<Opcode> opLists{Opcode::OP_ABS, Opcode::OP_EXP, Opcode::OP_ADDS, Opcode::OP_ASSEMBLE};
+        std::vector<std::vector<std::string>> iOperands{{"incast1"}, {"tensor1" + strID}, {"tensor2" + strID}, {"tensor3" + strID}};
+        std::vector<std::vector<std::string>> oOperands{{"tensor1" + strID}, {"tensor2" + strID}, {"tensor3" + strID}, {"outcast"}};
+        std::vector<std::string> opNames{"ABS_" + strID, "EXP_" + strID, "ADDS_" + strID, "ASSEMBLE_" + strID};
+        EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
+        G.GetOp("ABS_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("EXP_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("ADDS_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("ASSEMBLE_" + strID)->UpdateSubgraphID(i);
+    }
+    EXPECT_EQ(G.SetInCast({"incast0"}), true);
+    EXPECT_EQ(G.SetOutCast({"outcast"}), true);
+    Function *function = G.GetFunction();
+    function->paramConfigs_.nBufferMergeMode = 0;
+    function->paramConfigs_.sgVecParallelNum = vecParallelNum;
+    function->SetTotalSubGraphCount(subGraphNum);
+    NBufferMerge NBM;
+    EXPECT_EQ(NBM.RunOnFunction(*function), SUCCESS);
+    EXPECT_EQ(function->GetTotalSubGraphCount(), subGraphNum);
+}
+
+TEST_F(NBufferMergeTest, TestMode1) {
+    ComputationalGraphBuilder G;
+    std::vector<int> tileShape{16, 16};
+    const int vecParallelNum = 6;
+    const int result = 8;
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"incast0", "incast1", "outcast"}), true);
+    EXPECT_EQ(G.AddOps({Opcode::OP_COPY_IN}, {{"incast0"}}, {{"incast1"}}, {"copy_in"}, true), true);
+    G.GetOp("copy_in")->UpdateSubgraphID(0);
+    const int subGraphNum = 20;
+    for (int i = 1; i < subGraphNum; i++) {
+        std::string strID = std::to_string(i);
+        EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"tensor1" + strID, "tensor2" + strID, "tensor3" + strID}), true);
+        std::vector<Opcode> opLists{Opcode::OP_ABS, Opcode::OP_EXP, Opcode::OP_ADDS, Opcode::OP_ASSEMBLE};
+        std::vector<std::vector<std::string>> iOperands{{"incast1"}, {"tensor1" + strID}, {"tensor2" + strID}, {"tensor3" + strID}};
+        std::vector<std::vector<std::string>> oOperands{{"tensor1" + strID}, {"tensor2" + strID}, {"tensor3" + strID}, {"outcast"}};
+        std::vector<std::string> opNames{"ABS_" + strID, "EXP_" + strID, "ADDS_" + strID, "ASSEMBLE_" + strID};
+        EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
+        G.GetOp("ABS_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("EXP_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("ADDS_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("ASSEMBLE_" + strID)->UpdateSubgraphID(i);
+    }
+    EXPECT_EQ(G.SetInCast({"incast0"}), true);
+    EXPECT_EQ(G.SetOutCast({"outcast"}), true);
+    Function *function = G.GetFunction();
+    function->paramConfigs_.nBufferMergeMode = 1;
+    function->paramConfigs_.sgVecParallelNum = vecParallelNum;
+    function->SetTotalSubGraphCount(subGraphNum);
+    NBufferMerge NBM;
+    EXPECT_EQ(NBM.RunOnFunction(*function), SUCCESS);
+    EXPECT_EQ(function->GetTotalSubGraphCount(), result);
+}
+
+TEST_F(NBufferMergeTest, TestMode2) {
+    ComputationalGraphBuilder G;
+    std::vector<int> tileShape{16, 16};
+    const int vecParallelNum = 6;
+    const int result = 11;
+    const int manualMode = 2;
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"incast0", "incast1", "outcast"}), true);
+    EXPECT_EQ(G.AddOps({Opcode::OP_COPY_IN}, {{"incast0"}}, {{"incast1"}}, {"copy_in"}, true), true);
+    G.GetOp("copy_in")->UpdateSubgraphID(0);
+    const int subGraphNum = 20;
+    for (int i = 1; i < subGraphNum; i++) {
+        std::string strID = std::to_string(i);
+        EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"tensor1" + strID, "tensor2" + strID, "tensor3" + strID}), true);
+        std::vector<Opcode> opLists{Opcode::OP_ABS, Opcode::OP_EXP, Opcode::OP_ADDS, Opcode::OP_ASSEMBLE};
+        std::vector<std::vector<std::string>> iOperands{{"incast1"}, {"tensor1" + strID}, {"tensor2" + strID}, {"tensor3" + strID}};
+        std::vector<std::vector<std::string>> oOperands{{"tensor1" + strID}, {"tensor2" + strID}, {"tensor3" + strID}, {"outcast"}};
+        std::vector<std::string> opNames{"ABS_" + strID, "EXP_" + strID, "ADDS_" + strID, "ASSEMBLE_" + strID};
+        EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
+        G.GetOp("ABS_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("EXP_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("ADDS_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("ASSEMBLE_" + strID)->UpdateSubgraphID(i);
+    }
+    EXPECT_EQ(G.SetInCast({"incast0"}), true);
+    EXPECT_EQ(G.SetOutCast({"outcast"}), true);
+    Function *function = G.GetFunction();
+    function->paramConfigs_.nBufferMergeMode = manualMode;
+    function->paramConfigs_.vecNBufferMap = {{-1, 4}, {1, 2}};
+    function->paramConfigs_.sgVecParallelNum = vecParallelNum;
+    function->SetTotalSubGraphCount(subGraphNum);
+    NBufferMerge NBM;
+    EXPECT_EQ(NBM.RunOnFunction(*function), SUCCESS);
+    EXPECT_EQ(function->GetTotalSubGraphCount(), result);
+}
+
+TEST_F(NBufferMergeTest, TestMode3) {
+    ComputationalGraphBuilder G;
+    std::vector<int> tileShape{16, 16};
+    const int vecParallelNum = 6;
+    const int noneMode = 3;
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"incast0", "incast1", "outcast"}), true);
+    EXPECT_EQ(G.AddOps({Opcode::OP_COPY_IN}, {{"incast0"}}, {{"incast1"}}, {"copy_in"}, true), true);
+    G.GetOp("copy_in")->UpdateSubgraphID(0);
+    const int subGraphNum = 20;
+    for (int i = 1; i < subGraphNum; i++) {
+        std::string strID = std::to_string(i);
+        EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"tensor1" + strID, "tensor2" + strID, "tensor3" + strID}), true);
+        std::vector<Opcode> opLists{Opcode::OP_ABS, Opcode::OP_EXP, Opcode::OP_ADDS, Opcode::OP_ASSEMBLE};
+        std::vector<std::vector<std::string>> iOperands{{"incast1"}, {"tensor1" + strID}, {"tensor2" + strID}, {"tensor3" + strID}};
+        std::vector<std::vector<std::string>> oOperands{{"tensor1" + strID}, {"tensor2" + strID}, {"tensor3" + strID}, {"outcast"}};
+        std::vector<std::string> opNames{"ABS_" + strID, "EXP_" + strID, "ADDS_" + strID, "ASSEMBLE_" + strID};
+        EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
+        G.GetOp("ABS_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("EXP_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("ADDS_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("ASSEMBLE_" + strID)->UpdateSubgraphID(i);
+    }
+    EXPECT_EQ(G.SetInCast({"incast0"}), true);
+    EXPECT_EQ(G.SetOutCast({"outcast"}), true);
+    Function *function = G.GetFunction();
+    function->paramConfigs_.nBufferMergeMode = noneMode;
+    function->paramConfigs_.sgVecParallelNum = vecParallelNum;
+    function->SetTotalSubGraphCount(subGraphNum);
+    NBufferMerge NBM;
+    EXPECT_EQ(NBM.RunOnFunction(*function), FAILED);
+}
+
+TEST_F(NBufferMergeTest, TestMode2NoMap) {
+    ComputationalGraphBuilder G;
+    std::vector<int> tileShape{16, 16};
+    const int vecParallelNum = 6;
+    const int manualMode = 2;
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"incast0", "incast1", "outcast"}), true);
+    EXPECT_EQ(G.AddOps({Opcode::OP_COPY_IN}, {{"incast0"}}, {{"incast1"}}, {"copy_in"}, true), true);
+    G.GetOp("copy_in")->UpdateSubgraphID(0);
+    const int subGraphNum = 20;
+    for (int i = 1; i < subGraphNum; i++) {
+        std::string strID = std::to_string(i);
+        EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"tensor1" + strID, "tensor2" + strID, "tensor3" + strID}), true);
+        std::vector<Opcode> opLists{Opcode::OP_ABS, Opcode::OP_EXP, Opcode::OP_ADDS, Opcode::OP_ASSEMBLE};
+        std::vector<std::vector<std::string>> iOperands{{"incast1"}, {"tensor1" + strID}, {"tensor2" + strID}, {"tensor3" + strID}};
+        std::vector<std::vector<std::string>> oOperands{{"tensor1" + strID}, {"tensor2" + strID}, {"tensor3" + strID}, {"outcast"}};
+        std::vector<std::string> opNames{"ABS_" + strID, "EXP_" + strID, "ADDS_" + strID, "ASSEMBLE_" + strID};
+        EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
+        G.GetOp("ABS_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("EXP_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("ADDS_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("ASSEMBLE_" + strID)->UpdateSubgraphID(i);
+    }
+    EXPECT_EQ(G.SetInCast({"incast0"}), true);
+    EXPECT_EQ(G.SetOutCast({"outcast"}), true);
+    Function *function = G.GetFunction();
+    function->paramConfigs_.nBufferMergeMode = manualMode;
+    function->paramConfigs_.sgVecParallelNum = vecParallelNum;
+    function->SetTotalSubGraphCount(subGraphNum);
+    NBufferMerge NBM;
+    EXPECT_EQ(NBM.RunOnFunction(*function), FAILED);
+}
+
+TEST_F(NBufferMergeTest, TestMode1Map) {
+    ComputationalGraphBuilder G;
+    std::vector<int> tileShape{16, 16};
+    const int vecParallelNum = 6;
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"incast0", "incast1", "outcast"}), true);
+    EXPECT_EQ(G.AddOps({Opcode::OP_COPY_IN}, {{"incast0"}}, {{"incast1"}}, {"copy_in"}, true), true);
+    G.GetOp("copy_in")->UpdateSubgraphID(0);
+    const int subGraphNum = 20;
+    for (int i = 1; i < subGraphNum; i++) {
+        std::string strID = std::to_string(i);
+        EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"tensor1" + strID, "tensor2" + strID, "tensor3" + strID}), true);
+        std::vector<Opcode> opLists{Opcode::OP_ABS, Opcode::OP_EXP, Opcode::OP_ADDS, Opcode::OP_ASSEMBLE};
+        std::vector<std::vector<std::string>> iOperands{{"incast1"}, {"tensor1" + strID}, {"tensor2" + strID}, {"tensor3" + strID}};
+        std::vector<std::vector<std::string>> oOperands{{"tensor1" + strID}, {"tensor2" + strID}, {"tensor3" + strID}, {"outcast"}};
+        std::vector<std::string> opNames{"ABS_" + strID, "EXP_" + strID, "ADDS_" + strID, "ASSEMBLE_" + strID};
+        EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
+        G.GetOp("ABS_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("EXP_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("ADDS_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("ASSEMBLE_" + strID)->UpdateSubgraphID(i);
+    }
+    EXPECT_EQ(G.SetInCast({"incast0"}), true);
+    EXPECT_EQ(G.SetOutCast({"outcast"}), true);
+    Function *function = G.GetFunction();
+    function->paramConfigs_.nBufferMergeMode = 1;
+    function->paramConfigs_.vecNBufferMap = {{-1, 2}};
+    function->paramConfigs_.sgVecParallelNum = vecParallelNum;
+    function->SetTotalSubGraphCount(subGraphNum);
+    NBufferMerge NBM;
+    EXPECT_EQ(NBM.RunOnFunction(*function), FAILED);
 }
 }
 }

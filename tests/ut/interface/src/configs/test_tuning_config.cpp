@@ -44,10 +44,9 @@ TEST_F(TestConfigStorage, InitialGet) {
     EXPECT_EQ((config.Get<std::map<int,int>>(L1_REUSE_MAP)), nullMap);
     EXPECT_EQ(config.Get<int>(CUBE_NBUFFER), 1);
     EXPECT_EQ((config.Get<std::map<int,int>>(CUBE_NBUFFER_MAP)), nullMap);
-    EXPECT_EQ(config.Get<bool>(LOAD_BALANCE), false);
     EXPECT_EQ(config.Get<int>(COPYIN_THRESHOLD), copyin_threshold);
     EXPECT_EQ(config.Get<uint8_t>(MACHINE_CONFIG), 0);
-    EXPECT_EQ(config.Get<int>(NBUFFER_MERGE_MODE), 0);
+    EXPECT_EQ(config.Get<int>(NBUFFER_MERGE_MODE), 1);
     EXPECT_EQ(config.Get<int>(SG_CUBE_PARALLEL_NUM), sg_cube_parallel_num);
     EXPECT_EQ(config.Get<int>(SG_VEC_PARALLEL_NUM), sg_vec_parallel_num);
     EXPECT_EQ((config.Get<std::map<int, int>>(VEC_NBUFFER_MAP)), nullMap);

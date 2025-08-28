@@ -298,24 +298,9 @@ std::vector<int> L1CopyInReuseRunner::SetNumDB() {
     return numDBList;
 }
 
-inline std::vector<int> AdjustNumDBCore(bool isLoadBalance, int color, int numDB) {
+inline std::vector<int> AdjustNumDBCore(int color, int numDB) {
     std::vector<int> pingColorList(color, 1);
     int numMerged = (color + numDB - 1) / numDB;
-    if (isLoadBalance) {
-        int coreNum = PassConfigManager::Instance().GetPlatformConfig().GetCoreNum(NpuCoreType::AICORE);
-        int columns = numMerged / coreNum;
-        int packed = columns * coreNum * numDB;
-        for (int i = 0; i < columns * coreNum; i++) {
-            pingColorList[numDB * i] = 0;
-        }
-        // 计算各个核铺满后还剩多少任务
-        int remain = color - packed;
-        int numDB2 = (remain + coreNum - 1) / coreNum; 
-        for (int i = 0; i < (remain + numDB2 - 1) / numDB2; i++) {
-            pingColorList[packed + numDB2 * i] = 0;
-        }
-        return pingColorList;
-    }
     for (int i = 0; i < numMerged; i++) {
         pingColorList[numDB * i] = 0;
     }
@@ -335,9 +320,8 @@ void L1CopyInReuseRunner::Run(Function &func, int color, std::vector<std::vector
     numDB_ = func.paramConfigs_.cubeNBufferNum;
     numLRMap = func.paramConfigs_.l1ReuseMap;
     numDBMap = func.paramConfigs_.cubeNBufferMap;
-    isLoadBalance = func.paramConfigs_.loadBalance;
-    ALOG_INFO_F("[L1CopyReuse] Param Setting numLR %d, numDB %d, isLoadBalance %d, copyInThreshold %d.", 
-                                                            numLR, numDB_, isLoadBalance, copyInThreshold);
+    ALOG_INFO_F("[L1CopyReuse] Param Setting numLR %d, numDB %d, copyInThreshold %d.", 
+                                                            numLR, numDB_, copyInThreshold);
     if (numLR != 0 || numLRMap.size() != 0) {
         Phase1(func, color, colorNode, colorCopyIn, hashColor);
         HashUpdate(hashMap, hashOrder, color, hashColor);
@@ -350,7 +334,7 @@ void L1CopyInReuseRunner::Run(Function &func, int color, std::vector<std::vector
             continue;
         }
         int pingColor = -1;
-        std::vector<int> pingColorList = AdjustNumDBCore(isLoadBalance, colorValues.size(), hashMergeNum[hashOrder[colorHashValue]]);
+        std::vector<int> pingColorList = AdjustNumDBCore(colorValues.size(), hashMergeNum[hashOrder[colorHashValue]]);
         for (size_t i = 0; i < colorValues.size(); i++) {
             if (pingColorList[i] == 0) {
                 pingColor = colorValues[i];

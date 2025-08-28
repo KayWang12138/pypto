@@ -61,7 +61,6 @@ class L1CopyInReuseRunner {
     int numDB_;
     std::map<int, int> numDBMap;
     int copyInThreshold;
-    bool isLoadBalance;
 };
 
 class L1CopyInReuseMerge : public Pass, public DeadOperationEliminator {

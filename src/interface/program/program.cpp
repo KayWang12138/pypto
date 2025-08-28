@@ -174,7 +174,6 @@ bool Program::BeginFunction(const std::string &funcName,
     currentFunctionPtr_->paramConfigs_.sgCopyInThreshold = GetConfig().Get<int>(COPYIN_THRESHOLD);
     currentFunctionPtr_->paramConfigs_.machineConfig_ = GetConfig().Get<uint8_t>(MACHINE_CONFIG);
     currentFunctionPtr_->paramConfigs_.l1ReuseMap = GetConfig().Get<std::map<int, int>>(L1_REUSE_MAP);
-    currentFunctionPtr_->paramConfigs_.loadBalance = GetConfig().Get<bool>(LOAD_BALANCE);
     currentFunctionPtr_->paramConfigs_.cubeNBufferMap = GetConfig().Get<std::map<int, int>>(CUBE_NBUFFER_MAP);
     currentFunctionPtr_->paramConfigs_.OoOPreScheduleMethodDefault = GetConfig().Get<std::string>(OOO_PRESCHEDULE_METHOD_DEFAULT);
     currentFunctionPtr_->paramConfigs_.OoOPreScheduleMethodMap = GetConfig().Get<std::map<std::string,std::string>>(OOO_PRESCHEDULE_METHOD);

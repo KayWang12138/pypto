@@ -382,11 +382,10 @@ struct ParamConfigs {
     int sgCopyInThreshold{2*1024*1024};
     uint8_t machineConfig_{0}; // machine config
     std::map<int, int> l1ReuseMap;
-    bool loadBalance;
     std::map<int, int> cubeNBufferMap;
     std::string OoOPreScheduleMethodDefault{"PriorDFS"};
     std::map<std::string,std::string> OoOPreScheduleMethodMap;
-    int nBufferMergeMode{0};
+    int nBufferMergeMode{1};
     int sgVecParallelNum{48};
     int sgCubeParallelNum{24};
     std::map<int, int> vecNBufferMap;
