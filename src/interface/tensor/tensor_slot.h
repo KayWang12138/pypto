@@ -148,38 +148,23 @@ struct TensorSlotScope {
     std::vector<std::unordered_set<TensorSlot>> incastReadSlotSet;
     std::vector<std::unordered_set<TensorSlot>> outcastWriteSlotSet;
 
+    std::vector<std::unordered_set<TensorSlot>> oriIncastReadSlotSet;
+    std::vector<std::unordered_set<TensorSlot>> oriOutcastWriteSlotSet;
+
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::unordered_set<std::shared_ptr<LogicalTensor>>> incastToInOriginalDict;
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::unordered_set<std::shared_ptr<LogicalTensor>>> outcastToOutOriginalDict;
 
     std::unordered_set<LogicalTensorPtr> partialUpdateOutcastSet;
 
     IncastOutcastSlot ioslot;
+    IncastOutcastSlot originalIocastsSlot;
 
     explicit TensorSlotScope(Function *tfunc) : tensorFunc(tfunc) {}
     TensorSlotScope(TensorSlotScope &&scope) = default;
     TensorSlotScope &operator=(TensorSlotScope &&scope) = default;
 
-    std::unordered_set<TensorSlot> LookupIncastReadFrom(const std::shared_ptr<LogicalTensor> &tensor) const {
-        std::unordered_set<TensorSlot> tensorSlot;
-        for (auto &[slot, access] : accessRecord) {
-            /* Match by raw tensor */
-            if (access.GetFirstReadTensor() && access.GetFirstReadTensor()->tensor == tensor->tensor) {
-                tensorSlot.insert(slot);
-            }
-        }
-        return tensorSlot;
-    }
-
-    std::unordered_set<TensorSlot> LookupOutcastWriteTo(const std::shared_ptr<LogicalTensor> &tensor) const {
-        std::unordered_set<TensorSlot> tensorSlot;
-        for (auto &[slot, access] : accessRecord) {
-            /* Match by raw tensor */
-            if (access.GetLastWriteTensor() && access.GetLastWriteTensor()->tensor == tensor->tensor) {
-                tensorSlot.insert(slot);
-            }
-        }
-        return tensorSlot;
-    }
+    std::unordered_set<TensorSlot> LookupIncastReadFrom(const std::shared_ptr<LogicalTensor> &tensor) const;
+    std::unordered_set<TensorSlot> LookupOutcastWriteTo(const std::shared_ptr<LogicalTensor> &tensor) const;
 
     void BuildSlotSet();
     void BuildIncastOutcastSlot(const std::unordered_map<TensorSlot, int> &slotIndexDict);

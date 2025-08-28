@@ -448,12 +448,12 @@ FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &s
         }
         for (auto &op : Operations()) {
             for (auto &iOperand : op.iOperand) {
-                if (tensorMap_.tensorMap_.count(iOperand->tensor->rawmagic) == 0) {
+                if (op.IsCall() || tensorMap_.tensorMap_.count(iOperand->tensor->rawmagic) == 0) {
                     incasts.Insert(iOperand);
                 }
             }
             for (auto &oOperand : op.oOperand) {
-                if (oOperand->tensor->GetRefCount() > 0) {
+                if (op.IsCall() || oOperand->tensor->GetRefCount() > 0) {
                     outcasts.Insert(oOperand);
                     ASSERT(incasts.count(oOperand) == 0);
                 }
@@ -552,6 +552,7 @@ FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &s
 
     LogicalTensors inArgumentList, outArgumentList;
     if (IsGraphType(GraphType::TENSOR_GRAPH) || IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
+        SetCallOpSlot();
         inArgumentList = MakeIncasts(scope);
         outArgumentList = MakeOutcasts(scope);
         if (!isExplicit_) {
@@ -1464,14 +1465,21 @@ LogicalTensors Function::MakeIncasts(const std::shared_ptr<TensorSlotScope> &sco
     std::vector<std::shared_ptr<RawTensor>> rawIncasts;
     std::map<int, std::vector<std::shared_ptr<LogicalTensor>>> incastWithSameRaw;
     std::map<std::shared_ptr<RawTensor>, std::shared_ptr<LogicalTensor>> rawToIncast;
+    size_t iOperandIndex = 0;
     for (auto &originIncast : originInCasts_) {
         incastWithSameRaw[originIncast->tensor->rawmagic].emplace_back(originIncast);
         if (appearedRawIncasts.count(originIncast->tensor->rawmagic) != 0) {
+            ++iOperandIndex;
             continue;
         }
         appearedRawIncasts.emplace(originIncast->tensor->rawmagic);
         rawIncasts.emplace_back(originIncast->tensor);
         rawToIncast[originIncast->tensor] = originIncast;
+        if (GetSlotScope() != nullptr && GetSlotScope()->oriIncastReadSlotSet.size() > iOperandIndex) {
+            GetSlotScope()->incastReadSlotSet.push_back(GetSlotScope()->oriIncastReadSlotSet[iOperandIndex]);
+            GetSlotScope()->ioslot.incastSlot.push_back(GetSlotScope()->originalIocastsSlot.incastSlot[iOperandIndex]);
+        }
+        ++iOperandIndex;
     }
 
     for (auto &[rawMagic, sameRawIncasts] : incastWithSameRaw) {
@@ -1541,25 +1549,31 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
     ASSERT(IsGraphType(GraphType::TENSOR_GRAPH) || IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH));
     ASSERT(HasParent());
     LogicalTensors outArgumentList;
-
     std::unordered_set<int> appearedRawOutcasts;
     std::vector<std::shared_ptr<RawTensor>> rawOutcasts;
-    std::map<int, std::set<std::shared_ptr<LogicalTensor>, CompareTensorPtr>> outcastWithSameRaw;
+    std::map<int, std::vector<std::shared_ptr<LogicalTensor>>> outcastWithSameRaw;
     std::map<std::shared_ptr<RawTensor>, std::shared_ptr<LogicalTensor>> rawToOutcast;
+    size_t oOperandIndex = 0;
     for (const auto &originOutcast : originOutCasts_) {
         ASLOGI("originOut cast name %d %d", originOutcast->magic, originOutcast->GetRawMagic());
-        outcastWithSameRaw[originOutcast->tensor->rawmagic].emplace(originOutcast);
+        outcastWithSameRaw[originOutcast->tensor->rawmagic].emplace_back(originOutcast);
         if (appearedRawOutcasts.count(originOutcast->tensor->rawmagic) != 0) {
+            ++oOperandIndex;
             continue;
         }
         appearedRawOutcasts.emplace(originOutcast->tensor->rawmagic);
         rawOutcasts.emplace_back(originOutcast->tensor);
         rawToOutcast[originOutcast->tensor] = originOutcast;
+        if (GetSlotScope() != nullptr && GetSlotScope()->oriOutcastWriteSlotSet.size() > oOperandIndex) {
+            GetSlotScope()->outcastWriteSlotSet.push_back(GetSlotScope()->oriOutcastWriteSlotSet[oOperandIndex]);
+            GetSlotScope()->ioslot.outcastSlot.push_back(GetSlotScope()->originalIocastsSlot.outcastSlot[oOperandIndex]);
+        }
+        ++oOperandIndex;
     }
 
     ASLOGI("raw out cast number %zu", rawOutcasts.size());
     for (const auto &rawOutcast : rawOutcasts) {
-        const auto &sameRawOutcasts = outcastWithSameRaw[rawOutcast->rawmagic];
+        auto &sameRawOutcasts = outcastWithSameRaw[rawOutcast->rawmagic];
         std::vector<int64_t> nonOffsets(rawOutcast->rawshape.size(), 0);
 
         auto idx = outCasts_.size();
@@ -1580,6 +1594,8 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
         outArgumentList.push_back(outArgument);
         UpdateLinkMap(outArgument, rawSymbol, true);
         outCasts_.emplace_back(rawSymbol);
+        outcastToOutArgumentDict[rawSymbol] = outArgument;
+
         if (scope) {
             scope->outcastToOutArgumentDict[rawSymbol] = outArgument;
             scope->outcastToOutOriginalDict[rawSymbol].insert(sameRawOutcasts.begin(), sameRawOutcasts.end());
@@ -1589,20 +1605,22 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
         std::vector<std::shared_ptr<LogicalTensor>> iOperand;
         std::vector<std::shared_ptr<LogicalTensor>> oOperand = {rawSymbol};
         ASLOGI("same raw out cast number %zu", sameRawOutcasts.size());
+
+        std::shared_ptr<LogicalTensor> newOutcast = nullptr;
         for (auto &originOutcast : sameRawOutcasts) {
-            auto newOutcast = rawBuf->View(*this, originOutcast->shape, originOutcast->offset);
+            if (newOutcast == nullptr) {
+                newOutcast = rawBuf->View(*this, originOutcast->shape, originOutcast->offset);
+                newOutcastOffsets.emplace_back(originOutcast->offset);
+                iOperand.emplace_back(newOutcast);
+            }
             auto oldConsumers = originOutcast->GetConsumers(); // only for check
-            auto oldProducers = originOutcast->GetProducers(); // only for check
             tensorMap_.Insert(newOutcast);
             Substitute(originOutcast, newOutcast);
-            ASSERT(newOutcast->GetProducers() == oldProducers);
             ASSERT(newOutcast->GetConsumers() == oldConsumers);
             ASSERT(originOutcast->GetProducers().empty());
             auto it = std::find(originOutCasts_.begin(), originOutCasts_.end(), originOutcast);
             ASSERT(it != originOutCasts_.end());
             *it = newOutcast;
-            newOutcastOffsets.emplace_back(originOutcast->offset);
-            iOperand.emplace_back(newOutcast);
         }
         ASSERT(rawSymbol->GetProducers().empty());
         ASSERT(iOperand.size() == newOutcastOffsets.size());
@@ -1775,7 +1793,7 @@ Json Function::DumpJson(bool useTable) {
         for (size_t i = 0; i < inSize; i++) {
             std::pair<int, std::vector<int>> incast;
             incast.first = inCasts_[i]->GetMagic();
-            if (slotScope_ != nullptr) {
+            if (slotScope_ != nullptr && i < slotScope_->ioslot.incastSlot.size()) {
                 incast.second = slotScope_->ioslot.incastSlot[i];
             } else {
                 std::vector<int> emptyIncast;
@@ -1787,7 +1805,7 @@ Json Function::DumpJson(bool useTable) {
         for (size_t i = 0; i < outSize; i++) {
             std::pair<int, std::vector<int>> outcast;
             outcast.first = outCasts_[i]->GetMagic();
-            if (slotScope_ != nullptr) {
+            if (slotScope_ != nullptr && i < slotScope_->ioslot.outcastSlot.size()) {
                 outcast.second = slotScope_->ioslot.outcastSlot[i];
             } else {
                 std::vector<int> emptyOutcast;
@@ -2786,6 +2804,175 @@ int Function::GetOutcastIndex(std::shared_ptr<LogicalTensor> &tensor) const {
     return INVALID_IOINDEX;
 }
 
+TensorGraphInfo Function::GetGraphInfo() {
+    std::vector<LogicalTensors> callopInCasts, callopOutCasts;
+    std::set<std::shared_ptr<Operation>> viewOpSet, assembleOpSet;
+    std::set<std::shared_ptr<LogicalTensor>> iOperandSet, oOperandSet;
+    std::vector<std::shared_ptr<Operation>> operations;
+
+    for (auto &op : operations_) {
+        if (op->GetOpcode() == Opcode::OP_VIEW) {
+            viewOpSet.emplace(op);
+            continue;
+        }
+        if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
+            assembleOpSet.emplace(op);
+            continue;
+        }
+        ASSERT(op->GetOpcode() == Opcode::OP_CALL);
+        operations.emplace_back(op);
+        LogicalTensors incasts;
+        LogicalTensors outcasts;
+        for (auto &iOperand : op->GetIOperands()) {
+            auto& viewOp = *iOperand->GetProducers().begin();
+            auto& incast = viewOp->GetIOperands()[0];
+
+            iOperandSet.emplace(iOperand);
+            incasts.push_back(incast);
+        }
+        for (auto &oOperand : op->GetOOperands()) {
+            auto &assembleOp = *oOperand->GetConsumers().begin();
+            auto &outcast = assembleOp->GetOOperands()[0];
+
+            oOperandSet.emplace(oOperand);
+            outcasts.push_back(outcast);
+        }
+        callopInCasts.emplace_back(incasts);
+        callopOutCasts.emplace_back(outcasts);
+    }
+    operations_ = operations;
+    return std::make_tuple(std::move(callopInCasts), std::move(callopOutCasts),
+        std::move(viewOpSet), std::move(assembleOpSet),
+        std::move(iOperandSet), std::move(oOperandSet)
+    );
+}
+
+void Function::ClearUselessLink(TensorGraphInfo &graphInfo) {
+    auto& callopInCasts = std::get<0>(graphInfo);
+    auto& callopOutCasts = std::get<1>(graphInfo);
+    auto& viewOpSet = std::get<2>(graphInfo);
+    auto& assembleOpSet = std::get<3>(graphInfo);
+    auto& iOperandSet = std::get<4>(graphInfo);
+    auto& oOperandSet = std::get<5>(graphInfo);
+
+    for (auto iOperand : iOperandSet) {
+        iOperand->GetProducers().clear();
+        iOperand->GetConsumers().clear();
+    };
+    for (auto oOperand : oOperandSet) {
+        oOperand->GetProducers().clear();
+        oOperand->GetConsumers().clear();
+    };
+
+    for (auto viewOp : viewOpSet) {
+        viewOp->GetIOperands().clear();
+        viewOp->GetOOperands().clear();
+    };
+
+    for (auto assembleOp : assembleOpSet) {
+        assembleOp->GetIOperands().clear();
+        assembleOp->GetOOperands().clear();
+    };
+
+    for (auto incasts : callopInCasts) {
+        for (auto incast : incasts) {
+            incast->GetConsumers().clear();
+        }
+    };
+
+    for (auto outcasts : callopOutCasts) {
+        for (auto outcast : outcasts) {
+            outcast->GetProducers().clear();
+        }
+    };
+
+    for (auto operation : operations_) {
+        operation->GetIOperands().clear();
+        operation->GetOOperands().clear();
+    };
+}
+
+void Function::LinkIoWithCallOp(std::vector<LogicalTensors> &callopInCasts, std::vector<LogicalTensors> &callopOutCasts) {
+    for (size_t idx = 0; idx < operations_.size(); ++idx) {
+        auto &incasts = callopInCasts[idx];
+        for (auto incast : incasts) {
+            incast->AddConsumer(*operations_[idx]);
+            operations_[idx]->iOperand.emplace_back(incast);
+        }
+    }
+
+    for (size_t idx = 0; idx < operations_.size(); ++idx) {
+        auto &outcasts = callopOutCasts[idx];
+        for (auto outcast : outcasts) {
+            outcast->AddProducer(*operations_[idx]);
+            operations_[idx]->oOperand.emplace_back(outcast);
+        }
+    }
+}
+
+void Function::RemoveCallOpViewAssemble() {
+    auto graphInfo = GetGraphInfo();
+    ClearUselessLink(graphInfo);
+    LinkIoWithCallOp(std::get<0>(graphInfo), std::get<1>(graphInfo));
+}
+
+void Function::UpdateOriIocastSlot(const std::shared_ptr<TensorSlotScope> scope) {
+    ASSERT(slotScope_ != nullptr);
+    auto& incastDst = slotScope_->oriIncastReadSlotSet;
+    incastDst.insert(incastDst.end(), scope->incastReadSlotSet.begin(), scope->incastReadSlotSet.end());
+    
+    auto& outcastDst = slotScope_->oriOutcastWriteSlotSet;
+    outcastDst.insert(outcastDst.end(), scope->outcastWriteSlotSet.begin(), scope->outcastWriteSlotSet.end());
+
+    auto& iSlot = slotScope_->originalIocastsSlot.incastSlot;
+    auto& oSlot = slotScope_->originalIocastsSlot.outcastSlot;
+
+    iSlot.insert(iSlot.end(), scope->ioslot.incastSlot.begin(), scope->ioslot.incastSlot.end());
+    oSlot.insert(oSlot.end(), scope->ioslot.outcastSlot.begin(), scope->ioslot.outcastSlot.end());
+}
+
+void Function::SetCallOpSlot() {
+    // op all OP_CALL
+    bool isAllCallOp = std::all_of(operations_.begin(), operations_.end(),
+        [](const auto& op) {
+            return op->GetOpcode() == Opcode::OP_CALL;
+        });
+    if (!isAllCallOp) {
+        return;
+    }
+    std::vector<Function *> calleeList = GetCalleeFunctionList();
+    for (auto callee: calleeList) {
+        const std::shared_ptr<TensorSlotScope> calleeScope = callee->GetSlotScope();
+        // callee incast -> call op iOperand, callee outcast -> call op oOperand
+        UpdateOriIocastSlot(calleeScope);
+    }
+    return;
+}
+
+std::vector<int> Function::GetInCastSlot(const std::shared_ptr<LogicalTensor> &incast) {
+    std::vector<int> ret;
+    for (size_t i = 0; i < inCasts_.size(); ++i) {
+        if (inCasts_[i] == incast) {
+            auto &scope = GetSlotScope();
+            ASSERT(scope != nullptr);
+            ret = scope->ioslot.incastSlot[i];
+        }
+    }
+    return ret;
+}
+
+std::vector<int> Function::GetOutCastSlot(const std::shared_ptr<LogicalTensor> &outcast) {
+    std::vector<int> ret;
+    for (size_t i = 0; i < outCasts_.size(); ++i) {
+        if (outCasts_[i] == outcast) {
+            auto &scope = GetSlotScope();
+            ASSERT(scope != nullptr);
+            ret = scope->ioslot.outcastSlot[i];
+        }
+    }
+    return ret;
+}
+
 void Function::ResetOperations() {
     operations_.clear();
     opPosition_.clear();
@@ -3059,6 +3246,86 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
 
     ASSERT(false);
     return nullptr;
+}
+
+using SameSlotSetIndex = std::map<std::vector<int>, std::vector<int>>;
+
+template <typename T>
+void RemoveDupIndices(std::vector<T>& data, std::vector<int> indexList) {
+    std::sort(indexList.begin(), indexList.end(), std::greater<int>());
+    for (int index : indexList) {
+        if (index >= 0 && index < static_cast<int>(data.size())) {
+            data.erase(data.begin() + index);
+        }
+    }
+}
+
+SameSlotSetIndex ClassifyIocasts(const std::vector<std::vector<int>>& vec) {
+    SameSlotSetIndex classification;
+    for (size_t i = 0; i < vec.size(); ++i) {
+        classification[vec[i]].push_back(i);
+    }
+
+    // if value vector size < 2，delete this pair
+    for (auto it = classification.begin(); it != classification.end(); ) {
+        if (it->second.size() == 1) {
+            it = classification.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    return classification;
+}
+
+void Function::DoMergeFunctionDupIncast() {
+    auto sameSlotSetIndex = ClassifyIocasts(GetSlotScope()->ioslot.incastSlot);
+    std::vector<int> removeIndex;
+    for (auto& pair : sameSlotSetIndex) {
+        auto& slotSetIndex = pair.second;
+        ASSERT(slotSetIndex.size() > 1);
+        removeIndex.insert(removeIndex.end(), slotSetIndex.begin() + 1, slotSetIndex.end());
+        auto newIncast = std::make_shared<LogicalTensor>(*this, inCasts_[slotSetIndex[0]]->tensor->datatype, inCasts_[slotSetIndex[0]]->shape,
+            inCasts_[slotSetIndex[0]]->tensor->GetDynRawShape(), inCasts_[slotSetIndex[0]]->tensor->GetSymbol(), NodeType::INCAST, inCasts_[slotSetIndex[0]]->tensorfmt);
+
+        for (auto incastIdx : slotSetIndex) {
+            ASSERT(inCasts_[incastIdx]->GetConsumers().size() > 0);
+            auto op = *inCasts_[incastIdx]->GetConsumers().begin();
+            op->ReplaceIOperand(0, newIncast);
+            tensorMap_.Insert(newIncast);
+        }
+        inCasts_[slotSetIndex[0]] = newIncast;
+    }
+    RemoveDupIndices(inCasts_, removeIndex);
+    RemoveDupIndices(GetSlotScope()->incastReadSlotSet, removeIndex);
+    RemoveDupIndices(GetSlotScope()->ioslot.incastSlot, removeIndex);
+}
+
+void Function::DoMergeFunctionDupOutcast() {
+    auto sameSlotSetIndex = ClassifyIocasts(GetSlotScope()->ioslot.outcastSlot);
+    std::vector<int> removeIndex;
+    for (auto& pair : sameSlotSetIndex) {
+        auto& slotSetIndex = pair.second;
+        ASSERT(slotSetIndex.size() > 1);
+        removeIndex.insert(removeIndex.end(), slotSetIndex.begin() + 1, slotSetIndex.end());
+        auto newOutcast = std::make_shared<LogicalTensor>(*this, outCasts_[slotSetIndex[0]]->tensor->datatype, outCasts_[slotSetIndex[0]]->shape,
+            outCasts_[slotSetIndex[0]]->tensor->GetDynRawShape(), outCasts_[slotSetIndex[0]]->tensor->GetSymbol(), NodeType::OUTCAST, outCasts_[slotSetIndex[0]]->tensorfmt);
+
+        for (auto incastIdx : slotSetIndex) {
+            ASSERT(outCasts_[incastIdx]->GetProducers().size() > 0);
+            auto& op = *outCasts_[incastIdx]->GetProducers().begin();
+            op->ReplaceOOperand(0, newOutcast);
+            tensorMap_.Insert(newOutcast);
+        }
+        outCasts_[slotSetIndex[0]] = newOutcast;
+    }
+    RemoveDupIndices(outCasts_, removeIndex);
+    RemoveDupIndices(GetSlotScope()->outcastWriteSlotSet, removeIndex);
+    RemoveDupIndices(GetSlotScope()->ioslot.outcastSlot, removeIndex);
+}
+
+void Function::MergeFunctionDupIocast() {
+    DoMergeFunctionDupIncast();
+    DoMergeFunctionDupOutcast();
 }
 
 DefineProg::DefineProg(const std::string &name) : isRecording_(true) {

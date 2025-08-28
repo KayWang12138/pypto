@@ -238,6 +238,7 @@ std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string 
     if (config::GetPlatformConfig("PRINT_TENSOR_GRAPH", false) &&
         result->IsGraphType(GraphType::TENSOR_GRAPH)) {
         result->DumpJsonFile(config::LogTensorGraphFolder() + "/" + result->GetRawName() + ".json");
+        result->DumpFile(config::LogTensorGraphFolder() + "/" + result->GetRawName() + ".tifwkgr");
     }
     PopStackAndUpdateCurrent();
 
@@ -699,6 +700,40 @@ RecordFunc::RecordFunc(const std::string &name, const FunctionType type,
     Program::GetInstance().SetCurrentDynamicFunction(dynFunc_);
 }
 
+void static MergeAllFuncDupIocast(Function* func) {
+    if(func == nullptr) {
+        auto rootFunc = Program::GetInstance().GetFunctionByMagicName(PROGRAM_ENTRY_FUNCTION_NAME);
+        if (rootFunc != nullptr) {
+            auto calleeLists = rootFunc->GetCalleeFunctionList();
+            for (auto callee : calleeLists) {
+                MergeAllFuncDupIocast(callee);
+            }
+        }
+        return;
+    }
+
+    ALOG_INFO("Merge Duplicated Iocast for function :", func->GetMagicName());
+    auto calleeLists = func->GetCalleeFunctionList();
+    // leaf function has no duplicated tensor
+    if (calleeLists.size() == 0) {
+        return;
+    }
+
+    // 1.merge duplicated incast/outcast
+    func->MergeFunctionDupIocast();
+    // 2. remove useless view assemble op
+    func->RemoveCallOpViewAssemble();
+    if (config::GetPlatformConfig("PRINT_TENSOR_GRAPH", false) &&
+        func->IsGraphType(GraphType::TENSOR_GRAPH)) {
+        func->DumpJsonFile(config::LogTensorGraphFolder() + "/" + func->GetRawName() + "_remove_dup.json");
+        func->DumpFile(config::LogTensorGraphFolder() + "/" + func->GetRawName() + "_remove_dup.tifwkgr");
+    }
+
+    for (auto callee : calleeLists) {
+        MergeAllFuncDupIocast(callee);
+    }
+}
+
 RecordFunc::~RecordFunc() {
     (void)Program::GetInstance().EndFunction(funcName);
     if (dynFunc_) {
@@ -708,6 +743,8 @@ RecordFunc::~RecordFunc() {
             if (config::GetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, false)) {
                 Program::GetInstance().VerifyTensorGraph();
             }
+            MergeAllFuncDupIocast(nullptr);
+
             HostMachine::GetInstance().SubAllStashedTask();
             if (config::GetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, false)) {
                 Program::GetInstance().VerifyExecuteGraph();

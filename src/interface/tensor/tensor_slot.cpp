@@ -69,6 +69,34 @@ std::string TensorSlot::Dump() const {
     return oss.str();
 }
 
+std::unordered_set<TensorSlot> TensorSlotScope::LookupIncastReadFrom(const std::shared_ptr<LogicalTensor> &tensor) const {
+    std::unordered_set<TensorSlot> tensorSlot;
+    for (auto &[slot, access] : accessRecord) {
+        /* Match by raw tensor */
+        if (access.GetFirstReadTensor() && access.GetFirstReadTensor()->tensor == tensor->tensor) {
+            if (!Program::GetInstance().GetTensorSlotManager()->liveSlotSet.count(slot)) {
+                continue;
+            }
+            tensorSlot.insert(slot);
+        }
+    }
+    return tensorSlot;
+}
+
+std::unordered_set<TensorSlot> TensorSlotScope::LookupOutcastWriteTo(const std::shared_ptr<LogicalTensor> &tensor) const {
+    std::unordered_set<TensorSlot> tensorSlot;
+    for (auto &[slot, access] : accessRecord) {
+        /* Match by raw tensor */
+        if (access.GetLastWriteTensor() && access.GetLastWriteTensor()->tensor == tensor->tensor) {
+            if (!Program::GetInstance().GetTensorSlotManager()->liveSlotSet.count(slot)) {
+                continue;
+            }
+            tensorSlot.insert(slot);
+        }
+    }
+    return tensorSlot;
+}
+
 void TensorSlotScope::BuildSlotSet() {
     if (accessRecord.size() == 0) {
         return;
@@ -120,7 +148,7 @@ std::string TensorSlotScope::Dump() const {
     oss << "scope {\n"
         << INDENT << "#name:" << tensorFunc->GetMagicName() << "\n";
     for (auto &[slot, access] : accessRecord) {
-        oss << INDENT << "slot:" << slot.GetSlot() << " access:"  << access.Dump() << "\n";
+        oss << INDENT << "slot:" << slot.GetSlot() << " id "<< Program::GetInstance().GetTensorSlotManager()->slotIndexDict[slot]  << " access:"  << access.Dump() << "\n";
     }
     for (auto &[incast, inarg] : incastToInArgumentDict) {
         oss << INDENT << "incast:" << incast->Dump() << " inarg:" << inarg->Dump() << "\n";
@@ -136,6 +164,7 @@ void TensorSlotManager::BeginScope(Function *tensorFunc) {
     std::shared_ptr<TensorSlotScope> scope = std::make_shared<TensorSlotScope>(tensorFunc);
     scopeList.push_back(scope);
     currScope = scope;
+    tensorFunc->SetSlotScope(scope);
 }
 
 std::shared_ptr<TensorSlotScope> TensorSlotManager::EndScope() {
@@ -154,8 +183,8 @@ void TensorSlotManager::ConnectSlot(std::shared_ptr<TensorSlotScope> scope) {
 void TensorSlotManager::TensorSlotRead(const TensorSlot &slot, const std::shared_ptr<LogicalTensor> &tensor) {
     if (slotIndexDict.count(slot) == 0) {
         slotIndexDict[slot] = slotIndexDict.size();
-        liveSlotSet.insert(slot);
     }
+    liveSlotSet.insert(slot);
     if (currScope) {
         currScope->accessRecord[slot].Read(tensor);
     }
@@ -164,8 +193,8 @@ void TensorSlotManager::TensorSlotRead(const TensorSlot &slot, const std::shared
 void TensorSlotManager::TensorSlotWrite(const TensorSlot &slot, const std::shared_ptr<LogicalTensor> &tensor) {
     if (slotIndexDict.count(slot) == 0) {
         slotIndexDict[slot] = slotIndexDict.size();
-        liveSlotSet.insert(slot);
     }
+    liveSlotSet.insert(slot);
     if (currScope) {
         currScope->accessRecord[slot].Write(tensor);
     }

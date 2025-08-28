@@ -84,6 +84,15 @@ struct FunctionCallArgs {
 
 using OperationDeleter = std::function<bool(std::shared_ptr<Operation> &, Function &)>;
 
+using TensorGraphInfo = std::tuple<
+    std::vector<LogicalTensors>,
+    std::vector<LogicalTensors>,
+    std::set<std::shared_ptr<Operation>>,
+    std::set<std::shared_ptr<Operation>>,
+    std::set<std::shared_ptr<LogicalTensor>>,
+    std::set<std::shared_ptr<LogicalTensor>>
+>;
+
 class OperationsViewer {
     friend class SubgraphToFunction;
     friend class ExpandFunction;
@@ -456,6 +465,8 @@ public:
     bool IsFromDummyOutCast(int rawMagic);
     int GetIncastIndex(std::shared_ptr<LogicalTensor> &tensor) const;
     int GetOutcastIndex(std::shared_ptr<LogicalTensor> &tensor) const;
+    void MergeFunctionDupIocast();
+    void RemoveCallOpViewAssemble();
 
     Operation &AddOperation(const std::string &opName, LogicalTensors iOperands, const LogicalTensors &oOperands,
         const bool updateTensorMap = true);
@@ -588,6 +599,8 @@ public:
     void SetSlotScope(const std::shared_ptr<TensorSlotScope> &slotScope) { slotScope_ = slotScope; }
     const std::shared_ptr<TensorSlotScope> &GetSlotScope() const { return slotScope_; }
     std::shared_ptr<TensorSlotScope> &GetSlotScope() { return slotScope_; }
+    std::vector<int> GetInCastSlot(const std::shared_ptr<LogicalTensor> &incast);
+    std::vector<int> GetOutCastSlot(const std::shared_ptr<LogicalTensor> &outcast);
 
     bool HasCallOperation();
     bool IsDynloop() const { return dynloopAttr_ != nullptr; }
@@ -792,5 +805,13 @@ private:
     void RefreshOpPosition();
     void ResetOperations();
     auto AnnotateOperation();
+
+    void SetCallOpSlot();
+    void UpdateOriIocastSlot(const std::shared_ptr<TensorSlotScope> scope);
+    void DoMergeFunctionDupIncast();
+    void DoMergeFunctionDupOutcast();
+    TensorGraphInfo GetGraphInfo();
+    void ClearUselessLink(TensorGraphInfo &graphInfo);
+    void LinkIoWithCallOp(std::vector<LogicalTensors> &callopInCasts, std::vector<LogicalTensors> &callopOutCasts);
 };
 } // namespace npu::tile_fwk
