@@ -30,6 +30,10 @@ inline void Sub(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr
 inline void Mul(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 inline void Div(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 
+inline void PairSum(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr) {}
+inline void PairMax(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr) {}
+inline void PairMin(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr) {}
+
 inline void Min(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 inline void Max(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 inline void MinS(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &) {}
