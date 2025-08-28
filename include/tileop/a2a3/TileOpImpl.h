@@ -25,5 +25,6 @@
 #include "dynamic/cube_dyn.h"
 #include "fixpipe.h"
 #include "distributed.h"
+#include "distributed_shmem.h"
 
 #endif

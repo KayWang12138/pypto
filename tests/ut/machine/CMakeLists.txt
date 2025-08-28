@@ -58,6 +58,7 @@ list(APPEND _Sources ${TILE_FWK_SRC_ROOT}/src/machine/device/aicore_prof.cpp)
 list(APPEND _Sources ${TILE_FWK_SRC_ROOT}/src/machine/device/device_machine.cpp)
 list(APPEND _Sources ${TILE_FWK_SRC_ROOT}/src/machine/device/device_log.cpp)
 list(APPEND _Sources ${TILE_FWK_SRC_ROOT}/src/machine/device/distributed/comm_wait_flag.cpp)
+list(APPEND _Sources ${TILE_FWK_SRC_ROOT}/src/machine/device/distributed/shmem_wait_until.cpp)
 
 TileFwk_UTest_AddCaseLib(
         TARGET ${_Target}

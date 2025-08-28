@@ -190,6 +190,10 @@ enum class Opcode {
     OP_DISPATCH_SET_FLAG,
     OP_FFN_SCHED,
     OP_FFN_BATCHING,
+    OP_SHMEM_PUT,
+    OP_SHMEM_SIGNAL,
+    OP_SHMEM_WAIT_UNTIL,
+    OP_SHMEM_GET,
     // Begin: add for TOPK and ArgSort
     // OP_TOPK,
     OP_BITSORT,

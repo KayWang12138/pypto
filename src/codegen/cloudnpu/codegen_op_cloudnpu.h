@@ -85,6 +85,7 @@ public:
 
     std::string GenDistOp() const;
     std::string GetTemplateDType() const;
+    std::string GenTemplateParams() const;
 
     std::string GenPoolOp() const;
 
@@ -468,6 +469,9 @@ private:
         {     Opcode::OP_SEND_TO_SHARED_EXPERT,                   [this]() { return GenDistOp(); }},
         {         Opcode::OP_DISPATCH_SET_FLAG,                   [this]() { return GenDistOp(); }},
         {      Opcode::OP_COPY_TO_LOCAL_EXPERT,                   [this]() { return GenDistOp(); }},
+        {                 Opcode::OP_SHMEM_PUT,                   [this]() { return GenDistOp(); }},
+        {              Opcode::OP_SHMEM_SIGNAL,                   [this]() { return GenDistOp(); }},
+        {                 Opcode::OP_SHMEM_GET,                   [this]() { return GenDistOp(); }},
 
         // max pool
         {                  Opcode::OP_MAX_POOL,                   [this]() { return GenPoolOp(); }},

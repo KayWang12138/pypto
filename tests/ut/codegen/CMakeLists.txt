@@ -73,6 +73,7 @@ set(_CaseFilterList
         "TestCodegenDispatch.TestMoeDispatchRoutingExpert"
         "TestCodegenDispatch.TestMoeDispatchSharedExpert"
         "TestCodegenMoeCombine.TestMoeCombine"
+        "TestCodegenShmemTileop.Success"
 
         ########################## DYNAMIC ##########################
         # mte

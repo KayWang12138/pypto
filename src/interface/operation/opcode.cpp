@@ -271,6 +271,60 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_DISPATCH_SET_FLAG, OpCoreType::ANY, "DISPATCH_SET_FLAG", {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB}, {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Distributed::DispatchSetFlag", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED);
     registerInfo(Opcode::OP_FFN_SCHED, OpCoreType::ANY, "FFN_SCHED", {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB}, {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB}, {"TileOp::Distributed::FFNSched", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED);
     registerInfo(Opcode::OP_FFN_BATCHING, OpCoreType::ANY, "FFN_BATCHING", {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB}, {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB}, {"TileOp::Distributed::FFNBatching", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED);
+    /*
+     * 1. TileOp 的说明：把非 SHMEM 的数据传输到 SHMEM
+     * 2. 支持的属性：
+     *    a. AtomicType：类型为 AtomicType，默认值为 AtomicType::SET
+     * 3. buffer 的使用说明：根据需要初始化一个一维的 LogicalTensor，类型与输入一致、大小为一次传输的元素个数，如果不是 32B 对齐，底层实现会补齐到 32B 对齐
+     * 4. 控制边的说明：
+     *    a. dummy：用于保证 SHMEM_SIGNAL 在 SHMEM_PUT 之后执行
+     */
+    registerInfo(Opcode::OP_SHMEM_PUT, OpCoreType::AIV, "SHMEM_PUT",
+        {MemoryType::MEM_DEVICE_DDR /* nonShmemData */, MemoryType::MEM_DEVICE_DDR /* shmemData */},
+        {MemoryType::MEM_DEVICE_DDR /* dummy */, MemoryType::MEM_UB /* buffer */},
+        {"TileOp::Distributed::ShmemPut", PIPE_S, PIPE_S, CoreType::AIV},
+        OpCalcType::DISTRIBUTED);
+    /*
+     * 1. TileOp 的说明：设置 Signal，每个 TileOp 设置一个 Signal
+     * 2. 支持的属性：
+     *    a. Value：类型为 int32_t，默认值为 1
+     *    b. AtomicType：类型为 AtomicType，默认值为 AtomicType::SET
+     * 3. buffer 的使用说明：初始化一个一维的 LogicalTensor，类型为 int32_t、大小为 8，如果大小不是 8，底层实现仍然会使用 8
+     * 4. 控制边的说明：
+     *    a. dummy：用于保证 SHMEM_SIGNAL 在 SHMEM_PUT 之后执行
+     */
+    registerInfo(Opcode::OP_SHMEM_SIGNAL, OpCoreType::AIV, "SHMEM_SIGNAL",
+        {MemoryType::MEM_DEVICE_DDR /* dummy */},
+        {MemoryType::MEM_DEVICE_DDR /* shmemSignal */, MemoryType::MEM_UB /* buffer */},
+        {"TileOp::Distributed::ShmemSignal", PIPE_S, PIPE_S, CoreType::AIV},
+        OpCalcType::DISTRIBUTED);
+    /*
+     * 1. TileOp 的说明：等待 Signal，每个 TileOp 等待一个 Signal，对应一次 EnqueueOp
+     * 2. 支持的属性：
+     *    a. Value：类型为 int32_t，默认值为 1
+     * 3. 控制边的说明：
+     *    a. dummyIn：用于保证 SHMEM_WAIT_UNTIL 在 nonShmemDataIn 准备好之后执行
+     *    b. dummyOut：用于保证 SHMEM_GET 在 SHMEM_WAIT_UNTIL 之后执行
+     */
+    registerInfo(Opcode::OP_SHMEM_WAIT_UNTIL, OpCoreType::AICPU, "SHMEM_WAIT_UNTIL",
+        {MemoryType::MEM_DEVICE_DDR /* dummyIn */, MemoryType::MEM_DEVICE_DDR /* shmemSignal */},
+        {MemoryType::MEM_DEVICE_DDR /* dummyOut */},
+        TileOpCfg(),
+        OpCalcType::DISTRIBUTED,
+        {OP_ATTR_PREFIX + "distributed"});
+    /*
+     * 1. TileOp 的说明：把 SHMEM 的数据传输到非 SHMEM
+     * 2. 支持的属性：
+     *    a. AtomicType：类型为 AtomicType，默认值为 AtomicType::SET
+     * 3. buffer 的使用说明：根据需要初始化一个一维的 LogicalTensor，类型与输入一致、大小为一次传输的元素个数，如果不是 32B 对齐，底层实现会补齐到 32B 对齐
+     * 4. 控制边的说明：
+     *    a. dummy：用于保证 SHMEM_GET 在 SHMEM_WAIT_UNTIL 之后执行
+     */
+    registerInfo(Opcode::OP_SHMEM_GET, OpCoreType::AIV, "SHMEM_GET",
+        {MemoryType::MEM_DEVICE_DDR /* dummy */, MemoryType::MEM_DEVICE_DDR /* shmemData */},
+        {MemoryType::MEM_DEVICE_DDR /* nonShmemData */, MemoryType::MEM_UB /* buffer */},
+        {"TileOp::Distributed::ShmemGet", PIPE_S, PIPE_S, CoreType::AIV},
+        OpCalcType::DISTRIBUTED);
 
     registerInfo(Opcode::OP_NOP, OpCoreType::ANY, "NOP", {}, {}, {}, OpCalcType::OTHER);
     registerInfo(Opcode::OP_REDUCE_ACC, OpCoreType::GMATOMIC, "REDUCE_ACC", {MEM_DEVICE_DDR, MEM_DEVICE_DDR}, {MEM_DEVICE_DDR}, {}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "atomic_add"});

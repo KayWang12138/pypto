@@ -321,10 +321,11 @@ void CodeGenOp::UpdateTileOpInfo(const Operation &ops) {
         }
     }
 
-    std::string dynPrefix = functionType == FunctionType::DYNAMIC_LOOP_PATH ? "Dyn" : "";
-    if (dynPrefix.empty()) {
+    if ((functionType != FunctionType::DYNAMIC_LOOP_PATH) || (tileOpName.find("Distributed") != std::string::npos)) {
         return;
     }
+
+    std::string dynPrefix =  "Dyn";
 
     size_t nameSpaceLen = std::strlen("TileOp::");
     // NEXTNEXT: delete if after all TileOp have adapted dynamic unalinged scene
