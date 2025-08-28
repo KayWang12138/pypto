@@ -43,6 +43,7 @@ if (ENABLE_BUILD_BINARY)
 
         target_link_directories(tile_fwk_impl PRIVATE
                 ${ASCEND_HOME_PATH}/lib64
+                ${TILE_FWK_OPS_ROOT_PATH}/../output/lib64
         )
 
         target_link_libraries(tile_fwk_impl PRIVATE

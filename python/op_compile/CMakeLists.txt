@@ -1,5 +1,5 @@
 set(TILE_FWK_WHL_NAME "tile_fwk-0.1.0-py3-none-any.whl")
-set(TILE_FWK_PY_DIR ${TILE_FWK_BIN_ROOT}/python)
+set(TILE_FWK_PY_DIR ${TILE_FWK_BIN_ROOT}/python/op_compile)
 set(TILE_FWK_PY_BASE ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_custom_target(${TILE_FWK_WHL_NAME}

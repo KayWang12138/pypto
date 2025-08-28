@@ -32,8 +32,6 @@ if (BUILD_OPEN_PROJECT AND ENABLE_BUILD_HOST)
 endif()
 
 if (ENABLE_BUILD_BINARY)
-    list(APPEND CMAKE_PREFIX_PATH ${TILE_FWK_OPS_ROOT_PATH}/../output/lib64)
-    find_package_if_target_not_exists(tile_fwk_interface MODULE REQUIRED)
     list(APPEND CMAKE_PREFIX_PATH ${ASCEND_3RD_LIB_PATH}/json)
     find_package(nlohmann_json CONFIG)
 endif()
