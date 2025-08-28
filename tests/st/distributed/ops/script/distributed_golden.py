@@ -449,7 +449,7 @@ class DistributedTestGolden:
 
         logging.info("Case(%s), Golden generated success.", case_name)
         return True
-    
+
     @staticmethod
     @GoldenRegister.reg_golden_func("DistributedTest.aivWaitFlag_single_test_moe_combine_bfloat16_rank_size_4")
     def gen_combine(case_name: str, output: Path):
@@ -487,7 +487,7 @@ class DistributedTestGolden:
             rank_size = 8
             dtype = torch.bfloat16
             dispatch_case_name = "DistributedTest.test_dispatch_rank_size_8"
-            DistributedTestGolden.gen_combine_case(row, col, share_num, expert_num, top_k, rank_size, dtype, output, 
+            DistributedTestGolden.gen_combine_case(row, col, share_num, expert_num, top_k, rank_size, dtype, output,
                                                    dispatch_case_name, case_name)
         elif case_name == "DistributedTest.test_dynamic_combine_rank_size_8":
             row = 8
@@ -498,7 +498,7 @@ class DistributedTestGolden:
             rank_size = 8
             dtype = torch.bfloat16
             dispatch_case_name = "DistributedTest.test_dynamic_dispatch_rank_size_8"
-            DistributedTestGolden.gen_combine_case(row, col, share_num, expert_num, top_k, rank_size, dtype, output, 
+            DistributedTestGolden.gen_combine_case(row, col, share_num, expert_num, top_k, rank_size, dtype, output,
                                                    dispatch_case_name, case_name)
 
         logging.info("Case(%s), Golden generated success.", case_name)
@@ -687,11 +687,11 @@ class DistributedTestGolden:
                 rank_moe = share_num + expert_id
                 x = x_list[rank_moe]
                 combine_info = combine_info_list[rank_moe]
-                
+
                 mask = combine_info[:, 0] == rank
                 x = x[mask]
                 combine_info = combine_info[mask]
-                
+
                 for idx in range(len(combine_info)):
                     token_id = combine_info[idx, 1]
                     k_offset = combine_info[idx, 2]
@@ -732,7 +732,7 @@ class DistributedTestGolden:
 
         logging.info("Case(%s), Golden generated success.", case_name)
         return True
-    
+
     @staticmethod
     def gen_allgather_attnpost_reducescatter_case(b, s, n, kv_lora_rank, v_head_dim, h, rank_size, dtype, output):
         ag_in_list = []
@@ -740,7 +740,7 @@ class DistributedTestGolden:
             ag_in = torch.randn([b * s * n // rank_size, kv_lora_rank], dtype=dtype)
             DistributedTestGolden.save_tensor(ag_in, output, f"ag_in_rank_{rank}.bin")
             ag_in_list.append(ag_in)
-        
+
         attn_in = torch.cat(ag_in_list, dim=0).reshape([b, n, s, kv_lora_rank])
         attn_in = torch.transpose(attn_in, 1, 2)
         attn_in = torch.reshape(attn_in, [b * s, n, kv_lora_rank])
@@ -760,7 +760,7 @@ class DistributedTestGolden:
 
             attn_out = torch.matmul(attn_out.to(dtype=torch.float32), w_out.to(dtype=torch.float32)).to(dtype=dtype)
             rs_in_list.append(attn_out)
-        
+
         rs_out = torch.stack(rs_in_list, dim=0).to(torch.float32)
         rs_out = torch.sum(rs_out, dim=0).to(dtype)
         out_bs = b * s // rank_size

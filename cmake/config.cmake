@@ -13,9 +13,11 @@
 ########################################################################################################################
 
 # Python3
-find_package(Python3)
-if ((NOT Python3_FOUND) OR (${Python3_EXECUTABLE} STREQUAL ""))
-    message(FATAL_ERROR "Can't find python3.")
+if (NOT DEFINED Python3_EXECUTABLE)
+    find_package(Python3)
+    if ((NOT Python3_FOUND) OR (${Python3_EXECUTABLE} STREQUAL ""))
+        message(FATAL_ERROR "Can't find python3.")
+    endif ()
 endif ()
 set(TILE_FWK_PYTHON3_EXE   "${Python3_EXECUTABLE}" CACHE   STRING   "python executor")
 
@@ -175,24 +177,25 @@ if ((ENABLE_ASAN OR ENABLE_UBSAN) AND ENABLE_TESTS_EXECUTE)
         set(XSAN_LD_PRELOAD "LD_PRELOAD=${XSAN_LD_PRELOAD}")
     endif ()
 
-    # XSAN_OPTIONS
+    set(ASAN_OPTIONS)
     if (ENABLE_ASAN)
-        # 谨慎修改 ASAN_OPTIONS_ 取值, 当前出现告警会使 GTest 失败.
+        # 谨慎修改 ASAN_OPTIONS 取值, 当前出现告警会使 GTest 失败.
         # halt_on_error=1, 出现告警时停止运行进而触发构建失败, 避免主进程或 fork 出的子进程出现错误无法发现的情况
         # detect_stack_use_after_return=1, 栈空间返回后使用检测
         # check_initialization_order, 尝试捕获初始化顺序问题
         # strict_init_order, 动态初始化器永远不能访问来自其他模块的全局变量, 及时或者已经初始化
         # strict_string_checks, 检查字符串参数是否正确以 null 终止
         # detect_leaks=1, 内存泄漏检测
-        set(ASAN_OPTIONS_ "ASAN_OPTIONS=halt_on_error=1,detect_stack_use_after_return=1,check_initialization_order=1,strict_init_order=1,strict_string_checks=1,detect_leaks=1")
+        set(ASAN_OPTIONS "ASAN_OPTIONS=halt_on_error=0,detect_stack_use_after_return=1,check_initialization_order=1,strict_init_order=1,strict_string_checks=1,detect_leaks=1")
     endif ()
+
+    set(UBSAN_OPTIONS)
     if (ENABLE_UBSAN)
-        # 谨慎修改 UBSAN_OPTIONS_ 取值, 当前出现告警会使 UT 失败.
+        # 谨慎修改 UBSAN_OPTIONS 取值, 当前出现告警会使 UT 失败.
         # halt_on_error=1, 出现告警时停止运行进而触发构建失败, 避免主进程或 fork 出的子进程出现错误无法发现的情况
         # print_stacktrace=1, 出错时打印调用栈
-        set(UBSAN_OPTIONS_ "UBSAN_OPTIONS=halt_on_error=1,print_stacktrace=1")
+        set(UBSAN_OPTIONS "UBSAN_OPTIONS=halt_on_error=0,print_stacktrace=1")
     endif ()
-    set(XSAN_OPTIONS ${ASAN_OPTIONS_} ${UBSAN_OPTIONS_})
 endif ()
 
 

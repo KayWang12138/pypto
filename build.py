@@ -13,6 +13,7 @@
 构建总入口.
 """
 import os
+import sys
 import argparse
 import logging
 import multiprocessing
@@ -24,7 +25,7 @@ import subprocess
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, List, Dict, Tuple, Any
 
 from tools import work_flow as wf
 
@@ -103,7 +104,10 @@ class BuildCtrl:
                 _filter_str = f"{len(_filter_list)}"
             return _filter_str
 
+        ver = sys.version_info
         desc = ""
+        desc += f"\nEnviron"
+        desc += f"\n\tPython3                  : {sys.executable} ({ver.major}.{ver.minor}.{ver.micro})"
         desc += f"\nArgs Param"
         desc += f"\n\tBackend Type             : {self.backend_type}"
         desc += f"\n\tForced Clean             : {self.forced_clean}"
@@ -339,14 +343,15 @@ class BuildCtrl:
 
     def configure(self):
         """ CMake Configure 阶段流程. """
+        # 基本配置, 当前 CMake 中有调用 python3 的情况, 传入 python3 解释器, 保证所使用的 python3 版本一致
         cmd = f"cmake -S {self.src_root} -B {self.build_root}"
+        cmd += f" -DCMAKE_BUILD_TYPE={self.build_type}" if self.build_type else ""
         # common 相关配置
         #    SocVersion, Backend 相关配置, SocVersion相关配置暂不支持
         if self.backend_type == "npu":
             cmd += f" -DENABLE_BUILD_WITH_CANN=ON"
         if self.backend_type == "cost_model":
             cmd += f" -DENABLE_BUILD_WITH_CANN=OFF"
-        cmd += f" -DCMAKE_BUILD_TYPE={self.build_type}" if self.build_type else ""
         # tests 相关配置
         cmd += self._configure_tests()
         # tools_build 相关配置
@@ -385,7 +390,7 @@ class BuildCtrl:
                     wf.work_flow_plot(self.build_root, self.prof, self.pe)
                 raise
             ret.check_returncode()
-            logging.info("CMake Build(%s/%s), Cost %s sec, Cmd: %s",
+            logging.info("CMake Build(%s/%s), Duration %s sec, Cmd: %s",
                          i + 1, len(cmd_list),
                          (datetime.now(tz=timezone.utc) - ts).seconds, c)
         # 一键绘图
@@ -394,8 +399,7 @@ class BuildCtrl:
 
     def run_build_cmd(self, cmd: str, update_env: Optional[Dict[str, str]] = None,
                       check: bool = False) -> Optional[subprocess.CompletedProcess]:
-        """
-        执行具体 build 命令行
+        """执行具体 build 命令行
 
         因以下原因, 设置本函数, 而非调用原生 subprocess.run
         1. 支持多 target 构建, 各 target 构建时长共享公共 timeout 配置;
@@ -540,25 +544,36 @@ class BuildCtrl:
                 "simulation_configs": {}
             }
         }
-        if self.sim:
-            simulation_json["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
+        self._gen_simulation_json_sim(cfg=simulation_json)
+        self._gen_simulation_json_sim_with_onboard_aicpu(cfg=simulation_json)
+        self._gen_simulation_json_back_annotation_aicpu(cfg=simulation_json)
+        self._gen_simulation_json_back_annotation_aicore(cfg=simulation_json)
+        self._gen_simulation_json_calendar(cfg=simulation_json)
+        self._gen_simulation_json_pvmodel(cfg=simulation_json)
+        self._save_simulation_json(simulation_json)
 
+    def _gen_simulation_json_sim(self, cfg: Dict[Any, Any]):
+        if self.sim:
+            cfg["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
+
+    def _gen_simulation_json_sim_with_onboard_aicpu(self, cfg: Dict[Any, Any]):
         if self.sim_with_onboard_aicpu:
-            simulation_json["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
-            simulation_json["global_configs"]["simulation_configs"]["USE_ON_BOARD_INFO"] = True
-            simulation_json["global_configs"]["simulation_configs"]["args"] = [
+            cfg["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
+            cfg["global_configs"]["simulation_configs"]["USE_ON_BOARD_INFO"] = True
+            cfg["global_configs"]["simulation_configs"]["args"] = [
                 "Model.statisticReportToFile=true",
                 "Model.deviceArch=910B",
                 "Model.useOOOPassSeq=true",
                 "Core.logLabelMode=0"
             ]
 
+    def _gen_simulation_json_back_annotation_aicpu(self, cfg: Dict[Any, Any]):
         if self.back_annotation_aicpu:
             if self.replay_file_path is None:
                 logging.error("Error: replay_file_path is required when back_annotation_aicpu is enabled")
                 raise ValueError("Missing required argument: -rf, --replay_file_path")
-            simulation_json["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
-            simulation_json["global_configs"]["simulation_configs"]["args"] = [
+            cfg["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
+            cfg["global_configs"]["simulation_configs"]["args"] = [
                 "Model.statisticReportToFile=true",
                 "Model.deviceArch=910B",
                 "Model.useOOOPassSeq=true",
@@ -567,26 +582,28 @@ class BuildCtrl:
                 f"Model.replayFile={self.replay_file_path}"
             ]
 
+    def _gen_simulation_json_back_annotation_aicore(self, cfg: Dict[Any, Any]):
         if self.back_annotation_aicore:
             if self.replay_file_path is None:
                 logging.error("Error: replay_file_path is required when back_annotation_aicore is enabled")
                 raise ValueError("Missing required argument: -rf, --replay_file_path")
-            simulation_json["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
-            simulation_json["global_configs"]["simulation_configs"]["USE_ON_BOARD_INFO"] = True
-            simulation_json["global_configs"]["simulation_configs"]["JSON_PATH"] = self.replay_file_path
-            simulation_json["global_configs"]["simulation_configs"]["args"] = [
+            cfg["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
+            cfg["global_configs"]["simulation_configs"]["USE_ON_BOARD_INFO"] = True
+            cfg["global_configs"]["simulation_configs"]["JSON_PATH"] = self.replay_file_path
+            cfg["global_configs"]["simulation_configs"]["args"] = [
                 "Model.statisticReportToFile=true",
                 "Model.deviceArch=910B",
                 "Model.useOOOPassSeq=true",
                 "Core.logLabelMode=0"
             ]
 
+    def _gen_simulation_json_calendar(self, cfg: Dict[Any, Any]):
         if self.calendar:
             if self.replay_file_path is None:
                 logging.error("Error: replay_file_path is required when calendar is enabled")
                 raise ValueError("Missing required argument: -rf, --replay_file_path")
-            simulation_json["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
-            simulation_json["global_configs"]["simulation_configs"]["args"] = [
+            cfg["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
+            cfg["global_configs"]["simulation_configs"]["args"] = [
                 "Model.statisticReportToFile=true",
                 "Model.deviceArch=910B",
                 "Model.useOOOPassSeq=true",
@@ -601,19 +618,18 @@ class BuildCtrl:
                 "Model.vecMachineNumberPerAICPU=27",
             ]
 
+    def _gen_simulation_json_pvmodel(self, cfg: Dict[Any, Any]):
         if self.pvmodel:
-            simulation_json["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
-            simulation_json["global_configs"]["platform_configs"]["ENABLE_SOFT_MEMORY"] = True
-            simulation_json["global_configs"]["platform_configs"]["ENABLE_PV_DATA"] = True
-            simulation_json["global_configs"]["simulation_configs"]["PV_LEVEL"] = 2
-            simulation_json["global_configs"]["simulation_configs"]["args"] = [
+            cfg["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
+            cfg["global_configs"]["platform_configs"]["ENABLE_SOFT_MEMORY"] = True
+            cfg["global_configs"]["platform_configs"]["ENABLE_PV_DATA"] = True
+            cfg["global_configs"]["simulation_configs"]["PV_LEVEL"] = 2
+            cfg["global_configs"]["simulation_configs"]["args"] = [
                 "Model.statisticReportToFile=true",
                 "Model.deviceArch=910B",
                 "Model.useOOOPassSeq=true",
                 "Core.logLabelMode=0",
             ]
-
-        self._save_simulation_json(simulation_json)
 
 
 class SubCommandMgr:

@@ -15,7 +15,7 @@
 
 #include <gtest/gtest.h>
 
-class AscendcppTestExecutionCounter : public testing::EmptyTestEventListener {
+class TestExecutionCounter : public testing::EmptyTestEventListener {
 public:
     uint64_t executed_count = 0;
 
@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
     testing::InitGoogleTest(&argc, argv);
 
     // 创建并注册监听器
-    AscendcppTestExecutionCounter counter;
+    TestExecutionCounter counter;
     testing::UnitTest::GetInstance()->listeners().Append(&counter);
 
     auto ret = RUN_ALL_TESTS();

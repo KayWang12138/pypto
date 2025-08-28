@@ -608,9 +608,9 @@ def gen_nsa_v1_func(case_name: str, output: Path) -> bool:
         elif case_name == "DynamicNSATest.s2_2048": # quant
             nsa_entry((np.float16, np.float16), (16, 1, 2048, 7168), (False, False), output)
         elif case_name == "DynamicNSATest.s2_8192": # quant
-            nsa_entry((np.float16, np.float16), (16, 1, 8192, 7168), (False, False), output)   
+            nsa_entry((np.float16, np.float16), (16, 1, 8192, 7168), (False, False), output)
         elif case_name == "DynamicNSATest.s2_4096": # quant
-            nsa_entry((np.float16, np.float16), (16, 1, 4096, 7168), (False, False), output)  
+            nsa_entry((np.float16, np.float16), (16, 1, 4096, 7168), (False, False), output)
         elif case_name == "DynamicNSATest.mini": # quant
             nsa_entry((np.float16, np.float16), (16, 1, 1024, 7168), (False, False), output)
         elif case_name == "DynamicNSATest.mini_debug": # quant

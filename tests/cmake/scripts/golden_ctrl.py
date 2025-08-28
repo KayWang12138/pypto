@@ -19,16 +19,15 @@ import logging
 import math
 import multiprocessing
 import shutil
-import sys
 import os
+import sys
 from pathlib import Path
 from typing import List, Any
 from datetime import datetime, timezone
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from golden_register import GoldenRegister
-
-from tabulate import tabulate
+from python.utils.table import Table
 
 
 class GoldenCtrl:
@@ -41,13 +40,16 @@ class GoldenCtrl:
         self.output: Path = Path(args.output).resolve()
         self.impl_dirs: List[Path] = [Path(p).resolve() for p in args.path]
         self.impl_dirs = list(set(self.impl_dirs))
+        self.impl_dirs.sort()
         self.clean: bool = args.clean
-        self.job_num: int = min(min(min(max(args.job_num, 0), multiprocessing.cpu_count()), 64), len(self.cases))
-        logging.info("\n\nGolden Ctrl Args:\n%s", str(tabulate(self.brief, tablefmt="simple")))
+        self.job_num: int = min(min(min(max(args.job_num, 0), multiprocessing.cpu_count()), 4), len(self.cases))
+        logging.info("\n\nGolden Ctrl Args:\n%s", Table.table(datas=self.brief))
 
     @property
     def brief(self) -> List[Any]:
+        ver = sys.version_info
         datas: List[Any] = [
+            ["Python3", f"{sys.executable} ({ver.major}.{ver.minor}.{ver.micro})"],
             ["CaseNum", len(self.cases)],
             ["OutputDir", self.output],
             ["CleanFlag", self.clean],
@@ -137,8 +139,8 @@ class GoldenCtrl:
         if self.job_num <= 1:
             ret = self.run_all_task_single_process()
         else:
-            ret = self.run_all_task_single_process()
-        logging.info("Generate golden finish[%s], Cost %s secs, Return(%s)", len(self.cases),
+            ret = self.run_all_task_multi_process()
+        logging.info("Generate golden finish[%s], Duration %s secs, Return(%s)", len(self.cases),
                      (datetime.now(tz=timezone.utc) - ts).seconds, ret)
         return ret
 
@@ -181,7 +183,7 @@ class GoldenCtrl:
             case_output.mkdir(parents=True, exist_ok=True)
             ret: bool = bool(result[0](case_name=c, output=case_output))
         msg: str = "success" if ret else "failed"
-        logging.info("Generate golden %s Idx[%s/%s] Case(%s) Cost %s secs.", msg, idx, len(self.cases), c,
+        logging.info("Generate golden %s Idx[%s/%s] Case(%s) Duration %s secs.", msg, idx, len(self.cases), c,
                      (datetime.now(tz=timezone.utc) - ts).seconds)
         return ret
 

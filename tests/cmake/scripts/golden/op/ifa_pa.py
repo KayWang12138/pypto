@@ -531,7 +531,7 @@ def ifa_pa_func(case_name: str, output: Path) -> bool:
     q_nope = q_bnsd[:, :, :, : kv_lora_rank]
     q_rope = q_bnsd[:, :, :, kv_lora_rank:]
 
-    # BBH split [B B kv_lora_rank]  + [B B rope] 
+    # BBH split [B B kv_lora_rank]  + [B B rope]
     k_cache_nope_h = kv_lora_rank * n_kv
     k_cache_nope = k_cache[:, :, : k_cache_nope_h]
     k_cache_rope = k_cache[:, :, k_cache_nope_h:]

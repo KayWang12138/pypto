@@ -14,11 +14,6 @@
 2. 承载用例执行功能;
 """
 import csv
-import logging
-import os
-import shlex
-import subprocess
-from datetime import datetime, timezone, timedelta
 from enum import Enum, unique
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -87,29 +82,6 @@ class CaseAbc(ABC):
 
     def update(self, k: str, v: Any):
         self._fields_dict.update({k: v})
-
-    def run(self, target: Path, device_id: int, xsan_options: str = "",
-            env: Optional[Dict[str, str]] = None) -> Tuple[timedelta]:
-        """
-        执行对应二进制
-
-        :param target: STest 可执行程序
-        :param device_id: 执行 Device Id
-        :param xsan_options: XSan 选项
-        :param env: 环境变量
-        """
-        act_env = {**os.environ}
-        act_env.update(env if env else {})
-        act_env.update({"TILE_FWK_STEST_DEVICE_ID": f"{device_id}"})
-        cmd = f"{xsan_options} ./{target.name} --gtest_filter={self.name}"
-        logging.debug("[Bgn] Run GTestCase, cmd=%s", cmd)
-        ts = datetime.now(tz=timezone.utc)
-        ret = subprocess.run(shlex.split(cmd), env=act_env, cwd=target.parent,
-                             capture_output=False, check=True, text=True, encoding='utf-8')
-        tc: timedelta = datetime.now(tz=timezone.utc) - ts
-        logging.debug("[End] Run GTestCase, cmd=%s, Cost %s secs.", cmd, tc.seconds)
-        ret.check_returncode()
-        return (tc, )
 
     def dump_csv(self, file: Path, append: bool = False):
         heads, datas = self.detail

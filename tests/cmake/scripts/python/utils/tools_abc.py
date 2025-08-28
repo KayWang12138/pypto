@@ -19,7 +19,7 @@ class ToolsAbc(ABC):
 
     def __init__(self, args):
         # 路径管理
-        self.source_root: Path = Path(__file__).parent.parent.parent.parent.resolve()
+        self.source_root: Path = Path(__file__).parent.parent.parent.parent.parent.parent.resolve()
 
         # 执行控制
         self.clean_flg: bool = args.tools_output_clean
@@ -27,7 +27,8 @@ class ToolsAbc(ABC):
 
     @property
     def brief(self) -> List[Any]:
-        datas = [["CleanFlag", self.clean_flg],
+        datas = [["SourceRoot", self.source_root],
+                 ["CleanFlag", self.clean_flg],
                  ["Intercept", self.intercept]]
         return datas
 

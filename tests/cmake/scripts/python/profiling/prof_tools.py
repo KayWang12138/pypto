@@ -22,11 +22,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 
-from tabulate import tabulate
-
 from profiling.prof_case import ProfCase
 from profiling.prof_dir import ProfDir
 from utils.tools_run_abc_sp import ToolsRunAbcSp
+from utils.table import Table
 
 
 class ProfTools(ToolsRunAbcSp):
@@ -51,7 +50,7 @@ class ProfTools(ToolsRunAbcSp):
         self.statistic_rst_file: Path = Path(self.output_root, f"profiling/{ProfCase.STATISTIC_RST_FILE_NAME}")
         self.statistic_all_file: Path = Path(self.output_root, f"profiling/{ProfCase.STATISTIC_ALL_FILE_NAME}")
 
-        logging.info("\n\nTools Profiling Args:\n%s", str(tabulate(self.brief, tablefmt="simple")))
+        logging.info("\n\nTools Profiling Args:\n%s", Table.table(datas=self.brief))
         if len(self.device_list) > 1:
             logging.info("Specify Multi Device(%s), use first device(%s) to profiling.",
                          self.device_list, self.device_id)
@@ -82,8 +81,9 @@ class ProfTools(ToolsRunAbcSp):
             # 复用 STest 多卡执行脚本实现多卡并行产生 Kernel 二进制
             pys: Path = Path(self.source_root, "tests/cmake/scripts/stest_accelerate.py")
             cases_name_str: str = ":".join([c.name for c in self.case_list])
-            cmd: str = f"{sys.executable} {pys} -t={self.target} -c={cases_name_str}"
-            cmd += f" --xsan_options={self.xsan_options}" if self.xsan_options else ""
+            cmd: str = f"{sys.executable} {pys} -t={self.exe.file} -c={cases_name_str}"
+            for _k, _v in self.exe.envs.items():
+                cmd += f" --env {_k}={_v}"
             cmd += " --halt_on_error" if self.halt_on_error else ""
             for dev_id in self.device_list:
                 cmd += f" -d={dev_id}"
@@ -91,7 +91,7 @@ class ProfTools(ToolsRunAbcSp):
             logging.info("[BGN] Multi Device(%s) Warn-Up, Cmd=%s", self.device_list, cmd)
             ret = subprocess.run(shlex.split(cmd), capture_output=False, check=True, text=True, encoding='utf-8')
             ret.check_returncode()
-            logging.info("[END] Multi Device(%s) Warn-Up, Cost %s secs",
+            logging.info("[END] Multi Device(%s) Warn-Up, Duration %s secs",
                          self.device_list, (datetime.now(tz=timezone.utc) - ts).seconds)
         return True
 
@@ -107,14 +107,14 @@ class ProfTools(ToolsRunAbcSp):
         self.case_statistic_all_file = Path(self.case_rst_dir_root, ProfCase.STATISTIC_ALL_FILE_NAME)
         # 预热 及 输出路径预处理
         # 在二进制复用场景下, 相关输出仅会在首次执行时产生
-        output_dirs = [d for d in Path(self.target.parent, "output").glob(pattern="output_*") if d.is_dir()]
+        output_dirs = [d for d in Path(self.exe.file.parent, "output").glob(pattern="output_*") if d.is_dir()]
         output_dirs.sort(reverse=True)  # 取最近一次
         self.case_output_dir_bak = output_dirs[0] if len(output_dirs) != 0 else None
         for i in range(1, cs.prof_warn_up_cnt + 1):
-            tc, = cs.run(target=self.target, device_id=device_id, xsan_options=self.xsan_options)
-            logging.info("%s Profiling Prepare, Warn-up(%s/%s), Cost %s secs.",
+            _, _, tc = self.run_case(cs=cs, device_id=device_id)
+            logging.info("%s Profiling Prepare, Warn-up(%s/%s), Duration %s secs.",
                          cs.full_name, i, cs.prof_warn_up_cnt, tc.seconds)
-        output_dirs = [d for d in Path(self.target.parent, "output").glob(pattern="output_*") if d.is_dir()]
+        output_dirs = [d for d in Path(self.exe.file.parent, "output").glob(pattern="output_*") if d.is_dir()]
         output_dirs.sort(reverse=False)
         idx = output_dirs.index(self.case_output_dir_bak) + 1 if self.case_output_dir_bak else 0
         self.case_output_dir_bak = output_dirs[idx] if idx < len(output_dirs) else None
@@ -126,11 +126,11 @@ class ProfTools(ToolsRunAbcSp):
         env = {
             "PROFILER_SAMPLECONFIG": "{"
                                      + f"\"stars_acsq_task\":\"off\","
-                                     + f"\"app\":\"{self.target.name}\","
+                                     + f"\"app\":\"{self.exe.file.name}\","
                                      + f"\"prof_level\":\"{self.level}\","
                                      + f"\"taskTime\":\"{self.level}\","
                                      + f"\"result_dir\":\"{self.case_prof_ori_dir_root}\","
-                                     + f"\"app_dir\":\"{self.target.parent}\","
+                                     + f"\"app_dir\":\"{self.exe.file.parent}\","
                                      + f"\"ai_core_profiling\":\"off\","
                                      + f"\"aicpuTrace\":\"on\""
                                      + "}"
@@ -138,7 +138,7 @@ class ProfTools(ToolsRunAbcSp):
         cur_cnt: int = 0
         for i in range(1, cs.prof_try_cnt + 1):
             # 性能采集
-            cs.run(target=self.target, device_id=device_id, xsan_options=self.xsan_options, env=env)
+            self.run_case(cs=cs, device_id=device_id, envs=env)
             # 采集结果检查
             rest_sub_dirs = [d for d in self.case_prof_ori_dir_root.glob(pattern="PROF_*") if d.is_dir()]
             rest_sub_dirs.sort(reverse=True)
@@ -179,7 +179,7 @@ class ProfTools(ToolsRunAbcSp):
         return True
 
     def process_case_process_post_dump_output(self, prof_dir: ProfDir) -> bool:
-        output_dirs = [d for d in Path(self.target.parent, "output").glob(pattern="output_*") if d.is_dir()]
+        output_dirs = [d for d in Path(self.exe.file.parent, "output").glob(pattern="output_*") if d.is_dir()]
         output_dirs.sort(reverse=True)
         if len(output_dirs) == 0:
             logging.error("%s can't get any output dir after execute.", prof_dir.result_case.full_name)
@@ -270,5 +270,4 @@ class ProfTools(ToolsRunAbcSp):
         # Case 打屏结果输出
         cs_heads, cs_datas = cs.brief
         logging.info("\nCase(Profiling) Result\n%s\nCase(Profiling) Details\n%s",
-                     str(tabulate([cs_datas], headers=cs_heads, tablefmt="grid")),
-                     str(tabulate(datas, headers=heads, tablefmt="grid")))
+                     Table.table(datas=[cs_datas], headers=cs_heads), Table.table(datas=datas, headers=heads))

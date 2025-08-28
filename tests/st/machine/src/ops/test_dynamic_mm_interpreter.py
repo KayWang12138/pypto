@@ -118,7 +118,7 @@ def gen_mm_data(input_config: ShapeConfig, output_dir: Path):
         a = a.transpose(1, 0)
     if input_config.a_nz_flag:
         a = nd_to_fractal_nz(a)
-        
+
     if input_config.trans_b:
         b = b.transpose(1, 0)
     if input_config.b_nz_flag:

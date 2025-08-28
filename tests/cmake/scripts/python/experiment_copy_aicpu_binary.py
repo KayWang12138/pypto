@@ -28,6 +28,21 @@ class CopyCtrl:
         self.cfg_json: Path = args.json if args.json else Path(Path.home(),
                                                                "tile_fwk_experiment_copy_aicpu.json").resolve()
 
+    @staticmethod
+    def main():
+        """ 主处理流程 """
+        parser = argparse.ArgumentParser(description=f"Aicpu Copy.", epilog="Best Regards!")
+        # 参数注册
+        parser.add_argument("-b", "--binary", nargs=1, type=Path, required=True,
+                            help="Specific binary root path.")
+        parser.add_argument("-d", "--device", nargs="?", type=int, default=0,
+                            help="Device ID, default 0.")
+        parser.add_argument("-j", "--json", nargs=1, type=Path, required=False, default=None,
+                            help="Specific config json")
+        # 流程处理
+        ctrl = CopyCtrl(args=parser.parse_args())
+        ctrl.process()
+
     def process(self):
         if not self.cfg_json.exists():
             logging.error("Auto copy aicpu binary config file(%s) not exist, won't copy.", self.cfg_json)
@@ -45,21 +60,6 @@ class CopyCtrl:
                                      capture_output=False, check=True, text=True, encoding='utf-8')
                 ret.check_returncode()
                 logging.info("[END] Copy AICPU binary auto, Device[%s]", self.device_id)
-
-    @staticmethod
-    def main():
-        """ 主处理流程 """
-        parser = argparse.ArgumentParser(description=f"Aicpu Copy.", epilog="Best Regards!")
-        # 参数注册
-        parser.add_argument("-b", "--binary", nargs=1, type=Path, required=True,
-                            help="Specific binary root path.")
-        parser.add_argument("-d", "--device", nargs="?", type=int, default=0,
-                            help="Device ID, default 0.")
-        parser.add_argument("-j", "--json", nargs=1, type=Path, required=False, default=None,
-                            help="Specific config json")
-        # 流程处理
-        ctrl = CopyCtrl(args=parser.parse_args())
-        ctrl.process()
 
 
 if __name__ == "__main__":

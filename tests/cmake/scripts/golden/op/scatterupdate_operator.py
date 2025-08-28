@@ -578,7 +578,7 @@ def gen_scatterupdate_op_date(case_name: str, output: Path) -> bool:
 
         kv_cache_out = scatter_update_pro(
             [kv_cache, k_nope, kv_len], -2, "PA_NZ")
-        
+
         x_path = Path(output, 'x.bin')
         y_path = Path(output, 'y.bin')
         indices_path = Path(output, 'indices.bin')

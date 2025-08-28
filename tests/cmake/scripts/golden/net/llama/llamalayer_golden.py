@@ -175,7 +175,7 @@ def llama_layer_main(case_name: str, shape, output: Path):
     dense_weight_path = Path(output, 'denseWeight.bin')
     ffn_weight_path = Path(output, 'ffnWeight.bin')
     res_path = Path(output, 'llama_layer_golden_res.bin')
-    if (hidden_states_path.exists() and atten_weight_path.exists() and dense_weight_path.exists() and 
+    if (hidden_states_path.exists() and atten_weight_path.exists() and dense_weight_path.exists() and
             ffn_weight_path.exists() and res_path.exists()):
         logging.debug("Case(%s), Golden complete.", case_name)
     else:

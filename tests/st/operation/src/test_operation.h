@@ -260,8 +260,8 @@ T GetValueByName(const nlohmann::json &json_data, const std::string &name) {
 
 template <typename T>
 std::vector<T> GetOpMetaData(const std::vector<OpFunc> &opFuncs, const std::string &op) {
-    // 先读取 AST_STEST_GOLDEN_PATH 环境变量, 否则使用当前目录
-    auto path = getenv("AST_STEST_GOLDEN_PATH");
+    // 先读取 TILE_FWK_STEST_GOLDEN_PATH 环境变量, 否则使用当前目录
+    auto path = getenv("TILE_FWK_STEST_GOLDEN_PATH");
     std::string fullPath = path == nullptr ? "./golden" : path;
     fullPath += "/running_test_cases/test_cases_data.json";
     std::ifstream json_file(fullPath);

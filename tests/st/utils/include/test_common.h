@@ -485,8 +485,8 @@ struct GraphInvokeInfoTest {
 [[maybe_unused]] static std::string GetGoldenDir() {
     const testing::TestInfo *testInfo = testing::UnitTest::GetInstance()->current_test_info();
     std::string fullName = std::string(testInfo->test_suite_name()) + "." + testInfo->name();
-    // 先读取 AST_STEST_GOLDEN_PATH 环境变量, 否则使用当前目录
-    char *path = getenv("AST_STEST_GOLDEN_PATH");
+    // 先读取 TILE_FWK_STEST_GOLDEN_PATH 环境变量, 否则使用当前目录
+    char *path = getenv("TILE_FWK_STEST_GOLDEN_PATH");
     std::string fullPath;
     if (path == nullptr) {
         fullPath = "./golden";

@@ -62,10 +62,10 @@ class Analysis:
                 for d in lst:
                     logging.info("%s : %-40s dependency %s", self.target_name, self.get_o_sub_path(o=o), d)
                     cnt += 1
-            logging.error("%s has %s illegal header-file dependence, Cost %s secs.", self.target_name, cnt,
+            logging.error("%s has %s illegal header-file dependence, Duration %s secs.", self.target_name, cnt,
                           (datetime.now(tz=timezone.utc) - ts).seconds)
             return False
-        logging.info("%s header-file dependence check success, Cost %s secs.", self.target_name,
+        logging.info("%s header-file dependence check success, Duration %s secs.", self.target_name,
                      (datetime.now(tz=timezone.utc) - ts).seconds)
         return True
 

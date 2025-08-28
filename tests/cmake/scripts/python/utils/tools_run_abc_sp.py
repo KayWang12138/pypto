@@ -15,10 +15,9 @@ from abc import ABC
 from datetime import datetime, timezone
 from typing import List, Any
 
-from tabulate import tabulate
-
 from .tools_run_abc import ToolsRunAbc
 from .case_abc import CaseAbc
+from utils.table import Table
 
 
 class ToolsRunAbcSp(ToolsRunAbc, ABC):
@@ -87,7 +86,7 @@ class ToolsRunAbcSp(ToolsRunAbc, ABC):
             out: str = ""
             out += f"{self.__class__.__name__} post, InterceptFlag({self.intercept}), "
             out += f"Total execute {len(self.case_list)} cases, has {len(datas)} failed case brief below:\n"
-            out += str(tabulate(datas, headers=heads, tablefmt='grid'))
+            out += Table.table(datas=datas, headers=heads)
             if self.intercept:
                 logging.error("%s", out)
             else:

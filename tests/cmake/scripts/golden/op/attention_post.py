@@ -359,12 +359,12 @@ def gen_pa_data(output_dir: Path, params, dtype, q_out, q_rope_out, kv_cache_out
         attent_out[b_index:(b_index + 1), :, :, :] = bmm2_res
     attent_out = np.reshape(attent_out, (b * n_q * s_q, d_v))
 
-    
+
     # data split to [nope + rope]
     q_nope = q_bnsd[:, :, :, : kv_lora_rank]
     q_rope = q_bnsd[:, :, :, kv_lora_rank:]
 
-    # BBH split [B B kv_lora_rank]  + [B B rope] 
+    # BBH split [B B kv_lora_rank]  + [B B rope]
     k_cache_nope_h = kv_lora_rank * n_kv
     k_cache_nope = k_cache[:, :, : k_cache_nope_h]
     k_cache_rope = k_cache[:, :, k_cache_nope_h:]

@@ -218,7 +218,7 @@ def mla_prolog_compute(inputs):
         q_a_proj = q_a_proj_fp32_dequant * w_qa_scale
     else:
         q_a_proj = np.matmul(x_2d.astype(fp32), w_dq.astype(fp32))  # [b * s, q_lora_rank]
-        
+
     q_a_proj = q_a_proj.astype(dtype)
 
     q_a_layernorm = rms_norm(q_a_proj, gamma_cq, epsilon)
@@ -347,7 +347,7 @@ def gen_block_input_data(b, s2, block_size):
     return skv_max, block_num, block_table
 
 
-def gen_prolog_input_data(params, dtypes, epsilon, output_dir: Path, is_quant=(False, False), is_nz=False, 
+def gen_prolog_input_data(params, dtypes, epsilon, output_dir: Path, is_quant=(False, False), is_nz=False,
                           has_smooth=False, block_size=128, cache_mode="BNSD"):
     dtype, w_dtype = dtypes
     logging.debug(f"gen_prolog_input_data  dtype:{dtype}, w_dtype:{w_dtype}")
@@ -447,7 +447,7 @@ def gen_prolog_input_data(params, dtypes, epsilon, output_dir: Path, is_quant=(F
         else:
             w_dq.tofile(w_dq_path)
             w_dkvkr.tofile(w_dkvkr_path)
-    
+
     if is_quant_b:
         w_uqqr, w_qb_scale = quant(w_uqqr, False)
         w_qb_scale.tofile(w_qb_scale_path)

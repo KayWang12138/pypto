@@ -60,7 +60,7 @@ Parameters:
       TARGET             : [Required] 用于指定具体 GTest 可执行目标, 用例会在该目标编译完成后(POST_BUILD)启动执行
   multi_value_keywords:
       LD_LIBRARIES_EXT   : [Optional] 需要在执行时将所在路径配置到环境变量 LD_LIBRARY_PATH 中的 Libraries
-      CMD_SETUP_EXT      : [Optional] 附加命令行配置
+      ENV_LINES_EXT      : [Optional] 需要额外配置的环境变量, 按照 "K=V" 格式组织
       GTEST_FILTER_LIST  : [Optional] GTestFilter 配置, Filter 间以 ';' 分割
 Attention:
     1. 可以多次调用本函数以添加多个'执行任务'; 单次调用本函数时, 可以通过在 GTEST_FILTER_LIST 中配置多个过滤条件('gtest_filter') 以实现执行多用例;
@@ -70,17 +70,16 @@ function(TileFwk_UTest_RunExe)
             TMP
             ""
             "TARGET"
-            "LD_LIBRARIES_EXT;CMD_SETUP_EXT;GTEST_FILTER_LIST"
+            "LD_LIBRARIES_EXT;ENV_LINES_EXT;GTEST_FILTER_LIST"
             ""
             ${ARGN}
     )
     if (ENABLE_TESTS_EXECUTE)
         # 命令行参数处理
-        TileFwk_GTest_RunExe_GetPreExecCmdSetup(
-                CmdSetup
+        TileFwk_GTest_RunExe_GetPreExecSetup(PyCmdSetup PyEnvLines BashCmdSetup
                 TARGET              ${TMP_TARGET}
+                ENV_LINES_EXT       ${TMP_ENV_LINES_EXT}
                 LD_LIBRARIES_EXT    ${TMP_LD_LIBRARIES_EXT}
-                CMD_SETUP_EXT       ${TMP_CMD_SETUP_EXT}
         )
         # 执行流程
         list(LENGTH TMP_GTEST_FILTER_LIST GtestFilterListLen)
@@ -92,22 +91,27 @@ function(TileFwk_UTest_RunExe)
             if (ENABLE_TESTS_EXECUTE_PARALLEL)
                 # 仅在使能并行执行全局开关, 且需要做 filter 时才进行执行加速
                 set(_File $<TARGET_FILE:${TMP_TARGET}>)
-                set(_Args "-t=${_File}" "-c=${GtestFilterStr}" "--xsan_options=${XSAN_OPTIONS}" "--halt_on_error")
+                set(_Args "-t=${_File}" "--gtest_filter=${GtestFilterStr}" "--halt_on_error")
                 if (ENABLE_TESTS_EXECUTE_PARALLEL_TIMEOUT)
                     list(APPEND _Args "--timeout=${ENABLE_TESTS_EXECUTE_PARALLEL_TIMEOUT}")
                 endif ()
-                get_filename_component(ParallelPy "${TILE_FWK_SRC_ROOT}/tests/cmake/scripts/utest_accelerate.py" REALPATH)
+                if (PyEnvLines)
+                    list(APPEND _Args "--env" "${PyEnvLines}")
+                endif ()
+                get_filename_component(ParallelPy    "${TILE_FWK_SRC_ROOT}/tests/cmake/scripts/python/utest_accelerate.py" REALPATH)
+                get_filename_component(ParallelPyCwd "${TILE_FWK_SRC_ROOT}/tests/cmake/scripts/python" REALPATH)
                 add_custom_command(
                         TARGET ${TMP_TARGET} POST_BUILD
-                        COMMAND ${CmdSetup} && ${TILE_FWK_PYTHON3_EXE} ${ParallelPy} ARGS ${_Args}
+                        COMMAND ${PyCmdSetup} ${TILE_FWK_PYTHON3_EXE} ${ParallelPy} ARGS ${_Args}
                         COMMENT "${Comment} With Parallel Execute Accelerate"
+                        WORKING_DIRECTORY ${ParallelPyCwd}
                 )
             else ()
                 set(GtestFilterListIdx 1)
                 foreach (Filter ${TMP_GTEST_FILTER_LIST})
                     add_custom_command(
                             TARGET ${TMP_TARGET} POST_BUILD
-                            COMMAND ${CmdSetup} && ${XSAN_OPTIONS} ./${TMP_TARGET} ARGS '--gtest_filter=${Filter}'
+                            COMMAND ${BashCmdSetup} ./${TMP_TARGET} ARGS '--gtest_filter=${Filter}'
                             COMMENT "${Comment} [${GtestFilterListIdx}/${GtestFilterListLen}] With --gtest_filter=${Filter}"
                     )
                     math(EXPR GtestFilterListIdx "${GtestFilterListIdx} + 1")
@@ -116,7 +120,7 @@ function(TileFwk_UTest_RunExe)
         else ()
             add_custom_command(
                     TARGET ${TMP_TARGET} POST_BUILD
-                    COMMAND ${CmdSetup} && ${XSAN_OPTIONS} ./${TMP_TARGET}
+                    COMMAND ${BashCmdSetup} ./${TMP_TARGET}
                     COMMENT "${Comment}"
             )
         endif ()
@@ -172,7 +176,6 @@ function(TileFwk_UTest_AddExe_RunExe)
     )
     TileFwk_UTest_RunExe(
             TARGET              ${TMP_TARGET}
-            CMD_SETUP_EXT       ${TMP_CMD_SETUP_EXT}
             LD_LIBRARIES_EXT    ${TileFwkUTestCaseLdLibrariesExt}
             GTEST_FILTER_LIST   ${GTestFilterList}
     )

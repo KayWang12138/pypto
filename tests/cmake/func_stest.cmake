@@ -73,19 +73,19 @@ function(TileFwk_STest_RunExe_CopyAiCpuBinary)
             TMP
             ""
             "TARGET"
-            "MANUAL_SPECIAL_DEIVCE"
+            "MANUAL_SPECIAL_DEVICE"
             ""
             ${ARGN}
     )
     # AICPU Copy
     if (ENABLE_TESTS_STEST_EXPERIMENT_COPY_AICPU_BINARY)
-        get_filename_component(_CopyPy "${TILE_FWK_SRC_ROOT}/tests/cmake/scripts/experiment/copy_aicpu_binary.py" REALPATH)
+        get_filename_component(_CopyPy "${TILE_FWK_SRC_ROOT}/tests/cmake/scripts/python/experiment_copy_aicpu_binary.py" REALPATH)
         get_filename_component(_File "${TILE_FWK_BIN_ROOT}/libtilefwk_backend_server.so" REALPATH)
         set(_Args "-b=${_File}")
         # DISTRIBUTED STEST SPECIAL DEVICE LIST
-        if (${TMP_MANUAL_SPECIAL_DEIVCE})
+        if (${TMP_MANUAL_SPECIAL_DEVICE})
             set(Idx 0)
-            while (${Idx} LESS ${TMP_MANUAL_SPECIAL_DEIVCE})
+            while (${Idx} LESS ${TMP_MANUAL_SPECIAL_DEVICE})
                 list(APPEND TileFwkStestExecuteDeviceIdList ${Idx})
                 math(EXPR Idx "${Idx} + 1")
             endwhile ()
@@ -109,16 +109,16 @@ function(TileFwk_STest_RunExe_ToolsProf)
             TMP
             ""
             "TARGET"
-            "LD_LIBRARIES_EXT;CMD_SETUP_EXT;GTEST_FILTER_LIST"
+            "LD_LIBRARIES_EXT;ENV_LINES_EXT;GTEST_FILTER_LIST"
             ""
             ${ARGN}
     )
     if (ENABLE_TESTS_STEST_TOOLS_PROF)
         # 命令行参数处理
-        TileFwk_GTest_RunExe_GetPreExecCmdSetup(CmdSetup
+        TileFwk_GTest_RunExe_GetPreExecSetup(PyCmdSetup PyEnvLines BashCmdSetup
                 TARGET              ${TMP_TARGET}
+                ENV_LINES_EXT       ${TMP_ENV_LINES_EXT}
                 LD_LIBRARIES_EXT    ${TMP_LD_LIBRARIES_EXT}
-                CMD_SETUP_EXT       ${TMP_CMD_SETUP_EXT}
         )
         set(_Args)
         set(_CommentExt)
@@ -132,7 +132,10 @@ function(TileFwk_STest_RunExe_ToolsProf)
         # 脚本参数组织(子命令 run)
         list(APPEND _Args "run")
         set(_Target $<TARGET_FILE:${TMP_TARGET}>)
-        list(APPEND _Args "--target=${_Target}" "--xsan_options=${XSAN_OPTIONS}")
+        list(APPEND _Args "--target=${_Target}")
+        if (NOT "${PyEnvLines}x" STREQUAL "x")
+            list(APPEND _Args "--env" "${PyEnvLines}")
+        endif ()
         foreach (DevId ${TileFwkStestExecuteDeviceIdList})
             list(APPEND _Args "--device=${DevId}")
         endforeach ()
@@ -173,11 +176,11 @@ function(TileFwk_STest_RunExe_ToolsProf)
 
         # 脚本调用
         message(STATUS "Run GTest(${TMP_TARGET}) XSAN(ASAN:${ENABLE_ASAN} UBSAN:${ENABLE_UBSAN}) With Tools.run.profiling, ${_CommentExt}")
-        get_filename_component(ToolsPy "${TILE_FWK_SRC_ROOT}/tools/python/tools.py" REALPATH)
-        get_filename_component(ToolsPyCwd "${TILE_FWK_SRC_ROOT}/tools/python" REALPATH)
+        get_filename_component(ToolsPy    "${TILE_FWK_SRC_ROOT}/tests/cmake/scripts/python/tools.py" REALPATH)
+        get_filename_component(ToolsPyCwd "${TILE_FWK_SRC_ROOT}/tests/cmake/scripts/python" REALPATH)
         add_custom_command(
                 TARGET ${TMP_TARGET} POST_BUILD
-                COMMAND ${CmdSetup} && ${TILE_FWK_PYTHON3_EXE} ${ToolsPy} ARGS ${_Args}
+                COMMAND ${PyCmdSetup} ${TILE_FWK_PYTHON3_EXE} ${ToolsPy} ARGS ${_Args}
                 COMMENT "Run GTest(${TMP_TARGET}) XSAN(ASAN:${ENABLE_ASAN} UBSAN:${ENABLE_UBSAN}) With Tools.run.profiling"
                 WORKING_DIRECTORY ${ToolsPyCwd}
         )
@@ -217,12 +220,14 @@ function(TileFwk_STest_RunExe_GenerateGolden)
             list(APPEND _Args "--clean")
         endif ()
 
-        get_filename_component(GoldenCtrlPy "${TILE_FWK_SRC_ROOT}/tests/cmake/scripts/golden_ctrl.py" REALPATH)
+        get_filename_component(GoldenCtrlPy    "${TILE_FWK_SRC_ROOT}/tests/cmake/scripts/golden_ctrl.py" REALPATH)
+        get_filename_component(GoldenCtrlPyCwd "${TILE_FWK_SRC_ROOT}/tests/cmake/scripts" REALPATH)
         list(LENGTH TMP_GTEST_FILTER_LIST GTestFilterListLen)
         add_custom_command(
                 TARGET ${TMP_TARGET} POST_BUILD
                 COMMAND ${TILE_FWK_PYTHON3_EXE} ${GoldenCtrlPy} ARGS ${_Args}
                 COMMENT "Generator Golden(${GTestFilterListLen}) for ${TMP_TARGET}"
+                WORKING_DIRECTORY ${GoldenCtrlPyCwd}
         )
     endif ()
 endfunction()
@@ -234,7 +239,7 @@ Parameters:
       TARGET             : [Required] 用于指定具体 GTest 可执行目标, 用例会在该目标编译完成后(POST_BUILD)启动执行
   multi_value_keywords:
       LD_LIBRARIES_EXT   : [Optional] 需要在执行时将所在路径配置到环境变量 LD_LIBRARY_PATH 中的 Libraries
-      CMD_SETUP_EXT      : [Optional] 附加命令行配置
+      ENV_LINES_EXT      : [Optional] 需要额外配置的环境变量, 按照 "K=V" 格式组织
       GTEST_FILTER_LIST  : [Optional] GTestFilter 配置, Filter 间以 ';' 分割
 Attention:
     1. 可以多次调用本函数以添加多个'执行任务'; 单次调用本函数时, 可以通过在 GTEST_FILTER_LIST 中配置多个过滤条件('gtest_filter') 以实现执行多用例;
@@ -244,17 +249,16 @@ function(TileFwk_STest_RunExe)
             TMP
             ""
             "TARGET"
-            "LD_LIBRARIES_EXT;CMD_SETUP_EXT;GTEST_FILTER_LIST"
+            "LD_LIBRARIES_EXT;ENV_LINES_EXT;GTEST_FILTER_LIST"
             ""
             ${ARGN}
     )
     if (ENABLE_TESTS_EXECUTE)
         # 命令行参数处理
-        TileFwk_GTest_RunExe_GetPreExecCmdSetup(
-                CmdSetup
+        TileFwk_GTest_RunExe_GetPreExecSetup(PyCmdSetup PyEnvLines BashCmdSetup
                 TARGET              ${TMP_TARGET}
+                ENV_LINES_EXT       ${TMP_ENV_LINES_EXT}
                 LD_LIBRARIES_EXT    ${TMP_LD_LIBRARIES_EXT}
-                CMD_SETUP_EXT       ${TMP_CMD_SETUP_EXT}
         )
         # 执行流程
         list(LENGTH TMP_GTEST_FILTER_LIST GtestFilterListLen)
@@ -268,25 +272,30 @@ function(TileFwk_STest_RunExe)
             if (ENABLE_TESTS_EXECUTE_PARALLEL OR (DeviceIdListLen GREATER 1))
                 # 仅在使能并行执行全局开关, 且需要做 filter 时才进行执行加速
                 set(_File $<TARGET_FILE:${TMP_TARGET}>)
-                set(_Args "-t=${_File}" "-c=${GtestFilterStr}" "--xsan_options=${XSAN_OPTIONS}" "--halt_on_error")
+                set(_Args "-t=${_File}" "--gtest_filter=${GtestFilterStr}" "--halt_on_error")
                 foreach (DevId ${TileFwkStestExecuteDeviceIdList})
                     list(APPEND _Args "--device=${DevId}")
                 endforeach ()
                 if (ENABLE_TESTS_EXECUTE_PARALLEL_TIMEOUT)
                     list(APPEND _Args "--timeout=${ENABLE_TESTS_EXECUTE_PARALLEL_TIMEOUT}")
                 endif ()
-                get_filename_component(ParallelPy "${TILE_FWK_SRC_ROOT}/tests/cmake/scripts/stest_accelerate.py" REALPATH)
+                if (PyEnvLines)
+                    list(APPEND _Args "--env" "${PyEnvLines}")
+                endif ()
+                get_filename_component(ParallelPy    "${TILE_FWK_SRC_ROOT}/tests/cmake/scripts/python/stest_accelerate.py" REALPATH)
+                get_filename_component(ParallelPyCwd "${TILE_FWK_SRC_ROOT}/tests/cmake/scripts/python" REALPATH)
                 add_custom_command(
                         TARGET ${TMP_TARGET} POST_BUILD
-                        COMMAND ${CmdSetup} && ${TILE_FWK_PYTHON3_EXE} ${ParallelPy} ARGS ${_Args}
+                        COMMAND ${PyCmdSetup} ${TILE_FWK_PYTHON3_EXE} ${ParallelPy} ARGS ${_Args}
                         COMMENT "${Comment} With Parallel Execute Accelerate"
+                        WORKING_DIRECTORY ${ParallelPyCwd}
                 )
             else ()
                 set(GtestFilterListIdx 1)
                 foreach (Filter ${TMP_GTEST_FILTER_LIST})
                     add_custom_command(
                             TARGET ${TMP_TARGET} POST_BUILD
-                            COMMAND ${CmdSetup} && ${XSAN_OPTIONS} ./${TMP_TARGET} ARGS '--gtest_filter=${Filter}'
+                            COMMAND ${BashCmdSetup} ./${TMP_TARGET} ARGS '--gtest_filter=${Filter}'
                             COMMENT "${Comment} [${GtestFilterListIdx}/${GtestFilterListLen}] With --gtest_filter=${Filter}"
                     )
                     math(EXPR GtestFilterListIdx "${GtestFilterListIdx} + 1")
@@ -295,7 +304,7 @@ function(TileFwk_STest_RunExe)
         else ()
             add_custom_command(
                     TARGET ${TMP_TARGET} POST_BUILD
-                    COMMAND ${CmdSetup} && ${XSAN_OPTIONS} ./${TMP_TARGET}
+                    COMMAND ${BashCmdSetup} ./${TMP_TARGET}
                     COMMENT "${Comment}"
             )
         endif ()
@@ -332,9 +341,9 @@ function(TileFwk_STest_AddExe_RunExe)
     #
     # 执行
     #
-    set(CmdSetupExt
-            export AST_STEST_GOLDEN_PATH=${ENABLE_TESTS_STEST_GOLDEN_PATH} &&
-            export TILE_FWK_STEST_DEVICE_ID=${TileFwkStestExecuteDeviceIdPref}
+    set(EnvLinesExt
+            "TILE_FWK_STEST_GOLDEN_PATH=${ENABLE_TESTS_STEST_GOLDEN_PATH}"
+            "TILE_FWK_STEST_DEVICE_ID=${TileFwkStestExecuteDeviceIdPref}"
     )
     set(GTestFilterList ${TileFwkSTestCaseGTestFilterList})
     if (NOT "${ENABLE_TESTS_STEST}" STREQUAL "ON")
@@ -350,7 +359,7 @@ function(TileFwk_STest_AddExe_RunExe)
     # 性能用例
     TileFwk_STest_RunExe_ToolsProf(
             TARGET              ${TMP_TARGET}
-            CMD_SETUP_EXT       ${CmdSetupExt}
+            ENV_LINES_EXT       ${EnvLinesExt}
             LD_LIBRARIES_EXT    ${TileFwkSTestCaseLdLibrariesExt}
             GTEST_FILTER_LIST   ${GTestFilterList}
     )
@@ -359,7 +368,7 @@ function(TileFwk_STest_AddExe_RunExe)
     TileFwk_STest_RunExe_GenerateGolden(TARGET ${TMP_TARGET} GTEST_FILTER_LIST ${GTestFilterList})
     TileFwk_STest_RunExe(
             TARGET              ${TMP_TARGET}
-            CMD_SETUP_EXT       ${CmdSetupExt}
+            ENV_LINES_EXT       ${EnvLinesExt}
             LD_LIBRARIES_EXT    ${TileFwkSTestCaseLdLibrariesExt}
             GTEST_FILTER_LIST   ${GTestFilterList}
     )
@@ -443,7 +452,7 @@ Parameters:
       TARGET             : [Required] 用于指定具体 GTest 可执行文件, 用例会在该目标编译完成后启动执行
   multi_value_keywords:
       LD_LIBRARIES_EXT   : [Optional] 需要在执行时将所在路径配置到环境变量 LD_LIBRARY_PATH 中的 Libraries
-      CMD_SETUP_EXT      : [Optional] 附加命令行配置
+      ENV_LINES_EXT      : [Optional] 需要额外配置的环境变量, 按照 "K=V" 格式组织
       GTEST_FILTER_LIST  : [Optional] GTestFilter 配置, Filter 间以 ';' 分割
       GOLDEN_SCRIPT_DIR  : [Optional] Golden 脚本所在路径, 便于 Golden 处理公共逻辑查找和载入对应脚本
 ]]
@@ -452,7 +461,7 @@ function(TileFwk_STest_Distributed_RunExe)
             TMP
             ""
             "TARGET"
-            "LD_LIBRARIES_EXT;CMD_SETUP_EXT;GTEST_FILTER_CONFIG;GOLDEN_SCRIPT_DIR"
+            "LD_LIBRARIES_EXT;ENV_LINES_EXT;GTEST_FILTER_CONFIG;GOLDEN_SCRIPT_DIR"
             ""
             ${ARGN}
     )
@@ -481,14 +490,14 @@ function(TileFwk_STest_Distributed_RunExe)
         endforeach ()
         TileFwk_STest_RunExe_CopyAiCpuBinary(
             TARGET ${TMP_TARGET}
-            MANUAL_SPECIAL_DEIVCE ${MaxRankSize}
+            MANUAL_SPECIAL_DEVICE ${MaxRankSize}
         )
         if (GTestFilterList)
             # 命令行参数处理
-            TileFwk_GTest_RunExe_GetPreExecCmdSetup(CmdSetup
+            TileFwk_GTest_RunExe_GetPreExecSetup(PyCmdSetup PyEnvLines BashCmdSetup
                     TARGET              ${TMP_TARGET}
+                    ENV_LINES_EXT       ${TMP_ENV_LINES_EXT}
                     LD_LIBRARIES_EXT    ${TMP_LD_LIBRARIES_EXT}
-                    CMD_SETUP_EXT       ${TMP_CMD_SETUP_EXT}
             )
             # Golden 生成
             TileFwk_STest_RunExe_GenerateGolden(TARGET ${TMP_TARGET} GTEST_FILTER_LIST ${GTestFilterList})
@@ -505,7 +514,7 @@ function(TileFwk_STest_Distributed_RunExe)
                 )
                 add_custom_command(
                         TARGET ${TMP_TARGET} POST_BUILD
-                        COMMAND ${CmdSetup} && ${XSAN_OPTIONS} mpirun -n ${RankSize} ./${TMP_TARGET} ARGS '--gtest_filter=${Filter}'
+                        COMMAND ${BashCmdSetup} mpirun -n ${RankSize} ./${TMP_TARGET} ARGS '--gtest_filter=${Filter}'
                         COMMENT "${Comment} [${GtestFilterListIdx}/${GtestFilterListLen}] With --gtest_filter=${Filter}"
                 )
                 math(EXPR GtestFilterListIdx "${GtestFilterListIdx} + 1")

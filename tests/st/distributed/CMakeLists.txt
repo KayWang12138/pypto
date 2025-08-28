@@ -47,13 +47,13 @@ set(_LdLibrariesExt
         tile_fwk_compiler
         ${TileFwkSTestNamePrefix}_distributed_framework
 )
-set(CmdSetup
-        export AST_STEST_GOLDEN_PATH=${ENABLE_TESTS_STEST_GOLDEN_PATH}
+set(_EnvSetupExt
+        "TILE_FWK_STEST_GOLDEN_PATH=${ENABLE_TESTS_STEST_GOLDEN_PATH}"
 )
 TileFwk_STest_Distributed_RunExe(
        TARGET                  ${_Target}
        LD_LIBRARIES_EXT        ${_LdLibrariesExt}
-       CMD_SETUP_EXT           ${CmdSetup}
+       ENV_LINES_EXT           ${_EnvSetupExt}
        GTEST_FILTER_CONFIG     ${_DistributedGTestCaseFilterConfig}
        GOLDEN_SCRIPT_DIR       ${CMAKE_CURRENT_SOURCE_DIR}/ops/script
 )

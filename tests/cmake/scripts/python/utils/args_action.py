@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+"""Args处理辅助.
+"""
+import argparse
+from typing import Sequence, Optional, Any, List
+
+
+class ArgsEnvDictAction(argparse.Action):
+    """解析命令行参数传入的环境变量字段(env)
+    """
+    def __call__(self, parser, namespace, values, option_string=None):
+        env_dict = getattr(namespace, self.dest, {}) or {}
+        for item in values:
+            k, v = item.split('=', 1)
+            env_dict[k] = v
+        setattr(namespace, self.dest, env_dict)
+
+
+class ArgsGTestFilterListAction(argparse.Action):
+    """解析命令行参数传入的 GTestFilter 字段
+    """
+    def __init__(self, option_strings: Sequence[str], dest: str, nargs: Optional[int] = None, **kwargs: Any) -> None:
+        # 确保 nargs 至少为 1
+        if nargs is None:
+            nargs = '+'
+        super().__init__(option_strings, dest, nargs=nargs, **kwargs)
+
+    def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace, values: List[str],
+                 option_string: Optional[str] = None) -> None:
+        # 解析每个字符串，按冒号分隔并展平
+        case_list: List[str] = []
+        for value in values:
+            # 分割每个字符串，并过滤空字符串
+            cases = [cs.strip() for cs in value.split(':') if cs.strip()]
+            case_list.extend(cases)
+        # 将结果设置到命名空间
+        setattr(namespace, self.dest, case_list)

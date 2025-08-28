@@ -11,7 +11,7 @@
 """STest Golden 处理函数注册管理.
 """
 import logging
-from typing import Dict, Callable, Union, List, Optional, overload, Tuple
+from typing import Dict, Callable, Union, List, Optional, Tuple
 
 
 def match_gtest_filter(test_case_list: List[str], filter_pattern: str) -> int:
@@ -30,7 +30,7 @@ def match_gtest_filter(test_case_list: List[str], filter_pattern: str) -> int:
         if filter_pattern == test_case + '*':
             has_fuzzy_match = True
 
-    return -1 if has_fuzzy_match else -3 
+    return -1 if has_fuzzy_match else -3
 
 
 class GoldenRegister:
@@ -57,7 +57,7 @@ class GoldenRegister:
         """根据名称获取回调函数"""
         filter_ret = match_gtest_filter(list(cls._REG_MAP.keys()), case_name)
         if filter_ret == -3:
-            return (None, filter_ret)
+            return None, filter_ret
         elif filter_ret == -2:
             func = cls._REG_MAP[case_name]
         elif filter_ret == -1:
@@ -65,7 +65,7 @@ class GoldenRegister:
         else:
             func = cls._REG_MAP[case_name[:-len(f"\\{filter_ret}")]]
         logging.debug("Case(%s) get func %s from %s", case_name, func, hex(id(cls._REG_MAP)))
-        return (func, filter_ret)
+        return func, filter_ret
 
     @classmethod
     def get_golden_func_num(cls) -> int:

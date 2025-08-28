@@ -17,11 +17,12 @@ import sys
 import shutil
 from pathlib import Path
 from abc import abstractmethod, ABC
-from typing import List, Any, Dict
-from datetime import timezone, datetime
+from typing import List, Any, Dict, Tuple, Optional
+from datetime import timezone, datetime, timedelta
 
 from .tools_abc import ToolsAbc
 from .case_abc import CaseAbc
+from utils.executable import Executable
 
 
 class ToolsRunAbc(ToolsAbc, ABC):
@@ -31,11 +32,10 @@ class ToolsRunAbc(ToolsAbc, ABC):
 
         # 路径管理
         self.timestamp: str = str(datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S"))
-        self.output_root: Path = Path(Path.cwd(), "../../output_tools", self.timestamp).resolve()
+        self.output_root: Path = Path(Path.cwd(), "../../../../output_tools", self.timestamp).resolve()
 
         # 用例执行参数
-        self.target: Path = Path(args.target[0]).resolve()
-        self.xsan_options: str = args.xsan_options if args.xsan_options else ""
+        self.exe: Executable = Executable(file=Path(args.target[0]).resolve(), envs=args.envs)
 
         # 用例管理
         self.case_lines: List[Dict[str, Any]] = []  # 原始 enable 的 case line
@@ -53,27 +53,20 @@ class ToolsRunAbc(ToolsAbc, ABC):
 
     @property
     def brief(self) -> List[Any]:
-        datas = [["Target", self.target],
-                 ["ASan", self.asan_option],
-                 ["UbSan", self.ubsan_option],
-                 ["CaseNum", len(self.case_list)],
-                 ["CaseGoldenImplPathNum", len(self.cases_golden_impl_path)],
-                 ["CaseGoldenOutputPath", self.cases_golden_output_path],
-                 ["CaseGoldenOutputClean", self.cases_golden_output_clean],
-                 ["TimeStamp", self.timestamp],
-                 ["CleanFlag", self.clean_flg],
-                 ["Intercept", self.intercept],
-                 ["HaltOnError", self.halt_on_error],
-                 ["DeviceIdList", self.device_list]]
-        return datas
-
-    @property
-    def asan_option(self) -> str:
-        return "ON" if "ASAN_OPTIONS" in self.xsan_options else "OFF"
-
-    @property
-    def ubsan_option(self) -> str:
-        return "ON" if "UBSAN_OPTIONS" in self.xsan_options else "OFF"
+        ver = sys.version_info
+        datas = [["Python3", f"{sys.executable} ({ver.major}.{ver.minor}.{ver.micro})"],
+                 ["Executable", self.exe.file]]
+        for _k, _v in self.exe.envs.items():
+            datas.append([_k, _v])
+        datas += [["CaseNum", len(self.case_list)],
+                  ["CaseGoldenImplPathNum", len(self.cases_golden_impl_path)],
+                  ["CaseGoldenOutputPath", self.cases_golden_output_path],
+                  ["CaseGoldenOutputClean", self.cases_golden_output_clean],
+                  ["TimeStamp", self.timestamp],
+                  ["OutputRoot", self.output_root],
+                  ["HaltOnError", self.halt_on_error],
+                  ["DeviceIdList", self.device_list]]
+        return super().brief + datas
 
     def init_case_lines(self, args):
         cases_names: str = args.cases[0] if args.cases else ""
@@ -106,7 +99,8 @@ class ToolsRunAbc(ToolsAbc, ABC):
 
     def clean(self) -> bool:
         if self.clean_flg:
-            output_tools_dir = Path(self.output_root, "../").resolve()
+            output_tools_name: str = Path(self.output_root).parent.name
+            output_tools_dir = Path(Path(self.output_root, "../../"), output_tools_name).resolve()
             if output_tools_dir.exists():
                 shutil.rmtree(output_tools_dir)
         return True
@@ -123,6 +117,12 @@ class ToolsRunAbc(ToolsAbc, ABC):
         ret = subprocess.run(shlex.split(cmd), capture_output=False, check=True, text=True, encoding='utf-8')
         ret.check_returncode()
         return True
+
+    def run_case(self, cs: CaseAbc, device_id: int,
+                 envs: Optional[Dict[str, str]] = None) -> Tuple[subprocess.CompletedProcess, str, timedelta]:
+        act_env = envs if envs else {}
+        act_env.update({"TILE_FWK_STEST_DEVICE_ID": f"{device_id}"})
+        return self.exe.run(gtest_filter=cs.name, envs=act_env)
 
     @abstractmethod
     def process_case_prepare(self, cs: CaseAbc, device_id: int) -> bool:

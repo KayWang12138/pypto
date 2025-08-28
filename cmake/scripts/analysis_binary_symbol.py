@@ -112,14 +112,14 @@ class Analysis:
         cnt2 = len(self.undefined_symbols_pass)
         if self.check_undefined_symbols_self and cnt1 != 0:
             ret = False
-            logging.error("%s has %s undefined symbols self, Cost %s secs.", self.file.name, cnt1,
+            logging.error("%s has %s undefined symbols self, Duration %s secs.", self.file.name, cnt1,
                           (datetime.now(tz=timezone.utc) - ts).seconds)
         if self.check_undefined_symbols_pass and cnt2 != 0:
             ret = False
-            logging.error("%s has %s undefined symbols pass, Cost %s secs.", self.file.name, cnt2,
+            logging.error("%s has %s undefined symbols pass, Duration %s secs.", self.file.name, cnt2,
                           (datetime.now(tz=timezone.utc) - ts).seconds)
         if ret:
-            logging.info("%s symbols check success, Cost %s secs.", self.file.name,
+            logging.info("%s symbols check success, Duration %s secs.", self.file.name,
                          (datetime.now(tz=timezone.utc) - ts).seconds)
         return ret
 

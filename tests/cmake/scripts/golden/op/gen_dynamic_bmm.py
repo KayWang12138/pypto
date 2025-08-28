@@ -75,7 +75,7 @@ def nd_to_fractal_nz(data: np.ndarray):
 
 
 class ShapeConfigOneBatch:
-    def __init__(self, b: int, m: int, k: int, n: int, in_dtype: np.dtype, out_dtype: np.dtype, trans_a: bool, 
+    def __init__(self, b: int, m: int, k: int, n: int, in_dtype: np.dtype, out_dtype: np.dtype, trans_a: bool,
                  trans_b: bool, a_nz_flag: bool, b_nz_flag: bool, c_nz_flag: bool):
         self.b = b
         self.m = m
@@ -91,7 +91,7 @@ class ShapeConfigOneBatch:
 
 
 class ShapeConfigTwoBatch:
-    def __init__(self, b1: int, b2: int, m: int, k: int, n: int, in_dtype: np.dtype, out_dtype: np.dtype, trans_a: bool, 
+    def __init__(self, b1: int, b2: int, m: int, k: int, n: int, in_dtype: np.dtype, out_dtype: np.dtype, trans_a: bool,
                  trans_b: bool, a_nz_flag: bool, b_nz_flag: bool, c_nz_flag: bool):
         self.b1 = b1
         self.b2 = b2
@@ -123,7 +123,7 @@ def gen_bmm_data(input_config: ShapeConfigOneBatch, output_dir: Path):
     elif input_config.in_dtype == INT8:
         a = np.random.randint(-4, 5, shape_a).astype(INT8)
         b = np.random.randint(-4, 5, shape_b).astype(INT8)
-        c = np.matmul(a.astype(INT32), b.astype(INT32)).astype(INT32) 
+        c = np.matmul(a.astype(INT32), b.astype(INT32)).astype(INT32)
     elif input_config.in_dtype == FP32:
         a = np.random.uniform(-1, 1, shape_a).astype(FP32)
         b = np.random.uniform(-1, 1, shape_b).astype(FP32)
@@ -137,7 +137,7 @@ def gen_bmm_data(input_config: ShapeConfigOneBatch, output_dir: Path):
         a = a.transpose(0, 2, 1)
     if input_config.a_nz_flag:
         a = nd_to_fractal_nz(a)
-        
+
     if input_config.trans_b:
         b = b.transpose(0, 2, 1)
     if input_config.b_nz_flag:
@@ -180,7 +180,7 @@ def gen_bmm_data_two_batch(input_config: ShapeConfigTwoBatch, output_dir: Path):
         a = a.swapaxes(2, 3)
     if input_config.a_nz_flag:
         a = nd_to_fractal_nz(a)
-        
+
     if input_config.trans_b:
         b = a.swapaxes(2, 3)
     if input_config.b_nz_flag:

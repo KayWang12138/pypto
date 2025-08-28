@@ -41,7 +41,7 @@ class PostConfig:
         is_nz: Whether to use non-zero format for weight storage (default: True)
     """
 
-    def __init__(self, 
+    def __init__(self,
                 params: Tuple[int, int, int, int, int, int],
                 dtype: Union[np.dtype, type],
                 is_quant_w_uv: bool = True,
@@ -51,7 +51,7 @@ class PostConfig:
                 is_nz: bool = True):
         """
         Initialize PostConfig with the specified parameters.
-        
+
         Args:
             params: Tuple of [b, n, s, h, kv_lora_rank, v_head_dim] where:
                 b: batch size
@@ -230,7 +230,7 @@ def gen_post_input_data(output_dir: Path, config: PostConfig):
     Args:
         output_dir: Output directory for generated files
         config: PostConfig object containing all configuration parameters
-        
+
     Returns:
         List containing [w_uv, w_uv_scale, smooth_w_uv, w_o, w_o_scale, smooth_w_o]
     """
@@ -318,7 +318,7 @@ def gen_post_test_data(output_dir: Path, config: PostConfig):
     x.tofile(x_path)
     w_uv, w_uv_scale, smooth_w_uv, w_o, w_o_scale, smooth_w_o = gen_post_input_data(output_dir, config)
 
-    inputs = {"dtype": config.dtype, "is_quant_w_uv": config.is_quant_w_uv, 
+    inputs = {"dtype": config.dtype, "is_quant_w_uv": config.is_quant_w_uv,
               "has_smooth_w_uv": config.has_smooth_w_uv, "is_quant_w_o": config.is_quant_w_o,
               "has_smooth_w_o": config.has_smooth_w_o}
     inputs["x"] = x

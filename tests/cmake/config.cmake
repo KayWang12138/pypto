@@ -34,11 +34,6 @@ else ()
     get_filename_component(ENABLE_TESTS_STEST_GOLDEN_PATH "${TileFwkSTestExePath}/golden" REALPATH)
 endif ()
 
-# 环境变量 PATH
-if ((NOT BUILD_OPEN_PROJECT) AND ENABLE_TESTS_UTEST)
-    set(TILE_FWK_EXPORT_ENV_PATH "PATH=$ENV{PATH}:${CCEC_PATH}")
-endif()
-
 
 ########################################################################################################################
 # 三方库

@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from profiling.prof_tools import ProfTools
+from utils.args_action import ArgsEnvDictAction
 
 
 class ToolsCtrl:
@@ -31,9 +32,9 @@ class ToolsCtrl:
         parser.add_argument("-d", "--device", nargs="?", type=int, action="append",
                             help="Specific parallel accelerate device, "
                                  "If this parameter is not specified, 0 device will be used by default.")
-        parser.add_argument("--xsan_options",
-                            nargs="?", type=str, default="",
-                            help="Specific XSan(ASan/UbSan) option.")
+        parser.add_argument("-e", "--env",
+                            nargs="+", action=ArgsEnvDictAction, default={}, dest="envs",
+                            help="Specify additional environment variables to set when executing the target.")
         parser.add_argument("--cases",
                             nargs=1, type=str, default="",
                             help="Specify case name, multiple name are separated by ':'")
@@ -98,7 +99,7 @@ class ToolsCtrl:
             ret = ret and tools.prepare()
             ret = ret and tools.process()
             ret = ret and tools.post()
-            logging.info("Tools(%s), Cost %s sec", tools.__class__.__name__,
+            logging.info("Tools(%s), Duration %s sec", tools.__class__.__name__,
                          (datetime.now(tz=timezone.utc) - ts).seconds)
         else:
             raise ValueError("Must Specify a sub-command.")

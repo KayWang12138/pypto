@@ -62,7 +62,7 @@ def dump_file(data, data_path, dtype):
             data_np = data.cpu().numpy()
     else:
         data_np = np.array(data)
-    
+
     # 确保最终类型与指定dtype一致
     data_np = data_np.astype(np_dtype)
     data_np.tofile(data_path)
@@ -76,17 +76,17 @@ def gen_uniform_data(data_shape, min_value, max_value, dtype):
     # 特殊情况：全零张量
     if min_value == 0 and max_value == 0:
         return torch.zeros(data_shape, dtype=dtype)
-    
+
     # 布尔类型处理：等概率生成True/False
     if dtype == torch.bool:
         # 生成[0,2)的整数，转换为bool即等概率True/False
         return torch.randint(0, 2, data_shape, dtype=dtype)
-    
+
     # 浮点类型：[min_value, max_value)
     if torch.is_floating_point(torch.tensor(0, dtype=dtype)):
         # torch.rand生成[0,1)，缩放后得到[min_value, max_value)
         return min_value + (max_value - min_value) * torch.rand(data_shape, dtype=dtype)
-    
+
     # 整数类型：[min_value, max_value)
     else:
         # torch.randint的high参数为开区间，直接对应[min_value, max_value)
@@ -111,7 +111,7 @@ def gen_block_table(b, actual_seq_len, block_size):
     block_table = torch.full((block_table_shape[0], block_table_shape[1]), -1, dtype=torch.int32)
     block_idx = 0
     block_table_batch_idx = 0
-    
+
     for idx in block_num_per_batch:
         for j in range(idx):
             block_table[block_table_batch_idx, j] = block_idx_list[block_idx]
@@ -213,14 +213,14 @@ def kv_slc_compute(compute_input_params, topk_indecies, topk_tensor_shape, kvNop
                         position = s_slc - near + (topKIdx - (topK - front - near) - 1)
                     else:
                         position = topk_indecies[batchIdx][seqIdx][topKIdx - front]
-                    
+
                     block_idx_in_batch = int(position * l_prime / block_size)
                     tail = int(position * l_prime % block_size)
 
                     slcBlockIdx = block_table[batchIdx][block_idx_in_batch]
-                    
+
                     slcSeqLen += min(l_prime, actual_seq_len[batchIdx] - position * l_prime)
-                    
+
                     preIdx_out_base = batchIdx * s * n2 * topK * l_prime + seqIdx * n2 * topK * l_prime + nkvIdx * topK * l_prime + topKIdx * l_prime
                     preIdx_cache_base = slcBlockIdx * block_size + tail
 
@@ -228,7 +228,7 @@ def kv_slc_compute(compute_input_params, topk_indecies, topk_tensor_shape, kvNop
                     k_slc_out[preIdx_out_base : preIdx_out_base + l_prime, 0:kv_lora_rank] = kvNopeCache[preIdx_cache_base : preIdx_cache_base + l_prime, 0:kv_lora_rank]
                     k_slc_out[preIdx_out_base : preIdx_out_base + l_prime, kv_lora_rank:kv_lora_rank + rope_dim] = krCache[preIdx_cache_base : preIdx_cache_base + l_prime, 0:rope_dim]
                     v_slc_out[preIdx_out_base : preIdx_out_base + l_prime, 0:kv_lora_rank] = kvNopeCache[preIdx_cache_base : preIdx_cache_base + l_prime, 0:kv_lora_rank]
-            
+
             kv_slc_actual_seqs[batchIdx][seqIdx] = slcSeqLen
 
     return k_slc_out, v_slc_out, kv_slc_actual_seqs
@@ -385,7 +385,7 @@ def gen_kv_slc_attn_golden(params, dtypes, output_dir: Path, is_nz=False):
     print("========== gen kv_slc ==============")
     compute_input_params = [block_size, n2, front, near, topk, slc_block_size]
     k_slc_out, v_slc_out, kv_slc_actual_seqs = kv_slc_compute(
-        compute_input_params, topk_indices, topk_tensor_shape, 
+        compute_input_params, topk_indices, topk_tensor_shape,
         kv_nope_cache, k_rope_cache, block_table, kv_cache_actual_seq
     )
     dump_gen_kv_slc_file(topk_indices, topk_tensor_shape, k_slc_out, v_slc_out, kv_slc_actual_seqs, kv_cache_actual_seq, dtype, output_dir)
