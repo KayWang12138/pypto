@@ -296,10 +296,12 @@ TILEOP void DynTrowsumsingle_(
         __ubuf__ T *dst_ = dst;
         __ubuf__ T *src_ = src;
         for (int j = 0; j < OS1; ++j) {
-            TileOp::DynTrowsumsingle_<T, DS3, SS3, TBS3>(dst_, src_, tmp, OS2, OS3);
-            dst_ += DS3 * DS2;
-            src_ += SS3 * SS2;
-            pipe_barrier(PIPE_V);
+            if (OS2 != 0 && OS3 != 0) {
+                TileOp::DynTrowsumsingle_<T, DS3, SS3, TBS3>(dst_, src_, tmp, OS2, OS3);
+                dst_ += DS3 * DS2;
+                src_ += SS3 * SS2;
+                pipe_barrier(PIPE_V);
+            }
         }
         dst += DS1 * DS2 * DS3;
         src += SS1 * SS2 * SS3;
@@ -401,10 +403,12 @@ TILEOP void DynTrowmaxsingle_(
         __ubuf__ T *dst_ = dst;
         __ubuf__ T *src_ = src;
         for (int j = 0; j < OS1; ++j) {
-            TileOp::DynTrowmaxsingle_<T, DS3, SS3, TBS3>(dst_, src_, tmp, OS2, OS3);
-            dst_ += DS3 * DS2;
-            src_ += SS3 * SS2;
-            pipe_barrier(PIPE_V);
+            if (OS2 != 0 && OS3 != 0) {
+                TileOp::DynTrowmaxsingle_<T, DS3, SS3, TBS3>(dst_, src_, tmp, OS2, OS3);
+                dst_ += DS3 * DS2;
+                src_ += SS3 * SS2;
+                pipe_barrier(PIPE_V);
+            }
         }
         dst += DS1 * DS2 * DS3;
         src += SS1 * SS2 * SS3;
@@ -1702,6 +1706,11 @@ TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
                 pipe_barrier(PIPE_V);
                 set_mask_norm();
                 set_vector_mask(-1, -1);
+            } else {
+                constexpr uint16_t lenBurst = srcShape1 * sizeof(T) / BLOCK_SIZE;
+                srcData = reinterpret_cast<__ubuf__ float *>(dst) + rowIdx * dstShape1 + 3 * srcShape1Align;
+                copy_ubuf_to_ubuf(srcData, src + rowIdx * srcShape1, 0, 1, lenBurst, 0, 0);
+                pipe_barrier(PIPE_V);
             }
             // 首先逐32个数进行排序,需要补齐不对齐的部分
             if (tail_sort32 > 0) {
@@ -1732,10 +1741,12 @@ TILEOP void DynBitSort(
         __ubuf__ T *dst_ = dst;
         __ubuf__ T *src_ = src;
         for (int j = 0; j < oriShape1; ++j) {
-            TileOp::DynBitSort<T, dstShape2, dstShape3, srcShape2, srcShape3, axis, isLargest>(dst_, src_, oriShape2, oriShape3);
-            dst_ += dstShape2 * dstShape3;
-            src_ += srcShape2 * srcShape3;
-            pipe_barrier(PIPE_V);
+            if (oriShape2 != 0 && oriShape3 != 0) {
+                TileOp::DynBitSort<T, dstShape2, dstShape3, srcShape2, srcShape3, axis, isLargest>(dst_, src_, oriShape2, oriShape3);
+                dst_ += dstShape2 * dstShape3;
+                src_ += srcShape2 * srcShape3;
+                pipe_barrier(PIPE_V);
+            }
         }
         dst += dstShape1 * dstShape2 * dstShape3;
         src += srcShape1 * srcShape2 * srcShape3;
@@ -1856,26 +1867,14 @@ TILEOP void DynExtract(__ubuf__ T *dst, __ubuf__ U *src, unsigned TShape0) {
         patternMode = 2;
     }
     __ubuf__ U *nullsrc1 = REPEAT_BYTE * sizeof(U) + src;
-    if (repeat < 1) {
-        uint64_t elems = TShape0 * dstRawShape1;
-        set_mask_count();
-        set_vector_mask(0, elems * 2);
-        vreducev2((__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)src, (__ubuf__ uint32_t *)nullsrc1, 1, srcBlockStride,
-            patternMode, srcRepeatStride, 0);
-        set_mask_norm();
-        set_vector_mask(-1, -1);
-        pipe_barrier(PIPE_V);
-    } else {
-        uint8_t repeatMod = static_cast<uint8_t>(repeat % REPEAT_MAX);
-        if (repeatMod != 0) {
-            uint64_t elems = TShape0 * dstRawShape1;
-            set_mask_norm();
-            set_vector_mask(-1, -1);
-            vreducev2((__ubuf__ uint32_t *)(dst), (__ubuf__ uint32_t *)(src), (__ubuf__ uint32_t *)nullsrc1, repeatMod,
-                srcBlockStride, patternMode, srcRepeatStride, 0);
-            pipe_barrier(PIPE_V);
-        }
-    }
+    uint64_t elems = TShape0 * dstRawShape1;
+    set_mask_count();
+    set_vector_mask(0, elems * 2);
+    vreducev2((__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)src, (__ubuf__ uint32_t *)nullsrc1, 1, srcBlockStride,
+        patternMode, srcRepeatStride, 0);
+    set_mask_norm();
+    set_vector_mask(-1, -1);
+    pipe_barrier(PIPE_V);
 
     if constexpr (extractMode == 0 && isLargest == 0) {
         // 按照升序排序时,对于value需要乘以-1,恢复原始值
@@ -1896,10 +1895,12 @@ TILEOP void DynExtract(__ubuf__ T *dst, __ubuf__ U *src, unsigned TShape0, unsig
         __ubuf__ T *dst_ = dst;
         __ubuf__ U *src_ = src;
         for (int j = 0; j < TShape1; ++j) {
-            TileOp::DynExtract<T, U, k, dstRawShape3, extractMode, isLargest>(dst_, src_, TShape2);
-            dst_ += dstRawShape2 * dstRawShape3;
-            src_ += dstRawShape2 * dstRawShape3 * 2;
-            pipe_barrier(PIPE_V);
+            if (TShape2 != 0) {
+                TileOp::DynExtract<T, U, k, dstRawShape3, extractMode, isLargest>(dst_, src_, TShape2);
+                dst_ += dstRawShape2 * dstRawShape3;
+                src_ += dstRawShape2 * dstRawShape3 * 2;
+                pipe_barrier(PIPE_V);
+            }
         }
         dst += dstRawShape1 * dstRawShape2 * dstRawShape3;
         src += dstRawShape1 * dstRawShape2 * dstRawShape3 * 2;

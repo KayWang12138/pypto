@@ -2372,7 +2372,7 @@ void TensorExtractOperation(Function &function, LogicalTensorPtr operand, Logica
 std::tuple<Tensor, Tensor> TopK(const Tensor &operand, const int &k, int axis = -1, bool isLargest) {
     DECLARE_TRACER();
     const auto len = static_cast<int>(operand->shape.size());
-    assert(axis == 1 || axis == -1);
+    assert(axis == (len - 1) || axis == -1);
     axis = axis >= 0 ? axis : (axis + len);
     // 首先进行全排序,全排序的输出是输入shape的2倍,另外需要在输出中增加临时空间,size变为原有的4倍
     // 需要注意,这里由于芯片限制需要对k做32元素对齐

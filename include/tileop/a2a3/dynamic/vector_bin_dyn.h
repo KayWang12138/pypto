@@ -21,7 +21,6 @@
 template <typename T, unsigned DS, unsigned SS0, unsigned SS1>
 TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned src0T0, unsigned src0T1,
     unsigned src1T1, bool copyFlag) {
-    unsigned T0 = src0T0;
     unsigned T1 = src0T1 < src1T1 ? src0T1 : src1T1;
     if (copyFlag && src0T1 != src1T1) {
         __ubuf__ T *src = src0T1 > src1T1 ? src0 : src1;
@@ -30,7 +29,7 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned 
         uint16_t srcSS = src0T1 > src1T1 ? SS0 : SS1;
         uint16_t srcGap = srcSS * sizeof(T) / BLOCK_SIZE - lenBurst;
         uint16_t dstGap = DS * sizeof(T) / BLOCK_SIZE - lenBurst;
-        copy_ubuf_to_ubuf(dst, src, 0, T0, lenBurst, srcGap, dstGap);
+        copy_ubuf_to_ubuf(dst, src, 0, src0T0, lenBurst, srcGap, dstGap);
         pipe_barrier(PIPE_V);
     }
     constexpr unsigned elementsPerRepeat = REPEAT_BYTE / sizeof(T);
@@ -41,7 +40,7 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned 
     if (numRepeatPerLine > 0) {
         unsigned numLoop = numRepeatPerLine / REPEAT_MAX;
         unsigned remainAfterLoop = numRepeatPerLine % REPEAT_MAX;
-        for (int i = 0; i < T0; i++) {
+        for (int i = 0; i < src0T0; i++) {
             if (numLoop) {
                 for (int j = 0; j < numLoop; j++) {
                     V_BIN_FUNC(dst + i * DS + j * elementsPerRepeat * REPEAT_MAX,
@@ -63,8 +62,8 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned 
     src1 += numRepeatPerLine * elementsPerRepeat;
 
     if (numRemainPerLine) {
-        unsigned numLoop = T0 / REPEAT_MAX;
-        unsigned remainAfterLoop = T0 % REPEAT_MAX;
+        unsigned numLoop = src0T0 / REPEAT_MAX;
+        unsigned remainAfterLoop = src0T0 % REPEAT_MAX;
         bool strideOverFlag = (DS / blockSizeElem > REPEAT_STRIDE_MAX) || (SS0 / blockSizeElem > REPEAT_STRIDE_MAX) ||
                               (SS1 / blockSizeElem > REPEAT_STRIDE_MAX);
         SetContinuousMask(numRemainPerLine);
@@ -110,7 +109,7 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned 
         __ubuf__ T *src0_ = src0;
         __ubuf__ T *src1_ = src1;
         for (int j = 0; j < src0T1; j++) {
-            if (src0T2 != 0) {
+            if (src0T2 != 0 && src0T3 != 0 && src1T3 != 0) {
                 T_BIN<T, DS2, S0S2, S1S2>(dst_, src0_, src1_, src0T2, src0T3, src1T3, copyFlag);
                 dst_ += DS1 * DS2;
                 src0_ += S0S1 * S0S2;
