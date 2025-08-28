@@ -19,12 +19,12 @@ using namespace tile_fwk::test_operation;
 namespace {
 struct TransposeOpFuncArgs : public OpFuncArgs {
     TransposeOpFuncArgs(
-        int first_dim, int second_dim, const std::vector<int> &viewShape, const std::vector<int> tileShape)
+        int first_dim, int second_dim, const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
         : first_dim_(first_dim), second_dim_(second_dim), viewShape_(viewShape), tileShape_(tileShape) {}
     int first_dim_;
     int second_dim_;
-    std::vector<int> viewShape_;
-    std::vector<int> tileShape_;
+    std::vector<int64_t> viewShape_;
+    std::vector<int64_t> tileShape_;
 };
 
 struct TransposeOpMetaData {

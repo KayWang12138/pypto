@@ -44,7 +44,7 @@ public:
     void GenBarrierAfterOp(Function &function, std::shared_ptr<LogicalTensor> &outTensor)
     {
         if (!nextBarrierTensor_.has_value()) {
-            auto tensor = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, std::vector<int>{1});
+            auto tensor = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, Shape{1});
             tensor->SetIsDummy(true);
             nextBarrierTensor_ = std::make_optional(tensor);
         }

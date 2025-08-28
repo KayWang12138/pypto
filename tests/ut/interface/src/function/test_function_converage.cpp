@@ -55,7 +55,7 @@ TEST_F(FunctionCoverageTest, ConverageCase1) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     Program::GetInstance().GetTileShape().SetVecTileShapes({32, 32});
-    std::vector<int> shape{32, 32};
+    std::vector<int64_t> shape{32, 32};
     Tensor input(DT_FP32, shape, "input");
     Tensor output(DT_FP32, shape, "output");
     FUNCTION("ConverageFunc1") {
@@ -99,7 +99,7 @@ TEST_F(FunctionCoverageTest, ConverageCase2) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     Program::GetInstance().GetTileShape().SetVecTileShapes({32, 32});
-    std::vector<int> shape{32, 32};
+    std::vector<int64_t> shape{32, 32};
     auto inputPtr = std::make_shared<uint8_t>(1);
     auto outputPtr = std::make_shared<uint8_t>(2);
     Tensor input(DT_FP32, shape, inputPtr.get(), "input");
@@ -129,7 +129,7 @@ TEST_F(FunctionCoverageTest, ConverageCase3) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     Program::GetInstance().GetTileShape().SetVecTileShapes({32, 32});
-    std::vector<int> shape{32, 32};
+    std::vector<int64_t> shape{32, 32};
     auto inputPtr = std::make_shared<uint8_t>(1);
     auto outputPtr = std::make_shared<uint8_t>(2);
     Tensor input(DT_FP32, shape, inputPtr.get(), "input");
@@ -158,7 +158,7 @@ TEST_F(FunctionCoverageTest, ConverageCase3) {
 TEST_F(FunctionCoverageTest, TestReuseTensorCase1) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
     Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16);
-    std::vector<int> shape{32, 32};
+    std::vector<int64_t> shape{32, 32};
     Tensor input(DT_FP32, shape, "input");
     Tensor output(DT_FP32, shape, "output");
     FUNCTION("R1", FunctionType::STATIC) {
@@ -216,7 +216,7 @@ TEST_F(FunctionCoverageTest, TestReuseTensorCase1) {
 TEST_F(FunctionCoverageTest, TestFunctionHash) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
     Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16);
-    std::vector<int> shape{32, 32};
+    std::vector<int64_t> shape{32, 32};
     Tensor input(DT_FP32, shape, "input");
     Tensor output(DT_FP32, shape, "output");
     FUNCTION("R2", FunctionType::STATIC) {

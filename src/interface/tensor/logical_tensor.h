@@ -54,13 +54,13 @@ public:
     int subGraphID{NOT_IN_SUBGRAPH};
 
     std::shared_ptr<RawTensor> tensor;
-    std::vector<int> offset;
-    std::vector<int> shape;
-    std::vector<int> oriShape;
+    Offset offset;
+    Shape shape;
+    Shape oriShape;
     std::vector<SymbolicScalar> dynOffset_;
     std::vector<SymbolicScalar> dynValidShape_;
 
-    std::vector<int> storageShape;
+    Shape storageShape;
     std::shared_ptr<Storage> storage_ = nullptr;
     uint64_t storageOffset_ = 0;
     int magic;
@@ -72,14 +72,16 @@ public:
 
     std::map<int, TileRange> memorymap; // subgraphID -> memoryRange
 
-    LogicalTensor(Function &function, DataType t, std::vector<int> tshape, std::string tname = "",
+    LogicalTensor(Function &function, DataType t, Shape tshape, std::string tname = "",
         NodeType tnodetype = NodeType::LOCAL, TileOpFormat ttensorfmt = TileOpFormat::TILEOP_ND);
-    LogicalTensor(Function &function, DataType t, std::vector<int> tshape, std::vector<SymbolicScalar> tValidShape,
-        std::string tname = "", NodeType tnodetype = NodeType::LOCAL, TileOpFormat ttensorfmt = TileOpFormat::TILEOP_ND);
-    LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawTensor, std::vector<int> toffset,
-        std::vector<int> tshape, NodeType tnodetype = NodeType::LOCAL, TileOpFormat ttensorfmt = TileOpFormat::TILEOP_ND);
-    LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawTensor, std::vector<int> toffset,
-        std::vector<int> tshape, std::vector<SymbolicScalar> tValidShape, NodeType tnodetype = NodeType::LOCAL, TileOpFormat ttensorfmt = TileOpFormat::TILEOP_ND);
+    LogicalTensor(Function &function, DataType t, Shape tshape, std::vector<SymbolicScalar> tValidShape,
+        std::string tname = "", NodeType tnodetype = NodeType::LOCAL,
+        TileOpFormat ttensorfmt = TileOpFormat::TILEOP_ND);
+    LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawTensor, Offset toffset, Shape tshape,
+        NodeType tnodetype = NodeType::LOCAL, TileOpFormat ttensorfmt = TileOpFormat::TILEOP_ND);
+    LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawTensor, Offset toffset, Shape tshape,
+        std::vector<SymbolicScalar> tValidShape, NodeType tnodetype = NodeType::LOCAL,
+        TileOpFormat ttensorfmt = TileOpFormat::TILEOP_ND);
     LogicalTensor(LogicalTensor &&) = default;
     LogicalTensor(const LogicalTensor &) = default;
     LogicalTensor &operator=(LogicalTensor &&) = delete;
@@ -101,8 +103,7 @@ public:
 
     std::string Dump(bool showFrom = true, bool showMem = false) const;
 
-    std::shared_ptr<LogicalTensor> View(
-        Function &function, const std::vector<int> &newShape, const std::vector<int> &newOffset) const;
+    std::shared_ptr<LogicalTensor> View(Function &function, const Shape &newShape, const Offset &newOffset) const;
 
     DataType Datatype() const;
     std::string Symbol() const;
@@ -128,9 +129,9 @@ public:
     void SetMagic(int m) { magic = m; }
     int GetRawMagic() const { return tensor->GetRawMagic(); }
     std::shared_ptr<RawTensor> GetRawTensor() const { return tensor; }
-    const std::vector<int> &GetOffset() const { return offset; }
-    const std::vector<int> &GetShape() const { return shape; }
-    void UpdateOffset(const std::vector<int> &newOffset) {
+    const Offset &GetOffset() const { return offset; }
+    const Shape &GetShape() const { return shape; }
+    void UpdateOffset(const Offset &newOffset) {
         ASSERT(newOffset.size() == shape.size());
         offset = newOffset;
     }
@@ -214,11 +215,8 @@ SymbolicScalar GetViewValidShapeDim(
     const SymbolicScalar &validShapeDim,
     const SymbolicScalar &viewOffsetDim,
     const SymbolicScalar &viewShapeDim);
-std::vector<SymbolicScalar> GetViewValidShape(
-    const std::vector<SymbolicScalar> &validShape,
-    const std::vector<int> &viewOffset,
-    const std::vector<SymbolicScalar> &viewDynOffset,
-    const std::vector<int> &viewShape);
+std::vector<SymbolicScalar> GetViewValidShape(const std::vector<SymbolicScalar> &validShape, const Offset &viewOffset,
+    const std::vector<SymbolicScalar> &viewDynOffset, const Shape &viewShape);
 
 std::map<int, RawSymbolicScalarPtr> GetTensorDataDict(const SymbolicScalar &dimOffset);
 std::map<int, RawSymbolicScalarPtr> GetTensorDataDict(const std::vector<SymbolicScalar> &offset);

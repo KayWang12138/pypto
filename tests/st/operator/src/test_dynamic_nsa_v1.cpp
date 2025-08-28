@@ -32,7 +32,7 @@ void SetPreConfig() {
 }
 
 template <typename T>
-static std::vector<T> getGoldenVec(std::vector<int> shape, std::string fileName) {
+static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileName) {
     int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     std::vector<T> golden(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, golden);
@@ -87,19 +87,19 @@ void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig,
 
     // 1. 设置shape
     // MlaProlog
-    std::vector<int> xShape = {b, s1, h};
-    std::vector<int> wDqShape = {h, qLoraRank};
-    std::vector<int> wUqQrShape = {qLoraRank, n1 * qHeadDim};
-    std::vector<int> wDkvKrShape = {h, v_dim + qkRopeHeadDim};
-    std::vector<int> wUkShape = {n1, qkNopeHeadDim, v_dim};
-    std::vector<int> cosShape = {b, s1, qkRopeHeadDim};
-    std::vector<int> gammaCqShape = {qLoraRank};
-    std::vector<int> gammaCkvShape = {v_dim};
-    std::vector<int> kvLenShape = {b, s1};
-    std::vector<int> kvCacheShape = {b, n2, s2, v_dim};
-    std::vector<int> krCacheShape = {b, n2, s2, qkRopeHeadDim};
-    std::vector<int> kvCacheOutShape = {b, n2, s2, v_dim};
-    std::vector<int> krCacheOutShape = {b, n2, s2, qkRopeHeadDim};
+    std::vector<int64_t> xShape = {b, s1, h};
+    std::vector<int64_t> wDqShape = {h, qLoraRank};
+    std::vector<int64_t> wUqQrShape = {qLoraRank, n1 * qHeadDim};
+    std::vector<int64_t> wDkvKrShape = {h, v_dim + qkRopeHeadDim};
+    std::vector<int64_t> wUkShape = {n1, qkNopeHeadDim, v_dim};
+    std::vector<int64_t> cosShape = {b, s1, qkRopeHeadDim};
+    std::vector<int64_t> gammaCqShape = {qLoraRank};
+    std::vector<int64_t> gammaCkvShape = {v_dim};
+    std::vector<int64_t> kvLenShape = {b, s1};
+    std::vector<int64_t> kvCacheShape = {b, n2, s2, v_dim};
+    std::vector<int64_t> krCacheShape = {b, n2, s2, qkRopeHeadDim};
+    std::vector<int64_t> kvCacheOutShape = {b, n2, s2, v_dim};
+    std::vector<int64_t> krCacheOutShape = {b, n2, s2, qkRopeHeadDim};
     if (cacheMode != "BNSD") {
         int blockNum2 = b * (s2 / blockSize);
         std::cout << "========= blockNum2 " << blockNum2 << std::endl;
@@ -108,42 +108,42 @@ void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig,
         kvCacheOutShape = {blockNum * blockSize, n2 * v_dim};
         krCacheOutShape = {blockNum * blockSize, n2 * qkRopeHeadDim};
     }
-    std::vector<int> wQbScaleShape = {1, n1 * qHeadDim};
-    std::vector<int> smoothCqShape{1, qLoraRank};
-    std::vector<int> qOutShape = {b, s1, n1, v_dim};
-    std::vector<int> qRopeOutShape = {b, s1, n1, qkRopeHeadDim};
+    std::vector<int64_t> wQbScaleShape = {1, n1 * qHeadDim};
+    std::vector<int64_t> smoothCqShape{1, qLoraRank};
+    std::vector<int64_t> qOutShape = {b, s1, n1, v_dim};
+    std::vector<int64_t> qRopeOutShape = {b, s1, n1, qkRopeHeadDim};
 
-    std::vector<int> topkIndicesShape = {b, s1, topk - front - near};
-    std::vector<int> topkTensorShapeShape = {b, s1};
-    std::vector<int> kvNopeCacheShape = {int(blockNum * blockSize), n2 * dn};
-    std::vector<int> kRopeCacheShape = {int(blockNum * blockSize), n2 * dr};
-    std::vector<int> kvCacheActSeqShape = {b};
-    std::vector<int> blockTableShape = {b, maxBlockNumPerBatch};
+    std::vector<int64_t> topkIndicesShape = {b, s1, topk - front - near};
+    std::vector<int64_t> topkTensorShapeShape = {b, s1};
+    std::vector<int64_t> kvNopeCacheShape = {int(blockNum * blockSize), n2 * dn};
+    std::vector<int64_t> kRopeCacheShape = {int(blockNum * blockSize), n2 * dr};
+    std::vector<int64_t> kvCacheActSeqShape = {b};
+    std::vector<int64_t> blockTableShape = {b, maxBlockNumPerBatch};
 
-    std::vector<int> slcActSeqsShape = {b, s1};
-    std::vector<int> qNopeShape = {b * s1 * n1, dn};
-    std::vector<int> qRopeShape = {b * s1 * n1, dr};
-    std::vector<int> kSlcShape = {b * s1 * n2 * smax, dn + dr};
-    std::vector<int> vSlcShape = {b * s1 * n2 * smax, dn};
+    std::vector<int64_t> slcActSeqsShape = {b, s1};
+    std::vector<int64_t> qNopeShape = {b * s1 * n1, dn};
+    std::vector<int64_t> qRopeShape = {b * s1 * n1, dr};
+    std::vector<int64_t> kSlcShape = {b * s1 * n2 * smax, dn + dr};
+    std::vector<int64_t> vSlcShape = {b * s1 * n2 * smax, dn};
 
-    std::vector<int> gateW1Shape = {h, 4 * h};
-    std::vector<int> gateW2Shape = {4 * h, 3 * n1};
-    std::vector<int> gateSimW1Shape = {h, 3 * n1};
-    // std::vector<int> gatingScoreShape = {b, s1, n1, 3};
+    std::vector<int64_t> gateW1Shape = {h, 4 * h};
+    std::vector<int64_t> gateW2Shape = {4 * h, 3 * n1};
+    std::vector<int64_t> gateSimW1Shape = {h, 3 * n1};
+    // std::vector<int64_t> gatingScoreShape = {b, s1, n1, 3};
 
-    std::vector<int> shape_cmpAtten = {b, s1, n1, v_dim};
-    std::vector<int> shape_selAtten = {b, s1, n1, v_dim};
-    std::vector<int> shape_winAtten = {b, s1, n1, v_dim};
-    std::vector<int> shape_attentionOut = {b, s1, n1, v_dim};
+    std::vector<int64_t> shape_cmpAtten = {b, s1, n1, v_dim};
+    std::vector<int64_t> shape_selAtten = {b, s1, n1, v_dim};
+    std::vector<int64_t> shape_winAtten = {b, s1, n1, v_dim};
+    std::vector<int64_t> shape_attentionOut = {b, s1, n1, v_dim};
 
     // post: shape
-    std::vector<int> wUvShape = {n1, v_dim, vHeadDim};
-    std::vector<int> wUvScaleShape = {n1, 1, vHeadDim};
-    std::vector<int> smoothWUvShape = {1, v_dim};
-    std::vector<int> woShape = {n1 * vHeadDim, h};
-    std::vector<int> woScaleShape = {1, h};
-    std::vector<int> smoothWoShape = {1, n1 * vHeadDim};
-    std::vector<int> outShape = {b, s1, h};
+    std::vector<int64_t> wUvShape = {n1, v_dim, vHeadDim};
+    std::vector<int64_t> wUvScaleShape = {n1, 1, vHeadDim};
+    std::vector<int64_t> smoothWUvShape = {1, v_dim};
+    std::vector<int64_t> woShape = {n1 * vHeadDim, h};
+    std::vector<int64_t> woScaleShape = {1, h};
+    std::vector<int64_t> smoothWoShape = {1, n1 * vHeadDim};
+    std::vector<int64_t> outShape = {b, s1, h};
 
     // 2. 构造tensor
     // MlaProlog
@@ -417,7 +417,7 @@ void TestNsa(const NSASimpleParams &params, const MlaTileConfig &prologConfig,
         wUvData, woData,                                                                              // post
     };
     inputDataList.insert(inputDataList.end(), tmpInputDataList.begin(), tmpInputDataList.end());
-    
+
     QuantTensorWithData wUvQuant{
         false, false, wUvScaleShape, smoothWUvShape, "wUvScale", "smoothWUv", "/w_uv_scale.bin", "/smooth_w_uv.bin"};
     CreateQuantTensorAndData(wUvQuant);

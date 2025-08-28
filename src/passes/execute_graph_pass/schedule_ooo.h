@@ -52,7 +52,7 @@ const std::unordered_set<Opcode> USE_LESS_OPS = {
     Opcode::OP_RESHAPE, Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_COMM_WAIT_FLAG};
 
 struct IssueEntry {
-    Operation *tileOp; 
+    Operation *tileOp;
     int execOrder{-1};
     PipeType type{PipeType::PIPE_ALL};
     bool isAlloc{false};
@@ -87,12 +87,10 @@ struct IssueQueue {
     void Insert(IssueEntryPtr op, int priority) {
         // priority越小，表示优先级越高。
         queue.push_back(std::make_pair(op, priority));
-        std::push_heap(queue.begin(), queue.end(), [] (std::pair<IssueEntryPtr, int>& a, 
-            std::pair<IssueEntryPtr, int>& b) {
-            return a.second > b.second;
-        });
+        std::push_heap(queue.begin(), queue.end(),
+            [](std::pair<IssueEntryPtr, int> &a, std::pair<IssueEntryPtr, int> &b) { return a.second > b.second; });
     }
-    
+
     void InsertReloadAlloc(IssueEntryPtr op, IssueEntryPtr spillIssue) {
         IssueEntryPtr firstSuccIssue = nullptr;
         for (auto& succ : spillIssue->successors) {
@@ -142,7 +140,7 @@ private:
     std::unordered_map<npu::tile_fwk::MemoryType, BufferPool> bufferManagerMap;
     std::unordered_map<int, int> bufRefCount;
     std::unordered_map<MemoryType, std::map<int, IssueEntryPtr>> tensorOccupyMap;
-    
+
     std::map<MemoryType, IssueQueue> allocIssueQueue;
     std::map<PipeType, IssueQueue> issueQueues;
     std::unordered_map<MemoryType, int64_t> inChipMemorySize;
@@ -160,16 +158,15 @@ private:
     Status CheckAllocIssue();
     void InitIssueQueuesAndBufferManager();
     Status CheckOpBufferSize(Operation *op);
-    void AddDependencies(IssueEntryPtr issue, std::map<int, IssueEntryPtr> lastWriteOpMap, 
-        LogicalTensorPtr tensor);
+    void AddDependencies(IssueEntryPtr issue, std::map<int, IssueEntryPtr> lastWriteOpMap, LogicalTensorPtr tensor);
 
     Status SortOps(SortOpMethod sortMethod = SortOpMethod::PriorDFS);
     Status PriorDFS(std::unordered_map<Opcode, int> preNodePriority);
     Status LayerBasedDFS(int layerDepth);
     void DFSFromSingleNode(IssueEntryPtr issue, std::map<IssueEntryPtr, bool>& visited,
         std::vector<IssueEntryPtr>& newIssueEntries, std::unordered_map<Opcode, int> preNodePriority);
-    IssueEntryPtr FindNodeMinNumUnvisitedPreNode(std::map<IssueEntryPtr, bool> visited, 
-        std::vector<IssueEntryPtr> outNodeQueue);
+    IssueEntryPtr FindNodeMinNumUnvisitedPreNode(
+        std::map<IssueEntryPtr, bool> visited, std::vector<IssueEntryPtr> outNodeQueue);
     int GetNumUnvisitPreNode(IssueEntryPtr issue, std::map<IssueEntryPtr, bool>& visited);
 
     Status SelectSpillBufferGroup(std::vector<std::vector<int>>& groups, int currPc, std::vector<int> &spillGroup);
@@ -179,22 +176,22 @@ private:
     bool GetBufLastUseTime(int curMemId, size_t& lastUseTime);
     bool GetBufLastWriteTime(int curMemId, size_t& lastWriteTime);
     Status SpillBuffer(Function &function, int spillMemId, size_t &pcIdx, LocalBufferPtr allocBuffer);
-    Status CreateSpillCopyout(Function &func, IssueEntryPtr spillIssue, LogicalTensorPtr spillTensor, 
-        int spillMemId, IssueEntryPtr &spillCopyout);
-    Status CreateSpillReloadIssue(Function &func, LogicalTensorPtr spillOutTensor, 
-        LogicalTensorPtr spillTensor, IssueEntryPtr &spillIssue, std::pair<IssueEntryPtr, IssueEntryPtr> &reloadIssues);
+    Status CreateSpillCopyout(Function &func, IssueEntryPtr spillIssue, LogicalTensorPtr spillTensor, int spillMemId,
+        IssueEntryPtr &spillCopyout);
+    Status CreateSpillReloadIssue(Function &func, LogicalTensorPtr spillOutTensor, LogicalTensorPtr spillTensor,
+        IssueEntryPtr &spillIssue, std::pair<IssueEntryPtr, IssueEntryPtr> &reloadIssues);
     Status GetOldestBuffer(IssueEntryPtr allocIssue, MemoryType bufferType, int& memId, IssueEntryPtr &spillIssue);
-    Status GenBufferSpill(Function &function, IssueEntryPtr allocIssue, MemoryType bufferType, 
-        std::vector<Operation *> &newOperations);
+    Status GenBufferSpill(
+        Function &function, IssueEntryPtr allocIssue, MemoryType bufferType, std::vector<Operation *> &newOperations);
     Status GenSpillSchedule(Function &function);
     void FindFilterLtags(IssueEntryPtr allocIssue, std::set<IssueEntryPtr> &filterLtags);
 
     Status UpdateRemainOpBufId(int oldMemId, int newMemId);
-    void UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr spillTensor, std::vector<int> offset, 
-    IssueEntryPtr spillIssue);
+    void UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr spillTensor, std::vector<int64_t> offset,
+        IssueEntryPtr spillIssue);
     Status UpdateTensorAttr(LogicalTensorPtr tensor, MemoryType memType, LogicalTensorPtr spillTensor, int spillMemId);
     Status GetSpillTensor(IssueEntryPtr spillIssue, int spillMemId, LogicalTensorPtr &spillTensor);
-    Status UpdateReloadIssueInfo(IssueEntryPtr reloadAlloc, IssueEntryPtr reloadCopyin, IssueEntryPtr spillIssue, 
+    Status UpdateReloadIssueInfo(IssueEntryPtr reloadAlloc, IssueEntryPtr reloadCopyin, IssueEntryPtr spillIssue,
         int spillMemId, int bufNextUseTime);
 
     Status ScheduleMainLoop(Function &func, std::vector<Operation *> &newOperations);
@@ -204,19 +201,17 @@ private:
     Status RetireIssueStage(uint64_t& commitCnt, int& nextCycle);
     Status RetireOpAndAwakeSucc(IssueEntryPtr issue, uint64_t& commitCnt);
 
-    size_t ShapeCeilAlign(std::vector<int> shape, DataType dtype);
+    size_t ShapeCeilAlign(std::vector<int64_t> shape, DataType dtype);
     Status DelBufRefCount(const int memId);
     void PrintDependenciesAndRelations();
     void UpdateBufferUsage(MemoryType bufferType, int memId, bool isFree);
     OoOSchedulerCheck::SpillInfo RecordSpillInfo(MemoryType bufferType, int memId, LocalBufferPtr allocIssue, LogicalTensorPtr spillOutTensor, bool needCopyOut);
 
 public:
-    Status Schedule(Function &function, const std::vector<Operation *> &operations, 
-        std::vector<Operation *> &newOperations);
+    Status Schedule(
+        Function &function, const std::vector<Operation *> &operations, std::vector<Operation *> &newOperations);
 
-    int GetSubgraphID() { 
-        return subGraphID; 
-    }
+    int GetSubgraphID() { return subGraphID; }
     int workspaceOffset{0};
     int clock{0};
     OoOSchedulerCheck oooCheck;

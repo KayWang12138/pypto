@@ -50,18 +50,18 @@ void TestMlaProlog(std::vector<int> &params, string dataPath, bool isQuant = fal
     typedef T outDtype;
     typedef int8_t wDtype;
 
-    std::vector<int> x_shape = {b, s, h};
-    std::vector<int> w_qa_shape = {h, qLoraRank};
-    std::vector<int> w_qb_shape = {qLoraRank, n * q_head_dim};
-    std::vector<int> w_kv_a_shape = {h, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> w_kv_b_k_shape = {n, qkNopeHeadDim, kvLoraRank};
-    std::vector<int> position_ids_shape = {b, s};
-    std::vector<int> cos_shape = {s, qkRopeHeadDim};
-    std::vector<int> past_key_states_shape = {b, 1, s2, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> kv_len_shape = {1, 1};
+    std::vector<int64_t> x_shape = {b, s, h};
+    std::vector<int64_t> w_qa_shape = {h, qLoraRank};
+    std::vector<int64_t> w_qb_shape = {qLoraRank, n * q_head_dim};
+    std::vector<int64_t> w_kv_a_shape = {h, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> w_kv_b_k_shape = {n, qkNopeHeadDim, kvLoraRank};
+    std::vector<int64_t> position_ids_shape = {b, s};
+    std::vector<int64_t> cos_shape = {s, qkRopeHeadDim};
+    std::vector<int64_t> past_key_states_shape = {b, 1, s2, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> kv_len_shape = {1, 1};
     // output
-    std::vector<int> q_shape = {b, n, s, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> kv_shape = {b, 1, s2, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> q_shape = {b, n, s, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> kv_shape = {b, 1, s2, kvLoraRank + qkRopeHeadDim};
 
     int capacity_x = std::accumulate(x_shape.begin(), x_shape.end(), 1, std::multiplies<>());
     int capacity_w_qa = std::accumulate(w_qa_shape.begin(), w_qa_shape.end(), 1, std::multiplies<>());
@@ -78,7 +78,7 @@ void TestMlaProlog(std::vector<int> &params, string dataPath, bool isQuant = fal
     int capacity_q = std::accumulate(q_shape.begin(), q_shape.end(), 1, std::multiplies<>());
     int capacity_kv = std::accumulate(kv_shape.begin(), kv_shape.end(), 1, std::multiplies<>());
 
-    std::vector<int> w_qb_scale_shape;
+    std::vector<int64_t> w_qb_scale_shape;
     int capacity_w_qb_scale;
     if (isQuant) {
         w_qb_scale_shape = {1, n * q_head_dim};
@@ -295,18 +295,18 @@ void Attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
     typedef T outDtype;
     typedef int8_t wDtype;
 
-    std::vector<int> x_shape = {b, s1, h};
-    std::vector<int> w_qa_shape = {h, qLoraRank};
-    std::vector<int> w_qb_shape = {qLoraRank, nq * q_head_dim};
-    std::vector<int> w_kv_a_shape = {h, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> w_kv_b_k_shape = {nq, qkNopeHeadDim, kvLoraRank};
-    std::vector<int> position_ids_shape = {b, s1};
-    std::vector<int> cos_shape = {s1, qkRopeHeadDim};
-    std::vector<int> past_key_states_shape = {b, 1, s2, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> kv_len_shape = {b, s1};;
+    std::vector<int64_t> x_shape = {b, s1, h};
+    std::vector<int64_t> w_qa_shape = {h, qLoraRank};
+    std::vector<int64_t> w_qb_shape = {qLoraRank, nq * q_head_dim};
+    std::vector<int64_t> w_kv_a_shape = {h, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> w_kv_b_k_shape = {nq, qkNopeHeadDim, kvLoraRank};
+    std::vector<int64_t> position_ids_shape = {b, s1};
+    std::vector<int64_t> cos_shape = {s1, qkRopeHeadDim};
+    std::vector<int64_t> past_key_states_shape = {b, 1, s2, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> kv_len_shape = {b, s1};;
     // output
-    std::vector<int> q_shape = {b, nq, s1, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> kv_shape = {b, 1, s2, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> q_shape = {b, nq, s1, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> kv_shape = {b, 1, s2, kvLoraRank + qkRopeHeadDim};
 
     int capacity_x = std::accumulate(x_shape.begin(), x_shape.end(), 1, std::multiplies<>());
     int capacity_w_qa = std::accumulate(w_qa_shape.begin(), w_qa_shape.end(), 1, std::multiplies<>());
@@ -333,7 +333,7 @@ void Attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
     uint64_t outputByteSize = postOutputSize * dtypeSize;
     uint8_t* out_ptr = allocDevAddr(outputByteSize);
 
-    std::vector<int> w_qb_scale_shape;
+    std::vector<int64_t> w_qb_scale_shape;
     int capacity_w_qb_scale;
     if (isQuant) {
         w_qb_scale_shape = {1, nq * q_head_dim};
@@ -439,11 +439,11 @@ void Attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
 
         Tensor attentionOut(DT_FP32, {b * s1 * nq, kvLoraRank}, outPtr, "attentionOut");
 
-        std::vector<int> inputShape = {b,nq,s1,kvLoraRank};
-        std::vector<int> wUvShape = {nq,kvLoraRank,vHeadDim};
-        std::vector<int> wOShape = {nq*vHeadDim,h};
-        std::vector<int> outputShapeT = {b, s1, h};
-        std::vector<int> t1Shape = {b, s1, nq, kvLoraRank};
+        std::vector<int64_t> inputShape = {b,nq,s1,kvLoraRank};
+        std::vector<int64_t> wUvShape = {nq,kvLoraRank,vHeadDim};
+        std::vector<int64_t> wOShape = {nq*vHeadDim,h};
+        std::vector<int64_t> outputShapeT = {b, s1, h};
+        std::vector<int64_t> t1Shape = {b, s1, nq, kvLoraRank};
         void *input_ptr = readToDev<T>(GetGoldenDir() + "/input.bin", inputSize);
         void *w_uv_ptr = readToDev<T>(GetGoldenDir() + "/w_uv.bin", wUvSize);
         void *w_o_ptr = readToDev<T>(GetGoldenDir() + "/w_o.bin", wOSize);
@@ -717,18 +717,18 @@ void attention_high(std::vector<int> &params, string dataPath, bool isQuant = fa
     typedef T outDtype;
     typedef int8_t wDtype;
 
-    std::vector<int> x_shape = {b, s1, h};
-    std::vector<int> w_qa_shape = {h, q_lora_rank};
-    std::vector<int> w_qb_shape = {q_lora_rank, nq * q_head_dim};
-    std::vector<int> w_kv_a_shape = {h, kv_lora_rank + qk_rope_head_dim};
-    std::vector<int> w_kv_b_k_shape = {nq, qk_nope_head_dim, kv_lora_rank};
-    std::vector<int> position_ids_shape = {b, s1};
-    std::vector<int> cos_shape = {s1, qk_rope_head_dim};
-    std::vector<int> past_key_states_shape = {b, 1, s2, kv_lora_rank + qk_rope_head_dim};
-    std::vector<int> kv_len_shape = {b, s1};
+    std::vector<int64_t> x_shape = {b, s1, h};
+    std::vector<int64_t> w_qa_shape = {h, q_lora_rank};
+    std::vector<int64_t> w_qb_shape = {q_lora_rank, nq * q_head_dim};
+    std::vector<int64_t> w_kv_a_shape = {h, kv_lora_rank + qk_rope_head_dim};
+    std::vector<int64_t> w_kv_b_k_shape = {nq, qk_nope_head_dim, kv_lora_rank};
+    std::vector<int64_t> position_ids_shape = {b, s1};
+    std::vector<int64_t> cos_shape = {s1, qk_rope_head_dim};
+    std::vector<int64_t> past_key_states_shape = {b, 1, s2, kv_lora_rank + qk_rope_head_dim};
+    std::vector<int64_t> kv_len_shape = {b, s1};
     // output
-    std::vector<int> q_shape = {b, nq, s1, kv_lora_rank + qk_rope_head_dim};
-    std::vector<int> kv_shape = {b, 1, s2, kv_lora_rank + qk_rope_head_dim};
+    std::vector<int64_t> q_shape = {b, nq, s1, kv_lora_rank + qk_rope_head_dim};
+    std::vector<int64_t> kv_shape = {b, 1, s2, kv_lora_rank + qk_rope_head_dim};
 
     int capacity_x = std::accumulate(x_shape.begin(), x_shape.end(), 1, std::multiplies<>());
     int capacity_w_qa = std::accumulate(w_qa_shape.begin(), w_qa_shape.end(), 1, std::multiplies<>());
@@ -755,7 +755,7 @@ void attention_high(std::vector<int> &params, string dataPath, bool isQuant = fa
     uint64_t outputByteSize = postOutputSize * dtypeSize;
     uint8_t* out_ptr = allocDevAddr(outputByteSize);
 
-    std::vector<int> w_qb_scale_shape;
+    std::vector<int64_t> w_qb_scale_shape;
     int capacity_w_qb_scale;
     if (isQuant) {
         w_qb_scale_shape = {1, nq * q_head_dim};
@@ -864,11 +864,11 @@ void attention_high(std::vector<int> &params, string dataPath, bool isQuant = fa
 
         Tensor attentionOut(DT_FP32, {b * s1 * nq, kv_lora_rank}, outPtr, "attentionOut");
 
-        std::vector<int> inputShape = {b,nq,s1,kv_lora_rank};
-        std::vector<int> wUvShape = {nq,kv_lora_rank,v_head_dim};
-        std::vector<int> wOShape = {nq*v_head_dim,h};
-        std::vector<int> outputShapeT = {b, s1, h};
-        std::vector<int> t1Shape = {b, s1, nq, kv_lora_rank};
+        std::vector<int64_t> inputShape = {b,nq,s1,kv_lora_rank};
+        std::vector<int64_t> wUvShape = {nq,kv_lora_rank,v_head_dim};
+        std::vector<int64_t> wOShape = {nq*v_head_dim,h};
+        std::vector<int64_t> outputShapeT = {b, s1, h};
+        std::vector<int64_t> t1Shape = {b, s1, nq, kv_lora_rank};
         void *input_ptr = readToDev<T>(GetGoldenDir() + "/input.bin", inputSize);
         void *w_uv_ptr = readToDev<T>(GetGoldenDir() + "/w_uv.bin", wUvSize);
         void *w_o_ptr = readToDev<T>(GetGoldenDir() + "/w_o.bin", wOSize);

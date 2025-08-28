@@ -69,7 +69,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
     auto c2Tile = paTileConfig.c2TileShape;
     auto v2Tile = paTileConfig.v2TileShape;
 
-    auto vHeadDim = weightUV->shape[2];
+    int vHeadDim = weightUV->shape[2];
 
     std::vector<int> paOutShape = {b * s * n, kvLoraRank};
 
@@ -106,7 +106,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
             // dequant: int32 -> fp32 -> *scale -> fp16/bf16
             if (isQuant) {
                 ConfigManager::Instance().SetSemanticLabel("Quant");
-                std::vector<int> tileShape = {std::min(NUM_32, tileBS), NUM_64};
+                std::vector<int64_t> tileShape = {std::min(NUM_32, tileBS), NUM_64};
                 Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
                 auto qTmpFp32 = Cast(q, DataType::DT_FP32);
                 auto qTmpDequantScale = qKv[2];
@@ -118,7 +118,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
 
             ConfigManager::Instance().SetSemanticLabel("Reshape0");
             auto qTmp = Reshape(q, {tileB, s, n, qHeadDim});
-            std::vector<int> tileShape = {std::min(NUM_32, tileB), 1, 1, NUM_64};
+            std::vector<int64_t> tileShape = {std::min(NUM_32, tileB), 1, 1, NUM_64};
             Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
 
             /******** q ********/

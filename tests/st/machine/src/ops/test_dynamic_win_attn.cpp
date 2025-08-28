@@ -69,12 +69,12 @@ void TestWinAtten(WinAttenTileShapeConfig& tileConfig) {
         << " dR = " << dR << " blockSize = " << blockSize << " windowSize = " << windowSize << std::endl;
 
     int maxBlock = (sMax + blockSize - 1) / blockSize;
-    std::vector<int> qNopeShape = {b * sQ * nQ, dN};
-    std::vector<int> qRopeShape = {b * sQ * nQ, dR};
-    std::vector<int> vNopeCacheShape = {b * maxBlock * blockSize , nKV * dN};
-    std::vector<int> kRopeCacheShape = {b * maxBlock * blockSize , nKV * dR};
-    std::vector<int> attentionOutShape = {b ,sQ ,nQ, dN};
-    std::vector<int> blockTableShape = {b, maxBlock};
+    std::vector<int64_t> qNopeShape = {b * sQ * nQ, dN};
+    std::vector<int64_t> qRopeShape = {b * sQ * nQ, dR};
+    std::vector<int64_t> vNopeCacheShape = {b * maxBlock * blockSize , nKV * dN};
+    std::vector<int64_t> kRopeCacheShape = {b * maxBlock * blockSize , nKV * dR};
+    std::vector<int64_t> attentionOutShape = {b ,sQ ,nQ, dN};
+    std::vector<int64_t> blockTableShape = {b, maxBlock};
 
     Tensor actSeqs(DT_INT32, {b}, "actSeqs");
     Tensor qNope(dType, qNopeShape, "qNope");

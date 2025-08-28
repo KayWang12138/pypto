@@ -38,11 +38,11 @@ public:
 
 private:
     Status RunOnFunction(Function &function) override;
-    void UpdateConsumerView(const LogicalTensorPtr &logicalTensor, std::vector<int> &diff) const;
-    void UpdateProducerAssemble(const LogicalTensorPtr &logicalTensor, std::vector<int> &diff) const;
+    void UpdateConsumerView(const LogicalTensorPtr &logicalTensor, std::vector<int64_t> &diff) const;
+    void UpdateProducerAssemble(const LogicalTensorPtr &logicalTensor, std::vector<int64_t> &diff) const;
     void SplitLargeLocalRaw(Function &function) const;
     void UpdateMemID(Function &function) const;
-    std::vector<int> UpdateOffset(std::vector<int> &offset, std::vector<int> &diff) const;
+    std::vector<int64_t> UpdateOffset(std::vector<int64_t> &offset, std::vector<int64_t> &diff) const;
 };
 } // namespace npu::tile_fwk
 #endif // SPLIT_LARGE_LOCAL_RAW_PASS_H

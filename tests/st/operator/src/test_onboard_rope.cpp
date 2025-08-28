@@ -31,12 +31,12 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_reshape_transpose_reshape_muls) {
 
     std::string shape_dir_path = "/1_128_1_64/";
 
-    std::vector<int> qPeShape{B, N, S, qkRopeHeadDim};
-    std::vector<int> kPeShape{B, 1, S, qkRopeHeadDim}; // k的N=1
-    std::vector<int> cosSinShape{S, qkRopeHeadDim};
-    std::vector<int> idsShape{B, S};
-    std::vector<int> qEmbedShape{B, N, S, qkRopeHeadDim};
-    std::vector<int> kEmbedShape{B, 1, S, qkRopeHeadDim};
+    std::vector<int64_t> qPeShape{B, N, S, qkRopeHeadDim};
+    std::vector<int64_t> kPeShape{B, 1, S, qkRopeHeadDim}; // k的N=1
+    std::vector<int64_t> cosSinShape{S, qkRopeHeadDim};
+    std::vector<int64_t> idsShape{B, S};
+    std::vector<int64_t> qEmbedShape{B, N, S, qkRopeHeadDim};
+    std::vector<int64_t> kEmbedShape{B, 1, S, qkRopeHeadDim};
 
     int qSize = std::accumulate(qPeShape.begin(), qPeShape.end(), 1, std::multiplies<>());
     int kSize = std::accumulate(kPeShape.begin(), kPeShape.end(), 1, std::multiplies<>());
@@ -113,12 +113,12 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_tensorIndex_unsqueeze_mul) {
 
     std::string shape_dir_path = "/32_128_1_64/";
 
-    std::vector<int> qPeShape{B, N, S, qkRopeHeadDim};
-    std::vector<int> kPeShape{B, 1, S, qkRopeHeadDim}; // k的N=1
-    std::vector<int> cosSinShape{S, qkRopeHeadDim};
-    std::vector<int> idsShape{B, S};
-    std::vector<int> qEmbedShape{B, 1, S, qkRopeHeadDim};
-    std::vector<int> kEmbedShape{B, 1, S, qkRopeHeadDim};
+    std::vector<int64_t> qPeShape{B, N, S, qkRopeHeadDim};
+    std::vector<int64_t> kPeShape{B, 1, S, qkRopeHeadDim}; // k的N=1
+    std::vector<int64_t> cosSinShape{S, qkRopeHeadDim};
+    std::vector<int64_t> idsShape{B, S};
+    std::vector<int64_t> qEmbedShape{B, 1, S, qkRopeHeadDim};
+    std::vector<int64_t> kEmbedShape{B, 1, S, qkRopeHeadDim};
 
     int qSize = std::accumulate(qPeShape.begin(), qPeShape.end(), 1, std::multiplies<>());
     int kSize = std::accumulate(kPeShape.begin(), kPeShape.end(), 1, std::multiplies<>());
@@ -197,12 +197,12 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_reshape_view_muls) {
 
     std::string shape_dir_path = "/1_128_1_64/";
 
-    std::vector<int> qPeShape{B, N, S, qkRopeHeadDim};
-    std::vector<int> kPeShape{B, 1, S, qkRopeHeadDim}; // k的N=1
-    std::vector<int> cosSinShape{S, qkRopeHeadDim};
-    std::vector<int> idsShape{B, S};
-    std::vector<int> qEmbedShape{B, N, S, qkRopeHeadDim / 2};
-    std::vector<int> kEmbedShape{B, 1, S, qkRopeHeadDim};
+    std::vector<int64_t> qPeShape{B, N, S, qkRopeHeadDim};
+    std::vector<int64_t> kPeShape{B, 1, S, qkRopeHeadDim}; // k的N=1
+    std::vector<int64_t> cosSinShape{S, qkRopeHeadDim};
+    std::vector<int64_t> idsShape{B, S};
+    std::vector<int64_t> qEmbedShape{B, N, S, qkRopeHeadDim / 2};
+    std::vector<int64_t> kEmbedShape{B, 1, S, qkRopeHeadDim};
 
     int qSize = std::accumulate(qPeShape.begin(), qPeShape.end(), 1, std::multiplies<>());
     int kSize = std::accumulate(kPeShape.begin(), kPeShape.end(), 1, std::multiplies<>());
@@ -273,12 +273,12 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_reshape_view_muls_concat) {
 
     std::string shape_dir_path = "/1_128_1_64/";
 
-    std::vector<int> qPeShape{B, N, S, qkRopeHeadDim};
-    std::vector<int> kPeShape{B, 1, S, qkRopeHeadDim}; // k的N=1
-    std::vector<int> cosSinShape{S, qkRopeHeadDim};
-    std::vector<int> idsShape{B, S};
-    std::vector<int> qEmbedShape{B, N, S, qkRopeHeadDim};
-    std::vector<int> kEmbedShape{B, 1, S, qkRopeHeadDim};
+    std::vector<int64_t> qPeShape{B, N, S, qkRopeHeadDim};
+    std::vector<int64_t> kPeShape{B, 1, S, qkRopeHeadDim}; // k的N=1
+    std::vector<int64_t> cosSinShape{S, qkRopeHeadDim};
+    std::vector<int64_t> idsShape{B, S};
+    std::vector<int64_t> qEmbedShape{B, N, S, qkRopeHeadDim};
+    std::vector<int64_t> kEmbedShape{B, 1, S, qkRopeHeadDim};
 
     int qSize = std::accumulate(qPeShape.begin(), qPeShape.end(), 1, std::multiplies<>());
     int kSize = std::accumulate(kPeShape.begin(), kPeShape.end(), 1, std::multiplies<>());
@@ -382,12 +382,12 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_deepseekv3) {
 
     std::string shape_dir_path = "/1_128_1_64/";
 
-    std::vector<int> qPeShape{B, N, S, qkRopeHeadDim};
-    std::vector<int> kPeShape{B, 1, S, qkRopeHeadDim}; // k的N=1
-    std::vector<int> cosSinShape{S, qkRopeHeadDim};
-    std::vector<int> idsShape{B, S};
-    std::vector<int> qEmbedShape{B, N, S, qkRopeHeadDim};
-    std::vector<int> kEmbedShape{B, 1, S, qkRopeHeadDim};
+    std::vector<int64_t> qPeShape{B, N, S, qkRopeHeadDim};
+    std::vector<int64_t> kPeShape{B, 1, S, qkRopeHeadDim}; // k的N=1
+    std::vector<int64_t> cosSinShape{S, qkRopeHeadDim};
+    std::vector<int64_t> idsShape{B, S};
+    std::vector<int64_t> qEmbedShape{B, N, S, qkRopeHeadDim};
+    std::vector<int64_t> kEmbedShape{B, 1, S, qkRopeHeadDim};
 
     int qSize = std::accumulate(qPeShape.begin(), qPeShape.end(), 1, std::multiplies<>());
     int kSize = std::accumulate(kPeShape.begin(), kPeShape.end(), 1, std::multiplies<>());
@@ -472,12 +472,12 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_v2_deepseekv3) {
 
     std::string shape_dir_path = "/1_1_128_64/";
 
-    std::vector<int> qPeShape{B, S, N, qkRopeHeadDim};
-    std::vector<int> kPeShape{B, S, 1, qkRopeHeadDim}; // k的N=1
-    std::vector<int> cosSinShape{B, S, qkRopeHeadDim};
-    std::vector<int> idsShape{B, S};
-    std::vector<int> qEmbedShape{B, S, N, qkRopeHeadDim};
-    std::vector<int> kEmbedShape{B, S, 1, qkRopeHeadDim};
+    std::vector<int64_t> qPeShape{B, S, N, qkRopeHeadDim};
+    std::vector<int64_t> kPeShape{B, S, 1, qkRopeHeadDim}; // k的N=1
+    std::vector<int64_t> cosSinShape{B, S, qkRopeHeadDim};
+    std::vector<int64_t> idsShape{B, S};
+    std::vector<int64_t> qEmbedShape{B, S, N, qkRopeHeadDim};
+    std::vector<int64_t> kEmbedShape{B, S, 1, qkRopeHeadDim};
 
     int qSize = std::accumulate(qPeShape.begin(), qPeShape.end(), 1, std::multiplies<>());
     int kSize = std::accumulate(kPeShape.begin(), kPeShape.end(), 1, std::multiplies<>());
@@ -541,12 +541,12 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_v2_deepseekv3_b32) {
 
     std::string shape_dir_path = "/32_1_128_64/";
 
-    std::vector<int> qPeShape{B, S, N, qkRopeHeadDim};
-    std::vector<int> kPeShape{B, S, 1, qkRopeHeadDim};
-    std::vector<int> cosSinShape{B, S, qkRopeHeadDim};
-    std::vector<int> idsShape{B, S};
-    std::vector<int> qEmbedShape{B, S, N, qkRopeHeadDim};
-    std::vector<int> kEmbedShape{B, S, 1, qkRopeHeadDim};
+    std::vector<int64_t> qPeShape{B, S, N, qkRopeHeadDim};
+    std::vector<int64_t> kPeShape{B, S, 1, qkRopeHeadDim};
+    std::vector<int64_t> cosSinShape{B, S, qkRopeHeadDim};
+    std::vector<int64_t> idsShape{B, S};
+    std::vector<int64_t> qEmbedShape{B, S, N, qkRopeHeadDim};
+    std::vector<int64_t> kEmbedShape{B, S, 1, qkRopeHeadDim};
 
     int qSize = std::accumulate(qPeShape.begin(), qPeShape.end(), 1, std::multiplies<>());
     int kSize = std::accumulate(kPeShape.begin(), kPeShape.end(), 1, std::multiplies<>());

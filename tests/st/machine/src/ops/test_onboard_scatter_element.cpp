@@ -33,10 +33,10 @@ TEST_F(ScatterElementOnBoardTest, test_scatter_element_float_16_64_8_32_1) {
     int S1 = 64;
     int D0 = 8;
     int D1 = 32;
-    std::vector<int> shape0 = {S0, S1};
-    std::vector<int> shape1 = {D0, D1};
+    std::vector<int64_t> shape0 = {S0, S1};
+    std::vector<int64_t> shape1 = {D0, D1};
     int axis = 1;
-    std::vector<int> shape2 = {S0, S1};
+    std::vector<int64_t> shape2 = {S0, S1};
 
     int capacity0 = shape0[0] * shape0[1];
     int capacity1 = shape1[0] * shape1[1];
@@ -88,10 +88,10 @@ TEST_F(ScatterElementOnBoardTest, test_scatter_element_float_16_70_16_40_1) {
     int S1 = 70;
     int D0 = 16;
     int D1 = 40;
-    std::vector<int> shape0 = {S0, S1};
-    std::vector<int> shape1 = {D0, D1};
+    std::vector<int64_t> shape0 = {S0, S1};
+    std::vector<int64_t> shape1 = {D0, D1};
     int axis = 1;
-    std::vector<int> shape2 = {S0, S1};
+    std::vector<int64_t> shape2 = {S0, S1};
 
     int capacity0 = shape0[0] * shape0[1];
     int capacity1 = shape1[0] * shape1[1];
@@ -148,10 +148,10 @@ TEST_F(ScatterElementOnBoardTest, test_scatter_element_float_16_64_16_32_1) {
     int S1 = 64;
     int D0 = 16;
     int D1 = 32;
-    std::vector<int> shape0 = {S0, S1};
-    std::vector<int> shape1 = {D0, D1};
+    std::vector<int64_t> shape0 = {S0, S1};
+    std::vector<int64_t> shape1 = {D0, D1};
     int axis = 1;
-    std::vector<int> shape2 = {S0, S1};
+    std::vector<int64_t> shape2 = {S0, S1};
 
     int capacity0 = shape0[0] * shape0[1];
     int capacity1 = shape1[0] * shape1[1];
@@ -208,10 +208,10 @@ TEST_F(ScatterElementOnBoardTest, test_scatter_element_float_8_256_8_8_1_moe) {
     int S1 = 256;
     int D0 = 8;
     int D1 = 8;
-    std::vector<int> shape0 = {S0, S1};
-    std::vector<int> shape1 = {D0, D1};
+    std::vector<int64_t> shape0 = {S0, S1};
+    std::vector<int64_t> shape1 = {D0, D1};
     int axis = 1;
-    std::vector<int> shape2 = {S0, S1};
+    std::vector<int64_t> shape2 = {S0, S1};
 
     int capacity0 = shape0[0] * shape0[1];
     int capacity1 = shape1[0] * shape1[1];

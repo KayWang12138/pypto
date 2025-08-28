@@ -71,8 +71,8 @@ bool FunctionUtils::IsContinuous(const std::vector<std::shared_ptr<LogicalTensor
     size_t numDims = tensors[0]->shape.size();
 
     // 计算整体边界
-    std::vector<int> minCoords(numDims, INT_MAX);
-    std::vector<int> maxCoords(numDims, INT_MIN);
+    std::vector<int64_t> minCoords(numDims, INT_MAX);
+    std::vector<int64_t> maxCoords(numDims, INT_MIN);
 
     for (const auto& tensor : tensors) {
         for (size_t i = 0; i < numDims; ++i) {
@@ -371,12 +371,9 @@ void SubfuncInvokeInfoTy::LoadIncastFromJson(const Json& incastJson, Function* b
             belongTo->GetMagicName().c_str());
         return;
     }
-    incastTensorParamList_.emplace_back(IncastParamPackTy(
-        paramLoc, tensorPtr->GetRawMagic(),
-        incastJson["offset"].get<std::vector<int>>(), 
-        incastJson["shape"].get<std::vector<int>>(),
-        tensorPtr->tensor->rawshape, tensorPtr->tensor->GetDataType(), 
-        tensorPtr, opMagic, operandIdx));
+    incastTensorParamList_.emplace_back(IncastParamPackTy(paramLoc, tensorPtr->GetRawMagic(),
+        incastJson["offset"].get<std::vector<int64_t>>(), incastJson["shape"].get<std::vector<int64_t>>(),
+        tensorPtr->tensor->rawshape, tensorPtr->tensor->GetDataType(), tensorPtr, opMagic, operandIdx));
 }
 
 void SubfuncInvokeInfoTy::LoadOutcastFromJson(const Json& outcastJson, Function* belongTo) {
@@ -392,12 +389,9 @@ void SubfuncInvokeInfoTy::LoadOutcastFromJson(const Json& outcastJson, Function*
             belongTo->GetMagicName().c_str());
         return;
     }
-    outcastTensorParamList_.emplace_back(OutcastParamPackTy(
-        paramLoc, tensorPtr->GetRawMagic(), refCount,
-        outcastJson["shape"].get<std::vector<int>>(), 
-        tensorPtr->tensor->rawshape,
-        outcastJson["offset"].get<std::vector<int>>(), 
-        tensorPtr->tensor->GetDataType(), tensorPtr, opMagic,
+    outcastTensorParamList_.emplace_back(OutcastParamPackTy(paramLoc, tensorPtr->GetRawMagic(), refCount,
+        outcastJson["shape"].get<std::vector<int64_t>>(), tensorPtr->tensor->rawshape,
+        outcastJson["offset"].get<std::vector<int64_t>>(), tensorPtr->tensor->GetDataType(), tensorPtr, opMagic,
         operandIdx));
 }
 
@@ -414,12 +408,9 @@ void SubfuncInvokeInfoTy::LoadTensorFromJson(const Json& tensorJson, Function* b
         return;
     }
     bool isOutput = tensorJson["is_output"].get<bool>();
-    tensorParamList_.emplace_back(TensorParamPackTy(
-        paramLoc, tensorPtr->GetRawMagic(),
-        tensorJson["offset"].get<std::vector<int>>(),
-        tensorJson["shape"].get<std::vector<int>>(),
-        tensorPtr->tensor->rawshape, tensorPtr->tensor->GetDataType(), 
-        isOutput, tensorPtr, opMagic, operandIdx));
+    tensorParamList_.emplace_back(TensorParamPackTy(paramLoc, tensorPtr->GetRawMagic(),
+        tensorJson["offset"].get<std::vector<int64_t>>(), tensorJson["shape"].get<std::vector<int64_t>>(),
+        tensorPtr->tensor->rawshape, tensorPtr->tensor->GetDataType(), isOutput, tensorPtr, opMagic, operandIdx));
 }
 
 void SubfuncInvokeInfoTy::LoadJson(const Json &invokeInfoJson, Function *belongTo) {
@@ -434,7 +425,7 @@ void SubfuncInvokeInfoTy::LoadJson(const Json &invokeInfoJson, Function *belongT
     for (const Json &tensorJson : invokeInfoJson["tensor_params"]) {
         LoadTensorFromJson(tensorJson, belongTo);
     }
-    
+
     programSubgraphId_ = invokeInfoJson["program_id"].get<int>();
     graphType_ = static_cast<CoreType>(invokeInfoJson["graph_type"].get<int>());
 }
@@ -589,38 +580,23 @@ void SubfuncParam::FromJson(const Json& params) {
     tensorsArgs_.clear();
     outCastArgs_.clear();
     for (auto &ele : params["incasts"]) {
-        AppendIncastParam(ele["seqNo"].get<int>(),
-            ele["operandIdx"].get<int>(),
-            ele["ddrId"].get<int>(),
-            ele["shape"].get<std::vector<int>>(),
-            ele["offset"].get<std::vector<int>>(),
-            ele["name"].get<std::string>(),
-            ele["loc"].get<int>(),
-            ele["symbol"].get<std::string>(),
+        AppendIncastParam(ele["seqNo"].get<int>(), ele["operandIdx"].get<int>(), ele["ddrId"].get<int>(),
+            ele["shape"].get<std::vector<int64_t>>(), ele["offset"].get<std::vector<int64_t>>(),
+            ele["name"].get<std::string>(), ele["loc"].get<int>(), ele["symbol"].get<std::string>(),
             static_cast<DataType>(ele["data_type"].get<int>()));
     }
 
     for (auto &ele : params["outcasts"]) {
-        AppendOutcastParam(ele["seqNo"].get<int>(),
-            ele["operandIdx"].get<int>(),
-            ele["ddrId"].get<int>(), 0,
-            ele["shape"].get<std::vector<int>>(),
-            ele["offset"].get<std::vector<int>>(),
-            ele["name"].get<std::string>(),
-            ele["loc"].get<int>(),
-            ele["symbol"].get<std::string>(),
+        AppendOutcastParam(ele["seqNo"].get<int>(), ele["operandIdx"].get<int>(), ele["ddrId"].get<int>(), 0,
+            ele["shape"].get<std::vector<int64_t>>(), ele["offset"].get<std::vector<int64_t>>(),
+            ele["name"].get<std::string>(), ele["loc"].get<int>(), ele["symbol"].get<std::string>(),
             static_cast<DataType>(ele["data_type"].get<int>()));
     }
 
     for (auto &ele : params["tensors"]) {
-        AppendTensorParam(ele["seqNo"].get<int>(),
-            ele["operandIdx"].get<int>(),
-            ele["ddrId"].get<int>(),
-            ele["shape"].get<std::vector<int>>(),
-            ele["offset"].get<std::vector<int>>(),
-            ele["name"].get<std::string>(),
-            ele["loc"].get<int>(),
-            ele["symbol"].get<std::string>(),
+        AppendTensorParam(ele["seqNo"].get<int>(), ele["operandIdx"].get<int>(), ele["ddrId"].get<int>(),
+            ele["shape"].get<std::vector<int64_t>>(), ele["offset"].get<std::vector<int64_t>>(),
+            ele["name"].get<std::string>(), ele["loc"].get<int>(), ele["symbol"].get<std::string>(),
             static_cast<DataType>(ele["data_type"].get<int>()));
     }
 }
@@ -640,7 +616,7 @@ void SubfuncTopologyInfoTy::AddEntry(const int esgId, const int readState, const
     }
 }
 
-void SubfuncTopologyInfoTy::UpdateEntry(const uint32_t extType, const uint32_t extParamNum, const std::vector<int> &extParams) {
+void SubfuncTopologyInfoTy::UpdateEntry(const uint32_t extType, const uint32_t extParamNum, const std::vector<int64_t> &extParams) {
     auto &entry = topology_.back();
     entry.extType = extType;
     entry.extParamNum = extParamNum;
@@ -754,7 +730,7 @@ void SubfuncTopologyInfoTy::LoadJson(const Json &topoJson)
             outGraph.emplace(out);
         }
         AddEntry(ele["esg_id"], ele["ready_state"], outGraph);
-        UpdateEntry(ele["ext_type"], ele["ext_param_num"], ele["ext_params"].get<std::vector<int>>());
+        UpdateEntry(ele["ext_type"], ele["ext_param_num"], ele["ext_params"].get<std::vector<int64_t>>());
     }
 }
 } // namespace npu::tile_fwk

@@ -45,8 +45,8 @@ TEST_F(TransposeTest, TestTranspose_BNSD_BSND) {
     int s = 16;
     int d = 16;
     capacity = b * n * s * d;
-    std::vector<int> shape{b, n, s, d};
-    std::vector<int> resShape{b, s, n, d};
+    std::vector<int64_t> shape{b, n, s, d};
+    std::vector<int64_t> resShape{b, s, n, d};
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
@@ -68,8 +68,8 @@ TEST_F(TransposeTest, TestTranspose_ABC_BAC) {
     int n = 2;
     int d = 128;
     capacity = bs * n * d;
-    std::vector<int> shape{bs, n, d};
-    std::vector<int> resShape{n, bs, d};
+    std::vector<int64_t> shape{bs, n, d};
+    std::vector<int64_t> resShape{n, bs, d};
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
@@ -92,8 +92,8 @@ TEST_F(TransposeTest, TestTranspose_ABCD_ABDC_1_2_16_31) {
     int c = 16;
     int d = 31;
     capacity = a * b * c * d;
-    std::vector<int> shape{a,b,c,d};
-    std::vector<int> resShape{a,b,d,c};
+    std::vector<int64_t> shape{a,b,c,d};
+    std::vector<int64_t> resShape{a,b,d,c};
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
@@ -117,8 +117,8 @@ TEST_F(TransposeTest, TestTranspose_BNSD2_BNS2D_small) {
     int s = 32;
     int d = 64;
     capacity = b * n * s * d;
-    std::vector<int> shape{b, n, s, d / 2, 2};
-    std::vector<int> resShape{b, n, s, 2, d / 2};
+    std::vector<int64_t> shape{b, n, s, d / 2, 2};
+    std::vector<int64_t> resShape{b, n, s, 2, d / 2};
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
@@ -141,8 +141,8 @@ TEST_F(TransposeTest, TestTranspose_BNDS_BNSD) {
     int s = 32;
     int d = 32;
     capacity = b * n * s * d;
-    std::vector<int> shape{b, n, s, d};
-    std::vector<int> resShape{b, n, d, s};
+    std::vector<int64_t> shape{b, n, s, d};
+    std::vector<int64_t> resShape{b, n, d, s};
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
@@ -165,8 +165,8 @@ TEST_F(TransposeTest, TestTranspose_AB_BA) {
     int s = 32;
     int d = 64;
     capacity = b * n * s * d;
-    std::vector<int> shape{s, d};
-    std::vector<int> resShape{d, s};
+    std::vector<int64_t> shape{s, d};
+    std::vector<int64_t> resShape{d, s};
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
@@ -188,8 +188,8 @@ TEST_F(TransposeTest, TestTranspose_ROPE_5D) {
     int n = 64;
     int s = 1;
     int d = 64;
-    std::vector<int> shape{b, n, s, d / 2, 2};
-    std::vector<int> resShape{b, n, s, 2, d / 2};
+    std::vector<int64_t> shape{b, n, s, d / 2, 2};
+    std::vector<int64_t> resShape{b, n, s, 2, d / 2};
     capacity = b * n * s * d;
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -211,8 +211,8 @@ TEST_F(TransposeTest, TestTranspose_MLA_3D_0) {
     int bs = 32;
     int n = 32;
     int d = 64;
-    std::vector<int> shape{bs, n, d};
-    std::vector<int> resShape{bs, n, d};
+    std::vector<int64_t> shape{bs, n, d};
+    std::vector<int64_t> resShape{bs, n, d};
     capacity = bs * n * d;
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -234,8 +234,8 @@ TEST_F(TransposeTest, TestTranspose_MLA_3D_1) {
     int bs = 32;
     int n = 32;
     int d = 512;
-    std::vector<int> shape{bs, n, d};
-    std::vector<int> resShape{bs, n, d};
+    std::vector<int64_t> shape{bs, n, d};
+    std::vector<int64_t> resShape{bs, n, d};
     capacity = bs * n * d;
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -258,8 +258,8 @@ TEST_F(TransposeTest, TestTranspose_MLA_4D_0) {
     int n = 1;
     int s = 32;
     int d = 512;
-    std::vector<int> shape{b, n, s, d};
-    std::vector<int> resShape{b, s, n, d};
+    std::vector<int64_t> shape{b, n, s, d};
+    std::vector<int64_t> resShape{b, s, n, d};
     capacity = b * n * s * d;
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -282,8 +282,8 @@ TEST_F(TransposeTest, TestTranspose_MLA_4D_1) {
     int n = 1;
     int s = 32;
     int d = 64;
-    std::vector<int> shape{b, n, s, d};
-    std::vector<int> resShape{b, s, n, d};
+    std::vector<int64_t> shape{b, n, s, d};
+    std::vector<int64_t> resShape{b, s, n, d};
     capacity = b * n * s * d;
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -306,8 +306,8 @@ TEST_F(TransposeTest, TestTranspose_MLA_4D_3) {
     int n = 1;
     int s = 1;
     int d = 64;
-    std::vector<int> shape{b, n, s, d};
-    std::vector<int> resShape{b, s, n, d};
+    std::vector<int64_t> shape{b, n, s, d};
+    std::vector<int64_t> resShape{b, s, n, d};
     capacity = b * n * s * d;
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -331,8 +331,8 @@ TEST_F(TransposeTest, TestTranspose_MLA_4D_4) {
     int n = 1;
     int s = 1;
     int d = 512;
-    std::vector<int> shape{b, n, s, d};
-    std::vector<int> resShape{b, s, n, d};
+    std::vector<int64_t> shape{b, n, s, d};
+    std::vector<int64_t> resShape{b, s, n, d};
     capacity = b * n * s * d;
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -356,8 +356,8 @@ TEST_F(TransposeTest, TestTranspose_MLA_4D_5) {
     int n = 1;
     int s = 256;
     int d = 512 + 64;
-    std::vector<int> shape{b, n, s, d};
-    std::vector<int> resShape{b, s, n, d};
+    std::vector<int64_t> shape{b, n, s, d};
+    std::vector<int64_t> resShape{b, s, n, d};
     capacity = b * n * s * d;
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -380,8 +380,8 @@ TEST_F(TransposeTest, TestTranspose_MLA_4D_50) {
     int n = 1;
     int s = 128;
     int d = 128;
-    std::vector<int> shape{b, n, s, d};
-    std::vector<int> resShape{b, s, n, d};
+    std::vector<int64_t> shape{b, n, s, d};
+    std::vector<int64_t> resShape{b, s, n, d};
     capacity = b * n * s * d;
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -404,8 +404,8 @@ TEST_F(TransposeTest, TestTranspose_MLA_4D_6) {
     int n = 32;
     int s = 1;
     int d = 512;
-    std::vector<int> shape{b, n, s, d};
-    std::vector<int> resShape{b, s, n, d};
+    std::vector<int64_t> shape{b, n, s, d};
+    std::vector<int64_t> resShape{b, s, n, d};
     capacity = b * n * s * d;
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -428,8 +428,8 @@ TEST_F(TransposeTest, TestTranspose_MLA_3D_2) {
     int bs = 32;
     int n = 32;
     int d = 128;
-    std::vector<int> shape{bs, n, d};
-    std::vector<int> resShape{bs, n, d};
+    std::vector<int64_t> shape{bs, n, d};
+    std::vector<int64_t> resShape{bs, n, d};
     capacity = bs * n * d;
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -452,8 +452,8 @@ TEST_F(TransposeTest, TestTranspose_MLA_4D_7) {
     int n = 128;
     int s = 1;
     int d = 512;
-    std::vector<int> shape{b, n, s, d};
-    std::vector<int> resShape{n, b, n, d};
+    std::vector<int64_t> shape{b, n, s, d};
+    std::vector<int64_t> resShape{n, b, n, d};
     capacity = b * n * s * d;
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -477,8 +477,8 @@ TEST_F(TransposeTest, Test_Datamove_Nonalign_Dim4) {
     int n = 1;
     int s = 32;
     int d = 437;
-    std::vector<int> shape{b, n, s, d};
-    std::vector<int> resShape{b, s, n, d};
+    std::vector<int64_t> shape{b, n, s, d};
+    std::vector<int64_t> resShape{b, s, n, d};
     capacity = b * n * s * d;
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -500,8 +500,8 @@ TEST_F(TransposeTest, Test_Datamove_Nonalign_Dim3) {
     int n = 1;
     int s = 32;
     int d = 437;
-    std::vector<int> shape{n, s, d};
-    std::vector<int> resShape{s, n, d};
+    std::vector<int64_t> shape{n, s, d};
+    std::vector<int64_t> resShape{s, n, d};
     capacity = n * s * d;
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -522,8 +522,8 @@ TEST_F(TransposeTest, Test_Datamove_Nonalign_Dim3) {
 TEST_F(TransposeTest, Test_AB_BA_32_768) {
     int a = 32;
     int b = 768;
-    std::vector<int> shape{a,b};
-    std::vector<int> resShape{b,a};
+    std::vector<int64_t> shape{a,b};
+    std::vector<int64_t> resShape{b,a};
     capacity = a * b ;
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -544,8 +544,8 @@ TEST_F(TransposeTest, Test_AB_BA_32_768) {
 TEST_F(TransposeTest, Test_AB_BA_768_32) {
     int a = 768;
     int b = 32;
-    std::vector<int> shape{a,b};
-    std::vector<int> resShape{b,a};
+    std::vector<int64_t> shape{a,b};
+    std::vector<int64_t> resShape{b,a};
     capacity = a * b ;
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -566,8 +566,8 @@ TEST_F(TransposeTest, Test_AB_BA_768_32) {
 TEST_F(TransposeTest, Test_AB_BA_128_511) {
     int a = 128;
     int b = 511;
-    std::vector<int> shape{a,b};
-    std::vector<int> resShape{b,a};
+    std::vector<int64_t> shape{a,b};
+    std::vector<int64_t> resShape{b,a};
     capacity = a * b ;
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -588,8 +588,8 @@ TEST_F(TransposeTest, Test_AB_BA_128_511) {
 TEST_F(TransposeTest, Test_AB_BA_128_255) {
     int a = 128;
     int b = 255;
-    std::vector<int> shape{a,b};
-    std::vector<int> resShape{b,a};
+    std::vector<int64_t> shape{a,b};
+    std::vector<int64_t> resShape{b,a};
     capacity = a * b ;
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -611,8 +611,8 @@ TEST_F(TransposeTest, Test_AB_BA_128_255) {
 TEST_F(TransposeTest, Test_AB_BA_128_63) {
     int a = 128;
     int b = 63;
-    std::vector<int> shape{a,b};
-    std::vector<int> resShape{b,a};
+    std::vector<int64_t> shape{a,b};
+    std::vector<int64_t> resShape{b,a};
     capacity = a * b ;
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -633,8 +633,8 @@ TEST_F(TransposeTest, Test_AB_BA_128_63) {
 TEST_F(TransposeTest, Test_AB_BA_1_128_511) {
     int a = 128;
     int b = 511;
-    std::vector<int> shape{1,a,b};
-    std::vector<int> resShape{1,b,a};
+    std::vector<int64_t> shape{1,a,b};
+    std::vector<int64_t> resShape{1,b,a};
     capacity = a * b ;
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -655,8 +655,8 @@ TEST_F(TransposeTest, Test_AB_BA_1_128_511) {
 TEST_F(TransposeTest, Test_AB_BA_1_128_255) {
     int a = 128;
     int b = 255;
-    std::vector<int> shape{1,a,b};
-    std::vector<int> resShape{1,b,a};
+    std::vector<int64_t> shape{1,a,b};
+    std::vector<int64_t> resShape{1,b,a};
     capacity = a * b ;
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -678,8 +678,8 @@ TEST_F(TransposeTest, Test_AB_BA_1_128_255) {
 TEST_F(TransposeTest, Test_AB_BA_1_128_63) {
     int a = 128;
     int b = 63;
-    std::vector<int> shape{1,a,b};
-    std::vector<int> resShape{1,b,a};
+    std::vector<int64_t> shape{1,a,b};
+    std::vector<int64_t> resShape{1,b,a};
     capacity = a * b ;
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -703,8 +703,8 @@ TEST_F(TransposeTest, TestTranspose_abcd_bacd_2_128_3_32) {
     int n = 128;
     int s = 3;
     int d = 32;
-    std::vector<int> shape{b, n, s, d};
-    std::vector<int> resShape{b, s, n, d};
+    std::vector<int64_t> shape{b, n, s, d};
+    std::vector<int64_t> resShape{b, s, n, d};
     capacity = b * n * s * d;
     uint8_t* out_ptr = nullptr;
     uint64_t outSize = 0;

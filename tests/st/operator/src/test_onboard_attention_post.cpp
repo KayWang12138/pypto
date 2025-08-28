@@ -56,11 +56,11 @@ TEST_F(OnBoardTest, test_attention_post_bf16_real_batch4) {
     uint64_t outputByteSize = outputSize * dtypeSize;
     uint8_t* out_ptr = allocDevAddr(outputByteSize);
     PROGRAM("ATTENTION_POST") {
-        std::vector<int> inputShape = {B,N,S,kvLoraRank};
-        std::vector<int> wUvShape = {N,kvLoraRank,vHeadDim};
-        std::vector<int> wOShape = {N*vHeadDim,H};
-        std::vector<int> outputShapeT = {B, S, H};
-        std::vector<int> t1Shape = {B, S, N, kvLoraRank};
+        std::vector<int64_t> inputShape = {B,N,S,kvLoraRank};
+        std::vector<int64_t> wUvShape = {N,kvLoraRank,vHeadDim};
+        std::vector<int64_t> wOShape = {N*vHeadDim,H};
+        std::vector<int64_t> outputShapeT = {B, S, H};
+        std::vector<int64_t> t1Shape = {B, S, N, kvLoraRank};
         void *input_ptr = readToDev<T>(GetGoldenDir() + "/input.bin", inputSize);
         void *w_uv_ptr = readToDev<T>(GetGoldenDir() + "/w_uv.bin", wUvSize);
         void *w_o_ptr = readToDev<T>(GetGoldenDir() + "/w_o.bin", wOSize);
@@ -150,11 +150,11 @@ TEST_F(OnBoardTest, test_attention_post_bf16_real_n128) {
     uint64_t outputByteSize = outputSize * dtypeSize;
     uint8_t* out_ptr = allocDevAddr(outputByteSize);
     PROGRAM("ATTENTION_POST") {
-        std::vector<int> inputShape = {B,N,S,kvLoraRank};
-        std::vector<int> wUvShape = {N,kvLoraRank,vHeadDim};
-        std::vector<int> wOShape = {N*vHeadDim,H};
-        std::vector<int> outputShapeT = {B, S, H};
-        std::vector<int> t1Shape = {B, S, N, kvLoraRank};
+        std::vector<int64_t> inputShape = {B,N,S,kvLoraRank};
+        std::vector<int64_t> wUvShape = {N,kvLoraRank,vHeadDim};
+        std::vector<int64_t> wOShape = {N*vHeadDim,H};
+        std::vector<int64_t> outputShapeT = {B, S, H};
+        std::vector<int64_t> t1Shape = {B, S, N, kvLoraRank};
         void *input_ptr = readToDev<T>(GetGoldenDir() + "/input.bin", inputSize);
         void *w_uv_ptr = readToDev<T>(GetGoldenDir() + "/w_uv.bin", wUvSize);
         void *w_o_ptr = readToDev<T>(GetGoldenDir() + "/w_o.bin", wOSize);

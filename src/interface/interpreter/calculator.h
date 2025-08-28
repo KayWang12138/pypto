@@ -46,8 +46,8 @@ inline double Abs(double v) {
     return std::abs(v);
 }
 
-inline std::vector<int> ShapeToStride(const std::vector<int> &shape) {
-    std::vector<int> stride(shape.size(), 1);
+inline std::vector<int64_t> ShapeToStride(const std::vector<int64_t> &shape) {
+    std::vector<int64_t> stride(shape.size(), 1);
     for (int i = static_cast<int>(shape.size()) - 2; i >= 0; i--) {
         stride[i] = shape[i + 1] * stride[i + 1];
     }
@@ -433,7 +433,7 @@ struct CalcBinaryScalar {
 struct CalcReduceContext {
     CalcReduceContext() {}
     CalcReduceContext(LogicalTensorData *ret_, const LogicalTensorData *oper_, int indexBegin_, int indexEnd_,
-        int axis_, const std::vector<int> &retStride_, const std::vector<int> &operStride_)
+        int axis_, const std::vector<int64_t> &retStride_, const std::vector<int64_t> &operStride_)
         : ret(ret_),
           oper(oper_),
           indexBegin(indexBegin_),
@@ -447,8 +447,8 @@ struct CalcReduceContext {
     int indexBegin{0};
     int indexEnd{0};
     int axis{-1};
-    std::vector<int> retStride;
-    std::vector<int> operStride;
+    std::vector<int64_t> retStride;
+    std::vector<int64_t> operStride;
 };
 template <Opcode opcode, typename DataType, typename CalcType>
 struct CalcReduce {
@@ -458,7 +458,7 @@ struct CalcReduce {
     static void Entry(void *c) {
         auto [ret, oper, indexBegin, indexEnd, axis, retStride, operStride] = *(CalcReduceContext *)c;
         int rowSize = oper->GetShape()[axis];
-        for (int i = indexBegin; i < indexEnd; i++) {
+        for (int64_t i = indexBegin; i < indexEnd; i++) {
             /*
              *  For oper shape <3 x 4 x 5>, oper stride [20, 5, 1]
              *      When axis == 0:
@@ -466,11 +466,11 @@ struct CalcReduce {
              *      When axis == 1:
              *          return shape: <3 x 1 x 5>, returnStride: [5, 5, 1]
              */
-            int operHighDimIndex = axis == 0 ? 0 : (i / retStride[axis - 1] * operStride[axis - 1]);
-            int operLowDimIndex = i % retStride[axis];
+            int64_t operHighDimIndex = axis == 0 ? 0 : (i / retStride[axis - 1] * operStride[axis - 1]);
+            int64_t operLowDimIndex = i % retStride[axis];
 
-            int operBeginIndex = operHighDimIndex + operLowDimIndex;
-            int operStep = operStride[axis];
+            int64_t operBeginIndex = operHighDimIndex + operLowDimIndex;
+            int64_t operStep = operStride[axis];
             switch (opcode) {
                 case Opcode::OP_ROWSUMLINE: {
                     CalcType val = static_cast<CalcType>(oper->Get<DataType>(operBeginIndex));
@@ -510,8 +510,8 @@ struct CalcReduce {
         ASSERT(ret->GetDataType() == oper->GetDataType());
         ASSERT(ret->GetShape() == retShape);
 
-        std::vector<int> retStride = ShapeToStride(retShape);
-        std::vector<int> operStride = ShapeToStride(oper->GetShape());
+        std::vector<int64_t> retStride = ShapeToStride(retShape);
+        std::vector<int64_t> operStride = ShapeToStride(oper->GetShape());
         ASSERT(retStride[axis] == operStride[axis]);
 
         std::vector<CalcReduceContext> contextList;
@@ -532,7 +532,7 @@ struct CalcReduce {
 struct CalcBroadcastContext {
     CalcBroadcastContext() {}
     CalcBroadcastContext(LogicalTensorData *ret_, const LogicalTensorData *oper_, int indexBegin_, int indexEnd_,
-        int axis_, const std::vector<int> &retStride_, const std::vector<int> &operStride_)
+        int axis_, const std::vector<int64_t> &retStride_, const std::vector<int64_t> &operStride_)
         : ret(ret_),
           oper(oper_),
           indexBegin(indexBegin_),
@@ -546,8 +546,8 @@ struct CalcBroadcastContext {
     int indexBegin{0};
     int indexEnd{0};
     int axis{-1};
-    std::vector<int> retStride;
-    std::vector<int> operStride;
+    std::vector<int64_t> retStride;
+    std::vector<int64_t> operStride;
 };
 template <Opcode opcode, typename DataType, typename CalcType>
 struct CalcBroadcast {
@@ -582,8 +582,8 @@ struct CalcBroadcast {
         ASSERT(ret->GetDataType() == oper->GetDataType());
         ASSERT(ret->GetShape() == retShape);
 
-        std::vector<int> retStride = ShapeToStride(retShape);
-        std::vector<int> operStride = ShapeToStride(oper->GetShape());
+        std::vector<int64_t> retStride = ShapeToStride(retShape);
+        std::vector<int64_t> operStride = ShapeToStride(oper->GetShape());
         ASSERT(retStride[axis] == operStride[axis]);
 
         std::vector<CalcBroadcastContext> contextList;
@@ -604,8 +604,8 @@ struct CalcBroadcast {
 struct CalcTransposeAdjDimContext {
     CalcTransposeAdjDimContext() {}
     CalcTransposeAdjDimContext(LogicalTensorData *ret_, const LogicalTensorData *oper_, int indexBegin_,
-        int indexEnd_, int axis_, const std::vector<int> &retStride_, const std::vector<int> &operStride_,
-        const std::vector<int> &retShape_, const std::vector<int> &operShape_)
+        int indexEnd_, int axis_, const std::vector<int64_t> &retStride_, const std::vector<int64_t> &operStride_,
+        const std::vector<int64_t> &retShape_, const std::vector<int64_t> &operShape_)
         : ret(ret_),
           oper(oper_),
           indexBegin(indexBegin_),
@@ -621,10 +621,10 @@ struct CalcTransposeAdjDimContext {
     int indexBegin{0};
     int indexEnd{0};
     int axis{-1};
-    std::vector<int> retStride;
-    std::vector<int> operStride;
-    std::vector<int> retShape;
-    std::vector<int> operShape;
+    std::vector<int64_t> retStride;
+    std::vector<int64_t> operStride;
+    std::vector<int64_t> retShape;
+    std::vector<int64_t> operShape;
 };
 template <Opcode opcode, typename DataType, typename CalcType>
 struct CalcTransposeAdjDimHandler {
@@ -658,8 +658,8 @@ struct CalcTransposeAdjDimHandler {
         ASSERT(ret->GetDataType() == oper->GetDataType());
         ASSERT(ret->GetShape() == retShape);
 
-        std::vector<int> retStride = ShapeToStride(retShape);
-        std::vector<int> operStride = ShapeToStride(oper->GetShape());
+        std::vector<int64_t> retStride = ShapeToStride(retShape);
+        std::vector<int64_t> operStride = ShapeToStride(oper->GetShape());
 
         std::vector<CalcTransposeAdjDimContext> contextList;
         int count = (ret->GetSize() + pool->GetThreadCount() - 1) / pool->GetThreadCount();
@@ -679,8 +679,8 @@ struct CalcTransposeAdjDimHandler {
 struct CalcIndexCopyContext {
     CalcIndexCopyContext() {}
     CalcIndexCopyContext(LogicalTensorData *ret_, const LogicalTensorData *src_, std::vector<int> *indexList_,
-        const LogicalTensorData *dst_, int indexBegin_, int indexEnd_, int axis_, const std::vector<int> &srcStride_,
-        const std::vector<int> &dstStride_, const std::vector<int> &srcShape_, const std::vector<int> &dstShape_)
+        const LogicalTensorData *dst_, int indexBegin_, int indexEnd_, int axis_, const std::vector<int64_t> &srcStride_,
+        const std::vector<int64_t> &dstStride_, const std::vector<int64_t> &srcShape_, const std::vector<int64_t> &dstShape_)
         : ret(ret_),
           src(src_),
           indexList(indexList_),
@@ -700,10 +700,10 @@ struct CalcIndexCopyContext {
     int indexBegin{0};
     int indexEnd{0};
     int axis{-1};
-    std::vector<int> srcStride;
-    std::vector<int> dstStride;
-    std::vector<int> srcShape;
-    std::vector<int> dstShape;
+    std::vector<int64_t> srcStride;
+    std::vector<int64_t> dstStride;
+    std::vector<int64_t> srcShape;
+    std::vector<int64_t> dstShape;
 };
 template <Opcode opcode, typename DataType, typename CalcType>
 struct CalcIndexCopyHandler {
@@ -748,8 +748,8 @@ struct CalcIndexCopyHandler {
             ASSERT(ret->GetShape()[i] == index->GetShape()[i]);
         }
 
-        std::vector<int> srcStride = ShapeToStride(src->GetShape());
-        std::vector<int> dstStride = ShapeToStride(dst->GetShape());
+        std::vector<int64_t> srcStride = ShapeToStride(src->GetShape());
+        std::vector<int64_t> dstStride = ShapeToStride(dst->GetShape());
 
         std::vector<int> indexData(index->GetSize());
         for (int i = 0; i < index->GetSize(); i++) {

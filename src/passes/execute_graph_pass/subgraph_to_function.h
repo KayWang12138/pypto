@@ -34,7 +34,7 @@ private:
     Status PreCheck(Function &function) override;
     Status PostCheck(Function &function) override;
     Status RunOnFunction(Function &function) override;
-    
+
     void GetTensorDataDependencyInsert(Function &function);
     void GetTensorDataDependencyClear(Function &function);
     Status BuildGraph(Function &function);
@@ -68,8 +68,8 @@ private:
     void RecordEsgOutcast(Function &function, size_t i, size_t j, size_t k);
     void ProcessInputOperands(Function* rootFunc, Operation& tileOp, SubfuncParam& pSgParamInfo, int& tParamLoc, int& iParamLoc) const;
     void ProcessOutputOperands(Function* rootFunc, Operation& tileOp, SubfuncParam& pSgParamInfo, int& tParamLoc, int& oParamLoc) const;
-    void ProcessCopyInOperand(Operation& tileOp, std::vector<int>& offset, std::vector<int>& shape) const;
-    void ProcessCopyOutOperand(Operation& tileOp, std::vector<int>& offset, std::vector<int>& shape) const;
+    void ProcessCopyInOperand(Operation &tileOp, std::vector<int64_t> &offset, std::vector<int64_t> &shape) const;
+    void ProcessCopyOutOperand(Operation &tileOp, std::vector<int64_t> &offset, std::vector<int64_t> &shape) const;
     void SymbolizeEachFunction(Function *rootFunc, std::vector<Function *> &mergedFuncList1, size_t i) const;
     void GenerateAndExportCombinedReport(Function& func,
     const std::multimap<int, int>& psgToESgMapParam,

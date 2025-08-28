@@ -39,7 +39,7 @@ public:
 Tensor PutMem(const Tensor& in, const Tensor& out)
 {
     auto& function = *Program::GetInstance().GetCurrentFunction();
-    auto dummy = std::make_shared<LogicalTensor>(function, in.GetDataType(), std::vector<int32_t>{1});
+    auto dummy = std::make_shared<LogicalTensor>(function, in.GetDataType(), std::vector<int64_t>{1});
     auto& op= function.AddOperation("SHMEM_PUT", {in.GetStorage(), out.GetStorage()}, {dummy});
     op.SetAttr("AtomicType", std::string("TileOp::Distributed::AtomicType::SET"));
     return dummy;
@@ -57,7 +57,7 @@ void SetSignal(const Tensor& dummy, const Tensor& signal)
 Tensor WaitUntil(const Tensor& dummyIn, const Tensor& signal)
 {
     auto& function = *Program::GetInstance().GetCurrentFunction();
-    auto dummyOut = std::make_shared<LogicalTensor>(function, dummyIn.GetDataType(), std::vector<int32_t>{1});
+    auto dummyOut = std::make_shared<LogicalTensor>(function, dummyIn.GetDataType(), std::vector<int64_t>{1});
     auto& op= function.AddOperation("SHMEM_WAIT_UNTIL", {dummyIn.GetStorage(), signal.GetStorage()}, {dummyOut});
     op.SetAttr("AtomicType", std::string("TileOp::Distributed::AtomicType::SET"));
     return dummyOut;
@@ -78,7 +78,7 @@ TEST_F(TestCodegenShmemTileop, Success)
     constexpr int32_t col = 256;
     DataType dtype = DT_FP16;
 
-    const std::vector<int32_t> shape = {row, col};
+    const std::vector<int64_t> shape = {row, col};
     Tensor in(dtype, shape, "in");
     Tensor temp(dtype, shape, "temp");
     Tensor out(dtype, shape, "out");

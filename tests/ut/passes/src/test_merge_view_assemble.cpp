@@ -53,7 +53,7 @@ TEST_F(MergeViewAssembleTest, TestMergeViewAssemble) {
     constexpr int expectedView2 = 2;
     constexpr int expectedAdd = 2;
     constexpr int expectedAssemble = 1;
-    std::vector<int> shape{16, 16};
+    std::vector<int64_t> shape{16, 16};
     Tensor a(DT_FP32, shape, "a");
     Tensor in_tensor(DT_FP32, shape, "in_tensor");
     Tensor out_tensor(DT_FP32, shape, "out_tensor");
@@ -68,7 +68,7 @@ TEST_F(MergeViewAssembleTest, TestMergeViewAssemble) {
     });
 
     Function* originFunction = nullptr;
-    std::vector<int> originOpmagic;
+    std::vector<int64_t> originOpmagic;
     FUNCTION("AddFunction") {
         out_tensor = Add(in_tensor, a);
         originFunction = Program::GetInstance().GetCurrentFunction();
@@ -103,8 +103,8 @@ TEST_F(MergeViewAssembleTest, TestMergeViewAssemble) {
     int add_count = 0;
     int assemble1_count = 0;
     int assemble2_count = 0;
-    std::vector offset1 = {0, 0};
-    std::vector offset2 = {8, 0};
+    std::vector<int64_t> offset1 = {0, 0};
+    std::vector<int64_t> offset2 = {8, 0};
     for (const auto &op : updated_operations) {
         if (op.GetOpcodeStr() == "VIEW") {
             auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(op.GetOpAttribute().get());
@@ -142,13 +142,13 @@ TEST_F(MergeViewAssembleTest, MergeTwoConsecutiveViews) {
     std::string funcRawName = "test_function_raw";
     std::unique_ptr<Function> function = std::make_unique<Function>(program, funcMagicName, funcRawName, nullptr);
     // 创建原始输入tensor
-    auto rawTensor = std::make_shared<RawTensor>(DataType::DT_FP32, std::vector<int>{10, 10}, "input_tensor");
-    std::shared_ptr<LogicalTensor> inputTensor = std::make_shared<LogicalTensor>(*function, rawTensor, std::vector<int>{0, 0}, std::vector<int>{10, 10});
+    auto rawTensor = std::make_shared<RawTensor>(DataType::DT_FP32, std::vector<int64_t>{10, 10}, "input_tensor");
+    std::shared_ptr<LogicalTensor> inputTensor = std::make_shared<LogicalTensor>(*function, rawTensor, std::vector<int64_t>{0, 0}, std::vector<int64_t>{10, 10});
     const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(function->GetIncast()).push_back(inputTensor);
     // 创建第一个VIEW操作，偏移量[1,2]
-    auto midTensor = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, std::vector<int>{8, 8});
+    auto midTensor = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, std::vector<int64_t>{8, 8});
     auto view1Attr = std::make_shared<ViewOpAttribute>(
-        std::vector<int>{1, 2}, // from_offset
+        std::vector<int64_t>{1, 2}, // from_offset
         std::vector<SymbolicScalar>{},  // from_dyn_offset
         std::vector<SymbolicScalar>{}   // to_dyn_valid_shape
     );
@@ -160,10 +160,10 @@ TEST_F(MergeViewAssembleTest, MergeTwoConsecutiveViews) {
     view1Op.SetOpAttribute(view1Attr);
 
     // 2. 创建第2个VIEW操作，偏移量[3,4]
-    auto outputTensor = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, std::vector<int>{6, 6});
+    auto outputTensor = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, std::vector<int64_t>{6, 6});
     const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(function->GetOutcast()).push_back(outputTensor);
     auto view2Attr = std::make_shared<ViewOpAttribute>(
-        std::vector<int>{3, 4}, // from_offset
+        std::vector<int64_t>{3, 4}, // from_offset
         std::vector<SymbolicScalar>{},  // from_dyn_offset
         std::vector<SymbolicScalar>{}   // to_dyn_valid_shape
     );
@@ -229,15 +229,15 @@ TEST_F(MergeViewAssembleTest, MergeThreeConsecutiveAssembles) {
     std::unique_ptr<Function> function = std::make_unique<Function>(program, funcMagicName, funcRawName, nullptr);
 
     // 1.创建原始输入tensor并设置incast
-    auto rawTensor = std::make_shared<RawTensor>(DataType::DT_FP32, std::vector<int>{10, 10}, "input_tensor");
-    std::shared_ptr<LogicalTensor> inputTensor = std::make_shared<LogicalTensor>(*function, rawTensor, std::vector<int>{0, 0}, std::vector<int>{10, 10});
+    auto rawTensor = std::make_shared<RawTensor>(DataType::DT_FP32, std::vector<int64_t>{10, 10}, "input_tensor");
+    std::shared_ptr<LogicalTensor> inputTensor = std::make_shared<LogicalTensor>(*function, rawTensor, std::vector<int64_t>{0, 0}, std::vector<int64_t>{10, 10});
     const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(function->GetIncast()).push_back(inputTensor);
 
     // 2.创建三个连续的ASSEMBLE操作
     // 第一个ASSEMBLE：偏移量[1,0]
-    auto midTensor1 = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, std::vector<int>{9, 10});
+    auto midTensor1 = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, std::vector<int64_t>{9, 10});
     auto assemble1Attr = std::make_shared<AssembleOpAttribute>(
-        std::vector<int>{1, 0}, // to_offset
+        std::vector<int64_t>{1, 0}, // to_offset
         std::vector<SymbolicScalar>{}  // to_dyn_offset
     );
     auto& assemble1Op = function->AddRawOperation(
@@ -248,9 +248,9 @@ TEST_F(MergeViewAssembleTest, MergeThreeConsecutiveAssembles) {
     assemble1Op.SetOpAttribute(assemble1Attr);
 
     // 第二个ASSEMBLE：偏移量[0,2]
-    auto midTensor2 = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, std::vector<int>{9, 8});
+    auto midTensor2 = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, std::vector<int64_t>{9, 8});
     auto assemble2Attr = std::make_shared<AssembleOpAttribute>(
-        std::vector<int>{0, 2}, // to_offset
+        std::vector<int64_t>{0, 2}, // to_offset
         std::vector<SymbolicScalar>{}   // to_dyn_offset
     );
     auto& assemble2Op = function->AddRawOperation(
@@ -261,10 +261,10 @@ TEST_F(MergeViewAssembleTest, MergeThreeConsecutiveAssembles) {
     assemble2Op.SetOpAttribute(assemble2Attr);
 
     // 第三个ASSEMBLE：偏移量[3,0]
-    auto outputTensor = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, std::vector<int>{6, 8});
+    auto outputTensor = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, std::vector<int64_t>{6, 8});
     const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(function->GetOutcast()).push_back(outputTensor);
     auto assemble3Attr = std::make_shared<AssembleOpAttribute>(
-        std::vector<int>{3, 0}, // to_offset
+        std::vector<int64_t>{3, 0}, // to_offset
         std::vector<SymbolicScalar>{}   // to_dyn_offset
     );
     auto& assemble3Op = function->AddRawOperation(
@@ -369,7 +369,7 @@ TEST_F(MergeViewAssembleTest, Test2View2Assemble2View2AssembleChain) {
         "assemble4_out",
         "final_out"
     };
-    
+
     std::vector<Opcode> opCodes{
         Opcode::OP_VIEW,
         Opcode::OP_VIEW,
@@ -424,49 +424,49 @@ TEST_F(MergeViewAssembleTest, Test2View2Assemble2View2AssembleChain) {
         switch (op_index) {
             case 0: { // view1
                 auto attr = std::make_shared<ViewOpAttribute>(
-                    std::vector<int32_t>{1, 1, 1}, std::vector<SymbolicScalar>{}, std::vector<SymbolicScalar>{});
+                    std::vector<int64_t>{1, 1, 1}, std::vector<SymbolicScalar>{}, std::vector<SymbolicScalar>{});
                 op.SetOpAttribute(attr);
                 break;
             }
             case 1: { // view2
                 auto attr = std::make_shared<ViewOpAttribute>(
-                    std::vector<int32_t>{2, 2, 2}, std::vector<SymbolicScalar>{}, std::vector<SymbolicScalar>{});
+                    std::vector<int64_t>{2, 2, 2}, std::vector<SymbolicScalar>{}, std::vector<SymbolicScalar>{});
                 op.SetOpAttribute(attr);
                 break;
             }
             case 2: { // assemble1
                 auto attr = std::make_shared<AssembleOpAttribute>(
-                    std::vector<int32_t>{3, 3, 3}, std::vector<SymbolicScalar>{});
+                    std::vector<int64_t>{3, 3, 3}, std::vector<SymbolicScalar>{});
                 op.SetOpAttribute(attr);
                 break;
             }
             case 3: { // assemble2
                 auto attr = std::make_shared<AssembleOpAttribute>(
-                    std::vector<int32_t>{4, 4, 4}, std::vector<SymbolicScalar>{});
+                    std::vector<int64_t>{4, 4, 4}, std::vector<SymbolicScalar>{});
                 op.SetOpAttribute(attr);
                 break;
             }
             case 4: { // view3
                 auto attr = std::make_shared<ViewOpAttribute>(
-                    std::vector<int32_t>{5, 5, 5}, std::vector<SymbolicScalar>{}, std::vector<SymbolicScalar>{});
+                    std::vector<int64_t>{5, 5, 5}, std::vector<SymbolicScalar>{}, std::vector<SymbolicScalar>{});
                 op.SetOpAttribute(attr);
                 break;
             }
             case 5: { // view4
                 auto attr = std::make_shared<ViewOpAttribute>(
-                    std::vector<int32_t>{6, 6, 6}, std::vector<SymbolicScalar>{}, std::vector<SymbolicScalar>{});
+                    std::vector<int64_t>{6, 6, 6}, std::vector<SymbolicScalar>{}, std::vector<SymbolicScalar>{});
                 op.SetOpAttribute(attr);
                 break;
             }
             case 6: { // assemble3
                 auto attr = std::make_shared<AssembleOpAttribute>(
-                    std::vector<int32_t>{7, 7, 7}, std::vector<SymbolicScalar>{});
+                    std::vector<int64_t>{7, 7, 7}, std::vector<SymbolicScalar>{});
                 op.SetOpAttribute(attr);
                 break;
             }
             case 7: { // assemble4
                 auto attr = std::make_shared<AssembleOpAttribute>(
-                    std::vector<int32_t>{8, 8, 8}, std::vector<SymbolicScalar>{});
+                    std::vector<int64_t>{8, 8, 8}, std::vector<SymbolicScalar>{});
                 op.SetOpAttribute(attr);
                 break;
             }
@@ -484,7 +484,7 @@ TEST_F(MergeViewAssembleTest, Test2View2Assemble2View2AssembleChain) {
     const auto& operations = function->Operations();
     int view_count = 0;
     int assemble_count = 0;
-    
+
     for (const auto& op : operations) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             view_count++;
@@ -493,34 +493,34 @@ TEST_F(MergeViewAssembleTest, Test2View2Assemble2View2AssembleChain) {
             assemble_count++;
         }
     }
-    
+
     // Should have 2 merged views and 2 merged assembles
     EXPECT_EQ(view_count, 2);
     EXPECT_EQ(assemble_count, 2);
-    
+
     // Verify final graph structure
     bool found_structure = false;
     for (const auto& op : operations) {
         if (op.GetOpcode() == Opcode::OP_ABS) {
             const auto* abs_input = op.GetIOperands()[0].get();
             ASSERT_NE(abs_input, nullptr);
-            
+
             const auto* last_assemble = *abs_input->GetProducers().begin();
             ASSERT_NE(last_assemble, nullptr);
             EXPECT_EQ(last_assemble->GetOpcode(), Opcode::OP_ASSEMBLE);
-            
+
             const auto* last_view = *last_assemble->GetIOperands()[0]->GetProducers().begin();
             ASSERT_NE(last_view, nullptr);
             EXPECT_EQ(last_view->GetOpcode(), Opcode::OP_VIEW);
-            
+
             const auto* first_assemble = *last_view->GetIOperands()[0]->GetProducers().begin();
             ASSERT_NE(first_assemble, nullptr);
             EXPECT_EQ(first_assemble->GetOpcode(), Opcode::OP_ASSEMBLE);
-            
+
             const auto* first_view = *first_assemble->GetIOperands()[0]->GetProducers().begin();
             ASSERT_NE(first_view, nullptr);
             EXPECT_EQ(first_view->GetOpcode(), Opcode::OP_VIEW);
-            
+
             found_structure = true;
             break;
         }
@@ -614,69 +614,69 @@ TEST_F(MergeViewAssembleTest, TestMixedBranchWithViewAndAssemble) {
     // ------------------------- 主分支属性设置 -------------------------
     // view1: offset=[1,0,0]
     set_attr("view1", std::make_shared<ViewOpAttribute>(
-        std::vector<int32_t>{1, 0, 0},   // offset
+        std::vector<int64_t>{1, 0, 0},   // offset
         std::vector<SymbolicScalar>{},   // stride (空表示默认)
         std::vector<SymbolicScalar>{}    // shape (空表示保持输入形状)
     ));
 
     // view2: offset=[0,2,0]
     set_attr("view2", std::make_shared<ViewOpAttribute>(
-        std::vector<int32_t>{0, 2, 0}, 
-        std::vector<SymbolicScalar>{}, 
+        std::vector<int64_t>{0, 2, 0},
+        std::vector<SymbolicScalar>{},
         std::vector<SymbolicScalar>{}
     ));
 
     // assemble1: offset=[1,2,0]
     set_attr("assemble1", std::make_shared<AssembleOpAttribute>(
-        std::vector<int32_t>{1, 2, 0},   // offset
+        std::vector<int64_t>{1, 2, 0},   // offset
         std::vector<SymbolicScalar>{}     // 其他参数（如无则空）
     ));
 
     // ------------------------- 分支1 (VIEW分支) 属性设置 -------------------------
     // view3: offset=[0,0,3]
     set_attr("view3", std::make_shared<ViewOpAttribute>(
-        std::vector<int32_t>{0, 0, 3}, 
-        std::vector<SymbolicScalar>{}, 
+        std::vector<int64_t>{0, 0, 3},
+        std::vector<SymbolicScalar>{},
         std::vector<SymbolicScalar>{}
     ));
 
     // view4: offset=[4,0,0]
     set_attr("view4", std::make_shared<ViewOpAttribute>(
-        std::vector<int32_t>{4, 0, 0}, 
-        std::vector<SymbolicScalar>{}, 
+        std::vector<int64_t>{4, 0, 0},
+        std::vector<SymbolicScalar>{},
         std::vector<SymbolicScalar>{}
     ));
 
     // assemble2: offset=[4,0,3]
     set_attr("assemble2", std::make_shared<AssembleOpAttribute>(
-        std::vector<int32_t>{4, 0, 3}, 
+        std::vector<int64_t>{4, 0, 3},
         std::vector<SymbolicScalar>{}
     ));
 
     // ------------------------- 分支2 (Assemble分支) 属性设置 -------------------------
     // assemble3: offset=[5,0,0]
     set_attr("assemble3", std::make_shared<AssembleOpAttribute>(
-        std::vector<int32_t>{5, 0, 0}, 
+        std::vector<int64_t>{5, 0, 0},
         std::vector<SymbolicScalar>{}
     ));
 
     // view5: offset=[0,6,0]
     set_attr("view5", std::make_shared<ViewOpAttribute>(
-        std::vector<int32_t>{0, 6, 0}, 
-        std::vector<SymbolicScalar>{}, 
+        std::vector<int64_t>{0, 6, 0},
+        std::vector<SymbolicScalar>{},
         std::vector<SymbolicScalar>{}
     ));
 
     // assemble4: offset=[5,6,0]
     set_attr("assemble4", std::make_shared<AssembleOpAttribute>(
-        std::vector<int32_t>{5, 6, 0}, 
+        std::vector<int64_t>{5, 6, 0},
         std::vector<SymbolicScalar>{}
     ));
 
     // ------------------------- 合并操作属性设置 -------------------------
     // merge_assemble: offset=[9,9,9]
     set_attr("merge_assemble", std::make_shared<AssembleOpAttribute>(
-        std::vector<int32_t>{9, 9, 9}, 
+        std::vector<int64_t>{9, 9, 9},
         std::vector<SymbolicScalar>{}
     ));
 
@@ -733,7 +733,7 @@ TEST_F(MergeViewAssembleTest, TestMixedBranchWithViewAndAssemble) {
                     assemble_producer_count++;
                 }
             }
-            EXPECT_EQ(assemble_producer_count, 2) 
+            EXPECT_EQ(assemble_producer_count, 2)
                 << "Expected 2 ASSEMBLE producers, but got " << assemble_producer_count;
 
             found_abs = true;

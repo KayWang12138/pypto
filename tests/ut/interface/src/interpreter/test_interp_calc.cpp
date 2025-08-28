@@ -30,13 +30,13 @@ public:
 };
 
 template <typename T>
-static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int> &shape, const T &val) {
+static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int64_t> &shape, const T &val) {
     Tensor data(t, shape);
     return std::make_shared<LogicalTensorData>(RawTensorData::CreateConstantTensor(data, val));
 }
 
 template <typename T>
-static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int> &shape, const std::vector<T> &vals) {
+static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int64_t> &shape, const std::vector<T> &vals) {
     Tensor data(t, shape);
     return std::make_shared<LogicalTensorData>(RawTensorData::CreateTensor(data, vals));
 }

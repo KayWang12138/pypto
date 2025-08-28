@@ -26,8 +26,8 @@ TEST_F(RmsNormTest, test_32_32_tileop_rmsnorm) {
 
     int shape0 = 32;
     int shape1 = 32;
-    std::vector<int> shape = {shape0, shape1};
-    std::vector<int> outshape = {shape0, shape1};
+    std::vector<int64_t> shape = {shape0, shape1};
+    std::vector<int64_t> outshape = {shape0, shape1};
     int inputCapacity = shape0 * shape1;
     int outputCapacity = shape0 * shape1;
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -62,8 +62,8 @@ TEST_F(RmsNormTest, test_2_32_32_tileop_rmsnorm) {
     int shape0 = 2;
     int shape1 = 32;
     int shape2 = 32;
-    std::vector<int> shape = {shape0, shape1, shape2};
-    std::vector<int> outshape = {shape0, shape1, shape2};
+    std::vector<int64_t> shape = {shape0, shape1, shape2};
+    std::vector<int64_t> outshape = {shape0, shape1, shape2};
     int inputCapacity = shape0 * shape1 * shape2;
     int outputCapacity = shape0 * shape1 * shape2;
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -99,8 +99,8 @@ TEST_F(RmsNormTest, test_2_2_32_32_tileop_rmsnorm) {
     int shape1 = 2;
     int shape2 = 32;
     int shape3 = 32;
-    std::vector<int> shape = {shape0, shape1, shape2, shape3};
-    std::vector<int> outshape = {shape0, shape1, shape2, shape3};
+    std::vector<int64_t> shape = {shape0, shape1, shape2, shape3};
+    std::vector<int64_t> outshape = {shape0, shape1, shape2, shape3};
     int inputCapacity = shape0 * shape1 * shape2 * shape3;
     int outputCapacity = shape0 * shape1 * shape2 * shape3;
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -134,8 +134,8 @@ TEST_F(RmsNormTest, test_32_256_tileop_rmsnorm_fp16) {
 
     int shape0 = 32;
     int shape1 = 256;
-    std::vector<int> shape = {shape0, shape1};
-    std::vector<int> outshape = {shape0, shape1};
+    std::vector<int64_t> shape = {shape0, shape1};
+    std::vector<int64_t> outshape = {shape0, shape1};
     int inputCapacity = shape0 * shape1;
     int outputCapacity = shape0 * shape1;
     uint64_t outputSize = outputCapacity * sizeof(npu::tile_fwk::float16);
@@ -169,8 +169,8 @@ TEST_F(RmsNormTest, test_32_1536_tileop_rmsnorm_fp16_realCase) {
 
     int shape0 = 32;
     int shape1 = 1536;
-    std::vector<int> shape = {shape0, shape1};
-    std::vector<int> outshape = {shape0, shape1};
+    std::vector<int64_t> shape = {shape0, shape1};
+    std::vector<int64_t> outshape = {shape0, shape1};
     int inputCapacity = shape0 * shape1;
     int outputCapacity = shape0 * shape1;
     uint64_t outputSize = outputCapacity * sizeof(npu::tile_fwk::float16);
@@ -205,8 +205,8 @@ TEST_F(RmsNormTest, test_2_32_256_tileop_rmsnorm_fp16) {
     int shape0 = 2;
     int shape1 = 32;
     int shape2 = 256;
-    std::vector<int> shape = {shape0, shape1, shape2};
-    std::vector<int> outshape = {shape0, shape1, shape2};
+    std::vector<int64_t> shape = {shape0, shape1, shape2};
+    std::vector<int64_t> outshape = {shape0, shape1, shape2};
     int inputCapacity = shape0 * shape1 * shape2;
     int outputCapacity = shape0 * shape1 * shape2;
     uint64_t outputSize = outputCapacity * sizeof(npu::tile_fwk::float16);
@@ -240,9 +240,9 @@ TEST_F(RmsNormTest, test_32_1536_tileop_rmsnorm_gamma_fp16_realCase) {
 
     int shape0 = 32;
     int shape1 = 1536;
-    std::vector<int> shape = {shape0, shape1};
-    std::vector<int> gammaShape = {shape1};
-    std::vector<int> outshape = {shape0, shape1};
+    std::vector<int64_t> shape = {shape0, shape1};
+    std::vector<int64_t> gammaShape = {shape1};
+    std::vector<int64_t> outshape = {shape0, shape1};
     int inputCapacity = shape0 * shape1;
     int inputGammaCapacity = shape1;
     int outputCapacity = shape0 * shape1;
@@ -280,9 +280,9 @@ TEST_F(RmsNormTest, test_2_1_512_tileop_rmsnorm_gamma_fp16_realCase) {
     int shape0 = 32;
     int shape1 = 1;
     int shape2 = 512;
-    std::vector<int> shape = {shape0, shape1, shape2};
-    std::vector<int> gammaShape = {shape2};
-    std::vector<int> outshape = {shape0, shape1, shape2};
+    std::vector<int64_t> shape = {shape0, shape1, shape2};
+    std::vector<int64_t> gammaShape = {shape2};
+    std::vector<int64_t> outshape = {shape0, shape1, shape2};
     int inputCapacity = shape0 * shape1 * shape2;
     int inputGammaCapacity = shape2;
     int outputCapacity = shape0 * shape1 * shape2;

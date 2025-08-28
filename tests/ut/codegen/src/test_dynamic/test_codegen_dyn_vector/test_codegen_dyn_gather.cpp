@@ -50,10 +50,10 @@ TEST_F(TestCodegenDynGather, TestGather) {
     constexpr const int D = 64;
     constexpr const int B = 1;
     constexpr const int S = 32;
-    std::vector<int> shape0 = {S2, D};
-    std::vector<int> shape1 = {B, S};
+    std::vector<int64_t> shape0 = {S2, D};
+    std::vector<int64_t> shape1 = {B, S};
     int axis = 0;
-    std::vector<int> shape2 = {B, S, D};
+    std::vector<int64_t> shape2 = {B, S, D};
 
     Program::GetInstance().GetTileShape().SetVecTileShapes({1, GATHER_SHAPE0, GATHER_SHAPE1});
 

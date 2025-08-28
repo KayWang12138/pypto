@@ -37,9 +37,9 @@ TEST_F(MlpTest, test_16_7168_tileop)
     int shape1 = h;
     int shape2 = 2048;
 
-    std::vector<int> hiddenStatesShape = {shape0, shape1};
-    std::vector<int> ffnwegiht = {shape1, shape2};
-    std::vector<int> outshape = {shape0, shape1};
+    std::vector<int64_t> hiddenStatesShape = {shape0, shape1};
+    std::vector<int64_t> ffnwegiht = {shape1, shape2};
+    std::vector<int64_t> outshape = {shape0, shape1};
 
     // 分配输入输出空间
     int inputCapacity = shape0 * shape1;

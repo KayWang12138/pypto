@@ -18,12 +18,12 @@
 using namespace tile_fwk::test_operation;
 namespace {
 struct VectorDuplicateOpFuncArgs : public OpFuncArgs {
-    VectorDuplicateOpFuncArgs(const Element &value, const std::vector<int> &viewShape, const std::vector<int> tileShape)
+    VectorDuplicateOpFuncArgs(const Element &value, const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
         : value_(value), viewShape_(viewShape), tileShape_(tileShape) {}
 
     Element value_;
-    std::vector<int> viewShape_;
-    std::vector<int> tileShape_;
+    std::vector<int64_t> viewShape_;
+    std::vector<int64_t> tileShape_;
 };
 
 struct VectorDuplicateOpMetaData {

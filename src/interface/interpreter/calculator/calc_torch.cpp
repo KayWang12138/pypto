@@ -66,17 +66,10 @@ static at::Scalar From(const Element &elem) {
     return at::Scalar();
 }
 
-static std::vector<int64_t> ToShape64(const std::vector<int> &shape) {
-    std::vector<int64_t> ret;
-    for (auto x : shape)
-        ret.emplace_back(x);
-    return ret;
-}
-
 static torch::Tensor From(LogicalTensorDataPtr data) {
     RawTensorDataPtr raw = data->GetData();
-    auto tensor = torch::from_blob(raw->data(), ToShape64(raw->GetShape()), FromDataType(raw->GetDataType()));
-    auto view = tensor.as_strided(ToShape64(data->GetShape()), raw->GetStride(), data->GetStorageOffset());
+    auto tensor = torch::from_blob(raw->data(), raw->GetShape(), FromDataType(raw->GetDataType()));
+    auto view = tensor.as_strided(data->GetShape(), raw->GetStride(), data->GetStorageOffset());
     if (data->IsAxisCombine())
         view = view.transpose_(-1, AXIS_TO_LAST);
     return view;
@@ -121,7 +114,7 @@ void Abs(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     void Name(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse) { \
         auto tout = From(out);                                                                            \
         if (reverse) {                                                                                    \
-            torch::full_out(tout, ToShape64(out->GetShape()), From(scalar));                              \
+            torch::full_out(tout, out->GetShape(), From(scalar));                              \
             torch::op_out(tout, From(self), tout);                                                        \
         } else {                                                                                          \
             torch::op_out(tout, From(self), From(scalar));                                                \
@@ -186,9 +179,9 @@ void MaxS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &el
         }                                                                                              \
         auto tout = From(out);                                                                         \
         std::vector<int64_t> offset(self->GetShape().size(), 0);                                       \
-        auto tbig = View(tout, ToShape64(big->GetShape()), offset);                                    \
+        auto tbig = View(tout, big->GetShape(), offset);                                    \
         tbig.copy_(From(big));                                                                         \
-        auto tsmall = View(tout, ToShape64(small->GetShape()), offset);                                \
+        auto tsmall = View(tout, small->GetShape(), offset);                                \
         torch::bop(tsmall, tsmall, From(small));                                                       \
     }
 
@@ -319,7 +312,7 @@ void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDa
 
 void ExpandS(LogicalTensorDataPtr out, const Element &elem) {
     auto tout = From(out);
-    torch::full_out(tout, ToShape64(out->GetShape()), From(elem));
+    torch::full_out(tout, out->GetShape(), From(elem));
 }
 
 void Expand(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
@@ -369,7 +362,7 @@ void RowMaxSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) 
 }
 
 void Reshape(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
-    From(out) = torch::reshape(From(self), ToShape64(out->GetShape()));
+    From(out) = torch::reshape(From(self), out->GetShape());
 }
 
 void Transpose(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t dim0, int64_t dim1) {

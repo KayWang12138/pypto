@@ -45,7 +45,7 @@ public:
 
 inline void ConstructGraph1(std::shared_ptr<Function> &currFunctionPtr) {
     // Prepare the graph
-    std::vector<int> shape = {8, 15};
+    std::vector<int64_t> shape = {8, 15};
     auto shapeImme = OpImmediate::Specified(shape);
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto incast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -78,7 +78,7 @@ inline void ConstructGraph1(std::shared_ptr<Function> &currFunctionPtr) {
 
 inline void ConstructGraph2(std::shared_ptr<Function> &currFunctionPtr) {
     // Prepare the graph
-    std::vector<int> shape = {8, 16};
+    std::vector<int64_t> shape = {8, 16};
     auto shapeImme = OpImmediate::Specified(shape);
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto incast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -111,10 +111,10 @@ inline void ConstructGraph2(std::shared_ptr<Function> &currFunctionPtr) {
 
 inline void ConstructGraph3(std::shared_ptr<Function> &currFunctionPtr) {
     // Prepare the graph
-    std::vector<int> AShape = {8, 15};
-    std::vector<int> BShape = {15, 15};
-    std::vector<int> CShape = {8, 16};
-    std::vector<int> expOriShape = {16, 16};
+    std::vector<int64_t> AShape = {8, 15};
+    std::vector<int64_t> BShape = {15, 15};
+    std::vector<int64_t> CShape = {8, 16};
+    std::vector<int64_t> expOriShape = {16, 16};
     auto AShapeImme = OpImmediate::Specified(AShape);
     auto BShapeImme = OpImmediate::Specified(BShape);
     auto CShapeImme = OpImmediate::Specified(CShape);
@@ -149,9 +149,9 @@ inline void ConstructGraph3(std::shared_ptr<Function> &currFunctionPtr) {
 
 inline void ConstructGraph4(std::shared_ptr<Function> &currFunctionPtr) {
     // Prepare the graph
-    std::vector<int> shape = {8, 15};
-    std::vector<int> reduce_shape = {8, 1};
-    std::vector<int> expOriShape = {8, 16};
+    std::vector<int64_t> shape = {8, 15};
+    std::vector<int64_t> reduce_shape = {8, 1};
+    std::vector<int64_t> expOriShape = {8, 16};
     auto shapeImme = OpImmediate::Specified(shape);
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -180,10 +180,10 @@ inline void ConstructGraph4(std::shared_ptr<Function> &currFunctionPtr) {
 
 inline void ConstructGraph5(std::shared_ptr<Function> &currFunctionPtr) {
     // Prepare the graph
-    std::vector<int> shape = {7, 15};
-    std::vector<int> expInShape = {7, 16};
-    std::vector<int> reduce_shape = {7, 1};
-    std::vector<int> expOriShape = {7, 8};
+    std::vector<int64_t> shape = {7, 15};
+    std::vector<int64_t> expInShape = {7, 16};
+    std::vector<int64_t> reduce_shape = {7, 1};
+    std::vector<int64_t> expOriShape = {7, 8};
     auto shapeImme = OpImmediate::Specified(shape);
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -212,12 +212,12 @@ inline void ConstructGraph5(std::shared_ptr<Function> &currFunctionPtr) {
 
 inline void ConstructGraph6(std::shared_ptr<Function> &currFunctionPtr) {
     // Prepare the graph
-    std::vector<int> shape = {8, 15};
-    std::vector<int> expInShape = {8, 16};
-    std::vector<int> reduce_shape = {8, 1};
-    std::vector<int> expOriShape = {8, 8};
-    std::vector<int> expandShape = {8, 15};
-    std::vector<int> expectExpandShape = {8, 16};
+    std::vector<int64_t> shape = {8, 15};
+    std::vector<int64_t> expInShape = {8, 16};
+    std::vector<int64_t> reduce_shape = {8, 1};
+    std::vector<int64_t> expOriShape = {8, 8};
+    std::vector<int64_t> expandShape = {8, 15};
+    std::vector<int64_t> expectExpandShape = {8, 16};
     auto shapeImme = OpImmediate::Specified(shape);
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -251,9 +251,9 @@ inline void ConstructGraph6(std::shared_ptr<Function> &currFunctionPtr) {
 
 inline void ConstructGraph7(std::shared_ptr<Function> &currFunctionPtr) {
     // Prepare the graph
-    std::vector<int> shape = {8, 15};
-    std::vector<int> expInShape = {8, 16};
-    std::vector<int> reduce_shape = {8, 1};
+    std::vector<int64_t> shape = {8, 15};
+    std::vector<int64_t> expInShape = {8, 16};
+    std::vector<int64_t> reduce_shape = {8, 1};
     auto shapeImme = OpImmediate::Specified(shape);
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -294,11 +294,11 @@ inline void ConstructGraph7(std::shared_ptr<Function> &currFunctionPtr) {
 
 inline void ConstructGraph8(std::shared_ptr<Function> &currFunctionPtr) {
     // Prepare the graph
-    std::vector<int> shape = {8, 15};
-    std::vector<int> expInShape = {8, 16};
-    std::vector<int> reduce_shape = {8, 1};
-    std::vector<int> reshape_shape = {1, 8};
-    std::vector<int> expect_shape = {8, 8};
+    std::vector<int64_t> shape = {8, 15};
+    std::vector<int64_t> expInShape = {8, 16};
+    std::vector<int64_t> reduce_shape = {8, 1};
+    std::vector<int64_t> reshape_shape = {1, 8};
+    std::vector<int64_t> expect_shape = {8, 8};
     auto shapeImme = OpImmediate::Specified(shape);
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -339,8 +339,8 @@ inline void ConstructGraph8(std::shared_ptr<Function> &currFunctionPtr) {
 
 inline void ConstructGraph9(std::shared_ptr<Function> &currFunctionPtr) {
     // Prepare the graph
-    std::vector<int> shape = {16, 6};
-    std::vector<int> trans_shape = {6, 16};
+    std::vector<int64_t> shape = {16, 6};
+    std::vector<int64_t> trans_shape = {6, 16};
     auto shapeImme = OpImmediate::Specified(shape);
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -397,8 +397,8 @@ after:
 TEST_F(TestPadLocalBuffer, no_reduce_last_dim_all_vec_last_dim_unpadded) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    std::vector<int> shape = {8, 15};
-    std::vector<int> expOriShape = {8, 16};
+    std::vector<int64_t> shape = {8, 15};
+    std::vector<int64_t> expOriShape = {8, 16};
     ConstructGraph1(currFunctionPtr);
     PadLocalBuffer padLocalBufferTest;
     padLocalBufferTest.RunOnFunction(*currFunctionPtr);
@@ -444,8 +444,8 @@ after:
 TEST_F(TestPadLocalBuffer, no_reduce_last_dim_all_vec_last_dim_padded) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    std::vector<int> shape = {8, 16};
-    std::vector<int> expOriShape = {8, 16};
+    std::vector<int64_t> shape = {8, 16};
+    std::vector<int64_t> expOriShape = {8, 16};
     ConstructGraph2(currFunctionPtr);
     PadLocalBuffer padLocalBufferTest;
     padLocalBufferTest.RunOnFunction(*currFunctionPtr);
@@ -492,10 +492,10 @@ after:
 TEST_F(TestPadLocalBuffer, no_reduce_last_dim_mm) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    std::vector<int> AShape = {8, 15};
-    std::vector<int> BShape = {15, 15};
-    std::vector<int> CShape = {8, 16};
-    std::vector<int> expOriShape = {16, 16};
+    std::vector<int64_t> AShape = {8, 15};
+    std::vector<int64_t> BShape = {15, 15};
+    std::vector<int64_t> CShape = {8, 16};
+    std::vector<int64_t> expOriShape = {16, 16};
     ConstructGraph3(currFunctionPtr);
     PadLocalBuffer padLocalBufferTest;
     padLocalBufferTest.RunOnFunction(*currFunctionPtr);
@@ -526,7 +526,7 @@ TEST_F(TestPadLocalBuffer, no_reduce_last_dim_mm) {
 
 /*
 before:
-    copyin  
+    copyin
     [8,15]
       |
     reduce
@@ -538,7 +538,7 @@ before:
     copyout
 
 after:
-    copyin  
+    copyin
     [8,16]
       |
     reduce
@@ -552,9 +552,9 @@ after:
 TEST_F(TestPadLocalBuffer, reduce_last_dim_padding) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    std::vector<int> shape = {8, 15};
-    std::vector<int> reduce_shape = {8, 1};
-    std::vector<int> expOriShape = {8, 16};
+    std::vector<int64_t> shape = {8, 15};
+    std::vector<int64_t> reduce_shape = {8, 1};
+    std::vector<int64_t> expOriShape = {8, 16};
     ConstructGraph4(currFunctionPtr);
     PadLocalBuffer padLocalBufferTest;
     padLocalBufferTest.RunOnFunction(*currFunctionPtr);
@@ -581,7 +581,7 @@ TEST_F(TestPadLocalBuffer, reduce_last_dim_padding) {
 
 /*
 before:
-    copyin  
+    copyin
     [7,15]
       |
     reduce
@@ -593,7 +593,7 @@ before:
     copyout
 
 after:
-    copyin  
+    copyin
     [7,16]
       |
     reduce
@@ -607,10 +607,10 @@ after:
 TEST_F(TestPadLocalBuffer, reduce_last_dim_no_padding) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    std::vector<int> shape = {7, 15};
-    std::vector<int> expInShape = {7, 16};
-    std::vector<int> reduce_shape = {7, 1};
-    std::vector<int> expOriShape = {7, 8};
+    std::vector<int64_t> shape = {7, 15};
+    std::vector<int64_t> expInShape = {7, 16};
+    std::vector<int64_t> reduce_shape = {7, 1};
+    std::vector<int64_t> expOriShape = {7, 8};
     ConstructGraph5(currFunctionPtr);
     PadLocalBuffer padLocalBufferTest;
     padLocalBufferTest.RunOnFunction(*currFunctionPtr);
@@ -636,7 +636,7 @@ TEST_F(TestPadLocalBuffer, reduce_last_dim_no_padding) {
 
 /*
 before:
-    copyin  
+    copyin
     [8,15]
       |
     reduce
@@ -651,7 +651,7 @@ before:
     copyout
 
 after:
-    copyin  
+    copyin
     [8,16]
       |
     reduce
@@ -668,12 +668,12 @@ after:
 TEST_F(TestPadLocalBuffer, reduce_last_dim_with_brc) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    std::vector<int> shape = {8, 15};
-    std::vector<int> expInShape = {8, 16};
-    std::vector<int> reduce_shape = {8, 1};
-    std::vector<int> expOriShape = {8, 8};
-    std::vector<int> expandShape = {8, 15};
-    std::vector<int> expectExpandShape = {8, 16};
+    std::vector<int64_t> shape = {8, 15};
+    std::vector<int64_t> expInShape = {8, 16};
+    std::vector<int64_t> reduce_shape = {8, 1};
+    std::vector<int64_t> expOriShape = {8, 8};
+    std::vector<int64_t> expandShape = {8, 15};
+    std::vector<int64_t> expectExpandShape = {8, 16};
     ConstructGraph6(currFunctionPtr);
     PadLocalBuffer padLocalBufferTest;
     padLocalBufferTest.RunOnFunction(*currFunctionPtr);
@@ -708,7 +708,7 @@ TEST_F(TestPadLocalBuffer, reduce_last_dim_with_brc) {
 
 /*
 before:
-    copyin  
+    copyin
     [8,15]
       |
     reduce
@@ -730,7 +730,7 @@ before:
     [8,1]
 
 after:
-    copyin  
+    copyin
     [8,16]
       |
     reduce
@@ -754,9 +754,9 @@ after:
 TEST_F(TestPadLocalBuffer, reduce_last_dim_with_copyout_copyin_elementwise) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    std::vector<int> shape = {8, 15};
-    std::vector<int> expInShape = {8, 16};
-    std::vector<int> reduce_shape = {8, 1};
+    std::vector<int64_t> shape = {8, 15};
+    std::vector<int64_t> expInShape = {8, 16};
+    std::vector<int64_t> reduce_shape = {8, 1};
     ConstructGraph7(currFunctionPtr);
     PadLocalBuffer padLocalBufferTest;
     padLocalBufferTest.RunOnFunction(*currFunctionPtr);
@@ -791,7 +791,7 @@ TEST_F(TestPadLocalBuffer, reduce_last_dim_with_copyout_copyin_elementwise) {
 
 /*
 before:
-    copyin  
+    copyin
     [8,15]
       |
     reduce
@@ -813,7 +813,7 @@ before:
     [1,8]
 
 after:
-    copyin  
+    copyin
     [8,16]
       |
     reduce
@@ -837,11 +837,11 @@ after:
 TEST_F(TestPadLocalBuffer, reduce_last_dim_with_copyout_copyin_reshape) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    std::vector<int> shape = {8, 15};
-    std::vector<int> expInShape = {8, 16};
-    std::vector<int> reduce_shape = {8, 1};
-    std::vector<int> reshape_shape = {1, 8};
-    std::vector<int> expect_shape = {8, 8};
+    std::vector<int64_t> shape = {8, 15};
+    std::vector<int64_t> expInShape = {8, 16};
+    std::vector<int64_t> reduce_shape = {8, 1};
+    std::vector<int64_t> reshape_shape = {1, 8};
+    std::vector<int64_t> expect_shape = {8, 8};
     ConstructGraph8(currFunctionPtr);
     PadLocalBuffer padLocalBufferTest;
     padLocalBufferTest.RunOnFunction(*currFunctionPtr);
@@ -876,7 +876,7 @@ TEST_F(TestPadLocalBuffer, reduce_last_dim_with_copyout_copyin_reshape) {
 
 /*
 before:
-    copyin  
+    copyin
     [16,6]
       |
     abs
@@ -891,7 +891,7 @@ before:
     copyout
 
 after:
-    copyin  
+    copyin
     [16,8]
       |
     abs
@@ -908,10 +908,10 @@ after:
 TEST_F(TestPadLocalBuffer, reduce_last_dim_with_transpose) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    std::vector<int> shape = {16, 6};
-    std::vector<int> expect_shape = {16, 8};
-    std::vector<int> trans_shape = {6, 16};
-    std::vector<int> expect_trans_shape = {8, 16};
+    std::vector<int64_t> shape = {16, 6};
+    std::vector<int64_t> expect_shape = {16, 8};
+    std::vector<int64_t> trans_shape = {6, 16};
+    std::vector<int64_t> expect_trans_shape = {8, 16};
     ConstructGraph9(currFunctionPtr);
     PadLocalBuffer padLocalBufferTest("PadLocalBuffer",true);
     padLocalBufferTest.RunOnFunction(*currFunctionPtr);

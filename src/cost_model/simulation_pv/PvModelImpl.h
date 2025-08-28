@@ -32,8 +32,9 @@
 constexpr size_t INVALID_ARG_INDEX = 0xFFFFFFFF;
 
 namespace CostModel {
-inline uint64_t CalcShapeSizeFunc(const std::vector<int> &shape) {
-    uint64_t size = 1;
+
+inline int64_t CalcShapeSizeFunc(const std::vector<int64_t> &shape) {
+    int64_t size = 1;
     for (auto &i : shape) {
         size *= i;
     }
@@ -52,12 +53,12 @@ struct InvokeParaOffset {
     int funcitonMagic{-1};
     int8_t ioIndex{-1};
     int8_t paramType{-1};
-    std::vector<int> tensorShape;
+    std::vector<int64_t> tensorShape;
     int opMagic{0};
     npu::tile_fwk::DataType datatype{npu::tile_fwk::DataType::DT_INT32};
-    std::vector<int> rawTensorShape;
+    std::vector<int64_t> rawTensorShape;
     void LogRawTensor(std::shared_ptr<npu::tile_fwk::RawTensor> rawTensor) {
-        auto rawShape = rawTensor->GetRawShape();
+        auto &rawShape = rawTensor->GetRawShape();
         rawShapeSize = CalcShapeSizeFunc(rawShape) * BytesOf(rawTensor->GetDataType());
         rawMagic = rawTensor->GetRawMagic();
         rawSymbol = rawTensor->GetSymbol();
@@ -145,7 +146,7 @@ private:
 class PvModelCodegen {
 public:
     static void AddGlobalAttr(std::string srcPath) {
-        const std::string searchStr = "[aicore]";                         
+        const std::string searchStr = "[aicore]";
         const std::string replaceStr = "extern \"C\" __global__ [aicore]";
 
         std::ifstream file(srcPath);
@@ -279,13 +280,13 @@ private:
     std::vector<PvModelCceBin> cceBin;
 
 public:
-    explicit DynPvModelImpl(std::string arch) : arch_(arch) { 
+    explicit DynPvModelImpl(std::string arch) : arch_(arch) {
         allocator_ = std::make_unique<PvMemAllocator>();
         dir_ = npu::tile_fwk::config::LogTopFolder() + "/PvModelOutput";
         if (npu::tile_fwk::IsPathExist(dir_)) {
             npu::tile_fwk::DeleteDir(dir_);
         }
-        npu::tile_fwk::CreateDir(dir_); 
+        npu::tile_fwk::CreateDir(dir_);
     }
 
     void Codegen(npu::tile_fwk::Function *func) {

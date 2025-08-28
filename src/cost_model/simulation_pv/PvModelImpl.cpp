@@ -101,7 +101,7 @@ void PvModelImpl<SystemConfig, CaseConfig>::CalcInvokeWorkespace(npu::tile_fwk::
         return rawTensor;
     };
 
-    auto calcOffsetFunc = [](const std::vector<int> &offset, const std::vector<int> &shape) -> uint64_t {
+    auto calcOffsetFunc = [](const std::vector<int64_t> &offset, const std::vector<int64_t> &shape) -> uint64_t {
         uint64_t offSetSize = 0;
         auto strideShapeFunc = [&shape](size_t i) -> auto {
             uint64_t stride = 1;
@@ -118,7 +118,7 @@ void PvModelImpl<SystemConfig, CaseConfig>::CalcInvokeWorkespace(npu::tile_fwk::
 
     auto workSpaceOffsetProcFunc = [&getRawTensorByTensorMagic, &rawTensorOffsetMap, &totalSize, &calcOffsetFunc,
                                        &compiledFunction](const npu::tile_fwk::LogicalTensorPtr &tensor, int rawMagic,
-                                       const std::vector<int> &rawShape, const std::vector<int> &offset,
+                                       const std::vector<int64_t> &rawShape, const std::vector<int64_t> &offset,
                                        std::list<InvokeParaOffset> &curSubFuncParaOffset, bool isTensorPara) {
         InvokeParaOffset paraOffset;
         uint64_t rawTensorOffset = 0;
@@ -445,7 +445,7 @@ void PvModelImpl<SystemConfig, CaseConfig>::TearDown(std::string esgDir)
 }
 
 template <typename SystemConfig, typename CaseConfig>
-void DynPvModelImpl<SystemConfig, CaseConfig>::Run(DynFuncData *funcdata, int coreId, int funcId, int taskId) 
+void DynPvModelImpl<SystemConfig, CaseConfig>::Run(DynFuncData *funcdata, int coreId, int funcId, int taskId)
 {
     std::cout << "[AICORE]core " << coreId << ", func " << funcId << ", task " << taskId << std::endl;
     auto data = &funcdata[funcId];
@@ -473,7 +473,7 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::Run(DynFuncData *funcdata, int co
 }
 
 template <typename SystemConfig, typename CaseConfig>
-uint64_t DynPvModelImpl<SystemConfig, CaseConfig>::LookupWorkspace(uint64_t addr) 
+uint64_t DynPvModelImpl<SystemConfig, CaseConfig>::LookupWorkspace(uint64_t addr)
 {
     if (addr >= workspace_.hostPtr && addr <= workspace_.hostPtr + workspace_.size) {
         return addr - workspace_.hostPtr + workspace_.devPtr;
@@ -482,7 +482,7 @@ uint64_t DynPvModelImpl<SystemConfig, CaseConfig>::LookupWorkspace(uint64_t addr
 }
 
 template <typename SystemConfig, typename CaseConfig>
-uint64_t DynPvModelImpl<SystemConfig, CaseConfig>::LookupData(uint64_t addr) 
+uint64_t DynPvModelImpl<SystemConfig, CaseConfig>::LookupData(uint64_t addr)
 {
     for (auto &d : data_) {
         if (addr >= d.hostPtr && addr <= d.hostPtr + d.size) {
@@ -493,7 +493,7 @@ uint64_t DynPvModelImpl<SystemConfig, CaseConfig>::LookupData(uint64_t addr)
 }
 
 template <typename SystemConfig, typename CaseConfig>
-void DynPvModelImpl<SystemConfig, CaseConfig>::BuildFuncData(DynFuncData *funcdata, std::string dir, DynFuncData *dupData, uint64_t *refAddr, uint64_t *refSize) 
+void DynPvModelImpl<SystemConfig, CaseConfig>::BuildFuncData(DynFuncData *funcdata, std::string dir, DynFuncData *dupData, uint64_t *refAddr, uint64_t *refSize)
 {
     uint64_t opAttrSize = funcdata->opAttrSize * sizeof(uint64_t);
     uint64_t exprSize = funcdata->exprNum * sizeof(uint64_t);
@@ -526,7 +526,7 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::BuildFuncData(DynFuncData *funcda
     }
     std::copy(tensorAddr.begin(), tensorAddr.end(), ref.begin()+offset);
     PvModelBinHelper::DumpBin(ref, ref.size(), dir+"/ref.bin");
-    
+
     auto addr = allocator_->AllocArg(*refSize);
     *refAddr = addr;
     dupData->opAttrs = reinterpret_cast<uint64_t*>(addr);
@@ -560,10 +560,10 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::BuildFuncData(DynFuncData *funcda
         dupData->stackWorkSpaceAddr = 0;
     }
     dupData->stackWorkSpaceSize = funcdata->stackWorkSpaceSize;
-} 
+}
 
 template <typename SystemConfig, typename CaseConfig>
-void DynPvModelImpl<SystemConfig, CaseConfig>::SetUp(PvModelCceBin *cce, DynFuncData *funcdata, uint64_t opAttrOffset, std::string dir, DynFuncData *dupData) 
+void DynPvModelImpl<SystemConfig, CaseConfig>::SetUp(PvModelCceBin *cce, DynFuncData *funcdata, uint64_t opAttrOffset, std::string dir, DynFuncData *dupData)
 {
     SystemConfig sconfig;
     sconfig.Dump(dir+"/spec.toml");
@@ -634,7 +634,7 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::SetUp(PvModelCceBin *cce, DynFunc
 
 
 template <typename SystemConfig, typename CaseConfig>
-void DynPvModelImpl<SystemConfig, CaseConfig>::RunModel(std::string dir) 
+void DynPvModelImpl<SystemConfig, CaseConfig>::RunModel(std::string dir)
 {
     char cmd[2048];
     (void)snprintf_s(cmd, sizeof(cmd), sizeof(cmd) - 1,
@@ -644,7 +644,7 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::RunModel(std::string dir)
 }
 
 template <typename SystemConfig, typename CaseConfig>
-void DynPvModelImpl<SystemConfig, CaseConfig>::TearDown(std::string dir, DynFuncData *fundata) 
+void DynPvModelImpl<SystemConfig, CaseConfig>::TearDown(std::string dir, DynFuncData *fundata)
 {
      // update tensor
      for (size_t i = 0; i < data_.size(); i++) {

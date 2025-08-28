@@ -38,7 +38,7 @@ public:
 };
 
 TEST_F(OperationTest, TestOperationAttr) {
-    std::vector<int> shape{64, 64};
+    std::vector<int64_t> shape{64, 64};
     FUNCTION("func_exp") {
         Tensor a(DT_FP32, shape, "a");
         a = Exp(a);

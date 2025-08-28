@@ -28,9 +28,9 @@
 #include "interface/utils/common.h"
 
 namespace npu::tile_fwk {
-inline uint64_t CalcShapeSizeFunc (const std::vector<int>& shape)
+inline int64_t CalcShapeSizeFunc (const std::vector<int64_t>& shape)
 {
-    uint64_t size = 1;
+    int64_t size = 1;
     for (auto &i : shape) {
         size *= i;
     }
@@ -49,10 +49,10 @@ struct InvokeParaOffset {
     int funcitonMagic{-1};
     int8_t ioIndex{-1};
     int8_t paramType{-1};
-    std::vector<int> tensorShape;
+    std::vector<int64_t> tensorShape;
     int opMagic{0};
     DataType datatype{DataType::DT_INT32};
-    std::vector<int> rawTensorShape;
+    std::vector<int64_t> rawTensorShape;
     void LogRawTensorInfo(std::shared_ptr<RawTensor> rawTensor) {
         auto rawShape = rawTensor->GetRawShape();
         rawShapeSize = CalcShapeSizeFunc(rawShape) * BytesOf(rawTensor->GetDataType());

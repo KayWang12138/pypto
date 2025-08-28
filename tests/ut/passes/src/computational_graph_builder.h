@@ -40,11 +40,11 @@ public:
         function->ResetOperations();
         function->SetFunctionType(FunctionType::STATIC);
     }
-    bool AddTensor(DataType dataType, const std::vector<int>& tileShape, const std::string& name);
-    bool AddTensor(DataType dataType, const std::vector<int>& tileShape, MemoryType memType, const std::string& name, 
+    bool AddTensor(DataType dataType, const std::vector<int64_t>& tileShape, const std::string& name);
+    bool AddTensor(DataType dataType, const std::vector<int64_t>& tileShape, MemoryType memType, const std::string& name,
         int subGraphID = -1);
-    bool AddTensors(DataType dataType, const std::vector<int>& tileShape, const std::vector<std::string>& names);
-    bool AddTensors(DataType dataType, const std::vector<int>& tileShape, const std::vector<MemoryType>& memTypes,
+    bool AddTensors(DataType dataType, const std::vector<int64_t>& tileShape, const std::vector<std::string>& names);
+    bool AddTensors(DataType dataType, const std::vector<int64_t>& tileShape, const std::vector<MemoryType>& memTypes,
                     const std::vector<std::string>& names, int subGraphID = -1);
     bool AddOp(Opcode opcode, const std::vector<std::string>& ioperands, const std::vector<std::string>& ooperands,
                const std::string& name, bool updateFunctionMap = true);

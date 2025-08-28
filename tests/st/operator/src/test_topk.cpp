@@ -39,8 +39,8 @@ void TopKOnBoardFunc(TopKParams& params){
     uint8_t* out_ptr = allocDevAddr(outputSize);
     uint8_t* out_ptr1 = allocDevAddr(outputSize);
     PROGRAM("TOPK") {
-        std::vector<int> input_shape = {shape0, shape1};
-        std::vector<int> output_shape = {shape0, k};
+        std::vector<int64_t> input_shape = {shape0, shape1};
+        std::vector<int64_t> output_shape = {shape0, k};
 
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", inputSize);
         Program::GetInstance().GetTileShape().SetVecTileShapes({shape0, shape1});

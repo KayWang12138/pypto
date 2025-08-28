@@ -31,8 +31,8 @@ TEST_F(DynamicBinTest, TestDynamicAddUnalign) {
     int b = 1;
     int sq = 128;
     int d = 64;
-    std::vector<int> inputShape = {b * sq, d};
-    std::vector<int> outShape = {b * sq, d};
+    std::vector<int64_t> inputShape = {b * sq, d};
+    std::vector<int64_t> outShape = {b * sq, d};
 
     Tensor input1(DT_FP32, inputShape, "intput1");
     Tensor input2(DT_FP32, inputShape, "intput2");
@@ -82,8 +82,8 @@ TEST_F(DynamicBinTest, testDynMulsUnalign) {
     int b = 4;
     int sq = 128;
     int d = 64;
-    std::vector<int> qShape = {b * sq, d};   // input_src0 shape: {512, 64}
-    std::vector<int> outShape = {b * sq, d}; // output shape: {4*128, 64}
+    std::vector<int64_t> qShape = {b * sq, d};   // input_src0 shape: {512, 64}
+    std::vector<int64_t> outShape = {b * sq, d}; // output shape: {4*128, 64}
 
     Tensor q(DT_FP32, qShape, "q");
     Tensor actSeqs(DT_INT32, {b, 1}, "actual_seq");
@@ -136,8 +136,8 @@ TEST_F(DynamicBinTest, testScalarDivsUnalign) {
     int b = 1;
     int sq = 128;
     int d = 64;
-    std::vector<int> qShape = {b * sq, d};   // input_src0 shape: {b*128, 64}
-    std::vector<int> outShape = {b * sq, d}; // output shape: {b*128, 64}
+    std::vector<int64_t> qShape = {b * sq, d};   // input_src0 shape: {b*128, 64}
+    std::vector<int64_t> outShape = {b * sq, d}; // output shape: {b*128, 64}
 
     Tensor q(DT_FP32, qShape, "q");
     Tensor actSeqs(DT_INT32, {b, 1}, "actual_seq");

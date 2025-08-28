@@ -435,14 +435,14 @@ const std::unordered_map<std::string, int> SYNC_OP_CYCLES{
     {   "BAR.V", 18}
 };
 
-int CalcUBCompactCycles(const std::vector<std::vector<int>> &shape, DataType dtype);
-const std::unordered_map<std::string, std::function<int(const std::vector<std::vector<int>> &shape, DataType dtype)>>
+int64_t CalcUBCompactCycles(const std::vector<std::vector<int64_t>> &shape, DataType dtype);
+const std::unordered_map<std::string, std::function<int64_t(const std::vector<std::vector<int64_t>> &shape, DataType dtype)>>
     COMINE_INTRIN_CYCLES_IN_OP = {
-        {"UB_COMPACT", [](const std::vector<std::vector<int>> &shape, DataType dtype) {
+        {"UB_COMPACT", [](const std::vector<std::vector<int64_t>> &shape, DataType dtype) {
              return CalcUBCompactCycles(shape, dtype);
          }}
 };
 
-int GetCycles(const std::string &op, const std::vector<std::vector<int>> &shape, DataType dtype);
+int64_t GetCycles(const std::string &op, const std::vector<std::vector<int64_t>> &shape, DataType dtype);
 } // namespace npu::tile_fwk
 #endif // OP_CYCLES_H

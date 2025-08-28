@@ -37,7 +37,7 @@ public:
 };
 
 TEST_F(OperationImplTest, TestTranspose_BNSD_BSND) {
-    std::vector<int> shape{3, 32, 64, 16};
+    std::vector<int64_t> shape{3, 32, 64, 16};
     Tensor a(DT_FP32, shape, "a");
 
     Program::GetInstance().GetTileShape().SetVecTileShapes(1, 16, 16, 16);
@@ -49,7 +49,7 @@ TEST_F(OperationImplTest, TestTranspose_BNSD_BSND) {
 }
 
 TEST_F(OperationImplTest, TestTranspose_BNSD2_BNS2D_small) {
-    std::vector<int> shape{1, 2, 64, 64, 2};
+    std::vector<int64_t> shape{1, 2, 64, 64, 2};
     Tensor a(DT_FP32, shape, "a");
     Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 64, 64, 2);
 
@@ -61,7 +61,7 @@ TEST_F(OperationImplTest, TestTranspose_BNSD2_BNS2D_small) {
 }
 
 TEST_F(OperationImplTest, TestTranspose_BNSD2_BNS2D) {
-    std::vector<int> shape{1, 2, 1280, 128, 2};
+    std::vector<int64_t> shape{1, 2, 1280, 128, 2};
     Tensor a(DT_FP32, shape, "a");
     Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 128, 128, 2);
 
@@ -73,7 +73,7 @@ TEST_F(OperationImplTest, TestTranspose_BNSD2_BNS2D) {
 }
 
 TEST_F(OperationImplTest, TestTranspose_ABC_BAC) {
-    std::vector<int> shape{128, 2, 128};
+    std::vector<int64_t> shape{128, 2, 128};
     Tensor a(DT_FP32, shape, "a");
 
     Program::GetInstance().GetTileShape().SetVecTileShapes(32, 1, 128);
@@ -85,7 +85,7 @@ TEST_F(OperationImplTest, TestTranspose_ABC_BAC) {
 }
 
 TEST_F(OperationImplTest, TestTranspose_BNDS_BNSD) {
-    std::vector<int> shape{1, 32, 64, 2};
+    std::vector<int64_t> shape{1, 32, 64, 2};
     Tensor a(DT_FP32, shape, "a");
 
     Program::GetInstance().GetTileShape().SetVecTileShapes(1, 2, 64, 2);
@@ -184,7 +184,7 @@ TEST_F(OperationImplTest, Test_Unsqueeze) {
 }
 
 TEST_F(OperationImplTest, TestBasicOperationMixBroadcast) {
-    std::vector<int> shape{32, 32};
+    std::vector<int64_t> shape{32, 32};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor b(DT_FP32, {32, 1}, "b");
@@ -201,7 +201,7 @@ TEST_F(OperationImplTest, TestBasicOperationMixBroadcast) {
 
 TEST_F(OperationImplTest, Test_TopK) {
     PROGRAM("TOPK") {
-        std::vector<int> shape = {128, 32};
+        std::vector<int64_t> shape = {128, 32};
         Program::GetInstance().GetTileShape().SetVecTileShapes({128, 32});
         Tensor input_a(DT_FP32, shape, "A");
         auto output = std::make_tuple(Tensor(DT_FP32, shape, "res"), Tensor(DT_FP32, shape, "resDics"));
@@ -213,7 +213,7 @@ TEST_F(OperationImplTest, Test_TopK) {
 
 TEST_F(OperationImplTest, Test_ArgSort) {
     PROGRAM("ARGSORT") {
-        std::vector<int> shape = {128, 32};
+        std::vector<int64_t> shape = {128, 32};
         Program::GetInstance().GetTileShape().SetVecTileShapes({128, 32});
         Tensor input_a(DT_FP32, shape, "A");
         auto output = Tensor(DT_FP32, shape, "res"); // std::make_tuple(Tensor(DT_FP32, shape, "res"), Tensor(DT_FP32, shape, "resDics"));
@@ -225,7 +225,7 @@ TEST_F(OperationImplTest, Test_ArgSort) {
 
 TEST_F(OperationImplTest, Test_MatmulWithSplitK) {
     PROGRAM("ARGSORT") {
-        std::vector<int> shape = {128, 128};
+        std::vector<int64_t> shape = {128, 128};
         auto m = 128, k = 64, n = 32;
         auto kSplit = 2;
         Tensor matA(DT_FP16, {m, k}, "mat_a");
@@ -252,7 +252,7 @@ TEST_F(OperationImplTest, Test_MatmulWithSplitK) {
 
 TEST_F(OperationImplTest, Test_MatmulWithSplitKWithTrans) {
     PROGRAM("ARGSORT") {
-        std::vector<int> shape = {128, 128};
+        std::vector<int64_t> shape = {128, 128};
         auto m = 128, k = 64, n = 32;
         auto kSplit = 2;
         Tensor matA(DT_FP16, {m, k}, "mat_a");
@@ -279,11 +279,11 @@ TEST_F(OperationImplTest, Test_MatmulWithSplitKWithTrans) {
 
 template <DataType inputType, DataType outputType, bool IsANZ = false, bool IsBNZ = false, bool isTransB = false>
 void TestNZFormatBatch(int bs, int m, int k, int n) {
-    std::vector<int> batch_shape_a = {bs*m, k};
+    std::vector<int64_t> batch_shape_a = {bs*m, k};
     auto nLen = isTransB ? bs * n : bs * k;
     auto kLen = isTransB ? k : n;
-    std::vector<int> batch_shape_b = {nLen, kLen};
-    std::vector<int> batch_shape_c = {bs*m, n};
+    std::vector<int64_t> batch_shape_b = {nLen, kLen};
+    std::vector<int64_t> batch_shape_c = {bs*m, n};
     PROGRAM("BATCHMATMUL") {
         Program::GetInstance().GetConfig().Reset();
         Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
@@ -294,13 +294,13 @@ void TestNZFormatBatch(int bs, int m, int k, int n) {
         Tensor matC(outputType, batch_shape_c, "MatC");
         std::vector<Tensor> matrixVec;
         FUNCTION("BATCHMATMUL", FunctionType::STATIC, {matA, matB, matC}) {
-            std::vector<std::pair<Tensor, std::vector<int>>> assembleVec;
+            std::vector<std::pair<Tensor, std::vector<int64_t>>> assembleVec;
             for (size_t index = 0; index < (size_t)bs; ++index) {
                 auto inputA = View(matA, {m, k}, {(int)index*m, 0});
                 auto inputB = isTransB ? View(matB, {n, k}, {(int)index*n, 0}) : View(matB, {k, n}, {(int)index*k, 0});
                 Program::GetInstance().GetMatrixSize().SetMatrixSize({m, k, n});
                 auto outTensor = npu::tile_fwk::Matrix::Matmul<false, isTransB>(outputType, inputA, inputB);
-                std::vector<int> pairSecond = {(int)index * m, 0};
+                std::vector<int64_t> pairSecond = {(int)index * m, 0};
                 auto pair = std::make_pair(outTensor, pairSecond);
                 assembleVec.emplace_back(pair);
             }

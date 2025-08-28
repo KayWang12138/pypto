@@ -170,7 +170,7 @@ Operation::Operation(
 
     if (!GetIOperands().empty()) {
         // Get operation latency
-        std::vector<std::vector<int>> shape;
+        std::vector<std::vector<int64_t>> shape;
         for (auto &srcTile : GetIOperands()) {
             shape.emplace_back(srcTile->shape);
         }
@@ -189,17 +189,6 @@ void Operation::SetAttribute(const std::string &key, const std::string &value) {
     SetAttr(key, value);
 }
 
-std::vector<int> Operation::GetVectorIntAttribute(const std::string &key) const {
-    ASSERT(HasAttr(key)) << "Operation doesn't have attribute " << key;
-    std::vector<int> attrVal;
-    GetAttr(key, attrVal);
-    return attrVal;
-}
-
-void Operation::SetAttribute(const std::string &key, std::vector<int> value) {
-    SetAttr(key, value);
-}
-
 bool Operation::GetBoolAttribute(const std::string &key) const {
     if (!HasAttr(key)) {
         return false;
@@ -213,35 +202,26 @@ void Operation::SetAttribute(const std::string &key, bool value) {
     SetAttr(key, value);
 }
 
-[[nodiscard]] npu::tile_fwk::Any Operation::GetAttribute(const std::string &key) const {
-    return GetRawAttr(key);
-}
-
-void Operation::SetAttribute(const std::string &key, npu::tile_fwk::Any value) {
-    SetAttr(key, value);
-}
-
-int Operation::GetIntAttribute(const std::string &key) const {
+int64_t Operation::GetIntAttribute(const std::string &key) const {
     ASSERT(HasAttr(key)) << "Operation doesn't have attribute " << key;
-    int attrVal = 0;
+    int64_t attrVal = 0;
     GetAttr(key, attrVal);
     return attrVal;
 }
 
-void Operation::SetAttribute(const std::string &key, int value) {
+void Operation::SetAttribute(const std::string &key, int64_t value) {
     SetAttr(key, value);
 }
 
 CastMode Operation::GetCastModeAttribute(const std::string &key) const {
     ASSERT(HasAttr(key)) << "Operation doesn't have attribute " << key;
-    int attrVal = 0;
-    GetAttr(key, attrVal);
+    int attrVal = GetIntAttribute(key);
     ASSERT(attrVal >= CAST_NONE && attrVal <= CAST_ODD);
     return static_cast<CastMode>(attrVal);
 }
 
 void Operation::SetAttribute(const std::string &key, CastMode value) {
-    SetAttr(key, static_cast<int>(value));
+    SetAttr(key, static_cast<int64_t>(value));
 }
 
 SymbolicScalar Operation::GetSymbolicScalarAttribute(const std::string &key) const {
@@ -263,19 +243,14 @@ std::vector<SymbolicScalar> Operation::GetVectorSymbolicScalarAttribute(const st
     GetAttr(key, attrVal);
     for (auto &attr : attrVal) {
         ASSERT(attr.IsValid());
-    }    
+    }
     return attrVal;
 }
 
 void Operation::SetAttribute(const std::string &key, const std::vector<SymbolicScalar> &value) {
     for (auto &attr : value) {
         ASSERT(attr.IsValid());
-    }    
-    SetAttr(key, value);
-}
-
-// std::map<std::string, npu::tile_fwk::any> Operation::GetAllAttribute() const {
-void Operation::SetAttribute(const std::string &key, uint64_t value) {
+    }
     SetAttr(key, value);
 }
 
@@ -287,13 +262,6 @@ void Operation::SetAttribute(const std::string &key, uint64_t value) {
 }
 void Operation::SetAttribute(const std::string &key, Element value) {
     SetAttr(key, value);
-}
-
-uint64_t Operation::GetLongAttribute(const std::string &key) const {
-    ASSERT(HasAttr(key)) << "Operation doesn't have attribute " << key;
-    uint64_t attrVal = 0;
-    GetAttr(key, attrVal);
-    return attrVal;
 }
 
 std::map<std::string, npu::tile_fwk::Any> Operation::GetAllAttribute() const {

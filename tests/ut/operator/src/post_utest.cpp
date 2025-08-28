@@ -64,14 +64,14 @@ void TestAttentionPostUt(const TestPostParams &params, const PostTileConfig &til
     bool isQuantWUv = std::is_same<wUvDtype, int8_t>::value;
     bool isQuantWo = std::is_same<wODtype, int8_t>::value;
 
-    std::vector<int> xShape = {b, s, n, kvLoraRank};
-    std::vector<int> wUvShape = {n, kvLoraRank, vHeadDim};
-    std::vector<int> wUvScaleShape = {n, 1, vHeadDim};
-    std::vector<int> smoothWUvShape = {1, kvLoraRank};
-    std::vector<int> woShape = {n * vHeadDim, h};
-    std::vector<int> woScaleShape = {1, h};
-    std::vector<int> smoothWoShape = {1, n * vHeadDim};
-    std::vector<int> outShape = {b, s, h};
+    std::vector<int64_t> xShape = {b, s, n, kvLoraRank};
+    std::vector<int64_t> wUvShape = {n, kvLoraRank, vHeadDim};
+    std::vector<int64_t> wUvScaleShape = {n, 1, vHeadDim};
+    std::vector<int64_t> smoothWUvShape = {1, kvLoraRank};
+    std::vector<int64_t> woShape = {n * vHeadDim, h};
+    std::vector<int64_t> woScaleShape = {1, h};
+    std::vector<int64_t> smoothWoShape = {1, n * vHeadDim};
+    std::vector<int64_t> outShape = {b, s, h};
 
     TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
     Tensor x(dType, xShape, "x");
@@ -99,7 +99,7 @@ void TestAttentionPostUt(const TestPostParams &params, const PostTileConfig &til
             smoothWo = smooth;
         }
     }
-    
+
     PostTensors postTensors{wUv, wo, wUvScale, smoothWUv, woScale, smoothWo};
     AttentionPostStandalone(x, postTensors, tileConfig, postOut);
 }

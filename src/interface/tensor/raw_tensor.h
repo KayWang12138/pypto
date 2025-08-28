@@ -44,13 +44,13 @@ public:
     int rawmagic;
     int memoryId{-1};
     int actualRawmagic = -1;
-    std::vector<int> rawshape;
-    std::vector<int> oriRawshape;
+    Shape rawshape;
+    Shape oriRawshape;
     std::vector<SymbolicScalar> dynRawShape;
     DataType datatype;
     std::string symbol;
     uint64_t addrOffset = UINT64_MAX;
-    RawTensor(DataType t, std::vector<int> tshape, std::string tname = "", int trawmagic = -1);
+    RawTensor(DataType t, std::vector<int64_t> tshape, std::string tname = "", int trawmagic = -1);
 
     RawTensor(RawTensor &&) = delete;
     RawTensor(const RawTensor &other) = delete;
@@ -93,13 +93,13 @@ public:
     DataType GetDataType() const { return datatype; }
     const std::vector<Element> &GetData() const { return data; }
     void SetData(const std::vector<Element> &srcData) { data = srcData; }
-    const std::vector<int> &GetRawShape() const { return rawshape; }
+    const Shape &GetRawShape() const { return rawshape; }
     int64_t GetRawShapeSize() const;
     int64_t GetRawDataSize() const;
     const std::vector<SymbolicScalar> &GetDynRawShape() const { return dynRawShape; }
     SymbolicScalar GetDynRawShape(int axis) const { return dynRawShape[axis]; }
     void UpdateDynRawShape(const std::vector<SymbolicScalar> &dynShape) { dynRawShape = dynShape; }
-    void UpdateRawShape(const std::vector<int> &trawShape) {
+    void UpdateRawShape(const std::vector<int64_t> &trawShape) {
         rawshape = trawShape;
         dynRawShape = SymbolicScalar::FromConcrete(trawShape);
     }

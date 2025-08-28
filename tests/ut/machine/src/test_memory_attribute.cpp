@@ -20,7 +20,7 @@
 #include "tilefwk/data_type.h"
 
 TEST(TestMemoryAttribute, MemorySizeTest) {
-    std::vector<std::vector<int>> tshapes = {
+    std::vector<std::vector<int64_t>> tshapes = {
         {   1,    1},
         {   1,   10},
         {   5,   10},

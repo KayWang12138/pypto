@@ -71,9 +71,9 @@ protected:
 
 template<typename InputT, typename OnputT>
 void TestMatmulTrans(int m, int k, int n, string dataPath) {
-    std::vector<int> shape_a = {m, k};
-    std::vector<int> shape_b = {n, k};
-    std::vector<int> shape_c = {m, n};
+    std::vector<int64_t> shape_a = {m, k};
+    std::vector<int64_t> shape_b = {n, k};
+    std::vector<int64_t> shape_c = {m, n};
     const int capacity_a = m * k;
     const int capacity_b = k * n;
     const int capacity_c = m * n;

@@ -46,7 +46,7 @@ class QuantTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 TEST_F(QuantTest, Test_quant) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-    std::vector<int> vecTileShape = {128, 128};
+    std::vector<int64_t> vecTileShape = {128, 128};
     int b = 2; // 32
     int s = 1; // 1, optimize set_tile
     int h = std::get<int>(deepseekConfig1["hiddenSize"]);
@@ -66,10 +66,10 @@ TEST_F(QuantTest, Test_quant) {
 }
 
 TEST_F(QuantTest, Test_ScalarDivS) {
-    std::vector<int> vecTileShape = {128, 128};
+    std::vector<int64_t> vecTileShape = {128, 128};
     int b = 2; // 32
     int s = 1; // 1, optimize set_tile
-    std::vector<int> shape{b * s, 1};
+    std::vector<int64_t> shape{b * s, 1};
     capacity = b * s;
     uint8_t *out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -89,10 +89,10 @@ TEST_F(QuantTest, Test_ScalarDivS) {
 }
 
 TEST_F(QuantTest, Test_ScalarAddS) {
-    std::vector<int> vecTileShape = {128, 128};
+    std::vector<int64_t> vecTileShape = {128, 128};
     int b = 2; // 32
     int s = 1; // 1, optimize set_tile
-    std::vector<int> shape{b * s, 1};
+    std::vector<int64_t> shape{b * s, 1};
     capacity = b * s;
     uint8_t *out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -112,10 +112,10 @@ TEST_F(QuantTest, Test_ScalarAddS) {
 }
 
 TEST_F(QuantTest, Test_ScalarSubS) {
-    std::vector<int> vecTileShape = {128, 128};
+    std::vector<int64_t> vecTileShape = {128, 128};
     int b = 2; // 32
     int s = 1; // 1, optimize set_tile
-    std::vector<int> shape{b * s, 1};
+    std::vector<int64_t> shape{b * s, 1};
     capacity = b * s;
     uint8_t *out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -135,10 +135,10 @@ TEST_F(QuantTest, Test_ScalarSubS) {
 }
 
 TEST_F(QuantTest, Test_ScalarMulS) {
-    std::vector<int> vecTileShape = {128, 128};
+    std::vector<int64_t> vecTileShape = {128, 128};
     int b = 2; // 32
     int s = 1; // 1, optimize set_tile
-    std::vector<int> shape{b * s, 1};
+    std::vector<int64_t> shape{b * s, 1};
     capacity = b * s;
     uint8_t *out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -158,10 +158,10 @@ TEST_F(QuantTest, Test_ScalarMulS) {
 }
 
 TEST_F(QuantTest, Test_ScalarMaxS) {
-    std::vector<int> vecTileShape = {128, 128};
+    std::vector<int64_t> vecTileShape = {128, 128};
     int b = 2; // 32
     int s = 1; // 1, optimize set_tile
-    std::vector<int> shape{b * s, 1};
+    std::vector<int64_t> shape{b * s, 1};
     capacity = b * s;
     uint8_t *out_ptr = nullptr;
     uint64_t outSize = 0;
@@ -181,10 +181,10 @@ TEST_F(QuantTest, Test_ScalarMaxS) {
 }
 
 TEST_F(QuantTest, Test_ScalarOp) {
-    std::vector<int> vecTileShape = {128, 128};
+    std::vector<int64_t> vecTileShape = {128, 128};
     int b = 2; // 32
     int s = 1; // 1, optimize set_tile
-    std::vector<int> shape{b * s, 35};
+    std::vector<int64_t> shape{b * s, 35};
     capacity = b * s;
     uint8_t *out_ptr = nullptr;
     uint64_t outSize = 0;

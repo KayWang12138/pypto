@@ -111,8 +111,8 @@ TEST_F(AssignMemoryTypeTest, AddReshape) {
     constexpr int tensorMagic5 = 6;
     constexpr int tensorMagic6 = 7;
     // Prepare the graph
-    std::vector<int> shape = {16, 32};
-    std::vector<int> shape1 = {32,16};
+    std::vector<int64_t> shape = {16, 32};
+    std::vector<int64_t> shape1 = {32,16};
     std::shared_ptr<LogicalTensor> input_tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     input_tensor1->SetMemoryTypeBoth(MEM_DEVICE_DDR);
     input_tensor1->SetMagic(tensorMagic0);
@@ -142,11 +142,11 @@ TEST_F(AssignMemoryTypeTest, AddReshape) {
     assemble_output->SetMagic(tensorMagic5);
 
     auto &view_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {input_tensor1}, {view_output1});
-    view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int>{0, 0}));
+    view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}));
     view_op1.opmagic = opMagic0;
 
     auto &view_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {input_tensor2}, {view_output2});
-    view_op2.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int>{0, 0}));
+    view_op2.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}));
     view_op2.opmagic = opMagic3;
 
     auto &add_op = currFunctionPtr->AddRawOperation(Opcode::OP_ADD, {view_output1, view_output2}, {add_output});
@@ -156,7 +156,7 @@ TEST_F(AssignMemoryTypeTest, AddReshape) {
     reshape_op.opmagic = opMagic4;
 
     auto &assemble_op = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {reshape_output}, {assemble_output});
-    assemble_op.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int>{0, 0}));
+    assemble_op.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0}));
     assemble_op.opmagic = opMagic2;
 
     currFunctionPtr->inCasts_.push_back(input_tensor1);
@@ -207,9 +207,9 @@ TEST_F(AssignMemoryTypeTest, AddReshape) {
 
 TEST_F(AssignMemoryTypeTest, TestVecToCube) {
     config::SetHostConfig(KEY_STRATEGY, "PVC2_OOO");
-    std::vector<int> shape0 = {256, 128};
-    std::vector<int> shape1 = {128, 64};
-    std::vector<int> shape2 = {256, 64};
+    std::vector<int64_t> shape0 = {256, 128};
+    std::vector<int64_t> shape1 = {128, 64};
+    std::vector<int64_t> shape2 = {256, 64};
     PROGRAM("AssignMemoryTest") {
         Tensor input1(DataType::DT_FP32, shape0, "A");
         Tensor input2(DataType::DT_FP32, shape0, "B");
@@ -230,9 +230,9 @@ TEST_F(AssignMemoryTypeTest, TestVecToCube) {
 
 TEST_F(AssignMemoryTypeTest, TestVecToCubeV2) {
     config::SetHostConfig(KEY_STRATEGY, "AssignMemoryTypeTestStrategy");
-    std::vector<int> shape0 = {256, 128};
-    std::vector<int> shape1 = {128, 64};
-    std::vector<int> shape2 = {256, 64};
+    std::vector<int64_t> shape0 = {256, 128};
+    std::vector<int64_t> shape1 = {128, 64};
+    std::vector<int64_t> shape2 = {256, 64};
     PROGRAM("AssignMemoryTest") {
         Tensor input1(DataType::DT_FP32, shape0, "A");
         Tensor input2(DataType::DT_FP32, shape0, "B");
@@ -277,9 +277,9 @@ TEST_F(AssignMemoryTypeTest, TestVecToCubeV2) {
 
 TEST_F(AssignMemoryTypeTest, TestCubeToCube) {
     config::SetHostConfig(KEY_STRATEGY, "PVC2_OOO");
-    std::vector<int> shape0 = {256, 128};
-    std::vector<int> shape1 = {128, 64};
-    std::vector<int> shape2 = {256, 256};
+    std::vector<int64_t> shape0 = {256, 128};
+    std::vector<int64_t> shape1 = {128, 64};
+    std::vector<int64_t> shape2 = {256, 256};
     PROGRAM("AssignMemoryTest") {
         Tensor inputQ(DataType::DT_FP32, shape0, "Q");
         Tensor inputK(DataType::DT_FP32, shape0, "K");
@@ -300,9 +300,9 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCube) {
 
 TEST_F(AssignMemoryTypeTest, TestCubeToCubeV2) {
     config::SetHostConfig(KEY_STRATEGY, "AssignMemoryTypeTestStrategy");
-    std::vector<int> shape0 = {256, 128};
-    std::vector<int> shape1 = {128, 64};
-    std::vector<int> shape2 = {256, 256};
+    std::vector<int64_t> shape0 = {256, 128};
+    std::vector<int64_t> shape1 = {128, 64};
+    std::vector<int64_t> shape2 = {256, 256};
     PROGRAM("AssignMemoryTest") {
         Tensor inputQ(DataType::DT_FP32, shape0, "Q");
         Tensor inputK(DataType::DT_FP32, shape0, "K");
@@ -364,10 +364,10 @@ void GetInvalidPatternGraph(std::shared_ptr<Function> &currFunctionPtr) {
     constexpr int tensorMagic6 = 7;
     constexpr int tensorMagic7 = 8;
     // Prepare the graph
-    std::vector<int> shape = {16, 32};
-    std::vector<int> shape1 = {32,16};
-    std::vector<int> shape2 = {8,32};
-    std::vector<int> shape3 = {32,8};
+    std::vector<int64_t> shape = {16, 32};
+    std::vector<int64_t> shape1 = {32,16};
+    std::vector<int64_t> shape2 = {8,32};
+    std::vector<int64_t> shape3 = {32,8};
     std::shared_ptr<LogicalTensor> input_cast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     input_cast->SetMagic(tensorMagic0);
 
@@ -396,11 +396,11 @@ void GetInvalidPatternGraph(std::shared_ptr<Function> &currFunctionPtr) {
     reshape_op0.opmagic = opMagic0;
 
     auto &view_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {input_tensor1}, {view_output1});
-    view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int>{0, 0}));
+    view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}));
     view_op1.opmagic = opMagic1;
 
     auto &view_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {input_tensor1}, {view_output2});
-    view_op2.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int>{8, 0}));
+    view_op2.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{8, 0}));
     view_op2.opmagic = opMagic2;
 
     auto &reshape_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_RESHAPE, {view_output1}, {reshape_output1});
@@ -410,15 +410,15 @@ void GetInvalidPatternGraph(std::shared_ptr<Function> &currFunctionPtr) {
     reshape_op2.opmagic = opMagic4;
 
     auto &assemble_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {reshape_output1}, {assemble_output});
-    assemble_op1.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int>{0, 0}));
+    assemble_op1.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0}));
     assemble_op1.opmagic = opMagic5;
 
     auto &assemble_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {reshape_output2}, {assemble_output});
-    assemble_op2.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int>{8, 0}));
+    assemble_op2.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{8, 0}));
     assemble_op2.opmagic = opMagic6;
 
     auto &view_op3 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {assemble_output}, {output_cast});
-    view_op3.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int>{0, 0}));
+    view_op3.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}));
     view_op3.opmagic = opMagic7;
 
     currFunctionPtr->inCasts_.push_back(input_cast);
@@ -429,7 +429,7 @@ TEST_F(AssignMemoryTypeTest, InValidOpPattern) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     Program::GetInstance().InsertFuncToFunctionMap("InValidOpPattern", currFunctionPtr);
-    
+
     GetInvalidPatternGraph(currFunctionPtr);
 
     std::stringstream ssBefore;
@@ -479,10 +479,10 @@ void GetViewReshapeGraph (std::shared_ptr<Function> &currFunctionPtr) {
     constexpr int tensorMagic5 = 6;
 
     // Prepare the graph
-    std::vector<int> shape = {16, 32};
-    std::vector<int> shape1 = {32, 16};
-    std::vector<int> shape2 = {1, 32};
-    std::vector<int> shape3 = {8, 32};
+    std::vector<int64_t> shape = {16, 32};
+    std::vector<int64_t> shape1 = {32, 16};
+    std::vector<int64_t> shape2 = {1, 32};
+    std::vector<int64_t> shape3 = {8, 32};
     std::shared_ptr<LogicalTensor> input_cast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     input_cast->SetMagic(tensorMagic0);
 
@@ -505,15 +505,15 @@ void GetViewReshapeGraph (std::shared_ptr<Function> &currFunctionPtr) {
     transpose_op.opmagic = opMagic0;
 
     auto &view_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {transpose_out}, {view_output1});
-    view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int>{0, 0}));
+    view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}));
     view_op1.opmagic = opMagic1;
 
     auto &reshape_op = currFunctionPtr->AddRawOperation(Opcode::OP_RESHAPE, {view_output1}, {reshape_output});
     reshape_op.opmagic = opMagic2;
 
     auto &view_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {reshape_output}, {view_output2});
-    view_op2.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int>{0, 0}));
-    view_op2.opmagic = opMagic3; 
+    view_op2.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}));
+    view_op2.opmagic = opMagic3;
 
     auto &expand_op = currFunctionPtr->AddRawOperation(Opcode::OP_EXPAND, {view_output2}, {output_cast});
     expand_op.opmagic = opMagic4;
@@ -523,7 +523,7 @@ TEST_F(AssignMemoryTypeTest, ViewReshape) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     Program::GetInstance().InsertFuncToFunctionMap("ViewReshape", currFunctionPtr);
-    
+
     GetViewReshapeGraph(currFunctionPtr);
 
     std::stringstream ssBefore;

@@ -28,27 +28,24 @@
 
 using namespace npu::tile_fwk;
 LogicalTensor::LogicalTensor(
-    Function &function, DataType t, std::vector<int> tshape, std::string tname, NodeType tnodetype, TileOpFormat ttensorfmt)
+    Function &function, DataType t, Shape tshape, std::string tname, NodeType tnodetype, TileOpFormat ttensorfmt)
     : isSubGraphBoundary(false),
       subGraphID(NOT_IN_SUBGRAPH),
       tensor(std::make_shared<RawTensor>(t, tshape, std::move(tname))),
-      offset(std::vector<int>(tshape.size(), 0)),
+      offset(Offset(tshape.size(), 0)),
       shape(tshape),
       oriShape(tshape),
       magic(function.magicSeed_++),
       nodetype(tnodetype),
       tensorfmt(ttensorfmt),
-      function_(&function)
-{
-}
+      function_(&function) {}
 
-LogicalTensor::LogicalTensor(
-    Function &function, DataType t, std::vector<int> tshape, std::vector<SymbolicScalar> tValidShape,
+LogicalTensor::LogicalTensor(Function &function, DataType t, Shape tshape, std::vector<SymbolicScalar> tValidShape,
     std::string tname, NodeType tnodetype, TileOpFormat ttensorfmt)
     : isSubGraphBoundary(false),
       subGraphID(NOT_IN_SUBGRAPH),
       tensor(std::make_shared<RawTensor>(t, tshape, std::move(tname))),
-      offset(std::vector<int>(tshape.size(), 0)),
+      offset(Offset(tshape.size(), 0)),
       shape(tshape),
       oriShape(tshape),
       dynValidShape_(tValidShape),
@@ -64,8 +61,8 @@ LogicalTensor::LogicalTensor(
     }
 }
 
-LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawTensor,
-    std::vector<int> toffset, std::vector<int> tshape, NodeType tnodetype, TileOpFormat ttensorfmt)
+LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawTensor, Offset toffset, Shape tshape,
+    NodeType tnodetype, TileOpFormat ttensorfmt)
     : isSubGraphBoundary(false),
       subGraphID(NOT_IN_SUBGRAPH),
       tensor(rawTensor),
@@ -81,8 +78,8 @@ LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawT
     ASSERT(shape.size() == offset.size());
 }
 
-LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawTensor,
-    std::vector<int> toffset, std::vector<int> tshape, std::vector<SymbolicScalar> tValidShape, NodeType tnodetype, TileOpFormat ttensorfmt)
+LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawTensor, Offset toffset, Shape tshape,
+    std::vector<SymbolicScalar> tValidShape, NodeType tnodetype, TileOpFormat ttensorfmt)
     : isSubGraphBoundary(false),
       subGraphID(NOT_IN_SUBGRAPH),
       tensor(rawTensor),
@@ -226,8 +223,8 @@ std::shared_ptr<LogicalTensor> LogicalTensor::LoadJson(Function &function,
             const std::unordered_map<int, std::shared_ptr<RawTensor>> &rawTensorDict, const Json &tensorDump) {
     ASSERT(tensorDump[T_FIELD_KIND].get<int>() == static_cast<int>(Kind::T_KIND_TENSOR));
 
-    std::vector<int> toffset = tensorDump["offset"].get<std::vector<int>>();
-    std::vector<int> tshape = tensorDump["shape"].get<std::vector<int>>();
+    Offset toffset = tensorDump["offset"].get<std::vector<int64_t>>();
+    Shape tshape = tensorDump["shape"].get<std::vector<int64_t>>();
     NodeType tnodetype = static_cast<NodeType>(tensorDump["nodetype"].get<int>());
 
     std::shared_ptr<RawTensor> rawTensor;
@@ -286,7 +283,7 @@ std::shared_ptr<LogicalTensor> LogicalTensor::LoadJson(Function &function,
         tensorJson->storage_ = Storage::LoadJson(tensorDump["storage"]);
     }
     if (tensorDump.count("validshape")) {
-        tensorJson->oriShape = tensorDump["validshape"].get<std::vector<int>>();
+        tensorJson->oriShape = tensorDump["validshape"].get<std::vector<int64_t>>();
     }
     if (tensorDump.count("dynoffset")) {
         auto dynoffsetJson = tensorDump["dynoffset"];
@@ -423,7 +420,7 @@ std::string LogicalTensor::Dump(bool showFrom, bool showMem) const {
 }
 
 std::shared_ptr<LogicalTensor> LogicalTensor::View(
-    Function &function, const std::vector<int> &newShape, const std::vector<int> &newOffset) const {
+    Function &function, const Shape &newShape, const Offset &newOffset) const {
     assert((shape.size() == newShape.size()) && ".view, shape must be the same dimension");
     assert((offset.size() == newOffset.size()) && ".view, offset must be the same dimension");
 
@@ -582,11 +579,8 @@ SymbolicScalar npu::tile_fwk::GetViewValidShapeDim(
     return result;
 }
 
-std::vector<SymbolicScalar> npu::tile_fwk::GetViewValidShape(
-    const std::vector<SymbolicScalar> &validShape,
-    const std::vector<int> &viewOffset,
-    const std::vector<SymbolicScalar> &viewDynOffset,
-    const std::vector<int> &viewShape) {
+std::vector<SymbolicScalar> npu::tile_fwk::GetViewValidShape(const std::vector<SymbolicScalar> &validShape,
+    const Offset &viewOffset, const std::vector<SymbolicScalar> &viewDynOffset, const Shape &viewShape) {
     if (validShape.size() == 0) {
         return {};
     }
@@ -611,12 +605,12 @@ Tensor TensorExtract(const Tensor &src, const std::vector<SymbolicScalar> &offse
     ASSERT(src.GetShape().size() == offset.size()) << "dim mismatch";
     auto currFunc = Program::GetInstance().GetCurrentFunction();
 
-    std::vector<int> dstShape(src.GetShape().size(), 1);
+    Shape dstShape(src.GetShape().size(), 1);
     // minimal size is 32
     dstShape.back() = 32;
     Tensor dst(src.GetDataType(), dstShape, currFunc->GetRawName() + "_TensorExtract");
 
-    std::vector<int> viewShape(src.GetShape().size(), 1);
+    Shape viewShape(src.GetShape().size(), 1);
     Tensor view = DView(src, viewShape, offset);
     Operation &emuopView = **view.GetStorage()->GetProducers().begin();
 
@@ -624,18 +618,18 @@ Tensor TensorExtract(const Tensor &src, const std::vector<SymbolicScalar> &offse
     Tensor mark = AddS(view, Element(view.GetDataType(), (int64_t)0));
     Operation &emuopMark = **mark.GetStorage()->GetProducers().begin();
 
-    std::vector<int> assembleOffset(src.GetShape().size(), 0);
+    Offset assembleOffset(src.GetShape().size(), 0);
     Operation &emuopAssemble = currFunc->AddOperation(Opcode::OP_ASSEMBLE, {mark.GetStorage()}, {dst.GetStorage()});
     emuopAssemble.SetOpAttribute(std::make_shared<AssembleOpAttribute>(assembleOffset));
 
-    emuopView.SetAttr<int>(OP_EMUOP_PREFIX + "opc", EMUOP_TENSOR_EXTRACT);
-    emuopMark.SetAttr<int>(OP_EMUOP_PREFIX + "opc", EMUOP_TENSOR_EXTRACT);
-    emuopAssemble.SetAttr<int>(OP_EMUOP_PREFIX + "opc", EMUOP_TENSOR_EXTRACT);
+    emuopView.SetAttribute(OP_EMUOP_PREFIX + "opc", EMUOP_TENSOR_EXTRACT);
+    emuopMark.SetAttribute(OP_EMUOP_PREFIX + "opc", EMUOP_TENSOR_EXTRACT);
+    emuopAssemble.SetAttribute(OP_EMUOP_PREFIX + "opc", EMUOP_TENSOR_EXTRACT);
     return dst;
 }
 
 void TensorInsert(const Tensor &src, const std::vector<SymbolicScalar> &offset, Tensor &dst) {
-    ASSERT(src.GetShape() == std::vector<int>(src.GetShape().size(), 1));
+    ASSERT(src.GetShape() == Shape(src.GetShape().size(), 1));
     ASSERT(src.GetShape().size() == dst.GetShape().size());
     ASSERT(src.GetShape().size() == offset.size());
 
@@ -646,8 +640,8 @@ void TensorInsert(const Tensor &src, const std::vector<SymbolicScalar> &offset, 
     DAssemble(mark, offset, dst);
     Operation &emuopAssemble = **mark.GetStorage()->GetConsumers().begin();
 
-    emuopMark.SetAttr<int>(OP_EMUOP_PREFIX + "opc", EMUOP_TENSOR_INSERT);
-    emuopAssemble.SetAttr<int>(OP_EMUOP_PREFIX + "opc", EMUOP_TENSOR_INSERT);
+    emuopMark.SetAttribute(OP_EMUOP_PREFIX + "opc", EMUOP_TENSOR_INSERT);
+    emuopAssemble.SetAttribute(OP_EMUOP_PREFIX + "opc", EMUOP_TENSOR_INSERT);
 }
 
 static void LookupExpressionByOpcode(std::vector<RawSymbolicScalarPtr> &exprList, SymbolicOpcode opcode, const RawSymbolicScalarPtr &raw) {
@@ -717,7 +711,7 @@ std::map<int, RawSymbolicScalarPtr> GetTensorDataDict(const RawSymbolicScalarPtr
             break;
         }
     }
-    return getTensorDataDict;    
+    return getTensorDataDict;
 }
 
 std::map<int, RawSymbolicScalarPtr> GetTensorDataDict(const SymbolicScalar &dimOffset) {

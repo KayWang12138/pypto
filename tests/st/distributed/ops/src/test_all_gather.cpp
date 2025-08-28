@@ -39,20 +39,20 @@ void TestAllGather(OpTestParam &testParam)
     uint8_t *outPtr = allocDevAddr(outByteSize);
     ALOG_INFO_F("before ALL_GATHER [%d, %d], rankSize=%d, outPtr=%p", M, N, testParam.rankSize, outPtr);
     PROGRAM("ALL_GATHER") {
-        std::vector<int32_t> inShape = {M, N};
-        std::vector<int32_t> outShape = {outM, N};
+        std::vector<int64_t> inShape = {M, N};
+        std::vector<int64_t> outShape = {outM, N};
 
         void *xPtr = readToDev(GetGoldenDir() + "/input_rank_"+ std::to_string(testParam.rankId) + ".bin",
             inSize * dTypeSize /sizeof(float));
 
         Tensor in(dType, inShape, (uint8_t *)xPtr, "in");
         Tensor out(dType, outShape, outPtr, "out");
-        
+
         ConfigManager::Instance();
         FUNCTION("AllGather", FunctionType::STATIC, {in, out}) {
             Program::GetInstance().GetTileShape().SetDistTileShapes(
-                {outM / testParam.rankSize, testParam.rankSize, 0}, 
-                {N / testParam.rankSize, testParam.rankSize, 0}, 
+                {outM / testParam.rankSize, testParam.rankSize, 0},
+                {N / testParam.rankSize, testParam.rankSize, 0},
                 {1, testParam.rankSize, 0});
             Program::GetInstance().GetTileShape().SpecifyStaticRankId(testParam.rankId);
             out = AllGather(in, testParam.group);
@@ -75,7 +75,7 @@ void TestAllGatherEx(OpTestParam &testParam)
     std::vector<uint8_t *> outPtrs;
 
     PROGRAM("ALL_GATHER_EX") {
-        std::vector<int32_t> shape = {M, N};
+        std::vector<int64_t> shape = {M, N};
 
         void *xPtr = readToDev(GetGoldenDir() + "/input_rank_"+ std::to_string(testParam.rankId) + ".bin",
             outByteSize /sizeof(float));

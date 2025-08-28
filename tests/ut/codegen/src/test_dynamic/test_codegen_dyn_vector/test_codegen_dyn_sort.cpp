@@ -63,7 +63,7 @@ std::string generateCodeForOp(Operation *op) {
 }
 
 TestContext prepareSortParamForUT(Opcode opcode) {
-    std::vector<int> shape = {64, 64};
+    std::vector<int64_t> shape = {64, 64};
 
     auto shapeImme = OpImmediate::Specified(shape);
     Program::GetInstance().GetTileShape().SetVecTileShapes(shape);

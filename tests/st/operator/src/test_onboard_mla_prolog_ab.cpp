@@ -48,15 +48,15 @@ void TestMlaPrologAb(std::vector<int> &params, string dataPath, bool isQuant = f
     typedef T outDtype;
     typedef int8_t wDtype;
 
-    std::vector<int> x_shape = {b, s, h};
-    std::vector<int> w_qa_shape = {h, qLoraRank};
-    std::vector<int> w_qb_shape = {qLoraRank, n * q_head_dim};
-    std::vector<int> w_kv_a_shape = {h, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> w_kv_b_k_shape = {n, qkNopeHeadDim, kvLoraRank};
-    std::vector<int> q_pe_new_shape = {b, n, s, qkRopeHeadDim};
+    std::vector<int64_t> x_shape = {b, s, h};
+    std::vector<int64_t> w_qa_shape = {h, qLoraRank};
+    std::vector<int64_t> w_qb_shape = {qLoraRank, n * q_head_dim};
+    std::vector<int64_t> w_kv_a_shape = {h, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> w_kv_b_k_shape = {n, qkNopeHeadDim, kvLoraRank};
+    std::vector<int64_t> q_pe_new_shape = {b, n, s, qkRopeHeadDim};
     // output
-    std::vector<int> q_shape = {b, n, s, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> kv_shape = {b, s, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> q_shape = {b, n, s, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> kv_shape = {b, s, kvLoraRank + qkRopeHeadDim};
 
     int capacity_x = std::accumulate(x_shape.begin(), x_shape.end(), 1, std::multiplies<>());
     int capacity_w_qa = std::accumulate(w_qa_shape.begin(), w_qa_shape.end(), 1, std::multiplies<>());
@@ -68,7 +68,7 @@ void TestMlaPrologAb(std::vector<int> &params, string dataPath, bool isQuant = f
     int capacity_q = std::accumulate(q_shape.begin(), q_shape.end(), 1, std::multiplies<>());
     int capacity_kv = std::accumulate(kv_shape.begin(), kv_shape.end(), 1, std::multiplies<>());
 
-    std::vector<int> w_qb_scale_shape;
+    std::vector<int64_t> w_qb_scale_shape;
     int capacity_w_qb_scale;
     if (isQuant) {
         w_qb_scale_shape = {1, n * q_head_dim};

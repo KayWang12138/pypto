@@ -291,7 +291,7 @@ public:
         numExpertsPerTok = std::get<int>(config["numExpertsPerTok"]);
 
         int hiddenSize = std::get<int>(config["hiddenSize"]);
-        std::vector<int> biasShape = {1, nRoutedExperts};
+        std::vector<int64_t> biasShape = {1, nRoutedExperts};
         weight = Tensor(DataType::DT_FP32, {nRoutedExperts, hiddenSize});
         eScoreCorrectionBias = Tensor(DataType::DT_FP32, biasShape, "eScoreCorrectionBias");
     }
@@ -309,7 +309,7 @@ public:
         // [b*s,256]+[1,256]->[b*s,256]
         // groupScores = (View(scoresForChoice, bsz * seq_len, self.nGroup, -1).topk(2, dim=-1)[0].sum())
         // groupIdx = torch.topk(groupScores, k=self.topkGroup, dim=-1, sorted=False)[1]
-        std::vector<int> shape = {
+        std::vector<int64_t> shape = {
             scoresForChoice->shape[0] * nGroup, scoresForChoice->shape[1] / nGroup
         }; // [b*s,256]->[b*s*8,32]
         auto scoresForChoiceNewShape = Reshape(scoresForChoice, shape);
@@ -385,7 +385,7 @@ public:
         // x: (b*s, h), topkIds, topkWeight: (b*s, num_experts_per_tok)
         int bs = topkIds.GetShape(0);
         int expertPerTok = topkIds.GetShape(1);
-        std::vector<int> zerosShape(NUM_2);
+        std::vector<int64_t> zerosShape(NUM_2);
         zerosShape[0] = bs;
         zerosShape[1] = nRoutedExperts;
         Tensor randoms(topkIds->Datatype(), zerosShape);
@@ -454,7 +454,7 @@ public:
             newX->shape.begin(), newX->shape.end(), 1, [](const int &a, const int &b) { return a * b; });
         std::cout << "===newXSize" << newXSize << std::endl;
 
-        std::vector<int> newShape = {bs, expertPerTok, newXSize / (bs * expertPerTok)};
+        std::vector<int64_t> newShape = {bs, expertPerTok, newXSize / (bs * expertPerTok)};
         // (b*s, expertPerTok, h)
         auto newXShape = Reshape(newX, newShape);  // [128,256] -> [16,8,256]
         Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_16, NUM_128, NUM_128);
@@ -480,7 +480,7 @@ public:
         (void)topkWeight;
         int bs = topkIds.GetShape(0);
         int expertPerTok = topkIds.GetShape(1);
-        std::vector<int> zerosShape(NUM_2);
+        std::vector<int64_t> zerosShape(NUM_2);
         zerosShape[0] = bs;
         zerosShape[1] = nRoutedExperts;
         Tensor randoms(topkIds->Datatype(), zerosShape);
@@ -543,7 +543,7 @@ public:
         (void)topkWeight;
         int bs = topkIds.GetShape(0);
         int expertPerTok = topkIds.GetShape(1);
-        std::vector<int> zerosShape(NUM_2);
+        std::vector<int64_t> zerosShape(NUM_2);
         zerosShape[0] = bs;
         zerosShape[1] = nRoutedExperts;
         Tensor randoms(topkIds->Datatype(), zerosShape);
@@ -608,7 +608,7 @@ public:
         // x: (b*s, h), topkIds, topkWeight: (b*s, numExpertsPerTok)
         int bs = topkIds.GetShape(0);
         int expertPerTok = topkIds.GetShape(1);
-        std::vector<int> zerosShape(NUM_2);
+        std::vector<int64_t> zerosShape(NUM_2);
         zerosShape[0] = bs;
         zerosShape[1] = nRoutedExperts;
         Tensor randoms(topkIds->Datatype(), zerosShape);
@@ -677,7 +677,7 @@ public:
             newX->shape.begin(), newX->shape.end(), 1, [](const int &a, const int &b) { return a * b; });
         std::cout<<"===newXSize"<<newXSize<<std::endl;
 
-        std::vector<int> newShape = {bs, expertPerTok, newXSize / (bs * expertPerTok)};
+        std::vector<int64_t> newShape = {bs, expertPerTok, newXSize / (bs * expertPerTok)};
         // (b*s, expertPerTok, h)
         auto newXShape = Reshape(newX, newShape);  // [128,256] -> [16,8,256]
         Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_16, NUM_64, NUM_64);
@@ -702,7 +702,7 @@ public:
         int bs = topkIds.GetShape(0);
         int expertPerTok = topkIds.GetShape(1);
         const int twoDim = 2;
-        std::vector<int> zerosShape(twoDim);
+        std::vector<int64_t> zerosShape(twoDim);
         zerosShape[0] = bs;
         zerosShape[1] = nRoutedExperts;
         Tensor randoms(topkIds->Datatype(), zerosShape);
@@ -761,7 +761,7 @@ public:
 
         int newXSize = std::accumulate(
             newX->shape.begin(), newX->shape.end(), 1, [](const int &a, const int &b) { return a * b; });
-        std::vector<int> newShape = {bs, expertPerTok, newXSize / (bs * expertPerTok)};
+        std::vector<int64_t> newShape = {bs, expertPerTok, newXSize / (bs * expertPerTok)};
         // (b*s, expertPerTok, h)
         auto newXShape = Reshape(newX, newShape);
         Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_128, NUM_64, NUM_64); // for Assemble
@@ -779,7 +779,7 @@ public:
 
     Tensor Forward(Tensor hiddenStates) {
         const Tensor identity = hiddenStates;
-        const std::vector<int> &origShape = hiddenStates.GetShape();
+        const std::vector<int64_t> &origShape = hiddenStates.GetShape();
 
         // hiddenStates = Reshape(hiddenStates, {b * s, h}); // (b, s, h)->(b * s, h)
 

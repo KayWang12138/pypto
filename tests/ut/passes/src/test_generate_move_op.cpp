@@ -60,8 +60,8 @@ void GetCopyInCopyOutGraph(std::shared_ptr<Function> &currFunctionPtr){
     constexpr int tensorMagic5 = 6;
 
     // Prepare the graph
-    std::vector<int> shape = {16, 32};
-    std::vector<int> shape1 = {8,32};
+    std::vector<int64_t> shape = {16, 32};
+    std::vector<int64_t> shape1 = {8,32};
     std::shared_ptr<LogicalTensor> start_tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     start_tensor->SetMagic(tensorMagic0);
 
@@ -87,19 +87,19 @@ void GetCopyInCopyOutGraph(std::shared_ptr<Function> &currFunctionPtr){
     copy_out.opmagic = opMagic1;
 
     auto &view_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {end_tensor}, {output_tensor1});
-    view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int>{0, 0}));
+    view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}));
     view_op1.opmagic = opMagic2;
 
     auto &view_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {end_tensor}, {output_tensor2});
-    view_op2.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int>{8, 0}));
+    view_op2.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{8, 0}));
     view_op2.opmagic = opMagic3;
 
     auto &assemble_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {output_tensor1}, {assemble_output});
-    assemble_op1.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int>{0, 0}));
+    assemble_op1.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0}));
     assemble_op1.opmagic = opMagic4;
 
     auto &assemble_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {output_tensor2}, {assemble_output});
-    assemble_op2.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int>{8, 0}));
+    assemble_op2.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{8, 0}));
     assemble_op2.opmagic = opMagic5;
 
     currFunctionPtr->inCasts_.push_back(start_tensor);
@@ -110,7 +110,7 @@ TEST_F(GenerateMoveOpPassTest, MergeCopyInCopyOut) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     Program::GetInstance().InsertFuncToFunctionMap("MergeCopyInCopyOut", currFunctionPtr);
-    
+
     GetCopyInCopyOutGraph(currFunctionPtr);
 
     std::stringstream ssBefore;
@@ -156,8 +156,8 @@ TEST_F(GenerateMoveOpPassTest, MergeCopyInCopyOut) {
 
 TEST_F(GenerateMoveOpPassTest, AssembleViewToCopy) {
     PROGRAM("GenerateMoveOpPassTest") {
-        std::vector<int> shape1{256, 256};
-        std::vector<int> shape2{128, 128};
+        std::vector<int64_t> shape1{256, 256};
+        std::vector<int64_t> shape2{128, 128};
         Program::GetInstance().GetTileShape().SetVecTileShapes({128, 128});
         Tensor input_a(DT_FP32, shape1, "input_a");
         Tensor input_b(DT_FP32, shape1, "input_b");
@@ -250,8 +250,8 @@ TEST_F(GenerateMoveOpPassTest, AssembleViewToCopy) {
 
 TEST_F(GenerateMoveOpPassTest, ConvertToCopy) {
     PROGRAM("GenerateMoveOpPassTest") {
-        std::vector<int> shape1{256, 256};
-        std::vector<int> shape2{128, 128};
+        std::vector<int64_t> shape1{256, 256};
+        std::vector<int64_t> shape2{128, 128};
         Program::GetInstance().GetTileShape().SetVecTileShapes({128, 128});
         Tensor input_a(DT_FP32, shape1, "input_a");
         Tensor input_b(DT_FP32, shape1, "input_b");
@@ -324,7 +324,7 @@ TEST_F(GenerateMoveOpPassTest, ConvertToCopy) {
 
 TEST_F(GenerateMoveOpPassTest, Transpose) {
     PROGRAM("GenerateMoveOpPassTest") {
-        std::vector<int> shape{1, 32, 32, 2};
+        std::vector<int64_t> shape{1, 32, 32, 2};
         Tensor a(DT_FP32, shape, "a");
         Tensor a_trans(DT_FP32, shape, "a_trans");
 
@@ -509,9 +509,9 @@ TEST_F(GenerateMoveOpPassTest, L1TOL0){
     constexpr int tensorMagic4 = 5;
 
     // Prepare the graph
-    std::vector<int> shape = {8, 16};
-    std::vector<int> shape1 = {16, 8};
-    std::vector<int> shape2 = {8, 8};
+    std::vector<int64_t> shape = {8, 16};
+    std::vector<int64_t> shape1 = {16, 8};
+    std::vector<int64_t> shape2 = {8, 8};
     std::shared_ptr<LogicalTensor> input_a = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     input_a->SetMagic(tensorMagic0);
     input_a->SetMemoryTypeOriginal(MemoryType::MEM_L1);

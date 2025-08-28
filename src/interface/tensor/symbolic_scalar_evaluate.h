@@ -47,16 +47,16 @@ public:
         }
     }
 
-    std::vector<int> EvaluateValidShape(const std::vector<SymbolicScalar> &dynValidShape) {
-        std::vector<int> result;
+    std::vector<int64_t> EvaluateValidShape(const std::vector<SymbolicScalar> &dynValidShape) {
+        std::vector<int64_t> result;
         for (auto &shape : dynValidShape) {
             result.push_back(EvaluateSymbolicScalar(shape));
         }
         return result;
     }
 
-    std::vector<int> EvaluateOffset(const std::vector<int> &offset, const std::vector<SymbolicScalar> &dynOffset) {
-        std::vector<int> resultOffset;
+    std::vector<int64_t> EvaluateOffset(const std::vector<int64_t> &offset, const std::vector<SymbolicScalar> &dynOffset) {
+        std::vector<int64_t> resultOffset;
         if (dynOffset.size() != 0) {
             for (auto &off : dynOffset) {
                 resultOffset.push_back(EvaluateSymbolicScalar(off));

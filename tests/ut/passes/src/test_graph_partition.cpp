@@ -45,7 +45,7 @@ public:
 
 void GetPairSumGraph(ComputationalGraphBuilder &G) {
     const int brNum = 4;
-    std::vector<int> tileShape{16,16};
+    std::vector<int64_t> tileShape{16,16};
     for (int i = 0; i < brNum; i++) {
         std::string br = std::to_string(i);
         std::vector<std::string> tensorNames{"t1" + br, "t2" + br, "t3" + br, "t4" + br};
@@ -121,7 +121,7 @@ TEST_F(GraphPartitionTest, TestBuildOpGraph) {
 
 void GetReshapeGraph(ComputationalGraphBuilder &G) {
     const int brNum = 4;
-    std::vector<int> tileShape{16,16};
+    std::vector<int64_t> tileShape{16,16};
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"rin", "rout"}), true);
     for (int i = 0; i < brNum; i++) {
         std::string br = std::to_string(i);
@@ -205,7 +205,7 @@ TEST_F(GraphPartitionTest, TestReduceNodeHash) {
 
 void GetCrossGraph(ComputationalGraphBuilder &G) {
     const int brNum = 4;
-    std::vector<int> tileShape{16,16};
+    std::vector<int64_t> tileShape{16,16};
     for (int i = 0; i < brNum; i++) {
         std::string br = std::to_string(i);
         std::vector<std::string> tensorNames{"t1" + br, "t2" + br, "t3" + br, "t4" + br};
@@ -256,7 +256,7 @@ TEST_F(GraphPartitionTest, TestEmptyGraph) {
 }
 
 void GetCubeVectorGraph(ComputationalGraphBuilder &G, int brNum) {
-    std::vector<int> tileShape{16,16};
+    std::vector<int64_t> tileShape{16,16};
     std::vector<std::string> inTensorNames;
     for (int i = 0; i < brNum; i++) {
         std::string br = std::to_string(i);
@@ -344,7 +344,7 @@ TEST_F(GraphPartitionTest, TestCVGraph) {
 }
 
 void GetMergeableGraph(ComputationalGraphBuilder &G, int brNum) {
-    std::vector<int> tileShape{16,16};
+    std::vector<int64_t> tileShape{16,16};
     std::vector<std::string> inCast;
     std::vector<std::string> outCast;
     for (int i = 0; i < brNum; i++) {
@@ -442,7 +442,7 @@ TEST_F(GraphPartitionTest, TestLargeSuperNode) {
 }
 
 void GetWideGraph(ComputationalGraphBuilder &G, int brNum) {
-    std::vector<int> tileShape{16,16};
+    std::vector<int64_t> tileShape{16,16};
     std::vector<std::string> outCast;
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"h1", "h2", "h3"}), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_COPY_IN, {"h1"}, {"h2"}, "COPY_IN", true), true);
@@ -477,7 +477,7 @@ TEST_F(GraphPartitionTest, TestLargeWideGraph) {
 }
 
 void GetDeepGraph(ComputationalGraphBuilder &G, int brNum) {
-    std::vector<int> tileShape{16,16};
+    std::vector<int64_t> tileShape{16,16};
     std::vector<std::string> outCast;
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"ha", "a0", "hb", "b0"}), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_COPY_IN, {"ha"}, {"a0"}, "COPY_INa", true), true);
@@ -517,7 +517,7 @@ TEST_F(GraphPartitionTest, TestLargeDeepGraph) {
 
 TEST_F(GraphPartitionTest, TestIsomorphismGraph) {
     ComputationalGraphBuilder G;
-    std::vector<int> tileShape{16,16};
+    std::vector<int64_t> tileShape{16,16};
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"h1", "h2", "h3", "h41", "h42", "h5", "h6"}), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_COPY_IN, {"h1"}, {"h2"}, "COPY_IN", true), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_ABS, {"h2"}, {"h3"}, "ABS", true), true);
@@ -542,7 +542,7 @@ TEST_F(GraphPartitionTest, TestIsomorphismGraph) {
 
 TEST_F(GraphPartitionTest, TestNonIsomorphismGraph) {
     ComputationalGraphBuilder G;
-    std::vector<int> tileShape{16,16};
+    std::vector<int64_t> tileShape{16,16};
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"hin", "h2", "h3", "h41", "h42", "h5", "hout"}), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_COPY_IN, {"hin"}, {"h2"}, "COPY_IN", true), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_ABS, {"h2"}, {"h3"}, "ABS", true), true);
@@ -567,7 +567,7 @@ TEST_F(GraphPartitionTest, TestNonIsomorphismGraph) {
 
 TEST_F(GraphPartitionTest, TestAvoidSuperNodeLoop) {
     ComputationalGraphBuilder G;
-    std::vector<int> tileShape{16,16};
+    std::vector<int64_t> tileShape{16,16};
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"}), true);
     std::vector<Opcode> opCodes{Opcode::OP_A_MUL_B, Opcode::OP_A_MUL_B, Opcode::OP_A_MUL_B, Opcode::OP_A_MULACC_B};
     std::vector<std::vector<std::string>> ioperands{{"t1", "t2"}, {"t2", "t3"}, {"t4","t5"}, {"t3", "t6", "t7"}};

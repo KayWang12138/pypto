@@ -51,8 +51,8 @@ TEST_F(TestCodegenDynUna, TestAbsDynamic) {
     int D0 = 8;
     int D1 = 4608;
 
-    std::vector<int> srcShape = {S0, S1};
-    std::vector<int> dstShape = {D0, D1};
+    std::vector<int64_t> srcShape = {S0, S1};
+    std::vector<int64_t> dstShape = {D0, D1};
 
     Program::GetInstance().GetTileShape().SetVecTileShapes({8, 128});
     Tensor input_a(DataType::DT_FP16, srcShape, "A");
@@ -86,8 +86,8 @@ TEST_F(TestCodegenDynUna, TestAbsDynamic) {
 }
 
 TEST_F(TestCodegenDynUna, TestDynExpand) {
-    std::vector<int> shape = {64, 64};
-    std::vector<int> shape1 = {1, 64};
+    std::vector<int64_t> shape = {64, 64};
+    std::vector<int64_t> shape1 = {1, 64};
     auto shapeImme = OpImmediate::Specified(shape);
     Program::GetInstance().GetTileShape().SetVecTileShapes(shape);
     ConfigManager::Instance().SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);

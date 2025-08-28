@@ -22,25 +22,25 @@ namespace npu::tile_fwk {
 
 class RawExpectedOperator {
 public:
-    RawExpectedOperator(Opcode opcode, const std::vector<int> &attrs)
+    RawExpectedOperator(Opcode opcode, const std::vector<int64_t> &attrs)
         : opcode_(opcode), attrs_(attrs), hash_(CalculateHash()) {}
 
     Opcode GetOpcode() const { return opcode_; }
-    const std::vector<int> &GetAttrs() const { return attrs_; }
+    const std::vector<int64_t> &GetAttrs() const { return attrs_; }
     std::size_t GetHash() const { return hash_; }
 
 private:
     std::size_t CalculateHash() const;
 
     Opcode opcode_;
-    std::vector<int> attrs_;
+    std::vector<int64_t> attrs_;
     std::size_t hash_;
 };
 
 class ExpectedOperator {
 public:
     ExpectedOperator() = default;
-    ExpectedOperator(Opcode opcode, const std::vector<int> &attrs)
+    ExpectedOperator(Opcode opcode, const std::vector<int64_t> &attrs)
         : ptr_(std::make_shared<RawExpectedOperator>(opcode, attrs)) {}
 
     const RawExpectedOperator *Get() const { return ptr_.get(); }
@@ -84,16 +84,16 @@ class ExpectedValue {
 public:
     ExpectedValue() = default;
     explicit ExpectedValue(const std::shared_ptr<RawExpectedValue> &ptr) : ptr_(ptr) {}
-    ExpectedValue(const std::vector<int> &shape, DataType dataType, const std::string &name);
+    ExpectedValue(const std::vector<int64_t> &shape, DataType dataType, const std::string &name);
     ExpectedValue(ExpectedOperator oper, const std::vector<ExpectedValue> &operands);
-    ExpectedValue(const ExpectedValue &source, const std::vector<int> &sourceShape, const std::vector<int> &resultOffset, const std::vector<int> &resultShape);
-    ExpectedValue(const std::vector<int> &shape, const std::vector<RawExpectedInsertValueElement> &elements);
+    ExpectedValue(const ExpectedValue &source, const std::vector<int64_t> &sourceShape, const std::vector<int64_t> &resultOffset, const std::vector<int64_t> &resultShape);
+    ExpectedValue(const std::vector<int64_t> &shape, const std::vector<RawExpectedInsertValueElement> &elements);
     ExpectedValue(const ExpectedValue &resultof, int index);
 
     const RawExpectedValue *Get() const { return ptr_.get(); }
     const RawExpectedValue *operator->() const { return Get(); }
     bool IsNull() const { return ptr_ == nullptr; }
-    
+
     std::shared_ptr<RawExpectedInputValue> CastInputValue() const;
     std::shared_ptr<RawExpectedOperationValue> CastOperationValue() const;
     std::shared_ptr<RawExpectedExtractValue> CastExtractValue() const;
@@ -113,12 +113,12 @@ private:
 
 class RawExpectedInputValue : public RawExpectedValue {
 public:
-    RawExpectedInputValue(const std::vector<int> &shape, DataType dataType, const std::string &name)
+    RawExpectedInputValue(const std::vector<int64_t> &shape, DataType dataType, const std::string &name)
         : RawExpectedValue(ValueKind::T_EXPECTED_INPUT), shape_(shape), dataType_(dataType), name_(name) {
         hash_ = CalculateHash();
     }
 
-    const std::vector<int> &GetShape() const { return shape_; }
+    const std::vector<int64_t> &GetShape() const { return shape_; }
     DataType GetDataType() const { return dataType_; }
     const std::string &GetName() const { return name_; }
 
@@ -128,7 +128,7 @@ public:
 
     std::size_t CalculateHash() const override;
 private:
-    std::vector<int> shape_;
+    std::vector<int64_t> shape_;
     DataType dataType_;
     std::string name_;
 };
@@ -156,15 +156,15 @@ private:
 
 class RawExpectedExtractValue : public RawExpectedValue {
 public:
-    RawExpectedExtractValue(const ExpectedValue &source, const std::vector<int> &sourceShape, const std::vector<int> &resultOffset, const std::vector<int> &resultShape)
+    RawExpectedExtractValue(const ExpectedValue &source, const std::vector<int64_t> &sourceShape, const std::vector<int64_t> &resultOffset, const std::vector<int64_t> &resultShape)
         : RawExpectedValue(ValueKind::T_EXPECTED_EXTRACT), source_(source), sourceShape_(sourceShape), resultOffset_(resultOffset), resultShape_(resultShape) {
         hash_ = CalculateHash();
     }
 
     const ExpectedValue &GetSource() const { return source_; }
-    const std::vector<int> &GetSourceShape() const { return sourceShape_; }
-    const std::vector<int> &GetResultOffset() const { return resultOffset_; }
-    const std::vector<int> &GetResultShape() const { return resultShape_; }
+    const Shape &GetSourceShape() const { return sourceShape_; }
+    const Offset &GetResultOffset() const { return resultOffset_; }
+    const Shape &GetResultShape() const { return resultShape_; }
 
     bool operator==(const RawExpectedExtractValue &rhs) const {
         return source_ == rhs.source_ && sourceShape_ == rhs.sourceShape_ && resultOffset_ == rhs.resultOffset_ && resultShape_ == rhs.resultShape_;
@@ -173,13 +173,13 @@ public:
     std::size_t CalculateHash() const override;
 private:
     ExpectedValue source_;
-    std::vector<int> sourceShape_;
-    std::vector<int> resultOffset_;
-    std::vector<int> resultShape_;
+    Shape sourceShape_;
+    Offset resultOffset_;
+    Shape resultShape_;
 };
 
 struct RawExpectedInsertValueElement {
-    RawExpectedInsertValueElement(const std::vector<int> &offsetIn, const std::vector<int> &shapeIn, 
+    RawExpectedInsertValueElement(const std::vector<int64_t> &offsetIn, const std::vector<int64_t> &shapeIn,
         const ExpectedValue &sourceIn)
         : offset(offsetIn), shape(shapeIn), source(sourceIn) {}
 
@@ -191,19 +191,19 @@ struct RawExpectedInsertValueElement {
         return offset == rhs.offset;
     }
 public:
-    std::vector<int> offset;
-    std::vector<int> shape;
+    Offset offset;
+    Shape shape;
     ExpectedValue source;
 };
 class RawExpectedInsertValue : public RawExpectedValue {
 public:
-    RawExpectedInsertValue(const std::vector<int> &shape, const std::vector<RawExpectedInsertValueElement> &elements)
+    RawExpectedInsertValue(const std::vector<int64_t> &shape, const std::vector<RawExpectedInsertValueElement> &elements)
         : RawExpectedValue(ValueKind::T_EXPECTED_INSERT), shape_(shape), elements_(elements) {
         std::sort(elements_.begin(), elements_.end());
         hash_ = CalculateHash();
     }
 
-    const std::vector<int> &GetShape() { return shape_; }
+    const std::vector<int64_t> &GetShape() { return shape_; }
     const std::vector<RawExpectedInsertValueElement> &GetElements() { return elements_; }
 
     bool operator==(const RawExpectedInsertValue &rhs) const {
@@ -212,7 +212,7 @@ public:
 
     std::size_t CalculateHash() const override;
 private:
-    std::vector<int> shape_;
+    std::vector<int64_t> shape_;
     std::vector<RawExpectedInsertValueElement> elements_;
 };
 
@@ -313,7 +313,7 @@ namespace npu::tile_fwk {
 
         ExpectedOperator CreateOperator(const Operation &op);
 
-        ExpectedValue CreateValue(const std::vector<int> &shape, DataType type, const std::string &name);
+        ExpectedValue CreateValue(const std::vector<int64_t> &shape, DataType type, const std::string &name);
         ExpectedValue CreateValue(const Operation &op, const std::vector<ExpectedValue> &values);
         ExpectedValue CreateValue(const ExpectedValue &resultof, int index);
 

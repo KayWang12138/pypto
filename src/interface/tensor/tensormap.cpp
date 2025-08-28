@@ -147,9 +147,9 @@ std::shared_ptr<RawTensor> TensorMap::GetRawTensorByRawMagic(int rawMagic) const
 }
 
 void CalcShapeAndOffsetOfGroup(const std::vector<std::shared_ptr<LogicalTensor>> &tensors,
-    std::vector<int> &resultOffset, std::vector<int> &resultShape) {
+    std::vector<int64_t> &resultOffset, std::vector<int64_t> &resultShape) {
     resultOffset = tensors.front()->offset;
-    std::vector<int> maximumOffset;
+    std::vector<int64_t> maximumOffset;
     for (size_t i = 0; i < tensors.front()->offset.size(); i++) {
         maximumOffset.emplace_back(tensors.front()->offset[i] + tensors.front()->shape[i]);
     }

@@ -29,8 +29,8 @@ TEST_F(OnBoardIFATest, test_32_128_sub_32_1) {
     uint64_t outputSize = outCap * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("SUB") {
-        std::vector<int> shape1 = {32, 128};
-        std::vector<int> shape2 = {32, 1};
+        std::vector<int64_t> shape1 = {32, 128};
+        std::vector<int64_t> shape2 = {32, 1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outCap);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", 32 * 1);
         Program::GetInstance().GetTileShape().SetVecTileShapes({16, 64});
@@ -61,8 +61,8 @@ TEST_F(OnBoardIFATest, test_32_1_sub_32_1) {
     uint64_t outputSize = outCap * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("SUB") {
-        std::vector<int> shape1 = {32, 1};
-        std::vector<int> shape2 = {32, 1};
+        std::vector<int64_t> shape1 = {32, 1};
+        std::vector<int64_t> shape2 = {32, 1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outCap);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", outCap);
         Program::GetInstance().GetTileShape().SetVecTileShapes({16, 1});
@@ -93,8 +93,8 @@ TEST_F(OnBoardIFATest, test_32_512_add_32_1) {
     uint64_t outputSize = outCap * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("ADD") {
-        std::vector<int> shape1 = {32, 512};
-        std::vector<int> shape2 = {32, 1};
+        std::vector<int64_t> shape1 = {32, 512};
+        std::vector<int64_t> shape2 = {32, 1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outCap);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", 32 * 1);
         Program::GetInstance().GetTileShape().SetVecTileShapes({16, 64});
@@ -126,8 +126,8 @@ TEST_F(OnBoardIFATest, test_32_1_mul_32_1) {
     uint64_t outputSize = outCap * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("MUL") {
-        std::vector<int> shape1 = {32, 1};
-        std::vector<int> shape2 = {32, 1};
+        std::vector<int64_t> shape1 = {32, 1};
+        std::vector<int64_t> shape2 = {32, 1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outCap);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", outCap);
         Program::GetInstance().GetTileShape().SetVecTileShapes({16, 1});
@@ -158,8 +158,8 @@ TEST_F(OnBoardIFATest, test_32_512_mul_32_1) {
     uint64_t outputSize = outCap * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("MUL") {
-        std::vector<int> shape1 = {32, 512};
-        std::vector<int> shape2 = {32, 512};
+        std::vector<int64_t> shape1 = {32, 512};
+        std::vector<int64_t> shape2 = {32, 512};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outCap);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", outCap);
         Program::GetInstance().GetTileShape().SetVecTileShapes({32, 256});
@@ -192,7 +192,7 @@ TEST_F(OnBoardIFATest, test_32_128_tileop_exp) {
     uint64_t outputSize = outCap * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("EXP") {
-        std::vector<int> shape = {32, 128};
+        std::vector<int64_t> shape = {32, 128};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outCap);
         Program::GetInstance().GetTileShape().SetVecTileShapes({8, 32});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
@@ -221,7 +221,7 @@ TEST_F(OnBoardIFATest, test_32_1_tileop_exp) {
     uint64_t outputSize = outCap * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("EXP") {
-        std::vector<int> shape = {32, 1};
+        std::vector<int64_t> shape = {32, 1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outCap);
         Program::GetInstance().GetTileShape().SetVecTileShapes({8, 1});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
@@ -250,8 +250,8 @@ TEST_F(OnBoardIFATest, test_32_1_maximum) {
     uint64_t outputSize = outCap * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("Max") {
-        std::vector<int> shape1 = {32, 1};
-        std::vector<int> shape2 = {32, 1};
+        std::vector<int64_t> shape1 = {32, 1};
+        std::vector<int64_t> shape2 = {32, 1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outCap);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", outCap);
         Program::GetInstance().GetTileShape().SetVecTileShapes({8, 1});
@@ -282,7 +282,7 @@ TEST_F(OnBoardIFATest, test_32_1_reciprocal) {
     uint64_t outputSize = outCap * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("Max") {
-        std::vector<int> shape1 = {32, 1};
+        std::vector<int64_t> shape1 = {32, 1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outCap);
         Program::GetInstance().GetTileShape().SetVecTileShapes({8, 1});
         Tensor input_a(DataType::DT_FP32, shape1, (uint8_t *)x_ptr, "A");
@@ -310,8 +310,8 @@ TEST_F(OnBoardIFATest, test_operation_32_128_row_max_single) {
 
     int shape0 = 32;
     int shape1 = 128;
-    std::vector<int> shape = {shape0, shape1};
-    std::vector<int> outshape = {shape0, 1};
+    std::vector<int64_t> shape = {shape0, shape1};
+    std::vector<int64_t> outshape = {shape0, 1};
     int inputCapacity = shape0 * shape1;
     int outputCapacity = shape0 * 1;
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -346,8 +346,8 @@ TEST_F(OnBoardIFATest, test_operation_32_128_row_sum_single) {
 
     int shape0 = 32;
     int shape1 = 128;
-    std::vector<int> shape = {shape0, shape1};
-    std::vector<int> outshape = {shape0, 1};
+    std::vector<int64_t> shape = {shape0, shape1};
+    std::vector<int64_t> outshape = {shape0, 1};
     int inputCapacity = shape0 * shape1;
     int outputCapacity = shape0 * 1;
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -387,9 +387,9 @@ TEST_F(OnBoardIFATest, test_concat_32_512_32_64) {
     uint64_t outputSize = outCap * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
 
-    std::vector<int> shape1 = {32, 512};
-    std::vector<int> shape2 = {32, 64};
-    std::vector<int> outShape = {32, 576};
+    std::vector<int64_t> shape1 = {32, 512};
+    std::vector<int64_t> shape2 = {32, 64};
+    std::vector<int64_t> outShape = {32, 576};
     PROGRAM("CONCAT") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", shape1Cap);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", shape2Cap);
@@ -424,8 +424,8 @@ TEST_F(OnBoardIFATest, test_concat_32_tensor) {
     uint64_t outputSize = outCap * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
 
-    std::vector<int> shape = {32, 512};
-    std::vector<int> outShape = {32 * 32, 512};
+    std::vector<int64_t> shape = {32, 512};
+    std::vector<int64_t> outShape = {32 * 32, 512};
     PROGRAM("CONCAT") {
         void* x_ptr[32];
         std::vector<Tensor> inputTensors(32);

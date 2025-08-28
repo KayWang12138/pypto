@@ -97,7 +97,7 @@ void SymbolicExpressionTable::SetTitleOnce(const std::string &title) {
 }
 
 std::string SymbolicExpressionTable::BuildExpression(const SymbolicScalar &ss) {
-    return BuildExpression(ss.Raw());    
+    return BuildExpression(ss.Raw());
 }
 
 std::string SymbolicExpressionTable::BuildExpression(const RawSymbolicScalarPtr &ss) {
@@ -203,7 +203,7 @@ std::string SymbolicExpressionTable::BuildExpressionList() const {
         oss << "#define " << std::left << std::setw(INDENT) << exprNameTempVarFlag << 0 << "\n";
         oss << "#define " << std::left << std::setw(INDENT) << exprNameTempVar << "tempVar_" << elementKey_ << "_" << index << "\n";
         oss << "#define " << std::left << std::setw(INDENT) << exprNameCalc << calc << "\n";
-        oss << "#if     " << exprNameTempVarFlag << "\n";        
+        oss << "#if     " << exprNameTempVarFlag << "\n";
         oss << "#define " << std::left << std::setw(INDENT) << exprNameTempVarInit << "int64_t " << exprNameTempVar << " = " << exprNameCalc << "\n";
         oss << "#define " << std::left << std::setw(INDENT) << exprNameGet << exprNameTempVar << "\n";
         oss << "#else /*" << exprNameTempVarFlag << " */\n";
@@ -522,8 +522,8 @@ SymbolicScalar::SymbolicScalar(RawSymbolicScalarPtr raw) : raw_(raw) {
     }
 }
 
-std::vector<int> SymbolicScalar::Concrete(const std::vector<SymbolicScalar> &scalarList, int64_t defValue) {
-    std::vector<int> concreteList;
+std::vector<int64_t> SymbolicScalar::Concrete(const std::vector<SymbolicScalar> &scalarList, int64_t defValue) {
+    std::vector<int64_t> concreteList;
     for (auto &s : scalarList) {
         if (s.ConcreteValid()) {
             concreteList.push_back(s.Concrete());
@@ -534,7 +534,7 @@ std::vector<int> SymbolicScalar::Concrete(const std::vector<SymbolicScalar> &sca
     return concreteList;
 }
 
-std::vector<SymbolicScalar> SymbolicScalar::FromConcrete(const std::vector<int> &values) {
+std::vector<SymbolicScalar> SymbolicScalar::FromConcrete(const std::vector<int64_t> &values) {
     std::vector<SymbolicScalar> result;
     for (auto x : values) {
         result.push_back(SymbolicScalar(x));

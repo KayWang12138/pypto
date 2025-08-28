@@ -19,11 +19,11 @@
 using namespace tile_fwk::test_operation;
 namespace {
 struct DivOpFuncArgs : public OpFuncArgs {
-    DivOpFuncArgs(const std::vector<int> &viewShape, const std::vector<int> tileShape)
+    DivOpFuncArgs(const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
         : viewShape_(viewShape), tileShape_(tileShape) {}
 
-    std::vector<int> viewShape_;
-    std::vector<int> tileShape_;
+    std::vector<int64_t> viewShape_;
+    std::vector<int64_t> tileShape_;
 };
 
 struct DivOpMetaData {

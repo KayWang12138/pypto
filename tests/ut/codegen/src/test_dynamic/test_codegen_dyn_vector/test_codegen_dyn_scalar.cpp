@@ -44,10 +44,10 @@ public:
 };
 
 TEST_F(TestCodegenDynScalar, TestScalarAdds) {
-    std::vector<int> vecTileShape = {128, 128};
+    std::vector<int64_t> vecTileShape = {128, 128};
     int b = 2; // 32
     int s = 1; // 1, optimize set_tile
-    std::vector<int> shape{b * s, 35};
+    std::vector<int64_t> shape{b * s, 35};
 
     Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[1]);
     Tensor input(DataType::DT_FP32, shape, "input");
@@ -81,10 +81,10 @@ TEST_F(TestCodegenDynScalar, TestScalarAdds) {
 }
 
 TEST_F(TestCodegenDynScalar, TestScalarDivs) {
-    std::vector<int> vecTileShape = {128, 128, 128};
+    std::vector<int64_t> vecTileShape = {128, 128, 128};
     int b = 2; // 32
     int s = 1; // 1, optimize set_tile
-    std::vector<int> shape{s, b * s, 35};
+    std::vector<int64_t> shape{s, b * s, 35};
 
     Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[1], vecTileShape[2]);
     Tensor input(DataType::DT_FP32, shape, "input");

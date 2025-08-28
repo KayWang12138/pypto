@@ -94,7 +94,7 @@ void TileFwkFinalize();
  * 输出参数: 无
  * 返 回 值: 无
   **********************************************************************************************************/
-void TileFwkSetCubeTileShapes(const std::array<int, 2> &m, const std::vector<int> &k, const std::array<int, 2> &n);
+void TileFwkSetCubeTileShapes(const std::array<int64_t, 2> &m, const std::vector<int64_t> &k, const std::array<int64_t, 2> &n);
 
 /*************************************************************************************************************
 * 功能说明: 设置vector shape
@@ -103,7 +103,7 @@ void TileFwkSetCubeTileShapes(const std::array<int, 2> &m, const std::vector<int
 * 输出参数: 无
 * 返 回 值: 无
   **********************************************************************************************************/
-void TileFwkSetVecTileShapes(const std::vector<int> &tileShape);
+void TileFwkSetVecTileShapes(const std::vector<int64_t> &tileShape);
 
 /*************************************************************************************************************
 * 功能说明: Tensor 赋值操作 dst = src

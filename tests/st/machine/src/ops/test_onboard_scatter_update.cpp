@@ -33,9 +33,9 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_1_16_16) {
     int kvLoraRank = 8;
     int qkRopeHeadDim = 8;
 
-    std::vector<int> shape0 =  {S2, kvLoraRank + qkRopeHeadDim}; // [16, 16]
-    std::vector<int> shape1 = {1, S};
-    std::vector<int> shape2 = {S, kvLoraRank + qkRopeHeadDim}; // [1, 16]
+    std::vector<int64_t> shape0 =  {S2, kvLoraRank + qkRopeHeadDim}; // [16, 16]
+    std::vector<int64_t> shape1 = {1, S};
+    std::vector<int64_t> shape2 = {S, kvLoraRank + qkRopeHeadDim}; // [1, 16]
 
     int capacity0 = shape0[0] * shape0[1];
     int capacity1 = shape1[0] * shape1[1];
@@ -98,9 +98,9 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_1_20_20) {
     int kvLoraRank = 10;
     int qkRopeHeadDim = 10;
 
-    std::vector<int> shape0 =  {S2, kvLoraRank + qkRopeHeadDim}; // [16, 20]
-    std::vector<int> shape1 = {1, S};
-    std::vector<int> shape2 = {S, kvLoraRank + qkRopeHeadDim}; // [1, 20]
+    std::vector<int64_t> shape0 =  {S2, kvLoraRank + qkRopeHeadDim}; // [16, 20]
+    std::vector<int64_t> shape1 = {1, S};
+    std::vector<int64_t> shape2 = {S, kvLoraRank + qkRopeHeadDim}; // [1, 20]
 
     int capacity0 = shape0[0] * shape0[1];
     int capacity1 = shape1[0] * shape1[1];
@@ -164,9 +164,9 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_1_16_16_bf16) {
     int kvLoraRank = 8;
     int qkRopeHeadDim = 8;
 
-    std::vector<int> shape0 =  {S2, kvLoraRank + qkRopeHeadDim}; // [16, 16]
-    std::vector<int> shape1 = {1, S};
-    std::vector<int> shape2 = {S, kvLoraRank + qkRopeHeadDim}; // [1, 16]
+    std::vector<int64_t> shape0 =  {S2, kvLoraRank + qkRopeHeadDim}; // [16, 16]
+    std::vector<int64_t> shape1 = {1, S};
+    std::vector<int64_t> shape2 = {S, kvLoraRank + qkRopeHeadDim}; // [1, 16]
 
     int capacity0 = shape0[0] * shape0[1];
     int capacity1 = shape1[0] * shape1[1];
@@ -227,9 +227,9 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_16_16_16) {
     int kvLoraRank = 8;
     int qkRopeHeadDim = 8;
 
-    std::vector<int> shape0 =  {S2, kvLoraRank + qkRopeHeadDim}; // [16, 16]
-    std::vector<int> shape1 = {1, S};
-    std::vector<int> shape2 = {S, kvLoraRank + qkRopeHeadDim}; // [16, 16]
+    std::vector<int64_t> shape0 =  {S2, kvLoraRank + qkRopeHeadDim}; // [16, 16]
+    std::vector<int64_t> shape1 = {1, S};
+    std::vector<int64_t> shape2 = {S, kvLoraRank + qkRopeHeadDim}; // [16, 16]
 
     int capacity0 = shape0[0] * shape0[1];
     int capacity1 = shape1[0] * shape1[1];
@@ -293,9 +293,9 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_48_4096_512) {
     int kvLoraRank = 256;
     int qkRopeHeadDim = 256;
 
-    std::vector<int> shape0 =  {S2, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> shape1 = {B, S};
-    std::vector<int> shape2 = {B * S, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> shape0 =  {S2, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> shape1 = {B, S};
+    std::vector<int64_t> shape2 = {B * S, kvLoraRank + qkRopeHeadDim};
 
     int capacity0 = shape0[0] * shape0[1];
     int capacity1 = shape1[0] * shape1[1];
@@ -356,9 +356,9 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_1_16_16_exp) {
     int kvLoraRank = 8;
     int qkRopeHeadDim = 8;
 
-    std::vector<int> shape0 =  {S2, kvLoraRank + qkRopeHeadDim}; // [16, 16]
-    std::vector<int> shape1 = {1, S};
-    std::vector<int> shape2 = {S, kvLoraRank + qkRopeHeadDim}; // [1, 16]
+    std::vector<int64_t> shape0 =  {S2, kvLoraRank + qkRopeHeadDim}; // [16, 16]
+    std::vector<int64_t> shape1 = {1, S};
+    std::vector<int64_t> shape2 = {S, kvLoraRank + qkRopeHeadDim}; // [1, 16]
 
     int capacity0 = shape0[0] * shape0[1];
     int capacity1 = shape1[0] * shape1[1];
@@ -426,9 +426,9 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_2_1_512_576) {
     int kvLoraRank = 512;
     int qkRopeHeadDim = 64;
 
-    std::vector<int> shape0 =  {B, 1, S2, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> shape1 = {B, S};
-    std::vector<int> shape2 = {B, 1, S, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> shape0 =  {B, 1, S2, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> shape1 = {B, S};
+    std::vector<int64_t> shape2 = {B, 1, S, kvLoraRank + qkRopeHeadDim};
 
     int capacity0 = shape0[0] * shape0[1] * shape0[2] * shape0[3];
     int capacity1 = shape1[0] * shape1[1];
@@ -490,9 +490,9 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_2_1_512_576_multi_row3) {
     int kvLoraRank = 512;
     int qkRopeHeadDim = 64;
 
-    std::vector<int> shape0 =  {B, 1, S2, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> shape1 = {B, S};
-    std::vector<int> shape2 = {B, 1, S, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> shape0 =  {B, 1, S2, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> shape1 = {B, S};
+    std::vector<int64_t> shape2 = {B, 1, S, kvLoraRank + qkRopeHeadDim};
 
     int capacity0 = shape0[0] * shape0[1] * shape0[2] * shape0[3];
     int capacity1 = shape1[0] * shape1[1];
@@ -555,11 +555,11 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_2_1_512_576_graphD) {
     int kvLoraRank = 512;
     int qkRopeHeadDim = 64;
 
-    std::vector<int> shape0 =  {B, 1, S2, kvLoraRank + qkRopeHeadDim}; // [2,1,512,576]
-    std::vector<int> shape1 = {B, S};
-    std::vector<int> shape2 = {B, 1, S, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> shape_compress_kv = {B, S, kvLoraRank};
-    std::vector<int> shape_k_pe_rope = {B, 1, S, qkRopeHeadDim};
+    std::vector<int64_t> shape0 =  {B, 1, S2, kvLoraRank + qkRopeHeadDim}; // [2,1,512,576]
+    std::vector<int64_t> shape1 = {B, S};
+    std::vector<int64_t> shape2 = {B, 1, S, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> shape_compress_kv = {B, S, kvLoraRank};
+    std::vector<int64_t> shape_k_pe_rope = {B, 1, S, qkRopeHeadDim};
 
     int capacity0 = shape0[0] * shape0[1] * shape0[2] * shape0[3];
     int capacity1 = shape1[0] * shape1[1];
@@ -632,11 +632,11 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_2_1_512_576_graphD_bf16) {
     int kvLoraRank = 512;
     int qkRopeHeadDim = 64;
 
-    std::vector<int> shape0 =  {B, 1, S2, kvLoraRank + qkRopeHeadDim}; // [2,1,512,576]
-    std::vector<int> shape1 = {B, S};
-    std::vector<int> shape2 = {B, 1, S, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> shape_compress_kv = {B, S, kvLoraRank};
-    std::vector<int> shape_k_pe_rope = {B, 1, S, qkRopeHeadDim};
+    std::vector<int64_t> shape0 =  {B, 1, S2, kvLoraRank + qkRopeHeadDim}; // [2,1,512,576]
+    std::vector<int64_t> shape1 = {B, S};
+    std::vector<int64_t> shape2 = {B, 1, S, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> shape_compress_kv = {B, S, kvLoraRank};
+    std::vector<int64_t> shape_k_pe_rope = {B, 1, S, qkRopeHeadDim};
 
     int capacity0 = shape0[0] * shape0[1] * shape0[2] * shape0[3];
     int capacity1 = shape1[0] * shape1[1];
@@ -706,11 +706,11 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_32_1_512_576_graphD_bf16) {
     int kvLoraRank = 512;
     int qkRopeHeadDim = 64;
 
-    std::vector<int> shape0 =  {B, 1, S2, kvLoraRank + qkRopeHeadDim}; // [2,1,512,576]
-    std::vector<int> shape1 = {B, S};
-    std::vector<int> shape2 = {B, 1, S, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> shape_compress_kv = {B, S, kvLoraRank};
-    std::vector<int> shape_k_pe_rope = {B, 1, S, qkRopeHeadDim};
+    std::vector<int64_t> shape0 =  {B, 1, S2, kvLoraRank + qkRopeHeadDim}; // [2,1,512,576]
+    std::vector<int64_t> shape1 = {B, S};
+    std::vector<int64_t> shape2 = {B, 1, S, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> shape_compress_kv = {B, S, kvLoraRank};
+    std::vector<int64_t> shape_k_pe_rope = {B, 1, S, qkRopeHeadDim};
 
     int capacity0 = shape0[0] * shape0[1] * shape0[2] * shape0[3];
     int capacity1 = shape1[0] * shape1[1];
@@ -780,11 +780,11 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_32_1_512_576_graphD) {
     int kvLoraRank = 512;
     int qkRopeHeadDim = 64;
 
-    std::vector<int> shape0 =  {B, 1, S2, kvLoraRank + qkRopeHeadDim}; // [32,1,512,576]
-    std::vector<int> shape1 = {B, S};
-    std::vector<int> shape2 = {B, 1, S, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> shape_compress_kv = {B, S, kvLoraRank};
-    std::vector<int> shape_k_pe_rope = {B, 1, S, qkRopeHeadDim};
+    std::vector<int64_t> shape0 =  {B, 1, S2, kvLoraRank + qkRopeHeadDim}; // [32,1,512,576]
+    std::vector<int64_t> shape1 = {B, S};
+    std::vector<int64_t> shape2 = {B, 1, S, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> shape_compress_kv = {B, S, kvLoraRank};
+    std::vector<int64_t> shape_k_pe_rope = {B, 1, S, qkRopeHeadDim};
 
     int capacity0 = shape0[0] * shape0[1] * shape0[2] * shape0[3];
     int capacity1 = shape1[0] * shape1[1];
@@ -852,9 +852,9 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_64_7168_64_moe) {
     int kvLoraRank = 7160;
     int qkRopeHeadDim = 8;
 
-    std::vector<int> shape0 =  {S2, kvLoraRank + qkRopeHeadDim}; // [16, 16]
-    std::vector<int> shape1 = {1, S};
-    std::vector<int> shape2 = {S, kvLoraRank + qkRopeHeadDim}; // [1, 16]
+    std::vector<int64_t> shape0 =  {S2, kvLoraRank + qkRopeHeadDim}; // [16, 16]
+    std::vector<int64_t> shape1 = {1, S};
+    std::vector<int64_t> shape2 = {S, kvLoraRank + qkRopeHeadDim}; // [1, 16]
 
     int capacity0 = shape0[0] * shape0[1];
     int capacity1 = shape1[0] * shape1[1];
@@ -918,9 +918,9 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_48_4096_512_BSNZ) {
     int kvLoraRank = 256;
     int qkRopeHeadDim = 256;
 
-    std::vector<int> shape0 =  {S2, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> shape1 = {B, S};
-    std::vector<int> shape2 = {B * S, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> shape0 =  {S2, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> shape1 = {B, S};
+    std::vector<int64_t> shape2 = {B * S, kvLoraRank + qkRopeHeadDim};
 
     int capacity0 = shape0[0] * shape0[1];
     int capacity1 = shape1[0] * shape1[1];
@@ -983,9 +983,9 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_48_4096_512_BSNZ_bf16) {
     int kvLoraRank = 256;
     int qkRopeHeadDim = 256;
 
-    std::vector<int> shape0 =  {S2, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> shape1 = {B, S};
-    std::vector<int> shape2 = {B * S, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> shape0 =  {S2, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> shape1 = {B, S};
+    std::vector<int64_t> shape2 = {B * S, kvLoraRank + qkRopeHeadDim};
 
     int capacity0 = shape0[0] * shape0[1];
     int capacity1 = shape1[0] * shape1[1];

@@ -41,11 +41,11 @@ void RedeceByRankView(
     }
 
     const bool aicpuWaitFlagEnable = ConfigManager::Instance().GetDistConfig(KEY_AICPU_WAIT_FLAG_ENABLE, true);
-    std::vector<int> flagShape = {1, FLAG_TENSOR_SIZE}; // 256 byte
+    std::vector<int64_t> flagShape = {1, FLAG_TENSOR_SIZE}; // 256 byte
     // aicpu wait flag方案中，flagTensor作为控制边
     auto flagTensor = std::make_shared<LogicalTensor>(args.function, DataType::DT_INT32, flagShape);
     if (aicpuWaitFlagEnable) {
-        std::vector<int> opAttr = {args.tilingInfo.tileIndex, args.tilingInfo.groupIndex, args.tilingInfo.rankShape,
+        std::vector<int64_t> opAttr = {args.tilingInfo.tileIndex, args.tilingInfo.groupIndex, args.tilingInfo.rankShape,
             args.tilingInfo.rankOffset};
         OpArgs<TilingInfo> opArgs = {"COMM_WAIT_FLAG", {inTile}, {flagTensor}, args.tilingTensor, args.tilingSymbol,
             std::nullopt, std::make_optional(opAttr)};
@@ -86,8 +86,8 @@ void LocalReduce(
 void DealTileBelongLocal(TileArgs &args)
 {
     const auto &tileRank = args.groupInfo.rank.value();
-    std::vector<int> shape = {args.tilingInfo.rowShape, args.tilingInfo.colShape};
-    std::vector<int> offset = {args.tilingInfo.rowOffset, args.tilingInfo.colOffset};
+    std::vector<int64_t> shape = {args.tilingInfo.rowShape, args.tilingInfo.colShape};
+    std::vector<int64_t> offset = {args.tilingInfo.rowOffset, args.tilingInfo.colOffset};
     auto inTile = args.in->View(args.function, shape, offset);
     auto outTile = args.out->View(args.function, shape, offset);
 
@@ -113,33 +113,33 @@ void DealTileBelongRemote(TileArgs &args)
 {
     auto inTile = args.in->View(args.function, {args.tilingInfo.rowShape, args.tilingInfo.colShape},
         {args.tilingInfo.rowOffset, args.tilingInfo.colOffset});
-    std::vector<int> flagShape = {1, FLAG_TENSOR_SIZE}; // 256 byte
+    std::vector<int64_t> flagShape = {1, FLAG_TENSOR_SIZE}; // 256 byte
     auto flagTensor = std::make_shared<LogicalTensor>(args.function, DataType::DT_INT32, flagShape);
     OpArgs<TilingInfo> opArgs = {"WRITE_REMOTE", {inTile}, {flagTensor}, args.tilingTensor, args.tilingSymbol,
         std::make_optional(args.tilingInfo), std::nullopt};
     (void)AddOperation(args.function, opArgs);
 }
 
-inline std::vector<int> GetRsOutShape(const Tensor &in, int rankSize)
+inline std::vector<int64_t> GetRsOutShape(const Tensor &in, int rankSize)
 {
     return {in->shape[0] / rankSize, in->shape[1]};
 }
 
-inline std::vector<int> GetRsOutShape(const std::vector<Tensor> &in, int rankSize)
+inline std::vector<int64_t> GetRsOutShape(const std::vector<Tensor> &in, int rankSize)
 {
     (void)rankSize;
     return in[0]->GetShape();
 }
 
-inline Tensor GetInTensorView(const std::vector<Tensor> &in, const std::vector<int>& outShape, int rankIndex)
+inline Tensor GetInTensorView(const std::vector<Tensor> &in, const std::vector<int64_t>& outShape, int rankIndex)
 {
     (void)outShape;
     return in[rankIndex];
 }
 
-inline Tensor GetInTensorView(const Tensor &in, const std::vector<int>& outShape, int rankIndex)
+inline Tensor GetInTensorView(const Tensor &in, const std::vector<int64_t>& outShape, int rankIndex)
 {
-    std::vector<int> offset = {rankIndex * outShape[0], 0};
+    std::vector<int64_t> offset = {rankIndex * outShape[0], 0};
     return View(in, outShape, offset);
 }
 
@@ -203,7 +203,7 @@ Tensor ReduceScatterImpl(const T &in, const char *group, DistReduceType reduceTy
     CheckAndGetTileInfo(rowPerRank, colPerRank, tileShape, tileInfo);
     auto &function = *Program::GetInstance().GetCurrentFunction();
     int tilingTensorSize = GetTilingTensorSize(tileInfo, groupInfo);
-    std::vector<int> tilingShape = {1, tilingTensorSize};
+    std::vector<int64_t> tilingShape = {1, tilingTensorSize};
     const std::string tilingSymbol = function.GetDistTilingManager()->CreateTilingStorage("reducescatter",
         tilingShape[1]);
     Tensor tilingTensor(DataType::DT_INT32, tilingShape, tilingSymbol);

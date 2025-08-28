@@ -178,7 +178,7 @@ static std::vector<Tensor> GetTensors(const nlohmann::json &json_data, bool is_i
     std::vector<Tensor> tensors;
     auto key = is_input ? "input_tensors" : "output_tensors";
     for (const auto &tensor_config : json_data.at(key)) {
-        auto shape = tensor_config.at("shape").get<std::vector<int>>();
+        auto shape = tensor_config.at("shape").get<std::vector<int64_t>>();
         auto dtype = GetDataType(tensor_config.at("dtype").get<std::string>());
         auto name = tensor_config.at("name").get<std::string>();
         tensors.push_back(Tensor(dtype, shape, name));
@@ -194,7 +194,7 @@ static std::vector<Tensor> GetTensors(const nlohmann::json &json_data, bool is_i
     std::cout << "Create Matmul Tensors For " << json_data << std::endl;
     std::vector<Tensor> tensors;
     for (const auto &tensor_config : json_data.at(key)) {
-        auto shape = tensor_config.at("shape").get<std::vector<int>>();
+        auto shape = tensor_config.at("shape").get<std::vector<int64_t>>();
         auto dtype = GetDataType(tensor_config.at("dtype").get<std::string>());
         auto name = tensor_config.at("name").get<std::string>();
         auto format = tensor_config.at("format").get<std::string>();
@@ -223,22 +223,22 @@ T GetValueByName(const nlohmann::json &json_data, const std::string &name) {
     return data.at(name).get<T>();
 }
 
-[[maybe_unused]] static std::vector<int> GetViewShape(const nlohmann::json &json_data) {
-    return GetValueByName<std::vector<int>>(json_data, "view_shape");
+[[maybe_unused]] static std::vector<int64_t> GetViewShape(const nlohmann::json &json_data) {
+    return GetValueByName<std::vector<int64_t>>(json_data, "view_shape");
 }
 
-[[maybe_unused]] static std::vector<int> GetTileShape(const nlohmann::json &json_data) {
-    return GetValueByName<std::vector<int>>(json_data, "tile_shape");
+[[maybe_unused]] static std::vector<int64_t> GetTileShape(const nlohmann::json &json_data) {
+    return GetValueByName<std::vector<int64_t>>(json_data, "tile_shape");
 }
 
 [[maybe_unused]] static int GetFuncId(const nlohmann::json &json_data) {
     return GetValueByName<int>(json_data, "func_id");
 }
 
-[[maybe_unused]] static std::vector<std::vector<int>> GetMatmulTileShape(const nlohmann::json &json_data) {
-    std::vector<std::vector<int>> tileShape;
+[[maybe_unused]] static std::vector<std::vector<int64_t>> GetMatmulTileShape(const nlohmann::json &json_data) {
+    std::vector<std::vector<int64_t>> tileShape;
     for (const auto &shape : json_data["tile_shape"]) {
-        std::vector<int> tile;
+        std::vector<int64_t> tile;
         for (const auto &num : shape) {
             tile.push_back(num);
         }

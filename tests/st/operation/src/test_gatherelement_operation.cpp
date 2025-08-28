@@ -18,11 +18,11 @@
 using namespace tile_fwk::test_operation;
 namespace {
 struct GatherElementOpFuncArgs : public OpFuncArgs {
-    GatherElementOpFuncArgs(const std::vector<int> &viewShape, const std::vector<int> tileShape, int axis)
+    GatherElementOpFuncArgs(const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape, int axis)
         : viewShape_(viewShape), tileShape_(tileShape), axis_(axis) {}
 
-    std::vector<int> viewShape_;
-    std::vector<int> tileShape_;
+    std::vector<int64_t> viewShape_;
+    std::vector<int64_t> tileShape_;
     int axis_;
 };
 
@@ -56,7 +56,7 @@ static void GatherElementOperationExeFunc2Dims(
                     {std::min(src_firstDim - bIdx * firstViewShape, firstViewShape),
                         std::min(src_secondDim - sIdx * secondViewShape, secondViewShape)},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
-                auto tileTensor1 = DViewPad(inputs[1], {firstViewShape, secondViewShape}, 
+                auto tileTensor1 = DViewPad(inputs[1], {firstViewShape, secondViewShape},
                     {std::min(idx_firstDim - bIdx * firstViewShape, firstViewShape),
                         std::min(idx_secondDim - sIdx * secondViewShape, secondViewShape)},
                     {bIdx * firstViewShape, sIdx * secondViewShape});

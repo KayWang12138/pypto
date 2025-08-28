@@ -75,6 +75,7 @@ target_sources(tile_fwk_calculator PRIVATE
 target_compile_definitions(tile_fwk_calculator
 PRIVATE
     -D_GLIBCXX_USE_CXX11_ABI=${TORCH_ABI_VERSION}
+    -D__DEVICE__
 PUBLIC
     -DENABLE_VERIFIER=1
 )

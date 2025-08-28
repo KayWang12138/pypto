@@ -49,10 +49,10 @@ TEST_F(TestCodegenGather, TestGather) {
     constexpr const int D = 64;
     constexpr const int B = 1;
     constexpr const int S = 32;
-    std::vector<int> shape0 = {S2, D};
-    std::vector<int> shape1 = {B, S};
+    std::vector<int64_t> shape0 = {S2, D};
+    std::vector<int64_t> shape1 = {B, S};
     int axis = 0;
-    std::vector<int> shape2 = {B, S, D};
+    std::vector<int64_t> shape2 = {B, S, D};
 
     Program::GetInstance().GetTileShape().SetVecTileShapes({1, GATHER_SHAPE0, GATHER_SHAPE1});
 
@@ -77,8 +77,8 @@ TEST_F(TestCodegenGather, TestGatherEle) {
     constexpr const int32_t S = 1;
     constexpr const int32_t B = 2;
 
-    std::vector<int> inputShape = {B * S, nRoutedExperts};
-    std::vector<int> outputShape = {B * S, numExpertsPerTopk};
+    std::vector<int64_t> inputShape = {B * S, nRoutedExperts};
+    std::vector<int64_t> outputShape = {B * S, numExpertsPerTopk};
     Program::GetInstance().GetTileShape().SetVecTileShapes({GATHER_SHAPE0, GATHER_SHAPE1});
     Tensor inputScores(DT_FP32, inputShape, "input_scores");
     Tensor inputTmpScores(DT_FP32, inputShape, "input_tmp_scores");

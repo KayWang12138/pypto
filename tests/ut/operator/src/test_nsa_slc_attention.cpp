@@ -74,11 +74,11 @@ void TestSaUT(std::vector<int> &input_param, SaTileShapeConfig& tileConfig, SaCo
 
     TileOpFormat kvFormat = config.isNzFormat ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
 
-    std::vector<int> qNopeShape = {b * sq * nq, dn};
-    std::vector<int> qRopeShape = {b * sq * nq, dr};
-    std::vector<int> kSlcShape = {b * sq * nkv * smax, dn + dr};
-    std::vector<int> vSlcShape = {b * sq * nkv * smax, dn};
-    std::vector<int> saOutShape = {b, sq, nq, dn};
+    std::vector<int64_t> qNopeShape = {b * sq * nq, dn};
+    std::vector<int64_t> qRopeShape = {b * sq * nq, dr};
+    std::vector<int64_t> kSlcShape = {b * sq * nkv * smax, dn + dr};
+    std::vector<int64_t> vSlcShape = {b * sq * nkv * smax, dn};
+    std::vector<int64_t> saOutShape = {b, sq, nq, dn};
 
     Tensor actSeqs(DT_INT32, {b, sq}, "actSeqs");
     Tensor qNope(dType, qNopeShape, "qNope");

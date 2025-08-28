@@ -107,11 +107,11 @@ void TileFwkFinalize() {
     Program::GetInstance().Reset();
 }
 
-void TileFwkSetVecTileShapes(const std::vector<int> &tileShape) {
+void TileFwkSetVecTileShapes(const std::vector<int64_t> &tileShape) {
     Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
 }
 
-void TileFwkSetCubeTileShapes(const std::array<int, 2> &m, const std::vector<int> &k, const std::array<int, 2> &n) {
+void TileFwkSetCubeTileShapes(const std::array<int64_t, 2> &m, const std::vector<int64_t> &k, const std::array<int64_t, 2> &n) {
     Program::GetInstance().GetTileShape().SetCubeTileShapes(m, k, n);
 }
 

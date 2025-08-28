@@ -32,64 +32,56 @@ private:
     struct ViewOp {
         std::shared_ptr<LogicalTensor> input;
         std::shared_ptr<LogicalTensor> output;
-        std::vector<int32_t> offset;
+        std::vector<int64_t> offset;
         std::vector<SymbolicScalar> dynOffset;
         std::vector<SymbolicScalar> dynValidShape;
     };
     struct AssembleOp {
         std::shared_ptr<LogicalTensor> input;
         std::shared_ptr<LogicalTensor> output;
-        std::vector<int32_t> offset;
+        std::vector<int64_t> offset;
         std::vector<SymbolicScalar> dynOffset;
     };
     Status RunOnFunction(Function &function) override;
     // View chain processing methods
     Status MergeViewChain(Function &function, Operation &operation, std::vector<Operation *> &chain);
-    
-    void InitOperationChain(Operation &operation, 
-                           std::vector<Operation *> &chain);
-    
+
+    void InitOperationChain(Operation &operation, std::vector<Operation *> &chain);
+
     Status ProcessConsumerChain(Function &function,
                               const std::set<Operation*, LogicalTensor::CompareOp>& consumers,
                               std::vector<Operation *> &chain,
                               bool &chainEnd);
-    
+
     Status ProcessChainEnd(Function &function,
                          std::vector<Operation *> &chain);
-    
-    Status CalculateMergedOffsets(const std::vector<Operation *> &chain,
-                                std::vector<int32_t> &newOffset,
-                                std::vector<SymbolicScalar> &newDynOffset,
-                                std::vector<SymbolicScalar> &newDynValidShape);
-    
+
+    Status CalculateMergedOffsets(const std::vector<Operation *> &chain, std::vector<int64_t> &newOffset,
+        std::vector<SymbolicScalar> &newDynOffset, std::vector<SymbolicScalar> &newDynValidShape);
+
     void RecordMergedViewOperation(const std::shared_ptr<LogicalTensor> &startTensor,
-                                 const std::shared_ptr<LogicalTensor> &endTensor,
-                                 const std::vector<int32_t> &newOffset,
-                                 const std::vector<SymbolicScalar> &newDynOffset,
-                                const std::vector<SymbolicScalar> &newDynValidShape);
+        const std::shared_ptr<LogicalTensor> &endTensor, const std::vector<int64_t> &newOffset,
+        const std::vector<SymbolicScalar> &newDynOffset, const std::vector<SymbolicScalar> &newDynValidShape);
 
     // Assemble chain processing methods
     Status MergeAssembleChain(Function &function, Operation &operation, std::vector<Operation *> &chain);
-    void InitAssembleChain(Operation &operation, 
-                          std::vector<Operation *> &chain);
-    
+    void InitAssembleChain(Operation &operation, std::vector<Operation *> &chain);
+
     Status ProcessAssembleConsumers(Function &function,
                                   const std::set<Operation*, LogicalTensor::CompareOp>& consumers,
                                   std::vector<Operation *> &chain,
                                   bool &chainEnd);
-    
+
     Status ProcessAssembleChainEnd(Function &function,
                                  std::vector<Operation *> &chain,
                                  Operation &operation);
-    
-    std::pair<std::vector<int32_t>, std::vector<SymbolicScalar>> 
-    CalculateAssembleOffsets(const std::vector<Operation *> &chain,
-                            size_t offsetSize);
-    
+
+    std::pair<std::vector<int64_t>, std::vector<SymbolicScalar>> CalculateAssembleOffsets(
+        const std::vector<Operation *> &chain, size_t offsetSize);
+
     void RecordAssembleOperation(const std::shared_ptr<LogicalTensor> &input,
-                               const std::shared_ptr<LogicalTensor> &output,
-                               const std::vector<int32_t> &offset,
-                               const std::vector<SymbolicScalar> &dynOffset);
+        const std::shared_ptr<LogicalTensor> &output, const std::vector<int64_t> &offset,
+        const std::vector<SymbolicScalar> &dynOffset);
 
     // Common methods
     Status Initialize();

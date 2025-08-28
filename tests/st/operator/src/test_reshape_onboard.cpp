@@ -28,7 +28,7 @@ TEST_F(OnBoardTest, test_operation_gm_reshape) {
     uint64_t outputSize = capacity_8_8_8 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("DIV") {
-        std::vector<int> shape = {8, 8, 8};
+        std::vector<int64_t> shape = {8, 8, 8};
         void *x_r_ptr = readToDev(GetGoldenDir() + "/reshapegm_x_r.bin", capacity_8_8_8);
         // void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_8_8);
         void *y_ptr = readToDev(GetGoldenDir() + "/reshapegm_y.bin", capacity_8_8_8);
@@ -65,7 +65,7 @@ TEST_F(OnBoardTest, test_operation_ub_reshape) {
     uint64_t outputSize = capacity_8_8_8 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("DIV") {
-        std::vector<int> shape = {8, 8, 16};
+        std::vector<int64_t> shape = {8, 8, 16};
         void *x_r_ptr = readToDev(GetGoldenDir() + "/reshapeub_x_r.bin", capacity_8_8_8);
         // void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_8_8);
         void *y_ptr = readToDev(GetGoldenDir() + "/reshapeub_y.bin", capacity_8_8_8);
@@ -102,7 +102,7 @@ TEST_F(OnBoardTest, test_operation_gm_reshape_2dimto3dim) {
     uint64_t outputSize = capacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("DIV") {
-        std::vector<int> shape = {16, 8 ,8};
+        std::vector<int64_t> shape = {16, 8 ,8};
         void *x_r_ptr = readToDev(GetGoldenDir() + "/reshapeub_x_r.bin", capacity);
         // void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity);
         void *y_ptr = readToDev(GetGoldenDir() + "/reshapeub_y.bin", capacity);
@@ -139,7 +139,7 @@ TEST_F(OnBoardTest, test_operation_ub_reshape_3dimto2dim) {
     uint64_t outputSize = capacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("DIV") {
-        std::vector<int> shape = {32, 64};
+        std::vector<int64_t> shape = {32, 64};
         void *x_r_ptr = readToDev(GetGoldenDir() + "/reshapeub_x_r.bin", capacity);
         // void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity);
         void *y_ptr = readToDev(GetGoldenDir() + "/reshapeub_y.bin", capacity);
@@ -176,7 +176,7 @@ TEST_F(OnBoardTest, test_operation_ub_withoutreshape_3dimto2dim) {
     uint64_t outputSize = capacity_8_8_8 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("DIV") {
-        std::vector<int> shape = {16, 64};
+        std::vector<int64_t> shape = {16, 64};
         void *x_r_ptr = readToDev(GetGoldenDir() + "/reshapeub_x_r.bin", capacity_8_8_8);
         // void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_8_8);
         void *y_ptr = readToDev(GetGoldenDir() + "/reshapeub_y.bin", capacity_8_8_8);
@@ -214,9 +214,9 @@ TEST_F(OnBoardTest, test_reshape_matmul_mul) {
     int n = 64;
     int a_size = m * k;
     int c_size = m * n;
-    std::vector<int> a_shape = {m, k};
-    std::vector<int> b_shape = {k, n};
-    std::vector<int> c_shape = {m, n};
+    std::vector<int64_t> a_shape = {m, k};
+    std::vector<int64_t> b_shape = {k, n};
+    std::vector<int64_t> c_shape = {m, n};
     std::vector<float> golden(c_size);
     void *a_r_ptr = readToDev(GetGoldenDir() + "/a_r.bin", a_size);
     void *b_ptr = readToDev(GetGoldenDir() + "/b.bin", a_size);

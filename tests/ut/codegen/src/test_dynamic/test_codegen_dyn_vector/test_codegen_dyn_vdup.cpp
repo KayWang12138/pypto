@@ -44,7 +44,7 @@ public:
 };
 
 TEST_F(TestCodegenDynVdup, TestDynVdupUnaligned) {
-    std::vector<int> shape{2, 256, 7};
+    std::vector<int64_t> shape{2, 256, 7};
     Element src(DataType::DT_FP32, 2.0);
 
     Program::GetInstance().GetTileShape().SetVecTileShapes({1, 256, 16});

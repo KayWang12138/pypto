@@ -29,9 +29,9 @@ void TestNZFormat(int bs, int m, int k, int n) {
     const int capacity_mat_b = bs * k * n;
     const int capacity_mat_c = bs * m * n;
 
-    std::vector<int> shape_a = {m, k};
-    std::vector<int> shape_b = { k, n};
-    std::vector<int> shape_c = { m, n};
+    std::vector<int64_t> shape_a = {m, k};
+    std::vector<int64_t> shape_b = { k, n};
+    std::vector<int64_t> shape_c = { m, n};
 
     void *mat_a_ptr = readToDev<__uint16_t>(GetGoldenDir() + "/mat_a.bin", capacity_mat_a);
     void *mat_b_ptr = readToDev<__uint16_t>(GetGoldenDir() + "/mat_b.bin", capacity_mat_b);
@@ -102,16 +102,16 @@ void TestNZFormatBatch(int bs, int m, int k, int n) {
     const int capacity_mat_a = bs * m * k;
     const int capacity_mat_b = bs * k * n;
     const int capacity_mat_c = bs * m * n;
-    std::vector<int> batch_shape_a = {bs*m, k};
+    std::vector<int64_t> batch_shape_a = {bs*m, k};
     auto nLen = isTransB ? bs * n : bs * k;
     auto kLen = isTransB ? k : n;
-    std::vector<int> batch_shape_b = {nLen, kLen};
-    std::vector<int> batch_shape_c = {bs*m, n};
+    std::vector<int64_t> batch_shape_b = {nLen, kLen};
+    std::vector<int64_t> batch_shape_c = {bs*m, n};
 
-    std::vector<int> shape_a = {m, k};
+    std::vector<int64_t> shape_a = {m, k};
     nLen = isTransB ? n : k;
-    std::vector<int> shape_b = {nLen, kLen};
-    std::vector<int> shape_c = { m, n};
+    std::vector<int64_t> shape_b = {nLen, kLen};
+    std::vector<int64_t> shape_c = { m, n};
 
     void *mat_a_ptr = readToDev<__uint16_t>(GetGoldenDir() + "/mat_a.bin", capacity_mat_a);
     void *mat_b_ptr = readToDev<__uint16_t>(GetGoldenDir() + "/mat_b.bin", capacity_mat_b);
@@ -129,13 +129,13 @@ void TestNZFormatBatch(int bs, int m, int k, int n) {
         Tensor matC(outputType, batch_shape_c, mat_c_ptr, "MatC");
         std::vector<Tensor> matrixVec;
         FUNCTION("BATCHMATMUL", FunctionType::STATIC, {matA, matB, matC}) {
-            std::vector<std::pair<Tensor, std::vector<int>>> assembleVec;
+            std::vector<std::pair<Tensor, std::vector<int64_t>>> assembleVec;
             for (size_t index = 0; index < (size_t)bs; ++index) {
                 auto inputA = View(matA, {m, k}, {(int)index*m, 0});
                 auto inputB = isTransB ? View(matB, {n, k}, {(int)index*n, 0}) : View(matB, {k, n}, {(int)index*k, 0});
                 Program::GetInstance().GetMatrixSize().SetMatrixSize({m, k, n});
                 auto outTensor = npu::tile_fwk::Matrix::Matmul<false, isTransB>(outputType, inputA, inputB);
-                std::vector<int> pairSecond = {(int)index * m, 0};
+                std::vector<int64_t> pairSecond = {(int)index * m, 0};
                 auto pair = std::make_pair(outTensor, pairSecond);
                 assembleVec.emplace_back(pair);
             }
@@ -170,9 +170,9 @@ void TestNZFormatACC(int bs, int m, int k, int n) {
     const int capacity_mat_b = bs * k * n;
     const int capacity_mat_c = bs * m * n;
 
-    std::vector<int> shape_a = {m, k};
-    std::vector<int> shape_b = { k, n};
-    std::vector<int> shape_c = { m, n};
+    std::vector<int64_t> shape_a = {m, k};
+    std::vector<int64_t> shape_b = { k, n};
+    std::vector<int64_t> shape_c = { m, n};
 
     void *mat_a_ptr = readToDev<__uint16_t>(GetGoldenDir() + "/mat_a.bin", capacity_mat_a);
     void *mat_b_ptr = readToDev<__uint16_t>(GetGoldenDir() + "/mat_b.bin", capacity_mat_b);

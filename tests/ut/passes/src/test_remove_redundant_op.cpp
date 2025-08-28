@@ -69,8 +69,8 @@ TEST_F(RemoveRedundantOpTest, TestIntermediateOutcast) {
     int bs = 1;
     int n = 32;
     int d = 128;
-    std::vector<int> shape{bs, n, d};
-    std::vector<int> resShape{bs, n, d};
+    std::vector<int64_t> shape{bs, n, d};
+    std::vector<int64_t> resShape{bs, n, d};
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
     {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
@@ -136,8 +136,8 @@ TEST_F(RemoveRedundantOpTest, TestInternalAssembleView) {
     int bs = 4;
     int n = 32;
     int d = 128;
-    std::vector<int> shape{bs, n, d};
-    std::vector<int> resShape{bs, n, d};
+    std::vector<int64_t> shape{bs, n, d};
+    std::vector<int64_t> resShape{bs, n, d};
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
     {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},

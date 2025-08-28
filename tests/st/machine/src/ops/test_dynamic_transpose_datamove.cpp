@@ -34,8 +34,8 @@ TEST_F(DynamicDatamoveTest, TestDynamicDatamove) {
     int b = 1;
     int sq = 32;
     int d = 64;
-    std::vector<int> shape = {b * n, sq, d};
-    std::vector<int> outShape = {b * sq, n, d};
+    std::vector<int64_t> shape = {b * n, sq, d};
+    std::vector<int64_t> outShape = {b * sq, n, d};
 
     Tensor input(DT_FP32, shape, "input");
     Tensor actSeqs(DT_INT32, {b, 1}, "actual_seq");

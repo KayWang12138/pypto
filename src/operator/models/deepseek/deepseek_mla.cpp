@@ -304,7 +304,7 @@ std::tuple<Tensor, Tensor> DeepseekAttention::QkvPreFp32(Tensor hiddenStates) {
     Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_32, NUM_128);
     Tensor qAProjNormFp32 = RmsNorm(qAProjFp32);  // fp32
 
-    std::vector<int> tileShape = {NUM_32, NUM_128};
+    std::vector<int64_t> tileShape = {NUM_32, NUM_128};
     Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
     Tensor qAProjNorm = Cast(qAProjNormFp32, dType);  // bf16
 
@@ -544,7 +544,7 @@ std::tuple<Tensor, Tensor> DeepseekAttention::MlaPrologAbForward(Tensor hiddenSt
 
     //dequant int32 -> fp32  -> *scale  -> fp16/bf16
     if (isQuant) {
-        std::vector<int> tileShape = {std::min(NUM_32, bs), NUM_64};
+        std::vector<int64_t> tileShape = {std::min(NUM_32, bs), NUM_64};
         Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
         auto qTmpFp32 = Cast(q, DataType::DT_FP32);
         auto qTmpScaleDequant = qKv[2];
@@ -557,7 +557,7 @@ std::tuple<Tensor, Tensor> DeepseekAttention::MlaPrologAbForward(Tensor hiddenSt
     /******** q ********/
     Tensor qNope = View(qTmp, {b, s, numHeads, qkNopeHeadDim}, {0, 0, 0, 0}); // [b,s,n,qkNopeHeadDim]
 
-    std::vector<int> tileShape = {NUM_2, 1, NUM_32, NUM_128};
+    std::vector<int64_t> tileShape = {NUM_2, 1, NUM_32, NUM_128};
     Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
     Tensor qNopeR = Reshape(qNope, {bs, numHeads, qkNopeHeadDim}); // [bs,n,qkNopeHeadDim]
     tileShape = {NUM_2, NUM_32, qkNopeHeadDim};
@@ -600,7 +600,7 @@ std::vector<Tensor> DeepseekAttention::MlaPrologFoward(Tensor hiddenStates, Tens
 
     //dequant int32 -> fp32  -> *scale  -> fp16/bf16
     if (isQuant) {
-        std::vector<int> tileShape = {std::min(NUM_32, bs), NUM_64};
+        std::vector<int64_t> tileShape = {std::min(NUM_32, bs), NUM_64};
         Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
         auto qTmpFp32 = Cast(q, DataType::DT_FP32);
         auto qTmpScaleDequant = qKv[2];
@@ -613,7 +613,7 @@ std::vector<Tensor> DeepseekAttention::MlaPrologFoward(Tensor hiddenStates, Tens
 
     /******** q ********/
     Tensor qNope = View(qTmp, {b, s, numHeads, qkNopeHeadDim}, {0, 0, 0, 0}); // [b,s,n,qkNopeHeadDim]
-    std::vector<int> tileShape = {NUM_32, 1, 1, NUM_128};
+    std::vector<int64_t> tileShape = {NUM_32, 1, 1, NUM_128};
     Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
     Tensor qNopeR = Reshape(qNope, {bs, numHeads, qkNopeHeadDim}); // [bs,n,qkNopeHeadDim]
     tileShape = {NUM_2, NUM_32, qkNopeHeadDim};

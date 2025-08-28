@@ -174,8 +174,8 @@ TEST_F(NewCacheTest, TestFunctionCacheReadyFunction) {
 TEST_F(NewCacheTest, TestFunctionCacheTopo) {
     // 测试有2个TOPO的场景
     Function func1(Program::GetInstance(), "", "", nullptr);
-    SubfuncTopologyInfoTy::Entry entry1 = {1, -1, setType({1, 2, 3, 4, 5}), 0, 0, std::vector<int>({})};
-    SubfuncTopologyInfoTy::Entry entry2 = {100, -2, setType({10, 11, 12}), 0, 0, std::vector<int>({})};
+    SubfuncTopologyInfoTy::Entry entry1 = {1, -1, setType({1, 2, 3, 4, 5}), 0, 0, std::vector<int64_t>({})};
+    SubfuncTopologyInfoTy::Entry entry2 = {100, -2, setType({10, 11, 12}), 0, 0, std::vector<int64_t>({})};
     func1.topoInfo_.topology_.push_back(entry1);
     func1.topoInfo_.topology_.push_back(entry2);
 

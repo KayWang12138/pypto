@@ -40,7 +40,7 @@ private:
     // force combine axis
     Status ForceCombineAxis(Function &func) const;
     bool IsNeedSave(const Operation &op) const;
-    void CombineTailAxis(std::vector<int> &shape, size_t shapeSize) const;
+    void CombineTailAxis(std::vector<int64_t> &shape, size_t shapeSize) const;
     Status ProcessAxis(Operation &op, std::vector<bool> attr, bool isInput) const;
 };
 

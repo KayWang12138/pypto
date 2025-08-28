@@ -41,8 +41,8 @@ void TestReduceScatter(OpTestParam &testParam)
     uint8_t *outPtr = allocDevAddr(outByteSize);
     ALOG_INFO_F("before REDUCESCATTER [%d, %d], rankSize=%d, outPtr=%p", M, N, testParam.rankSize, outPtr);
     PROGRAM("REDUCESCATTER") {
-        std::vector<int32_t> inShape = {M, N};
-        std::vector<int32_t> outShape = {outM, N};
+        std::vector<int64_t> inShape = {M, N};
+        std::vector<int64_t> outShape = {outM, N};
 
         void *xPtr = readToDev(GetGoldenDir() + "/input_rank_"+ std::to_string(testParam.rankId) + ".bin",
             inSize * dTypeSize / sizeof(float));
@@ -83,8 +83,8 @@ void TestReduceScatterEx(OpTestParam &testParam)
     uint8_t *outPtr = allocDevAddr(outByteSize);
     ALOG_INFO_F("before REDUCESCATTER [%d, %d], rankSize=%d, outPtr=%p", M, N, testParam.rankSize, outPtr);
     PROGRAM("REDUCESCATTEREX") {
-        std::vector<int32_t> inShape = {outM, N};
-        std::vector<int32_t> outShape = {outM, N};
+        std::vector<int64_t> inShape = {outM, N};
+        std::vector<int64_t> outShape = {outM, N};
 
         void *xPtr = readToDev(GetGoldenDir() + "/input_rank_"+ std::to_string(testParam.rankId) + ".bin",
             M * N * dTypeSize / sizeof(float));

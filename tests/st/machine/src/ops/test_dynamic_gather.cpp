@@ -34,9 +34,9 @@ TEST_F(DynamicGatherTest, TestDynamicGatherDim2) {
     int b = 2;
     int sq = 128;
     int d = 64;
-    std::vector<int> qShape = {s1, d};
-    std::vector<int> indicesShape = {b * sq};
-    std::vector<int> outShape = {b * sq, d};
+    std::vector<int64_t> qShape = {s1, d};
+    std::vector<int64_t> indicesShape = {b * sq};
+    std::vector<int64_t> outShape = {b * sq, d};
 
     Tensor q(DT_FP32, qShape, "q");
     Tensor indices(DT_INT32, indicesShape, "indices");
@@ -89,9 +89,9 @@ TEST_F(DynamicGatherTest, TestDynamicGatherDim3) {
     int sq = 32;
     int d = 64;
     int s2 = 2;
-    std::vector<int> qShape = {s1, d};
-    std::vector<int> indicesShape = {b * sq, s2};
-    std::vector<int> outShape = {b * sq, s2, d};
+    std::vector<int64_t> qShape = {s1, d};
+    std::vector<int64_t> indicesShape = {b * sq, s2};
+    std::vector<int64_t> outShape = {b * sq, s2, d};
 
     Tensor q(DT_FP32, qShape, "q");
     Tensor indices(DT_INT32, indicesShape, "indices");

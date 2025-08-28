@@ -30,7 +30,7 @@ using namespace npu::tile_fwk::dynamic;
 class DynamicCmpKvSel : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 template <typename T>
-static std::vector<T> getGoldenVec(std::vector<int> shape, std::string fileName) {
+static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileName) {
     int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     std::vector<T> golden(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, golden);

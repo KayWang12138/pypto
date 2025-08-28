@@ -47,7 +47,7 @@ TEST_F(GetParamIdxTest, TestAdd) {
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
 
     // Prepare the graph
-    std::vector<int> shape = {8, 16};
+    std::vector<int64_t> shape = {8, 16};
     auto shapeImme = OpImmediate::Specified(shape);
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto incast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -98,7 +98,7 @@ TEST_F(GetParamIdxTest, TestAddExp) {
     rootGraphPtr->rootFunc_->programs_.emplace(subGraphPtr0->GetFuncMagic(), subGraphPtr0.get());
     rootGraphPtr->rootFunc_->programs_.emplace(subGraphPtr1->GetFuncMagic(), subGraphPtr1.get());
     // Prepare the graph
-    std::vector<int> shape = {8, 16};
+    std::vector<int64_t> shape = {8, 16};
     auto shapeImme = OpImmediate::Specified(shape);
     auto incast1 = std::make_shared<LogicalTensor>(*subGraphPtr0, DT_FP32, shape);
     auto incast2 = std::make_shared<LogicalTensor>(*subGraphPtr0, DT_FP32, shape);

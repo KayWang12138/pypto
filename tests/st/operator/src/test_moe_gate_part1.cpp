@@ -46,10 +46,10 @@ TEST_F(MoEGatePart1OnBoardTest, test_moe_gate_part1) {
     assert(out_score_ptr!=nullptr && out_score4choice_ptr!=nullptr);
 
     // set prepare shape
-    std::vector<int> input_e_score_bias_shape = {1, nRoutedExperts};
-    std::vector<int> input_hidden_state_shape = {B, S, H};
-    std::vector<int> input_weight_shape = {nRoutedExperts, H};
-    std::vector<int> output_shape = {B*S, nRoutedExperts};
+    std::vector<int64_t> input_e_score_bias_shape = {1, nRoutedExperts};
+    std::vector<int64_t> input_hidden_state_shape = {B, S, H};
+    std::vector<int64_t> input_weight_shape = {nRoutedExperts, H};
+    std::vector<int64_t> output_shape = {B*S, nRoutedExperts};
 
     // process
     PROGRAM("MOE_GATE_PART1") {

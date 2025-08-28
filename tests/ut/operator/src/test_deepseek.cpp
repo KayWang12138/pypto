@@ -47,7 +47,7 @@ void pre() {
 }
 
 TEST_F(FunctionTest, TestAddTensorFunctionDim4) {
-    std::vector<int> shape{2,2,32,32};
+    std::vector<int64_t> shape{2,2,32,32};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor b(DT_FP32, shape, "b");
@@ -66,7 +66,7 @@ TEST_F(FunctionTest, TestAddTensorFunctionDim4) {
 }
 
 TEST_F(FunctionTest, TestAddTensorFunctionDim2) {
-    std::vector<int> shape{16,16};
+    std::vector<int64_t> shape{16,16};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor b(DT_FP32, shape, "b");
@@ -90,11 +90,11 @@ TEST_F(FunctionTest, TestOperationRopeV2Deepseekv3B32) {
     int S = 1;                 // IFA S=1 S=1024
     int qkRopeHeadDim = 64; // qkRopeHeadDim = 64
 
-    std::vector<int> qPeShape{B, S, N, qkRopeHeadDim};
-    std::vector<int> kPeShape{B, S, 1, qkRopeHeadDim};
-    std::vector<int> cosSinShape{B, S, qkRopeHeadDim};
-    std::vector<int> qEmbedShape{B, S, N, qkRopeHeadDim};
-    std::vector<int> kEmbedShape{B, S, 1, qkRopeHeadDim};
+    std::vector<int64_t> qPeShape{B, S, N, qkRopeHeadDim};
+    std::vector<int64_t> kPeShape{B, S, 1, qkRopeHeadDim};
+    std::vector<int64_t> cosSinShape{B, S, qkRopeHeadDim};
+    std::vector<int64_t> qEmbedShape{B, S, N, qkRopeHeadDim};
+    std::vector<int64_t> kEmbedShape{B, S, 1, qkRopeHeadDim};
 
     Tensor q(DT_FP32, qPeShape, "q");
     Tensor k(DT_FP32, kPeShape, "k");
@@ -128,8 +128,8 @@ TEST_F(FunctionTest, test_fa_new) {
     int dim1 = d;         // 128
     int capacity = dim0 * dim1;
     int capacity_reduce = dim0 * 1;
-    std::vector<int> shape = {dim0, dim1};
-    std::vector<int> shape_reduce = {dim0, 1};
+    std::vector<int64_t> shape = {dim0, dim1};
+    std::vector<int64_t> shape_reduce = {dim0, 1};
     std::vector<uint16_t> q_data(capacity);
     std::vector<uint16_t> k_data(capacity);
     std::vector<uint16_t> v_data(capacity);
@@ -152,7 +152,7 @@ TEST_F(FunctionTest, test_fa_new) {
 }
 
 TEST_F(FunctionTest, TestSubTensorFunctionDim2) {
-    std::vector<int> shape{64,64};
+    std::vector<int64_t> shape{64,64};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor b(DT_FP32, shape, "b");
@@ -171,7 +171,7 @@ TEST_F(FunctionTest, TestSubTensorFunctionDim2) {
 }
 
 TEST_F(FunctionTest, TestMulTensorFunctionDim2) {
-    std::vector<int> shape{64,64};
+    std::vector<int64_t> shape{64,64};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor b(DT_FP32, shape, "b");
@@ -190,7 +190,7 @@ TEST_F(FunctionTest, TestMulTensorFunctionDim2) {
 }
 
 TEST_F(FunctionTest, TestDivTensorFunctionDim2) {
-    std::vector<int> shape{64,64};
+    std::vector<int64_t> shape{64,64};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor b(DT_FP32, shape, "b");
@@ -209,7 +209,7 @@ TEST_F(FunctionTest, TestDivTensorFunctionDim2) {
 }
 
 TEST_F(FunctionTest, TestAddScalarFunctionDim2) {
-    std::vector<int> shape{64,64};
+    std::vector<int64_t> shape{64,64};
 
     Tensor a(DT_FP32, shape, "a");
     Element value(DataType::DT_FP32, 1.5);
@@ -229,7 +229,7 @@ TEST_F(FunctionTest, TestAddScalarFunctionDim2) {
 }
 
 TEST_F(FunctionTest, TestAddScalarFunctionDim3) {
-    std::vector<int> shape{64,64,64};
+    std::vector<int64_t> shape{64,64,64};
 
     Tensor a(DT_FP32, shape, "a");
     Element value(DataType::DT_FP32, 1.5);
@@ -249,7 +249,7 @@ TEST_F(FunctionTest, TestAddScalarFunctionDim3) {
 }
 
 TEST_F(FunctionTest, TestSubScalarFunctionDim2) {
-    std::vector<int> shape{64,64};
+    std::vector<int64_t> shape{64,64};
 
     Tensor a(DT_FP32, shape, "a");
     Element value(DataType::DT_FP32, 1.5);
@@ -269,7 +269,7 @@ TEST_F(FunctionTest, TestSubScalarFunctionDim2) {
 }
 
 TEST_F(FunctionTest, TestMulScalarFunctionDim2) {
-    std::vector<int> shape{64,64};
+    std::vector<int64_t> shape{64,64};
 
     Tensor a(DT_FP32, shape, "a");
     Element value(DataType::DT_FP32, 1.5);
@@ -289,7 +289,7 @@ TEST_F(FunctionTest, TestMulScalarFunctionDim2) {
 }
 
 TEST_F(FunctionTest, TestDivScalarFunctionDim2) {
-    std::vector<int> shape{64,64};
+    std::vector<int64_t> shape{64,64};
 
     Tensor a(DT_FP32, shape, "a");
     Element value(DataType::DT_FP32, 1.5);
@@ -309,7 +309,7 @@ TEST_F(FunctionTest, TestDivScalarFunctionDim2) {
 }
 
 TEST_F(FunctionTest, TestExpTensorFunctionDim2) {
-    std::vector<int> shape{64,64};
+    std::vector<int64_t> shape{64,64};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor c;
@@ -325,8 +325,8 @@ TEST_F(FunctionTest, TestExpTensorFunctionDim2) {
 }
 
 TEST_F(FunctionTest, TestReduce) {
-    // std::vector<int> shape{100, 100, 100};
-    std::vector<int> shape = {64, 64, 64, 64};
+    // std::vector<int64_t> shape{100, 100, 100};
+    std::vector<int64_t> shape = {64, 64, 64, 64};
     // Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32, 32, 32);
 
     Tensor b, c;
@@ -342,7 +342,7 @@ TEST_F(FunctionTest, TestSin) {
     Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 4, 4});
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    std::vector<int> shape1 = {1, 2, 8, 8};
+    std::vector<int64_t> shape1 = {1, 2, 8, 8};
     Tensor input(DT_FP16, shape1, "input");
     Tensor res;
 
@@ -358,7 +358,7 @@ TEST_F(FunctionTest, TestCos) {
     Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 4, 4});
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    std::vector<int> shape1 = {1, 2, 8, 8};
+    std::vector<int64_t> shape1 = {1, 2, 8, 8};
     Tensor input(DT_FP32, shape1, "input");
     Tensor res;
 
@@ -372,8 +372,8 @@ TEST_F(FunctionTest, TestCos) {
 
 TEST_F(FunctionTest, TestTranspose_BNSD_BSND) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-    std::vector<int> shape{3, 32, 64, 2};
-    // std::vector<int> transposeShape{1, 2};
+    std::vector<int64_t> shape{3, 32, 64, 2};
+    // std::vector<int64_t> transposeShape{1, 2};
     Tensor a(DT_FP32, shape, "a");
 
     Program::GetInstance().GetTileShape().SetVecTileShapes(1, 16, 16, 2);
@@ -390,11 +390,11 @@ TEST_F(FunctionTest, TestGatherAxis0Indices1) {
     // tile graph
      config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    std::vector<int> shape1 = {16, 1024};
-    // std::vector<int> shape1 = {16, 256};
-    // std::vector<int> shape1 = {16, 128};
-    std::vector<int> shape2 = {1, 64};
-    // std::vector<int> resShape = {1, 64, 128};
+    std::vector<int64_t> shape1 = {16, 1024};
+    // std::vector<int64_t> shape1 = {16, 256};
+    // std::vector<int64_t> shape1 = {16, 128};
+    std::vector<int64_t> shape2 = {1, 64};
+    // std::vector<int64_t> resShape = {1, 64, 128};
     int axis = 0;
     Tensor params(DT_FP32, shape1, "params");
     Tensor indices(DT_INT32, shape2, "indices");
@@ -411,9 +411,9 @@ TEST_F(FunctionTest, TestGatherAxis0Indices2) {
     Program::GetInstance().GetTileShape().SetVecTileShapes(32, 128);
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    std::vector<int> shape1 = {16, 512};
-    std::vector<int> shape2 = {64};
-    // std::vector<int> resShape = {64, 512};
+    std::vector<int64_t> shape1 = {16, 512};
+    std::vector<int64_t> shape2 = {64};
+    // std::vector<int64_t> resShape = {64, 512};
     int axis = 0;
     Tensor params(DT_FP32, shape1, "params");
     Tensor indices(DT_INT32, shape2, "indices");
@@ -430,9 +430,9 @@ TEST_F(FunctionTest, TestTensorIndex) {
     Program::GetInstance().GetTileShape().SetVecTileShapes(1, 16, 16);
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    std::vector<int> shape1 = {32, 32};
-    std::vector<int> shape2 = {1, 32};
-    // std::vector<int> resShape = {8, 64, 512};
+    std::vector<int64_t> shape1 = {32, 32};
+    std::vector<int64_t> shape2 = {1, 32};
+    // std::vector<int64_t> resShape = {8, 64, 512};
     Tensor params(DT_BF16, shape1, "params");
     Tensor indices(DT_INT32, shape2, "indices");
 
@@ -448,9 +448,9 @@ TEST_F(FunctionTest, TestGatherElementAxis1Indices2) {
     Program::GetInstance().GetTileShape().SetVecTileShapes(8, 64);
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    std::vector<int> shape1 = {32, 512};
-    std::vector<int> shape2 = {16,64};
-    // std::vector<int> resShape = {16,64};
+    std::vector<int64_t> shape1 = {32, 512};
+    std::vector<int64_t> shape2 = {16,64};
+    // std::vector<int64_t> resShape = {16,64};
     int axis = 1;
     Tensor params(DT_FP32, shape1, "params");
     Tensor indices(DT_INT32, shape2, "indices");
@@ -469,9 +469,9 @@ TEST_F(FunctionTest, TestGatherElementAxis0Indices2) {
     Program::GetInstance().GetTileShape().SetVecTileShapes(16, 32);
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    std::vector<int> shape1 = {32, 512};
-    std::vector<int> shape2 = {16,64};
-    // std::vector<int> resShape = {16,64};
+    std::vector<int64_t> shape1 = {32, 512};
+    std::vector<int64_t> shape2 = {16,64};
+    // std::vector<int64_t> resShape = {16,64};
     int axis = 0;
     Tensor params(DT_FP32, shape1, "params");
     Tensor indices(DT_INT32, shape2, "indices");
@@ -543,7 +543,7 @@ TEST_F(FunctionTest, TestScatterUpdate3) {
 }
 
 TEST_F(FunctionTest, TestExp) {
-    std::vector<int> shape{64, 64};
+    std::vector<int64_t> shape{64, 64};
     FUNCTION("A") {
         Tensor a(DT_FP32, shape, "a");
         a = Exp(a);
@@ -551,7 +551,7 @@ TEST_F(FunctionTest, TestExp) {
 }
 
 TEST_F(FunctionTest, TestExp2) {
-    std::vector<int> shape{64, 64};
+    std::vector<int64_t> shape{64, 64};
     FUNCTION("A") {
         Tensor a(DT_FP32, shape, "a");
         FUNCTION("B") {
@@ -565,10 +565,10 @@ TEST_F(FunctionTest, testRowSumSingle) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 32, 32);
-    std::vector<int> tshape = {2, 2, 64, 64};
+    std::vector<int64_t> tshape = {2, 2, 64, 64};
 
     // Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
-    // std::vector<int> tshape = {64, 64};
+    // std::vector<int64_t> tshape = {64, 64};
 
     Tensor T(DT_FP32, tshape, "T");
     Tensor c, d;
@@ -586,7 +586,7 @@ TEST_F(FunctionTest, testRowMaxSingle) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 32, 32);
-    std::vector<int> tshape = {1, 4, 64, 64};
+    std::vector<int64_t> tshape = {1, 4, 64, 64};
 
     Tensor T(DT_FP32, tshape, "T");
     Tensor d;
@@ -603,7 +603,7 @@ TEST_F(FunctionTest, testSoftmax) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 32, 32);
-    std::vector<int> tshape = {2, 2, 64, 64};
+    std::vector<int64_t> tshape = {2, 2, 64, 64};
 
     Tensor T(DT_FP32, tshape, "T");
     Tensor d;
@@ -645,10 +645,10 @@ TEST_F(FunctionTest, TestRoPE) {
     int s = 1;
     int d = 64;
 
-    std::vector<int> qShape{b, n, s, d};
-    std::vector<int> kShape{b, 1, s, d};
-    std::vector<int> idsShape{b, s};
-    std::vector<int> cosShape{s, d};
+    std::vector<int64_t> qShape{b, n, s, d};
+    std::vector<int64_t> kShape{b, 1, s, d};
+    std::vector<int64_t> idsShape{b, s};
+    std::vector<int64_t> cosShape{s, d};
 
     Tensor q(DT_BF16, qShape, "q");
     Tensor k(DT_BF16, kShape, "k");
@@ -682,13 +682,13 @@ TEST_F(FunctionTest, TestRoPEDeepseekV3) {
     int S = 1;                 // IFA S=1 S=1024
     int qkRopeHeadDim = 64; // qkRopeHeadDim = 64
 
-    std::vector<int> qPeShape{B, S, N, qkRopeHeadDim};
-    std::vector<int> kPeShape{B, S, qkRopeHeadDim};
-    std::vector<int> idsShape{B, S};
-    std::vector<int> cosShape{S, qkRopeHeadDim};
+    std::vector<int64_t> qPeShape{B, S, N, qkRopeHeadDim};
+    std::vector<int64_t> kPeShape{B, S, qkRopeHeadDim};
+    std::vector<int64_t> idsShape{B, S};
+    std::vector<int64_t> cosShape{S, qkRopeHeadDim};
 
-    std::vector<int> qEmbedShape{B, N, S, qkRopeHeadDim};
-    std::vector<int> kEmbedShape{B, 1, S, qkRopeHeadDim};
+    std::vector<int64_t> qEmbedShape{B, N, S, qkRopeHeadDim};
+    std::vector<int64_t> kEmbedShape{B, 1, S, qkRopeHeadDim};
 
     Tensor qPe(DT_BF16, qPeShape, "qPe");
     Tensor kPe(DT_BF16, kPeShape, "kPe");
@@ -721,7 +721,7 @@ TEST_F(FunctionTest, testRmsNormNewMultiDims) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
     Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 8, 8);
     // Create some tensors (these would be created from elsewhere in your code)
-    std::vector<int> tshape = {2, 2, 24, 24};
+    std::vector<int64_t> tshape = {2, 2, 24, 24};
 
     Tensor T(DT_FP32, tshape, "T");
 
@@ -736,8 +736,8 @@ TEST_F(FunctionTest, TestConcat) {
     Program::GetInstance().GetTileShape().SetVecTileShapes(16, 6, 6, 6);
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    std::vector<int> shape1 = {10, 10, 10, 10};
-    std::vector<int> shape2 = {20, 10, 10, 10};
+    std::vector<int64_t> shape1 = {10, 10, 10, 10};
+    std::vector<int64_t> shape2 = {20, 10, 10, 10};
     int axis = 0;
     Tensor params1(DT_FP32, shape1, "params1");
     Tensor params2(DT_FP32, shape2, "params2");
@@ -789,7 +789,7 @@ TEST_F(FunctionTest, TestAttentionPost_cv) {
     int d = std::get<int>(attnPostConfig["kvLoraRank"]);
     int v_head = std::get<int>(attnPostConfig["vHeadDim"]);
     int h = std::get<int>(attnPostConfig["hiddenSize"]);
-    std::vector<int> inShape = {b, n, s, d}; // (b, n, s, d) = 2_32_1_512
+    std::vector<int64_t> inShape = {b, n, s, d}; // (b, n, s, d) = 2_32_1_512
     Tensor attnPostIn(DT_FP32, inShape, "attnPostIn");
     Tensor kvBProjWV(DT_FP32, {n, d, v_head}, "kvBProjWV"); // 32_512_128
     Tensor oProjW(DT_FP32, {n * v_head, h}, "oProjW"); // 32*128_512
@@ -837,7 +837,7 @@ TEST_F(FunctionTest, TestAttentionPostFinal) {
     int kvLoraRank = 512;
     int vHeadDim =128;
     int h = 7168; //  7168
-    std::vector<int> inShape = {b, n, s, kvLoraRank}; // (b, n, s, d)
+    std::vector<int64_t> inShape = {b, n, s, kvLoraRank}; // (b, n, s, d)
     Tensor attnPostIn(DT_BF16, inShape, "attnPostIn");
     Tensor atten_output;
     AttentionW aw;
@@ -859,7 +859,7 @@ TEST_F(FunctionTest, TestAttentionPost) {
     int d = 512;
     int v_head =128;
     int h = 256;
-    std::vector<int> inShape = {b, n, s, d}; // (b, n, s, d)
+    std::vector<int64_t> inShape = {b, n, s, d}; // (b, n, s, d)
     Tensor attnPostIn(DT_FP32, inShape, "attnPostIn");
     Tensor kvBProjWV(DT_FP32, {n, d, v_head}, "kvBProjWV");
     Tensor oProjW(DT_FP32, {n * v_head, h}, "oProjW");
@@ -1144,8 +1144,8 @@ TEST_F(FunctionTest, Test_deepseekAttention_pre) {
 
 TEST_F(FunctionTest, TestBMMtest) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-    std::vector<int> shape_a{2, 1, 256};
-    std::vector<int> shape_b{1, 256, 512};
+    std::vector<int64_t> shape_a{2, 1, 256};
+    std::vector<int64_t> shape_b{1, 256, 512};
     Tensor a(DT_FP16, shape_a, "a");
     Tensor b(DT_FP16, shape_b, "b");
     Tensor c;
@@ -1159,8 +1159,8 @@ TEST_F(FunctionTest, TestBMMtest) {
 
 TEST_F(FunctionTest, TestBMMtest2) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-    std::vector<int> shape_a{2, 1, 256};
-    std::vector<int> shape_b{1, 512, 256};
+    std::vector<int64_t> shape_a{2, 1, 256};
+    std::vector<int64_t> shape_b{1, 512, 256};
     Tensor a(DT_FP16, shape_a, "a");
     Tensor b(DT_FP16, shape_b, "b");
     Tensor c;
@@ -1302,7 +1302,7 @@ TEST_F(FunctionTest, Test_deepseekMoE) {
 TEST_F(FunctionTest, Test_quant) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    std::vector<int> vecTileShape  = {128, 128};
+    std::vector<int64_t> vecTileShape  = {128, 128};
     int b = 32;  // 32
     int s = 1;  // 1, optimize set_tile
     int h = 7168;
@@ -1324,7 +1324,7 @@ TEST_F(FunctionTest, Test_quant) {
 TEST_F(FunctionTest, Test_ScalarOp) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    std::vector<int> shape = {128, 32};
+    std::vector<int64_t> shape = {128, 32};
     Program::GetInstance().GetTileShape().SetVecTileShapes({128, 32});
     Tensor input_a(DT_FP32, shape, "A");
     auto output = Tensor(DT_FP32, shape, "res"); // std::make_tuple(Tensor(DT_FP32, shape, "res"), Tensor(DT_FP32, shape, "resDics"));
@@ -1341,8 +1341,8 @@ TEST_F(FunctionTest, Test_ScalarOp) {
 
 TEST_F(FunctionTest, TestPad) {
 
-    std::vector<int> shape{8, 16};
-    std::vector<int> newShape{8, 24};
+    std::vector<int64_t> shape{8, 16};
+    std::vector<int64_t> newShape{8, 24};
     Tensor a(DT_FP32, shape, "a");
     Tensor b;
     Program::GetInstance().GetTileShape().SetVecTileShapes(8, 8);
@@ -1356,7 +1356,7 @@ TEST_F(FunctionTest, TestPad) {
 TEST_F(FunctionTest, Test_quantMM) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    std::vector<int> vecTileShape  = {32, 512};
+    std::vector<int64_t> vecTileShape  = {32, 512};
     int m = 128;
     int k = 16384;
     int n = 7168;
@@ -1376,8 +1376,8 @@ TEST_F(FunctionTest, Test_quantMM) {
 
 TEST_F(FunctionTest, TestRmsNorm) {
 
-    std::vector<int> shapea{8, 16};
-    std::vector<int> shapeb{16};
+    std::vector<int64_t> shapea{8, 16};
+    std::vector<int64_t> shapeb{16};
     Tensor a(DT_FP32, shapea, "a");
     Tensor b(DT_FP32, shapeb, "b");
     Tensor c;
@@ -1390,7 +1390,7 @@ TEST_F(FunctionTest, TestRmsNorm) {
 
 TEST_F(FunctionTest, dynamic_pa_low_lantency) {
 
-    std::vector<int> input_param = {4, 1, 32, 1, 512, 64, 128, 32};
+    std::vector<int64_t> input_param = {4, 1, 32, 1, 512, 64, 128, 32};
     int b = input_param[0];
     int sq = input_param[1];
     int nq = input_param[2];
@@ -1483,29 +1483,29 @@ void TestMlaPrologV2(const SimpleParams &params) {
     bool isQuant = std::is_same<wDtype, int8_t>::value;
     DataType dTypeQuant = isQuant ? DT_INT8 : dType;
 
-    std::vector<int> x_shape = {b, s, h};
-    std::vector<int> wDqShape = {h, qLoraRank};
-    std::vector<int> wUqQrShape = {qLoraRank, n * q_head_dim};
-    std::vector<int> wDkvKrShape = {h, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> wUkShape = {n, qkNopeHeadDim, kvLoraRank};
-    std::vector<int> cos_shape = {b, s, qkRopeHeadDim};
-    std::vector<int> gamma_cq_shape = {qLoraRank};
-    std::vector<int> gamma_ckv_shape = {kvLoraRank};
-    std::vector<int> kv_len_shape = {b, s};
-    std::vector<int> kv_cache_shape = {b, 1, s2, kvLoraRank};
-    std::vector<int> kr_cache_shape = {b, 1, s2, qkRopeHeadDim};
+    std::vector<int64_t> x_shape = {b, s, h};
+    std::vector<int64_t> wDqShape = {h, qLoraRank};
+    std::vector<int64_t> wUqQrShape = {qLoraRank, n * q_head_dim};
+    std::vector<int64_t> wDkvKrShape = {h, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> wUkShape = {n, qkNopeHeadDim, kvLoraRank};
+    std::vector<int64_t> cos_shape = {b, s, qkRopeHeadDim};
+    std::vector<int64_t> gamma_cq_shape = {qLoraRank};
+    std::vector<int64_t> gamma_ckv_shape = {kvLoraRank};
+    std::vector<int64_t> kv_len_shape = {b, s};
+    std::vector<int64_t> kv_cache_shape = {b, 1, s2, kvLoraRank};
+    std::vector<int64_t> kr_cache_shape = {b, 1, s2, qkRopeHeadDim};
     if (params.cacheMode == "PA_BSND") {
         int blockNum = b * (s2 / params.blockSize);
         kv_cache_shape = {blockNum, params.blockSize, 1, kvLoraRank};
         kr_cache_shape = {blockNum, params.blockSize, 1, qkRopeHeadDim};
     }
-    std::vector<int> w_qb_scale_shape = {1, n * q_head_dim};
-    std::vector<int> smooth_cq_shape{1, qLoraRank};
+    std::vector<int64_t> w_qb_scale_shape = {1, n * q_head_dim};
+    std::vector<int64_t> smooth_cq_shape{1, qLoraRank};
     // output
-    std::vector<int> q_out_shape = {b, s, n, kvLoraRank};
-    std::vector<int> q_rope_out_shape = {b, s, n, qkRopeHeadDim};
-    std::vector<int> kv_cache_out_shape = {b, 1, s2, kvLoraRank};
-    std::vector<int> kr_cache_out_shape = {b, 1, s2, qkRopeHeadDim};
+    std::vector<int64_t> q_out_shape = {b, s, n, kvLoraRank};
+    std::vector<int64_t> q_rope_out_shape = {b, s, n, qkRopeHeadDim};
+    std::vector<int64_t> kv_cache_out_shape = {b, 1, s2, kvLoraRank};
+    std::vector<int64_t> kr_cache_out_shape = {b, 1, s2, qkRopeHeadDim};
 
     Tensor x(dType, x_shape, "x");
     TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;

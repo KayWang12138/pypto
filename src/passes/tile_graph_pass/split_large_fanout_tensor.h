@@ -56,7 +56,8 @@ private:
     void UpdateForRedundantView(Operation &op, Operation &consumer);
     void UpdateOverSizedLocalBuffer(Function &function);
 
-    std::unordered_map<int, std::vector<std::pair<std::shared_ptr<LogicalTensor>, std::vector<int>>>> copyOutSources;
+    std::unordered_map<int, std::vector<std::pair<std::shared_ptr<LogicalTensor>, std::vector<int64_t>>>>
+        copyOutSources;
     std::vector<AssembleOp> assembles;
 };
 } // namespace npu::tile_fwk

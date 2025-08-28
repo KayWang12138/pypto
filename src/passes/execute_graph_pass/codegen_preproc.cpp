@@ -61,7 +61,7 @@ Status CodegenPreproc::SaveGmTensorParamIdxToOp(Function &func) const {
     return SUCCESS;
 }
 
-void CodegenPreproc::CombineTailAxis(std::vector<int> &shape, size_t shapeSize) const {
+void CodegenPreproc::CombineTailAxis(std::vector<int64_t> &shape, size_t shapeSize) const {
     shape[shapeSize - 1] = shape[shapeSize - 1] * shape[shapeSize - NUM2];
     shape[shapeSize - NUM2] = 1;
 }

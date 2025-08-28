@@ -54,7 +54,7 @@ Tensor RmsNorm(const Tensor &operand) {
 Tensor RmsNorm(const Tensor &operand, const Tensor &gamma, float epsilon) {
     auto fp32Operand = Cast(operand, DataType::DT_FP32);
     int size = operand->shape.size();
-    std::vector<int> shape(size, 1);
+    std::vector<int64_t> shape(size, 1);
     shape[size - 1] = gamma->shape[0];
     auto gammaCast = Reshape(gamma, shape);
     auto gammaOperand = Cast(gammaCast, DataType::DT_FP32);

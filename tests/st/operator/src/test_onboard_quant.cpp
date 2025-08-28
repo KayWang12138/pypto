@@ -27,9 +27,9 @@ constexpr int VALUE128 = 128;
 
 class QuantOnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
-void TestQuant(std::vector<int>& inputShape) {
+void TestQuant(std::vector<int64_t>& inputShape) {
     int shapeDim = inputShape.size();
-    std::vector<int> scaleShape(shapeDim,0);
+    std::vector<int64_t> scaleShape(shapeDim,0);
     for (int i = 0; i < shapeDim; i++) {
         scaleShape[i] = (i == shapeDim - 1) ? 1 : inputShape[i];
     }
@@ -37,7 +37,7 @@ void TestQuant(std::vector<int>& inputShape) {
     uint64_t capacity = std::accumulate(inputShape.begin(), inputShape.end(), 1, std::multiplies<>());
     uint64_t capacityScale = std::accumulate(scaleShape.begin(), scaleShape.end(), 1, std::multiplies<>());
 
-    std::vector<int> vecTileShape  = {VALUE128, VALUE128};
+    std::vector<int64_t> vecTileShape  = {VALUE128, VALUE128};
 
     // depend on shapeDim
     switch (shapeDim) {
@@ -97,9 +97,9 @@ void TestQuant(std::vector<int>& inputShape) {
     EXPECT_EQ(ret0 && ret1, true);
 }
 
-void TestQuant3D(std::vector<int>& inputShape) {
+void TestQuant3D(std::vector<int64_t>& inputShape) {
     int shapeDim = inputShape.size();
-    std::vector<int> scaleShape(shapeDim,0);
+    std::vector<int64_t> scaleShape(shapeDim,0);
     for (int i = 0; i < shapeDim; i++) {
         scaleShape[i] = (i == shapeDim - 1) ? 1 : inputShape[i];
     }
@@ -107,7 +107,7 @@ void TestQuant3D(std::vector<int>& inputShape) {
     uint64_t capacity = std::accumulate(inputShape.begin(), inputShape.end(), 1, std::multiplies<>());
     uint64_t capacityScale = std::accumulate(scaleShape.begin(), scaleShape.end(), 1, std::multiplies<>());
 
-    std::vector<int> vecTileShape  = {VALUE8, VALUE8, VALUE32};
+    std::vector<int64_t> vecTileShape  = {VALUE8, VALUE8, VALUE32};
 
     // depend on shapeDim
     switch (shapeDim) {
@@ -167,18 +167,18 @@ void TestQuant3D(std::vector<int>& inputShape) {
     EXPECT_EQ(ret0 && ret1, true);
 }
 
-void TestQuantWithSmoothFactor(std::vector<int>& inputShape) {
+void TestQuantWithSmoothFactor(std::vector<int64_t>& inputShape) {
     int shapeDim = inputShape.size();
-    std::vector<int> scaleShape(shapeDim,0);
+    std::vector<int64_t> scaleShape(shapeDim,0);
     for (int i = 0; i < shapeDim; i++) {
         scaleShape[i] = (i == shapeDim - 1) ? 1 : inputShape[i];
     }
-    std::vector<int> smoothFactorShape = {1, inputShape[shapeDim - 1]};
+    std::vector<int64_t> smoothFactorShape = {1, inputShape[shapeDim - 1]};
     uint64_t capacity = std::accumulate(inputShape.begin(), inputShape.end(), 1, std::multiplies<>());
     uint64_t capacityScale = std::accumulate(scaleShape.begin(), scaleShape.end(), 1, std::multiplies<>());
     uint64_t capacitySmoothFactor = std::accumulate(smoothFactorShape.begin(), smoothFactorShape.end(), 1, std::multiplies<>());
 
-    std::vector<int> vecTileShape  = {VALUE32, VALUE128};
+    std::vector<int64_t> vecTileShape  = {VALUE32, VALUE128};
 
     // depend on shapeDim
     switch (shapeDim) {
@@ -239,35 +239,35 @@ void TestQuantWithSmoothFactor(std::vector<int>& inputShape) {
 }
 
 TEST_F(QuantOnBoardTest, test_Quant_32_1_7168) {
-    std::vector<int> inputShape = {32, 1, 7168};
+    std::vector<int64_t> inputShape = {32, 1, 7168};
     TestQuant(inputShape);
 }
 
 TEST_F(QuantOnBoardTest, test_Quant_32_7168) {
-   std::vector<int> inputShape = {32, 7168};
+   std::vector<int64_t> inputShape = {32, 7168};
     TestQuant(inputShape);
 }
 
 TEST_F(QuantOnBoardTest, test_Quant_Smooth_32_4_128) {
-    std::vector<int> inputShape = {32, 4, 128};
+    std::vector<int64_t> inputShape = {32, 4, 128};
     TestQuantWithSmoothFactor(inputShape);
 }
 
 TEST_F(QuantOnBoardTest, test_Quant_Smooth_32_7168) {
-   std::vector<int> inputShape = {32, 7168};
+   std::vector<int64_t> inputShape = {32, 7168};
     TestQuantWithSmoothFactor(inputShape);
 }
 
 class QuantMMOnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
-void TestQuantMM(std::vector<int>& shapeA, std::vector<int>& shapeW) {
+void TestQuantMM(std::vector<int64_t>& shapeA, std::vector<int64_t>& shapeW) {
     int dimA = shapeA.size();
     assert (dimA == DIM2);
     int m = shapeA[0];
     int k = shapeA[1];
     int n = shapeW[1];
-    std::vector<int> shapeScaleW = {1, n};
-    std::vector<int> shapeRes = {m, k};
+    std::vector<int64_t> shapeScaleW = {1, n};
+    std::vector<int64_t> shapeRes = {m, k};
     int capacityA = m * k;
     int capacityW = k * n;
     int capacityScaleW = 1 * n;
@@ -285,7 +285,7 @@ void TestQuantMM(std::vector<int>& shapeA, std::vector<int>& shapeW) {
 
     PROGRAM("QUANTMM") {
         Program::GetInstance().GetConfig().Reset();
-        std::vector<int> vecTileShape  = {VALUE32, VALUE64};
+        std::vector<int64_t> vecTileShape  = {VALUE32, VALUE64};
         Program::GetInstance().GetTileShape().SetCubeTileShapes({VALUE32, VALUE32}, {VALUE128, VALUE128}, {VALUE128, VALUE128});
         Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[1]);
         Tensor matA(DataType::DT_BF16, shapeA, (uint8_t *)matA_ptr, "MatA");
@@ -313,15 +313,15 @@ void TestQuantMM(std::vector<int>& shapeA, std::vector<int>& shapeW) {
     EXPECT_EQ(ret, true);
 }
 
-void TestQuantMM3D(std::vector<int>& shapeA, std::vector<int>& shapeW) {
+void TestQuantMM3D(std::vector<int64_t>& shapeA, std::vector<int64_t>& shapeW) {
     int dimA = shapeA.size();
     assert (dimA == DIM3);
     int m = shapeA[1];
     int k = shapeA[2];
     int n = shapeW[2];
     int b = shapeA[0];
-    std::vector<int> shapeScaleW = {b, 1, n};
-    std::vector<int> shapeRes = {b, m, n};
+    std::vector<int64_t> shapeScaleW = {b, 1, n};
+    std::vector<int64_t> shapeRes = {b, m, n};
 
     int capacityA = b * m * k;
     int capacityW = b * k * n;
@@ -368,13 +368,13 @@ void TestQuantMM3D(std::vector<int>& shapeA, std::vector<int>& shapeW) {
 }
 
 TEST_F(QuantMMOnBoardTest, test_QuantMM_32_16384_times_16384_7168_np) {
-    std::vector<int> shapeA = {32, 16384};
-    std::vector<int> shapeW = {16384, 7168};
+    std::vector<int64_t> shapeA = {32, 16384};
+    std::vector<int64_t> shapeW = {16384, 7168};
     TestQuantMM(shapeA, shapeW);
 }
 
 TEST_F(QuantMMOnBoardTest, test_QuantMM_128_32_512_times_128_512_128_torch) {
-    std::vector<int> shapeA = {128, 32, 512};
-    std::vector<int> shapeW = {128, 512, 128};
+    std::vector<int64_t> shapeA = {128, 32, 512};
+    std::vector<int64_t> shapeW = {128, 512, 128};
     TestQuantMM3D(shapeA, shapeW);
 }

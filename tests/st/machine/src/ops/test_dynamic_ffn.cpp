@@ -36,9 +36,9 @@ TEST_F(DynamicFFNTest, TestOnbroadDynamicFFN) {
     constexpr int BS = BATCH_SIZE * SEQUENCE;
     constexpr int BASIC_BATCH = 32;
     std::vector<uint8_t> devProgBinary;
-    std::vector<int> hiddenStatesShape{BS, H};
-    std::vector<int> weightShape{H, ExpertDim};
-    std::vector<int> OutShape{BS, H};
+    std::vector<int64_t> hiddenStatesShape{BS, H};
+    std::vector<int64_t> weightShape{H, ExpertDim};
+    std::vector<int64_t> OutShape{BS, H};
 
     Tensor hiddenStates(DT_FP32, hiddenStatesShape, "hiddenStates");
     Tensor ffnweight1(DT_FP16, weightShape, "weightShape1", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
@@ -91,9 +91,9 @@ TEST_F(DynamicFFNTest, TestOnbroadDynamicFFNQuant) {
     constexpr int BS = BATCH_SIZE * SEQUENCE;
     constexpr int BASIC_BATCH = 32;
     std::vector<uint8_t> devProgBinary;
-    std::vector<int> hiddenStatesShape{BS, H};
-    std::vector<int> weightShape{H, ExpertDim};
-    std::vector<int> OutShape{BS, H};
+    std::vector<int64_t> hiddenStatesShape{BS, H};
+    std::vector<int64_t> weightShape{H, ExpertDim};
+    std::vector<int64_t> OutShape{BS, H};
 
     Tensor hiddenStates(DT_INT8, hiddenStatesShape, "hiddenStates");
     Tensor hiddenStatesScale(DT_FP32, {BS, 1}, "hiddenStatesScale");

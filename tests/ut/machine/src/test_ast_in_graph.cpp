@@ -58,8 +58,8 @@ TEST(OnBoardTestAstInGraph, test_fa_all2all_128) {
     int d = atDims.d;
     int dim0 = b * n * s; // 1024
     int dim1 = d;         // 128
-    std::vector<int> shape = {dim0, dim1};
-    std::vector<int> shape_reduce = {dim0, 1};
+    std::vector<int64_t> shape = {dim0, dim1};
+    std::vector<int64_t> shape_reduce = {dim0, 1};
 
     std::string bin_path = MachineDump::PrepareBinPath();
 
@@ -105,8 +105,8 @@ TEST(OnBoardTestAstInGraph, test_fa_all2all_128_2) {
     int d = atDims.d;
     int dim0 = b * n * s; // 1024
     int dim1 = d;         // 128
-    std::vector<int> shape = {dim0, dim1};
-    std::vector<int> shape_reduce = {dim0, 1};
+    std::vector<int64_t> shape = {dim0, dim1};
+    std::vector<int64_t> shape_reduce = {dim0, 1};
 
     Program::GetInstance().GetConfig().Reset();
     Program::GetInstance().GetConfig().Set<int>(NBUFFER_MERGE_MODE, 1);

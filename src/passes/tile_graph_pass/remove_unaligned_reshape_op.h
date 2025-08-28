@@ -25,18 +25,18 @@
 #include "passes/pass_interface/pass.h"
 
 namespace npu::tile_fwk {
-    
+
 using OverlaprawMagic = int;
 struct CopyOutOpMemUnalign {
     MemoryType from;
-    std::vector<int> toOffset;
+    std::vector<int64_t> toOffset;
     std::shared_ptr<LogicalTensor> input;
     std::shared_ptr<LogicalTensor> output;
 };
 
 struct CopyInOpMemUnalign {
     MemoryType to;
-    std::vector<int> fromOffset;
+    std::vector<int64_t> fromOffset;
     std::shared_ptr<LogicalTensor> input;
     std::shared_ptr<LogicalTensor> output;
 };

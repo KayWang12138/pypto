@@ -68,9 +68,9 @@ public:
 TEST_F(InplaceProcessTest, CopyInDirectAssemble) {
     int NUM_16 = 16;
     int NUM_32 = 32;
-    std::vector<int> shape0{NUM_16, NUM_16};
-    std::vector<int> shape1{NUM_32, NUM_32};
-    std::vector<int> shape2{NUM_32, NUM_16};
+    std::vector<int64_t> shape0{NUM_16, NUM_16};
+    std::vector<int64_t> shape1{NUM_32, NUM_32};
+    std::vector<int64_t> shape2{NUM_32, NUM_16};
     ComputationalGraphBuilder G;
     G.AddTensor(DataType::DT_FP32, shape0, "a");
     auto a = G.GetTensor("a");
@@ -91,7 +91,7 @@ TEST_F(InplaceProcessTest, CopyInDirectAssemble) {
     a_ub->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
     G.AddOp(Opcode::OP_COPY_IN, {"a"}, {"a_ub"}, "Copy_In_a");
     auto copyInA =  G.GetOp("Copy_In_a");
-    std::vector<int> offsetA = {0, 0};
+    std::vector<int64_t> offsetA = {0, 0};
     auto attrCopyInA = std::make_shared<CopyOpAttribute>(
                 OpImmediate::Specified(offsetA), MemoryType::MEM_UB,
                 OpImmediate::Specified(a_ub->GetShape()), OpImmediate::Specified(a_ub->tensor->GetRawShape()));
@@ -103,7 +103,7 @@ TEST_F(InplaceProcessTest, CopyInDirectAssemble) {
     b_ub->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
     G.AddOp(Opcode::OP_COPY_IN, {"b"}, {"b_ub"}, "Copy_In_b");
     auto copyInB =  G.GetOp("Copy_In_b");
-    std::vector<int> offsetB = {0, 0};
+    std::vector<int64_t> offsetB = {0, 0};
     auto attrCopyInB = std::make_shared<CopyOpAttribute>(
                 OpImmediate::Specified(offsetB), MemoryType::MEM_UB,
                 OpImmediate::Specified(b_ub->GetShape()), OpImmediate::Specified(b_ub->tensor->GetRawShape()));
@@ -121,7 +121,7 @@ TEST_F(InplaceProcessTest, CopyInDirectAssemble) {
     c1_ub->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
     G.AddOp(Opcode::OP_COPY_IN, {"c"}, {"c1_ub"}, "Copy_In_C");
     auto copyInC =  G.GetOp("Copy_In_C");
-    std::vector<int> offsetC = {0, NUM_16};
+    std::vector<int64_t> offsetC = {0, NUM_16};
     auto attrCopyInC = std::make_shared<CopyOpAttribute>(
                 OpImmediate::Specified(offsetC), MemoryType::MEM_UB,
                 OpImmediate::Specified(c1_ub->GetShape()), OpImmediate::Specified(c1_ub->tensor->GetRawShape()));
@@ -132,13 +132,13 @@ TEST_F(InplaceProcessTest, CopyInDirectAssemble) {
     auto assembleOut = G.GetTensor("assembleOut");
     assembleOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
     G.AddOp(Opcode::OP_ASSEMBLE, {"c1_ub"}, {"assembleOut"}, "Assemble_1");
-    auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int> {16, 0});
+    auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int64_t> {16, 0});
     auto assemble1 = G.GetOp("Assemble_1");
     assemble1->SetOpAttribute(attrAssemble1);
 
     // add_out[16, 16]  --> Assemble(0, 0) --> [32, 16]
     G.AddOp(Opcode::OP_ASSEMBLE, {"add_out"}, {"assembleOut"}, "Assemble_2");
-    auto attrAssemble2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int> {0, 0});
+    auto attrAssemble2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int64_t> {0, 0});
     auto assemble2 = G.GetOp("Assemble_2");
     assemble2->SetOpAttribute(attrAssemble2);
 
@@ -149,7 +149,7 @@ TEST_F(InplaceProcessTest, CopyInDirectAssemble) {
     expOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
     G.AddOp(Opcode::OP_COPY_OUT, {"exp_out"}, {"out"}, "Copy_Out");
     auto copyOut =  G.GetOp("Copy_Out");
-    std::vector<int> offsetOut = {0, 0};
+    std::vector<int64_t> offsetOut = {0, 0};
     auto attrCopyOut = std::make_shared<CopyOpAttribute>(MemoryType::MEM_UB,
             OpImmediate::Specified(offsetOut), OpImmediate::Specified(expOut->GetShape()),
             OpImmediate::Specified(expOut->tensor->GetRawShape()));
@@ -238,22 +238,22 @@ TEST_F(InplaceProcessTest, InplaceProcessViewOnL1) {
     G.AddOp(Opcode::OP_COPY_IN, {"mat_b"}, {"l1_b"}, "L1_Copy_In_B");
     G.AddOp(Opcode::OP_VIEW, {"l1_a"}, {"l1_a_0"}, "A_OP_VIEW_0");
     auto a_op_view_0 = G.GetOp("A_OP_VIEW_0");
-    std::vector<int> offestAOpView0 = {0, 0};
+    std::vector<int64_t> offestAOpView0 = {0, 0};
     auto attrAOpView0 = std::make_shared<ViewOpAttribute>(offestAOpView0, MemoryType::MEM_L1);
     a_op_view_0->SetOpAttribute(attrAOpView0);
     G.AddOp(Opcode::OP_VIEW, {"l1_a"}, {"l1_a_1"}, "A_OP_VIEW_1");
     auto a_op_view_1 = G.GetOp("A_OP_VIEW_1");
-    std::vector<int> offestAOpView1 = {0, 64};
+    std::vector<int64_t> offestAOpView1 = {0, 64};
     auto attrAOpView1 = std::make_shared<ViewOpAttribute>(offestAOpView1, MemoryType::MEM_L1);
     a_op_view_1->SetOpAttribute(attrAOpView1);
     G.AddOp(Opcode::OP_VIEW, {"l1_b"}, {"l1_b_0"}, "B_OP_VIEW_0");
     auto b_op_view_0 = G.GetOp("B_OP_VIEW_0");
-    std::vector<int> offestBOpView0 = {0, 0};
+    std::vector<int64_t> offestBOpView0 = {0, 0};
     auto attrBOpView0 = std::make_shared<ViewOpAttribute>(offestBOpView0, MemoryType::MEM_L1);
     b_op_view_0->SetOpAttribute(attrBOpView0);
     G.AddOp(Opcode::OP_VIEW, {"l1_b"}, {"l1_b_1"}, "B_OP_VIEW_1");
     auto b_op_view_1 = G.GetOp("B_OP_VIEW_1");
-    std::vector<int> offestBOpView1 = {64, 0};
+    std::vector<int64_t> offestBOpView1 = {64, 0};
     auto attrBOpView1 = std::make_shared<ViewOpAttribute>(offestBOpView1, MemoryType::MEM_L1);
     b_op_view_1->SetOpAttribute(attrBOpView1);
     G.AddOp(Opcode::OP_L1_TO_L0A, {"l1_a_0"}, {"l0_a_0"}, "L1_To_L0A_0");
@@ -345,12 +345,12 @@ TEST_F(InplaceProcessTest, InplaceProcessAssembleOnGm) {
     // add op
     G.AddOp(Opcode::OP_ASSEMBLE, {"vec_in_0"}, {"vec_out"}, "ASSEMBLE_0");
     auto assemble0 = G.GetOp("ASSEMBLE_0");
-    std::vector<int> offestAssemble0= {0, 0};
+    std::vector<int64_t> offestAssemble0= {0, 0};
     auto attrAssemble0 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offestAssemble0);
     assemble0->SetOpAttribute(attrAssemble0);
     G.AddOp(Opcode::OP_ASSEMBLE, {"vec_in_1"}, {"vec_out"}, "ASSEMBLE_1");
     auto assemble1 = G.GetOp("ASSEMBLE_1");
-    std::vector<int> offestAssemble1= {0, 64};
+    std::vector<int64_t> offestAssemble1= {0, 64};
     auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offestAssemble1);
     assemble1->SetOpAttribute(attrAssemble1);
     // set incast and outcast
@@ -418,12 +418,12 @@ TEST_F(InplaceProcessTest, InplaceProcessAssembleOnUb) {
     G.AddOp(Opcode::OP_UB_COPY_IN, {"vec_in_1"}, {"ub_in_1"}, "UB_COPY_IN");
     G.AddOp(Opcode::OP_ASSEMBLE, {"ub_in_0"}, {"ub_out"}, "ASSEMBLE_0");
     auto assemble0 = G.GetOp("ASSEMBLE_0");
-    std::vector<int> offestAssemble0= {0, 0};
+    std::vector<int64_t> offestAssemble0= {0, 0};
     auto attrAssemble0 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, offestAssemble0);
     assemble0->SetOpAttribute(attrAssemble0);
     G.AddOp(Opcode::OP_ASSEMBLE, {"ub_in_1"}, {"ub_out"}, "ASSEMBLE_1");
     auto assemble1 = G.GetOp("ASSEMBLE_1");
-    std::vector<int> offestAssemble1= {0, 64};
+    std::vector<int64_t> offestAssemble1= {0, 64};
     auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, offestAssemble1);
     assemble1->SetOpAttribute(attrAssemble1);
     G.AddOp(Opcode::OP_UB_COPY_OUT, {"ub_out"}, {"vec_out"}, "UB_COPY_OUT");
@@ -611,22 +611,22 @@ TEST_F(InplaceProcessTest, InplaceProcessViewReshape) {
     G.AddOp(Opcode::OP_COPY_IN, {"mat_b"}, {"l1_b"}, "L1_Copy_In_B");
     G.AddOp(Opcode::OP_VIEW, {"l1_a"}, {"l1_a_0"}, "A_OP_VIEW_0");
     auto a_op_view_0 = G.GetOp("A_OP_VIEW_0");
-    std::vector<int> offestAOpView0 = {0, 0, 0};
+    std::vector<int64_t> offestAOpView0 = {0, 0, 0};
     auto attrAOpView0 = std::make_shared<ViewOpAttribute>(offestAOpView0, MemoryType::MEM_L1);
     a_op_view_0->SetOpAttribute(attrAOpView0);
     G.AddOp(Opcode::OP_VIEW, {"l1_a"}, {"l1_a_1"}, "A_OP_VIEW_1");
     auto a_op_view_1 = G.GetOp("A_OP_VIEW_1");
-    std::vector<int> offestAOpView1 = {0, 0, 16};
+    std::vector<int64_t> offestAOpView1 = {0, 0, 16};
     auto attrAOpView1 = std::make_shared<ViewOpAttribute>(offestAOpView1, MemoryType::MEM_L1);
     a_op_view_1->SetOpAttribute(attrAOpView1);
     G.AddOp(Opcode::OP_VIEW, {"l1_b"}, {"l1_b_0"}, "B_OP_VIEW_0");
     auto b_op_view_0 = G.GetOp("B_OP_VIEW_0");
-    std::vector<int> offestBOpView0 = {0, 0, 0};
+    std::vector<int64_t> offestBOpView0 = {0, 0, 0};
     auto attrBOpView0 = std::make_shared<ViewOpAttribute>(offestBOpView0, MemoryType::MEM_L1);
     b_op_view_0->SetOpAttribute(attrBOpView0);
     G.AddOp(Opcode::OP_VIEW, {"l1_b"}, {"l1_b_1"}, "B_OP_VIEW_1");
     auto b_op_view_1 = G.GetOp("B_OP_VIEW_1");
-    std::vector<int> offestBOpView1 = {0, 16, 0};
+    std::vector<int64_t> offestBOpView1 = {0, 16, 0};
     auto attrBOpView1 = std::make_shared<ViewOpAttribute>(offestBOpView1, MemoryType::MEM_L1);
     b_op_view_1->SetOpAttribute(attrBOpView1);
     G.AddOp(Opcode::OP_RESHAPE, {"l1_a_0"}, {"l1_a_2"}, "RESHAPE_0");
@@ -789,22 +789,22 @@ TEST_F(InplaceProcessTest, InplaceProcessReshapeView) {
     G.AddOp(Opcode::OP_RESHAPE, {"l1_b"}, {"l1_b_0"}, "RESHAPE_1");
     G.AddOp(Opcode::OP_VIEW, {"l1_a_0"}, {"l1_a_1"}, "A_OP_VIEW_0");
     auto a_op_view_0 = G.GetOp("A_OP_VIEW_0");
-    std::vector<int> offestAOpView0 = {0, 0};
+    std::vector<int64_t> offestAOpView0 = {0, 0};
     auto attrAOpView0 = std::make_shared<ViewOpAttribute>(offestAOpView0, MemoryType::MEM_L1);
     a_op_view_0->SetOpAttribute(attrAOpView0);
     G.AddOp(Opcode::OP_VIEW, {"l1_a_0"}, {"l1_a_2"}, "A_OP_VIEW_1");
     auto a_op_view_1 = G.GetOp("A_OP_VIEW_1");
-    std::vector<int> offestAOpView1 = {0, 64};
+    std::vector<int64_t> offestAOpView1 = {0, 64};
     auto attrAOpView1 = std::make_shared<ViewOpAttribute>(offestAOpView1, MemoryType::MEM_L1);
     a_op_view_1->SetOpAttribute(attrAOpView1);
     G.AddOp(Opcode::OP_VIEW, {"l1_b_0"}, {"l1_b_1"}, "B_OP_VIEW_0");
     auto b_op_view_0 = G.GetOp("B_OP_VIEW_0");
-    std::vector<int> offestBOpView0 = {0, 0};
+    std::vector<int64_t> offestBOpView0 = {0, 0};
     auto attrBOpView0 = std::make_shared<ViewOpAttribute>(offestBOpView0, MemoryType::MEM_L1);
     b_op_view_0->SetOpAttribute(attrBOpView0);
     G.AddOp(Opcode::OP_VIEW, {"l1_b_0"}, {"l1_b_2"}, "B_OP_VIEW_1");
     auto b_op_view_1 = G.GetOp("B_OP_VIEW_1");
-    std::vector<int> offestBOpView1 = {64, 0};
+    std::vector<int64_t> offestBOpView1 = {64, 0};
     auto attrBOpView1 = std::make_shared<ViewOpAttribute>(offestBOpView1, MemoryType::MEM_L1);
     b_op_view_1->SetOpAttribute(attrBOpView1);
     G.AddOp(Opcode::OP_L1_TO_L0A, {"l1_a_0"}, {"l0_a_0"}, "L1_To_L0A_0");
@@ -912,12 +912,12 @@ TEST_F(InplaceProcessTest, InplaceProcessAssembleReshape) {
     // add op
     G.AddOp(Opcode::OP_ASSEMBLE, {"vec_in_0"}, {"vec"}, "ASSEMBLE_0");
     auto assemble0 = G.GetOp("ASSEMBLE_0");
-    std::vector<int> offestAssemble0= {0, 0};
+    std::vector<int64_t> offestAssemble0= {0, 0};
     auto attrAssemble0 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offestAssemble0);
     assemble0->SetOpAttribute(attrAssemble0);
     G.AddOp(Opcode::OP_ASSEMBLE, {"vec_in_1"}, {"vec"}, "ASSEMBLE_1");
     auto assemble1 = G.GetOp("ASSEMBLE_1");
-    std::vector<int> offestAssemble1= {0, 64};
+    std::vector<int64_t> offestAssemble1= {0, 64};
     auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offestAssemble1);
     assemble1->SetOpAttribute(attrAssemble1);
     G.AddOp(Opcode::OP_RESHAPE, {"vec"}, {"vec_out"}, "RESHAPE");
@@ -1035,12 +1035,12 @@ TEST_F(InplaceProcessTest, InplaceProcessReshapeAssemble) {
     G.AddOp(Opcode::OP_RESHAPE, {"vec_in_1"}, {"vec_1"}, "RESHAPE_1");
     G.AddOp(Opcode::OP_ASSEMBLE, {"vec_0"}, {"vec_out"}, "ASSEMBLE_0");
     auto assemble0 = G.GetOp("ASSEMBLE_0");
-    std::vector<int> offestAssemble0= {0, 0};
+    std::vector<int64_t> offestAssemble0= {0, 0};
     auto attrAssemble0 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offestAssemble0);
     assemble0->SetOpAttribute(attrAssemble0);
     G.AddOp(Opcode::OP_ASSEMBLE, {"vec_1"}, {"vec_out"}, "ASSEMBLE_1");
     auto assemble1 = G.GetOp("ASSEMBLE_1");
-    std::vector<int> offestAssemble1= {0, 64};
+    std::vector<int64_t> offestAssemble1= {0, 64};
     auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offestAssemble1);
     assemble1->SetOpAttribute(attrAssemble1);
     // set incast and outcast
@@ -1118,32 +1118,32 @@ TEST_F(InplaceProcessTest, InplaceProcessViewAssemble) {
     // add op
     G.AddOp(Opcode::OP_VIEW, {"vec_in"}, {"vec_0"}, "OP_VIEW_0");
     auto op_view_0 = G.GetOp("OP_VIEW_0");
-    std::vector<int> offestOpView0 = {0, 0};
+    std::vector<int64_t> offestOpView0 = {0, 0};
     auto attrOpView0 = std::make_shared<ViewOpAttribute>(offestOpView0, MemoryType::MEM_DEVICE_DDR);
     op_view_0->SetOpAttribute(attrOpView0);
     G.AddOp(Opcode::OP_VIEW, {"vec_in"}, {"vec_1"}, "OP_VIEW_1");
     auto op_view_1 = G.GetOp("OP_VIEW_1");
-    std::vector<int> offestOpView1 = {0, 64};
+    std::vector<int64_t> offestOpView1 = {0, 64};
     auto attrOpView1 = std::make_shared<ViewOpAttribute>(offestOpView1, MemoryType::MEM_DEVICE_DDR);
     op_view_1->SetOpAttribute(attrOpView1);
     G.AddOp(Opcode::OP_VIEW, {"vec_in"}, {"vec_2"}, "OP_VIEW_2");
     auto op_view_2 = G.GetOp("OP_VIEW_2");
-    std::vector<int> offestOpView2 = {0, 128};
+    std::vector<int64_t> offestOpView2 = {0, 128};
     auto attrOpView2 = std::make_shared<ViewOpAttribute>(offestOpView2, MemoryType::MEM_DEVICE_DDR);
     op_view_2->SetOpAttribute(attrOpView2);
     G.AddOp(Opcode::OP_VIEW, {"vec_in"}, {"vec_3"}, "OP_VIEW_3");
     auto op_view_3 = G.GetOp("OP_VIEW_3");
-    std::vector<int> offestOpView3 = {64, 192};
+    std::vector<int64_t> offestOpView3 = {64, 192};
     auto attrBOpView3 = std::make_shared<ViewOpAttribute>(offestOpView3, MemoryType::MEM_DEVICE_DDR);
     op_view_3->SetOpAttribute(attrBOpView3);
     G.AddOp(Opcode::OP_ASSEMBLE, {"vec_0"}, {"vec_out"}, "ASSEMBLE_0");
     auto assemble0 = G.GetOp("ASSEMBLE_0");
-    std::vector<int> offestAssemble0= {0, 0};
+    std::vector<int64_t> offestAssemble0= {0, 0};
     auto attrAssemble0 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offestAssemble0);
     assemble0->SetOpAttribute(attrAssemble0);
     G.AddOp(Opcode::OP_ASSEMBLE, {"vec_2"}, {"vec_out"}, "ASSEMBLE_1");
     auto assemble1 = G.GetOp("ASSEMBLE_1");
-    std::vector<int> offestAssemble1= {0, 64};
+    std::vector<int64_t> offestAssemble1= {0, 64};
     auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offestAssemble1);
     assemble1->SetOpAttribute(attrAssemble1);
     // set incast and outcast

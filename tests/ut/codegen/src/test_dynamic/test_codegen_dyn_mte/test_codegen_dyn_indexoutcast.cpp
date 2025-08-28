@@ -56,9 +56,9 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
     int kvLoraRank = 8;
     int qkRopeHeadDim = 8;
 
-    std::vector<int> shape0 = {S2, kvLoraRank + qkRopeHeadDim}; // [16, 16]
-    std::vector<int> shape1 = {1, S};
-    std::vector<int> shape2 = {S, kvLoraRank + qkRopeHeadDim}; // [1, 16]
+    std::vector<int64_t> shape0 = {S2, kvLoraRank + qkRopeHeadDim}; // [16, 16]
+    std::vector<int64_t> shape1 = {1, S};
+    std::vector<int64_t> shape2 = {S, kvLoraRank + qkRopeHeadDim}; // [1, 16]
 
     Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16);
     auto shapeImme = OpImmediate::Specified({16, 16});
@@ -136,7 +136,7 @@ TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
         LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
             output = ScatterUpdate(output, idxs, keyStates, minusTwo);
-        }        
+        }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX);
     ConfigManager::Instance().SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
@@ -166,8 +166,8 @@ TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
 // funcHash: 11454048016934523463
 
 extern "C" [aicore] void TENSOR_ScatterUpdate_Unroll1_PATH0_3_0_4503599627370496(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
-int32_t __ubuf__ *UB_S0_E4096 = (int32_t __ubuf__ *)get_imm(0x0); // size: 0x1000 
-int32_t __ubuf__ *UB_S4096_E8192 = (int32_t __ubuf__ *)get_imm(0x1000); // size: 0x1000 
+int32_t __ubuf__ *UB_S0_E4096 = (int32_t __ubuf__ *)get_imm(0x0); // size: 0x1000
+int32_t __ubuf__ *UB_S4096_E8192 = (int32_t __ubuf__ *)get_imm(0x1000); // size: 0x1000
 uint64_t sym_2_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 0);
 uint64_t sym_2_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 1);
 uint64_t sym_32_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 0);

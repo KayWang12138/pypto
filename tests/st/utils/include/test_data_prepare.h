@@ -39,8 +39,8 @@ struct TensorWithData {
 struct QuantTensorWithData {
     bool isQuant = false;
     bool isSmooth = false;
-    std::vector<int> scaleShape;
-    std::vector<int> smoothShape;
+    std::vector<int64_t> scaleShape;
+    std::vector<int64_t> smoothShape;
     std::string scaleTensorName;
     std::string smoothTensorName;
     std::string scaleDataPath;
@@ -48,7 +48,7 @@ struct QuantTensorWithData {
     TensorWithData scale;
     TensorWithData smooth;
 
-QuantTensorWithData(bool isQuantT, bool isSmoothT, std::vector<int> scaleShapeT, std::vector<int> smoothShapeT,
+QuantTensorWithData(bool isQuantT, bool isSmoothT, std::vector<int64_t> scaleShapeT, std::vector<int64_t> smoothShapeT,
     std::string scaleName, std::string smoothName, std::string scalePath, std::string smoothPath)
     : isQuant(isQuantT),
       isSmooth(isSmoothT),

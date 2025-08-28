@@ -58,12 +58,12 @@ public:
             op->SetAttribute(ACC_A_MUL_B, 0);
         }
         op->SetAttribute(MATMUL_NZ_ATTR, nzFormat);
-        op->SetAttribute(A_MUL_B_ACT_M, 0);
-        op->SetAttribute(A_MUL_B_ACT_K, 0);
-        op->SetAttribute(A_MUL_B_ACT_N, 0);
+        op->SetAttribute(A_MUL_B_ACT_M, 0L);
+        op->SetAttribute(A_MUL_B_ACT_K, 0L);
+        op->SetAttribute(A_MUL_B_ACT_N, 0L);
     }
 
-    void SetMatmulMatrixSize(ComputationalGraphBuilder &G, const std::string name, const std::vector<int32_t> &matrixSize) {
+    void SetMatmulMatrixSize(ComputationalGraphBuilder &G, const std::string name, const std::vector<int64_t> &matrixSize) {
         auto op = G.GetOp(name);
         op->SetAttribute(A_MUL_B_ACT_M, matrixSize[0]);
         op->SetAttribute(A_MUL_B_ACT_K, matrixSize[1]);
@@ -604,9 +604,9 @@ TEST_F(CubeProcessTest, Test_MM_FP16_Atomic_On) {
     int m = 32;
     int n = 512;
     int k = 128;
-    std::vector<int> shape_a = {m, k};
-    std::vector<int> shape_b = {k, n};
-    std::vector<int> shape_c = {m, n};
+    std::vector<int64_t> shape_a = {m, k};
+    std::vector<int64_t> shape_b = {k, n};
+    std::vector<int64_t> shape_c = {m, n};
     DataType inputAstDtype = DataType::DT_FP16;
     DataType outputAstDtype = DataType::DT_FP32;
     config::SetHostConfig(KEY_STRATEGY, "PVC2_OOO");

@@ -356,18 +356,18 @@ void PageAttentionPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
         }
 
         SymbolicScalar B = attentionOut->shape[0] / N; // S=1
-        const int bTile = 32;
+        const int64_t bTile = 32;
         LOOP("PaPost", FunctionType::DYNAMIC_LOOP, papostiter, LoopRange(B / bTile), {}, true) {
             auto postInUnit = DView(attentionOut, {bTile * S * N, kvLoraRank}, {papostiter * bTile * S * N, 0});
-            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32, bTile*S*N), kvLoraRank});// raw (bTile*1*128, 512)
+            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32L, bTile*S*N), kvLoraRank});// raw (bTile*1*128, 512)
             auto cast1 = Cast(postInUnit, DT_BF16);
             auto r1Res = Reshape(cast1, {bTile*S, N, kvLoraRank}); // 128个
-            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32, bTile*S), 1, kvLoraRank}); // raw (bTile*1, 128, 512)
+            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32L, bTile*S), 1, kvLoraRank}); // raw (bTile*1, 128, 512)
             auto t1Res = Transpose(r1Res, {0, 1}); // (N, bTile * S, kvLoraRank)    // 128个
 
             // Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{0, 4}});
-            Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(32, bTile*S), std::min(32, bTile*S)},
-                {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
+            Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(32L, bTile*S), std::min(32L, bTile*S)},
+                {std::min(256L, kvLoraRank), std::min(256L, kvLoraRank)},
                 {vHeadDim, vHeadDim}); // raw bTile*1  512   128   // 128/4个
             auto bmmRes = Matrix::BatchMatmul(dtype, t1Res, weightUV); // (N, bTile, kvLoraRank) * (N, kvLoraRank, vHeadDim) -> (N, bTile, vHeadDim)
 
@@ -382,22 +382,22 @@ void PageAttentionPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
 
             // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // int8 @ int8 = int32
-            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32, bTile*S), std::min(1024, H)}); // raw (bTile*1, 7168)
+            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32L, bTile*S), std::min(1024L, H)}); // raw (bTile*1, 7168)
             Tensor tmpC = VectorDuplicate(Element(DataType::DT_FP32, 0.0), DT_FP32, {bTile*S, H});
             std::vector<Tensor> matmulResult;
             auto kSplit = 8;
             auto kSplitSize = N*vHeadDim / kSplit; // 16K / 8 = 2k
             Program::GetInstance().GetTileShape().SetCubeTileShapes(
-                {std::min(32, bTile*S), std::min(32, bTile*S)},
-                {std::min(128, N*vHeadDim), std::min(128, N*vHeadDim)},
-                {std::min(512, H), std::min(512, H)}); // raw  bTile*1  16k  7168
+                {std::min(32L, bTile*S), std::min(32L, bTile*S)},
+                {std::min(128L, N*vHeadDim), std::min(128L, N*vHeadDim)},
+                {std::min(512L, H), std::min(512L, H)}); // raw  bTile*1  16k  7168
             for (int ki = 0; ki < kSplit; ki++) {
                 auto inputMk = View(quantizedA, {bTile*S, kSplitSize}, {0, ki * kSplitSize});
                 auto inputKn = View(weightO, {kSplitSize, H}, {ki * kSplitSize, 0});
                 auto tmp = npu::tile_fwk::Matrix::Matmul(DT_INT32, inputMk, inputKn, tmpC);  // (8, 16k) @ (16k, 7168)
                 matmulResult.emplace_back(tmp);
             }
-            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32, bTile*S), std::min(512, H)}); // 与cubeTileShape MN保持一致
+            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32L, bTile*S), std::min(512L, H)}); // 与cubeTileShape MN保持一致
             Tensor res = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);  // (bTile*S, H) // 14*8=112个
 
             Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(bTile, bTile*S), std::min(bTile, H)); // raw (bTile*1, 7168)

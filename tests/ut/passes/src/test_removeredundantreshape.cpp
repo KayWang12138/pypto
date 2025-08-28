@@ -68,18 +68,18 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeUTest1) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> shape1 = {kNumEight, kNumExpFour};
-    std::vector<int> shape2 = {kNumExpFour, kNumEight};
-    std::vector<int> shape3 = {kNumExpFive, kNumFour};
+    std::vector<int64_t> shape1 = {kNumEight, kNumExpFour};
+    std::vector<int64_t> shape2 = {kNumExpFour, kNumEight};
+    std::vector<int64_t> shape3 = {kNumExpFive, kNumFour};
     auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
-    
+
     auto &reshape1 = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {inCast}, {ubTensor1});
     auto &reshape2 = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
     auto &sqrt = currFunctionPtr->AddOperation(Opcode::OP_SQRT, {ubTensor2}, {outCast});
-    
+
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
 
@@ -112,14 +112,14 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeUTest2) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> shape = {kNumEight, kNumExpFour};
+    std::vector<int64_t> shape = {kNumEight, kNumExpFour};
     auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    
+
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {inCast}, {ubTensor});
     auto &sqrt = currFunctionPtr->AddOperation(Opcode::OP_SQRT, {ubTensor}, {outCast});
-    
+
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
 
@@ -152,19 +152,19 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeUTest3) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> shape1 = {kNumEight, kNumExpFour};
-    std::vector<int> shape2 = {kNumExpFour, kNumEight};
+    std::vector<int64_t> shape1 = {kNumEight, kNumExpFour};
+    std::vector<int64_t> shape2 = {kNumExpFour, kNumEight};
     auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto outCast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto outCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto outCast3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
-    
+
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {inCast}, {ubTensor});
     auto &sqrt = currFunctionPtr->AddOperation(Opcode::OP_SQRT, {ubTensor}, {outCast1});
     auto &exp = currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor}, {outCast2});
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor}, {outCast3});
-    
+
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast1);
     currFunctionPtr->outCasts_.push_back(outCast2);
@@ -201,20 +201,20 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeUTest4) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> shape1 = {kNumEight, kNumExpFour};
-    std::vector<int> shape2 = {kNumExpFour, kNumEight};
-    std::vector<int> shape3 = {kNumExpFive, kNumFour};
+    std::vector<int64_t> shape1 = {kNumEight, kNumExpFour};
+    std::vector<int64_t> shape2 = {kNumExpFour, kNumEight};
+    std::vector<int64_t> shape3 = {kNumExpFive, kNumFour};
     auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto outCast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
     auto outCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
-    
+
     auto &reshape1 = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {inCast}, {ubTensor1});
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor1}, {outCast1});
     auto &reshape2 = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
     currFunctionPtr->AddOperation(Opcode::OP_SQRT, {ubTensor2}, {outCast2});
-    
+
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast1);
     currFunctionPtr->outCasts_.push_back(outCast2);
@@ -250,10 +250,10 @@ view->reshape  ->exp        ->reshape   ->assemble
 */
 TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeSTest1) {
     //Define the shape of the Tensors
-    std::vector<int> shape1 = {kNumExpSix, kNumExpSix};
-    std::vector<int> shape2 = {kNumExpFive, kNumExpSeven};
-    std::vector<int> shape3 = {kNumExpSeven, kNumExpFive};
-    
+    std::vector<int64_t> shape1 = {kNumExpSix, kNumExpSix};
+    std::vector<int64_t> shape2 = {kNumExpFive, kNumExpSeven};
+    std::vector<int64_t> shape3 = {kNumExpSeven, kNumExpFive};
+
     PassManager &passManager = PassManager::Instance();
 
     Tensor input(DT_FP32, shape1, "input");
@@ -264,7 +264,7 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeSTest1) {
     Tensor exp1(DT_FP32, shape3, "exp1");
     Tensor exp2(DT_FP32, shape2, "exp2");
     Tensor output2(DT_FP32, shape2, "output");
-    
+
     FUNCTION("STCase1") {
         reshape1 = Reshape(input, shape2);
         reshape2 = Reshape(reshape1, shape3);
@@ -282,7 +282,7 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeSTest1) {
         {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "RemoveRedundantReshapeTestStrategy"), SUCCESS);
-    
+
     // ================== Verify the effect of the Pass ==================
     auto updated_operations = func->Operations();
 
@@ -291,7 +291,7 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeSTest1) {
     for (const auto &op : updated_operations) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
             reshape_num++;
-        } 
+        }
     }
     EXPECT_EQ(reshape_num, kNumThree);
 }

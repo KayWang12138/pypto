@@ -47,7 +47,7 @@ TEST_F(TestExpandFunction, ExpandFunctionTest) {
         {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
     });
 
-    std::vector<int> shape{64, 64};
+    std::vector<int64_t> shape{64, 64};
     Tensor a(DT_FP32, shape, "a");
     Tensor b(DT_FP32, shape, "b");
     Tensor c(DT_FP32, shape, "c");

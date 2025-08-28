@@ -34,9 +34,9 @@ TEST_F(DynamicCastTest, testDynCastUnalign) {
     int b = 1;
     int sq = 32;
     int d = 64;
-    std::vector<int> qShape = {b * sq, d};
-    std::vector<int> indicesShape = {b, sq};
-    std::vector<int> outShape = {b * sq, d};
+    std::vector<int64_t> qShape = {b * sq, d};
+    std::vector<int64_t> indicesShape = {b, sq};
+    std::vector<int64_t> outShape = {b * sq, d};
     DataType iType = DataType::DT_FP32;
     DataType oType = DataType::DT_INT32;
 

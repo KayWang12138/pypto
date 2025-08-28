@@ -62,7 +62,7 @@ public:
 /*
 TESTDuplicateViewSingleConsumer
 inCast{8,16}->view->ubTensor{1,8,16}->exp->outCast{1,8,16}
-            
+
 inCast{8,16}->view->ubTensor{1,8,16}->exp->outCast{1,8,16}
 */
 TEST_F(TestDuplicateViewPass, DuplicateViewUTest1) {
@@ -70,15 +70,15 @@ TEST_F(TestDuplicateViewPass, DuplicateViewUTest1) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> shape1 = {kNumEight, kNumExpFour};
-    std::vector<int> shape2 = {kNumOne, kNumEight, kNumExpFour};
+    std::vector<int64_t> shape1 = {kNumEight, kNumExpFour};
+    std::vector<int64_t> shape2 = {kNumOne, kNumEight, kNumExpFour};
     auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
-    
+
     currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor});
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor}, {outCast});
-    
+
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
 
@@ -109,8 +109,8 @@ TEST_F(TestDuplicateViewPass, DuplicateViewUTest2) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> shape1 = {kNumEight, kNumExpFour};
-    std::vector<int> shape2 = {kNumOne, kNumEight, kNumExpFour};
+    std::vector<int64_t> shape1 = {kNumEight, kNumExpFour};
+    std::vector<int64_t> shape2 = {kNumOne, kNumEight, kNumExpFour};
     auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto outCast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
@@ -121,7 +121,7 @@ TEST_F(TestDuplicateViewPass, DuplicateViewUTest2) {
     auto &exp_op = currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor}, {outCast1});
     auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor}, {outCast2});
     auto &sqrt_op = currFunctionPtr->AddOperation(Opcode::OP_SQRT, {ubTensor}, {outCast3});
-    
+
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast1);
     currFunctionPtr->outCasts_.push_back(outCast2);
@@ -150,17 +150,17 @@ TEST_F(TestDuplicateViewPass, DuplicateViewUTest2) {
 /*
 TESTDuplicateViewAlternativeConsumer
 inCast{8,16}->view->ubTensor1{1,8,16}
-            ->view->ubTensor2{1,8,16}    
+            ->view->ubTensor2{1,8,16}
 ubTensor1+ubTensor1->div->outCast1{1,8,16}
 ubTensor1+ubTensor2->div->outCast2{1,8,16}
 ubTensor2+ubTensor2->div->outCast3{1,8,16}
 
 inCast{8,16}->view->ubTensor1'{1,8,16}
             ->view->ubTensor2'{1,8,16}
-            ->view->ubTensor3'{1,8,16} 
-            ->view->ubTensor4'{1,8,16} 
+            ->view->ubTensor3'{1,8,16}
+            ->view->ubTensor4'{1,8,16}
             ->view->ubTensor5'{1,8,16}
-            ->view->ubTensor6'{1,8,16} 
+            ->view->ubTensor6'{1,8,16}
 ubTensor1'+ubTensor2'->div->outCast1{1,8,16}
 ubTensor3'+ubTensor4'->div->outCast2{1,8,16}
 ubTensor5'+ubTensor6'->div->outCast3{1,8,16}
@@ -170,8 +170,8 @@ TEST_F(TestDuplicateViewPass, DuplicateViewUTest3) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> shape1 = {kNumEight, kNumExpFour};
-    std::vector<int> shape2 = {kNumOne, kNumEight, kNumExpFour};
+    std::vector<int64_t> shape1 = {kNumEight, kNumExpFour};
+    std::vector<int64_t> shape2 = {kNumOne, kNumEight, kNumExpFour};
     auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
@@ -184,7 +184,7 @@ TEST_F(TestDuplicateViewPass, DuplicateViewUTest3) {
     auto &div_op1 = currFunctionPtr->AddOperation(Opcode::OP_DIV, {ubTensor1, ubTensor1}, {outCast1});
     auto &div_op2 = currFunctionPtr->AddOperation(Opcode::OP_DIV, {ubTensor1, ubTensor2}, {outCast2});
     auto &div_op3 = currFunctionPtr->AddOperation(Opcode::OP_DIV, {ubTensor2, ubTensor2}, {outCast3});
-    
+
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast1);
     currFunctionPtr->outCasts_.push_back(outCast2);
@@ -237,10 +237,10 @@ view    ->view  ->view(+end assemble)
 */
 TEST_F(TestDuplicateViewPass, DuplicateViewSTest1) {
     //Define the shape of the Tensors
-    std::vector<int> shape1 = {kNumExpSix, kNumExpSix};
-    std::vector<int> shape2 = {kNumExpSeven, kNumExpSeven};
-    std::vector<int> shape3 = {kNumExpSeven, kNumExpSeven};
-    
+    std::vector<int64_t> shape1 = {kNumExpSix, kNumExpSix};
+    std::vector<int64_t> shape2 = {kNumExpSeven, kNumExpSeven};
+    std::vector<int64_t> shape3 = {kNumExpSeven, kNumExpSeven};
+
     PassManager &passManager = PassManager::Instance();
 
     Tensor input(DT_FP32, shape1, "input");
@@ -249,7 +249,7 @@ TEST_F(TestDuplicateViewPass, DuplicateViewSTest1) {
     Tensor output2(DT_FP32, shape2, "reshape2");
     Tensor output3(DT_FP32, shape2, "reshape3");
     Tensor output4(DT_FP32, shape1, "reshape4");
-    
+
     FUNCTION("STCase1") {
         view1 = View(input, shape2, {kNumZero, kNumZero});
         output1 = View(view1, shape3, {kNumZero, kNumZero});
@@ -266,7 +266,7 @@ TEST_F(TestDuplicateViewPass, DuplicateViewSTest1) {
     });
     auto ret = passManager.RunPass(Program::GetInstance(), *func, "DuplicateViewTestStrategy");
     EXPECT_EQ(ret, SUCCESS);
-    
+
     func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase1");
     // ================== Verify the effect of the Pass ==================
     auto updated_operations = func->Operations();
@@ -276,7 +276,7 @@ TEST_F(TestDuplicateViewPass, DuplicateViewSTest1) {
     for (const auto &op : updated_operations) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             view_num++;
-        } 
+        }
     }
     EXPECT_EQ(view_num, kNumSeven);
 }

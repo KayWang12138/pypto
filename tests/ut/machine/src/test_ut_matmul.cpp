@@ -36,9 +36,9 @@ void TestDynMatmul(int m, int k, int n) {
     if constexpr (IsBtrans) {
         std::swap(nb, kb);
     }
-    std::vector<int> shape_c = {m, n};
-    std::vector<int> shape_b = {kb, nb};
-    std::vector<int> shape_a = {m, ka};
+    std::vector<int64_t> shape_c = {m, n};
+    std::vector<int64_t> shape_b = {kb, nb};
+    std::vector<int64_t> shape_a = {m, ka};
 
     auto InputUTDtype = (std::is_same<InputT, npu::tile_fwk::bfloat16>::value) ? DT_BF16 : DT_INT8;
     auto OutputUTDtype = (std::is_same<OutputT, float>::value) ? DT_FP32 : DT_INT32;

@@ -40,13 +40,13 @@ enum class TileShapeType {
     TYPE_NUM,
 };
 
-using VecTileShapes = std::vector<int>;
+using VecTileShapes = std::vector<int64_t>;
 
 class CubeTileShapes {
 public:
     CubeTileShapes() = default;
-    CubeTileShapes(std::array<int, MAX_MDIM_SIZE> mShape, std::array<int, MAX_KDIM_SIZE> kShape,
-        std::array<int, MAX_NDIM_SIZE> nShape, bool setL1TileParam = false)
+    CubeTileShapes(std::array<int64_t, MAX_MDIM_SIZE> mShape, std::array<int64_t, MAX_KDIM_SIZE> kShape,
+        std::array<int64_t, MAX_NDIM_SIZE> nShape, bool setL1TileParam = false)
         : m(mShape), k(kShape), n(nShape), setL1Tile(setL1TileParam) {}
 
     template <TileShapeType T>
@@ -114,20 +114,26 @@ public:
     }
 
     void SerializeTo(HashBuffer &buffer) const {
-        buffer.Append(m);
-        buffer.Append(k);
-        buffer.Append(n);
+        for (size_t i = 0; i < 0x2; i++) {
+            buffer.Append(m[i]);
+        }
+        for (size_t i = 0; i < 0x3; i++) {
+            buffer.Append(k[i]);
+        }
+        for (size_t i = 0; i < 0x2; i++) {
+            buffer.Append(n[i]);
+        }
     }
 
     static CubeTileShapes DeserializeFrom(const HashBuffer &buffer) {
         CubeTileShapes result;
-        result.m[0] = buffer[0];
-        result.m[1] = buffer[0x1];
-        result.k[0] = buffer[0x2];
-        result.k[1] = buffer[0x3];
-        result.k[MAX_KDIM_SIZE - 1] = buffer[0x4];
-        result.n[0] = buffer[0x5];
-        result.n[1] = buffer[0x6];
+        result.m[0] = buffer.Get<int64_t>(0);                 // offset 0.  m[0]
+        result.m[1] = buffer.Get<int64_t>(2);                 // offset 2,  m[1]
+        result.k[0] = buffer.Get<int64_t>(4);                 // offset 4,  k[0]
+        result.k[1] = buffer.Get<int64_t>(6);                 // offset 6,  k[1]
+        result.k[MAX_KDIM_SIZE - 1] = buffer.Get<int64_t>(8); // offset 8,  k[2]
+        result.n[0] = buffer.Get<int64_t>(10);                // offset 10, n[0]
+        result.n[1] = buffer.Get<int64_t>(12);                // offset 12, n[1]
         return result;
     }
 
@@ -139,9 +145,9 @@ public:
     }
 
 private:
-    std::array<int, MAX_MDIM_SIZE> m{0, 0};
-    std::array<int, MAX_KDIM_SIZE> k{0, 0};
-    std::array<int, MAX_NDIM_SIZE> n{0, 0};
+    std::array<int64_t, MAX_MDIM_SIZE> m{0, 0};
+    std::array<int64_t, MAX_KDIM_SIZE> k{0, 0};
+    std::array<int64_t, MAX_NDIM_SIZE> n{0, 0};
     bool setL1Tile;
 };
 
@@ -210,20 +216,20 @@ class TileShape {
 public:
     template <typename... Args>
     void SetVecTileShapes(Args &&...args) {
-        vecTileShapes_ = std::vector<int>{args...};
+        vecTileShapes_ = std::vector<int64_t>{args...};
     }
 
-    void SetVecTileShapes(const std::vector<int>& tileShape) {
+    void SetVecTileShapes(const std::vector<int64_t>& tileShape) {
         vecTileShapes_ = tileShape;
     }
 
-    void SetCubeTileShapes(std::array<int, MAX_MDIM_SIZE> m, std::vector<int> k, std::array<int, MAX_NDIM_SIZE> n,
+    void SetCubeTileShapes(std::array<int64_t, MAX_MDIM_SIZE> m, std::vector<int64_t> k, std::array<int64_t, MAX_NDIM_SIZE> n,
         bool setL1Tile = false) {
         if (k.size() == MAX_KDIM_SIZE) {
-            std::array<int, MAX_KDIM_SIZE> kc = {k[0], k[1], k[2]};
+            std::array<int64_t, MAX_KDIM_SIZE> kc = {k[0], k[1], k[2]};
             cubeTileShapes_ = CubeTileShapes(m, kc, n, setL1Tile);
         } else {
-            std::array<int, MAX_KDIM_SIZE> kc = {k[0], k[1], k[1]};
+            std::array<int64_t, MAX_KDIM_SIZE> kc = {k[0], k[1], k[1]};
             cubeTileShapes_ = CubeTileShapes(m, kc, n, setL1Tile);
         }
     }
@@ -287,7 +293,7 @@ public:
         cubeTileShapes_.SetTileShape<T>(index, value);
     }
 
-    [[nodiscard]] int V(size_t index) const {
+    [[nodiscard]] int64_t V(size_t index) const {
         assert(index < vecTileShapes_.size());
         auto value = vecTileShapes_[index];
         return value;
@@ -344,7 +350,7 @@ private:
 class MatrixSize {
  public:
     int Size() { return matrixSize_.size(); }
-    void SetMatrixSize(const std::vector<int>& size) {
+    void SetMatrixSize(const std::vector<int64_t>& size) {
         matrixSize_ = size;
     }
     [[nodiscard]] int V(size_t index) const {
@@ -354,7 +360,7 @@ class MatrixSize {
 
     static MatrixSize &Current();
  private:
-    std::vector<int> matrixSize_;
+    std::vector<int64_t> matrixSize_;
 };
 
 } // namespace npu::tile_fwk

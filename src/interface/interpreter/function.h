@@ -143,7 +143,7 @@ struct FunctionFrame {
     }
 
     std::shared_ptr<LogicalTensorData> AllocateDataView(const std::shared_ptr<LogicalTensor> &tensor,
-        const std::vector<int> &offset, const std::vector<int> &validShape) {
+        const std::vector<int64_t> &offset, const std::vector<int64_t> &validShape) {
         if (tensorDataViewDict.count(tensor)) {
             return tensorDataViewDict[tensor];
         }
@@ -178,8 +178,8 @@ struct FunctionFrame {
     }
 
     std::vector<std::shared_ptr<LogicalTensorData>> AllocateDataViewList(
-        const std::vector<std::shared_ptr<LogicalTensor>> &tensorList, const std::vector<std::vector<int>> &offsetList,
-        const std::vector<std::vector<int>> &validShapeList) {
+        const std::vector<std::shared_ptr<LogicalTensor>> &tensorList, const std::vector<std::vector<int64_t>> &offsetList,
+        const std::vector<std::vector<int64_t>> &validShapeList) {
         std::vector<std::shared_ptr<LogicalTensorData>> dataViewList(tensorList.size());
         for (size_t i = 0; i < tensorList.size(); i++) {
             dataViewList[i] = AllocateDataView(tensorList[i], offsetList[i], validShapeList[i]);
@@ -306,10 +306,10 @@ struct FunctionInterpreter {
     ScalarImmediateType EvaluateSymbolicScalar(const SymbolicScalar &ss) {
         return operationInterpreter->EvaluateSymbolicScalar(ss);
     }
-    std::vector<int> EvaluateOffset(const std::vector<int> &offset, const std::vector<SymbolicScalar> &dynOffset){
+    std::vector<int64_t> EvaluateOffset(const std::vector<int64_t> &offset, const std::vector<SymbolicScalar> &dynOffset){
         return operationInterpreter->EvaluateOffset(offset, dynOffset);
     }
-    std::vector<int> EvaluateValidShape(const std::vector<SymbolicScalar> &dynValidShape) {
+    std::vector<int64_t> EvaluateValidShape(const std::vector<SymbolicScalar> &dynValidShape) {
         return operationInterpreter->EvaluateValidShape(dynValidShape);
     }
     void EvaluateDynParam(
@@ -357,9 +357,9 @@ struct FunctionInterpreter {
         int k = view->GetShape().back() / block;
 
         std::shared_ptr<LogicalTensorData> step0 =
-            LogicalTensorData::CreateEmpty(view->GetDataType(), {k, amul, block}, std::vector<int>(0));
+            LogicalTensorData::CreateEmpty(view->GetDataType(), {k, amul, block}, std::vector<int64_t>(0));
         std::shared_ptr<LogicalTensorData> step1 =
-            LogicalTensorData::CreateEmpty(view->GetDataType(), {amul, k, block}, std::vector<int>(0));
+            LogicalTensorData::CreateEmpty(view->GetDataType(), {amul, k, block}, std::vector<int64_t>(0));
         std::shared_ptr<LogicalTensorData> step2 =
             LogicalTensorData::CreateEmpty(view->GetDataType(), view->GetShape(), view->GetValidShape());
 
@@ -368,12 +368,12 @@ struct FunctionInterpreter {
             batchSize *= view->GetShape()[index];
         }
 
-        std::vector<int> shapeT = view->GetShape();
+        std::vector<int64_t> shapeT = view->GetShape();
         if (view->GetShape().size() > 2) {
             std::fill(shapeT.begin(), shapeT.end() - 2, 1);
         }
 
-        std::vector<int> shapeOffsetT(view->GetShape().size(), 0);
+        std::vector<int64_t> shapeOffsetT(view->GetShape().size(), 0);
         for (int i = 0; i < batchSize; i++) {
             if (view->GetShape().size() == 4) {
                 shapeOffsetT[0] = i / view->GetShape()[view->GetShape().size() - 3];
@@ -416,15 +416,15 @@ struct FunctionInterpreter {
 
     std::shared_ptr<LogicalTensorData> AllocateDataView(
         FunctionFrame &frame, const std::shared_ptr<LogicalTensor> &tensor) {
-        std::vector<int> offset = EvaluateOffset(tensor->GetOffset(), tensor->GetDynOffset());
+        std::vector<int64_t> offset = EvaluateOffset(tensor->GetOffset(), tensor->GetDynOffset());
         auto validShape = EvaluateValidShape(tensor->GetDynValidShape());
         auto ret = frame.AllocateDataView(tensor, offset, validShape);
         return ret;
     }
     std::vector<std::shared_ptr<LogicalTensorData>> AllocateDataViewList(
         FunctionFrame &frame, const std::vector<std::shared_ptr<LogicalTensor>> &tensorList) {
-        std::vector<std::vector<int>> offsetList(tensorList.size());
-        std::vector<std::vector<int>> validShapeList(tensorList.size());
+        std::vector<std::vector<int64_t>> offsetList(tensorList.size());
+        std::vector<std::vector<int64_t>> validShapeList(tensorList.size());
         for (size_t k = 0; k < tensorList.size(); k++) {
             offsetList[k] = EvaluateOffset(tensorList[k]->GetOffset(), tensorList[k]->GetDynOffset());
             validShapeList[k] = EvaluateValidShape(tensorList[k]->GetDynValidShape());

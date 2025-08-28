@@ -388,7 +388,7 @@ void CopyOutInferFunc(Operation* op,
     }
 
     std::vector<std::vector<SymbolicScalar>> inputShapes;
-    std::vector<std::vector<int>> staticInputShapes;
+    std::vector<std::vector<int64_t>> staticInputShapes;
 
     for (auto inputTensor : op->GetIOperands()) {
         inputShapes.push_back(inputTensor->GetDynValidShape());
@@ -429,7 +429,7 @@ void TransposeInferFunc(Operation* op,
     for (auto output : op->GetOOperands()) {
         std::vector<SymbolicScalar> res;
         res.insert(res.end(), inputValidShapes[0].begin(), inputValidShapes[0].end());
-        auto axises = op->GetVectorIntAttribute(OP_ATTR_PREFIX + "shape");
+        auto axises = op->GetVectorIntAttribute<int>(OP_ATTR_PREFIX + "shape");
         size_t index0 = axises[0];
         size_t index1 = axises[1];
         if (index0 < res.size() && index1 < res.size()) {

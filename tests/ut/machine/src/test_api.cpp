@@ -54,8 +54,8 @@ TEST_F(TestAstApi, test_ast) {
     int dim1 = d;         // 128
     int capacity = dim0 * dim1;
     int capacity_reduce = dim0 * 1;
-    std::vector<int> shape = {dim0, dim1};
-    std::vector<int> shape_reduce = {dim0, 1};
+    std::vector<int64_t> shape = {dim0, dim1};
+    std::vector<int64_t> shape_reduce = {dim0, 1};
     std::vector<uint16_t> q_data(capacity);
     std::vector<uint16_t> k_data(capacity);
     std::vector<uint16_t> v_data(capacity);
@@ -102,7 +102,7 @@ TEST_F(TestAstApi, test_ast) {
     }
     TileFwkFreeHandle(handle);
     TileFwkFinalize();
-    std::vector<int> tile_shape = {1, 1, 128, 128};
+    std::vector<int64_t> tile_shape = {1, 1, 128, 128};
     TileFwkSetVecTileShapes(tile_shape);
     TileFwkAssign(Q, K);
     rtStreamDestroy(aicpuStream);

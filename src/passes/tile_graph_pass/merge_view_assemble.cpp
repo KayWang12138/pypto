@@ -167,7 +167,7 @@ Status MergeViewAssemble::ProcessChainEnd(
     auto &startTensor = chain.front()->iOperand.front();
     auto &endTensor = chain.back()->oOperand.front();
     if (!startTensor || !endTensor) { ALOG_ERROR_F("Null tensor found in chain"); return FAILED; }
-    std::vector<int32_t> newOffset;
+    std::vector<int64_t> newOffset;
     std::vector<SymbolicScalar> newDynOffset;
     std::vector<SymbolicScalar> newDynValidShape;
     Status status = CalculateMergedOffsets(chain, newOffset, newDynOffset, newDynValidShape);
@@ -183,12 +183,8 @@ Status MergeViewAssemble::ProcessChainEnd(
     return SUCCESS;
 }
 
-Status MergeViewAssemble::CalculateMergedOffsets(
-    const std::vector<Operation *> &chain,
-    std::vector<int32_t> &newOffset,
-    std::vector<SymbolicScalar> &newDynOffset,
-    std::vector<SymbolicScalar> &newDynValidShape)
-{
+Status MergeViewAssemble::CalculateMergedOffsets(const std::vector<Operation *> &chain, std::vector<int64_t> &newOffset,
+    std::vector<SymbolicScalar> &newDynOffset, std::vector<SymbolicScalar> &newDynValidShape) {
     for (size_t i = 0; i < chain.size(); ++i) {
         const auto &view = chain[i];
         if (!view) { ALOG_ERROR_F("Null view operation in chain"); return FAILED; }
@@ -217,13 +213,9 @@ Status MergeViewAssemble::CalculateMergedOffsets(
     return SUCCESS;
 }
 
-void MergeViewAssemble::RecordMergedViewOperation(
-    const std::shared_ptr<LogicalTensor> &startTensor,
-    const std::shared_ptr<LogicalTensor> &endTensor,
-    const std::vector<int32_t> &newOffset,
-    const std::vector<SymbolicScalar> &newDynOffset,
-    const std::vector<SymbolicScalar> &newDynValidShape)
-{
+void MergeViewAssemble::RecordMergedViewOperation(const std::shared_ptr<LogicalTensor> &startTensor,
+    const std::shared_ptr<LogicalTensor> &endTensor, const std::vector<int64_t> &newOffset,
+    const std::vector<SymbolicScalar> &newDynOffset, const std::vector<SymbolicScalar> &newDynValidShape) {
     endTensor->GetProducers().clear();
     viewOpToAppend_.emplace_back(ViewOp{startTensor, endTensor, newOffset, newDynOffset, newDynValidShape});
 }
@@ -295,12 +287,9 @@ Status MergeViewAssemble::ProcessAssembleChainEnd(
     return SUCCESS;
 }
 
-std::pair<std::vector<int32_t>, std::vector<SymbolicScalar>>
-MergeViewAssemble::CalculateAssembleOffsets(
-    const std::vector<Operation *> &chain,
-    size_t offsetSize)
-{
-    std::vector<int32_t> newOffset(offsetSize, 0);
+std::pair<std::vector<int64_t>, std::vector<SymbolicScalar>> MergeViewAssemble::CalculateAssembleOffsets(
+    const std::vector<Operation *> &chain, size_t offsetSize) {
+    std::vector<int64_t> newOffset(offsetSize, 0);
     std::vector<SymbolicScalar> newDynOffset;
     for (size_t i = 0; i < chain.size(); ++i) {
         const auto &assemble = chain[i];
@@ -321,12 +310,9 @@ MergeViewAssemble::CalculateAssembleOffsets(
     return {newOffset, newDynOffset};
 }
 
-void MergeViewAssemble::RecordAssembleOperation(
-    const std::shared_ptr<LogicalTensor> &input,
-    const std::shared_ptr<LogicalTensor> &output,
-    const std::vector<int32_t> &offset,
-    const std::vector<SymbolicScalar> &dynOffset)
-{
+void MergeViewAssemble::RecordAssembleOperation(const std::shared_ptr<LogicalTensor> &input,
+    const std::shared_ptr<LogicalTensor> &output, const std::vector<int64_t> &offset,
+    const std::vector<SymbolicScalar> &dynOffset) {
     assembleOpToAppend_.emplace_back(AssembleOp{input, output, offset, dynOffset});
 }
 

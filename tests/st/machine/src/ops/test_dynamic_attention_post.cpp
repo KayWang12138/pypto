@@ -158,18 +158,18 @@ void PaPostDebugCastFirstBmm4(Tensor &postIn, Tensor &weightUV, Tensor &bmm4Out)
     FUNCTION("main", FunctionType::DYNAMIC,
         {postIn, weightUV}, {bmm4Out}) {
         SymbolicScalar B = postIn->shape[0] / N; // S=1
-        const int bTile = 8;
+        const int64_t bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = DView(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
-            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64, bTile*S*N), kvLoraRank});// raw (8*1*128, 512)
+            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64L, bTile*S*N), kvLoraRank});// raw (8*1*128, 512)
             auto cast1 = Cast(postInUnit, DT_BF16);
             auto r1Res = Reshape(cast1, {bTile*S, N, kvLoraRank});
-            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(8, bTile*S), 8, kvLoraRank}); // raw (8*1, 128, 512)
+            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(8L, bTile*S), 8, kvLoraRank}); // raw (8*1, 128, 512)
             auto t1Res = Transpose(r1Res, {0, 1}); // (N, bTile * S, kvLoraRank)
 
             Program::GetInstance().GetTileShape().SetVecTileShapes({64, 8, 128});
-            Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(32, bTile*S), std::min(32, bTile*S)},
-                {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
+            Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(32L, bTile*S), std::min(32L, bTile*S)},
+                {std::min(256L, kvLoraRank), std::min(256L, kvLoraRank)},
                 {vHeadDim, vHeadDim}); // raw 8*1  512   128
             auto bmmRes = Matrix::BatchMatmul(dtype, t1Res, weightUV); // (N, bTile, kvLoraRank) * (N, kvLoraRank, vHeadDim) -> (N, bTile, vHeadDim)
 
@@ -233,7 +233,7 @@ void PaPostDebugCastFirstCrtb4tr(Tensor &postIn, Tensor &weightUV, Tensor &r2Out
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = DView(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
-            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64, bTile*S*N), kvLoraRank});// raw (8*1*128, 512)
+            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64L, bTile*S*N), kvLoraRank});// raw (8*1*128, 512)
             auto cast1 = Cast(postInUnit, DT_BF16);
             auto r1Res = Reshape(cast1, {bTile*S, N, kvLoraRank});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(8, bTile*S), 8, kvLoraRank}); // raw (8*1, 128, 512)
@@ -241,7 +241,7 @@ void PaPostDebugCastFirstCrtb4tr(Tensor &postIn, Tensor &weightUV, Tensor &r2Out
 
             Program::GetInstance().GetTileShape().SetVecTileShapes({64, 8, 128});
             Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(32, bTile*S), std::min(32, bTile*S)},
-                {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
+                {std::min(256L, kvLoraRank), std::min(256L, kvLoraRank)},
                 {vHeadDim, vHeadDim}); // raw 8*1  512   128
             auto bmmRes = Matrix::BatchMatmul(dtype, t1Res, weightUV); // (N, bTile, kvLoraRank) * (N, kvLoraRank, vHeadDim) -> (N, bTile, vHeadDim)
 
@@ -371,8 +371,8 @@ void PaPostNewOnlyBmm4(Tensor &bmm4In, Tensor &weightUV, Tensor &bmm4Out) {
             auto bmm4InUnit = DView(bmm4In, {N, bTile * S, kvLoraRank}, {0, bIdx * bTile * S, 0});
             Program::GetInstance().GetTileShape().SetVecTileShapes({64, 8, 128});
             Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(32, bTile*S), std::min(32, bTile*S)},
-                {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
-                {std::min(128, vHeadDim), std::min(128, vHeadDim)}); // raw 8*1  512   128
+                {std::min(256L, kvLoraRank), std::min(256L, kvLoraRank)},
+                {std::min(128L, vHeadDim), std::min(128L, vHeadDim)}); // raw 8*1  512   128
             // 需要保证B*M*N*sizeof(bf16)可以放得下UB  （128*4*128*2=131072
             auto bmmRes = Matrix::BatchMatmul(dtype, bmm4InUnit, weightUV); // (N, bTile, kvLoraRank) * (N, kvLoraRank, vHeadDim) -> (N, bTile, vHeadDim)
 
@@ -441,8 +441,8 @@ void PaPostNewOnlyBmm4Fail(Tensor &bmm4In, Tensor &weightUV, Tensor &bmm4Out) {
             auto bmm4InUnit = DView(bmm4In, {N, bTile * S, kvLoraRank}, {0, bIdx * bTile * S, 0});
             Program::GetInstance().GetTileShape().SetVecTileShapes({64, 8, 128});
             Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(32, bTile*S), std::min(32, bTile*S)},
-                {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
-                {std::min(128, vHeadDim), std::min(128, vHeadDim)}); // raw 8*1  512   128
+                {std::min(256L, kvLoraRank), std::min(256L, kvLoraRank)},
+                {std::min(128L, vHeadDim), std::min(128L, vHeadDim)}); // raw 8*1  512   128
             auto bmmRes = Matrix::BatchMatmul(dtype, bmm4InUnit, weightUV); // (N, bTile, kvLoraRank) * (N, kvLoraRank, vHeadDim) -> (N, bTile, vHeadDim)
 
             std::vector<SymbolicScalar> dynOffset = {0, bIdx * bTile * S, 0};
@@ -1254,7 +1254,7 @@ void PaPostCastFirstUnquantR3(Tensor &postIn, Tensor &weightUV, Tensor &weightO,
             auto postInUnit = DView(postIn, {bTile * S, H}, {bIdx * bTile * S, 0});
             auto quantOutFp32Unit = DView(quantOutFp32, {bTile * S, 1}, {bIdx * bTile * S, 0});
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(8, bTile*S), std::min(1024, H)); // raw (8, 7168)
+            Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(8, bTile*S), std::min(1024L, H)); // raw (8, 7168)
             auto res = Cast(postInUnit, DataType::DT_FP32);
             res = Mul(res, quantOutFp32Unit);//(B*S, 1)
             Tensor weightOScaleW2Dim = Reshape(weightOScaleW, {1, H});
@@ -1262,7 +1262,7 @@ void PaPostCastFirstUnquantR3(Tensor &postIn, Tensor &weightUV, Tensor &weightO,
             Tensor bmm5Res = Cast(res, DataType::DT_BF16, CAST_RINT);
 
             auto postOutTmp = Reshape(bmm5Res, {bTile, S, H});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(8, bTile*S), S, std::min(1024, H));
+            Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(8, bTile*S), S, std::min(1024L, H));
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile, 0, 0};
             DAssemble(postOutTmp, dynOffset, postOut);
         }
@@ -1338,7 +1338,7 @@ void PaPostDebugCastFirstCrtb4trQuant(Tensor &postIn, Tensor &weightUV, Tensor &
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = DView(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
-            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64, bTile*S*N), kvLoraRank});// raw (8*1*128, 512)
+            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64L, bTile*S*N), kvLoraRank});// raw (8*1*128, 512)
             auto cast1 = Cast(postInUnit, DT_BF16);
             auto r1Res = Reshape(cast1, {bTile*S, N, kvLoraRank});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(8, bTile*S), 8, kvLoraRank}); // raw (8*1, 128, 512)
@@ -1347,7 +1347,7 @@ void PaPostDebugCastFirstCrtb4trQuant(Tensor &postIn, Tensor &weightUV, Tensor &
             Program::GetInstance().GetTileShape().SetVecTileShapes({64, 8, 128});
             Program::GetInstance().GetTileShape().SetCubeTileShapes(
                 {std::min(32, bTile*S), std::min(32, bTile*S)},
-                {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
+                {std::min(256L, kvLoraRank), std::min(256L, kvLoraRank)},
                 {vHeadDim, vHeadDim}); // raw 8*1  512   128
             auto bmmRes = Matrix::BatchMatmul(dtype, t1Res, weightUV); // (N, bTile, kvLoraRank) * (N, kvLoraRank, vHeadDim) -> (N, bTile, vHeadDim)
 
@@ -1432,7 +1432,7 @@ void PaPostDebugCastFirstCrtb4trQuantFail(Tensor &postIn, Tensor &weightUV, Tens
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = DView(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
-            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64, bTile*S*N), kvLoraRank});// raw (8*1*128, 512)
+            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64L, bTile*S*N), kvLoraRank});// raw (8*1*128, 512)
             auto cast1 = Cast(postInUnit, DT_BF16);
             auto r1Res = Reshape(cast1, {bTile*S, N, kvLoraRank});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(8, bTile*S), 8, kvLoraRank}); // raw (8*1, 128, 512)
@@ -1441,7 +1441,7 @@ void PaPostDebugCastFirstCrtb4trQuantFail(Tensor &postIn, Tensor &weightUV, Tens
             Program::GetInstance().GetTileShape().SetVecTileShapes({64, 8, 128});
             Program::GetInstance().GetTileShape().SetCubeTileShapes(
                 {std::min(32, bTile*S), std::min(32, bTile*S)},
-                {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
+                {std::min(256L, kvLoraRank), std::min(256L, kvLoraRank)},
                 {vHeadDim, vHeadDim}); // raw 8*1  512   128
             auto bmmRes = Matrix::BatchMatmul(dtype, t1Res, weightUV); // (N, bTile, kvLoraRank) * (N, kvLoraRank, vHeadDim) -> (N, bTile, vHeadDim)
 
@@ -1525,7 +1525,7 @@ void PaPostDebugCastFirstCrtb4trQMM5ND(Tensor &postIn, Tensor &weightUV, Tensor 
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = DView(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
-            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64, bTile*S*N), kvLoraRank});// raw (8*1*128, 512)
+            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64L, bTile*S*N), kvLoraRank});// raw (8*1*128, 512)
             auto cast1 = Cast(postInUnit, DT_BF16);
             auto r1Res = Reshape(cast1, {bTile*S, N, kvLoraRank});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(8, bTile*S), 8, kvLoraRank}); // raw (8*1, 128, 512)
@@ -1534,7 +1534,7 @@ void PaPostDebugCastFirstCrtb4trQMM5ND(Tensor &postIn, Tensor &weightUV, Tensor 
             Program::GetInstance().GetTileShape().SetVecTileShapes({64, 8, 128});
             Program::GetInstance().GetTileShape().SetCubeTileShapes(
                 {std::min(32, bTile*S), std::min(32, bTile*S)},
-                {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
+                {std::min(256L, kvLoraRank), std::min(256L, kvLoraRank)},
                 {vHeadDim, vHeadDim}); // raw 8*1  512   128
             auto bmmRes = Matrix::BatchMatmul(dtype, t1Res, weightUV); // (N, bTile, kvLoraRank) * (N, kvLoraRank, vHeadDim) -> (N, bTile, vHeadDim)
 
@@ -1551,8 +1551,8 @@ void PaPostDebugCastFirstCrtb4trQMM5ND(Tensor &postIn, Tensor &weightUV, Tensor 
             // // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // // int8 @ int8 = int32
             Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(32, bTile*S), std::min(32, bTile*S)},
-                    {std::min(128, N*vHeadDim), std::min(128, N*vHeadDim)},
-                    {std::min(512, H), std::min(512, H)});
+                    {std::min(128L, N*vHeadDim), std::min(128L, N*vHeadDim)},
+                    {std::min(512L, H), std::min(512L, H)});
             Tensor res = npu::tile_fwk::Matrix::Matmul(DataType::DT_INT32, quantizedA, weightO);
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile * S, 0};
@@ -1622,7 +1622,7 @@ void PaPostDebugCastFirstCrtb4trQMM5NDk(Tensor &postIn, Tensor &weightUV, Tensor
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = DView(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
-            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64, bTile*S*N), kvLoraRank});// raw (8*1*128, 512)
+            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64L, bTile*S*N), kvLoraRank});// raw (8*1*128, 512)
             auto cast1 = Cast(postInUnit, DT_BF16);
             auto r1Res = Reshape(cast1, {bTile*S, N, kvLoraRank});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(8, bTile*S), 8, kvLoraRank}); // raw (8*1, 128, 512)
@@ -1631,7 +1631,7 @@ void PaPostDebugCastFirstCrtb4trQMM5NDk(Tensor &postIn, Tensor &weightUV, Tensor
             Program::GetInstance().GetTileShape().SetVecTileShapes({64, 8, 128});
             Program::GetInstance().GetTileShape().SetCubeTileShapes(
                 {std::min(32, bTile*S), std::min(32, bTile*S)},
-                {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
+                {std::min(256L, kvLoraRank), std::min(256L, kvLoraRank)},
                 {vHeadDim, vHeadDim}); // raw 8*1  512   128
             auto bmmRes = Matrix::BatchMatmul(dtype, t1Res, weightUV); // (N, bTile, kvLoraRank) * (N, kvLoraRank, vHeadDim) -> (N, bTile, vHeadDim)
 
@@ -1647,22 +1647,22 @@ void PaPostDebugCastFirstCrtb4trQMM5NDk(Tensor &postIn, Tensor &weightUV, Tensor
 
             // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // int8 @ int8 = int32
-            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(4, bTile*S), std::min(7168, H)});
+            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(4, bTile*S), std::min(7168L, H)});
             Tensor tmpC = VectorDuplicate(Element(DataType::DT_INT32, static_cast<int64_t>(0)), DT_INT32, {bTile*S, H});
             std::vector<Tensor> matmulResult;
             auto kSplit = 8;
             auto kSplitSize = N*vHeadDim / kSplit; // 16K / 8 = 2k
             Program::GetInstance().GetTileShape().SetCubeTileShapes(
                 {std::min(32, bTile*S), std::min(32, bTile*S)},
-                {std::min(128, N*vHeadDim), std::min(128, N*vHeadDim)},
-                {std::min(512, H), std::min(512, H)}); // raw  16  2048  128
+                {std::min(128L, N*vHeadDim), std::min(128L, N*vHeadDim)},
+                {std::min(512L, H), std::min(512L, H)}); // raw  16  2048  128
             for (int ki = 0; ki < kSplit; ki++) {
                 auto inputMk = View(quantizedA, {bTile*S, kSplitSize}, {0, ki * kSplitSize});
                 auto inputKn = View(weightO, {kSplitSize, H}, {ki * kSplitSize, 0});
                 auto tmp = npu::tile_fwk::Matrix::Matmul(DT_INT32, inputMk, inputKn, tmpC);  // (8, 16k) @ (16k, 7168)
                 matmulResult.emplace_back(tmp);
             }
-            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32, bTile*S), std::min(512, H)}); // 与cubeTileShape MN保持一致
+            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32, bTile*S), std::min(512L, H)}); // 与cubeTileShape MN保持一致
             Tensor res = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);  // (bTile*S, H)
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile * S, 0};
@@ -1733,7 +1733,7 @@ void PaPostDebugCastFirstMm5UnsplitKLow(Tensor &postIn, Tensor &weightUV, Tensor
         const int bTile = 2;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = DView(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
-            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64, bTile*S*N), kvLoraRank});// raw (2*1*32, 512)
+            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64L, bTile*S*N), kvLoraRank});// raw (2*1*32, 512)
             auto cast1 = Cast(postInUnit, DT_BF16);
             auto r1Res = Reshape(cast1, {bTile*S, N, kvLoraRank});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(8, bTile*S), 32, kvLoraRank}); // raw (2*1, 32, 512)
@@ -1742,7 +1742,7 @@ void PaPostDebugCastFirstMm5UnsplitKLow(Tensor &postIn, Tensor &weightUV, Tensor
             Program::GetInstance().GetTileShape().SetVecTileShapes({32, 2, 128});
             Program::GetInstance().GetTileShape().SetCubeTileShapes(
                 {std::min(32, bTile*S), std::min(32, bTile*S)},
-                {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
+                {std::min(256L, kvLoraRank), std::min(256L, kvLoraRank)},
                 {vHeadDim, vHeadDim}); // raw 8*1  512   128
             auto bmmRes = Matrix::BatchMatmul(dtype, t1Res, weightUV); // (N, bTile, kvLoraRank) * (N, kvLoraRank, vHeadDim) -> (N, bTile, vHeadDim)
 
@@ -1760,11 +1760,11 @@ void PaPostDebugCastFirstMm5UnsplitKLow(Tensor &postIn, Tensor &weightUV, Tensor
             // // int8 @ int8 = int32
             Program::GetInstance().GetTileShape().SetCubeTileShapes(
                 {std::min(32, bTile*S), std::min(32, bTile*S)},
-                {std::min(128, N*vHeadDim), std::min(128, N*vHeadDim)},
-                {std::min(512, H), std::min(512, H)});
+                {std::min(128L, N*vHeadDim), std::min(128L, N*vHeadDim)},
+                {std::min(512L, H), std::min(512L, H)});
             Tensor res = npu::tile_fwk::Matrix::Matmul(DataType::DT_INT32, quantizedA, weightO);
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(8, bTile*S), std::min(1024, H)); // raw (2, 7168)
+            Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(8, bTile*S), std::min(1024L, H)); // raw (2, 7168)
             res = Cast(res, DataType::DT_FP32);
             res = Mul(res, dequantScaleA);//(B*S, 1)
             Tensor weightOScaleW2Dim = Reshape(weightOScaleW, {1, H});
@@ -1772,7 +1772,7 @@ void PaPostDebugCastFirstMm5UnsplitKLow(Tensor &postIn, Tensor &weightUV, Tensor
             Tensor bmm5Res = Cast(res, DataType::DT_BF16, CAST_RINT);
             auto postOutTmp = Reshape(bmm5Res, {bTile, S, H});
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(8, bTile*S), S, std::min(1024, H));
+            Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(8, bTile*S), S, std::min(1024L, H));
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile, 0, 0};
             DAssemble(postOutTmp, dynOffset, postOut);
         }
@@ -1895,7 +1895,7 @@ void PaPostDebugCastFirstMm5UnsplitK(Tensor &postIn, Tensor &weightUV, Tensor &w
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = DView(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
-            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64, bTile*S*N), kvLoraRank});// raw (8*1*128, 512)
+            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64L, bTile*S*N), kvLoraRank});// raw (8*1*128, 512)
             auto cast1 = Cast(postInUnit, DT_BF16);
             auto r1Res = Reshape(cast1, {bTile*S, N, kvLoraRank});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(8, bTile*S), 8, kvLoraRank}); // raw (8*1, 128, 512)
@@ -1904,7 +1904,7 @@ void PaPostDebugCastFirstMm5UnsplitK(Tensor &postIn, Tensor &weightUV, Tensor &w
             Program::GetInstance().GetTileShape().SetVecTileShapes({64, 8, 128});
             Program::GetInstance().GetTileShape().SetCubeTileShapes(
                 {std::min(32, bTile*S), std::min(32, bTile*S)},
-                {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
+                {std::min(256L, kvLoraRank), std::min(256L, kvLoraRank)},
                 {vHeadDim, vHeadDim}); // raw 8*1  512   128
             auto bmmRes = Matrix::BatchMatmul(dtype, t1Res, weightUV); // (N, bTile, kvLoraRank) * (N, kvLoraRank, vHeadDim) -> (N, bTile, vHeadDim)
 
@@ -1922,11 +1922,11 @@ void PaPostDebugCastFirstMm5UnsplitK(Tensor &postIn, Tensor &weightUV, Tensor &w
             // // int8 @ int8 = int32
             Program::GetInstance().GetTileShape().SetCubeTileShapes(
                 {std::min(32, bTile*S), std::min(32, bTile*S)},
-                {std::min(128, N*vHeadDim), std::min(128, N*vHeadDim)},
-                {std::min(512, H), std::min(512, H)});
+                {std::min(128L, N*vHeadDim), std::min(128L, N*vHeadDim)},
+                {std::min(512L, H), std::min(512L, H)});
             Tensor res = npu::tile_fwk::Matrix::Matmul(DataType::DT_INT32, quantizedA, weightO);
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(8, bTile*S), std::min(1024, H)); // raw (8, 7168)
+            Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(8, bTile*S), std::min(1024L, H)); // raw (8, 7168)
             res = Cast(res, DataType::DT_FP32);
             res = Mul(res, dequantScaleA);//(B*S, 1)
             Tensor weightOScaleW2Dim = Reshape(weightOScaleW, {1, H});
@@ -1934,7 +1934,7 @@ void PaPostDebugCastFirstMm5UnsplitK(Tensor &postIn, Tensor &weightUV, Tensor &w
             Tensor bmm5Res = Cast(res, DataType::DT_BF16, CAST_RINT);
             auto postOutTmp = Reshape(bmm5Res, {bTile, S, H});
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(8, bTile*S), S, std::min(1024, H));
+            Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(8, bTile*S), S, std::min(1024L, H));
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile, 0, 0};
             DAssemble(postOutTmp, dynOffset, postOut);
         }
@@ -2068,7 +2068,7 @@ void PaPostDebugCastFirstMm5SplitK(Tensor &postIn, Tensor &weightUV, Tensor &wei
             ConfigManager::Instance().SetSemanticLabel("BMM4");
             Program::GetInstance().GetTileShape().SetCubeTileShapes(
                 {std::min(32, bTile*S), std::min(32, bTile*S)},
-                {std::min(256, kvLoraRank), std::min(512, kvLoraRank)},
+                {std::min(256L, kvLoraRank), std::min(512L, kvLoraRank)},
                 {vHeadDim, vHeadDim}, true); // raw bTile*1  512   128   // 128/4个
             auto bmmRes = Matrix::BatchMatmul(dtype, t1Res, weightUV); // (N, bTile, kvLoraRank) * (N, kvLoraRank, vHeadDim) -> (N, bTile, vHeadDim)
 
@@ -2086,25 +2086,25 @@ void PaPostDebugCastFirstMm5SplitK(Tensor &postIn, Tensor &weightUV, Tensor &wei
 
             // // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // // int8 @ int8 = int32
-            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32, bTile*S), std::min(1024, H)}); // raw (bTile*1, 7168)
+            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32, bTile*S), std::min(1024L, H)}); // raw (bTile*1, 7168)
             Tensor tmpC = VectorDuplicate(Element(DataType::DT_INT32, static_cast<int64_t>(0)), DT_INT32, {bTile*S, H});
             std::vector<Tensor> matmulResult;
             auto kSplit = 8;
             auto kSplitSize = N*vHeadDim / kSplit;
             Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(32, bTile*S), std::min(32, bTile*S)},
-                {std::min(128, N*vHeadDim), std::min(128, N*vHeadDim)},
-                {std::min(512, H), std::min(512, H)});  // 14个
+                {std::min(128L, N*vHeadDim), std::min(128L, N*vHeadDim)},
+                {std::min(512L, H), std::min(512L, H)});  // 14个
             for (int ki = 0; ki < kSplit; ki++) {
                 auto inputMk = View(quantizedA, {bTile*S, kSplitSize}, {0, ki * kSplitSize});
                 auto inputKn = View(weightO, {kSplitSize, H}, {ki * kSplitSize, 0});
                 auto tmp = npu::tile_fwk::Matrix::Matmul(DT_INT32, inputMk, inputKn, tmpC);  // (32, 16384) @ (16384, 7168)
                 matmulResult.emplace_back(tmp);
             }
-            Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(32, bTile*S), std::min(512, H));  // 14个
+            Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(32, bTile*S), std::min(512L, H));  // 14个
             Tensor res = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);
 
             ConfigManager::Instance().SetSemanticLabel("CMMC");
-            Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(32, bTile*S), std::min(32, H)); // raw (bTile*1, 7168)
+            Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(32, bTile*S), std::min(32L, H)); // raw (bTile*1, 7168)
             res = Cast(res, DataType::DT_FP32);
             res = Mul(res, dequantScaleA);   // (B*S, 1)
             Tensor weightOScaleW2Dim = Reshape(weightOScaleW, {1, H});
@@ -2145,7 +2145,7 @@ void PaPostDebugCastFirstMm5NormalUnSplitK(Tensor &postIn, Tensor &weightUV, Ten
             ConfigManager::Instance().SetSemanticLabel("BMM4");
             Program::GetInstance().GetTileShape().SetCubeTileShapes(
                 {std::min(32, bTile*S), std::min(32, bTile*S)},
-                {std::min(256, kvLoraRank), std::min(512, kvLoraRank)},
+                {std::min(256L, kvLoraRank), std::min(512L, kvLoraRank)},
                 {vHeadDim, vHeadDim}, true); // raw bTile*1  512   128   // 128/4个
             auto bmmRes = Matrix::BatchMatmul(dtype, t1Res, weightUV); // (N, bTile, kvLoraRank) * (N, kvLoraRank, vHeadDim) -> (N, bTile, vHeadDim)
 
@@ -2165,12 +2165,12 @@ void PaPostDebugCastFirstMm5NormalUnSplitK(Tensor &postIn, Tensor &weightUV, Ten
             // // int8 @ int8 = int32
             Program::GetInstance().GetTileShape().SetCubeTileShapes(
                 {std::min(32, bTile*S), std::min(32, bTile*S)},
-                {std::min(512, N*vHeadDim), std::min(512, N*vHeadDim)},
-                {std::min(64, H), std::min(64, H)}, true); // raw  bTile*1  16k  7168
+                {std::min(512L, N*vHeadDim), std::min(512L, N*vHeadDim)},
+                {std::min(64L, H), std::min(64L, H)}, true); // raw  bTile*1  16k  7168
             Tensor res = npu::tile_fwk::Matrix::Matmul(DataType::DT_INT32, quantizedA, weightO);
 
             ConfigManager::Instance().SetSemanticLabel("CMMC");
-            Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(32, bTile*S), std::min(32, H)); // raw (bTile*1, 7168)
+            Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(32, bTile*S), std::min(32L, H)); // raw (bTile*1, 7168)
             res = Cast(res, DataType::DT_FP32);
             res = Mul(res, dequantScaleA);   // (B*S, 1)
             Tensor weightOScaleW2Dim = Reshape(weightOScaleW, {1, H});
@@ -2351,7 +2351,7 @@ void PaPostDebugCastFirstMm5SplitKLow(Tensor &postIn, Tensor &weightUV, Tensor &
         const int bTile = 2;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = DView(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
-            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64, bTile*S*N), kvLoraRank});// raw (2*1*32, 512)
+            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64L, bTile*S*N), kvLoraRank});// raw (2*1*32, 512)
             auto cast1 = Cast(postInUnit, DT_BF16);
             auto r1Res = Reshape(cast1, {bTile*S, N, kvLoraRank});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(8, bTile*S), 32, kvLoraRank}); // raw (2*1, 32, 512)
@@ -2360,7 +2360,7 @@ void PaPostDebugCastFirstMm5SplitKLow(Tensor &postIn, Tensor &weightUV, Tensor &
             Program::GetInstance().GetTileShape().SetVecTileShapes({32, 2, 128});
             Program::GetInstance().GetTileShape().SetCubeTileShapes(
                 {std::min(32, bTile*S), std::min(32, bTile*S)},
-                {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
+                {std::min(256L, kvLoraRank), std::min(256L, kvLoraRank)},
                 {vHeadDim, vHeadDim}); // raw 8*1  512   128
             auto bmmRes = Matrix::BatchMatmul(dtype, t1Res, weightUV); // (N, bTile, kvLoraRank) * (N, kvLoraRank, vHeadDim) -> (N, bTile, vHeadDim)
 
@@ -2376,25 +2376,25 @@ void PaPostDebugCastFirstMm5SplitKLow(Tensor &postIn, Tensor &weightUV, Tensor &
 
             // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // int8 @ int8 = int32
-            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(4, bTile*S), std::min(7168, H)});
+            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(4, bTile*S), std::min(7168L, H)});
             Tensor tmpC = VectorDuplicate(Element(DataType::DT_INT32, static_cast<int64_t>(0)), DT_INT32, {bTile*S, H});
             std::vector<Tensor> matmulResult;
             auto kSplit = 2;
             auto kSplitSize = N*vHeadDim / kSplit; // 16K / 8 = 2k
             Program::GetInstance().GetTileShape().SetCubeTileShapes(
                 {std::min(32, bTile*S), std::min(32, bTile*S)},
-                {std::min(128, N*vHeadDim), std::min(128, N*vHeadDim)},
-                {std::min(512, H), std::min(512, H)}); // raw  16  2048  128
+                {std::min(128L, N*vHeadDim), std::min(128L, N*vHeadDim)},
+                {std::min(512L, H), std::min(512L, H)}); // raw  16  2048  128
             for (int ki = 0; ki < kSplit; ki++) {
                 auto inputMk = View(quantizedA, {bTile*S, kSplitSize}, {0, ki * kSplitSize});
                 auto inputKn = View(weightO, {kSplitSize, H}, {ki * kSplitSize, 0});
                 auto tmp = npu::tile_fwk::Matrix::Matmul(DT_INT32, inputMk, inputKn, tmpC);  // (8, 16k) @ (16k, 7168)
                 matmulResult.emplace_back(tmp);
             }
-            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32, bTile*S), std::min(512, H)}); // 与cubeTileShape MN保持一致
+            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32, bTile*S), std::min(512L, H)}); // 与cubeTileShape MN保持一致
             Tensor res = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);  // (bTile*S, H)
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(8, bTile*S), std::min(1024, H)); // raw (2, 7168)
+            Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(8, bTile*S), std::min(1024L, H)); // raw (2, 7168)
             res = Cast(res, DataType::DT_FP32);
             res = Mul(res, dequantScaleA);//(B*S, 1)
             Tensor weightOScaleW2Dim = Reshape(weightOScaleW, {1, H});
@@ -2402,7 +2402,7 @@ void PaPostDebugCastFirstMm5SplitKLow(Tensor &postIn, Tensor &weightUV, Tensor &
             Tensor bmm5Res = Cast(res, DataType::DT_BF16, CAST_RINT);
             auto postOutTmp = Reshape(bmm5Res, {bTile, S, H});
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(8, bTile*S), S, std::min(1024, H));
+            Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(8, bTile*S), S, std::min(1024L, H));
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile, 0, 0};
             DAssemble(postOutTmp, dynOffset, postOut);
         }
@@ -2636,7 +2636,7 @@ void PageAttentionPostBf16(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache
         Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, NUM_500000);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / (bTile <= 0 ? 1 : bTile), 1), PowersOf2(maxUnrollTimes), true) {
             auto postInUnit = DView(attentionOut, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
-            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(NUM_32, bTile*S*N), kvLoraRank});
+            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32L, bTile*S*N), kvLoraRank});
             auto r1Res = Reshape(postInUnit, {bTile*S, N, kvLoraRank}); // 128个
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(NUM_32, bTile*S), 2, kvLoraRank}); // raw (bTile*1, 128, 512)
             auto cast1 = Cast(r1Res, DT_BF16);
@@ -2644,7 +2644,7 @@ void PageAttentionPostBf16(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache
 
             Program::GetInstance().GetTileShape().SetCubeTileShapes(
                 {std::min(NUM_32, bTile*S), std::min(NUM_32, bTile*S)},
-                {std::min(256, kvLoraRank), std::min(512, kvLoraRank)},
+                {std::min(256L, kvLoraRank), std::min(5L, kvLoraRank)},
                 {vHeadDim, vHeadDim}, true); // raw bTile*1  512   128   // 128/4个
             auto bmmRes = Matrix::BatchMatmul(dtype, t1Res, weightUV); // (N, bTile, kvLoraRank) * (N, kvLoraRank, vHeadDim) -> (N, bTile, vHeadDim)
 
@@ -2661,11 +2661,11 @@ void PageAttentionPostBf16(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache
             // // int8 @ int8 = int32
             Program::GetInstance().GetTileShape().SetCubeTileShapes(
                 {std::min(NUM_32, bTile*S), std::min(NUM_32, bTile*S)},
-                {std::min(512, N*vHeadDim), std::min(512, N*vHeadDim)},
-                {std::min(64, H), std::min(64, H)}, true); // raw  bTile*1  16k  7168
+                {std::min(512L, N*vHeadDim), std::min(512L, N*vHeadDim)},
+                {std::min(64L, H), std::min(64L, H)}, true); // raw  bTile*1  16k  7168
             Tensor res = npu::tile_fwk::Matrix::Matmul(DataType::DT_INT32, quantizedA, weightO);
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(NUM_32, bTile*S), std::min(NUM_32, H)); // raw (bTile*1, 7168)
+            Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(NUM_32, bTile*S), std::min(32L, H)); // raw (bTile*1, 7168)
             res = Cast(res, DataType::DT_FP32);
             res = Mul(res, dequantScaleA);   // (B*S, 1)
             Tensor weightOScaleW2Dim = Reshape(weightOScaleW, {1, H});

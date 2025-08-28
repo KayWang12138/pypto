@@ -40,7 +40,7 @@ public:
 };
 
 TEST_F(SimulationAccTest, TestAddTensorFunctionDim4) {
-    std::vector<int> shape{1,1,32,32};
+    std::vector<int64_t> shape{1,1,32,32};
 
     Tensor a(DT_FP16, shape, "a");
     Tensor b(DT_FP16, shape, "b");
@@ -59,7 +59,7 @@ TEST_F(SimulationAccTest, TestAddTensorFunctionDim4) {
 }
 
 TEST_F(SimulationAccTest, TestAddTensorFunctionDim4_1) {
-    std::vector<int> shape{2,2,32,32};
+    std::vector<int64_t> shape{2,2,32,32};
 
     Tensor a(DT_FP16, shape, "a");
     Tensor b(DT_FP16, shape, "b");
@@ -78,7 +78,7 @@ TEST_F(SimulationAccTest, TestAddTensorFunctionDim4_1) {
 }
 
 TEST_F(SimulationAccTest, TestAddTensorFunctionDim2) {
-    std::vector<int> shape{16,16};
+    std::vector<int64_t> shape{16,16};
 
     Tensor a(DT_FP16, shape, "a");
     Tensor b(DT_FP16, shape, "b");
@@ -97,7 +97,7 @@ TEST_F(SimulationAccTest, TestAddTensorFunctionDim2) {
 }
 
 TEST_F(SimulationAccTest, TestAddTensorFunctionDim2_1) {
-    std::vector<int> shape{32,32};
+    std::vector<int64_t> shape{32,32};
 
     Tensor a(DT_FP16, shape, "a");
     Tensor b(DT_FP16, shape, "b");
@@ -116,7 +116,7 @@ TEST_F(SimulationAccTest, TestAddTensorFunctionDim2_1) {
 }
 
 TEST_F(SimulationAccTest, TestAddTensorFunctionDim2_2) {
-    std::vector<int> shape{128,128};
+    std::vector<int64_t> shape{128,128};
 
     Tensor a(DT_FP16, shape, "a");
     Tensor b(DT_FP16, shape, "b");
@@ -135,7 +135,7 @@ TEST_F(SimulationAccTest, TestAddTensorFunctionDim2_2) {
 }
 
 TEST_F(SimulationAccTest, TestSubTensorFunctionDim2) {
-    std::vector<int> shape{64,64};
+    std::vector<int64_t> shape{64,64};
 
     Tensor a(DT_FP16, shape, "a");
     Tensor b(DT_FP16, shape, "b");
@@ -154,7 +154,7 @@ TEST_F(SimulationAccTest, TestSubTensorFunctionDim2) {
 }
 
 TEST_F(SimulationAccTest, TestSubTensorFunctionDim2_1) {
-    std::vector<int> shape{64,64};
+    std::vector<int64_t> shape{64,64};
 
     Tensor a(DT_FP16, shape, "a");
     Tensor b(DT_FP16, shape, "b");
@@ -173,7 +173,7 @@ TEST_F(SimulationAccTest, TestSubTensorFunctionDim2_1) {
 }
 
 TEST_F(SimulationAccTest, TestSubTensorFunctionDim2_2) {
-    std::vector<int> shape{128,128};
+    std::vector<int64_t> shape{128,128};
 
     Tensor a(DT_FP16, shape, "a");
     Tensor b(DT_FP16, shape, "b");
@@ -192,7 +192,7 @@ TEST_F(SimulationAccTest, TestSubTensorFunctionDim2_2) {
 }
 
 TEST_F(SimulationAccTest, TestMulTensorFunctionDim2) {
-    std::vector<int> shape{64,64};
+    std::vector<int64_t> shape{64,64};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor b(DT_FP32, shape, "b");
@@ -211,7 +211,7 @@ TEST_F(SimulationAccTest, TestMulTensorFunctionDim2) {
 }
 
 TEST_F(SimulationAccTest, TestMulTensorFunctionDim2_1) {
-    std::vector<int> shape{128,128};
+    std::vector<int64_t> shape{128,128};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor b(DT_FP32, shape, "b");
@@ -230,7 +230,7 @@ TEST_F(SimulationAccTest, TestMulTensorFunctionDim2_1) {
 }
 
 TEST_F(SimulationAccTest, TestMulTensorFunctionDim2_2) {
-    std::vector<int> shape{128,128};
+    std::vector<int64_t> shape{128,128};
 
     Tensor a(DT_FP16, shape, "a");
     Tensor b(DT_FP16, shape, "b");
@@ -249,7 +249,7 @@ TEST_F(SimulationAccTest, TestMulTensorFunctionDim2_2) {
 }
 
 TEST_F(SimulationAccTest, TestMulTensorFunctionDim2_3) {
-    std::vector<int> shape{16,16};
+    std::vector<int64_t> shape{16,16};
 
     Tensor a(DT_FP16, shape, "a");
     Tensor b(DT_FP16, shape, "b");
@@ -268,7 +268,7 @@ TEST_F(SimulationAccTest, TestMulTensorFunctionDim2_3) {
 }
 
 TEST_F(SimulationAccTest, TestDivTensorFunctionDim2) {
-    std::vector<int> shape{64,64};
+    std::vector<int64_t> shape{64,64};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor b(DT_FP32, shape, "b");
@@ -287,7 +287,7 @@ TEST_F(SimulationAccTest, TestDivTensorFunctionDim2) {
 }
 
 TEST_F(SimulationAccTest, TestDivTensorFunctionDim2_1) {
-    std::vector<int> shape{128,128};
+    std::vector<int64_t> shape{128,128};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor b(DT_FP32, shape, "b");
@@ -306,7 +306,7 @@ TEST_F(SimulationAccTest, TestDivTensorFunctionDim2_1) {
 }
 
 TEST_F(SimulationAccTest, TestDivTensorFunctionDim2_2) {
-    std::vector<int> shape{128,128};
+    std::vector<int64_t> shape{128,128};
 
     Tensor a(DT_FP16, shape, "a");
     Tensor b(DT_FP16, shape, "b");
@@ -325,7 +325,7 @@ TEST_F(SimulationAccTest, TestDivTensorFunctionDim2_2) {
 }
 
 TEST_F(SimulationAccTest, TestDivTensorFunctionDim2_3) {
-    std::vector<int> shape{16,16};
+    std::vector<int64_t> shape{16,16};
 
     Tensor a(DT_FP16, shape, "a");
     Tensor b(DT_FP16, shape, "b");
@@ -344,7 +344,7 @@ TEST_F(SimulationAccTest, TestDivTensorFunctionDim2_3) {
 }
 
 TEST_F(SimulationAccTest, TestAddScalarFunctionDim2) {
-    std::vector<int> shape{64,64};
+    std::vector<int64_t> shape{64,64};
 
     Tensor a(DT_FP32, shape, "a");
     Element value(DataType::DT_FP32, 1.5);
@@ -364,7 +364,7 @@ TEST_F(SimulationAccTest, TestAddScalarFunctionDim2) {
 }
 
 TEST_F(SimulationAccTest, TestAddScalarFunctionDim2_1) {
-    std::vector<int> shape{128,128};
+    std::vector<int64_t> shape{128,128};
 
     Tensor a(DT_FP32, shape, "a");
     Element value(DataType::DT_FP32, 1.5);
@@ -384,7 +384,7 @@ TEST_F(SimulationAccTest, TestAddScalarFunctionDim2_1) {
 }
 
 TEST_F(SimulationAccTest, TestAddScalarFunctionDim2_2) {
-    std::vector<int> shape{128,128};
+    std::vector<int64_t> shape{128,128};
 
     Tensor a(DT_FP16, shape, "a");
     Element value(DataType::DT_FP16, 1.5);
@@ -404,7 +404,7 @@ TEST_F(SimulationAccTest, TestAddScalarFunctionDim2_2) {
 }
 
 TEST_F(SimulationAccTest, TestAddScalarFunctionDim2_3) {
-    std::vector<int> shape{16,16};
+    std::vector<int64_t> shape{16,16};
 
     Tensor a(DT_FP16, shape, "a");
     Element value(DataType::DT_FP16, 1.5);
@@ -424,7 +424,7 @@ TEST_F(SimulationAccTest, TestAddScalarFunctionDim2_3) {
 }
 
 TEST_F(SimulationAccTest, TestSubScalarFunctionDim2) {
-    std::vector<int> shape{64,64};
+    std::vector<int64_t> shape{64,64};
 
     Tensor a(DT_FP32, shape, "a");
     Element value(DataType::DT_FP32, 1.5);
@@ -444,7 +444,7 @@ TEST_F(SimulationAccTest, TestSubScalarFunctionDim2) {
 }
 
 TEST_F(SimulationAccTest, TestSubScalarFunctionDim2_1) {
-    std::vector<int> shape{128,128};
+    std::vector<int64_t> shape{128,128};
 
     Tensor a(DT_FP32, shape, "a");
     Element value(DataType::DT_FP32, 1.5);
@@ -464,7 +464,7 @@ TEST_F(SimulationAccTest, TestSubScalarFunctionDim2_1) {
 }
 
 TEST_F(SimulationAccTest, TestSubScalarFunctionDim2_2) {
-    std::vector<int> shape{128,128};
+    std::vector<int64_t> shape{128,128};
 
     Tensor a(DT_FP16, shape, "a");
     Element value(DataType::DT_FP16, 1.5);
@@ -484,7 +484,7 @@ TEST_F(SimulationAccTest, TestSubScalarFunctionDim2_2) {
 }
 
 TEST_F(SimulationAccTest, TestSubScalarFunctionDim2_3) {
-    std::vector<int> shape{16,16};
+    std::vector<int64_t> shape{16,16};
 
     Tensor a(DT_FP16, shape, "a");
     Element value(DataType::DT_FP16, 1.5);
@@ -504,7 +504,7 @@ TEST_F(SimulationAccTest, TestSubScalarFunctionDim2_3) {
 }
 
 TEST_F(SimulationAccTest, TestMulScalarFunctionDim2) {
-    std::vector<int> shape{64,64};
+    std::vector<int64_t> shape{64,64};
 
     Tensor a(DT_FP32, shape, "a");
     Element value(DataType::DT_FP32, 1.5);
@@ -524,7 +524,7 @@ TEST_F(SimulationAccTest, TestMulScalarFunctionDim2) {
 }
 
 TEST_F(SimulationAccTest, TestMulScalarFunctionDim2_1) {
-    std::vector<int> shape{128,128};
+    std::vector<int64_t> shape{128,128};
 
     Tensor a(DT_FP32, shape, "a");
     Element value(DataType::DT_FP32, 1.5);
@@ -544,7 +544,7 @@ TEST_F(SimulationAccTest, TestMulScalarFunctionDim2_1) {
 }
 
 TEST_F(SimulationAccTest, TestMulScalarFunctionDim2_2) {
-    std::vector<int> shape{32,32};
+    std::vector<int64_t> shape{32,32};
 
     Tensor a(DT_FP16, shape, "a");
     Element value(DataType::DT_FP16, 1.5);
@@ -564,7 +564,7 @@ TEST_F(SimulationAccTest, TestMulScalarFunctionDim2_2) {
 }
 
 TEST_F(SimulationAccTest, TestMulScalarFunctionDim2_3) {
-    std::vector<int> shape{16,16};
+    std::vector<int64_t> shape{16,16};
 
     Tensor a(DT_FP16, shape, "a");
     Element value(DataType::DT_FP32, 1.5);
@@ -584,7 +584,7 @@ TEST_F(SimulationAccTest, TestMulScalarFunctionDim2_3) {
 }
 
 TEST_F(SimulationAccTest, TestDivScalarFunctionDim2) {
-    std::vector<int> shape{64,64};
+    std::vector<int64_t> shape{64,64};
 
     Tensor a(DT_FP32, shape, "a");
     Element value(DataType::DT_FP32, 1.5);
@@ -604,7 +604,7 @@ TEST_F(SimulationAccTest, TestDivScalarFunctionDim2) {
 }
 
 TEST_F(SimulationAccTest, TestDivScalarFunctionDim2_1) {
-    std::vector<int> shape{128,128};
+    std::vector<int64_t> shape{128,128};
 
     Tensor a(DT_FP32, shape, "a");
     Element value(DataType::DT_FP32, 1.5);
@@ -624,7 +624,7 @@ TEST_F(SimulationAccTest, TestDivScalarFunctionDim2_1) {
 }
 
 TEST_F(SimulationAccTest, TestDivScalarFunctionDim2_2) {
-    std::vector<int> shape{128,128};
+    std::vector<int64_t> shape{128,128};
 
     Tensor a(DT_FP16, shape, "a");
     Element value(DataType::DT_FP16, 1.5);
@@ -644,7 +644,7 @@ TEST_F(SimulationAccTest, TestDivScalarFunctionDim2_2) {
 }
 
 TEST_F(SimulationAccTest, TestDivScalarFunctionDim2_3) {
-    std::vector<int> shape{16,16};
+    std::vector<int64_t> shape{16,16};
 
     Tensor a(DT_FP16, shape, "a");
     Element value(DataType::DT_FP16, 1.5);
@@ -664,7 +664,7 @@ TEST_F(SimulationAccTest, TestDivScalarFunctionDim2_3) {
 }
 
 TEST_F(SimulationAccTest, TestSqrtTensorFunctionDim2) {
-    std::vector<int> shape{64,64};
+    std::vector<int64_t> shape{64,64};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor c;
@@ -680,7 +680,7 @@ TEST_F(SimulationAccTest, TestSqrtTensorFunctionDim2) {
 }
 
 TEST_F(SimulationAccTest, TestSqrtTensorFunctionDim2_1) {
-    std::vector<int> shape{128,128};
+    std::vector<int64_t> shape{128,128};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor c;
@@ -696,7 +696,7 @@ TEST_F(SimulationAccTest, TestSqrtTensorFunctionDim2_1) {
 }
 
 TEST_F(SimulationAccTest, TestSqrtTensorFunctionDim2_2) {
-    std::vector<int> shape{128,128};
+    std::vector<int64_t> shape{128,128};
 
     Tensor a(DT_FP16, shape, "a");
     Tensor c;
@@ -712,7 +712,7 @@ TEST_F(SimulationAccTest, TestSqrtTensorFunctionDim2_2) {
 }
 
 TEST_F(SimulationAccTest, TestSqrtTensorFunctionDim2_3) {
-    std::vector<int> shape{16,16};
+    std::vector<int64_t> shape{16,16};
 
     Tensor a(DT_FP16, shape, "a");
     Tensor c;
@@ -728,7 +728,7 @@ TEST_F(SimulationAccTest, TestSqrtTensorFunctionDim2_3) {
 }
 
 TEST_F(SimulationAccTest, TestExpTensorFunctionDim2) {
-    std::vector<int> shape{64,64};
+    std::vector<int64_t> shape{64,64};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor c;
@@ -744,7 +744,7 @@ TEST_F(SimulationAccTest, TestExpTensorFunctionDim2) {
 }
 
 TEST_F(SimulationAccTest, TestExpTensorFunctionDim2_1) {
-    std::vector<int> shape{128,128};
+    std::vector<int64_t> shape{128,128};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor c;
@@ -760,7 +760,7 @@ TEST_F(SimulationAccTest, TestExpTensorFunctionDim2_1) {
 }
 
 TEST_F(SimulationAccTest, TestExpTensorFunctionDim2_2) {
-    std::vector<int> shape{128,128};
+    std::vector<int64_t> shape{128,128};
 
     Tensor a(DT_FP16, shape, "a");
     Tensor c;
@@ -776,7 +776,7 @@ TEST_F(SimulationAccTest, TestExpTensorFunctionDim2_2) {
 }
 
 TEST_F(SimulationAccTest, TestExpTensorFunctionDim2_3) {
-    std::vector<int> shape{16,16};
+    std::vector<int64_t> shape{16,16};
 
     Tensor a(DT_FP16, shape, "a");
     Tensor c;
@@ -792,7 +792,7 @@ TEST_F(SimulationAccTest, TestExpTensorFunctionDim2_3) {
 }
 
 TEST_F(SimulationAccTest, TestReciprocalTensorFunctionDim2) {
-    std::vector<int> shape{64,64};
+    std::vector<int64_t> shape{64,64};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor c;
@@ -808,7 +808,7 @@ TEST_F(SimulationAccTest, TestReciprocalTensorFunctionDim2) {
 }
 
 TEST_F(SimulationAccTest, TestReciprocalTensorFunctionDim2_1) {
-    std::vector<int> shape{128,128};
+    std::vector<int64_t> shape{128,128};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor c;
@@ -824,7 +824,7 @@ TEST_F(SimulationAccTest, TestReciprocalTensorFunctionDim2_1) {
 }
 
 TEST_F(SimulationAccTest, TestReciprocalTensorFunctionDim2_2) {
-    std::vector<int> shape{128,128};
+    std::vector<int64_t> shape{128,128};
 
     Tensor a(DT_FP16, shape, "a");
     Tensor c;
@@ -840,7 +840,7 @@ TEST_F(SimulationAccTest, TestReciprocalTensorFunctionDim2_2) {
 }
 
 TEST_F(SimulationAccTest, TestReciprocalTensorFunctionDim2_3) {
-    std::vector<int> shape{16,16};
+    std::vector<int64_t> shape{16,16};
 
     Tensor a(DT_FP16, shape, "a");
     Tensor c;
@@ -856,7 +856,7 @@ TEST_F(SimulationAccTest, TestReciprocalTensorFunctionDim2_3) {
 }
 
 TEST_F(SimulationAccTest, TestExpandTensorFunctionDim2_1) {
-    std::vector<int> shape{1,1};
+    std::vector<int64_t> shape{1,1};
 
     Tensor a(DT_FP16, shape, "a");
     Tensor c;
@@ -864,7 +864,7 @@ TEST_F(SimulationAccTest, TestExpandTensorFunctionDim2_1) {
 
     Program::GetInstance().GetTileShape().SetVecTileShapes(128,128);
 
-    std::vector<int> vec{32, 32};
+    std::vector<int64_t> vec{32, 32};
 
     FUNCTION("A") {
         c = Expand(a, vec);
@@ -874,7 +874,7 @@ TEST_F(SimulationAccTest, TestExpandTensorFunctionDim2_1) {
 }
 
 TEST_F(SimulationAccTest, TestExpandTensorFunctionDim2_2) {
-    std::vector<int> shape{1,1};
+    std::vector<int64_t> shape{1,1};
 
     Tensor a(DT_FP16, shape, "a");
     Tensor c;
@@ -882,7 +882,7 @@ TEST_F(SimulationAccTest, TestExpandTensorFunctionDim2_2) {
 
     Program::GetInstance().GetTileShape().SetVecTileShapes(128,128);
 
-    std::vector<int> vec{64, 64};
+    std::vector<int64_t> vec{64, 64};
 
     FUNCTION("A") {
         c = Expand(a, vec);
@@ -892,7 +892,7 @@ TEST_F(SimulationAccTest, TestExpandTensorFunctionDim2_2) {
 }
 
 TEST_F(SimulationAccTest, TestExpandTensorFunctionDim2_3) {
-    std::vector<int> shape{1,1};
+    std::vector<int64_t> shape{1,1};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor c;
@@ -900,7 +900,7 @@ TEST_F(SimulationAccTest, TestExpandTensorFunctionDim2_3) {
 
     Program::GetInstance().GetTileShape().SetVecTileShapes(128,128);
 
-    std::vector<int> vec{64, 64};
+    std::vector<int64_t> vec{64, 64};
 
     FUNCTION("A") {
         c = Expand(a, vec);
@@ -911,7 +911,7 @@ TEST_F(SimulationAccTest, TestExpandTensorFunctionDim2_3) {
 
 
 TEST_F(SimulationAccTest, TestExpandTensorFunctionDim2_4) {
-    std::vector<int> shape{1,1};
+    std::vector<int64_t> shape{1,1};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor c;
@@ -919,7 +919,7 @@ TEST_F(SimulationAccTest, TestExpandTensorFunctionDim2_4) {
 
     Program::GetInstance().GetTileShape().SetVecTileShapes(128,128);
 
-    std::vector<int> vec{128, 128};
+    std::vector<int64_t> vec{128, 128};
 
     FUNCTION("A") {
         c = Expand(a, vec);
@@ -929,7 +929,7 @@ TEST_F(SimulationAccTest, TestExpandTensorFunctionDim2_4) {
 }
 
 TEST_F(SimulationAccTest, TestRowSumSingleTensorFunctionDim2_1) {
-    std::vector<int> shape{16,16};
+    std::vector<int64_t> shape{16,16};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor c;
@@ -945,7 +945,7 @@ TEST_F(SimulationAccTest, TestRowSumSingleTensorFunctionDim2_1) {
 }
 
 TEST_F(SimulationAccTest, TestRowSumSingleTensorFunctionDim2_2) {
-    std::vector<int> shape{32,32};
+    std::vector<int64_t> shape{32,32};
 
     Tensor a(DT_INT32, shape, "a");
     Tensor c;
@@ -961,7 +961,7 @@ TEST_F(SimulationAccTest, TestRowSumSingleTensorFunctionDim2_2) {
 }
 
 TEST_F(SimulationAccTest, TestRowSumSingleTensorFunctionDim2_3) {
-    std::vector<int> shape{64,64};
+    std::vector<int64_t> shape{64,64};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor c;
@@ -977,7 +977,7 @@ TEST_F(SimulationAccTest, TestRowSumSingleTensorFunctionDim2_3) {
 }
 
 TEST_F(SimulationAccTest, TestRowSumSingleTensorFunctionDim2_4) {
-    std::vector<int> shape{64,64};
+    std::vector<int64_t> shape{64,64};
 
     Tensor a(DT_INT32, shape, "a");
     Tensor c;
@@ -993,7 +993,7 @@ TEST_F(SimulationAccTest, TestRowSumSingleTensorFunctionDim2_4) {
 }
 
 TEST_F(SimulationAccTest, TestRowMaxSingleTensorFunctionDim2_1) {
-    std::vector<int> shape{16,16};
+    std::vector<int64_t> shape{16,16};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor c;
@@ -1009,7 +1009,7 @@ TEST_F(SimulationAccTest, TestRowMaxSingleTensorFunctionDim2_1) {
 }
 
 TEST_F(SimulationAccTest, TestRowMaxSingleTensorFunctionDim2_2) {
-    std::vector<int> shape{32,32};
+    std::vector<int64_t> shape{32,32};
 
     Tensor a(DT_INT32, shape, "a");
     Tensor c;
@@ -1025,7 +1025,7 @@ TEST_F(SimulationAccTest, TestRowMaxSingleTensorFunctionDim2_2) {
 }
 
 TEST_F(SimulationAccTest, TestRowMaxSingleTensorFunctionDim2_3) {
-    std::vector<int> shape{64,64};
+    std::vector<int64_t> shape{64,64};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor c;
@@ -1041,7 +1041,7 @@ TEST_F(SimulationAccTest, TestRowMaxSingleTensorFunctionDim2_3) {
 }
 
 TEST_F(SimulationAccTest, TestRowMaxSingleTensorFunctionDim2_4) {
-    std::vector<int> shape{64,64};
+    std::vector<int64_t> shape{64,64};
 
     Tensor a(DT_INT32, shape, "a");
     Tensor c;
@@ -1057,7 +1057,7 @@ TEST_F(SimulationAccTest, TestRowMaxSingleTensorFunctionDim2_4) {
 }
 
 TEST_F(SimulationAccTest, TestCastTensorFunctionDim2_1) {
-    std::vector<int> shape{16,16};
+    std::vector<int64_t> shape{16,16};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor c;
@@ -1073,7 +1073,7 @@ TEST_F(SimulationAccTest, TestCastTensorFunctionDim2_1) {
 }
 
 TEST_F(SimulationAccTest, TestCastTensorFunctionDim2_2) {
-    std::vector<int> shape{32,32};
+    std::vector<int64_t> shape{32,32};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor c;
@@ -1089,7 +1089,7 @@ TEST_F(SimulationAccTest, TestCastTensorFunctionDim2_2) {
 }
 
 TEST_F(SimulationAccTest, TestCastTensorFunctionDim2_3) {
-    std::vector<int> shape{64,64};
+    std::vector<int64_t> shape{64,64};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor c;
@@ -1105,7 +1105,7 @@ TEST_F(SimulationAccTest, TestCastTensorFunctionDim2_3) {
 }
 
 TEST_F(SimulationAccTest, TestCastTensorFunctionDim2_4) {
-    std::vector<int> shape{128,128};
+    std::vector<int64_t> shape{128,128};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor c;

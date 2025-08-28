@@ -32,9 +32,9 @@ TEST_F(DynamicBrcTest, TestDynamicMulBrcUnalign) {
     int b = 2;
     int sq = 32;
     int d = 72;
-    std::vector<int> inputShape_a = {b * sq, d};
-    std::vector<int> inputShape_b = {b * sq, 8};
-    std::vector<int> outShape = {b * sq, d};
+    std::vector<int64_t> inputShape_a = {b * sq, d};
+    std::vector<int64_t> inputShape_b = {b * sq, 8};
+    std::vector<int64_t> outShape = {b * sq, d};
 
     Tensor input_a(DT_FP32, inputShape_a, "intput_a");
     Tensor input_b(DT_FP32, inputShape_b, "intput_b");

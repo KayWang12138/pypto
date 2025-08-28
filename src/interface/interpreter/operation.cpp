@@ -14,7 +14,7 @@
 
 namespace npu::tile_fwk {
 
-static int GetAsParameterCoaIndex(const RawSymbolicScalarPtr &value) {
+static int64_t GetAsParameterCoaIndex(const RawSymbolicScalarPtr &value) {
     if (value->IsExpressionCall("RUNTIME_COA_GET_PARAM_OFFSET")) {
         auto &operands = value->GetExpressionOperandList();
         auto base = operands[RUNTIME_GET_PARAM_OFFSET_OPERAND_INDEX_COA_INDEX]->GetImmediateValue();
@@ -30,11 +30,11 @@ static int GetAsParameterCoaIndex(const RawSymbolicScalarPtr &value) {
     return -1;
 }
 
-std::vector<int> OperationInterpreter::EvaluateOpImmediate(
+std::vector<int64_t> OperationInterpreter::EvaluateOpImmediate(
     FunctionFrame *frame, const std::vector<OpImmediate> &opImmList) {
-    std::vector<int> result;
+    std::vector<int64_t> result;
     for (auto &opImm : opImmList) {
-        int res = 0;
+        int64_t res = 0;
         if (opImm.IsSpecified()) {
             auto opImmValue = opImm.GetSpecifiedValue();
             auto coaIndex = GetAsParameterCoaIndex(opImmValue.Raw());

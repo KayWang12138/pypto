@@ -31,12 +31,12 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3) {
 
     std::string shape_dir_path = "/1_1_32_64/";
 
-    std::vector<int> qPeShape{B, S, N, qkRopeHeadDim};
-    std::vector<int> kPeShape{B, S, qkRopeHeadDim};
-    std::vector<int> idsShape{B, S};
-    std::vector<int> cosSinShape{S, qkRopeHeadDim};
-    std::vector<int> qEmbedShape{B, N, S, qkRopeHeadDim};
-    std::vector<int> kEmbedShape{B, 1, S, qkRopeHeadDim};
+    std::vector<int64_t> qPeShape{B, S, N, qkRopeHeadDim};
+    std::vector<int64_t> kPeShape{B, S, qkRopeHeadDim};
+    std::vector<int64_t> idsShape{B, S};
+    std::vector<int64_t> cosSinShape{S, qkRopeHeadDim};
+    std::vector<int64_t> qEmbedShape{B, N, S, qkRopeHeadDim};
+    std::vector<int64_t> kEmbedShape{B, 1, S, qkRopeHeadDim};
 
     int qSize = std::accumulate(qPeShape.begin(), qPeShape.end(), 1, std::multiplies<>());
     int kSize = std::accumulate(kPeShape.begin(), kPeShape.end(), 1, std::multiplies<>());
@@ -131,12 +131,12 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_fp16) {
 
     std::string shape_dir_path = "/1_1_32_64/";
 
-    std::vector<int> qPeShape{B, S, N, qkRopeHeadDim};
-    std::vector<int> kPeShape{B, S, qkRopeHeadDim};
-    std::vector<int> idsShape{B, S};
-    std::vector<int> cosSinShape{S, qkRopeHeadDim};
-    std::vector<int> qEmbedShape{B, N, S, qkRopeHeadDim};
-    std::vector<int> kEmbedShape{B, 1, S, qkRopeHeadDim};
+    std::vector<int64_t> qPeShape{B, S, N, qkRopeHeadDim};
+    std::vector<int64_t> kPeShape{B, S, qkRopeHeadDim};
+    std::vector<int64_t> idsShape{B, S};
+    std::vector<int64_t> cosSinShape{S, qkRopeHeadDim};
+    std::vector<int64_t> qEmbedShape{B, N, S, qkRopeHeadDim};
+    std::vector<int64_t> kEmbedShape{B, 1, S, qkRopeHeadDim};
 
     int qSize = std::accumulate(qPeShape.begin(), qPeShape.end(), 1, std::multiplies<>());
     int kSize = std::accumulate(kPeShape.begin(), kPeShape.end(), 1, std::multiplies<>());
@@ -214,12 +214,12 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_fp16_2ba
 
     std::string shape_dir_path = "/2_1_32_64/";
 
-    std::vector<int> qPeShape{B, S, N, qkRopeHeadDim};
-    std::vector<int> kPeShape{B, S, qkRopeHeadDim};
-    std::vector<int> idsShape{B, S};
-    std::vector<int> cosSinShape{S, qkRopeHeadDim};
-    std::vector<int> qEmbedShape{B, N, S, qkRopeHeadDim};
-    std::vector<int> kEmbedShape{B, 1, S, qkRopeHeadDim};
+    std::vector<int64_t> qPeShape{B, S, N, qkRopeHeadDim};
+    std::vector<int64_t> kPeShape{B, S, qkRopeHeadDim};
+    std::vector<int64_t> idsShape{B, S};
+    std::vector<int64_t> cosSinShape{S, qkRopeHeadDim};
+    std::vector<int64_t> qEmbedShape{B, N, S, qkRopeHeadDim};
+    std::vector<int64_t> kEmbedShape{B, 1, S, qkRopeHeadDim};
 
     int qSize = std::accumulate(qPeShape.begin(), qPeShape.end(), 1, std::multiplies<>());
     int kSize = std::accumulate(kPeShape.begin(), kPeShape.end(), 1, std::multiplies<>());
@@ -297,12 +297,12 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_bf16) {
 
     std::string shape_dir_path = "/1_1_32_64/";
 
-    std::vector<int> qPeShape{B, S, N, qkRopeHeadDim};
-    std::vector<int> kPeShape{B, S, qkRopeHeadDim};
-    std::vector<int> idsShape{B, S};
-    std::vector<int> cosSinShape{S, qkRopeHeadDim};
-    std::vector<int> qEmbedShape{B, N, S, qkRopeHeadDim};
-    std::vector<int> kEmbedShape{B, 1, S, qkRopeHeadDim};
+    std::vector<int64_t> qPeShape{B, S, N, qkRopeHeadDim};
+    std::vector<int64_t> kPeShape{B, S, qkRopeHeadDim};
+    std::vector<int64_t> idsShape{B, S};
+    std::vector<int64_t> cosSinShape{S, qkRopeHeadDim};
+    std::vector<int64_t> qEmbedShape{B, N, S, qkRopeHeadDim};
+    std::vector<int64_t> kEmbedShape{B, 1, S, qkRopeHeadDim};
 
     int qSize = std::accumulate(qPeShape.begin(), qPeShape.end(), 1, std::multiplies<>());
     int kSize = std::accumulate(kPeShape.begin(), kPeShape.end(), 1, std::multiplies<>());
@@ -379,12 +379,12 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_bf16_32b
 
     std::string shape_dir_path = "/32_1_32_64/";
 
-    std::vector<int> qPeShape{B, S, N, qkRopeHeadDim};
-    std::vector<int> kPeShape{B, S, qkRopeHeadDim};
-    std::vector<int> idsShape{B, S};
-    std::vector<int> cosSinShape{S, qkRopeHeadDim};
-    std::vector<int> qEmbedShape{B, N, S, qkRopeHeadDim};
-    std::vector<int> kEmbedShape{B, 1, S, qkRopeHeadDim};
+    std::vector<int64_t> qPeShape{B, S, N, qkRopeHeadDim};
+    std::vector<int64_t> kPeShape{B, S, qkRopeHeadDim};
+    std::vector<int64_t> idsShape{B, S};
+    std::vector<int64_t> cosSinShape{S, qkRopeHeadDim};
+    std::vector<int64_t> qEmbedShape{B, N, S, qkRopeHeadDim};
+    std::vector<int64_t> kEmbedShape{B, 1, S, qkRopeHeadDim};
 
     int qSize = std::accumulate(qPeShape.begin(), qPeShape.end(), 1, std::multiplies<>());
     int kSize = std::accumulate(kPeShape.begin(), kPeShape.end(), 1, std::multiplies<>());
@@ -461,12 +461,12 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_bf16_2ba
 
     std::string shape_dir_path = "/2_1_32_64/";
 
-    std::vector<int> qPeShape{B, S, N, qkRopeHeadDim};
-    std::vector<int> kPeShape{B, S, qkRopeHeadDim};
-    std::vector<int> idsShape{B, S};
-    std::vector<int> cosSinShape{S, qkRopeHeadDim};
-    std::vector<int> qEmbedShape{B, N, S, qkRopeHeadDim};
-    std::vector<int> kEmbedShape{B, 1, S, qkRopeHeadDim};
+    std::vector<int64_t> qPeShape{B, S, N, qkRopeHeadDim};
+    std::vector<int64_t> kPeShape{B, S, qkRopeHeadDim};
+    std::vector<int64_t> idsShape{B, S};
+    std::vector<int64_t> cosSinShape{S, qkRopeHeadDim};
+    std::vector<int64_t> qEmbedShape{B, N, S, qkRopeHeadDim};
+    std::vector<int64_t> kEmbedShape{B, 1, S, qkRopeHeadDim};
 
     int qSize = std::accumulate(qPeShape.begin(), qPeShape.end(), 1, std::multiplies<>());
     int kSize = std::accumulate(kPeShape.begin(), kPeShape.end(), 1, std::multiplies<>());
@@ -547,12 +547,12 @@ TEST_F(RoPESubGraphOnBoardTest, test_CD_bf16_32batch) {
 
     std::string shape_dir_path = "/32_1_32_64/";
 
-    std::vector<int> qPeShape{B, S, N, qkRopeHeadDim};
-    std::vector<int> kPeShape{B, S, qkRopeHeadDim};
-    std::vector<int> idsShape{B, S};
-    std::vector<int> cosSinShape{S, qkRopeHeadDim};
-    std::vector<int> qEmbedShape{B, N, S, qkRopeHeadDim};
-    std::vector<int> kEmbedShape{B, 1, S, qkRopeHeadDim};
+    std::vector<int64_t> qPeShape{B, S, N, qkRopeHeadDim};
+    std::vector<int64_t> kPeShape{B, S, qkRopeHeadDim};
+    std::vector<int64_t> idsShape{B, S};
+    std::vector<int64_t> cosSinShape{S, qkRopeHeadDim};
+    std::vector<int64_t> qEmbedShape{B, N, S, qkRopeHeadDim};
+    std::vector<int64_t> kEmbedShape{B, 1, S, qkRopeHeadDim};
 
     int qSize = std::accumulate(qPeShape.begin(), qPeShape.end(), 1, std::multiplies<>());
     int kSize = std::accumulate(kPeShape.begin(), kPeShape.end(), 1, std::multiplies<>());
@@ -562,11 +562,11 @@ TEST_F(RoPESubGraphOnBoardTest, test_CD_bf16_32batch) {
     int kEmbedSize = std::accumulate(kEmbedShape.begin(), kEmbedShape.end(), 1, std::multiplies<>());
 
 
-    std::vector<int> shape0 =  {B, 1, S2, kvLoraRank + qkRopeHeadDim}; // [2,1,512,576]
-    std::vector<int> shape1 = {S};
-    std::vector<int> shape2 = {B, 1, S, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> shape_compress_kv = {B, S, kvLoraRank};
-    std::vector<int> shape_k_pe_rope = {B, 1, S, qkRopeHeadDim};
+    std::vector<int64_t> shape0 =  {B, 1, S2, kvLoraRank + qkRopeHeadDim}; // [2,1,512,576]
+    std::vector<int64_t> shape1 = {S};
+    std::vector<int64_t> shape2 = {B, 1, S, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> shape_compress_kv = {B, S, kvLoraRank};
+    std::vector<int64_t> shape_k_pe_rope = {B, 1, S, qkRopeHeadDim};
 
     int capacity0 = shape0[0] * shape0[1] * shape0[2] * shape0[3];
     int capacity1 = shape1[0];
@@ -675,12 +675,12 @@ TEST_F(RoPESubGraphOnBoardTest, test_CD_bf16_32batch_4k) {
 
     std::string shape_dir_path = "/32_1_32_64/";
 
-    std::vector<int> qPeShape{B, S, N, qkRopeHeadDim};
-    std::vector<int> kPeShape{B, S, qkRopeHeadDim};
-    std::vector<int> idsShape{B, S};
-    std::vector<int> cosSinShape{S, qkRopeHeadDim};
-    std::vector<int> qEmbedShape{B, N, S, qkRopeHeadDim};
-    std::vector<int> kEmbedShape{B, 1, S, qkRopeHeadDim};
+    std::vector<int64_t> qPeShape{B, S, N, qkRopeHeadDim};
+    std::vector<int64_t> kPeShape{B, S, qkRopeHeadDim};
+    std::vector<int64_t> idsShape{B, S};
+    std::vector<int64_t> cosSinShape{S, qkRopeHeadDim};
+    std::vector<int64_t> qEmbedShape{B, N, S, qkRopeHeadDim};
+    std::vector<int64_t> kEmbedShape{B, 1, S, qkRopeHeadDim};
 
     int qSize = std::accumulate(qPeShape.begin(), qPeShape.end(), 1, std::multiplies<>());
     int kSize = std::accumulate(kPeShape.begin(), kPeShape.end(), 1, std::multiplies<>());
@@ -690,11 +690,11 @@ TEST_F(RoPESubGraphOnBoardTest, test_CD_bf16_32batch_4k) {
     int kEmbedSize = std::accumulate(kEmbedShape.begin(), kEmbedShape.end(), 1, std::multiplies<>());
 
 
-    std::vector<int> shape0 =  {B, 1, S2, kvLoraRank + qkRopeHeadDim}; // [2,1,4096,576]
-    std::vector<int> shape1 = {S};
-    std::vector<int> shape2 = {B, 1, S, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> shape_compress_kv = {B, S, kvLoraRank};
-    std::vector<int> shape_k_pe_rope = {B, 1, S, qkRopeHeadDim};
+    std::vector<int64_t> shape0 =  {B, 1, S2, kvLoraRank + qkRopeHeadDim}; // [2,1,4096,576]
+    std::vector<int64_t> shape1 = {S};
+    std::vector<int64_t> shape2 = {B, 1, S, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> shape_compress_kv = {B, S, kvLoraRank};
+    std::vector<int64_t> shape_k_pe_rope = {B, 1, S, qkRopeHeadDim};
 
     int capacity0 = shape0[0] * shape0[1] * shape0[2] * shape0[3];
     int capacity1 = shape1[0];

@@ -7,12 +7,12 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
- 
+
 /*!
  * \file test_dynamic_win_atten.cpp
  * \brief
  */
- 
+
 #include <gtest/gtest.h>
 #include "tilefwk/data_type.h"
 #include "interface/function/function.h"
@@ -23,11 +23,11 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "operator/models/nsa/win_attention.h"
 #include "test_dev_func_runner.h"
- 
+
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class DynamicWinAttenInterpreterTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
- 
+
 constexpr int NUM_2 = 2;
 constexpr int NUM_16 = 16;
 constexpr int NUM_32 = 32;
@@ -36,11 +36,11 @@ constexpr int NUM_128 = 128;
 constexpr int NUM_256 = 256;
 constexpr int NUM_512 = 512;
 constexpr int NUM_1024 = 1024;
- 
+
 template <typename T = npu::tile_fwk::float16>
 void TestWinAttenInterpreter(WinAttenTileShapeConfig& tileConfig) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
- 
+
     config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
     config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
     config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true);
@@ -48,7 +48,7 @@ void TestWinAttenInterpreter(WinAttenTileShapeConfig& tileConfig) {
     config::SetPlatformConfig(KEY_VERIFY_PASS_CHECK_PRECISION, true);
     config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, true);
     config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_CHECK_PRECISION, true);
- 
+
     DataType dType = DT_FP32;
     if (std::is_same<T, npu::tile_fwk::float16>::value) {
         dType = DT_FP16;
@@ -57,11 +57,11 @@ void TestWinAttenInterpreter(WinAttenTileShapeConfig& tileConfig) {
     } else {
         dType = DT_FP32;
     }
- 
+
     int paramsSize = 9;
     std::vector<int> inputParam(paramsSize);
     readInput<int>(GetGoldenDir() + "/input_param.bin", inputParam);
- 
+
     int b = inputParam[0];
     int sQ = inputParam[1];
     int nQ = inputParam[2];
@@ -75,15 +75,15 @@ void TestWinAttenInterpreter(WinAttenTileShapeConfig& tileConfig) {
     std::cout << "====input param==== " << std::endl;
     std::cout <<" b = " << b << " sQ = " << sQ << " nQ = " << nQ << " nKV = " << nKV << " sMax =" << sMax << " dN = " << dN
         << " dR = " << dR << " blockSize = " << blockSize << " windowSize = " << windowSize << std::endl;
- 
+
     int maxBlock = (sMax + blockSize - 1) / blockSize;
-    std::vector<int> qNopeShape = {b * sQ * nQ, dN};
-    std::vector<int> qRopeShape = {b * sQ * nQ, dR};
-    std::vector<int> vNopeCacheShape = {b * maxBlock * blockSize , nKV * dN};
-    std::vector<int> kRopeCacheShape = {b * maxBlock * blockSize , nKV * dR};
-    std::vector<int> attentionOutShape = {b ,sQ ,nQ, dN};
-    std::vector<int> blockTableShape = {b, maxBlock};
- 
+    std::vector<int64_t> qNopeShape = {b * sQ * nQ, dN};
+    std::vector<int64_t> qRopeShape = {b * sQ * nQ, dR};
+    std::vector<int64_t> vNopeCacheShape = {b * maxBlock * blockSize , nKV * dN};
+    std::vector<int64_t> kRopeCacheShape = {b * maxBlock * blockSize , nKV * dR};
+    std::vector<int64_t> attentionOutShape = {b ,sQ ,nQ, dN};
+    std::vector<int64_t> blockTableShape = {b, maxBlock};
+
     Tensor actSeqs(DT_INT32, {b}, "actSeqs");
     Tensor qNope(dType, qNopeShape, "qNope");
     Tensor qRope(dType, qRopeShape, "qRope");
@@ -91,7 +91,7 @@ void TestWinAttenInterpreter(WinAttenTileShapeConfig& tileConfig) {
     Tensor kRopeCache(dType, kRopeCacheShape, "kRopeCache");
     Tensor blockTable(DT_INT32, blockTableShape, "blockTable");
     Tensor attentionOut(DT_FP32, attentionOutShape, "attentionOut");
- 
+
     // 读数据
     int qNopeSize = std::accumulate(qNopeShape.begin(), qNopeShape.end(), 1, std::multiplies<>());
     int qRopeSize = std::accumulate(qRopeShape.begin(), qRopeShape.end(), 1, std::multiplies<>());
@@ -99,24 +99,24 @@ void TestWinAttenInterpreter(WinAttenTileShapeConfig& tileConfig) {
     int kRopeCacheSize = std::accumulate(kRopeCacheShape.begin(), kRopeCacheShape.end(), 1, std::multiplies<>());
     int blockTableSize = std::accumulate(blockTableShape.begin(), blockTableShape.end(), 1, std::multiplies<>());
     int winAttenOutSize = std::accumulate(attentionOutShape.begin(), attentionOutShape.end(), 1, std::multiplies<>());
- 
+
     std::vector<int> seq(b);
     std::vector<T> qNopeData(qNopeSize, 0);
     std::vector<T> qRopeData(qRopeSize, 0);
     std::vector<T> vNopeCacheData(vNopeCacheSize, 0);
     std::vector<T> kRopeCacheData(kRopeCacheSize, 0);
     std::vector<int> blockTableData(blockTableSize, 0);
- 
+
     readInput<int>(GetGoldenDir() + "/actual_seq_list.bin", seq);
     readInput<T>(GetGoldenDir() + "/q_nope.bin", qNopeData);
     readInput<T>(GetGoldenDir() + "/q_rope.bin", qRopeData);
     readInput<T>(GetGoldenDir() + "/k_cache_nope.bin", vNopeCacheData);
     readInput<T>(GetGoldenDir() + "/k_cache_rope.bin", kRopeCacheData);
     readInput<int>(GetGoldenDir() + "/block_table.bin", blockTableData);
- 
+
     std::vector<float> golden(winAttenOutSize, 0);
     readInput(GetGoldenDir() + "/atten_out.bin", golden);
- 
+
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<T>(qNope, qNopeData),
         RawTensorData::CreateTensor<T>(vNopeCache, vNopeCacheData),
@@ -128,15 +128,15 @@ void TestWinAttenInterpreter(WinAttenTileShapeConfig& tileConfig) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(attentionOut, 0),
     });
- 
+
     ProgramData::GetInstance().AppendGoldens({
         RawTensorData::CreateTensor<float>(attentionOut, golden),
     });
- 
+
     WinAttention(qNope, vNopeCache, qRope, kRopeCache, nQ, nKV, blockTable, actSeqs, windowSize,
         blockSize, softmaxScale, attentionOut, tileConfig);
 }
- 
+
 TEST_F(DynamicWinAttenInterpreterTest, test_DynAttn_nas_win_attn_s1_2_actseqlen_1024_mla_fp16_inter) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
     WinAttenTileShapeConfig tileConfig;

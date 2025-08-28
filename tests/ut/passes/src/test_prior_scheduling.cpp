@@ -49,7 +49,7 @@ TEST_F(TestPriorScheduling, TestMainSchedule) {
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
 
     // Prepare the graph
-    std::vector<int> shape = {8, 16};
+    std::vector<int64_t> shape = {8, 16};
     auto shapeImme = OpImmediate::Specified(shape);
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto incast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);

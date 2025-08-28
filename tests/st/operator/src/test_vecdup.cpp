@@ -24,7 +24,7 @@ TEST_F(VecdupTest, TestVecDup) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
 
-    std::vector<int> shape{32, 1, 32};
+    std::vector<int64_t> shape{32, 1, 32};
     Element src(DataType::DT_FP32, 2.0);
     int outputCapacity = 32 * 32;
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -54,7 +54,7 @@ TEST_F(VecdupTest, TestVecDupUnaligned) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
 
-    std::vector<int> shape{2, 2, 256, 7};
+    std::vector<int64_t> shape{2, 2, 256, 7};
     Element src(DataType::DT_FP32, 2.0);
     int outputCapacity = 2 * 2 * 256 * 7;
     uint64_t outputSize = outputCapacity * sizeof(float);

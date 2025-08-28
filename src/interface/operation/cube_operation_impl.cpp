@@ -31,7 +31,7 @@ namespace npu {
 namespace tile_fwk {
 namespace Matrix {
 
-using AggregationMap = std::map<std::vector<int>, std::vector<std::pair<LogicalTensorPtr, LogicalTensorPtr>>>;
+using AggregationMap = std::map<std::vector<int64_t>, std::vector<std::pair<LogicalTensorPtr, LogicalTensorPtr>>>;
 
 void SetMatmulAttr(Operation &op) {
     auto matrixSize = Program::GetInstance().GetMatrixSize();
@@ -47,11 +47,11 @@ void SetMatmulAttr(Operation &op) {
 }
 
 void SetMatmulAttr(Operation &op, const std::tuple<LogicalTensorPtr, LogicalTensorPtr, LogicalTensorPtr> &tensorPtrs,
-    const std::vector<int32_t> &matrixSize) {
-    int32_t nzAttr = (static_cast<int32_t>(std::get<0>(tensorPtrs)->tensorfmt)) |
-                        (static_cast<int32_t>(std::get<1>(tensorPtrs)->tensorfmt) << 1) |
+    const std::vector<int64_t> &matrixSize) {
+    int nzAttr = (static_cast<int>(std::get<0>(tensorPtrs)->tensorfmt)) |
+                        (static_cast<int>(std::get<1>(tensorPtrs)->tensorfmt) << 1) |
                         // 2含义：cTensorPtr的索引，同时也是cTensor NZ信息的编码偏移位数
-                        (static_cast<int32_t>(std::get<2>(tensorPtrs)->tensorfmt) << 2);
+                        (static_cast<int>(std::get<2>(tensorPtrs)->tensorfmt) << 2);
     op.SetAttribute(MATMUL_NZ_ATTR, nzAttr);
     if (matrixSize.size() < MATRIX_MAXSIZE) {
         op.SetAttribute(A_MUL_B_ACT_M, 0);
@@ -79,7 +79,7 @@ std::vector<SymbolicScalar> GetValidShapeFromTranspose(LogicalTensorPtr &l0Tenso
 
 template <bool isTransA = false, bool isTransB = false>
 void CollectSubAMulB(Function &function, const CollectSubAMulBPara &args, AggregationMap &aggregations,
-    const std::vector<int> &l1Offset) {
+    const std::vector<int64_t> &l1Offset) {
     const TileShape &tileShape = args.tileShape;
     const LogicalTensorPtr &aTensorPtr = args.aTensorPtr;
     const LogicalTensorPtr &bTensorPtr = args.bTensorPtr;
@@ -97,10 +97,10 @@ void CollectSubAMulB(Function &function, const CollectSubAMulBPara &args, Aggreg
             auto cL0Tensor = cTensorPtr->View(function, {mL0size, nL0size}, {mL0Idx, nL0Idx});
             for (int kL0Idx = 0; kL0Idx < posK[kL1SizeIndex]; kL0Idx += tileShape.K(0)) {
                 int kL0size = std::min(posK[kL1SizeIndex] - kL0Idx, tileShape.K(0));
-                const std::vector<int> sizeVecA =
-                    isTransA ? std::vector<int>{kL0size, mL0size} : std::vector<int>{mL0size, kL0size};
-                const std::vector<int> sizeVecB =
-                    isTransB ? std::vector<int>{nL0size, kL0size} : std::vector<int>{kL0size, nL0size};
+                const std::vector<int64_t> sizeVecA =
+                    isTransA ? std::vector<int64_t>{kL0size, mL0size} : std::vector<int64_t>{mL0size, kL0size};
+                const std::vector<int64_t> sizeVecB =
+                    isTransB ? std::vector<int64_t>{nL0size, kL0size} : std::vector<int64_t>{kL0size, nL0size};
                 auto aL0Tensor = isTransA ? aTensorPtr->View(function, sizeVecA, {posK[0] + kL0Idx, mL0Idx}) :
                                 aTensorPtr->View(function, sizeVecA, {mL0Idx, posK[0] + kL0Idx});
                 auto bL0Tensor = isTransB ? bTensorPtr->View(function, sizeVecB, {nL0Idx, posK[1] + kL0Idx}) :
@@ -108,11 +108,11 @@ void CollectSubAMulB(Function &function, const CollectSubAMulBPara &args, Aggreg
 
                 auto aL0ValidShape = GetValidShapeFromTranspose<isTransA>(aL0Tensor);
                 auto aL0LogicalTensor = std::make_shared<LogicalTensor>(function, aTensorPtr->Datatype(),
-                    std::vector<int>{mL0size, kL0size}, aL0ValidShape, "a_l0", aTensorPtr->nodetype,
+                    std::vector<int64_t>{mL0size, kL0size}, aL0ValidShape, "a_l0", aTensorPtr->nodetype,
                     aTensorPtr->tensorfmt);
                 auto bL0ValidShape = GetValidShapeFromTranspose<isTransB>(bL0Tensor);
                 auto bL0LogicalTensor = std::make_shared<LogicalTensor>(function, bTensorPtr->Datatype(),
-                    std::vector<int>{kL0size, nL0size}, bL0ValidShape, "b_l0", bTensorPtr->nodetype,
+                    std::vector<int64_t>{kL0size, nL0size}, bL0ValidShape, "b_l0", bTensorPtr->nodetype,
                     bTensorPtr->tensorfmt);
                 function.AddOperation(opCodeA, {aL0Tensor}, {aL0LogicalTensor});
                 function.AddOperation(opCodeB, {bL0Tensor}, {bL0LogicalTensor});
@@ -127,16 +127,16 @@ void CollectSubAMulB(Function &function, const CollectSubAMulBPara &args, Aggreg
 
 template <bool hasThirdInput = false, bool isTransA = false, bool isTransB = false>
 void DoAMulB(Function &function, const AggregationMap &aggregations, const LogicalTensorPtr &inputOperand,
-    const DoAMulBParam &DoAMulBPara, const std::vector<int32_t> &matrixSize) {
+    const DoAMulBParam &DoAMulBPara, const std::vector<int64_t> &matrixSize) {
     const TileShape &tileShape = DoAMulBPara.tileShape;
     const LogicalTensorPtr &cTensorPtr = DoAMulBPara.cTensorPtr;
     auto dataType = cTensorPtr->Datatype();
-    std::vector<int> shape = {tileShape.M(0), tileShape.N(0)};
+    std::vector<int64_t> shape = {tileShape.M(0), tileShape.N(0)};
     for (const auto &[offset, aggregation] : aggregations) {
         ASSERT(!aggregation.empty());
         auto cL0PartialTensor = std::make_shared<LogicalTensor>(function, dataType, shape);
-        shape[0] = std::min(tileShape.M(0), cTensorPtr->shape[0] - offset[0]);
-        shape[1] = std::min(tileShape.N(0), cTensorPtr->shape[1] - offset[1]);
+        shape[0] = std::min(tileShape.M(0), static_cast<int>(cTensorPtr->shape[0] - offset[0]));
+        shape[1] = std::min(tileShape.N(0), static_cast<int>(cTensorPtr->shape[1] - offset[1]));
 
         auto cTilePtr = cTensorPtr->View(function, shape, offset);
         for (size_t i = 0; i < aggregation.size(); i++) {
@@ -188,7 +188,7 @@ void L1MultiDataLoadAL1Tiles(Function &function, const std::vector<LogicalTensor
         auto kL1PartialSiza = endK - startK;
         auto aL1TileTensor = operand1->View(function, {mL1Size, kL1PartialSiza}, {mL1Idx, startK});
         auto inputATile = std::make_shared<LogicalTensor>(function, operand1->Datatype(),
-            std::vector<int>{mL1Size, kL1PartialSiza}, aL1TileTensor->GetDynValidShape(), "a_l1",
+            std::vector<int64_t>{mL1Size, kL1PartialSiza}, aL1TileTensor->GetDynValidShape(), "a_l1",
             aL1TileTensor->nodetype, aL1TileTensor->tensorfmt);
         auto &copyInA = function.AddOperation(Opcode::OP_COPY_IN, {aL1TileTensor}, {inputATile});
         copyInA.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MemoryType::MEM_L1,
@@ -213,10 +213,10 @@ void L1MultiDataLoadBL1Tiles(Function &function, const std::vector<LogicalTensor
         auto bL1TileTensor = isTransB ? operand2->View(function, {nL1Size, kL1PartialSiza}, {nL1Idx, startK}) :
                                         operand2->View(function, {kL1PartialSiza, nL1Size}, {startK, nL1Idx});
         auto inputBTile = isTransB ? std::make_shared<LogicalTensor>(function, operand2->Datatype(),
-                                         std::vector<int>{nL1Size, kL1PartialSiza}, bL1TileTensor->GetDynValidShape(),
+                                         std::vector<int64_t>{nL1Size, kL1PartialSiza}, bL1TileTensor->GetDynValidShape(),
                                          "b_l1", bL1TileTensor->nodetype, bL1TileTensor->tensorfmt) :
                                      std::make_shared<LogicalTensor>(function, operand2->Datatype(),
-                                         std::vector<int>{kL1PartialSiza, nL1Size}, bL1TileTensor->GetDynValidShape(),
+                                         std::vector<int64_t>{kL1PartialSiza, nL1Size}, bL1TileTensor->GetDynValidShape(),
                                          "b_l1", bL1TileTensor->nodetype, bL1TileTensor->tensorfmt);
         auto &copyInB = function.AddOperation(Opcode::OP_COPY_IN, {bL1TileTensor}, {inputBTile});
         copyInB.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MemoryType::MEM_L1,
@@ -289,7 +289,7 @@ void L1NormalLoad(Function &function, const std::vector<LogicalTensorPtr> &opera
 
 template <bool isTransA, bool isTransB>
 void TiledInnerAMulB(Function &function, const TileShape &tileShape, const std::vector<LogicalTensorPtr> &operandVec,
-    const LogicalTensorPtr &cTensorPtr, const std::vector<int32_t> &matmulSize) {
+    const LogicalTensorPtr &cTensorPtr, const std::vector<int64_t> &matmulSize) {
     const auto operand1 = operandVec[0];
     const auto operand2 = operandVec[1];
 
@@ -343,13 +343,13 @@ void TiledInnerAMulB(Function &function, const TileShape &tileShape, const std::
 }
 
 template void TiledInnerAMulB<false, false>(Function &, const TileShape &, const std::vector<LogicalTensorPtr> &,
-    const LogicalTensorPtr &, const std::vector<int32_t> &);
+    const LogicalTensorPtr &, const std::vector<int64_t> &);
 template void TiledInnerAMulB<false, true>(Function &, const TileShape &, const std::vector<LogicalTensorPtr> &,
-    const LogicalTensorPtr &, const std::vector<int32_t> &);
+    const LogicalTensorPtr &, const std::vector<int64_t> &);
 template void TiledInnerAMulB<true, false>(Function &, const TileShape &, const std::vector<LogicalTensorPtr> &,
-    const LogicalTensorPtr &, const std::vector<int32_t> &);
+    const LogicalTensorPtr &, const std::vector<int64_t> &);
 template void TiledInnerAMulB<true, true>(Function &, const TileShape &, const std::vector<LogicalTensorPtr> &,
-    const LogicalTensorPtr &, const std::vector<int32_t> &);
+    const LogicalTensorPtr &, const std::vector<int64_t> &);
 
 void TensorInnerAMulB(
     Function &function, const std::vector<LogicalTensorPtr> &operandVec, const LogicalTensorPtr &result) {

@@ -24,7 +24,7 @@ std::size_t Digest(const HashBuffer &hashBuffer) {
 }
 
 static inline
-bool CheckAllZero(const std::vector<int> &vec) {
+bool CheckAllZero(const std::vector<int64_t> &vec) {
     return std::all_of(vec.begin(), vec.end(), [](int v){ return v == 0; });
 }
 
@@ -80,13 +80,13 @@ bool ExpectedValue::operator==(const ExpectedValue &rhs) const {
     return true;
 }
 
-ExpectedValue::ExpectedValue(const std::vector<int> &shape, DataType dataType, const std::string &name)
+ExpectedValue::ExpectedValue(const std::vector<int64_t> &shape, DataType dataType, const std::string &name)
     : ExpectedValue(std::make_shared<RawExpectedInputValue>(shape, dataType, name)) {}
 ExpectedValue::ExpectedValue(ExpectedOperator oper, const std::vector<ExpectedValue> &operands)
     : ExpectedValue(std::make_shared<RawExpectedOperationValue>(oper, operands)) {}
-ExpectedValue::ExpectedValue(const ExpectedValue &source, const std::vector<int> &sourceShape, const std::vector<int> &resultOffset, const std::vector<int> &resultShape)
+ExpectedValue::ExpectedValue(const ExpectedValue &source, const std::vector<int64_t> &sourceShape, const std::vector<int64_t> &resultOffset, const std::vector<int64_t> &resultShape)
     : ExpectedValue(std::make_shared<RawExpectedExtractValue>(source, sourceShape, resultOffset, resultShape)) {}
-ExpectedValue::ExpectedValue(const std::vector<int> &shape, const std::vector<RawExpectedInsertValueElement> &elements)
+ExpectedValue::ExpectedValue(const std::vector<int64_t> &shape, const std::vector<RawExpectedInsertValueElement> &elements)
     : ExpectedValue(std::make_shared<RawExpectedInsertValue>(shape, elements)) {}
 ExpectedValue::ExpectedValue(const ExpectedValue &resultof, int index)
     : ExpectedValue(std::make_shared<RawExpectedResultofValue>(resultof, index)) {}
@@ -163,12 +163,12 @@ ExpectedValue ExpectedValueBuilder::ValueLookup(ExpectedValue &v) {
 
 ExpectedOperator ExpectedValueBuilder::CreateOperator(const Operation &op) {
     HashBuffer hashBuffer;
-    std::vector<int> attrs(hashBuffer.begin(), hashBuffer.end());
+    std::vector<int64_t> attrs(hashBuffer.begin(), hashBuffer.end());
     ExpectedOperator operatorExpectedValue(op.GetOpcode(), attrs);
     return operatorExpectedValue;
 }
 
-ExpectedValue ExpectedValueBuilder::CreateValue(const std::vector<int> &shape, DataType type, const std::string &name) {
+ExpectedValue ExpectedValueBuilder::CreateValue(const std::vector<int64_t> &shape, DataType type, const std::string &name) {
     ExpectedValue v(shape, type, name);
 
     v = ValueLookup(v);
@@ -238,7 +238,7 @@ DEFINE_EVALUATOR(OP_VIEW, builder, values) {
     if (CheckAllZero(op->GetFromOffset()) && CheckSameShape(operation.GetIOperands()[0], operation.GetOOperands()[0])) {
         return values[0];
     }
-    std::vector<int> resultOffset = op->GetFromOffset();
+    std::vector<int64_t> resultOffset = op->GetFromOffset();
     ExpectedValue view(values[0], operation.GetIOperands()[0]->GetShape(), resultOffset, operation.GetOOperands()[0]->GetShape());
     return view;
 }
@@ -348,7 +348,7 @@ std::shared_ptr<CallExpectedValue> ExpectedValueBuilder::CreateCall(Function *fu
     std::shared_ptr<CallExpectedValue> result = std::make_shared<CallExpectedValue>();
     std::ostringstream debugTraceStream;
 
-    ASSERT(incastExpectedValueList.size() == static_cast<size_t>(0) || 
+    ASSERT(incastExpectedValueList.size() == static_cast<size_t>(0) ||
            incastExpectedValueList.size() == func->GetIncast().size());
     for (size_t index = 0; index < func->GetIncast().size(); index++) {
         std::shared_ptr<LogicalTensor> incast = func->GetIncast()[index];
@@ -375,7 +375,7 @@ std::shared_ptr<CallExpectedValue> ExpectedValueBuilder::CreateCall(Function *fu
 
         if (debugTracePrefix != "") {
             debugTraceStream << debugTracePrefix << op.Dump();
-            debugTraceStream << debugTracePrefix << 
+            debugTraceStream << debugTracePrefix <<
                 [&](){
                     std::string ohash;
                     for (auto &v : ooperandExpectedValueList) {

@@ -52,11 +52,11 @@ void genAtten(GenAttenConfig &inputConfig) {
         dType = (std::is_same<T, npu::tile_fwk::float16>::value) ? DT_FP16 : DT_BF16;
     }
 
-    std::vector<int> shape_cmpAtten = {B, S, N, D};
-    std::vector<int> shape_selAtten = {B, S, N, D};
-    std::vector<int> shape_winAtten = {B, S, N, D};
-    std::vector<int> shape_gatingScore = {B, S, N, NUM_3};
-    std::vector<int> shape_attentionOut = {B, S, N, D};
+    std::vector<int64_t> shape_cmpAtten = {B, S, N, D};
+    std::vector<int64_t> shape_selAtten = {B, S, N, D};
+    std::vector<int64_t> shape_winAtten = {B, S, N, D};
+    std::vector<int64_t> shape_gatingScore = {B, S, N, NUM_3};
+    std::vector<int64_t> shape_attentionOut = {B, S, N, D};
 
     Tensor cmpAtten(dType, shape_cmpAtten, "cmpAtten");
     Tensor selAtten(dType, shape_selAtten, "selAtten");

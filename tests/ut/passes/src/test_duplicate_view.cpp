@@ -66,8 +66,8 @@ TEST_F(DuplicateViewTest, TestThreeConsumersAfterView) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     //Define the shape of the Tensors
-    std::vector<int> shape1{2, 1, 64};
-    std::vector<int> shape2{2, 1, 1, 64};
+    std::vector<int64_t> shape1{2, 1, 64};
+    std::vector<int64_t> shape2{2, 1, 1, 64};
 
     //Initialize PassManager
     PassManager &passManager = PassManager::Instance();
@@ -118,8 +118,8 @@ TEST_F(DuplicateViewTest, TestOneConsumersAfterView) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     //Define the shape of the Tensors
-    std::vector<int> shape1{2, 1, 64};
-    std::vector<int> shape2{2, 1, 1, 64};
+    std::vector<int64_t> shape1{2, 1, 64};
+    std::vector<int64_t> shape2{2, 1, 1, 64};
 
     //Initialize PassManager
     PassManager &passManager = PassManager::Instance();

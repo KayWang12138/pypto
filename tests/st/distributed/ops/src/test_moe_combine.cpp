@@ -33,10 +33,10 @@ void TestMoeCombine(OpTestParam &testParam)
     DataType dType = GetDataTypeNum(dtype_num);
     int dtypeSize = BytesOf(dType);
 
-    std::vector<int> inShape = {bs * procSize, h};
-    std::vector<int> combineInfoShape = {bs * procSize * (procSize - 1)};
-    std::vector<int> scaleShape = {bs, topK}; // 如果scale的shape是[8,4]，UBCopyIn会有问题
-    std::vector<int> outShape = {bs, h};
+    std::vector<int64_t> inShape = {bs * procSize, h};
+    std::vector<int64_t> combineInfoShape = {bs * procSize * (procSize - 1)};
+    std::vector<int64_t> scaleShape = {bs, topK}; // 如果scale的shape是[8,4]，UBCopyIn会有问题
+    std::vector<int64_t> outShape = {bs, h};
 
     int inEleNum = inShape[0] * inShape[1];
     int combinInfoEleNum = inEleNum;

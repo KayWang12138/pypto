@@ -36,7 +36,7 @@ protected:
 
 template <typename T = npu::tile_fwk::float16, bool splitReduceLastDim = false, bool splitK = false, bool nz= false,
     bool usePrefetch = false>
-void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileConfig,
+void TestDynamicAttention(std::vector<int64_t> &params, PaTileShapeConfig &paTileConfig,
      bool isQuant = false, std::string cacheMode = "BNSD") {
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
@@ -78,32 +78,32 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
 
     DataType dTypeQuantIn = isQuant ? DT_INT8 : dType;
 
-    std::vector<int> x_shape = {b, s, h};
-    std::vector<int> w_qa_shape = {h, qLoraRank};
-    std::vector<int> w_qb_shape = {qLoraRank, n * q_head_dim};
-    std::vector<int> w_kv_a_shape = {h, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> w_kv_b_k_shape = {n, qkNopeHeadDim, kvLoraRank};
-    std::vector<int> cos_shape = {b, s, qkRopeHeadDim};
-    std::vector<int> gamma_cq_shape = {qLoraRank};
-    std::vector<int> gamma_ckv_shape = {kvLoraRank};
-    std::vector<int> kv_len_shape = {b, s};
-    std::vector<int> kv_cache_shape = {b, 1, s2, kvLoraRank};
-    std::vector<int> kr_cache_shape = {b, 1, s2, qkRopeHeadDim};
+    std::vector<int64_t> x_shape = {b, s, h};
+    std::vector<int64_t> w_qa_shape = {h, qLoraRank};
+    std::vector<int64_t> w_qb_shape = {qLoraRank, n * q_head_dim};
+    std::vector<int64_t> w_kv_a_shape = {h, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> w_kv_b_k_shape = {n, qkNopeHeadDim, kvLoraRank};
+    std::vector<int64_t> cos_shape = {b, s, qkRopeHeadDim};
+    std::vector<int64_t> gamma_cq_shape = {qLoraRank};
+    std::vector<int64_t> gamma_ckv_shape = {kvLoraRank};
+    std::vector<int64_t> kv_len_shape = {b, s};
+    std::vector<int64_t> kv_cache_shape = {b, 1, s2, kvLoraRank};
+    std::vector<int64_t> kr_cache_shape = {b, 1, s2, qkRopeHeadDim};
     if (cacheMode != "BNSD") {
         kv_cache_shape = {blockNum, blockSize, 1, kvLoraRank};
         kr_cache_shape = {blockNum, blockSize, 1, qkRopeHeadDim};
     }
     // pa
-    std::vector<int> blockTableShape = {b, 1, s2, qkRopeHeadDim};
+    std::vector<int64_t> blockTableShape = {b, 1, s2, qkRopeHeadDim};
     // output
-    std::vector<int> q_out_shape = {b, s, n, kvLoraRank};
-    std::vector<int> q_rope_out_shape = {b, s, n, qkRopeHeadDim};
-    std::vector<int> kv_cache_out_shape = {b, 1, s2, kvLoraRank};
-    std::vector<int> kr_cache_out_shape = {b, 1, s2, qkRopeHeadDim};
-    std::vector<int> fake_out_shape = {b, s, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> fake_out_shape1 = {n, b * s, qkNopeHeadDim};
+    std::vector<int64_t> q_out_shape = {b, s, n, kvLoraRank};
+    std::vector<int64_t> q_rope_out_shape = {b, s, n, qkRopeHeadDim};
+    std::vector<int64_t> kv_cache_out_shape = {b, 1, s2, kvLoraRank};
+    std::vector<int64_t> kr_cache_out_shape = {b, 1, s2, qkRopeHeadDim};
+    std::vector<int64_t> fake_out_shape = {b, s, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> fake_out_shape1 = {n, b * s, qkNopeHeadDim};
 
-    std::vector<int> w_qb_scale_shape;
+    std::vector<int64_t> w_qb_scale_shape;
     if (isQuant) {
         w_qb_scale_shape = {1, n * q_head_dim};
     }
@@ -174,7 +174,7 @@ TEST_F(DynamicAttentionUtTest, dynamic_attention_low_nz) { // b_n_s_s2_h_q_lora_
     int kvLoraRank = 512;
     int vHeadDim = 128;
     int blockSize = 256;
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim, blockSize};
+    std::vector<int64_t> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim, blockSize};
 
     const bool splitReduceLastDim = false;
     const bool splitK = false;
@@ -204,7 +204,7 @@ TEST_F(DynamicAttentionUtTest, dynamic_attention_low) { // b_n_s_s2_h_q_lora_ran
     int kvLoraRank = 512;
     int vHeadDim = 128;
     int blockSize = 256;
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim, blockSize};
+    std::vector<int64_t> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim, blockSize};
 
     const bool splitReduceLastDim = false;
     const bool splitK = false;

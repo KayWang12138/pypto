@@ -38,11 +38,11 @@ bool IsCopyOpWithShapeOffsetAttr(Opcode opcode) {
 } // namespace
 
 void CodeGenOp::UpdateShape(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx) {
-    rawShape[operandIdx] = logicalTensor.tensor->rawshape;
+    rawShape[operandIdx] = ToVecInt(logicalTensor.tensor->rawshape);
     ALOG_INFO_F("op code %s, operandIdx: %d, raw shape is %s", oper.GetOpcodeStr().c_str(), operandIdx,
         IntVecToStr(logicalTensor.tensor->rawshape).c_str());
     // need adapt unaligned scene after
-    originShape[operandIdx] = logicalTensor.oriShape;
+    originShape[operandIdx] = ToVecInt(logicalTensor.oriShape);
     if (isSupportDynamicUnaligned) {
         dynamicValidShape[operandIdx] = logicalTensor.GetDynValidShape();
     }
@@ -53,7 +53,7 @@ void CodeGenOp::UpdateShape(const Operation &oper, const LogicalTensor &logicalT
     bool useAttrForGM = IsCopyOpWithShapeOffsetAttr(opcode);
     // Local Tensor shape just use shape from LogicalTensor
     if (!useAttrForGM || logicalTensor.GetMemoryTypeOriginal() != MEM_DEVICE_DDR) {
-        shape[operandIdx] = logicalTensor.shape;
+        shape[operandIdx] = ToVecInt(logicalTensor.shape);
         if (isSupportDynamicUnaligned) { // NEXTNEXT: stack gm should also has dynShape_ later
             ASSERT(!logicalTensor.GetDynValidShape().empty())
                 << "LogicalTensor::dynShape_ can not empty in Dynamic Unaligned Scene";
@@ -63,7 +63,7 @@ void CodeGenOp::UpdateShape(const Operation &oper, const LogicalTensor &logicalT
 
     std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(oper.GetOpAttribute());
     ASSERT(attr != nullptr) << ": missing OpAttr in copy op: \n" << oper.Dump();
-    shape[operandIdx] = attr->GetSpecifiedShape(1);
+    shape[operandIdx] = ToVecInt(attr->GetSpecifiedShape(1));
     paramIdxForDynShape[operandIdx] = attr->GetShape();
     ALOG_INFO_F("attrShape(from op CopyOpAttribute) = %s", IntVecToStr(shape[operandIdx]).c_str());
 }
@@ -83,7 +83,7 @@ void CodeGenOp::UpdateOffsetValueForGM(const std::vector<OpImmediate> &offsets, 
 void CodeGenOp::UpdateOffsetForInput(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx) {
     bool useAttrShapeOffsetForInputGM = OpcodeManager::Inst().IsCopyIn(opCode);
     if (!useAttrShapeOffsetForInputGM || logicalTensor.GetMemoryTypeOriginal() != MEM_DEVICE_DDR) {
-        offset[operandIdx] = logicalTensor.offset; // Local Tensor offset just use offset from LogicalTensor
+        offset[operandIdx] = ToVecInt(logicalTensor.offset); // Local Tensor offset just use offset from LogicalTensor
         return;
     }
 
@@ -97,7 +97,7 @@ void CodeGenOp::UpdateOffsetForInput(const Operation &oper, const LogicalTensor 
 void CodeGenOp::UpdateOffsetForOutput(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx) {
     bool useAttrShapeOffsetForOutputGM = OpcodeManager::Inst().IsCopyOut(opCode);
     if (!useAttrShapeOffsetForOutputGM || logicalTensor.GetMemoryTypeOriginal() != MEM_DEVICE_DDR) {
-        offset[operandIdx] = logicalTensor.offset; // Local Tensor offset just use offset from LogicalTensor
+        offset[operandIdx] = ToVecInt(logicalTensor.offset); // Local Tensor offset just use offset from LogicalTensor
         return;
     }
 
@@ -191,16 +191,16 @@ std::string CodeGenOp::GenOpAttr() const {
         if (kv.first.substr(0, OP_ATTR_PREFIX.size()) != OP_ATTR_PREFIX) {
             continue;
         }
-        if (kv.second.Type() == typeid(int)) {
-            int value = npu::tile_fwk::AnyCast<int>(kv.second);
+        if (kv.second.Type() == typeid(int64_t)) {
+            int value = npu::tile_fwk::AnyCast<int64_t>(kv.second);
             attrStr += ", " + std::to_string(value);
         }
         if (kv.second.Type() == typeid(bool)) {
             bool value = npu::tile_fwk::AnyCast<bool>(kv.second);
             attrStr += ", " + std::to_string(value);
         }
-        if (kv.second.Type() == typeid(std::vector<int>)) {
-            auto value = npu::tile_fwk::AnyCast<std::vector<int>>(kv.second);
+        if (kv.second.Type() == typeid(std::vector<int64_t>)) {
+            auto value = npu::tile_fwk::AnyCast<std::vector<int64_t>>(kv.second);
             for (auto v : value) {
                 attrStr += ", " + std::to_string(v);
             }
@@ -277,7 +277,7 @@ void CodeGenOp::ConvertAttribute(const Operation &operation) {
             FixpOpAttributeKey::antiqScalar,
         };
         for (size_t i = 0; i < longAttrStrList.size(); i++) {
-            convParams.push_back(operation.GetLongAttribute(longAttrStrList[i]));
+            convParams.push_back(operation.GetIntAttribute(longAttrStrList[i]));
         }
     }
     if (opCode == Opcode::OP_L1_COPY_IN_FRACTAL_Z) {

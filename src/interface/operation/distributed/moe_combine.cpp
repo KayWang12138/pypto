@@ -54,15 +54,15 @@ struct AttnCombineTileArgs {
 
 void DealTileFFN2Attn(FFN2AttnTileArgs &args)
 {
-    std::vector<int> shape = {args.tilingInfo.rowShape, args.tilingInfo.colShape};
-    std::vector<int> offset = {args.tilingInfo.rowOffset, args.tilingInfo.colOffset};
+    std::vector<int64_t> shape = {args.tilingInfo.rowShape, args.tilingInfo.colShape};
+    std::vector<int64_t> offset = {args.tilingInfo.rowOffset, args.tilingInfo.colOffset};
 
     std::shared_ptr<LogicalTensor> in = args.iOperand[DIST_INDEX_ZERO];
     std::shared_ptr<LogicalTensor> combineInfo = args.iOperand[DIST_INDEX_ONE];
     std::shared_ptr<LogicalTensor> tilingTensor = args.iOperand[DIST_INDEX_TWO];
     auto inTile = in->View(args.function, shape, offset);
 
-    std::vector<int> flagShape =  {1, 64};
+    std::vector<int64_t> flagShape =  {1, 64};
     auto flag = std::make_shared<LogicalTensor>(args.function, DataType::DT_INT32, flagShape);
 
     // CombineInfo不切tile
@@ -75,8 +75,8 @@ void DealTileFFN2Attn(FFN2AttnTileArgs &args)
 
 void DealTileAttnCombine(AttnCombineTileArgs &args)
 {
-    std::vector<int> shape = {args.tilingInfo.rowShape, args.tilingInfo.colShape};
-    std::vector<int> offset = {args.tilingInfo.rowOffset, args.tilingInfo.colOffset};
+    std::vector<int64_t> shape = {args.tilingInfo.rowShape, args.tilingInfo.colShape};
+    std::vector<int64_t> offset = {args.tilingInfo.rowOffset, args.tilingInfo.colOffset};
 
     std::shared_ptr<LogicalTensor> scale = args.iOperand[0];
     std::shared_ptr<LogicalTensor> tilingTensor = args.iOperand[1];
@@ -84,13 +84,13 @@ void DealTileAttnCombine(AttnCombineTileArgs &args)
     auto outTile = out->View(args.function, shape, offset);
 
     // 申请UB, 两块fp32 UB, 用来进行fp32计算
-    std::vector<int> ubShape =  {1, args.tilingInfo.colShape};
+    std::vector<int64_t> ubShape =  {1, args.tilingInfo.colShape};
     auto mulFP32 = std::make_shared<LogicalTensor>(args.function, DataType::DT_FP32, ubShape);
     auto sumFP32 = std::make_shared<LogicalTensor>(args.function, DataType::DT_FP32, ubShape);
 
     int bs = scale->shape[0];
     int topk = scale->shape[1];
-    std::vector<int> scaleFlattenShape = {1, bs * topk};
+    std::vector<int64_t> scaleFlattenShape = {1, bs * topk};
     // 由于UBCopyIn 拷贝 [8, 4]这种shape有问题，临时做法，传入scale的GM地址，和申请一个UB来拷贝scale
     auto scaleFlatten = std::make_shared<LogicalTensor>(args.function, DataType::DT_FP32, scaleFlattenShape);
 
@@ -110,13 +110,12 @@ void TiledMoeFFN2Attn(Function &function, const TileShape &tileShape,
     op.GetAttr("tiling_tensor_symbol", tilingSymbol);
     TilingInfo tilingInfo;
     op.GetAttr(OpAttributeKey::distTilingInfo, tilingInfo);
-    int topk;
-    op.GetAttr("topk", topk);
+    int topk = op.GetIntAttribute("topk");
 
     std::shared_ptr<LogicalTensor> in = iOperand[0];
 
     TensorTileInfo tileInfo;
-    std::vector<int> shape = in->GetShape();
+    std::vector<int64_t> shape = in->GetShape();
     int row = shape[0];
     int col = shape[1];
     CheckAndGetTileInfo(row, col, tileShape, tileInfo);
@@ -128,7 +127,7 @@ void TiledMoeFFN2Attn(Function &function, const TileShape &tileShape,
 void MoeFFN2Attn(const Tensor &in, const Tensor &combineInfo, const int tileCnt, const int topk, const char *group)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
-    std::vector<int32_t> tilingShape = {1, tileCnt * static_cast<int>(sizeof(TilingInfo) / sizeof(int))};
+    std::vector<int64_t> tilingShape = {1, tileCnt * static_cast<int>(sizeof(TilingInfo) / sizeof(int))};
     const std::string tilingSymbol = function.GetDistTilingManager()->CreateTilingStorage("MoeFFN2Attn",
         tilingShape[1]);
     Tensor tilingTensor(DataType::DT_INT32, tilingShape, tilingSymbol);
@@ -141,7 +140,7 @@ void MoeFFN2Attn(const Tensor &in, const Tensor &combineInfo, const int tileCnt,
     TilingInfo tilingInfo;
     oper.SetAttr(OpAttributeKey::commGroupInfo, groupInfo);
     oper.SetAttr(OpAttributeKey::distTilingInfo, tilingInfo);
-    oper.SetAttr("topk", topk);
+    oper.SetAttribute("topk", topk);
 }
 
 void TiledMoeAttnCombine(Function &function, const TileShape &tileShape,
@@ -158,7 +157,7 @@ void TiledMoeAttnCombine(Function &function, const TileShape &tileShape,
 
     std::shared_ptr<LogicalTensor> out = oOperand[0];
     TensorTileInfo tileInfo;
-    std::vector<int> shape = out->GetShape();
+    std::vector<int64_t> shape = out->GetShape();
     int row = shape[0];
     int col = shape[1];
     CheckAndGetTileInfo(row, col, tileShape, tileInfo);
@@ -171,7 +170,7 @@ void MoeAttnCombine(Tensor &out, const Tensor &scale, int tileCnt, const char *g
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
 
-    std::vector<int32_t> tilingShape = {1, tileCnt * static_cast<int>(sizeof(TilingInfo) / sizeof(int))};
+    std::vector<int64_t> tilingShape = {1, tileCnt * static_cast<int>(sizeof(TilingInfo) / sizeof(int))};
     const std::string tilingSymbol = function.GetDistTilingManager()->CreateTilingStorage("MoeAttnCombine",
         tilingShape[1]);
     Tensor tilingTensor(DataType::DT_INT32, tilingShape, tilingSymbol);
@@ -189,7 +188,7 @@ void MoeAttnCombine(Tensor &out, const Tensor &scale, int tileCnt, const char *g
 
 Tensor MoeCombine(const Tensor &in, const Tensor &scale, const Tensor &combineInfo, const char *group)
 {
-    std::vector<int> inShape = in.GetShape();
+    std::vector<int64_t> inShape = in.GetShape();
     int expandBS = inShape[0];
     int h = inShape[1];
     int bs = scale.GetShape(0);

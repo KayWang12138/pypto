@@ -41,15 +41,15 @@ public:
 };
 
 TEST_F(InferIndexTest, TestReset) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), 
-                                                      "TestReset", 
-                                                      "TestReset", 
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(),
+                                                      "TestReset",
+                                                      "TestReset",
                                                       nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> inshape = {8, 16};
-    std::vector<int> outshape = {0, 0};
+    std::vector<int64_t> inshape = {8, 16};
+    std::vector<int64_t> outshape = {0, 0};
     auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
     auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outshape);
 
@@ -66,9 +66,9 @@ TEST_F(InferIndexTest, TestReset) {
 }
 
 TEST_F(InferIndexTest, TestResetNoneOp) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), 
-                                                      "TestReset", 
-                                                      "TestReset", 
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(),
+                                                      "TestReset",
+                                                      "TestReset",
                                                       nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     InferParamIndex inferParamIndex;
@@ -76,14 +76,14 @@ TEST_F(InferIndexTest, TestResetNoneOp) {
 }
 
 TEST_F(InferIndexTest, TestResetNoneOut) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), 
-                                                      "TestReset", 
-                                                      "TestReset", 
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(),
+                                                      "TestReset",
+                                                      "TestReset",
                                                       nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> inshape = {8, 16};
+    std::vector<int64_t> inshape = {8, 16};
     auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
 
     auto &copyin_op = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {});
@@ -95,27 +95,27 @@ TEST_F(InferIndexTest, TestResetNoneOut) {
 }
 
 TEST_F(InferIndexTest, TestResetView) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), 
-                                                      "TestReset", 
-                                                      "TestReset", 
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(),
+                                                      "TestReset",
+                                                      "TestReset",
                                                       nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> inshape = {8, 16};
-    std::vector<int> offset = {2, 0};
+    std::vector<int64_t> inshape = {8, 16};
+    std::vector<int64_t> offset = {2, 0};
 
     auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
     auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
     incast->UpdateDynValidShape({SymbolicScalar("input_0_Dim_0"), SymbolicScalar("input_0_Dim_1")});
 
     auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast}, {outcast});
-    auto viewAttr = std::make_shared<ViewOpAttribute>(std::vector<int>(), 
-                                                      MEM_UNKNOWN, 
-                                                      std::vector<SymbolicScalar>(), 
+    auto viewAttr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>(),
+                                                      MEM_UNKNOWN,
+                                                      std::vector<SymbolicScalar>(),
                                                       std::vector<SymbolicScalar>());
-    viewAttr->SetFromOffset(std::vector<int>(), 
-                            {SymbolicScalar("Offset_0_Dim_0"), 
+    viewAttr->SetFromOffset(std::vector<int64_t>(),
+                            {SymbolicScalar("Offset_0_Dim_0"),
                              SymbolicScalar("Offset_0_Dim_1")});
     view_op.SetOpAttribute(viewAttr);
 
@@ -129,25 +129,25 @@ TEST_F(InferIndexTest, TestResetView) {
 
 
 TEST_F(InferIndexTest, TestInferShape) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), 
-                                                      "TestInferShape", 
-                                                      "TestInferShape", 
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(),
+                                                      "TestInferShape",
+                                                      "TestInferShape",
                                                       nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> inshape = {8, 16};
+    std::vector<int64_t> inshape = {8, 16};
     auto shapeImme = OpImmediate::Specified(inshape);
     auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
     auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
 
     auto &copyin_op = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {outcast});
-    auto copyin_attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), 
-                                                         MEM_UB, 
-                                                         shapeImme, 
-                                                         shapeImme, 
+    auto copyin_attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}),
+                                                         MEM_UB,
+                                                         shapeImme,
+                                                         shapeImme,
                                                          std::vector<OpImmediate>());
-    std::vector<OpImmediate> toValidShape = {OpImmediate(SymbolicScalar("Input_0_Dim_0")), 
+    std::vector<OpImmediate> toValidShape = {OpImmediate(SymbolicScalar("Input_0_Dim_0")),
                                              OpImmediate(SymbolicScalar("Input_0_Dim_1"))};
     copyin_op.SetOpAttribute(copyin_attr);
 
@@ -159,9 +159,9 @@ TEST_F(InferIndexTest, TestInferShape) {
 }
 
 TEST_F(InferIndexTest, TestInferShapeNoneOp) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), 
-                                                      "TestInferShape", 
-                                                      "TestInferShape", 
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(),
+                                                      "TestInferShape",
+                                                      "TestInferShape",
                                                       nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     InferParamIndex inferIndexTest;

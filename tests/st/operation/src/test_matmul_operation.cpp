@@ -18,12 +18,12 @@
 using namespace tile_fwk::test_operation;
 namespace {
 struct MatmulOpFuncArgs : public OpFuncArgs {
-    MatmulOpFuncArgs(const std::vector<int> &viewShape, const std::vector<std::vector<int>> &tileShape,
+    MatmulOpFuncArgs(const std::vector<int64_t> &viewShape, const std::vector<std::vector<int64_t>> &tileShape,
         const MatmulTestCaseParam &param)
         : viewShape_(viewShape), tileShape_(tileShape), param_(param) {}
 
-    std::vector<int> viewShape_;
-    std::vector<std::vector<int>> tileShape_;
+    std::vector<int64_t> viewShape_;
+    std::vector<std::vector<int64_t>> tileShape_;
     MatmulTestCaseParam param_;
 };
 

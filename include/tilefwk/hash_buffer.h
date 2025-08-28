@@ -42,13 +42,12 @@ public:
 
     void Append(int32_t n) { Append(static_cast<char32_t>(n)); }
 
+    void Append(int64_t n) { Append(static_cast<uint64_t>(n)); }
+
     void Append(char32_t n) { this->push_back(n); }
 
-    void Append(npu::tile_fwk::Any n) {Append(npu::tile_fwk::AnyCast<char32_t>(n));}
-
-    void Append(const std::vector<int> &v) { this->insert(this->end(), v.begin(), v.end()); }
-
-    void Append(const std::vector<uint64_t> &v) { for (const auto &i : v) { this->Append(i); } }
+    template<typename T>
+    void Append(const std::vector<T> &v) { for (const auto &i : v) { this->Append(i); } }
 
     void Append(const std::string &s) { this->insert(this->end(), s.begin(), s.end()); }
 

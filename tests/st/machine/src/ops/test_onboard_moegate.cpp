@@ -35,10 +35,10 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_case1) {
     int nGroup = 8;
     int nRoutedExperts = 256;
 
-    std::vector<int> shape_topk_group =  {B*S, topkGroup};
-    std::vector<int> shape_group_mask =  {B*S, nGroup};
-    std::vector<int> shape_score_for_choice = {B*S, nRoutedExperts};
-    std::vector<int> shape_score = {B*S, nRoutedExperts};
+    std::vector<int64_t> shape_topk_group =  {B*S, topkGroup};
+    std::vector<int64_t> shape_group_mask =  {B*S, nGroup};
+    std::vector<int64_t> shape_score_for_choice = {B*S, nRoutedExperts};
+    std::vector<int64_t> shape_score = {B*S, nRoutedExperts};
 
     int capacity0 = shape_topk_group[0] * shape_topk_group[1];
     int capacity1 = shape_score_for_choice[0] * shape_score_for_choice[1];
@@ -119,10 +119,10 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_case2_32_1_7168) {
     int nGroup = 8;
     int nRoutedExperts = 256;
 
-    std::vector<int> shape_topk_group =  {B*S, topkGroup}; //[32,4]
-    std::vector<int> shape_group_mask =  {B*S, nGroup}; // [32,8]
-    std::vector<int> shape_score_for_choice = {B*S, nRoutedExperts}; //[32,256]
-    std::vector<int> shape_score = {B*S, nRoutedExperts};
+    std::vector<int64_t> shape_topk_group =  {B*S, topkGroup}; //[32,4]
+    std::vector<int64_t> shape_group_mask =  {B*S, nGroup}; // [32,8]
+    std::vector<int64_t> shape_score_for_choice = {B*S, nRoutedExperts}; //[32,256]
+    std::vector<int64_t> shape_score = {B*S, nRoutedExperts};
 
     int capacity0 = shape_topk_group[0] * shape_topk_group[1];
     int capacity1 = shape_score_for_choice[0] * shape_score_for_choice[1];
@@ -203,10 +203,10 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_case2_8_1_7168) {
     int nGroup = 8;
     int nRoutedExperts = 256;
 
-    std::vector<int> shape_topk_group =  {B*S, topkGroup}; //[8,4]
-    std::vector<int> shape_group_mask =  {B*S, nGroup}; // [8,8]
-    std::vector<int> shape_score_for_choice = {B*S, nRoutedExperts}; //[8,256]
-    std::vector<int> shape_score = {B*S, nRoutedExperts};
+    std::vector<int64_t> shape_topk_group =  {B*S, topkGroup}; //[8,4]
+    std::vector<int64_t> shape_group_mask =  {B*S, nGroup}; // [8,8]
+    std::vector<int64_t> shape_score_for_choice = {B*S, nRoutedExperts}; //[8,256]
+    std::vector<int64_t> shape_score = {B*S, nRoutedExperts};
 
     int capacity0 = shape_topk_group[0] * shape_topk_group[1];
     int capacity1 = shape_score_for_choice[0] * shape_score_for_choice[1];
@@ -287,11 +287,11 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_graph4_case_32_1_7168) {
     int nRoutedExperts = 256;
     int numExpertsPerTopk = 8;
 
-    std::vector<int> shape_topk_group =  {B*S, topkGroup}; //[8,4]
-    std::vector<int> shape_group_mask =  {B*S, nGroup}; // [8,8]
-    std::vector<int> shape_score_for_choice = {B*S, nRoutedExperts}; //[8,256]
-    std::vector<int> shape_score = {B*S, nRoutedExperts};
-    std::vector<int> shape_topk_weight = {B*S, numExpertsPerTopk};
+    std::vector<int64_t> shape_topk_group =  {B*S, topkGroup}; //[8,4]
+    std::vector<int64_t> shape_group_mask =  {B*S, nGroup}; // [8,8]
+    std::vector<int64_t> shape_score_for_choice = {B*S, nRoutedExperts}; //[8,256]
+    std::vector<int64_t> shape_score = {B*S, nRoutedExperts};
+    std::vector<int64_t> shape_topk_weight = {B*S, numExpertsPerTopk};
 
     int capacity0 = shape_topk_group[0] * shape_topk_group[1];
     int capacity1 = shape_score_for_choice[0] * shape_score_for_choice[1];

@@ -77,8 +77,8 @@ TEST_F(MergeSrcDstBufferTest, NoReplaced) {
     constexpr int32_t tiley = 8;
     Program::GetInstance().GetTileShape().SetVecTileShapes(tilex, tiley);
 
-    std::vector<int> shape = {1, 8};
-    std::vector<int> shape2 = {8, 1};
+    std::vector<int64_t> shape = {1, 8};
+    std::vector<int64_t> shape2 = {8, 1};
     Tensor input1(DT_FP32, shape, "input1");
     Tensor input2(DT_FP32, shape2, "input2");
     Tensor output(DT_FP32, shape2, "output");
@@ -101,9 +101,9 @@ TEST_F(MergeSrcDstBufferTest, NoReplaced) {
 
 TEST_F(MergeSrcDstBufferTest, AppointInplace) {
     Function function(Program::GetInstance(), "", "", nullptr);
-    std::vector<int> shape = {128, 128};
+    std::vector<int64_t> shape = {128, 128};
     auto shapeImme = OpImmediate::Specified(shape);
-    std::vector<int> offset = {0, 0};
+    std::vector<int64_t> offset = {0, 0};
 
     std::shared_ptr<LogicalTensor> tensor1 = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, shape);
     tensor1->SetMemoryTypeOriginal(MEM_DEVICE_DDR);
@@ -162,7 +162,7 @@ TEST_F(MergeSrcDstBufferTest, AppointInplace) {
         function.AddOperation(Opcode::OP_ADD, std::vector<std::shared_ptr<LogicalTensor>>({tensor3, tensor4}),
                               std::vector<std::shared_ptr<LogicalTensor>>({tensor5}));
     add1.UpdateSubgraphID(0);
-    add1.SetAttr(OpAttributeKey::inplaceIdx, 0);
+    add1.SetAttribute(OpAttributeKey::inplaceIdx, 0);
 
     SrcDstBufferMergeImpl srcDstMerge;
     Function func(Program::GetInstance(), "", "", nullptr);
@@ -307,7 +307,7 @@ TEST_F(MergeSrcDstBufferTest, AddHasInReplaced) {
             if (op->GetOpcode() != Opcode::OP_ADD) {
                 continue;
             }
-            op->SetAttr(OpAttributeKey::inplaceIdx, 0);
+            op->SetAttribute(OpAttributeKey::inplaceIdx, 0);
         }
     }
 

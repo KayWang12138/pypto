@@ -45,7 +45,7 @@ Status IntraSubgraphAdapter::RunOnFunction(Function &function) {
                 return FAILED;
             }
         } else if (commonColors.size() == 1) {
-            // For boundary tensor that have both producer and consumer in a single subgraph, 
+            // For boundary tensor that have both producer and consumer in a single subgraph,
             // we split it to multiple boundary tensors, whose producers and consumers do not share same subgraph.
             int mainSubgraphID = *(commonColors.begin());  // the only subgraph id that has both producers and consumers.
             LogicalTensors newBoundaryTensors;
@@ -101,7 +101,7 @@ Status IntraSubgraphAdapter::SplitBoundaryTensor(Function &function, LogicalTens
                 return FAILED;
             }
 
-            // For producer from other subgraph, we insert a new ASSEMBLE to the other subgraph, 
+            // For producer from other subgraph, we insert a new ASSEMBLE to the other subgraph,
             // and change the producer to main subgraph.
             LogicalTensorPtr assembleInput = producer->GetIOperands()[0];
             LogicalTensorPtr newTensor = InsertOpBetween(function, Opcode::OP_ASSEMBLE, assembleInput, {producer});
@@ -120,11 +120,11 @@ Status IntraSubgraphAdapter::SplitBoundaryTensor(Function &function, LogicalTens
         }
     }
 
-    // For consumers from other subgraph, we insert a new ASSEMBLE before them, 
+    // For consumers from other subgraph, we insert a new ASSEMBLE before them,
     // the intermediate tensor become a new boundary tensor.
     if (subsidiaryConsumers.size() != 0) {
-        LogicalTensorPtr newTensor = InsertOpBetween(function, 
-            Opcode::OP_ASSEMBLE, tensor, subsidiaryConsumers, mainSubgraphID);
+        LogicalTensorPtr newTensor =
+            InsertOpBetween(function, Opcode::OP_ASSEMBLE, tensor, subsidiaryConsumers, mainSubgraphID);
         newBoundaryTensors.push_back(newTensor);
     }
     return SUCCESS;
@@ -208,7 +208,7 @@ LogicalTensorPtr IntraSubgraphAdapter::InsertOpBetween(Function &function, Opcod
     function.GetTensorMap().Insert(newTensor, false);
     op->ReplaceOutputOperand(tensor, newTensor);
 
-    std::vector<int> offset(tensor->GetShape().size(), 0);
+    std::vector<int64_t> offset(tensor->GetShape().size(), 0);
     Operation* newOp = &function.AddRawOperation(opcode, {newTensor}, {tensor});
     if (opcode == Opcode::OP_ASSEMBLE)
         newOp->SetOpAttribute(std::make_shared<AssembleOpAttribute>(newTensor->GetMemoryTypeOriginal(), offset));
@@ -239,7 +239,7 @@ LogicalTensorPtr IntraSubgraphAdapter::InsertOpBetween(Function &function, Opcod
         op->ReplaceInputOperand(tensor, newTensor);
     }
 
-    std::vector<int> offset(tensor->GetShape().size(), 0);
+    std::vector<int64_t> offset(tensor->GetShape().size(), 0);
     Operation* newOp = &function.AddRawOperation(opcode, {tensor}, {newTensor});
     if (opcode == Opcode::OP_ASSEMBLE)
         newOp->SetOpAttribute(std::make_shared<AssembleOpAttribute>(newTensor->GetMemoryTypeOriginal(), offset));

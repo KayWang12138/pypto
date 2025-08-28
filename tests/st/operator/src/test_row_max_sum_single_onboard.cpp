@@ -26,8 +26,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single) {
 
     int shape0 = 257;
     int shape1 = 128;
-    std::vector<int> shape = {shape0, shape1};
-    std::vector<int> outshape = {shape0, 1};
+    std::vector<int64_t> shape = {shape0, shape1};
+    std::vector<int64_t> outshape = {shape0, 1};
     int inputCapacity = shape0 * shape1;
     int outputCapacity = shape0 * 1;
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -63,8 +63,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single) {
 
     int shape0 = 257;
     int shape1 = 128;
-    std::vector<int> shape = {shape0, shape1};
-    std::vector<int> outshape = {shape0, 1};
+    std::vector<int64_t> shape = {shape0, shape1};
+    std::vector<int64_t> outshape = {shape0, 1};
     int inputCapacity = shape0 * shape1;
     int outputCapacity = shape0 * 1;
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -101,8 +101,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_3dim) {
     int shape0 = 8;
     int shape1 = 4;
     int shape2 = 128;
-    std::vector<int> shape = {shape0, shape1, shape2};
-    std::vector<int> outshape = {shape0, shape1, 1};
+    std::vector<int64_t> shape = {shape0, shape1, shape2};
+    std::vector<int64_t> outshape = {shape0, shape1, 1};
     int inputCapacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     int outputCapacity = std::accumulate(outshape.begin(), outshape.end(), 1, std::multiplies<>());
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -140,8 +140,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_mla_rmsNor
     int shape0 = 16;
     int shape1 = 1;
     int shape2 = 1536;
-    std::vector<int> shape = {shape0, shape1, shape2};
-    std::vector<int> outshape = {shape0, shape1, 1};
+    std::vector<int64_t> shape = {shape0, shape1, shape2};
+    std::vector<int64_t> outshape = {shape0, shape1, 1};
     int inputCapacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     int outputCapacity = std::accumulate(outshape.begin(), outshape.end(), 1, std::multiplies<>());
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -180,8 +180,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax) {
     int shape1 = 128;
     int shape2 = 1;
     int shape3 = 256;
-    std::vector<int> shape = {shape0, shape1, shape2, shape3};
-    std::vector<int> outshape = {shape0, shape1, shape2, 1};
+    std::vector<int64_t> shape = {shape0, shape1, shape2, shape3};
+    std::vector<int64_t> outshape = {shape0, shape1, shape2, 1};
     int inputCapacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     int outputCapacity = std::accumulate(outshape.begin(), outshape.end(), 1, std::multiplies<>());
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -220,8 +220,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax_un
     int shape1 = 128;
     int shape2 = 1;
     int shape3 = 248;
-    std::vector<int> shape = {shape0, shape1, shape2, shape3};
-    std::vector<int> outshape = {shape0, shape1, shape2, 1};
+    std::vector<int64_t> shape = {shape0, shape1, shape2, shape3};
+    std::vector<int64_t> outshape = {shape0, shape1, shape2, 1};
     int inputCapacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     int outputCapacity = std::accumulate(outshape.begin(), outshape.end(), 1, std::multiplies<>());
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -260,8 +260,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_4dim_softmax) {
     int shape1 = 128;
     int shape2 = 1;
     int shape3 = 256;
-    std::vector<int> shape = {shape0, shape1, shape2, shape3};
-    std::vector<int> outshape = {shape0, shape1, shape2, 1};
+    std::vector<int64_t> shape = {shape0, shape1, shape2, shape3};
+    std::vector<int64_t> outshape = {shape0, shape1, shape2, 1};
     int inputCapacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     int outputCapacity = std::accumulate(outshape.begin(), outshape.end(), 1, std::multiplies<>());
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -300,8 +300,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_moe) {
     int shape1 = 1;
     int shape2 = 8;
     int shape3 = 1024;
-    std::vector<int> shape = {shape0 * shape1, shape2, shape3};
-    std::vector<int> outshape = {shape0 * shape1, 1, shape3};
+    std::vector<int64_t> shape = {shape0 * shape1, shape2, shape3};
+    std::vector<int64_t> outshape = {shape0 * shape1, 1, shape3};
     int inputCapacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     int outputCapacity = std::accumulate(outshape.begin(), outshape.end(), 1, std::multiplies<>());
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -337,8 +337,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_big_moe) {
     int S = 1;
     int numExpertsPerTok = 8;
     int H = 7168;
-    std::vector<int> shape = {B * S, numExpertsPerTok, H};
-    std::vector<int> outshape = {B * S, 1, H};
+    std::vector<int64_t> shape = {B * S, numExpertsPerTok, H};
+    std::vector<int64_t> outshape = {B * S, 1, H};
     int inputCapacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     int outputCapacity = std::accumulate(outshape.begin(), outshape.end(), 1, std::multiplies<>());
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -374,8 +374,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_2dim_moe) {
     int B = 8;
     int S = 1;
     int nRoutedExperts = 256;
-    std::vector<int> shape = {B * S, nRoutedExperts};
-    std::vector<int> outshape = {1, nRoutedExperts};
+    std::vector<int64_t> shape = {B * S, nRoutedExperts};
+    std::vector<int64_t> outshape = {1, nRoutedExperts};
     int inputCapacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     int outputCapacity = std::accumulate(outshape.begin(), outshape.end(), 1, std::multiplies<>());
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -411,8 +411,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis0_unalign) {
     int shape1 = 2;
     int shape2 = 8;
     int shape3 = 255;
-    std::vector<int> shape = {shape0, shape1, shape2, shape3};
-    std::vector<int> outShape = {1, shape1, shape2, shape3};
+    std::vector<int64_t> shape = {shape0, shape1, shape2, shape3};
+    std::vector<int64_t> outShape = {1, shape1, shape2, shape3};
     int inputCapacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     int outputCapacity = std::accumulate(outShape.begin(), outShape.end(), 1, std::multiplies<>());
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -448,8 +448,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis1_unalign) {
     int shape1 = 2;
     int shape2 = 8;
     int shape3 = 255;
-    std::vector<int> shape = {shape0, shape1, shape2, shape3};
-    std::vector<int> outShape = {shape0, 1, shape2, shape3};
+    std::vector<int64_t> shape = {shape0, shape1, shape2, shape3};
+    std::vector<int64_t> outShape = {shape0, 1, shape2, shape3};
     int inputCapacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     int outputCapacity = std::accumulate(outShape.begin(), outShape.end(), 1, std::multiplies<>());
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -484,8 +484,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis2_unalign) {
     int shape1 = 2;
     int shape2 = 8;
     int shape3 = 255;
-    std::vector<int> shape = {shape0, shape1, shape2, shape3};
-    std::vector<int> outShape = {shape0, shape1, 1, shape3};
+    std::vector<int64_t> shape = {shape0, shape1, shape2, shape3};
+    std::vector<int64_t> outShape = {shape0, shape1, 1, shape3};
     int inputCapacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     int outputCapacity = std::accumulate(outShape.begin(), outShape.end(), 1, std::multiplies<>());
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -518,8 +518,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign) {
 
     int shape0 = 4;
     int shape1 = 530;
-    std::vector<int> shape = {shape0, shape1};
-    std::vector<int> outshape = {shape0, 1};
+    std::vector<int64_t> shape = {shape0, shape1};
+    std::vector<int64_t> outshape = {shape0, 1};
     int inputCapacity = shape0 * shape1;
     int outputCapacity = shape0 * 1;
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -555,8 +555,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4_93) {
 
     int shape0 = 4;
     int shape1 = 93;
-    std::vector<int> shape = {shape0, shape1};
-    std::vector<int> outshape = {shape0, 1};
+    std::vector<int64_t> shape = {shape0, shape1};
+    std::vector<int64_t> outshape = {shape0, 1};
     int inputCapacity = shape0 * shape1;
     int outputCapacity = shape0 * 1;
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -594,8 +594,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4d) {
     int shape1 = 3;
     int shape2 = 4;
     int shape3 = 530;
-    std::vector<int> shape = {shape0, shape1, shape2, shape3};
-    std::vector<int> outshape = {shape0, shape1, shape2, 1};
+    std::vector<int64_t> shape = {shape0, shape1, shape2, shape3};
+    std::vector<int64_t> outshape = {shape0, shape1, shape2, 1};
     int inputCapacity = shape0 * shape1 * shape2 * shape3;
     int outputCapacity = shape0 * shape1 * shape2 * 1;
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -631,8 +631,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign) {
 
     int shape0 = 4;
     int shape1 = 93;
-    std::vector<int> shape = {shape0, shape1};
-    std::vector<int> outshape = {shape0, 1};
+    std::vector<int64_t> shape = {shape0, shape1};
+    std::vector<int64_t> outshape = {shape0, 1};
     int inputCapacity = shape0 * shape1;
     int outputCapacity = shape0 * 1;
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -668,8 +668,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign_4_93) {
 
     int shape0 = 4;
     int shape1 = 93;
-    std::vector<int> shape = {shape0, shape1};
-    std::vector<int> outshape = {shape0, 1};
+    std::vector<int64_t> shape = {shape0, shape1};
+    std::vector<int64_t> outshape = {shape0, 1};
     int inputCapacity = shape0 * shape1;
     int outputCapacity = shape0 * 1;
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -707,8 +707,8 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign_4d) {
     int shape1 = 3;
     int shape2 = 4;
     int shape3 = 530;
-    std::vector<int> shape = {shape0, shape1, shape2, shape3};
-    std::vector<int> outshape = {shape0, shape1, shape2, 1};
+    std::vector<int64_t> shape = {shape0, shape1, shape2, shape3};
+    std::vector<int64_t> outshape = {shape0, shape1, shape2, 1};
     int inputCapacity = shape0 * shape1 * shape2 * shape3;
     int outputCapacity = shape0 * shape1 * shape2 * 1;
     uint64_t outputSize = outputCapacity * sizeof(float);

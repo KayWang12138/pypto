@@ -49,7 +49,7 @@ void CalcFunctionInvokeWorkespace(Function* cacheFunction, Function* function,
         return rawTensor;
     };
 
-    auto calcOffsetFunc = [](const std::vector<int> &offset, const std::vector<int> &shape) -> uint64_t {
+    auto calcOffsetFunc = [](const std::vector<int64_t> &offset, const std::vector<int64_t> &shape) -> uint64_t {
         MACHINE_ASSERT(offset.size() == shape.size());
         uint64_t offSetSize = 0;
         auto strideShapeFunc = [&shape](size_t i) -> auto
@@ -68,7 +68,7 @@ void CalcFunctionInvokeWorkespace(Function* cacheFunction, Function* function,
 
     auto workSpaceOffsetProcFunc = [&getRawTensorByTensorMagic, &rawTensorOffsetMap, &totalSize, &calcOffsetFunc,
                                     &compiledFunction](const LogicalTensorPtr& tensor, int rawMagic,
-                                                       const std::vector<int>& rawShape, const std::vector<int>& offset,
+                                                       const std::vector<int64_t>& rawShape, const std::vector<int64_t>& offset,
                                                        std::list<InvokeParaOffset>& curSubFuncParaOffset,
                                                        bool isTensorPara) {
         InvokeParaOffset paraOffset;

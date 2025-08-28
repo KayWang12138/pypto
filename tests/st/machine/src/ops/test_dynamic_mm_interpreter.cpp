@@ -39,7 +39,7 @@ inline SymbolicScalar CeilDivSymbolicScalar(SymbolicScalar a, int b) {
 }
 
 template <typename dtype>
-Tensor constructMatmulTensor(const std::vector<int> &shape, const string &name, bool isNz) {
+Tensor constructMatmulTensor(const std::vector<int64_t> &shape, const string &name, bool isNz) {
     auto dataType = GetAstDtype<dtype>();
     if (isNz) {
         return Tensor(dataType, shape, name, NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
@@ -65,7 +65,7 @@ static void NonSplitFunc(const Tensor &tensor_a, const Tensor &tensor_b, Tensor 
 
 template <typename outputDtype, bool transA, bool transB, bool isCNz>
 static void MSplitFunc(
-    const std::vector<int> &viewShape, const Tensor &tensor_a, const Tensor &tensor_b, Tensor &tensor_c) {
+    const std::vector<int64_t> &viewShape, const Tensor &tensor_a, const Tensor &tensor_b, Tensor &tensor_c) {
     const auto &aShape = tensor_a.GetShape();
     std::vector<SymbolicScalar> aValidShape = {aShape[0], aShape[1]};
     const auto &bShape = tensor_b.GetShape();
@@ -91,7 +91,7 @@ static void MSplitFunc(
 
 template <typename outputDtype, bool transA, bool transB, bool isCNz>
 static void NSplitFunc(
-    const std::vector<int> &viewShape, const Tensor &tensor_a, const Tensor &tensor_b, Tensor &tensor_c) {
+    const std::vector<int64_t> &viewShape, const Tensor &tensor_a, const Tensor &tensor_b, Tensor &tensor_c) {
     const auto &aShape = tensor_a.GetShape();
     std::vector<SymbolicScalar> aValidShape = {aShape[0], aShape[1]};
     const auto &bShape = tensor_b.GetShape();
@@ -117,7 +117,7 @@ static void NSplitFunc(
 
 template <typename outputDtype, bool transA, bool transB, bool isCNz>
 static void MNSplitFunc(
-    const std::vector<int> &viewShape, const Tensor &tensor_a, const Tensor &tensor_b, Tensor &tensor_c) {
+    const std::vector<int64_t> &viewShape, const Tensor &tensor_a, const Tensor &tensor_b, Tensor &tensor_c) {
     const auto &aShape = tensor_a.GetShape();
     std::vector<SymbolicScalar> aValidShape = {aShape[0], aShape[1]};
     const auto &bShape = tensor_b.GetShape();
@@ -153,7 +153,7 @@ static void MNSplitFunc(
 
 template <typename inputDtype, typename outputDtype, bool transA, bool transB, bool isCNz>
 void TestDynMatmul(
-    const std::vector<int>& mmShape, bool isANz, bool isBNz, const std::vector<int> &viewShape, string dataPath) {
+    const std::vector<int64_t>& mmShape, bool isANz, bool isBNz, const std::vector<int64_t> &viewShape, string dataPath) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
 
@@ -225,7 +225,7 @@ TEST_F(DynamicMatmulInterpreterTest, mm_A_B_ND_bf16) {
     int n = 512;
     bool isANz = false;
     bool isBNz = false;
-    std::vector<int> viewShape = {96, -1};
+    std::vector<int64_t> viewShape = {96, -1};
     TestDynMatmul<npu::tile_fwk::bfloat16, float, false, false, false>(
         {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
 }
@@ -237,7 +237,7 @@ TEST_F(DynamicMatmulInterpreterTest, mm_A_B_NZ_bf16) {
     int n = 512;
     bool isANz = false;
     bool isBNz = true;
-    std::vector<int> viewShape = {-1, -1};
+    std::vector<int64_t> viewShape = {-1, -1};
     TestDynMatmul<npu::tile_fwk::bfloat16, float, false, false, false>(
         {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
 }
@@ -249,7 +249,7 @@ TEST_F(DynamicMatmulInterpreterTest, mm_A_Bt_ND_fp16) {
     int n = 511;
     bool isANz = false;
     bool isBNz = false;
-    std::vector<int> viewShape = {-1, 256};
+    std::vector<int64_t> viewShape = {-1, 256};
     TestDynMatmul<npu::tile_fwk::float16, float, false, true, false>(
         {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
 }
@@ -261,7 +261,7 @@ TEST_F(DynamicMatmulInterpreterTest, mm_A_Bt_NZ_fp16) {
     int n = 256;
     bool isANz = false;
     bool isBNz = true;
-    std::vector<int> viewShape = {-1, -1};
+    std::vector<int64_t> viewShape = {-1, -1};
     TestDynMatmul<npu::tile_fwk::float16, float, false, true, false>(
         {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
 }
@@ -273,7 +273,7 @@ TEST_F(DynamicMatmulInterpreterTest, mm_A_B_NZ_int8) {
     int n = 512;
     bool isANz = false;
     bool isBNz = true;
-    std::vector<int> viewShape = {-1, -1};
+    std::vector<int64_t> viewShape = {-1, -1};
     TestDynMatmul<int8_t, int32_t, false, false, false>({m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
 }
 
@@ -284,7 +284,7 @@ TEST_F(DynamicMatmulInterpreterTest, mm_A_Bt_NZ_int8) {
     int n = 256;
     bool isANz = false;
     bool isBNz = true;
-    std::vector<int> viewShape = {-1, -1};
+    std::vector<int64_t> viewShape = {-1, -1};
     TestDynMatmul<int8_t, int32_t, false, true, false>({m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
 }
 
@@ -295,7 +295,7 @@ TEST_F(DynamicMatmulInterpreterTest, mm_A_B_ND_bf16_tile1) {
     int n = 512;
     bool isANz = false;
     bool isBNz = false;
-    std::vector<int> viewShape = {90, 256};
+    std::vector<int64_t> viewShape = {90, 256};
     TestDynMatmul<npu::tile_fwk::bfloat16, float, false, false, false>(
         {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
 }
@@ -307,7 +307,7 @@ TEST_F(DynamicMatmulInterpreterTest, mm_A_Bt_ND_fp16_tile2) {
     int n = 512;
     bool isANz = false;
     bool isBNz = false;
-    std::vector<int> viewShape = {-1, -1};
+    std::vector<int64_t> viewShape = {-1, -1};
     TestDynMatmul<npu::tile_fwk::float16, float, false, true, false>(
         {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
 }
@@ -319,7 +319,7 @@ TEST_F(DynamicMatmulInterpreterTest, mm_A_B_NZ_int8_tile3) {
     int n = 512;
     bool isANz = false;
     bool isBNz = true;
-    std::vector<int> viewShape = {-1, -1};
+    std::vector<int64_t> viewShape = {-1, -1};
     TestDynMatmul<int8_t, int32_t, false, false, false>({m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
 }
 
@@ -330,7 +330,7 @@ TEST_F(DynamicMatmulInterpreterTest, mm_A_Bt_NZ_int8_tile4) {
     int n = 256;
     bool isANz = false;
     bool isBNz = true;
-    std::vector<int> viewShape = {-1, -1};
+    std::vector<int64_t> viewShape = {-1, -1};
     TestDynMatmul<int8_t, int32_t, false, true, false>({m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
 }
 
@@ -341,7 +341,7 @@ TEST_F(DynamicMatmulInterpreterTest, mm_A_ND_B_ND_C_NZ) {
     int n = 128;
     bool isANz = false;
     bool isBNz = false;
-    std::vector<int> viewShape = {-1, -1};
+    std::vector<int64_t> viewShape = {-1, -1};
     TestDynMatmul<npu::tile_fwk::float16, float, false, false, true>(
         {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
 }

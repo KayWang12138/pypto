@@ -64,7 +64,7 @@ TEST_F(TestDynamicDeviceRunner, TestDynamicRun) {
 
 TEST_F(TestDynamicDeviceRunner, TestDynMachineAgent) {
     npu::tile_fwk::MachinePipe machinePipe;
-    const std::vector<int> shape = {64, 64};
+    const std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
     Program::GetInstance().GetTileShape().SetVecTileShapes(shape);
 

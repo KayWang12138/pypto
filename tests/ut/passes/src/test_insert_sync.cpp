@@ -120,7 +120,7 @@ TEST_F(InsertSyncTest, TestEnableDebug) {
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
 
     // Prepare the graph
-    std::vector<int> shape = {IS_NUM8, IS_NUM16};
+    std::vector<int64_t> shape = {IS_NUM8, IS_NUM16};
     auto shapeImme = OpImmediate::Specified(shape);
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto incast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -154,8 +154,8 @@ TEST_F(InsertSyncTest, TestFindDep) {
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
 
     // Build graph
-    std::vector<int> shape1 = {IS_NUM16, IS_NUM16};
-    std::vector<int> shape2 = {IS_NUM8, IS_NUM16};
+    std::vector<int64_t> shape1 = {IS_NUM16, IS_NUM16};
+    std::vector<int64_t> shape2 = {IS_NUM8, IS_NUM16};
     auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     tensor1->SetMemoryTypeBoth(MemoryType::MEM_UB);
     tensor1->memorymap[tensor1->GetSubgraphID()].start = 0;
@@ -275,7 +275,7 @@ TEST_F(InsertSyncTest, TestPhaseKernelProcess) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
 
-    std::vector<int> shape = {IS_NUM16, IS_NUM16};
+    std::vector<int64_t> shape = {IS_NUM16, IS_NUM16};
     auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto tensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -306,9 +306,9 @@ TEST_F(InsertSyncTest, TestViewAssembleProcess) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
 
-    std::vector<int> shape1 = {IS_NUM16, IS_NUM16};
-    std::vector<int> shape2 = {IS_NUM8, IS_NUM8};
-    std::vector<int> shape3 = {IS_NUM8, IS_NUM16};
+    std::vector<int64_t> shape1 = {IS_NUM16, IS_NUM16};
+    std::vector<int64_t> shape2 = {IS_NUM8, IS_NUM8};
+    std::vector<int64_t> shape3 = {IS_NUM8, IS_NUM16};
     auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     tensor1->SetMemoryTypeBoth(MemoryType::MEM_UB);
     tensor1->memorymap[tensor1->GetSubgraphID()].start = 0;
@@ -399,7 +399,7 @@ TEST_F(InsertSyncTest, TestUpdateDep) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
 
-    std::vector<int> shape = {IS_NUM16, IS_NUM16};
+    std::vector<int64_t> shape = {IS_NUM16, IS_NUM16};
     auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     tensor1->SetMemoryTypeBoth(MemoryType::MEM_UB);
     tensor1->memorymap[tensor1->GetSubgraphID()].start = 0;
@@ -494,7 +494,7 @@ TEST_F(InsertSyncTest, TestHandleEventID) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
 
-    std::vector<int> shape = {IS_NUM16, IS_NUM16};
+    std::vector<int64_t> shape = {IS_NUM16, IS_NUM16};
     auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     tensor1->SetMemoryTypeBoth(MemoryType::MEM_UB);
     tensor1->memorymap[tensor1->GetSubgraphID()].start = 0;
@@ -580,7 +580,7 @@ TEST_F(InsertSyncTest, TestRelaxFakeDataDep) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
 
-    std::vector<int> shape = {IS_NUM8, IS_NUM8};
+    std::vector<int64_t> shape = {IS_NUM8, IS_NUM8};
     auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     tensor1->SetMemoryTypeBoth(MemoryType::MEM_UB);
     tensor1->memorymap[tensor1->GetSubgraphID()].start = IS_NUM100;

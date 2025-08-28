@@ -50,7 +50,7 @@ void TestReduceScatter() {
     int32_t n = 128;
     DataType dType = DT_FP16;
 
-    std::vector<int32_t> shape = {m, n};
+    std::vector<int64_t> shape = {m, n};
 
     std::vector<Tensor> in;
     Tensor in1(dType, shape, "in1");
@@ -79,9 +79,9 @@ void TestReduceScatterOneTensor() {
     int32_t n = 128;
     DataType dType = DT_FP16;
 
-    std::vector<int32_t> inShape = {m, n};
+    std::vector<int64_t> inShape = {m, n};
     int32_t rankSize = 2;
-    std::vector<int32_t> outShape = {m / rankSize, n};
+    std::vector<int64_t> outShape = {m / rankSize, n};
 
     Tensor in(dType, inShape, "in");
     Tensor out(dType, outShape, "out");

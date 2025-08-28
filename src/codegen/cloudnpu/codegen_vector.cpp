@@ -188,7 +188,7 @@ std::string CodeGenOpCloudNPU::PrintRowSumlineStatic(const PrintUnaryParam &para
     int reduceAxis{-1};
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
     if (axis.HasValue()) {
-        reduceAxis = npu::tile_fwk::AnyCast<int>(axis);
+        reduceAxis = npu::tile_fwk::AnyCast<int64_t>(axis);
     }
     ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(shape[1].size()) - 1)))) << "unsupported reduce axis";
     const std::string &dstDtypeStr = param.dstDtypeStr;
@@ -230,7 +230,7 @@ std::string CodeGenOpCloudNPU::PrintRowSumlineDynamicUnaligned(const PrintUnaryP
     int reduceAxis{-1};
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
     if (axis.HasValue()) {
-        reduceAxis = npu::tile_fwk::AnyCast<int>(axis);
+        reduceAxis = npu::tile_fwk::AnyCast<int64_t>(axis);
     }
     ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(shape[1].size()) - 1)))) << "unsupported reduce axis";
     const std::string &dstDtypeStr = param.dstDtypeStr;
@@ -561,7 +561,7 @@ std::string CodeGenOpCloudNPU::PrintExpand(const std::string &s0Var, const std::
     std::vector<int> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "EXPANDDIM");
     if (axis.HasValue()) {
-        expandAxis = AnyCast<int>(axis);
+        expandAxis = AnyCast<int64_t>(axis);
     }
     ASSERT((expandAxis >= 0) && (expandAxis <= (static_cast<int>(shape[1].size() - 1)))) << "unsupported reduce axis";
     // modify expandAxis for SHAPE_DIM4
@@ -611,7 +611,7 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveStatic(const PrintTranspose
     for (int i = 1; i < SHAPE_DIM4; i++) {
         paramList.emplace_back(std::to_string(srcShape[i]));
     }
-    std::vector<int> transposeAxis = npu::tile_fwk::AnyCast<std::vector<int>>(opAttrs.at(OP_ATTR_PREFIX + "shape"));
+    std::vector<int64_t> transposeAxis = npu::tile_fwk::AnyCast<std::vector<int64_t>>(opAttrs.at(OP_ATTR_PREFIX + "shape"));
     int correctionAxis = SHAPE_DIM4 - originShape[0].size();
     for (auto &axis : transposeAxis) {
         axis += correctionAxis;
@@ -656,7 +656,7 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveDynamic(const PrintTranspos
     for (int i = 1; i < SHAPE_DIM4; i++) {
         paramList.emplace_back(std::to_string(srcShape[i]));
     }
-    std::vector<int> transposeAxis = npu::tile_fwk::AnyCast<std::vector<int>>(opAttrs.at(OP_ATTR_PREFIX + "shape"));
+    std::vector<int64_t> transposeAxis = npu::tile_fwk::AnyCast<std::vector<int64_t>>(opAttrs.at(OP_ATTR_PREFIX + "shape"));
     int correctionAxis = SHAPE_DIM4 - originShape[1].size();
     for (auto &axis : transposeAxis) {
         axis += correctionAxis;
@@ -704,7 +704,7 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveDynamicUnaligned(const Prin
     for (int i = 1; i < SHAPE_DIM4; i++) {
         paramList.emplace_back(std::to_string(srcShape[i]));
     }
-    std::vector<int> transposeAxis = npu::tile_fwk::AnyCast<std::vector<int>>(opAttrs.at(OP_ATTR_PREFIX + "shape"));
+    std::vector<int64_t> transposeAxis = npu::tile_fwk::AnyCast<std::vector<int64_t>>(opAttrs.at(OP_ATTR_PREFIX + "shape"));
     int correctionAxis = SHAPE_DIM4 - originShape[1].size();
     for (auto &axis : transposeAxis) {
         axis += correctionAxis;
@@ -1585,7 +1585,7 @@ std::string CodeGenOpCloudNPU::GenGatherElementOp() const {
     int gatherAxis{-1};
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "axis");
     if (axis.HasValue()) {
-        gatherAxis = npu::tile_fwk::AnyCast<int>(axis);
+        gatherAxis = npu::tile_fwk::AnyCast<int64_t>(axis);
     }
     if (isSupportDynamicUnaligned) {
         return PrintGatherElementDynamicUnaligned({gatherAxis, dVar, s0Var, s1Var, dos, ds, s0s, s1s, dataTypeExpr});
@@ -2052,7 +2052,7 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
 
     if (opAttrs.count(npu::tile_fwk::OP_EMUOP_PREFIX + "opc")) {
         // Hack: should be optimized to memory copy in pass
-        int emuopc = AnyCast<int>(opAttrs.find(npu::tile_fwk::OP_EMUOP_PREFIX + "opc")->second);
+        int emuopc = AnyCast<int64_t>(opAttrs.find(npu::tile_fwk::OP_EMUOP_PREFIX + "opc")->second);
         if (emuopc == npu::tile_fwk::EMUOP_TENSOR_EXTRACT) {
             ret = sprintf_s(buffer, sizeof(buffer),
                 "RUNTIME_TensorExtract(/*type=*/%s, /*mem=*/__ubuf__, /*dst*/%s, /*src*/%s);\n", dstDtypeStr.c_str(),

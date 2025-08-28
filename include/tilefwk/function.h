@@ -78,7 +78,7 @@
 #define UNROLL_DEFAULT if (npu::tile_fwk::RecordLoopFunc::MatchUnrollTimes(1))
 
 namespace npu::tile_fwk {
-class DynloopFunctionAttribute;
+struct DynloopFunctionAttribute;
 
 enum class FunctionType {
     EAGER,

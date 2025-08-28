@@ -20,8 +20,8 @@ void ExecuteOpView(ExecuteOperationContext *ctx) {
     ASSERT(iop != nullptr) << ctx->op->Dump();
 
     auto view = std::static_pointer_cast<ViewOpAttribute>(ctx->op->GetOpAttribute());
-    std::vector<int> offset = ctx->opInter->EvaluateOffset(view->GetFromOffset(), view->GetFromDynOffset());
-    std::vector<int> shape = ctx->opInter->EvaluateOpImmediate(ctx->frame, OpImmediate::Specified(view->GetToDynValidShape()));
+    std::vector<int64_t> offset = ctx->opInter->EvaluateOffset(view->GetFromOffset(), view->GetFromDynOffset());
+    std::vector<int64_t> shape = ctx->opInter->EvaluateOpImmediate(ctx->frame, OpImmediate::Specified(view->GetToDynValidShape()));
     auto iopValid = std::make_shared<LogicalTensorData>(iop->GetData(), shape, offset);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     calc::Copy(oop, iopValid);
@@ -35,7 +35,7 @@ void ExecuteOpAssemble(ExecuteOperationContext *ctx) {
     auto &iop = ctx->ioperandDataViewList->at(0);
 
     auto assemble = std::static_pointer_cast<AssembleOpAttribute>(ctx->op->GetOpAttribute());
-    std::vector<int> offset = ctx->opInter->EvaluateOffset(assemble->GetToOffset(), assemble->GetToDynOffset());
+    std::vector<int64_t> offset = ctx->opInter->EvaluateOffset(assemble->GetToOffset(), assemble->GetToDynOffset());
     auto ret = oop->View(iop->GetShape(), offset);
     calc::Copy(ret, iop);
 }
@@ -59,11 +59,11 @@ void ExecuteOpCopyOut(ExecuteOperationContext *ctx) {
 
     auto copyout = std::static_pointer_cast<CopyOpAttribute>(ctx->op->GetOpAttribute());
     auto [from, toOffsetAttr] = copyout->GetCopyOutAttr();
-    std::vector<int> shape = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyout->GetShape());
-    std::vector<int> rawShape = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyout->GetRawShape());
-    std::vector<int> toOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, toOffsetAttr);
+    std::vector<int64_t> shape = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyout->GetShape());
+    std::vector<int64_t> rawShape = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyout->GetRawShape());
+    std::vector<int64_t> toOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, toOffsetAttr);
 
-    std::vector<int> iopShape = iop->GetShape();
+    std::vector<int64_t> iopShape = iop->GetShape();
     if (oop->GetIsSpilled()) {
         std::fill(toOffset.begin(), toOffset.end(), 0);
     }
@@ -91,31 +91,31 @@ void ExecuteOpCopyIn(ExecuteOperationContext *ctx) {
     auto copyin = std::static_pointer_cast<CopyOpAttribute>(ctx->op->GetOpAttribute());
 
     bool outputCombineAxisDone = ctx->op->GetBoolAttribute("input_combine_axis_done");
-    std::vector<int> oopShape = oop->GetShape();
+    std::vector<int64_t> oopShape = oop->GetShape();
     std::vector<int> axises = {0, 1};
     LogicalTensorDataPtr oopTrans;
     if (outputCombineAxisDone && oopShape.size() == SIZE_TWO) {
-        std::vector<int> transShape = {oopShape[1], oopShape[0]};
-        oopTrans = LogicalTensorData::CreateEmpty(oop->GetDataType(), transShape, std::vector<int>(0));
+        std::vector<int64_t> transShape = {oopShape[1], oopShape[0]};
+        oopTrans = LogicalTensorData::CreateEmpty(oop->GetDataType(), transShape, std::vector<int64_t>(0));
     }
 
     // HACK: copyin's default attribute should be full tensor
     auto iopValid = iop;
     auto oopValid = oop;
     if (copyin != nullptr) {
-        std::vector<int> shape = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetShape());
-        std::vector<int> rawShape = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetRawShape());
-        std::vector<int> fromOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetFromOffset());
-        std::vector<int> dynvalidshape = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetToDynValidShape());
+        std::vector<int64_t> shape = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetShape());
+        std::vector<int64_t> rawShape = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetRawShape());
+        std::vector<int64_t> fromOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetFromOffset());
+        std::vector<int64_t> dynvalidshape = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetToDynValidShape());
         if (dynvalidshape.empty()) {
             dynvalidshape = shape;
         }
 
         iopValid = std::make_shared<LogicalTensorData>(iopValid->GetData(), dynvalidshape, fromOffset);
         if (outputCombineAxisDone && oopShape.size() == SIZE_TWO) {
-            oopTrans = oopTrans->View(dynvalidshape, std::vector<int>(fromOffset.size(), 0));
+            oopTrans = oopTrans->View(dynvalidshape, std::vector<int64_t>(fromOffset.size(), 0));
         } else {
-            oopValid = oop->View(dynvalidshape, std::vector<int>(fromOffset.size(), 0));
+            oopValid = oop->View(dynvalidshape, std::vector<int64_t>(fromOffset.size(), 0));
         }
     }
 

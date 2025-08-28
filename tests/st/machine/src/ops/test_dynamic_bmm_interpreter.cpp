@@ -47,9 +47,9 @@ void TestDynBatchMatmul(int b, int m, int k, int n, string dataPath) {
     if constexpr (IsBtrans) {
         std::swap(kb, nb);
     }
-    std::vector<int> shape_a = {b, m, ka};
-    std::vector<int> shape_b = {b, kb, nb};
-    std::vector<int> shape_c = {b, m, n};
+    std::vector<int64_t> shape_a = {b, m, ka};
+    std::vector<int64_t> shape_b = {b, kb, nb};
+    std::vector<int64_t> shape_c = {b, m, n};
 
     auto InputAstDtype = GetAstDtype<InputT>();
     auto OutputAstDtype = GetAstDtype<OutputT>();
@@ -111,9 +111,9 @@ void TestDynBatchMatmul4D(vector<int> b1, vector<int> b2, int m, int k, int n, s
     if constexpr (IsBtrans) {
         std::swap(kb, nb);
     }
-    std::vector<int> shape_a = {b1[0], b1[1], m, ka};
-    std::vector<int> shape_b = {b2[0], b2[1], kb, nb};
-    std::vector<int> shape_c = {b1[0], b1[1], m, n};
+    std::vector<int64_t> shape_a = {b1[0], b1[1], m, ka};
+    std::vector<int64_t> shape_b = {b2[0], b2[1], kb, nb};
+    std::vector<int64_t> shape_c = {b1[0], b1[1], m, n};
 
     auto InputAstDtype = GetAstDtype<InputT>();
     auto OutputAstDtype = GetAstDtype<OutputT>();

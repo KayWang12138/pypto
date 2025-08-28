@@ -75,12 +75,12 @@ TEST(ThreadPoolTest, ElementWise) {
     LogicalTensorData lhs(lhsData);
     LogicalTensorData rhs(rhsData);
 
-    auto add = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int>(0));
-    auto sub = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int>(0));
-    auto mul = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int>(0));
-    auto div = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int>(0));
-    auto max = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int>(0));
-    auto min = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int>(0));
+    auto add = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int64_t>(0));
+    auto sub = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int64_t>(0));
+    auto mul = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int64_t>(0));
+    auto div = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int64_t>(0));
+    auto max = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int64_t>(0));
+    auto min = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int64_t>(0));
 
     Calculator::CalcAdd(add.get(), &lhs, &rhs, &pool);
     Calculator::CalcSub(sub.get(), &lhs, &rhs, &pool);
@@ -99,12 +99,12 @@ TEST(ThreadPoolTest, ElementWise) {
 
     auto rhss = Element(DT_BF16, 2.0);
 
-    auto adds = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int>(0));
-    auto subs = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int>(0));
-    auto muls = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int>(0));
-    auto divs = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int>(0));
-    auto maxs = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int>(0));
-    auto mins = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int>(0));
+    auto adds = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int64_t>(0));
+    auto subs = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int64_t>(0));
+    auto muls = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int64_t>(0));
+    auto divs = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int64_t>(0));
+    auto maxs = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int64_t>(0));
+    auto mins = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int64_t>(0));
     Calculator::CalcAddS(adds.get(), &lhs, &rhss, false, &pool);
     Calculator::CalcSubS(subs.get(), &lhs, &rhss, false, &pool);
     Calculator::CalcMulS(muls.get(), &lhs, &rhss, false, &pool);
@@ -119,26 +119,26 @@ TEST(ThreadPoolTest, ElementWise) {
     EXPECT_TENSOR_DATA(maxs, lhs.GetSize(), npu::tile_fwk::bfloat16, float, 2.5);
     EXPECT_TENSOR_DATA(mins, lhs.GetSize(), npu::tile_fwk::bfloat16, float, 2);
 
-    auto exps = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int>(0));
+    auto exps = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int64_t>(0));
     Calculator::CalcExp(exps.get(), &lhs, &pool);
     EXPECT_TENSOR_DATA(exps, lhs.GetSize(), npu::tile_fwk::bfloat16, npu::tile_fwk::bfloat16, npu::tile_fwk::bfloat16(exp(2.5)));
 
-    auto sqrts = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int>(0));
+    auto sqrts = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int64_t>(0));
     Calculator::CalcSqrt(sqrts.get(), &lhs, &pool);
     EXPECT_TENSOR_DATA(sqrts, lhs.GetSize(), npu::tile_fwk::bfloat16, npu::tile_fwk::bfloat16, npu::tile_fwk::bfloat16(sqrt(2.5)));
 
-    auto castu8 = LogicalTensorData::CreateEmpty(DT_UINT8, lhs.GetShape(), std::vector<int>(0));
-    auto castu16 = LogicalTensorData::CreateEmpty(DT_UINT16, lhs.GetShape(), std::vector<int>(0));
-    auto castu32 = LogicalTensorData::CreateEmpty(DT_UINT32, lhs.GetShape(), std::vector<int>(0));
-    auto castu64 = LogicalTensorData::CreateEmpty(DT_UINT64, lhs.GetShape(), std::vector<int>(0));
-    auto casts8 = LogicalTensorData::CreateEmpty(DT_INT8, lhs.GetShape(), std::vector<int>(0));
-    auto casts16 = LogicalTensorData::CreateEmpty(DT_INT16, lhs.GetShape(), std::vector<int>(0));
-    auto casts32 = LogicalTensorData::CreateEmpty(DT_INT32, lhs.GetShape(), std::vector<int>(0));
-    auto casts64 = LogicalTensorData::CreateEmpty(DT_INT64, lhs.GetShape(), std::vector<int>(0));
-    auto castf16 = LogicalTensorData::CreateEmpty(DT_FP16, lhs.GetShape(), std::vector<int>(0));
-    auto castf32 = LogicalTensorData::CreateEmpty(DT_FP32, lhs.GetShape(), std::vector<int>(0));
-    auto castf64 = LogicalTensorData::CreateEmpty(DT_DOUBLE, lhs.GetShape(), std::vector<int>(0));
-    auto castbf16 = LogicalTensorData::CreateEmpty(DT_BF16, lhs.GetShape(), std::vector<int>(0));
+    auto castu8 = LogicalTensorData::CreateEmpty(DT_UINT8, lhs.GetShape(), std::vector<int64_t>(0));
+    auto castu16 = LogicalTensorData::CreateEmpty(DT_UINT16, lhs.GetShape(), std::vector<int64_t>(0));
+    auto castu32 = LogicalTensorData::CreateEmpty(DT_UINT32, lhs.GetShape(), std::vector<int64_t>(0));
+    auto castu64 = LogicalTensorData::CreateEmpty(DT_UINT64, lhs.GetShape(), std::vector<int64_t>(0));
+    auto casts8 = LogicalTensorData::CreateEmpty(DT_INT8, lhs.GetShape(), std::vector<int64_t>(0));
+    auto casts16 = LogicalTensorData::CreateEmpty(DT_INT16, lhs.GetShape(), std::vector<int64_t>(0));
+    auto casts32 = LogicalTensorData::CreateEmpty(DT_INT32, lhs.GetShape(), std::vector<int64_t>(0));
+    auto casts64 = LogicalTensorData::CreateEmpty(DT_INT64, lhs.GetShape(), std::vector<int64_t>(0));
+    auto castf16 = LogicalTensorData::CreateEmpty(DT_FP16, lhs.GetShape(), std::vector<int64_t>(0));
+    auto castf32 = LogicalTensorData::CreateEmpty(DT_FP32, lhs.GetShape(), std::vector<int64_t>(0));
+    auto castf64 = LogicalTensorData::CreateEmpty(DT_DOUBLE, lhs.GetShape(), std::vector<int64_t>(0));
+    auto castbf16 = LogicalTensorData::CreateEmpty(DT_BF16, lhs.GetShape(), std::vector<int64_t>(0));
 
     Calculator::CalcCast(castu8.get(), &lhs, DT_UINT8, CastMode::CAST_NONE, &pool);
     Calculator::CalcCast(castu16.get(), &lhs, DT_UINT16, CastMode::CAST_NONE, &pool);
@@ -165,11 +165,11 @@ TEST(ThreadPoolTest, ElementWise) {
     EXPECT_TENSOR_DATA(castf64, lhs.GetSize(), double, float, 2.5);
     EXPECT_TENSOR_DATA(castbf16, lhs.GetSize(), npu::tile_fwk::bfloat16, float, 2.5);
 
-    auto copy = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int>(0));
+    auto copy = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int64_t>(0));
     Calculator::CalcCopy(copy.get(), &lhs, &pool);
     EXPECT_TENSOR_DATA(copy, lhs.GetSize(), npu::tile_fwk::bfloat16, npu::tile_fwk::bfloat16, npu::tile_fwk::bfloat16(2.5));
 
-    auto vecdup = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int>(0));
+    auto vecdup = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int64_t>(0));
     Calculator::CalcVecDup(vecdup.get(), &rhss, &pool);
     EXPECT_TENSOR_DATA(vecdup, lhs.GetSize(), npu::tile_fwk::bfloat16, npu::tile_fwk::bfloat16, npu::tile_fwk::bfloat16(2.0));
 
@@ -179,7 +179,7 @@ TEST(ThreadPoolTest, ElementWise) {
         &lhs,
         &rhs,
     };
-    auto reduceacc = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int>(0));
+    auto reduceacc = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int64_t>(0));
     Calculator::CalcReduceAcc(reduceacc.get(), &operList, &pool);
     EXPECT_TENSOR_DATA(reduceacc, lhs.GetSize(), npu::tile_fwk::bfloat16, npu::tile_fwk::bfloat16, npu::tile_fwk::bfloat16(2.5 + 2 + 2.5 + 2));
 }
@@ -195,12 +195,12 @@ TEST(ThreadPoolTest, ElementWiseFp16) {
     LogicalTensorData lhs(lhsData);
     LogicalTensorData rhs(rhsData);
 
-    auto add = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int>(0));
-    auto sub = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int>(0));
-    auto mul = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int>(0));
-    auto div = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int>(0));
-    auto max = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int>(0));
-    auto min = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int>(0));
+    auto add = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int64_t>(0));
+    auto sub = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int64_t>(0));
+    auto mul = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int64_t>(0));
+    auto div = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int64_t>(0));
+    auto max = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int64_t>(0));
+    auto min = LogicalTensorData::CreateEmpty(lhs.GetDataType(), lhs.GetShape(), std::vector<int64_t>(0));
 
     Calculator::CalcAdd(add.get(), &lhs, &rhs, &pool);
     Calculator::CalcSub(sub.get(), &lhs, &rhs, &pool);
@@ -225,57 +225,57 @@ TEST(ThreadPoolTest, CastMode) {
 
     {
         LogicalTensorData lhs(RawTensorData::CreateConstantTensor<npu::tile_fwk::float16>(lhsTensor, npu::tile_fwk::float16(2.5)));
-        auto cast_none = LogicalTensorData::CreateEmpty(DT_INT16, lhs.GetShape(), std::vector<int>(0));
+        auto cast_none = LogicalTensorData::CreateEmpty(DT_INT16, lhs.GetShape(), std::vector<int64_t>(0));
         Calculator::CalcCast(cast_none.get(), &lhs, DT_INT16, CastMode::CAST_NONE, &pool);
         EXPECT_TENSOR_DATA(cast_none, lhs.GetSize(), int16_t, int16_t, 2);
     }
 
     {
         LogicalTensorData lhs(RawTensorData::CreateConstantTensor<npu::tile_fwk::float16>(lhsTensor, npu::tile_fwk::float16(2.5)));
-        auto cast_none = LogicalTensorData::CreateEmpty(DT_INT16, lhs.GetShape(), std::vector<int>(0));
+        auto cast_none = LogicalTensorData::CreateEmpty(DT_INT16, lhs.GetShape(), std::vector<int64_t>(0));
         Calculator::CalcCast(cast_none.get(), &lhs, DT_INT16, CastMode::CAST_RINT, &pool);
         EXPECT_TENSOR_DATA(cast_none, lhs.GetSize(), int16_t, int16_t, 2);
     }
     {
         LogicalTensorData lhs(RawTensorData::CreateConstantTensor<npu::tile_fwk::float16>(lhsTensor, npu::tile_fwk::float16(3.5)));
-        auto cast_none = LogicalTensorData::CreateEmpty(DT_INT16, lhs.GetShape(), std::vector<int>(0));
+        auto cast_none = LogicalTensorData::CreateEmpty(DT_INT16, lhs.GetShape(), std::vector<int64_t>(0));
         Calculator::CalcCast(cast_none.get(), &lhs, DT_INT16, CastMode::CAST_RINT, &pool);
         EXPECT_TENSOR_DATA(cast_none, lhs.GetSize(), int16_t, int16_t, 4);
     }
     {
         LogicalTensorData lhs(RawTensorData::CreateConstantTensor<npu::tile_fwk::float16>(lhsTensor, npu::tile_fwk::float16(3.4)));
-        auto cast_none = LogicalTensorData::CreateEmpty(DT_INT16, lhs.GetShape(), std::vector<int>(0));
+        auto cast_none = LogicalTensorData::CreateEmpty(DT_INT16, lhs.GetShape(), std::vector<int64_t>(0));
         Calculator::CalcCast(cast_none.get(), &lhs, DT_INT16, CastMode::CAST_RINT, &pool);
         EXPECT_TENSOR_DATA(cast_none, lhs.GetSize(), int16_t, int16_t, 3);
     }
     {
         LogicalTensorData lhs(RawTensorData::CreateConstantTensor<npu::tile_fwk::float16>(lhsTensor, npu::tile_fwk::float16(-3.4)));
-        auto cast_none = LogicalTensorData::CreateEmpty(DT_INT16, lhs.GetShape(), std::vector<int>(0));
+        auto cast_none = LogicalTensorData::CreateEmpty(DT_INT16, lhs.GetShape(), std::vector<int64_t>(0));
         Calculator::CalcCast(cast_none.get(), &lhs, DT_INT16, CastMode::CAST_RINT, &pool);
         EXPECT_TENSOR_DATA(cast_none, lhs.GetSize(), int16_t, int16_t, -3);
     }
 
     {
         LogicalTensorData lhs(RawTensorData::CreateConstantTensor<npu::tile_fwk::float16>(lhsTensor, npu::tile_fwk::float16(2.5)));
-        auto cast_none = LogicalTensorData::CreateEmpty(DT_INT16, lhs.GetShape(), std::vector<int>(0));
+        auto cast_none = LogicalTensorData::CreateEmpty(DT_INT16, lhs.GetShape(), std::vector<int64_t>(0));
         Calculator::CalcCast(cast_none.get(), &lhs, DT_INT16, CastMode::CAST_ROUND, &pool);
         EXPECT_TENSOR_DATA(cast_none, lhs.GetSize(), int16_t, int16_t, 3);
     }
     {
         LogicalTensorData lhs(RawTensorData::CreateConstantTensor<npu::tile_fwk::float16>(lhsTensor, npu::tile_fwk::float16(3.5)));
-        auto cast_none = LogicalTensorData::CreateEmpty(DT_INT16, lhs.GetShape(), std::vector<int>(0));
+        auto cast_none = LogicalTensorData::CreateEmpty(DT_INT16, lhs.GetShape(), std::vector<int64_t>(0));
         Calculator::CalcCast(cast_none.get(), &lhs, DT_INT16, CastMode::CAST_ROUND, &pool);
         EXPECT_TENSOR_DATA(cast_none, lhs.GetSize(), int16_t, int16_t, 4);
     }
     {
         LogicalTensorData lhs(RawTensorData::CreateConstantTensor<npu::tile_fwk::float16>(lhsTensor, npu::tile_fwk::float16(-2.5)));
-        auto cast_none = LogicalTensorData::CreateEmpty(DT_INT16, lhs.GetShape(), std::vector<int>(0));
+        auto cast_none = LogicalTensorData::CreateEmpty(DT_INT16, lhs.GetShape(), std::vector<int64_t>(0));
         Calculator::CalcCast(cast_none.get(), &lhs, DT_INT16, CastMode::CAST_ROUND, &pool);
         EXPECT_TENSOR_DATA(cast_none, lhs.GetSize(), int16_t, int16_t, -3);
     }
     {
         LogicalTensorData lhs(RawTensorData::CreateConstantTensor<npu::tile_fwk::float16>(lhsTensor, npu::tile_fwk::float16(-3.5)));
-        auto cast_none = LogicalTensorData::CreateEmpty(DT_INT16, lhs.GetShape(), std::vector<int>(0));
+        auto cast_none = LogicalTensorData::CreateEmpty(DT_INT16, lhs.GetShape(), std::vector<int64_t>(0));
         Calculator::CalcCast(cast_none.get(), &lhs, DT_INT16, CastMode::CAST_ROUND, &pool);
         EXPECT_TENSOR_DATA(cast_none, lhs.GetSize(), int16_t, int16_t, -4);
     }
@@ -299,7 +299,7 @@ TEST(ThreadPoolTest, Reduce) {
 
     auto rowsum0Shape = oper.GetShape();
     rowsum0Shape[0] = 1;
-    auto rowsum0 = LogicalTensorData::CreateEmpty(DT_INT32, rowsum0Shape, std::vector<int>(0));
+    auto rowsum0 = LogicalTensorData::CreateEmpty(DT_INT32, rowsum0Shape, std::vector<int64_t>(0));
     Calculator::CalcRowSumLine(rowsum0.get(), &oper, 0, &pool);
 
     std::vector<int32_t> rowsum0DataValue(m);
@@ -310,7 +310,7 @@ TEST(ThreadPoolTest, Reduce) {
 
     auto rowsum1Shape = oper.GetShape();
     rowsum1Shape[1] = 1;
-    auto rowsum1 = LogicalTensorData::CreateEmpty(DT_INT32, rowsum1Shape, std::vector<int>(0));
+    auto rowsum1 = LogicalTensorData::CreateEmpty(DT_INT32, rowsum1Shape, std::vector<int64_t>(0));
     Calculator::CalcRowSumLine(rowsum1.get(), &oper, 1, &pool);
 
     std::vector<int32_t> rowsum1DataValue(n);
@@ -319,11 +319,11 @@ TEST(ThreadPoolTest, Reduce) {
     }
     EXPECT_TENSOR_LISTDATA(rowsum1, n, int32_t, int32_t, rowsum1DataValue);
 
-    auto rowsum = LogicalTensorData::CreateEmpty(DT_INT32, rowsum1Shape, std::vector<int>(0));
+    auto rowsum = LogicalTensorData::CreateEmpty(DT_INT32, rowsum1Shape, std::vector<int64_t>(0));
     Calculator::CalcRowSumSingle(rowsum.get(), &oper, rowsum1Shape.size() - 1, &pool);
     EXPECT_TENSOR_LISTDATA(rowsum, n, int32_t, int32_t, rowsum1DataValue);
 
-    auto rowmax = LogicalTensorData::CreateEmpty(DT_INT32, rowsum1Shape, std::vector<int>(0));
+    auto rowmax = LogicalTensorData::CreateEmpty(DT_INT32, rowsum1Shape, std::vector<int64_t>(0));
     Calculator::CalcRowMaxSingle(rowmax.get(), &oper, rowsum1Shape.size() - 1, &pool);
     std::vector<int32_t> rowmaxDataValue(n, m - 1);
     EXPECT_TENSOR_LISTDATA(rowmax, n, int32_t, int32_t, rowmaxDataValue);
@@ -353,7 +353,7 @@ TEST(ThreadPoolTest, RowSumSingle) {
         rowsum1DataValue[i] = i * m;
         ;
     }
-    auto rowsum = LogicalTensorData::CreateEmpty(DT_INT32, rowsum1Shape, std::vector<int>(0));
+    auto rowsum = LogicalTensorData::CreateEmpty(DT_INT32, rowsum1Shape, std::vector<int64_t>(0));
     Calculator::CalcRowSumSingle(rowsum.get(), &oper, rowsum1Shape.size() - 1, &pool);
     EXPECT_TENSOR_LISTDATA(rowsum, n, int32_t, int32_t, rowsum1DataValue);
 }
@@ -376,8 +376,8 @@ TEST(ThreadPoolTest, Broadcast) {
         auto oper0Data = RawTensorData::CreateTensor<int32_t>(oper0Tensor, operDataValue);
         LogicalTensorData oper0(oper0Data);
 
-        auto expand0Shape = std::vector<int32_t>({b, n, m});
-        auto expand0 = LogicalTensorData::CreateEmpty(DT_INT32, expand0Shape, std::vector<int>(0));
+        auto expand0Shape = std::vector<int64_t>({b, n, m});
+        auto expand0 = LogicalTensorData::CreateEmpty(DT_INT32, expand0Shape, std::vector<int64_t>(0));
         Calculator::CalcExpand(expand0.get(), &oper0, 0, &pool);
         std::vector<int32_t> expand0DataValue(b * n * m);
         for (int k = 0; k < b; k++) {
@@ -395,8 +395,8 @@ TEST(ThreadPoolTest, Broadcast) {
         auto oper1Data = RawTensorData::CreateTensor<int32_t>(oper1Tensor, operDataValue);
         LogicalTensorData oper1(oper1Data);
 
-        auto expand1Shape = std::vector<int32_t>({n, b, m});
-        auto expand1 = LogicalTensorData::CreateEmpty(DT_INT32, expand1Shape, std::vector<int>(0));
+        auto expand1Shape = std::vector<int64_t>({n, b, m});
+        auto expand1 = LogicalTensorData::CreateEmpty(DT_INT32, expand1Shape, std::vector<int64_t>(0));
         Calculator::CalcExpand(expand1.get(), &oper1, 1, &pool);
         std::vector<int32_t> expand1DataValue(n * b * m);
         for (int i = 0; i < n; i++) {
@@ -414,8 +414,8 @@ TEST(ThreadPoolTest, Broadcast) {
         auto oper2Data = RawTensorData::CreateTensor<int32_t>(oper2Tensor, operDataValue);
         LogicalTensorData oper2(oper2Data);
 
-        auto expand2Shape = std::vector<int32_t>({n, m, b});
-        auto expand2 = LogicalTensorData::CreateEmpty(DT_INT32, expand2Shape, std::vector<int>(0));
+        auto expand2Shape = std::vector<int64_t>({n, m, b});
+        auto expand2 = LogicalTensorData::CreateEmpty(DT_INT32, expand2Shape, std::vector<int64_t>(0));
         Calculator::CalcExpand(expand2.get(), &oper2, 2, &pool);
         std::vector<int32_t> expand2DataValue(n * m * b);
         for (int i = 0; i < n; i++) {
@@ -474,8 +474,8 @@ TEST(ThreadPoolTest, IndexOutcast) {
     LogicalTensorData dst(dstData);
 
     {
-        auto indexOutcast0Shape = std::vector<int32_t>({s, b, n, m});
-        auto indexOutcast0 = LogicalTensorData::CreateEmpty(DT_INT32, indexOutcast0Shape, std::vector<int>(0));
+        auto indexOutcast0Shape = std::vector<int64_t>({s, b, n, m});
+        auto indexOutcast0 = LogicalTensorData::CreateEmpty(DT_INT32, indexOutcast0Shape, std::vector<int64_t>(0));
         Calculator::CalcIndexCopy(indexOutcast0.get(), &src, &index, &dst, 2, &pool);
         std::vector<int32_t> goldenDataValue = {
             0,
@@ -590,8 +590,8 @@ TEST(ThreadPoolTest, Transpose) {
     LogicalTensorData oper(operData);
 
     {
-        auto transpose0Shape = std::vector<int32_t>({b, m, n});
-        auto transpose0 = LogicalTensorData::CreateEmpty(DT_INT32, transpose0Shape, std::vector<int>(0));
+        auto transpose0Shape = std::vector<int64_t>({b, m, n});
+        auto transpose0 = LogicalTensorData::CreateEmpty(DT_INT32, transpose0Shape, std::vector<int64_t>(0));
         Calculator::CalcTransposeAdjDim(transpose0.get(), &oper, 1, &pool);
         std::vector<int32_t> transpose0DataValue = {
             0,
@@ -623,8 +623,8 @@ TEST(ThreadPoolTest, Transpose) {
         EXPECT_TENSOR_LISTDATA(transpose0, b * n * m, int32_t, int32_t, transpose0DataValue);
     }
     {
-        auto transpose1Shape = std::vector<int32_t>({n, b, m});
-        auto transpose1 = LogicalTensorData::CreateEmpty(DT_INT32, transpose1Shape, std::vector<int>(0));
+        auto transpose1Shape = std::vector<int64_t>({n, b, m});
+        auto transpose1 = LogicalTensorData::CreateEmpty(DT_INT32, transpose1Shape, std::vector<int64_t>(0));
         Calculator::CalcTransposeAdjDim(transpose1.get(), &oper, 0, &pool);
         std::vector<int32_t> transpose1DataValue = {
             0,
@@ -705,11 +705,11 @@ TEST(ThreadPoolTest, MatMul) {
     LogicalTensorData rhsTrans(rhsTransData);
     LogicalTensorData acc(accData);
 
-    std::vector<int> matmulShape = {n, m};
-    auto matmul = LogicalTensorData::CreateEmpty(DT_INT32, matmulShape, std::vector<int>(0));
-    auto matmulAcc = LogicalTensorData::CreateEmpty(DT_INT32, matmulShape, std::vector<int>(0));
-    auto matmulTrans = LogicalTensorData::CreateEmpty(DT_INT32, matmulShape, std::vector<int>(0));
-    auto matmulTransAcc = LogicalTensorData::CreateEmpty(DT_INT32, matmulShape, std::vector<int>(0));
+    std::vector<int64_t> matmulShape = {n, m};
+    auto matmul = LogicalTensorData::CreateEmpty(DT_INT32, matmulShape, std::vector<int64_t>(0));
+    auto matmulAcc = LogicalTensorData::CreateEmpty(DT_INT32, matmulShape, std::vector<int64_t>(0));
+    auto matmulTrans = LogicalTensorData::CreateEmpty(DT_INT32, matmulShape, std::vector<int64_t>(0));
+    auto matmulTransAcc = LogicalTensorData::CreateEmpty(DT_INT32, matmulShape, std::vector<int64_t>(0));
 
     Calculator::CalcMatMul(matmul.get(), &lhs, &rhs, k / 2, &pool);
     Calculator::CalcMatMulTrans(matmulTrans.get(), &lhs, &rhsTrans, k / 4, &pool);

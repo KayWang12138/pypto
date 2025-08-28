@@ -22,11 +22,11 @@ const unsigned IDX_DIM1 = 1;
 const unsigned IDX_DIM2 = 2;
 
 struct ReduceSumOpFuncArgs : public OpFuncArgs {
-    ReduceSumOpFuncArgs(std::vector<int> viewShape, const std::vector<int> tileShape, std::vector<int> dims)
+    ReduceSumOpFuncArgs(std::vector<int64_t> viewShape, const std::vector<int64_t> tileShape, std::vector<int64_t> dims)
         : viewShape_(viewShape), tileShape_(tileShape), dims_(dims) {}
-    std::vector<int> viewShape_;
-    std::vector<int> tileShape_;
-    std::vector<int> dims_;
+    std::vector<int64_t> viewShape_;
+    std::vector<int64_t> tileShape_;
+    std::vector<int64_t> dims_;
 };
 
 struct ReduceSumOpMetadata {
@@ -123,7 +123,7 @@ TEST_P(ReduceSumOperationTest, TestReduceSum) {
     testCase.inputTensors = GetInputTensors(test_data);
     testCase.outputTensors = GetOutputTensors(test_data);
     auto args = ReduceSumOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data),
-        GetValueByName<std::vector<int>>(test_data, "dims"));
+        GetValueByName<std::vector<int64_t>>(test_data, "dims"));
     testCase.args = &args;
     testCase.opFunc = GetParam().opFunc_;
     testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin"};

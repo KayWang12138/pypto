@@ -23,7 +23,7 @@ class SoftmaxOnBoard : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {}
 TEST_F(SoftmaxOnBoard, test_softmax_cast_in) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-    std::vector<int> shape = {2, 2, 1, 128};
+    std::vector<int64_t> shape = {2, 2, 1, 128};
     DataType iType = DataType::DT_FP16;
     DataType oType = DataType::DT_FP32;
     int cap = shape[0] * shape[1] * shape[2] * shape[3];
@@ -54,7 +54,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_cast_in) {
 TEST_F(SoftmaxOnBoard, test_softmax_cast_out) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-    std::vector<int> shape = {2, 2, 1, 128};
+    std::vector<int64_t> shape = {2, 2, 1, 128};
     DataType iType = DataType::DT_FP32;
     DataType oType = DataType::DT_FP16;
     int cap = shape[0] * shape[1] * shape[2] * shape[3];
@@ -85,8 +85,8 @@ TEST_F(SoftmaxOnBoard, test_softmax_cast_out) {
 TEST_F(SoftmaxOnBoard, test_softmax_sum_single) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-    std::vector<int> ishape = {2, 2, 1, 128};
-    std::vector<int> oshape = {ishape[0], ishape[1], ishape[2], 1};
+    std::vector<int64_t> ishape = {2, 2, 1, 128};
+    std::vector<int64_t> oshape = {ishape[0], ishape[1], ishape[2], 1};
     DataType dtype = DataType::DT_FP32;
     int icap = ishape[0] * ishape[1] * ishape[2] * ishape[3];
     int oCap = oshape[0] * oshape[1] * oshape[2] * oshape[3];
@@ -116,8 +116,8 @@ TEST_F(SoftmaxOnBoard, test_softmax_sum_single) {
 TEST_F(SoftmaxOnBoard, test_softmax_max_single) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-    std::vector<int> ishape = {2, 2, 1, 128};
-    std::vector<int> oshape = {ishape[0], ishape[1], ishape[2], 1};
+    std::vector<int64_t> ishape = {2, 2, 1, 128};
+    std::vector<int64_t> oshape = {ishape[0], ishape[1], ishape[2], 1};
     DataType dtype = DataType::DT_FP32;
     int icap = ishape[0] * ishape[1] * ishape[2] * ishape[3];
     int oCap = oshape[0] * oshape[1] * oshape[2] * oshape[3];
@@ -147,7 +147,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_max_single) {
 TEST_F(SoftmaxOnBoard, test_softmax_exp) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-    std::vector<int> shape = {2, 2, 1, 128};
+    std::vector<int64_t> shape = {2, 2, 1, 128};
     DataType dtype = DataType::DT_FP32;
     int cap = shape[0] * shape[1] * shape[2] * shape[3];
     uint64_t outputSize = cap * sizeof(float);
@@ -176,9 +176,9 @@ TEST_F(SoftmaxOnBoard, test_softmax_exp) {
 TEST_F(SoftmaxOnBoard, test_softmax_div) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-    std::vector<int> lshape = {2, 2, 1, 128};
-    std::vector<int> rshape = {2, 2, 1, 1};
-    std::vector<int> oshape = {2, 2, 1, 128};
+    std::vector<int64_t> lshape = {2, 2, 1, 128};
+    std::vector<int64_t> rshape = {2, 2, 1, 1};
+    std::vector<int64_t> oshape = {2, 2, 1, 128};
     DataType dtype = DataType::DT_FP32;
     int lcap = lshape[0] * lshape[1] * lshape[2] * lshape[3];
     int rcap = rshape[0] * rshape[1] * rshape[2] * rshape[3];
@@ -209,8 +209,8 @@ TEST_F(SoftmaxOnBoard, test_softmax_div) {
 TEST_F(SoftmaxOnBoard, test_softmax_sum_all) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-    std::vector<int> ishape = {2, 2, 1, 128};
-    std::vector<int> oshape = {ishape[0], ishape[1], ishape[2], ishape[3]};
+    std::vector<int64_t> ishape = {2, 2, 1, 128};
+    std::vector<int64_t> oshape = {ishape[0], ishape[1], ishape[2], ishape[3]};
     DataType dtype = DataType::DT_FP16;
     int icap = ishape[0] * ishape[1] * ishape[2] * ishape[3];
     int oCap = oshape[0] * oshape[1] * oshape[2] * oshape[3];
@@ -240,8 +240,8 @@ TEST_F(SoftmaxOnBoard, test_softmax_sum_all) {
 TEST_F(SoftmaxOnBoard, test_softmax_full_inference) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-    std::vector<int> ishape = {2, 2, 32, 256};
-    std::vector<int> oshape = {ishape[0], ishape[1], ishape[2], ishape[3]};
+    std::vector<int64_t> ishape = {2, 2, 32, 256};
+    std::vector<int64_t> oshape = {ishape[0], ishape[1], ishape[2], ishape[3]};
     DataType dtype = DataType::DT_FP16;
     int icap = ishape[0] * ishape[1] * ishape[2] * ishape[3];
     int oCap = oshape[0] * oshape[1] * oshape[2] * oshape[3];
@@ -271,8 +271,8 @@ TEST_F(SoftmaxOnBoard, test_softmax_full_inference) {
 TEST_F(SoftmaxOnBoard, test_softmax_deepseek) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-    std::vector<int> ishape = {4, 8, 1, 512};
-    std::vector<int> oshape = {ishape[0], ishape[1], ishape[2], ishape[3]};
+    std::vector<int64_t> ishape = {4, 8, 1, 512};
+    std::vector<int64_t> oshape = {ishape[0], ishape[1], ishape[2], ishape[3]};
     DataType dtype = DataType::DT_FP16;
     int icap = ishape[0] * ishape[1] * ishape[2] * ishape[3];
     int oCap = oshape[0] * oshape[1] * oshape[2] * oshape[3];
@@ -302,8 +302,8 @@ TEST_F(SoftmaxOnBoard, test_softmax_deepseek) {
 TEST_F(SoftmaxOnBoard, test_softmax_flash_attention) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-    std::vector<int> ishape = {32, 32, 1, 256};
-    std::vector<int> oshape = {ishape[0], ishape[1], ishape[2], ishape[3]};
+    std::vector<int64_t> ishape = {32, 32, 1, 256};
+    std::vector<int64_t> oshape = {ishape[0], ishape[1], ishape[2], ishape[3]};
     DataType dtype = DataType::DT_FP32;
     int icap = ishape[0] * ishape[1] * ishape[2] * ishape[3];
     int oCap = oshape[0] * oshape[1] * oshape[2] * oshape[3];

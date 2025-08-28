@@ -29,7 +29,7 @@ public:
 };
 
 TEST_F(TestTensor, AssignWithData) {
-    std::vector<int> tshape = {100, 100};
+    std::vector<int64_t> tshape = {100, 100};
     npu::tile_fwk::Tensor a(npu::tile_fwk::DT_FP32, tshape, "A");
     npu::tile_fwk::Tensor b(npu::tile_fwk::DT_FP32, tshape, "B");
     auto ptr1 = std::make_unique<uint8_t>(0);
@@ -74,7 +74,7 @@ TEST_F(TestTensor, AssignWithData) {
 }
 
 TEST_F(TestTensor, AssignWithData2) {
-    std::vector<int> tshape = {100, 100};
+    std::vector<int64_t> tshape = {100, 100};
     npu::tile_fwk::Tensor b(npu::tile_fwk::DT_FP32, tshape, "B");
     auto ptr1 = std::make_unique<uint8_t>(0);
     auto ptr2 = std::make_unique<uint8_t>(0);
@@ -117,8 +117,8 @@ TEST_F(TestTensor, AssignWithData2) {
 }
 
 TEST_F(TestTensor, GetShapeTest) {
-    std::vector<int> tshape = {16, 32, 16, 64};
-    std::vector<int> kshape = {};
+    std::vector<int64_t> tshape = {16, 32, 16, 64};
+    std::vector<int64_t> kshape = {};
     npu::tile_fwk::Tensor a(npu::tile_fwk::DT_FP32, tshape, "A");
     npu::tile_fwk::Tensor b(npu::tile_fwk::DT_FP32, kshape, "B");
 

@@ -42,9 +42,8 @@ Status ProcessRegCopy(const Operation &op, const Function &function, bool &needT
     return SUCCESS;
 }
 
-Status ProcessAssembleDDR(const Operation &op, const LogicalTensorPtr &assembleIn, 
-                          const LogicalTensorPtr &assembleOut, Function &function, 
-                          bool &needToDelete) {
+Status ProcessAssembleDDR(const Operation &op, const LogicalTensorPtr &assembleIn, const LogicalTensorPtr &assembleOut,
+    Function &function, bool &needToDelete) {
     auto consumerOps = function.FindConsumers(op);
     if (consumerOps.empty()) {
         /* DDR --> Assemble --> OUTCAST */
@@ -57,14 +56,14 @@ Status ProcessAssembleDDR(const Operation &op, const LogicalTensorPtr &assembleI
                 continue;
             }
             childOp->ReplaceInput(assembleOut, assembleIn);
-            ALOG_DEBUG_F("Repalce input of %s opmagic: %d, tensor %d --> tensor %d", childOp->GetOpcodeStr(), 
+            ALOG_DEBUG_F("Repalce input of %s opmagic: %d, tensor %d --> tensor %d", childOp->GetOpcodeStr().c_str(),
                 childOp->GetOpMagic(), assembleIn->magic, assembleOut->magic);
         }
         auto producerOps = op.ProducerOps();
         for (auto &producerOp : producerOps) {
             producerOp->ReplaceOutput(assembleOut, assembleIn);
-            ALOG_DEBUG_F("Repalce output of %s opmagic: %d, tensor %d --> tensor %d", producerOp->GetOpcodeStr(), 
-                producerOp->GetOpMagic(), assembleIn->magic, assembleOut->magic);
+            ALOG_DEBUG_F("Repalce output of %s opmagic: %d, tensor %d --> tensor %d",
+                producerOp->GetOpcodeStr().c_str(), producerOp->GetOpMagic(), assembleIn->magic, assembleOut->magic);
         }
     } else {
         for (auto &consumerOp : consumerOps) {
@@ -76,9 +75,8 @@ Status ProcessAssembleDDR(const Operation &op, const LogicalTensorPtr &assembleI
     return SUCCESS;
 }
 
-Status ProcessAssembleUB(const Operation &op, const LogicalTensorPtr &ASSEMBLE_in, 
-                          const LogicalTensorPtr &ASSEMBLE_out, Function &function, 
-                          bool &needToDelete) {
+Status ProcessAssembleUB(const Operation &op, const LogicalTensorPtr &ASSEMBLE_in, const LogicalTensorPtr &ASSEMBLE_out,
+    Function &function, bool &needToDelete) {
     /*
     assemble 输入和输出相同，无意义
     */
@@ -117,7 +115,7 @@ Status ProcessView(const Operation &op, Function &function, bool &needToDelete) 
     auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
     if (viewOpAttribute) {
         auto newDynValidShape = viewOpAttribute->GetToDynValidShape();
-        std::vector<int> validShape;
+        std::vector<int64_t> validShape;
         for (auto validSym : newDynValidShape) {
             if (!validSym.ConcreteValid()) {needToDelete = false; return SUCCESS;}
             validShape.push_back(validSym.Concrete());
@@ -158,7 +156,7 @@ view --> in --> L1_COPY_IN --> out --> view'/L1_TO_L0A
 
 isRedundant = false
 op --> in --> L1_COPY_IN --> out --> view'/L1_TO_L0A
-*/    
+*/
 Status ProccessCopyIn(Operation &op, Function &function, bool &needToDelete) {
     auto in = op.iOperand.front();
     if (in == nullptr) {return FAILED;}

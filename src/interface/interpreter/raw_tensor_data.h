@@ -59,7 +59,7 @@ struct RawTensorData : public std::vector<uint8_t> {
         return result;
     }
 
-    static std::vector<int64_t> ShapeToStride(const std::vector<int> &shape) {
+    static std::vector<int64_t> ShapeToStride(const std::vector<int64_t> &shape) {
         std::vector<int64_t> stride;
         stride.resize(shape.size());
         stride[shape.size() - 1] = 1;
@@ -70,7 +70,7 @@ struct RawTensorData : public std::vector<uint8_t> {
     }
 
     RawTensorData() : RawTensorData(DT_UINT8, {}) {}
-    RawTensorData(DataType dataType, const std::vector<int> &shape)
+    RawTensorData(DataType dataType, const std::vector<int64_t> &shape)
         : dataType_(dataType),
           shape_(shape),
           stride_(ShapeToStride(shape)),
@@ -79,8 +79,8 @@ struct RawTensorData : public std::vector<uint8_t> {
         this->resize(nelem * elemSize_);
     }
 
-    const std::vector<int> &GetShape() const { return shape_; }
-    const std::vector<int64_t> &GetStride() const { return stride_; }
+    const Shape &GetShape() const { return shape_; }
+    const Stride &GetStride() const { return stride_; }
     DataType GetDataType() const { return dataType_; }
     int64_t GetSize() const { return nelem; }
     int64_t GetElementSize() const { return elemSize_; }
@@ -191,8 +191,8 @@ struct RawTensorData : public std::vector<uint8_t> {
 private:
     uint8_t *devPtr_{nullptr};
     DataType dataType_;
-    std::vector<int> shape_;
-    std::vector<int64_t> stride_;
+    Shape shape_;
+    Stride stride_;
     size_t nelem;
     size_t elemSize_;
 };
@@ -204,10 +204,10 @@ struct LogicalTensorData {
 
     LogicalTensorData(RawTensorDataPtr data)
         : LogicalTensorData(
-              data, data->GetShape(), data->GetShape(), std::vector<int>(data->GetShape().size(), 0)) {}
+              data, data->GetShape(), data->GetShape(), std::vector<int64_t>(data->GetShape().size(), 0)) {}
 
-    LogicalTensorData(RawTensorDataPtr data, const std::vector<int> &shape, const std::vector<int> &validShape,
-        const std::vector<int> &offset)
+    LogicalTensorData(RawTensorDataPtr data, const std::vector<int64_t> &shape, const std::vector<int64_t> &validShape,
+        const std::vector<int64_t> &offset)
         : data_(data),
           shape_(shape),
           validShape_(validShape),
@@ -223,18 +223,18 @@ struct LogicalTensorData {
         }
     }
 
-    LogicalTensorData(RawTensorDataPtr data, const std::vector<int> &shape, const std::vector<int> &offset)
+    LogicalTensorData(RawTensorDataPtr data, const std::vector<int64_t> &shape, const std::vector<int64_t> &offset)
         : LogicalTensorData(data, shape, shape, offset) {}
 
     const RawTensorDataPtr &GetData() const { return data_; }
     RawTensorDataPtr GetData() { return data_; }
 
-    const std::vector<int> &GetShape() const { return shape_; }
-    int GetShape(int axis) const { if (axis < 0) axis += shape_.size(); return shape_[axis]; }
-    const std::vector<int> &GetValidShape() const { return validShape_; }
-    const std::vector<int64_t> &GetStride() const { return stride_; }
+    const Shape &GetShape() const { return shape_; }
+    int64_t GetShape(int axis) const { if (axis < 0) axis += shape_.size(); return shape_[axis]; }
+    const Shape &GetValidShape() const { return validShape_; }
+    const Stride &GetStride() const { return stride_; }
     int64_t GetStride(int axis) const { return stride_[axis]; }
-    const std::vector<int> &GetOffset() const { return offset_; }
+    const Offset &GetOffset() const { return offset_; }
     bool GetIsSpilled() const { return isSpilled_; }
     void SetIsSpilled(bool isSpilled) { isSpilled_ = isSpilled; }
     int GetSize() const { return size_; }
@@ -300,14 +300,14 @@ struct LogicalTensorData {
     }
 
     static std::shared_ptr<LogicalTensorData> CreateEmpty(
-        DataType dataType, const std::vector<int> &shape, const std::vector<int> &validShape) {
+        DataType dataType, const std::vector<int64_t> &shape, const std::vector<int64_t> &validShape) {
         auto tensorData = std::make_shared<RawTensorData>(dataType, shape);
         return std::make_shared<LogicalTensorData>(
-            tensorData, shape, validShape, std::vector<int>(shape.size(), 0));
+            tensorData, shape, validShape, std::vector<int64_t>(shape.size(), 0));
     }
 
-    std::shared_ptr<LogicalTensorData> View(const std::vector<int> &viewShape, const std::vector<int> &viewOffset) {
-        std::vector<int> resultOffset = TensorOffset::Add(GetOffset(), viewOffset);
+    std::shared_ptr<LogicalTensorData> View(const std::vector<int64_t> &viewShape, const std::vector<int64_t> &viewOffset) {
+        std::vector<int64_t> resultOffset = TensorOffset::Add(GetOffset(), viewOffset);
         auto rawShape = GetData()->GetShape();
         for (size_t i = 0; i < resultOffset.size(); i++) {
             ASSERT(resultOffset[i] + viewShape[i] <= rawShape[i] || viewShape[i] == 0)
@@ -356,10 +356,10 @@ private:
 
 private:
     std::shared_ptr<RawTensorData> data_;
-    std::vector<int> shape_;
-    std::vector<int> validShape_;
-    std::vector<int> offset_;
-    std::vector<int64_t> stride_;
+    Shape shape_;
+    Shape validShape_;
+    Offset offset_;
+    Stride stride_;
     int64_t size_;
     bool isSpilled_;
     bool axisCombine{false};
@@ -426,7 +426,7 @@ struct ProgramData {
         for (auto data : dataList) {
             auto shape = data->GetShape();
             dataViewList.push_back(
-                std::make_shared<LogicalTensorData>(data, shape, shape, std::vector<int>(shape.size(), 0)));
+                std::make_shared<LogicalTensorData>(data, shape, shape, std::vector<int64_t>(shape.size(), 0)));
         }
     }
 

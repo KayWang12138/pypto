@@ -52,7 +52,7 @@ TEST_F(RemoveAllocTest, RemoveAlloc) {
     currFunctionPtr->SetGraphType(GraphType::LEAF_GRAPH);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
 
-    std::vector<int> shape = {CP_NUM16, CP_NUM16};
+    std::vector<int64_t> shape = {CP_NUM16, CP_NUM16};
     auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto tensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);

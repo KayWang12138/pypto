@@ -43,7 +43,7 @@ TEST_F(SerializationTest, TestAddSub) {
     config::SetHostConfig(KEY_ONLY_TENSOR_GRAPH, true);
         ConfigManager::Instance();
 
-    std::vector<int> shape{24, 24};
+    std::vector<int64_t> shape{24, 24};
 
     Tensor a(DT_FP32, shape, "a");
     Tensor b(DT_FP32, shape, "b");

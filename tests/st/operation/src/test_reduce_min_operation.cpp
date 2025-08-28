@@ -19,12 +19,12 @@ using namespace tile_fwk::test_operation;
 namespace {
 struct ReduceMinOpFuncArgs : public OpFuncArgs {
     ReduceMinOpFuncArgs(
-        const std::vector<int> dims, const std::vector<int> &viewShape, const std::vector<int> tileShape)
+        const std::vector<int64_t> dims, const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
         : dims_(dims), viewShape_(viewShape), tileShape_(tileShape) {}
 
-    std::vector<int> dims_;
-    std::vector<int> viewShape_;
-    std::vector<int> tileShape_;
+    std::vector<int64_t> dims_;
+    std::vector<int64_t> viewShape_;
+    std::vector<int64_t> tileShape_;
 };
 
 struct ReduceMinOperationMetadata {
@@ -166,7 +166,7 @@ TEST_P(ReduceMinOperationTest, TestReduceMin) {
     auto test_data = GetParam().test_data_;
     testCase.inputTensors = GetInputTensors(test_data);
     testCase.outputTensors = GetOutputTensors(test_data);
-    auto dims = GetValueByName<std::vector<int>>(test_data, "dims");
+    auto dims = GetValueByName<std::vector<int64_t>>(test_data, "dims");
     auto args = ReduceMinOpFuncArgs(dims, GetViewShape(test_data), GetTileShape(test_data));
     testCase.args = &args;
     testCase.opFunc = GetParam().opFunc_;

@@ -42,7 +42,7 @@ public:
 };
 
 void TestRowMaxSingleBody(
-    std::vector<int> shape, std::vector<int> outShape, std::vector<int> tileShape, std::string name) {
+    std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int64_t> tileShape, std::string name) {
     Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
@@ -68,7 +68,7 @@ TEST_F(TestCodegenUnary, RowMaxSingleDim4) {
 }
 
 void TestRowSumSingleBody(
-    std::vector<int> shape, std::vector<int> outShape, std::vector<int> tileShape, std::string name) {
+    std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int64_t> tileShape, std::string name) {
     Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
@@ -93,8 +93,8 @@ TEST_F(TestCodegenUnary, RowSumSingleDim4) {
     TestRowSumSingleBody({8, 4, 4, 128}, {8, 4, 4, 1}, {2, 1, 1, 64}, "ROWSUMSINGLE_DIM4");
 }
 
-void TestTransposeVnchwconvBody(std::vector<int> shape, std::vector<int> outShape, std::vector<int> transposeShape,
-    std::vector<int> tileShape, std::string name) {
+void TestTransposeVnchwconvBody(std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int> transposeShape,
+    std::vector<int64_t> tileShape, std::string name) {
     Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
     Tensor input(DT_FP32, shape, "input");
     Tensor output(DT_FP32, outShape, "output");
@@ -121,7 +121,7 @@ TEST_F(TestCodegenUnary, TransposeVnchwconvDim5) {
 }
 
 void TestRowMaxExpandBody(
-    std::vector<int> shape, std::vector<int> outShape, std::vector<int> tileShape, std::string name) {
+    std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int64_t> tileShape, std::string name) {
     Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
@@ -138,7 +138,7 @@ TEST_F(TestCodegenUnary, RowMaxExpandDim2) {
     TestRowMaxExpandBody({128, 64}, {128, 64}, {16, 16}, "ROWMAXEXPAND_DIM2");
 }
 
-void TestCastBody(std::vector<int> shape, std::vector<int> outShape, std::vector<int> tileShape, std::string name) {
+void TestCastBody(std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int64_t> tileShape, std::string name) {
     Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
     Tensor input_a(DT_INT32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
@@ -155,7 +155,7 @@ TEST_F(TestCodegenUnary, CastDim1) {
     TestCastBody({128}, {128}, {64}, "CAST_DIM2");
 }
 
-void TestExpandBody(std::vector<int> shape, std::vector<int> outShape, std::vector<int> tileShape, std::string name) {
+void TestExpandBody(std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int64_t> tileShape, std::string name) {
     Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
@@ -182,7 +182,7 @@ TEST_F(TestCodegenUnary, ExpandDim4Axis1) {
 }
 
 void TestRowSumBody(
-    std::vector<int> shape, std::vector<int> outShape, std::vector<int> tileShape, std::string name, unsigned axis) {
+    std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int64_t> tileShape, std::string name, unsigned axis) {
     Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
 
     Tensor input_a(DataType::DT_FP32, shape, "A");
@@ -210,7 +210,7 @@ TEST_F(TestCodegenUnary, RowSumDim2Axis0) {
 }
 
 TEST_F(TestCodegenUnary, TestVecDup) {
-    std::vector<int> shape{32, 1, 32};
+    std::vector<int64_t> shape{32, 1, 32};
     Element src(DataType::DT_INT32, static_cast<int64_t>(2));
     std::string funcName = "VECDUP";
     Program::GetInstance().GetTileShape().SetVecTileShapes({16, 1, 16});
@@ -227,7 +227,7 @@ TEST_F(TestCodegenUnary, TestVecDup) {
 }
 
 TEST_F(TestCodegenUnary, TestVecDupUnaligned) {
-    std::vector<int> shape{2, 2, 256, 7};
+    std::vector<int64_t> shape{2, 2, 256, 7};
     Element src(DataType::DT_FP32, 2.0);
     Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 256, 16});
 

@@ -51,12 +51,12 @@ public:
     ScalarImmediateType EvaluateSymbolicScalar(const SymbolicScalar &ss) {
         return evaluateSymbol->EvaluateSymbolicScalar(ss);
     }
-    std::vector<int> EvaluateOffset(const std::vector<int> &offset, const std::vector<SymbolicScalar> &dynOffset) {
+    std::vector<int64_t> EvaluateOffset(const std::vector<int64_t> &offset, const std::vector<SymbolicScalar> &dynOffset) {
         return evaluateSymbol->EvaluateOffset(offset, dynOffset);
     }
-    std::vector<int> EvaluateOpImmediate(FunctionFrame *frame, const std::vector<OpImmediate> &opImmList);
+    std::vector<int64_t> EvaluateOpImmediate(FunctionFrame *frame, const std::vector<OpImmediate> &opImmList);
 
-    std::vector<int> EvaluateValidShape(const std::vector<SymbolicScalar> &dynValidShape) {
+    std::vector<int64_t> EvaluateValidShape(const std::vector<SymbolicScalar> &dynValidShape) {
         return evaluateSymbol->EvaluateValidShape(dynValidShape);
     }
 
@@ -91,7 +91,7 @@ private:
             if (validShape == dataView->GetShape()) {
                 result.emplace_back(dataView);
             } else {
-                result.emplace_back(dataView->View(validShape, std::vector<int>(validShape.size(), 0)));
+                result.emplace_back(dataView->View(validShape, std::vector<int64_t>(validShape.size(), 0)));
             }
         }
         return result;

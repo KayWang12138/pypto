@@ -146,7 +146,7 @@ TEST_F(PassManagerTest, TestPassReg) {
 }
 
 void GetGraph(ComputationalGraphBuilder &G) {
-    std::vector<int> tileShape{16,16};
+    std::vector<int64_t> tileShape{16,16};
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5"};
     std::vector<Opcode> opCodes{Opcode::OP_COPY_IN, Opcode::OP_MULS, Opcode::OP_ADDS, Opcode::OP_COPY_OUT};
     std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}, {"t3"}, {"t4"}};

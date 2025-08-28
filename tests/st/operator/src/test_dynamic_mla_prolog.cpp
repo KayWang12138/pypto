@@ -47,7 +47,7 @@ void PerformanceConfig() {
 }
 
 template <typename T>
-static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::vector<int> shape, std::string fileName) {
+static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::vector<int64_t> shape, std::string fileName) {
     uint64_t capacity = std::accumulate(shape.begin(), shape.end(), uint64_t{1}, std::multiplies<uint64_t>());
     std::vector<T> values(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, values);
@@ -55,14 +55,14 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::vecto
 }
 
 template <typename T>
-static std::vector<T> getGoldenVec(std::vector<int> shape, std::string fileName) {
+static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileName) {
     uint64_t capacity = std::accumulate(shape.begin(), shape.end(), uint64_t{1}, std::multiplies<uint64_t>());
     std::vector<T> golden(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, golden);
     return golden;
 }
 
-template <typename T = npu::tile_fwk::float16,  typename wDtype = int8_t, bool isQuantA = false, bool isQuantB = true, 
+template <typename T = npu::tile_fwk::float16,  typename wDtype = int8_t, bool isQuantA = false, bool isQuantB = true,
     bool isSmooth = true, bool nz = true, bool usePrefetch = true>
 void TestDynamicMlaProlog(const TestShapeParams &params, const MlaTileConfig &tileConfig,
     std::string cacheMode = "PA_NZ") {
@@ -87,27 +87,27 @@ void TestDynamicMlaProlog(const TestShapeParams &params, const MlaTileConfig &ti
     using wDtypeA = typename std::conditional<isQuantA, wDtype, T>::type;
     using wDtypeB = typename std::conditional<isQuantB, wDtype, T>::type;
 
-    std::vector<int> xShape = {b, s, h};
-    std::vector<int> wDqShape = {h, qLoraRank};
-    std::vector<int> wUqQrShape = {qLoraRank, n * qHeadDim};
-    std::vector<int> wDkvKrShape = {h, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> wUkShape = {n, qkNopeHeadDim, kvLoraRank};
-    std::vector<int> cosShape = {b, s, qkRopeHeadDim};
-    std::vector<int> gammaCqShape = {qLoraRank};
-    std::vector<int> gammaCkvShape = {kvLoraRank};
-    std::vector<int> kvLenShape = {b, s};
+    std::vector<int64_t> xShape = {b, s, h};
+    std::vector<int64_t> wDqShape = {h, qLoraRank};
+    std::vector<int64_t> wUqQrShape = {qLoraRank, n * qHeadDim};
+    std::vector<int64_t> wDkvKrShape = {h, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> wUkShape = {n, qkNopeHeadDim, kvLoraRank};
+    std::vector<int64_t> cosShape = {b, s, qkRopeHeadDim};
+    std::vector<int64_t> gammaCqShape = {qLoraRank};
+    std::vector<int64_t> gammaCkvShape = {kvLoraRank};
+    std::vector<int64_t> kvLenShape = {b, s};
     int blockNum = b * (s2 / blockSize);
-    std::vector<int> kvCacheShape = {blockNum, blockSize, n2, kvLoraRank};
-    std::vector<int> krCacheShape = {blockNum, blockSize, n2, qkRopeHeadDim};
-    std::vector<int> kvCacheOutShape = {blockNum * blockSize, n2 * kvLoraRank};
-    std::vector<int> krCacheOutShape = {blockNum, blockSize, n2 * qkRopeHeadDim};
-    std::vector<int> scaleWDqShape = {1, qLoraRank};
-    std::vector<int> scaleWUqQrShape = {1, n * qHeadDim};
-    std::vector<int> scaleWDkvKrShape = {1, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> smoothCqShape{1, qLoraRank};
+    std::vector<int64_t> kvCacheShape = {blockNum, blockSize, n2, kvLoraRank};
+    std::vector<int64_t> krCacheShape = {blockNum, blockSize, n2, qkRopeHeadDim};
+    std::vector<int64_t> kvCacheOutShape = {blockNum * blockSize, n2 * kvLoraRank};
+    std::vector<int64_t> krCacheOutShape = {blockNum, blockSize, n2 * qkRopeHeadDim};
+    std::vector<int64_t> scaleWDqShape = {1, qLoraRank};
+    std::vector<int64_t> scaleWUqQrShape = {1, n * qHeadDim};
+    std::vector<int64_t> scaleWDkvKrShape = {1, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> smoothCqShape{1, qLoraRank};
     // output
-    std::vector<int> qOutShape = {b, s, n, kvLoraRank};
-    std::vector<int> qRopeOutShape = {b, s, n, qkRopeHeadDim};
+    std::vector<int64_t> qOutShape = {b, s, n, kvLoraRank};
+    std::vector<int64_t> qRopeOutShape = {b, s, n, qkRopeHeadDim};
 
     Tensor x(dType, xShape, "x");
     TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;

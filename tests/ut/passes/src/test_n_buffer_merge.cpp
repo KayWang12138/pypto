@@ -54,7 +54,7 @@ TEST_F(NBufferMergeTest, TestNBufferMerge) {
     // Prepare the graph
     constexpr int subGraphID0 = 0;
     constexpr int subGraphID1 = 1;
-    std::vector<int> shape = {8, 16};
+    std::vector<int64_t> shape = {8, 16};
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     incast1->subGraphID = subGraphID0;
     auto incast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -92,7 +92,7 @@ TEST_F(NBufferMergeTest, TestNBufferMerge) {
 
 TEST_F(NBufferMergeTest, TestMode0) {
     ComputationalGraphBuilder G;
-    std::vector<int> tileShape{16, 16};
+    std::vector<int64_t> tileShape{16, 16};
     const int vecParallelNum = 6;
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"incast0", "incast1", "outcast"}), true);
     EXPECT_EQ(G.AddOps({Opcode::OP_COPY_IN}, {{"incast0"}}, {{"incast1"}}, {"copy_in"}, true), true);
@@ -124,7 +124,7 @@ TEST_F(NBufferMergeTest, TestMode0) {
 
 TEST_F(NBufferMergeTest, TestMode1) {
     ComputationalGraphBuilder G;
-    std::vector<int> tileShape{16, 16};
+    std::vector<int64_t> tileShape{16, 16};
     const int vecParallelNum = 6;
     const int result = 8;
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"incast0", "incast1", "outcast"}), true);
@@ -157,7 +157,7 @@ TEST_F(NBufferMergeTest, TestMode1) {
 
 TEST_F(NBufferMergeTest, TestMode2) {
     ComputationalGraphBuilder G;
-    std::vector<int> tileShape{16, 16};
+    std::vector<int64_t> tileShape{16, 16};
     const int vecParallelNum = 6;
     const int result = 11;
     const int manualMode = 2;
@@ -192,7 +192,7 @@ TEST_F(NBufferMergeTest, TestMode2) {
 
 TEST_F(NBufferMergeTest, TestMode3) {
     ComputationalGraphBuilder G;
-    std::vector<int> tileShape{16, 16};
+    std::vector<int64_t> tileShape{16, 16};
     const int vecParallelNum = 6;
     const int noneMode = 3;
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"incast0", "incast1", "outcast"}), true);
@@ -224,7 +224,7 @@ TEST_F(NBufferMergeTest, TestMode3) {
 
 TEST_F(NBufferMergeTest, TestMode2NoMap) {
     ComputationalGraphBuilder G;
-    std::vector<int> tileShape{16, 16};
+    std::vector<int64_t> tileShape{16, 16};
     const int vecParallelNum = 6;
     const int manualMode = 2;
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"incast0", "incast1", "outcast"}), true);
@@ -256,7 +256,7 @@ TEST_F(NBufferMergeTest, TestMode2NoMap) {
 
 TEST_F(NBufferMergeTest, TestMode1Map) {
     ComputationalGraphBuilder G;
-    std::vector<int> tileShape{16, 16};
+    std::vector<int64_t> tileShape{16, 16};
     const int vecParallelNum = 6;
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"incast0", "incast1", "outcast"}), true);
     EXPECT_EQ(G.AddOps({Opcode::OP_COPY_IN}, {{"incast0"}}, {{"incast1"}}, {"copy_in"}, true), true);

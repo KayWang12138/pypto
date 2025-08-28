@@ -62,7 +62,7 @@ void SetAllocAttr(Operation &alloc, int latency, int subGraphId) {
     alloc.UpdateSubgraphID(subGraphId);
 }
 
-LogicalTensorPtr CreateTensor(Function &currFunction, DataType dateType, std::vector<int> shape, MemoryType memType, int memId) {
+LogicalTensorPtr CreateTensor(Function &currFunction, DataType dateType, std::vector<int64_t> shape, MemoryType memType, int memId) {
     LogicalTensorPtr tensor = std::make_shared<LogicalTensor>(currFunction, dateType, shape);
     SetTensorAttr(tensor, memType, 0, memId);
     return tensor;
@@ -74,8 +74,8 @@ Operation &CreateAllocOp(Function &currFunction, LogicalTensorPtr tensor, int la
     return alloc;
 }
 
-Operation &CreateCopyOp(Function &currFunction, Opcode opcode, LogicalTensorPtr inTensor, LogicalTensorPtr outTensor, std::vector<int> shape) {
-    std::vector<int> offset = {0, 0};
+Operation &CreateCopyOp(Function &currFunction, Opcode opcode, LogicalTensorPtr inTensor, LogicalTensorPtr outTensor, std::vector<int64_t> shape) {
+    std::vector<int64_t> offset = {0, 0};
     auto &copy = currFunction.AddOperation(opcode, LogicalTensors({inTensor}), LogicalTensors({outTensor}));
     auto shapeImme = OpImmediate::Specified(shape);
     copy.UpdateSubgraphID(0);
@@ -117,7 +117,7 @@ TEST_F(ScheduleOoOTest, TestMainScheduleOoO) {
     EXPECT_TRUE(emptyOpFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
     rootFuncPtr->rootFunc_->programs_.emplace(emptyOpFunctionPtr->GetFuncMagic(), emptyOpFunctionPtr.get());
-    std::vector<int> shape = {128, 128};
+    std::vector<int64_t> shape = {128, 128};
     auto shapeImme = OpImmediate::Specified(shape);
 
     auto tensor1 = CreateTensor(*currFunctionPtr, DataType::DT_FP32, shape, MEM_DEVICE_DDR, 1);
@@ -1225,7 +1225,7 @@ TEST_F(ScheduleOoOTest, TestGenBufferSpill) {
     Function function(Program::GetInstance(), "", "", nullptr);
     std::vector<Operation *> scheduleOpList;
 
-    std::vector<int> shape = {128, 128};
+    std::vector<int64_t> shape = {128, 128};
     std::shared_ptr<LogicalTensor> tensor3 = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, shape);
     tensor3->SetMemoryTypeOriginal(MEM_UB);
     tensor3->SetMemoryTypeToBe(MEM_UB);
@@ -1246,9 +1246,9 @@ TEST_F(ScheduleOoOTest, TestUpdateReloadIssueInfo) {
     Function function(Program::GetInstance(), "", "", nullptr);
     std::vector<Operation *> scheduleOpList;
 
-    std::vector<int> shape = {128, 128};
+    std::vector<int64_t> shape = {128, 128};
     auto shapeImme = OpImmediate::Specified(shape);
-    std::vector<int> offset = {0, 0};
+    std::vector<int64_t> offset = {0, 0};
     std::shared_ptr<LogicalTensor> tensor1 = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, shape);
     tensor1->SetMemoryTypeOriginal(MEM_DEVICE_DDR);
     tensor1->SetMemoryTypeToBe(MEM_DEVICE_DDR);
@@ -1280,7 +1280,7 @@ TEST_F(ScheduleOoOTest, TestUpdateReloadIssueInfo) {
 
 TEST_F(ScheduleOoOTest, TestUpdateTensorAttr_DDR) {
     Function function(Program::GetInstance(), "", "", nullptr);
-    std::vector<int> shape = {128, 128};
+    std::vector<int64_t> shape = {128, 128};
     std::shared_ptr<LogicalTensor> tensor1 = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, shape);
     tensor1->SetMemoryTypeOriginal(MEM_DEVICE_DDR);
     tensor1->SetMemoryTypeToBe(MEM_DEVICE_DDR);
@@ -1299,7 +1299,7 @@ TEST_F(ScheduleOoOTest, TestUpdateTensorAttr_DDR) {
 
 TEST_F(ScheduleOoOTest, TestUpdateTensorAttr_UB) {
     Function function(Program::GetInstance(), "", "", nullptr);
-    std::vector<int> shape = {128, 128};
+    std::vector<int64_t> shape = {128, 128};
     std::shared_ptr<LogicalTensor> tensor1 = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, shape);
     tensor1->SetMemoryTypeOriginal(MEM_DEVICE_DDR);
     tensor1->SetMemoryTypeToBe(MEM_DEVICE_DDR);
@@ -1320,7 +1320,7 @@ TEST_F(ScheduleOoOTest, TestGetSpillTensor) {
     Function function(Program::GetInstance(), "", "", nullptr);
     std::vector<Operation *> scheduleOpList;
 
-    std::vector<int> shape = {128, 128};
+    std::vector<int64_t> shape = {128, 128};
     std::shared_ptr<LogicalTensor> tensor3 = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, shape);
     tensor3->SetMemoryTypeOriginal(MEM_UB);
     tensor3->SetMemoryTypeToBe(MEM_UB);
@@ -1342,7 +1342,7 @@ TEST_F(ScheduleOoOTest, TestCheckAllocIssue) {
     Function function(Program::GetInstance(), "", "", nullptr);
     std::vector<Operation *> scheduleOpList;
 
-    std::vector<int> shape = {128, 128};
+    std::vector<int64_t> shape = {128, 128};
     std::shared_ptr<LogicalTensor> tensor3 = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, shape);
     tensor3->SetMemoryTypeOriginal(MEM_UB);
     tensor3->SetMemoryTypeToBe(MEM_UB);

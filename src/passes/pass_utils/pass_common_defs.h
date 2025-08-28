@@ -20,7 +20,7 @@
 namespace npu::tile_fwk {
 struct AssembleOp {
     MemoryType from;
-    std::vector<int> toOffset;
+    std::vector<int64_t> toOffset;
     std::shared_ptr<LogicalTensor> input;
     std::shared_ptr<LogicalTensor> output;
 };

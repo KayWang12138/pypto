@@ -134,7 +134,7 @@ TEST_F(GraphTest, TestAttentionPost) {
     int d = 512;
     int v_head =128;
     int h = 256;
-    std::vector<int> inShape = {b, n, s, d}; // (b, n, s, d)
+    std::vector<int64_t> inShape = {b, n, s, d}; // (b, n, s, d)
     Tensor attnPostIn(DT_FP32, inShape, "attnPostIn");
     Tensor kvBProjWV(DT_FP32, {n, d, v_head}, "kvBProjWV");
     Tensor oProjW(DT_FP32, {n * v_head, h}, "oProjW");
@@ -266,12 +266,12 @@ TEST_F(GraphTest, test_operation_rope_subgraph_deepseekv3_bf16_32batch) {
 
     std::string shape_dir_path = "/32_1_32_64/";
 
-    std::vector<int> qPeShape{B, S, N, qkRopeHeadDim};
-    std::vector<int> kPeShape{B, S, qkRopeHeadDim};
-    std::vector<int> idsShape{B, S};
-    std::vector<int> cosSinShape{S, qkRopeHeadDim};
-    std::vector<int> qEmbedShape{B, N, S, qkRopeHeadDim};
-    std::vector<int> kEmbedShape{B, 1, S, qkRopeHeadDim};
+    std::vector<int64_t> qPeShape{B, S, N, qkRopeHeadDim};
+    std::vector<int64_t> kPeShape{B, S, qkRopeHeadDim};
+    std::vector<int64_t> idsShape{B, S};
+    std::vector<int64_t> cosSinShape{S, qkRopeHeadDim};
+    std::vector<int64_t> qEmbedShape{B, N, S, qkRopeHeadDim};
+    std::vector<int64_t> kEmbedShape{B, 1, S, qkRopeHeadDim};
 
     PROGRAM("RoPEMla") {
         Tensor qPe(DT_BF16, qPeShape, "qPe");
@@ -318,13 +318,13 @@ TEST_F(GraphTest, test_operation_rope_subgraph_deepseekv3_bf16) {
     int S = 1;                 // IFA S=1 S=1024
     int qkRopeHeadDim = 64; // qkRopeHeadDim = 64
 
-    std::vector<int> qPeShape{B, S, N, qkRopeHeadDim};
-    std::vector<int> kPeShape{B, S, qkRopeHeadDim};
-    std::vector<int> idsShape{B, S};
-    std::vector<int> cosShape{S, qkRopeHeadDim};
+    std::vector<int64_t> qPeShape{B, S, N, qkRopeHeadDim};
+    std::vector<int64_t> kPeShape{B, S, qkRopeHeadDim};
+    std::vector<int64_t> idsShape{B, S};
+    std::vector<int64_t> cosShape{S, qkRopeHeadDim};
 
-    std::vector<int> qEmbedShape{B, N, S, qkRopeHeadDim};
-    std::vector<int> kEmbedShape{B, 1, S, qkRopeHeadDim};
+    std::vector<int64_t> qEmbedShape{B, N, S, qkRopeHeadDim};
+    std::vector<int64_t> kEmbedShape{B, 1, S, qkRopeHeadDim};
 
     Tensor qPe(DT_BF16, qPeShape, "qPe");
     Tensor kPe(DT_BF16, kPeShape, "kPe");
@@ -354,7 +354,7 @@ TEST_F(GraphTest, test_operation_tensor_16_16_64_64_tileop_add) {
     config::SetPlatformConfig("ENABLE_COST_MODEL", true);
     config::SetSimConfig("BUILD_TASK_BASED_TOPO", true);
 
-    std::vector<int> shape = {64, 64};
+    std::vector<int64_t> shape = {64, 64};
     Tensor input_a(DT_FP32, shape, "A");
     Tensor input_b(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
@@ -391,24 +391,24 @@ void TestMlaPrologV2(std::vector<int> &params, int inputType, bool isQuant = fal
 
     DataType dTypeQuantIn = isQuant ? DT_INT8 : dType;
 
-    std::vector<int> x_shape = {b, s, h};
-    std::vector<int> w_qa_shape = {h, qLoraRank};
-    std::vector<int> w_qb_shape = {qLoraRank, n * q_head_dim};
-    std::vector<int> w_kv_a_shape = {h, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> w_kv_b_k_shape = {n, qkNopeHeadDim, kvLoraRank};
-    std::vector<int> cos_shape = {b, s, qkRopeHeadDim};
-    std::vector<int> gamma_cq_shape = {qLoraRank};
-    std::vector<int> gamma_ckv_shape = {kvLoraRank};
-    std::vector<int> kv_len_shape = {b, s};
-    std::vector<int> kv_cache_shape = {b, 1, s2, kvLoraRank};
-    std::vector<int> kr_cache_shape = {b, 1, s2, qkRopeHeadDim};
+    std::vector<int64_t> x_shape = {b, s, h};
+    std::vector<int64_t> w_qa_shape = {h, qLoraRank};
+    std::vector<int64_t> w_qb_shape = {qLoraRank, n * q_head_dim};
+    std::vector<int64_t> w_kv_a_shape = {h, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> w_kv_b_k_shape = {n, qkNopeHeadDim, kvLoraRank};
+    std::vector<int64_t> cos_shape = {b, s, qkRopeHeadDim};
+    std::vector<int64_t> gamma_cq_shape = {qLoraRank};
+    std::vector<int64_t> gamma_ckv_shape = {kvLoraRank};
+    std::vector<int64_t> kv_len_shape = {b, s};
+    std::vector<int64_t> kv_cache_shape = {b, 1, s2, kvLoraRank};
+    std::vector<int64_t> kr_cache_shape = {b, 1, s2, qkRopeHeadDim};
     // output
-    std::vector<int> q_out_shape = {b, s, n, kvLoraRank};
-    std::vector<int> q_rope_out_shape = {b, s, n, qkRopeHeadDim};
-    std::vector<int> kv_cache_out_shape = {b, 1, s2, kvLoraRank};
-    std::vector<int> kr_cache_out_shape = {b, 1, s2, qkRopeHeadDim};
+    std::vector<int64_t> q_out_shape = {b, s, n, kvLoraRank};
+    std::vector<int64_t> q_rope_out_shape = {b, s, n, qkRopeHeadDim};
+    std::vector<int64_t> kv_cache_out_shape = {b, 1, s2, kvLoraRank};
+    std::vector<int64_t> kr_cache_out_shape = {b, 1, s2, qkRopeHeadDim};
 
-    std::vector<int> w_qb_scale_shape;
+    std::vector<int64_t> w_qb_scale_shape;
     if (isQuant) {
         w_qb_scale_shape = {1, n * q_head_dim};
     }
@@ -527,18 +527,18 @@ void TestMlaProlog(std::vector<int> &params) {
 
     DataType dType = DT_BF16;
 
-    std::vector<int> x_shape = {b, s, h};
-    std::vector<int> w_qa_shape = {h, qLoraRank};
-    std::vector<int> w_qb_shape = {qLoraRank, n * q_head_dim};
-    std::vector<int> w_kv_a_shape = {h, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> w_kv_b_k_shape = {n, qkNopeHeadDim, kvLoraRank};
-    std::vector<int> position_ids_shape = {b, s};
-    std::vector<int> cos_shape = {s, qkRopeHeadDim};
-    std::vector<int> past_key_states_shape = {b, 1, s2, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> kv_len_shape = {1, 1};
+    std::vector<int64_t> x_shape = {b, s, h};
+    std::vector<int64_t> w_qa_shape = {h, qLoraRank};
+    std::vector<int64_t> w_qb_shape = {qLoraRank, n * q_head_dim};
+    std::vector<int64_t> w_kv_a_shape = {h, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> w_kv_b_k_shape = {n, qkNopeHeadDim, kvLoraRank};
+    std::vector<int64_t> position_ids_shape = {b, s};
+    std::vector<int64_t> cos_shape = {s, qkRopeHeadDim};
+    std::vector<int64_t> past_key_states_shape = {b, 1, s2, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> kv_len_shape = {1, 1};
     // output
-    std::vector<int> q_shape = {b, n, s, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> kv_shape = {b, 1, s2, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> q_shape = {b, n, s, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> kv_shape = {b, 1, s2, kvLoraRank + qkRopeHeadDim};
 
 
     PROGRAM("MlaProlog") {
@@ -639,11 +639,8 @@ TEST_F(GraphTest, TestTranspose_MLA_3D_2_add) {
     int bs = 8;
     int n = 32;
     int d = 128;
-    std::vector<int> shape{bs, n, d};
-    std::vector<int> resShape{n, bs, d};
-    const int NUM_2 = 2;
-    const int NUM_8 = 8;
-    const int NUM_128 = 128;
+    std::vector<int64_t> shape{bs, n, d};
+    std::vector<int64_t> resShape{n, bs, d};
     PROGRAM("Transpose") {
         Tensor input(DataType::DT_FP32, shape, "input");
         Tensor output(DataType::DT_FP32, resShape, "res");
@@ -660,12 +657,10 @@ TEST_F(GraphTest, TestTranspose_MLA_3D_2_reshape) {
     int bs = 8;
     int n = 32;
     int d = 128;
-    std::vector<int> shape{bs, n, d};
-    std::vector<int> transposeShape{n, bs, d};
-    std::vector<int> resShape{n, bs * d};
-    const int NUM_2 = 2;
-    const int NUM_8 = 8;
-    const int NUM_128 = 128;
+    std::vector<int64_t> shape{bs, n, d};
+    std::vector<int64_t> transposeShape{n, bs, d};
+    std::vector<int64_t> resShape{n, bs * d};
+
     PROGRAM("Transpose") {
         Tensor input(DataType::DT_FP32, shape, "input");
         Tensor output1(DataType::DT_FP32, transposeShape, "res1");

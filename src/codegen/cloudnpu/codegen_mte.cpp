@@ -21,6 +21,8 @@
 namespace npu::tile_fwk {
 template <typename T>
 bool CodeGenOpCloudNPU::GetAttr(const std::string &key, T &value) const {
+    static_assert(!std::is_same_v<T, int>);
+    static_assert(!std::is_same_v<T, std::vector<int>>);
     auto it = opAttrs.find(key);
     if (it == opAttrs.end()) {
         return false;
@@ -235,7 +237,7 @@ std::string CodeGenOpCloudNPU::GenIndexOutCastOp() const {
     ASSERT(opAttrs.count(OpAttributeKey::cacheMode)) << "cannot get cacheMode attr";
     ASSERT(opAttrs.count(OpAttributeKey::panzBlockSize)) << "cannot get panzBlockSize attr";
     auto cacheMode = npu::tile_fwk::AnyCast<std::string>(opAttrs.at(OpAttributeKey::cacheMode));
-    auto blockSize = npu::tile_fwk::AnyCast<int>(opAttrs.at(OpAttributeKey::panzBlockSize));
+    auto blockSize = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OpAttributeKey::panzBlockSize));
     unsigned gmIdx = 0;
     unsigned localIdx = 1;
     std::string addrTypeHead[ID2];
@@ -526,8 +528,8 @@ std::string CodeGenOpCloudNPU::PrintL0CCopyOutDynamicUnalign(const PrintMemCopyW
     unsigned localIdx = param.localIdx;
     paramList.emplace_back(dataTypeExpr[gmIdx]);
     paramList.emplace_back(dataTypeExpr[localIdx]);
-    int nzValue = 0;
-    int isAcc = 0;
+    int64_t nzValue = 0;
+    int64_t isAcc = 0;
     auto ret = GetAttr(OP_ATTR_PREFIX + "atomic_add", isAcc);
     if (ret) {
         paramList.emplace_back(std::to_string(isAcc));
@@ -550,8 +552,8 @@ std::string CodeGenOpCloudNPU::PrintL0CCopyOutDynamicUnalign(const PrintMemCopyW
     }
     paramList.emplace_back(gmShapeExpr[0]);
     paramList.emplace_back(gmOffsetExpr[0]);
-    int outerValue = 0;
-    int innerValue = 0;
+    int64_t outerValue = 0;
+    int64_t innerValue = 0;
     ret = GetAttr("op_attr_curH", outerValue);
     ret = GetAttr("op_attr_curW", innerValue);
     auto gmShapeExprByIndex = GenParamIdxExprByIndex(gmIdx, SHAPE_DIM2, PREFIX_STR_RAW_SHAPE);
@@ -626,7 +628,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Static(const PrintMemCopyWithL1
 
     int printRet = sprintf_s(addrBuffer, BUFFER_SIZE_1024, "%s", addrExpr[ID1].c_str());
     ASSERT(printRet >= 0) << "sprintf_s failed in PrintMemCopyWithL1Static, return value:" << printRet;
-    int nzValue = 0, outerValue = 0, innerValue = 0;
+    int64_t nzValue = 0, outerValue = 0, innerValue = 0;
     auto ret = GetAttr("op_attr_is_nz", nzValue);
     if (ret && nzValue == 1) {
         opName = "TileOp::L1CopyInNZ2NZ";
@@ -682,12 +684,12 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL
     std::string opName = tileOpName;
     std::string addrBuffer = addrExpr[ID1];
 
-    int nzValue = 0;
+    int64_t nzValue = 0;
     auto ret = GetAttr(OP_ATTR_PREFIX + "is_nz", nzValue);
     if (ret && nzValue == 1) {
         opName = tileOpName + "NZ2NZ";
-        int outerValue = 0;
-        int innerValue = 0;
+        int64_t outerValue = 0;
+        int64_t innerValue = 0;
         ret = GetAttr("op_attr_outer_value", outerValue);
         ret = GetAttr("op_attr_inner_value", innerValue);
 

@@ -38,6 +38,13 @@ std::string PrintParams(const std::pair<std::string, std::string> &delimiter, co
 
 std::vector<int> NormalizeShape(const std::vector<int> &shapeVec, unsigned dim);
 
+inline std::vector<int> ToVecInt(const std::vector<int64_t> &shapeVec) {
+    std::vector<int> vec;
+    for (auto &i : shapeVec) {
+        vec.push_back(static_cast<int>(i));
+    }
+    return vec;
+}
 std::string GetTypeForB16B32(const DataType &dtype);
 
 inline std::string GetPipeId(PipeType queue) {

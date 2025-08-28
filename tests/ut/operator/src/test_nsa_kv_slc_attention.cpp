@@ -77,20 +77,20 @@ void TestKvSlcAttn(const NSASimpleParams &params, SATileShapeConfig& saTileConfi
     DataType dType = (std::is_same<T, npu::tile_fwk::float16>::value) ? DT_FP16 : DT_BF16;
 
     // 1. 设置shape
-    std::vector<int> topkIndicesShape = {b, s1, topk - front - near};
-    std::vector<int> topkTensorShapeShape = {b, s1};
-    std::vector<int> kvNopeCacheShape = {int(blockNum * blockSize), n2 * dn};
-    std::vector<int> kRopeCacheShape = {int(blockNum * blockSize), n2 * dr};
-    std::vector<int> kvCacheActSeqShape = {b};
-    std::vector<int> blockTableShape = {b, maxBlockNumPerBatch};
-    std::vector<int> slcActSeqsShape = {b, s1};
+    std::vector<int64_t> topkIndicesShape = {b, s1, topk - front - near};
+    std::vector<int64_t> topkTensorShapeShape = {b, s1};
+    std::vector<int64_t> kvNopeCacheShape = {int(blockNum * blockSize), n2 * dn};
+    std::vector<int64_t> kRopeCacheShape = {int(blockNum * blockSize), n2 * dr};
+    std::vector<int64_t> kvCacheActSeqShape = {b};
+    std::vector<int64_t> blockTableShape = {b, maxBlockNumPerBatch};
+    std::vector<int64_t> slcActSeqsShape = {b, s1};
 
-    std::vector<int> qNopeShape = {b * s1 * n1, dn};
-    std::vector<int> qRopeShape = {b * s1 * n1, dr};
-    std::vector<int> kSlcShape = {b * s1 * n2 * smax, dn + dr};
-    std::vector<int> vSlcShape = {b * s1 * n2 * smax, dn};
+    std::vector<int64_t> qNopeShape = {b * s1 * n1, dn};
+    std::vector<int64_t> qRopeShape = {b * s1 * n1, dr};
+    std::vector<int64_t> kSlcShape = {b * s1 * n2 * smax, dn + dr};
+    std::vector<int64_t> vSlcShape = {b * s1 * n2 * smax, dn};
 
-    std::vector<int> shape_selAtten = {b, s1, n1, v_dim};
+    std::vector<int64_t> shape_selAtten = {b, s1, n1, v_dim};
 
     // 2. 构造tensor
     Tensor topkIndices(DT_INT32, topkIndicesShape, "topkTensor");

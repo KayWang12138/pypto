@@ -59,8 +59,8 @@ TEST_F(TestSplitReshapeOpPVC2, test_reshape_assemble_multito1) {
         currentFunction = Program::GetInstance().GetCurrentFunction();
     }
 
-    std::vector<int> expiInShape = {1, 64};
-    std::vector<int> expOutShape = {1, 1, 1, 64};
+    std::vector<int64_t> expiInShape = {1, 64};
+    std::vector<int64_t> expOutShape = {1, 1, 1, 64};
     for (auto &op : currentFunction->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
             for (auto &in : op.iOperand) {
@@ -88,8 +88,8 @@ TEST_F(TestSplitReshapeOpPVC2, Test_Reshape_1to1) {
         currentFunction = Program::GetInstance().GetCurrentFunction();
     }
 
-    std::vector<int> expiInShape = {8,  8,  8};
-    std::vector<int> expOutShape = {8, 8, 1, 8};
+    std::vector<int64_t> expiInShape = {8,  8,  8};
+    std::vector<int64_t> expOutShape = {8, 8, 1, 8};
     for (auto &op : currentFunction->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
             for (auto &in : op.iOperand) {
@@ -117,8 +117,8 @@ TEST_F(TestSplitReshapeOpPVC2, Test_Reshape_1toMulti) {
         currentFunction = Program::GetInstance().GetCurrentFunction();
     }
 
-    std::vector<int> expiInShape = {8, 4, 4};
-    std::vector<int> expOutShape = {8, 16};
+    std::vector<int64_t> expiInShape = {8, 4, 4};
+    std::vector<int64_t> expOutShape = {8, 16};
     for (auto &op : currentFunction->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
             for (auto &in : op.iOperand) {
@@ -146,8 +146,8 @@ TEST_F(TestSplitReshapeOpPVC2, Test_Reshape_multito1) {
         currentFunction = Program::GetInstance().GetCurrentFunction();
     }
 
-    std::vector<int> expiInShape = {8, 8, 16};
-    std::vector<int> expOutShape = {8, 8, 4, 4};
+    std::vector<int64_t> expiInShape = {8, 8, 16};
+    std::vector<int64_t> expOutShape = {8, 8, 4, 4};
     for (auto &op : currentFunction->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
             for (auto &in : op.iOperand) {

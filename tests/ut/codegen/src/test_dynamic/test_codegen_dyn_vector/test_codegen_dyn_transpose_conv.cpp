@@ -43,8 +43,8 @@ public:
     void TearDown() override {}
 };
 
-void TestDynVnchwconvBody(std::vector<int> shape, std::vector<int> outShape, std::vector<int> transposeShape,
-    std::vector<int> tileShape, std::string name) {
+void TestDynVnchwconvBody(std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int> transposeShape,
+    std::vector<int64_t> tileShape, std::string name) {
     Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
     Tensor input(DT_FP32, shape, "input");
     Tensor output(DT_FP32, outShape, "output");

@@ -66,10 +66,9 @@ OverlapStatus CalcOverlap(const std::shared_ptr<LogicalTensor> &pTensor,
     const std::vector<std::shared_ptr<LogicalTensor>> &pGroup, bool loose = false);
 
 void CalcShapeAndOffsetOfGroup(const std::vector<std::shared_ptr<LogicalTensor>> &tensors,
-    std::vector<int> &resultOffset, std::vector<int> &resultShape);
+    std::vector<int64_t> &resultOffset, std::vector<int64_t> &resultShape);
 
-int CalcOverlapSize(const std::shared_ptr<LogicalTensor> &pTensor, 
-    const std::shared_ptr<LogicalTensor> &qTensor);
+int CalcOverlapSize(const std::shared_ptr<LogicalTensor> &pTensor, const std::shared_ptr<LogicalTensor> &qTensor);
 // Custom comparator for shared_ptr<LogicalTensor> in descending order
 struct TensorPtrComparator {
     bool operator()(const std::shared_ptr<LogicalTensor> &lhs, const std::shared_ptr<LogicalTensor> &rhs) const;

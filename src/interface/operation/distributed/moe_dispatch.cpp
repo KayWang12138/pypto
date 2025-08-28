@@ -54,8 +54,8 @@ void ExpandTensorTiles(const std::function<void(T &)> &dealFunc, T &args)
     }
 }
 
-void TileProcess(const std::function<void(DispatchTileArgs<TilingInfo>&, const std::vector<int32_t>&)>& dealFunc,
-    DispatchTileArgs<TilingInfo>& args, const std::vector<int32_t>& bufferShape)
+void TileProcess(const std::function<void(DispatchTileArgs<TilingInfo>&, const std::vector<int64_t>&)>& dealFunc,
+    DispatchTileArgs<TilingInfo>& args, const std::vector<int64_t>& bufferShape)
 {
     const auto &rankTileInfo = args.groupInfo.rank.value();
     const int32_t tileRankShape = rankTileInfo[DIST_HEAD_SHAPE];
@@ -77,7 +77,7 @@ void TileProcess(const std::function<void(DispatchTileArgs<TilingInfo>&, const s
     }
 }
 
-void FFNSchedOpCallback(DispatchTileArgs<TilingInfo>& args, const std::vector<int32_t>& bufferShape)
+void FFNSchedOpCallback(DispatchTileArgs<TilingInfo>& args, const std::vector<int64_t>& bufferShape)
 {
     std::shared_ptr<LogicalTensor> syncTensor = args.in[DIST_INDEX_ZERO];
     std::shared_ptr<LogicalTensor> tilingTensor = args.in[DIST_INDEX_ONE];
@@ -97,7 +97,7 @@ void FFNSchedOpCallback(DispatchTileArgs<TilingInfo>& args, const std::vector<in
     }
 }
 
-void FFNBatchingOpCallback(DispatchTileArgs<TilingInfo> &args, const std::vector<int32_t>& bufferShape)
+void FFNBatchingOpCallback(DispatchTileArgs<TilingInfo> &args, const std::vector<int64_t>& bufferShape)
 {
     std::shared_ptr<LogicalTensor> recvTokenCntOut = args.in[DIST_INDEX_ZERO];
     std::shared_ptr<LogicalTensor> tilingTensor = args.in[DIST_INDEX_ONE];
@@ -135,12 +135,12 @@ void TiledDispatchFFNBatching(Function &function, const TileShape &tileShape,
         args.tensorTileInfo[0][DIST_HEAD_COUNT], args.tensorTileInfo[0][DIST_TAIL_SHAPE],
         args.tensorTileInfo[1][DIST_HEAD_SHAPE], args.tensorTileInfo[1][DIST_HEAD_COUNT],
         args.tensorTileInfo[1][DIST_TAIL_SHAPE]);
-    std::vector<int32_t> bufferShape;
+    std::vector<int64_t> bufferShape;
     op.GetAttr("DISPATCH_FFN_BUFFER_SHAPE", bufferShape);
     TileProcess(FFNBatchingOpCallback, args, bufferShape);
 }
- 
- 
+
+
 void TiledDispatchFFNSched(Function &function, const TileShape &tileShape,
     const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op)
@@ -158,7 +158,7 @@ void TiledDispatchFFNSched(Function &function, const TileShape &tileShape,
         args.tensorTileInfo[0][DIST_HEAD_COUNT], args.tensorTileInfo[0][DIST_TAIL_SHAPE],
         args.tensorTileInfo[1][DIST_HEAD_SHAPE], args.tensorTileInfo[1][DIST_HEAD_COUNT],
         args.tensorTileInfo[1][DIST_TAIL_SHAPE]);
-    std::vector<int32_t> bufferShape;
+    std::vector<int64_t> bufferShape;
     op.GetAttr("DISPATCH_FFN_BUFFER_SHAPE", bufferShape);
     TileProcess(FFNSchedOpCallback, args, bufferShape);
 }
@@ -187,7 +187,7 @@ void DispatchFFNBatching(std::vector<std::shared_ptr<LogicalTensor>> &iOperands,
     int tempSize1 = (AIV_NUM * 32 + 255) / 256 * 256 + 256 + (AIV_NUM * 4 + 31) / 32 * 32;
     int tempSize2 = tokenTensor->shape[1] * BytesOf(tokenTensor.GetDataType());
     int tempBufSize = (tempSize1 < tempSize2) ? tempSize2 : tempSize1;
-    const std::vector<int32_t> bufferShape{tempBufSize / 8, 8}; // 肯定能除尽
+    const std::vector<int64_t> bufferShape{tempBufSize / 8, 8}; // 肯定能除尽
     oper.SetAttr("DISPATCH_FFN_BUFFER_SHAPE", bufferShape);
 }
 
@@ -200,16 +200,16 @@ void DispatchFFNSched(std::vector<std::shared_ptr<LogicalTensor>> &iOperands,
     int32_t maxProcessRankSize = (moeOpProcessRankSize < shareOpProcessRankSize) ?
         shareOpProcessRankSize : moeOpProcessRankSize;
     int tempBufSize = maxProcessRankSize * 32 + 32 + (maxProcessRankSize * 4 + 31) / 32 * 32;
-    const std::vector<int32_t> bufferShape{tempBufSize / 8, 8}; // 肯定能除尽
+    const std::vector<int64_t> bufferShape{tempBufSize / 8, 8}; // 肯定能除尽
     oper.SetAttr("DISPATCH_FFN_BUFFER_SHAPE", bufferShape);
 }
 
-std::vector<int32_t> GetCommBufferSize(const std::shared_ptr<LogicalTensor> &tokenTensor)
+std::vector<int64_t> GetCommBufferSize(const std::shared_ptr<LogicalTensor> &tokenTensor)
 {
-    const int32_t hOutSize = tokenTensor->shape[1] * BytesOf(tokenTensor->Datatype());
-    constexpr int32_t scaleParamPad = 128;
-    const int32_t hCommuSize = hOutSize + scaleParamPad;
-    return {1, static_cast<int32_t>(hCommuSize / BytesOf(tokenTensor->Datatype()))};
+    const int64_t hOutSize = tokenTensor->shape[1] * BytesOf(tokenTensor->Datatype());
+    constexpr int64_t scaleParamPad = 128;
+    const int64_t hCommuSize = hOutSize + scaleParamPad;
+    return {1, static_cast<int64_t>(hCommuSize / BytesOf(tokenTensor->Datatype()))};
 }
 
 void DealSendToRoutingExpertTile(DispatchTileArgs<DispatchTilingInfo> &args)
@@ -222,9 +222,9 @@ void DealSendToRoutingExpertTile(DispatchTileArgs<DispatchTilingInfo> &args)
     auto tokenBuffer = std::make_shared<LogicalTensor>(args.function, tokenTensor->Datatype(),
         GetCommBufferSize(tokenTensor));
     auto expertBufferUb = std::make_shared<LogicalTensor>(args.function, tokenExpertTable->Datatype(),
-        std::vector<int32_t>{1, tokenExpertTable->shape[0] * tokenExpertTable->shape[1]});
+        std::vector<int64_t>{1, tokenExpertTable->shape[0] * tokenExpertTable->shape[1]});
     auto expertBuffer = std::make_shared<LogicalTensor>(args.function, tokenExpertTable->Datatype(),
-        std::vector<int32_t>{1, tokenExpertTable->shape[0] * tokenExpertTable->shape[1] * 2});
+        std::vector<int64_t>{1, tokenExpertTable->shape[0] * tokenExpertTable->shape[1] * 2});
     OpArgs<DispatchTilingInfo> opArgs = {"TILE_SEND_TO_ROUTING_EXPERT",
         {tokenTensor, tokenExpertTable}, {syncTensor, tokenBuffer, expertBufferUb, expertBuffer},
         tilingTensor, args.tilingSymbol, std::make_optional(tilingInfo), std::nullopt};
@@ -321,11 +321,11 @@ void DealDispatchSetFlagTile(DispatchTileArgs<DispatchTilingInfo> &args)
     std::shared_ptr<LogicalTensor> tilingTensor = args.in[DIST_INDEX_TWO];
     std::shared_ptr<LogicalTensor> dummy = args.out[DIST_INDEX_ZERO];
     auto statusTensor = std::make_shared<LogicalTensor>(args.function, DataType::DT_INT32,
-        std::vector<int32_t>{1, TOTAL_EXPERT_NUM * 8});
+        std::vector<int64_t>{1, TOTAL_EXPERT_NUM * 8});
     auto expertBufferUb = std::make_shared<LogicalTensor>(args.function, tokenExpertTable->Datatype(),
-        std::vector<int32_t>{1, tokenExpertTable->shape[0] * tokenExpertTable->shape[1]});
+        std::vector<int64_t>{1, tokenExpertTable->shape[0] * tokenExpertTable->shape[1]});
     auto expertBuffer = std::make_shared<LogicalTensor>(args.function, tokenExpertTable->Datatype(),
-        std::vector<int32_t>{1, tokenExpertTable->shape[0] * tokenExpertTable->shape[1] * 2});
+        std::vector<int64_t>{1, tokenExpertTable->shape[0] * tokenExpertTable->shape[1] * 2});
     OpArgs<DispatchTilingInfo> opArgs = {"TILE_DISPATCH_SET_FLAG",
         {syncTensor, tokenExpertTable}, {dummy, statusTensor, expertBufferUb, expertBuffer},
         tilingTensor, args.tilingSymbol, std::make_optional(args.tilingInfo), std::nullopt};
@@ -414,7 +414,7 @@ void CopyToLocalExpert(const Tensor &tokenTensor, const Tensor &tilingTensor, co
 Tensor MoeDispatch(const Tensor &tokenTensor, const Tensor &tokenExpertTable, Tensor &validCnt, const char *group)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
-    std::vector<int32_t> tilingShape = {1, 8192};
+    std::vector<int64_t> tilingShape = {1, 8192};
     const std::string tilingSymbol = function.GetDistTilingManager()->CreateTilingStorage("dispatch", tilingShape[1]);
     Tensor tilingTensor(DataType::DT_INT32, tilingShape, tilingSymbol);
 
@@ -426,7 +426,7 @@ Tensor MoeDispatch(const Tensor &tokenTensor, const Tensor &tokenExpertTable, Te
     SendToRoutingExpert(tokenTensor, tokenExpertTable, tilingTensor, syncTensor, group);
 
     // 发送的专家号是固定的，通过本卡的rankId确定；这里对token的M轴进行切分，为了方便在Rank上操作
-    Program::GetInstance().GetTileShape().SetDistTileShapes({1, tokenTensor.GetShape()[0], 0});
+    Program::GetInstance().GetTileShape().SetDistTileShapes({1, (int)tokenTensor.GetShape()[0], 0});
     if (IsRoutingExpert(Program::GetInstance().GetTileShape().GetDistRankId())) {
         SendToSharedExpert(tokenTensor, tilingTensor, syncTensor, group);
     } else {
@@ -439,20 +439,20 @@ Tensor MoeDispatch(const Tensor &tokenTensor, const Tensor &tokenExpertTable, Te
     // 48 * 48 * 512B
     Tensor recvTokenCntOut(DataType::DT_INT32, {AIV_NUM * AIV_NUM, 128},
         "recvTokenCntOut");
- 
+
     Program::GetInstance().GetTileShape().SetDistTileShapes(
-        {tokenTensor->shape[0], 1, 0},
-        {tokenTensor->shape[1], 1, 0}, // 不切 x
+        {static_cast<int>(tokenTensor->shape[0]), 1, 0},
+        {static_cast<int>(tokenTensor->shape[1]), 1, 0}, // 不切 x
         {TOTAL_EXPERT_NUM / AIV_NUM, AIV_NUM, 0}); // 暂不处理不整除的场景
- 
+
     std::vector<std::shared_ptr<LogicalTensor>> schedInOperands {dummy.GetStorage(), tilingTensor.GetStorage()};
     std::vector<std::shared_ptr<LogicalTensor>> schedOutOperands {recvTokenCntOut.GetStorage()};
     DispatchFFNSched(schedInOperands, schedOutOperands, group);
- 
+
     std::vector<std::shared_ptr<LogicalTensor>> iOperands {recvTokenCntOut.GetStorage(), tilingTensor.GetStorage()};
     std::vector<std::shared_ptr<LogicalTensor>> oOperands {expandX.GetStorage(), validCnt.GetStorage()};
     DispatchFFNBatching(iOperands, oOperands, group, tokenTensor);
- 
+
     return expandX;
 }
 }

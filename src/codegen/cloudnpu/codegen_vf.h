@@ -55,10 +55,10 @@ private:
     std::string path_;
     std::map<int, int> magicToBufferId_;
     int operand[MAX_OPERANDS];
-    std::vector<int> offset[MAX_OPERANDS] = {};
-    std::vector<int> shape[MAX_OPERANDS] = {};
-    std::vector<int> rawShape[MAX_OPERANDS] = {};
-    std::vector<int> originShape[MAX_OPERANDS] = {};
+    std::vector<int64_t> offset[MAX_OPERANDS] = {};
+    std::vector<int64_t> shape[MAX_OPERANDS] = {};
+    std::vector<int64_t> rawShape[MAX_OPERANDS] = {};
+    std::vector<int64_t> originShape[MAX_OPERANDS] = {};
     bool isGenSuccess_{false};
     DataType operandDtype[MAX_OPERANDS] = {DataType::DT_BOTTOM, DataType::DT_BOTTOM, DataType::DT_BOTTOM,
         DataType::DT_BOTTOM, DataType::DT_BOTTOM, DataType::DT_BOTTOM, DataType::DT_BOTTOM, DataType::DT_BOTTOM};

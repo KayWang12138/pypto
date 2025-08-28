@@ -29,7 +29,7 @@ class TileRange;
 class Element;
 class SymbolicScalar;
 class OperationsViewer;
-class FunctionInterpreter;
+struct FunctionInterpreter;
 
 using LogicalTensorPtr = std::shared_ptr<LogicalTensor>;
 using LogicalTensors = std::vector<LogicalTensorPtr>;

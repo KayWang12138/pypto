@@ -44,8 +44,8 @@ public:
 TEST_F(TestCodegenArgSort, TestArgSort) {
     constexpr const int32_t shape0 = 64;
 
-    std::vector<int> input_shape = {shape0};
-    std::vector<int> output_shape = {shape0};
+    std::vector<int64_t> input_shape = {shape0};
+    std::vector<int64_t> output_shape = {shape0};
 
     Program::GetInstance().GetTileShape().SetVecTileShapes({shape0});
     Tensor input_a(DT_FP32, input_shape, "A");

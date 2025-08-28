@@ -74,11 +74,11 @@ constexpr int32_t NUM_VALUE_64 = 64;
 struct ExpandInfo {
     const std::shared_ptr<LogicalTensor> &srcTensor;
     const std::shared_ptr<LogicalTensor> &result;
-    std::vector<int> &viewShape;
-    std::vector<int> &offset;
+    std::vector<int64_t> &viewShape;
+    std::vector<int64_t> &offset;
     const int expandDim;
     ExpandInfo(const std::shared_ptr<LogicalTensor> &srcTensor0, const std::shared_ptr<LogicalTensor> &result0,
-        std::vector<int> &viewShape0, std::vector<int> &offset0, const int expandDim0)
+        std::vector<int64_t> &viewShape0, std::vector<int64_t> &offset0, const int expandDim0)
         : srcTensor(srcTensor0), result(result0), viewShape(viewShape0), offset(offset0), expandDim(expandDim0) {}
 };
 
@@ -125,8 +125,7 @@ struct DoAMulBParam {
 
 template <bool isTransA = false, bool isTransB = false>
 void TiledInnerAMulB(Function &function, const TileShape &tileShape, const std::vector<LogicalTensorPtr> &operandVec,
-    const LogicalTensorPtr &result, const std::vector<int32_t> &matmulSize);
+    const LogicalTensorPtr &result, const std::vector<int64_t> &matmulSize);
 
 } // namespace Matrix
 } // namespace npu::tile_fwk
-

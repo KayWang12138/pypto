@@ -50,20 +50,20 @@ void TestMlaPrologV2(std::vector<int> &params, string dataPath, bool isQuant = f
     typedef T outDtype;
     typedef int8_t wDtype;
 
-    std::vector<int> x_shape = {b, s, h};
-    std::vector<int> w_qa_shape = {h, qLoraRank};
-    std::vector<int> w_qb_shape = {qLoraRank, n * q_head_dim};
-    std::vector<int> w_kv_a_shape = {h, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> w_kv_b_k_shape = {n, qkNopeHeadDim, kvLoraRank};
-    std::vector<int> cos_shape = {b, s, qkRopeHeadDim};
-    std::vector<int> gamma_cq_shape = {qLoraRank};
-    std::vector<int> gamma_ckv_shape = {kvLoraRank};
-    std::vector<int> kv_len_shape = {b, s};
-    std::vector<int> kv_cache_shape = {b, 1, s2, kvLoraRank};
-    std::vector<int> kr_cache_shape = {b, 1, s2, qkRopeHeadDim};
+    std::vector<int64_t> x_shape = {b, s, h};
+    std::vector<int64_t> w_qa_shape = {h, qLoraRank};
+    std::vector<int64_t> w_qb_shape = {qLoraRank, n * q_head_dim};
+    std::vector<int64_t> w_kv_a_shape = {h, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> w_kv_b_k_shape = {n, qkNopeHeadDim, kvLoraRank};
+    std::vector<int64_t> cos_shape = {b, s, qkRopeHeadDim};
+    std::vector<int64_t> gamma_cq_shape = {qLoraRank};
+    std::vector<int64_t> gamma_ckv_shape = {kvLoraRank};
+    std::vector<int64_t> kv_len_shape = {b, s};
+    std::vector<int64_t> kv_cache_shape = {b, 1, s2, kvLoraRank};
+    std::vector<int64_t> kr_cache_shape = {b, 1, s2, qkRopeHeadDim};
     // output
-    std::vector<int> q_out_shape = {b, s, n, kvLoraRank};
-    std::vector<int> q_rope_out_shape = {b, s, n, qkRopeHeadDim};
+    std::vector<int64_t> q_out_shape = {b, s, n, kvLoraRank};
+    std::vector<int64_t> q_rope_out_shape = {b, s, n, qkRopeHeadDim};
     if (cacheMode == "PA_BSND") {
         int blockNum = b * (s2 / blockSize);
         kv_cache_shape = {blockNum, blockSize, 1, kvLoraRank};
@@ -87,10 +87,10 @@ void TestMlaPrologV2(std::vector<int> &params, string dataPath, bool isQuant = f
     int capacity_kv_out = std::accumulate(kv_cache_shape.begin(), kv_cache_shape.end(), 1, std::multiplies<>());
     int capacity_kr_out = std::accumulate(kr_cache_shape.begin(), kr_cache_shape.end(), 1, std::multiplies<>());
 
-    std::vector<int> w_qb_scale_shape = {1, n * q_head_dim};
+    std::vector<int64_t> w_qb_scale_shape = {1, n * q_head_dim};
     int capacity_w_qb_scale = std::accumulate(w_qb_scale_shape.begin(), w_qb_scale_shape.end(), 1, std::multiplies<>());
 
-    std::vector<int> smooth_cq_shape = {1, qLoraRank};
+    std::vector<int64_t> smooth_cq_shape = {1, qLoraRank};
     int capacity_smooth_cq = std::accumulate(smooth_cq_shape.begin(), smooth_cq_shape.end(), 1, std::multiplies<>());
 
     aclInit(nullptr);
@@ -241,7 +241,7 @@ void readAttentionBlockTableFromFile(const std::string& filename, int rows, int 
     return;
 }
 
-Tensor CastTranspoeReshape(const Tensor &input, bool isTranspose, std::vector<int>& shape, std::vector<int>& tileShape1, std::vector<int>& tileShape2) {
+Tensor CastTranspoeReshape(const Tensor &input, bool isTranspose, std::vector<int64_t>& shape, std::vector<int64_t>& tileShape1, std::vector<int64_t>& tileShape2) {
     Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape1);
     auto input32 = Cast(input, DT_FP32);
     auto transTensor = isTranspose ? Transpose(input32, {1, 2}) : input32;
@@ -297,22 +297,22 @@ void TestAttentionV2(std::vector<int> &params, string dataPath, IfaTileShapeConf
     typedef T outDtype;
     typedef int8_t wDtype;
 
-    std::vector<int> x_shape = {b, s, h};
-    std::vector<int> w_qa_shape = {h, q_lora_rank};
-    std::vector<int> w_qb_shape = {q_lora_rank, n * q_head_dim};
-    std::vector<int> w_kv_a_shape = {h, kv_lora_rank + qk_rope_head_dim};
-    std::vector<int> w_kv_b_k_shape = {n, qk_nope_head_dim, kv_lora_rank};
-    std::vector<int> cos_shape = {b, s, qk_rope_head_dim};
-    std::vector<int> gamma_cq_shape = {q_lora_rank};
-    std::vector<int> gamma_ckv_shape = {kv_lora_rank};
-    std::vector<int> kv_len_shape = {b, s};
-    std::vector<int> kv_cache_shape = {b, 1, s2, kv_lora_rank};
-    std::vector<int> kr_cache_shape = {b, 1, s2, qk_rope_head_dim};
+    std::vector<int64_t> x_shape = {b, s, h};
+    std::vector<int64_t> w_qa_shape = {h, q_lora_rank};
+    std::vector<int64_t> w_qb_shape = {q_lora_rank, n * q_head_dim};
+    std::vector<int64_t> w_kv_a_shape = {h, kv_lora_rank + qk_rope_head_dim};
+    std::vector<int64_t> w_kv_b_k_shape = {n, qk_nope_head_dim, kv_lora_rank};
+    std::vector<int64_t> cos_shape = {b, s, qk_rope_head_dim};
+    std::vector<int64_t> gamma_cq_shape = {q_lora_rank};
+    std::vector<int64_t> gamma_ckv_shape = {kv_lora_rank};
+    std::vector<int64_t> kv_len_shape = {b, s};
+    std::vector<int64_t> kv_cache_shape = {b, 1, s2, kv_lora_rank};
+    std::vector<int64_t> kr_cache_shape = {b, 1, s2, qk_rope_head_dim};
     // output
-    std::vector<int> q_out_shape = {b, s, n, kv_lora_rank};
-    std::vector<int> q_rope_out_shape = {b, s, n, qk_rope_head_dim};
-    std::vector<int> kv_cache_out_shape = {b, 1, s2, kv_lora_rank};
-    std::vector<int> kr_cache_out_shape = {b, 1, s2, qk_rope_head_dim};
+    std::vector<int64_t> q_out_shape = {b, s, n, kv_lora_rank};
+    std::vector<int64_t> q_rope_out_shape = {b, s, n, qk_rope_head_dim};
+    std::vector<int64_t> kv_cache_out_shape = {b, 1, s2, kv_lora_rank};
+    std::vector<int64_t> kr_cache_out_shape = {b, 1, s2, qk_rope_head_dim};
 
     int capacity_x = std::accumulate(x_shape.begin(), x_shape.end(), 1, std::multiplies<>());
     int wDqCapacity = std::accumulate(w_qa_shape.begin(), w_qa_shape.end(), 1, std::multiplies<>());
@@ -331,7 +331,7 @@ void TestAttentionV2(std::vector<int> &params, string dataPath, IfaTileShapeConf
     int capacity_kv_out = std::accumulate(kv_cache_out_shape.begin(), kv_cache_out_shape.end(), 1, std::multiplies<>());
     int capacity_kr_out = std::accumulate(kr_cache_out_shape.begin(), kr_cache_out_shape.end(), 1, std::multiplies<>());
 
-    std::vector<int> w_qb_scale_shape;
+    std::vector<int64_t> w_qb_scale_shape;
     int capacity_w_qb_scale;
     if (isQuant) {
         w_qb_scale_shape = {1, n * q_head_dim};
@@ -419,11 +419,11 @@ void TestAttentionV2(std::vector<int> &params, string dataPath, IfaTileShapeConf
         void *kRopeCacheData = readToDev<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/k_cache_rope.bin", capacity_kr_cache);
         void *vNopeCacheData = readToDev<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/v_cache.bin", capacity_kv_cache);
 
-        std::vector<int> qNopeShape = {b * s * n, kv_lora_rank};
-        std::vector<int> qRopeShape = {b * s * n, qk_rope_head_dim};
-        std::vector<int> kNopeShape = {blockNum * blockSize * 1, kv_lora_rank};
-        std::vector<int> kRopeShape = {blockNum * blockSize * 1, qk_rope_head_dim};
-        std::vector<int> vNopeShape = {blockNum * blockSize * 1, kv_lora_rank};
+        std::vector<int64_t> qNopeShape = {b * s * n, kv_lora_rank};
+        std::vector<int64_t> qRopeShape = {b * s * n, qk_rope_head_dim};
+        std::vector<int64_t> kNopeShape = {blockNum * blockSize * 1, kv_lora_rank};
+        std::vector<int64_t> kRopeShape = {blockNum * blockSize * 1, qk_rope_head_dim};
+        std::vector<int64_t> vNopeShape = {blockNum * blockSize * 1, kv_lora_rank};
 
         Tensor qNope(DT_BF16, qNopeShape, (uint8_t *)qNopeData, "qNope");
         Tensor qRope(DT_BF16, qRopeShape, (uint8_t *)qRopeData, "qRope");
@@ -446,13 +446,13 @@ void TestAttentionV2(std::vector<int> &params, string dataPath, IfaTileShapeConf
 
         Tensor attentionOut(DT_FP32, {b * s * n, kv_lora_rank}, outPtr, "attentionOut");
 
-        std::vector<int> inputShape = {b, n, s, kv_lora_rank};
-        std::vector<int> wUvShape = {n, kv_lora_rank, v_head_dim};
-        std::vector<int> wUvScaleWShape = {n, 1, v_head_dim};
-        std::vector<int> wOShape = {n * v_head_dim, h};
-        std::vector<int> wOScaleWShape = {1, h};
-        std::vector<int> outputShapeT = {b, s, h};
-        std::vector<int> t1Shape = {b, s, n, kv_lora_rank};
+        std::vector<int64_t> inputShape = {b, n, s, kv_lora_rank};
+        std::vector<int64_t> wUvShape = {n, kv_lora_rank, v_head_dim};
+        std::vector<int64_t> wUvScaleWShape = {n, 1, v_head_dim};
+        std::vector<int64_t> wOShape = {n * v_head_dim, h};
+        std::vector<int64_t> wOScaleWShape = {1, h};
+        std::vector<int64_t> outputShapeT = {b, s, h};
+        std::vector<int64_t> t1Shape = {b, s, n, kv_lora_rank};
         void *input_ptr = readToDev<T>(GetGoldenDir() + "/input.bin", inputSize);
         void *w_uv_ptr = readToDev<T>(GetGoldenDir() + "/w_uv.bin", wUvSize);
         void *w_uv_scale_w_ptr = readToDev<T_FLOAT>(GetGoldenDir() + "/w_uv_scale_w.bin", wUvScaleWSize);
@@ -488,8 +488,8 @@ void TestAttentionV2(std::vector<int> &params, string dataPath, IfaTileShapeConf
                 MlaProlog(x, wDq, wUqQr, wUk, wDkvKr, gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache,
                     quantInputs, ropeConfig, output_q, output_q_rope, kv_cache, kr_cache);
 
-                std::vector<int> tileShape1 = {1, 1, 8, kv_lora_rank};
-                std::vector<int> tileShape2 = {1, 8, 1, kv_lora_rank};
+                std::vector<int64_t> tileShape1 = {1, 1, 8, kv_lora_rank};
+                std::vector<int64_t> tileShape2 = {1, 8, 1, kv_lora_rank};
 
                 q_nope_bnsd = CastTranspoeReshape(output_q, true, qNopeShape, tileShape1, tileShape2);
 

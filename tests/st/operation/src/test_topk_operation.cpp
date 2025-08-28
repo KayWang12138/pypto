@@ -23,11 +23,11 @@ const unsigned IDX_DIM2 = 2;
 const unsigned IDX_DIM3 = 3;
 
 struct TopKOpFuncArgs : public OpFuncArgs {
-    TopKOpFuncArgs(std::vector<int> viewShape, const std::vector<int> tileShape, std::vector<int> count,
+    TopKOpFuncArgs(std::vector<int64_t> viewShape, const std::vector<int64_t> tileShape, std::vector<int> count,
         std::vector<int> dims, std::vector<bool> largest) :
         viewShape_(viewShape), tileShape_(tileShape), count_(count), dims_(dims), largest_(largest){}
-    std::vector<int> viewShape_;
-    std::vector<int> tileShape_;
+    std::vector<int64_t> viewShape_;
+    std::vector<int64_t> tileShape_;
     std::vector<int> count_;
     std::vector<int> dims_;
     std::vector<bool> largest_;

@@ -18,12 +18,12 @@
 using namespace tile_fwk::test_operation;
 namespace {
 struct BatchMatmulOpFuncArgs : public OpFuncArgs {
-    BatchMatmulOpFuncArgs(const std::vector<int> &viewShape, const std::vector<std::vector<int>> &tileShape,
+    BatchMatmulOpFuncArgs(const std::vector<int64_t> &viewShape, const std::vector<std::vector<int64_t>> &tileShape,
         const MatmulTestCaseParam &param)
         : viewShape_(viewShape), tileShape_(tileShape), param_(param) {}
 
-    std::vector<int> viewShape_;
-    std::vector<std::vector<int>> tileShape_;
+    std::vector<int64_t> viewShape_;
+    std::vector<std::vector<int64_t>> tileShape_;
     MatmulTestCaseParam param_;
 };
 
@@ -44,15 +44,15 @@ struct BatchMatmulTileParam {
     int mView;
     int nView;
 
-    std::vector<int> aViewShape;
-    std::vector<int> bViewShape;
+    std::vector<int64_t> aViewShape;
+    std::vector<int64_t> bViewShape;
     std::vector<SymbolicScalar> aValidShape;
     std::vector<SymbolicScalar> bValidShape;
     std::vector<SymbolicScalar> aOffset;
     std::vector<SymbolicScalar> bOffset;
     std::vector<SymbolicScalar> cOffset;
 
-    std::vector<int> vecTileShape;
+    std::vector<int64_t> vecTileShape;
 };
 
 static void GetBatchMatmulTileParam(
@@ -78,7 +78,7 @@ static void GetBatchMatmulTileParam(
     tileParam.bOffset = std::vector<SymbolicScalar>(inputDim - DIM_OFFSET_2, 0);
     tileParam.cOffset = std::vector<SymbolicScalar>(inputDim - DIM_OFFSET_2, 0);
 
-    tileParam.vecTileShape = std::vector<int>(inputDim - DIM_OFFSET_2, 1);
+    tileParam.vecTileShape = std::vector<int64_t>(inputDim - DIM_OFFSET_2, 1);
     tileParam.vecTileShape.insert(tileParam.vecTileShape.end(), {args->tileShape_[0][1], args->tileShape_[1][1]});
 }
 

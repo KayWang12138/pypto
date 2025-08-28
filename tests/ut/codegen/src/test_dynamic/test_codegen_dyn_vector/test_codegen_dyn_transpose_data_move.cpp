@@ -45,7 +45,7 @@ public:
 };
 
 void TestTransposeDataMoveBody(int dim = 3) {
-    std::vector<int> shape = {64, 64, 64};
+    std::vector<int64_t> shape = {64, 64, 64};
     if (dim == SHAPE_DIM4) {
         shape = {64, 64, 64, 64};
     }
@@ -64,7 +64,7 @@ void TestTransposeDataMoveBody(int dim = 3) {
     function->SetUnderDynamicFunction(true);
     std::shared_ptr<RawTensor> ddrRawTensor =
         std::make_shared<RawTensor>(DataType::DT_FP32, shape, "TransposeDataMove", 123);
-    std::vector<int> offset = {0, 0, 0};
+    std::vector<int64_t> offset = {0, 0, 0};
     if (dim == SHAPE_DIM4) {
         offset = {0, 0, 0, 0};
     }

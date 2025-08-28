@@ -44,20 +44,27 @@ public:
         int paramLoc;
         int ddrId;
         // the real offset of accessing tensor for this Subgraph
-        std::vector<int> offset;
-        std::vector<int> shape;
-        std::vector<int> rawShape;
+        Offset offset;
+        Shape shape;
+        Shape rawShape;
         DataType dType;
         bool isOutputToGM;
         LogicalTensorPtr tensor;
         int opMagic;
         int operandIdx;
 
-        TensorParamPackTy(const int newParamLoc, const int newDdrId, const std::vector<int> &newOffset,
-            const std::vector<int> &newShape, const std::vector<int> &newRawShape, const DataType newDtype,
+        TensorParamPackTy(const int newParamLoc, const int newDdrId, const std::vector<int64_t> &newOffset,
+            const std::vector<int64_t> &newShape, const std::vector<int64_t> &newRawShape, const DataType newDtype,
             const bool newIsOutputToGM, const LogicalTensorPtr &newTensor, const int newOpMagic, int newOperandIdx)
-            : paramLoc(newParamLoc), ddrId(newDdrId), offset(newOffset), shape(newShape), rawShape(newRawShape),
-              dType(newDtype), isOutputToGM(newIsOutputToGM), tensor(newTensor), opMagic(newOpMagic),
+            : paramLoc(newParamLoc),
+              ddrId(newDdrId),
+              offset(newOffset),
+              shape(newShape),
+              rawShape(newRawShape),
+              dType(newDtype),
+              isOutputToGM(newIsOutputToGM),
+              tensor(newTensor),
+              opMagic(newOpMagic),
               operandIdx(newOperandIdx) {}
 
         TensorParamPackTy() = default;
@@ -91,9 +98,9 @@ public:
     struct IncastParamPackTy {
         int paramLoc;
         int ddrId;
-        std::vector<int> shape;
-        std::vector<int> rawShape;
-        std::vector<int> offset;
+        Shape shape;
+        Shape rawShape;
+        Offset offset;
         DataType dType;
         LogicalTensorPtr tensor;
         int opMagic;
@@ -101,11 +108,18 @@ public:
 
         IncastParamPackTy() = default;
 
-        IncastParamPackTy(const int newParamLoc, const int newDdrId, const std::vector<int> &newOffset,
-            const std::vector<int> &newShape, const std::vector<int> &newRawShape, const DataType newDtype,
+        IncastParamPackTy(const int newParamLoc, const int newDdrId, const std::vector<int64_t> &newOffset,
+            const std::vector<int64_t> &newShape, const std::vector<int64_t> &newRawShape, const DataType newDtype,
             const LogicalTensorPtr &newTensor, const int newOpMagic, int newOperandIdx)
-            : paramLoc(newParamLoc), ddrId(newDdrId), shape(newShape), rawShape(newRawShape), offset(newOffset),
-              dType(newDtype), tensor(newTensor), opMagic(newOpMagic), operandIdx(newOperandIdx){}
+            : paramLoc(newParamLoc),
+              ddrId(newDdrId),
+              shape(newShape),
+              rawShape(newRawShape),
+              offset(newOffset),
+              dType(newDtype),
+              tensor(newTensor),
+              opMagic(newOpMagic),
+              operandIdx(newOperandIdx) {}
 
         void Print(std::ostream &osm = std::cout) const {
             osm << IntVecToStr(offset);
@@ -136,19 +150,28 @@ public:
         int paramLoc;
         int ddrId;
         int refCount;
-        std::vector<int> offset;
-        std::vector<int> shape;
-        std::vector<int> rawShape;
+        Offset offset;
+        Shape shape;
+        Shape rawShape;
         DataType dType;
         LogicalTensorPtr tensor;
         int opMagic;
         int operandIdx;
 
         OutcastParamPackTy(const int newParamLoc, const int newDdrId, const int newRefCount,
-            const std::vector<int> &newShape, const std::vector<int> &rawshape, const std::vector<int> &newOffset,
-            const DataType newDtype, const LogicalTensorPtr &newTensor, const int newOpMagic, int newOperandIdx)
-            : paramLoc(newParamLoc), ddrId(newDdrId), refCount(newRefCount), offset(newOffset), shape(newShape),
-              rawShape(rawshape), dType(newDtype), tensor(newTensor), opMagic(newOpMagic), operandIdx(newOperandIdx) {}
+            const std::vector<int64_t> &newShape, const std::vector<int64_t> &rawshape,
+            const std::vector<int64_t> &newOffset, const DataType newDtype, const LogicalTensorPtr &newTensor,
+            const int newOpMagic, int newOperandIdx)
+            : paramLoc(newParamLoc),
+              ddrId(newDdrId),
+              refCount(newRefCount),
+              offset(newOffset),
+              shape(newShape),
+              rawShape(rawshape),
+              dType(newDtype),
+              tensor(newTensor),
+              opMagic(newOpMagic),
+              operandIdx(newOperandIdx) {}
 
         OutcastParamPackTy() = default;
 
@@ -214,18 +237,26 @@ public:
         int seqNo;
         int operandIdx;
         int realIncastDDRId;
-        std::vector<int> offset;
-        std::vector<int> shape;
-        std::vector<int> rawShape;
+        Offset offset;
+        Shape shape;
+        Shape rawShape;
         DataType dType;
         LogicalTensorPtr tensor;
         int opMagic;
 
         InCastInfoTy(const int newSeqNo, const int newOperandIdx, const int newRealIncastDDRId,
-            const std::vector<int> &newOffset, const std::vector<int> &newShape, const std::vector<int> &newRawShape,
-            const DataType dtype, const LogicalTensorPtr &newTensor, const int newOpMagic)
-            : seqNo(newSeqNo), operandIdx(newOperandIdx), realIncastDDRId(newRealIncastDDRId), offset(newOffset),
-              shape(newShape), rawShape(newRawShape), dType(dtype), tensor(newTensor), opMagic(newOpMagic) {}
+            const std::vector<int64_t> &newOffset, const std::vector<int64_t> &newShape,
+            const std::vector<int64_t> &newRawShape, const DataType dtype, const LogicalTensorPtr &newTensor,
+            const int newOpMagic)
+            : seqNo(newSeqNo),
+              operandIdx(newOperandIdx),
+              realIncastDDRId(newRealIncastDDRId),
+              offset(newOffset),
+              shape(newShape),
+              rawShape(newRawShape),
+              dType(dtype),
+              tensor(newTensor),
+              opMagic(newOpMagic) {}
     };
 
     // Input output tensors of this subgraph invoke
@@ -233,20 +264,28 @@ public:
         int seqNo;
         int operandIdx;
         int realDDRId;
-        std::vector<int> offset;
-        std::vector<int> shape;
-        std::vector<int> rawShape;
+        Offset offset;
+        Shape shape;
+        Shape rawShape;
         DataType dType;
         bool isOutputToGM;
         LogicalTensorPtr tensor;
         int opMagic;
 
         TensorInfoTy(const int newSeqNo, const int newOperandIndex, const int newRealDDRId,
-            const std::vector<int> &newOffset, const std::vector<int> &newShape, const std::vector<int> &newRawShape,
-            const DataType newDtype, const bool newIsOutputToGM, const LogicalTensorPtr &newTensor, const int newOpMagic)
-            : seqNo(newSeqNo), operandIdx(newOperandIndex), realDDRId(newRealDDRId), offset(newOffset),
-              shape(newShape), rawShape(newRawShape), dType(newDtype), isOutputToGM(newIsOutputToGM),
-              tensor(newTensor), opMagic(newOpMagic) {}
+            const std::vector<int64_t> &newOffset, const std::vector<int64_t> &newShape,
+            const std::vector<int64_t> &newRawShape, const DataType newDtype, const bool newIsOutputToGM,
+            const LogicalTensorPtr &newTensor, const int newOpMagic)
+            : seqNo(newSeqNo),
+              operandIdx(newOperandIndex),
+              realDDRId(newRealDDRId),
+              offset(newOffset),
+              shape(newShape),
+              rawShape(newRawShape),
+              dType(newDtype),
+              isOutputToGM(newIsOutputToGM),
+              tensor(newTensor),
+              opMagic(newOpMagic) {}
     };
 
     using TensorArgsTy = std::vector<TensorInfoTy>;
@@ -274,20 +313,29 @@ public:
         int refCount;
         int realOutCastDDRId;
         SuccessorIncastInfoTy successorIncastInfo;
-        std::vector<int> offset;
-        std::vector<int> shape;
-        std::vector<int> rawShape;
+        Offset offset;
+        Shape shape;
+        Shape rawShape;
         DataType dType;
         LogicalTensorPtr tensor;
         int opMagic;
 
-        OutCastInfoTy(const int newSrcESgId, const int newSeqNo, int newOperandIdx, const int newRefCount, const int newDdrId,
-            const SuccessorIncastInfoTy &info, const std::vector<int> &newOffset, const std::vector<int> &newShape,
-            const std::vector<int> &newRawShape, const DataType dtype, const LogicalTensorPtr &newTensor,
-            const int newOpMagic)
-            : srcESgId(newSrcESgId), seqNo(newSeqNo), operandIdx(newOperandIdx), refCount(newRefCount), realOutCastDDRId(newDdrId),
-              successorIncastInfo(info), offset(newOffset), shape(newShape), rawShape(newRawShape), dType(dtype),
-              tensor(newTensor), opMagic(newOpMagic) {}
+        OutCastInfoTy(const int newSrcESgId, const int newSeqNo, int newOperandIdx, const int newRefCount,
+            const int newDdrId, const SuccessorIncastInfoTy &info, const std::vector<int64_t> &newOffset,
+            const std::vector<int64_t> &newShape, const std::vector<int64_t> &newRawShape, const DataType dtype,
+            const LogicalTensorPtr &newTensor, const int newOpMagic)
+            : srcESgId(newSrcESgId),
+              seqNo(newSeqNo),
+              operandIdx(newOperandIdx),
+              refCount(newRefCount),
+              realOutCastDDRId(newDdrId),
+              successorIncastInfo(info),
+              offset(newOffset),
+              shape(newShape),
+              rawShape(newRawShape),
+              dType(dtype),
+              tensor(newTensor),
+              opMagic(newOpMagic) {}
 
         OutCastInfoTy() = default;
     };
@@ -295,7 +343,7 @@ public:
 
 public:
     inline void RecordTensorArg(const int seqNo, const int operandIdx, const int realDDRId,
-        const std::vector<int> &offset, const std::vector<int> &shape, const std::vector<int> &rawShape,
+        const std::vector<int64_t> &offset, const std::vector<int64_t> &shape, const std::vector<int64_t> &rawShape,
         const DataType dtype, const bool isOutputToGM, const LogicalTensorPtr &tensor, const int opMagic) {
         tensorArgs_.emplace_back(seqNo, operandIdx, realDDRId, offset, shape, rawShape, dtype, isOutputToGM, tensor,
                                 opMagic);
@@ -303,15 +351,16 @@ public:
 
     // Record Incast connection, build relation shape with outcast records
     inline void RecordConnection(const int srcESgId, const int dstESgId, const int tgtSeqNo, const int operandIndex,
-        const int realIncastDDRId, const std::vector<int> &offset, const std::vector<int> &shape,
-        const std::vector<int> &rawShape, const DataType dtype, const LogicalTensorPtr &tensor, const int opMagic) {
+        const int realIncastDDRId, const std::vector<int64_t> &offset, const std::vector<int64_t> &shape,
+        const std::vector<int64_t> &rawShape, const DataType dtype, const LogicalTensorPtr &tensor, const int opMagic) {
         connections_.emplace_back(srcESgId, dstESgId,
             InCastInfoTy{tgtSeqNo, operandIndex, realIncastDDRId, offset, shape, rawShape, dtype, tensor, opMagic});
     }
 
-    inline void RecordOutcast(const int srcESgId, const int srcSeqNo, int srcOperandIdx, const int refCount, const int realOutcastDDRId,
-        const SuccessorIncastInfoTy &incasts, const std::vector<int> &offset, const std::vector<int> &shape,
-        const std::vector<int> &rawShape, const DataType dtype, const LogicalTensorPtr &tensor, const int opMagic) {
+    inline void RecordOutcast(const int srcESgId, const int srcSeqNo, int srcOperandIdx, const int refCount,
+        const int realOutcastDDRId, const SuccessorIncastInfoTy &incasts, const std::vector<int64_t> &offset,
+        const std::vector<int64_t> &shape, const std::vector<int64_t> &rawShape, const DataType dtype,
+        const LogicalTensorPtr &tensor, const int opMagic) {
         outCasts_.emplace_back(
             srcESgId, srcSeqNo, srcOperandIdx, refCount, realOutcastDDRId, incasts, offset, shape, rawShape, dtype, tensor, opMagic);
     }
@@ -352,17 +401,24 @@ public:
         int seqNo;
         int operandIdx;
         int symDDRId;
-        std::vector<int> shape;
-        std::vector<int> offset;
+        Shape shape;
+        Offset offset;
         std::string symName;
         std::string symbol;
         DataType dataType;
 
-        InCastParamTy(const int newSeqNo, const int newOperandIdx, const int newSymDDRId, const std::vector<int> &newShape,
-            const std::vector<int> &newOffset, const std::string &newSymName, const int newParamLoc,
-            const std::string newSymbol = "", const DataType newDataType = DataType::DT_BOTTOM)
-            : paramLoc(newParamLoc), seqNo(newSeqNo), operandIdx(newOperandIdx), symDDRId(newSymDDRId), shape(newShape),
-              offset(newOffset), symName(newSymName), symbol(newSymbol), dataType(newDataType) {}
+        InCastParamTy(const int newSeqNo, const int newOperandIdx, const int newSymDDRId,
+            const std::vector<int64_t> &newShape, const std::vector<int64_t> &newOffset, const std::string &newSymName,
+            const int newParamLoc, const std::string newSymbol = "", const DataType newDataType = DataType::DT_BOTTOM)
+            : paramLoc(newParamLoc),
+              seqNo(newSeqNo),
+              operandIdx(newOperandIdx),
+              symDDRId(newSymDDRId),
+              shape(newShape),
+              offset(newOffset),
+              symName(newSymName),
+              symbol(newSymbol),
+              dataType(newDataType) {}
 
         void Print(std::ostream &osm = std::cout) const {
             osm << "INCAST";
@@ -383,18 +439,24 @@ public:
         int operandIdx;
         int symDDRId;
         int refCount;
-        std::vector<int> offset;
-        std::vector<int> shape;
+        Offset offset;
+        Shape shape;
         std::string symName;
         std::string symbol;
         DataType dataType;
 
         OutCastParamTy(const int newSeqNo, const int newOperandIdx, const int newSymDDRId, const int newRefCount,
-            const std::vector<int> &newShape, const std::vector<int> &newOffset, const std::string &newSymName,
-            const int newParamLoc, const std::string newSymbol = "",
-            const DataType newDataType = DataType::DT_BOTTOM)
-            : paramLoc(newParamLoc), seqNo(newSeqNo), operandIdx(newOperandIdx), symDDRId(newSymDDRId),
-              refCount(newRefCount), offset(newOffset), shape(newShape), symName(newSymName), symbol(newSymbol),
+            const std::vector<int64_t> &newShape, const std::vector<int64_t> &newOffset, const std::string &newSymName,
+            const int newParamLoc, const std::string newSymbol = "", const DataType newDataType = DataType::DT_BOTTOM)
+            : paramLoc(newParamLoc),
+              seqNo(newSeqNo),
+              operandIdx(newOperandIdx),
+              symDDRId(newSymDDRId),
+              refCount(newRefCount),
+              offset(newOffset),
+              shape(newShape),
+              symName(newSymName),
+              symbol(newSymbol),
               dataType(newDataType) {}
 
         void Print(std::ostream &osm = std::cout) const {
@@ -417,18 +479,24 @@ public:
         int seqNo;
         int operandIdx;
         int symDDRId;
-        std::vector<int> symOffset;
-        std::vector<int> shape;
+        Offset symOffset;
+        Shape shape;
         std::string symName;
         std::string symbol;
         DataType dataType;
 
         TensorParamTy(const int newSeqNo, const int newOperandIdx, const int newSymDDRId,
-            const std::vector<int> &newShape, const std::vector<int> &newOffset, const std::string &newSymName,
-            const int newParamLoc, const std::string newSymbol = "",
-            const DataType newDataType = DataType::DT_BOTTOM)
-            : paramLoc(newParamLoc), seqNo(newSeqNo), operandIdx(newOperandIdx), symDDRId(newSymDDRId),
-              symOffset(newOffset), shape(newShape), symName(newSymName), symbol(newSymbol), dataType(newDataType) {}
+            const std::vector<int64_t> &newShape, const std::vector<int64_t> &newOffset, const std::string &newSymName,
+            const int newParamLoc, const std::string newSymbol = "", const DataType newDataType = DataType::DT_BOTTOM)
+            : paramLoc(newParamLoc),
+              seqNo(newSeqNo),
+              operandIdx(newOperandIdx),
+              symDDRId(newSymDDRId),
+              symOffset(newOffset),
+              shape(newShape),
+              symName(newSymName),
+              symbol(newSymbol),
+              dataType(newDataType) {}
 
         void Print(std::ostream &osm = std::cout) const {
             osm << IntVecToStr(symOffset);
@@ -447,22 +515,22 @@ public:
     using TensorParamListTy = std::vector<TensorParamTy>;
 
 public:
-    void AppendIncastParam(const int seqNo, const int operandIdx, const int symDDRId, const std::vector<int> &shape,
-        const std::vector<int> &offset, const std::string &symName, const int paramLoc, const std::string &symbol,
+    void AppendIncastParam(const int seqNo, const int operandIdx, const int symDDRId, const std::vector<int64_t> &shape,
+        const std::vector<int64_t> &offset, const std::string &symName, const int paramLoc, const std::string &symbol,
         const DataType dataType) {
         inCastArgs_.emplace_back(
             InCastParamTy(seqNo, operandIdx, symDDRId, shape, offset, symName, paramLoc, symbol, dataType));
     }
 
     void AppendOutcastParam(const int seqNo, const int operandIdx, const int symDDRId, const int refCount,
-        const std::vector<int> &shape, const std::vector<int> &offset, const std::string &symName, const int paramLoc,
-        const std::string &symbol, const DataType dataType) {
+        const std::vector<int64_t> &shape, const std::vector<int64_t> &offset, const std::string &symName,
+        const int paramLoc, const std::string &symbol, const DataType dataType) {
         outCastArgs_.emplace_back(
             OutCastParamTy(seqNo, operandIdx, symDDRId, refCount, shape, offset, symName, paramLoc, symbol, dataType));
     }
 
-    void AppendTensorParam(const int seqNo, const int operandIdx, const int symDDRId, const std::vector<int> &shape,
-        const std::vector<int> &offset, const std::string &symName, const int paramLoc, const std::string &symbol,
+    void AppendTensorParam(const int seqNo, const int operandIdx, const int symDDRId, const std::vector<int64_t> &shape,
+        const std::vector<int64_t> &offset, const std::string &symName, const int paramLoc, const std::string &symbol,
         const DataType dataType) {
         tensorsArgs_.emplace_back(
             TensorParamTy(seqNo, operandIdx, symDDRId, shape, offset, symName, paramLoc, symbol, dataType));
@@ -505,7 +573,7 @@ class SubfuncTopologyInfoTy {
         setType outGraph;
         uint32_t extType{0};
         uint32_t extParamNum{0};
-        std::vector<int> extParams;
+        std::vector<int64_t> extParams;
     };
 
 public:
@@ -516,8 +584,8 @@ public:
     void SetMaxM(const int maxM) { maxM_ = maxM; }
 
     void AddEntry(const int esgId, const int readState, const setType &succ);
-    
-    void UpdateEntry(const uint32_t extType, const uint32_t extParamNum, const std::vector<int> &extParams);
+
+    void UpdateEntry(const uint32_t extType, const uint32_t extParamNum, const std::vector<int64_t> &extParams);
 
     std::vector<int> TopoSort();
 

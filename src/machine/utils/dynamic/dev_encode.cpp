@@ -720,7 +720,7 @@ struct EncodeDevAscendFunctionInfo {
     std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> incastOpAttrDict;
     std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> outcastOpAttrDict;
 
-    static DevAscendShape InitShape(const std::vector<int> &shape) {
+    static DevAscendShape InitShape(const std::vector<int64_t> &shape) {
         DevAscendShape initShape;
         initShape.dimSize = shape.size();
         for (size_t i = 0; i < DEV_SHAPE_DIM_MAX; i++) {
@@ -732,7 +732,7 @@ struct EncodeDevAscendFunctionInfo {
         }
         return initShape;
     }
-    static DevAscendStride InitStride(const std::vector<int> &stride) {
+    static DevAscendStride InitStride(const std::vector<int64_t> &stride) {
         DevAscendStride initStride;
         initStride.dimSize = stride.size();
         for (size_t i = 0; i < DEV_SHAPE_DIM_MAX; i++) {
@@ -744,7 +744,7 @@ struct EncodeDevAscendFunctionInfo {
         }
         return initStride;
     }
-    static DevCellMatchTableDesc InitCellMatchTableDesc(const std::vector<int> &shape, const std::vector<int> &stride) {
+    static DevCellMatchTableDesc InitCellMatchTableDesc(const std::vector<int64_t> &shape, const std::vector<int64_t> &stride) {
         DevCellMatchTableDesc desc = {
             InitShape(shape),
             InitStride(stride),
@@ -761,7 +761,7 @@ struct EncodeDevAscendFunctionInfo {
         return data;
     }
 
-    void UpdateCellMatchShape(DevCellMatchTableDesc &cellMatchTableDesc, const std::vector<int> &shape) {
+    void UpdateCellMatchShape(DevCellMatchTableDesc &cellMatchTableDesc, const std::vector<int64_t> &shape) {
         auto &cellMatchShape = cellMatchTableDesc.cellShape;
         for (size_t i = 0; i < shape.size(); ++i) {
             auto dimValue = shape[i];
@@ -818,9 +818,9 @@ struct EncodeDevAscendFunctionInfo {
                 }
 
                 auto coaIndex = op.GetOOpAttrOffset(k) + COA_INDEX_DIM_BASE;
-                std::vector<int> offset = callAttr->GetLinearImmediateArgList(coaIndex, coaIndex + dim, true);
-                std::vector<int> shape = callAttr->GetLinearImmediateArgList(coaIndex + dim, coaIndex + dim * 2, false);
-                if (offset == std::vector<int>(dim, 0) && shape == oOperand->GetShape()) {
+                std::vector<int64_t> offset = callAttr->GetLinearImmediateArgList(coaIndex, coaIndex + dim, true);
+                std::vector<int64_t> shape = callAttr->GetLinearImmediateArgList(coaIndex + dim, coaIndex + dim * 0x2, false);
+                if (offset == std::vector<int64_t>(dim, 0) && shape == oOperand->GetShape()) {
                     stitchPolicyFullCoverProducer = DevAscendFunctionCallOperandUse(j, k, coaIndex, coaIndex + dim);
                 } else {
                     useList.emplace_back(j, k, coaIndex, coaIndex + dim);
@@ -859,7 +859,7 @@ struct EncodeDevAscendFunctionInfo {
             InoutOperationAttr outcastOpAttr;
             auto dim = o->shape.size();
             outcastOpAttr.dim = dim;
-            outcastOpAttr.cellMatchTableDesc = InitCellMatchTableDesc(o->GetShape(), std::vector<int>(dim, 1));
+            outcastOpAttr.cellMatchTableDesc = InitCellMatchTableDesc(o->GetShape(), std::vector<int64_t>(dim, 1));
             EncodeAnalysisOpUseOutCasts(o, allOutcastUseOpSet, outcastOpAttr);
         }
 
@@ -915,7 +915,7 @@ struct EncodeDevAscendFunctionInfo {
             InoutOperationAttr incastOpAttr;
             auto dim = i->shape.size();
             incastOpAttr.dim = dim;
-            incastOpAttr.cellMatchTableDesc = InitCellMatchTableDesc(i->GetShape(), std::vector<int>(dim, 1));
+            incastOpAttr.cellMatchTableDesc = InitCellMatchTableDesc(i->GetShape(), std::vector<int64_t>(dim, 1));
 
             std::set<uint32_t> incastUseOpSet;
             for (size_t j = 0; j < callList.size(); j++) {
@@ -923,11 +923,11 @@ struct EncodeDevAscendFunctionInfo {
                 auto callAttr = dynamic_cast<CallOpAttribute *>(op.GetOpAttribute().get());
                 // add icast and oper io's relationship
                 for (size_t k = 0; k < op.GetIOperands().size(); ++k) {
-                    auto &iOperand = op.GetIOperands()[k];                    
+                    auto &iOperand = op.GetIOperands()[k];
                     auto coaIndex = op.GetIOpAttrOffset(k) + COA_INDEX_DIM_BASE;
                     if (i->tensor->rawmagic == iOperand->tensor->rawmagic) {
                         ASSERT(iOperand->GetShape().size() == dim);
-                        std::vector<int> shape = callAttr->GetLinearImmediateArgList(coaIndex + dim, coaIndex + dim * 2, false);
+                        std::vector<int64_t> shape = callAttr->GetLinearImmediateArgList(coaIndex + dim, coaIndex + dim * 0x2, false);
                         incastOpAttr.useList.emplace_back(j, k, coaIndex + 1, coaIndex + dim + 1);
                         UpdateCellMatchShape(incastOpAttr.cellMatchTableDesc, shape);
                         ALOG_DEBUG_F("minimal shape for incast %d raw %d op %d %d is %s\n", i->magic, i->GetRawMagic(), j,
@@ -1300,7 +1300,7 @@ void DevAscendProgram::InitSymbolTable(
     symbolTableNameList.HostInitDataSizeOffset(initOffset, 0);
     uint64_t offset = 0;
     for (size_t index = 0; index < symbolTableInput->GetSymbolTable().size(); index++) {
-        std::string name = symbolTableInput->GetSymbolTable()[index];    
+        std::string name = symbolTableInput->GetSymbolTable()[index];
         ONFILLCONTENT {
             symbolTable[index].index = index;
         };

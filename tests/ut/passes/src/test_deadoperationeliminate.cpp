@@ -59,14 +59,14 @@ TEST_F(TestDeadOperationEliminatePass, DeadOperationEliminateUTest1) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> shape = {kNumEight, kNumEight};
+    std::vector<int64_t> shape = {kNumEight, kNumEight};
     auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto ddrTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    
+
     auto &view1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ddrTensor});
     auto &view2 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {outCast});
-    
+
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
 

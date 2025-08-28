@@ -423,7 +423,7 @@ std::string CodeGenCloudNPU::GenAlloc(
     std::ostringstream oss;
     oss << dataTypeStr << " " << addrSpaceQualifier << " *" << allocVarName << " = (" << dataTypeStr << " "
         << addrSpaceQualifier << " *)get_imm(0x" << std::hex << static_cast<unsigned>(range.start) << "); // size: 0x"
-        << std::hex << static_cast<unsigned>(range.Size()) << " \n";
+        << std::hex << static_cast<unsigned>(range.Size()) << "\n";
 
     return oss.str();
 }

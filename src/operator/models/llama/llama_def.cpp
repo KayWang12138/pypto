@@ -60,13 +60,13 @@ Tensor FlashAttention(const Tensor &q, const Tensor &k, const Tensor &v, const T
     std::cout << "s1Loop, s2Loop -------" << s1Loop << "," << s2Loop << "," << std::endl;
 
     auto bns = atDims.b * atDims.n * atDims.s;
-    std::vector<int> shapeReduce = {bns, 1};
+    std::vector<int64_t> shapeReduce = {bns, 1};
     std::vector<float> max(bns, 0);
     std::vector<float> sum(bns, 0);
 
-    std::map<std::vector<int>, Tensor> lastOi;
-    std::map<std::vector<int>, Tensor> lastMi;
-    std::map<std::vector<int>, Tensor> lastLi;
+    std::map<std::vector<int64_t>, Tensor> lastOi;
+    std::map<std::vector<int64_t>, Tensor> lastMi;
+    std::map<std::vector<int64_t>, Tensor> lastLi;
     Tensor result;
 
     // LLAMA_FUNCTION(FlashAttention_L4) {
@@ -83,9 +83,9 @@ Tensor FlashAttention(const Tensor &q, const Tensor &k, const Tensor &v, const T
                     ASLOGI("inner fa %d %d %d %d", s2Idx, s1Idx, s2Loop, s1Loop);
                     // LLAMA_FUNCTION(FlashAttention_L0) {
                     auto qi = View(q, {singleM, d}, {bIdx * s + s1Idx * singleM, nIdx * d});
-                    std::vector<int> oiOffset = {bIdx * s + s1Idx * singleM, nIdx * d};
-                    std::vector<int> liOffset = {(bIdx * n + nIdx) * s + s1Idx * singleM, 0};
-                    std::vector<int> miOffset = {(bIdx * n + nIdx) * s + s1Idx * singleM, 0};
+                    std::vector<int64_t> oiOffset = {bIdx * s + s1Idx * singleM, nIdx * d};
+                    std::vector<int64_t> liOffset = {(bIdx * n + nIdx) * s + s1Idx * singleM, 0};
+                    std::vector<int64_t> miOffset = {(bIdx * n + nIdx) * s + s1Idx * singleM, 0};
                     SetC1CubeConfig(cubeCfg);
                     auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj); // [128, 128], [128, 1024] => [128, 1024]
 
@@ -144,7 +144,7 @@ Tensor FlashAttention(const Tensor &q, const Tensor &k, const Tensor &v, const T
             }
         }
 
-        std::vector<std::pair<Tensor, std::vector<int>>> aggregation;
+        std::vector<std::pair<Tensor, std::vector<int64_t>>> aggregation;
         for (auto &[offset, tensor] : lastOi) {
             aggregation.emplace_back(tensor, offset);
         }
@@ -180,7 +180,7 @@ Tensor LlamaLayer(Tensor hiddenStates, const Tensor &attnWight, const Tensor &de
     hiddenStates = RmsNorm(hiddenStates);
 
     auto bns = atDims.b * atDims.n * atDims.s;
-    std::vector<int> shapeReduce = {bns, 1};
+    std::vector<int64_t> shapeReduce = {bns, 1};
     std::vector<float> max(bns, 0);
     std::vector<float> sum(bns, 0);
 

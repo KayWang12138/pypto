@@ -33,19 +33,19 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam)
     constexpr size_t paramsSize = 7;
     auto [b, s, n, kvLoraRank, vHeadDim, h, typeNum] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
     DataType dtype = GetDataTypeNum(typeNum);
-    
-    std::vector<int> agInShape = {b * n * s / rankSize, kvLoraRank};
+
+    std::vector<int64_t> agInShape = {b * n * s / rankSize, kvLoraRank};
     std::string agInFile = "/ag_in_rank_" + std::to_string(rankId) + ".bin";
     Tensor agIn = CreateTensorFromFile(agInShape, dtype, agInFile, "agIn");
-    std::vector<int> wLoraShape = {n, kvLoraRank, vHeadDim};
+    std::vector<int64_t> wLoraShape = {n, kvLoraRank, vHeadDim};
     std::string wLoraFile = "/w_lora_rank_" + std::to_string(rankId) + ".bin";
     Tensor wLora = CreateTensorFromFile(wLoraShape, dtype, wLoraFile, "wLora");
-    std::vector<int> wOutShape = {n * vHeadDim, h};
+    std::vector<int64_t> wOutShape = {n * vHeadDim, h};
     std::string wOutFile = "/w_out_rank_" + std::to_string(rankId) + ".bin";
     Tensor wOut = CreateTensorFromFile(wOutShape, dtype, wOutFile, "wOut");
 
-    std::vector<int> outShape = {b * s / rankSize, h};
-    int outEleNum = GetEleNumFromShape(outShape);
+    std::vector<int64_t> outShape = {b * s / rankSize, h};
+    int64_t outEleNum = GetEleNumFromShape(outShape);
     uint64_t outByteSize = outEleNum * BytesOf(dtype);
     uint8_t* outPtr = allocDevAddr(outByteSize);
     Tensor out(dtype, outShape, outPtr, "out");

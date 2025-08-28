@@ -64,7 +64,7 @@ void SplitLargeFanoutTensor::RecordMatched(Function &function, Operation &op,
     auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
     auto &fromOffset = viewOpAttribute->GetFromOffset();
     auto status = CalcOverlap(targetTensor, matchedTensors, true);
-    std::vector<int> newOffset(fromOffset.size(), 0);
+    std::vector<int64_t> newOffset(fromOffset.size(), 0);
     switch (status) {
         case OverlapStatus::PERFECTLY_MATCH: {
             auto overlap = overlaps.front();
@@ -94,7 +94,7 @@ void SplitLargeFanoutTensor::RecordMatched(Function &function, Operation &op,
             newInput->SetMemoryTypeBoth(input->GetMemoryTypeOriginal());
             for (size_t i = 0; i < overlaps.size(); i++) {
                 auto &overlap = overlaps[i];
-                std::vector<int> newAssembleOffset = matchedTensors[i]->GetOffset();
+                std::vector<int64_t> newAssembleOffset = matchedTensors[i]->GetOffset();
                 for (size_t j = 0; j < newAssembleOffset.size(); ++j) {
                     newAssembleOffset[j] -= fromOffset[j];
                 }

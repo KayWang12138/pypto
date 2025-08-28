@@ -43,14 +43,14 @@ void TestNsa(const SimpleParams &params) {
 
     DataType dType = (std::is_same<T, npu::tile_fwk::float16>::value) ? DT_FP16 : DT_BF16;
 
-    std::vector<int> x_shape = {b, s, h};
-    std::vector<int> gateW1Shape = {h, 4 * h};
-    std::vector<int> gateW2Shape = {4 * h, 3 * n};
-    std::vector<int> gateSimW1Shape = {h, 3 * n};
-    //    std::vector<int> gatingScoreShape = {b, n, s, 3};
-    std::vector<int> gatingScoreShape = {b, s, n, 3};
-    std::vector<int> tempShape = {b * s, n * 3};
-    std::vector<int> mm1Shape = {b * s, 4 * h};
+    std::vector<int64_t> x_shape = {b, s, h};
+    std::vector<int64_t> gateW1Shape = {h, 4 * h};
+    std::vector<int64_t> gateW2Shape = {4 * h, 3 * n};
+    std::vector<int64_t> gateSimW1Shape = {h, 3 * n};
+    //    std::vector<int64_t> gatingScoreShape = {b, n, s, 3};
+    std::vector<int64_t> gatingScoreShape = {b, s, n, 3};
+    std::vector<int64_t> tempShape = {b * s, n * 3};
+    std::vector<int64_t> mm1Shape = {b * s, 4 * h};
 
     Tensor x(dType, x_shape, "x");
     Tensor gateW1(dType, gateW1Shape, "gateW1");
@@ -77,15 +77,15 @@ void TestGenslc(const SimpleParams &params,int topk_actual_len = 0, bool isGenSl
 
     DataType dType = (std::is_same<T, npu::tile_fwk::float16>::value) ? DT_FP16 : DT_BF16;
 
-    std::vector<int> x_shape = {n2, g, s_cmp};
+    std::vector<int64_t> x_shape = {n2, g, s_cmp};
     if (!isGenSlc) {
         x_shape = {1, s_slc};
     }
-    std::vector<int> trans0Shape = {n2, s_cmp, g};
-    std::vector<int> reduce0Shape = {n2, s_slc, g};
-    std::vector<int> trans1Shape = {n2, g, s_slc};
-    std::vector<int> reduce1Shape = {n2, 1, s_slc};
-    std::vector<int> resShape = {1, 16};
+    std::vector<int64_t> trans0Shape = {n2, s_cmp, g};
+    std::vector<int64_t> reduce0Shape = {n2, s_slc, g};
+    std::vector<int64_t> trans1Shape = {n2, g, s_slc};
+    std::vector<int64_t> reduce1Shape = {n2, 1, s_slc};
+    std::vector<int64_t> resShape = {1, 16};
 
     Tensor x(dType, x_shape, "x");
     Tensor trans0(dType, trans0Shape, "trans0");
@@ -267,4 +267,3 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_6k1) {
     params.n2 = 1;
     TestGenslc<npu::tile_fwk::float16>(params,6*1024+1);
 }
-

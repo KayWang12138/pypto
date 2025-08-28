@@ -34,7 +34,7 @@ TEST_F(DynamicOpTest, VectorDuplicateUnalign) {
     int sTile = 32;
     int s = 50;  // dynamic
     int h = 128;
-    std::vector<int> shape = {s, h};
+    std::vector<int64_t> shape = {s, h};
     Tensor output(DT_FP32, shape, "output");
     Tensor actSeqs(DT_INT32, {1}, "actual_seq");
 

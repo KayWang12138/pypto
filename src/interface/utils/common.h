@@ -84,8 +84,7 @@ enum class SemanticLabelType {
     LABEL_COUNT,
 };
 
-template <typename T>
-inline T AlignUp(const T value, const T alignment) {
+inline int64_t AlignUp(int64_t value, int64_t alignment) {
     if (alignment == 0) {
         return value;
     }

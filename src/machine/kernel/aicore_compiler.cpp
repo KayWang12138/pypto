@@ -79,18 +79,18 @@ std::string GenSubFuncCall(std::map<std::string, Function *> &leafDict, CoreType
   int leafIndex = 1;
   std::map<int, std::string> idxNameMap;
   // Declare extern leaf func.
-  for (const auto iter : leafDict) {
-    const auto leaf = iter.second;
-    leafIndex = param.calleeHashIndexDict[leaf->ComputeHash().GetHash()];
-    auto leafFuncAttr = leaf->GetLeafFuncAttribute();
-    ASSERT(leafFuncAttr != nullptr);
-    if (coreType != leafFuncAttr->coreType) {
-      continue;
-    }
-    src_obj << leafFuncAttr->binPath << " ";
-    code << leafFuncAttr->kernelDeclare << std::endl;
-    idxNameMap[leafIndex] = leafFuncAttr->kernelName;
-    ALOG_DEBUG_F("Func[%d] kernel_name[%s].", leafIndex, leafFuncAttr->kernelName.c_str());
+  for (const auto &iter : leafDict) {
+      const auto leaf = iter.second;
+      leafIndex = param.calleeHashIndexDict[leaf->ComputeHash().GetHash()];
+      auto leafFuncAttr = leaf->GetLeafFuncAttribute();
+      ASSERT(leafFuncAttr != nullptr);
+      if (coreType != leafFuncAttr->coreType) {
+          continue;
+      }
+      src_obj << leafFuncAttr->binPath << " ";
+      code << leafFuncAttr->kernelDeclare << std::endl;
+      idxNameMap[leafIndex] = leafFuncAttr->kernelName;
+      ALOG_DEBUG_F("Func[%d] kernel_name[%s].", leafIndex, leafFuncAttr->kernelName.c_str());
   }
   if (idxNameMap.empty()) {
     return "";
@@ -190,4 +190,3 @@ int CompileAICoreKernel(std::map<std::string, Function *> &leafDict, dynamic::En
 }
 
 }
-

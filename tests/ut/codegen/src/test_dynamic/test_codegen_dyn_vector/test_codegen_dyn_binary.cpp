@@ -47,7 +47,7 @@ public:
     void TearDown() override {}
 };
 
-void TestAddDynBody(const std::vector<int> &shape, const std::vector<int> &tile_shape, const std::string &name,
+void TestAddDynBody(const std::vector<int64_t> &shape, const std::vector<int64_t> &tile_shape, const std::string &name,
     bool isNeedCalcMinForBinaryOperands = false) {
     Program::GetInstance().GetTileShape().SetVecTileShapes(tile_shape);
     Tensor input_a(DT_FP32, shape, "A");
@@ -96,7 +96,7 @@ TEST_F(TestCodegenDynBinary, TestCodegenAddDim2SrcNotSameShape) {
 }
 
 TEST_F(TestCodegenDynBinary, TestAddsDynamic) {
-    std::vector<int> shape = {64, 64};
+    std::vector<int64_t> shape = {64, 64};
     Program::GetInstance().GetTileShape().SetVecTileShapes({64, 64});
     Tensor input_a(DataType::DT_FP32, shape, "A");
     Element value(DataType::DT_FP32, 1.5);
@@ -138,8 +138,8 @@ TEST_F(TestCodegenDynBinary, TestGatherEle) {
     constexpr const int32_t S = 1;
     constexpr const int32_t B = 2;
 
-    std::vector<int> inputShape = {B * S, nRoutedExperts};
-    std::vector<int> outputShape = {B * S, numExpertsPerTopk};
+    std::vector<int64_t> inputShape = {B * S, nRoutedExperts};
+    std::vector<int64_t> outputShape = {B * S, numExpertsPerTopk};
     Program::GetInstance().GetTileShape().SetVecTileShapes({16, 32});
     Tensor inputScores(DT_FP32, outputShape, "input_scores");
     Tensor inputTmpScores(DT_FP32, inputShape, "input_tmp_scores");
@@ -185,8 +185,8 @@ TEST_F(TestCodegenDynBinary, AddUnalignLayout) {
     int b = 1;
     int sq = 128;
     int d = 64;
-    std::vector<int> inputShape = {b * sq, d};
-    std::vector<int> outShape = {b * sq, d};
+    std::vector<int64_t> inputShape = {b * sq, d};
+    std::vector<int64_t> outShape = {b * sq, d};
 
     Tensor input1(DT_FP32, inputShape, "intput1");
     Tensor input2(DT_FP32, inputShape, "intput2");
@@ -228,8 +228,8 @@ TEST_F(TestCodegenDynBinary, AddUnalignLayout) {
 // funcHash: 553887321078969729
 
 extern "C" [aicore] void TENSOR_L0_Unroll1_PATH0_3_0_4503599627370496(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
-float __ubuf__ *UB_S0_E16384 = (float __ubuf__ *)get_imm(0x0); // size: 0x4000 
-float __ubuf__ *UB_S16384_E32768 = (float __ubuf__ *)get_imm(0x4000); // size: 0x4000 
+float __ubuf__ *UB_S0_E16384 = (float __ubuf__ *)get_imm(0x0); // size: 0x4000
+float __ubuf__ *UB_S16384_E32768 = (float __ubuf__ *)get_imm(0x4000); // size: 0x4000
 uint64_t sym_18_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 0);
 uint64_t sym_18_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 1);
 uint64_t sym_19_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 0);

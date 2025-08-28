@@ -73,16 +73,16 @@ std::vector<uint64_t> GetHcclContext(const std::vector<std::string> &groupNames)
     return hcclContext;
 }
 
-int GetEleNumFromShape(std::vector<int32_t>& shape)
+int64_t GetEleNumFromShape(std::vector<int64_t>& shape)
 {
-    int eleNum = 1;
+    int64_t eleNum = 1;
     for (int num : shape) {
         eleNum *= num;
     }
     return eleNum;
 }
 
-Tensor CreateTensorFromFile(std::vector<int32_t>& shape, DataType dtype, std::string& file, std::string tname)
+Tensor CreateTensorFromFile(std::vector<int64_t>& shape, DataType dtype, std::string& file, std::string tname)
 {
     int eleNum = GetEleNumFromShape(shape);
     uint64_t byteSize = eleNum * BytesOf(dtype);

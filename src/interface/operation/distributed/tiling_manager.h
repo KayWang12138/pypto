@@ -19,6 +19,8 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <map>
+#include <cstdint>
 #include <algorithm>
 
 namespace npu::tile_fwk {

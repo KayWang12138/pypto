@@ -54,8 +54,8 @@ TEST(OnBoardTestAstApi, test_fa_all2all_ast_api_mode) {
     int dim1 = d;         // 128
     int capacity = dim0 * dim1;
     int capacity_reduce = dim0 * 1;
-    std::vector<int> shape = {dim0, dim1};
-    std::vector<int> shape_reduce = {dim0, 1};
+    std::vector<int64_t> shape = {dim0, dim1};
+    std::vector<int64_t> shape_reduce = {dim0, 1};
     std::vector<uint16_t> q_data(capacity);
     std::vector<uint16_t> k_data(capacity);
     std::vector<uint16_t> v_data(capacity);
@@ -124,7 +124,7 @@ TEST(OnBoardTestAstApi, test_add_sub_all2all_torchapi_multi_function) {
     int row = 64;
     int col = 64;
     const int capacity = row * col;
-    std::vector<int> shape = {row, col};
+    std::vector<int64_t> shape = {row, col};
     void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity);
     void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity);
     TileFwkSetVecTileShapes({64, 64});

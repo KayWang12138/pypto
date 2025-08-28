@@ -120,8 +120,8 @@ std::string VFCodegen::genSingleOp(Operation *op) {
 
 void VFCodegen::InitOpParm(Operation *op) {
     auto opCode = op->GetOpcode();
-    std::vector<int> attrShape;
-    std::vector<int> attrOffset;
+    std::vector<int64_t> attrShape;
+    std::vector<int64_t> attrOffset;
     bool useAttrShape = false;
     bool useAttrOffset = false;
     if (opCode == Opcode::OP_VLD || opCode == Opcode::OP_VST) {

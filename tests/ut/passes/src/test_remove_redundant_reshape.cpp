@@ -44,8 +44,8 @@ public:
 // Verify that Reshape whose output shape is the same as its input shape can be removed and consumer's inputs are updated
 TEST_F(RemoveRedundantReshapeTest, TestSameInputOutputShape) {
     // Define the shape of the Tensors
-    std::vector<int> shape1{1, 256, 512};
-    std::vector<int> shape2{1, 512, 256};
+    std::vector<int64_t> shape1{1, 256, 512};
+    std::vector<int64_t> shape2{1, 512, 256};
 
     // Create Tensor
     Tensor in_tensor(DT_FP32, shape1, "in_tensor");
@@ -61,7 +61,7 @@ TEST_F(RemoveRedundantReshapeTest, TestSameInputOutputShape) {
 
     // Create and configure the function
     Function* originFunction = nullptr;
-    std::vector<int> originOpmagic;
+    std::vector<int64_t> originOpmagic;
     FUNCTION("ReshapeFunction") {
         // Add Operations
         out_tensor_A = Reshape(in_tensor, shape1);
@@ -95,9 +95,9 @@ TEST_F(RemoveRedundantReshapeTest, TestSameInputOutputShape) {
 
 TEST_F(RemoveRedundantReshapeTest, TestReshapeChain) {
     // Define Tensor shapes
-    std::vector<int> shape1{1, 256, 512};
-    std::vector<int> shape2{1, 512, 256};
-    std::vector<int> shape3{1, 128, 1024};
+    std::vector<int64_t> shape1{1, 256, 512};
+    std::vector<int64_t> shape2{1, 512, 256};
+    std::vector<int64_t> shape3{1, 128, 1024};
     // Create Tensors
     Tensor in_tensor(DT_FP32, shape1, "in_tensor");
     Tensor out_tensor_B(DT_FP32, shape3, "out_tensor_B");
@@ -111,7 +111,7 @@ TEST_F(RemoveRedundantReshapeTest, TestReshapeChain) {
 
     // Create and configure the function
     Function* originFunction = nullptr;
-    std::vector<int> originOpmagic;
+    std::vector<int64_t> originOpmagic;
     FUNCTION("ReshapeChainFunction") {
         // Add Operations
         Tensor out_tensor_A = Reshape(in_tensor, shape2);
@@ -151,9 +151,9 @@ TEST_F(RemoveRedundantReshapeTest, TestReshapeChain) {
 
 TEST_F(RemoveRedundantReshapeTest, TestReplaceInput) {
     // Define Tensor shapes
-    std::vector<int> shape1{1, 256, 512};
-    std::vector<int> shape2{1, 512, 256};
-    std::vector<int> shape3{1, 128, 1024};
+    std::vector<int64_t> shape1{1, 256, 512};
+    std::vector<int64_t> shape2{1, 512, 256};
+    std::vector<int64_t> shape3{1, 128, 1024};
 
     // Create Tensors
     Tensor in_tensor(DT_FP32, shape1, "in_tensor");
@@ -169,7 +169,7 @@ TEST_F(RemoveRedundantReshapeTest, TestReplaceInput) {
 
     // Create and configure the function
     Function* originFunction = nullptr;
-    std::vector<int> reshape_opmagics;
+    std::vector<int64_t> reshape_opmagics;
     FUNCTION("ReplaceInputFunction") {
         // Add Operations
         Tensor out_tensor_A = Reshape(in_tensor, shape2);

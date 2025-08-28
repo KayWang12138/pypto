@@ -264,7 +264,7 @@ void PadLocalBuffer::ProcessReduce(Function &function, Operation &op) {
 }
 
 void PadLocalBuffer::ProcessBroadcast(Operation &op, size_t blockPadding) {
-    int maxLastAxis = 0;
+    int64_t maxLastAxis = 0;
     bool existLessBlock = false;
     for (auto &in : op.iOperand) {
         if (in->shape.back() <= static_cast<int>(blockPadding)) {
@@ -329,7 +329,7 @@ Status PadLocalBuffer::ProcessTranspose(Function &function) {
         if (op.GetOpcode() != Opcode::OP_TRANSPOSE_VNCHWCONV || op.GetIOperands()[0]->shape.size() < TRANSPOSE_MIN_SHAPE_SIZE) {
             continue;
         }
-        std::vector<int32_t> transposeAxis = npu::tile_fwk::AnyCast<std::vector<int32_t>>(op.GetAttribute(OP_ATTR_PREFIX + "shape"));
+        auto transposeAxis = op.GetVectorIntAttribute<int>(OP_ATTR_PREFIX + "shape");
         if (transposeAxis.size() != TRANSPOSE_MIN_SHAPE_SIZE) {
             ALOG_DEBUG_F("transpose op %d %s's shape size %d is not two, skip", op.opmagic, op.GetOpcodeStr().c_str(), transposeAxis.size());
             continue;

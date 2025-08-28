@@ -54,7 +54,7 @@ TEST_F(CodegenPreprocTest, TestSaveGmTensorParamIdxToOp) {
     rootFuncPtr->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     rootFuncPtr->SetUnderDynamicFunction(true);
 
-    std::vector<int> shape = {CP_NUM16, CP_NUM16};
+    std::vector<int64_t> shape = {CP_NUM16, CP_NUM16};
     auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto tensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -100,7 +100,7 @@ TEST_F(CodegenPreprocTest, TestForceCombineAxis) {
     rootFuncPtr->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     rootFuncPtr->SetUnderDynamicFunction(true);
 
-    std::vector<int> shape = {CP_NUM16, CP_NUM16, CP_NUM16};
+    std::vector<int64_t> shape = {CP_NUM16, CP_NUM16, CP_NUM16};
     auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     tensor1->tensor->rawshape = shape;
     auto tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -137,7 +137,7 @@ TEST_F(CodegenPreprocTest, TestForceCombineAxis) {
     bool outputRes{false};
     add.GetAttr(OpAttributeKey::outputCombineAxisDone, outputRes);
     EXPECT_EQ(outputRes, true);
-    std::vector<int> combinedShape = {CP_NUM16, CP_NUM1, CP_NUM256};
+    std::vector<int64_t> combinedShape = {CP_NUM16, CP_NUM1, CP_NUM256};
     EXPECT_EQ(tensor3->shape, combinedShape);
     EXPECT_EQ(tensor3->oriShape, combinedShape);
     EXPECT_EQ(tensor3->tensor->rawshape, combinedShape);

@@ -46,22 +46,22 @@ static const uint16_t kNumExpSix = 64u;
 static const uint16_t kNumExpSeven = 128u;
 
 void MakeExpandGrpah(std::shared_ptr<Function> &currFunctionPtr, LogicalTensorPtr& outCast) {
-    std::vector<int> shape = {kNumExpSix, kNumExpSix};
-    std::vector<int> tile_shape = {kNumExpFive, kNumExpFive};
+    std::vector<int64_t> shape = {kNumExpSix, kNumExpSix};
+    std::vector<int64_t> tile_shape = {kNumExpFive, kNumExpFive};
     auto inCast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto inCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    
+
     auto& div_op = currFunctionPtr->AddOperation(Opcode::OP_DIV, {inCast1, inCast2}, {ubTensor});
     auto& assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {ubTensor}, {outCast});
-    std::vector<int> toOffset = {kNumZero, kNumZero};
+    std::vector<int64_t> toOffset = {kNumZero, kNumZero};
     std::vector<SymbolicScalar> symbol = {SymbolicScalar("sym")};
     auto op_attr = std::make_shared<AssembleOpAttribute>(toOffset, symbol);
     assemble_op.SetOpAttribute(op_attr);
     div_op.tileShape_.SetVecTileShapes(tile_shape);
     assemble_op.tileShape_.SetVecTileShapes(tile_shape);
-    
+
     currFunctionPtr->inCasts_.push_back(inCast1);
     currFunctionPtr->inCasts_.push_back(inCast2);
     currFunctionPtr->outCasts_.push_back(outCast);
@@ -95,12 +95,12 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest1) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> shape = {kNumEight, kNumExpFour};
+    std::vector<int64_t> shape = {kNumEight, kNumExpFour};
     auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    
+
     auto& nop_op = currFunctionPtr->AddOperation(Opcode::OP_NOP, {inCast}, {outCast});
-    
+
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
     currFunctionPtr->SetGraphType(GraphType::TILE_GRAPH);
@@ -130,14 +130,14 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest2) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> shape1 = {kNumEight, kNumExpFour};
-    std::vector<int> shape2 = {kNumOne, kNumEight, kNumExpFour};
+    std::vector<int64_t> shape1 = {kNumEight, kNumExpFour};
+    std::vector<int64_t> shape2 = {kNumOne, kNumEight, kNumExpFour};
     auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
-    
-    auto op_attr = std::make_shared<ViewOpAttribute>(std::vector<int>{kNumZero, kNumZero});
+
+    auto op_attr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{kNumZero, kNumZero});
     auto& pad_op = currFunctionPtr->AddOperation(Opcode::OP_PAD, {inCast}, {ubTensor1});
     auto& nop_op = currFunctionPtr->AddOperation(Opcode::OP_NOP, {ubTensor1}, {ubTensor2});
     auto& view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {outCast});
@@ -184,16 +184,16 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest3) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> shape = {kNumExpSix, kNumExpSix};
+    std::vector<int64_t> shape = {kNumExpSix, kNumExpSix};
     auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    
-    std::vector<int> toOffset = {kNumZero, kNumZero};
+
+    std::vector<int64_t> toOffset = {kNumZero, kNumZero};
     std::vector<SymbolicScalar> symbol = {SymbolicScalar("sym")};
     auto op_attr = std::make_shared<AssembleOpAttribute>(toOffset, symbol);
     auto& assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {inCast}, {outCast});
     assemble_op.SetOpAttribute(op_attr);
-    
+
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
     currFunctionPtr->SetGraphType(GraphType::TENSOR_GRAPH);
@@ -224,8 +224,8 @@ inCast2{64,64}->view*4->
 TEST_F(TestExpandFunctionPass, ExpandFunctionUTest4) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestExpandFunction", "TestExpandFunction", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    std::vector<int> shape = {kNumExpSix, kNumExpSix};
-    std::vector<int> tile_shape = {kNumExpFive, kNumExpFive};
+    std::vector<int64_t> shape = {kNumExpSix, kNumExpSix};
+    std::vector<int64_t> tile_shape = {kNumExpFive, kNumExpFive};
     Program::GetInstance().GetTileShape().SetVecTileShapes(kNumExpFive, kNumExpFive);
     LogicalTensorPtr outCast;
     MakeExpandGrpah(currFunctionPtr, outCast);
@@ -277,14 +277,14 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest5) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> shape1 = {kNumExpFive, kNumExpSeven};
-    std::vector<int> shape2 = {kNumExpSix, kNumExpSix};
-    std::vector<int> shape3 = {kNumExpFive, kNumExpSeven};
+    std::vector<int64_t> shape1 = {kNumExpFive, kNumExpSeven};
+    std::vector<int64_t> shape2 = {kNumExpSix, kNumExpSix};
+    std::vector<int64_t> shape3 = {kNumExpFive, kNumExpSeven};
     auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
-    
-    std::vector<int> toOffset = {kNumZero, kNumZero};
+
+    std::vector<int64_t> toOffset = {kNumZero, kNumZero};
     std::vector<SymbolicScalar> symbol = {SymbolicScalar("sym")};
     auto op_attr = std::make_shared<AssembleOpAttribute>(toOffset, symbol);
     auto& reshape_op = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {inCast}, {ubTensor});
@@ -292,7 +292,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest5) {
     assemble_op.SetOpAttribute(op_attr);
     reshape_op.tileShape_.SetVecTileShapes({kNumExpFive, kNumExpFive});
     assemble_op.tileShape_.SetVecTileShapes({kNumExpFive, kNumExpFive});
-    
+
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
     currFunctionPtr->SetGraphType(GraphType::TENSOR_GRAPH);
@@ -319,8 +319,8 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest5) {
                    -> (view {32, 64}) - > exp -> (assemble {32, 64})
 */
 TEST_F(TestExpandFunctionPass, ExpandFunctionSTest1) {
-    std::vector<int> shape = {kNumExpSix, kNumExpSix};
-    std::vector<int> tile_shape = {kNumExpFive, kNumExpSix};
+    std::vector<int64_t> shape = {kNumExpSix, kNumExpSix};
+    std::vector<int64_t> tile_shape = {kNumExpFive, kNumExpSix};
     PassManager &passManager = PassManager::Instance();
     Tensor input(DT_FP32, shape, "input");
     Tensor output(DT_FP32, shape, "output");
@@ -359,7 +359,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionSTest1) {
                 EXPECT_EQ(op.GetInputOperand(kSizeZero)->shape, shape);
                 EXPECT_EQ(op.GetOutputOperand(kSizeZero)->shape, shape);
             }
-        } 
+        }
     }
     EXPECT_EQ(view_num, kNumThree);
     EXPECT_EQ(exp_num, kNumTwo);
@@ -373,17 +373,17 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionSTest1) {
                                                          -> assemble(end)
                                          -> reciprocal   -> assemble(end)
                                          -> assemble(end)
-                        -> assemble(end)              
+                        -> assemble(end)
 view -> view(*4) -> exp(*4) -> assemble(*4) ->view  -> view(*4+4)   -> sqrt(*4)         -> assemble(*4)     -> reshape      -> assemble(end)
                                                                                         -> assemble(*4)     -> assemble(*4) -> assemble(end)
                                             ->assemble(end)         -> reciprocal(*4)   -> assemble(*4)     -> assemble(end)
 */
 void ConstructGraphST2() {
-    std::vector<int> shape = {kNumExpSix, kNumExpSix};
-    std::vector<int> view_shape = {kNumExpSeven, kNumExpFive};
-    std::vector<int> reshape_shape = {kNumExpFive, kNumExpSeven};
-    std::vector<int> tile_shape = {kNumExpFive, kNumExpFive};
-    
+    std::vector<int64_t> shape = {kNumExpSix, kNumExpSix};
+    std::vector<int64_t> view_shape = {kNumExpSeven, kNumExpFive};
+    std::vector<int64_t> reshape_shape = {kNumExpFive, kNumExpSeven};
+    std::vector<int64_t> tile_shape = {kNumExpFive, kNumExpFive};
+
     Tensor input(DT_FP32, shape, "input");
     Tensor exp(DT_FP32, shape, "exp");
     Tensor view(DT_FP32, view_shape, "view");
@@ -413,7 +413,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionSTest2) {
 
     // ================== Verify the effect of the Pass ==================
     auto updated_operations = func->Operations();
-    
+
     int exp_num = kNumZero;
     int sqrt_num = kNumZero;
     int reshape_num = kNumZero;
@@ -433,7 +433,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionSTest2) {
             sqrt_num++;
         } else if (op.GetOpcode() == Opcode::OP_RECIPROCAL) {
             reciprocal_num++;
-        } 
+        }
     }
     // 12个前连接的view + 5个copy和expand的view + 1个开头的view
     EXPECT_EQ(view_num, kNumForteen);
@@ -457,11 +457,11 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest6) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> shape = {kNumExpSix, kNumExpSix};
+    std::vector<int64_t> shape = {kNumExpSix, kNumExpSix};
     auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    
-    std::vector<int> toOffset = {kNumZero, kNumZero};
+
+    std::vector<int64_t> toOffset = {kNumZero, kNumZero};
     std::vector<SymbolicScalar> symbol = {SymbolicScalar("sym")};
     auto op_attr = std::make_shared<AssembleOpAttribute>(toOffset, symbol);
     auto& assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {inCast}, {outCast});
@@ -469,7 +469,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest6) {
 
     auto& assemble_op_loop = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {outCast}, {inCast});
     assemble_op_loop.SetOpAttribute(op_attr);
-    
+
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
     currFunctionPtr->SetGraphType(GraphType::TENSOR_GRAPH);

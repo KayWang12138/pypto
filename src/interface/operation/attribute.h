@@ -63,11 +63,11 @@ public:
     OpImmediate &operator=(const OpImmediate &) = default;
 
     static OpImmediate Specified(const SymbolicScalar &value) { return OpImmediate(OpImmediateKind::T_SCALAR_SPECIFIED, value); }
-    static std::vector<OpImmediate> Specified(const std::initializer_list<int> &init) {
-        std::vector<int> value(init);
+    static std::vector<OpImmediate> Specified(const std::initializer_list<int64_t> &init) {
+        std::vector<int64_t> value(init);
         return Specified(value);
     }
-    static std::vector<OpImmediate> Specified(const std::vector<int> &value) {
+    static std::vector<OpImmediate> Specified(const std::vector<int64_t> &value) {
         std::vector<OpImmediate> res;
         for (auto &v : value) {
             res.push_back(Specified(SymbolicScalar(v)));
@@ -172,18 +172,14 @@ private:
 
 class ViewOpAttribute : public OpAttribute {
 public:
-    explicit ViewOpAttribute(const std::vector<int> &fromOffset, const std::vector<SymbolicScalar> &fromDynOffset = {})
+    explicit ViewOpAttribute(const Offset &fromOffset, const std::vector<SymbolicScalar> &fromDynOffset = {})
         : ViewOpAttribute(fromOffset, MemoryType::MEM_UNKNOWN, fromDynOffset) {}
-    explicit ViewOpAttribute(const std::vector<int> &fromOffset, const std::vector<SymbolicScalar> &fromDynOffset,
+    explicit ViewOpAttribute(const Offset &fromOffset, const std::vector<SymbolicScalar> &fromDynOffset,
         const std::vector<SymbolicScalar> &toDynValidShape)
         : ViewOpAttribute(fromOffset, MEM_UNKNOWN, fromDynOffset, toDynValidShape) {}
-    ViewOpAttribute(const std::vector<int> &fromOffset, MemoryType to,
-        const std::vector<SymbolicScalar> &fromDynOffset = {},
+    ViewOpAttribute(const Offset &fromOffset, MemoryType to, const std::vector<SymbolicScalar> &fromDynOffset = {},
         const std::vector<SymbolicScalar> &toDynValidShape = {})
-        : to_(to),
-          fromOffset_(fromOffset),
-          fromDynOffset_(fromDynOffset),
-          toDynValidShape_(toDynValidShape) {}
+        : to_(to), fromOffset_(fromOffset), fromDynOffset_(fromDynOffset), toDynValidShape_(toDynValidShape) {}
 
     std::string Dump() const override;
     Json DumpDynJson() override;
@@ -197,7 +193,7 @@ public:
     auto &GetFromOffset() { return fromOffset_; }
     const auto &GetFromDynOffset() const { return fromDynOffset_; }
     auto &GetFromDynOffset() { return fromDynOffset_; }
-    void SetFromOffset(const std::vector<int> &fromOffset, const std::vector<SymbolicScalar> &fromDynOffset = {}) {
+    void SetFromOffset(const Offset &fromOffset, const std::vector<SymbolicScalar> &fromDynOffset = {}) {
         fromOffset_ = fromOffset;
         fromDynOffset_ = fromDynOffset;
     }
@@ -215,18 +211,18 @@ public:
 
 private:
     MemoryType to_;
-    std::vector<int> fromOffset_;
+    Offset fromOffset_;
     std::vector<SymbolicScalar> fromDynOffset_;
     std::vector<SymbolicScalar> toDynValidShape_;
 };
 
 class AssembleOpAttribute : public OpAttribute {
 public:
-    explicit AssembleOpAttribute(const std::vector<int> &toOffset, const std::vector<SymbolicScalar> &toDynOffset = {})
+    explicit AssembleOpAttribute(const Offset &toOffset, const std::vector<SymbolicScalar> &toDynOffset = {})
         : AssembleOpAttribute(MemoryType::MEM_UNKNOWN, toOffset, toDynOffset) {}
-    AssembleOpAttribute(
-        MemoryType from, const std::vector<int> &toOffset, const std::vector<SymbolicScalar> &toDynOffset = {}, const std::vector<SymbolicScalar> &fromDynValidShape = {})
-        : from_(from), toOffset_(toOffset), toDynOffset_(toDynOffset), fromDynValidShape_(fromDynValidShape)  {}
+    AssembleOpAttribute(MemoryType from, const Offset &toOffset, const std::vector<SymbolicScalar> &toDynOffset = {},
+        const std::vector<SymbolicScalar> &fromDynValidShape = {})
+        : from_(from), toOffset_(toOffset), toDynOffset_(toDynOffset), fromDynValidShape_(fromDynValidShape) {}
 
     std::string Dump() const override;
     Json DumpDynJson() override;
@@ -239,7 +235,7 @@ public:
     auto &GetToOffset() { return toOffset_; }
     const auto &GetToDynOffset() const { return toDynOffset_; }
     auto &GetToDynOffset() { return toDynOffset_; }
-    void SetToOffset(const std::vector<int> &toOffset, const std::vector<SymbolicScalar> &toDynOffset = {}) {
+    void SetToOffset(const Offset &toOffset, const std::vector<SymbolicScalar> &toDynOffset = {}) {
         toOffset_ = toOffset;
         toDynOffset_ = toDynOffset;
     }
@@ -253,7 +249,7 @@ public:
 
 private:
     MemoryType from_;
-    std::vector<int> toOffset_;
+    Offset toOffset_;
     std::vector<SymbolicScalar> toDynOffset_;
     std::vector<SymbolicScalar> fromDynValidShape_;
 };
@@ -304,7 +300,7 @@ public:
     const std::vector<std::vector<SymbolicScalar>> &GetArgList() const { return argList_; }
     std::vector<std::vector<SymbolicScalar>> &GetArgList() { return argList_; }
     const std::vector<SymbolicScalar> &GetLinearArgList();
-    std::vector<int> GetLinearImmediateArgList(int begin, int end, bool returnEmptyForSymbolic);
+    std::vector<int64_t> GetLinearImmediateArgList(int begin, int end, bool returnEmptyForSymbolic);
 
     std::shared_ptr<SubfuncInvokeInfoTy> invokeInfo_;
 
@@ -370,7 +366,7 @@ public:
     [[nodiscard]] std::vector<OpImmediate> GetRawShape() const { return rawShape_; }
     [[nodiscard]] std::vector<OpImmediate> GetToDynValidShape() const { return toDynValidShape_; }
     [[nodiscard]] std::vector<OpImmediate> GetFromDynValidShape() const { return fromDynValidShape_; }
-    [[nodiscard]] std::vector<int> GetSpecifiedShape(int defaultValue) const;
+    [[nodiscard]] std::vector<int64_t> GetSpecifiedShape(int64_t defaultValue) const;
     void SetShape(std::vector<OpImmediate> shape) { tensorShape_ = std::move(shape); }
     void SetRawShape(std::vector<OpImmediate> rawShape) { rawShape_ = std::move(rawShape); }
     void SetToDynValidShape(std::vector<OpImmediate> toDynValidShape) { toDynValidShape_ = std::move(toDynValidShape); }

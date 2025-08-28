@@ -21,8 +21,8 @@ using namespace npu::tile_fwk;
 class OnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 template<typename T>
-int GetShapeCapacity(const vector<int>& shape) {
-    int capacity = sizeof(T);
+int64_t GetShapeCapacity(const vector<int64_t>& shape) {
+    int64_t capacity = sizeof(T);
     for (auto dim: shape) {
         capacity = capacity * dim;
     }
@@ -30,7 +30,7 @@ int GetShapeCapacity(const vector<int>& shape) {
 }
 
 template<typename InputT, typename OnputT, bool transpose = false>
-void TestBatchMatmul3D(std::vector<int> shape_a, std::vector<int>shape_b ,string dataPath) {
+void TestBatchMatmul3D(std::vector<int64_t> shape_a, std::vector<int64_t>shape_b ,string dataPath) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     assert(shape_a.size() == 3 && shape_b.size() == 3);
@@ -41,7 +41,7 @@ void TestBatchMatmul3D(std::vector<int> shape_a, std::vector<int>shape_b ,string
     void *mat_a_ptr = readToDev<InputT>(dataPath + "/mat_a.bin", GetShapeCapacity<InputT>(shape_a));
     void *mat_b_ptr = readToDev<InputT>(dataPath + "/mat_b.bin", GetShapeCapacity<InputT>(shape_b));
 
-    std::vector<int> shape_c = {bs, m, n};
+    std::vector<int64_t> shape_c = {bs, m, n};
     const int capacity_mat_c = bs * m * n;
     uint32_t outputSize = capacity_mat_c * sizeof(OnputT);
     uint8_t* mat_c_ptr = allocDevAddr(outputSize);
@@ -67,7 +67,7 @@ void TestBatchMatmul3D(std::vector<int> shape_a, std::vector<int>shape_b ,string
 }
 
 template<typename InputT, typename OnputT, bool transpose=false>
-void TestBatchMatmul4D(std::vector<int> shape_a, std::vector<int>shape_b ,string dataPath) {
+void TestBatchMatmul4D(std::vector<int64_t> shape_a, std::vector<int64_t>shape_b ,string dataPath) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     assert(shape_a.size() == 4 && shape_b.size() == 4);
@@ -78,7 +78,7 @@ void TestBatchMatmul4D(std::vector<int> shape_a, std::vector<int>shape_b ,string
     void *mat_a_ptr = readToDev<InputT>(dataPath + "/mat_a.bin", GetShapeCapacity<InputT>(shape_a));
     void *mat_b_ptr = readToDev<InputT>(dataPath + "/mat_b.bin", GetShapeCapacity<InputT>(shape_b));
 
-    std::vector<int> shape_c = {bs1, bs2, m, n};
+    std::vector<int64_t> shape_c = {bs1, bs2, m, n};
     const int capacity_mat_c = bs1 * bs2 * m * n;
     uint32_t outputSize = capacity_mat_c * sizeof(OnputT);
     uint8_t* mat_c_ptr = allocDevAddr(outputSize);
@@ -105,97 +105,97 @@ void TestBatchMatmul4D(std::vector<int> shape_a, std::vector<int>shape_b ,string
 
 TEST_F(OnBoardTest, test_BMM_Simple) {
     Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {128, 128}, {128, 128});
-    std::vector<int> mat_a_shape = {2, 32, 128};
-    std::vector<int> mat_b_shape = {2, 128, 512};
+    std::vector<int64_t> mat_a_shape = {2, 32, 128};
+    std::vector<int64_t> mat_b_shape = {2, 128, 512};
     TestBatchMatmul3D<npu::tile_fwk::float16, float>(mat_a_shape, mat_b_shape, GetGoldenDir());
 }
 
 TEST_F(OnBoardTest, test_BMM_Simple_FP32_BT) {
     Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16}, {32, 32}, {16, 16});
-    std::vector<int> mat_a_shape = {1, 16, 32};
-    std::vector<int> mat_b_shape = {1, 32, 16};
+    std::vector<int64_t> mat_a_shape = {1, 16, 32};
+    std::vector<int64_t> mat_b_shape = {1, 32, 16};
     TestBatchMatmul3D<float, float, true>(mat_a_shape, mat_b_shape, GetGoldenDir());
 }
 
 TEST_F(OnBoardTest, test_BMM_Simple_FP32) {
     Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16}, {32, 32}, {32, 32});
-    std::vector<int> mat_a_shape = {1, 32, 32};
-    std::vector<int> mat_b_shape = {1, 32, 32};
+    std::vector<int64_t> mat_a_shape = {1, 32, 32};
+    std::vector<int64_t> mat_b_shape = {1, 32, 32};
     TestBatchMatmul3D<float, float, false>(mat_a_shape, mat_b_shape, GetGoldenDir());
 }
 
 TEST_F(OnBoardTest, test_BMM_Simple_FP32_256_256) {
     Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
-    std::vector<int> mat_a_shape = {1, 256, 256};
-    std::vector<int> mat_b_shape = {1, 256, 256};
+    std::vector<int64_t> mat_a_shape = {1, 256, 256};
+    std::vector<int64_t> mat_b_shape = {1, 256, 256};
     TestBatchMatmul3D<float, float, false>(mat_a_shape, mat_b_shape, GetGoldenDir());
 }
 
 TEST_F(OnBoardTest, test_BMM_UNALIGN_2_1024_32) {
     Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16}, {128, 128}, {32, 32});
-    std::vector<int>  mat_a_shape = {2, 1, 1024};
-    std::vector<int>  mat_b_shape = {2, 1024, 32};
+    std::vector<int64_t>  mat_a_shape = {2, 1, 1024};
+    std::vector<int64_t>  mat_b_shape = {2, 1024, 32};
     TestBatchMatmul3D<npu::tile_fwk::float16, float>(mat_a_shape, mat_b_shape, GetGoldenDir());
 }
 
 TEST_F(OnBoardTest, test_BMM_UNALIGN_32_4_128_512) {
     Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16}, {128, 128}, {128, 128});
-    std::vector<int>  mat_a_shape = {32, 4, 128};
-    std::vector<int>  mat_b_shape = {32, 128, 512};
+    std::vector<int64_t>  mat_a_shape = {32, 4, 128};
+    std::vector<int64_t>  mat_b_shape = {32, 128, 512};
     TestBatchMatmul3D<npu::tile_fwk::float16, npu::tile_fwk::float16>(mat_a_shape, mat_b_shape, GetGoldenDir());
 }
 
 TEST_F(OnBoardTest, test_BMM_BF16) {
     Program::GetInstance().GetTileShape().SetCubeTileShapes({64, 64}, {64, 64}, {64, 64});
-    std::vector<int> mat_a_shape = {2, 64, 64};
-    std::vector<int> mat_b_shape = {2, 64, 64};
+    std::vector<int64_t> mat_a_shape = {2, 64, 64};
+    std::vector<int64_t> mat_b_shape = {2, 64, 64};
     TestBatchMatmul3D<npu::tile_fwk::bfloat16, npu::tile_fwk::bfloat16>(mat_a_shape, mat_b_shape, GetGoldenDir());
 }
 
 TEST_F(OnBoardTest, test_BMM_post) {
     Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {128, 128}, {128, 128});
-    std::vector<int>    mat_a_shape = {32, 32, 512};
-    std::vector<int>    mat_b_shape = {32, 512, 128};
+    std::vector<int64_t>    mat_a_shape = {32, 32, 512};
+    std::vector<int64_t>    mat_b_shape = {32, 512, 128};
     TestBatchMatmul3D<npu::tile_fwk::float16, npu::tile_fwk::float16>(mat_a_shape, mat_b_shape, GetGoldenDir());
 }
 
 TEST_F(OnBoardTest, test_BMM_3D_Brc) {
     Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16}, {128, 128}, {128, 128});
-    std::vector<int>    mat_a_shape = {2, 16, 256};
-    std::vector<int>    mat_b_shape = {1, 256, 128};
+    std::vector<int64_t>    mat_a_shape = {2, 16, 256};
+    std::vector<int64_t>    mat_b_shape = {1, 256, 128};
     TestBatchMatmul3D<npu::tile_fwk::float16, float>(mat_a_shape, mat_b_shape, GetGoldenDir());
 }
 
 TEST_F(OnBoardTest, test_BMM_3D_Brc_Transpose) {
     Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16}, {64, 64}, {32, 32});
-    std::vector<int>    mat_a_shape = {2, 64, 256};
-    std::vector<int>    mat_b_shape = {1, 128, 256};
+    std::vector<int64_t>    mat_a_shape = {2, 64, 256};
+    std::vector<int64_t>    mat_b_shape = {1, 128, 256};
     TestBatchMatmul3D<npu::tile_fwk::float16, float, true>(mat_a_shape, mat_b_shape, GetGoldenDir());
 }
 
 TEST_F(OnBoardTest, test_BMM_4D_Brc) {
     Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {128, 128}, {64, 64});
-    std::vector<int>    mat_a_shape = {2, 2, 128, 128};
-    std::vector<int>    mat_b_shape = {2, 1, 128, 64};
+    std::vector<int64_t>    mat_a_shape = {2, 2, 128, 128};
+    std::vector<int64_t>    mat_b_shape = {2, 1, 128, 64};
     TestBatchMatmul4D<npu::tile_fwk::float16, float>(mat_a_shape, mat_b_shape, GetGoldenDir());
 }
 
 TEST_F(OnBoardTest, test_BMM_4D_Brc_Transpose) {
     Program::GetInstance().GetTileShape().SetCubeTileShapes({64, 64}, {64, 64}, {32, 32});
-    std::vector<int>    mat_a_shape = {2, 2, 128, 128};
-    std::vector<int>    mat_b_shape = {2, 1, 64, 128};
+    std::vector<int64_t>    mat_a_shape = {2, 2, 128, 128};
+    std::vector<int64_t>    mat_b_shape = {2, 1, 64, 128};
     TestBatchMatmul4D<npu::tile_fwk::float16, float, true>(mat_a_shape, mat_b_shape, GetGoldenDir());
 }
 
 TEST_F(OnBoardTest, test_BMM_9_16_7168_2048) {
     Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {128, 128}, {128, 128});
-    std::vector<int>  mat_a_shape = {1, 16, 7168};
-    std::vector<int>  mat_b_shape = {9, 7168, 2048};
+    std::vector<int64_t>  mat_a_shape = {1, 16, 7168};
+    std::vector<int64_t>  mat_b_shape = {9, 7168, 2048};
     TestBatchMatmul3D<npu::tile_fwk::float16, npu::tile_fwk::float16, true>(mat_a_shape, mat_b_shape, GetGoldenDir());
 }
 
 template<typename InputT, typename OnputT, bool transpose = false>
-void TestBatchMatmulA8W8O32(std::vector<int> shape_a_in, std::vector<int> shape_b_in) {
+void TestBatchMatmulA8W8O32(std::vector<int64_t> shape_a_in, std::vector<int64_t> shape_b_in) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     int bs = shape_a_in[0];
@@ -206,9 +206,9 @@ void TestBatchMatmulA8W8O32(std::vector<int> shape_a_in, std::vector<int> shape_
     const int capacity_mat_b = bs * k * n;
     const int capacity_mat_c = bs * m * n;
 
-    std::vector<int> shape_a = {bs, m, k};
-    std::vector<int> shape_b = {bs, k, n};
-    std::vector<int> shape_c = {bs, m, n};
+    std::vector<int64_t> shape_a = {bs, m, k};
+    std::vector<int64_t> shape_b = {bs, k, n};
+    std::vector<int64_t> shape_c = {bs, m, n};
     void *mat_a_ptr = readToDev<__uint16_t>(GetGoldenDir() + "/mat_a.bin", capacity_mat_a);
     void *mat_b_ptr = readToDev<__uint16_t>(GetGoldenDir() + "/mat_b.bin", capacity_mat_b);
     assert(mat_a_ptr != nullptr && mat_b_ptr != nullptr);
@@ -237,7 +237,7 @@ void TestBatchMatmulA8W8O32(std::vector<int> shape_a_in, std::vector<int> shape_
 }
 
 template<typename InputT, typename OnputT, bool transpose = false>
-void TestBatchMatmulA8W8O32ACC(std::vector<int> shape_a_in, std::vector<int> shape_b_in) {
+void TestBatchMatmulA8W8O32ACC(std::vector<int64_t> shape_a_in, std::vector<int64_t> shape_b_in) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     int bs = shape_a_in[0];
@@ -248,9 +248,9 @@ void TestBatchMatmulA8W8O32ACC(std::vector<int> shape_a_in, std::vector<int> sha
     const int capacity_mat_b = bs * k * n;
     const int capacity_mat_c = bs * m * n;
 
-    std::vector<int> shape_a = {bs, m, k};
-    std::vector<int> shape_b = {bs, k, n};
-    std::vector<int> shape_c = {bs, m, n};
+    std::vector<int64_t> shape_a = {bs, m, k};
+    std::vector<int64_t> shape_b = {bs, k, n};
+    std::vector<int64_t> shape_c = {bs, m, n};
     void *mat_a_ptr = readToDev<__uint16_t>(GetGoldenDir() + "/mat_a.bin", capacity_mat_a);
     void *mat_b_ptr = readToDev<__uint16_t>(GetGoldenDir() + "/mat_b.bin", capacity_mat_b);
     assert(mat_a_ptr != nullptr && mat_b_ptr != nullptr);
@@ -297,21 +297,21 @@ void TestBatchMatmulA8W8O32ACC(std::vector<int> shape_a_in, std::vector<int> sha
 
 TEST_F(OnBoardTest, test_BMM_Simple_A8W8O32) {
     Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
-    std::vector<int>  mat_a_shape = {1, 32, 64};
-    std::vector<int>  mat_b_shape = {1, 64, 64};
+    std::vector<int64_t>  mat_a_shape = {1, 32, 64};
+    std::vector<int64_t>  mat_b_shape = {1, 64, 64};
     TestBatchMatmulA8W8O32<int8_t, int32_t, false>(mat_a_shape, mat_b_shape);
 }
 
 TEST_F(OnBoardTest, test_BMM_Simple_A8W8O32_4_4_64_64) {
     Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
-    std::vector<int>  mat_a_shape = {4, 4, 64};
-    std::vector<int>  mat_b_shape = {4, 64, 64};
+    std::vector<int64_t>  mat_a_shape = {4, 4, 64};
+    std::vector<int64_t>  mat_b_shape = {4, 64, 64};
     TestBatchMatmulA8W8O32<int8_t, int32_t, false>(mat_a_shape, mat_b_shape);
 }
 
 TEST_F(OnBoardTest, test_BMM_Simple_A8W8O32_1_4_4096_7168) {
     Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
-    std::vector<int>  mat_a_shape = {1, 4, 4096};
-    std::vector<int>  mat_b_shape = {1, 4096, 7168};
+    std::vector<int64_t>  mat_a_shape = {1, 4, 4096};
+    std::vector<int64_t>  mat_b_shape = {1, 4096, 7168};
     TestBatchMatmulA8W8O32<int8_t, int32_t, false>(mat_a_shape, mat_b_shape);
 }

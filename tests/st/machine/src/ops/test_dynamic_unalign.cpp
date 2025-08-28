@@ -85,13 +85,13 @@ TEST_F(DynamicUnalignTest, test_mm_unalign) {
     int dR = 64;
     int dN = 512;
 
-    std::vector<int> qRopeShape = {b * nq * s1, dR};
-    std::vector<int> qNopeShape = {b * nq * s1, dN};
+    std::vector<int64_t> qRopeShape = {b * nq * s1, dR};
+    std::vector<int64_t> qNopeShape = {b * nq * s1, dN};
 
-    std::vector<int> kRopeShape = {b * nk * s2, dR};
-    std::vector<int> kNopeShape = {b * nk * s2, dN};
+    std::vector<int64_t> kRopeShape = {b * nk * s2, dR};
+    std::vector<int64_t> kNopeShape = {b * nk * s2, dN};
 
-    std::vector<int> outShape = {b * nq * s1, nk * s2};
+    std::vector<int64_t> outShape = {b * nq * s1, nk * s2};
 
     Tensor qRope(DT_BF16, qRopeShape, "qRope");
     Tensor qNope(DT_BF16, qNopeShape, "qNope");
@@ -178,10 +178,10 @@ TEST_F(DynamicUnalignTest, test_mm2_unalign) {
     int s2 = 128;
     int d = 64;
 
-    std::vector<int> qShape = {b * nq * s1, nk * s2}; // {32, 128}
-    std::vector<int> kShape = {b * nk * s2, d}; // 128 64
+    std::vector<int64_t> qShape = {b * nq * s1, nk * s2}; // {32, 128}
+    std::vector<int64_t> kShape = {b * nk * s2, d}; // 128 64
 
-    std::vector<int> outShape = {b * nq * s1, d};
+    std::vector<int64_t> outShape = {b * nq * s1, d};
 
     Tensor qk(DT_BF16, qShape, "qk");
     Tensor v(DT_BF16, kShape, "v");
@@ -236,8 +236,8 @@ TEST_F(DynamicUnalignTest, test_rowmaxsingle_unalign) {
     int b = 1;
     int nTile = 32;
     int blockSize = 256;
-    std::vector<int> qShape = {b * nTile , blockSize};
-    std::vector<int> outshape = {b * nTile , 1};
+    std::vector<int64_t> qShape = {b * nTile , blockSize};
+    std::vector<int64_t> outshape = {b * nTile , 1};
 
     Tensor q(DT_FP32, qShape, "q");
     Tensor actSeqs(DT_INT32, {b, 1}, "actual_seq");
@@ -285,8 +285,8 @@ TEST_F(DynamicUnalignTest, test_rowsumsingle_unalign) {
     int b = 1;
     int nTile = 32;
     int blockSize = 256;
-    std::vector<int> qShape = {b * nTile, blockSize};
-    std::vector<int> outshape = {b * nTile, 1};
+    std::vector<int64_t> qShape = {b * nTile, blockSize};
+    std::vector<int64_t> outshape = {b * nTile, 1};
 
     Tensor q(DT_FP32, qShape, "q");
     Tensor actSeqs(DT_INT32, {b, 1}, "actual_seq");
@@ -334,7 +334,7 @@ TEST_F(DynamicUnalignTest, test_unary_unalign) {
     int b = 4;
     int sq = 128;
     int d = 64;
-    std::vector<int> qShape = {b * sq, d};
+    std::vector<int64_t> qShape = {b * sq, d};
 
     Tensor q(DT_FP32, qShape, "q");
     Tensor actSeqs(DT_INT32, {b, 1, 1}, "actual_seq");

@@ -33,8 +33,7 @@ inline uint64_t Align(const uint64_t n) {
 
 void TensorBucket::UpdateOffset(const uint64_t offset) {
     offset_ = offset;
-    ALOG_INFO_F("[Bucket] Updated bucket offset to %lu with %zu tensor groups.", 
-                offset, tensorGroups_.size());
+    ALOG_INFO_F("[Bucket] Updated bucket offset to %lu with %zu tensor groups.", offset, tensorGroups_.size());
 
     // 更新存储信息
     for (auto &tensorGroup : tensorGroups_) {
@@ -97,18 +96,18 @@ void Allocator::FindReusableInputForOutput(Function *leafFunc, Operation *op, co
         outWspInfo.tensor->tensor->rawmagic);
     std::deque<Operation*> parents;
     // 已访问tensor集合, 节省BFS搜索时长，并且防止出现环路后进入死循环
-    std::unordered_set<LogicalTensorPtr> visited; 
-    
+    std::unordered_set<LogicalTensorPtr> visited;
+
     parents.push_back(op);
-    
+
     auto &out = outWspInfo.tensor;
-    
+
     while (!parents.empty()) {
         Operation* parent = parents.front();
         parents.pop_front();
         // 存储本层的所有操作，容器可自动去除重复值
         std::unordered_set<Operation*> operations;
-        
+
         for (LogicalTensorPtr in : parent->GetIOperands()) {
             // 检查是否为leafFunc输入边界
             if (std::find(leafFunc->inCasts_.begin(), leafFunc->inCasts_.end(), in) != leafFunc->inCasts_.end()) {
@@ -119,7 +118,7 @@ void Allocator::FindReusableInputForOutput(Function *leafFunc, Operation *op, co
                 continue;
             }
             visited.insert(in);
-            
+
             for (Operation* producer : in->GetProducers()) {
                 operations.insert(producer);
             }
@@ -191,14 +190,14 @@ bool GetCopyInSize(LogicalTensorPtr &in, Operation *copyIn, uint64_t &size) {
     if (attr == nullptr || attr->IsDynFromOffset()) {
         return false;
     }
-    
+
     // 计算内存大小
     const size_t bytesPerElement = BytesOf(in->tensor->datatype);
     size = bytesPerElement;
     for (const auto shape : copyIn->GetOOperands()[0]->oriShape) {
         size *= shape;
     }
-    
+
     return true;
 }
 
@@ -221,17 +220,17 @@ bool HasReshapeConsumer(const LogicalTensorPtr &tensor) {
 // 5. 如果outcast的shape不等于rawshape，那么不能复用，这种场景较为复杂，有优化空间
 // 6. 如果outcast在leafFunction中存在后继的reshape，那么不需要复用
 void Allocator::ProcessLeafGlobalMemoryReuse(Function *leafFunc) {
-    ALOG_DEBUG_F("[LeafReuse] Processing leaf function: %s hash=%lu.", 
-                leafFunc->GetMagicName().c_str(), leafFunc->GetFunctionHash().GetHash());
+    ALOG_DEBUG_F("[LeafReuse] Processing leaf function: %s hash=%lu.", leafFunc->GetMagicName().c_str(),
+        leafFunc->GetFunctionHash().GetHash());
     std::unordered_map<LogicalTensorPtr, size_t> tensorToInfo;
     std::vector<WorkspaceInfo> outWspInfo;
     // 获取或创建该 leaf function 的 LeafFuncOutputInputReuseMap_ 数据
     std::vector<WorkspaceInfo>& leafFuncReuseMap = GetLeafFuncOutputInputReuseMap(leafFunc);
-    
+
     for (size_t i = 0; i < leafFunc->outCasts_.size(); ++i) {
         LogicalTensorPtr out = leafFunc->outCasts_[i];
         leafFuncReuseMap.emplace_back(WorkspaceInfo());
-        
+
         // 跳过根输出或特殊情况的tensor
         if (rootOutCasts_.count(out->GetRawMagic()) || HasReshapeConsumer(out) || out->tensor->actualRawmagic != -1) {
             continue;
@@ -248,10 +247,10 @@ void Allocator::ProcessLeafGlobalMemoryReuse(Function *leafFunc) {
         tensorToInfo[out] = outWspInfo.size() - 1;
     }
     std::unordered_map<LogicalTensorPtr, WorkspaceInfo> inWspCnt;
-    
+
     for (size_t i = 0; i < leafFunc->inCasts_.size(); ++i) {
         LogicalTensorPtr in = leafFunc->inCasts_[i];
-        
+
         // 跳过根输入或特殊情况的tensor
         if (rootInCasts_.count(in->GetRawMagic()) || in->tensor->actualRawmagic != -1) {
             continue;
@@ -269,7 +268,7 @@ void Allocator::ProcessLeafGlobalMemoryReuse(Function *leafFunc) {
             inWspCnt[in] = WorkspaceInfo(1, i, size, in);
         }
     }
-    
+
     // 处理每个输出tensor的内存复用
     for (auto &wspInfo : outWspInfo) {
         ProcessOutputForGlobalMemoryReuse(leafFunc, wspInfo, inWspCnt, leafFuncReuseMap);
@@ -286,17 +285,17 @@ bool DoConsumersOverlap(size_t firstIdx, size_t secondIdx, const std::vector<std
     const auto& secondOffset = allOffsets[secondIdx];
     const auto& firstShape = allShapes[firstIdx];
     const auto& secondShape = allShapes[secondIdx];
-    
+
     // 检查每个维度上的重叠情况
     for (size_t dim = 0; dim < firstOffset.size(); dim++) {
         // 计算第一个消费者在当前维度的起始和结束位置
         int firstStart = firstOffset[dim];
         int firstEnd = firstStart + firstShape[dim] - 1;
-        
+
         // 计算第二个消费者在当前维度的起始和结束位置
         int secondStart = secondOffset[dim];
         int secondEnd = secondStart + secondShape[dim] - 1;
-        
+
         // 检查当前维度上是否有重叠
         if (firstEnd < secondStart || secondEnd < firstStart) {
             // 当前维度无重叠，即两个消费者空间上无重叠
@@ -306,7 +305,7 @@ bool DoConsumersOverlap(size_t firstIdx, size_t secondIdx, const std::vector<std
         }
     }
     ALOG_DEBUG_F("Overlap between consumer %zu and %zu.", firstIdx, secondIdx);
-    
+
     // 所有维度都有重叠，两个消费者在空间上有重叠
     return true;
 }
@@ -317,7 +316,7 @@ bool CheckAllConsumerAccessNoOverlap(
     if (allOffsets.size() <= 1) {
         return true;
     }
-    
+
     // 检查所有消费者对之间的重叠情况
     for (size_t firstIdx = 0; firstIdx < allOffsets.size(); ++firstIdx) {
         for (size_t secondIdx = firstIdx + 1; secondIdx < allOffsets.size(); ++secondIdx) {
@@ -348,19 +347,19 @@ void RecordAllConsumerShapeAndOffset(LogicalTensorPtr &out, std::vector<std::vec
         if (consumer->GetOpcode() != Opcode::OP_CALL) {
             continue;
         }
-        
+
         // 查找当前输出tensor在消费者输入中的位置
         for (size_t inputIdx = 0; inputIdx < consumer->GetIOperands().size(); inputIdx++) {
             if (consumer->GetIOperands()[inputIdx] != out) {
                 continue;
             }
-            
+
             // 准备存储当前消费者的偏移和形状
             allOffsets.emplace_back();
             allShapes.emplace_back();
             auto& currentOffset = allOffsets.back();
             auto& currentShape = allShapes.back();
-            
+
             CallOpAttribute *attr = dynamic_cast<CallOpAttribute *>(consumer->GetOpAttribute().get());
             if (attr == nullptr) {
                 continue;
@@ -391,20 +390,20 @@ void Allocator::MarkNonOverlappingConsumerTensors() {
             if (rootOutCasts_.count(outputTensor->GetRawMagic()) != 0) {
                 continue;
             }
-            
+
             bool canReuse = true;
-            
+
             // 单个消费者直接标记ConsumerAccessNoOverlap属性
             if (outputTensor->GetConsumers().size() == 1) {
                 outputTensor->SetAttr("ConsumerAccessNoOverlap", true);
                 continue;
             }
-            
+
             // 收集并检查所有消费者的shape和offset
             std::vector<std::vector<int>> consumerOffsets;
             std::vector<std::vector<int>> consumerShapes;
             RecordAllConsumerShapeAndOffset(outputTensor, consumerOffsets, consumerShapes, canReuse);
-            
+
             if (!canReuse) {
                 continue;
             }
@@ -455,8 +454,8 @@ TensorBucket &Allocator::GetBestFitBucket(const TensorsDesc &tensorsDesc) {
     auto &first = *(tensorsDesc.tensors.begin());
     int64_t rawDataSize = first->tensor->GetRawDataSize();
     int64_t rawDataSizeKey = rawDataSize / MEM_PROPORTION_COEFF;
-    ALOG_DEBUG_F("[Reuse] Searching bucket for tensor: magic=%d rawmagic=%d size=%ld.", 
-                 first->magic, first->tensor->rawmagic, rawDataSize);
+    ALOG_DEBUG_F("[Reuse] Searching bucket for tensor: magic=%d rawmagic=%d size=%ld.", first->magic,
+        first->tensor->rawmagic, rawDataSize);
 
     std::deque<LogicalTensorPtr> predecessorTensors(tensorsDesc.tensors.begin(), tensorsDesc.tensors.end());
     std::unordered_set<int> visitedTensor;
@@ -551,7 +550,7 @@ bool Allocator::GetStorageOffsetByCall(Operation& callOp, size_t inputIdx, uint6
     }
     const size_t bytesPerElement = BytesOf(input->tensor->datatype);
     storageOffset *= bytesPerElement;
-    
+
     return true;
 }
 
@@ -626,7 +625,7 @@ void Allocator::UpdateStorageForActualRaw(LogicalTensorPtr &input) const {
     if (input->tensor->actualRawmagic == -1) {
         return;
     }
-    
+
     // 获取当前actualRawmagic的tensor集合
     int64_t actualRawMagic = input->tensor->actualRawmagic;
     auto& tensorMap = function_->GetTensorMap().tensorMap_;
@@ -634,7 +633,7 @@ void Allocator::UpdateStorageForActualRaw(LogicalTensorPtr &input) const {
     if (iter == tensorMap.end() || iter->second.empty()) {
         return;
     }
-    
+
     // 更新所有相同actualRawmagic的tensor的存储
     for (LogicalTensorPtr tensor : iter->second) {
         tensor->storage_ = input->storage_;
@@ -649,16 +648,16 @@ void UpdateCallOpRawShape(Operation &consumer, const LogicalTensorPtr &output) {
     if (callAttr == nullptr) {
         return;
     }
-    
+
     // 遍历所有输入操作tensor
     for (size_t inputIndex = 0; inputIndex < consumerInputs.size(); inputIndex++) {
         if (consumerInputs[inputIndex] != output) {
             continue;
         }
-        
+
         // 获取参数列表
         auto& argList = callAttr->GetArgList()[inputIndex];
-        
+
         // 更新原始形状参数
         for (size_t dimIndex = 0; dimIndex < outputShapeSize; dimIndex++) {
             size_t argPosition = rawShapeStartIndex + dimIndex;
@@ -667,7 +666,7 @@ void UpdateCallOpRawShape(Operation &consumer, const LogicalTensorPtr &output) {
     }
 }
 
-std::string vectorToString(const std::vector<int>& vec, const std::string& delimiter = ", ") {
+std::string vectorToString(const std::vector<int64_t> &vec, const std::string &delimiter = ", ") {
     std::ostringstream oss;
     for (size_t i = 0; i < vec.size(); ++i) {
         if (i != 0) {
@@ -696,16 +695,16 @@ void RefreshCallRawShape(
     }
     size_t argListIndex = callOp.GetIOperands().size() + outputIndex;
     auto& argList = callAttr->GetArgList()[argListIndex];
-    
+
     // 刷新producer CallOp的Attr中的output rawshape数据
     const size_t shapeSize = reusableInput->shape.size();
     const size_t rawShapeStartIdx = OFFSET_INDEX + RAW_SHAPE_POS * shapeSize;
-    
+
     for (size_t dim = 0; dim < shapeSize; dim++) {
         size_t argPos = rawShapeStartIdx + dim;
         argList[argPos] = SymbolicScalar(output->tensor->rawshape[dim]);
     }
-    
+
     // 刷新对应的consumer CallOp的Attr中的input rawshape数据
     for (Operation* consumer : output->GetConsumers()) {
         if (consumer->GetOpcode() != Opcode::OP_CALL) {
@@ -730,7 +729,7 @@ void Allocator::HandleNewTensor(Operation& callOp, size_t outputIdx, LogicalTens
             return;
         }
         RefreshCallRawShape(callOp, outputIdx, outputTensor, reusableInput);
-        
+
         // 将新张量添加到现有存储组
         const size_t storageIndex = storageRecord->second;
         TensorsDesc &tensorsDesc = storageNeedToAllocate_.at(storageIndex);
@@ -740,7 +739,7 @@ void Allocator::HandleNewTensor(Operation& callOp, size_t outputIdx, LogicalTens
         ALOG_INFO_F("Reused storage for new tensor: magic=%d via input=%d.", outputTensor->magic, reusableInput->magic);
         return;
     }
-    
+
     // 不可复用，创建新存储
     const uint64_t alignedSize = Align(static_cast<uint64_t>(outputTensor->tensor->GetRawDataSize()));
     outputTensor->storage_ =
@@ -753,7 +752,7 @@ void Allocator::HandleNewTensor(Operation& callOp, size_t outputIdx, LogicalTens
     const size_t newIndex = storageNeedToAllocate_.size();
     storageNeedToAllocate_.emplace_back(tensorsDesc);
     storageMap_.emplace(outputTensor->GetRawMagic(), newIndex);
-    
+
     // 处理actualRawmagic的tensor集合
     UpdateStorageForActualRaw(outputTensor);
     ALOG_INFO_F("New storage created for tensor: magic=%d size=%lu.", outputTensor->magic, outputTensor->storage_->length_);
@@ -770,12 +769,12 @@ void Allocator::ProcessOperations() {
             if (function_->IsFromInCast(outputTensor) || function_->IsFromOutCast(outputTensor)) {
                 continue;
             }
-            
+
             // 跳过已有存储分配的tensor
             if (outputTensor->storage_ != nullptr) {
                 continue;
             }
-            
+
             // 检查是否已有存储分配记录
             auto storageIter = storageMap_.find(outputTensor->GetRawMagic());
             if (storageIter == storageMap_.end()) {
@@ -783,12 +782,12 @@ void Allocator::ProcessOperations() {
                 HandleNewTensor(currentOp, outputIdx, outputTensor);
                 continue;
             }
-            
+
             // 处理已有存储记录的tensor
             const size_t storageIndex = storageIter->second;
             TensorsDesc &tensorsDesc = storageNeedToAllocate_.at(storageIndex);
             LogicalTensorPtr firstTensor = *(tensorsDesc.tensors.begin());
-            
+
             // 共享已有存储
             outputTensor->storage_ = firstTensor->storage_;
             outputTensor->storageOffset_ = firstTensor->storageOffset_;
@@ -803,7 +802,7 @@ void Allocator::InitializeRootCasts() {
     for (const LogicalTensorPtr &inputCast : function_->inCasts_) {
         rootInCasts_.emplace(inputCast->GetRawMagic());
     }
-    
+
     // 处理所有输出边界tensor
     for (const LogicalTensorPtr &outputCast : function_->outCasts_) {
         rootOutCasts_.emplace(outputCast->GetRawMagic());
@@ -853,14 +852,14 @@ void Allocator::StorageNeedToAllocatePreProcess(TensorsDesc &tensorsDesc) {
         consumerIter++;
     }
 
-    tensorsDesc.connectionOpsBitmap.SetValues(0xFFFFFFFFFFFFFFFF); // And 操作前，需要将connectionOpsBitmap初始化为全1 
+    tensorsDesc.connectionOpsBitmap.SetValues(0xFFFFFFFFFFFFFFFF); // And 操作前，需要将connectionOpsBitmap初始化为全1
     for (const LogicalTensorPtr &tensor : tensorsDesc.tensors) {
         for (Operation *producer : tensor->GetProducers()) {
             if (producer->GetOpcode() != Opcode::OP_CALL) {
                 continue;
             }
             tensorsDesc.connectionOpsBitmap.And(connectionMatrix_.GetBitMap(*producer));
-            
+
             // 由于customerOp和producerOp相同时，不能进行内存复用，所以这里需要将bitmap中的指向本操作的位清零
             uint64_t producerIndex = connectionMatrix_.GetIndex(*producer);
             if (producerIndex == connectionMatrix_.INVALID_INDEX) {
@@ -929,7 +928,6 @@ Status Allocator::UpdateIncastOutCast() {
 }
 
 Status Allocator::Allocate() {
-    uint64_t sizeBeforeReuse = 0;
     ALOG_INFO_F("Starting memory allocation with %zu storage entries.", storageNeedToAllocate_.size());
     for (auto &tensorsDesc : storageNeedToAllocate_) {
         auto &tensor = *(tensorsDesc.tensors.begin());
@@ -943,9 +941,8 @@ Status Allocator::Allocate() {
             ALOG_ERROR_F("TensorsDesc.tensors is empty, Cannot add empty tensor group to bucket.");
             return FAILED;
         }
-        ALOG_DEBUG_F("Allocating storage for tensor: rawmagic=%d size=%ld.", tensor->GetRawMagic(),
-            tensor->storage_->length_);
-        sizeBeforeReuse += tensor->storage_->length_;
+        ALOG_DEBUG_F(
+            "Allocating storage for tensor: rawmagic=%d size=%ld.", tensor->GetRawMagic(), tensor->storage_->length_);
     }
     for (auto &bucket : buckets_) {
         bucket.UpdateOffset(size_);

@@ -35,9 +35,9 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer) {
 
     DeepseekV2MoE deepseekMoEInfer(deepseekConfig1);
 
-    std::vector<int> hiddenStatesShape = {b * s, h};
-    std::vector<int> topKShape = {b * s, numExpertsPerTok};
-    std::vector<int> resShape = {b * s, numExpertsPerTok};
+    std::vector<int64_t> hiddenStatesShape = {b * s, h};
+    std::vector<int64_t> topKShape = {b * s, numExpertsPerTok};
+    std::vector<int64_t> resShape = {b * s, numExpertsPerTok};
 
     int hiddenStatesSize = b * s * h;
     int topkSize = b * s * numExpertsPerTok;
@@ -144,9 +144,9 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout) {
 
     DeepseekV2MoE deepseekMoEInfer(deepseekConfig1);
 
-    std::vector<int> hiddenStatesShape = { b* s, h };
-    std::vector<int> topKShape = { b* s, numExpertsPerTok };
-    std::vector<int> resShape = { b* s, numExpertsPerTok };
+    std::vector<int64_t> hiddenStatesShape = { b* s, h };
+    std::vector<int64_t> topKShape = { b* s, numExpertsPerTok };
+    std::vector<int64_t> resShape = { b* s, numExpertsPerTok };
 
     int hiddenStatesSize = b * s * h;
     int topkSize = b * s * numExpertsPerTok;
@@ -214,9 +214,9 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout_singlemlp) {
 
     DeepseekV2MoE deepseekMoEInfer(deepseekConfig1);
 
-    std::vector<int> hiddenStatesShape = { b* s, h };
-    std::vector<int> topKShape = { b* s, numExpertsPerTok };
-    std::vector<int> resShape = { b* s, numExpertsPerTok };
+    std::vector<int64_t> hiddenStatesShape = { b* s, h };
+    std::vector<int64_t> topKShape = { b* s, numExpertsPerTok };
+    std::vector<int64_t> resShape = { b* s, numExpertsPerTok };
 
     int hiddenStatesSize = b * s * h;
     int topkSize = b * s * numExpertsPerTok;
@@ -284,9 +284,9 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout_singlemlp_withquant)
 
     DeepseekV2MoE deepseekMoEInfer(deepseekConfig1);
 
-    std::vector<int> hiddenStatesShape = { b* s, h };
-    std::vector<int> topKShape = { b* s, numExpertsPerTok };
-    std::vector<int> resShape = { b* s, numExpertsPerTok };
+    std::vector<int64_t> hiddenStatesShape = { b* s, h };
+    std::vector<int64_t> topKShape = { b* s, numExpertsPerTok };
+    std::vector<int64_t> resShape = { b* s, numExpertsPerTok };
 
     int hiddenStatesSize = b * s * h;
     int topkSize = b * s * numExpertsPerTok;

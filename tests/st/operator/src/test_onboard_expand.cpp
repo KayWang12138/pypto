@@ -27,8 +27,8 @@ TEST_F(ExpandOnBoardTest, test_expand_32_1_to_32_32) {
     int S1 = 1;
     int D0 = 32;
     int D1 = 32;
-    std::vector<int> srcShape = {S0, S1};
-    std::vector<int> dstShape = {D0, D1};
+    std::vector<int64_t> srcShape = {S0, S1};
+    std::vector<int64_t> dstShape = {D0, D1};
 
     int srcCapacity = srcShape[0] * srcShape[1];
     int dstCapacity = dstShape[0] * dstShape[1];
@@ -69,8 +69,8 @@ TEST_F(ExpandOnBoardTest, test_expand_32_8_1_to_32_8_32) {
     int D0 = 32;
     int D1 = 8;
     int D2 = 32;
-    std::vector<int> srcShape = {S0, S1, S2};
-    std::vector<int> dstShape = {D0, D1, D2};
+    std::vector<int64_t> srcShape = {S0, S1, S2};
+    std::vector<int64_t> dstShape = {D0, D1, D2};
 
     int srcCapacity = srcShape[0] * srcShape[1] * srcShape[2];
     int dstCapacity = dstShape[0] * dstShape[1] * dstShape[2];
@@ -106,8 +106,8 @@ TEST_F(ExpandOnBoardTest, test_expand_32_1_to_32_23) {
     int S1 = 1;
     int D0 = 32;
     int D1 = 23;
-    std::vector<int> srcShape = {S0, S1};
-    std::vector<int> dstShape = {D0, D1};
+    std::vector<int64_t> srcShape = {S0, S1};
+    std::vector<int64_t> dstShape = {D0, D1};
 
     int srcCapacity = srcShape[0] * srcShape[1];
     int dstCapacity = dstShape[0] * dstShape[1];
@@ -144,8 +144,8 @@ TEST_F(ExpandOnBoardTest, test_expand_32_8_1_to_32_8_23) {
     int D0 = 32;
     int D1 = 8;
     int D2 = 23;
-    std::vector<int> srcShape = {S0, S1, S2};
-    std::vector<int> dstShape = {D0, D1, D2};
+    std::vector<int64_t> srcShape = {S0, S1, S2};
+    std::vector<int64_t> dstShape = {D0, D1, D2};
 
     int srcCapacity = srcShape[0] * srcShape[1] * srcShape[2];
     int dstCapacity = dstShape[0] * dstShape[1] * dstShape[2];
@@ -177,8 +177,8 @@ TEST_F(ExpandOnBoardTest, test_expand_32_8_1_to_32_8_23) {
 TEST_F(ExpandOnBoardTest, test_expand_for_4_dim) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-    std::vector<int> srcShape = {1, 32, 400, 23};
-    std::vector<int> dstShape = {8, 32, 400, 23};
+    std::vector<int64_t> srcShape = {1, 32, 400, 23};
+    std::vector<int64_t> dstShape = {8, 32, 400, 23};
 
     int srcCapacity = srcShape[0] * srcShape[1] * srcShape[2] * srcShape[3];
     int dstCapacity = dstShape[0] * dstShape[1] * dstShape[2] * dstShape[3];
@@ -214,8 +214,8 @@ TEST_F(ExpandOnBoardTest, test_expand_1_1_to_1_16384) {
     int S1 = 1;
     int D0 = 1;
     int D1 = 16384;
-    std::vector<int> srcShape = {S0, S1};
-    std::vector<int> dstShape = {D0, D1};
+    std::vector<int64_t> srcShape = {S0, S1};
+    std::vector<int64_t> dstShape = {D0, D1};
 
     int srcCapacity = srcShape[0] * srcShape[1];
     int dstCapacity = dstShape[0] * dstShape[1];

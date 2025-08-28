@@ -41,7 +41,7 @@ public:
 };
 
 // ScatterUpdate
-void TestScatterUpdate(std::vector<int> tileShape) {
+void TestScatterUpdate(std::vector<int64_t> tileShape) {
     Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
 
     PassManager &passManager = PassManager::Instance();
@@ -83,9 +83,9 @@ TEST_F(TestCodegenScatterUpdate, TestBatchMatmul) {
     int k = 32;
     int n = 32;
 
-    std::vector<int> shapeA = {bs, m, k};
-    std::vector<int> shapeB = {bs, k, n};
-    std::vector<int> shapeC = {bs, m, n};
+    std::vector<int64_t> shapeA = {bs, m, k};
+    std::vector<int64_t> shapeB = {bs, k, n};
+    std::vector<int64_t> shapeC = {bs, m, n};
 
     Program::GetInstance().GetConfig().Reset();
     Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
@@ -108,9 +108,9 @@ TEST_F(TestCodegenScatterUpdate, TestScatterUpdate) {
     int kvLoraRank = 8;
     int qkRopeHeadDim = 8;
 
-    std::vector<int> shape0 = {S2, kvLoraRank + qkRopeHeadDim}; // [16, 16]
-    std::vector<int> shape1 = {1, S};
-    std::vector<int> shape2 = {S, kvLoraRank + qkRopeHeadDim}; // [1, 16]
+    std::vector<int64_t> shape0 = {S2, kvLoraRank + qkRopeHeadDim}; // [16, 16]
+    std::vector<int64_t> shape1 = {1, S};
+    std::vector<int64_t> shape2 = {S, kvLoraRank + qkRopeHeadDim}; // [1, 16]
 
     Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16);
 

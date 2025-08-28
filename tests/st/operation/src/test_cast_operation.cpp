@@ -18,11 +18,11 @@
 using namespace tile_fwk::test_operation;
 namespace {
 struct CastOpFuncArgs : public OpFuncArgs {
-    CastOpFuncArgs(std::vector<int> shape, std::vector<int> vecTileShapes, CastMode castMode)
+    CastOpFuncArgs(std::vector<int64_t> shape, std::vector<int64_t> vecTileShapes, CastMode castMode)
         : viewShape_(shape), tileShape_(vecTileShapes), castMode_(castMode) {}
 
-    std::vector<int> viewShape_;
-    std::vector<int> tileShape_;
+    std::vector<int64_t> viewShape_;
+    std::vector<int64_t> tileShape_;
     CastMode castMode_;
 };
 

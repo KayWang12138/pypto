@@ -115,7 +115,7 @@ std::vector<Tensor> mlaPre(const Tensor &tokenX, const Tensor &wDq, const Tensor
     } else {
         compressedKv = Matrix::Matmul(dType, input, wDkvKr); // bf16
     }
-    Tensor compressedKvRes = Reshape(compressedKv, {b, s, wDkvKr->shape[1]});
+    Tensor compressedKvRes = Reshape(compressedKv, {b, s, (int)wDkvKr->shape[1]});
     qkvPreRes.emplace_back(compressedKvRes);
 
     if (isQuant) {
@@ -167,7 +167,7 @@ void MlaProlog(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
 
             // dequant: int32 -> fp32 -> *scale -> fp16/bf16
             if (isQuant) {
-                std::vector<int> tileShape = {std::min(32, tileBS), 64}; // 32, 64
+                std::vector<int64_t> tileShape = {std::min(32, tileBS), 64}; // 32, 64
                 Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
                 auto qTmpFp32 = Cast(q, DataType::DT_FP32);
                 auto qTmpDequantScale = qKv[2];
@@ -178,7 +178,7 @@ void MlaProlog(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
             }
 
             auto qTmp = Reshape(q, {tileB, s, n, qHeadDim});
-            std::vector<int> tileShape = {std::min(32, tileB), 1, 1, 64}; // 32, 64
+            std::vector<int64_t> tileShape = {std::min(32, tileB), 1, 1, 64}; // 32, 64
             Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
 
             /******** q ********/
@@ -432,7 +432,7 @@ void MlaPrologCompute(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUq
             /******** q ********/
             ConfigManager::Instance().SetSemanticLabel("Prepare_qNope");
             Tensor qNope = View(qTmp, {tileB, tileS, n, qkNopeHeadDim}, {0, 0, 0, 0}); // [b,s,n,qkNopeHeadDim]
-            std::vector<int> tileShape = {tileB, tileS, 1, 128}; // 128
+            std::vector<int64_t> tileShape = {tileB, tileS, 1, 128}; // 128
             Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
             Tensor qNopeRes = Reshape(qNope, {tileBS, n, qkNopeHeadDim}); // [bs,n,qkNopeHeadDim]
             tileShape = {std::min(32, tileBS), 1, qkNopeHeadDim}; // 32
@@ -493,7 +493,7 @@ void MlaPrologCompute(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUq
 
             kvCacheOut = Reshape(kvCacheOutView, {blockNum * blockSize, n2 * kvLoraRank});
             krCacheOut = Reshape(krCacheOutView, {blockNum * blockSize, n2 * qkRopeHeadDim});
-            
+
             ConfigManager::Instance().SetSemanticLabel("Assemble_queryOut");
             Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, 128}); // 32, 128
             DAssemble(queryOutView, outputOffset, queryOut);  // output1

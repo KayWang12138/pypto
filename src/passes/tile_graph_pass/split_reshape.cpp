@@ -18,13 +18,13 @@
 
 namespace npu::tile_fwk {
 namespace {
-    std::string GetStr(const std::vector<int> &vec) {
-        std::string ret;
-        for (const auto &val : vec) {
-            ret += std::to_string(val) + ", ";
-        }
-        return "{" + ret + "}";
+std::string GetStr(const std::vector<int64_t> &vec) {
+    std::string ret;
+    for (const auto &val : vec) {
+        ret += std::to_string(val) + ", ";
     }
+    return "{" + ret + "}";
+}
 
     std::string GetStr(const ReshapeTilePara &para) {
         std::string ret;
@@ -61,7 +61,7 @@ namespace {
         }
     }
 
-    void Clear(size_t shapeSize, std::vector<int> &newOffset, std::vector<int> &newShape) {
+    void Clear(size_t shapeSize, std::vector<int64_t> &newOffset, std::vector<int64_t> &newShape) {
         newOffset.clear();
         newShape.clear();
         for (size_t j = 0UL; j < shapeSize; j++) {
@@ -133,8 +133,9 @@ bool SplitReshape::CheckDynStatus(const LogicalTensorPtr &input, const LogicalTe
     } else if (!inputDynShape.empty() && !inputDynOffset.empty() && !outputDynShape.empty() && !outputDynOffset.empty()) {
         return true;
     }
-    ALOG_WARN_F("inputDynShape.dim = %zu, inputDynOffset.dim = %zu, outputDynShape.dim = %zu, outputDynOffset.dim = %zu",
-                inputDynShape.size(), inputDynOffset.size(), outputDynShape.size(), outputDynOffset.size());          
+    ALOG_WARN_F(
+        "inputDynShape.dim = %zu, inputDynOffset.dim = %zu, outputDynShape.dim = %zu, outputDynOffset.dim = %zu",
+        inputDynShape.size(), inputDynOffset.size(), outputDynShape.size(), outputDynOffset.size());
     return true;
 }
 
@@ -235,11 +236,12 @@ Status SplitReshape::CollectCopyOut(Function &function) {
 // example2: [2,4] + [4,2] -> [2,2,2]
 // example3: [2,3] + [5] -> FAILED
 // 返回对齐后的shape
-Status SplitReshape::ShapeAlign(std::vector<int32_t> shape1, std::vector<int32_t> shape2, std::vector<int32_t> &alignedShape) {
+Status SplitReshape::ShapeAlign(
+    std::vector<int64_t> shape1, std::vector<int64_t> shape2, std::vector<int64_t> &alignedShape) {
     size_t i1 = 0UL;
     size_t i2 = 0UL;
-    int32_t prod1 = 1;
-    int32_t prod2 = 1;
+    int64_t prod1 = 1;
+    int64_t prod2 = 1;
     shape1.erase(std::remove(shape1.begin(), shape1.end(), 1), shape1.end());
     shape2.erase(std::remove(shape2.begin(), shape2.end(), 1), shape2.end());
     while (i1 < shape1.size() || i2 < shape2.size()) {
@@ -312,7 +314,8 @@ Status SplitReshape::UpdateShapeOffset(UpdatePara &para, bool &flag, int &curren
     return SUCCESS;
 }
 
-Status SplitReshape::ConstructShapeOffset(const ReshapeTilePara &shapePara, size_t &i, size_t j, std::vector<int32_t> &newOffset, std::vector<int32_t> &newShape) {
+Status SplitReshape::ConstructShapeOffset(const ReshapeTilePara &shapePara, size_t &i, size_t j,
+    std::vector<int64_t> &newOffset, std::vector<int64_t> &newShape) {
     UpdatePara updatePara;
     auto shape = shapePara.shape;
     auto alignedShape = shapePara.newShape;
@@ -350,8 +353,8 @@ Status SplitReshape::ConstructShapeOffset(const ReshapeTilePara &shapePara, size
 // offset: [0, 1, 0], shape = [1, 1, 2]
 // shape = [64, 64], alignedShape = [32, 2, 64], tileOffset = [32, 32], tileShape = [32, 32]
 // offset: [16, 0, 32], shape = [16, 2, 32]
-Status SplitReshape::RawToAlign(const ReshapeTilePara &shapePara,
-                                       std::vector<int32_t> &newOffset, std::vector<int32_t> &newShape) {
+Status SplitReshape::RawToAlign(
+    const ReshapeTilePara &shapePara, std::vector<int64_t> &newOffset, std::vector<int64_t> &newShape) {
     auto shape = shapePara.shape;
     auto alignedShape = shapePara.newShape;
     auto tileOffset = shapePara.tileOffset;
@@ -387,8 +390,8 @@ Status SplitReshape::RawToAlign(const ReshapeTilePara &shapePara,
 //          newOffset = [0], newShape = [1]
 // example3 : rawShape = [32, 2, 64], newRawshape = [64, 64], tileOffset = [16, 0, 32], tileShape = [16, 2, 32]
 //          newOffset = [32, 32], newShape = [32, 32]
-Status SplitReshape::AlignToRaw(const ReshapeTilePara &shapePara,
-                                std::vector<int32_t> &newOffset, std::vector<int32_t> &newShape) {
+Status SplitReshape::AlignToRaw(
+    const ReshapeTilePara &shapePara, std::vector<int64_t> &newOffset, std::vector<int64_t> &newShape) {
     auto rawShape = shapePara.shape;
     auto newRawshape = shapePara.newShape;
     auto tileOffset = shapePara.tileOffset;
@@ -449,7 +452,8 @@ Status SplitReshape::DynRawToAlign(const DynReshapeTilePara &shapePara,
         return SUCCESS;
     }
     if (dynOffset.size() != shape.size() || dynShape.size() != shape.size()) {
-        ALOG_ERROR_F("shape.dim = %zu, dynShape.dim = %zu, dynOffset.dim = %zu", shape.size(), dynShape.size(), dynOffset.size());          
+        ALOG_ERROR_F("shape.dim = %zu, dynShape.dim = %zu, dynOffset.dim = %zu", shape.size(), dynShape.size(),
+            dynOffset.size());
         return FAILED;
     }
     size_t i = 0UL;
@@ -535,7 +539,8 @@ Status SplitReshape::DynAlignToRaw(const DynReshapeTilePara &shapePara, std::vec
         return SUCCESS;
     }
     if (dynOffset.size() != rawShape.size() || dynShape.size() != rawShape.size()) {
-        ALOG_ERROR_F("alignedShape.dim = %zu, dynShape.dim = %zu, dynOffset.dim = %zu", rawShape.size(), dynShape.size(), dynOffset.size());          
+        ALOG_ERROR_F("alignedShape.dim = %zu, dynShape.dim = %zu, dynOffset.dim = %zu", rawShape.size(),
+            dynShape.size(), dynOffset.size());
         return FAILED;
     }
     size_t i = 0UL;
@@ -614,9 +619,9 @@ Status SplitReshape::ObtainCopyOutTile(Function &function, const copyOutTilePara
     auto newInputView = copyOutTile.newInputView;
     for (auto &copyOutSource : copyOutSources[reshapeSource->tensor->rawmagic]) {
         // 存在多个tensor assemble成一个tensor再reshape的场景，需要使用assemble op的offset计算
-        std::vector<int> copyOutOffset = mapOffset[copyOutSource->magic][reshapeSource->magic];
-        std::vector<int32_t> newCopyOutTileShape;
-        std::vector<int32_t> newCopyOutTileOffset;
+        std::vector<int64_t> copyOutOffset = mapOffset[copyOutSource->magic][reshapeSource->magic];
+        std::vector<int64_t> newCopyOutTileShape;
+        std::vector<int64_t> newCopyOutTileOffset;
         ReshapeTilePara CopyOutInfo = {reshapeSource->tensor->rawshape, alignedShape, copyOutOffset, copyOutSource->shape};
         Status ret = RawToAlign(CopyOutInfo, newCopyOutTileOffset, newCopyOutTileShape);
         if (ret == WARNING) {
@@ -678,7 +683,7 @@ Status SplitReshape::UpdateForPerfectlyMatchWithDDR(Operation &op, const Perfect
 Status SplitReshape::ObtainReshapeSource(Function &function, const OpPara &para, LogicalTensorPtr &newReshapeSource) {
     auto overlap = para.oldInput;
     auto reshapeSource = para.oldOutput;
-    std::vector<int> assembleOffset = mapOffset[overlap->magic][reshapeSource->magic];
+    std::vector<int64_t> assembleOffset = mapOffset[overlap->magic][reshapeSource->magic];
     std::vector<SymbolicScalar> dynAssembleOffset = dynMapOffset[overlap->magic][reshapeSource->magic];
     if (reshapeRawInputs.find(overlap->tensor->rawmagic) == reshapeRawInputs.end()) {
         auto reshapeRawInput = std::make_shared<RawTensor>(overlap->Datatype(), overlap->tensor->rawshape);
@@ -704,7 +709,7 @@ Status SplitReshape::UpdateForPerfectlyMatchOtherCase(Function &function, Operat
     auto reshapeOutput = para.reshapeOutput;
     LogicalTensorPtr newReshapeSource;
     OpPara opPara = {overlap, reshapeSource, nullptr, nullptr};
-    std::vector<int> assembleOffset = mapOffset[overlap->magic][reshapeSource->magic];
+    std::vector<int64_t> assembleOffset = mapOffset[overlap->magic][reshapeSource->magic];
     std::vector<SymbolicScalar> assembleDynOffset = dynMapOffset[overlap->magic][reshapeSource->magic];
     if (ObtainReshapeSource(function, opPara, newReshapeSource) != SUCCESS) {
         ALOG_ERROR_F("ObtainReshapeSource failed.");
@@ -755,7 +760,7 @@ Status SplitReshape::ProcessPerfectlyMatch(Function &function, Operation &op, co
 }
 
 Status SplitReshape::UpdateForPerfectlyMatch(Function &function, Operation &op, const CalcOverlapPara &para) {
-    std::vector<int32_t> alignedShape = para.alignedShape;
+    std::vector<int64_t> alignedShape = para.alignedShape;
     LogicalTensorPtr reshapeSource = para.reshapeSource;
     LogicalTensorPtr input = para.input;
     LogicalTensorPtr output = para.output;
@@ -763,8 +768,8 @@ Status SplitReshape::UpdateForPerfectlyMatch(Function &function, Operation &op, 
     auto overlap = para.overlaps.front();
     auto newoverlap = para.newOverlaps.front();
     ReshapeTilePara reshapeInfo = {alignedShape, inputView->tensor->rawshape, newoverlap->offset, newoverlap->shape};
-    std::vector<int32_t> reshapeTileShape;
-    std::vector<int32_t> reshapeTileOffset;
+    std::vector<int64_t> reshapeTileShape;
+    std::vector<int64_t> reshapeTileOffset;
     if (AlignToRaw(reshapeInfo, reshapeTileOffset, reshapeTileShape) != SUCCESS) {
         ALOG_ERROR_F("AlignToRaw failed. %s", GetStr(reshapeInfo).c_str());
         return FAILED;
@@ -875,7 +880,8 @@ Status SplitReshape::ProcessBeCovered(Function &function, Operation &op, const C
     return SUCCESS;
 }
 
-Status SplitReshape::CalcTileInfo(const CalcOverlapPara &para, std::vector<int32_t> &newShape, std::vector<int32_t> &newOffset, std::vector<int32_t> &reshapeTileShape, std::vector<int32_t> &reshapeTileOffset) {
+Status SplitReshape::CalcTileInfo(const CalcOverlapPara &para, std::vector<int64_t> &newShape,
+    std::vector<int64_t> &newOffset, std::vector<int64_t> &reshapeTileShape, std::vector<int64_t> &reshapeTileOffset) {
     auto alignedShape = para.alignedShape;
     auto inputView = para.inputView;
     auto output = para.output;
@@ -903,10 +909,10 @@ Status SplitReshape::UpdateForBeCovered(Function &function, Operation &op, const
     auto inputView = para.inputView;
     auto overlap = para.overlaps.front();
     auto newoverlap = para.newOverlaps.front();
-    std::vector<int32_t> newShape;
-    std::vector<int32_t> newOffset;
-    std::vector<int32_t> reshapeTileShape;
-    std::vector<int32_t> reshapeTileOffset;
+    std::vector<int64_t> newShape;
+    std::vector<int64_t> newOffset;
+    std::vector<int64_t> reshapeTileShape;
+    std::vector<int64_t> reshapeTileOffset;
     std::vector<SymbolicScalar> inputViewDynShape;
     std::vector<SymbolicScalar> inputViewDynOffset;
     std::vector<SymbolicScalar> reshapeDynShape;
@@ -1029,7 +1035,7 @@ Status SplitReshape::ProcessMultitoOne(Function &function, Operation &op, const 
     reshapeOutput->UpdateOffset(inputView->GetTensorOffset());
     reshapeOutput->SetMemoryTypeBoth(output->GetMemoryTypeOriginal());
     for (auto &overlap : overlaps) {
-        std::vector<int> overlapOffset = mapOffset[overlap->magic][reshapeSource->magic];
+        std::vector<int64_t> overlapOffset = mapOffset[overlap->magic][reshapeSource->magic];
         std::vector<SymbolicScalar> overlapDynOffset = dynMapOffset[overlap->magic][reshapeSource->magic];
         assembles.emplace_back(DynAssembleOp{overlap->GetMemoryTypeOriginal(), overlapOffset, overlapDynOffset, overlap, newReshapeSource});
     }
@@ -1042,14 +1048,14 @@ Status SplitReshape::ProcessMultitoOne(Function &function, Operation &op, const 
 }
 
 Status SplitReshape::UpdateForPerfectlyMatchWithAll(Function &function, Operation &op, const CalcOverlapPara &para) {
-    std::vector<int32_t> alignedShape = para.alignedShape;
-    std::vector<int32_t> newInputViewTileOffset = para.newInputViewTileOffset;
-    std::vector<int32_t> newInputViewTileShape = para.newInputViewTileShape;
+    std::vector<int64_t> alignedShape = para.alignedShape;
+    std::vector<int64_t> newInputViewTileOffset = para.newInputViewTileOffset;
+    std::vector<int64_t> newInputViewTileShape = para.newInputViewTileShape;
     std::vector<SymbolicScalar> newInputViewDynOffset = para.newInputViewDynOffset;
     std::vector<SymbolicScalar> newInputViewDynShape = para.newInputViewDynShape;
     LogicalTensorPtr reshapeSource = para.reshapeSource;
-    std::vector<int32_t> newReshapeSourceTileShape;
-    std::vector<int32_t> newReshapeSourceTileOffset;
+    std::vector<int64_t> newReshapeSourceTileShape;
+    std::vector<int64_t> newReshapeSourceTileOffset;
     ReshapeTilePara newInfo = {alignedShape, reshapeSource->tensor->rawshape, newInputViewTileOffset, newInputViewTileShape};
     if (AlignToRaw(newInfo, newReshapeSourceTileOffset, newReshapeSourceTileShape) != SUCCESS) {
         ALOG_ERROR_F("Failed to compute the tile of the raw input of reshapeSource. %s", GetStr(newInfo).c_str());
@@ -1120,7 +1126,7 @@ Status SplitReshape::CheckValidOp(const CheckParam &para, CheckOutputParam &chec
     if (!CheckDynStatus(checkOutputParam.reshapeSource, input)) {
         ALOG_WARN_F("Unsupported dynamic status found for reshape op.");
         return WARNING;
-    } 
+    }
     if (ShapeAlign(checkOutputParam.reshapeSource->tensor->rawshape, input->tensor->rawshape, checkOutputParam.alignedShape) == WARNING) {
         ALOG_WARN_F("Can not construct align for rawshape.");
         return WARNING;
@@ -1183,10 +1189,10 @@ Status SplitReshape::CheckOp(Function &function, Operation &op) {
         return FAILED;
     }
     auto status = CalcOverlap(newInputView, newOverlaps, true);
-    CalcOverlapPara calcpara = {checkOutputParam.alignedShape, checkOutputParam.reshapeSource, 
-                                checkOutputParam.newInputViewTileOffset, checkOutputParam.newInputViewTileShape, 
-                                checkOutputParam.newInputViewDynOffset, checkOutputParam.newInputViewDynShape, 
-                                overlaps, newOverlaps, input, inputView, output};
+    CalcOverlapPara calcpara = {checkOutputParam.alignedShape, checkOutputParam.reshapeSource,
+        checkOutputParam.newInputViewTileOffset, checkOutputParam.newInputViewTileShape,
+        checkOutputParam.newInputViewDynOffset, checkOutputParam.newInputViewDynShape, overlaps, newOverlaps, input,
+        inputView, output};
     if (UpdateReshapeOp(function, op, status, calcpara) != SUCCESS) {
         ALOG_ERROR_F("Process UpdateReshapeOp failed.");
         return FAILED;

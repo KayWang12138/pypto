@@ -34,10 +34,10 @@ TEST_F(MoEGatePart2OnBoardTest, test_operation_b_2) {
     uint8_t* out_group_idx_ptr = allocDevAddr(outputSize);
     uint8_t* out_group_mask_ptr = allocDevAddr(outputSize);
     PROGRAM("MOE_GATE_PART2") {
-        std::vector<int> input_shape = {B, nRoutedExperts};
-        std::vector<int> input_reshape = {B * nGroup, 32};
-        std::vector<int> output_idx_shape = {B, topkGroup};
-        std::vector<int> output_mask_shape = {B, nGroup};
+        std::vector<int64_t> input_shape = {B, nRoutedExperts};
+        std::vector<int64_t> input_reshape = {B * nGroup, 32};
+        std::vector<int64_t> output_idx_shape = {B, topkGroup};
+        std::vector<int64_t> output_mask_shape = {B, nGroup};
 
         void *scores_for_choice_ptr = readToDev(GetGoldenDir() + "/scores_for_choice.bin", inputSize);
         Program::GetInstance().GetTileShape().SetVecTileShapes({16, 32});
@@ -99,10 +99,10 @@ TEST_F(MoEGatePart2OnBoardTest, test_operation_b_1024) {
     uint8_t* out_group_idx_ptr = allocDevAddr(outputSize);
     uint8_t* out_group_mask_ptr = allocDevAddr(outputSize);
     PROGRAM("MOE_GATE_PART2") {
-        std::vector<int> input_shape = {B, nRoutedExperts};
-        std::vector<int> input_reshape = {B * nGroup, 32};
-        std::vector<int> output_idx_shape = {B, topkGroup};
-        std::vector<int> output_mask_shape = {B, nGroup};
+        std::vector<int64_t> input_shape = {B, nRoutedExperts};
+        std::vector<int64_t> input_reshape = {B * nGroup, 32};
+        std::vector<int64_t> output_idx_shape = {B, topkGroup};
+        std::vector<int64_t> output_mask_shape = {B, nGroup};
 
         void *scores_for_choice_ptr = readToDev(GetGoldenDir() + "/scores_for_choice.bin", inputSize);
         Program::GetInstance().GetTileShape().SetVecTileShapes({16, 32});

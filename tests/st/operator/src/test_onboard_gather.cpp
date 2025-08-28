@@ -25,10 +25,10 @@ TEST_F(GatherOnBoardTest, test_gather_float_32_64_1_32) {
     int D = 64;
     int B = 1;
     int S = 32;
-    std::vector<int> shape0 = {S2, D};
-    std::vector<int> shape1 = {B, S};
+    std::vector<int64_t> shape0 = {S2, D};
+    std::vector<int64_t> shape1 = {B, S};
     int axis = 0;
-    std::vector<int> shape2 = {B, S, D};
+    std::vector<int64_t> shape2 = {B, S, D};
 
     int capacity0 = shape0[0] * shape0[1];
     int capacity1 = shape1[0] * shape1[1];
@@ -73,10 +73,10 @@ TEST_F(GatherOnBoardTest, test_gather_float_32_65_1_33) {
     int D = 65;
     int B = 1;
     int S = 33;
-    std::vector<int> shape0 = {S2, D};
-    std::vector<int> shape1 = {B, S};
+    std::vector<int64_t> shape0 = {S2, D};
+    std::vector<int64_t> shape1 = {B, S};
     int axis = 0;
-    std::vector<int> shape2 = {B, S, D};
+    std::vector<int64_t> shape2 = {B, S, D};
 
     int capacity0 = shape0[0] * shape0[1];
     int capacity1 = shape1[0] * shape1[1];
@@ -121,10 +121,10 @@ TEST_F(GatherOnBoardTest, test_gather_float_64_256_1_64) {
     int D = 256;
     int B = 1;
     int S = 64;
-    std::vector<int> shape0 = {S2, D};
-    std::vector<int> shape1 = {B, S};
+    std::vector<int64_t> shape0 = {S2, D};
+    std::vector<int64_t> shape1 = {B, S};
     int axis = 0;
-    std::vector<int> shape2 = {B, S, D};
+    std::vector<int64_t> shape2 = {B, S, D};
 
     int capacity0 = shape0[0] * shape0[1];
     int capacity1 = shape1[0] * shape1[1];
@@ -167,10 +167,10 @@ TEST_F(GatherOnBoardTest, test_gather_float_1_64_32_1) {
     int D = 64;
     int B = 32;
     int S = 1;
-    std::vector<int> shape0 = {S2, D};
-    std::vector<int> shape1 = {B, S};
+    std::vector<int64_t> shape0 = {S2, D};
+    std::vector<int64_t> shape1 = {B, S};
     int axis = 0;
-    std::vector<int> shape2 = {B, S, D};
+    std::vector<int64_t> shape2 = {B, S, D};
 
     int capacity0 = shape0[0] * shape0[1];
     int capacity1 = shape1[0] * shape1[1];
@@ -215,10 +215,10 @@ TEST_F(GatherOnBoardTest, test_gather_float_64_512_16_64) {
     int D = 512;
     int B = 16;
     int S = 64;
-    std::vector<int> shape0 = {S2, D};
-    std::vector<int> shape1 = {B, S};
+    std::vector<int64_t> shape0 = {S2, D};
+    std::vector<int64_t> shape1 = {B, S};
     int axis = 0;
-    std::vector<int> shape2 = {B, S, D};
+    std::vector<int64_t> shape2 = {B, S, D};
 
     int capacity0 = shape0[0] * shape0[1];
     int capacity1 = shape1[0] * shape1[1];
@@ -259,10 +259,10 @@ TEST_F(GatherOnBoardTest, test_gather_float_8_7168_64) {
     int S2 = 8;
     int D = 7168;
     int S = 64;
-    std::vector<int> shape0 = {S2, D};
-    std::vector<int> shape1 = {S};
+    std::vector<int64_t> shape0 = {S2, D};
+    std::vector<int64_t> shape1 = {S};
     int axis = 0;
-    std::vector<int> shape2 = {S, D};
+    std::vector<int64_t> shape2 = {S, D};
 
     int capacity0 = shape0[0] * shape0[1];
     int capacity1 = shape1[0];
@@ -302,10 +302,10 @@ TEST_F(GatherOnBoardTest, test_gather_float_8_7169_64) {
     int S2 = 8;
     int D = 7169;
     int S = 64;
-    std::vector<int> shape0 = {S2, D};
-    std::vector<int> shape1 = {S};
+    std::vector<int64_t> shape0 = {S2, D};
+    std::vector<int64_t> shape1 = {S};
     int axis = 0;
-    std::vector<int> shape2 = {S, D};
+    std::vector<int64_t> shape2 = {S, D};
 
     int capacity0 = shape0[0] * shape0[1];
     int capacity1 = shape1[0];

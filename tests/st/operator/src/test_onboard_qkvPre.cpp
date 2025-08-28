@@ -42,12 +42,12 @@ void TestQkvPre(std::vector<int> &params, string dataPath) {
         dType = DataType::DT_BF16;
     }
 
-    std::vector<int> x_shape = {b, s, h};
-    std::vector<int> w_qa_shape = {h, qLoraRank};
-    std::vector<int> w_qb_shape = {qLoraRank, n * q_head_dim};
-    std::vector<int> w_kv_a_shape = {h, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> q_shape = {b, s, n, q_head_dim};
-    std::vector<int> kv_shape = {b, s, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> x_shape = {b, s, h};
+    std::vector<int64_t> w_qa_shape = {h, qLoraRank};
+    std::vector<int64_t> w_qb_shape = {qLoraRank, n * q_head_dim};
+    std::vector<int64_t> w_kv_a_shape = {h, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> q_shape = {b, s, n, q_head_dim};
+    std::vector<int64_t> kv_shape = {b, s, kvLoraRank + qkRopeHeadDim};
 
     int capacity_x = std::accumulate(x_shape.begin(), x_shape.end(), 1, std::multiplies<>());
     int capacity_w_qa = std::accumulate(w_qa_shape.begin(), w_qa_shape.end(), 1, std::multiplies<>());
@@ -389,12 +389,12 @@ void TestQkvPreFp32(std::vector<int> &params, string dataPath) {
         dType = DataType::DT_BF16;
     }
 
-    std::vector<int> x_shape = {b, s, h};
-    std::vector<int> w_qa_shape = {h, qLoraRank};
-    std::vector<int> w_qb_shape = {qLoraRank, n * q_head_dim};
-    std::vector<int> w_kv_a_shape = {h, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> q_shape = {b, s, n, q_head_dim};
-    std::vector<int> kv_shape = {b, s, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> x_shape = {b, s, h};
+    std::vector<int64_t> w_qa_shape = {h, qLoraRank};
+    std::vector<int64_t> w_qb_shape = {qLoraRank, n * q_head_dim};
+    std::vector<int64_t> w_kv_a_shape = {h, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> q_shape = {b, s, n, q_head_dim};
+    std::vector<int64_t> kv_shape = {b, s, kvLoraRank + qkRopeHeadDim};
 
     int capacity_x = std::accumulate(x_shape.begin(), x_shape.end(), 1, std::multiplies<>());
     int capacity_w_qa = std::accumulate(w_qa_shape.begin(), w_qa_shape.end(), 1, std::multiplies<>());

@@ -46,7 +46,7 @@ public:
 void TestAllGatherFunc()
 {
     const char *group = "hcom123";
-    std::vector<int> shape = {16, 256};
+    std::vector<int64_t> shape = {16, 256};
 
     Program::GetInstance().GetTileShape().SetDistTileShapes({16, 1, 0}, {256, 1, 0}, {2, 1, 0});
     Program::GetInstance().GetTileShape().SpecifyStaticRankId(0);
@@ -79,8 +79,8 @@ TEST_F(TestCodegenAllGather, TestAllGatherTensorGraph)
 void TestAllGatherOutTensorFunc()
 {
     const char *group = "hcom123";
-    std::vector<int32_t> shape = {16, 256};
-    std::vector<int32_t> outShape = {32, 256};
+    std::vector<int64_t> shape = {16, 256};
+    std::vector<int64_t> outShape = {32, 256};
 
     Program::GetInstance().GetTileShape().SetDistTileShapes({16, 1, 0}, {256, 1, 0}, {2, 1, 0});
     Program::GetInstance().GetTileShape().SpecifyStaticRankId(0);
@@ -118,9 +118,9 @@ void TestAllGatherAndMatmul()
     std::string funcName = "AllGatherAndMatmul";
 
     PROGRAM("TestAllGatherMatmul") {
-        std::vector<int32_t> inputShape = {m, n};
-        std::vector<int32_t> matmulShape = {n, n};
-        std::vector<int32_t> resShape = {m * procSize, n};
+        std::vector<int64_t> inputShape = {m, n};
+        std::vector<int64_t> matmulShape = {n, n};
+        std::vector<int64_t> resShape = {m * procSize, n};
 
         Tensor in(dType, inputShape, "in");
         Tensor w(dType, matmulShape, "w");
@@ -128,7 +128,7 @@ void TestAllGatherAndMatmul()
         ConfigManager::Instance();
         FUNCTION(funcName, FunctionType::STATIC, {in, w, out}) {
             Program::GetInstance().GetTileShape().SetDistTileShapes(
-                {inputShape[0] / 2, 2, 0}, {inputShape[1] / 2, 2, 0}, {1, procSize, 0});
+                {(int)inputShape[0] / 2, 2, 0}, {(int)inputShape[1] / 2, 2, 0}, {1, procSize, 0});
             Program::GetInstance().GetTileShape().SpecifyStaticRankId(0);
             auto allGatherOut = Distributed::AllGather(in, group);
 

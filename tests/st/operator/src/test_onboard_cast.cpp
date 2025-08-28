@@ -23,10 +23,10 @@ class CastOnBoard : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 namespace {
     // Test configuration structure to reduce function parameters
     struct CastTestConfig {
-        std::vector<int> shape;
+        std::vector<int64_t> shape;
         DataType inputType;
         DataType outputType;
-        std::vector<int> tileShapes;
+        std::vector<int64_t> tileShapes;
         std::string inputFile;
         std::string goldenFile;
         CastMode castMode;
@@ -37,7 +37,7 @@ namespace {
     void RunCastTest(const CastTestConfig& config) {
         aclInit(nullptr);
         rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-        
+
         int dstCapacity = config.shape[0] * config.shape[1];
         int srcCapacity = config.shape[0] * config.shape[1];
         uint64_t outputSize = dstCapacity * sizeof(OutputType);
@@ -108,7 +108,7 @@ TEST_F(CastOnBoard, test_cast_fp16toint8trunc_1_4608) {
 TEST_F(CastOnBoard, test_cast_fp16tofp32_unalign) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-    std::vector<int> shape = {4, 130};
+    std::vector<int64_t> shape = {4, 130};
     DataType iType = DataType::DT_FP16;
     DataType oType = DataType::DT_FP32;
     int dstCapacity = shape[0] * shape[1];

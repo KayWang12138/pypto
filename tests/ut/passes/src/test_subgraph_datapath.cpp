@@ -83,7 +83,7 @@ enum TestTensorType {
 
 LogicalTensorPtr CreateTestTensor(std::shared_ptr<Function> function, int& rawMagic,
     TestTensorType tensorType=TT_FUNC_NONE, MemoryType memoryType=MEM_UB) {
-    std::vector<int> shape = {16, 16};
+    std::vector<int64_t> shape = {16, 16};
     LogicalTensorPtr tensor = std::make_shared<LogicalTensor>(*function, DT_FP32, shape);
     tensor->memoryTypeOriginal_ = memoryType;
     tensor->memoryTypeToBe_ = memoryType;
@@ -119,10 +119,10 @@ Operation &AddTestOperation(std::shared_ptr<Function> function, const Opcode opc
     Operation &op = function->AddRawOperation(opcode, {iOperands}, {oOperands});
     op.UpdateSubgraphID(subgraphId);
     if (opcode == Opcode::OP_ASSEMBLE) {
-        std::vector<int> offset = {0, 0};
+        std::vector<int64_t> offset = {0, 0};
         op.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MEM_UB, offset));
     } else if (opcode == Opcode::OP_VIEW) {
-        std::vector<int> offset = {0, 0};
+        std::vector<int64_t> offset = {0, 0};
         op.SetOpAttribute(std::make_shared<ViewOpAttribute>(offset, MEM_UB));
     }
     return op;

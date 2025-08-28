@@ -19,8 +19,9 @@ using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
 
-std::vector<int> SplitLargeLocalRawTensor::UpdateOffset(std::vector<int> &offset, std::vector<int> &diff) const {
-    std::vector<int> result = offset;
+std::vector<int64_t> SplitLargeLocalRawTensor::UpdateOffset(
+    std::vector<int64_t> &offset, std::vector<int64_t> &diff) const {
+    std::vector<int64_t> result = offset;
     for (size_t i = 0; i < offset.size(); i++) {
         if (offset[i] >= diff[i]) {
             result[i] = offset[i] - diff[i];
@@ -29,7 +30,8 @@ std::vector<int> SplitLargeLocalRawTensor::UpdateOffset(std::vector<int> &offset
     return result;
 }
 
-void SplitLargeLocalRawTensor::UpdateConsumerView(const LogicalTensorPtr &logicalTensor, std::vector<int> &diff) const {
+void SplitLargeLocalRawTensor::UpdateConsumerView(
+    const LogicalTensorPtr &logicalTensor, std::vector<int64_t> &diff) const {
     /* All the consumer View op's attr offset should be corret */
     /* 1. 更新View相关的属性 */
     for (auto &viewOp : logicalTensor->GetConsumers()) {
@@ -51,7 +53,8 @@ void SplitLargeLocalRawTensor::UpdateConsumerView(const LogicalTensorPtr &logica
     }
 }
 
-void SplitLargeLocalRawTensor::UpdateProducerAssemble(const LogicalTensorPtr &logicalTensor, std::vector<int> &diff) const {
+void SplitLargeLocalRawTensor::UpdateProducerAssemble(
+    const LogicalTensorPtr &logicalTensor, std::vector<int64_t> &diff) const {
     /* 1. 更新Assemble相关的属性 */
     // Assemble1 ->
     //              logicalTensor(UB) -> Reshape -> UB

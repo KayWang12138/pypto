@@ -93,7 +93,7 @@ public:
 
     // input[B, N, S] --> Copy_In --> input_ub[1, 1, S] --> Transpose_Datamove --> outputGm, [N, B, S](i, j, 0) --> Assemble --> output[N, B, S]
     void TileExpandTransposeDatamove(ComputationalGraphBuilder &G, const int B, const int N, const int S, bool isInner = false) {
-        std::vector<int> tileShape{1, 1, S};
+        std::vector<int64_t> tileShape{1, 1, S};
         // 所有transpose_datamove输出partial结果都要指向同一个raw tensor
         G.AddTensor(DataType::DT_FP32, {N, B, S}, "temp_out");
         auto tempOut = G.GetTensor("temp_out");
@@ -101,8 +101,8 @@ public:
         auto incast = G.GetTensor("input");
         for (int i = 0; i < B; i++) {
             for (int j = 0; j < N; j++) {
-                std::vector<int> offset = {i, j, 0};
-                std::vector<int> offsetNew = {j, i, 0};
+                std::vector<int64_t> offset = {i, j, 0};
+                std::vector<int64_t> offsetNew = {j, i, 0};
                 int subgraphId = i * N + j;
 
                 std::string input_ub = "input_ub_" + std::to_string(subgraphId);
@@ -149,9 +149,9 @@ public:
     void TileExpandExp(ComputationalGraphBuilder &G, const int B, const int N, const int S) {
         auto outInnerTemp = G.GetTensor("outInnerTemp");
         auto output2 = G.GetTensor("output2");
-        std::vector<int> tileShape{1, B, S};
+        std::vector<int64_t> tileShape{1, B, S};
         for (int i = 0; i < N; i++) {
-            std::vector<int> offset = {i, 0, 0};
+            std::vector<int64_t> offset = {i, 0, 0};
             int subgraphId = B * N + i;
 
             std::string input_ub = "input_ub_" + std::to_string(subgraphId);
@@ -189,14 +189,14 @@ public:
                                                     \--> Copy_Out --> out1
     */
     void TileExpandAdd(ComputationalGraphBuilder &G, const int N, const int T) {
-        std::vector<int> tileShape{T, T};
+        std::vector<int64_t> tileShape{T, T};
         auto a = G.GetTensor("a");
         auto b = G.GetTensor("b");
         auto out1 = G.GetTensor("out1");
         auto addOutUb = G.GetTensor("addOutUb");
         for (int i = 0; i < N; i++) {
             for (int j = 0; j < N; j++) {
-                std::vector<int> offset = {i * T, j * T};
+                std::vector<int64_t> offset = {i * T, j * T};
                 int idx = i * N + j;
 
                 std::string localA = "a_" + std::to_string(idx);
@@ -266,13 +266,13 @@ TEST_F(PreGraphTest, TestVCPartition) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     //Define the shape of the Tensors
-    std::vector<int> shape1{2, 1, 64};
-    std::vector<int> shape2{2, 1, 1, 64};
-    std::vector<int> shape3{1, 2, 1, 64};
-    std::vector<int> shape4{1, 2, 64};
-    std::vector<int> shape5{2, 64};
-    std::vector<int> shape6{64, 2};
-    std::vector<int> shape7{2, 2};
+    std::vector<int64_t> shape1{2, 1, 64};
+    std::vector<int64_t> shape2{2, 1, 1, 64};
+    std::vector<int64_t> shape3{1, 2, 1, 64};
+    std::vector<int64_t> shape4{1, 2, 64};
+    std::vector<int64_t> shape5{2, 64};
+    std::vector<int64_t> shape6{64, 2};
+    std::vector<int64_t> shape7{2, 2};
 
     //Initialize PassManager
     PassManager &passManager = PassManager::Instance();
@@ -422,9 +422,9 @@ TEST_F(PreGraphTest, TestAssemble) {
 TEST_F(PreGraphTest, TestView) {
 config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    std::vector<int> shape1{128, 128};
-    std::vector<int> shape2{64, 64};
-    std::vector<int> shape3{16, 256};
+    std::vector<int64_t> shape1{128, 128};
+    std::vector<int64_t> shape2{64, 64};
+    std::vector<int64_t> shape3{16, 256};
 
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("PreGraphTestStrategy", {
@@ -520,7 +520,7 @@ TEST_F(PreGraphTest, TestROWMAX_SINGLE) {
     });
 
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-    std::vector<int> vecTileShape = {128, 128};
+    std::vector<int64_t> vecTileShape = {128, 128};
     int b = 2; // 32
     int s = 1; // 1, optimize set_tile
     int h = 256;
@@ -568,9 +568,9 @@ TEST_F(PreGraphTest, TestTransposeDatamove) {
     int S = 128;
     int NUM_1 = 1;
 
-    std::vector<int> shape0{B, N, S};
-    std::vector<int> shape1{N, B, S};
-    std::vector<int> tiledShape{NUM_1, NUM_1, S};
+    std::vector<int64_t> shape0{B, N, S};
+    std::vector<int64_t> shape1{N, B, S};
+    std::vector<int64_t> tiledShape{NUM_1, NUM_1, S};
 
     ComputationalGraphBuilder G;
     G.AddTensor(DataType::DT_FP32, shape0, "input");
@@ -624,8 +624,8 @@ TEST_F(PreGraphTest, TestTransposeDatamoveExp) {
     int N = 2;
     int S = 128;
 
-    std::vector<int> shape0{B, N, S};
-    std::vector<int> shape1{N, B, S};
+    std::vector<int64_t> shape0{B, N, S};
+    std::vector<int64_t> shape1{N, B, S};
 
     ComputationalGraphBuilder G;
     G.AddTensor(DataType::DT_FP32, shape0, "input");
@@ -687,8 +687,8 @@ TEST_F(PreGraphTest, TestTransposeDatamoveExp) {
 TEST_F(PreGraphTest, TestAddExp) {
     int N = 2;
     int T = 16;
-    std::vector<int> shape0{N * T, N * T};
-    // std::vector<int> shape1{T, T};
+    std::vector<int64_t> shape0{N * T, N * T};
+    // std::vector<int64_t> shape1{T, T};
     ComputationalGraphBuilder G;
     G.AddTensor(DataType::DT_FP32, shape0, "a");
     G.AddTensor(DataType::DT_FP32, shape0, "b");
@@ -696,7 +696,7 @@ TEST_F(PreGraphTest, TestAddExp) {
     G.AddTensor(DataType::DT_FP32, shape0, "out2");
     G.AddTensor(DataType::DT_FP32, shape0, "addOutUb");
     G.AddTensor(DataType::DT_FP32, shape0, "expOutUb");
-    
+
     auto a = G.GetTensor("a");
     a->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
     auto b = G.GetTensor("b");
@@ -722,11 +722,11 @@ TEST_F(PreGraphTest, TestAddExp) {
     G.AddOp(Opcode::OP_COPY_OUT, {"expOutUb"}, {"out2"}, "Copy_Out_Exp");
     auto copyOutOp = G.GetOp("Copy_Out_Exp");
     auto attrCopyOut = std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified(std::vector<int> {0, 0}), MemoryType::MEM_UB,
+        OpImmediate::Specified(std::vector<int64_t> {0, 0}), MemoryType::MEM_UB,
         OpImmediate::Specified(out2->GetShape()), OpImmediate::Specified(out2->tensor->GetRawShape()));
     copyOutOp->SetOpAttribute(attrCopyOut);
     copyOutOp->UpdateSubgraphID(0);
-    
+
     G.SetInCast({"a", "b"});
     G.SetOutCast({"out1", "out2"});
     Function *function = G.GetFunction();

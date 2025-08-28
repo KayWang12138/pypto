@@ -24,6 +24,11 @@
 #include "tilefwk/symbolic_scalar.h"
 
 namespace npu::tile_fwk {
+
+using Shape = std::vector<int64_t>;
+using Offset = std::vector<int64_t>;
+using Stride = std::vector<int64_t>;
+
 class Tensor {
 public:
     /**
@@ -53,7 +58,7 @@ public:
      * \param format : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
      * \attention : The parameters dataType and shape are required parameters.
      */
-    Tensor(DataType dataType, std::vector<int> shape, std::string name = "", NodeType nodeType = NodeType::LOCAL,
+    Tensor(DataType dataType, const Shape &shape, std::string name = "", NodeType nodeType = NodeType::LOCAL,
         TileOpFormat format = TileOpFormat::TILEOP_ND);
 
     /**
@@ -67,7 +72,7 @@ public:
      * \param format : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
      * \attention : The parameters dataType,shape,dataPtr and name are required parameters.
      */
-    Tensor(DataType dataType, std::vector<int> shape, uint8_t *dataPtr, std::string name,
+    Tensor(DataType dataType, const Shape &shape, uint8_t *dataPtr, std::string name,
         NodeType nodeType = NodeType::LOCAL, TileOpFormat format = TileOpFormat::TILEOP_ND)
         : Tensor(dataType, shape, name, nodeType, format) {
         SetData(dataPtr);
@@ -100,31 +105,6 @@ public:
     Tensor(DataType t, std::initializer_list<SymbolicScalar> shape, std::string name = "",
         TileOpFormat format = TileOpFormat::TILEOP_ND)
         : Tensor(t, std::vector<SymbolicScalar>(shape), name, format) {}
-
-    /**
-     * \brief Construct a new Tensor object with 5 input parameters
-     *
-     * \param t : Data type of the tensor.
-     * \param shape : A vector that stores the shape of the tensor.
-     * \param dynDims : A vector that stores the dynamic dimensions of the tensor.
-     * \param name : Name of the tensor. The default value is "".
-     * \param format : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
-     */
-    Tensor(DataType t, std::vector<int> shape, std::vector<int> dynDims, std::string name = "",
-        TileOpFormat format = TileOpFormat::TILEOP_ND);
-
-    /**
-     * \brief Construct a new Tensor object with 5 input parameters
-     *
-     * \param rawTensor : A shared pointer to a RawTensor object.
-     * \param offset : A vector that stores the offset of the tensor.
-     * \param shape : A vector that stores the shape of the tensor.
-     * \param nodeType : The type of the node. The default value is NodeType::LOCAL.
-     * \param format : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
-     * \attention : The parameters rawTensor,offset and shape are required parameters.
-     */
-    Tensor(std::shared_ptr<RawTensor> rawTensor, std::vector<int> offset, std::vector<int> shape,
-        NodeType nodeType = NodeType::LOCAL, TileOpFormat format = TileOpFormat::TILEOP_ND);
 
     /**
      * \brief Overload the assignment operator to assign the value of another Tensor object to the current Tensor
@@ -235,9 +215,9 @@ public:
     /**
      * \brief Get the shape of a tensor.
      *
-     * \return const std::vector<int>& : A constant reference to the shape of the tensor.
+     * \return const Shape & : A constant reference to the shape of the tensor.
      */
-    const std::vector<int> &GetShape() const;
+    const Shape &GetShape() const;
 
     /**
      * \brief Get the shape information of the specified axis of Tensor.
@@ -245,7 +225,7 @@ public:
      * \param axis : The axis of the shape to be obtained.
      * \return int : The shape of the specified axis.
      */
-    int GetShape(int axis) const;
+    int32_t GetShape(int axis) const;
 
     /**
      * \brief Get the Id information of the Tensor.

@@ -41,7 +41,7 @@ TEST_F(ExpectedValueTest, TestCheck) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16);
 
-    std::vector<int> shape{32, 32};
+    std::vector<int64_t> shape{32, 32};
     Tensor a(DataType::DT_FP32, shape, "a");
     Tensor b(DataType::DT_FP32, shape, "b");
     Tensor c;

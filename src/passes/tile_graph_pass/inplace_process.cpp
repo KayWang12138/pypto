@@ -75,14 +75,14 @@ bool InplaceProcess::ValidMeaninglessOp(const Operation &op) const {
 
 void InplaceProcess::ProcessView(Operation &op) const {
     ALOG_DEBUG_F("Find Internal View %d.", op.opmagic);
-    std::vector<int> inputOffset = op.GetIOperands()[0]->GetOffset();
+    std::vector<int64_t> inputOffset = op.GetIOperands()[0]->GetOffset();
     for (auto &consumer : op.GetIOperands()[0]->GetConsumers()) {
         if ((consumer->GetOpcode() != Opcode::OP_VIEW) || (consumer->GetOpMagic() != op.GetOpMagic())) {
             continue;
         }
         auto viewAttr = dynamic_cast<ViewOpAttribute *>(consumer->GetOpAttribute().get());
         if (viewAttr != nullptr) {
-            std::vector<int> viewOpOffset = viewAttr->GetFrom();
+            std::vector<int64_t> viewOpOffset = viewAttr->GetFrom();
             // 增加校验: input --> View --> ouput 三者的offset size 相同
             for (size_t i = 0; i < inputOffset.size(); i++) {
                 viewOpOffset[i] = inputOffset[i] + viewOpOffset[i];
@@ -126,13 +126,13 @@ void InplaceProcess::AlignCopyOutProducer(std::shared_ptr<LogicalTensor> tensorG
             }
             opAttr->SetToOffset(newToOffset);
             opAttr->SetRawShape(OpImmediate::Specified(tensorGm->tensor->GetRawShape()));
-            ALOG_DEBUG_F("InplaceProcess::AlignCopyOutProducer update Attr for %s[%d].", producerOp->GetOpcodeStr().c_str(), 
-                producerOp->GetOpMagic());
+            ALOG_DEBUG_F("InplaceProcess::AlignCopyOutProducer update Attr for %s[%d].",
+                producerOp->GetOpcodeStr().c_str(), producerOp->GetOpMagic());
         }
     }
 }
 
-void InplaceProcess::ReplaceRawTensor(std::shared_ptr<LogicalTensor> logicalTensor, 
+void InplaceProcess::ReplaceRawTensor(std::shared_ptr<LogicalTensor> logicalTensor,
     const std::shared_ptr<LogicalTensor> targetTensor, const Operation &op) {
     logicalTensor->tensor = targetTensor->tensor;
     logicalTensor->UpdateOffset(dynamic_cast<AssembleOpAttribute *>(op.GetOpAttribute().get())->GetToOffset());
@@ -159,7 +159,7 @@ void InplaceProcess::ProcessAssemble(Function &function, Operation &op) {
         if (!allAssembleInputContinuous) {
             return;
         }
-        std::vector<int> newOffset(op.iOperand[0]->offset.size(), INT_MAX);
+        std::vector<int64_t> newOffset(op.iOperand[0]->offset.size(), INT_MAX);
         for (auto &assembleOp : assembleOut->GetProducers()) {
             auto tempOffset = assembleOp->iOperand[0]->offset;
             for (size_t m = 0; m < op.iOperand[0]->offset.size(); m++) {
@@ -179,8 +179,9 @@ void InplaceProcess::ProcessAssemble(Function &function, Operation &op) {
     } else {
         // check each producer of the assem_result
         for (auto &producer : assembleOut->GetProducers()) {
-            if ((producer->GetOpcode() != Opcode::OP_ASSEMBLE) || 
-                std::find(visitedAssembleOp.begin(), visitedAssembleOp.end(), producer->GetOpMagic()) != visitedAssembleOp.end()) {
+            if ((producer->GetOpcode() != Opcode::OP_ASSEMBLE) ||
+                std::find(visitedAssembleOp.begin(), visitedAssembleOp.end(), producer->GetOpMagic()) !=
+                    visitedAssembleOp.end()) {
                 continue;
             }
             /*

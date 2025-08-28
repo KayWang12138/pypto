@@ -33,9 +33,9 @@ TEST_F(DynamicTransposeTest, TestDynamicVnchwconv) {
     int b = 1;
     int sq = 128;
     int d = 64;
-    std::vector<int> qShape = {b * sq, d};
+    std::vector<int64_t> qShape = {b * sq, d};
     // outshape是不是应该按照整体的转置后来，还是只有有效的shape？
-    std::vector<int> outShape = {b * d, sq};
+    std::vector<int64_t> outShape = {b * d, sq};
 
     Tensor q(DT_FP32, qShape, "q");
     Tensor actSeqs(DT_INT32, {b, 1}, "actual_seq");

@@ -48,8 +48,8 @@ TEST_F(TestCodegenDynRowSumLine, TestOperationRowSumLine) {
     int shape1 = 1;
     int shape2 = 8;
     int shape3 = 1024;
-    std::vector<int> shape = {shape0 * shape1, shape2, shape3};
-    std::vector<int> outshape = {shape0 * shape1, 1, shape3};
+    std::vector<int64_t> shape = {shape0 * shape1, shape2, shape3};
+    std::vector<int64_t> outshape = {shape0 * shape1, 1, shape3};
     Program::GetInstance().GetTileShape().SetVecTileShapes({2, 8, 512});
 
     Tensor input_a(DataType::DT_FP32, shape, "A");

@@ -66,7 +66,7 @@ TEST_F(SplitLargeLocalRawTest, SplitLocalRaw) {
         int v_head =128;
         int tileSize0 = 128;
         int tileSize1 = 32;
-        std::vector<int> inShape = {b * s, n, d};
+        std::vector<int64_t> inShape = {b * s, n, d};
         Tensor attnPostIn(DT_FP32, inShape, "attnPostIn");
         Tensor kvBProjWV(DT_FP32, {n, d, v_head}, "kvBProjWV");
         Tensor atten_output;
@@ -117,8 +117,8 @@ TEST_F(SplitLargeLocalRawTest, GraphBoundaryOnUb) {
     int NUM_128 = 128;
     int SUBGRAPH_ID_1 = 1;
     int SUBGRAPH_ID_2 = 2;
-    std::vector<int> shape0{NUM_64, NUM_64};
-    std::vector<int> shape1{NUM_64, NUM_128};
+    std::vector<int64_t> shape0{NUM_64, NUM_64};
+    std::vector<int64_t> shape1{NUM_64, NUM_128};
     ComputationalGraphBuilder G;
 
     G.AddTensor(DataType::DT_FP32, shape0, "a"); // [64, 64]
@@ -146,7 +146,7 @@ TEST_F(SplitLargeLocalRawTest, GraphBoundaryOnUb) {
     auto viewA = G.GetOp("View_A");
     viewA->UpdateSubgraphID(SUBGRAPH_ID_1);
     G.AddOp(Opcode::OP_ASSEMBLE, {"tiledA"}, {"assembledTensor"}, "Assemble_A");
-    auto attrAssembleA = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int> {0, 0});
+    auto attrAssembleA = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int64_t> {0, 0});
     auto assembleA = G.GetOp("Assemble_A");
     assembleA->SetOpAttribute(attrAssembleA);
     assembleA->UpdateSubgraphID(SUBGRAPH_ID_1);
@@ -162,7 +162,7 @@ TEST_F(SplitLargeLocalRawTest, GraphBoundaryOnUb) {
     auto viewB = G.GetOp("View_B");
     viewB->UpdateSubgraphID(SUBGRAPH_ID_1);
     G.AddOp(Opcode::OP_ASSEMBLE, {"tiledB"}, {"assembledTensor"}, "Assemble_B");
-    auto attrAssembleB = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int> {0, NUM_64});
+    auto attrAssembleB = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int64_t> {0, NUM_64});
     auto assembleB = G.GetOp("Assemble_B");
     assembleB->SetOpAttribute(attrAssembleB);
     assembleB->UpdateSubgraphID(SUBGRAPH_ID_2);

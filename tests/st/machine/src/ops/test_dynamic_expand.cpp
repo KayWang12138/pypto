@@ -34,8 +34,8 @@ TEST_F(DynamicExpandTest, TestDynamicExpandUnalign) {
     int b = 1;
     int sq = 128;
     int d = 64;
-    std::vector<int> qShape = {b, d};
-    std::vector<int> outShape = {b * sq, d};
+    std::vector<int64_t> qShape = {b, d};
+    std::vector<int64_t> outShape = {b * sq, d};
 
     Tensor q(DT_FP32, qShape, "q");
     Tensor out(DT_FP32, outShape, "out");

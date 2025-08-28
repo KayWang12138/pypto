@@ -27,8 +27,8 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_128_32_argsort) {
     uint64_t outputSize = shape0 * shape1 * sizeof(float);
     uint8_t* out_ptr1 = allocDevAddr(outputSize);
     PROGRAM("ARGSORT") {
-        std::vector<int> input_shape = {shape0, shape1};
-        std::vector<int> output_shape = {shape0, shape1};
+        std::vector<int64_t> input_shape = {shape0, shape1};
+        std::vector<int64_t> output_shape = {shape0, shape1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outputSize);
         Program::GetInstance().GetTileShape().SetVecTileShapes({shape0, shape1});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
@@ -54,8 +54,8 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_4_32_argsort) {
     uint64_t outputSize = shape0 * shape1 * sizeof(float);
     uint8_t* out_ptr1 = allocDevAddr(outputSize);
     PROGRAM("ARGSORT") {
-        std::vector<int> input_shape = {shape0, shape1};
-        std::vector<int> output_shape = {shape0, shape1};
+        std::vector<int64_t> input_shape = {shape0, shape1};
+        std::vector<int64_t> output_shape = {shape0, shape1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outputSize);
         Program::GetInstance().GetTileShape().SetVecTileShapes({shape0, shape1});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
@@ -81,8 +81,8 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_2_16_argsort) {
     uint64_t outputSize = shape0 * shape1 * sizeof(float);
     uint8_t* out_ptr1 = allocDevAddr(outputSize);
     PROGRAM("ARGSORT") {
-        std::vector<int> input_shape = {shape0, shape1};
-        std::vector<int> output_shape = {shape0, shape1};
+        std::vector<int64_t> input_shape = {shape0, shape1};
+        std::vector<int64_t> output_shape = {shape0, shape1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outputSize);
         Program::GetInstance().GetTileShape().SetVecTileShapes({shape0, shape1});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
@@ -108,8 +108,8 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_32_argsort) {
     uint64_t outputSize = shape0  * sizeof(float);
     uint8_t* out_ptr1 = allocDevAddr(outputSize);
     PROGRAM("ARGSORT") {
-        std::vector<int> input_shape = {shape0};
-        std::vector<int> output_shape = {shape0};
+        std::vector<int64_t> input_shape = {shape0};
+        std::vector<int64_t> output_shape = {shape0};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outputSize);
         Program::GetInstance().GetTileShape().SetVecTileShapes({shape0});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
@@ -135,8 +135,8 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_64_argsort) {
     uint64_t outputSize = shape0  * sizeof(float);
     uint8_t* out_ptr1 = allocDevAddr(outputSize);
     PROGRAM("ARGSORT") {
-        std::vector<int> input_shape = {shape0};
-        std::vector<int> output_shape = {shape0};
+        std::vector<int64_t> input_shape = {shape0};
+        std::vector<int64_t> output_shape = {shape0};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outputSize);
         Program::GetInstance().GetTileShape().SetVecTileShapes({shape0});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
@@ -163,8 +163,8 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_4_32__argsort) {
     uint64_t outputSize = shape0 * shape1 * sizeof(float);
     uint8_t* out_ptr1 = allocDevAddr(outputSize);
     PROGRAM("ARGSORT") {
-        std::vector<int> input_shape = {shape0, shape1};
-        std::vector<int> output_shape = {shape0, shape1};
+        std::vector<int64_t> input_shape = {shape0, shape1};
+        std::vector<int64_t> output_shape = {shape0, shape1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outputSize);
         Program::GetInstance().GetTileShape().SetVecTileShapes({shape0, shape1});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
@@ -189,8 +189,8 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_64__argsort_moe) {
     uint64_t outputSize = shape0  * sizeof(float);
     uint8_t* out_ptr1 = allocDevAddr(outputSize);
     PROGRAM("ARGSORT") {
-        std::vector<int> input_shape = {shape0};
-        std::vector<int> output_shape = {shape0};
+        std::vector<int64_t> input_shape = {shape0};
+        std::vector<int64_t> output_shape = {shape0};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outputSize);
         Program::GetInstance().GetTileShape().SetVecTileShapes({shape0});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");

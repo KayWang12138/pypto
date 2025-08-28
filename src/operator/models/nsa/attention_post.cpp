@@ -33,7 +33,7 @@ void PostCompute(Tensor &input, PostTensors &postTensors, const PostTileConfig &
     // weightO: [v*kvLoraRank,h], fp16/bf16/int8
     // weightOScale: [1,h], fp32
     // params check
-    assert(input->shape.size() == SHAPE_DIM4 && postTensors.weightUV->shape.size() == SHAPE_DIM3 && 
+    assert(input->shape.size() == SHAPE_DIM4 && postTensors.weightUV->shape.size() == SHAPE_DIM3 &&
             postTensors.weightO->shape.size() == SHAPE_DIM2);
     auto dtype = input->Datatype();
     auto n = postTensors.weightUV->shape[0];
@@ -73,12 +73,12 @@ void PostCompute(Tensor &input, PostTensors &postTensors, const PostTileConfig &
             int c0 = 16;
             int m = (std::min(32, tileBS) + c0 - 1) / c0 * c0;
             Program::GetInstance().GetTileShape().SetCubeTileShapes(
-                {m, m}, {std::min(256, kvLoraRank), std::min(512, kvLoraRank)}, {vHeadDim, vHeadDim}, true);
-            
+                {m, m}, {std::min(256L, kvLoraRank), std::min(512L, kvLoraRank)}, {vHeadDim, vHeadDim}, true);
+
             Tensor bmm;
             if (isQuantWUv) {
                 ConfigManager::Instance().SetSemanticLabel("postQuantWUv");
-                Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, std::min(512, kvLoraRank)});
+                Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, std::min(512L, kvLoraRank)});
                 std::tuple<Tensor, Tensor> quantRes;
                 if(isSmoothWUv){
                     quantRes = Quant(inputTrans, true, true,  postTensors.smoothScalesWUv);
@@ -93,7 +93,7 @@ void PostCompute(Tensor &input, PostTensors &postTensors, const PostTileConfig &
 
                 ConfigManager::Instance().SetSemanticLabel("postDequantWUv");
                 Program::GetInstance().GetTileShape().SetVecTileShapes(
-                    {1, std::min(16,tileBS), std::min(32, vHeadDim)});
+                    {1, std::min(16,tileBS), std::min(32L, vHeadDim)});
                 Tensor res = Cast(mm, DataType::DT_FP32);
                 res = Mul(res, scaleDequant);  // [n, tileBS, VHeadDim] * [n, tileBS, 1] -> [n, tileBS, vHeadDim]
                 res = Mul(res,  postTensors.weightUvScale); // [n, tileBS, VHeadDim] * [n, 1, VHeadDim] -> [n, tileBS, vHeadDim]
@@ -111,7 +111,7 @@ void PostCompute(Tensor &input, PostTensors &postTensors, const PostTileConfig &
 
             Tensor mmRes;
             Program::GetInstance().GetTileShape().SetCubeTileShapes({m, m},
-                {std::min(512, n * vHeadDim), std::min(512, n * vHeadDim)}, {std::min(64, h), std::min(64, h)}, true);
+                {std::min(512L, n * vHeadDim), std::min(512L, n * vHeadDim)}, {std::min(64L, h), std::min(64L, h)}, true);
             if (isQuantWo) {
                 ConfigManager::Instance().SetSemanticLabel("postQuantWo");
                 Program::GetInstance().GetTileShape().SetVecTileShapes({1, n * vHeadDim});
@@ -129,7 +129,7 @@ void PostCompute(Tensor &input, PostTensors &postTensors, const PostTileConfig &
                 Tensor mm = Matrix::Matmul(DataType::DT_INT32, bmmResQuant,  postTensors.weightO);
 
                 ConfigManager::Instance().SetSemanticLabel("postDequantWo");
-                Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32, tileBS), std::min(32, h)});
+                Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32, tileBS), std::min(32L, h)});
                 Tensor res = Cast(mm, DataType::DT_FP32);
                 res = Mul(res, scaleDequant);   // [tileBS, h] * [tileBS, 1] -> [tileBS, h]
                 res = Mul(res,  postTensors.weightOScale);   // [tileBS, h] * [1, h] -> [tileBS, h]
@@ -148,7 +148,7 @@ void PostCompute(Tensor &input, PostTensors &postTensors, const PostTileConfig &
 
 void AttentionPostStandalone(Tensor &input, PostTensors &postTensors, const PostTileConfig &tileConfig, Tensor &postOut) {
     FUNCTION("POST_MAIN", FunctionType::DYNAMIC,
-        {input, postTensors.weightUV, postTensors.weightO, postTensors.weightUvScale, postTensors.smoothScalesWUv, 
+        {input, postTensors.weightUV, postTensors.weightO, postTensors.weightUvScale, postTensors.smoothScalesWUv,
             postTensors.weightOScale, postTensors.smoothScalesWo}, {postOut}) {
         PostCompute(input, postTensors, tileConfig, postOut);
     }

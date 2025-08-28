@@ -159,7 +159,7 @@ void MlaProlog(Tensor tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tens
 
     // dequant: int32 -> fp32 -> *scale -> fp16/bf16
     if (isQuant) {
-        std::vector<int> tileShape = {bs, NUM_64};
+        std::vector<int64_t> tileShape = {bs, NUM_64};
         Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
         auto qTmpFp32 = Cast(q, DataType::DT_FP32);
         auto qTmpDequantScale = qKv[2];
@@ -169,7 +169,7 @@ void MlaProlog(Tensor tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tens
         q = Cast(qTmpDequantChannel, dType);
     }
     auto qTmp = Reshape(q, {b, s, n, qHeadDim});
-    std::vector<int> tileShape = {b, 1, 1, NUM_64};
+    std::vector<int64_t> tileShape = {b, 1, 1, NUM_64};
     Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
 
     /******** q ********/

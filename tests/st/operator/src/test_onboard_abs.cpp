@@ -28,8 +28,8 @@ TEST_F(AbsOnBoardTest, test_abs_8_4608) {
     int D0 = 8;
     int D1 = 4608;
 
-    std::vector<int> srcShape = {S0, S1};
-    std::vector<int> dstShape = {D0, D1};
+    std::vector<int64_t> srcShape = {S0, S1};
+    std::vector<int64_t> dstShape = {D0, D1};
 
     int srcCapacity = srcShape[0] * srcShape[1];
     int dstCapacity = dstShape[0] * dstShape[1];
@@ -68,8 +68,8 @@ TEST_F(AbsOnBoardTest, test_abs_8_4609) {
     int D0 = 8;
     int D1 = 4609;
 
-    std::vector<int> srcShape = {S0, S1};
-    std::vector<int> dstShape = {D0, D1};
+    std::vector<int64_t> srcShape = {S0, S1};
+    std::vector<int64_t> dstShape = {D0, D1};
 
     int srcCapacity = srcShape[0] * srcShape[1];
     int dstCapacity = dstShape[0] * dstShape[1];
@@ -108,8 +108,8 @@ TEST_F(AbsOnBoardTest, test_abs_1_16384) {
     int D0 = 1;
     int D1 = 16384;
 
-    std::vector<int> srcShape = {S0, S1};
-    std::vector<int> dstShape = {D0, D1};
+    std::vector<int64_t> srcShape = {S0, S1};
+    std::vector<int64_t> dstShape = {D0, D1};
 
     int srcCapacity = srcShape[0] * srcShape[1];
     int dstCapacity = dstShape[0] * dstShape[1];

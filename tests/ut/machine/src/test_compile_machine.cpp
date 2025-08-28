@@ -64,18 +64,18 @@ void TestMlaProlog(std::vector<int> &params) {
         dType = DataType::DT_FP32;
     }
 
-    std::vector<int> x_shape = {b, s, h};
-    std::vector<int> w_qa_shape = {h, qLoraRank};
-    std::vector<int> w_qb_shape = {qLoraRank, n * q_head_dim};
-    std::vector<int> w_kv_a_shape = {h, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> w_kv_b_k_shape = {n, qkNopeHeadDim, kvLoraRank};
-    std::vector<int> position_ids_shape = {b, s};
-    std::vector<int> cos_shape = {s, qkRopeHeadDim};
-    std::vector<int> past_key_states_shape = {b, 1, s2, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> kv_len_shape = {1, 1};
+    std::vector<int64_t> x_shape = {b, s, h};
+    std::vector<int64_t> w_qa_shape = {h, qLoraRank};
+    std::vector<int64_t> w_qb_shape = {qLoraRank, n * q_head_dim};
+    std::vector<int64_t> w_kv_a_shape = {h, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> w_kv_b_k_shape = {n, qkNopeHeadDim, kvLoraRank};
+    std::vector<int64_t> position_ids_shape = {b, s};
+    std::vector<int64_t> cos_shape = {s, qkRopeHeadDim};
+    std::vector<int64_t> past_key_states_shape = {b, 1, s2, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> kv_len_shape = {1, 1};
     // output
-    std::vector<int> q_shape = {b, n, s, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> kv_shape = {b, 1, s2, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> q_shape = {b, n, s, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> kv_shape = {b, 1, s2, kvLoraRank + qkRopeHeadDim};
 
     aclInit(nullptr);
     rtSetDevice(0);
@@ -153,8 +153,8 @@ TEST_F(HostMachineCompileTest, test_MlaProlog_float16_32_2_1_256_256_512) {  // 
 }
 
 TEST_F(HostMachineCompileTest, test_codegen_by_json) {
-    std::vector<int> shape = {64, 64};
-    std::vector<int> tile_shape = {64, 64};
+    std::vector<int64_t> shape = {64, 64};
+    std::vector<int64_t> tile_shape = {64, 64};
     Program::GetInstance().GetTileShape().SetVecTileShapes(tile_shape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor input_b(DT_FP32, shape, "B");

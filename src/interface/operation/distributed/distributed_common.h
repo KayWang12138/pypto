@@ -142,7 +142,7 @@ struct OpArgs {
     std::shared_ptr<LogicalTensor> tilingTensor;
     std::string tilingSymbol;
     std::optional<T> tilingInfo;
-    std::optional<std::vector<int>> attrArray;
+    std::optional<std::vector<int64_t>> attrArray;
 
     void PrintLog() const
     {
@@ -277,8 +277,8 @@ Operation &AddOperation(Function& function, OpArgs<T> &opArgs)
         auto tilingData = opArgs.tilingInfo.value().SerializeTo();
         int offset = function.GetDistTilingManager()->Save(opArgs.tilingSymbol, tilingData);
         ASSERT(offset >= 0);
-        const std::vector<int> newShape = {1, static_cast<int>(tilingData.size())};
-        const std::vector<int> newOffset = {0, offset};
+        const std::vector<int64_t> newShape = {1, static_cast<int>(tilingData.size())};
+        const std::vector<int64_t> newOffset = {0, offset};
         auto tiling = opArgs.tilingTensor->View(function, newShape, newOffset);
         opArgs.iOperands.push_back(tiling);
     }

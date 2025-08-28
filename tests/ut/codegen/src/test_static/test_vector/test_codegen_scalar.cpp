@@ -46,14 +46,14 @@ public:
     void TearDown() override {}
 };
 
-void TestQuant(std::vector<int> &inputShape) {
+void TestQuant(std::vector<int64_t> &inputShape) {
     int shapeDim = inputShape.size();
-    std::vector<int> scaleShape(shapeDim, 0);
+    std::vector<int64_t> scaleShape(shapeDim, 0);
     for (int i = 0; i < shapeDim; i++) {
         scaleShape[i] = (i == shapeDim - 1) ? 1 : inputShape[i];
     }
 
-    std::vector<int> vecTileShape = {VALUE128, VALUE128};
+    std::vector<int64_t> vecTileShape = {VALUE128, VALUE128};
 
     // depend on shapeDim
     switch (shapeDim) {
@@ -85,15 +85,15 @@ void TestQuant(std::vector<int> &inputShape) {
 }
 
 TEST_F(TestCodegenScalar, TestQuant_32_1_7168) {
-    std::vector<int> inputShape = {32, 1, 7168};
+    std::vector<int64_t> inputShape = {32, 1, 7168};
     TestQuant(inputShape);
 }
 
 TEST_F(TestCodegenScalar, TestScalarOp) {
-    std::vector<int> vecTileShape = {128, 128};
+    std::vector<int64_t> vecTileShape = {128, 128};
     int b = 2; // 32
     int s = 1; // 1, optimize set_tile
-    std::vector<int> shape{b * s, 35};
+    std::vector<int64_t> shape{b * s, 35};
 
     Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[1]);
     Tensor input(DataType::DT_FP32, shape, "input");
@@ -121,7 +121,7 @@ TEST_F(TestCodegenScalar, TestPipeAll) {
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
 
     // Prepare the graph
-    std::vector<int> shape = {8, 16};
+    std::vector<int64_t> shape = {8, 16};
     auto shapeImme = OpImmediate::Specified(shape);
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto incast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);

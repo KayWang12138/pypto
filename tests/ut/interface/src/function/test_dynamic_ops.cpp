@@ -88,7 +88,7 @@ TEST_F(DynamicOpsTest, Assemble) {
             auto t1b = View(t1, {s, s}, {s, 0});
             auto t2a = Add(t0a, t1a);
             auto t2b = Add(t0b, t1b);
-            std::vector<std::pair<Tensor, std::vector<int>>> data = {
+            std::vector<std::pair<Tensor, std::vector<int64_t>>> data = {
                 {t2a, {0, 0}},
                 {t2b, {s, 0}},
             };
@@ -131,7 +131,7 @@ TEST_F(DynamicOpsTest, AssembleFp16) {
             auto t2b = Add(t0b, t1b);
             ToFile(t2b, "t2b_{i}.bin", i % 2 == 0);
             Print(t2b, "i={i}", i == 1);
-            std::vector<std::pair<Tensor, std::vector<int>>> data = {
+            std::vector<std::pair<Tensor, std::vector<int64_t>>> data = {
                 {t2a, {0, 0}},
                 {t2b, {s, 0}},
             };

@@ -23,9 +23,11 @@
 #include <string>
 
 using namespace npu::tile_fwk;
-RawTensor::RawTensor(DataType t, std::vector<int> tshape, std::string tname, int trawmagic)
+RawTensor::RawTensor(DataType t, std::vector<int64_t> tshape, std::string tname, int trawmagic)
     : rawmagic((trawmagic == -1) ? IdGen<IdType::RAW_TENSOR>::Inst().NewId() : trawmagic),
-      rawshape(std::move(tshape)), datatype(t), symbol(std::move(tname)) {
+      rawshape(std::move(tshape)),
+      datatype(t),
+      symbol(std::move(tname)) {
     dynRawShape = SymbolicScalar::FromConcrete(rawshape);
     memoryId = rawmagic;
 }
@@ -122,7 +124,7 @@ Json RawTensor::DumpJson() const {
 std::shared_ptr<RawTensor> RawTensor::LoadJson(const Json &rawTensorDump) {
     ASSERT(rawTensorDump[T_FIELD_KIND].get<int>() == static_cast<int>(Kind::T_KIND_RAW_TENSOR));
     DataType dtype = static_cast<DataType>(rawTensorDump["datatype"].get<int>());
-    std::vector<int> rawshapeJson = rawTensorDump["rawshape"].get<std::vector<int>>();
+    std::vector<int64_t> rawshapeJson = rawTensorDump["rawshape"].get<std::vector<int64_t>>();
     int dumpRawmagic = rawTensorDump["rawmagic"].get<int>();
     std::string dumpSymbol;
     if (rawTensorDump.contains("symbol")) {
@@ -138,7 +140,7 @@ std::shared_ptr<RawTensor> RawTensor::LoadJson(const Json &rawTensorDump) {
     if (rawTensorDump.count("actual_rawmagic") != 0) {
         ret->actualRawmagic = rawTensorDump["actual_rawmagic"].get<int>();
     }
-    ret->oriRawshape = rawTensorDump["ori_rawshape"].get<std::vector<int>>();
+    ret->oriRawshape = rawTensorDump["ori_rawshape"].get<std::vector<int64_t>>();
     if (rawTensorDump.count("raw_data_ptr") != 0) {
         ret->SetRawDataPtr(reinterpret_cast<uint8_t *>(rawTensorDump["raw_data_ptr"].get<uintptr_t>()));
     }

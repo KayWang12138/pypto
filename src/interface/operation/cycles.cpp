@@ -48,10 +48,10 @@ int GetLatency(const std::string &op, DataType dtype) {
     return iterDtype->second;
 }
 
-int GetMaxShapeSize(const std::vector<std::vector<int>> &shape) {
-    int maxTotalSize = 0;
+int64_t GetMaxShapeSize(const std::vector<std::vector<int64_t>> &shape) {
+    int64_t maxTotalSize = 0;
     for (const auto &i : shape) {
-        int totalSize = 1;
+        int64_t totalSize = 1;
         for (auto dimVal : i) {
             totalSize *= dimVal;
         }
@@ -60,43 +60,43 @@ int GetMaxShapeSize(const std::vector<std::vector<int>> &shape) {
     return maxTotalSize;
 }
 
-int CalcCyclesCommon(const std::string &op, int shapeSize, DataType dtype) {
-    int totalSize = shapeSize * BytesOf(dtype);
+int64_t CalcCyclesCommon(const std::string &op, int64_t shapeSize, DataType dtype) {
+    int64_t totalSize = shapeSize * BytesOf(dtype);
 
-    int elePerRepeat = BYTES_PER_REPEAT / BytesOf(dtype);
-    int parallelism = GetParallelism(op, dtype);
-    int cyclePerRepeat = elePerRepeat / parallelism;
+    int64_t elePerRepeat = BYTES_PER_REPEAT / BytesOf(dtype);
+    int64_t parallelism = GetParallelism(op, dtype);
+    int64_t cyclePerRepeat = elePerRepeat / parallelism;
     if (cyclePerRepeat == 0) {
         cyclePerRepeat = 1;
     }
 
-    int repeatCount = (totalSize - BYTES_PER_REPEAT) / BYTES_PER_REPEAT + 1;
-    int latency = GetLatency(op, dtype);
-    int cycle = latency + repeatCount * cyclePerRepeat - 1;
+    int64_t repeatCount = (totalSize - BYTES_PER_REPEAT) / BYTES_PER_REPEAT + 1;
+    int64_t latency = GetLatency(op, dtype);
+    int64_t cycle = latency + repeatCount * cyclePerRepeat - 1;
     return cycle;
 }
 
 // according to implementation in tile op instruction
-int CalcUBCompactCycles(const std::vector<std::vector<int>> &shape, DataType dtype) {
-    int srcShape0 = shape[1][0];
-    int dstShape0 = shape[0][0];
+int64_t CalcUBCompactCycles(const std::vector<std::vector<int64_t>> &shape, DataType dtype) {
+    int64_t srcShape0 = shape[1][0];
+    int64_t dstShape0 = shape[0][0];
     constexpr int32_t SRC_SHAPE_16 = 16;
-    int vnchwconvRegSetScala = 4;
-    int vnchwconvBytePerCycle = 512;
+    int64_t vnchwconvRegSetScala = 4;
+    int64_t vnchwconvBytePerCycle = 512;
     if (srcShape0 < SRC_SHAPE_16) {
         return dstShape0 * vnchwconvRegSetScala;
     }
-    int shapeSize = GetMaxShapeSize(shape);
-    int totalBytes = shapeSize * BytesOf(dtype);
+    int64_t shapeSize = GetMaxShapeSize(shape);
+    int64_t totalBytes = shapeSize * BytesOf(dtype);
     if (totalBytes / vnchwconvBytePerCycle < 1) {
         return 1 + vnchwconvRegSetScala;
     }
-    int vnchwconvCycle = totalBytes / vnchwconvBytePerCycle + vnchwconvRegSetScala;
-    int copyUbToUbCycle = CalcCyclesCommon("UB_MOV", shapeSize, dtype);
+    int64_t vnchwconvCycle = totalBytes / vnchwconvBytePerCycle + vnchwconvRegSetScala;
+    int64_t copyUbToUbCycle = CalcCyclesCommon("UB_MOV", shapeSize, dtype);
     return vnchwconvCycle + copyUbToUbCycle;
 }
 
-int GetCycles(const std::string &op, const std::vector<std::vector<int>> &shape, DataType dtype) {
+int64_t GetCycles(const std::string &op, const std::vector<std::vector<int64_t>> &shape, DataType dtype) {
     if (op == "NOP") {
         return 0;
     }
@@ -118,8 +118,8 @@ int GetCycles(const std::string &op, const std::vector<std::vector<int>> &shape,
         return iterCombineIntrin->second(shape, dtype);
     }
 
-    int shapeSize = GetMaxShapeSize(shape);
-    int cycle = CalcCyclesCommon(op, shapeSize, dtype);
+    int64_t shapeSize = GetMaxShapeSize(shape);
+    int64_t cycle = CalcCyclesCommon(op, shapeSize, dtype);
     return cycle;
 }
 } // namespace npu::tile_fwk

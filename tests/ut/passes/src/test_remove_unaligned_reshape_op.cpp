@@ -47,9 +47,9 @@ public:
 
 inline void ConstructGraph1(std::shared_ptr<Function> &currFunctionPtr) {
     // Prepare the graph
-    std::vector<int> shape = {7, 15};
-    std::vector<int> reshape_shape = {15,7};
-    std::vector<int> expect_shape = {7, 16};
+    std::vector<int64_t> shape = {7, 15};
+    std::vector<int64_t> reshape_shape = {15,7};
+    std::vector<int64_t> expect_shape = {7, 16};
     auto shapeImme = OpImmediate::Specified(shape);
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -73,9 +73,9 @@ inline void ConstructGraph1(std::shared_ptr<Function> &currFunctionPtr) {
 
 inline void ConstructGraph2(std::shared_ptr<Function> &currFunctionPtr) {
     // Prepare the graph
-    std::vector<int> shape = {8, 16};
-    std::vector<int> reshape_shape = {16,8};
-    std::vector<int> expect_shape = {8, 16};
+    std::vector<int64_t> shape = {8, 16};
+    std::vector<int64_t> reshape_shape = {16,8};
+    std::vector<int64_t> expect_shape = {8, 16};
     auto shapeImme = OpImmediate::Specified(shape);
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -99,9 +99,9 @@ inline void ConstructGraph2(std::shared_ptr<Function> &currFunctionPtr) {
 
 inline void ConstructGraph3(std::shared_ptr<Function> &currFunctionPtr) {
     // Prepare the graph
-    std::vector<int> shape = {8, 16};
-    std::vector<int> reshape_shape = {16,8};
-    std::vector<int> expect_shape = {8, 16};
+    std::vector<int64_t> shape = {8, 16};
+    std::vector<int64_t> reshape_shape = {16,8};
+    std::vector<int64_t> expect_shape = {8, 16};
     auto shapeImme = OpImmediate::Specified(shape);
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     incast1->SetMemoryTypeBoth(MEM_DEVICE_DDR);
@@ -117,8 +117,8 @@ inline void ConstructGraph3(std::shared_ptr<Function> &currFunctionPtr) {
 
 inline void ConstructGraph4(std::shared_ptr<Function> &currFunctionPtr) {
     // Prepare the graph
-    std::vector<int> shape = {64, 1};
-    std::vector<int> reshape_shape = {1,64};
+    std::vector<int64_t> shape = {64, 1};
+    std::vector<int64_t> reshape_shape = {1,64};
     auto shapeImme = OpImmediate::Specified(shape);
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     incast1->SetMemoryTypeBoth(MEM_DEVICE_DDR);
@@ -161,9 +161,9 @@ after:
 TEST_F(TestRemoveUnalignedReshapeOp, reshaped_padded_ub) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    std::vector<int> shape = {7, 15};
-    std::vector<int> reshape_shape = {15,7};
-    std::vector<int> expect_shape = {7, 16};
+    std::vector<int64_t> shape = {7, 15};
+    std::vector<int64_t> reshape_shape = {15,7};
+    std::vector<int64_t> expect_shape = {7, 16};
     ConstructGraph1(currFunctionPtr);
     PadLocalBuffer padLocalBufferTest;
     padLocalBufferTest.RunOnFunction(*currFunctionPtr);
@@ -219,9 +219,9 @@ after:
 TEST_F(TestRemoveUnalignedReshapeOp, reshaped_unpadded_ub) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    std::vector<int> shape = {8, 16};
-    std::vector<int> reshape_shape = {16,8};
-    std::vector<int> expect_shape = {8, 16};
+    std::vector<int64_t> shape = {8, 16};
+    std::vector<int64_t> reshape_shape = {16,8};
+    std::vector<int64_t> expect_shape = {8, 16};
     ConstructGraph2(currFunctionPtr);
     PadLocalBuffer padLocalBufferTest;
     padLocalBufferTest.RunOnFunction(*currFunctionPtr);
@@ -277,9 +277,9 @@ after:
 TEST_F(TestRemoveUnalignedReshapeOp, reshaped_unpadded_ub_gm) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    std::vector<int> shape = {8, 16};
-    std::vector<int> reshape_shape = {16,8};
-    std::vector<int> expect_shape = {8, 16};
+    std::vector<int64_t> shape = {8, 16};
+    std::vector<int64_t> reshape_shape = {16,8};
+    std::vector<int64_t> expect_shape = {8, 16};
     ConstructGraph3(currFunctionPtr);
     PadLocalBuffer padLocalBufferTest;
     padLocalBufferTest.RunOnFunction(*currFunctionPtr);
@@ -332,8 +332,8 @@ after:
 TEST_F(TestRemoveUnalignedReshapeOp, reshaped_unpadded_ub_gm_last_dim_1) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    std::vector<int> shape = {64, 1};
-    std::vector<int> reshape_shape = {1,64};
+    std::vector<int64_t> shape = {64, 1};
+    std::vector<int64_t> reshape_shape = {1,64};
     ConstructGraph4(currFunctionPtr);
     PadLocalBuffer padLocalBufferTest;
     padLocalBufferTest.RunOnFunction(*currFunctionPtr);

@@ -39,14 +39,14 @@ public:
 };
 
 TEST_F(InferShapeTest, TestAdd) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), 
-                                                      "TestAddInferShape", 
-                                                      "TestAddInferShape", 
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(),
+                                                      "TestAddInferShape",
+                                                      "TestAddInferShape",
                                                       nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> shape = {8, 16};
+    std::vector<int64_t> shape = {8, 16};
     auto shapeImme = OpImmediate::Specified(shape);
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto incast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -54,27 +54,27 @@ TEST_F(InferShapeTest, TestAdd) {
     auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto ubTensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    outCast->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"), 
+    outCast->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"),
                                   SymbolicScalar("output_0_Dim_1")});
 
     auto &copy_op1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast1}, {ubTensor1});
-    auto copyin1Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), 
-                                                         MEM_UB, 
-                                                         shapeImme, 
-                                                         shapeImme, 
+    auto copyin1Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}),
+                                                         MEM_UB,
+                                                         shapeImme,
+                                                         shapeImme,
                                                          std::vector<npu::tile_fwk::OpImmediate>());
-    std::vector<npu::tile_fwk::OpImmediate> toValidShape = {OpImmediate(SymbolicScalar("Input_0_Dim_0")), 
+    std::vector<npu::tile_fwk::OpImmediate> toValidShape = {OpImmediate(SymbolicScalar("Input_0_Dim_0")),
                                                             OpImmediate(SymbolicScalar("Input_0_Dim_1"))};
     copyin1Attr->SetToDynValidShape(toValidShape);
     copy_op1.SetOpAttribute(copyin1Attr);
 
     auto &copy_op2 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast2}, {ubTensor2});
-    auto copyin2Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), 
-                                                         MEM_UB, 
-                                                         shapeImme, 
-                                                         shapeImme, 
+    auto copyin2Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}),
+                                                         MEM_UB,
+                                                         shapeImme,
+                                                         shapeImme,
                                                          std::vector<npu::tile_fwk::OpImmediate>());
-    std::vector<npu::tile_fwk::OpImmediate> toValidShape1 = {OpImmediate(SymbolicScalar("Input_1_Dim_0")), 
+    std::vector<npu::tile_fwk::OpImmediate> toValidShape1 = {OpImmediate(SymbolicScalar("Input_1_Dim_0")),
                                                              OpImmediate(SymbolicScalar("Input_1_Dim_1"))};
     copyin2Attr->SetToDynValidShape(toValidShape1);
     copy_op2.SetOpAttribute(copyin2Attr);
@@ -83,7 +83,7 @@ TEST_F(InferShapeTest, TestAdd) {
     (void) add_op;
     auto& copy_out_op = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {ubTensor3}, {outCast});
     (void) copy_out_op;
-    
+
 
     currFunctionPtr->inCasts_.push_back(incast1);
     currFunctionPtr->inCasts_.push_back(incast2);
@@ -96,14 +96,14 @@ TEST_F(InferShapeTest, TestAdd) {
 }
 
 TEST_F(InferShapeTest, TestAddAlignCase) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), 
-                                                      "TestAddInferShape", 
-                                                      "TestAddInferShape", 
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(),
+                                                      "TestAddInferShape",
+                                                      "TestAddInferShape",
                                                       nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> shape = {8, 16};
+    std::vector<int64_t> shape = {8, 16};
     auto shapeImme = OpImmediate::Specified(shape);
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto incast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -113,31 +113,31 @@ TEST_F(InferShapeTest, TestAddAlignCase) {
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
 
     auto &copy_op1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast1}, {ubTensor1});
-    auto copyin1Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), 
-                                                         MEM_UB, 
-                                                         shapeImme, 
-                                                         shapeImme, 
+    auto copyin1Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}),
+                                                         MEM_UB,
+                                                         shapeImme,
+                                                         shapeImme,
                                                          std::vector<npu::tile_fwk::OpImmediate>());
     copy_op1.SetOpAttribute(copyin1Attr);
 
     auto &copy_op2 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast2}, {ubTensor2});
-    auto copyin2Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), 
-                                                         MEM_UB, 
-                                                         shapeImme, 
-                                                         shapeImme, 
+    auto copyin2Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}),
+                                                         MEM_UB,
+                                                         shapeImme,
+                                                         shapeImme,
                                                          std::vector<npu::tile_fwk::OpImmediate>());
     copy_op2.SetOpAttribute(copyin2Attr);
 
     auto& add_op = currFunctionPtr->AddOperation(Opcode::OP_ADD, {ubTensor1, ubTensor2}, {ubTensor3});
     (void) add_op;
     auto& copy_out_op = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {ubTensor3}, {outCast});
-    auto copyoutAttr = std::make_shared<CopyOpAttribute>(MEM_UB, 
-                                                         OpImmediate::Specified({0, 0}), 
-                                                         shapeImme, 
-                                                         shapeImme, 
+    auto copyoutAttr = std::make_shared<CopyOpAttribute>(MEM_UB,
+                                                         OpImmediate::Specified({0, 0}),
+                                                         shapeImme,
+                                                         shapeImme,
                                                          std::vector<npu::tile_fwk::OpImmediate>());
     copy_out_op.SetOpAttribute(copyoutAttr);
-    
+
 
     currFunctionPtr->inCasts_.push_back(incast1);
     currFunctionPtr->inCasts_.push_back(incast2);
@@ -150,14 +150,14 @@ TEST_F(InferShapeTest, TestAddAlignCase) {
 }
 
 TEST_F(InferShapeTest, TestAddExp) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), 
-                                                      "TestAddInferShape", 
-                                                      "TestAddInferShape", 
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(),
+                                                      "TestAddInferShape",
+                                                      "TestAddInferShape",
                                                       nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> shape = {8, 16};
+    std::vector<int64_t> shape = {8, 16};
     auto shapeImme = OpImmediate::Specified(shape);
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto incast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -165,26 +165,26 @@ TEST_F(InferShapeTest, TestAddExp) {
     auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto ubTensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    outCast->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"), 
+    outCast->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"),
                                   SymbolicScalar("output_0_Dim_1")});
 
     auto &copy_op1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast1}, {ubTensor1});
-    auto copyin1Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), 
-                                                         MEM_UB, 
-                                                         shapeImme, 
-                                                         shapeImme, 
+    auto copyin1Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}),
+                                                         MEM_UB,
+                                                         shapeImme,
+                                                         shapeImme,
                                                          std::vector<npu::tile_fwk::OpImmediate>());
-    std::vector<npu::tile_fwk::OpImmediate> toValidShape = {OpImmediate(SymbolicScalar("Input_0_Dim_0")), 
+    std::vector<npu::tile_fwk::OpImmediate> toValidShape = {OpImmediate(SymbolicScalar("Input_0_Dim_0")),
                                                             OpImmediate(SymbolicScalar("Input_0_Dim_1"))};
     copyin1Attr->SetToDynValidShape(toValidShape);
     copy_op1.SetOpAttribute(copyin1Attr);
 
     auto &copy_op2 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast2}, {ubTensor2});
-    auto copyin2Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), 
-                                                         MEM_UB, 
-                                                         shapeImme, 
+    auto copyin2Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}),
+                                                         MEM_UB,
+                                                         shapeImme,
                                                          shapeImme);
-    std::vector<npu::tile_fwk::OpImmediate> toValidShape1 = {OpImmediate(SymbolicScalar("Input_1_Dim_0")), 
+    std::vector<npu::tile_fwk::OpImmediate> toValidShape1 = {OpImmediate(SymbolicScalar("Input_1_Dim_0")),
                                                              OpImmediate(SymbolicScalar("Input_1_Dim_1"))};
     copyin2Attr->SetToDynValidShape(toValidShape1);
     copy_op2.SetOpAttribute(copyin2Attr);
@@ -193,19 +193,19 @@ TEST_F(InferShapeTest, TestAddExp) {
     (void) add_op;
     auto tmpCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto& copy_out_op = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {ubTensor3}, {tmpCast});
-    auto copyout1Attr = std::make_shared<CopyOpAttribute>(MEM_UB, 
-                                                          OpImmediate::Specified({0, 0}), 
-                                                          shapeImme, 
-                                                          shapeImme, 
+    auto copyout1Attr = std::make_shared<CopyOpAttribute>(MEM_UB,
+                                                          OpImmediate::Specified({0, 0}),
+                                                          shapeImme,
+                                                          shapeImme,
                                                           std::vector<npu::tile_fwk::OpImmediate>());
     copy_out_op.SetOpAttribute(copyout1Attr);
 
     auto ubTensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto &copy_op3 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {tmpCast}, {ubTensor4});
-    auto copyin3Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), 
-                                                         MEM_UB, 
-                                                         shapeImme, 
-                                                         shapeImme, 
+    auto copyin3Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}),
+                                                         MEM_UB,
+                                                         shapeImme,
+                                                         shapeImme,
                                                          std::vector<npu::tile_fwk::OpImmediate>());
     copy_op3.SetOpAttribute(copyin3Attr);
 
@@ -227,15 +227,15 @@ TEST_F(InferShapeTest, TestAddExp) {
 }
 
 TEST_F(InferShapeTest, TestReduce) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), 
-                                                      "TestReduceInferShape", 
-                                                      "TestReduceInferShape", 
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(),
+                                                      "TestReduceInferShape",
+                                                      "TestReduceInferShape",
                                                       nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> inshape = {4, 8, 16};
-    std::vector<int> outshape = {4, 8, 8};
+    std::vector<int64_t> inshape = {4, 8, 16};
+    std::vector<int64_t> outshape = {4, 8, 8};
     auto shapeImme = OpImmediate::Specified(inshape);
     auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
     auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outshape);
@@ -243,13 +243,13 @@ TEST_F(InferShapeTest, TestReduce) {
     auto outTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outshape);
 
     auto &copyin_op = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {inTensor});
-    auto copyin_Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), 
-                                                         MEM_UB, 
-                                                         shapeImme, 
-                                                         shapeImme, 
+    auto copyin_Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}),
+                                                         MEM_UB,
+                                                         shapeImme,
+                                                         shapeImme,
                                                          std::vector<OpImmediate>());
-    std::vector<OpImmediate> toValidShape = {OpImmediate(SymbolicScalar("Input_0_Dim_0")), 
-                                             OpImmediate(SymbolicScalar("Input_0_Dim_1")), 
+    std::vector<OpImmediate> toValidShape = {OpImmediate(SymbolicScalar("Input_0_Dim_0")),
+                                             OpImmediate(SymbolicScalar("Input_0_Dim_1")),
                                              OpImmediate(SymbolicScalar("Input_0_Dim_2"))};
     copyin_Attr->SetToDynValidShape(toValidShape);
     copyin_op.SetOpAttribute(copyin_Attr);
@@ -272,25 +272,25 @@ TEST_F(InferShapeTest, TestReduce) {
 }
 
 TEST_F(InferShapeTest, TestView) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), 
-                                                      "TesViewInferShape", 
-                                                      "TesViewInferShape", 
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(),
+                                                      "TesViewInferShape",
+                                                      "TesViewInferShape",
                                                       nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> shape = {8, 16};
+    std::vector<int64_t> shape = {8, 16};
     auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
 
     incast->UpdateDynValidShape({SymbolicScalar("input_0_Dim_0"), SymbolicScalar("input_0_Dim_1")});
     auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast}, {outcast});
-    auto view_Attr = std::make_shared<ViewOpAttribute>(std::vector<int>(), 
-                                                       MEM_UNKNOWN, 
-                                                       std::vector<SymbolicScalar>(), 
+    auto view_Attr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>(),
+                                                       MEM_UNKNOWN,
+                                                       std::vector<SymbolicScalar>(),
                                                        std::vector<SymbolicScalar>());
-    view_Attr->SetFromOffset(std::vector<int>(), 
-                             {SymbolicScalar("Offset_0_Dim_0"), 
+    view_Attr->SetFromOffset(std::vector<int64_t>(),
+                             {SymbolicScalar("Offset_0_Dim_0"),
                               SymbolicScalar("Offset_0_Dim_1")});
     view_op.SetOpAttribute(view_Attr);
 
@@ -305,23 +305,23 @@ TEST_F(InferShapeTest, TestView) {
 }
 
 TEST_F(InferShapeTest, TestViewAlign) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), 
-                                                      "TesViewInferShape", 
-                                                      "TesViewInferShape", 
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(),
+                                                      "TesViewInferShape",
+                                                      "TesViewInferShape",
                                                       nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> shape = {8, 16};
-    std::vector<int> offset = {2, 0};
-    std::vector<int> viewshape = {8, 4};
+    std::vector<int64_t> shape = {8, 16};
+    std::vector<int64_t> offset = {2, 0};
+    std::vector<int64_t> viewshape = {8, 4};
     auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, viewshape);
 
     auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast}, {outcast});
-    auto view_Attr = std::make_shared<ViewOpAttribute>(std::vector<int>(), 
-                                                       MEM_UNKNOWN, 
-                                                       std::vector<SymbolicScalar>(), 
+    auto view_Attr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>(),
+                                                       MEM_UNKNOWN,
+                                                       std::vector<SymbolicScalar>(),
                                                        std::vector<SymbolicScalar>());
     view_Attr->SetFromOffset(offset, std::vector<SymbolicScalar>());
     view_op.SetOpAttribute(view_Attr);
@@ -337,23 +337,23 @@ TEST_F(InferShapeTest, TestViewAlign) {
 }
 
 TEST_F(InferShapeTest, TestAssemble) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), 
-                                                      "TestAssembleInferShape", 
-                                                      "TestAssembleInferShape", 
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(),
+                                                      "TestAssembleInferShape",
+                                                      "TestAssembleInferShape",
                                                       nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> shape = {8, 16};
+    std::vector<int64_t> shape = {8, 16};
     auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
 
     incast->UpdateDynValidShape({SymbolicScalar("input_0_Dim_0"), SymbolicScalar("input_0_Dim_1")});
     outcast->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"), SymbolicScalar("output_0_Dim_1")});
     auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {incast}, {outcast});
-    auto assemble_Attr = std::make_shared<AssembleOpAttribute>(MEM_UNKNOWN, 
-                                                               std::vector<int>(), 
-                                                               std::vector<SymbolicScalar>(), 
+    auto assemble_Attr = std::make_shared<AssembleOpAttribute>(MEM_UNKNOWN,
+                                                               std::vector<int64_t>(),
+                                                               std::vector<SymbolicScalar>(),
                                                                std::vector<SymbolicScalar>());
 
     auto dynOffset = {SymbolicScalar("DynOffset_0_Dim_0"), SymbolicScalar("DynOffset_0_Dim_1")};
@@ -371,15 +371,15 @@ TEST_F(InferShapeTest, TestAssemble) {
 }
 
 TEST_F(InferShapeTest, TestFailCopyOut) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), 
-                                                      "TestCopyOutInferShape", 
-                                                      "TestCopyOutInferShape", 
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(),
+                                                      "TestCopyOutInferShape",
+                                                      "TestCopyOutInferShape",
                                                       nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> inshape = {8, 16};
-    std::vector<int> outshape = {8, 8};
+    std::vector<int64_t> inshape = {8, 16};
+    std::vector<int64_t> outshape = {8, 8};
     auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
     auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outshape);
 
@@ -395,15 +395,15 @@ TEST_F(InferShapeTest, TestFailCopyOut) {
 }
 
 TEST_F(InferShapeTest, TestCopyOut) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), 
-                                                      "TestCopyOutInferShape", 
-                                                      "TestCopyOutInferShape", 
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(),
+                                                      "TestCopyOutInferShape",
+                                                      "TestCopyOutInferShape",
                                                       nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> inshape = {8, 16};
-    std::vector<int> outshape = {8, 16};
+    std::vector<int64_t> inshape = {8, 16};
+    std::vector<int64_t> outshape = {8, 16};
     auto toOffsetImme = OpImmediate::Specified({4, 4});
     auto inshapeImme = OpImmediate::Specified(inshape);
     auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
@@ -411,10 +411,10 @@ TEST_F(InferShapeTest, TestCopyOut) {
     incast->UpdateDynValidShape({SymbolicScalar("input_0_Dim_0"), SymbolicScalar("input_0_Dim_1")});
 
     auto &copyout_op = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {incast}, {outcast});
-    auto copyout_Attr = std::make_shared<CopyOpAttribute>(MEM_DEVICE_DDR, 
-                                                          toOffsetImme, 
-                                                          inshapeImme, 
-                                                          inshapeImme, 
+    auto copyout_Attr = std::make_shared<CopyOpAttribute>(MEM_DEVICE_DDR,
+                                                          toOffsetImme,
+                                                          inshapeImme,
+                                                          inshapeImme,
                                                           std::vector<OpImmediate>());
     copyout_op.SetOpAttribute(copyout_Attr);
 
@@ -429,15 +429,15 @@ TEST_F(InferShapeTest, TestCopyOut) {
 }
 
 TEST_F(InferShapeTest, TestCopyIn) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), 
-                                                      "TestCopyInInferShape", 
-                                                      "TestCopyInInferShape", 
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(),
+                                                      "TestCopyInInferShape",
+                                                      "TestCopyInInferShape",
                                                       nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> inshape = {8, 16};
-    std::vector<int> outshape = {8, 8};
+    std::vector<int64_t> inshape = {8, 16};
+    std::vector<int64_t> outshape = {8, 8};
     auto fromOffsetImme = OpImmediate::Specified({4, 4});
     auto inshapeImme = OpImmediate::Specified(inshape);
     auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
@@ -445,10 +445,10 @@ TEST_F(InferShapeTest, TestCopyIn) {
     incast->UpdateDynValidShape({SymbolicScalar("input_0_Dim_0"), SymbolicScalar("input_0_Dim_1")});
 
     auto &copyin_op = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {outcast});
-    auto copyin_Attr = std::make_shared<CopyOpAttribute>(fromOffsetImme, 
-                                                          MEM_UNKNOWN, 
-                                                          inshapeImme, 
-                                                          inshapeImme, 
+    auto copyin_Attr = std::make_shared<CopyOpAttribute>(fromOffsetImme,
+                                                          MEM_UNKNOWN,
+                                                          inshapeImme,
+                                                          inshapeImme,
                                                           std::vector<OpImmediate>());
     copyin_op.SetOpAttribute(copyin_Attr);
 
@@ -463,15 +463,15 @@ TEST_F(InferShapeTest, TestCopyIn) {
 }
 
 TEST_F(InferShapeTest, TestReshape) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), 
-                                                      "TestReshapeInferShape", 
-                                                      "TestReshapeInferShape", 
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(),
+                                                      "TestReshapeInferShape",
+                                                      "TestReshapeInferShape",
                                                       nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> inshape = {8, 16};
-    std::vector<int> outshape = {4, 4};
+    std::vector<int64_t> inshape = {8, 16};
+    std::vector<int64_t> outshape = {4, 4};
     auto shapeImme = OpImmediate::Specified(inshape);
     auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
     auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outshape);
@@ -481,13 +481,13 @@ TEST_F(InferShapeTest, TestReshape) {
     outcast->UpdateDynValidShape({SymbolicScalar("output_0_Dim_0"), SymbolicScalar("output_0_Dim_1")});
 
     auto &copyin_op = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {inTensor});
-    auto copyin_Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), 
-                                                         MEM_UNKNOWN, 
-                                                         shapeImme, 
-                                                         shapeImme, 
+    auto copyin_Attr = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}),
+                                                         MEM_UNKNOWN,
+                                                         shapeImme,
+                                                         shapeImme,
                                                          std::vector<OpImmediate>());
 
-    std::vector<OpImmediate> toValidShape = {OpImmediate(SymbolicScalar("Input_1_Dim_0")), 
+    std::vector<OpImmediate> toValidShape = {OpImmediate(SymbolicScalar("Input_1_Dim_0")),
                                              OpImmediate(SymbolicScalar("Input_1_Dim_1"))};
     copyin_Attr->SetToDynValidShape(toValidShape);
     copyin_op.SetOpAttribute(copyin_Attr);

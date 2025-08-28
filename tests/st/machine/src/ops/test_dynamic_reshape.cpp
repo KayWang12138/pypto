@@ -36,7 +36,7 @@ TEST_F(DynamicReshapeTest, test_only_reshape) {
     int sq = 128;
     int d = 64;
     int bSq = (b == -1) ? -1 : b*sq;
-    std::vector<int> qShape = {b, sq, d};
+    std::vector<int64_t> qShape = {b, sq, d};
 
     Tensor q(DT_FP32, qShape, "q");
     Tensor out(DT_FP32, {bSq, d}, "out");
@@ -92,7 +92,7 @@ TEST_F(DynamicReshapeTest, test_only_reshape2) {
     int sq = 128;
     int d = 64;
     int bSq = (b == -1) ? -1 : b*sq;
-    std::vector<int> qShape = {b, sq, d};
+    std::vector<int64_t> qShape = {b, sq, d};
 
     Tensor q(DT_FP32, qShape, "q");
     Tensor out(DT_FP32, {bSq, d}, "out");
@@ -140,7 +140,7 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape) {
     int sq = 128;
     int d = 64;
     int bSq = (b == -1) ? -1 : b*sq;
-    std::vector<int> qShape = {b, sq, d};
+    std::vector<int64_t> qShape = {b, sq, d};
 
     Tensor q(DT_FP32, qShape, "q");
     Tensor out(DT_FP32, {bSq, d}, "out");
@@ -188,7 +188,7 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape2) {
     int sq = 128;
     int d = 64;
     int bSq = (b == -1) ? -1 : b*sq;
-    std::vector<int> qShape = {b, sq, d};
+    std::vector<int64_t> qShape = {b, sq, d};
 
     Tensor q(DT_FP32, qShape, "q");
     Tensor out(DT_FP32, {bSq, d}, "out");
@@ -312,9 +312,9 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape22222) {
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 }
 
-/* 
-    * test infershape case
-*/
+/*
+ * test infershape case
+ */
 
 // test reshape unaligned infershape
 TEST_F(DynamicReshapeTest, test_reshape_unalign) {
@@ -324,9 +324,8 @@ TEST_F(DynamicReshapeTest, test_reshape_unalign) {
     int b = 2;
     int sq = 64;
     int d = 64;
-    std::vector<int> qShape2Dim = {b*sq, d};
-    std::vector<int> qShape3Dim = {b, sq, d};
-
+    std::vector<int64_t> qShape2Dim = {b * sq, d};
+    std::vector<int64_t> qShape3Dim = {b, sq, d};
 
     Tensor q(DT_FP32, qShape2Dim, "q");
     Tensor actSeqs(DT_INT32, {b, 1, 1}, "actual_seq");
@@ -381,7 +380,7 @@ TEST_F(DynamicReshapeTest, test_assemble_diff_tile) {
     int s2 = 128;
     int d = 128;
 
-    // (a + b)@c -> out  
+    // (a + b)@c -> out
     Tensor a(DT_FP32, {batch*s1, s2}, "a");
     Tensor b(DT_FP32, {batch*s2, d}, "b");
     Tensor out(DT_FP32, {batch*s1, d}, "out");
@@ -428,7 +427,7 @@ TEST_F(DynamicReshapeTest, test_assemble_diff_tile) {
         int offset = bsIdx * d;
         std::fill(golden.begin() + offset, golden.begin() + offset + acutalValue, 128.0f);
     }
-    
+
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 }
@@ -495,9 +494,9 @@ TEST_F(DynamicReshapeTest, test_reshape_dassemble_4_2) {
 
 //  dassemble + op + unaligin  Dassemble 不推导 validshape而是使用dst的shape时，后续操作会有问题
 
-/* 
-    * test copy case
-*/
+/*
+ * test copy case
+ */
 
 // test DView + Reshape + DAssemble 2->3
 TEST_F(DynamicReshapeTest, test_reshape_dassemble) {
@@ -507,9 +506,8 @@ TEST_F(DynamicReshapeTest, test_reshape_dassemble) {
     int b = 1;
     int sq = 64;
     int d = 64;
-    std::vector<int> qShape2Dim = {b*sq, d};
-    std::vector<int> qShape3Dim = {b, sq, d};
-
+    std::vector<int64_t> qShape2Dim = {b * sq, d};
+    std::vector<int64_t> qShape3Dim = {b, sq, d};
 
     Tensor q(DT_FP32, qShape2Dim, "q");
     Tensor out(DT_FP32, qShape3Dim, "out");

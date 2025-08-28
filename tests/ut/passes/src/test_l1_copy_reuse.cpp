@@ -61,7 +61,7 @@ TEST_F(L1CopyInReuseTest, TwoCopyIn) {
     // Prepare the graph
     constexpr int subGraphID0 = 0;
     constexpr int subGraphID1 = 1;
-    std::vector<int> shape = {8, 16};
+    std::vector<int64_t> shape = {8, 16};
     auto shapeImme = OpImmediate::Specified(shape);
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     incast1->tensor->rawmagic = 1;
@@ -85,7 +85,7 @@ TEST_F(L1CopyInReuseTest, TwoCopyIn) {
     copy_out1.UpdateSubgraphID(subGraphID0);
 
     auto &view_op1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast1}, {incast2});
-    view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int>{0, 0}));
+    view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}));
     view_op1.UpdateSubgraphID(subGraphID1);
     auto &alloc_op1 = currFunctionPtr->AddOperation(Opcode::OP_L1_ALLOC, {}, {tensor3});
     alloc_op1.UpdateSubgraphID(subGraphID1);
@@ -111,7 +111,7 @@ TEST_F(L1CopyInReuseTest, TwoCopyIn) {
 
 TEST_F(L1CopyInReuseTest, TestNormal) {
     ComputationalGraphBuilder G;
-    std::vector<int> tileShape{16, 16};
+    std::vector<int64_t> tileShape{16, 16};
     auto shapeImme = OpImmediate::Specified(tileShape);
     const int cube_nbuffer_num = 4;
     const int l1_reuse_num = 2;
@@ -143,7 +143,7 @@ TEST_F(L1CopyInReuseTest, TestNormal) {
     function->paramConfigs_.cubeNBufferMap = {{1, 2}};
     function->paramConfigs_.l1ReuseNum = l1_reuse_num;
     function->paramConfigs_.l1ReuseMap = {{1, 2}};
-    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num; 
+    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
     function->SetTotalSubGraphCount(subGraphNum);
     L1CopyInReuseMerge LCRM;
     EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
@@ -152,7 +152,7 @@ TEST_F(L1CopyInReuseTest, TestNormal) {
 
 TEST_F(L1CopyInReuseTest, TestNoL1Num) {
     ComputationalGraphBuilder G;
-    std::vector<int> tileShape{16, 16};
+    std::vector<int64_t> tileShape{16, 16};
     const int cube_nbuffer_num = 2;
     const int sg_cube_parallel_num = 4;
     const int result = 6;
@@ -182,7 +182,7 @@ TEST_F(L1CopyInReuseTest, TestNoL1Num) {
     function->paramConfigs_.cubeNBufferNum = cube_nbuffer_num;
     function->paramConfigs_.cubeNBufferMap = {{1, 2}};
     function->paramConfigs_.l1ReuseMap = {{1, 2}};
-    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num; 
+    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
     function->SetTotalSubGraphCount(subGraphNum);
     L1CopyInReuseMerge LCRM;
     EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
@@ -191,7 +191,7 @@ TEST_F(L1CopyInReuseTest, TestNoL1Num) {
 
 TEST_F(L1CopyInReuseTest, TestNoL1Map) {
     ComputationalGraphBuilder G;
-    std::vector<int> tileShape{16, 16};
+    std::vector<int64_t> tileShape{16, 16};
     const int cube_nbuffer_num = 4;
     const int l1_reuse_num = 2;
     const int sg_cube_parallel_num = 4;
@@ -222,7 +222,7 @@ TEST_F(L1CopyInReuseTest, TestNoL1Map) {
     function->paramConfigs_.cubeNBufferNum = cube_nbuffer_num;
     function->paramConfigs_.cubeNBufferMap = {{1, 2}};
     function->paramConfigs_.l1ReuseNum = l1_reuse_num;
-    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num; 
+    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
     function->SetTotalSubGraphCount(subGraphNum);
     L1CopyInReuseMerge LCRM;
     EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
@@ -231,7 +231,7 @@ TEST_F(L1CopyInReuseTest, TestNoL1Map) {
 
 TEST_F(L1CopyInReuseTest, TestNoBufferMap) {
     ComputationalGraphBuilder G;
-    std::vector<int> tileShape{16, 16};
+    std::vector<int64_t> tileShape{16, 16};
     const int cube_nbuffer_num = 4;
     const int l1_reuse_num = 2;
     const int sg_cube_parallel_num = 4;
@@ -271,7 +271,7 @@ TEST_F(L1CopyInReuseTest, TestNoBufferMap) {
 
 TEST_F(L1CopyInReuseTest, TestNoParam) {
     ComputationalGraphBuilder G;
-    std::vector<int> tileShape{16, 16};
+    std::vector<int64_t> tileShape{16, 16};
     const int result = 20;
     auto shapeImme = OpImmediate::Specified(tileShape);
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"incast0", "incast1", "outcast"}), true);

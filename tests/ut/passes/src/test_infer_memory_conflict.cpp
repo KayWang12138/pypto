@@ -74,16 +74,16 @@ TEST_F(InferMemoryConflictTest, InferMemoryConflictUTest_View_Assemble) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> shape1 = {NUM_32, NUM_128};
-    std::vector<int> shape2 = {NUM_32, NUM_128};
+    std::vector<int64_t> shape1 = {NUM_32, NUM_128};
+    std::vector<int64_t> shape2 = {NUM_32, NUM_128};
     auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     inCast->tensor->symbol = std::string("input");
     auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     outCast->tensor->symbol = std::string("output");
 
-    auto view_attr = std::make_shared<ViewOpAttribute>(std::vector<int>{NUM_ZERO, NUM_ZERO});
-    auto assemble_attr = std::make_shared<AssembleOpAttribute>(std::vector<int>{NUM_ZERO, NUM_ZERO});
+    auto view_attr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_ZERO, NUM_ZERO});
+    auto assemble_attr = std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{NUM_ZERO, NUM_ZERO});
     auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {tensor1});
     auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {tensor1}, {outCast});
     view_op.SetOpAttribute(view_attr);
@@ -115,9 +115,9 @@ TEST_F(InferMemoryConflictTest, InferMemoryConflictUTest_View_Assemble_V2) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> shape1 = {NUM_2, NUM_ONE, NUM_512, NUM_512};
-    std::vector<int> shape2 = {NUM_2, NUM_ONE, NUM_512, NUM_64};
-    std::vector<int> shape3 = {NUM_2, NUM_ONE, NUM_512, NUM_576};
+    std::vector<int64_t> shape1 = {NUM_2, NUM_ONE, NUM_512, NUM_512};
+    std::vector<int64_t> shape2 = {NUM_2, NUM_ONE, NUM_512, NUM_64};
+    std::vector<int64_t> shape3 = {NUM_2, NUM_ONE, NUM_512, NUM_576};
     auto inCast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     inCast1->tensor->symbol = std::string("input1");
     auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
@@ -127,12 +127,12 @@ TEST_F(InferMemoryConflictTest, InferMemoryConflictUTest_View_Assemble_V2) {
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
     outCast->tensor->symbol = std::string("output");
 
-    auto view_attr1 = std::make_shared<ViewOpAttribute>(std::vector<int>{NUM_ZERO, NUM_ZERO, NUM_ZERO, NUM_ZERO});
-    auto view_attr2 = std::make_shared<ViewOpAttribute>(std::vector<int>{NUM_ZERO, NUM_ZERO, NUM_ZERO, NUM_ZERO});
+    auto view_attr1 = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_ZERO, NUM_ZERO, NUM_ZERO, NUM_ZERO});
+    auto view_attr2 = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_ZERO, NUM_ZERO, NUM_ZERO, NUM_ZERO});
     auto assemble_attr1 =
-        std::make_shared<AssembleOpAttribute>(std::vector<int>{NUM_ZERO, NUM_ZERO, NUM_ZERO, NUM_ZERO});
+        std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{NUM_ZERO, NUM_ZERO, NUM_ZERO, NUM_ZERO});
     auto assemble_attr2 =
-        std::make_shared<AssembleOpAttribute>(std::vector<int>{NUM_ZERO, NUM_ZERO, NUM_ZERO, NUM_512});
+        std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{NUM_ZERO, NUM_ZERO, NUM_ZERO, NUM_512});
     auto &view_op1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast1}, {tensor1});
     view_op1.SetOpAttribute(view_attr1);
     auto &view_op2 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast2}, {tensor2});
@@ -169,8 +169,8 @@ TEST_F(InferMemoryConflictTest, InferMemoryConflictUTest_Reshape) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> shape1 = {NUM_32, NUM_128};
-    std::vector<int> shape2 = {NUM_8, NUM_512};
+    std::vector<int64_t> shape1 = {NUM_32, NUM_128};
+    std::vector<int64_t> shape2 = {NUM_8, NUM_512};
     auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     inCast->tensor->symbol = std::string("input");
     auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
@@ -178,8 +178,8 @@ TEST_F(InferMemoryConflictTest, InferMemoryConflictUTest_Reshape) {
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     outCast->tensor->symbol = std::string("output");
 
-    auto view_attr = std::make_shared<ViewOpAttribute>(std::vector<int>{NUM_ZERO, NUM_ZERO});
-    auto assemble_attr = std::make_shared<AssembleOpAttribute>(std::vector<int>{NUM_ZERO, NUM_ZERO});
+    auto view_attr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_ZERO, NUM_ZERO});
+    auto assemble_attr = std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{NUM_ZERO, NUM_ZERO});
     auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {tensor1});
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {tensor1}, {tensor2});
     auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {tensor2}, {outCast});
@@ -212,9 +212,9 @@ TEST_F(InferMemoryConflictTest, InferMemoryConflictUTest_ScatterUpdate) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> shape1 = {NUM_2, NUM_ONE, NUM_512, NUM_576};
-    std::vector<int> shape2 = {NUM_2, NUM_ONE, NUM_ONE, NUM_576};
-    std::vector<int> shape3 = {NUM_2, NUM_ONE};
+    std::vector<int64_t> shape1 = {NUM_2, NUM_ONE, NUM_512, NUM_576};
+    std::vector<int64_t> shape2 = {NUM_2, NUM_ONE, NUM_ONE, NUM_576};
+    std::vector<int64_t> shape3 = {NUM_2, NUM_ONE};
     auto inCast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     inCast1->tensor->symbol = std::string("kv_cache");
     auto inCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
@@ -228,11 +228,11 @@ TEST_F(InferMemoryConflictTest, InferMemoryConflictUTest_ScatterUpdate) {
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     outCast->tensor->symbol = std::string("kv_cache");
 
-    auto view_attr1 = std::make_shared<ViewOpAttribute>(std::vector<int>{NUM_ZERO, NUM_ZERO, NUM_ZERO, NUM_ZERO});
-    auto view_attr2 = std::make_shared<ViewOpAttribute>(std::vector<int>{NUM_ZERO, NUM_ZERO, NUM_ZERO, NUM_ZERO});
-    auto view_attr3 = std::make_shared<ViewOpAttribute>(std::vector<int>{NUM_ZERO, NUM_ZERO});
+    auto view_attr1 = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_ZERO, NUM_ZERO, NUM_ZERO, NUM_ZERO});
+    auto view_attr2 = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_ZERO, NUM_ZERO, NUM_ZERO, NUM_ZERO});
+    auto view_attr3 = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_ZERO, NUM_ZERO});
     auto assemble_attr =
-        std::make_shared<AssembleOpAttribute>(std::vector<int>{NUM_ZERO, NUM_ZERO, NUM_ZERO, NUM_ZERO});
+        std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{NUM_ZERO, NUM_ZERO, NUM_ZERO, NUM_ZERO});
     auto &view_op1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast1}, {tensor1});
     view_op1.SetOpAttribute(view_attr1);
     auto &view_op2 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast2}, {tensor2});
@@ -271,10 +271,10 @@ TEST_F(InferMemoryConflictTest, InferMemoryConflictUTest_ScatterUpdate_Reshape) 
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> shape1 = {NUM_2, NUM_ONE, NUM_512, NUM_576};
-    std::vector<int> shape2 = {NUM_2, NUM_ONE, NUM_ONE, NUM_576};
-    std::vector<int> shape3 = {NUM_2, NUM_ONE};
-    std::vector<int> shape4 = {NUM_2 * NUM_ONE * NUM_512, NUM_576};
+    std::vector<int64_t> shape1 = {NUM_2, NUM_ONE, NUM_512, NUM_576};
+    std::vector<int64_t> shape2 = {NUM_2, NUM_ONE, NUM_ONE, NUM_576};
+    std::vector<int64_t> shape3 = {NUM_2, NUM_ONE};
+    std::vector<int64_t> shape4 = {NUM_2 * NUM_ONE * NUM_512, NUM_576};
     auto inCast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     inCast1->tensor->symbol = std::string("kv_cache");
     auto inCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
@@ -289,10 +289,10 @@ TEST_F(InferMemoryConflictTest, InferMemoryConflictUTest_ScatterUpdate_Reshape) 
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape4);
     outCast->tensor->symbol = std::string("output");
 
-    auto view_attr1 = std::make_shared<ViewOpAttribute>(std::vector<int>{NUM_ZERO, NUM_ZERO, NUM_ZERO, NUM_ZERO});
-    auto view_attr2 = std::make_shared<ViewOpAttribute>(std::vector<int>{NUM_ZERO, NUM_ZERO, NUM_ZERO, NUM_ZERO});
-    auto view_attr3 = std::make_shared<ViewOpAttribute>(std::vector<int>{NUM_ZERO, NUM_ZERO});
-    auto assemble_attr = std::make_shared<AssembleOpAttribute>(std::vector<int>{NUM_ZERO, NUM_ZERO});
+    auto view_attr1 = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_ZERO, NUM_ZERO, NUM_ZERO, NUM_ZERO});
+    auto view_attr2 = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_ZERO, NUM_ZERO, NUM_ZERO, NUM_ZERO});
+    auto view_attr3 = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_ZERO, NUM_ZERO});
+    auto assemble_attr = std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{NUM_ZERO, NUM_ZERO});
     auto &view_op1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast1}, {tensor1});
     view_op1.SetOpAttribute(view_attr1);
     auto &view_op2 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast2}, {tensor2});
@@ -332,11 +332,11 @@ TEST_F(InferMemoryConflictTest, InferMemoryConflictUTest_Reshape_ScatterUpdate_R
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int> shape1 = {NUM_2, NUM_ONE, NUM_512, NUM_576}; // [2, 1, 512, 576]
-    std::vector<int> shape2 = {NUM_2, NUM_ONE, NUM_ONE, NUM_576}; // [2, 1, 1, 576]
-    std::vector<int> shape3 = {NUM_2, NUM_ONE};
-    std::vector<int> shape4 = {NUM_2 * NUM_ONE * NUM_512, NUM_576}; // [1024, 576]
-    std::vector<int> shape5 = {NUM_2 * NUM_ONE * NUM_ONE, NUM_576}; // [2, 576]
+    std::vector<int64_t> shape1 = {NUM_2, NUM_ONE, NUM_512, NUM_576}; // [2, 1, 512, 576]
+    std::vector<int64_t> shape2 = {NUM_2, NUM_ONE, NUM_ONE, NUM_576}; // [2, 1, 1, 576]
+    std::vector<int64_t> shape3 = {NUM_2, NUM_ONE};
+    std::vector<int64_t> shape4 = {NUM_2 * NUM_ONE * NUM_512, NUM_576}; // [1024, 576]
+    std::vector<int64_t> shape5 = {NUM_2 * NUM_ONE * NUM_ONE, NUM_576}; // [2, 576]
     auto inCast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape4);
     inCast1->tensor->symbol = std::string("kv_cache");
     auto inCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape5);
@@ -353,10 +353,10 @@ TEST_F(InferMemoryConflictTest, InferMemoryConflictUTest_Reshape_ScatterUpdate_R
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape4);
     outCast->tensor->symbol = std::string("output");
 
-    auto view_attr1 = std::make_shared<ViewOpAttribute>(std::vector<int>{NUM_ZERO, NUM_ZERO});
-    auto view_attr2 = std::make_shared<ViewOpAttribute>(std::vector<int>{NUM_ZERO, NUM_ZERO});
-    auto view_attr3 = std::make_shared<ViewOpAttribute>(std::vector<int>{NUM_ZERO, NUM_ZERO});
-    auto assemble_attr = std::make_shared<AssembleOpAttribute>(std::vector<int>{NUM_ZERO, NUM_ZERO});
+    auto view_attr1 = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_ZERO, NUM_ZERO});
+    auto view_attr2 = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_ZERO, NUM_ZERO});
+    auto view_attr3 = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_ZERO, NUM_ZERO});
+    auto assemble_attr = std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{NUM_ZERO, NUM_ZERO});
     auto &view_op1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast1}, {tensor1});
     view_op1.SetOpAttribute(view_attr1);
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {tensor1}, {tensor1_reshape});

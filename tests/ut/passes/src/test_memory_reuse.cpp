@@ -54,7 +54,7 @@ TEST_F(TestGlobalMemoryReuse, test_connection_matrix) {
     int kvLoraRank = 512;
     int vHeadDim =128;
     int h = 512;
-    std::vector<int> inShape = {b, n, s, kvLoraRank}; // (b, n, s, d)
+    std::vector<int64_t> inShape = {b, n, s, kvLoraRank}; // (b, n, s, d)
     Tensor attnPostIn(DT_BF16, inShape, "attnPostIn");
     Tensor attenOutput;
     AttentionW aw;
@@ -89,8 +89,8 @@ TEST_F(TestGlobalMemoryReuse, test_connection_matrix) {
     attenOutput.GetStorage()->DumpASM(true, true);
     attenOutput.GetStorage()->tensor->GetRawShapeSize();
 
-    std::vector<int> resultOffset;
-    std::vector<int> resultShape;
+    std::vector<int64_t> resultOffset;
+    std::vector<int64_t> resultShape;
     CalcShapeAndOffsetOfGroup(function->inCasts_, resultOffset, resultShape);
     function->GetTensorMap().GetTensorByMagic(function->inCasts_[0]->magic);
     CalcOverlapSize(function->inCasts_[0], function->inCasts_[0]);
@@ -227,9 +227,9 @@ TEST_F(TestGlobalMemoryReuse, NotReuseViewOp) {
     std::vector<std::vector<SymbolicScalar>> list;
     for (auto &op : function->Operations().DuplicatedOpList()) {
         if (op->GetOpcode() == Opcode::OP_VIEW) {
-            op->SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int>{0, 0}));
+            op->SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}));
         } else if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
-           op->SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int>{0, 0}));
+           op->SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0}));
         } else {
             op->SetOpAttribute(std::make_shared<CallOpAttribute>
                 (function->ComputeHash(), list, function->GetMagicName()));

@@ -45,15 +45,15 @@ struct UpdatePara {
 };
 
 struct ReshapeTilePara {
-    std::vector<int> shape;
-    std::vector<int> newShape;
-    std::vector<int> tileOffset;
-    std::vector<int> tileShape;
+    std::vector<int64_t> shape;
+    std::vector<int64_t> newShape;
+    std::vector<int64_t> tileOffset;
+    std::vector<int64_t> tileShape;
 };
 
 struct DynReshapeTilePara {
-    std::vector<int> shape;
-    std::vector<int> newShape;
+    std::vector<int64_t> shape;
+    std::vector<int64_t> newShape;
     std::vector<SymbolicScalar> dynOffset;
     std::vector<SymbolicScalar> dynShape;
 };
@@ -70,7 +70,7 @@ struct copyOutTilePara {
     LogicalTensorPtr reshapeSource;
     LogicalTensorPtr inputView;
     LogicalTensorPtr newInputView;
-    std::vector<int32_t> alignedShape;
+    std::vector<int64_t> alignedShape;
 };
 
 struct PerfectlyMatchPara {
@@ -86,7 +86,7 @@ struct BeCoveredPara {
     LogicalTensorPtr input;
     LogicalTensorPtr reshapeOutput;
     LogicalTensorPtr reshapeSource;
-    std::vector<int32_t> newOffset;
+    std::vector<int64_t> newOffset;
     std::vector<SymbolicScalar> fromDynOffset;
 };
 
@@ -106,7 +106,7 @@ struct AssemblePara {
     LogicalTensorPtr newReshapeOutput;
     LogicalTensorPtr inputView;
     LogicalTensorPtr overlap;
-    std::vector<int32_t> newReshapeOutputTileOffset;
+    std::vector<int64_t> newReshapeOutputTileOffset;
     std::vector<SymbolicScalar> newReshapeOutputDynOffset;
 };
 
@@ -118,10 +118,10 @@ struct OpPara {
 };
 
 struct CalcOverlapPara {
-    std::vector<int32_t> alignedShape;
+    std::vector<int64_t> alignedShape;
     LogicalTensorPtr reshapeSource;
-    std::vector<int32_t> newInputViewTileOffset;
-    std::vector<int32_t> newInputViewTileShape;
+    std::vector<int64_t> newInputViewTileOffset;
+    std::vector<int64_t> newInputViewTileShape;
     std::vector<SymbolicScalar> newInputViewDynOffset;
     std::vector<SymbolicScalar> newInputViewDynShape;
     LogicalTensors overlaps;
@@ -133,23 +133,23 @@ struct CalcOverlapPara {
 
 struct CheckOutputParam {
     LogicalTensorPtr reshapeSource;
-    std::vector<int32_t> alignedShape;
-    std::vector<int32_t> newInputViewTileOffset;
-    std::vector<int32_t> newInputViewTileShape;
+    std::vector<int64_t> alignedShape;
+    std::vector<int64_t> newInputViewTileOffset;
+    std::vector<int64_t> newInputViewTileShape;
     std::vector<SymbolicScalar> newInputViewDynOffset;
     std::vector<SymbolicScalar> newInputViewDynShape;
 };
 
 struct ReshapeSourcePara {
-    std::vector<int32_t> newReshapeSourceTileShape;
-    std::vector<int32_t> newReshapeSourceTileOffset;
+    std::vector<int64_t> newReshapeSourceTileShape;
+    std::vector<int64_t> newReshapeSourceTileOffset;
     std::vector<SymbolicScalar> newReshapeSourceDynShape;
     std::vector<SymbolicScalar> newReshapeSourceDynOffset;
 };
 
 struct DynAssembleOp {
     MemoryType from;
-    std::vector<int> toOffset;
+    std::vector<int64_t> toOffset;
     std::vector<SymbolicScalar> toDynOffset;
     std::shared_ptr<LogicalTensor> input;
     std::shared_ptr<LogicalTensor> output;
@@ -173,9 +173,11 @@ private:
     Status AddReshape(Operation &op, const OpPara &para);
     Status ObtainCopyOutTile(Function &function, const copyOutTilePara &copyOutTile, LogicalTensors &overlaps, LogicalTensors &newOverlaps);
     Status ConstructDynShapeOffset(const DynReshapeTilePara &shapePara, size_t &i, size_t j, std::vector<SymbolicScalar> &newOffset, std::vector<SymbolicScalar> &newShape);
-    Status ConstructShapeOffset(const ReshapeTilePara &shapePara, size_t &i, size_t j, std::vector<int32_t> &newOffset, std::vector<int32_t> &newShape);
+    Status ConstructShapeOffset(const ReshapeTilePara &shapePara, size_t &i, size_t j, std::vector<int64_t> &newOffset,
+        std::vector<int64_t> &newShape);
 
-    Status CalcTileInfo(const CalcOverlapPara &para, std::vector<int32_t> &newShape, std::vector<int32_t> &newOffset, std::vector<int32_t> &reshapeTileShape, std::vector<int32_t> &reshapeTileOffset);
+    Status CalcTileInfo(const CalcOverlapPara &para, std::vector<int64_t> &newShape, std::vector<int64_t> &newOffset,
+        std::vector<int64_t> &reshapeTileShape, std::vector<int64_t> &reshapeTileOffset);
     Status CheckValidOp(const CheckParam &para, CheckOutputParam &checkOutputParam);
     Status CheckOp(Function &function, Operation &op);
     Status UpdateReshapeOp(Function &function, Operation &op, const OverlapStatus &status, const CalcOverlapPara &calcpara);
@@ -199,15 +201,17 @@ private:
     std::shared_ptr<ReshapeOp> ReshapeOperationExist(const std::shared_ptr<ReshapeOp> &isAddReshapeop);
     unsigned long ComputeReshapeHash(const LogicalTensorPtr &input, const LogicalTensorPtr &output) const;
     unsigned long ComputeReshapeHashOrderless(const LogicalTensorPtr &input, const LogicalTensorPtr &output) const;
-    
+
     Status UpdateShapeOffset(UpdatePara &para, bool &flag, int &currentShape, int &currentOffset);
-    Status ShapeAlign(std::vector<int32_t> shape1, std::vector<int32_t> shape2, std::vector<int32_t> &alignedShape);
-    Status RawToAlign(const ReshapeTilePara &shapePara, std::vector<int32_t> &newOffset, std::vector<int32_t> &newShape);
-    Status AlignToRaw(const ReshapeTilePara &shapePara, std::vector<int32_t> &newOffset, std::vector<int32_t> &newShape);
+    Status ShapeAlign(std::vector<int64_t> shape1, std::vector<int64_t> shape2, std::vector<int64_t> &alignedShape);
+    Status RawToAlign(
+        const ReshapeTilePara &shapePara, std::vector<int64_t> &newOffset, std::vector<int64_t> &newShape);
+    Status AlignToRaw(
+        const ReshapeTilePara &shapePara, std::vector<int64_t> &newOffset, std::vector<int64_t> &newShape);
     Status DynRawToAlign(const DynReshapeTilePara &shapePara, std::vector<SymbolicScalar> &newOffset, std::vector<SymbolicScalar> &newShape);
     Status DynAlignToRaw(const DynReshapeTilePara &shapePara, std::vector<SymbolicScalar> &newOffset, std::vector<SymbolicScalar> &newShape);
     std::unordered_map<int, std::set<LogicalTensorPtr, TensorPtrComparator>> copyOutSources;
-    std::unordered_map<InputMaigc, std::unordered_map<OutputMaigc, std::vector<int>>> mapOffset;
+    std::unordered_map<InputMaigc, std::unordered_map<OutputMaigc, std::vector<int64_t>>> mapOffset;
     std::unordered_map<InputMaigc, std::unordered_map<OutputMaigc, std::vector<SymbolicScalar>>> dynMapOffset;
     std::unordered_map<int, LogicalTensorPtr> reshapeSources;
     std::vector<DynAssembleOp> assembles;

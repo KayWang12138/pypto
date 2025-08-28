@@ -122,10 +122,10 @@ TEST_F(SubgraphToFunctionTest, DifferentOffset) {
     constexpr int tensorMagic7 = 34;
     constexpr int tensorMagic8 = 7;
     // prepare the graph
-    std::vector<int> shape0 = {32, 8, 8};
-    std::vector<int> shape1 = {16, 64};
-    std::vector<int> shape2 = {16, 32};
-    std::vector<int> shape3 = {16, 8, 8};
+    std::vector<int64_t> shape0 = {32, 8, 8};
+    std::vector<int64_t> shape1 = {16, 64};
+    std::vector<int64_t> shape2 = {16, 32};
+    std::vector<int64_t> shape3 = {16, 8, 8};
     auto shape3Imme = OpImmediate::Specified(shape3);
     auto shape2Imme = OpImmediate::Specified(shape2);
     auto shape1Imme = OpImmediate::Specified(shape1);
@@ -275,9 +275,9 @@ TEST_F(SubgraphToFunctionTest, SameOffset) {
     constexpr int tensorMagic7 = 34;
     constexpr int tensorMagic8 = 7;
     // prepare the graph
-    std::vector<int> shape1 = {16, 64};
-    std::vector<int> shape2 = {16, 32};
-    std::vector<int> shape3 = {32, 32};
+    std::vector<int64_t> shape1 = {16, 64};
+    std::vector<int64_t> shape2 = {16, 32};
+    std::vector<int64_t> shape3 = {32, 32};
     auto shape2Imme = OpImmediate::Specified(shape2);
     std::shared_ptr<LogicalTensor> input_tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     input_tensor->SetMemoryTypeBoth(MEM_DEVICE_DDR);
@@ -380,9 +380,9 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load)
     int k = 32;
     int n = 32;
 
-    std::vector<int> shapeA = {bs, m, k};
-    std::vector<int> shapeB = {bs, k, n};
-    std::vector<int> shapeC = {bs, m, n};
+    std::vector<int64_t> shapeA = {bs, m, k};
+    std::vector<int64_t> shapeB = {bs, k, n};
+    std::vector<int64_t> shapeC = {bs, m, n};
 
     Program::GetInstance().GetConfig().Reset();
     Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
@@ -526,8 +526,8 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_1) {
     bool isLargest = true;
 
     PROGRAM("TOPK") {
-        std::vector<int> input_shape = {shape0, shape1};
-        std::vector<int> output_shape = {shape0, k};
+        std::vector<int64_t> input_shape = {shape0, shape1};
+        std::vector<int64_t> output_shape = {shape0, k};
         Program::GetInstance().GetTileShape().SetVecTileShapes({shape0, shape1});
         Tensor input_a(DT_FP32, input_shape, (uint8_t *)nullptr, "A");
         auto output = std::make_tuple(Tensor(DT_FP32, output_shape, nullptr, "npu_val"),
@@ -559,8 +559,8 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_1_cov) {
     bool isLargest = true;
 
     PROGRAM("TOPK") {
-        std::vector<int> input_shape = {shape0, shape1};
-        std::vector<int> output_shape = {shape0, k};
+        std::vector<int64_t> input_shape = {shape0, shape1};
+        std::vector<int64_t> output_shape = {shape0, k};
         Program::GetInstance().GetTileShape().SetVecTileShapes({shape0, shape1});
         Tensor input_a(DT_FP32, input_shape, (uint8_t *)nullptr, "A");
         auto output = std::make_tuple(Tensor(DT_FP32, output_shape, nullptr, "npu_val"),
@@ -659,7 +659,7 @@ TEST_F(SubgraphToFunctionTest, VerifyPassResumeByJson) {
         {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
     });
     Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 32, 32);
-    std::vector<int> tshape = {2, 2, 64, 64};
+    std::vector<int64_t> tshape = {2, 2, 64, 64};
     Tensor T(DT_FP32, tshape, "T");
     Tensor d;
     FUNCTION("A") {
@@ -709,7 +709,7 @@ TEST_F(SubgraphToFunctionTest, VerifyPassResumeByJson) {
         {       "CodegenPreproc",       "CodegenPreproc", PassType::TYPE_EXECUTE_GRAPH},
     });
     Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 32, 32);
-    std::vector<int> tshape1 = {2, 2, 64, 64};
+    std::vector<int64_t> tshape1 = {2, 2, 64, 64};
     Tensor T1(DT_FP32, tshape1, "T1");
     Tensor d1;
     FUNCTION("A1") {
@@ -1080,7 +1080,7 @@ TEST_F(SubgraphToFunctionTest, FullPassWithEmptySubgraph) {
     auto set_subgraph_id = [&G](const std::string& op_name, int id) {
         if (op_name.empty()) {
             // Empty subgraph has no operations
-            return; 
+            return;
         }
         auto* op = G.GetOp(op_name);
         ASSERT_NE(op, nullptr) << "Operation " << op_name << " not found!";

@@ -47,8 +47,8 @@ Tensor RotateHalf(const Tensor &input) {
     assert(shape[shapeSize - 1] % NUM2 == 0 && "rope rotate_half last dim shape is even.");
 
     shape[shapeSize - 1] /= NUM2;
-    std::vector<int> offset1(shapeSize, 0);
-    std::vector<int> offset2(shapeSize, 0);
+    std::vector<int64_t> offset1(shapeSize, 0);
+    std::vector<int64_t> offset2(shapeSize, 0);
     offset2[shapeSize - 1] = shape[shapeSize - 1];
 
     // x1 = [..., : x.shape[-1] // 2]

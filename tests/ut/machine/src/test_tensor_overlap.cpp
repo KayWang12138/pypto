@@ -40,7 +40,7 @@ public:
 };
 
 Tensor add_sub_exp(int firstTileSize, int secondTileSize) {
-    std::vector<int> tshape = {24, 24};
+    std::vector<int64_t> tshape = {24, 24};
     Tensor A(DT_INT32, tshape, "A");
     Tensor B(DT_INT32, tshape, "B");
     FUNCTION("FUNC_A") {
@@ -59,7 +59,7 @@ Tensor add_sub_exp(int firstTileSize, int secondTileSize) {
 TEST_F(TensorOverlapTest, TensorMap) {
     config::SetPlatformConfig(KEY_ONLY_TENSOR_GRAPH, true);
 
-    std::vector<int> tshape = {24, 24};
+    std::vector<int64_t> tshape = {24, 24};
     Tensor A(DT_INT32, tshape, "A");
     Tensor B(DT_INT32, tshape, "B");
     FUNCTION("FUNC_A") {

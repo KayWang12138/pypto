@@ -138,7 +138,7 @@ TEST_F(DynamicFunctionTest, TestSymbolic) {
 
 TEST_F(DynamicFunctionTest, TestDynOffset) {
     SymbolicScalar b("b");
-    std::vector<int> offset = {0, 0};
+    std::vector<int64_t> offset = {0, 0};
     std::vector<SymbolicScalar> dynoffset = {b, 0};
     FUNCTION("main", FunctionType::DYNAMIC, {}, {}) {
         Tensor t(DT_FP32, {4, 4}, "t0");
@@ -192,8 +192,8 @@ TEST_F(DynamicFunctionTest, TestLoopRange) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
     Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16);
 
-    std::vector<int> shape{16, 64};
-    std::vector<int> childShape{16, 16};
+    std::vector<int64_t> shape{16, 64};
+    std::vector<int64_t> childShape{16, 16};
     Tensor a(DataType::DT_FP32, shape, "a");
     Tensor b(DataType::DT_FP32, shape, "b");
     Tensor c(DataType::DT_FP32, shape, "c");
@@ -237,8 +237,8 @@ TEST_F(DynamicFunctionTest, TestOnlyExpression) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
     Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16);
 
-    std::vector<int> shape{16, 64};
-    std::vector<int> childShape{16, 16};
+    std::vector<int64_t> shape{16, 64};
+    std::vector<int64_t> childShape{16, 16};
     Tensor a(DataType::DT_FP32, shape, "a");
     Tensor b(DataType::DT_FP32, shape, "b");
     Tensor c(DataType::DT_FP32, shape, "c");
@@ -266,8 +266,8 @@ TEST_F(DynamicFunctionTest, TestOnlySymbol) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
     Program::GetInstance().GetTileShape().SetVecTileShapes(1, 64);
 
-    std::vector<int> shape{4, 64};
-    std::vector<int> childShape{1, 64};
+    std::vector<int64_t> shape{4, 64};
+    std::vector<int64_t> childShape{1, 64};
     Tensor a(DataType::DT_FP32, shape, "a");
     Tensor b(DataType::DT_FP32, shape, "b");
     Tensor c(DataType::DT_FP32, shape, "c");
@@ -681,7 +681,7 @@ TEST_F(DynamicFunctionTest, TestLoopWithManualRank) {
     EXPECT_NE(mainFunc, nullptr);
     EXPECT_EQ(mainFunc->GetCallopAttrList().size(), 7);
 
-    std::vector<int> ranks = {16, 8, 4, 3, 2, 1};
+    std::vector<int64_t> ranks = {16, 8, 4, 3, 2, 1};
     int idx = 0;
     for (auto &callAttr : mainFunc->GetCallopAttrList()) {
         auto subFunc = Program::GetInstance().GetFunctionByMagicName(callAttr->GetCalleeMagicName());

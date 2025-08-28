@@ -137,8 +137,8 @@ public:
     friend std::ostream &operator<<(std::ostream &os, const SymbolicScalar &val) { return os << val.Dump(); }
 
 public:
-    static std::vector<int> Concrete(const std::vector<SymbolicScalar> &scalarList, int64_t defValue);
-    static std::vector<SymbolicScalar> FromConcrete(const std::vector<int> &values);
+    static std::vector<int64_t> Concrete(const std::vector<SymbolicScalar> &scalarList, int64_t defValue);
+    static std::vector<SymbolicScalar> FromConcrete(const std::vector<int64_t> &values);
 
 public:
     /* internal use */

@@ -46,7 +46,7 @@ public:
 TEST_F(TestCodegenDynSpillOut, UBSpillOut) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
-    const std::vector<int> shape = {64, 64};
+    const std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
     Program::GetInstance().GetTileShape().SetVecTileShapes(shape);
 
@@ -63,7 +63,7 @@ TEST_F(TestCodegenDynSpillOut, UBSpillOut) {
     function->SetUnderDynamicFunction(true);
     std::shared_ptr<RawTensor> ddrRawTensor =
         std::make_shared<RawTensor>(DataType::DT_FP32, shape, "UBSpillOut", SYMBOL_STACK_BASE);
-    const std::vector<int> offset = {0, 0};
+    const std::vector<int64_t> offset = {0, 0};
 
     auto ddrTensor = std::make_shared<LogicalTensor>(*function, ddrRawTensor, offset, shape);
     ddrTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
@@ -89,8 +89,8 @@ TEST_F(TestCodegenDynSpillOut, UBSpillOut) {
     function->GetTensorMap().inverseMap_[ubTensor->GetMagic()] = ubTensor;
 
     cop.Init(op);
-    cop.originShape[0] = shape;
-    cop.originShape[1] = shape;
+    cop.originShape[0] = ToVecInt(shape);
+    cop.originShape[1] = ToVecInt(shape);
 
     cop.GenOpCode();
 }
@@ -98,7 +98,7 @@ TEST_F(TestCodegenDynSpillOut, UBSpillOut) {
 TEST_F(TestCodegenDynSpillOut, L1SpillOut) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
-    const std::vector<int> shape = {64, 64};
+    const std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
     Program::GetInstance().GetTileShape().SetVecTileShapes(shape);
 
@@ -114,7 +114,7 @@ TEST_F(TestCodegenDynSpillOut, L1SpillOut) {
     function->SetUnderDynamicFunction(true);
     std::shared_ptr<RawTensor> ddrRawTensor =
         std::make_shared<RawTensor>(DataType::DT_FP32, shape, "L1SpillOut", SYMBOL_STACK_BASE);
-    const std::vector<int> offset = {0, 0};
+    const std::vector<int64_t> offset = {0, 0};
 
     auto ddrTensor = std::make_shared<LogicalTensor>(*function, ddrRawTensor, offset, shape);
     ddrTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
@@ -140,8 +140,8 @@ TEST_F(TestCodegenDynSpillOut, L1SpillOut) {
     function->GetTensorMap().inverseMap_[l1Tensor->GetMagic()] = l1Tensor;
 
     cop.Init(op);
-    cop.originShape[0] = shape;
-    cop.originShape[1] = shape;
+    cop.originShape[0] = ToVecInt(shape);
+    cop.originShape[1] = ToVecInt(shape);
 
     cop.GenOpCode();
 }

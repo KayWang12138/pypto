@@ -26,8 +26,8 @@ TEST_F(SigmoidTest, test_32_32_tileop_sigmoid) {
 
     int shape0 = 32;
     int shape1 = 32;
-    std::vector<int> shape = {shape0, shape1};
-    std::vector<int> outshape = {shape0, shape1};
+    std::vector<int64_t> shape = {shape0, shape1};
+    std::vector<int64_t> outshape = {shape0, shape1};
     int inputCapacity = shape0 * shape1;
     int outputCapacity = shape0 * shape1;
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -61,8 +61,8 @@ TEST_F(SigmoidTest, test_32_256_tileop_sigmoid_realcase) {
 
     int shape0 = 32;
     int shape1 = 256;
-    std::vector<int> shape = {shape0, shape1};
-    std::vector<int> outshape = {shape0, shape1};
+    std::vector<int64_t> shape = {shape0, shape1};
+    std::vector<int64_t> outshape = {shape0, shape1};
     int inputCapacity = shape0 * shape1;
     int outputCapacity = shape0 * shape1;
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -97,8 +97,8 @@ TEST_F(SigmoidTest, test_2_32_32_tileop_sigmoid) {
     int shape0 = 2;
     int shape1 = 32;
      int shape2 = 32;
-    std::vector<int> shape = {shape0, shape1, shape2};
-    std::vector<int> outshape = {shape0, shape1, shape2};
+    std::vector<int64_t> shape = {shape0, shape1, shape2};
+    std::vector<int64_t> outshape = {shape0, shape1, shape2};
     int inputCapacity = shape0 * shape1 * shape2;
     int outputCapacity = shape0 * shape1 * shape2;
     uint64_t outputSize = outputCapacity * sizeof(float);
@@ -134,8 +134,8 @@ TEST_F(SigmoidTest, test_2_2_32_32_tileop_sigmoid) {
     int shape1 = 2;
     int shape2 = 32;
     int shape3 = 32;
-    std::vector<int> shape = {shape0, shape1, shape2, shape3};
-    std::vector<int> outshape = {shape0, shape1, shape2, shape3};
+    std::vector<int64_t> shape = {shape0, shape1, shape2, shape3};
+    std::vector<int64_t> outshape = {shape0, shape1, shape2, shape3};
     int inputCapacity = shape0 * shape1 * shape2 * shape3;
     int outputCapacity = shape0 * shape1 * shape2 * shape3;
     uint64_t outputSize = outputCapacity * sizeof(float);

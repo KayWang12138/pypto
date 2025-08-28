@@ -47,8 +47,8 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim3) {
     int n = 1;
     int s = 32;
     int d = 437;
-    std::vector<int> shape{n, s, d};
-    std::vector<int> resShape{s, n, d};
+    std::vector<int64_t> shape{n, s, d};
+    std::vector<int64_t> resShape{s, n, d};
 
     Program::GetInstance().GetTileShape().SetVecTileShapes(1, 32, 512);
 
@@ -88,8 +88,8 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim4) {
     int n = 1;
     int s = 32;
     int d = 437;
-    std::vector<int> shape{b, n, s, d};
-    std::vector<int> resShape{b, s, n, d};
+    std::vector<int64_t> shape{b, n, s, d};
+    std::vector<int64_t> resShape{b, s, n, d};
 
     Program::GetInstance().GetTileShape().SetVecTileShapes(2, 1, 32, 512);
 
@@ -130,8 +130,8 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveAlignDim4) {
     int n = 1;
     int s = 32;
     int d = 437;
-    std::vector<int> shape{b, n, s, d};
-    std::vector<int> resShape{b, s, n, d};
+    std::vector<int64_t> shape{b, n, s, d};
+    std::vector<int64_t> resShape{b, s, n, d};
 
     Program::GetInstance().GetTileShape().SetVecTileShapes(2, 1, 32, 512);
 

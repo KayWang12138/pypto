@@ -49,7 +49,7 @@ public:
 TEST_F(GeneralizetionTest, Test1) {
     int N = 2;
     int T = 8;
-    std::vector<int> shape{N * T, N * T};
+    std::vector<int64_t> shape{N * T, N * T};
     // 小于等于tensor shape的tile shape 正常通过， 否则报错（原因是前端约束）
     Program::GetInstance().GetTileShape().SetVecTileShapes({T, T});
 
@@ -58,18 +58,18 @@ TEST_F(GeneralizetionTest, Test1) {
     Tensor result1(DT_FP32, {T, T}, "result1");
 
     FUNCTION("ViewAssembleAssembleView") {
-        std::vector<std::pair<Tensor, std::vector<int>>> aggregation;
+        std::vector<std::pair<Tensor, std::vector<int64_t>>> aggregation;
         for (int i = 0; i < N; i++)
             for (int j = 0; j < N; j++) {
                 auto partialResult = View(inputA, {T, T}, {i * T, j * T});
-                aggregation.emplace_back(partialResult, std::vector<int>{i * T, j * T});
+                aggregation.emplace_back(partialResult, std::vector<int64_t>{i * T, j * T});
             }
         auto gatherResult = Assemble(aggregation); // 2*T,2*T
 
-        std::vector<std::pair<Tensor, std::vector<int>>> aggregation1;
+        std::vector<std::pair<Tensor, std::vector<int64_t>>> aggregation1;
         for (int i = 0; i < N; i++)
             for (int j = 0; j < N; j++) {
-                aggregation1.emplace_back(gatherResult, std::vector<int>{i * 2 * T, j * 2 * T});
+                aggregation1.emplace_back(gatherResult, std::vector<int64_t>{i * 2 * T, j * 2 * T});
             }
         auto gatherResult1 = Assemble(aggregation1); // 4*T, 4*T
         result = Abs(gatherResult1);
@@ -81,8 +81,8 @@ TEST_F(GeneralizetionTest, Test1) {
 // =======================================================  Single OP Test ====================================================================
 TEST_F(GeneralizetionTest, TestReshape) {
     Program::GetInstance().GetTileShape().SetVecTileShapes({64, 64});
-    std::vector<int> shape1{256, 256};
-    std::vector<int> shape2{1, 128, 512};
+    std::vector<int64_t> shape1{256, 256};
+    std::vector<int64_t> shape2{1, 128, 512};
 
     // Create Tensor
     Tensor in_tensor(DT_FP32, shape1, "in_tensor");
@@ -96,17 +96,17 @@ TEST_F(GeneralizetionTest, TestReshape) {
 TEST_F(GeneralizetionTest, TestAssemble) {
     int N = 2;
     int T = 8;
-    std::vector<int> shape{T, T};
+    std::vector<int64_t> shape{T, T};
     Program::GetInstance().GetTileShape().SetVecTileShapes({T, T});
 
     Tensor inputA(DT_FP32, shape, "a");
     Tensor result(DT_FP32, {2 * T, 2 * T}, "result");
 
     FUNCTION("A") {
-        std::vector<std::pair<Tensor, std::vector<int>>> aggregation;
+        std::vector<std::pair<Tensor, std::vector<int64_t>>> aggregation;
         for (int i = 0; i < N; i++)
             for (int j = 0; j < N; j++) {
-                aggregation.emplace_back(inputA, std::vector<int>{i * T, j * T});
+                aggregation.emplace_back(inputA, std::vector<int64_t>{i * T, j * T});
             }
         auto gatherResult = Assemble(aggregation); // 2*T,2*T
         // 直接赋值报错，需要接一个vector算子
@@ -116,8 +116,8 @@ TEST_F(GeneralizetionTest, TestAssemble) {
 
 TEST_F(GeneralizetionTest, TestView) {
     Program::GetInstance().GetTileShape().SetVecTileShapes({64, 64});
-    std::vector<int> shape1{256, 256};
-    std::vector<int> shape2{128, 128};
+    std::vector<int64_t> shape1{256, 256};
+    std::vector<int64_t> shape2{128, 128};
 
     // Create Tensor
     Tensor in_tensor(DT_FP32, shape1, "in_tensor");
@@ -150,8 +150,8 @@ TEST_F(GeneralizetionTest, TestTranspose) {
     int n = 1;
     int s = 32;
     int d = 437;
-    std::vector<int> shape{b, n, s, d};
-    std::vector<int> resShape{b, s, n, d};
+    std::vector<int64_t> shape{b, n, s, d};
+    std::vector<int64_t> resShape{b, s, n, d};
 
     Program::GetInstance().GetTileShape().SetVecTileShapes(2, 1, 32, 512);
 
@@ -167,10 +167,10 @@ TEST_F(GeneralizetionTest, TestTranspose) {
 TEST_F(GeneralizetionTest, TestReshapeReshape) {
     config::GetPassGlobalConfig("pass_thread_num", 2);
     Program::GetInstance().GetTileShape().SetVecTileShapes({64, 64});
-    std::vector<int> shape1{256, 256};
+    std::vector<int64_t> shape1{256, 256};
 
-    std::vector<int> shape4{128, 512};
-    std::vector<int> shape5{512, 128};
+    std::vector<int64_t> shape4{128, 512};
+    std::vector<int64_t> shape5{512, 128};
 
     // Create Tensor
     Tensor in_tensor(DT_FP32, shape1, "in_tensor");
@@ -189,24 +189,24 @@ TEST_F(GeneralizetionTest, TestReshapeReshape) {
 TEST_F(GeneralizetionTest, TestAssembleAssemble) {
     int N = 2;
     int T = 8;
-    std::vector<int> shape{T, T};
+    std::vector<int64_t> shape{T, T};
     Program::GetInstance().GetTileShape().SetVecTileShapes({T, T});
 
     Tensor inputA(DT_FP32, shape, "a");
     Tensor result(DT_FP32, {4 * T,4 * T}, "result");
 
     FUNCTION("B") {
-        std::vector<std::pair<Tensor, std::vector<int>>> aggregation;
+        std::vector<std::pair<Tensor, std::vector<int64_t>>> aggregation;
         for (int i = 0; i < N; i++)
             for (int j = 0; j < N; j++) {
-                aggregation.emplace_back(inputA, std::vector<int>{i * T, j * T});
+                aggregation.emplace_back(inputA, std::vector<int64_t>{i * T, j * T});
             }
         auto gatherResult = Assemble(aggregation); // 2*T,2*T
 
-        std::vector<std::pair<Tensor, std::vector<int>>> aggregation1;
+        std::vector<std::pair<Tensor, std::vector<int64_t>>> aggregation1;
         for (int i = 0; i < N; i++)
             for (int j = 0; j < N; j++) {
-                aggregation1.emplace_back(gatherResult, std::vector<int>{i * 2 * T, j * 2 * T});
+                aggregation1.emplace_back(gatherResult, std::vector<int64_t>{i * 2 * T, j * 2 * T});
             }
         // 后面接一个abs通过,直接2个Assemble不通过
         auto gatherResult1 = Assemble(aggregation1); // 4*T, 4*T
@@ -215,12 +215,12 @@ TEST_F(GeneralizetionTest, TestAssembleAssemble) {
 }
 
 TEST_F(GeneralizetionTest, TestViewView) {
-    std::vector<int> shape1{256, 256};
-    std::vector<int> shape2{128, 128};
-    std::vector<int> shape3{64, 128};
+    std::vector<int64_t> shape1{256, 256};
+    std::vector<int64_t> shape2{128, 128};
+    std::vector<int64_t> shape3{64, 128};
 
-    std::vector<int> shape4{1, 256, 1, 256};
-    std::vector<int> shape5{128, 2, 2, 128};
+    std::vector<int64_t> shape4{1, 256, 1, 256};
+    std::vector<int64_t> shape5{128, 2, 2, 128};
 
     Program::GetInstance().GetTileShape().SetVecTileShapes({64, 64});
 
@@ -259,9 +259,9 @@ TEST_F(GeneralizetionTest, TestTransposeTranspose) {
     int n = 1;
     int s = 32;
     int d = 437;
-    std::vector<int> shape{b, n, s, d};
-    std::vector<int> resShape{b, s, n, d};
-    std::vector<int> resShape2{s, b, n, d};
+    std::vector<int64_t> shape{b, n, s, d};
+    std::vector<int64_t> resShape{b, s, n, d};
+    std::vector<int64_t> resShape2{s, b, n, d};
 
     Program::GetInstance().GetTileShape().SetVecTileShapes(2, 1, 32, 512);
 
@@ -279,13 +279,13 @@ TEST_F(GeneralizetionTest, TestReshapeToAll) {
     int N = 2;
     int T = 64;
     Program::GetInstance().GetTileShape().SetVecTileShapes({T, T});
-    std::vector<int> shape1{64, 1024};
-    std::vector<int> shape2{256, 256};
+    std::vector<int64_t> shape1{64, 1024};
+    std::vector<int64_t> shape2{256, 256};
 
-    std::vector<int> shape3{128, 512};
-    std::vector<int> shape4{512, 512};
-    std::vector<int> shape5{128, 128};
-    std::vector<int> shape6{512, 128};
+    std::vector<int64_t> shape3{128, 512};
+    std::vector<int64_t> shape4{512, 512};
+    std::vector<int64_t> shape5{128, 128};
+    std::vector<int64_t> shape6{512, 128};
 
     // Create Tensor
     Tensor in_tensor(DT_FP32, shape1, "in_tensor");
@@ -304,10 +304,10 @@ TEST_F(GeneralizetionTest, TestReshapeToAll) {
         out_tensor1 = Reshape(tmp, shape3);
 
         // to assemble
-        std::vector<std::pair<Tensor, std::vector<int>>> aggregation;
+        std::vector<std::pair<Tensor, std::vector<int64_t>>> aggregation;
         for (int i = 0; i < N; i++)
             for (int j = 0; j < N; j++) {
-                aggregation.emplace_back(tmp, std::vector<int>{i * 256, j * 256});
+                aggregation.emplace_back(tmp, std::vector<int64_t>{i * 256, j * 256});
             }
         out_tensor2 = Assemble(aggregation); // 512,512
 
@@ -321,7 +321,7 @@ TEST_F(GeneralizetionTest, TestReshapeToAll) {
 TEST_F(GeneralizetionTest, TestAssembleToAll) {
     int N = 2;
     int T = 64;
-    std::vector<int> shape{T, T};
+    std::vector<int64_t> shape{T, T};
     Program::GetInstance().GetTileShape().SetVecTileShapes({T, T});
 
     Tensor inputA(DT_FP32, shape, "a");
@@ -336,18 +336,18 @@ TEST_F(GeneralizetionTest, TestAssembleToAll) {
     int minusTwo = -2;
 
     FUNCTION("C") {
-        std::vector<std::pair<Tensor, std::vector<int>>> aggregation;
+        std::vector<std::pair<Tensor, std::vector<int64_t>>> aggregation;
         for (int i = 0; i < N; i++)
             for (int j = 0; j < N; j++) {
-                aggregation.emplace_back(inputA, std::vector<int>{i * T, j * T});
+                aggregation.emplace_back(inputA, std::vector<int64_t>{i * T, j * T});
             }
         auto gatherResult = Assemble(aggregation); // 128,128
 
         // to assemble
-        std::vector<std::pair<Tensor, std::vector<int>>> aggregation1;
+        std::vector<std::pair<Tensor, std::vector<int64_t>>> aggregation1;
         for (int i = 0; i < N; i++)
             for (int j = 0; j < N; j++) {
-                aggregation1.emplace_back(gatherResult, std::vector<int>{i * 2 * T, j * 2 * T});
+                aggregation1.emplace_back(gatherResult, std::vector<int64_t>{i * 2 * T, j * 2 * T});
             }
         auto gatherResult1 = Assemble(aggregation1); // 256,256
         result = Abs(gatherResult1);
@@ -372,7 +372,7 @@ TEST_F(GeneralizetionTest, TestAssembleToAll) {
 TEST_F(GeneralizetionTest, TestViewToAll) {
     int N = 2;
     int T = 64;
-    std::vector<int> shape{256, 256};
+    std::vector<int64_t> shape{256, 256};
     Program::GetInstance().GetTileShape().SetVecTileShapes({T, T});
 
     Tensor inputA(DT_FP32, shape, "a");
@@ -390,10 +390,10 @@ TEST_F(GeneralizetionTest, TestViewToAll) {
         auto viewResult = View(inputA, {128,128}, {0,0}); // 128,128
 
         // to assemble
-        std::vector<std::pair<Tensor, std::vector<int>>> aggregation1;
+        std::vector<std::pair<Tensor, std::vector<int64_t>>> aggregation1;
         for (int i = 0; i < N; i++)
             for (int j = 0; j < N; j++) {
-                aggregation1.emplace_back(viewResult, std::vector<int>{i * 2 * T, j * 2 * T});
+                aggregation1.emplace_back(viewResult, std::vector<int64_t>{i * 2 * T, j * 2 * T});
             }
         auto gatherResult1 = Assemble(aggregation1); // 256,256
         result = Abs(gatherResult1);
@@ -418,7 +418,7 @@ TEST_F(GeneralizetionTest, TestViewToAll) {
 TEST_F(GeneralizetionTest, TestScatterUpdateToAll) {
     int N = 2;
     int T = 64;
-    std::vector<int> shape{128, 128};
+    std::vector<int64_t> shape{128, 128};
     Program::GetInstance().GetTileShape().SetVecTileShapes({T, T});
 
     Tensor inputA(DT_FP32, shape, "a");
@@ -436,10 +436,10 @@ TEST_F(GeneralizetionTest, TestScatterUpdateToAll) {
         inputA = ScatterUpdate(inputA, idxs, keyStates, minusOne); // 128,128
 
         // to assemble
-        std::vector<std::pair<Tensor, std::vector<int>>> aggregation1;
+        std::vector<std::pair<Tensor, std::vector<int64_t>>> aggregation1;
         for (int i = 0; i < N; i++)
             for (int j = 0; j < N; j++) {
-                aggregation1.emplace_back(inputA, std::vector<int>{i * 2 * T, j * 2 * T});
+                aggregation1.emplace_back(inputA, std::vector<int64_t>{i * 2 * T, j * 2 * T});
             }
         auto gatherResult1 = Assemble(aggregation1); // 256,256
         result = Abs(gatherResult1);
@@ -464,7 +464,7 @@ TEST_F(GeneralizetionTest, TestScatterUpdateToAll) {
 TEST_F(GeneralizetionTest, TestTransposeToAll) {
     int N = 2;
     int T = 64;
-    std::vector<int> shape{128, 128};
+    std::vector<int64_t> shape{128, 128};
     Program::GetInstance().GetTileShape().SetVecTileShapes({T, T});
 
     Tensor inputA(DT_FP32, shape, "a");
@@ -482,10 +482,10 @@ TEST_F(GeneralizetionTest, TestTransposeToAll) {
         auto transposeResult = Transpose(inputA, {1,0}); // 128,128
 
         // to assemble
-        std::vector<std::pair<Tensor, std::vector<int>>> aggregation1;
+        std::vector<std::pair<Tensor, std::vector<int64_t>>> aggregation1;
         for (int i = 0; i < N; i++)
             for (int j = 0; j < N; j++) {
-                aggregation1.emplace_back(transposeResult, std::vector<int>{i * 2 * T, j * 2 * T});
+                aggregation1.emplace_back(transposeResult, std::vector<int64_t>{i * 2 * T, j * 2 * T});
             }
         auto gatherResult1 = Assemble(aggregation1); // 256,256
         result = Abs(gatherResult1);

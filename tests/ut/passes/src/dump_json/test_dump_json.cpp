@@ -45,7 +45,7 @@ protected:
         constexpr int32_t tiley = 8;
         Program::GetInstance().GetTileShape().SetVecTileShapes(tilex, tiley);
 
-        std::vector<int> shape = {8, 16};
+        std::vector<int64_t> shape = {8, 16};
         Tensor input(DT_FP32, shape, "input");
         Tensor output(DT_FP32, shape, "output");
         FUNCTION("AddFunction") {

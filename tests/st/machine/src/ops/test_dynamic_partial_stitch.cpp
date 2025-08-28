@@ -26,16 +26,16 @@ class DynamicTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 TEST_F(DynamicTest, TestPartial) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    
+
     Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 8;
     int blockSize = 32;
-    std::vector<int> qShape = {b * blockSize, blockSize}; /* 1 - b */
-    std::vector<int> seqShape = {b};
-    std::vector<int> midShape = {b * blockSize, blockSize};
-    std::vector<int> outShape = {b * blockSize, blockSize};
+    std::vector<int64_t> qShape = {b * blockSize, blockSize}; /* 1 - b */
+    std::vector<int64_t> seqShape = {b};
+    std::vector<int64_t> midShape = {b * blockSize, blockSize};
+    std::vector<int64_t> outShape = {b * blockSize, blockSize};
     DataType vType = DataType::DT_FP32;
 
     Tensor q(vType, qShape, "q");

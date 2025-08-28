@@ -45,20 +45,20 @@ void Print(const Tensor &operand, const std::string &msg, SymbolicScalar cond = 
  */
 void ToFile(const Tensor &operand, const std::string &fname, SymbolicScalar cond = 1);
 
-Tensor View(const Tensor &operand, const std::vector<int> &shapes, const std::vector<int> &offsets);
-Tensor DView(const Tensor &operand, const std::vector<int> &shapes, const std::vector<SymbolicScalar> &newOffsets);
-Tensor DViewPad(const Tensor &operand, const std::vector<int> &shapes,
+Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<int64_t> &offsets);
+Tensor DView(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &newOffsets);
+Tensor DViewPad(const Tensor &operand, const std::vector<int64_t> &shapes,
     const std::vector<SymbolicScalar> &newValidShapes, const std::vector<SymbolicScalar> &newOffsets);
 
-Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int>>> &tensors);
+Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int64_t>>> &tensors);
 void DAssemble(const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset, Tensor &dest);
 
-Tensor Reshape(const Tensor &operand, const std::vector<int> &dstshape, const std::vector<SymbolicScalar> &validShape={});
+Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, const std::vector<SymbolicScalar> &validShape={});
 void ReshapeInplace(const Tensor &operand, Tensor &dst);
 
-Tensor VectorDuplicate(const Element &src, DataType dtype, std::vector<int> dstShape,
+Tensor VectorDuplicate(const Element &src, DataType dtype, const std::vector<int64_t> &dstShape,
     std::vector<SymbolicScalar> validShape = {});
-Tensor VectorDuplicate(const SymbolicScalar &src, DataType dtype, std::vector<int> dstShape,
+Tensor VectorDuplicate(const SymbolicScalar &src, DataType dtype, const std::vector<int64_t> &dstShape,
     std::vector<SymbolicScalar> validShape = {});
 Tensor Transpose(const Tensor &operand, std::vector<int> transposeShape);
 Tensor Cast(const Tensor &operand, DataType newDataType, CastMode mode = CAST_NONE);
@@ -99,8 +99,8 @@ Tensor TensorIndex(const Tensor &params, const Tensor &indices);
 Tensor ScatterUpdate(const Tensor &dst, const Tensor &index, const Tensor &src, int axis = -2,
     std::string cacheMode = "PA_BNSD", int blockSize = 1);
 
-Tensor Expand(const Tensor &operand, const std::vector<int> &dstShape);
-Tensor Expand(const Tensor &operand, DataType dataType, const std::vector<int> &shape);
+Tensor Expand(const Tensor &operand, const std::vector<int64_t> &dstShape);
+Tensor Expand(const Tensor &operand, DataType dataType, const std::vector<int64_t> &shape);
 
 Tensor Sin(Tensor operand);
 Tensor Cos(Tensor operand);
@@ -109,7 +109,7 @@ Tensor RmsNorm(const Tensor &operand);
 Tensor RmsNorm(const Tensor &operand, const Tensor &gamma, float epsilon = 1e-05f);
 Tensor Concat(const std::vector<Tensor> &tensorList, int axis);
 Tensor NewCompact(const Tensor &operand);
-Tensor Pad(const Tensor &old, const std::vector<int> &newShape);
+Tensor Pad(const Tensor &old, const std::vector<int64_t> &newShape);
 Tensor LogicalNot(const Tensor &operand);
 
 Tensor Assign(const Tensor &operand);
@@ -165,17 +165,17 @@ struct IfaTileShapeConfig {
 };
 
 struct RoPETileShapeConfig {
-    std::vector<int> twoDimsTileShape;
-    std::vector<int> threeDimsTileShape;
-    std::vector<int> fourDimsTileShape;
-    std::vector<int> fiveDimsTileShape;
+    std::vector<int64_t> twoDimsTileShape;
+    std::vector<int64_t> threeDimsTileShape;
+    std::vector<int64_t> fourDimsTileShape;
+    std::vector<int64_t> fiveDimsTileShape;
 };
 
 struct RoPETileShapeConfigNew {
-    std::vector<int> threeDimsTileShape;
-    std::vector<int> fourDimsTileShapeQ;
-    std::vector<int> fourDimsTileShapeK;
-    std::vector<int> fiveDimsTileShape;
+    std::vector<int64_t> threeDimsTileShape;
+    std::vector<int64_t> fourDimsTileShapeQ;
+    std::vector<int64_t> fourDimsTileShapeK;
+    std::vector<int64_t> fiveDimsTileShape;
 };
 
 void ApplyRotaryPosEmb(const Tensor &q, const Tensor &k, const Tensor &cos, const Tensor &sin,

@@ -28,8 +28,8 @@ TEST_F(LogicalNotOnBoardTest, test_logicalnot_16_32_fp32) {
     int D0 = 16;
     int D1 = 32;
 
-    std::vector<int> srcShape = {S0, S1};
-    std::vector<int> dstShape = {D0, D1};
+    std::vector<int64_t> srcShape = {S0, S1};
+    std::vector<int64_t> dstShape = {D0, D1};
 
     int srcCapacity = srcShape[0] * srcShape[1];
     int dstCapacity = dstShape[0] * dstShape[1];
@@ -68,8 +68,8 @@ TEST_F(LogicalNotOnBoardTest, test_logicalnot_16_32_32_fp16) {
     int D1 = 32;
     int D2 = 32;
 
-    std::vector<int> srcShape = {S0, S1, S2};
-    std::vector<int> dstShape = {D0, D1, D2};
+    std::vector<int64_t> srcShape = {S0, S1, S2};
+    std::vector<int64_t> dstShape = {D0, D1, D2};
 
     int srcCapacity = srcShape[0] * srcShape[1] * srcShape[2];
     int dstCapacity = dstShape[0] * dstShape[1] * dstShape[2];

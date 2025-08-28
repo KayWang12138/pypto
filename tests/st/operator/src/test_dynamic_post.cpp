@@ -38,7 +38,7 @@ struct TestPostParams {
 };
 
 template <typename T>
-static std::vector<T> getGoldenVec(std::vector<int> shape, std::string fileName) {
+static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileName) {
     int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     std::vector<T> golden(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, golden);
@@ -60,14 +60,14 @@ void TestAttentionPost(const TestPostParams &params, const PostTileConfig &tileC
     bool isQuantWUv = std::is_same<wUvDType, int8_t>::value;
     bool isQuantWo = std::is_same<wODType, int8_t>::value;
 
-    std::vector<int> xShape = {b, s, n, kvLoraRank};
-    std::vector<int> wUvShape = {n, kvLoraRank, vHeadDim};
-    std::vector<int> wUvScaleShape = {n, 1, vHeadDim};
-    std::vector<int> smoothWUvShape = {1, kvLoraRank};
-    std::vector<int> woShape = {n * vHeadDim, h};
-    std::vector<int> woScaleShape = {1, h};
-    std::vector<int> smoothWoShape = {1, n * vHeadDim};
-    std::vector<int> outShape = {b, s, h};
+    std::vector<int64_t> xShape = {b, s, n, kvLoraRank};
+    std::vector<int64_t> wUvShape = {n, kvLoraRank, vHeadDim};
+    std::vector<int64_t> wUvScaleShape = {n, 1, vHeadDim};
+    std::vector<int64_t> smoothWUvShape = {1, kvLoraRank};
+    std::vector<int64_t> woShape = {n * vHeadDim, h};
+    std::vector<int64_t> woScaleShape = {1, h};
+    std::vector<int64_t> smoothWoShape = {1, n * vHeadDim};
+    std::vector<int64_t> outShape = {b, s, h};
 
     TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
     Tensor x(dType, xShape, "x");
@@ -84,7 +84,7 @@ void TestAttentionPost(const TestPostParams &params, const PostTileConfig &tileC
 
     std::vector<RawTensorDataPtr> outputDataList = {outputData};
     std::vector<RawTensorDataPtr> inputDataList = {xData, wUvData, woData};
-    
+
     QuantTensorWithData wUvQuant{isQuantWUv, isSmoothWUv, wUvScaleShape, smoothWUvShape, "wUvScale", "smoothWUv",
         "/w_uv_scale.bin", "/smooth_w_uv.bin"};
     CreateQuantTensorAndData(wUvQuant);
@@ -100,7 +100,7 @@ void TestAttentionPost(const TestPostParams &params, const PostTileConfig &tileC
     PostTensors postTensors{
         wUv, wo, wUvQuant.scale.tensor, wUvQuant.smooth.tensor, wOQuant.scale.tensor, wOQuant.smooth.tensor};
     AttentionPostStandalone(x, postTensors, tileConfig, postOut);
-    
+
 #ifdef ENABLE_BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
 

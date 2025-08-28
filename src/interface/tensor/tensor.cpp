@@ -53,7 +53,7 @@ Tensor::Tensor(std::shared_ptr<LogicalTensor> s) : storage_(std::move(s)), index
     Program::GetInstance().GetTensorSlotManager()->TensorWrite(*this);
 }
 
-static std::vector<SymbolicScalar> ToDynShape(const std::string &tname, const std::vector<int> &shape) {
+static std::vector<SymbolicScalar> ToDynShape(const std::string &tname, const Shape &shape) {
     auto dynShape = SymbolicScalar::FromConcrete(shape);
     for (size_t dim = 0; dim < shape.size(); dim++) {
         ASSERT(shape[dim] >= -1) << "Invalid shape " << shape[dim];
@@ -67,7 +67,7 @@ static std::vector<SymbolicScalar> ToDynShape(const std::string &tname, const st
     return dynShape;
 }
 
-Tensor::Tensor(DataType dataType, std::vector<int> shape, std::string name, NodeType nodeType, TileOpFormat format)
+Tensor::Tensor(DataType dataType, const Shape &shape, std::string name, NodeType nodeType, TileOpFormat format)
     : index_(IdGen<IdType::TENSOR_INDEX>::Inst().NewId()) {
     auto dynShape = ToDynShape(name, shape);
     storage_ = std::make_shared<LogicalTensor>(
@@ -211,21 +211,20 @@ Tensor::Tensor(Tensor &&rhs) : storage_(std::move(rhs.GetStorage())), index_(IdG
 
 DataType Tensor::GetDataType() const {
     return storage_->Datatype();
- }
+}
 
-const std::vector<int> &Tensor::GetShape() const
-{
+const Shape &Tensor::GetShape() const {
     return storage_->shape;
 }
 
-int Tensor::GetShape(int axis) const {
+int32_t Tensor::GetShape(int axis) const {
     const size_t dimCount = storage_->shape.size();
     ASSERT(dimCount > 0) << "Tensor has no dimensions!";
     if (axis < 0) {
         axis += static_cast<int>(dimCount);
     }
-    ASSERT(axis >= 0 && static_cast<size_t>(axis) < dimCount) << "Axis index " << axis <<
-        " is out of range [0, " << (dimCount - 1) << "].";
+    ASSERT(axis >= 0 && static_cast<size_t>(axis) < dimCount)
+        << "Axis index " << axis << " is out of range [0, " << (dimCount - 1) << "].";
     return storage_->shape[axis];
 }
 
@@ -345,9 +344,9 @@ SymbolicScalar DoGetTensorDataInt32(SymbolHandlerId handlerId, const Tensor &t, 
     auto emuopAssemble = *extract->GetStorage()->GetProducers().begin();
     auto emuopMark = *emuopAssemble->GetIOperands()[0]->GetProducers().begin();
     auto emuopView = *emuopMark->GetIOperands()[0]->GetProducers().begin();
-    emuopView->SetAttr<int>(OP_EMUOP_PREFIX + "GetTensorData_index", getTensorDataIndex);
-    emuopMark->SetAttr<int>(OP_EMUOP_PREFIX + "GetTensorData_index", getTensorDataIndex);
-    emuopAssemble->SetAttr<int>(OP_EMUOP_PREFIX + "GetTensorData_index", getTensorDataIndex);
+    emuopView->SetAttribute(OP_EMUOP_PREFIX + "GetTensorData_index", getTensorDataIndex);
+    emuopMark->SetAttribute(OP_EMUOP_PREFIX + "GetTensorData_index", getTensorDataIndex);
+    emuopAssemble->SetAttribute(OP_EMUOP_PREFIX + "GetTensorData_index", getTensorDataIndex);
 
     auto &desc = currDynAttr->getTensorDataDict[getTensorDataIndex];
     desc.outcastTensor = extract;
@@ -387,7 +386,7 @@ void DoSetTensorDataInt32(const SymbolicScalar &v, const std::vector<SymbolicSca
     auto currDynFunc = Program::GetInstance().GetCurrentDynamicFunction();
     ASSERT(currDynFunc != nullptr) << "Not under dynamic function!\n";
 
-    std::vector<int> vShape = std::vector<int>(t.GetShape().size() , 1);
+    Shape vShape = Shape(t.GetShape().size(), 1);
     auto tmp = VectorDuplicate(v, t.GetDataType(), vShape);
     TensorInsert(tmp, off, t);
 }

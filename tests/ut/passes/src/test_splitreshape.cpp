@@ -64,7 +64,7 @@ public:
 TEST_F(TestSplitReshapePass, TestInit) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    
+
     SplitReshape pass;
     auto status = pass.Init();
     EXPECT_EQ(status, SUCCESS);
@@ -83,29 +83,29 @@ TEST_F(TestSplitReshapePass, TestCollectCopyOut) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
-    std::vector<int> shape = {kNumTwo, kNumOne, kNumEight};
-    std::vector<int> offset1 = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> offset2 = {kNumOne, kNumZero, kNumZero};
-    std::vector<int> shape1 = {kNumOne, kNumOne, kNumEight};
-    std::vector<int> shape2 = {kNumTwo, kNumOne, kNumEight};
-    std::vector<int> shape3 = {kNumTwo, kNumEight};
-    
+    std::vector<int64_t> shape = {kNumTwo, kNumOne, kNumEight};
+    std::vector<int64_t> offset1 = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> offset2 = {kNumOne, kNumZero, kNumZero};
+    std::vector<int64_t> shape1 = {kNumOne, kNumOne, kNumEight};
+    std::vector<int64_t> shape2 = {kNumTwo, kNumOne, kNumEight};
+    std::vector<int64_t> shape3 = {kNumTwo, kNumEight};
+
     std::shared_ptr<RawTensor> ddrRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
     auto input1 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset1, shape1);
     auto input2 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset2, shape1);
     auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
-    
+
     auto &assemble_op1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor});
     auto assemble_Attr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
     assemble_op1.SetOpAttribute(assemble_Attr1);
-    
+
     auto &assemble_op2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor});
     auto assemble_Attr2 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
     assemble_op2.SetOpAttribute(assemble_Attr2);
 
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor}, {output});
-    
+
     SplitReshape pass;
     auto status = pass.CollectCopyOut(*currFunctionPtr);
     EXPECT_EQ(status, SUCCESS);
@@ -136,30 +136,30 @@ TEST_F(TestSplitReshapePass, TestDynCollectCopyOut) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
-    std::vector<int> shape = {kNumTwo, kNumOne, kNumEight};
-    std::vector<int> offset1 = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> offset2 = {kNumOne, kNumZero, kNumZero};
+    std::vector<int64_t> shape = {kNumTwo, kNumOne, kNumEight};
+    std::vector<int64_t> offset1 = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> offset2 = {kNumOne, kNumZero, kNumZero};
     std::vector<SymbolicScalar> dynOffset = {SymbolicScalar("a"), kNumZero, SymbolicScalar("b")};
-    std::vector<int> shape1 = {kNumOne, kNumOne, kNumEight};
-    std::vector<int> shape2 = {kNumTwo, kNumOne, kNumEight};
-    std::vector<int> shape3 = {kNumTwo, kNumEight};
-    
+    std::vector<int64_t> shape1 = {kNumOne, kNumOne, kNumEight};
+    std::vector<int64_t> shape2 = {kNumTwo, kNumOne, kNumEight};
+    std::vector<int64_t> shape3 = {kNumTwo, kNumEight};
+
     std::shared_ptr<RawTensor> ddrRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
     auto input1 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset1, shape1);
     auto input2 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset2, shape1);
     auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
-    
+
     auto &assemble_op1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor});
     auto assemble_Attr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1, dynOffset);
     assemble_op1.SetOpAttribute(assemble_Attr1);
-    
+
     auto &assemble_op2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor});
     auto assemble_Attr2 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2, dynOffset);
     assemble_op2.SetOpAttribute(assemble_Attr2);
 
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor}, {output});
-    
+
     SplitReshape pass;
     auto status = pass.CollectCopyOut(*currFunctionPtr);
     EXPECT_EQ(status, SUCCESS);
@@ -184,16 +184,16 @@ TEST_F(TestSplitReshapePass, TestCheckSplit) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
-    std::vector<int> shape = {kNumTwo, kNumOne, kNumEight};
-    std::vector<int> offset1 = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> offset2 = {kNumOne, kNumZero, kNumZero};
-    std::vector<int> shape1 = {kNumOne, kNumOne, kNumEight};
-    std::vector<int> shape2 = {kNumTwo, kNumOne, kNumEight};
-    std::vector<int> shape3 = {kNumTwo, kNumEight};
-    
+    std::vector<int64_t> shape = {kNumTwo, kNumOne, kNumEight};
+    std::vector<int64_t> offset1 = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> offset2 = {kNumOne, kNumZero, kNumZero};
+    std::vector<int64_t> shape1 = {kNumOne, kNumOne, kNumEight};
+    std::vector<int64_t> shape2 = {kNumTwo, kNumOne, kNumEight};
+    std::vector<int64_t> shape3 = {kNumTwo, kNumEight};
+
     std::shared_ptr<RawTensor> ddrRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape);
     std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape);
-    
+
     auto case1Input1 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor1, offset1, shape1);
     auto case1Input2 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor1, offset2, shape1);
     auto case1UbTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
@@ -205,7 +205,7 @@ TEST_F(TestSplitReshapePass, TestCheckSplit) {
     auto assemble_Attr2 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
     assemble_op2.SetOpAttribute(assemble_Attr2);
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {case1UbTensor}, {case1Output});
-    
+
     auto case2Input = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto case2Output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {case2Input}, {case2Output});
@@ -221,7 +221,7 @@ TEST_F(TestSplitReshapePass, TestCheckSplit) {
     auto assemble_Attr4 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
     assemble_op4.SetOpAttribute(assemble_Attr4);
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {case3UbTensor}, {case3Output});
-       
+
     auto case4Input1 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor1, offset1, shape1);
     auto case4UbTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto case4Output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
@@ -244,14 +244,14 @@ TEST_F(TestSplitReshapePass, TestCheckDynStatus) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
-    std::vector<int> shape = {kNumTwo, kNumOne, kNumEight};
-    std::vector<int> offset = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> shape1 = {kNumOne, kNumOne, kNumEight};
-    std::vector<int> shape2 = {kNumTwo, kNumOne, kNumEight};
-    std::vector<int> shape3 = {kNumTwo, kNumEight};
-    
+    std::vector<int64_t> shape = {kNumTwo, kNumOne, kNumEight};
+    std::vector<int64_t> offset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> shape1 = {kNumOne, kNumOne, kNumEight};
+    std::vector<int64_t> shape2 = {kNumTwo, kNumOne, kNumEight};
+    std::vector<int64_t> shape3 = {kNumTwo, kNumEight};
+
     std::shared_ptr<RawTensor> ddrRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
-    
+
     auto case1Input = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset, shape1);
     auto case1UbTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto case1Output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
@@ -304,10 +304,10 @@ TEST_F(TestSplitReshapePass, TestShapeAlign) {
     // Prepare the graph
     SplitReshape pass;
     Status status;
-    std::vector<int32_t> inputShape;
-    std::vector<int32_t> outputShape;
-    std::vector<int32_t> alignedShape;
-    std::vector<int32_t> expectedShape;
+    std::vector<int64_t> inputShape;
+    std::vector<int64_t> outputShape;
+    std::vector<int64_t> alignedShape;
+    std::vector<int64_t> expectedShape;
 
     alignedShape.clear();
     inputShape = {kExpSix, kExpSix};
@@ -316,7 +316,7 @@ TEST_F(TestSplitReshapePass, TestShapeAlign) {
     status = pass.ShapeAlign(inputShape, outputShape, alignedShape);
     EXPECT_EQ(status, SUCCESS);
     EXPECT_EQ(alignedShape, expectedShape);
-    
+
     alignedShape.clear();
     inputShape = {kNumTwo, kExpFive, kExpSix, kExpSeven};
     outputShape = {kExpSix, kExpSix, kExpSeven};
@@ -324,7 +324,7 @@ TEST_F(TestSplitReshapePass, TestShapeAlign) {
     status = pass.ShapeAlign(inputShape, outputShape, alignedShape);
     EXPECT_EQ(status, SUCCESS);
     EXPECT_EQ(alignedShape, expectedShape);
-    
+
     alignedShape.clear();
     inputShape = {kExpSix, kExpSix, kExpSeven};
     outputShape = {kNumTwo, kExpFive, kExpSix, kExpSeven};
@@ -332,7 +332,7 @@ TEST_F(TestSplitReshapePass, TestShapeAlign) {
     status = pass.ShapeAlign(inputShape, outputShape, alignedShape);
     EXPECT_EQ(status, SUCCESS);
     EXPECT_EQ(alignedShape, expectedShape);
-    
+
     inputShape = {kNumNineSix, kNumFour};
     outputShape = {kExpSix, kNumSix};
     status = pass.ShapeAlign(inputShape, outputShape, alignedShape);
@@ -345,14 +345,14 @@ TEST_F(TestSplitReshapePass, TestRawToAlign) {
     // Prepare the graph
     SplitReshape pass;
     Status status;
-    std::vector<int32_t> rawShape;
-    std::vector<int32_t> alignedShape;
-    std::vector<int32_t> tileOffset;
-    std::vector<int32_t> tileShape;
-    std::vector<int32_t> expectOffset;
-    std::vector<int32_t> expectShape;
-    std::vector<int32_t> newOffset;
-    std::vector<int32_t> newShape;
+    std::vector<int64_t> rawShape;
+    std::vector<int64_t> alignedShape;
+    std::vector<int64_t> tileOffset;
+    std::vector<int64_t> tileShape;
+    std::vector<int64_t> expectOffset;
+    std::vector<int64_t> expectShape;
+    std::vector<int64_t> newOffset;
+    std::vector<int64_t> newShape;
 
     ReshapeTilePara shapePara;
 
@@ -419,14 +419,14 @@ TEST_F(TestSplitReshapePass, TestAlignToRaw) {
     // Prepare the graph
     SplitReshape pass;
     Status status;
-    std::vector<int32_t> alignedShape;
-    std::vector<int32_t> rawShape;
-    std::vector<int32_t> tileOffset;
-    std::vector<int32_t> tileShape;
-    std::vector<int32_t> expectOffset;
-    std::vector<int32_t> expectShape;
-    std::vector<int32_t> newOffset;
-    std::vector<int32_t> newShape;
+    std::vector<int64_t> alignedShape;
+    std::vector<int64_t> rawShape;
+    std::vector<int64_t> tileOffset;
+    std::vector<int64_t> tileShape;
+    std::vector<int64_t> expectOffset;
+    std::vector<int64_t> expectShape;
+    std::vector<int64_t> newOffset;
+    std::vector<int64_t> newShape;
 
     ReshapeTilePara shapePara;
 
@@ -441,7 +441,7 @@ TEST_F(TestSplitReshapePass, TestAlignToRaw) {
     expectShape = {kNumThree};
     EXPECT_EQ(newShape, expectShape);
     EXPECT_EQ(newOffset, expectOffset);
-    
+
     rawShape = {kExpFive, kNumTwo, kExpSeven};
     alignedShape = {kExpFive, kNumTwo, kNumFour, kExpFive};
     tileOffset = {kNumZero, kNumZero, kNumZero, kNumZero};
@@ -453,7 +453,7 @@ TEST_F(TestSplitReshapePass, TestAlignToRaw) {
     expectShape = {kNumOne, kNumOne, kExpSix};
     EXPECT_EQ(newShape, expectShape);
     EXPECT_EQ(newOffset, expectOffset);
-    
+
     rawShape = {kExpFive, kNumTwo, kExpEight};
     alignedShape = {kExpFive, kNumTwo, kNumEight, kExpFive};
     tileOffset = {kNumZero, kNumOne, kNumFour, kNumZero};
@@ -465,7 +465,7 @@ TEST_F(TestSplitReshapePass, TestAlignToRaw) {
     expectShape = {kNumOne, kNumOne, kExpSix};
     EXPECT_EQ(newShape, expectShape);
     EXPECT_EQ(newOffset, expectOffset);
-    
+
     rawShape = {kExpFive, kNumFour, kExpEight};
     alignedShape = {kExpFive, kNumFour, kNumEight, kExpFive};
     tileOffset = {kNumOne, kNumOne, kNumFour, kNumZero};
@@ -485,8 +485,8 @@ TEST_F(TestSplitReshapePass, TestDynRawToAlign) {
     // Prepare the graph
     SplitReshape pass;
     Status status;
-    std::vector<int32_t> rawShape;
-    std::vector<int32_t> alignedShape;
+    std::vector<int64_t> rawShape;
+    std::vector<int64_t> alignedShape;
     std::vector<SymbolicScalar> dynOffset;
     std::vector<SymbolicScalar> dynShape;
     std::vector<SymbolicScalar> expectOffset;
@@ -529,8 +529,8 @@ TEST_F(TestSplitReshapePass, TestDynAlignToRaw) {
     // Prepare the graph
     SplitReshape pass;
     Status status;
-    std::vector<int32_t> rawShape;
-    std::vector<int32_t> alignedShape;
+    std::vector<int64_t> rawShape;
+    std::vector<int64_t> alignedShape;
     std::vector<SymbolicScalar> dynOffset;
     std::vector<SymbolicScalar> dynShape;
     std::vector<SymbolicScalar> expectOffset;
@@ -557,7 +557,7 @@ TEST_F(TestSplitReshapePass, TestDynAlignToRaw) {
     for (size_t i = 0; i < newOffset.size(); ++i) {
         EXPECT_EQ(newOffset[i].Dump(), expectOffset[i].Dump());
     }
-    
+
     alignedShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
     rawShape = {kNumTwo, kNumEight};
     dynShape = {kNumOne, SymbolicScalar("a"), kNumTwo, kNumTwo};
@@ -575,7 +575,7 @@ TEST_F(TestSplitReshapePass, TestDynAlignToRaw) {
     for (size_t i = 0; i < newOffset.size(); ++i) {
         EXPECT_EQ(newOffset[i].Dump(), expectOffset[i].Dump());
     }
-    
+
     alignedShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
     rawShape = {kNumTwo, kNumEight};
     dynShape = {kNumOne, kNumOne, SymbolicScalar("a"), kNumTwo};
@@ -593,7 +593,7 @@ TEST_F(TestSplitReshapePass, TestDynAlignToRaw) {
     for (size_t i = 0; i < newOffset.size(); ++i) {
         EXPECT_EQ(newOffset[i].Dump(), expectOffset[i].Dump());
     }
-    
+
     alignedShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
     rawShape = {kNumTwo, kNumEight};
     dynShape = {kNumOne, kNumOne, kNumOne, SymbolicScalar("a")};
@@ -611,7 +611,7 @@ TEST_F(TestSplitReshapePass, TestDynAlignToRaw) {
     for (size_t i = 0; i < newOffset.size(); ++i) {
         EXPECT_EQ(newOffset[i].Dump(), expectOffset[i].Dump());
     }
-    
+
     alignedShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
     rawShape = {kNumTwo, kNumEight};
     dynShape = {kNumOne, kNumOne, SymbolicScalar("a"), kNumTwo};
@@ -619,7 +619,7 @@ TEST_F(TestSplitReshapePass, TestDynAlignToRaw) {
     shapePara = {alignedShape, rawShape, dynOffset, dynShape};
     status = pass.DynAlignToRaw(shapePara, newOffset, newShape);
     EXPECT_EQ(status, FAILED);
-    
+
     alignedShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
     rawShape = {kNumTwo, kNumEight};
     dynShape = {kNumOne, kNumTwo, SymbolicScalar("a"), kNumTwo};
@@ -627,7 +627,7 @@ TEST_F(TestSplitReshapePass, TestDynAlignToRaw) {
     shapePara = {alignedShape, rawShape, dynOffset, dynShape};
     status = pass.DynAlignToRaw(shapePara, newOffset, newShape);
     EXPECT_EQ(status, FAILED);
-    
+
     alignedShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
     rawShape = {kNumTwo, kNumEight};
     dynShape = {kNumOne, kNumOne, SymbolicScalar("a"), kNumOne};
@@ -643,12 +643,12 @@ TEST_F(TestSplitReshapePass, TestAlignToRawSpecialCase) {
     // Prepare the graph
     SplitReshape pass;
     Status status;
-    std::vector<int32_t> alignedShape;
-    std::vector<int32_t> rawShape;
-    std::vector<int32_t> tileOffset;
-    std::vector<int32_t> tileShape;
-    std::vector<int32_t> newOffset;
-    std::vector<int32_t> newShape;
+    std::vector<int64_t> alignedShape;
+    std::vector<int64_t> rawShape;
+    std::vector<int64_t> tileOffset;
+    std::vector<int64_t> tileShape;
+    std::vector<int64_t> newOffset;
+    std::vector<int64_t> newShape;
 
     ReshapeTilePara shapePara;
 
@@ -683,13 +683,13 @@ TEST_F(TestSplitReshapePass, TestObtainCopyOutTileBeCovered) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
-    std::vector<int> shape = {kNumTwo, kNumFour};
-    std::vector<int> offset1 = {kNumZero, kNumZero};
-    std::vector<int> offset2 = {kNumZero, kNumTwo};
-    std::vector<int> shape1 = {kNumTwo, kNumTwo};
-    std::vector<int> shape2 = {kNumTwo, kNumFour};
-    std::vector<int> shape3 = {kNumTwo, kNumTwo, kNumTwo};
-    
+    std::vector<int64_t> shape = {kNumTwo, kNumFour};
+    std::vector<int64_t> offset1 = {kNumZero, kNumZero};
+    std::vector<int64_t> offset2 = {kNumZero, kNumTwo};
+    std::vector<int64_t> shape1 = {kNumTwo, kNumTwo};
+    std::vector<int64_t> shape2 = {kNumTwo, kNumFour};
+    std::vector<int64_t> shape3 = {kNumTwo, kNumTwo, kNumTwo};
+
     std::shared_ptr<RawTensor> ddrRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
     auto input1 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset1, shape1);
     auto input2 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset2, shape1);
@@ -708,9 +708,9 @@ TEST_F(TestSplitReshapePass, TestObtainCopyOutTileBeCovered) {
     LogicalTensors overlaps;
     LogicalTensors newOverlaps;
     std::vector<SymbolicScalar> validShape;
-    std::vector<int> newOutputTileOffset = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> newOutputTileShape = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> alignedShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> newOutputTileOffset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> newOutputTileShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> alignedShape = {kNumTwo, kNumTwo, kNumTwo};
     auto newOutput = std::make_shared<LogicalTensor>(*currFunctionPtr, output->tensor, newOutputTileOffset, newOutputTileShape, validShape);
     copyOutTilePara copyOutTile = {ubTensor, output, newOutput, alignedShape};
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
@@ -731,11 +731,11 @@ TEST_F(TestSplitReshapePass, TestObtainCopyOutTilePerfectlyMatched) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
-    std::vector<int> shape = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> offset = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> shape1 = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> shape2 = {kNumFour, kNumTwo};
-    
+    std::vector<int64_t> shape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> offset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> shape1 = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> shape2 = {kNumFour, kNumTwo};
+
     std::shared_ptr<RawTensor> ddrRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
     auto input = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset, shape1);
     auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
@@ -750,9 +750,9 @@ TEST_F(TestSplitReshapePass, TestObtainCopyOutTilePerfectlyMatched) {
     LogicalTensors overlaps;
     LogicalTensors newOverlaps;
     std::vector<SymbolicScalar> validShape;
-    std::vector<int> newOutputTileOffset = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> newOutputTileShape = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> alignedShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> newOutputTileOffset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> newOutputTileShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> alignedShape = {kNumTwo, kNumTwo, kNumTwo};
     auto newOutput = std::make_shared<LogicalTensor>(*currFunctionPtr, output->tensor, newOutputTileOffset, newOutputTileShape, validShape);
     copyOutTilePara copyOutTile = {ubTensor, output, newOutput, alignedShape};
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
@@ -775,13 +775,13 @@ TEST_F(TestSplitReshapePass, TestDynObtainCopyOutTile) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
-    std::vector<int> shape = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> offset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> shape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> offset = {kNumZero, kNumZero, kNumZero};
     std::vector<SymbolicScalar> dynShape = {kNumTwo, kNumTwo, SymbolicScalar("a")};
     std::vector<SymbolicScalar> dynOffset = {kNumZero, kNumZero, SymbolicScalar("b")};
-    std::vector<int> shape1 = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> shape2 = {kNumFour, kNumTwo};
-    
+    std::vector<int64_t> shape1 = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> shape2 = {kNumFour, kNumTwo};
+
     std::shared_ptr<RawTensor> ddrRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
     auto input = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset, shape1, dynShape);
     input->UpdateOffset(TensorOffset(offset, dynOffset));
@@ -797,9 +797,9 @@ TEST_F(TestSplitReshapePass, TestDynObtainCopyOutTile) {
     LogicalTensors overlaps;
     LogicalTensors newOverlaps;
     std::vector<SymbolicScalar> validShape;
-    std::vector<int> newOutputTileOffset = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> newOutputTileShape = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> alignedShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> newOutputTileOffset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> newOutputTileShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> alignedShape = {kNumTwo, kNumTwo, kNumTwo};
     auto newOutput = std::make_shared<LogicalTensor>(*currFunctionPtr, output->tensor, newOutputTileOffset, newOutputTileShape, validShape);
     copyOutTilePara copyOutTile = {ubTensor, output, newOutput, alignedShape};
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
@@ -832,11 +832,11 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchForUB) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
-    std::vector<int> shape = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> offset = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> shape1 = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> shape2 = {kNumFour, kNumTwo};
-    
+    std::vector<int64_t> shape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> offset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> shape1 = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> shape2 = {kNumFour, kNumTwo};
+
     std::shared_ptr<RawTensor> ddrRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
     auto input = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset, shape1);
     input->SetMemoryTypeOriginal(MemoryType::MEM_UB, false);
@@ -855,8 +855,8 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchForUB) {
 
     CalcOverlapPara para;
     std::vector<SymbolicScalar> validShape;
-    std::vector<int> newTileOffset = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> newTileShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> newTileOffset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> newTileShape = {kNumTwo, kNumTwo, kNumTwo};
     para.alignedShape = {kNumTwo, kNumTwo, kNumTwo};
     para.overlaps = {input};
     para.newOverlaps = {std::make_shared<LogicalTensor>(*currFunctionPtr, input->tensor, newTileOffset, newTileShape, validShape)};
@@ -864,7 +864,7 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchForUB) {
     para.input = ubTensor2;
     para.output = output;
     para.inputView = ubTensor2;
-    
+
     SplitReshape pass;
     EXPECT_EQ(pass.redundantViewops.size(), kSizeZero);
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
@@ -891,11 +891,11 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchForDDR) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
-    std::vector<int> shape = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> offset = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> shape1 = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> shape2 = {kNumFour, kNumTwo};
-    
+    std::vector<int64_t> shape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> offset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> shape1 = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> shape2 = {kNumFour, kNumTwo};
+
     std::shared_ptr<RawTensor> ddrRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
     auto input = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset, shape1);
     input->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
@@ -904,20 +904,20 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchForDDR) {
     ubTensor2->SetMemoryTypeOriginal(MemoryType::MEM_UNKNOWN, false);
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     output->SetMemoryTypeOriginal(MemoryType::MEM_UB, false);
-    
+
     auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input}, {ubTensor1});
     auto assemble_Attr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset);
     assemble_op.SetOpAttribute(assemble_Attr);
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
     auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output});
-    std::vector<int> view_offset = {0, 0};
+    std::vector<int64_t> view_offset = {0, 0};
     auto view_Attr = std::make_shared<ViewOpAttribute>(view_offset);
     view_op.SetOpAttribute(view_Attr);
 
     CalcOverlapPara para;
     std::vector<SymbolicScalar> validShape;
-    std::vector<int> newTileOffset = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> newTileShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> newTileOffset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> newTileShape = {kNumTwo, kNumTwo, kNumTwo};
     para.alignedShape = {kNumTwo, kNumTwo, kNumTwo};
     para.overlaps = {input};
     para.newOverlaps = {std::make_shared<LogicalTensor>(*currFunctionPtr, input->tensor, newTileOffset, newTileShape, validShape)};
@@ -925,7 +925,7 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchForDDR) {
     para.input = ubTensor2;
     para.output = output;
     para.inputView = ubTensor2;
-    
+
     SplitReshape pass;
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(pass.UpdateForPerfectlyMatch(*currFunctionPtr, view_op, para), SUCCESS);
@@ -951,11 +951,11 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchOtherCase) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
-    std::vector<int> shape = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> offset = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> shape1 = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> shape2 = {kNumFour, kNumTwo};
-    
+    std::vector<int64_t> shape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> offset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> shape1 = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> shape2 = {kNumFour, kNumTwo};
+
     std::shared_ptr<RawTensor> ddrRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
     auto input = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset, shape1);
     input->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
@@ -965,20 +965,20 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchOtherCase) {
     ubTensor2->SetMemoryTypeOriginal(MemoryType::MEM_UNKNOWN, false);
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     output->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    
+
     auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input}, {ubTensor1});
     auto assemble_Attr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset);
     assemble_op.SetOpAttribute(assemble_Attr);
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
     auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output});
-    std::vector<int> view_offset = {0, 0};
+    std::vector<int64_t> view_offset = {0, 0};
     auto view_Attr = std::make_shared<ViewOpAttribute>(view_offset);
     view_op.SetOpAttribute(view_Attr);
 
     CalcOverlapPara para;
     std::vector<SymbolicScalar> validShape;
-    std::vector<int> newTileOffset = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> newTileShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> newTileOffset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> newTileShape = {kNumTwo, kNumTwo, kNumTwo};
     para.alignedShape = {kNumTwo, kNumTwo, kNumTwo};
     para.overlaps = {input};
     para.newOverlaps = {std::make_shared<LogicalTensor>(*currFunctionPtr, input->tensor, newTileOffset, newTileShape, validShape)};
@@ -986,7 +986,7 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchOtherCase) {
     para.input = ubTensor2;
     para.output = output;
     para.inputView = ubTensor2;
-    
+
     SplitReshape pass;
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(pass.UpdateForPerfectlyMatch(*currFunctionPtr, view_op, para), SUCCESS);
@@ -1021,13 +1021,13 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchForUB) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
-    std::vector<int> shape = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> offset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> shape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> offset = {kNumZero, kNumZero, kNumZero};
     std::vector<SymbolicScalar> dynShape = {kNumTwo, kNumTwo, SymbolicScalar("a")};
     std::vector<SymbolicScalar> dynOffset = {kNumZero, kNumZero, SymbolicScalar("b")};
-    std::vector<int> shape1 = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> shape2 = {kNumFour, kNumTwo};
-    
+    std::vector<int64_t> shape1 = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> shape2 = {kNumFour, kNumTwo};
+
     std::shared_ptr<RawTensor> ddrRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
     auto input = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset, shape1, dynShape);
     input->UpdateOffset(TensorOffset(offset, dynOffset));
@@ -1046,8 +1046,8 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchForUB) {
     auto &post_op = currFunctionPtr->AddOperation(Opcode::OP_NOP, {output}, {opOutput});
 
     CalcOverlapPara para;
-    std::vector<int> newTileOffset = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> newTileShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> newTileOffset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> newTileShape = {kNumTwo, kNumTwo, kNumTwo};
     para.alignedShape = {kNumTwo, kNumTwo, kNumTwo};
     para.overlaps = {input};
     auto newOverlap = std::make_shared<LogicalTensor>(*currFunctionPtr, input->tensor, newTileOffset, newTileShape, dynShape);
@@ -1057,7 +1057,7 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchForUB) {
     para.input = ubTensor2;
     para.output = output;
     para.inputView = ubTensor2;
-    
+
     SplitReshape pass;
     EXPECT_EQ(pass.redundantViewops.size(), kSizeZero);
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
@@ -1094,14 +1094,14 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchForDDR) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
-    std::vector<int> shape = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> offset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> shape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> offset = {kNumZero, kNumZero, kNumZero};
     std::vector<SymbolicScalar> dynShape = {kNumTwo, kNumTwo, SymbolicScalar("a")};
     std::vector<SymbolicScalar> dynOffset = {kNumZero, kNumZero, SymbolicScalar("b")};
-    std::vector<int> shape1 = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> shape2 = {kNumFour, kNumTwo};
+    std::vector<int64_t> shape1 = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> shape2 = {kNumFour, kNumTwo};
     std::vector<SymbolicScalar> dynViewOffset = {kNumZero, SymbolicScalar("b") * 1};
-    
+
     std::shared_ptr<RawTensor> ddrRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
     auto input = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset, shape1);
     input->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
@@ -1111,19 +1111,19 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchForDDR) {
     ubTensor2->SetMemoryTypeOriginal(MemoryType::MEM_UNKNOWN, false);
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     output->SetMemoryTypeOriginal(MemoryType::MEM_UB, false);
-    
+
     auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input}, {ubTensor1});
     auto assemble_Attr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset);
     assemble_op.SetOpAttribute(assemble_Attr);
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
     auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output});
-    std::vector<int> view_offset = {0, 0};
+    std::vector<int64_t> view_offset = {0, 0};
     auto view_Attr = std::make_shared<ViewOpAttribute>(view_offset);
     view_op.SetOpAttribute(view_Attr);
 
     CalcOverlapPara para;
-    std::vector<int> newTileOffset = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> newTileShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> newTileOffset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> newTileShape = {kNumTwo, kNumTwo, kNumTwo};
     para.alignedShape = {kNumTwo, kNumTwo, kNumTwo};
     para.overlaps = {input};
     auto newOverlap = std::make_shared<LogicalTensor>(*currFunctionPtr, input->tensor, newTileOffset, newTileShape, dynShape);
@@ -1133,7 +1133,7 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchForDDR) {
     para.input = ubTensor2;
     para.output = output;
     para.inputView = ubTensor2;
-    
+
     SplitReshape pass;
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(pass.UpdateForPerfectlyMatch(*currFunctionPtr, view_op, para), SUCCESS);
@@ -1173,14 +1173,14 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchOtherCase) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
 
-    std::vector<int> shape = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> offset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> shape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> offset = {kNumZero, kNumZero, kNumZero};
     std::vector<SymbolicScalar> dynShape = {kNumTwo, kNumTwo, SymbolicScalar("a")};
     std::vector<SymbolicScalar> dynOffset = {kNumZero, kNumZero, SymbolicScalar("b")};
-    std::vector<int> shape1 = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> shape2 = {kNumFour, kNumTwo};
+    std::vector<int64_t> shape1 = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> shape2 = {kNumFour, kNumTwo};
     std::vector<SymbolicScalar> dynViewOffset = {kNumZero, SymbolicScalar("b") * 1};
-    
+
     std::shared_ptr<RawTensor> ddrRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
     auto input = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset, shape1, dynShape);
     input->UpdateOffset(TensorOffset(offset, dynOffset));
@@ -1192,19 +1192,19 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchOtherCase) {
     ubTensor2->SetMemoryTypeOriginal(MemoryType::MEM_UNKNOWN, false);
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     output->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    
+
     auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input}, {ubTensor1});
     auto assemble_Attr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset, dynOffset);
     assemble_op.SetOpAttribute(assemble_Attr);
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
     auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output});
-    std::vector<int> view_offset = {0, 0};
+    std::vector<int64_t> view_offset = {0, 0};
     auto view_Attr = std::make_shared<ViewOpAttribute>(view_offset);
     view_op.SetOpAttribute(view_Attr);
 
     CalcOverlapPara para;
-    std::vector<int> newTileOffset = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> newTileShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> newTileOffset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> newTileShape = {kNumTwo, kNumTwo, kNumTwo};
     para.alignedShape = {kNumTwo, kNumTwo, kNumTwo};
     para.overlaps = {input};
     auto newOverlap = std::make_shared<LogicalTensor>(*currFunctionPtr, input->tensor, newTileOffset, newTileShape, dynShape);
@@ -1214,7 +1214,7 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchOtherCase) {
     para.input = ubTensor2;
     para.output = output;
     para.inputView = ubTensor2;
-    
+
     SplitReshape pass;
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(pass.UpdateForPerfectlyMatch(*currFunctionPtr, view_op, para), SUCCESS);
@@ -1263,21 +1263,21 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchOtherCase) {
 验证一对多场景下ub数据的处理
 rawShape = {2, 2, 2}
 {2, 2, 2}(ub) -> assemble -> {2, 2, 2} -> reshape -> {2, 4} -> view -> {2, 2}(ub)
-                                                            -> view -> {2, 2}(ub) 
+                                                            -> view -> {2, 2}(ub)
 {2, 2, 2}(ub) -> reshape -> {2, 4}(ub) -> view -> {2, 2}
-                                       -> view -> {2, 2}           
+                                       -> view -> {2, 2}
 */
 TEST_F(TestSplitReshapePass, TestUpdateForBeCoveredForUB) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
-    std::vector<int> shape1 = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> shape2 = {kNumTwo, kNumFour};
-    std::vector<int> shape3 = {kNumTwo, kNumTwo};
-    std::vector<int> offset1 = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> offset2 = {kNumZero, kNumZero};
-    std::vector<int> view_offset1 = {kNumZero, kNumZero};
-    std::vector<int> view_offset2 = {kNumZero, kNumTwo};
+    std::vector<int64_t> shape1 = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> shape2 = {kNumTwo, kNumFour};
+    std::vector<int64_t> shape3 = {kNumTwo, kNumTwo};
+    std::vector<int64_t> offset1 = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> offset2 = {kNumZero, kNumZero};
+    std::vector<int64_t> view_offset1 = {kNumZero, kNumZero};
+    std::vector<int64_t> view_offset2 = {kNumZero, kNumTwo};
 
     std::shared_ptr<RawTensor> RawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape1);
     auto input = std::make_shared<LogicalTensor>(*currFunctionPtr, RawTensor1, offset1, shape1);
@@ -1289,7 +1289,7 @@ TEST_F(TestSplitReshapePass, TestUpdateForBeCoveredForUB) {
     output1->SetMemoryTypeOriginal(MemoryType::MEM_UB, false);
     auto output2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
     output2->SetMemoryTypeOriginal(MemoryType::MEM_UB, false);
-    
+
     auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input}, {ubTensor1});
     auto assemble_Attr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
     assemble_op.SetOpAttribute(assemble_Attr);
@@ -1303,10 +1303,10 @@ TEST_F(TestSplitReshapePass, TestUpdateForBeCoveredForUB) {
 
     CalcOverlapPara para;
     std::vector<SymbolicScalar> validShape;
-    
+
     SplitReshape pass;
-    std::vector<int> newCopyOutTileOffset = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> newCopyOutTileShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> newCopyOutTileOffset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> newCopyOutTileShape = {kNumTwo, kNumTwo, kNumTwo};
     para.alignedShape = {kNumTwo, kNumTwo, kNumTwo};
     para.overlaps = {input};
     para.newOverlaps = {std::make_shared<LogicalTensor>(*currFunctionPtr, input->tensor, newCopyOutTileOffset, newCopyOutTileShape, validShape)};
@@ -1314,18 +1314,18 @@ TEST_F(TestSplitReshapePass, TestUpdateForBeCoveredForUB) {
     para.input = ubTensor2;
     para.output = output1;
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
-    
-    std::vector<int> viewOffset = {kNumZero, kNumZero};
+
+    std::vector<int64_t> viewOffset = {kNumZero, kNumZero};
     auto inputView = std::make_shared<LogicalTensor>(*currFunctionPtr, ubTensor2->tensor, viewOffset, shape2);
     para.inputView = inputView;
     para.newInputViewTileShape = {kNumTwo, kNumOne, kNumTwo};
     para.newInputViewTileOffset = {kNumZero, kNumZero, kNumZero};
     EXPECT_EQ(pass.UpdateForBeCovered(*currFunctionPtr, view_op1, para), SUCCESS);
-    std::vector<int> view2Offset = {kNumZero, kNumTwo};
+    std::vector<int64_t> view2Offset = {kNumZero, kNumTwo};
     para.newInputViewTileShape = {kNumTwo, kNumOne, kNumTwo};
     para.newInputViewTileOffset = {kNumZero, kNumOne, kNumZero};
     EXPECT_EQ(pass.UpdateForBeCovered(*currFunctionPtr, view_op2, para), SUCCESS);
-    
+
     EXPECT_EQ(pass.reshapes.size(), kSizeOne);
     auto newReshape = pass.reshapes.begin()->second;
     EXPECT_EQ(newReshape->input, input);
@@ -1341,21 +1341,21 @@ TEST_F(TestSplitReshapePass, TestUpdateForBeCoveredForUB) {
 验证一对多场景下其他数据的处理
 rawShape = {2, 2, 2}
 {2, 2, 2}(ddr) -> assemble -> {2, 2, 2} -> reshape -> {2, 4}(unknown) -> view -> {2, 2}(ddr)
-                                                                      -> view -> {2, 2}(ddr) 
+                                                                      -> view -> {2, 2}(ddr)
 {2, 2, 2}(ddr) -> assemble -> {2, 2, 2} -> reshape -> {2, 4}(unknown) -> view -> {2, 2}
-                                                                      -> view -> {2, 2}           
+                                                                      -> view -> {2, 2}
 */
 TEST_F(TestSplitReshapePass, TestUpdateForBeCoveredOtherCase) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
-    std::vector<int> shape1 = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> shape2 = {kNumTwo, kNumFour};
-    std::vector<int> shape3 = {kNumTwo, kNumTwo};
-    std::vector<int> offset1 = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> offset2 = {kNumZero, kNumZero};
-    std::vector<int> view_offset1 = {kNumZero, kNumZero};
-    std::vector<int> view_offset2 = {kNumZero, kNumTwo};
+    std::vector<int64_t> shape1 = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> shape2 = {kNumTwo, kNumFour};
+    std::vector<int64_t> shape3 = {kNumTwo, kNumTwo};
+    std::vector<int64_t> offset1 = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> offset2 = {kNumZero, kNumZero};
+    std::vector<int64_t> view_offset1 = {kNumZero, kNumZero};
+    std::vector<int64_t> view_offset2 = {kNumZero, kNumTwo};
 
     std::shared_ptr<RawTensor> RawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape1);
     auto input = std::make_shared<LogicalTensor>(*currFunctionPtr, RawTensor1, offset1, shape1);
@@ -1368,7 +1368,7 @@ TEST_F(TestSplitReshapePass, TestUpdateForBeCoveredOtherCase) {
     output1->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
     auto output2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
     output2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    
+
     auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input}, {ubTensor1});
     auto assemble_Attr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
     assemble_op.SetOpAttribute(assemble_Attr);
@@ -1382,10 +1382,10 @@ TEST_F(TestSplitReshapePass, TestUpdateForBeCoveredOtherCase) {
 
     CalcOverlapPara para;
     std::vector<SymbolicScalar> validShape;
-    
+
     SplitReshape pass;
-    std::vector<int> newCopyOutTileOffset = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> newCopyOutTileShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> newCopyOutTileOffset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> newCopyOutTileShape = {kNumTwo, kNumTwo, kNumTwo};
     para.alignedShape = {kNumTwo, kNumTwo, kNumTwo};
     para.overlaps = {input};
     para.newOverlaps = {std::make_shared<LogicalTensor>(*currFunctionPtr, input->tensor, newCopyOutTileOffset, newCopyOutTileShape, validShape)};
@@ -1393,18 +1393,18 @@ TEST_F(TestSplitReshapePass, TestUpdateForBeCoveredOtherCase) {
     para.input = ubTensor2;
     para.output = output1;
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
-    
-    std::vector<int> viewOffset = {kNumZero, kNumZero};
+
+    std::vector<int64_t> viewOffset = {kNumZero, kNumZero};
     auto inputView = std::make_shared<LogicalTensor>(*currFunctionPtr, ubTensor2->tensor, viewOffset, shape2);
     para.inputView = inputView;
     para.newInputViewTileShape = {kNumTwo, kNumOne, kNumTwo};
     para.newInputViewTileOffset = {kNumZero, kNumZero, kNumZero};
     EXPECT_EQ(pass.UpdateForBeCovered(*currFunctionPtr, view_op1, para), SUCCESS);
-    std::vector<int> view2Offset = {kNumZero, kNumTwo};
+    std::vector<int64_t> view2Offset = {kNumZero, kNumTwo};
     para.newInputViewTileShape = {kNumTwo, kNumOne, kNumTwo};
     para.newInputViewTileOffset = {kNumZero, kNumOne, kNumZero};
     EXPECT_EQ(pass.UpdateForBeCovered(*currFunctionPtr, view_op2, para), SUCCESS);
-    
+
     EXPECT_EQ(pass.reshapes.size(), kSizeOne);
     auto newReshape = pass.reshapes.begin()->second;
     auto newReshapeResource = newReshape->input;
@@ -1428,7 +1428,7 @@ TEST_F(TestSplitReshapePass, TestUpdateForBeCoveredOtherCase) {
 验证一对多场景下动态shape ub数据的处理
 rawShape = {2, 2, 2}
 {2, 2, 2}(ub) -> assemble -> {2, 2, 2} -> reshape -> {2, 4} -> view -> {2, 2}(ub)
-                                                            -> view -> {2, 2}(ub) 
+                                                            -> view -> {2, 2}(ub)
 {a, 2, 2}/{b, 0, 0}          {a, 2, 2}/{b, 0, 0}     {a, 4}/{b, 0}     {a, 2}/{b, 0}
                                                                        {a, 2}/{b, 0}
 {2, 2, 2}(ub) -> reshape -> {2, 4}(ub) -> view -> {2, 2}
@@ -1440,15 +1440,15 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForBeCoveredForUB) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
-    std::vector<int> shape1 = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> shape2 = {kNumTwo, kNumFour};
-    std::vector<int> shape3 = {kNumTwo, kNumTwo};
-    std::vector<int> offset1 = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> offset2 = {kNumZero, kNumZero};
+    std::vector<int64_t> shape1 = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> shape2 = {kNumTwo, kNumFour};
+    std::vector<int64_t> shape3 = {kNumTwo, kNumTwo};
+    std::vector<int64_t> offset1 = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> offset2 = {kNumZero, kNumZero};
     std::vector<SymbolicScalar> dynSrcShape = {SymbolicScalar("a"), kNumTwo, kNumTwo};
     std::vector<SymbolicScalar> dynSrcOffset = {SymbolicScalar("b"), kNumZero, kNumZero};
-    std::vector<int> view_offset1 = {kNumZero, kNumZero};
-    std::vector<int> view_offset2 = {kNumZero, kNumTwo};
+    std::vector<int64_t> view_offset1 = {kNumZero, kNumZero};
+    std::vector<int64_t> view_offset2 = {kNumZero, kNumTwo};
 
     std::shared_ptr<RawTensor> RawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape1);
     auto input = std::make_shared<LogicalTensor>(*currFunctionPtr, RawTensor1, offset1, shape1);
@@ -1460,7 +1460,7 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForBeCoveredForUB) {
     output1->SetMemoryTypeOriginal(MemoryType::MEM_UB, false);
     auto output2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
     output2->SetMemoryTypeOriginal(MemoryType::MEM_UB, false);
-    
+
     auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input}, {ubTensor1});
     auto assemble_Attr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
     assemble_op.SetOpAttribute(assemble_Attr);
@@ -1474,8 +1474,8 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForBeCoveredForUB) {
 
     CalcOverlapPara para;
     SplitReshape pass;
-    std::vector<int> newCopyOutTileOffset = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> newCopyOutTileShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> newCopyOutTileOffset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> newCopyOutTileShape = {kNumTwo, kNumTwo, kNumTwo};
     para.alignedShape = {kNumTwo, kNumTwo, kNumTwo};
     para.overlaps = {input};
     auto newOverlap = std::make_shared<LogicalTensor>(*currFunctionPtr, input->tensor, newCopyOutTileOffset, newCopyOutTileShape, dynSrcShape);
@@ -1485,8 +1485,8 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForBeCoveredForUB) {
     para.input = ubTensor2;
     para.output = output1;
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
-    
-    std::vector<int> viewOffset = {kNumZero, kNumZero};
+
+    std::vector<int64_t> viewOffset = {kNumZero, kNumZero};
     auto inputView = std::make_shared<LogicalTensor>(*currFunctionPtr, ubTensor2->tensor, viewOffset, shape2);
     para.inputView = inputView;
     para.newInputViewTileShape = {kNumTwo, kNumOne, kNumTwo};
@@ -1494,13 +1494,13 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForBeCoveredForUB) {
     para.newInputViewDynShape = {SymbolicScalar("a"), kNumOne, kNumTwo};
     para.newInputViewDynOffset = {SymbolicScalar("b"), kNumZero, kNumZero};
     EXPECT_EQ(pass.UpdateForBeCovered(*currFunctionPtr, view_op1, para), SUCCESS);
-    std::vector<int> view2Offset = {kNumZero, kNumTwo};
+    std::vector<int64_t> view2Offset = {kNumZero, kNumTwo};
     para.newInputViewTileShape = {kNumTwo, kNumOne, kNumTwo};
     para.newInputViewTileOffset = {kNumZero, kNumOne, kNumZero};
     para.newInputViewDynShape = {SymbolicScalar("a"), kNumOne, kNumTwo};
     para.newInputViewDynOffset = {SymbolicScalar("b"), kNumOne, kNumZero};
     EXPECT_EQ(pass.UpdateForBeCovered(*currFunctionPtr, view_op2, para), SUCCESS);
-    
+
     std::vector<SymbolicScalar> expectShape = {SymbolicScalar("a") * 1, kNumFour};
     std::vector<SymbolicScalar> expectOffset1 = {SymbolicScalar("b") * 1, kNumZero};
     std::vector<SymbolicScalar> expectOffset2 = {SymbolicScalar("b") * 1, kNumTwo};
@@ -1532,27 +1532,27 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForBeCoveredForUB) {
 验证一对多场景下动态shape其他数据的处理
 rawShape = {2, 2, 2}
 {2, 2, 2}(ddr) -> assemble -> {2, 2, 2} -> reshape -> {2, 4}(unknown) -> view -> {2, 2}(ddr)
-                                                                      -> view -> {2, 2}(ddr) 
+                                                                      -> view -> {2, 2}(ddr)
 {a, 2, 2}/{b, 0, 0}           {a, 2, 2}/{b, 0, 0}     {a, 4}/{b, 0}              {a, 2}/{b, 0}
                                                                                  {a, 2}/{b, 0}
 {2, 2, 2}(ddr) -> assemble -> {2, 2, 2} -> reshape -> {2, 4}(unknown) -> view -> {2, 2}
                                                                       -> view -> {2, 2}
 {a, 2, 2}/{b, 0, 0}           {a, 2, 2}/{b, 0, 0}     {a, 4}/{b, 0}              {a, 2}/{b, 0}
-                                                                                 {a, 2}/{b, 0}          
+                                                                                 {a, 2}/{b, 0}
 */
 TEST_F(TestSplitReshapePass, TestDynUpdateForBeCoveredOtherCase) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
-    std::vector<int> shape1 = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> shape2 = {kNumTwo, kNumFour};
-    std::vector<int> shape3 = {kNumTwo, kNumTwo};
-    std::vector<int> offset1 = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> offset2 = {kNumZero, kNumZero};
+    std::vector<int64_t> shape1 = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> shape2 = {kNumTwo, kNumFour};
+    std::vector<int64_t> shape3 = {kNumTwo, kNumTwo};
+    std::vector<int64_t> offset1 = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> offset2 = {kNumZero, kNumZero};
     std::vector<SymbolicScalar> dynSrcShape = {SymbolicScalar("a"), kNumTwo, kNumTwo};
     std::vector<SymbolicScalar> dynSrcOffset = {SymbolicScalar("b"), kNumZero, kNumZero};
-    std::vector<int> view_offset1 = {kNumZero, kNumZero};
-    std::vector<int> view_offset2 = {kNumZero, kNumTwo};
+    std::vector<int64_t> view_offset1 = {kNumZero, kNumZero};
+    std::vector<int64_t> view_offset2 = {kNumZero, kNumTwo};
 
     std::shared_ptr<RawTensor> RawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape1);
     auto input = std::make_shared<LogicalTensor>(*currFunctionPtr, RawTensor1, offset1, shape1, dynSrcShape);
@@ -1566,7 +1566,7 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForBeCoveredOtherCase) {
     output1->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
     auto output2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
     output2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    
+
     auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input}, {ubTensor1});
     auto assemble_Attr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1, dynSrcOffset);
     assemble_op.SetOpAttribute(assemble_Attr);
@@ -1580,8 +1580,8 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForBeCoveredOtherCase) {
 
     CalcOverlapPara para;
     SplitReshape pass;
-    std::vector<int> newCopyOutTileOffset = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> newCopyOutTileShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> newCopyOutTileOffset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> newCopyOutTileShape = {kNumTwo, kNumTwo, kNumTwo};
     para.alignedShape = {kNumTwo, kNumTwo, kNumTwo};
     para.overlaps = {input};
     auto newOverlap = std::make_shared<LogicalTensor>(*currFunctionPtr, input->tensor, newCopyOutTileOffset, newCopyOutTileShape, dynSrcShape);
@@ -1591,8 +1591,8 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForBeCoveredOtherCase) {
     para.input = ubTensor2;
     para.output = output1;
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
-    
-    std::vector<int> viewOffset = {kNumZero, kNumZero};
+
+    std::vector<int64_t> viewOffset = {kNumZero, kNumZero};
     auto inputView = std::make_shared<LogicalTensor>(*currFunctionPtr, ubTensor2->tensor, viewOffset, shape2);
     para.inputView = inputView;
     para.newInputViewTileShape = {kNumTwo, kNumOne, kNumTwo};
@@ -1600,13 +1600,13 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForBeCoveredOtherCase) {
     para.newInputViewDynShape = {SymbolicScalar("a"), kNumOne, kNumTwo};
     para.newInputViewDynOffset = {SymbolicScalar("b"), kNumZero, kNumZero};
     EXPECT_EQ(pass.UpdateForBeCovered(*currFunctionPtr, view_op1, para), SUCCESS);
-    std::vector<int> view2Offset = {kNumZero, kNumTwo};
+    std::vector<int64_t> view2Offset = {kNumZero, kNumTwo};
     para.newInputViewTileShape = {kNumTwo, kNumOne, kNumTwo};
     para.newInputViewTileOffset = {kNumZero, kNumOne, kNumZero};
     para.newInputViewDynShape = {SymbolicScalar("a"), kNumOne, kNumTwo};
     para.newInputViewDynOffset = {SymbolicScalar("b"), kNumOne, kNumZero};
     EXPECT_EQ(pass.UpdateForBeCovered(*currFunctionPtr, view_op2, para), SUCCESS);
-    
+
     std::vector<SymbolicScalar> expectShape = {SymbolicScalar("a") * 1, kNumFour};
     std::vector<SymbolicScalar> expectOffset1 = {SymbolicScalar("b") * 1, kNumZero};
     std::vector<SymbolicScalar> expectOffset2 = {SymbolicScalar("b") * 1, kNumTwo};
@@ -1648,19 +1648,19 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForBeCoveredOtherCase) {
 rawShape = {2, 4}
 {2, 2}(ub) -> assemble -> {2, 4}(unknown) -> reshape -> {2, 2, 2} -> view -> {2, 2, 2}(ub)
 {2, 2}(ub) -> assemble ->
-{2, 2}(ub) -> {2, 4}(unknown) -> reshape -> {2, 2, 2}(ub)        
-{2, 2}(ub) -> 
+{2, 2}(ub) -> {2, 4}(unknown) -> reshape -> {2, 2, 2}(ub)
+{2, 2}(ub) ->
 */
 TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchWithAllForUB) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
-    std::vector<int> shape1 = {kNumTwo, kNumFour};
-    std::vector<int> shape2 = {kNumTwo, kNumTwo};
-    std::vector<int> shape3 = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> offset1 = {kNumZero, kNumZero};
-    std::vector<int> offset2 = {kNumZero, kNumTwo};
-    std::vector<int> view_offset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> shape1 = {kNumTwo, kNumFour};
+    std::vector<int64_t> shape2 = {kNumTwo, kNumTwo};
+    std::vector<int64_t> shape3 = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> offset1 = {kNumZero, kNumZero};
+    std::vector<int64_t> offset2 = {kNumZero, kNumTwo};
+    std::vector<int64_t> view_offset = {kNumZero, kNumZero, kNumZero};
 
     std::shared_ptr<RawTensor> RawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape1);
     auto input1 = std::make_shared<LogicalTensor>(*currFunctionPtr, RawTensor1, offset1, shape2);
@@ -1673,7 +1673,7 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchWithAllForUB) {
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
     output->SetMemoryTypeOriginal(MemoryType::MEM_UB, false);
     auto postOutput = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
-    
+
     auto &assemble_op1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
     auto assemble_Attr1 = std::make_shared<AssembleOpAttribute>(MEM_UB, offset1);
     assemble_op1.SetOpAttribute(assemble_Attr1);
@@ -1688,15 +1688,15 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchWithAllForUB) {
 
     CalcOverlapPara para;
     std::vector<SymbolicScalar> validShape;
-    
+
     SplitReshape pass;
     para.alignedShape = {kNumTwo, kNumTwo, kNumTwo};
     para.overlaps = {input1, input2};
-    std::vector<int> newInput1TileOffset = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> newInput1TileShape = {kNumTwo, kNumOne, kNumTwo};
+    std::vector<int64_t> newInput1TileOffset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> newInput1TileShape = {kNumTwo, kNumOne, kNumTwo};
     auto newInput1 = std::make_shared<LogicalTensor>(*currFunctionPtr, input1->tensor, newInput1TileOffset, newInput1TileShape, validShape);
-    std::vector<int> newInput2TileOffset = {kNumZero, kNumOne, kNumZero};
-    std::vector<int> newInput2TileShape = {kNumTwo, kNumOne, kNumTwo};
+    std::vector<int64_t> newInput2TileOffset = {kNumZero, kNumOne, kNumZero};
+    std::vector<int64_t> newInput2TileShape = {kNumTwo, kNumOne, kNumTwo};
     auto newInput2 = std::make_shared<LogicalTensor>(*currFunctionPtr, input2->tensor, newInput2TileOffset, newInput2TileShape, validShape);
     para.newOverlaps = {newInput1, newInput2};
     para.reshapeSource = ubTensor1;
@@ -1726,19 +1726,19 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchWithAllForUB) {
 rawShape = {2, 4}
 {2, 2}(ddr) -> assemble -> {2, 4}(unknown) -> reshape -> {2, 2, 2}(ddr) -> view -> {2, 2, 2}(ddr)
 {2, 2}(ddr) -> assemble ->
-{2, 2}(ddr) -> {2, 4}(unknown) -> reshape -> {2, 2, 2}(ddr) -> view -> {2, 2}          
-{2, 2}(ddr) -> 
+{2, 2}(ddr) -> {2, 4}(unknown) -> reshape -> {2, 2, 2}(ddr) -> view -> {2, 2}
+{2, 2}(ddr) ->
 */
 TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchWithAllOtherCase) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
-    std::vector<int> shape1 = {kNumTwo, kNumFour};
-    std::vector<int> shape2 = {kNumTwo, kNumTwo};
-    std::vector<int> shape3 = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> offset1 = {kNumZero, kNumZero};
-    std::vector<int> offset2 = {kNumZero, kNumTwo};
-    std::vector<int> view_offset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> shape1 = {kNumTwo, kNumFour};
+    std::vector<int64_t> shape2 = {kNumTwo, kNumTwo};
+    std::vector<int64_t> shape3 = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> offset1 = {kNumZero, kNumZero};
+    std::vector<int64_t> offset2 = {kNumZero, kNumTwo};
+    std::vector<int64_t> view_offset = {kNumZero, kNumZero, kNumZero};
 
     std::shared_ptr<RawTensor> RawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape1);
     auto input1 = std::make_shared<LogicalTensor>(*currFunctionPtr, RawTensor1, offset1, shape2);
@@ -1751,7 +1751,7 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchWithAllOtherCase) {
     ubTensor2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
     output->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    
+
     auto &assemble_op1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
     auto assemble_Attr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
     assemble_op1.SetOpAttribute(assemble_Attr1);
@@ -1762,18 +1762,18 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchWithAllOtherCase) {
     auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output});
     auto view_Attr = std::make_shared<ViewOpAttribute>(view_offset);
     view_op.SetOpAttribute(view_Attr);
-    
+
     CalcOverlapPara para;
     std::vector<SymbolicScalar> validShape;
-    
+
     SplitReshape pass;
     para.alignedShape = {kNumTwo, kNumTwo, kNumTwo};
     para.overlaps = {input1, input2};
-    std::vector<int> newInput1TileOffset = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> newInput1TileShape = {kNumTwo, kNumOne, kNumTwo};
+    std::vector<int64_t> newInput1TileOffset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> newInput1TileShape = {kNumTwo, kNumOne, kNumTwo};
     auto newInput1 = std::make_shared<LogicalTensor>(*currFunctionPtr, input1->tensor, newInput1TileOffset, newInput1TileShape, validShape);
-    std::vector<int> newInput2TileOffset = {kNumZero, kNumOne, kNumZero};
-    std::vector<int> newInput2TileShape = {kNumTwo, kNumOne, kNumTwo};
+    std::vector<int64_t> newInput2TileOffset = {kNumZero, kNumOne, kNumZero};
+    std::vector<int64_t> newInput2TileShape = {kNumTwo, kNumOne, kNumTwo};
     auto newInput2 = std::make_shared<LogicalTensor>(*currFunctionPtr, input2->tensor, newInput2TileOffset, newInput2TileShape, validShape);
     para.newOverlaps = {newInput1, newInput2};
     para.reshapeSource = ubTensor1;
@@ -1804,8 +1804,8 @@ rawShape = {2, 4}
 {2, 2}(ub) -> assemble ->
 {a, 2}/{b, 0}             {a, 4}/{b, 0}                 {a, 2, 2}/{b, 0, 0}  {a, 2, 2}/{b, 0, 0}
 {a, 2}/{b, 2}
-{2, 2}(ub) -> {2, 4}(unknown) -> reshape -> {2, 2, 2}(ub)        
-{2, 2}(ub) -> 
+{2, 2}(ub) -> {2, 4}(unknown) -> reshape -> {2, 2, 2}(ub)
+{2, 2}(ub) ->
 {a, 2}/{b, 0} {a, 4}/{b, 0}                 {a, 2, 2}/{b, 0, 0}
 {a, 2}/{b, 2}
 */
@@ -1813,12 +1813,12 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchWithAllForUB) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
-    std::vector<int> shape1 = {kNumTwo, kNumFour};
-    std::vector<int> shape2 = {kNumTwo, kNumTwo};
-    std::vector<int> shape3 = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> offset1 = {kNumZero, kNumZero};
-    std::vector<int> offset2 = {kNumZero, kNumTwo};
-    std::vector<int> view_offset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> shape1 = {kNumTwo, kNumFour};
+    std::vector<int64_t> shape2 = {kNumTwo, kNumTwo};
+    std::vector<int64_t> shape3 = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> offset1 = {kNumZero, kNumZero};
+    std::vector<int64_t> offset2 = {kNumZero, kNumTwo};
+    std::vector<int64_t> view_offset = {kNumZero, kNumZero, kNumZero};
 
     std::shared_ptr<RawTensor> RawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape1);
     auto input1 = std::make_shared<LogicalTensor>(*currFunctionPtr, RawTensor1, offset1, shape2);
@@ -1831,7 +1831,7 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchWithAllForUB) {
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
     output->SetMemoryTypeOriginal(MemoryType::MEM_UB, false);
     auto postOutput = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
-    
+
     auto &assemble_op1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
     auto assemble_Attr1 = std::make_shared<AssembleOpAttribute>(MEM_UB, offset1);
     assemble_op1.SetOpAttribute(assemble_Attr1);
@@ -1848,14 +1848,14 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchWithAllForUB) {
     SplitReshape pass;
     para.alignedShape = {kNumTwo, kNumTwo, kNumTwo};
     para.overlaps = {input1, input2};
-    std::vector<int> newInput1TileOffset = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> newInput1TileShape = {kNumTwo, kNumOne, kNumTwo};
+    std::vector<int64_t> newInput1TileOffset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> newInput1TileShape = {kNumTwo, kNumOne, kNumTwo};
     std::vector<SymbolicScalar> newInput1DynOffset = {SymbolicScalar("b"), kNumZero, kNumZero};
     std::vector<SymbolicScalar> newInput1DynShape = {SymbolicScalar("a"), kNumOne, kNumTwo};
     auto newInput1 = std::make_shared<LogicalTensor>(*currFunctionPtr, input1->tensor, newInput1TileOffset, newInput1TileShape, newInput1DynShape);
     newInput1->UpdateOffset(TensorOffset(newInput1TileOffset, newInput1DynOffset));
-    std::vector<int> newInput2TileOffset = {kNumZero, kNumOne, kNumZero};
-    std::vector<int> newInput2TileShape = {kNumTwo, kNumOne, kNumTwo};
+    std::vector<int64_t> newInput2TileOffset = {kNumZero, kNumOne, kNumZero};
+    std::vector<int64_t> newInput2TileShape = {kNumTwo, kNumOne, kNumTwo};
     std::vector<SymbolicScalar> newInput2DynOffset = {SymbolicScalar("b"), kNumOne, kNumZero};
     std::vector<SymbolicScalar> newInput2DynShape = {SymbolicScalar("a"), kNumOne, kNumTwo};
     auto newInput2 = std::make_shared<LogicalTensor>(*currFunctionPtr, input2->tensor, newInput2TileOffset, newInput2TileShape, newInput2DynShape);
@@ -1890,7 +1890,7 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchWithAllForUB) {
     EXPECT_EQ(newReshapeSource->GetDynOffset().size(), kNumTwo);
     for (size_t i = 0; i < expectSrcDynShape.size(); ++ i) {
         EXPECT_EQ(newReshapeSource->GetDynValidShape()[i].Dump(), expectSrcDynShape[i].Dump());
-        EXPECT_EQ(newReshapeSource->GetDynOffset()[i].Dump(), expectSrcDynOffset[i].Dump());    
+        EXPECT_EQ(newReshapeSource->GetDynOffset()[i].Dump(), expectSrcDynOffset[i].Dump());
     }
     EXPECT_EQ(reshape->output, newReshapeOutput);
     EXPECT_EQ(newReshapeOutput->GetDynValidShape().size(), kNumThree);
@@ -1898,7 +1898,7 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchWithAllForUB) {
     EXPECT_EQ(newReshapeOutput->GetMemoryTypeOriginal(), MemoryType::MEM_UB);
     for (size_t i = 0; i < InputViewDynOffset.size(); ++ i) {
         EXPECT_EQ(newReshapeOutput->GetDynValidShape()[i].Dump(), InputViewDynShape[i].Dump());
-        EXPECT_EQ(newReshapeOutput->GetDynOffset()[i].Dump(), InputViewDynOffset[i].Dump());    
+        EXPECT_EQ(newReshapeOutput->GetDynOffset()[i].Dump(), InputViewDynOffset[i].Dump());
     }
 }
 
@@ -1909,8 +1909,8 @@ rawShape = {2, 4}
 {2, 2}(ddr) -> assemble ->
 {a, 2}/{b, 0}              {a, 4}/{b, 0}                 {a, 2, 2}/{b, 0, 0}  {a, 2, 2}/{b, 0, 0}
 {a, 2}/{b, 2}
-{2, 2}(ddr) -> {2, 4}(unknown) -> reshape -> {2, 2, 2}(ddr) -> view -> {2, 2}          
-{2, 2}(ddr) -> 
+{2, 2}(ddr) -> {2, 4}(unknown) -> reshape -> {2, 2, 2}(ddr) -> view -> {2, 2}
+{2, 2}(ddr) ->
 {a, 2}/{b, 0}  {a, 4}/{b, 0}                 {a, 2, 2}/{b, 0, 0}       {a, 2, 2}/{b, 0, 0}
 {a, 2}/{b, 2}
 */
@@ -1918,12 +1918,12 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchWithAllOtherCase) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
-    std::vector<int> shape1 = {kNumTwo, kNumFour};
-    std::vector<int> shape2 = {kNumTwo, kNumTwo};
-    std::vector<int> shape3 = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> offset1 = {kNumZero, kNumZero};
-    std::vector<int> offset2 = {kNumZero, kNumTwo};
-    std::vector<int> view_offset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> shape1 = {kNumTwo, kNumFour};
+    std::vector<int64_t> shape2 = {kNumTwo, kNumTwo};
+    std::vector<int64_t> shape3 = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> offset1 = {kNumZero, kNumZero};
+    std::vector<int64_t> offset2 = {kNumZero, kNumTwo};
+    std::vector<int64_t> view_offset = {kNumZero, kNumZero, kNumZero};
 
     std::shared_ptr<RawTensor> RawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape1);
     auto input1 = std::make_shared<LogicalTensor>(*currFunctionPtr, RawTensor1, offset1, shape2);
@@ -1936,7 +1936,7 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchWithAllOtherCase) {
     ubTensor2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
     output->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    
+
     auto &assemble_op1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
     auto assemble_Attr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
     assemble_op1.SetOpAttribute(assemble_Attr1);
@@ -1947,19 +1947,19 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchWithAllOtherCase) {
     auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output});
     auto view_Attr = std::make_shared<ViewOpAttribute>(view_offset);
     view_op.SetOpAttribute(view_Attr);
-    
+
     CalcOverlapPara para;
     SplitReshape pass;
     para.alignedShape = {kNumTwo, kNumTwo, kNumTwo};
     para.overlaps = {input1, input2};
-    std::vector<int> newInput1TileOffset = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> newInput1TileShape = {kNumTwo, kNumOne, kNumTwo};
+    std::vector<int64_t> newInput1TileOffset = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> newInput1TileShape = {kNumTwo, kNumOne, kNumTwo};
     std::vector<SymbolicScalar> newInput1DynOffset = {SymbolicScalar("b"), kNumZero, kNumZero};
     std::vector<SymbolicScalar> newInput1DynShape = {SymbolicScalar("a"), kNumOne, kNumTwo};
     auto newInput1 = std::make_shared<LogicalTensor>(*currFunctionPtr, input1->tensor, newInput1TileOffset, newInput1TileShape, newInput1DynShape);
     newInput1->UpdateOffset(TensorOffset(newInput1TileOffset, newInput1DynOffset));
-    std::vector<int> newInput2TileOffset = {kNumZero, kNumOne, kNumZero};
-    std::vector<int> newInput2TileShape = {kNumTwo, kNumOne, kNumTwo};
+    std::vector<int64_t> newInput2TileOffset = {kNumZero, kNumOne, kNumZero};
+    std::vector<int64_t> newInput2TileShape = {kNumTwo, kNumOne, kNumTwo};
     std::vector<SymbolicScalar> newInput2DynOffset = {SymbolicScalar("b"), kNumOne, kNumZero};
     std::vector<SymbolicScalar> newInput2DynShape = {SymbolicScalar("a"), kNumOne, kNumTwo};
     auto newInput2 = std::make_shared<LogicalTensor>(*currFunctionPtr, input2->tensor, newInput2TileOffset, newInput2TileShape, newInput2DynShape);
@@ -1992,21 +1992,21 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchWithAllOtherCase) {
     EXPECT_EQ(newReshapeSource->GetDynOffset().size(), kNumTwo);
     for (size_t i = 0; i < expectSrcDynShape.size(); ++ i) {
         EXPECT_EQ(newReshapeSource->GetDynValidShape()[i].Dump(), expectSrcDynShape[i].Dump());
-        EXPECT_EQ(newReshapeSource->GetDynOffset()[i].Dump(), expectSrcDynOffset[i].Dump());    
+        EXPECT_EQ(newReshapeSource->GetDynOffset()[i].Dump(), expectSrcDynOffset[i].Dump());
     }
     EXPECT_EQ(newReshapeOutput->GetMemoryTypeOriginal(), MemoryType::MEM_DEVICE_DDR);
     EXPECT_EQ(newReshapeOutput->GetDynValidShape().size(), kNumThree);
     EXPECT_EQ(newReshapeOutput->GetDynOffset().size(), kNumThree);
     for (size_t i = 0; i < InputViewDynOffset.size(); ++ i) {
         EXPECT_EQ(newReshapeOutput->GetDynValidShape()[i].Dump(), InputViewDynShape[i].Dump());
-        EXPECT_EQ(newReshapeOutput->GetDynOffset()[i].Dump(), InputViewDynOffset[i].Dump());    
+        EXPECT_EQ(newReshapeOutput->GetDynOffset()[i].Dump(), InputViewDynOffset[i].Dump());
     }
     auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(view_op.GetOpAttribute().get());
     EXPECT_EQ(viewOpAttribute->GetFromOffset(), inputView->offset);
     EXPECT_EQ(viewOpAttribute->GetFromDynOffset().size(), kNumThree);
     for (size_t i = 0; i < InputViewDynOffset.size(); ++ i) {
-        EXPECT_EQ(viewOpAttribute->GetFromDynOffset()[i].Dump(), InputViewDynOffset[i].Dump());    
-    } 
+        EXPECT_EQ(viewOpAttribute->GetFromDynOffset()[i].Dump(), InputViewDynOffset[i].Dump());
+    }
 }
 
 /*
@@ -2023,11 +2023,11 @@ exp -> {2,2,2} -> assemble -> reshape -> {2,2,1,2} -> view -> {2,2,1,2} -> exp -
 */
 TEST_F(TestSplitReshapePass, TestPerfectlyMatchedSTest) {
     //Define the shape of the Tensors
-    std::vector<int> origShape = {kNumTwo, kNumTwo, kNumFour};
-    std::vector<int> reshapeShape = {kNumTwo, kNumTwo, kNumOne, kNumFour};
-    std::vector<int> tiledShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> tiledorigShape = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> tiledreshapeShape = {kNumTwo, kNumTwo, kNumOne, kNumTwo};
+    std::vector<int64_t> origShape = {kNumTwo, kNumTwo, kNumFour};
+    std::vector<int64_t> reshapeShape = {kNumTwo, kNumTwo, kNumOne, kNumFour};
+    std::vector<int64_t> tiledShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> tiledorigShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> tiledreshapeShape = {kNumTwo, kNumTwo, kNumOne, kNumTwo};
 
     Program::GetInstance().GetTileShape().SetVecTileShapes(tiledShape);
     Tensor input(DT_FP32, origShape, "input");
@@ -2040,13 +2040,13 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedSTest) {
     }
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase1");
-    
+
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("ExpandFunctionStrategy", {
         {   "ExpandFunction",   "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "ExpandFunctionStrategy"), SUCCESS);
-    
+
     int reshapeOp = 0;
     for (auto &op : func->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
@@ -2075,7 +2075,7 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedSTest) {
         {   "SplitReshape",   "SplitReshape",  PassType::TYPE_TILE_GRAPH},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "SplitReshapeTestStrategy"), SUCCESS);
-    
+
     reshapeOp = 0;
     for (auto &op : func->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
@@ -2119,12 +2119,12 @@ exp -> {2,2,2} -> assemble -> reshape -> {2,4} -> view -> {2,2} -> exp -> {2,2}
 */
 TEST_F(TestSplitReshapePass, TestBeCoveredSTest) {
     //Define the shape of the Tensors
-    std::vector<int> origShape = {kNumFour, kNumTwo, kNumTwo};
-    std::vector<int> reshapeShape = {kNumFour, kNumFour};
-    std::vector<int> tiledShape = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> tiledorigShape = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> tiledreshapeShape = {kNumTwo, kNumFour};
-    std::vector<int> tiledviewShape = {kNumTwo, kNumTwo};
+    std::vector<int64_t> origShape = {kNumFour, kNumTwo, kNumTwo};
+    std::vector<int64_t> reshapeShape = {kNumFour, kNumFour};
+    std::vector<int64_t> tiledShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> tiledorigShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> tiledreshapeShape = {kNumTwo, kNumFour};
+    std::vector<int64_t> tiledviewShape = {kNumTwo, kNumTwo};
 
     Program::GetInstance().GetTileShape().SetVecTileShapes(tiledShape);
     Tensor input(DT_FP32, origShape, "input");
@@ -2137,13 +2137,13 @@ TEST_F(TestSplitReshapePass, TestBeCoveredSTest) {
     }
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase2");
-    
+
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("ExpandFunctionStrategy", {
         {   "ExpandFunction",   "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "ExpandFunctionStrategy"), SUCCESS);
-    
+
     int reshapeOp = 0;
     for (auto &op : func->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
@@ -2172,7 +2172,7 @@ TEST_F(TestSplitReshapePass, TestBeCoveredSTest) {
         {   "SplitReshape",   "SplitReshape",  PassType::TYPE_TILE_GRAPH},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "SplitReshapeTestStrategy"), SUCCESS);
-    
+
     reshapeOp = 0;
     for (auto &op : func->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
@@ -2218,12 +2218,12 @@ exp -> {2,2,2} -> assemble ->
 */
 TEST_F(TestSplitReshapePass, TestPerfectlyMatchedWithallSTest) {
     //Define the shape of the Tensors
-    std::vector<int> origShape = {kNumTwo, kNumFour, kNumFour};
-    std::vector<int> reshapeShape = {kNumTwo, kNumFour, kNumTwo, kNumTwo};
-    std::vector<int> tiledShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> tiledassembleShape = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> tiledreshapeShape = {kNumTwo, kNumTwo, kNumFour};
-    std::vector<int> tiledviewShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> origShape = {kNumTwo, kNumFour, kNumFour};
+    std::vector<int64_t> reshapeShape = {kNumTwo, kNumFour, kNumTwo, kNumTwo};
+    std::vector<int64_t> tiledShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> tiledassembleShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> tiledreshapeShape = {kNumTwo, kNumTwo, kNumFour};
+    std::vector<int64_t> tiledviewShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
 
     Program::GetInstance().GetTileShape().SetVecTileShapes(tiledShape);
     Tensor input(DT_FP32, origShape, "input");
@@ -2236,13 +2236,13 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedWithallSTest) {
     }
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase3");
-    
+
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("ExpandFunctionStrategy", {
         {   "ExpandFunction",   "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "ExpandFunctionStrategy"), SUCCESS);
-    
+
     int reshapeOp = 0;
     for (auto &op : func->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
@@ -2271,7 +2271,7 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedWithallSTest) {
         {   "SplitReshape",   "SplitReshape",  PassType::TYPE_TILE_GRAPH},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "SplitReshapeTestStrategy"), SUCCESS);
-    
+
     reshapeOp = 0;
     for (auto &op : func->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
@@ -2317,19 +2317,19 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
     auto func = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(func != nullptr);
 
-    std::vector<int> shape1 = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> shape2 = {kNumTwo, kNumTwo, kNumFour};
-    std::vector<int> shape3 = {kNumTwo, kNumTwo, kNumOne, kNumFour};
-    std::vector<int> shape4 = {kNumTwo, kNumTwo, kNumOne, kNumTwo};
-    std::vector<int> assembleOffset1 = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> assembleOffset2 = {kNumZero, kNumZero, kNumTwo};
-    std::vector<int> viewOffset1 = {kNumZero, kNumZero, kNumZero, kNumZero};
-    std::vector<int> viewOffset2 = {kNumZero, kNumZero, kNumZero, kNumTwo};
-    
+    std::vector<int64_t> shape1 = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> shape2 = {kNumTwo, kNumTwo, kNumFour};
+    std::vector<int64_t> shape3 = {kNumTwo, kNumTwo, kNumOne, kNumFour};
+    std::vector<int64_t> shape4 = {kNumTwo, kNumTwo, kNumOne, kNumTwo};
+    std::vector<int64_t> assembleOffset1 = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> assembleOffset2 = {kNumZero, kNumZero, kNumTwo};
+    std::vector<int64_t> viewOffset1 = {kNumZero, kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> viewOffset2 = {kNumZero, kNumZero, kNumZero, kNumTwo};
+
     std::vector<SymbolicScalar> dynInputShape = {SymbolicScalar("a0"), SymbolicScalar("a1"), kNumTwo};
     std::vector<SymbolicScalar> dynInputOffset1 = {SymbolicScalar("b0"), SymbolicScalar("b1"), kNumZero};
     std::vector<SymbolicScalar> dynInputOffset2 = {SymbolicScalar("b0"), SymbolicScalar("b1"), kNumTwo};
-    
+
     std::shared_ptr<RawTensor> ddrRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape2);
     std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape3);
     auto input1 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset1, shape1, dynInputShape);
@@ -2346,7 +2346,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
     output1->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
     auto output2 = std::make_shared<LogicalTensor>(*func, ddrRawTensor2, viewOffset2, shape4);
     output2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    
+
     auto &assemble_op1 = func->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
     auto assemble_Attr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset1, dynInputOffset1);
     assemble_op1.SetOpAttribute(assemble_Attr1);
@@ -2360,7 +2360,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
     auto &view_op2 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output2});
     auto view_Attr2 = std::make_shared<ViewOpAttribute>(viewOffset2);
     view_op2.SetOpAttribute(view_Attr2);
-    
+
     func->inCasts_.push_back(input1);
     func->inCasts_.push_back(input2);
     func->outCasts_.push_back(output1);
@@ -2371,7 +2371,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
         {   "SplitReshape",   "SplitReshape",  PassType::TYPE_TILE_GRAPH},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "SplitReshapeTestStrategy"), SUCCESS);
-    
+
     int reshapeOp = 0;
     int assembleOp = 0;
     int viewOp = 0;
@@ -2399,7 +2399,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
     auto assembleAttr1 = dynamic_cast<AssembleOpAttribute *>(newAssemble1->GetOpAttribute().get());
     EXPECT_EQ(assembleAttr1->GetToDynOffset().size(), kNumThree);
     auto assembleAttr2 = dynamic_cast<AssembleOpAttribute *>(newAssemble2->GetOpAttribute().get());
-    EXPECT_EQ(assembleAttr2->GetToDynOffset().size(), kNumThree); 
+    EXPECT_EQ(assembleAttr2->GetToDynOffset().size(), kNumThree);
     for (size_t i = 0; i < kNumThree; ++i) {
         EXPECT_EQ(assembleAttr1->GetToDynOffset()[i].Dump(), dynInputOffset1[i].Dump());
         EXPECT_EQ(assembleAttr2->GetToDynOffset()[i].Dump(), dynInputOffset2[i].Dump());
@@ -2408,7 +2408,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
     std::vector<SymbolicScalar> dynOutputShape = {SymbolicScalar("a0") * 1, SymbolicScalar("a1") * 1, kNumOne, kNumTwo};
     std::vector<SymbolicScalar> dynOutputOffset1 = {SymbolicScalar("b0") * 1, SymbolicScalar("b1") * 1, kNumZero, kNumZero};
     std::vector<SymbolicScalar> dynOutputOffset2 = {SymbolicScalar("b0") * 1, SymbolicScalar("b1") * 1, kNumZero, kNumTwo};
-    
+
     auto reshapeSource1 = newAssemble1->GetOutputOperand(kSizeZero);
     auto reshapeSource2 = newAssemble2->GetOutputOperand(kSizeZero);
     EXPECT_NE(reshapeSource1, reshapeSource2);
@@ -2474,17 +2474,17 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
     auto func = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(func != nullptr);
 
-    std::vector<int> shape1 = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> shape2 = {kNumTwo, kNumTwo, kNumFour};
-    std::vector<int> shape3 = {kNumFour, kNumFour};
-    std::vector<int> shape4 = {kNumTwo, kNumTwo};
-    std::vector<int> assembleOffset1 = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> assembleOffset2 = {kNumZero, kNumZero, kNumTwo};
-    std::vector<int> viewOffset1 = {kNumZero, kNumZero};
-    std::vector<int> viewOffset2 = {kNumZero, kNumTwo};
-    std::vector<int> viewOffset3 = {kNumTwo, kNumZero};
-    std::vector<int> viewOffset4 = {kNumTwo, kNumTwo};
-    
+    std::vector<int64_t> shape1 = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> shape2 = {kNumTwo, kNumTwo, kNumFour};
+    std::vector<int64_t> shape3 = {kNumFour, kNumFour};
+    std::vector<int64_t> shape4 = {kNumTwo, kNumTwo};
+    std::vector<int64_t> assembleOffset1 = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> assembleOffset2 = {kNumZero, kNumZero, kNumTwo};
+    std::vector<int64_t> viewOffset1 = {kNumZero, kNumZero};
+    std::vector<int64_t> viewOffset2 = {kNumZero, kNumTwo};
+    std::vector<int64_t> viewOffset3 = {kNumTwo, kNumZero};
+    std::vector<int64_t> viewOffset4 = {kNumTwo, kNumTwo};
+
     std::vector<SymbolicScalar> dynInputShape = {kNumTwo, kNumTwo, SymbolicScalar("a")};
     std::vector<SymbolicScalar> dynInputOffset = {kNumZero, kNumZero, SymbolicScalar("b")};
     std::vector<SymbolicScalar> dynOutputShape = {kNumTwo, SymbolicScalar("a")};
@@ -2515,7 +2515,7 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
     auto output4 = std::make_shared<LogicalTensor>(*func, ddrRawTensor2, viewOffset4, shape4, dynOutputShape);
     output4->UpdateOffset(TensorOffset(viewOffset4, dynOutputOffset2));
     output4->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    
+
     auto &assemble_op1 = func->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
     auto assemble_Attr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset1, dynInputOffset);
     assemble_op1.SetOpAttribute(assemble_Attr1);
@@ -2535,7 +2535,7 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
     auto &view_op4 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output4});
     auto view_Attr4 = std::make_shared<ViewOpAttribute>(viewOffset4);
     view_op4.SetOpAttribute(view_Attr4);
-    
+
     func->inCasts_.push_back(input1);
     func->inCasts_.push_back(input2);
     func->outCasts_.push_back(output1);
@@ -2548,7 +2548,7 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
         {   "SplitReshape",   "SplitReshape",  PassType::TYPE_TILE_GRAPH},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "SplitReshapeTestStrategy"), SUCCESS);
-    
+
     int reshapeOp = 0;
     int assembleOp = 0;
     int viewOp = 0;
@@ -2576,7 +2576,7 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
     auto assembleAttr1 = dynamic_cast<AssembleOpAttribute *>(newAssemble1->GetOpAttribute().get());
     EXPECT_EQ(assembleAttr1->GetToDynOffset().size(), kNumThree);
     auto assembleAttr2 = dynamic_cast<AssembleOpAttribute *>(newAssemble2->GetOpAttribute().get());
-    EXPECT_EQ(assembleAttr2->GetToDynOffset().size(), kNumThree); 
+    EXPECT_EQ(assembleAttr2->GetToDynOffset().size(), kNumThree);
     for (size_t i = 0; i < kNumThree; ++i) {
         EXPECT_EQ(assembleAttr1->GetToDynOffset()[i].Dump(), dynInputOffset[i].Dump());
         EXPECT_EQ(assembleAttr2->GetToDynOffset()[i].Dump(), dynInputOffset[i].Dump());
@@ -2623,7 +2623,7 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
     EXPECT_NE(view1, view2);
     EXPECT_NE(view1, view3);
     EXPECT_NE(view1, view4);
-    
+
     std::vector<SymbolicScalar> dynViewOffset1 = {kNumZero, SymbolicScalar("b") * 1};
     std::vector<SymbolicScalar> dynViewOffset2 = {kNumTwo, SymbolicScalar("b") * 1};
     auto viewOpAttribute1 = dynamic_cast<ViewOpAttribute *>(view1->GetOpAttribute().get());
@@ -2664,17 +2664,17 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
     auto func = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(func != nullptr);
 
-    std::vector<int> shape1 = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> shape2 = {kNumTwo, kNumEight, kNumTwo};
-    std::vector<int> shape3 = {kNumTwo, kNumFour, kNumTwo, kNumTwo};
-    std::vector<int> shape4 = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> assembleOffset1 = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> assembleOffset2 = {kNumZero, kNumTwo, kNumZero};
-    std::vector<int> assembleOffset3 = {kNumZero, kNumFour, kNumZero};
-    std::vector<int> assembleOffset4 = {kNumZero, kNumSix, kNumZero};
-    std::vector<int> viewOffset1 = {kNumZero, kNumZero, kNumZero, kNumZero};
-    std::vector<int> viewOffset2 = {kNumZero, kNumTwo, kNumZero, kNumZero};
-    
+    std::vector<int64_t> shape1 = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> shape2 = {kNumTwo, kNumEight, kNumTwo};
+    std::vector<int64_t> shape3 = {kNumTwo, kNumFour, kNumTwo, kNumTwo};
+    std::vector<int64_t> shape4 = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> assembleOffset1 = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> assembleOffset2 = {kNumZero, kNumTwo, kNumZero};
+    std::vector<int64_t> assembleOffset3 = {kNumZero, kNumFour, kNumZero};
+    std::vector<int64_t> assembleOffset4 = {kNumZero, kNumSix, kNumZero};
+    std::vector<int64_t> viewOffset1 = {kNumZero, kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> viewOffset2 = {kNumZero, kNumTwo, kNumZero, kNumZero};
+
     std::vector<SymbolicScalar> dynInputShape = {kNumTwo, kNumTwo, SymbolicScalar("a")};
     std::vector<SymbolicScalar> dynInputOffset1 = {kNumZero, kNumZero, SymbolicScalar("b")};
     std::vector<SymbolicScalar> dynInputOffset2 = {kNumZero, kNumTwo, SymbolicScalar("b")};
@@ -2708,7 +2708,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
     auto output2 = std::make_shared<LogicalTensor>(*func, ddrRawTensor2, viewOffset2, shape4, dynOutputShape);
     output2->UpdateOffset(TensorOffset(viewOffset2, dynOutputOffset2));
     output2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    
+
     auto &assemble_op1 = func->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
     auto assemble_Attr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset1, dynInputOffset1);
     assemble_op1.SetOpAttribute(assemble_Attr1);
@@ -2728,7 +2728,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
     auto &view_op2 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output2});
     auto view_Attr2 = std::make_shared<ViewOpAttribute>(viewOffset2);
     view_op2.SetOpAttribute(view_Attr2);
-    
+
     func->inCasts_.push_back(input1);
     func->inCasts_.push_back(input2);
     func->inCasts_.push_back(input3);
@@ -2741,7 +2741,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
         {   "SplitReshape",   "SplitReshape",  PassType::TYPE_TILE_GRAPH},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "SplitReshapeTestStrategy"), SUCCESS);
-    
+
     int reshapeOp = 0;
     int assembleOp = 0;
     int viewOp = 0;
@@ -2781,11 +2781,11 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
     auto assembleAttr1 = dynamic_cast<AssembleOpAttribute *>(newAssemble1->GetOpAttribute().get());
     EXPECT_EQ(assembleAttr1->GetToDynOffset().size(), kNumThree);
     auto assembleAttr2 = dynamic_cast<AssembleOpAttribute *>(newAssemble2->GetOpAttribute().get());
-    EXPECT_EQ(assembleAttr2->GetToDynOffset().size(), kNumThree); 
+    EXPECT_EQ(assembleAttr2->GetToDynOffset().size(), kNumThree);
     auto assembleAttr3 = dynamic_cast<AssembleOpAttribute *>(newAssemble3->GetOpAttribute().get());
-    EXPECT_EQ(assembleAttr3->GetToDynOffset().size(), kNumThree); 
+    EXPECT_EQ(assembleAttr3->GetToDynOffset().size(), kNumThree);
     auto assembleAttr4 = dynamic_cast<AssembleOpAttribute *>(newAssemble4->GetOpAttribute().get());
-    EXPECT_EQ(assembleAttr4->GetToDynOffset().size(), kNumThree); 
+    EXPECT_EQ(assembleAttr4->GetToDynOffset().size(), kNumThree);
     for (size_t i = 0; i < kNumThree; ++i) {
         EXPECT_EQ(assembleAttr1->GetToDynOffset()[i].Dump(), dynAssembleOffset1[i].Dump());
         EXPECT_EQ(assembleAttr2->GetToDynOffset()[i].Dump(), dynAssembleOffset2[i].Dump());
@@ -2834,7 +2834,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
     auto view1 = *(reshapeOutput1->GetConsumers().begin());
     auto view2 = *(reshapeOutput2->GetConsumers().begin());
     EXPECT_NE(view1, view2);
-    
+
     std::vector<SymbolicScalar> dynViewOffset1 = {kNumZero, kNumZero, kNumZero, SymbolicScalar("b")};
     std::vector<SymbolicScalar> dynViewOffset2 = {kNumZero, kNumTwo, kNumZero, SymbolicScalar("b")};
     auto viewOpAttribute1 = dynamic_cast<ViewOpAttribute *>(view1->GetOpAttribute().get());
@@ -2863,11 +2863,11 @@ exp -> {1,1,2,4} -> assemble                      -> view -> {1,4} -> exp -> {1,
 */
 TEST_F(TestSplitReshapePass, TestExceptionCase1) {
     //Define the shape of the Tensors
-    std::vector<int> origShape = {kNumOne, kNumOne, kNumTwo, kNumEight};
-    std::vector<int> reshapeShape = {kNumOne, kExpFour};
-    std::vector<int> tiledShape1 = {kNumTwo, kNumOne, kNumTwo, kNumFour};
-    std::vector<int> tiledShape2 = {kNumOne, kNumFour};
-    
+    std::vector<int64_t> origShape = {kNumOne, kNumOne, kNumTwo, kNumEight};
+    std::vector<int64_t> reshapeShape = {kNumOne, kExpFour};
+    std::vector<int64_t> tiledShape1 = {kNumTwo, kNumOne, kNumTwo, kNumFour};
+    std::vector<int64_t> tiledShape2 = {kNumOne, kNumFour};
+
     Tensor input(DT_FP32, origShape, "input");
     Tensor output(DT_FP32, reshapeShape, "output");
 
@@ -2880,13 +2880,13 @@ TEST_F(TestSplitReshapePass, TestExceptionCase1) {
     }
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase5");
-    
+
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("ExpandFunctionStrategy", {
         {   "ExpandFunction",   "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "ExpandFunctionStrategy"), SUCCESS);
-    
+
     int reshapeOp = 0;
     int OpNum = 0;
     for (auto &op : func->Operations()) {
@@ -2901,7 +2901,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase1) {
         {   "SplitReshape",   "SplitReshape",  PassType::TYPE_TILE_GRAPH},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "SplitReshapeTestStrategy"), SUCCESS);
-    
+
     reshapeOp = 0;
     int AfterOpNum = 0;
     for (auto &op : func->Operations()) {
@@ -2925,16 +2925,16 @@ tileshape = {32,2}
 exp -> {32,2} -> assemble -> {64,6} -> reshape -> {96,4} -> view -> {32,2} -> exp -> {32,2}
 exp -> {32,2} -> assemble                                -> view -> {32,2} -> exp -> {32,2}
 exp -> {32,2} -> assemble                                -> view -> {32,2} -> exp -> {32,2}
-exp -> {32,2} -> assemble                                -> view -> {32,2} -> exp -> {32,2}                                                  
+exp -> {32,2} -> assemble                                -> view -> {32,2} -> exp -> {32,2}
 exp -> {32,2} -> assemble                                -> view -> {32,2} -> exp -> {32,2}
 exp -> {32,2} -> assemble                                -> view -> {32,2} -> exp -> {32,2}
 */
 TEST_F(TestSplitReshapePass, TestExceptionCase2) {
     //Define the shape of the Tensors
-    std::vector<int> origShape = {kExpSix, kNumSix};
-    std::vector<int> reshapeShape = {kNumNineSix, kNumFour};
-    std::vector<int> tiledShape = {kExpFive, kNumTwo};
-    
+    std::vector<int64_t> origShape = {kExpSix, kNumSix};
+    std::vector<int64_t> reshapeShape = {kNumNineSix, kNumFour};
+    std::vector<int64_t> tiledShape = {kExpFive, kNumTwo};
+
     Program::GetInstance().GetTileShape().SetVecTileShapes(tiledShape);
     Tensor input(DT_FP32, origShape, "input");
     Tensor output(DT_FP32, reshapeShape, "output");
@@ -2946,13 +2946,13 @@ TEST_F(TestSplitReshapePass, TestExceptionCase2) {
     }
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase6");
-    
+
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("ExpandFunctionStrategy", {
         {   "ExpandFunction",   "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "ExpandFunctionStrategy"), SUCCESS);
-    
+
     int reshapeOp = 0;
     for (auto &op : func->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
@@ -2965,7 +2965,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase2) {
         {   "SplitReshape",   "SplitReshape",  PassType::TYPE_TILE_GRAPH},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "SplitReshapeTestStrategy"), SUCCESS);
-    
+
     reshapeOp = 0;
     for (auto &op : func->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
@@ -2986,17 +2986,17 @@ tileshape1 = {4,2}
 exp -> {2,4} -> assemble -> {8,8} -> reshape -> {16,4} -> view -> {4,2} -> exp -> {4,2}
 exp -> {2,4} -> assemble                               -> view -> {4,2} -> exp -> {4,2}
 exp -> {2,4} -> assemble                               -> view -> {4,2} -> exp -> {4,2}
-exp -> {2,4} -> assemble                               -> view -> {4,2} -> exp -> {4,2}                                                  
+exp -> {2,4} -> assemble                               -> view -> {4,2} -> exp -> {4,2}
 exp -> {2,4} -> assemble                               -> view -> {4,2} -> exp -> {4,2}
 exp -> {2,4} -> assemble                               -> view -> {4,2} -> exp -> {4,2}
 */
 TEST_F(TestSplitReshapePass, TestExceptionCase3) {
     //Define the shape of the Tensors
-    std::vector<int> origShape = {kNumEight, kNumEight};
-    std::vector<int> reshapeShape = {kExpFour, kNumFour};
-    std::vector<int> tiledShape1 = {kNumTwo, kNumFour};
-    std::vector<int> tiledShape2 = {kNumFour, kNumTwo};
-    
+    std::vector<int64_t> origShape = {kNumEight, kNumEight};
+    std::vector<int64_t> reshapeShape = {kExpFour, kNumFour};
+    std::vector<int64_t> tiledShape1 = {kNumTwo, kNumFour};
+    std::vector<int64_t> tiledShape2 = {kNumFour, kNumTwo};
+
     Tensor input(DT_FP32, origShape, "input");
     Tensor output(DT_FP32, reshapeShape, "output");
 
@@ -3009,13 +3009,13 @@ TEST_F(TestSplitReshapePass, TestExceptionCase3) {
     }
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase7");
-    
+
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("ExpandFunctionStrategy", {
         {   "ExpandFunction",   "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "ExpandFunctionStrategy"), SUCCESS);
-    
+
     int reshapeOp = 0;
     for (auto &op : func->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
@@ -3028,7 +3028,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase3) {
         {   "SplitReshape",   "SplitReshape",  PassType::TYPE_TILE_GRAPH},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "SplitReshapeTestStrategy"), SUCCESS);
-    
+
     reshapeOp = 0;
     for (auto &op : func->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
@@ -3044,26 +3044,26 @@ splitreshape pass不起作用的场景
 {2,2,2} -> assemble -> {2,2,4} -> reshape -> {2,2,2,2} -> view -> {2,2,1,2}
 {2,2,2} -> assemble                                    -> view -> {2,2,1,2}
 {2,2,a}/{0,0,b1}
-{2,2,a}/{0,0,b2}  
+{2,2,a}/{0,0,b2}
 */
 TEST_F(TestSplitReshapePass, TestExceptionCase4) {
     //Define the shape of the Tensors
     auto func = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(func != nullptr);
 
-    std::vector<int> shape1 = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> shape2 = {kNumTwo, kNumTwo, kNumFour};
-    std::vector<int> shape3 = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int> shape4 = {kNumTwo, kNumTwo, kNumOne, kNumTwo};
-    std::vector<int> assembleOffset1 = {kNumZero, kNumZero, kNumZero};
-    std::vector<int> assembleOffset2 = {kNumZero, kNumZero, kNumTwo};
-    std::vector<int> viewOffset1 = {kNumZero, kNumZero, kNumZero, kNumZero};
-    std::vector<int> viewOffset2 = {kNumZero, kNumZero, kNumOne, kNumZero};
-    
+    std::vector<int64_t> shape1 = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> shape2 = {kNumTwo, kNumTwo, kNumFour};
+    std::vector<int64_t> shape3 = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> shape4 = {kNumTwo, kNumTwo, kNumOne, kNumTwo};
+    std::vector<int64_t> assembleOffset1 = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> assembleOffset2 = {kNumZero, kNumZero, kNumTwo};
+    std::vector<int64_t> viewOffset1 = {kNumZero, kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> viewOffset2 = {kNumZero, kNumZero, kNumOne, kNumZero};
+
     std::vector<SymbolicScalar> dynInputShape = {kNumTwo, kNumTwo, SymbolicScalar("a")};
     std::vector<SymbolicScalar> dynInputOffset1 = {kNumZero, kNumZero, SymbolicScalar("b0")};
     std::vector<SymbolicScalar> dynInputOffset2 = {kNumZero, kNumZero, SymbolicScalar("b1")};
-    
+
     std::shared_ptr<RawTensor> ddrRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape2);
     std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape3);
     auto input1 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset1, shape1, dynInputShape);
@@ -3080,7 +3080,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase4) {
     output1->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
     auto output2 = std::make_shared<LogicalTensor>(*func, ddrRawTensor2, viewOffset2, shape4);
     output2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    
+
     auto &assemble_op1 = func->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
     auto assemble_Attr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset1, dynInputOffset1);
     assemble_op1.SetOpAttribute(assemble_Attr1);
@@ -3094,7 +3094,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase4) {
     auto &view_op2 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output2});
     auto view_Attr2 = std::make_shared<ViewOpAttribute>(viewOffset2);
     view_op2.SetOpAttribute(view_Attr2);
-    
+
     func->inCasts_.push_back(input1);
     func->inCasts_.push_back(input2);
     func->outCasts_.push_back(output1);
@@ -3114,7 +3114,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase4) {
     EXPECT_EQ(reshapeOp, kNumOne);
 
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "SplitReshapeTestStrategy"), SUCCESS);
-    
+
     reshapeOp = 0;
     for (auto &op : func->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
@@ -3135,14 +3135,14 @@ exp -> {1,4} -> assemble
 */
 TEST_F(TestSplitReshapePass, TestExceptionCase5) {
     //Define the shape of the Tensors
-    std::vector<int> origShape = {kNumOne, kExpFour};
-    std::vector<int> reshapeShape = {kNumOne, kNumOne, kNumTwo, kNumEight};
-    std::vector<int> tiledShape1 = {kNumOne, kNumFour};
-    std::vector<int> tiledShape2 = {kNumTwo, kNumOne, kNumTwo, kNumFour};
-    std::vector<int> tiledreshapeShape = {kNumOne, kNumFour};
-    std::vector<int> tiledassembleShape = {kNumOne, kNumOne, kNumOne, kNumFour};
-    std::vector<int> tiledviewShape = {kNumOne, kNumOne, kNumTwo, kNumFour};
-    
+    std::vector<int64_t> origShape = {kNumOne, kExpFour};
+    std::vector<int64_t> reshapeShape = {kNumOne, kNumOne, kNumTwo, kNumEight};
+    std::vector<int64_t> tiledShape1 = {kNumOne, kNumFour};
+    std::vector<int64_t> tiledShape2 = {kNumTwo, kNumOne, kNumTwo, kNumFour};
+    std::vector<int64_t> tiledreshapeShape = {kNumOne, kNumFour};
+    std::vector<int64_t> tiledassembleShape = {kNumOne, kNumOne, kNumOne, kNumFour};
+    std::vector<int64_t> tiledviewShape = {kNumOne, kNumOne, kNumTwo, kNumFour};
+
     Tensor input(DT_FP32, origShape, "input");
     Tensor output(DT_FP32, reshapeShape, "output");
 
@@ -3155,13 +3155,13 @@ TEST_F(TestSplitReshapePass, TestExceptionCase5) {
     }
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase8");
-    
+
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("ExpandFunctionStrategy", {
         {   "ExpandFunction",   "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "ExpandFunctionStrategy"), SUCCESS);
-    
+
     int reshapeOp = 0;
     int OpNum = 0;
     for (auto &op : func->Operations()) {
@@ -3176,7 +3176,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase5) {
         {   "SplitReshape",   "SplitReshape",  PassType::TYPE_TILE_GRAPH},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "SplitReshapeTestStrategy"), SUCCESS);
-    
+
     reshapeOp = 0;
     int AfterOpNum = 0;
     for (auto &op : func->Operations()) {

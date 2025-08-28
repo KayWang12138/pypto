@@ -31,7 +31,7 @@ void WriteRemoteProcess(const TileArgs &args)
 {
     auto inTile = args.in->View(args.function, {args.tilingInfo.rowShape, args.tilingInfo.colShape},
         {args.tilingInfo.rowOffset, args.tilingInfo.colOffset});
-    std::vector<int32_t> flagShape = {1, FLAG_TENSOR_SIZE}; // 256B
+    std::vector<int64_t> flagShape = {1, FLAG_TENSOR_SIZE}; // 256B
     auto flagTensor = std::make_shared<LogicalTensor>(args.function, DT_INT32, flagShape);
     OpArgs<TilingInfo> opArgs = {"WRITE_REMOTE", {inTile}, {flagTensor}, args.tilingTensor, args.tilingSymbol,
         std::make_optional(args.tilingInfo), std::nullopt};
@@ -40,17 +40,17 @@ void WriteRemoteProcess(const TileArgs &args)
 
 void WaitFlagAndRemoteGatherProcess(const TileArgs &args)
 {
-    std::vector<int> shape = {args.tilingInfo.rowShape, args.tilingInfo.colShape};
-    std::vector<int> offset = {args.tilingInfo.rowOffset, args.tilingInfo.colOffset};
+    std::vector<int64_t> shape = {args.tilingInfo.rowShape, args.tilingInfo.colShape};
+    std::vector<int64_t> offset = {args.tilingInfo.rowOffset, args.tilingInfo.colOffset};
     auto outTile = args.out->View(args.function, shape, offset);
 
     const bool aicpuWaitFlagEnable = ConfigManager::Instance().GetDistConfig(KEY_AICPU_WAIT_FLAG_ENABLE, true);
-    std::vector<int> flagShape = {1, FLAG_TENSOR_SIZE}; // 256B
+    std::vector<int64_t> flagShape = {1, FLAG_TENSOR_SIZE}; // 256B
     auto inTensor = std::make_shared<LogicalTensor>(args.function, args.in->Datatype(), shape);
     auto flagTensor = std::make_shared<LogicalTensor>(args.function, DataType::DT_INT32, flagShape);
 
     if (aicpuWaitFlagEnable) {
-        std::vector<int> opAttr = {args.tilingInfo.tileIndex, args.tilingInfo.groupIndex, args.tilingInfo.rankShape,
+        std::vector<int64_t> opAttr = {args.tilingInfo.tileIndex, args.tilingInfo.groupIndex, args.tilingInfo.rankShape,
             args.tilingInfo.rankOffset};
         auto inTile = args.in->View(args.function, shape, offset);
         OpArgs<TilingInfo> opArgs = {"COMM_WAIT_FLAG", {inTile}, {flagTensor}, args.tilingTensor, args.tilingSymbol,
@@ -69,8 +69,8 @@ void WaitFlagAndRemoteGatherProcess(const TileArgs &args)
 
 void LocalCopyOutProcess(const TileArgs &args)
 {
-    std::vector<int> shape = {args.tilingInfo.rowShape, args.tilingInfo.colShape};
-    std::vector<int> offset = {args.tilingInfo.rowOffset, args.tilingInfo.colOffset};
+    std::vector<int64_t> shape = {args.tilingInfo.rowShape, args.tilingInfo.colShape};
+    std::vector<int64_t> offset = {args.tilingInfo.rowOffset, args.tilingInfo.colOffset};
     auto inTile = args.in->View(args.function, shape, offset);
     auto outTile = args.out->View(args.function, shape, offset);
 
@@ -80,17 +80,17 @@ void LocalCopyOutProcess(const TileArgs &args)
 }
 
 inline LogicalTensorPtr GetTensorView(Function &function, const std::vector<Tensor> &tensor,
-    const std::vector<int> &shape, const int rankIndex)
+    const std::vector<int64_t> &shape, const int rankIndex)
 {
     (void)shape;
     (void)function;
     return tensor[rankIndex].GetStorage();
 }
 
-inline LogicalTensorPtr GetTensorView(Function &function, const Tensor &tensor, const std::vector<int> &shape,
+inline LogicalTensorPtr GetTensorView(Function &function, const Tensor &tensor, const std::vector<int64_t> &shape,
     const int rankIndex)
 {
-    const std::vector<int> offset = {rankIndex * shape[0], 0};
+    const std::vector<int64_t> offset = {rankIndex * shape[0], 0};
     return tensor.GetStorage()->View(function, shape, offset);
 }
 
@@ -185,7 +185,7 @@ void TensorAllGatherTenor(const LogicalTensorPtr &in, const LogicalTensorPtr &ti
     }
     if constexpr (std::is_same_v<T, Tensor>) {
         Operation &op = function.AddOperation(Opcode::OP_ASSEMBLE, {tmpOut.GetStorage()}, {out.GetStorage()});
-        op.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int>(out->GetOffset().size())));
+        op.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>(out->GetOffset().size())));
     }
 }
 
@@ -282,7 +282,7 @@ void AllGatherImpl(const Tensor &in, T &out, const char *group)
 
     auto &function = *Program::GetInstance().GetCurrentFunction();
     int32_t tilingTensorSize = GetTilingTensorSize(tileInfo, groupInfo);
-    std::vector<int> tilingShape = {1, tilingTensorSize};
+    std::vector<int64_t> tilingShape = {1, tilingTensorSize};
     const std::string tilingSymbol = function.GetDistTilingManager()->CreateTilingStorage("allgather", tilingShape[1]);
     Tensor tilingTensor(DataType::DT_INT32, tilingShape, tilingSymbol);
     if constexpr (std::is_same_v<T, Tensor>) {
@@ -297,7 +297,7 @@ void AllGather(const Tensor &in, std::vector<Tensor> &out, const char *group)
     AllGatherImpl<std::vector<Tensor>>(in, out, group);
 }
 
-inline std::vector<int> GetOutShape(const Tensor &in)
+inline std::vector<int64_t> GetOutShape(const Tensor &in)
 {
     const TileShape &tileShape = Program::GetInstance().GetTileShape();
     auto rankShape = tileShape.GetDistTileRank();

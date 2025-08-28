@@ -23,8 +23,8 @@ class ConcatOnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac
 TEST_F(ConcatOnBoardTest, test_concat_dim4_float32) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-    std::vector<int> shape = {2, 2, 64, 64};
-    std::vector<int> resShape = {2, 2, 64, 128};
+    std::vector<int64_t> shape = {2, 2, 64, 64};
+    std::vector<int64_t> resShape = {2, 2, 64, 128};
     DataType dtype = DataType::DT_FP32;
     int cap = shape[0] * shape[1] * shape[2] * shape[3];
     int resCap = cap * 2;
@@ -56,8 +56,8 @@ TEST_F(ConcatOnBoardTest, test_concat_dim4_float32) {
 TEST_F(ConcatOnBoardTest, test_concat_exp_dim4_float32) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-    std::vector<int> shape = {2, 2, 32, 32};
-    std::vector<int> resShape = {2, 2, 32, 64};
+    std::vector<int64_t> shape = {2, 2, 32, 32};
+    std::vector<int64_t> resShape = {2, 2, 32, 64};
     DataType dtype = DataType::DT_FP32;
     int cap = shape[0] * shape[1] * shape[2] * shape[3];
     int resCap = cap * 2;
@@ -90,8 +90,8 @@ TEST_F(ConcatOnBoardTest, test_concat_exp_dim4_float32) {
 TEST_F(ConcatOnBoardTest, test_exp_concat_dim4_float32) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-    std::vector<int> shape = {2, 2, 32, 64};
-    std::vector<int> resShape = {2, 2, 32, 128};
+    std::vector<int64_t> shape = {2, 2, 32, 64};
+    std::vector<int64_t> resShape = {2, 2, 32, 128};
     DataType dtype = DataType::DT_FP32;
     int cap = shape[0] * shape[1] * shape[2] * shape[3];
     int resCap = cap * 2;
@@ -126,9 +126,9 @@ TEST_F(ConcatOnBoardTest, test_exp_concat_dim4_float32) {
 TEST_F(ConcatOnBoardTest, test_concat_sqrt_dim4_float32) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-    std::vector<int> shape1 = {2, 2, 32, 64};
-    std::vector<int> shape2 = {2, 2, 64, 64};
-    std::vector<int> resShape = {2, 2, 96, 64};
+    std::vector<int64_t> shape1 = {2, 2, 32, 64};
+    std::vector<int64_t> shape2 = {2, 2, 64, 64};
+    std::vector<int64_t> resShape = {2, 2, 96, 64};
     DataType dtype = DataType::DT_FP32;
     int cap1 = shape1[0] * shape1[1] * shape1[2] * shape1[3];
     int cap2 = shape2[0] * shape2[1] * shape2[2] * shape2[3];
@@ -165,8 +165,8 @@ TEST_F(ConcatOnBoardTest, test_concat_sqrt_dim4_float32) {
 TEST_F(ConcatOnBoardTest, test_concat_100_inputs_float32) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-    std::vector<int> shape = {2, 2, 4, 16};
-    std::vector<int> resShape = {2, 2, 4, 1600};
+    std::vector<int64_t> shape = {2, 2, 4, 16};
+    std::vector<int64_t> resShape = {2, 2, 4, 1600};
     int cap = shape[0] * shape[1] * shape[2] * shape[3];
     int resCap = resShape[0] * resShape[1] * resShape[2] * resShape[3];
     DataType dtype = DataType::DT_FP32;
@@ -202,8 +202,8 @@ TEST_F(ConcatOnBoardTest, test_concat_100_inputs_float32) {
 TEST_F(ConcatOnBoardTest, test_concat_128_inputs_float32) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-    std::vector<int> shape = {2, 1, 8, 8};
-    std::vector<int> resShape = {2, 1, 1024, 8};
+    std::vector<int64_t> shape = {2, 1, 8, 8};
+    std::vector<int64_t> resShape = {2, 1, 1024, 8};
     int cap = shape[0] * shape[1] * shape[2] * shape[3];
     int resCap = resShape[0] * resShape[1] * resShape[2] * resShape[3];
     DataType dtype = DataType::DT_FP32;
@@ -239,9 +239,9 @@ TEST_F(ConcatOnBoardTest, test_concat_128_inputs_float32) {
 TEST_F(ConcatOnBoardTest, test_concat_dim2_float32_moe) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-    std::vector<int> shape0 = {3, 7168};
-    std::vector<int> shape1 = {64, 7168};
-    std::vector<int> resShape = {67, 7168};
+    std::vector<int64_t> shape0 = {3, 7168};
+    std::vector<int64_t> shape1 = {64, 7168};
+    std::vector<int64_t> resShape = {67, 7168};
     DataType dtype = DataType::DT_FP32;
     int cap0 = shape0[0] * shape0[1];
     int cap1 = shape1[0] * shape1[1];

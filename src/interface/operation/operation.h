@@ -170,17 +170,41 @@ public:
     [[nodiscard]] bool GetBoolAttribute(const std::string &key) const;
     void SetAttribute(const std::string &key, bool value);
 
-    [[nodiscard]] int GetIntAttribute(const std::string &key) const;
-    void SetAttribute(const std::string &key, int value);
-
-    [[nodiscard]] uint64_t GetLongAttribute(const std::string &key) const;
-    void SetAttribute(const std::string &key, uint64_t value);
+    [[nodiscard]] int64_t GetIntAttribute(const std::string &key) const;
+    void SetAttribute(const std::string &key, int64_t value);
+    void SetAttribute(const std::string &key, int value) { SetAttribute(key, static_cast<int64_t>(value)); }
 
     [[nodiscard]] Element GetElementAttribute(const std::string &key) const;
     void SetAttribute(const std::string &key, Element value);
 
-    [[nodiscard]] std::vector<int> GetVectorIntAttribute(const std::string &key) const;
-    void SetAttribute(const std::string &key, std::vector<int> value);
+    template<typename T = int64_t>
+    std::vector<T> GetVectorIntAttribute(const std::string &key) const {
+        static_assert(std::is_integral_v<T>);
+        std::vector<int64_t> val;
+        GetAttr(key, val);
+        if constexpr (std::is_same_v<T, int64_t>) {
+            return val;
+        }
+        std::vector<T> ret;
+        for (auto &x : val) {
+            ret.emplace_back(static_cast<T>(x));
+        }
+        return ret;
+    }
+
+    template<typename T = int64_t>
+    void SetAttribute(const std::string &key, const std::vector<T> &value) {
+        static_assert(std::is_integral_v<T>);
+        if constexpr (std::is_same_v<T, int64_t>) {
+            SetAttr(key, value);
+        } else {
+            std::vector<int64_t> nvalue;
+            for (auto &x : value) {
+                nvalue.emplace_back(static_cast<int64_t>(x));
+            }
+            SetAttr(key, nvalue);
+        }
+    }
 
     [[nodiscard]] CastMode GetCastModeAttribute(const std::string &key) const;
     void SetAttribute(const std::string &key, CastMode value);
@@ -190,9 +214,6 @@ public:
 
     [[nodiscard]] std::vector<SymbolicScalar> GetVectorSymbolicScalarAttribute(const std::string &key) const;
     void SetAttribute(const std::string &key, const std::vector<SymbolicScalar> &value);
-
-    [[nodiscard]] npu::tile_fwk::Any GetAttribute(const std::string &key) const;
-    void SetAttribute(const std::string &key, npu::tile_fwk::Any value);
 
     [[nodiscard]] bool HasAttribute(const std::string &key) const {
         return HasAttr(key);
@@ -319,11 +340,13 @@ public:
         }
     }
 
-     void SetAssembleOpAttribute(const std::vector<int> &toOffset, const std::vector<SymbolicScalar> &toDynOffset = {}) {
+    void SetAssembleOpAttribute(
+        const std::vector<int64_t> &toOffset, const std::vector<SymbolicScalar> &toDynOffset = {}) {
         ASSERT(opcode_ == Opcode::OP_ASSEMBLE);
         SetOpAttribute(std::make_shared<AssembleOpAttribute>(toOffset, toDynOffset));
     }
-    void SetAssembleOpAttribute(MemoryType from, const std::vector<int> &toOffset, const std::vector<SymbolicScalar> &toDynOffset = {}) {
+    void SetAssembleOpAttribute(
+        MemoryType from, const std::vector<int64_t> &toOffset, const std::vector<SymbolicScalar> &toDynOffset = {}) {
         ASSERT(opcode_ == Opcode::OP_ASSEMBLE);
         SetOpAttribute(std::make_shared<AssembleOpAttribute>(from, toOffset, toDynOffset));
     }

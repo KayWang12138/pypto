@@ -70,14 +70,13 @@ void InsertInterGraphCopy::CreateCopyOp(Function &function) {
         auto &copyOut = function.AddOperation(Opcode::OP_COPY_OUT, std::vector<std::shared_ptr<LogicalTensor>>({copy.input}), std::vector<std::shared_ptr<LogicalTensor>>({copy.ddr}));
         copyOut.UpdateSubgraphID(copy.input->subGraphID);
         copyOut.SetOpAttribute(std::make_shared<CopyOpAttribute>(copy.input->GetMemoryTypeOriginal(),
-            OpImmediate::Specified(std::vector<int> (copy.input->shape.size(), 0)),
-            OpImmediate::Specified(copy.input->shape),
-            OpImmediate::Specified(copy.output->tensor->GetDynRawShape())));
+            OpImmediate::Specified(std::vector<int64_t>(copy.input->shape.size(), 0)),
+            OpImmediate::Specified(copy.input->shape), OpImmediate::Specified(copy.output->tensor->GetDynRawShape())));
         auto &copyIn = function.AddOperation(Opcode::OP_COPY_IN, std::vector<std::shared_ptr<LogicalTensor>>({copy.ddr}),
             std::vector<std::shared_ptr<LogicalTensor>>({copy.output}));
         copyIn.UpdateSubgraphID(copy.output->subGraphID);
         copyIn.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-            OpImmediate::Specified(std::vector<int>(copy.output->shape.size(), 0)),
+            OpImmediate::Specified(std::vector<int64_t>(copy.output->shape.size(), 0)),
             copy.output->GetMemoryTypeOriginal(), OpImmediate::Specified(copy.output->shape),
             OpImmediate::Specified(copy.input->tensor->GetDynRawShape()),
             OpImmediate::Specified(copy.output->GetDynValidShape())));

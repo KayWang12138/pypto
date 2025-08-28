@@ -125,7 +125,7 @@ void RunAttentionPostCostModel()
     int d = 512;
     int v_head =128;
     int h = 256;
-    std::vector<int> inShape = {b, n, s, d}; // (b, n, s, d)
+    std::vector<int64_t> inShape = {b, n, s, d}; // (b, n, s, d)
     Tensor attnPostIn(DT_FP32, inShape, "attnPostIn");
     Tensor kvBProjWV(DT_FP32, {n, d, v_head}, "kvBProjWV");
     Tensor oProjW(DT_FP32, {n * v_head, h}, "oProjW");
@@ -264,7 +264,7 @@ TEST_F(CostModelTest, TestErrorInput)
 {
     std::string name = "TEST";
     auto newFunc = std::make_shared<Function>(npu::tile_fwk::Program::GetInstance(), name, name, nullptr);
-    std::vector<int> shape = {1, 1};
+    std::vector<int64_t> shape = {1, 1};
     auto outcast = std::make_shared<LogicalTensor>(*newFunc, DT_FP32, shape);
     newFunc->outCasts_.push_back(outcast);
     newFunc->inCasts_.push_back(outcast);
@@ -364,7 +364,7 @@ TEST_F(CostModelTest, TestAttentionPostBf16Real) {
     int tile8 = 8;
     int tile1024 = 1024;
 
-    std::vector<int> inShape = {b, n, s, d}; // (b, n, s, d)
+    std::vector<int64_t> inShape = {b, n, s, d}; // (b, n, s, d)
     Tensor attnPostIn(DT_BF16, inShape, "attnPostIn");
     Tensor kvBProjWV(DT_BF16, {n, d, v_head}, "kvBProjWV");
     Tensor oProjW(DT_BF16, {n * v_head, h}, "oProjW");
@@ -404,8 +404,8 @@ void RunConcat()
     Program::GetInstance().GetTileShape().SetVecTileShapes(16, 6, 6, 6);
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    std::vector<int> shape1 = {10, 10, 10, 10};
-    std::vector<int> shape2 = {20, 10, 10, 10};
+    std::vector<int64_t> shape1 = {10, 10, 10, 10};
+    std::vector<int64_t> shape2 = {20, 10, 10, 10};
     int axis = 0;
     Tensor params1(DT_FP32, shape1, "params1");
     Tensor params2(DT_FP32, shape2, "params2");
@@ -572,4 +572,3 @@ TEST_F(CostModelDynTest, TestDD) {
     auto pv = CostModel::PvModelFactory::CreateDyn();
     pv->Codegen(func);
 }
-

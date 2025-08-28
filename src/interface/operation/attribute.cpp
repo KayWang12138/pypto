@@ -147,7 +147,7 @@ std::shared_ptr<ViewOpAttribute> ViewOpAttribute::DeserializeFrom(const Json& at
     int despos = 0;
     auto memType = attrJson[despos++];
     int offsetSize = attrJson[despos++];
-    std::vector<int> fromOffset;
+    std::vector<int64_t> fromOffset;
     for (int i = 0; i < offsetSize; i++) {
         fromOffset.push_back(attrJson[despos++]);
     }
@@ -232,7 +232,7 @@ std::shared_ptr<AssembleOpAttribute> AssembleOpAttribute::DeserializeFrom(const 
     int despos = 0;
     auto memType = attrJson[despos++];
     int offsetSize = attrJson[despos++];
-    std::vector<int> toOffset;
+    std::vector<int64_t> toOffset;
     for (int i = 0; i < offsetSize; i++) {
         toOffset.push_back(attrJson[despos++]);
     }
@@ -345,8 +345,8 @@ const std::vector<SymbolicScalar> &CallOpAttribute::GetLinearArgList() {
     return linearArgList_;
 }
 
-std::vector<int> CallOpAttribute::GetLinearImmediateArgList(int begin, int end, bool returnEmptyForSymbolic) {
-    std::vector<int> result;
+std::vector<int64_t> CallOpAttribute::GetLinearImmediateArgList(int begin, int end, bool returnEmptyForSymbolic) {
+    std::vector<int64_t> result;
 
     auto &linearArgList = GetLinearArgList();
     for (int i = begin; i < end; i++) {
@@ -551,13 +551,13 @@ Json CopyOpAttribute::DumpDynJson() {
     return res;
 }
 
-
-std::vector<int> CopyOpAttribute::GetSpecifiedShape(int defaultValue) const {
-    std::vector<int> result(tensorShape_.size(), defaultValue);
+std::vector<int64_t> CopyOpAttribute::GetSpecifiedShape(int64_t defaultValue) const {
+    std::vector<int64_t> result(tensorShape_.size(), defaultValue);
     for (size_t i = 0; i < tensorShape_.size(); ++i) {
         if (tensorShape_[i].IsSpecified()) {
             result[i] = tensorShape_[i].GetSpecifiedValue().ConcreteValid() ?
-                static_cast<int>(tensorShape_[i].GetSpecifiedValue()) : -1;
+                            static_cast<int64_t>(tensorShape_[i].GetSpecifiedValue()) :
+                            -1;
         }
     }
     return result;

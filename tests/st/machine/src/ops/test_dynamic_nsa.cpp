@@ -44,7 +44,7 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::strin
 }
 
 template <typename T>
-static std::vector<T> getGoldenVec(std::vector<int> shape, std::string fileName) {
+static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileName) {
     int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     std::vector<T> golden(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, golden);
@@ -61,7 +61,7 @@ void TestNsa(const SimpleParams &params) {
     DataType dType = (std::is_same<T, float16>::value) ? DT_FP16 : DT_BF16;
     DataType outputDtype = (std::is_same<outputT, float>::value) ? DT_FP32 : dType;
     TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
-    std::vector<int> outputShape = {b, s, n, 3};
+    std::vector<int64_t> outputShape = {b, s, n, 3};
 
     Tensor x(dType, {b, s, h}, "x");
     Tensor w1(dType, {h, 4 * h}, "w1", NodeType::LOCAL, weightFormat);
@@ -88,7 +88,7 @@ void TestNsa(const SimpleParams &params) {
 }
 
 void TestViewPad() {
-    std::vector<int> input_shape = {1, 128}, output_shape = {1, 16};
+    std::vector<int64_t> input_shape = {1, 128}, output_shape = {1, 16};
     Tensor input(DT_FP32, input_shape, "x");
     Tensor output(DT_FP32, output_shape, "output");
     auto xData = CreateTensorData<float>(input, "/input.bin");
@@ -115,7 +115,7 @@ void TestViewPad() {
 }
 
 void TestAlignRead(bool isAlign) {
-    std::vector<int> input_shape = {1, 128}, output_shape = {1, 3};
+    std::vector<int64_t> input_shape = {1, 128}, output_shape = {1, 3};
     Tensor input(DT_FP32, input_shape, "x");
     Tensor output(DT_FP32, output_shape, "output");
     auto xData = CreateTensorData<float>(input, "/input.bin");
@@ -152,7 +152,7 @@ void TestAlignRead(bool isAlign) {
 }
 
 void TestMultiLoopAlignRead() {
-    std::vector<int> input_shape = {1, 128}, output_shape = {1, 32}, middle_shape = {1, 128};
+    std::vector<int64_t> input_shape = {1, 128}, output_shape = {1, 32}, middle_shape = {1, 128};
     Tensor input(DT_FP32, input_shape, "x");
     Tensor output(DT_FP32, output_shape, "output");
     auto xData = CreateTensorData<float>(input, "/input.bin");
@@ -202,15 +202,15 @@ void TestGenslc(const SimpleParams &params, int topk_actual_len = 0, bool isGenS
 
     DataType dType = (std::is_same<T, float16>::value) ? DT_FP16 : DT_BF16;
 
-    std::vector<int> x_shape = {n2, g, s_cmp};
+    std::vector<int64_t> x_shape = {n2, g, s_cmp};
     if (!isGenSlc) {
         x_shape = {1, s_slc};
     }
-    std::vector<int> trans0Shape = {n2, s_cmp, g};
-    std::vector<int> reduce0Shape = {n2, s_slc, g};
-    std::vector<int> trans1Shape = {n2, g, s_slc};
-    std::vector<int> reduce1Shape = {n2, 1, s_slc};
-    std::vector<int> resShape = {1, 13};
+    std::vector<int64_t> trans0Shape = {n2, s_cmp, g};
+    std::vector<int64_t> reduce0Shape = {n2, s_slc, g};
+    std::vector<int64_t> trans1Shape = {n2, g, s_slc};
+    std::vector<int64_t> reduce1Shape = {n2, 1, s_slc};
+    std::vector<int64_t> resShape = {1, 13};
 
     Tensor x(dType, x_shape, "x");
     Tensor trans0(dType, trans0Shape, "trans0");
@@ -286,8 +286,8 @@ void TestGenslcV2(const SimpleParams &params, int topk_actual_len = 0) {
 
     DataType dType = (std::is_same<T, float16>::value) ? DT_FP16 : DT_BF16;
 
-    std::vector<int> x_shape = {n, s_cmp};
-    std::vector<int> resShape = {1, 13};
+    std::vector<int64_t> x_shape = {n, s_cmp};
+    std::vector<int64_t> resShape = {1, 13};
 
     Tensor x(dType, x_shape, "x");
     Tensor res(DT_FP32, resShape, "res");

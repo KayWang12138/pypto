@@ -38,8 +38,8 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_add_dim) {
     int b = 2;
     int sq = 64;
     int d = 64;
-    std::vector<int> qShape2Dim = {b*sq, d};
-    std::vector<int> qShape3Dim = {b, sq, d};
+    std::vector<int64_t> qShape2Dim = {b*sq, d};
+    std::vector<int64_t> qShape3Dim = {b, sq, d};
 
     Tensor q(DT_FP32, qShape2Dim, "q");
     Tensor actSeqs(DT_INT32, {b, 1, 1}, "actual_seq");
@@ -47,7 +47,7 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_add_dim) {
 
     FUNCTION("main", FunctionType::DYNAMIC, {q, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0) / (sq))) {
-            SymbolicScalar curSeq = GetInputDataInt32Dim3(actSeqs, batchId, 0, 0);  
+            SymbolicScalar curSeq = GetInputDataInt32Dim3(actSeqs, batchId, 0, 0);
             Tensor q0 = DViewPad(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
             auto tmp0 = Reshape(q0, {1, sq, d}, {1, curSeq, d});
             Program::GetInstance().GetTileShape().SetVecTileShapes(1, 64, 64);
@@ -90,8 +90,8 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_merge_dim) {
     int b = 2;
     int sq = 10;
     int d = 10;
-    std::vector<int> qShape3Dim = {b, sq, d};
-    std::vector<int> qShape2Dim = {b, sq * d};
+    std::vector<int64_t> qShape3Dim = {b, sq, d};
+    std::vector<int64_t> qShape2Dim = {b, sq * d};
 
     Tensor q(DT_FP32, qShape3Dim, "q");
     Tensor actSeqs(DT_INT32, {b, 1, 1}, "actual_seq");
@@ -99,8 +99,8 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_merge_dim) {
 
     FUNCTION("main", FunctionType::DYNAMIC, {q, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
-            // 
-            SymbolicScalar curSeq = GetInputDataInt32Dim3(actSeqs, batchId, 0, 0);  
+            //
+            SymbolicScalar curSeq = GetInputDataInt32Dim3(actSeqs, batchId, 0, 0);
 
             Tensor q0 = DViewPad(q, {1, sq, d}, {1, curSeq, d}, {batchId, 0, 0});
             auto tmp0 = Reshape(q0, {1, sq * d}, {1, curSeq * d});
@@ -144,8 +144,8 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_split_dim) {
     int b = 2;
     int sq = 6;
     int d = 10;
-    std::vector<int> qShape3Dim = {b, sq, d};
-    std::vector<int> qShape4Dim = {b, sq, 5, d/5};
+    std::vector<int64_t> qShape3Dim = {b, sq, d};
+    std::vector<int64_t> qShape4Dim = {b, sq, 5, d/5};
 
     Tensor q(DT_FP32, qShape3Dim, "q");
     Tensor actSeqs(DT_INT32, {b, 2, 1}, "actual_seq");
@@ -153,12 +153,12 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_split_dim) {
 
     FUNCTION("main", FunctionType::DYNAMIC, {q, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
-            SymbolicScalar curSeq = GetInputDataInt32Dim3(actSeqs, batchId, 0, 0);  
+            SymbolicScalar curSeq = GetInputDataInt32Dim3(actSeqs, batchId, 0, 0);
             SymbolicScalar curDim = GetInputDataInt32Dim3(actSeqs, batchId, 1, 0);
             Tensor q0 = DViewPad(q, {1, sq, d}, {1, curSeq, curDim}, {batchId, 0, 0});
             auto tmp0 = Reshape(q0, {1, sq, 5, d/5}, {1, curSeq, 4, curDim/4});
             Program::GetInstance().GetTileShape().SetVecTileShapes(1, 16, 16, 16);
-            
+
             auto tmp = MulS(tmp0, Element(tmp0->Datatype(), 1.0));
             DAssemble(tmp, {batchId, 0, 0, 0}, out);// 1, sq * d -> b, sq * d
         }

@@ -42,10 +42,10 @@ public:
         Program::GetInstance().GetConfig().Reset();
     }
 
-    bool TestContinuous(const std::vector<std::pair<std::vector<int>, std::vector<int>>> &testcase) {
+    bool TestContinuous(const std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> &testcase) {
         auto &func = *Program::GetInstance().GetCurrentFunction();
         std::vector<LogicalTensorPtr> tensors;
-        std::vector<int> shape3(testcase.front().first.size(), 512);
+        std::vector<int64_t> shape3(testcase.front().first.size(), 512);
         Tensor t(DT_FP32, shape3, "p");
 
         for (auto &ele : testcase) {
@@ -63,7 +63,7 @@ constexpr float F_3_3 = 3.3f;
 constexpr float F_2_42 = 2.42f;
 
 TEST_F(FunctionWithPass, TestContinuous) {
-    std::vector<int> shape{128};
+    std::vector<int64_t> shape{128};
     auto &func = *Program::GetInstance().GetCurrentFunction();
     Tensor a(DT_FP32, shape, "a");
     auto b = a.GetStorage()->View(func, {64}, {0});
@@ -74,7 +74,7 @@ TEST_F(FunctionWithPass, TestContinuous) {
     EXPECT_EQ(FunctionUtils::IsContinuous(tensors1), true);
     EXPECT_EQ(FunctionUtils::IsContinuous(tensors2), false);
 
-    std::vector<int> shape2{256, 384};
+    std::vector<int64_t> shape2{256, 384};
     Tensor e(DT_FP32, shape2, "e");
     auto f = e.GetStorage()->View(func, {64, 128}, {0, 128});
     auto g = e.GetStorage()->View(func, {64, 128}, {64, 128});
@@ -101,7 +101,7 @@ TEST_F(FunctionWithPass, TestContinuous) {
     tensors = {n, o};
     EXPECT_EQ(FunctionUtils::IsContinuous(tensors), false);
 
-    std::vector<int> shape3{256, 512};
+    std::vector<int64_t> shape3{256, 512};
     Tensor p(DT_FP32, shape3, "p");
     auto p1 = p.GetStorage()->View(func, {64, 64}, {0, 256});
     auto p2 = p.GetStorage()->View(func, {64, 64}, {0, 320});
@@ -110,14 +110,14 @@ TEST_F(FunctionWithPass, TestContinuous) {
     std::vector<LogicalTensorPtr> tensorsP = {p1, p2, p3, p4};
     EXPECT_EQ(FunctionUtils::IsContinuous(tensorsP), true);
 
-    std::vector<std::pair<std::vector<int>, std::vector<int>>> testcase1 = {
+    std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> testcase1 = {
         {{2, 3}, {1, 1}},
         {{2, 3}, {3, 1}},
         {{2, 3}, {1, 4}},
         {{2, 3}, {3, 4}}
     };
     EXPECT_EQ(TestContinuous(testcase1), true);
-    std::vector<std::pair<std::vector<int>, std::vector<int>>> tensors_3d_offset = {
+    std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> tensors_3d_offset = {
         {{2, 2, 2}, {1, 1, 1}},
         {{2, 2, 2}, {3, 1, 1}},
         {{2, 2, 2}, {1, 3, 1}},
@@ -130,7 +130,7 @@ TEST_F(FunctionWithPass, TestContinuous) {
     EXPECT_EQ(TestContinuous(tensors_3d_offset), true);
 
     // 测试用例 3: 2D 矩形，不规则排列，无重叠无缝隙
-    std::vector<std::pair<std::vector<int>, std::vector<int>>> tensors_2d_irregular = {
+    std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> tensors_2d_irregular = {
         {{2, 2}, {0, 0}},
         {{2, 2}, {2, 0}},
         {{2, 2}, {0, 2}},
@@ -139,7 +139,7 @@ TEST_F(FunctionWithPass, TestContinuous) {
         {{1, 4}, {4, 0}}
     };
     EXPECT_EQ(TestContinuous(tensors_2d_irregular), false);
-    std::vector<std::pair<std::vector<int>, std::vector<int>>> tensors_2d_irregular_fixed = {
+    std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> tensors_2d_irregular_fixed = {
         {{2, 2}, {0, 0}},
         {{2, 2}, {2, 0}},
         {{2, 2}, {0, 2}},
@@ -151,7 +151,7 @@ TEST_F(FunctionWithPass, TestContinuous) {
     EXPECT_EQ(TestContinuous(tensors_2d_irregular_fixed), true);
 
     // 测试用例 4: 3D 立方体，不规则排列，无重叠无缝隙
-    std::vector<std::pair<std::vector<int>, std::vector<int>>> tensors_3d_irregular = {
+    std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> tensors_3d_irregular = {
         {{2, 2, 2}, {0, 0, 0}},
         {{2, 2, 2}, {2, 0, 0}},
         {{2, 2, 2}, {0, 2, 0}},
@@ -166,7 +166,7 @@ TEST_F(FunctionWithPass, TestContinuous) {
     };
     EXPECT_EQ(TestContinuous(tensors_3d_irregular), false);
 
-    std::vector<std::pair<std::vector<int>, std::vector<int>>> tensors_3d_irregular_fix = {
+    std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> tensors_3d_irregular_fix = {
         {{2, 2, 2}, {0, 0, 0}},
         {{2, 2, 2}, {2, 0, 0}},
         {{2, 2, 2}, {0, 2, 0}},
@@ -182,14 +182,14 @@ TEST_F(FunctionWithPass, TestContinuous) {
     EXPECT_EQ(TestContinuous(tensors_3d_irregular), false);
 
     // 测试用例 5: 2D 矩形，有重叠
-    std::vector<std::pair<std::vector<int>, std::vector<int>>> tensors_2d_overlap = {
+    std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> tensors_2d_overlap = {
         {{2, 2}, {1, 1}},
         {{2, 2}, {2, 2}}
     };
     EXPECT_EQ(TestContinuous(tensors_2d_overlap), false);
 
     // 测试用例 6: 3D 立方体，有缝隙
-    std::vector<std::pair<std::vector<int>, std::vector<int>>> tensors_3d_gap = {
+    std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> tensors_3d_gap = {
         {{2, 2, 2}, {0, 0, 0}},
         {{2, 2, 2}, {2, 0, 0}},
         {{2, 2, 2}, {0, 2, 0}},
@@ -202,7 +202,7 @@ TEST_F(FunctionWithPass, TestContinuous) {
     EXPECT_EQ(TestContinuous(tensors_3d_gap), false);
 
     // 测试用例 7: 1D 线段，offset 不从 0 开始
-    std::vector<std::pair<std::vector<int>, std::vector<int>>> tensors_1d_offset = {
+    std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> tensors_1d_offset = {
         {{3}, {1}},
         {{3}, {4}},
         {{3}, {7}}
@@ -211,7 +211,7 @@ TEST_F(FunctionWithPass, TestContinuous) {
 }
 
 TEST_F(FunctionWithPass, TestContinuous1) {
-    std::vector<int> shape2{32, 32, 64};
+    std::vector<int64_t> shape2{32, 32, 64};
     auto &func = *Program::GetInstance().GetCurrentFunction();
     Tensor e(DT_FP32, shape2, "e");
     auto f = e.GetStorage()->View(func, {8, 4, 64}, {0, 0, 0});
@@ -734,27 +734,27 @@ TEST_F(FunctionWithPass, AssignRoundingModes_uint16) {
 
 TEST_F(FunctionWithPass, fp16ToUInt8_Negative) {
     uint16_t fpVal = 0xBC00; // -1.0 in fp16
-    uint8_t result = (uint8_t)((npu::tile_fwk::float16)fpVal);
-    EXPECT_EQ(result, 0); // 负数转换为uint8_t应为0
+    float result = npu::tile_fwk::float16::FromBase(fpVal);
+    EXPECT_EQ(result, -1); // 负数转换为uint8_t应为0
 }
 
 TEST_F(FunctionWithPass, fp16ToUInt8_Zero) {
     uint16_t fpVal = 0x0000; // +0
-    uint8_t result = (uint8_t)((npu::tile_fwk::float16)fpVal);
+    float result = npu::tile_fwk::float16::FromBase(fpVal);
     EXPECT_EQ(result, 0);
 
     fpVal = 0x8000; // -0
-    result = (uint8_t)((npu::tile_fwk::float16)fpVal);
+    result = npu::tile_fwk::float16::FromBase(fpVal);
     EXPECT_EQ(result, 0);
 }
 
 TEST_F(FunctionWithPass, fp16ToInt8_Zero) {
     uint16_t fpVal = 0x0000; // +0
-    int8_t result = (int8_t)((npu::tile_fwk::float16)fpVal);
+    float result = npu::tile_fwk::float16::FromBase(fpVal);
     EXPECT_EQ(result, 0);
 
     fpVal = 0x8000; // -0
-    result = (int8_t)((npu::tile_fwk::float16)fpVal);
+    result = npu::tile_fwk::float16::FromBase(fpVal);
     EXPECT_EQ(result, 0);
 }
 
@@ -889,7 +889,7 @@ TEST_F(FunctionWithPass, DumpBuffer) {
 
 TEST_F(FunctionWithPass, CalculateHashTest) {
     // 创建不同的操作符
-    std::vector<int> attrs;
+    std::vector<int64_t> attrs;
     RawExpectedOperator op1(Opcode::OP_MUL, attrs);
     RawExpectedOperator op2(Opcode::OP_MUL, attrs);
 
@@ -903,13 +903,13 @@ TEST_F(FunctionWithPass, CalculateHashTest) {
 
 TEST_F(FunctionWithPass, EqualTest) {
     // 创建相同类型的RawExpectedValue对象
-    auto value1 = make_shared<RawExpectedInputValue>(vector<int>{2, 3}, DT_FP16, "input1");
-    auto value2 = make_shared<RawExpectedInputValue>(vector<int>{2, 3}, DT_FP16, "input1");
+    auto value1 = make_shared<RawExpectedInputValue>(std::vector<int64_t>{2, 3}, DT_FP16, "input1");
+    auto value2 = make_shared<RawExpectedInputValue>(std::vector<int64_t>{2, 3}, DT_FP16, "input1");
     EXPECT_TRUE(value1 != value2);
     EXPECT_TRUE(*value1 == *value2);
 
     // 创建不同类型的RawExpectedValue对象
-    std::vector<int> attrs;
+    std::vector<int64_t> attrs;
     std::vector<ExpectedValue> operands;
     auto value3 = make_shared<RawExpectedOperationValue>(ExpectedOperator(Opcode::OP_ADD, attrs), operands);
     auto value4 = make_shared<RawExpectedOperationValue>(ExpectedOperator(Opcode::OP_SUB, attrs), operands);
@@ -918,8 +918,8 @@ TEST_F(FunctionWithPass, EqualTest) {
 
 TEST_F(FunctionWithPass, OperatorEqualsTest) {
     // 测试相同类型的ExpectedValue对象
-    ExpectedValue ev1(vector<int>{2, 3}, DT_FP16, "input1");
-    ExpectedValue ev2(vector<int>{2, 3}, DT_FP16, "input1");
+    ExpectedValue ev1(std::vector<int64_t>{2, 3}, DT_FP16, "input1");
+    ExpectedValue ev2(std::vector<int64_t>{2, 3}, DT_FP16, "input1");
     EXPECT_TRUE(ev1 == ev2);
 
     // 测试不同类型的ExpectedValue对象
@@ -927,13 +927,13 @@ TEST_F(FunctionWithPass, OperatorEqualsTest) {
     EXPECT_FALSE(ev1 == ev3);
 
     // 测试不同形状的ExpectedValue对象
-    ExpectedValue ev4(vector<int>{2, 3}, DT_FP16, "input2");
+    ExpectedValue ev4(std::vector<int64_t>{2, 3}, DT_FP16, "input2");
     EXPECT_FALSE(ev1 == ev4);
 }
 
 TEST_F(FunctionWithPass, ConstructorTest) {
     // 测试输入值构造函数
-    ExpectedValue ev1(vector<int>{2, 3}, DT_FP16, "input1");
+    ExpectedValue ev1(std::vector<int64_t>{2, 3}, DT_FP16, "input1");
     EXPECT_NE(ev1.Get(), nullptr);
 
     // 测试操作值构造函数
@@ -941,24 +941,24 @@ TEST_F(FunctionWithPass, ConstructorTest) {
     EXPECT_NE(ev2.Get(), nullptr);
 
     // 测试提取值构造函数
-    ExpectedValue source(vector<int>{2, 3}, DT_FP16, "source");
-    ExpectedValue ev3(source, vector<int>{2, 3}, vector<int>{0, 0}, vector<int>{1, 1});
+    ExpectedValue source(std::vector<int64_t>{2, 3}, DT_FP16, "source");
+    ExpectedValue ev3(source, std::vector<int64_t>{2, 3}, std::vector<int64_t>{0, 0}, std::vector<int64_t>{1, 1});
     EXPECT_NE(ev3.Get(), nullptr);
 
     // 测试插入值构造函数
     vector<RawExpectedInsertValueElement> elements;
-    ExpectedValue ev4(vector<int>{2, 3}, elements);
+    ExpectedValue ev4(std::vector<int64_t>{2, 3}, elements);
     EXPECT_NE(ev4.Get(), nullptr);
 
     // 测试结果值构造函数
-    ExpectedValue resultof(vector<int>{2, 3}, DT_FP16, "resultof");
+    ExpectedValue resultof(std::vector<int64_t>{2, 3}, DT_FP16, "resultof");
     ExpectedValue ev5(resultof, 0);
     EXPECT_NE(ev5.Get(), nullptr);
 }
 
 TEST_F(FunctionWithPass, CastTest) {
     // 测试输入值类型转换
-    ExpectedValue ev1(vector<int>{2, 3}, DT_FP16, "input1");
+    ExpectedValue ev1(std::vector<int64_t>{2, 3}, DT_FP16, "input1");
     auto castInput = ev1.CastInputValue();
     EXPECT_NE(castInput, nullptr);
 
@@ -968,19 +968,19 @@ TEST_F(FunctionWithPass, CastTest) {
     EXPECT_NE(castOperation, nullptr);
 
     // 测试提取值类型转换
-    ExpectedValue source(vector<int>{2, 3}, DT_FP16, "source");
-    ExpectedValue ev3(source, vector<int>{2, 3}, vector<int>{0, 0}, vector<int>{1, 1});
+    ExpectedValue source(std::vector<int64_t>{2, 3}, DT_FP16, "source");
+    ExpectedValue ev3(source, std::vector<int64_t>{2, 3}, std::vector<int64_t>{0, 0}, std::vector<int64_t>{1, 1});
     auto castExtract = ev3.CastExtractValue();
     EXPECT_NE(castExtract, nullptr);
 
     // 测试插入值类型转换
     vector<RawExpectedInsertValueElement> elements;
-    ExpectedValue ev4(vector<int>{2, 3}, elements);
+    ExpectedValue ev4(std::vector<int64_t>{2, 3}, elements);
     auto castInsert = ev4.CastInsertValue();
     EXPECT_NE(castInsert, nullptr);
 
     // 测试结果值类型转换
-    ExpectedValue resultof(vector<int>{2, 3}, DT_FP16, "resultof");
+    ExpectedValue resultof(std::vector<int64_t>{2, 3}, DT_FP16, "resultof");
     ExpectedValue ev5(resultof, 0);
     auto castResultof = ev5.CastResultofValue();
     EXPECT_NE(castResultof, nullptr);
@@ -988,7 +988,7 @@ TEST_F(FunctionWithPass, CastTest) {
 
 // 测试 RawExpectedInputValue
 TEST_F(FunctionWithPass, CalculateHash0) {
-    std::vector<int> shape = {1, 2, 3};
+    std::vector<int64_t> shape = {1, 2, 3};
     DataType dataType = DT_INT32;
     std::string name = "input1";
     RawExpectedInputValue inputValue(shape, dataType, name);
@@ -998,7 +998,7 @@ TEST_F(FunctionWithPass, CalculateHash0) {
 }
 
 TEST_F(FunctionWithPass, OperatorEquals0) {
-    std::vector<int> shape = {1, 2, 3};
+    std::vector<int64_t> shape = {1, 2, 3};
     DataType dataType = DT_INT32;
     std::string name = "input1";
     RawExpectedInputValue inputValue1(shape, dataType, name);
@@ -1009,9 +1009,9 @@ TEST_F(FunctionWithPass, OperatorEquals0) {
 
 // 测试 RawExpectedOperationValue
 TEST_F(FunctionWithPass, CalculateHash1) {
-    std::vector<int> attr;
+    std::vector<int64_t> attr;
     ExpectedOperator oper = ExpectedOperator(Opcode::OP_ADD, attr);
-    std::vector<int> sourceShape = {1, 2, 3};
+    std::vector<int64_t> sourceShape = {1, 2, 3};
     auto exp1 = ExpectedValue(sourceShape, npu::tile_fwk::DT_FP32, "exp1");
     auto exp2 = ExpectedValue(sourceShape, npu::tile_fwk::DT_FP32, "exp2");
     std::vector<ExpectedValue> operands = {exp1, exp2};
@@ -1022,9 +1022,9 @@ TEST_F(FunctionWithPass, CalculateHash1) {
 }
 
 TEST_F(FunctionWithPass, OperatorEquals1) {
-    std::vector<int> attr;
+    std::vector<int64_t> attr;
     ExpectedOperator oper = ExpectedOperator(Opcode::OP_ADD, attr);
-    std::vector<int> sourceShape = {1, 2, 3};
+    std::vector<int64_t> sourceShape = {1, 2, 3};
     auto exp1 = ExpectedValue(sourceShape, npu::tile_fwk::DT_FP32, "exp1");
     auto exp2 = ExpectedValue(sourceShape, npu::tile_fwk::DT_FP32, "exp2");
     std::vector<ExpectedValue> operands = {exp1, exp2};
@@ -1036,10 +1036,10 @@ TEST_F(FunctionWithPass, OperatorEquals1) {
 
 // 测试 RawExpectedExtractValue
 TEST_F(FunctionWithPass, CalculateHash2) {
-    std::vector<int> sourceShape = {1, 2, 3};
+    std::vector<int64_t> sourceShape = {1, 2, 3};
     ExpectedValue source = ExpectedValue(sourceShape, npu::tile_fwk::DT_FP32, "exp1");
-    std::vector<int> resultOffset = {0, 0, 0};
-    std::vector<int> resultShape = {1, 1, 1};
+    std::vector<int64_t> resultOffset = {0, 0, 0};
+    std::vector<int64_t> resultShape = {1, 1, 1};
     RawExpectedExtractValue extractValue(source, sourceShape, resultOffset, resultShape);
 
     std::size_t hash = extractValue.CalculateHash();
@@ -1047,10 +1047,10 @@ TEST_F(FunctionWithPass, CalculateHash2) {
 }
 
 TEST_F(FunctionWithPass, OperatorEquals2) {
-    std::vector<int> sourceShape = {1, 2, 3};
+    std::vector<int64_t> sourceShape = {1, 2, 3};
     ExpectedValue source = ExpectedValue(sourceShape, npu::tile_fwk::DT_FP32, "exp1");
-    std::vector<int> resultOffset = {0, 0, 0};
-    std::vector<int> resultShape = {1, 1, 1};
+    std::vector<int64_t> resultOffset = {0, 0, 0};
+    std::vector<int64_t> resultShape = {1, 1, 1};
     RawExpectedExtractValue extractValue1(source, sourceShape, resultOffset, resultShape);
     RawExpectedExtractValue extractValue2(source, sourceShape, resultOffset, resultShape);
 
@@ -1059,7 +1059,7 @@ TEST_F(FunctionWithPass, OperatorEquals2) {
 
 // 测试 RawExpectedInsertValue
 TEST_F(FunctionWithPass, CalculateHash3) {
-    std::vector<int> shape = {1, 2, 3};
+    std::vector<int64_t> shape = {1, 2, 3};
     std::vector<RawExpectedInsertValueElement> elements = {
         RawExpectedInsertValueElement({0, 0, 0}, {1, 1, 1}, ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"))
     };
@@ -1070,7 +1070,7 @@ TEST_F(FunctionWithPass, CalculateHash3) {
 }
 
 TEST_F(FunctionWithPass, OperatorEquals3) {
-    std::vector<int> shape = {1, 2, 3};
+    std::vector<int64_t> shape = {1, 2, 3};
     std::vector<RawExpectedInsertValueElement> elements = {
         RawExpectedInsertValueElement({0, 0, 0}, {1, 1, 1}, ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"))
     };
@@ -1082,7 +1082,7 @@ TEST_F(FunctionWithPass, OperatorEquals3) {
 
 // 测试 RawExpectedResultofValue
 TEST_F(FunctionWithPass, CalculateHash4) {
-    std::vector<int> shape = {1, 2, 3};
+    std::vector<int64_t> shape = {1, 2, 3};
     ExpectedValue resultof = ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1");
     int index = 0;
     RawExpectedResultofValue resultofValue(resultof, index);
@@ -1092,7 +1092,7 @@ TEST_F(FunctionWithPass, CalculateHash4) {
 }
 
 TEST_F(FunctionWithPass, OperatorEquals4) {
-    std::vector<int> shape = {1, 2, 3};
+    std::vector<int64_t> shape = {1, 2, 3};
     ExpectedValue resultof = ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1");
     int index = 0;
     RawExpectedResultofValue resultofValue1(resultof, index);
@@ -1103,7 +1103,7 @@ TEST_F(FunctionWithPass, OperatorEquals4) {
 
 // 测试 ListExpectedValue
 TEST_F(FunctionWithPass, CalculateHash5) {
-    std::vector<int> shape = {1, 2, 3};
+    std::vector<int64_t> shape = {1, 2, 3};
     std::vector<ExpectedValue> elements = {ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"),
         ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp2")};
     ListExpectedValue listValue(elements);
@@ -1113,7 +1113,7 @@ TEST_F(FunctionWithPass, CalculateHash5) {
 }
 
 TEST_F(FunctionWithPass, OperatorEquals5) {
-    std::vector<int> shape = {1, 2, 3};
+    std::vector<int64_t> shape = {1, 2, 3};
     std::vector<ExpectedValue> elements = {ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"),
         ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp2")};
     ListExpectedValue listValue1(elements);
@@ -1129,7 +1129,7 @@ TEST_F(FunctionWithPass, IsNull) {
 }
 
 TEST_F(FunctionWithPass, IsInputValue) {
-    std::vector<int> shape = {1, 2, 3};
+    std::vector<int64_t> shape = {1, 2, 3};
     DataType dataType = DT_INT32;
     std::string name = "input1";
     ExpectedValue value(shape, dataType, name);
@@ -1138,9 +1138,9 @@ TEST_F(FunctionWithPass, IsInputValue) {
 }
 
 TEST_F(FunctionWithPass, IsOperationValue) {
-    std::vector<int> attr;
+    std::vector<int64_t> attr;
     ExpectedOperator oper = ExpectedOperator(Opcode::OP_ADD, attr);
-    std::vector<int> shape = {1, 2, 3};
+    std::vector<int64_t> shape = {1, 2, 3};
     std::vector<ExpectedValue> operands = {ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"),
         ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp2")};
     ExpectedValue value(oper, operands);
@@ -1149,17 +1149,17 @@ TEST_F(FunctionWithPass, IsOperationValue) {
 }
 
 TEST_F(FunctionWithPass, IsExtractValue) {
-    std::vector<int> sourceShape = {1, 2, 3};
+    std::vector<int64_t> sourceShape = {1, 2, 3};
     ExpectedValue source = ExpectedValue(sourceShape, npu::tile_fwk::DT_FP32, "exp1");
-    std::vector<int> resultOffset = {0, 0, 0};
-    std::vector<int> resultShape = {1, 1, 1};
+    std::vector<int64_t> resultOffset = {0, 0, 0};
+    std::vector<int64_t> resultShape = {1, 1, 1};
     ExpectedValue value(source, sourceShape, resultOffset, resultShape);
 
     EXPECT_TRUE(value.IsExtractValue());
 }
 
 TEST_F(FunctionWithPass, IsInsertValue) {
-    std::vector<int> shape = {1, 2, 3};
+    std::vector<int64_t> shape = {1, 2, 3};
     std::vector<RawExpectedInsertValueElement> elements = {
         RawExpectedInsertValueElement({0, 0, 0}, {1, 1, 1},
         ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"))
@@ -1170,7 +1170,7 @@ TEST_F(FunctionWithPass, IsInsertValue) {
 }
 
 TEST_F(FunctionWithPass, IsResultofValue) {
-    std::vector<int> shape = {1, 2, 3};
+    std::vector<int64_t> shape = {1, 2, 3};
     ExpectedValue resultof = ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1");
     int index = 0;
     ExpectedValue value(resultof, index);
@@ -1180,8 +1180,8 @@ TEST_F(FunctionWithPass, IsResultofValue) {
 
 TEST_F(FunctionWithPass, ValueLookupTest) {
     ExpectedValueBuilder builder;
-    ExpectedValue value1(vector<int>{2, 3}, npu::tile_fwk::DT_FP32, "input1");
-    ExpectedValue value2(vector<int>{2, 3}, npu::tile_fwk::DT_FP32, "input1");
+    ExpectedValue value1(std::vector<int64_t>{2, 3}, npu::tile_fwk::DT_FP32, "input1");
+    ExpectedValue value2(std::vector<int64_t>{2, 3}, npu::tile_fwk::DT_FP32, "input1");
 
     // 测试值不存在时插入
     EXPECT_NE(builder.ValueLookup(value1).Get(), nullptr);
@@ -1192,7 +1192,7 @@ TEST_F(FunctionWithPass, ValueLookupTest) {
 
 TEST_F(FunctionWithPass, CreateValueTest) {
     ExpectedValueBuilder builder;
-    vector<int> shape{2, 3};
+    std::vector<int64_t> shape{2, 3};
     DataType dataType = npu::tile_fwk::DT_FP32;
     string name = "input1";
 
@@ -1225,7 +1225,7 @@ TEST_F(FunctionWithPass, CreateOperationOOperandsTest) {
 
 TEST_F(FunctionWithPass, CreateListTest) {
     ExpectedValueBuilder builder;
-    vector<int> shape{2, 3};
+    std::vector<int64_t> shape{2, 3};
     std::vector<ExpectedValue> elements = {ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"),
         ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp2")};
 

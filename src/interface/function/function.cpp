@@ -49,7 +49,7 @@ const std::set<Opcode> SPECIAL_OPCODE_SET = {
     Opcode::OP_COPY_IN, Opcode::OP_COPY_OUT
 };
 struct ViewKey {
-    ViewKey(const int magic, const std::vector<int> &newShape, const std::vector<int> &newOffset,
+    ViewKey(const int magic, const std::vector<int64_t> &newShape, const std::vector<int64_t> &newOffset,
         const std::vector<SymbolicScalar> &tmpDynOffset)
         : rawMagic(magic), shape(newShape), offset(newOffset), dynOffset(tmpDynOffset) {}
 
@@ -72,8 +72,8 @@ struct ViewKey {
     }
 
     int rawMagic;
-    std::vector<int> shape;
-    std::vector<int> offset;
+    Shape shape;
+    Offset offset;
     std::vector<SymbolicScalar> dynOffset;
 };
 } // namespace
@@ -325,7 +325,7 @@ std::unordered_map<int, GetTensorDataIODesc> Function::GetTensorDataForTensorGra
         if (!op.HasAttr(OP_EMUOP_PREFIX + "GetTensorData_tensor_to_scalar")) {
             continue;
         }
-        int getTensorDataIndex = *op.GetAttr<int>(OP_EMUOP_PREFIX + "GetTensorData_tensor_to_scalar");
+        int getTensorDataIndex = op.GetIntAttribute(OP_EMUOP_PREFIX + "GetTensorData_tensor_to_scalar");
         auto tensor = op.GetIOperands()[0];
         for (auto cons : tensor->GetConsumers()) {
             if (cons != &op) {
@@ -346,7 +346,7 @@ std::unordered_map<int, GetTensorDataIODesc> Function::GetTensorDataForLeafGraph
         if (!op.HasAttr(OP_EMUOP_PREFIX + "GetTensorData_tensor_to_scalar")) {
             continue;
         }
-        int getTensorDataIndex = *op.GetAttr<int>(OP_EMUOP_PREFIX + "GetTensorData_tensor_to_scalar");
+        int getTensorDataIndex = op.GetIntAttribute(OP_EMUOP_PREFIX + "GetTensorData_tensor_to_scalar");
         auto tensor = op.GetIOperands()[0];
         auto incastIndex = GetIncastIndex(tensor);
         if (incastIndex != INVALID_IOINDEX) {
@@ -700,7 +700,7 @@ bool Function::OperationLoopCheck()
                 visitStack.push_back(nextOp);
             }
             if (inLinkNum[nextOp] < 0) {
-                ALOG_ERROR_F("[OperationLoopCheck]     Operation:", nextOp->Dump());
+                ALOG_ERROR("[OperationLoopCheck]     Operation:", nextOp->Dump());
                 return false;
             }
         }
@@ -1484,7 +1484,7 @@ LogicalTensors Function::MakeIncasts(const std::shared_ptr<TensorSlotScope> &sco
     for (auto &rawIncast : rawIncasts) {
         const auto &sameRawIncasts = incastWithSameRaw[rawIncast->rawmagic];
 
-        std::vector<int> zeroOffset(rawIncast->rawshape.size(), 0);
+        std::vector<int64_t> zeroOffset(rawIncast->rawshape.size(), 0);
         auto inArgument = std::make_shared<LogicalTensor>(Parent(), rawIncast, zeroOffset, rawIncast->rawshape,
             NodeType::LOCAL, rawToIncast[rawIncast]->tensorfmt);
         inArgumentList.push_back(inArgument);
@@ -1560,7 +1560,7 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
     ASLOGI("raw out cast number %zu", rawOutcasts.size());
     for (const auto &rawOutcast : rawOutcasts) {
         const auto &sameRawOutcasts = outcastWithSameRaw[rawOutcast->rawmagic];
-        std::vector<int> nonOffsets(rawOutcast->rawshape.size(), 0);
+        std::vector<int64_t> nonOffsets(rawOutcast->rawshape.size(), 0);
 
         auto idx = outCasts_.size();
         auto newSymbol = rawOutcast->GetSymbol();
@@ -1585,7 +1585,7 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
             scope->outcastToOutOriginalDict[rawSymbol].insert(sameRawOutcasts.begin(), sameRawOutcasts.end());
         }
 
-        std::vector<std::vector<int>> newOutcastOffsets;
+        std::vector<std::vector<int64_t>> newOutcastOffsets;
         std::vector<std::shared_ptr<LogicalTensor>> iOperand;
         std::vector<std::shared_ptr<LogicalTensor>> oOperand = {rawSymbol};
         ASLOGI("same raw out cast number %zu", sameRawOutcasts.size());
@@ -2381,7 +2381,7 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
         std::vector<SymbolicScalar> operandCoaList;
         if (IsCopyIn(op->GetOpcode()) && k == 0) {
             operandCoaList = NormalizeCopyIn(op, coaIndex, valueToIndex);
-            op->SetAttr<int>(OP_EMUOP_PREFIX + "GetTensorData_coaIndex", coaIndex);
+            op->SetAttribute(OP_EMUOP_PREFIX + "GetTensorData_coaIndex", coaIndex);
         } else {
             operandCoaList = NormalizeTensor(op->GetIOperands()[k], coaIndex);
         }
@@ -2397,7 +2397,7 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
         std::vector<SymbolicScalar> operandCoaList;
         if (IsCopyOut(op->GetOpcode()) && k == 0) {
             operandCoaList = NormalizeCopyOut(op, coaIndex, valueToIndex);
-            op->SetAttr<int>(OP_EMUOP_PREFIX + "GetTensorData_coaIndex", coaIndex);
+            op->SetAttribute(OP_EMUOP_PREFIX + "GetTensorData_coaIndex", coaIndex);
         } else {
             operandCoaList = NormalizeTensor(op->GetOOperands()[k], coaIndex);
         }
@@ -2986,11 +2986,11 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
     auto overlapStatus = CalcOverlap(iOperand, matches);
     ASSERT(!matches.empty());
 
-    std::vector<std::vector<int>> offsetOfOverlaps;
+    std::vector<std::vector<int64_t>> offsetOfOverlaps;
     std::vector<std::shared_ptr<LogicalTensor>> needAddConsumer;
     sort(matches.begin(), matches.end(), [](const auto &a, const auto &b) -> bool { return a->offset < b->offset; });
 
-    std::vector<int> minimumOffsets = matches.front()->offset;
+    std::vector<int64_t> minimumOffsets = matches.front()->offset;
 
     for (auto &m : matches) {
         offsetOfOverlaps.emplace_back(m->offset);
@@ -3033,8 +3033,8 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
             return viewResult;
         }
         case OverlapStatus::BE_COVERED_BY_ALL: {
-            std::vector<int> minimumOffset;
-            std::vector<int> maximumShape;
+            std::vector<int64_t> minimumOffset;
+            std::vector<int64_t> maximumShape;
             CalcShapeAndOffsetOfGroup(matches, minimumOffset, maximumShape);
 
             auto assembleResult = std::make_shared<LogicalTensor>(
@@ -3048,7 +3048,7 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
             auto viewResult = std::make_shared<LogicalTensor>(*this, assembleResult->Datatype(), iOperand->shape,
                 "View_" + assembleResult->Symbol(), assembleResult->nodetype, iOperand->tensorfmt);
             auto &viewOp = AddRawOperation(Opcode::OP_VIEW, {assembleResult}, {viewResult});
-            std::vector<int> newOffset = TensorOffset::Sub(iOperand->GetOffset(), minimumOffset);
+            std::vector<int64_t> newOffset = TensorOffset::Sub(iOperand->GetOffset(), minimumOffset);
             std::vector<SymbolicScalar> newDynOffset = TensorOffset::Sub(iOperand->GetDynOffset(), minimumOffset);
             // fill valid shape
             viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(newOffset, newDynOffset, iOperand->GetDynValidShape()));

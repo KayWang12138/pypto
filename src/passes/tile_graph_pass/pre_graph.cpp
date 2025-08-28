@@ -40,9 +40,9 @@ void SubstituteInput(Operation *op, LogicalTensorPtr &expected, LogicalTensorPtr
     }
 }
 
-bool CalculateNewRawShape(const std::vector<int> &oriShape, const std::vector<int> &newShape,
-    const std::vector<int> &oriRawShape, std::vector<int> &newRawShape) {
-    std::vector<int> oriScale;
+bool CalculateNewRawShape(const std::vector<int64_t> &oriShape, const std::vector<int64_t> &newShape,
+    const std::vector<int64_t> &oriRawShape, std::vector<int64_t> &newRawShape) {
+    std::vector<int64_t> oriScale;
     size_t oriSize = oriShape.size();
     oriScale.resize(oriSize);
     for (size_t i = 0; i < oriSize; i++) {
@@ -55,7 +55,7 @@ bool CalculateNewRawShape(const std::vector<int> &oriShape, const std::vector<in
     ALOG_DEBUG_F("oriScale is %s.", IntVecToStr(oriScale).c_str());
     size_t newSize = newShape.size();
     newRawShape.resize(newSize);
-    std::vector<int> newScale(newSize, 1);
+    std::vector<int64_t> newScale(newSize, 1);
     int64_t accumuOriScale = oriScale[oriSize - 1];
     int64_t accumuOriShape = oriShape[oriSize - 1];
     int64_t accumuNewShape = newShape[newSize - 1];
@@ -90,14 +90,14 @@ bool CalculateNewRawShape(const std::vector<int> &oriShape, const std::vector<in
     return true;
 }
 
-void GetDynOffsetBeforeReshape(const std::vector<SymbolicScalar> &oriOffset, const std::vector<int> &oriShape,
-    const std::vector<int> &newShape, std::vector<SymbolicScalar> &newOffset) {
+void GetDynOffsetBeforeReshape(const std::vector<SymbolicScalar> &oriOffset, const std::vector<int64_t> &oriShape,
+    const std::vector<int64_t> &newShape, std::vector<SymbolicScalar> &newOffset) {
     // 计算原始shape的步长（stride）
     ASSERT(oriShape.size() == oriOffset.size());
     size_t oriSize = oriOffset.size();
     size_t newSize = newShape.size();
-    std::vector<int> oriStride(oriShape.size());
-    int currentStride = 1;
+    std::vector<int64_t> oriStride(oriShape.size());
+    int64_t currentStride = 1;
     for (int i = oriSize - 1; i >= 0; --i) {
         oriStride[i] = currentStride;
         currentStride *= oriShape[i];
@@ -109,7 +109,7 @@ void GetDynOffsetBeforeReshape(const std::vector<SymbolicScalar> &oriOffset, con
     }
 
     // 计算新shape的步长
-    std::vector<int> newStride(newSize);
+    std::vector<int64_t> newStride(newSize);
     currentStride = 1;
     for (int i = newSize - 1; i >= 0; --i) {
         newStride[i] = currentStride;
@@ -133,7 +133,7 @@ Copy_Out --> tensor(GM) --> Reshape --> oriBackUp [16, 16] --> DAssemble(offset,
 void HandleDynOffsetForReshape(const LogicalTensorPtr &oriBackUp, std::unordered_set<Operation *> &concurrentAssembles,
     const std::set<Operation *, LogicalTensor::CompareOp> &producers) {
     std::vector<SymbolicScalar> newDynOffset;
-    std::vector<int> newRawShape;
+    std::vector<int64_t> newRawShape;
     for (auto assemble : concurrentAssembles) {
         auto opAttr = dynamic_cast<AssembleOpAttribute *>(assemble->GetOpAttribute().get());
         if (opAttr == nullptr) {

@@ -74,8 +74,8 @@ void ExecuteOpVecDup(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
     ASSERT(ctx->ioperandDataViewList->size() == 0);
     auto &ret = ctx->ooperandInplaceDataViewList->at(0);
-    auto scalarVal = ctx->op->GetAttribute(OpAttributeKey::scalar);
-    auto element = scalarVal.HasValue() ? npu::tile_fwk::AnyCast<Element>(scalarVal) : Element(DT_FP32, 0.0f);
+    auto element = Element(DT_FP32, 0.0f);
+    ctx->op->GetAttr(OpAttributeKey::scalar, element);
     calc::ExpandS(ret, element);
 }
 REGISTER_CALC_OP(OP_VEC_DUP, Opcode::OP_VEC_DUP, ExecuteOpVecDup);
@@ -97,24 +97,24 @@ void ExecuteOpReduce(ExecuteOperationContext *ctx) {
         case Opcode::OP_ROWSUMLINE:
         case Opcode::OP_ROWMAX_SINGLE: {
             if (oop->GetShape()[axis] != 1) {
-                std::vector<int> oopShape = oop->GetShape();
+                std::vector<int64_t> oopShape = oop->GetShape();
                 oopShape[axis] = 1;
-                oop = oop->View(oopShape, std::vector<int>(oopShape.size(), 0));
+                oop = oop->View(oopShape, std::vector<int64_t>(oopShape.size(), 0));
             }
         } break;
         case Opcode::OP_ROWMIN_SINGLE: {
             if (oop->GetShape()[axis] != 1) {
-                std::vector<int> oopShape = oop->GetShape();
+                std::vector<int64_t> oopShape = oop->GetShape();
                 oopShape[axis] = 1;
-                oop = oop->View(oopShape, std::vector<int>(oopShape.size(), 0));
+                oop = oop->View(oopShape, std::vector<int64_t>(oopShape.size(), 0));
             }
         } break;
         case Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE:
         case Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE: {
             if (outputCombineAxisDone) {
-                std::vector<int> transShape = {oop->GetShape()[1], oop->GetShape()[0]};
+                std::vector<int64_t> transShape = {oop->GetShape()[1], oop->GetShape()[0]};
                 transShape[axis] = 1;
-                oopTrans = LogicalTensorData::CreateEmpty(oop->GetDataType(), transShape, std::vector<int>(0));
+                oopTrans = LogicalTensorData::CreateEmpty(oop->GetDataType(), transShape, std::vector<int64_t>(0));
             }
         } break;
         default: ASSERT(false);
@@ -189,29 +189,21 @@ void ExecuteOpExpand(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_EXPAND, Opcode::OP_EXPAND, ExecuteOpExpand);
 
-static std::vector<int64_t> ToShape64(const std::vector<int> &shape) {
-    std::vector<int64_t> ret;
-    for (auto &i : shape) {
-        ret.push_back(static_cast<int64_t>(i));
-    }
-    return ret;
-}
-
 void ExecuteOpTransposeDataMove(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
     ASSERT(ctx->ioperandDataViewList->size() == 1);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop = ctx->ioperandDataViewList->at(0);
 
-    std::vector<int> axises = ctx->op->GetVectorIntAttribute(OP_ATTR_PREFIX + "shape");
+    std::vector<int64_t> axises = ctx->op->GetVectorIntAttribute(OP_ATTR_PREFIX + "shape");
     auto oopCopy = oop;
     if (std::dynamic_pointer_cast<CopyOpAttribute>(ctx->op->GetOpAttribute())) {
         auto copyoutAttr = std::dynamic_pointer_cast<CopyOpAttribute>(ctx->op->GetOpAttribute());
-        std::vector<int> shape = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyoutAttr->GetShape());
-        std::vector<int> toOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyoutAttr->GetToOffset());
+        std::vector<int64_t> shape = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyoutAttr->GetShape());
+        std::vector<int64_t> toOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyoutAttr->GetToOffset());
         oopCopy = oop->View(shape, toOffset);
     }
-    calc::Permute(oopCopy, iop, ToShape64(axises));
+    calc::Permute(oopCopy, iop, axises);
 }
 REGISTER_CALC_OP(OP_TRANSPOSE_MOVEOUT, Opcode::OP_TRANSPOSE_MOVEOUT, ExecuteOpTransposeDataMove);
 
@@ -221,7 +213,7 @@ void ExecuteOpTranspose(ExecuteOperationContext *ctx) {
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop = ctx->ioperandDataViewList->at(0);
     auto axises = ctx->op->GetVectorIntAttribute(OP_ATTR_PREFIX + "shape");
-    calc::Permute(oop, iop, ToShape64(axises));
+    calc::Permute(oop, iop, axises);
 }
 REGISTER_CALC_OP(OP_TRANSPOSE_VNCHWCONV, Opcode::OP_TRANSPOSE_VNCHWCONV, ExecuteOpTranspose);
 
@@ -236,8 +228,8 @@ void ExecuteOpIndexOutcast(ExecuteOperationContext *ctx) {
 
     if (std::dynamic_pointer_cast<CopyOpAttribute>(ctx->op->GetOpAttribute())) {
         auto copyoutAttr = std::dynamic_pointer_cast<CopyOpAttribute>(ctx->op->GetOpAttribute());
-        std::vector<int> shape = dst->GetShape();
-        std::vector<int> toOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyoutAttr->GetToOffset());
+        std::vector<int64_t> shape = dst->GetShape();
+        std::vector<int64_t> toOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyoutAttr->GetToOffset());
         oopCopy = oop->View(shape, toOffset);
     }
     Calculator::CalcIndexCopy(oopCopy.get(), src.get(), index.get(), dst.get(), axis, ctx->opInter->GetPoolPtr());
@@ -257,8 +249,8 @@ void ExecuteOpBinaryScalar(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 1);
     auto &ret = ctx->ooperandInplaceDataViewList->at(0);
     auto &lhs = ctx->ioperandDataViewList->at(0);
-    auto scalarVal = ctx->op->GetAttribute(OpAttributeKey::scalar);
-    auto element = scalarVal.HasValue() ? npu::tile_fwk::AnyCast<Element>(scalarVal) : Element(DT_FP32, 0.0f);
+    auto element = Element(DT_FP32, 0.0f);
+    ctx->op->GetAttr(OpAttributeKey::scalar, element);
     bool reverse = ctx->op->GetBoolAttribute(OP_ATTR_PREFIX + "reverseOperand");
     ASSERT(ret->GetDataType() == DT_FP32);
 

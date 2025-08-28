@@ -35,8 +35,8 @@ TEST_F(MoEPart4OnBoardTest, test_operation_b_2) {
     uint8_t* out_topk_weight = allocDevAddr(outputSize);
     // uint8_t* out_group_mask_ptr = allocDevAddr(outputSize);
     PROGRAM("MOE_GATE_PART4") {
-        std::vector<int> input_shape = {B * S, nRoutedExperts};
-        std::vector<int> output_shape = {B * S, numExpertsPerTopk};
+        std::vector<int64_t> input_shape = {B * S, nRoutedExperts};
+        std::vector<int64_t> output_shape = {B * S, numExpertsPerTopk};
         void *input_score = readToDev(GetGoldenDir() + "/input_score.bin", inputSize);
         void *input_tmp_score = readToDev(GetGoldenDir() + "/input_tmp_score.bin", inputSize);
         Program::GetInstance().GetTileShape().SetVecTileShapes({16, 32});
