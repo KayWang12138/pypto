@@ -119,6 +119,7 @@ set(_CaseFilterList
         #"GatherElementOnBoardTest.test_gather_element_float_16_64_7_32_1"
         #"GatherElementOnBoardTest.test_gather_element_float_16_64_7_32_0"
         #"ScatterElementOnBoardTest.test_scatter_element_float_8_256_8_8_1_moe"
+        
         #===========================================================================
         # matmul功能用例
         #===========================================================================
@@ -174,6 +175,7 @@ set(_CaseFilterList
         #===========================================================================
         "DynamicReshapeTest.test_only_reshape"
         "DynamicReshapeTest.test_dyn_reshape2"       
+        "DynamicReshapeTest.test_assemble_diff_tile"
 )
 
 set(_Target ${TileFwkSTestNamePrefix}_machine)

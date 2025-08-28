@@ -311,3 +311,297 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape22222) {
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 }
+
+/* 
+    * test infershape case
+*/
+
+// test reshape unaligned infershape
+TEST_F(DynamicReshapeTest, test_reshape_unalign) {
+    Program::GetInstance().GetTileShape().SetVecTileShapes(64, 64);
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+
+    int b = 2;
+    int sq = 64;
+    int d = 64;
+    std::vector<int> qShape2Dim = {b*sq, d};
+    std::vector<int> qShape3Dim = {b, sq, d};
+
+
+    Tensor q(DT_FP32, qShape2Dim, "q");
+    Tensor actSeqs(DT_INT32, {b, 1, 1}, "actual_seq");
+    Tensor out(DT_FP32, qShape3Dim, "out");
+
+    FUNCTION("main", FunctionType::DYNAMIC, {q, actSeqs}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0) / (sq))) {
+            SymbolicScalar curSeq = GetInputDataInt32Dim3(actSeqs, batchId, 0, 0);
+
+            Tensor q0 = DViewPad(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
+            auto tmp0 = Reshape(q0, {1, sq, d}, {1, curSeq, d});
+            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 64, 64);
+            auto tmp = Exp(tmp0);
+            DAssemble(tmp, {batchId, 0, 0}, out);
+        }
+    }
+
+    float inputValue = 2.0f;
+    float initValue = 0.5f;
+
+    std::vector<int> actSeqsData(b, 63);
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(q, inputValue),
+        RawTensorData::CreateTensor<int32_t>(actSeqs, actSeqsData),
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, initValue),
+    });
+
+    // excute
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+
+    std::vector<float> golden(b * sq * d, initValue);
+    for (int bIdx = 0; bIdx < b; ++bIdx) {
+        int offset = bIdx * sq * d;
+        std::fill(golden.begin() + offset, golden.begin() + offset + actSeqsData[bIdx] * d, exp(inputValue));
+    }
+
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+}
+
+// test vec + mm diff tile and unaligned  infershape
+TEST_F(DynamicReshapeTest, test_assemble_diff_tile) {
+    Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16}, {128, 128}, {128, 128});
+
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+
+    int batch = 2;
+    int s1 = 16;
+    int s2 = 128;
+    int d = 128;
+
+    // (a + b)@c -> out  
+    Tensor a(DT_FP32, {batch*s1, s2}, "a");
+    Tensor b(DT_FP32, {batch*s2, d}, "b");
+    Tensor out(DT_FP32, {batch*s1, d}, "out");
+
+    Tensor actSeqs(DT_INT32, {batch}, "actual_seq");
+
+    FUNCTION("main", FunctionType::DYNAMIC, {a, b, actSeqs}, {out}) {
+        LOOP("LOOP_BATCH", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(GetInputShapeDim(a, 0) / s1)) {
+            SymbolicScalar actS2 = GetInputDataInt32Dim1(actSeqs, bIdx);
+
+            Tensor aView = DViewPad(a, {s1, s2}, {s1, s2}, {bIdx*s1, 0});
+            Tensor bView = DViewPad(b, {s2, d}, {s2, actS2}, {bIdx*s2, 0});
+
+            Program::GetInstance().GetTileShape().SetVecTileShapes(16, 64);
+            Tensor aFp16 = Cast(aView, DataType::DT_FP16);
+            Program::GetInstance().GetTileShape().SetVecTileShapes(128, 64);
+            Tensor bFp16 = Cast(bView, DataType::DT_FP16);
+
+            auto tmpO = Matrix::Matmul<false, false>(DataType::DT_FP32, aFp16, bFp16);     // {s1, actS2} @ {actS2, d}
+            DAssemble(tmpO, {bIdx*s1, 0}, out);
+        }
+    }
+
+    float inputValue = 1.0f;
+    float initValue = 0.5f;
+    int acutalValue = 62;
+    std::vector<int> actSeqsData(batch, acutalValue);
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(a, inputValue),
+        RawTensorData::CreateConstantTensor<float>(b, inputValue),
+        RawTensorData::CreateTensor<int32_t>(actSeqs, actSeqsData),
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, initValue),
+    });
+
+    // excute
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+
+    std::vector<float> golden(batch * s1 * d, initValue);
+    for (int bsIdx = 0; bsIdx < batch * s1; ++bsIdx) {
+        int offset = bsIdx * d;
+        std::fill(golden.begin() + offset, golden.begin() + offset + acutalValue, 128.0f);
+    }
+    
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+}
+
+// test DView + Reshape + DAssemble 4->2 + op  2batch will wrong
+TEST_F(DynamicReshapeTest, test_reshape_dassemble_4_2) {
+    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 64, 64);
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+
+    int b = 2;
+    int s = 1;
+    int n1 = 64;
+    int d = 64;
+
+    // [b,s1,n1,d] -> [b*s1*n1,d]
+    Tensor queryOut(DT_FP32, {b, s, n1, d}, "queryOut");
+    Tensor qNope(DT_FP32, {b * s * n1, d}, "qNope");
+    Tensor qRes(DT_FP32, {b * s * n1, d}, "qRes");
+
+    FUNCTION("main", FunctionType::DYNAMIC, {queryOut}, {qNope, qRes}) {
+        LOOP("RESHAPE_LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, b, 1), {}, true) {
+            SymbolicScalar bOffset = bIdx * 1;
+            LOOP("RESHAPE_LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, s, 1)) {
+                SymbolicScalar sOffset = sIdx * 1;
+
+                Tensor nopeView = DView(queryOut, {1, 1, n1, d}, {bOffset, sOffset, 0, 0});
+                Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, d});
+                Tensor nopeRes = Reshape(nopeView, {1 * 1 * n1, d});
+                DAssemble(nopeRes, {(bOffset * s + sOffset) * n1, 0}, qNope);
+            }
+        }
+
+        LOOP("Add_LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, b, 1), {}, true) {
+            auto qNopeL = DView(qNope, {64, 64}, {bIdx * s * n1, 0});
+            Program::GetInstance().GetTileShape().SetVecTileShapes(64, 64);
+            auto qResTmp = AddS(qNopeL, Element(DataType::DT_FP32, 1.0));
+            DAssemble(qResTmp, {bIdx * s * n1, 0}, qRes);
+        }
+    }
+
+    float inputValue = 2.0f;
+    float initValue = 0.5f;
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(queryOut, inputValue),
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(qNope, initValue),
+        RawTensorData::CreateConstantTensor<float>(qRes, initValue),
+    });
+
+    // excute
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+
+    std::vector<float> golden_qNope(b * s * n1 * d, inputValue);
+    std::vector<float> golden_qRes(b * s * n1 * d, inputValue + 1.0f);
+
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputDataList();
+    EXPECT_TRUE(resultCmp(golden_qNope, (float *)outs[0]->data(), 0.001f)); //right
+    EXPECT_TRUE(resultCmp(golden_qRes, (float *)outs[1]->data(), 0.001f));  //wrong
+
+}
+
+//  dassemble + op + unaligin  Dassemble 不推导 validshape而是使用dst的shape时，后续操作会有问题
+
+/* 
+    * test copy case
+*/
+
+// test DView + Reshape + DAssemble 2->3
+TEST_F(DynamicReshapeTest, test_reshape_dassemble) {
+    Program::GetInstance().GetTileShape().SetVecTileShapes(64, 64);
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+
+    int b = 1;
+    int sq = 64;
+    int d = 64;
+    std::vector<int> qShape2Dim = {b*sq, d};
+    std::vector<int> qShape3Dim = {b, sq, d};
+
+
+    Tensor q(DT_FP32, qShape2Dim, "q");
+    Tensor out(DT_FP32, qShape3Dim, "out");
+
+# if 1
+    FUNCTION("main", FunctionType::DYNAMIC, {q}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0) / (sq))) {
+            Tensor q0 = DView(q, {sq, d}, {batchId * sq, 0});
+            // auto tmp0 = MulS(q0, Element(DataType::DT_FP32, 1.0));
+            auto tmp = Reshape(q0, {1, sq, d});
+            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 64, 64);
+            // auto tmp = MulS(tmp, Element(DataType::DT_FP32, 1.0));
+            DAssemble(tmp, {batchId, 0, 0}, out);
+        }
+    }
+#else
+    FUNCTION("main", FunctionType::DYNAMIC, {q}, {out}) {
+        Tensor q0 = DView(q, {sq, d}, {sq, 0});
+        auto tmp0 = MulS(q0, Element(DataType::DT_FP32, 1.0));
+        auto tmp = Reshape(q0, {1, sq, d});
+        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 64, 64);
+        DAssemble(tmp, {0, 0, 0}, out);
+    }
+#endif
+
+    float inputValue = 2.0f;
+    float initValue = 0.5f;
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(q, inputValue),
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, initValue),
+    });
+
+    // excute
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+
+    std::vector<float> golden(b * sq * d, inputValue);
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+}
+
+
+// ===================  reshape + op + reshape  ??????
+TEST_F(DynamicReshapeTest, test_reshape_op_reshape) {
+    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 64, 64);
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+
+    int b = 2;
+    int s = 1;
+    int n1 = 64;
+    int d = 64;
+
+     // [b,s1,n1,d] -> [b*s1*n1,d]
+    Tensor queryOut(DT_FP32, {b, s, n1, d}, "queryOut");
+    Tensor qNope(DT_FP32, {b * s, n1, d}, "qNope");
+
+    FUNCTION("main", FunctionType::DYNAMIC, {queryOut}, {qNope}) {
+        LOOP("RESHAPE_LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, b, 1), {}, true) {
+            SymbolicScalar bOffset = bIdx * 1;
+            LOOP("RESHAPE_LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, s, 1)) {
+                SymbolicScalar sOffset = sIdx * 1;
+                Tensor nopeView = DView(queryOut, {1, 1, n1, d}, {bOffset, sOffset, 0, 0});
+                Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 64, 64});
+                Tensor tmp0 = Reshape(nopeView, {1 * 1 * n1, d});
+                auto tmp1 = AddS(tmp0, Element(DataType::DT_FP32, 1.0));
+                Program::GetInstance().GetTileShape().SetVecTileShapes({1, 64, 64});
+                auto tmp2 = Reshape(tmp1, {1, n1, d});
+                auto nopeRes = MulS(tmp2, Element(DataType::DT_FP32, 1.0));
+                DAssemble(nopeRes, {(bOffset * s + sOffset), 0, 0}, qNope);
+            }
+        }
+    }
+
+    float inputValue = 2.0f;
+    float initValue = 0.5f;
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(queryOut, inputValue),
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(qNope, initValue),
+    });
+
+    // excute
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+
+    std::vector<float> golden_qNope(b * s * n1 * d, inputValue + 2.0f);
+
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputDataList();
+    EXPECT_TRUE(resultCmp(golden_qNope, (float *)outs[0]->data(), 0.001f)); //right
+}

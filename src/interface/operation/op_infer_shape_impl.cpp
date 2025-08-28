@@ -404,7 +404,7 @@ void CopyOutInferFunc(Operation* op,
         if (staticInputShapes[0][i] == op->GetOOperands()[0]->GetShape()[i]) { //src的该维度没有被切分，assmble后该维度大小不变
             actualDim = std::max(SymbolicScalar(0), inputShapes[0][i] + oriOffset[i]);
         } else {
-            actualDim = std::max(outDynShape[i], (inputShapes[0][i] + oriOffset[i]));
+            actualDim = std::max(outDynShape[i], (inputShapes[0][i] + oriOffset[i]) * (inputShapes[0][i] != 0));
         }
         outShape.push_back(actualDim);
     }
@@ -490,7 +490,7 @@ void AssembleInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& 
     }
     std::vector<SymbolicScalar> outShape;
     for (size_t i = 0U; i < inputShapes.size(); i++) {
-        SymbolicScalar actualDim = std::max(outDynShape[i], (inputShapes[i] + offset[i]));
+        SymbolicScalar actualDim = std::max(outDynShape[i], (inputShapes[i] + offset[i]) * (inputShapes[i] != 0));
         outShape.push_back(actualDim);
     }
     for (auto output : op->GetOOperands()) {
