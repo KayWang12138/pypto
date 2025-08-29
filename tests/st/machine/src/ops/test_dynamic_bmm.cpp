@@ -51,8 +51,8 @@ static void NonSplitFunc(const Tensor &tensor_a, const Tensor &tensor_b, Tensor 
 
     FUNCTION("testNoSplit", FunctionType::DYNAMIC, {tensor_a, tensor_b}, {tensor_c}) {
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1)) {
-            Tensor dyn_a = DViewPad(tensor_a, aShape, aValidShape, {0, mIdx, 0});
-            Tensor dyn_b = DViewPad(tensor_b, bShape, bValidShape, {0, 0, 0});
+            Tensor dyn_a = View(tensor_a, aShape, aValidShape, {0, mIdx, 0});
+            Tensor dyn_b = View(tensor_b, bShape, bValidShape, {0, 0, 0});
             tensor_c = Matrix::BatchMatmul<transA, transB, isCNz>(GetAstDtype<outputDtype>(), dyn_a, dyn_b);
         }
     }
@@ -71,13 +71,13 @@ static void MSplitFunc(
             LoopRange(0, CeilDivSymbolicScalar(transA ? aShape[BMM_SHAPE_N_DIM] : aShape[1], viewShape[1]), 1)) {
             Tensor dyn_a;
             if (transA) {
-                dyn_a = DViewPad(tensor_a, {aShape[0], aShape[1], viewShape[1]},
+                dyn_a = View(tensor_a, {aShape[0], aShape[1], viewShape[1]},
                     {aShape[0], aShape[1], std::min(aShape[2] - viewShape[1] * mIdx, viewShape[1])}, {0, 0, mIdx * viewShape[1]});
             } else {
-                dyn_a = DViewPad(tensor_a, {aShape[0], viewShape[1], aShape[2]},
+                dyn_a = View(tensor_a, {aShape[0], viewShape[1], aShape[2]},
                     {aShape[0], std::min(aShape[1] - viewShape[1] * mIdx, viewShape[1]), aShape[2]}, {0, mIdx * viewShape[1], 0});
             }
-            Tensor dyn_b = DViewPad(tensor_b, bShape, bValidShape, {0, 0, 0});
+            Tensor dyn_b = View(tensor_b, bShape, bValidShape, {0, 0, 0});
             Tensor res = Matrix::BatchMatmul<transA, transB, isCNz>(GetAstDtype<outputDtype>(), dyn_a, dyn_b);
             Assemble(res, {0, mIdx * viewShape[0], 0}, tensor_c);
         }
@@ -95,13 +95,13 @@ static void NSplitFunc(
     FUNCTION("testNSplit", FunctionType::DYNAMIC, {tensor_a, tensor_b}, {tensor_c}) {
         LOOP("nLoop", FunctionType::DYNAMIC_LOOP, nIdx,
             LoopRange(0, CeilDivSymbolicScalar(transB ? bShape[1] : bShape[BMM_SHAPE_N_DIM], viewShape[BMM_SHAPE_N_DIM]), 1)) {
-            Tensor dyn_a = DViewPad(tensor_a, aShape, aValidShape, {0, 0, 0});
+            Tensor dyn_a = View(tensor_a, aShape, aValidShape, {0, 0, 0});
             Tensor dyn_b;
             if (!transB) {
-                dyn_b = DViewPad(tensor_b, {bShape[0], bShape[1], viewShape[2]},
+                dyn_b = View(tensor_b, {bShape[0], bShape[1], viewShape[2]},
                     {bShape[0], bShape[1], std::min(bShape[2] - viewShape[2] * nIdx, viewShape[2])}, {0, 0, nIdx * viewShape[2]});
             } else {
-                dyn_b = DViewPad(tensor_b, {bShape[0], viewShape[2], bShape[2]},
+                dyn_b = View(tensor_b, {bShape[0], viewShape[2], bShape[2]},
                     {bShape[0], std::min(bShape[1] - viewShape[2] * nIdx, viewShape[2]), bShape[2]}, {0, nIdx * viewShape[2], 0});
             }
             Tensor res = Matrix::BatchMatmul<transA, transB, isCNz>(GetAstDtype<outputDtype>(), dyn_a, dyn_b);
@@ -125,21 +125,21 @@ static void MNSplitFunc(
                 LoopRange(0, CeilDivSymbolicScalar(transB ? bShape[1] : bShape[BMM_SHAPE_N_DIM], viewShape[BMM_SHAPE_N_DIM]), 1)) {
                 Tensor dyn_a;
                 if (transA) {
-                    dyn_a = DViewPad(tensor_a, {aShape[0], aShape[1], viewShape[1]},
+                    dyn_a = View(tensor_a, {aShape[0], aShape[1], viewShape[1]},
                         {aShape[0], aShape[1], std::min(aShape[2] - viewShape[1] * mIdx, viewShape[1])},
                         {0, 0, mIdx * viewShape[1]});
                 } else {
-                    dyn_a = DViewPad(tensor_a, {aShape[0], viewShape[1], aShape[2]},
+                    dyn_a = View(tensor_a, {aShape[0], viewShape[1], aShape[2]},
                         {aShape[0], std::min(aShape[1] - viewShape[1] * mIdx, viewShape[1]), aShape[2]},
                         {0, mIdx * viewShape[1], 0});
                 }
                 Tensor dyn_b;
                 if (!transB) {
-                    dyn_b = DViewPad(tensor_b, {bShape[0], bShape[1], viewShape[2]},
+                    dyn_b = View(tensor_b, {bShape[0], bShape[1], viewShape[2]},
                         {bShape[0], bShape[1], std::min(bShape[2] - viewShape[2] * nIdx, viewShape[2])},
                         {0, 0, nIdx * viewShape[2]});
                 } else {
-                    dyn_b = DViewPad(tensor_b, {bShape[0], viewShape[2], bShape[2]},
+                    dyn_b = View(tensor_b, {bShape[0], viewShape[2], bShape[2]},
                         {bShape[0], std::min(bShape[1] - viewShape[2] * nIdx, viewShape[2]), bShape[2]},
                         {0, nIdx * viewShape[2], 0});
                 }

@@ -52,11 +52,11 @@ static void GatherElementOperationExeFunc2Dims(
         const int sloop = CeilDiv(idx_secondDim, secondViewShape);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                auto tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape},
+                auto tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
                     {std::min(src_firstDim - bIdx * firstViewShape, firstViewShape),
                         std::min(src_secondDim - sIdx * secondViewShape, secondViewShape)},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
-                auto tileTensor1 = DViewPad(inputs[1], {firstViewShape, secondViewShape},
+                auto tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
                     {std::min(idx_firstDim - bIdx * firstViewShape, firstViewShape),
                         std::min(idx_secondDim - sIdx * secondViewShape, secondViewShape)},
                     {bIdx * firstViewShape, sIdx * secondViewShape});

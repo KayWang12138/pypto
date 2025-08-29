@@ -71,15 +71,15 @@ static void MatmulOperationExeFuncNoSplit(
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1)) {
             Tensor tensorA;
             if (transA) {
-                tensorA = DViewPad(inputs[0], {kDim, mDim}, {kDim, mDim}, {0, 0});
+                tensorA = View(inputs[0], {kDim, mDim}, {kDim, mDim}, {0, 0});
             } else {
-                tensorA = DViewPad(inputs[0], {mDim, kDim}, {mDim, kDim}, {mIdx, 0});
+                tensorA = View(inputs[0], {mDim, kDim}, {mDim, kDim}, {mIdx, 0});
             }
             Tensor tensorB;
             if (transB) {
-                tensorB = DViewPad(inputs[1], {nDim, kDim}, {nDim, kDim}, {0, 0});
+                tensorB = View(inputs[1], {nDim, kDim}, {nDim, kDim}, {0, 0});
             } else {
-                tensorB = DViewPad(inputs[1], {kDim, nDim}, {kDim, nDim}, {0, 0});
+                tensorB = View(inputs[1], {kDim, nDim}, {kDim, nDim}, {0, 0});
             }
 
             Program::GetInstance().GetTileShape().SetCubeTileShapes({args->tileShape_[0][0], args->tileShape_[0][1]},
@@ -107,16 +107,16 @@ static void MatmulOperationExeFuncSplitM(
             Tensor tensorA;
             if (transA) {
                 tensorA =
-                    DViewPad(inputs[0], {kDim, mView}, {kDim, std::min(mDim - mView * mIdx, mView)}, {0, mIdx * mView});
+                    View(inputs[0], {kDim, mView}, {kDim, std::min(mDim - mView * mIdx, mView)}, {0, mIdx * mView});
             } else {
                 tensorA =
-                    DViewPad(inputs[0], {mView, kDim}, {std::min(mDim - mView * mIdx, mView), kDim}, {mIdx * mView, 0});
+                    View(inputs[0], {mView, kDim}, {std::min(mDim - mView * mIdx, mView), kDim}, {mIdx * mView, 0});
             }
             Tensor tensorB;
             if (transB) {
-                tensorB = DViewPad(inputs[1], {nDim, kDim}, {nDim, kDim}, {0, 0});
+                tensorB = View(inputs[1], {nDim, kDim}, {nDim, kDim}, {0, 0});
             } else {
-                tensorB = DViewPad(inputs[1], {kDim, nDim}, {kDim, nDim}, {0, 0});
+                tensorB = View(inputs[1], {kDim, nDim}, {kDim, nDim}, {0, 0});
             }
 
             Program::GetInstance().GetTileShape().SetCubeTileShapes({args->tileShape_[0][0], args->tileShape_[0][1]},
@@ -144,17 +144,17 @@ static void MatmulOperationExeFuncSplitN(
         LOOP("nLoop", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, CeilDivSymbolicScalar(nDim, nView), 1)) {
             Tensor tensorA;
             if (transA) {
-                tensorA = DViewPad(inputs[0], {kDim, mDim}, {kDim, mDim}, {0, 0});
+                tensorA = View(inputs[0], {kDim, mDim}, {kDim, mDim}, {0, 0});
             } else {
-                tensorA = DViewPad(inputs[0], {mDim, kDim}, {mDim, kDim}, {0, 0});
+                tensorA = View(inputs[0], {mDim, kDim}, {mDim, kDim}, {0, 0});
             }
             Tensor tensorB;
             if (transB) {
                 tensorB =
-                    DViewPad(inputs[1], {nView, kDim}, {std::min(nDim - nIdx * nView, nView), kDim}, {nIdx * nView, 0});
+                    View(inputs[1], {nView, kDim}, {std::min(nDim - nIdx * nView, nView), kDim}, {nIdx * nView, 0});
             } else {
                 tensorB =
-                    DViewPad(inputs[1], {kDim, nView}, {kDim, std::min(nDim - nIdx * nView, nView)}, {0, nIdx * nView});
+                    View(inputs[1], {kDim, nView}, {kDim, std::min(nDim - nIdx * nView, nView)}, {0, nIdx * nView});
             }
 
             Program::GetInstance().GetTileShape().SetCubeTileShapes({args->tileShape_[0][0], args->tileShape_[0][1]},
@@ -184,18 +184,18 @@ static void MatmulOperationExeFuncSplitMN(
             LOOP("nLoop", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, CeilDivSymbolicScalar(nDim, nView), 1)) {
                 Tensor tensorA;
                 if (transA) {
-                    tensorA = DViewPad(
+                    tensorA = View(
                         inputs[0], {kDim, mView}, {kDim, std::min(mDim - mView * mIdx, mView)}, {0, mIdx * mView});
                 } else {
-                    tensorA = DViewPad(
+                    tensorA = View(
                         inputs[0], {mView, kDim}, {std::min(mDim - mView * mIdx, mView), kDim}, {mIdx * mView, 0});
                 }
                 Tensor tensorB;
                 if (transB) {
-                    tensorB = DViewPad(
+                    tensorB = View(
                         inputs[1], {nView, kDim}, {std::min(nDim - nIdx * nView, nView), kDim}, {nIdx * nView, 0});
                 } else {
-                    tensorB = DViewPad(
+                    tensorB = View(
                         inputs[1], {kDim, nView}, {kDim, std::min(nDim - nIdx * nView, nView)}, {0, nIdx * nView});
                 }
 

@@ -1626,10 +1626,10 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
         ASSERT(iOperand.size() == newOutcastOffsets.size());
         for (size_t i = 0; i < iOperand.size(); i++) {
             auto producerSet = iOperand[i]->GetProducers();
-            auto anyDAssemble = std::any_of(producerSet.begin(), producerSet.end(), [](Operation *op){
+            auto anyAssemble = std::any_of(producerSet.begin(), producerSet.end(), [](Operation *op){
                 return op->GetOpcode() == Opcode::OP_ASSEMBLE && op->HasAttribute("dassemble");
             });
-            if (anyDAssemble) {
+            if (anyAssemble) {
                 for (auto producer : producerSet) {
                     auto producerAttr = std::static_pointer_cast<AssembleOpAttribute>(producer->GetOpAttribute());
                     auto [offset, dynOffset] = TensorOffset::Add(iOperand[i]->GetOffset(), iOperand[i]->GetDynOffset(), producerAttr->GetToOffset(), producerAttr->GetToDynOffset());
@@ -2356,7 +2356,7 @@ static std::vector<SymbolicScalar> NormalizeTensor(LogicalTensorPtr operand, int
     } else {
         OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, rawshape, coaIndex, false);
     }
-    
+
     operandCoaIndex += dim;
     coaIndex += dim;
 
@@ -2920,7 +2920,7 @@ void Function::UpdateOriIocastSlot(const std::shared_ptr<TensorSlotScope> scope)
     ASSERT(slotScope_ != nullptr);
     auto& incastDst = slotScope_->oriIncastReadSlotSet;
     incastDst.insert(incastDst.end(), scope->incastReadSlotSet.begin(), scope->incastReadSlotSet.end());
-    
+
     auto& outcastDst = slotScope_->oriOutcastWriteSlotSet;
     outcastDst.insert(outcastDst.end(), scope->outcastWriteSlotSet.begin(), scope->outcastWriteSlotSet.end());
 

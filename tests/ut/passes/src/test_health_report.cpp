@@ -38,7 +38,7 @@ protected:
     bool oriEnableAihacBackend = false;
 };
 
-void TestLoopDViewDAssembleCopy(const Tensor &t0, const Tensor &t1, const Tensor &blockTable, Tensor &out, int s) {
+void TestLoopViewAssembleCopy(const Tensor &t0, const Tensor &t1, const Tensor &blockTable, Tensor &out, int s) {
     FUNCTION("main", FunctionType::DYNAMIC, {t0, t1, blockTable}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShapeDim(t0, 0) / s)) {
             SymbolicScalar idx = GetInputDataInt32Dim2(blockTable, i, 0);
@@ -74,7 +74,7 @@ TEST_F(HealthReportTest, TestDD) {
          "blockTable"
     };
     Tensor out(DT_FP32, {n * s, s}, "out");
-    TestLoopDViewDAssembleCopy(t0, t1, blockTable, out, s);
+    TestLoopViewAssembleCopy(t0, t1, blockTable, out, s);
 
     auto funcMap = Program::GetInstance().GetFunctionMap();
     ALOG_INFO(funcMap.size());

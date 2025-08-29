@@ -45,7 +45,7 @@ void ReduceMinOperationExeFunc(
         int bloop = CeilDiv(firstDim, firstViewShape);
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            auto viewTensor = DViewPad(inputs[0], {firstViewShape, secondDim},
+            auto viewTensor = View(inputs[0], {firstViewShape, secondDim},
                 {std::min(firstDim - bIdx * firstViewShape, firstViewShape), secondDim}, {bIdx * firstViewShape, 0});
             Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
             auto res = RowMinSingle(viewTensor, args->dims_[0]);
@@ -66,7 +66,7 @@ void ReduceMin2DOperationExeFunc(
         int sloop = CeilDiv(secondDim, secondViewShape);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                auto viewTensor = DViewPad(inputs[0], {firstViewShape, secondViewShape},
+                auto viewTensor = View(inputs[0], {firstViewShape, secondViewShape},
                     {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                         std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
@@ -95,7 +95,7 @@ void ReduceMin3DOperationExeFunc(
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
                 LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                    auto viewTensor = DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
+                    auto viewTensor = View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                             std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                             std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
@@ -132,7 +132,7 @@ void ReduceMin4DOperationExeFunc(
                 LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mloop, 1)) {
                     LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
                         auto viewTensor =
-                            DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                            View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
                                 {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                                     std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                                     std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),

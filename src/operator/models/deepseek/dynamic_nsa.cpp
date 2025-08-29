@@ -27,7 +27,7 @@ std::vector<Tensor> GenTopkIndices(
     const Tensor &tmpOut, int s_slc, int actualTopk, SymbolicScalar validSize, bool isDyn) {
     std::vector<Tensor> res;
     Program::GetInstance().GetTileShape().SetVecTileShapes({1, s_slc});
-    auto view0 = DViewPad(tmpOut, {1, 128}, {1, validSize}, {0, 1});
+    auto view0 = View(tmpOut, {1, 128}, {1, validSize}, {0, 1});
     if (!isDyn) {
         view0 = View(tmpOut, {1, validSize}, {0, 1});
     }
@@ -37,7 +37,7 @@ std::vector<Tensor> GenTopkIndices(
     topk_idx = AddS(topk_idx, Element(DT_FP32, 1.0f));
     res.emplace_back(topk_idx);
 
-    topk_idx = DViewPad(topk_idx, {1, 16}, {1, actualTopk}, {0, 0});
+    topk_idx = View(topk_idx, {1, 16}, {1, actualTopk}, {0, 0});
     if (!isDyn) {
         topk_idx = View(topk_idx, {1, actualTopk}, {0, 0});
     }
@@ -49,7 +49,7 @@ std::vector<Tensor> GenTopkIndices(
 std::vector<Tensor> singleTopk(const Tensor &tmpOut, int actualValidLen) {
     std::vector<Tensor> res;
     Program::GetInstance().GetTileShape().SetVecTileShapes({1, 128});
-    auto view0 = DViewPad(tmpOut, {1, 128}, {1, actualValidLen}, {0, 1});
+    auto view0 = View(tmpOut, {1, 128}, {1, actualValidLen}, {0, 1});
     Program::GetInstance().GetTileShape().SetVecTileShapes({1, 128});
     auto topk_idx = std::get<1>(TopK(view0, 16, -1, true));
     topk_idx = Cast(topk_idx, DataType::DT_FP32);

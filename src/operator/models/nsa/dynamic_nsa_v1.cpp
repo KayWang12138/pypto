@@ -100,17 +100,17 @@ void GenAttn(Tensor &gatingScore, Tensor &cmpAtten, Tensor &selAtten, Tensor &wi
             std::vector<SymbolicScalar> outOffset = {bOffset, sOffset, 0, 0};
             SymbolicScalar actualsSize = std::min(tileS, (sDimSize - sIdx * tileS));
             Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, NUM_16, vDimSize);
-            auto cmpAttenTile = DViewPad(cmpAtten, {tileB, tileS, nDimSize, vDimSize},
+            auto cmpAttenTile = View(cmpAtten, {tileB, tileS, nDimSize, vDimSize},
                 {actualBSize, actualsSize, nDimSize, vDimSize}, {bOffset, sOffset, 0, 0});
-            auto selAttenTile = DViewPad(selAtten, {tileB, tileS, nDimSize, vDimSize},
+            auto selAttenTile = View(selAtten, {tileB, tileS, nDimSize, vDimSize},
                 {actualBSize, actualsSize, nDimSize, vDimSize}, {bOffset, sOffset, 0, 0});
-            auto winAttenTile = DViewPad(winAtten, {tileB, tileS, nDimSize, vDimSize},
+            auto winAttenTile = View(winAtten, {tileB, tileS, nDimSize, vDimSize},
                 {actualBSize, actualsSize, nDimSize, vDimSize}, {bOffset, sOffset, 0, 0});
             auto cmpAttenFP32Tile = Cast(cmpAttenTile, DT_FP32);
             auto selAttenFP32Tile = Cast(selAttenTile, DT_FP32);
             auto winAttenFP32Tile = Cast(winAttenTile, DT_FP32);
             Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, nDimSize, NUM_3);
-            auto gatingScoreTile = DViewPad(gatingScore, {tileB, tileS, nDimSize, NUM_3},
+            auto gatingScoreTile = View(gatingScore, {tileB, tileS, nDimSize, NUM_3},
                 {actualBSize, actualsSize, nDimSize, NUM_3}, {bOffset, sOffset, 0, 0});
             auto gatingScoreFP32 = Cast(gatingScoreTile, DT_FP32);
             auto cmpWeight = View(gatingScoreFP32, {tileB, tileS, nDimSize, 1}, {0, 0, 0, 0});

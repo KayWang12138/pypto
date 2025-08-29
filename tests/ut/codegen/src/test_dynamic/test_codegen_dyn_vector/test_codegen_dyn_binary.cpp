@@ -197,8 +197,8 @@ TEST_F(TestCodegenDynBinary, AddUnalignLayout) {
     FUNCTION("main", FunctionType::DYNAMIC, {input1, input2, curSeq}, {out}) {
         LOOP(loopName, FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
             auto seq = GetInputDataInt32Dim2(curSeq, batchId, 0);
-            Tensor intput11 = DViewPad(input1, {sq, d}, {seq, d}, {batchId, 0});
-            Tensor intput22 = DViewPad(input2, {sq, d}, {seq, d}, {batchId, 0});
+            Tensor intput11 = View(input1, {sq, d}, {seq, d}, {batchId, 0});
+            Tensor intput22 = View(input2, {sq, d}, {seq, d}, {batchId, 0});
             auto tmp = Add(intput11, intput22);
             Assemble(tmp, {batchId * sq, 0}, out);
         }

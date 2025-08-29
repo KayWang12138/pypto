@@ -83,7 +83,7 @@ TEST_F(DynamicBasicTest, TestHybridLoopIf2) {
     // EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.004f));
 }
 
-void TestLoopDViewDAssemble(const Tensor &t0, const Tensor &t1, const Tensor &blockTable, Tensor &out, int s) {
+void TestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Tensor &blockTable, Tensor &out, int s) {
     FUNCTION("main", FunctionType::DYNAMIC, {t0, t1, blockTable}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShapeDim(t0, 0) / s)) {
             SymbolicScalar idx = GetInputDataInt32Dim2(blockTable, i, 0);
@@ -114,7 +114,7 @@ TEST_F(DynamicBasicTest, TestDD) {
          "blockTable"
     };
     Tensor out(DT_FP32, {n * s, s}, "out");
-    TestLoopDViewDAssemble(t0, t1, blockTable, out, s);
+    TestLoopViewAssemble(t0, t1, blockTable, out, s);
 
     std::vector<int> tblData;
     for (int i = 0; i < n; i++)
@@ -386,7 +386,7 @@ TEST_F(DynamicBasicTest, TestDeviceMachineOnModel) {
          "blockTable"
     };
     Tensor out(DT_FP32, {n * s, s}, "out");
-    TestLoopDViewDAssemble(t0, t1, blockTable, out, s);
+    TestLoopViewAssemble(t0, t1, blockTable, out, s);
 
     std::vector<int> tblData;
     for (int i = 0; i < n; i++)
@@ -426,7 +426,7 @@ TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard) {
          "blockTable"
     };
     Tensor out(DT_FP32, {n * s, s}, "out");
-    TestLoopDViewDAssemble(t0, t1, blockTable, out, s);
+    TestLoopViewAssemble(t0, t1, blockTable, out, s);
 
     std::vector<int> tblData;
     for (int i = 0; i < n; i++)
@@ -459,7 +459,7 @@ TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard1) {
             "blockTable"
     };
     Tensor out(DT_FP32, {n * s, s}, "out");
-    TestLoopDViewDAssemble(t0, t1, blockTable, out, s);
+    TestLoopViewAssemble(t0, t1, blockTable, out, s);
 
     std::vector<int> tblData;
     for (int i = 0; i < n; i++)

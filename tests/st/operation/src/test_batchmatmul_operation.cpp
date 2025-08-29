@@ -119,8 +119,8 @@ static void BatchMatmulOperationExeFuncNoSplit(
     FUNCTION("testNoSplit", FunctionType::DYNAMIC, {inputs[0], inputs[1]}, {outputs[0]}) {
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1)) {
             tileParam.aOffset[inputDim - 1] = mIdx;
-            Tensor tensorA = DViewPad(inputs[0], inputs[0]->shape, tileParam.aValidShape, tileParam.aOffset);
-            Tensor tensorB = DViewPad(inputs[1], inputs[1]->shape, tileParam.bValidShape, tileParam.bOffset);
+            Tensor tensorA = View(inputs[0], inputs[0]->shape, tileParam.aValidShape, tileParam.aOffset);
+            Tensor tensorB = View(inputs[1], inputs[1]->shape, tileParam.bValidShape, tileParam.bOffset);
             Program::GetInstance().GetTileShape().SetCubeTileShapes({args->tileShape_[0][0], args->tileShape_[0][1]},
                 {args->tileShape_[1][0], args->tileShape_[1][1]}, {args->tileShape_[2][0], args->tileShape_[2][1]});
             if (args->param_.isAMatrixNz || args->param_.isBMatrixNz || args->param_.isCMatrixNz) {
@@ -155,10 +155,10 @@ static void BatchMatmulOperationExeFuncSplitM(
                 tileParam.aValidShape.insert(tileParam.aValidShape.end(),
                     {std::min(tileParam.mDim - tileParam.mView * mIdx, tileParam.mView), tileParam.kDim});
             }
-            Tensor tensorA = DViewPad(inputs[0], tileParam.aViewShape, tileParam.aValidShape, tileParam.aOffset);
+            Tensor tensorA = View(inputs[0], tileParam.aViewShape, tileParam.aValidShape, tileParam.aOffset);
 
             tileParam.bOffset.insert(tileParam.bOffset.end(), {0, 0});
-            Tensor tensorB = DViewPad(inputs[1], inputs[1]->shape, tileParam.bValidShape, tileParam.bOffset);
+            Tensor tensorB = View(inputs[1], inputs[1]->shape, tileParam.bValidShape, tileParam.bOffset);
 
             Program::GetInstance().GetTileShape().SetVecTileShapes(tileParam.vecTileShape);
             Program::GetInstance().GetTileShape().SetCubeTileShapes({args->tileShape_[0][0], args->tileShape_[0][1]},
@@ -187,7 +187,7 @@ static void BatchMatmulOperationExeFuncSplitN(
         LOOP("nLoop", FunctionType::DYNAMIC_LOOP, nIdx,
             LoopRange(0, CeilDivSymbolicScalar(tileParam.nDim, tileParam.nView), 1)) {
             tileParam.aOffset.insert(tileParam.aOffset.end(), {0, 0});
-            Tensor tensorA = DViewPad(inputs[0], inputs[0]->shape, tileParam.aValidShape, tileParam.aOffset);
+            Tensor tensorA = View(inputs[0], inputs[0]->shape, tileParam.aValidShape, tileParam.aOffset);
             if (tileParam.transB) {
                 tileParam.bOffset.insert(tileParam.bOffset.end(), {nIdx * tileParam.nView, 0});
                 tileParam.bViewShape.insert(tileParam.bViewShape.end(), {tileParam.kDim, tileParam.nView});
@@ -199,7 +199,7 @@ static void BatchMatmulOperationExeFuncSplitN(
                 tileParam.bValidShape.insert(tileParam.bValidShape.end(),
                     {tileParam.kDim, std::min(tileParam.nDim - nIdx * tileParam.nView, tileParam.nView)});
             }
-            Tensor tensorB = DViewPad(inputs[1], tileParam.bViewShape, tileParam.bValidShape, tileParam.bOffset);
+            Tensor tensorB = View(inputs[1], tileParam.bViewShape, tileParam.bValidShape, tileParam.bOffset);
 
             Program::GetInstance().GetTileShape().SetVecTileShapes(tileParam.vecTileShape);
             Program::GetInstance().GetTileShape().SetCubeTileShapes({args->tileShape_[0][0], args->tileShape_[0][1]},
@@ -239,7 +239,7 @@ static void BatchMatmulOperationExeFuncSplitMN(
                         {std::min(tileParam.mDim - tileParam.mView * mIdx, tileParam.mView), tileParam.kDim});
                     tileParam.aOffset.insert(tileParam.aOffset.end(), {mIdx * tileParam.mView, 0});
                 }
-                Tensor tensorA = DViewPad(inputs[0], tileParam.aViewShape, tileParam.aValidShape, tileParam.aOffset);
+                Tensor tensorA = View(inputs[0], tileParam.aViewShape, tileParam.aValidShape, tileParam.aOffset);
 
                 if (tileParam.transB) {
                     tileParam.bViewShape.insert(tileParam.bViewShape.end(), {tileParam.kDim, tileParam.nView});
@@ -252,7 +252,7 @@ static void BatchMatmulOperationExeFuncSplitMN(
                         {tileParam.kDim, std::min(tileParam.nDim - nIdx * tileParam.nView, tileParam.nView)});
                     tileParam.bOffset.insert(tileParam.bOffset.end(), {0, nIdx * tileParam.nView});
                 }
-                Tensor tensorB = DViewPad(inputs[1], tileParam.bViewShape, tileParam.bValidShape, tileParam.bOffset);
+                Tensor tensorB = View(inputs[1], tileParam.bViewShape, tileParam.bValidShape, tileParam.bOffset);
 
                 Program::GetInstance().GetTileShape().SetVecTileShapes(tileParam.vecTileShape);
                 Program::GetInstance().GetTileShape().SetCubeTileShapes(

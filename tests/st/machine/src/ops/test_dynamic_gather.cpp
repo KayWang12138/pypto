@@ -48,7 +48,7 @@ TEST_F(DynamicGatherTest, TestDynamicGatherDim2) {
             int axis = 0;
             SymbolicScalar curSeq = GetInputDataInt32Dim2(actSeqs, batchId, 0);
 
-            Tensor indices0 = DViewPad(indices, {sq}, {curSeq}, {batchId * sq});
+            Tensor indices0 = View(indices, {sq}, {curSeq}, {batchId * sq});
             auto tmp = Gather(q, indices0, axis);
             Assemble(tmp, {batchId * sq, 0}, out);
         }
@@ -103,7 +103,7 @@ TEST_F(DynamicGatherTest, TestDynamicGatherDim3) {
             int axis = 0;
             SymbolicScalar curSeq = GetInputDataInt32Dim2(actSeqs, batchId, 0);
 
-            Tensor indices0 = DViewPad(indices, {sq, s2}, {curSeq, s2}, {batchId * sq, 0});
+            Tensor indices0 = View(indices, {sq, s2}, {curSeq, s2}, {batchId * sq, 0});
             auto tmp = Gather(q, indices0, axis);
             Assemble(tmp, {batchId * sq, 0, 0}, out);
         }

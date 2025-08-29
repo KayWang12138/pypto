@@ -51,28 +51,28 @@ static void AddOperationExeFunc2Dims(
                 Tensor tileTensor0;
                 Tensor tileTensor1;
                 IF(inputs[0]->shape[1] != broadcastFlag && inputs[1]->shape[1] == broadcastFlag) {
-                    tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape},
+                    tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                             std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                         {bIdx * firstViewShape, sIdx * secondViewShape});
-                    tileTensor1 = DViewPad(inputs[1], {firstViewShape, 1},
+                    tileTensor1 = View(inputs[1], {firstViewShape, 1},
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape), 1}, {bIdx * firstViewShape, 0});
                 }
                 ELSE IF(inputs[0]->shape[0] != broadcastFlag && inputs[1]->shape[0] == broadcastFlag) {
-                    tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape},
+                    tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                             std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                         {bIdx * firstViewShape, sIdx * secondViewShape});
-                    tileTensor1 = DViewPad(inputs[1], {1, secondViewShape},
+                    tileTensor1 = View(inputs[1], {1, secondViewShape},
                         {1, std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                         {0, sIdx * secondViewShape});
                 }
                 ELSE {
-                    tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape},
+                    tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                             std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                         {bIdx * firstViewShape, sIdx * secondViewShape});
-                    tileTensor1 = DViewPad(inputs[1], {firstViewShape, secondViewShape},
+                    tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                             std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                         {bIdx * firstViewShape, sIdx * secondViewShape});
@@ -104,12 +104,12 @@ static void AddOperationExeFunc3Dims(
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
                 LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                    auto tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
+                    auto tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                             std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                             std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
-                    auto tileTensor1 = DViewPad(inputs[1], {firstViewShape, secondViewShape, thirdViewShape},
+                    auto tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape, thirdViewShape},
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                             std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                             std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
@@ -154,14 +154,14 @@ static void AddOperationExeFunc4Dims(
                             // case 26 [16, 16, 1, 16] broadcast场景
                             // case 27 [1, 1, 1, 16] broadcast场景
                             tileTensor0 =
-                                DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                                View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
                                     {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                                         std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                                         std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
                                         std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
                                     {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
                                         nIdx * fourthViewShape});
-                            tileTensor1 = DViewPad(inputs[1], {firstViewShape, secondViewShape, 1, fourthViewShape},
+                            tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape, 1, fourthViewShape},
                                 {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                                     std::min(secondDim - sIdx * secondViewShape, secondViewShape), 1,
                                     std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
@@ -169,7 +169,7 @@ static void AddOperationExeFunc4Dims(
                         }
                         ELSE {
                             tileTensor0 =
-                                DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                                View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
                                     {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                                         std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                                         std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
@@ -177,7 +177,7 @@ static void AddOperationExeFunc4Dims(
                                     {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
                                         nIdx * fourthViewShape});
                             tileTensor1 =
-                                DViewPad(inputs[1], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                                View(inputs[1], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
                                     {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                                         std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                                         std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),

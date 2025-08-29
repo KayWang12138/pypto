@@ -539,7 +539,7 @@ def dviewPad(output_dir: Path):
         "DyNsa.GenSlc_b1_s1_fp_6k1",
         "DyNsa.GenSlc_b1_s1_fp_4k1",
         "DyNsa.GenSlc_b1_s1_fp_8k",
-        "DyNsa.TestViewPad",
+        "DyNsa.TestView",
         "DyNsa.TestAlignRead",
         "DyNsa.TestUnAlignRead",
         "DyNsa.TestMultiLoopAlignRead",
@@ -616,7 +616,7 @@ def gen_mla_prolog_date_v2(case_name: str, output: Path) -> bool:
             nsa_entry((np.float16, np.float16), (1, 1, 8192, 128), "GenTop", output, 4097)
         elif case_name == "DyNsa.GenTopk_b1_s1_fp_6k1" or case_name == "DyNsa.GenTopk_b1_s1_fp_6k1_dyn":
             nsa_entry((np.float16, np.float16), (1, 1, 8192, 128), "GenTop", output, 6145)
-        elif case_name == "DyNsa.TestViewPad" or case_name == "DyNsa.TestAlignRead" or case_name == "DyNsa.TestUnAlignRead" or case_name == "DyNsa.TestMultiLoopAlignRead":
+        elif case_name == "DyNsa.TestView" or case_name == "DyNsa.TestAlignRead" or case_name == "DyNsa.TestUnAlignRead" or case_name == "DyNsa.TestMultiLoopAlignRead":
             dviewPad(output)
         else:
             logging.error("Can't get func to gen golden, Case(%s)", case_name)

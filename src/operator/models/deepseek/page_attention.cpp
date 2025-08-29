@@ -61,7 +61,7 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
                 Tensor oiUpdate(DT_FP32, {nTile, dN}, "oiUpdate");
                 Tensor liUpdate(DT_FP32, {nTile, 1}, "liUpdate");
                 Tensor miUpdate(DT_FP32, {nTile, 1}, "miUpdate");
-                // 当前curOffset没放到更内层循环，避免重复bnPerBatch次的DAssemble操作
+                // 当前curOffset没放到更内层循环，避免重复bnPerBatch次的Assemble操作
                 SymbolicScalar curOffset = bIdx * nQ + nIdx * nTile;
                 std::vector<SymbolicScalar> oiOffset = {curOffset, 0}; // (B*N*S, d)
 
@@ -76,17 +76,17 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
 
                     SymbolicScalar curBlockIdx = GetInputDataInt32Dim2(blockTable, bIdx, bn);
                     curBlockIdx.AsIntermediateVariable();
-                    auto kn = DViewPad(kNopeCache, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},
+                    auto kn = View(kNopeCache, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},
                                                   {curBlockIdx * blockSize, 0});
-                    auto kr = DViewPad(kRopeCache, {curS2Tile, dR}, {std::min(curSeq - bn * blockSize, blockSize), dR},
+                    auto kr = View(kRopeCache, {curS2Tile, dR}, {std::min(curSeq - bn * blockSize, blockSize), dR},
                                                   {curBlockIdx * blockSize, 0});
 
                     TileOpFormat kjFormat = isNzFormat ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
                     Tensor kj(dtype, {curS2Tile, dN + dR}, "kj", NodeType::LOCAL, kjFormat);
                     Assemble(kn, {0, 0}, kj);
                     Assemble(kr, {0, dN}, kj);
-                    kj = DViewPad(kj, {curS2Tile, dN + dR}, {std::min(curSeq - bn * blockSize, blockSize), dR + dN}, {0, 0});
-                    auto vj = DViewPad(vNopeCache, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},
+                    kj = View(kj, {curS2Tile, dN + dR}, {std::min(curSeq - bn * blockSize, blockSize), dR + dN}, {0, 0});
+                    auto vj = View(vNopeCache, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},
                                                   {curBlockIdx * blockSize, 0});
 
                     ConfigManager::Instance().SetSemanticLabel("MatMul");
@@ -198,7 +198,7 @@ void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
                 Tensor oiUpdate(DT_FP32, {nTile, dN}, "oiUpdate");
                 Tensor liUpdate(DT_FP32, {nTile, 1}, "liUpdate");
                 Tensor miUpdate(DT_FP32, {nTile, 1}, "miUpdate");
-                // 当前curOffset没放到更内层循环，避免重复bnPerBatch次的DAssemble操作
+                // 当前curOffset没放到更内层循环，避免重复bnPerBatch次的Assemble操作
                 SymbolicScalar curOffset = bIdx * nQ + nIdx * nTile;
                 std::vector<SymbolicScalar> oiOffset = {curOffset, 0}; // (B*N*S, d)
 
@@ -320,7 +320,7 @@ void PageAttentionHighThroughput(Tensor &qNope, Tensor &kNopeCache, Tensor &vNop
 
             int curNTile = nTile;
             Tensor oiUpdate(DT_FP32, {nTile, dN}, "oiUpdate");
-            // 当前curOffset没放到更内层循环，避免重复bnPerBatch次的DAssemble操作
+            // 当前curOffset没放到更内层循环，避免重复bnPerBatch次的Assemble操作
             SymbolicScalar curOffset = bIdx * nQ;
             std::vector<SymbolicScalar> oiOffset = {curOffset, 0}; // (B*N*S, d)
 
@@ -334,14 +334,14 @@ void PageAttentionHighThroughput(Tensor &qNope, Tensor &kNopeCache, Tensor &vNop
 
             SymbolicScalar curBlockIdx = GetInputDataInt32Dim2(blockTable, bIdx, 0);
             curBlockIdx.AsIntermediateVariable();
-            auto kn = DViewPad(kNopeCache, {curS2Tile, dN}, {std::min(curSeq, blockSize), dN},
+            auto kn = View(kNopeCache, {curS2Tile, dN}, {std::min(curSeq, blockSize), dN},
                 {curBlockIdx * blockSize, 0});
-            auto kr = DViewPad(kRopeCache, {curS2Tile, dR}, {std::min(curSeq, blockSize), dR},
+            auto kr = View(kRopeCache, {curS2Tile, dR}, {std::min(curSeq, blockSize), dR},
                 {curBlockIdx * blockSize, 0});
             Tensor kj(dtype, {curS2Tile, dN + dR}, "kj");
             Assemble(kn, {0, 0}, kj);
             Assemble(kr, {0, dN}, kj);
-            auto vj = DViewPad(vNopeCache, {curS2Tile, dN}, {std::min(curSeq, blockSize), dN},
+            auto vj = View(vNopeCache, {curS2Tile, dN}, {std::min(curSeq, blockSize), dN},
                 {curBlockIdx * blockSize, 0});
 
             Program::GetInstance().GetTileShape().SetCubeTileShapes(

@@ -87,7 +87,7 @@ void TestNsa(const SimpleParams &params) {
 #endif
 }
 
-void TestViewPad() {
+void TestView() {
     std::vector<int64_t> input_shape = {1, 128}, output_shape = {1, 16};
     Tensor input(DT_FP32, input_shape, "x");
     Tensor output(DT_FP32, output_shape, "output");
@@ -490,8 +490,8 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_6k1) {
     TestGenslc<float16>(params, NUM_6144 + 1);
 }
 
-TEST_F(DyNsa, TestViewPad) {
-    TestViewPad();
+TEST_F(DyNsa, TestView) {
+    TestView();
 }
 
 TEST_F(DyNsa, TestAlignRead) {

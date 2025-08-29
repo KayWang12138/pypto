@@ -55,7 +55,7 @@ void TopKOpExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outpu
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop[IDX_DIM0])) {
             LOOP("LOOP_L1_bIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loop[IDX_DIM1])) {
                 std::vector<SymbolicScalar> offset = { bIdx * args->viewShape_[0], sIdx * args->viewShape_[1] };
-                auto viewTensor = DViewPad(inputs[0], args->viewShape_, {
+                auto viewTensor = View(inputs[0], args->viewShape_, {
                     std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                     std::min(secondDim - sIdx * secondViewShape, secondViewShape)
                 }, offset);
@@ -91,7 +91,7 @@ void TopKOpExeFunc3D(const std::vector<Tensor>& inputs, std::vector<Tensor>& out
                         sIdx * args->viewShape_[1],
                         nIdx * args->viewShape_[2],
                     };
-                    auto viewTensor = DViewPad(inputs[0], args->viewShape_, {
+                    auto viewTensor = View(inputs[0], args->viewShape_, {
                         std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                         std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                         std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)
@@ -134,7 +134,7 @@ void TopKOpExeFunc4D(const std::vector<Tensor>& inputs, std::vector<Tensor>& out
                             nIdx * args->viewShape_[2],
                             qIdx * args->viewShape_[3],
                         };
-                        auto viewTensor = DViewPad(inputs[0], args->viewShape_, {
+                        auto viewTensor = View(inputs[0], args->viewShape_, {
                             std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                             std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                             std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape),

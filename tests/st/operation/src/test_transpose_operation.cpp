@@ -45,7 +45,7 @@ static void TransposeOperationExeFunc2Dims(
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, CeilDiv(firstDim, firstViewShape), 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx,
                 LoopRange(0, CeilDiv(secondDim, secondViewShape), 1)) {
-                Tensor tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape},
+                Tensor tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
                     {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                         std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
@@ -72,7 +72,7 @@ static void TransposeOperationExeFunc3Dims(
                 LoopRange(0, CeilDiv(secondDim, secondViewShape), 1)) {
                 LOOP("LOOP_L2_tIdx", FunctionType::DYNAMIC_LOOP, tIdx,
                     LoopRange(0, CeilDiv(thirdDim, thirdViewShape), 1)) {
-                    Tensor tileTensor0 = DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
+                    Tensor tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                             std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                             std::min(thirdDim - tIdx * thirdViewShape, thirdViewShape)},
@@ -109,7 +109,7 @@ static void TransposeOperationExeFunc4Dims(
                     LOOP("LOOP_L3_tIdx", FunctionType::DYNAMIC_LOOP, pIdx,
                         LoopRange(0, CeilDiv(forthDim, forthViewShape), 1)) {
                         Tensor tileTensor0 =
-                            DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, forthViewShape},
+                            View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, forthViewShape},
                                 {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                                     std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                                     std::min(thirdDim - tIdx * thirdViewShape, thirdViewShape),
@@ -152,7 +152,7 @@ static void TransposeOperationExeFunc5Dims(
                         LoopRange(0, CeilDiv(forthDim, forthViewShape), 1)) {
                         LOOP("LOOP_L4_qIdx", FunctionType::DYNAMIC_LOOP, qIdx,
                             LoopRange(0, CeilDiv(fifthDim, fifthViewShape), 1)) {
-                            Tensor tileTensor0 = DViewPad(inputs[0],
+                            Tensor tileTensor0 = View(inputs[0],
                                 {firstViewShape, secondViewShape, thirdViewShape, forthViewShape, fifthViewShape},
                                 {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                                     std::min(secondDim - sIdx * secondViewShape, secondViewShape),

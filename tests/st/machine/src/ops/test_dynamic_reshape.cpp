@@ -335,7 +335,7 @@ TEST_F(DynamicReshapeTest, test_reshape_unalign) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0) / (sq))) {
             SymbolicScalar curSeq = GetInputDataInt32Dim3(actSeqs, batchId, 0, 0);
 
-            Tensor q0 = DViewPad(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
+            Tensor q0 = View(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
             auto tmp0 = Reshape(q0, {1, sq, d}, {1, curSeq, d});
             Program::GetInstance().GetTileShape().SetVecTileShapes(1, 64, 64);
             auto tmp = Exp(tmp0);
@@ -391,8 +391,8 @@ TEST_F(DynamicReshapeTest, test_assemble_diff_tile) {
         LOOP("LOOP_BATCH", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(GetInputShapeDim(a, 0) / s1)) {
             SymbolicScalar actS2 = GetInputDataInt32Dim1(actSeqs, bIdx);
 
-            Tensor aView = DViewPad(a, {s1, s2}, {s1, s2}, {bIdx*s1, 0});
-            Tensor bView = DViewPad(b, {s2, d}, {s2, actS2}, {bIdx*s2, 0});
+            Tensor aView = View(a, {s1, s2}, {s1, s2}, {bIdx*s1, 0});
+            Tensor bView = View(b, {s2, d}, {s2, actS2}, {bIdx*s2, 0});
 
             Program::GetInstance().GetTileShape().SetVecTileShapes(16, 64);
             Tensor aFp16 = Cast(aView, DataType::DT_FP16);

@@ -44,8 +44,8 @@ TEST_F(DynamicBrcTest, TestDynamicMulBrcUnalign) {
     FUNCTION("main", FunctionType::DYNAMIC, {input_a, input_b, curSeq}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
             auto seq = GetInputDataInt32Dim2(curSeq, batchId, 0);
-            Tensor input_a0 = DViewPad(input_a, {sq, d}, {seq, d}, {batchId * sq, 0});
-            Tensor input_b0 = DViewPad(input_b, {sq, 8}, {seq, 8}, {batchId * sq, 0});
+            Tensor input_a0 = View(input_a, {sq, d}, {seq, d}, {batchId * sq, 0});
+            Tensor input_b0 = View(input_b, {sq, 8}, {seq, 8}, {batchId * sq, 0});
             auto input_c = RowSumSingle(input_b0);
             auto tmp = Mul(input_a0, input_c);
             Assemble(tmp, {batchId * sq, 0}, out);

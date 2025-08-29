@@ -39,7 +39,7 @@ void TestLoopTailBlock(const Tensor &t0, const Tensor &blockTable, Tensor &out, 
     FUNCTION("main", FunctionType::DYNAMIC, {t0, blockTable}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShapeDim(t0, 0) / s)) {
             SymbolicScalar size = GetInputDataInt32Dim2(blockTable, i, 0);
-            Tensor t0s = DViewPad(t0, {s, s}, {size, s}, {blockSize * i, 0});
+            Tensor t0s = View(t0, {s, s}, {size, s}, {blockSize * i, 0});
             Tensor t1 = Add(t0s, t0s);
             Assemble(t1, {blockSize * i, 0}, out);
         }
@@ -107,11 +107,11 @@ TEST_F(DynamicUnalignTest, test_mm_unalign) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(qRope, 0) / (nq * s1))) {
             SymbolicScalar curSeq = GetInputDataInt32Dim1(actSeqs, batchId);
 
-            Tensor qr = DViewPad(qRope, {nq * s1, dR}, {nq * s1, dR}, {batchId * nq * s1, 0});
-            Tensor qn = DViewPad(qNope, {nq * s1, dN}, {nq * s1, dN}, {batchId * nq * s1, 0});
+            Tensor qr = View(qRope, {nq * s1, dR}, {nq * s1, dR}, {batchId * nq * s1, 0});
+            Tensor qn = View(qNope, {nq * s1, dN}, {nq * s1, dN}, {batchId * nq * s1, 0});
 
-            Tensor kr = DViewPad(kRope, {nk * s2, dR}, {nk * curSeq, dR}, {batchId * nk * s2, 0});
-            Tensor kn = DViewPad(kNope, {nk * s2, dN}, {nk * curSeq, dN}, {batchId * nk * s2, 0});
+            Tensor kr = View(kRope, {nk * s2, dR}, {nk * curSeq, dR}, {batchId * nk * s2, 0});
+            Tensor kn = View(kNope, {nk * s2, dN}, {nk * curSeq, dN}, {batchId * nk * s2, 0});
 
             Tensor qi(dtype, {nq * s1, dN + dR}, "qi");
             Assemble(qn, {0, 0}, qi);
@@ -192,8 +192,8 @@ TEST_F(DynamicUnalignTest, test_mm2_unalign) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(qk, 0) / (nq * s1))) {
             SymbolicScalar curSeq = GetInputDataInt32Dim1(actSeqs, batchId);
 
-            Tensor qk0 = DViewPad(qk, {nq * s1, nk * s2}, {nq * s1, nk * curSeq}, {batchId * nq * s1, 0});
-            Tensor v0 = DViewPad(v, {nk * s2, d}, {nk * curSeq, d}, {batchId * nk * s2, 0});
+            Tensor qk0 = View(qk, {nq * s1, nk * s2}, {nq * s1, nk * curSeq}, {batchId * nq * s1, 0});
+            Tensor v0 = View(v, {nk * s2, d}, {nk * curSeq, d}, {batchId * nk * s2, 0});
             auto tmp = Matrix::Matmul<false, false>(DataType::DT_FP32, qk0, v0);
 
             Assemble(tmp, {batchId * nq * s1, 0}, out);
@@ -247,7 +247,7 @@ TEST_F(DynamicUnalignTest, test_rowmaxsingle_unalign) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0) / (nTile))) {
             SymbolicScalar curSeq = GetInputDataInt32Dim2(actSeqs, batchId, 0);
 
-            Tensor q0 = DViewPad(q, {nTile, blockSize}, {nTile, curSeq}, {batchId * nTile, 0});
+            Tensor q0 = View(q, {nTile, blockSize}, {nTile, curSeq}, {batchId * nTile, 0});
             auto tmp = RowMaxSingle(q0);
             Assemble(tmp, {batchId * nTile, 0}, out);
         }
@@ -296,7 +296,7 @@ TEST_F(DynamicUnalignTest, test_rowsumsingle_unalign) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0) / (nTile))) {
             SymbolicScalar curSeq = GetInputDataInt32Dim2(actSeqs, batchId, 0);
 
-            Tensor q0 = DViewPad(q, {nTile, blockSize}, {nTile, curSeq}, {batchId * nTile, 0});
+            Tensor q0 = View(q, {nTile, blockSize}, {nTile, curSeq}, {batchId * nTile, 0});
             auto tmp = RowSumSingle(q0, -1);
             Assemble(tmp, {batchId * nTile, 0}, out);
         }
@@ -344,7 +344,7 @@ TEST_F(DynamicUnalignTest, test_unary_unalign) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0) / (sq))) {
             SymbolicScalar curSeq = GetInputDataInt32Dim3(actSeqs, batchId, 0, 0);
 
-            Tensor q0 = DViewPad(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
+            Tensor q0 = View(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
             auto tmp = Exp(q0);
             Assemble(tmp, {batchId * sq, 0}, out);
         }

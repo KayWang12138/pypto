@@ -48,7 +48,7 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_add_dim) {
     FUNCTION("main", FunctionType::DYNAMIC, {q, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0) / (sq))) {
             SymbolicScalar curSeq = GetInputDataInt32Dim3(actSeqs, batchId, 0, 0);
-            Tensor q0 = DViewPad(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
+            Tensor q0 = View(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
             auto tmp0 = Reshape(q0, {1, sq, d}, {1, curSeq, d});
             Program::GetInstance().GetTileShape().SetVecTileShapes(1, 64, 64);
             auto tmp = Exp(tmp0);
@@ -102,7 +102,7 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_merge_dim) {
             //
             SymbolicScalar curSeq = GetInputDataInt32Dim3(actSeqs, batchId, 0, 0);
 
-            Tensor q0 = DViewPad(q, {1, sq, d}, {1, curSeq, d}, {batchId, 0, 0});
+            Tensor q0 = View(q, {1, sq, d}, {1, curSeq, d}, {batchId, 0, 0});
             auto tmp0 = Reshape(q0, {1, sq * d}, {1, curSeq * d});
             Program::GetInstance().GetTileShape().SetVecTileShapes(1, 16);
             auto tmp = Exp(tmp0);
@@ -155,7 +155,7 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_split_dim) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
             SymbolicScalar curSeq = GetInputDataInt32Dim3(actSeqs, batchId, 0, 0);
             SymbolicScalar curDim = GetInputDataInt32Dim3(actSeqs, batchId, 1, 0);
-            Tensor q0 = DViewPad(q, {1, sq, d}, {1, curSeq, curDim}, {batchId, 0, 0});
+            Tensor q0 = View(q, {1, sq, d}, {1, curSeq, curDim}, {batchId, 0, 0});
             auto tmp0 = Reshape(q0, {1, sq, 5, d/5}, {1, curSeq, 4, curDim/4});
             Program::GetInstance().GetTileShape().SetVecTileShapes(1, 16, 16, 16);
 
@@ -222,7 +222,7 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_split_and_merge) {
             SymbolicScalar bValid = min(b - bView * bIdx, bView);
             LOOP("L1", FunctionType::DYNAMIC_LOOP, sqIdx, LoopRange(0, (sq + sqView - 1) / sqView, 1)) {
                 SymbolicScalar sqValid = min(sq - sqView * sqIdx, sqView);
-                Tensor q0 = DViewPad(q, {bView, sqView, dView}, {bValid, sqValid, dView}, {bIdx * bView, sqIdx * sqView, 0});
+                Tensor q0 = View(q, {bView, sqView, dView}, {bValid, sqValid, dView}, {bIdx * bView, sqIdx * sqView, 0});
                 Tensor tmp0 = Reshape(q0, {bView * sqView, dView}, {bValid * sqValid, dView}); //(bView, sqView, dView) -> (bView * sqView, dView)
 
                 Program::GetInstance().GetTileShape().SetVecTileShapes(1*4, 32);

@@ -82,8 +82,8 @@ void TestDynBatchMatmul(int b, int m, int k, int n, string dataPath) {
 
     FUNCTION("test_dyn_bmm", FunctionType::DYNAMIC, {tensor_a, tensor_b}, {tensor_c}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1)) {
-            Tensor dyn_a = DViewPad(tensor_a, {b, m, ka}, {b, m, ka}, {0, mIdx, 0});
-            Tensor dyn_b = DViewPad(tensor_b, {b, kb, nb}, {b, kb, nb}, {0, 0, 0});
+            Tensor dyn_a = View(tensor_a, {b, m, ka}, {b, m, ka}, {0, mIdx, 0});
+            Tensor dyn_b = View(tensor_b, {b, kb, nb}, {b, kb, nb}, {0, 0, 0});
             if constexpr (IsBNZ) {
                 Program::GetInstance().GetMatrixSize().SetMatrixSize({m, k, n});
             }
@@ -144,8 +144,8 @@ void TestDynBatchMatmul4D(vector<int> b1, vector<int> b2, int m, int k, int n, s
     });
     FUNCTION("main", FunctionType::DYNAMIC, {tensor_a, tensor_b}, {tensor_c}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1)) {
-            Tensor dyn_a = DViewPad(tensor_a, {b1[0], b1[1], m, ka}, {b1[0], b1[1], m, ka}, {0, 0, mIdx, 0});
-            Tensor dyn_b = DViewPad(tensor_b, {b2[0], b2[1], kb, nb}, {b2[0], b2[1], kb, nb}, {0, 0, 0, 0});
+            Tensor dyn_a = View(tensor_a, {b1[0], b1[1], m, ka}, {b1[0], b1[1], m, ka}, {0, 0, mIdx, 0});
+            Tensor dyn_b = View(tensor_b, {b2[0], b2[1], kb, nb}, {b2[0], b2[1], kb, nb}, {0, 0, 0, 0});
             if constexpr (IsBNZ) {
                 Program::GetInstance().GetMatrixSize().SetMatrixSize({m, k, n});
             }

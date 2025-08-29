@@ -142,7 +142,7 @@ TEST_F(DynamicFunctionTest, TestDynOffset) {
     std::vector<SymbolicScalar> dynoffset = {b, 0};
     FUNCTION("main", FunctionType::DYNAMIC, {}, {}) {
         Tensor t(DT_FP32, {4, 4}, "t0");
-        auto v = DViewPad(t, {1, 1}, {b, 2}, {b, 0});
+        auto v = View(t, {1, 1}, {b, 2}, {b, 0});
         v->UpdateOffset(TensorOffset(offset, dynoffset));
     }
 

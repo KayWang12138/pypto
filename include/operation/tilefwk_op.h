@@ -48,7 +48,7 @@ void ToFile(const Tensor &operand, const std::string &fname, SymbolicScalar cond
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<int64_t> &offsets);
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &newOffsets);
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::initializer_list<SymbolicScalar> &newOffsets);
-Tensor DViewPad(const Tensor &operand, const std::vector<int64_t> &shapes,
+Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes,
     const std::vector<SymbolicScalar> &newValidShapes, const std::vector<SymbolicScalar> &newOffsets);
 
 Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int64_t>>> &tensors);

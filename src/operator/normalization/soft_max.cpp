@@ -74,9 +74,9 @@ void SoftmaxDynamicCompute(Tensor &input, Tensor &output) {
         SymbolicScalar bOffset = bIdx * tileB;
         std::vector<SymbolicScalar> outOffset = {bOffset, 0, 0, 0};
         Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, 256});
-        auto inputView = DView(input, {tileB, n1, n2, dim}, {bOffset, 0, 0, 0});
+        auto inputView = View(input, {tileB, n1, n2, dim}, {bOffset, 0, 0, 0});
         auto outputView = SoftmaxNew(inputView);
-        DAssemble(outputView, outOffset, output);
+        Assemble(outputView, outOffset, output);
     }
 }
 

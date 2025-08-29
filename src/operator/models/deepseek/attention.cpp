@@ -243,7 +243,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                 Tensor oiUpdate(DT_FP32, {nTile, dN}, "oiUpdate");
                 Tensor liUpdate(DT_FP32, {nTile, 1}, "liUpdate");
                 Tensor miUpdate(DT_FP32, {nTile, 1}, "miUpdate");
-                // 当前curOffset没放到更内层循环，避免重复bnPerBatch次的DAssemble操作
+                // 当前curOffset没放到更内层循环，避免重复bnPerBatch次的Assemble操作
                 SymbolicScalar curOffset = bIdx * nQ + nIdx * nTile;
                 std::vector<SymbolicScalar> oiOffset = {curOffset, 0}; // (B*N*S, d)
 
@@ -259,14 +259,14 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
 
                     SymbolicScalar curBlockIdx = GetInputDataInt32Dim2(blockTable, bIdx, bn);
                     curBlockIdx.AsIntermediateVariable();
-                    auto kn = DViewPad(kvCacheOut, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},
+                    auto kn = View(kvCacheOut, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},
                                                   {curBlockIdx * blockSize, 0});
-                    auto kr = DViewPad(krCacheOut, {curS2Tile, dR}, {std::min(curSeq - bn * blockSize, blockSize), dR},
+                    auto kr = View(krCacheOut, {curS2Tile, dR}, {std::min(curSeq - bn * blockSize, blockSize), dR},
                                                   {curBlockIdx * blockSize, 0});
                     Tensor kj(dtype, {curS2Tile, dN + dR}, "kj", NodeType::LOCAL, paFormat);
                     Assemble(kn, {0, 0}, kj);
                     Assemble(kr, {0, dN}, kj);
-                    auto vj = DViewPad(kvCacheOut, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},
+                    auto vj = View(kvCacheOut, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},
                                                   {curBlockIdx * blockSize, 0});
 
                     Program::GetInstance().GetTileShape().SetCubeTileShapes(

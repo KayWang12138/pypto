@@ -42,8 +42,8 @@ TEST_F(DynamicBinTest, TestDynamicAddUnalign) {
     FUNCTION("main", FunctionType::DYNAMIC, {input1, input2, curSeq}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
             auto seq = GetInputDataInt32Dim2(curSeq, batchId, 0);
-            Tensor intput11 = DViewPad(input1, {sq, d}, {seq, d}, {batchId, 0});
-            Tensor intput22 = DViewPad(input2, {sq, d}, {seq, d}, {batchId, 0});
+            Tensor intput11 = View(input1, {sq, d}, {seq, d}, {batchId, 0});
+            Tensor intput22 = View(input2, {sq, d}, {seq, d}, {batchId, 0});
             auto tmp = Add(intput11, intput22);
             Assemble(tmp, {batchId * sq, 0}, out);
         }
@@ -93,7 +93,7 @@ TEST_F(DynamicBinTest, testDynMulsUnalign) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0) / (sq))) {
             SymbolicScalar curSeq = GetInputDataInt32Dim2(actSeqs, batchId, 0);
             Element value(DataType::DT_FP32, 1.0);
-            Tensor q0 = DViewPad(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
+            Tensor q0 = View(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
             auto tmp = MulS(q0, value);
 
             Assemble(tmp, {batchId * sq, 0}, out);
@@ -147,7 +147,7 @@ TEST_F(DynamicBinTest, testScalarDivsUnalign) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0) / (sq))) {
             SymbolicScalar curSeq = GetInputDataInt32Dim2(actSeqs, batchId, 0);
             Element value(DataType::DT_FP32, 1.0);
-            Tensor q0 = DViewPad(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
+            Tensor q0 = View(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
             auto tmp = ScalarDivS(q0, value, true);
 
             Assemble(tmp, {batchId * sq, 0}, out);

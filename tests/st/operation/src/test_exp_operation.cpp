@@ -46,7 +46,7 @@ static void ExpOperationExeFunc2Dims(
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                auto tileTensor = DViewPad(inputs[0], {firstViewShape, secondViewShape},
+                auto tileTensor = View(inputs[0], {firstViewShape, secondViewShape},
                     {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                         std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
@@ -75,7 +75,7 @@ static void ExpOperationExeFunc3Dims(
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
                 LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                    auto tileTensor = DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
+                    auto tileTensor = View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                             std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                             std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
@@ -113,7 +113,7 @@ static void ExpOperationExeFunc4Dims(
                 LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mloop, 1)) {
                     LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
                         Tensor tileTensor0 =
-                            DViewPad(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                            View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
                                 {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                                     std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                                     std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),

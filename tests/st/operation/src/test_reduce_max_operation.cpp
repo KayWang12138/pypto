@@ -51,7 +51,7 @@ void ReduceMaxOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Te
         viewShape[dim] = 0;
         const int batch = CeilDiv(inputs[0]->shape[1 - dim], viewShape[1 - dim]);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(batch)) {
-            auto viewTensor = DViewPad(inputs[0],
+            auto viewTensor = View(inputs[0],
                 {
                     viewShape[0] == 0 ? firstDim : viewShape[0],
                     viewShape[1] == 0 ? secondDim : viewShape[1]
@@ -91,7 +91,7 @@ void ReduceMax3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loops[IDX_DIM0])) {
             LOOP("LOOP_L1_bIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loops[IDX_DIM1])) {
                 LOOP("LOOP_L2_bIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(loops[IDX_DIM2])) {
-                    auto viewTensor = DViewPad(inputs[0],
+                    auto viewTensor = View(inputs[0],
                         {
                             viewShape[0] == 0 ? firstDim : viewShape[0],
                             viewShape[1] == 0 ? secondDim : viewShape[1],

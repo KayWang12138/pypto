@@ -147,9 +147,9 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
 
                         // qAssemble
                         ConfigManager::Instance().SetSemanticLabel("Sa");
-                        // View, 临时规避改成 DViewPad
-                        auto qn = DViewPad(qNope, {curGTile, dN}, {curGTile, dN}, {curOffset, 0});
-                        auto qr = DViewPad(qRope, {curGTile, dR}, {curGTile, dR}, {curOffset, 0});
+                        // View, 临时规避改成 View
+                        auto qn = View(qNope, {curGTile, dN}, {curGTile, dN}, {curOffset, 0});
+                        auto qr = View(qRope, {curGTile, dR}, {curGTile, dR}, {curOffset, 0});
                         Tensor qi(dtype, {curGTile, dN + dR}, "qi");
                         Assemble(qn, {0, 0}, qi);
                         Assemble(qr, {0, dN}, qi);
@@ -157,9 +157,9 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
                         // slc_attn
                         SymbolicScalar curSeq = std::max(curKvSlcSeq - s1Sym + 1 + s1Idx, 0); // for MTP s1!= 1 casual计算
                         curSeq.AsIntermediateVariable();
-                        auto kj = DViewPad(kSlc, {curS2Tile, dN + dR}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN + dR},
+                        auto kj = View(kSlc, {curS2Tile, dN + dR}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN + dR},
                                         {s2Idx * curS2Tile, 0}); // kSlc已经合并了rope和nope
-                        auto vj = DViewPad(kSlc, {curS2Tile, dN}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN},
+                        auto vj = View(kSlc, {curS2Tile, dN}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN},
                                         {s2Idx * curS2Tile, 0});
 
                         // C1
@@ -304,16 +304,16 @@ void SelectedAttentionFlashCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Ten
                         SymbolicScalar curKvOffset = bIdx * s1N2S2Sym + s1Idx * n2S2Sym + n2Idx * s2Sym + s2Idx * curS2Tile;
 
                         ConfigManager::Instance().SetSemanticLabel("Sa");
-                        // View, 临时规避改成 DViewPad
-                        auto qn = DViewPad(qNope, {curGTile, dN}, {curGTile, dN}, {curOffset, 0});
-                        auto qr = DViewPad(qRope, {curGTile, dR}, {curGTile, dR}, {curOffset, 0});
+                        // View, 临时规避改成 View
+                        auto qn = View(qNope, {curGTile, dN}, {curGTile, dN}, {curOffset, 0});
+                        auto qr = View(qRope, {curGTile, dR}, {curGTile, dR}, {curOffset, 0});
                         Tensor qi(dtype, {curGTile, dN + dR}, "qi");
                         Assemble(qn, {0, 0}, qi);
                         Assemble(qr, {0, dN}, qi);
 
-                        auto kj = DViewPad(kSlc, {curS2Tile, dN + dR}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN + dR},
+                        auto kj = View(kSlc, {curS2Tile, dN + dR}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN + dR},
                                         {curKvOffset, 0}); // kSlc已经合并了rope和nope
-                        auto vj = DViewPad(kSlc, {curS2Tile, dN}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN},
+                        auto vj = View(kSlc, {curS2Tile, dN}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN},
                                         {curKvOffset, 0});
 
                         // C1

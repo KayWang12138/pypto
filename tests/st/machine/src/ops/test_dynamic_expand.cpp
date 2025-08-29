@@ -42,7 +42,7 @@ TEST_F(DynamicExpandTest, TestDynamicExpandUnalign) {
 
     FUNCTION("main", FunctionType::DYNAMIC, {q}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
-            Tensor q0 = DViewPad(q, {1, d}, {1, d}, {batchId, 0});
+            Tensor q0 = View(q, {1, d}, {1, d}, {batchId, 0});
             auto tmp = Expand(q0, {100, d});
             Assemble(tmp, {batchId * sq, 0}, out);
         }

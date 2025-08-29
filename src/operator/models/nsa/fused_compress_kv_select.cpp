@@ -326,8 +326,8 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
             LOOP("CMP_ATTN_LOOP_N2", FunctionType::DYNAMIC_LOOP, n2Idx, LoopRange(n2), {}, true) {
                 auto qOffset = bIdx * s1 * n1 + s1Idx * n1 + n2Idx * group;
                 Tensor curQAttn(qDtype, {group, dN + dR}, "query"); // (g, dQ)
-                auto curQn = DViewPad(qNope, {group, dN}, {group, dN}, {qOffset, 0});
-                auto curQr = DViewPad(qRope, {group, dN}, {group, dR}, {qOffset, 0});
+                auto curQn = View(qNope, {group, dN}, {group, dN}, {qOffset, 0});
+                auto curQr = View(qRope, {group, dN}, {group, dR}, {qOffset, 0});
                 Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_16, NUM_64);
                 auto qnCast1 = Cast(curQn, DT_FP32);
                 auto qnCast2 = Cast(qnCast1, qDtype);
@@ -339,9 +339,9 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
                 // MTP casual calculation for s2
                 auto curOffset = s1 - s1Idx - 1;
                 auto effSeq = (curKvLen - curOffset - cmpBlockSize) / cmpStride + NUM_VALUE_1;
-                auto curK = DViewPad(kCmpTensor, {maxCmpBlockNum * blockSize, 1, dK},
+                auto curK = View(kCmpTensor, {maxCmpBlockNum * blockSize, 1, dK},
                     {std::min(effSeq, maxCmpBlockNum * blockSize), 1, dK}, {0, n2Idx, 0}); // (effSeq, dK)
-                auto curV = DViewPad(kCmpTensor, {maxCmpBlockNum * blockSize, 1, dN},
+                auto curV = View(kCmpTensor, {maxCmpBlockNum * blockSize, 1, dN},
                     {std::min(effSeq, maxCmpBlockNum * blockSize), 1, dN}, {0, n2Idx, 0}); // (effSeq, dN)
 
                 Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_128, 1, NUM_128);

@@ -110,15 +110,15 @@ void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &
                     LOOP("LOOP_L2_Idx", FunctionType::DYNAMIC_LOOP, oIdx, LoopRange(1), {}, true) {
                         (void) oIdx;
                         SymbolicScalar curOffset = bIdx * s1Size * nQ + s1Idx * nQ + n2Idx * gGroup + gIdx * gTile;
-                        auto kActualPart = DViewPad(kPart, {windowSize, dNopeSize + dRopeSize},
+                        auto kActualPart = View(kPart, {windowSize, dNopeSize + dRopeSize},
                             {winActualSize, dNopeSize + dRopeSize}, {blockStartOffset, 0});
-                        auto vActualPart = DViewPad(vPart, {windowSize, dNopeSize}, {winActualSize, dNopeSize},
+                        auto vActualPart = View(vPart, {windowSize, dNopeSize}, {winActualSize, dNopeSize},
                             {blockStartOffset, 0});
                         Tensor qPart(dtype, {gTile, dNopeSize + dRopeSize}, "qPart");
                         // query
-                        auto qNopeL = DViewPad(qNope, {gTile, dNopeSize}, {gTile, dNopeSize}, {curOffset, 0});
+                        auto qNopeL = View(qNope, {gTile, dNopeSize}, {gTile, dNopeSize}, {curOffset, 0});
                         Assemble(qNopeL, {0, 0}, qPart);
-                        auto qRopeR = DViewPad(qRope, {gTile, dNopeSize}, {gTile, dRopeSize}, {curOffset, 0});
+                        auto qRopeR = View(qRope, {gTile, dNopeSize}, {gTile, dRopeSize}, {curOffset, 0});
                         Assemble(qRopeR, {0, dNopeSize}, qPart);
 
                         // matmul_1

@@ -48,7 +48,7 @@ bool CalculateNewRawShape(const std::vector<int64_t> &oriShape, const std::vecto
     for (size_t i = 0; i < oriSize; i++) {
         oriScale[i] = oriRawShape[i] / oriShape[i];
         if ((i != 0) && (oriScale[i] != 1)) {
-            // 只有当最高轴存在DAssemble的行为时，才可以将数据直接拷贝到DAssemble之后的内存
+            // 只有当最高轴存在Assemble的行为时，才可以将数据直接拷贝到Assemble之后的内存
             return false;
         }
     }
@@ -126,7 +126,7 @@ void GetDynOffsetBeforeReshape(const std::vector<SymbolicScalar> &oriOffset, con
 
 /*
 生效场景:
-DAssemble拆分了最高轴，认为可以透传，不需要拷贝，前序在ExpandFunction中做了判断，属性NeedCopy=false
+Assemble拆分了最高轴，认为可以透传，不需要拷贝，前序在ExpandFunction中做了判断，属性NeedCopy=false
 Copy_Out --> tensor(GM) --> Reshape --> oriBackUp [16, 16] --> Assemble(offset, dynOffset) --> OCAST(offset, dynOffset) [16, 64]
 因此需要: 重新计算Reshape输入的RawShape, offset, dynOffset
 */
@@ -307,7 +307,7 @@ void PreGraphProcess::DeleteRedundantAssemble(Function &function) const {
         }
         HandleForAssembleFromInOut(function, concurrentAssembles, producersBackup);
         HandleForAssembleToOutcast(function, concurrentAssembles, producersBackup);
-        HandleDynOffsetForReshape(oriOutputBackUp, concurrentAssembles, producersBackup); // op为DAssemble
+        HandleDynOffsetForReshape(oriOutputBackUp, concurrentAssembles, producersBackup); // op为Assemble
     }
     function.EraseOperations(false);
     HandleForReshapeToOutcast(function);

@@ -2782,7 +2782,7 @@ Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std
 
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &newOffsets) {
     DECLARE_TRACER();
-    Tensor result(operand->Datatype(), shapes, "DView_" + operand->GetRawTensor()->GetSymbol(), operand->nodetype, operand->tensorfmt);
+    Tensor result(operand->Datatype(), shapes, "View_" + operand->GetRawTensor()->GetSymbol(), operand->nodetype, operand->tensorfmt);
     result->UpdateDynValidShape(SymbolicScalar::FromConcrete(shapes));
     auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(
         Opcode::OP_VIEW, {operand.GetStorage()}, {result.GetStorage()});
@@ -2799,10 +2799,10 @@ Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std
     return View(operand, shapes, std::vector<SymbolicScalar>(newOffsets));
 }
 
-Tensor DViewPad(const Tensor &operand, const std::vector<int64_t> &shapes,
+Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes,
     const std::vector<SymbolicScalar> &newValidShapes, const std::vector<SymbolicScalar> &newOffsets) {
     DECLARE_TRACER();
-    Tensor result(operand->Datatype(), shapes, "DViewPad_" + operand->GetRawTensor()->GetSymbol(), operand->nodetype, operand->tensorfmt);
+    Tensor result(operand->Datatype(), shapes, "View_" + operand->GetRawTensor()->GetSymbol(), operand->nodetype, operand->tensorfmt);
     auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(
         Opcode::OP_VIEW, {operand.GetStorage()}, {result.GetStorage()});
     std::vector<int64_t> newOffsetsConcrete = SymbolicScalar::Concrete(newOffsets, 0);

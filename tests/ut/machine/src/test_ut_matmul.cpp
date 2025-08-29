@@ -49,8 +49,8 @@ void TestDynMatmul(int m, int k, int n) {
     Tensor tensor_b(InputUTDtype, shape_b, "tensor_b", NodeType::LOCAL, bfmt);
     FUNCTION("test_dyn_mm", FunctionType::DYNAMIC, {tensor_a, tensor_b}, {tensor_c}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(1)) {
-            Tensor dyn_a = DViewPad(tensor_a, {m, ka}, {m, ka}, {batchId * m, 0});
-            Tensor dyn_b = DViewPad(tensor_b, {kb, nb}, {kb, nb}, {0, 0});
+            Tensor dyn_a = View(tensor_a, {m, ka}, {m, ka}, {batchId * m, 0});
+            Tensor dyn_b = View(tensor_b, {kb, nb}, {kb, nb}, {0, 0});
             tensor_c = Matrix::Matmul<false, IsBtrans>(OutputUTDtype, dyn_a, dyn_b);
         }
     }

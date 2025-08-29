@@ -125,15 +125,15 @@ void DynamicDD(uint64_t configKey) {
         }
     }
 }
-REGISTER_OP(DViewDAssemble).ImplFunc({{0, DynamicDD}, {1, DynamicDD}, {2, DynamicDD}});
+REGISTER_OP(ViewAssemble).ImplFunc({{0, DynamicDD}, {1, DynamicDD}, {2, DynamicDD}});
 
-TEST_F(TestAstOpCompile, test_dynamic_DViewDAssemble) {
-    bool ret = TileOpCompile("DViewDAssemble", 0, "ast_op_dd_0", "dump_path");
+TEST_F(TestAstOpCompile, test_dynamic_ViewAssemble) {
+    bool ret = TileOpCompile("ViewAssemble", 0, "ast_op_dd_0", "dump_path");
     EXPECT_EQ(ret, true);
     EXPECT_EQ(RealPath("./dump_path/ast_op_dd_0.json").empty(), false);
     EXPECT_EQ(RealPath("./dump_path/ast_op_dd_0.o").empty(), false);
 }
 TEST_F(TestAstOpCompile, test_compile_fatbin) {
-    bool ret = TileFwkCompileFatbin("DViewDAssemble", "Ascend910B1", "./dump_path", "ast_op_add");
+    bool ret = TileFwkCompileFatbin("ViewAssemble", "Ascend910B1", "./dump_path", "ast_op_add");
     EXPECT_EQ(ret, true);
 }

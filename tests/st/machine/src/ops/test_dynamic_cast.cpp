@@ -47,7 +47,7 @@ TEST_F(DynamicCastTest, testDynCastUnalign) {
     FUNCTION("main", FunctionType::DYNAMIC, {q, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0) / (sq))) {
             SymbolicScalar curSeq = GetInputDataInt32Dim2(actSeqs, batchId, 0);
-            Tensor q0 = DViewPad(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
+            Tensor q0 = View(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
             auto tmp = Cast(q0, oType, CAST_ROUND);
             Assemble(tmp, {batchId * sq, 0}, out);
         }

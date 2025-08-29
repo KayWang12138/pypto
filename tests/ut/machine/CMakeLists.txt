@@ -20,7 +20,7 @@ set(_CaseFilterList
         # AstApi
         "TestAstApi.test_ast"
         "TestAstOpCompile.test_compile_add_op"
-        "TestAstOpCompile.test_dynamic_DViewDAssemble"
+        "TestAstOpCompile.test_dynamic_ViewAssemble"
         "TestAstOpCompile.test_compile_fatbin"
         # Others
         "RuntimeTest.Runtime01"
