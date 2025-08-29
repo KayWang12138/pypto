@@ -1178,6 +1178,7 @@ struct DeviceStitchContext {
     }
 
     void DecideIncastOutcast(uint64_t taskId) {
+        (void)taskId;
         for (size_t funcIdx = 0; funcIdx < stitchedList_.size(); ++funcIdx) {
             auto &dup = stitchedList_[funcIdx];
             // decide incast address
