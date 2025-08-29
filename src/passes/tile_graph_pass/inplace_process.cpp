@@ -87,7 +87,7 @@ void InplaceProcess::ProcessView(Operation &op) const {
             for (size_t i = 0; i < inputOffset.size(); i++) {
                 viewOpOffset[i] = inputOffset[i] + viewOpOffset[i];
             }
-            viewAttr->SetFromOffset(viewOpOffset);
+            viewAttr->SetFromOffset(viewOpOffset, viewAttr->GetFromDynOffset());
             consumer->oOperand[0]->tensor = op.GetIOperands()[0]->tensor;
             consumer->oOperand[0]->UpdateOffset(viewOpOffset);
         }
@@ -144,53 +144,20 @@ void InplaceProcess::ProcessAssemble(Function &function, Operation &op) {
     auto assembleOut = op.GetOOperands().front();
     bool fromIncast = function.IsFromInCast(assembleIn);
     ALOG_DEBUG_F("assembleIn from Incast: %d", fromIncast);
-    if (op.iOperand[0]->tensor->GetRawDataSize() > assembleOut->tensor->GetRawDataSize()) {
-        if (assembleOut->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
-            ALOG_DEBUG_F(" Invalid Assemble case, opmagic: %d.", op.opmagic);
-            return;
+
+    // check each producer of the assem_result
+    for (auto &producer : assembleOut->GetProducers()) {
+        if ((producer->GetOpcode() != Opcode::OP_ASSEMBLE) ||
+            std::find(visitedAssembleOp.begin(), visitedAssembleOp.end(), producer->GetOpMagic()) !=
+                visitedAssembleOp.end()) {
+            continue;
         }
-        std::vector<LogicalTensorPtr> assembleInputList;
-        for (auto &producer : assembleOut->GetProducers()) {
-            assembleInputList.push_back(producer->iOperand[0]);
-        }
-        bool allAssembleInputContinuous = FunctionUtils::IsContinuous(assembleInputList);
-        ALOG_DEBUG_F("Check all the %s[%d] input %d is continuous: %d.", op.GetOpcodeStr().c_str(), op.GetOpMagic(),
-            assembleOut->magic, allAssembleInputContinuous);
-        if (!allAssembleInputContinuous) {
-            return;
-        }
-        std::vector<int64_t> newOffset(op.iOperand[0]->offset.size(), INT_MAX);
-        for (auto &assembleOp : assembleOut->GetProducers()) {
-            auto tempOffset = assembleOp->iOperand[0]->offset;
-            for (size_t m = 0; m < op.iOperand[0]->offset.size(); m++) {
-                newOffset[m] = std::min(newOffset[m], tempOffset[m]);
-            }
-        }
-        assembleOut->UpdateOffset(newOffset);
-        for (auto &assembleOp : assembleOut->GetProducers()) {
-            // Update all other assemble's offset, their offset = their input's offset
-            auto &inputOffset = assembleOp->iOperand[0]->offset;
-            dynamic_cast<AssembleOpAttribute *>(assembleOp->GetOpAttribute().get())->SetToOffset(inputOffset);
-        }
-        assembleOut->tensor = op.iOperand[0]->tensor;
-        ALOG_DEBUG_F("Success update %s[%d] oOperand: %d.", op.GetOpcodeStr().c_str(), op.GetOpMagic(), assembleOut->magic);
-        // if the DDR assembleOut is consumed by Copy_In, the Copy_In's from offset should be algined
-        AlignCopyInConsumer(assembleOut);
-    } else {
-        // check each producer of the assem_result
-        for (auto &producer : assembleOut->GetProducers()) {
-            if ((producer->GetOpcode() != Opcode::OP_ASSEMBLE) ||
-                std::find(visitedAssembleOp.begin(), visitedAssembleOp.end(), producer->GetOpMagic()) !=
-                    visitedAssembleOp.end()) {
-                continue;
-            }
-            /*
-            producer->iOperand[0] 可能来自一个被复用过的op
-            raw tensor 与 producer->iOperand[0] 的 raw tensor 相同的所有logical tensor 都应该update
-            */
-            ReplaceRawTensor(producer->iOperand[0], assembleOut, *producer);
-            visitedAssembleOp.push_back(producer->GetOpMagic());
-        }
+        /*
+        producer->iOperand[0] 可能来自一个被复用过的op
+        raw tensor 与 producer->iOperand[0] 的 raw tensor 相同的所有logical tensor 都应该update
+        */
+        ReplaceRawTensor(producer->iOperand[0], assembleOut, *producer);
+        visitedAssembleOp.push_back(producer->GetOpMagic());
     }
 }
 

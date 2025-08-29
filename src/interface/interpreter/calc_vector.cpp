@@ -189,7 +189,7 @@ void ExecuteOpExpand(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_EXPAND, Opcode::OP_EXPAND, ExecuteOpExpand);
 
-void ExecuteOpTransposeDataMove(ExecuteOperationContext *ctx) {
+void ExecuteOpTransposeMoveOut(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
     ASSERT(ctx->ioperandDataViewList->size() == 1);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
@@ -205,7 +205,7 @@ void ExecuteOpTransposeDataMove(ExecuteOperationContext *ctx) {
     }
     calc::Permute(oopCopy, iop, axises);
 }
-REGISTER_CALC_OP(OP_TRANSPOSE_MOVEOUT, Opcode::OP_TRANSPOSE_MOVEOUT, ExecuteOpTransposeDataMove);
+REGISTER_CALC_OP(OP_TRANSPOSE_MOVEOUT, Opcode::OP_TRANSPOSE_MOVEOUT, ExecuteOpTransposeMoveOut);
 
 void ExecuteOpTranspose(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);

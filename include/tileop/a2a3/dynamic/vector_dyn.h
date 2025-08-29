@@ -1329,17 +1329,25 @@ TILEOP void DynTrowminline_(
 }
 
 template <typename T, unsigned srcRawShape1, unsigned srcRawShape2, unsigned axis0, unsigned axis1>
-TILEOP void DynTtransposeMoveOutBase_(__gm__ T *dst, __ubuf__ T *src, unsigned TShape0, unsigned TShape1,
+TILEOP void DynTtransposeMoveOut3dim_(__gm__ T *dst, __ubuf__ T *src, unsigned TShape0, unsigned TShape1,
     unsigned TShape2, unsigned dstShape1, unsigned dstShape2) {
+    if (TShape1 == 0 || TShape2 == 0) {
+        return;
+    }
     if constexpr (axis0 == 0 && axis1 == 1) {
         __gm__ T *dst_ = dst;
         __ubuf__ T *src_ = src;
         unsigned nBurst = TShape1;
         unsigned lenBurst = TShape2 * sizeof(T);
-        unsigned srcStride = 0;
+        constexpr uint32_t blockSize = BLOCK_SIZE / sizeof(T);
+        unsigned srcStride = (srcRawShape2 - TShape2) / blockSize;
         unsigned dstStride = (dstShape1 * dstShape2 - TShape2) * sizeof(T);
         for (int b = 0; b < TShape0; b++) {
-            copy_ubuf_to_gm_align_b32(dst_, src_, 0, nBurst, lenBurst, 0, 0, srcStride, dstStride);
+            if (sizeof(T) == 2) {
+                copy_ubuf_to_gm_align_b16(dst_, src_, 0, nBurst, lenBurst, 0, 0, srcStride, dstStride);
+            } else {
+                copy_ubuf_to_gm_align_b32(dst_, src_, 0, nBurst, lenBurst, 0, 0, srcStride, dstStride);
+            }
             dst_ += dstShape2;
             src_ += srcRawShape1 * srcRawShape2;
         }
@@ -1350,21 +1358,153 @@ TILEOP void DynTtransposeMoveOutBase_(__gm__ T *dst, __ubuf__ T *src, unsigned T
 
 template <typename T, unsigned srcRawShape1, unsigned srcRawShape2, unsigned srcRawShape3, unsigned axis0,
     unsigned axis1>
-TILEOP void DynTtransposeMoveOut_(__gm__ T *dst, __ubuf__ T *src, unsigned TShape0, unsigned TShape1,
-    unsigned TShape2, unsigned TShape3, unsigned dstShape0, unsigned dstShape1, unsigned dstShape2, unsigned dstShape3,
-    unsigned GmOffset0, unsigned GmOffset1, unsigned GmOffset2, unsigned GmOffset3) {
+TILEOP void DynTtransposeMoveOut4dim_(__gm__ T *dst, __ubuf__ T *src, unsigned TShape0, unsigned TShape1,
+    unsigned TShape2, unsigned TShape3, unsigned dstShape0, unsigned dstShape1, unsigned dstShape2, unsigned dstShape3) {
     if constexpr (axis0 == 1 && axis1 == 2) {
-        __gm__ T *dst_ =
-            dst + CalcLinearOffset(dstShape1, dstShape2, dstShape3, GmOffset0, GmOffset1, GmOffset2, GmOffset3);
-        __ubuf__ T *src_ = src;
         for (int b = 0; b < TShape0; b++) {
-            DynTtransposeMoveOutBase_<T, srcRawShape2, srcRawShape3, axis0 - 1, axis1 - 1>(
-                dst_, src_, TShape1, TShape2, TShape3, dstShape2, dstShape3);
-            dst_ += dstShape1 * dstShape2 * dstShape3;
-            src_ += srcRawShape1 * srcRawShape2 * srcRawShape3;
+            DynTtransposeMoveOut3dim_<T, srcRawShape2, srcRawShape3, axis0 - 1, axis1 - 1>(
+                dst, src, TShape1, TShape2, TShape3, dstShape2, dstShape3);
+            dst += dstShape1 * dstShape2 * dstShape3;
+            src += srcRawShape1 * srcRawShape2 * srcRawShape3;
+        }
+    } else if constexpr (axis0 == 0 && axis1 == 2) {
+        if (TShape2 == 0 || TShape3 == 0) {
+            return;
+        }
+        for (int i = 0; i < TShape0; i++) {
+            __gm__ T *dst0 = dst;
+            __ubuf__ T *src0 = src;
+            unsigned nBurst = TShape2;
+            unsigned lenBurst = TShape3 * sizeof(T);
+            constexpr uint32_t blockSize = BLOCK_SIZE / sizeof(T);
+            unsigned srcStride = (srcRawShape3 - TShape3) / blockSize;
+            unsigned dstStride = (dstShape1 * dstShape2 * dstShape3 - TShape3) * sizeof(T);
+            for (int j = 0; j < TShape1; j++) {
+                __gm__ T *dst1 = dst0;
+                __ubuf__ T *src1 = src0;
+                if (sizeof(T) == 2) {
+                    copy_ubuf_to_gm_align_b16(dst1, src1, 0, nBurst, lenBurst, 0, 0, srcStride, dstStride);
+                } else {
+                    copy_ubuf_to_gm_align_b32(dst1, src1, 0, nBurst, lenBurst, 0, 0, srcStride, dstStride);
+                }
+                dst0 += dstShape2 * dstShape3;
+                src0 += srcRawShape2 * srcRawShape3;
+            }
+            dst += dstShape3;
+            src += srcRawShape1 * srcRawShape2 * srcRawShape3;
         }
     } else {
         static_assert(sizeof(T) == 0, "Unsupport transpose axis");
+    }
+}
+
+template <typename T, unsigned srcRawShape1, unsigned srcRawShape2, unsigned srcRawShape3, unsigned srcRawShape4,
+    unsigned axis0, unsigned axis1>
+TILEOP void DynTtransposeMoveOut_(__gm__ T *dst, __ubuf__ T *src, unsigned TShape0, unsigned TShape1,
+    unsigned TShape2, unsigned TShape3, unsigned TShape4, unsigned dstShape0, unsigned dstShape1, unsigned dstShape2,
+    unsigned dstShape3, unsigned dstShape4, unsigned GmOffset0, unsigned GmOffset1, unsigned GmOffset2,
+    unsigned GmOffset3, unsigned GmOffset4) {
+    if constexpr (axis0 == 0 || axis1 == 0) {
+        static_assert(sizeof(T) == 0, "Unsupport transpose axis");
+    }
+    __gm__ T *dst0 = dst + CalcLinearOffset(dstShape1, dstShape2, dstShape3, dstShape4, GmOffset0, GmOffset1, GmOffset2,
+                                            GmOffset3, GmOffset4);
+    __ubuf__ T *src0 = src;
+    for (int b = 0; b < TShape0; b++) {
+        DynTtransposeMoveOut4dim_<T, srcRawShape2, srcRawShape3, srcRawShape4, axis0 - 1, axis1 - 1>(
+            dst0, src0, TShape1, TShape2, TShape3, TShape4, dstShape1, dstShape2, dstShape3, dstShape4);
+        dst0 += dstShape1 * dstShape2 * dstShape3 * dstShape4;
+        src0 += srcRawShape1 * srcRawShape2 * srcRawShape3 * srcRawShape4;
+    }
+}
+
+template <typename T, unsigned dstRawShape1, unsigned dstRawShape2, unsigned axis0, unsigned axis1>
+TILEOP void DynTtransposeMoveIn3dim_(__ubuf__ T *dst, __gm__ T *src, unsigned TShape0, unsigned TShape1,
+    unsigned TShape2, unsigned srcShape1, unsigned srcShape2) {
+    if (TShape1 == 0 || TShape2 == 0) {
+        return;
+    }
+    if constexpr (axis0 == 0 && axis1 == 1) {
+        __ubuf__ T *dst_ = dst;
+        __gm__ T *src_ = src;
+        unsigned nBurst = TShape1;
+        unsigned lenBurst = TShape2 * sizeof(T);
+        unsigned srcStride = (srcShape1 * srcShape2 - TShape2) * sizeof(T);
+        constexpr uint32_t blockSize = BLOCK_SIZE / sizeof(T);
+        unsigned dstStride = (dstRawShape2 - TShape2) / blockSize;
+        for (int b = 0; b < TShape0; b++) {
+            if (sizeof(T) == 2) {
+                copy_gm_to_ubuf_align_b16(dst_, src_, 0, nBurst, lenBurst, 0, 0, srcStride, dstStride);
+            } else {
+                copy_gm_to_ubuf_align_b32(dst_, src_, 0, nBurst, lenBurst, 0, 0, srcStride, dstStride);
+            }
+            dst_ += dstRawShape1 * dstRawShape2;
+            src_ += srcShape2;
+        }
+    } else {
+        static_assert(sizeof(T) == 0, "Unsupport transpose axis");
+    }
+}
+
+template <typename T, unsigned dstRawShape1, unsigned dstRawShape2, unsigned dstRawShape3, unsigned axis0,
+    unsigned axis1>
+TILEOP void DynTtransposeMoveIn4dim_(__ubuf__ T *dst, __gm__ T *src, unsigned TShape0, unsigned TShape1,
+    unsigned TShape2, unsigned TShape3, unsigned srcShape0, unsigned srcShape1, unsigned srcShape2, unsigned srcShape3) {
+    if constexpr (axis0 == 1 && axis1 == 2) {
+        for (int b = 0; b < TShape0; b++) {
+            DynTtransposeMoveIn3dim_<T, dstRawShape2, dstRawShape3, axis0 - 1, axis1 - 1>(
+                dst, src, TShape1, TShape2, TShape3, srcShape2, srcShape3);
+            dst += dstRawShape1 * dstRawShape2 * dstRawShape3;
+            src += srcShape1 * srcShape2 * srcShape3;
+        }
+    } else if constexpr (axis0 == 0 && axis1 == 2) {
+        if (TShape2 == 0 || TShape3 == 0) {
+            return;
+        }
+        for (int i = 0; i < TShape0; i++) {
+            __ubuf__ T *dst0 = dst;
+            __gm__ T *src0 = src;
+            unsigned nBurst = TShape2;
+            unsigned lenBurst = TShape3 * sizeof(T);
+            unsigned srcStride = (srcShape1 * srcShape2 * srcShape3 - TShape3) * sizeof(T);
+            constexpr uint32_t blockSize = BLOCK_SIZE / sizeof(T);
+            unsigned dstStride = (dstRawShape3 - TShape3) / blockSize;
+            for (int j = 0; j < TShape1; j++) {
+                __ubuf__ T *dst1 = dst0;
+                __gm__ T *src1 = src0;
+                if (sizeof(T) == 2) {
+                    copy_gm_to_ubuf_align_b16(dst1, src1, 0, nBurst, lenBurst, 0, 0, srcStride, dstStride);
+                } else {
+                    copy_gm_to_ubuf_align_b32(dst1, src1, 0, nBurst, lenBurst, 0, 0, srcStride, dstStride);
+                }
+                dst0 += dstRawShape2 * dstRawShape3;
+                src0 += srcShape2 * srcShape3;
+            }
+            dst += dstRawShape1 * dstRawShape2 * dstRawShape3;
+            src += srcShape3;
+        }
+    } else {
+        static_assert(sizeof(T) == 0, "Unsupport transpose axis");
+    }
+}
+
+template <typename T, unsigned dstRawShape1, unsigned dstRawShape2, unsigned dstRawShape3, unsigned dstRawShape4,
+    unsigned axis0, unsigned axis1>
+TILEOP void DynTtransposeMoveIn_(__ubuf__ T *dst, __gm__ T *src, unsigned TShape0, unsigned TShape1,
+    unsigned TShape2, unsigned TShape3, unsigned TShape4, unsigned srcShape0, unsigned srcShape1, unsigned srcShape2,
+    unsigned srcShape3, unsigned srcShape4, unsigned GmOffset0, unsigned GmOffset1, unsigned GmOffset2,
+    unsigned GmOffset3, unsigned GmOffset4) {
+    if constexpr (axis0 == 0 || axis1 == 0) {
+        static_assert(sizeof(T) == 0, "Unsupport transpose axis");
+    }
+    __ubuf__ T *dst0 = dst;
+    __gm__ T *src0 = src + CalcLinearOffset(srcShape1, srcShape2, srcShape3, srcShape4, GmOffset0, GmOffset1, GmOffset2,
+                                            GmOffset3, GmOffset4);
+    for (int b = 0; b < TShape0; b++) {
+        DynTtransposeMoveIn4dim_<T, dstRawShape2, dstRawShape3, dstRawShape4, axis0 - 1, axis1 - 1>(
+            dst0, src0, TShape1, TShape2, TShape3, TShape4, srcShape1, srcShape2, srcShape3, srcShape4);
+        dst0 += dstRawShape1 * dstRawShape2 * dstRawShape3 * dstRawShape4;
+        src0 += srcShape1 * srcShape2 * srcShape3 * srcShape4;
     }
 }
 
@@ -1403,6 +1543,9 @@ TILEOP void DynTtranspose_vnchwconv_(
         }
         set_flag(PIPE_S, PIPE_V, EVENT_ID7);
         wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+        return;
+    }
+    if (T0 == 0 || T1 == 0) {
         return;
     }
     static_assert(sizeof(T) == 4 || sizeof(T) == 2);

@@ -456,20 +456,24 @@ std::string CodeGenOpCloudNPU::PrintUnary(const PrintUnaryParam &param) const {
 }
 
 std::string CodeGenOpCloudNPU::GenTransposeDataMove() const {
-    auto kS0 = sm->CreateAllocKey(operandWithMagic[ID1]);
-    std::string s0Var = sm->QueryVariableName(kS0);
-    std::string dVar = GenGmParamVar(ID0);
+    bool isCopyLocalToGM = opCode == Opcode::OP_TRANSPOSE_MOVEOUT;
+    unsigned gmIdx = isCopyLocalToGM ? 0 : 1;
+    unsigned localIdx = isCopyLocalToGM ? 1 : 0;
 
-    std::vector<int> srcShape = this->rawShape[1];
+    auto kS0 = sm->CreateAllocKey(operandWithMagic[localIdx]);
+    std::string localVar = sm->QueryVariableName(kS0);
+    std::string gmVar = GenGmParamVar(gmIdx);
+
+    std::vector<int> srcShape = this->rawShape[localIdx];
     ALOG_INFO_F("GenUnaryOp: srcShape is %s", IntVecToStr(srcShape).c_str());
-    std::vector<int> dstShape = this->rawShape[0];
-    ALOG_INFO_F("GenUnaryOp: dstShape is %s", IntVecToStr(dstShape).c_str());
+    std::vector<int> gmShape = this->rawShape[gmIdx];
+    ALOG_INFO_F("GenUnaryOp: gmShape is %s", IntVecToStr(gmShape).c_str());
 
-    AppendLocalBufferVarOffset({&dVar, &s0Var}, {0, 1});
+    AppendLocalBufferVarOffset({&gmVar, &localVar}, {gmIdx, localIdx});
 
-    std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID1]);
-    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
-    return PrintTransposeDataMove({s0Var, dstShape, srcDtypeStr, dstDtypeStr});
+    std::string localDtypeStr = DataType2CCEStr(operandDtype[localIdx]);
+    std::string gmDtypeStr = DataType2CCEStr(operandDtype[gmIdx]);
+    return PrintTransposeDataMove({gmIdx, localIdx, localVar, gmShape, localDtypeStr, gmDtypeStr});
 }
 
 std::string CodeGenOpCloudNPU::GenUnaryOp() const {
@@ -591,22 +595,22 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMove(const PrintTransposeDataMo
 }
 
 std::string CodeGenOpCloudNPU::PrintTransposeDataMoveStatic(const PrintTransposeDataMoveParam &param) const {
-    const std::string &s0Var = param.s0Var;
-    const std::string &srcDtypeStr = param.srcDtypeStr;
-    const std::string &dstDtypeStr = param.dstDtypeStr;
+    const std::string &localVar = param.localVar;
+    const std::string &localDtypeStr = param.localDtypeStr;
+    const std::string &gmDtypeStr = param.gmDtypeStr;
     std::string dstVar = GenGmParamVar(ID0);
     std::vector<int> os = NormalizeShape(originShape[1], SHAPE_DIM4);
-    std::vector<int> dstShape = NormalizeShape(param.dstShape, SHAPE_DIM4);
+    std::vector<int> gmShape = NormalizeShape(param.gmShape, SHAPE_DIM4);
     std::vector<int> srcShape = NormalizeShape(rawShape[1], SHAPE_DIM4);
     std::ostringstream oss;
     std::vector<std::string> paramList;
 
-    paramList.emplace_back(dstDtypeStr);
+    paramList.emplace_back(gmDtypeStr);
     for (auto oriShape : os) {
         paramList.emplace_back(std::to_string(oriShape));
     }
     for (int i = 1; i < SHAPE_DIM4; i++) {
-        paramList.emplace_back(std::to_string(dstShape[i]));
+        paramList.emplace_back(std::to_string(gmShape[i]));
     }
     for (int i = 1; i < SHAPE_DIM4; i++) {
         paramList.emplace_back(std::to_string(srcShape[i]));
@@ -620,8 +624,8 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveStatic(const PrintTranspose
     std::string templateParam = JoinString(paramList, ", ");
     paramList.clear();
 
-    std::string dst = "(__gm__ " + dstDtypeStr + "*)" + dstVar;
-    std::string src = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
+    std::string dst = "(__gm__ " + gmDtypeStr + "*)" + dstVar;
+    std::string src = "(__ubuf__ " + localDtypeStr + "*)" + localVar;
     paramList.insert(paramList.end(), {dst, src});
     std::string tiloOpCallParam = JoinString(paramList, ", ");
 
@@ -631,9 +635,9 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveStatic(const PrintTranspose
 }
 
 std::string CodeGenOpCloudNPU::PrintTransposeDataMoveDynamic(const PrintTransposeDataMoveParam &param) const {
-    const std::string &s0Var = param.s0Var;
-    const std::string &srcDtypeStr = param.srcDtypeStr;
-    const std::string &dstDtypeStr = param.dstDtypeStr;
+    const std::string &localVar = param.localVar;
+    const std::string &localDtypeStr = param.localDtypeStr;
+    const std::string &gmDtypeStr = param.gmDtypeStr;
     std::string dstVar = GenGmParamVar(ID0);
 
     int dim = static_cast<int>(paramIdxForDynShape[ID0].size());
@@ -649,7 +653,7 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveDynamic(const PrintTranspos
     std::vector<int> srcShape = NormalizeShape(rawShape[1], SHAPE_DIM4);
     std::ostringstream oss;
     std::vector<std::string> paramList;
-    paramList.emplace_back(dstDtypeStr);
+    paramList.emplace_back(gmDtypeStr);
     for (auto oriShape : os) {
         paramList.emplace_back(std::to_string(oriShape));
     }
@@ -665,8 +669,8 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveDynamic(const PrintTranspos
     std::string templateParam = JoinString(paramList, ", ");
     paramList.clear();
 
-    std::string dst = "(__gm__ " + dstDtypeStr + "*)" + dstVar;
-    std::string src = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
+    std::string dst = "(__gm__ " + gmDtypeStr + "*)" + dstVar;
+    std::string src = "(__ubuf__ " + localDtypeStr + "*)" + localVar;
     paramList.insert(paramList.end(), {dst, src});
     for (auto gs : gmShapeExpr) {
         paramList.emplace_back(gs);
@@ -681,31 +685,34 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveDynamic(const PrintTranspos
 }
 
 std::string CodeGenOpCloudNPU::PrintTransposeDataMoveDynamicUnaligned(const PrintTransposeDataMoveParam &param) const {
-    const std::string &s0Var = param.s0Var;
-    const std::string &srcDtypeStr = param.srcDtypeStr;
-    const std::string &dstDtypeStr = param.dstDtypeStr;
-    std::string dstVar = GenGmParamVar(ID0);
+    const int gmIdx = param.gmIdx;
+    const int localIdx = param.localIdx;
+    const std::string &localVar = param.localVar;
+    const std::string &localDtypeStr = param.localDtypeStr;
+    const std::string &gmDtypeStr = param.gmDtypeStr;
+    std::string gmVar = GenGmParamVar(gmIdx);
 
-    int dim = static_cast<int>(paramIdxForDynShape[ID0].size());
-    std::vector<std::string> gmShapeExpr = GenGetParamMacroPacked(ID0, dim, PREFIX_STR_RAW_SHAPE);
-    FillIntVecWithDummyInHead<std::string>(gmShapeExpr, SHAPE_DIM4 - dim, "1");
+    int dim = static_cast<int>(paramIdxForDynShape[gmIdx].size());
+    std::vector<std::string> gmShapeExpr = GenGetParamMacroPacked(gmIdx, dim, PREFIX_STR_RAW_SHAPE);
+    FillIntVecWithDummyInHead<std::string>(gmShapeExpr, SHAPE_DIM5 - dim, "1");
     ALOG_INFO_F("dynamic gmShape param: %s", IntVecToStr(gmShapeExpr).c_str());
 
-    std::vector<std::string> gmOffsetExpr = GenGetParamMacroPacked(ID0, dim, PREFIX_STR_OFFSET);
-    FillIntVecWithDummyInHead<std::string>(gmOffsetExpr, SHAPE_DIM4 - dim, "0");
+    std::vector<std::string> gmOffsetExpr = GenGetParamMacroPacked(gmIdx, dim, PREFIX_STR_OFFSET);
+    FillIntVecWithDummyInHead<std::string>(gmOffsetExpr, SHAPE_DIM5 - dim, "0");
     ALOG_INFO_F("dynamic gmOffset param: %s", IntVecToStr(gmOffsetExpr).c_str());
-    auto newDynSrcValidShape = dynamicValidShape[1];
-    FillIntVecWithDummyInHead<SymbolicScalar>(newDynSrcValidShape, SHAPE_DIM4 - dynamicValidShape[1].size(), 1);
+    auto newDynLocalValidShape = dynamicValidShape[localIdx];
+    FillIntVecWithDummyInHead<SymbolicScalar>(
+        newDynLocalValidShape, SHAPE_DIM5 - dynamicValidShape[localIdx].size(), 1);
 
-    std::vector<int> srcShape = NormalizeShape(rawShape[1], SHAPE_DIM4);
+    std::vector<int> localShape = NormalizeShape(rawShape[localIdx], SHAPE_DIM5);
     std::ostringstream oss;
     std::vector<std::string> paramList;
-    paramList.emplace_back(dstDtypeStr);
-    for (int i = 1; i < SHAPE_DIM4; i++) {
-        paramList.emplace_back(std::to_string(srcShape[i]));
+    paramList.emplace_back(gmDtypeStr);
+    for (int i = 1; i < SHAPE_DIM5; i++) {
+        paramList.emplace_back(std::to_string(localShape[i]));
     }
     std::vector<int64_t> transposeAxis = npu::tile_fwk::AnyCast<std::vector<int64_t>>(opAttrs.at(OP_ATTR_PREFIX + "shape"));
-    int correctionAxis = SHAPE_DIM4 - originShape[1].size();
+    int correctionAxis = SHAPE_DIM5 - originShape[localIdx].size();
     for (auto &axis : transposeAxis) {
         axis += correctionAxis;
         paramList.emplace_back(std::to_string(axis));
@@ -713,11 +720,17 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveDynamicUnaligned(const Prin
     std::string templateParam = JoinString(paramList, ", ");
     paramList.clear();
 
-    std::string dst = "(__gm__ " + dstDtypeStr + "*)" + dstVar;
-    std::string src = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
-    paramList.insert(paramList.end(), {dst, src});
-    for (auto dynShape : newDynSrcValidShape) {
-        paramList.emplace_back(dynShape.Dump());
+    std::string gm = "(__gm__ " + gmDtypeStr + "*)" + gmVar;
+    std::string ub = "(__ubuf__ " + localDtypeStr + "*)" + localVar;
+
+    if(gmIdx == 0){
+        paramList.insert(paramList.end(), {gm, ub});
+    } else {
+        paramList.insert(paramList.end(), {ub, gm});
+    }
+
+    for (auto localDynShape : newDynLocalValidShape) {
+        paramList.emplace_back(localDynShape.Dump());
     }
     for (auto gs : gmShapeExpr) {
         paramList.emplace_back(gs);

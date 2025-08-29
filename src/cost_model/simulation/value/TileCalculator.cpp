@@ -29,7 +29,7 @@ namespace CostModel {
     }
 
     static inline bool IsCopyInOp(const Opcode &op){
-        return(op == Opcode::OP_COPY_IN || op == Opcode::OP_L1_COPY_IN);
+        return(op == Opcode::OP_COPY_IN || op == Opcode::OP_L1_COPY_IN || op == Opcode::OP_TRANSPOSE_MOVEIN);
     }
 
     static uint64_t CalculateInputHash(const TilePtr &tile) {

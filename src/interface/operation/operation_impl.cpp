@@ -49,6 +49,7 @@ struct Input {
 };
 
 enum class TransposeOpType {
+    TRANSPOSE_MOVEIN,
     TRANSPOSE_MOVEOUT,
     TRANSPOSE_VNCHWCONV,
 };
@@ -58,6 +59,7 @@ Opcode GetTransposeOpName() {
 #define CASE(X) \
 case TransposeOpType::X: return Opcode::OP_##X
     switch (T) {
+        CASE(TRANSPOSE_MOVEIN);
         CASE(TRANSPOSE_MOVEOUT);
         CASE(TRANSPOSE_VNCHWCONV);
         default: assert(false && "unknown unary op type");
@@ -1188,7 +1190,7 @@ void UnalignPadTmpBufTile(std::vector<int64_t> &shape, int blockElem) {
     // tmpbuf按16 8对齐
     auto size = shape.size();
     if (size >= NUM_VALUE_2) {
-        shape[size - NUM_VALUE_2] = AlignUp(shape[size - NUM_VALUE_2], NUM_VALUE_16);
+        shape[size - NUM_VALUE_2] = AlignUp(shape[size - NUM_VALUE_2], (int64_t)VNCHWCONV_REPEAT);
         shape[size - 1] = AlignUp(shape[size - 1], blockElem);
     }
 }
@@ -1204,21 +1206,14 @@ void TiledInnerTranspose(Function &function, const TileShape &tileShape, const i
         std::vector<int64_t> resultTileOfs(input.tileInfo.offset);
         std::swap(resultTileOfs[shape[0]], resultTileOfs[shape[1]]);
         auto resultTile = result->View(function, resultTileShape, resultTileOfs);
-        std::vector<int64_t> tmpShape(input.tileInfo.shape);
-        int64_t blockElem = BLOCK_SIZE / static_cast<int>(BytesOf(tile->Datatype()));
-        if (tmpShape.size() == SHAPE_DIM5) {
-            // 临时tensor的transpose轴对应的shape对齐: 受指令限制，last轴按32Byte对齐，nlast轴按16对齐
-            tmpShape[SHAPE_DIM5 - 1] = AlignUp(tmpShape[SHAPE_DIM5 - 1], blockElem);
-            tmpShape[SHAPE_DIM5 - 2] = AlignUp(tmpShape[SHAPE_DIM5 - 2], (int64_t)VNCHWCONV_REPEAT);
-        }
-        if (T == TransposeOpType::TRANSPOSE_VNCHWCONV) {
-            UnalignPadTmpBufTile(tmpShape, blockElem);
-        }
-        auto tempTensor = std::make_shared<LogicalTensor>(function, tile->Datatype(), tmpShape);
-        if (T == TransposeOpType::TRANSPOSE_MOVEOUT) {
+        if (T == TransposeOpType::TRANSPOSE_MOVEOUT || T == TransposeOpType::TRANSPOSE_MOVEIN) {
             auto &op = function.AddOperation(GetTransposeOpName<T>(), {tile}, {resultTile});
             op.SetAttribute(OP_ATTR_PREFIX + "shape", shape);
         } else {
+            std::vector<int64_t> tmpShape(input.tileInfo.shape);
+            int64_t blockElem = BLOCK_SIZE / static_cast<int>(BytesOf(tile->Datatype()));
+            UnalignPadTmpBufTile(tmpShape, blockElem);
+            auto tempTensor = std::make_shared<LogicalTensor>(function, tile->Datatype(), tmpShape);
             auto &op = function.AddOperation(GetTransposeOpName<T>(), {tile}, {resultTile, tempTensor});
             op.SetAttribute(OP_ATTR_PREFIX + "shape", shape);
         }
@@ -1242,15 +1237,147 @@ void TiledInnerTranspose(Function &function, const TileShape &tileShape,
 
 void TensorInnerTranspose(Function &function, const LogicalTensorPtr &operand,
     const LogicalTensorPtr &result, std::vector<int> transposeShape) {
-    constexpr size_t dimSizeTwo = 2;
-    if (operand->shape.size() != dimSizeTwo && (transposeShape[0] != static_cast<int>(operand->shape.size() - dimSizeTwo) ||
-        transposeShape[1] != static_cast<int>(operand->shape.size() - 1))) {
+    if (transposeShape[0] != (int)operand->shape.size() - 1 && transposeShape[1] != (int)operand->shape.size() - 1) {
         auto &operation = function.AddOperation(Opcode::OP_TRANSPOSE_MOVEOUT, {operand}, {result});
         operation.SetAttribute(OP_ATTR_PREFIX + "shape", transposeShape);
-    } else {
+        return;
+    }
+
+    if (transposeShape[0] == (int)operand->shape.size() - 2 &&        // last 2 dims transpose
+        transposeShape[1] == (int)operand->shape.size() - 1) {
         auto &operation = function.AddOperation(Opcode::OP_TRANSPOSE_VNCHWCONV, {operand}, {result});
         operation.SetAttribute(OP_ATTR_PREFIX + "shape", transposeShape);
+        return;
     }
+
+    ASSERT(operand->shape.size() == 3 || operand->shape.size() == 4)  // input should be 3 or 4 dims
+        << "Transpose shape should be [A1,T1,A2,T2] or [T1,A2,T2].";
+
+    // [A1,T1,A2,T2] to [A1,A2,T1,T2] or [T1,A2,T2] to [A2,T1,T2]
+    auto oldVecTileShapes = Program::GetInstance().tileShape.GetVecTileShapes();
+    auto newVecTileShape = oldVecTileShapes;
+    std::vector<int64_t> tmpShape(operand->shape);
+    int dim1 = (tmpShape.size() == 3) ? 0 : 1;   // if input is 3 dims, dim1 = 0, otherwise dim1 = 1
+    int dim2 = (tmpShape.size() == 3) ? 1 : 2;   // if input is 3 dims, dim2 = 1, otherwise dim2 = 2
+    std::swap(tmpShape[dim1], tmpShape[dim2]);
+    std::swap(newVecTileShape[dim1], newVecTileShape[dim2]);
+    auto moveInResult = std::make_shared<LogicalTensor>(function, operand->Datatype(), tmpShape);
+    auto &inOp = function.AddOperation(Opcode::OP_TRANSPOSE_MOVEIN, {operand}, {moveInResult});
+    inOp.SetAttribute(OP_ATTR_PREFIX + "shape", std::vector<int>{dim1, dim2});
+    Program::GetInstance().tileShape.SetVecTileShapes(newVecTileShape);
+
+    // [A1,A2,T1,T2] to [A1,A2,T2,T1] or [A2,T1,T2] to [A2,T2,T1]
+    tmpShape = moveInResult->shape;
+    dim1 = (tmpShape.size() == 3) ? 1 : 2;   // if input is 3 dims, dim1 = 1, otherwise dim1 = 2
+    dim2 = (tmpShape.size() == 3) ? 2 : 3;   // if input is 3 dims, dim2 = 2, otherwise dim2 = 3
+    std::swap(tmpShape[dim1], tmpShape[dim2]);
+    std::swap(newVecTileShape[dim1], newVecTileShape[dim2]);
+    auto vnchwconvResult = std::make_shared<LogicalTensor>(function, operand->Datatype(), tmpShape);
+    auto &convOp = function.AddOperation(Opcode::OP_TRANSPOSE_VNCHWCONV, {moveInResult}, {vnchwconvResult});
+    convOp.SetAttribute(OP_ATTR_PREFIX + "shape", std::vector<int>{dim1, dim2});
+    Program::GetInstance().tileShape.SetVecTileShapes(newVecTileShape);
+
+    // [A1,A2,T2,T1] to [A1,T2,A2,T1] or [A2,T2,T1] to [T2,A2,T1]
+    tmpShape = vnchwconvResult->shape;
+    dim1 = (tmpShape.size() == 3) ? 0 : 1;   // if input is 3 dims, dim1 = 0, otherwise dim1 = 1
+    dim2 = (tmpShape.size() == 3) ? 1 : 2;   // if input is 3 dims, dim2 = 1, otherwise dim2 = 2
+    std::swap(tmpShape[dim1], tmpShape[dim2]);
+    auto &outOp = function.AddOperation(Opcode::OP_TRANSPOSE_MOVEOUT, {vnchwconvResult}, {result});
+    outOp.SetAttribute(OP_ATTR_PREFIX + "shape", std::vector<int>{dim1, dim2});
+    Program::GetInstance().tileShape.SetVecTileShapes(oldVecTileShapes);
+}
+
+bool MergeTransposeAxis(const Tensor &operand, std::vector<int64_t>& inputShape, std::vector<int64_t>& vecTileShape,
+                        std::vector<int>& transposeShape) {
+    auto oldTransposeShape = transposeShape;
+    int64_t pre = 1;
+    int64_t mid = 1;
+    int64_t after = 1;
+    int64_t preTileShape = 1;
+    int64_t midTileShape = 1;
+    int64_t afterTileShape = 1;
+    int preNum = 0;
+    int midNum = 0;
+    int afterNum = 0;
+    auto oldVecTileShapes = Program::GetInstance().tileShape.GetVecTileShapes();
+    for (int i = 0; i < (int)operand->shape.size(); i++) {
+        if (i < oldTransposeShape[0]) {
+            pre *= operand->shape[i];
+            preTileShape *= oldVecTileShapes[i];
+            preNum++;
+        } else if (i < oldTransposeShape[1] && i > oldTransposeShape[0]) {
+            mid *= operand->shape[i];
+            midTileShape *= oldVecTileShapes[i];
+            midNum++;
+        } else if (i > oldTransposeShape[1]) {
+            after *= operand->shape[i];
+            afterTileShape *= oldVecTileShapes[i];
+            afterNum++;
+        }
+    }
+
+    if (preNum <= 1 && midNum <= 1 && afterNum <= 1) {
+        return false;
+    }
+    if (operand->shape.size() <= 5 && oldTransposeShape[0] == (int)operand->shape.size() - 2 &&  // tileop支持5维，最后2维转置
+        oldTransposeShape[1] == (int)operand->shape.size() - 1) {
+        return false;
+    }
+
+    // [A1,T1,A2,T2,A3]
+    if (preNum > 0) {
+        inputShape.push_back(pre);
+        vecTileShape.push_back(preTileShape);
+        transposeShape[0] -= (preNum - 1);
+        transposeShape[1] -= (preNum - 1);
+    }
+    inputShape.push_back(operand->shape[oldTransposeShape[0]]);
+    vecTileShape.push_back(oldVecTileShapes[oldTransposeShape[0]]);
+    if (midNum > 0) {
+        inputShape.push_back(mid);
+        vecTileShape.push_back(midTileShape);
+        transposeShape[1] -= (midNum - 1);
+    }
+    inputShape.push_back(operand->shape[oldTransposeShape[1]]);
+    vecTileShape.push_back(oldVecTileShapes[oldTransposeShape[1]]);
+    if (afterNum > 0) {
+        inputShape.push_back(after);
+        vecTileShape.push_back(afterTileShape);
+    }
+    return true;
+}
+
+Tensor Transpose(const Tensor &operand, std::vector<int> transposeShape) {
+    DECLARE_TRACER();
+    ASSERT(transposeShape.size() == 2) << "Transpose dim num should be 2."; // transposeShape should be 2 dims
+    ASSERT(transposeShape[0] < (int)operand->shape.size()) << "Transpose dim should less than " << operand->shape.size();
+    ASSERT(transposeShape[1] < (int)operand->shape.size()) << "Transpose dim should less than " << operand->shape.size();
+
+    std::sort(transposeShape.begin(), transposeShape.end());
+    if ((operand->shape[transposeShape[0]] == 1 && operand->shape[transposeShape[1]] == 1) ||
+        transposeShape[0] == transposeShape[1]) {
+        return operand;
+    }
+    auto oldVecTileShapes = Program::GetInstance().tileShape.GetVecTileShapes();
+    ASSERT(oldVecTileShapes.size() == operand->shape.size()) << "TileShape dim num should same to input.";
+
+    std::vector<int64_t> newInputShape;
+    std::vector<int64_t> newVecTileShape;
+    std::vector<int> newTransposeShape = transposeShape;
+    std::vector<int64_t> resultShape(operand->shape);
+    std::swap(resultShape[transposeShape[0]], resultShape[transposeShape[1]]);
+    if (!MergeTransposeAxis(operand, newInputShape, newVecTileShape, newTransposeShape)) {
+        Tensor result(operand->Datatype(), resultShape);
+        CALL(InnerTranspose, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage(),
+             transposeShape);
+        return result;
+    }
+
+    auto tmpInputTensor = Reshape(operand, newInputShape);
+    Program::GetInstance().tileShape.SetVecTileShapes(newVecTileShape);
+    auto tmpOutputTensor = Transpose(tmpInputTensor, newTransposeShape);
+    Program::GetInstance().tileShape.SetVecTileShapes(oldVecTileShapes);
+    return Reshape(tmpOutputTensor, resultShape);
 }
 
 void TiledMaxpool(Function &function, const TileShape &tileShape, const std::shared_ptr<LogicalTensor> &input,
@@ -1817,52 +1944,6 @@ Tensor GatherElement(const Tensor &params, const Tensor &indices, int axis) {
 
     RETURN_CALL(GatherElementOperation, *Program::GetInstance().GetCurrentFunction(), params.GetStorage(),
         indices.GetStorage(), axis);
-}
-
-Tensor Transpose(const Tensor &operand, std::vector<int> transposeShape) {
-    DECLARE_TRACER();
-    constexpr int32_t TRANS_EXPERT_SHAPE_2 = 2;
-    constexpr int32_t TRANS_EXPERT_SHAPE_4 = 4;
-    assert(
-        operand->shape.size() == TRANS_EXPERT_SHAPE_2 ||
-        (transposeShape.size() == TRANS_EXPERT_SHAPE_2 && transposeShape[0] < static_cast<int>(operand->shape.size()) &&
-            transposeShape[1] < static_cast<int>(operand->shape.size())));
-    std::sort(transposeShape.begin(), transposeShape.end());
-    assert(transposeShape[0] + 1 == transposeShape[1]);
-    if ((operand->shape[transposeShape[0]] == 1 && operand->shape[transposeShape[1]] == 1) ||
-        transposeShape[0] == transposeShape[1]) {
-        return operand;
-    }
-    std::vector<int64_t> resultShape(operand->shape);
-    auto leftIdx = transposeShape[0];
-    auto rightIdx = transposeShape[1];
-    auto tmp = resultShape[leftIdx];
-    resultShape[leftIdx] = resultShape[rightIdx];
-    resultShape[rightIdx] = tmp;
-    if (operand->shape.size() == TRANS_EXPERT_SHAPE_4 && transposeShape[0] + transposeShape[1] == 1) {
-        auto lastTwoDim = operand->shape[NUM_VALUE_2] * operand->shape[NUM_VALUE_3];
-        std::vector<int64_t> tmpInputShape = {operand->shape[0], operand->shape[1], lastTwoDim};
-        auto tmpInputTensor = Reshape(operand, tmpInputShape);
-        auto oldVecTileShapes = Program::GetInstance().tileShape.GetVecTileShapes();
-        if (!oldVecTileShapes.empty()) {
-            std::vector<int64_t> thirdDimVecTileShapes(NUM_VALUE_3);
-            thirdDimVecTileShapes[0] = oldVecTileShapes[0];
-            thirdDimVecTileShapes[1] = oldVecTileShapes[1];
-            thirdDimVecTileShapes[NUM_VALUE_2] = lastTwoDim;
-            Program::GetInstance().tileShape.SetVecTileShapes(thirdDimVecTileShapes);
-        }
-        auto tmpOutputTensor = Transpose(tmpInputTensor, transposeShape);
-        if (!oldVecTileShapes.empty()) {
-            Program::GetInstance().tileShape.SetVecTileShapes(oldVecTileShapes);
-        }
-        auto outputTensor = Reshape(tmpOutputTensor, resultShape);
-        return outputTensor;
-    }
-    Tensor result(operand->Datatype(), resultShape);
-
-    CALL(InnerTranspose, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage(),
-        transposeShape);
-    return result;
 }
 
 Tensor TensorIndex(const Tensor &params, const Tensor &indices) {
@@ -3152,6 +3233,11 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
         case Opcode::OP_TRANSPOSE_MOVEOUT: {
             auto shape = op.GetVectorIntAttribute<int>(OP_ATTR_PREFIX + "shape");
             TiledInnerTranspose<TransposeOpType::TRANSPOSE_MOVEOUT>(function, tileShape, iOperand[0], oOperand[0], shape);
+            break;
+        }
+        case Opcode::OP_TRANSPOSE_MOVEIN: {
+            auto shape = op.GetVectorIntAttribute<int>(OP_ATTR_PREFIX + "shape");
+            TiledInnerTranspose<TransposeOpType::TRANSPOSE_MOVEIN>(function, tileShape, iOperand[0], oOperand[0], shape);
             break;
         }
         case Opcode::OP_TRANSPOSE_VNCHWCONV: {

@@ -50,6 +50,7 @@ enum class Opcode {
     OP_S_DIVS,
     OP_S_MAXS,
     OP_S_MINS,
+    OP_TRANSPOSE_MOVEIN,
     OP_TRANSPOSE_MOVEOUT,
     OP_TRANSPOSE_VNCHWCONV,
     OP_ABS,
@@ -322,7 +323,8 @@ public:
     }
 
     inline bool IsCopyIn(Opcode opCode) const {
-        return opCode == Opcode::OP_COPY_IN || opCode == Opcode::OP_UB_COPY_IN || opCode == Opcode::OP_L1_COPY_IN;
+        return opCode == Opcode::OP_COPY_IN || opCode == Opcode::OP_UB_COPY_IN || opCode == Opcode::OP_L1_COPY_IN ||
+               opCode == Opcode::OP_TRANSPOSE_MOVEIN;
     }
 
     inline bool IsCopyOut(Opcode opCode) const {
@@ -433,7 +435,7 @@ Opcode::OP_ABS, Opcode::OP_SQRT, Opcode::OP_RECIPROCAL, Opcode::OP_CAST, Opcode:
     Opcode::OP_MUL_BRC, Opcode::OP_DIV_BRC, Opcode::OP_MAX_BRC, Opcode::OP_GATHER, Opcode::OP_S_ADDS, Opcode::OP_S_SUBS,
     Opcode::OP_S_DIVS, Opcode::OP_S_MULS, Opcode::OP_S_MAXS, Opcode::OP_BITSORT, Opcode::OP_MRGSORT,
     Opcode::OP_EXTRACT, Opcode::OP_ROWMAXLINE, Opcode::OP_PAIRMIN,Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWMINLINE,
-    Opcode::OP_SCATTER_ELEMENT};
+    Opcode::OP_SCATTER_ELEMENT, Opcode::OP_TRANSPOSE_MOVEIN};
 
 const std::unordered_set<Opcode> FIX_COPY_IN_OPS{Opcode::OP_FIX_COPY_IN, Opcode::OP_FIX_COPY_IN_QUANT_PRE,
     Opcode::OP_FIX_COPY_IN_RELU_PRE, Opcode::OP_FIX_COPY_IN_RELU_POST, Opcode::OP_FIX_COPY_IN_QUANT_POST,
@@ -450,7 +452,8 @@ inline bool IsEmptyOut(const Opcode opCode) {
 }
 
 inline bool IsCopyIn(const Opcode opCode) {
-    return opCode == Opcode::OP_COPY_IN || opCode == Opcode::OP_UB_COPY_IN || opCode == Opcode::OP_L1_COPY_IN;
+    return opCode == Opcode::OP_COPY_IN || opCode == Opcode::OP_UB_COPY_IN || opCode == Opcode::OP_L1_COPY_IN ||
+           opCode == Opcode::OP_TRANSPOSE_MOVEIN;
 }
 
 inline bool IsCopyOut(const Opcode &op) {

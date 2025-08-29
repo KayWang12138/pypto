@@ -49,6 +49,7 @@ private:
     Status PreColorSort(Function &function);
     void DeleteRedundantAssemble(Function &function) const;
     void ProcessSpecialMTEOperation(Operation &op) const;
+    void ProcessMoveInOperation(Operation &op) const;
     void InsertTemporaryCopyIn(Function &function, Operation &op) const;
     void ResetMemoryMap(Function &function) const;
     void ProcessInplaceOp(Function &function) const;

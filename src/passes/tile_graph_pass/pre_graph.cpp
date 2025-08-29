@@ -320,6 +320,7 @@ void PreGraphProcess::ProcessSpecialMTEOperation(Operation &op) const {
     if ((inputTensor == nullptr) || (outputTensor == nullptr)) {
         return;
     }
+
     if (op.GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT) {
         /* transpose datamove 输入和输出的shape不相同 */
         op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MemoryType::MEM_UB,
@@ -332,6 +333,36 @@ void PreGraphProcess::ProcessSpecialMTEOperation(Operation &op) const {
             OpImmediate::Specified(outputTensor->tensor->GetDynRawShape())));
         op.oOperand[0]->isSubGraphBoundary = true;
     }
+}
+
+void PreGraphProcess::ProcessMoveInOperation(Operation &op) const {
+    ALOG_DEBUG_F("Process MoveIn Operation %d", op.opmagic);
+    auto inputTensor = op.iOperand.front();
+    if (inputTensor == nullptr) {
+        return;
+    }
+    TensorOffset offset = inputTensor->GetTensorOffset();
+    auto producers = inputTensor->GetProducers();
+    if (!producers.empty()) {
+        auto pre = *(producers.begin());
+        if (pre != nullptr && pre->GetOpcode() == Opcode::OP_VIEW) {
+            auto attr = dynamic_cast<ViewOpAttribute *>(pre->GetOpAttribute().get());
+            if (attr != nullptr) {
+                op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+                    OpImmediate::Specified(TensorOffset(attr->GetFromOffset(), attr->GetFromDynOffset())),
+                    MemoryType::MEM_UB, OpImmediate::Specified(inputTensor->GetShape()),
+                    OpImmediate::Specified(inputTensor->tensor->GetDynRawShape()),
+                    OpImmediate::Specified(inputTensor->GetDynValidShape())));
+                op.iOperand[0]->isSubGraphBoundary = true;
+                return;
+            }
+        }
+    }
+    op.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(offset),
+        MemoryType::MEM_UB, OpImmediate::Specified(inputTensor->GetShape()),
+        OpImmediate::Specified(inputTensor->tensor->GetDynRawShape()),
+        OpImmediate::Specified(inputTensor->GetDynValidShape())));
+    op.iOperand[0]->isSubGraphBoundary = true;
 }
 
 void PreGraphProcess::InsertTemporaryCopyIn(Function &function, Operation &op) const {
@@ -625,6 +656,9 @@ Status PreGraphProcess::RunOnFunction(Function &function) {
             op.GetOpcode() == Opcode::OP_REMOTE_REDUCE || op.GetOpcode() == Opcode::OP_FFN_SCHED ||
             op.GetOpcode() == Opcode::OP_FFN_BATCHING || op.GetOpcode() == Opcode::OP_COPY_TO_LOCAL_EXPERT) {
             ProcessSpecialMTEOperation(op);
+        }
+        if (op.GetOpcode() == Opcode::OP_TRANSPOSE_MOVEIN) {
+            ProcessMoveInOperation(op);
         }
         if ((op.GetOpcode() == Opcode::OP_ASSEMBLE) || (op.GetOpcode() == Opcode::OP_RESHAPE)) {
             // 校验单输入单输出，且输入输出mem类型相同

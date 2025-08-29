@@ -283,10 +283,12 @@ private:
     std::string PrintBinaryBrc(const PrintBinaryBrcParam &param) const;
 
     struct PrintTransposeDataMoveParam {
-        const std::string &s0Var;
-        const std::vector<int> &dstShape;
-        const std::string &srcDtypeStr;
-        const std::string &dstDtypeStr;
+        const unsigned gmIdx;
+        const unsigned localIdx;
+        const std::string &localVar;
+        const std::vector<int> &gmShape;
+        const std::string &localDtypeStr;
+        const std::string &gmDtypeStr;
     };
 
     std::string PrintTransposeDataMove(const PrintTransposeDataMoveParam &param) const;
@@ -431,6 +433,7 @@ private:
 
         // transpose with gm
         {        Opcode::OP_TRANSPOSE_MOVEOUT,        [this]() { return GenTransposeDataMove(); }},
+        {        Opcode::OP_TRANSPOSE_MOVEIN,        [this]() { return GenTransposeDataMove(); }},
 
         // vector dup
         {                   Opcode::OP_VEC_DUP,                    [this]() { return GenDupOp(); }},

@@ -450,9 +450,22 @@ void TransposeInferFunc(Operation* op,
         }
         outValidShapes.push_back(res);
     }
+    if (op->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEIN) {
+        auto copyOpAttribute = dynamic_cast<CopyOpAttribute *>(op->GetOpAttribute().get());
+        if (copyOpAttribute != nullptr) {
+            copyOpAttribute->SetToDynValidShape(OpImmediate::Specified(outValidShapes[0]));
+        }
+    }
+    if (op->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT) {
+        auto copyOpAttribute = dynamic_cast<CopyOpAttribute *>(op->GetOpAttribute().get());
+        if (copyOpAttribute != nullptr) {
+            copyOpAttribute->SetFromDynValidShape(OpImmediate::Specified(outValidShapes[0]));
+        }
+    }
 }
 
 REGISTER_INFER_SHAPE_FUNC(OP_TRANSPOSE_VNCHWCONV, Opcode::OP_TRANSPOSE_VNCHWCONV, TransposeInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_TRANSPOSE_MOVEIN, Opcode::OP_TRANSPOSE_MOVEIN, TransposeInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_TRANSPOSE_MOVEOUT, Opcode::OP_TRANSPOSE_MOVEOUT, TransposeInferFunc);
 
 void ViewInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
