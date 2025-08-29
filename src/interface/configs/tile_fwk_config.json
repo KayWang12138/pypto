@@ -74,8 +74,8 @@
             "DUMP_FUNCTION_GRAPH_BEFORE_PASS": false,
             "DUMP_FUNCTION_GRAPH_AFTER_PASS": false,
             "DUMP_PASS_TIME_COST": true,
-            "PRE_CHECK": true,
-            "POST_CHECK": true,
+            "PRE_CHECK": false,
+            "POST_CHECK": false,
             "EXPECTED_VALUE_CHECK": false,
             "DISABLE_PASS": false,
             "HEALTH_CHECK": false

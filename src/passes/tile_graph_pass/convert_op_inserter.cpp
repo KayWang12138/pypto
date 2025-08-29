@@ -163,9 +163,25 @@ bool ConvertInserter::CrossCore(const MemoryType from, const MemoryType to) cons
 void ConvertInserter::UpdateConsumerAndReconnect(
     std::shared_ptr<LogicalTensor> oldTensor, std::shared_ptr<LogicalTensor> newTensor, Operation *op) const {
     newTensor->AddConsumer(op);
+    auto updateViewOffset = [](std::shared_ptr<LogicalTensor> oldTensor1,
+                               std::shared_ptr<LogicalTensor> newTensor1, Operation *op1) {
+        auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op1->GetOpAttribute().get());
+        if (viewOpAttribute != nullptr) {
+            auto oldOffset = viewOpAttribute->GetFromOffset();
+            if (oldTensor1->offset != newTensor1->offset) {
+                for (size_t i = 0; i < oldOffset.size(); i++) {
+                    oldOffset[i] -= oldTensor1->offset[i];
+                }
+            }
+            viewOpAttribute->SetFromOffset(oldOffset, viewOpAttribute->GetFromDynOffset());
+        }
+    };
     for (size_t i = 0; i < op->iOperand.size(); ++i) {
         if ((op->iOperand[i]->magic == oldTensor->magic) &&
             (op->iOperand[i]->tensor->rawmagic == oldTensor->tensor->rawmagic)) {
+            if (op->GetOpcode() == Opcode::OP_VIEW) {
+                updateViewOffset(oldTensor, newTensor, op);
+            }
             op->ReplaceIOperand(i, newTensor);
         }
     }
@@ -286,15 +302,10 @@ std::shared_ptr<LogicalTensor> ConvertInserter::RecordInsertConvertOp(const std:
     const std::vector<MemoryType> &paths,Function &function,const Operation &op){
     std::shared_ptr<LogicalTensor> input = oOperand;
     for (size_t i = 0; i < paths.size() - 1; ++i) {
-        std::shared_ptr<RawTensor> newRawTensor;
-        if (oldRawToNewRaw.count(input->tensor->rawmagic) != 0) {
-            newRawTensor = oldRawToNewRaw[input->tensor->rawmagic];
-        } else {
-            newRawTensor = std::make_shared<RawTensor>(input->Datatype(), input->tensor->rawshape);
-            oldRawToNewRaw.insert({input->tensor->rawmagic, newRawTensor});
-        }
+        std::shared_ptr<RawTensor> newRawTensor = std::make_shared<RawTensor>(input->Datatype(), input->GetShape());;
         input->SetMemoryTypeToBe(paths[i]); // 后续删除
-        std::shared_ptr<LogicalTensor> output = std::make_shared<LogicalTensor>(function, newRawTensor, input->offset, input->shape);
+        std::vector<int64_t> newoffset(input->offset.size(), 0);
+        std::shared_ptr<LogicalTensor> output = std::make_shared<LogicalTensor>(function, newRawTensor, newoffset, input->shape);
         output->SetMemoryTypeBoth(paths[i + 1]); // 后续只用设置original
         converts.emplace_back(ConvertOpInfo{paths[i], paths[i + 1], input, output});
         ALOG_DEBUG_F("%s[%d] --> tensor[%d](%s) --> Convert --> %s", op.GetOpcodeStr().c_str(),

@@ -107,7 +107,7 @@ void GenerateMoveOp::CreateMoveOpForAssemble(Operation &op) const {
         op.SetAttribute(OpAttributeKey::tag, preOp->GetStringAttribute(OpAttributeKey::tag));
     }
     if (assembleOpAttribute->GetFrom() != ASSEMBLE_in->GetMemoryTypeOriginal()) {
-        ASLOGE(" Assemble op from Attr is different from iOperand, opmagic: %d, do force setting.", op.opmagic);
+        ALOG_WARN_F(" Assemble op from Attr is different from iOperand, opmagic: %d, do force setting.", op.opmagic);
     }
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(ASSEMBLE_in->GetMemoryTypeOriginal(),
         OpImmediate::Specified(assembleOpAttribute->GetToTensorOffset()),
@@ -135,7 +135,7 @@ void GenerateMoveOp::CreateMoveOpForConvert(Operation &op) const {
     } else if (to == MemoryType::MEM_DEVICE_DDR) {
         op.SetOpCode(Opcode::OP_COPY_OUT);
         std::vector<OpImmediate> newOffset;
-        auto inputOffset = op.GetIOperands().front()->GetOffset();
+        auto inputOffset = op.GetOOperands().front()->GetOffset();
         for (size_t i = 0; i < op.iOperand.front()->shape.size(); i++) {
             newOffset.push_back(OpImmediate::Specified(SymbolicScalar(inputOffset[i])));
         }
