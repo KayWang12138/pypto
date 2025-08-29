@@ -20,6 +20,23 @@ using namespace npu::tile_fwk;
 
 class SoftmaxOnBoard : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
+template <typename T>
+static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::string fileName) {
+    auto shape = tensor.GetShape();
+    int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+    std::vector<T> values(capacity, 0);
+    readInput<T>(GetGoldenDir() + fileName, values);
+    return RawTensorData::CreateTensor<T>(tensor, values);
+}
+
+template <typename T>
+static std::vector<T> GetGoldenVec(std::vector<int64_t> shape, std::string fileName) {
+    uint64_t capacity = std::accumulate(shape.begin(), shape.end(), uint64_t{1}, std::multiplies<uint64_t>());
+    std::vector<T> golden(capacity, 0);
+    readInput<T>(GetGoldenDir() + fileName, golden);
+    return golden;
+}
+
 TEST_F(SoftmaxOnBoard, test_softmax_cast_in) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
@@ -328,4 +345,27 @@ TEST_F(SoftmaxOnBoard, test_softmax_flash_attention) {
     readInput(GetGoldenDir() + "/softmax.bin", golden);
     int ret = resultCmpUnary<float>(x, golden, res, 0.001f, 10);
     EXPECT_EQ(ret, true);
+}
+
+TEST_F(SoftmaxOnBoard, test_softmax_dyn) {
+    config::SetHostConfig(npu::tile_fwk::KEY_ONLY_CODEGEN, true);
+    Program::GetInstance().GetTileShape().SetVecTileShapes({4, 4, 1, 64});
+    std::vector<int64_t> shape = {32, 32, 1, 256};
+    DataType dtype = DataType::DT_FP32;
+    Tensor input(dtype, shape, "input");
+    Tensor output(dtype, shape, "output");
+
+    std::vector<float> goldenData = GetGoldenVec<float>(shape, "/softmax.bin");
+
+    auto inputData = CreateTensorData<float>(input, "/x.bin");
+    auto outputData = RawTensorData::CreateConstantTensor<float>(output, 0.0);
+
+    std::vector<RawTensorDataPtr> inputDataList = {inputData};
+    std::vector<RawTensorDataPtr> outputDataList = {outputData};
+
+    SoftmaxDynamic(input, output);
+#ifdef ENABLE_BUILD_WITH_CANN
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
+    EXPECT_TRUE(resultCmp<float>(goldenData, (float *)outputData->data(), 0.001f));
+#endif
 }

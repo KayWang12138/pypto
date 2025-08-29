@@ -120,6 +120,7 @@ std::tuple<Tensor, Tensor> TopK(const Tensor &operand, const int &k, int axis, b
 Tensor ArgSort(const Tensor &operand, int axis, bool isLargest = true);
 
 Tensor SoftmaxNew(const Tensor &operand);
+void SoftmaxDynamic(Tensor &input, Tensor &output);
 
 Tensor RotateHalf(const Tensor &input);
 

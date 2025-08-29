@@ -70,6 +70,7 @@ def gen_exp(x):
         "SoftmaxOnBoard.test_softmax_full_inference",
         "SoftmaxOnBoard.test_softmax_deepseek",
         "SoftmaxOnBoard.test_softmax_flash_attention",
+        "SoftmaxOnBoard.test_softmax_dyn",
     ]
 )
 def norm_operator_func(case_name: str, output: Path) -> bool:
@@ -201,6 +202,19 @@ def norm_operator_func(case_name: str, output: Path) -> bool:
             y = gen_softmax(x)
             y.numpy().tofile(y_path)
     elif case_name == "SoftmaxOnBoard.test_softmax_flash_attention":
+        shape = [32, 32, 1, 256]
+        dtype = torch.float32
+        x_path = Path(output, 'x.bin')
+        y_path = Path(output, 'softmax.bin')
+        complete = x_path.exists() and y_path.exists()
+        if complete:
+            logging.debug("Case(%s), Golden complete.", case_name)
+        else:
+            x = torch.randn(shape).to(dtype)
+            x.numpy().tofile(x_path)
+            y = gen_softmax(x)
+            y.numpy().tofile(y_path)
+    elif case_name == "SoftmaxOnBoard.test_softmax_dyn":
         shape = [32, 32, 1, 256]
         dtype = torch.float32
         x_path = Path(output, 'x.bin')

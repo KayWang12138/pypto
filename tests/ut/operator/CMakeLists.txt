@@ -107,6 +107,8 @@ set(_CaseFilterList
         "DynamicKvSlcUtTest.test_kv_slc"
         "DynamicTestGenAtten.TestOnboardGenAttenTest_FP16"
         "DynamicTestWinAttenUt.TestOnboardWinAttnTest_FP16"
+        # Softmax
+        "DynamicSoftmaxUtest.utest_softmax_dyn"
 
 )
 

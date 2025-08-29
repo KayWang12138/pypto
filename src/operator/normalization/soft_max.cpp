@@ -60,4 +60,29 @@ Tensor SoftmaxNew(const Tensor &operand) {
     }
     return softmax;
 }
+
+void SoftmaxDynamicCompute(Tensor &input, Tensor &output) {
+    // input_shape: [b, n1, n2, d] fp16/bf16
+    // int b = input->shape[0]; batch轴动态
+    SymbolicScalar b = GetInputShapeDim(input, 0);
+    int n1 = input->shape[1];
+    int n2 = input->shape[2];
+    int dim = input->shape[3];
+    int tileB = 1;
+    SymbolicScalar bLoop = b / tileB;
+    LOOP("SOFTMAX_LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1), {}, true) {
+        SymbolicScalar bOffset = bIdx * tileB;
+        std::vector<SymbolicScalar> outOffset = {bOffset, 0, 0, 0};
+        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, 256});
+        auto inputView = DView(input, {tileB, n1, n2, dim}, {bOffset, 0, 0, 0});
+        auto outputView = SoftmaxNew(inputView);
+        DAssemble(outputView, outOffset, output);
+    }
+}
+
+void SoftmaxDynamic(Tensor &input, Tensor &output) {
+    FUNCTION("SOFTMAX_DYNAMIC", FunctionType::DYNAMIC, {input}, {output}) {
+        SoftmaxDynamicCompute(input, output);
+    }
+}
 } // namespace npu::tile_fwk
