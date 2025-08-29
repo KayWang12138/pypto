@@ -96,7 +96,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
             Tensor smoothScalesCq = quantInputs.smoothScalesCq;
             bool isSmooth = (smoothScalesCq.GetStorage() != nullptr);
             std::cout << "isQuant +++ " << isQuant << std::endl;
-            auto xView = DView(tokenX, {tileB, s, h}, {bOffset, 0, 0});
+            auto xView = View(tokenX, {tileB, s, h}, {bOffset, 0, 0});
             ConfigManager::Instance().SetSemanticLabel("mlaPre");
 
             auto qKv = mlaPre(xView, wDq, wUqQr, wDkvKr, gammaCq, epsilonCq, quantInputs, false, isSmooth);
@@ -159,8 +159,8 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
             Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
             Tensor kPeRes = Reshape(kPeView, {tileB, s, 1, qkRopeHeadDim}); // [b,s,1,qkRopeHeadDim]
             Tensor qPeView = View(qTmp, {tileB, s, n, qkRopeHeadDim}, {0, 0, 0, qkNopeHeadDim});
-            Tensor cosView = DView(cos, {tileB, s, qkRopeHeadDim}, {bOffset, 0, 0});
-            Tensor sinView = DView(sin, {tileB, s, qkRopeHeadDim}, {bOffset, 0, 0});
+            Tensor cosView = View(cos, {tileB, s, qkRopeHeadDim}, {bOffset, 0, 0});
+            Tensor sinView = View(sin, {tileB, s, qkRopeHeadDim}, {bOffset, 0, 0});
             Tensor kRopeView(kPeRes->Datatype(), {tileB, s, 1, qkRopeHeadDim}, "kRopeView"); // [b,1,s,qkRopeHeadDim]
             Tensor qRopeView(kPeRes->Datatype(), {tileB, s, n, qkRopeHeadDim}, "qRopeView");
             ConfigManager::Instance().SetSemanticLabel("ApplyRotaryPosEmbV2");
@@ -171,7 +171,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                 int n2 = kvCache->shape[2];
                 Tensor kvCacheRes = Reshape(kvCache, {blockNum * blockSize * n2, kvLoraRank});
                 Tensor krCacheRes = Reshape(krCache, {blockNum * blockSize * n2, qkRopeHeadDim});
-                auto cacheIndexDview = DView(cacheIndex, {tileB, s}, {bOffset, 0});
+                auto cacheIndexDview = View(cacheIndex, {tileB, s}, {bOffset, 0});
                 kNope = Reshape(kNope, {tileB * s, kvLoraRank}); // [b*s,kvLoraRank]
                 Tensor kRopeRes = Reshape(kRopeView, {tileB * s * 1, qkRopeHeadDim});
 
@@ -191,12 +191,12 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                 ConfigManager::Instance().SetSemanticLabel("Reshape1");
                 Tensor kRopeRes = Reshape(kRopeView, {tileB, 1, s, qkRopeHeadDim});
                 ConfigManager::Instance().SetSemanticLabel("kvCache");
-                auto cacheIndexDview = DView(cacheIndex, {tileB, s}, {bOffset, 0});
+                auto cacheIndexDview = View(cacheIndex, {tileB, s}, {bOffset, 0});
                 /******** kvCache ********/
                 tileShape = {1, 1, 1, kvLoraRank};
                 Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
                 // kvCache: [b,1,s2,kvLoraRank], output3
-                auto kvCacheDview = DView(kvCache, {tileB, 1, s2, kvLoraRank}, {bOffset, 0, 0, 0});
+                auto kvCacheDview = View(kvCache, {tileB, 1, s2, kvLoraRank}, {bOffset, 0, 0, 0});
                 ConfigManager::Instance().SetSemanticLabel("ScatterUpdate0");
                 auto kvCacheOutDview = ScatterUpdate(kvCacheDview, cacheIndexDview, kNope, -2);
 
@@ -205,20 +205,20 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                 tileShape = {1, 1, 1, qkRopeHeadDim};
                 Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
                 // krCache: [b,1,s2,qkRopeHeadDim], output4
-                auto krCacheDview = DView(krCache, {tileB, 1, s2, qkRopeHeadDim}, {bOffset, 0, 0, 0});
+                auto krCacheDview = View(krCache, {tileB, 1, s2, qkRopeHeadDim}, {bOffset, 0, 0, 0});
                 ConfigManager::Instance().SetSemanticLabel("ScatterUpdate1");
                 auto krCacheOutDview = ScatterUpdate(krCacheDview, cacheIndexDview, kRopeRes, -2);
 
                 auto kvCacheOutDviewNew = Reshape(kvCacheOutDview, {tileB*1*s2, kvLoraRank});
                 auto krCacheOutDviewNew = Reshape(krCacheOutDview, {tileB*1*s2, qkRopeHeadDim});
-                DAssemble(kvCacheOutDviewNew, {bOffset*s2, 0}, kvCacheOut);
-                DAssemble(krCacheOutDviewNew, {bOffset*s2, 0}, krCacheOut);
+                Assemble(kvCacheOutDviewNew, {bOffset*s2, 0}, kvCacheOut);
+                Assemble(krCacheOutDviewNew, {bOffset*s2, 0}, krCacheOut);
             }
 
             auto queryOutDviewNew = Reshape(qNopeNewTrans, {tileB*s*n, kvLoraRank});
             auto qRopeViewNew = Reshape(qRopeView, {tileB*s*n, qkRopeHeadDim});
-            DAssemble(queryOutDviewNew, {bOffset*s*n, 0}, qNopeOut);
-            DAssemble(qRopeViewNew, {bOffset*s, 0}, qRopeOut);
+            Assemble(queryOutDviewNew, {bOffset*s*n, 0}, qNopeOut);
+            Assemble(qRopeViewNew, {bOffset*s, 0}, qRopeOut);
         }
 
         /******** pa ********/
@@ -251,11 +251,11 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                     ConfigManager::Instance().SetSemanticLabel("pa");
                     // 当前qn，qr和qi放入内层Loop，避免Concat单独切成一个小图
                     int curS2Tile = blockSize;
-                    auto qn = DView(qNopeOut, {curNTile, dN}, {curOffset, 0});
-                    auto qr = DView(qRopeOut, {curNTile, dR}, {curOffset, 0});
+                    auto qn = View(qNopeOut, {curNTile, dN}, {curOffset, 0});
+                    auto qr = View(qRopeOut, {curNTile, dR}, {curOffset, 0});
                     Tensor qi(dtype, {curNTile, dN + dR}, "qi");
-                    DAssemble(qn, {0, 0}, qi);
-                    DAssemble(qr, {0, dN}, qi);
+                    Assemble(qn, {0, 0}, qi);
+                    Assemble(qr, {0, dN}, qi);
 
                     SymbolicScalar curBlockIdx = GetInputDataInt32Dim2(blockTable, bIdx, bn);
                     curBlockIdx.AsIntermediateVariable();
@@ -264,8 +264,8 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                     auto kr = DViewPad(krCacheOut, {curS2Tile, dR}, {std::min(curSeq - bn * blockSize, blockSize), dR},
                                                   {curBlockIdx * blockSize, 0});
                     Tensor kj(dtype, {curS2Tile, dN + dR}, "kj", NodeType::LOCAL, paFormat);
-                    DAssemble(kn, {0, 0}, kj);
-                    DAssemble(kr, {0, dN}, kj);
+                    Assemble(kn, {0, 0}, kj);
+                    Assemble(kr, {0, dN}, kj);
                     auto vj = DViewPad(kvCacheOut, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},
                                                   {curBlockIdx * blockSize, 0});
 
@@ -295,7 +295,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                         IF (IsLoopEnd(bn, bnPerBatch)) {
                             ConfigManager::Instance().SetSemanticLabel("paKvVec2");
                             oiUpdate = Div(oiTmp, tildaLij); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-                            DAssemble(oiUpdate, oiOffset, paOut);
+                            Assemble(oiUpdate, oiOffset, paOut);
                         } ELSE {
                             oiUpdate = oiTmp;
                         }
@@ -328,7 +328,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                         auto oiTmp = Add(q3, q2); // (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
                         IF (IsLoopEnd(bn, bnPerBatch)) {
                             oiUpdate = Div(oiTmp, liNew); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-                            DAssemble(oiUpdate, oiOffset, paOut);
+                            Assemble(oiUpdate, oiOffset, paOut);
                         } ELSE {
                             oiUpdate = oiTmp;
                         }
@@ -349,7 +349,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
         Program::GetInstance().GetMatrixSize().SetMatrixSize({});
         LOOP("PaPost", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(bLoop), {}, true) {
             ConfigManager::Instance().SetSemanticLabel("Post");
-            auto postInUnit = DView(paOut, {tileB * s * n, kvLoraRank}, {bIdx * tileB * s * n, 0});
+            auto postInUnit = View(paOut, {tileB * s * n, kvLoraRank}, {bIdx * tileB * s * n, 0});
 
             auto r1Res = Reshape(postInUnit, {tileB*s, n, kvLoraRank}); // 128个
 	        Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(NUM_32, tileB*s), NUM_2, kvLoraRank});
@@ -385,7 +385,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
             auto postOutTmp = Reshape(bmm5Res, {tileB, s, h});
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * tileB, 0, 0};
-            DAssemble(postOutTmp, dynOffset, postOut);
+            Assemble(postOutTmp, dynOffset, postOut);
         }
     }
 }

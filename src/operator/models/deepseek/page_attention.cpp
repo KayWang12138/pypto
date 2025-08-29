@@ -68,11 +68,11 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
                 LOOP("LOOP_L2_bn", FunctionType::DYNAMIC_LOOP, bn, LoopRange(0, bnPerBatch, 1), PowersOf2(maxUnrollTimes)) {
                     // 当前qn，qr和qi放入内层Loop，避免Concat单独切成一个小图
                     int curS2Tile = blockSize;
-                    auto qn = DView(qNope, {curNTile, dN}, {curOffset, 0});
-                    auto qr = DView(qRope, {curNTile, dR}, {curOffset, 0});
+                    auto qn = View(qNope, {curNTile, dN}, {curOffset, 0});
+                    auto qr = View(qRope, {curNTile, dR}, {curOffset, 0});
                     Tensor qi(dtype, {curNTile, dN + dR}, "qi");
-                    DAssemble(qn, {0, 0}, qi);
-                    DAssemble(qr, {0, dN}, qi);
+                    Assemble(qn, {0, 0}, qi);
+                    Assemble(qr, {0, dN}, qi);
 
                     SymbolicScalar curBlockIdx = GetInputDataInt32Dim2(blockTable, bIdx, bn);
                     curBlockIdx.AsIntermediateVariable();
@@ -83,8 +83,8 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
 
                     TileOpFormat kjFormat = isNzFormat ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
                     Tensor kj(dtype, {curS2Tile, dN + dR}, "kj", NodeType::LOCAL, kjFormat);
-                    DAssemble(kn, {0, 0}, kj);
-                    DAssemble(kr, {0, dN}, kj);
+                    Assemble(kn, {0, 0}, kj);
+                    Assemble(kr, {0, dN}, kj);
                     kj = DViewPad(kj, {curS2Tile, dN + dR}, {std::min(curSeq - bn * blockSize, blockSize), dR + dN}, {0, 0});
                     auto vj = DViewPad(vNopeCache, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},
                                                   {curBlockIdx * blockSize, 0});
@@ -120,7 +120,7 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
                         IF (IsLoopEnd(bn, bnPerBatch)) {
                             ConfigManager::Instance().SetSemanticLabel("b1-after-matmul2");
                             oiUpdate = Div(oiTmp, tildaLij); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-                            DAssemble(oiUpdate, oiOffset, attentionOut);
+                            Assemble(oiUpdate, oiOffset, attentionOut);
                         } ELSE {
                             oiUpdate = oiTmp;
                         }
@@ -155,7 +155,7 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
                         auto oiTmp = Add(q3, q2); // (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
                         IF (IsLoopEnd(bn, bnPerBatch)) {
                             oiUpdate = Div(oiTmp, liNew); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-                            DAssemble(oiUpdate, oiOffset, attentionOut);
+                            Assemble(oiUpdate, oiOffset, attentionOut);
                         } ELSE {
                             oiUpdate = oiTmp;
                         }
@@ -206,8 +206,8 @@ void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
                     for (int unrollTimes = maxUnrollTimes; unrollTimes != 0; unrollTimes /= div2) {
                         UNROLL(unrollTimes) {
                             Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
-                            auto qn = DView(qNope, {nTile, dN}, {curOffset, 0});
-                            auto qr = DView(qRope, {nTile, dR}, {curOffset, 0});
+                            auto qn = View(qNope, {nTile, dN}, {curOffset, 0});
+                            auto qr = View(qRope, {nTile, dR}, {curOffset, 0});
                             auto qi = Concat({qn, qr}, 1); // (nTileCur, dN+dR)
                             std::vector<Tensor> subKns;
                             std::vector<Tensor> subKrs;
@@ -215,11 +215,11 @@ void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
                             for (int idxOffset = 0; idxOffset < unrollTimes; idxOffset++) {
                                 auto curBlockIdx = GetInputDataInt32Dim2(blockTable, bIdx, bn + idxOffset);
                                 subKns.emplace_back(
-                                    DView(kNopeCache, {blockSize, dN}, {curBlockIdx * blockSize, 0}));
+                                    View(kNopeCache, {blockSize, dN}, {curBlockIdx * blockSize, 0}));
                                 subKrs.emplace_back(
-                                    DView(kRopeCache, {blockSize, dR}, {curBlockIdx * blockSize, 0}));
+                                    View(kRopeCache, {blockSize, dR}, {curBlockIdx * blockSize, 0}));
                                 subVjs.emplace_back(
-                                    DView(vNopeCache, {blockSize, dN}, {curBlockIdx * blockSize, 0}));
+                                    View(vNopeCache, {blockSize, dN}, {curBlockIdx * blockSize, 0}));
                             }
 
                             auto kn = Concat(subKns, 0);
@@ -249,7 +249,7 @@ void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
                                 IF(IsLoopEnd(bn, bnPerBatch)) {
                                     oiUpdate =
                                         Div(oiTmp, tildaLij); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-                                    DAssemble(oiUpdate, oiOffset, attentionOut);
+                                    Assemble(oiUpdate, oiOffset, attentionOut);
                                 } ELSE {
                                     oiUpdate = oiTmp;
                                 }
@@ -279,7 +279,7 @@ void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
                                 IF(IsLoopEnd(bn, bnPerBatch)) {
                                     oiUpdate =
                                         Div(oiTmp, liNew); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-                                    DAssemble(oiUpdate, oiOffset, attentionOut);
+                                    Assemble(oiUpdate, oiOffset, attentionOut);
                                 } ELSE {
                                     oiUpdate = oiTmp;
                                 }
@@ -326,11 +326,11 @@ void PageAttentionHighThroughput(Tensor &qNope, Tensor &kNopeCache, Tensor &vNop
 
             // 当前qn，qr和qi放入内层Loop，避免Concat单独切成一个小图
             int curS2Tile = blockSize;
-            auto qn = DView(qNope, {curNTile, dN}, {curOffset, 0});
-            auto qr = DView(qRope, {curNTile, dR}, {curOffset, 0});
+            auto qn = View(qNope, {curNTile, dN}, {curOffset, 0});
+            auto qr = View(qRope, {curNTile, dR}, {curOffset, 0});
             Tensor qi(dtype, {curNTile, dN + dR}, "qi");
-            DAssemble(qn, {0, 0}, qi);
-            DAssemble(qr, {0, dN}, qi);
+            Assemble(qn, {0, 0}, qi);
+            Assemble(qr, {0, dN}, qi);
 
             SymbolicScalar curBlockIdx = GetInputDataInt32Dim2(blockTable, bIdx, 0);
             curBlockIdx.AsIntermediateVariable();
@@ -339,8 +339,8 @@ void PageAttentionHighThroughput(Tensor &qNope, Tensor &kNopeCache, Tensor &vNop
             auto kr = DViewPad(kRopeCache, {curS2Tile, dR}, {std::min(curSeq, blockSize), dR},
                 {curBlockIdx * blockSize, 0});
             Tensor kj(dtype, {curS2Tile, dN + dR}, "kj");
-            DAssemble(kn, {0, 0}, kj);
-            DAssemble(kr, {0, dN}, kj);
+            Assemble(kn, {0, 0}, kj);
+            Assemble(kr, {0, dN}, kj);
             auto vj = DViewPad(vNopeCache, {curS2Tile, dN}, {std::min(curSeq, blockSize), dN},
                 {curBlockIdx * blockSize, 0});
 
@@ -362,7 +362,7 @@ void PageAttentionHighThroughput(Tensor &qNope, Tensor &kNopeCache, Tensor &vNop
             auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);; // (curNTile, curS2Tile), (curS2Tile, dN) -> (curNTile, dN)
             Program::GetInstance().GetTileShape().SetVecTileShapes(v2Tile[0], v2Tile[1]);
             oiUpdate = Div(oiTmp, tildaLij); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-            DAssemble(oiUpdate, oiOffset, attentionOut);
+            Assemble(oiUpdate, oiOffset, attentionOut);
         }
     }
 }

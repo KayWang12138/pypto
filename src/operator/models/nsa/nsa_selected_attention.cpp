@@ -127,8 +127,8 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
                             SymbolicScalar tail = positions % blockSize;
                             SymbolicScalar slcBlockIdx = GetInputDataInt32Dim2(blockTable, bIdx, blockIdxInBatch);
                             Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
-                            auto kvSlcBlock = DView(kvNopeCache, {slcBlockSize, dN}, {slcBlockIdx * blockSize + tail, n2Idx * dN});
-                            auto krSlcBlock = DView(kRopeCache, {slcBlockSize, dR}, {slcBlockIdx * blockSize + tail, n2Idx * dR});
+                            auto kvSlcBlock = View(kvNopeCache, {slcBlockSize, dN}, {slcBlockIdx * blockSize + tail, n2Idx * dN});
+                            auto krSlcBlock = View(kRopeCache, {slcBlockSize, dR}, {slcBlockIdx * blockSize + tail, n2Idx * dR});
 
                             ConfigManager::Instance().SetSemanticLabel("kv_slc_cast_fp32");
                             Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
@@ -141,18 +141,18 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
                             Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
 
                             SymbolicScalar slcOutSOffset = topKIdx * slcBlockSize;
-                            DAssemble(kvSlcBlock_fp16, {slcOutSOffset, 0}, kSlc);
-                            DAssemble(krSlcBlock_fp16, {slcOutSOffset, dN}, kSlc);
+                            Assemble(kvSlcBlock_fp16, {slcOutSOffset, 0}, kSlc);
+                            Assemble(krSlcBlock_fp16, {slcOutSOffset, dN}, kSlc);
                         }
 
                         // qAssemble
                         ConfigManager::Instance().SetSemanticLabel("Sa");
-                        // DView, 临时规避改成 DViewPad
+                        // View, 临时规避改成 DViewPad
                         auto qn = DViewPad(qNope, {curGTile, dN}, {curGTile, dN}, {curOffset, 0});
                         auto qr = DViewPad(qRope, {curGTile, dR}, {curGTile, dR}, {curOffset, 0});
                         Tensor qi(dtype, {curGTile, dN + dR}, "qi");
-                        DAssemble(qn, {0, 0}, qi);
-                        DAssemble(qr, {0, dN}, qi);
+                        Assemble(qn, {0, 0}, qi);
+                        Assemble(qr, {0, dN}, qi);
 
                         // slc_attn
                         SymbolicScalar curSeq = std::max(curKvSlcSeq - s1Sym + 1 + s1Idx, 0); // for MTP s1!= 1 casual计算
@@ -192,7 +192,7 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
                         ConfigManager::Instance().SetSemanticLabel("Sa_KvVec2");
                         Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, v2Tile[0], v2Tile[1]);
                         auto oi4Dim = AddS(Reshape(oi, {1, 1, curGTile, dN}), Element(oi->Datatype(), float(0)));
-                        DAssemble(oi4Dim, oiOffset, attentionOut);
+                        Assemble(oi4Dim, oiOffset, attentionOut);
                     }
                 }
             }
@@ -279,11 +279,11 @@ void SelectedAttentionFlashCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Ten
                         SymbolicScalar tail = positions % blockSize;
                         SymbolicScalar slcBlockIdx = GetInputDataInt32Dim2(blockTable, bIdx, blockIdxInBatch);
                         Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
-                        auto kvSlcBlock = DView(kvNopeCache, {slcBlockSize, dN}, {slcBlockIdx * blockSize + tail, n2Idx * dN});
-                        auto krSlcBlock = DView(kRopeCache, {slcBlockSize, dR}, {slcBlockIdx * blockSize + tail, n2Idx * dR});
+                        auto kvSlcBlock = View(kvNopeCache, {slcBlockSize, dN}, {slcBlockIdx * blockSize + tail, n2Idx * dN});
+                        auto krSlcBlock = View(kRopeCache, {slcBlockSize, dR}, {slcBlockIdx * blockSize + tail, n2Idx * dR});
                         SymbolicScalar slcOutSOffset = bIdx * s1N2S2Sym + s1Idx * n2S2Sym + n2Idx * s2Sym + topKIdx * slcBlockSize;
-                        DAssemble(kvSlcBlock, {slcOutSOffset, 0}, kSlc);
-                        DAssemble(krSlcBlock, {slcOutSOffset, dN}, kSlc);
+                        Assemble(kvSlcBlock, {slcOutSOffset, 0}, kSlc);
+                        Assemble(krSlcBlock, {slcOutSOffset, dN}, kSlc);
                     }
                 }
 
@@ -304,12 +304,12 @@ void SelectedAttentionFlashCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Ten
                         SymbolicScalar curKvOffset = bIdx * s1N2S2Sym + s1Idx * n2S2Sym + n2Idx * s2Sym + s2Idx * curS2Tile;
 
                         ConfigManager::Instance().SetSemanticLabel("Sa");
-                        // DView, 临时规避改成 DViewPad
+                        // View, 临时规避改成 DViewPad
                         auto qn = DViewPad(qNope, {curGTile, dN}, {curGTile, dN}, {curOffset, 0});
                         auto qr = DViewPad(qRope, {curGTile, dR}, {curGTile, dR}, {curOffset, 0});
                         Tensor qi(dtype, {curGTile, dN + dR}, "qi");
-                        DAssemble(qn, {0, 0}, qi);
-                        DAssemble(qr, {0, dN}, qi);
+                        Assemble(qn, {0, 0}, qi);
+                        Assemble(qr, {0, dN}, qi);
 
                         auto kj = DViewPad(kSlc, {curS2Tile, dN + dR}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN + dR},
                                         {curKvOffset, 0}); // kSlc已经合并了rope和nope
@@ -348,7 +348,7 @@ void SelectedAttentionFlashCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Ten
                                 oiUpdate = Div(oiTmp, tildaLij);
                                 Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, v2Tile[0], v2Tile[1]);
                                 auto oiUpdate4Dim = AddS(Reshape(oiUpdate, {1, 1, curGTile, dN}), Element(oiUpdate->Datatype(), float(0)));
-                                DAssemble(oiUpdate4Dim, oiOffset, attentionOut);
+                                Assemble(oiUpdate4Dim, oiOffset, attentionOut);
                             } ELSE { // PATH2
                                 oiUpdate = oiTmp;
                             }
@@ -383,7 +383,7 @@ void SelectedAttentionFlashCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Ten
                                 oiUpdate = Div(oiTmp, liNew);
                                 Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, v2Tile[0], v2Tile[1]);
                                 auto oiUpdate4Dim = AddS(Reshape(oiUpdate, {1, 1, curGTile, dN}), Element(oiUpdate->Datatype(), float(0)));
-                                DAssemble(oiUpdate4Dim, oiOffset, attentionOut);
+                                Assemble(oiUpdate4Dim, oiOffset, attentionOut);
                             } ELSE { // PATH0
                                 oiUpdate = oiTmp;
                             }
@@ -401,7 +401,7 @@ void SelectedAttention(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &kRopeCa
     const Tensor &qNope, const Tensor &qRope, Tensor &attentionOut,
     int nQ, int nKv, float softmaxScale, int front, int near, int topk, int blockSize, int cmpBlockSize, int slcBlockSize,
     SATileShapeConfig saTileConfig) {
-    FUNCTION("SA_MAIN", FunctionType::DYNAMIC, 
+    FUNCTION("SA_MAIN", FunctionType::DYNAMIC,
         {topKIndcies, kvNopeCache, kRopeCache, kvActSeqs, blockTable, qNope, qRope},
         {attentionOut}) {
         SelectedAttentionCompute(topKIndcies, kvNopeCache, kRopeCache, kvActSeqs, blockTable,

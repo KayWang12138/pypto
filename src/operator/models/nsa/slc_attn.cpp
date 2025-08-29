@@ -97,12 +97,12 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
                         SymbolicScalar curKvOffset = bIdx * s1N2S2Sym + s1Idx * n2S2Sym + s2Idx * curS2Tile;
 
                         ConfigManager::Instance().SetSemanticLabel("Sa");
-                        // DView, 临时规避改成 DViewPad
+                        // View, 临时规避改成 DViewPad
                         auto qn = DViewPad(qNope, {curGTile, dN}, {curGTile, dN}, {curOffset, 0});
                         auto qr = DViewPad(qRope, {curGTile, dR}, {curGTile, dR}, {curOffset, 0});
                         Tensor qi(dtype, {curGTile, dN + dR}, "qi");
-                        DAssemble(qn, {0, 0}, qi);
-                        DAssemble(qr, {0, dN}, qi);
+                        Assemble(qn, {0, 0}, qi);
+                        Assemble(qr, {0, dN}, qi);
 
                         auto kj = DViewPad(kSlc, {curS2Tile, dN + dR}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN + dR},
                                         {curKvOffset, 0}); // kSlc已经合并了rope和nope
@@ -141,7 +141,7 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
                                 oiUpdate = Div(oiTmp, tildaLij);
                                 Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, v2Tile[0], v2Tile[1]);
                                 auto oiUpdate4Dim = AddS(Reshape(oiUpdate, {1, 1, curGTile, dN}), Element(oiUpdate->Datatype(), float(0)));
-                                DAssemble(oiUpdate4Dim, oiOffset, attentionOut);
+                                Assemble(oiUpdate4Dim, oiOffset, attentionOut);
                             } ELSE { // PATH2
                                 oiUpdate = oiTmp;
                             }
@@ -176,7 +176,7 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
                                 oiUpdate = Div(oiTmp, liNew);
                                 Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, v2Tile[0], v2Tile[1]);
                                 auto oiUpdate4Dim = AddS(Reshape(oiUpdate, {1, 1, curGTile, dN}), Element(oiUpdate->Datatype(), float(0)));
-                                DAssemble(oiUpdate4Dim, oiOffset, attentionOut);
+                                Assemble(oiUpdate4Dim, oiOffset, attentionOut);
                             } ELSE { // PATH0
                                 oiUpdate = oiTmp;
                             }

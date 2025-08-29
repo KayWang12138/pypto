@@ -122,7 +122,7 @@ static void MatmulOperationExeFuncSplitM(
             Program::GetInstance().GetTileShape().SetCubeTileShapes({args->tileShape_[0][0], args->tileShape_[0][1]},
                 {args->tileShape_[1][0], args->tileShape_[1][1]}, {args->tileShape_[2][0], args->tileShape_[2][1]});
             Tensor tensorC = CallMatmulOp(tensorA, tensorB, args->param_);
-            DAssemble(tensorC, {mIdx * mView, 0}, outputs[0]);
+            Assemble(tensorC, {mIdx * mView, 0}, outputs[0]);
         }
     }
 }
@@ -160,7 +160,7 @@ static void MatmulOperationExeFuncSplitN(
             Program::GetInstance().GetTileShape().SetCubeTileShapes({args->tileShape_[0][0], args->tileShape_[0][1]},
                 {args->tileShape_[1][0], args->tileShape_[1][1]}, {args->tileShape_[2][0], args->tileShape_[2][1]});
             Tensor tensorC = CallMatmulOp(tensorA, tensorB, args->param_);
-            DAssemble(tensorC, {0, nIdx * nView}, outputs[0]);
+            Assemble(tensorC, {0, nIdx * nView}, outputs[0]);
         }
     }
 }
@@ -203,7 +203,7 @@ static void MatmulOperationExeFuncSplitMN(
                     {args->tileShape_[0][0], args->tileShape_[0][1]}, {args->tileShape_[1][0], args->tileShape_[1][1]},
                     {args->tileShape_[2][0], args->tileShape_[2][1]});
                 Tensor tensorC = CallMatmulOp(tensorA, tensorB, args->param_);
-                DAssemble(tensorC, {mIdx * mView, nIdx * nView}, outputs[0]);
+                Assemble(tensorC, {mIdx * mView, nIdx * nView}, outputs[0]);
             }
         }
     }

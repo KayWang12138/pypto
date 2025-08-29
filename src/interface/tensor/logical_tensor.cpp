@@ -611,7 +611,7 @@ Tensor TensorExtract(const Tensor &src, const std::vector<SymbolicScalar> &offse
     Tensor dst(src.GetDataType(), dstShape, currFunc->GetRawName() + "_TensorExtract");
 
     Shape viewShape(src.GetShape().size(), 1);
-    Tensor view = DView(src, viewShape, offset);
+    Tensor view = View(src, viewShape, offset);
     Operation &emuopView = **view.GetStorage()->GetProducers().begin();
 
     // Force to UB
@@ -637,7 +637,7 @@ void TensorInsert(const Tensor &src, const std::vector<SymbolicScalar> &offset, 
     Tensor mark = AddS(src, Element(src.GetDataType(), (int64_t)0));
     Operation &emuopMark = **mark.GetStorage()->GetProducers().begin();
 
-    DAssemble(mark, offset, dst);
+    Assemble(mark, offset, dst);
     Operation &emuopAssemble = **mark.GetStorage()->GetConsumers().begin();
 
     emuopMark.SetAttribute(OP_EMUOP_PREFIX + "opc", EMUOP_TENSOR_INSERT);

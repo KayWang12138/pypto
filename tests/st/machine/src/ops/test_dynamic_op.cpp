@@ -44,7 +44,7 @@ TEST_F(DynamicOpTest, VectorDuplicateUnalign) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange((curSeq + sTile - 1) / sTile)) {
             Tensor tmp = VectorDuplicate(Element(DataType::DT_FP32, 2.0f), DT_FP32, {sTile, h},
                 {std::min(curSeq - sIdx * sTile, sTile), h});
-            DAssemble(tmp, {sIdx * sTile, 0}, output);
+            Assemble(tmp, {sIdx * sTile, 0}, output);
         }
     }
 

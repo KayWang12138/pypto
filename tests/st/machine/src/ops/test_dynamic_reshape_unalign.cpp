@@ -52,7 +52,7 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_add_dim) {
             auto tmp0 = Reshape(q0, {1, sq, d}, {1, curSeq, d});
             Program::GetInstance().GetTileShape().SetVecTileShapes(1, 64, 64);
             auto tmp = Exp(tmp0);
-            DAssemble(tmp, {batchId, 0, 0}, out);
+            Assemble(tmp, {batchId, 0, 0}, out);
         }
     }
 
@@ -106,7 +106,7 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_merge_dim) {
             auto tmp0 = Reshape(q0, {1, sq * d}, {1, curSeq * d});
             Program::GetInstance().GetTileShape().SetVecTileShapes(1, 16);
             auto tmp = Exp(tmp0);
-            DAssemble(tmp, {batchId, 0}, out);// 1, sq * d -> b, sq * d
+            Assemble(tmp, {batchId, 0}, out);// 1, sq * d -> b, sq * d
         }
     }
 
@@ -160,7 +160,7 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_split_dim) {
             Program::GetInstance().GetTileShape().SetVecTileShapes(1, 16, 16, 16);
 
             auto tmp = MulS(tmp0, Element(tmp0->Datatype(), 1.0));
-            DAssemble(tmp, {batchId, 0, 0, 0}, out);// 1, sq * d -> b, sq * d
+            Assemble(tmp, {batchId, 0, 0, 0}, out);// 1, sq * d -> b, sq * d
         }
     }
 

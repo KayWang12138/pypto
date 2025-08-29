@@ -2699,7 +2699,7 @@ Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std
     return result;
 }
 
-Tensor DView(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &newOffsets) {
+Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &newOffsets) {
     DECLARE_TRACER();
     Tensor result(operand->Datatype(), shapes, "DView_" + operand->GetRawTensor()->GetSymbol(), operand->nodetype, operand->tensorfmt);
     result->UpdateDynValidShape(SymbolicScalar::FromConcrete(shapes));
@@ -2711,6 +2711,11 @@ Tensor DView(const Tensor &operand, const std::vector<int64_t> &shapes, const st
     op.SetOpAttribute(std::make_shared<ViewOpAttribute>(newOffsetsConcrete, newOffsets, validShape));
     MaybeAppendGetTensorData(&op, newOffsets);
     return result;
+}
+
+//重载View，initializer_list避免歧义
+Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::initializer_list<SymbolicScalar> &newOffsets) {
+    return View(operand, shapes, std::vector<SymbolicScalar>(newOffsets));
 }
 
 Tensor DViewPad(const Tensor &operand, const std::vector<int64_t> &shapes,
@@ -2802,12 +2807,12 @@ void DInnerAssemble(Function &function, const LogicalTensorPtr &operand,
     CALL(DInnerAssemble, function, operand, result, dynOffset);
 }
 
-void DAssemble(const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset, Tensor &dest) {
+void Assemble(const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset, Tensor &dest) {
     DECLARE_TRACER();
 
-    ASSERT(dest.GetStorage(false)->tensorfmt == tensor.GetStorage(false)->tensorfmt)<<"DAssemble: src and dest requires same format";
-    ASSERT(dest.GetShape().size() == tensor.GetShape().size())<<"DAssemble: src and dest requires same shape";
-    ASSERT(dest.GetShape().size() == dynOffset.size())<<"DAssemble: dynOffset and dest requires same shape";
+    ASSERT(dest.GetStorage(false)->tensorfmt == tensor.GetStorage(false)->tensorfmt)<<"Assemble: src and dest requires same format";
+    ASSERT(dest.GetShape().size() == tensor.GetShape().size())<<"Assemble: src and dest requires same shape";
+    ASSERT(dest.GetShape().size() == dynOffset.size())<<"Assemble: dynOffset and dest requires same shape";
     DInnerAssemble(*Program::GetInstance().GetCurrentFunction(), tensor.GetStorage(), dest.GetStorage(), dynOffset);
 
     Program::GetInstance().GetTensorSlotManager()->TensorWrite(dest, true);

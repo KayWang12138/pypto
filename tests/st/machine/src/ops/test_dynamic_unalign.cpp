@@ -41,7 +41,7 @@ void TestLoopTailBlock(const Tensor &t0, const Tensor &blockTable, Tensor &out, 
             SymbolicScalar size = GetInputDataInt32Dim2(blockTable, i, 0);
             Tensor t0s = DViewPad(t0, {s, s}, {size, s}, {blockSize * i, 0});
             Tensor t1 = Add(t0s, t0s);
-            DAssemble(t1, {blockSize * i, 0}, out);
+            Assemble(t1, {blockSize * i, 0}, out);
         }
     }
 }
@@ -114,16 +114,16 @@ TEST_F(DynamicUnalignTest, test_mm_unalign) {
             Tensor kn = DViewPad(kNope, {nk * s2, dN}, {nk * curSeq, dN}, {batchId * nk * s2, 0});
 
             Tensor qi(dtype, {nq * s1, dN + dR}, "qi");
-            DAssemble(qn, {0, 0}, qi);
-            DAssemble(qr, {0, dN}, qi);
+            Assemble(qn, {0, 0}, qi);
+            Assemble(qr, {0, dN}, qi);
 
             Tensor kj(dtype, {nk * s2, dN + dR}, "kj");
-            DAssemble(kn, {0, 0}, kj);
-            DAssemble(kr, {0, dN}, kj);
+            Assemble(kn, {0, 0}, kj);
+            Assemble(kr, {0, dN}, kj);
 
             auto tmp = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj);
 
-            DAssemble(tmp, {batchId * nq * s1, 0}, out);
+            Assemble(tmp, {batchId * nq * s1, 0}, out);
         }
     }
 
@@ -196,7 +196,7 @@ TEST_F(DynamicUnalignTest, test_mm2_unalign) {
             Tensor v0 = DViewPad(v, {nk * s2, d}, {nk * curSeq, d}, {batchId * nk * s2, 0});
             auto tmp = Matrix::Matmul<false, false>(DataType::DT_FP32, qk0, v0);
 
-            DAssemble(tmp, {batchId * nq * s1, 0}, out);
+            Assemble(tmp, {batchId * nq * s1, 0}, out);
             // out = Matrix::Matmul<false, false>(DataType::DT_FP32, qk0, v0);
         }
     }
@@ -249,7 +249,7 @@ TEST_F(DynamicUnalignTest, test_rowmaxsingle_unalign) {
 
             Tensor q0 = DViewPad(q, {nTile, blockSize}, {nTile, curSeq}, {batchId * nTile, 0});
             auto tmp = RowMaxSingle(q0);
-            DAssemble(tmp, {batchId * nTile, 0}, out);
+            Assemble(tmp, {batchId * nTile, 0}, out);
         }
     }
 
@@ -298,7 +298,7 @@ TEST_F(DynamicUnalignTest, test_rowsumsingle_unalign) {
 
             Tensor q0 = DViewPad(q, {nTile, blockSize}, {nTile, curSeq}, {batchId * nTile, 0});
             auto tmp = RowSumSingle(q0, -1);
-            DAssemble(tmp, {batchId * nTile, 0}, out);
+            Assemble(tmp, {batchId * nTile, 0}, out);
         }
     }
 
@@ -346,7 +346,7 @@ TEST_F(DynamicUnalignTest, test_unary_unalign) {
 
             Tensor q0 = DViewPad(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
             auto tmp = Exp(q0);
-            DAssemble(tmp, {batchId * sq, 0}, out);
+            Assemble(tmp, {batchId * sq, 0}, out);
         }
     }
 

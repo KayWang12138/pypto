@@ -63,7 +63,7 @@ static void GatherElementOperationExeFunc2Dims(
 
                 Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
                 auto res = GatherElement(tileTensor0, tileTensor1, args->axis_);
-                DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
+                Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
         }
     }

@@ -101,18 +101,18 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
             ConfigManager::Instance().SetSemanticLabel("BlockConcat");
             IF(tableLoop == 1) {
                 auto blockIdx = GetInputDataInt32Dim2(blockTable, bIdx, blockStartIdx);
-                kNopeBlock = DView(kvCache, {cmpBlockSize, dN}, {blockIdx * blockSize + blockStartOffset, 0});
-                kRopeBlock = DView(krCache, {cmpBlockSize, dR}, {blockIdx * blockSize + blockStartOffset, 0});
+                kNopeBlock = View(kvCache, {cmpBlockSize, dN}, {blockIdx * blockSize + blockStartOffset, 0});
+                kRopeBlock = View(krCache, {cmpBlockSize, dR}, {blockIdx * blockSize + blockStartOffset, 0});
             }
             ELSE { // tableLoop == 2
                 auto blockIdx0 = GetInputDataInt32Dim2(blockTable, bIdx, blockStartIdx);
                 auto kNopeBlock0 =
-                    DView(kvCache, {cmpBlockSize / 2, dN}, {(blockIdx0 + 1) * blockSize - cmpBlockSize / 2, 0});
+                    View(kvCache, {cmpBlockSize / 2, dN}, {(blockIdx0 + 1) * blockSize - cmpBlockSize / 2, 0});
                 auto kRopeBlock0 =
-                    DView(krCache, {cmpBlockSize / 2, dR}, {(blockIdx0 + 1) * blockSize - cmpBlockSize / 2, 0});
+                    View(krCache, {cmpBlockSize / 2, dR}, {(blockIdx0 + 1) * blockSize - cmpBlockSize / 2, 0});
                 auto blockIdx1 = GetInputDataInt32Dim2(blockTable, bIdx, blockStartIdx + 1);
-                auto kNopeBlock1 = DView(kvCache, {cmpBlockSize / 2, dN}, {blockIdx1 * blockSize, 0});
-                auto kRopeBlock1 = DView(krCache, {cmpBlockSize / 2, dR}, {blockIdx1 * blockSize, 0});
+                auto kNopeBlock1 = View(kvCache, {cmpBlockSize / 2, dN}, {blockIdx1 * blockSize, 0});
+                auto kRopeBlock1 = View(krCache, {cmpBlockSize / 2, dR}, {blockIdx1 * blockSize, 0});
                 Program::GetInstance().GetTileShape().SetVecTileShapes(cmpBlockSize, dN);
                 kNopeBlock = Concat({kNopeBlock0, kNopeBlock1}, 0);
                 Program::GetInstance().GetTileShape().SetVecTileShapes(cmpBlockSize, dR);
@@ -125,13 +125,13 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
             // LocalRope
             Program::GetInstance().GetTileShape().SetVecTileShapes(1, NUM_32, NUM_64);
             ConfigManager::Instance().SetSemanticLabel("MlpLocalRope");
-            auto cosTmp = DView(mlpCos, {1, cmpBlockSize, dR}, {bIdx, 0, 0});
-            auto sinTmp = DView(mlpSin, {1, cmpBlockSize, dR}, {bIdx, 0, 0});
+            auto cosTmp = View(mlpCos, {1, cmpBlockSize, dR}, {bIdx, 0, 0});
+            auto sinTmp = View(mlpSin, {1, cmpBlockSize, dR}, {bIdx, 0, 0});
             auto kRopeEmbed = BatchMlpSingleRope(kRopeBlock, cosTmp, sinTmp, tileConfig.mlpRopeTile);
 
             ConfigManager::Instance().SetSemanticLabel("MlpCompress");
-            DAssemble(kNopeBlock, {bIdx, 0, 0}, batchConcatNR);
-            DAssemble(kRopeEmbed, {bIdx, 0, dN}, batchConcatNR);
+            Assemble(kNopeBlock, {bIdx, 0, 0}, batchConcatNR);
+            Assemble(kRopeEmbed, {bIdx, 0, dN}, batchConcatNR);
         }
 
         Tensor batchMlpCompressResult(kDtype, {b, dN + dR}, "batchMlpCompressResult");
@@ -155,15 +155,15 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
             Tensor kNopeCmp(kDtype, {1, dN});
             Tensor kRopeCmp(kDtype, {1, dR});
             IF(t1 * t2) {
-                kNopeCmp = DView(batchMlpCompressResult, {1, dN}, {bIdx, 0});
-                kRopeCmp = DView(batchMlpCompressResult, {1, dR}, {bIdx, dN});
+                kNopeCmp = View(batchMlpCompressResult, {1, dN}, {bIdx, 0});
+                kRopeCmp = View(batchMlpCompressResult, {1, dR}, {bIdx, dN});
             }
             ELSE {
                 auto cmpKvCacheDim2 = Reshape(cmpKvCache, {cmpBlockNum * blockSize * n2, dN});
                 auto cmpKrCacheDim2 = Reshape(cmpKrCache, {cmpBlockNum * blockSize * n2, dR});
                 auto index = GetInputDataInt32Dim2(cmpCacheIndex, bIdx, s1 - 1);
-                kNopeCmp = DView(cmpKvCacheDim2, {1, dN}, {index, 0});
-                kRopeCmp = DView(cmpKrCacheDim2, {1, dR}, {index, 0});
+                kNopeCmp = View(cmpKvCacheDim2, {1, dN}, {index, 0});
+                kRopeCmp = View(cmpKrCacheDim2, {1, dR}, {index, 0});
             }
 
             if (kDtype == DT_BF16) {
@@ -175,8 +175,8 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
                 kNopeCmp = AddS(kNopeCmp, Element(DT_FP32, 0.0f));
                 kRopeCmp = AddS(kRopeCmp, Element(DT_FP32, 0.0f));
             }
-            DAssemble(kNopeCmp, {bIdx, 0}, batchNopeResult);
-            DAssemble(kRopeCmp, {bIdx, 0}, batchRopeResult);
+            Assemble(kNopeCmp, {bIdx, 0}, batchNopeResult);
+            Assemble(kRopeCmp, {bIdx, 0}, batchRopeResult);
         }
 
         LOOP("UPDATE_CMP_KV_CACHE", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(1), {}, true) {
@@ -184,7 +184,7 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
             auto cmpKvCacheDim2 = Reshape(cmpKvCache, {cmpBlockNum * blockSize * n2, dN});
             auto cmpKrCacheDim2 = Reshape(cmpKrCache, {cmpBlockNum * blockSize * n2, dR});
             Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_32, NUM_64);
-            auto index = Reshape(DView(cmpCacheIndex, {b, 1}, {0, s1 - 1}), {1, b});
+            auto index = Reshape(View(cmpCacheIndex, {b, 1}, {0, s1 - 1}), {1, b});
             cmpKvCacheOut =
                 Reshape(ScatterUpdate(cmpKvCacheDim2, index, batchNopeResult, 0), {cmpBlockNum, blockSize, 1, dN});
             cmpKrCacheOut =
@@ -192,7 +192,7 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
             for (int i = 0; i < rs + rc - 1; i++) {
                 auto auxVector = npu::tile_fwk::VectorDuplicate(
                     Element(DT_FP32, float(std::min(i + 1, rc) - std::max(i - rs, 0))), DT_FP32, {1, auxVecLen});
-                DAssemble(auxVector, {i, 0}, auxTensor);
+                Assemble(auxVector, {i, 0}, auxTensor);
             }
         }
     }

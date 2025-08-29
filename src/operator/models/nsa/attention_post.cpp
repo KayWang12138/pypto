@@ -62,7 +62,7 @@ void PostCompute(Tensor &input, PostTensors &postTensors, const PostTileConfig &
             std::vector<SymbolicScalar> outOffset = {bOffset, sOffset, 0};
 
             Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, kvLoraRank});
-            auto inputView = DView(input, {tileB, tileS, n, kvLoraRank}, {bOffset, sOffset, 0, 0});
+            auto inputView = View(input, {tileB, tileS, n, kvLoraRank}, {bOffset, sOffset, 0, 0});
             ConfigManager::Instance().SetSemanticLabel("postReshape1");
             auto inputRes = Reshape(inputView, {tileBS, n, kvLoraRank});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32, tileBS), 2, kvLoraRank});
@@ -141,7 +141,7 @@ void PostCompute(Tensor &input, PostTensors &postTensors, const PostTileConfig &
             ConfigManager::Instance().SetSemanticLabel("postReshape3");
             auto postOutView = Reshape(mmRes, {tileB, tileS, h});
             Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, h});
-            DAssemble(postOutView, outOffset, postOut);
+            Assemble(postOutView, outOffset, postOut);
         }
     }
 }

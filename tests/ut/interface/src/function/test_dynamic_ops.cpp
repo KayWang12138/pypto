@@ -505,8 +505,8 @@ TEST_F(DynamicOpsTest, MatmulAcc) {
     FUNCTION("main", FunctionType::DYNAMIC, {t0, t1, t2}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
-            auto v0 = DView(t0, {64, 64}, {64, 64});
-            auto v1 = DView(t1, {64, 64}, {64, 64});
+            auto v0 = View(t0, {64, 64}, {64, 64});
+            auto v1 = View(t1, {64, 64}, {64, 64});
             auto m0 = Matrix::Matmul<false, true>(DT_FP32, v0, v1);
             out = Add(m0, t2);
         }

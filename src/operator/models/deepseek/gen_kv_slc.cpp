@@ -70,8 +70,8 @@ void KvSlcCompute(Tensor &topK_indcies, Tensor &topK_tensor_shape, Tensor &kvNop
                     SymbolicScalar tail = positions % blockSize;
                     SymbolicScalar slcBlockIdx = GetInputDataInt32Dim2(blockTable, batchIdx, blockIdxInBatch);
                     Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
-                    auto kv_slcBlock = DView(kvNopeCache, {l_prime, kv_lora_rank}, {slcBlockIdx * blockSize + tail, nkvIdx * kv_lora_rank});
-                    auto kRope_slcBlock = DView(kRopeCache, {l_prime, rope_dim}, {slcBlockIdx * blockSize + tail, nkvIdx * rope_dim});
+                    auto kv_slcBlock = View(kvNopeCache, {l_prime, kv_lora_rank}, {slcBlockIdx * blockSize + tail, nkvIdx * kv_lora_rank});
+                    auto kRope_slcBlock = View(kRopeCache, {l_prime, rope_dim}, {slcBlockIdx * blockSize + tail, nkvIdx * rope_dim});
                     Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
                     auto kv_slcBlock_fp32 = Cast(kv_slcBlock, DataType::DT_FP32);
                     auto kRope_slcBlock_fp32 = Cast(kRope_slcBlock, DataType::DT_FP32);
@@ -84,9 +84,9 @@ void KvSlcCompute(Tensor &topK_indcies, Tensor &topK_tensor_shape, Tensor &kvNop
                     Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
                     SymbolicScalar output_axis1_value =
                     batchIdx * s * n2 * topk * l_prime + slcIdx * n2 * topk * l_prime + nkvIdx * topk * l_prime + topKIdx * l_prime;
-                    DAssemble(kv_slcBlock_fp16, {output_axis1_value, 0}, k_slcOut);
-                    DAssemble(kRope_slcBlock_fp16, {output_axis1_value, kv_lora_rank}, k_slcOut);
-                    DAssemble(kv_slcBlock_fp16, {output_axis1_value, 0}, v_slcOut);
+                    Assemble(kv_slcBlock_fp16, {output_axis1_value, 0}, k_slcOut);
+                    Assemble(kRope_slcBlock_fp16, {output_axis1_value, kv_lora_rank}, k_slcOut);
+                    Assemble(kv_slcBlock_fp16, {output_axis1_value, 0}, v_slcOut);
                 }
                 SetTensorDataInt32(slcSeqLen, {batchIdx, slcIdx}, kvSlcActSeqs);
             }

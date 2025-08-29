@@ -54,7 +54,7 @@ static void MulsOperationExeFuncDoubleCut(
                     {bIdx * firstViewShape, sIdx * secondViewShape});
                 Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
                 auto res = MulS(tileTensor0, args->value_);
-                DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
+                Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
         }
     }
@@ -85,7 +85,7 @@ static void MulsOperationExeFuncTripleCut(
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
                     Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
                     auto res = MulS(tileTensor0, args->value_);
-                    DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
+                    Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
             }
         }
@@ -124,7 +124,7 @@ static void MulsOperationExeFuncQuadrupleCut(
                                     qIdx * fourthViewShape});
                         Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
                         auto res = MulS(tileTensor0, args->value_);
-                        DAssemble(res,
+                        Assemble(res,
                             {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
                                 qIdx * fourthViewShape},
                             outputs[0]);

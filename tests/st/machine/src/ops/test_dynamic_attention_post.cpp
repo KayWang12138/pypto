@@ -39,13 +39,13 @@ void PaPostDebugCastFirstR1(Tensor &postIn, Tensor &r1Out) {
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
-            auto postInUnit = DView(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
+            auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64, bTile*S*N), kvLoraRank});// raw (8*1*128, 512)
             auto cast1 = Cast(postInUnit, DT_BF16);
             auto r1Res = Reshape(cast1, {bTile*S, N, kvLoraRank});
 
             std::vector<SymbolicScalar> dynOffset = {bIdx*bTile*S, 0, 0};
-            DAssemble(r1Res, dynOffset, r1Out);
+            Assemble(r1Res, dynOffset, r1Out);
         }
     }
 }
@@ -98,7 +98,7 @@ void PaPostDebugCastFirstT1(Tensor &postIn, Tensor &t1Out) {
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
-            auto postInUnit = DView(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
+            auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64, bTile*S*N), kvLoraRank});// raw (8*1*128, 512)
             auto cast1 = Cast(postInUnit, DT_BF16);
             auto r1Res = Reshape(cast1, {bTile*S, N, kvLoraRank});
@@ -106,7 +106,7 @@ void PaPostDebugCastFirstT1(Tensor &postIn, Tensor &t1Out) {
             auto t1Res = Transpose(r1Res, {0, 1}); // (N, bTile * S, kvLoraRank)
 
             std::vector<SymbolicScalar> dynOffset = {0, bIdx*bTile*S, 0};
-            DAssemble(t1Res, dynOffset, t1Out);
+            Assemble(t1Res, dynOffset, t1Out);
         }
     }
 }
@@ -160,8 +160,9 @@ void PaPostDebugCastFirstBmm4(Tensor &postIn, Tensor &weightUV, Tensor &bmm4Out)
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int64_t bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
-            auto postInUnit = DView(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
+            auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64L, bTile*S*N), kvLoraRank});// raw (8*1*128, 512)
+
             auto cast1 = Cast(postInUnit, DT_BF16);
             auto r1Res = Reshape(cast1, {bTile*S, N, kvLoraRank});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(8L, bTile*S), 8, kvLoraRank}); // raw (8*1, 128, 512)
@@ -174,7 +175,7 @@ void PaPostDebugCastFirstBmm4(Tensor &postIn, Tensor &weightUV, Tensor &bmm4Out)
             auto bmmRes = Matrix::BatchMatmul(dtype, t1Res, weightUV); // (N, bTile, kvLoraRank) * (N, kvLoraRank, vHeadDim) -> (N, bTile, vHeadDim)
 
             std::vector<SymbolicScalar> dynOffset = {0, bIdx*bTile*S, 0};
-            DAssemble(bmmRes, dynOffset, bmm4Out);
+            Assemble(bmmRes, dynOffset, bmm4Out);
         }
     }
 }
@@ -231,9 +232,10 @@ void PaPostDebugCastFirstCrtb4tr(Tensor &postIn, Tensor &weightUV, Tensor &r2Out
         {postIn, weightUV}, {r2Out}) {
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 8;
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
-            auto postInUnit = DView(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {     
+            auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64L, bTile*S*N), kvLoraRank});// raw (8*1*128, 512)
+
             auto cast1 = Cast(postInUnit, DT_BF16);
             auto r1Res = Reshape(cast1, {bTile*S, N, kvLoraRank});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(8, bTile*S), 8, kvLoraRank}); // raw (8*1, 128, 512)
@@ -251,7 +253,7 @@ void PaPostDebugCastFirstCrtb4tr(Tensor &postIn, Tensor &weightUV, Tensor &r2Out
             auto r2Res = Reshape(t3Res, {bTile * S, N * vHeadDim}); // (bTile * S, N, vHeadDim) -> (bTile * S, N*vHeadDim)
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile*S, 0};
-            DAssemble(r2Res, dynOffset, r2Out);
+            Assemble(r2Res, dynOffset, r2Out);
         }
     }
 }
@@ -308,12 +310,12 @@ void PaPostDebugCastFirstOnlyT1(Tensor &r1Res, Tensor &t1Out) {
         SymbolicScalar B = r1Res->shape[0]; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
-            auto postInUnit = DView(r1Res, {bTile * S, N, kvLoraRank}, {bIdx * bTile * S, 0, 0});
+            auto postInUnit = View(r1Res, {bTile * S, N, kvLoraRank}, {bIdx * bTile * S, 0, 0});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(8, bTile*S), 8, kvLoraRank}); // raw (8*1, 128, 512)
             auto t1Res = Transpose(postInUnit, {0, 1}); // (N, bTile * S, kvLoraRank)
 
             std::vector<SymbolicScalar> dynOffset = {0, bIdx*bTile*S, 0};
-            DAssemble(t1Res, dynOffset, t1Out);
+            Assemble(t1Res, dynOffset, t1Out);
         }
     }
 }
@@ -368,7 +370,7 @@ void PaPostNewOnlyBmm4(Tensor &bmm4In, Tensor &weightUV, Tensor &bmm4Out) {
         SymbolicScalar B = bmm4In->shape[1] / S; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
-            auto bmm4InUnit = DView(bmm4In, {N, bTile * S, kvLoraRank}, {0, bIdx * bTile * S, 0});
+            auto bmm4InUnit = View(bmm4In, {N, bTile * S, kvLoraRank}, {0, bIdx * bTile * S, 0});
             Program::GetInstance().GetTileShape().SetVecTileShapes({64, 8, 128});
             Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(32, bTile*S), std::min(32, bTile*S)},
                 {std::min(256L, kvLoraRank), std::min(256L, kvLoraRank)},
@@ -377,7 +379,7 @@ void PaPostNewOnlyBmm4(Tensor &bmm4In, Tensor &weightUV, Tensor &bmm4Out) {
             auto bmmRes = Matrix::BatchMatmul(dtype, bmm4InUnit, weightUV); // (N, bTile, kvLoraRank) * (N, kvLoraRank, vHeadDim) -> (N, bTile, vHeadDim)
 
             std::vector<SymbolicScalar> dynOffset = {0, bIdx * bTile * S, 0};
-            DAssemble(bmmRes, dynOffset, bmm4Out);
+            Assemble(bmmRes, dynOffset, bmm4Out);
         }
     }
 }
@@ -438,7 +440,7 @@ void PaPostNewOnlyBmm4Fail(Tensor &bmm4In, Tensor &weightUV, Tensor &bmm4Out) {
         SymbolicScalar B = bmm4In->shape[1] / S; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
-            auto bmm4InUnit = DView(bmm4In, {N, bTile * S, kvLoraRank}, {0, bIdx * bTile * S, 0});
+            auto bmm4InUnit = View(bmm4In, {N, bTile * S, kvLoraRank}, {0, bIdx * bTile * S, 0});
             Program::GetInstance().GetTileShape().SetVecTileShapes({64, 8, 128});
             Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(32, bTile*S), std::min(32, bTile*S)},
                 {std::min(256L, kvLoraRank), std::min(256L, kvLoraRank)},
@@ -446,7 +448,7 @@ void PaPostNewOnlyBmm4Fail(Tensor &bmm4In, Tensor &weightUV, Tensor &bmm4Out) {
             auto bmmRes = Matrix::BatchMatmul(dtype, bmm4InUnit, weightUV); // (N, bTile, kvLoraRank) * (N, kvLoraRank, vHeadDim) -> (N, bTile, vHeadDim)
 
             std::vector<SymbolicScalar> dynOffset = {0, bIdx * bTile * S, 0};
-            DAssemble(bmmRes, dynOffset, bmm4Out);
+            Assemble(bmmRes, dynOffset, bmm4Out);
         }
     }
 }
@@ -508,7 +510,7 @@ void PaPostNewOnlyMm5Nd(Tensor &quant0In, Tensor &weightO, Tensor &mm5Out) {
         std::cout<<"B: "<<B<<std::endl;
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
-            auto quant0InUnit = DView(quant0In, {bTile * S, N * vHeadDim}, {bIdx * bTile * S, 0});
+            auto quant0InUnit = View(quant0In, {bTile * S, N * vHeadDim}, {bIdx * bTile * S, 0});
             // // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // // int8 @ int8 = int32
             Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(32, bTile*S), std::min(32, bTile*S)},
@@ -517,7 +519,7 @@ void PaPostNewOnlyMm5Nd(Tensor &quant0In, Tensor &weightO, Tensor &mm5Out) {
             Tensor res = npu::tile_fwk::Matrix::Matmul(DataType::DT_INT32, quant0InUnit, weightO);
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile * S, 0};
-            DAssemble(res, dynOffset, mm5Out);
+            Assemble(res, dynOffset, mm5Out);
         }
     }
 }
@@ -578,7 +580,7 @@ void PaPostNewOnlyMm5NdK(Tensor &quant0In, Tensor &weightO, Tensor &mm5Out) {
         std::cout<<"B: "<<B<<std::endl;
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
-            auto quant0InUnit = DView(quant0In, {bTile * S, N * vHeadDim}, {bIdx * bTile * S, 0});
+            auto quant0InUnit = View(quant0In, {bTile * S, N * vHeadDim}, {bIdx * bTile * S, 0});
 
             // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // int8 @ int8 = int32
@@ -600,7 +602,7 @@ void PaPostNewOnlyMm5NdK(Tensor &quant0In, Tensor &weightO, Tensor &mm5Out) {
             Tensor res = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);  // (bTile*S, H)
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile * S, 0};
-            DAssemble(res, dynOffset, mm5Out);
+            Assemble(res, dynOffset, mm5Out);
         }
     }
 }
@@ -661,8 +663,8 @@ void PaPostNewMm5NdkUnquantR3(Tensor &quant0In, Tensor &weightO, Tensor &weightO
         std::cout<<"B: "<<B<<std::endl;
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
-            auto quant0InUnit = DView(quant0In, {bTile * S, N * vHeadDim}, {bIdx * bTile * S, 0});
-            auto quantOutFp32Unit = DView(quantOutFp32, {bTile * S, 1}, {bIdx * bTile * S, 0});
+            auto quant0InUnit = View(quant0In, {bTile * S, N * vHeadDim}, {bIdx * bTile * S, 0});
+            auto quantOutFp32Unit = View(quantOutFp32, {bTile * S, 1}, {bIdx * bTile * S, 0});
 
             // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // int8 @ int8 = int32
@@ -693,7 +695,7 @@ void PaPostNewMm5NdkUnquantR3(Tensor &quant0In, Tensor &weightO, Tensor &weightO
             auto postOutTmp = Reshape(bmm5Res, {bTile, S, H});
             Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(8, bTile*S), S, std::min(1024, H));
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile, 0, 0};
-            DAssemble(postOutTmp, dynOffset, postOut);
+            Assemble(postOutTmp, dynOffset, postOut);
         }
     }
 }
@@ -761,7 +763,7 @@ void PaPostNewOnlyMm5Nz(Tensor &quant0In, Tensor &weightO, Tensor &mm5Out) {
         std::cout<<"B: "<<B<<std::endl;
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
-            auto quant0InUnit = DView(quant0In, {bTile * S, N * vHeadDim}, {bIdx * bTile * S, 0});
+            auto quant0InUnit = View(quant0In, {bTile * S, N * vHeadDim}, {bIdx * bTile * S, 0});
 
             // // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // // int8 @ int8 = int32
@@ -771,7 +773,7 @@ void PaPostNewOnlyMm5Nz(Tensor &quant0In, Tensor &weightO, Tensor &mm5Out) {
             Tensor res = npu::tile_fwk::Matrix::Matmul(DataType::DT_INT32, quant0InUnit, weightO);
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile * S, 0};
-            DAssemble(res, dynOffset, mm5Out);
+            Assemble(res, dynOffset, mm5Out);
         }
     }
 }
@@ -831,7 +833,7 @@ void PaPostNewOnlyMm5NzK(Tensor &quant0In, Tensor &weightO, Tensor &mm5Out) {
         std::cout<<"B: "<<B<<std::endl;
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
-            auto quant0InUnit = DView(quant0In, {bTile * S, N * vHeadDim}, {bIdx * bTile * S, 0});
+            auto quant0InUnit = View(quant0In, {bTile * S, N * vHeadDim}, {bIdx * bTile * S, 0});
 
             // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // int8 @ int8 = int32
@@ -853,7 +855,7 @@ void PaPostNewOnlyMm5NzK(Tensor &quant0In, Tensor &weightO, Tensor &mm5Out) {
             Tensor res = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);  // (bTile*S, H)
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile * S, 0};
-            DAssemble(res, dynOffset, mm5Out);
+            Assemble(res, dynOffset, mm5Out);
         }
     }
 }
@@ -911,12 +913,12 @@ void PaPostDebugCastFirst(Tensor &postIn, Tensor &cast1Out) {
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
-            auto postInUnit = DView(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
+            auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64, bTile*S*N), kvLoraRank});// raw (8*1*128, 512)
             auto cast1 = Cast(postInUnit, DT_BF16);
 
             std::vector<SymbolicScalar> dynOffset = {bIdx*bTile*S*N, 0};
-            DAssemble(cast1, dynOffset, cast1Out);
+            Assemble(cast1, dynOffset, cast1Out);
         }
     }
 }
@@ -970,7 +972,7 @@ void PaPostCastFirstQuant(Tensor &postIn, Tensor &r2In, Tensor &weightUV, Tensor
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(B / bTile)) {
-            auto r2InUnit = DView(r2In, {bTile * S, N * vHeadDim}, {bIdx * bTile * S, 0});
+            auto r2InUnit = View(r2In, {bTile * S, N * vHeadDim}, {bIdx * bTile * S, 0});
 
             Program::GetInstance().GetTileShape().SetVecTileShapes(1, N*vHeadDim); // raw (8, 128*128)
             auto quantA = Quant(r2InUnit);
@@ -978,8 +980,8 @@ void PaPostCastFirstQuant(Tensor &postIn, Tensor &r2In, Tensor &weightUV, Tensor
             auto dequantScaleA = std::get<1>(quantA); //(bTile * S, 1)
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile * S, 0};
-            DAssemble(quantizedA, dynOffset, quantInt8Out);
-            DAssemble(dequantScaleA, dynOffset, quantFp32Out);
+            Assemble(quantizedA, dynOffset, quantInt8Out);
+            Assemble(dequantScaleA, dynOffset, quantFp32Out);
         }
     }
 }
@@ -1058,7 +1060,7 @@ void PaPostCastFirstT3r2(Tensor &bmm4In, Tensor &weightUV, Tensor &weightO, Tens
         SymbolicScalar B = bmm4In->shape[1] / S; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(B / bTile)) {
-            auto bmm4InUnit = DView(bmm4In, {N, bTile * S, vHeadDim}, {0, bIdx * bTile * S, 0});
+            auto bmm4InUnit = View(bmm4In, {N, bTile * S, vHeadDim}, {0, bIdx * bTile * S, 0});
 
             Program::GetInstance().GetTileShape().SetVecTileShapes(64, std::min(8, bTile*S), vHeadDim); // raw (128, 8, 128)
             auto t3Res = Transpose(bmm4InUnit, {0, 1}); // (N, bTile, vHeadDim) -> (bTile, N, vHeadDim)
@@ -1066,7 +1068,7 @@ void PaPostCastFirstT3r2(Tensor &bmm4In, Tensor &weightUV, Tensor &weightO, Tens
             auto r2Res = Reshape(t3Res, {bTile * S, N * vHeadDim}); // (bTile * S, N, vHeadDim) -> (bTile * S, N*vHeadDim)
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile*S, 0};
-            DAssemble(r2Res, dynOffset, r2Out);
+            Assemble(r2Res, dynOffset, r2Out);
         }
     }
 }
@@ -1134,13 +1136,13 @@ void PaPostCastFirstT3(Tensor &bmm4In, Tensor &t3Out) {
         SymbolicScalar B = bmm4In->shape[1] / S; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(B / bTile)) {
-            auto bmm4InUnit = DView(bmm4In, {N, bTile * S, vHeadDim}, {0, bIdx * bTile * S, 0});
+            auto bmm4InUnit = View(bmm4In, {N, bTile * S, vHeadDim}, {0, bIdx * bTile * S, 0});
 
             Program::GetInstance().GetTileShape().SetVecTileShapes(64, std::min(8, bTile*S), vHeadDim); // raw (128, 8, 128)
             auto t3Res = Transpose(bmm4InUnit, {0, 1}); // (N, bTile, vHeadDim) -> (bTile, N, vHeadDim)
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile*S, 0, 0};
-            DAssemble(t3Res, dynOffset, t3Out);
+            Assemble(t3Res, dynOffset, t3Out);
         }
     }
 }
@@ -1192,13 +1194,13 @@ void PaPostCastFirstR2(Tensor &t3In, Tensor &r2Out) {
         SymbolicScalar B = t3In->shape[0] / S; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(B / bTile)) {
-            auto t3InUnit = DView(t3In, {bTile * S, N, vHeadDim}, {bIdx * bTile * S, 0, 0});
+            auto t3InUnit = View(t3In, {bTile * S, N, vHeadDim}, {bIdx * bTile * S, 0, 0});
 
             Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(8, bTile*S), 64, vHeadDim);
             auto r2Res = Reshape(t3InUnit, {bTile * S, N * vHeadDim}); // (bTile * S, N, vHeadDim) -> (bTile * S, N*vHeadDim)
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile*S, 0};
-            DAssemble(r2Res, dynOffset, r2Out);
+            Assemble(r2Res, dynOffset, r2Out);
         }
     }
 }
@@ -1251,8 +1253,8 @@ void PaPostCastFirstUnquantR3(Tensor &postIn, Tensor &weightUV, Tensor &weightO,
         SymbolicScalar B = postIn->shape[0] / S; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(B / bTile)) {
-            auto postInUnit = DView(postIn, {bTile * S, H}, {bIdx * bTile * S, 0});
-            auto quantOutFp32Unit = DView(quantOutFp32, {bTile * S, 1}, {bIdx * bTile * S, 0});
+            auto postInUnit = View(postIn, {bTile * S, H}, {bIdx * bTile * S, 0});
+            auto quantOutFp32Unit = View(quantOutFp32, {bTile * S, 1}, {bIdx * bTile * S, 0});
 
             Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(8, bTile*S), std::min(1024L, H)); // raw (8, 7168)
             auto res = Cast(postInUnit, DataType::DT_FP32);
@@ -1264,7 +1266,7 @@ void PaPostCastFirstUnquantR3(Tensor &postIn, Tensor &weightUV, Tensor &weightO,
             auto postOutTmp = Reshape(bmm5Res, {bTile, S, H});
             Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(8, bTile*S), S, std::min(1024L, H));
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile, 0, 0};
-            DAssemble(postOutTmp, dynOffset, postOut);
+            Assemble(postOutTmp, dynOffset, postOut);
         }
     }
 }
@@ -1337,8 +1339,9 @@ void PaPostDebugCastFirstCrtb4trQuant(Tensor &postIn, Tensor &weightUV, Tensor &
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
-            auto postInUnit = DView(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
+            auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64L, bTile*S*N), kvLoraRank});// raw (8*1*128, 512)
+
             auto cast1 = Cast(postInUnit, DT_BF16);
             auto r1Res = Reshape(cast1, {bTile*S, N, kvLoraRank});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(8, bTile*S), 8, kvLoraRank}); // raw (8*1, 128, 512)
@@ -1362,8 +1365,8 @@ void PaPostDebugCastFirstCrtb4trQuant(Tensor &postIn, Tensor &weightUV, Tensor &
             auto dequantScaleA = std::get<1>(quantA); //(bTile * S, 1)
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile * S, 0};
-            DAssemble(quantizedA, dynOffset, quantInt8Out);
-            DAssemble(dequantScaleA, dynOffset, quantFp32Out);
+            Assemble(quantizedA, dynOffset, quantInt8Out);
+            Assemble(dequantScaleA, dynOffset, quantFp32Out);
         }
     }
 }
@@ -1431,8 +1434,9 @@ void PaPostDebugCastFirstCrtb4trQuantFail(Tensor &postIn, Tensor &weightUV, Tens
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
-            auto postInUnit = DView(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
+            auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64L, bTile*S*N), kvLoraRank});// raw (8*1*128, 512)
+
             auto cast1 = Cast(postInUnit, DT_BF16);
             auto r1Res = Reshape(cast1, {bTile*S, N, kvLoraRank});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(8, bTile*S), 8, kvLoraRank}); // raw (8*1, 128, 512)
@@ -1456,8 +1460,8 @@ void PaPostDebugCastFirstCrtb4trQuantFail(Tensor &postIn, Tensor &weightUV, Tens
             auto dequantScaleA = std::get<1>(quantA); //(bTile * S, 1)
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile * S, 0};
-            DAssemble(quantizedA, dynOffset, quantInt8Out);
-            DAssemble(dequantScaleA, dynOffset, quantFp32Out);
+            Assemble(quantizedA, dynOffset, quantInt8Out);
+            Assemble(dequantScaleA, dynOffset, quantFp32Out);
         }
     }
 }
@@ -1524,8 +1528,9 @@ void PaPostDebugCastFirstCrtb4trQMM5ND(Tensor &postIn, Tensor &weightUV, Tensor 
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
-            auto postInUnit = DView(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
+            auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64L, bTile*S*N), kvLoraRank});// raw (8*1*128, 512)
+
             auto cast1 = Cast(postInUnit, DT_BF16);
             auto r1Res = Reshape(cast1, {bTile*S, N, kvLoraRank});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(8, bTile*S), 8, kvLoraRank}); // raw (8*1, 128, 512)
@@ -1556,7 +1561,7 @@ void PaPostDebugCastFirstCrtb4trQMM5ND(Tensor &postIn, Tensor &weightUV, Tensor 
             Tensor res = npu::tile_fwk::Matrix::Matmul(DataType::DT_INT32, quantizedA, weightO);
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile * S, 0};
-            DAssemble(res, dynOffset, mm5Out);
+            Assemble(res, dynOffset, mm5Out);
         }
     }
 }
@@ -1621,7 +1626,7 @@ void PaPostDebugCastFirstCrtb4trQMM5NDk(Tensor &postIn, Tensor &weightUV, Tensor
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
-            auto postInUnit = DView(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
+            auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64L, bTile*S*N), kvLoraRank});// raw (8*1*128, 512)
             auto cast1 = Cast(postInUnit, DT_BF16);
             auto r1Res = Reshape(cast1, {bTile*S, N, kvLoraRank});
@@ -1666,7 +1671,7 @@ void PaPostDebugCastFirstCrtb4trQMM5NDk(Tensor &postIn, Tensor &weightUV, Tensor
             Tensor res = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);  // (bTile*S, H)
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile * S, 0};
-            DAssemble(res, dynOffset, mm5Out);
+            Assemble(res, dynOffset, mm5Out);
         }
     }
 }
@@ -1732,8 +1737,9 @@ void PaPostDebugCastFirstMm5UnsplitKLow(Tensor &postIn, Tensor &weightUV, Tensor
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 2;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
-            auto postInUnit = DView(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
+            auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64L, bTile*S*N), kvLoraRank});// raw (2*1*32, 512)
+
             auto cast1 = Cast(postInUnit, DT_BF16);
             auto r1Res = Reshape(cast1, {bTile*S, N, kvLoraRank});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(8, bTile*S), 32, kvLoraRank}); // raw (2*1, 32, 512)
@@ -1774,7 +1780,7 @@ void PaPostDebugCastFirstMm5UnsplitKLow(Tensor &postIn, Tensor &weightUV, Tensor
 
             Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(8, bTile*S), S, std::min(1024L, H));
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile, 0, 0};
-            DAssemble(postOutTmp, dynOffset, postOut);
+            Assemble(postOutTmp, dynOffset, postOut);
         }
     }
 }
@@ -1894,8 +1900,9 @@ void PaPostDebugCastFirstMm5UnsplitK(Tensor &postIn, Tensor &weightUV, Tensor &w
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
-            auto postInUnit = DView(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
+            auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64L, bTile*S*N), kvLoraRank});// raw (8*1*128, 512)
+
             auto cast1 = Cast(postInUnit, DT_BF16);
             auto r1Res = Reshape(cast1, {bTile*S, N, kvLoraRank});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(8, bTile*S), 8, kvLoraRank}); // raw (8*1, 128, 512)
@@ -1936,7 +1943,7 @@ void PaPostDebugCastFirstMm5UnsplitK(Tensor &postIn, Tensor &weightUV, Tensor &w
 
             Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(8, bTile*S), S, std::min(1024L, H));
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile, 0, 0};
-            DAssemble(postOutTmp, dynOffset, postOut);
+            Assemble(postOutTmp, dynOffset, postOut);
         }
     }
 }
@@ -2057,7 +2064,7 @@ void PaPostDebugCastFirstMm5SplitK(Tensor &postIn, Tensor &weightUV, Tensor &wei
         const int bTile = 32;
         Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, 500000);  // 300000(1024/167us)   700000(512/174us)   500000(512/171us)
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
-            auto postInUnit = DView(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
+            auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
             auto r1Res = Reshape(postInUnit, {bTile*S, N, kvLoraRank}); // 128个
             ConfigManager::Instance().SetSemanticLabel("CAST+TRANSPOSE1");
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32, bTile*S), 2, kvLoraRank}); // raw (bTile*1, 128, 512)
@@ -2114,7 +2121,7 @@ void PaPostDebugCastFirstMm5SplitK(Tensor &postIn, Tensor &weightUV, Tensor &wei
             auto postOutTmp = Reshape(bmm5Res, {bTile, S, H});
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile, 0, 0};
-            DAssemble(postOutTmp, dynOffset, postOut);
+            Assemble(postOutTmp, dynOffset, postOut);
         }
     }
 }
@@ -2134,7 +2141,7 @@ void PaPostDebugCastFirstMm5NormalUnSplitK(Tensor &postIn, Tensor &weightUV, Ten
         const int bTile = 32;
         Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, 500000);  // 300000(1024/167us)   700000(512/174us)   500000(512/171us)
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
-            auto postInUnit = DView(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
+            auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
             auto r1Res = Reshape(postInUnit, {bTile*S, N, kvLoraRank}); // 128个
             ConfigManager::Instance().SetSemanticLabel("CAST+TRANSPOSE1");
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32, bTile*S), 2, kvLoraRank}); // raw (bTile*1, 128, 512)
@@ -2180,7 +2187,7 @@ void PaPostDebugCastFirstMm5NormalUnSplitK(Tensor &postIn, Tensor &weightUV, Ten
             auto postOutTmp = Reshape(bmm5Res, {bTile, S, H});
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile, 0, 0};
-            DAssemble(postOutTmp, dynOffset, postOut);
+            Assemble(postOutTmp, dynOffset, postOut);
         }
     }
 }
@@ -2350,8 +2357,9 @@ void PaPostDebugCastFirstMm5SplitKLow(Tensor &postIn, Tensor &weightUV, Tensor &
         SymbolicScalar B = postIn->shape[0] / N; // S=1
         const int bTile = 2;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
-            auto postInUnit = DView(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
+            auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(64L, bTile*S*N), kvLoraRank});// raw (2*1*32, 512)
+
             auto cast1 = Cast(postInUnit, DT_BF16);
             auto r1Res = Reshape(cast1, {bTile*S, N, kvLoraRank});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(8, bTile*S), 32, kvLoraRank}); // raw (2*1, 32, 512)
@@ -2404,7 +2412,7 @@ void PaPostDebugCastFirstMm5SplitKLow(Tensor &postIn, Tensor &weightUV, Tensor &
 
             Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(8, bTile*S), S, std::min(1024L, H));
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile, 0, 0};
-            DAssemble(postOutTmp, dynOffset, postOut);
+            Assemble(postOutTmp, dynOffset, postOut);
         }
     }
 }
@@ -2554,11 +2562,11 @@ void PageAttentionPostBf16(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache
                      PowersOf2(maxUnrollTimes)) {
                     // 当前qn，qr和qi放入内层Loop，避免Concat单独切成一个小图
                     int curS2Tile = blockSize;
-                    auto qn = DView(qNope, {curNTile, dN}, {curOffset, 0});
-                    auto qr = DView(qRope, {curNTile, dR}, {curOffset, 0});
+                    auto qn = View(qNope, {curNTile, dN}, {curOffset, 0});
+                    auto qr = View(qRope, {curNTile, dR}, {curOffset, 0});
                     Tensor qi(dtype, {curNTile, dN + dR}, "qi");
-                    DAssemble(qn, {0, 0}, qi);
-                    DAssemble(qr, {0, dN}, qi);
+                    Assemble(qn, {0, 0}, qi);
+                    Assemble(qr, {0, dN}, qi);
 
                     SymbolicScalar curBlockIdx = GetInputDataInt32Dim2(blockTable, bIdx, bn);
                     curBlockIdx.AsIntermediateVariable();
@@ -2567,8 +2575,8 @@ void PageAttentionPostBf16(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache
                     auto kr = DViewPad(kRopeCache, {curS2Tile, dR}, {std::min(curSeq - bn * blockSize, blockSize), dR},
                                                   {curBlockIdx * blockSize, 0});
                     Tensor kj(dtype, {curS2Tile, dN + dR}, "kj");
-                    DAssemble(kn, {0, 0}, kj);
-                    DAssemble(kr, {0, dN}, kj);
+                    Assemble(kn, {0, 0}, kj);
+                    Assemble(kr, {0, dN}, kj);
                     auto vj = DViewPad(vNopeCache, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},
                                                   {curBlockIdx * blockSize, 0});
 
@@ -2592,7 +2600,7 @@ void PageAttentionPostBf16(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache
                         Program::GetInstance().GetTileShape().SetVecTileShapes(v2Tile[0], v2Tile[1]);
                         IF (IsLoopEnd(bn, bnPerBatch)) {
                             oiUpdate = Div(oiTmp, tildaLij); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-                            DAssemble(oiUpdate, oiOffset, attentionOut);
+                            Assemble(oiUpdate, oiOffset, attentionOut);
                         } ELSE {
                             oiUpdate = oiTmp;
                         }
@@ -2621,7 +2629,7 @@ void PageAttentionPostBf16(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache
                         auto oiTmp = Add(q3, q2); // (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
                         IF (IsLoopEnd(bn, bnPerBatch)) {
                             oiUpdate = Div(oiTmp, liNew); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-                            DAssemble(oiUpdate, oiOffset, attentionOut);
+                            Assemble(oiUpdate, oiOffset, attentionOut);
                         } ELSE {
                             oiUpdate = oiTmp;
                         }
@@ -2635,8 +2643,9 @@ void PageAttentionPostBf16(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache
         SymbolicScalar B = attentionOut->shape[0] / N; // S=1
         Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, NUM_500000);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / (bTile <= 0 ? 1 : bTile), 1), PowersOf2(maxUnrollTimes), true) {
-            auto postInUnit = DView(attentionOut, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
+            auto postInUnit = View(attentionOut, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32L, bTile*S*N), kvLoraRank});
+
             auto r1Res = Reshape(postInUnit, {bTile*S, N, kvLoraRank}); // 128个
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(NUM_32, bTile*S), 2, kvLoraRank}); // raw (bTile*1, 128, 512)
             auto cast1 = Cast(r1Res, DT_BF16);
@@ -2674,7 +2683,7 @@ void PageAttentionPostBf16(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache
             auto postOutTmp = Reshape(bmm5Res, {bTile, S, H});
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile, 0, 0};
-            DAssemble(postOutTmp, dynOffset, postOut);
+            Assemble(postOutTmp, dynOffset, postOut);
         }
     }
 }

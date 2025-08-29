@@ -58,14 +58,14 @@ void GenGatedScore(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, 
             SymbolicScalar bsOfs = bOfs * sOfs;
 
             auto xReshape = Reshape(x, {b * s, h});
-            auto xView = DView(xReshape, {tileBS, h}, {bsOfs, 0});
+            auto xView = View(xReshape, {tileBS, h}, {bsOfs, 0});
             auto mm1Res = Matrix::Matmul(DT_FP32, xReshape, gateW1);
 
             Program::GetInstance().GetTileShape().SetVecTileShapes({1, h});
             auto sigmoidRes = Sigmoid(mm1Res);
             sigmoidRes = Cast(sigmoidRes, dType);
             Program::GetInstance().GetTileShape().SetCubeTileShapes(
-                {tileBS, tileBS}, {NUM_128, NUM_128}, {NUM_16, NUM_16});            
+                {tileBS, tileBS}, {NUM_128, NUM_128}, {NUM_16, NUM_16});
             auto mm2Res = Matrix::Matmul(DT_FP32, sigmoidRes, gateW2);
             Program::GetInstance().GetTileShape().SetVecTileShapes({tileBS, n1});
 
@@ -76,7 +76,7 @@ void GenGatedScore(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, 
             if (gatingScore->Datatype() != DT_FP32) {
                 res = Cast(res, dType);
             }
-            DAssemble(res, {bOfs, sIdx, 0, 0}, gatingScore);
+            Assemble(res, {bOfs, sIdx, 0, 0}, gatingScore);
         }
     }
 }
@@ -124,7 +124,7 @@ void GenAttn(Tensor &gatingScore, Tensor &cmpAtten, Tensor &selAtten, Tensor &wi
             auto outFP32 = Add(addCmpSel, mulWin);
             Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, NUM_16, vDimSize);
             auto attentionOutTile = Cast(outFP32, dType, CAST_RINT);
-            DAssemble(attentionOutTile, outOffset, attentionOut);
+            Assemble(attentionOutTile, outOffset, attentionOut);
         }
     }
 }
@@ -136,7 +136,7 @@ void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const T
     Tensor &topkIndices, Tensor &kvActSeqs, Tensor &blockTable, int front, int near, int topk,
     int slcBlockSize, int blockSize, float softmaxScale,
     SATileShapeConfig saTileConfig, const Tensor &gateW1, const Tensor &gateW2, const Tensor &gateSimW1,
-    GateMode gateMode, Tensor &cmpAtten, int winSize, 
+    GateMode gateMode, Tensor &cmpAtten, int winSize,
     WinAttenTileShapeConfig &winAttntileConfig,                  // gen win
     PostTensors &postTensors, const PostTileConfig &postConfig,  // post
     Tensor &kvCacheOut, Tensor &krCacheOut, Tensor &postOut, const Tensor &cmpKvCache, const Tensor &cmpKrCache,
@@ -157,7 +157,7 @@ void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const T
             cmpAtten, // genAttn
             postTensors.weightUV, postTensors.weightO, postTensors.weightUvScale, postTensors.smoothScalesWUv,
             postTensors.weightOScale, postTensors.smoothScalesWo,      //  paPost
-    },  
+    },
         {postOut, cmpAttnOut, cmpSoftmax, fullK, cmpK, topkRes, topkInput},
         {{kvCacheOut, kvCache}, {krCacheOut, krCache}}) {
         Program::GetInstance().GetConfig().Set<int>(NBUFFER_MERGE_MODE, 1);
@@ -212,15 +212,15 @@ void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const T
             LOOP("RESHAPE_LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, s, 1)) {
                 SymbolicScalar sOffset = sIdx * 1;
 
-                Tensor nopeView = DView(queryOut, {1, 1, n1, vDim}, {bOffset, sOffset, 0, 0});
+                Tensor nopeView = View(queryOut, {1, 1, n1, vDim}, {bOffset, sOffset, 0, 0});
                 Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, vDim});
                 Tensor nopeRes = Reshape(nopeView, {1 * 1 * n1, vDim});
-                DAssemble(nopeRes, {(bOffset * s + sOffset) * n1, 0}, qNope);
+                Assemble(nopeRes, {(bOffset * s + sOffset) * n1, 0}, qNope);
 
-                Tensor ropeView = DView(queryRopeOut, {1, 1, n1, ropeDim}, {bOffset, sOffset, 0, 0});
+                Tensor ropeView = View(queryRopeOut, {1, 1, n1, ropeDim}, {bOffset, sOffset, 0, 0});
                 Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, n1, ropeDim});
                 Tensor ropeRes = Reshape(ropeView, {1 * 1 * n1, ropeDim});
-                DAssemble(ropeRes, {(bOffset * s + sOffset) * n1, 0}, qRope);
+                Assemble(ropeRes, {(bOffset * s + sOffset) * n1, 0}, qRope);
             }
         }
 

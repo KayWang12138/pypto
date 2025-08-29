@@ -87,19 +87,19 @@ void TestLoopDViewDAssemble(const Tensor &t0, const Tensor &t1, const Tensor &bl
     FUNCTION("main", FunctionType::DYNAMIC, {t0, t1, blockTable}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShapeDim(t0, 0) / s)) {
             SymbolicScalar idx = GetInputDataInt32Dim2(blockTable, i, 0);
-            Tensor t0s = DView(t0, {s, s}, {idx * s, 0});
+            Tensor t0s = View(t0, {s, s}, {idx * s, 0});
 
             Tensor qi(DT_FP32, {s, 2*s}, "qi");
-            DAssemble(t1, {0, 0}, qi);
-            DAssemble(t0s, {0, s}, qi);
+            Assemble(t1, {0, 0}, qi);
+            Assemble(t0s, {0, s}, qi);
 
             Tensor ki(DT_FP32, {s, 2*s}, "ki");
-            DAssemble(t0s, {0, 0}, ki);
-            DAssemble(t1, {0, s}, ki);
+            Assemble(t0s, {0, 0}, ki);
+            Assemble(t1, {0, s}, ki);
 
             Tensor t2 = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, ki);
             // conat((t0s + t1, t1)) @ concat (t0s, t1)^T
-            DAssemble(t2, {idx * s, 0}, out);
+            Assemble(t2, {idx * s, 0}, out);
         }
     }
 }
@@ -154,10 +154,10 @@ TEST_F(DynamicBasicTest, TestTT) {
 
     FUNCTION("main", FunctionType::DYNAMIC, {t0, t1}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(8)) {
-            Tensor t0s = DView(t0, {s, s}, {idx * s, 0});
-            Tensor t1s = DView(t1, {s, s}, {idx * s, 0});
+            Tensor t0s = View(t0, {s, s}, {idx * s, 0});
+            Tensor t1s = View(t1, {s, s}, {idx * s, 0});
             Tensor o = Add(t0s, t1s);
-            DAssemble(o, {idx * s, 0}, out);
+            Assemble(o, {idx * s, 0}, out);
         }
     }
 
@@ -177,9 +177,9 @@ TEST_F(DynamicBasicTest, DynamicRawShape) {
 
     FUNCTION("main", FunctionType::DYNAMIC, {t0, t1}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(GetInputShapeDim(t0, 0) / s)) {
-            Tensor t0s = DView(t0, {s, s}, {idx * s, 0});
+            Tensor t0s = View(t0, {s, s}, {idx * s, 0});
             Tensor t2 = Matrix::Matmul<false, true>(DataType::DT_FP32, t0s, t1);
-            DAssemble(t2, {idx * s, 0}, out);
+            Assemble(t2, {idx * s, 0}, out);
         }
     }
 
@@ -212,17 +212,17 @@ TEST_F(DynamicBasicTest, DynamicRawShapeUnalign) {
         auto t1 = Tensor(t0.GetDataType(), {shape0, s});
         auto loop1 = (shape0 + s - 1) / s;
         LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(loop1)) {
-            Tensor t0s = DView(t0, {s, s}, {idx * s, 0});
+            Tensor t0s = View(t0, {s, s}, {idx * s, 0});
             auto t = AddS(t0s, Element(DT_FP32, 3.0));
-            DAssemble(t, {idx * s, 0}, t1);
+            Assemble(t, {idx * s, 0}, t1);
         }
 
         // check t1 use dynshape from t0
         auto loop2 = (GetInputShapeDim(t1, 0) + s - 1) / s;
         LOOP("L1", FunctionType::DYNAMIC_LOOP, idx, LoopRange(loop2), {}, true) {
-            Tensor t1s = DView(t1, {s, s}, {idx * s, 0});
+            Tensor t1s = View(t1, {s, s}, {idx * s, 0});
             auto t = SubS(t1s, Element(DT_FP32, 1.0));
-            DAssemble(t, {idx * s, 0}, out);
+            Assemble(t, {idx * s, 0}, out);
         }
     }
 
@@ -255,7 +255,7 @@ TEST_F(DynamicBasicTest, TestInplace) {
         LOOP("l0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             UNUSED(i);
             t3 = Add(t0, t1);
-            DAssemble(t3, {0, 0}, t2);
+            Assemble(t3, {0, 0}, t2);
         }
     }
 
@@ -316,9 +316,9 @@ TEST_F(DynamicBasicTest, TestStaticLoop) {
             s0Out = Sub(t1, t0);
         }
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(LOOP_COUNT)) {
-            Tensor t0s = DView(s0Out, {s, s}, {i * s, 0});
+            Tensor t0s = View(s0Out, {s, s}, {i * s, 0});
             Tensor t3 = Add(t0s, t2);
-            DAssemble(t3, {i * s, 0}, out);
+            Assemble(t3, {i * s, 0}, out);
         }
     }
 
@@ -355,19 +355,19 @@ TEST_F(DynamicBasicTest, TestInnerLoopOrder) {
             Tensor tileB(DT_FP32, {1, vecLen}, "tileB");
             LOOP("Inner", FunctionType::DYNAMIC_LOOP, j, LoopRange(1)) {
                 (void)j;
-                auto tile = DView(inputB, {1, vecLen}, {i, 0});
+                auto tile = View(inputB, {1, vecLen}, {i, 0});
                 tileB = MulS(tile, Element(DataType::DT_FP32, 1.0));
             }
 
             LOOP("Inner2", FunctionType::DYNAMIC_LOOP, k, LoopRange(loopNum)) {
-                auto tileA = DView(inputA, {1, vecLen}, {k, 0});
+                auto tileA = View(inputA, {1, vecLen}, {k, 0});
                 tileB = Add(tileA, tileB);
             }
 
             LOOP("Inner3", FunctionType::DYNAMIC_LOOP, l, LoopRange(1)) {
                 (void)l;
                 tileB = MulS(tileB, Element(DataType::DT_FP32, 1.0));
-                DAssemble(tileB, {i, 0}, output);
+                Assemble(tileB, {i, 0}, output);
             }
         }
     }
@@ -542,8 +542,8 @@ TEST_F(DynamicBasicTest, TestGetTensorData) {
             Tensor t0 = AddS(inputA, Element(DT_INT32, (int64_t)2));
             SymbolicScalar v0 = GetTensorDataInt32(t0, 0, 1); // t0[0, 1] == 3
             SymbolicScalar v1 = GetTensorDataInt32(t0, 0, 2); // t0[0, 2] == 3
-            auto t2 = DView(inputC, {n, n}, {0, v0 * n});
-            auto t3 = DView(inputC, {n, n}, {0, v1 * n});
+            auto t2 = View(inputC, {n, n}, {0, v0 * n});
+            auto t3 = View(inputC, {n, n}, {0, v1 * n});
             output = Mul(t2, t3);
         }
     }
@@ -584,8 +584,8 @@ TEST_F(DynamicBasicTest, TestGetTensorDataExpr) {
             SymbolicScalar v1 = GetTensorDataInt32(t0, 0, 2); // t0[0, 2] == 3
             SymbolicScalar v2 = GetInputDataInt32Dim2(inputA, 0, 1); // inputA[0, 1] == 3
             SymbolicScalar v3 = GetInputDataInt32Dim2(inputA, 0, 2); // inputA[0, 2] == 3
-            auto t2 = DView(inputC, {n, n}, {0, (v0 + v2 + i / i) * n});
-            auto t3 = DView(inputC, {n, n}, {0, (v1 + v3 + i / i) * n});
+            auto t2 = View(inputC, {n, n}, {0, (v0 + v2 + i / i) * n});
+            auto t3 = View(inputC, {n, n}, {0, (v1 + v3 + i / i) * n});
             output = Mul(t2, t3);
         }
     }

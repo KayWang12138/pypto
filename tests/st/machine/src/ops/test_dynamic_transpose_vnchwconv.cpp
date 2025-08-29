@@ -48,7 +48,7 @@ TEST_F(DynamicTransposeTest, TestDynamicVnchwconv) {
             Tensor q0 = DViewPad(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
             auto tmp = Transpose(q0, {0, 1});
             // 01转置后是不是应该为{batchid * d, 0}?
-            DAssemble(tmp, {batchId * d, 0}, out);
+            Assemble(tmp, {batchId * d, 0}, out);
         }
     }
 

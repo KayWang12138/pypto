@@ -42,7 +42,7 @@ constexpr float F_NEGA_1 = -1.0;
     FUNCTION("main", FunctionType::DYNAMIC, {hiddenStates, ffnWeight1, ffnWeight2, ffnWeight3}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, loopIdx, LoopRange(GetInputShapeDim(hiddenStates, 0) / BASIC_BATCH)) {
             SymbolicScalar batchIdx = BASIC_BATCH * loopIdx;
-            auto hiddenStatesTemp = DView(hiddenStates, {BASIC_BATCH, H}, {batchIdx, 0});
+            auto hiddenStatesTemp = View(hiddenStates, {BASIC_BATCH, H}, {batchIdx, 0});
             auto castRes = Cast(hiddenStatesTemp, DataType::DT_FP16);
             auto gate = Matrix::Matmul(DataType::DT_FP32, castRes, ffnWeight1);
             auto swish = MulS(gate, Element(DataType::DT_FP32, F_NEGA_1));
@@ -56,7 +56,7 @@ constexpr float F_NEGA_1 = -1.0;
 
             // down_proj
             auto mlpRes = Matrix::Matmul<false, true>(DataType::DT_FP32, swish_fp16, ffnWeight3);
-            DAssemble(mlpRes, {batchIdx, 0}, out);
+            Assemble(mlpRes, {batchIdx, 0}, out);
         }
     }
     }
@@ -69,8 +69,8 @@ constexpr float F_NEGA_1 = -1.0;
         LOOP("L0", FunctionType::DYNAMIC_LOOP, loopIdx, LoopRange(GetInputShapeDim(hiddenStatesQuant, 0) / BASIC_BATCH)) {
             SymbolicScalar batchIdx = BASIC_BATCH * loopIdx;
 
-            auto castRes = DView(hiddenStatesQuant, {BASIC_BATCH, H}, {batchIdx, 0});
-            auto castResScale = DView(hiddenStatesScale, {BASIC_BATCH, 1}, {batchIdx, 0});
+            auto castRes = View(hiddenStatesQuant, {BASIC_BATCH, H}, {batchIdx, 0});
+            auto castResScale = View(hiddenStatesScale, {BASIC_BATCH, 1}, {batchIdx, 0});
             auto gateInt32 = Matrix::Matmul(DataType::DT_INT32, castRes, ffnWeight1);
 
             // dequant: int32 -> fp32 -> *scale -> fp16/bf16
@@ -101,7 +101,7 @@ constexpr float F_NEGA_1 = -1.0;
             auto resTmpFp32 = Cast(resInt32, DataType::DT_FP32);
             auto resTmpDequantPerToken = Mul(resTmpFp32, swishScale);
             auto res = Mul(resTmpDequantPerToken, ffnScale3);
-            DAssemble(res, {batchIdx, 0}, out);
+            Assemble(res, {batchIdx, 0}, out);
         }
     }
     }

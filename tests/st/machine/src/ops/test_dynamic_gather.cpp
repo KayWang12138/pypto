@@ -50,7 +50,7 @@ TEST_F(DynamicGatherTest, TestDynamicGatherDim2) {
 
             Tensor indices0 = DViewPad(indices, {sq}, {curSeq}, {batchId * sq});
             auto tmp = Gather(q, indices0, axis);
-            DAssemble(tmp, {batchId * sq, 0}, out);
+            Assemble(tmp, {batchId * sq, 0}, out);
         }
     }
 
@@ -105,7 +105,7 @@ TEST_F(DynamicGatherTest, TestDynamicGatherDim3) {
 
             Tensor indices0 = DViewPad(indices, {sq, s2}, {curSeq, s2}, {batchId * sq, 0});
             auto tmp = Gather(q, indices0, axis);
-            DAssemble(tmp, {batchId * sq, 0, 0}, out);
+            Assemble(tmp, {batchId * sq, 0, 0}, out);
         }
     }
 

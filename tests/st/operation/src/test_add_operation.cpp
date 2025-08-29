@@ -79,7 +79,7 @@ static void AddOperationExeFunc2Dims(
                 }
                 Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
                 auto res = Add(tileTensor0, tileTensor1);
-                DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
+                Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
         }
     }
@@ -116,7 +116,7 @@ static void AddOperationExeFunc3Dims(
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
                     Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
                     auto res = Add(tileTensor0, tileTensor1);
-                    DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
+                    Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
             }
         }
@@ -187,7 +187,7 @@ static void AddOperationExeFunc4Dims(
                         }
                         Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
                         auto res = Add(tileTensor0, tileTensor1);
-                        DAssemble(res,
+                        Assemble(res,
                             {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
                                 nIdx * fourthViewShape},
                             outputs[0]);

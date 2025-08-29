@@ -54,7 +54,7 @@ static void DivsOperationExeFuncDoubleCut(
                     {bIdx * firstViewShape, sIdx * secondViewShape});
                 Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
                 auto res = DivS(tileTensor0, args->value_);
-                DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
+                Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
         }
     }
@@ -85,7 +85,7 @@ static void DivsOperationExeFuncTripleCut(
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
                     Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
                     auto res = DivS(tileTensor0, args->value_);
-                    DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
+                    Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
             }
         }
@@ -124,7 +124,7 @@ static void DivsOperationExeFuncQuadrupleCut(
                                     qIdx * fourthViewShape});
                         Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
                         auto res = DivS(tileTensor0, args->value_);
-                        DAssemble(res,
+                        Assemble(res,
                             {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
                                 qIdx * fourthViewShape},
                             outputs[0]);

@@ -42,9 +42,9 @@ void TestStaticLoop(const Tensor &t0, const Tensor &t1, const Tensor &t2, Tensor
             s0Out = Sub(t1, t0);
         }
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(LOOP_ITERATIONS)) {
-            Tensor t0s = DView(s0Out, {s, s}, {i * s, 0});
+            Tensor t0s = View(s0Out, {s, s}, {i * s, 0});
             Tensor t3 = Add(t0s, t2);
-            DAssemble(t3, {i * s, 0}, out);
+            Assemble(t3, {i * s, 0}, out);
         }
     }
 }

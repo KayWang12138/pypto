@@ -79,7 +79,7 @@ static void MSplitFunc(
             }
             Tensor dyn_b = DViewPad(tensor_b, bShape, bValidShape, {0, 0, 0});
             Tensor res = Matrix::BatchMatmul<transA, transB, isCNz>(GetAstDtype<outputDtype>(), dyn_a, dyn_b);
-            DAssemble(res, {0, mIdx * viewShape[0], 0}, tensor_c);
+            Assemble(res, {0, mIdx * viewShape[0], 0}, tensor_c);
         }
     }
 }
@@ -105,7 +105,7 @@ static void NSplitFunc(
                     {bShape[0], std::min(bShape[1] - viewShape[2] * nIdx, viewShape[2]), bShape[2]}, {0, nIdx * viewShape[2], 0});
             }
             Tensor res = Matrix::BatchMatmul<transA, transB, isCNz>(GetAstDtype<outputDtype>(), dyn_a, dyn_b);
-            DAssemble(res, {0, 0, nIdx * viewShape[2]}, tensor_c);
+            Assemble(res, {0, 0, nIdx * viewShape[2]}, tensor_c);
         }
     }
 }
@@ -144,7 +144,7 @@ static void MNSplitFunc(
                         {0, nIdx * viewShape[2], 0});
                 }
                 Tensor res = Matrix::BatchMatmul<transA, transB, isCNz>(GetAstDtype<outputDtype>(), dyn_a, dyn_b);
-                DAssemble(res, {0, mIdx * viewShape[0], nIdx * viewShape[1]}, tensor_c);
+                Assemble(res, {0, mIdx * viewShape[0], nIdx * viewShape[1]}, tensor_c);
             }
         }
     }

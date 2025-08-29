@@ -48,7 +48,7 @@ TEST_F(DynamicBrcTest, TestDynamicMulBrcUnalign) {
             Tensor input_b0 = DViewPad(input_b, {sq, 8}, {seq, 8}, {batchId * sq, 0});
             auto input_c = RowSumSingle(input_b0);
             auto tmp = Mul(input_a0, input_c);
-            DAssemble(tmp, {batchId * sq, 0}, out);
+            Assemble(tmp, {batchId * sq, 0}, out);
         }
     }
 

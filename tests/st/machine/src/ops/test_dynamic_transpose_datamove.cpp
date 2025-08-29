@@ -47,7 +47,7 @@ TEST_F(DynamicDatamoveTest, TestDynamicDatamove) {
 
             Tensor input0 = DViewPad(input, {n, sq, d}, {n, curSeq, d}, {batchId, 0, 0});
             auto tmp = Transpose(input0, {0, 1});
-            DAssemble(tmp, {batchId * sq, 0, 0}, out);
+            Assemble(tmp, {batchId * sq, 0, 0}, out);
         }
     }
 

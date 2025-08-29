@@ -619,7 +619,7 @@ void TestLoopTailBlock(const Tensor &t0, const Tensor &blockTable, Tensor &out, 
             Tensor t0s = DViewPad(t0, {s, s}, {size, s}, {blockSize * i, 0});
             Tensor t1s = DViewPad(t0, {s/2, s}, {size, s}, {blockSize * i, 0});
             Tensor t1 = Add(t1s, t1s);
-            DAssemble(t1, {blockSize * i, 0}, out);
+            Assemble(t1, {blockSize * i, 0}, out);
         }
     }
 }

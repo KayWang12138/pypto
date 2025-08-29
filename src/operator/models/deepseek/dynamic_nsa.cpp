@@ -79,10 +79,10 @@ void GenSlc(const Tensor &x, Tensor &trans0res, Tensor &reduce0res, Tensor &tran
         LOOP("LOOP_L0_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sLoop, 1), {}, true) {
             SymbolicScalar sOfs = sIdx * tileS2;
             Program::GetInstance().GetTileShape().SetVecTileShapes({1, 4, s_cmp});
-            auto viewer = DView(x, {n2, g, s_cmp}, {0, 0, sOfs});
+            auto viewer = View(x, {n2, g, s_cmp}, {0, 0, sOfs});
             auto input32 = Cast(viewer, DataType::DT_FP32); // 1,128,511
             auto tmpTrans = Transpose(input32, {1, 2});     // 1,511,128
-            DAssemble(tmpTrans, {0, 0, 0}, tmpTrans2);
+            Assemble(tmpTrans, {0, 0, 0}, tmpTrans2);
             Program::GetInstance().GetTileShape().SetVecTileShapes({1, 16, g});
             trans0res = Cast(tmpTrans2, DataType::DT_FP16);
             Tensor abc(DataType::DT_FP16, {n2, loop, g}, "reduce0");
@@ -97,10 +97,10 @@ void GenSlc(const Tensor &x, Tensor &trans0res, Tensor &reduce0res, Tensor &tran
                     auto reduce1 = RowSumSingle(view1, 1);                                  // 1,1,128
                     auto sum = Add(reduce0, reduce1);                                       // 1,1,128
                     auto sumTmp = Cast(sum, DataType::DT_FP16);
-                    DAssemble(sumTmp, {0, i, 0}, abc);
+                    Assemble(sumTmp, {0, i, 0}, abc);
                 } else {
                     auto reduceTmp = Cast(reduce0, DataType::DT_FP16);
-                    DAssemble(reduceTmp, {0, i, 0}, abc);
+                    Assemble(reduceTmp, {0, i, 0}, abc);
                 }
             }
             reduce0res = abc;
@@ -134,7 +134,7 @@ void GenSlcV2(const Tensor &x, Tensor &out, int validSize, int l_prime, int d, i
         LOOP("LOOP_L0_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1), {}, true) {
             (void)sIdx;
             Program::GetInstance().GetTileShape().SetVecTileShapes({4, s_cmp});
-            auto viewer = DView(x, {n, s_cmp}, {0, 0});
+            auto viewer = View(x, {n, s_cmp}, {0, 0});
             auto input32 = Cast(viewer, DataType::DT_FP32); // 128,511
             auto tmpTrans = Transpose(input32, {0, 1});     // 511,128
             Program::GetInstance().GetTileShape().SetVecTileShapes({16, n});
@@ -150,10 +150,10 @@ void GenSlcV2(const Tensor &x, Tensor &out, int validSize, int l_prime, int d, i
                     auto reduce1 = RowSumSingle(view1, 0);                            // 1,128
                     auto sum = Add(reduce0, reduce1);                                 // 1,128
                     auto sumTmp = Cast(sum, DataType::DT_FP16);
-                    DAssemble(sumTmp, {i, 0}, abc);
+                    Assemble(sumTmp, {i, 0}, abc);
                 } else {
                     auto reduceTmp = Cast(reduce0, DataType::DT_FP16);
-                    DAssemble(reduceTmp, {i, 0}, abc);
+                    Assemble(reduceTmp, {i, 0}, abc);
                 }
             }
             auto trans1 = Transpose(Cast(abc, DataType::DT_FP32), {0, 1}); // 128,128

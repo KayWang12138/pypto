@@ -109,19 +109,19 @@ void DynamicDD(uint64_t configKey) {
     FUNCTION("main", FunctionType::DYNAMIC, {t0, t1, blockTable}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShapeDim(t0, 0) / s)) {
             SymbolicScalar idx = GetInputDataInt32Dim2(blockTable, i, 0);
-            Tensor t0s = DView(t0, {s, s}, {idx * s, 0});
+            Tensor t0s = View(t0, {s, s}, {idx * s, 0});
 
             Tensor qi(DT_FP32, {s, 2*s}, "qi");
-            DAssemble(t1, {0, 0}, qi);
-            DAssemble(t0s, {0, s}, qi);
+            Assemble(t1, {0, 0}, qi);
+            Assemble(t0s, {0, s}, qi);
 
             Tensor ki(DT_FP32, {s, 2*s}, "ki");
-            DAssemble(t0s, {0, 0}, ki);
-            DAssemble(t1, {0, s}, ki);
+            Assemble(t0s, {0, 0}, ki);
+            Assemble(t1, {0, s}, ki);
 
             Tensor t2 = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, ki);
             // conat((t0s + t1, t1)) @ concat (t0s, t1)^T
-            DAssemble(t2, {idx * s, 0}, out);
+            Assemble(t2, {idx * s, 0}, out);
         }
     }
 }

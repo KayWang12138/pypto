@@ -45,7 +45,7 @@ TEST_F(DynamicBinTest, TestDynamicAddUnalign) {
             Tensor intput11 = DViewPad(input1, {sq, d}, {seq, d}, {batchId, 0});
             Tensor intput22 = DViewPad(input2, {sq, d}, {seq, d}, {batchId, 0});
             auto tmp = Add(intput11, intput22);
-            DAssemble(tmp, {batchId * sq, 0}, out);
+            Assemble(tmp, {batchId * sq, 0}, out);
         }
     }
 
@@ -96,7 +96,7 @@ TEST_F(DynamicBinTest, testDynMulsUnalign) {
             Tensor q0 = DViewPad(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
             auto tmp = MulS(q0, value);
 
-            DAssemble(tmp, {batchId * sq, 0}, out);
+            Assemble(tmp, {batchId * sq, 0}, out);
         }
     }
     std::vector<int> actSeqsData(b, 100);
@@ -150,7 +150,7 @@ TEST_F(DynamicBinTest, testScalarDivsUnalign) {
             Tensor q0 = DViewPad(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
             auto tmp = ScalarDivS(q0, value, true);
 
-            DAssemble(tmp, {batchId * sq, 0}, out);
+            Assemble(tmp, {batchId * sq, 0}, out);
         }
     }
     // load data

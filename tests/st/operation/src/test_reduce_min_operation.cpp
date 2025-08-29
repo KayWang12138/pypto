@@ -49,7 +49,7 @@ void ReduceMinOperationExeFunc(
                 {std::min(firstDim - bIdx * firstViewShape, firstViewShape), secondDim}, {bIdx * firstViewShape, 0});
             Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
             auto res = RowMinSingle(viewTensor, args->dims_[0]);
-            DAssemble(res, {bIdx * firstViewShape, 0}, outputs[0]);
+            Assemble(res, {bIdx * firstViewShape, 0}, outputs[0]);
         }
     }
 }
@@ -72,7 +72,7 @@ void ReduceMin2DOperationExeFunc(
                     {bIdx * firstViewShape, sIdx * secondViewShape});
                 Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
                 auto res = RowMinSingle(viewTensor, args->dims_[0]);
-                DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
+                Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
         }
     }
@@ -102,7 +102,7 @@ void ReduceMin3DOperationExeFunc(
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
                     Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
                     auto res = RowMinSingle(viewTensor, args->dims_[0]);
-                    DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
+                    Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
             }
         }
@@ -141,7 +141,7 @@ void ReduceMin4DOperationExeFunc(
                                     nIdx * fourthViewShape});
                         Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
                         auto res = RowMinSingle(viewTensor, args->dims_[0]);
-                        DAssemble(res,
+                        Assemble(res,
                             {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
                                 nIdx * fourthViewShape},
                             outputs[0]);

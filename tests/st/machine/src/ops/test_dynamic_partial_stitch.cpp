@@ -73,11 +73,11 @@ TEST_F(DynamicTest, TestPartial) {
     FUNCTION("main", FunctionType::DYNAMIC, {q, seq}, {out}) {
         Tensor mid(vType, midShape, "mid");
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0) / (blockSize))) {
-            Tensor block = DView(q, {blockSize, blockSize}, {batchId * blockSize, 0});
+            Tensor block = View(q, {blockSize, blockSize}, {batchId * blockSize, 0});
             SymbolicScalar curSeq = GetInputDataInt32Dim1(seq, batchId);
             ConfigManager::Instance().SetSemanticLabel("add");
             Tensor add = Add(block, block);
-            DAssemble(add, {curSeq * blockSize, 0}, mid);
+            Assemble(add, {curSeq * blockSize, 0}, mid);
         }
         LOOP("SUM", FunctionType::DYNAMIC_LOOP, _, LoopRange(1)) {
             (void)_;

@@ -52,7 +52,7 @@ static void SqrtOperationExeFunc2Dims(
                     {bIdx * firstViewShape, sIdx * secondViewShape});
                 Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
                 auto res = Sqrt(tileTensor);
-                DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
+                Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
         }
     }
@@ -82,7 +82,7 @@ static void SqrtOperationExeFunc3Dims(
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
                     Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
                     auto res = Sqrt(tileTensor);
-                    DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
+                    Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
             }
         }
@@ -122,7 +122,7 @@ static void SqrtOperationExeFunc4Dims(
                                     nIdx * fourthViewShape});
                         Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
                         auto res = Sqrt(tileTensor0);
-                        DAssemble(res,
+                        Assemble(res,
                             {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
                                 nIdx * fourthViewShape},
                             outputs[0]);

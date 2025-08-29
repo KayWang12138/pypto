@@ -51,7 +51,7 @@ static void VectorDuplicateOperationExeFunc2Dims(
                 auto tileTensor = VectorDuplicate(args->value_, DataType::DT_FP32, {firstViewShape, secondViewShape},
                     {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                         std::min(secondDim - sIdx * secondViewShape, secondViewShape)});
-                DAssemble(tileTensor, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
+                Assemble(tileTensor, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
         }
     }
@@ -80,7 +80,7 @@ static void VectorDuplicateOperationExeFunc3Dims(
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                             std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                             std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)});
-                    DAssemble(
+                    Assemble(
                         tileTensor, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
             }
@@ -119,7 +119,7 @@ static void VectorDuplicateOperationExeFunc4Dims(
                                 std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                                 std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
                                 std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)});
-                        DAssemble(tileTensor0,
+                        Assemble(tileTensor0,
                             {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
                                 nIdx * fourthViewShape},
                             outputs[0]);

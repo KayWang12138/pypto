@@ -46,12 +46,14 @@ void Print(const Tensor &operand, const std::string &msg, SymbolicScalar cond = 
 void ToFile(const Tensor &operand, const std::string &fname, SymbolicScalar cond = 1);
 
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<int64_t> &offsets);
-Tensor DView(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &newOffsets);
+Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &newOffsets);
+Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::initializer_list<SymbolicScalar> &newOffsets);
 Tensor DViewPad(const Tensor &operand, const std::vector<int64_t> &shapes,
     const std::vector<SymbolicScalar> &newValidShapes, const std::vector<SymbolicScalar> &newOffsets);
 
 Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int64_t>>> &tensors);
-void DAssemble(const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset, Tensor &dest);
+void Assemble(const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset, Tensor &dest);
+
 
 Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, const std::vector<SymbolicScalar> &validShape={});
 void ReshapeInplace(const Tensor &operand, Tensor &dst);

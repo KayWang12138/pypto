@@ -61,8 +61,8 @@ void TopKOpExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outpu
                 }, offset);
                 Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
                 auto res = TopK(viewTensor, args->count_[0], args->dims_[0], args->largest_[0]);
-                DAssemble(std::get<0>(res), offset, outputs[0]);
-                DAssemble(std::get<1>(res), offset, outputs[1]);
+                Assemble(std::get<0>(res), offset, outputs[0]);
+                Assemble(std::get<1>(res), offset, outputs[1]);
             }
         }
     }
@@ -98,8 +98,8 @@ void TopKOpExeFunc3D(const std::vector<Tensor>& inputs, std::vector<Tensor>& out
                     }, offset);
                     Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
                     auto res = TopK(viewTensor, args->count_[0], args->dims_[0], args->largest_[0]);
-                    DAssemble(std::get<0>(res), offset, outputs[0]);
-                    DAssemble(std::get<1>(res), offset, outputs[1]);
+                    Assemble(std::get<0>(res), offset, outputs[0]);
+                    Assemble(std::get<1>(res), offset, outputs[1]);
                 }
             }
         }
@@ -142,8 +142,8 @@ void TopKOpExeFunc4D(const std::vector<Tensor>& inputs, std::vector<Tensor>& out
                         }, offset);
                         Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
                         auto res = TopK(viewTensor, args->count_[0], args->dims_[0], args->largest_[0]);
-                        DAssemble(std::get<0>(res), offset, outputs[0]);
-                        DAssemble(std::get<1>(res), offset, outputs[1]);
+                        Assemble(std::get<0>(res), offset, outputs[0]);
+                        Assemble(std::get<1>(res), offset, outputs[1]);
                     }
                 }
             }

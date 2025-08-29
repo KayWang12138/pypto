@@ -277,11 +277,11 @@ void PageAttentionPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
                      PowersOf2(maxUnrollTimes)) {
                     // 当前qn，qr和qi放入内层Loop，避免Concat单独切成一个小图
                     int curS2Tile = blockSize;
-                    auto qn = DView(qNope, {curNTile, dN}, {curOffset, 0});
-                    auto qr = DView(qRope, {curNTile, dR}, {curOffset, 0});
+                    auto qn = View(qNope, {curNTile, dN}, {curOffset, 0});
+                    auto qr = View(qRope, {curNTile, dR}, {curOffset, 0});
                     Tensor qi(dtype, {curNTile, dN + dR}, "qi");
-                    DAssemble(qn, {0, 0}, qi);
-                    DAssemble(qr, {0, dN}, qi);
+                    Assemble(qn, {0, 0}, qi);
+                    Assemble(qr, {0, dN}, qi);
 
                     SymbolicScalar curBlockIdx = GetInputDataInt32Dim2(blockTable, bIdx, bn);
                     curBlockIdx.AsIntermediateVariable();
@@ -290,8 +290,8 @@ void PageAttentionPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
                     auto kr = DViewPad(kRopeCache, {curS2Tile, dR}, {std::min(curSeq - bn * blockSize, blockSize), dR},
                                                   {curBlockIdx * blockSize, 0});
                     Tensor kj(dtype, {curS2Tile, dN + dR}, "kj");
-                    DAssemble(kn, {0, 0}, kj);
-                    DAssemble(kr, {0, dN}, kj);
+                    Assemble(kn, {0, 0}, kj);
+                    Assemble(kr, {0, dN}, kj);
                     auto vj = DViewPad(vNopeCache, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},
                                                   {curBlockIdx * blockSize, 0});
 
@@ -315,7 +315,7 @@ void PageAttentionPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
                         Program::GetInstance().GetTileShape().SetVecTileShapes(v2Tile[0], v2Tile[1]);
                         IF (IsLoopEnd(bn, bnPerBatch)) {
                             oiUpdate = Div(oiTmp, tildaLij); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-                            DAssemble(oiUpdate, oiOffset, attentionOut);
+                            Assemble(oiUpdate, oiOffset, attentionOut);
                         } ELSE {
                             oiUpdate = oiTmp;
                         }
@@ -344,7 +344,7 @@ void PageAttentionPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
                         auto oiTmp = Add(q3, q2); // (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
                         IF (IsLoopEnd(bn, bnPerBatch)) {
                             oiUpdate = Div(oiTmp, liNew); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-                            DAssemble(oiUpdate, oiOffset, attentionOut);
+                            Assemble(oiUpdate, oiOffset, attentionOut);
                         } ELSE {
                             oiUpdate = oiTmp;
                         }
@@ -358,8 +358,9 @@ void PageAttentionPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
         SymbolicScalar B = attentionOut->shape[0] / N; // S=1
         const int64_t bTile = 32;
         LOOP("PaPost", FunctionType::DYNAMIC_LOOP, papostiter, LoopRange(B / bTile), {}, true) {
-            auto postInUnit = DView(attentionOut, {bTile * S * N, kvLoraRank}, {papostiter * bTile * S * N, 0});
+            auto postInUnit = View(attentionOut, {bTile * S * N, kvLoraRank}, {papostiter * bTile * S * N, 0});
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32L, bTile*S*N), kvLoraRank});// raw (bTile*1*128, 512)
+
             auto cast1 = Cast(postInUnit, DT_BF16);
             auto r1Res = Reshape(cast1, {bTile*S, N, kvLoraRank}); // 128个
             Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32L, bTile*S), 1, kvLoraRank}); // raw (bTile*1, 128, 512)
@@ -409,7 +410,7 @@ void PageAttentionPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
             auto postOutTmp = Reshape(bmm5Res, {bTile, S, H});
 
             std::vector<SymbolicScalar> dynOffset = {papostiter * bTile, 0, 0};
-            DAssemble(postOutTmp, dynOffset, postOut);
+            Assemble(postOutTmp, dynOffset, postOut);
         }
     }
 }

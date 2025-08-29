@@ -168,7 +168,7 @@ static void BatchMatmulOperationExeFuncSplitM(
             }
             Tensor tensorC = CallBatchMatmulOp(tensorA, tensorB, args->param_);
             tileParam.cOffset.insert(tileParam.cOffset.end(), {mIdx * tileParam.mView, 0});
-            DAssemble(tensorC, tileParam.cOffset, outputs[0]);
+            Assemble(tensorC, tileParam.cOffset, outputs[0]);
         }
     }
 }
@@ -209,7 +209,7 @@ static void BatchMatmulOperationExeFuncSplitN(
             }
             Tensor tensorC = CallBatchMatmulOp(tensorA, tensorB, args->param_);
             tileParam.cOffset.insert(tileParam.cOffset.end(), {0, nIdx * tileParam.nView});
-            DAssemble(tensorC, tileParam.cOffset, outputs[0]);
+            Assemble(tensorC, tileParam.cOffset, outputs[0]);
         }
     }
 }
@@ -264,7 +264,7 @@ static void BatchMatmulOperationExeFuncSplitMN(
                 }
                 Tensor tensorC = CallBatchMatmulOp(tensorA, tensorB, args->param_);
                 tileParam.cOffset.insert(tileParam.cOffset.end(), {mIdx * tileParam.mView, nIdx * tileParam.nView});
-                DAssemble(tensorC, tileParam.cOffset, outputs[0]);
+                Assemble(tensorC, tileParam.cOffset, outputs[0]);
             }
         }
     }

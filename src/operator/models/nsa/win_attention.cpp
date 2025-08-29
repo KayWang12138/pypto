@@ -89,23 +89,23 @@ void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &
                         SymbolicScalar curidx = blockStartIndex + tIdx;
                         SymbolicScalar curBlockIdx = GetInputDataInt32Dim2(blockTable, bIdx, curidx);
 
-                        auto kNope = DView(vNopeCache, {blockSize, dNopeSize}, {curBlockIdx * blockSize, n2Idx * dNopeSize});
+                        auto kNope = View(vNopeCache, {blockSize, dNopeSize}, {curBlockIdx * blockSize, n2Idx * dNopeSize});
                         Program::GetInstance().GetTileShape().SetVecTileShapes(nopeTile[0], nopeTile[1]);
                         auto tmpK1 = Cast(kNope, DataType::DT_FP32);
                         auto tmpK2 = Cast(tmpK1, dtype);
-                        DAssemble(tmpK2, {tIdx * blockSize, 0}, kPart);
+                        Assemble(tmpK2, {tIdx * blockSize, 0}, kPart);
 
-                        auto kRope = DView(kRopeCache, {blockSize, dRopeSize}, {curBlockIdx * blockSize, n2Idx * dRopeSize});
+                        auto kRope = View(kRopeCache, {blockSize, dRopeSize}, {curBlockIdx * blockSize, n2Idx * dRopeSize});
                         Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTile[0], ropeTile[1]);
                         auto tmpKR1 = Cast(kRope, DataType::DT_FP32);
                         auto tmpKR2 = Cast(tmpKR1, dtype);
-                        DAssemble(tmpKR2, {tIdx * blockSize, dNopeSize}, kPart);
+                        Assemble(tmpKR2, {tIdx * blockSize, dNopeSize}, kPart);
 
-                        auto vNope = DView(vNopeCache, {blockSize, dNopeSize}, {curBlockIdx * blockSize, n2Idx * dNopeSize});
+                        auto vNope = View(vNopeCache, {blockSize, dNopeSize}, {curBlockIdx * blockSize, n2Idx * dNopeSize});
                         Program::GetInstance().GetTileShape().SetVecTileShapes(nopeTile[0], nopeTile[1]);
                         auto tmpV1 = Cast(vNope, DataType::DT_FP32);
                         auto tmpV2 = Cast(tmpV1, dtype);
-                        DAssemble(tmpV2, {tIdx * blockSize, 0}, vPart);
+                        Assemble(tmpV2, {tIdx * blockSize, 0}, vPart);
                     }
                     LOOP("LOOP_L2_Idx", FunctionType::DYNAMIC_LOOP, oIdx, LoopRange(1), {}, true) {
                         (void) oIdx;
@@ -117,9 +117,9 @@ void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &
                         Tensor qPart(dtype, {gTile, dNopeSize + dRopeSize}, "qPart");
                         // query
                         auto qNopeL = DViewPad(qNope, {gTile, dNopeSize}, {gTile, dNopeSize}, {curOffset, 0});
-                        DAssemble(qNopeL, {0, 0}, qPart);
+                        Assemble(qNopeL, {0, 0}, qPart);
                         auto qRopeR = DViewPad(qRope, {gTile, dNopeSize}, {gTile, dRopeSize}, {curOffset, 0});
-                        DAssemble(qRopeR, {0, dNopeSize}, qPart);
+                        Assemble(qRopeR, {0, dNopeSize}, qPart);
 
                         // matmul_1
                         Program::GetInstance().GetTileShape().SetCubeTileShapes(
@@ -146,7 +146,7 @@ void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &
                         auto outNew = Reshape(out, {bTile, s1Tile, gTile, dNopeSize});
                         Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, outTile[0], outTile[1]);
                         auto outFinal = AddS(outNew, Element(outNew->Datatype(), 0.0));
-                        DAssemble(outFinal, outOffset, attentionOut);
+                        Assemble(outFinal, outOffset, attentionOut);
                     }
                 }
             }

@@ -74,7 +74,7 @@ void GenAttention(Tensor &cmpAtten, Tensor &selAtten, Tensor &winAtten, Tensor &
                 auto outFP32 = Add(addCmpSel, mulWin);
                 Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, NUM_16, dDimSize);
                 auto attentionOutTile = Cast(outFP32, dType, CAST_RINT);
-                DAssemble(attentionOutTile, outOffset, attentionOut);
+                Assemble(attentionOutTile, outOffset, attentionOut);
             }
         }
     }

@@ -255,7 +255,7 @@ void TestAuxTensor() {
             for (int i = 0; i < rs + rc - 1; i++) {
                 auto auxVector = npu::tile_fwk::VectorDuplicate(
                     Element(dType, float(min(i + 1, rc) - max(i - rs, 0))), dType, {1, auxVecLen});
-                DAssemble(auxVector, {i, 0}, auxTensor);
+                Assemble(auxVector, {i, 0}, auxTensor);
             }
         }
     }

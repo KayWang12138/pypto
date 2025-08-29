@@ -268,8 +268,8 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
         LOOP("CMP_LOOP_BLOCKNUM", FunctionType::DYNAMIC_LOOP, blockIdx, LoopRange(blockLoop), {}, true) {
             ConfigManager::Instance().SetSemanticLabel("BeforeBlockConcat");
             SymbolicScalar curBlockIdx = GetInputDataInt32Dim2(blockTable, bIdx, blockIdx);
-            auto curKv = DView(kvCache, {blockSize, n2 * dN}, {curBlockIdx * blockSize, 0});
-            auto curKr = DView(krCache, {blockSize, n2 * dR}, {curBlockIdx * blockSize, 0});
+            auto curKv = View(kvCache, {blockSize, n2 * dN}, {curBlockIdx * blockSize, 0});
+            auto curKr = View(krCache, {blockSize, n2 * dR}, {curBlockIdx * blockSize, 0});
             Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_128, NUM_64);
             auto curkv1 = Cast(curKv, DT_FP32);
             auto curkr1 = Cast(curKr, DT_FP32);
@@ -279,19 +279,19 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
             auto curKv2 = Cast(curKvRe, kDtype);
             auto curKr2 = Cast(curkrRe, kDtype);
 
-            DAssemble(curKv2, {blockIdx * blockSize, 0, 0}, kvTensor);
-            DAssemble(curKr2, {blockIdx * blockSize, 0, 0}, krTensor);
-            DAssemble(curKv2, {blockIdx * blockSize, 0, 0}, fullK);
-            DAssemble(curKr2, {blockIdx * blockSize, 0, dN}, fullK);
+            Assemble(curKv2, {blockIdx * blockSize, 0, 0}, kvTensor);
+            Assemble(curKr2, {blockIdx * blockSize, 0, 0}, krTensor);
+            Assemble(curKv2, {blockIdx * blockSize, 0, 0}, fullK);
+            Assemble(curKr2, {blockIdx * blockSize, 0, dN}, fullK);
             ConfigManager::Instance().SetSemanticLabel("AfterBlockConcat");
         }
         // Kv Compress
         auto mlpLoop = (curKvLen - cmpBlockSize) / cmpStride + NUM_VALUE_1;
         LOOP("MLP_LOOP_STRIDE", FunctionType::DYNAMIC_LOOP, cmpIdx, LoopRange(mlpLoop), {}, true) {
-            auto kvTmp = DView(kvTensor, {cmpBlockSize, n2, dN}, {cmpIdx * cmpStride, 0, 0});
-            auto krTmp = DView(krTensor, {cmpBlockSize, n2, dR}, {cmpIdx * cmpStride, 0, 0});
-            auto cosTmp = DView(mlpCos, {NUM_VALUE_1, cmpBlockSize, dR}, {bIdx, 0, 0});
-            auto sinTmp = DView(mlpSin, {NUM_VALUE_1, cmpBlockSize, dR}, {bIdx, 0, 0});
+            auto kvTmp = View(kvTensor, {cmpBlockSize, n2, dN}, {cmpIdx * cmpStride, 0, 0});
+            auto krTmp = View(krTensor, {cmpBlockSize, n2, dR}, {cmpIdx * cmpStride, 0, 0});
+            auto cosTmp = View(mlpCos, {NUM_VALUE_1, cmpBlockSize, dR}, {bIdx, 0, 0});
+            auto sinTmp = View(mlpSin, {NUM_VALUE_1, cmpBlockSize, dR}, {bIdx, 0, 0});
             Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_32, 1, NUM_64);
             auto kvTmp1 = Cast(kvTmp, DT_FP32);
             auto kvTmp2 = Cast(kvTmp1, kDtype);
@@ -306,20 +306,20 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
             auto krRopeTmp = Reshape(krRope, {1, cmpBlockSize, n2, dR});
             krRopeTmp = Cast(krRopeTmp, DT_FP32);
             krRopeTmp = Cast(krRopeTmp, kDtype);
-            DAssemble(krRopeTmp, {cmpIdx, 0, 0, 0}, firstRope);
+            Assemble(krRopeTmp, {cmpIdx, 0, 0, 0}, firstRope);
             Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_32, 1, NUM_64);
 
             // Mlp
             Tensor kCat(kDtype, {cmpBlockSize, n2, dN + dR}, "kConcat");
-            DAssemble(kvTmp2, {0, 0, 0}, kCat);
-            DAssemble(krRope, {0, 0, dN}, kCat);
+            Assemble(kvTmp2, {0, 0, 0}, kCat);
+            Assemble(krRope, {0, 0, dN}, kCat);
             ConfigManager::Instance().SetSemanticLabel("MlpCompress");
             auto kMlp = MlpCompress(kCat, mlpWk1, mlpWk2, tileConfig.mlpCmpTile); // (1, n2, dK)
-            DAssemble(kMlp, {cmpIdx, 0, 0}, kCmpTensor); // (maxCmpBlockSize * blockSize, n2 * dK)
+            Assemble(kMlp, {cmpIdx, 0, 0}, kCmpTensor); // (maxCmpBlockSize * blockSize, n2 * dK)
             auto MlpReshape = Reshape(kMlp, {1, 1, n2, dK});
             Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 1, NUM_128);
             auto kMlpCast = Cast(MlpReshape, DT_FP32);
-            DAssemble(kMlpCast, {bIdx, cmpIdx, 0, 0}, cmpK);
+            Assemble(kMlpCast, {bIdx, cmpIdx, 0, 0}, cmpK);
         }
         // Compress Attention
         LOOP("CMP_ATTN_LOOP_S1", FunctionType::DYNAMIC_LOOP, s1Idx, LoopRange(s1), {}, true) {
@@ -333,8 +333,8 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
                 auto qnCast2 = Cast(qnCast1, qDtype);
                 auto qrCast1 = Cast(curQr, DT_FP32);
                 auto qrCast2 = Cast(qrCast1, qDtype);
-                DAssemble(qnCast2, {0, 0}, curQAttn);
-                DAssemble(qrCast2, {0, dN}, curQAttn);
+                Assemble(qnCast2, {0, 0}, curQAttn);
+                Assemble(qrCast2, {0, dN}, curQAttn);
 
                 // MTP casual calculation for s2
                 auto curOffset = s1 - s1Idx - 1;
@@ -359,20 +359,20 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
                 auto res = CmpAttn(curQAttn, curKCast2, curVCast2, softmaxScale, tileConfig.attnTile);
                 auto curSoftmax = std::get<0>(res);                    // (g, effSeq)
                 auto curRes = std::get<1>(res);                        // (g, dN)
-                DAssemble(curSoftmax, {qOffset, 0}, cmpSoftmax);       // (b*s1*n1, sCmpMax)
-                DAssemble(curRes, {qOffset, 0}, cmpAttnOut);           // (b*s1*n1, dN)
-                DAssemble(curSoftmax, {n2Idx * group, 0}, softmaxTmp); // (b*s1*n1, sCmpMax)
+                Assemble(curSoftmax, {qOffset, 0}, cmpSoftmax);       // (b*s1*n1, sCmpMax)
+                Assemble(curRes, {qOffset, 0}, cmpAttnOut);           // (b*s1*n1, dN)
+                Assemble(curSoftmax, {n2Idx * group, 0}, softmaxTmp); // (b*s1*n1, sCmpMax)
 
                 auto curRes_tmp = Reshape(curRes, {1, 1, n1, dN});
                 Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 16, dN});
                 auto a = Cast(curRes_tmp, DT_FP16);
-                DAssemble(a, {bIdx, s1Idx, 0, 0}, cmpAttnOut16);
+                Assemble(a, {bIdx, s1Idx, 0, 0}, cmpAttnOut16);
             }
 
             LOOP("CMP_LOOP_L0_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1), {}, true) {
                 (void)sIdx;
                 Program::GetInstance().GetTileShape().SetVecTileShapes({4, s_cmp});
-                auto viewer = DView(softmaxTmp, {n, s_cmp}, {0, 0});
+                auto viewer = View(softmaxTmp, {n, s_cmp}, {0, 0});
                 auto input32 = Cast(viewer, DataType::DT_FP32); // NUM_128,511
                 auto tmpTrans = Transpose(input32, {0, 1});     // 511,NUM_128
                 Program::GetInstance().GetTileShape().SetVecTileShapes({16, n});
@@ -387,9 +387,9 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
                         auto view1 = View(tmpTrans, {maxLen1, n}, {i * out_loop + 1, 0}); // 4,NUM_128
                         auto reduce1 = RowSumSingle(view1, 0);                            // 1,NUM_128
                         auto sum = Add(reduce0, reduce1);                                 // 1,NUM_128
-                        DAssemble(sum, {i, 0}, abc);
+                        Assemble(sum, {i, 0}, abc);
                     } else {
-                        DAssemble(reduce0, {i, 0}, abc);
+                        Assemble(reduce0, {i, 0}, abc);
                     }
                 }
                 auto trans1 = Transpose(abc, {0, 1}); // NUM_128,NUM_128
@@ -399,7 +399,7 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
 
                 Program::GetInstance().GetTileShape().SetVecTileShapes({1, 16});
                 auto a = AddS(tmpOut, Element(DT_FP32, 0.0f));
-                DAssemble(a, {bIdx, 0}, topkInput);
+                Assemble(a, {bIdx, 0}, topkInput);
             }
 
             LOOP("CMP_LOOP_topk1", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1), {}, true) {
@@ -411,7 +411,7 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
                 auto tmp = Reshape(res[1], {1, 1, 16});
                 Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 16});
                 tmp = Cast(tmp, DT_INT32);
-                DAssemble(tmp, {bIdx, s1Idx, 0}, topkRes);
+                Assemble(tmp, {bIdx, s1Idx, 0}, topkRes);
             }
         }
     }

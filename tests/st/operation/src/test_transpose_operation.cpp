@@ -56,7 +56,7 @@ static void TransposeOperationExeFunc3Dims(
                         {bIdx * firstViewShape, sIdx * secondViewShape, tIdx * thirdViewShape});
                     Program::GetInstance().GetTileShape().SetVecTileShapes(transposeInfo->tileShape_);
                     auto res = Transpose(tileTensor0, {transposeInfo->first_dim_, transposeInfo->second_dim_});
-                    DAssemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, tIdx * thirdViewShape}, outputs[0]);
+                    Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, tIdx * thirdViewShape}, outputs[0]);
                 }
             }
         }
@@ -92,7 +92,7 @@ static void TransposeOperationExeFunc4Dims(
                                     pIdx * forthViewShape});
                         Program::GetInstance().GetTileShape().SetVecTileShapes(transposeInfo->tileShape_);
                         auto res = Transpose(tileTensor0, {transposeInfo->first_dim_, transposeInfo->second_dim_});
-                        DAssemble(res,
+                        Assemble(res,
                             {bIdx * firstViewShape, sIdx * secondViewShape, tIdx * thirdViewShape,
                                 pIdx * forthViewShape},
                             outputs[0]);

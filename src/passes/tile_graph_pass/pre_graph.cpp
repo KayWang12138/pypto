@@ -127,7 +127,7 @@ void GetDynOffsetBeforeReshape(const std::vector<SymbolicScalar> &oriOffset, con
 /*
 生效场景:
 DAssemble拆分了最高轴，认为可以透传，不需要拷贝，前序在ExpandFunction中做了判断，属性NeedCopy=false
-Copy_Out --> tensor(GM) --> Reshape --> oriBackUp [16, 16] --> DAssemble(offset, dynOffset) --> OCAST(offset, dynOffset) [16, 64]
+Copy_Out --> tensor(GM) --> Reshape --> oriBackUp [16, 16] --> Assemble(offset, dynOffset) --> OCAST(offset, dynOffset) [16, 64]
 因此需要: 重新计算Reshape输入的RawShape, offset, dynOffset
 */
 void HandleDynOffsetForReshape(const LogicalTensorPtr &oriBackUp, std::unordered_set<Operation *> &concurrentAssembles,

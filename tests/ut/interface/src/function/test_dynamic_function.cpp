@@ -207,26 +207,26 @@ TEST_F(DynamicFunctionTest, TestLoopRange) {
     int count = 0;
     FUNCTION("main", FunctionType::DYNAMIC, {a, b}, {c}) {
         LOOP("D1", FunctionType::STATIC, k, LoopRange(STATIC_LOOP_COUNT)) {
-            auto a0 = DView(a, childShape, {0, k * CHILD_SHAPE_OFFSET});
-            auto b0 = DView(b, childShape, {0, k * CHILD_SHAPE_OFFSET});
+            auto a0 = View(a, childShape, {0, k * CHILD_SHAPE_OFFSET});
+            auto b0 = View(b, childShape, {0, k * CHILD_SHAPE_OFFSET});
             auto c0 = Add(a0, b0);
-            DAssemble(c0, {0, k * CHILD_SHAPE_OFFSET}, c);
+            Assemble(c0, {0, k * CHILD_SHAPE_OFFSET}, c);
             count++;
         }
 
         LOOP("D2", FunctionType::DYNAMIC_LOOP, k, LoopRange(DYNAMIC_LOOP_START, DYNAMIC_LOOP_END)) {
-            auto a0 = DView(a, childShape, {0, k * CHILD_SHAPE_OFFSET});
-            auto b0 = DView(b, childShape, {0, k * CHILD_SHAPE_OFFSET});
+            auto a0 = View(a, childShape, {0, k * CHILD_SHAPE_OFFSET});
+            auto b0 = View(b, childShape, {0, k * CHILD_SHAPE_OFFSET});
             auto c0 = Add(a0, b0);
-            DAssemble(c0, {0, k * CHILD_SHAPE_OFFSET}, c);
+            Assemble(c0, {0, k * CHILD_SHAPE_OFFSET}, c);
             count++;
         }
 
         LOOP("D3", FunctionType::DYNAMIC_LOOP, k, LoopRange(DYNAMIC_LOOP_START, DYNAMIC_LOOP_END, DYNAMIC_LOOP_STEP)) {
-            auto a0 = DView(a, childShape, {0, k * CHILD_SHAPE_OFFSET});
-            auto b0 = DView(b, childShape, {0, k * CHILD_SHAPE_OFFSET});
+            auto a0 = View(a, childShape, {0, k * CHILD_SHAPE_OFFSET});
+            auto b0 = View(b, childShape, {0, k * CHILD_SHAPE_OFFSET});
             auto c0 = Add(a0, b0);
-            DAssemble(c0, {0, k * CHILD_SHAPE_OFFSET}, c);
+            Assemble(c0, {0, k * CHILD_SHAPE_OFFSET}, c);
             count++;
         }
     }
@@ -247,10 +247,10 @@ TEST_F(DynamicFunctionTest, TestOnlyExpression) {
     constexpr int CHILD_SHAPE_OFFSET = 16;
     FUNCTION("main", FunctionType::DYNAMIC, {a, b}, {c}) {
         LOOP("D3", FunctionType::DYNAMIC_LOOP, k, LoopRange(0, LOOP_END)) {
-            auto a0 = DView(a, childShape, {0, k * CHILD_SHAPE_OFFSET});
-            auto b0 = DView(b, childShape, {0, k * CHILD_SHAPE_OFFSET});
+            auto a0 = View(a, childShape, {0, k * CHILD_SHAPE_OFFSET});
+            auto b0 = View(b, childShape, {0, k * CHILD_SHAPE_OFFSET});
             auto c0 = Add(a0, b0);
-            DAssemble(c0, {0, k * CHILD_SHAPE_OFFSET}, c);
+            Assemble(c0, {0, k * CHILD_SHAPE_OFFSET}, c);
         }
     }
 
@@ -275,10 +275,10 @@ TEST_F(DynamicFunctionTest, TestOnlySymbol) {
     constexpr int LOOP_END = 4;
     FUNCTION("main", FunctionType::DYNAMIC, {a, b}, {c}) {
         LOOP("DynSymbol", FunctionType::DYNAMIC_LOOP, k, LoopRange(0, LOOP_END)) {
-            auto a0 = DView(a, childShape, {k, 0});
-            auto b0 = DView(b, childShape, {k, 0});
+            auto a0 = View(a, childShape, {k, 0});
+            auto b0 = View(b, childShape, {k, 0});
             auto c0 = Add(a0, b0);
-            DAssemble(c0, {k, 0}, c);
+            Assemble(c0, {k, 0}, c);
         }
     }
     auto rootFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_DynSymbol_Unroll1_PATH0_root_5");
@@ -518,7 +518,7 @@ TEST_F(DynamicFunctionTest, TestHybridLoopIf2) {
 Tensor TestLoopWithRank(const Tensor &t0, Tensor &r0, Tensor &out, int s, int maxRank) {
     FUNCTION("main", FunctionType::DYNAMIC, {t0, r0}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShapeDim(t0, 0) / s), PowersOf2(maxRank)) {
-            Tensor t0v = DView(t0, {s, s}, {s * i, 0});
+            Tensor t0v = View(t0, {s, s}, {s * i, 0});
             r0 = Add(t0v, r0);
         }
         FUNCTION("S1", FunctionType::STATIC) {
@@ -543,7 +543,7 @@ Tensor TestLoopIfWithRank(const Tensor &t0, Tensor &r0, Tensor &out, int s, int 
                 IF(IsLoopEnd(i, len)) {
                     r0 = AddS(r0, Element(DataType::DT_FP32, 0.0));
                 } ELSE {
-                    Tensor t0v = DView(t0, {s, s}, {s * i, 0});
+                    Tensor t0v = View(t0, {s, s}, {s * i, 0});
                     r0 = Add(t0v, r0);
                 }
             }
@@ -558,10 +558,10 @@ Tensor TestLoopIfWithRank(const Tensor &t0, Tensor &r0, Tensor &out, int s, int 
 Tensor TestLoopWithManualRank(const Tensor &t0, Tensor &r0, Tensor &out, int s, int maxRank) {
     auto func = [](const Tensor &lt0, Tensor &lr0, Tensor &lout, int ls, const npu::tile_fwk::SymbolicScalar &i, int r) {
         Program::GetInstance().GetTileShape().SetVecTileShapes({ls * r, ls * r});
-        Tensor t0v = DView(lt0, {ls * r, ls}, {ls * i, 0});
-        Tensor r0v = DView(lr0, {ls * r, ls}, {ls * i, 0});
+        Tensor t0v = View(lt0, {ls * r, ls}, {ls * i, 0});
+        Tensor r0v = View(lr0, {ls * r, ls}, {ls * i, 0});
         Tensor tmp = Add(t0v, r0v);
-        DAssemble(tmp, {ls * i, 0}, lout);
+        Assemble(tmp, {ls * i, 0}, lout);
     };
     FUNCTION("main", FunctionType::DYNAMIC, {t0, r0}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShapeDim(t0, 0) / s), PowersOf2(maxRank)) {
@@ -718,19 +718,19 @@ TEST_F(DynamicFunctionTest, TestInnerLoopOrder) {
             Tensor tileB(DT_FP32, {1, vecLen}, "tileB");
             LOOP("Inner", FunctionType::DYNAMIC_LOOP, j, LoopRange(1)) {
                 (void)j;
-                auto tile = DView(inputB, {1, vecLen}, {i, 0});
+                auto tile = View(inputB, {1, vecLen}, {i, 0});
                 tileB = MulS(tile, Element(DataType::DT_FP32, 1.0));
             }
 
             LOOP("Inner2", FunctionType::DYNAMIC_LOOP, k, LoopRange(loopNum)) {
-                auto tileA = DView(inputA, {1, vecLen}, {k, 0});
+                auto tileA = View(inputA, {1, vecLen}, {k, 0});
                 tileB = Add(tileA, tileB);
             }
 
             LOOP("Inner3", FunctionType::DYNAMIC_LOOP, l, LoopRange(1)) {
                 (void)l;
                 tileB = MulS(tileB, Element(DataType::DT_FP32, 1.0));
-                DAssemble(tileB, {i, 0}, output);
+                Assemble(tileB, {i, 0}, output);
             }
         }
     }
