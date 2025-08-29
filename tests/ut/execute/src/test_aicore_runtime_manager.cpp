@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file test_api.cpp
+ * \file test_aicore_runtime_manager.cpp
  * \brief
  */
 

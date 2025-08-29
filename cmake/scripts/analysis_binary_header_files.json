@@ -101,9 +101,11 @@
       "Area": [
         "src/interface/",
         "src/machine/",
+        "src/passes/",
         "third_party/metadef/inc/"
       ],
       "Include": [
+        "include/"
       ],
       "WhiteList": [
       ],
@@ -394,9 +396,12 @@
       "Area": [
         "src/execute/",
         "src/machine/",
+        "src/passes/",
+        "src/interface/",
         "third_party/metadef/inc/"
       ],
       "Include": [
+        "include/"
       ],
       "WhiteList": [
       ],

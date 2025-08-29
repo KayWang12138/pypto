@@ -110,6 +110,7 @@ struct DynMachineManager {
                 devArgs->nrAiv, devArgs->nrAicpu, devArgs->nrValidAic);
             DEV_INFO("devQueueAddr %lx, sharedBuffer %lx coreRegAddr %lx corePmuAdr %lx.", devArgs->devQueueAddr,
                 devArgs->sharedBuffer, devArgs->coreRegAddr, devArgs->corePmuAddr);
+            DEV_TRACE_DEBUG(schema::ScheEvent(threadIdx, schema::ThreadStart()));
             ret = machine_.Run(threadIdx, devArgs);
         } else {
             threadIdx = ctrlcpuIdx_.fetch_add(1);
@@ -119,6 +120,7 @@ struct DynMachineManager {
                 (void)sprintf_s(logfile, sizeof(logfile), "/tmp/tile_fwk_aicpu_ctrl.txt");
                 GetLogger(logfile);
 #endif
+                DEV_TRACE_DEBUG(schema::CtrlEvent(threadIdx, schema::ThreadStart()));
                 ret = machine_.ExecDyn(threadIdx, devArgs->taskId, args);
             } else if (threadIdx == MAX_SCHEDULE_AICPU_NUM + 1){
 #if !DEBUG_PLOG || !defined(__DEVICE__)

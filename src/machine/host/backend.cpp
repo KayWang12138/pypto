@@ -62,7 +62,7 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
             return 0;
         }
     } else {
-        if(function->GetRootFunction()) {
+        if(function->IsFunctionType(FunctionType::STATIC) && function->GetRootFunction()) {
             /* calc workspace size and every sub function invoke entry para offset */
             CalcFunctionInvokeWorkespace(nullptr, function, deviceAgentTask->compileInfo);
         }

@@ -31,6 +31,16 @@ constexpr int32_t DEV_SHAPE_DIM_MAX = 5;
 struct DevAscendShape {
     int dimSize{0};
     int dim[DEV_SHAPE_DIM_MAX];
+
+#ifndef __aicore__
+    int64_t GetSize() const {
+        int64_t size = 1;
+        for (int idx = 0; idx < dimSize; idx++) {
+            size *= dim[idx];
+        }
+        return size;
+    }
+#endif
 };
 
 struct DevAscendTensorData {

@@ -31,9 +31,9 @@ namespace ops {
 namespace {
 const std::string kTileFwkOpFlag = "tileFwkOp";
 const std::string kAicCntKeyOp = "_op_aicore_num";
-const std::string kAicpuInitTaskKernelName = "DynTileFwkKernelServerInit";
-const std::string kAicpuMainTaskKernelName = "DynTileFwkKernelServer";
-const std::string kAicpuSoName = "libaicpu_extend_kernels.so";
+const std::string kAicpuKernelName = "_tile_fwk_aicpu_kernel_name";
+const std::string kAicpuNullTaskKernelName = "DynTileFwkBackendKernelServerNull";
+const std::string kAicpuInitTaskKernelName = "DynTileFwkBackendKernelServerInit";
 const uint8_t kAicpuInitTaskNum = 1;
 const uint8_t kAicpuMainTaskNum = 5;
 }
@@ -126,8 +126,12 @@ ge::graphStatus TileFwkOpUtils::GenerateAicpuTask(const ge::Node &node, const in
 
   kernel_def->set_args(aicore_kernel_def->args());
   kernel_def->set_args_size(aicore_kernel_def->args_size());
-  kernel_def->set_so_name(kAicpuSoName);
-  kernel_def->set_kernel_name(kAicpuMainTaskKernelName);
+  std::string so_name = "lib" + node.GetType() + "_machine.so";
+  std::string aicpu_kernel_name;
+  (void)ge::AttrUtils::GetStr(node.GetOpDesc(), kAicpuKernelName, aicpu_kernel_name);
+
+  kernel_def->set_so_name(so_name);
+  kernel_def->set_kernel_name(aicpu_kernel_name);
   kernel_def->set_block_dim(kAicpuMainTaskNum);
 
   auto context = kernel_def->mutable_context();
@@ -135,10 +139,19 @@ ge::graphStatus TileFwkOpUtils::GenerateAicpuTask(const ge::Node &node, const in
   context->set_op_index(node.GetOpDesc()->GetId());
   context->set_args_format(aicore_context->args_format());
 
+  domi::TaskDef aicpu_null_task = aicpu_task;
+  auto null_kernel_def = aicpu_null_task.mutable_kernel();
+  null_kernel_def->set_kernel_name(kAicpuNullTaskKernelName);
+  null_kernel_def->set_block_dim(kAicpuInitTaskNum);
+  auto null_context = null_kernel_def->mutable_context();
+  null_context->set_kernel_type(static_cast<uint32_t>(ge::ccKernelType::AI_CPU));
+
   domi::TaskDef aicpu_init_task = aicpu_task;
   auto init_kernel_def = aicpu_init_task.mutable_kernel();
   init_kernel_def->set_kernel_name(kAicpuInitTaskKernelName);
   init_kernel_def->set_block_dim(kAicpuInitTaskNum);
+
+  task_defs.emplace_back(aicpu_null_task);
   task_defs.emplace_back(aicpu_init_task);
   task_defs.emplace_back(aicpu_task);
   return ge::GRAPH_SUCCESS;

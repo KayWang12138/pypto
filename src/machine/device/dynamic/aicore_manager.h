@@ -26,6 +26,7 @@
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/utils/dynamic/small_array.h"
 #include "machine/utils/dynamic/spsc_queue.h"
+#include "machine/utils/dynamic/schema_trace.h"
 #include "machine/kernel/aicore.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/utils/device_log.h"
@@ -957,6 +958,9 @@ private:
     }
 
     inline void SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTask) {
+        DEV_TRACE_DEBUG(LEvent(
+            LUid(curTaskCtrl_->taskId, FuncID(newTask), GetRootIndex(newTask), TaskID(newTask), GetLeafIndex(newTask)),
+            LActStart(coreIdx)));
         aicoreHAL.SetReadyQueue(coreIdx, (newTask + 1) & 0xFFFFFFFF);
         pendingIds_[coreIdx] = newTask;
         sendCnt_[static_cast<int>(type)]++;
@@ -1298,6 +1302,27 @@ private:
         }
     }
 
+    inline int GetRootIndex(uint32_t taskId) const {
+        auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
+        auto funcId = FuncID(taskId);
+        auto func = dyntask->cacheList[funcId].devFunc;
+        return func->GetRootIndex();
+    }
+
+    inline int GetLeafIndex(uint32_t taskId) const {
+        auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
+        auto funcId = FuncID(taskId);
+        auto opIndex = TaskID(taskId);
+        auto callList = dyntask->cacheList[funcId].calleList;
+        return callList[opIndex];
+    }
+
+    inline DevAscendFunctionDupped GetDuppedData(uint32_t taskId) const {
+        auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
+        auto funcId = FuncID(taskId);
+        return dyntask->cacheList[funcId].dup;
+    }
+
     inline void ResolveDepDyn(uint64_t finishId) {
         auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
         auto funcId = FuncID(finishId);
@@ -1351,6 +1376,9 @@ private:
         } else {
             ResolveDepDyn(finishId);
         }
+        DEV_TRACE_DEBUG(LEvent(
+            LUid(curTaskCtrl_->taskId, FuncID(finishId), GetRootIndex(finishId), TaskID(finishId), GetLeafIndex(finishId)),
+            LActFinish(coreIdx)));
         DfxProcAfterFinishTask(coreIdx, finishId);
         waitTaskCnt_[static_cast<int>(type)]--;
     }

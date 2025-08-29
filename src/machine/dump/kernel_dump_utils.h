@@ -25,9 +25,14 @@ enum class KernelContextType : int64_t {
 };
 
 struct FatbinHeadInfo {
-    uint64_t configKeyNum = 0;
+    uint64_t configKeyNum;
     std::vector<uint64_t> configKeyList;
     std::vector<size_t> binOffsets;
+    FatbinHeadInfo() : configKeyNum(0) {}
+    FatbinHeadInfo(uint64_t config_key_num) : configKeyNum(config_key_num) {
+        configKeyList.resize(config_key_num);
+        binOffsets.resize(config_key_num);
+    }
 };
 
 struct JsonInfo {

@@ -37,6 +37,7 @@
 #include "machine/utils/dynamic/allocator/allocators.h"
 #include "machine/utils/dynamic/vector.h"
 #include "machine/utils/dynamic/item_pool.h"
+#include "machine/utils/dynamic/schema_trace.h"
 #include "device_utils.h"
 #include "securec.h"
 #include "costmodel_utils.h"
@@ -159,6 +160,7 @@ struct DynFuncCacheItem {
     DevAscendFunction *devFunc;
     predcount_t *predCount;
     int *calleList;
+    DevAscendFunctionDupped dup;
 };
 struct WsSlabStageAllocMem {
     StageAllocInfo aicpuCoherentStageMem;
@@ -709,34 +711,36 @@ private:
             aicoreLocalWorkspaceWithoutStack);
 
         // Initialize aicore slot tensor memory
-        slotVerifier_.Init(baseAddr, devProg->slotPoolSize * devProg->slotStandardMemReq);
+        auto aicoreLocalSlotAllocatorSize = devProg->slotPoolSize * devProg->slotStandardMemReq;
+        slotVerifier_.Init(baseAddr, aicoreLocalSlotAllocatorSize);
         aicoreLocalSlotAllocator_.InitAicoreLocal(
             baseAddr,
             devProg->slotPoolSize,
             devProg->slotStandardMemReq,
             aicpuCoherentAllocator_);
-        baseAddr += devProg->slotPoolSize * devProg->slotStandardMemReq;
+        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceCrossDeviceTaskOutcast(range(baseAddr, baseAddr + aicoreLocalSlotAllocatorSize))));
+        baseAddr += aicoreLocalSlotAllocatorSize;
 
         // Initialize gloabl tensor memory
         auto dynWsMem = aicoreLocalWorkspaceSize - devProg->aicoreLocalWorkspaceSize;
         auto globalTensorMem = dynWsMem + devProg->globalTensorMem;
         globalTensorVerifier_.Init(baseAddr, globalTensorMem);
         aicoreGlobalAllocator_.InitAicoreLocal(baseAddr, globalTensorMem);
+        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspacePartialOutcast(range(baseAddr, baseAddr + globalTensorMem))));
         baseAddr += globalTensorMem;
 
         // Initialize aicore function internal workspace tensor memory
-        funcWsVerifier_.Init(baseAddr, devProg->rootFuncStandardMemReq * devProg->workspaceRecyclePeriod);
-        aicoreLocalFuncWsAllocator_.InitAicoreLocal(
-            baseAddr,
-            devProg->rootFuncStandardMemReq * devProg->workspaceRecyclePeriod);
-        baseAddr += devProg->rootFuncStandardMemReq * devProg->workspaceRecyclePeriod;
+        auto aicoreLocalFuncWsAllocatorSize = devProg->rootFuncStandardMemReq * devProg->workspaceRecyclePeriod;
+        funcWsVerifier_.Init(baseAddr, aicoreLocalFuncWsAllocatorSize);
+        aicoreLocalFuncWsAllocator_.InitAicoreLocal(baseAddr, aicoreLocalFuncWsAllocatorSize);
+        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceInnerTensor(range(baseAddr, baseAddr + aicoreLocalFuncWsAllocatorSize))));
+        baseAddr += aicoreLocalFuncWsAllocatorSize;
 
         // Initialize aicore function internal outcast tensor memory
         uint64_t remaining = workspaceAddr + aicoreLocalWorkspaceSize - baseAddr;
         outcastWsVerifier_.Init(baseAddr, remaining);
-        aicoreLocalFuncOutcastAllocator_.InitAicoreLocal(
-            baseAddr,
-            remaining); // Remaining all
+        aicoreLocalFuncOutcastAllocator_.InitAicoreLocal(baseAddr, remaining); // Remaining all
+        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceInDeviceTaskOutcast(range(baseAddr, baseAddr + remaining))));
         baseAddr += remaining;
 
         DEV_ASSERT(workspaceAddr <= baseAddr && baseAddr <= workspaceAddr + aicoreLocalWorkspaceSize);
@@ -844,7 +848,7 @@ private:
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
 
     WsAicpuCoherentAllocator aicpuCoherentAllocator_;  // aicpu coherent for small suballocation, not support recycle
-    SlabWsAllocator aicpuMetaSlabAllocator_; // aicpu meta memory, support reclamation 
+    SlabWsAllocator aicpuMetaSlabAllocator_; // aicpu meta memory, support reclamation
     SlabWsAllocator aicpuStitchSlabAllocator_; // aicpu stitched data support reclamation
     SeqWsAllocator aicoreGlobalAllocator_;     // only aicore accesses it
     SeqWsAllocator aicoreLocalFuncWsAllocator_;     // only aicore accesses it
@@ -909,6 +913,7 @@ public:
             int slotIndex = devProg->startArgsInputTensorSlotIndexList[i];
             slotList[slotIndex].desc = AddressDescriptor(param.address);
             DEV_INFO("Param %d Input Slot %d = %lx.", i, slotIndex, param.address);
+            DEV_TRACE_DEBUG(CtrlEvent(none(), InputTensor(i, range(param.address, param.address + param.shape.GetSize()))));
         }
         for (int i = 0; i < args->GetOutputTensorSize(); ++i) {
             DevAscendTensorData &param = args->GetOutputTensor(i);
@@ -916,6 +921,7 @@ public:
             slotList[slotIndex].desc = AddressDescriptor(param.address);
             slotList[slotIndex].isOutputSlot = true;
             DEV_INFO("Param %d Output Slot %d = %lx.", i, slotIndex, param.address);
+            DEV_TRACE_DEBUG(CtrlEvent(none(), OutputTensor(i, range(param.address, param.address + param.shape.GetSize()))));
         }
         for (size_t i = static_cast<size_t>(args->GetOutputTensorSize()); i < devProg->startArgsOutputTensorSlotIndexList.size(); ++i) {
             int outSlot = devProg->startArgsOutputTensorSlotIndexList[i];
@@ -1171,11 +1177,12 @@ struct DeviceStitchContext {
         DumpSlotInfo("Update after", slotList, slotSize);
     }
 
-    void DecideIncastOutcast() {
+    void DecideIncastOutcast(uint64_t taskId) {
         for (size_t funcIdx = 0; funcIdx < stitchedList_.size(); ++funcIdx) {
             auto &dup = stitchedList_[funcIdx];
             // decide incast address
             size_t incastSize = dup.GetSource()->GetIncastSize();
+            DEV_TRACE_DEBUG(REvent(RUid(taskId, funcIdx, dup.GetSource()->GetRootIndex()), RActIncastCount(incastSize)));
             for (size_t i = 0; i < incastSize; ++i) {
                 auto &desc = dup.GetIncastAddress(i);
                 if (!desc.IsAddress()) {
@@ -1184,10 +1191,12 @@ struct DeviceStitchContext {
                 DEV_DEBUG_ASSERT(desc.IsAddress());
                 DEV_DEBUG("[DecideIncastOutcast] func %zu incast [%3zu]: addr %s.",
                     funcIdx, i, desc.Dump().c_str());
+                DEV_TRACE_DEBUG(REvent(RUid(taskId, funcIdx, dup.GetSource()->GetRootIndex()), RActIncast(i, dup.SchemaGetIncastRange(i))));
             }
 
             // decide outcast address
             size_t outcastSize = dup.GetSource()->GetOutcastSize();
+            DEV_TRACE_DEBUG(REvent(RUid(taskId, funcIdx, dup.GetSource()->GetRootIndex()), RActOutcastCount(outcastSize)));
             for (size_t i = 0; i < outcastSize; ++i) {
                 auto &desc = dup.GetOutcastAddress(i);
                 if (!desc.IsAddress()) {
@@ -1196,6 +1205,7 @@ struct DeviceStitchContext {
                 DEV_DEBUG_ASSERT(desc.IsAddress());
                 DEV_DEBUG("[DecideIncastOutcast] func %zu outcast [%3zu]: addr %s.",
                     funcIdx, i, desc.Dump().c_str());
+                DEV_TRACE_DEBUG(REvent(RUid(taskId, funcIdx, dup.GetSource()->GetRootIndex()), RActOutcast(i, dup.SchemaGetOutcastRange(i))));
             }
         }
     }
@@ -1210,7 +1220,7 @@ struct DeviceStitchContext {
         int size = static_cast<int>(dynTask->stitchedList.size());
         for (int i = 0; i < size; ++i) {
             auto &funcDup = dynTask->stitchedList[i];
-            dynTask->cacheList[i] = {funcDup.GetSource(), &funcDup.GetOperationCurrPredCount(0), funcDup.GetSource()->GetCalleeIndexAddr()};
+            dynTask->cacheList[i] = {funcDup.GetSource(), &funcDup.GetOperationCurrPredCount(0), funcDup.GetSource()->GetCalleeIndexAddr(), funcDup};
         }
     }
 
@@ -1855,6 +1865,8 @@ struct DeviceExecuteContext {
 
     DevAscendFunctionDupped currDevRootDup;
 
+    schema::RUid currRUid;
+
     CostModel::ModelData *costModelData{nullptr};
 
     void *aicoreModel{nullptr};
@@ -1977,6 +1989,7 @@ struct DeviceExecuteContext {
     }
 
     void SubmitToAicoreAndRecycleMemory(bool withoutTail) {
+        DEV_TRACE_DEBUG(DEvent(taskId, DActSubmit(stitchContext.Size())));
         AutoScopedPerf asp(PERF_EVT_SUBMIT_AICORE);
         PROF_STAGE_BEGIN(PERF_EVT_STAGE_BUILD_TASK, "task.before\n");
 
@@ -1993,7 +2006,7 @@ struct DeviceExecuteContext {
         PROF_STAGE_END(PERF_EVT_DECIDE_SLOT_ADDRESS, "slotaddr.after\n");
 
         PROF_STAGE_BEGIN(PERF_EVT_DECIDE_INCAST_ADDRESS, "incastaddr.before\n");
-        stitchContext.DecideIncastOutcast();
+        stitchContext.DecideIncastOutcast(taskId);
         PROF_STAGE_END(PERF_EVT_DECIDE_INCAST_ADDRESS, "incastaddr.after\n");
 
 #if DEBUG_SWITCH
@@ -2039,6 +2052,8 @@ struct DeviceExecuteContext {
         DEV_INFO("execute one func %lu.", rootKey);
         DevAscendFunction *devRoot = devProg->GetFunction(rootKey);
         DEV_INFO("prepare one func %p %s.", devRoot, devRoot->GetRawName());
+        currRUid = schema::RUid(taskId, stitchContext.Size(), rootKey);
+        DEV_TRACE_DEBUG(REvent(currRUid, RActDup(devRoot->GetRawName())));
         if (stitchContext.Size() == MAX_CACHED_FUNC_NUM ||
             stitchContext.stitchedCallOpSize() + devRoot->GetOperationSize() > MAX_READY_QUE_ELM_SIZE) {
             SubmitToAicoreAndRecycleMemory(false);
@@ -2057,6 +2072,7 @@ struct DeviceExecuteContext {
             return nullptr;
         }
 
+        DEV_TRACE_DEBUG(REvent(currRUid, RActExpressionTable(currDevRootDup.SchemaGetExpressionTable())));
         // dyn rawshape size depend expresstable calculated
         while (!workspace.TryAllocateFunctionMemory(currDevRootDup, slotContext.GetSlotList())) {
             // Failed to allocate, failed to stitch, submit existing stitched window to aicore and recycle memory
@@ -2068,12 +2084,14 @@ struct DeviceExecuteContext {
             SubmitToAicoreAndRecycleMemory(false);
         }
 
+        DEV_TRACE_DEBUG(DEvent(taskId, DActStitchStart(currRUid)));
         PROF_STAGE_BEGIN(PERF_EVT_STAGE_STITCH, "stitch.before\n");
         size_t devNextIdx = stitchContext.Size();
         stitchContext.Stitch(slotContext, currDevRootDup, devNextIdx);
 
         slotContext.UpdateSlots(currDevRootDup, devNextIdx);
         PROF_STAGE_END(PERF_EVT_STAGE_STITCH, "stitch.after\n");
+        DEV_TRACE_DEBUG(DEvent(taskId, DActStitchFinish(currRUid)));
         return nullptr;
     }
 

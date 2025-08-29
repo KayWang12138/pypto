@@ -14,6 +14,7 @@
 #include "register/hidden_inputs_func_registry.h"
 #include "interface/utils/log.h"
 #include "aicore_runtime_manager.h"
+#include "fatbin_parser.h"
 
 namespace npu::tile_fwk {
 ge::graphStatus TileFwkHiddenInputsFunc(const ge::OpDescPtr &op_desc, std::vector<void *> &contexts) {
@@ -62,7 +63,12 @@ ge::graphStatus TileFwkHiddenInputsFunc(const ge::OpDescPtr &op_desc, std::vecto
 REG_HIDDEN_INPUTS_FUNC(ge::HiddenInputsType::TILEFWK, TileFwkHiddenInputsFunc);
 
 extern "C" int64_t *ParseTileFwkHiddenInput(const std::vector<uint8_t> &op_bin, const uint64_t config_key,
-    const int64_t block_dim, const uint64_t workspace_size) {
+    const uint32_t block_dim, const uint64_t workspace_size) {
     return AicoreRtManager::Instance().TileFwkHiddenInput(op_bin, config_key, block_dim, workspace_size);
+}
+
+extern "C" bool ParseTileFwkFatbin(const std::string &bin_file_path, const uint64_t &config_key, size_t &subkernl_index,
+    std::vector<uint8_t> &op_binary_bin, std::vector<uint8_t> &kernel_bin) {
+  return FatbinParser::ParseFatbin(bin_file_path, config_key, subkernl_index, op_binary_bin, kernel_bin);
 }
 }

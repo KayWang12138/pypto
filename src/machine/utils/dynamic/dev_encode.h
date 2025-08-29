@@ -36,6 +36,7 @@
 #include "machine/utils/dynamic/allocator/allocators.h"
 #include "machine/utils/dynamic/vector.h"
 #include "machine/utils/dynamic/codegen/aicpu_runtime.h"
+#include "machine/utils/dynamic/schema_trace.h"
 #include "machine/device/dynamic/device_utils.h"
 
 namespace npu::tile_fwk {
@@ -889,6 +890,8 @@ public:
     const DevAscendFunction *GetSource() const { return sourceFunc; }
     DevAscendFunction *GetSource() { return sourceFunc; }
 
+    int GetRootIndex() const { return funcKey; }
+
     const int &GetFuncidx() const { return funcidx; }
     int &GetFuncidx() { return funcidx; }
 
@@ -915,6 +918,7 @@ public:
 
     inline uint64_t GetExpression(int tableIndex) const { return At(expressionList, tableIndex); }
     inline uint64_t &GetExpression(int tableIndex) { return At(expressionList, tableIndex); }
+    inline uint64_t GetExpressionSize() const { return expressionList.size(); }
     inline uint64_t GetRawTensorSize() const { return rawTensorList_.size(); }
     inline const DevAscendRawTensor *GetRawTensor(const DevAscendTensor *tensor) const {
         int rawTensorIndex = tensor->rawIndex;
@@ -1614,6 +1618,7 @@ struct DevAscendFunctionDupped {
 
     inline const uint64_t &GetExpression(int arg) const { return DupData()->GetExpression(arg); };
     inline uint64_t &GetExpression(int arg) { return DupData()->GetExpression(arg); };
+    inline uint64_t GetExpressionSize() const { return DupData()->GetExpressionSize(); }
     inline uint64_t *GetExpressionAddr() const { return DupData()->GetExpressionAddr(); }
 
     inline auto GetOperationSize() const { return DupData()->GetOperationSize(); }
@@ -1627,6 +1632,38 @@ struct DevAscendFunctionDupped {
 
     inline AddressDescriptor GetOutcastAddress(int arg) const { return DupData()->GetOutcastAddress(arg); };
     inline AddressDescriptor &GetOutcastAddress(int arg) { return DupData()->GetOutcastAddress(arg); };
+
+    inline uint64_t GetIncastSize(int incastIndex) const {
+        auto rawTensor = GetSource()->GetIncastRawTensor(incastIndex);
+        auto size = rawTensor->GetMemoryRequirement(GetExpressionAddr());
+        return size;
+    }
+
+    inline uint64_t GetOutcastSize(int outcastIndex) const {
+        auto rawTensor = GetSource()->GetOutcastRawTensor(outcastIndex);
+        auto size = rawTensor->GetMemoryRequirement(GetExpressionAddr());
+        return size;
+    }
+
+    schema::expr SchemaGetExpressionTable() const {
+        std::vector<schema::Int64Type> exprTable;
+        uint64_t *exprAddr = GetExpressionAddr();
+        uint64_t exprSize = GetExpressionSize();
+        for (uint64_t i = 0; i < exprSize; i++) {
+            exprTable.push_back(exprAddr[i]);
+        }
+        return schema::expr(exprTable);
+    }
+    schema::range SchemaGetIncastRange(int arg) const {
+        auto base = GetIncastAddress(arg).GetAddress();
+        auto size = GetIncastSize(arg);
+        return schema::range(base, base + size);
+    }
+    schema::range SchemaGetOutcastRange(int arg) const {
+        auto base = GetOutcastAddress(arg).GetAddress();
+        auto size = GetOutcastSize(arg);
+        return schema::range(base, base + size);
+    }
 
     inline uintdevptr_t GetRawTensorAddr(int rawIndex) const {
         uintdevptr_t addr = 0ULL;

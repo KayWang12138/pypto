@@ -39,6 +39,7 @@ target_link_libraries(tile_fwk_executor
             register
             runtime
             $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
+            $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub 
