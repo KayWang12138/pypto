@@ -39,7 +39,6 @@ using npu::tile_fwk::CoreFunctionData;
 
 constexpr uint32_t STATUS_TASKID_SHIFT = 32;
 
-
 #if defined(__MIX__) && defined(__AIV__)
 #define blockIdx __v_blockIdx
 #define GmWorkspace __v_GmWorkspace
@@ -120,6 +119,10 @@ INLINE void SetStatus(__gm__ KernelArgs *args, int64_t val) {
 
 INLINE void SendRegFinsh(uint32_t curTaskIdx) {
     set_cond(curTaskIdx | AICORE_FIN_MASK);
+}
+
+INLINE void SendRegDevTaskStop(uint32_t dTaskId) {
+    set_cond(((uint64_t)dTaskId << REG_HIGH_DTASKID_SHIFT) | (AICORE_FUNC_STOP | AICORE_FIN_MASK));
 }
 
 INLINE void SendRegAck(uint32_t taskIdx) {
@@ -312,7 +315,7 @@ extern "C" __global__ __aicore__ void KERNEL_ENTRY(__OPTYPE__, __TILINGKEY__)(in
             if (curTaskIdx == AICORE_TASK_STOP || curTaskIdx == AICORE_FUNC_STOP) {
                 SetStatus(args, STAGE_GET_NEXT_TASK_STOP);
                 if (isDyn) {
-                    SendRegFinsh(AICORE_FUNC_STOP);
+                    SendRegDevTaskStop(ctx.seqNo);
                     break;
                 } else {
                     FlushMetricStatistic(args);

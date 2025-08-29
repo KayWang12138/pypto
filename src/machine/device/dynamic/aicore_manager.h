@@ -362,7 +362,7 @@ public:
         }
     }
 
-    inline void WaitFinQueue(int coreStart, int coreEnd, uint32_t val) {
+    inline void WaitFinQueue(int coreStart, int coreEnd, uint64_t val) {
         for (int idx = coreStart; idx < coreEnd; idx++) {
             while (*finishRegQueues_[GetPhyIdByBlockId(idx)] != val)
                 ;
@@ -668,6 +668,18 @@ public:
         return ret;
     }
 
+    inline void DumpLastWord(int coreIdx) {
+        uint64_t status = aicoreHAL.GetAicoreStatus(coreIdx);
+        if (pendingIds_[coreIdx] != AICORE_TASK_INIT) {
+            DEV_ERROR("status %lu,pending taskid: %s,funcdata:  %s.", status, std::to_string(pendingIds_[coreIdx]).c_str(),
+            ((DynDeviceTask *)curDevTask_)->DumpTaskData(pendingIds_[coreIdx]).c_str());
+        }
+        if (runningIds_[coreIdx] != AICORE_TASK_INIT) {
+            DEV_ERROR("status %lu,running taskid:%s,funcdata:  %s.", status, std::to_string(runningIds_[coreIdx]).c_str(),
+                ((DynDeviceTask *)curDevTask_)->DumpTaskData(runningIds_[coreIdx]).c_str());                   
+        }
+    }
+
     inline int Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *taskCtrl = nullptr) {
         int ret = 0;
 
@@ -700,7 +712,7 @@ public:
                     break;
 
                 PerfMtBegin(PERF_EVT_SYNC_AICORE, threadIdx);
-                SyncAiCore();
+                SyncAiCore(taskCtrl->taskId);
                 PerfMtEnd(PERF_EVT_SYNC_AICORE, threadIdx);
                 DEV_DEBUG("sync finish.");
                 taskCtrl->PutTask(ret);
@@ -710,10 +722,7 @@ public:
                 DEV_ERROR("task %lu execute errror, skip rest tasks.", taskCtrl->taskId);
                 if (IsDeviceMode()) {
                     ForEachManageAicore([&](int coreIdx) {
-                        uint64_t status = aicoreHAL.GetAicoreStatus(coreIdx);
-                        if ((status & 0xFFFFFFFF) == 0x5) { //STAGE_PRE_EXEC_COREFUNC_KERNEL
-                            DEV_ERROR("%s.", ((DynDeviceTask *)curDevTask_)->DumpTaskData(status >> BITS_PER_INT).c_str());
-                        }
+                        DumpLastWord(coreIdx);
                     });
                 }
                 do {
@@ -741,9 +750,12 @@ private:
     }
 
     inline void ProfStop() {
+        if (prof_.ProfIsEnable()) {
 #if PROF_DFX_HOST_PREPARE_MEMORY_MODE
-        DumpTaskProf();
+            DumpTaskProf();
 #endif
+        }
+
         prof_.ProfStop();
     }
 
@@ -1482,12 +1494,13 @@ private:
         }
     }
 
-    void SyncAiCore() {
+    void SyncAiCore(uint64_t devTaskId) {
         if constexpr (IsDeviceMode()) {
+            uint64_t waitAckStopVal = (devTaskId << REG_HIGH_DTASKID_SHIFT) | (AICORE_FUNC_STOP | AICORE_FIN_MASK);
             aicoreHAL.SetReadyQueue(aicStart_, aicEnd_, AICORE_FUNC_STOP + 1);
             aicoreHAL.SetReadyQueue(aivStart_, aivEnd_, AICORE_FUNC_STOP + 1);
-            aicoreHAL.WaitFinQueue(aicStart_, aicEnd_, AICORE_FUNC_STOP | AICORE_FIN_MASK);
-            aicoreHAL.WaitFinQueue(aivStart_, aivEnd_, AICORE_FUNC_STOP | AICORE_FIN_MASK);
+            aicoreHAL.WaitFinQueue(aicStart_, aicEnd_, waitAckStopVal);
+            aicoreHAL.WaitFinQueue(aivStart_, aivEnd_, waitAckStopVal);
             aicoreHAL.SetReadyQueue(aicStart_, aicEnd_, 0);
             aicoreHAL.SetReadyQueue(aivStart_, aivEnd_, 0);
         }

@@ -1767,9 +1767,8 @@ struct DevAscendFunctionDupped {
 
         auto dumpAttr = [this, &oss, func](const SymInt *attrs, const auto &info) {
             int attrOffset = info.staticOffsetAttrBeginIndex;
-            int attrIndex = attrOffset;
-            auto rawIndex = attrs[attrIndex - 1].Value();
-            oss << "@" << rawIndex << ", ";
+            auto rawIndex = attrs[attrOffset - 1].Value();
+            oss << "@" << rawIndex << "(attridx " << (attrOffset - 1) << ")" << ", ";
 
             int dim = info.GetDim();
             auto rawTensor = func->GetRawTensor(rawIndex);
@@ -1820,7 +1819,8 @@ struct DevAscendFunctionDupped {
             if (i % RAW_TENSOR_DESC_PRE_SIZE == 0)
                 oss << "\n   ";
             DEV_ASSERT(GetRawTensorAddrEx(i) == GetRawTensorAddr(i));
-            oss << GetRawTensorAddrEx(i) << ", ";
+            auto desc = funcData->rawTensorDesc[i];
+            oss << GetRawTensorAddrEx(i) << "(" << desc.location << " " << desc.offsetOrIndex << ")" << ", ";
         }
         oss << "\n]";
         return oss.str();

@@ -225,6 +225,7 @@ public:
     void ProfStopAiCpuTaskStat();
     void ProInitAiCpuTaskStat();
     void ProInitHandShake();
+    bool ProfIsEnable() { return profLevel_ != PROF_LEVEL_OFF; }
 
 private:
     inline void ProfInitLog();
