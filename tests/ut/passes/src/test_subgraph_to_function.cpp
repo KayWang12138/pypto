@@ -659,6 +659,7 @@ TEST_F(SubgraphToFunctionTest, VerifyPassResumeByJson) {
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("PreJsonResumeStrategy", {
         {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
+        {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
         {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
         {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
     });
@@ -681,6 +682,7 @@ TEST_F(SubgraphToFunctionTest, VerifyPassResumeByJson) {
     PassManager &passManager1 = PassManager::Instance();
     passManager1.RegisterStrategy("JsonResumeStrategy", {
         {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
+        {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
         {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
         {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
         {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},

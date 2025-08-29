@@ -165,6 +165,7 @@ TEST_F(GenerateMoveOpPassTest, AssembleViewToCopy) {
         PassManager &passManager = PassManager::Instance();
         passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
             {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
+            {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
             {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
             {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
             {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
@@ -260,6 +261,7 @@ TEST_F(GenerateMoveOpPassTest, ConvertToCopy) {
         PassManager &passManager = PassManager::Instance();
         passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
             {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
+            {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
             {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
             {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
             {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
@@ -336,6 +338,7 @@ TEST_F(GenerateMoveOpPassTest, Transpose) {
         PassManager &passManager = PassManager::Instance();
         passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
             {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
+            {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
             {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
             {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
             {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
@@ -419,6 +422,7 @@ TEST_F(GenerateMoveOpPassTest, ScatterUpdate) {
         PassManager &passManager = PassManager::Instance();
         passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
             {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
+            {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
             {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
             {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
             {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},

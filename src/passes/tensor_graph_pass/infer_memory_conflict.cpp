@@ -156,20 +156,23 @@ Status InferMemoryConflict::InsertTensorCopy(Function &function) {
                 return FAILED;
             }
             
+            auto producerParentOp = *parentAssembleOp->ProducerOps().begin();
+            if (producerParentOp->GetOpcode() == Opcode::OP_INDEX_OUTCAST) {
+                continue;
+            }
             auto assembleInput = parentAssembleOp->GetIOperands().front();
             std::shared_ptr<RawTensor> newRawTensor = std::make_shared<RawTensor>(assembleInput->Datatype(), assembleInput->tensor->rawshape);
             std::shared_ptr<LogicalTensor> newTensor = std::make_shared<LogicalTensor>(function, newRawTensor, assembleInput->offset, assembleInput->shape);
             auto &tensorCopyOp = function.AddRawOperation(Opcode::OP_REGISTER_COPY, {assembleInput}, {newTensor});
 
             /* Assemble 的前置op 为Reshape/NOP 时，需要从该op上获取tile shape */
-            auto producerParentOp = *parentAssembleOp->ProducerOps().begin();
             if ((producerParentOp->GetOpcode() == Opcode::OP_RESHAPE) || (producerParentOp->GetOpcode() == Opcode::OP_NOP)) {
                 tensorCopyOp.UpdateTileShape(producerParentOp->GetTileShape());
             }
             assembleInput->RemoveConsumer(parentAssembleOp);
             parentAssembleOp->ReplaceInput(newTensor, assembleInput);
-            ALOG_DEBUG_F("******** insert %s[%d] ********", tensorCopyOp.GetOpcodeStr().c_str(), tensorCopyOp.GetOpMagic());
-            ALOG_DEBUG_F("******** %s[%d] will expand as tile shape : %s ********", tensorCopyOp.GetOpcodeStr().c_str(), tensorCopyOp.GetOpMagic(),
+            ALOG_ERROR_F("******** insert %s[%d], may deteriorate the performance ********", tensorCopyOp.GetOpcodeStr().c_str(), tensorCopyOp.GetOpMagic());
+            ALOG_ERROR_F("******** %s[%d] will expand as tile shape : %s ********", tensorCopyOp.GetOpcodeStr().c_str(), tensorCopyOp.GetOpMagic(),
                 tensorCopyOp.GetTileShape().Dump().c_str());
         }
     }

@@ -73,6 +73,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
 
     std::vector<int> paOutShape = {b * s * n, kvLoraRank};
 
+    config::SetPassConfig("PVC2_OOO", "InferMemoryConflict", "DISABLE_PASS", true);
     FunctionConfig funConfig;
     FUNCTION("main", funConfig,
         {tokenX, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache,

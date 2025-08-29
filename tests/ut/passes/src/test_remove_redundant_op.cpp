@@ -74,6 +74,7 @@ TEST_F(RemoveRedundantOpTest, TestIntermediateOutcast) {
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
     {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
+    {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
     {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
     {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
     {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
@@ -142,6 +143,7 @@ TEST_F(RemoveRedundantOpTest, TestInternalAssembleView) {
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
     {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
+    {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
     {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
     {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
     {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},

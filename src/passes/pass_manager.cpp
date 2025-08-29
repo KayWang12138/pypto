@@ -111,6 +111,7 @@ void PassManager::RegDefaultStrategy() {
     RegisterStrategy(
         "PVC2_OOO", {
             {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
+            {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
             {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
             {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
             {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},

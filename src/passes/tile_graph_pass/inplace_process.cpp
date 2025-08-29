@@ -180,7 +180,12 @@ Status InplaceProcess::ProcessInplaceOp(Function &function, Operation &op) const
         auto inputIdx = reusePair.first;
         auto outputIdx = reusePair.second;
         if (inputIdx >= op.GetIOperands().size() || outputIdx >= op.GetOOperands().size()) {
-            ALOG_ERROR_F("Invalid inplace op info for %s[%d].", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            ALOG_ERROR_F("Invalid inplace op info for %s[%d]. Please check op inputs&outputs, supported inplace info "
+                    "can be found in inplace_process.h."
+                    "\n|----detect input size: %d, recorded inplace input idx: %d."
+                    "\n|----detect output size: %d, recorded inplace output idx: %d.",
+                op.GetOpcodeStr().c_str(), op.GetOpMagic(), op.GetIOperands().size(), inputIdx,
+                op.GetOOperands().size(), outputIdx);
             return FAILED;
         }
         auto tensorIn = op.GetIOperands()[inputIdx];

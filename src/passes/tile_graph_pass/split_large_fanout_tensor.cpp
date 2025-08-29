@@ -39,6 +39,22 @@ Status SplitLargeFanoutTensor::RunOnFunction(Function &function) {
     return SUCCESS;
 }
 
+/*
+收集所有Assemble Op的信息，按输出的raw tensor id进行分类
+
+tensor1 --> Assemble1(toOffset=[0,0])  -->\
+                                           \                   /--> view1(fromOffset=[0,0])  --> tensor6
+tensor2 --> Assemble2(toOffset=[0,32]) ---->\                 /
+                                              tesnor5(raw=10) 
+tensor3 --> Assemble3(toOffset=[32,0]) ---->/                 \
+                                           /                   \--> view2(fromOffset=[0,32]) --> tensor7
+tensor4 --> Assemble4(toOffset=[32,32])-->/
+
+after:
+key = 10
+val = [(tensor1Ptr, [0,0]), (tensor2Ptr, [0,32]), (tensor3Ptr, [32,0]), (tensor4Ptr, [32,32])], 共计4个元素
+
+*/
 void SplitLargeFanoutTensor::CollectCopyOut(Function &function) {
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_ASSEMBLE) {
@@ -67,6 +83,7 @@ void SplitLargeFanoutTensor::RecordMatched(Function &function, Operation &op,
     std::vector<int64_t> newOffset(fromOffset.size(), 0);
     switch (status) {
         case OverlapStatus::PERFECTLY_MATCH: {
+            // 一个Assemble对一个View
             auto overlap = overlaps.front();
             auto newInput = std::make_shared<LogicalTensor>(function, input->Datatype(), output->shape);
             if (newInput == nullptr) { break; }
@@ -77,6 +94,7 @@ void SplitLargeFanoutTensor::RecordMatched(Function &function, Operation &op,
             break;
         }
         case OverlapStatus::BE_COVERED: {
+            // Assemble输入大于View的输出
             auto overlap = overlaps.front();
             auto newInput = std::make_shared<LogicalTensor>(function, input->Datatype(), overlap->shape);
             if (newInput == nullptr) { break; }
@@ -89,6 +107,7 @@ void SplitLargeFanoutTensor::RecordMatched(Function &function, Operation &op,
             break;
         }
         case OverlapStatus::PERFECTLY_MATCH_WITH_ALL: {
+            // 多个Assemble对一个View
             auto newInput = std::make_shared<LogicalTensor>(function, input->Datatype(), output->shape);
             if (newInput == nullptr) { break; }
             newInput->SetMemoryTypeBoth(input->GetMemoryTypeOriginal());
@@ -109,6 +128,10 @@ void SplitLargeFanoutTensor::RecordMatched(Function &function, Operation &op,
     }
 }
 
+/*
+在收集完所有Assemble的信息后，遍历所有的View Op
+判断是否存在View所需的输出tensor与已收集的Assemble的输入间是否存在
+*/
 void SplitLargeFanoutTensor::CompareWithCopyIn(Function &function) {
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_VIEW) {
@@ -126,24 +149,44 @@ void SplitLargeFanoutTensor::CompareWithCopyIn(Function &function) {
         auto &fromOffset = viewOpAttribute->GetFromOffset();
 
         std::vector<std::shared_ptr<LogicalTensor>> overlaps;
+        /*
+        创建一块与View的输出shape相同, offset与属性记录相同，但是指向其输入的raw tensor的一块等效tensor
+        代表了前View 需要的tensor
+        */
         auto inputView = std::make_shared<LogicalTensor>(function, input->tensor, fromOffset, output->shape);
         if (inputView == nullptr) {
             continue;
         }
         std::vector<std::shared_ptr<LogicalTensor>> outputOfAssemble;
+        /* View的输入raw 与 Assemble的输出raw 一致 */
         for (auto &[copyOutSource, offsetInAssemble] : copyOutSources[input->tensor->rawmagic]) {
+            /*
+            创建一块与Assemble输入shape相同, offset与属性记录相同，但是指向View的输入的raw tensor的一块目标tensor
+            代表目前Assemble可以提供的
+            */
             auto target =
                 std::make_shared<LogicalTensor>(function, input->tensor, offsetInAssemble, copyOutSource->GetShape());
             if (target == nullptr) {
                 continue;
             }
+            /*
+            1. 此时 inputView 和 target 都指向了同一个raw tensor;
+            2. 判断view所需要的tensor 和 所有Assemble可提供的tensor间的overlap关系
+            */
             auto status = CalcOverlap(inputView, target, true);
+            ALOG_DEBUG_F("Assemble In %d(raw %d) versus View Out %d(raw %d), commom tensor %d(raw %d), status: %s",
+                copyOutSource->magic, copyOutSource->tensor->rawmagic,
+                output->magic, output->tensor->rawmagic,
+                input->magic, input->tensor->rawmagic,
+                OverlapStatusString(status).c_str());
             if (status == OverlapStatus::PERFECTLY_MATCH || status == OverlapStatus::BE_COVERED) {
+                // 1. inputView 与 target 完全match; 2. inputView 被 target 覆盖
                 outputOfAssemble.emplace_back(target);
                 overlaps.push_back(copyOutSource);
                 break;
             }
             if (status == OverlapStatus::COVERED) {
+                // inputView 覆盖了 target, 需要继续遍历
                 outputOfAssemble.emplace_back(target);
                 overlaps.push_back(copyOutSource);
                 continue;
@@ -202,15 +245,23 @@ void SplitLargeFanoutTensor::EraseRedundantCopyOut(Function &function) {
             continue;
         }
         if (output->nodetype == NodeType::LOCAL && output->GetConsumers().empty()) {
+            /* input --> Assemble --> output(非OCAST, 且没有consumer) */
             redundantCopyOuts.push_back(&op);
         }
         if (output->GetProducers().size() == 1 && output->GetConsumers().size() == 1) {
             auto consumerOp = *(output->GetConsumers().begin());
+            // Assemble输入和输出的raw tensor大小不相等，意味着要做拷贝
             bool requireCopy = (input->tensor->GetRawShapeSize() != output->tensor->GetRawShapeSize());
             if (consumerOp->GetOpcode() == Opcode::OP_VIEW && !requireCopy) {
+                /*
+                Before: input --> Assmeble --> output --> View
+                After:  input --> View
+                因为input和output的raw shape相同，所以View上的offset不需要修改
+                */
                 redundantCopyOuts.push_back(&op);
             } else if (input->shape == output->shape && input->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
                        output->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+                /* 因为input和output raw shape size不同，但shape相同，因此删除前需要重新计算View的offset */
                 UpdateForRedundantAssemble(op);
                 redundantCopyOuts.push_back(&op);
             }

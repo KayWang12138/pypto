@@ -124,6 +124,7 @@ TEST_F(PassManagerTest, TestPassBase) {
 TEST_F(PassManagerTest, TestPassStrategy) {
     PassManager::Instance().RegisterStrategy("StrategyTest", {
                         {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
+                        {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
                         {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH}});
     // user define
     auto strategyPasses = PassManager::Instance().GetStrategyPasses("StrategyTest");

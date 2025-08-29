@@ -56,6 +56,12 @@ private:
     void UpdateForRedundantView(Operation &op, Operation &consumer);
     void UpdateOverSizedLocalBuffer(Function &function);
 
+    /*
+    key: Assemble输出LogicalTensor所指向的raw tensor Id
+    value: vector, 每个元素代表了Assemble输出指向了key对应的raw tensor的Assemble Op 2个信息
+        1. Assemble输入的AscendTensor的指针
+        2. Assemble的toOffset信息，类型为std::vector<int>
+    */
     std::unordered_map<int, std::vector<std::pair<std::shared_ptr<LogicalTensor>, std::vector<int64_t>>>>
         copyOutSources;
     std::vector<AssembleOp> assembles;

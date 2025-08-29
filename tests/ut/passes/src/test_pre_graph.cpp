@@ -278,6 +278,7 @@ TEST_F(PreGraphTest, TestVCPartition) {
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("PreGraphTestStrategy", {
     {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
+    {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
     {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
     {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
     {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
@@ -364,6 +365,7 @@ TEST_F(PreGraphTest, TestAssemble) {
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("PreGraphTestStrategy", {
     {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
+    {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
     {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
     {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
     {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
@@ -429,6 +431,7 @@ config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("PreGraphTestStrategy", {
     {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
+    {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
     {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
     {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
     {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
@@ -504,6 +507,7 @@ TEST_F(PreGraphTest, TestROWMAX_SINGLE) {
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("PreGraphTestStrategy", {
     {   "RemoveRedundantReshape",   "RemoveRedundantReshape",  PassType::TYPE_TENSOR_GRAPH},
+    {      "InferMemoryConflict",      "InferMemoryConflict",  PassType::TYPE_TENSOR_GRAPH},
     {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
     {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
     {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},

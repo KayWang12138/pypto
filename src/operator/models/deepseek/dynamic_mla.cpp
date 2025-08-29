@@ -492,6 +492,7 @@ void MlaPrologCompute(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUq
             // krCache: [blockNum * blockSize * n2, qkRopeHeadDim], output4
             Tensor krCacheOutView = ScatterUpdate(krCacheRes, indexView, kRopeRes, -2, cacheMode, blockSize); // -2
 
+            /* 输入和输出相同shape时，即 n2 = 1, tensor graph上无法看到该reshape */
             kvCacheOut = Reshape(kvCacheOutView, {blockNum * blockSize, n2 * kvLoraRank});
             krCacheOut = Reshape(krCacheOutView, {blockNum * blockSize, n2 * qkRopeHeadDim});
 
