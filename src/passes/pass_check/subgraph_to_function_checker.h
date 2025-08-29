@@ -44,6 +44,7 @@ class SubGraphToFuncChecker : Checker {
     Status BuildOutGraph(Function &function);
     Status EdgeIndexCheck(const bool found, const int newIndex, const size_t graphSize) const;
     Status CheckInAndOutGraphMatch(Function &function);
+    bool HasOnlyViewProducers(const std::set<Operation*, LogicalTensor::CompareOp> &producers);
     Status CheckSubGraphBoundary(Function &function);
     Status VerifyRedundantEdge(const int srcNode, const int dstNode) const;
     Status ColorOutGraphCheck(Function &function) const;

@@ -107,7 +107,10 @@ Status SubGraphToFuncChecker::BuildInGraph(Function &function) {
                         function.GetRawName().c_str());
                     return FAILED;
                 }
-                inGraph_[i].push_back(parentSeqNo);
+                auto it = std::find(inGraph_[i].begin(), inGraph_[i].end(), parentSeqNo);
+                if (it == inGraph_[i].end()) {
+                    inGraph_[i].push_back(parentSeqNo);
+                }
             }
         }
 
@@ -118,7 +121,10 @@ Status SubGraphToFuncChecker::BuildInGraph(Function &function) {
                     function.GetRawName().c_str());
                 return FAILED;
             }
-            inGraph_[i].push_back(parentSeqNo);
+            auto it = std::find(inGraph_[i].begin(), inGraph_[i].end(), parentSeqNo);
+            if (it == inGraph_[i].end()) {
+                inGraph_[i].push_back(parentSeqNo);
+            }
         }
     }
     return SUCCESS;
@@ -136,7 +142,10 @@ Status SubGraphToFuncChecker::BuildOutGraph(Function &function) {
                         function.GetRawName().c_str());
                     return FAILED;
                 }
-                outGraph_[i].push_back(childSeqNo);
+                auto it = std::find(outGraph_[i].begin(), outGraph_[i].end(), childSeqNo);
+                if (it == outGraph_[i].end()) {
+                    outGraph_[i].push_back(childSeqNo);
+                }
             }
         }
 
@@ -147,7 +156,10 @@ Status SubGraphToFuncChecker::BuildOutGraph(Function &function) {
                     function.GetRawName().c_str());
                 return FAILED;
             }
-            outGraph_[i].push_back(childSeqNo);
+            auto it = std::find(outGraph_[i].begin(), outGraph_[i].end(), childSeqNo);
+            if (it == outGraph_[i].end()) {
+                outGraph_[i].push_back(childSeqNo);
+            }
         }
         std::sort(outGraph_[i].begin(), outGraph_[i].end());
     }
@@ -217,6 +229,18 @@ Status SubGraphToFuncChecker::CheckInAndOutGraphMatch(Function &function) {
     return SUCCESS;
 }
 
+bool SubGraphToFuncChecker::HasOnlyViewProducers(const std::set<Operation*, LogicalTensor::CompareOp> &producers) {
+    if (producers.empty()) {
+        return false;
+    }
+    for (auto &producer : producers) {
+        if (producer->GetOpcode() != Opcode::OP_VIEW) {
+            return false;
+        }
+    }
+    return true;
+}
+
 Status SubGraphToFuncChecker::CheckSubGraphBoundary(Function &function) {
     auto operations = function.Operations();
     for (size_t i = 0; i < operations.size(); i++) {
@@ -224,8 +248,12 @@ Status SubGraphToFuncChecker::CheckSubGraphBoundary(Function &function) {
         int subGraphId = op.GetSubgraphID();
         for (size_t k = 0; k < op.iOperand.size(); k++) {
             auto iOperand = op.GetInputOperand(k);
+            auto producers = iOperand->GetProducers();            
+            // 特殊情况：如果producer有且只有view操作，在Rule 1中不需要标记为子图边界
+            bool hasOnlyViewProducers = HasOnlyViewProducers(producers);
             // Rule 1: Operands from DDR memory must be marked as subgraph boundary
-            if (iOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && !iOperand->isSubGraphBoundary) { ALOG_ERROR_F("Input operand %zu of operation %zu (opdump: %s) is from DDR but not marked as subgraph boundary!", k, i, op.Dump().c_str()); return FAILED; }
+            // (这个规则可以在producer都是view操作时跳过)
+            if (iOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && !iOperand->isSubGraphBoundary && !hasOnlyViewProducers) { ALOG_ERROR_F("Input operand %zu of operation %zu (opdump: %s) is from DDR but not marked as subgraph boundary!", k, i, op.Dump().c_str()); return FAILED; }
             // Rule 2: Operands with consumer in a different subgraph must be marked as subgraph boundary
             if (subGraphId != iOperand->subGraphID && !iOperand->isSubGraphBoundary) { ALOG_ERROR_F("Input operand %zu of operation %zu (opdump: %s) has a consumer in a different subgraph but not marked as subgraph boundary!", k, i, op.Dump().c_str()); return FAILED; }
             // Rule 3: Input operands of special ops (e.g., OP_UB_COPY_IN) must be marked as subgraph boundary
@@ -233,15 +261,17 @@ Status SubGraphToFuncChecker::CheckSubGraphBoundary(Function &function) {
         }
         for (size_t k = 0; k < op.oOperand.size(); k++) {
             auto oOperand = op.GetOutputOperand(k);
+            auto producers = oOperand->GetProducers();            
+            // 特殊情况：如果producer有且只有view操作，在Rule 1中不需要标记为子图边界
+            bool hasOnlyViewProducers = HasOnlyViewProducers(producers);
             // Rule 1: Operands from DDR memory must be marked as subgraph boundary
-            if (oOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && !oOperand->isSubGraphBoundary) { ALOG_ERROR_F("Output operand %zu of operation %zu (opdump: %s) is from DDR but not marked as subgraph boundary!", k, i, op.Dump().c_str()); return FAILED; }
+            if (oOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && !oOperand->isSubGraphBoundary && !hasOnlyViewProducers) { ALOG_ERROR_F("Output operand %zu of operation %zu (opdump: %s) is from DDR but not marked as subgraph boundary!", k, i, op.Dump().c_str()); return FAILED; }
             // Rule 2: Operands with producer in a different subgraph must be marked as subgraph boundary
             if (subGraphId != oOperand->subGraphID && !oOperand->isSubGraphBoundary) { ALOG_ERROR_F("Output operand %zu of operation %zu (opdump: %s) has a producer in a different subgraph but not marked as subgraph boundary!", k, i, op.Dump().c_str()); return FAILED; }
             // Rule 3: Output operands of special ops (e.g., OP_UB_COPY_OUT, OP_TRANSPOSE_DATA_MOVE, OP_INDEX_OUTCAST) must be marked as subgraph boundary
             if (IsCopyOut(op.GetOpcode()) && !oOperand->isSubGraphBoundary) { ALOG_ERROR_F("Output operand %zu of IsCopyOut operation %zu (opdump: %s) is not marked as subgraph boundary!",k, i, op.Dump().c_str()); return FAILED; }
         }
     }
-
     return SUCCESS;
 }
 
