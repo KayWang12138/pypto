@@ -21,6 +21,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
+#include "passes/pass_check/assign_memory_type_checker.h"
 
 namespace npu::tile_fwk {
 

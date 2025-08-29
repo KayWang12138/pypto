@@ -17,6 +17,7 @@
 #include "interface/function/function.h"
 #include "infer_dyn_shape.h"
 #include "passes/pass_utils/parallel_tool.h"
+#include "passes/pass_check/infer_dyn_shape_checker.h"
 namespace npu {
 namespace tile_fwk {
 Status InferDynShape::PostCheck(Function &function) {

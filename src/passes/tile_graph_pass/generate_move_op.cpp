@@ -20,6 +20,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
+#include "passes/pass_check/generate_move_op_checker.h"
 #include "passes/tile_graph_pass/dead_operation_eliminate.h"
 
 namespace npu::tile_fwk {

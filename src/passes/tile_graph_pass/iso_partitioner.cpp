@@ -21,6 +21,7 @@
 #include "interface/utils/log.h"
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_utils/parallel_tool.h"
+#include "passes/pass_check/iso_partitioner_checker.h"
 
 namespace npu::tile_fwk {
 

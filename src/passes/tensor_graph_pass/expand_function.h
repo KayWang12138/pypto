@@ -17,7 +17,6 @@
 #define PASS_EXPAND_FUNCTION_H_
 
 #include "passes/pass_interface/pass.h"
-#include "passes/pass_check/expand_function_checker.h"
 namespace npu::tile_fwk {
 class ExpandFunction : public Pass {
 public:

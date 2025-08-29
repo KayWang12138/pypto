@@ -14,6 +14,7 @@
  */
 
 #include "pre_graph.h"
+#include "passes/pass_check/pre_graph_checker.h"
 
 namespace npu::tile_fwk {
 

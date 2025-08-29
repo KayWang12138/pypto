@@ -15,6 +15,7 @@
 
 #include "remove_redundant_reshape.h"
 #include "interface/tensor/logical_tensor.h"
+#include "passes/pass_check/remove_redundant_reshape_checker.h"
 
 using namespace npu::tile_fwk;
 
@@ -76,10 +77,5 @@ Status RemoveRedundantReshape::RemoveReshape(Function &function) const {
 Status RemoveRedundantReshape::PreCheck(Function &function) {
     RemoveRedundantReshapeChecker checker;
     return checker.DoPreCheck(function);
-}
-
-Status RemoveRedundantReshape::PostCheck(Function &function) {
-    RemoveRedundantReshapeChecker checker;
-    return checker.DoPostCheck(function);
 }
 } // namespace npu::tile_fwk

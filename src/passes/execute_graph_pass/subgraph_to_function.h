@@ -22,7 +22,6 @@
 #include "tilefwk/data_type.h"
 #include "passes/pass_utils/pass_utils.h"
 #include "passes/statistics/execute_graph_statistic.h"
-#include "passes/pass_check/subgraph_to_function_checker.h"
 
 namespace npu::tile_fwk {
 class SubgraphToFunction : public Pass {

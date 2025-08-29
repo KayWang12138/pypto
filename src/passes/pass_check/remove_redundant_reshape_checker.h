@@ -27,7 +27,6 @@ namespace tile_fwk {
 class RemoveRedundantReshapeChecker : Checker {
 public:
     Status DoPreCheck(Function &function) override;
-    Status DoPostCheck(Function &function) override;
 private:
     Status PreCheckReshape(const LogicalTensorPtr &in);
     Status ProcessPreCheck(const Operation *op);

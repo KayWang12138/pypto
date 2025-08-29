@@ -17,7 +17,6 @@
 #define PASS_GENERATE_MOVE_OP_H_
 
 #include "passes/pass_interface/pass.h"
-#include "passes/pass_check/generate_move_op_checker.h"
 #include "passes/tile_graph_pass/dead_operation_eliminate.h"
 
 namespace npu::tile_fwk {

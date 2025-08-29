@@ -20,7 +20,6 @@
 #include "passes/pass_interface/pass.h"
 #include "interface/operation/opcode.h"
 #include "passes/tile_graph_pass/convert_op_inserter.h"
-#include "passes/pass_check/assign_memory_type_checker.h"
 #include "tilefwk/data_type.h"
 
 namespace npu::tile_fwk {

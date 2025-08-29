@@ -21,6 +21,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "passes/pass_utils/parallel_tool.h"
+#include "passes/pass_check/subgraph_to_function_checker.h"
 
 namespace npu::tile_fwk {
 

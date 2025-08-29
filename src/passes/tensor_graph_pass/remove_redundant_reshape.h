@@ -17,7 +17,6 @@
 #define PASS_REMOVE_REDUNDEN_RESHAPE_H_
 
 #include "passes/pass_interface/pass.h"
-#include "passes/pass_check/remove_redundant_reshape_checker.h"
 #include "interface/function/function.h"
 
 namespace npu::tile_fwk {
@@ -27,7 +26,6 @@ public:
     ~RemoveRedundantReshape() override = default;
 private:
     Status PreCheck(Function &function) override;
-    Status PostCheck(Function &function) override;
     Status RunOnFunction(Function &function) override;
     Status RemoveReshape(Function &function) const;
 };

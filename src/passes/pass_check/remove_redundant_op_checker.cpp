@@ -103,6 +103,7 @@ Status RemoveRedundantOpChecker::PostCheckView(const Operation &op) {
     } else if (view_out->GetConsumers().size() == 1) {
         auto childOp = *(view_out->GetConsumers().begin());
         if (childOp == nullptr) {
+            ALOG_ERROR_F("Found null childOp of op[%d]", op.GetOpMagic());
             return FAILED;
         }
         if (childOp->GetOpcode() == Opcode::OP_COMM_WAIT_FLAG) {
@@ -130,6 +131,7 @@ Status RemoveRedundantOpChecker::PostCheckCopyIn(const Operation &op) {
         bool isRedundant = true;
         for (auto &producerOp : op.ProducerOps()) {
             if (producerOp == nullptr) {
+                ALOG_ERROR_F("Found null producer of op[%d]", op.GetOpMagic());
                 return FAILED;
             }
             if (producerOp->GetOpcode() != Opcode::OP_VIEW) {
@@ -188,12 +190,11 @@ Status RemoveRedundantOpChecker::ProcessPostCheck(const Operation &op) {
 Status RemoveRedundantOpChecker::DoPreCheck(Function &function) {
     ALOG_INFO_F("PreCheck for RemoveRedundantOp");
     if (CheckValidOp(function) != SUCCESS) {
+        ALOG_ERROR_F("Found invalid op in the function.");
         return FAILED;
     }
     if (CheckOpIOValid(function) != SUCCESS) {
-        return FAILED;
-    }
-    if (!function.LoopCheck().empty()) {
+        ALOG_ERROR_F("Found invalid input/output from the function.");
         return FAILED;
     }
     for (auto &op : function.Operations()) {
@@ -207,10 +208,8 @@ Status RemoveRedundantOpChecker::DoPreCheck(Function &function) {
 
 Status RemoveRedundantOpChecker::DoPostCheck(Function &function) {
     ALOG_INFO_F("PostCheck for RemoveRedundantOp");
-    if (!function.LoopCheck().empty()) {
-        return FAILED;
-    }
     if (CheckOpIOValid(function) != SUCCESS) {
+        ALOG_ERROR_F("Found invalid input/output in the function.");
         return FAILED;
     }
     for (auto &op : function.Operations()) {

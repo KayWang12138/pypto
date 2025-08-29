@@ -18,7 +18,6 @@
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "passes/pass_interface/pass.h"
-#include "passes/pass_check/iso_partitioner_checker.h"
 
 namespace npu::tile_fwk {
 

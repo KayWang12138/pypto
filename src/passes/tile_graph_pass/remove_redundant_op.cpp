@@ -14,6 +14,7 @@
  */
 
 #include "remove_redundant_op.h"
+#include "passes/pass_check/remove_redundant_op_checker.h"
 
 using namespace npu::tile_fwk;
 namespace npu::tile_fwk {

@@ -20,12 +20,11 @@ namespace tile_fwk {
 Status RemoveRedundantReshapeChecker::DoPreCheck(Function &function) {
     ALOG_INFO_F("PreCheck for RemoveRedundantReshape");
     if (CheckValidOp(function) != SUCCESS) {
+        ALOG_ERROR_F("Found invalid op from the function.");
         return FAILED;
     }
     if (CheckOpIOValid(function) != SUCCESS) {
-        return FAILED;
-    }
-    if (!function.LoopCheck().empty()) {
+        ALOG_ERROR_F("Found invalid input/output in the function.");
         return FAILED;
     }
     for (const auto &op : function.Operations().DuplicatedOpList()) {
@@ -37,18 +36,11 @@ Status RemoveRedundantReshapeChecker::DoPreCheck(Function &function) {
     return SUCCESS;
 }
 
-Status RemoveRedundantReshapeChecker::DoPostCheck(Function &function) {
-    ALOG_INFO_F("PostCheck for RemoveRedundantReshape");
-    if (!function.LoopCheck().empty()) {
-        return FAILED;
-    }
-    return SUCCESS;
-}
-
 Status RemoveRedundantReshapeChecker::ProcessPreCheck(const Operation *op) {
     if (op->GetOpcode() == Opcode::OP_RESHAPE) {
         auto in = op->iOperand.front();
         if (PreCheckReshape(in) != SUCCESS) {
+            ALOG_ERROR_F("Precheck of reshape op[%d] failed!", op->GetOpMagic());
             return FAILED;
         }
     }

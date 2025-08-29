@@ -21,7 +21,6 @@
 #include "tilefwk/data_type.h"
 
 #include "passes/pass_interface/pass.h"
-#include "passes/pass_check/pre_graph_checker.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
