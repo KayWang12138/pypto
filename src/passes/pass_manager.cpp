@@ -53,7 +53,7 @@
 #include "passes/tile_graph_pass/iso_partitioner.h"
 #include "passes/tile_graph_pass/infer_dyn_shape.h"
 // execute graph pass
-#include "passes/execute_graph_pass/memory_reuse.h"
+#include "passes/execute_graph_pass/global_memory_reuse.h"
 #include "passes/execute_graph_pass/subgraph_to_function.h"
 #include "passes/execute_graph_pass/insert_sync.h"
 #include "passes/execute_graph_pass/schedule_ooo.h"

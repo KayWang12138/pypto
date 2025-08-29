@@ -15,7 +15,7 @@
 
 #include <gtest/gtest.h>
 #include "operator/models/deepseek/page_attention.h"
-#include "passes/execute_graph_pass/memory_reuse.h"
+#include "passes/execute_graph_pass/global_memory_reuse.h"
 
 using namespace npu::tile_fwk;
 

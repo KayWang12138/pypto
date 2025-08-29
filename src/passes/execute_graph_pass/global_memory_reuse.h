@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file memory_reuse.h
+ * \file global_memory_reuse.h
  * \brief
  */
 

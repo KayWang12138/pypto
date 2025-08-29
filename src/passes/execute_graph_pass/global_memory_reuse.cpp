@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file memory_reuse.cpp
+ * \file global_memory_reuse.cpp
  * \brief
  */
 #include <deque>
@@ -18,9 +18,10 @@
 #include "interface/program/program.h"
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
-#include "passes/execute_graph_pass/memory_reuse.h"
+#include "passes/execute_graph_pass/global_memory_reuse.h"
 
-namespace npu::tile_fwk {
+namespace npu {
+namespace tile_fwk {
 constexpr int64_t MEM_PROPORTION_COEFF = 8;
 constexpr uint64_t EXTRA_SIZE_IN_BYTE = 32;
 constexpr uint64_t ALIGN_SIZE_IN_BYTE = 512;
@@ -977,4 +978,5 @@ Status GlobalMemoryReuse::RunOnFunction(Function &function) {
     ALOG_INFO_F("===> Completed GlobalMemoryReuse pass. Status: %d.", status);
     return status;
 }
-} // namespace npu::tile_fwk
+} // namespace tile_fwk
+} // namespace npu

@@ -19,7 +19,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
-#include "passes/execute_graph_pass/memory_reuse.h"
+#include "passes/execute_graph_pass/global_memory_reuse.h"
 #include "interface/tensor/tensormap.h"
 #include "operator/models/deepseek/deepseek_mla.h"
 #include "operator/models/deepseek/deepseek_spec.h"
