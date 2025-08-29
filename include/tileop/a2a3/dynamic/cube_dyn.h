@@ -310,15 +310,16 @@ TILEOP void DynL0CCopyOut(__gm__ GMT *dst, __cc__ L0CT *src, unsigned oriTShape0
     if constexpr (!enableNZ2ND) {
         // s32搬出不涉及channel split，因此C0=16
         int64_t c0Size = std::is_same<GMT, int32_t>::value ? BLOCK_CUBE_M_N : BLOCK_ALIGN_BYTE / sizeof(GMT);
-        int64_t hAlign = CeilAlign<int64_t>(curH, BLOCK_CUBE_M_N);
+        nSize = CeilAlign<uint16_t>(nSize, c0Size);
         int64_t wAlign = CeilAlign<int64_t>(curW, c0Size);
-        int64_t elemPerBatch = hAlign * wAlign;
+        int64_t elemPerBatch = curH * wAlign;
         int64_t batchIdx = gmOffset / elemPerBatch;
-        gmOffset = batchIdx * elemPerBatch + (GmOffset1 * hAlign) + (GmOffset0 - batchIdx * hAlign) * c0Size;
+        gmOffset = batchIdx * elemPerBatch + (GmOffset1 * curH) + (GmOffset0 - batchIdx * curH) * c0Size;
         // fp32搬出默认开启channel split
         channelSplit = std::is_same<GMT, float>::value;
         // dst stride between the start addresses of different bursts in unit of 32B
-        dstStrideDstD = hAlign;
+        // 2含义：int32 NZ搬出场景（C0=16），此处dstStride需乘2使得内轴按64B为单位做偏移计算
+        dstStrideDstD = std::is_same<GMT, int32_t>::value ? curH * 2 : curH;
     }
 
     uint64_t ndNum = 1;

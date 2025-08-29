@@ -113,6 +113,7 @@ def gen_mm_data(input_config: ShapeConfig, output_dir: Path):
         a = np.random.uniform(-1, 1, shape_a).astype(FP32)
         b = np.random.uniform(-1, 1, shape_b).astype(FP32)
         c = np.matmul(a.astype(FP32), b.astype(FP32))
+    c = c.astype(input_config.out_dtype)
 
     if input_config.trans_a:
         a = a.transpose(1, 0)

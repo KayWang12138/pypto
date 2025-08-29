@@ -132,6 +132,7 @@ def gen_bmm_data(input_config: ShapeConfigOneBatch, output_dir: Path):
         a = np.random.uniform(-1, 1, shape_a).astype(BF16)
         b = np.random.uniform(-1, 1, shape_b).astype(BF16)
         c = np.matmul(a.astype(FP32), b.astype(FP32))
+    c = c.astype(input_config.out_dtype)
 
     if input_config.trans_a:
         a = a.transpose(0, 2, 1)

@@ -193,7 +193,7 @@ static void BatchMatmulOperationExeFuncSplitN(
             Tensor tensorA = View(inputs[0], inputs[0]->shape, tileParam.aValidShape, tileParam.aOffset);
             if (tileParam.transB) {
                 tileParam.bOffset.insert(tileParam.bOffset.end(), {nIdx * tileParam.nView, 0});
-                tileParam.bViewShape.insert(tileParam.bViewShape.end(), {tileParam.kDim, tileParam.nView});
+                tileParam.bViewShape.insert(tileParam.bViewShape.end(), {tileParam.nView, tileParam.kDim});
                 tileParam.bValidShape.insert(tileParam.bValidShape.end(),
                     {std::min(tileParam.nDim - nIdx * tileParam.nView, tileParam.nView), tileParam.kDim});
             } else {
@@ -246,7 +246,7 @@ static void BatchMatmulOperationExeFuncSplitMN(
                 Tensor tensorA = View(inputs[0], tileParam.aViewShape, tileParam.aValidShape, tileParam.aOffset);
 
                 if (tileParam.transB) {
-                    tileParam.bViewShape.insert(tileParam.bViewShape.end(), {tileParam.kDim, tileParam.nView});
+                    tileParam.bViewShape.insert(tileParam.bViewShape.end(), {tileParam.nView, tileParam.kDim});
                     tileParam.bValidShape.insert(tileParam.bValidShape.end(),
                         {std::min(tileParam.nDim - nIdx * tileParam.nView, tileParam.nView), tileParam.kDim});
                     tileParam.bOffset.insert(tileParam.bOffset.end(), {nIdx * tileParam.nView, 0});

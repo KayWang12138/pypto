@@ -30,6 +30,13 @@
 namespace npu {
 namespace tile_fwk {
 namespace Matrix {
+template <typename T>
+auto CeilAlign(T num_1, T num_2) -> T {
+    if (num_2 == 0) {
+        return 0;
+    }
+    return (num_1 + num_2 - 1) / num_2 * num_2;
+}
 
 using AggregationMap = std::map<std::vector<int64_t>, std::vector<std::pair<LogicalTensorPtr, LogicalTensorPtr>>>;
 
@@ -369,6 +376,7 @@ void CheckOperandsValid(const Tensor &operand1, const Tensor &operand2) {
     ASSERT(operand1->shape.size() == operand1->offset.size());
     ASSERT(operand2->shape.size() == operand2->offset.size());
 }
+
 template <bool isTransA, bool isTransB>
 void CheckMatMulOperandsValid(const Tensor &operand1, const Tensor &operand2) {
     // shape valid check
@@ -475,6 +483,7 @@ void TensorInnerAtMulBt(Function &function, const LogicalTensorPtr &operand1, co
     auto &op = function.AddOperation(Opcode::OP_AT_MUL_BT, {operand1, operand2}, {result});
     SetMatmulAttr(op);
 }
+
 template <bool isCMatrixNZ>
 void AMulBtImpl(
     DataType dataType, const LogicalTensorPtr &operand1, const LogicalTensorPtr &operand2, LogicalTensorPtr &result) {
@@ -532,6 +541,11 @@ template <bool isCMatrixNZ>
 Tensor A_MUL_Bt(DataType dataType, const Tensor &operand1, const Tensor &operand2, const void *lr) {
     DECLARE_TRACERX(lr);
     Tensor result(dataType, {operand1->shape[0], operand2->shape[0]});
+    if constexpr (isCMatrixNZ) {
+        ASSERT(BytesOf(dataType) > 0);
+        int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
+        result = Tensor(dataType, {operand1->shape[0], CeilAlign(operand2->shape[0], c0Size)});
+    }
     AMulBtImpl<isCMatrixNZ>(dataType, operand1.GetStorage(), operand2.GetStorage(), result.GetStorage());
     return result;
 }
@@ -541,7 +555,13 @@ Tensor A_MUL_Bt(
     DataType dataType, const Tensor &operand1, const Tensor &operand2, const Tensor &operand3, const void *lr) {
     DECLARE_TRACERX(lr);
     Tensor result(dataType, {operand1->shape[0], operand2->shape[0]});
-    AMulBtImpl<isCMatrixNZ>(dataType, operand1.GetStorage(), operand2.GetStorage(), operand3.GetStorage(), result.GetStorage());
+    if constexpr (isCMatrixNZ) {
+        ASSERT(BytesOf(dataType) > 0);
+        int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
+        result = Tensor(dataType, {operand1->shape[0], CeilAlign(operand2->shape[0], c0Size)});
+    }
+    AMulBtImpl<isCMatrixNZ>(
+        dataType, operand1.GetStorage(), operand2.GetStorage(), operand3.GetStorage(), result.GetStorage());
     return result;
 }
 
@@ -549,6 +569,11 @@ template <bool isCMatrixNZ>
 Tensor A_MUL_B(DataType dataType, const Tensor &operand1, const Tensor &operand2, const void *lr) {
     DECLARE_TRACERX(lr);
     Tensor result(dataType, {operand1->shape[0], operand2->shape[1]});
+    if constexpr (isCMatrixNZ) {
+        ASSERT(BytesOf(dataType) > 0);
+        int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
+        result = Tensor(dataType, {operand1->shape[0], CeilAlign(operand2->shape[1], c0Size)});
+    }
     MatmulImpl<isCMatrixNZ>(dataType, {operand1.GetStorage(), operand2.GetStorage()}, result.GetStorage());
     return result;
 }
@@ -558,7 +583,13 @@ Tensor A_MUL_B(
     DataType dataType, const Tensor &operand1, const Tensor &operand2, const Tensor &operand3, const void *lr) {
     DECLARE_TRACERX(lr);
     Tensor result(dataType, {operand3->shape[0], operand3->shape[1]});
-    MatmulImpl<isCMatrixNZ>(dataType, {operand1.GetStorage(), operand2.GetStorage(), operand3.GetStorage()}, result.GetStorage());
+    if constexpr (isCMatrixNZ) {
+        ASSERT(BytesOf(dataType) > 0);
+        int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
+        result = Tensor(dataType, {operand3->shape[0], CeilAlign(operand3->shape[1], c0Size)});
+    }
+    MatmulImpl<isCMatrixNZ>(
+        dataType, {operand1.GetStorage(), operand2.GetStorage(), operand3.GetStorage()}, result.GetStorage());
     return result;
 }
 
@@ -566,6 +597,11 @@ template <bool isCMatrixNZ>
 Tensor At_MUL_B(DataType dataType, const Tensor &operand1, const Tensor &operand2, const void *lr) {
     DECLARE_TRACERX(lr);
     Tensor result(dataType, {operand1->shape[1], operand2->shape[1]});
+    if constexpr (isCMatrixNZ) {
+        ASSERT(BytesOf(dataType) > 0);
+        int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
+        result = Tensor(dataType, {operand1->shape[1], CeilAlign(operand2->shape[1], c0Size)});
+    }
     AtMulBImpl<isCMatrixNZ>(dataType, operand1.GetStorage(), operand2.GetStorage(), result.GetStorage());
     return result;
 }
@@ -574,6 +610,11 @@ template <bool isCMatrixNZ>
 Tensor At_MUL_Bt(DataType dataType, const Tensor &operand1, const Tensor &operand2, const void *lr) {
     DECLARE_TRACERX(lr);
     Tensor result(dataType, {operand1->shape[1], operand2->shape[0]});
+    if constexpr (isCMatrixNZ) {
+        ASSERT(BytesOf(dataType) > 0);
+        int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
+        result = Tensor(dataType, {operand1->shape[1], CeilAlign(operand2->shape[0], c0Size)});
+    }
     AtMulBtImpl<isCMatrixNZ>(dataType, operand1.GetStorage(), operand2.GetStorage(), result.GetStorage());
     return result;
 }
@@ -636,6 +677,10 @@ Tensor ABatchMulB3D(DataType dataType, const Tensor &operand1, const Tensor &ope
     auto operand2D1 = Reshape(operand1, {batchSizeA * firstDimA, secondDimA});
     auto operand2D2 = Reshape(operand2, {batchSizeB * firstDimB, secondDimB});
     Tensor result(dataType, {batchSize * orgM, orgN});
+    if constexpr (isCMatrixNZ) {
+        result = Tensor(dataType, {batchSize * orgM, orgN}, "BatchMatmulOutputNz", NodeType::LOCAL,
+            TileOpFormat::TILEOP_NZ);
+    }
     auto &curFunc = *Program::GetInstance().GetCurrentFunction();
     for (int i = 0; i < batchSize; i++) {
         int offsetA = batchSizeA == 1 ? 0 : i * firstDimA;
@@ -682,6 +727,10 @@ Tensor ABatchMulB4D(DataType dataType, const Tensor &operand1, const Tensor &ope
     int batchSize1 = std::max(batchSizeA1, batchSizeB1);
     int batchSize2 = std::max(batchSizeA2, batchSizeB2);
     Tensor result(dataType, {batchSize1 * batchSize2 * orgM, orgN});
+    if constexpr (isCMatrixNZ) {
+        result = Tensor(dataType, {batchSize1 * batchSize2 * orgM, orgN}, "BatchMatmulOutputNz", NodeType::LOCAL,
+            TileOpFormat::TILEOP_NZ);
+    }
 
     int strideA = batchSizeA2 == 1 ? 0 : firstDimA;
     int strideB = batchSizeB2 == 1 ? 0 : firstDimB;

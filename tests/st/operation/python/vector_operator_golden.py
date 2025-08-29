@@ -64,7 +64,7 @@ else:
     from golden_register import GoldenRegister
 
 
-def trans_nd_to_fractal_nz(data: np.ndarray):
+def trans_nd_to_fractal_nz(data: np.ndarray, keep_m_dim=False):
     def _gen_axes_for_transpose(offset, base):
         return [x for x in range(offset)] + [x + offset for x in base]
 
@@ -84,9 +84,14 @@ def trans_nd_to_fractal_nz(data: np.ndarray):
     m1, n1 = _ceil_div(m_ori, m0), _ceil_div(n_ori, n0)
     padding_m = m1 * m0 - m_ori
     padding_n = n1 * n0 - n_ori
-    data = np.pad(data, (batch_padding + ((0, padding_m), (0, padding_n))), 'constant')
-    array_trans = _gen_axes_for_transpose(len(data.shape) - 2, [2, 0, 1, 3])
-    data = data.reshape(batch_ori + (m1, m0, n1, n0)).transpose(*array_trans)
+    if not keep_m_dim:
+        data = np.pad(data, (batch_padding + ((0, padding_m), (0, padding_n))), 'constant')
+        array_trans = _gen_axes_for_transpose(len(data.shape) - 2, [2, 0, 1, 3])
+        data = data.reshape(batch_ori + (m1, m0, n1, n0)).transpose(*array_trans)
+    else:
+        data = np.pad(data, (batch_padding + ((0, 0), (0, padding_n))), 'constant')
+        array_trans = _gen_axes_for_transpose(len(data.shape) - 2, [1, 0, 2])
+        data = data.reshape(batch_ori + (m_ori, n1, n0)).transpose(*array_trans)
     return data
 
 
@@ -401,16 +406,21 @@ def matmul_golden_func(inputs, params: dict):
         np.swapaxes(inputs[0], inputs[0].ndim - 2, inputs[0].ndim - 1)
     tensor_b = inputs[1] if not params.get("transB") else \
         np.swapaxes(inputs[1], inputs[1].ndim - 2, inputs[1].ndim - 1)
-
     assert params.get("outDtype") in ("fp32", "fp16", "bf16", "int32")
     if params.get("outDtype") in ("fp32", "fp16", "bf16"):
-        tensor_c = np.matmul(tensor_a.astype(np.float32), tensor_b.astype(np.float32))
+        tensor_c = torch.matmul(
+            torch.from_numpy(tensor_a.astype(np.float32)).to(torch.float32),
+            torch.from_numpy(tensor_b.astype(np.float32)).to(torch.float32)
+        ).to(torch.float32).numpy()
     else:
-        tensor_c = np.matmul(tensor_a.astype(np.int32), tensor_b.astype(np.int32))
+        tensor_c = torch.matmul(
+            torch.from_numpy(tensor_a.astype(np.int32)).to(torch.int32),
+            torch.from_numpy(tensor_b.astype(np.int32)).to(torch.int32)
+        ).to(torch.int32).numpy()
     tensor_c = tensor_c.astype(get_dtype_by_name(params.get("outDtype")))
 
     if params.get("isCMatrixNz"):
-        tensor_c = trans_nd_to_fractal_nz(tensor_c)
+        tensor_c = trans_nd_to_fractal_nz(tensor_c, True)
 
     return [tensor_c]
 
