@@ -65,7 +65,8 @@ TEST_F(DynamicBasicTest, TestHybridLoopIf2) {
     });
 
     //clc
-    FUNCTION("main", FunctionType::DYNAMIC, {t0, t1, t2, t3, t4}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {t0, t1, t2, t3, t4}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(LOOP_COUNT)) {
             auto r0 = Add(t0, t1);
             r0 = Mul(r0, t1); // +t0, +t1
@@ -84,7 +85,8 @@ TEST_F(DynamicBasicTest, TestHybridLoopIf2) {
 }
 
 void TestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Tensor &blockTable, Tensor &out, int s) {
-    FUNCTION("main", FunctionType::DYNAMIC, {t0, t1, blockTable}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {t0, t1, blockTable}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShapeDim(t0, 0) / s)) {
             SymbolicScalar idx = GetInputDataInt32Dim2(blockTable, i, 0);
             Tensor t0s = View(t0, {s, s}, {idx * s, 0});
@@ -152,7 +154,8 @@ TEST_F(DynamicBasicTest, TestTT) {
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
     });
 
-    FUNCTION("main", FunctionType::DYNAMIC, {t0, t1}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {t0, t1}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(8)) {
             Tensor t0s = View(t0, {s, s}, {idx * s, 0});
             Tensor t1s = View(t1, {s, s}, {idx * s, 0});
@@ -175,7 +178,8 @@ TEST_F(DynamicBasicTest, DynamicRawShape) {
     Tensor t1(DT_FP32, {s, s}, "t1");              // [32, 32]
     Tensor out(DT_FP32, {-1, s}, "out");
 
-    FUNCTION("main", FunctionType::DYNAMIC, {t0, t1}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {t0, t1}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(GetInputShapeDim(t0, 0) / s)) {
             Tensor t0s = View(t0, {s, s}, {idx * s, 0});
             Tensor t2 = Matrix::Matmul<false, true>(DataType::DT_FP32, t0s, t1);
@@ -207,7 +211,8 @@ TEST_F(DynamicBasicTest, DynamicRawShapeUnalign) {
     Tensor t0(DT_FP32, {-1, s}, "t0"); // [32*8, 32]
     Tensor out(DT_FP32, {-1, s}, "out");
 
-    FUNCTION("main", FunctionType::DYNAMIC, {t0}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {t0}, {out}) {
         auto shape0 = GetInputShapeDim(t0, 0);
         auto t1 = Tensor(t0.GetDataType(), {shape0, s});
         auto loop1 = (shape0 + s - 1) / s;
@@ -251,7 +256,8 @@ TEST_F(DynamicBasicTest, TestInplace) {
     Tensor t2(DT_FP32, {32, 32}, "t2");
     Tensor t3(DT_FP32, {32, 32}, "t3");
 
-    FUNCTION("main", FunctionType::DYNAMIC, {t0, t1}, {t3}, {{t2, t0}}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {t0, t1}, {t3}, {{t2, t0}}) {
         LOOP("l0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             UNUSED(i);
             t3 = Add(t0, t1);
@@ -281,8 +287,10 @@ TEST_F(DynamicBasicTest, TestStaticUnderDynDev) {
     Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
     Tensor t1(DT_FP32, {n * s, s}, "t1");  // [32, 32]
     Tensor out(DT_FP32, {n * s, s}, "out");
-    FUNCTION("main", FunctionType::DYNAMIC, {t0, t1}, {out}) {
-        FUNCTION("S0", FunctionType::STATIC) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {t0, t1}, {out}) {
+        FunctionConfig funConfig2 = {.funcType = FunctionType::STATIC};
+        FUNCTION("S0", funConfig2) {
             out = Sub(t1, t0);
         }
     }
@@ -310,9 +318,11 @@ TEST_F(DynamicBasicTest, TestStaticLoop) {
     Tensor t1(DT_FP32, {n * s, s}, "t1");  // [32, 32]
     Tensor t2(DT_FP32, {s, s}, "t2");  // [32, 32]
     Tensor out(DT_FP32, {n * s, s}, "out");
-    FUNCTION("main", FunctionType::DYNAMIC, {t0, t1, t2}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {t0, t1, t2}, {out}) {
         Tensor s0Out;
-        FUNCTION("S0", FunctionType::STATIC) {
+        FunctionConfig funConfig2 = {.funcType = FunctionType::STATIC};
+        FUNCTION("S0", funConfig2) {
             s0Out = Sub(t1, t0);
         }
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(LOOP_COUNT)) {
@@ -350,7 +360,8 @@ TEST_F(DynamicBasicTest, TestInnerLoopOrder) {
     Tensor inputB(DT_FP32, {tileNum, vecLen}, "inputB");
     Tensor output(DT_FP32, {1, vecLen}, "out");
 
-    FUNCTION("main", FunctionType::DYNAMIC, {inputA, inputB}, {output}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {inputA, inputB}, {output}) {
         LOOP("Outer", FunctionType::DYNAMIC_LOOP, i, LoopRange(tileNum)) {
             Tensor tileB(DT_FP32, {1, vecLen}, "tileB");
             LOOP("Inner", FunctionType::DYNAMIC_LOOP, j, LoopRange(1)) {
@@ -502,7 +513,8 @@ TEST_F(DynamicBasicTest, TestTensorExtract) {
         RawTensorData::CreateConstantTensor<int32_t>(output, 0),
     });
 
-    FUNCTION("main", FunctionType::DYNAMIC, {inputA}, {output}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {inputA}, {output}) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
             Tensor t0 = AddS(inputA, Element(DT_INT32, (int64_t)2));
@@ -536,7 +548,8 @@ TEST_F(DynamicBasicTest, TestGetTensorData) {
         RawTensorData::CreateConstantTensor<float>(output, 0.0f),
     });
 
-    FUNCTION("main", FunctionType::DYNAMIC, {inputA, inputC}, {output}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {inputA, inputC}, {output}) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
             Tensor t0 = AddS(inputA, Element(DT_INT32, (int64_t)2));
@@ -576,7 +589,8 @@ TEST_F(DynamicBasicTest, TestGetTensorDataExpr) {
         RawTensorData::CreateConstantTensor<float>(output, 0.0f),
     });
 
-    FUNCTION("main", FunctionType::DYNAMIC, {inputA, inputC}, {output}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {inputA, inputC}, {output}) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
             Tensor t0 = AddS(inputA, Element(DT_INT32, (int64_t)2));
@@ -613,7 +627,8 @@ TEST_F(DynamicBasicTest, TestVectorDup) {
         RawTensorData::CreateConstantTensor<int32_t>(output, 0),
     });
 
-    FUNCTION("main", FunctionType::DYNAMIC, {}, {output}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {}, {output}) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
             SymbolicScalar v = 20;
@@ -643,7 +658,8 @@ TEST_F(DynamicBasicTest, TestTensorInsert) {
         RawTensorData::CreateConstantTensor<int32_t>(output, 0),
     });
 
-    FUNCTION("main", FunctionType::DYNAMIC, {}, {output}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {}, {output}) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) {
             auto tmp = VectorDuplicate(20, DT_INT32, {1});
             TensorInsert(tmp, {i}, output);
@@ -672,7 +688,8 @@ TEST_F(DynamicBasicTest, TestSetTensorData) {
         RawTensorData::CreateConstantTensor<int32_t>(output, 0),
     });
 
-    FUNCTION("main", FunctionType::DYNAMIC, {}, {output}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {}, {output}) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) {
             SetTensorDataInt32(30, {i / 2 * 2 + i % 2}, output);
         }
@@ -701,7 +718,8 @@ TEST_F(DynamicBasicTest, TestSetTensorDataExpr) {
         RawTensorData::CreateConstantTensor<int32_t>(output, 0),
     });
 
-    FUNCTION("main", FunctionType::DYNAMIC, {}, {output}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {}, {output}) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) {
             LOOP("Step1", FunctionType::DYNAMIC_LOOP, j, LoopRange(n)) {
                 for (int k = 0; k < n; k++) {
@@ -740,7 +758,8 @@ TEST_F(DynamicBasicTest, TestGetSetTensorDataExpr) {
         RawTensorData::CreateConstantTensor<int32_t>(output, 0),
     });
 
-    FUNCTION("main", FunctionType::DYNAMIC, {input}, {output}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {input}, {output}) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) {
             LOOP("Step1", FunctionType::DYNAMIC_LOOP, j, LoopRange(n)) {
                 auto add = Add(input, input);

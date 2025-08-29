@@ -54,7 +54,8 @@ TEST_F(TestCodegenDynBinaryBrc, TestMulDynamic) {
     Tensor output(DataType::DT_FP32, shape1, "C");
     ConfigManager::Instance();
 
-    FUNCTION("MUL_T", FunctionType::STATIC, {input_a, input_b, output}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION("MUL_T", funConfig, {input_a, input_b, output}) {
         // add RowSumSingle to test brc case
         auto input_c = RowSumSingle(input_b);
         output = Mul(input_a, input_c);

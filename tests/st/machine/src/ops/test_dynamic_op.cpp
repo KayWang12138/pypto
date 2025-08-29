@@ -38,7 +38,8 @@ TEST_F(DynamicOpTest, VectorDuplicateUnalign) {
     Tensor output(DT_FP32, shape, "output");
     Tensor actSeqs(DT_INT32, {1}, "actual_seq");
 
-    FUNCTION("main", FunctionType::DYNAMIC, {actSeqs}, {output}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {actSeqs}, {output}) {
         SymbolicScalar curSeq = GetInputDataInt32Dim1(actSeqs, 0);
 
         LOOP("L0", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange((curSeq + sTile - 1) / sTile)) {

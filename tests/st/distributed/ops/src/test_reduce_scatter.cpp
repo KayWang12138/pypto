@@ -52,7 +52,8 @@ void TestReduceScatter(OpTestParam &testParam)
 
         ConfigManager::Instance();
 
-        FUNCTION("REDUCESCATTER_F", FunctionType::STATIC, {in, out}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("REDUCESCATTER_F", funConfig, {in, out}) {
             Program::GetInstance().GetTileShape().SetDistTileShapes(
                 {M / 2, 2, 0},
                 {N / 2, 2, 0},
@@ -100,7 +101,8 @@ void TestReduceScatterEx(OpTestParam &testParam)
         paras.emplace_back(out);
         ConfigManager::Instance();
 
-        FUNCTION("REDUCESCATTER_EX", FunctionType::STATIC, paras) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("REDUCESCATTER_EX", funConfig, paras) {
             Program::GetInstance().GetTileShape().SetDistTileShapes(
                 {M / 2, 2, 0},
                 {N / 2, 2, 0},

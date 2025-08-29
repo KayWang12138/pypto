@@ -54,7 +54,8 @@ void TestAddDynBody(const std::vector<int64_t> &shape, const std::vector<int64_t
     Tensor input_b(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
 
-    FUNCTION(name, FunctionType::STATIC, {input_a, input_b, output}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION(name, funConfig, {input_a, input_b, output}) {
         output = Add(input_a, input_b);
     }
 
@@ -102,7 +103,8 @@ TEST_F(TestCodegenDynBinary, TestAddsDynamic) {
     Element value(DataType::DT_FP32, 1.5);
     Tensor output(DataType::DT_FP32, shape, "C");
     ConfigManager::Instance();
-    FUNCTION("ADD_S", FunctionType::STATIC, {input_a, output}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION("ADD_S", funConfig, {input_a, output}) {
         output = AddS(input_a, value);
     }
 
@@ -146,7 +148,8 @@ TEST_F(TestCodegenDynBinary, TestGatherEle) {
     Tensor outputTensor(DT_FP32, outputShape, "output_tensor");
 
     std::string funcName = "GATHER_ELEMET_T";
-    FUNCTION(funcName, FunctionType::STATIC, {inputScores, inputTmpScores, outputTensor}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION(funcName, funConfig, {inputScores, inputTmpScores, outputTensor}) {
         outputTensor = GatherElement(inputTmpScores, inputScores, 1); // [b*s,8]
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
@@ -194,7 +197,8 @@ TEST_F(TestCodegenDynBinary, AddUnalignLayout) {
     Tensor out(DT_FP32, outShape, "out");
 
     std::string loopName = "L0";
-    FUNCTION("main", FunctionType::DYNAMIC, {input1, input2, curSeq}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {input1, input2, curSeq}, {out}) {
         LOOP(loopName, FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
             auto seq = GetInputDataInt32Dim2(curSeq, batchId, 0);
             Tensor intput11 = View(input1, {sq, d}, {seq, d}, {batchId, 0});

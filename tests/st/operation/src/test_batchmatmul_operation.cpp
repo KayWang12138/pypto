@@ -116,7 +116,8 @@ static void BatchMatmulOperationExeFuncNoSplit(
     tileParam.aValidShape = {inputs[0]->shape.begin(), inputs[0]->shape.end()};
     tileParam.bValidShape = {inputs[1]->shape.begin(), inputs[1]->shape.end()};
 
-    FUNCTION("testNoSplit", FunctionType::DYNAMIC, {inputs[0], inputs[1]}, {outputs[0]}) {
+    FunctionConfig funConfig;
+    FUNCTION("testNoSplit", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1)) {
             tileParam.aOffset[inputDim - 1] = mIdx;
             Tensor tensorA = View(inputs[0], inputs[0]->shape, tileParam.aValidShape, tileParam.aOffset);
@@ -141,7 +142,8 @@ static void BatchMatmulOperationExeFuncSplitM(
     GetBatchMatmulTileParam(inputs, opArgs, tileParam);
     tileParam.bValidShape = {inputs[1]->shape.begin(), inputs[1]->shape.end()};
 
-    FUNCTION("testMSplit", FunctionType::DYNAMIC, {inputs[0], inputs[1]}, {outputs[0]}) {
+    FunctionConfig funConfig;
+    FUNCTION("testMSplit", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx,
             LoopRange(0, CeilDivSymbolicScalar(tileParam.mDim, tileParam.mView), 1)) {
             if (tileParam.transA) {
@@ -183,7 +185,8 @@ static void BatchMatmulOperationExeFuncSplitN(
     GetBatchMatmulTileParam(inputs, opArgs, tileParam);
     tileParam.aValidShape = {inputs[0]->shape.begin(), inputs[0]->shape.end()};
 
-    FUNCTION("testNSplit", FunctionType::DYNAMIC, {inputs[0], inputs[1]}, {outputs[0]}) {
+    FunctionConfig funConfig;
+    FUNCTION("testNSplit", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
         LOOP("nLoop", FunctionType::DYNAMIC_LOOP, nIdx,
             LoopRange(0, CeilDivSymbolicScalar(tileParam.nDim, tileParam.nView), 1)) {
             tileParam.aOffset.insert(tileParam.aOffset.end(), {0, 0});
@@ -223,7 +226,8 @@ static void BatchMatmulOperationExeFuncSplitMN(
     BatchMatmulTileParam tileParam;
     GetBatchMatmulTileParam(inputs, opArgs, tileParam);
 
-    FUNCTION("testMNSplit", FunctionType::DYNAMIC, {inputs[0], inputs[1]}, {outputs[0]}) {
+    FunctionConfig funConfig;
+    FUNCTION("testMNSplit", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx,
             LoopRange(0, CeilDivSymbolicScalar(tileParam.mDim, tileParam.mView), 1)) {
             LOOP("nLoop", FunctionType::DYNAMIC_LOOP, nIdx,

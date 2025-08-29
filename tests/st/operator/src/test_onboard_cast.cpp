@@ -49,7 +49,8 @@ namespace {
             Tensor i_x(config.inputType, config.shape, (uint8_t *)x_ptr, "x");
             Tensor o_x(config.outputType, config.shape, out_ptr, "cast");
 
-            FUNCTION("CAST_test", FunctionType::STATIC, {i_x, o_x}) {
+            FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+            FUNCTION("CAST_test", funConfig, {i_x, o_x}) {
                 o_x = Cast(i_x, config.outputType, config.castMode);
             }
         }
@@ -122,7 +123,8 @@ TEST_F(CastOnBoard, test_cast_fp16tofp32_unalign) {
         Tensor input1(iType, shape, (uint8_t *)x_ptr1, "x_ptr1");
         Tensor output(oType, shape, (uint8_t *)out_ptr, "output");
 
-        FUNCTION("CAST_test", FunctionType::STATIC, {input1, output}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("CAST_test", funConfig, {input1, output}) {
             Program::GetInstance().GetTileShape().SetVecTileShapes({4, 256});
             output = Cast(input1, oType, CAST_NONE);
         }

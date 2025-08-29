@@ -93,7 +93,8 @@ void TestQkvPre(std::vector<int> &params, string dataPath) {
         std::tuple<Tensor, Tensor> res;
         DeepseekAttention Attention(g_deepseekConfig, aw, 1);
 
-        FUNCTION("QkvPre_T", FunctionType::STATIC, {x, w_qa, w_qb, w_kv_a, output_q, output_kv}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("QkvPre_T", funConfig, {x, w_qa, w_qb, w_kv_a, output_q, output_kv}) {
             auto q_kv = Attention.QkvPre2(x);
             output_q = q_kv[0];
             output_kv = q_kv[1];
@@ -439,7 +440,8 @@ void TestQkvPreFp32(std::vector<int> &params, string dataPath) {
         std::tuple<Tensor, Tensor> res;
         DeepseekAttention Attention(g_deepseekConfig, aw, 1);
 
-        FUNCTION("QkvPreFp32_T", FunctionType::STATIC, {x, w_qa, w_qb, w_kv_a, output_q, output_kv}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("QkvPreFp32_T", funConfig, {x, w_qa, w_qb, w_kv_a, output_q, output_kv}) {
             auto q_kv = Attention.QkvPreFp32(x);
             output_q = std::get<0>(q_kv);
             output_kv = std::get<1>(q_kv);

@@ -44,7 +44,8 @@ TEST_F(MoEPart4OnBoardTest, test_operation_b_2) {
         Tensor inputTmpScores(DataType::DT_FP32, input_shape, (uint8_t *)input_tmp_score, "input_tmp_scores");
         Tensor outputTensor(DataType::DT_FP32, output_shape, out_topk_weight, "output_tensor");
 
-        FUNCTION("MOE_GATE_PART4_T", FunctionType::STATIC, {inputScores, inputTmpScores, outputTensor}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("MOE_GATE_PART4_T", funConfig, {inputScores, inputTmpScores, outputTensor}) {
             auto topk_idx = std::get<1>(TopK(inputScores, numExpertsPerTopk, -1)); // [b*s,256]->[b*s,8]
             auto topk_weight = GatherElement(inputTmpScores, topk_idx, 1); // [b*s,8]
             auto topk_weight_sum = RowSumSingle(topk_weight, 1);      // [b*s,8]->[b*s,1]

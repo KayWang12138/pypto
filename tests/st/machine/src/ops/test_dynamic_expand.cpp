@@ -40,7 +40,8 @@ TEST_F(DynamicExpandTest, TestDynamicExpandUnalign) {
     Tensor q(DT_FP32, qShape, "q");
     Tensor out(DT_FP32, outShape, "out");
 
-    FUNCTION("main", FunctionType::DYNAMIC, {q}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {q}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
             Tensor q0 = View(q, {1, d}, {1, d}, {batchId, 0});
             auto tmp = Expand(q0, {100, d});

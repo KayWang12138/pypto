@@ -192,7 +192,8 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
 
 void SlcAttn(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc, const Tensor &vSlc, const Tensor &kvSlcActSeqs, int nQ, int nKv,
     float softmaxScale, Tensor &attentionOut, SaTileShapeConfig tileConfig) {
-    FUNCTION("SA_MAIN", FunctionType::DYNAMIC, {qNope, qRope, kSlc, vSlc, kvSlcActSeqs}, {attentionOut}) {
+    FunctionConfig funConfig;
+    FUNCTION("SA_MAIN", funConfig, {qNope, qRope, kSlc, vSlc, kvSlcActSeqs}, {attentionOut}) {
         SlcAttnCompute(qNope, qRope, kSlc, vSlc, kvSlcActSeqs, nQ, nKv, softmaxScale, attentionOut, tileConfig);
     }
 }

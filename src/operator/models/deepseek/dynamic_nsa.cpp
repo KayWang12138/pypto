@@ -74,8 +74,9 @@ void GenSlc(const Tensor &x, Tensor &trans0res, Tensor &reduce0res, Tensor &tran
     Tensor tmpOut(DataType::DT_FP32, {1, g}, "tmpout");
     Tensor tmpOut1(DataType::DT_FP32, {1, 16}, "tmpout1");
     Tensor tmpTrans2(DataType::DT_FP32, {1, s_cmp, 128}, "trans1");
+    FunctionConfig funConfig;
     FUNCTION(
-        "main", FunctionType::DYNAMIC, {x}, {trans0res, reduce0res, trans1res, reduce1res, topkInd, topkVal, out}) {
+        "main", funConfig, {x}, {trans0res, reduce0res, trans1res, reduce1res, topkInd, topkVal, out}) {
         LOOP("LOOP_L0_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sLoop, 1), {}, true) {
             SymbolicScalar sOfs = sIdx * tileS2;
             Program::GetInstance().GetTileShape().SetVecTileShapes({1, 4, s_cmp});
@@ -130,7 +131,8 @@ void GenSlcV2(const Tensor &x, Tensor &out, int validSize, int l_prime, int d, i
     int actualTopk = topk - (front + near);          // 13
     int actualVaildLen = validSize - (front + near); // 125
     Tensor tmpOut(DataType::DT_FP32, {1, s_slc}, "tmpout");
-    FUNCTION("main", FunctionType::DYNAMIC, {x}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {x}, {out}) {
         LOOP("LOOP_L0_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1), {}, true) {
             (void)sIdx;
             Program::GetInstance().GetTileShape().SetVecTileShapes({4, s_cmp});
@@ -177,8 +179,9 @@ void GenTopkIndicesFun(const Tensor &x, Tensor &trans0res, Tensor &reduce0res, T
     Tensor tmpOut(DataType::DT_FP32, {1, s_slc}, "tmpout");
     Tensor tmpOut1(DataType::DT_FP32, {1, 16}, "tmpout1");
 
+    FunctionConfig funConfig;
     FUNCTION(
-        "main", FunctionType::DYNAMIC, {x}, {trans0res, reduce0res, trans1res, reduce1res, topkInd, topkVal, out}) {
+        "main", funConfig, {x}, {trans0res, reduce0res, trans1res, reduce1res, topkInd, topkVal, out}) {
         LOOP("LOOP_topk0", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1), {}, true) {
             (void)sIdx;
             Program::GetInstance().GetTileShape().SetVecTileShapes({1, s_slc});

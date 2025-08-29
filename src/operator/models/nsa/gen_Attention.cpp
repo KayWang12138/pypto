@@ -36,7 +36,8 @@ void GenAttention(Tensor &cmpAtten, Tensor &selAtten, Tensor &winAtten, Tensor &
     int dDimSize = cmpAtten->shape[3];
     int tileB = 8;
     int tileS = 1;
-    FUNCTION("main", FunctionType::DYNAMIC, {cmpAtten, selAtten, winAtten, gatingScore}, {attentionOut}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {cmpAtten, selAtten, winAtten, gatingScore}, {attentionOut}) {
         SymbolicScalar bDimSize = GetInputShapeDim(cmpAtten, 0);
         SymbolicScalar sDimSize = GetInputShapeDim(cmpAtten, 1);
         SymbolicScalar bLoop = bDimSize / tileB;

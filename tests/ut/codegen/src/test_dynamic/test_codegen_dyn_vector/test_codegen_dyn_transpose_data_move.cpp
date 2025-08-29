@@ -57,7 +57,8 @@ void TestTransposeDataMoveBody(int dim = 3) {
     Tensor output(DT_FP32, shape, "C");
 
     std::string funcName = "ADD";
-    FUNCTION(funcName, FunctionType::STATIC, {inputA, inputB, output}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION(funcName, funConfig, {inputA, inputB, output}) {
         output = Add(inputA, inputB);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);

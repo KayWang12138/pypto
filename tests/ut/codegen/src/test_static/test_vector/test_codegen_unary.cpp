@@ -46,7 +46,8 @@ void TestRowMaxSingleBody(
     Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
-    FUNCTION(name, FunctionType::STATIC, {input_a, output}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION(name, funConfig, {input_a, output}) {
         output = RowMaxSingle(input_a, -1);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
@@ -72,7 +73,8 @@ void TestRowSumSingleBody(
     Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
-    FUNCTION(name, FunctionType::STATIC, {input_a, output}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION(name, funConfig, {input_a, output}) {
         output = RowSumSingle(input_a, -1);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
@@ -98,7 +100,8 @@ void TestTransposeVnchwconvBody(std::vector<int64_t> shape, std::vector<int64_t>
     Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
     Tensor input(DT_FP32, shape, "input");
     Tensor output(DT_FP32, outShape, "output");
-    FUNCTION(name, FunctionType::STATIC, {input, output}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION(name, funConfig, {input, output}) {
         output = Transpose(input, transposeShape);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
@@ -125,7 +128,8 @@ void TestRowMaxExpandBody(
     Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
-    FUNCTION(name, FunctionType::STATIC, {input_a, output}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION(name, funConfig, {input_a, output}) {
         output = RowMaxExpand(input_a);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
@@ -142,7 +146,8 @@ void TestCastBody(std::vector<int64_t> shape, std::vector<int64_t> outShape, std
     Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
     Tensor input_a(DT_INT32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
-    FUNCTION(name, FunctionType::STATIC, {input_a, output}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION(name, funConfig, {input_a, output}) {
         output = Cast(input_a, DT_FP32);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
@@ -160,7 +165,8 @@ void TestExpandBody(std::vector<int64_t> shape, std::vector<int64_t> outShape, s
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
 
-    FUNCTION(name, FunctionType::STATIC, {input_a, output}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION(name, funConfig, {input_a, output}) {
         output = Expand(input_a, outShape);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
@@ -188,7 +194,8 @@ void TestRowSumBody(
     Tensor input_a(DataType::DT_FP32, shape, "A");
     Tensor output(DataType::DT_FP32, outShape, "C");
 
-    FUNCTION(name, FunctionType::STATIC, {input_a, output}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION(name, funConfig, {input_a, output}) {
         output = RowSumSingle(input_a, axis);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
@@ -216,7 +223,8 @@ TEST_F(TestCodegenUnary, TestVecDup) {
     Program::GetInstance().GetTileShape().SetVecTileShapes({16, 1, 16});
 
     Tensor output(DataType::DT_INT32, shape, "C");
-    FUNCTION(funcName, FunctionType::STATIC, {output}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION(funcName, funConfig, {output}) {
         output = npu::tile_fwk::VectorDuplicate(src, DT_INT32, shape);
     }
 
@@ -234,7 +242,8 @@ TEST_F(TestCodegenUnary, TestVecDupUnaligned) {
     Tensor output(DataType::DT_FP32, shape, "C");
 
     std::string funcName = "VECDUP_T";
-    FUNCTION(funcName, FunctionType::STATIC, {output}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION(funcName, funConfig, {output}) {
         output = npu::tile_fwk::VectorDuplicate(src, DT_FP32, shape);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);

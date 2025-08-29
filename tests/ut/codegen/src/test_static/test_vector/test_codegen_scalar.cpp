@@ -72,7 +72,8 @@ void TestQuant(std::vector<int64_t> &inputShape) {
     Tensor scaleDeQuant(DataType::DT_FP32, scaleShape, "scaleDeQuant");
 
     std::string funcName = "Quant";
-    FUNCTION(funcName, FunctionType::STATIC, {input, output, scaleDeQuant}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION(funcName, funConfig, {input, output, scaleDeQuant}) {
         auto res = Quant(input);
         output = std::get<0>(res);
         scaleDeQuant = std::get<1>(res);
@@ -99,7 +100,8 @@ TEST_F(TestCodegenScalar, TestScalarOp) {
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, shape, "res");
     std::string funcName = "ScalarAddS";
-    FUNCTION(funcName, FunctionType::STATIC, {input, output}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION(funcName, funConfig, {input, output}) {
         auto output_a = ScalarAddS(input, Element(DataType::DT_FP32, F_127), true);
         auto output_b = ScalarSubS(output_a, Element(DataType::DT_FP32, F_127), true);
         auto output_c = ScalarMulS(output_b, Element(DataType::DT_FP32, F_127), true);

@@ -144,7 +144,8 @@ TEST_F(FunctionTest, test_fa_new) {
     Tensor M(DataType::DT_FP32, shape_reduce, "M");
     Tensor L(DataType::DT_FP32, shape_reduce, "L");
     Tensor Res(DT_FP32, shape, "Res");
-    FUNCTION("FA", FunctionType::STATIC, {Q, K, V, M, L, Res}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION("FA", funConfig, {Q, K, V, M, L, Res}) {
         Program::GetInstance().GetTileShape().SetVecTileShapes({16, 128});
         Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
         Res = FlashAttentionNew(Q, K, V, M, L, atDims);
@@ -1328,7 +1329,8 @@ TEST_F(FunctionTest, Test_ScalarOp) {
     Program::GetInstance().GetTileShape().SetVecTileShapes({128, 32});
     Tensor input_a(DT_FP32, shape, "A");
     auto output = Tensor(DT_FP32, shape, "res"); // std::make_tuple(Tensor(DT_FP32, shape, "res"), Tensor(DT_FP32, shape, "resDics"));
-    FUNCTION("ScalarAddS", FunctionType::STATIC) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION("ScalarAddS", funConfig) {
         auto a = ScalarAddS(input_a, Element(DataType::DT_FP32, F_127), true);
         auto b = ScalarSubS(a, Element(DataType::DT_FP32, F_127), true);
         auto c = ScalarMulS(b, Element(DataType::DT_FP32, F_127), true);
@@ -1347,7 +1349,8 @@ TEST_F(FunctionTest, TestPad) {
     Tensor b;
     Program::GetInstance().GetTileShape().SetVecTileShapes(8, 8);
 
-    FUNCTION("Pad", FunctionType::STATIC) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION("Pad", funConfig) {
         b = Pad(a, newShape);
     }
     ALOG_INFO(Program::GetInstance().Dump());

@@ -104,7 +104,8 @@ TEST_F(FunctionCoverageTest, ConverageCase2) {
     auto outputPtr = std::make_shared<uint8_t>(2);
     Tensor input(DT_FP32, shape, inputPtr.get(), "input");
     Tensor output(DT_FP32, shape, outputPtr.get(), "output");
-    FUNCTION("ConverageFunc1", FunctionType::STATIC, {input, output}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION("ConverageFunc1", funConfig, {input, output}) {
         Tensor in0 = Reciprocal(input);
         Tensor in1 = Exp(in0);
         Tensor in2 = Sqrt(in1);
@@ -134,7 +135,8 @@ TEST_F(FunctionCoverageTest, ConverageCase3) {
     auto outputPtr = std::make_shared<uint8_t>(2);
     Tensor input(DT_FP32, shape, inputPtr.get(), "input");
     Tensor output(DT_FP32, shape, outputPtr.get(), "output");
-    FUNCTION("ConverageFunc", FunctionType::STATIC) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION("ConverageFunc", funConfig) {
         Tensor in0 = Reciprocal(input);
         Tensor in1 = Exp(in0);
         Tensor in2 = Sqrt(in1);
@@ -161,7 +163,8 @@ TEST_F(FunctionCoverageTest, TestReuseTensorCase1) {
     std::vector<int64_t> shape{32, 32};
     Tensor input(DT_FP32, shape, "input");
     Tensor output(DT_FP32, shape, "output");
-    FUNCTION("R1", FunctionType::STATIC) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION("R1", funConfig) {
         Tensor in0 = Exp(input);
         Tensor in1 = Reciprocal(in0);
         Tensor in2 = Exp(in1);
@@ -219,7 +222,8 @@ TEST_F(FunctionCoverageTest, TestFunctionHash) {
     std::vector<int64_t> shape{32, 32};
     Tensor input(DT_FP32, shape, "input");
     Tensor output(DT_FP32, shape, "output");
-    FUNCTION("R2", FunctionType::STATIC) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION("R2", funConfig) {
         Tensor in0 = Exp(input);
         Tensor in1 = Reciprocal(in0);
         Tensor in2 = Exp(in1);

@@ -62,7 +62,8 @@ TEST_F(MoEGatePart1OnBoardTest, test_moe_gate_part1) {
         Tensor output_score(DataType::DT_FP32, output_shape, out_score_ptr, "OutputScore");
         Tensor output_score4choice(DataType::DT_FP32, output_shape, out_score4choice_ptr, "OutputScore4Choice");
 
-        FUNCTION("MOE_GATE_Part1_1", FunctionType::STATIC, {input_e_score_bias, input_hidden_state, input_weight, output_score, output_score4choice}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("MOE_GATE_Part1_1", funConfig, {input_e_score_bias, input_hidden_state, input_weight, output_score, output_score4choice}) {
             Tensor input_hidden_state_reshape = Reshape(input_hidden_state, {B*S, H});
             Tensor logits = npu::tile_fwk::Matrix::Matmul<false, true>(DataType::DT_FP32, input_hidden_state_reshape, input_weight);
             output_score = Sigmoid(logits);

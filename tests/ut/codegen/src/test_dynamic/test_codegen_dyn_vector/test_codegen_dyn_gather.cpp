@@ -63,7 +63,8 @@ TEST_F(TestCodegenDynGather, TestGather) {
 
     ConfigManager::Instance();
     std::string funcName = "GATHER_T";
-    FUNCTION(funcName, FunctionType::STATIC, {inputSrc0, inputSrc1, output}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION(funcName, funConfig, {inputSrc0, inputSrc1, output}) {
         output = Gather(inputSrc0, inputSrc1, axis);
     }
     auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_" + funcName);

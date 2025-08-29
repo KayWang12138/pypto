@@ -46,7 +46,8 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
     auto c2Tile = tileConfig.c2TileShape;
     auto v2Tile = tileConfig.v2TileShape;
 
-    FUNCTION("main", FunctionType::DYNAMIC,
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig,
         {qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs}, {attentionOut}) {
         SymbolicScalar batchSize = blockTable->shape[0];
         SymbolicScalar nQ = qNope->shape[0] / batchSize;
@@ -184,7 +185,8 @@ void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
     auto v2Tile = tileConfig.v2TileShape;
 
     int div2 = 2;
-    FUNCTION("main", FunctionType::DYNAMIC,
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig,
         {qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs}, {attentionOut}) {
         SymbolicScalar batchSize = blockTable->shape[0];
         SymbolicScalar nQ = qNope->shape[0] / batchSize;
@@ -308,7 +310,8 @@ void PageAttentionHighThroughput(Tensor &qNope, Tensor &kNopeCache, Tensor &vNop
     auto c2Tile = tileConfig.c2TileShape;
     auto v2Tile = tileConfig.v2TileShape;
 
-    FUNCTION("main", FunctionType::DYNAMIC,
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig,
         {qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs}, {attentionOut}) {
         SymbolicScalar batchSize = blockTable->shape[0];
         SymbolicScalar nQ = qNope->shape[0] / batchSize;

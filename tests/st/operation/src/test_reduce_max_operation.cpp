@@ -40,7 +40,8 @@ void ReduceMaxOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Te
                                 const OpFuncArgs* opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     auto args = static_cast<const ReduceMaxOpFuncArgs *>(opArgs);
-    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         int dim = args->dims_[0];
@@ -72,7 +73,8 @@ void ReduceMax3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<
                                  const OpFuncArgs* opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     auto args = static_cast<const ReduceMaxOpFuncArgs *>(opArgs);
-    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar lastDim = inputs[0]->shape[2];

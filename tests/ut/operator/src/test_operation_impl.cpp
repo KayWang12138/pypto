@@ -205,7 +205,8 @@ TEST_F(OperationImplTest, Test_TopK) {
         Program::GetInstance().GetTileShape().SetVecTileShapes({128, 32});
         Tensor input_a(DT_FP32, shape, "A");
         auto output = std::make_tuple(Tensor(DT_FP32, shape, "res"), Tensor(DT_FP32, shape, "resDics"));
-        FUNCTION("TOPK_T", FunctionType::STATIC) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("TOPK_T", funConfig) {
             output = TopK(input_a, 16, -1);
         }
     }
@@ -217,7 +218,8 @@ TEST_F(OperationImplTest, Test_ArgSort) {
         Program::GetInstance().GetTileShape().SetVecTileShapes({128, 32});
         Tensor input_a(DT_FP32, shape, "A");
         auto output = Tensor(DT_FP32, shape, "res"); // std::make_tuple(Tensor(DT_FP32, shape, "res"), Tensor(DT_FP32, shape, "resDics"));
-        FUNCTION("ARGSORT_T", FunctionType::STATIC) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("ARGSORT_T", funConfig) {
             output = ArgSort(input_a, -1);
         }
     }
@@ -233,7 +235,8 @@ TEST_F(OperationImplTest, Test_MatmulWithSplitK) {
         Tensor matC(DT_FP32, {m, n}, "mat_c");
         Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
         Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
-        FUNCTION("Matmul_T", FunctionType::STATIC, {matA, matB, matC}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("Matmul_T", funConfig, {matA, matB, matC}) {
             Tensor tmpC(DT_FP32, {m, n}, "tmp_c");
             tmpC = MulS(tmpC, Element(DataType::DT_FP32, 0.0f));
             std::vector<Tensor> matmulResult;
@@ -260,7 +263,8 @@ TEST_F(OperationImplTest, Test_MatmulWithSplitKWithTrans) {
         Tensor matC(DT_FP32, {m, n}, "mat_c");
         Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
         Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
-        FUNCTION("Matmul_T", FunctionType::STATIC, {matA, matB, matC}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("Matmul_T", funConfig, {matA, matB, matC}) {
             Tensor tmpC(DT_FP32, {m, n}, "tmp_c");
             tmpC = MulS(tmpC, Element(DataType::DT_FP32, 0.0f));
             std::vector<Tensor> matmulResult;
@@ -293,7 +297,8 @@ void TestNZFormatBatch(int bs, int m, int k, int n) {
         Tensor matB(inputType, batch_shape_b, "MatB", NodeType::LOCAL, bfmt);
         Tensor matC(outputType, batch_shape_c, "MatC");
         std::vector<Tensor> matrixVec;
-        FUNCTION("BATCHMATMUL", FunctionType::STATIC, {matA, matB, matC}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("BATCHMATMUL", funConfig, {matA, matB, matC}) {
             std::vector<std::pair<Tensor, std::vector<int64_t>>> assembleVec;
             for (size_t index = 0; index < (size_t)bs; ++index) {
                 auto inputA = View(matA, {m, k}, {(int)index*m, 0});

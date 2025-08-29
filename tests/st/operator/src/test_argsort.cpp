@@ -33,7 +33,8 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_128_32_argsort) {
         Program::GetInstance().GetTileShape().SetVecTileShapes({shape0, shape1});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
-        FUNCTION("ARGSORT_T", FunctionType::STATIC, {input_a, output}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("ARGSORT_T", funConfig, {input_a, output}) {
             output = ArgSort(input_a, -1);
         }
     }
@@ -60,7 +61,8 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_4_32_argsort) {
         Program::GetInstance().GetTileShape().SetVecTileShapes({shape0, shape1});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
-        FUNCTION("ARGSORT_T", FunctionType::STATIC, {input_a, output}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("ARGSORT_T", funConfig, {input_a, output}) {
             output = ArgSort(input_a, -1);
         }
     }
@@ -87,7 +89,8 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_2_16_argsort) {
         Program::GetInstance().GetTileShape().SetVecTileShapes({shape0, shape1});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
-        FUNCTION("ARGSORT_T", FunctionType::STATIC, {input_a, output}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("ARGSORT_T", funConfig, {input_a, output}) {
             output = ArgSort(input_a, -1);
         }
     }
@@ -114,7 +117,8 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_32_argsort) {
         Program::GetInstance().GetTileShape().SetVecTileShapes({shape0});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
-        FUNCTION("ARGSORT_T", FunctionType::STATIC, {input_a, output}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("ARGSORT_T", funConfig, {input_a, output}) {
             output = ArgSort(input_a, -1);
         }
     }
@@ -141,7 +145,8 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_64_argsort) {
         Program::GetInstance().GetTileShape().SetVecTileShapes({shape0});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
-        FUNCTION("ARGSORT_T", FunctionType::STATIC, {input_a, output}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("ARGSORT_T", funConfig, {input_a, output}) {
             output = ArgSort(input_a, -1);
         }
     }
@@ -169,7 +174,8 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_4_32__argsort) {
         Program::GetInstance().GetTileShape().SetVecTileShapes({shape0, shape1});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
-        FUNCTION("ARGSORT_T", FunctionType::STATIC, {input_a, output}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("ARGSORT_T", funConfig, {input_a, output}) {
             output = ArgSort(input_a, -1, false);
         }
     }
@@ -195,7 +201,8 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_64__argsort_moe) {
         Program::GetInstance().GetTileShape().SetVecTileShapes({shape0});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
-        FUNCTION("ARGSORT_T", FunctionType::STATIC, {input_a, output}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("ARGSORT_T", funConfig, {input_a, output}) {
             output = ArgSort(input_a, -1, false);
         }
     }

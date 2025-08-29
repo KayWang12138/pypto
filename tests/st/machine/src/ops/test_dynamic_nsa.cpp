@@ -94,7 +94,8 @@ void TestView() {
     auto xData = CreateTensorData<float>(input, "/input.bin");
     std::vector<float> outputGolden = getGoldenVec<float>(output_shape, "/output.bin");
     auto outputData = RawTensorData::CreateConstantTensor<float>(output, 0.0);
-    FUNCTION("main", FunctionType::DYNAMIC, {input}, {output}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {input}, {output}) {
         int b = input->shape[0];
         int tileB = b;
         SymbolicScalar bLoop = b / tileB;
@@ -121,7 +122,8 @@ void TestAlignRead(bool isAlign) {
     auto xData = CreateTensorData<float>(input, "/input.bin");
     std::vector<float> outputGolden = getGoldenVec<float>(output_shape, "/output.bin");
     auto outputData = RawTensorData::CreateConstantTensor<float>(output, 0.0);
-    FUNCTION("main", FunctionType::DYNAMIC, {input}, {output}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {input}, {output}) {
         int b = input->shape[0];
         int tileB = b;
         SymbolicScalar bLoop = b / tileB;
@@ -158,7 +160,8 @@ void TestMultiLoopAlignRead() {
     auto xData = CreateTensorData<float>(input, "/input.bin");
     std::vector<float> outputGolden = getGoldenVec<float>(output_shape, "/output.bin");
     auto outputData = RawTensorData::CreateConstantTensor<float>(output, 0.0);
-    FUNCTION("main", FunctionType::DYNAMIC, {input}, {output}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {input}, {output}) {
         int b = input->shape[0];
         int tileB = b;
         SymbolicScalar bLoop = b / tileB;

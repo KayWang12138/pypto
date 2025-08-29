@@ -149,7 +149,8 @@ void MlaProlog(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
     int tileBS = tileB * s;
     SymbolicScalar bLoop = b / tileB;
 
-    FUNCTION("main", FunctionType::DYNAMIC,
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig,
         {tokenX, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache,
             quantInputs.dequantScaleWUqQr, quantInputs.smoothScalesCq},
         {queryOut, queryRopeOut, kvCacheOut, krCacheOut}) {
@@ -510,7 +511,8 @@ void MlaProlog(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
     const Tensor &cacheIndex, Tensor &kvCache, Tensor &krCache, const MlaQuantInputs &quantInputs,
     const MlaTileConfig &tileConfig, Tensor &queryOut, Tensor &queryRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut,
     float epsilonCq, float epsilonCkv, std::string cacheMode) {
-    FUNCTION("main", FunctionType::DYNAMIC,
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig,
         {tokenX, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache,
          quantInputs.dequantScaleWDq, quantInputs.dequantScaleWDkvKr, quantInputs.dequantScaleWUqQr, quantInputs.smoothScalesCq},
         {queryOut, queryRopeOut, kvCacheOut, krCacheOut}) {

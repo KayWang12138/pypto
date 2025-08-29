@@ -74,7 +74,8 @@ TEST_F(OnBoardTest, test_attention_post_bf16_real_batch4) {
         Tensor t1_i(dType, t1Shape, (uint8_t *)t1_ptr, "E");
         ConfigManager::Instance();
 
-        FUNCTION("ATTENTION_POST_T", FunctionType::STATIC, {input_i, t1_i, w_uv_i, w_o_i, outputT}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("ATTENTION_POST_T", funConfig, {input_i, t1_i, w_uv_i, w_o_i, outputT}) {
             // T+R+T fail
             Program::GetInstance().GetTileShape().SetVecTileShapes({4, 16, 1, kvLoraRank});
             Tensor atten_res0 = Transpose(input_i, {1, 2});
@@ -168,7 +169,8 @@ TEST_F(OnBoardTest, test_attention_post_bf16_real_n128) {
         Tensor t1_i(dType, t1Shape, (uint8_t *)t1_ptr, "E");
         ConfigManager::Instance();
 
-        FUNCTION("ATTENTION_POST_T", FunctionType::STATIC, {input_i, t1_i, w_uv_i, w_o_i, outputT}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("ATTENTION_POST_T", funConfig, {input_i, t1_i, w_uv_i, w_o_i, outputT}) {
             // T+R+T fail
             Program::GetInstance().GetTileShape().SetVecTileShapes({4, 16, 1, kvLoraRank});
             Tensor atten_res0 = Transpose(input_i, {1, 2});

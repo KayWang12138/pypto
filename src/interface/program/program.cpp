@@ -734,6 +734,48 @@ void static MergeAllFuncDupIocast(Function* func) {
     }
 }
 
+RecordFunc::RecordFunc(const std::string &name, const FunctionConfig &funConfig) : funcName(FUNCTION_PREFIX + name) {
+    Program::GetInstance().BeginFunction(funcName, funConfig.funcType);
+}
+
+RecordFunc::RecordFunc(const std::string &name, const FunctionConfig &funConfig,
+    const std::vector<std::reference_wrapper<Tensor>> &explicitOpArgs)
+    : funcName(FUNCTION_PREFIX + name) {
+    // RecordFunc start with TENSOR_GRAPH
+    Program::GetInstance().BeginFunction(funcName, funConfig.funcType, GraphType::TENSOR_GRAPH, explicitOpArgs);
+}
+
+RecordFunc::RecordFunc(const std::string &name, const FunctionConfig &funConfig,
+    const std::vector<std::reference_wrapper<const Tensor>> &startArgsInputTensorList,
+    const std::vector<std::reference_wrapper<const Tensor>> &startArgsOutputTensorList,
+    const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>> &inplaceArgs)
+    : funcName(FUNCTION_PREFIX + name) {
+    ASSERT(funConfig.funcType == FunctionType::DYNAMIC);
+
+    Program::GetInstance().BeginFunction(funcName, funConfig.funcType);
+
+    std::shared_ptr<TensorSlotManager> manager = Program::GetInstance().GetTensorSlotManager();
+    for (auto &param : startArgsInputTensorList) {
+        manager->MarkInput(param.get());
+    }
+    for (auto &param : startArgsOutputTensorList) {
+        manager->MarkOutput(param.get());
+    }
+    for (auto &param : inplaceArgs) {
+        manager->MarkInplace(param.first.get(), param.second.get());
+    }
+
+    dynFunc_ = Program::GetInstance().GetCurrentFunction();
+    dynFunc_->SetUnderDynamicFunction(true);
+
+    std::shared_ptr<DyndevFunctionAttribute> attr = std::make_shared<DyndevFunctionAttribute>();
+    attr->startArgsInputTensorList = startArgsInputTensorList;
+    attr->startArgsOutputTensorList = startArgsOutputTensorList;
+
+    dynFunc_->SetDyndevAttribute(attr);
+    Program::GetInstance().SetCurrentDynamicFunction(dynFunc_);
+}
+
 RecordFunc::~RecordFunc() {
     (void)Program::GetInstance().EndFunction(funcName);
     if (dynFunc_) {

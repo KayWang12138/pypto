@@ -37,7 +37,8 @@ struct ReduceMinOperationMetadata {
 
 void ReduceMinOperationExeFunc(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
         auto args = static_cast<const ReduceMinOpFuncArgs *>(opArgs);
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
@@ -56,7 +57,8 @@ void ReduceMinOperationExeFunc(
 
 void ReduceMin2DOperationExeFunc(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
         auto args = static_cast<const ReduceMinOpFuncArgs *>(opArgs);
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
@@ -80,7 +82,8 @@ void ReduceMin2DOperationExeFunc(
 
 void ReduceMin3DOperationExeFunc(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
         auto args = static_cast<const ReduceMinOpFuncArgs *>(opArgs);
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
@@ -111,7 +114,8 @@ void ReduceMin3DOperationExeFunc(
 
 void ReduceMin4DOperationExeFunc(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
         auto args = static_cast<const ReduceMinOpFuncArgs *>(opArgs);
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];

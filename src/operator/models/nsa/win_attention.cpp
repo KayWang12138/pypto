@@ -157,7 +157,8 @@ void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &
 void WinAttention(const Tensor &qNope, Tensor &vNopeCache, const Tensor &qRope, Tensor &kRopeCache, int nQ, int nKv,
     Tensor &blockTable, Tensor &actSeqs, int windowSize, int blockSize, float softmaxScale, Tensor &attentionOut,
     WinAttenTileShapeConfig &tileConfig) {
-    FUNCTION("main", FunctionType::DYNAMIC,
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig,
         {qNope, vNopeCache, qRope, kRopeCache, blockTable, actSeqs}, {attentionOut}) {
         WinAttentionCompute(qNope, vNopeCache, qRope, kRopeCache, nQ, nKv, blockTable, actSeqs, windowSize, blockSize,
             softmaxScale, attentionOut, tileConfig);

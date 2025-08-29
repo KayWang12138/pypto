@@ -41,7 +41,8 @@ TEST_F(DynamicDatamoveTest, TestDynamicDatamove) {
     Tensor actSeqs(DT_INT32, {b, 1}, "actual_seq");
     Tensor out(DT_FP32, outShape, "out");
 
-    FUNCTION("main", FunctionType::DYNAMIC, {input, actSeqs}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {input, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
             SymbolicScalar curSeq = GetInputDataInt32Dim2(actSeqs, batchId, 0);
 

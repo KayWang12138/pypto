@@ -37,7 +37,8 @@ struct AddsOpMetaData {
 static void AddsOperationExeFuncDoubleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         auto args = static_cast<const AddsOpFuncArgs *>(opArgs);
@@ -63,7 +64,8 @@ static void AddsOperationExeFuncDoubleCut(
 static void AddsOperationExeFuncTripleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar thirdDim = inputs[0]->shape[2];
@@ -95,7 +97,8 @@ static void AddsOperationExeFuncTripleCut(
 static void AddsOperationExeFuncQuadrupleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar thirdDim = inputs[0]->shape[2];

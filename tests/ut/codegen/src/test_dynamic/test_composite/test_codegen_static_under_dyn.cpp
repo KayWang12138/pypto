@@ -36,9 +36,11 @@ public:
 
 void TestStaticLoop(const Tensor &t0, const Tensor &t1, const Tensor &t2, Tensor &out, int s) {
     constexpr int LOOP_ITERATIONS = 8;
-    FUNCTION("main", FunctionType::DYNAMIC, {t0, t1, t2}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {t0, t1, t2}, {out}) {
         Tensor s0Out;
-        FUNCTION("S0", FunctionType::STATIC) {
+        FunctionConfig funConfig2 = {.funcType = FunctionType::STATIC};
+        FUNCTION("S0", funConfig2) {
             s0Out = Sub(t1, t0);
         }
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(LOOP_ITERATIONS)) {

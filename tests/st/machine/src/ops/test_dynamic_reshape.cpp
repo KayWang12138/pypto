@@ -41,7 +41,8 @@ TEST_F(DynamicReshapeTest, test_only_reshape) {
     Tensor q(DT_FP32, qShape, "q");
     Tensor out(DT_FP32, {bSq, d}, "out");
 
-    FUNCTION("MAIN_FUNC", FunctionType::DYNAMIC, {q}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("MAIN_FUNC", funConfig, {q}, {out}) {
         Tensor bfRes(DT_FP32, qShape, "bfRes");
         LOOP("L0_BF", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0)), {}, true) {
             Program::GetInstance().GetTileShape().SetVecTileShapes(1, 64, 64);
@@ -97,7 +98,8 @@ TEST_F(DynamicReshapeTest, test_only_reshape2) {
     Tensor q(DT_FP32, qShape, "q");
     Tensor out(DT_FP32, {bSq, d}, "out");
 
-    FUNCTION("MAIN_FUNC", FunctionType::DYNAMIC, {q}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("MAIN_FUNC", funConfig, {q}, {out}) {
         Tensor qReshape(DT_FP32, {bSq, d}, "qReshape");
         LOOP("LOOP_RESHAPE", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(0,1,1), {}, true) {
             (void) batchId;
@@ -145,7 +147,8 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape) {
     Tensor q(DT_FP32, qShape, "q");
     Tensor out(DT_FP32, {bSq, d}, "out");
 
-    FUNCTION("MAIN_FUNC", FunctionType::DYNAMIC, {q}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("MAIN_FUNC", funConfig, {q}, {out}) {
         Tensor qReshape(DT_FP32, {GetInputShapeDim(q, 0) * GetInputShapeDim(q, 1), d}, "qReshape");
         LOOP("LOOP_RESHAPE", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(0,1,1), {}, true) {
             (void) batchId;
@@ -193,7 +196,8 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape2) {
     Tensor q(DT_FP32, qShape, "q");
     Tensor out(DT_FP32, {bSq, d}, "out");
 
-    FUNCTION("MAIN_FUNC", FunctionType::DYNAMIC, {q}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("MAIN_FUNC", funConfig, {q}, {out}) {
         Tensor bfRes(DT_FP32,  {GetInputShapeDim(q, 0), sq, d}, "bfRes");
         LOOP("L0_BF", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0)), {}, true) {
             Program::GetInstance().GetTileShape().SetVecTileShapes(1, 64, 64);
@@ -245,7 +249,8 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape1111) {
     Tensor B(DT_FP32, {128, 64}, "B");
     Tensor D(DT_FP32, {256, 64}, "D");
 
-    FUNCTION("MAIN_FUNC", FunctionType::DYNAMIC, {A, B}, {D}) {
+    FunctionConfig funConfig;
+    FUNCTION("MAIN_FUNC", funConfig, {A, B}, {D}) {
         LOOP("LOOP_TEST", FunctionType::DYNAMIC_LOOP, loopIdx, LoopRange(0,2,1)) {
             Tensor C(DT_FP32, {128, 64}, "q");
             auto a0 = View(A, {64, 64}, {loopIdx * 64, 0});
@@ -287,7 +292,8 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape22222) {
     Tensor A(DT_FP32, {128, 64}, "A");
     Tensor B(DT_FP32, {128, 64}, "B");
 
-    FUNCTION("MAIN_FUNC", FunctionType::DYNAMIC, {A}, {B}) {
+    FunctionConfig funConfig;
+    FUNCTION("MAIN_FUNC", funConfig, {A}, {B}) {
         LOOP("LOOP_TEST", FunctionType::DYNAMIC_LOOP, loopIdx, LoopRange(0,1,1)) {
             (void) loopIdx;
             Assemble(A, {0, 0}, B);

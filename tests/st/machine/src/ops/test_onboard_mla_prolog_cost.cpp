@@ -507,7 +507,8 @@ void attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
                 {1, 32, 1, 64, 64} // for transpose, [b,nq,s1,d/2,2]
             };
 
-            FUNCTION("MlaProlog_T", FunctionType::STATIC, {x, wDq, wUqQr, w_qb_scale, wDkvKr, wUk, position_ids,
+            FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+            FUNCTION("MlaProlog_T", funConfig, {x, wDq, wUqQr, w_qb_scale, wDkvKr, wUk, position_ids,
                                                                            cos, sin, past_key_states, kv_len, output_q}) {
                 auto q_kv = attention.MlaPrologFoward(x, position_ids, cos, sin, kv_len, past_key_states, ropeTileConfig, isQuant);
                 output_q = q_kv[0];
@@ -524,7 +525,8 @@ void attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
                 {1, 32, 1, 64, 64} // for transpose, [b,nq,s1,d/2,2]
             };
 
-            FUNCTION("MlaProlog_T", FunctionType::STATIC,
+            FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+            FUNCTION("MlaProlog_T", funConfig,
                 {x, wDq, wUqQr, wDkvKr, wUk, position_ids, cos, sin, past_key_states, kv_len, output_q,
                     q0, q1, k0, k1, v0,
                     attentionOut,

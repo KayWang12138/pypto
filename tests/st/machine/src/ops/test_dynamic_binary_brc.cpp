@@ -41,7 +41,8 @@ TEST_F(DynamicBrcTest, TestDynamicMulBrcUnalign) {
     Tensor curSeq(DT_FP32, {b, 1}, "curSeq");
     Tensor out(DT_FP32, outShape, "out");
 
-    FUNCTION("main", FunctionType::DYNAMIC, {input_a, input_b, curSeq}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {input_a, input_b, curSeq}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
             auto seq = GetInputDataInt32Dim2(curSeq, batchId, 0);
             Tensor input_a0 = View(input_a, {sq, d}, {seq, d}, {batchId * sq, 0});

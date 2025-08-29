@@ -147,7 +147,8 @@ void PostCompute(Tensor &input, PostTensors &postTensors, const PostTileConfig &
 }
 
 void AttentionPostStandalone(Tensor &input, PostTensors &postTensors, const PostTileConfig &tileConfig, Tensor &postOut) {
-    FUNCTION("POST_MAIN", FunctionType::DYNAMIC,
+    FunctionConfig funConfig;
+    FUNCTION("POST_MAIN", funConfig,
         {input, postTensors.weightUV, postTensors.weightO, postTensors.weightUvScale, postTensors.smoothScalesWUv,
             postTensors.weightOScale, postTensors.smoothScalesWo}, {postOut}) {
         PostCompute(input, postTensors, tileConfig, postOut);

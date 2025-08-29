@@ -51,7 +51,8 @@ TEST_F(TestCodegenDynVdup, TestDynVdupUnaligned) {
 
     Tensor output(DataType::DT_FP32, shape, "C");
     std::string funcName = "VECDUP_T";
-    FUNCTION(funcName, FunctionType::STATIC, {output}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION(funcName, funConfig, {output}) {
         output = npu::tile_fwk::VectorDuplicate(src, DataType::DT_FP32, shape);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);

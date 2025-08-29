@@ -159,12 +159,14 @@ void TestMlaPrologV2(std::vector<int> &params, string dataPath, bool isQuant = f
                 quantInputs.smoothScalesCq = smooth_cq;
                 smooth_cq.SetCachePolicy(CachePolicy::PREFETCH, true);
             }
-            FUNCTION("MlaProlog_T", FunctionType::STATIC, {x, wDq, wUqQr, w_qb_scale, smooth_cq, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, kv_len, kv_cache, kr_cache, output_q, output_q_rope}) {
+            FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+            FUNCTION("MlaProlog_T", funConfig, {x, wDq, wUqQr, w_qb_scale, smooth_cq, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, kv_len, kv_cache, kr_cache, output_q, output_q_rope}) {
                 MlaProlog(x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, kv_len, kv_cache, kr_cache,
                     quantInputs, ropeConfig, output_q, output_q_rope, kv_cache, kr_cache, 1e-5f, 1e-5f, cacheMode, splitReduceLastDim,  splitK);
             };
         } else {
-            FUNCTION("MlaProlog_T", FunctionType::STATIC, {x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, kv_len, kv_cache, kr_cache, output_q, output_q_rope}) {
+            FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+            FUNCTION("MlaProlog_T", funConfig, {x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, kv_len, kv_cache, kr_cache, output_q, output_q_rope}) {
                 MlaProlog(x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, kv_len, kv_cache, kr_cache,
                     quantInputs, ropeConfig, output_q, output_q_rope, kv_cache, kr_cache, 1e-5f, 1e-5f, cacheMode, splitReduceLastDim,  splitK);
             };
@@ -474,7 +476,8 @@ void TestAttentionV2(std::vector<int> &params, string dataPath, IfaTileShapeConf
             Tensor w_qb_scale = Tensor(DT_FP32, w_qb_scale_shape, (uint8_t *)w_qb_scale_ptr, "w_qb_scale");
             quantInputs.dequantScaleWUqQr = w_qb_scale;
 
-            FUNCTION("MlaProlog_T", FunctionType::STATIC,
+            FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+            FUNCTION("MlaProlog_T", funConfig,
                 {x, wDq, wUqQr, w_qb_scale, wUk, wDkvKr, gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache,
                     output_q_rope, qNope, kNopeCache, vNopeCache, qRope, kRopeCache, attentionOut, input_i, w_uv_i,
                     w_uv_scale_w_i, w_o_i, w_o_scale_w_i, outputT}) {

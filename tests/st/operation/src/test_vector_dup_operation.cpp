@@ -36,7 +36,8 @@ struct VectorDuplicateOpMetaData {
 
 static void VectorDuplicateOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         auto args = static_cast<const VectorDuplicateOpFuncArgs *>(opArgs);
@@ -59,7 +60,8 @@ static void VectorDuplicateOperationExeFunc2Dims(
 
 static void VectorDuplicateOperationExeFunc3Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar thirdDim = inputs[0]->shape[2];
@@ -91,7 +93,8 @@ static void VectorDuplicateOperationExeFunc3Dims(
 static void VectorDuplicateOperationExeFunc4Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar thirdDim = inputs[0]->shape[2];

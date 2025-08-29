@@ -61,7 +61,8 @@ void TestAllGatherFunc()
 
     ConfigManager::Instance();
     std::string funcName = "AllGather";
-    FUNCTION(funcName, FunctionType::STATIC, {in, out[0], out[1]}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION(funcName, funConfig, {in, out[0], out[1]}) {
         AllGather(in, out, group);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
@@ -92,7 +93,8 @@ void TestAllGatherOutTensorFunc()
 
     ConfigManager::Instance();
     std::string funcName = "AllGather";
-    FUNCTION(funcName, FunctionType::STATIC, {in, out}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION(funcName, funConfig, {in, out}) {
         out = AllGather(in, group);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
@@ -126,7 +128,8 @@ void TestAllGatherAndMatmul()
         Tensor w(dType, matmulShape, "w");
         Tensor out = Tensor(dType, resShape, "out");
         ConfigManager::Instance();
-        FUNCTION(funcName, FunctionType::STATIC, {in, w, out}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION(funcName, funConfig, {in, w, out}) {
             Program::GetInstance().GetTileShape().SetDistTileShapes(
                 {(int)inputShape[0] / 2, 2, 0}, {(int)inputShape[1] / 2, 2, 0}, {1, procSize, 0});
             Program::GetInstance().GetTileShape().SpecifyStaticRankId(0);

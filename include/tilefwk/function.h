@@ -31,7 +31,7 @@
 /**
  * @brief Start a tile_fwk function. All computational logic must be enclosed by this macro
  * @param name: Name of the function;
- * @param type: Type of funtion;
+ * @param funConfig: Config of funtion;
  * @param explicitOpArgs: The inputs and outputs of the function. Be effective in static shape scen.
  * @param startArgsInputTensorList: The inputs of the function. Be effective in dynamic shape scen.
  * @param startArgsOutputTensorList: The outputs of the function. Be effective in dynamic shape scen.
@@ -90,6 +90,13 @@ enum class FunctionType {
     MAX,
 };
 
+struct FunctionConfig {
+    /**
+     * @brief The type of function, support FunctionType::DYNAMIC and FunctionType::STATIC.
+     */
+    enum FunctionType funcType{FunctionType::DYNAMIC};
+};
+
 const std::string FUNCTION_PREFIX = "TENSOR_";
 
 class LoopRange {
@@ -131,6 +138,13 @@ public:
     RecordFunc(const std::string &name, const FunctionType type,
         const std::vector<std::reference_wrapper<Tensor>> &explicitOpArgs);
     RecordFunc(const std::string &name, const FunctionType type,
+        const std::vector<std::reference_wrapper<const Tensor>> &startArgsInputTensorList,
+        const std::vector<std::reference_wrapper<const Tensor>> &startArgsOutputTensorList,
+        const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>> &inplaceArgs = {});
+    RecordFunc(const std::string &name, const FunctionConfig &funConfig);
+    RecordFunc(const std::string &name, const FunctionConfig &funConfig,
+        const std::vector<std::reference_wrapper<Tensor>> &explicitOpArgs);
+    RecordFunc(const std::string &name, const FunctionConfig &funConfig,
         const std::vector<std::reference_wrapper<const Tensor>> &startArgsInputTensorList,
         const std::vector<std::reference_wrapper<const Tensor>> &startArgsOutputTensorList,
         const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>> &inplaceArgs = {});

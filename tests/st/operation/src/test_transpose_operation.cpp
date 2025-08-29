@@ -63,7 +63,8 @@ static void TransposeOperationExeFunc3Dims(
     const int firstViewShape = transposeInfo->viewShape_[0];
     const int secondViewShape = transposeInfo->viewShape_[1];
     const int thirdViewShape = transposeInfo->viewShape_[2];
-    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar thirdDim = inputs[0]->shape[2];
@@ -96,7 +97,8 @@ static void TransposeOperationExeFunc4Dims(
     const int secondViewShape = transposeInfo->viewShape_[1];
     const int thirdViewShape = transposeInfo->viewShape_[2];
     const int forthViewShape = transposeInfo->viewShape_[3];
-    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar thirdDim = inputs[0]->shape[2];

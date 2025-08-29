@@ -69,7 +69,8 @@ TEST_F(MlpTest, test_16_7168_tileop)
 
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "E");
 
-        FUNCTION("MLP_T", FunctionType::STATIC, {hiddenStates, ffnweigth1, ffnweigth2, ffnweigth3, output})     {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("MLP_T", funConfig, {hiddenStates, ffnweigth1, ffnweigth2, ffnweigth3, output})     {
             auto castRes = Cast(hiddenStates, DataType::DT_FP16);
             auto gate = Matrix::Matmul<false, false, true>(DataType::DT_FP32, castRes, ffnweigth1);
 

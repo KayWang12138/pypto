@@ -49,7 +49,8 @@ TEST_F(FunctionUtilsTest, TestCloneOperation) {
     Tensor input(DT_FP32, shape, "input");
     Tensor output(DT_FP32, shape, "output");
     Program::GetInstance().GetTileShape().SetVecTileShapes(shape);
-    FUNCTION("main", FunctionType::STATIC) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION("main", funConfig) {
         output = AddS(input, Element(DT_FP32, 1.0));
     }
 
@@ -240,7 +241,8 @@ TEST_F(FunctionUtilsTest, TestRemoveOperationCase2) {
     std::vector<int64_t> shape{16, 16};
     Tensor input(DT_FP32, shape, "input");
     Tensor output(DT_FP32, shape, "output");
-    FUNCTION("M2", FunctionType::STATIC) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION("M2", funConfig) {
         Tensor in0 = Reciprocal(input);
         Tensor in1 = Exp(in0);
         Tensor in2 = Sqrt(in1);

@@ -289,7 +289,8 @@ TEST_F(GraphTest, test_operation_rope_subgraph_deepseekv3_bf16_32batch) {
             {1, 32, 1, 64, 64} // for transpose, [b,n,s,d/2,2]
         };
 
-        FUNCTION("RoPE", FunctionType::STATIC, {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("RoPE", funConfig, {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed}) {
             Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
@@ -359,7 +360,8 @@ TEST_F(GraphTest, test_operation_tensor_16_16_64_64_tileop_add) {
     Tensor input_b(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
 
-    FUNCTION("ADD_T", FunctionType::STATIC) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION("ADD_T", funConfig) {
         Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16});
         output = Add(input_a, input_b);
     }
@@ -445,14 +447,16 @@ void TestMlaPrologV2(std::vector<int> &params, int inputType, bool isQuant = fal
             Tensor w_qb_scale = Tensor(DT_FP32, w_qb_scale_shape, "w_qb_scale");
             quantInputs.dequantScaleWUqQr = w_qb_scale;
 
-            FUNCTION("MlaProlog_T", FunctionType::STATIC, {x, w_qa, w_qb, w_qb_scale, w_kv_b_k, w_kv_a,
+            FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+            FUNCTION("MlaProlog_T", funConfig, {x, w_qa, w_qb, w_qb_scale, w_kv_b_k, w_kv_a,
                 gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache, output_q, output_q_rope}) {
                 MlaProlog(x, w_qa, w_qb, w_kv_b_k, w_kv_a, gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache,
                     quantInputs, ropeConfig, output_q, output_q_rope, kv_cache, kr_cache, 1e-5f, 1e-5f,  "BNSD", splitReduceLastDim,  splitK);
             };
 
         } else {
-            FUNCTION("MlaProlog_T", FunctionType::STATIC, {x, w_qa, w_qb, w_kv_b_k, w_kv_a,
+            FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+            FUNCTION("MlaProlog_T", funConfig, {x, w_qa, w_qb, w_kv_b_k, w_kv_a,
                 gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache, output_q, output_q_rope}) {
                 MlaProlog(x, w_qa, w_qb, w_kv_b_k, w_kv_a, gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache,
                     quantInputs, ropeConfig, output_q, output_q_rope, kv_cache, kr_cache, 1e-5f, 1e-5f,  "BNSD", splitReduceLastDim,  splitK);
@@ -575,7 +579,8 @@ void TestMlaProlog(std::vector<int> &params) {
             {1, 32, 1, 64, 64} // for transpose, [b,n,s,d/2,2]
         };
 
-        FUNCTION("MlaProlog_T", FunctionType::STATIC, {x, w_qa, w_qb, w_kv_a, w_kv_b_k, position_ids,
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("MlaProlog_T", funConfig, {x, w_qa, w_qb, w_kv_a, w_kv_b_k, position_ids,
                                                                        cos, sin, past_key_states, kv_len, output_q}) {
             auto q_kv = Attention.MlaPrologFoward(x, position_ids, cos, sin, kv_len, past_key_states, ropeTileConfig);
             output_q = q_kv[0];
@@ -613,7 +618,8 @@ TEST_F(GraphTest, test_attention_bf16_4_1024_1024_32_256) {  // b_n_s_s2_h_q_lor
 
 void TestLoopTailBlock(const Tensor &t0, const Tensor &blockTable, Tensor &out, int s) {
     int blockSize = 64;
-    FUNCTION("main", FunctionType::DYNAMIC, {t0, blockTable}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {t0, blockTable}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShapeDim(t0, 0) / s)) {
             SymbolicScalar size = GetInputDataInt32Dim2(blockTable, i, 0);
             Tensor t0s = View(t0, {s, s}, {size, s}, {blockSize * i, 0});
@@ -644,7 +650,8 @@ TEST_F(GraphTest, TestTranspose_MLA_3D_2_add) {
     PROGRAM("Transpose") {
         Tensor input(DataType::DT_FP32, shape, "input");
         Tensor output(DataType::DT_FP32, resShape, "res");
-        FUNCTION("MLA_3D_2", FunctionType::STATIC, {input, output}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("MLA_3D_2", funConfig, {input, output}) {
             Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_2, NUM_2, NUM_128);
             auto tmp = Transpose(input, {0, 1});
             Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_8, NUM_8, NUM_128);
@@ -665,7 +672,8 @@ TEST_F(GraphTest, TestTranspose_MLA_3D_2_reshape) {
         Tensor input(DataType::DT_FP32, shape, "input");
         Tensor output1(DataType::DT_FP32, transposeShape, "res1");
         Tensor output2(DataType::DT_FP32, resShape, "res2");
-        FUNCTION("MLA_3D_2", FunctionType::STATIC, {input, output1, output2}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("MLA_3D_2", funConfig, {input, output1, output2}) {
             Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_2, NUM_2, NUM_128);
             output1 = Transpose(input, {0, 1}); // [8, 32, 128] --> [32, 8, 128]
             Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_8, NUM_8, NUM_128);

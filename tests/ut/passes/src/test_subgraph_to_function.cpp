@@ -389,7 +389,8 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load)
     Tensor matA(DT_FP16, shapeA, "MatA", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
     Tensor matB(DT_FP16, shapeB, "MatB", NodeType::LOCAL, TileOpFormat::TILEOP_ND);
     Tensor matC(DT_FP32, shapeC, "MatC");
-    FUNCTION("BATCHMATMUL", FunctionType::STATIC, {matA, matB, matC})
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION("BATCHMATMUL", funConfig, {matA, matB, matC})
     {
         config::SetPassConfig("PVC2_OOO", "OoOSchedule", "DISABLE_PASS", true);
         matC = npu::tile_fwk::Matrix::BatchMatmul<false, false>(DT_FP32, matA, matB);
@@ -533,7 +534,8 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_1) {
         auto output = std::make_tuple(Tensor(DT_FP32, output_shape, nullptr, "npu_val"),
                                       Tensor(DT_FP32, output_shape, nullptr, "resDics"));
         config::SetPassConfig("PVC2_OOO", "OoOSchedule", "DISABLE_PASS", true);
-        FUNCTION("TOPK_T", FunctionType::STATIC, {input_a, std::get<0>(output), std::get<1>(output)}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("TOPK_T", funConfig, {input_a, std::get<0>(output), std::get<1>(output)}) {
             output = TopK(input_a, k, -1, isLargest);
         }
     }
@@ -565,7 +567,8 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_1_cov) {
         Tensor input_a(DT_FP32, input_shape, (uint8_t *)nullptr, "A");
         auto output = std::make_tuple(Tensor(DT_FP32, output_shape, nullptr, "npu_val"),
                                       Tensor(DT_FP32, output_shape, nullptr, "resDics"));
-        FUNCTION("TOPK_T", FunctionType::STATIC, {input_a, std::get<0>(output), std::get<1>(output)}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("TOPK_T", funConfig, {input_a, std::get<0>(output), std::get<1>(output)}) {
             output = TopK(input_a, k, -1, isLargest);
         }
     }
@@ -629,7 +632,8 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_2) {
         Tensor attentionOut(DT_FP32, {b * sq * nq, dn}, nullptr, "attentionOut");
 
         // 计算流程开始
-        FUNCTION("IfaStatic", FunctionType::STATIC,
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("IfaStatic", funConfig,
             {qNope, kNopeCache, vNopeCache, qRope, kRopeCache, attentionOut}) {
             IncreFlashAttention(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, softmaxScale,
                 attentionOut, tileConfig);

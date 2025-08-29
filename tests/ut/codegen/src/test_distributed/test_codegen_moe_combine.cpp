@@ -59,7 +59,8 @@ void TestMoeCombine() {
 
     ConfigManager::Instance();
 
-    FUNCTION("ATTNCombine", FunctionType::STATIC, {in, combineInfo, scale, out}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION("ATTNCombine", funConfig, {in, combineInfo, scale, out}) {
         Program::GetInstance().GetTileShape().SpecifyStaticRankId(
             npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
         out = Distributed::MoeCombine(in, scale, combineInfo, group);

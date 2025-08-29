@@ -96,7 +96,8 @@ void KvSlcCompute(Tensor &topK_indcies, Tensor &topK_tensor_shape, Tensor &kvNop
 
 void GenKvSlc(Tensor &topK_indcies, Tensor &topK_tensor_shape, Tensor &kvNopeCache, Tensor &kRopeCache, Tensor &kvActSeqs, int front, int near, int topk, int l_prime,
               int n2, Tensor &blockTable, int blockSize, Tensor &k_slcOut, Tensor &v_slcOut, Tensor &kvSlcActSeqs, KvSlcTileShapeConfig &tileConfig) {
-    FUNCTION("main_slc", FunctionType::DYNAMIC,
+    FunctionConfig funConfig;
+    FUNCTION("main_slc", funConfig,
         {topK_indcies, topK_tensor_shape, kvNopeCache, kRopeCache, kvActSeqs, blockTable}, {k_slcOut, v_slcOut, kvSlcActSeqs}) {
         KvSlcCompute(topK_indcies, topK_tensor_shape, kvNopeCache, kRopeCache, kvActSeqs, front, near, topk, l_prime, n2, blockTable, blockSize, k_slcOut, v_slcOut, kvSlcActSeqs, tileConfig);
     }

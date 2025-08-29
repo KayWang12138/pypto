@@ -71,7 +71,8 @@ void TestMoeCombine(OpTestParam &testParam)
 
         ConfigManager::Instance();
 
-        FUNCTION("Moe_Combine", FunctionType::STATIC, {in, combineInfo, scale, out}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("Moe_Combine", funConfig, {in, combineInfo, scale, out}) {
             Program::GetInstance().GetTileShape().SpecifyStaticRankId(testParam.rankId);
             out = Distributed::MoeCombine(in, scale, combineInfo, testParam.group);
         }

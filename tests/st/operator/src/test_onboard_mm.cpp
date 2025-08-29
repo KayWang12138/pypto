@@ -45,7 +45,8 @@ void TestMatmul(int m, int k, int n, string dataPath) {
         Tensor mat_b(InputAstDtype, shape_b, (uint8_t *)b_ptr, "mat_b");
         Tensor mat_c(OutputAstDtype, shape_c, c_ptr, "mat_c");
 
-        FUNCTION("Matmul_T", FunctionType::STATIC, {mat_a, mat_b, mat_c}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("Matmul_T", funConfig, {mat_a, mat_b, mat_c}) {
             mat_c = npu::tile_fwk::Matrix::Matmul<false, false>(OutputAstDtype, mat_a, mat_b);  // result dtype
         }
     }
@@ -85,7 +86,8 @@ void TestMatmulTrans(int m, int k, int n, string dataPath) {
         Tensor mat_b(InputAstDtype, shape_b, (uint8_t *)b_ptr, "mat_b");
         Tensor mat_c(OutputAstDtype, shape_c, c_ptr, "mat_c");
 
-        FUNCTION("Matmul_T", FunctionType::STATIC, {mat_a, mat_b, mat_c}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("Matmul_T", funConfig, {mat_a, mat_b, mat_c}) {
             mat_c = npu::tile_fwk::Matrix::Matmul<false, true>(OutputAstDtype, mat_a, mat_b);  // result dtype
         }
     }
@@ -125,7 +127,8 @@ void TestMatmulACC(int m, int k, int n, string dataPath) {
         Tensor final_out(OutputAstDtype, shape_c, c_ptr, "final_out");
         auto kSplit = 4;
         auto kSplitSize = k / kSplit;
-        FUNCTION("Matmul_T", FunctionType::STATIC, {mat_a, mat_b, final_out}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("Matmul_T", funConfig, {mat_a, mat_b, final_out}) {
             Program::GetInstance().GetTileShape().SetVecTileShapes(64, 64);
             Tensor tmpC(OutputAstDtype, shape_c, "tmp_c");
             tmpC = MulS(tmpC, Element(DataType::DT_FP32, 0.0f));

@@ -39,7 +39,8 @@ TEST_F(OnBoardTest, test_operation_gm_reshape) {
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
-        FUNCTION("DIV_T", FunctionType::STATIC, {input_a_r, input_b, output}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("DIV_T", funConfig, {input_a_r, input_b, output}) {
             Tensor input_a;
             input_a = Reshape(input_a_r, shape);
             output = Div(input_a, input_b);
@@ -76,7 +77,8 @@ TEST_F(OnBoardTest, test_operation_ub_reshape) {
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
-        FUNCTION("DIV_T", FunctionType::STATIC,  {input_a_r, input_b, output}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("DIV_T", funConfig,  {input_a_r, input_b, output}) {
             Tensor input_a_r_exp;
             input_a_r_exp= Exp(input_a_r);
             Tensor input_a;
@@ -113,7 +115,8 @@ TEST_F(OnBoardTest, test_operation_gm_reshape_2dimto3dim) {
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
-        FUNCTION("DIV_T", FunctionType::STATIC,  {input_a_r, input_b, output}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("DIV_T", funConfig,  {input_a_r, input_b, output}) {
             Tensor input_a_r_exp;
             input_a_r_exp= Exp(input_a_r);
             Tensor input_a;
@@ -149,7 +152,8 @@ TEST_F(OnBoardTest, test_operation_ub_reshape_3dimto2dim) {
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
-        FUNCTION("DIV_T", FunctionType::STATIC, {input_a_r, input_b, output}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("DIV_T", funConfig, {input_a_r, input_b, output}) {
             Tensor input_a_r_exp;
             input_a_r_exp= Exp(input_a_r);
             Tensor input_a;
@@ -186,7 +190,8 @@ TEST_F(OnBoardTest, test_operation_ub_withoutreshape_3dimto2dim) {
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
-        FUNCTION("DIV_T", FunctionType::STATIC, {input_a_r, input_b, output}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("DIV_T", funConfig, {input_a_r, input_b, output}) {
             Tensor input_a_r_exp;
             input_a_r_exp= Exp(input_a_r);
             // Tensor input_a;
@@ -236,7 +241,8 @@ TEST_F(OnBoardTest, test_reshape_matmul_mul) {
         Tensor E(DataType::DT_FP32, {8, 8, 64}, (uint8_t *)e_ptr, "E");
         Tensor RES(DataType::DT_FP32, {8, 8, 64}, out_ptr, "RES");
 
-        FUNCTION("RESHAPE", FunctionType::STATIC, {A_R, B, E, RES}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("RESHAPE", funConfig, {A_R, B, E, RES}) {
             Tensor A = Reshape(A_R, a_shape);
             Tensor C = Matrix::Matmul<false, false>(DataType::DT_FP32, A, B);
             Tensor D = Reshape(C, {8, 8, 64});

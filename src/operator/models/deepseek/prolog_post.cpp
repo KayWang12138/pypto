@@ -59,7 +59,8 @@ void PrologPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &q
 
     Tensor attentionOut(DT_FP32, qNope->shape, "attentionOut");
 
-    FUNCTION("main", FunctionType::DYNAMIC,
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig,
         {qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, weightUV, weightO}, {postOut}) {
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(batchSize)) {
             SymbolicScalar curSeq = GetInputDataInt32Dim1(actSeqs, bIdx);
@@ -151,7 +152,8 @@ void PrologPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &q
             }
         }
 
-        FUNCTION("PaPost", FunctionType::STATIC) {
+        FunctionConfig funConfig2 = {.funcType = FunctionType::STATIC};
+        FUNCTION("PaPost", funConfig2) {
             Program::GetInstance().GetTileShape().SetVecTileShapes({32, dN});
             auto attenRes = Reshape(attentionOut, {batchSize, nQ, dN}); // (b*sQ*nQ, dN), sQ=1
 
@@ -204,7 +206,8 @@ void PageAttentionAddS(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
     auto kvLoraRank = 512;
     int S = 1;
 
-    FUNCTION("main", FunctionType::DYNAMIC,
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig,
         {qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs}, {attentionOut, postOut}) {
         SymbolicScalar nLoop = nQ / nTile;
 
@@ -346,7 +349,8 @@ void PageAttentionAddSSingleOutput(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
     auto kvLoraRank = 512;
     int S = 1;
 
-    FUNCTION("main", FunctionType::DYNAMIC,
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig,
         {qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs}, {postOut}) {
         SymbolicScalar nLoop = nQ / nTile;
 

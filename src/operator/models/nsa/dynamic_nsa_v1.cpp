@@ -27,7 +27,8 @@ namespace npu::tile_fwk {
 
 void GenGatedScoreCompute(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, const Tensor &gateSimW1,
     Tensor &gatingScore, GateMode gateMode) {
-    FUNCTION("FusedCompressKvSelect", FunctionType::DYNAMIC, {x, gateW1, gateW2, gateSimW1}, {gatingScore}) {
+    FunctionConfig funConfig;
+    FUNCTION("FusedCompressKvSelect", funConfig, {x, gateW1, gateW2, gateSimW1}, {gatingScore}) {
         GenGatedScore(x, gateW1, gateW2, gateSimW1, gatingScore, gateMode);
     }
 }
@@ -146,7 +147,8 @@ void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const T
     const int cmpBlockSize, const int cmpStride, CmpAttnTile &tileConfig_v2,bool debug) {
     ASSERT(gateMode == standard); // 当前仅支持standard模式
 
-    FUNCTION("main", FunctionType::DYNAMIC,
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig,
         {
             x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache,
 

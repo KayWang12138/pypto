@@ -62,7 +62,8 @@ void TestMoeDispatch(OpTestParam &testParam)
         Tensor expandX(dType, {expandXRow, expandXCol}, expandXPtr, "expandX");
 
         ConfigManager::Instance();
-        FUNCTION("MoeDispatch", FunctionType::STATIC, {tokenTensor, tokenExpertTable, validCnt, expandX}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("MoeDispatch", funConfig, {tokenTensor, tokenExpertTable, validCnt, expandX}) {
             Program::GetInstance().GetTileShape().SpecifyStaticRankId(testParam.rankId);
             expandX = MoeDispatch(tokenTensor, tokenExpertTable, validCnt, testParam.group);
         }

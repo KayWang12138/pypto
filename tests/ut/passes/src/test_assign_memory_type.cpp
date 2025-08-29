@@ -215,7 +215,8 @@ TEST_F(AssignMemoryTypeTest, TestVecToCube) {
         Tensor input2(DataType::DT_FP32, shape0, "B");
         Tensor weight(DataType::DT_FP32, shape1, "weight");
         Tensor out(DataType::DT_FP32, shape2, "output");
-        FUNCTION("TestVecToCube", FunctionType::STATIC, {input1, input2, weight, out}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("TestVecToCube", funConfig, {input1, input2, weight, out}) {
             Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_128, NUM_128);
             Tensor addRes = Add(input1, input2); // 256 * 128
             Program::GetInstance().GetTileShape().SetCubeTileShapes({NUM_32, NUM_32}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
@@ -241,7 +242,8 @@ TEST_F(AssignMemoryTypeTest, TestVecToCubeV2) {
         SetHalfwayStrategy();
         Function* originFunction = nullptr;
 
-        FUNCTION("TestVecToCubeV2", FunctionType::STATIC, {input1, input2, weight, out}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("TestVecToCubeV2", funConfig, {input1, input2, weight, out}) {
             config::SetPassStrategy("AssignMemoryTypeTestStrategy");
             Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_128, NUM_128);
             Tensor addRes = Add(input1, input2); // 256 * 128
@@ -285,7 +287,8 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCube) {
         Tensor inputK(DataType::DT_FP32, shape0, "K");
         Tensor weight(DataType::DT_FP32, shape1, "weight");
         Tensor out(DataType::DT_FP32, shape2, "output");
-        FUNCTION("TestCubeToCube", FunctionType::STATIC, {inputQ, inputK, weight, out}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("TestCubeToCube", funConfig, {inputQ, inputK, weight, out}) {
             Program::GetInstance().GetTileShape().SetCubeTileShapes({NUM_128, NUM_128}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
             Tensor qUpdate = Matrix::Matmul(out.GetDataType(), inputQ, weight); // (256 * 128) @ (128 * 64) = (256 * 64)
             Program::GetInstance().GetTileShape().SetCubeTileShapes({NUM_128, NUM_128}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
@@ -311,7 +314,8 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCubeV2) {
         SetHalfwayStrategy();
         Function* originFunction = nullptr;
 
-        FUNCTION("TestCubeToCubeV2", FunctionType::STATIC, {inputQ, inputK, weight, out}) {
+        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FUNCTION("TestCubeToCubeV2", funConfig, {inputQ, inputK, weight, out}) {
             Program::GetInstance().GetTileShape().SetCubeTileShapes({NUM_128, NUM_128}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
             Tensor qUpdate = Matrix::Matmul(out.GetDataType(), inputQ, weight); // (256 * 128) @ (128 * 64) = (256 * 64)
             Program::GetInstance().GetTileShape().SetCubeTileShapes({NUM_128, NUM_128}, {NUM_128, NUM_128}, {NUM_64, NUM_64});

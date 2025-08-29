@@ -62,7 +62,8 @@ TEST_F(TestCodegenGather, TestGather) {
 
     ConfigManager::Instance();
     std::string funcName = "GATHER_T";
-    FUNCTION(funcName, FunctionType::STATIC, {inputSrc0, inputSrc1, output}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION(funcName, funConfig, {inputSrc0, inputSrc1, output}) {
         output = Gather(inputSrc0, inputSrc1, axis);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
@@ -85,7 +86,8 @@ TEST_F(TestCodegenGather, TestGatherEle) {
     Tensor outputTensor(DT_FP32, outputShape, "output_tensor");
 
     std::string funcName = "GATHER_ELEMET_T";
-    FUNCTION(funcName, FunctionType::STATIC, {inputScores, inputTmpScores, outputTensor}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION(funcName, funConfig, {inputScores, inputTmpScores, outputTensor}) {
         auto topkIdx = std::get<1>(TopK(inputScores, numExpertsPerTopk, -1));       // [b*s,256]->[b*s,8]
         auto topkWeight = GatherElement(inputTmpScores, topkIdx, 1);                // [b*s,8]
         auto topkWeightSum = RowSumSingle(topkWeight, 1);                           // [b*s,8]->[b*s,1]

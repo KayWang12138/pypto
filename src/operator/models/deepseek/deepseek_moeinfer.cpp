@@ -39,7 +39,8 @@ constexpr float F_NEGA_1 = -1.0;
     void DynamicFFN(const Tensor &hiddenStates, const Tensor &ffnWeight1, const Tensor &ffnWeight2, const Tensor &ffnWeight3,
                     Tensor &out, int BASIC_BATCH) {
     const int H = hiddenStates.GetShape()[1];
-    FUNCTION("main", FunctionType::DYNAMIC, {hiddenStates, ffnWeight1, ffnWeight2, ffnWeight3}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {hiddenStates, ffnWeight1, ffnWeight2, ffnWeight3}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, loopIdx, LoopRange(GetInputShapeDim(hiddenStates, 0) / BASIC_BATCH)) {
             SymbolicScalar batchIdx = BASIC_BATCH * loopIdx;
             auto hiddenStatesTemp = View(hiddenStates, {BASIC_BATCH, H}, {batchIdx, 0});
@@ -65,7 +66,8 @@ constexpr float F_NEGA_1 = -1.0;
                     const Tensor &ffnScale1, const Tensor &ffnScale2, const Tensor &ffnScale3,
                     Tensor &out, int BASIC_BATCH) {
     const int H = hiddenStatesQuant.GetShape()[1];
-    FUNCTION("main", FunctionType::DYNAMIC, {hiddenStatesQuant, hiddenStatesScale, ffnWeight1, ffnWeight2, ffnWeight3, ffnScale1, ffnScale2, ffnScale3}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {hiddenStatesQuant, hiddenStatesScale, ffnWeight1, ffnWeight2, ffnWeight3, ffnScale1, ffnScale2, ffnScale3}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, loopIdx, LoopRange(GetInputShapeDim(hiddenStatesQuant, 0) / BASIC_BATCH)) {
             SymbolicScalar batchIdx = BASIC_BATCH * loopIdx;
 

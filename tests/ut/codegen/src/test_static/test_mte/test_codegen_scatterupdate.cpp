@@ -93,7 +93,8 @@ TEST_F(TestCodegenScatterUpdate, TestBatchMatmul) {
     Tensor matB(DT_FP16, shapeB, "MatB", NodeType::LOCAL, TileOpFormat::TILEOP_ND);
     Tensor matC(DT_FP32, shapeC, "MatC");
     std::string funcName = "BATCHMATMUL";
-    FUNCTION(funcName, FunctionType::STATIC, {matA, matB, matC}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION(funcName, funConfig, {matA, matB, matC}) {
         matC = npu::tile_fwk::Matrix::BatchMatmul<false, false>(DT_FP32, matA, matB);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);

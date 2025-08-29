@@ -73,7 +73,8 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
 
     std::vector<int> paOutShape = {b * s * n, kvLoraRank};
 
-    FUNCTION("main", FunctionType::DYNAMIC,
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig,
         {tokenX, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache,
          quantInputs.dequantScaleWUqQr, quantInputs.smoothScalesCq,
          blockTable, actSeqs, weightUV, weightO, weightOScaleW},

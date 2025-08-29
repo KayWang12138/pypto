@@ -60,7 +60,8 @@ void TestMoeDispatch(bool isSharedExpert) {
     Tensor tokenExpertTable(DataType::DT_INT32, {bs, topK}, "tokenExpertTable");
     Tensor expandX(dType, {bs * (routingExpertNum + sharedExpertNum), tokenLen}, "expandX");
     Tensor validSize(DataType::DT_INT32, {1, 1}, "validSize");
-    FUNCTION("DISPATCH_F", FunctionType::STATIC, {tokenTensor, tokenExpertTable, validSize, expandX}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION("DISPATCH_F", funConfig, {tokenTensor, tokenExpertTable, validSize, expandX}) {
         Program::GetInstance().GetTileShape().SpecifyStaticRankId(rankId);
         expandX = Distributed::MoeDispatch(tokenTensor, tokenExpertTable, validSize, group);
     }

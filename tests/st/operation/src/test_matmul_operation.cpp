@@ -67,7 +67,8 @@ static void MatmulOperationExeFuncNoSplit(
     SymbolicScalar kDim = transA ? inputs[0]->shape[0] : inputs[0]->shape[1];
     SymbolicScalar nDim = transB ? inputs[1]->shape[0] : inputs[1]->shape[1];
 
-    FUNCTION("testNoSplit", FunctionType::DYNAMIC, {inputs[0], inputs[1]}, {outputs[0]}) {
+    FunctionConfig funConfig;
+    FUNCTION("testNoSplit", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1)) {
             Tensor tensorA;
             if (transA) {
@@ -102,7 +103,8 @@ static void MatmulOperationExeFuncSplitM(
     SymbolicScalar kDim = transA ? inputs[0]->shape[0] : inputs[0]->shape[1];
     SymbolicScalar nDim = transB ? inputs[1]->shape[0] : inputs[1]->shape[1];
 
-    FUNCTION("testMSplit", FunctionType::DYNAMIC, {inputs[0], inputs[1]}, {outputs[0]}) {
+    FunctionConfig funConfig;
+    FUNCTION("testMSplit", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, CeilDivSymbolicScalar(mDim, mView), 1)) {
             Tensor tensorA;
             if (transA) {
@@ -140,7 +142,8 @@ static void MatmulOperationExeFuncSplitN(
     SymbolicScalar nDim = transB ? inputs[1]->shape[0] : inputs[1]->shape[1];
     const int nView = args->viewShape_[1];
 
-    FUNCTION("testNSplit", FunctionType::DYNAMIC, {inputs[0], inputs[1]}, {outputs[0]}) {
+    FunctionConfig funConfig;
+    FUNCTION("testNSplit", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
         LOOP("nLoop", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, CeilDivSymbolicScalar(nDim, nView), 1)) {
             Tensor tensorA;
             if (transA) {
@@ -179,7 +182,8 @@ static void MatmulOperationExeFuncSplitMN(
     const int mView = args->viewShape_[0];
     const int nView = args->viewShape_[1];
 
-    FUNCTION("testMNSplit", FunctionType::DYNAMIC, {inputs[0], inputs[1]}, {outputs[0]}) {
+    FunctionConfig funConfig;
+    FUNCTION("testMNSplit", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, CeilDivSymbolicScalar(mDim, mView), 1)) {
             LOOP("nLoop", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, CeilDivSymbolicScalar(nDim, nView), 1)) {
                 Tensor tensorA;
