@@ -925,8 +925,8 @@ bool IsomorphismGraphGroup::IsLegalIsoGraphExtender(std::vector<int32_t> &expand
         if (currentNodeSet.count(candidate) > 0) {
             return false;
         }
-        for (int32_t toNode : superNodeInfo_->nodeOutGraph_[candidate]) {
-            if (subVisitedNodeSet_.count(toNode) > 0 && !isoGraphs_[i]->HasNode(toNode)) {
+        for (int32_t fromNode : superNodeInfo_->nodeInGraph_[candidate]) {
+            if (subVisitedNodeSet_.count(fromNode) > 0 && !isoGraphs_[i]->HasNode(fromNode)) {
                 return false;
             }
         }
