@@ -229,7 +229,7 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_split_and_merge) {
                 Tensor tmp1 = AddS(tmp0, Element(tmp0->Datatype(), 0.01));
                 Tensor tmp2 = Reshape(tmp1, {bView, sqView, dView}, {bValid, sqValid, dView}); //(bView * sqView, dView) -> (bView, sqView, dView)
                 Program::GetInstance().GetTileShape().SetVecTileShapes(1, 4, 32);
-                DAssemble(tmp2, {bIdx * bView, sqIdx * sqView, 0}, out);
+                Assemble(tmp2, {bIdx * bView, sqIdx * sqView, 0}, out);
             }
         }
     }
