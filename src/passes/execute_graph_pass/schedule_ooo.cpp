@@ -124,8 +124,22 @@ Status OoOScheduler::GetOldestBuffer(IssueEntryPtr allocIssue, MemoryType buffer
         }
     }
     if (spillIssue == nullptr || memId == -1) {
-        ALOG_ERROR_F("Could not find avaialble buffer to spill!");
-        return FAILED;
+        ALOG_ERROR_F("======== OoO Spill failed info ===========");
+        ALOG_ERROR_F("Spill failed memoryType: %s.", MemoryTypeToString(bufferType).c_str());
+        if (localBufferMap.find(allocIssue->reqMemIds[0]) != localBufferMap.end()) {
+            ALOG_ERROR_F("%s[%d] alloc buffer size: %lu.", allocIssue->tileOp->GetOpcodeStr().c_str(), 
+                allocIssue->tileOp->GetOpMagic(), localBufferMap[allocIssue->reqMemIds[0]]->size);
+        }
+        if (tensorOccupyMap.find(bufferType) != tensorOccupyMap.end()) {
+            for (auto occupyIssue : tensorOccupyMap[bufferType]) {
+                ALOG_ERROR_F("%s[%d], range[%lu, %lu], Tensor[%d] size: %lu", 
+                    occupyIssue.second->tileOp->GetOpcodeStr().c_str(), occupyIssue.second->tileOp->GetOpMagic(),
+                    localBufferMap[occupyIssue.first]->start, localBufferMap[occupyIssue.first]->end, occupyIssue.first,
+                    localBufferMap[occupyIssue.first]->size);
+            }
+        }
+        ALOG_ERROR_F("Could not find availalble buffer to spill!"); 
+        return FAILED; 
     }
     ALOG_DEBUG_F("  Spill op: %s %d.", spillIssue->tileOp->GetOpcodeStr().c_str(), spillIssue->tileOp->GetOpMagic());
     return SUCCESS;

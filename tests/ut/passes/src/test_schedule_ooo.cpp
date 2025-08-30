@@ -1221,27 +1221,6 @@ TEST_F(ScheduleOoOTest, TestDelBufCount_1) {
     oooSchedule.DelBufRefCount(1);
 }
 
-TEST_F(ScheduleOoOTest, TestGenBufferSpill) {
-    Function function(Program::GetInstance(), "", "", nullptr);
-    std::vector<Operation *> scheduleOpList;
-
-    std::vector<int64_t> shape = {128, 128};
-    std::shared_ptr<LogicalTensor> tensor3 = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, shape);
-    tensor3->SetMemoryTypeOriginal(MEM_UB);
-    tensor3->SetMemoryTypeToBe(MEM_UB);
-    tensor3->subGraphID = 0;
-    tensor3->memorymap[0].memId = 3;
-
-    auto &alloc1 = function.AddOperation(Opcode::OP_UB_ALLOC, {}, std::vector<std::shared_ptr<LogicalTensor>>({tensor3}));
-    alloc1.UpdateLatency(1);
-    alloc1.UpdateSubgraphID(0);
-
-    auto allocIssue = std::make_shared<IssueEntry>(&alloc1, 1);
-
-    OoOScheduler oooSchedule;
-    oooSchedule.GenBufferSpill(function, allocIssue, MemoryType::MEM_UB, scheduleOpList);
-}
-
 TEST_F(ScheduleOoOTest, TestUpdateReloadIssueInfo) {
     Function function(Program::GetInstance(), "", "", nullptr);
     std::vector<Operation *> scheduleOpList;

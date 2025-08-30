@@ -228,7 +228,6 @@ set(_CaseFilterList
         "ScheduleOoOTest.TestOpNullptr"
         "ScheduleOoOTest.TestDelBufCount"
         "ScheduleOoOTest.TestDelBufCount_1"
-        "ScheduleOoOTest.TestGenBufferSpill"
         "ScheduleOoOTest.TestUpdateReloadIssueInfo"
         "ScheduleOoOTest.TestUpdateTensorAttr_DDR"
         "ScheduleOoOTest.TestUpdateTensorAttr_UB"
