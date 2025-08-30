@@ -35,6 +35,27 @@ then
     BINARY_OUTPUT_PATH="${OUTPUT_PATH}/op_kernel/binary"
 fi
 
+function package_machine()
+{
+    if [[ $BINARY_OUTPUT_PATH != *"built-in"* ]]; then
+        return
+    fi
+    local arch_path=$(cd ${BINARY_OUTPUT_PATH}/../../../../..; pwd)
+    local tar_file="transformer_tile_fwk_aicpu_kernel.tar.gz"
+    local temp_path=${BUILD_PATH}/aicpu_kernels_device
+    OLD_IFS="$IFS"
+    IFS=","
+    for unit in $COMPUTE_UNIT; do
+        rm -rf ${temp_path} && mkdir -p ${temp_path}
+        cp -rf ${BINARY_OUTPUT_PATH}/${unit}/tile_fwk_machine ${temp_path}
+        pushd ${BUILD_PATH} > /dev/null
+        tar czf ${tar_file} aicpu_kernels_device
+        cp -fv ${tar_file} ${arch_path}
+        popd > /dev/null
+    done
+    IFS="$OLD_IFS"
+}
+
 build_ops()
 {
     mkdir -p "${BUILD_PATH}"
@@ -68,6 +89,7 @@ main() {
     cd ${BASEPATH}
     mkdir -p ${OUTPUT_PATH}
     build_ops || { echo "Tile fwk ops build failed."; exit 1; }
+    package_machine
     echo "---------------Tile fwk ops build successfully----------------"
 }
 

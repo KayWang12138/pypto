@@ -13,8 +13,9 @@
 tile fwk ops compile script
 """
 import ctypes
-import json
 import os
+import stat
+from shutil import copy as file_copy
 import tbe.common.context.op_context as op_context
 from tbe.common.buildcfg import get_current_build_config
 from tbe.common.platform.platform_info import get_soc_spec
@@ -24,6 +25,23 @@ def load_rt_lib():
     so_lib_path = os.getenv("TILE_FWK_RUNTIME_PATH")
     librt = ctypes.CDLL(so_lib_path)
     return librt
+
+
+def copy_file_to_output(src_file_path, output_path):
+    try:
+        aicpu_file_path = os.path.join(os.path.dirname(src_file_path),
+            "kernel_meta", "libNativeSparseAttention_machine.so")
+        aicpu_file_path = os.path.realpath(aicpu_file_path)
+        if os.path.exists(aicpu_file_path):
+            os.chmod(aicpu_file_path, stat.S_IWUSR + stat.S_IRGRP + stat.S_IRUSR)
+            parent_path = os.path.abspath(os.path.dirname(output_path))
+            aicpu_path = os.path.join(parent_path, "tile_fwk_machine")
+            os.makedirs(aicpu_path, exist_ok=True)
+            file_copy(aicpu_file_path, aicpu_path)
+    except Exception as e:
+        raise RuntimeError("Copy [%s] to [%s] failed, reason: %s." % (aicpu_file_path, output_path, str(e))) from e
+    finally:
+        pass
 
 
 def ascendcpp_compile_op(*args):
@@ -52,4 +70,8 @@ def ascendcpp_compile_op(*args):
         raise RuntimeError("Exception: Fail to call compile func, reason is %s." % str(e)) from e
     if bool(res) is not True:
         return False
+    output_path = cur_context.get_addition("output")
+    if output_path is None:
+        return False
+    copy_file_to_output(dump_path, output_path)
     return True
