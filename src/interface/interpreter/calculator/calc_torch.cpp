@@ -14,6 +14,7 @@
 namespace npu::tile_fwk::calc {
 
 #define AXIS_TO_LAST -2
+#define CALC_ASSERT(cond, ...) TORCH_CHECK(cond, __VA_ARGS__)
 
 static torch::ScalarType FromDataType(DataType t) {
     switch (t) {
@@ -384,6 +385,189 @@ void ReduceAcc(LogicalTensorDataPtr out, const std::vector<LogicalTensorDataPtr>
     torch::sum_out(tout, torch::stack(tensors, 0), 0);
 }
 
+/**
+ * @brief Perform a bitwise sort of 32 elements on the input tensor according to the specified dimension
+ *        and return the output tensor
+ *        e.g.,1.If the shape of the input tensor is {2,33}, a temporary tensor will be created based on the 
+ *             input pad to {2,64}, and an index tensor with a shape of {2,64} and values from 0 to 63 will
+ *             be created along the sorting axis;
+ *             2. Then stack the temporary tensor and index tensor into a new tensor with a shape of {2,64,2}
+ *             3. Then, along the original sorting axis, the new tensor is transformed into a temporary tensor
+ *             with 32 elements per group to {2, 32, 2, 2}. Next, the temporary tensor is sorted within the group
+ *             along the axis with a size of 32 to make it ordered within the group. Finally, the sorted tensor
+ *             is expanded into a tensor with a size of {2128} using reshape. Finally, the data distribution on
+ *             the one-dimensional sorting axis is arranged alternately in order of value index
+ *
+ * @param out output tensor
+ * @param self input tensor
+ * @param axis Indicate on which axis of self for grouping and sorting
+ * @param descending Indicate whether the sorting direction is ascending or descending
+ */
+void BitSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, bool descending) {
+    auto tself = From(self);
+    auto tout = From(out);
+    constexpr int DIM_SIZE_TWO = 2;
+    axis = axis < 0?(axis + tself.dim()):axis;
+
+    const int64_t groupSize = 32;
+    auto tselfAlignShape = tself.sizes().vec();
+    tselfAlignShape[axis] = (tself.size(axis) + groupSize - 1) / groupSize * groupSize;
+    float padValue = descending ? (-1.0f / 0.0f) : (1.0f / 0.0f);
+    auto tselfAlign = torch::full(tselfAlignShape, padValue);
+    torch::Tensor tselfAlignSubview = View(tselfAlign, tself.sizes().vec(), {0, 0});
+    tselfAlignSubview.copy_(tself);
+    if (!descending) {
+        tselfAlign.neg_();
+    }
+
+    auto indices = torch::arange(0, tselfAlign.size(axis), 1, torch::dtype(torch::kLong));
+    std::vector<int64_t> indexShape(tselfAlign.dim(), 1);
+    indexShape[axis] = tselfAlign.size(axis);
+    indices = indices.reshape(indexShape).broadcast_to(tselfAlign.sizes());
+
+    auto combined = torch::stack({tselfAlign, indices.to(tselfAlign.dtype())}, tselfAlign.dim());
+    std::vector<int64_t> groupedShape;
+    for (int64_t i = 0; i < tselfAlign.dim(); ++i) {
+        if (i == axis) {
+            groupedShape.push_back(tselfAlign.size(axis) / groupSize);
+            groupedShape.push_back(groupSize);
+        } else {
+            groupedShape.push_back(tselfAlign.size(i));
+        }
+    }
+    groupedShape.push_back(DIM_SIZE_TWO);
+    auto grouped = combined.reshape(torch::IntArrayRef(groupedShape));
+    torch::Tensor sortIndices;
+    std::tie(std::ignore, sortIndices) = grouped.select(-1, 0).sort(axis + 1, true);
+
+    std::vector<int64_t> expandDims(sortIndices.unsqueeze(-1).dim(), -1);
+    expandDims.back() = DIM_SIZE_TWO;
+    auto expandIndices = sortIndices.unsqueeze(-1).expand(torch::IntArrayRef(expandDims));
+    auto sortedGroups = grouped.gather(axis + 1, expandIndices);
+
+    std::vector<int64_t> dstShape;
+    for (int64_t i = 0; i < sortedGroups.dim(); ++i) {
+        if (i == axis) {
+            dstShape.push_back(DIM_SIZE_TWO * tselfAlign.size(axis));
+        } else if (i !=axis + 1 && i != sortedGroups.dim() - 1) {
+            dstShape.push_back(sortedGroups.size(i));
+        }
+    }
+
+    auto tres = sortedGroups.reshape(torch::IntArrayRef(dstShape));
+    torch::Tensor expanded = torch::cat({tres, torch::zeros_like(tres)}, axis);
+    torch::Tensor dstSubview = View(tout, expanded.sizes().vec(), {0, 0});
+    dstSubview.copy_(expanded);
+}
+
+/**
+ * @brief extract elements from the target dimension of tensors and ajust the output according to the param
+ *        require the data distribution if the input tensor sorting axis to be value indexed alternately 
+ *        arranged in order
+ *
+ * @param out output tensor
+ * @param self input tensor
+ * @param mod used to extract elements from the target dimension of tensors, mod=0 means to obtain
+ *            elements with even indices, and mod=1 means to obtain elements with odd indices
+ * @param descending Indicate whether the obtained k values are the maximum or minimum k values,
+ *                   and true returns the maximum k values
+ */
+void Extract(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int mod, bool descending) {
+    auto tself = From(self);
+    auto tout = From(out);
+    constexpr int INDICE_STEP = 2;
+
+    int dim = tself.dim() - 1;
+    auto indices = torch::arange(
+        (mod == 1?1:0),
+        tself.size(dim),
+        INDICE_STEP,
+        torch::dtype(torch::kLong)
+    );
+    torch::Tensor selfSubview = View(tself.index_select(dim, indices), tout.sizes().vec(), {0, 0});
+    tout.copy_(selfSubview);
+
+    if (!descending && mod == 0) {
+        tout.neg_();
+    }
+}
+
+/**
+ * @brief Sort the input tensor according to the specified dimension and return the output tensor, requiring the
+ *        data distribution of the sorting axis of the input tensor to be alternately arranged by value index
+ *        e.g.,1.If the shape of the input tensor is {2,256}, then half of the sorting axis in the input tensor
+ *             will be truncated as a valid tensor with a shape of {2,128}
+ *             2. Then group the values and indexes along the sorting axis, dividing them into 64 value index
+ *             pairs, and reshape the effective tensor to a new tensor with a shape of {2,64,2}
+ *             3. Sort the new tensor along the original sorting axis in the numerical dimension, and finally
+ *             use reshape expansion to sort the new tensor into output tensors of shape and size {2,128}.
+ *             Finally, the data distribution of the entire tensor on the one-dimensional sorting axis is still
+ *             sorted alternately by value index, and the values are ordered
+ *
+ * @param out output tensor
+ * @param self input tensor
+ * @param axis Indicate on which axis of self to obtain topk
+ * @param k  Indicate the  maximum or minimum k values are obtained
+ * @param descending Indicate whether the obtained k values are the maximum or minimum k values,
+ *                   and true returns the maximum k values
+ */
+void Topk(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, int64_t k, bool descending) {
+    auto tself = From(self);
+    auto tout = From(out);
+    constexpr int MERGE_SORT_NUM = 4;
+    constexpr int DIM_SIZE_TWO = 2;
+    constexpr int ACTUAL_VALID_RATIO = 2;
+    
+    axis = axis < 0?(axis + tself.dim()):axis;
+    auto sliceIndices = torch::arange(tself.size(axis) / ACTUAL_VALID_RATIO, torch::dtype(torch::kLong));
+    auto tselfHalf = tself.index_select(axis, sliceIndices);
+
+    CALC_ASSERT(axis >= 0 && axis < tselfHalf.dim(),
+        "axis", axis, " is out of bounds for tensor of dimension ", tselfHalf.dim());
+
+    CALC_ASSERT(tself.size(axis) % MERGE_SORT_NUM == 0,
+        "Expected self.size(axis) after preprocessing to be divisible by 4, but got ", tself.size(axis));
+
+    const int64_t maxk = tself.size(axis) / MERGE_SORT_NUM;
+    CALC_ASSERT(k > 0 && k <= maxk, "Expected k to be in (0, ", maxk, "], but got ", k);
+
+    std::vector<int64_t>newShape;
+    newShape.reserve(tselfHalf.dim() + 1);
+    for (int64_t i = 0; i < tselfHalf.dim(); ++i) {
+        if (i == axis) {
+            newShape.push_back(tselfHalf.size(axis) / ACTUAL_VALID_RATIO);
+            newShape.push_back(DIM_SIZE_TWO);
+        } else {
+            newShape.push_back(tselfHalf.size(i));
+        }
+    }
+    auto tselfGrouped = tselfHalf.reshape(torch::IntArrayRef(newShape));
+    torch::Tensor sortedIndices;
+    std::tie(std::ignore, sortedIndices) = tselfGrouped.select(-1, 0).sort(axis, true);
+
+    std::vector<int64_t>indexShape;
+    for (int64_t i = 0; i < sortedIndices.dim(); ++i) {
+        indexShape.push_back(sortedIndices.size(i));
+    }
+    indexShape.push_back(DIM_SIZE_TWO);
+    auto expanded_indices = sortedIndices.unsqueeze(-1).expand(torch::IntArrayRef(indexShape));
+    auto sortedGroups = tselfGrouped.gather(axis, expanded_indices);
+    auto indicesk = torch::arange(k, torch::dtype(torch::kLong));
+    auto topkGroups = sortedGroups.index_select(axis, indicesk);
+
+    std::vector<int64_t> dstShape;
+    dstShape.reserve(topkGroups.dim() - 1);
+    for (int64_t i = 0; i < topkGroups.dim(); ++i) {
+        if (i == axis) {
+            dstShape.push_back(DIM_SIZE_TWO * k);
+        } else if (i !=axis + 1) {
+            dstShape.push_back(topkGroups.size(i));
+        }
+    }
+    torch::Tensor dstSubview = View(tout, dstShape, {0, 0});
+    dstSubview.copy_(topkGroups.reshape(torch::IntArrayRef(dstShape)));
+}
+
 bool ScatterDateCopy(const std::vector<int64_t> &loopIdx, torch::Tensor &src, torch::Tensor &indices, torch::Tensor &ret, 
     int blockSize) {
     bool flag = false;
@@ -439,4 +623,5 @@ void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalT
         }
     }
 }
+
 } // namespace npu::tile_fwk::calc

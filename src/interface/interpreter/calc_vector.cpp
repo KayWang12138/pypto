@@ -203,7 +203,7 @@ void ExecuteOpTransposeMoveOut(ExecuteOperationContext *ctx) {
         std::vector<int64_t> toOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyoutAttr->GetToOffset());
         oopCopy = oop->View(shape, toOffset);
     }
-    calc::Permute(oopCopy, iop, axises);
+    calc::Transpose(oopCopy, iop, axises[0], axises[1]);
 }
 REGISTER_CALC_OP(OP_TRANSPOSE_MOVEOUT, Opcode::OP_TRANSPOSE_MOVEOUT, ExecuteOpTransposeMoveOut);
 
@@ -213,7 +213,7 @@ void ExecuteOpTranspose(ExecuteOperationContext *ctx) {
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop = ctx->ioperandDataViewList->at(0);
     auto axises = ctx->op->GetVectorIntAttribute(OP_ATTR_PREFIX + "shape");
-    calc::Permute(oop, iop, axises);
+    calc::Transpose(oop, iop, axises[0], axises[1]);
 }
 REGISTER_CALC_OP(OP_TRANSPOSE_VNCHWCONV, Opcode::OP_TRANSPOSE_VNCHWCONV, ExecuteOpTranspose);
 
@@ -230,6 +230,37 @@ void ExecuteOpIndexOutcast(ExecuteOperationContext *ctx) {
     calc::ScatterUpdate(oop, src, index, axis, cacheMode, blockSize);
 }
 REGISTER_CALC_OP(OP_INDEX_OUTCAST, Opcode::OP_INDEX_OUTCAST, ExecuteOpIndexOutcast);
+
+void ExecuteOpExtract(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+    auto src = ctx->ioperandDataViewList->at(0);
+    auto maskMode = ctx->op->GetIntAttribute("op_attr_makeMode");
+    int descending = ctx->op->GetIntAttribute("op_attr_order");
+    calc::Extract(oop, src, maskMode, descending);
+}
+REGISTER_CALC_OP(OP_EXTRACT, Opcode::OP_EXTRACT, ExecuteOpExtract);
+
+void ExecuteOpMrgSort(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+    auto src = ctx->ioperandDataViewList->at(0);
+    auto topk_axis = ctx->op->GetIntAttribute("op_attr_axis");
+    auto kValue = ctx->op->GetIntAttribute("op_attr_kvalue");
+    int descending = ctx->op->GetIntAttribute("op_attr_order");
+    calc::Topk(oop, src, topk_axis, kValue, descending);
+}
+REGISTER_CALC_OP(OP_MRGSORT, Opcode::OP_MRGSORT, ExecuteOpMrgSort);
+
+void ExecuteOpBitSort(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+    auto src = ctx->ioperandDataViewList->at(0);
+    auto topk_axis = ctx->op->GetIntAttribute("op_attr_axis");
+    int descending = ctx->op->GetIntAttribute("op_attr_order");
+    calc::BitSort(oop, src, topk_axis, descending);
+}
+REGISTER_CALC_OP(OP_BITSORT, Opcode::OP_BITSORT, ExecuteOpBitSort);
 
 void ExecuteOpReduceAcc(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
