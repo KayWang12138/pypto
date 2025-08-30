@@ -34,7 +34,7 @@ bool CodeGenOpCloudNPU::GetAttr(const std::string &key, T &value) const {
     return false;
 }
 
-CodeGenOpCloudNPU::DynamicParamPackMTE CodeGenOpCloudNPU::PrepareDynamicShapeInfoforMTE(
+CodeGenOpCloudNPU::DynamicParamPackMTE CodeGenOpCloudNPU::PrepareDynamicShapeInfoForMTE(
     int dynShapeIdx, int ShapeDim, bool isNeedGmOffset) const {
     CodeGenOpCloudNPU::DynamicParamPackMTE pack;
     int dim = static_cast<int>(paramIdxForDynShape[dynShapeIdx].size());
@@ -341,7 +341,7 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastDynamic(const PrintIndexOutCastP
     const std::string *dataTypeExpr = param.dataTypeExpr;
     int cacheModeFlag = (param.cacheMode == "PA_NZ") ? 1 : 0;
 
-    auto paramPack = PrepareDynamicShapeInfoforMTE(ID0);
+    auto paramPack = PrepareDynamicShapeInfoForMTE(ID0);
     std::vector<std::string> gmShapeExpr = paramPack.gmOffsetExpr;
     std::vector<std::string> gmOffsetExpr = paramPack.gmOffsetExpr;
 
@@ -384,7 +384,7 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastDynamicUnaligned(const PrintInde
     const std::string *dataTypeExpr = param.dataTypeExpr;
     int cacheModeFlag = (param.cacheMode == "PA_NZ") ? 1 : 0;
 
-    auto paramPack = PrepareDynamicShapeInfoforMTE(ID0);
+    auto paramPack = PrepareDynamicShapeInfoForMTE(ID0);
     std::vector<std::string> gmShapeExpr = paramPack.gmOffsetExpr;
     std::vector<std::string> gmOffsetExpr = paramPack.gmOffsetExpr;
 
@@ -799,7 +799,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamic(const PrintMemCopyWithU
     FillIntVecWithDummyInHead<int>(newOriginShape, MAX_DIM - originShape[localIdx].size(), 1);
     const std::vector<int> &localRawShape = NormalizeShape(rawShape[localIdx], SHAPE_DIM5);
 
-    auto paramPack = PrepareDynamicShapeInfoforMTE(gmIdx, MAX_DIM, !param.isSpillIntoGM);
+    auto paramPack = PrepareDynamicShapeInfoForMTE(gmIdx, MAX_DIM, !param.isSpillIntoGM);
 
     std::ostringstream os;
     std::vector<std::string> paramList;
@@ -837,7 +837,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamicSupportUnaligned(const P
     FillIntVecWithDummyInHead<SymbolicScalar>(newDynamicShape, MAX_DIM - dynamicValidShape[localIdx].size(), 1);
     const std::vector<int> &localRawShape = NormalizeShape(rawShape[localIdx], SHAPE_DIM5);
 
-    auto paramPack = PrepareDynamicShapeInfoforMTE(gmIdx, MAX_DIM, !param.isSpillIntoGM);
+    auto paramPack = PrepareDynamicShapeInfoForMTE(gmIdx, MAX_DIM, !param.isSpillIntoGM);
     std::vector<std::string> gmShapeExpr = paramPack.gmOffsetExpr;
     std::vector<std::string> gmOffsetExpr = paramPack.gmOffsetExpr;
 

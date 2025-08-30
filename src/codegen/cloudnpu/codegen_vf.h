@@ -31,23 +31,23 @@
 #include "codegen_op_cloudnpu.h"
 
 namespace npu::tile_fwk {
-class VFCodegen {
+class VFCodeGen {
 public:
-    VFCodegen(){};
+    VFCodeGen() = default;
 
     void GenCode(Function *func, const std::string &file);
 
-    std::string genVFHeader(const std::string &KernelName, std::vector<std::shared_ptr<LogicalTensor>> &ubIn,
+    std::string GenVFHeader(const std::string &KernelName, std::vector<std::shared_ptr<LogicalTensor>> &ubIn,
         std::vector<std::shared_ptr<LogicalTensor>> &ubOut);
-    std::string genVLD(const std::string &code);
-    std::string genVST(const std::string &code);
-    std::string genRegAlloc();
-    std::string genBinaryRegOp(const std::string &BinaryOp);
-    std::string genUnaryRegOp(const std::string &UnaryOp);
-    std::string genVFBody(const std::vector<Operation *> &OpList);
-    std::string genSingleOp(Operation *op);
-    std::string genVFEnd();
-    std::string genVarName(std::string loc, int id);
+    std::string GenVLD(const std::string &code);
+    std::string GenVST(const std::string &code);
+    std::string GenRegAlloc();
+    std::string GenBinaryRegOp(const std::string &BinaryOp);
+    std::string GenUnaryRegOp(const std::string &UnaryOp);
+    std::string GenVFBody(const std::vector<Operation *> &OpList);
+    std::string GenSingleOp(Operation *op);
+    std::string GenVFEnd();
+    std::string GenVarName(std::string loc, int id);
     bool IsGenSuccess() const { return isGenSuccess_; };
     std::string GetVFHeaderForInclude() const;
 

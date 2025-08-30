@@ -338,7 +338,7 @@ private:
         std::vector<std::string> paramList;
     };
 
-    DynamicParamPackMTE PrepareDynamicShapeInfoforMTE(
+    DynamicParamPackMTE PrepareDynamicShapeInfoForMTE(
         int dynShapeIdx, int ShapeDim = SHAPE_DIM4, bool isNeedGmOffset = true) const;
 
     std::string PrintReduceLastAxis(const PrintUnaryTmpBuffParam &param) const;

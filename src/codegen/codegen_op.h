@@ -106,7 +106,6 @@ protected:
     std::vector<int> originShape[MAX_OPERANDS] = {};
     std::vector<SymbolicScalar> dynamicValidShape[MAX_OPERANDS] = {}; // valid shape
     std::vector<SymbolicScalar> offsetGmSymbolic[MAX_OPERANDS] = {};  // for spilling into GM scene
-    std::vector<int> tileShape{0, 0};                                 // ub tile shape
     // if operand is an variable, record its related argument location
     // In COA(Call Operation Attribute), 0-index is the callee's cce info. So the tensor list starts from 1.
     int paramLocation[MAX_OPERANDS] = {1, 1, 1, 1, 1, 1};

@@ -46,7 +46,7 @@ std::map<Opcode, const std::string> VFTileOpNameMap{
     { Opcode::OP_VST,  "vsts"},
 };
 
-void VFCodegen::GenCode(Function *func, const std::string &file) {
+void VFCodeGen::GenCode(Function *func, const std::string &file) {
     path_ = file;
     std::string vfcodeList;
     for (auto &program : func->programs_) {
@@ -55,9 +55,9 @@ void VFCodegen::GenCode(Function *func, const std::string &file) {
         std::string vfcode;
         magicToBufferId_.clear();
         AllocBufferId(program.second, opList);
-        vfcode += genVFHeader(KernelName, program.second->inCasts_, program.second->outCasts_);
-        vfcode += genVFBody(opList);
-        vfcode += genVFEnd();
+        vfcode += GenVFHeader(KernelName, program.second->inCasts_, program.second->outCasts_);
+        vfcode += GenVFBody(opList);
+        vfcode += GenVFEnd();
         vfcodeList += vfcode;
     }
     if (vfcodeList.empty()) {
@@ -69,17 +69,17 @@ void VFCodegen::GenCode(Function *func, const std::string &file) {
     isGenSuccess_ = !os.fail();
 }
 
-std::string VFCodegen::genVFBody(const std::vector<Operation *> &OpList) {
+std::string VFCodeGen::GenVFBody(const std::vector<Operation *> &OpList) {
     std::string vfbody;
     for (auto &op : OpList) {
-        std::string code = genSingleOp(op);
+        std::string code = GenSingleOp(op);
         vfbody += "        ";
         vfbody += code;
     }
     return vfbody;
 }
 
-std::string VFCodegen::genSingleOp(Operation *op) {
+std::string VFCodeGen::GenSingleOp(Operation *op) {
     InitOpParm(op);
     auto opCode = op->GetOpcode();
     if (opCode == Opcode::OP_REG_ALLOC) {
@@ -89,7 +89,7 @@ std::string VFCodegen::genSingleOp(Operation *op) {
         }
         operand[ID0] = magicToBufferId_[tensorMagic];
         operandDtype[ID0] = (*op->GetOutCtrlOperations().begin())->GetOOperands()[ID0]->tensor->datatype;
-        return genRegAlloc();
+        return GenRegAlloc();
     }
     auto iter = VFTileOpNameMap.find(opCode);
     if (iter == VFTileOpNameMap.end()) {
@@ -99,26 +99,26 @@ std::string VFCodegen::genSingleOp(Operation *op) {
 
     auto iter_reg_binary = BinaryOps.find(opCode);
     if (iter_reg_binary != BinaryOps.end()) {
-        return genBinaryRegOp(tile_op_name);
+        return GenBinaryRegOp(tile_op_name);
     }
 
     auto iter_reg_unary = UnaryOps.find(opCode);
     if (iter_reg_unary != UnaryOps.end()) {
-        return genUnaryRegOp(tile_op_name);
+        return GenUnaryRegOp(tile_op_name);
     }
 
     if (opCode == Opcode::OP_VLD) {
-        return genVLD(tile_op_name);
+        return GenVLD(tile_op_name);
     }
 
     if (opCode == Opcode::OP_VST) {
-        return genVST(tile_op_name);
+        return GenVST(tile_op_name);
     }
 
     return std::string{"NOT HANDLED OP: " + op->GetOpcodeStr()};
 }
 
-void VFCodegen::InitOpParm(Operation *op) {
+void VFCodeGen::InitOpParm(Operation *op) {
     auto opCode = op->GetOpcode();
     std::vector<int64_t> attrShape;
     std::vector<int64_t> attrOffset;
@@ -181,7 +181,7 @@ void VFCodegen::InitOpParm(Operation *op) {
     }
 }
 
-void VFCodegen::AllocBufferId(Function *func, std::vector<Operation *> &opList) {
+void VFCodeGen::AllocBufferId(Function *func, std::vector<Operation *> &opList) {
     int bufferId = 0;
     for (const auto &ele : func->inCasts_) {
         if (!magicToBufferId_.count(ele->GetMagic())) {
@@ -207,37 +207,37 @@ void VFCodegen::AllocBufferId(Function *func, std::vector<Operation *> &opList) 
     }
 }
 
-std::string VFCodegen::genVarName(std::string loc, int id) {
+std::string VFCodeGen::GenVarName(std::string loc, int id) {
     std::string VarName(loc + "Id" + std::to_string(id) + "Addr");
     return VarName;
 }
 
-std::string VFCodegen::genVFHeader(const std::string &KernelName, std::vector<std::shared_ptr<LogicalTensor>> &ubIn,
+std::string VFCodeGen::GenVFHeader(const std::string &KernelName, std::vector<std::shared_ptr<LogicalTensor>> &ubIn,
     std::vector<std::shared_ptr<LogicalTensor>> &ubOut) {
     std::string Line =
         std::string("#include \"TileOpImpl.h\" \n namespace TileOp {\nTILEOP void ") + KernelName + std::string("(");
     for (const auto &out : ubOut) {
         auto id = magicToBufferId_[out->GetMagic()];
-        auto buffer = genVarName("UB", id);
+        auto buffer = GenVarName("UB", id);
         std::string dtypeStr = DataType2CCEStr(out->tensor->datatype);
         Line += std::string("__ubuf__ ") + dtypeStr + std::string("* ") + std::string(buffer) + std::string(", ");
     }
     int i = 0;
     for (; i < static_cast<int>(ubIn.size() - 1); ++i) {
         auto id = magicToBufferId_[ubIn[i]->GetMagic()];
-        auto buffer = genVarName("UB", id);
+        auto buffer = GenVarName("UB", id);
         std::string dtypeStr = DataType2CCEStr(ubIn[i]->tensor->datatype);
         Line += std::string("__ubuf__ ") + dtypeStr + std::string("* ") + std::string(buffer) + std::string(", ");
     }
     auto id = magicToBufferId_[ubIn[i]->GetMagic()];
-    auto buffer = genVarName("UB", id);
+    auto buffer = GenVarName("UB", id);
     std::string dtypeStr = DataType2CCEStr(ubIn[i]->tensor->datatype);
     Line += std::string("__ubuf__ ") + dtypeStr + std::string("* ") + std::string(buffer);
     Line += std::string(") {\n    __VEC_SCOPE__\n    {\n        vector_bool allMask = pge_b8(PAT_ALL);\n");
     return Line;
 }
 
-void VFCodegen::UpdateVarOffset(std::vector<std::string *> vars, std::vector<unsigned> operandIdxes) const {
+void VFCodeGen::UpdateVarOffset(std::vector<std::string *> vars, std::vector<unsigned> operandIdxes) const {
     ASSERT(vars.size() == operandIdxes.size())
         << "vars size vs operandIdxes is not equal" << vars.size() << " vs. " << operandIdxes.size();
 
@@ -267,9 +267,9 @@ void VFCodegen::UpdateVarOffset(std::vector<std::string *> vars, std::vector<uns
     }
 }
 
-std::string VFCodegen::genVLD(const std::string &code) {
-    std::string DName = genVarName("REG", operand[ID0]);
-    std::string S0Name = genVarName("UB", operand[ID1]);
+std::string VFCodeGen::GenVLD(const std::string &code) {
+    std::string DName = GenVarName("REG", operand[ID0]);
+    std::string S0Name = GenVarName("UB", operand[ID1]);
     UpdateVarOffset({&S0Name}, {1});
 
     std::ostringstream oss;
@@ -278,9 +278,9 @@ std::string VFCodegen::genVLD(const std::string &code) {
     return oss.str();
 }
 
-std::string VFCodegen::genVST(const std::string &code) {
-    std::string DName = genVarName("UB", operand[ID0]);
-    std::string S0Name = genVarName("REG", operand[ID1]);
+std::string VFCodeGen::GenVST(const std::string &code) {
+    std::string DName = GenVarName("UB", operand[ID0]);
+    std::string S0Name = GenVarName("REG", operand[ID1]);
     UpdateVarOffset({&DName}, {0});
 
     std::ostringstream oss;
@@ -289,16 +289,16 @@ std::string VFCodegen::genVST(const std::string &code) {
     return oss.str();
 }
 
-std::string VFCodegen::genRegAlloc() {
-    std::string VarName = genVarName("REG", operand[ID0]);
+std::string VFCodeGen::GenRegAlloc() {
+    std::string VarName = GenVarName("REG", operand[ID0]);
     std::string dtypeStr = DataType2VectorRegStr(operandDtype[ID0]);
     return dtypeStr + " " + VarName + ";\n";
 }
 
-std::string VFCodegen::genBinaryRegOp(const std::string &BinaryOp) {
-    std::string DName = genVarName("REG", operand[ID0]);
-    std::string S0Name = genVarName("REG", operand[ID1]);
-    std::string S1Name = genVarName("REG", operand[ID2]);
+std::string VFCodeGen::GenBinaryRegOp(const std::string &BinaryOp) {
+    std::string DName = GenVarName("REG", operand[ID0]);
+    std::string S0Name = GenVarName("REG", operand[ID1]);
+    std::string S1Name = GenVarName("REG", operand[ID2]);
 
     std::ostringstream oss;
     oss << BinaryOp << "(" << DName << ", " << S0Name << ", " << S1Name << ", allMask);\n";
@@ -306,9 +306,9 @@ std::string VFCodegen::genBinaryRegOp(const std::string &BinaryOp) {
     return oss.str();
 }
 
-std::string VFCodegen::genUnaryRegOp(const std::string &UnaryOp) {
-    std::string DName = genVarName("REG", operand[ID0]);
-    std::string S0Name = genVarName("REG", operand[ID1]);
+std::string VFCodeGen::GenUnaryRegOp(const std::string &UnaryOp) {
+    std::string DName = GenVarName("REG", operand[ID0]);
+    std::string S0Name = GenVarName("REG", operand[ID1]);
 
     std::ostringstream oss;
     oss << UnaryOp << "(" << DName << ", " << S0Name << ", allMask);\n";
@@ -316,11 +316,11 @@ std::string VFCodegen::genUnaryRegOp(const std::string &UnaryOp) {
     return oss.str();
 }
 
-std::string VFCodegen::genVFEnd() {
+std::string VFCodeGen::GenVFEnd() {
     return std::string{"    }\n}\n}\n"};
 }
 
-std::string VFCodegen::GetVFHeaderForInclude() const {
+std::string VFCodeGen::GetVFHeaderForInclude() const {
     return "#include \"" + path_ + "\"\n";
 }
 

@@ -107,7 +107,7 @@ bool HasAllocAttr(const std::shared_ptr<LogicalTensor> &tensor) {
     return needAlloc;
 }
 
-std::string CodeGenCloudNPU::GenInclude(const VFCodegen &vfCg) const {
+std::string CodeGenCloudNPU::GenInclude(const VFCodeGen &vfCg) const {
     std::ostringstream include;
     // expression fusion
     if (ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_EXPRESSION_FUSION, false)) {
@@ -158,7 +158,7 @@ std::string CodeGenCloudNPU::GenFuncHeader(uint64_t programId, Function &topFunc
 }
 
 std::string CodeGenCloudNPU::GenFuncBodyBefore(const std::pair<uint64_t, Function *> &subFuncPair,
-    Function &topFunc, const VFCodegen &vfCg, CompileInfo &compileInfo) const {
+    Function &topFunc, const VFCodeGen &vfCg, CompileInfo &compileInfo) const {
     std::ostringstream codeBefore;
     codeBefore << GenInclude(vfCg);
     codeBefore << GenCommentBeforeFuncHeader(*subFuncPair.second);
@@ -238,13 +238,11 @@ std::string CodeGenCloudNPU::GenAllocForLocalBuffer(const Operation &op, SymbolM
         return "";
     };
     for (const std::shared_ptr<LogicalTensor> &operand : op.GetIOperands()) {
-        // NEXTNEXT "inverseMap_.emplace" should be deleted later when gaoxiang prepared
         symbolMgr.AddToTensorMap(operand->GetMagic(), operand);
         PrintOperand("IOperand", operand);
         allocSourceCode += genExtraAllocForTensor(operand);
     }
     for (const std::shared_ptr<LogicalTensor> &operand : op.GetOOperands()) {
-        // NEXTNEXT "inverseMap_.emplace" should be deleted later when gaoxiang prepared
         symbolMgr.AddToTensorMap(operand->GetMagic(), operand);
         PrintOperand("OOperand", operand);
         allocSourceCode += genExtraAllocForTensor(operand);
@@ -317,10 +315,10 @@ void CodeGenCloudNPU::GenCode(
             isUnderDynamicFunction_ = subFunc->IsUnderDynamicFunction();
             bool isCube = IsCube(subFunc->Operations());
             CompileInfo compileInfo(topFunc, ctx.cceDir, subFuncPair.first, isCube, isUnderDynamicFunction_);
-            VFCodegen vfCodegen;
-            vfCodegen.GenCode(subFunc, compileInfo.GetVFHeaderAbsPath());
+            VFCodeGen vfCodeGen;
+            vfCodeGen.GenCode(subFunc, compileInfo.GetVFHeaderAbsPath());
             std::ostringstream leafKernelFunc;
-            leafKernelFunc << GenFuncBodyBefore(subFuncPair, topFunc, vfCodegen, compileInfo);
+            leafKernelFunc << GenFuncBodyBefore(subFuncPair, topFunc, vfCodeGen, compileInfo);
             leafKernelFunc << GenFuncBody(*subFunc, topFunc);
             leafKernelFunc << GenFuncEnd();
             DumpCCE(compileInfo.GetCCEAbsPath(), leafKernelFunc.str());

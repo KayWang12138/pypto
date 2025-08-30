@@ -98,8 +98,8 @@ public:
 
 private:
     std::string GenFuncBodyBefore(const std::pair<uint64_t, Function *> &subFuncPair, Function &topFunc,
-                                  const VFCodegen &vfCg, CompileInfo &compileInfo) const;
-    std::string GenInclude(const VFCodegen &vfCg) const;
+                                  const VFCodeGen &vfCg, CompileInfo &compileInfo) const;
+    std::string GenInclude(const VFCodeGen &vfCg) const;
     static std::string GenCommentBeforeFuncHeader(Function &subFunc);
     std::string GenFuncHeader(uint64_t programId, Function &topFunc, CompileInfo &compileInfo) const;
     std::string GenFuncBody(Function &subFunc, Function &topFunc) const;
