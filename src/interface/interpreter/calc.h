@@ -73,6 +73,8 @@ void Transpose(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t dim0
 void ReduceAcc(LogicalTensorDataPtr out, const std::vector<LogicalTensorDataPtr> &tdatas);
 
 void Copy(LogicalTensorDataPtr out, LogicalTensorDataPtr self, bool trans = false);
+void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, int axis = -2, 
+    std::string cacheMode = "BSND", int blockSize = 1);
 
 // matmul
 void FormatND2NZ(LogicalTensorDataPtr inputTensor);

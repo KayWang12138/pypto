@@ -224,15 +224,10 @@ void ExecuteOpIndexOutcast(ExecuteOperationContext *ctx) {
     auto index = ctx->ioperandDataViewList->at(1);
     auto dst = ctx->ioperandDataViewList->at(2);
     int axis = ctx->op->GetIntAttribute("axis");
-    auto oopCopy = oop;
+    int blockSize = ctx->op->GetIntAttribute(OpAttributeKey::panzBlockSize);
+    std::string cacheMode = ctx->op->GetStringAttribute(OpAttributeKey::cacheMode);
 
-    if (std::dynamic_pointer_cast<CopyOpAttribute>(ctx->op->GetOpAttribute())) {
-        auto copyoutAttr = std::dynamic_pointer_cast<CopyOpAttribute>(ctx->op->GetOpAttribute());
-        std::vector<int64_t> shape = dst->GetShape();
-        std::vector<int64_t> toOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyoutAttr->GetToOffset());
-        oopCopy = oop->View(shape, toOffset);
-    }
-    Calculator::CalcIndexCopy(oopCopy.get(), src.get(), index.get(), dst.get(), axis, ctx->opInter->GetPoolPtr());
+    calc::ScatterUpdate(oop, src, index, axis, cacheMode, blockSize);
 }
 REGISTER_CALC_OP(OP_INDEX_OUTCAST, Opcode::OP_INDEX_OUTCAST, ExecuteOpIndexOutcast);
 
