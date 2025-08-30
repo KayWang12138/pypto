@@ -243,7 +243,7 @@ struct DevCellMatchTableDesc {
     DevAscendShape cellShape;
     DevAscendStride stride;
 
-    int GetDimSize() const { return cellShape.dimSize; }
+    int GetDimensionSize() const { return cellShape.dimSize; }
 
     const int &GetCellShape(int index) const { return cellShape.dim[index]; }
 
@@ -418,12 +418,14 @@ struct DevAscendOperationOperandInfo {
     int tensorIndex{0};
     int staticOffsetAttrBeginIndex{0};
     int staticShapeAttrBeginIndex{0};
+    int staticRawShapeAttrBeginIndex{0};
 
     DevAscendOperationOperandInfo() {}
     DevAscendOperationOperandInfo(int tTensorIndex, int tStaticAttrBeginIndex, int tStaticDim)
         : tensorIndex(tTensorIndex),
           staticOffsetAttrBeginIndex(tStaticAttrBeginIndex),
-          staticShapeAttrBeginIndex(tStaticAttrBeginIndex + tStaticDim) {}
+          staticShapeAttrBeginIndex(tStaticAttrBeginIndex + tStaticDim),
+          staticRawShapeAttrBeginIndex(staticShapeAttrBeginIndex + tStaticDim) {}
     int GetDim() const { return staticShapeAttrBeginIndex - staticOffsetAttrBeginIndex; }
 };
 
@@ -1178,13 +1180,36 @@ public:
         return paramConcrete;
     }
 
+    template<bool skipExpression>
+    inline bool GetTensorRawShape(
+            uint64_t rawShape[DEV_SHAPE_DIM_MAX],
+            const uint64_t *runtimeExpressionList, int dims, int operationIndex, int operandIndex,
+            bool isIOperand = true) const {
+        auto &operandInfo = GetOperationOperandInfo(operationIndex, operandIndex, isIOperand);
+        const SymInt *rawShapeSymList = &GetOperationAttr(operationIndex, operandInfo.staticRawShapeAttrBeginIndex);
+        bool paramConcrete = true;
+        for (int i = 0; i < dims; i++) {
+            auto value = rawShapeSymList[i].Value();
+            if (rawShapeSymList[i].IsExpression()) {
+                if (skipExpression) {
+                    paramConcrete = false;
+                } else {
+                    rawShape[i] = runtimeExpressionList[value];
+                }
+            } else {
+                rawShape[i] = value;
+            }
+        }
+        return paramConcrete;
+    }
+
     static void CellMatchGetIndexRange(
             const uint64_t offset[DEV_SHAPE_DIM_MAX],
             const uint64_t shape[DEV_SHAPE_DIM_MAX],
             const DevCellMatchTableDesc &cellMatchTableDesc,
             uint64_t rangeBegin[DEV_SHAPE_DIM_MAX],
             uint64_t rangeEnd[DEV_SHAPE_DIM_MAX]) {
-        for (int i = 0; i < cellMatchTableDesc.GetDimSize(); ++i) {
+        for (int i = 0; i < cellMatchTableDesc.GetDimensionSize(); ++i) {
             auto cellMatchShapeDim = cellMatchTableDesc.GetCellShape(i);
             if(cellMatchShapeDim != 0) {
                 rangeBegin[i] = offset[i] / cellMatchShapeDim;
@@ -1268,7 +1293,7 @@ public:
             }
             break;
         default:
-            DEV_ERROR("[Stitch] Too many dimension: %d\n", (int)cellMatchTableDesc.GetDimSize());
+            DEV_ERROR("[Stitch] Too many dimension: %d\n", (int)cellMatchTableDesc.GetDimensionSize());
             break;
         }
     }
@@ -1311,12 +1336,35 @@ public:
             const DevCellMatchTableDesc &cellMatchTableDesc,
             TyArgs... args) {
         bool allConcrete = true;
+        auto validateAndRefreshOffsetShape =
+        [this, &runtimeExpressionList, &cellMatchTableDesc, &isIOperand](
+            const uint64_t offset[DEV_SHAPE_DIM_MAX],
+            uint64_t shape[DEV_SHAPE_DIM_MAX],
+            int operationIndex, int operandIndex) {
+            uint64_t rawShape[DEV_SHAPE_DIM_MAX];
+            bool paramConcrete = GetTensorRawShape<skipExpression>(rawShape, runtimeExpressionList,
+                cellMatchTableDesc.GetDimensionSize(), operationIndex, operandIndex, isIOperand);
+            if (paramConcrete) {
+                for (int j = 0; j < cellMatchTableDesc.GetDimensionSize(); j++) {
+                    if (offset[j] >= rawShape[j]) {
+                        return false;
+                    } else if (offset[j] + shape[j] > rawShape[j]){
+                        shape[j] = rawShape[j] - offset[j];
+                    }
+                }
+            }
+            return true;
+        };
+
         for (size_t i = 0; i < useSize; i++) {
             auto &use = operandUseList[i];
             uint64_t offset[DEV_SHAPE_DIM_MAX];
             uint64_t shape[DEV_SHAPE_DIM_MAX];
-            bool paramConcrete = GetTensorOffsetAndShape<skipExpression>(offset, shape, runtimeExpressionList, cellMatchTableDesc.GetDimSize(), use.operationIdx, use.operandIdx, isIOperand);
+            bool paramConcrete = GetTensorOffsetAndShape<skipExpression>(offset, shape, runtimeExpressionList, cellMatchTableDesc.GetDimensionSize(), use.operationIdx, use.operandIdx, isIOperand);
             if (paramConcrete) {
+                if (!validateAndRefreshOffsetShape(offset, shape, use.operationIdx, use.operandIdx)) {
+                    continue; // dassemble offset of outoperand maybe exceed the rawshape dimension
+                }
                 CellMatchFill(offset, shape, use.operationIdx, cellMatchTableDesc, args...);
             }
             allConcrete &= paramConcrete;
