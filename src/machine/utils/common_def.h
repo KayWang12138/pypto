@@ -71,6 +71,8 @@ struct DeviceArgs {
     uint64_t taskId   : 52;   // initial task id
     uint64_t taskData;        // initial task data
     uint64_t taskWastTime{0};
+    uint64_t aicpuSoBin{0};    // server so Bin
+    uint64_t aicpuSoLen{0};    // server so len
 
     uint64_t GetBlockNum() { return nrValidAic * (nrAiv / nrAic + 1); }
 };
