@@ -393,6 +393,24 @@ TILEOP void DynL1ToL0At(__ca__ T *dst, __cbuf__ T *src, unsigned dstM, unsigned 
     srcM = CeilAlign<uint16_t>(srcM, c0Size);
     srcK = CeilAlign<uint16_t>(srcK, BLOCK_CUBE_M_N);
 
+    if constexpr (std::is_same<T, int8_t>::value) {
+        uint8_t repeat = dstK / c0Size;
+        uint16_t srcStride = 1;
+        uint16_t dstStride = 0;
+        uint16_t dstFracStride = dstK / c0Size - 1;
+        int32_t dstOffset = 0;
+        int32_t srcOffset = 0;
+        int32_t dstOffsetStep = dstK * c0Size;
+        int32_t srcOffsetStep = srcK * c0Size;
+
+        for (int32_t mIdx = 0; mIdx < static_cast<int32_t>(dstM / c0Size); ++mIdx) {
+            load_cbuf_to_ca_transpose(dst + dstOffset, src + srcOffset, 0,
+                repeat, srcStride, dstStride, inc, dstFracStride);
+                dstOffset += dstOffsetStep;
+                srcOffset += srcOffsetStep;
+        }
+        return;
+    }
     if (dstK == srcK) {
         uint8_t repeat = (dstK / BLOCK_CUBE_M_N) * (dstM / c0Size); // 表示搬运的次数
         uint16_t srcStride = 1;                                     // fract between fract
@@ -426,13 +444,20 @@ TILEOP void DynL1ToL0B(__cb__ T *dst, __cbuf__ T *src, unsigned dstK, unsigned d
     srcK = (srcK + frac_num - 1) / frac_num * frac_num;
 
     if constexpr (std::is_same<T, int8_t>::value) {
-        for (auto index = 0; index < dstN / nBlockSize; ++index) {
-            auto repeatTimes = dstK / (nBlockSize);
-            auto srcStride = 1;
-            auto dstGap = (nBlockSize * dstN - nBlockSize * 16) / (16 * nBlockSize);
-            auto dstFracGap = 0;
-            load_cbuf_to_cb_transpose(dst + index * nBlockSize * nBlockSize, src + Offset0 * nBlockSize + Offset1 * srcK + index * nBlockSize * srcK, 0,
-                repeatTimes, srcStride, dstGap, inc, dstFracGap);
+        uint8_t repeat = dstK / nBlockSize;
+        uint16_t srcStride = 1;
+        uint16_t dstStride = dstN / BLOCK_CUBE_M_N - 1;
+        uint16_t dstFracStride = 0;
+        int32_t dstOffset = 0;
+        int32_t srcOffset = 0;
+        int32_t dstOffsetStep = nBlockSize * nBlockSize;
+        int32_t srcOffsetStep = srcK * nBlockSize;
+
+        for (int32_t nIdx = 0; nIdx < static_cast<int32_t>(dstN / nBlockSize); ++nIdx) {
+            load_cbuf_to_cb_transpose(dst + dstOffset, src + srcOffset, 0,
+                repeat, srcStride, dstStride, inc, dstFracStride);
+                dstOffset += dstOffsetStep;
+                srcOffset += srcOffsetStep;
         }
         return;
     }
@@ -494,6 +519,9 @@ TILEOP void DynTmad(__cc__ Tc *c, __ca__ Ta *a, __cb__ Tb *b, uint16_t m, uint16
     bool kDirectionAlign = true; // aligned to 8 for fp32
     bool cmatrixSource = false;  // true means bias
     m = CeilAlign<uint16_t>(m, BLOCK_CUBE_M_N);
+    if constexpr (std::is_same<Tb, int8_t>::value) {
+        n = CeilAlign<uint16_t>(n, 32);
+    }
 
     mad((__cc__ Tc *)(c + (Offset0 * 16) + Offset1 * L0CShape0), a, b, m, k, n, unitFlag, kDirectionAlign,
         cmatrixSource, zero_C);

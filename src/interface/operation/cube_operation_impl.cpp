@@ -376,9 +376,8 @@ void CheckOperandsValid(const Tensor &operand1, const Tensor &operand2) {
     ASSERT(operand1->shape.size() == operand1->offset.size());
     ASSERT(operand2->shape.size() == operand2->offset.size());
 }
-
-template <bool isTransA, bool isTransB>
-void CheckMatMulOperandsValid(const Tensor &operand1, const Tensor &operand2) {
+template <bool isTransA, bool isTransB, bool isCMatrixNZ>
+void CheckMatMulOperandsValid(DataType outType, const Tensor &operand1, const Tensor &operand2) {
     // shape valid check
     ASSERT(operand1->shape.size() != 0 && operand2->shape.size() != 0);
     for (size_t i = 0; i < operand1->shape.size(); ++i) {
@@ -426,6 +425,16 @@ void CheckMatMulOperandsValid(const Tensor &operand1, const Tensor &operand2) {
         ASSERT(operand2->shape[0] % ALIGN_SIZE_16 == 0);
         ASSERT(operand2->shape[1] * BytesOf(operand2.GetDataType()) % ALIGN_SIZE_32 == 0);
     }
+    if constexpr (isCMatrixNZ) {
+        int64_t nView = isTransB ? operand2->shape[0] : operand2->shape[1];
+        if (outType == DataType::DT_INT32) {
+            ASSERT(nView % ALIGN_SIZE_16 == 0);
+            ASSERT(nL0 % ALIGN_SIZE_16 == 0);
+        } else {
+            ASSERT(nView * BytesOf(outType) % ALIGN_SIZE_32 == 0);
+            ASSERT(nL0 * BytesOf(outType) % ALIGN_SIZE_32 == 0);
+        }
+    }
     ASSERT(kL0 > 0 && kL1 > 0 && mL0 > 0 && mL1 > 0 && nL0 > 0 && nL1 > 0);
     ASSERT(kL0 <= kL1 && kL1 % kL0 == 0);
     ASSERT(nL0 <= nL1 && nL1 % nL0 == 0);
@@ -439,7 +448,7 @@ void MatmulImpl(DataType dataType, const std::vector<LogicalTensorPtr> &iOperand
     const auto operand1 = iOperand[0];
     const auto operand2 = iOperand[1];
     CheckOperandsValid(operand1, operand2);
-    CheckMatMulOperandsValid<false, false>(operand1, operand2);
+    CheckMatMulOperandsValid<false, false, isCMatrixNZ>(dataType, operand1, operand2);
     ASSERT(dataType == DT_FP32 || dataType == DT_FP16 || dataType == DT_BF16 || dataType == DT_INT32);
     if constexpr (isCMatrixNZ) {
         result->tensorfmt = TileOpFormat::TILEOP_NZ;
@@ -488,7 +497,7 @@ template <bool isCMatrixNZ>
 void AMulBtImpl(
     DataType dataType, const LogicalTensorPtr &operand1, const LogicalTensorPtr &operand2, LogicalTensorPtr &result) {
     CheckOperandsValid(operand1, operand2);
-    CheckMatMulOperandsValid<false, true>(operand1, operand2);
+    CheckMatMulOperandsValid<false, true, isCMatrixNZ>(dataType, operand1, operand2);
     ASSERT(dataType == DataType::DT_FP32 || dataType == DataType::DT_FP16 || dataType == DataType::DT_BF16 ||
            dataType == DataType::DT_INT32);
     if constexpr (isCMatrixNZ) {
@@ -501,7 +510,7 @@ template <bool isCMatrixNZ>
 void AMulBtImpl(DataType dataType, const LogicalTensorPtr &operand1, const LogicalTensorPtr &operand2,
     const LogicalTensorPtr &operand3, LogicalTensorPtr &result) {
     CheckOperandsValid(operand1, operand2);
-    CheckMatMulOperandsValid<false, true>(operand1, operand2);
+    CheckMatMulOperandsValid<false, true, isCMatrixNZ>(dataType, operand1, operand2);
     ASSERT(dataType == DataType::DT_FP32 || dataType == DataType::DT_FP16 || dataType == DataType::DT_BF16 ||
            dataType == DataType::DT_INT32);
     if constexpr (isCMatrixNZ) {
@@ -514,7 +523,7 @@ template <bool isCMatrixNZ>
 void AtMulBImpl(
     DataType dataType, const LogicalTensorPtr &operand1, const LogicalTensorPtr &operand2, LogicalTensorPtr &result) {
     CheckOperandsValid(operand1, operand2);
-    CheckMatMulOperandsValid<true, false>(operand1, operand2);
+    CheckMatMulOperandsValid<true, false, isCMatrixNZ>(dataType, operand1, operand2);
     ASSERT(dataType == DataType::DT_FP32 || dataType == DataType::DT_FP16 || dataType == DataType::DT_BF16 ||
            dataType == DataType::DT_INT32);
     if constexpr (isCMatrixNZ) {
@@ -527,7 +536,7 @@ template <bool isCMatrixNZ>
 void AtMulBtImpl(
     DataType dataType, const LogicalTensorPtr &operand1, const LogicalTensorPtr &operand2, LogicalTensorPtr &result) {
     CheckOperandsValid(operand1, operand2);
-    CheckMatMulOperandsValid<true, true>(operand1, operand2);
+    CheckMatMulOperandsValid<true, true, isCMatrixNZ>(dataType, operand1, operand2);
     ASSERT(dataType == DataType::DT_FP32 || dataType == DataType::DT_FP16 || dataType == DataType::DT_BF16 ||
            dataType == DataType::DT_INT32);
     if constexpr (isCMatrixNZ) {
