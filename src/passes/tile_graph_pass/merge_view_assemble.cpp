@@ -163,10 +163,12 @@ Status MergeViewAssemble::ProcessChainEnd(
     std::vector<Operation *> &chain)
 {
     // 1. 验证链的有效性
-    if (chain.front()->iOperand.empty() || chain.back()->oOperand.empty()) { ALOG_ERROR_F("Invalid chain operations"); return FAILED; }
+    if (chain.front()->iOperand.empty()) { ALOG_ERROR_F("First operation in chain (opmagic: %d) has no input operands", chain.front()->GetOpMagic()); return FAILED;}
+    if (chain.back()->oOperand.empty()) { ALOG_ERROR_F("Last operation in chain (opmagic: %d) has no output operands", chain.back()->GetOpMagic()); return FAILED; }
     auto &startTensor = chain.front()->iOperand.front();
     auto &endTensor = chain.back()->oOperand.front();
-    if (!startTensor || !endTensor) { ALOG_ERROR_F("Null tensor found in chain"); return FAILED; }
+    if (!startTensor) { ALOG_ERROR_F("Null input tensor found for first operation in chain (opmagic: %d)", chain.front()->GetOpMagic()); return FAILED;}
+    if (!endTensor) { ALOG_ERROR_F("Null output tensor found for last operation in chain (opmagic: %d)", chain.back()->GetOpMagic()); return FAILED; }
     std::vector<int64_t> newOffset;
     std::vector<SymbolicScalar> newDynOffset;
     std::vector<SymbolicScalar> newDynValidShape;
