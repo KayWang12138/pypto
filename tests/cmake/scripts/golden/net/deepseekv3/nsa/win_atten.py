@@ -226,7 +226,7 @@ def gen_win_attn_data(win, b, s_q, n_q, skv, block_size, n_kv, dtypes, output):
 @GoldenRegister.reg_golden_func(
     case_names=[
         # ifa
-        "DynamicWinAttenTest.test_DynAttn_nas_win_attn_s1_2_actseqlen_1024_mla_fp16",
+        "DynamicWinAttenTest.test_DynAttn_nas_win_attn_s1_2_actseqlen_1024_mla_fp16_v1",
         "DynamicWinAttenTest.test_DynAttn_nas_win_attn_s1_2_actseqlen_1023_mla_fp16_unalign",
         "DynamicWinAttenTest.test_DynAttn_nas_win_attn_s1_2_actseqlen_1024_mla_bf16",
         "DynamicWinAttenTest.test_DynAttn_nas_win_attn_s1_2_actseqlen_1023_mla_bf16_unalign",
@@ -255,8 +255,8 @@ def win_attn_func(case_name: str, output: Path) -> bool:
         logging.debug("Case(%s), Golden complete.", case_name)
         return True
 
-    win = 512
-    if case_name.startswith('DynamicWinAttenTest.test_DynAttn_nas_win_attn_s1_2_actseqlen_1024_mla_fp16'):
+    win = 1024
+    if case_name.startswith('DynamicWinAttenTest.test_DynAttn_nas_win_attn_s1_2_actseqlen_1024_mla_fp16_v1'):
         b = 16
         s_q = 2
         n_q = 128

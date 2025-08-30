@@ -556,20 +556,16 @@ def dviewPad(output_dir: Path):
     ]
 )
 def gen_mla_prolog_date_v2(case_name: str, output: Path) -> bool:
-    input_path = Path(output, 'x.bin')
-    complete = input_path.exists()
-    if complete:
-        file_mod_time = input_path.stat().st_mtime
-        # 获取当前时间（Unix 时间戳）
-        current_time = time.time()
-        # 判断文件的修改时间是否超过1小时（3600秒）
-        if current_time - file_mod_time > 3600:
-            logging.info("文件的修改时间超过1小时，重新生成文件...")
-            complete = False
-        else:
-            logging.info("文件的修改时间在1小时内，无需重新生成。")
+    p_cmp_path = Path(output, 'p_cmp.bin')
+    topk_indices_path = Path(output, 'topk_indices.bin')
+    trans0_path = Path(output, 'trans0.bin')
+    reduce0_path = Path(output, 'reduce0.bin')
+    trans1_path = Path(output, 'trans1.bin')
+    reduce1_path = Path(output, 'reduce1.bin')
+    complete = (p_cmp_path.exists() and topk_indices_path.exists() and trans0_path.exists() and
+        reduce0_path.exists() and trans1_path.exists() and reduce1_path.exists())
 
-    if False:
+    if complete:
         logging.info("Case(%s), Golden data exits. cache catch", case_name)
     else:
         if case_name == "DyNsa.GateScore_b16_s1_fp":

@@ -418,6 +418,38 @@ def gen_kv_compress_data(params, output):
     ]
 )
 def kv_compress(case_name: str, output: Path) -> bool:
+    in_params_path = Path(output, "input_param.bin")
+    kv_cache_path = Path(output, "kv_cache.bin")
+    kr_cache_path = Path(output, "kr_cache.bin")
+    cmp_kv_cache_path = Path(output, "kv_cache_compress.bin")
+    cmp_kr_cache_path = Path(output, "kr_cache_compress.bin")
+    block_table_path = Path(output, "block_table.bin")
+    cmp_cache_index_path = Path(output, "cache_index_compress.bin")
+    act_seq_path = Path(output, "act_seq_compress.bin")
+    act_cmp_seq_path = Path(output, "act_cmp_seq_compress.bin")
+    mlp_wk1_path = Path(output, "mlp_wk1.bin")
+    mlp_wk2_path = Path(output, "mlp_wk2.bin")
+    mlp_wk1_nz_path = Path(output, "mlp_wk1_nz.bin")
+    mlp_wk2_nz_path = Path(output, "mlp_wk2_nz.bin")
+    mlp_cos_path = Path(output, "mlp_cos.bin")
+    mlp_sin_path = Path(output, "mlp_sin.bin")
+    cmp_kv_cache_output_path = Path(output, "kv_cache_out_compress.bin")
+    cmp_kr_cache_output_path = Path(output, "kr_cache_out_compress.bin")
+    aux_tensor_path = Path(output, "aux_tensor.bin")
+
+    complete = (in_params_path.exists() and kv_cache_path.exists() and kr_cache_path.exists() and
+        cmp_kv_cache_path.exists() and cmp_kr_cache_path.exists() and block_table_path.exists() and
+        cmp_cache_index_path.exists() and act_seq_path.exists() and act_cmp_seq_path.exists() and
+        mlp_wk1_path.exists() and mlp_wk2_path.exists() and mlp_wk1_nz_path.exists() and
+        mlp_wk2_nz_path.exists() and mlp_cos_path.exists() and mlp_sin_path.exists() and
+        cmp_kv_cache_output_path.exists() and cmp_kr_cache_output_path.exists() and
+        aux_tensor_path.exists())
+    # complete = False
+
+    if complete:
+        logging.debug("Case(%s), Golden complete.", case_name)
+        return True
+
     block_size = 128
     kv_lora_rank, rope_dim = 512, 64
     cmp_block_size, stride, slc_block_size = 32, 16, 64

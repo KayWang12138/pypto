@@ -213,6 +213,7 @@ def trans_pa_bnsd_to_bsh(tensor, shape):
 def gen_pa_data(output_dir: Path, params, dtype, q_out, q_rope_out, kv_cache_out, kr_cache_out, block_size=4096,
                 n_tile=128, is_nz=False):
     np.random.seed(0)
+
     # b, n_q, skv, s_q, n_kv, kv_lora_rank, qk_rope_dim = params
     b = params.get("b")
     n_q = params.get("num_heads")

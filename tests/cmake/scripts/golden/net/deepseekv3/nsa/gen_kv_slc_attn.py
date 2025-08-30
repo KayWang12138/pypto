@@ -464,18 +464,9 @@ def gen_kv_slc_attn_entry(dtypes, bs1s2h, quant_smooth, kv_cache_actual_seq, out
     ]
 )
 def gen_kv_slc_attn_func(case_name: str, output: Path) -> bool:
-    input_path = Path(output, 'slc_attn_out.bin')
-    complete = input_path.exists()
-    if complete:
-        file_mod_time = input_path.stat().st_mtime
-        # 获取当前时间（Unix 时间戳）
-        current_time = time.time()
-        # 判断文件的修改时间是否超过1小时（3600秒）
-        if current_time - file_mod_time > 3600:
-            logging.info("文件的修改时间超过1小时，重新生成文件...")
-            complete = False
-        else:
-            logging.info("文件的修改时间在1小时内，无需重新生成。")
+    input_params_path = Path(output, 'input_params.bin')
+    slc_attn_out_path = Path(output, 'slc_attn_out.bin')
+    complete = (input_params_path.exists() and slc_attn_out_path.exists())
 
     # complete = False  # TODO: del complete
     if complete:

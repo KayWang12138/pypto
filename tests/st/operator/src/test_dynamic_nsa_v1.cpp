@@ -521,7 +521,7 @@ TEST_F(DynamicNSATest, nsa_b_16_s1_1_s2_8192_h_7168_fp16_quant) {
         gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, dN+dR) @ (winSize, dN+dR) -> (n1, s2Tile)
     winAttnTileConfig.v1TileShape = {NUM_16, NUM_256};           // (n1, s2Tile)
     winAttnTileConfig.c2TileShape = {
-        gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, winSize) @ (winSize, dN) -> (n1, d)
+        gTileSize, gTileSize, NUM_128, NUM_128, NUM_128, NUM_128}; // (n1, winSize) @ (winSize, dN) -> (n1, d)
     winAttnTileConfig.v2TileShape = {NUM_16, NUM_256};           // (n1, d)
 
     int tileB = 16;
@@ -604,7 +604,7 @@ void test_common(NSASimpleParams params) {
         gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, dN+dR) @ (winSize, dN+dR) -> (n1, s2Tile)
     winAttnTileConfig.v1TileShape = {NUM_16, NUM_256};           // (n1, s2Tile)
     winAttnTileConfig.c2TileShape = {
-        gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, winSize) @ (winSize, dN) -> (n1, d)
+        gTileSize, gTileSize, NUM_128, NUM_128, NUM_128, NUM_128}; // (n1, winSize) @ (winSize, dN) -> (n1, d)
     winAttnTileConfig.v2TileShape = {NUM_16, NUM_256};           // (n1, d)
 
     int tileB = 16;

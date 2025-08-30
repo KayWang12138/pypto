@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file test_dynamic_win_attn_ut.cpp
+ * \file test_dynamic_win_attn_flash_ut.cpp
  * \brief
  */
 #include "gtest/gtest.h"
@@ -26,7 +26,7 @@
 
 using namespace npu::tile_fwk;
 
-class DynamicTestWinAttenUt : public testing::Test {
+class DynamicTestWinAttenFlashUt : public testing::Test {
 public:
     static void SetUpTestCase() {}
 
@@ -51,7 +51,7 @@ constexpr int NUM_512 = 512;
 constexpr int NUM_1024 = 1024;
 
 template <typename T = npu::tile_fwk::float16>
-void TestWinAttenUt(WinAttenTileShapeConfig& tileConfig) {
+void TestWinAttenFlashUt(WinAttenTileShapeConfig& tileConfig) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
 
     DataType dType = DT_FP32;
@@ -90,14 +90,16 @@ void TestWinAttenUt(WinAttenTileShapeConfig& tileConfig) {
     Tensor blockTable(DT_INT32, blockTableShape, "blockTable");
     Tensor attentionOut(DT_FP32, attentionOutShape, "attentionOut");
 
-    WinAttention(qNope, vNopeCache, qRope, kRopeCache, nQ, nKV, blockTable, actSeqs, windowSize,
+    WinAttentionFlash(qNope, vNopeCache, qRope, kRopeCache, nQ, nKV, blockTable, actSeqs, windowSize,
         blockSize, softmaxScale, attentionOut, tileConfig);
 }
 
-TEST_F(DynamicTestWinAttenUt, TestOnboardWinAttnTest_FP16_Test0) {
+TEST_F(DynamicTestWinAttenFlashUt, TestOnboardWinAttnTest_FP16_Test1) {
     WinAttenTileShapeConfig tileConfig;
     const int gTileSize = NUM_128; // for gLoop split
+    const int skvTileSize = NUM_512; // for flash split
     tileConfig.gTile = gTileSize;
+    tileConfig.skvTile = skvTileSize;
     tileConfig.vNopeTileShape = {NUM_16, NUM_256};
     tileConfig.vRopeTileShape = {NUM_128, NUM_64};
     tileConfig.outTileShape = {NUM_16, NUM_256};
@@ -106,5 +108,5 @@ TEST_F(DynamicTestWinAttenUt, TestOnboardWinAttnTest_FP16_Test0) {
     tileConfig.c2TileShape = {gTileSize, gTileSize, NUM_128, NUM_128, NUM_128, NUM_128}; // (n1, s2Tile) @ (s2Tile, dN) -> (n1, d)
     tileConfig.v2TileShape = {NUM_16, NUM_256}; // (n1, d)
     // WinConfig config;
-    TestWinAttenUt<npu::tile_fwk::float16>(tileConfig);
+    TestWinAttenFlashUt<npu::tile_fwk::float16>(tileConfig);
 }

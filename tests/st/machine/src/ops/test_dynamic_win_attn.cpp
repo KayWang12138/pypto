@@ -129,18 +129,19 @@ void TestWinAtten(WinAttenTileShapeConfig& tileConfig) {
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.0005f));
 }
 
-TEST_F(DynamicWinAttenTest, test_DynAttn_nas_win_attn_s1_2_actseqlen_1024_mla_fp16) {
+TEST_F(DynamicWinAttenTest, test_DynAttn_nas_win_attn_s1_2_actseqlen_1024_mla_fp16_v1) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
     WinAttenTileShapeConfig tileConfig;
     const int gTileSize = NUM_128; // for gLoop split
+    const int skvTileSize = NUM_512; // for flash split
     tileConfig.gTile = gTileSize;
-    tileConfig.vNopeTileShape = {NUM_16, NUM_256};
+    tileConfig.skvTile = skvTileSize;
+    tileConfig.vNopeTileShape = {NUM_32, NUM_512};
     tileConfig.vRopeTileShape = {NUM_128, NUM_64};
-    tileConfig.outTileShape = {NUM_16, NUM_256};
-    tileConfig.c1TileShape = {gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, dN+dR) @ (s2Tile, dN+dR) -> (n1, s2Tile)
-    tileConfig.v1TileShape = {NUM_32, NUM_128}; // (n1, s2Tile)
-    tileConfig.c2TileShape = {gTileSize, gTileSize, NUM_128, NUM_128, NUM_128, NUM_128}; // (n1, s2Tile) @ (s2Tile, dN) -> (n1, d)
-    tileConfig.v2TileShape = {NUM_16, NUM_256}; // (n1, d)
+    tileConfig.c1TileShape = {gTileSize, gTileSize, NUM_64, NUM_64, NUM_256, NUM_256}; // (n1, dN+dR) @ (s2Tile, dN+dR) -> (n1, s2Tile)
+    tileConfig.v1TileShape = {NUM_32, NUM_256}; // (n1, s2Tile)
+    tileConfig.c2TileShape = {gTileSize, gTileSize, NUM_256, NUM_256, NUM_128, NUM_128}; // (n1, s2Tile) @ (s2Tile, dN) -> (n1, d)
+    tileConfig.v2TileShape = {NUM_32, NUM_512}; // (n1, d)
     // WinConfig config;
     TestWinAtten<npu::tile_fwk::float16>(tileConfig);
 }
@@ -149,14 +150,15 @@ TEST_F(DynamicWinAttenTest, test_DynAttn_nas_win_attn_s1_2_actseqlen_1023_mla_fp
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
     WinAttenTileShapeConfig tileConfig;
     const int gTileSize = NUM_128; // for gLoop split
+    const int skvTileSize = NUM_512; // for flash split
     tileConfig.gTile = gTileSize;
-    tileConfig.vNopeTileShape = {NUM_16, NUM_256};
+    tileConfig.skvTile = skvTileSize;
+    tileConfig.vNopeTileShape = {NUM_32, NUM_512};
     tileConfig.vRopeTileShape = {NUM_128, NUM_64};
-    tileConfig.outTileShape = {NUM_16, NUM_256};
-    tileConfig.c1TileShape = {gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, dN+dR) @ (winSize, dN+dR) -> (n1, s2Tile)
-    tileConfig.v1TileShape = {NUM_32, NUM_128}; // (n1, s2Tile)
-    tileConfig.c2TileShape = {gTileSize, gTileSize, NUM_128, NUM_128, NUM_128, NUM_128}; // (n1, winSize) @ (winSize, dN) -> (n1, d)
-    tileConfig.v2TileShape = {NUM_16, NUM_256}; // (n1, d)
+    tileConfig.c1TileShape = {gTileSize, gTileSize, NUM_64, NUM_64, NUM_256, NUM_256}; // (n1, dN+dR) @ (s2Tile, dN+dR) -> (n1, s2Tile)
+    tileConfig.v1TileShape = {NUM_32, NUM_256}; // (n1, s2Tile)
+    tileConfig.c2TileShape = {gTileSize, gTileSize, NUM_256, NUM_256, NUM_128, NUM_128}; // (n1, s2Tile) @ (s2Tile, dN) -> (n1, d)
+    tileConfig.v2TileShape = {NUM_32, NUM_512}; // (n1, d)
     // WinConfig config;
     TestWinAtten<npu::tile_fwk::float16>(tileConfig);
 }
@@ -165,14 +167,15 @@ TEST_F(DynamicWinAttenTest, test_DynAttn_nas_win_attn_s1_2_actseqlen_1024_mla_bf
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
     WinAttenTileShapeConfig tileConfig;
     const int gTileSize = NUM_128; // for gLoop split
+    const int skvTileSize = NUM_512; // for flash split
     tileConfig.gTile = gTileSize;
-    tileConfig.vNopeTileShape = {NUM_16, NUM_256};
+    tileConfig.skvTile = skvTileSize;
+    tileConfig.vNopeTileShape = {NUM_32, NUM_512};
     tileConfig.vRopeTileShape = {NUM_128, NUM_64};
-    tileConfig.outTileShape = {NUM_16, NUM_256};
-    tileConfig.c1TileShape = {gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, dN+dR) @ (winSize, dN+dR) -> (n1, s2Tile)
-    tileConfig.v1TileShape = {NUM_32, NUM_128}; // (n1, s2Tile)
-    tileConfig.c2TileShape = {gTileSize, gTileSize, NUM_128, NUM_128, NUM_128, NUM_128}; // (n1, winSize) @ (winSize, dN) -> (n1, d)
-    tileConfig.v2TileShape = {NUM_16, NUM_256}; // (n1, d)
+    tileConfig.c1TileShape = {gTileSize, gTileSize, NUM_64, NUM_64, NUM_256, NUM_256}; // (n1, dN+dR) @ (s2Tile, dN+dR) -> (n1, s2Tile)
+    tileConfig.v1TileShape = {NUM_32, NUM_256}; // (n1, s2Tile)
+    tileConfig.c2TileShape = {gTileSize, gTileSize, NUM_256, NUM_256, NUM_128, NUM_128}; // (n1, s2Tile) @ (s2Tile, dN) -> (n1, d)
+    tileConfig.v2TileShape = {NUM_32, NUM_512}; // (n1, d)
     // WinConfig config;
     TestWinAtten<npu::tile_fwk::bfloat16>(tileConfig);
 }
@@ -181,14 +184,15 @@ TEST_F(DynamicWinAttenTest, test_DynAttn_nas_win_attn_s1_2_actseqlen_1023_mla_bf
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
     WinAttenTileShapeConfig tileConfig;
     const int gTileSize = NUM_128; // for gLoop split
+    const int skvTileSize = NUM_512; // for flash split
     tileConfig.gTile = gTileSize;
-    tileConfig.vNopeTileShape = {NUM_16, NUM_256};
+    tileConfig.skvTile = skvTileSize;
+    tileConfig.vNopeTileShape = {NUM_32, NUM_512};
     tileConfig.vRopeTileShape = {NUM_128, NUM_64};
-    tileConfig.outTileShape = {NUM_32, NUM_256};
-    tileConfig.c1TileShape = {gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, dN+dR) @ (winSize, dN+dR) -> (n1, s2Tile)
-    tileConfig.v1TileShape = {NUM_32, NUM_128}; // (n1, s2Tile)
-    tileConfig.c2TileShape = {gTileSize, gTileSize, NUM_128, NUM_128, NUM_128, NUM_128}; // (n1, winSize) @ (winSize, dN) -> (n1, d)
-    tileConfig.v2TileShape = {NUM_16, NUM_256}; // (n1, d)
+    tileConfig.c1TileShape = {gTileSize, gTileSize, NUM_64, NUM_64, NUM_256, NUM_256}; // (n1, dN+dR) @ (s2Tile, dN+dR) -> (n1, s2Tile)
+    tileConfig.v1TileShape = {NUM_32, NUM_256}; // (n1, s2Tile)
+    tileConfig.c2TileShape = {gTileSize, gTileSize, NUM_256, NUM_256, NUM_128, NUM_128}; // (n1, s2Tile) @ (s2Tile, dN) -> (n1, d)
+    tileConfig.v2TileShape = {NUM_32, NUM_512}; // (n1, d)
     // WinConfig config;
     TestWinAtten<npu::tile_fwk::bfloat16>(tileConfig);
 }

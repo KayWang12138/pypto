@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file test_dynamic_win_attn_ut.cpp
+ * \file test_dynamic_win_attn_debug_ut.cpp
  * \brief
  */
 #include "gtest/gtest.h"
@@ -26,7 +26,7 @@
 
 using namespace npu::tile_fwk;
 
-class DynamicTestWinAttenUt : public testing::Test {
+class DynamicTestWinAttenDebugUt : public testing::Test {
 public:
     static void SetUpTestCase() {}
 
@@ -71,7 +71,7 @@ void TestWinAttenUt(WinAttenTileShapeConfig& tileConfig) {
     int dN = NUM_512;
     int dR = NUM_64;
     int blockSize = NUM_128;
-    int windowSize = NUM_1024;
+    int windowSize = NUM_512;
     float softmaxScale = static_cast<float>(1.0 / sqrtf((dN + dR)));
 
     int maxBlock = (sMax + blockSize - 1) / blockSize;
@@ -90,11 +90,11 @@ void TestWinAttenUt(WinAttenTileShapeConfig& tileConfig) {
     Tensor blockTable(DT_INT32, blockTableShape, "blockTable");
     Tensor attentionOut(DT_FP32, attentionOutShape, "attentionOut");
 
-    WinAttention(qNope, vNopeCache, qRope, kRopeCache, nQ, nKV, blockTable, actSeqs, windowSize,
+    WinAttentionDebug(qNope, vNopeCache, qRope, kRopeCache, nQ, nKV, blockTable, actSeqs, windowSize,
         blockSize, softmaxScale, attentionOut, tileConfig);
 }
 
-TEST_F(DynamicTestWinAttenUt, TestOnboardWinAttnTest_FP16_Test0) {
+TEST_F(DynamicTestWinAttenDebugUt, TestOnboardWinAttnTest_FP16) {
     WinAttenTileShapeConfig tileConfig;
     const int gTileSize = NUM_128; // for gLoop split
     tileConfig.gTile = gTileSize;
@@ -103,7 +103,7 @@ TEST_F(DynamicTestWinAttenUt, TestOnboardWinAttnTest_FP16_Test0) {
     tileConfig.outTileShape = {NUM_16, NUM_256};
     tileConfig.c1TileShape = {gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, dN+dR) @ (s2Tile, dN+dR) -> (n1, s2Tile)
     tileConfig.v1TileShape = {NUM_16, NUM_256}; // (n1, s2Tile)
-    tileConfig.c2TileShape = {gTileSize, gTileSize, NUM_128, NUM_128, NUM_128, NUM_128}; // (n1, s2Tile) @ (s2Tile, dN) -> (n1, d)
+    tileConfig.c2TileShape = {gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, s2Tile) @ (s2Tile, dN) -> (n1, d)
     tileConfig.v2TileShape = {NUM_16, NUM_256}; // (n1, d)
     // WinConfig config;
     TestWinAttenUt<npu::tile_fwk::float16>(tileConfig);

@@ -8,10 +8,12 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+
 /*!
  * \file test_dynamic_win_atten.cpp
  * \brief
  */
+
 
 #include <gtest/gtest.h>
 #include "tilefwk/data_type.h"
@@ -24,9 +26,11 @@
 #include "operator/models/nsa/win_attention.h"
 #include "test_dev_func_runner.h"
 
+
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class DynamicWinAttenInterpreterTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
+
 
 constexpr int NUM_2 = 2;
 constexpr int NUM_16 = 16;
@@ -58,9 +62,11 @@ void TestWinAttenInterpreter(WinAttenTileShapeConfig& tileConfig) {
         dType = DT_FP32;
     }
 
+
     int paramsSize = 9;
     std::vector<int> inputParam(paramsSize);
     readInput<int>(GetGoldenDir() + "/input_param.bin", inputParam);
+
 
     int b = inputParam[0];
     int sQ = inputParam[1];
@@ -75,6 +81,7 @@ void TestWinAttenInterpreter(WinAttenTileShapeConfig& tileConfig) {
     std::cout << "====input param==== " << std::endl;
     std::cout <<" b = " << b << " sQ = " << sQ << " nQ = " << nQ << " nKV = " << nKV << " sMax =" << sMax << " dN = " << dN
         << " dR = " << dR << " blockSize = " << blockSize << " windowSize = " << windowSize << std::endl;
+
 
     int maxBlock = (sMax + blockSize - 1) / blockSize;
     std::vector<int64_t> qNopeShape = {b * sQ * nQ, dN};
@@ -133,7 +140,7 @@ void TestWinAttenInterpreter(WinAttenTileShapeConfig& tileConfig) {
         RawTensorData::CreateTensor<float>(attentionOut, golden),
     });
 
-    WinAttention(qNope, vNopeCache, qRope, kRopeCache, nQ, nKV, blockTable, actSeqs, windowSize,
+    WinAttentionDebug(qNope, vNopeCache, qRope, kRopeCache, nQ, nKV, blockTable, actSeqs, windowSize,
         blockSize, softmaxScale, attentionOut, tileConfig);
 }
 

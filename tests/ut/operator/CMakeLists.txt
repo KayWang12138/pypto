@@ -106,7 +106,9 @@ set(_CaseFilterList
         "DynamicAttentionUtTest.dynamic_attention_low_nz"
         "DynamicKvSlcUtTest.test_kv_slc"
         "DynamicTestGenAtten.TestOnboardGenAttenTest_FP16"
-        "DynamicTestWinAttenUt.TestOnboardWinAttnTest_FP16"
+        "DynamicTestWinAttenUt.TestOnboardWinAttnTest_FP16_Test0"
+        "DynamicTestWinAttenFlashUt.TestOnboardWinAttnTest_FP16_Test1"
+        "DynamicTestWinAttenDebugUt.TestOnboardWinAttnTest_FP16"
         # Softmax
         "DynamicSoftmaxUtest.utest_softmax_dyn"
 
