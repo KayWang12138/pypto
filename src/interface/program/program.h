@@ -117,6 +117,11 @@ public: // public api for torch
     std::optional<CacheValue> TryHitCahce(const FunctionHash &functionHash) { return functionCache_.Get(functionHash); }
     FunctionCache& GetFunctionCache() { return functionCache_; }
 
+    // 动静归一
+    void CreateCallerCalleeLink(Function *caller, Function *callee);
+    void RefillCompileQueue(Function* func);
+    void UpdateCompileTask();
+
 private:
     std::string name_;
     std::vector<std::string> functionMagicNameStack_;

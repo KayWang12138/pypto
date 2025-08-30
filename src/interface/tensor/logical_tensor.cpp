@@ -107,7 +107,7 @@ std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function &dstFunc, bool crea
     }
 
     std::shared_ptr<RawTensor> rawTensor = dstFunc.GetTensorMap().GetRawTensorByRawMagic(tensor->rawmagic);
-    if (rawTensor == nullptr) {
+    if (rawTensor == nullptr || create) {
         rawTensor =
             std::make_shared<RawTensor>(tensor->datatype, tensor->rawshape, tensor->symbol, tensor->rawmagic);
         rawTensor->SetSymbol(tensor->GetSymbol());

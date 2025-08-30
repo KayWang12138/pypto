@@ -130,6 +130,49 @@ void Program::CreateInitFunction() {
     functionmap_.emplace(currentFunctionMagicName_, std::move(newFunc));
 }
 
+void Program::CreateCallerCalleeLink(Function *caller, Function *callee) {
+    ASSERT(caller->IsGraphType(GraphType::TENSOR_GRAPH) && callee->IsGraphType(GraphType::TENSOR_GRAPH));
+    // add callop
+    for (auto &outcast : callee->outCasts_) {
+        auto newOutcast = outcast->Clone(*caller, true);
+        caller->outCasts_.push_back(newOutcast);
+        caller->GetTensorMap().Insert(newOutcast);
+    }
+    for (auto &incast : callee->inCasts_) {
+        auto newIncast = incast->Clone(*caller, true);
+        caller->inCasts_.push_back(newIncast);
+        caller->GetTensorMap().Insert(newIncast);
+    }
+
+    FunctionCallArgs args = {
+        .iOpreands = caller->inCasts_,
+        .oOperands = caller->outCasts_,
+        .iOpAttrOffset = {},
+        .oOpAttrOffset = {},
+        .argList = {},
+    };
+    currentFunctionPtr_ = callee;
+    ConnectCallerGusket(*caller, args);
+
+    caller->ComputeHash();
+    auto cacheValue = TryHitCahce(caller->GetFunctionHash());
+    if (cacheValue == std::nullopt) {
+        functionCache_.Insert(caller->GetFunctionHash(), *caller);
+        caller->AppendCalleeMagicName(callee->GetMagicName());
+    }
+}
+
+void Program::RefillCompileQueue(Function* func) {
+    functionSequence_.emplace_back(func);
+}
+
+void Program::UpdateCompileTask() {
+    for (auto func : functionSequence_) {
+        HostMachine::GetInstance().StashTask(func);
+    }
+    HostMachine::GetInstance().SubAllStashedTask();
+}
+
 // Start a new function and push it to the functions vector
 bool Program::BeginFunction(const std::string &funcName,
     const FunctionType funcType,
@@ -786,8 +829,9 @@ RecordFunc::~RecordFunc() {
                 Program::GetInstance().VerifyTensorGraph();
             }
             MergeAllFuncDupIocast(nullptr);
-
-            HostMachine::GetInstance().SubAllStashedTask();
+            if (!config::GetPlatformConfig(KEY_ONLY_TENSOR_GRAPH, false)) {
+                HostMachine::GetInstance().SubAllStashedTask();
+            }
             if (config::GetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, false)) {
                 Program::GetInstance().VerifyExecuteGraph();
             }

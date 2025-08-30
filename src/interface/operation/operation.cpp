@@ -726,6 +726,7 @@ Operation &Operation::CloneOperation(
         op.opAttribute_ = opAttribute_->Clone();
     }
     op.attributes = attributes;
+    op.UpdateTileShape(tileShape_);
     return op;
 }
 

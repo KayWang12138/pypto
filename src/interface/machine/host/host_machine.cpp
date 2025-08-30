@@ -26,9 +26,7 @@ namespace npu::tile_fwk {
 namespace {
 enum class StashType {
     Function = 0,
-    CurrFunc,
     ProgramConfig,
-    TileShape,
     InternalConfig,
     ConfigJson
 };
@@ -246,23 +244,26 @@ void HostMachine::StashTask(Function* function) {
     }
 
     std::lock_guard<std::mutex> lock(stashQueueMutex_);
-    stashedFuncQueue_.Push(std::make_tuple(function, Program::GetInstance().GetCurrentFunction(),
-        Program::GetInstance().GetConfig(), Program::GetInstance().GetTileShape(),
-        ConfigManager::Instance().GetInternalConfig(), ConfigManager::Instance().GetJsonData()));
+    stashedFuncQueue_.Push(std::make_tuple(function,
+        Program::GetInstance().GetConfig(),
+        ConfigManager::Instance().GetInternalConfig(),
+        ConfigManager::Instance().GetJsonData()));
 }
 
 void HostMachine::SubAllStashedTask() {
     std::lock_guard<std::mutex> lock(stashQueueMutex_);
     while (!stashedFuncQueue_.Empty()) {
         auto funcData = stashedFuncQueue_.Pop();
-        Program::GetInstance().SetCurrentFunction(std::get<static_cast<size_t>(StashType::CurrFunc)>(funcData));
         Program::GetInstance().SetConfig(std::get<static_cast<size_t>(StashType::ProgramConfig)>(funcData));
-        Program::GetInstance().SetTileShape(std::get<static_cast<size_t>(StashType::TileShape)>(funcData));
         ConfigManager::Instance().SetInternalConfig(std::get<static_cast<size_t>(StashType::InternalConfig)>(funcData));
         ConfigManager::Instance().SetJsonData(std::get<static_cast<size_t>(StashType::ConfigJson)>(funcData));
         SubTask(std::get<0>(funcData));
         WaitTaskFinish();
     }
+}
+
+void HostMachine::ClearStashFuncQueue() {
+    stashedFuncQueue_.Clear();
 }
 
 std::string HostMachine::GetCacheKeyFromFunction(Function *function) {

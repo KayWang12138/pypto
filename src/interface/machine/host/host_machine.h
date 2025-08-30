@@ -98,6 +98,7 @@ public:
     void SubAllStashedTask();
 
     bool ForceEnableBackend();
+    void ClearStashFuncQueue();
 
 public: // api mode
     MachineTask* Compile(MachineTask* task = nullptr) const;
@@ -139,7 +140,7 @@ private:
     SafeQueue<std::unique_ptr<MachineTask>> compileQueue_; // 待编译任务
     SafeQueue<std::unique_ptr<MachineTask>> agentQueue_; // 待device agent处理任务
     SafeQueue<std::unique_ptr<MachineTask>> finishQueue_; // device machine 处理结束任务
-    SafeQueue<std::tuple<Function *, Function *, ConfigStorage, TileShape, InternalGlobalConfig,
+    SafeQueue<std::tuple<Function *, ConfigStorage, InternalGlobalConfig,
                          nlohmann::json>> stashedFuncQueue_; // stash func
 
     /* 后端管理 */
