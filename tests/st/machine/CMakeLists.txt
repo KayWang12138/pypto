@@ -34,8 +34,15 @@ set(_CaseFilterList
         "DynamicBasicTest.TestDeviceMachineBlockdimOnBoard"
         "DynamicBasicTest.TestTensorExtract"
         "DynamicBasicTest.TestGetTensorData"
+        "DynamicBasicTest.TestGetTensorDataCrossFunction"
+        "DynamicBasicTest.TestGetTensorDataUnalign"
         "DynamicBasicTest.TestGetTensorDataExpr"
         "DynamicBasicTest.TestVectorDup"
+        "DynamicBasicTest.TestTensorInsert"
+        "DynamicBasicTest.TestSetTensorData"
+        "DynamicBasicTest.TestSetTensorDataExpr"
+        "DynamicBasicTest.TestGetTensorDataAndDup"
+        "DynamicBasicTest.TestGetAndSetTensorDataExpr"
         # "DynamicPATest.dynamic_pa_low_lantency"
         # "DynamicPATest.dynamic_pa_low_lantency_unroll"
         # "DynamicPATest.dynamic_pa_low_lantency_manual_unroll"
@@ -119,7 +126,7 @@ set(_CaseFilterList
         #"GatherElementOnBoardTest.test_gather_element_float_16_64_7_32_1"
         #"GatherElementOnBoardTest.test_gather_element_float_16_64_7_32_0"
         #"ScatterElementOnBoardTest.test_scatter_element_float_8_256_8_8_1_moe"
-        
+
         #===========================================================================
         # matmul功能用例
         #===========================================================================
@@ -174,7 +181,7 @@ set(_CaseFilterList
          # Reshape功能用例
         #===========================================================================
         "DynamicReshapeTest.test_only_reshape"
-        "DynamicReshapeTest.test_dyn_reshape2"       
+        "DynamicReshapeTest.test_dyn_reshape2"
         "DynamicReshapeTest.test_assemble_diff_tile"
 )
 

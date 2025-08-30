@@ -9,6 +9,7 @@
 
 file(GLOB _Interface_Srcs
         # 前端框架
+        schema/*.cpp
         configs/*.cpp
         tensor/*.cpp
         program/*.cpp

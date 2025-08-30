@@ -204,9 +204,13 @@ private:
 enum EmuOpcode {
     EMUOP_TENSOR_EXTRACT,
     EMUOP_TENSOR_INSERT,
-    EMUOP_TENSOR_GETDATA,
+    EMUOP_TENSOR_GETDATA_DEPEND,
+    EMUOP_TENSOR_GETDATA_IMPORT,
     EMUOP_TENSOR_SETDATA,
 };
+
+bool CheckEmuOpcode(const Operation *op, EmuOpcode opcode);
+void SetEmuOpcode(Operation *op, EmuOpcode opcode);
 
 Tensor TensorExtract(const Tensor &src, const std::vector<SymbolicScalar> &offset);
 void TensorInsert(const Tensor &src, const std::vector<SymbolicScalar> &offset, Tensor &dst);
@@ -218,8 +222,8 @@ SymbolicScalar GetViewValidShapeDim(
 std::vector<SymbolicScalar> GetViewValidShape(const std::vector<SymbolicScalar> &validShape, const Offset &viewOffset,
     const std::vector<SymbolicScalar> &viewDynOffset, const Shape &viewShape);
 
-std::map<int, RawSymbolicScalarPtr> GetTensorDataDict(const SymbolicScalar &dimOffset);
-std::map<int, RawSymbolicScalarPtr> GetTensorDataDict(const std::vector<SymbolicScalar> &offset);
+std::map<int, std::vector<RawSymbolicScalarPtr>> GetTensorDataDict(const SymbolicScalar &dimOffset);
+std::map<int, std::vector<RawSymbolicScalarPtr>> GetTensorDataDict(const std::vector<SymbolicScalar> &offset);
 
 struct GetTensorDataIODesc {
     int ioType{-1};
@@ -229,14 +233,24 @@ struct GetTensorDataIODesc {
     GetTensorDataIODesc() = default;
     GetTensorDataIODesc(int ioType_, int ioTypeIndex_, SymbolicScalar address_) : ioType(ioType_), ioTypeIndex(ioTypeIndex_), address(address_) {}
 };
+
+int GetTensorDataGetIndex(const Operation *op);
+void GetTensorDataSetIndex(Operation *op, int index);
+
+int GetTensorDataGetCoaIndex(const Operation *op);
+void GetTensorDataSetCoaIndex(Operation *op, int index);
+
+struct GetTensorDataIODescDict : std::unordered_map<int, GetTensorDataIODesc> {
+    std::string Dump() const;
+};
 constexpr int GET_TENSOR_DATA_OPERAND_INDEX_CALLEE = 0;
 constexpr int GET_TENSOR_DATA_OPERAND_INDEX_INDEX = 1;
 constexpr int GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE = 2;
 constexpr int GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX = 3;
-constexpr int GET_TENSOR_DATA_OPERAND_INDEX_IOINDEX = 4;
+constexpr int GET_TENSOR_DATA_OPERAND_INDEX_ADDRESS = 4;
 constexpr int GET_TENSOR_DATA_OPERAND_IOTYPE_INCAST = 0;
 constexpr int GET_TENSOR_DATA_OPERAND_IOTYPE_OUTCAST = 1;
-SymbolicScalar GetTensorDataFillIO(const std::unordered_map<int, GetTensorDataIODesc> &iodescDict, const SymbolicScalar &dimOffset);
+SymbolicScalar GetTensorDataFillIO(const GetTensorDataIODescDict &iodescDict, const SymbolicScalar &dimOffset);
 
 constexpr int RUNTIME_GET_PARAM_OFFSET_OPERAND_INDEX_DIM_SIZE_INDEX = 1;
 constexpr int RUNTIME_GET_PARAM_OFFSET_OPERAND_INDEX_COA_INDEX = 2;

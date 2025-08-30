@@ -9,21 +9,11 @@
  */
 
 /*!
- * \file schema_trace_def.h
+ * \file schema_def_trace.h
  * \brief
  */
 
 #pragma once
-
-SCHEMA_DEF_ATTR_NAME(none, _);
-SCHEMA_DEF_TYPE_INT32(Int32Type);
-SCHEMA_DEF_TYPE_INT64(Int64Type);
-SCHEMA_DEF_TYPE_UINT32(UInt32Type);
-SCHEMA_DEF_TYPE_UINT64(UInt64Type);
-SCHEMA_DEF_TYPE_ADDRESS(AddressType);
-SCHEMA_DEF_TYPE_STRING(StringType);
-
-SCHEMA_DEF_TYPE_COORD(CoordType);
 
 SCHEMA_DEF_TYPE_UNION(DeviceTaskIndexType, none, Int64Type);
 SCHEMA_DEF_TYPE_UNION(DupIndexType, none, Int64Type);
@@ -47,14 +37,6 @@ SCHEMA_DEF_TYPE_UNION(RawTensorAddress, none, AddressType);
 SCHEMA_DEF_TYPE_UNION(DimShape, none, CoordType);
 SCHEMA_DEF_TYPE_UNION(DimOffset, none, CoordType);
 
-SCHEMA_DEF_TYPE_ARRAY(ExpressionTable, Int64Type);
-SCHEMA_DEF_ATTR(expr, ExpressionTable);
-SCHEMA_DEF_ATTR(range, AddressType, AddressType);
-SCHEMA_DEF_ATTR(incast, Int64Type);
-SCHEMA_DEF_ATTR(outcast, Int64Type);
-SCHEMA_DEF_ATTR(name, StringType);
-SCHEMA_DEF_TYPE_UNION(AttrType, expr, range, incast, outcast, name);
-
 SCHEMA_DEF_ATTR(LUid, DeviceTaskIndexType, DupIndexType, RootIndexType, OperationIndexType, LeafIndexType);
 SCHEMA_DEF_ATTR(RUid, DeviceTaskIndexType, DupIndexType, RootIndexType);
 SCHEMA_DEF_ATTR(DUid, DeviceTaskIndexType);
@@ -65,7 +47,7 @@ SCHEMA_DEF_TYPE_UNION(DUidType, DUid);
 
 SCHEMA_DEF_ATTR(LActStart, AicoreIndexType);
 SCHEMA_DEF_ATTR(LActFinish, AicoreIndexType);
-SCHEMA_DEF_TYPE_UNION(LActType, LActStart, LActFinish);
+SCHEMA_DEF_TYPE_UNION(LActType, LActStart, LActFinish, coa);
 
 SCHEMA_DEF_ATTR(RActDup, name);
 SCHEMA_DEF_ATTR(RActStitch);
@@ -73,8 +55,11 @@ SCHEMA_DEF_ATTR(RActIncastCount, Int64Type);
 SCHEMA_DEF_ATTR(RActIncast, incast, range);
 SCHEMA_DEF_ATTR(RActOutcastCount, Int64Type);
 SCHEMA_DEF_ATTR(RActOutcast, outcast, range);
-SCHEMA_DEF_ATTR(RActExpressionTable, expr);
-SCHEMA_DEF_TYPE_UNION(RActType, RActDup, RActStitch, RActIncastCount, RActIncast, RActOutcastCount, RActOutcast, RActExpressionTable);
+SCHEMA_DEF_ATTR(RActRawTensorCount, Int64Type);
+SCHEMA_DEF_ATTR(RActRawTensor, rawTensor, rawDesc);
+SCHEMA_DEF_ATTR(RActWorkspace, range);
+SCHEMA_DEF_TYPE_UNION(RActType, RActDup, RActStitch, RActIncastCount, RActIncast, RActOutcastCount, RActOutcast, expr,
+                      RActRawTensorCount, RActRawTensor, RActWorkspace);
 
 SCHEMA_DEF_ATTR(Producer, LUidType, OOperandIndexType, OutcastIndexType, SlotIndexType, DimOffset, DimShape);
 SCHEMA_DEF_TYPE_UNION(ProducerType, Producer);
@@ -105,12 +90,15 @@ SCHEMA_DEF_ATTR(WorkspaceInnerTensor, range);
 SCHEMA_DEF_ATTR(WorkspacePartialOutcast, range);
 SCHEMA_DEF_ATTR(WorkspaceInDeviceTaskOutcast, range);
 SCHEMA_DEF_ATTR(WorkspaceCrossDeviceTaskOutcast, range);
+SCHEMA_DEF_ATTR(WorkspaceSpill, mem, Int64Type, range);
 SCHEMA_DEF_ATTR(InputTensor, Int64Type, range);
 SCHEMA_DEF_ATTR(OutputTensor, Int64Type, range);
 
 SCHEMA_DEF_TYPE_UNION(CtrlActType,
                       ThreadStart, ThreadFinish,
-                      WorkspaceInnerTensor, WorkspacePartialOutcast, WorkspaceInDeviceTaskOutcast, WorkspaceCrossDeviceTaskOutcast,
+                      WorkspaceInnerTensor, WorkspacePartialOutcast,
+                      WorkspaceInDeviceTaskOutcast, WorkspaceCrossDeviceTaskOutcast,
+                      WorkspaceSpill,
                       InputTensor, OutputTensor);
 SCHEMA_DEF_TYPE_UNION(ScheActType, ThreadStart, ThreadFinish);
 

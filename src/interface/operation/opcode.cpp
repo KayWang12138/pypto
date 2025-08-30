@@ -162,7 +162,7 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_ROWMINLINE, OpCoreType::AIV, "ROWMINLINE",
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Trowminline", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::REDUCE);
     // AIV ALLOC
-    registerInfo(Opcode::OP_VEC_DUP, OpCoreType::AIV, "VEC_DUP", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tduplicate", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OpAttributeKey::scalar, OP_ATTR_PREFIX + "shape", OP_ATTR_PREFIX + "validShape"});
+    registerInfo(Opcode::OP_VEC_DUP, OpCoreType::AIV, "VEC_DUP", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tduplicate", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OpAttributeKey::scalar, OpAttributeKey::dynScalar, OP_ATTR_PREFIX + "shape", OP_ATTR_PREFIX + "validShape"});
     registerInfo(Opcode::OP_UB_ALLOC, OpCoreType::AIV, "UB_ALLOC", {}, {MemoryType::MEM_UB}, {"UB_ALLOC", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::SYS);
     registerInfo(Opcode::OP_UB_COPY_IN, OpCoreType::AIV, "UB_COPY_IN", {MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_UB}, {"TileOp::UBCopyIn", PIPE_MTE2, PIPE_MTE2, CoreType::AIV}, OpCalcType::MOVE_IN);
     registerInfo(Opcode::OP_UB_COPY_OUT, OpCoreType::AIV, "UB_COPY_OUT", {MemoryType::MEM_UB}, {MemoryType::MEM_DEVICE_DDR}, {"TileOp::UBCopyOut", PIPE_MTE3, PIPE_MTE3, CoreType::AIV}, OpCalcType::MOVE_OUT);

@@ -14,8 +14,187 @@
  */
 
 #include "interface/tensor/symbolic_scalar_evaluate.h"
+#include "interface/interpreter/function.h"
 
 namespace npu::tile_fwk {
+namespace {
+ScalarImmediateType EvaluateSymbolicCallRuntimeGetInputShapeDimSize(
+        EvaluateSymbol *evaluateSymbol,
+        const std::vector<ScalarImmediateType> &dataList) {
+    ASSERT(dataList.size() == 1);
+    auto inputIndex = dataList[0];
+    auto input = evaluateSymbol->GetInputDataViewList()[inputIndex];
+
+    auto ret = input->GetShape().size();
+    return ret;
+}
+
+ScalarImmediateType EvaluateSymbolicCallRuntimeGetInputShapeDim(
+        EvaluateSymbol *evaluateSymbol,
+        const std::vector<ScalarImmediateType> &dataList) {
+    ASSERT(dataList.size() == SIZE_TWO);
+    auto inputIndex = dataList[0];
+    auto input = evaluateSymbol->GetInputDataViewList()[inputIndex];
+    auto n = dataList[1];
+
+    auto ret = input->GetShape()[n];
+    return ret;
+}
+
+ScalarImmediateType EvaluateSymbolicCallRuntimeGetInputDataInt32Dim1(
+        EvaluateSymbol *evaluateSymbol,
+        const std::vector<ScalarImmediateType> &dataList) {
+    ASSERT(dataList.size() == SIZE_TWO);
+    auto inputIndex = dataList[0];
+    auto input = evaluateSymbol->GetInputDataViewList()[inputIndex];
+    auto off0 = dataList[1];
+    ASSERT(input->GetShape().size() == 1);
+
+    int index = off0;
+    auto elt = input->GetElement(index);
+    auto ret = static_cast<ScalarImmediateType>(elt.Cast<int64_t>());
+    return ret;
+}
+
+ScalarImmediateType EvaluateSymbolicCallRuntimeGetInputDataInt32Dim2(
+        EvaluateSymbol *evaluateSymbol,
+        const std::vector<ScalarImmediateType> &dataList) {
+    ASSERT(dataList.size() == SIZE_THREE);
+    auto inputIndex = dataList[0];
+    auto input = evaluateSymbol->GetInputDataViewList()[inputIndex];
+    auto off0 = dataList[1];
+    auto off1 = dataList[2];
+    ASSERT(input->GetShape().size() == SIZE_TWO);
+
+    int index = off0 * input->GetShape()[1] + off1;
+    auto elt = input->GetElement(index);
+    auto ret = static_cast<ScalarImmediateType>(elt.Cast<int64_t>());
+    return ret;
+}
+
+ScalarImmediateType EvaluateSymbolicCallRuntimeGetInputDataInt32Dim3(
+        EvaluateSymbol *evaluateSymbol,
+        const std::vector<ScalarImmediateType> &dataList) {
+    ASSERT(dataList.size() == SIZE_FOUR);
+    auto inputIndex = dataList[0];
+    auto input = evaluateSymbol->GetInputDataViewList()[inputIndex];
+    auto off0 = dataList[1];
+    auto off1 = dataList[2];
+    auto off2 = dataList[3];
+    ASSERT(input->GetShape().size() == SIZE_THREE);
+
+    int index = off0 * input->GetShape()[1] * input->GetShape()[2] + off1 * input->GetShape()[2] + off2;
+    auto elt = input->GetElement(index);
+    auto ret = static_cast<ScalarImmediateType>(elt.Cast<int64_t>());
+    return ret;
+}
+
+ScalarImmediateType EvaluateSymbolicCallRuntimeGetTensorDataInt32(
+        EvaluateSymbol *evaluateSymbol,
+        int ioType, int ioTypeIndex,
+        const std::vector<ScalarImmediateType> &offsetList) {
+    UNUSED(offsetList);
+    auto inoutDataPair = evaluateSymbol->GetInoutDataPair();
+    std::shared_ptr<LogicalTensorData> view;
+    if (ioType == GET_TENSOR_DATA_OPERAND_IOTYPE_INCAST) {
+        view = inoutDataPair->GetIncastDataViewList()[ioTypeIndex];
+    } else if (ioType == GET_TENSOR_DATA_OPERAND_IOTYPE_OUTCAST) {
+        view = inoutDataPair->GetOutcastDataViewList()[ioTypeIndex];
+    } else {
+        ASSERT(false);
+    }
+    auto elt = view->GetElement(0);
+    auto ret = static_cast<ScalarImmediateType>(elt.Cast<int64_t>());
+    return ret;
+}
+
+ScalarImmediateType EvaluateSymbolicCallRuntimeGetTensorDataInt32Dim1(
+        EvaluateSymbol *evaluateSymbol,
+        const std::vector<ScalarImmediateType> &dataList) {
+    auto ioType = dataList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE - 1];
+    auto ioTypeIndex = dataList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX - 1];
+    std::vector<ScalarImmediateType> offsetList(dataList.begin() + GET_TENSOR_DATA_OPERAND_INDEX_ADDRESS - 1 + 1, dataList.end());
+
+    auto ret = EvaluateSymbolicCallRuntimeGetTensorDataInt32(evaluateSymbol, ioType, ioTypeIndex, offsetList);
+    return ret;
+}
+
+ScalarImmediateType EvaluateSymbolicCallRuntimeGetTensorDataInt32Dim2(
+        EvaluateSymbol *evaluateSymbol,
+        const std::vector<ScalarImmediateType> &dataList) {
+    auto ioType = dataList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE - 1];
+    auto ioTypeIndex = dataList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX - 1];
+    std::vector<ScalarImmediateType> offsetList(dataList.begin() + GET_TENSOR_DATA_OPERAND_INDEX_ADDRESS - 1 + 1, dataList.end());
+
+    auto ret = EvaluateSymbolicCallRuntimeGetTensorDataInt32(evaluateSymbol, ioType, ioTypeIndex, offsetList);
+    return ret;
+}
+
+ScalarImmediateType EvaluateSymbolicCallRuntimeGetTensorDataInt32Dim3(
+        EvaluateSymbol *evaluateSymbol,
+        const std::vector<ScalarImmediateType> &dataList) {
+    auto ioType = dataList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE - 1];
+    auto ioTypeIndex = dataList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX - 1];
+    std::vector<ScalarImmediateType> offsetList(dataList.begin() + GET_TENSOR_DATA_OPERAND_INDEX_ADDRESS - 1 + 1, dataList.end());
+
+    auto ret = EvaluateSymbolicCallRuntimeGetTensorDataInt32(evaluateSymbol, ioType, ioTypeIndex, offsetList);
+    return ret;
+}
+
+ScalarImmediateType EvaluateSymbolicCallRuntimeIsLoopBegin(
+        EvaluateSymbol *evaluateSymbol,
+        const std::vector<ScalarImmediateType> &dataList) {
+    ASSERT(dataList.size() == SIZE_TWO);
+    auto ret = evaluateSymbol->RuntimeIsLoopBegin(dataList[0], dataList[1]);
+    return ret;
+}
+
+ScalarImmediateType EvaluateSymbolicCallRuntimeIsLoopEnd(
+        EvaluateSymbol *evaluateSymbol,
+        const std::vector<ScalarImmediateType> &dataList) {
+    ASSERT(dataList.size() == SIZE_TWO);
+    auto ret = evaluateSymbol->RuntimeIsLoopEnd(dataList[0], dataList[1]);
+    return ret;
+}
+
+ScalarImmediateType EvaluateSymbolicCallRuntimeGetViewValidShapeDim(
+        EvaluateSymbol *evaluateSymbol,
+        const std::vector<ScalarImmediateType> &dataList) {
+    UNUSED(evaluateSymbol);
+    ASSERT(dataList.size() == SIZE_THREE);
+    auto validshape = dataList[0];
+    auto viewOffset = dataList[1];
+    auto viewshape = dataList[2];
+    validshape -= viewOffset;
+    if (validshape > viewshape)
+        validshape = viewshape;
+    else if (validshape < 0)
+        validshape = 0;
+    return validshape;
+}
+}
+
+ScalarImmediateType EvaluateSymbol::EvaluateSymbolicCall(
+    const std::string &name, const std::vector<ScalarImmediateType> &dataList) {
+    using CallEntry = ScalarImmediateType (*)(EvaluateSymbol *, const std::vector<ScalarImmediateType> &dataList);
+    static std::unordered_map<std::string, CallEntry> callEntryDict = {
+        {"RUNTIME_GetInputShapeDimSize",        EvaluateSymbolicCallRuntimeGetInputShapeDimSize},
+        {"RUNTIME_GetInputShapeDim",            EvaluateSymbolicCallRuntimeGetInputShapeDim},
+        {"RUNTIME_GetInputDataInt32Dim1",       EvaluateSymbolicCallRuntimeGetInputDataInt32Dim1},
+        {"RUNTIME_GetInputDataInt32Dim2",       EvaluateSymbolicCallRuntimeGetInputDataInt32Dim2},
+        {"RUNTIME_GetInputDataInt32Dim3",       EvaluateSymbolicCallRuntimeGetInputDataInt32Dim3},
+        {"RUNTIME_IsLoopBegin",                 EvaluateSymbolicCallRuntimeIsLoopBegin},
+        {"RUNTIME_IsLoopEnd",                   EvaluateSymbolicCallRuntimeIsLoopEnd},
+        {"RUNTIME_GetViewValidShapeDim",        EvaluateSymbolicCallRuntimeGetViewValidShapeDim},
+        {"RUNTIME_GetTensorDataInt32Dim1",      EvaluateSymbolicCallRuntimeGetTensorDataInt32Dim1},
+        {"RUNTIME_GetTensorDataInt32Dim2",      EvaluateSymbolicCallRuntimeGetTensorDataInt32Dim2},
+        {"RUNTIME_GetTensorDataInt32Dim3",      EvaluateSymbolicCallRuntimeGetTensorDataInt32Dim3},
+    };
+    ASSERT(callEntryDict.count(name)) << "Symbolic call not found: " << name;
+    auto callEntry = callEntryDict[name];
+    auto ret = callEntry(this, dataList);
+    return ret;
+}
 
 ScalarImmediateType EvaluateSymbol::EvaluateSymbolicScalar(const RawSymbolicScalarPtr &ss) {
     ScalarImmediateType result{0};

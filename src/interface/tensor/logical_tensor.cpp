@@ -601,6 +601,46 @@ std::vector<SymbolicScalar> npu::tile_fwk::GetViewValidShape(const std::vector<S
 
 namespace npu::tile_fwk {
 
+bool CheckEmuOpcode(const Operation *op, EmuOpcode opcode) {
+    if (!op->HasAttr(OP_EMUOP_PREFIX + "opc")) {
+        return false;
+    }
+    if (op->GetIntAttribute(OP_EMUOP_PREFIX + "opc")  != opcode) {
+        return false;
+    }
+    return true;
+}
+
+void SetEmuOpcode(Operation *op, EmuOpcode opcode) {
+    op->SetAttr<int64_t>(OP_EMUOP_PREFIX + "opc", opcode);
+}
+
+int GetTensorDataGetIndex(const Operation *op) {
+    if (op->HasAttr(OP_EMUOP_PREFIX + "GetTensorData_index")) {
+        int index = op->GetIntAttribute(OP_EMUOP_PREFIX + "GetTensorData_index");
+        return index;
+    } else {
+        return -1;
+    }
+}
+
+void GetTensorDataSetIndex(Operation *op, int index) {
+    op->SetAttr<int64_t>(OP_EMUOP_PREFIX + "GetTensorData_index", index);
+}
+
+int GetTensorDataGetCoaIndex(const Operation *op) {
+    if (op->HasAttr(OP_EMUOP_PREFIX + "GetTensorData_coaIndex")) {
+        int index = op->GetIntAttribute(OP_EMUOP_PREFIX + "GetTensorData_coaIndex");
+        return index;
+    } else {
+        return -1;
+    }
+}
+
+void GetTensorDataSetCoaIndex(Operation *op, int index) {
+    op->SetAttr<int64_t>(OP_EMUOP_PREFIX + "GetTensorData_coaIndex", index);
+}
+
 Tensor TensorExtract(const Tensor &src, const std::vector<SymbolicScalar> &offset) {
     ASSERT(src.GetShape().size() == offset.size()) << "dim mismatch";
     auto currFunc = Program::GetInstance().GetCurrentFunction();
@@ -622,9 +662,9 @@ Tensor TensorExtract(const Tensor &src, const std::vector<SymbolicScalar> &offse
     Operation &emuopAssemble = currFunc->AddOperation(Opcode::OP_ASSEMBLE, {mark.GetStorage()}, {dst.GetStorage()});
     emuopAssemble.SetOpAttribute(std::make_shared<AssembleOpAttribute>(assembleOffset));
 
-    emuopView.SetAttribute(OP_EMUOP_PREFIX + "opc", EMUOP_TENSOR_EXTRACT);
-    emuopMark.SetAttribute(OP_EMUOP_PREFIX + "opc", EMUOP_TENSOR_EXTRACT);
-    emuopAssemble.SetAttribute(OP_EMUOP_PREFIX + "opc", EMUOP_TENSOR_EXTRACT);
+    SetEmuOpcode(&emuopView, EMUOP_TENSOR_EXTRACT);
+    SetEmuOpcode(&emuopMark, EMUOP_TENSOR_EXTRACT);
+    SetEmuOpcode(&emuopAssemble, EMUOP_TENSOR_EXTRACT);
     return dst;
 }
 
@@ -696,8 +736,8 @@ static RawSymbolicScalarPtr ReplaceExpression(const RawSymbolicScalarPtr &expr, 
     return result;
 }
 
-std::map<int, RawSymbolicScalarPtr> GetTensorDataDict(const RawSymbolicScalarPtr &dimOffset) {
-    std::map<int, RawSymbolicScalarPtr> getTensorDataDict;
+std::map<int, std::vector<RawSymbolicScalarPtr>> GetTensorDataDict(const RawSymbolicScalarPtr &dimOffset) {
+    std::map<int, std::vector<RawSymbolicScalarPtr>> getTensorDataDict;
     std::vector<RawSymbolicScalarPtr> mopCall = LookupExpressionByOpcode(dimOffset, SymbolicOpcode::T_MOP_CALL);
     for (auto mop : mopCall) {
         auto callee = mop->GetExpressionOperandList()[0];
@@ -706,57 +746,69 @@ std::map<int, RawSymbolicScalarPtr> GetTensorDataDict(const RawSymbolicScalarPtr
         }
         auto name = callee->GetSymbolName();
         if (StringUtils::StartsWith(name, AddRuntimePrefix("GetTensorData"))) {
-            auto getTensorDataIndex = mop->GetExpressionOperandList()[0x1]->GetImmediateValue();
-            getTensorDataDict[getTensorDataIndex] = mop;
-            break;
+            auto getTensorDataIndex = mop->GetExpressionOperandList()[GET_TENSOR_DATA_OPERAND_INDEX_INDEX]->GetImmediateValue();
+            getTensorDataDict[getTensorDataIndex].push_back(mop);
         }
     }
     return getTensorDataDict;
 }
 
-std::map<int, RawSymbolicScalarPtr> GetTensorDataDict(const SymbolicScalar &dimOffset) {
+std::map<int, std::vector<RawSymbolicScalarPtr>> GetTensorDataDict(const SymbolicScalar &dimOffset) {
     return GetTensorDataDict(dimOffset.Raw());
 }
 
-std::map<int, RawSymbolicScalarPtr> GetTensorDataDict(const std::vector<SymbolicScalar> &offset) {
-    std::map<int, RawSymbolicScalarPtr> getTensorDataDict;
+std::map<int, std::vector<RawSymbolicScalarPtr>> GetTensorDataDict(const std::vector<SymbolicScalar> &offset) {
+    std::map<int, std::vector<RawSymbolicScalarPtr>> getTensorDataDict;
     for (auto &off : offset) {
         auto perOffsetDict = GetTensorDataDict(off);
-        for (auto &item : perOffsetDict) {
-            getTensorDataDict.emplace(item);
+        for (auto &[index, callList] : perOffsetDict) {
+            for (auto &call : callList) {
+                getTensorDataDict[index].push_back(call);
+            }
         }
     }
     return getTensorDataDict;
 }
 
-SymbolicScalar GetTensorDataFillIO(const std::unordered_map<int, GetTensorDataIODesc> &iodescDict, const SymbolicScalar &dimOffset) {
+std::string GetTensorDataIODescDict::Dump() const {
+    std::ostringstream oss;
+    for (auto [index, desc] : *this) {
+        oss << index << ":" << "GetTensorDataIODesc(" << desc.ioType << "," << desc.ioTypeIndex << "," << desc.address.Dump() << ")\n";
+    }
+    return oss.str();
+}
+
+SymbolicScalar GetTensorDataFillIO(const GetTensorDataIODescDict &iodescDict, const SymbolicScalar &dimOffset) {
     RawSymbolicScalarPtr curr = dimOffset.Raw();
     bool filledFound = true;
     while (filledFound) {
         // There might be nesting GetTensorData call, so it's replaced iteratively.
-        std::map<int, RawSymbolicScalarPtr> getDict = GetTensorDataDict(curr);
+        std::map<int, std::vector<RawSymbolicScalarPtr>> getDict = GetTensorDataDict(curr);
         filledFound = false;
-        for (auto [index, ptr] : getDict) {
+        for (auto [index, callList] : getDict) {
             if (!iodescDict.count(index)) {
                 continue;
             }
+            // The same index always result in the same io type and io type index
             auto [ioTypeValue, ioTypeIndexValue, address] = iodescDict.find(index)->second;
-            std::vector<RawSymbolicScalarPtr> operandList = ptr->GetExpressionOperandList();
-            auto currIOType = operandList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE];
-            auto currIOTypeIndex = operandList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX];
-            ASSERT(currIOType->IsImmediate());
-            ASSERT(currIOTypeIndex->IsImmediate());
-            if (currIOType->GetImmediateValue() == ioTypeValue && currIOTypeIndex->GetImmediateValue() == ioTypeIndexValue) {
-                continue;
+            for (auto &call : callList) {
+                std::vector<RawSymbolicScalarPtr> operandList = call->GetExpressionOperandList();
+                auto currIOType = operandList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE];
+                auto currIOTypeIndex = operandList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX];
+                ASSERT(currIOType->IsImmediate());
+                ASSERT(currIOTypeIndex->IsImmediate());
+                if (currIOType->GetImmediateValue() == ioTypeValue && currIOTypeIndex->GetImmediateValue() == ioTypeIndexValue) {
+                    continue;
+                }
+                operandList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE] = std::make_shared<RawSymbolicImmediate>(ioTypeValue);
+                operandList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX] = std::make_shared<RawSymbolicImmediate>(ioTypeIndexValue);
+                operandList[GET_TENSOR_DATA_OPERAND_INDEX_ADDRESS] = address.Raw();
+                auto ptrNext = std::make_shared<RawSymbolicExpression>(call->GetExpressionOpcode(), operandList);
+                auto currNext = ReplaceExpression(curr, call, ptrNext);
+                curr = currNext;
+                filledFound = true;
+                break;
             }
-            operandList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE] = std::make_shared<RawSymbolicImmediate>(ioTypeValue);
-            operandList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX] = std::make_shared<RawSymbolicImmediate>(ioTypeIndexValue);
-            operandList[GET_TENSOR_DATA_OPERAND_INDEX_IOINDEX] = address.Raw();
-            auto ptrNext = std::make_shared<RawSymbolicExpression>(ptr->GetExpressionOpcode(), operandList);
-            auto currNext = ReplaceExpression(curr, ptr, ptrNext);
-            curr = currNext;
-            filledFound = true;
-            break;
         }
     }
     return SymbolicScalar(curr);

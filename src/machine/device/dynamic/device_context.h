@@ -33,11 +33,11 @@
 
 #include "interface/cache/common_data.h"
 #include "interface/cache/core_func_data.h"
+#include "interface/schema/schema.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/utils/dynamic/allocator/allocators.h"
 #include "machine/utils/dynamic/vector.h"
 #include "machine/utils/dynamic/item_pool.h"
-#include "machine/utils/dynamic/schema_trace.h"
 #include "device_utils.h"
 #include "securec.h"
 #include "costmodel_utils.h"
@@ -702,6 +702,10 @@ private:
         stackWorkspaceBase_ = baseAddr;
         standardStackWorkspacePerCore_ = devProg->standardStackWorkspacePerCore;
         stackWorkspaceSize_ = devProg->standardStackWorkspacePerCore * devProg->devArgs.GetBlockNum();
+        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceSpill(
+            mem(devProg->standardStackWorkspacePerCore), devProg->devArgs.GetBlockNum(),
+            range(stackWorkspaceBase_, stackWorkspaceBase_ + stackWorkspaceSize_))));
+
         baseAddr += stackWorkspaceSize_;
 
         // Initialize aicore workspace memory verifier
@@ -1190,8 +1194,6 @@ struct DeviceStitchContext {
                     desc = stitchedList_[desc.dupIdx].GetOutcastAddress(desc.outcastIdx);;
                 }
                 DEV_DEBUG_ASSERT(desc.IsAddress());
-                DEV_DEBUG("[DecideIncastOutcast] func %zu incast [%3zu]: addr %s.",
-                    funcIdx, i, desc.Dump().c_str());
                 DEV_TRACE_DEBUG(REvent(RUid(taskId, funcIdx, dup.GetSource()->GetRootIndex()), RActIncast(i, dup.SchemaGetIncastRange(i))));
             }
 
@@ -1204,8 +1206,6 @@ struct DeviceStitchContext {
                     desc = stitchedList_[desc.dupIdx].GetOutcastAddress(desc.outcastIdx);
                 }
                 DEV_DEBUG_ASSERT(desc.IsAddress());
-                DEV_DEBUG("[DecideIncastOutcast] func %zu outcast [%3zu]: addr %s.",
-                    funcIdx, i, desc.Dump().c_str());
                 DEV_TRACE_DEBUG(REvent(RUid(taskId, funcIdx, dup.GetSource()->GetRootIndex()), RActOutcast(i, dup.SchemaGetOutcastRange(i))));
             }
         }
@@ -1261,7 +1261,7 @@ public:
         StitchFullCover,
         StitchReuse,
     };
-    
+
     static std::string GetStitchKindName(StitchKind kind) {
         static std::unordered_map<StitchKind, std::string> stitchNameDict = {
             {StitchKind::StitchDefault, "default"},
@@ -1395,6 +1395,10 @@ public:
                 auto producerOperationIdx = cellMatchTableData[index];
                 if (producerOperationIdx != (uint32_t)-1) {
                     (*matchCount)++;
+                    DEV_TRACE_DEBUG(DEvent(DUid(none()), DActStitchEdge(
+                        Producer(LUid(none(), 0, none(), producerOperationIdx, none()), none(), none(), debugSlotIdx, none(), none()),
+                        Consumer(LUid(none(), 0, none(), consumerOperationIdx, none()), none(), none(), debugSlotIdx, none(), none()),
+                        StitchReasonUniqueMatch())));
                     DeviceStitchContext::HandleOneStitch(*prevDup, *nextDup, producerOperationIdx, devNextIdx, consumerOperationIdx,
                         workspace, StitchKind::StitchDefault, debugSlotIdx);
                 }
@@ -1583,6 +1587,10 @@ private:
             auto &stitch = prevDup.GetOperationStitch(prevNoSucc);
             for (size_t j = 0; j < currNoPredOpSize; ++j) {
                 int currNoPred = currSrc->GetNoPredOpIdx(j);
+                DEV_TRACE_DEBUG(DEvent(DUid(none()), DActStitchEdge(
+                    Producer(LUid(none(), 0, none(), prevNoSucc, none()), none(), none(), none(), none(), none()),
+                    Consumer(LUid(none(), 0, none(), currNoPred, none()), none(), none(), none(), none(), none()),
+                    StitchReasonWorkspaceReuse())));
                 DeviceStitchContext::HandleOneStitch(prevDup, currDup, stitch, prevNoSucc, devCurrIdx, currNoPred, workspace, DeviceStitchContext::StitchKind::StitchReuse, -1);
                 DeviceStitchContext::CheckStitch(stitchingList, stitchingSize, &currDup);
             }
@@ -1866,8 +1874,6 @@ struct DeviceExecuteContext {
 
     DevAscendFunctionDupped currDevRootDup;
 
-    schema::RUid currRUid;
-
     CostModel::ModelData *costModelData{nullptr};
 
     void *aicoreModel{nullptr};
@@ -1964,7 +1970,7 @@ struct DeviceExecuteContext {
             symbolTable[symbolHandler.symIndex] = PtrToValue(handler);
         }
 
-        /* This initialization must only occur after all other AICPU workspace meta memory allocations have completed. 
+        /* This initialization must only occur after all other AICPU workspace meta memory allocations have completed.
            The remaining portion of AICPU workspace meta memory must support reclamation. */
         workspace.InitAicpuMetaSlabAllocator();
 
@@ -2049,16 +2055,23 @@ struct DeviceExecuteContext {
         }
     }
 
+    schema::RUid GetRuid(uint64_t rootKey, bool afterAppend = false) {
+        int64_t dupIndex = stitchContext.Size();
+        if (!afterAppend) {
+            dupIndex -= 1;
+        }
+        schema::RUid ruid(taskId, dupIndex, rootKey);
+        return ruid;
+    }
+
     void *CallRootFunctionAlloc(uint64_t rootKey) {
-        DEV_INFO("execute one func %lu.", rootKey);
         DevAscendFunction *devRoot = devProg->GetFunction(rootKey);
         DEV_INFO("prepare one func %p %s.", devRoot, devRoot->GetRawName());
-        currRUid = schema::RUid(taskId, stitchContext.Size(), rootKey);
-        DEV_TRACE_DEBUG(REvent(currRUid, RActDup(devRoot->GetRawName())));
         if (stitchContext.Size() == MAX_CACHED_FUNC_NUM ||
             stitchContext.stitchedCallOpSize() + devRoot->GetOperationSize() > MAX_READY_QUE_ELM_SIZE) {
             SubmitToAicoreAndRecycleMemory(false);
         }
+        DEV_TRACE_DEBUG(REvent(GetRuid(rootKey), RActDup(devRoot->GetRawName())));
 
         PROF_STAGE_BEGIN(PERF_EVT_STAGE_DUP_ROOT, "dup.before\n");
         currDevRootDup = workspace.DuplicateRoot(devRoot);
@@ -2068,12 +2081,11 @@ struct DeviceExecuteContext {
 
     void *CallRootFunctionStitch(uint64_t rootKey) {
         if (rootKey == RUNTIME_FINISH_FUNCKEY) {
-            DEV_INFO("finish func.");
             SubmitToAicoreAndRecycleMemory(false);
             return nullptr;
         }
 
-        DEV_TRACE_DEBUG(REvent(currRUid, RActExpressionTable(currDevRootDup.SchemaGetExpressionTable())));
+        DEV_TRACE_DEBUG(REvent(GetRuid(rootKey), currDevRootDup.SchemaGetExpressionTable()));
         // dyn rawshape size depend expresstable calculated
         while (!workspace.TryAllocateFunctionMemory(currDevRootDup, slotContext.GetSlotList())) {
             // Failed to allocate, failed to stitch, submit existing stitched window to aicore and recycle memory
@@ -2085,14 +2097,14 @@ struct DeviceExecuteContext {
             SubmitToAicoreAndRecycleMemory(false);
         }
 
-        DEV_TRACE_DEBUG(DEvent(taskId, DActStitchStart(currRUid)));
+        DEV_TRACE_DEBUG(DEvent(taskId, DActStitchStart(GetRuid(rootKey))));
         PROF_STAGE_BEGIN(PERF_EVT_STAGE_STITCH, "stitch.before\n");
         size_t devNextIdx = stitchContext.Size();
         stitchContext.Stitch(slotContext, currDevRootDup, devNextIdx);
 
         slotContext.UpdateSlots(currDevRootDup, devNextIdx);
         PROF_STAGE_END(PERF_EVT_STAGE_STITCH, "stitch.after\n");
-        DEV_TRACE_DEBUG(DEvent(taskId, DActStitchFinish(currRUid)));
+        DEV_TRACE_DEBUG(DEvent(taskId, DActStitchFinish(GetRuid(rootKey, true))));
         return nullptr;
     }
 

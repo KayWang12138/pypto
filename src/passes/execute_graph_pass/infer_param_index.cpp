@@ -42,7 +42,7 @@ Status InferParamIndex::ResetDynValidShape(Function& function) {
         for (auto outOperand : op.GetOOperands()) {
             if (OpcodeManager::Inst().IsCopyInOrOut(op.GetOpcode()) || specifiedOps.count(op.GetOpcode())) {
                 for (size_t dimIdx = 0U; dimIdx < outOperand->GetShape().size(); ++dimIdx) {
-                    validShape.push_back(SymbolicScalar("sym_" +  std::to_string(outOperand->GetMagic()) + 
+                    validShape.push_back(SymbolicScalar("sym_" +  std::to_string(outOperand->GetMagic()) +
                                                         "_dim_" + std::to_string(dimIdx)));
                 }
             }
@@ -116,6 +116,7 @@ Status InferParamIndex::RunOnFunction(Function &function)
         }
         ALOG_INFO(subFunc.Dump());
         std::map<int, std::vector<SymbolicScalar>> addr2ValidShape;
+        std::map<int, std::vector<SymbolicScalar>> addr2ValidShapeSpecified;
         for (auto &op : subFunc.Operations()) {
             int tensorBaseAddrCoaIndex;
             if (IsCopyIn(op.GetOpcode())) {
@@ -128,6 +129,12 @@ Status InferParamIndex::RunOnFunction(Function &function)
             }
             if (addr2ValidShape.find(tensorBaseAddrCoaIndex) == addr2ValidShape.end()) {
                 addr2ValidShape[tensorBaseAddrCoaIndex] = op.GetOOperands()[0]->GetDynValidShape();
+                if (IsCopyIn(op.GetOpcode())) {
+                    auto attr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
+                    if (attr->GetToDynValidShape().size() != 0 && attr->GetToDynValidShape()[0].IsSpecified()) {
+                        addr2ValidShapeSpecified[tensorBaseAddrCoaIndex] = OpImmediate::ToSpecified(attr->GetToDynValidShape());
+                    }
+                }
             }
         }
         std::set<std::string> visitedSymbol;
@@ -142,7 +149,13 @@ Status InferParamIndex::RunOnFunction(Function &function)
                     continue;
                 }
                 auto tensorBaseAddrCoaIndex = validShape.first;
-                auto paramInfo = DynParamInfo{static_cast<int>(validShape.second.size()), tensorIndex, tensorBaseAddrCoaIndex, DynParamInfoType::VALID_SHAPE, dimIdx};
+                SymbolicScalar dynDim;
+                if (addr2ValidShapeSpecified.count(tensorBaseAddrCoaIndex)) {
+                    dynDim = addr2ValidShapeSpecified[tensorBaseAddrCoaIndex][dimIdx];
+                }
+                auto paramInfo = DynParamInfo{
+                    static_cast<int>(validShape.second.size()), tensorIndex, tensorBaseAddrCoaIndex, DynParamInfoType::VALID_SHAPE,
+                    dimIdx, dynDim};
                 subFunc.InsertDynParam(dim.Dump(), paramInfo);
                 dimIdx++;
             }

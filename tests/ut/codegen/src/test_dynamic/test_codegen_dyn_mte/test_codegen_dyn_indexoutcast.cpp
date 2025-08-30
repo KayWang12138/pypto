@@ -152,7 +152,7 @@ TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
                 op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
             }
         }
-        DynParamInfo fakeParam = {2, 0, 1, DynParamInfoType::VALID_SHAPE, 0};
+        DynParamInfo fakeParam = {2, 0, 1, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar()};
         subFunc.second->InsertDynParam("sym_32_dim_0", fakeParam);
         subFunc.second->InsertDynParam("sym_32_dim_1", fakeParam);
         subFunc.second->InsertDynParam("sym_38_dim_0", fakeParam);
@@ -170,14 +170,14 @@ TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
 extern "C" [aicore] void TENSOR_ScatterUpdate_Unroll1_PATH0_3_0_4503599627370496(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
 int32_t __ubuf__ *UB_S0_E4096 = (int32_t __ubuf__ *)get_imm(0x0); // size: 0x1000
 int32_t __ubuf__ *UB_S4096_E8192 = (int32_t __ubuf__ *)get_imm(0x1000); // size: 0x1000
-uint64_t sym_2_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 0);
-uint64_t sym_2_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 1);
+uint64_t sym_2_dim_0 = RUNTIME_COA_GET_PARAM_VALID_SHAPE(2,10,0); //GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 0);
+uint64_t sym_2_dim_1 = RUNTIME_COA_GET_PARAM_VALID_SHAPE(2,10,1); //GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 1);
 uint64_t sym_32_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 0);
 uint64_t sym_32_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 0);
 uint64_t sym_38_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 0);
 uint64_t sym_38_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 0);
-uint64_t sym_4_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 0);
-uint64_t sym_4_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 1);
+uint64_t sym_4_dim_0 = RUNTIME_COA_GET_PARAM_VALID_SHAPE(2,1,0); //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 0);
+uint64_t sym_4_dim_1 = RUNTIME_COA_GET_PARAM_VALID_SHAPE(2,1,1); //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 1);
 uint64_t sym_7_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 2, 28, 2, 0);
 uint64_t sym_7_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 2, 28, 2, 1);
 SUBKERNEL_PHASE1

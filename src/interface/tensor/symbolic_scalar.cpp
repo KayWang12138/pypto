@@ -40,10 +40,12 @@ bool ToolchainExist(const std::string &gcc) {
 }
 
 std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::string &sourceFilePath,
-    const std::string &gcc, const std::string &objcopy, const std::string &sectionName, const std::string &extraCflag) {
-    FILE *fsrc = fopen(sourceFilePath.c_str(), "w");
-    fprintf(fsrc, "%s", code.c_str());
-    fclose(fsrc);
+    const std::string &gcc, const std::string &objcopy, const std::string &sectionName, bool needDump, const std::string &extraCflag) {
+    if (needDump) {
+        FILE *fsrc = fopen(sourceFilePath.c_str(), "w");
+        fprintf(fsrc, "%s", code.c_str());
+        fclose(fsrc);
+    }
 
     std::string assembleFilePath = sourceFilePath + ".s";
     std::string objectFilePath = sourceFilePath + ".o";
@@ -261,6 +263,12 @@ bool RawSymbolicScalar::IsExpressionCall(const std::string &calleeName) const {
         return false;
     }
     return true;
+}
+
+std::string RawSymbolicScalar::Dump() const {
+    std::string buf;
+    DumpBuffer(buf);
+    return buf;
 }
 
 static void DumpSymbolicScalar(const RawSymbolicScalarPtr &raw, Json &jarray) {

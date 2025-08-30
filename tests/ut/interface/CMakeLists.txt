@@ -51,6 +51,7 @@ set(_CaseFilterList
 
         # Interpreter
         "ThreadPoolTest.*"
+        "DeterminismTest.*"
 
         # Utils
         "CommonTest.*"

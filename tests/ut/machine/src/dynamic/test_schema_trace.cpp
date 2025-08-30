@@ -16,7 +16,7 @@
 #include <gtest/gtest.h>
 #include <cstdint>
 #include <thread>
-#include "machine/utils/dynamic/schema_trace.h"
+#include "interface/schema/schema.h"
 #include "interface/utils/log.h"
 
 using namespace npu::tile_fwk;
@@ -68,7 +68,12 @@ TEST(SchemaTrace, Base) {
         }
         return ts;
     }();
-    EXPECT_EQ(TCode(data).Dump(), "[0,1,2,3,4]");
+    EXPECT_EQ(TCode(data, false).Dump(), "[0,1,2,3,4]");
+
+    std::string log = std::string(DEV_TRACE_PREFIX) + " " + b.Dump();
+    auto nodeList = schema::SchemaNode::ParseSchema(log);
+    EXPECT_EQ(nodeList.size(), 1);
+    EXPECT_EQ("#" + nodeList[0]->Dump(), b.Dump());
 }
 
 TEST(SchemaTrace, Log) {

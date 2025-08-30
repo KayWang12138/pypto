@@ -265,6 +265,7 @@ Operation *Program::FinishCurrentFunction(const std::shared_ptr<TensorSlotScope>
 // End the current function and pop the function index from the stack
 std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string &funcName,
                                                                           bool generateCall) {
+    currentFunctionPtr_->paramConfigs_.dynamicUnalignedOps = ConfigManager::Instance().GetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, false);
     std::shared_ptr<TensorSlotScope> scope = nullptr;
     // root & leaf do not need scope, use tensor/tile graph's
     if (currentFunctionPtr_->GetGraphType() != GraphType::LEAF_GRAPH &&
@@ -782,6 +783,10 @@ RecordFunc::~RecordFunc() {
     if (dynFunc_) {
         Program::GetInstance().SetLastFunction(dynFunc_);
         if (dynFunc_->IsDyndev()) {
+            // Destructor GetTensorData small Tensor
+            auto attr = dynFunc_->GetDyndevAttribute();
+            attr->getTensorDataDescDict.clear();
+
             dynFunc_->ApplyLoopCallOrderGroup();
             if (config::GetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, false)) {
                 Program::GetInstance().VerifyTensorGraph();

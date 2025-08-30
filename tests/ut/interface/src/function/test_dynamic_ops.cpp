@@ -414,6 +414,45 @@ TEST_F(DynamicOpsTest, Cube) {
     }
 }
 
+TEST_F(DynamicOpsTest, TestGetAndSetTensorDataExpr) {
+    ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
+
+    int tiling = 32;
+    Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling, tiling);
+
+    int n = tiling * 1;
+    int init = 10;
+    Tensor input(DT_INT32, {n, n, n}, "input");
+    Tensor output(DT_INT32, {n, n, n}, "output");
+    std::vector<int32_t> golden(n * n * n);
+    for (int i = 0; i < n * n * n; i++) {
+        golden[i] = init + init + i;
+    }
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<int32_t>(input, init),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<int32_t>(output, 0),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<int32_t>(output, golden),
+    });
+
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {input}, {output}) {
+        LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) {
+            LOOP("Step1", FunctionType::DYNAMIC_LOOP, j, LoopRange(n)) {
+                auto add = Add(input, input);
+                for (int k = 0; k < n; k++) {
+                    SymbolicScalar s = GetTensorDataInt32(add, {i, j, k});
+                    SetTensorDataInt32(s + i * tiling * tiling + j * tiling + k, {i, j, k}, output);
+                }
+            }
+        }
+    }
+}
+
 TEST_F(DynamicOpsTest, ElementScalar) {
     auto floatElement = Element(DT_BF16, 2.0);
     auto intElement = Element(DT_INT32, static_cast<long>(2));

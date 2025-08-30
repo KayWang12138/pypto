@@ -268,7 +268,7 @@ static void SimplifySlots(DyndevFunctionAttribute *attr) {
             ASSERT(!outcastSlots.empty()) << "devTile: " << devTile->GetMagicName();
             bool outcastSlotFound = false;
             for (auto &outcastSlot : outcastSlots) {
-                outcastSlotFound = outcastSlotFound || slotUsed[outcastSlot];                
+                outcastSlotFound = outcastSlotFound || slotUsed[outcastSlot];
             }
             if (!outcastSlotFound) {
                 slotUsed[outcastSlots.front()] = true;
@@ -388,7 +388,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         ASSERT(attr != nullptr);
         if (attr->submitBeforeLoop) {
             controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "callRootList[CallRootStage::T_CALLROOT_STITCH](ctx, RUNTIME_FINISH_FUNCKEY); // force submit before LOOP \n";
-        }        
+        }
         std::string iterBegin = SymbolicExpressionTable::BuildExpression(attr->Begin());
         std::string iterEnd = SymbolicExpressionTable::BuildExpression(attr->End());
         std::string iterStep = SymbolicExpressionTable::BuildExpression(attr->Step());
@@ -397,7 +397,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "VALUE_" << attr->iterSymbolName << " = " << iterVar << ";\n";
 
         auto pathNode = attr->BuildPathNode();
-        ALOG_INFO("Paths: \n", pathNode->Dump());                
+        ALOG_INFO("Paths: \n", pathNode->Dump());
         std::vector<Function *> calleeList = GetCalleeList(cache, func);
         std::sort(calleeList.begin(), calleeList.end());
 
@@ -502,7 +502,7 @@ static void SetDyndevProgBinary(Function *function) {
     dynamic::DevAscendProgram *devProg = reinterpret_cast<dynamic::DevAscendProgram *>(&dynAttrPtr->devProgBinary[0]);
     dynamic::EncodeDevAscendProgram(function, size, devProg);
 
-    if (config::GetPassDefaultConfig(npu::tile_fwk::KEY_PRINT_FUNCTION, false)) {
+    if (config::GetPassDefaultConfig(npu::tile_fwk::KEY_PRINT_PROGRAM, false)) {
         devProg->DumpFile(config::LogTopFolder() + "/program.tifwkbintxt");
         std::string loopDirPath = config::LogTopFolder() + "/loop";
         CreateMultiLevelDir(loopDirPath);
@@ -532,7 +532,7 @@ std::vector<SymbolicExpressionTable *> GetAllExpressionTable(DyndevFunctionAttri
         (void)func;
         exprTableList.push_back(&exprTable);
     }
-    for (auto &[func, opDict] : exprTableGroup.loopIfDict) {        
+    for (auto &[func, opDict] : exprTableGroup.loopIfDict) {
         (void)func;
         for (auto &[op, exprTable] : opDict) {
             (void)op;
@@ -571,13 +571,27 @@ static void ConstructCodeInfo(struct EncodeDevAscendFunctionParam &encodeDevAsce
     return;
 }
 
+static
+bool IsNeedDumpAicpuKernel(const std::string &inputFile) {
+    if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(
+            npu::tile_fwk::KEY_CODEGEN_FORCE_DUMP_CCE_ON_EXIST, true)) {
+        // force dump, default is true
+        return true;
+    }
+    // not force dump
+    if (npu::tile_fwk::FileExist(inputFile)) {
+        return false;
+    }
+    return true;
+}
+
 static void CompileDyndevFunction(Function *function, FunctionCache &cache, const std::string &ccePath,
                                   std::string &kernelPath) {
     std::shared_ptr<DyndevFunctionAttribute> attr = function->GetDyndevAttribute();
     ASSERT(attr != nullptr);
 
     Linker linker(attr->symbolTable, attr->funcGroup, attr->exprTableDictGroup);
-    FindAllExpression(cache, linker, function);    
+    FindAllExpression(cache, linker, function);
 
     FillL2PrefetchInfo(attr);
 
@@ -616,17 +630,22 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, cons
     std::string aicpuDirPath = GetEmitPath("kernel_aicpu");
     npu::tile_fwk::CreateMultiLevelDir(aicpuDirPath);
 
-    DumpFile(expressionSource, aicpuDirPath + "/" + expName);
-    
+    std::string expressionFilePath = aicpuDirPath + "/" + expName;
+    if (IsNeedDumpAicpuKernel(expressionFilePath)) {
+        DumpFile(expressionSource, expressionFilePath);
+    }
+
+    std::string controlFlowHostFilePath = aicpuDirPath + "/controlFlow_host.cpp";
     attr->hostControlFlowBinary = CompileAndLoadSection(
-        controlFlowSource, aicpuDirPath + "/controlFlow_host.cpp",
-        "g++", "objcopy", "ast2", cflags);
+        controlFlowSource, controlFlowHostFilePath,
+        "g++", "objcopy", "ast2", IsNeedDumpAicpuKernel(controlFlowHostFilePath), cflags);
     AlignUpTo(attr->hostControlFlowBinary, 0x8, 0);
 #ifdef ASCEND_CANN_ROOT_PATH
     if (ToolchainExist(Arm64TargetTool("g++"))) {
+        std::string controlFlowDevFilePath = aicpuDirPath + "/controlFlow_dev.cpp";
         attr->devControlFlowBinary = CompileAndLoadSection(
-            controlFlowSource, aicpuDirPath + "/controlFlow_dev.cpp",
-            Arm64TargetTool("g++"), Arm64TargetTool("objcopy"), "ast2");
+            controlFlowSource, controlFlowDevFilePath,
+            Arm64TargetTool("g++"), Arm64TargetTool("objcopy"), "ast2", IsNeedDumpAicpuKernel(controlFlowDevFilePath));
     } else {
         // brk #0
         attr->devControlFlowBinary = std::vector<uint8_t>{0xd4, 0x20, 0x00, 0x00};
@@ -641,6 +660,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, cons
     for (auto &devRoot : attr->funcGroup.devRootList) {
         if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, false)) {
             Function *devTile = attr->rootTileDict[devRoot];
+            config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, devTile->paramConfigs_.dynamicUnalignedOps);
             npu::tile_fwk::CodeGenCtx codeGenCtx("", GetEmitPath("kernel_aicore"));
             npu::tile_fwk::CodeGen codeGen(codeGenCtx);
             codeGen.GenCode(*devTile, {});

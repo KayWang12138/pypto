@@ -264,6 +264,9 @@ std::string CodeGenCloudNPU::GenDynParamForExpr(const Function &func) const {
     for (const auto &dynParam : func.GetDynParamTable()) {
         std::string dynParamExpr = "uint64_t " + dynParam.first + " = ";
         DynParamInfo info = dynParam.second;
+        if (info.dim.IsValid()) {
+            dynParamExpr += info.dim.Dump() + "; //";
+        }
         if (info.type == DynParamInfoType::VALID_SHAPE) {
             dynParamExpr += GET_PARAM_VALID_SHAPE_BY_IDX;
         } else if (info.type == DynParamInfoType::OFFSET) {

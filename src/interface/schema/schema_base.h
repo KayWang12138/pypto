@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file schema_trace.h
+ * \file schema_base.h
  * \brief
  */
 
@@ -37,6 +37,7 @@ namespace npu::tile_fwk::schema::type {
 #define SCHEMA_ATTR_VALUE_SEPARATOR         ","
 #define SCHEMA_ARRAY_LBOUND                 "["
 #define SCHEMA_ARRAY_RBOUND                 "]"
+#define SCHEMA_ADDRESS_PREFIX               "0x"
 
 struct TypeBase {
 };
@@ -59,36 +60,46 @@ struct TypeCount<Ty0> {
     constexpr static int size = 1;
 };
 
-template<typename BaseType>
+template<typename BaseType, char prefix=0>
 struct IntegralTypeBase {
     IntegralTypeBase() = default;
     IntegralTypeBase(int data) : data_(data) {}
 
     std::string Dump(bool top __attribute__((unused)) = false) const {
-        return std::to_string(data_);
+        std::string data = std::to_string(data_);
+        if (prefix != 0) {
+            data = std::string(1, prefix) + data;
+        }
+        return data;
     }
 private:
     BaseType data_{0};
 };
 
-struct Int32Type : IntegralTypeBase<long long> {
+struct Int32Type : IntegralTypeBase<int32_t, 0> {
     Int32Type() = default;
-    template<typename ...TyArgs> Int32Type(const TyArgs&... args) : IntegralTypeBase<long long>(args...) {}
+    template<typename ...TyArgs> Int32Type(const TyArgs&... args) : IntegralTypeBase<int32_t, 0>(args...) {}
 };
 
-struct Int64Type : IntegralTypeBase<long long> {
+struct Int64Type : IntegralTypeBase<int64_t, 0> {
     Int64Type() = default;
-    template<typename ...TyArgs> Int64Type(const TyArgs&... args) : IntegralTypeBase<long long>(args...) {}
+    template<typename ...TyArgs> Int64Type(const TyArgs&... args) : IntegralTypeBase<int64_t, 0>(args...) {}
 };
 
-struct UInt32Type : IntegralTypeBase<long long> {
+struct UInt32Type : IntegralTypeBase<uint32_t, 0> {
     UInt32Type() = default;
-    template<typename ...TyArgs> UInt32Type(const TyArgs&... args) : IntegralTypeBase<long long>(args...) {}
+    template<typename ...TyArgs> UInt32Type(const TyArgs&... args) : IntegralTypeBase<uint32_t, 0>(args...) {}
 };
 
-struct UInt64Type : IntegralTypeBase<long long> {
+struct UInt64Type : IntegralTypeBase<uint64_t, 0> {
     UInt64Type() = default;
-    template<typename ...TyArgs> UInt64Type(const TyArgs&... args) : IntegralTypeBase<long long>(args...) {}
+    template<typename ...TyArgs> UInt64Type(const TyArgs&... args) : IntegralTypeBase<uint64_t, 0>(args...) {}
+};
+
+template<char prefix=0>
+struct Int64IdType : IntegralTypeBase<int64_t, prefix> {
+    Int64IdType() = default;
+    template<typename ...TyArgs> Int64IdType(const TyArgs&... args) : IntegralTypeBase<int64_t, prefix>(args...) {}
 };
 
 struct AddressType : TypeBase {
@@ -99,7 +110,7 @@ struct AddressType : TypeBase {
 
     std::string Dump(bool top __attribute__((unused)) = false) const {
         std::ostringstream oss;
-        oss << "0x" << std::hex << addr_;
+        oss << SCHEMA_ADDRESS_PREFIX << std::hex << addr_;
         return oss.str();
     }
 private:
@@ -108,10 +119,21 @@ private:
 
 struct StringType : TypeBase {
     StringType() = default;
-    StringType(const std::string &text) : text_(text) {}
+    StringType(const std::string &str) : str_(str) {}
 
     std::string Dump(bool top __attribute__((unused)) = false) const {
-        return "\"" + text_ + "\"";
+        return "\"" + str_ + "\"";
+    }
+private:
+    std::string str_;
+};
+
+struct TextType : TypeBase {
+    TextType() = default;
+    TextType(const std::string &text) : text_(text) {}
+
+    std::string Dump(bool top __attribute__((unused)) = false) const {
+        return text_;
     }
 private:
     std::string text_;
@@ -142,7 +164,12 @@ struct ArrayType : TypeBase {
     ArrayType() = default;
 
     template<typename ContainerType>
-    ArrayType(const ContainerType &container) : elementList_(container.begin(), container.end()) {}
+    ArrayType(const ContainerType &container, bool dumpIndex=false)
+      : elementList_(container.begin(), container.end()), dumpIndex_(dumpIndex) {}
+
+    static std::string DumpIndex(int index) {
+        return "/*" + std::to_string(index) + "*/";
+    }
 
     std::string Dump(bool top __attribute__((unused)) = false) const {
         std::ostringstream oss;
@@ -150,6 +177,9 @@ struct ArrayType : TypeBase {
         int index = 0;
         for (auto &element : elementList_) {
             oss << (index == 0 ? "" : SCHEMA_ATTR_VALUE_SEPARATOR);
+            if (dumpIndex_) {
+                oss << DumpIndex(index);
+            }
             oss << element.Dump(top);
             index++;
         }
@@ -158,6 +188,7 @@ struct ArrayType : TypeBase {
     }
 private:
     std::vector<ElementType> elementList_;
+    bool dumpIndex_;
 };
 
 struct AttributeId : TypeBase {
@@ -408,15 +439,27 @@ private:
     struct name : name##Base { \
         name() = default; \
         template<typename ...TyArgs> name(const TyArgs&... args) : name##Base(args...) {} \
-    }
+    };
 
-#define SCHEMA_DEF_TYPE_INT32(name)     SCHEMA_DEF_TYPE_INHERIT(name, Int32Type)
-#define SCHEMA_DEF_TYPE_INT64(name)     SCHEMA_DEF_TYPE_INHERIT(name, Int64Type)
-#define SCHEMA_DEF_TYPE_UINT32(name)    SCHEMA_DEF_TYPE_INHERIT(name, UInt32Type)
-#define SCHEMA_DEF_TYPE_UINT64(name)    SCHEMA_DEF_TYPE_INHERIT(name, UInt64Type)
-#define SCHEMA_DEF_TYPE_ADDRESS(name)   SCHEMA_DEF_TYPE_INHERIT(name, AddressType)
-#define SCHEMA_DEF_TYPE_STRING(name)    SCHEMA_DEF_TYPE_INHERIT(name, StringType)
-#define SCHEMA_DEF_TYPE_COORD(name)     SCHEMA_DEF_TYPE_INHERIT(name, CoordType)
+#define SCHEMA_DEF_TYPE_INHERIT_ID(name, baseType, prefix) \
+    typedef npu::tile_fwk::schema::type::baseType<prefix> name##Base; \
+    struct name : name##Base { \
+        name() = default; \
+        template<typename ...TyArgs> name(const TyArgs&... args) : name##Base(args...) {} \
+    };
+
+#define SCHEMA_DEF_TYPE_INT32(name)             SCHEMA_DEF_TYPE_INHERIT(name, Int32Type)
+#define SCHEMA_DEF_TYPE_UINT32(name)            SCHEMA_DEF_TYPE_INHERIT(name, UInt32Type)
+
+#define SCHEMA_DEF_TYPE_INT64_1(name)           SCHEMA_DEF_TYPE_INHERIT(name, Int64Type)
+#define SCHEMA_DEF_TYPE_INT64_2(name, prefix)   SCHEMA_DEF_TYPE_INHERIT_ID(name, Int64IdType, prefix)
+#define SCHEMA_DEF_TYPE_INT64(...)              SCHEMA_DEF_ATTR_CONCAT(SCHEMA_DEF_TYPE_INT64_, SCHEMA_DEF_ATTR_NR(__VA_ARGS__))(__VA_ARGS__)
+
+#define SCHEMA_DEF_TYPE_UINT64(name)            SCHEMA_DEF_TYPE_INHERIT(name, UInt64Type)
+#define SCHEMA_DEF_TYPE_ADDRESS(name)           SCHEMA_DEF_TYPE_INHERIT(name, AddressType)
+#define SCHEMA_DEF_TYPE_STRING(name)            SCHEMA_DEF_TYPE_INHERIT(name, StringType)
+#define SCHEMA_DEF_TYPE_COORD(name)             SCHEMA_DEF_TYPE_INHERIT(name, CoordType)
+#define SCHEMA_DEF_TYPE_TEXT(name)              SCHEMA_DEF_TYPE_INHERIT(name, TextType)
 
 #define SCHEMA_DEF_TYPE_ARRAY(name, element) \
     typedef npu::tile_fwk::schema::type::ArrayType<element> name##Base; \
@@ -441,19 +484,22 @@ private:
     typedef npu::tile_fwk::schema::type::AttributeId name##Base; \
     struct name : name##Base { \
         name() : name##Base(#name) {} \
-    }
+        static const std::string Name() { return #name; } \
+    };
 #define SCHEMA_DEF_ATTR_CALL_(name, ...) \
     typedef npu::tile_fwk::schema::type::SCHEMA_DEF_ATTR_CONCAT(AttributeCall_, SCHEMA_DEF_ATTR_NR(__VA_ARGS__))<__VA_ARGS__> name##Base; \
     struct name : name##Base { \
         name() : name##Base(#name) {} \
         template<typename ...TyArgs> name(const TyArgs&... args) : name##Base(#name, args...) {} \
-    }
+        static const std::string Name() { return #name; } \
+    };
 
 #define SCHEMA_DEF_ATTR_NAME(name, text) \
     typedef npu::tile_fwk::schema::type::AttributeId name##Base; \
     struct name : name##Base { \
         name() : name##Base(#text) {} \
-    }
+        static const std::string Name() { return #text; } \
+    };
 
 #define SCHEMA_DEF_ATTR_1(name)                 SCHEMA_DEF_ATTR_KEYWORD_(name)
 #define SCHEMA_DEF_ATTR_2(name, arg0)           SCHEMA_DEF_ATTR_CALL_(name, arg0)

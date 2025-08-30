@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file schema_trace.h
+ * \file schema.h
  * \brief
  */
 
@@ -17,7 +17,8 @@
 #ifndef SCHEMA_TRACE_H
 #define SCHEMA_TRACE_H
 
-#include "schema_trace_base.h"
+#include "schema_base.h"
+#include "schema_parser.h"
 
 namespace npu::tile_fwk::schema {
 
@@ -33,27 +34,31 @@ static inline std::string DumpAttr(const Ty0 &arg0, const Tys&...args) {
     return head + " " + tail;
 }
 
-#include "schema_trace_def.h"
+#include "schema_def_common.h"
+#include "schema_def_attr.h"
+#include "schema_def_trace.h"
+
+#define DEV_TRACE_PREFIX        "#trace:"
 
 #define DEV_TRACE_DEBUG(arg, args...) \
     do { \
         using namespace npu::tile_fwk::schema; \
-        DEV_DEBUG("#trace: %s", DumpAttr(arg, ##args).c_str()); \
+        DEV_DEBUG(DEV_TRACE_PREFIX " %s", DumpAttr(arg, ##args).c_str()); \
     } while(0)
 #define DEV_TRACE_INFO(arg, args...) \
     do { \
         using namespace npu::tile_fwk::schema; \
-        DEV_INFO("#trace: %s", DumpAttr(arg, ##args).c_str()); \
+        DEV_INFO(DEV_TRACE_PREFIX " %s", DumpAttr(arg, ##args).c_str()); \
     } while(0)
 #define DEV_TRACE_WARN(arg, args...) \
     do { \
         using namespace npu::tile_fwk::schema; \
-        DEV_WARN("#trace: %s", DumpAttr(arg, ##args).c_str()); \
+        DEV_WARN(DEV_TRACE_PREFIX " %s", DumpAttr(arg, ##args).c_str()); \
     } while(0)
 #define DEV_TRACE_ERROR(arg, args...) \
     do { \
         using namespace npu::tile_fwk::schema; \
-        DEV_ERROR("#trace: %s", DumpAttr(arg, ##args).c_str()); \
+        DEV_ERROR(DEV_TRACE_PREFIX " %s", DumpAttr(arg, ##args).c_str()); \
     } while(0)
 }
 

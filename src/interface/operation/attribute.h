@@ -98,6 +98,14 @@ public:
 
     static OpImmediate Parameter(int index) { return OpImmediate(OpImmediateKind::T_SCALAR_PARAMETER, index); }
 
+    static std::vector<SymbolicScalar> ToSpecified(const std::vector<OpImmediate> &value) {
+        std::vector<SymbolicScalar> res;
+        for (auto &v : value) {
+            res.push_back(v.GetSpecifiedValue());
+        }
+        return res;
+    }
+
     static void NormalizeValue(SymbolicScalar &arg, OpImmediate &opImm, const SymbolicScalar &normCall, bool valueToIndex) {
         ASSERT(opImm.IsSpecified());
         SymbolicScalar value = opImm.GetSpecifiedValue();

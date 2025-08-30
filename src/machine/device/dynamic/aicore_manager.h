@@ -26,7 +26,7 @@
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/utils/dynamic/small_array.h"
 #include "machine/utils/dynamic/spsc_queue.h"
-#include "machine/utils/dynamic/schema_trace.h"
+#include "interface/schema/schema.h"
 #include "machine/kernel/aicore.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/utils/device_log.h"
@@ -677,7 +677,7 @@ public:
         }
         if (runningIds_[coreIdx] != AICORE_TASK_INIT) {
             DEV_ERROR("status %lu,running taskid:%s,funcdata:  %s.", status, std::to_string(runningIds_[coreIdx]).c_str(),
-                ((DynDeviceTask *)curDevTask_)->DumpTaskData(runningIds_[coreIdx]).c_str());                   
+                ((DynDeviceTask *)curDevTask_)->DumpTaskData(runningIds_[coreIdx]).c_str());
         }
     }
 

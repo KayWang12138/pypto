@@ -319,34 +319,75 @@ void Function::CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut, LogicalTe
     inOrOutList.emplace_back(inOrOut->Clone(*parent_));
 }
 
-std::unordered_map<int, GetTensorDataIODesc> Function::GetTensorDataForTensorGraph() {
-    std::unordered_map<int, GetTensorDataIODesc> iodescDict;
+static int GetTensorDataLookupOutcast(Function *func, Operation *import) {
+    auto importTensor = import->GetIOperands()[0];
+    auto consumerSet = importTensor->GetConsumers();
+    if (consumerSet.size() != 2) {
+        return INVALID_IOINDEX;
+    }
+    for (auto consumer : consumerSet) {
+        if (consumer != import) {
+            auto outcast = consumer->GetOOperands()[0];
+            auto outcastIndex = func->GetOutcastIndex(outcast);
+            return outcastIndex;
+        }
+    }
+    return INVALID_IOINDEX;
+}
+
+static int GetTensorDataLookupIncast(Function *func, Operation *import) {
+    auto importTensor = import->GetIOperands()[0];
+    auto producerSet = importTensor->GetProducers();
+    if (producerSet.size() != 1) {
+        return INVALID_IOINDEX;
+    }
+    auto producer = *producerSet.begin();
+    auto incast = producer->GetIOperands()[0];
+    auto incastIndex = func->GetIncastIndex(incast);
+    return incastIndex;
+}
+
+GetTensorDataIODescDict Function::GetTensorDataForTensorGraph() {
+    GetTensorDataIODescDict iodescDict;
+    auto currDynFunc = Program::GetInstance().GetCurrentDynamicFunction();
+    if (currDynFunc == nullptr) {
+        return iodescDict;
+    }
+    auto currDynAttr = currDynFunc->GetDyndevAttribute();
     for (auto &op : Operations(false)) {
-        if (!op.HasAttr(OP_EMUOP_PREFIX + "GetTensorData_tensor_to_scalar")) {
+        if (!CheckEmuOpcode(&op, EMUOP_TENSOR_GETDATA_IMPORT)) {
             continue;
         }
-        int getTensorDataIndex = op.GetIntAttribute(OP_EMUOP_PREFIX + "GetTensorData_tensor_to_scalar");
-        auto tensor = op.GetIOperands()[0];
-        for (auto cons : tensor->GetConsumers()) {
-            if (cons != &op) {
-                auto outcast = cons->GetOOperands()[0];
-                auto outcastIndex = GetOutcastIndex(outcast);
-                if (outcastIndex != INVALID_IOINDEX) {
-                    iodescDict[getTensorDataIndex] = GetTensorDataIODesc(GET_TENSOR_DATA_OPERAND_IOTYPE_OUTCAST, outcastIndex, 0);
-                }
+        int getTensorDataIndex = GetTensorDataGetIndex(&op);
+        ASSERT(getTensorDataIndex != -1);
+        ASSERT(currDynAttr->getTensorDataUsageDict.count(this));
+        std::unordered_map<int, Operation *> &importDict =currDynAttr->getTensorDataUsageDict[this].importDict;
+        ASSERT(importDict.count(getTensorDataIndex));
+        auto import = importDict[getTensorDataIndex];
+        int outcastIndex = GetTensorDataLookupOutcast(this, import);
+        if (outcastIndex != INVALID_IOINDEX) {
+            iodescDict[getTensorDataIndex] = GetTensorDataIODesc(GET_TENSOR_DATA_OPERAND_IOTYPE_OUTCAST, outcastIndex, 0);
+        } else {
+            int incastIndex = GetTensorDataLookupIncast(this, import);
+            if (incastIndex != INVALID_IOINDEX) {
+                iodescDict[getTensorDataIndex] = GetTensorDataIODesc(GET_TENSOR_DATA_OPERAND_IOTYPE_INCAST, incastIndex, 0);
+            } else {
+                // Impossible
+                ASSERT(false);
             }
         }
     }
     return iodescDict;
 }
 
-std::unordered_map<int, GetTensorDataIODesc> Function::GetTensorDataForLeafGraph() {
-    std::unordered_map<int, GetTensorDataIODesc> iodescDict;
+GetTensorDataIODescDict Function::GetTensorDataForLeafGraph() {
+    GetTensorDataIODescDict iodescDict;
     for (auto &op : Operations(false)) {
-        if (!op.HasAttr(OP_EMUOP_PREFIX + "GetTensorData_tensor_to_scalar")) {
+        if (!CheckEmuOpcode(&op, EMUOP_TENSOR_GETDATA_IMPORT)) {
             continue;
         }
-        int getTensorDataIndex = op.GetIntAttribute(OP_EMUOP_PREFIX + "GetTensorData_tensor_to_scalar");
+        int getTensorDataIndex = GetTensorDataGetIndex(&op);
+        ASSERT(getTensorDataIndex != -1);
         auto tensor = op.GetIOperands()[0];
         auto incastIndex = GetIncastIndex(tensor);
         if (incastIndex != INVALID_IOINDEX) {
@@ -356,7 +397,7 @@ std::unordered_map<int, GetTensorDataIODesc> Function::GetTensorDataForLeafGraph
     return iodescDict;
 }
 
-void Function::GetTensorDataRefreshIO(std::unordered_map<int, GetTensorDataIODesc> &iodescDict) {
+void Function::GetTensorDataRefreshIO(const GetTensorDataIODescDict &iodescDict) {
     for (auto &op : Operations(false)) {
         switch (op.GetOpcode()) {
             case Opcode::OP_VIEW:
@@ -365,7 +406,12 @@ void Function::GetTensorDataRefreshIO(std::unordered_map<int, GetTensorDataIODes
                     if (viewAttr != nullptr) {
                         std::vector<SymbolicScalar> &viewFromDynOffset = viewAttr->GetFromDynOffset();
                         std::for_each(viewFromDynOffset.begin(), viewFromDynOffset.end(),
-                            [&](SymbolicScalar &offset) { offset = GetTensorDataFillIO(iodescDict, offset); });
+                            [&](SymbolicScalar &offset) { offset = GetTensorDataFillIO(iodescDict, offset);
+                        });
+                        std::vector<SymbolicScalar> &viewToDynValidShape = viewAttr->GetToDynValidShape();
+                        std::for_each(viewToDynValidShape.begin(), viewToDynValidShape.end(),
+                            [&](SymbolicScalar &offset) { offset = GetTensorDataFillIO(iodescDict, offset);
+                        });
                     }
                 } break;
             case Opcode::OP_ASSEMBLE:
@@ -375,6 +421,10 @@ void Function::GetTensorDataRefreshIO(std::unordered_map<int, GetTensorDataIODes
                         std::vector<SymbolicScalar> &assembleToDynOffset = assembleAttr->GetToDynOffset();
                         std::for_each(assembleToDynOffset.begin(), assembleToDynOffset.end(), [&](SymbolicScalar &offset) {
                             offset = GetTensorDataFillIO(iodescDict, offset);
+                        });
+                        std::vector<SymbolicScalar> &assembleFromDynValidShape = assembleAttr->GetFromDynValidShape();
+                        std::for_each(assembleFromDynValidShape.begin(), assembleFromDynValidShape.end(),
+                            [&](SymbolicScalar &offset) { offset = GetTensorDataFillIO(iodescDict, offset);
                         });
                     }
                 } break;
@@ -389,6 +439,13 @@ void Function::GetTensorDataRefreshIO(std::unordered_map<int, GetTensorDataIODes
                         });
                         copyAttr->SetFromOffset(copyFromOffset);
                     }
+                    std::vector<OpImmediate> copyToDynValidShape = copyAttr->GetToDynValidShape();
+                    if (copyToDynValidShape.size() != 0 && copyToDynValidShape[0].IsSpecified()) {
+                        std::for_each(copyToDynValidShape.begin(), copyToDynValidShape.end(), [&](OpImmediate &opimm) {
+                            opimm = OpImmediate::Specified(GetTensorDataFillIO(iodescDict, opimm.GetSpecifiedValue()));
+                        });
+                        copyAttr->SetToDynValidShape(copyToDynValidShape);
+                    }
                 } break;
             case Opcode::OP_COPY_OUT: [[fallthrough]];
             case Opcode::OP_UB_COPY_OUT:
@@ -399,8 +456,23 @@ void Function::GetTensorDataRefreshIO(std::unordered_map<int, GetTensorDataIODes
                         std::for_each(copyToOffset.begin(), copyToOffset.end(), [&](OpImmediate &opimm) {
                             opimm = OpImmediate::Specified(GetTensorDataFillIO(iodescDict, opimm.GetSpecifiedValue()));
                         });
+                        copyAttr->SetToOffset(copyToOffset);
                     }
-                    copyAttr->SetToOffset(copyToOffset);
+                    std::vector<OpImmediate> copyFromDynValidShape = copyAttr->GetFromDynValidShape();
+                    if (copyFromDynValidShape.size() != 0 && copyFromDynValidShape[0].IsSpecified()) {
+                        std::for_each(copyFromDynValidShape.begin(), copyFromDynValidShape.end(), [&](OpImmediate &opimm) {
+                            opimm = OpImmediate::Specified(GetTensorDataFillIO(iodescDict, opimm.GetSpecifiedValue()));
+                        });
+                        copyAttr->SetFromDynValidShape(copyFromDynValidShape);
+                    }
+                } break;
+            case Opcode::OP_VEC_DUP:
+                {
+                    if (op.HasAttr(OpAttributeKey::dynScalar)) {
+                        auto scalar = op.GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
+                        auto scalarFilled = GetTensorDataFillIO(iodescDict, scalar);
+                        op.SetAttribute(OpAttributeKey::dynScalar, scalarFilled);
+                    }
                 } break;
             default:
                 break;
@@ -565,6 +637,7 @@ FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &s
         }
         auto iodescDict = GetTensorDataForTensorGraph();
         GetTensorDataRefreshIO(iodescDict);
+        SortOperations();
     } else if (graphType_ == GraphType::ROOT_GRAPH) {
     } else if (graphType_ == GraphType::LEAF_GRAPH) {
         for (auto &out : outCasts_) {
@@ -2306,7 +2379,7 @@ static std::vector<SymbolicScalar> NormalizeCopyOut(Operation *op, int coaIndexB
     operandCoaIndex += dim;
     coaIndex += dim;
 
-    // shape to normal
+    // shape to normals
     opImmList = copyAttr->GetShape();
     OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
     copyAttr->SetShape(opImmList);
@@ -2399,7 +2472,9 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
         std::vector<SymbolicScalar> operandCoaList;
         if (IsCopyIn(op->GetOpcode()) && k == 0) {
             operandCoaList = NormalizeCopyIn(op, coaIndex, valueToIndex);
-            op->SetAttribute(OP_EMUOP_PREFIX + "GetTensorData_coaIndex", coaIndex);
+            if (CheckEmuOpcode(op, EMUOP_TENSOR_GETDATA_DEPEND)) {
+                GetTensorDataSetCoaIndex(op, coaIndex);
+            }
         } else {
             operandCoaList = NormalizeTensor(op->GetIOperands()[k], coaIndex);
         }
@@ -2415,7 +2490,6 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
         std::vector<SymbolicScalar> operandCoaList;
         if (IsCopyOut(op->GetOpcode()) && k == 0) {
             operandCoaList = NormalizeCopyOut(op, coaIndex, valueToIndex);
-            op->SetAttribute(OP_EMUOP_PREFIX + "GetTensorData_coaIndex", coaIndex);
         } else {
             operandCoaList = NormalizeTensor(op->GetOOperands()[k], coaIndex);
         }

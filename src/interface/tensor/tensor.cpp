@@ -339,17 +339,17 @@ SymbolicScalar DoGetTensorDataInt32(SymbolHandlerId handlerId, const Tensor &t, 
     auto currDynAttr = currDynFunc->GetDyndevAttribute();
     int getTensorDataIndex = currDynAttr->getTensorDataCount++;
 
-    auto extract = std::make_shared<Tensor>(TensorExtract(t, offset));
+    auto assemble = std::make_shared<Tensor>(TensorExtract(t, offset));
 
-    auto emuopAssemble = *extract->GetStorage()->GetProducers().begin();
+    auto emuopAssemble = *assemble->GetStorage()->GetProducers().begin();
     auto emuopMark = *emuopAssemble->GetIOperands()[0]->GetProducers().begin();
     auto emuopView = *emuopMark->GetIOperands()[0]->GetProducers().begin();
-    emuopView->SetAttribute(OP_EMUOP_PREFIX + "GetTensorData_index", getTensorDataIndex);
-    emuopMark->SetAttribute(OP_EMUOP_PREFIX + "GetTensorData_index", getTensorDataIndex);
-    emuopAssemble->SetAttribute(OP_EMUOP_PREFIX + "GetTensorData_index", getTensorDataIndex);
+    GetTensorDataSetIndex(emuopView, getTensorDataIndex);
+    GetTensorDataSetIndex(emuopMark, getTensorDataIndex);
+    GetTensorDataSetIndex(emuopAssemble, getTensorDataIndex);
 
-    auto &desc = currDynAttr->getTensorDataDict[getTensorDataIndex];
-    desc.outcastTensor = extract;
+    auto &desc = currDynAttr->getTensorDataDescDict[getTensorDataIndex];
+    desc.assembleTensor = assemble;
 
     std::string getName = SymbolHandler::GetNameByHandlerId(handlerId);
     std::string getRuntimeName = AddRuntimePrefix(getName);

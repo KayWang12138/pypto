@@ -71,6 +71,7 @@
         "pass_thread_num": 1,
         "default_pass_configs": {
             "PRINT_FUNCTION": false,
+            "PRINT_PROGRAM": true,
             "DUMP_FUNCTION_GRAPH_BEFORE_PASS": false,
             "DUMP_FUNCTION_GRAPH_AFTER_PASS": false,
             "DUMP_PASS_TIME_COST": true,

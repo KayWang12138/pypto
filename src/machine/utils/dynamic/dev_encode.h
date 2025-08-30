@@ -28,6 +28,7 @@
 #include "machine/utils/device_log.h"
 #include "machine/utils/device_switch.h"
 #include "interface/cache/core_func_data.h"
+#include "interface/schema/schema.h"
 #include "securec.h"
 #include "interface/utils/common.h"
 #include "tilefwk/data_type.h"
@@ -36,7 +37,6 @@
 #include "machine/utils/dynamic/allocator/allocators.h"
 #include "machine/utils/dynamic/vector.h"
 #include "machine/utils/dynamic/codegen/aicpu_runtime.h"
-#include "machine/utils/dynamic/schema_trace.h"
 #include "machine/device/dynamic/device_utils.h"
 
 namespace npu::tile_fwk {
@@ -346,22 +346,30 @@ struct DevAscendRawTensor {
         return memReq;
     }
 
-    std::string Dump() const {
+    std::string DumpType() const {
         std::ostringstream oss;
-
         oss << "<";
         for (int i = 0; i < shape.dimSize; i++) {
-            if (shape.dim[i].IsExpression())
-                oss << "?x";
-            else
-                oss << shape.dim[i].Value() << "x";
+            if (shape.dim[i].IsExpression()) {
+                oss << "? x ";
+            } else {
+                oss << shape.dim[i].Value() << " x ";
+            }
         }
         oss << DataType2String(dataType);
-        oss << ",#iokind:" << DevIOProperty2String(ioProperty);
-        oss << ",#ioindex:" << ioIndex;
-        oss << ",#memory:" << memoryRequirement;
-        oss << ",#baseoffset:" << addrOffset;
         oss << ">";
+        return oss.str();
+    }
+
+    std::string DumpAttr() const {
+        std::ostringstream oss;
+        if (ioProperty == DevIOProperty::ROOT_INCAST) {
+            oss << schema::incast(ioIndex).Dump() << " ";
+        } else if (ioProperty == DevIOProperty::ROOT_OUTCAST) {
+            oss << schema::outcast(ioIndex).Dump() << " ";
+        }
+        oss << schema::mem(memoryRequirement).Dump() << " ";
+        oss << schema::off(addrOffset).Dump();
         return oss.str();
     }
 };
@@ -664,6 +672,25 @@ public:
         return buf;
     }
 
+    schema::coa SchemaGetCoa(int operationIndex, uint64_t *runtimeExpressionList = nullptr, bool dumpIndex = false) const {
+        std::vector<schema::TextType> coaDataList;
+        for (size_t j = 0; j < GetOperationAttrSize(operationIndex); j++) {
+            const SymInt &s = GetOperationAttr(operationIndex, j);
+            std::string textData;
+            if (s.IsExpression()) {
+                if (runtimeExpressionList != nullptr) {
+                    textData = std::to_string(runtimeExpressionList[s.Value()]);
+                } else {
+                    textData = "?" + std::to_string(s.Value());
+                }
+            } else {
+                textData = std::to_string(s.Value());
+            }
+            coaDataList.push_back(schema::TextType(textData));
+        }
+        return schema::coa(schema::coaType(coaDataList, dumpIndex));
+    }
+
     static std::string DumpShape(const DevAscendShape &shape) {
         std::ostringstream oss;
         oss << "<";
@@ -699,7 +726,7 @@ public:
         } else {
             oss << s.Value();
         }
-        return oss.str();
+         return oss.str();
     }
 
     static std::string DumpSymIntList(const SymInt *s, int count, uint64_t *runtimeExpressionList) {
@@ -709,6 +736,19 @@ public:
             oss << Delim(i != 0, ",") << DumpSymInt(s[i], runtimeExpressionList);
         }
         oss << ">";
+        return oss.str();
+    }
+
+    std::string DumpOperationAttr(int operationIndex, uint64_t *runtimeExpressionList = nullptr, bool dumpIndex=false) const {
+        std::ostringstream oss;
+        oss << SchemaGetCoa(operationIndex, runtimeExpressionList, dumpIndex).Dump();
+        oss << " " << schema::pred(GetOperationDepGraphPredCount(operationIndex)).Dump();
+        const DevLocalVector<int> &succList = GetOperationDepGraphSuccList(operationIndex);
+        std::vector<schema::operation> succDataList;
+        for (size_t j = 0; j < succList.size(); j++) {
+            succDataList.push_back(At(succList, j));
+        }
+        oss << " " << schema::succ(succDataList).Dump();
         return oss.str();
     }
 
@@ -723,13 +763,6 @@ public:
         }
         oss << " = "
             << "!" << operationIndex << " ";
-        oss << "[";
-        for (size_t j = 0; j < GetOperationAttrSize(operationIndex); j++) {
-            const SymInt &s = GetOperationAttr(operationIndex, j);
-            oss << Delim(j != 0, ",") << "[" << j << "]=" << DumpSymInt(s, runtimeExpressionList);
-        }
-        totalAttrStartIdx += GetOperationAttrSize(operationIndex);
-        oss << "] ";
         for (size_t j = 0; j < GetOperationIOperandSize(operationIndex); j++) {
             oss << Delim(j != 0, ",") << DumpTensor(GetOperationIOperandInfo(operationIndex, j).tensorIndex);
             if (j < ioperandAddrList.size()) {
@@ -737,20 +770,16 @@ public:
             }
         }
 
-        oss << " #pred:" << GetOperationDepGraphPredCount(operationIndex);
-        oss << " #succ:[";
-        const DevLocalVector<int> &succList = GetOperationDepGraphSuccList(operationIndex);
-        for (size_t j = 0; j < succList.size(); j++) {
-            oss << Delim(j != 0, ",") << "[" << j << "]=!" << At(succList, j);
-        }
-        oss << "]";
-        oss << " #stitchIndex:" << GetOperationOutcastStitchIndex(operationIndex);
+        oss << " " << DumpOperationAttr(operationIndex, runtimeExpressionList, true);
+        totalAttrStartIdx += static_cast<int>(GetOperationAttrSize(operationIndex));
         return oss.str();
     }
 
     std::string DumpRawTensor(int rawIndex, uintdevptr_t addr = 0) const {
         std::ostringstream oss;
-        oss << "@" << rawIndex << " = " << GetRawTensor(rawIndex)->Dump();
+        auto rawTensor = GetRawTensor(rawIndex);
+        oss << rawTensor->DumpType() << " @" << rawIndex << " = ";
+        oss << rawTensor->DumpAttr();
         if (addr != 0) {
             oss << AddressDescriptor::DumpAddress(addr);
         }
@@ -852,8 +881,11 @@ public:
         std::string INDENTINNER(indent + IDENT_SIZE, ' ');
         std::ostringstream oss;
 
-        oss << INDENT << "DevFunction " << funcKey << " {\n";
-        oss << INDENTINNER << "#name:" << GetRawName() << "\n";
+        oss << INDENT << "DevFunction " << funcKey;
+        oss << " " << schema::name(GetRawName()).Dump();
+        oss << " " << schema::mem(rawTensorWsMemoryRequirement).Dump();
+        oss << " " << schema::memOut(outcastWsMemoryRequirement).Dump();
+        oss << " {\n";
         for (size_t i = 0; i < GetRawTensorSize(); i++) {
             oss << INDENTINNER << DumpRawTensor(i) << "\n";
         }
@@ -863,9 +895,6 @@ public:
         for (size_t i = 0; i < GetOutcastSize(); i++) {
             oss << INDENTINNER << DumpOutcast(i, INDENTINNER) << "\n";
         }
-
-        oss << INDENTINNER << "#internal-byte:" << rawTensorWsMemoryRequirement << "\n";
-        oss << INDENTINNER << "#outcast-byte:" << outcastWsMemoryRequirement << "\n";
 
         oss << INDENTINNER << "#zeropred:" << predInfo_.totalZeroPred << "\n";
         oss << INDENTINNER << "#zeropred-aiv:" << predInfo_.totalZeroPredAIV << "\n";
@@ -1178,7 +1207,7 @@ public:
             HandleType::Process(d4, args...);
         }
     }
-    
+
     template<typename HandleType, typename ...TyArgs>
     static void CellMatch4Dimension(const DevCellMatchTableDesc &cellMatchTableDesc, uint64_t* rangeBegin, uint64_t* rangeEnd, TyArgs ... args) {
         int s0 = cellMatchTableDesc.GetStride(1), s1 = cellMatchTableDesc.GetStride(2);
@@ -1212,7 +1241,7 @@ public:
         case DEV_SHAPE_DIM_NUM_2:
             {
                 int s0 = cellMatchTableDesc.GetStride(1), s1 = 1;
-                for (int d0 =  0 + rangeBegin[0] * s0, e0 =  0 + rangeEnd[0] * s0; d0 <= e0; d0 += s0) 
+                for (int d0 =  0 + rangeBegin[0] * s0, e0 =  0 + rangeEnd[0] * s0; d0 <= e0; d0 += s0)
                 for (int d1 = d0 + rangeBegin[1] * s1, e1 = d0 + rangeEnd[1] * s1; d1 <= e1; d1 += s1) {
                     HandleType::Process(d1, args...);
                 }
@@ -1663,6 +1692,12 @@ struct DevAscendFunctionDupped {
         auto base = GetOutcastAddress(arg).GetAddress();
         auto size = GetOutcastSize(arg);
         return schema::range(base, base + size);
+    }
+
+    schema::RActWorkspace SchemaGetWorkspace() const {
+        auto workspaceBegin = RuntimeWorkspace();
+        auto workspaceEnd = RuntimeWorkspace() + GetSource()->rawTensorWsMemoryRequirement;
+        return schema::RActWorkspace(schema::range(workspaceBegin, workspaceEnd));
     }
 
     inline uintdevptr_t GetRawTensorAddr(int rawIndex) const {

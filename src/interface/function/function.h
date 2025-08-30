@@ -301,9 +301,16 @@ struct DyndevFunctionAttribute {
     int getTensorDataCount{0};
 
     struct GetTensorDataDesc {
-        std::shared_ptr<Tensor> outcastTensor;
+        std::shared_ptr<Tensor> assembleTensor;
     };
-    std::unordered_map<int, GetTensorDataDesc> getTensorDataDict;
+    std::unordered_map<int, GetTensorDataDesc> getTensorDataDescDict;
+
+    struct GetTensorDataUsage {
+        // In each function, one usage at most correpond to one import
+        // Mapping from the GetTensorData index to the View operation
+        std::unordered_map<int, Operation *> importDict;
+    };
+    std::unordered_map<Function *, GetTensorDataUsage> getTensorDataUsageDict;
 
     struct FunctionGroup {
         /* loop */
@@ -342,6 +349,7 @@ struct DyndevFunctionAttribute {
     std::unordered_map<int, std::unordered_map<Function *, int>> slotRootIncastDict; // slotIndex -> root -> incastIndex
     std::unordered_map<int, std::unordered_map<Function *, int>> slotRootOutcastDict; // sloIndex -> root -> utcastIndex
 
+    OrderedSet<Function *> cceLeafList;
     std::vector<std::vector<uint8_t>> devEncodeList;
     std::vector<CceCodeInfo> cceCodeInfo;
     std::vector<L2Info> l2InfoList;
@@ -380,10 +388,12 @@ struct DynParamInfo{
     int tensorBaseAddrCoaIndex;
     DynParamInfoType type;
     int dimIndex;
+    SymbolicScalar dim;
 };
 struct ParamConfigs {
     int l1ReuseNum{0};
     int cubeNBufferNum{1};
+    bool dynamicUnalignedOps;
     int sgCycleUpperBound{1};
     int sgCycleLowerBound{1};
     int sgParallelNum{1};
@@ -709,9 +719,9 @@ public:
             }
         }
     }
-    std::unordered_map<int, GetTensorDataIODesc> GetTensorDataForTensorGraph();
-    std::unordered_map<int, GetTensorDataIODesc> GetTensorDataForLeafGraph();
-    void GetTensorDataRefreshIO(std::unordered_map<int, GetTensorDataIODesc> &descDict);
+    GetTensorDataIODescDict GetTensorDataForTensorGraph();
+    GetTensorDataIODescDict GetTensorDataForLeafGraph();
+    void GetTensorDataRefreshIO(const GetTensorDataIODescDict &descDict);
 
 private:
     int functionMagic_{-1};

@@ -853,8 +853,8 @@ static std::unordered_map<int, GetTensorDataOutcastDesc> GetTensorDataBuildOutca
     std::unordered_map<int, GetTensorDataOutcastDesc> getTensorDataOutcastDescDict;
     for (size_t i = 0; i < operationViewer.size(); i++) {
         auto &op = operationViewer[i];
-        if (op.HasAttr(OP_EMUOP_PREFIX + "GetTensorData_index")) {
-            int index = op.GetIntAttribute(OP_EMUOP_PREFIX + "GetTensorData_index");
+        int index = GetTensorDataGetIndex(&op);
+        if (index != -1) {
             getTensorDataOutcastDescDict[index].opListDict[op.GetOpcode()].push_back(&op);
         }
     }
@@ -876,82 +876,116 @@ static std::unordered_map<int, GetTensorDataOutcastDesc> GetTensorDataBuildOutca
     return getTensorDataOutcastDescDict;
 }
 
-struct GetTensorDataDesc {
+struct GetTensorDataUsageDesc {
     Operation *refOp;
-    std::vector<int> indexList;
+    std::map<int, std::vector<RawSymbolicScalarPtr>> usageDict;
     MemoryType subgraphMemoryType;
     int subgraphID;
 
-    GetTensorDataDesc(Operation *refOp_, std::vector<int> indexList_, MemoryType subgraphMemoryType_, int subgraphID_)
-        : refOp(refOp_), indexList(indexList_), subgraphMemoryType(subgraphMemoryType_), subgraphID(subgraphID_) {}
+    GetTensorDataUsageDesc(Operation *refOp_, const std::map<int, std::vector<RawSymbolicScalarPtr>> &usageDict_, MemoryType subgraphMemoryType_, int subgraphID_)
+        : refOp(refOp_), usageDict(usageDict_), subgraphMemoryType(subgraphMemoryType_), subgraphID(subgraphID_) {}
 };
-std::vector<GetTensorDataDesc> GetTensorDataBuildDataDesc(Function &function) {
+static std::vector<GetTensorDataUsageDesc> GetTensorDataBuildUsageDesc(Function &function) {
     auto operationViewer = function.Operations(false);
-    std::vector<GetTensorDataDesc> getTensorDataDescList;
+    std::vector<GetTensorDataUsageDesc> getTensorDataUsageDescList;
     for (size_t i = 0; i < operationViewer.size(); i++) {
         auto &refOp = operationViewer[i];
-        auto attr = std::static_pointer_cast<CopyOpAttribute>(refOp.GetOpAttribute());
 
-        std::vector<OpImmediate> dynAttrList;
-        std::shared_ptr<LogicalTensor> subgraphTensor;
+        std::vector<SymbolicScalar> dynAttrScalarList;
+        std::shared_ptr<LogicalTensor> subgraphTensor; // The tensor that should be in the same subgraph of the op.
         switch (refOp.GetOpcode()) {
-            case Opcode::OP_COPY_IN:
-                dynAttrList = attr->GetFromOffset();
-                subgraphTensor = refOp.GetOOperands()[0];
-                break;
-            case Opcode::OP_COPY_OUT:
-                dynAttrList = attr->GetToOffset();
-                subgraphTensor = refOp.GetIOperands()[0];
-                break;
+            case Opcode::OP_COPY_IN: {
+                    auto attr = std::static_pointer_cast<CopyOpAttribute>(refOp.GetOpAttribute());
+                    for (auto &dynAttr : attr->GetFromOffset()) {
+                        if (dynAttr.IsSpecified()) {
+                            dynAttrScalarList.push_back(dynAttr.GetSpecifiedValue());
+                        }
+                    }
+                    for (auto &dynAttr : attr->GetToDynValidShape()) {
+                        if (dynAttr.IsSpecified()) {
+                            dynAttrScalarList.push_back(dynAttr.GetSpecifiedValue());
+                        }
+                    }
+                    subgraphTensor = refOp.GetOOperands()[0];
+                } break;
+            case Opcode::OP_COPY_OUT: {
+                    auto attr = std::static_pointer_cast<CopyOpAttribute>(refOp.GetOpAttribute());
+                    for (auto &dynAttr : attr->GetToOffset()) {
+                        if (dynAttr.IsSpecified()) {
+                            dynAttrScalarList.push_back(dynAttr.GetSpecifiedValue());
+                        }
+                    }
+                    for (auto &dynAttr : attr->GetFromDynValidShape()) {
+                        if (dynAttr.IsSpecified()) {
+                            dynAttrScalarList.push_back(dynAttr.GetSpecifiedValue());
+                        }
+                    }
+                    subgraphTensor = refOp.GetIOperands()[0];
+                } break;
+            case Opcode::OP_VEC_DUP: {
+                    if (refOp.HasAttr(OpAttributeKey::dynScalar)) {
+                        auto scalar = refOp.GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
+                        dynAttrScalarList.push_back(scalar);
+                        subgraphTensor = refOp.GetOOperands()[0];
+                    }
+                } break;
             default:
                 break;
         }
-        if (dynAttrList.size() == 0) {
+        if (dynAttrScalarList.size() == 0) {
             continue;
         }
-        std::vector<SymbolicScalar> dynAttrScalarList;
-        for (auto &dynAttr : dynAttrList) {
-            if (dynAttr.IsSpecified()) {
-                dynAttrScalarList.push_back(dynAttr.GetSpecifiedValue());
-            }
-        }
-        std::map<int, RawSymbolicScalarPtr> outcastDict = GetTensorDataDict(dynAttrScalarList);
-        if (outcastDict.size() == 0) {
+        std::map<int, std::vector<RawSymbolicScalarPtr>> usageDict = GetTensorDataDict(dynAttrScalarList);
+        if (usageDict.size() == 0) {
             continue;
         }
         MemoryType subgraphMemoryType = subgraphTensor->GetMemoryTypeToBe();
         int subgraphID = subgraphTensor->GetSubgraphID();
-
-        std::vector<int> indexList;
-        for (auto [index, _] : outcastDict) {
-            (void)_;
-            indexList.push_back(index);
-        }
-        getTensorDataDescList.emplace_back(&refOp, indexList, subgraphMemoryType, subgraphID);
+        getTensorDataUsageDescList.emplace_back(&refOp, usageDict, subgraphMemoryType, subgraphID);
     }
-    return getTensorDataDescList;
+    return getTensorDataUsageDescList;
 }
 
 void SubgraphToFunction::GetTensorDataDependencyInsert(Function &function) {
     std::unordered_map<int, GetTensorDataOutcastDesc> getTensorDataOutcastDescDict = GetTensorDataBuildOutcastDescDict(function);
-    std::vector<GetTensorDataDesc> getTensorDataDescList = GetTensorDataBuildDataDesc(function);
+    std::vector<GetTensorDataUsageDesc> getTensorDataUsageDescList = GetTensorDataBuildUsageDesc(function);
 
-    for (auto &[refOp, indexList, subgraphMemoryType, subgraphID] : getTensorDataDescList) {
-        for (int index : indexList) {
-            ASSERT(getTensorDataOutcastDescDict.count(index)) << "Index: " << index << " not found!\n";
-            auto &outcastDesc = getTensorDataOutcastDescDict[index];
-            auto outcastAttr = std::static_pointer_cast<CopyOpAttribute>(outcastDesc.copyout->GetOpAttribute());
+    for (auto &[refOp, usageDict, subgraphMemoryType, subgraphID] : getTensorDataUsageDescList) {
+        for (auto &[index, callList] : usageDict) {
+            std::shared_ptr<LogicalTensor> copyInTensor;
+            ASSERT(callList.size() != 0);
+            // For the same index, only one copyin is necessary.
+            auto getTensorDataIOType = callList[0]->GetExpressionOperandList()[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE]->GetImmediateValue();
+            auto getTensorDataIOTypeIndex = callList[0]->GetExpressionOperandList()[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX]->GetImmediateValue();
 
-            std::shared_ptr<LogicalTensor> copyInTensor = std::make_shared<LogicalTensor>(function, outcastDesc.outcast->Datatype(), outcastDesc.outcast->GetShape());
+            std::shared_ptr<LogicalTensor> copyInSourceTensor;
+            std::shared_ptr<CopyOpAttribute> copyInAttr;
+            if (getTensorDataIOType == GET_TENSOR_DATA_OPERAND_IOTYPE_INCAST) {
+                copyInSourceTensor = function.GetIncast()[getTensorDataIOTypeIndex];
+                copyInTensor = std::make_shared<LogicalTensor>(function, copyInSourceTensor->Datatype(), copyInSourceTensor->GetShape());
+                std::vector<OpImmediate> copyInOffset(OpImmediate::Specified(std::vector<int64_t>(copyInTensor->GetShape().size(), 0)));
+                std::vector<OpImmediate> copyInShape(OpImmediate::Specified(copyInTensor->GetShape()));
+                std::vector<OpImmediate> copyInRawShape(OpImmediate::Specified(copyInTensor->GetShape()));
+                copyInAttr = std::make_shared<CopyOpAttribute>(copyInOffset, MemoryType::MEM_UB, copyInShape, copyInRawShape);
+            } else if (getTensorDataIOType == GET_TENSOR_DATA_OPERAND_IOTYPE_OUTCAST) {
+                ASSERT(getTensorDataOutcastDescDict.count(index)) << "Index: " << index << " not found!\n";
+                auto &outcastDesc = getTensorDataOutcastDescDict[index];
+                auto outcastAttr = std::static_pointer_cast<CopyOpAttribute>(outcastDesc.copyout->GetOpAttribute());
+                copyInSourceTensor = outcastDesc.outcast;
+                copyInTensor = std::make_shared<LogicalTensor>(function, outcastDesc.outcast->Datatype(), outcastDesc.outcast->GetShape());
+                copyInAttr = std::make_shared<CopyOpAttribute>(outcastAttr->GetToOffset(), MemoryType::MEM_UB, outcastAttr->GetShape(), outcastAttr->GetRawShape());
+            } else {
+                // Impossible
+                ASSERT(false);
+            }
+
             copyInTensor->UpdateSubgraphID(subgraphID);
             copyInTensor->SetMemoryTypeBoth(subgraphMemoryType);
-
-            auto &copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {outcastDesc.outcast}, {copyInTensor}, false);
-            auto copyInAttr = std::make_shared<CopyOpAttribute>(outcastAttr->GetToOffset(), MemoryType::MEM_UB, outcastAttr->GetShape(), outcastAttr->GetRawShape());
+            auto &copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {copyInSourceTensor}, {copyInTensor}, false);
             copyInOp.UpdateSubgraphID(subgraphID);
             copyInOp.SetOpAttribute(copyInAttr);
-            copyInOp.SetAttribute(OP_EMUOP_PREFIX + "opc", EMUOP_TENSOR_GETDATA);
-            copyInOp.SetAttribute(OP_EMUOP_PREFIX + "GetTensorData_index", index);
+            SetEmuOpcode(&copyInOp, EMUOP_TENSOR_GETDATA_DEPEND);
+            GetTensorDataSetIndex(&copyInOp, index);
 
             refOp->GetIOperands().push_back(copyInTensor);
             copyInTensor->AddConsumer(refOp);
@@ -961,29 +995,29 @@ void SubgraphToFunction::GetTensorDataDependencyInsert(Function &function) {
 
 void SubgraphToFunction::GetTensorDataDependencyClear(Function &function) {
     auto root = function.GetRootFunction();
-    std::vector<Function *> leafList = root->GetCalleeFunctionList();
-    std::unordered_set<Function *> leafSet(leafList.begin(), leafList.end());
 
     SymbolicScalar getAddr = SymbolicScalar(AddRuntimeCoaPrefix("GET_PARAM_ADDR"));
-    for (auto &leaf : leafSet) {
+    for (auto &[psgId, leaf] : root->programs_) {
+        (void)psgId;
         auto iodescDict = leaf->GetTensorDataForLeafGraph();
 
-        for (auto &op : leaf->Operations()) {
-            if (!op.HasAttr(OP_EMUOP_PREFIX + "opc")) {
-                continue;
-            }
-            if (op.GetIntAttribute(OP_EMUOP_PREFIX + "opc")  != EMUOP_TENSOR_GETDATA) {
+        for (auto &op : leaf->Operations(false)) {
+            if (!CheckEmuOpcode(&op, EMUOP_TENSOR_GETDATA_DEPEND)) {
                 continue;
             }
             auto &copyInOp = op;
             copyInOp.SetAsDeleted();
 
-            int tensorIndex = op.GetIntAttribute(OP_EMUOP_PREFIX + "GetTensorData_index");
-            int addrIndex = op.GetIntAttribute(OP_EMUOP_PREFIX + "GetTensorData_coaIndex");
-            iodescDict[tensorIndex].address = getAddr(-1, addrIndex);
+            int tensorIndex = GetTensorDataGetIndex(&op);
+            ASSERT(tensorIndex != -1);
+            int addrCoaIndex = GetTensorDataGetCoaIndex(&op);
+            ASSERT(addrCoaIndex != -1);
+            auto incastIndex = leaf->GetIncastIndex(copyInOp.GetIOperands()[0]);
+            auto desc = GetTensorDataIODesc(GET_TENSOR_DATA_OPERAND_IOTYPE_INCAST, incastIndex, getAddr(-1, addrCoaIndex));
+            iodescDict[tensorIndex] = desc;
         }
-        leaf->EraseOperations(true, true);
         leaf->GetTensorDataRefreshIO(iodescDict);
+        leaf->EraseOperations(true, true);
     }
 }
 

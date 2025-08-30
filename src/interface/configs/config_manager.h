@@ -68,6 +68,7 @@ const std::string KEY_DUMP_KERNEL_NAME = "DUMP_KERNEL_NAME";
 /* Pass KEYs */
 
 const std::string KEY_PRINT_FUNCTION = "PRINT_FUNCTION";
+const std::string KEY_PRINT_PROGRAM = "PRINT_PROGRAM";
 const std::string KEY_DUMP_FUNCTION_GRAPH_BEFORE_PASS = "DUMP_FUNCTION_GRAPH_BEFORE_PASS";
 const std::string KEY_DUMP_FUNCTION_GRAPH_AFTER_PASS = "DUMP_FUNCTION_GRAPH_AFTER_PASS";
 const std::string KEY_DUMP_PASS_TIME_COST = "DUMP_PASS_TIME_COST";
@@ -118,6 +119,7 @@ inline DPlatform StringToDpaltform(std::string platform) {
 
 struct PassConfigs {
     bool printFunction{false};
+    bool printProgram{false};
     bool dumpFunctionGraphBeforePass{false};
     bool dumpFunctionGraphAfterPass{false};
     bool dumpPassTimeCost{false};

@@ -73,7 +73,7 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim3) {
                 op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
             }
         }
-        DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0};
+        DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar()};
         subFunc.second->dynParamTable_.emplace("sym_2_dim_0", fakeParam);
         subFunc.second->dynParamTable_.emplace("sym_2_dim_1", fakeParam);
         subFunc.second->dynParamTable_.emplace("sym_2_dim_2", fakeParam);
@@ -115,7 +115,7 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim4) {
                 op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
             }
         }
-        DynParamInfo fakeParam = {4, 0, 0, DynParamInfoType::VALID_SHAPE, 0};
+        DynParamInfo fakeParam = {4, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar()};
         subFunc.second->dynParamTable_.emplace("sym_13_dim_0", fakeParam);
         subFunc.second->dynParamTable_.emplace("sym_13_dim_1", fakeParam);
         subFunc.second->dynParamTable_.emplace("sym_13_dim_2", fakeParam);

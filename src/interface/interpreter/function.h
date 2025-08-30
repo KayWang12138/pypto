@@ -32,6 +32,9 @@ struct FunctionIODataPair {
         std::vector<std::shared_ptr<LogicalTensorData>> outcastDataViewList_)
         : incastDataViewList(incastDataViewList_), outcastDataViewList(outcastDataViewList_) {}
 
+     std::vector<std::shared_ptr<LogicalTensorData>> &GetIncastDataViewList() { return incastDataViewList; }
+     std::vector<std::shared_ptr<LogicalTensorData>> &GetOutcastDataViewList() { return outcastDataViewList; }
+
     // One tensor might occur in both incast and outcast simultaneously for multiple times, so we must copy
     // simultaneously
     static void CopyWithLinkRelationship(FunctionIODataPair &dst, const FunctionIODataPair &src) {
@@ -293,6 +296,9 @@ struct FunctionInterpreter {
     void InitInputDataViewList(const std::vector<std::shared_ptr<LogicalTensorData>> &inputDataViewList) {
         operationInterpreter->evaluateSymbol->InitInputDataViewList(inputDataViewList);
     }
+    void UpdateIODataPair(std::shared_ptr<FunctionIODataPair> &inoutDataPair) {
+        operationInterpreter->evaluateSymbol->UpdateIODataPair(inoutDataPair);
+    }
     const std::unordered_map<std::string, ScalarImmediateType> &GetSymbolDict() const {
         return operationInterpreter->evaluateSymbol->GetSymbolDict();
     }
@@ -499,6 +505,7 @@ struct FunctionInterpreter {
             std::make_shared<FunctionFrame>(func, callop, callopAttr, inoutDataPair, frameCount++);
         captureFrameList->push_back(frame);
 
+        UpdateIODataPair(inoutDataPair);
         auto dynParamTable = func->GetDynParamTable();
         EvaluateDynParam(dynParamTable, linearArgList);
 

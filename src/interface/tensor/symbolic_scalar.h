@@ -124,11 +124,7 @@ public:
 
     void ResetValueGuesser(ValueGuesser valueGuesser);
 
-    std::string Dump() const {
-        std::string buf;
-        DumpBuffer(buf);
-        return buf;
-    }
+    std::string Dump() const;
 
 private:
     friend class SymbolicScalar;
@@ -680,7 +676,7 @@ struct SymbolicSymbolTable {
             return;
         }
         symbolTable_.Insert(name);
-        symbolTableDict_[name] = raw;        
+        symbolTableDict_[name] = raw;
     }
 
     void NormalizeForSymbol() {
@@ -761,7 +757,6 @@ struct SymbolicExpressionTable {
         auto symExprTable = symbolTable.GetSymbolTableDict();
         ASSERT(symTable.size() == symExprTable.size());
         auto symOrder = symTable.GetOrder();
-        //// symOrder.clear(); // clear pre index
         for (auto &sym : symOrder) {
             RawSymbolicScalarPtr symbol;
             if (CheckRuntimePrefix(sym)) {
@@ -814,7 +809,7 @@ struct SymbolicExpressionTable {
 
     static std::string BuildExpressionByRaw(const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
     static std::string BuildExpression(const SymbolicScalar &ss);
-    static std::string BuildExpression(const RawSymbolicScalarPtr &ss);    
+    static std::string BuildExpression(const RawSymbolicScalarPtr &ss);
 private:
     static std::string BuildExpressionCode(const RawSymbolicExpression *expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
 
@@ -838,7 +833,7 @@ private:
 bool ToolchainExist(const std::string &gcc);
 
 std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::string &sourceFilePath,
-    const std::string &gcc, const std::string &objcopy, const std::string &sectionName, const std::string &extraCflag="");
+    const std::string &gcc, const std::string &objcopy, const std::string &sectionName, bool needDump, const std::string &extraCflag="");
 
 void CompileAndLink(const std::string &code, const std::string &sourceFilePath,
         const std::string &gcc, bool isStaticLink, bool isBenchmark, bool useMakefile);
