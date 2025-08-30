@@ -45,7 +45,8 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_add_dim) {
     Tensor actSeqs(DT_INT32, {b, 1, 1}, "actual_seq");
     Tensor out(DT_FP32, qShape3Dim, "out");
 
-    FUNCTION("main", FunctionType::DYNAMIC, {q, actSeqs}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0) / (sq))) {
             SymbolicScalar curSeq = GetInputDataInt32Dim3(actSeqs, batchId, 0, 0);
             Tensor q0 = View(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
@@ -97,7 +98,8 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_merge_dim) {
     Tensor actSeqs(DT_INT32, {b, 1, 1}, "actual_seq");
     Tensor out(DT_FP32, qShape2Dim, "out");
 
-    FUNCTION("main", FunctionType::DYNAMIC, {q, actSeqs}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
             //
             SymbolicScalar curSeq = GetInputDataInt32Dim3(actSeqs, batchId, 0, 0);
@@ -151,7 +153,8 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_split_dim) {
     Tensor actSeqs(DT_INT32, {b, 2, 1}, "actual_seq");
     Tensor out(DT_FP32, qShape4Dim, "out");
 
-    FUNCTION("main", FunctionType::DYNAMIC, {q, actSeqs}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
             SymbolicScalar curSeq = GetInputDataInt32Dim3(actSeqs, batchId, 0, 0);
             SymbolicScalar curDim = GetInputDataInt32Dim3(actSeqs, batchId, 1, 0);
@@ -217,7 +220,8 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_split_and_merge) {
     int sqView = 12;
     int dView = 64;
 
-    FUNCTION("main", FunctionType::DYNAMIC, {q}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {q}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, (b + bView - 1) / bView, 1)) {
             SymbolicScalar bValid = min(b - bView * bIdx, bView);
             LOOP("L1", FunctionType::DYNAMIC_LOOP, sqIdx, LoopRange(0, (sq + sqView - 1) / sqView, 1)) {

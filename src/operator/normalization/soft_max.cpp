@@ -81,7 +81,8 @@ void SoftmaxDynamicCompute(Tensor &input, Tensor &output) {
 }
 
 void SoftmaxDynamic(Tensor &input, Tensor &output) {
-    FUNCTION("SOFTMAX_DYNAMIC", FunctionType::DYNAMIC, {input}, {output}) {
+    FunctionConfig funConfig;
+    FUNCTION("SOFTMAX_DYNAMIC", funConfig, {input}, {output}) {
         SoftmaxDynamicCompute(input, output);
     }
 }

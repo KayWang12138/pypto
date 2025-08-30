@@ -39,7 +39,8 @@ protected:
 };
 
 void TestLoopViewAssembleCopy(const Tensor &t0, const Tensor &t1, const Tensor &blockTable, Tensor &out, int s) {
-    FUNCTION("main", FunctionType::DYNAMIC, {t0, t1, blockTable}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {t0, t1, blockTable}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShapeDim(t0, 0) / s)) {
             SymbolicScalar idx = GetInputDataInt32Dim2(blockTable, i, 0);
             Tensor t0s = View(t0, {s, s}, {idx * s, 0});

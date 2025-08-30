@@ -37,7 +37,8 @@ struct GatherElementOpMetaData {
 static void GatherElementOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0], inputs[1]}, {outputs[0]}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0]->shape[0];
         SymbolicScalar src_secondDim = inputs[0]->shape[1];
         SymbolicScalar idx_firstDim = inputs[1]->shape[0];

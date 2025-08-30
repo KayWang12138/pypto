@@ -56,7 +56,8 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
     kvCacheCmpOut: [cmpBlockNum*blockSize, n2*dN], fp16/bf16
     krCacheCmpOut: [cmpBlockNum*blockSize, n2*dR], fp16/bf16
     */
-    FUNCTION("CompressKv", FunctionType::DYNAMIC,
+    FunctionConfig funConfig;
+    FUNCTION("CompressKv", funConfig,
         {kvCache, krCache, cmpKvCache, cmpKrCache, blockTable, cmpCacheIndex, actSeqLen, mlpWk1, mlpWk2, mlpCos,
             mlpSin},
         {cmpKvCacheOut, cmpKrCacheOut, auxTensor}) {

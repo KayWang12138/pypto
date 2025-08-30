@@ -85,7 +85,8 @@ TEST_F(TestCodegenShmemTileop, Success)
 
     ConfigManager::Instance();
     std::string funcName = "ShmemTileop";
-    FUNCTION(funcName, FunctionType::STATIC, {in, out}) {
+    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FUNCTION(funcName, funConfig, {in, out}) {
         Tensor dummy = PutMem(in, temp);
         out = GetMem(dummy, temp);
     }

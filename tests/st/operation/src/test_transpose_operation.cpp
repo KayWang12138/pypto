@@ -39,7 +39,8 @@ static void TransposeOperationExeFunc2Dims(
     const TransposeOpFuncArgs *transposeInfo = static_cast<const TransposeOpFuncArgs *>(opArgs);
     const int firstViewShape = transposeInfo->viewShape_[0];
     const int secondViewShape = transposeInfo->viewShape_[1];
-    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, CeilDiv(firstDim, firstViewShape), 1)) {
@@ -139,7 +140,8 @@ static void TransposeOperationExeFunc5Dims(
     const int thirdViewShape = transposeInfo->viewShape_[2];
     const int forthViewShape = transposeInfo->viewShape_[3];
     const int fifthViewShape = transposeInfo->viewShape_[4];
-    FUNCTION("main", FunctionType::DYNAMIC, {inputs[0]}, {outputs[0]}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar thirdDim = inputs[0]->shape[2];

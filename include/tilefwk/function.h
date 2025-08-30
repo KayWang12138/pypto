@@ -134,13 +134,6 @@ private:
 class RecordFunc {
 public:
     explicit RecordFunc(const std::string &name);
-    RecordFunc(const std::string &name, const FunctionType type);
-    RecordFunc(const std::string &name, const FunctionType type,
-        const std::vector<std::reference_wrapper<Tensor>> &explicitOpArgs);
-    RecordFunc(const std::string &name, const FunctionType type,
-        const std::vector<std::reference_wrapper<const Tensor>> &startArgsInputTensorList,
-        const std::vector<std::reference_wrapper<const Tensor>> &startArgsOutputTensorList,
-        const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>> &inplaceArgs = {});
     RecordFunc(const std::string &name, const FunctionConfig &funConfig);
     RecordFunc(const std::string &name, const FunctionConfig &funConfig,
         const std::vector<std::reference_wrapper<Tensor>> &explicitOpArgs);

@@ -337,7 +337,8 @@ TEST_F(DynamicReshapeTest, test_reshape_unalign) {
     Tensor actSeqs(DT_INT32, {b, 1, 1}, "actual_seq");
     Tensor out(DT_FP32, qShape3Dim, "out");
 
-    FUNCTION("main", FunctionType::DYNAMIC, {q, actSeqs}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0) / (sq))) {
             SymbolicScalar curSeq = GetInputDataInt32Dim3(actSeqs, batchId, 0, 0);
 
@@ -393,7 +394,8 @@ TEST_F(DynamicReshapeTest, test_assemble_diff_tile) {
 
     Tensor actSeqs(DT_INT32, {batch}, "actual_seq");
 
-    FUNCTION("main", FunctionType::DYNAMIC, {a, b, actSeqs}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {a, b, actSeqs}, {out}) {
         LOOP("LOOP_BATCH", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(GetInputShapeDim(a, 0) / s1)) {
             SymbolicScalar actS2 = GetInputDataInt32Dim1(actSeqs, bIdx);
 
@@ -453,7 +455,8 @@ TEST_F(DynamicReshapeTest, test_reshape_dassemble_4_2) {
     Tensor qNope(DT_FP32, {b * s * n1, d}, "qNope");
     Tensor qRes(DT_FP32, {b * s * n1, d}, "qRes");
 
-    FUNCTION("main", FunctionType::DYNAMIC, {queryOut}, {qNope, qRes}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {queryOut}, {qNope, qRes}) {
         LOOP("RESHAPE_LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, b, 1), {}, true) {
             SymbolicScalar bOffset = bIdx * 1;
             LOOP("RESHAPE_LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, s, 1)) {
@@ -519,7 +522,8 @@ TEST_F(DynamicReshapeTest, test_reshape_dassemble) {
     Tensor out(DT_FP32, qShape3Dim, "out");
 
 # if 1
-    FUNCTION("main", FunctionType::DYNAMIC, {q}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {q}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0) / (sq))) {
             Tensor q0 = View(q, {sq, d}, {batchId * sq, 0});
             // auto tmp0 = MulS(q0, Element(DataType::DT_FP32, 1.0));
@@ -530,7 +534,8 @@ TEST_F(DynamicReshapeTest, test_reshape_dassemble) {
         }
     }
 #else
-    FUNCTION("main", FunctionType::DYNAMIC, {q}, {out}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {q}, {out}) {
         Tensor q0 = View(q, {sq, d}, {sq, 0});
         auto tmp0 = MulS(q0, Element(DataType::DT_FP32, 1.0));
         auto tmp = Reshape(q0, {1, sq, d});
@@ -573,7 +578,8 @@ TEST_F(DynamicReshapeTest, test_reshape_op_reshape) {
     Tensor queryOut(DT_FP32, {b, s, n1, d}, "queryOut");
     Tensor qNope(DT_FP32, {b * s, n1, d}, "qNope");
 
-    FUNCTION("main", FunctionType::DYNAMIC, {queryOut}, {qNope}) {
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {queryOut}, {qNope}) {
         LOOP("RESHAPE_LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, b, 1), {}, true) {
             SymbolicScalar bOffset = bIdx * 1;
             LOOP("RESHAPE_LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, s, 1)) {
