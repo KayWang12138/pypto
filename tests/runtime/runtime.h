@@ -86,7 +86,7 @@ public:
         uint64_t offset = 0;
         rtGetDevice(&deviceId);
         rtGetL2CacheOffset(deviceId, &offset);
-        ALOG_ERROR_F("rtGetL2CacheOffset %lu", offset);
+        ALOG_DEBUG_F("rtGetL2CacheOffset %lu", offset);
         return offset;
     }
 
@@ -117,6 +117,16 @@ public:
         }
         ALOG_INFO_F("Alloc 1G page mem %p size is %lu", *devAddr, allocSize);
         return;
+    }
+
+    uint8_t* AllocHostAddr(uint64_t size) {
+      if (size == 0) {
+        ALOG_ERROR_F("Malloc size is 0!");
+        return nullptr;
+      }
+      auto hostPtr = (uint8_t *)malloc(size);
+      allocatedHostAddr.emplace_back(hostPtr);
+      return hostPtr;
     }
 
     bool IsHugePageMemory(uint8_t *devAddr) const {
@@ -212,11 +222,15 @@ private:
     aclrtStream raStreamInstanceAicpu;
     std::vector<HugePageDesc> hugePageVec;
     std::vector<uint8_t *> allocatedDevAddr;
+    std::vector<uint8_t *> allocatedHostAddr;
 
 public:
     void Finalize() {
         for (uint8_t *addr : allocatedDevAddr) {
             rtFree(addr);
+        }
+        for (uint8_t *addr : allocatedHostAddr) {
+            free(addr);
         }
         rtStreamDestroy(raStreamInstance);
         rtStreamDestroy(raStreamInstanceAicpu);

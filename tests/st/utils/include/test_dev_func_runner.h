@@ -78,7 +78,7 @@ struct MemoryHelper {
     uint8_t *AllocDev(size_t size) {
         uint8_t *devPtr = nullptr;
         if (isTest_)
-            devPtr = (uint8_t *)malloc(size);
+            devPtr = machine::GetRA()->AllocHostAddr(size);
         else
             machine::GetRA()->AllocDevAddr(&devPtr, size);
         return devPtr;
@@ -291,7 +291,7 @@ private:
                 if (t) {
                     auto addrs = h.CopyToDev(*t);
                     geTensors.emplace_back(DevAscendTensorDataCreator::Create((uint64_t)addrs, t->GetShape()));
-                    ALOG_ERROR_F("addrs is %zu, ptr %p\n", t->GetSize(), addrs);
+                    ALOG_DEBUG_F("addrs is %zu, ptr %p\n", t->GetSize(), addrs);
                 } else {
                     std::vector<int> shape;
                     geTensors.emplace_back(DevAscendTensorDataCreator::Create(0UL, shape));
