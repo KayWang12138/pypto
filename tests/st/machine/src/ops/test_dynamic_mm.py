@@ -145,10 +145,6 @@ def gen_mm_data(input_config: ShapeConfig, output_dir: Path):
         "DynamicMatmulTest.mm_A_Bt_ND_fp16_tile2",
         "DynamicMatmulTest.mm_A_B_NZ_int8_tile3",
         "DynamicMatmulTest.mm_A_Bt_NZ_int8_tile4",
-        "DynamicMatmulTest.mm_A_ND_B_ND_C_NZ",
-        "DynamicMatmulTest.mm_AT_B_ANZ_BND_bf16",
-        "DynamicMatmulTest.mm_AT_BT_AND_BND_bf16",
-        "DynamicMatmulTest.mm_AT_B_ANZ_BND_fp16_UNALIGN",
     ]
 )
 def gen_dynamic_mm_golden(case_name: str, output: Path) -> bool:
@@ -192,6 +188,21 @@ def gen_dynamic_mm_golden(case_name: str, output: Path) -> bool:
         input_config = ShapeConfig(1, 512, 256, INT8, INT32, False, True, False, True, False)
         gen_mm_data(input_config, output)
         return True
+    else:
+        logging.error("Can't get func to gen golden, case(%s)", case_name)
+        return False
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        #matmul
+        "DynamicMatmulTest.mm_A_ND_B_ND_C_NZ",
+        "DynamicMatmulTest.mm_AT_B_ANZ_BND_bf16",
+        "DynamicMatmulTest.mm_AT_BT_AND_BND_bf16",
+        "DynamicMatmulTest.mm_AT_B_ANZ_BND_fp16_UNALIGN",
+    ]
+)
+def gen_dynamic_mm_golden(case_name: str, output: Path) -> bool:
     if case_name == "DynamicMatmulTest.mm_A_ND_B_ND_C_NZ":
         input_config = ShapeConfig(16, 192, 128, FP16, FP32, False, False, False, False, True)
         gen_mm_data(input_config, output)

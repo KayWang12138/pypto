@@ -249,4 +249,23 @@ TEST_P(MatmulOperationTest, TestMatmul) {
     testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
     TestExecutor::runTest(testCase);
 }
+
+class MatmulVerifyOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<MatmulOpMetaData> {};
+
+INSTANTIATE_TEST_SUITE_P(TestMatmulVerify, MatmulVerifyOperationTest,
+    ::testing::ValuesIn(GetOpMetaData<MatmulOpMetaData>({MatmulOperationExeFunc}, "MatmulVerify")));
+
+TEST_P(MatmulVerifyOperationTest, TestMatmulVerify) {
+    TestCaseDesc testCase;
+    auto test_data = GetParam().test_data_;
+    testCase.outputTensors = GetMatmulTensors(test_data, "output_tensors");
+    testCase.inputTensors = GetMatmulTensors(test_data, "input_tensors");
+    auto args = MatmulOpFuncArgs(GetViewShape(test_data), GetMatmulTileShape(test_data), GetMatmulParam(test_data));
+    testCase.args = &args;
+    testCase.opFunc = GetParam().opFunc_;
+    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin",
+        GetGoldenDir() + "/" + testCase.inputTensors[1]->Symbol() + ".bin"};
+    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
+    TestFlowVerifier::runTest(testCase);
+}
 } // namespace

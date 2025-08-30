@@ -297,7 +297,7 @@ class TestDataReader:
 
     def extend_matmul_param(self, params: dict, trans_list: list, input_format_list: list, output_format_list: list,
         row_data: dict):
-        if row_data.get("operation") not in ("Matmul", "BatchMatmul"):
+        if row_data.get("operation") not in ("Matmul", "BatchMatmul", "MatmulVerify", "BatchMatmulVerify"):
             return
         params["transA"] = trans_list[0]
         params["transB"] = trans_list[1]

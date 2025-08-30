@@ -146,6 +146,102 @@ private:
     }
 };
 
+class TestFlowVerifier {
+public:
+    static void runTest(const TestCaseDesc& testCase) {
+        init();
+        verifyOpResults(testCase);
+    }
+
+private:
+    static void init() {
+        config::SetPlatformConfig(npu::tile_fwk::KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
+        config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_TENSOR_GRAPH, true);
+        config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true);
+        config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_PASS, true);
+        config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_PASS_CHECK_PRECISION, true);
+        config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_EXECUTE_GRAPH, true);
+        config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_EXECUTE_GRAPH_CHECK_PRECISION, true);
+
+        config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_TENSOR_GRAPH_DUMP_OPERATION, true);
+        config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_TENSOR_GRAPH_DUMP_TENSOR, true);
+        config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_PASS_DUMP_OPERATION, true);
+        config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_PASS_DUMP_TENSOR, true);
+        config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_EXECUTE_GRAPH_DUMP_OPERATION, true);
+        config::SetPlatformConfig(npu::tile_fwk::KEY_VERIFY_EXECUTE_GRAPH_DUMP_TENSOR, true);
+
+        config::SetHostConfig(npu::tile_fwk::KEY_ONLY_CODEGEN, true);
+        config::SetCodeGenConfig(npu::tile_fwk::KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    }
+
+    static void verifyOpResults(const TestCaseDesc& testCase) {
+        // 设置输出Tensor
+        std::vector<RawTensorDataPtr> outputs;
+        for (const auto& tensor : testCase.outputTensors) {
+            outputs.push_back(RawTensorData::CreateTensorZero(tensor));
+        }
+        ProgramData::GetInstance().AppendOutputs({outputs});
+
+        // 设置输入数据
+        ASSERT_EQ(testCase.inputTensors.size(), testCase.inputPaths.size());
+        std::vector<RawTensorDataPtr> inputs;
+        for (size_t i = 0; i < testCase.inputTensors.size(); ++i) {
+            size_t elementCount = 1;
+            for (int dim : testCase.inputTensors[i].GetShape()) {
+                elementCount *= dim;
+            }
+            std::vector<uint8_t> inputValue(elementCount * BytesOf(testCase.inputTensors[i].GetDataType()), 0);
+            readInput<uint8_t>(testCase.inputPaths[i], inputValue);
+            inputs.push_back(RawTensorData::CreateTensor(testCase.inputTensors[i], inputValue));
+        }
+        ProgramData::GetInstance().AppendInputs({inputs});
+
+        ASSERT_EQ(testCase.goldenPaths.size(), testCase.outputTensors.size());
+        for (size_t i = 0; i < testCase.outputTensors.size(); ++i) {
+            auto& tensor = testCase.outputTensors[i];
+            switch (tensor.GetDataType()) {
+                case DataType::DT_FP32:
+                    appendGolden<float>(tensor, testCase.goldenPaths[i]);
+                    break;
+                case DataType::DT_FP16:
+                    appendGolden<npu::tile_fwk::float16>(tensor, testCase.goldenPaths[i]);
+                    break;
+                case DataType::DT_BF16:
+                    appendGolden<npu::tile_fwk::bfloat16>(tensor, testCase.goldenPaths[i]);
+                    break;
+                case DataType::DT_INT8:
+                    appendGolden<int8_t>(tensor, testCase.goldenPaths[i]);
+                    break;
+                case DataType::DT_INT16:
+                    appendGolden<int16_t>(tensor, testCase.goldenPaths[i]);
+                    break;
+                case DataType::DT_INT32:
+                    appendGolden<int32_t>(tensor, testCase.goldenPaths[i]);
+                    break;
+                default:
+                    ASSERT_TRUE(false) << "no support dtype " << tensor.GetDataType();
+                    break;
+            }
+        }
+
+        std::vector<Tensor> nonConstOutputs = testCase.outputTensors;
+        testCase.opFunc(testCase.inputTensors, nonConstOutputs, testCase.args);
+    }
+
+    template<typename T>
+    static void appendGolden(const Tensor& tensor, const std::string& goldenPath) {
+        size_t elementCount = 1;
+        for (int dim : tensor.GetShape()) {
+            elementCount *= dim;
+        }
+        std::vector<T> goldenOutput(elementCount, 0);
+        readInput<T>(goldenPath, goldenOutput);
+        ProgramData::GetInstance().AppendGoldens({
+            npu::tile_fwk::RawTensorData::CreateTensor<T>(tensor, goldenOutput),
+        });
+    }
+};
+
 static DataType GetDataType(const std::string &name) {
     static const std::map<std::string, DataType> name_to_dtype = {
         {  "int4",   DataType::DT_INT4},

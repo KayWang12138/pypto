@@ -198,7 +198,8 @@ def gen_op_golden(
                     dtype=get_dtype_by_name(input_tensor["dtype"]),
                 )
             input_tensors.append(tensor)
-            if config.get("operation") in ("Matmul", "BatchMatmul") and input_tensor.get("format") == "NZ":
+            op_list = ["Matmul", "BatchMatmul", "MatmulVerify", "BatchMatmulVerify"]
+            if config.get("operation") in op_list and input_tensor.get("format") == "NZ":
                 tensor = trans_nd_to_fractal_nz(tensor)
             tensor.tofile(Path(output_path, input_tensor["name"] + ".bin"))
 
@@ -433,6 +434,17 @@ def gen_matmul_op_golden(case_name: str, output: Path, case_index: int = None) -
 
 @GoldenRegister.reg_golden_func(
     case_names=[
+        "TestMatmulVerify/MatmulVerifyOperationTest.TestMatmulVerify",
+    ]
+)
+def gen_matmulverify_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("MatmulVerify", matmul_golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
         "TestBatchMatmul/BatchMatmulOperationTest.TestBatchMatmul",
     ]
 )
@@ -440,6 +452,17 @@ def gen_batchmatmul_op_golden(case_name: str, output: Path, case_index: int = No
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("BatchMatmul", matmul_golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestBatchMatmulVerify/BatchMatmulVerifyOperationTest.TestBatchMatmulVerify",
+    ]
+)
+def gen_batchmatmulverify_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("BatchMatmulVerify", matmul_golden_func, output, case_index)
 
 
 @GoldenRegister.reg_golden_func(
