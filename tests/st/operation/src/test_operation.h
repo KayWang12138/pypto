@@ -260,13 +260,11 @@ T GetValueByName(const nlohmann::json &json_data, const std::string &name) {
 
 template <typename T>
 std::vector<T> GetOpMetaData(const std::vector<OpFunc> &opFuncs, const std::string &op) {
-    // 先读取 TILE_FWK_STEST_GOLDEN_PATH 环境变量, 否则使用当前目录
-    auto path = getenv("TILE_FWK_STEST_GOLDEN_PATH");
-    std::string fullPath = path == nullptr ? "./golden" : path;
-    fullPath += "/running_test_cases/test_cases_data.json";
-    std::ifstream json_file(fullPath);
+    auto root_path = std::string(get_current_dir_name()) + "/../../../";
+    auto path = root_path + "tests/st/operation/.cache/running_test_cases/test_cases_data.json";
+    std::ifstream json_file(path);
     if (!json_file.is_open()) {
-        ALOG_ERROR << "Fail to open " << fullPath << ".";
+        ALOG_INFO << "Not find any input data for [" << op << "] in " << path << ".";
         return {};
     }
     nlohmann::json json_data = nlohmann::json::parse(json_file);

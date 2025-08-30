@@ -32,7 +32,7 @@ function run_test_case() {
         echo "Start exec : $CMD"
         eval "$CMD | tee $LOG_FILE"
         # clear golden data
-        find build/tests/st/golden/ -name "*.bin" -type f -exec rm -f {} \;
+        rm -rf  build/tests/st/golden/$test_case
         # generate test report
         generate_test_report $case_index $case_op $LOG_FILE $test_case_result $file
         index=$(($index+1))
@@ -89,7 +89,7 @@ test_case_log_path="$(dirname '$test_case_result')/test_case_log"
 # clear test case log files
 rm -rf $test_case_log_path
 # clear test case data
-test_case_data_path="build/tests/st/golden/test_cases"
+test_case_data_path="tests/st/operation/.cache/test_cases"
 if [ ! -e $test_case_data_path ]; then
     mkdir -p $test_case_data_path
 fi

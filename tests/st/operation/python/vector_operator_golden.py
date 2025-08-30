@@ -126,8 +126,8 @@ def load_test_cases_from_json(op: str, json_file: str) -> list:
 
 
 def load_test_cases(op: str, json_path: str) -> list:
-    if not os.path.isdir(json_path):
-        raise ValueError(f"{json_path} is not a dir.")
+    if not os.path.exists(json_path):
+        os.makedirs(json_path, exist_ok=True)
     logging.info(f"Try to load test cases from {json_path}.")
     json_files = [
         os.path.join(json_path, file)
@@ -137,9 +137,7 @@ def load_test_cases(op: str, json_path: str) -> list:
     ]
     if len(json_files) == 0:
         logging.info(f"Not find test case from {json_path}.")
-        json_path = os.path.join(
-            json_path, "../../../../tests/st/operation/test_case"
-        )
+        json_path = os.path.join(json_path, "../../test_case")
         logging.info(f"Try to load test cases from {json_path}.")
         json_files = [
             os.path.join(json_path, file)
@@ -215,11 +213,8 @@ def gen_op_golden(
             )
         return True
 
-    golden_path = str(output_path) + ("/../../" if case_index is None else "/../../../")
-    tool_golden_path = golden_path + "/test_cases"
-    test_configs = load_test_cases(
-        op, tool_golden_path if os.path.exists(tool_golden_path) else golden_path
-    )
+    cache_path = os.getcwd() + "/../../st/operation/.cache"
+    test_configs = load_test_cases(op, cache_path + "/test_cases")
     if len(test_configs) == 0:
         raise ValueError("Not find test cases, please check.")
 
@@ -233,7 +228,7 @@ def gen_op_golden(
     else:
         generate_golden_files(golden_func, output_path, test_configs[case_index])
     test_cases = {"test_cases": test_configs}
-    write_test_cases_json(test_cases, golden_path + "/running_test_cases")
+    write_test_cases_json(test_cases, cache_path + "/running_test_cases")
     return True
 
 
