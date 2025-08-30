@@ -50,16 +50,28 @@ Status GenerateMoveOpChecker::DoPostCheck(Function &function) {
     auto operations = function.Operations();
     for (auto &operation : operations) {
         auto op = operation.GetOpcode();
-        bool isValid =true;
-        if (((op == Opcode::OP_ASSEMBLE || op == Opcode::OP_VIEW) && 
-            ((operation.GetIOperands().size() != 1) || (operation.GetOOperands().size() != 1) || 
-            (operation.GetIOperands().front()->GetMemoryTypeOriginal() != operation.GetOOperands().front()->GetMemoryTypeOriginal()))) || 
-            (op == Opcode::OP_DUPLICATE || op == Opcode::OP_CONVERT)) {
-                isValid = false;
-            }
-        if (!isValid) {
-            ALOG_ERROR_F("Operation validation failed : op [%d] check failed.",operation.GetOpMagic());
+        if(op == Opcode::OP_DUPLICATE || op == Opcode::OP_CONVERT) {
+            ALOG_ERROR_F("Operation validation failed: Operation %s[%d] is invalid here.",operation.GetOpcode(),operation.GetOpMagic());
             return FAILED;
+        }
+        if(op == Opcode::OP_ASSEMBLE || op == Opcode::OP_VIEW) {
+            if(operation.GetIOperands().size() != 1) {
+                ALOG_ERROR_F("Operation validation failed: Operation %s[%d] has more than one input.",operation.GetOpcode(),operation.GetOpMagic());
+                return FAILED;
+            }
+            if(operation.GetOOperands().size() != 1) {
+                ALOG_ERROR_F("Operation validation failed: Operation %s[%d] has more than one output.",operation.GetOpcode(),operation.GetOpMagic());
+                return FAILED;
+            }
+            auto inputMemType = operation.GetIOperands().front()->GetMemoryTypeOriginal();
+            auto outputMemType = operation.GetOOperands().front()->GetMemoryTypeOriginal();
+            if(inputMemType != outputMemType) {
+                ALOG_ERROR_F("Operation validation failed: Operation %s[%d] has dismatched memory type. Input memory type:%s. Output memory type:%s",operation.GetOpcode(),operation.GetOpMagic(),
+                    BriefMemoryTypeToString(inputMemType).c_str(),
+                    BriefMemoryTypeToString(outputMemType).c_str()
+                );
+                return FAILED;
+            }
         }
     }
     return SUCCESS;
@@ -67,13 +79,35 @@ Status GenerateMoveOpChecker::DoPostCheck(Function &function) {
 
 bool GenerateMoveOpChecker::ValidViewOp(const Operation &op) const {
     //校验view单输入单输出，指针非空
-    if ((op.GetOpAttribute().get() == nullptr) ||
-       (op.GetIOperands().size() != 1) || (op.GetOOperands().size() != 1) ||
-       (op.GetIOperands().front() == nullptr) || (op.GetOOperands().front() == nullptr) ||
-       (*(op.oOperand[0]->GetConsumers().begin()) == nullptr)) {
-        ALOG_ERROR_F("View op [%d] check failed.", op.GetOpMagic());
+    if(op.GetOpAttribute().get() == nullptr) {
+        ALOG_ERROR_F("View op [%d] check failed : Op attribute is null.",op.GetOpMagic());
         return false;
     }
+    if(op.GetIOperands().size() != 1) {
+        ALOG_ERROR_F("View op [%d] check failed : Found more than one input.",op.GetOpMagic());
+        return false;
+    }
+    if(op.GetOOperands().size() != 1) {
+        ALOG_ERROR_F("View op [%d] check failed : Found more than one output.",op.GetOpMagic());
+        return false;
+    }
+    if(op.GetIOperands().front() == nullptr) {
+        ALOG_ERROR_F("View op [%d] check failed : Input is null.",op.GetOpMagic());
+        return false;
+    }
+    if(op.GetOOperands().front() == nullptr) {
+        ALOG_ERROR_F("View op [%d] check failed : Output is null.",op.GetOpMagic());
+        return false;
+    }
+    if(*(op.oOperand[0]->GetConsumers().begin()) == nullptr) {
+        ALOG_ERROR_F("View op [%d] check failed : Output has null consumer.",op.GetOpMagic());
+        return false;
+    }
+    bool checkViewOut = CheckViewOutTensorMemType(op);
+    if(!checkViewOut) {return false;}
+    return true;
+}
+bool GenerateMoveOpChecker::CheckViewOutTensorMemType(const Operation &op) const {
     //校验view输出tensor内存是否合理
     if (op.GetOOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
         auto consumerOps = op.oOperand[0]->GetConsumers(); 
@@ -99,33 +133,72 @@ bool GenerateMoveOpChecker::ValidViewOp(const Operation &op) const {
                 return false;
             }
         }    
+        return true;
     }
     return true;
 }
 
 bool GenerateMoveOpChecker::ValidAssembleOp(const Operation &op) const {
     //校验assemble单输入单输出，指针非空
-    bool valid = true;
-    if ((op.GetOpAttribute().get() == nullptr) ||
-       (op.GetIOperands().size() != 1) || (op.GetOOperands().size() != 1) ||
-       (op.GetIOperands().front() == nullptr) || (op.GetOOperands().front() == nullptr)) {
-        ALOG_ERROR_F("Assemble op [%d] check failed.", op.GetOpMagic());
-        valid = false;
+    if(op.GetOpAttribute().get() == nullptr) {
+        ALOG_ERROR_F("Assemble op [%d] check failed : Op attribute is null.",op.GetOpMagic());
+        return false;
     }
-    return valid;
+    if(op.GetIOperands().size() != 1) {
+        ALOG_ERROR_F("Assemble op [%d] check failed : Found more than one input.",op.GetOpMagic());
+        return false;
+    }
+    if(op.GetOOperands().size() != 1) {
+        ALOG_ERROR_F("Assemble op [%d] check failed : Found more than one output.",op.GetOpMagic());
+        return false;
+    }
+    if(op.GetIOperands().front() == nullptr) {
+        ALOG_ERROR_F("Assemble op [%d] check failed : Input is null.",op.GetOpMagic());
+        return false;
+    }
+    if(op.GetOOperands().front() == nullptr) {
+        ALOG_ERROR_F("Assemble op [%d] check failed : Output is null.",op.GetOpMagic());
+        return false;
+    }
+    return true;
 }
 
 bool GenerateMoveOpChecker::ValidConvertOp(const Operation &op) const {
     //校验convert单输入单输出，指针非空，输入输出内存类型不同，且存在DDR类型
-    bool valid = true;
-    if ((op.GetOpAttribute().get() == nullptr) || (op.GetIOperands().size() != 1) || (op.GetOOperands().size() != 1) ||
-       (op.GetIOperands().front() == nullptr) || (op.GetOOperands().front() == nullptr) ||
-       (op.GetIOperands().front()->GetMemoryTypeOriginal() == op.GetOOperands().front()->GetMemoryTypeOriginal()) ||
-       (op.GetIOperands().front()->GetShape() != op.GetOOperands().front()->GetShape())) {
-        ALOG_ERROR_F("Convert op [%d] check failed.",op.GetOpMagic());
-        valid = false;
+   if(op.GetOpAttribute().get() == nullptr) {
+        ALOG_ERROR_F("Convert op [%d] check failed : Op attribute is null.",op.GetOpMagic());
+        return false;
     }
-    return valid;
+    if(op.GetIOperands().size() != 1) {
+        ALOG_ERROR_F("Convert op [%d] check failed : Found more than one input.",op.GetOpMagic());
+        return false;
+    }
+    if(op.GetOOperands().size() != 1) {
+        ALOG_ERROR_F("Convert op [%d] check failed : Found more than one output.",op.GetOpMagic());
+        return false;
+    }
+    if(op.GetIOperands().front() == nullptr) {
+        ALOG_ERROR_F("Convert op [%d] check failed : Input is null.",op.GetOpMagic());
+        return false;
+    }
+    if(op.GetOOperands().front() == nullptr) {
+        ALOG_ERROR_F("Convert op [%d] check failed : Output is null.",op.GetOpMagic());
+        return false;
+    }
+    auto inputMemType = op.GetIOperands().front()->GetMemoryTypeOriginal();
+    auto outputMemType = op.GetOOperands().front()->GetMemoryTypeOriginal();
+    if(inputMemType == outputMemType) {
+        ALOG_ERROR_F("Convert op [%d] check failed : Op has dismatched memory type. Input memory type:%s. Output memory type:%s",op.GetOpMagic(),
+            BriefMemoryTypeToString(inputMemType).c_str(),
+            BriefMemoryTypeToString(outputMemType).c_str()
+        );
+        return false;
+    }
+    if(op.GetIOperands().front()->GetShape() != op.GetOOperands().front()->GetShape()) {
+        ALOG_ERROR_F("Convert op [%d] check failed : Input and output tensor has different data shape.",op.GetOpMagic());
+        return false;
+    }
+    return true;
 }
 } // namespace tile_fwk
 } // namespace npu

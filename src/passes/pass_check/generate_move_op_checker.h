@@ -29,6 +29,7 @@ public:
     Status DoPreCheck(Function &function) override;
     Status DoPostCheck(Function &function) override;
 private:
+    bool CheckViewOutTensorMemType(const Operation &op) const;
     bool ValidAssembleOp(const Operation &op) const;
     bool ValidConvertOp(const Operation &op) const;
     bool ValidViewOp(const Operation &op) const;
