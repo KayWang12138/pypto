@@ -70,10 +70,16 @@ typedef void (*StaticKernelFunc)(__gm__ int64_t *param, int64_t gmStackAddr, __g
 INLINE uint32_t GetNextTask(uint32_t lastTaskIdx) {
     uint32_t nextLowIdx;
     uint64_t coreStatus;
+    uint64_t t0 = get_sys_cnt();
+    uint64_t loop_count = 0;
     do {
         __asm__ volatile("MOV %0, DATA_MAIN_BASE\n" : "+l"(coreStatus));
         nextLowIdx = coreStatus & 0xFFFFFFFF;
         nextLowIdx -= 1;
+        ++loop_count;
+        if ((loop_count % 1000 == 0) && (get_sys_cnt() - t0 > 500000000)) {
+            break;
+        }
     } while (nextLowIdx == lastTaskIdx);
 
     return nextLowIdx;
@@ -169,9 +175,14 @@ INLINE void FlushMetricStatistic(__gm__ volatile KernelArgs* args) {
 INLINE uint64_t getCoreFuncionData(__gm__ KernelArgs *args, int64_t lastFunc) {
     uint32_t nextLowIdx;
     uint64_t coreStatus;
-
+    uint64_t t0 = get_sys_cnt();
+    uint64_t loop_count = 0;
     while (true) {
         // check if stop
+        ++loop_count;
+        if ((loop_count % 1000 == 0) && (get_sys_cnt() - t0 > 500000000)) {
+            break;
+        }
         volatile __gm__ int64_t *shakebuffer = args->shakeBuffer;
         dcci(shakebuffer, SINGLE_CACHE_LINE, CACHELINE_OUT);
         auto newFunc = args->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX];
@@ -188,6 +199,7 @@ INLINE uint64_t getCoreFuncionData(__gm__ KernelArgs *args, int64_t lastFunc) {
             return 0;
         }
     }
+    return 0;
 }
 
 INLINE void PmuTestBegin(__gm__ KernelArgs *args) {
@@ -301,7 +313,13 @@ extern "C" __global__ __aicore__ void KERNEL_ENTRY(__OPTYPE__, __TILINGKEY__)(in
     int64_t coreFuncData = 0;
     ExecuteContext ctx = {.args = args };
     //get core task data
+    uint64_t t0 = get_sys_cnt();
+    uint64_t loop_count = 0;
     while (true) {
+        ++loop_count;
+        if ((loop_count % 1000 == 0) && (get_sys_cnt() - t0 > 3000000000)) {
+            break;
+        }
         lastTaskIdx = AICORE_TASK_INIT;
         coreFuncData = getCoreFuncionData(args, coreFuncData);
         if (coreFuncData == 0) {
@@ -310,7 +328,13 @@ extern "C" __global__ __aicore__ void KERNEL_ENTRY(__OPTYPE__, __TILINGKEY__)(in
             return; // no data exit
         }
         InitCtx(&ctx, coreFuncData, isDyn);
+        uint64_t t1 = get_sys_cnt();
+        uint64_t inner_loop_count = 0;
         while (true) {
+            ++inner_loop_count;
+            if ((inner_loop_count % 1000 == 0) && (get_sys_cnt() - t1 > 3000000000)) {
+                break;
+            }
             curTaskIdx = GetNextTask(lastTaskIdx);
             if (curTaskIdx == AICORE_TASK_STOP || curTaskIdx == AICORE_FUNC_STOP) {
                 SetStatus(args, STAGE_GET_NEXT_TASK_STOP);

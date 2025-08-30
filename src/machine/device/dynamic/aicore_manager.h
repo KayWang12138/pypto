@@ -683,14 +683,15 @@ public:
 
     inline int Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *taskCtrl = nullptr) {
         int ret = 0;
-
         Init(threadIdx, deviceArgs);
-
         if constexpr (IsDeviceMode()) {
             ret = HandShake();
             if (ret != DEVICE_MACHINE_OK) {
-                DEV_DEBUG("hand shake timeout.");
+                DEV_ERROR("hand shake timeout.");
                 AbnormalStop();
+                do {
+                    taskCtrl->PutTask(ret);
+                } while ((taskCtrl = taskQueue_.Dequeue()));
                 return ret;
             }
             prof_.ProfStart();
