@@ -1288,7 +1288,7 @@ void TensorInnerTranspose(Function &function, const LogicalTensorPtr &operand,
 }
 
 bool MergeTransposeAxis(const Tensor &operand, std::vector<int64_t>& inputShape, std::vector<int64_t>& vecTileShape,
-                        std::vector<int>& transposeShape) {
+                        std::vector<SymbolicScalar>& validShape, std::vector<int>& transposeShape) {
     auto oldTransposeShape = transposeShape;
     int64_t pre = 1;
     int64_t mid = 1;
@@ -1296,22 +1296,29 @@ bool MergeTransposeAxis(const Tensor &operand, std::vector<int64_t>& inputShape,
     int64_t preTileShape = 1;
     int64_t midTileShape = 1;
     int64_t afterTileShape = 1;
+    SymbolicScalar preValidShape = 1;
+    SymbolicScalar midValidShape = 1;
+    SymbolicScalar afterValidShape = 1;
     int preNum = 0;
     int midNum = 0;
     int afterNum = 0;
     auto oldVecTileShapes = Program::GetInstance().tileShape.GetVecTileShapes();
+    auto oldValidShapes = validShape;
     for (int i = 0; i < (int)operand->shape.size(); i++) {
         if (i < oldTransposeShape[0]) {
             pre *= operand->shape[i];
             preTileShape *= oldVecTileShapes[i];
+            preValidShape = preValidShape * oldValidShapes[i];
             preNum++;
         } else if (i < oldTransposeShape[1] && i > oldTransposeShape[0]) {
             mid *= operand->shape[i];
             midTileShape *= oldVecTileShapes[i];
+            midValidShape = midValidShape * oldValidShapes[i];
             midNum++;
         } else if (i > oldTransposeShape[1]) {
             after *= operand->shape[i];
             afterTileShape *= oldVecTileShapes[i];
+            afterValidShape = afterValidShape * oldValidShapes[i];
             afterNum++;
         }
     }
@@ -1325,24 +1332,30 @@ bool MergeTransposeAxis(const Tensor &operand, std::vector<int64_t>& inputShape,
     }
 
     // [A1,T1,A2,T2,A3]
+    validShape.clear();
     if (preNum > 0) {
         inputShape.push_back(pre);
         vecTileShape.push_back(preTileShape);
+        validShape.push_back(preValidShape);
         transposeShape[0] -= (preNum - 1);
         transposeShape[1] -= (preNum - 1);
     }
     inputShape.push_back(operand->shape[oldTransposeShape[0]]);
     vecTileShape.push_back(oldVecTileShapes[oldTransposeShape[0]]);
+    validShape.push_back(oldValidShapes[oldTransposeShape[0]]);
     if (midNum > 0) {
         inputShape.push_back(mid);
         vecTileShape.push_back(midTileShape);
+        validShape.push_back(midValidShape);
         transposeShape[1] -= (midNum - 1);
     }
     inputShape.push_back(operand->shape[oldTransposeShape[1]]);
     vecTileShape.push_back(oldVecTileShapes[oldTransposeShape[1]]);
+    validShape.push_back(oldValidShapes[oldTransposeShape[1]]);
     if (afterNum > 0) {
         inputShape.push_back(after);
         vecTileShape.push_back(afterTileShape);
+        validShape.push_back(afterValidShape);
     }
     return true;
 }
@@ -1360,24 +1373,31 @@ Tensor Transpose(const Tensor &operand, std::vector<int> transposeShape) {
     }
     auto oldVecTileShapes = Program::GetInstance().tileShape.GetVecTileShapes();
     ASSERT(oldVecTileShapes.size() == operand->shape.size()) << "TileShape dim num should same to input.";
+    auto oldValidShapes = operand.GetStorage()->GetDynValidShape();
+    if (oldValidShapes.empty()) {
+        oldValidShapes = SymbolicScalar::FromConcrete(operand->shape);
+    }
+    ASSERT(oldValidShapes.size() == operand->shape.size()) << "ValidShape dim num should same to input.";
 
     std::vector<int64_t> newInputShape;
     std::vector<int64_t> newVecTileShape;
     std::vector<int> newTransposeShape = transposeShape;
+    std::vector<SymbolicScalar> newValidShape = oldValidShapes;
     std::vector<int64_t> resultShape(operand->shape);
     std::swap(resultShape[transposeShape[0]], resultShape[transposeShape[1]]);
-    if (!MergeTransposeAxis(operand, newInputShape, newVecTileShape, newTransposeShape)) {
+    if (!MergeTransposeAxis(operand, newInputShape, newVecTileShape, newValidShape, newTransposeShape)) {
         Tensor result(operand->Datatype(), resultShape);
         CALL(InnerTranspose, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage(),
              transposeShape);
         return result;
     }
+    std::swap(oldValidShapes[transposeShape[0]], oldValidShapes[transposeShape[1]]);
 
-    auto tmpInputTensor = Reshape(operand, newInputShape);
+    auto tmpInputTensor = Reshape(operand, newInputShape, newValidShape);
     Program::GetInstance().tileShape.SetVecTileShapes(newVecTileShape);
     auto tmpOutputTensor = Transpose(tmpInputTensor, newTransposeShape);
     Program::GetInstance().tileShape.SetVecTileShapes(oldVecTileShapes);
-    return Reshape(tmpOutputTensor, resultShape);
+    return Reshape(tmpOutputTensor, resultShape, oldValidShapes);
 }
 
 void TiledMaxpool(Function &function, const TileShape &tileShape, const std::shared_ptr<LogicalTensor> &input,
