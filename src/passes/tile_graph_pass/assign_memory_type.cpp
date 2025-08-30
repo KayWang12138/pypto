@@ -111,10 +111,30 @@ void AssignMemoryType::RunOnOperation(Operation &operation) {
     }
 }
 
+void AssignMemoryType::AssignMemtypeForSplitReshape(Operation &op, const LogicalTensorPtr &input, const LogicalTensorPtr &output) {
+    const int UB_SIZE_THRESHOLD = static_cast<int>(PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB) * 0.5);
+    // 如果reshape前序是Assemble后接View，是SplitReshape处理的Reshape
+    auto &producers = input->GetProducers();
+    auto &consumers = output->GetConsumers();
+    Operation* producer = *producers.begin();
+    Operation* consumer = *consumers.begin();
+    if (producer != nullptr && consumer != nullptr && producer->GetOpcode() == Opcode::OP_ASSEMBLE && consumer->GetOpcode() == Opcode::OP_VIEW) {
+        if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB && output->GetMemoryTypeOriginal() == MemoryType::MEM_UB && input->GetDataSize() <= UB_SIZE_THRESHOLD) {
+            inserter.UpdateTensorTobeMap(*input, op, MemoryType::MEM_UB);
+            for (auto &consumerOp : output->GetConsumers()) {
+                if (consumerOp->oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
+                    inserter.UpdateTensorTobeMap(*output, *consumerOp, MemoryType::MEM_UB);
+                }
+            }
+        }
+    }
+}
+
 void AssignMemoryType::AssignSpecialOpMemtype(Operation &op) {
     if (op.GetOpcode() == npu::tile_fwk::Opcode::OP_RESHAPE) {
         auto &input = op.iOperand.front();
         auto &output = op.oOperand.front();
+        AssignMemtypeForSplitReshape(op, input, output);
         auto inputMemType = inserter.GetMemoryTypeFromTensorTobeMap(*input, op);
         if (inputMemType != output->GetMemoryTypeOriginal()) {
             ALOG_DEBUG_F("OP_RESHAPE[%d] input: %s, output: %s.", op.opmagic, PrintTensorMem(input).c_str(),

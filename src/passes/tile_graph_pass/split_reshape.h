@@ -160,20 +160,13 @@ private:
     Status CheckValidOp(const CheckParam &para, CheckOutputParam &checkOutputParam);
     Status CheckOp(Function &function, Operation &op);
     Status UpdateReshapeOp(Function &function, Operation &op, const OverlapStatus &status, const CalcOverlapPara &calcpara);
-    Status UpdateForPerfectlyMatchWithUB(Operation &op, const PerfectlyMatchPara &para);
-    Status UpdateForPerfectlyMatchWithDDR(Operation &op, const PerfectlyMatchPara &para);
-    Status UpdateForPerfectlyMatchOtherCase(Function &function, Operation &op, const PerfectlyMatchPara &para);
-    Status ProcessPerfectlyMatch(Function &function, Operation &op, const CalcOverlapPara &para, const PerfectlyMatchPara &perfectlyMatchPara, LogicalTensorPtr &reshapeOutput);
-    Status UpdateForPerfectlyMatch(Function &function, Operation &op, const CalcOverlapPara &para);
-    Status UpdateForBeCoveredUBDDR(Operation &op, const BeCoveredPara &para);
-    Status UpdateForBeCoveredOtherCase(Function &function, Operation &op, const BeCoveredPara &para);
-    Status ProcessBeCovered(Function &function, Operation &op, const CalcOverlapPara &para, const BeCoveredPara &beCoveredPara, LogicalTensorPtr &reshapeOutput);
-    Status UpdateForBeCovered(Function &function, Operation &op, const CalcOverlapPara &para);
-    Status UpdateForMultitoOne(Operation &op, const CalcOverlapPara &para, const PerfectlyMatchWithAllPara &perfectlyMatchwithAllPara);
-    Status ProcessMultitoOne(Function &function, Operation &op, const CalcOverlapPara &para, const ReshapeSourcePara &sourcePara);
-    Status UpdateForPerfectlyMatchWithAllWithUB(Operation &op, const PerfectlyMatchWithAllPara &para);
-    Status UpdateForPerfectlyMatchWithAllOtherCase(Operation &op, const PerfectlyMatchWithAllPara &para);
-    Status UpdateForPerfectlyMatchWithAll(Function &function, Operation &op, const CalcOverlapPara &para);
+    Status ProcessPerfectlyMatch(Function &function, Operation &op, const PerfectlyMatchPara &para);
+    Status ProcessOnetoOne(Function &function, Operation &op, const CalcOverlapPara &para);
+    Status ProcessBeCovered(Function &function, Operation &op, const BeCoveredPara &para);
+    Status ProcessOnetoMulti(Function &function, Operation &op, const CalcOverlapPara &para);
+    Status ProcessPerfectlyMatchWithAll(Operation &op, const PerfectlyMatchWithAllPara &para);
+    Status UpdateForPerfectlyMatchWithAll(Function &function, Operation &op, const CalcOverlapPara &para, const ReshapeSourcePara &sourcePara);
+    Status ProcessMultitoOne(Function &function, Operation &op, const CalcOverlapPara &para);
 
     bool CheckSplit(const LogicalTensorPtr &reshapeSource);
     std::shared_ptr<ReshapeOp> ReshapeOperationExist(const std::shared_ptr<ReshapeOp> &isAddReshapeop);

@@ -599,30 +599,6 @@ Status SplitReshape::ObtainCopyOutTile(Function &function, const copyOutTilePara
     return SUCCESS;
 }
 
-Status SplitReshape::UpdateForPerfectlyMatchWithUB(Operation &op, const PerfectlyMatchPara &para) {
-    auto overlap = para.overlap;
-    auto output = para.output;
-    auto reshapeOutput = para.reshapeOutput;
-    OpPara reshapePara = {nullptr, output, overlap, reshapeOutput, para.viewDynShape};
-    if (AddReshapeRemoveView(op, reshapePara) != SUCCESS) {
-        ALOG_ERROR_F("AddReshapeRemoveView failed.");
-        return FAILED;
-    }
-    return SUCCESS;
-}
-
-Status SplitReshape::UpdateForPerfectlyMatchWithDDR(Operation &op, const PerfectlyMatchPara &para) {
-    auto overlap = para.overlap;
-    auto reshapeOutput = para.reshapeOutput;
-    auto input = para.input;
-    OpPara reshapePara = {input, nullptr, overlap, reshapeOutput, para.viewDynShape};
-    if (AddReshape(op, reshapePara) != SUCCESS) {
-        ALOG_ERROR_F("AddReshape failed.");
-        return FAILED;
-    }
-    return SUCCESS;
-}
-
 Status SplitReshape::ObtainReshapeSource(Function &function, const OpPara &para, LogicalTensorPtr &newReshapeSource) {
     auto overlap = para.oldInput;
     auto reshapeSource = para.oldOutput;
@@ -642,7 +618,7 @@ Status SplitReshape::ObtainReshapeSource(Function &function, const OpPara &para,
     return SUCCESS;
 }
 
-Status SplitReshape::UpdateForPerfectlyMatchOtherCase(Function &function, Operation &op, const PerfectlyMatchPara &para) {
+Status SplitReshape::ProcessPerfectlyMatch(Function &function, Operation &op, const PerfectlyMatchPara &para) {
     auto overlap = para.overlap;
     auto reshapeSource = para.reshapeSource;
     auto input = para.input;
@@ -680,30 +656,7 @@ Status SplitReshape::UpdateForPerfectlyMatchOtherCase(Function &function, Operat
     return SUCCESS;
 }
 
-Status SplitReshape::ProcessPerfectlyMatch(Function &function, Operation &op, const CalcOverlapPara &para, const PerfectlyMatchPara &perfectlyMatchPara, LogicalTensorPtr &reshapeOutput) {
-    auto overlap = para.overlaps.front();
-    auto output = para.output;
-    if (overlap->GetMemoryTypeOriginal() == output->GetMemoryTypeOriginal() && overlap->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-        reshapeOutput->SetMemoryTypeBoth(output->GetMemoryTypeOriginal(), true);
-        if (UpdateForPerfectlyMatchWithUB(op, perfectlyMatchPara) != SUCCESS) {
-            ALOG_ERROR_F("UpdateForPerfectlyMatchWithUB failed");
-            return FAILED;
-        }
-    } else if (overlap->GetMemoryTypeOriginal() != output->GetMemoryTypeOriginal() && overlap->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-        if (UpdateForPerfectlyMatchWithDDR(op, perfectlyMatchPara) != SUCCESS) {
-            ALOG_ERROR_F("UpdateForPerfectlyMatchWithDDR failed");
-            return FAILED;
-        }
-    } else {
-        if (UpdateForPerfectlyMatchOtherCase(function, op, perfectlyMatchPara) != SUCCESS) {
-            ALOG_ERROR_F("UpdateForPerfectlyMatchOtherCase failed");
-            return FAILED;
-        }
-    }
-    return SUCCESS;
-}
-
-Status SplitReshape::UpdateForPerfectlyMatch(Function &function, Operation &op, const CalcOverlapPara &para) {
+Status SplitReshape::ProcessOnetoOne(Function &function, Operation &op, const CalcOverlapPara &para) {
     std::vector<int64_t> alignedShape = para.alignedShape;
     LogicalTensorPtr reshapeSource = para.reshapeSource;
     LogicalTensorPtr input = para.input;
@@ -733,42 +686,14 @@ Status SplitReshape::UpdateForPerfectlyMatch(Function &function, Operation &op, 
         reshapeRawOutputs[overlap->tensor->rawmagic], reshapeTileOffset, reshapeTileShape);
     reshapeOutput->SetMemoryTypeBoth(input->GetMemoryTypeOriginal());
     PerfectlyMatchPara perfectlyMatchPara = {input, output, overlap, reshapeSource, reshapeOutput, para.oriViewDynShape};
-    if (ProcessPerfectlyMatch(function, op, para, perfectlyMatchPara, reshapeOutput) != SUCCESS) {
+    if (ProcessPerfectlyMatch(function, op, perfectlyMatchPara) != SUCCESS) {
         ALOG_ERROR_F("ProcessPerfectlyMatch failed");
         return FAILED;
     }
     return SUCCESS;
 }
 
-Status SplitReshape::UpdateForBeCoveredUBDDR(Operation &op, const BeCoveredPara &para) {
-    auto input = para.input;
-    auto overlap = para.overlap;
-    auto reshapeOutput = para.reshapeOutput;
-    auto newOffset = para.newOffset;
-    auto isAddReshapeOp = std::make_shared<ReshapeOp>(overlap, reshapeOutput);
-    auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
-    if (isAddReshapeOp == nullptr || viewOpAttribute == nullptr) {
-        return FAILED;
-    }
-    auto existOp = ReshapeOperationExist(isAddReshapeOp);
-    viewOpAttribute->SetFromOffset(newOffset);
-    if (existOp != nullptr) {
-        op.ReplaceInput(existOp->output, input);
-        if (UpdateDynShape(existOp, newOffset, para.viewDynShape) != SUCCESS || 
-            GroupReshapeOffset(existOp, newOffset) != SUCCESS) {
-            return FAILED;
-        }
-    } else {
-        op.ReplaceInput(reshapeOutput, input);
-        if (UpdateDynShape(isAddReshapeOp, newOffset, para.viewDynShape) != SUCCESS || 
-            GroupReshapeOffset(isAddReshapeOp, newOffset) != SUCCESS) {
-            return FAILED;
-        }
-    }
-    return SUCCESS;
-}
-
-Status SplitReshape::UpdateForBeCoveredOtherCase(Function &function, Operation &op, const BeCoveredPara &para) {
+Status SplitReshape::ProcessBeCovered(Function &function, Operation &op, const BeCoveredPara &para) {
     auto input = para.input;
     auto overlap = para.overlap;
     auto reshapeOutput = para.reshapeOutput;
@@ -805,26 +730,6 @@ Status SplitReshape::UpdateForBeCoveredOtherCase(Function &function, Operation &
     return SUCCESS;
 }
 
-Status SplitReshape::ProcessBeCovered(Function &function, Operation &op, const CalcOverlapPara &para, const BeCoveredPara &beCoveredPara, LogicalTensorPtr &reshapeOutput) {
-    auto overlap = para.overlaps.front();
-    auto output = para.output;
-    if ((overlap->GetMemoryTypeOriginal() == output->GetMemoryTypeOriginal() && overlap->GetMemoryTypeOriginal() == MemoryType::MEM_UB) || (overlap->GetMemoryTypeOriginal() != output->GetMemoryTypeOriginal() && overlap->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR)) {
-        if (overlap->GetMemoryTypeOriginal() == output->GetMemoryTypeOriginal() && overlap->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-            reshapeOutput->SetMemoryTypeBoth(output->GetMemoryTypeOriginal(), true);
-        }
-        if (UpdateForBeCoveredUBDDR(op, beCoveredPara) != SUCCESS) {
-            ALOG_ERROR_F("Process UpdateForBeCoveredUBDDR failed.");
-            return FAILED;
-        }
-    } else {
-        if (UpdateForBeCoveredOtherCase(function, op, beCoveredPara) != SUCCESS) {
-            ALOG_ERROR_F("Process UpdateForBeCoveredOtherCase failed.");
-            return FAILED;
-        }
-    }
-    return SUCCESS;
-}
-
 Status SplitReshape::CalcTileInfo(const CalcOverlapPara &para, std::vector<int64_t> &newShape,
     std::vector<int64_t> &newOffset, std::vector<int64_t> &reshapeTileShape, std::vector<int64_t> &reshapeTileOffset) {
     auto alignedShape = para.alignedShape;
@@ -848,7 +753,7 @@ Status SplitReshape::CalcTileInfo(const CalcOverlapPara &para, std::vector<int64
     return SUCCESS;
 }
 
-Status SplitReshape::UpdateForBeCovered(Function &function, Operation &op, const CalcOverlapPara &para) {
+Status SplitReshape::ProcessOnetoMulti(Function &function, Operation &op, const CalcOverlapPara &para) {
     auto input = para.input;
     auto output = para.output;
     auto inputView = para.inputView;
@@ -876,28 +781,14 @@ Status SplitReshape::UpdateForBeCovered(Function &function, Operation &op, const
     auto reshapeOutput = std::make_shared<LogicalTensor>(function, reshapeRawOutputs[overlap->tensor->rawmagic], reshapeTileOffset, reshapeTileShape);
     reshapeOutput->SetMemoryTypeBoth(input->GetMemoryTypeOriginal());
     BeCoveredPara beCoveredPara = {overlap, input, reshapeOutput, para.reshapeSource, newOffset, para.oriViewDynShape};
-    if (ProcessBeCovered(function, op, para, beCoveredPara, reshapeOutput)) {
+    if (ProcessBeCovered(function, op, beCoveredPara) != SUCCESS) {
         ALOG_ERROR_F("Process ProcessBeCovered failed.");
         return FAILED;
     }
     return SUCCESS;
 }
 
-Status SplitReshape::UpdateForPerfectlyMatchWithAllWithUB(Operation &op, const PerfectlyMatchWithAllPara &para) {
-    auto output = para.output;
-    auto overlap = para.overlap;
-    auto reshapeOutput = para.reshapeOutput;
-    auto newReshapeSource = para.newReshapeSource;
-    newReshapeSource->SetMemoryTypeBoth(overlap->GetMemoryTypeOriginal(), true);
-    OpPara reshapePara = {nullptr, output, newReshapeSource, reshapeOutput, para.viewDynShape};
-    if (AddReshapeRemoveView(op, reshapePara) != SUCCESS) {
-        ALOG_ERROR_F("Process AddReshapeRemoveView failed.");
-        return FAILED;
-    }
-    return SUCCESS;
-}
-
-Status SplitReshape::UpdateForPerfectlyMatchWithAllOtherCase(Operation &op, const PerfectlyMatchWithAllPara &para) {
+Status SplitReshape::ProcessPerfectlyMatchWithAll(Operation &op, const PerfectlyMatchWithAllPara &para) {
     auto input = para.input;
     auto reshapeOutput = para.reshapeOutput;
     auto newReshapeSource = para.newReshapeSource;
@@ -910,25 +801,7 @@ Status SplitReshape::UpdateForPerfectlyMatchWithAllOtherCase(Operation &op, cons
     return SUCCESS;
 }
 
-Status SplitReshape::UpdateForMultitoOne(Operation &op, const CalcOverlapPara &para, const PerfectlyMatchWithAllPara &perfectlyMatchwithAllPara) {
-    LogicalTensors overlaps = para.overlaps;
-    LogicalTensorPtr output = para.output;
-    if (overlaps.front()->GetMemoryTypeOriginal() == output->GetMemoryTypeOriginal() &&
-        overlaps.front()->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-        if (UpdateForPerfectlyMatchWithAllWithUB(op, perfectlyMatchwithAllPara) != SUCCESS) {
-            ALOG_ERROR_F("Process UpdateForPerfectlyMatchWithAllWithUB failed.");
-            return FAILED;
-        }
-    } else {
-        if (UpdateForPerfectlyMatchWithAllOtherCase(op, perfectlyMatchwithAllPara) != SUCCESS) {
-            ALOG_ERROR_F("Process UpdateForPerfectlyMatchWithAllOtherCase failed.");
-            return FAILED;
-        }
-    }
-    return SUCCESS;
-}
-
-Status SplitReshape::ProcessMultitoOne(Function &function, Operation &op, const CalcOverlapPara &para, const ReshapeSourcePara &sourcePara) {
+Status SplitReshape::UpdateForPerfectlyMatchWithAll(Function &function, Operation &op, const CalcOverlapPara &para, const ReshapeSourcePara &sourcePara) {
     LogicalTensors overlaps = para.overlaps;
     LogicalTensorPtr reshapeSource = para.reshapeSource;
     LogicalTensorPtr input = para.input;
@@ -966,14 +839,14 @@ Status SplitReshape::ProcessMultitoOne(Function &function, Operation &op, const 
         assembles.emplace_back(AssembleOp{overlap->GetMemoryTypeOriginal(), overlapOffset, overlap, newReshapeSource});
     }
     PerfectlyMatchWithAllPara perfectlyMatchwithAllPara = {input, output, overlaps.front(), reshapeOutput, newReshapeSource, para.oriViewDynShape};
-    if (UpdateForMultitoOne(op, para, perfectlyMatchwithAllPara)) {
-        ALOG_ERROR_F("Process UpdateForMultitoOne failed.");
+    if (ProcessPerfectlyMatchWithAll(op, perfectlyMatchwithAllPara) != SUCCESS) {
+        ALOG_ERROR_F("Process ProcessPerfectlyMatchWithAll failed.");
         return FAILED;
     }
     return SUCCESS;
 }
 
-Status SplitReshape::UpdateForPerfectlyMatchWithAll(Function &function, Operation &op, const CalcOverlapPara &para) {
+Status SplitReshape::ProcessMultitoOne(Function &function, Operation &op, const CalcOverlapPara &para) {
     std::vector<int64_t> alignedShape = para.alignedShape;
     std::vector<int64_t> newInputViewTileOffset = para.newInputViewTileOffset;
     std::vector<int64_t> newInputViewTileShape = para.newInputViewTileShape;
@@ -991,7 +864,7 @@ Status SplitReshape::UpdateForPerfectlyMatchWithAll(Function &function, Operatio
         return SUCCESS; // 这种情况不会对reshape做切分, 动态shape的处理也跳过
     } else {
         ReshapeSourcePara sourcePara = {newReshapeSourceTileShape, newReshapeSourceTileOffset};
-        if (ProcessMultitoOne(function, op, para, sourcePara) != SUCCESS) {
+        if (UpdateForPerfectlyMatchWithAll(function, op, para, sourcePara) != SUCCESS) {
             ALOG_ERROR_F("Process ProcessMultitoOne failed.");
             return FAILED;
         }
@@ -1001,18 +874,18 @@ Status SplitReshape::UpdateForPerfectlyMatchWithAll(Function &function, Operatio
 
 Status SplitReshape::UpdateReshapeOp(Function &function, Operation &op, const OverlapStatus &status, const CalcOverlapPara &calcpara) {
     if (status == OverlapStatus::PERFECTLY_MATCH) {
-        if (UpdateForPerfectlyMatch(function, op, calcpara) != SUCCESS) {
-            ALOG_ERROR_F("Process UpdateForPerfectlyMatch of view[%d] failed.", op.GetOpMagic());
+        if (ProcessOnetoOne(function, op, calcpara) != SUCCESS) {
+            ALOG_ERROR_F("Process ProcessOnetoOne of view[%d] failed.", op.GetOpMagic());
             return FAILED;
         }
     } else if (status == OverlapStatus::BE_COVERED) {
-        if (UpdateForBeCovered(function, op, calcpara) != SUCCESS) {
-            ALOG_ERROR_F("Process UpdateForBeCovered of view[%d] failed.", op.GetOpMagic());
+        if (ProcessOnetoMulti(function, op, calcpara) != SUCCESS) {
+            ALOG_ERROR_F("Process ProcessOnetoMulti of view[%d] failed.", op.GetOpMagic());
             return FAILED;
         }
     } else if (status == OverlapStatus::PERFECTLY_MATCH_WITH_ALL) {
-        if (UpdateForPerfectlyMatchWithAll(function, op, calcpara) != SUCCESS) {
-            ALOG_ERROR_F("Process UpdateForPerfectlyMatchWithAll of view[%d] failed.", op.GetOpMagic());
+        if (ProcessMultitoOne(function, op, calcpara) != SUCCESS) {
+            ALOG_ERROR_F("Process ProcessMultitoOne of view[%d] failed.", op.GetOpMagic());
             return FAILED;
         }
     } else {

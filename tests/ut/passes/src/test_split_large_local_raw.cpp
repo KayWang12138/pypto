@@ -52,9 +52,10 @@ TEST_F(SplitLargeLocalRawTest, SplitLocalRaw) {
             {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
             {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
             {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
-            {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
-            {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
             {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
+            {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
+            {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
+            {        "RemoveRedundantOp",        "RemoveRedundantOp",    PassType::TYPE_TILE_GRAPH},
             {        "GraphPartition",        "GraphPartition",    PassType::TYPE_TILE_GRAPH},
 
         });

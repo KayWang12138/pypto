@@ -20,6 +20,7 @@
 #include "passes/pass_interface/pass.h"
 #include "interface/operation/opcode.h"
 #include "passes/tile_graph_pass/convert_op_inserter.h"
+#include "passes/pass_config/pass_config_manager.h"
 #include "tilefwk/data_type.h"
 
 namespace npu::tile_fwk {
@@ -37,6 +38,7 @@ private:
     void AssignMemUnknown(Function &function);
     void AssignL1CopyIn(Function &function);
     void AssignSpecialOpMemtype(Operation &op);
+    void AssignMemtypeForSplitReshape(Operation &op, const LogicalTensorPtr &input, const LogicalTensorPtr &output);
     std::string PrintTensorMem(std::shared_ptr<LogicalTensor>& tensor) const;
     ConvertInserter inserter;
 };
