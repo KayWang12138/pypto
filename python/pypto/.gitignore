@@ -1,0 +1,8 @@
+*.pyc
+__pycache__/
+pyvenv.cfg
+lib64
+python
+python3
+.vscode
+pyascpp.egg-info
