@@ -149,6 +149,10 @@ public:
         ASSERT(IsSpecified());
         return specifiedValue_;
     }
+    SymbolicScalar &GetSpecifiedValue() {
+        ASSERT(IsSpecified());
+        return specifiedValue_;
+    }
 
     int GetParameterIndex() const {
         ASSERT(IsParameter());
@@ -364,7 +368,9 @@ public:
     }
     void SetToOffset(std::vector<OpImmediate> toOffset) { toOffset_ = std::move(toOffset); }
     const std::vector<OpImmediate> &GetFromOffset() const { return fromOffset_; }
+    std::vector<OpImmediate> &GetFromOffset() { return fromOffset_; }
     const std::vector<OpImmediate> &GetToOffset() const { return toOffset_; }
+    std::vector<OpImmediate> &GetToOffset() { return toOffset_; }
 
     [[nodiscard]] std::pair<MemoryType, std::vector<OpImmediate>> GetCopyOutAttr() const;
     [[nodiscard]] std::pair<std::vector<OpImmediate>, MemoryType> GetCopyInAttr() const;
@@ -372,8 +378,10 @@ public:
     [[nodiscard]] std::vector<OpImmediate> GetShape() const {
         return tensorShape_; }
     [[nodiscard]] std::vector<OpImmediate> GetRawShape() const { return rawShape_; }
-    [[nodiscard]] std::vector<OpImmediate> GetToDynValidShape() const { return toDynValidShape_; }
-    [[nodiscard]] std::vector<OpImmediate> GetFromDynValidShape() const { return fromDynValidShape_; }
+    [[nodiscard]] const std::vector<OpImmediate> &GetToDynValidShape() const { return toDynValidShape_; }
+    [[nodiscard]] std::vector<OpImmediate> &GetToDynValidShape() { return toDynValidShape_; }
+    [[nodiscard]] const std::vector<OpImmediate> &GetFromDynValidShape() const { return fromDynValidShape_; }
+    [[nodiscard]] std::vector<OpImmediate> &GetFromDynValidShape() { return fromDynValidShape_; }
     [[nodiscard]] std::vector<int64_t> GetSpecifiedShape(int64_t defaultValue) const;
     void SetShape(std::vector<OpImmediate> shape) { tensorShape_ = std::move(shape); }
     void SetRawShape(std::vector<OpImmediate> rawShape) { rawShape_ = std::move(rawShape); }

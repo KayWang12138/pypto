@@ -885,60 +885,41 @@ struct GetTensorDataUsageDesc {
     GetTensorDataUsageDesc(Operation *refOp_, const std::map<int, std::vector<RawSymbolicScalarPtr>> &usageDict_, MemoryType subgraphMemoryType_, int subgraphID_)
         : refOp(refOp_), usageDict(usageDict_), subgraphMemoryType(subgraphMemoryType_), subgraphID(subgraphID_) {}
 };
+
+std::shared_ptr<LogicalTensor> GetTensorDataSubgraphTensor(Operation *refOp) {
+    std::shared_ptr<LogicalTensor> subgraphTensor;
+    switch (refOp->GetOpcode()) {
+        case Opcode::OP_COPY_IN:
+            subgraphTensor = refOp->GetOOperands()[0];
+            break;
+        case Opcode::OP_COPY_OUT:
+            subgraphTensor = refOp->GetIOperands()[0];
+            break;
+        case Opcode::OP_VEC_DUP:
+            subgraphTensor = refOp->GetOOperands()[0];
+            break;
+        default:
+            break;
+    }
+    return subgraphTensor;
+}
+
 static std::vector<GetTensorDataUsageDesc> GetTensorDataBuildUsageDesc(Function &function) {
     auto operationViewer = function.Operations(false);
     std::vector<GetTensorDataUsageDesc> getTensorDataUsageDescList;
     for (size_t i = 0; i < operationViewer.size(); i++) {
         auto &refOp = operationViewer[i];
-
-        std::vector<SymbolicScalar> dynAttrScalarList;
-        std::shared_ptr<LogicalTensor> subgraphTensor; // The tensor that should be in the same subgraph of the op.
-        switch (refOp.GetOpcode()) {
-            case Opcode::OP_COPY_IN: {
-                    auto attr = std::static_pointer_cast<CopyOpAttribute>(refOp.GetOpAttribute());
-                    for (auto &dynAttr : attr->GetFromOffset()) {
-                        if (dynAttr.IsSpecified()) {
-                            dynAttrScalarList.push_back(dynAttr.GetSpecifiedValue());
-                        }
-                    }
-                    for (auto &dynAttr : attr->GetToDynValidShape()) {
-                        if (dynAttr.IsSpecified()) {
-                            dynAttrScalarList.push_back(dynAttr.GetSpecifiedValue());
-                        }
-                    }
-                    subgraphTensor = refOp.GetOOperands()[0];
-                } break;
-            case Opcode::OP_COPY_OUT: {
-                    auto attr = std::static_pointer_cast<CopyOpAttribute>(refOp.GetOpAttribute());
-                    for (auto &dynAttr : attr->GetToOffset()) {
-                        if (dynAttr.IsSpecified()) {
-                            dynAttrScalarList.push_back(dynAttr.GetSpecifiedValue());
-                        }
-                    }
-                    for (auto &dynAttr : attr->GetFromDynValidShape()) {
-                        if (dynAttr.IsSpecified()) {
-                            dynAttrScalarList.push_back(dynAttr.GetSpecifiedValue());
-                        }
-                    }
-                    subgraphTensor = refOp.GetIOperands()[0];
-                } break;
-            case Opcode::OP_VEC_DUP: {
-                    if (refOp.HasAttr(OpAttributeKey::dynScalar)) {
-                        auto scalar = refOp.GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
-                        dynAttrScalarList.push_back(scalar);
-                        subgraphTensor = refOp.GetOOperands()[0];
-                    }
-                } break;
-            default:
-                break;
-        }
-        if (dynAttrScalarList.size() == 0) {
+        std::vector<std::reference_wrapper<SymbolicScalar>> dynScalarList = refOp.GetDynamicAttributeList();
+        if (dynScalarList.size() == 0) {
             continue;
         }
-        std::map<int, std::vector<RawSymbolicScalarPtr>> usageDict = GetTensorDataDict(dynAttrScalarList);
+        std::map<int, std::vector<RawSymbolicScalarPtr>> usageDict = GetTensorDataDict(dynScalarList);
         if (usageDict.size() == 0) {
             continue;
         }
+        // subgraphTensor should be the same subgraph to the copyin.
+        std::shared_ptr<LogicalTensor> subgraphTensor = GetTensorDataSubgraphTensor(&refOp);
+        ASSERT(subgraphTensor != nullptr);
         MemoryType subgraphMemoryType = subgraphTensor->GetMemoryTypeToBe();
         int subgraphID = subgraphTensor->GetSubgraphID();
         getTensorDataUsageDescList.emplace_back(&refOp, usageDict, subgraphMemoryType, subgraphID);

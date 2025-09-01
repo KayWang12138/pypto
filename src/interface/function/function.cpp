@@ -399,83 +399,9 @@ GetTensorDataIODescDict Function::GetTensorDataForLeafGraph() {
 
 void Function::GetTensorDataRefreshIO(const GetTensorDataIODescDict &iodescDict) {
     for (auto &op : Operations(false)) {
-        switch (op.GetOpcode()) {
-            case Opcode::OP_VIEW:
-                {
-                    auto viewAttr = std::static_pointer_cast<ViewOpAttribute>(op.GetOpAttribute());
-                    if (viewAttr != nullptr) {
-                        std::vector<SymbolicScalar> &viewFromDynOffset = viewAttr->GetFromDynOffset();
-                        std::for_each(viewFromDynOffset.begin(), viewFromDynOffset.end(),
-                            [&](SymbolicScalar &offset) { offset = GetTensorDataFillIO(iodescDict, offset);
-                        });
-                        std::vector<SymbolicScalar> &viewToDynValidShape = viewAttr->GetToDynValidShape();
-                        std::for_each(viewToDynValidShape.begin(), viewToDynValidShape.end(),
-                            [&](SymbolicScalar &offset) { offset = GetTensorDataFillIO(iodescDict, offset);
-                        });
-                    }
-                } break;
-            case Opcode::OP_ASSEMBLE:
-                {
-                    auto assembleAttr = std::static_pointer_cast<AssembleOpAttribute>(op.GetOpAttribute());
-                    if (assembleAttr != nullptr) {
-                        std::vector<SymbolicScalar> &assembleToDynOffset = assembleAttr->GetToDynOffset();
-                        std::for_each(assembleToDynOffset.begin(), assembleToDynOffset.end(), [&](SymbolicScalar &offset) {
-                            offset = GetTensorDataFillIO(iodescDict, offset);
-                        });
-                        std::vector<SymbolicScalar> &assembleFromDynValidShape = assembleAttr->GetFromDynValidShape();
-                        std::for_each(assembleFromDynValidShape.begin(), assembleFromDynValidShape.end(),
-                            [&](SymbolicScalar &offset) { offset = GetTensorDataFillIO(iodescDict, offset);
-                        });
-                    }
-                } break;
-            case Opcode::OP_COPY_IN: [[fallthrough]];
-            case Opcode::OP_UB_COPY_IN:
-                {
-                    auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
-                    std::vector<OpImmediate> copyFromOffset = copyAttr->GetFromOffset();
-                    if (copyFromOffset[0].IsSpecified()) {
-                        std::for_each(copyFromOffset.begin(), copyFromOffset.end(), [&](OpImmediate &opimm) {
-                            opimm = OpImmediate::Specified(GetTensorDataFillIO(iodescDict, opimm.GetSpecifiedValue()));
-                        });
-                        copyAttr->SetFromOffset(copyFromOffset);
-                    }
-                    std::vector<OpImmediate> copyToDynValidShape = copyAttr->GetToDynValidShape();
-                    if (copyToDynValidShape.size() != 0 && copyToDynValidShape[0].IsSpecified()) {
-                        std::for_each(copyToDynValidShape.begin(), copyToDynValidShape.end(), [&](OpImmediate &opimm) {
-                            opimm = OpImmediate::Specified(GetTensorDataFillIO(iodescDict, opimm.GetSpecifiedValue()));
-                        });
-                        copyAttr->SetToDynValidShape(copyToDynValidShape);
-                    }
-                } break;
-            case Opcode::OP_COPY_OUT: [[fallthrough]];
-            case Opcode::OP_UB_COPY_OUT:
-                {
-                    auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
-                    std::vector<OpImmediate> copyToOffset = copyAttr->GetToOffset();
-                    if (copyToOffset[0].IsSpecified()) {
-                        std::for_each(copyToOffset.begin(), copyToOffset.end(), [&](OpImmediate &opimm) {
-                            opimm = OpImmediate::Specified(GetTensorDataFillIO(iodescDict, opimm.GetSpecifiedValue()));
-                        });
-                        copyAttr->SetToOffset(copyToOffset);
-                    }
-                    std::vector<OpImmediate> copyFromDynValidShape = copyAttr->GetFromDynValidShape();
-                    if (copyFromDynValidShape.size() != 0 && copyFromDynValidShape[0].IsSpecified()) {
-                        std::for_each(copyFromDynValidShape.begin(), copyFromDynValidShape.end(), [&](OpImmediate &opimm) {
-                            opimm = OpImmediate::Specified(GetTensorDataFillIO(iodescDict, opimm.GetSpecifiedValue()));
-                        });
-                        copyAttr->SetFromDynValidShape(copyFromDynValidShape);
-                    }
-                } break;
-            case Opcode::OP_VEC_DUP:
-                {
-                    if (op.HasAttr(OpAttributeKey::dynScalar)) {
-                        auto scalar = op.GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
-                        auto scalarFilled = GetTensorDataFillIO(iodescDict, scalar);
-                        op.SetAttribute(OpAttributeKey::dynScalar, scalarFilled);
-                    }
-                } break;
-            default:
-                break;
+        std::vector<std::reference_wrapper<SymbolicScalar>> dynamicAttributeList = op.GetDynamicAttributeList();
+        for (auto &attr : dynamicAttributeList) {
+            attr.get() = GetTensorDataFillIO(iodescDict, attr.get());
         }
     }
 }

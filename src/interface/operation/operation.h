@@ -440,6 +440,8 @@ public:
         oOpAttrOffset = oOffset;
     }
 
+    std::vector<std::reference_wrapper<SymbolicScalar>> GetDynamicAttributeList();
+
 private:
     Opcode opcode_{Opcode::OP_UNKNOWN};
     int subgraphID_{NOT_IN_SUBGRAPH};

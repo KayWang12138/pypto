@@ -931,7 +931,7 @@ constexpr int SMALL_CHANNEL_4 = 4;
 constexpr int SMALL_CHANNEL_8 = 8;
 constexpr int SMALL_CHANNEL_16 = 16;
 
-static void MaybeAppendGetTensorData(Operation *op, const std::vector<SymbolicScalar> &dynScalarList) {
+static void MaybeAppendGetTensorData(Operation *op, const std::vector<std::reference_wrapper<SymbolicScalar>> &dynScalarList) {
     (void)op;
     auto currDynFunc = Program::GetInstance().GetCurrentDynamicFunction();
     if (currDynFunc == nullptr) {
@@ -960,6 +960,13 @@ static void MaybeAppendGetTensorData(Operation *op, const std::vector<SymbolicSc
         GetTensorDataSetIndex(importOp, getTensorDataIndex);
 
         currDynAttr->getTensorDataUsageDict[currFunc].importDict[getTensorDataIndex] = importOp;
+    }
+}
+
+static void MaybeAppendGetTensorData(Operation *op) {
+    std::vector<std::reference_wrapper<SymbolicScalar>> dynamicAttributeList = op->GetDynamicAttributeList();
+    if (dynamicAttributeList.size() != 0) {
+        MaybeAppendGetTensorData(op, dynamicAttributeList);
     }
 }
 
@@ -1950,10 +1957,10 @@ Tensor TensorVectorDuplicateOperation(Function &function, const Element& src, co
     op.SetAttribute(OpAttributeKey::scalar, src);
     if (dynValue.IsValid()) {
         op.SetAttribute(OpAttributeKey::dynScalar, dynValue);
-        MaybeAppendGetTensorData(&op, {dynValue});
     }
     op.SetAttribute(OP_ATTR_PREFIX + "shape", dstShape);
     op.SetAttribute(OP_ATTR_PREFIX + "validShape", validShape);
+    MaybeAppendGetTensorData(&op);
     return result;
 }
 
@@ -2821,7 +2828,7 @@ Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std
     result->UpdateDynValidShape(validShape);
     std::vector<int64_t> newOffsetsConcrete = SymbolicScalar::Concrete(newOffsets, 0);
     op.SetOpAttribute(std::make_shared<ViewOpAttribute>(newOffsetsConcrete, newOffsets, validShape));
-    MaybeAppendGetTensorData(&op, newOffsets);
+    MaybeAppendGetTensorData(&op);
     return result;
 }
 
@@ -2839,8 +2846,7 @@ Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes,
     std::vector<int64_t> newOffsetsConcrete = SymbolicScalar::Concrete(newOffsets, 0);
     op.SetOpAttribute(std::make_shared<ViewOpAttribute>(newOffsetsConcrete, newOffsets, newValidShapes));
     result->UpdateDynValidShape(newValidShapes);
-    MaybeAppendGetTensorData(&op, newOffsets);
-    MaybeAppendGetTensorData(&op, newValidShapes);
+    MaybeAppendGetTensorData(&op);
     return result;
 }
 
@@ -2912,7 +2918,7 @@ void TensorDInnerAssemble(Function &function, const LogicalTensorPtr &operand,
     auto &op = function.AddOperation(Opcode::OP_ASSEMBLE, {operand}, {result});
     op.SetAssembleOpAttribute(offset, dynOffset);
     op.SetAttribute("dassemble", true);
-    MaybeAppendGetTensorData(&op, dynOffset);
+    MaybeAppendGetTensorData(&op);
 }
 
 void DInnerAssemble(Function &function, const LogicalTensorPtr &operand,

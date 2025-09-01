@@ -365,7 +365,7 @@ Json Operation::DumpJson(bool dumpTensor) const {
         opDump["attr"] = GetOpAttribute()->DumpDynJson();
     }
 
-    for (const auto &pair : GetAttr()) {
+    for (const auto &pair : GetAllAttr()) {
         opDump["op_attr"][pair.first] = DumpAttrJson(pair.first);
     }
 
@@ -877,4 +877,85 @@ bool Operation::IsNeedStackGM() const {
     return (OpcodeManager::Inst().IsCopyIn(opcode_) && std::any_of(iOperand.cbegin(), iOperand.cend(), isStack)) ||
            (OpcodeManager::Inst().IsCopyOut(opcode_) && std::any_of(oOperand.cbegin(), oOperand.cend(), isStack));
 }
+
+std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttributeList() {
+    std::vector<std::reference_wrapper<SymbolicScalar>> dynamicAttributeList;
+    switch (GetOpcode()) {
+        case Opcode::OP_VIEW:
+            {
+                auto viewAttr = std::static_pointer_cast<ViewOpAttribute>(GetOpAttribute());
+                if (viewAttr != nullptr) {
+                    std::vector<SymbolicScalar> &viewFromDynOffset = viewAttr->GetFromDynOffset();
+                    for (auto &offset : viewFromDynOffset) {
+                        dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(offset));
+                    }
+                    std::vector<SymbolicScalar> &viewToDynValidShape = viewAttr->GetToDynValidShape();
+                    for (auto &shape : viewToDynValidShape) {
+                        dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape));
+                    }
+                }
+            } break;
+        case Opcode::OP_ASSEMBLE:
+            {
+                auto assembleAttr = std::static_pointer_cast<AssembleOpAttribute>(GetOpAttribute());
+                if (assembleAttr != nullptr) {
+                    std::vector<SymbolicScalar> &assembleToDynOffset = assembleAttr->GetToDynOffset();
+                    for (auto &offset : assembleToDynOffset) {
+                        dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(offset));
+                    }
+                    std::vector<SymbolicScalar> &assembleFromDynValidShape = assembleAttr->GetFromDynValidShape();
+                    for (auto &shape : assembleFromDynValidShape) {
+                        dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape));
+                    }
+                }
+            } break;
+        case Opcode::OP_COPY_IN: [[fallthrough]];
+        case Opcode::OP_UB_COPY_IN:
+            {
+                auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(GetOpAttribute());
+                std::vector<OpImmediate> &copyFromOffset = copyAttr->GetFromOffset();
+                for (auto &offset : copyFromOffset) {
+                    if (offset.IsSpecified()) {
+                        dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(offset.GetSpecifiedValue()));
+                    }
+                }
+                std::vector<OpImmediate> &copyToDynValidShape = copyAttr->GetToDynValidShape();
+                for (auto &shape : copyToDynValidShape) {
+                    if (shape.IsSpecified()) {
+                        dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
+                    }
+                }
+            } break;
+        case Opcode::OP_COPY_OUT: [[fallthrough]];
+        case Opcode::OP_UB_COPY_OUT:
+            {
+                auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(GetOpAttribute());
+                std::vector<OpImmediate> &copyToOffset = copyAttr->GetToOffset();
+                for (auto &offset : copyToOffset) {
+                    if (offset.IsSpecified()) {
+                        dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(offset.GetSpecifiedValue()));
+                    }
+                }
+                std::vector<OpImmediate> &copyFromDynValidShape = copyAttr->GetFromDynValidShape();
+                for (auto &shape : copyFromDynValidShape) {
+                    if (shape.IsSpecified()) {
+                        dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
+                    }
+                }
+            } break;
+        case Opcode::OP_VEC_DUP:
+            {
+                auto &attrDict = GetAllAttr();
+                auto it = attrDict.find(OpAttributeKey::dynScalar);
+                if (it != attrDict.end()) {
+                    auto &value = *npu::tile_fwk::AnyCast<SymbolicScalar>(&it->second);
+                    dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(value));
+                }
+            } break;
+        default:
+            break;
+    }
+    return dynamicAttributeList;
+}
+
 } // namespace npu::tile_fwk

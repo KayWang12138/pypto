@@ -224,6 +224,7 @@ std::vector<SymbolicScalar> GetViewValidShape(const std::vector<SymbolicScalar> 
 
 std::map<int, std::vector<RawSymbolicScalarPtr>> GetTensorDataDict(const SymbolicScalar &dimOffset);
 std::map<int, std::vector<RawSymbolicScalarPtr>> GetTensorDataDict(const std::vector<SymbolicScalar> &offset);
+std::map<int, std::vector<RawSymbolicScalarPtr>> GetTensorDataDict(const std::vector<std::reference_wrapper<SymbolicScalar>> &offset);
 
 struct GetTensorDataIODesc {
     int ioType{-1};

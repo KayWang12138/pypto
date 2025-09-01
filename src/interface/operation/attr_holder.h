@@ -35,9 +35,9 @@ protected:
     std::map<std::string, npu::tile_fwk::Any> attributes;
 
 public:
-    std::map<std::string, npu::tile_fwk::Any> GetAttr() const {
-        return attributes;
-    }
+    const std::map<std::string, npu::tile_fwk::Any> &GetAllAttr() const { return attributes; }
+    std::map<std::string, npu::tile_fwk::Any> &GetAllAttr() { return attributes; }
+
     bool HasAttr(const std::string &key) const {
         if (key.empty()) {
             return false;
@@ -258,6 +258,5 @@ public:
             ALOG_ERROR_F("json parse error");
         }
     }
-    [[nodiscard]] std::map<std::string, npu::tile_fwk::Any> GetAllAttr() const { return attributes; }
 };
 } // namespace npu::tile_fwk

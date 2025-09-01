@@ -770,6 +770,19 @@ std::map<int, std::vector<RawSymbolicScalarPtr>> GetTensorDataDict(const std::ve
     return getTensorDataDict;
 }
 
+std::map<int, std::vector<RawSymbolicScalarPtr>> GetTensorDataDict(const std::vector<std::reference_wrapper<SymbolicScalar>> &offset) {
+    std::map<int, std::vector<RawSymbolicScalarPtr>> getTensorDataDict;
+    for (auto &off : offset) {
+        auto perOffsetDict = GetTensorDataDict(off.get());
+        for (auto &[index, callList] : perOffsetDict) {
+            for (auto &call : callList) {
+                getTensorDataDict[index].push_back(call);
+            }
+        }
+    }
+    return getTensorDataDict;
+}
+
 std::string GetTensorDataIODescDict::Dump() const {
     std::ostringstream oss;
     for (auto [index, desc] : *this) {
