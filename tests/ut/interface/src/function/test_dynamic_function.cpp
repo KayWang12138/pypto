@@ -23,6 +23,7 @@
 #include "interface/tensor/symbolic_scalar.h"
 #include "interface/configs/config_manager.h"
 #include "interface/interpreter/raw_tensor_data.h"
+
 using namespace npu::tile_fwk;
 using namespace std;
 using Json = nlohmann::json;
@@ -36,6 +37,23 @@ public:
 
     void TearDown() override {}
 };
+
+static bool HasDuplicateElem(const std::vector<std::vector<int>>& vec) {
+    std::set<std::vector<int>> seen;
+    for (const auto& subvec : vec) {
+        if (seen.find(subvec) != seen.end()) {
+            return true;
+        }
+        seen.insert(subvec);
+    }
+    return false;
+}
+
+static bool HasSameIoSlots(std::shared_ptr<Function> func) {
+    auto &inSlots = func->GetSlotScope()->ioslot.incastSlot;
+    auto &outSlots = func->GetSlotScope()->ioslot.incastSlot;
+    return HasDuplicateElem(inSlots) || HasDuplicateElem(outSlots);
+}
 
 TEST_F(DynamicFunctionTest, TestSymbolic) {
     {
@@ -412,6 +430,18 @@ void TestStaticLoopStatic(const Tensor &t0, const Tensor &t1, const Tensor &t2, 
             out = Sub(r0, t4);
         }
     }
+    auto& functions = Program::GetInstance().GetFunctionMap();
+    for (auto& [name, function] : functions) {
+        if (name == "PROGRAM_ENTRY" || !function->IsGraphType(GraphType::TENSOR_GRAPH)) {
+            continue;
+        }
+        size_t incastSize = function->inCasts_.size();
+        size_t outcastSize = function->outCasts_.size();
+        auto& scope = function->GetSlotScope();
+        EXPECT_EQ(scope->ioslot.incastSlot.size(), incastSize);
+        EXPECT_EQ(scope->ioslot.outcastSlot.size(), outcastSize);
+        EXPECT_EQ(HasSameIoSlots(function), false);
+    }
 }
 
 TEST_F(DynamicFunctionTest, TestStaticLoopStatic) {
@@ -493,6 +523,20 @@ TEST_F(DynamicFunctionTest, TestHybridLoopIf) {
 
     auto programJson3 = Program::GetInstance().DumpJson();
     EXPECT_EQ(programJson3.dump(), programJson2.dump());
+
+    auto& functions = Program::GetInstance().GetFunctionMap();
+    for (auto& [name, function] : functions) {
+        if (name == "PROGRAM_ENTRY" || !function->IsGraphType(GraphType::TENSOR_GRAPH)) {
+            continue;
+        }
+        size_t incastSize = function->inCasts_.size();
+        size_t outcastSize = function->outCasts_.size();
+        auto& scope = function->GetSlotScope();
+        bool ret = HasSameIoSlots(function);
+        EXPECT_EQ(scope->ioslot.incastSlot.size(), incastSize);
+        EXPECT_EQ(scope->ioslot.outcastSlot.size(), outcastSize);
+        EXPECT_EQ(ret, false);
+    }
 }
 
 TEST_F(DynamicFunctionTest, TestHybridLoopIf2) {
@@ -521,6 +565,19 @@ TEST_F(DynamicFunctionTest, TestHybridLoopIf2) {
     });
 
     TestHybridLoopIf2(t0, t1, t2, t3, t4, out);
+    auto& functions = Program::GetInstance().GetFunctionMap();
+    for (auto& [name, function] : functions) {
+        if (name == "PROGRAM_ENTRY" || !function->IsGraphType(GraphType::TENSOR_GRAPH)) {
+            continue;
+        }
+        size_t incastSize = function->inCasts_.size();
+        size_t outcastSize = function->outCasts_.size();
+        auto& scope = function->GetSlotScope();
+        bool ret = HasSameIoSlots(function);
+        EXPECT_EQ(scope->ioslot.incastSlot.size(), incastSize);
+        EXPECT_EQ(scope->ioslot.outcastSlot.size(), outcastSize);
+        EXPECT_EQ(ret, false);
+    }
 }
 
 Tensor TestLoopWithRank(const Tensor &t0, Tensor &r0, Tensor &out, int s, int maxRank) {
@@ -631,6 +688,9 @@ TEST_F(DynamicFunctionTest, TestLoopWithRank) {
             maxUnrollTimes /= 2;
         }
     }
+    for (auto &op : mainFunc->Operations()) {
+        EXPECT_EQ(op.GetOpcode(), Opcode::OP_CALL);
+    }
 }
 
 TEST_F(DynamicFunctionTest, TestLoopIfWithRank) {
@@ -667,6 +727,13 @@ TEST_F(DynamicFunctionTest, TestLoopIfWithRank) {
             EXPECT_EQ(loopAttr->pathList.size(), 4);
             maxUnrollTimes /= 2;
         }
+    }
+
+    std::unordered_set<string> outcastSymbol;
+    for (auto outcast : mainFunc->outCasts_) {
+        std::string outcastName = outcast->tensor->GetSymbol();
+        EXPECT_EQ(outcastSymbol.count(outcastName), 0);
+        outcastSymbol.insert(outcastName);
     }
 }
 
@@ -754,6 +821,24 @@ TEST_F(DynamicFunctionTest, TestInnerLoopOrder) {
     auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_Main_2");
     EXPECT_NE(mainFunc, nullptr);
     EXPECT_EQ(mainFunc->GetCalleeFunctionList().size(), 1);
+    auto &mainFuncIn = mainFunc->inCasts_;
+    auto &mainFuncOut = mainFunc->outCasts_;
+    std::vector<int> inTileBSlot, outTileBSlot;
+    int i = 0;
+    for (auto in : mainFuncIn) {
+        if (in->tensor->GetSymbol() == "tileB") {
+            inTileBSlot = mainFunc->GetSlotScope()->ioslot.incastSlot[i];
+        }
+        ++i;
+    }
+    i = 0;
+    for (auto out : mainFuncOut) {
+        if (out->tensor->GetSymbol() == "tileB") {
+            outTileBSlot = mainFunc->GetSlotScope()->ioslot.outcastSlot[i];
+        }
+        ++i;
+    }
+    EXPECT_EQ(inTileBSlot, outTileBSlot);
     auto outerLoopFunc = mainFunc->GetCalleeFunctionList()[0];
     EXPECT_EQ(outerLoopFunc->GetMagicName(), "TENSOR_Outer_Unroll1_3");
     EXPECT_EQ(outerLoopFunc->GetCalleeFunctionList().size(), 1);

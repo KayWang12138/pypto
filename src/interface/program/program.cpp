@@ -145,7 +145,7 @@ void Program::CreateCallerCalleeLink(Function *caller, Function *callee) {
     }
 
     FunctionCallArgs args = {
-        .iOpreands = caller->inCasts_,
+        .iOperands = caller->inCasts_,
         .oOperands = caller->outCasts_,
         .iOpAttrOffset = {},
         .oOpAttrOffset = {},
@@ -231,7 +231,7 @@ Operation &Program::ConnectCallerGusket(Function &caller, FunctionCallArgs &args
     // callFunc is used for:
     //  1. Submit to machine
     //  2. Draw graph
-    auto &callFunc = caller.AddRawOperation(Opcode::OP_CALL, args.iOpreands, args.oOperands, false);
+    auto &callFunc = caller.AddRawOperation(Opcode::OP_CALL, args.iOperands, args.oOperands, false);
     callFunc.SetOpAttribute(currentFunctionPtr_->CreateCallOpAttribute(args.argList));
     callFunc.SetOpOffset(args.iOpAttrOffset, args.oOpAttrOffset);
     if (caller.IsFunctionType({FunctionType::DYNAMIC, FunctionType::DYNAMIC_LOOP_PATH})) {
@@ -645,7 +645,7 @@ int Program::EndFunction(const bool isWaitTaskFinished)
     auto funcArgs = currentFunctionPtr_->EndFunction(nullptr);
     if (currentFunctionPtr_->HasParent()) {
         auto &callop =
-            currentFunctionPtr_->Parent().AddOperation(Opcode::OP_CALL, funcArgs.iOpreands, funcArgs.oOperands, false);
+            currentFunctionPtr_->Parent().AddOperation(Opcode::OP_CALL, funcArgs.iOperands, funcArgs.oOperands, false);
         callop.SetOpAttribute(currentFunctionPtr_->CreateCallOpAttribute(funcArgs.argList));
         callop.SetOpOffset(funcArgs.iOpAttrOffset, funcArgs.oOpAttrOffset);
     }

@@ -75,7 +75,7 @@ inline const BiMap<GraphType> &GetGraphTypeNameDict() {
 enum class EndFuncReturnParam { INPUT = 0, OUTPUT, ARGS };
 
 struct FunctionCallArgs {
-    LogicalTensors iOpreands;
+    LogicalTensors iOperands;
     LogicalTensors oOperands;
     std::vector<int> iOpAttrOffset;
     std::vector<int> oOpAttrOffset;
