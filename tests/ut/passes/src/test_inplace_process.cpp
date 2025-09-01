@@ -333,6 +333,12 @@ TEST_F(InplaceProcessTest, InplaceProcessAssembleOnGm) {
     // add tensor
     DataType inputAstDtype = DataType::DT_FP16;
     DataType outputAstDtype = DataType::DT_FP16;
+    G.AddTensor(inputAstDtype, {64, 64}, "copy_in_0");
+    auto copy_in_0 = G.GetTensor("copy_in_0");
+    copy_in_0->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(inputAstDtype, {64, 64}, "copy_in_1");
+    auto copy_in_1 = G.GetTensor("copy_in_1");
+    copy_in_1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
     G.AddTensor(inputAstDtype, {64, 64}, "vec_in_0");
     auto vec_in_0 = G.GetTensor("vec_in_0");
     vec_in_0->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
@@ -343,6 +349,8 @@ TEST_F(InplaceProcessTest, InplaceProcessAssembleOnGm) {
     auto vec_out = G.GetTensor("vec_out");
     vec_out->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
     // add op
+    G.AddOp(Opcode::OP_COPY_IN, {"copy_in_0"}, {"vec_in_0"}, "COPYIN_0");
+    G.AddOp(Opcode::OP_COPY_IN, {"copy_in_1"}, {"vec_in_1"}, "COPYIN_1");
     G.AddOp(Opcode::OP_ASSEMBLE, {"vec_in_0"}, {"vec_out"}, "ASSEMBLE_0");
     auto assemble0 = G.GetOp("ASSEMBLE_0");
     std::vector<int64_t> offestAssemble0= {0, 0};
@@ -354,7 +362,7 @@ TEST_F(InplaceProcessTest, InplaceProcessAssembleOnGm) {
     auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offestAssemble1);
     assemble1->SetOpAttribute(attrAssemble1);
     // set incast and outcast
-    G.SetInCast({"vec_in_0", "vec_in_1"});
+    G.SetInCast({"copy_in_0", "copy_in_1"});
     G.SetOutCast({"vec_out"});
     // check before pass
     auto vecIn0RawshapeBefore = vec_in_0->GetRawTensor()->GetRawShape();
@@ -894,6 +902,12 @@ TEST_F(InplaceProcessTest, InplaceProcessAssembleReshape) {
     // add tensor
     DataType inputAstDtype = DataType::DT_FP16;
     DataType outputAstDtype = DataType::DT_FP16;
+    G.AddTensor(inputAstDtype, {64, 64}, "copy_in_0");
+    auto copy_in_0 = G.GetTensor("copy_in_0");
+    copy_in_0->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    G.AddTensor(inputAstDtype, {64, 64}, "copy_in_1");
+    auto copy_in_1 = G.GetTensor("copy_in_1");
+    copy_in_1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
     G.AddTensor(inputAstDtype, {64, 64}, "vec_in_0");
     auto vec_in_0 = G.GetTensor("vec_in_0");
     vec_in_0->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
@@ -910,6 +924,8 @@ TEST_F(InplaceProcessTest, InplaceProcessAssembleReshape) {
     auto vec_out_rel = G.GetTensor("vec_out_rel");
     vec_out_rel->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
     // add op
+    G.AddOp(Opcode::OP_COPY_IN, {"copy_in_0"}, {"vec_in_0"}, "COPYIN_0");
+    G.AddOp(Opcode::OP_COPY_IN, {"copy_in_1"}, {"vec_in_1"}, "COPYIN_1");
     G.AddOp(Opcode::OP_ASSEMBLE, {"vec_in_0"}, {"vec"}, "ASSEMBLE_0");
     auto assemble0 = G.GetOp("ASSEMBLE_0");
     std::vector<int64_t> offestAssemble0= {0, 0};
@@ -923,7 +939,7 @@ TEST_F(InplaceProcessTest, InplaceProcessAssembleReshape) {
     G.AddOp(Opcode::OP_RESHAPE, {"vec"}, {"vec_out"}, "RESHAPE");
     G.AddOp(Opcode::OP_VIEW, {"vec_out"}, {"vec_out_rel"}, "VIEW");
     // set incast and outcast
-    G.SetInCast({"vec_in_0", "vec_in_1"});
+    G.SetInCast({"copy_in_0", "copy_in_1"});
     G.SetOutCast({"vec_out_rel"});
     // assemble check before pass
     auto vecIn0RawshapeBefore = vec_in_0->GetRawTensor()->GetRawShape();

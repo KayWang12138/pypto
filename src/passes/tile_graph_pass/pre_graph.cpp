@@ -469,7 +469,12 @@ void PreGraphProcess::ProcessSameInOutOp(Function &function) const {
                 }
                 auto output = op.GetOOperands().front();
                 if (input->shape != output->shape) {
-                    ALOG_INFO_F("op input output tensor shape is not equal, cannot reuse buffer");
+                    ALOG_INFO_F("Op[%d] input output tensor shape is not equal, cannot reuse buffer.", op.GetOpMagic());
+                    continue;
+                }
+                if (function.IsFromInCast(input)) {
+                    ALOG_WARN_F(
+                        "PreGraphProcess::ProcessSameInOutOp: OP iOperand tensor[%d] is inCast.", input->GetMagic());
                     continue;
                 }
                 input->tensor = output->tensor;

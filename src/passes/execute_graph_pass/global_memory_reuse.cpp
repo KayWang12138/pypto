@@ -111,7 +111,7 @@ void Allocator::FindReusableInputForOutput(Function *leafFunc, Operation *op, co
 
         for (LogicalTensorPtr in : parent->GetIOperands()) {
             // 检查是否为leafFunc输入边界
-            if (std::find(leafFunc->inCasts_.begin(), leafFunc->inCasts_.end(), in) != leafFunc->inCasts_.end()) {
+            if (leafFunc->IsFromInCast(in)) {
                 continue;
             }
             // 跳过已经遍历过的tensor

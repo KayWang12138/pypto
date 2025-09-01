@@ -24,7 +24,7 @@ Status CubeProcess::RunOnFunction(Function &function) {
         return FAILED;
     }
     if (UpdateCubeOp(function) != SUCCESS) {
-        ALOG_ERROR_F("Update Cube attr fialed.");
+        ALOG_ERROR_F("Update Cube attr failed.");
         return FAILED;
     }
     if (DeadOperationEliminator::EliminateDeadOperation(function) != SUCCESS) {
@@ -114,7 +114,7 @@ Status CubeProcess::UpdateCubeOp(Function &function) {
             }
             // Align copy out GM with the reset GM
             if (op.GetOOperands().size() != 1) {
-                ALOG_ERROR_F("%s[%d] has output num != 1", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+                ALOG_ERROR_F("%s[%d] has output num != 1.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
                 return FAILED;
             }
             auto outputL0C = op.GetOOperands().front();
@@ -124,21 +124,28 @@ Status CubeProcess::UpdateCubeOp(Function &function) {
                 outputL0C = chainEndCopyOut->GetOOperands().front();
                 chainEndCopyOut = *(outputL0C->GetConsumers().begin());
             }
-            if (chainEndCopyOut != nullptr && chainEndCopyOut->GetOOperands().size() == 1) {
-                auto finalOutput = chainEndCopyOut->GetOOperands().front();
-                if (finalOutput->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-                    input->tensor = finalOutput->tensor;
-                }
+            if (chainEndCopyOut == nullptr || chainEndCopyOut->GetOOperands().size() != 1) {
+                continue;
             }
+            auto finalOutput = chainEndCopyOut->GetOOperands().front();
+            if (finalOutput->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+                continue;
+            }
+            if (function.IsFromInCast(input)) {
+                ALOG_WARN_F("CubeProcess::UpdateCubeOp: OP_A_MUL_B iOperand tensor[%d] is incast.", input->GetMagic());
+                continue;
+            }
+            input->tensor = finalOutput->tensor;
         }
         for (auto &output: op.GetOOperands()) {
-            if (output->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
-                // force setting the  data type
-                if (IsFloat(output)) {
-                    output->tensor->datatype = DataType::DT_FP32;
-                } else if (IsInt(output)) {
-                    output->tensor->datatype = DataType::DT_INT32;
-                }
+            if (output->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
+                continue;
+            }
+            // force setting the  data type
+            if (IsFloat(output)) {
+                output->tensor->datatype = DataType::DT_FP32;
+            } else if (IsInt(output)) {
+                output->tensor->datatype = DataType::DT_INT32;
             }
         }
         if (UpdateCopyAttr(op) != SUCCESS) {

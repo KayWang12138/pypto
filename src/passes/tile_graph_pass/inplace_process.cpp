@@ -22,12 +22,12 @@ Status InplaceProcess::RunOnFunction(Function &function) {
     auto opList = function.Operations();
     for (auto &op : opList) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
-            if (!ValidMeaninglessOp(op)) {
+            if (ValidMeaninglessOp(op) != SUCCESS) {
                 return FAILED;
             }
-            ProcessView(op);
+            ProcessView(function, op);
         } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
-            if (!ValidMeaninglessOp(op)) {
+            if (ValidMeaninglessOp(op) != SUCCESS) {
                 return FAILED;
             }
             auto assembleOut = op.GetOOperands().front();
@@ -40,7 +40,7 @@ Status InplaceProcess::RunOnFunction(Function &function) {
             }
             ProcessAssemble(function, op);
         } else if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            if (!ValidMeaninglessOp(op)) {
+            if (ValidMeaninglessOp(op) != SUCCESS) {
                 return FAILED;
             }
             ProcessReshape(function, op);
@@ -55,42 +55,47 @@ Status InplaceProcess::RunOnFunction(Function &function) {
     return SUCCESS;
 }
 
-bool InplaceProcess::ValidMeaninglessOp(const Operation &op) const {
+Status InplaceProcess::ValidMeaninglessOp(const Operation &op) const {
     // 校验单输入单输出，且输入输出mem类型相同
-    bool valid = true;
     if ((op.GetIOperands().size() != 1) || (op.GetOOperands().size() != 1) ||
         (op.GetIOperands().front() == nullptr) || (op.GetOOperands().front() == nullptr) ||
         (op.GetIOperands().front()->GetMemoryTypeOriginal() != op.GetOOperands().front()->GetMemoryTypeOriginal())) {
-        ALOG_INFO_F(
+        ALOG_ERROR_F(
             "InplaceProcess %s[%d] Invalid: IOperands.size is %d; OOperands.size is %d; "
             "IOperands.front is nullptr (%d); OOperands.front is nullptr (%d); IOperands.front.MemoryType is %d; "
             "OOperands.front.MemoryType is %d.",
             (op.GetOpcodeStr().c_str()), (op.GetOpMagic()), (op.GetIOperands().size()), (op.GetOOperands().size()),
             (op.GetIOperands().front() == nullptr), (op.GetOOperands().front() == nullptr),
             (op.GetIOperands().front()->GetMemoryTypeOriginal()), (op.GetOOperands().front()->GetMemoryTypeOriginal()));
-        valid = false;
+        return FAILED;
     }
-    return valid;
+    return SUCCESS;
 }
 
-void InplaceProcess::ProcessView(Operation &op) const {
+void InplaceProcess::ProcessView(Function &function, Operation &op) const {
     ALOG_DEBUG_F("Find Internal View %d.", op.opmagic);
     std::vector<int64_t> inputOffset = op.GetIOperands()[0]->GetOffset();
     for (auto &consumer : op.GetIOperands()[0]->GetConsumers()) {
         if ((consumer->GetOpcode() != Opcode::OP_VIEW) || (consumer->GetOpMagic() != op.GetOpMagic())) {
             continue;
         }
-        auto viewAttr = dynamic_cast<ViewOpAttribute *>(consumer->GetOpAttribute().get());
-        if (viewAttr != nullptr) {
-            std::vector<int64_t> viewOpOffset = viewAttr->GetFrom();
-            // 增加校验: input --> View --> ouput 三者的offset size 相同
-            for (size_t i = 0; i < inputOffset.size(); i++) {
-                viewOpOffset[i] = inputOffset[i] + viewOpOffset[i];
-            }
-            viewAttr->SetFromOffset(viewOpOffset, viewAttr->GetFromDynOffset());
-            consumer->oOperand[0]->tensor = op.GetIOperands()[0]->tensor;
-            consumer->oOperand[0]->UpdateOffset(viewOpOffset);
+        if (function.IsFromOutCast(consumer->oOperand[0])) {
+            ALOG_WARN_F("InplaceProcess::ProcessView: OP_VIEW oOperand tensor[%d] is outCast.",
+                consumer->oOperand[0]->GetMagic());
+            continue;
         }
+        auto viewAttr = dynamic_cast<ViewOpAttribute *>(consumer->GetOpAttribute().get());
+        if (viewAttr == nullptr) {
+            continue;
+        }
+        std::vector<int64_t> viewOpOffset = viewAttr->GetFrom();
+        // 增加校验: input --> View --> ouput 三者的offset size 相同
+        for (size_t i = 0; i < inputOffset.size(); i++) {
+            viewOpOffset[i] = inputOffset[i] + viewOpOffset[i];
+        }
+        viewAttr->SetFromOffset(viewOpOffset, viewAttr->GetFromDynOffset());
+        consumer->oOperand[0]->tensor = op.GetIOperands()[0]->tensor;
+        consumer->oOperand[0]->UpdateOffset(viewOpOffset);
     }
 }
 
@@ -132,8 +137,13 @@ void InplaceProcess::AlignCopyOutProducer(std::shared_ptr<LogicalTensor> tensorG
     }
 }
 
-void InplaceProcess::ReplaceRawTensor(std::shared_ptr<LogicalTensor> logicalTensor,
+void InplaceProcess::ReplaceRawTensor(Function &function, std::shared_ptr<LogicalTensor> logicalTensor,
     const std::shared_ptr<LogicalTensor> targetTensor, const Operation &op) {
+    if (function.IsFromInCast(logicalTensor)) {
+        ALOG_WARN_F("InplaceProcess::ProcessAssemble: OP_ASSEMBLE iOperand tensor[%d] is inCast.",
+            logicalTensor->GetMagic());
+        return;
+    }
     logicalTensor->tensor = targetTensor->tensor;
     logicalTensor->UpdateOffset(dynamic_cast<AssembleOpAttribute *>(op.GetOpAttribute().get())->GetToOffset());
     ALOG_DEBUG_F("update the offset for Tensor %d.", logicalTensor->magic);
@@ -156,7 +166,7 @@ void InplaceProcess::ProcessAssemble(Function &function, Operation &op) {
         producer->iOperand[0] 可能来自一个被复用过的op
         raw tensor 与 producer->iOperand[0] 的 raw tensor 相同的所有logical tensor 都应该update
         */
-        ReplaceRawTensor(producer->iOperand[0], assembleOut, *producer);
+        ReplaceRawTensor(function, producer->iOperand[0], assembleOut, *producer);
         visitedAssembleOp.push_back(producer->GetOpMagic());
     }
 }
@@ -164,11 +174,18 @@ void InplaceProcess::ProcessAssemble(Function &function, Operation &op) {
 void InplaceProcess::ProcessReshape(Function &function, Operation &op) const {
     auto reshapeIn = op.GetIOperands()[0];
     auto reshapeOut = op.GetOOperands()[0];
-    ALOG_DEBUG_F(" %s[%d] on %s.", op.GetOpcodeStr().c_str(), op.GetOpMagic(), BriefMemoryTypeToString(reshapeIn->GetMemoryTypeOriginal()).c_str());
-    if ((reshapeOut->tensor->actualRawmagic == -1) && (!function.IsFromOutCast(reshapeOut))) {
-        reshapeOut->tensor->actualRawmagic = reshapeIn->GetRawMagic();
-        ALOG_DEBUG_F(" update reshape opmagic %d, output's actualRaw: %d.", op.opmagic, reshapeOut->GetRawMagic());
+    ALOG_DEBUG_F(" %s[%d] on %s.", op.GetOpcodeStr().c_str(), op.GetOpMagic(),
+        BriefMemoryTypeToString(reshapeIn->GetMemoryTypeOriginal()).c_str());
+    if (reshapeOut->tensor->actualRawmagic != -1) {
+        return;
     }
+    if (function.IsFromOutCast(reshapeOut)) {
+        ALOG_WARN_F(
+            "InplaceProcess::ProcessReshape: OP_RESHAPE oOperand tensor[%d] is outCast.", reshapeOut->GetMagic());
+        return;
+    }
+    reshapeOut->tensor->actualRawmagic = reshapeIn->GetRawMagic();
+    ALOG_DEBUG_F("Update reshape opmagic %d, output's actualRaw: %d.", op.opmagic, reshapeOut->GetRawMagic());
 }
 
 Status InplaceProcess::ProcessInplaceOp(Function &function, Operation &op) const {
@@ -193,6 +210,11 @@ Status InplaceProcess::ProcessInplaceOp(Function &function, Operation &op) const
         if (tensorIn == nullptr || tensorOut == nullptr) {
             ALOG_ERROR_F("%s[%d] inplace input or output is nullptr.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
             return FAILED;
+        }
+        if (function.IsFromOutCast(tensorOut) && function.IsFromInCast(tensorIn)) {
+            ALOG_WARN_F("InplaceProcess::ProcessInplaceOp: inplaceOp iOperand tensor[%d] is inCast and oOperand "
+                        "tensor[%d] is outCast.", tensorIn->GetMagic(), tensorOut->GetMagic());
+            continue;
         }
         if (function.IsFromOutCast(tensorOut)) {
             tensorIn->tensor = tensorOut->tensor;

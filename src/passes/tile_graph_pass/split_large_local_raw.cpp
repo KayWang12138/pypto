@@ -31,50 +31,60 @@ std::vector<int64_t> SplitLargeLocalRawTensor::UpdateOffset(
 }
 
 void SplitLargeLocalRawTensor::UpdateConsumerView(
-    const LogicalTensorPtr &logicalTensor, std::vector<int64_t> &diff) const {
+    Function &function, const LogicalTensorPtr &logicalTensor, std::vector<int64_t> &diff) const {
     /* All the consumer View op's attr offset should be corret */
     /* 1. 更新View相关的属性 */
     for (auto &viewOp : logicalTensor->GetConsumers()) {
-        if (viewOp->GetOpcode() == Opcode::OP_VIEW) {
-            auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(viewOp->GetOpAttribute().get());
-            if (viewOpAttribute != nullptr) {
-                // VIEW操作的offset要相应被修改。
-                auto &fromOffset = viewOpAttribute->GetFrom();
-                fromOffset = UpdateOffset(fromOffset, diff);
-                // 更新view输出tensor的offset
-                auto &output = viewOp->oOperand[0];
-                output->offset = fromOffset;
-            }
-            // 更新view后的输出的rawtensor
-            auto &output = viewOp->oOperand[0];
-            output->tensor = logicalTensor->tensor;
-            ALOG_DEBUG_F("Update View op needs fromOffset: %d.", viewOp->GetOpMagic());
+        if (viewOp->GetOpcode() != Opcode::OP_VIEW) {
+            continue;
         }
+        auto &output = viewOp->oOperand[0];
+        if (function.IsFromOutCast(output)) {
+            ALOG_WARN_F("SplitLargeLocalRawTensor::UpdateConsumerView: OP_VIEW oOperand tensor[%d] is outCast.",
+                output->GetMagic());
+            continue;
+        }
+        auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(viewOp->GetOpAttribute().get());
+        if (viewOpAttribute != nullptr) {
+            // VIEW操作的offset要相应被修改。
+            auto &fromOffset = viewOpAttribute->GetFrom();
+            fromOffset = UpdateOffset(fromOffset, diff);
+            // 更新view输出tensor的offset
+            output->offset = fromOffset;
+        }
+        // 更新view后的输出的rawtensor
+        output->tensor = logicalTensor->tensor;
+        ALOG_DEBUG_F("Update View op needs fromOffset: %d.", viewOp->GetOpMagic());
     }
 }
 
 void SplitLargeLocalRawTensor::UpdateProducerAssemble(
-    const LogicalTensorPtr &logicalTensor, std::vector<int64_t> &diff) const {
+    Function &function, const LogicalTensorPtr &logicalTensor, std::vector<int64_t> &diff) const {
     /* 1. 更新Assemble相关的属性 */
     // Assemble1 ->
     //              logicalTensor(UB) -> Reshape -> UB
     // Assemble2 ->
     for (auto &assembleOp : logicalTensor->GetProducers()) {
-        if (assembleOp->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(assembleOp->GetOpAttribute().get());
-            if (assembleOpAttribute != nullptr) {
-                // Assemble操作的offset要相应被修改。
-                auto &toOffset = assembleOpAttribute->GetToOffset();
-                toOffset = UpdateOffset(toOffset, diff);
-                // 更新assemble输入tensor的offset
-                auto &input = assembleOp->iOperand[0];
-                input->offset = toOffset;
-            }
-            // 更新assemble前的输入的rawtensor
-            auto &input = assembleOp->iOperand[0];
-            input->tensor = logicalTensor->tensor;
-            ALOG_DEBUG_F("Update Assemble op needs toOffset: %d.", assembleOp->GetOpMagic());
+        if (assembleOp->GetOpcode() != Opcode::OP_ASSEMBLE) {
+            continue;
         }
+        auto &input = assembleOp->iOperand[0];
+        if (function.IsFromInCast(input)) {
+            ALOG_WARN_F("SplitLargeLocalRawTensor::UpdateProducerAssemble: OP_ASSEMBLE iOperand tensor[%d] is inCast.",
+                input->GetMagic());
+            continue;
+        }
+        auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(assembleOp->GetOpAttribute().get());
+        if (assembleOpAttribute != nullptr) {
+            // Assemble操作的offset要相应被修改。
+            auto &toOffset = assembleOpAttribute->GetToOffset();
+            toOffset = UpdateOffset(toOffset, diff);
+            // 更新assemble输入tensor的offset
+            input->offset = toOffset;
+        }
+        // 更新assemble前的输入的rawtensor
+        input->tensor = logicalTensor->tensor;
+        ALOG_DEBUG_F("Update Assemble op needs toOffset: %d.", assembleOp->GetOpMagic());
     }
 }
 
@@ -91,6 +101,19 @@ void SplitLargeLocalRawTensor::UpdateMemID(Function &function) const {
             }
         }
     }
+}
+bool SplitLargeLocalRawTensor::ShouldProcessTensor(Function& function, const LogicalTensorPtr& tensor) const {
+    // 检查MemoryType和shape条件
+    if ((tensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) ||
+        (tensor->shape == tensor->tensor->rawshape)) {
+        return false;
+    }
+    // 检查是否为InCast或OutCast
+    if (function.IsFromOutCast(tensor) || function.IsFromInCast(tensor)) {
+        ALOG_WARN_F("SplitLargeLocalRawTensor::SplitLargeLocalRaw: tensor[%d] is inCast or outCast ", tensor->GetMagic());
+        return false;
+    }
+    return true;
 }
 
 /*
@@ -112,8 +135,7 @@ void SplitLargeLocalRawTensor::SplitLargeLocalRaw(Function &function) const {
         std::unordered_set<LogicalTensorPtr> relatedViewOutput;
         for (auto &singleLogicalTensor : ele.second) {
             auto rawShape = singleLogicalTensor->tensor->rawshape;
-            if ((singleLogicalTensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) ||
-                (singleLogicalTensor->shape == rawShape)) {
+            if (!ShouldProcessTensor(function, singleLogicalTensor)) {
                 continue;
             }
             /* 创建新的rawTensor，并将其后接的View以及view的Consumer的rawtensor刷新为新的rawTensor */
@@ -126,8 +148,8 @@ void SplitLargeLocalRawTensor::SplitLargeLocalRaw(Function &function) const {
             needDelete = true;
             std::set<std::shared_ptr<LogicalTensor>, TensorPtrComparator> newSet;
             newSet.emplace(singleLogicalTensor);
-            UpdateConsumerView(singleLogicalTensor, singleLogicalTensor->offset);
-            UpdateProducerAssemble(singleLogicalTensor, singleLogicalTensor->offset);
+            UpdateConsumerView(function, singleLogicalTensor, singleLogicalTensor->offset);
+            UpdateProducerAssemble(function, singleLogicalTensor, singleLogicalTensor->offset);
             newRawVec.emplace_back(std::make_pair(singleLogicalTensor->tensor->rawmagic, newSet));
             for (auto &offset : singleLogicalTensor->offset) {
                 offset = 0;

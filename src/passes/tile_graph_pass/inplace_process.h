@@ -51,14 +51,14 @@ private:
     补齐: Status PostCheck(Function &function) override;
     */
     Status RunOnFunction(Function &function) override;
-    void ProcessView(Operation &op) const;
+    void ProcessView(Function &function, Operation &op) const;
     void ProcessAssemble(Function &function, Operation &op);
     void AlignCopyInConsumer(std::shared_ptr<LogicalTensor> tensorGm) const;
     void AlignCopyOutProducer(std::shared_ptr<LogicalTensor> tensorGm) const;
     void ProcessReshape(Function &function, Operation &op) const;
     Status ProcessInplaceOp(Function &function, Operation &op) const;
-    bool ValidMeaninglessOp(const Operation &op) const;
-    void ReplaceRawTensor(std::shared_ptr<LogicalTensor> logicalTensor, 
+    Status ValidMeaninglessOp(const Operation &op) const;
+    void ReplaceRawTensor(Function &function, std::shared_ptr<LogicalTensor> logicalTensor,
         const std::shared_ptr<LogicalTensor> targetTensor, const Operation &op);
     std::vector<int> visitedAssembleOp;
 };
