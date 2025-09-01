@@ -114,10 +114,55 @@ void ReduceSum3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<
     }
 }
 
+void ReduceSum4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
+                                 const OpFuncArgs* opArgs) {
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    auto args = static_cast<const ReduceSumOpFuncArgs *>(opArgs);
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
+        SymbolicScalar firstDim = inputs[0]->shape[0];
+        SymbolicScalar secondDim = inputs[0]->shape[1];
+        SymbolicScalar thirdDim = inputs[0]->shape[2];
+        SymbolicScalar lastDim = inputs[0]->shape[3];
+        std::vector<int64_t> viewShape = {
+            args->viewShape_[0], args->viewShape_[1],
+            args->viewShape_[2], args->viewShape_[3]
+        };
+        int loops[] = {
+            CeilDiv(inputs[0]->shape[0], viewShape[0]),
+            CeilDiv(inputs[0]->shape[1], viewShape[1]),
+            CeilDiv(inputs[0]->shape[2], viewShape[2]),
+            CeilDiv(inputs[0]->shape[3], viewShape[3])
+        };
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loops[IDX_DIM0])) {
+            LOOP("LOOP_L1_bIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loops[IDX_DIM1])) {
+                LOOP("LOOP_L2_bIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(loops[IDX_DIM2])) {
+                    LOOP("LOOP_L3_bIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(loops[IDX_DIM2])) {
+                        std::vector<SymbolicScalar> offset = {
+                            bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2], qIdx * viewShape[3]
+                        };
+                        auto viewTensor = View(inputs[0], viewShape,
+                            {
+                                std::min(firstDim - bIdx * viewShape[0], viewShape[0]),
+                                std::min(secondDim - sIdx * viewShape[1], viewShape[1]),
+                                std::min(thirdDim - nIdx * viewShape[2], viewShape[2]),
+                                std::min(lastDim - qIdx * viewShape[3], viewShape[3])
+                            },
+                            offset);
+                        Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                        auto res = RowSumSingle(viewTensor, args->dims_[0]);
+                        Assemble(res, offset, outputs[0]);
+                    }
+                }
+            }
+        }
+    }
+}
+
 class ReduceSumOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<ReduceSumOpMetadata> {};
 
 INSTANTIATE_TEST_SUITE_P(TestReduceSum, ReduceSumOperationTest, ::testing::ValuesIn(
-    GetOpMetaData<ReduceSumOpMetadata>({ReduceSumOperationExeFunc, ReduceSum3DOperationExeFunc}, "ReduceSum")));
+    GetOpMetaData<ReduceSumOpMetadata>({ReduceSumOperationExeFunc, ReduceSum3DOperationExeFunc, ReduceSum4DOperationExeFunc}, "ReduceSum")));
 
 TEST_P(ReduceSumOperationTest, TestReduceSum) {
     TestCaseDesc testCase;
