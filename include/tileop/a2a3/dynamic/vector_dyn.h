@@ -125,25 +125,25 @@ namespace TileOp {
 // Unary op
 // EXP
 #define T_UNA DynTexp_
-#define V_UNA_FUNC vexp
+#define V_UNA_FUNC Exp
 #include "vector_una_dyn.h"
 #undef T_UNA
 #undef V_UNA_FUNC
 // RECIPROCAL
 #define T_UNA DynTrec_
-#define V_UNA_FUNC vrec
+#define V_UNA_FUNC Rec
 #include "vector_una_dyn.h"
 #undef T_UNA
 #undef V_UNA_FUNC
 // SQRT
 #define T_UNA DynTsqrt_
-#define V_UNA_FUNC vsqrt
+#define V_UNA_FUNC Sqrt
 #include "vector_una_dyn.h"
 #undef T_UNA
 #undef V_UNA_FUNC
 // ABS
 #define T_UNA DynTabs_
-#define V_UNA_FUNC vabs
+#define V_UNA_FUNC Abs
 #include "vector_una_dyn.h"
 #undef T_UNA
 #undef V_UNA_FUNC
