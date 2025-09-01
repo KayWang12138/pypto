@@ -241,6 +241,62 @@ def gen_scatterupdate_data_bsnz(b, n, s, blockSize, blockNum , kv_lora_rank, qk_
     z_pabsnz = z.reshape((blockNum,  blockSize, d // NzFrac, NzFrac)).transpose(0, 2, 1, 3)
     z_pabsnz.tofile(z_path)
 
+
+def gen_scatterupdate_data_bsnd(b, s, n, d, blockNum, blockSize, axis, output_dir: Path, dtype):
+    np.set_printoptions(threshold=np.inf)
+    if axis == 4:
+        shape_params = [blockNum, blockSize, n, d] # dst
+        shape_indices = [b, s]
+        src1_shape = [b, s, n, d] # src1
+    elif axis == 2:
+        shape_params = [blockNum * blockSize * n, d] # dst
+        shape_indices = [1, b * s]
+        src1_shape = [b * s * n, d] # src1
+
+    logging.info("shape params0 is ")
+    logging.info(shape_params)
+    logging.info("shape params1 is ")
+    logging.info(src1_shape)
+    logging.info("shape indices is ")
+    logging.info(shape_indices)
+
+    x_path = Path(output_dir, 'x.bin')
+    y_path = Path(output_dir, 'y.bin')
+    indices_path = Path(output_dir, 'indices.bin')
+    z_path = Path(output_dir, 'z_golden.bin')
+
+    x = np.random.randint(1, 2, shape_params).astype(dtype)
+    x.tofile(x_path)
+    y = np.random.randint(2, 3, src1_shape).astype(dtype)
+    y.tofile(y_path)
+    logging.info("====src=====\n")
+    logging.info(y)
+
+    indices = np.random.choice(range(0, blockNum * blockSize), shape_indices.shape, replace = False)
+    indices.tofile(indices_path)
+    logging.info("====indices=====\n")
+    logging.info(indices)
+
+    # numpy
+    z = x
+
+    logging.info("====before dst=====\n")
+    logging.info(z)
+    if axis == 4:  # now only support axis -2
+        for _b in range(b):
+            for _s in range(s):
+                idx_val = indices[_b][_s]
+                z[idx_val // blockSize][idx_val % blockSize][:] = y[_b][_s][:]
+    elif axis == 2:
+        for _bs in range(b * s):
+            idx_val = indices[0][_bs]
+            z[idx_val][:] = y[_bs][:]
+
+    z.tofile(z_path)
+    logging.info("====after dst=====\n")
+    logging.info(z)
+
+
 def gen_scatterupdate_data_bsnz_bf16(b, n, s, blockSize, blockNum , kv_lora_rank, qk_rope_head_dim, axis, output_dir: Path):
     np.set_printoptions(threshold=np.inf)
     dtype = bfloat16
@@ -500,6 +556,8 @@ def gen_graph_d_data_bf16(b, s, s2, kv_lora_rank, qk_rope_head_dim, axis, output
         "ScatterupdateOnBoardTest.test_scatter_update_1_48_4096_512",
         "ScatterupdateOnBoardTest.test_scatter_update_1_48_4096_512_BSNZ",
         "ScatterupdateOnBoardTest.test_scatter_update_1_48_4096_512_BSNZ_bf16",
+        "ScatterupdateOnBoardTest.test_scatter_update_1_1_1_64_BSND_2dims",
+        "ScatterupdateOnBoardTest.test_scatter_update_1_1_1_64_BSND_4dims",
     ]
 )
 def gen_scatterupdate_op_date(case_name: str, output: Path) -> bool:
@@ -558,9 +616,12 @@ def gen_scatterupdate_op_date(case_name: str, output: Path) -> bool:
     elif case_name == "ScatterupdateOnBoardTest.test_scatter_update_1_48_4096_512_BSNZ":
         blockSize, blockNum, kv_lora_rank, qk_rope_head_dim = 16, 3, 256, 256
         gen_scatterupdate_data_bsnz(1, 1, 32, blockSize, blockNum , kv_lora_rank, qk_rope_head_dim, -2, output)
-    # elif case_name == "ScatterupdateOnBoardTest.test_scatter_update_1_48_4096_512_BSNZ_bf16":
-    #     blockSize, blockNum, kv_lora_rank, qk_rope_head_dim = 128, 1920, 256, 256
-    #     gen_scatterupdate_data_bsnz_bf16(1, 1, 32, blockSize, blockNum , kv_lora_rank, qk_rope_head_dim, -2, output)
+    elif case_name == "ScatterupdateOnBoardTest.test_scatter_update_1_1_1_64_BSND_2dims":
+        b, s, n, d, blockNum, blockSize = 20, 2, 1, 32, 20, 20
+        gen_scatterupdate_data_bsnd(b, s, n, d, blockNum, blockSize, 2, output, np.float32)
+    elif case_name == "ScatterupdateOnBoardTest.test_scatter_update_1_1_1_64_BSND_4dims":
+        b, s, n, d, blockNum, blockSize = 20, 2, 1, 32, 20, 20
+        gen_scatterupdate_data_bsnd(b, s, n, d, blockNum, blockSize, 4, output, np.float32)
     elif case_name == "ScatterupdateOnBoardTest.test_scatter_update_1_48_4096_512_BSNZ_bf16":
         b, s, kv_lora_rank = 32, 1, 512
         blockNum = 1920

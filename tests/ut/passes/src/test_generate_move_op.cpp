@@ -436,7 +436,7 @@ TEST_F(GenerateMoveOpPassTest, ScatterUpdate) {
 
         int b = 2, s = 64, numExpertsPerTok = 2, h = 128, minus_two = -2;
         Tensor output(DT_FP32, {b*s*numExpertsPerTok, h}, "output");
-        Tensor idxs(DT_FP32, {1, b*s*numExpertsPerTok}, "idxs");
+        Tensor idxs(DT_INT64, {1, b*s*numExpertsPerTok}, "idxs");
         Tensor key_states(DT_FP32, {b*s*numExpertsPerTok, h}, "key_states");
         FUNCTION("ScatterUpdate") {
             output = ScatterUpdate(output, {idxs}, key_states, minus_two);

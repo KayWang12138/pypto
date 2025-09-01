@@ -23,6 +23,7 @@ from typing import List
 import numpy as np
 from bfloat16 import bfloat16
 import torch
+import copy
 
 
 def get_dtype_by_name(name: str, is_torch: bool = False):
@@ -201,13 +202,16 @@ def gen_op_golden(
             op_list = ["Matmul", "BatchMatmul", "MatmulVerify", "BatchMatmulVerify"]
             if config.get("operation") in op_list and input_tensor.get("format") == "NZ":
                 tensor = trans_nd_to_fractal_nz(tensor)
-            tensor.tofile(Path(output_path, input_tensor["name"] + ".bin"))
 
         res = (
             golden_func(input_tensors)
             if len(config["params"]) <= 1
             else golden_func(input_tensors, config["params"])
         )
+
+        for input_tensor, read_input in zip(input_tensors, config["input_tensors"]):
+            input_tensor.tofile(Path(output_path, read_input["name"] + ".bin"))
+
         for idx in range(len(config["output_tensors"])):
             res[idx].astype(get_dtype_by_name(config["output_tensors"][idx]["dtype"])).tofile(
                 Path(output_path, config["output_tensors"][idx]["name"] + ".bin")
@@ -231,6 +235,66 @@ def gen_op_golden(
     test_cases = {"test_cases": test_configs}
     write_test_cases_json(test_cases, cache_path + "/running_test_cases")
     return True
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestScatterUpdate/ScatterUpdateOperationTest.TestScatterUpdate",
+    ]
+)
+def gen_scatter_update_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs):
+        src = inputs[0]
+        index = inputs[1]
+        dst = inputs[2]
+        axis = src.ndim
+
+        logging.debug("axis", axis)
+        # 自测，src = np.random.randint(2, 3, src.shape).astype(np.float32)
+        # 自测，dst = np.random.randint(1, 2, dst.shape).astype(np.float32)
+        if axis == 4:
+            b   = index.shape[0]
+            s   = index.shape[1]
+            blockNum = dst.shape[0]
+            blockSize = dst.shape[1]
+            bs2 = blockNum * blockSize
+            index = np.random.choice(range(0, bs2), index.shape, replace = False)
+            result = copy.copy(dst)
+            for _b in range(b):
+                for _s in range(s):
+                    result[index[_b][_s] // blockSize][index[_b][_s] % blockSize][:] = src[_b][_s][:]
+        elif axis == 2:
+            b   = index.shape[0]
+            s   = index.shape[1]
+            bs2  = dst.shape[0]
+            d   = dst.shape[1]
+            index = np.random.choice(range(0, bs2), index.shape, replace = False)
+            result = copy.copy(dst)
+
+            for _b in range(b):
+                for _s in range(s):
+                    result[index[_b][_s]][:] = src[_b * s + _s][:]
+        else:
+            logging.debug("axis ERROR!")
+
+        inputs[0] = src
+        inputs[1] = index
+        inputs[2] = dst
+
+        logging.info("src:")
+        logging.info(inputs[0])
+        logging.info("index:")
+        logging.info(inputs[1])
+        logging.info("dst:")
+        logging.info(inputs[2])
+        logging.info("result:")
+        logging.info(result)
+
+        return [result]
+
+    logging.info("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("ScatterUpdate", golden_func, output, case_index)
 
 
 @GoldenRegister.reg_golden_func(

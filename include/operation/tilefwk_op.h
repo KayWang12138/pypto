@@ -99,7 +99,7 @@ Tensor Unsqueeze(const Tensor &old, int unsqueezeDimNum);
 
 Tensor TensorIndex(const Tensor &params, const Tensor &indices);
 Tensor ScatterUpdate(const Tensor &dst, const Tensor &index, const Tensor &src, int axis = -2,
-    std::string cacheMode = "PA_BNSD", int blockSize = 1);
+    std::string cacheMode = "PA_BNSD", int chunkSize = 1);
 
 Tensor Expand(const Tensor &operand, const std::vector<int64_t> &dstShape);
 Tensor Expand(const Tensor &operand, DataType dataType, const std::vector<int64_t> &shape);

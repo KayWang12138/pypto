@@ -2134,9 +2134,82 @@ void TiledIndexScatterUpdate(size_t cur, Function &function, const TileShape &ti
     }
 }
 
+void TiledScatterUpdateFor2Dims(Function &function, const TileShape &tileShape,
+    const LogicalTensorPtr &result, const LogicalTensorPtr &src,
+    const LogicalTensorPtr &index, const LogicalTensorPtr &dst, int axis, std::string cacheMode, int blockSize) {
+    int64_t tileBS = tileShape.V(NUM_VALUE_0);
+    int64_t tileD = tileShape.V(NUM_VALUE_1);
+    int64_t s = index->shape[1];
+    if (s == 0 || tileBS == 0) {
+        ALOG_ERROR_F("error: s == 0 || tileBS == 0");
+        ASSERT(s == 0 || tileBS == 0);
+    }
+    if ((tileBS < s && s % tileBS != 0) || (tileBS > s && tileBS % s != 0)) {
+        ALOG_ERROR_F("tileshape 0 is invalid, tileshape(%d, %d)", tileBS, tileD);
+    }
+    ASSERT((tileBS <= s && s % tileBS == 0) || (tileBS > s && tileBS % s == 0));
+    ASSERT(tileD == src->shape[NUM_VALUE_1]);
+    int64_t tileB = CeilDiv(tileBS, s);
+    int64_t tileS = tileBS < s ? tileBS : s;
+    int64_t bsOffset = 0;
+    for (int64_t bIdx = 0; bIdx < index->shape[0]; bIdx += tileB) {    
+        for (int64_t sIdx = 0; sIdx < index->shape[1]; sIdx += tileS) {
+            auto indexTile = index->View(function, {std::min(index->shape[0] - bIdx, tileB),
+                std::min(index->shape[1] - sIdx, tileS)}, {bIdx, sIdx});
+            for (int64_t j = 0; j < src->shape[1]; j += tileD) {
+                auto srcTile = src->View(function, {std::min(src->shape[0] - bsOffset, tileBS),
+                    std::min(src->shape[1] - j, tileD)}, {bsOffset, j});
+                auto &op = function.AddOperation("TILE_INDEX_OUTCAST", {srcTile, indexTile, dst}, {result});
+                op.SetAttribute("axis", axis);
+                op.SetAttribute(OpAttributeKey::panzBlockSize, blockSize);
+                op.SetAttribute(OpAttributeKey::cacheMode, cacheMode);
+            }
+            bsOffset += tileBS;
+        }
+    }
+}
+
+void TiledScatterUpdateFor4Dims(Function &function, const TileShape &tileShape,
+    const LogicalTensorPtr &result, const LogicalTensorPtr &src,
+    const LogicalTensorPtr &index, const LogicalTensorPtr &dst, int axis, std::string cacheMode, int blockSize) {
+    int64_t tileB = tileShape.V(NUM_VALUE_0);
+    int64_t tileS = tileShape.V(NUM_VALUE_1);
+    int64_t tileN = tileShape.V(NUM_VALUE_2);
+    int64_t tileD = tileShape.V(NUM_VALUE_3);
+    for (int64_t i = 0; i < src->shape[0]; i += tileB) {
+        for (int64_t j = 0; j < src->shape[1]; j += tileS) {
+            auto indexTile = index->View(function, {std::min(index->shape[0] - i, tileB), std::min(index->shape[1] - j, tileS)}, {i, j});
+            for (int64_t n = 0; n < src->shape[2]; n += tileN) {
+                for (int64_t d = 0; d < src->shape[3]; d += tileD) {
+                    auto srcTile = src->View(function, {std::min(src->shape[0] - i, tileB),
+                        std::min(src->shape[1] - j, tileS),
+                        std::min(src->shape[2] - n, tileN),
+                        std::min(src->shape[3] - d, tileD)},
+                        {i, j, n, d});
+                    auto &op = function.AddOperation("TILE_INDEX_OUTCAST", {srcTile, indexTile, dst}, {result});
+                    op.SetAttribute("axis", axis);
+                    op.SetAttribute(OpAttributeKey::panzBlockSize, blockSize);
+                    op.SetAttribute(OpAttributeKey::cacheMode, cacheMode);
+                }
+            }
+        }
+    }
+}
+
 void TiledScatterUpdate(Function &function, const TileShape &tileShape,
     const LogicalTensorPtr &result, const LogicalTensorPtr &src,
     const LogicalTensorPtr &index, const LogicalTensorPtr &dst, int axis, std::string cacheMode, int blockSize) {
+    if (cacheMode == "PA_BSND") {
+        if (src->shape.size() == NUM_VALUE_2) {
+            TiledScatterUpdateFor2Dims(function, tileShape, result, src, index, dst, axis, cacheMode, blockSize);
+        } else if (src->shape.size() == NUM_VALUE_4) {
+            TiledScatterUpdateFor4Dims(function, tileShape, result, src, index, dst, axis, cacheMode, blockSize);
+        } else {
+            ALOG_ERROR_F("shape must be 2 or 4");
+        }
+        ASSERT(src->shape.size() == NUM_VALUE_2 || src->shape.size() == NUM_VALUE_4);
+        return;
+    }
     // Check Operands Valid
     assert(result->shape.size() == result->offset.size());
     assert(src->shape.size() == src->offset.size());
@@ -2172,28 +2245,61 @@ void TensorScatterUpdate(Function &function,
     op.SetAttribute(OpAttributeKey::cacheMode, cacheMode);
 }
 
-Tensor ScatterUpdate(const Tensor &dst, const Tensor &index, const Tensor &src, int axis, std::string cacheMode, int blockSize) {
+static void CheckScatterUpdateInput(const Tensor &input)
+{
+    if ((input.GetShape().size() == NUM_VALUE_2 && (input.GetShape(NUM_VALUE_0) == NUM_VALUE_0 || input.GetShape(NUM_VALUE_1) == NUM_VALUE_0)) ||
+        (input.GetShape().size() == NUM_VALUE_4 && (input.GetShape(NUM_VALUE_0) == NUM_VALUE_0 || input.GetShape(NUM_VALUE_1) == NUM_VALUE_0 ||
+         input.GetShape(NUM_VALUE_2) == NUM_VALUE_0 || input.GetShape(NUM_VALUE_3) == NUM_VALUE_0))) {
+        ALOG_ERROR_F("input shape is zero");
+    }
+    ASSERT((input.GetShape().size() == NUM_VALUE_2 && (input.GetShape(NUM_VALUE_0) != NUM_VALUE_0 && input.GetShape(NUM_VALUE_1) != NUM_VALUE_0)) ||
+        (input.GetShape().size() == NUM_VALUE_4 && (input.GetShape(NUM_VALUE_0) != NUM_VALUE_0 && input.GetShape(NUM_VALUE_1) != NUM_VALUE_0 &&
+        input.GetShape(NUM_VALUE_2) != NUM_VALUE_0 && input.GetShape(NUM_VALUE_3) != NUM_VALUE_0)));
+    ASSERT(input.GetShape().size() == NUM_VALUE_2 || input.GetShape().size() == NUM_VALUE_4);
+}
+
+static void CheckScatterUpdateIndex(const Tensor &index)
+{
+    if (index.GetDataType() != DT_INT64 && index.GetDataType() != DT_INT32 && index.GetDataType() != DT_INT16) {
+        ALOG_ERROR_F("index.GetDataType() != DT_INT64 && index.GetDataType() != DT_INT32 && index.GetDataType() != DT_INT16");
+    }
+    ASSERT(index.GetDataType() == DT_INT64 || index.GetDataType() == DT_INT32 || index.GetDataType() == DT_INT16);
+    if (index.GetShape().size() != NUM_VALUE_2 || index.GetShape(NUM_VALUE_0) == NUM_VALUE_0 || index.GetShape(NUM_VALUE_1) == NUM_VALUE_0) {
+        ALOG_ERROR_F("index.GetShape().size() is %d, shoud be 2", index.GetShape().size());
+    }
+    ASSERT(index.GetShape().size() == NUM_VALUE_2 && index.GetShape(NUM_VALUE_0) != NUM_VALUE_0 && index.GetShape(NUM_VALUE_1) != NUM_VALUE_0);
+}
+
+static void CheckScatterUpdateInvalid(const Tensor &dst, const Tensor &index, const Tensor &src)
+{
+    if (src.GetShape().size() != dst.GetShape().size()) {
+        ALOG_ERROR_F("src.GetShape().size() == dst.GetShape().size()");
+    }
+    ASSERT(src.GetShape().size() == dst.GetShape().size());
+    CheckScatterUpdateIndex(index);
+    CheckScatterUpdateInput(src);
+    CheckScatterUpdateInput(dst);
+}
+
+Tensor ScatterUpdate(const Tensor &dst, const Tensor &index, const Tensor &src, int axis, std::string cacheMode, int chunkSize) {
     DECLARE_TRACER();
 
-    ASSERT(dst->shape.size() == src->shape.size());
+    CheckScatterUpdateInvalid(dst, index, src);
     axis = axis < 0 ? dst->shape.size() + axis : axis;
-    ASSERT(static_cast<size_t>(axis)  < dst->shape.size());
-    ASSERT(index->shape.size() == 2); // only support 2 dim
-
     Tensor result(dst->tensor->datatype, dst->shape);
     result.GetStorage()->tensor->SetTensorInfo(dst.GetStorage()->tensor->GetTensorInfo());
     result.GetStorage()->tensorfmt = dst.GetStorage()->tensorfmt;
 
-    if (cacheMode == "PA_BSND" || cacheMode == "PA_NZ") {
+    if (cacheMode == "PA_NZ") {
         axis = 1;
         ASSERT(src->shape.size() == NUM_VALUE_2); // only support 2 dim
 
         Tensor newIndex = Reshape(index, {1, index->shape[0] * index->shape[1]});
         CALL(ScatterUpdate, *Program::GetInstance().GetCurrentFunction(), result.GetStorage(), dst.GetStorage(),
-            newIndex.GetStorage(), src.GetStorage(), axis, cacheMode, blockSize);
+            newIndex.GetStorage(), src.GetStorage(), axis, cacheMode, chunkSize);
     } else {
         CALL(ScatterUpdate, *Program::GetInstance().GetCurrentFunction(), result.GetStorage(), dst.GetStorage(),
-         index.GetStorage(), src.GetStorage(), axis, cacheMode, blockSize);
+            index.GetStorage(), src.GetStorage(), axis, cacheMode, chunkSize);
     }
     return result;
 }

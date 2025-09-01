@@ -1,0 +1,118 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file test_scatterupdate_operation.cpp
+ * \brief
+ */
+
+#include <nlohmann/json.hpp>
+#include "test_operation.h"
+#include "tilefwk/tensor.h"
+
+using namespace tile_fwk::test_operation;
+namespace {
+struct ScatterUpdateOpFuncArgs : public OpFuncArgs {
+    ScatterUpdateOpFuncArgs(const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
+        : viewShape_(viewShape), tileShape_(tileShape) {}
+
+    std::vector<int64_t> viewShape_;
+    std::vector<int64_t> tileShape_;
+};
+
+struct ScatterUpdateOpMetaData {
+    explicit ScatterUpdateOpMetaData(const OpFunc &opFunc, const nlohmann::json &test_data)
+        : opFunc_(opFunc), test_data_(test_data) {}
+
+    OpFunc opFunc_;
+    nlohmann::json test_data_;
+};
+
+static void ScatterUpdateOperationExeFunc4Dims(
+    const std::vector<Tensor> &input, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    std::vector<Tensor> &inputs = const_cast<std::vector<Tensor>&>(input);
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
+        auto args = static_cast<const ScatterUpdateOpFuncArgs *>(opArgs);
+        const int64_t b = inputs[0]->shape[0];
+        const int64_t s = inputs[0]->shape[1];
+        const int64_t n = inputs[0]->shape[2];
+        const int64_t d = inputs[0]->shape[3];
+        const int64_t bViewShape = args->viewShape_[0];
+        const int64_t sViewShape = args->viewShape_[1];
+
+        const int64_t bloop = CeilDiv(b, bViewShape);
+        const int64_t sloop = CeilDiv(s, sViewShape);
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                Tensor srcView = View(inputs[0], {bViewShape, sViewShape, n, d}, {std::min(b - bIdx * bViewShape, bViewShape),
+                    std::min(s - sIdx * sViewShape, sViewShape), n, d}, {bIdx * bViewShape, sIdx * sViewShape, 0, 0});
+                Tensor indexView = View(inputs[1], {bViewShape, sViewShape}, {std::min(b - bIdx * bViewShape, bViewShape),
+                    std::min(s - sIdx * sViewShape, sViewShape)}, {bIdx * bViewShape, sIdx * sViewShape});
+                Tensor dst = View(inputs[2], inputs[2].GetShape(), {0,0,0,0});
+                dst = ScatterUpdate(dst, indexView, srcView, -2, "PA_BSND", 1);
+                Program::GetInstance().GetTileShape().SetVecTileShapes({1,64,1,d});
+                Assemble(dst, {0, 0, 0, 0}, outputs[0]);
+            }
+        }
+    }
+}
+
+static void ScatterUpdateOperationExeFunc2Dims(
+    const std::vector<Tensor> &input, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
+    std::vector<Tensor> &inputs = const_cast<std::vector<Tensor>&>(input);
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
+        auto args = static_cast<const ScatterUpdateOpFuncArgs *>(opArgs);
+        const int64_t b = inputs[1]->shape[0];
+        const int64_t s = inputs[1]->shape[1];
+        const int64_t bs = inputs[0]->shape[0];
+        const int64_t d = inputs[0]->shape[1];
+        const int64_t bViewShape = args->viewShape_[0];
+        const int64_t bsViewShape = bViewShape * s;
+        const int64_t bloop = CeilDiv(b, bViewShape);
+        LOOP("LOOP_L0_bsIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+            Tensor srcView = View(inputs[0], {bsViewShape, d},
+                {std::min(bs - bIdx * bsViewShape, bsViewShape), d}, {bIdx * bsViewShape, 0});
+            Tensor indexView = View(inputs[1], {bViewShape, s},
+                {std::min(b - bIdx * bViewShape, bViewShape), s}, {bIdx * bViewShape, 0});
+            Tensor dst = View(inputs[2], inputs[2].GetShape(), {0,0});
+            dst = ScatterUpdate(dst, indexView, srcView, -2, "PA_BSND", 1);
+            Program::GetInstance().GetTileShape().SetVecTileShapes({32,d});
+            Assemble(dst, {0, 0}, outputs[0]);
+        }
+    }
+}
+
+class ScatterUpdateOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<ScatterUpdateOpMetaData> {};
+
+INSTANTIATE_TEST_SUITE_P(TestScatterUpdate, ScatterUpdateOperationTest,
+    ::testing::ValuesIn(GetOpMetaData<ScatterUpdateOpMetaData>(
+        {ScatterUpdateOperationExeFunc2Dims, ScatterUpdateOperationExeFunc4Dims, ScatterUpdateOperationExeFunc4Dims}, "ScatterUpdate")));
+
+TEST_P(ScatterUpdateOperationTest, TestScatterUpdate) {
+    TestCaseDesc testCase;
+    auto test_data = GetParam().test_data_;
+    testCase.inputTensors = GetInputTensors(test_data);
+    testCase.outputTensors = GetOutputTensors(test_data);
+    auto args = ScatterUpdateOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data));
+    testCase.args = &args;
+    testCase.opFunc = GetParam().opFunc_;
+    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin",
+        GetGoldenDir() + "/" + testCase.inputTensors[1]->Symbol() + ".bin",
+        GetGoldenDir() + "/" + testCase.inputTensors[2]->Symbol() + ".bin"};
+    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0]->Symbol() + ".bin"};
+    TestExecutor::runTest(testCase);
+}
+} // namespace

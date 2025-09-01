@@ -150,18 +150,54 @@ TILEOP void TIndexoutcast(__gm__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1) {
     }
 }
 
+template <typename T, typename T2, unsigned src1OriShape0, unsigned src1OriShape1, unsigned src1rawShape1,
+    unsigned src0OriShape3, unsigned src0rawShape1, unsigned src0rawShape3, unsigned cacheMode>
+TILEOP void TIndexoutcast(__gm__ T *dst, __ubuf__ T *src, __ubuf__ T2 *index) {
+    constexpr unsigned b = src1OriShape0;
+    constexpr unsigned s1 = src1OriShape1;
+    constexpr unsigned s1_32aligned = src1rawShape1;  // 倒数第5个 4
+    constexpr unsigned nd = src0OriShape3;
+    constexpr unsigned nd_32aligned = src0rawShape3;  // 倒数第七个 32
+
+    set_flag(PIPE_MTE2, PIPE_S, EVENT_ID7);
+    wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID7);
+    __gm__ T *curDst = dst;
+    __ubuf__ T2 *dstIdx = index;
+    __ubuf__ T *curSrc = src;
+    for (int i = 0; i < b; ++i) {
+        for (int j = 0; j < s1; ++j) {
+            curDst = dst +  *dstIdx * nd;                                        // dst [index[i][j]] [n][d]
+            set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+            wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+            copy_ubuf_to_gm_align_b32(
+                curDst, curSrc, 0 /*sid*/, 1, nd * sizeof(T), 0, 0, (nd_32aligned - nd) * sizeof(T) / BLOCK_SIZE, 0);
+            curSrc += nd_32aligned;
+            dstIdx++;
+        }
+        curSrc += (src0rawShape1 - s1) * nd_32aligned;
+        dstIdx += s1_32aligned - s1;
+    }
+}
+
 // src1=index [1,2] , src0: [TShape0,TShape1,TShape2,TShape3],  dst [GmShape0,GmShape1,GmShape2,GmShape3]
 template <typename T, typename T2, unsigned src0OriShape0, unsigned src0OriShape1, unsigned src0OriShape3,
-    unsigned src0rawShape2, unsigned src0rawShape3, unsigned src1OriShape1, unsigned src1rawShape3, unsigned GmShape2,
-    unsigned GmShape3, unsigned cacheMode, unsigned blockSize>
+    unsigned src0rawShape1, unsigned src0rawShape2, unsigned src0rawShape3, unsigned src1OriShape0,
+    unsigned src1OriShape1, unsigned src1rawShape3, unsigned GmShape2, unsigned GmShape3,
+    unsigned cacheMode, unsigned blockSize>
 TILEOP void TIndexoutcast(__gm__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1) {
+    if (cacheMode == 2) {
+        TIndexoutcast<T, T2, src1OriShape0, src1OriShape1, src1rawShape3,
+            src0OriShape3, src0rawShape1, src0rawShape3, cacheMode>(dst, src0, src1);
+        return;
+    }
     static_assert(src0OriShape1 == 1, "src0OriShape1 now only support 1");
     static_assert(blockSize != 0, "blockSize can not be zero");
     int alignTS2TS3 = src0rawShape2 * src0rawShape3; // ub需要32B对齐
     int alignSrc1 = src1rawShape3;                   // 修改对 src1 的大小计算
     for (int i = 0; i < src0OriShape0; ++i) {
         for (int j = 0; j < src0OriShape1; ++j) {
-            TileOp::TIndexoutcast<T, T2, src0OriShape3, src1OriShape1, GmShape3, src0rawShape3, cacheMode, blockSize>(dst, src0, src1);
+            TileOp::TIndexoutcast<T, T2, src0OriShape3, src1OriShape1, GmShape3,
+                src0rawShape3, cacheMode, blockSize>(dst, src0, src1);
         }
         src0 += alignTS2TS3;
         src1 += alignSrc1;

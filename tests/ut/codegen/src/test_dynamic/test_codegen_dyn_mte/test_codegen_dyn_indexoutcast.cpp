@@ -84,7 +84,7 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
         function->AddOperation(Opcode::OP_INDEX_OUTCAST, {localTensorSrc0, localTensorSrc1, ddrTensor}, {ddrTensor});
     op.SetAttribute("axis", 0);
     op.SetAttribute(OpAttributeKey::panzBlockSize, 1);
-    std::string cacheMode = "BNSD";
+    std::string cacheMode = "PA_BNSD";
     op.SetAttribute(OpAttributeKey::cacheMode, cacheMode);
     auto to_offset = OpImmediate::Specified({0, 0});
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, to_offset, shapeImme, shapeImme));
@@ -104,7 +104,7 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
 
     std::string res = cop.GenOpCode();
     std::string expect =
-        R"!!!(TileOp::DynTIndexoutcast<float, float, 1, 1, 16, 1, 16, 1, 1, 0, 1>((__gm__ float*)GET_PARAM_ADDR(param, 0, 0), (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 1, 1, GET_PARAM_RAWSHAPE_2(param, 0, 0), 0, 0, 0, 0);
+        R"!!!(TileOp::DynTIndexoutcast<float, float, 1, 1, 16, 1, 1, 16, 1, 1, 1, 0, 1>((__gm__ float*)GET_PARAM_ADDR(param, 0, 0), (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 1, 1, GET_PARAM_RAWSHAPE_2(param, 0, 0), 0, 0, 0, 0);
 )!!!";
     EXPECT_EQ(res, expect);
 }
@@ -186,7 +186,7 @@ TileOp::DynUBCopyIn<int32_t, 1, 1, 32, 32>((__ubuf__ int32_t*)UB_S4096_E8192, (_
 SUBKERNEL_PHASE2
 set_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
 wait_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
-TileOp::DynTIndexoutcast<int32_t, int32_t, 32, 32, 32, 0, 1>((__gm__ int32_t*)GET_PARAM_ADDR(param, 0, 0), (__ubuf__ int32_t*)UB_S0_E4096, (__ubuf__ int32_t*)UB_S4096_E8192, 1, 1, sym_2_dim_1, sym_4_dim_1, 1, 1, GET_PARAM_RAWSHAPE_2(param, 0, 0), 0, 0, (RUNTIME_COA_GET_PARAM_OFFSET(2, 28, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 28, 1)));
+TileOp::DynTIndexoutcast<int32_t, int32_t, 32, 32, 32, 32, 0, 1>((__gm__ int32_t*)GET_PARAM_ADDR(param, 0, 0), (__ubuf__ int32_t*)UB_S0_E4096, (__ubuf__ int32_t*)UB_S4096_E8192, 1, 1, sym_2_dim_1, sym_4_dim_0, sym_4_dim_1, 1, 1, GET_PARAM_RAWSHAPE_2(param, 0, 0), 0, 0, (RUNTIME_COA_GET_PARAM_OFFSET(2, 28, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 28, 1)));
 }
 )!!!";
 

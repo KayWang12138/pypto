@@ -1040,3 +1040,141 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_48_4096_512_BSNZ_bf16) {
     int ret = resultCmp<npu::tile_fwk::bfloat16>(golden, npu_res, 0.001f);
     EXPECT_EQ(ret, true);
 }
+
+// 4维bsnd
+TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_1_1_64_BSND_4dims) {
+    // 4, 1, 1, 64, 10, 128
+    int64_t b = 20;
+    int64_t s = 2;
+    int64_t n = 1;
+    int64_t d = 32;
+    int64_t blockNum = 20;
+    int64_t blockSize = 20;
+
+    DataType dateType = DataType::DT_FP32;
+
+    std::vector<int64_t> shape0 = {blockNum, blockSize, n, d};
+    std::vector<int64_t> shape1 = {b, s};
+    std::vector<int64_t> shape2 = {b, s, n, d};
+
+    int capacity0 = shape0[0] * shape0[1] * shape0[2] * shape0[3];
+    int capacity1 = shape1[0] * shape1[1];
+    int capacity2 = shape2[0] * shape2[1] * shape2[2] * shape2[3];
+
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    TileFwkInit("");
+
+    Program::GetInstance().GetTileShape().SetVecTileShapes(b, s, n, d);
+
+    void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
+    void *indices_ptr = readToDev<int64_t>(GetGoldenDir() + "/indices.bin", capacity1);
+    void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity2);
+    Tensor kv_len(DataType::DT_INT64, shape1, (uint8_t *)indices_ptr, "kv_len");
+    Tensor past_key_states(dateType, shape0, (uint8_t *)x_ptr, "past_key_states");
+    Tensor key_states(dateType, shape2, (uint8_t *)y_ptr, "key_states");
+
+    /* torch capture */
+    TileFwkBeginFunction("SCATTERUPDATE", {past_key_states, key_states, kv_len});
+    {
+        past_key_states = ScatterUpdate(past_key_states, kv_len, key_states, -2, "PA_BSND", blockSize);
+    }
+    TileFwkEndFunction();
+
+    /* torch compile */
+    void* handle = TileFwkCompile();
+
+    /* torch prepare workspace memory */
+    uint8_t* workspaceAddr = nullptr;
+    uint64_t workspaceSize = 0;
+    TileFwkGetWorkspaceSize(handle, &workspaceSize);
+    machine::GetRA()->AllocDevAddr(&workspaceAddr, workspaceSize);
+
+    /* torch prepare args device memory and run  */
+    // uint8_t* outTensorAddr = nullptr;
+    // machine::GetRA()->AllocDevAddr(&outTensorAddr, capacity * sizeof(float));
+    std::vector<void*> opArgsRun = {x_ptr, y_ptr, indices_ptr};
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    if (rc < 0) {
+        ASSERT(false);
+        ALOG_INFO_F("FA function aicpu stream sync failed");
+    }
+
+    std::cout << "======capacity0 size:" << capacity0 << std::endl;
+    std::vector<float> golden(capacity0);
+    std::vector<float> npu_res(capacity0);
+    machine::GetRA()->CopyFromTensor((uint8_t *)npu_res.data(), (uint8_t *)x_ptr, capacity0 * sizeof(float));
+    readInput(GetGoldenDir() + "/z_golden.bin", golden);
+
+    int ret = resultCmp<float>(golden, npu_res, 0.000f);
+    EXPECT_EQ(ret, true);
+}
+
+// 2维bsnd
+TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_1_1_64_BSND_2dims) {
+    int64_t b = 20;
+    int64_t s = 2;
+    int64_t n = 1;
+    int64_t d = 32;
+    int64_t blockNum = 20;
+    int64_t blockSize = 20;
+
+    DataType dateType = DataType::DT_FP32;
+
+    std::vector<int64_t> shape0 = {blockNum * blockSize * n, d};
+    std::vector<int64_t> shape1 = {b, s};
+    std::vector<int64_t> shape2 = {b * s * n, d};
+
+    int capacity0 = shape0[0] * shape0[1];
+    int capacity1 = shape1[0] * shape1[1];
+    int capacity2 = shape2[0] * shape2[1];
+
+    aclInit(nullptr);
+    rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    TileFwkInit("");
+    Program::GetInstance().GetTileShape().SetVecTileShapes(b, d);
+
+    void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
+    void *indices_ptr = readToDev<int64_t>(GetGoldenDir() + "/indices.bin", capacity1);
+    void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity2);
+    Tensor kv_len(DataType::DT_INT64, shape1, (uint8_t *)indices_ptr, "kv_len");
+    Tensor past_key_states(dateType, shape0, (uint8_t *)x_ptr, "past_key_states");
+    Tensor key_states(dateType, shape2, (uint8_t *)y_ptr, "key_states");
+
+    /* torch capture */
+    TileFwkBeginFunction("SCATTERUPDATE", {past_key_states, key_states, kv_len});
+    {
+        past_key_states = ScatterUpdate(past_key_states, kv_len, key_states, -2, "PA_BSND", 1);
+    }
+    TileFwkEndFunction();
+
+    /* torch compile */
+    void* handle = TileFwkCompile();
+
+    /* torch prepare workspace memory */
+    uint8_t* workspaceAddr = nullptr;
+    uint64_t workspaceSize = 0;
+    TileFwkGetWorkspaceSize(handle, &workspaceSize);
+    machine::GetRA()->AllocDevAddr(&workspaceAddr, workspaceSize);
+
+    /* torch prepare args device memory and run  */
+    // uint8_t* outTensorAddr = nullptr;
+    // machine::GetRA()->AllocDevAddr(&outTensorAddr, capacity * sizeof(float));
+    std::vector<void*> opArgsRun = {x_ptr, y_ptr, indices_ptr};
+    TileFwkRunAsync(handle, workspaceAddr, machine::GetRA()->GetStreamAICPU(),  opArgsRun);
+    int rc = rtStreamSynchronize(machine::GetRA()->GetStreamAICPU());
+    if (rc < 0) {
+        ASSERT(false);
+        ALOG_INFO_F("FA function aicpu stream sync failed");
+    }
+
+    std::cout << "======capacity0 size:" << capacity0 << std::endl;
+    std::vector<float> golden(capacity0);
+    std::vector<float> npu_res(capacity0);
+    machine::GetRA()->CopyFromTensor((uint8_t *)npu_res.data(), (uint8_t *)x_ptr, capacity0 * sizeof(float));
+    readInput(GetGoldenDir() + "/z_golden.bin", golden);
+
+    int ret = resultCmp<float>(golden, npu_res, 0.000f);
+    EXPECT_EQ(ret, true);
+}

@@ -287,6 +287,19 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCast(const PrintIndexOutCastParam &p
     return PrintIndexOutCastStatic(param);
 }
 
+static int getCacheModeFlag(const std::string &cacheMode)
+{
+    const int PA_BNSD = 0;
+    const int PA_NZ = 1;
+    const int PA_BSND = 2;
+    int cacheModeFlag = PA_BNSD;
+    if (cacheMode == "PA_NZ") {
+        cacheModeFlag = PA_NZ;
+    } else if (cacheMode == "PA_BSND") {
+        cacheModeFlag = PA_BSND;
+    }
+    return cacheModeFlag;
+}
 // template <typename T,unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned src1Shape0,
 // unsigned src1Shape1, unsigned GmShape0, unsigned GmShape1, unsigned GmShape2, unsigned GmShape3>
 // TILEOP void TIndexoutcast(__gm__ T* dst, __ubuf__ T* src0, __ubuf__ int32_t* index, unsigned Offset0, unsigned
@@ -302,14 +315,16 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastStatic(const PrintIndexOutCastPa
     std::vector<int> &src1OriginShape = param.src1OriginShape;
     std::vector<int> &src1RawShape = param.src1RawShape;
     const std::string *dataTypeExpr = param.dataTypeExpr;
-    int cacheModeFlag = (param.cacheMode == "PA_NZ") ? 1 : 0;
+    int cacheModeFlag = getCacheModeFlag(param.cacheMode);
     // template param
     std::ostringstream oss;
     std::vector<std::string> paramList;
     paramList.insert(paramList.end(), {dataTypeExpr[ID0], dataTypeExpr[ID2]});
     paramList.insert(paramList.end(), {std::to_string(src0OriginShape[ID0]), std::to_string(src0OriginShape[ID1]),
                                           std::to_string(src0OriginShape[ID3])});
-    paramList.insert(paramList.end(), {std::to_string(src0RawShape[ID2]), std::to_string(src0RawShape[ID3])});
+    paramList.insert(paramList.end(), {std::to_string(src0RawShape[ID1]),
+        std::to_string(src0RawShape[ID2]), std::to_string(src0RawShape[ID3])});
+    paramList.emplace_back(std::to_string(src1OriginShape[ID0]));
     paramList.emplace_back(std::to_string(src1OriginShape[ID1]));
     paramList.emplace_back(std::to_string(src1RawShape[ID3]));
     paramList.insert(paramList.end(), {std::to_string(gmShape[ID2]), std::to_string(gmShape[ID3])});
@@ -339,7 +354,7 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastDynamic(const PrintIndexOutCastP
     std::vector<int> &src1OriginShape = param.src1OriginShape;
     std::vector<int> &src1RawShape = param.src1RawShape;
     const std::string *dataTypeExpr = param.dataTypeExpr;
-    int cacheModeFlag = (param.cacheMode == "PA_NZ") ? 1 : 0;
+    int cacheModeFlag = getCacheModeFlag(param.cacheMode);
 
     auto paramPack = PrepareDynamicShapeInfoForMTE(ID0);
     std::vector<std::string> gmShapeExpr = paramPack.gmOffsetExpr;
@@ -351,7 +366,9 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastDynamic(const PrintIndexOutCastP
     paramList.insert(paramList.end(), {dataTypeExpr[ID0], dataTypeExpr[ID2]});
     paramList.insert(paramList.end(), {std::to_string(src0OriginShape[ID0]), std::to_string(src0OriginShape[ID1]),
                                           std::to_string(src0OriginShape[ID3])});
-    paramList.insert(paramList.end(), {std::to_string(src0RawShape[ID2]), std::to_string(src0RawShape[ID3])});
+    paramList.insert(paramList.end(), {std::to_string(src0RawShape[ID2]),
+        std::to_string(src0RawShape[ID2]), std::to_string(src0RawShape[ID3])});
+    paramList.emplace_back(std::to_string(src1OriginShape[ID0]));
     paramList.emplace_back(std::to_string(src1OriginShape[ID1]));
     paramList.emplace_back(std::to_string(src1RawShape[ID3]));
     paramList.emplace_back(std::to_string(cacheModeFlag));
@@ -382,7 +399,7 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastDynamicUnaligned(const PrintInde
     // src1OriginShape do not need to normalize in current scene, so it has only 2 dim
     std::vector<int> &src1RawShape = param.src1RawShape;
     const std::string *dataTypeExpr = param.dataTypeExpr;
-    int cacheModeFlag = (param.cacheMode == "PA_NZ") ? 1 : 0;
+    int cacheModeFlag = getCacheModeFlag(param.cacheMode);
 
     auto paramPack = PrepareDynamicShapeInfoForMTE(ID0);
     std::vector<std::string> gmShapeExpr = paramPack.gmOffsetExpr;
@@ -396,7 +413,8 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastDynamicUnaligned(const PrintInde
     std::vector<std::string> paramList;
     // template param
     paramList.insert(paramList.end(), {dataTypeExpr[ID0], dataTypeExpr[ID2]});
-    paramList.insert(paramList.end(), {std::to_string(src0RawShape[ID2]), std::to_string(src0RawShape[ID3])});
+    paramList.insert(paramList.end(), {std::to_string(src0RawShape[ID2]),
+        std::to_string(src0RawShape[ID2]), std::to_string(src0RawShape[ID3])});
     paramList.emplace_back(std::to_string(src1RawShape[ID3]));
     paramList.emplace_back(std::to_string(cacheModeFlag));
     paramList.emplace_back(param.blockSize);
@@ -410,6 +428,7 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastDynamicUnaligned(const PrintInde
     paramList.insert(paramList.end(), {dst, src0, src1});
     paramList.insert(
         paramList.end(), {src0ValidShape[ID0].Dump(), src0ValidShape[ID1].Dump(), src0ValidShape[ID3].Dump()});
+    paramList.emplace_back(src1ValidShape[ID0].Dump());
     paramList.emplace_back(src1ValidShape[ID1].Dump());
     paramList.insert(paramList.end(), paramPack.paramList.begin(), paramPack.paramList.end());
 
