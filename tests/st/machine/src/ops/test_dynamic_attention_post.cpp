@@ -803,7 +803,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_onlymm5_nz) {
     std::vector<uint8_t> devProgBinary;
 
     Tensor quant0In(DT_INT8, {B * S, N * vHeadDim}, "quant0In"); // a
-    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);  // NZ
+    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", TileOpFormat::TILEOP_NZ); // NZ
     Tensor mm5Out(DT_INT32, {B * S, H}, "mm5Out");
 
     PaPostNewOnlyMm5Nz(quant0In, weightO, mm5Out);
@@ -886,7 +886,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_onlymm5_nzk) {
     std::vector<uint8_t> devProgBinary;
 
     Tensor quant0In(DT_INT8, {B * S, N * vHeadDim}, "quant0In"); // a
-    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);  // NZ
+    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", TileOpFormat::TILEOP_NZ); // NZ
     Tensor mm5Out(DT_INT32, {B * S, H}, "mm5Out");
 
     PaPostNewOnlyMm5NzK(quant0In, weightO, mm5Out);
@@ -1017,7 +1017,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_quant) {
     Tensor postIn(DT_FP32, {B * S * N, kvLoraRank}, "postIn");
     Tensor r2In(DT_BF16, {B * S, N * vHeadDim}, "r2In");
     Tensor weightUV(DT_BF16, {N, kvLoraRank, vHeadDim}, "weightUV");
-    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);  // NZ
+    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", TileOpFormat::TILEOP_NZ); // NZ
     Tensor weightOScaleW(DT_FP32, {H}, "weightOScaleW");
     Tensor quantInt8Out(DT_INT8, {B * S, N * vHeadDim}, "quantInt8Out");
     Tensor quantFp32Out(DT_FP32, {B * S, 1}, "quantFp32Out");
@@ -1105,7 +1105,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_t3r2) {
 
     Tensor bmm4In(DT_BF16, {N, B * S, vHeadDim}, "bmm4In");
     Tensor weightUV(DT_BF16, {N, kvLoraRank, vHeadDim}, "weightUV");
-    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);  // NZ
+    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", TileOpFormat::TILEOP_NZ); // NZ
     Tensor weightOScaleW(DT_FP32, {H}, "weightOScaleW");
     Tensor r2Out(DT_BF16, {B* S, N*vHeadDim}, "r2Out");
 
@@ -1305,7 +1305,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_unquant_r3) {
 
     Tensor postIn(DT_INT32, {B * S, H}, "postIn");
     Tensor weightUV(DT_BF16, {N, kvLoraRank, vHeadDim}, "weightUV");
-    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);  // NZ
+    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", TileOpFormat::TILEOP_NZ); // NZ
     Tensor weightOScaleW(DT_FP32, {H}, "weightOScaleW");
     Tensor quantOutFp32(DT_FP32, {B*S, 1}, "quantOutFp32");
     Tensor postOut(DT_BF16, {B, S, H}, "postOut");
@@ -1874,7 +1874,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_new_mm5nz_unsplitk_low) {
 
     Tensor postIn(DT_FP32, {B * S * N, kvLoraRank}, "postIn");
     Tensor weightUV(DT_BF16, {N, kvLoraRank, vHeadDim}, "weightUV");
-    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);  // NZ
+    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", TileOpFormat::TILEOP_NZ); // NZ
     Tensor weightOScaleW(DT_FP32, {H}, "weightOScaleW");
     Tensor postOut(DT_BF16, {B, S, H}, "postOut");
 
@@ -2038,7 +2038,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_new_mm5nz_unsplitk) {
 
     Tensor postIn(DT_FP32, {B * S * N, kvLoraRank}, "postIn");
     Tensor weightUV(DT_BF16, {N, kvLoraRank, vHeadDim}, "weightUV");
-    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);  // NZ
+    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", TileOpFormat::TILEOP_NZ); // NZ
     Tensor weightOScaleW(DT_FP32, {H}, "weightOScaleW");
     Tensor postOut(DT_BF16, {B, S, H}, "postOut");
 
@@ -2234,7 +2234,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_new_mm5nz_splitk) {
 
     Tensor postIn(DT_FP32, {B * S * N, kvLoraRank}, "postIn");
     Tensor weightUV(DT_BF16, {N, kvLoraRank, vHeadDim}, "weightUV");
-    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);  // NZ
+    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", TileOpFormat::TILEOP_NZ); // NZ
     Tensor weightOScaleW(DT_FP32, {H}, "weightOScaleW");
     Tensor postOut(DT_BF16, {B, S, H}, "postOut");
 
@@ -2284,7 +2284,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_new_mm5nz_normal_unsplitk) {
 
     Tensor postIn(DT_FP32, {B * S * N, kvLoraRank}, "postIn");
     Tensor weightUV(DT_BF16, {N, kvLoraRank, vHeadDim}, "weightUV");
-    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);  // NZ
+    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", TileOpFormat::TILEOP_NZ); // NZ
     Tensor weightOScaleW(DT_FP32, {H}, "weightOScaleW");
     Tensor postOut(DT_BF16, {B, S, H}, "postOut");
 
@@ -2460,7 +2460,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_new_mm5nz_splitk_low) {
 
     Tensor postIn(DT_FP32, {B * S * N, kvLoraRank}, "postIn");
     Tensor weightUV(DT_BF16, {N, kvLoraRank, vHeadDim}, "weightUV");
-    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);  // NZ
+    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", TileOpFormat::TILEOP_NZ); // NZ
     Tensor weightOScaleW(DT_FP32, {H}, "weightOScaleW");
     Tensor postOut(DT_BF16, {B, S, H}, "postOut");
 
@@ -2765,7 +2765,7 @@ void testPaPostBf16(PaTileShapeConfig& tileConfig, int maxUnrollTimes, int bTile
     Tensor paOut(DT_FP32, {b * nq * sq, dn}, "paOut");
     Tensor postIn(DT_FP32, {B * S * N, kvLoraRank}, "postIn");
     Tensor weightUV(DT_BF16, {N, kvLoraRank, vHeadDim}, "weightUV");
-    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);  // NZ
+    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", TileOpFormat::TILEOP_NZ); // NZ
     Tensor weightOScaleW(DT_FP32, {H}, "weightOScaleW");
     Tensor postOut(DT_BF16, {B, S, H}, "postOut");
 

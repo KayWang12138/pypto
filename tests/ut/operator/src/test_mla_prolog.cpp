@@ -91,14 +91,14 @@ void TestMlaPrologV2(std::vector<int> &params, bool isQuant = false, bool hasSmo
     PROGRAM("MlaProlog") {
         Tensor x = Tensor(dType, x_shape, "x"); //32_1_7168
         TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
-        Tensor wDq = Tensor(dType, w_qa_shape, "wDq", NodeType::LOCAL, weightFormat);
-        Tensor wUqQr = Tensor(dTypeQuantIn, w_qb_shape, "wUqQr", NodeType::LOCAL, weightFormat);
+        Tensor wDq = Tensor(dType, w_qa_shape, "wDq", weightFormat);
+        Tensor wUqQr = Tensor(dTypeQuantIn, w_qb_shape, "wUqQr", weightFormat);
         if constexpr (usePrefetch) {
             wDq.SetCachePolicy(CachePolicy::PREFETCH, true);
             wUqQr.SetCachePolicy(CachePolicy::PREFETCH, true);
         }
-        Tensor wDkvKr = Tensor(dType, w_kv_a_shape, "wDkvKr", NodeType::LOCAL, weightFormat);
-        Tensor wUk = Tensor(dType, w_kv_b_k_shape, "wUk", NodeType::LOCAL, weightFormat);
+        Tensor wDkvKr = Tensor(dType, w_kv_a_shape, "wDkvKr", weightFormat);
+        Tensor wUk = Tensor(dType, w_kv_b_k_shape, "wUk", weightFormat);
         Tensor gammaCq = Tensor(dType, gamma_cq_shape, "gammaCq");
         Tensor gammaCkv = Tensor(dType, gamma_ckv_shape, "gammaCkv");
         Tensor cos = Tensor(dType, cos_shape, "cos");

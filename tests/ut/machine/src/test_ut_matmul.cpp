@@ -46,7 +46,7 @@ void TestDynMatmul(int m, int k, int n) {
     Tensor tensor_c(OutputUTDtype, shape_c, "tensor_c");
     Tensor tensor_a(InputUTDtype, shape_a, "tensor_a");
     auto bfmt = IsBNZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
-    Tensor tensor_b(InputUTDtype, shape_b, "tensor_b", NodeType::LOCAL, bfmt);
+    Tensor tensor_b(InputUTDtype, shape_b, "tensor_b", bfmt);
     FunctionConfig funConfig;
     FUNCTION("test_dyn_mm", funConfig, {tensor_a, tensor_b}, {tensor_c}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(1)) {

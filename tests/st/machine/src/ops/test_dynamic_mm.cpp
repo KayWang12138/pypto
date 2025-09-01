@@ -42,7 +42,7 @@ template <typename dtype>
 Tensor constructMatmulTensor(const std::vector<int64_t> &shape, const string &name, bool isNz) {
     auto dataType = GetAstDtype<dtype>();
     if (isNz) {
-        return Tensor(dataType, shape, name, NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
+        return Tensor(dataType, shape, name, TileOpFormat::TILEOP_NZ);
     }
     return Tensor(dataType, shape, name);
 }

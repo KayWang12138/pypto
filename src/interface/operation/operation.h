@@ -226,7 +226,6 @@ public:
         const std::unordered_map<int, std::shared_ptr<LogicalTensor>> &tensorDict, const Json &opDump);
 
     [[nodiscard]] std::string DumpSSA() const;
-    [[nodiscard]] std::string DumpASM() const;
 
     [[nodiscard]] std::string Dump() const;
 

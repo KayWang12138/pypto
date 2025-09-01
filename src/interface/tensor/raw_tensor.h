@@ -57,23 +57,13 @@ public:
     RawTensor &operator=(RawTensor &&) = delete;
     RawTensor &operator=(const RawTensor &) = delete;
 
-    int GetIndex(const std::vector<int> &indices) const;
-
-    Element &operator()(const std::vector<int> &indices);
-
-    const Element &operator()(const std::vector<int> &indices) const;
-
     Json DumpJson() const;
     static std::shared_ptr<RawTensor> LoadJson(const Json &rawTensorDump);
 
     std::string DumpType() const;
     std::string DumpSSA(bool showType = true, bool showSymbol = true) const;
-    std::string DumpASM() const;
 
     std::string Dump() const;
-
-    void InitData(const Element &value);
-    void InitData(const std::vector<Element> &values);
 
     bool IsDummy() const;
     void SetIsDummy(bool dummy = true);
@@ -91,8 +81,6 @@ public:
     const std::string &GetSymbol() const { return symbol; }
     void SetSymbol(std::string s) { symbol = std::move(s); }
     DataType GetDataType() const { return datatype; }
-    const std::vector<Element> &GetData() const { return data; }
-    void SetData(const std::vector<Element> &srcData) { data = srcData; }
     const Shape &GetRawShape() const { return rawshape; }
     int64_t GetRawShapeSize() const;
     int64_t GetRawDataSize() const;
@@ -126,7 +114,6 @@ public:
       return cachePolicy_[static_cast<int>(policy)];
     }
 private:
-    std::vector<Element> data;
     BinDataPtr rawData{nullptr};
     bool isDummy_{false};
     int refCount_{0}; // 被 npu::tile_fwk::Tensor引用的次数，用于outcast自动推导

@@ -106,9 +106,8 @@ KVCompress params:
     Tensor blockTable(DT_INT32, {b, maxBlockNum}, "blockTable");
     Tensor cmpCacheIndex(DT_INT32, {b, s1}, "cmpCacheIndex");
     Tensor actSeqLen(DT_INT32, {b}, "actSeqLen");
-    Tensor mlpWk1(
-        kType, {cmpBlockSize * dQ, 2 * cmpBlockSize * dQ}, "mlpWk1", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
-    Tensor mlpWk2(kType, {2 * cmpBlockSize * dQ, dQ}, "mlpWk2", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
+    Tensor mlpWk1(kType, {cmpBlockSize * dQ, 2 * cmpBlockSize * dQ}, "mlpWk1", TileOpFormat::TILEOP_NZ);
+    Tensor mlpWk2(kType, {2 * cmpBlockSize * dQ, dQ}, "mlpWk2", TileOpFormat::TILEOP_NZ);
     Tensor mlpCos(kType, {b, cmpBlockSize, dR}, "mlpCos");
     Tensor mlpSin(kType, {b, cmpBlockSize, dR}, "mlpSin");
 

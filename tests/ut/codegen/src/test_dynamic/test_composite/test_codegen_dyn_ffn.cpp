@@ -84,9 +84,9 @@ void testffnquant() {
 
     Tensor hiddenStates(DT_INT8, hiddenStatesShape, "hiddenStates");
     Tensor hiddenStatesScale(DT_FP32, {BS, 1}, "hiddenStatesScale");
-    Tensor ffnWeight1(DT_INT8, weightShape, "ffnWeight1", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
-    Tensor ffnWeight2(DT_INT8, weightShape, "ffnWeight2", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
-    Tensor ffnWeight3(DT_INT8, weightShape, "ffnWeight3", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
+    Tensor ffnWeight1(DT_INT8, weightShape, "ffnWeight1", TileOpFormat::TILEOP_NZ);
+    Tensor ffnWeight2(DT_INT8, weightShape, "ffnWeight2", TileOpFormat::TILEOP_NZ);
+    Tensor ffnWeight3(DT_INT8, weightShape, "ffnWeight3", TileOpFormat::TILEOP_NZ);
     Tensor ffnScale1(DT_FP32, {1, ExpertDim}, "ffnScale1");
     Tensor ffnScale2(DT_FP32, {1, ExpertDim}, "ffnScale2");
     Tensor ffnScale3(DT_FP32, {1, H}, "ffnScale3");

@@ -26,10 +26,6 @@
 
 using namespace npu::tile_fwk;
 
-namespace {
-    constexpr int MAX_SYMBOLS = 2;
-}
-
 Tensor::Tensor() : storage_(nullptr), index_(IdGen<IdType::TENSOR_INDEX>::Inst().NewId()) {
     Program::GetInstance().InsertAliveTensor(this);
 }
@@ -67,11 +63,11 @@ static std::vector<SymbolicScalar> ToDynShape(const std::string &tname, const Sh
     return dynShape;
 }
 
-Tensor::Tensor(DataType dataType, const Shape &shape, std::string name, NodeType nodeType, TileOpFormat format)
+Tensor::Tensor(DataType dataType, const Shape &shape, std::string name, TileOpFormat format)
     : index_(IdGen<IdType::TENSOR_INDEX>::Inst().NewId()) {
     auto dynShape = ToDynShape(name, shape);
     storage_ = std::make_shared<LogicalTensor>(
-        *Program::GetInstance().GetCurrentFunction(), dataType, shape, dynShape, name, nodeType, format);
+        *Program::GetInstance().GetCurrentFunction(), dataType, shape, dynShape, name, NodeType::LOCAL, format);
     storage_->tensor->AddRefCount(1);
 
     Program::GetInstance().InsertAliveTensor(this);
@@ -80,7 +76,7 @@ Tensor::Tensor(DataType dataType, const Shape &shape, std::string name, NodeType
 }
 
 Tensor::Tensor(DataType dataType, std::vector<SymbolicScalar> shape, std::string name, TileOpFormat format)
-    : Tensor(dataType, SymbolicScalar::Concrete(shape, -1), name, NodeType::LOCAL, format) {
+    : Tensor(dataType, SymbolicScalar::Concrete(shape, -1), name, format) {
     auto rawTensor = storage_->GetRawTensor();
     for (size_t axis = 0; axis < shape.size(); axis++) {
         if (shape[axis].ConcreteValid() && shape[axis].Concrete() == -1) {
@@ -241,15 +237,15 @@ bool Tensor::GetCachePolicy(CachePolicy policy) const {
   return false;
 }
 
-void Tensor::SetSymbol(std::initializer_list<std::string> symbols) const {
-    ASSERT(!empty(symbols) && symbols.size() <= MAX_SYMBOLS);
-    auto it = symbols.begin();
-    if (symbols.size() > 1) {
-        it++;
+void Tensor::SetName(const std::string &name) const {
+    if (storage_) {
+        storage_->tensor->SetSymbol(name);
     }
-    storage_->tensor->SetSymbol(*it);
 }
 
+std::string Tensor::GetName() const {
+    return storage_ ? storage_->tensor->GetSymbol() : "";
+}
 
 SymbolicScalar npu::tile_fwk::GetInputShapeDimSize(const Tensor &t) {
     std::string getInputShapeDimSizeName = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::GetInputShapeDimSize);

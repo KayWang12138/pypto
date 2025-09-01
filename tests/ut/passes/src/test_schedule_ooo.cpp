@@ -154,6 +154,15 @@ TEST_F(ScheduleOoOTest, TestMainScheduleOoO) {
     EXPECT_EQ(oooSchedule.PostCheck(*rootFuncPtr), SUCCESS);
 }
 
+static bool CheckExists(std::unordered_set<IssueEntryPtr> &issueList, Operation *op) {
+    for (auto &issue : issueList) {
+        if (issue->tileOp == op) {
+            return true;
+        }
+    }
+    return false;
+}
+
 TEST_F(ScheduleOoOTest, TestDependencies) {
     ComputationalGraphBuilder subGraph;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"};
@@ -181,9 +190,9 @@ TEST_F(ScheduleOoOTest, TestDependencies) {
     EXPECT_NE(GetIssueEntry("RowMax1", subGraph, ooOScheduler), nullptr);
     IssueEntryPtr issue = GetIssueEntry("RowMax1", subGraph, ooOScheduler);
     EXPECT_EQ(issue->predecessors.size(), 3);
-    EXPECT_EQ((*issue->predecessors.begin())->tileOp, subGraph.GetOp("Alloc4"));
+    EXPECT_TRUE(CheckExists(issue->predecessors, subGraph.GetOp("Alloc4")));
     EXPECT_EQ(issue->successors.size(), 2);
-    EXPECT_EQ((*issue->successors.begin())->tileOp, subGraph.GetOp("Add1"));
+    EXPECT_TRUE(CheckExists(issue->successors, subGraph.GetOp("Add1")));
     EXPECT_EQ(res, SUCCESS);
 }
 
@@ -223,13 +232,13 @@ TEST_F(ScheduleOoOTest, TestDependenciesView) {
     EXPECT_NE(view2, nullptr);
     IssueEntryPtr view1 = GetIssueEntry("View1", subGraph, ooOScheduler);
     EXPECT_NE(copyin, nullptr);
-    EXPECT_EQ((*copyin->predecessors.begin())->tileOp, subGraph.GetOp("Alloc1"));
-    EXPECT_EQ((*copyin->successors.begin())->tileOp, subGraph.GetOp("View3"));
-    EXPECT_EQ((*view3->predecessors.begin())->tileOp, subGraph.GetOp("Copyin1"));
-    EXPECT_EQ((*view3->successors.begin())->tileOp, subGraph.GetOp("View2"));
-    EXPECT_EQ((*view2->predecessors.begin())->tileOp, subGraph.GetOp("View3"));
-    EXPECT_EQ((*view2->successors.begin())->tileOp, subGraph.GetOp("View1"));
-    EXPECT_EQ((*view1->predecessors.begin())->tileOp, subGraph.GetOp("View2"));
+    EXPECT_TRUE(CheckExists(copyin->predecessors, subGraph.GetOp("Alloc1")));
+    EXPECT_TRUE(CheckExists(copyin->successors, subGraph.GetOp("View3")));
+    EXPECT_TRUE(CheckExists(view3->predecessors, subGraph.GetOp("Copyin1")));
+    EXPECT_TRUE(CheckExists(view3->successors, subGraph.GetOp("View2")));
+    EXPECT_TRUE(CheckExists(view2->predecessors, subGraph.GetOp("View3")));
+    EXPECT_TRUE(CheckExists(view2->successors, subGraph.GetOp("View1")));
+    EXPECT_TRUE(CheckExists(view1->predecessors, subGraph.GetOp("View2")));
     EXPECT_EQ(res, SUCCESS);
 }
 
@@ -268,9 +277,9 @@ TEST_F(ScheduleOoOTest, TestDependenciesAssemble) {
     EXPECT_NE(alloc, nullptr);
     IssueEntryPtr sub = GetIssueEntry("Sub1", subGraph, ooOScheduler);
     EXPECT_NE(sub, nullptr);
-    EXPECT_EQ((*alloc->successors.begin())->tileOp, subGraph.GetOp("Sub3"));
-    EXPECT_EQ((*sub->predecessors.begin())->tileOp, subGraph.GetOp("Sub2"));
-    EXPECT_EQ((*sub->successors.begin())->tileOp, subGraph.GetOp("Assemble3"));
+    EXPECT_TRUE(CheckExists(alloc->successors, subGraph.GetOp("Sub3")));
+    EXPECT_TRUE(CheckExists(sub->predecessors, subGraph.GetOp("Sub2")));
+    EXPECT_TRUE(CheckExists(sub->successors, subGraph.GetOp("Assemble3")));
     EXPECT_EQ(res, SUCCESS);
 }
 
@@ -302,8 +311,8 @@ TEST_F(ScheduleOoOTest, TestDependenciesInplace) {
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     IssueEntryPtr add = GetIssueEntry("Add1", subGraph, ooOScheduler);
     EXPECT_NE(add, nullptr);
-    EXPECT_EQ((*add->successors.begin())->tileOp, subGraph.GetOp("Copyout1"));
-    EXPECT_EQ((*add->predecessors.begin())->tileOp, subGraph.GetOp("Copyin1"));
+    EXPECT_TRUE(CheckExists(add->successors, subGraph.GetOp("Copyout1")));
+    EXPECT_TRUE(CheckExists(add->predecessors, subGraph.GetOp("Copyin1")));
     EXPECT_EQ(res, SUCCESS);
 }
 
@@ -337,8 +346,8 @@ TEST_F(ScheduleOoOTest, TestDependenciesFailed) {
     ooOScheduler.InitDependencies();
     IssueEntryPtr add = GetIssueEntry("Add1", subGraph, ooOScheduler);
     EXPECT_NE(add, nullptr);
-    EXPECT_EQ((*add->successors.begin())->tileOp, subGraph.GetOp("Alloc1"));
-    EXPECT_EQ((*add->predecessors.begin())->tileOp, subGraph.GetOp("Copyin1"));
+    EXPECT_TRUE(CheckExists(add->successors, subGraph.GetOp("Alloc1")));
+    EXPECT_TRUE(CheckExists(add->predecessors, subGraph.GetOp("Copyin1")));
     EXPECT_EQ(res, SUCCESS);
 }
 

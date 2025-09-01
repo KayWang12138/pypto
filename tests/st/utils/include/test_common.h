@@ -78,25 +78,6 @@ static void writeInput(std::string filename, vector<T> outData) {
     ascendOutFile.close();
 }
 
-template <typename T = float>
-static void writeInput(std::string filename, LogicalTensor outData) {
-    std::ofstream ascendOutFile(filename, std::ios::out | std::ios::binary);
-    if (!ascendOutFile) {
-        std::cerr << "Can not open out file!" << std::endl;
-    }
-
-    if (std::is_integral_v<T>) {
-        vector<int> out = npu::tile_fwk::ConvElementVecToIntVec(outData.tensor->GetData());
-        ascendOutFile.write((char *)out.data(), out.size() * sizeof(int));
-    } else if (std::is_floating_point_v<T>) {
-        vector<float> out = npu::tile_fwk::ConvElementVecToFloatVec(outData.tensor->GetData());
-        ascendOutFile.write((char *)out.data(), out.size() * sizeof(float));
-    } else {
-        std::cerr << "unknown type !!!" << std::endl;
-    }
-    ascendOutFile.close();
-}
-
 [[maybe_unused]] static void copyOutDataForGolden(
     vector<float> &outData, vector<float> &outDataVal, std::vector<int> &shape, CpyMode mode) {
     vector<float>::iterator itr = outData.begin();
@@ -126,43 +107,6 @@ static void writeInput(std::string filename, LogicalTensor outData) {
         }
     } else {
         outDataVal = outData;
-    }
-}
-
-[[maybe_unused]] static void copyOutDataForCpu(LogicalTensor outData, vector<float> &outDataVal, CpyMode mode) {
-    auto &data = outData.tensor->GetData();
-    auto itr = data.begin();
-
-    if (mode == DIAG) {
-        for (int row = 0; row < outData.shape[0]; row++) {
-            if (row == 16) {
-                if (outData.shape[0] - 16 < 0) {
-                    break;
-                }
-                row = ((outData.shape[0] - 16) <= row) ? row : (outData.shape[0] - 16);
-            }
-            for (int col = 0; col < outData.shape[1]; col++) {
-                if (col == 16) {
-                    if (outData.shape[1] - 16 < 0) {
-                        break;
-                    }
-                    col = ((outData.shape[1] - 16) <= col) ? col : (outData.shape[1] - 16);
-                }
-
-                auto itrTmp = itr + row * outData.shape[1] + col;
-                if (itrTmp == data.end()) {
-                    break;
-                }
-                float val = static_cast<float>(itrTmp->GetFloatData());
-                outDataVal.push_back(val);
-            }
-        }
-    } else {
-        while (itr != data.end()) {
-            float val = static_cast<float>(itr->GetFloatData());
-            outDataVal.push_back(val);
-            itr++;
-        }
     }
 }
 

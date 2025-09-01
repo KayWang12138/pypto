@@ -2598,69 +2598,8 @@ std::string Function::DumpSSA() const {
     return ss.str();
 }
 
-std::string Function::DumpASM() const {
-    std::stringstream ss;
-    ss << "\n-------------\n";
-    ss << "Function ";
-    ss << funcMagicName_ << "[";
-    ss << functionMagic_ << "] \n{\n";
-
-    // Serialize input tensors (inCasts_)
-    for (size_t i = 0; i < inCasts_.size(); ++i) {
-        ss << "INCAST[" << std::setw(SPACE_NUM_THREE) << std::setfill(' ') << i << "]  " << inCasts_[i]->DumpASM(false) << "\n";
-    }
-    ss << "\n";
-
-    // Serialize output tensors (outCasts_)
-    for (size_t i = 0; i < outCasts_.size(); ++i) {
-        ss << "OUTCAST[" << std::setw(SPACE_NUM_THREE) << std::setfill(' ') << i << "]  " << outCasts_[i]->DumpASM(false) << "\n";
-    }
-    ss << "\n\n";
-
-    // Serialize operations_
-    for (size_t i = 0; i < operations_.size(); ++i) {
-        ss << operations_[i]->DumpASM(); // Operation dump
-
-        // Add producer information for input operands
-        for (const auto &operand : operations_[i]->iOperand) {
-            if (!operand->GetProducers().empty()) {
-                ss << "\n                         ";
-                ss << "    Input Tensor[" << operand->magic << "] Producers: {";
-                for (const auto &producer : operand->GetProducers()) {
-                    ss << "(" << producer->BelongTo()->GetFuncMagic() << "," << producer->GetOpMagic() << "), ";
-                }
-                ss.seekp(LAST_TWO, ss.cur); // Remove last comma and space
-                ss << "}";
-            }
-        }
-
-        // Add consumer information for output operands
-        for (const auto &operand : operations_[i]->oOperand) {
-            ss << "                         ";
-            if (!operand->GetConsumers().empty()) {
-                ss << "    Output Tensor[" << operand->magic << "] Consumers: {";
-                for (const auto &consumer : operand->GetConsumers()) {
-                    ss << "(" << consumer->BelongTo()->GetFuncMagic() << "," << consumer->GetOpMagic() << "), ";
-                }
-                ss.seekp(LAST_TWO, ss.cur);
-                ss << "}\n";
-            }
-            if (operations_[i]->oOperand.size() == 0) {
-                ss << "\n";
-            }
-        }
-    }
-    ss << "\n}\n";
-
-    return ss.str();
-}
-
 std::string Function::Dump() const {
-    if (config::GetPlatformConfig("USE_SSA", true)) {
-        return DumpSSA();
-    } else {
-        return DumpASM();
-    }
+    return DumpSSA();
 }
 
 void Function::DumpFile(const std::string &filePath) const {

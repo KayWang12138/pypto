@@ -299,7 +299,7 @@ static std::vector<Tensor> GetTensors(const nlohmann::json &json_data, bool is_i
             tensors.push_back(Tensor(dtype, shape, name));
         } else {
             std::cout << "Create NZ Tensors" << std::endl;
-            tensors.push_back(Tensor(dtype, shape, name, NodeType::LOCAL, TileOpFormat::TILEOP_NZ));
+            tensors.push_back(Tensor(dtype, shape, name, TileOpFormat::TILEOP_NZ));
         }
     }
     return tensors;

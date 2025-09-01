@@ -194,7 +194,7 @@ Tensor MoeCombine(const Tensor &in, const Tensor &scale, const Tensor &combineIn
     int bs = scale.GetShape(0);
     int topk = scale.GetShape(1);
 
-    Tensor out(in.GetDataType(), {bs, h}, "MoeCombineOut", NodeType::OUTCAST);
+    Tensor out(in.GetDataType(), {bs, h}, "MoeCombineOut");
 
     // 只切row
     Program::GetInstance().GetTileShape().SetDistTileShapes({4, expandBS / 4, expandBS % 4}, {h, 1, 0}, {0, 0, 0});

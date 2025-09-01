@@ -99,14 +99,14 @@ void TestMlaPrologV2(const SimpleParams &params) {
 
     Tensor x(dType, x_shape, "x");
     TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
-    Tensor wDq(dType, wDqShape, "wDq", NodeType::LOCAL, weightFormat);
-    Tensor wUqQr(dTypeQuant, wUqQrShape, "wUqQr", NodeType::LOCAL, weightFormat);
+    Tensor wDq(dType, wDqShape, "wDq", weightFormat);
+    Tensor wUqQr(dTypeQuant, wUqQrShape, "wUqQr", weightFormat);
     if constexpr (usePrefetch) {
         wDq.SetCachePolicy(CachePolicy::PREFETCH, true);
         wUqQr.SetCachePolicy(CachePolicy::PREFETCH, true);
     }
-    Tensor wDkvKr(dType, wDkvKrShape, "wDkvKr", NodeType::LOCAL, weightFormat);
-    Tensor wUk(dType, wUkShape, "wUk", NodeType::LOCAL, weightFormat);
+    Tensor wDkvKr(dType, wDkvKrShape, "wDkvKr", weightFormat);
+    Tensor wUk(dType, wUkShape, "wUk", weightFormat);
     Tensor gamma_cq(dType, gamma_cq_shape, "gamma_cq");
     Tensor gamma_ckv(dType, gamma_ckv_shape, "gamma_ckv");
     Tensor cos(dType, cos_shape, "cos");

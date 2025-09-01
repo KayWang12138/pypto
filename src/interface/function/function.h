@@ -511,7 +511,6 @@ public:
 
     void DumpTopoFile(const std::string &fileName) const;
     std::string DumpSSA() const;
-    std::string DumpASM() const;
     std::string Dump() const;                                    // Serialize brief format
     void DumpFile(const std::string &filePath) const;
 

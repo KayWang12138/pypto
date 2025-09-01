@@ -98,10 +98,10 @@ void TestMlaPrologUt(const TestShapeParams &params, const MlaTileConfig &tileCon
 
     Tensor x(dType, xShape, "x");
     TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
-    Tensor wDq(dTypeQuantA, wDqShape, "wDq", NodeType::LOCAL, weightFormat);
-    Tensor wUqQr(dTypeQuantB, wUqQrShape, "wUqQr", NodeType::LOCAL, weightFormat);
-    Tensor wDkvKr(dTypeQuantA, wDkvKrShape, "wDkvKr", NodeType::LOCAL, weightFormat);
-    Tensor wUk(dType, wUkShape, "wUk", NodeType::LOCAL, weightFormat);
+    Tensor wDq(dTypeQuantA, wDqShape, "wDq", weightFormat);
+    Tensor wUqQr(dTypeQuantB, wUqQrShape, "wUqQr", weightFormat);
+    Tensor wDkvKr(dTypeQuantA, wDkvKrShape, "wDkvKr", weightFormat);
+    Tensor wUk(dType, wUkShape, "wUk", weightFormat);
     Tensor gammaCq(dType, gammaCqShape, "gammaCq");
     Tensor gammaCkv(dType, gammaCkvShape, "gammaCkv");
     Tensor cos(dType, cosShape, "cos");

@@ -78,7 +78,7 @@ void TestAttentionPostUt(const TestPostParams &params, const PostTileConfig &til
     Tensor wUv(isQuantWUv ? DT_INT8 : dType, wUvShape, "wUv");
     Tensor wUvScale;
     Tensor smoothWUv;
-    Tensor wo(isQuantWo ? DT_INT8 : dType, woShape, "wo", NodeType::LOCAL, weightFormat);
+    Tensor wo(isQuantWo ? DT_INT8 : dType, woShape, "wo", weightFormat);
     Tensor woScale;
     Tensor smoothWo;
     Tensor postOut(dType, outShape, "postOut");

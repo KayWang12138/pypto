@@ -54,12 +54,10 @@ public:
      * \param dataType : Data type of the tensor.
      * \param shape : A vector that stores the shape of the tensor.
      * \param name : Name of the tensor. The default value is "".
-     * \param nodeType : The type of the node. The default value is NodeType::LOCAL.
      * \param format : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
      * \attention : The parameters dataType and shape are required parameters.
      */
-    Tensor(DataType dataType, const Shape &shape, std::string name = "", NodeType nodeType = NodeType::LOCAL,
-        TileOpFormat format = TileOpFormat::TILEOP_ND);
+    Tensor(DataType dataType, const Shape &shape, std::string name = "", TileOpFormat format = TileOpFormat::TILEOP_ND);
 
     /**
      * \brief Construct a new Tensor object with 6 input parameters
@@ -68,13 +66,12 @@ public:
      * \param shape : A vector that stores the shape of the tensor.
      * \param dataPtr : Pointer to the dataPtr of the tensor.
      * \param name : Name of the tensor.
-     * \param nodeType : Type of the node. The default value is NodeType::LOCAL.
      * \param format : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
      * \attention : The parameters dataType,shape,dataPtr and name are required parameters.
      */
     Tensor(DataType dataType, const Shape &shape, uint8_t *dataPtr, std::string name,
-        NodeType nodeType = NodeType::LOCAL, TileOpFormat format = TileOpFormat::TILEOP_ND)
-        : Tensor(dataType, shape, name, nodeType, format) {
+        TileOpFormat format = TileOpFormat::TILEOP_ND)
+        : Tensor(dataType, shape, name, format) {
         SetData(dataPtr);
     }
 
@@ -248,18 +245,25 @@ public:
      */
     auto GetData() const { return data_; }
 
-    void SetSymbol(std::initializer_list<std::string> symbols) const;
+    /**
+     * \brief Set the name of Tensor.
+     *
+     * \param name : The name of the tensor.
+     */
+    void SetName(const std::string &name) const;
+
+    /**
+     * \brief Get the name of Tensor.
+     *
+     * \return const std::string& : The name of the tensor.
+     */
+    std::string GetName() const;
 
 private:
     std::shared_ptr<LogicalTensor> storage_;
     int index_{-1};
     BinDataPtr data_{};
 };
-
-/**
- * Tensor Debug symbol
-*/
-#define ANNOTATE(X, ...) (X).SetSymbol({#X, ##__VA_ARGS__})
 
 /**
  * @brief Get the Input Shape Dim Size object

@@ -56,7 +56,7 @@ void TestDynBatchMatmul(int b, int m, int k, int n, string dataPath) {
 
     Tensor tensor_a(InputAstDtype, shape_a, "tensor_a");
     auto bfmt = IsBNZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
-    Tensor tensor_b(InputAstDtype, shape_b, "tensor_b", NodeType::LOCAL, bfmt);
+    Tensor tensor_b(InputAstDtype, shape_b, "tensor_b", bfmt);
     Tensor tensor_c(OutputAstDtype, shape_c, "tensor_c");
 
     std::vector<InputT> aData(b * m * k, 0);
@@ -120,7 +120,7 @@ void TestDynBatchMatmul4D(vector<int> b1, vector<int> b2, int m, int k, int n, s
     auto OutputAstDtype = GetAstDtype<OutputT>();
     Tensor tensor_a(InputAstDtype, shape_a, "tensor_a");
     auto bfmt = IsBNZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
-    Tensor tensor_b(InputAstDtype, shape_b, "tensor_b", NodeType::LOCAL, bfmt);
+    Tensor tensor_b(InputAstDtype, shape_b, "tensor_b", bfmt);
     Tensor tensor_c(OutputAstDtype, shape_c, "tensor_c");
 
     std::vector<InputT> aData(b1[0] * b1[1] * m * k, 0);

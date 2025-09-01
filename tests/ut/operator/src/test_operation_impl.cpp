@@ -293,8 +293,8 @@ void TestNZFormatBatch(int bs, int m, int k, int n) {
         Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
         auto afmt = IsANZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
         auto bfmt = IsBNZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
-        Tensor matA(inputType, batch_shape_a, "MatA", NodeType::LOCAL, afmt);
-        Tensor matB(inputType, batch_shape_b, "MatB", NodeType::LOCAL, bfmt);
+        Tensor matA(inputType, batch_shape_a, "MatA", afmt);
+        Tensor matB(inputType, batch_shape_b, "MatB", bfmt);
         Tensor matC(outputType, batch_shape_c, "MatC");
         std::vector<Tensor> matrixVec;
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};

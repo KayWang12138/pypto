@@ -89,8 +89,8 @@ TEST_F(TestCodegenScatterUpdate, TestBatchMatmul) {
 
     Program::GetInstance().GetConfig().Reset();
     Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
-    Tensor matA(DT_FP16, shapeA, "MatA", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
-    Tensor matB(DT_FP16, shapeB, "MatB", NodeType::LOCAL, TileOpFormat::TILEOP_ND);
+    Tensor matA(DT_FP16, shapeA, "MatA", TileOpFormat::TILEOP_NZ);
+    Tensor matB(DT_FP16, shapeB, "MatB", TileOpFormat::TILEOP_ND);
     Tensor matC(DT_FP32, shapeC, "MatC");
     std::string funcName = "BATCHMATMUL";
     FunctionConfig funConfig = {.funcType = FunctionType::STATIC};

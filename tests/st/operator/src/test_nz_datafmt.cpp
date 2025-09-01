@@ -44,8 +44,8 @@ void TestNZFormat(int bs, int m, int k, int n) {
         Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
         auto afmt = IsANZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
         auto bfmt = IsBNZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
-        Tensor matA(inputType, shape_a, (uint8_t *)mat_a_ptr, "MatA", NodeType::LOCAL, afmt);
-        Tensor matB(inputType, shape_b, (uint8_t *)mat_b_ptr, "MatB", NodeType::LOCAL, bfmt);
+        Tensor matA(inputType, shape_a, (uint8_t *)mat_a_ptr, "MatA", afmt);
+        Tensor matB(inputType, shape_b, (uint8_t *)mat_b_ptr, "MatB", bfmt);
         Tensor matC(outputType, shape_c, mat_c_ptr, "MatC");
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("BATCHMATMUL", funConfig, {matA, matB, matC}) {
@@ -125,8 +125,8 @@ void TestNZFormatBatch(int bs, int m, int k, int n) {
         Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
         auto afmt = IsANZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
         auto bfmt = IsBNZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
-        Tensor matA(inputType, batch_shape_a, (uint8_t *)mat_a_ptr, "MatA", NodeType::LOCAL, afmt);
-        Tensor matB(inputType, batch_shape_b, (uint8_t *)mat_b_ptr, "MatB", NodeType::LOCAL, bfmt);
+        Tensor matA(inputType, batch_shape_a, (uint8_t *)mat_a_ptr, "MatA", afmt);
+        Tensor matB(inputType, batch_shape_b, (uint8_t *)mat_b_ptr, "MatB", bfmt);
         Tensor matC(outputType, batch_shape_c, mat_c_ptr, "MatC");
         std::vector<Tensor> matrixVec;
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
@@ -185,8 +185,8 @@ void TestNZFormatACC(int bs, int m, int k, int n) {
     auto kSplitSize = k / kSplit;
     auto afmt = IsANZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
     auto bfmt = IsBNZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
-    Tensor mat_a(inputType, shape_a, (uint8_t *)mat_a_ptr, "MatA", NodeType::LOCAL, afmt);
-    Tensor mat_b(inputType, shape_b, (uint8_t *)mat_b_ptr, "MatB", NodeType::LOCAL, bfmt);
+    Tensor mat_a(inputType, shape_a, (uint8_t *)mat_a_ptr, "MatA", afmt);
+    Tensor mat_b(inputType, shape_b, (uint8_t *)mat_b_ptr, "MatB", bfmt);
     Tensor mat_c(outputType, shape_c, mat_c_ptr, "MatC");
 
     FunctionConfig funConfig = {.funcType = FunctionType::STATIC};

@@ -64,8 +64,8 @@ void TestNsa(const SimpleParams &params) {
     std::vector<int64_t> outputShape = {b, s, n, 3};
 
     Tensor x(dType, {b, s, h}, "x");
-    Tensor w1(dType, {h, 4 * h}, "w1", NodeType::LOCAL, weightFormat);
-    Tensor w2(dType, {4 * h, 3 * n}, "w2", NodeType::LOCAL, weightFormat);
+    Tensor w1(dType, {h, 4 * h}, "w1", weightFormat);
+    Tensor w2(dType, {4 * h, 3 * n}, "w2", weightFormat);
     Tensor simW1(dType, {h, 3 * n}, "simW1");
     Tensor output(outputDtype, outputShape, "output");
 

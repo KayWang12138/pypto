@@ -34,8 +34,7 @@ class DynamicBatchMatmulTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_
 template <typename dtype>
 Tensor constructMatmulTensor(const std::vector<int64_t> &shape, const string &name, bool isNz) {
     auto dataType = GetAstDtype<dtype>();
-    return isNz ? Tensor(dataType, shape, name, NodeType::LOCAL, TileOpFormat::TILEOP_NZ) :
-                  Tensor(dataType, shape, name);
+    return isNz ? Tensor(dataType, shape, name, TileOpFormat::TILEOP_NZ) : Tensor(dataType, shape, name);
 }
 
 inline SymbolicScalar CeilDivSymbolicScalar(SymbolicScalar a, int b) {

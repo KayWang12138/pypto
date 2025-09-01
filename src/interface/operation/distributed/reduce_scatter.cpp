@@ -159,7 +159,7 @@ Tensor TensorReduceScatter(const T &in, const Tensor &tilingTensor, const CommGr
 {
     (void)reduceType;
     auto outShape = GetRsOutShape(in, groupInfo.rankSize.value());
-    Tensor out(GetDataType(in), outShape, "out", NodeType::OUTCAST);
+    Tensor out(GetDataType(in), outShape, "out");
     auto &function = *Program::GetInstance().GetCurrentFunction();
     TilingInfo tilingInfo;
     tilingInfo.groupIndex = groupInfo.groupIndex;

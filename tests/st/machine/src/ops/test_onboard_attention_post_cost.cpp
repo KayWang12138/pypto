@@ -89,7 +89,7 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_batch4_onlymm5) {
     Tensor inputI(dType, inputShape, (uint8_t *)inputPtr, "A");
     Tensor wUvI(dType, wUvShape, (uint8_t *)wUvPtr, "B");
     Tensor wUvScaleWI(dTypeFp32, wUvScaleWShape, (uint8_t *)wUvScaleWPtr, "B1");
-    Tensor wOI(dTypeInt8, wOShape, (uint8_t *)wOPtr, "C", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
+    Tensor wOI(dTypeInt8, wOShape, (uint8_t *)wOPtr, "C", TileOpFormat::TILEOP_NZ);
     Tensor wOScaleWI(dTypeFp32, wOScaleWShape, (uint8_t *)wOScaleWPtr, "C1");
     Tensor outputT(dType, outputShapeT, outPtr, "D1");
     Tensor t1I(dType, t1Shape, (uint8_t *)t1Ptr, "E");
@@ -227,7 +227,7 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_n128_onlymm5) {
     Tensor inputI(dType, inputShape, (uint8_t *)inputPtr, "A");
     Tensor wUvI(dType, wUvShape, (uint8_t *)wUvPtr, "B");
     Tensor wUvScaleWI(dTypeFp32, wUvScaleWShape, (uint8_t *)wUvScaleWPtr, "B1");
-    Tensor wOI(dTypeInt8, wOShape, (uint8_t *)wOPtr, "C", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
+    Tensor wOI(dTypeInt8, wOShape, (uint8_t *)wOPtr, "C", TileOpFormat::TILEOP_NZ);
     Tensor wOScaleWI(dTypeFp32, wOScaleWShape, (uint8_t *)wOScaleWPtr, "C1");
     Tensor outputT(dType, outputShapeT, outPtr, "D1");
     Tensor t1I(dType, t1Shape, (uint8_t *)t1Ptr, "E");
@@ -402,7 +402,7 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_n128_onlymm5He) {
     Tensor inputI(dType, inputShape, (uint8_t *)inputPtr, "A");
     Tensor wUvI(dType, wUvShape, (uint8_t *)wUvPtr, "B");
     Tensor wUvScaleWI(dTypeFp32, wUvScaleWShape, (uint8_t *)wUvScaleWPtr, "B1");
-    Tensor wOI(dTypeInt8, wOShape, (uint8_t *)wOPtr, "C", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
+    Tensor wOI(dTypeInt8, wOShape, (uint8_t *)wOPtr, "C", TileOpFormat::TILEOP_NZ);
     Tensor wOScaleWI(dTypeFp32, wOScaleWShape, (uint8_t *)wOScaleWPtr, "C1");
     Tensor outputT(dType, outputShapeT, outPtr, "D1");
     Tensor t1I(dType, t1Shape, (uint8_t *)t1Ptr, "E");
@@ -544,7 +544,7 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_batch4_onlymm5K) {
     Tensor inputI(dType, inputShape, (uint8_t *)inputPtr, "A");
     Tensor wUvI(dType, wUvShape, (uint8_t *)wUvPtr, "B");
     Tensor wUvScaleWi(dTypeFp32, wUvScaleWShape, (uint8_t *)wUvScaleWptr, "B1");
-    Tensor wOi(dTypeInt8, wOShape, (uint8_t *)wOptr, "C", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
+    Tensor wOi(dTypeInt8, wOShape, (uint8_t *)wOptr, "C", TileOpFormat::TILEOP_NZ);
     Tensor wOscaleWi(dTypeFp32, wOScaleWShape, (uint8_t *)wOscaleWptr, "C1");
     Tensor outputT(dType, outputShapeT, outPtr, "D1");
     Tensor t1I(dType, t1Shape, (uint8_t *)t1Ptr, "E");
@@ -698,7 +698,7 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_n128_onlymm5K) {
     Tensor inputI(dType, inputShape, (uint8_t *)inputPtr, "A");
     Tensor wUvI(dType, wUvShape, (uint8_t *)wUvPtr, "B");
     Tensor wUvScaleWi(dTypeFp32, wUvScaleWShape, (uint8_t *)wUvScaleWptr, "B1");
-    Tensor wOi(dTypeInt8, wOShape, (uint8_t *)wOptr, "C", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
+    Tensor wOi(dTypeInt8, wOShape, (uint8_t *)wOptr, "C", TileOpFormat::TILEOP_NZ);
     Tensor wOscaleWi(dTypeFp32, wOScaleWShape, (uint8_t *)wOscaleWptr, "C1");
     Tensor outputT(dType, outputShapeT, outPtr, "D1");
     Tensor mm5Int32(DT_INT32, mm5Int32ShapeT, mm5int32_ptr, "mm5Int32");
@@ -875,7 +875,7 @@ TEST_F(OnBoardCostTest, dynamic_pa_post_static_cast_first) {
     Tensor inputI(DT_FP32, inputShape, (uint8_t *)inputPtr, "A");
     Tensor wUvI(dType, wUvShape, (uint8_t *)wUvPtr, "B");
     // Tensor wUvScaleWi(dTypeFp32, wUvScaleWShape, (uint8_t *)wUvScaleWptr, "B1");
-    Tensor wOi(dTypeInt8, wOShape, (uint8_t *)wOptr, "C", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
+    Tensor wOi(dTypeInt8, wOShape, (uint8_t *)wOptr, "C", TileOpFormat::TILEOP_NZ);
     Tensor wOscaleWi(dTypeFp32, wOScaleWShape, (uint8_t *)wOscaleWptr, "C1");
     Tensor outputT(dType, outputShapeT, outPtr, "D1");
     Tensor mm5Int32(DT_INT32, mm5Int32ShapeT, mm5int32_ptr, "mm5Int32");

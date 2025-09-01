@@ -2917,7 +2917,7 @@ void TiledReduceAcc(Function &function, const TileShape &tileShape,
 // view op
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<int64_t> &offsets) {
     DECLARE_TRACER();
-    Tensor result(operand->Datatype(), shapes, "View_" + operand->GetRawTensor()->GetSymbol(), operand->nodetype, operand->tensorfmt);
+    Tensor result(operand->Datatype(), shapes, "View_" + operand->GetRawTensor()->GetSymbol(), operand->tensorfmt);
     auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(
         Opcode::OP_VIEW, {operand.GetStorage()}, {result.GetStorage()});
     auto validShape = GetViewValidShape(operand->GetDynValidShape(), offsets, {}, shapes);
@@ -2929,7 +2929,7 @@ Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std
 
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &newOffsets) {
     DECLARE_TRACER();
-    Tensor result(operand->Datatype(), shapes, "View_" + operand->GetRawTensor()->GetSymbol(), operand->nodetype, operand->tensorfmt);
+    Tensor result(operand->Datatype(), shapes, "View_" + operand->GetRawTensor()->GetSymbol(), operand->tensorfmt);
     result->UpdateDynValidShape(SymbolicScalar::FromConcrete(shapes));
     auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(
         Opcode::OP_VIEW, {operand.GetStorage()}, {result.GetStorage()});
@@ -2949,7 +2949,7 @@ Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes,
     const std::vector<SymbolicScalar> &newValidShapes, const std::vector<SymbolicScalar> &newOffsets) {
     DECLARE_TRACER();
-    Tensor result(operand->Datatype(), shapes, "View_" + operand->GetRawTensor()->GetSymbol(), operand->nodetype, operand->tensorfmt);
+    Tensor result(operand->Datatype(), shapes, "View_" + operand->GetRawTensor()->GetSymbol(), operand->tensorfmt);
     auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(
         Opcode::OP_VIEW, {operand.GetStorage()}, {result.GetStorage()});
     std::vector<int64_t> newOffsetsConcrete = SymbolicScalar::Concrete(newOffsets, 0);
@@ -3012,7 +3012,7 @@ Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int64_t>>> &tens
         ASSERT(rawShape[i] > 0);
     }
 
-    Tensor result(tensors[0].first->Datatype(), rawShape, "", NodeType::LOCAL, tensors[0].first->tensorfmt);
+    Tensor result(tensors[0].first->Datatype(), rawShape, "Assemble", tensors[0].first->tensorfmt);
     auto &curFunc = *Program::GetInstance().GetCurrentFunction();
     for (const auto &[tensor, offset] : tensors) {
         InnerAssemble(curFunc, tensor.GetStorage(), result.GetStorage(), offset);
@@ -3127,15 +3127,15 @@ Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, cons
     }
     auto newShape = CheckAndInferShape(operand->shape, dstshape);
     if (ReshapeNeedCopy(operand)) {
-        Tensor copyOperand(operand->Datatype(), operand->shape, "", operand->nodetype, operand->tensorfmt);
+        Tensor copyOperand(operand->Datatype(), operand->shape, "", operand->tensorfmt);
         CALL(InnerAssign, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(),
             copyOperand.GetStorage());
-        Tensor result(copyOperand->Datatype(), newShape, "", operand->nodetype, operand->tensorfmt);
+        Tensor result(copyOperand->Datatype(), newShape, "", operand->tensorfmt);
         CALL(InnerReshape, *Program::GetInstance().GetCurrentFunction(), copyOperand.GetStorage(),
             result.GetStorage(), validShapeDefault);
         return result;
     } else {
-        Tensor result(operand->Datatype(), newShape, "", operand->nodetype, operand->tensorfmt);
+        Tensor result(operand->Datatype(), newShape, "", operand->tensorfmt);
         CALL(InnerReshape, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage(), validShapeDefault);
         return result;
     }

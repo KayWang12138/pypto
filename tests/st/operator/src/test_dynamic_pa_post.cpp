@@ -464,7 +464,7 @@ void testPaPost(PaTileShapeConfig& tileConfig, int maxUnrollTimes = 1, bool manu
     Tensor actSeqs(DT_INT32, {b}, "actSeqs");
     Tensor paOut(DT_FP32, {b * nq * sq, dn}, "paOut");
     Tensor weightUV(DT_BF16, {N, kvLoraRank, vHeadDim}, "weightUV");
-    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);  // NZ
+    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", TileOpFormat::TILEOP_NZ); // NZ
     Tensor weightOScaleW(DT_FP32, {1, H}, "weightOScaleW");
     Tensor postOut(DT_BF16, {B, S, H}, "postOut");
 

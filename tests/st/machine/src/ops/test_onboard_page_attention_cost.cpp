@@ -95,8 +95,10 @@ static void IfaCommonTestInner(IfaTestParam params, IfaTileShapeConfig tileConfi
     Tensor qNope(DT_BF16, {b * sq * nq, dn}, (uint8_t *)qNopeData, "qNope");
     Tensor qRope(DT_BF16, {b * sq * nq, dr}, (uint8_t *)qRopeData, "qRope");
 
-    Tensor kvNopeCache(DT_BF16, {blockNum * blockSize * nkv, dn}, (uint8_t *)kvNopeCacheData, "kNopeCache", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
-    Tensor kRopeCache(DT_BF16, {blockNum * blockSize * nkv, dr}, (uint8_t *)kRopeCacheData, "kRope", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
+    Tensor kvNopeCache(
+        DT_BF16, {blockNum * blockSize * nkv, dn}, (uint8_t *)kvNopeCacheData, "kNopeCache", TileOpFormat::TILEOP_NZ);
+    Tensor kRopeCache(
+        DT_BF16, {blockNum * blockSize * nkv, dr}, (uint8_t *)kRopeCacheData, "kRope", TileOpFormat::TILEOP_NZ);
 
     // blockTable: (b, maxBlockNumPerBatch)
     int maxSeqAllBatch = *(std::max_element(actSeqs.begin(), actSeqs.end()));

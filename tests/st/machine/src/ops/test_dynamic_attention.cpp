@@ -121,21 +121,21 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
 
     // mla_prolog
     Tensor x(dType, x_shape, "x");
-    Tensor wDq(dType, w_qa_shape, "wDq", NodeType::LOCAL, weightFormat);
-    Tensor wUqQr(dTypeQuantIn, w_qb_shape, "wUqQr", NodeType::LOCAL, weightFormat);
+    Tensor wDq(dType, w_qa_shape, "wDq", weightFormat);
+    Tensor wUqQr(dTypeQuantIn, w_qb_shape, "wUqQr", weightFormat);
     if constexpr (usePrefetch) {
         wDq.SetCachePolicy(CachePolicy::PREFETCH, true);
         wUqQr.SetCachePolicy(CachePolicy::PREFETCH, true);
     }
-    Tensor wDkvKr(dType, w_kv_a_shape, "wDkvKr", NodeType::LOCAL, weightFormat);
-    Tensor wUk(dType, w_kv_b_k_shape, "wUk", NodeType::LOCAL, weightFormat);
+    Tensor wDkvKr(dType, w_kv_a_shape, "wDkvKr", weightFormat);
+    Tensor wUk(dType, w_kv_b_k_shape, "wUk", weightFormat);
     Tensor gamma_cq(dType, gamma_cq_shape, "gamma_cq");
     Tensor gamma_ckv(dType, gamma_ckv_shape, "gamma_ckv");
     Tensor cos(dType, cos_shape, "cos");
     Tensor sin(dType, cos_shape, "sin");
     Tensor kv_len(DT_INT64, kv_len_shape, "kv_len"); // int64
-    Tensor kv_cache(dType, kv_cache_shape, "kv_cache", NodeType::LOCAL, paFormat);
-    Tensor kr_cache(dType, kr_cache_shape, "kr_cache", NodeType::LOCAL, paFormat);
+    Tensor kv_cache(dType, kv_cache_shape, "kv_cache", paFormat);
+    Tensor kr_cache(dType, kr_cache_shape, "kr_cache", paFormat);
     Tensor w_qb_scale;
     Tensor smooth_cq;
     if (isQuant) {
@@ -147,8 +147,8 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
 
     Tensor output_q(dType, {b*s*n, kvLoraRank}, "output_q");
     Tensor output_q_rope(dType, {b*s*n, qkRopeHeadDim}, "output_q_rope");
-    Tensor output_kv_cache(dType, {b*1*s2, kvLoraRank}, "output_kv_cache", NodeType::LOCAL, paFormat);
-    Tensor output_kr_cache(dType, {b*1*s2, qkRopeHeadDim}, "output_kr_cache", NodeType::LOCAL, paFormat);
+    Tensor output_kv_cache(dType, {b * 1 * s2, kvLoraRank}, "output_kv_cache", paFormat);
+    Tensor output_kr_cache(dType, {b * 1 * s2, qkRopeHeadDim}, "output_kr_cache", paFormat);
 
     // pa
     Tensor blockTable(DT_INT32, {b, maxBlockNumPerBatch}, "blockTable");
@@ -158,7 +158,7 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
     // post
     Tensor weightUV(dType, {n, kvLoraRank, vHeadDim}, "weightUV");
     weightUV.SetCachePolicy(CachePolicy::NONE_CACHEABLE, true);
-    Tensor weightO(DT_INT8, {n * vHeadDim, h}, "weightO", NodeType::LOCAL, weightFormat); // NZ
+    Tensor weightO(DT_INT8, {n * vHeadDim, h}, "weightO", weightFormat); // NZ
     weightO.SetCachePolicy(CachePolicy::NONE_CACHEABLE, true);
     Tensor weightOScaleW(DT_FP32, {1, h}, "weightOScaleW");
     weightOScaleW.SetCachePolicy(CachePolicy::NONE_CACHEABLE, true);

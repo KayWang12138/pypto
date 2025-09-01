@@ -311,7 +311,7 @@ inline std::vector<int64_t> GetOutShape(const Tensor &in)
 Tensor AllGather(const Tensor &in, const char *group)
 {
     auto outShape = GetOutShape(in);
-    Tensor out(in.GetDataType(), outShape, "out", NodeType::OUTCAST);
+    Tensor out(in.GetDataType(), outShape, "out");
     AllGatherImpl<Tensor>(in, out, group);
     return out;
 }

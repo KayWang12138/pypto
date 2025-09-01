@@ -108,7 +108,7 @@ TEST_F(TestGlobalMemoryReuse, test_connection_matrix) {
     Json jsonT = attenOutput.GetStorage()->DumpJson();
     std::unordered_map<int, std::shared_ptr<RawTensor>> rawTensorDict;
     auto newTensor = LogicalTensor::LoadJson(*function, rawTensorDict, jsonT);
-    attenOutput.GetStorage()->DumpASM(true, true);
+    attenOutput.GetStorage()->DumpSSA(true, true);
     attenOutput.GetStorage()->tensor->GetRawShapeSize();
 
     std::vector<int64_t> resultOffset;

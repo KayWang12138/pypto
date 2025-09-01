@@ -72,7 +72,7 @@ void TestAttentionPost(const TestPostParams &params, const PostTileConfig &tileC
     TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
     Tensor x(dType, xShape, "x");
     Tensor wUv(isQuantWUv ? DT_INT8 : dType, wUvShape, "wUv");
-    Tensor wo(isQuantWo ? DT_INT8 : dType, woShape, "wo", NodeType::LOCAL, weightFormat);
+    Tensor wo(isQuantWo ? DT_INT8 : dType, woShape, "wo", weightFormat);
     Tensor postOut(dType, outShape, "postOut");
 
     std::vector<T> goldenDate = getGoldenVec<T>(outShape, "/golden_output.bin");

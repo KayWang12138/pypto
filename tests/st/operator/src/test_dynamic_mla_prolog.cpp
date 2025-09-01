@@ -64,8 +64,8 @@ static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileN
 
 template <typename T = npu::tile_fwk::float16,  typename wDtype = int8_t, bool isQuantA = false, bool isQuantB = true,
     bool isSmooth = true, bool nz = true, bool usePrefetch = true>
-void TestDynamicMlaProlog(const TestShapeParams &params, const MlaTileConfig &tileConfig,
-    std::string cacheMode = "PA_NZ") {
+void TestDynamicMlaProlog(
+    const TestShapeParams &params, const MlaTileConfig &tileConfig, std::string cacheMode = "PA_NZ") {
     config::SetHostConfig(npu::tile_fwk::KEY_ONLY_CODEGEN, true);
 
     int b = params.b;
@@ -111,14 +111,14 @@ void TestDynamicMlaProlog(const TestShapeParams &params, const MlaTileConfig &ti
 
     Tensor x(dType, xShape, "x");
     TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
-    Tensor wDq(dTypeQuantA, wDqShape, "wDq", NodeType::LOCAL, weightFormat);
-    Tensor wUqQr(dTypeQuantB, wUqQrShape, "wUqQr", NodeType::LOCAL, weightFormat);
+    Tensor wDq(dTypeQuantA, wDqShape, "wDq", weightFormat);
+    Tensor wUqQr(dTypeQuantB, wUqQrShape, "wUqQr", weightFormat);
     if constexpr (usePrefetch) {  // TODO 放到接口实现里
         wDq.SetCachePolicy(CachePolicy::PREFETCH, true);
         wUqQr.SetCachePolicy(CachePolicy::PREFETCH, true);
     }
-    Tensor wDkvKr(dTypeQuantA, wDkvKrShape, "wDkvKr", NodeType::LOCAL, weightFormat);
-    Tensor wUk(dType, wUkShape, "wUk", NodeType::LOCAL, weightFormat);
+    Tensor wDkvKr(dTypeQuantA, wDkvKrShape, "wDkvKr", weightFormat);
+    Tensor wUk(dType, wUkShape, "wUk", weightFormat);
     Tensor gammaCq(dType, gammaCqShape, "gammaCq");
     Tensor gammaCkv(dType, gammaCkvShape, "gammaCkv");
     Tensor cos(dType, cosShape, "cos");

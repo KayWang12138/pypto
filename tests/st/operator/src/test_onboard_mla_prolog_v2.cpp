@@ -121,14 +121,14 @@ void TestMlaPrologV2(std::vector<int> &params, string dataPath, bool isQuant = f
 
         Tensor x(dType, x_shape, (uint8_t *)x_ptr, "x");
         TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
-    Tensor wDq(dType, w_qa_shape, (uint8_t *)wDqPtr, "wDq", NodeType::LOCAL, weightFormat);
-    Tensor wUqQr(dTypeQuantIn, w_qb_shape, (uint8_t *)wUqQrPtr, "wUqQr", NodeType::LOCAL, weightFormat);
+        Tensor wDq(dType, w_qa_shape, (uint8_t *)wDqPtr, "wDq", weightFormat);
+        Tensor wUqQr(dTypeQuantIn, w_qb_shape, (uint8_t *)wUqQrPtr, "wUqQr", weightFormat);
         if constexpr (usePrefetch) {
             wDq.SetCachePolicy(CachePolicy::PREFETCH, true);
             wUqQr.SetCachePolicy(CachePolicy::PREFETCH, true);
         }
-    Tensor wDkvKr(dType, w_kv_a_shape, (uint8_t *)wDkvKrPtr, "wDkvKr", NodeType::LOCAL, weightFormat);
-    Tensor wUk(dType, w_kv_b_k_shape, (uint8_t *)wUkPtr, "wUk", NodeType::LOCAL, weightFormat);
+        Tensor wDkvKr(dType, w_kv_a_shape, (uint8_t *)wDkvKrPtr, "wDkvKr", weightFormat);
+        Tensor wUk(dType, w_kv_b_k_shape, (uint8_t *)wUkPtr, "wUk", weightFormat);
         Tensor gammaCq(dType, gamma_cq_shape, (uint8_t *)gamma_cq_ptr, "gammaCq");
         Tensor gammaCkv(dType, gamma_ckv_shape, (uint8_t *)gamma_ckv_ptr, "gammaCkv");
         Tensor cos(dType, cos_shape, (uint8_t *)cos_ptr, "cos");
@@ -390,10 +390,10 @@ void TestAttentionV2(std::vector<int> &params, string dataPath, IfaTileShapeConf
 
         Tensor x(dType, x_shape, (uint8_t *)x_ptr, "x");
         TileOpFormat weightFormat = TileOpFormat::TILEOP_ND;
-        Tensor wDq(dType, w_qa_shape, (uint8_t *)wDqPtr, "wDq", NodeType::LOCAL, weightFormat);
-        Tensor wUqQr(dTypeQuantIn, w_qb_shape, (uint8_t *)wUqQrPtr, "wUqQr", NodeType::LOCAL, weightFormat);
-        Tensor wDkvKr(dType, w_kv_a_shape, (uint8_t *)wDkvKrPtr, "wDkvKr", NodeType::LOCAL, weightFormat);
-        Tensor wUk(dType, w_kv_b_k_shape, (uint8_t *)wUkPtr, "wUk", NodeType::LOCAL, weightFormat);
+        Tensor wDq(dType, w_qa_shape, (uint8_t *)wDqPtr, "wDq", weightFormat);
+        Tensor wUqQr(dTypeQuantIn, w_qb_shape, (uint8_t *)wUqQrPtr, "wUqQr", weightFormat);
+        Tensor wDkvKr(dType, w_kv_a_shape, (uint8_t *)wDkvKrPtr, "wDkvKr", weightFormat);
+        Tensor wUk(dType, w_kv_b_k_shape, (uint8_t *)wUkPtr, "wUk", weightFormat);
         Tensor gamma_cq(dType, gamma_cq_shape, (uint8_t *)gamma_cq_ptr, "gamma_cq");
         Tensor gamma_ckv(dType, gamma_ckv_shape, (uint8_t *)gamma_ckv_ptr, "gamma_ckv");
         Tensor cos(dType, cos_shape, (uint8_t *)cos_ptr, "cos");

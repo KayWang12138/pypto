@@ -499,77 +499,8 @@ std::string Operation::DumpSSA() const {
     return oss.str();
 }
 
-std::string Operation::DumpASM() const {
-    std::ostringstream oss;
-    constexpr int WIDTH_4 = 4;
-    constexpr int32_t WIDTH_8 = 8;
-    constexpr int32_t WIDTH_16 = 16;
-    constexpr int outCastWidth = 3;
-
-    oss << std::setw(WIDTH_8) << std::setfill(' ') << opmagic << "  ";
-    oss << std::setw(WIDTH_8) << std::setfill(' ') << "latency:" << latency_ << "  ";
-    oss << std::left << std::setw(WIDTH_16) << std::setfill(' ') << GetOpcodeStr(true);
-
-    if (opAttribute_ != nullptr) {
-        oss << " " << opAttribute_->Dump();
-    }
-    oss << std::endl;
-    oss << std::setw(WIDTH_16) << std::setfill(' ') << " {";
-
-    for (size_t i = 0; i < iOperand.size(); ++i) {
-        if (IsCall()) {
-            oss << "\n            INCAST[" << std::setw(outCastWidth) << std::setfill(' ') << i << "]";
-        } else if (i > 0) {
-            oss << ",";
-        }
-        oss << std::setw(WIDTH_4) << std::setfill(' ')
-            << iOperand[i]->DumpASM(false); // Assuming LogicalTensor has to_json implemented
-    }
-    if (IsCall()) {
-        oss << "\n            }\n            {";
-    } else {
-        oss << "} {";
-    }
-    for (size_t i = 0; i < oOperand.size(); ++i) {
-        if (IsCall()) {
-            oss << "\n            OUTCAST[" << std::setw(outCastWidth) << std::setfill(' ') << i << "]";
-        } else if (i > 0) {
-            oss << ",";
-        }
-        oss << std::setw(WIDTH_4) << std::setfill(' ')
-            << oOperand[i]->DumpASM(false); // Assuming LogicalTensor has to_json implemented
-        // oss << "\n  ==   " << oOperand[i]->expectedValue;
-    }
-
-    if (IsAllocOpCode(GetOpcode())) {
-        for (const auto magicOutput : GetOutCtrlOperations()) {
-            for (size_t i = 0; i < magicOutput->oOperand.size(); ++i) {
-                if (IsCall()) {
-                    oss << "\n            OUTCAST[" << std::setw(outCastWidth) << std::setfill(' ') << i << "]";
-                } else if (i > 0) {
-                    oss << ",";
-                }
-                oss << std::setw(WIDTH_4) << std::setfill(' ')
-                    << magicOutput->oOperand[i]->DumpASM(false); // Assuming LogicalTensor has to_json implemented
-                // oss << "\n  ==   " << oOperand[i]->expectedValue;
-            }
-        }
-    }
-    if (IsCall()) {
-        oss << "\n            }\n";
-    } else {
-        oss << "}\n";
-    }
-
-    return oss.str();
-}
-
 std::string Operation::Dump() const {
-    if (config::GetPlatformConfig("USE_SSA", true)) {
-        return DumpSSA();
-    } else {
-        return DumpASM();
-    }
+    return DumpSSA();
 }
 
 void Operation::ReplaceInputOperand(

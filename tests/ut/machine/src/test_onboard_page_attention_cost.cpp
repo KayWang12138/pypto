@@ -80,8 +80,8 @@ TEST_F(OnBoardPaCostTest, test_page_attention_low_latency) {
     Tensor qNope(DT_BF16, {b * sq * nq, dn}, "qNope");
     Tensor qRope(DT_BF16, {b * sq * nq, dr}, "qRope");
 
-    Tensor kvNopeCache(DT_BF16, {blockNum * blockSize * nkv, dn}, "kNopeCache", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
-    Tensor kRopeCache(DT_BF16, {blockNum * blockSize * nkv, dr}, "kRope", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
+    Tensor kvNopeCache(DT_BF16, {blockNum * blockSize * nkv, dn}, "kNopeCache", TileOpFormat::TILEOP_NZ);
+    Tensor kRopeCache(DT_BF16, {blockNum * blockSize * nkv, dr}, "kRope", TileOpFormat::TILEOP_NZ);
 
     // blockTable: (b, maxBlockNumPerBatch)
     int maxSeqAllBatch = *(std::max_element(actSeqs.begin(), actSeqs.end()));
@@ -159,8 +159,8 @@ TEST_F(OnBoardPaCostTest, test_page_attention_hight_throughput) {
     Tensor qNope(DT_BF16, {b * sq * nq, dn}, "qNope");
     Tensor qRope(DT_BF16, {b * sq * nq, dr}, "qRope");
 
-    Tensor kvNopeCache(DT_BF16, {blockNum * blockSize * nkv, dn}, "kNopeCache", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
-    Tensor kRopeCache(DT_BF16, {blockNum * blockSize * nkv, dr}, "kRope", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
+    Tensor kvNopeCache(DT_BF16, {blockNum * blockSize * nkv, dn}, "kNopeCache", TileOpFormat::TILEOP_NZ);
+    Tensor kRopeCache(DT_BF16, {blockNum * blockSize * nkv, dr}, "kRope", TileOpFormat::TILEOP_NZ);
 
     // blockTable: (b, maxBlockNumPerBatch)
     int maxSeqAllBatch = *(std::max_element(actSeqs.begin(), actSeqs.end()));

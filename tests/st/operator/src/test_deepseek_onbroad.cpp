@@ -311,9 +311,9 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout_singlemlp_withquant)
 
     uint8_t* outputPtr = allocDevAddr(hiddenStatesSize * sizeof(float)); // [b*s,h]
 
-    Tensor ffnWeight1(DT_INT8, {h, weightN}, (uint8_t *)ffnwightQuantPtr, "ffnWeight1", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
-    Tensor ffnWeight2(DT_INT8, {h, weightN}, (uint8_t *)ffnwight2QuantPtr, "ffnWeight2", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
-    Tensor ffnWeight3(DT_INT8, {h, weightN}, (uint8_t *)ffnwight3QuantPtr, "ffnWeight3", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
+    Tensor ffnWeight1(DT_INT8, {h, weightN}, (uint8_t *)ffnwightQuantPtr, "ffnWeight1", TileOpFormat::TILEOP_NZ);
+    Tensor ffnWeight2(DT_INT8, {h, weightN}, (uint8_t *)ffnwight2QuantPtr, "ffnWeight2", TileOpFormat::TILEOP_NZ);
+    Tensor ffnWeight3(DT_INT8, {h, weightN}, (uint8_t *)ffnwight3QuantPtr, "ffnWeight3", TileOpFormat::TILEOP_NZ);
     Tensor ffnwight1Scale(DT_FP32, {1, weightN}, (uint8_t *)ffnwightScalePtr, "ffnwight1Scale");
     Tensor ffnwight2Scale(DT_FP32, {1, weightN}, (uint8_t *)ffnwight2ScalePtr, "ffnwight2Scale");
     Tensor ffnwight3Scale(DT_FP32, {h, 1}, (uint8_t *)ffnwight3ScalePtr, "ffnwight3Scale");

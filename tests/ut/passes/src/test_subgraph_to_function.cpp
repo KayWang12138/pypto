@@ -386,8 +386,8 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load)
 
     Program::GetInstance().GetConfig().Reset();
     Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
-    Tensor matA(DT_FP16, shapeA, "MatA", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
-    Tensor matB(DT_FP16, shapeB, "MatB", NodeType::LOCAL, TileOpFormat::TILEOP_ND);
+    Tensor matA(DT_FP16, shapeA, "MatA", TileOpFormat::TILEOP_NZ);
+    Tensor matB(DT_FP16, shapeB, "MatB", TileOpFormat::TILEOP_ND);
     Tensor matC(DT_FP32, shapeC, "MatC");
     FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
     FUNCTION("BATCHMATMUL", funConfig, {matA, matB, matC})

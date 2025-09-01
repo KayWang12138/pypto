@@ -99,7 +99,6 @@ public:
     static std::shared_ptr<LogicalTensor> LoadJson(Function &function, const std::unordered_map<int, std::shared_ptr<RawTensor>> &rawTensorDict, const Json &tensorDump);
 
     std::string DumpSSA(bool showFrom = true, bool showMem = false, bool showType = true) const;
-    std::string DumpASM(bool showFrom = true, bool showMem = false) const;
 
     std::string Dump(bool showFrom = true, bool showMem = false) const;
 

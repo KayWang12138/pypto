@@ -363,64 +363,8 @@ std::string LogicalTensor::DumpSSA([[maybe_unused]]bool showFrom, bool showMem, 
     return oss.str();
 }
 
-std::string LogicalTensor::DumpASM(bool showFrom, bool showMem) const {
-    std::ostringstream oss;
-    constexpr size_t width4 = 4;
-    constexpr size_t width3 = 3;
-    constexpr int minus2 = -2;
-    if (showFrom && (GetProducers().size() != 0)) {
-        oss << magic << " FROM[";
-        for (auto producer : GetProducers()) {
-            oss << producer->GetOpMagic() << ", ";
-        }
-        if (GetProducers().size() != 0) {
-            oss.seekp(minus2, std::ios_base::end);
-        }
-        oss << "]";
-        return oss.str();
-    }
-
-    oss << std::setw(width3) << std::setfill(' ') << magic << " ";
-    oss << std::setw(width4) << std::setfill(' ') << tensor->DumpASM() << ", ";
-    oss << "shape:[";
-    for (size_t i = 0; i < shape.size(); ++i) {
-        oss << std::setw(width3) << std::setfill(' ') << shape[i];
-        if (i != shape.size() - 1) {
-            oss << ",";
-        }
-    }
-    oss << "], ";
-    oss << "validshape:[";
-    for (size_t i = 0; i < oriShape.size(); ++i) {
-        oss << std::setw(width3) << std::setfill(' ') << oriShape[i];
-        if (i != oriShape.size() - 1) {
-            oss << ",";
-        }
-    }
-    oss << "], ";
-    oss << "offset:[";
-    for (size_t i = 0; i < offset.size(); ++i) {
-        oss << std::setw(width3) << std::setfill(' ') << offset[i];
-        if (i != offset.size() - 1) {
-            oss << ",";
-        }
-    }
-    oss << "] \\n";
-    if (showMem) {
-        oss << MemoryTypeToString(GetMemoryTypeOriginal()) << "::" << MemoryTypeToString(GetMemoryTypeToBe());
-        if (IsDummy()) {
-            oss << "::IsDummy";
-        }
-    }
-    return oss.str();
-}
-
 std::string LogicalTensor::Dump(bool showFrom, bool showMem) const {
-    if (config::GetPlatformConfig("USE_SSA", true)) {
-        return DumpSSA(showFrom, showMem);
-    } else {
-        return DumpASM(showFrom, showMem);
-    }
+    return DumpSSA(showFrom, showMem);
 }
 
 std::shared_ptr<LogicalTensor> LogicalTensor::View(

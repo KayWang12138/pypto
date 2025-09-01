@@ -60,8 +60,8 @@ TEST_F(DynamicKvSlcUtTest, test_kv_slc) { // b_n_s_s2_h_q_lora_rank
 
     Tensor topk_tensor(DT_INT32, {b, s, topK - front - near}, "topk_tensor");
     Tensor topk_tensor_shape(DT_INT32, {b, s}, "topk_tensor_shape");
-    Tensor kvNopeCache(DT_FP16, {int(blockNum * blockSize), n2 * kv_lora_rank}, "kNopeCache", NodeType::LOCAL);
-    Tensor kRopeCache(DT_FP16, {int(blockNum * blockSize), n2 * rope_dim}, "vNopeCache", NodeType::LOCAL);
+    Tensor kvNopeCache(DT_FP16, {int(blockNum * blockSize), n2 * kv_lora_rank}, "kNopeCache");
+    Tensor kRopeCache(DT_FP16, {int(blockNum * blockSize), n2 * rope_dim}, "vNopeCache");
     Tensor kvActSeqs(DT_INT32, {b}, "kvActSeqs");
     Tensor blockTable(DT_INT32, {b, maxBlockNumPerBatch}, "blockTable");
     Tensor k_slcOut(DT_FP16, {b * s * n2 * topK * l_prime, rope_dim + kv_lora_rank}, "k_slcOut");

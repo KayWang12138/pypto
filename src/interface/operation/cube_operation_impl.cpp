@@ -687,7 +687,7 @@ Tensor ABatchMulB3D(DataType dataType, const Tensor &operand1, const Tensor &ope
     auto operand2D2 = Reshape(operand2, {batchSizeB * firstDimB, secondDimB});
     Tensor result(dataType, {batchSize * orgM, orgN});
     if constexpr (isCMatrixNZ) {
-        result = Tensor(dataType, {batchSize * orgM, orgN}, "BatchMatmulOutputNz", NodeType::LOCAL,
+        result = Tensor(dataType, {batchSize * orgM, orgN}, "BatchMatmulOutputNz",
             TileOpFormat::TILEOP_NZ);
     }
     auto &curFunc = *Program::GetInstance().GetCurrentFunction();
@@ -737,7 +737,7 @@ Tensor ABatchMulB4D(DataType dataType, const Tensor &operand1, const Tensor &ope
     int batchSize2 = std::max(batchSizeA2, batchSizeB2);
     Tensor result(dataType, {batchSize1 * batchSize2 * orgM, orgN});
     if constexpr (isCMatrixNZ) {
-        result = Tensor(dataType, {batchSize1 * batchSize2 * orgM, orgN}, "BatchMatmulOutputNz", NodeType::LOCAL,
+        result = Tensor(dataType, {batchSize1 * batchSize2 * orgM, orgN}, "BatchMatmulOutputNz",
             TileOpFormat::TILEOP_NZ);
     }
 

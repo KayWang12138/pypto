@@ -76,8 +76,8 @@ void TestSa(SaTileShapeConfig& tileConfig, SaConfig config) {
     Tensor actSeqs(DT_INT32, actSeqsShape, "actSeqs");
     Tensor qNope(dType, qNopeShape, "qNope");
     Tensor qRope(dType, qRopeShape, "qRope");
-    Tensor kSlc(dType, kSlcShape, "kSlc", NodeType::LOCAL, kvFormat);
-    Tensor vSlc(dType, vSlcShape, "vSlc", NodeType::LOCAL, kvFormat);
+    Tensor kSlc(dType, kSlcShape, "kSlc", kvFormat);
+    Tensor vSlc(dType, vSlcShape, "vSlc", kvFormat);
     Tensor saOut(DT_FP32, saOutShape, "saOut");
 
     SlcAttn(qNope, qRope, kSlc, vSlc, actSeqs, nq, nkv, softmaxScale, saOut, tileConfig);

@@ -83,7 +83,7 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
                                                   {curBlockIdx * blockSize, 0});
 
                     TileOpFormat kjFormat = isNzFormat ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
-                    Tensor kj(dtype, {curS2Tile, dN + dR}, "kj", NodeType::LOCAL, kjFormat);
+                    Tensor kj(dtype, {curS2Tile, dN + dR}, "kj", kjFormat);
                     Assemble(kn, {0, 0}, kj);
                     Assemble(kr, {0, dN}, kj);
                     kj = View(kj, {curS2Tile, dN + dR}, {std::min(curSeq - bn * blockSize, blockSize), dR + dN}, {0, 0});
@@ -95,7 +95,7 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
                         {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]});
                     Program::GetInstance().GetMatrixSize().SetMatrixSize({qi.GetShape()[0], 0, kj.GetShape()[0]});
                     auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj); // (curNTile, dN+dR), (curS2Tile, dN+dR) -> (curNTile, curS2Tile)
-                    ANNOTATE(sij);
+                    sij.SetName("sij");
                     Program::GetInstance().GetTileShape().SetVecTileShapes(v1Tile[0], v1Tile[1]);
 
                     ConfigManager::Instance().SetSemanticLabel("SoftMax");

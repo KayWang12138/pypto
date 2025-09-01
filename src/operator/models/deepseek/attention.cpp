@@ -265,7 +265,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                                                   {curBlockIdx * blockSize, 0});
                     auto kr = View(krCacheOut, {curS2Tile, dR}, {std::min(curSeq - bn * blockSize, blockSize), dR},
                                                   {curBlockIdx * blockSize, 0});
-                    Tensor kj(dtype, {curS2Tile, dN + dR}, "kj", NodeType::LOCAL, paFormat);
+                    Tensor kj(dtype, {curS2Tile, dN + dR}, "kj", paFormat);
                     Assemble(kn, {0, 0}, kj);
                     Assemble(kr, {0, dN}, kj);
                     auto vj = View(kvCacheOut, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},

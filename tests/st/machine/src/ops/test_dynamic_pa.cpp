@@ -69,10 +69,10 @@ void testPa(PaTileShapeConfig& tileConfig, PaConfig config) {
     TileOpFormat kvFormat = config.isNzFormat ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
 
     Tensor qNope(DT_BF16, {b * nq * sq, dn}, "qNope");
-    Tensor kNopeCache(DT_BF16, {int(blockNum * blockSize), nk * dn}, "kNopeCache", NodeType::LOCAL, kvFormat);
-    Tensor vNopeCache(DT_BF16, {int(blockNum * blockSize), nk * dn}, "vNopeCache", NodeType::LOCAL, kvFormat);
+    Tensor kNopeCache(DT_BF16, {int(blockNum * blockSize), nk * dn}, "kNopeCache", kvFormat);
+    Tensor vNopeCache(DT_BF16, {int(blockNum * blockSize), nk * dn}, "vNopeCache", kvFormat);
     Tensor qRope(DT_BF16, {b * nq * sq, nk * dr}, "qRope");
-    Tensor kRopeCache(DT_BF16, {int(blockNum * blockSize), nk * dr}, "kRope", NodeType::LOCAL, kvFormat);
+    Tensor kRopeCache(DT_BF16, {int(blockNum * blockSize), nk * dr}, "kRope", kvFormat);
     Tensor blockTable(DT_INT32, {b, maxBlockNumPerBatch}, "blockTable");
     Tensor actSeqs(DT_INT32, {b}, "actSeqs");
     Tensor paOut(DT_FP32, {b * nq * sq, dn}, "paOut");

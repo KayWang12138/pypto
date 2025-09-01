@@ -88,7 +88,6 @@ TEST_F(FunctionCoverageTest, ConverageCase1) {
 
     std::cout << func->DumpJson(true).dump() << std::endl;
     std::cout << func->DumpJson(false).dump() << std::endl;
-    std::cout << func->DumpASM() << std::endl;
 
     Function *currFunc = Program::GetInstance().GetCurrentFunction();
     ASSERT_NE(currFunc, nullptr);

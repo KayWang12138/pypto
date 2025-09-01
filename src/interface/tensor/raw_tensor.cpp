@@ -32,72 +32,6 @@ RawTensor::RawTensor(DataType t, std::vector<int64_t> tshape, std::string tname,
     memoryId = rawmagic;
 }
 
-void RawTensor::InitData(const Element &value) {
-    data.clear();
-    int totalSize = 1;
-    for (int dim : rawshape) {
-        totalSize *= dim;
-    }
-    data.resize(totalSize, value);
-}
-
-void RawTensor::InitData(const std::vector<Element> &values) {
-    int64_t totalSize = 1;
-    for (int dim : rawshape) {
-        totalSize *= static_cast<int64_t>(dim);
-    }
-    assert(values.size() == static_cast<size_t>(totalSize));
-    data = values;
-}
-
-int RawTensor::GetIndex(const std::vector<int> &indices) const {
-    assert(indices.size() == rawshape.size());
-    int index = 0;
-    int stride = 1;
-    for (int i = rawshape.size() - 1; i >= 0; --i) {
-        index += indices[i] * stride;
-        stride *= rawshape[i];
-    }
-    assert(static_cast<size_t>(index) < data.size());
-    return index;
-}
-
-Element &RawTensor::operator()(const std::vector<int> &indices) {
-    assert(!data.empty() && "data not initialised yet");
-    return data[GetIndex(indices)];
-}
-
-const Element &RawTensor::operator()(const std::vector<int> &indices) const {
-    assert(!data.empty() && "data not initialised yet");
-    return data[GetIndex(indices)];
-}
-
-std::string RawTensor::DumpASM() const {
-    std::ostringstream oss;
-    constexpr size_t width4 = 4;
-    constexpr size_t width3 = 3;
-    oss << std::setw(width4) << std::setfill(' ') << symbol << "(";
-    oss << std::setw(width4) << std::setfill(' ') << rawmagic;
-    oss << ")";
-    oss << " rawshape:[";
-    for (size_t i = 0; i < rawshape.size(); ++i) {
-        oss << std::setw(width3) << std::setfill(' ') << rawshape[i];
-        if (i != rawshape.size() - 1) {
-            oss << ",";
-        }
-    }
-    oss << "]";
-    oss << " oriRawshape:[";
-    for (size_t i = 0; i < oriRawshape.size(); ++i) {
-        oss << std::setw(width3) << std::setfill(' ') << oriRawshape[i];
-        if (i != oriRawshape.size() - 1) {
-            oss << ",";
-        }
-    }
-    oss << "]\\n";
-    return oss.str();
-}
-
 Json RawTensor::DumpJson() const {
     Json rawTensorDump;
     rawTensorDump[T_FIELD_KIND] = static_cast<int>(Kind::T_KIND_RAW_TENSOR);
@@ -172,11 +106,7 @@ std::string RawTensor::DumpSSA(bool showType, bool showSymbol) const {
 }
 
 std::string RawTensor::Dump() const {
-    if (config::GetPlatformConfig("USE_SSA", true)) {
-        return DumpSSA();
-    } else {
-        return DumpASM();
-    }
+    return DumpSSA();
 }
 
 bool RawTensor::IsDummy() const {

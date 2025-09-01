@@ -41,9 +41,9 @@ TEST_F(DynamicFFNTest, TestOnbroadDynamicFFN) {
     std::vector<int64_t> OutShape{BS, H};
 
     Tensor hiddenStates(DT_FP32, hiddenStatesShape, "hiddenStates");
-    Tensor ffnweight1(DT_FP16, weightShape, "weightShape1", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
-    Tensor ffnweight2(DT_FP16, weightShape, "weightShape2", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
-    Tensor ffnweight3(DT_FP16, weightShape, "weightShape3", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
+    Tensor ffnweight1(DT_FP16, weightShape, "weightShape1", TileOpFormat::TILEOP_NZ);
+    Tensor ffnweight2(DT_FP16, weightShape, "weightShape2", TileOpFormat::TILEOP_NZ);
+    Tensor ffnweight3(DT_FP16, weightShape, "weightShape3", TileOpFormat::TILEOP_NZ);
     Tensor ffnout(DT_FP32, OutShape, "ffnout");
 
     std::vector<float>hiddenStatesData(BS * H);
@@ -97,9 +97,9 @@ TEST_F(DynamicFFNTest, TestOnbroadDynamicFFNQuant) {
 
     Tensor hiddenStates(DT_INT8, hiddenStatesShape, "hiddenStates");
     Tensor hiddenStatesScale(DT_FP32, {BS, 1}, "hiddenStatesScale");
-    Tensor ffnWeight1(DT_INT8, weightShape, "ffnWeight1", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
-    Tensor ffnWeight2(DT_INT8, weightShape, "ffnWeight2", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
-    Tensor ffnWeight3(DT_INT8, weightShape, "ffnWeight3", NodeType::LOCAL, TileOpFormat::TILEOP_NZ);
+    Tensor ffnWeight1(DT_INT8, weightShape, "ffnWeight1", TileOpFormat::TILEOP_NZ);
+    Tensor ffnWeight2(DT_INT8, weightShape, "ffnWeight2", TileOpFormat::TILEOP_NZ);
+    Tensor ffnWeight3(DT_INT8, weightShape, "ffnWeight3", TileOpFormat::TILEOP_NZ);
     Tensor ffnScale1(DT_FP32, {1, ExpertDim}, "ffnScale1");
     Tensor ffnScale2(DT_FP32, {1, ExpertDim}, "ffnScale2");
     Tensor ffnScale3(DT_FP32, {1, H}, "ffnScale3");
