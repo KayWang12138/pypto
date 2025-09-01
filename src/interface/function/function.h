@@ -276,6 +276,7 @@ struct CceCodeInfo {
     uint32_t coreType;
     uint32_t psgId;
     uint64_t funcHash;
+    uint32_t aicpuOpType{0};
 };
 
 struct OriArgInfo {
@@ -370,6 +371,8 @@ struct DyndevFunctionAttribute {
     std::vector<int> startArgsInputSymbolIndexList;
 
     std::vector<SymbolHandler> startArgsSymbolHandlerList;
+
+    uint32_t commGroupNum{0};
 
     std::vector<uint8_t> devProgBinary;
 

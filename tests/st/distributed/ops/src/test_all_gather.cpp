@@ -109,5 +109,42 @@ void TestAllGatherEx(OpTestParam &testParam)
         testParam));
 }
 
+void TestDynAllGather(OpTestParam &testParam)
+{
+    constexpr size_t paramsSize = 3;
+    auto [M, N, typeNum] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+
+    DataType dType = GetDataTypeNum(typeNum);
+
+    int32_t outSize = M * N * testParam.rankSize;
+
+    Shape shape{M, N};
+    Tensor in(dType, shape, "in");
+
+    std::vector<int32_t> inPtr = ReadToVector<int32_t>(GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
+
+    Shape outShape{testParam.rankSize * M, N};
+    Tensor out(dType, outShape, "out");
+
+    AllGatherDyn(in, testParam.group, out);
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<int32_t>(in, inPtr)
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateTensorZero(out)
+    });
+
+    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+    auto hcclContext = GetHcclContext({std::string(testParam.group)});
+    FuncRunnerConfig config;
+    config.runModel = false;
+    config.hcclContext = hcclContext;
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
+
+    auto outPut = ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", outSize, outPut->GetDevPtr(), testParam));
+}
+
 } // namespace Distributed
 } // namespace npu::tile_fwk

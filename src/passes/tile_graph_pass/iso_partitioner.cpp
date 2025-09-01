@@ -353,7 +353,12 @@ Status NodeGraphInfo::MergeSrcToDstIsland(const std::shared_ptr<OperationGraphIn
     std::set<OpCoreType> coreTypes{operationGraphInfo->opCoreType_[src], operationGraphInfo->opCoreType_[dst],
                                    operationGraphInfo->opCoreType_[srcParent],
                                    operationGraphInfo->opCoreType_[dstParent]};
-    if (operationGraphInfo->CoreTypeMergeable(coreTypes)) {
+    bool isAICPUandVIEW = false;
+    isAICPUandVIEW = isAICPUandVIEW || (operationGraphInfo->opCoreType_[src] == OpCoreType::AICPU &&
+                                        operationGraphInfo->opList_[dst]->GetOpcode() == Opcode::OP_VIEW);
+    isAICPUandVIEW = isAICPUandVIEW || (operationGraphInfo->opCoreType_[dst] == OpCoreType::AICPU &&
+                                        operationGraphInfo->opList_[src]->GetOpcode() == Opcode::OP_VIEW);
+    if (isAICPUandVIEW || operationGraphInfo->CoreTypeMergeable(coreTypes)) {
         parent[srcParent] = dstParent;
     } else {
         ALOG_ERROR_F("Try to merge not mergeable operations: %d, %d, %d, %d.",

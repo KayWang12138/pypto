@@ -40,6 +40,12 @@ public:
         }
     };
 
+    struct ShmemInfo {
+        bool isShmem{false};
+        int groupIndex{0};
+        size_t offset{0};
+    };
+
 public:
     int rawmagic;
     int memoryId{-1};
@@ -99,6 +105,11 @@ public:
     void SetTensorSubScript(int subscript) { tensorInfo_.subscript = subscript; }
     void SetTensorInfo(const TensorInfo &other) { tensorInfo_ = other; }
 
+    // shmem tensor 绑地址新方案合入后，这三个新接口会删除
+    void SetShmemInfo(const ShmemInfo &other) { shmemInfo_ = other; }
+    const ShmemInfo &GetShmemInfo() const { return shmemInfo_; }
+    bool IsShmem() const { return shmemInfo_.isShmem; }
+
     const auto &GetTensorInfo() const { return tensorInfo_; }
 
     void SetCachePolicy(CachePolicy policy, bool value) {
@@ -119,5 +130,6 @@ private:
     int refCount_{0}; // 被 npu::tile_fwk::Tensor引用的次数，用于outcast自动推导
     TensorInfo tensorInfo_{};
     bool cachePolicy_[static_cast<int>(CachePolicy::MAX_NUM)] = {false};
+    ShmemInfo shmemInfo_{};
 };
 } // namespace npu::tile_fwk

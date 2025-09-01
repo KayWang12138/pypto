@@ -27,7 +27,7 @@ void TiledShmemPut(Function &function, const TileShape &tileShape,
     }
     (void)tileShape;
     std::shared_ptr<LogicalTensor> in = iOperand[0];
-    std::shared_ptr<LogicalTensor> shmDataTile = iOperand[1];
+    std::shared_ptr<LogicalTensor> shmemDataTile = iOperand[1];
     std::shared_ptr<LogicalTensor> dummy = oOperand[0];
     CommGroupInfo groupInfo;
     TilingInfo tilingInfo;
@@ -36,10 +36,10 @@ void TiledShmemPut(Function &function, const TileShape &tileShape,
     std::string atomicType = "";
     op.GetAttr("AtomicType", atomicType);
 
-    std::vector<int64_t> shape{shmDataTile->GetShape()[2] * shmDataTile->GetShape()[3]};
+    std::vector<int64_t> shape{shmemDataTile->GetShape()[2] * shmemDataTile->GetShape()[3]};
     auto inTile = in->View(function, in->GetShape(), {tilingInfo.rowOffset, tilingInfo.colOffset});
-    auto ubTensor = std::make_shared<LogicalTensor>(function, shmDataTile->Datatype(), shape);
-    OpArgs<TilingInfo> opArgs = {"SHMEM_PUT", {inTile, shmDataTile}, {dummy, ubTensor}, nullptr, "",
+    auto ubTensor = std::make_shared<LogicalTensor>(function, shmemDataTile->Datatype(), shape);
+    OpArgs<TilingInfo> opArgs = {"SHMEM_PUT", {inTile, shmemDataTile}, {dummy, ubTensor}, nullptr, "",
         std::make_optional(tilingInfo), std::nullopt};
     auto& tileop = AddOperation(function, opArgs);
     tileop.SetAttr("AtomicType", atomicType);
@@ -55,7 +55,7 @@ void TiledShmemSignal(Function &function, const TileShape &tileShape,
     }
     (void)tileShape;
     std::shared_ptr<LogicalTensor> dummy = iOperand[0];
-    std::shared_ptr<LogicalTensor> shmSignalTile = oOperand[0];
+    std::shared_ptr<LogicalTensor> shmemSignalTile = oOperand[0];
     CommGroupInfo groupInfo;
     TilingInfo tilingInfo;
     op.GetAttr(OpAttributeKey::commGroupInfo, groupInfo);
@@ -66,8 +66,8 @@ void TiledShmemSignal(Function &function, const TileShape &tileShape,
     op.GetAttr("Value", value);
 
     std::vector<int64_t> shape{8};
-    auto ubTensor = std::make_shared<LogicalTensor>(function, shmSignalTile->Datatype(), shape);
-    OpArgs<TilingInfo> opArgs = {"SHMEM_SIGNAL", {dummy}, {shmSignalTile, ubTensor}, nullptr, "",
+    auto ubTensor = std::make_shared<LogicalTensor>(function, shmemSignalTile->Datatype(), shape);
+    OpArgs<TilingInfo> opArgs = {"SHMEM_SIGNAL", {dummy, shmemSignalTile}, {ubTensor}, nullptr, "",
         std::make_optional(tilingInfo), std::nullopt};
     auto& tileop = AddOperation(function, opArgs);
     tileop.SetAttr("Value", value);
@@ -84,7 +84,7 @@ void TiledShmemWaitUntil(Function &function, const TileShape &tileShape,
     }
     (void)tileShape;
     std::shared_ptr<LogicalTensor> in = iOperand[0];
-    std::shared_ptr<LogicalTensor> shmSignalTile = iOperand[1];
+    std::shared_ptr<LogicalTensor> shmemSignalTile = iOperand[1];
     std::shared_ptr<LogicalTensor> dummy = oOperand[0];
     CommGroupInfo groupInfo;
     TilingInfo tilingInfo;
@@ -96,7 +96,7 @@ void TiledShmemWaitUntil(Function &function, const TileShape &tileShape,
     op.GetAttr("Value", value);
 
     auto inTile = in->View(function, in->GetShape(), {tilingInfo.rowOffset, tilingInfo.colOffset});
-    OpArgs<TilingInfo> opArgs = {"SHMEM_WAIT_UNTIL", {inTile, shmSignalTile}, {dummy}, nullptr, "",
+    OpArgs<TilingInfo> opArgs = {"SHMEM_WAIT_UNTIL", {inTile, shmemSignalTile}, {dummy}, nullptr, "",
         std::make_optional(tilingInfo), std::nullopt};
     auto& tileop = AddOperation(function, opArgs);
     tileop.SetAttr("Value", value);
@@ -114,7 +114,7 @@ void TiledShmemGet(Function &function, const TileShape &tileShape,
     (void)tileShape;
     (void)op;
     std::shared_ptr<LogicalTensor> dummy = iOperand[0];
-    std::shared_ptr<LogicalTensor> shmDataTile = iOperand[1];
+    std::shared_ptr<LogicalTensor> shmemDataTile = iOperand[1];
     std::shared_ptr<LogicalTensor> out = oOperand[0];
     CommGroupInfo groupInfo;
     TilingInfo tilingInfo;
@@ -123,10 +123,10 @@ void TiledShmemGet(Function &function, const TileShape &tileShape,
     std::string atomicType = "";
     op.GetAttr("AtomicType", atomicType);
 
-    std::vector<int64_t> shape{shmDataTile->GetShape()[2], shmDataTile->GetShape()[3]};
-    auto ubTensor = std::make_shared<LogicalTensor>(function, shmDataTile->Datatype(), shape);
+    std::vector<int64_t> shape{shmemDataTile->GetShape()[2], shmemDataTile->GetShape()[3]};
+    auto ubTensor = std::make_shared<LogicalTensor>(function, shmemDataTile->Datatype(), shape);
     auto outTile = out->View(function, out->GetShape(), out->GetOffset());
-    OpArgs<TilingInfo> opArgs = {"SHMEM_GET", {dummy, shmDataTile}, {outTile, ubTensor}, nullptr, "",
+    OpArgs<TilingInfo> opArgs = {"SHMEM_GET", {dummy, shmemDataTile}, {outTile, ubTensor}, nullptr, "",
         std::make_optional(tilingInfo), std::nullopt};
     auto& tileop = AddOperation(function, opArgs);
     tileop.SetAttr("AtomicType", atomicType);

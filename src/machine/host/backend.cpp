@@ -326,7 +326,8 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
             << "#define __TILE_FWK_AICPU__ 1\n"
             << "#include <stdint.h>\n"
             << "#include \"" << expName << "\"\n"
-            << "#include \"machine/utils/dynamic/codegen/aicpu_runtime.h\"\n";
+            << "#include \"machine/utils/dynamic/codegen/aicpu_runtime.h\"\n"
+            << "#include \"machine/utils/dynamic/codegen/aicpu_distributed.h\"\n";
         expressionOss
             << "\n/* Symbol table list */\n"
             << linker.GetSymbolTable()->BuildSymbolList();
@@ -565,6 +566,9 @@ static void ConstructCodeInfo(struct EncodeDevAscendFunctionParam &encodeDevAsce
         attr->cceCodeInfo[leafIndex].coreType = static_cast<uint32_t>(CoreType::HUB);
       attr->cceCodeInfo[leafIndex].psgId = leaf->GetProgramId();
       attr->cceCodeInfo[leafIndex].funcHash = leaf->GetFunctionHash().GetHash();
+      attr->cceCodeInfo[leafIndex].aicpuOpType = static_cast<uint32_t>(
+        (attr->cceCodeInfo[leafIndex].coreType == static_cast<uint32_t>(CoreType::AICPU)) ?
+        leaf->Operations()[0].GetOpcode() : Opcode::OP_UNKNOWN);
       leafIndex++;
     }
     encodeDevAscendFunctionParam.cceCodeInfoList = attr->cceCodeInfo;
@@ -594,7 +598,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, cons
     FindAllExpression(cache, linker, function);
 
     FillL2PrefetchInfo(attr);
-
+    attr->commGroupNum = Program::GetInstance().GetCommGroupRecorder().Output().size();
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
     attr->inoutLink = slotManager->BuildIncastOutcastLink(function->GetRawName());
 

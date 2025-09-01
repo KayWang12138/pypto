@@ -21,8 +21,7 @@
 
 #include <type_traits>
 
-namespace TileOp {
-namespace Distributed {
+namespace TileOp::Distributed {
 // 以下 ATOMIC_ADD_BLOCK_BYTE_SIZE 和 FLAG_BYTE_SIZE 的定义与 comm_wait_flag.h 中的定义一致
 constexpr uint32_t ATOMIC_ADD_BLOCK_BYTE_SIZE = 32; // AtomicAdd 每次操作 32B 的数据，对同一 32B 的数据进行 AtomicAdd 需要排队
 constexpr uint32_t FLAG_BYTE_SIZE = ATOMIC_ADD_BLOCK_BYTE_SIZE * 4; // 为了消除 AtomicAdd 并发，以 32B 为最小单位，视情况调节每个 flag 占用的字节数
@@ -41,7 +40,7 @@ constexpr TILEOP T AlignUp(const T value, const T alignment)
     return (value + alignment - 1) / alignment * alignment;
 }
 
-TILEOP void DevWinLOG(__gm__ int64_t *hcclContext, __ubuf__ uint8_t *tmpBuf, size_t len, size_t offset = 0)
+TILEOP void DevWinLog(__gm__ int64_t *hcclContext, __ubuf__ uint8_t *tmpBuf, size_t len, size_t offset = 0)
 {
     pipe_barrier(PIPE_ALL);
     __gm__ HcclCombinOpParam *winContext = (__gm__ HcclCombinOpParam *)(hcclContext[0]);
@@ -50,6 +49,24 @@ TILEOP void DevWinLOG(__gm__ int64_t *hcclContext, __ubuf__ uint8_t *tmpBuf, siz
     int32_t lenBurst = AlignUp<int32_t>(len, 32) / 32;
     set_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
     wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
+    copy_ubuf_to_gm(dstWinGMAddr, tmpBuf, 0, 1, lenBurst, 0, 0);
+    set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    pipe_barrier(PIPE_ALL);
+}
+
+TILEOP void DevWinLog(__gm__ int64_t *hcclContext, __gm__ uint8_t *srcGm, __ubuf__ uint8_t *tmpBuf, size_t len, size_t offset = 0)
+{
+    pipe_barrier(PIPE_ALL);
+    __gm__ HcclCombinOpParam *winContext = (__gm__ HcclCombinOpParam *)(hcclContext[0]);
+    GM_ADDR winBaseAddr = (GM_ADDR)(winContext->windowsOut[winContext->rankId]);
+    GM_ADDR dstWinGMAddr = winBaseAddr + offset;
+    int32_t lenBurst = AlignUp<int32_t>(len, 32) / 32;
+    set_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
+    wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
+    copy_gm_to_ubuf(tmpBuf, srcGm, 0, 1, lenBurst, 0, 0);
+    set_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
+    wait_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
     copy_ubuf_to_gm(dstWinGMAddr, tmpBuf, 0, 1, lenBurst, 0, 0);
     set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
     wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
@@ -1174,8 +1191,6 @@ TILEOP void FFNBatching(__gm__ T *expandX, __gm__ int32_t *validCnt, __ubuf__ in
             tilingData, hcclContext);
     }
 }
-
-} // namespace Distributed
-} // namespace TileOp
+} // namespace TileOp::Distributed
 
 #endif

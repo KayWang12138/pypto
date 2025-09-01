@@ -31,7 +31,7 @@
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/utils/device_log.h"
 #include "machine/device/distributed/comm_wait_flag.h"
-#include "machine/device/aicpu_task_manager.h"
+#include "machine/device/dynamic/aicpu_task_manager.h"
 #include "interface/operation/opcode.h"
 #include "securec.h"
 #include "machine/device/dynamic/aicore_prof.h"
@@ -621,7 +621,7 @@ public:
         taskCtrl->finishedFunctionCnt.fetch_add(curSent, std::memory_order_relaxed);
 
         if (IsNeedProcAicpuTask()) {
-            aicpuTaskManager_.Init(curDevTask_);
+            aicpuTaskManager_.Init(reinterpret_cast<DynDeviceTask *>(curDevTask_));
         }
 
         uint64_t start = GetCycles();
@@ -1064,7 +1064,7 @@ private:
         uint64_t taskCount = aicpuTaskManager_.TaskProcess();
         std::vector<uint64_t> completed = aicpuTaskManager_.TaskPoll();
         for (const uint64_t &taskId : completed) {
-            ResolveDepStatic(taskId);
+            ResolveDepDyn(taskId);
             BatchPushReadyQueue();
         }
         return taskCount;
@@ -1295,6 +1295,8 @@ private:
                     if (unlikely(coreType == static_cast<int>(CoreType::HUB))) {
                         ResolveDepDyn(id);
                         resolveHubCnt_++;
+                    } else if (coreType == static_cast<int>(MachineType::AICPU)){
+                        PushAicpuTaskQueue(id);
                     } else {
                         PushReadyTask(static_cast<int>(coreType), id);
                     }
@@ -1345,6 +1347,8 @@ private:
                 if (unlikely(coreType == static_cast<int>(CoreType::HUB))) {
                     ResolveDepDyn(id);
                     resolveHubCnt_++;
+                } else if (coreType == static_cast<int>(MachineType::AICPU)){
+                        PushAicpuTaskQueue(id);
                 } else {
                     PushReadyTask(static_cast<int>(coreType), id);
                 }
@@ -1612,7 +1616,7 @@ private:
     }
 
     inline bool IsNeedProcAicpuTask() {
-        return ((aicpuNum_ == 1) || (aicpuIdx_ == 1)) && IsStaticFunction();
+        return aicpuIdx_ == 1;
     }
 private:
     AicoreHAL aicoreHAL;

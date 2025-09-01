@@ -98,11 +98,14 @@ struct FuncRunnerConfig {
     int aicpuNum{5};
     int64_t dynWorkspaceSize{0};
     int64_t repeatNum{1};
+    bool runModel{false};
+    std::vector<uint64_t> hcclContext;
 
     FuncRunnerConfig() = default;
     FuncRunnerConfig(bool onboard, int tblockdim, int taicpunum) : onBoard(onboard), blockdim(tblockdim), aicpuNum(taicpunum) {}
     FuncRunnerConfig(int tdynWorkspaceSize) : dynWorkspaceSize(tdynWorkspaceSize) {}
     FuncRunnerConfig(int tdynWorkspaceSize, int64_t trepeatNum) : dynWorkspaceSize(tdynWorkspaceSize), repeatNum(trepeatNum){}
+    FuncRunnerConfig(const std::vector<std::uint64_t> &addrs) : hcclContext(addrs) {}
 };
 
 class DevFuncRunner {
@@ -161,6 +164,11 @@ private:
         devProg->workspaceSize = devProg->aicoreLocalWorkspaceSize + devProg->aicpuCoherentWorkspaceSize
                                  + config_.dynWorkspaceSize;
         devProg->l2CacheOffset = machine::GetRA()->GetL2Offset();
+        ASSERT((devProg->commGroupNum == config_.hcclContext.size()) &&
+            (devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t))));
+        for (size_t i = 0; i < devProg->commGroupNum; i++) {
+            devProg->hcclContext[i] = config_.hcclContext[i];
+        }
         kArgs.workspace = (int64_t *)h.AllocDev(devProg->workspaceSize);
         kArgs.cfgdata = (int64_t *)h.CopyToDev(GetDevProg());
         kArgs.machineConfig = devProg->devArgs.machineConfig;
@@ -168,16 +176,19 @@ private:
     }
 
     void RunModel(const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs) {
-            AstKernelArgs kArgs;
-            InitTilingData(kArgs, true);
-            for (int i = 0; i < config_.repeatNum; i++) {
-                InitKernelInOuts(kArgs, inputs, outputs, true);
-                std::cout << "!!! Run CostModel " << i << "\n";
-                RunCostModel(&kArgs);
-                std::cout << "!!! Run TestModel " << i << "\n";
-                RunTestMode(&kArgs);
-            }
-            RunDynCostModel();
+        if (!config_.runModel) {
+            return;
+        }
+        AstKernelArgs kArgs;
+        InitTilingData(kArgs, true);
+        for (int i = 0; i < config_.repeatNum; i++) {
+            InitKernelInOuts(kArgs, inputs, outputs, true);
+            std::cout << "!!! Run CostModel " << i << "\n";
+            RunCostModel(&kArgs);
+            std::cout << "!!! Run TestModel " << i << "\n";
+            RunTestMode(&kArgs);
+        }
+        RunDynCostModel();
     }
 
     bool HasInplaceArgs() {

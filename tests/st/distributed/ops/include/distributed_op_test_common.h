@@ -18,9 +18,11 @@
 
 #include <vector>
 #include <string>
+#include <algorithm>
+#include <array>
 #include "test_common.h"
 #include "distributed_op_test_suite.h"
-#include "tileop/a2a3/hccl_context.h"
+#include "tileop/hccl_context.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {
@@ -45,9 +47,19 @@ inline DataType GetDataTypeNum(const int64_t typeNum)
     return static_cast<DataType>(typeNum);
 }
 
+template <typename T>
+std::vector<T> ReadToVector(const std::string &filePath, const std::vector<int64_t> &shape)
+{
+    auto mul = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int64_t>());
+    std::vector<T> result(mul, 0);
+    std::string xPath = filePath;
+    readInput<T>(xPath, result);
+    return result;
+}
+
 template <typename T, typename PtrType>
-bool DoCompare(const std::string &goldenFilename, const uint64_t outSize, const size_t dTypeSize, PtrType &outPtrs,
-    const OpTestParam &testParam, float threshold)
+bool DoCompare(const std::string &goldenFilename, const uint64_t outSize, const size_t dTypeSize,
+    const PtrType &outPtrs, const OpTestParam &testParam, float threshold)
 {
     std::vector<T> res(outSize);
     std::vector<T> resGolden(outSize);
@@ -69,7 +81,7 @@ bool DoCompare(const std::string &goldenFilename, const uint64_t outSize, const 
 
 template <typename PtrType>
 bool CompareWithGolden(const DataType dType, const std::string &goldenFilename, const uint64_t outSize,
-    PtrType &outPtrs, const OpTestParam &testParam, float threshold = 0.001f)
+    const PtrType &outPtrs, const OpTestParam &testParam, float threshold = 0.001f)
 {
     static_assert((std::is_same_v<PtrType, uint8_t *>) || (std::is_same_v<PtrType, std::vector<uint8_t *>>),
         "PtrType must be either uint8_t* or std::vector<uint8_t*>");

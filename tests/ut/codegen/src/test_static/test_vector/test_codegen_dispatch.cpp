@@ -56,7 +56,7 @@ void TestMoeDispatch(bool isSharedExpert) {
     int tokenLen = 256;
     int rankId = isSharedExpert ? 0 : sharedExpertNum;
 
-    Tensor tokenTensor(DataType::DT_INT32, {bs, tokenLen}, "tokenTensor");
+    Tensor tokenTensor(dType, {bs, tokenLen}, "tokenTensor");
     Tensor tokenExpertTable(DataType::DT_INT32, {bs, topK}, "tokenExpertTable");
     Tensor expandX(dType, {bs * (routingExpertNum + sharedExpertNum), tokenLen}, "expandX");
     Tensor validSize(DataType::DT_INT32, {1, 1}, "validSize");

@@ -1425,6 +1425,7 @@ std::pair<std::shared_ptr<LogicalTensor>, std::shared_ptr<LogicalTensor>> Functi
         inArgument->tensor->GetDynRawShape(), newSymbol, NodeType::INCAST, inArgument->tensorfmt);
     incastSymbol->tensor->SetRawDataPtr(inArgument->tensor->GetRawDataPtr());
     incastSymbol->tensor->SetTensorInfo(inArgument->tensor->GetTensorInfo());
+    incastSymbol->tensor->SetShmemInfo(inArgument->tensor->GetShmemInfo());
     tensorMap_.Insert(incastSymbol);
     inCasts_.push_back(incastSymbol);
     incastToInArgumentDict[incastSymbol] = inArgument;
@@ -1589,6 +1590,7 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
         rawBuf->tensor->UpdateDynRawShape(rawOutcast->GetDynRawShape());
         rawSymbol->tensor->SetRawDataPtr(rawOutcast->GetRawDataPtr());
         rawSymbol->tensor->SetTensorInfo(rawOutcast->GetTensorInfo());
+        rawSymbol->tensor->SetShmemInfo(rawOutcast->GetShmemInfo());
         Parent().tensorMap_.Insert(outArgument);
         outArgumentList.push_back(outArgument);
         UpdateLinkMap(outArgument, rawSymbol, true);

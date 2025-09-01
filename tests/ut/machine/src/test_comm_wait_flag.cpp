@@ -16,7 +16,7 @@
 #include <gtest/gtest.h>
 #include "machine/device/distributed/comm_wait_flag.h"
 #include "interface/cache/core_func_data.h"
-#include "tileop/a2a3/hccl_context.h"
+#include "tileop/hccl_context.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::Distributed;

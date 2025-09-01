@@ -186,6 +186,7 @@ public:
         devArgs->aicoreLocalWorkspaceSize = devProg->workspaceSize - devProg->aicpuCoherentWorkspaceSize;
         devArgs->inputSymbolList = nullptr;
         devArgs->inputSymbolSize = 0;
+        devArgs->hcclContextAddr = (uint64_t*)&devProg->hcclContext[0];
 
         DEV_INFO("AscendCppDyInitTask done.");
         return 0;
@@ -242,6 +243,11 @@ private:
 
         DEV_DEBUG("===== ready aiv func =====");
         readyFunc = reinterpret_cast<ReadyCoreFunctionQueue *>(devTask->readyAivCoreFunctionQue);
+        for (uint64_t i = readyFunc->head; i < readyFunc->tail; i++) {
+            DEV_DEBUG( "taskId %u.", readyFunc->elem[i]);
+        }
+        DEV_DEBUG("===== ready aicpu func =====");
+        readyFunc = reinterpret_cast<ReadyCoreFunctionQueue *>(devTask->readyAicpuFunctionQue);
         for (uint64_t i = readyFunc->head; i < readyFunc->tail; i++) {
             DEV_DEBUG( "taskId %u.", readyFunc->elem[i]);
         }

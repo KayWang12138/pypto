@@ -239,5 +239,6 @@ Tensor ReduceScatter(const std::vector<Tensor> &in, const char *group, DistReduc
 Tensor ReduceScatter(const Tensor &in, const char *group, DistReduceType reduceType);
 Tensor MoeDispatch(const Tensor &tokenTensor, const Tensor &tokenExpertTable, Tensor &validCnt, const char *group);
 Tensor MoeCombine(const Tensor &in, const Tensor &scale, const Tensor &combineInfo, const char *group);
+void AllGatherDyn(const Tensor &in, const char *group, Tensor &out);
 } // namespace Distributed
 } // namespace npu::tile_fwk

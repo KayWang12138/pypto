@@ -378,7 +378,10 @@ void PreGraphProcess::InsertTemporaryCopyIn(Function &function, Operation &op) c
         op.GetOpcode() == Opcode::OP_FFN_SCHED ||
         op.GetOpcode() == Opcode::OP_FFN_BATCHING ||
         op.GetOpcode() == Opcode::OP_COPY_TO_LOCAL_EXPERT ||
-        op.GetOpcode() == Opcode::OP_DISPATCH_SET_FLAG) {
+        op.GetOpcode() == Opcode::OP_DISPATCH_SET_FLAG ||
+        op.GetOpcode() == Opcode::OP_SHMEM_PUT ||
+        op.GetOpcode() == Opcode::OP_SHMEM_SIGNAL ||
+        op.GetOpcode() == Opcode::OP_SHMEM_GET) {
         for (auto &input : op.GetIOperands()) {
             if (input->GetProducers().size() == 0 && input->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
                 // insert Copy_In before the op
@@ -660,7 +663,9 @@ Status PreGraphProcess::RunOnFunction(Function &function) {
         if (op.GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT || op.GetOpcode() == Opcode::OP_INDEX_OUTCAST ||
             op.GetOpcode() == Opcode::OP_REMOTE_GATHER || op.GetOpcode() == Opcode::OP_LOCAL_COPY_OUT ||
             op.GetOpcode() == Opcode::OP_REMOTE_REDUCE || op.GetOpcode() == Opcode::OP_FFN_SCHED ||
-            op.GetOpcode() == Opcode::OP_FFN_BATCHING || op.GetOpcode() == Opcode::OP_COPY_TO_LOCAL_EXPERT) {
+            op.GetOpcode() == Opcode::OP_FFN_BATCHING || op.GetOpcode() == Opcode::OP_COPY_TO_LOCAL_EXPERT||
+            op.GetOpcode() == Opcode::OP_SHMEM_PUT || op.GetOpcode() == Opcode::OP_SHMEM_SIGNAL ||
+            op.GetOpcode() == Opcode::OP_SHMEM_GET) {
             ProcessSpecialMTEOperation(op);
         }
         if (op.GetOpcode() == Opcode::OP_TRANSPOSE_MOVEIN) {

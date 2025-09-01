@@ -49,7 +49,7 @@ inline uint64_t CeilAlign(uint64_t a, int b) {
 using LocalBufferPtr = std::shared_ptr<LocalBuffer>;
 
 const std::unordered_set<Opcode> USE_LESS_OPS = {
-    Opcode::OP_RESHAPE, Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_COMM_WAIT_FLAG};
+    Opcode::OP_RESHAPE, Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_COMM_WAIT_FLAG, Opcode::OP_SHMEM_WAIT_UNTIL};
 
 struct IssueEntry {
     Operation *tileOp;

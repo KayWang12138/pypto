@@ -18,15 +18,11 @@
 
 #include <vector>
 
+#include "common.h"
 #include "interface/cache/core_func_data.h"
 
 namespace npu::tile_fwk::Distributed {
 constexpr uint32_t VECTOR_PRE_SIZE = 1024;
-
-struct SignalTensorInfo {
-    uint64_t* attr = nullptr;
-    uint64_t rawAddr = 0UL;
-};
 
 class SignalTileOp {
 public:
@@ -44,7 +40,7 @@ private:
 class ShmemWaitUntil {
 public:
     void Init(DeviceTask *deviceTask);
-    void EnqueueOp(uint64_t taskId, SignalTensorInfo &info);
+    void EnqueueOp(uint64_t taskId, TensorInfo& info);
     void PollCompleted(std::vector<uint64_t> &completed);
 
 private:

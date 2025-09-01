@@ -53,6 +53,7 @@ struct DevStartArgsBase {
     uint64_t inputTensorSize;
     __gm__ DevAscendTensorData *outputTensorList;
     uint64_t outputTensorSize;
+    uint64_t *hcclContextAddr;
 };
 
 }

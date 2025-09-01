@@ -166,7 +166,7 @@ void AssignMemoryType::AssignSpecialOpMemtype(Operation &op) {
         }
     }
 
-    if (op.GetOpcode() == Opcode::OP_COMM_WAIT_FLAG) {
+    if ((op.GetOpcode() == Opcode::OP_COMM_WAIT_FLAG) || (op.GetOpcode() == Opcode::OP_SHMEM_WAIT_UNTIL)) {
         /*
         每个输出都为DDR
         before：

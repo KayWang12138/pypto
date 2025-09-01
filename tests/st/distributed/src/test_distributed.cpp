@@ -126,5 +126,9 @@ TEST_F(DistributedTest, allgather_attn_post_reducescatter_b64_s1_n32_lora256_dim
     Distributed::TestAllGatherAttentionPostReducescatter(testParam);
 }
 
+TEST_F(DistributedTest, test_dyn_all_gather_int32_128_256_4) {
+    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    Distributed::TestDynAllGather(testParam);
+}
 } // namespace Distributed
 } // namespace npu::tile_fwk

@@ -3541,6 +3541,14 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
             npu::tile_fwk::Distributed::TiledShmemGet(function, tileShape, iOperand, oOperand, op);
             break;
         }
+        case Opcode::OP_SHMEM_SIGNAL: {
+            npu::tile_fwk::Distributed::TiledShmemSignal(function, tileShape, iOperand, oOperand, op);
+            break;
+        }
+        case Opcode::OP_SHMEM_WAIT_UNTIL: {
+            npu::tile_fwk::Distributed::TiledShmemWaitUntil(function, tileShape, iOperand, oOperand, op);
+            break;
+        }
         default: {
             ASLOGE("OpCode is %d", static_cast<int>(opCode));
             ASSERT(false) << "unsupported now";

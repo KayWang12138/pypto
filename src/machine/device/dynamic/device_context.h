@@ -168,17 +168,25 @@ struct WsSlabStageAllocMem {
 };
 
 class DeviceWorkspaceAllocator;
+constexpr size_t READY_QUEUE_SIZE = 3UL;
 struct DynDeviceTask {
     DeviceTask devTask;
     DynFuncHeader* dynFuncData{nullptr};
 
-    ReadyCoreFunctionQueue *readyQueue[0x2];
+    ReadyCoreFunctionQueue *readyQueue[READY_QUEUE_SIZE];
     DynFuncCacheItem cacheList[MAX_CACHED_FUNC_NUM];
     Vector<DevAscendFunctionDupped, WsMemCategory::VECTOR_STITCHED_LIST, DeviceWorkspaceAllocator> stitchedList;
     const DevCceBinary *cceBinary;
     WsAllocation selfAlloc;
     WsSlabStageAllocMem taskStageAllocMem;
     std::atomic_bool isFinish{false}; // mark task execution status
+
+    uint32_t GetReadyQueueIndexByCoreType(CoreType coreType) {
+        if (coreType == CoreType::AICPU) {
+            return static_cast<uint32_t>(READY_QUEUE_SIZE) - 1; 
+        }
+        return static_cast<uint32_t>(coreType);
+    }
 
     DynDeviceTask(DeviceWorkspaceAllocator &allocator) {
         memset_s(&devTask, sizeof(devTask), 0, sizeof(devTask));
@@ -1655,21 +1663,24 @@ private:
     void BuildReadyQueue(DynDeviceTask *dyntask) {
         uint32_t size = sizeof(ReadyCoreFunctionQueue) + dyntask->devTask.coreFunctionCnt * sizeof(taskid_t);
         DEV_ASSERT(dyntask->devTask.coreFunctionCnt <= MAX_READY_QUE_ELM_SIZE);
-        ReadyCoreFunctionQueue *queue[0x2];
-        for (int coreType = 0; coreType < 0x2; ++coreType) {
+        ReadyCoreFunctionQueue *queue[READY_QUEUE_SIZE];
+        for (size_t index = 0; index < READY_QUEUE_SIZE; ++index) {
             ReadyCoreFunctionQueue *q = workspace_->SlabAlloc(size, WsAicpuSlabMemType::READY_QUE).As<ReadyCoreFunctionQueue>();
             q->head = 0;
             q->tail = 0;
             q->lock = 0;
             q->capacity = dyntask->devTask.coreFunctionCnt;
             q->elem = reinterpret_cast<taskid_t *>(q + 1);
-            queue[coreType] = q;
-            dyntask->readyQueue[coreType] = q;
+            queue[index] = q;
+            dyntask->readyQueue[index] = q;
         }
 
-        ReadyCoreFunctionQueue *aivQueue = queue[(uint32_t)CoreType::AIV];
-        ReadyCoreFunctionQueue *aicQueue = queue[(uint32_t)CoreType::AIC];
-        int aivQueueTail = 0, aicQueueTail = 0;
+        ReadyCoreFunctionQueue *aivQueue = queue[dyntask->GetReadyQueueIndexByCoreType(CoreType::AIV)];
+        ReadyCoreFunctionQueue *aicQueue = queue[dyntask->GetReadyQueueIndexByCoreType(CoreType::AIC)];
+        ReadyCoreFunctionQueue *aicpuQueue = queue[dyntask->GetReadyQueueIndexByCoreType(CoreType::AICPU)];
+        int aivQueueTail = 0;
+        int aicQueueTail = 0;
+        int aicpuQueueTail = 0;
 
         uint32v8 one = {1, 1, 1, 1, 1, 1, 1, 1};
         uint32v8 base = {0, 1, 2, 3, 4, 5, 6, 7};
@@ -1713,16 +1724,25 @@ private:
                     aicQueueTail++;
                 }
             }
+            auto aicpuEnd = predInfo.totalZeroPredAIV + predInfo.totalZeroPredAIC + predInfo.totalZeroPredAicpu;
+            for (size_t opIndex = aicEnd; opIndex < aicpuEnd; ++opIndex) {
+                if (likely(dupPredCountList[opIndex] == 0)) {
+                    aicpuQueue->elem[aicpuQueueTail] = MakeTaskID(funcIndex, opIndex);
+                    aicpuQueueTail++;
+                }
+            }
         }
 
         aivQueue->tail = static_cast<uint32_t>(aivQueueTail);
         aicQueue->tail = static_cast<uint32_t>(aicQueueTail);
+        aicpuQueue->tail = static_cast<uint32_t>(aicpuQueueTail);
         dyntask->devTask.readyAivCoreFunctionQue = PtrToValue(aivQueue);
         dyntask->devTask.readyAicCoreFunctionQue = PtrToValue(aicQueue);
-        readyTaskNum += static_cast<uint64_t>(aivQueueTail + aicQueueTail);
+        dyntask->devTask.readyAicpuFunctionQue = PtrToValue(aicpuQueue);
+        readyTaskNum += static_cast<uint64_t>(aivQueueTail + aicQueueTail + aicpuQueueTail);
     }
 
-    void BuildDynFuncData(DynDeviceTask *dyntask) {
+    void BuildDynFuncData(DynDeviceTask *dyntask, DevAscendProgram *devProg) {
         size_t size = sizeof(DynFuncHeader) + dyntask->stitchedList.size() * sizeof(DynFuncData);
         auto header = workspace_->SlabAlloc(size, WsAicpuSlabMemType::DYN_FUNC_DATA).As<DynFuncHeader>();
         dyntask->dynFuncData = header;
@@ -1750,6 +1770,9 @@ private:
             dyndata->opAttrSize = funcDup.GetSource()->GetOpAttrSize();
             dyndata->rawTensorAddrSize = funcDup.GetSource()->GetIncastSize();
             dyndata->rawTensorDescSize = funcDup.GetSource()->GetRawTensorDescSize();
+            dyndata->commGroupNum = devProg->commGroupNum;
+            DEV_ASSERT(sizeof(dyndata->hcclContext) == sizeof(devProg->hcclContext));
+            (void)memcpy_s(dyndata->hcclContext, sizeof(dyndata->hcclContext), devProg->hcclContext, sizeof(devProg->hcclContext));
             DEV_ASSERT((uint64_t)dyndata->opAttrs % OP_ATTRS_PRE_NUM == 0);
             DEV_ASSERT((uint64_t)dyndata->opAtrrOffsets % OP_ATTRS_OFFSET_PRE_NUM == 0);
             DEV_ASSERT((uint64_t)dyndata->exprTbl % EXPR_TABLE_PRE_NUM == 0);
@@ -1775,7 +1798,7 @@ private:
         if (coreType == static_cast<int>(CoreType::HUB)) {
             ResolveEarlyDepends(dyntask, funcIdx, succIdx);
         } else {
-            auto q = dyntask->readyQueue[coreType];
+            auto q = dyntask->readyQueue[dyntask->GetReadyQueueIndexByCoreType(static_cast<CoreType>(coreType))];
             q->elem[q->tail++] = MakeTaskID(funcIdx, succIdx);
             readyTaskNum++;
         }
@@ -1818,7 +1841,7 @@ private:
             auto func = dyntask->cacheList[funcIdx].devFunc;
             auto predList = dyntask->cacheList[funcIdx].predCount;
             auto &predInfo = func->GetPredInfo();
-            auto opIdx = predInfo.totalZeroPredAIC + predInfo.totalZeroPredAIV;
+            auto opIdx = predInfo.totalZeroPredAIC + predInfo.totalZeroPredAIV + predInfo.totalZeroPredAicpu;
             while (opIdx < predInfo.totalZeroPred) {
                 if (predList[opIdx] == 0) {
                     ResolveEarlyDepends(dyntask, funcIdx, opIdx);
@@ -1843,7 +1866,7 @@ private:
 
         DEV_DEBUG("build func data.");
         PerfBegin(PERF_EVT_CORE_FUNCDATA);
-        BuildDynFuncData(dyntask);
+        BuildDynFuncData(dyntask, devProg);
         PerfEnd(PERF_EVT_CORE_FUNCDATA);
         DEV_INFO("start a new static func.");
 

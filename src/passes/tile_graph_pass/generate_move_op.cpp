@@ -46,18 +46,26 @@ Status GenerateMoveOp::PostCheck(Function &function) {
 }
 
 bool GenerateMoveOp::HasGmInput(Operation &op) const {
-    return op.GetOpcode() == Opcode::OP_INDEX_OUTCAST || op.GetOpcode() == Opcode::OP_COMM_WAIT_FLAG;
+    return (op.GetOpcode() == Opcode::OP_INDEX_OUTCAST) || (op.GetOpcode() == Opcode::OP_COMM_WAIT_FLAG) ||
+        (op.GetOpcode() == Opcode::OP_SHMEM_WAIT_UNTIL);
 }
 
 void GenerateMoveOp::CreateMoveOpForView(Operation &op) const {
     auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
-    bool needInsertCopyIn = op.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
-    if (needInsertCopyIn) {
+    bool isGmInput = op.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
+    bool isGmOutput = op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
+    if (isGmInput && isGmOutput) {
+        auto viewResult = op.GetOOperands()[0];
+        auto consumersCopy = viewResult->GetConsumers();
+        for (auto childOp : consumersCopy) {
+            if (childOp->GetOpcode() == Opcode::OP_INDEX_OUTCAST || childOp->GetOpcode() == Opcode::OP_RESHAPE) {
+                return;
+            }
+        }
+    }
+    if (isGmInput && (!isGmOutput)) {
         auto nextOp = *(op.oOperand[0]->GetConsumers().begin());
         auto viewResult = op.GetOOperands()[0];
-        if (viewResult->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-            return;
-        }
         op.SetOpCode(Opcode::OP_COPY_IN); // 将view转化为copyin
         op.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()),
             viewOpAttribute->GetTo(), OpImmediate::Specified(op.oOperand.front()->shape),
@@ -77,6 +85,24 @@ void GenerateMoveOp::CreateMoveOpForView(Operation &op) const {
                     newTensor.GetStorage()->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
                     newTensor.GetStorage()->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
                     newTensor.GetStorage()->isSubGraphBoundary = false;
+                    // update consumer of oOperand
+                    newTensor.GetStorage()->AddConsumer(childOp);
+                    childOp->iOperand[j] = newTensor.GetStorage();
+                    newTensor.GetStorage()->tensor = op.GetIOperands()[0]->tensor;
+                }
+            }
+        }
+        op.SetAsDeleted();
+    } else if (isGmInput && isGmOutput) {
+        auto viewResult = op.GetOOperands()[0];
+        auto consumersCopy = viewResult->GetConsumers();
+        for (auto childOp : consumersCopy) {
+            for (size_t j = 0; j < childOp->iOperand.size(); j++) {
+                if (childOp->iOperand[j] == viewResult) {
+                    Tensor newTensor(viewResult->Datatype(), viewResult->shape);
+                    newTensor.GetStorage()->UpdateOffset(viewOpAttribute->GetFromTensorOffset());
+                    newTensor.GetStorage()->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
+                    newTensor.GetStorage()->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
                     // update consumer of oOperand
                     newTensor.GetStorage()->AddConsumer(childOp);
                     childOp->iOperand[j] = newTensor.GetStorage();

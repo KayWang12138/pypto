@@ -16,39 +16,30 @@
 #include <gtest/gtest.h>
 #include "machine/device/distributed/shmem_wait_until.h"
 #include "interface/cache/core_func_data.h"
-#include "tileop/a2a3/hccl_context.h"
+#include "tileop/hccl_context.h"
 
 namespace {
 TEST(ShmemWaitUntilTest, ShmemWaitUntil_EnqueueOp_and_PollCompleted_success) {
     constexpr uint64_t taskId = 123;
-    constexpr uint32_t offset0 = 0;
-    constexpr uint32_t offset1 = 0;
-    constexpr uint32_t offset2 = 0;
-    constexpr uint32_t offset3 = 0;
-    constexpr uint32_t shape0 = 1;
-    constexpr uint32_t shape1 = 1;
-    constexpr uint32_t shape2 = 4;
-    constexpr uint32_t shape3 = 8;
-    constexpr uint32_t rawShape0 = 4;
+    npu::tile_fwk::Distributed::TensorInfo info;
+    info.offset = {0, 1, 0, 0};
+    info.shape = {1, 1, 1, 8};
     constexpr uint32_t rawShape1 = 4;
     constexpr uint32_t rawShape2 = 4;
     constexpr uint32_t rawShape3 = 8;
-    constexpr int32_t value = 2;
-    constexpr int32_t expectedSum = shape2 * value;
+    info.rawShape = {4, rawShape1, rawShape2, rawShape3};
+    int32_t rawAddr[rawShape1 * rawShape2 * rawShape3] = {0};
+    info.rawAddr = reinterpret_cast<uint64_t>(rawAddr);
+    constexpr int32_t value = 1;
 
     npu::tile_fwk::Distributed::ShmemWaitUntil shmemWaitUntil;
     npu::tile_fwk::DeviceTask deviceTask;
     shmemWaitUntil.Init(&deviceTask);
 
-    uint64_t attr[13] = {offset0, offset1, offset2, offset3, shape0, shape1, shape2, shape3, rawShape0,
-        rawShape1, rawShape2, rawShape3, expectedSum};
-    int32_t rawAddr[rawShape1 * rawShape2 * rawShape3] = {0};
-    npu::tile_fwk::Distributed::SignalTensorInfo info = {attr, reinterpret_cast<uint64_t>(rawAddr)};
-
     shmemWaitUntil.EnqueueOp(taskId, info);
 
-    int32_t* addr = rawAddr + offset1 * rawShape2 * rawShape3 + offset2 * rawShape3 + offset3;
-    for (uint32_t offset = 0; offset < shape2 * shape3; offset += shape3) {
+    int32_t* addr = rawAddr + info.offset[1] * info.rawShape[2] * info.rawShape[3] + info.offset[2] * info.rawShape[3] + info.offset[3];
+    for (uint32_t offset = 0; offset < info.shape[2] * info.shape[3]; offset += info.shape[3]) {
         addr[offset] = value;
     }
     std::vector<uint64_t> completed;

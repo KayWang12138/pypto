@@ -69,8 +69,14 @@ void CodeGenOpCloudNPU::AppendLocalBufferVarOffset(
 std::string CodeGenOpCloudNPU::GenGmParamVar(unsigned gmParamIdx) const {
     if (isUnderDynamicFunction) {
         std::ostringstream os;
-        os << "GET_PARAM_ADDR(" << GM_TENSOR_PARAM_STR << ", " << GmTensorParamIdxInCallFunc << ", "
-           << paramLocation[gmParamIdx] << ")";
+        if (shmemInfo[gmParamIdx].isShmem) {
+            os << "GET_SHMEM_ADDR(" << GM_TENSOR_PARAM_STR << ", " << GmTensorParamIdxInCallFunc << ", "
+               << paramLocation[gmParamIdx] << ", " << shmemInfo[gmParamIdx].groupIndex << ", "
+               << shmemInfo[gmParamIdx].offset << ")";
+        } else {
+            os << "GET_PARAM_ADDR(" << GM_TENSOR_PARAM_STR << ", " << GmTensorParamIdxInCallFunc << ", "
+               << paramLocation[gmParamIdx] << ")";
+        }
         return os.str();
     }
 

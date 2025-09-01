@@ -22,6 +22,7 @@
 #include "interface/tensor/logical_tensor.h"
 #include "interface/function/function.h"
 #include "interface/configs/config_manager.h"
+#include "interface/operation/opcode.h"
 #include "securec.h"
 
 namespace npu::tile_fwk {
@@ -32,7 +33,8 @@ bool IsCopyOpWithShapeOffsetAttr(Opcode opcode) {
                   opcode == Opcode::OP_INDEX_OUTCAST || opcode == Opcode::OP_LOCAL_COPY_OUT ||
                   opcode == Opcode::OP_REMOTE_REDUCE || opcode == Opcode::OP_REMOTE_GATHER ||
                   opcode == Opcode::OP_FFN_SCHED || opcode == Opcode::OP_FFN_BATCHING ||
-                  opcode == Opcode::OP_COPY_TO_LOCAL_EXPERT;
+                  opcode == Opcode::OP_COPY_TO_LOCAL_EXPERT || opcode == Opcode::OP_SHMEM_PUT ||
+                  opcode == Opcode::OP_SHMEM_SIGNAL || opcode == Opcode::OP_SHMEM_GET;
 
     return result;
 }
@@ -322,7 +324,7 @@ void CodeGenOp::UpdateTileOpInfo(const Operation &ops) {
         }
     }
 
-    if ((functionType != FunctionType::DYNAMIC_LOOP_PATH) || (tileOpName.find("Distributed") != std::string::npos)) {
+    if ((functionType != FunctionType::DYNAMIC_LOOP_PATH) || DISTRIBUTED_OPS.count(opCode)) {
         return;
     }
 
@@ -360,6 +362,24 @@ void CodeGenOp::GetGmParamIdx(const npu::tile_fwk::Operation &oper) {
 
         std::copy(oper.outParamLocation_.begin(), oper.outParamLocation_.end(), paramLocation);
         std::copy(oper.inParamLocation_.begin(), oper.inParamLocation_.end(), paramLocation + oper.oOperand.size());
+        return;
+    }
+
+    if ((oper.GetOpcode() == Opcode::OP_SHMEM_PUT) || (oper.GetOpcode() == Opcode::OP_SHMEM_SIGNAL) ||
+        (oper.GetOpcode() == Opcode::OP_SHMEM_GET)) {
+        for (size_t i = 0; i < oper.GetOOperands().size(); ++i) {
+            if (oper.GetOOperands()[i]->GetMemoryTypeToBe() == MEM_DEVICE_DDR) {
+                paramLocation[i] = oper.GetOOpAttrOffset(i);
+                shmemInfo[i] = oper.GetOOperands()[i]->tensor->GetShmemInfo();
+            }
+        }
+        size_t iOffset = oper.GetOOperands().size() == 0 ? 1 : oper.GetOOperands().size();
+        for (size_t i = 0; i < oper.GetIOperands().size(); ++i) {
+            if (oper.GetIOperands()[i]->GetMemoryTypeToBe() == MEM_DEVICE_DDR) {
+                paramLocation[i + iOffset] = oper.GetIOpAttrOffset(i);
+                shmemInfo[i + iOffset] = oper.GetIOperands()[i]->tensor->GetShmemInfo();
+            }
+        }
         return;
     }
 

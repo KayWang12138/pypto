@@ -52,18 +52,27 @@ TILEOP void CopyGmToGm(__gm__ T* target, __ubuf__ T* buffer, __gm__ T* source)
 }
 
 template<typename T, uint16_t rowShape, uint16_t colShape>
-TILEOP void ShmemPut(__gm__ T* dummy, __ubuf__ T* buffer, __gm__ T* nonShmemData, __gm__ T* shmemData,
-    __gm__ int64_t *hcclContext)
+TILEOP void ShmemPut(__gm__ int32_t* dummy, __ubuf__ T* buffer, __gm__ T* nonShmemDataBaseAddr, __gm__ T* shmemDataBaseAddr,
+    uint32_t nonShmemDataOffset0, uint32_t nonShmemDataOffset1, uint32_t nonShmemDataRawShape0,
+    uint32_t nonShmemDataRawShape1, uint32_t shmemDataOffset0, uint32_t shmemDataOffset1, uint32_t shmemDataOffset2, uint32_t shmemDataOffset3,
+    uint32_t shmemDataRawShape0, uint32_t shmemDataRawShape1, uint32_t shmemDataRawShape2, uint32_t shmemDataRawShape3, __gm__ int64_t *hcclContext)
 {
+    (void)nonShmemDataRawShape0;
+    (void)shmemDataRawShape0;
     (void)dummy;
-    CopyGmToGm<T, rowShape, colShape>(shmemData, buffer, nonShmemData);
+    __gm__ T* nonShmemDataAddr = nonShmemDataBaseAddr + nonShmemDataOffset0 * nonShmemDataRawShape1 + nonShmemDataOffset1;
+    __gm__ T* shmemDataAddr = shmemDataBaseAddr + shmemDataOffset1 * shmemDataRawShape2 * shmemDataRawShape3 + shmemDataOffset2 * shmemDataRawShape3 + shmemDataOffset3;
+    CopyGmToGm<T, rowShape, colShape>(shmemDataAddr, buffer, nonShmemDataAddr);
 }
 
-template<typename T, int32_t value, AtomicType atomicType>
-TILEOP void ShmemSignal(__gm__ int32_t* shmemSignal, __ubuf__ int32_t* buffer, __gm__ T* dummy,
-    __gm__ int64_t *hcclContext)
+template<int32_t value, AtomicType atomicType>
+TILEOP void ShmemSignal(__ubuf__ int32_t* buffer, __gm__ int32_t* dummy, __gm__ int32_t* shmemSignalBaseAddr,
+    uint32_t shmemSignalOffset0, uint32_t shmemSignalOffset1, uint32_t shmemSignalOffset2, uint32_t shmemSignalOffset3,
+    uint32_t shmemSignalRawShape0, uint32_t shmemSignalRawShape1, uint32_t shmemSignalRawShape2, uint32_t shmemSignalRawShape3, __gm__ int64_t *hcclContext)
 {
+    (void)shmemSignalRawShape0;
     (void)dummy;
+    __gm__ int32_t* shmemSignalAddr = shmemSignalBaseAddr + shmemSignalOffset1 * shmemSignalRawShape2 * shmemSignalRawShape3 + shmemSignalOffset2 * shmemSignalRawShape3 + shmemSignalOffset3;
     const uint16_t sid = 0;
     const uint16_t nBurst = 1;
     const uint16_t lenBurst = 1;
@@ -76,18 +85,24 @@ TILEOP void ShmemSignal(__gm__ int32_t* shmemSignal, __ubuf__ int32_t* buffer, _
     }
     set_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
     wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
-    copy_ubuf_to_gm(shmemSignal, buffer, sid, nBurst, lenBurst, dstStride, srcStride);
+    copy_ubuf_to_gm(shmemSignalAddr, buffer, sid, nBurst, lenBurst, dstStride, srcStride);
     if constexpr (atomicType == AtomicType::ADD) {
         set_atomic_none();
     }
 }
 
 template<typename T, uint16_t rowShape, uint16_t colShape>
-TILEOP void ShmemGet(__gm__ T* nonShmemData, __ubuf__ T* buffer, __gm__ T* dummy, __gm__ T* shmemData,
-    __gm__ int64_t *hcclContext)
+TILEOP void ShmemGet(__gm__ T* nonShmemDataBaseAddr, __ubuf__ T* buffer, __gm__ int32_t* dummy, __gm__ T* shmemDataBaseAddr,
+    uint32_t nonShmemDataOffset0, uint32_t nonShmemDataOffset1, uint32_t nonShmemDataRawShape0,
+    uint32_t nonShmemDataRawShape1, uint32_t shmemDataOffset0, uint32_t shmemDataOffset1, uint32_t shmemDataOffset2, uint32_t shmemDataOffset3,
+    uint32_t shmemDataRawShape0, uint32_t shmemDataRawShape1, uint32_t shmemDataRawShape2, uint32_t shmemDataRawShape3, __gm__ int64_t *hcclContext)
 {
+    (void)nonShmemDataRawShape0;
+    (void)shmemDataRawShape0;
     (void)dummy;
-    CopyGmToGm<T, rowShape, colShape>(nonShmemData, buffer, shmemData);
+    __gm__ T* nonShmemDataAddr = nonShmemDataBaseAddr + nonShmemDataOffset0 * nonShmemDataRawShape1 + nonShmemDataOffset1;
+    __gm__ T* shmemDataAddr = shmemDataBaseAddr + shmemDataOffset1 * shmemDataRawShape2 * shmemDataRawShape3 + shmemDataOffset2 * shmemDataRawShape3 + shmemDataOffset3;
+    CopyGmToGm<T, rowShape, colShape>(nonShmemDataAddr, buffer, shmemDataAddr);
 }
 } // namespace TileOp::Distributed
 #endif

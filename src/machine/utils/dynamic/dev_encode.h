@@ -437,6 +437,7 @@ struct DevAscendOperation {
     uint32_t depGraphPredCount;
     DevLocalVector<int> depGraphSuccList;
     uint64_t debugOpmagic; // DEBUG_ONLY
+    uint32_t aicpuOpType;
 };
 
 struct DevAscendFunctionCallOperandUse {
@@ -532,6 +533,7 @@ struct DevAscendFunctionPredInfo {
     uint64_t totalZeroPredAIV;
     uint64_t totalZeroPredAIC;
     uint64_t totalZeroPredHub;
+    uint64_t totalZeroPredAicpu;
 };
 
 struct EncodeDevAscendFunctionParam {
@@ -901,6 +903,7 @@ public:
         oss << INDENTINNER << "#zeropred:" << predInfo_.totalZeroPred << "\n";
         oss << INDENTINNER << "#zeropred-aiv:" << predInfo_.totalZeroPredAIV << "\n";
         oss << INDENTINNER << "#zeropred-aic:" << predInfo_.totalZeroPredAIC << "\n";
+        oss << INDENTINNER << "#zeropred-aicpu:" << predInfo_.totalZeroPredAicpu << "\n";
         int totalAttrStartIdx = 0;
         for (size_t i = 0; i < GetOperationSize(); i++) {
             oss << INDENTINNER << DumpOperation(i, totalAttrStartIdx) << "\n";
@@ -983,6 +986,9 @@ public:
     }
     inline size_t GetOperationOOperandSize(int operationIndex) const {
         return At(operationList_, operationIndex).ooperandList.size();
+    }
+    inline size_t GetOperationAicpuOpType(int operationIndex) const {
+        return At(operationList_, operationIndex).aicpuOpType;
     }
 
     inline const DevAscendOperationOperandInfo &GetOperationIOperandInfo(int operationIndex, int operandIndex) const {
@@ -1423,6 +1429,7 @@ private:
             const std::vector<int32_t> &outcastStitchIndexList,
             const std::vector<int> &noPredOpList,
             const std::vector<int> &noSuccOpList,
+            const std::vector<CceCodeInfo> &cceCodeInfoList,
             bool fillContent);
 
     void InitIncastOutcast(uintdevptr_t &initOffset, const std::vector<std::shared_ptr<LogicalTensor>> &incastTensorList,
@@ -1997,6 +2004,8 @@ struct DevAscendProgram {
     uint64_t stitchPoolSize;
     uint64_t globalTensorMem;
     const void *controlFlowBinaryAddr{nullptr};
+    uint64_t hcclContext[HCCL_GROUP_NUM];
+    uint64_t commGroupNum;
     uint32_t workspaceRecyclePeriod;
     DevRelocVector<DevAscendProgramSymbol> symbolTable;
     DevRelocVector<char> symbolTableNameList;

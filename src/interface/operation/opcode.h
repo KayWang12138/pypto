@@ -333,7 +333,9 @@ public:
                opCode == Opcode::OP_INDEX_OUTCAST || opCode == Opcode::OP_REMOTE_GATHER ||
                opCode == Opcode::OP_LOCAL_COPY_OUT || opCode == Opcode::OP_REMOTE_REDUCE ||
                opCode == Opcode::OP_FFN_SCHED || opCode == Opcode::OP_FFN_BATCHING ||
-               opCode == Opcode::OP_COPY_TO_LOCAL_EXPERT;
+               opCode == Opcode::OP_COPY_TO_LOCAL_EXPERT ||
+               opCode == Opcode::OP_SHMEM_PUT || opCode == Opcode::OP_SHMEM_SIGNAL ||
+               opCode == Opcode::OP_SHMEM_GET;
     }
 
     inline bool IsCopyInOrOut(Opcode opCode) const { return IsCopyIn(opCode) || IsCopyOut(opCode); }
@@ -443,12 +445,19 @@ const std::unordered_set<Opcode> FIX_COPY_IN_OPS{Opcode::OP_FIX_COPY_IN, Opcode:
 
 const std::unordered_set<Opcode> CROSS_L1_UB_OPS{
     Opcode::OP_L1_COPY_UB, Opcode::OP_L0C_COPY_UB, Opcode::OP_UB_COPY_L1, Opcode::OP_UB_COPY_L1_ND};
+
+const std::unordered_set<Opcode> DISTRIBUTED_OPS{
+    Opcode::OP_REMOTE_GATHER, Opcode::OP_LOCAL_COPY_OUT, Opcode::OP_WRITE_REMOTE, Opcode::OP_REMOTE_REDUCE,
+    Opcode::OP_MOE_FFN_TO_ATTN, Opcode::OP_MOE_ATTN_COMBINE, Opcode::OP_SEND_TO_ROUTING_EXPERT,
+    Opcode::OP_SEND_TO_SHARED_EXPERT, Opcode::OP_COPY_TO_LOCAL_EXPERT, Opcode::OP_DISPATCH_SET_FLAG,
+    Opcode::OP_FFN_SCHED, Opcode::OP_FFN_BATCHING, Opcode::OP_SHMEM_PUT, Opcode::OP_SHMEM_SIGNAL, Opcode::OP_SHMEM_GET};
+
 inline bool IsAllocOpCode(Opcode opCode) {
     return (ALLOC_OPCODE.count(opCode) != 0);
 }
 
 inline bool IsEmptyOut(const Opcode opCode) {
-    return opCode == Opcode::OP_WRITE_REMOTE || opCode == Opcode::OP_MOE_FFN_TO_ATTN;
+    return opCode == Opcode::OP_WRITE_REMOTE || opCode == Opcode::OP_MOE_FFN_TO_ATTN || opCode == Opcode::OP_SHMEM_SIGNAL;
 }
 
 inline bool IsCopyIn(const Opcode opCode) {
@@ -460,7 +469,9 @@ inline bool IsCopyOut(const Opcode &op) {
     return (op == Opcode::OP_COPY_OUT || op == Opcode::OP_L0C_COPY_OUT || op == Opcode::OP_TRANSPOSE_MOVEOUT ||
             op == Opcode::OP_INDEX_OUTCAST || op == Opcode::OP_REMOTE_GATHER || op == Opcode::OP_LOCAL_COPY_OUT ||
             op == Opcode::OP_REMOTE_REDUCE || op == Opcode::OP_FFN_SCHED || op == Opcode::OP_FFN_BATCHING ||
-            op == Opcode::OP_COPY_TO_LOCAL_EXPERT);
+            op == Opcode::OP_COPY_TO_LOCAL_EXPERT ||
+            op == Opcode::OP_SHMEM_PUT || op == Opcode::OP_SHMEM_SIGNAL ||
+            op == Opcode::OP_SHMEM_GET);
 }
 
 inline bool IsOpCodeSupportMultiProducers(Opcode opCode) {

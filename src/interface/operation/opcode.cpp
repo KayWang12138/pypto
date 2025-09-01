@@ -296,8 +296,8 @@ OpcodeManager::OpcodeManager() {
      *    a. dummy：用于保证 SHMEM_SIGNAL 在 SHMEM_PUT 之后执行
      */
     registerInfo(Opcode::OP_SHMEM_SIGNAL, OpCoreType::AIV, "SHMEM_SIGNAL",
-        {MemoryType::MEM_DEVICE_DDR /* dummy */},
-        {MemoryType::MEM_DEVICE_DDR /* shmemSignal */, MemoryType::MEM_UB /* buffer */},
+        {MemoryType::MEM_DEVICE_DDR /* dummy */, MemoryType::MEM_DEVICE_DDR /* shmemSignal */},
+        {MemoryType::MEM_UB /* buffer */},
         {"TileOp::Distributed::ShmemSignal", PIPE_S, PIPE_S, CoreType::AIV},
         OpCalcType::DISTRIBUTED);
     /*

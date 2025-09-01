@@ -18,6 +18,7 @@
 
 #include "dynamic_tileop_common.h"
 #include "interface/cache/core_func_data.h"
+#include "../include/tileop/hccl_context.h"
 
 #define CACHELINE_SIZE_FOR_B32 128
 #define CACHELINE_SIZE_FOR_B64 64
@@ -230,6 +231,10 @@ INLINE uint64_t GetCoa(CoreFuncParam *ctx, int idx) {
     else
         return SYM_VALUE(val);
 }
+INLINE uint64_t GetShmemTensorAddr(CoreFuncParam *ctx, int idx, int groupIndex, uint64_t offset) {
+    auto dstRankId = GetCoa(ctx, idx + 1);
+    return ((__gm__ TileOp::HcclCombinOpParam *)ctx->funcData->hcclContext[groupIndex])->windowsIn[dstRankId] + offset;
+}
 
 INLINE
 int64_t RuntimeGetViewValidShapeDim(int64_t validshape, int64_t viewOffset, int64_t viewshape) {
@@ -244,6 +249,7 @@ int64_t RuntimeGetViewValidShapeDim(int64_t validshape, int64_t viewOffset, int6
 #define RUNTIME_GetViewValidShapeDim(validShape, viewOffset, viewShape) RuntimeGetViewValidShapeDim(validShape, viewOffset, viewShape)
 
 #define GET_PARAM_ADDR(param, n, base) GetTensorAddr(param, base)
+#define GET_SHMEM_ADDR(param, n, base, group, offset) GetShmemTensorAddr(param, base, group, offset)
 
 #define GET_PARAM_OFFSET_BY_IDX(param, n, base, dim, idx)         GetCoa(param, ((base) + 1) + 0 * (dim) + idx)
 #define GET_PARAM_SHAPE_BY_IDX(param, n, base, dim, idx)          GetCoa(param, ((base) + 1) + 1 * (dim) + idx)

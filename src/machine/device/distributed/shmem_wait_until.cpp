@@ -23,7 +23,7 @@
 
 #include "securec.h"
 
-#include "tileop/a2a3/hccl_context.h"
+#include "tileop/hccl_context.h"
 #include "machine/utils/device_log.h"
 #include "interface/cache/core_func_data.h"
 #include "neon_stub.h"
@@ -57,20 +57,16 @@ void ShmemWaitUntil::Init(DeviceTask *deviceTask)
     (void)deviceTask;
 }
 
-void ShmemWaitUntil::EnqueueOp(uint64_t taskId, SignalTensorInfo &info)
+void ShmemWaitUntil::EnqueueOp(uint64_t taskId, TensorInfo& info)
 {
-    auto paramList = info.attr;
-    uint32_t offset1 = paramList[0x1];
-    uint32_t offset2 = paramList[0x2];
-    uint32_t offset3 = paramList[0x3];
-    // shape0 固定是 1，因为每个 TileOp 处理一张接收卡上的 signal，不需要使用
-    // shape1 是当前 tile 块的 rankShape，目前不考虑 rank 切分，不需要使用
-    uint32_t shape2 = paramList[0x6];
-    uint32_t shape3 = paramList[0x7];
-    // rawShape0 和 rawShape1 固定是 rankSize，不需要使用
-    uint32_t rawShape2 = paramList[0xA];
-    uint32_t rawShape3 = paramList[0xB];
-    int32_t expectedSum = static_cast<int32_t>(paramList[0xC]);
+    const uint32_t offset1 = info.offset[1]; // offset 1
+    const uint32_t offset2 = info.offset[2]; // offset 2
+    const uint32_t offset3 = info.offset[3]; // offset 3
+    const uint32_t shape2 = info.shape[2]; // shape 2
+    const uint32_t shape3 = info.shape[3]; // shape 3
+    const uint32_t rawShape2 = info.rawShape[2]; // raw shape 2
+    const uint32_t rawShape3 = info.rawShape[3]; // raw shape 3
+    const int32_t expectedSum = 1; // todo
     DEV_DEBUG("ShmemWaitUntil::EnqueueOp offset1=%u, offset2=%u, offset3=%u, shape2=%u, shape3=%u, rawShape2=%u, rawShape3=%u", offset1, offset2, offset3, shape2, shape3, rawShape2, rawShape3);
 
     int32_t* addr = reinterpret_cast<int32_t*>(info.rawAddr) + offset1 * rawShape2 * rawShape3 + offset2 * rawShape3 + offset3;

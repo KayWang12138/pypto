@@ -80,7 +80,8 @@ void DevAscendFunction::InitOperationDynamicField(
     duppedDataAllocSize_ = sizeof(DevAscendFunctionDuppedData) + totalDataSize;
     duppedDataCopySize_ = sizeof(DevAscendFunctionDuppedData) + predCountListDataSize;
     predInfo_ = predInfo;
-    ALOG_INFO("Pred: zero=", predInfo.totalZeroPred, " aiv=", predInfo.totalZeroPredAIV, " aic=", predInfo.totalZeroPredAIC, " hub=", predInfo.totalZeroPredHub);
+    ALOG_INFO("Pred: zero=", predInfo.totalZeroPred, " aiv=", predInfo.totalZeroPredAIV,
+        " aic=", predInfo.totalZeroPredAIC, " hub=", predInfo.totalZeroPredHub, " aicpu=", predInfo.totalZeroPredAicpu);
 
     ONFILLCONTENT {
         DevAscendFunctionDuppedData *dupData = reinterpret_cast<DevAscendFunctionDuppedData *>(&At(duppedData_, 0));
@@ -352,6 +353,7 @@ void DevAscendFunction::InitOperation(
         const std::vector<int32_t> &outcastStitchIndexList,
         const std::vector<int> &noPredOpList,
         const std::vector<int> &noSuccOpList,
+        const std::vector<CceCodeInfo> &cceCodeInfoList,
         bool fillContent) {
     noPredOpList_.HostInitDataSizeOffset(initOffset, noPredOpList.size());
     noSuccOpList_.HostInitDataSizeOffset(initOffset, noSuccOpList.size());
@@ -451,6 +453,8 @@ void DevAscendFunction::InitOperation(
 
             At(opAttrOffsetList_, i) = staticAttrSize;
             At(opCalleeList_, i) = calleeHashIndexDict.at(callop->GetCalleeHash().GetHash());
+            int leafIndex = At(opCalleeList_, i);
+            staticField.aicpuOpType = cceCodeInfoList[leafIndex].aicpuOpType;
             staticAttrSize += opStaticAttrSize;
 
             // Fill succ
@@ -691,6 +695,7 @@ struct EncodeDevAscendFunctionInfo {
     uint64_t totalZeroPredAIV{0};
     uint64_t totalZeroPredAIC{0};
     uint64_t totalZeroPredHub{0};
+    uint64_t totalZeroPredAicpu{0};
 
     std::unordered_map<Operation *, uint64_t> callOpPredDict;
     std::unordered_map<Operation *, OrderedSet<Operation *>> callOpSuccDict;
@@ -1219,7 +1224,7 @@ struct EncodeDevAscendFunctionInfo {
 
             uint32_t coreType = cceCodeInfoList[cceIndex].coreType;
             ASSERT(coreType == static_cast<uint32_t>(CoreType::AIV) || coreType == static_cast<uint32_t>(CoreType::AIC) ||
-                   coreType == static_cast<uint32_t>(CoreType::HUB));
+                   coreType == static_cast<uint32_t>(CoreType::HUB) || coreType == static_cast<uint32_t>(CoreType::AICPU));
             callopCoreTypeDict[op] = coreType;
         }
         static_assert(CoreType::AIV < CoreType::AIC);
@@ -1251,6 +1256,8 @@ struct EncodeDevAscendFunctionInfo {
                 totalZeroPredAIC++;
             } else if (callopCoreTypeDict[callopList[i]] == static_cast<uint32_t>(CoreType::HUB)) {
                 totalZeroPredHub++;
+            } else if (callopCoreTypeDict[callopList[i]] == static_cast<uint32_t>(CoreType::AICPU)) {
+                totalZeroPredAicpu++;
             } else {
                 ASSERT(false);
             }
@@ -1267,7 +1274,8 @@ struct EncodeDevAscendFunctionInfo {
     void Init(DevAscendFunction *devFunc, const EncodeDevAscendFunctionParam &param, bool fillContent) {
         auto slot = param.slot;
         uintdevptr_t initOffset = reinterpret_cast<uintdevptr_t>(&devFunc->data) - reinterpret_cast<uintdevptr_t>(devFunc);
-        DevAscendFunctionPredInfo predInfo = {totalZeroPred, totalZeroPredAIV, totalZeroPredAIC, totalZeroPredHub};
+        DevAscendFunctionPredInfo predInfo = {totalZeroPred, totalZeroPredAIV, totalZeroPredAIC, totalZeroPredHub,
+            totalZeroPredAicpu};
         devFunc->sourceFunc = nullptr;
         devFunc->InitIncastOutcastAttr(initOffset, incastList, outcastList, fillContent);
         devFunc->InitOperationDynamicField(initOffset, predInfo, outcastStitchCount, calleeHashIndexDict,
@@ -1275,7 +1283,7 @@ struct EncodeDevAscendFunctionInfo {
         devFunc->InitRawTensorAndMemoryRequirement(initOffset, incastRawTensorList, outcastRawTensorList,
             rawTensorList, rawMagicToRawTensor, rawAttrs, param, expressionTable, fillContent);
         devFunc->InitTensor(initOffset, tensorList, rawTensorList, fillContent);
-        devFunc->InitOperation(initOffset, expressionTable, callList, tensorList, rawTensorList, callOpPredDict, callOpSuccDict, calleeHashIndexDict, outcastStitchIndexList, noPredOpList, noSuccOpList, fillContent);
+        devFunc->InitOperation(initOffset, expressionTable, callList, tensorList, rawTensorList, callOpPredDict, callOpSuccDict, calleeHashIndexDict, outcastStitchIndexList, noPredOpList, noSuccOpList, cceCodeInfoList, fillContent);
         devFunc->InitIncastOutcast(initOffset, incastList, outcastList, tensorList, incastOpAttrDict, outcastOpAttrDict, slot, rawName, fillContent);
     }
 };
@@ -1548,6 +1556,7 @@ struct EncodeDevAscendProgramInfo {
                 dyndevAttr->inoutLink.partialUpdateSlotIdexList,
                 fillContent);
         devProg->InitPrefetchInfoList(initOffset, dyndevAttr->l2InfoList, fillContent);
+        devProg->commGroupNum = dyndevAttr->commGroupNum;
         devProg->InitDisableL2List(initOffset, dyndevAttr->disableL2List, fillContent);
     }
 };
