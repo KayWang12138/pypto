@@ -108,8 +108,12 @@ std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function &dstFunc, bool crea
 
     std::shared_ptr<RawTensor> rawTensor = dstFunc.GetTensorMap().GetRawTensorByRawMagic(tensor->rawmagic);
     if (rawTensor == nullptr || create) {
-        rawTensor =
-            std::make_shared<RawTensor>(tensor->datatype, tensor->rawshape, tensor->symbol, tensor->rawmagic);
+        if (create) {
+            rawTensor = std::make_shared<RawTensor>(tensor->datatype, tensor->rawshape, tensor->symbol);
+        } else {
+            rawTensor =
+                std::make_shared<RawTensor>(tensor->datatype, tensor->rawshape, tensor->symbol, tensor->rawmagic);
+        }
         rawTensor->SetSymbol(tensor->GetSymbol());
         rawTensor->actualRawmagic = tensor->actualRawmagic;
         rawTensor->UpdateDynRawShape(tensor->GetDynRawShape());
@@ -118,8 +122,8 @@ std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function &dstFunc, bool crea
 
     std::shared_ptr<LogicalTensor> newTensor = std::make_shared<LogicalTensor>(dstFunc, rawTensor,
         offset, shape, dynValidShape_, nodetype, tensorfmt);
-    newTensor->isSubGraphBoundary = isSubGraphBoundary;
     newTensor->subGraphID = subGraphID;
+    newTensor->isSubGraphBoundary = isSubGraphBoundary;
     if (!create) {
         newTensor->magic = magic;
         if (magic >= dstFunc.magicSeed_) {
