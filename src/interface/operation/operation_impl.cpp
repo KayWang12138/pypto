@@ -776,8 +776,11 @@ void TileReduceNew(Function &function, const TileShape &tileShape, const std::st
                 tmpShape[1] = tileShape.V(axis) / BLOCK_NUM;
             }
             unsigned tmpBufSize = tmpShape[0] * tmpShape[1] * BytesOf(in->Datatype());
-            // Set the threshold of tmp buffer size as 32KB
-            assert(tmpBufSize <= MAX_TMP_BUF_SHAPE);
+            if (op == "SUM") {
+                assert(tmpBufSize <= MAX_TMP_BUF_SHAPE);
+            } else {
+                assert(tmpBufSize <= MAX_TMP_BUF_SHAPE * NUM2);
+            }
             auto tempTensor = std::make_shared<LogicalTensor>(function, in->Datatype(), tmpShape);
             auto &newOp = function.AddOperation("TILE_ROW" + op + "_SINGLE", {sourceReg}, {result, tempTensor});
             newOp.SetAttribute(OP_ATTR_PREFIX + "AXIS", axis);
