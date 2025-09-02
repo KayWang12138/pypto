@@ -297,8 +297,18 @@ void PreGraphProcess::DeleteRedundantAssemble(Function &function) const {
                     }
                 } else {
                     concurrentAssembles.emplace(cons);
-                    for (auto &consOfCons : cons->oOperand[0]->GetConsumers()) {
-                        SubstituteInput(consOfCons, cons->oOperand[0], output);
+                    auto consConsumersBackup = cons->GetOOperands().front()->GetConsumers();
+                    /*
+                         /--> op[Assemble]   --> output
+                    input --> cons[Assemble] --> consOutput --> consOfCons1
+                                                 \--> consOfCons2
+                    after:
+                                                    /--> consOfCons1
+                        /--> op[Assemble] --> output --> consOfCons2
+                    input --> cons[Assemble] --> consOutput
+                    */
+                    for (auto &consOfCons : consConsumersBackup) {
+                        SubstituteInput(consOfCons, cons->GetOOperands().front(), output);
                     }
                 }
             } else {
