@@ -8,7 +8,7 @@
 # ======================================================================================================================
 
 file(GLOB_RECURSE _Runtime_Srcs *.cpp)
-
+add_definitions(-DSRCPATH="${TILE_FWK_SRC_ROOT}")
 add_library(tile_fwk_runtime SHARED)
 target_sources(tile_fwk_runtime PRIVATE ${_Runtime_Srcs})
 target_include_directories(tile_fwk_runtime

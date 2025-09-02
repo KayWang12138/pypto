@@ -83,6 +83,7 @@ private:
     int launchDynamicAiCpu(rtStream_t stream, AstKernelArgs *kArgs);
     int RunPrepare(rtStream_t stream);
     int launchDynamicAiCpuInit(rtStream_t stream, AstKernelArgs *kArgs);
+    void InitAiCpuSoBin();
 private:
     int devId_;
     int aicpuNum_{5};

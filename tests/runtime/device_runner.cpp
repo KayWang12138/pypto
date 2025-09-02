@@ -19,17 +19,24 @@
 #include <cstdint>
 #include <cstdlib>
 #include <mutex>
+#include <limits.h>
 #include "securec.h"
 #include "runtime.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/kernel/aicore.h"
 #include "interface/utils/log.h"
+#include "interface/utils/file_utils.h"
 #include "runtime/mem.h"
 #include "machine/utils/device_switch.h"
 #include "interface/utils/common.h"
-#include "interface/utils/file_utils.h"
 #include "interface/configs/config_manager.h"
 #include "interface/utils/op_info_manager.h"
+
+#ifdef SRCPATH
+constexpr const char *SRC_PATH = SRCPATH;
+#else
+constexpr const char *SRC_PATH = ".";
+#endif
 
 extern char _binary_kernel_o_start[];
 extern char _binary_kernel_o_end[];
@@ -46,6 +53,7 @@ constexpr int32_t MEMORY_UB = 7;
 constexpr int32_t L2_CACHE = 8;
 constexpr int32_t PATH_LENGTH = 64;
 constexpr uint32_t LOG_BUF_SIZE = 64 * 1024;
+bool g_IsFirstInit = false;
 
 extern "C" __attribute__((weak)) int AdxDataDumpServerUnInit();
 namespace npu::tile_fwk {
@@ -303,6 +311,11 @@ int DeviceRunner::RunAsync(rtStream_t stream, int64_t taskId, uint64_t taskData,
         return rc;
     }
 
+    if (!g_IsFirstInit) {
+        InitAiCpuSoBin();
+    }
+    g_IsFirstInit = true;
+
     rc = LaunchAiCpu(stream, taskId, taskData, taskType);
     if (rc < 0) {
         ALOG_INFO_F("launch aicpu failed %d\n", rc);
@@ -385,6 +398,21 @@ int DeviceRunner::launchDynamicAiCpu(rtStream_t stream, AstKernelArgs *kArgs) {
         rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", aicpuNum_, &rtArgs, nullptr, stream, 0);
 }
 
+void DeviceRunner::InitAiCpuSoBin() {
+    std::vector<char> buffer;
+    std::string fileName = std::string(SRC_PATH) + "/build/libtilefwk_backend_server.so";
+    if (!ReadBytesFromFile(fileName, buffer)) {
+        ALOG_ERROR_F("Read bin form tilefwk_backend_server.so failed, please check the so[%s]", fileName.c_str());
+        return;
+    };
+    size_t aicpuDataLength = buffer.size();
+    auto dAicpuData = DevAlloc(aicpuDataLength);
+    rtMemcpy(dAicpuData, aicpuDataLength, reinterpret_cast<void *>(buffer.data()),
+             aicpuDataLength, RT_MEMCPY_HOST_TO_DEVICE);
+    args_.aicpuSoBin = reinterpret_cast<uint64_t>(dAicpuData);
+    args_.aicpuSoLen = buffer.size();
+}
+
 int DeviceRunner::launchDynamicAiCpuInit(rtStream_t stream, AstKernelArgs *kArgs) {
     struct Args {
         AstKernelArgs kArgs;
@@ -437,6 +465,10 @@ int DeviceRunner::RunPrepare(rtStream_t stream) {
 }
 
 int DeviceRunner::DynamicRun(rtStream_t stream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim, int launchAicpuNum) {
+    if (!g_IsFirstInit) {
+        InitAiCpuSoBin();
+    }
+    g_IsFirstInit = true;
     auto localArgs = args_;
     auto size = sizeof(localArgs);
     int maxAicoreNum = 25;
