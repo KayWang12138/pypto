@@ -98,7 +98,7 @@ struct FuncRunnerConfig {
     int aicpuNum{5};
     int64_t dynWorkspaceSize{0};
     int64_t repeatNum{1};
-    bool runModel{false};
+    bool runModel{true};
     std::vector<uint64_t> hcclContext;
 
     FuncRunnerConfig() = default;
