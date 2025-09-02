@@ -108,17 +108,17 @@ std::string CodeGenOpCloudNPU::GenMemL1SpillIntoGM(
 
     // Query ub variable name
     auto l1AllocKey = sm->CreateAllocKey(opInfo.operands[ID0]);
-    std::vector<int> gmOffset = offset[gmIdx];
-    std::vector<int> l1TileOffset = offset[l1Idx];
+    std::vector<int64_t> gmOffset = offset[gmIdx];
+    std::vector<int64_t> l1TileOffset = offset[l1Idx];
     unsigned l1Offset = l1TileOffset[ID0] * l1TileOffset[ID1];
     std::string addrExpr[ID2];
     addrExpr[gmIdx] = GenGMAddrExprWithOffset(GM_STACK_BASE, gmIdx);
     addrExpr[l1Idx] = GenAddrExpr(sm->QueryVariableName(l1AllocKey), l1Offset);
 
-    std::vector<int> gmShape = rawShape[gmIdx];
+    std::vector<int64_t> gmShape = rawShape[gmIdx];
     ALOG_INFO_F("GenMemOpL1 op: %s, gmShape: %s", opInfo.op.c_str(), IntVecToStr(gmShape).c_str());
 
-    std::vector<int> l1Shape = rawShape[l1Idx];
+    std::vector<int64_t> l1Shape = rawShape[l1Idx];
     ALOG_INFO_F("GenMemOpL1 op: %s, l1Shape: %s", opInfo.op.c_str(), IntVecToStr(l1Shape).c_str());
 
     // Spilling out scene only support 2-dim shape
@@ -157,13 +157,13 @@ std::string CodeGenOpCloudNPU::GenMemL1SpillIntoGM(
 std::string CodeGenOpCloudNPU::GenMemL1ToL0() const {
     std::string paramStr = GenParamsStr();
 
-    std::vector<int> l1Shape = this->rawShape[ID1];
+    std::vector<int64_t> l1Shape = this->rawShape[ID1];
     ALOG_INFO_F("GenMemL1ToL0 %s, l1Shape is %s", tileOpName.c_str(), IntVecToStr(l1Shape).c_str());
 
-    std::vector<int> l0Shape = this->rawShape[ID0];
+    std::vector<int64_t> l0Shape = this->rawShape[ID0];
     ALOG_INFO_F("GenMemL1ToL0 %s, l0Shape is %s", tileOpName.c_str(), IntVecToStr(l0Shape).c_str());
 
-    std::vector<int> l1Offset = this->offset[ID1];
+    std::vector<int64_t> l1Offset = this->offset[ID1];
 
     unsigned srcOffset0 = l1Offset[ID0];
     unsigned srcOffset1 = l1Offset[ID1];
@@ -193,8 +193,8 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0() const {
 std::string CodeGenOpCloudNPU::GenMemUBSpillIntoGM(bool isCopyUBToGM) const {
     unsigned gmIdx = isCopyUBToGM ? 0 : 1;
     unsigned ubIdx = isCopyUBToGM ? 1 : 0;
-    std::vector<int> gmShape = this->rawShape[gmIdx];
-    std::vector<int> gmOffset = this->offset[gmIdx];
+    std::vector<int64_t> gmShape = this->rawShape[gmIdx];
+    std::vector<int64_t> gmOffset = this->offset[gmIdx];
 
     std::string addrTypeHead[ID2];
     addrTypeHead[gmIdx] = GetAddrTypeByOperandType(BUF_DDR);
@@ -256,10 +256,10 @@ std::string CodeGenOpCloudNPU::GenIndexOutCastOp() const {
 
     addrExpr[gmIdx] = GenGmParamVar(gmIdx);
 
-    std::vector<int> src0OriginShape = this->originShape[ID1];
-    std::vector<int> src1OriginShape = this->originShape[ID2];
-    std::vector<int> src0RawShape = this->rawShape[ID1];
-    std::vector<int> src1RawShape = this->rawShape[ID2];
+    std::vector<int64_t> src0OriginShape = this->originShape[ID1];
+    std::vector<int64_t> src1OriginShape = this->originShape[ID2];
+    std::vector<int64_t> src0RawShape = this->rawShape[ID1];
+    std::vector<int64_t> src1RawShape = this->rawShape[ID2];
 
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID1]);
     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
@@ -268,10 +268,10 @@ std::string CodeGenOpCloudNPU::GenIndexOutCastOp() const {
 
     AppendLocalBufferVarOffset({&s0Var}, {localIdx});
 
-    std::vector<int> s0os = NormalizeShape(src0OriginShape, SHAPE_DIM4);
-    std::vector<int> gms = NormalizeShape(gmShape, SHAPE_DIM4);
-    std::vector<int> s0rs = NormalizeShape(src0RawShape, SHAPE_DIM4);
-    std::vector<int> s1rs = NormalizeShape(src1RawShape, SHAPE_DIM4);
+    std::vector<int64_t> s0os = NormalizeShape(src0OriginShape, SHAPE_DIM4);
+    std::vector<int64_t> gms = NormalizeShape(gmShape, SHAPE_DIM4);
+    std::vector<int64_t> s0rs = NormalizeShape(src0RawShape, SHAPE_DIM4);
+    std::vector<int64_t> s1rs = NormalizeShape(src1RawShape, SHAPE_DIM4);
     std::string blockSizeStr = std::to_string(blockSize);
 
     return PrintIndexOutCast(
@@ -308,12 +308,12 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastStatic(const PrintIndexOutCastPa
     const std::string &s0Var = param.s0Var;
     const std::string &s1Var = param.s1Var;
     const std::string *addrExpr = param.addrExpr;
-    const std::vector<int> &gmShape = param.gmShape;
-    std::vector<int> &src0OriginShape = param.src0OriginShape;
-    std::vector<int> &src0RawShape = param.src0RawShape;
+    const std::vector<int64_t> &gmShape = param.gmShape;
+    std::vector<int64_t> &src0OriginShape = param.src0OriginShape;
+    std::vector<int64_t> &src0RawShape = param.src0RawShape;
     // src1OriginShape do not need to normalize in current scene, so it has only 2 dim
-    std::vector<int> &src1OriginShape = param.src1OriginShape;
-    std::vector<int> &src1RawShape = param.src1RawShape;
+    std::vector<int64_t> &src1OriginShape = param.src1OriginShape;
+    std::vector<int64_t> &src1RawShape = param.src1RawShape;
     const std::string *dataTypeExpr = param.dataTypeExpr;
     int cacheModeFlag = getCacheModeFlag(param.cacheMode);
     // template param
@@ -348,11 +348,11 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastDynamic(const PrintIndexOutCastP
     const std::string &s0Var = param.s0Var;
     const std::string &s1Var = param.s1Var;
     const std::string *addrExpr = param.addrExpr;
-    std::vector<int> &src0OriginShape = param.src0OriginShape;
-    std::vector<int> &src0RawShape = param.src0RawShape;
+    std::vector<int64_t> &src0OriginShape = param.src0OriginShape;
+    std::vector<int64_t> &src0RawShape = param.src0RawShape;
     // src1OriginShape do not need to normalize in current scene, so it has only 2 dim
-    std::vector<int> &src1OriginShape = param.src1OriginShape;
-    std::vector<int> &src1RawShape = param.src1RawShape;
+    std::vector<int64_t> &src1OriginShape = param.src1OriginShape;
+    std::vector<int64_t> &src1RawShape = param.src1RawShape;
     const std::string *dataTypeExpr = param.dataTypeExpr;
     int cacheModeFlag = getCacheModeFlag(param.cacheMode);
 
@@ -395,9 +395,9 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastDynamicUnaligned(const PrintInde
     const std::string &s0Var = param.s0Var;
     const std::string &s1Var = param.s1Var;
     const std::string *addrExpr = param.addrExpr;
-    std::vector<int> &src0RawShape = param.src0RawShape;
+    std::vector<int64_t> &src0RawShape = param.src0RawShape;
     // src1OriginShape do not need to normalize in current scene, so it has only 2 dim
-    std::vector<int> &src1RawShape = param.src1RawShape;
+    std::vector<int64_t> &src1RawShape = param.src1RawShape;
     const std::string *dataTypeExpr = param.dataTypeExpr;
     int cacheModeFlag = getCacheModeFlag(param.cacheMode);
 
@@ -439,9 +439,9 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastDynamicUnaligned(const PrintInde
     return os.str();
 }
 
-std::vector<int> CodeGenOpCloudNPU::GetTileShapeForMemTransfer(
-    OperandType localType, std::vector<int> gmShape, unsigned localIdx) const {
-    std::vector<int> tileShapeForMT;
+std::vector<int64_t> CodeGenOpCloudNPU::GetTileShapeForMemTransfer(
+    OperandType localType, std::vector<int64_t> gmShape, unsigned localIdx) const {
+    std::vector<int64_t> tileShapeForMT;
     if (localIdx == 0 && localType == BUF_UB) { // copy gm to local, use shape[ID1]
         ASSERT(gmShape.size() == shape[ID1].size())
             << "gmShape size: " << gmShape.size() << ",shape[ID1] size: " << shape[ID1].size() << ", is not equal !!";
@@ -475,9 +475,9 @@ std::string CodeGenOpCloudNPU::GenMemCopyVar(bool isCopyLocalToGM, OperandType l
     addrTypeHead[gmIdx] = GetAddrTypeByOperandType(BUF_DDR);
     addrTypeHead[localIdx] = GetAddrTypeByOperandType(localType);
 
-    std::vector<int> gmShape = this->rawShape[gmIdx];
+    std::vector<int64_t> gmShape = this->rawShape[gmIdx];
     ALOG_INFO_F("gmShape is %s", IntVecToStr(gmShape).c_str());
-    std::vector<int> tileShapeForMT = GetTileShapeForMemTransfer(localType, gmShape, localIdx);
+    std::vector<int64_t> tileShapeForMT = GetTileShapeForMemTransfer(localType, gmShape, localIdx);
     ALOG_INFO_F("========dst shape is %s", IntVecToStr(shape[ID0]).c_str());
     ALOG_INFO_F("========tileShapeForMT is %s", IntVecToStr(tileShapeForMT).c_str());
 
@@ -517,8 +517,8 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CStatic(const PrintMemCopyWithL
     unsigned localIdx = param.localIdx;
     const std::string *addrTypeHead = param.addrTypeHead;
     const std::string *addrExpr = param.addrExpr;
-    const std::vector<int> &gmShape = param.gmShape;
-    const std::vector<int> &tileShapeForMT = param.tileShapeForMT;
+    const std::vector<int64_t> &gmShape = param.gmShape;
+    const std::vector<int64_t> &tileShapeForMT = param.tileShapeForMT;
     const std::vector<SymbolicScalar> &outputOffset = offsetGmSymbolic[gmIdx];
     const std::string *dataTypeExpr = param.dataTypeExpr;
 
@@ -592,7 +592,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CDynamic(const PrintMemCopyWith
     unsigned localIdx = param.localIdx;
     const std::string *addrTypeHead = param.addrTypeHead;
     const std::string *addrExpr = param.addrExpr;
-    const std::vector<int> &tileShapeForMT = param.tileShapeForMT;
+    const std::vector<int64_t> &tileShapeForMT = param.tileShapeForMT;
     const std::string *dataTypeExpr = param.dataTypeExpr;
 
     int oriTileShape0 = std::min(originShape[localIdx][ID0], tileShapeForMT[ID0]);
@@ -634,8 +634,8 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Static(const PrintMemCopyWithL1
     unsigned localIdx = param.localIdx;
     const std::string *addrTypeHead = param.addrTypeHead;
     const std::string *addrExpr = param.addrExpr;
-    const std::vector<int> &gmShape = param.gmShape;
-    const std::vector<int> &tileShapeForMT = param.tileShapeForMT;
+    const std::vector<int64_t> &gmShape = param.gmShape;
+    const std::vector<int64_t> &tileShapeForMT = param.tileShapeForMT;
     const std::string *dataTypeExpr = param.dataTypeExpr;
 
     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
@@ -690,7 +690,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL
     unsigned localIdx = param.localIdx;
     const std::string *addrTypeHead = param.addrTypeHead;
     const std::string *addrExpr = param.addrExpr;
-    const std::vector<int> &tileShapeForMT = param.tileShapeForMT;
+    const std::vector<int64_t> &tileShapeForMT = param.tileShapeForMT;
     const std::string *dataTypeExpr = param.dataTypeExpr;
 
     std::vector<std::string> gmShapeExpr = GenGetParamMacroPacked(param.gmIdx, SHAPE_DIM2, PREFIX_STR_RAW_SHAPE);
@@ -779,11 +779,11 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBStatic(const PrintMemCopyWithUB
     const std::string *addrExpr = param.addrExpr;
     std::string *dataTypeExpr = param.dataTypeExpr;
 
-    std::vector<int> os = NormalizeShape(originShape[localIdx], SHAPE_DIM5);
-    std::vector<int> dstStride = NormalizeShape(rawShape[ID0], SHAPE_DIM5);
-    std::vector<int> srcStride = NormalizeShape(rawShape[ID1], SHAPE_DIM5);
+    std::vector<int64_t> os = NormalizeShape(originShape[localIdx], SHAPE_DIM5);
+    std::vector<int64_t> dstStride = NormalizeShape(rawShape[ID0], SHAPE_DIM5);
+    std::vector<int64_t> srcStride = NormalizeShape(rawShape[ID1], SHAPE_DIM5);
 
-    std::vector<std::vector<int> *> container = {&os, &dstStride, &srcStride};
+    std::vector<std::vector<int64_t> *> container = {&os, &dstStride, &srcStride};
     if (!CombineAxis(container)) {
         CombineAxis(container, true);
     }
@@ -814,9 +814,9 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamic(const PrintMemCopyWithU
     const std::string *addrExpr = param.addrExpr;
     const std::string *dataTypeExpr = param.dataTypeExpr;
 
-    std::vector<int> newOriginShape = originShape[localIdx];
-    FillIntVecWithDummyInHead<int>(newOriginShape, MAX_DIM - originShape[localIdx].size(), 1);
-    const std::vector<int> &localRawShape = NormalizeShape(rawShape[localIdx], SHAPE_DIM5);
+    std::vector<int64_t> newOriginShape = originShape[localIdx];
+    FillIntVecWithDummyInHead<int64_t>(newOriginShape, MAX_DIM - originShape[localIdx].size(), 1);
+    const std::vector<int64_t> &localRawShape = NormalizeShape(rawShape[localIdx], SHAPE_DIM5);
 
     auto paramPack = PrepareDynamicShapeInfoForMTE(gmIdx, MAX_DIM, !param.isSpillIntoGM);
 
@@ -854,7 +854,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamicSupportUnaligned(const P
 
     std::vector<SymbolicScalar> newDynamicShape = dynamicValidShape[localIdx];
     FillIntVecWithDummyInHead<SymbolicScalar>(newDynamicShape, MAX_DIM - dynamicValidShape[localIdx].size(), 1);
-    const std::vector<int> &localRawShape = NormalizeShape(rawShape[localIdx], SHAPE_DIM5);
+    const std::vector<int64_t> &localRawShape = NormalizeShape(rawShape[localIdx], SHAPE_DIM5);
 
     auto paramPack = PrepareDynamicShapeInfoForMTE(gmIdx, MAX_DIM, !param.isSpillIntoGM);
     std::vector<std::string> gmShapeExpr = paramPack.gmOffsetExpr;

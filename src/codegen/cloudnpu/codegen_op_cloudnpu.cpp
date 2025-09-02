@@ -123,7 +123,7 @@ std::vector<std::string> CodeGenOpCloudNPU::GenSymbolicArgument(const std::vecto
     return argList;
 }
 
-bool CodeGenOpCloudNPU::CombineAxis(std::vector<std::vector<int> *> &shapes, bool secondLastAxis) const {
+bool CodeGenOpCloudNPU::CombineAxis(std::vector<std::vector<int64_t> *> &shapes, bool secondLastAxis) const {
     size_t num;
     {
         auto iter = shapes.begin();

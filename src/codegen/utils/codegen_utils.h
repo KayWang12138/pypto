@@ -36,12 +36,12 @@ std::string JoinString(const std::vector<std::string> &str_list, const std::stri
 std::string PrintParams(const std::pair<std::string, std::string> &delimiter, const std::vector<std::string> &params,
     const std::string &conj);
 
-std::vector<int> NormalizeShape(const std::vector<int> &shapeVec, unsigned dim);
+std::vector<int64_t> NormalizeShape(const std::vector<int64_t> &shapeVec, unsigned dim);
 
-inline std::vector<int> ToVecInt(const std::vector<int64_t> &shapeVec) {
-    std::vector<int> vec;
+inline std::vector<int64_t> ToVecInt(const std::vector<int64_t> &shapeVec) {
+    std::vector<int64_t> vec;
     for (auto &i : shapeVec) {
-        vec.push_back(static_cast<int>(i));
+        vec.push_back(static_cast<int64_t>(i));
     }
     return vec;
 }

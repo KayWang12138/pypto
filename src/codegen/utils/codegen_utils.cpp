@@ -44,8 +44,8 @@ std::string PrintParams(const std::pair<std::string, std::string> &delimiter, co
     return oss.str();
 }
 
-std::vector<int> NormalizeShape(const std::vector<int> &shapeVec, unsigned dim) {
-    std::vector<int> normalizedVec(dim, 1);
+std::vector<int64_t> NormalizeShape(const std::vector<int64_t> &shapeVec, unsigned dim) {
+    std::vector<int64_t> normalizedVec(dim, 1);
     for (size_t i = 0; i < shapeVec.size(); i++) {
         ASSERT(i < dim && "exceed dimension limit!");
         normalizedVec[i] = shapeVec[shapeVec.size() - 1 - i];

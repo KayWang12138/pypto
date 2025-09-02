@@ -122,8 +122,8 @@ struct CodeGenCtx {
 };
 
 struct SortParam {
-    std::vector<int> dstShape{4, 1};
-    std::vector<int> srcShape{4, 1};
+    std::vector<int64_t> dstShape{4, 1};
+    std::vector<int64_t> srcShape{4, 1};
     const std::string s0Var = "";
     const std::string dVar = "";
     const std::string srcDtypeStr = "";

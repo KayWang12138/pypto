@@ -108,8 +108,8 @@ private:
 
     TileTensor BuildTileTensor(int paramIdx, const std::string& usingType);
 
-    std::vector<int> GetTileShapeForMemTransfer(
-        OperandType localType, std::vector<int> gmShape, unsigned localIdx) const;
+    std::vector<int64_t> GetTileShapeForMemTransfer(
+        OperandType localType, std::vector<int64_t> gmShape, unsigned localIdx) const;
     std::string GenMemCopyVar(bool isCopyLocalToGM, OperandType localType, unsigned uf = 0) const;
 
     std::string GenGMAddrExprWithOffset(const std::string &addrExpr, unsigned gmIdx) const;
@@ -121,7 +121,7 @@ private:
 
     std::string GenGmParamVar(unsigned gmParamIdx) const;
 
-    bool CombineAxis(std::vector<std::vector<int> *> &shapes, bool secondLastAxis = false) const;
+    bool CombineAxis(std::vector<std::vector<int64_t> *> &shapes, bool secondLastAxis = false) const;
 
     std::vector<std::string> GenGetParamMacroPacked(unsigned gmParamIdx, int dim, const std::string &prefix) const;
 
@@ -184,8 +184,8 @@ private:
         unsigned localIdx;
         const std::string *addrTypeHead;
         const std::string *addrExpr;
-        const std::vector<int> &gmShape;
-        const std::vector<int> &tileShapeForMT;
+        const std::vector<int64_t> &gmShape;
+        const std::vector<int64_t> &tileShapeForMT;
         const std::string *dataTypeExpr;
     };
     std::string PrintMemCopyWithL0C(const PrintMemCopyWithL0CParam &param) const;
@@ -200,8 +200,8 @@ private:
         unsigned localIdx;
         const std::string *addrTypeHead;
         const std::string *addrExpr;
-        const std::vector<int> &gmShape;
-        const std::vector<int> &tileShapeForMT;
+        const std::vector<int64_t> &gmShape;
+        const std::vector<int64_t> &tileShapeForMT;
         const std::string *dataTypeExpr;
     };
     std::string PrintMemCopyWithL1(const PrintMemCopyWithL1Param &param) const;
@@ -288,7 +288,7 @@ private:
         const unsigned gmIdx;
         const unsigned localIdx;
         const std::string &localVar;
-        const std::vector<int> &gmShape;
+        const std::vector<int64_t> &gmShape;
         const std::string &localDtypeStr;
         const std::string &gmDtypeStr;
     };
@@ -303,10 +303,10 @@ private:
         const std::string &dVar;
         const std::string &s0Var;
         const std::string &s1Var;
-        std::vector<int> &dstOriginShape;
-        std::vector<int> &dstRawShape;
-        std::vector<int> &src0RawShape;
-        std::vector<int> &src1RawShape;
+        std::vector<int64_t> &dstOriginShape;
+        std::vector<int64_t> &dstRawShape;
+        std::vector<int64_t> &src0RawShape;
+        std::vector<int64_t> &src1RawShape;
         const std::string *dataTypeExpr;
     };
     std::string PrintGatherElementDynamicUnaligned(const PrintGatherEleParam &param) const;
@@ -316,11 +316,11 @@ private:
         const std::string &s0Var;
         const std::string &s1Var;
         const std::string *addrExpr;
-        const std::vector<int> &gmShape;
-        std::vector<int> &src0OriginShape;
-        std::vector<int> &src0RawShape;
-        std::vector<int> &src1OriginShape;
-        std::vector<int> &src1RawShape;
+        const std::vector<int64_t> &gmShape;
+        std::vector<int64_t> &src0OriginShape;
+        std::vector<int64_t> &src0RawShape;
+        std::vector<int64_t> &src1OriginShape;
+        std::vector<int64_t> &src1RawShape;
         const std::string *dataTypeExpr;
         const std::string &cacheMode;
         const std::string &blockSize;

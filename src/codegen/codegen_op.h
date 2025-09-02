@@ -97,13 +97,13 @@ protected:
     DataType operandDtype[MAX_OPERANDS] = {
         DataType::DT_BOTTOM, DataType::DT_BOTTOM, DataType::DT_BOTTOM, DataType::DT_BOTTOM};
     Element extOperandVal;
-    std::vector<int> offset[MAX_OPERANDS] = {};
-    std::vector<int> shape[MAX_OPERANDS] = {};
-    std::vector<int> rawShape[MAX_OPERANDS] = {};
+    std::vector<int64_t> offset[MAX_OPERANDS] = {};
+    std::vector<int64_t> shape[MAX_OPERANDS] = {};
+    std::vector<int64_t> rawShape[MAX_OPERANDS] = {};
     std::vector<OpImmediate> paramIdxForDynShape[MAX_OPERANDS] = {};
     // need adapt unaligned scene
     // Used for unaligned scene. In AST 1.0 it was padded in LogicalTensor constructor
-    std::vector<int> originShape[MAX_OPERANDS] = {};
+    std::vector<int64_t> originShape[MAX_OPERANDS] = {};
     std::vector<SymbolicScalar> dynamicValidShape[MAX_OPERANDS] = {}; // valid shape
     std::vector<SymbolicScalar> offsetGmSymbolic[MAX_OPERANDS] = {};  // for spilling into GM scene
     // if operand is an variable, record its related argument location

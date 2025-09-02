@@ -40,10 +40,10 @@ std::string CodeGenOpCloudNPU::GenTemplateParams() const
 {
     std::ostringstream oss;
     if ((opCode == Opcode::OP_SHMEM_PUT) || (opCode == Opcode::OP_SHMEM_GET)) {
-        std::vector<int32_t> inShape = rawShape[3]; // operand 3 是 shmemData
-        int rowShape = inShape[inShape.size() - 2]; // 倒数第 2 轴是 row
+        std::vector<int64_t> inShape = rawShape[ID3]; // operand 3 是 shmemData
+        int rowShape = inShape[inShape.size() - ID2]; // 倒数第 2 轴是 row
         ASSERT(rowShape > 0 && rowShape <= std::numeric_limits<uint16_t>::max()) << "rowShape is not valid";
-        int colShape = inShape[inShape.size() - 1];
+        int64_t colShape = inShape[inShape.size() - 1];
         ASSERT(colShape > 0 && colShape <= std::numeric_limits<uint16_t>::max()) << "colShape is not valid";
         oss << GetTemplateDType() << ", " << rowShape << ", " << colShape;
     } else if (opCode == Opcode::OP_SHMEM_SIGNAL) {
