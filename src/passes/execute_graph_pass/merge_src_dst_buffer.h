@@ -29,6 +29,8 @@ public:
 
 private:
     void InitTensorMaxSize(const LogicalTensorPtr &output);
+    void InitOpOutput(const Operation *op);
+    Status CheckOpValid(const Operation *op, int opId);
     Status Init(const std::vector<Operation *> &opList);
     bool CheckIgnoreScene(const Operation *oriOps);
     std::pair<bool, Status> CheckHasInplaced(const Operation *oriOps, const Operation *ops,
@@ -37,6 +39,7 @@ private:
         std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors, int &inIdx);
     void NotFindReplacedProcess(const Operation *ops,
         std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors);
+    bool CheckAssembleReuse(const LogicalTensorPtr &outOperand);
     bool CanSrcDstReuse(const Operation *ops, std::shared_ptr<LogicalTensor> ioperand, bool strict = false);
 
     std::map<int, std::set<int>> tensorConsumers_;

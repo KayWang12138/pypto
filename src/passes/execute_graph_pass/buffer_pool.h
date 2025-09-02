@@ -65,11 +65,15 @@ class BufferPool {
     // 返回tensorid 到 bufferblock的映射关系，value是bufferblock的index不是bufferblock的magic
     // 在已有的block中分配tensor空间
     Status Allocate(LocalBufferPtr tensor);
+    std::map<uint64_t, uint64_t> GenFreeIntervals(const std::map<uint64_t, uint64_t> &occupiedSpace);
     std::map<uint64_t, std::map<uint64_t, uint64_t>> FindFreeIntervals();
     bool IsFull(const LocalBufferPtr tensor);
     Status Free(const uint32_t tensorId);
     uint64_t GetMemSize();
-    std::vector<std::vector<int>> GetSpillGroup(size_t sizeNeedSpill);
+
+    size_t ObtainStartAddr(size_t i, const std::vector<std::tuple<int, size_t, size_t>> &allocatedBufs);
+    size_t UpdateIdx(size_t &i, size_t sizeNeedSpill, size_t startAddr, const std::vector<std::tuple<int, size_t, size_t>> &allocatedBufs);
+    Status GetSpillGroup(size_t sizeNeedSpill, std::vector<std::vector<int>> &canSpillGroups);
   private:
     MemoryType memType_{MemoryType::MEM_UNKNOWN};
     uint64_t memSize_{0};

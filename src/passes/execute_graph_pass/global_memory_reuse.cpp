@@ -89,6 +89,56 @@ bool Allocator::IsRawQualified(const WorkspaceInfo &outWspInfo, const WorkspaceI
     return true;
 }
 
+void Allocator::ScanParentOps(Function *leafFunc, const Operation *parent, std::unordered_set<LogicalTensorPtr> &visited, std::unordered_set<Operation*> &operations) {
+    for (LogicalTensorPtr in : parent->GetIOperands()) {
+        // 检查是否为leafFunc输入边界
+        if (leafFunc->IsFromInCast(in)) {
+            continue;
+        }
+        // 跳过已经遍历过的tensor
+        if (visited.find(in) != visited.end()) {
+            continue;
+        }
+        visited.insert(in);
+        for (Operation* producer : in->GetProducers()) {
+            operations.insert(producer);
+        }
+    }
+}
+
+bool Allocator::CheckReuseOp(const std::unordered_set<Operation*> &operations, std::deque<Operation*> &parents, const WorkspaceInfo &outWspInfo, std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inWspCnt, std::vector<WorkspaceInfo> &leafFuncReuseMap) {
+    auto &out = outWspInfo.tensor;
+    for (Operation* operation : operations) {
+        if (!OpcodeManager::Inst().IsCopyIn(operation->GetOpcode())) {
+            parents.push_back(operation);
+            continue;
+        }
+        LogicalTensorPtr copyInInput = operation->GetIOperands()[0];
+        auto iter = inWspCnt.find(copyInInput);
+        if (iter == inWspCnt.end()) {
+            parents.push_back(operation);
+            continue;
+        }
+        // 检查复用条件
+        WorkspaceInfo& candidate = iter->second;
+        bool countCheck = candidate.count == 1;
+        bool sizeCheck = candidate.size >= outWspInfo.size && candidate.size < outWspInfo.size * MEM_PROPORTION_COEFF;
+        bool usageCheck = !candidate.used;
+        bool rawReuseCompatible = IsRawQualified(outWspInfo, candidate);
+        if (countCheck && sizeCheck && usageCheck && rawReuseCompatible) {
+            candidate.used = true;
+            leafFuncReuseMap[outWspInfo.position] = candidate;
+            // 记录复用日志
+            ALOG_INFO_F(
+                "$$$$$$$$$$$$ Outcast %d raw %d can reuse incast %d raw %d size [%zu : %zu].",
+                out->magic, out->tensor->rawmagic, copyInInput->magic, copyInInput->tensor->rawmagic,
+                candidate.size, outWspInfo.size);
+            return false;
+        }
+    }
+    return true;
+}
+
 // 在不引入额外同步的情况下，完成内存的复用，找到某一个CopyOut的前驱的CopyIn，依赖关系天然存在
 // 极限的复用，可以不考虑依赖关系，只看节点之间的顺序，在后续insert sync时可以插入mte3 wait mte2的同步，但是可能会有性能劣化。
 void Allocator::FindReusableInputForOutput(Function *leafFunc, Operation *op, const WorkspaceInfo &outWspInfo,
@@ -101,56 +151,15 @@ void Allocator::FindReusableInputForOutput(Function *leafFunc, Operation *op, co
 
     parents.push_back(op);
 
-    auto &out = outWspInfo.tensor;
-
     while (!parents.empty()) {
         Operation* parent = parents.front();
         parents.pop_front();
         // 存储本层的所有操作，容器可自动去除重复值
         std::unordered_set<Operation*> operations;
-
-        for (LogicalTensorPtr in : parent->GetIOperands()) {
-            // 检查是否为leafFunc输入边界
-            if (leafFunc->IsFromInCast(in)) {
-                continue;
-            }
-            // 跳过已经遍历过的tensor
-            if (visited.find(in) != visited.end()) {
-                continue;
-            }
-            visited.insert(in);
-
-            for (Operation* producer : in->GetProducers()) {
-                operations.insert(producer);
-            }
-        }
-        for (Operation* operation : operations) {
-            if (!OpcodeManager::Inst().IsCopyIn(operation->GetOpcode())) {
-                parents.push_back(operation);
-                continue;
-            }
-            LogicalTensorPtr copyInInput = operation->GetIOperands()[0];
-            auto iter = inWspCnt.find(copyInInput);
-            if (iter == inWspCnt.end()) {
-                parents.push_back(operation);
-                continue;
-            }
-            // 检查复用条件
-            WorkspaceInfo& candidate = iter->second;
-            bool countCheck = candidate.count == 1;
-            bool sizeCheck = candidate.size >= outWspInfo.size && candidate.size < outWspInfo.size * MEM_PROPORTION_COEFF;
-            bool usageCheck = !candidate.used;
-            bool rawReuseCompatible = IsRawQualified(outWspInfo, candidate);
-            if (countCheck && sizeCheck && usageCheck && rawReuseCompatible) {
-                candidate.used = true;
-                leafFuncReuseMap[outWspInfo.position] = candidate;
-                // 记录复用日志
-                ALOG_INFO_F(
-                    "$$$$$$$$$$$$ Outcast %d raw %d can reuse incast %d raw %d size [%zu : %zu], leaf hash %lu.",
-                    out->magic, out->tensor->rawmagic, copyInInput->magic, copyInInput->tensor->rawmagic,
-                    candidate.size, outWspInfo.size, leafFunc->GetFunctionHash().GetHash());
-                return;
-            }
+        ScanParentOps(leafFunc, parent, visited, operations);
+        if (!CheckReuseOp(operations, parents, outWspInfo, inWspCnt, leafFuncReuseMap)) {
+            ALOG_INFO_F("$$$$$$$$$$$$ leaf hash %lu.", leafFunc->GetFunctionHash().GetHash());
+            return;
         }
     }
 }
@@ -212,22 +221,7 @@ bool HasReshapeConsumer(const LogicalTensorPtr &tensor) {
     return false;
 }
 
-// leaf内复用注意：
-// 1. leaf的Incast、Outcast如果有重复，那么是不能被复用，也不需要复用的。
-// 2. reshape的相关处理
-// 3. 对outcast中没有actual raw magic且数量为1，且rawshape = shape的做广度优先遍历, 找到距离最近的一个incast，并将他们标记为
-// 一对可以复用的incast outcast pair。
-// 4. 如果incast的size大于outcast，那么也可以复用，但是要给outcast的tensor上打上偏移量。
-// 5. 如果outcast的shape不等于rawshape，那么不能复用，这种场景较为复杂，有优化空间
-// 6. 如果outcast在leafFunction中存在后继的reshape，那么不需要复用
-void Allocator::ProcessLeafGlobalMemoryReuse(Function *leafFunc) {
-    ALOG_DEBUG_F("[LeafReuse] Processing leaf function: %s hash=%lu.", leafFunc->GetMagicName().c_str(),
-        leafFunc->GetFunctionHash().GetHash());
-    std::unordered_map<LogicalTensorPtr, size_t> tensorToInfo;
-    std::vector<WorkspaceInfo> outWspInfo;
-    // 获取或创建该 leaf function 的 LeafFuncOutputInputReuseMap_ 数据
-    std::vector<WorkspaceInfo>& leafFuncReuseMap = GetLeafFuncOutputInputReuseMap(leafFunc);
-
+void Allocator::CollectOutputTensor(Function *leafFunc, std::unordered_map<LogicalTensorPtr, size_t> &tensorToInfo, std::vector<WorkspaceInfo> &outWspInfo, std::vector<WorkspaceInfo>& leafFuncReuseMap) {
     for (size_t i = 0; i < leafFunc->outCasts_.size(); ++i) {
         LogicalTensorPtr out = leafFunc->outCasts_[i];
         leafFuncReuseMap.emplace_back(WorkspaceInfo());
@@ -247,8 +241,9 @@ void Allocator::ProcessLeafGlobalMemoryReuse(Function *leafFunc) {
         outWspInfo.emplace_back(WorkspaceInfo(1, i, rawDataSize, out));
         tensorToInfo[out] = outWspInfo.size() - 1;
     }
-    std::unordered_map<LogicalTensorPtr, WorkspaceInfo> inWspCnt;
+}
 
+void Allocator::CollectInputTensor(Function *leafFunc, std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inWspCnt) {
     for (size_t i = 0; i < leafFunc->inCasts_.size(); ++i) {
         LogicalTensorPtr in = leafFunc->inCasts_[i];
 
@@ -269,7 +264,26 @@ void Allocator::ProcessLeafGlobalMemoryReuse(Function *leafFunc) {
             inWspCnt[in] = WorkspaceInfo(1, i, size, in);
         }
     }
+}
 
+// leaf内复用注意：
+// 1. leaf的Incast、Outcast如果有重复，那么是不能被复用，也不需要复用的。
+// 2. reshape的相关处理
+// 3. 对outcast中没有actual raw magic且数量为1，且rawshape = shape的做广度优先遍历, 找到距离最近的一个incast，并将他们标记为
+// 一对可以复用的incast outcast pair。
+// 4. 如果incast的size大于outcast，那么也可以复用，但是要给outcast的tensor上打上偏移量。
+// 5. 如果outcast的shape不等于rawshape，那么不能复用，这种场景较为复杂，有优化空间
+// 6. 如果outcast在leafFunction中存在后继的reshape，那么不需要复用
+void Allocator::ProcessLeafGlobalMemoryReuse(Function *leafFunc) {
+    ALOG_DEBUG_F("[LeafReuse] Processing leaf function: %s hash=%lu.", leafFunc->GetMagicName().c_str(),
+        leafFunc->GetFunctionHash().GetHash());
+    std::unordered_map<LogicalTensorPtr, size_t> tensorToInfo;
+    std::vector<WorkspaceInfo> outWspInfo;
+    std::unordered_map<LogicalTensorPtr, WorkspaceInfo> inWspCnt;
+    // 获取或创建该 leaf function 的 LeafFuncOutputInputReuseMap_ 数据
+    std::vector<WorkspaceInfo>& leafFuncReuseMap = GetLeafFuncOutputInputReuseMap(leafFunc);
+    CollectOutputTensor(leafFunc, tensorToInfo, outWspInfo, leafFuncReuseMap);
+    CollectInputTensor(leafFunc, inWspCnt);
     // 处理每个输出tensor的内存复用
     for (auto &wspInfo : outWspInfo) {
         ProcessOutputForGlobalMemoryReuse(leafFunc, wspInfo, inWspCnt, leafFuncReuseMap);
@@ -498,6 +512,40 @@ TensorBucket &Allocator::GetBestFitBucket(const TensorsDesc &tensorsDesc) {
     return buckets_.back();
 }
 
+bool Allocator::CalOffsetRawShape(size_t dimCount, const std::vector<SymbolicScalar> &argList, std::vector<int> &offsets, std::vector<int> &rawShapes) const {
+    const size_t offsetStartIdx = OFFSET_INDEX;
+    const size_t rawShapeStartIdx = OFFSET_INDEX + 2 * dimCount;
+    for (size_t i = 0; i < dimCount; i++) {
+        const size_t argPos = offsetStartIdx + i;
+        if (argPos >= argList.size() || !argList[argPos].IsImmediate()) {
+            return false;
+        }
+        offsets.emplace_back(argList[argPos].Concrete());
+    }
+    for (size_t i = 0; i < dimCount; i++) {
+        const size_t argPos = rawShapeStartIdx + i;
+        if (argPos >= argList.size() || !argList[argPos].IsImmediate()) {
+            return false;
+        }
+        rawShapes.emplace_back(argList[argPos].Concrete());
+    }
+    return true;
+}
+
+void Allocator::CalStridesStorageOffset(size_t dimCount, const LogicalTensorPtr &input, std::vector<int> &offsets, std::vector<int> &rawShapes, uint64_t& storageOffset) const {
+    // 计算步长
+    std::vector<int> strides(dimCount, 1);
+    for (int i = static_cast<int>(dimCount) - 2; i >= 0; i--) {
+        strides[i] = rawShapes[i + 1] * strides[i + 1];
+    }
+    // 计算存储偏移量
+    for (size_t i = 0; i < dimCount; ++i) {
+        storageOffset += offsets[i] * strides[i];
+    }
+    const size_t bytesPerElement = BytesOf(input->tensor->datatype);
+    storageOffset *= bytesPerElement;
+}
+
 bool Allocator::GetStorageOffsetByCall(Operation& callOp, size_t inputIdx, uint64_t& storageOffset) const {
     auto &input = callOp.GetIOperands()[inputIdx];
     if (input == nullptr) {
@@ -519,39 +567,12 @@ bool Allocator::GetStorageOffsetByCall(Operation& callOp, size_t inputIdx, uint6
 
     // 提取offset和shape
     const size_t dimCount = input->shape.size();
-    const size_t offsetStartIdx = OFFSET_INDEX;
-    const size_t rawShapeStartIdx = OFFSET_INDEX + 2 * dimCount;
-
     std::vector<int> offsets;
     std::vector<int> rawShapes;
-    for (size_t i = 0; i < dimCount; i++) {
-        const size_t argPos = offsetStartIdx + i;
-        if (argPos >= argList.size() || !argList[argPos].IsImmediate()) {
-            return false;
-        }
-        offsets.emplace_back(argList[argPos].Concrete());
+    if (!CalOffsetRawShape(dimCount, argList, offsets, rawShapes)) {
+        return false;
     }
-    for (size_t i = 0; i < dimCount; i++) {
-        const size_t argPos = rawShapeStartIdx + i;
-        if (argPos >= argList.size() || !argList[argPos].IsImmediate()) {
-            return false;
-        }
-        rawShapes.emplace_back(argList[argPos].Concrete());
-    }
-
-    // 计算步长
-    std::vector<int> strides(dimCount, 1);
-    for (int i = static_cast<int>(dimCount) - 2; i >= 0; i--) {
-        strides[i] = rawShapes[i + 1] * strides[i + 1];
-    }
-
-    // 计算存储偏移量
-    for (size_t i = 0; i < dimCount; ++i) {
-        storageOffset += offsets[i] * strides[i];
-    }
-    const size_t bytesPerElement = BytesOf(input->tensor->datatype);
-    storageOffset *= bytesPerElement;
-
+    CalStridesStorageOffset(dimCount, input, offsets, rawShapes, storageOffset);
     return true;
 }
 
@@ -818,8 +839,7 @@ void Allocator::Init() {
     ProcessOperations();
 }
 
-void Allocator::StorageNeedToAllocatePreProcess(TensorsDesc &tensorsDesc) {
-    // 收集所有消费者操作索引
+void Allocator::CollectComsuerOpDesc(TensorsDesc &tensorsDesc) {
     for (const LogicalTensorPtr &tensor : tensorsDesc.tensors) {
         for (Operation *consumer : tensor->GetConsumers()) {
             if (consumer->GetOpcode() != Opcode::OP_CALL) {
@@ -832,8 +852,9 @@ void Allocator::StorageNeedToAllocatePreProcess(TensorsDesc &tensorsDesc) {
             tensorsDesc.consumerOpIdxs.emplace(consumerIndex);
         }
     }
+}
 
-    // 清理冗余消费者操作索引
+void Allocator::RemoveRedundantComsuerOp(TensorsDesc &tensorsDesc) {
     bool removedConsumer = false;
     for (auto consumerIter = tensorsDesc.consumerOpIdxs.begin(); consumerIter != tensorsDesc.consumerOpIdxs.end();) {
         for (const uint64_t otherOpIndex : tensorsDesc.consumerOpIdxs) {
@@ -852,7 +873,9 @@ void Allocator::StorageNeedToAllocatePreProcess(TensorsDesc &tensorsDesc) {
         }
         consumerIter++;
     }
+}
 
+void Allocator::CollectConnectionOps(TensorsDesc &tensorsDesc) {
     tensorsDesc.connectionOpsBitmap.SetValues(0xFFFFFFFFFFFFFFFF); // And 操作前，需要将connectionOpsBitmap初始化为全1
     for (const LogicalTensorPtr &tensor : tensorsDesc.tensors) {
         for (Operation *producer : tensor->GetProducers()) {
@@ -869,6 +892,14 @@ void Allocator::StorageNeedToAllocatePreProcess(TensorsDesc &tensorsDesc) {
             tensorsDesc.connectionOpsBitmap.ClearBit(static_cast<size_t>(producerIndex));
         }
     }
+}
+
+void Allocator::StorageNeedToAllocatePreProcess(TensorsDesc &tensorsDesc) {
+    // 收集所有消费者操作索引
+    CollectComsuerOpDesc(tensorsDesc);
+    // 清理冗余消费者操作索引
+    RemoveRedundantComsuerOp(tensorsDesc);
+    CollectConnectionOps(tensorsDesc);
 }
 
 Status Allocator::UpdateStorageId(TensorsDesc &tensorsDesc, std::unordered_map<int64_t, int> &idMap, int &storageId) {

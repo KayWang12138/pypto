@@ -124,25 +124,8 @@
      levelSize = levels.size();
  }
 
- void DefinePriorities(std::map<int, std::set<int>> &subgrChild, std::map<int, std::set<int>> &subgrParent,
-                       std::map<int, std::vector<std::pair<int, std::pair<int, int>>>> &levels,
-                       std::map<int, std::vector<std::pair<int, int>>> &priorities) {
-     // Define priority of nodes inside level-0
-     std::sort(levels[0].begin(), levels[0].end(), [](const std::pair<int, std::pair<int, int>> &x, const std::pair<int, std::pair<int, int>> &y) {return x.second.second > y.second.second;}); 
-     int zeroLevelIndex = 0;
-     for (auto &elem: levels[0]) {
-         priorities[0].push_back(std::make_pair(elem.first, zeroLevelIndex));
-         zeroLevelIndex++;    
-     }
-     
-     // Find priors for subgraphs on all levels
-     std::map<int, std::map<int, std::pair<int, int>>> levelsMap;
-     for (auto& [level, instance]: levels) {
-         for (auto &elem: instance) {
-             levelsMap[level][elem.first] = elem.second;
-         }
-     }
-
+ void SortPriorities(std::map<int, std::set<int>> &subgrChild, std::map<int, std::set<int>> &subgrParent,
+                       std::map<int, std::vector<std::pair<int, std::pair<int, int>>>> &levels, std::map<int, std::map<int, std::pair<int, int>>> &levelsMap, std::map<int, std::vector<std::pair<int, int>>> &priorities) {
      std::map<int, std::vector<std::pair<int, std::pair<int, int>>>> levelsTmp;
      for (auto& level: levels) {
          if (level.first == 0) { continue; }
@@ -165,6 +148,27 @@
          }
          std::sort(priorities[level.first].begin(), priorities[level.first].end(), [](const std::pair<int, int> &x, const std::pair<int, int> &y) {return x.second < y.second;}); // Sort by priorities
      }
+ }
+
+ void DefinePriorities(std::map<int, std::set<int>> &subgrChild, std::map<int, std::set<int>> &subgrParent,
+                       std::map<int, std::vector<std::pair<int, std::pair<int, int>>>> &levels,
+                       std::map<int, std::vector<std::pair<int, int>>> &priorities) {
+     // Define priority of nodes inside level-0
+     std::sort(levels[0].begin(), levels[0].end(), [](const std::pair<int, std::pair<int, int>> &x, const std::pair<int, std::pair<int, int>> &y) {return x.second.second > y.second.second;}); 
+     int zeroLevelIndex = 0;
+     for (auto &elem: levels[0]) {
+         priorities[0].push_back(std::make_pair(elem.first, zeroLevelIndex));
+         zeroLevelIndex++;    
+     }
+     
+     // Find priors for subgraphs on all levels
+     std::map<int, std::map<int, std::pair<int, int>>> levelsMap;
+     for (auto& [level, instance]: levels) {
+         for (auto &elem: instance) {
+             levelsMap[level][elem.first] = elem.second;
+         }
+     }
+     SortPriorities(subgrChild, subgrParent, levels, levelsMap, priorities);     
      subgrChild.clear();
      subgrParent.clear();
      levels.clear();
@@ -211,47 +215,30 @@
      outGraphTmp.clear();
  }
  
- void ChangeReadyTasksPriorities(std::map<int, int> &subgrParentNum, std::vector<int> &subgrDepthVector, std::map<int, std::vector<std::pair<int, int>>> &priorities, int levelSize, Function &function) {
-     // Processing ready-to-run not last level nodes
-     int lastLevelIntermediateSize = priorities[priorities.size() - 1].size();
-     
-     for (size_t idx = 0; idx < subgrDepthVector.size(); idx++) {
-         if ((subgrParentNum[idx] == 0) && (subgrDepthVector[idx] != (levelSize - 1))) {
-             priorities[priorities.size() - 1].push_back(std::make_pair(idx, lastLevelIntermediateSize));
-             lastLevelIntermediateSize++;
-         }
-     }
-     subgrParentNum.clear();
-     subgrDepthVector.clear();
-     
-     // Change readyAic & readyAiv & readyAicpu priorities
+ std::map<int, int> GetLastLevelMap(Function &function) {
      std::map<int, int> LastLevelMap;
-     std::vector<std::pair<int, int>> LastLevelVector;
      const size_t aicValue = 0;
      const size_t aivValue = 1;
      const size_t aicpuValue = 2;
      for (size_t aic = 0; aic < function.rootFunc_->GetReadySubGraphCount(CoreType::AIC); aic++) {
          LastLevelMap[function.rootFunc_->GetReadySubGraphId(CoreType::AIC, aic)] = aicValue;
      }
- 
      for (size_t aiv = 0; aiv < function.rootFunc_->GetReadySubGraphCount(CoreType::AIV); aiv++) {
          LastLevelMap[function.rootFunc_->GetReadySubGraphId(CoreType::AIV, aiv)] = aivValue;
      }
- 
      for (size_t aicpu = 0; aicpu < function.rootFunc_->GetReadySubGraphCount(CoreType::AICPU); aicpu++) {
          LastLevelMap[function.rootFunc_->GetReadySubGraphId(CoreType::AICPU, aicpu)] = aicpuValue;
      }
- 
-     ASSERT(priorities[priorities.size() - 1].size() == LastLevelMap.size());
-     size_t lastLevelSize = LastLevelMap.size();
-     
-     for (size_t i = 0; i < lastLevelSize; i++) {
-         LastLevelVector.push_back(std::make_pair(priorities[priorities.size() - 1][i].first, LastLevelMap[priorities[priorities.size() - 1][i].first]));
-     }
-     
+     return LastLevelMap;
+ }
+
+ void UpdateReadySubGraphId(Function &function, const std::vector<std::pair<int, int>> &LastLevelVector) {
      size_t aic = 0;
      size_t aiv = 0;
      size_t aicpu = 0;
+     const size_t aicValue = 0;
+     const size_t aivValue = 1;
+     const size_t aicpuValue = 2;
      for (int i = 0; i < function.rootFunc_->GetAllReadySubGraphCount(); i++) {
          if (LastLevelVector[i].second == aicValue) {
              function.rootFunc_->ReplaceReadySubGraphIds(CoreType::AIC, aic, LastLevelVector[i].first);
@@ -266,6 +253,31 @@
              aicpu++;
          }
      }
+ }
+
+ void ChangeReadyTasksPriorities(std::map<int, int> &subgrParentNum, std::vector<int> &subgrDepthVector, std::map<int, std::vector<std::pair<int, int>>> &priorities, int levelSize, Function &function) {
+     // Processing ready-to-run not last level nodes
+     int lastLevelIntermediateSize = priorities[priorities.size() - 1].size();
+     
+     for (size_t idx = 0; idx < subgrDepthVector.size(); idx++) {
+         if ((subgrParentNum[idx] == 0) && (subgrDepthVector[idx] != (levelSize - 1))) {
+             priorities[priorities.size() - 1].push_back(std::make_pair(idx, lastLevelIntermediateSize));
+             lastLevelIntermediateSize++;
+         }
+     }
+     subgrParentNum.clear();
+     subgrDepthVector.clear();
+     
+     // Change readyAic & readyAiv & readyAicpu priorities
+     std::map<int, int> LastLevelMap = GetLastLevelMap(function);
+     ASSERT(priorities[priorities.size() - 1].size() == LastLevelMap.size());
+     
+     size_t lastLevelSize = LastLevelMap.size();
+     std::vector<std::pair<int, int>> LastLevelVector;
+     for (size_t i = 0; i < lastLevelSize; i++) {
+         LastLevelVector.push_back(std::make_pair(priorities[priorities.size() - 1][i].first, LastLevelMap[priorities[priorities.size() - 1][i].first]));
+     }
+     UpdateReadySubGraphId(function, LastLevelVector);
  }
  
  void PriorScheduling::PriorSchedulingFunc(Function &function) const {

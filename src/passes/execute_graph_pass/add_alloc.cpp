@@ -22,19 +22,36 @@ Status AddAlloc::PreCheck(Function &function) {
     return checker.DoPreCheck(function);
 }
 
-Status AddAlloc::AddAndCheckAlloc(Function &function) {
-    std::unordered_map<int, TensorAllocMsg> tensorAllocMsgMap;
+Status AddAlloc::GenTensorAllocMsgMap(Function &function, 
+    std::unordered_map<int, TensorAllocMsg> &tensorAllocMsgMap) const {
     for (auto& op : function.Operations().DuplicatedOpList()) {
         if (FindTensorAllocMsg(op, tensorAllocMsgMap) != SUCCESS) {
             ALOG_ERROR_F("FindTensorAllocMsg failed.");
             return FAILED;
         }
     }
+    return SUCCESS;
+}
+
+Status AddAlloc::GenAllocNode(Function &function) {
+    std::unordered_map<int, TensorAllocMsg> tensorAllocMsgMap;
+    if (GenTensorAllocMsgMap(function, tensorAllocMsgMap) != SUCCESS) {
+        ALOG_ERROR_F("GenTensorAllocMsgMap failed.");
+        return FAILED;
+    }
     for (auto& tensorAllocMsg : tensorAllocMsgMap) {
         if (tensorAllocMsg.second.isAllocated == false) {
             ALOG_DEBUG_F("create alloc node for tensor [%d]", tensorAllocMsg.first);
             CreateAllocNode(tensorAllocMsg.second, function);
         }
+    }
+    return SUCCESS;
+}
+
+Status AddAlloc::AddAndCheckAlloc(Function &function) {
+    if (GenAllocNode(function) != SUCCESS) {
+        ALOG_ERROR_F("GenAllocNode failed.");
+        return FAILED;
     }
     std::vector<Operation *> newOperations;
     for (auto& op : function.Operations().DuplicatedOpList()) {
@@ -48,6 +65,55 @@ Status AddAlloc::AddAndCheckAlloc(Function &function) {
     return SUCCESS;
 }
 
+TensorAllocMsg AddAlloc::ConstructTensorAllocMsg(Operation *op, size_t i, int memId, const std::vector<int> &allocMagic) const {
+    TensorAllocMsg tensorAllocMsg;
+    tensorAllocMsg.producer.push_back(op);
+    tensorAllocMsg.memType = op->GetOutputOperand(i)->GetMemoryTypeOriginal();
+    tensorAllocMsg.memId = memId;
+    if (allocMagic.empty() || i >= allocMagic.size()) {
+        ALOG_INFO_F("Tensor [%d] is not allocted.", memId);
+        tensorAllocMsg.isAllocated = false;
+    }
+    return tensorAllocMsg;
+}
+
+Status AddAlloc::UpdateTensorAllocMsg(Operation *op, size_t i, const std::vector<int> &allocMagic,
+                                      std::unordered_map<int, TensorAllocMsg> &tensorAllocMsgMap) const {
+    auto memId = op->GetOutputOperand(i)->memorymap[op->GetSubgraphID()].memId;
+    if (memId == -1) {
+        ALOG_ERROR_F("Get memId in memorymap failed.");
+        return FAILED;
+    }
+    if (tensorAllocMsgMap.find(memId) == tensorAllocMsgMap.end()) {
+        tensorAllocMsgMap.emplace(memId, ConstructTensorAllocMsg(op, i, memId, allocMagic));
+    } else {
+        tensorAllocMsgMap[memId].producer.push_back(op);
+        if (i < allocMagic.size() && tensorAllocMsgMap[memId].isAllocated == false) {
+            ALOG_DEBUG_F("tensor [%d] is allocaterd at the first time.", memId);
+            tensorAllocMsgMap[memId].isAllocated = true;
+        }
+    }
+    return SUCCESS;
+}
+
+Status AddAlloc::SetTensorAllocMsg(Operation *op, 
+    std::unordered_map<int, TensorAllocMsg> &tensorAllocMsgMap, const std::vector<int> &allocMagic) const {
+    for (size_t i = 0; i < op->GetOOperands().size(); i++) {
+        if (op->GetOutputOperand(i)->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+            continue;
+        }
+        if (op->GetOutputOperand(i)->memorymap.find(op->GetSubgraphID()) == op->GetOutputOperand(i)->memorymap.end()) {
+            ALOG_ERROR_F("Cannot find memorymap in subgraph[%d]", op->GetSubgraphID());
+            return FAILED;
+        }
+        if (UpdateTensorAllocMsg(op, i, allocMagic, tensorAllocMsgMap) != SUCCESS) {
+            ALOG_ERROR_F("UpdateTensorAllocMsg failed!");
+            return FAILED;
+        }
+    }
+    return SUCCESS;
+}
+
 Status AddAlloc::FindTensorAllocMsg(Operation *op, 
     std::unordered_map<int, TensorAllocMsg> &tensorAllocMsgMap) const {
     // 遍历所有节点，找到需要分配Alloc的tensor以及其第一次出现时候的位置
@@ -57,33 +123,29 @@ Status AddAlloc::FindTensorAllocMsg(Operation *op,
             allocMagic.emplace_back(inCtrlOp->GetOpMagic());
         }
     }
-    for (size_t i = 0; i < op->GetOOperands().size(); i++) {
-        if (op->GetOutputOperand(i)->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+    if (SetTensorAllocMsg(op, tensorAllocMsgMap, allocMagic) != SUCCESS) {
+        ALOG_ERROR_F("SetTensorAllocMsg failed.");
+        return FAILED;
+    }
+    return SUCCESS;
+}
+
+Status AddAlloc::GenAllocOpcode(int subgraphID, const Opcode &allocOpcode, const TensorAllocMsg& tensorAllocMsg, Function& function) {
+    int maxOpMagic = -1;
+    for (auto &op : function.Operations()) {
+        maxOpMagic = std::max(maxOpMagic, op.GetOpMagic());
+    }
+    for (auto &oOperand : tensorAllocMsg.producer[0]->GetOOperands()) {
+        if (oOperand->memorymap[subgraphID].memId != tensorAllocMsg.memId) {
             continue;
         }
-        if (op->GetOutputOperand(i)->memorymap.find(op->GetSubgraphID()) == op->GetOutputOperand(i)->memorymap.end()) {
-            ALOG_ERROR_F("Cannot find memorymap in subgraph[%d]", op->GetSubgraphID());
-            return FAILED;
+        auto &allocOp = function.AddOperation(allocOpcode, {}, 
+            std::vector<std::shared_ptr<LogicalTensor>>({oOperand}));
+        allocOp.UpdateSubgraphID(subgraphID);
+        if (tensorAllocMsg.producer[0]->HasAttr(OpAttributeKey::tag)) {
+            allocOp.SetAttribute(OpAttributeKey::tag, tensorAllocMsg.producer[0]->GetStringAttribute(OpAttributeKey::tag));
         }
-        auto memId = op->GetOutputOperand(i)->memorymap[op->GetSubgraphID()].memId;
-        if (memId == -1) { ALOG_ERROR_F("Get memId in memorymap failed."); return FAILED; }
-        if (tensorAllocMsgMap.find(memId) == tensorAllocMsgMap.end()) {
-            TensorAllocMsg tensorAllocMsg;
-            tensorAllocMsg.producer.push_back(op);
-            tensorAllocMsg.memType = op->GetOutputOperand(i)->GetMemoryTypeOriginal();
-            tensorAllocMsg.memId = memId;
-            if (allocMagic.empty() || i >= allocMagic.size()) {
-                ASLOGI("Tensor [%d] is not allocted.", memId);
-                tensorAllocMsg.isAllocated = false;
-            }
-            tensorAllocMsgMap.emplace(memId, tensorAllocMsg);
-        } else {
-            tensorAllocMsgMap[memId].producer.push_back(op);
-            if (i < allocMagic.size() && tensorAllocMsgMap[memId].isAllocated == false) {
-                ALOG_DEBUG_F("tensor [%d] is allocaterd at the first time.", memId);
-                tensorAllocMsgMap[memId].isAllocated = true;
-            }
-        }
+        allocOp.opmagic = maxOpMagic + 1;
     }
     return SUCCESS;
 }
@@ -98,21 +160,9 @@ Status AddAlloc::CreateAllocNode(const TensorAllocMsg& tensorAllocMsg, Function&
             return FAILED; 
         }
         Opcode allocOpcode = iter->second;
-        int maxOpMagic = -1;
-        for (auto &op : function.Operations()) {
-            maxOpMagic = std::max(maxOpMagic, op.GetOpMagic());
-        }
-        for (auto &oOperand : tensorAllocMsg.producer[0]->GetOOperands()) {
-            if (oOperand->memorymap[subgraphID].memId != tensorAllocMsg.memId) {
-                continue;
-            }
-            auto &allocOp = function.AddOperation(allocOpcode, {}, 
-                std::vector<std::shared_ptr<LogicalTensor>>({oOperand}));
-            allocOp.UpdateSubgraphID(subgraphID);
-            if (tensorAllocMsg.producer[0]->HasAttr(OpAttributeKey::tag)) {
-                allocOp.SetAttribute(OpAttributeKey::tag, tensorAllocMsg.producer[0]->GetStringAttribute(OpAttributeKey::tag));
-            }
-            allocOp.opmagic = maxOpMagic + 1;
+        if (GenAllocOpcode(subgraphID, allocOpcode, tensorAllocMsg, function)) {
+            ALOG_ERROR_F("GenAllocOpcode failed."); 
+            return FAILED; 
         }
     }
     return SUCCESS;

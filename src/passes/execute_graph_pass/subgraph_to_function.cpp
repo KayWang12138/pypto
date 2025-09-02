@@ -67,24 +67,36 @@ std::string SubgraphToFunction::FindSymbolName(std::shared_ptr<LogicalTensor> op
     return name;
 }
 
-void SubgraphToFunction::RecordEsgIncast(Function &function, size_t i, size_t j, size_t k) {
-    auto &iter = subFuncInvokeInfos[i];
-    auto iOperand = nLIST[i][j]->GetInputOperand(k);
-    auto offset = iOperand->offset;
-    auto shape = iOperand->shape;
-    if (IsCopyIn(nLIST[i][j]->GetOpcode())){
-        offset.clear();
-        std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(nLIST[i][j]->GetOpAttribute());
-        std::vector<OpImmediate> opImmList = attr->GetCopyInAttr().first;
-        for (auto &opImm : opImmList){
-            offset.push_back(opImm.GetSpecifiedValue().ConcreteValid() ?
-                static_cast<int>(opImm.GetSpecifiedValue()) : -1);
+void SubgraphToFunction::RecordConnectionWithProducers(RecordInfo recordInfo, SubfuncInvokeInfoTy &iter) {
+    std::vector<int> assembleRawMagic;
+    size_t i = recordInfo.i;
+    size_t j = recordInfo.j;
+    size_t k = recordInfo.k;
+    LogicalTensorPtr iOperand = recordInfo.operand;
+    Offset offset = recordInfo.offset;
+    Shape shape = recordInfo.shape;
+    for (auto &producer : iOperand ->GetProducers()) {
+        auto eSgId = producer->GetSubgraphID();
+        std::vector<int>::iterator it = find(assembleRawMagic.begin(), assembleRawMagic.end(), iOperand->GetRawMagic());
+        if (it != assembleRawMagic.end()) {
+            continue;
+        } else {
+            assembleRawMagic.push_back(iOperand->GetRawMagic());
         }
-        shape = attr->GetSpecifiedShape(1);
+        iter.RecordConnection(eSgId, i, nLIST[i][j]->GetIntAttribute(OpAttributeKey::seqNo), k,
+            iOperand->GetRawMagic() /*placeHolder*/, offset,
+            shape, iOperand->tensor->rawshape,
+            iOperand->Datatype(), iOperand, nLIST[i][j]->opmagic);
     }
+}
 
-    // 1. IndexOutCast存在外部输入也是子图内的输出和输入的情况
-    // 2. 对于Assemble的输入如果是来自于OutCast，那么一定会在某个CopyOut的输出上被记录
+void SubgraphToFunction::RecordIncastInfo(Function &function, RecordInfo recordInfo, SubfuncInvokeInfoTy &iter) {
+    size_t i = recordInfo.i;
+    size_t j = recordInfo.j;
+    size_t k = recordInfo.k;
+    LogicalTensorPtr iOperand = recordInfo.operand;
+    Offset offset = recordInfo.offset;
+    Shape shape = recordInfo.shape;
     if (function.IsFromInCast(iOperand) ||
         function.IsFromOutCast(iOperand)) {
         iter.RecordTensorArg(nLIST[i][j]->GetIntAttribute(OpAttributeKey::seqNo), k,
@@ -101,53 +113,48 @@ void SubgraphToFunction::RecordEsgIncast(Function &function, size_t i, size_t j,
                     shape, iOperand->tensor->rawshape,
                     iOperand->Datatype(), iOperand, nLIST[i][j]->opmagic);
             }
-        }
-        else {
-            std::vector<int> assembleRawMagic;
-            for (auto &producer : producers) {
-                auto eSgId = producer->GetSubgraphID();
-                std::vector<int>::iterator it = find(assembleRawMagic.begin(), assembleRawMagic.end(), iOperand->GetRawMagic());
-                if (it != assembleRawMagic.end()) {
-                    continue;
-                }
-                else {
-                    assembleRawMagic.push_back(iOperand->GetRawMagic());
-                }
-                iter.RecordConnection(eSgId, i, nLIST[i][j]->GetIntAttribute(OpAttributeKey::seqNo), k,
-                    iOperand->GetRawMagic() /*placeHolder*/, offset,
-                    shape, iOperand->tensor->rawshape,
-                    iOperand->Datatype(), iOperand, nLIST[i][j]->opmagic);
-            }
+        } else {
+            RecordConnectionWithProducers(recordInfo, iter);
         }
     }
 }
 
-void SubgraphToFunction::RecordEsgOutcast(Function &function, size_t i, size_t j, size_t k){
+void SubgraphToFunction::RecordEsgIncast(Function &function, size_t i, size_t j, size_t k) {
     auto &iter = subFuncInvokeInfos[i];
-    // 4.2 Record oOperand info, global tensor and outCasts_
-    auto oOperand = nLIST[i][j]->GetOutputOperand(k);
-    auto offset = oOperand->offset;
-    auto shape = oOperand->shape;
-    if (IsCopyOut(nLIST[i][j]->GetOpcode())){
+    auto iOperand = nLIST[i][j]->GetInputOperand(k);
+    auto offset = iOperand->offset;
+    auto shape = iOperand->shape;
+    if (IsCopyIn(nLIST[i][j]->GetOpcode())){
         offset.clear();
         std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(nLIST[i][j]->GetOpAttribute());
-        std::vector<OpImmediate> opImmList = attr->GetCopyOutAttr().second;
+        std::vector<OpImmediate> opImmList = attr->GetCopyInAttr().first;
         for (auto &opImm : opImmList){
             offset.push_back(opImm.GetSpecifiedValue().ConcreteValid() ?
                 static_cast<int>(opImm.GetSpecifiedValue()) : -1);
         }
         shape = attr->GetSpecifiedShape(1);
     }
+    // 1. IndexOutCast存在外部输入也是子图内的输出和输入的情况
+    // 2. 对于Assemble的输入如果是来自于OutCast，那么一定会在某个CopyOut的输出上被记录
+    RecordInfo recordInfo = {i, j, k, iOperand, shape, offset};
+    RecordIncastInfo(function, recordInfo, iter);
+}
 
+void SubgraphToFunction::RecordOutcastInfo(Function &function, RecordInfo recordInfo, SubfuncInvokeInfoTy &iter) {
+    size_t i = recordInfo.i;
+    size_t j = recordInfo.j;
+    size_t k = recordInfo.k;
+    LogicalTensorPtr oOperand = recordInfo.operand;
+    Offset offset = recordInfo.offset;
+    Shape shape = recordInfo.shape;
     if (function.IsFromOutCast(oOperand) ||
         function.IsFromInCast(oOperand)) {
         iter.RecordTensorArg(nLIST[i][j]->GetIntAttribute(OpAttributeKey::seqNo), k,
             oOperand->GetRawMagic(),
             offset, shape, oOperand->tensor->rawshape,
             oOperand->Datatype(), true, oOperand, nLIST[i][j]->opmagic);
-    }
-    // boundary outCasts_
-    else {
+    } else {
+        // boundary outCasts_
         int refCount = 0;
         typename SubfuncInvokeInfoTy::SuccessorIncastInfoTy relatedIncastList;
         if (oOperand->isSubGraphBoundary && oOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
@@ -171,8 +178,27 @@ void SubgraphToFunction::RecordEsgOutcast(Function &function, size_t i, size_t j
     }
 }
 
-void SubgraphToFunction::RecordIncastOutcast(Function &function) {
-    // 1. Get function->operations_, construct 2-dimension nLIST（subgraphID, operations)
+void SubgraphToFunction::RecordEsgOutcast(Function &function, size_t i, size_t j, size_t k){
+    auto &iter = subFuncInvokeInfos[i];
+    // 4.2 Record oOperand info, global tensor and outCasts_
+    auto oOperand = nLIST[i][j]->GetOutputOperand(k);
+    auto offset = oOperand->offset;
+    auto shape = oOperand->shape;
+    if (IsCopyOut(nLIST[i][j]->GetOpcode())){
+        offset.clear();
+        std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(nLIST[i][j]->GetOpAttribute());
+        std::vector<OpImmediate> opImmList = attr->GetCopyOutAttr().second;
+        for (auto &opImm : opImmList){
+            offset.push_back(opImm.GetSpecifiedValue().ConcreteValid() ?
+                static_cast<int>(opImm.GetSpecifiedValue()) : -1);
+        }
+        shape = attr->GetSpecifiedShape(1);
+    }
+    RecordInfo recordInfo = {i, j, k, oOperand, shape, offset};
+    RecordOutcastInfo(function, recordInfo, iter);
+}
+
+void SubgraphToFunction::ConstructnList(Function &function) {
     auto list = function.Operations();
     nLIST.resize(function.GetTotalSubGraphCount());
     for (size_t i = 0; i < list.size(); i++) {
@@ -182,11 +208,9 @@ void SubgraphToFunction::RecordIncastOutcast(Function &function) {
             nLIST[list[i].GetSubgraphID()].push_back(list.operations_[i]);
         }
     }
-    // 2. Init InvokeInfo, {ESGID, SubfuncInvokeInfo}, which contains all the invoke info of each subgrahs
-    for (size_t i = 0; i < nLIST.size(); i++) {
-        subFuncInvokeInfos.push_back(SubfuncInvokeInfoTy());
-    }
-    // 3. Construct subgraph with seqNo, and label boundary.
+}
+
+void SubgraphToFunction::RecordEsgIncastOutcast(Function &function) {
     for(int i = 0; i < static_cast<int>(nLIST.size()); i++){
         for (size_t j = 0; j < nLIST[i].size(); j++) {
             nLIST[i][j]->SetAttribute(OpAttributeKey::seqNo, static_cast<int>(j));
@@ -199,31 +223,36 @@ void SubgraphToFunction::RecordIncastOutcast(Function &function) {
             }
         }
     }
+}
+
+void SubgraphToFunction::RecordIncastOutcast(Function &function) {
+    // 1. Get function->operations_, construct 2-dimension nLIST（subgraphID, operations)
+    ConstructnList(function);
+    // 2. Init InvokeInfo, {ESGID, SubfuncInvokeInfo}, which contains all the invoke info of each subgrahs
+    for (size_t i = 0; i < nLIST.size(); i++) {
+        subFuncInvokeInfos.push_back(SubfuncInvokeInfoTy());
+    }
+    // 3. Construct subgraph with seqNo, and label boundary.
+    RecordEsgIncastOutcast(function);
     // 4. Incast， Outcast，Construct connection using connetion and outcast
     for (auto &item : subFuncInvokeInfos) {
         item.DoFinishRecord();
     }
 }
 
-void SubgraphToFunction::BuildColorGraph(Function &function) {
-    colorInGraph = std::vector<std::vector<int>>(function.GetTotalSubGraphCount());
-    colorOutGraph = std::vector<std::vector<int>>(function.GetTotalSubGraphCount());
-    isReshape = std::vector<bool>(function.GetTotalSubGraphCount(), false);
-    auto list = function.Operations();
-    for (size_t i = 0; i < list.size(); i++) {
-        if (list[i].GetSubgraphID() < 0) {
-            continue;
-        }
-        for (int j : outGraph[i]) {
-            if (list[i].GetSubgraphID() != list[j].GetSubgraphID()) {
-                if (list[j].GetSubgraphID() < 0) {
-                    continue;
-                }
-                colorOutGraph[list[i].GetSubgraphID()].push_back(list[j].GetSubgraphID());
-                colorInGraph[list[j].GetSubgraphID()].push_back(list[i].GetSubgraphID());
+void SubgraphToFunction::SetColorGraph(size_t i, const OperationsViewer &list) {
+    for (int j : outGraph[i]) {
+        if (list[i].GetSubgraphID() != list[j].GetSubgraphID()) {
+            if (list[j].GetSubgraphID() < 0) {
+                continue;
             }
+            colorOutGraph[list[i].GetSubgraphID()].push_back(list[j].GetSubgraphID());
+            colorInGraph[list[j].GetSubgraphID()].push_back(list[i].GetSubgraphID());
         }
     }
+}
+
+void SubgraphToFunction::ProcessColorGraph(Function &function) {
     for (size_t i = 0; i < function.GetTotalSubGraphCount(); i++) {
         if (nLIST[i].size() == 1UL && colorInGraph[i].size() == 0 && nLIST[i][0]->GetOpcode() == Opcode::OP_RESHAPE){
             isReshape[i] = true;
@@ -236,6 +265,20 @@ void SubgraphToFunction::BuildColorGraph(Function &function) {
         colorOutGraph[i].resize(std::unique(colorOutGraph[i].begin(), colorOutGraph[i].end()) -
                             colorOutGraph[i].begin());
     }
+}
+
+void SubgraphToFunction::BuildColorGraph(Function &function) {
+    colorInGraph = std::vector<std::vector<int>>(function.GetTotalSubGraphCount());
+    colorOutGraph = std::vector<std::vector<int>>(function.GetTotalSubGraphCount());
+    isReshape = std::vector<bool>(function.GetTotalSubGraphCount(), false);
+    auto list = function.Operations();
+    for (size_t i = 0; i < list.size(); i++) {
+        if (list[i].GetSubgraphID() < 0) {
+            continue;
+        }
+        SetColorGraph(i, list);
+    }
+    ProcessColorGraph(function);
 }
 
 void SubgraphToFunction::PrintColorGraph(const Function &function) {
@@ -253,44 +296,47 @@ void SubgraphToFunction::PrintColorGraph(const Function &function) {
     ALOG_INFO_F("total in: %d, total out: %d\n", inCount, outCount);
 }
 
+ void SubgraphToFunction::UpdateTag(int i, int tagValue, std::vector<int> &tag, std::vector<std::vector<int>>& redundantColorInGraph, std::vector<std::vector<int>>& redundantColorOutGraph) {
+    std::vector<int> queue0 = colorOutGraph[i];
+    std::vector<int> queue1;
+    for (int j : queue0) {
+        for (int k : colorOutGraph[j]) {
+            if (tag[k] == tagValue) {
+                tag[k] = 1;
+                redundantColorOutGraph[i].push_back(k);
+                redundantColorInGraph[k].push_back(i);
+            } else if (tag[k] == 0) {
+                tag[k] = 1;
+                queue1.push_back(k);
+            }
+        }
+    }
+    for (int j : queue1) {
+        for (int k : colorOutGraph[j]) {
+            if (tag[k] == tagValue) {
+                tag[k] = 1;
+                redundantColorOutGraph[i].push_back(k);
+                redundantColorInGraph[k].push_back(i);
+            }
+        }
+    }
+    for (int j : queue0) {
+        tag[j] = 0;
+    }
+    for (int j : queue1) {
+        tag[j] = 0;
+    }
+}
+
 void SubgraphToFunction::FindRedundantEdges(int color, std::vector<std::vector<int>>& redundantColorInGraph,
     std::vector<std::vector<int>>& redundantColorOutGraph) {
     std::vector<int> tag(color);
     int tagValue = 2;
     for (int i = 0; i < color; i++) {
-        std::vector<int> queue0 = colorOutGraph[i];
-        std::vector<int> queue1, queue2;
         for (int j : colorOutGraph[i]) {
             tag[j] = tagValue;
         }
-        for (int j : queue0) {
-            for (int k : colorOutGraph[j]) {
-                if (tag[k] == tagValue) {
-                tag[k] = 1;
-                redundantColorOutGraph[i].push_back(k);
-                redundantColorInGraph[k].push_back(i);
-                } else if (tag[k] == 0) {
-                tag[k] = 1;
-                queue1.push_back(k);
-                }
-            }
-        }
-        for (int j : queue1) {
-            for (int k : colorOutGraph[j]) {
-                if (tag[k] == tagValue) {
-                tag[k] = 1;
-                redundantColorOutGraph[i].push_back(k);
-                redundantColorInGraph[k].push_back(i);
-                } else if (tag[k] == 0) {
-                }
-            }
-        }
-        for (int j : queue0) {
-            tag[j] = 0;
-        }
-        for (int j : queue1) {
-            tag[j] = 0;
-        }
+        UpdateTag(i, tagValue, tag, redundantColorInGraph, redundantColorOutGraph);
     }
 }
 
@@ -336,6 +382,22 @@ void SubgraphToFunction::EraseRedundantColorEdges(const Function &function) {
     }
 }
 
+void SubgraphToFunction::UpdateTopoEntry(size_t i, int eSgId, int realOutDegree, const setType &succESgs, SubfuncTopologyInfoTy &topo) {
+    int readyOrNot = -1 * realOutDegree;
+    topo.AddEntry(eSgId, readyOrNot, succESgs);
+    if ((nLIST[i].size() == 1UL) && (nLIST[i][0]->GetCoreType() == CoreType::AICPU)){
+        auto &op = nLIST[i][0];
+        const std::string extParamKey = OP_ATTR_PREFIX + "distributed";
+        if (op->HasAttr(extParamKey)) {
+            std::vector<int64_t> extParams = op->GetVectorIntAttribute(extParamKey);
+            topo.UpdateEntry(static_cast<uint32_t>(op->GetOpcode()), extParams.size(), extParams);
+            ALOG_DEBUG_F("######## UpdateEntry size=%lu ######", extParams.size());
+        }
+    }
+    ALOG_DEBUG_F("######## AddEntry ESgId %d ReadyOrNot %d %zu %d ######", eSgId, readyOrNot, topo.readyIds_.size(),
+        topo.readyIds_[0]);
+}
+
 SubfuncTopologyInfoTy SubgraphToFunction::ConstructSubgraphTopologyInfo(
     Function &function, std::vector<SubfuncInvokeInfoTy> &esgInvokeInfoMap) {
     int maxOutDegree = 0;
@@ -364,19 +426,7 @@ SubfuncTopologyInfoTy SubgraphToFunction::ConstructSubgraphTopologyInfo(
                 realOutDegree++;
             }
         }
-        int readyOrNot = -1 * realOutDegree;
-        topo.AddEntry(eSgId, readyOrNot, succESgs);
-        if ((nLIST[i].size() == 1UL) && (nLIST[i][0]->GetCoreType() == CoreType::AICPU)){
-            auto &op = nLIST[i][0];
-            const std::string extParamKey = OP_ATTR_PREFIX + "distributed";
-            if (op->HasAttr(extParamKey)) {
-                std::vector<int64_t> extParams = op->GetVectorIntAttribute(extParamKey);
-                topo.UpdateEntry(static_cast<uint32_t>(op->GetOpcode()), extParams.size(), extParams);
-                ALOG_DEBUG_F("######## UpdateEntry size=%lu ######", extParams.size());
-            }
-        }
-        ALOG_DEBUG_F("######## AddEntry ESgId %d ReadyOrNot %d %zu %d ######", eSgId, readyOrNot, topo.readyIds_.size(),
-            topo.readyIds_[0]);
+        UpdateTopoEntry(i, eSgId, realOutDegree, succESgs, topo);
         // Add subgTopoParamOffsets for simcpu
         int64_t offSize = sizeof(int64_t) +                             // ProgramSubgraph Id size
                           sizeof(int64_t) +                             // ReadyOrNot size
@@ -703,10 +753,7 @@ bool SubgraphToFunction::IsCVSeparatePlatform() {
     return false;
 }
 
-Status SubgraphToFunction::DetermineGraphType(size_t i, CoreType &esgGraphType) {
-    int32_t cubeOpCnt = 0;
-    int32_t vecOpCnt = 0;
-    int32_t aicpuOpCnt = 0;
+Status SubgraphToFunction::CalOpCnt(size_t i, int32_t &cubeOpCnt, int32_t &vecOpCnt, int32_t &aicpuOpCnt) {
     for (size_t j = 0; j < nLIST[i].size(); j++) {
         if (IsCubeOp(*nLIST[i][j])) {
             cubeOpCnt += 1;
@@ -716,7 +763,10 @@ Status SubgraphToFunction::DetermineGraphType(size_t i, CoreType &esgGraphType) 
             vecOpCnt += 1;
         }
     }
+    return SUCCESS;
+}
 
+Status SubgraphToFunction::SetESGGraphType(int32_t cubeOpCnt, int32_t vecOpCnt, int32_t aicpuOpCnt, CoreType &esgGraphType) {
     if (aicpuOpCnt > 0){
         esgGraphType = CoreType::AICPU;
     } else if (cubeOpCnt == 0 && vecOpCnt > 0) {
@@ -730,42 +780,84 @@ Status SubgraphToFunction::DetermineGraphType(size_t i, CoreType &esgGraphType) 
             return FAILED;
         }
     }
-    if(nLIST[i].size()==1 && nLIST[i][0]->GetOpcode() == Opcode::OP_RESHAPE && colorInGraph[i].size() != 0){
+    return SUCCESS;
+}
+
+Status SubgraphToFunction::DetermineGraphType(size_t i, CoreType &esgGraphType) {
+    int32_t cubeOpCnt = 0;
+    int32_t vecOpCnt = 0;
+    int32_t aicpuOpCnt = 0;
+    if (CalOpCnt(i, cubeOpCnt, vecOpCnt, aicpuOpCnt) != SUCCESS) {
+        ALOG_ERROR_F("CalOpCnt failed.");
+        return FAILED;
+    }
+    if (SetESGGraphType(cubeOpCnt, vecOpCnt, aicpuOpCnt, esgGraphType) != SUCCESS) {
+        ALOG_ERROR_F("SetESGGraphType failed.");
+        return FAILED;
+    }
+    if(nLIST[i].size() == 1 && nLIST[i][0]->GetOpcode() == Opcode::OP_RESHAPE && colorInGraph[i].size() != 0){
         esgGraphType = CoreType::HUB;
     }
+    return SUCCESS;
+}
 
+Status SubgraphToFunction::SetCallAttrGraphType(Function* rootFunc, size_t i, const CoreType &esgGraphType) {
+    // Get the operation and verify it exists
+    if (i >= rootFunc->Operations().size()) {
+        ALOG_ERROR_F("Operation index %zu out of bounds (total operations: %zu)", i, rootFunc->Operations().size());
+        return FAILED;
+    }
+    auto& op = rootFunc->Operations()[i];
+    auto callAttr = dynamic_cast<CallOpAttribute *>(op.GetOpAttribute().get());
+    if (callAttr == nullptr) {
+        ALOG_ERROR_F("Failed to get CallOpAttribute for operation %zu (opcode: %s)", i, op.GetOpcodeStr().c_str());
+        return FAILED;
+    }
+    callAttr->invokeInfo_->SetGraphType(esgGraphType);
+    return SUCCESS;
+}
+
+Status SubgraphToFunction::SetReadySubGraphType(Function* rootFunc, size_t i, const CoreType &esgGraphType) {
+    // Verify topology index is valid
+    if (i >= rootFunc->topoInfo_.topology_.size()) {
+        ALOG_ERROR_F("Topology index %zu out of bounds (total topology entries: %zu)", i, rootFunc->topoInfo_.topology_.size());
+        return FAILED;
+    }
+    if (rootFunc->topoInfo_.topology_[i].readyState == 0) {
+        if (esgGraphType == CoreType::AIC) {
+            rootFunc->EmplaceReadySubGraphIds(CoreType::AIC, i);
+            ALOG_DEBUG_F("!!!!!Esg %zu is ready aic sub graph.", i);
+        } else if (esgGraphType == CoreType::AIV) {
+            rootFunc->EmplaceReadySubGraphIds(CoreType::AIV, i);
+            ALOG_DEBUG_F("!!!!!Esg %zu is ready aiv sub graph.", i);
+        } else if (esgGraphType == CoreType::AICPU) {
+            rootFunc->EmplaceReadySubGraphIds(CoreType::AICPU, i);
+            ALOG_DEBUG_F("!!!!!Esg %zu is ready aicpu sub graph.", i);
+        } else if (esgGraphType == CoreType::MIX) {
+            ALOG_DEBUG_F("!!!!!Esg %zu is ready mix sub graph.", i);
+        }
+    }
     return SUCCESS;
 }
 
 Status SubgraphToFunction::HandleReadyStates(Function* rootFunc) {
-    if (rootFunc == nullptr) { ALOG_ERROR("Root function is nullptr"); return FAILED; }
+    if (rootFunc == nullptr) {
+        ALOG_ERROR("Root function is nullptr");
+        return FAILED;
+    }
     for (size_t i = 0; i < nLIST.size(); i++) {
         CoreType esgGraphType = CoreType::AIV;
-        if (DetermineGraphType(i, esgGraphType) != SUCCESS ) {
+        if (DetermineGraphType(i, esgGraphType) != SUCCESS) {
             ALOG_ERROR_F("DetermineGraphType failed");
             return FAILED;
         }
-        // Get the operation and verify it exists
-        if (i >= rootFunc->Operations().size()) { ALOG_ERROR_F("Operation index %zu out of bounds (total operations: %zu)", i, rootFunc->Operations().size()); return FAILED; }
-        auto& op = rootFunc->Operations()[i];
-        auto callAttr = dynamic_cast<CallOpAttribute *>(op.GetOpAttribute().get());
-        if (callAttr == nullptr) { ALOG_ERROR_F("Failed to get CallOpAttribute for operation %zu (opcode: %s)", i, op.GetOpcodeStr().c_str()); return FAILED; }
-        callAttr->invokeInfo_->SetGraphType(esgGraphType);
-        // Verify topology index is valid
-        if (i >= rootFunc->topoInfo_.topology_.size()) { ALOG_ERROR_F("Topology index %zu out of bounds (total topology entries: %zu)", i, rootFunc->topoInfo_.topology_.size()); return FAILED; }
-        if (rootFunc->topoInfo_.topology_[i].readyState == 0) {
-            if (esgGraphType == CoreType::AIC) {
-                rootFunc->EmplaceReadySubGraphIds(CoreType::AIC, i);
-                ALOG_DEBUG_F("!!!!!Esg %zu is ready aic sub graph.", i);
-            } else if (esgGraphType == CoreType::AIV) {
-                rootFunc->EmplaceReadySubGraphIds(CoreType::AIV, i);
-                ALOG_DEBUG_F("!!!!!Esg %zu is ready aiv sub graph.", i);
-            } else if (esgGraphType == CoreType::AICPU) {
-                rootFunc->EmplaceReadySubGraphIds(CoreType::AICPU, i);
-                ALOG_DEBUG_F("!!!!!Esg %zu is ready aicpu sub graph.", i);
-            } else if (esgGraphType == CoreType::MIX) {
-                ALOG_DEBUG_F("!!!!!Esg %zu is ready mix sub graph.", i);
-            }
+        if (SetCallAttrGraphType(rootFunc, i, esgGraphType) != SUCCESS) {
+            ALOG_ERROR_F("SetCallAttrGraphType failed");
+            return FAILED;
+        }
+        if (SetReadySubGraphType(rootFunc, i, esgGraphType) != SUCCESS) {
+            ALOG_ERROR_F("SetReadySubGraphType failed");
+            return FAILED;
         }
     }
     return SUCCESS;

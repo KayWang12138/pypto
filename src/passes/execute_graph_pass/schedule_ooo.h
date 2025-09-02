@@ -132,6 +132,14 @@ enum class SortOpMethod : int
     LayerBasedDFS
 };
 
+struct SpillInfo {
+    int spillMemId;
+    MemoryType bufferType;
+    IssueEntryPtr spillIssue;
+    IssueEntryPtr allocIssue;
+    LogicalTensorPtr spillTensor;
+};
+
 class OoOScheduler {
 private:
     std::vector<IssueEntryPtr> issueEntries;
@@ -155,6 +163,7 @@ private:
     Status Init(const std::vector<Operation *> &operations);
     Status InitDependencies();
     Status InitLocalBuffer(LogicalTensorPtr oOperand, int memId);
+    Status UpdateIssueIOTensor(const IssueEntryPtr &issue, std::map<int, IssueEntryPtr> &tensorAllocMap);
     Status CheckAllocIssue();
     void InitIssueQueuesAndBufferManager();
     Status CheckOpBufferSize(Operation *op);
@@ -163,13 +172,18 @@ private:
     Status SortOps(SortOpMethod sortMethod = SortOpMethod::PriorDFS);
     Status PriorDFS(std::unordered_map<Opcode, int> preNodePriority);
     Status LayerBasedDFS(int layerDepth);
+    bool CheckIsReady(const IssueEntryPtr &curIssue, std::map<IssueEntryPtr, bool>& visited);
+    void UpdateIssueEntriesWithUnvisitedPredecessors(const IssueEntryPtr &curIssue, std::map<IssueEntryPtr, bool>& visited, std::unordered_map<Opcode, int> preNodePriority, std::deque<IssueEntryPtr> &queue);
     void DFSFromSingleNode(IssueEntryPtr issue, std::map<IssueEntryPtr, bool>& visited,
         std::vector<IssueEntryPtr>& newIssueEntries, std::unordered_map<Opcode, int> preNodePriority);
     IssueEntryPtr FindNodeMinNumUnvisitedPreNode(
         std::map<IssueEntryPtr, bool> visited, std::vector<IssueEntryPtr> outNodeQueue);
     int GetNumUnvisitPreNode(IssueEntryPtr issue, std::map<IssueEntryPtr, bool>& visited);
 
+    Status UpdateBufNextUseTime(int currPc, int memId, std::unordered_map<int, size_t> &nextUseTimeCache, std::vector<size_t> &bufNextUseTime);
+    Status UpdateGroupNextUseTime(int currPc, const std::vector<int> &group, std::unordered_map<int, size_t> &nextUseTimeCache, std::vector<int> &groupNextUseTime);
     Status SelectSpillBufferGroup(std::vector<std::vector<int>>& groups, int currPc, std::vector<int> &spillGroup);
+    Status SpillBufferGroup(Function &function, size_t &pcIdx, LocalBufferPtr allocBuffer, std::vector<std::vector<int>> &canSpillGroups);
     Status GenSpillOp(Function &function, LocalBufferPtr allocBuffer, size_t &pcIdx);
     Status GetBufTimes(int spillMemId, size_t &bufNextUseTime, size_t &bufLastUseTime, size_t &bufLastWriteTime);
     bool GetBufNextUseTime(int curMemId, size_t& nextUseTime);
@@ -180,9 +194,14 @@ private:
         IssueEntryPtr &spillCopyout);
     Status CreateSpillReloadIssue(Function &func, LogicalTensorPtr spillOutTensor, LogicalTensorPtr spillTensor,
         IssueEntryPtr &spillIssue, std::pair<IssueEntryPtr, IssueEntryPtr> &reloadIssues);
+    Status UpdateOldestBuffer(IssueEntryPtr allocIssue, MemoryType bufferType, int& memId, IssueEntryPtr &spillIssue);
     Status GetOldestBuffer(IssueEntryPtr allocIssue, MemoryType bufferType, int& memId, IssueEntryPtr &spillIssue);
+    Status GetddrTensor(Function &function, const SpillInfo &spillInfo, LogicalTensorPtr &ddrTensor, std::vector<Operation *> &newOperations);
     Status GenBufferSpill(
         Function &function, IssueEntryPtr allocIssue, MemoryType bufferType, std::vector<Operation *> &newOperations);
+    Status ProcessAlloc(Function &function, IssueEntryPtr &issue, size_t &pcIdx);
+    Status ProcessRetire(IssueEntryPtr &issue);
+    Status ProcessAllocAndRetire(Function &function);
     Status GenSpillSchedule(Function &function);
     void FindFilterLtags(IssueEntryPtr allocIssue, std::set<IssueEntryPtr> &filterLtags);
 
@@ -194,11 +213,22 @@ private:
     Status UpdateReloadIssueInfo(IssueEntryPtr reloadAlloc, IssueEntryPtr reloadCopyin, IssueEntryPtr spillIssue,
         int spillMemId, int bufNextUseTime);
 
+    Status ExecuteSortOps(Function &function);
+    Status Initiate(const std::vector<Operation *> &operations);
+    Status AdjustMemType(Function &func, int nextCycle, std::vector<Operation *> &newOperations);
+    Status ProcessScheduleStage(uint64_t &commitCnt, int &nextCycle, std::vector<Operation *> &newOperations);
+    Status ProcessTillRetired(Function &func, std::vector<Operation *> &newOperations);
+    Status UpdateIssues();
     Status ScheduleMainLoop(Function &func, std::vector<Operation *> &newOperations);
     void LaunchReadyIssue();
+    Status AllocateTensor(MemoryType memType, IssueEntryPtr &issue, std::vector<Operation *>& newOperations);
+    Status ExecuteAllocOp(MemoryType memType, IssueQueue &pipe, std::vector<Operation *>& newOperations, uint64_t& commitCnt);
     Status BufferAllocStage(std::vector<Operation *>& newOperations, uint64_t& commitCnt);
+    Status ReallocOutTensor(IssueEntryPtr &issue);
     Status LaunchIssueStage(int& nextCycle, std::vector<Operation *> &newOperations);
     Status RetireIssueStage(uint64_t& commitCnt, int& nextCycle);
+    Status RetireOp(IssueEntryPtr &issue);
+    Status AwakeSucc(IssueEntryPtr &issue);
     Status RetireOpAndAwakeSucc(IssueEntryPtr issue, uint64_t& commitCnt);
 
     size_t ShapeCeilAlign(std::vector<int64_t> shape, DataType dtype);

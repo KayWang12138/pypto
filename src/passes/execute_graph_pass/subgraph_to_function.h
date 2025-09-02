@@ -24,6 +24,15 @@
 #include "passes/statistics/execute_graph_statistic.h"
 
 namespace npu::tile_fwk {
+struct RecordInfo {
+    size_t i;
+    size_t j;
+    size_t k;
+    LogicalTensorPtr operand;
+    Shape shape;
+    Offset offset;
+};
+
 class SubgraphToFunction : public Pass {
 public:
     SubgraphToFunction() : Pass("SubgraphToFunction") {}
@@ -46,24 +55,37 @@ private:
     Status ProcessCacheResult(const std::tuple<Function*, Operation*, bool>& result, size_t i, size_t& programIdx, std::vector<Function*>& outputFuncList, Operation* callOp);
     void SetSemanticLabel(const std::vector<std::shared_ptr<Operation>>& subgraph, Operation* callOp);
     bool IsCVSeparatePlatform();
+    Status CalOpCnt(size_t i, int32_t &cubeOpCnt, int32_t &vecOpCnt, int32_t &aicpuOpCnt);
+    Status SetESGGraphType(int32_t cubeOpCnt, int32_t vecOpCnt, int32_t aicpuOpCnt, CoreType &esgGraphType);
     Status DetermineGraphType(size_t i, CoreType &esgGraphType);
+    Status SetCallAttrGraphType(Function* rootFunc, size_t i, const CoreType &esgGraphType);
+    Status SetReadySubGraphType(Function* rootFunc, size_t i, const CoreType &esgGraphType);
     Status HandleReadyStates(Function* rootFunc);
     void InitializeRootFunction(Function& function, Function* rootFunc);
     Status IslandToFunction(Function &function);
+    void ConstructnList(Function &function);
+    void RecordEsgIncastOutcast(Function &function);
     void RecordIncastOutcast(Function &function);
     void BuildLocalGraph(std::vector<std::vector<std::shared_ptr<Operation>>> &nLIST,
         std::vector<std::vector<std::vector<size_t>>> &localInGraph,
         std::vector<std::vector<std::vector<size_t>>> &localOutGraph);
+    void UpdateTopoEntry(size_t i, int eSgId, int realOutDegree, const setType &succESgs, SubfuncTopologyInfoTy &topo);
     SubfuncTopologyInfoTy ConstructSubgraphTopologyInfo(
         Function &function, std::vector<SubfuncInvokeInfoTy> &esgInvokeInfoMap);
     void SymbolizeFunction(Function *rootFunc, std::vector<Function*> &mergedFuncList1) const;
+    void SetColorGraph(size_t i, const OperationsViewer &list);
+    void ProcessColorGraph(Function &function);
     void BuildColorGraph(Function &function);
     void PrintColorGraph(const Function &function);
+    void UpdateTag(int i, int tagValue, std::vector<int> &tag, std::vector<std::vector<int>>& redundantColorInGraph, std::vector<std::vector<int>>& redundantColorOutGraph);
     void FindRedundantEdges(int color, std::vector<std::vector<int>>& redundantColorInGraph,
         std::vector<std::vector<int>>& redundantColorOutGraph);
     void EraseRedundantColorEdges(const Function &function);
     std::string FindSymbolName(std::shared_ptr<LogicalTensor> op, int magic) const;
+    void RecordConnectionWithProducers(RecordInfo recordInfo, SubfuncInvokeInfoTy &iter);
+    void RecordIncastInfo(Function &function, RecordInfo recordInfo, SubfuncInvokeInfoTy &iter);
     void RecordEsgIncast(Function &function, size_t i, size_t j, size_t k);
+    void RecordOutcastInfo(Function &function, RecordInfo recordInfo, SubfuncInvokeInfoTy &iter);
     void RecordEsgOutcast(Function &function, size_t i, size_t j, size_t k);
     void ProcessInputOperands(Function* rootFunc, Operation& tileOp, SubfuncParam& pSgParamInfo, int& tParamLoc, int& iParamLoc) const;
     void ProcessOutputOperands(Function* rootFunc, Operation& tileOp, SubfuncParam& pSgParamInfo, int& tParamLoc, int& oParamLoc) const;

@@ -17,21 +17,8 @@
 namespace npu::tile_fwk {
 constexpr size_t START_ADDR_IDX = 2;
 
-std::map<uint64_t, std::map<uint64_t, uint64_t>> BufferPool::FindFreeIntervals() {
-    // 收集可用的offset + size
-    std::map<uint64_t, uint64_t> occupiedSpace;
-    std::map<uint64_t, std::map<uint64_t, uint64_t>> freeIntervalsMap;
-    for (auto slice : bufferSlices) {
-        // 当前slice被占用着
-        auto tensorEnd = slice.second.offset + slice.second.size;
-        occupiedSpace[slice.second.offset] = tensorEnd;
-    }
+std::map<uint64_t, uint64_t> BufferPool::GenFreeIntervals(const std::map<uint64_t, uint64_t> &occupiedSpace) {
     std::map<uint64_t, uint64_t> freeIntervals;
-    if (occupiedSpace.empty()) {
-        freeIntervalsMap[memSize_].insert({0, memSize_});
-        return freeIntervalsMap;
-    }
-    // 检查起始点是否为空闲
     if (occupiedSpace.begin()->first > 0) {
         freeIntervals.insert({0, occupiedSpace.begin()->first});
     }
@@ -47,13 +34,56 @@ std::map<uint64_t, std::map<uint64_t, uint64_t>> BufferPool::FindFreeIntervals()
     if (prevIt->second < memSize_) {
         freeIntervals.insert({prevIt->second, memSize_});
     }
+    return freeIntervals;
+}
+
+std::map<uint64_t, std::map<uint64_t, uint64_t>> BufferPool::FindFreeIntervals() {
+    // 收集可用的offset + size
+    std::map<uint64_t, uint64_t> occupiedSpace;
+    std::map<uint64_t, std::map<uint64_t, uint64_t>> freeIntervalsMap;
+    for (auto slice : bufferSlices) {
+        // 当前slice被占用着
+        auto tensorEnd = slice.second.offset + slice.second.size;
+        occupiedSpace[slice.second.offset] = tensorEnd;
+    }
+    if (occupiedSpace.empty()) {
+        freeIntervalsMap[memSize_].insert({0, memSize_});
+        return freeIntervalsMap;
+    }
+    // 检查起始点是否为空闲
+    std::map<uint64_t, uint64_t> freeIntervals = GenFreeIntervals(occupiedSpace);
     for (auto freeInterval : freeIntervals) {
         freeIntervalsMap[freeInterval.second - freeInterval.first].insert(freeInterval);
     }
     return freeIntervalsMap;
 }
 
-std::vector<std::vector<int>> BufferPool::GetSpillGroup(size_t sizeNeedSpill) {
+size_t BufferPool::ObtainStartAddr(size_t i, const std::vector<std::tuple<int, size_t, size_t>> &allocatedBufs) {
+    size_t startAddr = std::get<1>(allocatedBufs[i]);
+    if (i == 0) {
+        startAddr = 0;
+    } else {
+        startAddr = std::get<START_ADDR_IDX>(allocatedBufs[i - 1]);
+    }
+    return startAddr;
+}
+
+size_t BufferPool::UpdateIdx(size_t &i, size_t sizeNeedSpill, size_t startAddr, const std::vector<std::tuple<int, size_t, size_t>> &allocatedBufs) {
+    size_t j = i;
+    while (j < allocatedBufs.size() && (std::get<1>(allocatedBufs[j]) - startAddr) < sizeNeedSpill) {
+        j += 1;
+    }
+    size_t endAddr = memSize_;
+    if (j < allocatedBufs.size()) {
+        endAddr = std::get<1>(allocatedBufs[j]);
+    }
+    while (i < (j - 1) && (endAddr - std::get<START_ADDR_IDX>(allocatedBufs[i])) >= sizeNeedSpill) {
+        i += 1;
+    }
+    return j;
+}
+
+Status BufferPool::GetSpillGroup(size_t sizeNeedSpill, std::vector<std::vector<int>> &canSpillGroups) {
     std::vector<std::tuple<int, size_t, size_t>> allocatedBufs;
     for (auto &[memId, bufferSlice] : bufferSlices) {
         allocatedBufs.push_back(std::make_tuple(memId, bufferSlice.offset, bufferSlice.offset + bufferSlice.size));
@@ -62,45 +92,25 @@ std::vector<std::vector<int>> BufferPool::GetSpillGroup(size_t sizeNeedSpill) {
         [&](std::tuple<int, size_t, size_t> &a, std::tuple<int, size_t, size_t> &b) {
             return std::get<1>(a) < std::get<1>(b);
         });
-
-    std::vector<std::vector<int>> canSpillGroups;
     size_t i = 0;
     while (i < allocatedBufs.size()) {
-        size_t startAddr = std::get<1>(allocatedBufs[i]);
-        if (i == 0) {
-            startAddr = 0;
-        } else {
-            startAddr = std::get<START_ADDR_IDX>(allocatedBufs[i - 1]);
-        }
-
+        size_t startAddr = ObtainStartAddr(i, allocatedBufs);
         if ((memSize_ - startAddr) < sizeNeedSpill) {
             break;
         }
-
-        size_t j = i;
-        while (j < allocatedBufs.size() && (std::get<1>(allocatedBufs[j]) - startAddr) < sizeNeedSpill) {
-            j += 1;
+        size_t j = UpdateIdx(i, sizeNeedSpill, startAddr, allocatedBufs);
+        if (i == j) {
+            ALOG_ERROR_F("Incorrect idx for allocatedBufs");
+            return FAILED;
         }
-
-        size_t endAddr = memSize_;
-        if (j < allocatedBufs.size()) {
-            endAddr = std::get<1>(allocatedBufs[j]);
-        }
-
-        while (i < (j-1) && (endAddr - std::get<START_ADDR_IDX>(allocatedBufs[i])) >= sizeNeedSpill) {
-            i += 1;
-        }
-        ASSERT(i != j);
-
         std::vector<int> group;
         for (size_t k = i; k < j; k++) {
             group.push_back(std::get<0>(allocatedBufs[k]));
         }
-
         canSpillGroups.push_back(group);
         i += 1;
     }
-    return canSpillGroups;
+    return SUCCESS;
 }
 
 Status BufferPool::Allocate(LocalBufferPtr tensor) {

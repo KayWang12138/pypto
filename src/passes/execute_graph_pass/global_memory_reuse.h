@@ -86,20 +86,29 @@ private:
     void InitializeRootCasts();
     void ProcessOperations();
     void HandleNewTensor(Operation& callOp, size_t outputIdx, LogicalTensorPtr& outputTensor);
+    void CollectComsuerOpDesc(TensorsDesc &tensorsDesc);
+    void RemoveRedundantComsuerOp(TensorsDesc &tensorsDesc);
+    void CollectConnectionOps(TensorsDesc &tensorsDesc);
     void StorageNeedToAllocatePreProcess(TensorsDesc &tensorsDesc);
     Status UpdateStorageId(TensorsDesc &tensorsDesc, std::unordered_map<int64_t, int> &idMap, int &storageId);
     void MarkNonOverlappingConsumerTensors();
     void InitializeLeafGlobalMemoryReuse();
+    void CollectOutputTensor(Function *leafFunc, std::unordered_map<LogicalTensorPtr, size_t> &tensorToInfo, std::vector<WorkspaceInfo> &outWspInfo, std::vector<WorkspaceInfo>& leafFuncReuseMap);
+    void CollectInputTensor(Function *leafFunc, std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inWspCnt);
     void ProcessLeafGlobalMemoryReuse(Function *leafFunc);
 
     bool CheckAllConsumersConnectedToOp(const LogicalTensorPtr &tensor, Operation &op) const;
     // 检查某个CallOp的输出是否可以复用输入
     bool TryReuseInputForOutput(Operation &callOp, size_t outputIdx, LogicalTensorPtr &reusedInput, 
         uint64_t &storageOffset) const;
+    bool CalOffsetRawShape(size_t dimCount, const std::vector<SymbolicScalar> &argList, std::vector<int> &offsets, std::vector<int> &rawShapes) const;
+    void CalStridesStorageOffset(size_t dimCount, const LogicalTensorPtr &input, std::vector<int> &offsets, std::vector<int> &rawShapes, uint64_t& storageOffset) const;
     bool GetStorageOffsetByCall(Operation& callOp, size_t inputIdx, uint64_t& storageOffset) const;
     void UpdateStorageForActualRaw(LogicalTensorPtr &input) const;
     TensorBucket &GetBestFitBucket(const TensorsDesc &tensorsDesc);
     void UpdateTensorMagicToBucketIdx(const std::set<LogicalTensorPtr> &tensors, int bucketIdx);
+    void ScanParentOps(Function *leafFunc, const Operation *parent, std::unordered_set<LogicalTensorPtr> &visited, std::unordered_set<Operation*> &operations);
+    bool CheckReuseOp(const std::unordered_set<Operation*> &operations, std::deque<Operation*> &parents, const WorkspaceInfo &outWspInfo, std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inWspCnt, std::vector<WorkspaceInfo> &leafFuncReuseMap);
     void FindReusableInputForOutput(Function *leafFunc, Operation *op, const WorkspaceInfo &outWspInfo,
         std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inWspCnt, std::vector<WorkspaceInfo> &leafFuncReuseMap);
     void ProcessOutputForGlobalMemoryReuse(Function *leafFunc, WorkspaceInfo &wspInfo,
