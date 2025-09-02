@@ -72,21 +72,19 @@ void LargeBitmap::SetValues(const uint64_t &value) {
 }
 
 void LargeBitmap::SetBit(const size_t &index) {
-    if (index < size_) {
-        bits_[index / BITS_EACH_VALUE] |= 1UL << (index % BITS_EACH_VALUE);
-    } else {
-        ALOG_ERROR_F("index %zu is not valid. Total size is %zu", index, size_);
+    if (index >= size_) {
+        ALOG_WARN_F("index %zu is not valid. Total size is %zu", index, size_);
         return;
     }
+    bits_[index / BITS_EACH_VALUE] |= 1UL << (index % BITS_EACH_VALUE);
 }
 
 bool LargeBitmap::GetBit(const size_t &index) const {
-    if (index < size_) {
-        return static_cast<bool>(bits_[index / BITS_EACH_VALUE] & (1UL << (index % BITS_EACH_VALUE)));
-    } else {
-        ALOG_ERROR_F("index %zu is not valid. Total size is %zu", index, size_);
+    if (index >= size_) {
+        ALOG_WARN_F("index %zu is not valid. Total size is %zu", index, size_);
         return false;
     }
+    return static_cast<bool>(bits_[index / BITS_EACH_VALUE] & (1UL << (index % BITS_EACH_VALUE)));
 }
 
 void LargeBitmap::Or(const LargeBitmap &anotherBm) {

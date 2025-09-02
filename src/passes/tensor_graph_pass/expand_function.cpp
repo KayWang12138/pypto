@@ -124,16 +124,16 @@ Status ExpandFunction::Expandfunction(Function &function) const {
             auto &newOp = function.AddOperation(op->GetOpcode(), op->GetIOperands(), op->GetOOperands());
             newOp.SetOpAttribute(op->GetOpAttribute());
             newOp.CopyAttrFrom(*op, OP_EMUOP_PREFIX);
-        } else {
-            ConfigManager::Instance().SetSemanticLabel(op->GetSemanticLabels()[0]);
-            size_t opListPreSize = function.Operations(false).size();
-            ExpandOperationInto(function, op->GetTileShape(), op->GetOpcode(), op->GetIOperands(), op->GetOOperands(), *op);
-            auto opListPost = function.Operations(false);
-            if (op->GetOpcode() == Opcode::OP_ADDS) {
-                for (size_t i = opListPreSize; i < opListPost.size(); i++) {
-                    auto &newOp = opListPost[i];
-                    newOp.CopyAttrFrom(*op, OP_EMUOP_PREFIX);
-                }
+            continue;
+        }
+        ConfigManager::Instance().SetSemanticLabel(op->GetSemanticLabels()[0]);
+        size_t opListPreSize = function.Operations(false).size();
+        ExpandOperationInto(function, op->GetTileShape(), op->GetOpcode(), op->GetIOperands(), op->GetOOperands(), *op);
+        auto opListPost = function.Operations(false);
+        if (op->GetOpcode() == Opcode::OP_ADDS) {
+            for (size_t i = opListPreSize; i < opListPost.size(); i++) {
+                auto &newOp = opListPost[i];
+                newOp.CopyAttrFrom(*op, OP_EMUOP_PREFIX);
             }
         }
     }

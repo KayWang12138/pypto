@@ -159,17 +159,17 @@ void PassManager::RegisterStrategy(const std::string &strategy, const std::vecto
     for (auto &pass : passEntries) {
         if (!(identifiers.insert(pass.identifier).second)) {
             ALOG_WARN_F("Duplicated identifier: %s.", pass.identifier.c_str());
-        } else {
-            newPassEntries.push_back(pass);
+            continue;
         }
+        newPassEntries.push_back(pass);
     }
     auto strategyPasses = strategies_.find(strategy);
     if (strategyPasses == strategies_.end()) {
         strategies_.emplace(strategy, newPassEntries);
-    } else {
-        strategyPasses->second = newPassEntries;
-        ALOG_WARN_F("Strategy %s has been changed.", strategy.c_str());
+        return;
     }
+    strategyPasses->second = newPassEntries;
+    ALOG_WARN_F("Strategy %s has been changed.", strategy.c_str());
 }
 
 std::vector<PassManager::PassEntry> PassManager::GetStrategyPasses(const std::string &strategy) const {

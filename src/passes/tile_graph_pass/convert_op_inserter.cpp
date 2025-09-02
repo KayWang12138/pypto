@@ -31,24 +31,25 @@ void ConvertInserter::UpdateTensorTobeMap(LogicalTensor &tensor, Operation &oper
         std::map<Operation *, MemoryType> tobeMap;
         tobeMap.emplace(&operation, t);
         tensorTobeMap[&tensor] = tobeMap;
-    } else {
-        if (tensorTobeMap[&tensor].count(&operation) == 0) {
-            // 已存在，且首次设置该consumer的tobe mem
-            tensorTobeMap[&tensor].emplace(&operation, t);
-            ALOG_DEBUG_F("First Set magic: %d, new: %s.", tensor.magic, BriefMemoryTypeToString(t).c_str());
-        } else {
-            if (tensorTobeMap[&tensor][&operation] == MemoryType::MEM_UNKNOWN && t != MemoryType::MEM_UNKNOWN) {
-                tensorTobeMap[&tensor][&operation] = t;
-            } else if (tensorTobeMap[&tensor][&operation] == t) {
-                return;
-            } else {
-                ALOG_DEBUG_F("Update magic: %d, old: %s, new: %s.", tensor.magic,
-                    BriefMemoryTypeToString(tensorTobeMap[&tensor][&operation]).c_str(),
-                    BriefMemoryTypeToString(t).c_str());
-                tensorTobeMap[&tensor][&operation] = t;
-            }
-        }
+        return;
     }
+    if (tensorTobeMap[&tensor].count(&operation) == 0) {
+        // 已存在，且首次设置该consumer的tobe mem
+        tensorTobeMap[&tensor].emplace(&operation, t);
+        ALOG_DEBUG_F("First Set magic: %d, new: %s.", tensor.magic, BriefMemoryTypeToString(t).c_str());
+        return;
+    }
+    if (tensorTobeMap[&tensor][&operation] == MemoryType::MEM_UNKNOWN && t != MemoryType::MEM_UNKNOWN) {
+        tensorTobeMap[&tensor][&operation] = t;
+        return;
+    }
+    if (tensorTobeMap[&tensor][&operation] == t) {
+        return;
+    }
+    ALOG_DEBUG_F("Update magic: %d, old: %s, new: %s.", tensor.magic,
+        BriefMemoryTypeToString(tensorTobeMap[&tensor][&operation]).c_str(),
+        BriefMemoryTypeToString(t).c_str());
+    tensorTobeMap[&tensor][&operation] = t;
 }
 
 // 将指定tensor的tobe map中的unknown项更新为指定的mem类型
@@ -109,9 +110,8 @@ MemoryType ConvertInserter::GetMemoryTypeFromTensorTobeMap(LogicalTensor &tensor
     if (tensorTobeMap.count(&tensor) == 0) {
         ALOG_INFO_F(" tensor %d has not been inserted yet, please check.", tensor.magic);
         return MemoryType::MEM_UNKNOWN;
-    } else {
-        return tensorTobeMap.at(&tensor).at(&operation);
     }
+    return tensorTobeMap.at(&tensor).at(&operation);
 }
 
 

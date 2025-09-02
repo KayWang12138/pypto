@@ -67,7 +67,9 @@ bool CalculateNewRawShape(const std::vector<int64_t> &oriShape, const std::vecto
                 accumuOriShape *= oriShape[i];
                 accumuOriScale *= oriScale[i];
             }
-        } else if (accumuOriShape == accumuNewShape) {
+            continue;
+        }
+        if (accumuOriShape == accumuNewShape) {
             newScale[j] *= accumuOriScale;
             i--;
             j--;
@@ -76,11 +78,11 @@ bool CalculateNewRawShape(const std::vector<int64_t> &oriShape, const std::vecto
                 accumuOriShape = oriShape[i];
                 accumuNewShape = newShape[j];
             }
-        } else {
-            j--;
-            if (j >= 0) {
-                accumuNewShape *= newShape[j];
-            }
+            continue;
+        }
+        j--;
+        if (j >= 0) {
+            accumuNewShape *= newShape[j];
         }
     }
 
@@ -278,42 +280,41 @@ void PreGraphProcess::DeleteRedundantAssemble(Function &function) const {
         auto producersBackup = input->GetProducers();
         LogicalTensorPtr oriOutputBackUp = nullptr;
         for (auto &cons : consumers) {
-            if (cons->GetOpcode() == Opcode::OP_ASSEMBLE) {
-                cons->SetAsDeleted();
-                if (concurrentAssembles.empty()) {
-                    concurrentAssembles.emplace(cons);
-                    for (auto &producer : producersBackup) {
-                        oriOutputBackUp = producer->oOperand[0]; // producer --> oriOutputBackUp(input) --> op
-                        producer->ReplaceOutput(output, oriOutputBackUp);
-                        output->isSubGraphBoundary = true;
-                        if (IsCopyOut(producer->GetOpcode())) {
-                            auto opAttr = std::static_pointer_cast<CopyOpAttribute>(producer->GetOpAttribute());
-                            auto consOpAttr = std::static_pointer_cast<AssembleOpAttribute>(cons->GetOpAttribute());
-                            if (consOpAttr->GetToDynOffset().size() != 0) {
-                                opAttr->SetToOffset(OpImmediate::Specified(consOpAttr->GetToDynOffset()));
-                            }
-                            opAttr->SetRawShape(OpImmediate::Specified(output->tensor->GetRawShape()));
-                        }
-                    }
-                } else {
-                    concurrentAssembles.emplace(cons);
-                    auto consConsumersBackup = cons->GetOOperands().front()->GetConsumers();
-                    /*
-                         /--> op[Assemble]   --> output
-                    input --> cons[Assemble] --> consOutput --> consOfCons1
-                                                 \--> consOfCons2
-                    after:
-                                                    /--> consOfCons1
-                        /--> op[Assemble] --> output --> consOfCons2
-                    input --> cons[Assemble] --> consOutput
-                    */
-                    for (auto &consOfCons : consConsumersBackup) {
-                        SubstituteInput(consOfCons, cons->GetOOperands().front(), output);
-                    }
-                }
-            } else {
+            if (cons->GetOpcode() != Opcode::OP_ASSEMBLE) {
                 cons->iOperand[0] = output;
                 cons->iOperand[0]->AddConsumer(cons);
+                continue;
+            }
+            cons->SetAsDeleted();
+            if (!concurrentAssembles.empty()) {
+                concurrentAssembles.emplace(cons);
+                auto consConsumersBackup = cons->GetOOperands().front()->GetConsumers();
+                /*
+                      /--> op[Assemble]   --> output
+                input --> cons[Assemble] --> consOutput --> consOfCons1
+                                              \--> consOfCons2
+                after:
+                                                /--> consOfCons1
+                    /--> op[Assemble] --> output --> consOfCons2
+                input --> cons[Assemble] --> consOutput
+                */
+                for (auto &consOfCons : consConsumersBackup) {
+                    SubstituteInput(consOfCons, cons->GetOOperands().front(), output);
+                }
+                continue;
+            }
+            concurrentAssembles.emplace(cons);
+            for (auto &producer : producersBackup) {
+                oriOutputBackUp = producer->oOperand[0]; // producer --> oriOutputBackUp(input) --> op
+                producer->ReplaceOutput(output, oriOutputBackUp);
+                output->isSubGraphBoundary = true;
+                if (!IsCopyOut(producer->GetOpcode())) { continue;}
+                auto opAttr = std::static_pointer_cast<CopyOpAttribute>(producer->GetOpAttribute());
+                auto consOpAttr = std::static_pointer_cast<AssembleOpAttribute>(cons->GetOpAttribute());
+                if (consOpAttr->GetToDynOffset().size() != 0) {
+                    opAttr->SetToOffset(OpImmediate::Specified(consOpAttr->GetToDynOffset()));
+                }
+                opAttr->SetRawShape(OpImmediate::Specified(output->tensor->GetRawShape()));
             }
         }
         HandleForAssembleFromInOut(function, concurrentAssembles, producersBackup);
@@ -331,19 +332,11 @@ void PreGraphProcess::ProcessSpecialMTEOperation(Operation &op) const {
     if ((inputTensor == nullptr) || (outputTensor == nullptr)) {
         return;
     }
-
-    if (op.GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT) {
-        /* transpose datamove 输入和输出的shape不相同 */
-        op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MemoryType::MEM_UB,
-            OpImmediate::Specified(outputTensor->GetTensorOffset()), OpImmediate::Specified(outputTensor->GetShape()),
-            OpImmediate::Specified(outputTensor->tensor->GetDynRawShape())));
-        op.oOperand[0]->isSubGraphBoundary = true;
-    } else {
-        op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MemoryType::MEM_UB,
-            OpImmediate::Specified(outputTensor->GetTensorOffset()), OpImmediate::Specified(outputTensor->GetShape()),
-            OpImmediate::Specified(outputTensor->tensor->GetDynRawShape())));
-        op.oOperand[0]->isSubGraphBoundary = true;
-    }
+    /* transpose datamove 输入和输出的shape不相同 */
+    op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MemoryType::MEM_UB,
+        OpImmediate::Specified(outputTensor->GetTensorOffset()), OpImmediate::Specified(outputTensor->GetShape()),
+        OpImmediate::Specified(outputTensor->tensor->GetDynRawShape())));
+    op.oOperand[0]->isSubGraphBoundary = true;
 }
 
 void PreGraphProcess::ProcessMoveInOperation(Operation &op) const {
@@ -570,17 +563,23 @@ void PreGraphProcess::SetTensorBoundary(Function &function) const {
         if (op.GetOpcode() == Opcode::OP_COPY_IN) {
             /* Copy In 的输入*/
             op.GetIOperands().front()->isSubGraphBoundary = true;
-        } else if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
+            continue;
+        }
+        if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
             /* Copy Out 的输出*/
             op.GetOOperands().front()->isSubGraphBoundary = true;
-        } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            continue;
+        }
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
             /* GM上的Assemble*/
             auto assembleIn = op.GetIOperands().front();
             auto assembleOut = op.GetOOperands().front();
             bool isBoundary = (assembleOut->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR);
             assembleOut->isSubGraphBoundary = isBoundary;
             assembleIn->isSubGraphBoundary = isBoundary;
-        } else if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+            continue;
+        }
+        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
             /* reshape*/
             auto reshapeIn = op.GetIOperands().front();
             auto reshapeOut = op.GetOOperands().front();

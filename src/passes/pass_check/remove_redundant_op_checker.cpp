@@ -21,20 +21,20 @@ Status RemoveRedundantOpChecker::PreCheckAssemble(const Operation &op, const Log
     uint32_t assembleRemoveNum = 0;
     uint32_t otherOpNum = 0;
     for (auto &childOp : in->GetConsumers()) {
-        if (childOp->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            auto child_in = op.iOperand.front();
-            auto child_out = op.oOperand.front();
-            if (child_out->GetConsumers().empty()) {
-                if (child_in->shape == child_out->shape &&
-                    child_in->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
-                    child_out->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-                    ++assembleRemoveNum;
-                }
-            } else {
-                ++otherOpNum;
-            }
-        } else {
+        if (childOp->GetOpcode() != Opcode::OP_ASSEMBLE) {
             ++otherOpNum;
+            continue;
+        }
+        auto child_in = op.iOperand.front();
+        auto child_out = op.oOperand.front();
+        if (!child_out->GetConsumers().empty()) {
+            ++otherOpNum;
+            continue;
+        }
+        if (child_in->shape == child_out->shape &&
+            child_in->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
+            child_out->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+            ++assembleRemoveNum;
         }
     }
     if (assembleRemoveNum > 1 && otherOpNum > 0) {
@@ -60,7 +60,9 @@ Status RemoveRedundantOpChecker::ProcessPreCheck(const Operation &op) {
             ALOG_ERROR_F("PreCheck for assemble op[%d] failed!", op.GetOpMagic());
             return FAILED;
         }
-    } else if (op.GetOpcode() == Opcode::OP_VIEW) {
+        return SUCCESS;
+    }
+    if (op.GetOpcode() == Opcode::OP_VIEW) {
         auto view_in = op.iOperand.front();
         if (PreCheckView(op, view_in) != SUCCESS) {
             ALOG_ERROR_F("PreCheck for view op[%d] failed!", op.GetOpMagic());
@@ -83,7 +85,8 @@ Status RemoveRedundantOpChecker::PostCheckAssemble(const Operation &op) {
             assemble_out->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
             ALOG_ERROR_F("PostCheck for assembleDDR op[%d] failed with the same shape!", op.GetOpMagic());
             return FAILED;
-        } else if (assemble_in->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
+        }
+        if (assemble_in->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
             assemble_out->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
             ALOG_ERROR_F("PostCheck for assembleUB op[%d] failed with the same shape!", op.GetOpMagic());
             return FAILED;
@@ -100,16 +103,18 @@ Status RemoveRedundantOpChecker::PostCheckView(const Operation &op) {
         view_in->shape == view_out->shape && view_in->GetMemoryTypeOriginal() == view_out->GetMemoryTypeOriginal()) {
         ALOG_ERROR_F("PostCheck for view op[%d] failed, DynValidShape is empty with the same shape and memory type!", op.GetOpMagic());
         return FAILED;
-    } else if (view_out->GetConsumers().size() == 1) {
-        auto childOp = *(view_out->GetConsumers().begin());
-        if (childOp == nullptr) {
-            ALOG_ERROR_F("Found null childOp of op[%d]", op.GetOpMagic());
-            return FAILED;
-        }
-        if (childOp->GetOpcode() == Opcode::OP_COMM_WAIT_FLAG) {
-            ALOG_ERROR_F("View op[%d] has only one commit wait child!", op.GetOpMagic());
-            return FAILED;
-        }
+    }
+    if (view_out->GetConsumers().size() != 1) {
+        return SUCCESS;
+    }
+    auto childOp = *(view_out->GetConsumers().begin());
+    if (childOp == nullptr) {
+        ALOG_ERROR_F("Found null childOp of op[%d]", op.GetOpMagic());
+        return FAILED;
+    }
+    if (childOp->GetOpcode() == Opcode::OP_COMM_WAIT_FLAG) {
+        ALOG_ERROR_F("View op[%d] has only one commit wait child!", op.GetOpMagic());
+        return FAILED;
     }
     return SUCCESS;
 }
@@ -163,22 +168,30 @@ Status RemoveRedundantOpChecker::ProcessPostCheck(const Operation &op) {
             ALOG_ERROR_F("PostCheck for Assemble failed!");
             return FAILED;
         }
-    } else if (op.GetOpcode() == Opcode::OP_VIEW) {
+        return SUCCESS;
+    }
+    if (op.GetOpcode() == Opcode::OP_VIEW) {
         if (PostCheckView(op) != SUCCESS) {
             ALOG_ERROR_F("PostCheck for View failed!");
             return FAILED;
         }
-    } else if (op.GetOpcode() == Opcode::OP_REGISTER_COPY) {
+        return SUCCESS;
+    }
+    if (op.GetOpcode() == Opcode::OP_REGISTER_COPY) {
         if (PostCheckRegCopy(op) != SUCCESS) {
             ALOG_ERROR_F("PostCheck for RegCopy failed!");
             return FAILED;
         }
-    } else if (op.GetOpcode() == Opcode::OP_COPY_IN) {
+        return SUCCESS;
+    }
+    if (op.GetOpcode() == Opcode::OP_COPY_IN) {
         if (PostCheckCopyIn(op) != SUCCESS) {
             ALOG_ERROR_F("PostCheck for CopyIn failed!");
             return FAILED;
         }
-    } else if (op.GetOpcode() == Opcode::OP_EXPAND) {
+        return SUCCESS;
+    }
+    if (op.GetOpcode() == Opcode::OP_EXPAND) {
         if (PostCheckExpand(op) != SUCCESS) {
             ALOG_ERROR_F("PostCheck for Expand failed!");
             return FAILED;

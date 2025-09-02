@@ -132,15 +132,17 @@ Status GraphPartitionChecker::PostSubgraphCheck(const std::vector<std::vector<Op
                     iTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0B ||
                     iTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
                     aicMemoryCount++;
-                } else if (iTensor->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
+                    continue;
+                }
+                if (iTensor->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
                     aivMemoryCount++;
                 }
             }
             if (op->HasAttr(OpAttributeKey::isCube) && op->GetBoolAttribute(OpAttributeKey::isCube)) {
                 aicCount++;
-            } else {
-                aivCount++;
+                continue;
             }
+            aivCount++;
         }
         if (aicCount > 0 && aivCount > 0) {
             ALOG_ERROR_F("Subgraph %d has both AIV and AIC operation.", subgraphId);

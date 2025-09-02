@@ -164,48 +164,47 @@ bool OoOScheduleChecker::PostCheckNewOpConnection(const std::vector<Operation *>
     auto it = std::find(opMagicListBeforePass.begin(), opMagicListBeforePass.end(), op->GetOpMagic());
     if (it == opMagicListBeforePass.end()) {
         return true;
-    } else {
-        int index = std::distance(opMagicListBeforePass.begin(), it);
-        auto &opBefore = opListBeforePass[index];
-        auto inTensorsBefore = opBefore->GetIOperands(); // 老op的ioperands
-        std::vector<std::set<Operation *, LogicalTensor::CompareOp>> opBeforeIncast; // 老op的ioperands的生产者
-        for (auto &inTensorBefore : inTensorsBefore) {
-            opBeforeIncast.emplace_back(inTensorBefore->GetProducers());
+    }
+    int index = std::distance(opMagicListBeforePass.begin(), it);
+    auto &opBefore = opListBeforePass[index];
+    auto inTensorsBefore = opBefore->GetIOperands(); // 老op的ioperands
+    std::vector<std::set<Operation *, LogicalTensor::CompareOp>> opBeforeIncast; // 老op的ioperands的生产者
+    for (auto &inTensorBefore : inTensorsBefore) {
+        opBeforeIncast.emplace_back(inTensorBefore->GetProducers());
+    }
+    auto inTensorsAfter = op->GetIOperands(); // 新op的ioperands
+    int shape = inTensorsAfter.size();
+    for (int i = 0; i < shape; i++) {
+        auto opAfterIncast = inTensorsAfter[i]->GetProducers(); // 新op的ioperands的生产者
+        std::set<Operation *, LogicalTensor::CompareOp> beforeHasAfterNot;
+        std::set<Operation *, LogicalTensor::CompareOp> beforeNotAfterHas;
+        std::set_difference(opBeforeIncast[i].begin(), opBeforeIncast[i].end(), opAfterIncast.begin(), opAfterIncast.end(), std::inserter(beforeHasAfterNot, beforeHasAfterNot.begin()));
+        std::set_difference(opAfterIncast.begin(), opAfterIncast.end(), opBeforeIncast[i].begin(), opBeforeIncast[i].end(), std::inserter(beforeNotAfterHas, beforeNotAfterHas.begin()));
+        if (beforeHasAfterNot.empty() && beforeNotAfterHas.empty()) { continue; }
+        std::vector<Operation *> copyins;
+        for (auto &opNew : beforeNotAfterHas) {
+            if (opNew->GetOpcode() != Opcode::OP_COPY_IN) {
+                ALOG_ERROR_F("Program %d: %d op's successors include unexpected op %s, OoOSchedule Postcheck failed!", programIdx, op->GetOpMagic(), opNew->GetOpcodeStr().c_str());
+                return false; }
+            copyins.emplace_back(opNew);
         }
-        auto inTensorsAfter = op->GetIOperands(); // 新op的ioperands
-        int shape = inTensorsAfter.size();
-        for (int i = 0; i < shape; i++) {
-            auto opAfterIncast = inTensorsAfter[i]->GetProducers(); // 新op的ioperands的生产者
-            std::set<Operation *, LogicalTensor::CompareOp> beforeHasAfterNot;
-            std::set<Operation *, LogicalTensor::CompareOp> beforeNotAfterHas;
-            std::set_difference(opBeforeIncast[i].begin(), opBeforeIncast[i].end(), opAfterIncast.begin(), opAfterIncast.end(), std::inserter(beforeHasAfterNot, beforeHasAfterNot.begin()));
-            std::set_difference(opAfterIncast.begin(), opAfterIncast.end(), opBeforeIncast[i].begin(), opBeforeIncast[i].end(), std::inserter(beforeNotAfterHas, beforeNotAfterHas.begin()));
-            if (beforeHasAfterNot.empty() && beforeNotAfterHas.empty()) { continue; }
-            std::vector<Operation *> copyins;
-            for (auto &opNew : beforeNotAfterHas) {
-                if (opNew->GetOpcode() != Opcode::OP_COPY_IN) {
-                    ALOG_ERROR_F("Program %d: %d op's successors include unexpected op %s, OoOSchedule Postcheck failed!", programIdx, op->GetOpMagic(), opNew->GetOpcodeStr().c_str());
-                    return false; }
-                copyins.emplace_back(opNew);
-            }
-            std::vector<Operation *> copyouts;
-            for (auto &copyin : copyins) {
-                auto opPtr = *(copyin->GetIOperands()[0]->GetProducers().begin());
-                if (opPtr->GetOpcode() != Opcode::OP_COPY_OUT) {
-                    ALOG_ERROR_F("Program %d: %d op's successors include unexpected op %s, OoOSchedule Postcheck failed!", programIdx, copyin->GetOpMagic());
-                    return false; }
-            }
-            std::set<Operation *, LogicalTensor::CompareOp> mainres;
-            for (auto &copyout : copyouts) {
-                mainres.insert(*(copyout->GetIOperands()[0]->GetProducers()).begin());
-            }
-            if (mainres != beforeHasAfterNot) {
-                std::set<Operation *, LogicalTensor::CompareOp> difference;
-                std::set_difference(beforeHasAfterNot.begin(), beforeHasAfterNot.end(), mainres.begin(), mainres.end(), std::inserter(difference, difference.begin()));
-                for (auto &dif : difference) {
-                    ALOG_ERROR_F("Program %d: %d op is not found after OoOSchedule, OoOSchedule Postcheck failed!", programIdx, dif->GetOpMagic());
-                    return false; }
-            }
+        std::vector<Operation *> copyouts;
+        for (auto &copyin : copyins) {
+            auto opPtr = *(copyin->GetIOperands()[0]->GetProducers().begin());
+            if (opPtr->GetOpcode() != Opcode::OP_COPY_OUT) {
+                ALOG_ERROR_F("Program %d: %d op's successors include unexpected op %s, OoOSchedule Postcheck failed!", programIdx, copyin->GetOpMagic());
+                return false; }
+        }
+        std::set<Operation *, LogicalTensor::CompareOp> mainres;
+        for (auto &copyout : copyouts) {
+            mainres.insert(*(copyout->GetIOperands()[0]->GetProducers()).begin());
+        }
+        if (mainres != beforeHasAfterNot) {
+            std::set<Operation *, LogicalTensor::CompareOp> difference;
+            std::set_difference(beforeHasAfterNot.begin(), beforeHasAfterNot.end(), mainres.begin(), mainres.end(), std::inserter(difference, difference.begin()));
+            for (auto &dif : difference) {
+                ALOG_ERROR_F("Program %d: %d op is not found after OoOSchedule, OoOSchedule Postcheck failed!", programIdx, dif->GetOpMagic());
+                return false; }
         }
     }
     return true;

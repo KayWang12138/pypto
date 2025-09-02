@@ -187,12 +187,12 @@ void WriteHealthReport(const json& report, const std::string &reportPath, const 
         ALOG_ERROR_F("Failed to create directory for health report");
     }
     std::ofstream out(reportPath + "/" + filename);
-    if (out.is_open()) {
-        out << report.dump(DUMP_WIDTH);
-        out.close();
-    } else {
+    if (!out.is_open()) {
         ALOG_ERROR_F("Failed to open health report file for writing");
+        return;
     }
+    out << report.dump(DUMP_WIDTH);
+    out.close();
 }
 
 void HealthCheckTensorGraph(Function &function, const std::string &reportPath, const std::string &fileName) {

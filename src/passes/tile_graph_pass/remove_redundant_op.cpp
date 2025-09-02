@@ -46,30 +46,32 @@ Status ProcessRegCopy(const Operation &op, const Function &function, bool &needT
 Status ProcessAssembleDDR(const Operation &op, const LogicalTensorPtr &assembleIn, const LogicalTensorPtr &assembleOut,
     Function &function, bool &needToDelete) {
     auto consumerOps = function.FindConsumers(op);
-    if (consumerOps.empty()) {
-        /* DDR --> Assemble --> OUTCAST */
-        if (assembleOut->nodetype != NodeType::OUTCAST) {return FAILED;}
-        if (!function.IsFromOutCast(assembleOut)) {return FAILED;}
-        ALOG_DEBUG_F("[RemoveRedundantOp] OP_ASSEMBLE has no consumers, opmagic: %d", op.opmagic);
-        auto childOpsBackup = assembleIn->GetConsumers();
-        for (auto &childOp : childOpsBackup) {
-            if (childOp->GetOpMagic() == op.GetOpMagic()) {
-                continue;
-            }
-            childOp->ReplaceInput(assembleOut, assembleIn);
-            ALOG_DEBUG_F("Repalce input of %s opmagic: %d, tensor %d --> tensor %d", childOp->GetOpcodeStr().c_str(),
-                childOp->GetOpMagic(), assembleIn->magic, assembleOut->magic);
-        }
-        auto producerOps = op.ProducerOps();
-        for (auto &producerOp : producerOps) {
-            producerOp->ReplaceOutput(assembleOut, assembleIn);
-            ALOG_DEBUG_F("Repalce output of %s opmagic: %d, tensor %d --> tensor %d",
-                producerOp->GetOpcodeStr().c_str(), producerOp->GetOpMagic(), assembleIn->magic, assembleOut->magic);
-        }
-    } else {
+    if (!consumerOps.empty()) {
         for (auto &consumerOp : consumerOps) {
             consumerOp->ReplaceInput(assembleOut, assembleIn);
         }
+        needToDelete = true;
+        ALOG_DEBUG_F("[RemoveRedundantOp] Delete Redundant OP_ASSEMBLE on DDR opmagic: %d", op.opmagic);
+        return SUCCESS;
+    }
+    /* DDR --> Assemble --> OUTCAST */
+    if (assembleOut->nodetype != NodeType::OUTCAST) {return FAILED;}
+    if (!function.IsFromOutCast(assembleOut)) {return FAILED;}
+    ALOG_DEBUG_F("[RemoveRedundantOp] OP_ASSEMBLE has no consumers, opmagic: %d", op.opmagic);
+    auto childOpsBackup = assembleIn->GetConsumers();
+    for (auto &childOp : childOpsBackup) {
+        if (childOp->GetOpMagic() == op.GetOpMagic()) {
+            continue;
+        }
+        childOp->ReplaceInput(assembleOut, assembleIn);
+        ALOG_DEBUG_F("Repalce input of %s opmagic: %d, tensor %d --> tensor %d", childOp->GetOpcodeStr().c_str(),
+            childOp->GetOpMagic(), assembleIn->magic, assembleOut->magic);
+    }
+    auto producerOps = op.ProducerOps();
+    for (auto &producerOp : producerOps) {
+        producerOp->ReplaceOutput(assembleOut, assembleIn);
+        ALOG_DEBUG_F("Repalce output of %s opmagic: %d, tensor %d --> tensor %d",
+            producerOp->GetOpcodeStr().c_str(), producerOp->GetOpMagic(), assembleIn->magic, assembleOut->magic);
     }
     needToDelete = true;
     ALOG_DEBUG_F("[RemoveRedundantOp] Delete Redundant OP_ASSEMBLE on DDR opmagic: %d", op.opmagic);
@@ -95,15 +97,26 @@ Status ProcessAssembleUB(const Operation &op, const LogicalTensorPtr &ASSEMBLE_i
 
 Status ProcessAssemble(const Operation &op, Function &function, bool &needToDelete) {
     auto ASSEMBLE_in = op.iOperand.front();
-    if (ASSEMBLE_in == nullptr) {return FAILED;}
+    if (ASSEMBLE_in == nullptr) {
+        return FAILED;
+    }
     auto ASSEMBLE_out = op.oOperand.front();
-    if (ASSEMBLE_out == nullptr) {return FAILED;}
-    if (ASSEMBLE_in->shape == ASSEMBLE_out->shape && ASSEMBLE_in->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
-        ASSEMBLE_out->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-        if (ProcessAssembleDDR(op, ASSEMBLE_in, ASSEMBLE_out, function, needToDelete)) {return FAILED;}
-    } else if (ASSEMBLE_in->shape == ASSEMBLE_out->shape && ASSEMBLE_in->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
-               ASSEMBLE_out->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-        if (ProcessAssembleUB(op, ASSEMBLE_in, ASSEMBLE_out, function, needToDelete)) {return FAILED;}
+    if (ASSEMBLE_out == nullptr) {
+        return FAILED;
+    }
+    if (ASSEMBLE_in->shape != ASSEMBLE_out->shape) {
+        return SUCCESS;
+    }
+    if (ASSEMBLE_in->GetMemoryTypeOriginal() != ASSEMBLE_out->GetMemoryTypeOriginal()) {
+        return SUCCESS;
+    }
+    if (ASSEMBLE_in->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
+        ProcessAssembleDDR(op, ASSEMBLE_in, ASSEMBLE_out, function, needToDelete)) {
+        return FAILED;
+    }
+    if (ASSEMBLE_in->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
+        ProcessAssembleUB(op, ASSEMBLE_in, ASSEMBLE_out, function, needToDelete)) {
+        return FAILED;
     }
     return SUCCESS;
 }

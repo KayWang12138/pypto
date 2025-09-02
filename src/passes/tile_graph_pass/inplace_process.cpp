@@ -26,7 +26,9 @@ Status InplaceProcess::RunOnFunction(Function &function) {
                 return FAILED;
             }
             ProcessView(function, op);
-        } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            continue;
+        }
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
             if (ValidMeaninglessOp(op) != SUCCESS) {
                 return FAILED;
             }
@@ -39,16 +41,18 @@ Status InplaceProcess::RunOnFunction(Function &function) {
                 return FAILED;
             }
             ProcessAssemble(function, op);
-        } else if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+            continue;
+        }
+        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
             if (ValidMeaninglessOp(op) != SUCCESS) {
                 return FAILED;
             }
             ProcessReshape(function, op);
-        } else {
-            if (ProcessInplaceOp(function, op) != SUCCESS) {
-                ALOG_ERROR_F(" Processing inplace op %s[%d] failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
-                return FAILED;
-            }
+            continue;
+        }
+        if (ProcessInplaceOp(function, op) != SUCCESS) {
+            ALOG_ERROR_F(" Processing inplace op %s[%d] failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            return FAILED;
         }
     }
     ALOG_INFO_F("===> End InplaceProcess.");
@@ -216,16 +220,18 @@ Status InplaceProcess::ProcessInplaceOp(Function &function, Operation &op) const
                         "tensor[%d] is outCast.", tensorIn->GetMagic(), tensorOut->GetMagic());
             continue;
         }
+        ALOG_DEBUG_F("%s[%d] output %d reuses input %d.", op.GetOpcodeStr().c_str(), op.GetOpMagic(), outputIdx, inputIdx);
         if (function.IsFromOutCast(tensorOut)) {
             tensorIn->tensor = tensorOut->tensor;
             tensorIn->UpdateOffset(tensorOut->GetOffset());
-        } else {
-            tensorOut->tensor = tensorIn->tensor;
-            tensorOut->UpdateOffset(tensorIn->GetOffset());
+            ALOG_DEBUG_F("Output magic: %d, raw maigc: %d.", tensorOut->magic, tensorOut->tensor->GetRawMagic());
+            ALOG_DEBUG_F("Input magic: %d, raw maigc: %d.", tensorIn->magic, tensorIn->tensor->GetRawMagic());
+            continue;
         }
-        ALOG_DEBUG_F("%s[%d] output %d reuses input %d.", op.GetOpcodeStr().c_str(), op.GetOpMagic(), outputIdx, inputIdx);
-        ALOG_DEBUG_F("output magic: %d, raw maigc: %d.", tensorOut->magic, tensorOut->tensor->GetRawMagic());
-        ALOG_DEBUG_F("input magic: %d, raw maigc: %d.", tensorIn->magic, tensorIn->tensor->GetRawMagic());
+        tensorOut->tensor = tensorIn->tensor;
+        tensorOut->UpdateOffset(tensorIn->GetOffset());
+        ALOG_DEBUG_F("Output magic: %d, raw maigc: %d.", tensorOut->magic, tensorOut->tensor->GetRawMagic());
+        ALOG_DEBUG_F("Input magic: %d, raw maigc: %d.", tensorIn->magic, tensorIn->tensor->GetRawMagic());
     }
     return SUCCESS;
 }

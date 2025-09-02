@@ -95,12 +95,11 @@ Operation *CommonOperationEliminateChecker::OperationExist(Operation *operation)
     if (operation->GetOpcode() == Opcode::OP_VIEW) {
         return nullptr;
     }
-    if (operationCache_.count(operation->ComputeHash()) != 0) {
-        return operationCache_[operation->ComputeHash()];
-    } else {
+    if (operationCache_.count(operation->ComputeHash()) == 0) {
         operationCache_.insert({operation->ComputeHash(), operation});
         return nullptr;
     }
+    return operationCache_[operation->ComputeHash()];
 }
 } // namespace tile_fwk
 } // namespace npu

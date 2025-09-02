@@ -189,10 +189,12 @@ json ExecutionGraphStatistic::AnalyzeExecutionGraph(
         } else if (latency == maxLatency) {
             maxLatencySubgraphs.push_back(i);
         }
-         if (latency < minLatency) {
+        if (latency < minLatency) {
             minLatency = latency;
             minLatencySubgraphs = {i};
-        } else if (latency == minLatency) {
+            continue;
+        }
+        if (latency == minLatency) {
             minLatencySubgraphs.push_back(i);
         }
     }
@@ -266,7 +268,9 @@ void ExecutionGraphStatistic::UpdateMinMaxStats(int count, int esgId, MinMaxStat
     if (count > stats.max_value) {
         stats.max_value = count;
         stats.max_nodes = {esgId};
-    } else if (count == stats.max_value) {
+        return;
+    }
+    if (count == stats.max_value) {
         stats.max_nodes.push_back(esgId);
     }
 }

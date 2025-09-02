@@ -55,7 +55,8 @@ Status SubGraphToFuncChecker::CheckSubGraphTopo(Function &function) const {
         if (subGraphId < 0 && NOPCheck(op) != SUCCESS) {
             ALOG_ERROR_F("operation %d has negative subGraphID %d and failed NOP check", i, subGraphId);
             return FAILED;
-        }else if (subGraphId >= totalSubGraphNum) {
+        }
+        if (subGraphId >= totalSubGraphNum) {
             ALOG_ERROR_F("operation %d has subGraphID %d that exceeds totalSubGraphNum %d", i, subGraphId, totalSubGraphNum);
             return FAILED;
         }
@@ -346,7 +347,9 @@ Status SubGraphToFuncChecker::ColorOutGraphCheck(Function &function) const {
             if (it != colorOutGraph_[iSubGraphId].end()) { // found edge
                 int index = std::distance(colorOutGraph_[iSubGraphId].begin(), it);
                 hitEdgeMark[iSubGraphId][index] = true;
-            } else if (VerifyRedundantEdge(iSubGraphId, jSubGraphId) != SUCCESS) { // check whether is redundant edge
+                continue;
+            }
+            if (VerifyRedundantEdge(iSubGraphId, jSubGraphId) != SUCCESS) { // check whether is redundant edge
                 ALOG_ERROR_F("edge between original operator %d with subgraph ID %d and operator %d with subgraph ID %d is missed in colorOutGraph_", i, iSubGraphId, j, jSubGraphId);
                 return FAILED;
             }

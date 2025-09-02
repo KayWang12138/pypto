@@ -74,7 +74,9 @@ void GenerateMoveOp::CreateMoveOpForView(Operation &op) const {
         if (nextOp->HasAttr(OpAttributeKey::tag)) {
             op.SetAttribute(OpAttributeKey::tag, nextOp->GetStringAttribute(OpAttributeKey::tag));
         }
-    } else if (op.HasAttr(OpAttributeKey::isGlobalInput) && op.GetBoolAttribute(OpAttributeKey::isGlobalInput)) {
+        return;
+    }
+    if (op.HasAttr(OpAttributeKey::isGlobalInput) && op.GetBoolAttribute(OpAttributeKey::isGlobalInput)) {
         auto viewResult = op.GetOOperands()[0];
         auto consumersCopy = viewResult->GetConsumers();
         for (auto childOp : consumersCopy) {
@@ -118,17 +120,12 @@ void GenerateMoveOp::CreateMoveOpForAssemble(Operation &op) const {
     auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(op.GetOpAttribute().get());
     auto ASSEMBLE_in = op.iOperand.front();
     auto parentOp = *ASSEMBLE_in->GetProducers().begin();
-    bool needCreate = true;
-    if (op.iOperand.front()->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR &&
-        op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
-        parentOp->GetOpcode() != Opcode::OP_TRANSPOSE_MOVEOUT && parentOp->GetOpcode() != Opcode::OP_INDEX_OUTCAST) {
-        op.SetOpCode(Opcode::OP_COPY_OUT);
-    } else {
-        needCreate = false;
-    }
-    if (!needCreate) {
+    if (op.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR ||
+        op.oOperand.front()->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR ||
+        parentOp->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT || parentOp->GetOpcode() == Opcode::OP_INDEX_OUTCAST) {
         return;
     }
+    op.SetOpCode(Opcode::OP_COPY_OUT);
     auto preOp = *(op.iOperand[0]->GetProducers().begin());
     if (preOp->HasAttr(OpAttributeKey::tag)) {
         op.SetAttribute(OpAttributeKey::tag, preOp->GetStringAttribute(OpAttributeKey::tag));
@@ -159,7 +156,9 @@ void GenerateMoveOp::CreateMoveOpForConvert(Operation &op) const {
             OpImmediate::Specified(op.iOperand.front()->GetDynValidShape())));
         auto childOp = *op.oOperand.front()->GetConsumers().begin();
         op.UpdateSubgraphID(childOp->GetSubgraphID());
-    } else if (to == MemoryType::MEM_DEVICE_DDR) {
+        return;
+    }
+    if (to == MemoryType::MEM_DEVICE_DDR) {
         op.SetOpCode(Opcode::OP_COPY_OUT);
         std::vector<OpImmediate> newOffset;
         auto inputOffset = op.GetOOperands().front()->GetOffset();
@@ -171,11 +170,15 @@ void GenerateMoveOp::CreateMoveOpForConvert(Operation &op) const {
             OpImmediate::Specified(op.oOperand.front()->tensor->GetDynRawShape())));
         auto parentOp = *op.iOperand.front()->GetProducers().begin();
         op.UpdateSubgraphID(parentOp->GetSubgraphID());
-    }else if ((from == MemoryType::MEM_L1) && (to == MemoryType::MEM_L0A)) {
+        return;
+    }
+    if ((from == MemoryType::MEM_L1) && (to == MemoryType::MEM_L0A)) {
         op.SetOpCode(Opcode::OP_L1_TO_L0A);
         auto childOp = *op.oOperand.front()->GetConsumers().begin();
         op.UpdateSubgraphID(childOp->GetSubgraphID());
-    }else if ((from == MemoryType::MEM_L1) && (to == MemoryType::MEM_L0B)) {
+        return;
+    }
+    if ((from == MemoryType::MEM_L1) && (to == MemoryType::MEM_L0B)) {
         op.SetOpCode(Opcode::OP_L1_TO_L0B);
         auto childOp = *op.oOperand.front()->GetConsumers().begin();
         op.UpdateSubgraphID(childOp->GetSubgraphID());

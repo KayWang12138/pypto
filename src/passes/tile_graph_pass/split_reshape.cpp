@@ -133,7 +133,8 @@ Status SplitReshape::CheckDynStatus(std::vector<int64_t> alignedShape, std::vect
             }
             alignIdx++;
             continue;
-        } else if (output[i] == 1) {
+        }
+        if (output[i] == 1) {
             continue;
         }
         if (!dynOutput[i].IsImmediate()) {
@@ -208,23 +209,23 @@ Status SplitReshape::GroupReshapeOffset(const std::shared_ptr<ReshapeOp> &isAddR
     auto iter = startIdx.find(isAddReshapeop);
     if (iter == startIdx.end()) {
         startIdx[isAddReshapeop] = offset;
-    } else {
-        auto curStartIdx = iter->second;
-        std::vector<int64_t> upperleftIdx;
-        if (offset.empty()) {
-            Clear(curStartIdx.size(), upperleftIdx);
-        } else {
-            upperleftIdx = offset;
-        }
-        if (curStartIdx.size() != upperleftIdx.size()) {
-            ALOG_ERROR_F("incorrect axis, curStartIdx = %s, offset = %s", GetStr(curStartIdx).c_str(), GetStr(offset).c_str());       
-            return FAILED;
-        }
-        for (size_t i = 0; i < offset.size(); ++i) {
-            upperleftIdx[i] = std::min(curStartIdx[i], offset[i]);
-        }
-        startIdx[isAddReshapeop] = upperleftIdx;
+        return SUCCESS;
     }
+    auto curStartIdx = iter->second;
+    std::vector<int64_t> upperleftIdx;
+    if (offset.empty()) {
+        Clear(curStartIdx.size(), upperleftIdx);
+    } else {
+        upperleftIdx = offset;
+    }
+    if (curStartIdx.size() != upperleftIdx.size()) {
+        ALOG_ERROR_F("incorrect axis, curStartIdx = %s, offset = %s", GetStr(curStartIdx).c_str(), GetStr(offset).c_str());       
+        return FAILED;
+    }
+    for (size_t i = 0; i < offset.size(); ++i) {
+        upperleftIdx[i] = std::min(curStartIdx[i], offset[i]);
+    }
+    startIdx[isAddReshapeop] = upperleftIdx;
     return SUCCESS;
 }
 
@@ -327,29 +328,31 @@ Status SplitReshape::ShapeAlign(
                 prod1 = prod1 / shape2[i2];
             }
             i2++;
-        } else if (prod2 != 1) {
+            continue;
+        }
+        if (prod2 != 1) {
             std::swap(i1, i2);
             std::swap(prod1, prod2);
             std::swap(shape1, shape2);
-        } else {
-            if ((i1 >= shape1.size() || i2 >= shape2.size())) {
-                ALOG_ERROR_F("i1 >= shape1.size() || i2 >= shape2.size()");
-                return FAILED;
-            }
-            if (shape2[i2] % shape1[i1] != 0 && shape1[i1] % shape2[i2] != 0) {
-                ALOG_WARN_F("Non-segmentable axis");
-                return WARNING;
-            }
-            if (shape2[i2] > shape1[i1]) {
-                alignedShape.push_back(shape1[i1]);
-                prod2 = shape2[i2] / shape1[i1];
-            } else {
-                alignedShape.push_back(shape2[i2]);
-                prod1 = shape1[i1] / shape2[i2];
-            }
-            i1++;
-            i2++;
+            continue;
         }
+        if ((i1 >= shape1.size() || i2 >= shape2.size())) {
+            ALOG_ERROR_F("i1 >= shape1.size() || i2 >= shape2.size()");
+            return FAILED;
+        }
+        if (shape2[i2] % shape1[i1] != 0 && shape1[i1] % shape2[i2] != 0) {
+            ALOG_WARN_F("Non-segmentable axis");
+            return WARNING;
+        }
+        if (shape2[i2] > shape1[i1]) {
+            alignedShape.push_back(shape1[i1]);
+            prod2 = shape2[i2] / shape1[i1];
+        } else {
+            alignedShape.push_back(shape2[i2]);
+            prod1 = shape1[i1] / shape2[i2];
+        }
+        i1++;
+        i2++;
     }
     return SUCCESS;
 }
@@ -364,21 +367,21 @@ Status SplitReshape::UpdateShapeOffset(UpdatePara &para, bool &flag, int &curren
             ALOG_WARN_F("Found tail cond, currentOffset = %d, currentShape = %d, stride = %d.", currentOffset, currentShape, stride);
             return WARNING;
         }
-    } else {
-        if (currentOffset % stride != 0) {
-            ALOG_WARN_F("Found tail cond, currentOffset = %d, stride = %d.", currentOffset, stride);
-            return WARNING;
-        }
-        if (currentShape % stride != 0) {
-            ALOG_WARN_F("Found tail cond, currentShape = %d, stride = %d.", currentShape, stride);
-            return WARNING;
-        }
-        para.OffsetVal = currentOffset / stride;
-        para.ShapeVal = currentShape / stride;
-        currentOffset = 0;
-        currentShape = stride;
-        flag = false;
+        return SUCCESS;
     }
+    if (currentOffset % stride != 0) {
+        ALOG_WARN_F("Found tail cond, currentOffset = %d, stride = %d.", currentOffset, stride);
+        return WARNING;
+    }
+    if (currentShape % stride != 0) {
+        ALOG_WARN_F("Found tail cond, currentShape = %d, stride = %d.", currentShape, stride);
+        return WARNING;
+    }
+    para.OffsetVal = currentOffset / stride;
+    para.ShapeVal = currentShape / stride;
+    currentOffset = 0;
+    currentShape = stride;
+    flag = false;
     return SUCCESS;
 }
 
@@ -522,16 +525,17 @@ Status SplitReshape::AddReshapeRemoveView(Operation &op, const OpPara &para) {
             }
             consumerOp->ReplaceInput(existOp->output, output);
         }
-    } else {
-        if (UpdateDynShape(isAddReshapeOp, {}, para.viewDynShape) != SUCCESS || GroupReshapeOffset(isAddReshapeOp, {}) != SUCCESS) {
+        redundantViewops.insert(&op);
+        return SUCCESS;
+    }
+    if (UpdateDynShape(isAddReshapeOp, {}, para.viewDynShape) != SUCCESS || GroupReshapeOffset(isAddReshapeOp, {}) != SUCCESS) {
+        return FAILED;
+    }
+    for (auto &consumerOp : consumers) {
+        if (consumerOp == nullptr) {
             return FAILED;
         }
-        for (auto &consumerOp : consumers) {
-            if (consumerOp == nullptr) {
-                return FAILED;
-            }
-            consumerOp->ReplaceInput(reshapeOutput, output);
-        }
+        consumerOp->ReplaceInput(reshapeOutput, output);
     }
     redundantViewops.insert(&op);
     return SUCCESS;
@@ -554,13 +558,13 @@ Status SplitReshape::AddReshape(Operation &op, const OpPara &para) {
         }
         op.ReplaceInput(existOp->output, input);
         viewOpAttribute->SetFromOffset(existOp->output->offset);
-    } else {
-        op.ReplaceInput(reshapeOutput, input);
-        viewOpAttribute->SetFromOffset(reshapeOutput->offset);
-        if (UpdateDynShape(isAddReshapeOp, reshapeOutput->offset, para.viewDynShape) != SUCCESS || 
-            GroupReshapeOffset(isAddReshapeOp, reshapeOutput->offset) != SUCCESS) {
-            return FAILED;
-        }
+        return SUCCESS;
+    }
+    op.ReplaceInput(reshapeOutput, input);
+    viewOpAttribute->SetFromOffset(reshapeOutput->offset);
+    if (UpdateDynShape(isAddReshapeOp, reshapeOutput->offset, para.viewDynShape) != SUCCESS || 
+        GroupReshapeOffset(isAddReshapeOp, reshapeOutput->offset) != SUCCESS) {
+        return FAILED;
     }
     return SUCCESS;
 }
@@ -580,7 +584,8 @@ Status SplitReshape::ObtainCopyOutTile(Function &function, const copyOutTilePara
         if (ret == WARNING) {
             ALOG_WARN_F("Found RawToAlign warning case. %s", GetStr(CopyOutInfo).c_str());
             return WARNING;
-        } else if (ret == FAILED) {
+        }
+        if (ret == FAILED) {
             ALOG_ERROR_F("Run RawToAlign failed. %s", GetStr(CopyOutInfo).c_str());
             return FAILED;
         }
@@ -643,15 +648,15 @@ Status SplitReshape::ProcessPerfectlyMatch(Function &function, Operation &op, co
             GroupReshapeOffset(existOp, existOp->output->offset) != SUCCESS) {
             return FAILED;
         }
-    } else {
-        assembles.emplace_back(
-            AssembleOp{overlap->GetMemoryTypeOriginal(), assembleOffset, overlap, newReshapeSource});
-        op.ReplaceInput(reshapeOutput, input);
-        viewOpAttribute->SetFromOffset(reshapeOutput->offset);
-        if (UpdateDynShape(isAddReshapeOp, reshapeOutput->offset, para.viewDynShape) != SUCCESS || 
-            GroupReshapeOffset(isAddReshapeOp, reshapeOutput->offset) != SUCCESS) {
-            return FAILED;
-        }
+        return SUCCESS;
+    }
+    assembles.emplace_back(
+        AssembleOp{overlap->GetMemoryTypeOriginal(), assembleOffset, overlap, newReshapeSource});
+    op.ReplaceInput(reshapeOutput, input);
+    viewOpAttribute->SetFromOffset(reshapeOutput->offset);
+    if (UpdateDynShape(isAddReshapeOp, reshapeOutput->offset, para.viewDynShape) != SUCCESS || 
+        GroupReshapeOffset(isAddReshapeOp, reshapeOutput->offset) != SUCCESS) {
+        return FAILED;
     }
     return SUCCESS;
 }
@@ -718,14 +723,14 @@ Status SplitReshape::ProcessBeCovered(Function &function, Operation &op, const B
             GroupReshapeOffset(existOp, newOffset) != SUCCESS) {
             return FAILED;
         }
-    } else {
-        assembles.emplace_back(AssembleOp{
-            overlap->GetMemoryTypeOriginal(), newReshapeSource->offset, overlap, newReshapeSource});
-        op.ReplaceInput(reshapeOutput, input);
-        if (UpdateDynShape(isAddReshapeOp, newOffset, para.viewDynShape) != SUCCESS || 
-            GroupReshapeOffset(isAddReshapeOp, newOffset) != SUCCESS) {
-            return FAILED;
-        }
+        return SUCCESS;
+    }
+    assembles.emplace_back(AssembleOp{
+        overlap->GetMemoryTypeOriginal(), newReshapeSource->offset, overlap, newReshapeSource});
+    op.ReplaceInput(reshapeOutput, input);
+    if (UpdateDynShape(isAddReshapeOp, newOffset, para.viewDynShape) != SUCCESS || 
+        GroupReshapeOffset(isAddReshapeOp, newOffset) != SUCCESS) {
+        return FAILED;
     }
     return SUCCESS;
 }
@@ -862,12 +867,11 @@ Status SplitReshape::ProcessMultitoOne(Function &function, Operation &op, const 
     if (newReshapeSourceTileOffset.size() == 0 && newReshapeSourceTileShape.size() == 0) {
         ALOG_WARN_F("One new assemble overlap tile block cannot cover the input of view op[%d].", op.GetOpMagic());
         return SUCCESS; // 这种情况不会对reshape做切分, 动态shape的处理也跳过
-    } else {
-        ReshapeSourcePara sourcePara = {newReshapeSourceTileShape, newReshapeSourceTileOffset};
-        if (UpdateForPerfectlyMatchWithAll(function, op, para, sourcePara) != SUCCESS) {
-            ALOG_ERROR_F("Process ProcessMultitoOne failed.");
-            return FAILED;
-        }
+    }
+    ReshapeSourcePara sourcePara = {newReshapeSourceTileShape, newReshapeSourceTileOffset};
+    if (UpdateForPerfectlyMatchWithAll(function, op, para, sourcePara) != SUCCESS) {
+        ALOG_ERROR_F("Process ProcessMultitoOne failed.");
+        return FAILED;
     }
     return SUCCESS;
 }
@@ -878,19 +882,23 @@ Status SplitReshape::UpdateReshapeOp(Function &function, Operation &op, const Ov
             ALOG_ERROR_F("Process ProcessOnetoOne of view[%d] failed.", op.GetOpMagic());
             return FAILED;
         }
-    } else if (status == OverlapStatus::BE_COVERED) {
+        return SUCCESS;
+    }
+    if (status == OverlapStatus::BE_COVERED) {
         if (ProcessOnetoMulti(function, op, calcpara) != SUCCESS) {
             ALOG_ERROR_F("Process ProcessOnetoMulti of view[%d] failed.", op.GetOpMagic());
             return FAILED;
         }
-    } else if (status == OverlapStatus::PERFECTLY_MATCH_WITH_ALL) {
+        return SUCCESS;
+    }
+    if (status == OverlapStatus::PERFECTLY_MATCH_WITH_ALL) {
         if (ProcessMultitoOne(function, op, calcpara) != SUCCESS) {
             ALOG_ERROR_F("Process ProcessMultitoOne of view[%d] failed.", op.GetOpMagic());
             return FAILED;
         }
-    } else {
-        ALOG_WARN_F("The new input of view[%d] intersects the input of assemble, skip splitreshape.", op.GetOpMagic());
+        return SUCCESS;
     }
+    ALOG_WARN_F("The new input of view[%d] intersects the input of assemble, skip splitreshape.", op.GetOpMagic());
     return SUCCESS;
 }
 
@@ -919,7 +927,8 @@ Status SplitReshape::CheckValidOp(const CheckParam &para, CheckOutputParam &chec
     if (dynStatus == WARNING) {
         ALOG_WARN_F("Undetermined variable in the changing axis. input = %s, output = %s, dynOutput = %s", GetStr(checkOutputParam.reshapeSource->tensor->rawshape).c_str(), GetStr(input->tensor->rawshape).c_str(), GetStr(reshapeDynOutput[input->tensor->rawmagic]).c_str());
         return WARNING;
-    } else if (dynStatus == FAILED) {
+    }
+    if (dynStatus == FAILED) {
         ALOG_ERROR_F("Illegal dynamic info for the reshape op. input = %s, output = %s, dynOutput = %s", GetStr(checkOutputParam.reshapeSource->tensor->rawshape).c_str(), GetStr(input->tensor->rawshape).c_str(), GetStr(reshapeDynOutput[input->tensor->rawmagic]).c_str());
         return FAILED;
     }
@@ -929,7 +938,8 @@ Status SplitReshape::CheckValidOp(const CheckParam &para, CheckOutputParam &chec
     if (alignRet == WARNING) {
         ALOG_WARN_F("Cannot process the cond. %s", GetStr(reshapeInfo).c_str());
         return WARNING;
-    } else if (alignRet == FAILED) {
+    }
+    if (alignRet == FAILED) {
         ALOG_ERROR_F("Process RawToAlign failed. %s", GetStr(reshapeInfo).c_str());
         return FAILED;
     }
@@ -957,7 +967,8 @@ Status SplitReshape::CheckOp(Function &function, Operation &op) {
     if (checkRet == WARNING) {
         ALOG_WARN_F("Skip splitreshape for op[%d].", op.GetOpMagic());
         return SUCCESS;
-    } else if (checkRet == FAILED) {
+    }
+    if (checkRet == FAILED) {
         ALOG_ERROR_F("Failed to CheckValidOp for op[%d].", op.GetOpMagic());
         return FAILED;
     }
@@ -967,7 +978,8 @@ Status SplitReshape::CheckOp(Function &function, Operation &op) {
     if (ret == WARNING) {
         ALOG_WARN_F("Obtain CopyOutTile failed, skip splitreshape for [%d].", op.GetOpMagic());
         return SUCCESS;
-    } else if (ret == FAILED) {
+    }
+    if (ret == FAILED) {
         ALOG_ERROR_F("Process ObtainCopyOutTile failed.");
         return FAILED;
     }

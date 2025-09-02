@@ -31,11 +31,11 @@ Status JsonNodeParser::Initialize(const std::string &jsonPath) {
 const nlohmann::json *JsonNodeParser::GetJsonInnerNode(const nlohmann::json &root, const std::vector<std::string> &keys) {
     auto *curr = &root;
     for (auto &&key : keys) {
-        if (auto it = curr->find(key); it != curr->end()) {
-            curr = &*it;
-        } else {
+        auto it = curr->find(key);
+        if (it == curr->end()) {
             return nullptr;
         }
+        curr = &*it;
     }
     return curr;
 }

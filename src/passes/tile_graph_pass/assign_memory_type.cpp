@@ -100,12 +100,12 @@ void AssignMemoryType::RunOnOperation(Operation &operation) {
             for (auto &consumerOp : tensor->GetConsumers()) {
                 inserter.UpdateTensorTobeMap(*tensor, *consumerOp, outputsMemType[i]);
             }
-        }else {
-            tensor->SetMemoryTypeOriginal(MemoryType::MEM_UNKNOWN);
-            for (auto &consumerOp : tensor->GetConsumers()) {
-                ALOG_DEBUG_F("Set for Unknown Op's consumer %s[%d]", consumerOp->GetOpcodeStr().c_str(), consumerOp->GetOpMagic());
-                inserter.UpdateTensorTobeMap(*tensor, *consumerOp, MemoryType::MEM_UNKNOWN);
-            }
+            continue;
+        }
+        tensor->SetMemoryTypeOriginal(MemoryType::MEM_UNKNOWN);
+        for (auto &consumerOp : tensor->GetConsumers()) {
+            ALOG_DEBUG_F("Set for Unknown Op's consumer %s[%d]", consumerOp->GetOpcodeStr().c_str(), consumerOp->GetOpMagic());
+            inserter.UpdateTensorTobeMap(*tensor, *consumerOp, MemoryType::MEM_UNKNOWN);
         }
     }
     if(operation.GetOpcode() == Opcode::OP_VIEW) {

@@ -177,9 +177,8 @@ public:
                     tensor->memorymap.insert(std::make_pair(subGraphID, allocatedRange));
                 }
                 return true;
-            } else {
-                return false;
             }
+            return false;
         }
         return false; // Return false if no suitable allocator is found or allocation fails
     }

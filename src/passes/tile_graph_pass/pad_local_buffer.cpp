@@ -73,15 +73,13 @@ size_t PadLocalBuffer::GetPaddingValue(Operation &op, LogicalTensorPtr &in, OpCa
             return 1;
         }
         return vTileShape[in->shape.size() - 1];
-    } else {
-        auto bytes = BytesOf(in->Datatype());
-        auto paddingIter = BLOCK_PADDING_DIM.find(bytes);
-        if (paddingIter == BLOCK_PADDING_DIM.end()) {
-            return 1;
-        }
-        return paddingIter->second;
     }
-    return 0;
+    auto bytes = BytesOf(in->Datatype());
+    auto paddingIter = BLOCK_PADDING_DIM.find(bytes);
+    if (paddingIter == BLOCK_PADDING_DIM.end()) {
+        return 1;
+    }
+    return paddingIter->second;
 }
 
 /* 1. 对于非BroadcastOp，默认做到Block对齐；
@@ -167,14 +165,14 @@ void PadLocalBuffer::TraverseBroadcast(Function &function, Operation *consumer, 
     if (broadcastInputCombined.empty()) {
         ALOG_ERROR_F("cannot find tensor %d in input of op %d %s", output->magic, consumer->opmagic,
             consumer->GetOpcodeStr().c_str());
-    } else {
-        ALOG_DEBUG_F("op %d %s input's last dim should not be padded", consumer->opmagic, consumer->GetOpcodeStr().c_str());
-        consumer->SetAttr(OpAttributeKey::inputCombineAxis, std::move(broadcastInputCombined));
-        if (broadcastInputCombined == BROADCAST_AXIS_COMBINED) {
-            ALOG_DEBUG_F("op %d %s output's last dim should not be padded", consumer->opmagic, consumer->GetOpcodeStr().c_str());
-            consumer->SetAttr(OpAttributeKey::outputCombineAxis, AXIS_COMBINED);
-            TraverseAndSetAttr(consumer->GetOOperands()[0], function, visitedTensors);
-        }
+        return;
+    }
+    ALOG_DEBUG_F("op %d %s input's last dim should not be padded", consumer->opmagic, consumer->GetOpcodeStr().c_str());
+    consumer->SetAttr(OpAttributeKey::inputCombineAxis, std::move(broadcastInputCombined));
+    if (broadcastInputCombined == BROADCAST_AXIS_COMBINED) {
+        ALOG_DEBUG_F("op %d %s output's last dim should not be padded", consumer->opmagic, consumer->GetOpcodeStr().c_str());
+        consumer->SetAttr(OpAttributeKey::outputCombineAxis, AXIS_COMBINED);
+        TraverseAndSetAttr(consumer->GetOOperands()[0], function, visitedTensors);
     }
 }
 
@@ -190,28 +188,37 @@ void PadLocalBuffer::TraverseAndSetAttr(LogicalTensorPtr &output, Function &func
         if ((opcode == Opcode::OP_EXPAND) && IsExpandLastDim(*consumer)) {
             ALOG_DEBUG_F("expand op %d %s input's last dim should not be padded", consumer->opmagic, consumer->GetOpcodeStr().c_str());
             consumer->SetAttr(OpAttributeKey::inputCombineAxis, AXIS_COMBINED);
-        } else if ((consCalcType == OpCalcType::ELMWISE) || (opcode == Opcode::OP_ASSEMBLE)) {
+            continue;
+        }
+        if ((consCalcType == OpCalcType::ELMWISE) || (opcode == Opcode::OP_ASSEMBLE)) {
             ALOG_DEBUG_F("op %d %s is elmwise or assemble op, input's and output's last dim should not be padded", consumer->opmagic, consumer->GetOpcodeStr().c_str());
             consumer->SetAttr(OpAttributeKey::inputCombineAxis, AXIS_COMBINED);
             consumer->SetAttr(OpAttributeKey::outputCombineAxis, AXIS_COMBINED);
             TraverseAndSetAttr(consumer->GetOOperands()[0], function, visitedTensors);
-        } else if (opcode == Opcode::OP_COPY_OUT) {
+            continue;
+        }
+        if (opcode == Opcode::OP_COPY_OUT) {
             ALOG_DEBUG_F("op %d %s is copy out, input's last dim should not be padded", consumer->opmagic, consumer->GetOpcodeStr().c_str());
             consumer->SetAttr(OpAttributeKey::inputCombineAxis, AXIS_COMBINED);
             TraverseAndSetAttr(consumer->GetOOperands()[0], function, visitedTensors);
-        } else if (opcode == Opcode::OP_COPY_IN) {
+            continue;
+        }
+        if (opcode == Opcode::OP_COPY_IN) {
             // CopyIn只有在CopyIn的后续算子仍然是VectorOp的情况下才做合轴
             TraverseCopyInConsumers(function, consumer, visitedTensors);
-        }  else if (consCalcType == OpCalcType::BROADCAST) {
+            continue;
+        }
+        if (consCalcType == OpCalcType::BROADCAST) {
             TraverseBroadcast(function, consumer, output, visitedTensors);
-        } else if (consCalcType ==
+            continue;
+        }
+        if (consCalcType ==
                     OpCalcType::MOVE_OUT) {
             // 剩下来的move out，直接中断，仅在输入的地方支持尾轴非对齐
             ALOG_DEBUG_F("op %d %s is move out, input's last dim should not be padded", consumer->opmagic, consumer->GetOpcodeStr().c_str());
             consumer->SetAttr(OpAttributeKey::inputCombineAxis, AXIS_COMBINED);
         }
     }
-    return;
 }
 
 bool PadLocalBuffer::IsReduceLastDim(const Operation &op) {
@@ -309,16 +316,19 @@ void PadLocalBuffer::DoPadding(Function &function) {
             visited.emplace(in);
             if (IsMatmul(in)) {
                 PadMatmul(op, in);
-            } else if (IsVector(in)) {
-                if (in->tensor->GetRawDataSize() == 0) {
-                    continue;
-                }
-                bool noPadding = false;
-                if ((inputAxis.size() > i) && inputAxis[i]) {
-                    noPadding = true;
-                }
-                PadVector(op, in, visitedRaw, noPadding);
+                continue;
             }
+            if (!IsVector(in)) {
+                continue;
+            }
+            if (in->tensor->GetRawDataSize() == 0) {
+                continue;
+            }
+            bool noPadding = false;
+            if ((inputAxis.size() > i) && inputAxis[i]) {
+                noPadding = true;
+            }
+            PadVector(op, in, visitedRaw, noPadding);
         }
     }
 }

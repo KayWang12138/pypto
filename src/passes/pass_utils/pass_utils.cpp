@@ -520,9 +520,8 @@ bool SubfuncInvokeInfoTy::operator!=(const SubfuncInvokeInfoTy &other) const
 {
     if (*this == other) {
         return false;
-    } else {
-        return true;
     }
+    return true;
 }
 
 Json SubfuncParam::ToJson() const {

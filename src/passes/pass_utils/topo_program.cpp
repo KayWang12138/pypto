@@ -52,9 +52,9 @@ void TopoProgramUtils::TopoProgram(const std::vector<Operation*>& opList,
             if (NeedInferShape(opList[opIdx])) {
                 InferShapeRegistry::GetInstance().CallInferShapeFunc(opList[opIdx]);
             }
-        } else {
-            InferShapeRegistry::GetInstance().CallInferShapeFunc(opList[opIdx]);
+            continue;
         }
+        InferShapeRegistry::GetInstance().CallInferShapeFunc(opList[opIdx]);
     }
 }
 }

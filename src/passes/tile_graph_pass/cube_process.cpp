@@ -144,7 +144,9 @@ Status CubeProcess::UpdateCubeOp(Function &function) {
             // force setting the  data type
             if (IsFloat(output)) {
                 output->tensor->datatype = DataType::DT_FP32;
-            } else if (IsInt(output)) {
+                continue;
+            }
+            if (IsInt(output)) {
                 output->tensor->datatype = DataType::DT_INT32;
             }
         }
@@ -170,30 +172,38 @@ Status CubeProcess::AddL1CopyInAttr(
         tensorL0 = L1CopyInOp->GetIOperands().front();
         L1CopyInOp = *(tensorL0->GetProducers().begin());
     }
-    if (L1CopyInOp != nullptr && L1CopyInOp->GetOpcode() == Opcode::OP_COPY_IN) {
-        L1CopyInOp->SetAttribute(COPY_IS_NZ, nzValue);
-        if (copyInOp->GetOpcode() == Opcode::OP_L1_TO_L0A) {
-            L1CopyInOp->SetAttribute(L1_COPY_IN_OUTER, mValue);
-            L1CopyInOp->SetAttribute(L1_COPY_IN_INNER, kValue);
-        } else if (copyInOp->GetOpcode() == Opcode::OP_L1_TO_L0B) {
-            L1CopyInOp->SetAttribute(L1_COPY_IN_OUTER, kValue);
-            L1CopyInOp->SetAttribute(L1_COPY_IN_INNER, nValue);
-        } else if (copyInOp->GetOpcode() == Opcode::OP_L1_TO_L0_AT) {
-            L1CopyInOp->SetAttribute(L1_COPY_IN_OUTER, kValue);
-            L1CopyInOp->SetAttribute(L1_COPY_IN_INNER, mValue);
-        } else if (copyInOp->GetOpcode() == Opcode::OP_L1_TO_L0_BT) {
-            L1CopyInOp->SetAttribute(L1_COPY_IN_OUTER, nValue);
-            L1CopyInOp->SetAttribute(L1_COPY_IN_INNER, kValue);
-        } else {
-            ALOG_DEBUG_F("Invalid Cube input %d, produced by %s[%d]", input->GetMagic(),
-                copyInOp->GetOpcodeStr().c_str(), copyInOp->GetOpMagic());
-            return FAILED;
-        }
-        ALOG_DEBUG_F("Update %s[%d] attr is_Nz: %d, outer: %d, inner: %d",
-            L1CopyInOp->GetOpcodeStr().c_str(), L1CopyInOp->GetOpMagic(), L1CopyInOp->GetIntAttribute(COPY_IS_NZ),
-            L1CopyInOp->GetIntAttribute(L1_COPY_IN_OUTER), L1CopyInOp->GetIntAttribute(L1_COPY_IN_INNER));
+    if (L1CopyInOp == nullptr || L1CopyInOp->GetOpcode() != Opcode::OP_COPY_IN) {
+        return SUCCESS;
     }
-    return SUCCESS;
+    L1CopyInOp->SetAttribute(COPY_IS_NZ, nzValue);
+    ALOG_DEBUG_F("Update %s[%d] attr is_Nz: %d", L1CopyInOp->GetOpcodeStr().c_str(), L1CopyInOp->GetOpMagic(), nzValue);
+    if (copyInOp->GetOpcode() == Opcode::OP_L1_TO_L0A) {
+        L1CopyInOp->SetAttribute(L1_COPY_IN_OUTER, mValue);
+        L1CopyInOp->SetAttribute(L1_COPY_IN_INNER, kValue);
+        ALOG_DEBUG_F("OP_L1_TO_L0A: Outer: %d, Inner: %d", mValue, kValue);
+        return SUCCESS;
+    }
+    if (copyInOp->GetOpcode() == Opcode::OP_L1_TO_L0B) {
+        L1CopyInOp->SetAttribute(L1_COPY_IN_OUTER, kValue);
+        L1CopyInOp->SetAttribute(L1_COPY_IN_INNER, nValue);
+        ALOG_DEBUG_F("OP_L1_TO_L0B: Outer: %d, Inner: %d", kValue, nValue);
+        return SUCCESS;
+    }
+    if (copyInOp->GetOpcode() == Opcode::OP_L1_TO_L0_AT) {
+        L1CopyInOp->SetAttribute(L1_COPY_IN_OUTER, kValue);
+        L1CopyInOp->SetAttribute(L1_COPY_IN_INNER, mValue);
+        ALOG_DEBUG_F("OP_L1_TO_L0_AT: Outer: %d, Inner: %d", kValue, mValue);
+        return SUCCESS;
+    }
+    if (copyInOp->GetOpcode() == Opcode::OP_L1_TO_L0_BT) {
+        L1CopyInOp->SetAttribute(L1_COPY_IN_OUTER, nValue);
+        L1CopyInOp->SetAttribute(L1_COPY_IN_INNER, kValue);
+        ALOG_DEBUG_F("OP_L1_TO_L0_BT: Outer: %d, Inner: %d", nValue, kValue);
+        return SUCCESS;
+    }
+    ALOG_DEBUG_F("Invalid Cube input %d, produced by %s[%d]", input->GetMagic(), copyInOp->GetOpcodeStr().c_str(),
+        copyInOp->GetOpMagic());
+    return FAILED;
 }
 
 Status CubeProcess::AddL0cCopyOutAttr(const std::shared_ptr<LogicalTensor> output, int nzValue, int mValue, int nValue) const {
@@ -227,7 +237,9 @@ Status CubeProcess::UpdateCopyAttr(Operation &op) const {
                 ALOG_ERROR_F("Set Attr for matrix A L1_COPY_IN of %s[%d] failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
                 return FAILED;
             }
-        } else if (input->GetMemoryTypeOriginal() == MemoryType::MEM_L0B) {
+            continue;
+        }
+        if (input->GetMemoryTypeOriginal() == MemoryType::MEM_L0B) {
             if (AddL1CopyInAttr(input, bIsNz, mValue, kValue, nValue) != SUCCESS) {
                 ALOG_ERROR_F("Set Attr for matrix B L1_COPY_IN of %s[%d] failed.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
                 return FAILED;

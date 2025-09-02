@@ -109,32 +109,32 @@ bool GenerateMoveOpChecker::ValidViewOp(const Operation &op) const {
 }
 bool GenerateMoveOpChecker::CheckViewOutTensorMemType(const Operation &op) const {
     //校验view输出tensor内存是否合理
-    if (op.GetOOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-        auto consumerOps = op.oOperand[0]->GetConsumers(); 
-        for (auto childOp : consumerOps) {
-            if (childOp == nullptr) {
-                ALOG_ERROR_F("View op [%d] output has null consumers.",op.GetOpMagic());
-                return false;
-            }
-            auto opcode = childOp->GetOpcode();
-            const auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(opcode);
-            bool hasDDRinput = std::find(inputsMemType.begin(),inputsMemType.end(),MemoryType::MEM_DEVICE_DDR) != inputsMemType.end();
-            if (opcode == Opcode::OP_RESHAPE || hasDDRinput) {
-                continue;
-            } else if (opcode == Opcode::OP_CONVERT) {
-                auto convertOpAttribute = dynamic_cast<ConvertOpAttribute *>(op.GetOpAttribute().get());
-                auto convertPath = convertOpAttribute->GetConvertPath();
-                if (convertPath.first != MemoryType::MEM_DEVICE_DDR){
-                    ALOG_ERROR_F("View op [%d] consumer %s[%d] has invalid convert path.", op.GetOpMagic(),childOp->GetOpcodeStr().c_str(),childOp->GetOpMagic());
-                    return false;
-                }
-            } else {
-                ALOG_ERROR_F("View op [%d] consumer %s[%d] does not support DDR input.", op.GetOpMagic(),childOp->GetOpcodeStr().c_str(),childOp->GetOpMagic());
-                return false;
-            }
-        }    
+    if (op.GetOOperands().front()->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
         return true;
     }
+    auto consumerOps = op.oOperand[0]->GetConsumers(); 
+    for (auto childOp : consumerOps) {
+        if (childOp == nullptr) {
+            ALOG_ERROR_F("View op [%d] output has null consumers.",op.GetOpMagic());
+            return false;
+        }
+        auto opcode = childOp->GetOpcode();
+        const auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(opcode);
+        bool hasDDRinput = std::find(inputsMemType.begin(),inputsMemType.end(),MemoryType::MEM_DEVICE_DDR) != inputsMemType.end();
+        if (opcode == Opcode::OP_RESHAPE || hasDDRinput) {
+            continue;
+        }
+        if (opcode != Opcode::OP_CONVERT) {
+            ALOG_ERROR_F("View op [%d] consumer %s[%d] does not support DDR input.", op.GetOpMagic(),childOp->GetOpcodeStr().c_str(),childOp->GetOpMagic());
+            return false;
+        }
+        auto convertOpAttribute = dynamic_cast<ConvertOpAttribute *>(op.GetOpAttribute().get());
+        auto convertPath = convertOpAttribute->GetConvertPath();
+        if (convertPath.first != MemoryType::MEM_DEVICE_DDR){
+            ALOG_ERROR_F("View op [%d] consumer %s[%d] has invalid convert path.", op.GetOpMagic(),childOp->GetOpcodeStr().c_str(),childOp->GetOpMagic());
+            return false;
+        }
+    }    
     return true;
 }
 

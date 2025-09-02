@@ -93,11 +93,11 @@ std::string Pass::GetDumpFilePrefix(Function& function, bool before, Function* s
     ss << stageName << "_";
     if (subFunction == nullptr) {
         ss << std::setw(printWide) << std::setfill('0') << passRuntimeIndex_ << "_" << filePrefix;
-    } else {
-        ss << std::setw(printWide) << std::setfill('0') << passRuntimeIndex_ << "_" << filePrefix
-              << "_LEAF_program_id_" << std::setw(funcPrintWide) << std::setfill('0') << subFuncId << "_"
-                << subFunction->GetFunctionHash().GetHash();
+        return ss.str();
     }
+    ss << std::setw(printWide) << std::setfill('0') << passRuntimeIndex_ << "_" << filePrefix
+          << "_LEAF_program_id_" << std::setw(funcPrintWide) << std::setfill('0') << subFuncId << "_"
+            << subFunction->GetFunctionHash().GetHash();
     return ss.str();
 }
 

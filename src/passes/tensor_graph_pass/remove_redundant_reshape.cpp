@@ -52,11 +52,11 @@ Status RemoveRedundantReshape::RemoveReshape(Function &function) const {
         bool allConsumersIsReshape = true;
         for (auto &consumerOp : consumers) {
             if (consumerOp == nullptr) {return FAILED;}
-            if (in->shape == out->shape || consumerOp->GetOpcode() == Opcode::OP_RESHAPE) {
-                consumerOp->ReplaceInput(in, out);
-            } else {
+            if (in->shape != out->shape && consumerOp->GetOpcode() != Opcode::OP_RESHAPE) {
                 allConsumersIsReshape = false;
+                continue;
             }
+            consumerOp->ReplaceInput(in, out);
         }
         if (allConsumersIsReshape == true) {
             ALOG_DEBUG_F("All consummers of op [%d] are reshape.", op.GetOpMagic());

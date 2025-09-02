@@ -218,19 +218,19 @@ Status MergeViewAssemble::CalculateMergedOffsets(const std::vector<Operation *> 
             if (!viewOpAttribute->GetToDynValidShape().empty()) {
                 newDynValidShape = viewOpAttribute->GetToDynValidShape();
             }
-        } else {
-            auto ret = TensorOffset::Add(newOffset, newDynOffset, viewOpAttribute->GetFromOffset(), viewOpAttribute->GetFromDynOffset());
-            if (!ret.first.empty()) {
-                newOffset = ret.first;
-                newDynOffset = ret.second;
-            }
-            if (!viewOpAttribute->GetToDynValidShape().empty()) {
-                newDynValidShape = viewOpAttribute->GetToDynValidShape();
-            } else {
-                newDynValidShape = GetViewValidShape(newDynValidShape, viewOpAttribute->GetFromOffset(),
-                    viewOpAttribute->GetFromDynOffset(), view->GetOOperands()[0]->GetShape());
-            }
+            continue;
         }
+        auto ret = TensorOffset::Add(newOffset, newDynOffset, viewOpAttribute->GetFromOffset(), viewOpAttribute->GetFromDynOffset());
+        if (!ret.first.empty()) {
+            newOffset = ret.first;
+            newDynOffset = ret.second;
+        }
+        if (!viewOpAttribute->GetToDynValidShape().empty()) {
+            newDynValidShape = viewOpAttribute->GetToDynValidShape();
+            continue;
+        }
+        newDynValidShape = GetViewValidShape(newDynValidShape, viewOpAttribute->GetFromOffset(),
+            viewOpAttribute->GetFromDynOffset(), view->GetOOperands()[0]->GetShape());
     }
     return SUCCESS;
 }
@@ -282,9 +282,9 @@ Status MergeViewAssemble::ProcessAssembleConsumers(
         if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
             Status status = MergeAssembleChain(function, *op, chain);
             if (status != SUCCESS) { return status; }
-        } else {
-            chainEnd = true;
+            continue;
         }
+        chainEnd = true;
     }
     return SUCCESS;
 }
@@ -321,12 +321,12 @@ std::pair<std::vector<int64_t>, std::vector<SymbolicScalar>> MergeViewAssemble::
         if (i == 0) {
             newOffset = assembleOpAttribute->GetToOffset();
             newDynOffset = assembleOpAttribute->GetToDynOffset();
-        } else {
-            auto ret = TensorOffset::Add(newOffset, newDynOffset, assembleOpAttribute->GetToOffset(), assembleOpAttribute->GetToDynOffset());
-            if (!ret.first.empty()) {
-                newOffset = ret.first;
-                newDynOffset = ret.second;
-            }
+            continue;
+        }
+        auto ret = TensorOffset::Add(newOffset, newDynOffset, assembleOpAttribute->GetToOffset(), assembleOpAttribute->GetToDynOffset());
+        if (!ret.first.empty()) {
+            newOffset = ret.first;
+            newDynOffset = ret.second;
         }
     }
     return {newOffset, newDynOffset};

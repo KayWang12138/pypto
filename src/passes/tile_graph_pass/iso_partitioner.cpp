@@ -358,14 +358,13 @@ Status NodeGraphInfo::MergeSrcToDstIsland(const std::shared_ptr<OperationGraphIn
                                         operationGraphInfo->opList_[dst]->GetOpcode() == Opcode::OP_VIEW);
     isAICPUandVIEW = isAICPUandVIEW || (operationGraphInfo->opCoreType_[dst] == OpCoreType::AICPU &&
                                         operationGraphInfo->opList_[src]->GetOpcode() == Opcode::OP_VIEW);
-    if (isAICPUandVIEW || operationGraphInfo->CoreTypeMergeable(coreTypes)) {
-        parent[srcParent] = dstParent;
-    } else {
+    if (!isAICPUandVIEW && !operationGraphInfo->CoreTypeMergeable(coreTypes)) {
         ALOG_ERROR_F("Try to merge not mergeable operations: %d, %d, %d, %d.",
             operationGraphInfo->opList_[src]->GetOpMagic(), operationGraphInfo->opList_[dst]->GetOpMagic(),
             operationGraphInfo->opList_[srcParent]->GetOpMagic(), operationGraphInfo->opList_[dstParent]->GetOpMagic());
         return FAILED;
     }
+    parent[srcParent] = dstParent;
     return SUCCESS;
 }
 
@@ -882,9 +881,11 @@ Status IsomorphismGraphGroup::ExpandIsoGraphs(std::unordered_set<int32_t> &curre
             expandNodeIdx += 1;
             expandLinkIdx = 0;
             continue;
-        } else if (extendStatus == GraphExtendResult::EXTEND_NODE_EXHAUST) {
+        }
+        if (extendStatus == GraphExtendResult::EXTEND_NODE_EXHAUST) {
             break;
-        } else if (!IsLegalIsoGraphExtender(expandCandidate, currentNodeSet, idxInLinkNum, cycleUpperBound)) {
+        }
+        if (!IsLegalIsoGraphExtender(expandCandidate, currentNodeSet, idxInLinkNum, cycleUpperBound)) {
             expandLinkIdx += 1;
             continue;
         }
@@ -1111,7 +1112,9 @@ std::vector<int32_t> IsoPartitioner::GetCandidateMergeColors(int32_t currColor,
     for (int32_t candidate : candidateMergeColors) {
         if (nonIsoGraphsMerge && isoSubGroups_[candidate]->Size() == 1) {
             mergeColors.push_back(candidate);
-        } else if (!nonIsoGraphsMerge && isoSubGroups_[candidate]->Size() > 1) {
+            continue;
+        } 
+        if (!nonIsoGraphsMerge && isoSubGroups_[candidate]->Size() > 1) {
             mergeColors.push_back(candidate);
         }
     }
@@ -1129,13 +1132,11 @@ bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor
     if (currColorSize == 0 || mergeColorSize == 0) {
         return false;
     }
-    if (currColorSize <= mergeColorSize) {
-        latencyMerged = isoSubGroups_[currColor]->GetLatency() +
-                        isoSubGroups_[mergeColor]->GetLatency() * (mergeColorSize / currColorSize);
-    } else {
-        latencyMerged = isoSubGroups_[currColor]->GetLatency() * (currColorSize / mergeColorSize) +
-                        isoSubGroups_[mergeColor]->GetLatency();
-    }
+    latencyMerged = (currColorSize <= mergeColorSize) ?
+                        isoSubGroups_[currColor]->GetLatency() +
+                            isoSubGroups_[mergeColor]->GetLatency() * (mergeColorSize / currColorSize) :
+                        isoSubGroups_[currColor]->GetLatency() * (currColorSize / mergeColorSize) +
+                            isoSubGroups_[mergeColor]->GetLatency();
     bool cycleMergable = latencyMerged <= cycleUB_;
     if (nonIsoGraphsMerge) {
         bool shouldMerge = coreTypeMergable && cycleMergable;

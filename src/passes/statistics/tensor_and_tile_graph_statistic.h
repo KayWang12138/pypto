@@ -33,7 +33,9 @@ struct MetricData {
             maxSize = size;
             maxNodesMagic.clear();
             maxNodesMagic.push_back(magic);
-        } else if (size == maxSize) {
+            return;
+        }
+        if (size == maxSize) {
             maxNodesMagic.push_back(magic);
         }
     }

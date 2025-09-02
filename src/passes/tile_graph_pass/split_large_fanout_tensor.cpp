@@ -248,23 +248,26 @@ void SplitLargeFanoutTensor::EraseRedundantCopyOut(Function &function) {
             /* input --> Assemble --> output(非OCAST, 且没有consumer) */
             redundantCopyOuts.push_back(&op);
         }
-        if (output->GetProducers().size() == 1 && output->GetConsumers().size() == 1) {
-            auto consumerOp = *(output->GetConsumers().begin());
-            // Assemble输入和输出的raw tensor大小不相等，意味着要做拷贝
-            bool requireCopy = (input->tensor->GetRawShapeSize() != output->tensor->GetRawShapeSize());
-            if (consumerOp->GetOpcode() == Opcode::OP_VIEW && !requireCopy) {
-                /*
-                Before: input --> Assmeble --> output --> View
-                After:  input --> View
-                因为input和output的raw shape相同，所以View上的offset不需要修改
-                */
-                redundantCopyOuts.push_back(&op);
-            } else if (input->shape == output->shape && input->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
-                       output->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-                /* 因为input和output raw shape size不同，但shape相同，因此删除前需要重新计算View的offset */
-                UpdateForRedundantAssemble(op);
-                redundantCopyOuts.push_back(&op);
-            }
+        if (output->GetProducers().size() != 1 || output->GetConsumers().size() != 1) {
+            continue;
+        }
+        auto consumerOp = *(output->GetConsumers().begin());
+        // Assemble输入和输出的raw tensor大小不相等，意味着要做拷贝
+        bool requireCopy = (input->tensor->GetRawShapeSize() != output->tensor->GetRawShapeSize());
+        if (consumerOp->GetOpcode() == Opcode::OP_VIEW && !requireCopy) {
+            /*
+            Before: input --> Assmeble --> output --> View
+            After:  input --> View
+            因为input和output的raw shape相同，所以View上的offset不需要修改
+            */
+            redundantCopyOuts.push_back(&op);
+            continue;
+        }
+        if (input->shape == output->shape && input->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
+                    output->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+            /* 因为input和output raw shape size不同，但shape相同，因此删除前需要重新计算View的offset */
+            UpdateForRedundantAssemble(op);
+            redundantCopyOuts.push_back(&op);
         }
     }
     if (!redundantCopyOuts.empty()) {
@@ -288,22 +291,23 @@ void SplitLargeFanoutTensor::UpdateForRedundantView(Operation &op, Operation &co
         newDynOffset[i] = newDynOffset[i] + nextViewOffset[i];
     }
     nextViewAttr->SetFromOffset(newOffset, newDynOffset);
-    if (newDynOffset.size() != 0) {
-        auto consumerOOperand = consumer.oOperand.front();
-        std::vector<SymbolicScalar> dynValidShape;
-        if (!nextViewAttr->GetToDynValidShape().empty()) {
-            dynValidShape = nextViewAttr->GetToDynValidShape();
-        } else if (!consumerOOperand->GetDynValidShape().empty()) {
-            dynValidShape = consumerOOperand->GetDynValidShape();
-        } else {
-            dynValidShape = SymbolicScalar::FromConcrete(consumerOOperand->GetShape());
-        }
-        if (nextViewAttr->GetToDynValidShape().empty()) {
-            nextViewAttr->SetToDynValidShape(dynValidShape);
-        }
-        if (consumerOOperand->GetDynValidShape().empty()) {
-            consumerOOperand->UpdateDynValidShape(dynValidShape);
-        }
+    if (newDynOffset.size() == 0) {
+        return;
+    }
+    auto consumerOOperand = consumer.oOperand.front();
+    std::vector<SymbolicScalar> dynValidShape;
+    if (!nextViewAttr->GetToDynValidShape().empty()) {
+        dynValidShape = nextViewAttr->GetToDynValidShape();
+    } else if (!consumerOOperand->GetDynValidShape().empty()) {
+        dynValidShape = consumerOOperand->GetDynValidShape();
+    } else {
+        dynValidShape = SymbolicScalar::FromConcrete(consumerOOperand->GetShape());
+    }
+    if (nextViewAttr->GetToDynValidShape().empty()) {
+        nextViewAttr->SetToDynValidShape(dynValidShape);
+    }
+    if (consumerOOperand->GetDynValidShape().empty()) {
+        consumerOOperand->UpdateDynValidShape(dynValidShape);
     }
 }
 
@@ -367,15 +371,11 @@ void SplitLargeFanoutTensor::UpdateOverSizedLocalBuffer(Function &function) {
         }
         auto assembleOut = op.GetOOperands().front();
         auto memType = assembleOut->GetMemoryTypeOriginal();
-        bool oversized = false;
-        if ((memType == MemoryType::MEM_UB) && (assembleOut->GetDataSize() > UB_SIZE_THRESHOLD)) {
-            oversized = true;
-        } else if ((memType == MemoryType::MEM_L1) && (assembleOut->GetDataSize() > L1_SIZE_THRESHOLD)) {
-            oversized = true;
-        }
-        if (oversized) {
+        if (((memType == MemoryType::MEM_UB) && (assembleOut->GetDataSize() > UB_SIZE_THRESHOLD)) ||
+            ((memType == MemoryType::MEM_L1) && (assembleOut->GetDataSize() > L1_SIZE_THRESHOLD))) {
             assembleOut->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
-            ALOG_INFO_F("%s[%d] output %d is oversized, set as MEM_DEVICE_DDR", op.GetOpcodeStr().c_str(), op.GetOpMagic(), assembleOut->magic);
+            ALOG_INFO_F("%s[%d] output %d is oversized, set as MEM_DEVICE_DDR", op.GetOpcodeStr().c_str(),
+                op.GetOpMagic(), assembleOut->magic);
         }
     }
 }

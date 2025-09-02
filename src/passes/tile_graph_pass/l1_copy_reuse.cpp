@@ -30,11 +30,11 @@ inline std::vector<int> GetGMInputFeature(const Operation &op) { // 提取GM ten
         auto offset = opImm.GetSpecifiedValue();
         if (offset.ConcreteValid()) {
             vec.push_back(offset);
-        } else {
-            std::hash<std::string> hasher;
-            auto offsetHash = hasher(opImm.Dump());
-            vec.push_back(static_cast<int>(offsetHash));
+            continue;
         }
+        std::hash<std::string> hasher;
+        auto offsetHash = hasher(opImm.Dump());
+        vec.push_back(static_cast<int>(offsetHash));
     }
     auto shape = attr->GetSpecifiedShape(1);
     vec.insert(vec.end(), shape.begin(), shape.end());
@@ -48,16 +48,17 @@ void L1CopyInReuseRunner::GetDuplicateOps(std::vector<Operation *> &opOriList,
     replacedCopyMap_.clear();
     tensormagic2Op_.clear();
     for (auto i : opIdx) {
-        if (opOriList[i]->GetOpcode() == Opcode::OP_COPY_IN && opOriList[i]->GetOOperands()[0]->GetMemoryTypeOriginal() == MEM_L1) {
-            auto outputMagic = opOriList[i]->GetOOperands()[0]->GetRawTensor()->GetRawMagic();
-            auto feature = GetGMInputFeature(*opOriList[i]);
-            if (tensor2Op.find(feature) != tensor2Op.end() && tensor2Op[feature] != i) {
-                replacedCopyMap_[i] = tensor2Op[feature];
-                tensormagic2Op_[outputMagic] = tensor2Op[feature];
-            } else {
-                tensor2Op[feature] = i;
-            }
+        if (opOriList[i]->GetOpcode() != Opcode::OP_COPY_IN || opOriList[i]->GetOOperands()[0]->GetMemoryTypeOriginal() != MEM_L1) {
+            continue;
         }
+        auto outputMagic = opOriList[i]->GetOOperands()[0]->GetRawTensor()->GetRawMagic();
+        auto feature = GetGMInputFeature(*opOriList[i]);
+        if (tensor2Op.find(feature) != tensor2Op.end() && tensor2Op[feature] != i) {
+            replacedCopyMap_[i] = tensor2Op[feature];
+            tensormagic2Op_[outputMagic] = tensor2Op[feature];
+            continue;
+        }
+        tensor2Op[feature] = i;
     }
 }
 
@@ -68,19 +69,19 @@ void L1CopyInReuseRunner::TackleOp(int i, Operation *op, std::vector<std::vector
             ALOG_INFO_F("[L1CopyReuse] Remove useless op [%d, %s]", op->GetOpMagic(), op->GetOpcodeStr().c_str());
             op->SetAsDeleted();
         }
-    } else {
-        for (size_t k = 0; k < op->GetIOperands().size(); k++) {
-            auto ioperandID = op->GetIOperands()[k]->GetRawTensor()->GetRawMagic();
-            if (tensormagic2Op_.find(ioperandID) != tensormagic2Op_.end()) {
-                replacedInputs.push_back({i, static_cast<int>(k), tensormagic2Op_[ioperandID], 0});
-            }
+        return;
+    }
+    for (size_t k = 0; k < op->GetIOperands().size(); k++) {
+        auto ioperandID = op->GetIOperands()[k]->GetRawTensor()->GetRawMagic();
+        if (tensormagic2Op_.find(ioperandID) != tensormagic2Op_.end()) {
+            replacedInputs.push_back({i, static_cast<int>(k), tensormagic2Op_[ioperandID], 0});
         }
-        // 这里需要处理控制依赖。
-        for (size_t k = 0; k < op->GetOOperands().size(); k++) {
-            auto ioperandID = op->GetOOperands()[k]->GetRawTensor()->GetRawMagic();
-            if (tensormagic2Op_.find(ioperandID) != tensormagic2Op_.end()) {
-                replacedOutputs.push_back({i, static_cast<int>(k), tensormagic2Op_[ioperandID], 0});
-            }
+    }
+    // 这里需要处理控制依赖。
+    for (size_t k = 0; k < op->GetOOperands().size(); k++) {
+        auto ioperandID = op->GetOOperands()[k]->GetRawTensor()->GetRawMagic();
+        if (tensormagic2Op_.find(ioperandID) != tensormagic2Op_.end()) {
+            replacedOutputs.push_back({i, static_cast<int>(k), tensormagic2Op_[ioperandID], 0});
         }
     }
 }
@@ -204,9 +205,9 @@ inline void HashUpdate(std::unordered_map<uint64_t, std::vector<int>> &hashMap, 
     for (auto entry = hashMap.begin(); entry != hashMap.end();) {
         if (entry->second.empty()) {
             entry = hashMap.erase(entry);
-        } else {
-            entry++;
+            continue;
         }
+        entry++;
     }
     hashOrder.clear();
     int order = 0;
@@ -338,15 +339,15 @@ void L1CopyInReuseRunner::Run(Function &func, int color, std::vector<std::vector
         for (size_t i = 0; i < colorValues.size(); i++) {
             if (pingColorList[i] == 0) {
                 pingColor = colorValues[i];
-            } else {
-                int pongColor = colorValues[i];
-                for (auto opIdxMergedDB : colorNode[pongColor]) {
-                    opOriList[opIdxMergedDB].UpdateSubgraphID(pingColor);
-                    colorNode[pingColor].push_back(opIdxMergedDB);
-                }
-                ALOG_INFO_F("[L1CopyReuse] Subgraph merge: %lu, %lu.", pingColor, pongColor);
-                colorNode[pongColor].clear();
+                continue;
             }
+            int pongColor = colorValues[i];
+            for (auto opIdxMergedDB : colorNode[pongColor]) {
+                opOriList[opIdxMergedDB].UpdateSubgraphID(pingColor);
+                colorNode[pingColor].push_back(opIdxMergedDB);
+            }
+            ALOG_INFO_F("[L1CopyReuse] Subgraph merge: %lu, %lu.", pingColor, pongColor);
+            colorNode[pongColor].clear();
         }
     }
     MergeDupL1CopyIn(func, colorNode, color);

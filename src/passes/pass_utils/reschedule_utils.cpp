@@ -85,7 +85,8 @@ PipeType RescheduleUtils::GetOpPipeType(const Operation* op) {
         auto dstMemType = attr->GetCopyInAttr().second;
         if (dstMemType == MemoryType::MEM_L1) {
             return PipeType::PIPE_MTE2;
-        } else if (dstMemType == MemoryType::MEM_UB) {
+        }
+        if (dstMemType == MemoryType::MEM_UB) {
             return PipeType::PIPE_MTE2;
         }
     }
@@ -94,9 +95,11 @@ PipeType RescheduleUtils::GetOpPipeType(const Operation* op) {
         auto srcMemType = attr->GetCopyOutAttr().first;
         if (srcMemType == MemoryType::MEM_L0C) {
             return PipeType::PIPE_FIX;
-        } else if (srcMemType == MemoryType::MEM_UB) {
+        }
+        if (srcMemType == MemoryType::MEM_UB) {
             return PipeType::PIPE_MTE3;
-        } else if (srcMemType == MemoryType::MEM_L1) {
+        }
+        if (srcMemType == MemoryType::MEM_L1) {
             return PipeType::PIPE_MTE3;
         } 
     }

@@ -370,18 +370,18 @@ void NBufferMerge::MergePingPong(std::vector<std::vector<int>> &sortedColors,
             }
             if (i % numDBmerge == 0) {
                 pingColor = input2Color[i];
-            } else {
-                int pongColor = input2Color[i];
-                for (auto opIdxMergedDB : colorNode_[pongColor]) {
-                    opOriList[opIdxMergedDB].UpdateSubgraphID(pingColor);
-                    colorNode_[pingColor].push_back(opIdxMergedDB);
-                }
-                colorCycles_[pingColor] += colorCycles_[pongColor];
-                hashColor[pingColor] += hashColor[pongColor];
-                colorCycles_[pongColor] = 0;
-                colorNode_[pongColor].clear();
-                hashColor[pongColor] = 0;
+                continue;
             }
+            int pongColor = input2Color[i];
+            for (auto opIdxMergedDB : colorNode_[pongColor]) {
+                opOriList[opIdxMergedDB].UpdateSubgraphID(pingColor);
+                colorNode_[pingColor].push_back(opIdxMergedDB);
+            }
+            colorCycles_[pingColor] += colorCycles_[pongColor];
+            hashColor[pingColor] += hashColor[pongColor];
+            colorCycles_[pongColor] = 0;
+            colorNode_[pongColor].clear();
+            hashColor[pongColor] = 0;
         }
     }
 }
@@ -402,12 +402,8 @@ Status NBufferMerge::MergeProcess(const OperationsViewer &opOriList,
             std::vector<int> &colorValues = hashMap[colorHashValue];
             auto sortedColors = SortColorWithInput(colorValues);
             if (sortedColors.empty()) continue;
-            int numDBMerge;
-            if (nBufferMergeMode == 1) {
-                numDBMerge = hashMergeNum[colorHashValue];
-            } else {
-                numDBMerge = hashMergeNum[hashOrder[colorHashValue]];
-            }
+            int numDBMerge =
+                (nBufferMergeMode == 1) ? hashMergeNum[colorHashValue] : hashMergeNum[hashOrder[colorHashValue]];
             MergePingPong(sortedColors, opOriList, hashColor, numDBMerge);
         }
     });

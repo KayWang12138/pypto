@@ -20,8 +20,7 @@
 #include "passes/pass_check/common_operation_eliminate_checker.h"
 
 namespace npu::tile_fwk {
-Status CommonOperationEliminate::RunOnFunction(Function &function)
-{
+Status CommonOperationEliminate::RunOnFunction(Function &function) {
     for (auto &op : function.Operations().DuplicatedOpList()) {
         if (OpAlreadyExist(op)) {
             op->SetAsDeleted();
@@ -35,20 +34,17 @@ Status CommonOperationEliminate::RunOnFunction(Function &function)
     return SUCCESS;
 }
 
-Status CommonOperationEliminate::PreCheck(Function &function)
-{
+Status CommonOperationEliminate::PreCheck(Function &function) {
     CommonOperationEliminateChecker checker;
     return checker.DoPreCheck(function);
 }
 
-Status CommonOperationEliminate::PostCheck(Function &function)
-{
+Status CommonOperationEliminate::PostCheck(Function &function) {
     CommonOperationEliminateChecker checker;
     return checker.DoPostCheck(function);
 }
 
-Operation *CommonOperationEliminate::OperationExist(Operation *operation)
-{
+Operation *CommonOperationEliminate::OperationExist(Operation *operation) {
     auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(operation->GetOpcode());
     auto &outputsMemType = OpcodeManager::Inst().GetOutputsMemType(operation->GetOpcode());
     OpCalcType opCalcType = OpcodeManager::Inst().GetOpCalcType(operation->GetOpcode());
@@ -63,16 +59,14 @@ Operation *CommonOperationEliminate::OperationExist(Operation *operation)
     }
     if (operationCache_.count(operation->ComputeHash()) != 0) {
         return operationCache_[operation->ComputeHash()];
-    } else {
-        operationCache_.insert({operation->ComputeHash(), operation});
-        return nullptr;
     }
+    operationCache_.insert({operation->ComputeHash(), operation});
+    return nullptr;
 }
 
 void CommonOperationEliminate::UpdateView(ViewOpAttribute *viewOpAttribute,
                                           const std::shared_ptr<LogicalTensor> oldtensor,
-                                          const std::shared_ptr<LogicalTensor> newtensor) const
-{
+                                          const std::shared_ptr<LogicalTensor> newtensor) const {
     auto &fromOffset = viewOpAttribute->GetFromOffset();
     for (size_t j = 0; j < fromOffset.size(); j++) {
         fromOffset[j] -= oldtensor->offset[j] - newtensor->offset[j];
@@ -81,8 +75,7 @@ void CommonOperationEliminate::UpdateView(ViewOpAttribute *viewOpAttribute,
 
 void CommonOperationEliminate::UpdateCopy(CopyOpAttribute *copyOpAttribute,
                                           const std::shared_ptr<LogicalTensor> oldtensor,
-                                          const std::shared_ptr<LogicalTensor> newtensor) const
-{
+                                          const std::shared_ptr<LogicalTensor> newtensor) const {
     if (!copyOpAttribute->IsCopyOut()) {
         auto [fromOffset, memType] = copyOpAttribute->GetCopyInAttr();
         (void)memType;
@@ -93,42 +86,45 @@ void CommonOperationEliminate::UpdateCopy(CopyOpAttribute *copyOpAttribute,
     }
 }
 
-bool CommonOperationEliminate::OpAlreadyExist(Operation *op)
-{
+bool CommonOperationEliminate::OpAlreadyExist(Operation *op) {
     auto existOp = OperationExist(op);
     if (existOp == nullptr || op->GetOOperands().size() == 0 || existOp->GetOOperands().size() == 0) {
         return false;
     }
-    if (op->GetOOperands().front()->shape == existOp->GetOOperands().front()->shape) {
-        auto oldtensor = op->GetOOperands().front();
-        if (oldtensor->GetConsumers().size() == 0) {
-            return false;
-        }
-        auto newtensor = existOp->GetOOperands().front();
-        if (newtensor->GetMagic() == oldtensor->GetMagic()) {
-            ALOG_DEBUG_F("In CommonOperationEliminate, Operation %d is marked as redundant.", op->GetOpMagic());
-            return true;
-        }
-        auto consumers = oldtensor->GetConsumers();
-        for (auto &cur : consumers) {
-            if (cur->GetOpAttribute() != nullptr) {
-                if (auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(cur->GetOpAttribute().get())) {
-                    // VIEW操作的offset要相应被修改。
-                    UpdateView(viewOpAttribute, oldtensor, newtensor);
-                } else if (auto copyOpAttribute = dynamic_cast<CopyOpAttribute*>(cur->GetOpAttribute().get())) {
-                    // CopyIn操作的offset要相应被修改。
-                    UpdateCopy(copyOpAttribute, oldtensor, newtensor);
-                }
-            }
-            cur->ReplaceInput(newtensor, oldtensor);
-        }
-        auto producers = oldtensor->GetProducers();
-        for (auto &cur : producers) {
-            cur->ReplaceOutput(newtensor, oldtensor);
-        }
+    if (op->GetOOperands().front()->shape != existOp->GetOOperands().front()->shape) {
+        return false;
+    }
+    auto oldtensor = op->GetOOperands().front();
+    if (oldtensor->GetConsumers().size() == 0) {
+        return false;
+    }
+    auto newtensor = existOp->GetOOperands().front();
+    if (newtensor->GetMagic() == oldtensor->GetMagic()) {
         ALOG_DEBUG_F("In CommonOperationEliminate, Operation %d is marked as redundant.", op->GetOpMagic());
         return true;
     }
-    return false;
+    auto consumers = oldtensor->GetConsumers();
+    for (auto &cur : consumers) {
+        cur->ReplaceInput(newtensor, oldtensor);
+        if (cur->GetOpAttribute() == nullptr) {
+            continue;
+        }
+        if (auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(cur->GetOpAttribute().get())) {
+            // VIEW操作的offset要相应被修改。
+            UpdateView(viewOpAttribute, oldtensor, newtensor);
+            continue;
+        }
+        if (auto copyOpAttribute = dynamic_cast<CopyOpAttribute*>(cur->GetOpAttribute().get())) {
+            // CopyIn操作的offset要相应被修改。
+            UpdateCopy(copyOpAttribute, oldtensor, newtensor);
+            continue;
+        }
+    }
+    auto producers = oldtensor->GetProducers();
+    for (auto &cur : producers) {
+        cur->ReplaceOutput(newtensor, oldtensor);
+    }
+    ALOG_DEBUG_F("In CommonOperationEliminate, Operation %d is marked as redundant.", op->GetOpMagic());
+    return true;
 }
 }  // namespace npu::tile_fwk

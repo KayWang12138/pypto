@@ -167,17 +167,17 @@ void PlatformConfig::MemoryGraph::AddPath(MemoryType from, MemoryType to) {
 
 std::shared_ptr<PlatformConfig::MemoryNode> PlatformConfig::MemoryGraph::GetNode(MemoryType type) {
     std::shared_ptr<MemoryNode> node;
-    if (nodes.count(type) == 0) {
-        node = std::make_shared<MemoryNode>();
-        if (node == nullptr) {
-            ALOG_WARN_F("Create memory node failed.");
-            return nullptr;
-        }
-        node->type = type;
-        nodes.insert({type, node});
-    } else {
+    if (nodes.count(type) != 0) {
         node = nodes[type];
+        return node;
     }
+    node = std::make_shared<MemoryNode>();
+    if (node == nullptr) {
+        ALOG_WARN_F("Create memory node failed.");
+        return nullptr;
+    }
+    node->type = type;
+    nodes.insert({type, node});
     return node;
 }
 
@@ -188,15 +188,18 @@ void PlatformConfig::MemoryGraph::DFS(MemoryType target, const std::shared_ptr<M
             continue;
         }
         candidate.push_back(dest.first);
-        if (dest.first == target) {
-            if ((paths.empty()) || (paths.size() > candidate.size())) {
-                paths.clear();
-                for (auto &t : candidate) {
-                    paths.push_back(t);
-                }
-            }
-        } else {
+        if (dest.first != target) {
             DFS(target, dest.second, candidate, paths);
+            candidate.pop_back();
+            continue;
+        }
+        if ((!paths.empty()) && (paths.size() <= candidate.size())) {
+            candidate.pop_back();
+            continue;
+        }
+        paths.clear();
+        for (auto &t : candidate) {
+            paths.push_back(t);
         }
         candidate.pop_back();
     }

@@ -50,13 +50,13 @@ void InsertInterGraphCopy::SplitTensor(Function &function) {
                     if (subgraphId == op.GetSubgraphID()) {
                         reallyRange = {subgraphId, range};
                         tensorSplits[output->magic].insert({subgraphId, output});
-                    } else {
-                        auto splitTensor = std::make_shared<LogicalTensor>(function, output->Datatype(), output->shape);
-                        splitTensor->SetMemoryTypeBoth(output->GetMemoryTypeOriginal());
-                        splitTensor->subGraphID = subgraphId;
-                        splitTensor->memorymap.insert({subgraphId, range});
-                        tensorSplits[output->magic].insert({subgraphId, splitTensor});
+                        continue;
                     }
+                    auto splitTensor = std::make_shared<LogicalTensor>(function, output->Datatype(), output->shape);
+                    splitTensor->SetMemoryTypeBoth(output->GetMemoryTypeOriginal());
+                    splitTensor->subGraphID = subgraphId;
+                    splitTensor->memorymap.insert({subgraphId, range});
+                    tensorSplits[output->magic].insert({subgraphId, splitTensor});
                 }
                 output->memorymap.clear();
                 output->memorymap.insert(reallyRange);

@@ -113,15 +113,15 @@ Status RemoveRedundantCast::InsertCast(Function &function) {
             if (oldMagic2Input.count(iop->GetMagic()) > 0) {
                 auto newInput = oldMagic2Input[iop->GetMagic()];
                 op->ReplaceInput(newInput, iop);
-            } else {
-                auto newInput = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, iop->shape);
-                Operation &newCast = function.AddRawOperation(Opcode::OP_CAST, {iop}, {newInput});
-                newCast.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
-                op->ReplaceInput(newInput, iop);
-                oldMagic2Input[iop->GetMagic()] = newInput;
-                if (inCastConnectedTensors_.count(iop->GetMagic()) > 0) {
-                    inCastConnectedTensors_.insert(newInput->GetMagic());
-                }
+                continue;
+            }
+            auto newInput = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, iop->shape);
+            Operation &newCast = function.AddRawOperation(Opcode::OP_CAST, {iop}, {newInput});
+            newCast.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
+            op->ReplaceInput(newInput, iop);
+            oldMagic2Input[iop->GetMagic()] = newInput;
+            if (inCastConnectedTensors_.count(iop->GetMagic()) > 0) {
+                inCastConnectedTensors_.insert(newInput->GetMagic());
             }
         }
         auto oOperands = op->GetOOperands();
