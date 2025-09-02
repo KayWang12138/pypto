@@ -116,6 +116,19 @@ Status MergeViewAssemble::CleanUp(Function &function) {
 
 Status MergeViewAssemble::MergeViewChain(
     Function &function, Operation &operation, std::vector<Operation *> &chain) {
+    auto viewOpAttribute =dynamic_cast<ViewOpAttribute *>(operation.GetOpAttribute().get());
+    //检查是否是大包搬运场景
+    if(viewOpAttribute && viewOpAttribute->GetTo() == MemoryType::MEM_L1) {
+        if(chain.size() > 1) {
+            auto status = ProcessChainEnd(function,chain);
+            if(status != SUCCESS) {return status;}
+        }else {
+            auto inputTensorOffset = operation.GetIOperands().front()->GetOffset();
+            viewOpAttribute->SetFromOffset(inputTensorOffset);
+        }
+        chain.clear();
+        return SUCCESS;
+    }
     // 1. 初始化操作链
     InitOperationChain(operation, chain);
 
@@ -149,12 +162,19 @@ Status MergeViewAssemble::ProcessConsumerChain(
     for (auto &op : consumers) {
         if (!op) { ALOG_ERROR_F("Null consumer operation found"); return FAILED; }
         if (op->GetOpcode() == Opcode::OP_VIEW) {
+            auto viewOpAttribute =dynamic_cast<ViewOpAttribute *>(op->GetOpAttribute().get());
+            auto memory_to = viewOpAttribute->GetTo();
+            if(memory_to == MemoryType::MEM_L1) {
+                chainEnd =true;
+                continue;
+            }
             chainEnd = false;
             Status status = MergeViewChain(function, *op, chain);
             if (status != SUCCESS) { return status; }
             chain.pop_back();
         }
     }
+
     return SUCCESS;
 }
 

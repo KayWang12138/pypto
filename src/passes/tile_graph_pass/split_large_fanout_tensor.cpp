@@ -320,13 +320,34 @@ void SplitLargeFanoutTensor::EraseRedundantCopyIn(Function &function) {
         if (op.GetOpcode() != Opcode::OP_VIEW) {
             continue;
         }
+        /*
+        case1. split_large_fanout_tensor 在AssignmemType 之前，view op GetOpAttribute()->GetTo() == MemoryType::MEM_L1的view op一定是tile op展开时插入的，不能删；
+        case2. 框架在tile 展开插入的view之前还插入了一个view，目前不删除，后续优化可以考虑删除。
+        */
+        bool isViewToL1 = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get())->GetTo() == MemoryType::MEM_L1;
+        auto viewAttr = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
         auto consumers = op.oOperand.front()->GetConsumers();
         bool allChildrenView = std::all_of(consumers.begin(), consumers.end(),
-            [](const Operation *opNext) { return opNext->GetOpcode() == Opcode::OP_VIEW; });
+            [=](const Operation *opNext) {
+                if (opNext->GetOpcode() != Opcode::OP_VIEW) {
+                    return false;
+                }
+                auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(opNext->GetOpAttribute().get());
+                if(isViewToL1 || viewOpAttribute->GetTo() == MemoryType::MEM_L1) {
+                    return false;
+                }
+                return true;
+            });
         if (allChildrenView) {
             for (auto &consumer : consumers) {
                 UpdateForRedundantView(op, *consumer);
             }
+            auto input = op.GetIOperands().front();
+            auto output = op.GetOOperands().front();
+            ALOG_ERROR_F("Found redundant view and remove it, opmagic: %d, to: %s. Input mem: %s, Output mem: %s.",
+                op.GetOpMagic(),BriefMemoryTypeToString(viewAttr->GetTo()).c_str(),
+                BriefMemoryTypeToString(input->GetMemoryTypeOriginal()).c_str(),
+                BriefMemoryTypeToString(output->GetMemoryTypeOriginal()).c_str());
             redundantView.push_back(&op);
         }
     }

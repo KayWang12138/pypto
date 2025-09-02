@@ -36,7 +36,7 @@ private:
     void AssignMoveOp(Operation &operation);
     void RunOnOperation(Operation &operation);
     void AssignMemUnknown(Function &function);
-    void AssignL1CopyIn(Function &function);
+    void ProcessMemL1View(Operation &operation);
     void AssignSpecialOpMemtype(Operation &op);
     void AssignMemtypeForSplitReshape(Operation &op, const LogicalTensorPtr &input, const LogicalTensorPtr &output);
     std::string PrintTensorMem(std::shared_ptr<LogicalTensor>& tensor) const;

@@ -44,7 +44,6 @@ private:
     Status PostCheck(Function &function) override;
     Status RunOnFunction(Function &function) override;
     Status NeedToDelete(const Operation &op, Function &function, bool &needToDelete) const;
-    Status DeleteCopyIn(Operation &op, Function &function, bool &needToDelete) const;
     Status RemoveDummyExpand(Function &function) const;
     Status DeleteRedundantOps(Function &function) const;
 };

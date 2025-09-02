@@ -152,55 +152,6 @@ Status ProcessView(const Operation &op, Function &function, bool &needToDelete) 
 }
 
 /*
-isRedundant = true
-view --> in --> L1_COPY_IN --> out --> view'/L1_TO_L0A
-
-isRedundant = false
-op --> in --> L1_COPY_IN --> out --> view'/L1_TO_L0A
-*/
-Status ProccessCopyIn(Operation &op, Function &function, bool &needToDelete) {
-    auto in = op.iOperand.front();
-    if (in == nullptr) {return FAILED;}
-    auto out = op.oOperand.front();
-    if (out == nullptr) {return FAILED;}
-    if (in->shape == out->shape && out->GetMemoryTypeOriginal() == npu::tile_fwk::MEM_L1) {
-        auto consumerOps = function.FindConsumers(op);
-        auto producerOps = op.ProducerOps();
-        bool isRedundant = true;
-        for (auto &producerOp : producerOps) {
-            if (producerOp == nullptr) {return FAILED;}
-            if (producerOp->GetOpcode() != Opcode::OP_VIEW) {
-                isRedundant = false;
-                break;
-            }
-            in->SetMemoryTypeToBe(MemoryType::MEM_L1);
-            in->SetMemoryTypeOriginal(MemoryType::MEM_L1, true);
-            std::shared_ptr<ViewOpAttribute> attr = std::static_pointer_cast<ViewOpAttribute>(producerOp->GetOpAttribute());
-            if (attr == nullptr) {return FAILED;}
-            attr->SetToType(MemoryType::MEM_L1);
-        }
-        if (!isRedundant) {
-            std::vector<OpImmediate> newOffset;
-            auto inputOffset = op.GetIOperands().front()->GetOffset();
-            for (size_t i = 0; i < op.oOperand.front()->shape.size(); i++) {
-                newOffset.push_back(OpImmediate::Specified(SymbolicScalar(inputOffset[i])));
-            }
-            std::shared_ptr<CopyOpAttribute> cur_attr = std::make_shared<CopyOpAttribute>(newOffset, MemoryType::MEM_L1,
-                OpImmediate::Specified(in->shape),
-                OpImmediate::Specified(in->tensor->GetDynRawShape()));
-            if (cur_attr == nullptr) {return FAILED;}
-            op.SetOpAttribute(cur_attr);
-            return SUCCESS;
-        }
-        for (auto &consumerOp : consumerOps) {
-            consumerOp->ReplaceInput(in, out);
-        }
-        needToDelete = true;
-    }
-    return SUCCESS;
-}
-
-/*
 before:
                                             / --> child1
                                             /
@@ -295,18 +246,6 @@ Status RemoveRedundantOp::NeedToDelete(const Operation &op, Function &function, 
     return SUCCESS;
 }
 
-Status RemoveRedundantOp::DeleteCopyIn(Operation &op, Function &function, bool &needToDelete) const {
-    needToDelete = false;
-    switch (op.GetOpcode()) {
-        case Opcode::OP_COPY_IN:
-            if (ProccessCopyIn(op, function, needToDelete)) {return FAILED;}
-            break;
-        default:
-            break;
-    }
-    return SUCCESS;
-}
-
 Status RemoveRedundantOp::DeleteRedundantOps(Function &function) const {
     std::vector<Operation *> redundantOp;
     bool needToDelete;
@@ -319,12 +258,6 @@ Status RemoveRedundantOp::DeleteRedundantOps(Function &function) const {
     for (const auto &op : redundantOp) {
         function.HandleControlOps(*op, redundantOp);
         function.UpdateOperandBeforeRemoveOp(*op, false);
-    }
-    for (auto &op : function.Operations()) {
-        if (DeleteCopyIn(op, function, needToDelete) != SUCCESS) {return FAILED;}
-        if (needToDelete) {
-            redundantOp.push_back(&op);
-        }
     }
     for (auto op : redundantOp) {
         if (op->IsDeleted()) {return FAILED;}

@@ -197,12 +197,13 @@ void L1MultiDataLoadAL1Tiles(Function &function, const std::vector<LogicalTensor
         auto inputATile = std::make_shared<LogicalTensor>(function, operand1->Datatype(),
             std::vector<int64_t>{mL1Size, kL1PartialSiza}, aL1TileTensor->GetDynValidShape(), "a_l1",
             aL1TileTensor->nodetype, aL1TileTensor->tensorfmt);
-        auto &copyInA = function.AddOperation(Opcode::OP_COPY_IN, {aL1TileTensor}, {inputATile});
-        copyInA.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MemoryType::MEM_L1,
-            OpImmediate::Specified(inputATile->GetShape()),
-            OpImmediate::Specified(inputATile->tensor->GetDynRawShape()),
-            OpImmediate::Specified(aL1TileTensor->GetDynValidShape())));
-        aL1Tiles.push_back(inputATile);
+        auto &copyInA = function.AddOperation(Opcode::OP_VIEW, {aL1TileTensor}, {inputATile});
+        std::vector<int64_t> newoffset{0,0};
+        auto viewAttribute =std::make_shared<ViewOpAttribute>(newoffset,
+            SymbolicScalar::FromConcrete(newoffset),inputATile->GetDynValidShape());
+        viewAttribute->SetToType(MemoryType::MEM_L1);
+        copyInA.SetOpAttribute(viewAttribute);
+        aL1Tiles.push_back(inputATile); 
     }
 }
 
@@ -225,11 +226,12 @@ void L1MultiDataLoadBL1Tiles(Function &function, const std::vector<LogicalTensor
                                      std::make_shared<LogicalTensor>(function, operand2->Datatype(),
                                          std::vector<int64_t>{kL1PartialSiza, nL1Size}, bL1TileTensor->GetDynValidShape(),
                                          "b_l1", bL1TileTensor->nodetype, bL1TileTensor->tensorfmt);
-        auto &copyInB = function.AddOperation(Opcode::OP_COPY_IN, {bL1TileTensor}, {inputBTile});
-        copyInB.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MemoryType::MEM_L1,
-            OpImmediate::Specified(inputBTile->GetShape()),
-            OpImmediate::Specified(inputBTile->tensor->GetDynRawShape()),
-            OpImmediate::Specified(bL1TileTensor->GetDynValidShape())));
+        auto &copyInB = function.AddOperation(Opcode::OP_VIEW, {bL1TileTensor}, {inputBTile});
+        std::vector<int64_t> newoffset{0,0};
+        auto viewAttribute =std::make_shared<ViewOpAttribute>(newoffset,
+            SymbolicScalar::FromConcrete(newoffset),inputBTile->GetDynValidShape());
+        viewAttribute->SetToType(MemoryType::MEM_L1);
+        copyInB.SetOpAttribute(viewAttribute);
         bL1Tiles.push_back(inputBTile);
     }
 }
