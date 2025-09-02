@@ -328,11 +328,13 @@ struct DevAscendRawTensor {
     uint64_t addrOffset{UINT64_MAX};
     uint64_t memoryRequirement; // Only available for incast/outcast
                                 // For workspace tensors, the memoryRequirement property is deprecated
+    uint64_t maxPossibleMemReq;
     DataType dataType;
     DevSymShape shape;
     DevIOProperty ioProperty{DevIOProperty::NONE};
     int32_t ioIndex;
     int32_t linkedIncastId; //outcast shared same addr with incast
+    int rawMagic;
 
     int GetDim() const { return shape.dimSize; }
 
@@ -1872,6 +1874,149 @@ struct DevAscendFunctionDupped {
         }
     }
 
+#if DEBUG_INFINITE_LIFETIME
+    void DumpTensorAddrInfo(std::vector<std::string> &infos, uint32_t seqNo, uint32_t funcIdx) {
+        // seqNo,taskId,rawMagic,address,dtype,bytesOfDtype,(shapes,)
+        auto *srcFunc = GetSource();
+ 
+        auto dumpOperand = [&](const DevAscendOperationOperandInfo &operandInfo, size_t opIdx) {
+            std::stringstream os;
+            uint64_t rawIdx = srcFunc->GetTensor(operandInfo.tensorIndex)->rawIndex;
+            auto *rawTensor = srcFunc->GetRawTensor(rawIdx);
+            os << seqNo << "," << MakeTaskID(funcIdx, opIdx) << "," <<
+                rawTensor->rawMagic << "," <<
+                GetRawTensorAddrEx(rawIdx) << "," <<
+                BriefDataType2String(rawTensor->dataType) << "," <<
+                BytesOf(rawTensor->dataType);
+ 
+            uint32_t dimSize = rawTensor->GetDim();
+            os << ",(";
+            bool isFirstDim = true;
+            for (uint32_t i = 0; i < dimSize; i++) {
+                if (isFirstDim) {
+                    isFirstDim = false;
+                } else {
+                    os << ",";
+                }
+                os << rawTensor->shape.At(i, GetExpressionAddr());
+            }
+            os << ")";
+ 
+            os << "\n";
+            infos.emplace_back(std::move(os).str());
+        };
+ 
+        for (size_t opIdx = 0; opIdx < srcFunc->GetOperationSize(); opIdx++) {
+            for (size_t iopIdx = 0; iopIdx < srcFunc->GetOperationIOperandSize(opIdx); iopIdx++) {
+                auto &iopInfo = srcFunc->GetOperationIOperandInfo(opIdx, iopIdx);
+                dumpOperand(iopInfo, opIdx);
+            }
+            for (size_t oopIdx = 0; oopIdx < srcFunc->GetOperationOOperandSize(opIdx); oopIdx++) {
+                auto &oopInfo = srcFunc->GetOperationOOperandInfo(opIdx, oopIdx);
+                dumpOperand(oopInfo, opIdx);
+            }
+        }
+    }
+#endif // DEBUG_INFINITE_LIFETIME
+ 
+    // Return result lines
+    std::vector<std::string> DumpLeafs(uint32_t seqNo, uint32_t funcIdx) {
+        std::vector<std::string> lines;
+        std::stringstream oss;
+        auto flushStream = [&] {
+            lines.push_back(std::move(oss).str());
+            oss.clear();
+            oss.str("");
+        };
+ 
+        auto *srcFunc = GetSource();
+ 
+        oss << "seqNo=" << seqNo << ", rootHash=" << srcFunc->rootHash;
+        flushStream();
+ 
+        auto dumpRawShape = [&](DevAscendRawTensor *rawTensor, uint32_t dimSize) {
+            oss << "        rawShape=[";
+            bool isFirstDim = true;
+            for (uint32_t i = 0; i < dimSize; i++) {
+                if (isFirstDim) {
+                    isFirstDim = false;
+                } else {
+                    oss << ", ";
+                }
+                oss << rawTensor->shape.At(i, GetExpressionAddr());
+            }
+            oss << "]";
+            flushStream();
+        };
+ 
+        auto dumpOperandShape = [&](uint32_t dimSize, size_t opIdx, size_t operandIdx, bool isIn) {
+            uint64_t offset[DEV_SHAPE_DIM_MAX];
+            uint64_t shape[DEV_SHAPE_DIM_MAX];
+            GetTensorOffsetAndShape(offset, shape, dimSize, opIdx, operandIdx, isIn);
+ 
+            oss << "          offset=[";
+            bool isFirstDim = true;
+            for (uint32_t i = 0; i < dimSize; i++) {
+                if (isFirstDim) {
+                    isFirstDim = false;
+                } else {
+                    oss << ", ";
+                }
+                oss << offset[i];
+            }
+            oss << "]";
+            flushStream();
+ 
+            oss << "           shape=[";
+            isFirstDim = true;
+            for (uint32_t i = 0; i < dimSize; i++) {
+                if (isFirstDim) {
+                    isFirstDim = false;
+                } else {
+                    oss << ", ";
+                }
+                oss << shape[i];
+            }
+            oss << "]";
+            flushStream();
+        };
+ 
+        for (size_t opIdx = 0; opIdx < srcFunc->GetOperationSize(); opIdx++) {
+            size_t iopNum = srcFunc->GetOperationIOperandSize(opIdx);
+            size_t oopNum = srcFunc->GetOperationOOperandSize(opIdx);
+            oss << "> taskId = " << MakeTaskID(funcIdx, opIdx) << ", opIdx=" << opIdx << ", #iop=" << iopNum << ", #oop=" << oopNum;
+            flushStream();
+ 
+            for (size_t iopIdx = 0; iopIdx < iopNum; iopIdx++) {
+                uint64_t rawIdx = srcFunc->GetOperationIOperand(opIdx, iopIdx)->rawIndex;
+                auto *rawTensor = srcFunc->GetRawTensor(rawIdx);
+ 
+                oss << "    iop [" << std::setw(3) << iopIdx << "]: rawMagic=" << rawTensor->rawMagic
+                    << ", addr=0x" << std::hex << GetRawTensorAddrEx(rawIdx) << std::dec;
+                flushStream();
+ 
+                uint32_t dimSize = rawTensor->GetDim();
+                dumpOperandShape(dimSize, opIdx, iopIdx, true);
+                dumpRawShape(rawTensor, dimSize);
+            }
+ 
+            for (size_t oopIdx = 0; oopIdx < oopNum; oopIdx++) {
+                uint64_t rawIdx = srcFunc->GetOperationOOperand(opIdx, oopIdx)->rawIndex;
+                auto *rawTensor = srcFunc->GetRawTensor(rawIdx);
+ 
+                oss << "    oop [" << std::setw(3) << oopIdx << "]: rawMagic=" << rawTensor->rawMagic
+                    << ", addr=0x" << std::hex << GetRawTensorAddrEx(rawIdx) << std::dec;
+                flushStream();
+ 
+                uint32_t dimSize = rawTensor->GetDim();
+                dumpOperandShape(dimSize, opIdx, oopIdx, false);
+                dumpRawShape(rawTensor, dimSize);
+            }
+        }
+ 
+        return lines;
+    }
+
     std::string DumpDyn(int funcIdx, const DevCceBinary *cceBinary) {
         std::stringstream oss;
         auto func = GetSource();
@@ -1924,17 +2069,23 @@ struct DevAscendFunctionDupped {
                 << " #taskID:" << MakeTaskID(funcIdx, operIdx) << " #opMagic: " << func->GetOperationDebugOpmagic(operIdx)
                 << "\n";
             oss << "  #invokeAttrs : ";
-
+#if DEBUG_INFINITE_LIFETIME
+            UNUSED(dumpAttr);
+#endif
             int offset = 0;
             for (size_t idx = 0; idx < func->GetOperationIOperandSize(operIdx); idx++) {
                 auto &opInfo = func->GetOperationIOperandInfo(operIdx, idx);
                 offset = std::max(offset, opInfo.staticOffsetAttrBeginIndex + ARG_ATTR_TYPE * opInfo.GetDim());
-                dumpAttr(attrBase, opInfo);
+#if !DEBUG_INFINITE_LIFETIME
+            dumpAttr(attrBase, opInfo);
+#endif
             }
             for (size_t idx = 0; idx < func->GetOperationOOperandSize(operIdx); idx++) {
                 auto &opInfo = func->GetOperationOOperandInfo(operIdx, idx);
                 offset = std::max(offset, opInfo.staticOffsetAttrBeginIndex + ARG_ATTR_TYPE * opInfo.GetDim());
-                dumpAttr(attrBase, opInfo);
+#if !DEBUG_INFINITE_LIFETIME
+            dumpAttr(attrBase, opInfo);
+#endif
             }
             for (size_t idx = offset; idx < func->GetOperationAttrSize(operIdx); idx++) {
                 oss << GetValue(attrBase, idx) << ", ";
@@ -2003,6 +2154,7 @@ struct DevAscendProgram {
     uint64_t standardStackWorkspacePerCore;
     uint64_t stitchPoolSize;
     uint64_t globalTensorMem;
+    uint64_t debugDumpTensorMemReq;
     const void *controlFlowBinaryAddr{nullptr};
     uint64_t hcclContext[HCCL_GROUP_NUM];
     uint64_t commGroupNum;

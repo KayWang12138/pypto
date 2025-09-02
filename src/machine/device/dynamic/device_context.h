@@ -208,9 +208,12 @@ struct DynDeviceTask {
     }
 
     void DumpTopo() {
-#ifndef __DEVICE__
         auto header = dynFuncData;
+#ifdef __DEVICE__
+        std::string path = "./output/dyn_topo.txt";
+#else
         std::string path = config::LogTopFolder() + "/dyn_topo.txt";
+#endif
         static std::ofstream of(path);
         if (of.tellp() == 0) {
             of << "seqNo,taskId,rootIndex,rootHash,opmagic,leafIndex,leafHash,coreType,psgId,successors\n";
@@ -219,8 +222,35 @@ struct DynDeviceTask {
             stitchedList[funcIdx].DumpTopo(of, header->seqNo, funcIdx, cceBinary);
         }
         of.flush();
-#endif
     }
+
+    void DumpLeafs() {
+        for (size_t funcIdx = 0; funcIdx < stitchedList.size(); funcIdx++) {
+            auto lines = stitchedList[funcIdx].DumpLeafs(dynFuncData->seqNo, funcIdx);
+            for (auto &&line : lines) {
+                DEV_ERROR("[DumpLeafs] %s", line.c_str());
+            }
+        }
+    }
+
+#if DEBUG_INFINITE_LIFETIME
+    void DumpTensorAddrInfo(uintdevptr_t dumpTensorWsAddr, uint64_t dumpTensorWsSize) {
+        UNUSED(dumpTensorWsAddr);
+        UNUSED(dumpTensorWsSize);
+        std::stringstream oss;
+        std::vector<std::string> infos;
+        for (uint32_t funcIdx = 0; funcIdx < stitchedList.size(); funcIdx++) {
+            stitchedList[funcIdx].DumpTensorAddrInfo(infos, dynFuncData->seqNo, funcIdx);
+        }
+        auto str = std::move(oss).str();
+        DEV_ERROR("[DumpTensor] seqNo,taskId,rawMagic,address,dtype,bytesOfDtype,(shapes,)");
+        DEV_ERROR("[DumpTensor] >>>");
+        for (auto &info : infos) {
+            DEV_ERROR("%s", info.c_str());
+        }
+        DEV_ERROR("[DumpTensor] <<<<");
+    }
+#endif
 };
 
 struct DeviceExecuteProgram {
@@ -285,6 +315,14 @@ public:
         InitCoreLocalAllocators(baseAddr, args->aicoreLocalWorkspaceSize, args->devProg);
         baseAddr += args->aicoreLocalWorkspaceSize;
 
+#if DEBUG_INFINITE_LIFETIME
+        dumpTensorWsAllocator_.InitAicoreLocal(baseAddr, args->devProg->debugDumpTensorMemReq);
+        DEV_DEBUG("[DumpTensor] dumpTensorWsAllocator_: ptr=0x%lx, size=%lu",
+                  baseAddr, args->devProg->debugDumpTensorMemReq);
+        baseAddr += args->devProg->debugDumpTensorMemReq;
+        dumpTensorWsAllocatorCounter_ = dumpTensorWsAllocator_.Allocate<uint64_t>(1).As<uint64_t>();
+        *dumpTensorWsAllocatorCounter_ = dumpTensorWsAllocator_.AllocatedSize();
+#endif
         SetupVector(slotMemToBeFree_);
         slotMemToBeFree_.reserve(args->devProg->slotPoolSize);
 
@@ -295,6 +333,10 @@ public:
     uintdevptr_t StackWorkspaceAddr() const { return stackWorkspaceBase_; }
     uint64_t StandardStackWorkspacePerCore() const { return standardStackWorkspacePerCore_; }
 
+#if DEBUG_INFINITE_LIFETIME
+    uintdevptr_t DumpTensorWsBaseAddr() const { return dumpTensorWsAllocator_.MemBaseAddr(); }
+    uint64_t DumpTensorWsSize() const { return dumpTensorWsAllocator_.Capacity(); }
+#endif
     template <typename T, WsMemCategory category, typename WsAllocator_T>
     void SetupVector(Vector<T, category, WsAllocator_T> &vector) {
         if constexpr (std::is_same_v<WsAllocator_T, npu::tile_fwk::dynamic::DeviceWorkspaceAllocator>) {
@@ -436,7 +478,16 @@ private:
     } funcWsAllocationInfo_;
 
 public:
-    bool TryAllocateFunctionMemory(DevAscendFunctionDupped devRootDup, const DeviceExecuteSlot *slotList) {
+#if DEBUG_INFINITE_LIFETIME
+    WsAllocation DebugDumpTensorAllocate(size_t memReq,
+        WsMemCategory category = WsMemCategory::UNCLASSIFIED) {
+        DEV_ASSERT(dumpTensorWsAllocator_.CanAllocate(memReq));
+        WsAllocation allocation = dumpTensorWsAllocator_.Malloc(memReq, category);
+        *dumpTensorWsAllocatorCounter_ = dumpTensorWsAllocator_.AllocatedSize();
+        return allocation;
+    }
+#endif
+    bool TryAllocateFunctionMemory(DevAscendFunctionDupped devRootDup, DeviceExecuteSlot *slotList) {
         AutoScopedPerf asp(PERF_EVT_ALLOCATE_WORKSPACE);
 
         WsAllocatorCounter *pDfxCounter = nullptr;
@@ -459,6 +510,9 @@ public:
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
             funcAllocDfx.LogMalloc(allocation);
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
+#if DEBUG_INFINITE_LIFETIME
+        allocation = DebugDumpTensorAllocate(outcastSize, WsMemCategory::TENSOR_ROOTFUNC_INTERNAL);
+#endif
             devRootDup.RuntimeOutcastBase() = allocation.ptr;
         } else {
             devRootDup.RuntimeOutcastBase() = 0;
@@ -470,6 +524,10 @@ public:
             if (!TryAllocateFuncWs(devRootDup, wsSize, pDfxCounter)) {
                 return false;
             }
+#if DEBUG_INFINITE_LIFETIME
+        WsAllocation allocation = DebugDumpTensorAllocate(wsSize, WsMemCategory::TENSOR_ROOTFUNC_INTERNAL);
+        devRootDup.RuntimeWorkspace() = allocation.ptr;
+#endif
         } else {
             devRootDup.RuntimeWorkspace() = 0;
         }
@@ -503,7 +561,11 @@ public:
                     if (rawTensor->linkedIncastId == -1) {
                         auto memReq = rawTensor->GetMemoryRequirement(devRootDup.GetExpressionAddr());
                         auto allocation = aicoreGlobalAllocator_.Allocate<uint8_t>(memReq);
+#if DEBUG_INFINITE_LIFETIME
+                        allocation = DebugDumpTensorAllocate(memReq);
+#endif
                         desc = AddressDescriptor(allocation.ptr);
+                        slotList[slotIndex].desc = desc;
                     }
                 }
             } else {
@@ -867,6 +929,11 @@ private:
     SeqWsAllocator aicoreLocalFuncOutcastAllocator_;
     WsAicoreLocalSlotAllocator aicoreLocalSlotAllocator_;
 
+#if DEBUG_INFINITE_LIFETIME
+    SeqWsAllocator dumpTensorWsAllocator_;
+    uint64_t *dumpTensorWsAllocatorCounter_;
+#endif
+
     uintdevptr_t stackWorkspaceBase_{0};
     uint64_t standardStackWorkspacePerCore_{0};
     uint64_t stackWorkspaceSize_{0};
@@ -1137,6 +1204,9 @@ struct DeviceStitchContext {
                            ItemPool<uint32_t, WsMemCategory::ITEMPOOL_SLOT_REF_CNT> &slotRefCntPool) {
         static constexpr uint64_t NON_ADDR_MASK = UINT64_C(1) << 62;
 
+        UNUSED(slotRefCntPool);
+        UNUSED(NON_ADDR_MASK);
+
         DumpSlotInfo("Update before", slotList, slotSize);
         for (size_t slotIdx = 0; slotIdx < slotSize; ++slotIdx) {
             auto &slot = slotList[slotIdx];
@@ -1148,7 +1218,9 @@ struct DeviceStitchContext {
             auto &dup = stitchedList_[desc.dupIdx];
             auto &outcastDesc = dup.GetOutcastAddress(desc.outcastIdx);
             DEV_DEBUG_ASSERT(outcastDesc.IsAddress());
-
+#if DEBUG_INFINITE_LIFETIME
+            desc = outcastDesc;
+#else
             auto *outcastRawTensor = dup.GetSource()->GetOutcastRawTensor(desc.outcastIdx);
             if (slot.IsFixedAddress() || outcastRawTensor->linkedIncastId != -1) {
                  desc = outcastDesc;
@@ -1156,25 +1228,34 @@ struct DeviceStitchContext {
              }
 
             uintdevptr_t outcastWsStandardAddr = dup.RuntimeOutcastBase() + outcastRawTensor->addrOffset;
+            bool isStandardOutcastSlot = outcastDesc.addr == outcastWsStandardAddr ||
+                                         (outcastDesc.addr & NON_ADDR_MASK) == NON_ADDR_MASK;
+            if (!isStandardOutcastSlot || outcastRawTensor->linkedIncastId != -1) {
+                desc = outcastDesc;
+                continue;
+            }
             if (outcastDesc.addr == outcastWsStandardAddr) {
                 // First time meet this unsolved slot
                 slotInfosInDecidingSlotMem_[slotIdx].slotPtr = workspace_->AllocateSlot(dup.GetSource()->GetRawName());
                 slotInfosInDecidingSlotMem_[slotIdx].refCnt = slotRefCntPool.Make(1);
                 outcastDesc = AddressDescriptor(slotIdx ^ NON_ADDR_MASK); // mark as first slot
             } else {
+                DEV_DEBUG_ASSERT((outcastDesc.addr & NON_ADDR_MASK) == NON_ADDR_MASK);
                 size_t firstSlotIdx = outcastDesc.addr ^ NON_ADDR_MASK;
                 ++*slotInfosInDecidingSlotMem_[firstSlotIdx].refCnt;
                 slotInfosInDecidingSlotMem_[slotIdx] = slotInfosInDecidingSlotMem_[firstSlotIdx];
             }
         }
-
+#endif
         for (size_t slotIdx = 0; slotIdx < slotSize; ++slotIdx) {
             auto &slot = slotList[slotIdx];
             auto &desc = slot.desc;
-            if (desc.IsAddress() || slot.IsFixedAddress()) {
+            if (desc.IsAddress()) {
                 continue;
             }
-
+#if DEBUG_INFINITE_LIFETIME
+            DEV_ASSERT(false);
+#endif
             auto &dup = stitchedList_[desc.dupIdx];
             auto &outcastDesc = dup.GetOutcastAddress(desc.outcastIdx);
             if (size_t firstSlotIdx = outcastDesc.addr ^ NON_ADDR_MASK; firstSlotIdx == slotIdx) {
@@ -1182,7 +1263,7 @@ struct DeviceStitchContext {
                 outcastDesc = AddressDescriptor(slotInfosInDecidingSlotMem_[firstSlotIdx].slotPtr);
             }
 
-            slot.desc = AddressDescriptor(slotInfosInDecidingSlotMem_[slotIdx].slotPtr);
+            slot.desc = outcastDesc;
             slot.refCnt = slotInfosInDecidingSlotMem_[slotIdx].refCnt;
         }
 
@@ -1873,6 +1954,15 @@ private:
         DEV_IF_NONDEVICE {
             dyntask->DumpTopo();
         }
+
+#if DEBUG_INFINITE_LIFETIME
+        if constexpr (IsDeviceMode()) {
+            dyntask->DumpTensorAddrInfo(workspace_->DumpTensorWsBaseAddr(), workspace_->DumpTensorWsSize());
+        }
+#endif
+#if DEBUG_SWITCH
+        dyntask->DumpLeafs();
+#endif
     }
 };
 const uint64_t SLEEP_TIME_US = 10000;
@@ -2041,7 +2131,9 @@ struct DeviceExecuteContext {
 
 #if DEBUG_SWITCH
         stitchContext.DumpStitchInfo();
+#if !DEBUG_INFINITE_LIFETIME
         stitchContext.VerifyStitchedListMemory(*args);
+#endif
 #endif // DEBUG_SWITCH
 
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL

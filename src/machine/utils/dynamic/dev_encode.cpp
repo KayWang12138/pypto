@@ -211,6 +211,18 @@ static void EncodeRawShape(const SymbolicExpressionTable *expressionTable,
     encoded->shape.SetShape(shape);
     encoded->dataType = rawTensor->GetDataType();
     encoded->memoryRequirement = isDyn ? 0: rawTensor->GetRawDataSize();
+
+    uint64_t maxPossibleNumel = 0;
+    if (std::find(rawTensor->oriRawshape.begin(), rawTensor->oriRawshape.end(), -1) == rawTensor->oriRawshape.end()) {
+        maxPossibleNumel = std::max(maxPossibleNumel, std::accumulate(rawTensor->oriRawshape.begin(),
+                            rawTensor->oriRawshape.end(), UINT64_C(1), std::multiplies<uint64_t>()));
+    }
+    if (std::find(rawTensor->rawshape.begin(), rawTensor->rawshape.end(), -1) == rawTensor->rawshape.end()) {
+        maxPossibleNumel = std::max(maxPossibleNumel, std::accumulate(rawTensor->rawshape.begin(),
+            rawTensor->rawshape.end(), UINT64_C(1), std::multiplies<uint64_t>()));
+    }
+    encoded->maxPossibleMemReq = std::max(maxPossibleNumel *BytesOf(rawTensor->GetDataType()),
+                                 encoded->memoryRequirement);
 }
 
 void DevAscendFunction::FillOutputSlotMark(const IncastOutcastLink *inoutLink, std::vector<bool>& isOutputSlotMarks) {
@@ -254,7 +266,7 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
             }
             auto &encoded = *GetRawTensor(i);
             EncodeRawShape(expressionTable, &encoded, rawTensor);
-
+            encoded.rawMagic = rawTensor->GetRawMagic();
             if (incastRawList.count(rawTensor)) {
                 // No need to allocate memory for root incasts
                 encoded.ioProperty = DevIOProperty::ROOT_INCAST;
@@ -274,18 +286,24 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                 if (!isOutput) {
                     encoded.addrOffset = outcastWsMemoryRequirement;
                     rawTensor->addrOffset = outcastWsMemoryRequirement;
-                    outcastWsMemoryRequirement += encoded.memoryRequirement;
+                    outcastWsMemoryRequirement += encoded.maxPossibleMemReq;
                 }
             } else {
                 // For workspace tensors, the memoryRequirement property is deprecated, please don't use its value
                 encoded.ioProperty = DevIOProperty::NONE;
                 encoded.ioIndex = -1;
+#if DEBUG_INFINITE_LIFETIME
+                UNUSED(rawAttrs);
+                encoded.addrOffset = rawTensorWsMemoryRequirement;
+                rawTensor->addrOffset = encoded.addrOffset;
+                rawTensorWsMemoryRequirement += encoded.maxPossibleMemReq;
+#else
                 encoded.addrOffset = rawAttrs[i].storage->start_ + rawAttrs[i].storageOffset;
                 rawTensor->addrOffset = encoded.addrOffset;
                 rawTensorWsMemoryRequirement = std::max(rawTensorWsMemoryRequirement,
                     rawAttrs[i].storage->start_ + rawAttrs[i].storage->length_);
             }
-
+#endif
             UpdateRawTensorDesc(rawTensor, i, incastRawList.size(), encoded);
         }
 
@@ -1584,6 +1602,10 @@ static int WorkspaceRecyclePeriod() {
     return value;
 }
 
+static constexpr uint64_t KIBI = UINT64_C(1024);
+static constexpr uint64_t MEBI = UINT64_C(1024) * 1024;
+static constexpr uint64_t GIBI = UINT64_C(1024) * 1024 * 1024;
+
 static LocalWorkspaceResult CalcAicoreLocalWorkspace(DevAscendProgram &devProg) {
     LocalWorkspaceResult res;
     struct SlotInfo {
@@ -1636,7 +1658,7 @@ static LocalWorkspaceResult CalcAicoreLocalWorkspace(DevAscendProgram &devProg) 
             }
 
             if (isAssembleSlot(devFunc, i)) {
-                globalTensorMem += devFunc->GetOutcastRawTensor(i)->memoryRequirement;
+                globalTensorMem += devFunc->GetOutcastRawTensor(i)->maxPossibleMemReq;
                 continue;
             }
 
@@ -1646,7 +1668,7 @@ static LocalWorkspaceResult CalcAicoreLocalWorkspace(DevAscendProgram &devProg) 
                 // No output slot
                 slots[slotIdx].asWriteSlot = true;
             }
-            maxSlotMemReq = std::max(maxSlotMemReq, devFunc->GetOutcastRawTensor(i)->memoryRequirement);
+            maxSlotMemReq = std::max(maxSlotMemReq, devFunc->GetOutcastRawTensor(i)->maxPossibleMemReq);
         }
 
         maxInnerWorkspace = std::max(maxInnerWorkspace, devFunc->rawTensorWsMemoryRequirement);
@@ -1671,7 +1693,7 @@ static LocalWorkspaceResult CalcAicoreLocalWorkspace(DevAscendProgram &devProg) 
         res.standardStackWorkspacePerCore * MAX_WORKSPACE_MUL_SIZE +
         res.globalTensorMem;
 
-    static constexpr uint64_t MASK_32K = 32 * 1024 - 1;
+    static constexpr uint64_t MASK_32K = 32 * KIBI - 1;
     res.memReq = ((memReq + MASK_32K) & ~MASK_32K); // aligned to 32K
 
     return res;
@@ -1679,13 +1701,13 @@ static LocalWorkspaceResult CalcAicoreLocalWorkspace(DevAscendProgram &devProg) 
 
 static uint64_t CalcAicpuCoherentWorkspace(DevAscendProgram &devProg) {
     (void)devProg;
-    static constexpr uint64_t AICPU_COHERENT_WS_SIZE = 6 * 1024 * 1024;
+    static constexpr uint64_t AICPU_COHERENT_WS_SIZE = 6 * MEBI;
     return AICPU_COHERENT_WS_SIZE;
 }
 
 static uint64_t CalcStitchWorkspace(DevAscendProgram &devProg) {
     (void)devProg;
-    static constexpr uint64_t AICPU_STITCH_SIZE = 2 * 1024 * 1024;
+    static constexpr uint64_t AICPU_STITCH_SIZE = 2 * MEBI;
     return AICPU_STITCH_SIZE;
 }
 
@@ -1713,6 +1735,12 @@ void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *
         base->stitchPoolSize = CalcStitchWorkspace(*base);
         base->devArgs.machineConfig = func->paramConfigs_.machineConfig_;
         base->workspaceRecyclePeriod = WorkspaceRecyclePeriod();
+
+#if DEBUG_INFINITE_LIFETIME
+        base->debugDumpTensorMemReq = 8 * GIBI;
+#else
+        base->debugDumpTensorMemReq = 0;
+#endif
     }
 }
 } // namespace dynamic

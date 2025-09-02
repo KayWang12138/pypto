@@ -117,9 +117,10 @@ public:
     bool IsAicoreLocal() const { return property_ == WsAllocatorProperty::AICORE_LOCAL; }
     bool IsAicpuCoherent() const { return property_ == WsAllocatorProperty::AICPU_COHERENT; }
 
-    uint64_t MemBaseAddr() const { return workspaceAddr_; }
+    uintdevptr_t MemBaseAddr() const { return workspaceAddr_; }
     uint64_t AllocatedSize() const { return allocated_; }
-    uint64_t FreeMemorySize() { return  workspaceSize_ - allocated_; }
+    uint64_t FreeMemorySize() const { return workspaceSize_ - allocated_; }
+    uint64_t Capacity() const { return workspaceSize_; }
 
 private:
     void InternalInit(uintdevptr_t workspaceAddr, uint64_t workspaceSize, WsAllocatorProperty property) {

@@ -614,6 +614,7 @@ public:
 
     inline int RunTask(DeviceTaskCtrl *taskCtrl) {
         int rc, ret = DEVICE_MACHINE_OK;
+        seq = taskCtrl->taskId;
         DEV_INFO("receive new task %lu.", taskCtrl->taskId);
 
         InitTaskData(taskCtrl);
@@ -1381,6 +1382,8 @@ private:
         } else {
             ResolveDepDyn(finishId);
         }
+        DEV_DEBUG("[Call]: Core %d Dispatch Task: %lu, %u, %u", coreIdx, seq,
+                  FuncID(finishId), TaskID(finishId));
         DEV_TRACE_DEBUG(LEvent(
             LUid(curTaskCtrl_->taskId, FuncID(finishId), GetRootIndex(finishId), TaskID(finishId), GetLeafIndex(finishId)),
             LActFinish(coreIdx)));
@@ -1619,6 +1622,7 @@ private:
         return aicpuIdx_ == 1;
     }
 private:
+    uint64_t seq;
     AicoreHAL aicoreHAL;
     bool isFirstTaskSend_{true};
     bool firstLock[AICORE_TYPE_NUM]{true,true};

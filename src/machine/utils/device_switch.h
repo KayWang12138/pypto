@@ -23,6 +23,7 @@ namespace npu::tile_fwk {
 
 // Disable DFX during performance testing, disable logging and partial traceability data collection.
 #define DEBUG_SWITCH 0
+#define DEBUG_INFINITE_LIFETIME 0
 
 #define PERF_SWITCH 0
 

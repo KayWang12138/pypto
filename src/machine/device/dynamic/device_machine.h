@@ -183,7 +183,8 @@ public:
         devArgs->workspaceAddr = workspaceAddr;
         devArgs->devProg = devProg;
         devArgs->aicpuCoherentWorkspaceSize = devProg->aicpuCoherentWorkspaceSize - devArgsSize;
-        devArgs->aicoreLocalWorkspaceSize = devProg->workspaceSize - devProg->aicpuCoherentWorkspaceSize;
+        devArgs->aicoreLocalWorkspaceSize = devProg->workspaceSize - devProg->debugDumpTensorMemReq - \
+                devProg->aicpuCoherentWorkspaceSize;
         devArgs->inputSymbolList = nullptr;
         devArgs->inputSymbolSize = 0;
         devArgs->hcclContextAddr = (uint64_t*)&devProg->hcclContext[0];
