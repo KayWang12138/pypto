@@ -13,12 +13,11 @@
  * \brief
  */
 
-#ifndef AST_RUNTIME_H
-#define AST_RUNTIME_H
+#ifndef AICORE_RUNTIME_H
+#define AICORE_RUNTIME_H
 
-#include "dynamic_tileop_common.h"
-#include "interface/cache/core_func_data.h"
-#include "../include/tileop/hccl_context.h"
+#include "tilefwk/aicore_data.h"
+#include "tileop/hccl_context.h"
 
 #define CACHELINE_SIZE_FOR_B32 128
 #define CACHELINE_SIZE_FOR_B64 64
@@ -26,6 +25,10 @@
 #define DEBUG_OFFSET_FOR_B64 DEFAULT_TOTAL_BLOCK_NUM *CACHELINE_SIZE_FOR_B64 / sizeof(int64_t)
 #define DEBUG_SIZE_PER_CORE (1 * 1024 * 1024)
 #define PAD_LIMIT 512
+
+#ifndef INLINE
+#define INLINE __attribute__((always_inline)) inline[aicore]
+#endif
 
 const int SHAKE_SAY_HELLO = 100;
 const int SHAKE_HELLO_ACK = 200;
@@ -231,10 +234,6 @@ INLINE uint64_t GetCoa(CoreFuncParam *ctx, int idx) {
     else
         return SYM_VALUE(val);
 }
-INLINE uint64_t GetShmemTensorAddr(CoreFuncParam *ctx, int idx, int groupIndex, uint64_t offset) {
-    auto dstRankId = GetCoa(ctx, idx + 1);
-    return ((__gm__ TileOp::HcclCombinOpParam *)ctx->funcData->hcclContext[groupIndex])->windowsIn[dstRankId] + offset;
-}
 
 INLINE
 int64_t RuntimeGetViewValidShapeDim(int64_t validshape, int64_t viewOffset, int64_t viewshape) {
@@ -244,6 +243,11 @@ int64_t RuntimeGetViewValidShapeDim(int64_t validshape, int64_t viewOffset, int6
     else if (validshape < 0)
         validshape = 0;
     return validshape;
+}
+
+INLINE uint64_t GetShmemTensorAddr(CoreFuncParam *ctx, int idx, int groupIndex, uint64_t offset) {
+    auto dstRankId = GetCoa(ctx, idx + 1);
+    return ((__gm__ TileOp::HcclCombinOpParam *)ctx->funcData->hcclContext[groupIndex])->windowsIn[dstRankId] + offset;
 }
 
 #define RUNTIME_GetViewValidShapeDim(validShape, viewOffset, viewShape) RuntimeGetViewValidShapeDim(validShape, viewOffset, viewShape)

@@ -234,13 +234,13 @@ struct DevAscendStride {
     void SetShape(const std::vector<int> &shape) {
         SetShape(shape.data(), (int)shape.size());
     }
-    void SetShape(const DevAscendShape &shape) {
+    void SetShape(const DevShape &shape) {
         SetShape(shape.dim, shape.dimSize);
     }
 };
 
 struct DevCellMatchTableDesc {
-    DevAscendShape cellShape;
+    DevShape cellShape;
     DevAscendStride stride;
 
     int GetDimensionSize() const { return cellShape.dimSize; }
@@ -697,7 +697,7 @@ public:
         return schema::coa(schema::coaType(coaDataList, dumpIndex));
     }
 
-    static std::string DumpShape(const DevAscendShape &shape) {
+    static std::string DumpShape(const DevShape &shape) {
         std::ostringstream oss;
         oss << "<";
         for (int k = 0; k < shape.dimSize; k++) {
@@ -2509,14 +2509,14 @@ struct InputsHeader {
 
 struct DevAscendTensorDataCreator {
     template<typename T>
-    static DevAscendTensorData Create(uintdevptr_t tensorAddress, const std::vector<T> &tensorShape) {
-        DevAscendTensorData tensorData;
+    static DevTensorData Create(uintdevptr_t tensorAddress, const std::vector<T> &tensorShape) {
+        DevTensorData tensorData;
         Init(&tensorData, tensorAddress, tensorShape.data(), tensorShape.size());
         return tensorData;
     }
 
     template<typename T>
-    static void Init(DevAscendTensorData *tensorData, uintdevptr_t tensorAddress, const T *dims, int n) {
+    static void Init(DevTensorData *tensorData, uintdevptr_t tensorAddress, const T *dims, int n) {
         DEV_ASSERT(n <= DEV_SHAPE_DIM_MAX);
 
         tensorData->address = tensorAddress;
@@ -2527,7 +2527,7 @@ struct DevAscendTensorDataCreator {
     }
 
     static int Decode(int64_t *inputs, DevAscendProgram* devProg, int idxOffset,
-                      DevAscendTensorData *tensorData) {
+                      DevTensorData *tensorData) {
         int64_t addrOffset = *inputs;
         int64_t *ptrBase = reinterpret_cast<int64_t *>(reinterpret_cast<uint64_t>(inputs) + addrOffset);
 
@@ -2560,7 +2560,7 @@ struct DevAscendTensorDataCreator {
      *                  |    ptr2     |
      *                  |     ...     |
      */
-    static std::vector<int64_t> Encode(const std::vector<DevAscendTensorData> &tensors) {
+    static std::vector<int64_t> Encode(const std::vector<DevTensorData> &tensors) {
         size_t size = tensors.size() * 0x2 + 1;
         for (auto &t : tensors) {
             size += t.shape.dimSize;
@@ -2621,12 +2621,12 @@ public:
     }
 
     int GetInputTensorSize() const { return inputTensorSize; }
-    const DevAscendTensorData &GetInputTensor(int index) const { return inputTensorList[index]; }
-    DevAscendTensorData &GetInputTensor(int index) { return inputTensorList[index]; }
+    const DevTensorData &GetInputTensor(int index) const { return inputTensorList[index]; }
+    DevTensorData &GetInputTensor(int index) { return inputTensorList[index]; }
 
     int GetOutputTensorSize() const { return outputTensorSize; }
-    const DevAscendTensorData &GetOutputTensor(int index) const { return outputTensorList[index]; }
-    DevAscendTensorData &GetOutputTensor(int index) { return outputTensorList[index]; }
+    const DevTensorData &GetOutputTensor(int index) const { return outputTensorList[index]; }
+    DevTensorData &GetOutputTensor(int index) { return outputTensorList[index]; }
 
     int GetInputSymbolSize() const { return inputSymbolSize; }
     const DevInputSymbol &GetInputSymbol(int index) const { return inputSymbolList[index]; }
@@ -2638,7 +2638,7 @@ public:
         std::ostringstream oss;
         oss << "DevStartArgs {" << "\n";
         for (int i = 0; i < GetInputTensorSize(); i++) {
-            const DevAscendTensorData &input = GetInputTensor(i);
+            const DevTensorData &input = GetInputTensor(i);
             oss << INDENTINNER << "#input-" << i << ": #address:" << AddressDescriptor::DumpAddress(input.address);
             oss << " #shape:[";
             for (int j = 0; j < input.shape.dimSize; j++) {
@@ -2650,7 +2650,7 @@ public:
             oss << "]\n";
         }
         for (int i = 0; i < GetOutputTensorSize(); i++) {
-            const DevAscendTensorData &output = GetOutputTensor(i);
+            const DevTensorData &output = GetOutputTensor(i);
             oss << INDENTINNER << "#output-" << i << ": #address:" << AddressDescriptor::DumpAddress(output.address);
             oss << " #shape:[";
             for (int j = 0; j < output.shape.dimSize; j++) {

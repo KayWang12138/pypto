@@ -168,7 +168,7 @@ public:
 
         PerfEnd(PERF_EVT_INIT);
 
-        auto inputPtr = PtrToPtr<DevStartArgs, DevAscendTensorData>(devArgs + 1);
+        auto inputPtr = PtrToPtr<DevStartArgs, DevTensorData>(devArgs + 1);
         auto inputSize = DevAscendTensorDataCreator::Decode(kargs->inputs, devProg, 0, inputPtr);
 
         auto outputPtr = inputPtr + inputSize;

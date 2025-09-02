@@ -471,6 +471,8 @@ int CodeGenCloudNPU::CompileCCE(const CompileInfo &compileInfo, const std::strin
         << "-I" << includePath << "/include/tileop/a2a3 "
         << "-I" << includePath << "/src/machine/kernel "
         << "-I" << includePath << "/src/ "
+        << "-I" << includePath << "/include/tilefwk "
+        << "-I" << includePath << "/include/ "
         << "-o " << objFile << " " << srcFile;
 
     std::string ccecCmd = oss.str();

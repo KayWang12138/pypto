@@ -19,12 +19,10 @@
 #define CORE_FUNC_DATA_H
 
 #include <cstdint>
-
-#include "common_data.h"
+#include "tilefwk/aicore_data.h"
 
 inline constexpr uint32_t DIST_COMM_GROUP_NUM = 8;
 constexpr int MAX_DIMS = 8;
-const uint32_t HCCL_GROUP_NUM = 2;
 using taskid_t = uint32_t;
 
 namespace npu::tile_fwk {
@@ -154,32 +152,6 @@ struct BaseArgs {
 #pragma pack ()
 
 using predcount_t = uint16_t;
-const uint32_t RAW_TENSOR_LOCATION_LOCAL = 0;
-const uint32_t RAW_TENSOR_LOCATION_INCAST = 1;
-const uint32_t RAW_TENSOR_LOCATION_OUTCAST = 2;
-
-struct DevRawTensorDesc {
-    uint32_t location;
-    uint32_t offsetOrIndex;
-};
-
-struct DynFuncData {
-    uint64_t exprNum;               // static
-    __gm__ uint64_t *opAttrs;       // static
-    __gm__ int32_t *opAtrrOffsets;  // static
-    __gm__ uint64_t *exprTbl;       // dyn
-    __gm__ DevRawTensorDesc *rawTensorDesc;
-    __gm__ uint64_t *rawTensorAddr;
-    uint64_t opAttrSize;
-    uint64_t rawTensorDescSize;
-    uint64_t rawTensorAddrSize;
-    uint64_t workspaceAddr;
-    uint64_t stackWorkSpaceAddr;
-    uint64_t stackWorkSpaceSize;
-    uint64_t hcclContext[HCCL_GROUP_NUM]{0, 0};
-    uint64_t commGroupNum{0};
-    __gm__ DevStartArgsBase *startArgs;
-};
 
 struct DynFuncBin {
     uint32_t coreType;

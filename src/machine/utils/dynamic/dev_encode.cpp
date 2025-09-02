@@ -743,8 +743,8 @@ struct EncodeDevAscendFunctionInfo {
     std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> incastOpAttrDict;
     std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> outcastOpAttrDict;
 
-    static DevAscendShape InitShape(const std::vector<int64_t> &shape) {
-        DevAscendShape initShape;
+    static DevShape InitShape(const std::vector<int64_t> &shape) {
+        DevShape initShape;
         initShape.dimSize = shape.size();
         for (size_t i = 0; i < DEV_SHAPE_DIM_MAX; i++) {
             if (i < shape.size()) {
@@ -775,7 +775,7 @@ struct EncodeDevAscendFunctionInfo {
         return desc;
     }
 
-    std::vector<int> ShapeToVector(const DevAscendShape &shape) {
+    std::vector<int> ShapeToVector(const DevShape &shape) {
         std::vector<int> data(&shape.dim[0], &shape.dim[shape.dimSize]);
         return data;
     }

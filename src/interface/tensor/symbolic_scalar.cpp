@@ -55,6 +55,7 @@ std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::s
     std::string cmdGcc = LD_PRELOAD + gcc + " -fPIC -O2 " + extraCflag +
         " -I" + std::string(SrcPath) + "/src " +
         " -I" + std::string(SrcPath) + "/src/interface " +
+        " -I" + std::string(SrcPath) + "/include/ " +
         " -S " + sourceFilePath + " -o " + assembleFilePath;
     ALOG_INFO("[RunCmd] ", cmdGcc);
     ASSERT(system(cmdGcc.c_str()) == 0);

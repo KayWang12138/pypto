@@ -57,10 +57,11 @@ static int CompileCoreMachine(const std::string &objFile, bool isCube, uint64_t 
                    "%s "
                    "-I%s/src/ "
                    "-I%s/include/tileop/a2a3 "
+                   "-I%s/include/ "
                    "-o %s "
                    "%s",
                    BISHENG_PROGRAM, cc_opt.c_str(), std::to_string(tilingKey).c_str(), opType.c_str(), headFile.c_str(),
-                   hasSubFunc.c_str(), coreType.c_str(), SRCPATH, SRCPATH, objFile.c_str(), srcFile.c_str());
+                   hasSubFunc.c_str(), coreType.c_str(), SRCPATH, SRCPATH, SRCPATH, objFile.c_str(), srcFile.c_str());
   if (ret < 0) {
     ALOG_ERROR_F("Compile aicore construct cmd failed.");
     return ret;

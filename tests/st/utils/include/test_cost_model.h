@@ -135,7 +135,7 @@ private:
         AstKernelArgs kArgs;
 
         auto buildInouts = [&](auto &tensorList) {
-            std::vector<DevAscendTensorData> geTensors;
+            std::vector<DevTensorData> geTensors;
             for (auto &t : tensorList) {
                 if (t) {
                     auto addrs = pv_->CopyTensorToDev((uint8_t*)t->data(), t->size());

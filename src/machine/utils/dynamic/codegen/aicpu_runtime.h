@@ -19,8 +19,6 @@
 #include <cstdint>
 #include <vector>
 
-#include "interface/cache/common_data.h"
-
 namespace npu::tile_fwk {
 
 using CallRootEntryType = void *(*)(void *, uint64_t);

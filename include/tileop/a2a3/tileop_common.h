@@ -16,6 +16,10 @@
 #ifndef __LOGICALTENSOR_TILEOP_COMMON__
 #define __LOGICALTENSOR_TILEOP_COMMON__
 
+#ifndef __aicore__
+#define __aicore__ [aicore]
+#endif
+
 #ifndef TILEOP
 #define TILEOP static __attribute__((always_inline))[aicore]
 #endif
@@ -66,6 +70,8 @@ constexpr uint64_t BLOCK_NELEM_B16 = 16;
 constexpr uint64_t BLOCK_NELEM_B32 = 8;
 constexpr uint64_t NBLOCK_PER_MASK_B16 = 4;
 constexpr uint64_t BLOCK_SIZE = 32;
+constexpr uint64_t REPEAT_MAX = 255;
+constexpr uint64_t REPEAT_BYTE = 256;
 
 inline TILEOP void SetContinuousMask(unsigned n) {
     set_vector_mask(static_cast<uint64_t>(

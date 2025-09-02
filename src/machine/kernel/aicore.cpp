@@ -12,8 +12,8 @@
  * \file aicore.cpp
  * \brief
  */
+#include "tilefwk/aicore_runtime.h"
 #include "machine/kernel/aicore.h"
-#include "aicore_runtime.h"
 #include "interface/cache/core_func_data.h"
 #include "machine/utils/device_switch.h"
 #include "machine/utils/common_def.h"

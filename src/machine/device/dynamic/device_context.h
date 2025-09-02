@@ -31,7 +31,6 @@
 #include <sys/mman.h>
 #endif
 
-#include "interface/cache/common_data.h"
 #include "interface/cache/core_func_data.h"
 #include "interface/schema/schema.h"
 #include "machine/utils/dynamic/dev_encode.h"
@@ -988,14 +987,14 @@ struct DeviceSlotContext {
 public:
     void FillInputOutputSlot(DeviceExecuteSlot *slotList, size_t slotSize, DevAscendProgram *devProg, DevStartArgs *args) {
         for (int i = 0; i < args->GetInputTensorSize(); ++i) {
-            DevAscendTensorData &param = args->GetInputTensor(i);
+            DevTensorData &param = args->GetInputTensor(i);
             int slotIndex = devProg->startArgsInputTensorSlotIndexList[i];
             slotList[slotIndex].desc = AddressDescriptor(param.address);
             DEV_INFO("Param %d Input Slot %d = %lx.", i, slotIndex, param.address);
             DEV_TRACE_DEBUG(CtrlEvent(none(), InputTensor(i, range(param.address, param.address + param.shape.GetSize()))));
         }
         for (int i = 0; i < args->GetOutputTensorSize(); ++i) {
-            DevAscendTensorData &param = args->GetOutputTensor(i);
+            DevTensorData &param = args->GetOutputTensor(i);
             int slotIndex = devProg->startArgsOutputTensorSlotIndexList[i];
             slotList[slotIndex].desc = AddressDescriptor(param.address);
             slotList[slotIndex].isOutputSlot = true;
@@ -1994,23 +1993,23 @@ struct DeviceExecuteContext {
     SPSCQueue<DynDeviceTask *, SUBMMIT_TASK_QUE_SIZE> submmitTaskQueue_;
 
     static uint64_t GetInputShapeDimSize(DeviceExecuteContext *ctx, uint64_t inputIndex) {
-        DevAscendTensorData *input = &ctx->args->inputTensorList[inputIndex];
+        DevTensorData *input = &ctx->args->inputTensorList[inputIndex];
         return input->shape.dimSize;
     }
     static uint64_t GetInputShapeDim(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t n) {
-        DevAscendTensorData *input = &ctx->args->inputTensorList[inputIndex];
+        DevTensorData *input = &ctx->args->inputTensorList[inputIndex];
         return input->shape.dim[n];
     }
     static int64_t GetInputDataInt32Dim1(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0) {
-        DevAscendTensorData *input = &ctx->args->inputTensorList[inputIndex];
+        DevTensorData *input = &ctx->args->inputTensorList[inputIndex];
         return ((int32_t *)input->address)[off0];
     }
     static int64_t GetInputDataInt32Dim2(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1) {
-        DevAscendTensorData *input = &ctx->args->inputTensorList[inputIndex];
+        DevTensorData *input = &ctx->args->inputTensorList[inputIndex];
         return ((int32_t *)input->address)[off0 * input->shape.dim[1] + off1];
     }
     static int64_t GetInputDataInt32Dim3(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1, uint64_t off2) {
-        DevAscendTensorData *input = &ctx->args->inputTensorList[inputIndex];
+        DevTensorData *input = &ctx->args->inputTensorList[inputIndex];
         return ((int32_t *)input->address)[off0 * input->shape.dim[1] * input->shape.dim[2] + off1 * input->shape.dim[2] + off2]; // 2: dim 2
     }
 

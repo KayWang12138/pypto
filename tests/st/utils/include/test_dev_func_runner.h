@@ -297,7 +297,7 @@ private:
         MemoryHelper h{isTest};
 
         auto buildInouts = [&](auto &tensorList) {
-            std::vector<DevAscendTensorData> geTensors;
+            std::vector<DevTensorData> geTensors;
             for (auto &t : tensorList) {
                 if (t) {
                     auto addrs = h.CopyToDev(*t);
