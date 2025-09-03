@@ -22,6 +22,7 @@ namespace npu::tile_fwk {
 class Element {
 public:
     Element() : type_(DT_BOTTOM) {}
+    explicit Element(DataType type, int32_t sData) : type_(type) { data_.sData = sData; }
     explicit Element(DataType type, int64_t sData) : type_(type) { data_.sData = sData; }
     explicit Element(DataType type, uint64_t uData) : type_(type) { data_.uData = uData; }
     explicit Element(DataType type, double fData) : type_(type) { data_.fData = fData; }

@@ -102,6 +102,7 @@ set(_CaseFilterList
         "DynamicPATest.AllocatorCoverage"
 
         #
+        "CmpAttnTopk.cmp_attn_with_topk_singleop_bf16"
         "DynamicAttentionUtTest.dynamic_attention_low"
         "DynamicAttentionUtTest.dynamic_attention_low_nz"
         "DynamicKvSlcUtTest.test_kv_slc"
