@@ -1098,15 +1098,15 @@ std::string CodeGenOpCloudNPU::PrintBinaryDynamicUnaligned(const PrintBinaryPara
     std::vector<std::string> paramList;
     paramList.emplace_back(dstDtypeStr);
     paramList.emplace_back("/*DS*/");
-    for (int i = 1; i < SHAPE_DIM4; ++i) {
+    for (int i = 0; i < SHAPE_DIM4; ++i) {
         paramList.emplace_back(std::to_string(ds[i]));
     }
     paramList.emplace_back("/*S0*/");
-    for (int i = 1; i < SHAPE_DIM4; ++i) {
+    for (int i = 0; i < SHAPE_DIM4; ++i) {
         paramList.emplace_back(std::to_string(s0[i]));
     }
     paramList.emplace_back("/*S1*/");
-    for (int i = 1; i < SHAPE_DIM4; ++i) {
+    for (int i = 0; i < SHAPE_DIM4; ++i) {
         paramList.emplace_back(std::to_string(s1[i]));
     }
     std::string templateParam = JoinString(paramList, ", ");
@@ -1121,7 +1121,9 @@ std::string CodeGenOpCloudNPU::PrintBinaryDynamicUnaligned(const PrintBinaryPara
     for (auto dynShape : dynSrcShape0) {
         paramList.emplace_back(dynShape.Dump());
     }
-    paramList.emplace_back(dynSrcShape1[ID3].Dump());
+    for (auto dynShape : dynSrcShape1) {
+        paramList.emplace_back(dynShape.Dump());
+    }
     bool copyFlag = false;
     if (opCode == Opcode::OP_PAIRMAX || opCode == Opcode::OP_PAIRMIN || opCode == Opcode::OP_PAIRSUM) {
         copyFlag = true;

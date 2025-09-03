@@ -20,7 +20,8 @@
 // dim2 & dim1 (T0 = 1 for dim1)
 template <typename T, unsigned DS, unsigned SS0, unsigned SS1>
 TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned src0T0, unsigned src0T1,
-    unsigned src1T1, bool copyFlag) {
+    unsigned src1T0, unsigned src1T1, bool copyFlag) {
+    unsigned T0 = src0T0 < src1T0 ? src0T0 : src1T0;
     unsigned T1 = src0T1 < src1T1 ? src0T1 : src1T1;
     if (copyFlag && src0T1 != src1T1) {
         __ubuf__ T *src = src0T1 > src1T1 ? src0 : src1;
@@ -32,6 +33,15 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned 
         copy_ubuf_to_ubuf(dst, src, 0, src0T0, lenBurst, srcGap, dstGap);
         pipe_barrier(PIPE_V);
     }
+    if (copyFlag && src0T0 != src1T0) {
+        __ubuf__ T *src = src0T0 > src1T0 ? src0 : src1;
+        unsigned srcT0 = src0T0 > src1T0 ? src0T0 : src1T0;
+        uint16_t lenBurst = (src0T1 * sizeof(T) + BLOCK_SIZE - 1) / BLOCK_SIZE;
+        uint16_t srcGap = SS0 * sizeof(T) / BLOCK_SIZE - lenBurst;
+        uint16_t dstGap = DS * sizeof(T) / BLOCK_SIZE - lenBurst;
+        copy_ubuf_to_ubuf(dst, src, 0, srcT0, lenBurst, srcGap, dstGap);
+        pipe_barrier(PIPE_V);
+    }
     constexpr unsigned elementsPerRepeat = REPEAT_BYTE / sizeof(T);
     unsigned numRepeatPerLine = T1 / elementsPerRepeat;
     unsigned numRemainPerLine = T1 % elementsPerRepeat;
@@ -40,7 +50,7 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned 
     if (numRepeatPerLine > 0) {
         unsigned numLoop = numRepeatPerLine / REPEAT_MAX;
         unsigned remainAfterLoop = numRepeatPerLine % REPEAT_MAX;
-        for (int i = 0; i < src0T0; i++) {
+        for (int i = 0; i < T0; i++) {
             if (numLoop) {
                 for (int j = 0; j < numLoop; j++) {
                     V_BIN_FUNC(dst + i * DS + j * elementsPerRepeat * REPEAT_MAX,
@@ -62,14 +72,14 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned 
     src1 += numRepeatPerLine * elementsPerRepeat;
 
     if (numRemainPerLine) {
-        unsigned numLoop = src0T0 / REPEAT_MAX;
-        unsigned remainAfterLoop = src0T0 % REPEAT_MAX;
-        bool strideOverFlag = (DS / blockSizeElem > REPEAT_STRIDE_MAX) || (SS0 / blockSizeElem > REPEAT_STRIDE_MAX) ||
+        unsigned numLoop = T0 / REPEAT_MAX;
+        unsigned remainAfterLoop = T0 % REPEAT_MAX;
+        constexpr bool strideOverFlag = (DS / blockSizeElem > REPEAT_STRIDE_MAX) || (SS0 / blockSizeElem > REPEAT_STRIDE_MAX) ||
                               (SS1 / blockSizeElem > REPEAT_STRIDE_MAX);
         SetContinuousMask(numRemainPerLine);
         if (numLoop) {
             for (int i = 0; i < numLoop; i++) {
-                if (strideOverFlag) {
+                if constexpr (strideOverFlag) {
                     for (uint64_t j = 0; j < REPEAT_MAX; j++) {
                         V_BIN_FUNC(dst + i * REPEAT_MAX * DS + j * DS, src0 + i * REPEAT_MAX * SS0 + j * SS0,
                             src1 + i * REPEAT_MAX * SS1 + j * SS1, 1, 1, 1, 1, 1, 1, 1);
@@ -81,7 +91,7 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned 
             }
         }
         if (remainAfterLoop) {
-            if (strideOverFlag) {
+            if constexpr (strideOverFlag) {
                 for (unsigned j = 0; j < remainAfterLoop; j++) {
                     V_BIN_FUNC(dst + numLoop * REPEAT_MAX * DS + j * DS, src0 + numLoop * REPEAT_MAX * SS0 + j * SS0,
                         src1 + numLoop * REPEAT_MAX * SS1 + j * SS1, 1, 1, 1, 1, 1, 1, 1);
@@ -97,28 +107,53 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned 
 }
 
 // dim4
-template <typename T, unsigned DS0, unsigned DS1, unsigned DS2, unsigned S0S0, unsigned S0S1, unsigned S0S2,
-    unsigned S1S0, unsigned S1S1, unsigned S1S2>
+template <typename T, unsigned DS0, unsigned DS1, unsigned DS2, unsigned DS3, unsigned S0S0, unsigned S0S1,
+    unsigned S0S2, unsigned S0S3, unsigned S1S0, unsigned S1S1, unsigned S1S2, unsigned S1S3>
 TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned src0T0, unsigned src0T1, unsigned src0T2,
-    unsigned src0T3, unsigned src1T3, bool copyFlag) {
-    static_assert((DS2 * sizeof(T)) % BLOCK_SIZE == 0);
-    static_assert((S0S2 * sizeof(T)) % BLOCK_SIZE == 0);
-    static_assert((S1S2 * sizeof(T)) % BLOCK_SIZE == 0);
+    unsigned src0T3, unsigned src1T0, unsigned src1T1, unsigned src1T2, unsigned src1T3, bool copyFlag) {
+    static_assert((DS3 * sizeof(T)) % BLOCK_SIZE == 0);
+    static_assert((S0S3 * sizeof(T)) % BLOCK_SIZE == 0);
+    static_assert((S1S3 * sizeof(T)) % BLOCK_SIZE == 0);
+    if (src0T0 == 0 || src0T1 == 0 || src0T2 == 0 || src0T3 == 0 ||
+        src1T0 == 0 || src1T1 == 0 || src1T2 == 0 || src1T3 == 0) {
+        return;
+    }
+    if ((S0S0 != 1 || S1S0 != 1) && copyFlag && src0T0 != src1T0) {
+        constexpr unsigned MRGDS = DS1 * DS2 * DS3;
+        constexpr unsigned MRGS0 = S0S1 * S0S2 * S0S3;
+        constexpr unsigned MRGS1 = S1S1 * S1S2 * S1S3;
+        unsigned src0Mrg = src0T1 * src0T2 * src0T3;
+        unsigned src1Mrg = src1T1 * src1T2 * src1T3;
+        T_BIN<T, MRGDS, MRGS0, MRGS1>(dst, src0, src1, src0T0, src0Mrg, src1T0, src1Mrg, copyFlag);
+        return;
+    }
+    if ((S0S1 != 1 || S1S1 != 1) && copyFlag && src0T1 != src1T1) {
+        constexpr unsigned MRGDS = DS2 * DS3;
+        constexpr unsigned MRGS0 = S0S2 * S0S3;
+        constexpr unsigned MRGS1 = S1S2 * S1S3;
+        unsigned src0Mrg = src0T2 * src0T3;
+        unsigned src1Mrg = src1T2 * src1T3;
+        for (int i = 0; i < src0T0; i++) {
+            T_BIN<T, MRGDS, MRGS0, MRGS1>(dst, src0, src1, src0T1, src0Mrg, src1T1, src1Mrg, copyFlag);
+            dst += DS1 * DS2 * DS3;
+            src0 += S0S1 * S0S2 * S0S3;
+            src1 += S1S1 * S1S2 * S1S3;
+        }
+        return;
+    }
     for (int i = 0; i < src0T0; i++) {
         __ubuf__ T *dst_ = dst;
         __ubuf__ T *src0_ = src0;
         __ubuf__ T *src1_ = src1;
         for (int j = 0; j < src0T1; j++) {
-            if (src0T2 != 0 && src0T3 != 0 && src1T3 != 0) {
-                T_BIN<T, DS2, S0S2, S1S2>(dst_, src0_, src1_, src0T2, src0T3, src1T3, copyFlag);
-                dst_ += DS1 * DS2;
-                src0_ += S0S1 * S0S2;
-                src1_ += S1S1 * S1S2;
-            }
+            T_BIN<T, DS3, S0S3, S1S3>(dst_, src0_, src1_, src0T2, src0T3, src1T2, src1T3, copyFlag);
+            dst_ += DS2 * DS3;
+            src0_ += S0S2 * S0S3;
+            src1_ += S1S2 * S1S3;
         }
-        dst += DS0 * DS1 * DS2;
-        src0 += S0S0 * S0S1 * S0S2;
-        src1 += S1S0 * S1S1 * S1S2;
+        dst += DS1 * DS2 * DS3;
+        src0 += S0S1 * S0S2 * S0S3;
+        src1 += S1S1 * S1S2 * S1S3;
     }
 }
 

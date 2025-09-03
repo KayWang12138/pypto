@@ -776,14 +776,19 @@ void TileReduceNew(Function &function, const TileShape &tileShape, const std::st
                 tmpShape[1] = tileShape.V(axis) / BLOCK_NUM;
             }
             unsigned tmpBufSize = tmpShape[0] * tmpShape[1] * BytesOf(in->Datatype());
-            if (op == "SUM") {
+            if (op == "SUM" && static_cast<size_t>(axis) == (in->shape.size() - 1)) {
                 assert(tmpBufSize <= MAX_TMP_BUF_SHAPE);
-            } else {
+            } else if (op != "SUM" && static_cast<size_t>(axis) == (in->shape.size() - 1)) {
                 assert(tmpBufSize <= MAX_TMP_BUF_SHAPE * NUM2);
             }
-            auto tempTensor = std::make_shared<LogicalTensor>(function, in->Datatype(), tmpShape);
-            auto &newOp = function.AddOperation("TILE_ROW" + op + "_SINGLE", {sourceReg}, {result, tempTensor});
-            newOp.SetAttribute(OP_ATTR_PREFIX + "AXIS", axis);
+            if (static_cast<size_t>(axis) == (in->shape.size() - 1)) {
+                auto tempTensor = std::make_shared<LogicalTensor>(function, in->Datatype(), tmpShape);
+                auto &newOp = function.AddOperation("TILE_ROW" + op + "_SINGLE", {sourceReg}, {result, tempTensor});
+                newOp.SetAttribute(OP_ATTR_PREFIX + "AXIS", axis);
+            } else {
+                auto &newOp = function.AddOperation("TILE_ROW" + op + "LINE", {sourceReg}, {result});
+                newOp.SetAttribute(OP_ATTR_PREFIX + "AXIS", axis);
+            }
             break;
         }
         default:
@@ -820,33 +825,24 @@ void TiledReduceExpand(Function &function, const TileShape &tileShape, const std
 }
 
 void ReduceSingle(size_t cur, const std::string &op, Input &input, const LogicalTensorPtr result,
-    TileInfo &resultTileInfo, int axis, Function &function, const TileShape &tileShape) {
-    if (cur == static_cast<size_t>(axis) && static_cast<size_t>(axis) == input.tileInfo.shape.size() - 1) {
+    TileInfo &resultTileInfo, int axis, Function &function, const TileShape &tileShape, std::vector<int> order) {
+    if (order[cur] == axis && cur < order.size() - 1) {
+        std::swap(order[cur], order[cur + 1]);
+    }
+    if (order[cur] == axis) {
         auto inputTile = input.tensor->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
         TileReduceNew(function, tileShape, op, npu::tile_fwk::ReduceType::SINGLE, inputTile, resultTile, axis);
         return;
-    } else if (cur == input.tileInfo.shape.size() && static_cast<size_t>(axis) < input.tileInfo.shape.size() - 1){
-        auto inputTile = input.tensor->View(function, input.tileInfo.shape, input.tileInfo.offset);
-        auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
-        static const std::unordered_map<std::string, Opcode> opcodeMap = {
-            {"SUM",Opcode::OP_ROWSUMLINE},
-            {"MIN",Opcode::OP_ROWMINLINE},
-            {"MAX",Opcode::OP_ROWMAXLINE},
-        };
-        auto it = opcodeMap.find(op);
-        ASSERT(it != opcodeMap.end()) << "Invalid operation: " + op;
-        auto newOpcode = it->second;
-        auto &newOp = function.AddOperation(newOpcode, {inputTile}, {resultTile});
-        newOp.SetAttribute(OP_ATTR_PREFIX + "AXIS", axis);
-        return;
     }
-    for (int i = 0; i < result->shape[cur]; i += tileShape.V(cur)) {
-        resultTileInfo.offset[cur] = i;
-        resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], tileShape.V(cur));
-        input.tileInfo.offset[cur] = i % input.tensor->shape[cur];
-        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - input.tileInfo.offset[cur], tileShape.V(cur));
-        ReduceSingle(cur + 1, op, input, result, resultTileInfo, axis, function, tileShape);
+    for (int i = 0; i < result->shape[order[cur]]; i += tileShape.V(order[cur])) {
+        resultTileInfo.offset[order[cur]] = i;
+        resultTileInfo.shape[order[cur]] = std::min(result->shape[order[cur]] - resultTileInfo.offset[order[cur]],
+            tileShape.V(order[cur]));
+        input.tileInfo.offset[order[cur]] = i % input.tensor->shape[order[cur]];
+        input.tileInfo.shape[order[cur]] = std::min(input.tensor->shape[order[cur]] - input.tileInfo.offset[order[cur]],
+            tileShape.V(order[cur]));
+        ReduceSingle(cur + 1, op, input, result, resultTileInfo, axis, function, tileShape, order);
     }
 }
 
@@ -863,7 +859,11 @@ void TiledReduceSingle(Function &function, const TileShape &tileShape, const std
     TileInfo tileInfo(operand->shape, operand->offset);
     TileInfo resultTileInfo(result->shape, result->offset);
     auto input = Input{operand, tileInfo};
-    ReduceSingle(0, op, input, result, resultTileInfo, axis, function, tileShape);
+    std::vector<int> defaultAxisOrder;
+    for (size_t i = 0; i < operand->shape.size(); i++) {
+        defaultAxisOrder.push_back(i);
+    }
+    ReduceSingle(0, op, input, result, resultTileInfo, axis, function, tileShape, defaultAxisOrder);
 }
 
 void TensorReduceExpand(Function &function, const std::string &op,
