@@ -16,10 +16,6 @@
 #include "op_info_manager.h"
 
 namespace npu::tile_fwk {
-namespace {
-constexpr uint64_t MAIN_KEY_MASK = 0xFFFFFFFFFFFFF;
-constexpr uint64_t SUB_KEY_OFFSET = 52;
-}
 OpInfoManager &OpInfoManager::GetInstance() {
   static OpInfoManager instance;
   return instance;
