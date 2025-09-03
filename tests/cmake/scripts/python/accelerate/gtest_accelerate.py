@@ -110,7 +110,7 @@ class GTestAccelerate(ABC):
                 self.case_terminate_details.task_done()
             brief: str = "\nNone"
             if len(datas) != 0:
-                datas = [[f"{idx}/{len(datas)}"] + ele for idx, ele in enumerate(datas)]
+                datas = [[f"{idx}/{len(datas)}"] + ele for idx, ele in enumerate(datas, start=1)]
                 brief = Table.table(datas=datas, headers=heads)
             return f"\n\nCase Terminate Brief({len(datas)}):{brief}", len(datas)
 
@@ -123,14 +123,19 @@ class GTestAccelerate(ABC):
                     - Case 异常执行数量
             """
             datas: List[str] = []
+            brief: str = ""
             while not self.case_exception_details.empty():
-                _brief = self.case_exception_details.get()
-                datas.append(str(_brief))
+                chunk = self.case_exception_details.get()
+                if len(chunk) != 0:
+                    brief += chunk
+                else:
+                    datas.append(str(brief))
+                    brief = ""
                 self.case_exception_details.task_done()
             brief = "\nNone" if len(datas) == 0 else ""
             for idx, data in enumerate(datas, start=1):
                 brief += f"\nIdx:{idx}/{len(datas)}\n{data}"
-            return f"\n\nCase Exception Brief:{brief}", len(datas)
+            return f"\n\nCase Exception Brief({len(datas)}):{brief}", len(datas)
 
         def get_case_exec_duration_info(self) -> str:
             """获取 Case 执行耗时统计信息.
@@ -200,6 +205,35 @@ class GTestAccelerate(ABC):
         @property
         def brief(self) -> List[Any]:
             return [self.cntr_id, self.gtest_filter, (datetime.now(tz=timezone.utc) - self.ts)]
+
+    @dataclasses.dataclass
+    class MoveContext:
+        """Move进程处理上下文
+        """
+        ele_count: int
+        src_queue: JoinableQueue
+        dst_queue: JoinableQueue
+
+        def __init__(self, src: JoinableQueue, dst: JoinableQueue):
+            self.ele_count = 0
+            self.src_queue = src
+            self.dst_queue = dst
+
+        def move(self, timeout: int = 1) -> bool:
+            try:
+                ele = self.src_queue.get(timeout=timeout)
+                self.src_queue.task_done()
+                if ele is None:
+                    return False
+                if isinstance(ele, str):
+                    if len(ele) == 0:
+                        self.ele_count += 1
+                else:
+                    self.ele_count += 1
+                self.dst_queue.put(ele)
+            except (queue.Empty, KeyboardInterrupt):
+                pass
+            return True
 
     def __init__(self, args, params: List[ExecParam]):
         """
@@ -284,25 +318,25 @@ class GTestAccelerate(ABC):
 
     @staticmethod
     def _move(src: JoinableQueue, dst: JoinableQueue):
-        num: int = 0
+        GTestAccelerate._set_process_desc()
+        ctx: GTestAccelerate.MoveContext = GTestAccelerate.MoveContext(src=src, dst=dst)
         while True:
-            try:
-                ele = src.get(timeout=1)
-                src.task_done()
-                if ele is None:
-                    break
-                num += 1
-                dst.put(ele)
-            except queue.Empty:
-                continue
-            except KeyboardInterrupt:
-                continue
-        logging.info("%s Exist, Move %s elements.", GTestAccelerate._cur_process_desc(), num)
+            if not ctx.move():
+                break
+        logging.info("%s Exist, Move %s elements.", GTestAccelerate._get_process_desc(), ctx.ele_count)
 
     @staticmethod
-    def _cur_process_desc() -> str:
+    def _get_process_desc() -> str:
         cur_process = multiprocessing.current_process()
         return f"{cur_process.name}"
+
+    @staticmethod
+    def _set_process_desc():
+        try:
+            import setproctitle
+            setproctitle.setproctitle(GTestAccelerate._get_process_desc())
+        except ModuleNotFoundError:
+            pass
 
     def process(self):
         """执行任务
@@ -378,7 +412,7 @@ class GTestAccelerate(ABC):
             # 等待任务处理结束
             self._join_cntr_process_grp(cntr_process_grp=cntr_process_group, step=cntr_step)
         except KeyboardInterrupt:
-            pass
+            logging.info("MainProcess Recv download terminate event.")
         finally:
             self._stop_cntr_process_grp(cntr_process_grp=cntr_process_group, timeout=cntr_step)
             self._stop_move_process_grp()
@@ -489,6 +523,10 @@ class GTestAccelerate(ABC):
         """
         self.cntr_terminate_event.set()  # 停止所有子进程对新任务的处理
         for process in cntr_process_grp:
+            # 当通过 build.py 经 CMake 调用本脚本时, build.py 会向整个进程组(包括 Cntr/Case 子进程)发送 SIGINT 信号.
+            # 此时优先等待子进程自主退出.
+            if process.is_alive():
+                process.join(timeout=timeout)
             if process.is_alive():
                 os.kill(process.pid, signal.SIGINT)  # 停止对应子进程当前处理的任务
                 logging.info("MainProcess Send download terminate event to %s.", process.name)
@@ -503,33 +541,46 @@ class GTestAccelerate(ABC):
         :param cntr_id: ContainerId
         :param exec_param: ContainerParam
         """
-        time.sleep(delay)
+        self._set_process_desc()
         ctx: GTestAccelerate.CntrContext = GTestAccelerate.CntrContext(cntr_id=cntr_id, exec_param=exec_param)
-        while not self.cntr_terminate_event.is_set():
-            # 用例获取
-            try:
-                gtest_filter = self.case_queue.get()
-                self.case_queue.task_done()
+        try:
+            time.sleep(delay)
+            while not self.cntr_terminate_event.is_set():
+                # 用例获取
+                gtest_filter = self._cntr_get_case()
                 if gtest_filter is None:
-                    break  # 终止信号, 正常退出
-            except queue.Empty:
-                break # 队列为空, 正常退出
-            except KeyboardInterrupt:
-                break # 等待获取待执行用例过程中, 强制终止时, 正常退出
-            # 用例处理
-            need_next = self._deal_case(gtest_filter=gtest_filter, ctx=ctx)
-            if not need_next:
-                break  # 不需处理下一个 Case, 退出处理
+                    break
+                # 用例处理
+                need_next = self._cntr_deal_case(gtest_filter=gtest_filter, ctx=ctx)
+                if not need_next:
+                    break  # 不需处理下一个 Case, 退出处理
+        except KeyboardInterrupt:
+            pass
         # Container 执行结果统计与上报
-        self.cntr_execution_queue.put(ctx.brief)
+        self._put_cntr_execution_info(info=ctx.brief)
         if not ctx.exit_code:
-            logging.info("%s Send terminate event upload.", self._cur_process_desc())
+            logging.info("%s Send terminate event upload.", self._get_process_desc())
         logging.info("%s Exist[%s] %s %s",
-                     self._cur_process_desc(), ctx.exit_code,
+                     self._get_process_desc(), ctx.exit_code,
                      self._cntr_progress(update=True), self._case_progress(update=False))
         exit(ctx.exit_code)
 
-    def _deal_case(self, gtest_filter: str, ctx: CntrContext) -> Optional[bool]:
+    def _cntr_get_case(self) -> Optional[str]:
+        """获取待执行用例
+
+        :return: 待执行用例名, None 表示无待执行用例
+        """
+        gtest_filter: Optional[str] = None  # 终止信号, 正常退出
+        try:
+            gtest_filter = self.case_queue.get()
+            self.case_queue.task_done()
+        except queue.Empty:
+            gtest_filter = None  # 队列为空, 正常退出
+        except KeyboardInterrupt:
+            gtest_filter = None  # 等待获取待执行用例过程中, 强制终止时, 正常退出
+        return gtest_filter
+
+    def _cntr_deal_case(self, gtest_filter: str, ctx: CntrContext) -> Optional[bool]:
         """处理单个 Case
 
         :param gtest_filter: GTestFilter
@@ -546,15 +597,15 @@ class GTestAccelerate(ABC):
         except KeyboardInterrupt:
             if process and process.is_alive():
                 # 用例执行过程中, 强制终止时, 杀停子进程
-                logging.info("Cntr[%s] receive terminate event download, stop running Case[%s]",
-                             ctx.cntr_id, gtest_filter)
+                logging.info("%s Recv terminate event download, stop running Case[%s]",
+                             self._get_process_desc(), gtest_filter)
                 os.kill(process.pid, signal.SIGINT)
                 process.join()  # 等待 Case 进程结束
         finally:
-            need_next = self._deal_case_finally(process=process, gtest_filter=gtest_filter, ctx=ctx)
+            need_next = self._cntr_deal_case_finally(process=process, gtest_filter=gtest_filter, ctx=ctx)
         return need_next
 
-    def _deal_case_finally(self, process: Process, gtest_filter: str, ctx: CntrContext) -> bool:
+    def _cntr_deal_case_finally(self, process: Process, gtest_filter: str, ctx: CntrContext) -> bool:
         """处理单个 Case 结束
 
         :param process: CaseProcess
@@ -572,7 +623,7 @@ class GTestAccelerate(ABC):
             return True
         self.cntr_terminate_event.set()
         ctx.exit_code = process.exitcode
-        logging.info("%s Recv Case[%s] upload terminate event.", self._cur_process_desc(), gtest_filter)
+        logging.info("%s Recv Case[%s] upload terminate event.", self._get_process_desc(), gtest_filter)
         return False
 
     def _case(self, cntr_id: int, param: ExecParam, gtest_filter: str):
@@ -582,8 +633,8 @@ class GTestAccelerate(ABC):
 
         :param cntr_id: Container ID
         :param gtest_filter: GTestFilter
-        :exception RuntimeError: 本用例执行失败时, 抛出该类型异常
         """
+        self._set_process_desc()
         ctx: GTestAccelerate.CaseContext = GTestAccelerate.CaseContext(cntr_id=cntr_id, exec_param=param,
                                                                        gtest_filter=gtest_filter)
         run_desc: str = f"Run {self.mark}{self.exe.brief} GTestFilter({gtest_filter})"
@@ -591,34 +642,42 @@ class GTestAccelerate(ABC):
             logging.info("Cntr[%s] [BGN] %s", cntr_id, run_desc)
             ret, cmd, _ = self.exe.run(gtest_filter=ctx.gtest_filter, envs=ctx.exec_param.get_envs())
             if ret.returncode:
-                err = RuntimeError(f"Cntr:{cntr_id}\nCmd:{cmd}\nRetCode:{ret.returncode}\n"
-                                   f"stdout:\n{ret.stdout}\nstderr:\n{ret.stderr}")
-                self._case_exception_exit(err=err, ret_code=ret.returncode)
+                self._case_exception_exit(cntr_id=cntr_id, cmd=cmd,
+                                          ret_code=ret.returncode, out=ret.stdout, err=ret.stderr)
             else:
                 msg = f"{ret.stdout}\n{ret.stderr}"
                 logging.info("Cntr[%s] [END] %s %s Output Below:\n%s",
                              cntr_id, run_desc, self._case_progress(update=True), msg)
-                self.case_execution_queue.put(ctx.brief)
+                self._put_case_execution_info(info=ctx.brief)
         except subprocess.TimeoutExpired as e:
-            self.case_terminate_queue.put(ctx.brief)  # 执行超时时, 主动退出执行, 上报已运行时长
-            err = RuntimeError(f"Cmd:{e}\nCntr:{cntr_id}\nDetails:\n{e.output}")
-            self._case_exception_exit(err=err, ret_code=1)
+            self._put_case_terminate_info(info=ctx.brief)  # 执行超时时, 主动退出执行, 上报已运行时长
+            self._case_exception_exit(cntr_id=cntr_id, cmd=str(e),
+                                      ret_code=1, out=None, err=str(e.output))
         except KeyboardInterrupt:
-            self.case_terminate_queue.put(ctx.brief)  # 强制终止时, 主动退出执行, 上报已运行时长
-            logging.info("Cntr[%s] Case[%s] receive terminate event download, stop running.", cntr_id, gtest_filter)
+            self._put_case_terminate_info(info=ctx.brief)  # 强制终止时, 主动退出执行, 上报已运行时长
+            logging.info("%s Recv terminate event download, stop running.", self._get_process_desc())
 
-    def _case_exception_exit(self, err, ret_code: int):
+    def _case_exception_exit(self, cntr_id: int, cmd: str, ret_code: int,
+                             out: Optional[str] = None, err: Optional[str] = None):
         """用例执行进程异常退出处理
 
-        :param err: 具体上报错误
-        :param ret_code: 退出码
+        :param cntr_id: CntrId
+        :param cmd: 失败命令行
+        :param ret_code: 进程退出码
+        :param out: 输出信息
+        :param err: 异常信息
         """
         # 收集错误现场信息并上报
-        self.case_exception_queue.put(err)
+        msg: str = (f"Cntr    : {cntr_id}\n"
+                    f"Cmd     : {cmd}\n"
+                    f"RetCode : {ret_code}\n"
+                    f"stdout  :\n{out}\n"
+                    f"stderr  :\n{err}")
+        self._put_case_exception_info(info=msg)
         # 异常后处理
         if self.exe_halt_on_error:
             self.cntr_terminate_event.set()
-            logging.info("%s Send terminate event upload.", self._cur_process_desc())
+            logging.info("%s Send terminate event upload.", self._get_process_desc())
             exit(ret_code)  # 触发 Container 执行进程感知 Case 执行异常
 
     def _cntr_progress(self, update=True) -> str:
@@ -640,3 +699,17 @@ class GTestAccelerate(ABC):
         cnt: int = int(self.case_exec_count.value)
         pgs: float = cnt / len(self.case_list) * 100
         return f"CaseProgress[{cnt}/{len(self.case_list)} {pgs:.2f}%]"
+
+    def _put_case_execution_info(self, info: List[Any]):
+        self.case_execution_queue.put(info)
+
+    def _put_case_exception_info(self, info: str, chunk_size: int = 4096):
+        for i in range(0, len(info), chunk_size):
+            self.case_exception_queue.put(info[i:i + chunk_size])
+        self.case_exception_queue.put("")  # 插入分隔符
+
+    def _put_case_terminate_info(self, info: List[Any]):
+        self.case_terminate_queue.put(info)
+
+    def _put_cntr_execution_info(self, info: List[Any]):
+        self.cntr_execution_queue.put(info)

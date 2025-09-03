@@ -22,6 +22,7 @@ class GoldenRegInfo:
     version: int = 0 # Golden 实现版本
     timeout: Optional[int] = None # Golden 超时时间
 
+
 @dataclasses.dataclass
 class GoldenParam:
     name: str

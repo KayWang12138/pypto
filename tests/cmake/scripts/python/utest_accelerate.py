@@ -42,7 +42,7 @@ class UTestAccelerate(GTestAccelerate):
         args = parser.parse_args()
         params: List[GTestAccelerate.ExecParam] = []
         job_num: int = args.job_num if args.job_num else int(math.ceil(float(cpu_count()) * 0.8))  # use 0.8 cpu
-        job_num: int = min(min(min(max(job_num, 1), cpu_count()), 8), len(args.cases))
+        job_num: int = min(min(min(max(job_num, 1), cpu_count()), 16), len(args.cases))
         for _ in range(job_num):
             params.append(GTestAccelerate.ExecParam())
         ctrl = UTestAccelerate(args=args, params=params)

@@ -411,6 +411,14 @@ class BuildCtrl:
         :param update_env: 环境变量(额外更新内容)
         :param check: 检查返回值
         """
+
+        def _stop_pg(_p: subprocess.Popen):
+            """通过 SIGINT 信号通知所有子/孙进程结束, python 并行脚本内会捕获该信号进行结算处理
+            """
+            _pgid = os.getpgid(_p.pid)
+            logging.info("Send terminate event to CMake[%s]", _pgid)
+            os.killpg(_pgid, signal.SIGINT)
+
         ts = datetime.now(tz=timezone.utc)
         stdout: Optional[str] = None
         stderr: Optional[str] = None
@@ -420,11 +428,12 @@ class BuildCtrl:
                               start_new_session=True) as process:
             try:
                 stdout, stderr = process.communicate(timeout=self.timeout)
-            except (subprocess.TimeoutExpired, KeyboardInterrupt):
-                # 通过 SIGINT 信号通知所有子/孙进程结束, python 并行脚本内会捕获该信号进行结算处理
-                pgid = os.getpgid(process.pid)
-                os.killpg(pgid, signal.SIGINT)
+            except subprocess.TimeoutExpired:
+                _stop_pg(_p=process)
                 raise
+            except KeyboardInterrupt:
+                # 一般为用户主动触发, 不需再上报错误
+                _stop_pg(_p=process)
             except Exception:
                 process.kill()
                 raise
