@@ -562,6 +562,96 @@ TEST_F(AssignMemoryTypeTest, ViewReshape) {
         }
     }
 }
+void L1DataMoveGraph (std::shared_ptr<Function> &currFunctionPtr) {
+    std::shared_ptr<LogicalTensor> input_cast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+    std::shared_ptr<LogicalTensor> input_cast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{64,16});
+    std::shared_ptr<LogicalTensor> op_view_L1_out1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+    std::shared_ptr<LogicalTensor> op_view_L1_out2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{64,16});
+    std::shared_ptr<LogicalTensor> view_out1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,32});
+    std::shared_ptr<LogicalTensor> view_out2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,32});
+    std::shared_ptr<LogicalTensor> view_out3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,16});
+    std::shared_ptr<LogicalTensor> view_out4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,16});
+    std::shared_ptr<LogicalTensor> l0a_out1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,32});
+    std::shared_ptr<LogicalTensor> l0a_out2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,32});
+    std::shared_ptr<LogicalTensor> l0b_out1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,16});
+    std::shared_ptr<LogicalTensor> l0b_out2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,16});
+    std::shared_ptr<LogicalTensor> a_mul_b_out1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,16});
+    std::shared_ptr<LogicalTensor> a_mul_b_out2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,16});
+    // std::shared_ptr<LogicalTensor> output_cast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto &view_L1_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {input_cast1}, {op_view_L1_out1});
+    std::vector<int> newoffset{0,0};
+    auto viewAttribute =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
+    viewAttribute->SetToType(MemoryType::MEM_L1);
+    view_L1_op1.SetOpAttribute(viewAttribute);
 
+    auto &view_L1_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {input_cast2}, {op_view_L1_out2});
+    view_L1_op2.SetOpAttribute(viewAttribute);
+
+    auto &view_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {op_view_L1_out1}, {view_out1});
+    view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}));
+    auto &view_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {op_view_L1_out1}, {view_out2});
+    view_op2.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 32}));
+    auto &view_op3 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {op_view_L1_out2}, {view_out3});
+    view_op3.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}));
+    auto &view_op4 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {op_view_L1_out2}, {view_out4});
+    view_op4.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{32, 0}));
+
+    currFunctionPtr->AddRawOperation(Opcode::OP_L1_TO_L0A, {view_out1}, {l0a_out1});
+    currFunctionPtr->AddRawOperation(Opcode::OP_L1_TO_L0A, {view_out2}, {l0a_out2});
+    currFunctionPtr->AddRawOperation(Opcode::OP_L1_TO_L0B, {view_out3}, {l0b_out1});
+    currFunctionPtr->AddRawOperation(Opcode::OP_L1_TO_L0B, {view_out4}, {l0b_out2});
+
+    currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {l0a_out1,l0b_out1}, {a_mul_b_out1});
+    currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {l0a_out2,l0b_out2}, {a_mul_b_out2});      
+
+    currFunctionPtr->inCasts_.push_back(input_cast1);
+    currFunctionPtr->inCasts_.push_back(input_cast2);
+    currFunctionPtr->outCasts_.push_back(a_mul_b_out1);
+    currFunctionPtr->outCasts_.push_back(a_mul_b_out2);
+}
+TEST_F(AssignMemoryTypeTest, L1DataMove) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "L1DataMove", "L1DataMove", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("L1DataMove", currFunctionPtr);
+    
+    L1DataMoveGraph(currFunctionPtr);
+
+    std::stringstream ssBefore;
+    ssBefore << "Before_AssignMemoryType";
+
+    // Call the pass
+    AssignMemoryType assignMemoryType;
+    assignMemoryType.PreCheck(*currFunctionPtr);
+    currFunctionPtr->DumpJsonFile("./config/pass/json/assign_mem_type_L1DataMove_before.json");
+    assignMemoryType.RunOnFunction(*currFunctionPtr);
+    currFunctionPtr->DumpJsonFile("./config/pass/json/assign_mem_type_L1DataMove_after.json");
+    assignMemoryType.PostCheck(*currFunctionPtr);
+
+    std::stringstream ss;
+    ss << "After_AssignMemoryType";
+
+    // Validate the results
+    std::cout << "========== op size: " << currFunctionPtr->Operations().size() << std::endl;
+    for (auto &op : currFunctionPtr->Operations()) {
+        if(op.GetOpcode() != Opcode::OP_VIEW) {
+            continue;
+        }else {
+            auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
+            auto mem_to = viewOpAttribute->GetTo();
+            if(mem_to != MemoryType::MEM_L1) {
+                continue;
+            }else {
+                EXPECT_EQ(op.GetIOperands().size(),1) << "View op has more than one input!";
+                EXPECT_EQ(op.GetOOperands().size(),1) << "View op has more than one output!";
+                auto input = op.GetIOperands().front();
+                auto output = op.GetOOperands().front();
+                std::cout << "\t|--- MEM_L1 VIEW iOperand " << input->GetMagic() <<std::endl;
+                std::cout << "\t|--- MEM_L1 VIEW oOperand " << output->GetMagic() <<std::endl;
+                //EXPECT_EQ(input->GetMemoryTypeToBe(),MemoryType::MEM_L1) << "View op input has unexpected memory type!";
+                EXPECT_EQ(output->GetMemoryTypeOriginal(),MemoryType::MEM_L1) << "View op input has unexpected memory type!";
+            }   
+        }                
+    }
+}
 }
 } // namespace npu::tile_fwk

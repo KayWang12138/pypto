@@ -799,5 +799,101 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest4) {
     EXPECT_EQ(assemble_after, kNumFive);
     EXPECT_EQ(assemble_after, assemble_before);
 }
+void RemoveRedundantL1DataMoveGraph (std::shared_ptr<Function> &currFunctionPtr) {
+    std::shared_ptr<LogicalTensor> input_cast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+    std::shared_ptr<LogicalTensor> input_cast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{64,16});
+    std::shared_ptr<LogicalTensor> input_cast1_view = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+    std::shared_ptr<LogicalTensor> input_cast2_view = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{64,16});
+    input_cast1_view ->SetMemoryTypeBoth(MEM_L1);
+    input_cast2_view ->SetMemoryTypeBoth(MEM_L1);
+    std::shared_ptr<LogicalTensor> op_view_L1_out1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+    std::shared_ptr<LogicalTensor> op_view_L1_out2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{64,16});
+    op_view_L1_out1 ->SetMemoryTypeBoth(MEM_L1);
+    op_view_L1_out2 ->SetMemoryTypeBoth(MEM_L1);
+    std::shared_ptr<LogicalTensor> view_out1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,32});
+    std::shared_ptr<LogicalTensor> view_out2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,32});
+    std::shared_ptr<LogicalTensor> view_out3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,16});
+    std::shared_ptr<LogicalTensor> view_out4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,16});
+    std::shared_ptr<LogicalTensor> l0a_out1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,32});
+    std::shared_ptr<LogicalTensor> l0a_out2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,32});
+    std::shared_ptr<LogicalTensor> l0b_out1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,16});
+    std::shared_ptr<LogicalTensor> l0b_out2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,16});
+    std::shared_ptr<LogicalTensor> a_mul_b_out1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,16});
+    std::shared_ptr<LogicalTensor> a_mul_b_out2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,16});
+    auto &head_view_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {input_cast1}, {input_cast1_view});
+    std::vector<int> newoffset{0,0};
+    auto viewAttribute =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
+    viewAttribute->SetToType(MemoryType::MEM_L1);
+    head_view_op1.SetOpAttribute(viewAttribute);
+
+    auto &head_view_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {input_cast2}, {input_cast2_view});
+    head_view_op2.SetOpAttribute(viewAttribute);
+
+    auto &view_L1_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {input_cast1_view}, {op_view_L1_out1});
+    view_L1_op1.SetOpAttribute(viewAttribute);
+    auto &view_L1_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {input_cast2_view}, {op_view_L1_out2});
+    view_L1_op2.SetOpAttribute(viewAttribute);
+
+    auto &view_op1 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {op_view_L1_out1}, {view_out1});
+    view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}));
+    auto &view_op2 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {op_view_L1_out1}, {view_out2});
+    view_op2.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 32}));
+    auto &view_op3 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {op_view_L1_out2}, {view_out3});
+    view_op3.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}));
+    auto &view_op4 = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {op_view_L1_out2}, {view_out4});
+    view_op4.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{32, 0}));
+
+    currFunctionPtr->AddRawOperation(Opcode::OP_L1_TO_L0A, {view_out1}, {l0a_out1});
+    currFunctionPtr->AddRawOperation(Opcode::OP_L1_TO_L0A, {view_out2}, {l0a_out2});
+    currFunctionPtr->AddRawOperation(Opcode::OP_L1_TO_L0B, {view_out3}, {l0b_out1});
+    currFunctionPtr->AddRawOperation(Opcode::OP_L1_TO_L0B, {view_out4}, {l0b_out2});
+
+    currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {l0a_out1,l0b_out1}, {a_mul_b_out1});
+    currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {l0a_out2,l0b_out2}, {a_mul_b_out2});      
+
+    currFunctionPtr->inCasts_.push_back(input_cast1);
+    currFunctionPtr->inCasts_.push_back(input_cast2);
+    currFunctionPtr->outCasts_.push_back(a_mul_b_out1);
+    currFunctionPtr->outCasts_.push_back(a_mul_b_out2);
+}
+TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpL1DataMove) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "RemoveRedundantOpL1DataMove", "RemoveRedundantOpL1DataMove", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("RemoveRedundantOpL1DataMove", currFunctionPtr);
+    
+    RemoveRedundantL1DataMoveGraph(currFunctionPtr);
+
+    //验证构图
+    int view_count = 0;
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            view_count++;
+        }
+    }
+    EXPECT_EQ(view_count,8);
+
+    std::stringstream ssBefore;
+    ssBefore << "Before_RemoveRedundantOp";
+
+    // Call the pass
+    RemoveRedundantOp removeRedundantOp;
+    removeRedundantOp.PreCheck(*currFunctionPtr);
+    currFunctionPtr->DumpJsonFile("./config/pass/json/removeRedundant_L1DataMove_before.json");
+    removeRedundantOp.RunOnFunction(*currFunctionPtr);
+    currFunctionPtr->DumpJsonFile("./config/pass/json/removeRedundant_L1DataMove_after.json");
+    removeRedundantOp.PostCheck(*currFunctionPtr);
+
+    std::stringstream ss;
+    ss << "After_RemoveRedundantOp";
+
+    // Validate the results
+    int view_count_after_pass = 0;
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            view_count_after_pass++;
+        }
+    }
+    EXPECT_EQ(view_count_after_pass,6);
+}
 }
 }
