@@ -152,6 +152,7 @@ private:
         MachineAgent::AgentProc(gDeviceAgentTaskPtr.get());
         rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
         MachinePipe::PipeProc(gDeviceAgentTaskPtr.get());
+        delete gDeviceAgentTaskPtr->compileTask;
     }
     void InitTilingData(AstKernelArgs &kArgs, bool isTest) {
         MemoryHelper h{isTest};

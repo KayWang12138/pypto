@@ -48,7 +48,10 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
         ALOG_INFO("draw graph switch enabled, push finish queue.");
         return 0;
     }
-    auto deviceAgentTask = std::make_shared<DeviceAgentTask>(task);
+    auto deviceMachineTask = new MachineTask(task->GetTaskId(), task->GetFunction());
+    deviceMachineTask->SetCacheReuseType(task->GetCacheReuseType());
+    deviceMachineTask->SetCacheKey(task->GetCacheKey());
+    auto deviceAgentTask = std::make_shared<DeviceAgentTask>(deviceMachineTask);
     auto function = deviceAgentTask->compileTask->GetFunction();
     deviceAgentTask->SetAsync(false);
     deviceAgentTask->SetOpOriginArgsInfo(function->GetOpOriginArgsInfo());
