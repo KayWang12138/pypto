@@ -234,10 +234,10 @@ TEST_F(TestCodegenDynBinary, AddUnalignLayout) {
 extern "C" [aicore] void TENSOR_L0_Unroll1_PATH0_3_0_4503599627370496(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
 float __ubuf__ *UB_S0_E16384 = (float __ubuf__ *)get_imm(0x0); // size: 0x4000
 float __ubuf__ *UB_S16384_E32768 = (float __ubuf__ *)get_imm(0x4000); // size: 0x4000
-uint64_t sym_18_dim_0 = RUNTIME_COA_GET_PARAM_VALID_SHAPE(2,10,0); //GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 0);
-uint64_t sym_18_dim_1 = RUNTIME_COA_GET_PARAM_VALID_SHAPE(2,10,1); //GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 1);
-uint64_t sym_19_dim_0 = RUNTIME_COA_GET_PARAM_VALID_SHAPE(2,1,0); //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 0);
-uint64_t sym_19_dim_1 = RUNTIME_COA_GET_PARAM_VALID_SHAPE(2,1,1); //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 1);
+uint64_t sym_18_dim_0 = (RUNTIME_COA_GET_PARAM_VALID_SHAPE(2, 10, 0)); //GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 0);
+uint64_t sym_18_dim_1 = (RUNTIME_COA_GET_PARAM_VALID_SHAPE(2, 10, 1)); //GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 1);
+uint64_t sym_19_dim_0 = (RUNTIME_COA_GET_PARAM_VALID_SHAPE(2, 1, 0)); //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 0);
+uint64_t sym_19_dim_1 = (RUNTIME_COA_GET_PARAM_VALID_SHAPE(2, 1, 1)); //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 1);
 uint64_t sym_7_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 2, 19, 2, 0);
 uint64_t sym_7_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 2, 19, 2, 1);
 using GMTileTensorFP32Dim2 = TileTensor<__gm__ float, LayoutDim2, Hardware::GM>;
