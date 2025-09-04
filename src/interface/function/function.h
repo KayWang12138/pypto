@@ -468,6 +468,7 @@ public:
         ASSERT(groupID < operationGroups_.size());
         return operationGroups_[groupID];
     }
+    void ClearOperationGroups() { operationGroups_.clear(); }
     void CheckGroupValid() const;
 
     void CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut, LogicalTensors &inOrOutList) const;
@@ -480,6 +481,7 @@ public:
     int GetOutcastIndex(std::shared_ptr<LogicalTensor> &tensor) const;
     void MergeFunctionDupIocast();
     void RemoveCallOpViewAssemble();
+    void ResetOperations();
 
     Operation &AddOperation(const std::string &opName, LogicalTensors iOperands, const LogicalTensors &oOperands,
         const bool updateTensorMap = true);
@@ -815,7 +817,6 @@ private:
     friend class FunctionInterpreter;
 
     void RefreshOpPosition();
-    void ResetOperations();
     auto AnnotateOperation();
 
     void SetCallOpSlot();

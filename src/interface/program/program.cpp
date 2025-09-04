@@ -792,9 +792,12 @@ RecordFunc::~RecordFunc() {
                 Program::GetInstance().VerifyTensorGraph();
             }
             MergeAllFuncDupIocast(nullptr);
-            if (!config::GetPlatformConfig(KEY_ONLY_TENSOR_GRAPH, false)) {
-                HostMachine::GetInstance().SubAllStashedTask();
+            PassManager::Instance().RunPass(Program::GetInstance(), 
+                *Program::GetInstance().GetFunctionByMagicName(PROGRAM_ENTRY_FUNCTION_NAME), "FunctionUnroll");
+            if (!config::GetPlatformConfig(npu::tile_fwk::KEY_ONLY_TENSOR_GRAPH, false)) {
+                Program::GetInstance().UpdateCompileTask();
             }
+
             if (config::GetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, false)) {
                 Program::GetInstance().VerifyExecuteGraph();
             }

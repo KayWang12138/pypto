@@ -19,6 +19,7 @@
 #include "interface/operation/distributed/comm_barrier_manager.h"
 #include "interface/function/function.h"
 #include "interface/cache/function_cache.h"
+#include "passes/pass_manager.h"
 
 namespace npu::tile_fwk {
 class Program {

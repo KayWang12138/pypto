@@ -28,6 +28,7 @@
 #include "passes/tensor_graph_pass/remove_redundant_cast.h"
 #include "passes/tensor_graph_pass/infer_memory_conflict.h"
 #include "passes/tensor_graph_pass/expand_function.h"
+#include "passes/tensor_graph_pass/loop_unroll.h"
 //  tile graph pass
 #include "passes/tile_graph_pass/generate_move_op.h"
 #include "passes/tile_graph_pass/dead_operation_eliminate.h"
@@ -105,6 +106,7 @@ void RegPass() {
     REG_PASS(AddAlloc);
     REG_PASS(RemoveAlloc);
     REG_PASS(SrcDstBufferMerge);
+    REG_PASS(LoopUnroll);
 }
 
 void PassManager::RegDefaultStrategy() {
@@ -143,6 +145,10 @@ void PassManager::RegDefaultStrategy() {
             {              "RemoveAlloc",              "RemoveAlloc", PassType::TYPE_EXECUTE_GRAPH},
             {               "InsertSync",               "InsertSync", PassType::TYPE_EXECUTE_GRAPH},
             {           "CodegenPreproc",           "CodegenPreproc", PassType::TYPE_EXECUTE_GRAPH},
+    });
+    RegisterStrategy(
+        "FunctionUnroll", {
+            {               "LoopUnroll",               "LoopUnroll",  PassType::TYPE_TENSOR_GRAPH}
     });
 }
 

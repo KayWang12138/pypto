@@ -146,6 +146,8 @@ TEST_F(DynamicBasicTest, TestTT) {
     Tensor t1(DT_FP32, {n * s, s}, "t1");  // [64 * 8, 64]
     Tensor out(DT_FP32, {n * s, s}, "out");
 
+    std::vector<std::string> funcName = {"TENSOR_main"};
+    config::SetPassConfig("FunctionUnroll", "LoopUnroll", "CONVERT_TO_STATIC", funcName);
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateConstantTensor<float>(t0, 1.0),
         RawTensorData::CreateConstantTensor<float>(t1, 2.0),
