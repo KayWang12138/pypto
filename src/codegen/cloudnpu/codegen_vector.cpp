@@ -1608,66 +1608,136 @@ std::string CodeGenOpCloudNPU::GenGatherElementOp() const {
     return PrintGatherElementStatic({gatherAxis, dVar, s0Var, s1Var, dos, ds, s0s, s1s, dataTypeExpr});
 }
 
-std::string CodeGenOpCloudNPU::GenScatterElementOp() const {
-    const DataType dstDtype = operandDtype[ID0];
-    const DataType src1Dtype = operandDtype[ID2];
-    int dst = operandWithMagic[ID0];
-    int src0 = operandWithMagic[ID1];
-    int src1 = operandWithMagic[ID2];
-    const Element &scala = extOperandVal;
-
-    auto kSrc0 = sm->CreateAllocKey(src0);
-    auto kSrc1 = sm->CreateAllocKey(src1);
-    auto kDst = sm->CreateAllocKey(dst);
-
-    std::string src0Var = sm->QueryVariableName(kSrc0);
-    std::string src1Var = sm->QueryVariableName(kSrc1);
-    std::string dstVar = sm->QueryVariableName(kDst);
-
-    // shape: dst, src0, src1
-    int dstRank = shape[0].size();
-    int src1Rank = shape[2].size();
-
-    ALOG_INFO_F("GenScatterElementOp, dst Shape is %s", IntVecToStr(shape[0]).c_str());
-    ALOG_INFO_F("GenScatterElementOp, src0 Shape is %s", IntVecToStr(shape[1]).c_str());
-    ALOG_INFO_F("GenScatterElementOp, src1 Shape is %s", IntVecToStr(shape[2]).c_str());
-
+std::string CodeGenOpCloudNPU::PrintScatterElementOpStatic(const PrintScatterElemParam &param) const {
+    // Static only support 2Dim
+    int dstRank = shape[ToUnderlying(DISIIdx::DST_IDX)].size();
+    int src1Rank = shape[ToUnderlying(DISIIdx::SRC1_IDX)].size();
     ASSERT(src1Rank == RANK2) << "GenScatterElementOp: src1 shape rank is not supported!";
     ASSERT(dstRank == RANK2) << "GenScatterElementOp: dst shape rank is not supported!";
 
-    std::vector dstShape = this->rawShape[0];
-    std::vector src1RawShape = this->rawShape[2];
-    std::vector src1Shape = this->originShape[2];
+    const std::string &dstVar = param.dVar;
+    const std::string &src0Var = param.s0Var;
+    const std::string &src1Var = param.s1Var;
+    std::vector<int64_t> &dstShape = param.dstRawShape;
+    std::vector<int64_t> &src1RawShape = param.src1RawShape;
+    const std::string *dataTypeExpr = param.dataTypeExpr;
+    const Element &scala = extOperandVal;
 
-    char buffer[384] = "CG_ERROR";
-    std::string dstDtypeStr = DataType2CCEStr(dstDtype);
-    std::string src0DtypeStr = DataType2CCEStr(dstDtype);
-    std::string src1DtypeStr = DataType2CCEStr(src1Dtype);
-    ALOG_INFO_F("GenScatterElementOp, dstDtypeStr%s", dstDtypeStr.c_str());
-    ALOG_INFO_F("GenScatterElementOp, src1DtypeStr%s", src1DtypeStr.c_str());
-
-    AppendLocalBufferVarOffset({&dstVar, &src0Var, &src1Var}, {0, 1, 2});
-
+    std::vector src1Shape = this->originShape[ToUnderlying(DISIIdx::SRC1_IDX)];
+    std::vector<int64_t> s1os = NormalizeShape(src1Shape, SHAPE_DIM2);
     std::vector<int64_t> s1rs = NormalizeShape(src1RawShape, SHAPE_DIM2);
     std::vector<int64_t> drs = NormalizeShape(dstShape, SHAPE_DIM2);
-    std::vector<int64_t> s1os = NormalizeShape(src1Shape, SHAPE_DIM2);
 
-    char scalarTmpBuffer[256] = "CG_ERROR";
+    char scalarTmpBuffer[BUFFER_SIZE_512] = "CG_ERROR";
     int ret =
         snprintf_s(scalarTmpBuffer, sizeof(scalarTmpBuffer), sizeof(scalarTmpBuffer) - 1, "%.9g", scala.Cast<float>());
     if (ret < 0) {
         ALOG_INFO_F("GenScatterElementOp snprintf_s scalarTmpBuffer failed %d", ret);
     }
-    ret = snprintf_s(buffer, sizeof(buffer), sizeof(buffer) - 1,
-        "%s<%s, %s, %u, %u, %u, %u %s>((__ubuf__ %s *)%s, (__ubuf__ %s *)%s, (__ubuf__ %s *)%s, (%s)%s);\n",
-        tileOpName.c_str(), dstDtypeStr.c_str(), src1DtypeStr.c_str(), s1rs[1], drs[1], s1os[0], s1os[1],
-        GenOpAttr().c_str(), dstDtypeStr.c_str(), dstVar.c_str(), src0DtypeStr.c_str(), src0Var.c_str(),
-        src1DtypeStr.c_str(), src1Var.c_str(), dstDtypeStr.c_str(), scalarTmpBuffer);
+    std::vector<std::string> templateParams;
+    templateParams.emplace_back(dataTypeExpr[ToUnderlying(DISIIdx::DST_IDX)]);
+    templateParams.emplace_back(dataTypeExpr[ToUnderlying(DISIIdx::SRC1_IDX)]);
+    templateParams.emplace_back(std::to_string(s1rs[ToUnderlying(DISIIdx::SRC0_IDX)]));
+    templateParams.emplace_back(std::to_string(drs[ToUnderlying(DISIIdx::SRC0_IDX)]));
+    templateParams.emplace_back(std::to_string(s1os[ToUnderlying(DISIIdx::DST_IDX)]));
+    templateParams.emplace_back(std::to_string(s1os[ToUnderlying(DISIIdx::SRC0_IDX)]));
+    std::string templateParamStr = JoinString(templateParams, ", ");
+    templateParamStr += GenOpAttr();
+
+    std::vector<std::string> callParams;
+    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(DISIIdx::DST_IDX)] + "*)" + dstVar);
+    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(DISIIdx::SRC0_IDX)] + "*)" + src0Var);
+    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(DISIIdx::SRC1_IDX)] + "*)" + src1Var);
+    callParams.emplace_back("(" + dataTypeExpr[ToUnderlying(DISIIdx::DST_IDX)] + ")" + scalarTmpBuffer);
+
+    std::string callParamStr = JoinString(callParams, ", ");
+
+    std::ostringstream oss;
+    oss << tileOpName << "<" << templateParamStr << ">(" << callParamStr << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintScatterElementOpDynamicUnaligned(const PrintScatterElemParam &param) const {
+    const std::string &dstVar = param.dVar;
+    const std::string &src0Var = param.s0Var;
+    const std::string &src1Var = param.s1Var;
+    std::vector<int64_t> &drs = param.dstRawShape;
+    std::vector<int64_t> &s1rs = param.src1RawShape;
+    const std::string *dataTypeExpr = param.dataTypeExpr;
+    const Element &scala = extOperandVal;
+
+    size_t dynDim = shape[ToUnderlying(DISIIdx::DST_IDX)].size();
+    auto dynSrc1Shape = dynamicValidShape[ToUnderlying(DISIIdx::SRC1_IDX)];
+    FillIntVecWithDummyInHead<SymbolicScalar>(
+        dynSrc1Shape, dynDim - dynamicValidShape[ToUnderlying(DISIIdx::SRC1_IDX)].size(), 1);
+
+    char scalarTmpBuffer[BUFFER_SIZE_512] = "CG_ERROR";
+    int ret =
+        snprintf_s(scalarTmpBuffer, sizeof(scalarTmpBuffer), sizeof(scalarTmpBuffer) - 1, "%.9g", scala.Cast<float>());
     if (ret < 0) {
-        ALOG_INFO_F("GenScatterElementOp snprintf_s buffer failed %d", ret);
+        ALOG_INFO_F("GenScatterElementOp snprintf_s scalarTmpBuffer failed %d", ret);
     }
-    std::string ostring(buffer);
-    return ostring;
+
+    std::vector<std::string> templateParams;
+    templateParams.emplace_back(dataTypeExpr[ToUnderlying(DISIIdx::DST_IDX)]);
+    templateParams.emplace_back(dataTypeExpr[ToUnderlying(DISIIdx::SRC1_IDX)]);
+    for (size_t i = 1; i < dynDim; ++i) {
+        templateParams.emplace_back(std::to_string(s1rs[i]));
+    }
+    for (size_t i = 1; i < dynDim; ++i) {
+        templateParams.emplace_back(std::to_string(drs[i]));
+    }
+    std::string templateParamStr = JoinString(templateParams, ", ");
+    templateParamStr += GenOpAttr();
+
+    std::vector<std::string> callParams;
+    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(DISIIdx::DST_IDX)] + "*)" + dstVar);
+    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(DISIIdx::SRC0_IDX)] + "*)" + src0Var);
+    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(DISIIdx::SRC1_IDX)] + "*)" + src1Var);
+    callParams.emplace_back("(" + dataTypeExpr[ToUnderlying(DISIIdx::DST_IDX)] + ")" + scalarTmpBuffer);
+    for (size_t i = 0; i < dynDim; ++i) {
+        callParams.emplace_back(dynSrc1Shape[i].Dump());
+    }
+    std::string callParamStr = JoinString(callParams, ", ");
+
+    std::ostringstream oss;
+    oss << tileOpName << "<" << templateParamStr << ">(" << callParamStr << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenScatterElementOp() const {
+    const DataType dstDtype = operandDtype[ToUnderlying(DISIIdx::DST_IDX)];
+    const DataType src0Dtype = operandDtype[ToUnderlying(DISIIdx::SRC0_IDX)];
+    const DataType src1Dtype = operandDtype[ToUnderlying(DISIIdx::SRC1_IDX)];
+
+    std::string src0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(DISIIdx::SRC0_IDX)]);
+    std::string src1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(DISIIdx::SRC1_IDX)]);
+    std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(DISIIdx::DST_IDX)]);
+
+    ALOG_INFO_F("GenScatterElementOp, dst Shape is %s", IntVecToStr(shape[ToUnderlying(DISIIdx::DST_IDX)]).c_str());
+    ALOG_INFO_F("GenScatterElementOp, src0 Shape is %s", IntVecToStr(shape[ToUnderlying(DISIIdx::SRC0_IDX)]).c_str());
+    ALOG_INFO_F("GenScatterElementOp, src1 Shape is %s", IntVecToStr(shape[ToUnderlying(DISIIdx::SRC1_IDX)]).c_str());
+
+    std::vector dstRawShape = this->rawShape[ToUnderlying(DISIIdx::DST_IDX)];
+    std::vector src1RawShape = this->rawShape[ToUnderlying(DISIIdx::SRC1_IDX)];
+
+    std::string dstDtypeStr = DataType2CCEStr(dstDtype);
+    std::string src0DtypeStr = DataType2CCEStr(src0Dtype);
+    std::string src1DtypeStr = DataType2CCEStr(src1Dtype);
+    ALOG_INFO_F("GenScatterElementOp, dstDtypeStr%s", dstDtypeStr.c_str());
+    ALOG_INFO_F("GenScatterElementOp, src1DtypeStr%s", src1DtypeStr.c_str());
+
+    AppendLocalBufferVarOffset({&dstVar, &src0Var, &src1Var},
+        {ToUnderlying(DISIIdx::DST_IDX), ToUnderlying(DISIIdx::SRC0_IDX), ToUnderlying(DISIIdx::SRC1_IDX)});
+
+    constexpr int NumOperands = 3;
+    std::string dataTypeExpr[NumOperands] = {dstDtypeStr, src0DtypeStr, src1DtypeStr};
+
+    if (isSupportDynamicUnaligned) {
+        return PrintScatterElementOpDynamicUnaligned(
+            {dstVar, src0Var, src1Var, dstRawShape, src1RawShape, dataTypeExpr});
+    }
+    return PrintScatterElementOpStatic({dstVar, src0Var, src1Var, dstRawShape, src1RawShape, dataTypeExpr});
 }
 
 std::string CodeGenOpCloudNPU::PrintSortDynamicUnaligned(const SortParam &param) const {

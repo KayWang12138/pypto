@@ -63,7 +63,17 @@ public:
 
     std::string GenGatherElementOp() const;
 
+    struct PrintScatterElemParam {
+        const std::string &dVar;
+        const std::string &s0Var;
+        const std::string &s1Var;
+        std::vector<int64_t> &dstRawShape;
+        std::vector<int64_t> &src1RawShape;
+        const std::string *dataTypeExpr;
+    };
     std::string GenScatterElementOp() const;
+    std::string PrintScatterElementOpStatic(const PrintScatterElemParam &param) const;
+    std::string PrintScatterElementOpDynamicUnaligned(const PrintScatterElemParam &param) const;
 
     std::string GenIndexOutCastOp() const;
 
