@@ -1256,6 +1256,7 @@ void TiledInnerTranspose(Function &function, const TileShape &tileShape, const i
             int64_t blockElem = BLOCK_SIZE / static_cast<int>(BytesOf(tile->Datatype()));
             UnalignPadTmpBufTile(tmpShape, blockElem);
             auto tempTensor = std::make_shared<LogicalTensor>(function, tile->Datatype(), tmpShape);
+            tempTensor->dynValidShape_ = SymbolicScalar::FromConcrete(tmpShape);
             auto &op = function.AddOperation(GetTransposeOpName<T>(), {tile}, {resultTile, tempTensor});
             op.SetAttribute(OP_ATTR_PREFIX + "shape", shape);
         }

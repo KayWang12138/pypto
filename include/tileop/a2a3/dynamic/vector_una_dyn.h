@@ -176,12 +176,14 @@ TILEOP void UnaryOperation4Dim(DT dst, ST src) {
     __ubuf__ typename DT::Type *_dst = dst.GetAddr();
     __ubuf__ typename ST::Type *_src = src.GetAddr();
     for (int i = 0; i < GetShape<DT, 0>(dst); i++) {
+        auto dst0 = _dst;
+        auto src0 = _src;
         for (int j = 0; j < GetShape<DT, 1>(dst); j++) {
-            auto dstTensor = MakeTensor<typename DT::Type, Layout2Dim>(_dst, subDstLayout);
-            auto srcTensor = MakeTensor<typename ST::Type, Layout2Dim>(_src, subSrcLayout);
+            auto dstTensor = MakeTensor<typename DT::Type, Layout2Dim>(dst0, subDstLayout);
+            auto srcTensor = MakeTensor<typename ST::Type, Layout2Dim>(src0, subSrcLayout);
             UnaryOperation2Dim<op, decltype(dstTensor), decltype(srcTensor)>(dstTensor, srcTensor);
-            _dst += DS2 * DS3;
-            _src += SS2 * SS3;
+            dst0 += DS2 * DS3;
+            src0 += SS2 * SS3;
         }
         _dst += DS1 * DS2 * DS3;
         _src += SS1 * SS2 * SS3;
