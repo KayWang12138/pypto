@@ -49,7 +49,7 @@ public:
 std::string TestL0COutBody(bool isDynamicUnalign) {
     const std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(shape);
+    TileShape::Current().SetVecTile(shape);
 
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
@@ -127,7 +127,7 @@ TEST_F(TestCodegenDynCopy, L0CToOutUnalign) {
 std::string TestL1CopyInBody(bool isNz = false, int outerValueForNz = 0, int innerValueForNz = 0) {
     const std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(shape);
+    TileShape::Current().SetVecTile(shape);
 
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
@@ -211,7 +211,7 @@ TEST_F(TestCodegenDynCopy, L1CopyInNZWithValue) {
 TEST_F(TestCodegenDynCopy, UBCopyIn) {
     const std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(shape);
+    TileShape::Current().SetVecTile(shape);
 
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");

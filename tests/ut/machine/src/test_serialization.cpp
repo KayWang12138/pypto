@@ -48,7 +48,7 @@ TEST_F(SerializationTest, TestAddSub) {
     Tensor a(DT_FP32, shape, "a");
     Tensor b(DT_FP32, shape, "b");
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(8, 8);
+    TileShape::Current().SetVecTile(8, 8);
 
     Tensor e;
     FUNCTION("A") {

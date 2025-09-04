@@ -41,15 +41,9 @@ void TestQuant(std::vector<int64_t>& inputShape) {
 
     // depend on shapeDim
     switch (shapeDim) {
-        case DIM2:
-            Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[1]);
-            break;
-        case DIM3:
-            Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[0], vecTileShape[1]);
-            break;
-        case DIM4:
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, vecTileShape[0], vecTileShape[1]);
-            break;
+        case DIM2: TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[1]); break;
+        case DIM3: TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[0], vecTileShape[1]); break;
+        case DIM4: TileShape::Current().SetVecTile(1, 1, vecTileShape[0], vecTileShape[1]); break;
         default:
             ASSERT(true) << "unsupport dim "<< shapeDim<<" \n";
             break;
@@ -112,15 +106,9 @@ void TestQuant3D(std::vector<int64_t>& inputShape) {
 
     // depend on shapeDim
     switch (shapeDim) {
-        case DIM2:
-            Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[1]);
-            break;
-        case DIM3:
-            Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[1], vecTileShape[2]);
-            break;
-        case DIM4:
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, vecTileShape[0], vecTileShape[1]);
-            break;
+        case DIM2: TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[1]); break;
+        case DIM3: TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[1], vecTileShape[2]); break;
+        case DIM4: TileShape::Current().SetVecTile(1, 1, vecTileShape[0], vecTileShape[1]); break;
         default:
             ASSERT(true) << "unsupport dim "<< shapeDim<<" \n";
             break;
@@ -184,15 +172,9 @@ void TestQuantWithSmoothFactor(std::vector<int64_t>& inputShape) {
 
     // depend on shapeDim
     switch (shapeDim) {
-        case DIM2:
-            Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[1]);
-            break;
-        case DIM3:
-            Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[0], vecTileShape[1]);
-            break;
-        case DIM4:
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, vecTileShape[0], vecTileShape[1]);
-            break;
+        case DIM2: TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[1]); break;
+        case DIM3: TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[0], vecTileShape[1]); break;
+        case DIM4: TileShape::Current().SetVecTile(1, 1, vecTileShape[0], vecTileShape[1]); break;
         default:
             ASSERT(true) << "unsupport dim "<< shapeDim<<" \n";
             break;
@@ -289,8 +271,8 @@ void TestQuantMM(std::vector<int64_t>& shapeA, std::vector<int64_t>& shapeW) {
     PROGRAM("QUANTMM") {
         Program::GetInstance().GetConfig().Reset();
         std::vector<int64_t> vecTileShape  = {VALUE32, VALUE64};
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({VALUE32, VALUE32}, {VALUE128, VALUE128}, {VALUE128, VALUE128});
-        Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[1]);
+        TileShape::Current().SetCubeTile({VALUE32, VALUE32}, {VALUE128, VALUE128}, {VALUE128, VALUE128});
+        TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[1]);
         Tensor matA(DataType::DT_BF16, shapeA, (uint8_t *)matA_ptr, "MatA");
         Tensor matW(DataType::DT_INT8, shapeW, (uint8_t *)matW_ptr, "MatW");
         Tensor matScaleW(DataType::DT_FP32, shapeScaleW, (uint8_t *)matScaleW_ptr, "MatScaleW");
@@ -344,8 +326,8 @@ void TestQuantMM3D(std::vector<int64_t>& shapeA, std::vector<int64_t>& shapeW) {
 
     PROGRAM("QUANTMM") {
         Program::GetInstance().GetConfig().Reset();
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({VALUE32, VALUE32}, {VALUE128, VALUE128}, {VALUE128, VALUE128});
-        Program::GetInstance().GetTileShape().SetVecTileShapes(VALUE8, VALUE8, VALUE32);
+        TileShape::Current().SetCubeTile({VALUE32, VALUE32}, {VALUE128, VALUE128}, {VALUE128, VALUE128});
+        TileShape::Current().SetVecTile(VALUE8, VALUE8, VALUE32);
         Tensor matA(DataType::DT_BF16, shapeA, (uint8_t *)matA_ptr, "MatA");
         Tensor matW(DataType::DT_INT8, shapeW, (uint8_t *)matW_ptr, "MatW");
         Tensor matScaleW(DataType::DT_FP32, shapeScaleW, (uint8_t *)matScaleW_ptr, "MatScaleW");

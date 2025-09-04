@@ -86,7 +86,7 @@ void TestDynBatchMatmul(int b, int m, int k, int n, string dataPath) {
             Tensor dyn_a = View(tensor_a, {b, m, ka}, {b, m, ka}, {0, mIdx, 0});
             Tensor dyn_b = View(tensor_b, {b, kb, nb}, {b, kb, nb}, {0, 0, 0});
             if constexpr (IsBNZ) {
-                Program::GetInstance().GetMatrixSize().SetMatrixSize({m, k, n});
+                TileShape::Current().SetMatrixSize({m, k, n});
             }
             tensor_c = Matrix::BatchMatmul<false, IsBtrans>(OutputAstDtype, dyn_a, dyn_b);
         }
@@ -149,7 +149,7 @@ void TestDynBatchMatmul4D(vector<int> b1, vector<int> b2, int m, int k, int n, s
             Tensor dyn_a = View(tensor_a, {b1[0], b1[1], m, ka}, {b1[0], b1[1], m, ka}, {0, 0, mIdx, 0});
             Tensor dyn_b = View(tensor_b, {b2[0], b2[1], kb, nb}, {b2[0], b2[1], kb, nb}, {0, 0, 0, 0});
             if constexpr (IsBNZ) {
-                Program::GetInstance().GetMatrixSize().SetMatrixSize({m, k, n});
+                TileShape::Current().SetMatrixSize({m, k, n});
             }
             tensor_c = Matrix::BatchMatmul<false, IsBtrans>(OutputAstDtype, dyn_a, dyn_b);
         }
@@ -157,7 +157,7 @@ void TestDynBatchMatmul4D(vector<int> b1, vector<int> b2, int m, int k, int n, s
 }
 
 TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_B_ND_bf16) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int b = 2;
     int m = 64;
     int k = 128;
@@ -166,7 +166,7 @@ TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_B_ND_bf16) {
 }
 
 TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_Bt_ND_fp16) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int b = 2;
     int m = 2;
     int k = 320;
@@ -175,7 +175,7 @@ TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_Bt_ND_fp16) {
 }
 
 TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_B_NZ_bf16) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int b = 2;
     int m = 16;
     int k = 512;
@@ -184,7 +184,7 @@ TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_B_NZ_bf16) {
 }
 
 TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_Bt_NZ_fp16) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int b = 2;
     int m = 96;
     int k = 128;
@@ -193,7 +193,7 @@ TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_Bt_NZ_fp16) {
 }
 
 TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_B_ND_bf16_tile1) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {256, 256}, {128, 128});
+    TileShape::Current().SetCubeTile({128, 128}, {256, 256}, {128, 128});
     int b = 3;
     int m = 1;
     int k = 576;
@@ -202,7 +202,7 @@ TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_B_ND_bf16_tile1) {
 }
 
 TEST_F(DynamicBatchMatmulInterpreterTest, bmm4D_A_B_NZ) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int m = 16, k = 64, n = 32;
     vector<int> b1 = {4, 5};
     vector<int> b2 = {4, 5};

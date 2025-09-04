@@ -76,10 +76,10 @@ TEST_F(SplitLargeLocalRawTest, SplitLocalRaw) {
             config::SetPassStrategy("SplitLargeLocalRawTestStrategy");
 
             DataType dType = attnPostIn->Datatype();
-            Program::GetInstance().GetTileShape().SetVecTileShapes({32, 1, d});
+            TileShape::Current().SetVecTile({32, 1, d});
             Tensor atten_res2 = Transpose(attnPostIn, {0, 1});
-        Program::GetInstance().GetTileShape().SetVecTileShapes(tileSize0, tileSize0);
-            Program::GetInstance().GetTileShape().SetCubeTileShapes({tileSize1, tileSize1}, {tileSize0, tileSize0}, {tileSize0, tileSize0});
+            TileShape::Current().SetVecTile(tileSize0, tileSize0);
+            TileShape::Current().SetCubeTile({tileSize1, tileSize1}, {tileSize0, tileSize0}, {tileSize0, tileSize0});
             atten_output = Matrix::BatchMatmul(dType, atten_res2, kvBProjWV);
         }
         std::string jsonFilePath = "./config/pass/json/split_large_local_raw.json";

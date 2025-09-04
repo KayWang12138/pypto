@@ -60,6 +60,7 @@ public:
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetHostConfig(KEY_STRATEGY, "ExpandFunctionTestStrategy");
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        TileShape::Current().SetVecTile({64, 64});
     }
     void TearDown() override {}
 };
@@ -711,7 +712,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest3) {
     Tensor output(DT_FP32, shape, "output");
 
     FUNCTION("STCase3") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(tile_shape);
+        TileShape::Current().SetVecTile(tile_shape);
         output = Exp(input);
     }
 
@@ -769,7 +770,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest4) {
     Tensor output(DT_FP32, shape, "output");
 
     FUNCTION("STCase4") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(tile_shape);
+        TileShape::Current().SetVecTile(tile_shape);
         output = Exp(input);
     }
 
@@ -849,7 +850,7 @@ void RemoveRedundantL1DataMoveGraph (std::shared_ptr<Function> &currFunctionPtr)
     currFunctionPtr->AddRawOperation(Opcode::OP_L1_TO_L0B, {view_out4}, {l0b_out2});
 
     currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {l0a_out1,l0b_out1}, {a_mul_b_out1});
-    currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {l0a_out2,l0b_out2}, {a_mul_b_out2});      
+    currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {l0a_out2, l0b_out2}, {a_mul_b_out2});
 
     currFunctionPtr->inCasts_.push_back(input_cast1);
     currFunctionPtr->inCasts_.push_back(input_cast2);
@@ -860,7 +861,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpL1DataMove) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "RemoveRedundantOpL1DataMove", "RemoveRedundantOpL1DataMove", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     Program::GetInstance().InsertFuncToFunctionMap("RemoveRedundantOpL1DataMove", currFunctionPtr);
-    
+
     RemoveRedundantL1DataMoveGraph(currFunctionPtr);
 
     //验证构图

@@ -42,7 +42,7 @@ public:
 };
 
 void TestAddBody(std::vector<int64_t> shape, std::vector<int64_t> tile_shape, std::string name) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tile_shape);
+    TileShape::Current().SetVecTile(tile_shape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor input_b(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
@@ -73,7 +73,7 @@ TEST_F(TestCodegenBinary, TestCodegenAddDim4) {
 TEST_F(TestCodegenBinary, TestCodegenAddDim2ByJson) {
     std::vector<int64_t> shape = {64, 64};
     std::vector<int64_t> tile_shape = {64, 64};
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tile_shape);
+    TileShape::Current().SetVecTile(tile_shape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor input_b(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
@@ -91,7 +91,7 @@ TEST_F(TestCodegenBinary, TestCodegenAddDim2ByJson) {
 }
 
 void TestAddSBody(std::vector<int64_t> shape, std::vector<int64_t> tile_shape, std::string name) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tile_shape);
+    TileShape::Current().SetVecTile(tile_shape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, shape, "C");
     Element value(DataType::DT_FP32, 1.5);

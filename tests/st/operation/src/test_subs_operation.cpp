@@ -53,7 +53,7 @@ static void SubsOperationExeFuncDoubleCut(
                     {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                         std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
-                Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                TileShape::Current().SetVecTile(args->tileShape_);
                 auto res = SubS(tileTensor0, args->value_);
                 Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
@@ -85,7 +85,7 @@ static void SubsOperationExeFuncTripleCut(
                             std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                             std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                    TileShape::Current().SetVecTile(args->tileShape_);
                     auto res = SubS(tileTensor0, args->value_);
                     Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
@@ -125,7 +125,7 @@ static void SubsOperationExeFuncQuadrupleCut(
                                     std::min(fourthDim - qIdx * fourthViewShape, fourthViewShape)},
                                 {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
                                     qIdx * fourthViewShape});
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                        TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = SubS(tileTensor0, args->value_);
                         Assemble(res,
                             {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,

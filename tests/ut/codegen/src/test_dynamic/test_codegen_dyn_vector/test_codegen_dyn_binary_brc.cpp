@@ -48,7 +48,7 @@ TEST_F(TestCodegenDynBinaryBrc, TestMulDynamic) {
     config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
     std::vector<int64_t> shape1 = {32, 512};
     std::vector<int64_t> shape2 = {32, 1};
-    Program::GetInstance().GetTileShape().SetVecTileShapes({32, 256});
+    TileShape::Current().SetVecTile({32, 256});
     Tensor input_a(DataType::DT_FP32, shape1, "A");
     Tensor input_b(DataType::DT_FP32, shape1, "B");
     Tensor output(DataType::DT_FP32, shape1, "C");

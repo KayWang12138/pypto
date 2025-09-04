@@ -145,16 +145,16 @@ TEST_F(GraphTest, TestAttentionPost) {
         int new_n = attnPostIn->shape[1];
         int new_s = attnPostIn->shape[2];
         DataType dType = attnPostIn->Datatype();
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, d});
+        TileShape::Current().SetVecTile({1, 1, 32, d});
         Tensor atten_res1 = Reshape(Transpose(attnPostIn, {1, 2}), {new_b * new_s, new_n, d});
-        Program::GetInstance().GetTileShape().SetVecTileShapes({32, 1, d});
+        TileShape::Current().SetVecTile({32, 1, d});
         Tensor atten_res2 = Transpose(atten_res1, {0, 1});
         // [n,bs,kvLoraRank] * [n, kvLoraRank, vHeadDim] = [n,bs,vHeadDim]
-        Program::GetInstance().GetTileShape().SetVecTileShapes(128, 128);
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {128, 128}, {128, 128});
+        TileShape::Current().SetVecTile(128, 128);
+        TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
         Tensor mm7_res = Matrix::BatchMatmul(dType, atten_res2, kvBProjWV);
         // Tensor mm7_res = Matrix::BatchMatmul(dType, atten_res2, kvBProjWV);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 128, 128});
+        TileShape::Current().SetVecTile({1, 128, 128});
         Tensor mm7_res1 = Transpose(mm7_res, {0, 1});
         Tensor mm7_res2 = Reshape(mm7_res1, {new_b, new_s, new_n * v_head});
 
@@ -291,7 +291,7 @@ TEST_F(GraphTest, test_operation_rope_subgraph_deepseekv3_bf16_32batch) {
 
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("RoPE", funConfig, {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed}) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, 64});
+            TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
             int b = kPe->shape[0];
@@ -337,7 +337,7 @@ TEST_F(GraphTest, test_operation_rope_subgraph_deepseekv3_bf16) {
 
     ConfigManager::Instance();
     FUNCTION("RoPE") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 64, 64});
+        TileShape::Current().SetVecTile({1, 1, 64, 64});
         auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
         int b = kPe->shape[0];
@@ -362,7 +362,7 @@ TEST_F(GraphTest, test_operation_tensor_16_16_64_64_tileop_add) {
 
     FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
     FUNCTION("ADD_T", funConfig) {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16});
+        TileShape::Current().SetVecTile({16, 16});
         output = Add(input_a, input_b);
     }
 }
@@ -631,8 +631,8 @@ void TestLoopTailBlock(const Tensor &t0, const Tensor &blockTable, Tensor &out, 
 }
 
 TEST_F(GraphTest, TestTailBlock) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+    TileShape::Current().SetVecTile(32, 32);
+    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     int s = 64;
     int n = 8;
     Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
@@ -652,9 +652,9 @@ TEST_F(GraphTest, TestTranspose_MLA_3D_2_add) {
         Tensor output(DataType::DT_FP32, resShape, "res");
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("MLA_3D_2", funConfig, {input, output}) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_2, NUM_2, NUM_128);
+            TileShape::Current().SetVecTile(NUM_2, NUM_2, NUM_128);
             auto tmp = Transpose(input, {0, 1});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_8, NUM_8, NUM_128);
+            TileShape::Current().SetVecTile(NUM_8, NUM_8, NUM_128);
             output = AddS(tmp, Element(DataType::DT_FP32, 0.0));
         }
     }
@@ -674,9 +674,9 @@ TEST_F(GraphTest, TestTranspose_MLA_3D_2_reshape) {
         Tensor output2(DataType::DT_FP32, resShape, "res2");
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("MLA_3D_2", funConfig, {input, output1, output2}) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_2, NUM_2, NUM_128);
+            TileShape::Current().SetVecTile(NUM_2, NUM_2, NUM_128);
             output1 = Transpose(input, {0, 1}); // [8, 32, 128] --> [32, 8, 128]
-            Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_8, NUM_8, NUM_128);
+            TileShape::Current().SetVecTile(NUM_8, NUM_8, NUM_128);
             output2 = Reshape(output1, resShape); // [32, 8, 128] --> [32, 1024]
         }
     }

@@ -41,7 +41,7 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_70_8_40_1) {
     PROGRAM("GatherElement") {
         void *params_ptr = readToDev(GetGoldenDir() + "/params.bin", capacity0);
         void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 32});
+        TileShape::Current().SetVecTile({4, 32});
 
         Tensor input_src0(DataType::DT_FP32, shape0, (uint8_t *)params_ptr, "params");
         Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
@@ -84,7 +84,7 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_8_32_1) {
     PROGRAM("GatherElement") {
         void *params_ptr = readToDev(GetGoldenDir() + "/params.bin", capacity0);
         void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 32});
+        TileShape::Current().SetVecTile({4, 32});
 
         Tensor input_src0(DataType::DT_FP32, shape0, (uint8_t *)params_ptr, "params");
         Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
@@ -128,7 +128,7 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_7_32_1) {
     PROGRAM("GatherElement") {
         void *params_ptr = readToDev(GetGoldenDir() + "/params.bin", capacity0);
         void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 32});
+        TileShape::Current().SetVecTile({4, 32});
 
         Tensor input_src0(DataType::DT_FP32, shape0, (uint8_t *)params_ptr, "params");
         Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
@@ -172,7 +172,7 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_7_32_0) {
     PROGRAM("GatherElement") {
         void *params_ptr = readToDev(GetGoldenDir() + "/params.bin", capacity0);
         void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 32});
+        TileShape::Current().SetVecTile({4, 32});
 
         Tensor input_src0(DataType::DT_FP32, shape0, (uint8_t *)params_ptr, "params");
         Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");

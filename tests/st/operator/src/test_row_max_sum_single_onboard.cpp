@@ -34,7 +34,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single) {
     uint8_t* out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("RowMaxSingle") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({128, 64});
+        TileShape::Current().SetVecTile({128, 64});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/257_128/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
@@ -72,7 +72,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single) {
     uint8_t* out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("RowSumSingle") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({128, 64});
+        TileShape::Current().SetVecTile({128, 64});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/257_128/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
@@ -111,7 +111,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_3dim) {
     uint8_t* out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("RowMaxSingle") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({2, 1, 64});
+        TileShape::Current().SetVecTile({2, 1, 64});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/8_4_128/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
@@ -151,7 +151,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_mla_rmsNor
     uint8_t* out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("RowSumSingle") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 1, 128});
+        TileShape::Current().SetVecTile({8, 1, 128});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/16_1_1536/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
@@ -192,7 +192,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax) {
     uint8_t* out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("RowMaxSingle") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 64, 1, 64});
+        TileShape::Current().SetVecTile({1, 64, 1, 64});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/2_128_1_256/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
@@ -233,7 +233,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax_un
     uint8_t* out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("RowMaxSingle") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 64, 1, 64});
+        TileShape::Current().SetVecTile({1, 64, 1, 64});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/1_128_1_248/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
@@ -274,7 +274,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_4dim_softmax) {
     uint8_t* out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("RowSumSingle") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 64, 1, 128});
+        TileShape::Current().SetVecTile({1, 64, 1, 128});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/32_128_1_256/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
@@ -314,7 +314,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_moe) {
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("Reduce") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({2, 8, 512});
+        TileShape::Current().SetVecTile({2, 8, 512});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/6_1_8_1024/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
@@ -352,7 +352,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_big_moe) {
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("Reduce") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 8, 512});
+        TileShape::Current().SetVecTile({1, 8, 512});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/8_1_8_7168/x.bin", inputCapacity);
         // void *x_ptr = readToDev(GetGoldenDir() + "/6_1_8_1024/x.bin", inputCapacity);
@@ -390,7 +390,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_2dim_moe) {
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("Reduce") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 256});
+        TileShape::Current().SetVecTile({8, 256});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/8_1_1_256/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
@@ -428,7 +428,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis0_unalign) {
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Reduce") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 2, 8, 256});
+        TileShape::Current().SetVecTile({8, 2, 8, 256});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/6_2_8_255/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
@@ -466,7 +466,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis1_unalign) {
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Reduce") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({2, 8, 8, 256});
+        TileShape::Current().SetVecTile({2, 8, 8, 256});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/4_2_8_255/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
@@ -503,7 +503,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis2_unalign) {
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Reduce") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({2, 8, 8, 256});
+        TileShape::Current().SetVecTile({2, 8, 8, 256});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/3_2_8_255/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
@@ -539,7 +539,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign) {
     uint8_t *out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("RowSumSingle") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 1024});
+        TileShape::Current().SetVecTile({4, 1024});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/4_530/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
@@ -577,7 +577,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4_93) {
     uint8_t *out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("RowSumSingle") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 1024});
+        TileShape::Current().SetVecTile({4, 1024});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/4_93/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
@@ -617,7 +617,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4d) {
     uint8_t *out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("RowSumSingle") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 4, 4, 1024});
+        TileShape::Current().SetVecTile({4, 4, 4, 1024});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/3_3_4_530/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
@@ -655,7 +655,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign) {
     uint8_t *out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("RowMaxSingle") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 1024});
+        TileShape::Current().SetVecTile({4, 1024});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/4_93/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
@@ -693,7 +693,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign_4_93) {
     uint8_t *out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("RowMaxSingle") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 1024});
+        TileShape::Current().SetVecTile({4, 1024});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/4_93/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
@@ -733,7 +733,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign_4d) {
     uint8_t *out_ptr = allocDevAddr(outputSize);
 
     PROGRAM("RowMaxSingle") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 4, 4, 1024});
+        TileShape::Current().SetVecTile({4, 4, 4, 1024});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/3_3_4_530/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");

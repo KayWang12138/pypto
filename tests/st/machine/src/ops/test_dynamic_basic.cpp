@@ -31,8 +31,8 @@ public:
     void SetUp() override {
         npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac::SetUp();
         config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-        Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+        TileShape::Current().SetVecTile(32, 32);
+        TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     }
 };
 
@@ -352,8 +352,8 @@ TEST_F(DynamicBasicTest, TestStaticLoop) {
 }
 
 TEST_F(DynamicBasicTest, TestInnerLoopOrder) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(512, 512);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    TileShape::Current().SetVecTile(512, 512);
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
 
     int vecLen = 128;
     int loopNum = 5;
@@ -499,8 +499,8 @@ namespace DynamicTest {
 
 TEST_F(DynamicBasicTest, TestTensorExtract) {
     int tiling = 32;
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
+    TileShape::Current().SetVecTile(tiling, tiling);
+    TileShape::Current().SetCubeTile({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
 
     int n = tiling * 1;
     int s = 32;
@@ -538,8 +538,8 @@ TEST_F(DynamicBasicTest, TestTensorExtract) {
 
 TEST_F(DynamicBasicTest, TestGetTensorData) {
     int tiling = 32;
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
+    TileShape::Current().SetVecTile(tiling, tiling);
+    TileShape::Current().SetCubeTile({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
 
     int n = tiling * 1;
     int s = n * 8;
@@ -588,8 +588,8 @@ TEST_F(DynamicBasicTest, TestGetTensorData) {
 TEST_F(DynamicBasicTest, TestGetTensorDataCrossFunction) {
     ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
     int tiling = 32;
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
+    TileShape::Current().SetVecTile(tiling, tiling);
+    TileShape::Current().SetCubeTile({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
 
     int n = tiling * 1;
     int s = n * 8;
@@ -669,8 +669,8 @@ TEST_F(DynamicBasicTest, TestGetTensorDataUnalign) {
     ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     int tiling = 32;
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
+    TileShape::Current().SetVecTile(tiling, tiling);
+    TileShape::Current().SetCubeTile({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
 
     int cnt = 8;
     int n = tiling * 1;
@@ -746,8 +746,8 @@ TEST_F(DynamicBasicTest, TestGetTensorDataUnalign) {
 TEST_F(DynamicBasicTest, TestGetTensorDataExpr) {
     int tiling = 32;
     ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
+    TileShape::Current().SetVecTile(tiling, tiling);
+    TileShape::Current().SetCubeTile({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
 
     int n = tiling * 1;
     int s = n * 8;
@@ -799,8 +799,8 @@ TEST_F(DynamicBasicTest, TestGetTensorDataExpr) {
 
 TEST_F(DynamicBasicTest, TestVectorDup) {
     int tiling = 32;
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
+    TileShape::Current().SetVecTile(tiling, tiling);
+    TileShape::Current().SetCubeTile({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
 
     int n = tiling * 1;
     Tensor output(DT_FP32, {n, n}, "output");
@@ -830,8 +830,8 @@ TEST_F(DynamicBasicTest, TestVectorDup) {
 
 TEST_F(DynamicBasicTest, TestTensorInsert) {
     int tiling = 32;
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
+    TileShape::Current().SetVecTile(tiling, tiling);
+    TileShape::Current().SetCubeTile({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
 
     int n = tiling * 1;
     Tensor output(DT_INT32, {n}, "output");
@@ -860,8 +860,8 @@ TEST_F(DynamicBasicTest, TestTensorInsert) {
 
 TEST_F(DynamicBasicTest, TestSetTensorData) {
     int tiling = 32;
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
+    TileShape::Current().SetVecTile(tiling, tiling);
+    TileShape::Current().SetCubeTile({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
 
     int n = tiling * 1;
     Tensor output(DT_INT32, {n}, "output");
@@ -891,7 +891,7 @@ TEST_F(DynamicBasicTest, TestSetTensorDataExpr) {
     ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
 
     int tiling = 32;
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling, tiling);
+    TileShape::Current().SetVecTile(tiling, tiling, tiling);
 
     int n = tiling * 1;
     Tensor output(DT_INT32, {n, n, n}, "output");
@@ -926,7 +926,7 @@ TEST_F(DynamicBasicTest, TestSetTensorDataExpr) {
 
 TEST_F(DynamicBasicTest, TestGetTensorDataAndDup) {
     int tiling = 32;
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling, tiling);
+    TileShape::Current().SetVecTile(tiling, tiling, tiling);
 
     int n = tiling * 1;
     Tensor input(DT_INT32, {n, n}, "input");
@@ -971,7 +971,7 @@ TEST_F(DynamicBasicTest, TestGetAndSetTensorDataExpr) {
     ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
 
     int tiling = 32;
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling, tiling);
+    TileShape::Current().SetVecTile(tiling, tiling, tiling);
 
     int n = tiling * 1;
     int init = 10;
@@ -1016,7 +1016,7 @@ TEST_F(DynamicBasicTest, TestSelectAttention) {
     ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
 
     int tiling = 32;
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling, tiling);
+    TileShape::Current().SetVecTile(tiling, tiling, tiling);
 
     int n = tiling * 1;
     Tensor input(DT_INT32, {n, n}, "input");

@@ -28,7 +28,7 @@ using namespace npu::tile_fwk::dynamic;
 class DynamicExpandTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 TEST_F(DynamicExpandTest, TestDynamicExpandUnalign) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(64, 64);
+    TileShape::Current().SetVecTile(64, 64);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 1;

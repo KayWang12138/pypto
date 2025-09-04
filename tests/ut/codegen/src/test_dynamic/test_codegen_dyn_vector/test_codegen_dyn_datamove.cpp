@@ -50,7 +50,7 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim3) {
     std::vector<int64_t> shape{n, s, d};
     std::vector<int64_t> resShape{s, n, d};
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 32, 512);
+    TileShape::Current().SetVecTile(1, 32, 512);
 
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape, "res");
@@ -92,7 +92,7 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim4) {
     std::vector<int64_t> shape{b, n, s, d};
     std::vector<int64_t> resShape{b, s, n, d};
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(2, 1, 32, 512);
+    TileShape::Current().SetVecTile(2, 1, 32, 512);
 
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape, "res");
@@ -135,7 +135,7 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveAlignDim4) {
     std::vector<int64_t> shape{b, n, s, d};
     std::vector<int64_t> resShape{b, s, n, d};
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(2, 1, 32, 512);
+    TileShape::Current().SetVecTile(2, 1, 32, 512);
 
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape, "res");

@@ -32,7 +32,7 @@ public:
 
 // add dim
 TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_add_dim) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(64, 64);
+    TileShape::Current().SetVecTile(64, 64);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 2;
@@ -51,7 +51,7 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_add_dim) {
             SymbolicScalar curSeq = GetInputDataInt32Dim3(actSeqs, batchId, 0, 0);
             Tensor q0 = View(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
             auto tmp0 = Reshape(q0, {1, sq, d}, {1, curSeq, d});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 64, 64);
+            TileShape::Current().SetVecTile(1, 64, 64);
             auto tmp = Exp(tmp0);
             Assemble(tmp, {batchId, 0, 0}, out);
         }
@@ -85,7 +85,7 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_add_dim) {
 
 // merge dim, not last dim
 TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_merge_dim) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 16, 16);
+    TileShape::Current().SetVecTile(1, 16, 16);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 2;
@@ -106,7 +106,7 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_merge_dim) {
 
             Tensor q0 = View(q, {1, sq, d}, {1, curSeq, d}, {batchId, 0, 0});
             auto tmp0 = Reshape(q0, {1, sq * d}, {1, curSeq * d});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 16);
+            TileShape::Current().SetVecTile(1, 16);
             auto tmp = Exp(tmp0);
             Assemble(tmp, {batchId, 0}, out);// 1, sq * d -> b, sq * d
         }
@@ -140,7 +140,7 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_merge_dim) {
 
 // split dim
 TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_split_dim) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 16, 16);
+    TileShape::Current().SetVecTile(1, 16, 16);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 2;
@@ -160,7 +160,7 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_split_dim) {
             SymbolicScalar curDim = GetInputDataInt32Dim3(actSeqs, batchId, 1, 0);
             Tensor q0 = View(q, {1, sq, d}, {1, curSeq, curDim}, {batchId, 0, 0});
             auto tmp0 = Reshape(q0, {1, sq, 5, d/5}, {1, curSeq, 4, curDim/4});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 16, 16, 16);
+            TileShape::Current().SetVecTile(1, 16, 16, 16);
 
             auto tmp = MulS(tmp0, Element(tmp0->Datatype(), 1.0));
             Assemble(tmp, {batchId, 0, 0, 0}, out);// 1, sq * d -> b, sq * d
@@ -205,7 +205,7 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_split_dim) {
 
 // split dim and merge dim
 TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_split_and_merge) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 4, 32);
+    TileShape::Current().SetVecTile(1, 4, 32);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetPassConfig("PVC2_OOO", "SplitReshape", "DISABLE_PASS", true);
 
@@ -229,10 +229,10 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_split_and_merge) {
                 Tensor q0 = View(q, {bView, sqView, dView}, {bValid, sqValid, dView}, {bIdx * bView, sqIdx * sqView, 0});
                 Tensor tmp0 = Reshape(q0, {bView * sqView, dView}, {bValid * sqValid, dView}); //(bView, sqView, dView) -> (bView * sqView, dView)
 
-                Program::GetInstance().GetTileShape().SetVecTileShapes(1*4, 32);
+                TileShape::Current().SetVecTile(1 * 4, 32);
                 Tensor tmp1 = AddS(tmp0, Element(tmp0->Datatype(), 0.01));
                 Tensor tmp2 = Reshape(tmp1, {bView, sqView, dView}, {bValid, sqValid, dView}); //(bView * sqView, dView) -> (bView, sqView, dView)
-                Program::GetInstance().GetTileShape().SetVecTileShapes(1, 4, 32);
+                TileShape::Current().SetVecTile(1, 4, 32);
                 Assemble(tmp2, {bIdx * bView, sqIdx * sqView, 0}, out);
             }
         }

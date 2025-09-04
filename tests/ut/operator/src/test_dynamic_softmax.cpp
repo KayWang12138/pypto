@@ -40,7 +40,7 @@ public:
 
 TEST_F(DynamicSoftmaxUtest, utest_softmax_dyn) {
     config::SetHostConfig(npu::tile_fwk::KEY_ONLY_CODEGEN, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes({4, 4, 1, 64});
+    TileShape::Current().SetVecTile({4, 4, 1, 64});
     std::vector<int64_t> shape = {32, 32, 1, 256};
     DataType dtype = DataType::DT_FP32;
     Tensor input(dtype, shape, "input");

@@ -27,7 +27,7 @@ using namespace npu::tile_fwk::dynamic;
 class DynamicDatamoveTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 TEST_F(DynamicDatamoveTest, TestDynamicDatamove) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 32, 64);
+    TileShape::Current().SetVecTile(1, 32, 64);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int n = 1;

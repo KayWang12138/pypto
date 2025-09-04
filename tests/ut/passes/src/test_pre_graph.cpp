@@ -309,19 +309,19 @@ TEST_F(PreGraphTest, TestVCPartition) {
     Tensor out_tensor(DT_FP16, shape7, "in_tensor");
 
     FUNCTION("PreGraphFunction") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({2, 1, 1, 64});
+        TileShape::Current().SetVecTile({2, 1, 1, 64});
         auto out_tensor_1_A = Reshape(in_tensor, shape2);
         auto out_tensor_1_B = Reshape(in_tensor, shape2);
         auto out_tensor_2_A = Transpose(out_tensor_1_A, {0, 1});
         auto out_tensor_2_B = Transpose(out_tensor_1_B, {0, 1});
         auto out_tensor_3_A = Reshape(out_tensor_2_A, shape1);
         auto out_tensor_3_B = Reshape(out_tensor_2_B, shape4);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({2, 1, 64});
+        TileShape::Current().SetVecTile({2, 1, 64});
         auto out_tensor_4_A = Cast(out_tensor_3_A, DT_FP16);
         auto out_tensor_4_B = Cast(out_tensor_3_B, DT_FP16);
         auto out_tensor_5_A = Reshape(out_tensor_4_A, shape5);
         auto out_tensor_5_B = Reshape(out_tensor_4_A, shape6);
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({2, 2}, {64, 64}, {2, 2});
+        TileShape::Current().SetCubeTile({2, 2}, {64, 64}, {2, 2});
         out_tensor = npu::tile_fwk::Matrix::Matmul<false, false>(DataType::DT_FP32, out_tensor_5_A, out_tensor_5_B);
         originFunction = Program::GetInstance().GetCurrentFunction();
         ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
@@ -383,14 +383,14 @@ TEST_F(PreGraphTest, TestAssemble) {
     int dim1 = 8;
     int dim2 = 2;
     int dim3 = 64;
-    Program::GetInstance().GetTileShape().SetVecTileShapes(dim1, dim1, dim1, dim1);
+    TileShape::Current().SetVecTile(dim1, dim1, dim1, dim1);
     Tensor input(DT_FP32, {1, 384}, "a");
     Tensor res1;
     FUNCTION("TestAssign") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, dim3);
+        TileShape::Current().SetVecTile(1, dim3);
         Tensor res = Exp(input);
         Tensor test = Reshape(res, {2, 1, 1, 192});
-        Program::GetInstance().GetTileShape().SetVecTileShapes(dim2, 1, dim2, dim3);
+        TileShape::Current().SetVecTile(dim2, 1, dim2, dim3);
         res1 = Exp(test);
     }
 
@@ -460,7 +460,7 @@ config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
     Tensor out_tensor(DT_FP32, shape3, "out_tensor");
 
     FUNCTION("PreGraphFunction") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({64, 64});
+        TileShape::Current().SetVecTile({64, 64});
         auto a = View(in_tensor, shape2, {0,0});
         auto b = View(in_tensor1, shape2, {32,32});
         auto a0 = AddS(a, Element(DataType::DT_FP32, 0.0f));
@@ -533,8 +533,8 @@ TEST_F(PreGraphTest, TestROWMAX_SINGLE) {
     Tensor input = Tensor(DT_FP16, {b * s, h}, "input");
     Tensor res;
 
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(128, s), std::min(128, s)}, {256, 256}, {64, 64});
-    Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[1]); // for Assemble
+    TileShape::Current().SetCubeTile({std::min(128, s), std::min(128, s)}, {256, 256}, {64, 64});
+    TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[1]); // for Assemble
 
     FUNCTION("A") {
         res = std::get<0>(Quant(input));

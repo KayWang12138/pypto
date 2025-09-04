@@ -39,7 +39,7 @@ TEST_F(AbsOnBoardTest, test_abs_8_4608) {
 
     PROGRAM("ABS") {
         void *x_ptr = readToDev(GetGoldenDir() + "/abs_x.bin", srcCapacity);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 128});
+        TileShape::Current().SetVecTile({8, 128});
         Tensor input_a(DataType::DT_FP16, srcShape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP16, dstShape, out_ptr, "C");
 
@@ -80,7 +80,7 @@ TEST_F(AbsOnBoardTest, test_abs_8_4609) {
 
     PROGRAM("ABS") {
         void *x_ptr = readToDev(GetGoldenDir() + "/abs_x_not_align.bin", srcCapacity);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 128});
+        TileShape::Current().SetVecTile({8, 128});
         Tensor input_a(DT_FP16, srcShape, (uint8_t *)x_ptr, "A");
         Tensor output(DT_FP16, dstShape, out_ptr, "C");
 
@@ -121,7 +121,7 @@ TEST_F(AbsOnBoardTest, test_abs_1_16384) {
 
     PROGRAM("ABS") {
         void *x_ptr = readToDev(GetGoldenDir() + "/abs_x_not_align.bin", srcCapacity);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 16384});
+        TileShape::Current().SetVecTile({1, 16384});
         Tensor input_a(DT_FP16, srcShape, (uint8_t *)x_ptr, "A");
         Tensor output(DT_FP16, dstShape, out_ptr, "C");
 

@@ -101,7 +101,7 @@ void TestView() {
         SymbolicScalar bLoop = b / tileB;
         LOOP("LOOP_topk3", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, bLoop, 1)) {
             (void)sIdx;
-            Program::GetInstance().GetTileShape().SetVecTileShapes({1, 16});
+            TileShape::Current().SetVecTile({1, 16});
             auto view0 = View(input, {1, 13}, {0, 1});
             auto topVal = std::get<0>(TopK(view0, 3, -1, true));
             output = topVal;
@@ -129,7 +129,7 @@ void TestAlignRead(bool isAlign) {
         SymbolicScalar bLoop = b / tileB;
         LOOP("LOOP_topk3", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, bLoop, 1)) {
             (void)sIdx;
-            Program::GetInstance().GetTileShape().SetVecTileShapes({1, 128});
+            TileShape::Current().SetVecTile({1, 128});
             auto view0 = View(input, {1, 128}, {0, 0});
             auto adds_res = AddS(view0, Element(DT_FP32, 0.0f));
             if (isAlign) {
@@ -168,14 +168,14 @@ void TestMultiLoopAlignRead() {
         Tensor middle(DT_FP32, middle_shape, "middle");
         LOOP("LOOP0", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, bLoop, 1)) {
             (void)sIdx;
-            Program::GetInstance().GetTileShape().SetVecTileShapes({1, 16});
+            TileShape::Current().SetVecTile({1, 16});
             auto view0 = View(input, {1, 128}, {0, 0});
             auto adds_res = AddS(view0, Element(DT_FP32, 0.0f));
             middle = adds_res;
         }
         LOOP("LOOP1", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, bLoop, 1)) {
             (void)sIdx;
-            Program::GetInstance().GetTileShape().SetVecTileShapes({1, 16});
+            TileShape::Current().SetVecTile({1, 16});
             auto view1 = View(middle, {1, 16}, {0, 1});
             auto topVal = std::get<0>(TopK(view1, 13, -1, false));
             output = topVal;

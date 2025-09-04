@@ -96,30 +96,30 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_batch4_onlymm5) {
 
     TileFwkBeginFunction("ATTENTION_POST_T", {inputI, wUvI, wUvScaleWI, wOI, wOScaleWI, outputT});
     {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 4, 1, kvLoraRank});
+        TileShape::Current().SetVecTile({4, 4, 1, kvLoraRank});
         Tensor attenRes0 = Transpose(inputI, {0, 1});
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 1, kvLoraRank});
+        // TileShape::Current().SetVecTile({1, 1, 1, kvLoraRank});
         Tensor t2Res = Reshape(attenRes0, {N, B * S, kvLoraRank});
 
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({4, 4}, {std::min(128, kvLoraRank), std::min(128, kvLoraRank)}, {std::min(128, vHeadDim), std::min(128, vHeadDim)});  // M 16对齐
+        TileShape::Current().SetCubeTile({4, 4}, {std::min(128, kvLoraRank), std::min(128, kvLoraRank)},
+            {std::min(128, vHeadDim), std::min(128, vHeadDim)}); // M 16对齐
         // 所有子图申请的UB空间总和可能大于192K，所以tileShape不能太大（1、ooo pass申请UB空间的方式不合理，在重构；2、RMS里面有repeattimes写死的64，可能会导致tileShape太大）
         // [n,bs,kvLoraRank] * [n, kvLoraRank, vHeadDim] = [n,bs,vHeadDim]
         Tensor bmm4Res = Matrix::BatchMatmul(dType, t2Res, wUvI);
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(4, 4, vHeadDim); // 必须切，但是尾轴不能切
+        TileShape::Current().SetVecTile(4, 4, vHeadDim); // 必须切，但是尾轴不能切
         Tensor t3Res = Transpose(bmm4Res, {0, 1}); // [bs,n,vHeadDim]
 
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({4, 32, vHeadDim});
+        // TileShape::Current().SetVecTile({4, 32, vHeadDim});
         Tensor r2Res = Reshape(t3Res, {B * S, N * vHeadDim});
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(2, std::min(512, N * vHeadDim));
+        TileShape::Current().SetVecTile(2, std::min(512, N * vHeadDim));
         auto quantA = Quant(r2Res);
         auto quantizedA = std::get<0>(quantA);
         auto dequantScaleA = std::get<1>(quantA);
         Tensor res;
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({4, 4},
-            {std::min(128, N * vHeadDim), std::min(128, N * vHeadDim)},
-            {std::min(512, H), std::min(512, H)});
+        TileShape::Current().SetCubeTile(
+            {4, 4}, {std::min(128, N * vHeadDim), std::min(128, N * vHeadDim)}, {std::min(512, H), std::min(512, H)});
         if (r2Res->shape.size() == 2) {
             res = npu::tile_fwk::Matrix::Matmul<false, false>(DataType::DT_INT32, quantizedA, wOI);
         } else if (r2Res->shape.size() == 3) {
@@ -127,14 +127,14 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_batch4_onlymm5) {
         } else {
             assert(r2Res->shape.size() <= 3);
         }
-        Program::GetInstance().GetTileShape().SetVecTileShapes(4, std::min(512, N*vHeadDim));
+        TileShape::Current().SetVecTile(4, std::min(512, N * vHeadDim));
         res = Cast(res, DataType::DT_FP32);
         res = Mul(res, dequantScaleA);
         Tensor weightOScaleW2Dim = Reshape(wOScaleWI, {1, H});
         res = Mul(res, weightOScaleW2Dim);
         Tensor bmm5Res = Cast(res, DataType::DT_BF16, CAST_RINT);
 
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({4, std::min(8192, H)});
+        // TileShape::Current().SetVecTile({4, std::min(8192, H)});
         outputT = Reshape(bmm5Res, {B, S, H});
     }
     TileFwkEndFunction();
@@ -234,31 +234,32 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_n128_onlymm5) {
 
     TileFwkBeginFunction("ATTENTION_POST_T", {inputI, wUvI, wUvScaleWI, wOI, wOScaleWI, outputT});
     {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 32, 1, kvLoraRank});
+        TileShape::Current().SetVecTile({1, 32, 1, kvLoraRank});
         Tensor attenRes0 = Transpose(inputI, {0, 1});
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 1, kvLoraRank});
+        // TileShape::Current().SetVecTile({1, 1, 1, kvLoraRank});
         Tensor t2Res = Reshape(attenRes0, {N, B * S, kvLoraRank});
 
         // Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 6);
         Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{0, 2}});
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(32, B*S), std::min(32, B*S)},
+        TileShape::Current().SetCubeTile({std::min(32, B * S), std::min(32, B * S)},
             {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
-            {std::min(128, vHeadDim), std::min(128, vHeadDim)});  // M 16对齐
+            {std::min(128, vHeadDim), std::min(128, vHeadDim)}); // M 16对齐
         // 所有子图申请的UB空间总和可能大于192K，所以tileShape不能太大（1、ooo pass申请UB空间的方式不合理，在重构；2、RMS里面有repeattimes写死的64，可能会导致tileShape太大）
         // 原[n,bs,kvLoraRank] * [n, kvLoraRank, vHeadDim] = [n,bs,vHeadDim]
         Tensor bmm4Res = Matrix::BatchMatmul(dType, t2Res, wUvI);
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(2, 32, vHeadDim); // 必须切，但是尾轴不能切
+        TileShape::Current().SetVecTile(2, 32, vHeadDim); // 必须切，但是尾轴不能切
         Tensor t3Res = Transpose(bmm4Res, {0, 1}); // [bs,n,vHeadDim]
 
         Tensor r2Res = Reshape(t3Res, {B * S, N * vHeadDim});
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(16, std::min(32, N * vHeadDim));
+        TileShape::Current().SetVecTile(16, std::min(32, N * vHeadDim));
         auto quantA = Quant(r2Res);
         auto quantizedA = std::get<0>(quantA);
         auto dequantScaleA = std::get<1>(quantA);
         Tensor res;
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(32, B*S), std::min(32, B*S)}, {std::min(128, N*vHeadDim), std::min(128, N*vHeadDim)}, {std::min(512, H), std::min(512, H)});
+        TileShape::Current().SetCubeTile({std::min(32, B * S), std::min(32, B * S)},
+            {std::min(128, N * vHeadDim), std::min(128, N * vHeadDim)}, {std::min(512, H), std::min(512, H)});
         if (r2Res->shape.size() == 2) {
             res = npu::tile_fwk::Matrix::Matmul<false, false>(DataType::DT_INT32, quantizedA, wOI);
         } else if (r2Res->shape.size() == 3) {
@@ -266,14 +267,14 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_n128_onlymm5) {
         } else {
             assert(r2Res->shape.size() <= 3);
         }
-        Program::GetInstance().GetTileShape().SetVecTileShapes(4, std::min(32, N*vHeadDim));
+        TileShape::Current().SetVecTile(4, std::min(32, N * vHeadDim));
         res = Cast(res, DataType::DT_FP32);
         res = Mul(res, dequantScaleA);
         Tensor weightOScaleW2Dim = Reshape(wOScaleWI, {1, H});
         res = Mul(res, weightOScaleW2Dim);
         Tensor bmm5Res = Cast(res, DataType::DT_BF16, CAST_RINT);
 
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({32, std::min(32, H)});
+        // TileShape::Current().SetVecTile({32, std::min(32, H)});
         outputT = Reshape(bmm5Res, {B, S, H});
     }
     TileFwkEndFunction();
@@ -409,26 +410,26 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_n128_onlymm5He) {
 
     TileFwkBeginFunction("ATTENTION_POST_T", {inputI, wUvI, wUvScaleWI, wOI, wOScaleWI, outputT});
     {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 16, 1, kvLoraRank});
+        TileShape::Current().SetVecTile({1, 16, 1, kvLoraRank});
         Tensor attenRes0 = Transpose(inputI, {0, 1}); // (32, 128, 1, 512)
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({16, 1, 1, kvLoraRank});
+        // TileShape::Current().SetVecTile({16, 1, 1, kvLoraRank});
         Tensor t2Res = Reshape(attenRes0, {N, B * S, kvLoraRank}); // (128, 32, 1, 512)
 
         // Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 6);
         Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{0, 2}});
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(32, B*S), std::min(32, B*S)},
+        TileShape::Current().SetCubeTile({std::min(32, B * S), std::min(32, B * S)},
             {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
-            {std::min(128, vHeadDim), std::min(128, vHeadDim)});  // 改变M大小，生成256个块
+            {std::min(128, vHeadDim), std::min(128, vHeadDim)}); // 改变M大小，生成256个块
         // 所有子图申请的UB空间总和可能大于192K，所以tileShape不能太大（1、ooo pass申请UB空间的方式不合理，在重构；2、RMS里面有repeattimes写死的64，可能会导致tileShape太大）
         // 原[n,bs,kvLoraRank] * [n, kvLoraRank, vHeadDim] = [n,bs,vHeadDim]
         Tensor bmm4Res = Matrix::BatchMatmul(dType, t2Res, wUvI); // (128, 32, 512) @ (128, 512, 128)
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 16, vHeadDim); // 必须切，但是尾轴不能切
+        TileShape::Current().SetVecTile(1, 16, vHeadDim); // 必须切，但是尾轴不能切
         Tensor t3Res = Transpose(bmm4Res, {0, 1}); // [bs,n,vHeadDim]   // (128, 32, 128)
 
         Tensor r2Res = Reshape(t3Res, {B * S, N * vHeadDim});  // (32, 128, 128)
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(16, std::min(128, N * vHeadDim));
+        TileShape::Current().SetVecTile(16, std::min(128, N * vHeadDim));
 
         // auto quantA = Quant(r2Res);   // (32, 16384)
         auto quantA = QuantTmp(r2Res, true, false, Tensor());   // (32, 16384)
@@ -436,7 +437,8 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_n128_onlymm5He) {
         auto dequantScaleA = std::get<1>(quantA);
 
         Tensor res;
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(32, B*S), std::min(32, B*S)}, {std::min(128, N*vHeadDim), std::min(128, N*vHeadDim)}, {std::min(512, H), std::min(512, H)});
+        TileShape::Current().SetCubeTile({std::min(32, B * S), std::min(32, B * S)},
+            {std::min(128, N * vHeadDim), std::min(128, N * vHeadDim)}, {std::min(512, H), std::min(512, H)});
         if (r2Res->shape.size() == 2) {
             res = npu::tile_fwk::Matrix::Matmul(DataType::DT_INT32, quantizedA, wOI); // (32, 16384) @ (16384, 7168)
         } else if (r2Res->shape.size() == 3) {
@@ -444,7 +446,7 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_n128_onlymm5He) {
         } else {
             assert(r2Res->shape.size() <= 3);
         }
-        Program::GetInstance().GetTileShape().SetVecTileShapes(2, std::min(32, N*vHeadDim));
+        TileShape::Current().SetVecTile(2, std::min(32, N * vHeadDim));
         res = Cast(res, DataType::DT_FP32); // (32, 7168)
         res = Mul(res, dequantScaleA);
         Tensor weightOScaleW2Dim = Reshape(wOScaleWI, {1, H});
@@ -551,22 +553,21 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_batch4_onlymm5K) {
 
     TileFwkBeginFunction("ATTENTION_POST_T", {inputI, wUvI, wUvScaleWi, wOi, wOscaleWi, outputT});
     {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({B, 1, 1, kvLoraRank}); // 32 ge
+        TileShape::Current().SetVecTile({B, 1, 1, kvLoraRank}); // 32 ge
         Tensor attenRes0 = Transpose(inputI, {0, 1}); // (4,32,1,512) -> (32,4,1,512)
         Tensor t2Res = Reshape(attenRes0, {N, B * S, kvLoraRank}); // (32,4,1,512) -> (32,4,512)
 
         Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{0, 2}});
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({4, 4},
-            {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
-            {std::min(128, vHeadDim), std::min(128, vHeadDim)});  // 32/2 ge
+        TileShape::Current().SetCubeTile({4, 4}, {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
+            {std::min(128, vHeadDim), std::min(128, vHeadDim)}); // 32/2 ge
         // [n,bs,kvLoraRank] * [n, kvLoraRank, vHeadDim] = [n,bs,vHeadDim]
         Tensor bmm4Res = Matrix::BatchMatmul(dType, t2Res, wUvI); // (32,4,512) @ (32,512,128) -> (32,4,128)
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(2, 4, vHeadDim); // 必须切，但是尾轴不能切
+        TileShape::Current().SetVecTile(2, 4, vHeadDim); // 必须切，但是尾轴不能切
         Tensor t3Res = Transpose(bmm4Res, {0, 1}); // [bs,n,vHeadDim]  (32,4,128) _> (4,32,128)
         Tensor r2Res = Reshape(t3Res, {B * S, N*vHeadDim}); // (4,32,128) -> (4,4096)
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 4096);
+        TileShape::Current().SetVecTile(1, 4096);
         auto quantA = Quant(r2Res); // (4,4096)
         auto quantizedA = std::get<0>(quantA);
         auto dequantScaleA = std::get<1>(quantA);
@@ -574,14 +575,13 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_batch4_onlymm5K) {
         // (B*S, N*vHeadDim) @ (N*vHeadDim, H) = (B*S, H)
         // int8 @ int8 = int32
         Tensor tmpC(DT_INT32, {B*S, H}, "tmp_c"); // (4,7168)
-        Program::GetInstance().GetTileShape().SetVecTileShapes(4, std::min(1024, H));  // 7个
+        TileShape::Current().SetVecTile(4, std::min(1024, H)); // 7个
         tmpC = MulS(tmpC, Element(DataType::DT_FP32, 0.0f));
         std::vector<Tensor> matmulResult;
         auto kSplit = 2;
         auto kSplitSize = N*vHeadDim / kSplit; // 4096 / 2
         // (4, 4096) @ (4096, 7168) = (4, 7168)   M:4,K:4096,N:7168
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({4, 4},
-            {std::min(128, N*vHeadDim), std::min(128, N*vHeadDim)},
+        TileShape::Current().SetCubeTile({4, 4}, {std::min(128, N * vHeadDim), std::min(128, N * vHeadDim)},
             {std::min(512, H), std::min(512, H)}); // 14ge
         for (int ki = 0; ki < kSplit; ki++) {
             auto inputMk = View(quantizedA, {B*S, kSplitSize}, {0, ki * kSplitSize});
@@ -589,10 +589,10 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_batch4_onlymm5K) {
             auto tmp = npu::tile_fwk::Matrix::Matmul(DT_INT32, inputMk, inputKn, tmpC);    // B * 256
             matmulResult.emplace_back(tmp);
         }
-        Program::GetInstance().GetTileShape().SetVecTileShapes(4, 512);
+        TileShape::Current().SetVecTile(4, 512);
         Tensor res = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(4, std::min(512, N*vHeadDim));
+        TileShape::Current().SetVecTile(4, std::min(512, N * vHeadDim));
         res = Cast(res, DataType::DT_FP32); // (4,7168)
         res = Mul(res, dequantScaleA);
         Tensor weightOScaleW2Dim = Reshape(wOscaleWi, {1, H});
@@ -708,23 +708,23 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_n128_onlymm5K) {
     Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, 300000);  // 300000(167us)
     TileFwkBeginFunction("ATTENTION_POST_T", {inputI, wUvI, wUvScaleWi, wOi, wOscaleWi, outputT, mm5Int32, mm5fp32});
     {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({B, 2, 1, kvLoraRank}); // 128个
+        TileShape::Current().SetVecTile({B, 2, 1, kvLoraRank}); // 128个
         Tensor attenRes0 = Transpose(inputI, {0, 1}); // (32, 128, 1, 512)
         Tensor t2Res = Reshape(attenRes0, {N, B * S, kvLoraRank}); // (128, 32, 1, 512)
 
         // 原AscendProgram::GetInstance().GetConfig().Set<int>(L1_REUSE, 6);
         Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{0, 4}});
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(32, B*S), std::min(32, B*S)},
+        TileShape::Current().SetCubeTile({std::min(32, B * S), std::min(32, B * S)},
             {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
-            {std::min(128, vHeadDim), std::min(128, vHeadDim)});  // 128/4 个
+            {std::min(128, vHeadDim), std::min(128, vHeadDim)}); // 128/4 个
         // 原[n,bs,kvLoraRank] * [n, kvLoraRank, vHeadDim] = [n,bs,vHeadDim]
         Tensor bmm4Res = Matrix::BatchMatmul(dType, t2Res, wUvI); // (128, 32, 512) @ (128, 512, 128) = (128, 32, 128)
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 32, vHeadDim); // 32个
+        TileShape::Current().SetVecTile(1, 32, vHeadDim); // 32个
         Tensor t3Res = Transpose(bmm4Res, {0, 1}); // [bs,n,vHeadDim]    // (128, 32, 128)
         Tensor r2Res = Reshape(t3Res, {B * S, N*vHeadDim});  // (32, 128, 128)
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 16384); // 32个
+        TileShape::Current().SetVecTile(1, 16384);              // 32个
         auto quantA = QuantTmp(r2Res, true, false, Tensor());   // (32, 16384)
         // auto quantA = Quant(r2Res);   // (32, 16384)
         auto quantizedA = std::get<0>(quantA);
@@ -733,26 +733,25 @@ TEST_F(OnBoardCostTest, test_attention_post_bf16_real_quant_n128_onlymm5K) {
         // (B*S, N*vHeadDim) @ (N*vHeadDim, H) = (B*S, H)
         // int8 @ int8 = int32
         Tensor tmpC(DT_INT32, {B*S, H}, "tmp_c");
-        Program::GetInstance().GetTileShape().SetVecTileShapes(32, std::min(1024, H));  // 7个
+        TileShape::Current().SetVecTile(32, std::min(1024, H)); // 7个
         tmpC = MulS(tmpC, Element(DataType::DT_FP32, 0.0f));
         std::vector<Tensor> matmulResult;
         auto kSplit = 8;
         auto kSplitSize = N*vHeadDim / kSplit;
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(32, B*S), std::min(32, B*S)},
-            {std::min(128, N*vHeadDim), std::min(128, N*vHeadDim)},
-            {std::min(512, H), std::min(512, H)});  // 14个
+        TileShape::Current().SetCubeTile({std::min(32, B * S), std::min(32, B * S)},
+            {std::min(128, N * vHeadDim), std::min(128, N * vHeadDim)}, {std::min(512, H), std::min(512, H)}); // 14个
         for (int ki = 0; ki < kSplit; ki++) {
             auto inputMk = View(quantizedA, {B*S, kSplitSize}, {0, ki * kSplitSize});
             auto inputKn = View(wOi, {kSplitSize, H}, {ki * kSplitSize, 0});
             auto tmp = npu::tile_fwk::Matrix::Matmul(DT_INT32, inputMk, inputKn, tmpC);  // (32, 16384) @ (16384, 7168)
             matmulResult.emplace_back(tmp);
         }
-        Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(32, B*S), std::min(512, H));  // 14个
+        TileShape::Current().SetVecTile(std::min(32, B * S), std::min(512, H)); // 14个
         Tensor res = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);
 
         // 原mm5Int32 = res;  //检测
-        // Program::GetInstance().GetTileShape().SetVecTileShapes(32, std::min(64, N*vHeadDim)); // 112块 fail
-        Program::GetInstance().GetTileShape().SetVecTileShapes(32, std::min(32, N*vHeadDim)); // 224块 ok
+        // TileShape::Current().SetVecTile(32, std::min(64, N*vHeadDim)); // 112块 fail
+        TileShape::Current().SetVecTile(32, std::min(32, N * vHeadDim)); // 224块 ok
         res = Cast(res, DataType::DT_FP32); // (32, 7168)
         // mm5fp32 = res;   //检测
         res = Mul(res, dequantScaleA);
@@ -884,25 +883,25 @@ TEST_F(OnBoardCostTest, dynamic_pa_post_static_cast_first) {
 
     TileFwkBeginFunction("ATTENTION_POST_T", {inputI, wUvI, wOi, wOscaleWi, outputT, mm5Int32, mm5fp32});
     {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({64, kvLoraRank});
+        TileShape::Current().SetVecTile({64, kvLoraRank});
         Tensor cast1 = Cast(inputI, DataType::DT_BF16); // (32*128, 512)
         Tensor r1Res = Reshape(cast1, {B * S, N, kvLoraRank}); // (32, 128, 512)
-        Program::GetInstance().GetTileShape().SetVecTileShapes({B * 1, 2, kvLoraRank});
+        TileShape::Current().SetVecTile({B * 1, 2, kvLoraRank});
         Tensor t1Res = Transpose(r1Res, {0, 1}); // (32, 128, 512)
 
         // 原AscendProgram::GetInstance().GetConfig().Set<int>(L1_REUSE, 6);
         Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{0, 4}});
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(32, B*S), std::min(32, B*S)},
+        TileShape::Current().SetCubeTile({std::min(32, B * S), std::min(32, B * S)},
             {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
-            {std::min(128, vHeadDim), std::min(128, vHeadDim)});  // 128/4 个
+            {std::min(128, vHeadDim), std::min(128, vHeadDim)}); // 128/4 个
         // 原[n,bs,kvLoraRank] * [n, kvLoraRank, vHeadDim] = [n,bs,vHeadDim]
         Tensor bmm4Res = Matrix::BatchMatmul(dType, t1Res, wUvI); // (128, 32, 512) @ (128, 512, 128) = (128, 32, 128)
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 32, vHeadDim); // 32个
+        TileShape::Current().SetVecTile(1, 32, vHeadDim); // 32个
         Tensor t3Res = Transpose(bmm4Res, {0, 1}); // [bs,n,vHeadDim]    // (128, 32, 128)
         Tensor r2Res = Reshape(t3Res, {B * S, N*vHeadDim});  // (32, 128, 128)
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 16384); // 32个
+        TileShape::Current().SetVecTile(1, 16384);              // 32个
         auto quantA = QuantTmp(r2Res, true, false, Tensor());   // (32, 16384)
         // auto quantA = Quant(r2Res);   // (32, 16384)
         auto quantizedA = std::get<0>(quantA);
@@ -911,26 +910,25 @@ TEST_F(OnBoardCostTest, dynamic_pa_post_static_cast_first) {
         // (B*S, N*vHeadDim) @ (N*vHeadDim, H) = (B*S, H)
         // int8 @ int8 = int32
         Tensor tmpC(DT_INT32, {B*S, H}, "tmp_c");
-        Program::GetInstance().GetTileShape().SetVecTileShapes(32, std::min(1024, H));  // 7个
+        TileShape::Current().SetVecTile(32, std::min(1024, H)); // 7个
         tmpC = MulS(tmpC, Element(DataType::DT_FP32, 0.0f));
         std::vector<Tensor> matmulResult;
         auto kSplit = 8;
         auto kSplitSize = N*vHeadDim / kSplit;
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(32, B*S), std::min(32, B*S)},
-            {std::min(128, N*vHeadDim), std::min(128, N*vHeadDim)},
-            {std::min(512, H), std::min(512, H)});  // 14个
+        TileShape::Current().SetCubeTile({std::min(32, B * S), std::min(32, B * S)},
+            {std::min(128, N * vHeadDim), std::min(128, N * vHeadDim)}, {std::min(512, H), std::min(512, H)}); // 14个
         for (int ki = 0; ki < kSplit; ki++) {
             auto inputMk = View(quantizedA, {B*S, kSplitSize}, {0, ki * kSplitSize});
             auto inputKn = View(wOi, {kSplitSize, H}, {ki * kSplitSize, 0});
             auto tmp = npu::tile_fwk::Matrix::Matmul(DT_INT32, inputMk, inputKn, tmpC);  // (32, 16384) @ (16384, 7168)
             matmulResult.emplace_back(tmp);
         }
-        Program::GetInstance().GetTileShape().SetVecTileShapes(std::min(32, B*S), std::min(512, H));  // 14个
+        TileShape::Current().SetVecTile(std::min(32, B * S), std::min(512, H)); // 14个
         Tensor res = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);
 
         // 原mm5Int32 = res;  //检测
-        // Program::GetInstance().GetTileShape().SetVecTileShapes(32, std::min(64, N*vHeadDim)); // 112块 fail
-        Program::GetInstance().GetTileShape().SetVecTileShapes(32, std::min(32, N*vHeadDim)); // 224块 ok
+        // TileShape::Current().SetVecTile(32, std::min(64, N*vHeadDim)); // 112块 fail
+        TileShape::Current().SetVecTile(32, std::min(32, N * vHeadDim)); // 224块 ok
         res = Cast(res, DataType::DT_FP32); // (32, 7168)
         // mm5fp32 = res;   //检测
         res = Mul(res, dequantScaleA);

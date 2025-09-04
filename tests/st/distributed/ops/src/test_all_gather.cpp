@@ -51,11 +51,9 @@ void TestAllGather(OpTestParam &testParam)
         ConfigManager::Instance();
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("AllGather", funConfig, {in, out}) {
-            Program::GetInstance().GetTileShape().SetDistTileShapes(
-                {outM / testParam.rankSize, testParam.rankSize, 0},
-                {N / testParam.rankSize, testParam.rankSize, 0},
-                {1, testParam.rankSize, 0});
-            Program::GetInstance().GetTileShape().SpecifyStaticRankId(testParam.rankId);
+            TileShape::Current().SetDistTile({outM / testParam.rankSize, testParam.rankSize, 0},
+                {N / testParam.rankSize, testParam.rankSize, 0}, {1, testParam.rankSize, 0});
+            TileShape::Current().SetDistRankId(testParam.rankId);
             out = AllGather(in, testParam.group);
         }
     }
@@ -95,11 +93,8 @@ void TestAllGatherEx(OpTestParam &testParam)
         ConfigManager::Instance();
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("AllGather_Ex", funConfig, tensorParams) {
-            Program::GetInstance().GetTileShape().SetDistTileShapes(
-                {M / 2, 2, 0},
-                {N / 2, 2, 0},
-                {1, testParam.rankSize, 0});
-            Program::GetInstance().GetTileShape().SpecifyStaticRankId(testParam.rankId);
+            TileShape::Current().SetDistTile({M / 2, 2, 0}, {N / 2, 2, 0}, {1, testParam.rankSize, 0});
+            TileShape::Current().SetDistRankId(testParam.rankId);
             Distributed::AllGather(in, outs, testParam.group);
         }
     }

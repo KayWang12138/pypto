@@ -51,8 +51,8 @@ TEST_F(MlpTest, test_16_7168_tileop)
     // 创建PROGRAM
     PROGRAM("MLP") {
         config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-        Program::GetInstance().GetTileShape().SetVecTileShapes(32, 256);
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {128, 256}, {128, 128});
+        TileShape::Current().SetVecTile(32, 256);
+        TileShape::Current().SetCubeTile({32, 32}, {128, 256}, {128, 128});
 
         // 构建输入矩阵
         void *x_ptr = readToDev<float>(GetGoldenDir() + "/hidden_states.bin", inputCapacity);

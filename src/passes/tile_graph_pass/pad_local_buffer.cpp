@@ -66,7 +66,7 @@ size_t PadLocalBuffer::GetPaddingValue(Operation &op, LogicalTensorPtr &in, OpCa
         }
     }
     if (needTilePadding) {
-        const auto &vTileShape = op.GetTileShape().GetVecTileShapes();
+        const auto &vTileShape = op.GetTileShape().GetVecTile().tile;
         if (vTileShape.size() != in->shape.size()) {
             ALOG_DEBUG_F("VTileShape [size %zu] dims %s and shape size %zu mismatch for of op %d %s.", vTileShape.size(),
                 IntVecToStr(vTileShape).c_str(), in->shape.size(), op.opmagic, op.GetOpcodeStr().c_str());

@@ -50,7 +50,7 @@ void GenAttention(Tensor &cmpAtten, Tensor &selAtten, Tensor &winAtten, Tensor &
                 SymbolicScalar sOffset = sIdx * tileS;
                 std::vector<SymbolicScalar> outOffset = {bOffset, sOffset, 0, 0};
                 SymbolicScalar actualsSize = std::min(tileS, (sDimSize - sIdx * tileS));
-                Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, NUM_16, dDimSize);
+                TileShape::Current().SetVecTile(1, 1, NUM_16, dDimSize);
                 auto cmpAttenTile = View(cmpAtten, {tileB, tileS, nDimSize, dDimSize},
                     {actualBSize, actualsSize, nDimSize, dDimSize}, {bOffset, sOffset, 0, 0});
                 auto selAttenTile = View(selAtten, {tileB, tileS, nDimSize, dDimSize},
@@ -60,20 +60,20 @@ void GenAttention(Tensor &cmpAtten, Tensor &selAtten, Tensor &winAtten, Tensor &
                 auto cmpAttenFP32Tile = Cast(cmpAttenTile, DT_FP32);
                 auto selAttenFP32Tile = Cast(selAttenTile, DT_FP32);
                 auto winAttenFP32Tile = Cast(winAttenTile, DT_FP32);
-                Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, nDimSize, NUM_3);
+                TileShape::Current().SetVecTile(1, 1, nDimSize, NUM_3);
                 auto gatingScoreTile = View(gatingScore, {tileB, tileS, nDimSize, NUM_3},
                     {actualBSize, actualsSize, nDimSize, NUM_3}, {bOffset, sOffset, 0, 0});
                 auto gatingScoreFP32 = Cast(gatingScoreTile, DT_FP32);
                 auto cmpWeight = View(gatingScoreFP32, {tileB, tileS, nDimSize, 1}, {0, 0, 0, 0});
                 auto selWeight = View(gatingScoreFP32, {tileB, tileS, nDimSize, 1}, {0, 0, 0, 1});
                 auto winWeight = View(gatingScoreFP32, {tileB, tileS, nDimSize, 1}, {0, 0, 0, 2});
-                Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, NUM_16, dDimSize);
+                TileShape::Current().SetVecTile(1, 1, NUM_16, dDimSize);
                 auto mulCmp = Mul(cmpAttenFP32Tile, cmpWeight);
                 auto mulSel = Mul(selAttenFP32Tile, selWeight);
                 auto mulWin = Mul(winAttenFP32Tile, winWeight);
                 auto addCmpSel = Add(mulCmp, mulSel);
                 auto outFP32 = Add(addCmpSel, mulWin);
-                Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, NUM_16, dDimSize);
+                TileShape::Current().SetVecTile(1, 1, NUM_16, dDimSize);
                 auto attentionOutTile = Cast(outFP32, dType, CAST_RINT);
                 Assemble(attentionOutTile, outOffset, attentionOut);
             }

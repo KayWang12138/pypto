@@ -27,8 +27,8 @@ class DynamicFFNTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {}
 namespace {
 TEST_F(DynamicFFNTest, TestOnbroadDynamicFFN) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32, 256);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {128, 256}, {128, 128});
+    TileShape::Current().SetVecTile(32, 256);
+    TileShape::Current().SetCubeTile({32, 32}, {128, 256}, {128, 128});
     constexpr int BATCH_SIZE = 32;
     constexpr int SEQUENCE = 1;
     constexpr int H = 7168;
@@ -78,8 +78,8 @@ TEST_F(DynamicFFNTest, TestOnbroadDynamicFFN) {
 
 TEST_F(DynamicFFNTest, TestOnbroadDynamicFFNQuant) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32, 256);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {256, 256}, {128, 128}, true);
+    TileShape::Current().SetVecTile(32, 256);
+    TileShape::Current().SetCubeTile({32, 32}, {256, 256}, {128, 128}, true);
     Program::GetInstance().GetConfig().Set<int>(NBUFFER_MERGE_MODE, 1);      // 是否开启db切分 1开启
     Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 2);
     Program::GetInstance().GetConfig().Set<int>(COPYIN_THRESHOLD, 10*1024*1024);

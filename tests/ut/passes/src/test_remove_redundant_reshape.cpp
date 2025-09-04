@@ -162,11 +162,11 @@ TEST_F(RemoveRedundantReshapeTest, TestReplaceInput) {
 
     // Initialize PassManager
     PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("ReshapeTestStrategy", {
-        { "RemoveRedundantReshape", "RemoveRedundantReshape", PassType::TYPE_TENSOR_GRAPH},
-    });
-    ConfigManager::Instance();
+    passManager.RegisterStrategy("ReshapeTestStrategy",
+        {{"RemoveRedundantReshape", "RemoveRedundantReshape", PassType::TYPE_TENSOR_GRAPH}}
+    );
 
+    TileShape::Current().SetVecTile({1, 64, 64});
     // Create and configure the function
     Function* originFunction = nullptr;
     std::vector<int64_t> reshape_opmagics;

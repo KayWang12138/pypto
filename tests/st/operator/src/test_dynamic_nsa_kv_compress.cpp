@@ -251,7 +251,7 @@ void TestAuxTensor() {
     FUNCTION("FuncAuxTensor", funConfig, {}, {auxTensor}) {
         LOOP("COMPRESS_LOOP_BATCH", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(1)) {
             (void)bIdx;
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, auxVecLen);
+            TileShape::Current().SetVecTile(1, auxVecLen);
             for (int i = 0; i < rs + rc - 1; i++) {
                 auto auxVector = npu::tile_fwk::VectorDuplicate(
                     Element(dType, float(min(i + 1, rc) - max(i - rs, 0))), dType, {1, auxVecLen});

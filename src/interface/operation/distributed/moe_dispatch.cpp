@@ -173,7 +173,7 @@ Operation& TensorGraphAddOp(const std::string &opName, const std::vector<std::sh
     int32_t groupIndex = static_cast<int32_t>(
         Program::GetInstance().GetCommGroupRecorder().Input(std::string(group)));
     CommGroupInfo groupInfo;
-    const TileShape &tileShape = Program::GetInstance().GetTileShape();
+    const TileShape &tileShape = TileShape::Current();
     CheckAndGetGroupInfo(groupIndex, tileShape, groupInfo);
     oper.SetAttr(OpAttributeKey::commGroupInfo, groupInfo);
     oper.SetAttr("tiling_tensor_symbol", tilingTensor->Symbol());
@@ -359,7 +359,7 @@ void SendToRoutingExpert(const Tensor &tokenTensor, const Tensor &tokenExpertTab
     auto &oper = function.AddOperation("SEND_TO_ROUTING_EXPERT", {tokenTensor.GetStorage(),
         tokenExpertTable.GetStorage(), tilingTensor.GetStorage()}, {syncTensor.GetStorage()});
     oper.SetAttr("tiling_tensor_symbol", tilingTensor.GetStorage()->Symbol());
-    const TileShape &tileShape = Program::GetInstance().GetTileShape();
+    const TileShape &tileShape = TileShape::Current();
     CommGroupInfo groupInfo(group, tileShape);
     DistTensorTilingInfo tileInfo(tileShape, 1);
     ASSERT(tileInfo.Check({tokenExpertTable.GetShape()[0] * tokenExpertTable.GetShape()[1]}));
@@ -374,7 +374,7 @@ void SendToSharedExpert(const Tensor &tokenTensor, const Tensor &tilingTensor, c
     auto &oper = function.AddOperation("SEND_TO_SHARED_EXPERT", {tokenTensor.GetStorage(), tilingTensor.GetStorage()},
         {syncTensor.GetStorage()});
     oper.SetAttr("tiling_tensor_symbol", tilingTensor.GetStorage()->Symbol());
-    const TileShape &tileShape = Program::GetInstance().GetTileShape();
+    const TileShape &tileShape = TileShape::Current();
     CommGroupInfo groupInfo(group, tileShape);
     DistTensorTilingInfo tileInfo(tileShape, 1);
     ASSERT(tileInfo.Check({tokenTensor.GetShape()[0]}));
@@ -390,7 +390,7 @@ Tensor DispatchSetFlag(const Tensor &tokenExpertTable, const Tensor &syncTensor,
     auto &oper = function.AddOperation("DISPATCH_SET_FLAG", {syncTensor.GetStorage(), tokenExpertTable.GetStorage(),
         tilingTensor.GetStorage()}, {dummyTensor.GetStorage()});
     oper.SetAttr("tiling_tensor_symbol", tilingTensor.GetStorage()->Symbol());
-    const TileShape &tileShape = Program::GetInstance().GetTileShape();
+    const TileShape &tileShape = TileShape::Current();
     CommGroupInfo groupInfo(group, tileShape);
     DistTensorTilingInfo tileInfo(tileShape, 1);
     ASSERT(tileInfo.Check({TOTAL_EXPERT_NUM}) && groupInfo.CheckAndUpdate(TOTAL_EXPERT_NUM));
@@ -405,7 +405,7 @@ void CopyToLocalExpert(const Tensor &tokenTensor, const Tensor &tilingTensor, co
     auto &oper = function.AddOperation("COPY_TO_LOCAL_EXPERT", {tokenTensor.GetStorage(), tilingTensor.GetStorage()},
         {expandX.GetStorage()});
     oper.SetAttr("tiling_tensor_symbol", tilingTensor.GetStorage()->Symbol());
-    const TileShape &tileShape = Program::GetInstance().GetTileShape();
+    const TileShape &tileShape = TileShape::Current();
     DistTensorTilingInfo tileInfo(tileShape, 1);
     ASSERT(tileInfo.Check({tokenTensor.GetShape()[0]}));
     oper.SetAttr("DistTensorTilingInfo", tileInfo);
@@ -422,28 +422,27 @@ Tensor MoeDispatch(const Tensor &tokenTensor, const Tensor &tokenExpertTable, Te
     Tensor expandX(tokenTensor.GetDataType(), {(TOTAL_EXPERT_NUM) * tokenTensor.GetShape()[0],
         tokenTensor.GetShape()[1]}, "expandX");
     Tensor syncTensor(DataType::DT_INT32, {1, 1}, "syncTensor");
-    Program::GetInstance().GetTileShape().SetDistTileShapes({1, tableSize, 0});
+    TileShape::Current().SetDistTileRow({1, tableSize, 0});
     SendToRoutingExpert(tokenTensor, tokenExpertTable, tilingTensor, syncTensor, group);
 
     // 发送的专家号是固定的，通过本卡的rankId确定；这里对token的M轴进行切分，为了方便在Rank上操作
-    Program::GetInstance().GetTileShape().SetDistTileShapes({1, (int)tokenTensor.GetShape()[0], 0});
-    if (IsRoutingExpert(Program::GetInstance().GetTileShape().GetDistRankId())) {
+    TileShape::Current().SetDistTileRow({1, (int)tokenTensor.GetShape()[0], 0});
+    if (IsRoutingExpert(TileShape::Current().GetDistRankId())) {
         SendToSharedExpert(tokenTensor, tilingTensor, syncTensor, group);
     } else {
         CopyToLocalExpert(tokenTensor, tilingTensor, expandX);
     }
 
-    Program::GetInstance().GetTileShape().SetDistTileShapes({1, TOTAL_EXPERT_NUM, 0});
+    TileShape::Current().SetDistTileRow({1, TOTAL_EXPERT_NUM, 0});
     auto dummy = DispatchSetFlag(tokenExpertTable, syncTensor, tilingTensor,  group);
 
     // 48 * 48 * 512B
     Tensor recvTokenCntOut(DataType::DT_INT32, {AIV_NUM * AIV_NUM, 128},
         "recvTokenCntOut");
 
-    Program::GetInstance().GetTileShape().SetDistTileShapes(
-        {static_cast<int>(tokenTensor->shape[0]), 1, 0},
+    TileShape::Current().SetDistTile({static_cast<int>(tokenTensor->shape[0]), 1, 0},
         {static_cast<int>(tokenTensor->shape[1]), 1, 0}, // 不切 x
-        {TOTAL_EXPERT_NUM / AIV_NUM, AIV_NUM, 0}); // 暂不处理不整除的场景
+        {TOTAL_EXPERT_NUM / AIV_NUM, AIV_NUM, 0});       // 暂不处理不整除的场景
 
     std::vector<std::shared_ptr<LogicalTensor>> schedInOperands {dummy.GetStorage(), tilingTensor.GetStorage()};
     std::vector<std::shared_ptr<LogicalTensor>> schedOutOperands {recvTokenCntOut.GetStorage()};

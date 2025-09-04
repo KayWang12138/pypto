@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file tile_fwk_op_registry.h
+ * \file op_registry.h
  * \brief
  */
 
@@ -17,7 +17,9 @@
 
 #include <map>
 #include <vector>
-#include "tilefwk/tensor.h"
+#include <cstdint>
+#include <memory>
+#include <string>
 
 namespace npu::tile_fwk {
 using OpImplFunc = void (*)(uint64_t);
@@ -32,6 +34,7 @@ public:
     void AddImplFunc(const uint64_t configKey, const OpImplFunc implFunc);
     std::vector<uint64_t> GetAllConfigKeys() const;
     OpImplFunc GetOpImplFunc(const uint64_t configKey) const;
+
 private:
     std::string opType_;
     std::map<uint64_t, OpImplFunc> implFuncMap_;
@@ -44,6 +47,7 @@ public:
     OpImplRegisterPtr CreateOrGetOpRegister(const std::string &opType);
     OpImplFunc GetOpImplFunc(const std::string &opType, const uint64_t configKey) const;
     std::vector<uint64_t> GetAllConfigKeys(const std::string &opType) const;
+
 private:
     OpImplRegistry() {}
     ~OpImplRegistry() {}
@@ -56,13 +60,14 @@ public:
     ~OpImplRegistHelper();
     OpImplRegistHelper &ImplFunc(const std::map<uint64_t, OpImplFunc> &implFuncMap);
     OpImplRegistHelper &ImplFunc(const uint64_t configKey, const OpImplFunc keyToFunc);
+
 private:
     OpImplRegisterPtr opRegister_;
 };
-}
+} // namespace npu::tile_fwk
 
 #define VAR_UNUSED __attribute__((unused))
 #define REGISTER_OP_COUNTER(opType, name, counter) \
-  static npu::tile_fwk::OpImplRegistHelper VAR_UNUSED name##counter = npu::tile_fwk::OpImplRegistHelper(#opType)
+    static npu::tile_fwk::OpImplRegistHelper VAR_UNUSED name##counter = npu::tile_fwk::OpImplRegistHelper(#opType)
 #define REGISTER_OP_COUNTER_NUMBER(opType, name, counter) REGISTER_OP_COUNTER(opType, name, counter)
 #define REGISTER_OP(opType) REGISTER_OP_COUNTER_NUMBER(opType, op_impl_reg_##opType, __COUNTER__)

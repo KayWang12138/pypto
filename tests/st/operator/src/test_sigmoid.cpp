@@ -33,7 +33,7 @@ TEST_F(SigmoidTest, test_32_32_tileop_sigmoid) {
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("SIGMOID") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16});
+        TileShape::Current().SetVecTile({16, 16});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
@@ -69,7 +69,7 @@ TEST_F(SigmoidTest, test_32_256_tileop_sigmoid_realcase) {
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("SIGMOID") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 32});
+        TileShape::Current().SetVecTile({16, 32});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
@@ -106,7 +106,7 @@ TEST_F(SigmoidTest, test_2_32_32_tileop_sigmoid) {
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("SIGMOID") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16, 16});
+        TileShape::Current().SetVecTile({16, 16, 16});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
@@ -144,7 +144,7 @@ TEST_F(SigmoidTest, test_2_2_32_32_tileop_sigmoid) {
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("SIGMOID") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16, 16, 16});
+        TileShape::Current().SetVecTile({16, 16, 16, 16});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");

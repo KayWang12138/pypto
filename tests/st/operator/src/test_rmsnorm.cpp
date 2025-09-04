@@ -33,7 +33,7 @@ TEST_F(RmsNormTest, test_32_32_tileop_rmsnorm) {
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("RMSNORM") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16});
+        TileShape::Current().SetVecTile({16, 16});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
@@ -70,7 +70,7 @@ TEST_F(RmsNormTest, test_2_32_32_tileop_rmsnorm) {
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("RMSNORM") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 16, 16});
+        TileShape::Current().SetVecTile({1, 16, 16});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
@@ -108,7 +108,7 @@ TEST_F(RmsNormTest, test_2_2_32_32_tileop_rmsnorm) {
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("RMSNORM") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 16, 16});
+        TileShape::Current().SetVecTile({1, 1, 16, 16});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
@@ -144,7 +144,7 @@ TEST_F(RmsNormTest, test_32_256_tileop_rmsnorm_fp16) {
     uint64_t outputSize = outputCapacity * sizeof(npu::tile_fwk::float16);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("RMSNORM") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({32, 32});
+        TileShape::Current().SetVecTile({32, 32});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP16, shape, (uint8_t *)x_ptr, "A");
@@ -180,7 +180,7 @@ TEST_F(RmsNormTest, test_32_1536_tileop_rmsnorm_fp16_realCase) {
     uint64_t outputSize = outputCapacity * sizeof(npu::tile_fwk::float16);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("RMSNORM") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({32, 128});
+        TileShape::Current().SetVecTile({32, 128});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP16, shape, (uint8_t *)x_ptr, "A");
@@ -217,7 +217,7 @@ TEST_F(RmsNormTest, test_2_32_256_tileop_rmsnorm_fp16) {
     uint64_t outputSize = outputCapacity * sizeof(npu::tile_fwk::float16);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("RMSNORM") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 8, 32});
+        TileShape::Current().SetVecTile({1, 8, 32});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", inputCapacity);
         Tensor input_a(DataType::DT_FP16, shape, (uint8_t *)x_ptr, "A");
@@ -255,7 +255,7 @@ TEST_F(RmsNormTest, test_32_1536_tileop_rmsnorm_gamma_fp16_realCase) {
     uint64_t outputSize = outputCapacity * sizeof(npu::tile_fwk::float16);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("RMSNORM") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({32, 128});
+        TileShape::Current().SetVecTile({32, 128});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", inputCapacity);
         void *gamma_ptr = readToDev(GetGoldenDir() + "/gamma.bin", inputGammaCapacity);
@@ -296,7 +296,7 @@ TEST_F(RmsNormTest, test_2_1_512_tileop_rmsnorm_gamma_fp16_realCase) {
     uint64_t outputSize = outputCapacity * sizeof(npu::tile_fwk::float16);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("RMSNORM") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({2, 1, 512});
+        TileShape::Current().SetVecTile({2, 1, 512});
 
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", inputCapacity);
         void *gamma_ptr = readToDev(GetGoldenDir() + "/gamma.bin", inputGammaCapacity);

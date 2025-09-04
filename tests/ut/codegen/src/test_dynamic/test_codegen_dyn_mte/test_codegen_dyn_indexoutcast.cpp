@@ -60,7 +60,7 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
     std::vector<int64_t> shape1 = {1, S};
     std::vector<int64_t> shape2 = {S, kvLoraRank + qkRopeHeadDim}; // [1, 16]
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16);
+    TileShape::Current().SetVecTile(16, 16);
     auto shapeImme = OpImmediate::Specified({16, 16});
 
     Tensor kv_len(DataType::DT_INT64, shape1, "kv_len");
@@ -110,7 +110,7 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
 }
 
 TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes({32, 32});
+    TileShape::Current().SetVecTile({32, 32});
 
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy",

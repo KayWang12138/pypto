@@ -43,7 +43,7 @@ public:
 };
 
 TEST_F(TestSplitReshapeOpPVC2, test_reshape_assemble_multito1) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(8, 8, 8, 8);
+    TileShape::Current().SetVecTile(8, 8, 8, 8);
     Function *currentFunction;
     config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", "USE_MAX_FREQ_LABEL", true);
 
@@ -51,10 +51,10 @@ TEST_F(TestSplitReshapeOpPVC2, test_reshape_assemble_multito1) {
     Tensor res1;
 
     FUNCTION("test_reshape_assemble_multito1") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 64);
+        TileShape::Current().SetVecTile(1, 64);
         Tensor res = Exp(input);
         Tensor test = Reshape(res, {1, 1, 2, 192});
-        Program::GetInstance().GetTileShape().SetVecTileShapes(2, 1, 2, 64);
+        TileShape::Current().SetVecTile(2, 1, 2, 64);
         res1 = Exp(test);
         currentFunction = Program::GetInstance().GetCurrentFunction();
     }
@@ -77,7 +77,7 @@ TEST_F(TestSplitReshapeOpPVC2, test_reshape_assemble_multito1) {
 TEST_F(TestSplitReshapeOpPVC2, Test_Reshape_1to1) {
     Function *currentFunction;
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(8, 8, 8, 8);
+    TileShape::Current().SetVecTile(8, 8, 8, 8);
     Tensor input(DT_FP32, {8, 16, 16}, "a");
     Tensor res1;
 
@@ -106,7 +106,7 @@ TEST_F(TestSplitReshapeOpPVC2, Test_Reshape_1to1) {
 TEST_F(TestSplitReshapeOpPVC2, Test_Reshape_1toMulti) {
     Function *currentFunction;
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(8, 8, 8, 8, 8);
+    TileShape::Current().SetVecTile(8, 8, 8, 8, 8);
     Tensor input(DT_FP32, {16, 4, 4}, "a");
     Tensor res1;
 
@@ -135,7 +135,7 @@ TEST_F(TestSplitReshapeOpPVC2, Test_Reshape_1toMulti) {
 TEST_F(TestSplitReshapeOpPVC2, Test_Reshape_multito1) {
     Function *currentFunction;
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(8, 8, 8, 8);
+    TileShape::Current().SetVecTile(8, 8, 8, 8);
     Tensor input(DT_FP32, {8, 16, 16}, "a");
     Tensor res1;
 

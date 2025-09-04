@@ -21,7 +21,7 @@
 #include "tilefwk/tensor.h"
 #include "interface/configs/config_storage.h"
 #include "opcode.h"
-#include "common/tile_shape.h"
+#include "tilefwk/tile_shape.h"
 
 namespace npu::tile_fwk {
 enum class CastOpType {
@@ -102,12 +102,12 @@ const std::string A_MUL_B_ACT_N = OP_ATTR_PREFIX + "act_n";
 
 struct L1DataLoadParam {
     const LogicalTensorPtr &cTilePtr;
-    const int &mL1Idx;
-    const int &nL1Idx;
-    const int &stepK;
-    const int &mL1Size;
-    const int &nL1Size;
-    const int &orgK;
+    const int64_t mL1Idx;
+    const int64_t nL1Idx;
+    const int64_t stepK;
+    const int64_t mL1Size;
+    const int64_t nL1Size;
+    const int64_t orgK;
 };
 
 struct CollectSubAMulBPara {

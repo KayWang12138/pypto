@@ -75,12 +75,12 @@ void AllGatherDyn(const Tensor &in, const char *group, Tensor &out)
 {
     FunctionConfig funConfig;
     FUNCTION("ALLGATHER", funConfig, {in}, {out}) {
-        Program::GetInstance().GetTileShape().SetDistTileShapes(
+        TileShape::Current().SetDistTile(
             {128, 1, 0},
             {256, 1, 0},
             {1, 4, 0});
         int groupIndex = static_cast<int>(Program::GetInstance().GetCommGroupRecorder().Input(std::string(group)));
-        const TileShape &tileShape = Program::GetInstance().GetTileShape();
+        const TileShape &tileShape = TileShape::Current();
         auto rankShape = tileShape.GetDistTileRank();
         int rankSize = rankShape[0] * rankShape[1] + rankShape[2];
 

@@ -49,8 +49,8 @@ TEST_F(TestDistributedAllGather, TestAllGatherDyn)
 {
     const char *group = "hcom123";
 
-    Program::GetInstance().GetTileShape().SetDistTileShapes({16, 1, 0}, {32, 1, 0}, {2, 1, 0});
-    Program::GetInstance().GetTileShape().SpecifyStaticRankId(0);
+    TileShape::Current().SetDistTile({16, 1, 0}, {32, 1, 0}, {2, 1, 0});
+    TileShape::Current().SetDistRankId(0);
 
     Tensor in(DT_FP16, {16, 32}, "in");
     Tensor out(DT_FP16, {32, 32}, "out");

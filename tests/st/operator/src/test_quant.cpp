@@ -55,8 +55,8 @@ TEST_F(QuantTest, Test_quant) {
     Tensor input = Tensor(DataType::DT_FP16, {b * s, h}, "input");
     Tensor res;
 
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(128, s), std::min(128, s)}, {256, 256}, {64, 64});
-    Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[1]); // for Assemble
+    TileShape::Current().SetCubeTile({std::min(128, s), std::min(128, s)}, {256, 256}, {64, 64});
+    TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[1]); // for Assemble
 
     FUNCTION("A") {
         res = std::get<0>(Quant(input));
@@ -75,7 +75,7 @@ TEST_F(QuantTest, Test_ScalarDivS) {
     uint64_t outSize = 0;
     QuantPre(&out_ptr, &outSize);
     PROGRAM("Quant") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[1]);
+        TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[1]);
         void *input_ptr = readToDev(GetGoldenDir() + "/input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *) input_ptr, "input");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "res");
@@ -99,7 +99,7 @@ TEST_F(QuantTest, Test_ScalarAddS) {
     uint64_t outSize = 0;
     QuantPre(&out_ptr, &outSize);
     PROGRAM("Quant") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[1]);
+        TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[1]);
         void *input_ptr = readToDev(GetGoldenDir() + "/input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *) input_ptr, "input");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "res");
@@ -123,7 +123,7 @@ TEST_F(QuantTest, Test_ScalarSubS) {
     uint64_t outSize = 0;
     QuantPre(&out_ptr, &outSize);
     PROGRAM("Quant") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[1]);
+        TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[1]);
         void *input_ptr = readToDev(GetGoldenDir() + "/input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *) input_ptr, "input");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "res");
@@ -147,7 +147,7 @@ TEST_F(QuantTest, Test_ScalarMulS) {
     uint64_t outSize = 0;
     QuantPre(&out_ptr, &outSize);
     PROGRAM("Quant") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[1]);
+        TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[1]);
         void *input_ptr = readToDev(GetGoldenDir() + "/input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *) input_ptr, "input");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "res");
@@ -171,7 +171,7 @@ TEST_F(QuantTest, Test_ScalarMaxS) {
     uint64_t outSize = 0;
     QuantPre(&out_ptr, &outSize);
     PROGRAM("Quant") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[1]);
+        TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[1]);
         void *input_ptr = readToDev(GetGoldenDir() + "/input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *) input_ptr, "input");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "res");
@@ -195,7 +195,7 @@ TEST_F(QuantTest, Test_ScalarOp) {
     uint64_t outSize = 0;
     QuantPre(&out_ptr, &outSize);
     PROGRAM("Quant") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[1]);
+        TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[1]);
         void *input_ptr = readToDev(GetGoldenDir() + "/input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *) input_ptr, "input");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "res");

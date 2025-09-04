@@ -49,7 +49,7 @@ TEST_F(TestCodegenDynScalar, TestScalarAdds) {
     int s = 1; // 1, optimize set_tile
     std::vector<int64_t> shape{b * s, 35};
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[1]);
+    TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[1]);
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, shape, "res");
     std::string funcName = "ScalarAddS";
@@ -87,7 +87,7 @@ TEST_F(TestCodegenDynScalar, TestScalarDivs) {
     int s = 1; // 1, optimize set_tile
     std::vector<int64_t> shape{s, b * s, 35};
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[1], vecTileShape[2]);
+    TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[1], vecTileShape[2]);
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, shape, "res");
     std::string funcName = "ScalarDivS";

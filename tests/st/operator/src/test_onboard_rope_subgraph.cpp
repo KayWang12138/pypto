@@ -72,7 +72,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3) {
 
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("RoPE", funConfig, {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed}) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, 64});
+            TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
             int b = kPe->shape[0];
@@ -173,7 +173,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_fp16) {
 
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("RoPE", funConfig, {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed}) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, 64});
+            TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
             int b = kPe->shape[0];
@@ -257,7 +257,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_fp16_2ba
 
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("RoPE", funConfig, {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed}) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, 64});
+            TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
             int b = kPe->shape[0];
@@ -341,7 +341,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_bf16) {
 
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("RoPE", funConfig, {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed}) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, 64});
+            TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
             int b = kPe->shape[0];
@@ -424,7 +424,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_bf16_32b
 
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("RoPE", funConfig, {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed}) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, 64});
+            TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
             int b = kPe->shape[0];
@@ -508,7 +508,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_operation_rope_subgraph_deepseekv3_bf16_2ba
 
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("RoPE", funConfig, {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed}) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, 64});
+            TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
             int b = kPe->shape[0];
@@ -618,7 +618,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_CD_bf16_32batch) {
 
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("RoPE", funConfig, {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed, past_key_states, compressed_kv, kv_len}) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, 64});
+            TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
             int b = kPe->shape[0];
@@ -629,14 +629,14 @@ TEST_F(RoPESubGraphOnBoardTest, test_CD_bf16_32batch) {
             auto kPeReshape = Reshape(kPe, {b, 1, s, d}); // [b,s,d]->[b,1,s,d]
             ApplyRotaryPosEmb(qPeTrans, kPeReshape, cos, sin, positionIds, qEmbed, kEmbed, 1, ropeTileConfig);
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 128, 128);
+            TileShape::Current().SetVecTile(1, 1, 128, 128);
             Tensor k_nope = RmsNorm(compressed_kv); // (B, S, kvLoraRank)
             Tensor k_nope_new = Reshape(k_nope, {B, 1, S, kvLoraRank}); // (B,1,S,kvLoraRank)
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 1, 64); // 此处如果不设置tile 会有精度问题 reshape+concat图生成不对
+            TileShape::Current().SetVecTile(1, 1, 1, 64); // 此处如果不设置tile 会有精度问题 reshape+concat图生成不对
 
             Tensor key_states = Concat({k_nope_new, kEmbed}, -1); // (B,1,S, kvLoraRank + qkRopeHeadDim)
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 512, 64);
+            TileShape::Current().SetVecTile(1, 1, 512, 64);
             past_key_states = ScatterUpdate(past_key_states, kv_len, key_states, -2);
 
 
@@ -746,7 +746,7 @@ TEST_F(RoPESubGraphOnBoardTest, test_CD_bf16_32batch_4k) {
 
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("RoPE", funConfig, {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed, past_key_states, compressed_kv, kv_len}) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, 64});
+            TileShape::Current().SetVecTile({1, 1, 32, 64});
             auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
             int b = kPe->shape[0];
@@ -757,14 +757,14 @@ TEST_F(RoPESubGraphOnBoardTest, test_CD_bf16_32batch_4k) {
             auto kPeReshape = Reshape(kPe, {b, 1, s, d}); // [b,s,d]->[b,1,s,d]
             ApplyRotaryPosEmb(qPeTrans, kPeReshape, cos, sin, positionIds, qEmbed, kEmbed, 1, ropeTileConfig);
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 128, 128);
+            TileShape::Current().SetVecTile(1, 1, 128, 128);
             Tensor k_nope = RmsNorm(compressed_kv); // (B, S, kvLoraRank)
             Tensor k_nope_new = Reshape(k_nope, {B, 1, S, kvLoraRank}); // (B,1,S,kvLoraRank)
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 1, 64); // 此处如果不设置tile 会有精度问题 reshape+concat图生成不对
+            TileShape::Current().SetVecTile(1, 1, 1, 64); // 此处如果不设置tile 会有精度问题 reshape+concat图生成不对
 
             Tensor key_states = Concat({k_nope_new, kEmbed}, -1); // (B,1,S, kvLoraRank + qkRopeHeadDim)
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 512, 64);
+            TileShape::Current().SetVecTile(1, 1, 512, 64);
             past_key_states = ScatterUpdate(past_key_states, kv_len, key_states, -2);
 
         }

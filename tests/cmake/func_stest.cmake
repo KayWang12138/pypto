@@ -353,6 +353,13 @@ function(TileFwk_STest_AddExe_RunExe)
     list(REMOVE_DUPLICATES GTestFilterList)
     list(REMOVE_DUPLICATES TileFwkSTestCaseLdLibrariesExt)
 
+    if (NOT "$ENV{GTEST_START}" STREQUAL "")
+        list(FIND GTestFilterList $ENV{GTEST_START} idx)
+        if (NOT ${idx} EQUAL -1)
+            list(SUBLIST GTestFilterList ${idx} -1 GTestFilterList)
+        endif ()
+    endif ()
+
     # AICPU Binary Copy
     TileFwk_STest_RunExe_CopyAiCpuBinary(TARGET ${TMP_TARGET})
 

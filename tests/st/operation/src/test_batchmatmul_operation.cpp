@@ -122,10 +122,10 @@ static void BatchMatmulOperationExeFuncNoSplit(
             tileParam.aOffset[inputDim - 1] = mIdx;
             Tensor tensorA = View(inputs[0], inputs[0]->shape, tileParam.aValidShape, tileParam.aOffset);
             Tensor tensorB = View(inputs[1], inputs[1]->shape, tileParam.bValidShape, tileParam.bOffset);
-            Program::GetInstance().GetTileShape().SetCubeTileShapes({args->tileShape_[0][0], args->tileShape_[0][1]},
+            TileShape::Current().SetCubeTile({args->tileShape_[0][0], args->tileShape_[0][1]},
                 {args->tileShape_[1][0], args->tileShape_[1][1]}, {args->tileShape_[2][0], args->tileShape_[2][1]});
             if (args->param_.isAMatrixNz || args->param_.isBMatrixNz || args->param_.isCMatrixNz) {
-                Program::GetInstance().GetMatrixSize().SetMatrixSize({tileParam.mDim, tileParam.kDim, tileParam.nDim});
+                TileShape::Current().SetMatrixSize({tileParam.mDim, tileParam.kDim, tileParam.nDim});
             }
             outputs[0] = CallBatchMatmulOp(tensorA, tensorB, args->param_);
         }
@@ -162,11 +162,11 @@ static void BatchMatmulOperationExeFuncSplitM(
             tileParam.bOffset.insert(tileParam.bOffset.end(), {0, 0});
             Tensor tensorB = View(inputs[1], inputs[1]->shape, tileParam.bValidShape, tileParam.bOffset);
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(tileParam.vecTileShape);
-            Program::GetInstance().GetTileShape().SetCubeTileShapes({args->tileShape_[0][0], args->tileShape_[0][1]},
+            TileShape::Current().SetVecTile(tileParam.vecTileShape);
+            TileShape::Current().SetCubeTile({args->tileShape_[0][0], args->tileShape_[0][1]},
                 {args->tileShape_[1][0], args->tileShape_[1][1]}, {args->tileShape_[2][0], args->tileShape_[2][1]});
             if (args->param_.isAMatrixNz || args->param_.isBMatrixNz || args->param_.isCMatrixNz) {
-                Program::GetInstance().GetMatrixSize().SetMatrixSize({tileParam.mDim, tileParam.kDim, tileParam.nDim});
+                TileShape::Current().SetMatrixSize({tileParam.mDim, tileParam.kDim, tileParam.nDim});
             }
             Tensor tensorC = CallBatchMatmulOp(tensorA, tensorB, args->param_);
             tileParam.cOffset.insert(tileParam.cOffset.end(), {mIdx * tileParam.mView, 0});
@@ -204,11 +204,11 @@ static void BatchMatmulOperationExeFuncSplitN(
             }
             Tensor tensorB = View(inputs[1], tileParam.bViewShape, tileParam.bValidShape, tileParam.bOffset);
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(tileParam.vecTileShape);
-            Program::GetInstance().GetTileShape().SetCubeTileShapes({args->tileShape_[0][0], args->tileShape_[0][1]},
+            TileShape::Current().SetVecTile(tileParam.vecTileShape);
+            TileShape::Current().SetCubeTile({args->tileShape_[0][0], args->tileShape_[0][1]},
                 {args->tileShape_[1][0], args->tileShape_[1][1]}, {args->tileShape_[2][0], args->tileShape_[2][1]});
             if (args->param_.isAMatrixNz || args->param_.isBMatrixNz || args->param_.isCMatrixNz) {
-                Program::GetInstance().GetMatrixSize().SetMatrixSize({tileParam.mDim, tileParam.kDim, tileParam.nDim});
+                TileShape::Current().SetMatrixSize({tileParam.mDim, tileParam.kDim, tileParam.nDim});
             }
             Tensor tensorC = CallBatchMatmulOp(tensorA, tensorB, args->param_);
             tileParam.cOffset.insert(tileParam.cOffset.end(), {0, nIdx * tileParam.nView});
@@ -258,13 +258,11 @@ static void BatchMatmulOperationExeFuncSplitMN(
                 }
                 Tensor tensorB = View(inputs[1], tileParam.bViewShape, tileParam.bValidShape, tileParam.bOffset);
 
-                Program::GetInstance().GetTileShape().SetVecTileShapes(tileParam.vecTileShape);
-                Program::GetInstance().GetTileShape().SetCubeTileShapes(
-                    {args->tileShape_[0][0], args->tileShape_[0][1]}, {args->tileShape_[1][0], args->tileShape_[1][1]},
-                    {args->tileShape_[2][0], args->tileShape_[2][1]});
+                TileShape::Current().SetVecTile(tileParam.vecTileShape);
+                TileShape::Current().SetCubeTile({args->tileShape_[0][0], args->tileShape_[0][1]},
+                    {args->tileShape_[1][0], args->tileShape_[1][1]}, {args->tileShape_[2][0], args->tileShape_[2][1]});
                 if (args->param_.isAMatrixNz || args->param_.isBMatrixNz || args->param_.isCMatrixNz) {
-                    Program::GetInstance().GetMatrixSize().SetMatrixSize(
-                        {tileParam.mDim, tileParam.kDim, tileParam.nDim});
+                    TileShape::Current().SetMatrixSize({tileParam.mDim, tileParam.kDim, tileParam.nDim});
                 }
                 Tensor tensorC = CallBatchMatmulOp(tensorA, tensorB, args->param_);
                 tileParam.cOffset.insert(tileParam.cOffset.end(), {mIdx * tileParam.mView, nIdx * tileParam.nView});

@@ -18,3 +18,6 @@
 #include "tilefwk/symbolic_scalar.h"
 #include "tilefwk/function.h"
 #include "tilefwk/config.h"
+#include "tilefwk/tile_shape.h"
+#include "tilefwk/error.h"
+#include "tilefwk/tensor.h"

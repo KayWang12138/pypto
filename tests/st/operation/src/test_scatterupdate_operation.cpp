@@ -53,14 +53,14 @@ static void ScatterUpdateOperationExeFunc4Dims(
         const int64_t sloop = CeilDiv(s, sViewShape);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                TileShape::Current().SetVecTile(args->tileShape_);
                 Tensor srcView = View(inputs[0], {bViewShape, sViewShape, n, d}, {std::min(b - bIdx * bViewShape, bViewShape),
                     std::min(s - sIdx * sViewShape, sViewShape), n, d}, {bIdx * bViewShape, sIdx * sViewShape, 0, 0});
                 Tensor indexView = View(inputs[1], {bViewShape, sViewShape}, {std::min(b - bIdx * bViewShape, bViewShape),
                     std::min(s - sIdx * sViewShape, sViewShape)}, {bIdx * bViewShape, sIdx * sViewShape});
                 Tensor dst = View(inputs[2], inputs[2].GetShape(), {0,0,0,0});
                 dst = ScatterUpdate(dst, indexView, srcView, -2, "PA_BSND", 1);
-                Program::GetInstance().GetTileShape().SetVecTileShapes({1,64,1,d});
+                TileShape::Current().SetVecTile({1, 64, 1, d});
                 Assemble(dst, {0, 0, 0, 0}, outputs[0]);
             }
         }
@@ -82,14 +82,14 @@ static void ScatterUpdateOperationExeFunc2Dims(
         const int64_t bsViewShape = bViewShape * s;
         const int64_t bloop = CeilDiv(b, bViewShape);
         LOOP("LOOP_L0_bsIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+            TileShape::Current().SetVecTile(args->tileShape_);
             Tensor srcView = View(inputs[0], {bsViewShape, d},
                 {std::min(bs - bIdx * bsViewShape, bsViewShape), d}, {bIdx * bsViewShape, 0});
             Tensor indexView = View(inputs[1], {bViewShape, s},
                 {std::min(b - bIdx * bViewShape, bViewShape), s}, {bIdx * bViewShape, 0});
             Tensor dst = View(inputs[2], inputs[2].GetShape(), {0,0});
             dst = ScatterUpdate(dst, indexView, srcView, -2, "PA_BSND", 1);
-            Program::GetInstance().GetTileShape().SetVecTileShapes({32,d});
+            TileShape::Current().SetVecTile({32, d});
             Assemble(dst, {0, 0}, outputs[0]);
         }
     }

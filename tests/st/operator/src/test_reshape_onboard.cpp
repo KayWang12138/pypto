@@ -32,7 +32,7 @@ TEST_F(OnBoardTest, test_operation_gm_reshape) {
         void *x_r_ptr = readToDev(GetGoldenDir() + "/reshapegm_x_r.bin", capacity_8_8_8);
         // void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_8_8);
         void *y_ptr = readToDev(GetGoldenDir() + "/reshapegm_y.bin", capacity_8_8_8);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 16, 40});
+        TileShape::Current().SetVecTile({4, 16, 40});
         Tensor input_a_r(DataType::DT_FP32, {64, 8}, (uint8_t *)x_r_ptr, "A_R");
         // Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
 
@@ -70,7 +70,7 @@ TEST_F(OnBoardTest, test_operation_ub_reshape) {
         void *x_r_ptr = readToDev(GetGoldenDir() + "/reshapeub_x_r.bin", capacity_8_8_8);
         // void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_8_8);
         void *y_ptr = readToDev(GetGoldenDir() + "/reshapeub_y.bin", capacity_8_8_8);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({64, 8, 8});
+        TileShape::Current().SetVecTile({64, 8, 8});
         Tensor input_a_r(DataType::DT_FP32, {64, 16}, (uint8_t *)x_r_ptr, "A_R");
         // Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
 
@@ -108,7 +108,7 @@ TEST_F(OnBoardTest, test_operation_gm_reshape_2dimto3dim) {
         void *x_r_ptr = readToDev(GetGoldenDir() + "/reshapeub_x_r.bin", capacity);
         // void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity);
         void *y_ptr = readToDev(GetGoldenDir() + "/reshapeub_y.bin", capacity);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 32, 32});
+        TileShape::Current().SetVecTile({8, 32, 32});
         Tensor input_a_r(DataType::DT_FP32, {16, 64}, (uint8_t *)x_r_ptr, "A_R");
         // Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
 
@@ -146,7 +146,7 @@ TEST_F(OnBoardTest, test_operation_ub_reshape_3dimto2dim) {
         void *x_r_ptr = readToDev(GetGoldenDir() + "/reshapeub_x_r.bin", capacity);
         // void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity);
         void *y_ptr = readToDev(GetGoldenDir() + "/reshapeub_y.bin", capacity);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 32, 8, 8});
+        TileShape::Current().SetVecTile({16, 32, 8, 8});
         Tensor input_a_r(DataType::DT_FP32, {32, 8 ,8}, (uint8_t *)x_r_ptr, "A_R");
         // Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
@@ -184,7 +184,7 @@ TEST_F(OnBoardTest, test_operation_ub_withoutreshape_3dimto2dim) {
         void *x_r_ptr = readToDev(GetGoldenDir() + "/reshapeub_x_r.bin", capacity_8_8_8);
         // void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_8_8);
         void *y_ptr = readToDev(GetGoldenDir() + "/reshapeub_y.bin", capacity_8_8_8);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 32, 8, 8});
+        TileShape::Current().SetVecTile({16, 32, 8, 8});
         Tensor input_a_r(DataType::DT_FP32, {16, 64}, (uint8_t *)x_r_ptr, "A_R");
         // Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
@@ -232,9 +232,9 @@ TEST_F(OnBoardTest, test_reshape_matmul_mul) {
     PROGRAM("RESHAPE_WITH_MM") {
         Program::GetInstance().GetConfig().Reset();
         constexpr AttentionCubeTileConfig TEMP_DFS_CUBE_CFG = {32, 32, 32, 32, 32, 32, 32, 32};
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({TEMP_DFS_CUBE_CFG.c1L0, TEMP_DFS_CUBE_CFG.c1L1M},
+        TileShape::Current().SetCubeTile({TEMP_DFS_CUBE_CFG.c1L0, TEMP_DFS_CUBE_CFG.c1L1M},
             {TEMP_DFS_CUBE_CFG.c1L0, TEMP_DFS_CUBE_CFG.c1L1K}, {TEMP_DFS_CUBE_CFG.c1L0, TEMP_DFS_CUBE_CFG.c1L1N});
-        Program::GetInstance().GetTileShape().SetVecTileShapes({32, 32, 32});
+        TileShape::Current().SetVecTile({32, 32, 32});
 
         Tensor A_R(DataType::DT_FP16, {8, 8, 64}, (uint8_t *)a_r_ptr, "A_R");
         Tensor B(DataType::DT_FP16, b_shape, (uint8_t *)b_ptr, "B");

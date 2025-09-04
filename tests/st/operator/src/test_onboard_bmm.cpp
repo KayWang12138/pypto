@@ -106,91 +106,91 @@ void TestBatchMatmul4D(std::vector<int64_t> shape_a, std::vector<int64_t>shape_b
 }
 
 TEST_F(OnBoardTest, test_BMM_Simple) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
     std::vector<int64_t> mat_a_shape = {2, 32, 128};
     std::vector<int64_t> mat_b_shape = {2, 128, 512};
     TestBatchMatmul3D<npu::tile_fwk::float16, float>(mat_a_shape, mat_b_shape, GetGoldenDir());
 }
 
 TEST_F(OnBoardTest, test_BMM_Simple_FP32_BT) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16}, {32, 32}, {16, 16});
+    TileShape::Current().SetCubeTile({16, 16}, {32, 32}, {16, 16});
     std::vector<int64_t> mat_a_shape = {1, 16, 32};
     std::vector<int64_t> mat_b_shape = {1, 32, 16};
     TestBatchMatmul3D<float, float, true>(mat_a_shape, mat_b_shape, GetGoldenDir());
 }
 
 TEST_F(OnBoardTest, test_BMM_Simple_FP32) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16}, {32, 32}, {32, 32});
+    TileShape::Current().SetCubeTile({16, 16}, {32, 32}, {32, 32});
     std::vector<int64_t> mat_a_shape = {1, 32, 32};
     std::vector<int64_t> mat_b_shape = {1, 32, 32};
     TestBatchMatmul3D<float, float, false>(mat_a_shape, mat_b_shape, GetGoldenDir());
 }
 
 TEST_F(OnBoardTest, test_BMM_Simple_FP32_256_256) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     std::vector<int64_t> mat_a_shape = {1, 256, 256};
     std::vector<int64_t> mat_b_shape = {1, 256, 256};
     TestBatchMatmul3D<float, float, false>(mat_a_shape, mat_b_shape, GetGoldenDir());
 }
 
 TEST_F(OnBoardTest, test_BMM_UNALIGN_2_1024_32) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16}, {128, 128}, {32, 32});
+    TileShape::Current().SetCubeTile({16, 16}, {128, 128}, {32, 32});
     std::vector<int64_t>  mat_a_shape = {2, 1, 1024};
     std::vector<int64_t>  mat_b_shape = {2, 1024, 32};
     TestBatchMatmul3D<npu::tile_fwk::float16, float>(mat_a_shape, mat_b_shape, GetGoldenDir());
 }
 
 TEST_F(OnBoardTest, test_BMM_UNALIGN_32_4_128_512) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({16, 16}, {128, 128}, {128, 128});
     std::vector<int64_t>  mat_a_shape = {32, 4, 128};
     std::vector<int64_t>  mat_b_shape = {32, 128, 512};
     TestBatchMatmul3D<npu::tile_fwk::float16, npu::tile_fwk::float16>(mat_a_shape, mat_b_shape, GetGoldenDir());
 }
 
 TEST_F(OnBoardTest, test_BMM_BF16) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({64, 64}, {64, 64}, {64, 64});
+    TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
     std::vector<int64_t> mat_a_shape = {2, 64, 64};
     std::vector<int64_t> mat_b_shape = {2, 64, 64};
     TestBatchMatmul3D<npu::tile_fwk::bfloat16, npu::tile_fwk::bfloat16>(mat_a_shape, mat_b_shape, GetGoldenDir());
 }
 
 TEST_F(OnBoardTest, test_BMM_post) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
     std::vector<int64_t>    mat_a_shape = {32, 32, 512};
     std::vector<int64_t>    mat_b_shape = {32, 512, 128};
     TestBatchMatmul3D<npu::tile_fwk::float16, npu::tile_fwk::float16>(mat_a_shape, mat_b_shape, GetGoldenDir());
 }
 
 TEST_F(OnBoardTest, test_BMM_3D_Brc) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({16, 16}, {128, 128}, {128, 128});
     std::vector<int64_t>    mat_a_shape = {2, 16, 256};
     std::vector<int64_t>    mat_b_shape = {1, 256, 128};
     TestBatchMatmul3D<npu::tile_fwk::float16, float>(mat_a_shape, mat_b_shape, GetGoldenDir());
 }
 
 TEST_F(OnBoardTest, test_BMM_3D_Brc_Transpose) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16}, {64, 64}, {32, 32});
+    TileShape::Current().SetCubeTile({16, 16}, {64, 64}, {32, 32});
     std::vector<int64_t>    mat_a_shape = {2, 64, 256};
     std::vector<int64_t>    mat_b_shape = {1, 128, 256};
     TestBatchMatmul3D<npu::tile_fwk::float16, float, true>(mat_a_shape, mat_b_shape, GetGoldenDir());
 }
 
 TEST_F(OnBoardTest, test_BMM_4D_Brc) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {128, 128}, {64, 64});
+    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {64, 64});
     std::vector<int64_t>    mat_a_shape = {2, 2, 128, 128};
     std::vector<int64_t>    mat_b_shape = {2, 1, 128, 64};
     TestBatchMatmul4D<npu::tile_fwk::float16, float>(mat_a_shape, mat_b_shape, GetGoldenDir());
 }
 
 TEST_F(OnBoardTest, test_BMM_4D_Brc_Transpose) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({64, 64}, {64, 64}, {32, 32});
+    TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {32, 32});
     std::vector<int64_t>    mat_a_shape = {2, 2, 128, 128};
     std::vector<int64_t>    mat_b_shape = {2, 1, 64, 128};
     TestBatchMatmul4D<npu::tile_fwk::float16, float, true>(mat_a_shape, mat_b_shape, GetGoldenDir());
 }
 
 TEST_F(OnBoardTest, test_BMM_9_16_7168_2048) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
     std::vector<int64_t>  mat_a_shape = {1, 16, 7168};
     std::vector<int64_t>  mat_b_shape = {9, 7168, 2048};
     TestBatchMatmul3D<npu::tile_fwk::float16, npu::tile_fwk::float16, true>(mat_a_shape, mat_b_shape, GetGoldenDir());
@@ -271,7 +271,7 @@ void TestBatchMatmulA8W8O32ACC(std::vector<int64_t> shape_a_in, std::vector<int6
 
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("BATCHMATMUL", funConfig, {matA, matB, matC}) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes(64, 64);
+            TileShape::Current().SetVecTile(64, 64);
             Tensor tmpc(DT_FP32, shape_c, "tmpC");
             tmpc = MulS(tmpc, Element(DataType::DT_FP32, 0.0f));
             Tensor tmpcInt(DT_FP32, shape_c, "tmpC");
@@ -300,21 +300,21 @@ void TestBatchMatmulA8W8O32ACC(std::vector<int64_t> shape_a_in, std::vector<int6
 
 
 TEST_F(OnBoardTest, test_BMM_Simple_A8W8O32) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     std::vector<int64_t>  mat_a_shape = {1, 32, 64};
     std::vector<int64_t>  mat_b_shape = {1, 64, 64};
     TestBatchMatmulA8W8O32<int8_t, int32_t, false>(mat_a_shape, mat_b_shape);
 }
 
 TEST_F(OnBoardTest, test_BMM_Simple_A8W8O32_4_4_64_64) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     std::vector<int64_t>  mat_a_shape = {4, 4, 64};
     std::vector<int64_t>  mat_b_shape = {4, 64, 64};
     TestBatchMatmulA8W8O32<int8_t, int32_t, false>(mat_a_shape, mat_b_shape);
 }
 
 TEST_F(OnBoardTest, test_BMM_Simple_A8W8O32_1_4_4096_7168) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     std::vector<int64_t>  mat_a_shape = {1, 4, 4096};
     std::vector<int64_t>  mat_b_shape = {1, 4096, 7168};
     TestBatchMatmulA8W8O32<int8_t, int32_t, false>(mat_a_shape, mat_b_shape);

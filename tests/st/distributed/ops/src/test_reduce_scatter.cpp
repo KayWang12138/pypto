@@ -54,11 +54,8 @@ void TestReduceScatter(OpTestParam &testParam)
 
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("REDUCESCATTER_F", funConfig, {in, out}) {
-            Program::GetInstance().GetTileShape().SetDistTileShapes(
-                {M / 2, 2, 0},
-                {N / 2, 2, 0},
-                {1, testParam.rankSize, 0});
-            Program::GetInstance().GetTileShape().SpecifyStaticRankId(testParam.rankId);
+            TileShape::Current().SetDistTile({M / 2, 2, 0}, {N / 2, 2, 0}, {1, testParam.rankSize, 0});
+            TileShape::Current().SetDistRankId(testParam.rankId);
             out = Distributed::ReduceScatter(in, testParam.group,
                 npu::tile_fwk::Distributed::DistReduceType::DIST_REDUCE_ADD);
         }
@@ -103,11 +100,8 @@ void TestReduceScatterEx(OpTestParam &testParam)
 
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("REDUCESCATTER_EX", funConfig, paras) {
-            Program::GetInstance().GetTileShape().SetDistTileShapes(
-                {M / 2, 2, 0},
-                {N / 2, 2, 0},
-                {1, testParam.rankSize, 0});
-            Program::GetInstance().GetTileShape().SpecifyStaticRankId(testParam.rankId);
+            TileShape::Current().SetDistTile({M / 2, 2, 0}, {N / 2, 2, 0}, {1, testParam.rankSize, 0});
+            TileShape::Current().SetDistRankId(testParam.rankId);
             out = Distributed::ReduceScatter(inVec, testParam.group,
                 npu::tile_fwk::Distributed::DistReduceType::DIST_REDUCE_ADD);
         }

@@ -49,7 +49,7 @@ public:
 
 void TestAddDynBody(const std::vector<int64_t> &shape, const std::vector<int64_t> &tile_shape, const std::string &name,
     bool isNeedCalcMinForBinaryOperands = false) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tile_shape);
+    TileShape::Current().SetVecTile(tile_shape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor input_b(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
@@ -98,7 +98,7 @@ TEST_F(TestCodegenDynBinary, TestCodegenAddDim2SrcNotSameShape) {
 
 TEST_F(TestCodegenDynBinary, TestAddsDynamic) {
     std::vector<int64_t> shape = {64, 64};
-    Program::GetInstance().GetTileShape().SetVecTileShapes({64, 64});
+    TileShape::Current().SetVecTile({64, 64});
     Tensor input_a(DataType::DT_FP32, shape, "A");
     Element value(DataType::DT_FP32, 1.5);
     Tensor output(DataType::DT_FP32, shape, "C");
@@ -142,7 +142,7 @@ TEST_F(TestCodegenDynBinary, TestGatherEle) {
 
     std::vector<int64_t> inputShape = {B * S, nRoutedExperts};
     std::vector<int64_t> outputShape = {B * S, numExpertsPerTopk};
-    Program::GetInstance().GetTileShape().SetVecTileShapes({16, 32});
+    TileShape::Current().SetVecTile({16, 32});
     Tensor inputScores(DT_FP32, outputShape, "input_scores");
     Tensor inputTmpScores(DT_FP32, inputShape, "input_tmp_scores");
     Tensor outputTensor(DT_FP32, outputShape, "output_tensor");
@@ -179,7 +179,7 @@ TEST_F(TestCodegenDynBinary, TestGatherEle) {
 
 TEST_F(TestCodegenDynBinary, AddUnalignLayout) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(64, 64);
+    TileShape::Current().SetVecTile(64, 64);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_LAYOUT, true);
     // NEXTNEXT: delete after tileop adapted layout mode

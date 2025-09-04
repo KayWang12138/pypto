@@ -74,13 +74,12 @@ void ApplyRotaryPosEmbV2(const Tensor &q, const Tensor &k, const Tensor &cos, co
     assert(!ropeTileShapeConfig.fourDimsTileShapeK.empty() && "rope FourDimsK Tile need to set!");
     assert(!ropeTileShapeConfig.fiveDimsTileShape.empty() && "rope FiveDims Tile need to set!");
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileShapeConfig.fourDimsTileShapeQ); // 设置四维Tile
+    TileShape::Current().SetVecTile(ropeTileShapeConfig.fourDimsTileShapeQ);              // 设置四维Tile
     auto castQ = RoPEInputCast(q);                                                        // [b,s,n,qk_d]
-    Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileShapeConfig.fourDimsTileShapeK);
+    TileShape::Current().SetVecTile(ropeTileShapeConfig.fourDimsTileShapeK);
     auto castK = RoPEInputCast(k);
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(
-        ropeTileShapeConfig.threeDimsTileShape); // cos/sin设置san维Tile
+    TileShape::Current().SetVecTile(ropeTileShapeConfig.threeDimsTileShape); // cos/sin设置san维Tile
     auto castCos = RoPEInputCast(cos);           // [b, s, qk_d]
     auto castSin = RoPEInputCast(sin);
 
@@ -95,7 +94,7 @@ void ApplyRotaryPosEmbV2(const Tensor &q, const Tensor &k, const Tensor &cos, co
     int d = castQ->shape[NUM_VALUE_3];
 
     auto qView = Reshape(castQ, {b, s, h, d / 2, 2}); // [b,n,s,qk_d//2,2]
-    Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileShapeConfig.fiveDimsTileShape);
+    TileShape::Current().SetVecTile(ropeTileShapeConfig.fiveDimsTileShape);
     auto qTrans = Transpose(qView, {NUM_VALUE_3, NUM_VALUE_4}); // [b,n,s,2,qk_d//2]
     auto qReshape = Reshape(qTrans, {b, s, h, d});              // [b,n,s,qk_d]
 
@@ -105,23 +104,23 @@ void ApplyRotaryPosEmbV2(const Tensor &q, const Tensor &k, const Tensor &cos, co
     h = castK->shape[2];
     d = castK->shape[3];
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileShapeConfig.fourDimsTileShapeK);
+    TileShape::Current().SetVecTile(ropeTileShapeConfig.fourDimsTileShapeK);
     auto kView = Reshape(castK, {b, s, h, d / 2, 2});
-    Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileShapeConfig.fiveDimsTileShape);
+    TileShape::Current().SetVecTile(ropeTileShapeConfig.fiveDimsTileShape);
     auto kTrans = Transpose(kView, {NUM_VALUE_3, NUM_VALUE_4});
     auto kReshape = Reshape(kTrans, {b, s, h, d});
 
     // q_embed=(q*cos)+(rotare_half(q)*sin)
     // k_embed=(k*cos)+(rotare_half(k)*sin)
-    Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileShapeConfig.fourDimsTileShapeQ);
+    TileShape::Current().SetVecTile(ropeTileShapeConfig.fourDimsTileShapeQ);
     qEmbed = Add(Mul(qReshape, cosUnsqueeze), Mul(RotateHalf(qReshape), sinUnsqueeze));
-    Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileShapeConfig.fourDimsTileShapeK);
+    TileShape::Current().SetVecTile(ropeTileShapeConfig.fourDimsTileShapeK);
     kEmbed = Add(Mul(kReshape, cosUnsqueeze), Mul(RotateHalf(kReshape), sinUnsqueeze));
 
     if (outputDtype != qEmbed->Datatype()) {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileShapeConfig.fourDimsTileShapeQ);
+        TileShape::Current().SetVecTile(ropeTileShapeConfig.fourDimsTileShapeQ);
         qEmbed = Cast(qEmbed, outputDtype);
-        Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileShapeConfig.fourDimsTileShapeK);
+        TileShape::Current().SetVecTile(ropeTileShapeConfig.fourDimsTileShapeK);
         kEmbed = Cast(kEmbed, outputDtype);
     }
 }
@@ -140,19 +139,17 @@ void ApplyRotaryPosEmb(const Tensor &q, const Tensor &k, const Tensor &cos, cons
     assert(!ropeTileShapeConfig.fourDimsTileShape.empty() && "rope FourDims Tile need to set!");
     assert(!ropeTileShapeConfig.fiveDimsTileShape.empty() && "rope FiveDims Tile need to set!");
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileShapeConfig.fourDimsTileShape); // 设置四维Tile
+    TileShape::Current().SetVecTile(ropeTileShapeConfig.fourDimsTileShape); // 设置四维Tile
     auto castQ = RoPEInputCast(q);                                                                       // [b,n,s,qk_d]
     auto castK = RoPEInputCast(k);
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(
-        ropeTileShapeConfig.twoDimsTileShape); // cos/sin设置两维Tile
+    TileShape::Current().SetVecTile(ropeTileShapeConfig.twoDimsTileShape); // cos/sin设置两维Tile
     auto castCos = RoPEInputCast(cos);         // [s, qk_d]
     auto castSin = RoPEInputCast(sin);
 
     // cos = cos[position_ids].unsqueeze(unsqueezeDimNum)
     // sin = sin[position_ids].unsqueeze(unsqueezeDimNum)
-    Program::GetInstance().GetTileShape().SetVecTileShapes(
-        ropeTileShapeConfig.threeDimsTileShape);               // TensorIndex, 设置三维Tile
+    TileShape::Current().SetVecTile(ropeTileShapeConfig.threeDimsTileShape); // TensorIndex, 设置三维Tile
     auto cosTensorIndexes = TensorIndex(castCos, positionIds); // [s,qk_d],[b,s]->[b,s,qk_d]
     auto sinTensorIndexes = TensorIndex(castSin, positionIds);
 
@@ -166,9 +163,9 @@ void ApplyRotaryPosEmb(const Tensor &q, const Tensor &k, const Tensor &cos, cons
     int s = castQ->shape[2];
     int d = castQ->shape[NUM_VALUE_3];
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileShapeConfig.fourDimsTileShape);
+    TileShape::Current().SetVecTile(ropeTileShapeConfig.fourDimsTileShape);
     auto qView = Reshape(castQ, {b, h, s, d / 2, 2}); // [b,n,s,qk_d//2,2]
-    Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileShapeConfig.fiveDimsTileShape);
+    TileShape::Current().SetVecTile(ropeTileShapeConfig.fiveDimsTileShape);
     auto qTrans = Transpose(qView, {NUM_VALUE_3, NUM_VALUE_4}); // [b,n,s,2,qk_d//2]
     auto qReshape = Reshape(qTrans, {b, h, s, d});              // [b,n,s,qk_d]
 
@@ -178,15 +175,15 @@ void ApplyRotaryPosEmb(const Tensor &q, const Tensor &k, const Tensor &cos, cons
     s = castK->shape[2];
     d = castK->shape[3];
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileShapeConfig.fourDimsTileShape);
+    TileShape::Current().SetVecTile(ropeTileShapeConfig.fourDimsTileShape);
     auto kView = Reshape(castK, {b, h, s, d / 2, 2});
-    Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileShapeConfig.fiveDimsTileShape);
+    TileShape::Current().SetVecTile(ropeTileShapeConfig.fiveDimsTileShape);
     auto kTrans = Transpose(kView, {NUM_VALUE_3, NUM_VALUE_4});
     auto kReshape = Reshape(kTrans, {b, h, s, d});
 
     // q_embed=(q*cos)+(rotare_half(q)*sin)
     // k_embed=(k*cos)+(rotare_half(k)*sin)
-    Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileShapeConfig.fourDimsTileShape);
+    TileShape::Current().SetVecTile(ropeTileShapeConfig.fourDimsTileShape);
     qEmbed = Add(Mul(qReshape, cosUnsqueeze), Mul(RotateHalf(qReshape), sinUnsqueeze));
     kEmbed = Add(Mul(kReshape, cosUnsqueeze), Mul(RotateHalf(kReshape), sinUnsqueeze));
 

@@ -41,7 +41,7 @@ void KvSlcCompute(Tensor &topK_indcies, Tensor &topK_tensor_shape, Tensor &kvNop
         SymbolicScalar curActSeq = GetInputDataInt32Dim1(kvActSeqs, batchIdx);
         LOOP("LOOP_L1_slcIdx", FunctionType::DYNAMIC_LOOP, slcIdx, LoopRange(0, s, 1)) {
             LOOP("LOOP_L2_kvSlcIdx", FunctionType::DYNAMIC_LOOP, nkvIdx, LoopRange(0, n2, 1)) {
-                Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
+                TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
                 SymbolicScalar s_slc = GetInputDataInt32Dim2(topK_tensor_shape, batchIdx, slcIdx);
                 SymbolicScalar positions = 0;
                 SymbolicScalar prime_value = l_prime;
@@ -58,7 +58,7 @@ void KvSlcCompute(Tensor &topK_indcies, Tensor &topK_tensor_shape, Tensor &kvNop
                         // 中间的topk-front-near个
                         SymbolicScalar topk_index;
                         if (debug) {
-                            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, NUM16);
+                            TileShape::Current().SetVecTile(1, 1, NUM16);
                             topk_index = GetTensorDataInt32(topK_indcies, batchIdx, slcIdx, topKIdx - front);
                         } else {
                             topk_index = GetInputDataInt32Dim3(topK_indcies, batchIdx, slcIdx, topKIdx - front);
@@ -69,19 +69,19 @@ void KvSlcCompute(Tensor &topK_indcies, Tensor &topK_tensor_shape, Tensor &kvNop
                     SymbolicScalar blockIdxInBatch = positions / blockSize;
                     SymbolicScalar tail = positions % blockSize;
                     SymbolicScalar slcBlockIdx = GetInputDataInt32Dim2(blockTable, batchIdx, blockIdxInBatch);
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
+                    TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
                     auto kv_slcBlock = View(kvNopeCache, {l_prime, kv_lora_rank}, {slcBlockIdx * blockSize + tail, nkvIdx * kv_lora_rank});
                     auto kRope_slcBlock = View(kRopeCache, {l_prime, rope_dim}, {slcBlockIdx * blockSize + tail, nkvIdx * rope_dim});
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
+                    TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
                     auto kv_slcBlock_fp32 = Cast(kv_slcBlock, DataType::DT_FP32);
                     auto kRope_slcBlock_fp32 = Cast(kRope_slcBlock, DataType::DT_FP32);
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
+                    TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
                     auto kv_slcBlock_tiled = MulS(kv_slcBlock_fp32, Element(kv_slcBlock_fp32->Datatype(), float(1)));
                     auto kRope_slcBlock_tiled = MulS(kRope_slcBlock_fp32, Element(kRope_slcBlock_fp32->Datatype(), float(1)));
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
+                    TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
                     auto kv_slcBlock_fp16 = Cast(kv_slcBlock_tiled, k_slcOut->Datatype());
                     auto kRope_slcBlock_fp16 = Cast(kRope_slcBlock_tiled, v_slcOut->Datatype());
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
+                    TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
                     SymbolicScalar output_axis1_value =
                     batchIdx * s * n2 * topk * l_prime + slcIdx * n2 * topk * l_prime + nkvIdx * topk * l_prime + topKIdx * l_prime;
                     Assemble(kv_slcBlock_fp16, {output_axis1_value, 0}, k_slcOut);

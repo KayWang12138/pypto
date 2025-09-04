@@ -113,7 +113,7 @@ void TestMatmulTrans(int m, int k, int n, string dataPath) {
 TEST_F(CostModelTest, test_mm_float32_64_64_64_bt) {
     int level = static_cast<int>(CostModel::PVModelLevel::PV_EXECUTE);
     EnablePVModel(level);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     TestMatmulTrans<npu::tile_fwk::float16, float>(64, 64, 64, GetGoldenDir());
     ResetPVModelConfig();
 }
@@ -184,11 +184,11 @@ TEST_F(CostModelDynTest, TestDD) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     constexpr int tilingX = 32;
     constexpr int tilingY = 32;
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tilingX, tilingY);
+    TileShape::Current().SetVecTile(tilingX, tilingY);
     constexpr int tilingM = 32;
     constexpr int tilingN = 32;
     constexpr int tilingK = 32;
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({tilingM, tilingM}, {tilingN, tilingN}, {tilingK, tilingK});
+    TileShape::Current().SetCubeTile({tilingM, tilingM}, {tilingN, tilingN}, {tilingK, tilingK});
     std::vector<uint8_t> devProgBinary;
 
     int s = 32;

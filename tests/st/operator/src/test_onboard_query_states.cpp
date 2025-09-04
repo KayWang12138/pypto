@@ -57,24 +57,23 @@ TEST_F(OnBoardTest, test_query_states_fp16_b32_n2) {
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("QUERY_STATES_T", funConfig, {q, q_pe_rope, kvBProjWK, query_states}) {
             Tensor q_nope = View(q, {b, s, num_heads, qkNopeHeadDim}, {0, 0, 0, 0});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 128, 1, 64); // --> SetVecTileShapes(1, 1, 128, 64)
+            TileShape::Current().SetVecTile(1, 128, 1, 64); // --> SetVecTileShapes(1, 1, 128, 64)
             Tensor q_nope1 = Reshape(q_nope, {b * s, num_heads, qkNopeHeadDim});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 128);
+            TileShape::Current().SetVecTile(1, 1, 128);
             Tensor q_nope2 = Transpose(q_nope1, {0, 1}); // (num_heads, bs, qkNopeHeadDim)
 
             // bmm: (num_heads, bs, qkNopeHeadDim) * (num_heads, qkNopeHeadDim, kvLoraRank)
             // = (num_heads, bs, kvLoraRank)
-            Program::GetInstance().GetTileShape().SetCubeTileShapes(
-                {std::min(128, bs), std::min(128, bs)}, {128, 128}, {128, 128});
+            TileShape::Current().SetCubeTile({std::min(128, bs), std::min(128, bs)}, {128, 128}, {128, 128});
             Tensor q_nope_new = Matrix::BatchMatmul<false, false>(DataType::DT_FP16, q_nope2, kvBProjWK);
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 512);
+            TileShape::Current().SetVecTile(1, 1, 512);
             Tensor q_nope_new2 = Transpose(q_nope_new, {0, 1}); //(bs, num_heads, kvLoraRank)
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 128, 64);
+            TileShape::Current().SetVecTile(1, 128, 64);
             Tensor q_nope_new3 = Reshape(q_nope_new2, {b, s, num_heads, kvLoraRank});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 1, 512);
+            TileShape::Current().SetVecTile(1, 1, 1, 512);
             Tensor q_nope_new4 = Transpose(q_nope_new3, {1, 2}); //(b, num_heads, s, kvLoraRank)
-            Program::GetInstance().GetTileShape().SetVecTileShapes(2, 2, 1, 512);
+            TileShape::Current().SetVecTile(2, 2, 1, 512);
             query_states = Concat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
         }
     }
@@ -125,24 +124,23 @@ TEST_F(OnBoardTest, test_query_states_fp16_b32_n16) {
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("QUERY_STATES_T", funConfig, {q, q_pe_rope, kvBProjWK, query_states}) {
             Tensor q_nope = View(q, {b, s, num_heads, qkNopeHeadDim}, {0, 0, 0, 0});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 32, 128); // --> SetVecTileShapes(1, 1, 128, 64)
+            TileShape::Current().SetVecTile(1, 1, 32, 128); // --> SetVecTileShapes(1, 1, 128, 64)
             Tensor q_nope1 = Reshape(q_nope, {b * s, num_heads, qkNopeHeadDim});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 32, 128);
+            TileShape::Current().SetVecTile(1, 32, 128);
             Tensor q_nope2 = Transpose(q_nope1, {0, 1}); // (num_heads, bs, qkNopeHeadDim)
 
             // bmm: (num_heads, bs, qkNopeHeadDim) * (num_heads, qkNopeHeadDim, kvLoraRank)
             // = (num_heads, bs, kvLoraRank)
-            Program::GetInstance().GetTileShape().SetCubeTileShapes(
-                {std::min(128, bs), std::min(128, bs)}, {128, 128}, {128, 128});
+            TileShape::Current().SetCubeTile({std::min(128, bs), std::min(128, bs)}, {128, 128}, {128, 128});
             Tensor q_nope_new = Matrix::BatchMatmul<false, false>(DataType::DT_FP16, q_nope2, kvBProjWK);
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 8, 512);
+            TileShape::Current().SetVecTile(1, 8, 512);
             Tensor q_nope_new2 = Transpose(q_nope_new, {0, 1}); //(bs, num_heads, kvLoraRank)
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 128, 64);
+            TileShape::Current().SetVecTile(1, 128, 64);
             Tensor q_nope_new3 = Reshape(q_nope_new2, {b, s, num_heads, kvLoraRank});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(2, 1, 1, 512);
+            TileShape::Current().SetVecTile(2, 1, 1, 512);
             Tensor q_nope_new4 = Transpose(q_nope_new3, {1, 2}); //(b, num_heads, s, kvLoraRank)
-            Program::GetInstance().GetTileShape().SetVecTileShapes(2, 2, 1, 512);
+            TileShape::Current().SetVecTile(2, 2, 1, 512);
             query_states = Concat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
         }
     }
@@ -193,24 +191,23 @@ TEST_F(OnBoardTest, test_query_states_fp16_b32_n32) {
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("QUERY_STATES_T", funConfig, {q, q_pe_rope, kvBProjWK, query_states}) {
             Tensor q_nope = View(q, {b, s, num_heads, qkNopeHeadDim}, {0, 0, 0, 0});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 32, 128); // --> SetVecTileShapes(1, 1, 128, 64)
+            TileShape::Current().SetVecTile(1, 1, 32, 128); // --> SetVecTileShapes(1, 1, 128, 64)
             Tensor q_nope1 = Reshape(q_nope, {b * s, num_heads, qkNopeHeadDim});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 32, 128);
+            TileShape::Current().SetVecTile(1, 32, 128);
             Tensor q_nope2 = Transpose(q_nope1, {0, 1}); // (num_heads, bs, qkNopeHeadDim)
 
             // bmm: (num_heads, bs, qkNopeHeadDim) * (num_heads, qkNopeHeadDim, kvLoraRank)
             // = (num_heads, bs, kvLoraRank)
-            Program::GetInstance().GetTileShape().SetCubeTileShapes(
-                {std::min(128, bs), std::min(128, bs)}, {128, 128}, {128, 128});
+            TileShape::Current().SetCubeTile({std::min(128, bs), std::min(128, bs)}, {128, 128}, {128, 128});
             Tensor q_nope_new = Matrix::BatchMatmul<false, false>(DataType::DT_FP16, q_nope2, kvBProjWK);
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 8, 512);
+            TileShape::Current().SetVecTile(1, 8, 512);
             Tensor q_nope_new2 = Transpose(q_nope_new, {0, 1}); //(bs, num_heads, kvLoraRank)
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 128, 64);
+            TileShape::Current().SetVecTile(1, 128, 64);
             Tensor q_nope_new3 = Reshape(q_nope_new2, {b, s, num_heads, kvLoraRank});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(2, 1, 1, 512);
+            TileShape::Current().SetVecTile(2, 1, 1, 512);
             Tensor q_nope_new4 = Transpose(q_nope_new3, {1, 2}); //(b, num_heads, s, kvLoraRank)
-            Program::GetInstance().GetTileShape().SetVecTileShapes(2, 2, 1, 512);
+            TileShape::Current().SetVecTile(2, 2, 1, 512);
             query_states = Concat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
         }
     }
@@ -262,24 +259,23 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n2) {
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("QUERY_STATES_T", funConfig, {q, q_pe_rope, kvBProjWK, query_states}) {
             Tensor q_nope = View(q, {b, s, num_heads, qkNopeHeadDim}, {0, 0, 0, 0});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 128, 1, 64); // --> SetVecTileShapes(1, 1, 128, 64)
+            TileShape::Current().SetVecTile(1, 128, 1, 64); // --> SetVecTileShapes(1, 1, 128, 64)
             Tensor q_nope1 = Reshape(q_nope, {b * s, num_heads, qkNopeHeadDim});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 128);
+            TileShape::Current().SetVecTile(1, 1, 128);
             Tensor q_nope2 = Transpose(q_nope1, {0, 1}); // (num_heads, bs, qkNopeHeadDim)
 
             // bmm: (num_heads, bs, qkNopeHeadDim) * (num_heads, qkNopeHeadDim, kvLoraRank)
             // = (num_heads, bs, kvLoraRank)
-            Program::GetInstance().GetTileShape().SetCubeTileShapes(
-                {std::min(128, bs), std::min(128, bs)}, {128, 128}, {128, 128});
+            TileShape::Current().SetCubeTile({std::min(128, bs), std::min(128, bs)}, {128, 128}, {128, 128});
             Tensor q_nope_new = Matrix::BatchMatmul<false, false>(dType, q_nope2, kvBProjWK);
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 512);
+            TileShape::Current().SetVecTile(1, 1, 512);
             Tensor q_nope_new2 = Transpose(q_nope_new, {0, 1}); //(bs, num_heads, kvLoraRank)
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 128, 64);
+            TileShape::Current().SetVecTile(1, 128, 64);
             Tensor q_nope_new3 = Reshape(q_nope_new2, {b, s, num_heads, kvLoraRank});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 1, 512);
+            TileShape::Current().SetVecTile(1, 1, 1, 512);
             Tensor q_nope_new4 = Transpose(q_nope_new3, {1, 2}); //(b, num_heads, s, kvLoraRank)
-            Program::GetInstance().GetTileShape().SetVecTileShapes(2, 2, 1, 512);
+            TileShape::Current().SetVecTile(2, 2, 1, 512);
             query_states = Concat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
         }
     }
@@ -329,9 +325,9 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n2_concat) {
 
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("QUERY_STATES_T", funConfig, {q, q_pe_rope, kvBProjWK, query_states}) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 1, 512);
+            TileShape::Current().SetVecTile(1, 1, 1, 512);
             Tensor q_nope_new4 = Transpose(q, {1, 2}); //(b, num_heads, s, kvLoraRank)
-            Program::GetInstance().GetTileShape().SetVecTileShapes(2, 2, 1, 512);
+            TileShape::Current().SetVecTile(2, 2, 1, 512);
             query_states = Concat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
         }
     }
@@ -383,24 +379,23 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n2_nocat) {
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("QUERY_STATES_T", funConfig, {q, q_pe_rope, kvBProjWK, query_states}) {
             Tensor q_nope = View(q, {b, s, num_heads, qkNopeHeadDim}, {0, 0, 0, 0});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 128, 1, 64); // --> SetVecTileShapes(1, 1, 128, 64)
+            TileShape::Current().SetVecTile(1, 128, 1, 64); // --> SetVecTileShapes(1, 1, 128, 64)
             Tensor q_nope1 = Reshape(q_nope, {b * s, num_heads, qkNopeHeadDim});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 128);
+            TileShape::Current().SetVecTile(1, 1, 128);
             Tensor q_nope2 = Transpose(q_nope1, {0, 1}); // (num_heads, bs, qkNopeHeadDim)
 
             // bmm: (num_heads, bs, qkNopeHeadDim) * (num_heads, qkNopeHeadDim, kvLoraRank)
             // = (num_heads, bs, kvLoraRank)
-            Program::GetInstance().GetTileShape().SetCubeTileShapes(
-                {std::min(128, bs), std::min(128, bs)}, {128, 128}, {128, 128});
+            TileShape::Current().SetCubeTile({std::min(128, bs), std::min(128, bs)}, {128, 128}, {128, 128});
             Tensor q_nope_new = Matrix::BatchMatmul<false, false>(dType, q_nope2, kvBProjWK);
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 512);
+            TileShape::Current().SetVecTile(1, 1, 512);
             Tensor q_nope_new2 = Transpose(q_nope_new, {0, 1}); //(bs, num_heads, kvLoraRank)
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 128, 64);
+            TileShape::Current().SetVecTile(1, 128, 64);
             Tensor q_nope_new3 = Reshape(q_nope_new2, {b, s, num_heads, kvLoraRank});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 1, 512);
+            TileShape::Current().SetVecTile(1, 1, 1, 512);
             query_states = Transpose(q_nope_new3, {1, 2}); //(b, num_heads, s, kvLoraRank)
-            // Program::GetInstance().GetTileShape().SetVecTileShapes(2, 2, 1, 512);
+            // TileShape::Current().SetVecTile(2, 2, 1, 512);
             // query_states = Concat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
         }
     }
@@ -452,24 +447,23 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n16) {
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("QUERY_STATES_T", funConfig, {q, q_pe_rope, kvBProjWK, query_states}) {
             Tensor q_nope = View(q, {b, s, num_heads, qkNopeHeadDim}, {0, 0, 0, 0});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 32, 128); // --> SetVecTileShapes(1, 1, 128, 64)
+            TileShape::Current().SetVecTile(1, 1, 32, 128); // --> SetVecTileShapes(1, 1, 128, 64)
             Tensor q_nope1 = Reshape(q_nope, {b * s, num_heads, qkNopeHeadDim});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 32, 128);
+            TileShape::Current().SetVecTile(1, 32, 128);
             Tensor q_nope2 = Transpose(q_nope1, {0, 1}); // (num_heads, bs, qkNopeHeadDim)
 
             // bmm: (num_heads, bs, qkNopeHeadDim) * (num_heads, qkNopeHeadDim, kvLoraRank)
             // = (num_heads, bs, kvLoraRank)
-            Program::GetInstance().GetTileShape().SetCubeTileShapes(
-                {std::min(128, bs), std::min(128, bs)}, {128, 128}, {128, 128});
+            TileShape::Current().SetCubeTile({std::min(128, bs), std::min(128, bs)}, {128, 128}, {128, 128});
             Tensor q_nope_new = Matrix::BatchMatmul<false, false>(dType, q_nope2, kvBProjWK);
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 8, 512);
+            TileShape::Current().SetVecTile(1, 8, 512);
             Tensor q_nope_new2 = Transpose(q_nope_new, {0, 1}); //(bs, num_heads, kvLoraRank)
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 128, 64);
+            TileShape::Current().SetVecTile(1, 128, 64);
             Tensor q_nope_new3 = Reshape(q_nope_new2, {b, s, num_heads, kvLoraRank});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(2, 1, 1, 512);
+            TileShape::Current().SetVecTile(2, 1, 1, 512);
             Tensor q_nope_new4 = Transpose(q_nope_new3, {1, 2}); //(b, num_heads, s, kvLoraRank)
-            Program::GetInstance().GetTileShape().SetVecTileShapes(2, 2, 1, 512);
+            TileShape::Current().SetVecTile(2, 2, 1, 512);
             query_states = Concat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
         }
     }
@@ -521,24 +515,23 @@ TEST_F(OnBoardTest, test_query_states_bf16_b32_n32) {
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("QUERY_STATES_T", funConfig, {q, q_pe_rope, kvBProjWK, query_states}) {
             Tensor q_nope = View(q, {b, s, num_heads, qkNopeHeadDim}, {0, 0, 0, 0});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 32, 128); // --> SetVecTileShapes(1, 1, 128, 64)
+            TileShape::Current().SetVecTile(1, 1, 32, 128); // --> SetVecTileShapes(1, 1, 128, 64)
             Tensor q_nope1 = Reshape(q_nope, {b * s, num_heads, qkNopeHeadDim});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 32, 128);
+            TileShape::Current().SetVecTile(1, 32, 128);
             Tensor q_nope2 = Transpose(q_nope1, {0, 1}); // (num_heads, bs, qkNopeHeadDim)
 
             // bmm: (num_heads, bs, qkNopeHeadDim) * (num_heads, qkNopeHeadDim, kvLoraRank)
             // = (num_heads, bs, kvLoraRank)
-            Program::GetInstance().GetTileShape().SetCubeTileShapes(
-                {std::min(128, bs), std::min(128, bs)}, {128, 128}, {128, 128});
+            TileShape::Current().SetCubeTile({std::min(128, bs), std::min(128, bs)}, {128, 128}, {128, 128});
             Tensor q_nope_new = Matrix::BatchMatmul<false, false>(dType, q_nope2, kvBProjWK);
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 8, 512);
+            TileShape::Current().SetVecTile(1, 8, 512);
             Tensor q_nope_new2 = Transpose(q_nope_new, {0, 1}); //(bs, num_heads, kvLoraRank)
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 128, 64);
+            TileShape::Current().SetVecTile(1, 128, 64);
             Tensor q_nope_new3 = Reshape(q_nope_new2, {b, s, num_heads, kvLoraRank});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(2, 1, 1, 512);
+            TileShape::Current().SetVecTile(2, 1, 1, 512);
             Tensor q_nope_new4 = Transpose(q_nope_new3, {1, 2}); //(b, num_heads, s, kvLoraRank)
-            Program::GetInstance().GetTileShape().SetVecTileShapes(2, 2, 1, 512);
+            TileShape::Current().SetVecTile(2, 2, 1, 512);
             query_states = Concat({q_nope_new4, q_pe_rope}, -1); // (b, num_heads, s, kvLoraRank + qkRopeHeadDim)
         }
     }

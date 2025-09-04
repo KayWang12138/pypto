@@ -251,6 +251,7 @@ TEST_F(TestDuplicateViewPass, DuplicateViewSTest1) {
     Tensor output4(DT_FP32, shape1, "reshape4");
 
     FUNCTION("STCase1") {
+        TileShape::Current().SetVecTile({64, 64});
         view1 = View(input, shape2, {kNumZero, kNumZero});
         output1 = View(view1, shape3, {kNumZero, kNumZero});
         output2 = Exp(view1);

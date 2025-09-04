@@ -47,7 +47,7 @@ TEST_F(TestCodegenArgSort, TestArgSort) {
     std::vector<int64_t> input_shape = {shape0};
     std::vector<int64_t> output_shape = {shape0};
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes({shape0});
+    TileShape::Current().SetVecTile({shape0});
     Tensor input_a(DT_FP32, input_shape, "A");
     Tensor output(DT_FP32, output_shape, "resDics");
 

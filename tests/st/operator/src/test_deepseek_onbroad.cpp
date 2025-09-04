@@ -69,10 +69,9 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer) {
 
     PROGRAM("MOE_INFER") {
         Program::GetInstance().GetConfig().Reset();
-        Program::GetInstance().GetTileShape().SetCubeTileShapes(
-            {std::min(128, b * s), std::min(128, b * s)}, {64, 64}, {64, 64});
+        TileShape::Current().SetCubeTile({std::min(128, b * s), std::min(128, b * s)}, {64, 64}, {64, 64});
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(64, 64); // for Assemble
+        TileShape::Current().SetVecTile(64, 64); // for Assemble
 
         Tensor hiddenStates = Tensor(DataType::DT_FP32, hiddenStatesShape, (uint8_t *)hiddenStatesPtr, "hiddenStates");
         Tensor topkIdx = Tensor(DataType::DT_INT32, topKShape, (uint8_t *)topkIdxPtr, "topkIdx");
@@ -171,9 +170,9 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout) {
 
     PROGRAM("MOE_INFER") {
         Program::GetInstance().GetConfig().Reset();
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({64, 64}, {64, 64}, {64, 64});
+        TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(128, 128); // for Assemble
+        TileShape::Current().SetVecTile(128, 128); // for Assemble
 
         Tensor hiddenStates = Tensor(DT_FP32, hiddenStatesShape, (uint8_t *)hiddenStatesPtr, "hiddenStates");
         Tensor topkIdx = Tensor(DT_INT32, topKShape, (uint8_t *)topkIdxPtr, "topkIdx");
@@ -242,9 +241,9 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout_singlemlp) {
 
     PROGRAM("MOE_INFER") {
         Program::GetInstance().GetConfig().Reset();
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({64, 64}, {64, 64}, {64, 64});
+        TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(128, 128); // for Assemble
+        TileShape::Current().SetVecTile(128, 128); // for Assemble
 
         Tensor hiddenStates = Tensor(DT_FP32, hiddenStatesShape, (uint8_t *)hiddenStatesPtr, "hiddenStates");
         Tensor topkIdx = Tensor(DT_INT32, topKShape, (uint8_t *)topkIdxPtr, "topkIdx");
@@ -322,10 +321,10 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout_singlemlp_withquant)
 
     PROGRAM("MOE_INFER_SINGLEMLP_QUANT") {
         Program::GetInstance().GetConfig().Reset();
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({64, 64}, {64, 64}, {64, 64});
+        TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
         Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 4);
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(128, 128); // for Assemble
+        TileShape::Current().SetVecTile(128, 128); // for Assemble
 
         Tensor hiddenStates = Tensor(DT_FP32, hiddenStatesShape, (uint8_t *)hiddenStatesPtr, "hiddenStates");
         Tensor topkIdx = Tensor(DT_INT32, topKShape, (uint8_t *)topkIdxPtr, "topkIdx");

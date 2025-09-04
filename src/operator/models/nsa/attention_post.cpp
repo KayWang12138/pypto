@@ -61,24 +61,24 @@ void PostCompute(Tensor &input, PostTensors &postTensors, const PostTileConfig &
             SymbolicScalar sOffset = sIdx * tileS;
             std::vector<SymbolicScalar> outOffset = {bOffset, sOffset, 0};
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, kvLoraRank});
+            TileShape::Current().SetVecTile({1, 1, 32, kvLoraRank});
             auto inputView = View(input, {tileB, tileS, n, kvLoraRank}, {bOffset, sOffset, 0, 0});
             ConfigManager::Instance().SetSemanticLabel("postReshape1");
             auto inputRes = Reshape(inputView, {tileBS, n, kvLoraRank});
-            Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32, tileBS), 2, kvLoraRank});
+            TileShape::Current().SetVecTile({std::min(32, tileBS), 2, kvLoraRank});
             ConfigManager::Instance().SetSemanticLabel("postTranspose1");
             auto inputTrans = Transpose(inputRes, {0, 1});  // [n,tileBS,kvLoraRank]
 
             ConfigManager::Instance().SetSemanticLabel("postBmm");
             int c0 = 16;
             int m = (std::min(32, tileBS) + c0 - 1) / c0 * c0;
-            Program::GetInstance().GetTileShape().SetCubeTileShapes(
+            TileShape::Current().SetCubeTile(
                 {m, m}, {std::min(256L, kvLoraRank), std::min(512L, kvLoraRank)}, {vHeadDim, vHeadDim}, true);
 
             Tensor bmm;
             if (isQuantWUv) {
                 ConfigManager::Instance().SetSemanticLabel("postQuantWUv");
-                Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, std::min(512L, kvLoraRank)});
+                TileShape::Current().SetVecTile({1, 1, std::min(512L, kvLoraRank)});
                 std::tuple<Tensor, Tensor> quantRes;
                 if(isSmoothWUv){
                     quantRes = Quant(inputTrans, true, true,  postTensors.smoothScalesWUv);
@@ -92,8 +92,7 @@ void PostCompute(Tensor &input, PostTensors &postTensors, const PostTileConfig &
                 auto mm = Matrix::BatchMatmul(DT_INT32, inputTransQuant,  postTensors.weightUV);
 
                 ConfigManager::Instance().SetSemanticLabel("postDequantWUv");
-                Program::GetInstance().GetTileShape().SetVecTileShapes(
-                    {1, std::min(16,tileBS), std::min(32L, vHeadDim)});
+                TileShape::Current().SetVecTile({1, std::min(16, tileBS), std::min(32L, vHeadDim)});
                 Tensor res = Cast(mm, DataType::DT_FP32);
                 res = Mul(res, scaleDequant);  // [n, tileBS, VHeadDim] * [n, tileBS, 1] -> [n, tileBS, vHeadDim]
                 res = Mul(res,  postTensors.weightUvScale); // [n, tileBS, VHeadDim] * [n, 1, VHeadDim] -> [n, tileBS, vHeadDim]
@@ -104,17 +103,17 @@ void PostCompute(Tensor &input, PostTensors &postTensors, const PostTileConfig &
             }
 
             ConfigManager::Instance().SetSemanticLabel("postTranspose2");
-            Program::GetInstance().GetTileShape().SetVecTileShapes({4, std::min(32, tileBS), vHeadDim});
+            TileShape::Current().SetVecTile({4, std::min(32, tileBS), vHeadDim});
             auto bmmTrans = Transpose(bmm, {0, 1}); // [n,tileBS,vHeadDim] -> [tileBS,n,vHeadDim]
             ConfigManager::Instance().SetSemanticLabel("postReshape2");
             auto bmmRes = Reshape(bmmTrans, {tileBS, n * vHeadDim});
 
             Tensor mmRes;
-            Program::GetInstance().GetTileShape().SetCubeTileShapes({m, m},
-                {std::min(512L, n * vHeadDim), std::min(512L, n * vHeadDim)}, {std::min(64L, h), std::min(64L, h)}, true);
+            TileShape::Current().SetCubeTile({m, m}, {std::min(512L, n * vHeadDim), std::min(512L, n * vHeadDim)},
+                {std::min(64L, h), std::min(64L, h)}, true);
             if (isQuantWo) {
                 ConfigManager::Instance().SetSemanticLabel("postQuantWo");
-                Program::GetInstance().GetTileShape().SetVecTileShapes({1, n * vHeadDim});
+                TileShape::Current().SetVecTile({1, n * vHeadDim});
                 std::tuple<Tensor, Tensor> quantRes;
                 if (isSmoothWo) {
                     quantRes = Quant(bmmRes, true, true,  postTensors.smoothScalesWo);
@@ -129,7 +128,7 @@ void PostCompute(Tensor &input, PostTensors &postTensors, const PostTileConfig &
                 Tensor mm = Matrix::Matmul(DataType::DT_INT32, bmmResQuant,  postTensors.weightO);
 
                 ConfigManager::Instance().SetSemanticLabel("postDequantWo");
-                Program::GetInstance().GetTileShape().SetVecTileShapes({std::min(32, tileBS), std::min(32L, h)});
+                TileShape::Current().SetVecTile({std::min(32, tileBS), std::min(32L, h)});
                 Tensor res = Cast(mm, DataType::DT_FP32);
                 res = Mul(res, scaleDequant);   // [tileBS, h] * [tileBS, 1] -> [tileBS, h]
                 res = Mul(res,  postTensors.weightOScale);   // [tileBS, h] * [1, h] -> [tileBS, h]
@@ -140,7 +139,7 @@ void PostCompute(Tensor &input, PostTensors &postTensors, const PostTileConfig &
             }
             ConfigManager::Instance().SetSemanticLabel("postReshape3");
             auto postOutView = Reshape(mmRes, {tileB, tileS, h});
-            Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, h});
+            TileShape::Current().SetVecTile({1, 1, h});
             Assemble(postOutView, outOffset, postOut);
         }
     }

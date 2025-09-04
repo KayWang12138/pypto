@@ -43,7 +43,7 @@ protected:
         config::SetPassConfig("PVC2_OOO", "CodegenPreproc", "DUMP_FUNCTION_GRAPH_AFTER_PASS", true);
         constexpr int32_t tilex = 8;
         constexpr int32_t tiley = 8;
-        Program::GetInstance().GetTileShape().SetVecTileShapes(tilex, tiley);
+        TileShape::Current().SetVecTile(tilex, tiley);
 
         std::vector<int64_t> shape = {8, 16};
         Tensor input(DT_FP32, shape, "input");

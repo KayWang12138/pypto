@@ -33,7 +33,7 @@ TEST_F(ConcatOnBoardTest, test_concat_dim4_float32) {
     PROGRAM("Concat") {
         void *x_ptr = readToDev(GetGoldenDir() + "/concat_2_2_64_64_operand1.bin", cap);
         void *y_ptr = readToDev(GetGoldenDir() + "/concat_2_2_64_64_operand2.bin", cap);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, 32});
+        TileShape::Current().SetVecTile({1, 1, 32, 32});
         Tensor input_x(dtype, shape, (uint8_t *)x_ptr, "x");
         Tensor input_y(dtype, shape, (uint8_t *)y_ptr, "y");
         Tensor output(dtype, resShape, out_ptr, "res");
@@ -67,7 +67,7 @@ TEST_F(ConcatOnBoardTest, test_concat_exp_dim4_float32) {
     PROGRAM("Concat") {
         void *x_ptr = readToDev(GetGoldenDir() + "/concat_exp_2_2_32_32_operand1.bin", cap);
         void *y_ptr = readToDev(GetGoldenDir() + "/concat_exp_2_2_32_32_operand2.bin", cap);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({2, 2, 32, 32});
+        TileShape::Current().SetVecTile({2, 2, 32, 32});
         Tensor input_x(dtype, shape, (uint8_t *)x_ptr, "x");
         Tensor input_y(dtype, shape, (uint8_t *)y_ptr, "y");
         //Tensor output1(dtype, resShape, "z");
@@ -102,7 +102,7 @@ TEST_F(ConcatOnBoardTest, test_exp_concat_dim4_float32) {
     PROGRAM("Concat") {
         void *x_ptr = readToDev(GetGoldenDir() + "/concat_exp_2_2_32_32_operand1.bin", cap);
         void *y_ptr = readToDev(GetGoldenDir() + "/concat_exp_2_2_32_32_operand2.bin", cap);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({2, 2, 32, 32});
+        TileShape::Current().SetVecTile({2, 2, 32, 32});
         Tensor input_x(dtype, shape, (uint8_t *)x_ptr, "x");
         Tensor input_y(dtype, shape, (uint8_t *)y_ptr, "y");
         //Tensor output1(dtype, resShape, "z");
@@ -112,7 +112,7 @@ TEST_F(ConcatOnBoardTest, test_exp_concat_dim4_float32) {
         FUNCTION("CONCAT_T", funConfig, {input_x, input_y, output2}) {
             Tensor input_x_1 = Exp(input_x);
             Tensor input_y_1 = Exp(input_y);
-            Program::GetInstance().GetTileShape().SetVecTileShapes({2, 2, 16, 32});
+            TileShape::Current().SetVecTile({2, 2, 16, 32});
             output2 = Concat(std::vector<Tensor>{input_x_1, input_y_1}, -1);
         }
     }
@@ -141,7 +141,7 @@ TEST_F(ConcatOnBoardTest, test_concat_sqrt_dim4_float32) {
     PROGRAM("Concat") {
         void *x_ptr = readToDev(GetGoldenDir() + "/concat_sqrt_fp32_operand1.bin", cap1);
         void *y_ptr = readToDev(GetGoldenDir() + "/concat_sqrt_fp32_operand2.bin", cap2);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({2, 2, 32, 32});
+        TileShape::Current().SetVecTile({2, 2, 32, 32});
         Tensor input_x(dtype, shape1, (uint8_t *)x_ptr, "x");
         Tensor input_y(dtype, shape2, (uint8_t *)y_ptr, "y");
         //Tensor output1(dtype, resShape, "z");
@@ -184,7 +184,7 @@ TEST_F(ConcatOnBoardTest, test_concat_100_inputs_float32) {
             Tensor input(dtype, shape, (uint8_t *)x_ptr, "input" + std::to_string(i));
             inputs.emplace_back(input);
         }
-        Program::GetInstance().GetTileShape().SetVecTileShapes({2, 2, 4, 16});
+        TileShape::Current().SetVecTile({2, 2, 4, 16});
         Tensor output(dtype, resShape, out_ptr, "res");
         std::vector<std::reference_wrapper<Tensor>> paras(inputs.begin(), inputs.end());
         paras.emplace_back(output);
@@ -222,7 +222,7 @@ TEST_F(ConcatOnBoardTest, test_concat_128_inputs_float32) {
             Tensor input(dtype, shape, (uint8_t *)x_ptr, "input" + std::to_string(i));
             inputs.emplace_back(input);
         }
-        Program::GetInstance().GetTileShape().SetVecTileShapes({2, 1, 8, 8});
+        TileShape::Current().SetVecTile({2, 1, 8, 8});
         Tensor output(dtype, resShape, out_ptr, "res");
         std::vector<std::reference_wrapper<Tensor>> paras(inputs.begin(), inputs.end());
         paras.emplace_back(output);
@@ -257,7 +257,7 @@ TEST_F(ConcatOnBoardTest, test_concat_dim2_float32_moe) {
     PROGRAM("Concat") {
         void *x_ptr = readToDev(GetGoldenDir() + "/concat_3_7168_operand1.bin", cap0);
         void *y_ptr = readToDev(GetGoldenDir() + "/concat_64_7168_operand2.bin", cap1);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 7168});
+        TileShape::Current().SetVecTile({1, 7168});
         Tensor input_x(dtype, shape0, (uint8_t *)x_ptr, "x");
         Tensor input_y(dtype, shape1, (uint8_t *)y_ptr, "y");
         Tensor output(dtype, resShape, out_ptr, "res");

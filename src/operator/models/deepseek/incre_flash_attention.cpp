@@ -61,26 +61,26 @@ void IncreFlashAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, 
             auto nTileCur = Min(nTile, nQ - nIdx * nTile);
             auto curOffset = bIdx * nQ + nIdx * nTile;
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
+            TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
             auto qn = View(qNope, {nTileCur, dN}, {static_cast<int>(curOffset), 0});
             auto qr = View(qRope, {nTileCur, dR}, {static_cast<int>(curOffset), 0});
             auto qi = Assemble({{qn, {0,0}},{qr, {0,dN}}});
             for (int bn = 0; bn < bnPerBatch; bn++) {
                 auto curBlockIdx = blockTable[bIdx][bn];
                 auto s2TileCur = Min(blockSize, curSeq - bn * blockSize);
-                Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
+                TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
                 auto kn = View(kNopeCache, {s2TileCur, dN}, {curBlockIdx * blockSize, 0});
                 auto kr = View(kRopeCache, {s2TileCur, dR}, {curBlockIdx * blockSize, 0});
                 auto kj = Assemble({{kn, {0,0}}, {kr, {0,dN}}});
                 auto vj = View(vNopeCache, {s2TileCur, dN}, {curBlockIdx * blockSize, 0});
 
-                Program::GetInstance().GetTileShape().SetCubeTileShapes(
+                TileShape::Current().SetCubeTile(
                     {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, true);
                 // (nTileCur, dN+dR), (s2TileCur, dN+dR) -> (nTileCur, s2TileCur)
-                Program::GetInstance().GetMatrixSize().SetMatrixSize({qi.GetShape()[0], 0, kj.GetShape()[0]});
+                TileShape::Current().SetMatrixSize({qi.GetShape()[0], 0, kj.GetShape()[0]});
                 auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj);
 
-                Program::GetInstance().GetTileShape().SetVecTileShapes(v1Tile[0], v1Tile[1]);
+                TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
                 auto sijScale = MulS(sij, Element(DataType::DT_FP32, softmaxScale)); // (nTileCur, s2TileCur)
                 auto tildaMij = RowMaxSingle(sijScale);   // (nTileCur, s2TileCur) -> (nTileCur, 1)
                 auto tsub = Sub(sijScale, tildaMij); // (nTileCur, s2TileCur) - (nTileCur, 1) -> (nTileCur, s2TileCur)
@@ -89,12 +89,13 @@ void IncreFlashAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, 
                 auto tildaLij = RowSumSingle(tildaPij); // (nTileCur, s2TileCur) -> (nTileCur, 1)
 
                 if (bn == 0) {
-                    Program::GetInstance().GetTileShape().SetCubeTileShapes(
+                    TileShape::Current().SetCubeTile(
                         {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
-                    Program::GetInstance().GetMatrixSize().SetMatrixSize({tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
+                    TileShape::Current().SetMatrixSize(
+                        {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
                     auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32,tildaPijF16, vj);
 
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(v2Tile[0], v2Tile[1]);
+                    TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                     oiUpdate = (bnPerBatch == 1 ? Div(oiTmp, tildaLij) : oiTmp);
                     liUpdate = tildaLij;
                     miUpdate = tildaMij;
@@ -114,12 +115,13 @@ void IncreFlashAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, 
                 auto t6 = Mul(t2, li);       // (nTileCur, 1), (nTileCur, 1) -> (nTileCur, 1)
                 auto liNew = Add(t6, t5);    // (nTileCur, 1), (nTileCur, 1) -> (nTileCur, 1)
                 auto q3 = Mul(oi, t2); // (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
-                Program::GetInstance().GetTileShape().SetCubeTileShapes(
+                TileShape::Current().SetCubeTile(
                     {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
                 // (nTileCur, s2TileCur), (s2TileCur, dN) -> (nTileCur, dN)
-                Program::GetInstance().GetMatrixSize().SetMatrixSize({tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
+                TileShape::Current().SetMatrixSize(
+                    {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
                 auto q1 = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
-                Program::GetInstance().GetTileShape().SetVecTileShapes(v2Tile[0], v2Tile[1]);
+                TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                 auto q2 = Mul(q1, t4);    // (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
                 auto oiTmp = Add(q3, q2); // (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
                 oiUpdate = (bn == bnPerBatch - 1 ?  Div(oiTmp, liNew) : oiTmp);

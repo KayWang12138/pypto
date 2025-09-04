@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "tilefwk/tile_fwk_op_registry.h"
+#include "tilefwk/op_registry.h"
 #include "tilefwk/error.h"
 #include "interface/utils/op_info_manager.h"
 

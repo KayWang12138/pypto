@@ -53,33 +53,31 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam)
     FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
     FUNCTION("Allgather_AttnPost_ReduceScatter", funConfig, {agIn, wLora, wOut, out}) {
         ConfigManager::Instance().SetSemanticLabel("AllGather");
-        Program::GetInstance().GetTileShape().SetDistTileShapes(
-            {64, b * n * s / rankSize / 64, 0}, {kvLoraRank, 1, 0}, {1, rankSize, 0});
-        Program::GetInstance().GetTileShape().SpecifyStaticRankId(rankId);
+        TileShape::Current().SetDistTile({64, b * n * s / rankSize / 64, 0}, {kvLoraRank, 1, 0}, {1, rankSize, 0});
+        TileShape::Current().SetDistRankId(rankId);
         Tensor agOut = AllGather(agIn, group);
 
         ConfigManager::Instance().SetSemanticLabel("AttnPost");
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 16, 1, kvLoraRank});
+        TileShape::Current().SetVecTile({4, 16, 1, kvLoraRank});
         Tensor attnIn = Reshape(agOut, {b, s, n, kvLoraRank});
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 16, 1, kvLoraRank});
+        TileShape::Current().SetVecTile({4, 16, 1, kvLoraRank});
         Tensor attnRes0 = Transpose(attnIn, {1, 2});
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 1, 32, std::min(512, kvLoraRank)});
+        TileShape::Current().SetVecTile({4, 1, 32, std::min(512, kvLoraRank)});
         Tensor attnRes1 = Reshape(attnRes0, {b * s, n, kvLoraRank});
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 16, kvLoraRank});
+        TileShape::Current().SetVecTile({4, 16, kvLoraRank});
         Tensor t2Res = Transpose(attnRes1, {0, 1});
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16}, {256, 256}, {128, 128});
+        TileShape::Current().SetCubeTile({16, 16}, {256, 256}, {128, 128});
         Tensor bmm4Res = Matrix::BatchMatmul(dtype, t2Res, wLora);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({32, 4, vHeadDim}); // 必须切，但是尾轴不能切
+        TileShape::Current().SetVecTile({32, 4, vHeadDim}); // 必须切，但是尾轴不能切
         Tensor t3Res = Transpose(bmm4Res, {0, 1}); // [bs,n,vHeadDim]
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 32, vHeadDim});
+        TileShape::Current().SetVecTile({4, 32, vHeadDim});
         Tensor r2Res = Reshape(t3Res, {b * s, n * vHeadDim});
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16}, {256, 256}, {128, 128});
+        TileShape::Current().SetCubeTile({16, 16}, {256, 256}, {128, 128});
         Tensor attnOut = Matrix::Matmul<false, false>(dtype, r2Res, wOut);
 
         ConfigManager::Instance().SetSemanticLabel("ReduceScatter");
-        Program::GetInstance().GetTileShape().SetDistTileShapes(
-            {16, b  * s / rankSize / 16, 0}, {h, 1, 0}, {1, rankSize, 0});
-        Program::GetInstance().GetTileShape().SpecifyStaticRankId(rankId);
+        TileShape::Current().SetDistTile({16, b * s / rankSize / 16, 0}, {h, 1, 0}, {1, rankSize, 0});
+        TileShape::Current().SetDistRankId(rankId);
         out = ReduceScatter(attnOut, group, DistReduceType::DIST_REDUCE_ADD);
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

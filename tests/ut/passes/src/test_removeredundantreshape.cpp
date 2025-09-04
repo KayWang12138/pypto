@@ -268,6 +268,7 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeSTest1) {
     FUNCTION("STCase1") {
         reshape1 = Reshape(input, shape2);
         reshape2 = Reshape(reshape1, shape3);
+        TileShape::Current().SetVecTile({64, 64});
         exp1 = Exp(reshape2);
         reshape3 = Reshape(exp1, shape2);
         output1 = Reshape(reshape3, shape3);

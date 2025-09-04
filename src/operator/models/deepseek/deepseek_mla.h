@@ -231,12 +231,12 @@ public:
     Tensor ForwardWithQuant(Tensor x, Tensor ffnWeight1, Tensor ffnWeight2, Tensor ffnWeight3, Tensor ffnwight1Scale, Tensor ffnwight2Scale,Tensor ffnwight3Scale) {
         // static ffn
         // quant
-        Program::GetInstance().GetTileShape().SetVecTileShapes({NUM_32, NUM_512});
+        TileShape::Current().SetVecTile({NUM_32, NUM_512});
         auto normQuantRes = Quant(x); // int8
-        Program::GetInstance().GetTileShape().SetVecTileShapes({NUM_256, NUM_256});
+        TileShape::Current().SetVecTile({NUM_256, NUM_256});
         Tensor castRes = std::get<0>(normQuantRes);
         Tensor castResScale = std::get<1>(normQuantRes);
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({NUM_64, NUM_64}, {NUM_128, NUM_128}, {NUM_128, NUM_128});
+        TileShape::Current().SetCubeTile({NUM_64, NUM_64}, {NUM_128, NUM_128}, {NUM_128, NUM_128});
 
         auto gateInt32 = Matrix::Matmul<false, false>(DataType::DT_INT32, castRes, ffnWeight1);
 
@@ -260,9 +260,9 @@ public:
         swish = Mul(swish, up);
 
         // downProj
-        Program::GetInstance().GetTileShape().SetVecTileShapes({NUM_32, NUM_512});
+        TileShape::Current().SetVecTile({NUM_32, NUM_512});
         auto swishQuantRes = Quant(swish); // int8
-        Program::GetInstance().GetTileShape().SetVecTileShapes({NUM_256, NUM_256});
+        TileShape::Current().SetVecTile({NUM_256, NUM_256});
         Tensor swishRes = std::get<0>(swishQuantRes);
         Tensor swishScale = std::get<1>(swishQuantRes);
 
@@ -316,9 +316,9 @@ public:
         auto scoresForChoiceIndex = std::get<0>(TopK(scoresForChoiceNewShape, 2, -1));
         // [b*s*8,32]->[b*s*8,2]
 
-        // Program::GetInstance().GetTileShape().SetVecTileShapes(128, 1); // for Assemble
+        // TileShape::Current().SetVecTile(128, 1); // for Assemble
         auto groupScores = RowSumSingle(scoresForChoiceIndex, 1); // [b*s*8,2]->[b*s*8]
-        // Program::GetInstance().GetTileShape().SetVecTileShapes(128, 64); // for Assemble
+        // TileShape::Current().SetVecTile(128, 64); // for Assemble
 
         auto groupScoresReshape = Reshape(groupScores, {groupScores->shape[0] / nGroup, nGroup});
         // [b*s*8]->[b*s,8]
@@ -396,11 +396,11 @@ public:
 
         Tensor tokensPerExpert = RowSumSingle(cnts, 0);
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_128);
+        TileShape::Current().SetVecTile(NUM_128);
         // reduce 0维, (b*s, nRoutedExperts)->(nRoutedExperts)
         Tensor idxs = ArgSort(Reshape(topkIds, { bs * expertPerTok }), -1, false); // (b*s*num_experts_per_tok)
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes({NUM_128, NUM_128});
+        TileShape::Current().SetVecTile({NUM_128, NUM_128});
 
         Tensor sortedTokens = TensorIndex(x,  Cast(DivS(Cast(idxs, DataType::DT_FP32),
             Element(DataType::DT_FP32, static_cast<double>(expertPerTok))),
@@ -444,7 +444,7 @@ public:
         for (auto n: outs.GetShape()){
             std::cout << "=outs->shape" << n << std::endl;
         }
-        Program::GetInstance().GetTileShape().SetVecTileShapes({NUM_128, NUM_128});
+        TileShape::Current().SetVecTile({NUM_128, NUM_128});
         // newX[idxs] = outs  -->index_put: (b*s*num_experts_per_tok, h)[b*s*num_experts_per_tok] =
         // (b*s*num_experts_per_tok, h)
         auto newIdxs = Reshape(idxs, {1, idxs.GetShape(0)});
@@ -457,7 +457,7 @@ public:
         std::vector<int64_t> newShape = {bs, expertPerTok, newXSize / (bs * expertPerTok)};
         // (b*s, expertPerTok, h)
         auto newXShape = Reshape(newX, newShape);  // [128,256] -> [16,8,256]
-        Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_16, NUM_128, NUM_128);
+        TileShape::Current().SetVecTile(NUM_16, NUM_128, NUM_128);
 
         auto wShapes = topkWeight->shape;
         wShapes.emplace_back(1);
@@ -491,11 +491,11 @@ public:
 
         Tensor tokensPerExpert = RowSumSingle(cnts, 0);
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_128);
+        TileShape::Current().SetVecTile(NUM_128);
         // reduce 0维, (b*s, nRoutedExperts)->(nRoutedExperts)
         Tensor idxs = ArgSort(Reshape(topkIds, { bs * expertPerTok }), -1, false); // (b*s*num_experts_per_tok)
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes({NUM_128, NUM_128});
+        TileShape::Current().SetVecTile({NUM_128, NUM_128});
 
         // Tensor((b*s, h))[Tensor(b*s*num_experts_per_tok)] = (b*s*num_experts_per_tok, h)
         // 没有int类型除法 只能先cast成float做完除法再cast回int
@@ -554,11 +554,11 @@ public:
 
         Tensor tokensPerExpert = RowSumSingle(cnts, 0);
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_128);
+        TileShape::Current().SetVecTile(NUM_128);
         // reduce 0维, (b*s, nRoutedExperts)->(nRoutedExperts)
         Tensor idxs = ArgSort(Reshape(topkIds, { bs * expertPerTok }), -1, false); // (b*s*num_experts_per_tok)
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes({NUM_32, NUM_512});
+        TileShape::Current().SetVecTile({NUM_32, NUM_512});
 
         // Tensor((b*s, h))[Tensor(b*s*num_experts_per_tok)] = (b*s*num_experts_per_tok, h)
         // 没有int类型除法 只能先cast成float做完除法再cast回int
@@ -566,7 +566,7 @@ public:
             Element(DataType::DT_FP32, static_cast<double>(expertPerTok))),
             DataType::DT_INT32, CAST_TRUNC));
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes({NUM_256, NUM_256});
+        TileShape::Current().SetVecTile({NUM_256, NUM_256});
         auto &sortedTokensShape = sortedTokens->GetShape();
 
         // tokensPerExpertCpu = tokensPerExpert.cpu().numpy(); 手动设置规避动态图
@@ -619,11 +619,11 @@ public:
 
         Tensor tokensPerExpert = RowSumSingle(cnts, 0);
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_128);
+        TileShape::Current().SetVecTile(NUM_128);
         // reduce 0维, (b*s, nRoutedExperts)->(nRoutedExperts)
         idxs = ArgSort(Reshape(topkIds, { bs * expertPerTok }), -1, false); // (b*s*numExpertsPerTok)
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes({NUM_64, NUM_64});
+        TileShape::Current().SetVecTile({NUM_64, NUM_64});
 
         sortedTokens = TensorIndex(x,  Cast(DivS(Cast(idxs, DataType::DT_FP32),
             Element(DataType::DT_FP32, static_cast<double>(expertPerTok))),
@@ -667,7 +667,7 @@ public:
         for (auto n : outs.GetShape()){
             std::cout<<"=outs->shape.shape"<< n <<std::endl;
         }
-        Program::GetInstance().GetTileShape().SetVecTileShapes({NUM_128, NUM_128});
+        TileShape::Current().SetVecTile({NUM_128, NUM_128});
         // newX[idxs] = outs  -->index_put: (b*s*numExpertsPerTok, h)[b*s*numExpertsPerTok] =
         // (b*s*numExpertsPerTok, h)
         auto newIdxs = Reshape(idxs, {1, idxs.GetShape(0)});
@@ -680,7 +680,7 @@ public:
         std::vector<int64_t> newShape = {bs, expertPerTok, newXSize / (bs * expertPerTok)};
         // (b*s, expertPerTok, h)
         auto newXShape = Reshape(newX, newShape);  // [128,256] -> [16,8,256]
-        Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_16, NUM_64, NUM_64);
+        TileShape::Current().SetVecTile(NUM_16, NUM_64, NUM_64);
 
         auto wShape = topkWeight->shape;
         wShape.emplace_back(1);
@@ -764,7 +764,7 @@ public:
         std::vector<int64_t> newShape = {bs, expertPerTok, newXSize / (bs * expertPerTok)};
         // (b*s, expertPerTok, h)
         auto newXShape = Reshape(newX, newShape);
-        Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_128, NUM_64, NUM_64); // for Assemble
+        TileShape::Current().SetVecTile(NUM_128, NUM_64, NUM_64); // for Assemble
         auto newl = Cast(newXShape, topkWeight.GetDataType());
         auto wShape = topkWeight->shape;
         wShape.emplace_back(1);
@@ -772,7 +772,7 @@ public:
         auto newMul = Mul(newl, newW);
         // (b*s, expertPerTok, h) * (b*s, expertPerTok, 1) = (b*s, expertPerTok, h)
         auto fOut = Cast(RowSumSingle(newMul, 1), newX.GetDataType()); // reudce轴1 ->(b*s, h)
-        Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_128, NUM_64); // for Assemble
+        TileShape::Current().SetVecTile(NUM_128, NUM_64);              // for Assemble
 
         return fOut;
     }

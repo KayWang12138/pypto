@@ -30,7 +30,7 @@ TEST_F(VecdupTest, TestVecDup) {
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("VECDUP") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 1, 16});
+        TileShape::Current().SetVecTile({16, 1, 16});
 
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
@@ -61,7 +61,7 @@ TEST_F(VecdupTest, TestVecDupUnaligned) {
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("VECDUP") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 256, 16});
+        TileShape::Current().SetVecTile({1, 1, 256, 16});
 
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 

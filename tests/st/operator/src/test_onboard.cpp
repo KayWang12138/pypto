@@ -66,7 +66,7 @@ TEST_F(OnBoardTest, test_sin_dim2_float32) {
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("Sin") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x_dim2_fp32.bin", cap); // true means no cut
-        Program::GetInstance().GetTileShape().SetVecTileShapes({32, 32});
+        TileShape::Current().SetVecTile({32, 32});
         Tensor input_x(dtype, shape, (uint8_t *)x_ptr, "x");
         Tensor output(dtype, shape, out_ptr, "sin");
 
@@ -97,7 +97,7 @@ TEST_F(OnBoardTest, test_cos_dim4_float16) {
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("Cos") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x_dim_4_fp16.bin", cap); // true means no cut
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, 64});
+        TileShape::Current().SetVecTile({1, 1, 32, 64});
         Tensor input_x(dtype, shape, (uint8_t *)x_ptr, "x");
         Tensor output(dtype, shape, out_ptr, "sin");
 
@@ -143,9 +143,9 @@ TEST_F(OnBoardTest, test_gather_float_case1) {
     PROGRAM("GATHER") {
         void *x_ptr = readToDev(inputDir + "x.bin", capacity0);
         void *indices_ptr = readToDev(inputDir + "indices.bin", capacity1);
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({1, 32, 64});
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({1, 16, 64});
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 16, 32});
+        // TileShape::Current().SetVecTile({1, 32, 64});
+        // TileShape::Current().SetVecTile({1, 16, 64});
+        TileShape::Current().SetVecTile({1, 16, 32});
 
         Tensor input_src0(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "x");
         Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
@@ -192,9 +192,9 @@ TEST_F(OnBoardTest, test_gather_float_case2) {
     PROGRAM("GATHER") {
         void *x_ptr = readToDev(inputDir + "x.bin", capacity0);
         void *indices_ptr = readToDev(inputDir + "indices.bin", capacity1);
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({1, 64, 64});
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({1, 32, 64});
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 32, 128});
+        // TileShape::Current().SetVecTile({1, 64, 64});
+        // TileShape::Current().SetVecTile({1, 32, 64});
+        TileShape::Current().SetVecTile({1, 32, 128});
 
         Tensor input_src0(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "x");
         Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
@@ -241,12 +241,12 @@ TEST_F(OnBoardTest, test_gather_float_case3) {
     PROGRAM("GATHER") {
         void *x_ptr = readToDev(inputDir + "x.bin", capacity0);
         void *indices_ptr = readToDev(inputDir + "indices.bin", capacity1);
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 64});
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32});
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({32, 1, 64});
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({16, 1, 64});
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({32, 1, 32});
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 1, 32});
+        // TileShape::Current().SetVecTile({1, 1, 64});
+        // TileShape::Current().SetVecTile({1, 1, 32});
+        // TileShape::Current().SetVecTile({32, 1, 64});
+        // TileShape::Current().SetVecTile({16, 1, 64});
+        // TileShape::Current().SetVecTile({32, 1, 32});
+        TileShape::Current().SetVecTile({16, 1, 32});
 
         Tensor input_src0(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "x");
         Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
@@ -292,9 +292,9 @@ TEST_F(OnBoardTest, test_gather_float_case4) {
     PROGRAM("GATHER") {
         void *x_ptr = readToDev(inputDir + "x.bin", capacity0);
         void *indices_ptr = readToDev(inputDir + "indices.bin", capacity1);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 32, 128});
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({1, 64, 64});
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({2, 32, 64});
+        TileShape::Current().SetVecTile({1, 32, 128});
+        // TileShape::Current().SetVecTile({1, 64, 64});
+        // TileShape::Current().SetVecTile({2, 32, 64});
 
         Tensor input_src0(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "x");
         Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
@@ -325,7 +325,7 @@ TEST_F(OnBoardTest, test_concat_all2all) {
         std::vector<int64_t> shape = {row, col};
         void *x_ptr = readToDev("../tests/AsmdTensor/concat_2dim_x.bin", capacity);
         void *y_ptr = readToDev("../tests/AsmdTensor/concat_2dim_y.bin", capacity);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({32, 32});
+        TileShape::Current().SetVecTile({32, 32});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output;
@@ -358,7 +358,7 @@ TEST_F(OnBoardTest, test_concat_4) {
         void *x_ptr = readToDev("../tests/AsmdTensor/concat_4dim_operand1.bin", 2 * 2 * 10 * 10);
         void *y_ptr = readToDev("../tests/AsmdTensor/concat_4dim_operand2.bin", 3 * 2 * 10 * 10);
         void *z_ptr = readToDev("../tests/AsmdTensor/concat_4dim_operand3.bin", 8 * 2 * 10 * 10);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({6, 6, 6, 6});
+        TileShape::Current().SetVecTile({6, 6, 6, 6});
         Tensor input_a(DataType::DT_FP32, shape1, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape2, (uint8_t *)y_ptr, "B");
         Tensor input_c(DataType::DT_FP32, shape3, (uint8_t *)z_ptr, "C");
@@ -390,7 +390,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_add) {
         std::vector<int64_t> shape = {16, 16, 64, 64};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_16_64_64);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_16_16_64_64);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 16, 16});
+        TileShape::Current().SetVecTile({8, 8, 16, 16});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -422,7 +422,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_64_65_tileop_add_unalign) {
     PROGRAM("ADD") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", shapeSize);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", shapeSize);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 16, 16});
+        TileShape::Current().SetVecTile({8, 8, 16, 16});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -455,7 +455,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_39_65_tileop_add_unalign) {
     PROGRAM("ADD") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", shapeSize);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", shapeSize);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 16, 16});
+        TileShape::Current().SetVecTile({8, 8, 16, 16});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -488,7 +488,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_1_tileop_add_unalign) {
     PROGRAM("ADD") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", shapeSize);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", shapeSize);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16});
+        TileShape::Current().SetVecTile({16, 16});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -521,7 +521,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_1_tileop_sub_unalign) {
     PROGRAM("SUB") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", shapeSize);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", shapeSize);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16});
+        TileShape::Current().SetVecTile({16, 16});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -554,7 +554,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_1_tileop_mul_unalign) {
     PROGRAM("MUL") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", shapeSize);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", shapeSize);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16});
+        TileShape::Current().SetVecTile({16, 16});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -585,7 +585,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_sub) {
         std::vector<int64_t> shape = {16, 16, 64, 64};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_16_64_64);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_16_16_64_64);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 4, 16, 32});
+        TileShape::Current().SetVecTile({8, 4, 16, 32});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -615,7 +615,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_mul) {
         std::vector<int64_t> shape = {16, 16, 64, 64};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_16_64_64);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_16_16_64_64);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 8, 16, 32});
+        TileShape::Current().SetVecTile({4, 8, 16, 32});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -645,7 +645,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_16_64_64_tileop_div) {
         std::vector<int64_t> shape = {16, 16, 64, 64};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_16_64_64);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_16_16_64_64);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 16, 16});
+        TileShape::Current().SetVecTile({8, 8, 16, 16});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -675,7 +675,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_add) {
         std::vector<int64_t> shape = {8, 80, 80};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_80_80);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_8_80_80);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 16, 16});
+        TileShape::Current().SetVecTile({4, 16, 16});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -705,7 +705,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_sub) {
         std::vector<int64_t> shape = {8, 80, 80};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_80_80);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_8_80_80);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 16, 16});
+        TileShape::Current().SetVecTile({4, 16, 16});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -735,7 +735,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_mul) {
         std::vector<int64_t> shape = {8, 80, 80};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_80_80);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_8_80_80);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 16, 16});
+        TileShape::Current().SetVecTile({4, 16, 16});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -765,7 +765,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_80_80_tileop_div) {
         std::vector<int64_t> shape = {8, 80, 80};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_80_80);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_8_80_80);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 16, 16});
+        TileShape::Current().SetVecTile({4, 16, 16});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -795,7 +795,7 @@ TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_add) {
         std::vector<int64_t> shape = {64, 128};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_64_128);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_64_128);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({32, 64});
+        TileShape::Current().SetVecTile({32, 64});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -825,7 +825,7 @@ TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_sub) {
         std::vector<int64_t> shape = {64, 128};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_64_128);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_64_128);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({10, 32});
+        TileShape::Current().SetVecTile({10, 32});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -855,7 +855,7 @@ TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_mul) {
         std::vector<int64_t> shape = {64, 128};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_64_128);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_64_128);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({32, 64});
+        TileShape::Current().SetVecTile({32, 64});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -885,7 +885,7 @@ TEST_F(OnBoardTest, test_operation_tensor_64_128_tileop_div) {
         std::vector<int64_t> shape = {64, 128};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_64_128);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_64_128);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({32, 32});
+        TileShape::Current().SetVecTile({32, 32});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -915,7 +915,7 @@ TEST_F(OnBoardTest, test_operation_tensor_dim4_add) {
         std::vector<int64_t> shape = {1, 1, 16, 16};
         void *x_ptr = readToDev(GetGoldenDir() + "/add_dim4_x.bin", capacity_dim4);
         void *y_ptr = readToDev(GetGoldenDir() + "/add_dim4_y.bin", capacity_dim4);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 16, 16});
+        TileShape::Current().SetVecTile({1, 1, 16, 16});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -945,7 +945,7 @@ TEST_F(OnBoardTest, test_operation_tensor_dim2_add) {
         std::vector<int64_t> shape = {row, col};
         void *x_ptr = readToDev(GetGoldenDir() + "/add_x.bin", capacity);
         void *y_ptr = readToDev(GetGoldenDir() + "/add_y.bin", capacity);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({64, 64});
+        TileShape::Current().SetVecTile({64, 64});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -977,7 +977,7 @@ TEST_F(OnBoardTest, test_operation_tensor_2_2_8_8_expand_add) {
         std::vector<int64_t> shape1 = {2, 1, 8, 8};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_2_2_8_8);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_2_1_8_8);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({2, 2, 8, 8});
+        TileShape::Current().SetVecTile({2, 2, 8, 8});
         Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
@@ -1013,7 +1013,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_n_to_m_n_mul) {
         std::vector<int64_t> shape2 = {1, 32};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", 64 * 32);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", 1 * 32);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16});
+        TileShape::Current().SetVecTile({16, 16});
         Tensor input_a(DataType::DT_FP32, shape1, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape2, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape1, out_ptr, "C");
@@ -1044,7 +1044,7 @@ TEST_F(OnBoardTest, test_operation_tensor_4_4_16_16_expand_add) {
         std::vector<int64_t> shape1 = {4, 1, 16, 16};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_4_4_16_16);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_4_1_16_16);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({2, 2, 8, 8});
+        TileShape::Current().SetVecTile({2, 2, 8, 8});
         Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
@@ -1080,7 +1080,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_1_32_to_16_32_32_expand_add) {
         std::vector<int64_t> shape1 = {1, 1, 32};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_32_32);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_1_1_32);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 8});
+        TileShape::Current().SetVecTile({8, 8, 8});
         Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
@@ -1116,7 +1116,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_16_1_to_8_16_16_expand_add) {
         std::vector<int64_t> shape1 = {8, 16, 1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_16_16);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_8_16_1);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 8, 8});
+        TileShape::Current().SetVecTile({4, 8, 8});
         Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
@@ -1147,7 +1147,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_8_1_to_8_8_7168_expand_Mul_moe) {
         std::vector<int64_t> shape1 = {8, 8, 1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_8_7168);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_8_8_1);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 128});
+        TileShape::Current().SetVecTile({8, 8, 128});
         Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
@@ -1178,7 +1178,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_8_1_to_8_8_7168_expand_sub) {
         std::vector<int64_t> shape1 = {8, 8, 7168};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_8_1);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_8_8_7168);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 128});
+        TileShape::Current().SetVecTile({8, 8, 128});
         Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
@@ -1209,7 +1209,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_1_16_to_8_16_16_expand_add) {
         std::vector<int64_t> shape1 = {8, 1, 16};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_16_16);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_8_1_16);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 8, 8});
+        TileShape::Current().SetVecTile({4, 8, 8});
         Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
@@ -1239,7 +1239,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_16_16_to_8_16_16_expand_add) {
         std::vector<int64_t> shape1 = {1, 16, 16};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_16_16);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_1_16_16);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 8, 8});
+        TileShape::Current().SetVecTile({4, 8, 8});
         Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
@@ -1269,7 +1269,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_1_1_to_8_16_16_expand_add) {
         std::vector<int64_t> shape1 = {8, 1, 1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_16_16);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_8_1_1);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 8, 8});
+        TileShape::Current().SetVecTile({4, 8, 8});
         Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
@@ -1299,7 +1299,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_1_1_to_8_16_16_expand_add) {
         std::vector<int64_t> shape1 = {1, 1, 1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_16_16);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_1_1_1);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 8, 8});
+        TileShape::Current().SetVecTile({4, 8, 8});
         Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
@@ -1332,7 +1332,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_add) {
         std::vector<int64_t> shape1 = {32, 32, 1, 1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", size0);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", size1);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16, 1, 16});
+        TileShape::Current().SetVecTile({16, 16, 1, 16});
         Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
@@ -1364,7 +1364,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_sub) {
         std::vector<int64_t> shape1 = {32, 32, 1, 1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", size0);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", size1);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16, 1, 32});
+        TileShape::Current().SetVecTile({16, 16, 1, 32});
         Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
@@ -1396,7 +1396,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_mul) {
         std::vector<int64_t> shape1 = {32, 32, 1, 1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", size0);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", size1);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16, 1, 8});
+        TileShape::Current().SetVecTile({16, 16, 1, 8});
         Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
@@ -1428,7 +1428,7 @@ TEST_F(OnBoardTest, test_operation_tensor_32_32_1_1_to_32_32_1_256_tileop_div) {
         std::vector<int64_t> shape1 = {32, 32, 1, 1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", size0);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", size1);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16, 1, 32});
+        TileShape::Current().SetVecTile({16, 16, 1, 32});
         Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
@@ -1460,7 +1460,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_8_1_1_to_8_8_1_256_tileop_sub) {
         std::vector<int64_t> shape1 = {8, 8, 1, 1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_8_8_1_256);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_8_8_1_1);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 1, 8});
+        TileShape::Current().SetVecTile({8, 8, 1, 8});
         Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
@@ -1492,7 +1492,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_1_1_64_to_1_128_1_64_tileop_mul01) {
         std::vector<int64_t> shape1 = {1, 128, 1, 64};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capShape1);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capShape2);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 16, 1, 32});
+        TileShape::Current().SetVecTile({1, 16, 1, 32});
         Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
@@ -1525,7 +1525,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_1_1_64_to_1_128_1_64_tileop_mul02) {
         std::vector<int64_t> shape1 = {1, 1, 1, 64};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capShape1);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capShape2);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 1, 64});
+        TileShape::Current().SetVecTile({1, 1, 1, 64});
         Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
@@ -1558,7 +1558,7 @@ TEST_F(OnBoardTest, test_operation_tensor_1_1_64_to_32_1_64_tileop_mul03) {
         std::vector<int64_t> shape1 = {1, 1, 64};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capShape1);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capShape2);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 1, 32});
+        TileShape::Current().SetVecTile({16, 1, 32});
         Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
@@ -1597,7 +1597,7 @@ TEST_F(OnBoardTest, test_operation_tensor_8_8_1_to_8_8_7168_expand_mul) {
 
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("ADD_T", funConfig, {input_a, input_b, output}) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 128});
+            TileShape::Current().SetVecTile({8, 8, 128});
             output = Mul(input_a, input_b);
         }
     }
@@ -1621,7 +1621,7 @@ TEST_F(OnBoardTest, test_unary_operation_32_32_tileop_exp) {
     PROGRAM("EXP") {
         std::vector<int64_t> shape = {32, 32};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_32_32);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16});
+        TileShape::Current().SetVecTile({16, 16});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
@@ -1648,7 +1648,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_32_32_tileop_exp) {
     PROGRAM("EXP") {
         std::vector<int64_t> shape = {16, 32, 32};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_32_32);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 16, 16});
+        TileShape::Current().SetVecTile({8, 16, 16});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
@@ -1676,7 +1676,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_16_64_64_tileop_exp) {
     PROGRAM("EXP") {
         std::vector<int64_t> shape = {16, 16, 64, 64};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_16_64_64);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 16, 32});
+        TileShape::Current().SetVecTile({8, 8, 16, 32});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
@@ -1704,7 +1704,7 @@ TEST_F(OnBoardTest, test_unary_operation_32_32_tileop_sqrt) {
     PROGRAM("SQRT") {
         std::vector<int64_t> shape = {32, 32};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_32_32);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16});
+        TileShape::Current().SetVecTile({16, 16});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
@@ -1732,7 +1732,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_32_32_tileop_sqrt) {
     PROGRAM("SQRT") {
         std::vector<int64_t> shape = {16, 32, 32};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_32_32);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 16, 16});
+        TileShape::Current().SetVecTile({8, 16, 16});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
@@ -1760,7 +1760,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_16_64_64_tileop_sqrt) {
     PROGRAM("SQRT") {
         std::vector<int64_t> shape = {16, 16, 64, 64};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_16_64_64);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 16, 32});
+        TileShape::Current().SetVecTile({8, 8, 16, 32});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
@@ -1789,7 +1789,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_16_64_70_tileop_sqrt) {
     PROGRAM("SQRT") {
         std::vector<int64_t> shape = {16, 16, 64, 70};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_16_64_70);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 16, 32});
+        TileShape::Current().SetVecTile({8, 8, 16, 32});
         Tensor input_a(DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DT_FP32, shape, out_ptr, "C");
 
@@ -1817,7 +1817,7 @@ TEST_F(OnBoardTest, test_unary_operation_32_32_tileop_reciprocal) {
     PROGRAM("RECIPROCAL") {
         std::vector<int64_t> shape = {32, 32};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_32_32);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16});
+        TileShape::Current().SetVecTile({16, 16});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
@@ -1845,7 +1845,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_32_32_tileop_reciprocal) {
     PROGRAM("RECIPROCAL") {
         std::vector<int64_t> shape = {16, 32, 32};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_32_32);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 16, 16});
+        TileShape::Current().SetVecTile({8, 16, 16});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
@@ -1873,7 +1873,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_16_64_64_tileop_reciprocal) {
     PROGRAM("RECIPROCAL") {
         std::vector<int64_t> shape = {16, 16, 64, 64};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_16_64_64);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 16, 32});
+        TileShape::Current().SetVecTile({8, 8, 16, 32});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
@@ -1901,7 +1901,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_add) {
     PROGRAM("ADD") {
         std::vector<int64_t> shape = {row, col};
         void *x_ptr = readToDev(GetGoldenDir() + "/adds_2d_x.bin", capacity);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({64, 64});
+        TileShape::Current().SetVecTile({64, 64});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -1930,7 +1930,7 @@ TEST_F(OnBoardTest, test_operation_add_vs_dim2_unalign) {
     uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("ADD") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", shapeSize);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 128});
+        TileShape::Current().SetVecTile({16, 128});
         Tensor input_a(DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DT_FP32, shape, out_ptr, "C");
@@ -1959,7 +1959,7 @@ TEST_F(OnBoardTest, test_operation_mul_vs_dim3_unalign) {
     uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("MUL") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", shapeSize);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 16, 128});
+        TileShape::Current().SetVecTile({1, 16, 128});
         Tensor input_a(DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DT_FP32, shape, out_ptr, "C");
@@ -1988,7 +1988,7 @@ TEST_F(OnBoardTest, test_operation_sub_vs_dim4_unalign) {
     uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("SUB") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", shapeSize);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({2, 1, 16, 128});
+        TileShape::Current().SetVecTile({2, 1, 16, 128});
         Tensor input_a(DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DT_FP32, shape, out_ptr, "C");
@@ -2017,7 +2017,7 @@ TEST_F(OnBoardTest, test_operation_div_vs_dim1_unalign) {
     uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("DIV") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", shapeSize);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({128});
+        TileShape::Current().SetVecTile({128});
         Tensor input_a(DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DT_FP32, shape, out_ptr, "C");
@@ -2045,7 +2045,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_add_FP16) {
     PROGRAM("ADD") {
         std::vector<int64_t> shape = {row, col};
         void *x_ptr = readToDev(GetGoldenDir() + "/adds_2d_x.bin", capacity);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({64, 64});
+        TileShape::Current().SetVecTile({64, 64});
         Tensor input_a(DataType::DT_FP16, shape, (uint8_t *)x_ptr, "A");
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP16, shape, out_ptr, "C");
@@ -2075,7 +2075,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_sub) {
     PROGRAM("SUB") {
         std::vector<int64_t> shape = {row, col};
         void *x_ptr = readToDev(GetGoldenDir() + "/subs_2d_x.bin", capacity);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({64, 64});
+        TileShape::Current().SetVecTile({64, 64});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -2103,7 +2103,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_mul) {
     PROGRAM("MUL") {
         std::vector<int64_t> shape = {row, col};
         void *x_ptr = readToDev(GetGoldenDir() + "/muls_2d_x.bin", capacity);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({64, 64});
+        TileShape::Current().SetVecTile({64, 64});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -2131,7 +2131,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim2_div) {
     PROGRAM("DIV") {
         std::vector<int64_t> shape = {row, col};
         void *x_ptr = readToDev(GetGoldenDir() + "/divs_2d_x.bin", capacity);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({64, 64});
+        TileShape::Current().SetVecTile({64, 64});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -2159,7 +2159,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim1_div) {
     PROGRAM("DIV") {
         std::vector<int64_t> shape = {col};
         void *x_ptr = readToDev(GetGoldenDir() + "/divs_1d_x.bin", 1 * 64);
-        Program::GetInstance().GetTileShape().SetVecTileShapes(32);
+        TileShape::Current().SetVecTile(32);
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -2189,7 +2189,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim3_add) {
     PROGRAM("ADD") {
         std::vector<int64_t> shape = {in0, row, col};
         void *x_ptr = readToDev(GetGoldenDir() + "/adds_3d_x.bin", capacity_dim3);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 32, 32});
+        TileShape::Current().SetVecTile({1, 32, 32});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -2217,7 +2217,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim4_add) {
     PROGRAM("ADD") {
         std::vector<int64_t> shape = {2, 2, row, col};
         void *x_ptr = readToDev(GetGoldenDir() + "/adds_4d_x.bin", 2 * 2 * capacity);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, 32});
+        TileShape::Current().SetVecTile({1, 1, 32, 32});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -2245,7 +2245,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim3_sub) {
     PROGRAM("SUB") {
         std::vector<int64_t> shape = {in0, row, col};
         void *x_ptr = readToDev(GetGoldenDir() + "/subs_3d_x.bin", capacity_dim3);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 32, 32});
+        TileShape::Current().SetVecTile({1, 32, 32});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -2273,7 +2273,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim4_sub) {
     PROGRAM("SUB") {
         std::vector<int64_t> shape = {2, 2, row, col};
         void *x_ptr = readToDev(GetGoldenDir() + "/subs_4d_x.bin", 2 * 2 * capacity);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, 32});
+        TileShape::Current().SetVecTile({1, 1, 32, 32});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -2301,7 +2301,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim3_mul) {
     PROGRAM("MUL") {
         std::vector<int64_t> shape = {in0, row, col};
         void *x_ptr = readToDev(GetGoldenDir() + "/muls_3d_x.bin", capacity_dim3);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 32, 32});
+        TileShape::Current().SetVecTile({1, 32, 32});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -2329,7 +2329,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim4_mul) {
     PROGRAM("MUL") {
         std::vector<int64_t> shape = {2, 2, row, col};
         void *x_ptr = readToDev(GetGoldenDir() + "/muls_4d_x.bin", 2 * 2 * capacity);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, 32});
+        TileShape::Current().SetVecTile({1, 1, 32, 32});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -2358,7 +2358,7 @@ TEST_F(OnBoardTest, test_operation_scalar_32_32_1_256_mul) {
     PROGRAM("MUL") {
         std::vector<int64_t> shape = {32, 32, 1, 256};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", cap);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16, 1, 16});
+        TileShape::Current().SetVecTile({16, 16, 1, 16});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Element value(DataType::DT_FP32, 0.07256f);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -2386,7 +2386,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim3_div) {
     PROGRAM("DIV") {
         std::vector<int64_t> shape = {in0, row, col};
         void *x_ptr = readToDev(GetGoldenDir() + "/divs_3d_x.bin", capacity_dim3);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 32, 32});
+        TileShape::Current().SetVecTile({1, 32, 32});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -2414,7 +2414,7 @@ TEST_F(OnBoardTest, test_operation_scalar_dim4_div) {
     PROGRAM("DIV") {
         std::vector<int64_t> shape = {2, 2, row, col};
         void *x_ptr = readToDev(GetGoldenDir() + "/divs_4d_x.bin", 2 * 2 * capacity);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, 32});
+        TileShape::Current().SetVecTile({1, 1, 32, 32});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Element value(DataType::DT_FP32, 1.5);
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
@@ -2446,7 +2446,7 @@ TEST_F(OnBoardTest, test_operation_tensor_16_32_32_to_16_32_1_tileop_mul) {
         std::vector<int64_t> shape1 = {16, 32, 1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capShape1);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capShape2);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 8});
+        TileShape::Current().SetVecTile({8, 8, 8});
         Tensor input_a(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape1, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape0, out_ptr, "C");
@@ -2492,7 +2492,7 @@ TEST_F(OnBoardTest, test_scatterupdate_case1) {
     PROGRAM("SCATTERUPDATE") {
         readToDev(inputDir + "x.bin", capacity0);
  // false:用tensor graph展开
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 256, 128);
+        TileShape::Current().SetVecTile(1, 1, 256, 128);
 
         Tensor kv_len(DataType::DT_INT32, {1, 1}, "kv_len");
         Tensor past_key_states(DataType::DT_FP32, {B, 1, S2, kvLoraRank + qkRopeHeadDim}, "past_key_states");
@@ -2529,7 +2529,7 @@ TEST_F(OnBoardTest, test_mul_large_row) {
     PROGRAM("MUL") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", shapeSize);
         void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", shapeSize);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 16384});
+        TileShape::Current().SetVecTile({1, 16384});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");

@@ -27,7 +27,7 @@ class DynamicTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 TEST_F(DynamicTest, TestPartial) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16);
+    TileShape::Current().SetVecTile(16, 16);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 8;

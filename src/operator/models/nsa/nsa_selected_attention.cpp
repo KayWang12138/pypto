@@ -114,7 +114,7 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
                                 // 中间的topk-front-near个
                                 SymbolicScalar topkIndex;
                                 if (debug) {
-                                    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, NUM16);
+                                    TileShape::Current().SetVecTile(1, 1, NUM16);
                                     topkIndex = GetTensorDataInt32(topKIndcies, bIdx, s1Idx, topKIdx - front);
                                 } else {
                                     topkIndex = GetInputDataInt32Dim3(topKIndcies, bIdx, s1Idx, topKIdx - front);
@@ -126,19 +126,19 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
                             SymbolicScalar blockIdxInBatch = positions / blockSize;
                             SymbolicScalar tail = positions % blockSize;
                             SymbolicScalar slcBlockIdx = GetInputDataInt32Dim2(blockTable, bIdx, blockIdxInBatch);
-                            Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
+                            TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
                             auto kvSlcBlock = View(kvNopeCache, {slcBlockSize, dN}, {slcBlockIdx * blockSize + tail, n2Idx * dN});
                             auto krSlcBlock = View(kRopeCache, {slcBlockSize, dR}, {slcBlockIdx * blockSize + tail, n2Idx * dR});
 
                             ConfigManager::Instance().SetSemanticLabel("kv_slc_cast_fp32");
-                            Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
+                            TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
                             auto kvSlcBlock_fp32 = Cast(kvSlcBlock, DataType::DT_FP32);
                             auto krSlcBlock_fp32 = Cast(krSlcBlock, DataType::DT_FP32);
                             ConfigManager::Instance().SetSemanticLabel("kv_slc_cast");
-                            Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
+                            TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
                             auto kvSlcBlock_fp16 = Cast(kvSlcBlock_fp32, kSlc->Datatype());
                             auto krSlcBlock_fp16 = Cast(krSlcBlock_fp32, kSlc->Datatype());
-                            Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
+                            TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
 
                             SymbolicScalar slcOutSOffset = topKIdx * slcBlockSize;
                             Assemble(kvSlcBlock_fp16, {slcOutSOffset, 0}, kSlc);
@@ -164,14 +164,14 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
 
                         // C1
                         ConfigManager::Instance().SetSemanticLabel("Sa_QkMM");
-                        Program::GetInstance().GetTileShape().SetCubeTileShapes(
+                        TileShape::Current().SetCubeTile(
                             {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, true);
-                        Program::GetInstance().GetMatrixSize().SetMatrixSize({qi.GetShape()[0], 0, kj.GetShape()[0]});
+                        TileShape::Current().SetMatrixSize({qi.GetShape()[0], 0, kj.GetShape()[0]});
                         auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj);
 
                         // V1
                         ConfigManager::Instance().SetSemanticLabel("Sa_Qkvec1");
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(v1Tile[0], v1Tile[1]);
+                        TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
                         auto sijScale = MulS(sij, Element(sij->Datatype(), softmaxScale));
                         auto tildaMij = RowMaxSingle(sijScale); // (curGTile, curS2Tile) -> (curGTile, 1)
                         auto tsub = Sub(sijScale, tildaMij); // (curGTile, curS2Tile), (curGTile, 1) -> (curGTile, curS2Tile)
@@ -182,15 +182,15 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
 
                         // C2
                         ConfigManager::Instance().SetSemanticLabel("Sa_KvMm");
-                        Program::GetInstance().GetTileShape().SetCubeTileShapes(
+                        TileShape::Current().SetCubeTile(
                             {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
-                        Program::GetInstance().GetMatrixSize().SetMatrixSize(
+                        TileShape::Current().SetMatrixSize(
                             {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
                         auto oi = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
 
                         // V2
                         ConfigManager::Instance().SetSemanticLabel("Sa_KvVec2");
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, v2Tile[0], v2Tile[1]);
+                        TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
                         auto oi4Dim = AddS(Reshape(oi, {1, 1, curGTile, dN}), Element(oi->Datatype(), float(0)));
                         Assemble(oi4Dim, oiOffset, attentionOut);
                     }
@@ -266,7 +266,7 @@ void SelectedAttentionFlashCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Ten
                             // 中间的topk-front-near个
                             SymbolicScalar topkIndex;
                             if (debug) {
-                                Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, NUM16);
+                                TileShape::Current().SetVecTile(1, 1, NUM16);
                                 topkIndex = GetTensorDataInt32(topKIndcies, bIdx, s1Idx, topKIdx - front);
                             } else {
                                 topkIndex = GetInputDataInt32Dim3(topKIndcies, bIdx, s1Idx, topKIdx - front);
@@ -278,7 +278,7 @@ void SelectedAttentionFlashCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Ten
                         SymbolicScalar blockIdxInBatch = positions / blockSize;
                         SymbolicScalar tail = positions % blockSize;
                         SymbolicScalar slcBlockIdx = GetInputDataInt32Dim2(blockTable, bIdx, blockIdxInBatch);
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
+                        TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
                         auto kvSlcBlock = View(kvNopeCache, {slcBlockSize, dN}, {slcBlockIdx * blockSize + tail, n2Idx * dN});
                         auto krSlcBlock = View(kRopeCache, {slcBlockSize, dR}, {slcBlockIdx * blockSize + tail, n2Idx * dR});
                         SymbolicScalar slcOutSOffset = bIdx * s1N2S2Sym + s1Idx * n2S2Sym + n2Idx * s2Sym + topKIdx * slcBlockSize;
@@ -317,15 +317,15 @@ void SelectedAttentionFlashCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Ten
                                         {curKvOffset, 0});
 
                         // C1
-                        Program::GetInstance().GetTileShape().SetCubeTileShapes(
+                        TileShape::Current().SetCubeTile(
                             {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, true);
                         ConfigManager::Instance().SetSemanticLabel("Sa_QkMM");
-                        Program::GetInstance().GetMatrixSize().SetMatrixSize({qi.GetShape()[0], 0, kj.GetShape()[0]});
+                        TileShape::Current().SetMatrixSize({qi.GetShape()[0], 0, kj.GetShape()[0]});
                         auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj);
 
                         // V1
                         ConfigManager::Instance().SetSemanticLabel("Sa_Qkvec1");
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(v1Tile[0], v1Tile[1]);
+                        TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
                         auto sijScale = MulS(sij, Element(sij->Datatype(), softmaxScale));
                         auto tildaMij = RowMaxSingle(sijScale); // (curGTile, curS2Tile) -> (curGTile, 1)
                         auto tsub = Sub(sijScale, tildaMij); // (curGTile, curS2Tile), (curGTile, 1) -> (curGTile, curS2Tile)
@@ -335,18 +335,18 @@ void SelectedAttentionFlashCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Ten
 
                         IF (IsLoopBegin(s2Idx, 0)) {
                             // C2
-                            Program::GetInstance().GetTileShape().SetCubeTileShapes(
+                            TileShape::Current().SetCubeTile(
                                 {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
                             ConfigManager::Instance().SetSemanticLabel("Sa_KvMm");
-                            Program::GetInstance().GetMatrixSize().SetMatrixSize(
+                            TileShape::Current().SetMatrixSize(
                                 {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
                             auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
-                            Program::GetInstance().GetTileShape().SetVecTileShapes(v2Tile[0], v2Tile[1]);
+                            TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                             IF (IsLoopEnd(s2Idx, bnPerBatch)) { // PATH3
                                 // V2
                                 ConfigManager::Instance().SetSemanticLabel("Sa_KvVec2");
                                 oiUpdate = Div(oiTmp, tildaLij);
-                                Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, v2Tile[0], v2Tile[1]);
+                                TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
                                 auto oiUpdate4Dim = AddS(Reshape(oiUpdate, {1, 1, curGTile, dN}), Element(oiUpdate->Datatype(), float(0)));
                                 Assemble(oiUpdate4Dim, oiOffset, attentionOut);
                             } ELSE { // PATH2
@@ -370,18 +370,18 @@ void SelectedAttentionFlashCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Ten
                             auto liNew = Add(t6, t5);
 
                             auto q3 = Mul(oi, t2);
-                            Program::GetInstance().GetTileShape().SetCubeTileShapes(
+                            TileShape::Current().SetCubeTile(
                                 {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
                             ConfigManager::Instance().SetSemanticLabel("Sa_UpdateMM2");
-                            Program::GetInstance().GetMatrixSize().SetMatrixSize(
+                            TileShape::Current().SetMatrixSize(
                                 {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
                             auto q1 = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
-                            Program::GetInstance().GetTileShape().SetVecTileShapes(v2Tile[0], v2Tile[1]);
+                            TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                             auto q2 = Mul(q1, t4);
                             auto oiTmp = Add(q3, q2);
                             IF (IsLoopEnd(s2Idx, bnPerBatch)) { // PATH1
                                 oiUpdate = Div(oiTmp, liNew);
-                                Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, v2Tile[0], v2Tile[1]);
+                                TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
                                 auto oiUpdate4Dim = AddS(Reshape(oiUpdate, {1, 1, curGTile, dN}), Element(oiUpdate->Datatype(), float(0)));
                                 Assemble(oiUpdate4Dim, oiOffset, attentionOut);
                             } ELSE { // PATH0

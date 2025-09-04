@@ -35,8 +35,7 @@ constexpr float F_NEGA_1 = -1.0;
 namespace npu::tile_fwk {
 
 void SetDefaultL0CubeConfig() {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes(
-        {T_SHAPE, T_SHAPE}, {T_SHAPE, T_SHAPE}, {T_SHAPE, T_SHAPE});
+    TileShape::Current().SetCubeTile({T_SHAPE, T_SHAPE}, {T_SHAPE, T_SHAPE}, {T_SHAPE, T_SHAPE});
 }
 
 Tensor FlashAttention(const Tensor &q, const Tensor &k, const Tensor &v, const Tensor &m, const Tensor &l,
@@ -89,8 +88,7 @@ Tensor FlashAttention(const Tensor &q, const Tensor &k, const Tensor &v, const T
                     SetC1CubeConfig(cubeCfg);
                     auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj); // [128, 128], [128, 1024] => [128, 1024]
 
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(
-                        vecCfg.softmaxTileX, vecCfg.softmaxTileY);
+                    TileShape::Current().SetVecTile(vecCfg.softmaxTileX, vecCfg.softmaxTileY);
 
                     auto tildaMij = RowMaxSingle(sij);
                     auto tsub = Sub(sij, tildaMij);
@@ -173,7 +171,7 @@ Tensor MultiAttention(const Tensor &hiddenStates, const Tensor &weight, const Te
 
 Tensor LlamaLayer(Tensor hiddenStates, const Tensor &attnWight, const Tensor &denseWeight, const Tensor &ffnWeight,
     const AttentionDims &atDims, const AttentionVecTileConfig &vecCfg, const AttentionCubeTileConfig &cubeCfg) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(vecCfg.defaultVecTileX, vecCfg.defaultVecTileY);
+    TileShape::Current().SetVecTile(vecCfg.defaultVecTileX, vecCfg.defaultVecTileY);
     SetDefaultL0CubeConfig();
     auto shape = hiddenStates->shape;
     auto residual = hiddenStates;
@@ -192,7 +190,7 @@ Tensor LlamaLayer(Tensor hiddenStates, const Tensor &attnWight, const Tensor &de
     // Dense
     SetDefaultL0CubeConfig();
     auto denseOut = Matrix::Matmul<false, false>(DataType::DT_FP32, attentionOutFp16, denseWeight);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(vecCfg.defaultVecTileX, vecCfg.defaultVecTileY);
+    TileShape::Current().SetVecTile(vecCfg.defaultVecTileX, vecCfg.defaultVecTileY);
     hiddenStates = Add(residual, denseOut);
 
     // Fully Connected

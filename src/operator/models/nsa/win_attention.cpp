@@ -91,13 +91,13 @@ void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &
                         SymbolicScalar curidx = blockStartIndex + tIdx;
                         SymbolicScalar curBlockIdx = GetInputDataInt32Dim2(blockTable, bIdx, curidx);
 
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(nopeTile[0], nopeTile[1]);
+                        TileShape::Current().SetVecTile(nopeTile[0], nopeTile[1]);
                         auto kNope = View(vNopeCache, {blockSize, dNopeSize}, {curBlockIdx * blockSize, n2Idx * dNopeSize});
                         auto tmpK1 = Cast(kNope, DataType::DT_FP32);
                         auto tmpK2 = Cast(tmpK1, dtype);
                         Assemble(tmpK2, {tIdx * blockSize, 0}, kPart);
 
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTile[0], ropeTile[1]);
+                        TileShape::Current().SetVecTile(ropeTile[0], ropeTile[1]);
                         auto kRope = View(kRopeCache, {blockSize, dRopeSize}, {curBlockIdx * blockSize, n2Idx * dRopeSize});
                         auto tmpKR1 = Cast(kRope, DataType::DT_FP32);
                         auto tmpKR2 = Cast(tmpKR1, dtype);
@@ -117,10 +117,10 @@ void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &
                     Assemble(qRopeR, {0, dNopeSize}, qPart);
 
                     // matmul_1
-                    Program::GetInstance().GetTileShape().SetCubeTileShapes(
-                            {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, true);
+                    TileShape::Current().SetCubeTile(
+                        {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, true);
                     auto qKT = Matrix::Matmul<false, true>(DataType::DT_FP32, qPart, kActualPart);
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(v1Tile[0], v1Tile[1]);
+                    TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
                     auto qKTScale = MulS(qKT, Element(qKT->Datatype(), softmaxScale));
 
                     // softmax
@@ -131,13 +131,13 @@ void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &
                     auto tileSum = RowSumSingle(tileExp);
 
                     // matmul_2
-                    Program::GetInstance().GetTileShape().SetCubeTileShapes(
-                            {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
+                    TileShape::Current().SetCubeTile(
+                        {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
                     auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32, tileExpF16, vActualPart);
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(v2Tile[0], v2Tile[1]);
+                    TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                     // reshape and copyOut
                     auto out = Div(oiTmp, tileSum);
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, v2Tile[0], v2Tile[1]);
+                    TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
                     auto outFinal = AddS(Reshape(out, {bTile, s1Tile, gTile, dNopeSize}),
                         Element(out->Datatype(), float(0)));
                     Assemble(outFinal, oiOffset, attentionOut);
@@ -215,13 +215,13 @@ void WinAttentionComputeFlash(const Tensor &qNope, Tensor &vNopeCache, const Ten
                         SymbolicScalar curidx = blockStartIndex + tIdx;
                         SymbolicScalar curBlockIdx = GetInputDataInt32Dim2(blockTable, bIdx, curidx);
 
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(nopeTile[0], nopeTile[1]);
+                        TileShape::Current().SetVecTile(nopeTile[0], nopeTile[1]);
                         auto kNope = View(vNopeCache, {blockSize, dNopeSize}, {curBlockIdx * blockSize, n2Idx * dNopeSize});
                         auto tmpK1 = Cast(kNope, DataType::DT_FP32);
                         auto tmpK2 = Cast(tmpK1, dtype);
                         Assemble(tmpK2, {kvTensorIdx + tIdx * blockSize, 0}, kPart);
 
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTile[0], ropeTile[1]);
+                        TileShape::Current().SetVecTile(ropeTile[0], ropeTile[1]);
                         auto kRope = View(kRopeCache, {blockSize, dRopeSize}, {curBlockIdx * blockSize, n2Idx * dRopeSize});
                         auto tmpKR1 = Cast(kRope, DataType::DT_FP32);
                         auto tmpKR2 = Cast(tmpKR1, dtype);
@@ -243,10 +243,10 @@ void WinAttentionComputeFlash(const Tensor &qNope, Tensor &vNopeCache, const Ten
                         Assemble(qRopeR, {0, dNopeSize}, qPart);
 
                         // matmul_1
-                        Program::GetInstance().GetTileShape().SetCubeTileShapes(
-                                {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, true);
+                        TileShape::Current().SetCubeTile(
+                            {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, true);
                         auto qKT = Matrix::Matmul<false, true>(DataType::DT_FP32, qPart, kActualPart);
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(v1Tile[0], v1Tile[1]);
+                        TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
                         auto qKTScale = MulS(qKT, Element(qKT->Datatype(), softmaxScale));
 
                         // softmax
@@ -258,14 +258,14 @@ void WinAttentionComputeFlash(const Tensor &qNope, Tensor &vNopeCache, const Ten
 
                         IF (IsLoopBegin(s2Idx, 0)) {
                             // matmul_2
-                            Program::GetInstance().GetTileShape().SetCubeTileShapes(
-                                    {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
+                            TileShape::Current().SetCubeTile(
+                                {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
                             auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32, tileExpF16, vActualPart);
-                            Program::GetInstance().GetTileShape().SetVecTileShapes(v2Tile[0], v2Tile[1]);
+                            TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                             IF (IsLoopEnd(s2Idx, s2Loop)) {
                                 // reshape and copyOut
                                 oiUpdate = Div(oiTmp, tileSum);
-                                Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, v2Tile[0], v2Tile[1]);
+                                TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
                                 auto outFinal = AddS(Reshape(oiUpdate, {bTile, s1Tile, gTile, dNopeSize}),
                                     Element(oiUpdate->Datatype(), float(0)));
                                 Assemble(outFinal, oiOffset, attentionOut);
@@ -289,15 +289,15 @@ void WinAttentionComputeFlash(const Tensor &qNope, Tensor &vNopeCache, const Ten
                             auto liNew = Add(t6, t5);
 
                             auto q3 = Mul(oi, t2);
-                            Program::GetInstance().GetTileShape().SetCubeTileShapes(
-                                    {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
+                            TileShape::Current().SetCubeTile(
+                                {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
                             auto q1 = Matrix::Matmul<false, false>(DataType::DT_FP32, tileExpF16, vActualPart);
-                            Program::GetInstance().GetTileShape().SetVecTileShapes(v2Tile[0], v2Tile[1]);
+                            TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                             auto q2 = Mul(q1, t4);
                             auto oiTmp = Add(q3, q2);
                             IF (IsLoopEnd(s2Idx, s2Loop)) { // PATH1
                                 oiUpdate = Div(oiTmp, liNew);
-                                Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, v2Tile[0], v2Tile[1]);
+                                TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
                                 auto outFinal = AddS(Reshape(oiUpdate, {bTile, s1Tile, gTile, dNopeSize}),
                                     Element(oiUpdate->Datatype(), float(0)));
                                 Assemble(outFinal, oiOffset, attentionOut);
@@ -374,19 +374,19 @@ void WinAttentionDebugCompute(const Tensor &qNope, Tensor &vNopeCache, const Ten
                         SymbolicScalar curBlockIdx = GetInputDataInt32Dim2(blockTable, bIdx, curidx);
 
                         auto kNope = View(vNopeCache, {blockSize, dNopeSize}, {curBlockIdx * blockSize, n2Idx * dNopeSize});
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(nopeTile[0], nopeTile[1]);
+                        TileShape::Current().SetVecTile(nopeTile[0], nopeTile[1]);
                         auto tmpK1 = Cast(kNope, DataType::DT_FP32);
                         auto tmpK2 = Cast(tmpK1, dtype);
                         Assemble(tmpK2, {tIdx * blockSize, 0}, kPart);
 
                         auto kRope = View(kRopeCache, {blockSize, dRopeSize}, {curBlockIdx * blockSize, n2Idx * dRopeSize});
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTile[0], ropeTile[1]);
+                        TileShape::Current().SetVecTile(ropeTile[0], ropeTile[1]);
                         auto tmpKR1 = Cast(kRope, DataType::DT_FP32);
                         auto tmpKR2 = Cast(tmpKR1, dtype);
                         Assemble(tmpKR2, {tIdx * blockSize, dNopeSize}, kPart);
 
                         auto vNope = View(vNopeCache, {blockSize, dNopeSize}, {curBlockIdx * blockSize, n2Idx * dNopeSize});
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(nopeTile[0], nopeTile[1]);
+                        TileShape::Current().SetVecTile(nopeTile[0], nopeTile[1]);
                         auto tmpV1 = Cast(vNope, DataType::DT_FP32);
                         auto tmpV2 = Cast(tmpV1, dtype);
                         Assemble(tmpV2, {tIdx * blockSize, 0}, vPart);
@@ -406,10 +406,10 @@ void WinAttentionDebugCompute(const Tensor &qNope, Tensor &vNopeCache, const Ten
                         Assemble(qRopeR, {0, dNopeSize}, qPart);
 
                         // matmul_1
-                        Program::GetInstance().GetTileShape().SetCubeTileShapes(
-                                {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, true);
+                        TileShape::Current().SetCubeTile(
+                            {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, true);
                         auto qKT = Matrix::Matmul<false, true>(DataType::DT_FP32, qPart, kActualPart);
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(v1Tile[0], v1Tile[1]);
+                        TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
                         auto qKTScale = MulS(qKT, Element(qKT->Datatype(), softmaxScale));
 
                         // softmax
@@ -421,14 +421,14 @@ void WinAttentionDebugCompute(const Tensor &qNope, Tensor &vNopeCache, const Ten
                         auto valueType16 = Cast(tileSoftmx, dtype);
 
                         // matmul_2
-                        Program::GetInstance().GetTileShape().SetCubeTileShapes(
-                                {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
+                        TileShape::Current().SetCubeTile(
+                            {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
                         auto out = Matrix::Matmul<false, false>(DataType::DT_FP32, valueType16, vActualPart);
 
                         // reshape and copyOut
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(v2Tile[0], v2Tile[1]);
+                        TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                         auto outNew = Reshape(out, {bTile, s1Tile, gTile, dNopeSize});
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, outTile[0], outTile[1]);
+                        TileShape::Current().SetVecTile(1, 1, outTile[0], outTile[1]);
                         auto outFinal = AddS(outNew, Element(outNew->Datatype(), 0.0));
                         Assemble(outFinal, outOffset, attentionOut);
                     }

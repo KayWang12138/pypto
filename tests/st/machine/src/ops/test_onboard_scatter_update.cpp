@@ -45,7 +45,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_1_16_16) {
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     TileFwkInit("");
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16);
+    TileShape::Current().SetVecTile(16, 16);
 
     void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
     void *indices_ptr = readToDev<int64_t>(GetGoldenDir() + "/indices.bin", capacity1);
@@ -110,7 +110,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_1_20_20) {
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     TileFwkInit("");
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16);
+    TileShape::Current().SetVecTile(16, 16);
 
     void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
     void *indices_ptr = readToDev<int64_t>(GetGoldenDir() + "/indices.bin", capacity1);
@@ -176,7 +176,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_1_16_16_bf16) {
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     TileFwkInit("");
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16);
+    TileShape::Current().SetVecTile(16, 16);
 
     void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
     void *indices_ptr = readToDev<int64_t>(GetGoldenDir() + "/indices.bin", capacity1);
@@ -239,7 +239,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_16_16_16) {
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     TileFwkInit("");
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16);
+    TileShape::Current().SetVecTile(16, 16);
 
     void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
     void *indices_ptr = readToDev<int64_t>(GetGoldenDir() + "/indices.bin", capacity1);
@@ -305,7 +305,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_48_4096_512) {
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     TileFwkInit("");
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(16, 512);
+    TileShape::Current().SetVecTile(16, 512);
 
     void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
     void *indices_ptr = readToDev<int64_t>(GetGoldenDir() + "/indices.bin", capacity1);
@@ -368,7 +368,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_1_16_16_exp) {
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     TileFwkInit("");
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16);
+    TileShape::Current().SetVecTile(16, 16);
 
     void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
     void *indices_ptr = readToDev<int64_t>(GetGoldenDir() + "/indices.bin", capacity1);
@@ -382,9 +382,9 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_1_16_16_exp) {
     /* torch capture */
     TileFwkBeginFunction("SCATTERUPDATE_EXP", {past_key_states,kv_len,key_states, res});
     {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 8);
+        TileShape::Current().SetVecTile(1, 8);
         past_key_states = ScatterUpdate(past_key_states, kv_len, key_states, -2);
-        Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16);
+        TileShape::Current().SetVecTile(16, 16);
         res = Exp(past_key_states);
     }
     TileFwkEndFunction();
@@ -438,7 +438,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_2_1_512_576) {
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     TileFwkInit("");
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 1, 128);
+    TileShape::Current().SetVecTile(1, 1, 1, 128);
 
     void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
     void *indices_ptr = readToDev<int64_t>(GetGoldenDir() + "/indices.bin", capacity1);
@@ -502,7 +502,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_2_1_512_576_multi_row3) {
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     TileFwkInit("");
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 1, 128);
+    TileShape::Current().SetVecTile(1, 1, 1, 128);
 
     void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
     void *indices_ptr = readToDev<int64_t>(GetGoldenDir() + "/indices.bin", capacity1);
@@ -575,7 +575,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_2_1_512_576_graphD) {
     void *indices_ptr = readToDev<int64_t>(GetGoldenDir() + "/indices.bin", capacity1);
     void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_k_pe_rope);
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 128, 128);
+    TileShape::Current().SetVecTile(1, 1, 128, 128);
 
     Tensor kv_len(DataType::DT_INT64, shape1, (uint8_t *)indices_ptr, "kv_len");
     Tensor past_key_states(DataType::DT_FP32, {B, 1, S2, kvLoraRank + qkRopeHeadDim}, (uint8_t *)x_ptr, "past_key_states");
@@ -592,7 +592,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_2_1_512_576_graphD) {
         Tensor k_nope_new = Reshape(k_nope, {B, 1, S, kvLoraRank}); // (B,1,S,kvLoraRank)
 
         Tensor key_states = Concat({k_nope_new, k_pe_rope}, -1); // (B,1,S, kvLoraRank + qkRopeHeadDim)
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 512, 64);
+        TileShape::Current().SetVecTile(1, 1, 512, 64);
         past_key_states = ScatterUpdate(past_key_states, kv_len, key_states, -2);
 
     }
@@ -652,7 +652,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_2_1_512_576_graphD_bf16) {
     void *indices_ptr = readToDev<int64_t>(GetGoldenDir() + "/indices.bin", capacity1);
     void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_k_pe_rope);
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 128, 128);
+    TileShape::Current().SetVecTile(1, 1, 128, 128);
 
     Tensor kv_len(DataType::DT_INT64, shape1, (uint8_t *)indices_ptr, "kv_len");
     Tensor past_key_states(DataType::DT_BF16, shape0, (uint8_t *)x_ptr, "past_key_states");
@@ -666,7 +666,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_2_1_512_576_graphD_bf16) {
         Tensor k_nope_new = Reshape(k_nope, {B, 1, S, kvLoraRank}); // (B,1,S,kvLoraRank)
 
         Tensor key_states = Concat({k_nope_new, k_pe_rope}, -1); // (B,1,S, kvLoraRank + qkRopeHeadDim)
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 1, 128);
+        TileShape::Current().SetVecTile(1, 1, 1, 128);
         past_key_states = ScatterUpdate(past_key_states, kv_len, key_states, -2);
 
     }
@@ -726,7 +726,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_32_1_512_576_graphD_bf16) {
     void *indices_ptr = readToDev<int64_t>(GetGoldenDir() + "/indices.bin", capacity1);
     void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_k_pe_rope);
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 128, 128);
+    TileShape::Current().SetVecTile(1, 1, 128, 128);
 
     Tensor kv_len(DataType::DT_INT64, shape1, (uint8_t *)indices_ptr, "kv_len");
     Tensor past_key_states(DataType::DT_BF16, {B, 1, S2, kvLoraRank + qkRopeHeadDim}, (uint8_t *)x_ptr, "past_key_states");
@@ -740,7 +740,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_32_1_512_576_graphD_bf16) {
         Tensor k_nope_new = Reshape(k_nope, {B, 1, S, kvLoraRank}); // (B,1,S,kvLoraRank)
 
         Tensor key_states = Concat({k_nope_new, k_pe_rope}, -1); // (B,1,S, kvLoraRank + qkRopeHeadDim)
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 1, 64);
+        TileShape::Current().SetVecTile(1, 1, 1, 64);
         past_key_states = ScatterUpdate(past_key_states, kv_len, key_states, -2);
 
     }
@@ -800,7 +800,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_32_1_512_576_graphD) {
     void *indices_ptr = readToDev<int64_t>(GetGoldenDir() + "/indices.bin", capacity1);
     void *y_ptr = readToDev(GetGoldenDir() + "/y.bin", capacity_k_pe_rope);
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 128, 128);
+    TileShape::Current().SetVecTile(1, 1, 128, 128);
 
     Tensor kv_len(DataType::DT_INT64, shape1, (uint8_t *)indices_ptr, "kv_len");
     Tensor past_key_states(DataType::DT_FP32, {B, 1, S2, kvLoraRank + qkRopeHeadDim}, (uint8_t *)x_ptr, "past_key_states");
@@ -813,7 +813,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_32_1_512_576_graphD) {
         Tensor k_nope = RmsNorm(compressed_kv); // (B, S, kvLoraRank)
         Tensor k_nope_new = Reshape(k_nope, {B, 1, S, kvLoraRank}); // (B,1,S,kvLoraRank)
         Tensor key_states = Concat({k_nope_new, k_pe_rope}, -1); // (B,1,S, kvLoraRank + qkRopeHeadDim)
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 512, 64);
+        TileShape::Current().SetVecTile(1, 1, 512, 64);
         past_key_states = ScatterUpdate(past_key_states, kv_len, key_states, -2);
 
     }
@@ -864,7 +864,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_64_7168_64_moe) {
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     TileFwkInit("");
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16);
+    TileShape::Current().SetVecTile(16, 16);
 
     void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
     void *indices_ptr = readToDev<int64_t>(GetGoldenDir() + "/indices.bin", capacity1);
@@ -930,7 +930,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_48_4096_512_BSNZ) {
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     TileFwkInit("");
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(16, 512);
+    TileShape::Current().SetVecTile(16, 512);
 
     void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
     void *indices_ptr = readToDev<int64_t>(GetGoldenDir() + "/indices.bin", capacity1);
@@ -995,7 +995,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_48_4096_512_BSNZ_bf16) {
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     TileFwkInit("");
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(16, 512);
+    TileShape::Current().SetVecTile(16, 512);
 
     void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
     void *indices_ptr = readToDev<int64_t>(GetGoldenDir() + "/indices.bin", capacity1);
@@ -1065,7 +1065,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_1_1_64_BSND_4dims) {
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     TileFwkInit("");
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(b, s, n, d);
+    TileShape::Current().SetVecTile(b, s, n, d);
 
     void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
     void *indices_ptr = readToDev<int64_t>(GetGoldenDir() + "/indices.bin", capacity1);
@@ -1133,7 +1133,7 @@ TEST_F(ScatterupdateOnBoardTest, test_scatter_update_1_1_1_64_BSND_2dims) {
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     TileFwkInit("");
-    Program::GetInstance().GetTileShape().SetVecTileShapes(b, d);
+    TileShape::Current().SetVecTile(b, d);
 
     void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
     void *indices_ptr = readToDev<int64_t>(GetGoldenDir() + "/indices.bin", capacity1);

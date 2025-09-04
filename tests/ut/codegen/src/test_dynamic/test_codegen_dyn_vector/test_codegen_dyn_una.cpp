@@ -54,7 +54,7 @@ TEST_F(TestCodegenDynUna, TestAbsDynamic) {
     std::vector<int64_t> srcShape = {S0, S1};
     std::vector<int64_t> dstShape = {D0, D1};
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes({8, 128});
+    TileShape::Current().SetVecTile({8, 128});
     Tensor input_a(DataType::DT_FP16, srcShape, "A");
     Tensor output(DataType::DT_FP16, dstShape, "C");
 
@@ -90,7 +90,7 @@ TEST_F(TestCodegenDynUna, TestDynExpand) {
     std::vector<int64_t> shape = {64, 64};
     std::vector<int64_t> shape1 = {1, 64};
     auto shapeImme = OpImmediate::Specified(shape);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(shape);
+    TileShape::Current().SetVecTile(shape);
     ConfigManager::Instance().SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");

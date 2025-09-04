@@ -137,16 +137,16 @@ void RunAttentionPostCostModel()
         int new_n = attnPostIn->shape[1];
         int new_s = attnPostIn->shape[2];
         DataType dType = attnPostIn->Datatype();
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, d});
+        TileShape::Current().SetVecTile({1, 1, 32, d});
         Tensor atten_res1 = Reshape(Transpose(attnPostIn, {1, 2}), {new_b * new_s, new_n, d});
-        Program::GetInstance().GetTileShape().SetVecTileShapes({32, 1, d});
+        TileShape::Current().SetVecTile({32, 1, d});
         Tensor atten_res2 = Transpose(atten_res1, {0, 1});
         // [n,bs,kvLoraRank] * [n, kvLoraRank, vHeadDim] = [n,bs,vHeadDim]
-        Program::GetInstance().GetTileShape().SetVecTileShapes(128, 128);
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {128, 128}, {128, 128});
+        TileShape::Current().SetVecTile(128, 128);
+        TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
         Tensor mm7_res = Matrix::BatchMatmul(dType, atten_res2, kvBProjWV);
         // Tensor mm7_res = Matrix::BatchMatmul(dType, atten_res2, kvBProjWV);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 128, 128});
+        TileShape::Current().SetVecTile({1, 128, 128});
         Tensor mm7_res1 = Transpose(mm7_res, {0, 1});
         Tensor mm7_res2 = Reshape(mm7_res1, {new_b, new_s, new_n * v_head});
 
@@ -373,28 +373,28 @@ TEST_F(CostModelTest, TestAttentionPostBf16Real) {
     ConfigManager::Instance();
     FUNCTION("AttentionPost") {
         DataType dType = attnPostIn->Datatype();
-        Program::GetInstance().GetTileShape().SetVecTileShapes({2, n, 1, d});
+        TileShape::Current().SetVecTile({2, n, 1, d});
         Tensor atten_res0 = Transpose(attnPostIn, {1, 2});
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 1, tile16, tile128});
+        TileShape::Current().SetVecTile({4, 1, tile16, tile128});
         Tensor atten_res1 = Reshape(atten_res0, {b * s, n, d});
-        Program::GetInstance().GetTileShape().SetVecTileShapes({tile8, tile8, d});
+        TileShape::Current().SetVecTile({tile8, tile8, d});
         Tensor t2_res = Transpose(atten_res1, {0, 1});
 
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({tile16, tile16}, {tile128, tile128}, {tile128, tile128});  // M 16对齐
+        TileShape::Current().SetCubeTile({tile16, tile16}, {tile128, tile128}, {tile128, tile128}); // M 16对齐
         // [n,bs,kvLoraRank] * [n, kvLoraRank, vHeadDim] = [n,bs,vHeadDim]
         Tensor bmm4_res = Matrix::BatchMatmul(dType, t2_res, kvBProjWV);
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(tile16, tile16, v_head); // 必须切，但是尾轴不能切
+        TileShape::Current().SetVecTile(tile16, tile16, v_head); // 必须切，但是尾轴不能切
         Tensor t3_res = Transpose(bmm4_res, {0, 1}); // [bs,n,v_head]
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes({tile16, tile16, v_head});
+        TileShape::Current().SetVecTile({tile16, tile16, v_head});
         Tensor r2_res = Reshape(t3_res, {b * s, n*v_head});
 
         // [b,s, n*v_head] @ [n*v_head, h] = [b,s,h]
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({tile16, tile16}, {tile128, tile128}, {tile128, tile128});
+        TileShape::Current().SetCubeTile({tile16, tile16}, {tile128, tile128}, {tile128, tile128});
         Tensor bmm5_res = Matrix::Matmul<false, false>(dType, r2_res, oProjW);
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes({b, tile1024});
+        TileShape::Current().SetVecTile({b, tile1024});
         atten_output = Reshape(bmm5_res, {b, s, h});
     }
     std::cout << Program::GetInstance().Dump() << std::endl;
@@ -402,7 +402,7 @@ TEST_F(CostModelTest, TestAttentionPostBf16Real) {
 
 void RunConcat()
 {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(16, 6, 6, 6);
+    TileShape::Current().SetVecTile(16, 6, 6, 6);
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     std::vector<int64_t> shape1 = {10, 10, 10, 10};
@@ -551,11 +551,11 @@ TEST_F(CostModelDynTest, TestDD) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     constexpr int tilingX = 32;
     constexpr int tilingY = 32;
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tilingX, tilingY);
+    TileShape::Current().SetVecTile(tilingX, tilingY);
     constexpr int tilingM = 32;
     constexpr int tilingN = 32;
     constexpr int tilingK = 32;
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({tilingM, tilingM}, {tilingN, tilingN}, {tilingK, tilingK});
+    TileShape::Current().SetCubeTile({tilingM, tilingM}, {tilingN, tilingN}, {tilingK, tilingK});
 
     std::vector<uint8_t> devProgBinary;
 

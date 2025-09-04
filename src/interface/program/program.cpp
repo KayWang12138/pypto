@@ -48,14 +48,6 @@ void GetEnv(const char * const envName, std::string &envValue)
     envValue = envTemp;
 }
 
-TileShape &TileShape::Current() {
-    return Program::GetInstance().GetTileShape();
-}
-
-MatrixSize &MatrixSize::Current() {
-    return Program::GetInstance().GetMatrixSize();
-}
-
 // Program Definitions
 Program::Program() : currentFunctionPtr_(nullptr) {
     CreateInitFunction();

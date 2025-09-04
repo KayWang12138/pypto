@@ -22,8 +22,9 @@ void ExecuteOpAMulB(ExecuteOperationContext *ctx) {
     auto lhs = ctx->ioperandDataViewList->at(0);
     auto rhs = ctx->ioperandDataViewList->at(1);
 
-    int k1 = ctx->op->GetTileShape().K(1);
-    int k2 = ctx->op->GetTileShape().K(2);
+    auto &cubeTile = ctx->op->GetTileShape().GetCubeTile();
+    int k1 = cubeTile.k[1];
+    int k2 = cubeTile.k[2];
     int kStep = std::gcd(k1, k2);
     switch (ctx->op->GetOpcode()) {
         case Opcode::OP_A_MUL_B: npu::tile_fwk::calc::MatMul<false, false>(ret, lhs, rhs, kStep); break;

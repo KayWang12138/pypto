@@ -77,28 +77,30 @@ TEST_F(OnBoardTest, test_attention_post_bf16_real_batch4) {
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("ATTENTION_POST_T", funConfig, {input_i, t1_i, w_uv_i, w_o_i, outputT}) {
             // T+R+T fail
-            Program::GetInstance().GetTileShape().SetVecTileShapes({4, 16, 1, kvLoraRank});
+            TileShape::Current().SetVecTile({4, 16, 1, kvLoraRank});
             Tensor atten_res0 = Transpose(input_i, {1, 2});
-            Program::GetInstance().GetTileShape().SetVecTileShapes({4, 1, 32, std::min(512, kvLoraRank)});
+            TileShape::Current().SetVecTile({4, 1, 32, std::min(512, kvLoraRank)});
             Tensor atten_res1 = Reshape(atten_res0, {B * S, N, kvLoraRank});
-            Program::GetInstance().GetTileShape().SetVecTileShapes({4, 16, kvLoraRank});
+            TileShape::Current().SetVecTile({4, 16, kvLoraRank});
             Tensor t2_res = Transpose(atten_res1, {0, 1});
 
-            Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16}, {std::min(256, kvLoraRank), std::min(256, kvLoraRank)}, {std::min(128, vHeadDim), std::min(128, vHeadDim)});  // M 16对齐
+            TileShape::Current().SetCubeTile({16, 16}, {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
+                {std::min(128, vHeadDim), std::min(128, vHeadDim)}); // M 16对齐
             // [n,bs,kvLoraRank] * [n, kvLoraRank, vHeadDim] = [n,bs,vHeadDim]
             Tensor bmm4_res = Matrix::BatchMatmul(dType, t2_res, w_uv_i);
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(32, 4, vHeadDim); // 必须切，但是尾轴不能切
+            TileShape::Current().SetVecTile(32, 4, vHeadDim); // 必须切，但是尾轴不能切
             Tensor t3_res = Transpose(bmm4_res, {0, 1}); // [bs,n,vHeadDim]
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes({4, 32, vHeadDim});
+            TileShape::Current().SetVecTile({4, 32, vHeadDim});
             Tensor r2_res = Reshape(t3_res, {B * S, N*vHeadDim});
 
             // [b,s, n*vHeadDim] @ [n*vHeadDim, h] = [b,s,h]
-            Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16}, {std::min(256, N*vHeadDim), std::min(256, N*vHeadDim)}, {std::min(128, H), std::min(128, H)});
+            TileShape::Current().SetCubeTile({16, 16}, {std::min(256, N * vHeadDim), std::min(256, N * vHeadDim)},
+                {std::min(128, H), std::min(128, H)});
             Tensor bmm5_res = Matrix::Matmul<false, false>(dType, r2_res, w_o_i);
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes({4, std::min(2048, H)});
+            TileShape::Current().SetVecTile({4, std::min(2048, H)});
             outputT = Reshape(bmm5_res, {B, S, H});
         }
     }
@@ -172,28 +174,30 @@ TEST_F(OnBoardTest, test_attention_post_bf16_real_n128) {
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("ATTENTION_POST_T", funConfig, {input_i, t1_i, w_uv_i, w_o_i, outputT}) {
             // T+R+T fail
-            Program::GetInstance().GetTileShape().SetVecTileShapes({4, 16, 1, kvLoraRank});
+            TileShape::Current().SetVecTile({4, 16, 1, kvLoraRank});
             Tensor atten_res0 = Transpose(input_i, {1, 2});
-            Program::GetInstance().GetTileShape().SetVecTileShapes({4, 1, 32, kvLoraRank});
+            TileShape::Current().SetVecTile({4, 1, 32, kvLoraRank});
             Tensor atten_res1 = Reshape(atten_res0, {B * S, N, kvLoraRank});
-            Program::GetInstance().GetTileShape().SetVecTileShapes({4, 16, kvLoraRank});
+            TileShape::Current().SetVecTile({4, 16, kvLoraRank});
             Tensor t2_res = Transpose(atten_res1, {0, 1});
 
-            Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {std::min(256, kvLoraRank), std::min(256, kvLoraRank)}, {std::min(128, vHeadDim), std::min(128, vHeadDim)});  // M 16对齐
+            TileShape::Current().SetCubeTile({32, 32}, {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
+                {std::min(128, vHeadDim), std::min(128, vHeadDim)}); // M 16对齐
             // [n,bs,kvLoraRank] * [n, kvLoraRank, vHeadDim] = [n,bs,vHeadDim]
             Tensor bmm4_res = Matrix::BatchMatmul(dType, t2_res, w_uv_i);
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(32, 4, vHeadDim); // 必须切，但是尾轴不能切
+            TileShape::Current().SetVecTile(32, 4, vHeadDim); // 必须切，但是尾轴不能切
             Tensor t3_res = Transpose(bmm4_res, {0, 1}); // [bs,n,vHeadDim]
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes({4, 32, vHeadDim});
+            TileShape::Current().SetVecTile({4, 32, vHeadDim});
             Tensor r2_res = Reshape(t3_res, {B * S, N*vHeadDim});
 
             // [b,s, n*vHeadDim] @ [n*vHeadDim, h] = [b,s,h]
-            Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {std::min(256, N*vHeadDim), std::min(256, N*vHeadDim)}, {std::min(128, H), std::min(128, H)});
+            TileShape::Current().SetCubeTile({32, 32}, {std::min(256, N * vHeadDim), std::min(256, N * vHeadDim)},
+                {std::min(128, H), std::min(128, H)});
             Tensor bmm5_res = Matrix::Matmul<false, false>(dType, r2_res, w_o_i);
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes({32, std::min(2048, H)});
+            TileShape::Current().SetVecTile({32, std::min(2048, H)});
             outputT = Reshape(bmm5_res, {B, S, H});
         }
     }

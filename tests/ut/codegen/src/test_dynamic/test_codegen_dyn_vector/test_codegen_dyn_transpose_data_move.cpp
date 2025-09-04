@@ -50,7 +50,7 @@ void TestTransposeDataMoveBody(int dim = 3) {
         shape = {64, 64, 64, 64};
     }
     auto shapeImme = OpImmediate::Specified(shape);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(shape);
+    TileShape::Current().SetVecTile(shape);
 
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");

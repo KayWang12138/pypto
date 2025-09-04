@@ -40,7 +40,7 @@ TEST_F(OperationImplTest, TestTranspose_BNSD_BSND) {
     std::vector<int64_t> shape{3, 32, 64, 16};
     Tensor a(DT_FP32, shape, "a");
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 16, 16, 16);
+    TileShape::Current().SetVecTile(1, 16, 16, 16);
     FUNCTION("BNSD_BSND") {
         a = Transpose(a, {1, 2});
     }
@@ -51,7 +51,7 @@ TEST_F(OperationImplTest, TestTranspose_BNSD_BSND) {
 TEST_F(OperationImplTest, TestTranspose_BNSD2_BNS2D_small) {
     std::vector<int64_t> shape{1, 2, 64, 64, 2};
     Tensor a(DT_FP32, shape, "a");
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 64, 64, 2);
+    TileShape::Current().SetVecTile(1, 1, 64, 64, 2);
 
     FUNCTION("BNSD2_BNS2D") {
         a = Transpose(a, {3, 4});
@@ -63,7 +63,7 @@ TEST_F(OperationImplTest, TestTranspose_BNSD2_BNS2D_small) {
 TEST_F(OperationImplTest, TestTranspose_BNSD2_BNS2D) {
     std::vector<int64_t> shape{1, 2, 1280, 128, 2};
     Tensor a(DT_FP32, shape, "a");
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 128, 128, 2);
+    TileShape::Current().SetVecTile(1, 1, 128, 128, 2);
 
     FUNCTION("BNSD2_BNS2D") {
         a = Transpose(a, {3, 4});
@@ -76,7 +76,7 @@ TEST_F(OperationImplTest, TestTranspose_ABC_BAC) {
     std::vector<int64_t> shape{128, 2, 128};
     Tensor a(DT_FP32, shape, "a");
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32, 1, 128);
+    TileShape::Current().SetVecTile(32, 1, 128);
     FUNCTION("ABC_BAC") {
         a = Transpose(a, {0, 1});
     }
@@ -88,7 +88,7 @@ TEST_F(OperationImplTest, TestTranspose_BNDS_BNSD) {
     std::vector<int64_t> shape{1, 32, 64, 2};
     Tensor a(DT_FP32, shape, "a");
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 2, 64, 2);
+    TileShape::Current().SetVecTile(1, 2, 64, 2);
     FUNCTION("BNDS_BNSD") {
         a = Transpose(a, {3, 2});
     }
@@ -97,7 +97,7 @@ TEST_F(OperationImplTest, TestTranspose_BNDS_BNSD) {
 }
 
 TEST_F(OperationImplTest, Test_multiReshape) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16, 16, 16);
+    TileShape::Current().SetVecTile(16, 16, 16, 16);
     Tensor input(DT_FP32, {8, 16, 16}, "a");
     Tensor res1;
     Tensor res2;
@@ -115,14 +115,14 @@ TEST_F(OperationImplTest, Test_multiReshape) {
 }
 
 TEST_F(OperationImplTest, Test_Reshape_reshape_assemble_multito1) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(8, 8, 8, 8);
+    TileShape::Current().SetVecTile(8, 8, 8, 8);
     Tensor input(DT_FP32, {1, 384}, "a");
     Tensor res1;
     FUNCTION("TestAssign") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 64);
+        TileShape::Current().SetVecTile(1, 64);
         Tensor res = Exp(input);
         Tensor test = Reshape(res, {1, 1, 2, 192});
-        Program::GetInstance().GetTileShape().SetVecTileShapes(2, 1, 2, 64);
+        TileShape::Current().SetVecTile(2, 1, 2, 64);
         res1 = Exp(test);
     }
     // Program::GetInstance().GraphCheck();
@@ -130,7 +130,7 @@ TEST_F(OperationImplTest, Test_Reshape_reshape_assemble_multito1) {
 }
 
 TEST_F(OperationImplTest, Test_Reshape_1to1) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(8, 8, 8, 8);
+    TileShape::Current().SetVecTile(8, 8, 8, 8);
     Tensor input(DT_FP32, {8, 16, 16}, "a");
     Tensor res1;
     FUNCTION("TestAssign") {
@@ -143,7 +143,7 @@ TEST_F(OperationImplTest, Test_Reshape_1to1) {
 }
 
 TEST_F(OperationImplTest, Test_Reshape_1toMulti) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(8, 8, 8, 8, 8);
+    TileShape::Current().SetVecTile(8, 8, 8, 8, 8);
     // Tensor input(DT_FP32, {2, 4, 16, 4, 4}, "a");
     Tensor input(DT_FP32, {16, 4, 4}, "a");
     Tensor res1;
@@ -158,7 +158,7 @@ TEST_F(OperationImplTest, Test_Reshape_1toMulti) {
 }
 
 TEST_F(OperationImplTest, Test_Reshape_multito1) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(8, 8, 8, 8);
+    TileShape::Current().SetVecTile(8, 8, 8, 8);
     Tensor input(DT_FP32, {8, 16, 16}, "a");
     Tensor res1;
     FUNCTION("TestAssign") {
@@ -171,7 +171,7 @@ TEST_F(OperationImplTest, Test_Reshape_multito1) {
 }
 
 TEST_F(OperationImplTest, Test_Unsqueeze) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(8, 8, 8, 8);
+    TileShape::Current().SetVecTile(8, 8, 8, 8);
     Tensor input(DT_FP32, {8, 16, 16}, "a");
     Tensor res1;
     FUNCTION("TestUnsqueeze") {
@@ -190,10 +190,10 @@ TEST_F(OperationImplTest, TestBasicOperationMixBroadcast) {
     Tensor b(DT_FP32, {32, 1}, "b");
     Tensor c(DT_FP32, {32, 32, 32}, "c");
     FUNCTION("A") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(8, 8);
+        TileShape::Current().SetVecTile(8, 8);
         auto d = Add(a, b);
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(8, 8, 8);
+        TileShape::Current().SetVecTile(8, 8, 8);
         auto e = Mul(d, c);
     }
     std::cout << Program::GetInstance().Dump() << std::endl;
@@ -202,7 +202,7 @@ TEST_F(OperationImplTest, TestBasicOperationMixBroadcast) {
 TEST_F(OperationImplTest, Test_TopK) {
     PROGRAM("TOPK") {
         std::vector<int64_t> shape = {128, 32};
-        Program::GetInstance().GetTileShape().SetVecTileShapes({128, 32});
+        TileShape::Current().SetVecTile({128, 32});
         Tensor input_a(DT_FP32, shape, "A");
         auto output = std::make_tuple(Tensor(DT_FP32, shape, "res"), Tensor(DT_FP32, shape, "resDics"));
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
@@ -215,7 +215,7 @@ TEST_F(OperationImplTest, Test_TopK) {
 TEST_F(OperationImplTest, Test_ArgSort) {
     PROGRAM("ARGSORT") {
         std::vector<int64_t> shape = {128, 32};
-        Program::GetInstance().GetTileShape().SetVecTileShapes({128, 32});
+        TileShape::Current().SetVecTile({128, 32});
         Tensor input_a(DT_FP32, shape, "A");
         auto output = Tensor(DT_FP32, shape, "res"); // std::make_tuple(Tensor(DT_FP32, shape, "res"), Tensor(DT_FP32, shape, "resDics"));
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
@@ -233,8 +233,8 @@ TEST_F(OperationImplTest, Test_MatmulWithSplitK) {
         Tensor matA(DT_FP16, {m, k}, "mat_a");
         Tensor matB(DT_FP16, {k, n}, "mat_b");
         Tensor matC(DT_FP32, {m, n}, "mat_c");
-        Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+        TileShape::Current().SetVecTile(32, 32);
+        TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("Matmul_T", funConfig, {matA, matB, matC}) {
             Tensor tmpC(DT_FP32, {m, n}, "tmp_c");
@@ -261,8 +261,8 @@ TEST_F(OperationImplTest, Test_MatmulWithSplitKWithTrans) {
         Tensor matA(DT_FP16, {m, k}, "mat_a");
         Tensor matB(DT_FP16, {k, n}, "mat_b");
         Tensor matC(DT_FP32, {m, n}, "mat_c");
-        Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+        TileShape::Current().SetVecTile(32, 32);
+        TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("Matmul_T", funConfig, {matA, matB, matC}) {
             Tensor tmpC(DT_FP32, {m, n}, "tmp_c");
@@ -290,7 +290,7 @@ void TestNZFormatBatch(int bs, int m, int k, int n) {
     std::vector<int64_t> batch_shape_c = {bs*m, n};
     PROGRAM("BATCHMATMUL") {
         Program::GetInstance().GetConfig().Reset();
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+        TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
         auto afmt = IsANZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
         auto bfmt = IsBNZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
         Tensor matA(inputType, batch_shape_a, "MatA", afmt);
@@ -303,7 +303,7 @@ void TestNZFormatBatch(int bs, int m, int k, int n) {
             for (size_t index = 0; index < (size_t)bs; ++index) {
                 auto inputA = View(matA, {m, k}, {(int)index*m, 0});
                 auto inputB = isTransB ? View(matB, {n, k}, {(int)index*n, 0}) : View(matB, {k, n}, {(int)index*k, 0});
-                Program::GetInstance().GetMatrixSize().SetMatrixSize({m, k, n});
+                TileShape::Current().SetMatrixSize({m, k, n});
                 auto outTensor = npu::tile_fwk::Matrix::Matmul<false, isTransB>(outputType, inputA, inputB);
                 std::vector<int64_t> pairSecond = {(int)index * m, 0};
                 auto pair = std::make_pair(outTensor, pairSecond);

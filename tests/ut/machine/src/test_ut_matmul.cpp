@@ -24,9 +24,8 @@ namespace {
 
 class DynamicMatmulUTest : public testing::Test {};
 
-template<typename InputT, typename OutputT, bool IsBtrans = false, bool IsBNZ = false>
+template <typename InputT, typename OutputT, bool IsBtrans = false, bool IsBNZ = false>
 void TestDynMatmul(int m, int k, int n) {
-    config::SetPlatformConfig("ENABLE_COST_MODEL", true);
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
@@ -58,7 +57,7 @@ void TestDynMatmul(int m, int k, int n) {
 }
 
 TEST_F(DynamicMatmulUTest, mm_A_B_ND_bf16) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int m = 128;
     int k = 256;
     int n = 512;

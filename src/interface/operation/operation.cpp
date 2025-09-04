@@ -22,6 +22,7 @@
 #include "interface/operation/opcode.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
+#include "interface/inner/tile_shape.h"
 #include "interface/program/program.h"
 #include "interface/operation/cycles.h"
 #include "interface/function/function.h"
@@ -140,18 +141,21 @@ Operation::Operation(
     }
 
     if (function_->IsGraphType({GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) {
-        tileShape_ = cur.BelongTo().GetTileShape();
-        if (iOperands.size() > 0 ) {
-            // tile shape was set
-            ASSERT(tileShape_.TileShapeAvaliable())<<"op ["<<OpcodeManager::Inst().GetOpcodeStr(opcode)<<"]tile shape not set";
-            // vector tile shape 32B align
-            if (tileShape_.GetVecTileShapes().size() > 0) {
-                auto dataBytes = BytesOf(iOperands[0]->Datatype());
-                auto lastAxisTile = tileShape_.GetVecTileShapes().back();
-                ASSERT((dataBytes * lastAxisTile) % BLOCK_SIZE == 0) << "vector tile shape last dimesion should be 32B align";
+        tileShape_ = TileShape::Current();
+        if (coreType_ == CoreType::AIC) {
+            ASSERT(tileShape_.GetCubeTile().valid())
+                << "op [" << OpcodeManager::Inst().GetOpcodeStr(opcode) << "]tile shape not set";
+        }
+        OpCalcType calcType = OpcodeManager::Inst().GetOpCalcType(opcode);
+        if (coreType_ == CoreType::AIV && calcType != OpCalcType::DISTRIBUTED) {
+            auto &vecTile = tileShape_.GetVecTile();
+            ASSERT(vecTile.valid()) << "op [" << OpcodeManager::Inst().GetOpcodeStr(opcode) << "]tile shape not set";
+            if (iOperands.size()) {
+                auto dataType = iOperands[0]->Datatype();
+                auto lastAxis = vecTile.tile.back();
+                ASSERT((lastAxis * BytesOf(dataType)) % BLOCK_SIZE == 0) << "vec tile should be 32B align";
             }
         }
-
         if (!ConfigManager::Instance().GetSemanticLabel().empty()) {
             SetSemanticLabel(ConfigManager::Instance().GetSemanticLabel());
         }
@@ -355,10 +359,9 @@ Json Operation::DumpJson(bool dumpTensor) const {
 
     if (isTileOp_) {
         HashBuffer vecBuffer, cubeBuffer, distBuffer;
-        tileShape_.SerializeTo(vecBuffer, cubeBuffer, distBuffer);
-        opDump["tile"]["vec"] = std::basic_string(vecBuffer);
-        opDump["tile"]["cube"] = std::basic_string(cubeBuffer);
-        opDump["tile"]["comm"] = std::basic_string(distBuffer);
+        opDump["tile"]["vec"] = std::basic_string(SerializeTo(tileShape_.GetVecTile(), vecBuffer));
+        opDump["tile"]["cube"] = std::basic_string(SerializeTo(tileShape_.GetCubeTile(), cubeBuffer));
+        opDump["tile"]["comm"] = std::basic_string(SerializeTo(tileShape_.GetDistTile(), distBuffer));
     }
 
     if (GetOpAttribute() != nullptr) {
@@ -430,7 +433,9 @@ std::shared_ptr<Operation> Operation::LoadJson(
         HashBuffer cubeBuffer = opDump["tile"]["cube"].get<HashBuffer>();
         HashBuffer distBuffer = opDump["tile"]["comm"].get<HashBuffer>();
         op->isTileOp_ = true;
-        op->tileShape_ = TileShape::DeserializeFrom(vecBuffer, cubeBuffer, distBuffer);
+        DeserializeFrom(vecBuffer, op->tileShape_.GetVecTile());
+        DeserializeFrom(cubeBuffer, op->tileShape_.GetCubeTile());
+        DeserializeFrom(distBuffer, op->tileShape_.GetDistTile());
     } else {
         op->isTileOp_ = false;
     }

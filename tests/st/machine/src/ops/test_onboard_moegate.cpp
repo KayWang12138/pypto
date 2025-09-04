@@ -49,7 +49,7 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_case1) {
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     TileFwkInit("");
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16);
+    TileShape::Current().SetVecTile(16, 16);
 
     void *x_ptr = readToDev(GetGoldenDir() + "/group_idx.bin", capacity0);
     void *y_ptr = readToDev(GetGoldenDir() + "/scores_for_choice.bin", capacity1);
@@ -68,11 +68,11 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_case1) {
         auto tmp_group_mask = ScatterElement(group_mask, group_idx, Element(DataType::DT_FP32, 1.0), 1); // (b*s, nGroup)
         Tensor group_mask_new = Reshape(tmp_group_mask, {B*S, nGroup, 1}); // (b*s, nGroup, 1)
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16, 32);
+        TileShape::Current().SetVecTile(16, 16, 32);
         Tensor score_mask = Expand(group_mask_new, {B*S, nGroup, nRoutedExperts / nGroup}); // [b*s,nGroup,1] -> [b*s,nGroup,32]
         auto score_mask_new = Reshape(score_mask, {B*S, nGroup*nRoutedExperts / nGroup}); // (b*s,-1) [b*s,256]
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(64, 64);
+        TileShape::Current().SetVecTile(64, 64);
         auto score1 = Mul(scores_for_choice, score_mask_new);
         auto score2 = MulS(LogicalNot(score_mask_new), Element(DataType::DT_FP32, -3.4e+38f));
         res_scores = Add(score1, score2);
@@ -133,7 +133,7 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_case2_32_1_7168) {
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     TileFwkInit("");
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(64, 64);
+    TileShape::Current().SetVecTile(64, 64);
 
     void *x_ptr = readToDev(GetGoldenDir() + "/group_idx.bin", capacity0);
     void *y_ptr = readToDev(GetGoldenDir() + "/scores_for_choice.bin", capacity1);
@@ -152,11 +152,11 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_case2_32_1_7168) {
         auto tmp_group_mask = ScatterElement(group_mask, group_idx, Element(DataType::DT_FP32, 1.0), 1); // (b*s, nGroup)
         Tensor group_mask_new = Reshape(tmp_group_mask, {B*S, nGroup, 1}); // (b*s, nGroup, 1)
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(32, 8, 32); // 此处如果用(16 16 32)的tile 会有精度问题
+        TileShape::Current().SetVecTile(32, 8, 32); // 此处如果用(16 16 32)的tile 会有精度问题
         Tensor score_mask = Expand(group_mask_new, {B*S, nGroup, nRoutedExperts / nGroup}); // [b*s,nGroup,1] -> [b*s,nGroup,32]
         auto score_mask_new = Reshape(score_mask, {B*S, nGroup*nRoutedExperts / nGroup}); // (b*s,-1) [b*s,256]
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(64, 64);
+        TileShape::Current().SetVecTile(64, 64);
         auto score1 = Mul(scores_for_choice, score_mask_new);
         auto score2 = MulS(LogicalNot(score_mask_new), Element(DataType::DT_FP32, -3.4e+38f));
         res_scores = Add(score1, score2);
@@ -217,7 +217,7 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_case2_8_1_7168) {
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     TileFwkInit("");
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(64, 64);
+    TileShape::Current().SetVecTile(64, 64);
 
     void *x_ptr = readToDev(GetGoldenDir() + "/group_idx.bin", capacity0);
     void *y_ptr = readToDev(GetGoldenDir() + "/scores_for_choice.bin", capacity1);
@@ -236,10 +236,10 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_case2_8_1_7168) {
         auto tmp_group_mask = ScatterElement(group_mask, group_idx, Element(DataType::DT_FP32, 1.0), 1); // (b*s, nGroup)
         Tensor group_mask_new = Reshape(tmp_group_mask, {B*S, nGroup, 1}); // (b*s, nGroup, 1)
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16, 32);
+        TileShape::Current().SetVecTile(16, 16, 32);
         Tensor score_mask = Expand(group_mask_new, {B*S, nGroup, nRoutedExperts / nGroup}); // [b*s,nGroup,1] -> [b*s,nGroup,32]
         auto score_mask_new = Reshape(score_mask, {B*S, nGroup*nRoutedExperts / nGroup}); // (b*s,-1) [b*s,256]
-        Program::GetInstance().GetTileShape().SetVecTileShapes(64, 64);
+        TileShape::Current().SetVecTile(64, 64);
         auto score1 = Mul(scores_for_choice, score_mask_new);
         auto score2 = MulS(LogicalNot(score_mask_new), Element(DataType::DT_FP32, -3.4e+38f));
         res_scores = Add(score1, score2);
@@ -303,7 +303,7 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_graph4_case_32_1_7168) {
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
     TileFwkInit("");
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(64, 64);
+    TileShape::Current().SetVecTile(64, 64);
 
     void *x_ptr = readToDev(GetGoldenDir() + "/group_idx.bin", capacity0);
     void *y_ptr = readToDev(GetGoldenDir() + "/scores_for_choice.bin", capacity1);
@@ -323,11 +323,11 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_graph4_case_32_1_7168) {
         auto tmp_group_mask = ScatterElement(group_mask, group_idx, Element(DataType::DT_FP32, 1.0), 1); // (b*s, nGroup)
         Tensor group_mask_new = Reshape(tmp_group_mask, {B*S, nGroup, 1}); // (b*s, nGroup, 1)
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16, 32); // 此处如果用(16 16 32)的tile 会有精度问题
+        TileShape::Current().SetVecTile(16, 16, 32); // 此处如果用(16 16 32)的tile 会有精度问题
         Tensor score_mask = Expand(group_mask_new, {B*S, nGroup, nRoutedExperts / nGroup}); // [b*s,nGroup,1] -> [b*s,nGroup,32]
         auto score_mask_new = Reshape(score_mask, {B*S, nGroup*nRoutedExperts / nGroup}); // (b*s,-1) [b*s,256]
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(64, 64);
+        TileShape::Current().SetVecTile(64, 64);
         auto score1 = Mul(scores_for_choice, score_mask_new);
         auto score2 = MulS(LogicalNot(score_mask_new), Element(DataType::DT_FP32, -3.4e+38f));
         auto tmp_scores = Add(score1, score2);

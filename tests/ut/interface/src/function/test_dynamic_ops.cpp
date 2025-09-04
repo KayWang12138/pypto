@@ -35,8 +35,8 @@ public:
         if (strcmp(calc::Model(), "torch")) {
             GTEST_SKIP() << "torch missing skip the verify test";
         }
-        Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+        TileShape::Current().SetVecTile(32, 32);
+        TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     }
 
     void TearDown() override {
@@ -418,7 +418,7 @@ TEST_F(DynamicOpsTest, TestGetAndSetTensorDataExpr) {
     ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
 
     int tiling = 32;
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tiling, tiling, tiling);
+    TileShape::Current().SetVecTile(tiling, tiling, tiling);
 
     int n = tiling * 1;
     int init = 10;

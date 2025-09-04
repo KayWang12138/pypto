@@ -53,6 +53,7 @@ public:
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetHostConfig(KEY_STRATEGY, "ReshapeTestStrategy");
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        TileShape::Current().SetVecTile({64, 64});
     }
     void TearDown() override {}
 

@@ -193,7 +193,7 @@ Tensor ReduceScatterImpl(const T &in, const char *group, DistReduceType reduceTy
         (std::is_same_v<T, const std::vector<npu::tile_fwk::Tensor>&>), "T must be Tensor or std::vector<Tensor>");
     int groupIndex = static_cast<int>(Program::GetInstance().GetCommGroupRecorder().Input(std::string(group)));
     CommGroupInfo groupInfo;
-    const TileShape &tileShape = Program::GetInstance().GetTileShape();
+    const TileShape &tileShape = TileShape::Current();
     CheckAndGetGroupInfo(groupIndex, tileShape, groupInfo);
 
     auto outShape = GetRsOutShape(in, groupInfo.rankSize.value());

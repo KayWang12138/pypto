@@ -210,7 +210,7 @@ void TestDynMatmul(
 }
 
 TEST_F(DynamicMatmulTest, mm_A_B_ND_bf16) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({64, 64}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({64, 64}, {128, 128}, {128, 128});
     int m = 128;
     int k = 256;
     int n = 512;
@@ -222,7 +222,7 @@ TEST_F(DynamicMatmulTest, mm_A_B_ND_bf16) {
 }
 
 TEST_F(DynamicMatmulTest, mm_A_B_NZ_bf16) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int m = 16;
     int k = 32;
     int n = 512;
@@ -234,7 +234,7 @@ TEST_F(DynamicMatmulTest, mm_A_B_NZ_bf16) {
 }
 
 TEST_F(DynamicMatmulTest, mm_A_Bt_ND_fp16) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int m = 128;
     int k = 257;
     int n = 511;
@@ -246,7 +246,7 @@ TEST_F(DynamicMatmulTest, mm_A_Bt_ND_fp16) {
 }
 
 TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_fp16) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int m = 1;
     int k = 512;
     int n = 256;
@@ -258,7 +258,7 @@ TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_fp16) {
 }
 
 TEST_F(DynamicMatmulTest, mm_A_B_NZ_int8) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int m = 16;
     int k = 32;
     int n = 512;
@@ -269,7 +269,7 @@ TEST_F(DynamicMatmulTest, mm_A_B_NZ_int8) {
 }
 
 TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_int8) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int m = 1;
     int k = 512;
     int n = 256;
@@ -280,7 +280,7 @@ TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_int8) {
 }
 
 TEST_F(DynamicMatmulTest, mm_A_B_ND_bf16_tile1) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({64, 64}, {256, 256}, {128, 128});
+    TileShape::Current().SetCubeTile({64, 64}, {256, 256}, {128, 128});
     int m = 128;
     int k = 256;
     int n = 512;
@@ -292,7 +292,7 @@ TEST_F(DynamicMatmulTest, mm_A_B_ND_bf16_tile1) {
 }
 
 TEST_F(DynamicMatmulTest, mm_A_Bt_ND_fp16_tile2) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {512, 512}, {32, 32});
+    TileShape::Current().SetCubeTile({32, 32}, {512, 512}, {32, 32});
     int m = 16;
     int k = 512;
     int n = 512;
@@ -304,7 +304,7 @@ TEST_F(DynamicMatmulTest, mm_A_Bt_ND_fp16_tile2) {
 }
 
 TEST_F(DynamicMatmulTest, mm_A_B_NZ_int8_tile3) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {512, 512});
+    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {512, 512});
     int m = 16;
     int k = 32;
     int n = 512;
@@ -315,7 +315,7 @@ TEST_F(DynamicMatmulTest, mm_A_B_NZ_int8_tile3) {
 }
 
 TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_int8_tile4) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {64, 64}, {32, 32});
+    TileShape::Current().SetCubeTile({32, 32}, {64, 64}, {32, 32});
     int m = 1;
     int k = 512;
     int n = 256;
@@ -326,7 +326,7 @@ TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_int8_tile4) {
 }
 
 TEST_F(DynamicMatmulTest, mm_A_ND_B_ND_C_NZ) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int m = 16;
     int k = 192;
     int n = 128;
@@ -338,7 +338,7 @@ TEST_F(DynamicMatmulTest, mm_A_ND_B_ND_C_NZ) {
 }
 
 TEST_F(DynamicMatmulTest, mm_AT_B_ANZ_BND_bf16) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int m = 128;
     int k = 256;
     int n = 512;
@@ -350,7 +350,7 @@ TEST_F(DynamicMatmulTest, mm_AT_B_ANZ_BND_bf16) {
 }
 
 TEST_F(DynamicMatmulTest, mm_AT_BT_AND_BND_bf16) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int m = 128;
     int k = 256;
     int n = 512;
@@ -362,7 +362,7 @@ TEST_F(DynamicMatmulTest, mm_AT_BT_AND_BND_bf16) {
 }
 
 TEST_F(DynamicMatmulTest, mm_AT_B_ANZ_BND_fp16_UNALIGN) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int m = 127;
     int k = 255;
     int n = 511;

@@ -54,7 +54,7 @@ TEST_F(TestCodegenGather, TestGather) {
     int axis = 0;
     std::vector<int64_t> shape2 = {B, S, D};
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes({1, GATHER_SHAPE0, GATHER_SHAPE1});
+    TileShape::Current().SetVecTile({1, GATHER_SHAPE0, GATHER_SHAPE1});
 
     Tensor inputSrc0(DT_FP32, shape0, "x");
     Tensor inputSrc1(DT_INT32, shape1, "indices");
@@ -80,7 +80,7 @@ TEST_F(TestCodegenGather, TestGatherEle) {
 
     std::vector<int64_t> inputShape = {B * S, nRoutedExperts};
     std::vector<int64_t> outputShape = {B * S, numExpertsPerTopk};
-    Program::GetInstance().GetTileShape().SetVecTileShapes({GATHER_SHAPE0, GATHER_SHAPE1});
+    TileShape::Current().SetVecTile({GATHER_SHAPE0, GATHER_SHAPE1});
     Tensor inputScores(DT_FP32, inputShape, "input_scores");
     Tensor inputTmpScores(DT_FP32, inputShape, "input_tmp_scores");
     Tensor outputTensor(DT_FP32, outputShape, "output_tensor");

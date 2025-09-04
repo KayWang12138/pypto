@@ -107,7 +107,7 @@ TEST_F(TestSplitReshapePass, TestCollectCopyOut) {
     std::vector<SymbolicScalar> validShape = {SymbolicScalar("a"), kNumEight};
     auto &reshape_op = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor}, {output});
     reshape_op.SetAttribute(OP_ATTR_PREFIX + "validShape", validShape);
-    
+
     SplitReshape pass;
     auto status = pass.CollectCopyOut(*currFunctionPtr);
     EXPECT_EQ(status, SUCCESS);
@@ -212,7 +212,7 @@ TEST_F(TestSplitReshapePass, TestCheckDynStatus) {
     alignedShape = {kNumTwo, kNumTwo, kNumTwo};
     dynOutput = {SymbolicScalar("a"), kNumFour};
     EXPECT_EQ(pass.CheckDynStatus(alignedShape, input, output, dynOutput), WARNING);
-    
+
     input = {kNumFour, kNumTwo};
     output = {kNumTwo, kNumFour};
     alignedShape = {kNumTwo, kNumTwo, kNumTwo};
@@ -242,7 +242,7 @@ TEST_F(TestSplitReshapePass, TestCheckDynStatus) {
     alignedShape = {kNumTwo, kNumTwo, kNumTwo};
     dynOutput = {kNumTwo, kNumOne, SymbolicScalar("a")};
     EXPECT_EQ(pass.CheckDynStatus(alignedShape, input, output, dynOutput), WARNING);
-    
+
     input = {kNumTwo, kNumOne, kNumTwo, kNumTwo};
     output = {kNumTwo, kNumOne, kNumFour};
     alignedShape = {kNumTwo, kNumTwo, kNumTwo};
@@ -644,7 +644,7 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatch) {
     std::vector<int64_t> shape2 = {kNumFour, kNumTwo};
     std::vector<int64_t> view_offset = {kNumZero, kNumZero};
     std::vector<SymbolicScalar> validShape = {kNumFour, SymbolicScalar("a")};
-    
+
     std::shared_ptr<RawTensor> ddrRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
     auto input = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor, offset, shape1);
     input->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
@@ -1084,7 +1084,7 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedSTest) {
     std::vector<int64_t> tiledorigShape = {kNumTwo, kNumTwo, kNumTwo};
     std::vector<int64_t> tiledreshapeShape = {kNumTwo, kNumTwo, kNumOne, kNumTwo};
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tiledShape);
+    TileShape::Current().SetVecTile(tiledShape);
     Tensor input(DT_FP32, origShape, "input");
     Tensor output(DT_FP32, reshapeShape, "output");
 
@@ -1181,7 +1181,7 @@ TEST_F(TestSplitReshapePass, TestBeCoveredSTest) {
     std::vector<int64_t> tiledreshapeShape = {kNumTwo, kNumFour};
     std::vector<int64_t> tiledviewShape = {kNumTwo, kNumTwo};
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tiledShape);
+    TileShape::Current().SetVecTile(tiledShape);
     Tensor input(DT_FP32, origShape, "input");
     Tensor output(DT_FP32, reshapeShape, "output");
 
@@ -1280,7 +1280,7 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedWithallSTest) {
     std::vector<int64_t> tiledreshapeShape = {kNumTwo, kNumTwo, kNumFour};
     std::vector<int64_t> tiledviewShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tiledShape);
+    TileShape::Current().SetVecTile(tiledShape);
     Tensor input(DT_FP32, origShape, "input");
     Tensor output(DT_FP32, reshapeShape, "output");
 
@@ -1381,7 +1381,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
     std::vector<int64_t> viewOffset1 = {kNumZero, kNumZero, kNumZero, kNumZero};
     std::vector<int64_t> viewOffset2 = {kNumZero, kNumZero, kNumZero, kNumTwo};
     std::vector<SymbolicScalar> validShape = {SymbolicScalar("a0"), SymbolicScalar("a1"), kNumOne, kNumFour};
-    
+
     std::shared_ptr<RawTensor> ddrRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape2);
     std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape3);
     auto input1 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset1, shape1);
@@ -1447,7 +1447,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
     EXPECT_EQ(viewOp, kNumTwo);
 
     EXPECT_EQ(assembleOp, 11);
-    
+
     auto reshapeSource1 = newAssemble1->GetOutputOperand(kSizeZero);
     auto reshapeSource2 = newAssemble2->GetOutputOperand(kSizeZero);
     EXPECT_NE(reshapeSource1, reshapeSource2);
@@ -1459,7 +1459,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
     std::vector<SymbolicScalar> reshapeDynOutput2;
     EXPECT_TRUE(reshape1->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeDynOutput1));
     EXPECT_TRUE(reshape2->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeDynOutput2));
-    
+
     EXPECT_EQ(reshapeDynOutput1.size(), kNumFour);
     std::vector<std::string> expectValidShape1 = {
         "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a0,0,2)*(RUNTIME_GetViewValidShapeDim(a0,0,2)!=0))-0))",
@@ -1522,7 +1522,7 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
     std::vector<int64_t> viewOffset3 = {kNumTwo, kNumZero};
     std::vector<int64_t> viewOffset4 = {kNumTwo, kNumTwo};
     std::vector<SymbolicScalar> validShape = {kNumFour, SymbolicScalar("a")};
-    
+
     std::shared_ptr<RawTensor> ddrRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape2);
     std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape3);
     auto input1 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset1, shape1);
@@ -1612,7 +1612,7 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
     std::vector<SymbolicScalar> reshapeDynOutput2;
     EXPECT_TRUE(reshape1->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeDynOutput1));
     EXPECT_TRUE(reshape2->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeDynOutput2));
-    
+
     EXPECT_EQ(reshapeDynOutput1.size(), kNumTwo);
     std::vector<std::string> expectValidShape1 = {
         "4",
@@ -1679,7 +1679,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
     std::vector<int64_t> viewOffset1 = {kNumZero, kNumZero, kNumZero, kNumZero};
     std::vector<int64_t> viewOffset2 = {kNumZero, kNumTwo, kNumZero, kNumZero};
     std::vector<SymbolicScalar> validShape = {kNumTwo, kNumFour, kNumTwo, SymbolicScalar("a")};
-    
+
     std::shared_ptr<RawTensor> ddrRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape2);
     std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape3);
     auto input1 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset1, shape1);
@@ -1779,7 +1779,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
     std::vector<SymbolicScalar> reshapeDynOutput2;
     EXPECT_TRUE(reshape1->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeDynOutput1));
     EXPECT_TRUE(reshape2->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeDynOutput2));
-    
+
     EXPECT_EQ(reshapeDynOutput1.size(), kNumFour);
     std::vector<std::string> expectValidShape1 = {
         "2",
@@ -1837,10 +1837,10 @@ TEST_F(TestSplitReshapePass, TestExceptionCase1) {
     Tensor output(DT_FP32, reshapeShape, "output");
 
     FUNCTION("STCase5") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(tiledShape1);
+        TileShape::Current().SetVecTile(tiledShape1);
         Tensor exp = Exp(input);
         Tensor reshape = Reshape(exp, reshapeShape);
-        Program::GetInstance().GetTileShape().SetVecTileShapes(tiledShape2);
+        TileShape::Current().SetVecTile(tiledShape2);
         output = Exp(reshape);
     }
 
@@ -1900,7 +1900,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase2) {
     std::vector<int64_t> reshapeShape = {kNumNineSix, kNumFour};
     std::vector<int64_t> tiledShape = {kExpFive, kNumTwo};
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tiledShape);
+    TileShape::Current().SetVecTile(tiledShape);
     Tensor input(DT_FP32, origShape, "input");
     Tensor output(DT_FP32, reshapeShape, "output");
 
@@ -1966,10 +1966,10 @@ TEST_F(TestSplitReshapePass, TestExceptionCase3) {
     Tensor output(DT_FP32, reshapeShape, "output");
 
     FUNCTION("STCase7") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(tiledShape1);
+        TileShape::Current().SetVecTile(tiledShape1);
         Tensor exp = Exp(input);
         Tensor reshape = Reshape(exp, reshapeShape);
-        Program::GetInstance().GetTileShape().SetVecTileShapes(tiledShape2);
+        TileShape::Current().SetVecTile(tiledShape2);
         output = Exp(reshape);
     }
 
@@ -2008,7 +2008,7 @@ splitreshape pass不起作用的场景
 动态shape位于变化轴
                                  {2,2,2,a}
 {2,2,2} -> assemble -> {2,2,4} -> reshape -> {2,2,2,2} -> view -> {2,2,1,2}
-{2,2,2} -> assemble                                    -> view -> {2,2,1,2} 
+{2,2,2} -> assemble                                    -> view -> {2,2,1,2}
 */
 TEST_F(TestSplitReshapePass, TestExceptionCase4) {
     //Define the shape of the Tensors
@@ -2107,10 +2107,10 @@ TEST_F(TestSplitReshapePass, TestExceptionCase5) {
     Tensor output(DT_FP32, reshapeShape, "output");
 
     FUNCTION("STCase8") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(tiledShape1);
+        TileShape::Current().SetVecTile(tiledShape1);
         Tensor exp = Exp(input);
         Tensor reshape = Reshape(exp, reshapeShape);
-        Program::GetInstance().GetTileShape().SetVecTileShapes(tiledShape2);
+        TileShape::Current().SetVecTile(tiledShape2);
         output = Exp(reshape);
     }
 

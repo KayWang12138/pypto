@@ -76,8 +76,8 @@ void MoEGateOnBoardFunc(MoEGateParams& opsParams) {
     uint8_t* outputTopkWeightPtr = allocDevAddr(B * S * numExpertsPerTopk * sizeof(float));
     assert(outputTopkIdxPtr != nullptr && outputTopkWeightPtr != nullptr);
 
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16}, {128, 128}, {64, 64});
-    Program::GetInstance().GetTileShape().SetVecTileShapes({16, 64});
+    TileShape::Current().SetCubeTile({16, 16}, {128, 128}, {64, 64});
+    TileShape::Current().SetVecTile({16, 64});
     Tensor input_e_score_bias(DT_FP32, {1, nRoutedExperts},
                             (uint8_t *)inputEScoreCorrectionBiasPtr, "InputEScoresCorrectionBias");
     Tensor input_hidden_state(DT_FP32, {B, S, H}, (uint8_t *)inputHiddenStatePtr, "InputHiddenState");
@@ -106,18 +106,18 @@ void MoEGateOnBoardFunc(MoEGateParams& opsParams) {
         // B * 256,不切K
         // auto logits = npu::tile_fwk::Matrix::Matmul<false, true>(DT_FP32, input_hidden_state_reshape, input_weight);
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 256});
+        TileShape::Current().SetVecTile({1, 256});
         auto output_scores = SoftmaxNew(logits);
         auto output_scores_for_choice = Add(output_scores, input_e_score_bias);  // [B, 256]
 
         // Part2
         Tensor scores_for_choice_reshape;
         scores_for_choice_reshape = Reshape(output_scores_for_choice, {B * nGroup, 32});   // [B*8, 32]
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 32});
+        TileShape::Current().SetVecTile({8, 32});
         auto output_topk2 = TopK(scores_for_choice_reshape, 2, -1);                         // [B*8, 2]
         auto group_scores = RowSumSingle(std::get<0>(output_topk2));                        // [B*8, 1]
         group_scores = Reshape(group_scores, {B*S, nGroup});                               // [B, 8]
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 8});
+        TileShape::Current().SetVecTile({1, 8});
         auto output_topk4 = TopK(group_scores, topkGroup, -1);                                      // [B, 4]
         auto output_group_idx = std::get<1>(output_topk4);                                       // [B, 4]
         auto output_group_mask = MulS(group_scores, Element(DataType::DT_FP32, F_0));                                 // [B, 8]
@@ -126,18 +126,18 @@ void MoEGateOnBoardFunc(MoEGateParams& opsParams) {
         output_group_mask = ScatterElement(output_group_mask, output_group_idx,
             Element(DataType::DT_FP32, F_1), 1); // (b*s, nGroup)
         Tensor group_mask_new = Reshape(output_group_mask, {B*S, nGroup, 1}); // (b*s, nGroup, 1)
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 8, 32);
+        TileShape::Current().SetVecTile(1, 8, 32);
         // [b*s,nGroup,1] -> [b*s,nGroup,32]
         Tensor score_mask = Expand(group_mask_new, {B*S, nGroup, nRoutedExperts / nGroup});
         // (b*s,-1) [b*s,256]
         auto score_mask_new = Reshape(score_mask, {B*S, nGroup*nRoutedExperts / nGroup});
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 256);
+        TileShape::Current().SetVecTile(1, 256);
         auto score1 = Mul(output_scores_for_choice, score_mask_new);
         auto score2 = MulS(LogicalNot(score_mask_new), Element(DataType::DT_FP32, F_0));
         auto output_tmp_scores = Add(score1, score2);
 
         // Part4
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 256});
+        TileShape::Current().SetVecTile({1, 256});
         output_topk_idx = std::get<1>(TopK(output_tmp_scores, numExpertsPerTopk, -1)); // [b*s,256]->[b*s,8]
         auto topk_weight = GatherElement(output_scores, output_topk_idx, 1); // [b*s,8]
         auto topk_weight_sum = RowSumSingle(topk_weight, 1);      // [b*s,8]->[b*s,1]

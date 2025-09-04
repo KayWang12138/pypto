@@ -39,7 +39,7 @@ TEST_F(MoEPart4OnBoardTest, test_operation_b_2) {
         std::vector<int64_t> output_shape = {B * S, numExpertsPerTopk};
         void *input_score = readToDev(GetGoldenDir() + "/input_score.bin", inputSize);
         void *input_tmp_score = readToDev(GetGoldenDir() + "/input_tmp_score.bin", inputSize);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 32});
+        TileShape::Current().SetVecTile({16, 32});
         Tensor inputScores(DataType::DT_FP32, input_shape, (uint8_t *)input_score, "input_scores");
         Tensor inputTmpScores(DataType::DT_FP32, input_shape, (uint8_t *)input_tmp_score, "input_tmp_scores");
         Tensor outputTensor(DataType::DT_FP32, output_shape, out_topk_weight, "output_tensor");

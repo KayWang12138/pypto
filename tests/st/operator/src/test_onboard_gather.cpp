@@ -43,9 +43,9 @@ TEST_F(GatherOnBoardTest, test_gather_float_32_64_1_32) {
     PROGRAM("GATHER") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
         void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({1, 32, 64});
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({1, 16, 64});
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 16, 32});
+        // TileShape::Current().SetVecTile({1, 32, 64});
+        // TileShape::Current().SetVecTile({1, 16, 64});
+        TileShape::Current().SetVecTile({1, 16, 32});
 
         Tensor input_src0(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "x");
         Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
@@ -92,9 +92,9 @@ TEST_F(GatherOnBoardTest, test_gather_float_32_65_1_33) {
     PROGRAM("GATHER") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
         void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({1, 32, 64});
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({1, 16, 64});
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 16, 32});
+        // TileShape::Current().SetVecTile({1, 32, 64});
+        // TileShape::Current().SetVecTile({1, 16, 64});
+        TileShape::Current().SetVecTile({1, 16, 32});
 
         Tensor input_src0(DT_FP32, shape0, (uint8_t *)x_ptr, "x");
         Tensor input_src1(DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
@@ -140,9 +140,9 @@ TEST_F(GatherOnBoardTest, test_gather_float_64_256_1_64) {
     PROGRAM("GATHER") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
         void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({1, 64, 64});
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({1, 32, 64});
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 32, 128});
+        // TileShape::Current().SetVecTile({1, 64, 64});
+        // TileShape::Current().SetVecTile({1, 32, 64});
+        TileShape::Current().SetVecTile({1, 32, 128});
 
         Tensor input_src0(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "x");
         Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
@@ -186,12 +186,12 @@ TEST_F(GatherOnBoardTest, test_gather_float_1_64_32_1) {
     PROGRAM("GATHER") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
         void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 64});
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32});
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({32, 1, 64});
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({16, 1, 64});
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({32, 1, 32});
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 1, 32});
+        // TileShape::Current().SetVecTile({1, 1, 64});
+        // TileShape::Current().SetVecTile({1, 1, 32});
+        // TileShape::Current().SetVecTile({32, 1, 64});
+        // TileShape::Current().SetVecTile({16, 1, 64});
+        // TileShape::Current().SetVecTile({32, 1, 32});
+        TileShape::Current().SetVecTile({16, 1, 32});
 
         Tensor input_src0(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "x");
         Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
@@ -235,9 +235,9 @@ TEST_F(GatherOnBoardTest, test_gather_float_64_512_16_64) {
     PROGRAM("GATHER") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
         void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 32, 128});
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({1, 64, 64});
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({2, 32, 64});
+        TileShape::Current().SetVecTile({1, 32, 128});
+        // TileShape::Current().SetVecTile({1, 64, 64});
+        // TileShape::Current().SetVecTile({2, 32, 64});
 
         Tensor input_src0(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "x");
         Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
@@ -280,8 +280,8 @@ TEST_F(GatherOnBoardTest, test_gather_float_8_7168_64) {
     PROGRAM("GATHER") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
         void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({32, 128});
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({8, 512});
+        TileShape::Current().SetVecTile({32, 128});
+        // TileShape::Current().SetVecTile({8, 512});
 
         Tensor input_src0(DataType::DT_FP32, shape0, (uint8_t *)x_ptr, "x");
         Tensor input_src1(DataType::DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");
@@ -324,8 +324,8 @@ TEST_F(GatherOnBoardTest, test_gather_float_8_7169_64) {
     PROGRAM("GATHER") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity0);
         void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({32, 128});
-        // Program::GetInstance().GetTileShape().SetVecTileShapes({8, 512});
+        TileShape::Current().SetVecTile({32, 128});
+        // TileShape::Current().SetVecTile({8, 512});
 
         Tensor input_src0(DT_FP32, shape0, (uint8_t *)x_ptr, "x");
         Tensor input_src1(DT_INT32, shape1, (uint8_t *)indices_ptr, "indices");

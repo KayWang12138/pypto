@@ -168,6 +168,13 @@ function(TileFwk_UTest_AddExe_RunExe)
     list(REMOVE_DUPLICATES TileFwkUTestCaseLdLibrariesExt)
     list(REMOVE_DUPLICATES GTestFilterList)
 
+    if (NOT "$ENV{GTEST_START}" STREQUAL "")
+        list(FIND GTestFilterList $ENV{GTEST_START} idx)
+        if (NOT ${idx} EQUAL -1)
+            list(SUBLIST GTestFilterList ${idx} -1 GTestFilterList)
+        endif ()
+    endif ()
+
     TileFwk_GTest_AddExe(
             TARGET                      ${TMP_TARGET}
             SOURCES                     ${_Sources}

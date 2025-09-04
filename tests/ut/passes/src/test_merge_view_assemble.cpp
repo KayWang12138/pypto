@@ -58,7 +58,7 @@ TEST_F(MergeViewAssembleTest, TestMergeViewAssemble) {
     Tensor in_tensor(DT_FP32, shape, "in_tensor");
     Tensor out_tensor(DT_FP32, shape, "out_tensor");
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tilex, tiley);
+    TileShape::Current().SetVecTile(tilex, tiley);
 
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("ViewAssembleTestStrategy", {
@@ -797,7 +797,7 @@ void MergeViewL1DataMoveGraph (std::shared_ptr<Function> &currFunctionPtr) {
     currFunctionPtr->AddRawOperation(Opcode::OP_L1_TO_L0B, {view_out4}, {l0b_out2});
 
     currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {l0a_out1,l0b_out1}, {a_mul_b_out1});
-    currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {l0a_out2,l0b_out2}, {a_mul_b_out2});      
+    currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {l0a_out2, l0b_out2}, {a_mul_b_out2});
 
     currFunctionPtr->inCasts_.push_back(input_cast1);
     currFunctionPtr->inCasts_.push_back(input_cast2);
@@ -808,7 +808,7 @@ TEST_F(MergeViewAssembleTest, MergeViewL1DataMove) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "MergeViewL1DataMove", "MergeViewL1DataMove", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     Program::GetInstance().InsertFuncToFunctionMap("MergeViewL1DataMove", currFunctionPtr);
-    
+
     MergeViewL1DataMoveGraph(currFunctionPtr);
 
     //验证构图

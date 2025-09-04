@@ -114,17 +114,17 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
                 auto blockIdx1 = GetInputDataInt32Dim2(blockTable, bIdx, blockStartIdx + 1);
                 auto kNopeBlock1 = View(kvCache, {cmpBlockSize / 2, dN}, {blockIdx1 * blockSize, 0});
                 auto kRopeBlock1 = View(krCache, {cmpBlockSize / 2, dR}, {blockIdx1 * blockSize, 0});
-                Program::GetInstance().GetTileShape().SetVecTileShapes(cmpBlockSize, dN);
+                TileShape::Current().SetVecTile(cmpBlockSize, dN);
                 kNopeBlock = Concat({kNopeBlock0, kNopeBlock1}, 0);
-                Program::GetInstance().GetTileShape().SetVecTileShapes(cmpBlockSize, dR);
+                TileShape::Current().SetVecTile(cmpBlockSize, dR);
                 kRopeBlock = Concat({kRopeBlock0, kRopeBlock1}, 0);
             }
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(cmpBlockSize, dN);
+            TileShape::Current().SetVecTile(cmpBlockSize, dN);
             kNopeBlock = Reshape(kNopeBlock, {1, cmpBlockSize, dN});
 
             // LocalRope
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, NUM_32, NUM_64);
+            TileShape::Current().SetVecTile(1, NUM_32, NUM_64);
             ConfigManager::Instance().SetSemanticLabel("MlpLocalRope");
             auto cosTmp = View(mlpCos, {1, cmpBlockSize, dR}, {bIdx, 0, 0});
             auto sinTmp = View(mlpSin, {1, cmpBlockSize, dR}, {bIdx, 0, 0});
@@ -142,7 +142,7 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
             batchMlpCompressResult =
                 BatchMlpCompress(reshapeNR, mlpWk1, mlpWk2, tileConfig.mlpCmpTile); // (b, n2, dN + dR)
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, NUM_32, NUM_64);
+            TileShape::Current().SetVecTile(1, NUM_32, NUM_64);
         }
 
         Tensor batchNopeResult(kDtype, {b, dN}, "batchNopeResult");
@@ -152,7 +152,7 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
             auto curKvLen = GetInputDataInt32Dim1(actSeqLen, bIdx);
             auto t1 = curKvLen % cmpStride == 0;
             auto t2 = curKvLen >= cmpBlockSize;
-            Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_32, NUM_64);
+            TileShape::Current().SetVecTile(NUM_32, NUM_64);
             Tensor kNopeCmp(kDtype, {1, dN});
             Tensor kRopeCmp(kDtype, {1, dR});
             IF(t1 * t2) {
@@ -184,7 +184,7 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
             (void)bIdx;
             auto cmpKvCacheDim2 = Reshape(cmpKvCache, {cmpBlockNum * blockSize * n2, dN});
             auto cmpKrCacheDim2 = Reshape(cmpKrCache, {cmpBlockNum * blockSize * n2, dR});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_32, NUM_64);
+            TileShape::Current().SetVecTile(NUM_32, NUM_64);
             auto index = Reshape(View(cmpCacheIndex, {b, 1}, {0, s1 - 1}), {1, b});
             cmpKvCacheOut =
                 Reshape(ScatterUpdate(cmpKvCacheDim2, index, batchNopeResult, 0), {cmpBlockNum, blockSize, 1, dN});

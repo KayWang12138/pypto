@@ -48,8 +48,8 @@ void TestAllGatherFunc()
     const char *group = "hcom123";
     std::vector<int64_t> shape = {16, 256};
 
-    Program::GetInstance().GetTileShape().SetDistTileShapes({16, 1, 0}, {256, 1, 0}, {2, 1, 0});
-    Program::GetInstance().GetTileShape().SpecifyStaticRankId(0);
+    TileShape::Current().SetDistTile({16, 1, 0}, {256, 1, 0}, {2, 1, 0});
+    TileShape::Current().SetDistRankId(0);
     ALOG_INFO_F("before AllGather exec, group=%s, in shape=[%d, %d]", group, shape[0], shape[1]);
 
     Tensor in(DT_FP16, shape, "in");
@@ -83,8 +83,8 @@ void TestAllGatherOutTensorFunc()
     std::vector<int64_t> shape = {16, 256};
     std::vector<int64_t> outShape = {32, 256};
 
-    Program::GetInstance().GetTileShape().SetDistTileShapes({16, 1, 0}, {256, 1, 0}, {2, 1, 0});
-    Program::GetInstance().GetTileShape().SpecifyStaticRankId(0);
+    TileShape::Current().SetDistTile({16, 1, 0}, {256, 1, 0}, {2, 1, 0});
+    TileShape::Current().SetDistRankId(0);
     ALOG_INFO_F("before AllGather exec, group=%s, in shape=[%d, %d]", group, shape[0], shape[1]);
     ALOG_INFO_F("before AllGather exec, group=%s, out shape=[%d, %d]", group, outShape[0], outShape[1]);
 
@@ -130,12 +130,12 @@ void TestAllGatherAndMatmul()
         ConfigManager::Instance();
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION(funcName, funConfig, {in, w, out}) {
-            Program::GetInstance().GetTileShape().SetDistTileShapes(
+            TileShape::Current().SetDistTile(
                 {(int)inputShape[0] / 2, 2, 0}, {(int)inputShape[1] / 2, 2, 0}, {1, procSize, 0});
-            Program::GetInstance().GetTileShape().SpecifyStaticRankId(0);
+            TileShape::Current().SetDistRankId(0);
             auto allGatherOut = Distributed::AllGather(in, group);
 
-            Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16}, {16, 16}, {32, 32});
+            TileShape::Current().SetCubeTile({16, 16}, {16, 16}, {32, 32});
             out = Matrix::Matmul<false, false>(dType, allGatherOut, w);
         }
     }

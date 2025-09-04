@@ -40,7 +40,7 @@ TEST_F(MoEGatePart2OnBoardTest, test_operation_b_2) {
         std::vector<int64_t> output_mask_shape = {B, nGroup};
 
         void *scores_for_choice_ptr = readToDev(GetGoldenDir() + "/scores_for_choice.bin", inputSize);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 32});
+        TileShape::Current().SetVecTile({16, 32});
         Tensor input_scores_for_choice(DataType::DT_FP32, input_shape,
                                     (uint8_t *)scores_for_choice_ptr, "scores_for_choice");
         Tensor output_group_idx(DataType::DT_FP32, output_idx_shape, (uint8_t *)out_group_idx_ptr, "group_idx");
@@ -106,7 +106,7 @@ TEST_F(MoEGatePart2OnBoardTest, test_operation_b_1024) {
         std::vector<int64_t> output_mask_shape = {B, nGroup};
 
         void *scores_for_choice_ptr = readToDev(GetGoldenDir() + "/scores_for_choice.bin", inputSize);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 32});
+        TileShape::Current().SetVecTile({16, 32});
         Tensor input_scores_for_choice(DataType::DT_FP32, input_shape,
                                     (uint8_t *)scores_for_choice_ptr, "scores_for_choice");
         Tensor output_group_idx(DataType::DT_FP32, output_idx_shape, (uint8_t *)out_group_idx_ptr, "group_idx");

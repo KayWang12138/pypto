@@ -619,20 +619,20 @@ TEST_F(CubeProcessTest, Test_MM_FP16_Atomic_On) {
         auto kSplitSize = k / kSplit;
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("MM_FP16_Atomic_On", funConfig, {mat_a, mat_b, final_out}) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes(64, 64);
+            TileShape::Current().SetVecTile(64, 64);
             Tensor tmpC(outputAstDtype, shape_c, "tmp_c");
             tmpC = MulS(tmpC, Element(DataType::DT_FP32, 0.0f));
             std::vector<Tensor> matmulResult;
-            Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {128, 128}, {64, 64});
+            TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {64, 64});
             for (int ki = 0; ki < kSplit; ki++) {
                 auto input_mk = View(mat_a, {m, kSplitSize}, {0, ki * kSplitSize});
                 auto input_kn = View(mat_b, {kSplitSize, n}, {ki * kSplitSize, 0});
                 auto tmpC1 = Matrix::Matmul<false, false>(outputAstDtype, input_mk, input_kn, tmpC);
                 matmulResult.emplace_back(tmpC1);
             }
-            Program::GetInstance().GetTileShape().SetVecTileShapes(32, 256);
+            TileShape::Current().SetVecTile(32, 256);
             tmpC = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);
-            Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
+            TileShape::Current().SetVecTile(32, 32);
             final_out = AddS(tmpC, Element(DataType::DT_FP32, 0.0));
         }
     }

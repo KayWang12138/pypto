@@ -16,7 +16,7 @@
 #include "interface/inner/tilefwk/tilefwk_api.h"
 
 #include "tilefwk/tilefwk.h"
-#include "tilefwk/tile_fwk_op_registry.h"
+#include "tilefwk/op_registry.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
@@ -108,11 +108,12 @@ void TileFwkFinalize() {
 }
 
 void TileFwkSetVecTileShapes(const std::vector<int64_t> &tileShape) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
+    TileShape::Current().SetVecTile(tileShape);
 }
 
-void TileFwkSetCubeTileShapes(const std::array<int64_t, 2> &m, const std::vector<int64_t> &k, const std::array<int64_t, 2> &n) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes(m, k, n);
+void TileFwkSetCubeTileShapes(
+    const std::array<int64_t, 2> &m, const std::array<int64_t, 0x3> &k, const std::array<int64_t, 2> &n) {
+    TileShape::Current().SetCubeTile(m, k, n);
 }
 
 void TileFwkAssign(Tensor &dst, const Tensor &src) {
@@ -205,11 +206,11 @@ bool TileOpCompile(const std::string &opType, const uint64_t configKey, const st
 namespace Distributed {
 void TileFwkSetDistTileShapes(std::array<int, MAX_DIST_DIM_SIZE> row, std::array<int, MAX_DIST_DIM_SIZE> col,
     std::array<int, MAX_DIST_DIM_SIZE> rank) {
-    Program::GetInstance().GetTileShape().SetDistTileShapes(row, col, rank);
+    TileShape::Current().SetDistTile(row, col, rank);
 }
 
 void TileFwkSpecifyStaticRankId(int rankId) {
-    Program::GetInstance().GetTileShape().SpecifyStaticRankId(rankId);
+    TileShape::Current().SetDistRankId(rankId);
 }
 } // namespace Distributed
 } // namespace npu::tile_fwk

@@ -25,7 +25,7 @@ class DynamicCastTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
 
 TEST_F(DynamicCastTest, testDynCastUnalign) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 16);
+    TileShape::Current().SetVecTile(1, 16);
 
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 

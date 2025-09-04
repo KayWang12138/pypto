@@ -46,7 +46,7 @@ TEST_F(ScatterElementOnBoardTest, test_scatter_element_float_16_64_8_32_1) {
     rtSetDevice(0);
     TileFwkInit();
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes({8, 32});
+    TileShape::Current().SetVecTile({8, 32});
 
     void *src_ptr = readToDev(GetGoldenDir() + "/src.bin", capacity0);
     void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
@@ -101,7 +101,7 @@ TEST_F(ScatterElementOnBoardTest, test_scatter_element_float_16_70_16_40_1) {
     rtSetDevice(0);
     TileFwkInit();
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes({8, 32});
+    TileShape::Current().SetVecTile({8, 32});
 
     void *src_ptr = readToDev(GetGoldenDir() + "/src.bin", capacity0);
     void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
@@ -161,7 +161,7 @@ TEST_F(ScatterElementOnBoardTest, test_scatter_element_float_16_64_16_32_1) {
     rtSetDevice(0);
     TileFwkInit();
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes({8, 32});
+    TileShape::Current().SetVecTile({8, 32});
 
     void *src_ptr = readToDev(GetGoldenDir() + "/src.bin", capacity0);
     void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
@@ -221,7 +221,7 @@ TEST_F(ScatterElementOnBoardTest, test_scatter_element_float_8_256_8_8_1_moe) {
     rtSetDevice(0);
     TileFwkInit();
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes({8, 32});
+    TileShape::Current().SetVecTile({8, 32});
 
     void *src_ptr = readToDev(GetGoldenDir() + "/src.bin", capacity0);
     void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);

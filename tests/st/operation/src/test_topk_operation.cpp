@@ -60,7 +60,7 @@ void TopKOpExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outpu
                     std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                     std::min(secondDim - sIdx * secondViewShape, secondViewShape)
                 }, offset);
-                Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                TileShape::Current().SetVecTile(args->tileShape_);
                 auto res = TopK(viewTensor, args->count_[0], args->dims_[0], args->largest_[0]);
                 Assemble(std::get<0>(res), offset, outputs[0]);
                 Assemble(std::get<1>(res), offset, outputs[1]);
@@ -98,7 +98,7 @@ void TopKOpExeFunc3D(const std::vector<Tensor>& inputs, std::vector<Tensor>& out
                         std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                         std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)
                     }, offset);
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                    TileShape::Current().SetVecTile(args->tileShape_);
                     auto res = TopK(viewTensor, args->count_[0], args->dims_[0], args->largest_[0]);
                     Assemble(std::get<0>(res), offset, outputs[0]);
                     Assemble(std::get<1>(res), offset, outputs[1]);
@@ -143,7 +143,7 @@ void TopKOpExeFunc4D(const std::vector<Tensor>& inputs, std::vector<Tensor>& out
                             std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape),
                             std::min(forthDim - qIdx * forthViewShape, forthViewShape)
                         }, offset);
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                        TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = TopK(viewTensor, args->count_[0], args->dims_[0], args->largest_[0]);
                         Assemble(std::get<0>(res), offset, outputs[0]);
                         Assemble(std::get<1>(res), offset, outputs[1]);

@@ -277,9 +277,11 @@ void ExpandTile(Function &function, const TileShape &tileShape, int dimIdx, cons
         ExpandTile(function, expandInfo);
         return;
     }
-    for (int i = 0; i < expandInfo.result->shape[dimIdx]; i += tileShape.V(dimIdx)) {
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < expandInfo.result->shape[dimIdx]; i += vecTile[dimIdx]) {
         expandInfo.offset[dimIdx] = i;
-        expandInfo.viewShape[dimIdx] = std::min(expandInfo.result->shape[dimIdx] - i, static_cast<int64_t>(tileShape.V(dimIdx)));
+        expandInfo.viewShape[dimIdx] =
+            std::min(expandInfo.result->shape[dimIdx] - i, static_cast<int64_t>(vecTile[dimIdx]));
         ExpandTile(function, tileShape, dimIdx + 1, expandInfo);
     }
 }
@@ -346,15 +348,14 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
         }
         return;
     }
-    for (int i = 0; i < result->shape[cur]; i += tileShape.V(cur)) {
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < result->shape[cur]; i += vecTile[cur]) {
         resultTileInfo.offset[cur] = i;
-        resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], tileShape.V(cur));
+        resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
         input1.tileInfo.offset[cur] = i % input1.tensor->shape[cur];
-        input1.tileInfo.shape[cur] =
-            std::min(input1.tensor->shape[cur] - input1.tileInfo.offset[cur], tileShape.V(cur));
+        input1.tileInfo.shape[cur] = std::min(input1.tensor->shape[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
         input2.tileInfo.offset[cur] = i % input2.tensor->shape[cur];
-        input2.tileInfo.shape[cur] =
-            std::min(input2.tensor->shape[cur] - input2.tileInfo.offset[cur], tileShape.V(cur));
+        input2.tileInfo.shape[cur] = std::min(input2.tensor->shape[cur] - input2.tileInfo.offset[cur], vecTile[cur]);
         TiledBinaryOperation<T>(function, tileShape, cur + 1, input1, input2, result, resultTileInfo, withBrc);
     }
 }
@@ -406,8 +407,9 @@ void TiledUnaryOperation(Function &function, const TileShape &tileShape, size_t 
         function.AddOperation(GetUnaryOpNameCode<T>(), {tile}, {resultTile});
         return;
     }
-    for (int i = 0; i < input.tensor->shape[cur]; i += tileShape.V(cur)) {
-        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - i, tileShape.V(cur));
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < input.tensor->shape[cur]; i += vecTile[cur]) {
+        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - i, vecTile[cur]);
         input.tileInfo.offset[cur] = i;
         TiledUnaryOperation<T>(function, tileShape, cur + 1, input, result);
     }
@@ -439,8 +441,9 @@ void TiledAssemble(Function &function, const TileShape &tileShape, size_t cur, I
         assemble.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, input.tileInfo.offset, newDynOffset));
         return;
     }
-    for (int i = 0; i < input.tensor->shape[cur]; i += tileShape.V(cur)) {
-        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - i, tileShape.V(cur));
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < input.tensor->shape[cur]; i += vecTile[cur]) {
+        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - i, vecTile[cur]);
         input.tileInfo.offset[cur] = i;
         TiledAssemble(function, tileShape, cur + 1, input, result, attr);
     }
@@ -504,12 +507,12 @@ void TiledBinaryOperationScalar(Function &function, const TileShape &tileShape, 
         op.SetAttribute(OP_ATTR_PREFIX + "reverseOperand", reverseOperand);
         return;
     }
-    for (int i = 0; i < result->shape[cur]; i += tileShape.V(cur)) {
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < result->shape[cur]; i += vecTile[cur]) {
         resultTileInfo.offset[cur] = i;
-        resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], tileShape.V(cur));
+        resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
         input1.tileInfo.offset[cur] = i % input1.tensor->shape[cur];
-        input1.tileInfo.shape[cur] =
-            std::min(input1.tensor->shape[cur] - input1.tileInfo.offset[cur], tileShape.V(cur));
+        input1.tileInfo.shape[cur] = std::min(input1.tensor->shape[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
 
         TiledBinaryOperationScalar<T>(function, tileShape, cur + 1, input1, value, result, resultTileInfo, reverseOperand);
     }
@@ -546,12 +549,12 @@ void TiledBinaryOperationAllScalar(Function &function, const TileShape &tileShap
         op.SetAttribute(OP_ATTR_PREFIX + "reverseOperand", reverseOperand);
         return;
     }
-    for (int i = 0; i < result->shape[cur]; i += tileShape.V(cur)) {
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < result->shape[cur]; i += vecTile[cur]) {
         resultTileInfo.offset[cur] = i;
-        resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], tileShape.V(cur));
+        resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
         input1.tileInfo.offset[cur] = i % input1.tensor->shape[cur];
-        input1.tileInfo.shape[cur] =
-            std::min(input1.tensor->shape[cur] - input1.tileInfo.offset[cur], tileShape.V(cur));
+        input1.tileInfo.shape[cur] = std::min(input1.tensor->shape[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
 
         TiledBinaryOperationScalar<T>(function, tileShape, cur + 1, input1, value, result, resultTileInfo, reverseOperand);
     }
@@ -584,15 +587,14 @@ void TiledBinaryOperationAllScalar(Function &function, const TileShape &tileShap
         function.AddOperation(GetBinaryOpNameCode<T, false>(), {inputTile1, inputTile2}, {resultTile});
         return;
     }
-    for (int i = 0; i < result->shape[cur]; i += tileShape.V(cur)) {
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < result->shape[cur]; i += vecTile[cur]) {
         resultTileInfo.offset[cur] = i;
-        resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], tileShape.V(cur));
+        resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
         input1.tileInfo.offset[cur] = i % input1.tensor->shape[cur];
-        input1.tileInfo.shape[cur] =
-            std::min(input1.tensor->shape[cur] - input1.tileInfo.offset[cur], tileShape.V(cur));
+        input1.tileInfo.shape[cur] = std::min(input1.tensor->shape[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
         input2.tileInfo.offset[cur] = i % input2.tensor->shape[cur];
-        input2.tileInfo.shape[cur] =
-            std::min(input2.tensor->shape[cur] - input2.tileInfo.offset[cur], tileShape.V(cur));
+        input2.tileInfo.shape[cur] = std::min(input2.tensor->shape[cur] - input2.tileInfo.offset[cur], vecTile[cur]);
         TiledBinaryOperationAllScalar<T>(function, tileShape, cur + 1, input1, input2, result, resultTileInfo);
     }
 }
@@ -649,11 +651,12 @@ void TileReduceNew(Function &function, const TileShape &tileShape, const std::st
 
     auto source = std::make_shared<LogicalTensor>(function, in->tensor, in->offset, in->shape, in->GetDynValidShape(), in->nodetype);
 
-    int64_t width = (source->shape[axis] + tileShape.V(axis) - 1) / tileShape.V(axis) * tileShape.V(axis); // 向上对齐
+    auto &vecTile = tileShape.GetVecTile();
+    int64_t width = (source->shape[axis] + vecTile[axis] - 1) / vecTile[axis] * vecTile[axis]; // 向上对齐
     int padSize = width - source->shape[axis];
     int remainder = 0;
 
-    int p2width = tileShape.V(axis);
+    int p2width = vecTile[axis];
     while (width >= p2width) {
         p2width = p2width << 1;
     }
@@ -665,7 +668,7 @@ void TileReduceNew(Function &function, const TileShape &tileShape, const std::st
 
     width = p2width;
 
-    while (width >= NUM2 * tileShape.V(axis)) // hierarchically pair wise reduce to a
+    while (width >= NUM2 * vecTile[axis]) // hierarchically pair wise reduce to a
     // single TILE_SHAPE1
     {
         width = width >> 1;
@@ -679,9 +682,9 @@ void TileReduceNew(Function &function, const TileShape &tileShape, const std::st
 
         auto resultA = std::make_shared<LogicalTensor>(
             function, in->Datatype(), reduceType == npu::tile_fwk::ReduceType::EXPAND ? result->shape : source->shape, reduceType == npu::tile_fwk::ReduceType::EXPAND ? result->GetDynValidShape() : source->GetDynValidShape());
-        for (int j = 0; j < width; j += tileShape.V(axis)) {
-            regAshape[axis] = tileShape.V(axis);
-            regBshape[axis] = std::min(tileShape.V(axis), tileB->shape[axis] - j); // 带tail的部分
+        for (int j = 0; j < width; j += vecTile[axis]) {
+            regAshape[axis] = vecTile[axis];
+            regBshape[axis] = std::min(vecTile[axis], tileB->shape[axis] - j); // 带tail的部分
             regOffset[axis] = j;
 
             auto regA = tileA->View(function, regAshape, regOffset);
@@ -701,9 +704,9 @@ void TileReduceNew(Function &function, const TileShape &tileShape, const std::st
 
         auto tileRemainder = in->View(function, remainderShape, remainderOffset);
         auto resultAnext = std::make_shared<LogicalTensor>(function, in->Datatype(), resultA->shape, resultA->GetDynValidShape());
-        for (int j = 0; j < width; j += tileShape.V(axis)) {
-            regAshape[axis] = tileShape.V(axis);
-            regBshape[axis] = std::min(tileShape.V(axis), tileRemainder->shape[axis] - j); // 带tail的部分
+        for (int j = 0; j < width; j += vecTile[axis]) {
+            regAshape[axis] = vecTile[axis];
+            regBshape[axis] = std::min(vecTile[axis], tileRemainder->shape[axis] - j); // 带tail的部分
             regOffset[axis] = j;
 
             auto regA = resultA->View(function, regAshape, regOffset);
@@ -719,7 +722,7 @@ void TileReduceNew(Function &function, const TileShape &tileShape, const std::st
     }
 
     // reduce to a single TILE_SHAPE1
-    regShape[axis] = std::min(in->shape[axis], tileShape.V(axis));
+    regShape[axis] = std::min(in->shape[axis], vecTile[axis]);
     regOffset[axis] = 0;
 
     auto temp =
@@ -739,10 +742,10 @@ void TileReduceNew(Function &function, const TileShape &tileShape, const std::st
 
             auto resultReg1 = temp->View(function, regShape, regOffset);
 
-            for (int j = 0; j < result->shape[1]; j += tileShape.V(1)) // duplicate to fill result tensor
+            for (int j = 0; j < result->shape[1]; j += vecTile[1]) // duplicate to fill result tensor
             {
                 regShape[0] = in->shape[0];
-                regShape[1] = tileShape.V(1);
+                regShape[1] = vecTile[1];
 
                 regOffset[0] = 0;
                 regOffset[1] = j;
@@ -771,9 +774,9 @@ void TileReduceNew(Function &function, const TileShape &tileShape, const std::st
                 tmpShape[1] = REPEAT_BYTE / BytesOf(in->Datatype());
             }
             if ((sourceReg->shape[0] % BLOCK_NUM == 0) &&
-                ((tileShape.V(axis) == LEN1024 && sourceReg->shape[0] * NUM_VALUE_16 <= MAX_REPEAT) ||
-                    (tileShape.V(axis) == LEN512 && sourceReg->shape[0] * BLOCK_NUM <= MAX_REPEAT))) {
-                tmpShape[1] = tileShape.V(axis) / BLOCK_NUM;
+                ((vecTile[axis] == LEN1024 && sourceReg->shape[0] * NUM_VALUE_16 <= MAX_REPEAT) ||
+                    (vecTile[axis] == LEN512 && sourceReg->shape[0] * BLOCK_NUM <= MAX_REPEAT))) {
+                tmpShape[1] = vecTile[axis] / BLOCK_NUM;
             }
             unsigned tmpBufSize = tmpShape[0] * tmpShape[1] * BytesOf(in->Datatype());
             if (op == "SUM" && static_cast<size_t>(axis) == (in->shape.size() - 1)) {
@@ -807,9 +810,10 @@ void TiledReduceExpand(Function &function, const TileShape &tileShape, const std
         assert(false && "unsupported dimension");
     }
 
-    TileInfo tileInfo({tileShape.V(0), operand->shape[1]}, std::vector<int64_t>(operand->offset.size()));
+    auto &vecTile = tileShape.GetVecTile();
+    TileInfo tileInfo({vecTile[0], operand->shape[1]}, std::vector<int64_t>(operand->offset.size()));
 
-    for (int i = 0; i < operand->shape[0]; i += tileShape.V(0)) {
+    for (int i = 0; i < operand->shape[0]; i += vecTile[0]) {
         tileInfo.offset[0] = i;
         auto inputTile = operand->View(function, tileInfo.shape, tileInfo.offset);
         auto resultTile = result->View(function, tileInfo.shape, tileInfo.offset);
@@ -835,13 +839,14 @@ void ReduceSingle(size_t cur, const std::string &op, Input &input, const Logical
         TileReduceNew(function, tileShape, op, npu::tile_fwk::ReduceType::SINGLE, inputTile, resultTile, axis);
         return;
     }
-    for (int i = 0; i < result->shape[order[cur]]; i += tileShape.V(order[cur])) {
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < result->shape[order[cur]]; i += vecTile[order[cur]]) {
         resultTileInfo.offset[order[cur]] = i;
         resultTileInfo.shape[order[cur]] = std::min(result->shape[order[cur]] - resultTileInfo.offset[order[cur]],
-            tileShape.V(order[cur]));
+            vecTile[order[cur]]);
         input.tileInfo.offset[order[cur]] = i % input.tensor->shape[order[cur]];
         input.tileInfo.shape[order[cur]] = std::min(input.tensor->shape[order[cur]] - input.tileInfo.offset[order[cur]],
-            tileShape.V(order[cur]));
+            vecTile[order[cur]]);
         ReduceSingle(cur + 1, op, input, result, resultTileInfo, axis, function, tileShape, order);
     }
 }
@@ -988,7 +993,8 @@ void TiledGatherOperation(Function &function, const TileShape &tileShape, size_t
     }
 
     // 按照resultShape进行切分
-    int64_t tmpTile = tileShape.V(cur);
+    auto &vecTile = tileShape.GetVecTile();
+    int64_t tmpTile = vecTile[cur];
     for (int i = 0; i < result->shape[cur]; i += tmpTile) {
         if (cur < static_cast<size_t>(axis)) {
             // 在result中gather轴的外层轴
@@ -1094,7 +1100,8 @@ void TiledGatherElementOperation(Function &function, const TileShape &tileShape,
     }
 
     // 按照resultShape进行切分
-    int64_t tmpTile = tileShape.V(cur);
+    auto &vecTile = tileShape.GetVecTile();
+    int64_t tmpTile = vecTile[cur];
     for (int i = 0; i < result->shape[cur]; i += tmpTile) {
         if (cur == static_cast<size_t>(axis)) {
             // params[axis]不切
@@ -1181,7 +1188,8 @@ void InnerTiledScatterElement(size_t cur, Function &function, const TileShape &t
     }
 
     // 按照dstShape进行切分
-    int64_t tmpTile = tileShape.V(cur);
+    auto &vecTile = tileShape.GetVecTile();
+    int64_t tmpTile = vecTile[cur];
     if (static_cast<int>(cur) == axis) {
         tmpTile = dstTensor->shape[cur];
     }
@@ -1262,8 +1270,9 @@ void TiledInnerTranspose(Function &function, const TileShape &tileShape, const i
         }
         return;
     }
-    for (int i = 0; i < input.tensor->shape[cur]; i += tileShape.V(cur)) {
-        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - i, tileShape.V(cur));
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < input.tensor->shape[cur]; i += vecTile[cur]) {
+        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - i, vecTile[cur]);
         input.tileInfo.offset[cur] = i;
         TiledInnerTranspose<T>(function, tileShape, cur + 1, input, result, shape);
     }
@@ -1297,7 +1306,7 @@ void TensorInnerTranspose(Function &function, const LogicalTensorPtr &operand,
         << "Transpose shape should be [A1,T1,A2,T2] or [T1,A2,T2].";
 
     // [A1,T1,A2,T2] to [A1,A2,T1,T2] or [T1,A2,T2] to [A2,T1,T2]
-    auto oldVecTileShapes = Program::GetInstance().tileShape.GetVecTileShapes();
+    auto oldVecTileShapes = TileShape::Current().GetVecTile();
     auto newVecTileShape = oldVecTileShapes;
     std::vector<int64_t> tmpShape(operand->shape);
     int dim1 = (tmpShape.size() == 3) ? 0 : 1;   // if input is 3 dims, dim1 = 0, otherwise dim1 = 1
@@ -1307,7 +1316,7 @@ void TensorInnerTranspose(Function &function, const LogicalTensorPtr &operand,
     auto moveInResult = std::make_shared<LogicalTensor>(function, operand->Datatype(), tmpShape);
     auto &inOp = function.AddOperation(Opcode::OP_TRANSPOSE_MOVEIN, {operand}, {moveInResult});
     inOp.SetAttribute(OP_ATTR_PREFIX + "shape", std::vector<int>{dim1, dim2});
-    Program::GetInstance().tileShape.SetVecTileShapes(newVecTileShape);
+    TileShape::Current().SetVecTile(newVecTileShape);
 
     // [A1,A2,T1,T2] to [A1,A2,T2,T1] or [A2,T1,T2] to [A2,T2,T1]
     tmpShape = moveInResult->shape;
@@ -1318,7 +1327,7 @@ void TensorInnerTranspose(Function &function, const LogicalTensorPtr &operand,
     auto vnchwconvResult = std::make_shared<LogicalTensor>(function, operand->Datatype(), tmpShape);
     auto &convOp = function.AddOperation(Opcode::OP_TRANSPOSE_VNCHWCONV, {moveInResult}, {vnchwconvResult});
     convOp.SetAttribute(OP_ATTR_PREFIX + "shape", std::vector<int>{dim1, dim2});
-    Program::GetInstance().tileShape.SetVecTileShapes(newVecTileShape);
+    TileShape::Current().SetVecTile(newVecTileShape);
 
     // [A1,A2,T2,T1] to [A1,T2,A2,T1] or [A2,T2,T1] to [T2,A2,T1]
     tmpShape = vnchwconvResult->shape;
@@ -1327,7 +1336,7 @@ void TensorInnerTranspose(Function &function, const LogicalTensorPtr &operand,
     std::swap(tmpShape[dim1], tmpShape[dim2]);
     auto &outOp = function.AddOperation(Opcode::OP_TRANSPOSE_MOVEOUT, {vnchwconvResult}, {result});
     outOp.SetAttribute(OP_ATTR_PREFIX + "shape", std::vector<int>{dim1, dim2});
-    Program::GetInstance().tileShape.SetVecTileShapes(oldVecTileShapes);
+    TileShape::Current().SetVecTile(oldVecTileShapes);
 }
 
 bool MergeTransposeAxis(const Tensor &operand, std::vector<int64_t>& inputShape, std::vector<int64_t>& vecTileShape,
@@ -1345,7 +1354,7 @@ bool MergeTransposeAxis(const Tensor &operand, std::vector<int64_t>& inputShape,
     int preNum = 0;
     int midNum = 0;
     int afterNum = 0;
-    auto oldVecTileShapes = Program::GetInstance().tileShape.GetVecTileShapes();
+    auto oldVecTileShapes = TileShape::Current().GetVecTile();
     auto oldValidShapes = validShape;
     for (int i = 0; i < (int)operand->shape.size(); i++) {
         if (i < oldTransposeShape[0]) {
@@ -1414,7 +1423,7 @@ Tensor Transpose(const Tensor &operand, std::vector<int> transposeShape) {
         transposeShape[0] == transposeShape[1]) {
         return operand;
     }
-    auto oldVecTileShapes = Program::GetInstance().tileShape.GetVecTileShapes();
+    auto oldVecTileShapes = TileShape::Current().GetVecTile();
     ASSERT(oldVecTileShapes.size() == operand->shape.size()) << "TileShape dim num should same to input.";
     auto oldValidShapes = operand.GetStorage()->GetDynValidShape();
     if (oldValidShapes.empty()) {
@@ -1437,9 +1446,9 @@ Tensor Transpose(const Tensor &operand, std::vector<int> transposeShape) {
     std::swap(oldValidShapes[transposeShape[0]], oldValidShapes[transposeShape[1]]);
 
     auto tmpInputTensor = Reshape(operand, newInputShape, newValidShape);
-    Program::GetInstance().tileShape.SetVecTileShapes(newVecTileShape);
+    TileShape::Current().SetVecTile(newVecTileShape);
     auto tmpOutputTensor = Transpose(tmpInputTensor, newTransposeShape);
-    Program::GetInstance().tileShape.SetVecTileShapes(oldVecTileShapes);
+    TileShape::Current().SetVecTile(oldVecTileShapes);
     return Reshape(tmpOutputTensor, resultShape, oldValidShapes);
 }
 
@@ -1460,8 +1469,10 @@ void TiledMaxpool(Function &function, const TileShape &tileShape, const std::sha
     const int strideW = op.GetIntAttribute(ConvOpAttributeKey::stridew);
     const int poolH = op.GetIntAttribute(PoolOpAttributeKey::poolh);
     const int poolW = op.GetIntAttribute(PoolOpAttributeKey::poolw);
-    int tileOutH = tileShape.V(NUM_VALUE_0);
-    int tileOutW = tileShape.V(NUM_VALUE_1);
+
+    auto &vecTile = tileShape.GetVecTile();
+    int tileOutH = vecTile[NUM_VALUE_0];
+    int tileOutW = vecTile[NUM_VALUE_1];
     bool isOnlyNeedCopy = strideH == 1 && strideW == 1 && poolH == 1 && poolW == 1;
 
     for (int n = 0; n < dimN; n++) {
@@ -1571,8 +1582,9 @@ void TiledCastOperation(Function &function, const TileShape &tileShape, const in
         op.SetAttribute(OP_ATTR_PREFIX + "mode", mode);
         return;
     }
-    for (int i = 0; i < input.tensor->shape[cur]; i += tileShape.V(cur)) {
-        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - i, tileShape.V(cur));
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < input.tensor->shape[cur]; i += vecTile[cur]) {
+        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - i, vecTile[cur]);
         input.tileInfo.offset[cur] = i;
         TiledCastOperation<T>(function, tileShape, cur + 1, input, result, mode);
     }
@@ -1794,9 +1806,10 @@ void TiledReduceExpandNew(Function &function, const TileShape &tileShape, const 
         assert(false && "unsupported dimension");
     }
 
-    TileInfo tileInfo({tileShape.V(0), operand->shape[1]}, std::vector<int64_t>(operand->offset.size()));
+    auto &vecTile = tileShape.GetVecTile();
+    TileInfo tileInfo({vecTile[0], operand->shape[1]}, std::vector<int64_t>(operand->offset.size()));
 
-    for (int i = 0; i < operand->shape[0]; i += tileShape.V(0)) {
+    for (int i = 0; i < operand->shape[0]; i += vecTile[0]) {
         tileInfo.offset[0] = i;
         auto inputTile = operand->View(function, tileInfo.shape, tileInfo.offset);
         auto resultTile = result->View(function, tileInfo.shape, tileInfo.offset);
@@ -1827,17 +1840,16 @@ Tensor RowMaxSingle(const Tensor &operand, int axis) {
 
     const int lastDim = operand->shape.size() - 1;
     const int alignNum = BLOCK_SIZE / BytesOf(operand->tensor->datatype);
+    auto &vecTile = TileShape::Current().GetVecTile();
     if (axis == lastDim) {
-        ASSERT(Program::GetInstance().tileShape.V(lastDim) % alignNum == 0)
-        << "RowMaxSingle op: the tileShape of last axis need to 32Byte align!";
+        ASSERT(vecTile[lastDim] % alignNum == 0) << "RowMaxSingle op: the tileShape of last axis need to 32Byte align!";
     }
 
     Tensor result(operand->tensor->datatype, resultShape);
     int shapeSize = static_cast<int>(resultShape.size());
-    auto tileShape = Program::GetInstance().GetTileShape().GetVecTileShapes();
-    if (ConfigManager::Instance().GetOperationConfig("FORCE_COMBINE_AXIS", false) &&
-        axis == shapeSize - 1 && shapeSize >= NUM2 &&
-        (resultShape[shapeSize - NUM2] % NUM_VALUE_8 == 0 && tileShape[tileShape.size() - NUM2] % NUM_VALUE_8 == 0)) {
+    if (ConfigManager::Instance().GetOperationConfig("FORCE_COMBINE_AXIS", false) && axis == shapeSize - 1 &&
+        shapeSize >= NUM2 &&
+        (resultShape[shapeSize - NUM2] % NUM_VALUE_8 == 0 && vecTile[vecTile.size() - NUM2] % NUM_VALUE_8 == 0)) {
         CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "MAX_COMBINE_AXIS", operand, result, axis);
     } else {
         CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "MAX", operand, result, axis);
@@ -1854,17 +1866,16 @@ Tensor RowMinSingle(const Tensor &operand, int axis) {
 
     const int lastDim = operand->shape.size() - 1;
     const int alignNum = BLOCK_SIZE / BytesOf(operand->tensor->datatype);
+    auto &vecTile = TileShape::Current().GetVecTile();
     if (axis == lastDim) {
-        ASSERT(Program::GetInstance().tileShape.V(lastDim) % alignNum == 0)
-        << "RowMinSingle op: the tileShape of last axis need to 32Byte align!";
+        ASSERT(vecTile[lastDim] % alignNum == 0) << "RowMinSingle op: the tileShape of last axis need to 32Byte align!";
     }
 
     Tensor result(operand->tensor->datatype, resultShape);
     int shapeSize = static_cast<int>(resultShape.size());
-    auto tileShape = Program::GetInstance().GetTileShape().GetVecTileShapes();
-    if (ConfigManager::Instance().GetOperationConfig("FORCE_COMBINE_AXIS", false) &&
-        axis == shapeSize - 1 && shapeSize >= NUM2 &&
-        (resultShape[shapeSize - NUM2] % NUM_VALUE_8 == 0 && tileShape[tileShape.size() - NUM2] % NUM_VALUE_8 == 0)) {
+    if (ConfigManager::Instance().GetOperationConfig("FORCE_COMBINE_AXIS", false) && axis == shapeSize - 1 &&
+        shapeSize >= NUM2 &&
+        (resultShape[shapeSize - NUM2] % NUM_VALUE_8 == 0 && vecTile[vecTile.size() - NUM2] % NUM_VALUE_8 == 0)) {
         CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "MIN_COMBINE_AXIS", operand, result, axis);
     } else {
         CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "MIN", operand, result, axis);
@@ -1881,17 +1892,16 @@ Tensor RowSumSingle(const Tensor &operand, int axis) {
 
     const int lastDim = operand->shape.size() - 1;
     const int alignNum = BLOCK_SIZE / BytesOf(operand->tensor->datatype);
+    auto &vecTile = TileShape::Current().GetVecTile();
     if (axis == lastDim) {
-        ASSERT(Program::GetInstance().tileShape.V(lastDim) % alignNum == 0)
-        << "RowSumSingle op: the tileShape of last axis need to 32Byte align!";
+        ASSERT(vecTile[lastDim] % alignNum == 0) << "RowSumSingle op: the tileShape of last axis need to 32Byte align!";
     }
 
     Tensor result(operand->tensor->datatype, resultShape);
     int shapeSize = static_cast<int>(resultShape.size());
-    auto tileShape = Program::GetInstance().GetTileShape().GetVecTileShapes();
-    if (ConfigManager::Instance().GetOperationConfig("FORCE_COMBINE_AXIS", false) &&
-        axis == shapeSize - 1 && shapeSize >= NUM2 &&
-        (resultShape[shapeSize - NUM2] % NUM_VALUE_8 == 0 && tileShape[tileShape.size() - NUM2] % NUM_VALUE_8 == 0)) {
+    if (ConfigManager::Instance().GetOperationConfig("FORCE_COMBINE_AXIS", false) && axis == shapeSize - 1 &&
+        shapeSize >= NUM2 &&
+        (resultShape[shapeSize - NUM2] % NUM_VALUE_8 == 0 && vecTile[vecTile.size() - NUM2] % NUM_VALUE_8 == 0)) {
         CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "SUM_COMBINE_AXIS", operand, result, axis);
     } else {
         CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "SUM", operand, result, axis);
@@ -1929,7 +1939,7 @@ void TiledVecDup(Function &function, const TileShape &tileShape, size_t cur, con
         }
         auto tempTileShape = resultTile->shape;
         tempTileShape[lastIndex] = (tempTileShape[lastIndex] + paddingValue -1) / paddingValue * paddingValue;
-        Program::GetInstance().tileShape.SetVecTileShapes(tempTileShape);
+        TileShape::Current().SetVecTile(tempTileShape);
         auto &op = function.AddOperation("TILE_VEC_DUP", {}, {resultTile});
 
         op.SetAttribute(OpAttributeKey::scalar, value);
@@ -1941,9 +1951,10 @@ void TiledVecDup(Function &function, const TileShape &tileShape, size_t cur, con
         return;
     }
 
-    for (int i = 0; i < results->shape[cur]; i += tileShape.V(cur)) {
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < results->shape[cur]; i += vecTile[cur]) {
         resultTileInfo.offset[cur] = i;
-        resultTileInfo.shape[cur] = std::min(results->shape[cur] - i, tileShape.V(cur));
+        resultTileInfo.shape[cur] = std::min(results->shape[cur] - i, vecTile[cur]);
         TiledVecDup(function, tileShape, cur + 1, value, dynValue, shape, validShape, results, resultTileInfo);
     }
 }
@@ -2050,7 +2061,8 @@ void TiledScatterUpdate(size_t cur, Function &function, const TileShape &tileSha
     }
 
     // 按照dstShape进行切分
-    int64_t tmpTile = tileShape.V(cur);
+    auto &vecTile = tileShape.GetVecTile();
+    int64_t tmpTile = vecTile[cur];
     if (static_cast<int>(cur) == axis) {
         tmpTile = dst->shape[cur];
     }
@@ -2099,7 +2111,8 @@ void TiledIndexScatterUpdate(size_t cur, Function &function, const TileShape &ti
     }
 
     // 按照srcShape进行切分
-    int64_t tmpTile = tileShape.V(cur);
+    auto &vecTile = tileShape.GetVecTile();
+    int64_t tmpTile = vecTile[cur];
     if (static_cast<int>(cur) == axis) {
         tmpTile = srcInput.tensor->shape[cur];
     }
@@ -2109,7 +2122,7 @@ void TiledIndexScatterUpdate(size_t cur, Function &function, const TileShape &ti
             srcInput.tileInfo.offset[cur] = 0;
             srcInput.tileInfo.shape[cur] = srcInput.tensor->shape[cur];
 
-            int64_t indexTileLen = tileShape.V(0);
+            int64_t indexTileLen = vecTile[0];
             indexInput.tileInfo.offset[cur] = 0;
             indexInput.tileInfo.shape[cur] =
                 std::min(indexInput.tensor->shape[cur] - indexInput.tileInfo.offset[0], indexTileLen);
@@ -2138,8 +2151,9 @@ void TiledIndexScatterUpdate(size_t cur, Function &function, const TileShape &ti
 void TiledScatterUpdateFor2Dims(Function &function, const TileShape &tileShape,
     const LogicalTensorPtr &result, const LogicalTensorPtr &src,
     const LogicalTensorPtr &index, const LogicalTensorPtr &dst, int axis, std::string cacheMode, int blockSize) {
-    int64_t tileBS = tileShape.V(NUM_VALUE_0);
-    int64_t tileD = tileShape.V(NUM_VALUE_1);
+    auto &vecTile = tileShape.GetVecTile();
+    int64_t tileBS = vecTile[NUM_VALUE_0];
+    int64_t tileD = vecTile[NUM_VALUE_1];
     int64_t s = index->shape[1];
     if (s == 0 || tileBS == 0) {
         ALOG_ERROR_F("error: s == 0 || tileBS == 0");
@@ -2153,7 +2167,7 @@ void TiledScatterUpdateFor2Dims(Function &function, const TileShape &tileShape,
     int64_t tileB = CeilDiv(tileBS, s);
     int64_t tileS = tileBS < s ? tileBS : s;
     int64_t bsOffset = 0;
-    for (int64_t bIdx = 0; bIdx < index->shape[0]; bIdx += tileB) {    
+    for (int64_t bIdx = 0; bIdx < index->shape[0]; bIdx += tileB) {
         for (int64_t sIdx = 0; sIdx < index->shape[1]; sIdx += tileS) {
             auto indexTile = index->View(function, {std::min(index->shape[0] - bIdx, tileB),
                 std::min(index->shape[1] - sIdx, tileS)}, {bIdx, sIdx});
@@ -2173,10 +2187,11 @@ void TiledScatterUpdateFor2Dims(Function &function, const TileShape &tileShape,
 void TiledScatterUpdateFor4Dims(Function &function, const TileShape &tileShape,
     const LogicalTensorPtr &result, const LogicalTensorPtr &src,
     const LogicalTensorPtr &index, const LogicalTensorPtr &dst, int axis, std::string cacheMode, int blockSize) {
-    int64_t tileB = tileShape.V(NUM_VALUE_0);
-    int64_t tileS = tileShape.V(NUM_VALUE_1);
-    int64_t tileN = tileShape.V(NUM_VALUE_2);
-    int64_t tileD = tileShape.V(NUM_VALUE_3);
+    auto &vecTile = tileShape.GetVecTile();
+    int64_t tileB = vecTile[NUM_VALUE_0];
+    int64_t tileS = vecTile[NUM_VALUE_1];
+    int64_t tileN = vecTile[NUM_VALUE_2];
+    int64_t tileD = vecTile[NUM_VALUE_3];
     for (int64_t i = 0; i < src->shape[0]; i += tileB) {
         for (int64_t j = 0; j < src->shape[1]; j += tileS) {
             auto indexTile = index->View(function, {std::min(index->shape[0] - i, tileB), std::min(index->shape[1] - j, tileS)}, {i, j});
@@ -2224,7 +2239,8 @@ void TiledScatterUpdate(Function &function, const TileShape &tileShape,
     auto srcInput = Input{src, srcTileInfo};
     auto indexInput = Input{index, indexTileInfo};
     auto dstInput = Input{dst, dstTileInfo};
-    if (axis == 1 && src->shape.size() == NUM_VALUE_2 && tileShape.V(1) == src->shape[1]) { // 2维切index场景
+    auto &vecTile = tileShape.GetVecTile();
+    if (axis == 1 && src->shape.size() == NUM_VALUE_2 && vecTile[1] == src->shape[1]) { // 2维切index场景
         TiledIndexScatterUpdate(0, function, tileShape, srcInput, indexInput, dstInput, axis, result, resultTileInfo, cacheMode, blockSize);
     } else {
         TiledScatterUpdate(0, function, tileShape, srcInput, indexInput, dstInput, axis, result, resultTileInfo, cacheMode, blockSize);
@@ -2365,8 +2381,9 @@ void TiledInnerConcatLoop(const int dimIdx, Function &function, const TileShape 
         op.SetOpAttribute(std::make_shared<AssembleOpAttribute>(tileOffset));
         return;
     }
-    for (auto i = 0; i < operand->GetShape()[dimIdx]; i += tileShape.V(dimIdx)) {
-        actTileShape[dimIdx] = std::min(operand->GetShape()[dimIdx] - i, tileShape.V(dimIdx));
+    auto &vecTile = tileShape.GetVecTile();
+    for (auto i = 0; i < operand->GetShape()[dimIdx]; i += vecTile[dimIdx]) {
+        actTileShape[dimIdx] = std::min(operand->GetShape()[dimIdx] - i, vecTile[dimIdx]);
         actOffset[dimIdx] = i;
         TiledInnerConcatLoop(dimIdx + 1, function, tileShape, operand, result, actTileShape, actOffset, tensorOffset);
     }
@@ -2406,8 +2423,9 @@ void TiledInnerRegisterCopy(const int dimIdx, Function &function, const TileShap
         function.AddOperation("TILE_REGISTER_COPY", { inputTile }, { resultTile });
         return;
     }
-    for (auto i = 0; i < result->GetShape()[dimIdx]; i += tileShape.V(dimIdx)) {
-        actTileShape[dimIdx] = std::min(result->GetShape()[dimIdx] - i, tileShape.V(dimIdx));
+    auto &vecTile = tileShape.GetVecTile();
+    for (auto i = 0; i < result->GetShape()[dimIdx]; i += vecTile[dimIdx]) {
+        actTileShape[dimIdx] = std::min(result->GetShape()[dimIdx] - i, vecTile[dimIdx]);
         actOffset[dimIdx] = i;
         TiledInnerRegisterCopy(dimIdx + 1, function, tileShape, operand, result, actTileShape, actOffset);
     }
@@ -2524,8 +2542,9 @@ void TileInnerPad(Function &function, const TileShape &tileShape, const LogicalT
     std::vector<int64_t> offset(result->shape.size(), 0);
     std::vector<int64_t> padTileShape(result->GetShape().size(), 1);
     std::vector<int64_t> cfgShape(result->GetShape().size(), 1);
-    cfgShape[cfgShape.size() - 1] = tileShape.V(1);
-    cfgShape[cfgShape.size() - 2] = tileShape.V(0);
+    auto &vecTile = tileShape.GetVecTile();
+    cfgShape[cfgShape.size() - 1] = vecTile[1];
+    cfgShape[cfgShape.size() - 2] = vecTile[0];
     TiledPadLoop(function, 0, padTileShape, offset, result, operand, cfgShape);
 }
 
@@ -2555,7 +2574,8 @@ Tensor Pad(const Tensor &old, const std::vector<int64_t> &newShape)
         }
         ASSERT(oldShape[i] == newShape[i]);
     }
-    RETURN_CALL(PadOperation, *Program::GetInstance().GetCurrentFunction(), Program::GetInstance().tileShape, old.GetStorage(), newShape);
+    RETURN_CALL(
+        PadOperation, *Program::GetInstance().GetCurrentFunction(), TileShape::Current(), old.GetStorage(), newShape);
 }
 
 void TiledInnerCompact(Function &function, const TileShape &tileShape,
@@ -2570,10 +2590,10 @@ void TiledInnerCompact(Function &function, const TileShape &tileShape,
     if (operand->shape.size() != 2) {
         assert(false && "unsupported dimension");
     }
-
-    int tileShape1 = std::min(operand->shape[1], tileShape.V(1));
-    for (int i = 0; i < operand->shape[0]; i += tileShape.V(0)) {
-        int tileShape0 = std::min(operand->shape[0] - i, tileShape.V(0));
+    auto &vecTile = tileShape.GetVecTile();
+    int tileShape1 = std::min(operand->shape[1], vecTile[1]);
+    for (int i = 0; i < operand->shape[0]; i += vecTile[0]) {
+        int tileShape0 = std::min(operand->shape[0] - i, vecTile[0]);
         auto inputTile = operand->View(function, { tileShape0, tileShape1 }, { i, 0 });
         auto resultTile = result->View(function, { tileShape0, 1 }, { i, 0 });
         auto workspaceTile = workspace->View(function, { tileShape0, NUM_VALUE_8 }, { i, 0 });
@@ -2592,7 +2612,8 @@ Tensor NewCompact(const Tensor &operand)
     DECLARE_TRACER();
 
     Tensor result(operand->tensor->datatype, { operand->shape[0], 1 });
-    CALL(InnerCompact, *Program::GetInstance().GetCurrentFunction(), Program::GetInstance().tileShape, operand.GetStorage(), result.GetStorage());
+    CALL(InnerCompact, *Program::GetInstance().GetCurrentFunction(), TileShape::Current(), operand.GetStorage(),
+        result.GetStorage());
     return result;
 }
 
@@ -2680,13 +2701,14 @@ void TiledBitSort(Function &function, const TileShape & tileShape, size_t cur, I
         TiledBitSort(function, tileShape, cur + 1, input, result, resultTileInfo, axis, isLargest);
         return;
     }
-    for (int i = 0; i < input.tensor->shape[cur]; i += tileShape.V(cur)) {
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < input.tensor->shape[cur]; i += vecTile[cur]) {
         // update input && result && resultDices shape and offset info
         input.tileInfo.offset[cur] = i % input.tensor->shape[cur];
-        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - input.tileInfo.offset[cur], tileShape.V(cur));
+        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - input.tileInfo.offset[cur], vecTile[cur]);
 
         resultTileInfo.offset[cur] = i;
-        resultTileInfo.shape[cur]= std::min(result->shape[cur] - resultTileInfo.offset[cur], tileShape.V(cur));
+        resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
         TiledBitSort(function, tileShape, cur + 1, input, result, resultTileInfo, axis, isLargest);
     }
 }
@@ -2718,13 +2740,14 @@ void TiledMrgSort(Function &function, const TileShape & tileShape, size_t cur, I
         TiledMrgSort(function, tileShape, cur + 1, input, result, resultTileInfo, axis, k, isLargest);
         return;
     }
-    for (int i = 0; i < input.tensor->shape[cur]; i += tileShape.V(cur)) {
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < input.tensor->shape[cur]; i += vecTile[cur]) {
         // update input && result && resultDices shape and offset info
         input.tileInfo.offset[cur] = i % input.tensor->shape[cur];
-        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - input.tileInfo.offset[cur], tileShape.V(cur));
+        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - input.tileInfo.offset[cur], vecTile[cur]);
 
         resultTileInfo.offset[cur] = i;
-        resultTileInfo.shape[cur]= std::min(result->shape[cur] - resultTileInfo.offset[cur], tileShape.V(cur));
+        resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
         TiledMrgSort(function, tileShape, cur + 1, input, result, resultTileInfo, axis, k, isLargest);
     }
 }
@@ -2761,13 +2784,14 @@ void TiledExtract(Function &function, const TileShape & tileShape, size_t cur, I
         return;
     }
 
-    for (int i = 0; i < input.tensor->shape[cur]; i += tileShape.V(cur)) {
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < input.tensor->shape[cur]; i += vecTile[cur]) {
         // update input && result && resultDices shape and offset info
         input.tileInfo.offset[cur] = i % input.tensor->shape[cur];
-        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - input.tileInfo.offset[cur], tileShape.V(cur));
+        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - input.tileInfo.offset[cur], vecTile[cur]);
 
         resultTileInfo.offset[cur] = i;
-        resultTileInfo.shape[cur]= std::min(result->shape[cur] - resultTileInfo.offset[cur], tileShape.V(cur));
+        resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
         TiledExtract(function, tileShape, cur + 1, input, result,  resultTileInfo, maskMode, kValue, isLargest);
     }
 }
@@ -2832,13 +2856,15 @@ void TiledArgSort(Function &function, const TileShape & tileShape, size_t cur, I
         TiledArgSort(function, tileShape, cur + 1, input, resultDices, resultDicesTileInfo, axis, isLargest);
         return;
     }
-    for (int i = 0; i < input.tensor->shape[cur]; i += tileShape.V(cur)) {
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < input.tensor->shape[cur]; i += vecTile[cur]) {
         // update input && result && resultDices shape and offset info
         input.tileInfo.offset[cur] = i % input.tensor->shape[cur];
-        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - input.tileInfo.offset[cur], tileShape.V(cur));
+        input.tileInfo.shape[cur] = std::min(input.tensor->shape[cur] - input.tileInfo.offset[cur], vecTile[cur]);
 
         resultDicesTileInfo.offset[cur] = i;
-        resultDicesTileInfo.shape[cur]= std::min(resultDices->shape[cur] - resultDicesTileInfo.offset[cur], tileShape.V(cur));
+        resultDicesTileInfo.shape[cur] =
+            std::min(resultDices->shape[cur] - resultDicesTileInfo.offset[cur], vecTile[cur]);
         TiledArgSort(function, tileShape, cur + 1, input, resultDices, resultDicesTileInfo, axis, isLargest);
     }
 }
@@ -2892,13 +2918,14 @@ void TiledReduceAcc(Function &function, const TileShape &tileShape, size_t cur,
         op.SetAttribute(Matrix::ACC_A_MUL_B, 1);
         return;
     }
-    for (auto i = 0; i < result->shape[cur]; i += tileShape.V(cur)) {
+    auto &vecTile = tileShape.GetVecTile();
+    for (auto i = 0; i < result->shape[cur]; i += vecTile[cur]) {
         resultTileInfo.offset[cur] = i;
-        resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], tileShape.V(cur));
+        resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
         for (size_t index = 0; index < inputVec.size(); ++index) {
             inputVec[index].tileInfo.offset[cur]  = i % inputVec[index].tensor->shape[cur];
-            inputVec[index].tileInfo.shape[cur] = std::min(inputVec[index].tensor->shape[cur] -
-                inputVec[index].tileInfo.offset[cur], tileShape.V(cur));
+            inputVec[index].tileInfo.shape[cur] =
+                std::min(inputVec[index].tensor->shape[cur] - inputVec[index].tileInfo.offset[cur], vecTile[cur]);
         }
         TiledReduceAcc(function, tileShape, cur + 1, inputVec, result, resultTileInfo);
     }
@@ -2966,14 +2993,14 @@ Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes,
     return result;
 }
 
-void TensorInnerAssemble(Function &function, const LogicalTensorPtr &operand,
-    const LogicalTensorPtr &result, const VecTileShapes &offset) {
+void TensorInnerAssemble(Function &function, const LogicalTensorPtr &operand, const LogicalTensorPtr &result,
+    const std::vector<int64_t> &offset) {
     auto &op = function.AddOperation(Opcode::OP_ASSEMBLE, {operand}, {result});
     op.SetOpAttribute(std::make_shared<AssembleOpAttribute>(offset));
 }
 
-void InnerAssemble(Function &function, const LogicalTensorPtr &operand,
-    const LogicalTensorPtr &result, const VecTileShapes &offset) {
+void InnerAssemble(Function &function, const LogicalTensorPtr &operand, const LogicalTensorPtr &result,
+    const std::vector<int64_t> &offset) {
     CALL(InnerAssemble, function, operand, result, offset);
 }
 

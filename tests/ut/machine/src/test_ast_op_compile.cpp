@@ -22,7 +22,7 @@
 #include "operator/models/llama/llama_def.h"
 #include "runtime.h"
 #include "interface/utils/file_utils.h"
-#include "tilefwk/tile_fwk_op_registry.h"
+#include "tilefwk/op_registry.h"
 
 using namespace npu::tile_fwk;
 class TestAstOpCompile : public testing::Test {
@@ -53,7 +53,7 @@ void TestAddOp(uint64_t configKey) {
     std::vector<Tensor> inputTensors = {input_tensor0, input_tensor1};
     std::vector<Tensor> outputTensors = {output_tensor};
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8});
+    TileShape::Current().SetVecTile({8, 8});
     std::vector<std::reference_wrapper<Tensor>> opArgs;
     opArgs.insert(opArgs.end(), inputTensors.begin(), inputTensors.end());
     opArgs.insert(opArgs.end(), outputTensors.begin(), outputTensors.end());
@@ -99,8 +99,8 @@ void DynamicDD(uint64_t configKey) {
     if (s == 0) {
         return;
     }
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+    TileShape::Current().SetVecTile(32, 32);
+    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
 
     Tensor &t0 = inputTensors.at(0);
     Tensor &t1 = inputTensors.at(1);

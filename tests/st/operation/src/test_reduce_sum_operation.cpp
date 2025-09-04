@@ -62,7 +62,7 @@ void ReduceSumOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Te
                     viewShape[1] == 0 ? secondDim : std::min(secondDim - bIdx * viewShape[1], viewShape[1])
                 },
                 {bIdx * viewShape[0], bIdx * viewShape[1]});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+            TileShape::Current().SetVecTile(args->tileShape_);
             auto res = RowSumSingle(viewTensor, args->dims_[0]);
             Assemble(res, {bIdx * viewShape[0], bIdx * viewShape[1]}, outputs[0]);
         }
@@ -105,7 +105,7 @@ void ReduceSum3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<
                             viewShape[2] == 0 ? lastDim : std::min(lastDim - nIdx * viewShape[2], viewShape[2])
                         },
                         {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]});
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                    TileShape::Current().SetVecTile(args->tileShape_);
                     auto res = RowSumSingle(viewTensor, args->dims_[0]);
                     Assemble(res, {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]}, outputs[0]);
                 }
@@ -149,7 +149,7 @@ void ReduceSum4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<
                                 std::min(lastDim - qIdx * viewShape[3], viewShape[3])
                             },
                             offset);
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                        TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = RowSumSingle(viewTensor, args->dims_[0]);
                         Assemble(res, offset, outputs[0]);
                     }

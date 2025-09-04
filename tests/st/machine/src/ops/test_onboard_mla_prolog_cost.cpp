@@ -555,55 +555,54 @@ void attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
                 auto tmp32_v0 = Cast(tmp_v0, DT_FP32);
                 v0 = Cast(tmp32_v0, DT_BF16);
 
-               Program::GetInstance().GetTileShape().SetVecTileShapes({2, 16, 1, qkRopeHeadDim});
-               auto q0_1 = Reshape(q0, {b * s1 * nq, kvLoraRank});
-               auto q1_1 = Reshape(q1, {b * s1 * nq, qkRopeHeadDim});
-               Program::GetInstance().GetTileShape().SetVecTileShapes({2, 2, 128, qkRopeHeadDim});
-               auto k0_1 = Reshape(k0, {blockNum * blockSize * nkv, kvLoraRank});
-               auto k1_1 = Reshape(k1, {blockNum * blockSize * nkv, qkRopeHeadDim});
-               auto v0_1 = Reshape(v0, {blockNum * blockSize * nkv, kvLoraRank});
+                TileShape::Current().SetVecTile({2, 16, 1, qkRopeHeadDim});
+                auto q0_1 = Reshape(q0, {b * s1 * nq, kvLoraRank});
+                auto q1_1 = Reshape(q1, {b * s1 * nq, qkRopeHeadDim});
+                TileShape::Current().SetVecTile({2, 2, 128, qkRopeHeadDim});
+                auto k0_1 = Reshape(k0, {blockNum * blockSize * nkv, kvLoraRank});
+                auto k1_1 = Reshape(k1, {blockNum * blockSize * nkv, qkRopeHeadDim});
+                auto v0_1 = Reshape(v0, {blockNum * blockSize * nkv, kvLoraRank});
 
-               if (fuse) {
-                   IncreFlashAttention(
-                       q0_1, k0_1, v0_1, q1_1, k1_1, blockTable, actSeqs, softmaxScale, attentionOut, tileConfig);
-               } else {
-                   IncreFlashAttention(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs,
-                       softmaxScale, attentionOut, tileConfig);
-               }
+                if (fuse) {
+                    IncreFlashAttention(
+                        q0_1, k0_1, v0_1, q1_1, k1_1, blockTable, actSeqs, softmaxScale, attentionOut, tileConfig);
+                } else {
+                    IncreFlashAttention(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs,
+                        softmaxScale, attentionOut, tileConfig);
+                }
                if (usePost) {
-                   Program::GetInstance().GetTileShape().SetVecTileShapes({16, kvLoraRank});
+                   TileShape::Current().SetVecTile({16, kvLoraRank});
                    auto tempAttentionOut = Reshape(attentionOut, inputShape);
-                   Program::GetInstance().GetTileShape().SetVecTileShapes({2, 16, 1, kvLoraRank});
+                   TileShape::Current().SetVecTile({2, 16, 1, kvLoraRank});
                    auto castOut = Cast(tempAttentionOut, DataType::DT_BF16);
                    Tensor atten_res0 = Transpose(castOut, {1, 2});
-                   Program::GetInstance().GetTileShape().SetVecTileShapes({4, 1, 32, kvLoraRank});
+                   TileShape::Current().SetVecTile({4, 1, 32, kvLoraRank});
                    Tensor atten_res1 = Reshape(atten_res0, {b * s1, nq, kvLoraRank});
-                   Program::GetInstance().GetTileShape().SetVecTileShapes({2, 16, kvLoraRank});
+                   TileShape::Current().SetVecTile({2, 16, kvLoraRank});
                    Tensor t2_res = Transpose(atten_res1, {0, 1});
 
-                   Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16},
-                       {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
+                   TileShape::Current().SetCubeTile({16, 16}, {std::min(256, kvLoraRank), std::min(256, kvLoraRank)},
                        {std::min(128, vHeadDim), std::min(128, vHeadDim)}); // M 16对齐
-                   Program::GetInstance().GetTileShape().SetVecTileShapes(8, 4,
+                   TileShape::Current().SetVecTile(8, 4,
                        vHeadDim); // 所有子图申请的UB空间总和可能大于192K，所以tileShape不能太大（1、ooo
-                                    // pass申请UB空间的方式不合理，在重构；2、RMS里面有repeattimes写死的64，可能会导致tileShape太大）
+                                  // pass申请UB空间的方式不合理，在重构；2、RMS里面有repeattimes写死的64，可能会导致tileShape太大）
                    // [n,bs,kvLoraRank] * [n, kvLoraRank, vHeadDim] = [n,bs,vHeadDim]
                    Tensor bmm4_res = Matrix::BatchMatmul(dType, t2_res, w_uv_i);
 
-                   // 原 Program::GetInstance().GetTileShape().SetVecTileShapes(8, 16, vHeadDim); //
+                   // 原 TileShape::Current().SetVecTile(8, 16, vHeadDim); //
                    // 1、因为cast不支持跳写，这个Transpose必须与上面的tileshape后两维一致； 2、Transpose尾轴不能切
                    Tensor t3_res = Transpose(bmm4_res, {0, 1}); // [bs,n,vHeadDim]
 
-                   Program::GetInstance().GetTileShape().SetVecTileShapes({4, 32, vHeadDim});
+                   TileShape::Current().SetVecTile({4, 32, vHeadDim});
                    Tensor r2_res = Reshape(t3_res, {b * s1, nq * vHeadDim});
 
                    // [b,s, n*vHeadDim] @ [n*vHeadDim, h] = [b,s,h]
-                   Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16},
+                   TileShape::Current().SetCubeTile({16, 16},
                        {std::min(256, nq * vHeadDim), std::min(256, nq * vHeadDim)},
                        {std::min(128, h), std::min(128, h)});
                    Tensor bmm5_res = Matrix::Matmul<false, false>(dType, r2_res, w_o_i);
 
-                   Program::GetInstance().GetTileShape().SetVecTileShapes({4, std::min(8192, h)});
+                   TileShape::Current().SetVecTile({4, std::min(8192, h)});
                    outputT = Reshape(bmm5_res, {b, s1, h});
                }
             }

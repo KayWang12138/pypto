@@ -62,7 +62,7 @@ static void GatherElementOperationExeFunc2Dims(
                         std::min(idx_secondDim - sIdx * secondViewShape, secondViewShape)},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
 
-                Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                TileShape::Current().SetVecTile(args->tileShape_);
                 auto res = GatherElement(tileTensor0, tileTensor1, args->axis_);
                 Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }

@@ -51,9 +51,8 @@ void GenGatedScore(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, 
     SymbolicScalar sLoop = s / tileS;
     LOOP("LOOP_L0_bIdx_gated_score", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1)) {
         LOOP("LOOP_L0_sIdx_gated_score", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sLoop, 1)) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes({tileB, tileS, h});
-            Program::GetInstance().GetTileShape().SetCubeTileShapes(
-                {tileBS, tileBS}, {NUM_128, NUM_128}, {NUM_128, NUM_128});
+            TileShape::Current().SetVecTile({tileB, tileS, h});
+            TileShape::Current().SetCubeTile({tileBS, tileBS}, {NUM_128, NUM_128}, {NUM_128, NUM_128});
             SymbolicScalar bOfs = bIdx * tileB;
             SymbolicScalar sOfs = sIdx * tileS;
             SymbolicScalar bsOfs = bOfs * sOfs;
@@ -62,16 +61,15 @@ void GenGatedScore(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, 
             auto xView = View(xReshape, {tileBS, h}, {bsOfs, 0});
             auto mm1Res = Matrix::Matmul(DT_FP32, xReshape, gateW1);
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes({1, h});
+            TileShape::Current().SetVecTile({1, h});
             auto sigmoidRes = Sigmoid(mm1Res);
             sigmoidRes = Cast(sigmoidRes, dType);
-            Program::GetInstance().GetTileShape().SetCubeTileShapes(
-                {tileBS, tileBS}, {NUM_128, NUM_128}, {NUM_16, NUM_16});
+            TileShape::Current().SetCubeTile({tileBS, tileBS}, {NUM_128, NUM_128}, {NUM_16, NUM_16});
             auto mm2Res = Matrix::Matmul(DT_FP32, sigmoidRes, gateW2);
-            Program::GetInstance().GetTileShape().SetVecTileShapes({tileBS, n1});
+            TileShape::Current().SetVecTile({tileBS, n1});
 
             auto res = Reshape(mm2Res, {tileB, tileS, 3, n1});
-            Program::GetInstance().GetTileShape().SetVecTileShapes({1, tileS, 3, n1});
+            TileShape::Current().SetVecTile({1, tileS, 3, n1});
 
             res = Transpose(res, {2, 3});
             if (gatingScore->Datatype() != DT_FP32) {
@@ -100,7 +98,7 @@ void GenAttn(Tensor &gatingScore, Tensor &cmpAtten, Tensor &selAtten, Tensor &wi
             SymbolicScalar sOffset = sIdx * tileS;
             std::vector<SymbolicScalar> outOffset = {bOffset, sOffset, 0, 0};
             SymbolicScalar actualsSize = std::min(tileS, (sDimSize - sIdx * tileS));
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, NUM_16, vDimSize);
+            TileShape::Current().SetVecTile(1, 1, NUM_16, vDimSize);
             auto cmpAttenTile = View(cmpAtten, {tileB, tileS, nDimSize, vDimSize},
                 {actualBSize, actualsSize, nDimSize, vDimSize}, {bOffset, sOffset, 0, 0});
             auto selAttenTile = View(selAtten, {tileB, tileS, nDimSize, vDimSize},
@@ -110,20 +108,20 @@ void GenAttn(Tensor &gatingScore, Tensor &cmpAtten, Tensor &selAtten, Tensor &wi
             auto cmpAttenFP32Tile = Cast(cmpAttenTile, DT_FP32);
             auto selAttenFP32Tile = Cast(selAttenTile, DT_FP32);
             auto winAttenFP32Tile = Cast(winAttenTile, DT_FP32);
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, nDimSize, NUM_3);
+            TileShape::Current().SetVecTile(1, 1, nDimSize, NUM_3);
             auto gatingScoreTile = View(gatingScore, {tileB, tileS, nDimSize, NUM_3},
                 {actualBSize, actualsSize, nDimSize, NUM_3}, {bOffset, sOffset, 0, 0});
             auto gatingScoreFP32 = Cast(gatingScoreTile, DT_FP32);
             auto cmpWeight = View(gatingScoreFP32, {tileB, tileS, nDimSize, 1}, {0, 0, 0, 0});
             auto selWeight = View(gatingScoreFP32, {tileB, tileS, nDimSize, 1}, {0, 0, 0, 1});
             auto winWeight = View(gatingScoreFP32, {tileB, tileS, nDimSize, 1}, {0, 0, 0, 2});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, NUM_16, vDimSize);
+            TileShape::Current().SetVecTile(1, 1, NUM_16, vDimSize);
             auto mulCmp = Mul(cmpAttenFP32Tile, cmpWeight);
             auto mulSel = Mul(selAttenFP32Tile, selWeight);
             auto mulWin = Mul(winAttenFP32Tile, winWeight);
             auto addCmpSel = Add(mulCmp, mulSel);
             auto outFP32 = Add(addCmpSel, mulWin);
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, NUM_16, vDimSize);
+            TileShape::Current().SetVecTile(1, 1, NUM_16, vDimSize);
             auto attentionOutTile = Cast(outFP32, dType, CAST_RINT);
             Assemble(attentionOutTile, outOffset, attentionOut);
         }
@@ -215,12 +213,12 @@ void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const T
                 SymbolicScalar sOffset = sIdx * 1;
 
                 Tensor nopeView = View(queryOut, {1, 1, n1, vDim}, {bOffset, sOffset, 0, 0});
-                Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, vDim});
+                TileShape::Current().SetVecTile({1, 1, 32, vDim});
                 Tensor nopeRes = Reshape(nopeView, {1 * 1 * n1, vDim});
                 Assemble(nopeRes, {(bOffset * s + sOffset) * n1, 0}, qNope);
 
                 Tensor ropeView = View(queryRopeOut, {1, 1, n1, ropeDim}, {bOffset, sOffset, 0, 0});
-                Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, n1, ropeDim});
+                TileShape::Current().SetVecTile({1, 1, n1, ropeDim});
                 Tensor ropeRes = Reshape(ropeView, {1 * 1 * n1, ropeDim});
                 Assemble(ropeRes, {(bOffset * s + sOffset) * n1, 0}, qRope);
             }

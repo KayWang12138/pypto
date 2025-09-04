@@ -158,7 +158,7 @@ TEST_F(GenerateMoveOpPassTest, AssembleViewToCopy) {
     PROGRAM("GenerateMoveOpPassTest") {
         std::vector<int64_t> shape1{256, 256};
         std::vector<int64_t> shape2{128, 128};
-        Program::GetInstance().GetTileShape().SetVecTileShapes({128, 128});
+        TileShape::Current().SetVecTile({128, 128});
         Tensor input_a(DT_FP32, shape1, "input_a");
         Tensor input_b(DT_FP32, shape1, "input_b");
         Tensor output(DT_FP32, shape2, "output");
@@ -254,7 +254,7 @@ TEST_F(GenerateMoveOpPassTest, ConvertToCopy) {
     PROGRAM("GenerateMoveOpPassTest") {
         std::vector<int64_t> shape1{256, 256};
         std::vector<int64_t> shape2{128, 128};
-        Program::GetInstance().GetTileShape().SetVecTileShapes({128, 128});
+        TileShape::Current().SetVecTile({128, 128});
         Tensor input_a(DT_FP32, shape1, "input_a");
         Tensor input_b(DT_FP32, shape1, "input_b");
         Tensor output(DT_FP32, shape2, "output");
@@ -333,7 +333,7 @@ TEST_F(GenerateMoveOpPassTest, Transpose) {
         Tensor a_trans(DT_FP32, shape, "a_trans");
 
         constexpr int dim0 = 1, dim1 = 16, dim2 = 16, dim3 = 2;
-        Program::GetInstance().GetTileShape().SetVecTileShapes(dim0, dim1, dim2, dim3);
+        TileShape::Current().SetVecTile(dim0, dim1, dim2, dim3);
 
         PassManager &passManager = PassManager::Instance();
         passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
@@ -417,7 +417,7 @@ TEST_F(GenerateMoveOpPassTest, Transpose) {
 TEST_F(GenerateMoveOpPassTest, ScatterUpdate) {
     PROGRAM("GenerateMoveOpPassTest") {
         int row = 64, col = 32;
-        Program::GetInstance().GetTileShape().SetVecTileShapes(row, col);
+        TileShape::Current().SetVecTile(row, col);
 
         PassManager &passManager = PassManager::Instance();
         passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {

@@ -30,7 +30,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_128_32_argsort) {
         std::vector<int64_t> input_shape = {shape0, shape1};
         std::vector<int64_t> output_shape = {shape0, shape1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outputSize);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({shape0, shape1});
+        TileShape::Current().SetVecTile({shape0, shape1});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
@@ -58,7 +58,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_4_32_argsort) {
         std::vector<int64_t> input_shape = {shape0, shape1};
         std::vector<int64_t> output_shape = {shape0, shape1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outputSize);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({shape0, shape1});
+        TileShape::Current().SetVecTile({shape0, shape1});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
@@ -86,7 +86,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_2_16_argsort) {
         std::vector<int64_t> input_shape = {shape0, shape1};
         std::vector<int64_t> output_shape = {shape0, shape1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outputSize);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({shape0, shape1});
+        TileShape::Current().SetVecTile({shape0, shape1});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
@@ -114,7 +114,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_32_argsort) {
         std::vector<int64_t> input_shape = {shape0};
         std::vector<int64_t> output_shape = {shape0};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outputSize);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({shape0});
+        TileShape::Current().SetVecTile({shape0});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
@@ -142,7 +142,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_64_argsort) {
         std::vector<int64_t> input_shape = {shape0};
         std::vector<int64_t> output_shape = {shape0};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outputSize);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({shape0});
+        TileShape::Current().SetVecTile({shape0});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
@@ -171,7 +171,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_4_32__argsort) {
         std::vector<int64_t> input_shape = {shape0, shape1};
         std::vector<int64_t> output_shape = {shape0, shape1};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outputSize);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({shape0, shape1});
+        TileShape::Current().SetVecTile({shape0, shape1});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
@@ -198,7 +198,7 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_64__argsort_moe) {
         std::vector<int64_t> input_shape = {shape0};
         std::vector<int64_t> output_shape = {shape0};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", outputSize);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({shape0});
+        TileShape::Current().SetVecTile({shape0});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};

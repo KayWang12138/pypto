@@ -45,7 +45,7 @@ static void VectorDuplicateOperationExeFunc2Dims(
         const int secondViewShape = args->viewShape_[1];
         const int bloop = CeilDiv(firstDim, firstViewShape);
         const int sloop = CeilDiv(secondDim, secondViewShape);
-        Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+        TileShape::Current().SetVecTile(args->tileShape_);
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
@@ -72,7 +72,7 @@ static void VectorDuplicateOperationExeFunc3Dims(
         const int bloop = CeilDiv(firstDim, firstViewShape);
         const int sloop = CeilDiv(secondDim, secondViewShape);
         const int nloop = CeilDiv(thirdDim, thirdViewShape);
-        Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+        TileShape::Current().SetVecTile(args->tileShape_);
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
@@ -110,7 +110,7 @@ static void VectorDuplicateOperationExeFunc4Dims(
         const int mloop = CeilDiv(thirdDim, thirdViewShape);
         const int nloop = CeilDiv(fourthDim, fourthViewShape);
 
-        Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+        TileShape::Current().SetVecTile(args->tileShape_);
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {

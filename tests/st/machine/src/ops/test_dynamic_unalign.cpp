@@ -29,8 +29,8 @@ public:
     void SetUp() override {
         npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac::SetUp();
         config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-        Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+        TileShape::Current().SetVecTile(32, 32);
+        TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     }
 };
 
@@ -170,7 +170,7 @@ TEST_F(DynamicUnalignTest, test_mm_unalign) {
 }
 
 TEST_F(DynamicUnalignTest, test_mm2_unalign) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {128, 128}, {64, 64});
+    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {64, 64});
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 1;
@@ -233,7 +233,7 @@ TEST_F(DynamicUnalignTest, test_mm2_unalign) {
 }
 
 TEST_F(DynamicUnalignTest, test_rowmaxsingle_unalign) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(128, 128);
+    TileShape::Current().SetVecTile(128, 128);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 1;
@@ -283,7 +283,7 @@ TEST_F(DynamicUnalignTest, test_rowmaxsingle_unalign) {
 }
 
 TEST_F(DynamicUnalignTest, test_rowsumsingle_unalign) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(128, 128);
+    TileShape::Current().SetVecTile(128, 128);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 1;
@@ -333,7 +333,7 @@ TEST_F(DynamicUnalignTest, test_rowsumsingle_unalign) {
 }
 
 TEST_F(DynamicUnalignTest, test_unary_unalign) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(64, 64);
+    TileShape::Current().SetVecTile(64, 64);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 4;

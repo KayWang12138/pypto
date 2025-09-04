@@ -76,7 +76,7 @@ TEST_F(MergeSrcDstBufferTest, NoReplaced) {
     config::SetPlatformConfig("TEST_IS_TIG", true);
     constexpr int32_t tilex = 1;
     constexpr int32_t tiley = 8;
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tilex, tiley);
+    TileShape::Current().SetVecTile(tilex, tiley);
 
     std::vector<int64_t> shape = {1, 8};
     std::vector<int64_t> shape2 = {8, 1};

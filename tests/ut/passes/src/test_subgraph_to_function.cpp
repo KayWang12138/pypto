@@ -385,7 +385,7 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load)
     std::vector<int64_t> shapeC = {bs, m, n};
 
     Program::GetInstance().GetConfig().Reset();
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     Tensor matA(DT_FP16, shapeA, "MatA", TileOpFormat::TILEOP_NZ);
     Tensor matB(DT_FP16, shapeB, "MatB", TileOpFormat::TILEOP_ND);
     Tensor matC(DT_FP32, shapeC, "MatC");
@@ -529,7 +529,7 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_1) {
     PROGRAM("TOPK") {
         std::vector<int64_t> input_shape = {shape0, shape1};
         std::vector<int64_t> output_shape = {shape0, k};
-        Program::GetInstance().GetTileShape().SetVecTileShapes({shape0, shape1});
+        TileShape::Current().SetVecTile({shape0, shape1});
         Tensor input_a(DT_FP32, input_shape, (uint8_t *)nullptr, "A");
         auto output = std::make_tuple(Tensor(DT_FP32, output_shape, nullptr, "npu_val"),
                                       Tensor(DT_FP32, output_shape, nullptr, "resDics"));
@@ -563,7 +563,7 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_1_cov) {
     PROGRAM("TOPK") {
         std::vector<int64_t> input_shape = {shape0, shape1};
         std::vector<int64_t> output_shape = {shape0, k};
-        Program::GetInstance().GetTileShape().SetVecTileShapes({shape0, shape1});
+        TileShape::Current().SetVecTile({shape0, shape1});
         Tensor input_a(DT_FP32, input_shape, (uint8_t *)nullptr, "A");
         auto output = std::make_tuple(Tensor(DT_FP32, output_shape, nullptr, "npu_val"),
                                       Tensor(DT_FP32, output_shape, nullptr, "resDics"));
@@ -663,7 +663,7 @@ TEST_F(SubgraphToFunctionTest, VerifyPassResumeByJson) {
         {           "ExpandFunction",           "ExpandFunction",  PassType::TYPE_TENSOR_GRAPH},
         {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
     });
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 32, 32);
+    TileShape::Current().SetVecTile(1, 1, 32, 32);
     std::vector<int64_t> tshape = {2, 2, 64, 64};
     Tensor T(DT_FP32, tshape, "T");
     Tensor d;
@@ -714,7 +714,7 @@ TEST_F(SubgraphToFunctionTest, VerifyPassResumeByJson) {
         {           "InsertSync",           "InsertSync", PassType::TYPE_EXECUTE_GRAPH},
         {       "CodegenPreproc",       "CodegenPreproc", PassType::TYPE_EXECUTE_GRAPH},
     });
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 32, 32);
+    TileShape::Current().SetVecTile(1, 1, 32, 32);
     std::vector<int64_t> tshape1 = {2, 2, 64, 64};
     Tensor T1(DT_FP32, tshape1, "T1");
     Tensor d1;

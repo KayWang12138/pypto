@@ -368,6 +368,7 @@ TEST_F(NSAUtest, nsa_b_16_fp16_debug) {
     saTileConfig.v1TileShape = {16, 256}; // (n1, s2Tile)
     saTileConfig.c2TileShape = {gTile, gTile, 64, 64, 128, 128}; // (n1, s2Tile) @ (s2Tile, dn) -> (n1, d)
     saTileConfig.v2TileShape = {16, 256}; // (n1, d)
+    saTileConfig.kvSlcV0TileShape = {64, 256};
 
     WinAttenTileShapeConfig winAttnTileConfig;
     const int gTileSize = NUM_128; // for gLoop split

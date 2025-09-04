@@ -39,6 +39,7 @@ public:
         Program::GetInstance().GetConfig().Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
     }
 
     void TearDown() override {}
@@ -47,7 +48,7 @@ public:
 TEST_F(TestCodegenSpillOut, UBSpillOut) {
     const std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(shape);
+    TileShape::Current().SetVecTile(shape);
 
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
@@ -98,7 +99,7 @@ TEST_F(TestCodegenSpillOut, UBSpillOut) {
 TEST_F(TestCodegenSpillOut, L1SpillOut) {
     const std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(shape);
+    TileShape::Current().SetVecTile(shape);
 
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");

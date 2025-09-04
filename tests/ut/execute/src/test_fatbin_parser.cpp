@@ -15,7 +15,7 @@
 
 #include <gtest/gtest.h>
 #include "execute/fatbin_parser.h"
-#include "tilefwk/tile_fwk_op_registry.h"
+#include "tilefwk/op_registry.h"
 #include "interface/inner/tilefwk/tilefwk_api.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/interpreter/raw_tensor_data.h"
@@ -37,8 +37,8 @@ void DynamicAdd(uint64_t configKey) {
     if (regKeySet.count(configKey) == 0) {
         return;
     }
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+    TileShape::Current().SetVecTile(32, 32);
+    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     Tensor t0(DT_FP32, {32, 32}, "t0");
     Tensor t1(DT_FP32, {32, 32}, "t1");
     Tensor t2(DT_FP32, {32, 32}, "t2");

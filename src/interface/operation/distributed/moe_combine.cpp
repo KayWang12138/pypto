@@ -135,7 +135,7 @@ void MoeFFN2Attn(const Tensor &in, const Tensor &combineInfo, const int tileCnt,
     auto &oper = function.AddOperation("MOE_FFN_TO_ATTN",
         {in.GetStorage(), combineInfo.GetStorage(), tilingTensor.GetStorage()}, {});
     oper.SetAttr("tiling_tensor_symbol", tilingTensor.GetStorage()->Symbol());
-    const TileShape &tileShape = Program::GetInstance().GetTileShape();
+    const TileShape &tileShape = TileShape::Current();
     CommGroupInfo groupInfo(group, tileShape);
     TilingInfo tilingInfo;
     oper.SetAttr(OpAttributeKey::commGroupInfo, groupInfo);
@@ -179,7 +179,7 @@ void MoeAttnCombine(Tensor &out, const Tensor &scale, int tileCnt, const char *g
         {scale.GetStorage(), tilingTensor.GetStorage()},
         {out.GetStorage()});
     oper.SetAttr("tiling_tensor_symbol", tilingTensor.GetStorage()->Symbol());
-    const TileShape &tileShape = Program::GetInstance().GetTileShape();
+    const TileShape &tileShape = TileShape::Current();
     CommGroupInfo groupInfo(group, tileShape);
     TilingInfo tilingInfo;
     oper.SetAttr(OpAttributeKey::commGroupInfo, groupInfo);
@@ -197,12 +197,12 @@ Tensor MoeCombine(const Tensor &in, const Tensor &scale, const Tensor &combineIn
     Tensor out(in.GetDataType(), {bs, h}, "MoeCombineOut");
 
     // 只切row
-    Program::GetInstance().GetTileShape().SetDistTileShapes({4, expandBS / 4, expandBS % 4}, {h, 1, 0}, {0, 0, 0});
+    TileShape::Current().SetDistTile({4, expandBS / 4, expandBS % 4}, {h, 1, 0}, {0, 0, 0});
     int tileCnt = expandBS / 4 + (expandBS % 4 ? 1 : 0);
     MoeFFN2Attn(in, combineInfo, tileCnt, topk, group);
 
     // 一个tile处理一个tokenTensor
-    Program::GetInstance().GetTileShape().SetDistTileShapes({1, bs, 0}, {h, 1, 0}, {0, 0, 0});
+    TileShape::Current().SetDistTile({1, bs, 0}, {h, 1, 0}, {0, 0, 0});
     MoeAttnCombine(out, scale, bs, group);
 
     return out;

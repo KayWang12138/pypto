@@ -156,7 +156,7 @@ TEST_F(HostMachineCompileTest, test_MlaProlog_float16_32_2_1_256_256_512) {  // 
 TEST_F(HostMachineCompileTest, test_codegen_by_json) {
     std::vector<int64_t> shape = {64, 64};
     std::vector<int64_t> tile_shape = {64, 64};
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tile_shape);
+    TileShape::Current().SetVecTile(tile_shape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor input_b(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");

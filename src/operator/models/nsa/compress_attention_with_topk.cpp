@@ -90,7 +90,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
 
     // 接入Topk的时候让后面子图接收FP32的index结果，另外此处的LOOP必须存在，不能和下面的LOOP合并，否则会存在UB上的View
     Tensor topkNumIdx(DT_FP32, {1, 1, maxCmpBlock * blockSlcNum}, "topkNumIdx");
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tileConfig.topkTile);
+    TileShape::Current().SetVecTile(tileConfig.topkTile);
     LOOP("GEN_TOPK_RANGE", FunctionType::DYNAMIC_LOOP, ubReshapeIdx, LoopRange(1), {}) {
         (void)ubReshapeIdx;
         auto dumpTensor = VectorDuplicate(Element(DataType::DT_FP32, 0.0f), DT_FP32, {1, 1, maxCmpBlock * blockSlcNum});
@@ -133,7 +133,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                     (void)avoid_loop_1_idx;
 
                     int vecTile = 128;
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(vecTile, vecTile);
+                    TileShape::Current().SetVecTile(vecTile, vecTile);
                     auto curQn = View(qNope, {n1, dN}, {qOffset, 0});
                     auto curQr = View(qRope, {n1, dR}, {qOffset, 0});
                     auto curQAttn = Assemble({
@@ -160,13 +160,13 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                     auto curVAttn = curCmpKv; // cmpKv tensor can be reused by cmpV tensor
                     curVAttn.SetName("curVAttn");
                     ConfigManager::Instance().SetSemanticLabel("Cmp-Attn-C1");
-                    Program::GetInstance().GetTileShape().SetCubeTileShapes(
+                    TileShape::Current().SetCubeTile(
                         {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]});
                     auto sij = Matrix::Matmul<false, true>(
                         DataType::DT_FP32, curKAttn, curQAttn); // (blockSize, dQK), (n1, dQK)-> (blockSize, n1)
                     sij.SetName("sij");
 
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(vecTile, vecTile);
+                    TileShape::Current().SetVecTile(vecTile, vecTile);
                     sij = View(sij, {blockSize, n1}, {curValidSeq, n1}, {0, 0});
                     ConfigManager::Instance().SetSemanticLabel("Cmp-Attn-V1");
                     auto sijScale = MulS(sij, Element(sij->Datatype(), softmaxScale)); // (blockSize, n1)
@@ -178,21 +178,21 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                     auto tildaLij = RowSumSingle(tildaPij, 0); // (1, n1)
                     IF(IsLoopBegin(blockIdx, 0)) {
                         ConfigManager::Instance().SetSemanticLabel("Cmp-Attn-First-Block-C2");
-                        Program::GetInstance().GetTileShape().SetCubeTileShapes(
+                        TileShape::Current().SetCubeTile(
                             {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
                         // auto tildaPijB16T = Transpose(tildaPijB16, {0, 1}); // (blockSize, n1) -> (n1, blockSize)
                         auto oiTmp = Matrix::Matmul<true, false>(DataType::DT_FP32, tildaPijB16,
                             curVAttn); // (n1, blockSize), (blockSize, dN) -> (n1, dN)
                         oiTmp.SetName("oiTmp");
                         ConfigManager::Instance().SetSemanticLabel("Cmp-Attn-First-Block-V2");
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(v2Tile[0], v2Tile[1]);
+                        TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                         IF(IsLoopEnd(blockIdx, curCmpBlock)) {
                             oiUpdate = Div(oiTmp, Reshape(tildaLij, {n1, 1})); // (n1, dN), (n1, 1) -> (n1, dN)
                             auto oiUpdateReshape = Reshape(oiUpdate, {1, 1, n1, dN});
-                            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, v2Tile[0], v2Tile[1]);
+                            TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
                             auto oiUpdateCast = Assign(Cast(oiUpdateReshape, cmpAttnOut->Datatype()));
                             Assemble(oiUpdateCast, {bIdx, s1Idx, 0, 0}, cmpAttnOut);
-                            Program::GetInstance().GetTileShape().SetVecTileShapes(v2Tile[0], v2Tile[1]);
+                            TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                         }
                         ELSE {
                             oiUpdate = oiTmp; // (n1, dN)
@@ -216,7 +216,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
 
                         auto q3 = Mul(oi, Reshape(t2, {n1, 1})); // (n1, dN), (n1, 1) -> (n1, dN)
                         ConfigManager::Instance().SetSemanticLabel("Cmp-Attn-Other-Update-C2");
-                        Program::GetInstance().GetTileShape().SetCubeTileShapes(
+                        TileShape::Current().SetCubeTile(
                             {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
 
                         auto tildaPijB16T = Transpose(tildaPijB16, {0, 1}); // (blockSize, n1) -> (n1, blockSize)
@@ -224,19 +224,19 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                             curVAttn); // (n1, blockSize), (blockSize, dN) -> (n1, dN)
                         q1.SetName("q1");
                         ConfigManager::Instance().SetSemanticLabel("Cmp-Attn-Other-Update-V2");
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(v2Tile[0], v2Tile[1]);
+                        TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                         auto q2 = Mul(q1, Reshape(t4, {n1, 1})); // (n1, dN), (n1, 1) -> (n1, dN)
                         auto oiTmp = Add(q3, q2);                // (n1, dN), (n1, dN) -> (n1, dN)
                         IF(IsLoopEnd(blockIdx, curCmpBlock)) {
                             oiUpdate = Div(oiTmp, Reshape(liNew, {n1, 1})); // (n1, dN), (n1, 1) -> (n1, dN)
                             auto oiUpdateReshape = Reshape(oiUpdate, {1, 1, n1, dN});
-                            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, v2Tile[0], v2Tile[1]);
+                            TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
                             auto oiUpdateCast = Assign(Cast(oiUpdateReshape, cmpAttnOut->Datatype()));
                             Assemble(oiUpdateCast, {bIdx, s1Idx, 0, 0}, cmpAttnOut);
-                            Program::GetInstance().GetTileShape().SetVecTileShapes(v2Tile[0], v2Tile[1]);
+                            TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                         }
                         ELSE {
-                            Program::GetInstance().GetTileShape().SetVecTileShapes(v2Tile[0], v2Tile[1]);
+                            TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                             oiUpdate = oiTmp; // (n1, dN)
                         }
                         Assemble(miNew, {blockIdx - 1, 0}, localMaxGather);
@@ -323,7 +323,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
                         View(slcBeforeGReduce2, {maxCmpBlock * blockSlcNum, n1}, {slcLoop, n1}, {0, 0});
                     auto slcReduce = RowSumSingle(
                         slcBeforeGReduceActual); // (maxSlcLoop, n1) - > (maxSlcLoop, 1), 有效数据为(slcLoop, 1)
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(tileConfig.topkTile);
+                    TileShape::Current().SetVecTile(tileConfig.topkTile);
                     slcReShape = Reshape(slcReduce, {1, 1, maxCmpBlock * blockSlcNum}, {1, 1, slcLoop});
                     slcReShape = AddS(slcReShape, Element(DT_FP32, 0.0f));
                 }

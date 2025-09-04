@@ -1027,7 +1027,7 @@ void Function::ProducerMagicLookup(const Function *function, const std::set<Oper
             ss << " attr: [" << attr << " : " << op->DumpAttr(attr) << "]";
         }
         if (function->GetGraphType() != GraphType::LEAF_GRAPH) {
-            ss << " tile shape: [" << op->GetTileShape().Dump() << "]";
+            ss << op->GetTileShape().toString();
         }
         if (op->GetOpAttribute() != nullptr) {
             if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
@@ -1103,7 +1103,7 @@ unsigned long Function::ComputeHashOrderless() const {
             for (const auto &attr : OpcodeManager::Inst().GetAttrs(operations_[i]->GetOpcode())) {
                 ss << " attr: [" << attr << " : " << operations_[i]->DumpAttr(attr) << "]";
             }
-            ss << " tile shape: [" << operations_[i]->GetTileShape().Dump() << "]";
+            ss << operations_[i]->GetTileShape().toString();
             MagicLookup(this, operations_[i]->GetIOperands(), operations_[0]->GetSubgraphID(), index, magic2index, ss);
         }
     }

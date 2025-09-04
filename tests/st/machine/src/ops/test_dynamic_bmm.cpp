@@ -208,7 +208,7 @@ void TestDynBatchMatmul(
 }
 
 TEST_F(DynamicBatchMatmulTest, test_bmm_A_B_ND_bf16) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int b = 3;
     int m = 64;
     int k = 128;
@@ -221,7 +221,7 @@ TEST_F(DynamicBatchMatmulTest, test_bmm_A_B_ND_bf16) {
 }
 
 TEST_F(DynamicBatchMatmulTest, test_bmm_A_Bt_ND_fp16) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int b = 3;
     int m = 2;
     int k = 576;
@@ -234,7 +234,7 @@ TEST_F(DynamicBatchMatmulTest, test_bmm_A_Bt_ND_fp16) {
 }
 
 TEST_F(DynamicBatchMatmulTest, test_bmm_A_B_NZ_bf16) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int b = 2;
     int m = 16;
     int k = 512;
@@ -247,7 +247,7 @@ TEST_F(DynamicBatchMatmulTest, test_bmm_A_B_NZ_bf16) {
 }
 
 TEST_F(DynamicBatchMatmulTest, test_bmm_A_Bt_NZ_fp16) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int b = 4;
     int m = 96;
     int k = 128;
@@ -260,7 +260,7 @@ TEST_F(DynamicBatchMatmulTest, test_bmm_A_Bt_NZ_fp16) {
 }
 
 TEST_F(DynamicBatchMatmulTest, test_bmm_A_B_ND_bf16_tile1) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {256, 256}, {128, 128});
+    TileShape::Current().SetCubeTile({128, 128}, {256, 256}, {128, 128});
     int b = 6;
     int m = 1;
     int k = 576;
@@ -273,7 +273,7 @@ TEST_F(DynamicBatchMatmulTest, test_bmm_A_B_ND_bf16_tile1) {
 }
 
 TEST_F(DynamicBatchMatmulTest, test_bmm_At_Bt_ND_fp16) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int b = 3;
     int m = 2;
     int k = 576;
@@ -286,7 +286,7 @@ TEST_F(DynamicBatchMatmulTest, test_bmm_At_Bt_ND_fp16) {
 }
 
 TEST_F(DynamicBatchMatmulTest, test_bmm_At_Bt_ANZ_BND_fp16) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int b = 3;
     int m = 128;
     int k = 256;

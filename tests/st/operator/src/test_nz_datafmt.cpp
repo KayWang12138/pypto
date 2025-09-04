@@ -41,7 +41,7 @@ void TestNZFormat(int bs, int m, int k, int n) {
 
     PROGRAM("BATCHMATMUL") {
         Program::GetInstance().GetConfig().Reset();
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+        TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
         auto afmt = IsANZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
         auto bfmt = IsBNZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
         Tensor matA(inputType, shape_a, (uint8_t *)mat_a_ptr, "MatA", afmt);
@@ -122,7 +122,7 @@ void TestNZFormatBatch(int bs, int m, int k, int n) {
 
     PROGRAM("BATCHMATMUL") {
         Program::GetInstance().GetConfig().Reset();
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+        TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
         auto afmt = IsANZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
         auto bfmt = IsBNZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
         Tensor matA(inputType, batch_shape_a, (uint8_t *)mat_a_ptr, "MatA", afmt);
@@ -135,7 +135,7 @@ void TestNZFormatBatch(int bs, int m, int k, int n) {
             for (size_t index = 0; index < (size_t)bs; ++index) {
                 auto inputA = View(matA, {m, k}, {(int)index*m, 0});
                 auto inputB = isTransB ? View(matB, {n, k}, {(int)index*n, 0}) : View(matB, {k, n}, {(int)index*k, 0});
-                Program::GetInstance().GetMatrixSize().SetMatrixSize({m, k, n});
+                TileShape::Current().SetMatrixSize({m, k, n});
                 auto outTensor = npu::tile_fwk::Matrix::Matmul<false, isTransB>(outputType, inputA, inputB);
                 std::vector<int64_t> pairSecond = {(int)index * m, 0};
                 auto pair = std::make_pair(outTensor, pairSecond);
@@ -191,20 +191,20 @@ void TestNZFormatACC(int bs, int m, int k, int n) {
 
     FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
     FUNCTION("Matmul_T", funConfig, {mat_a, mat_b, mat_c}) {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(64, 64);
+        TileShape::Current().SetVecTile(64, 64);
         Tensor tmpC(outputType, shape_c, "tmp_c");
         tmpC = MulS(tmpC, Element(DataType::DT_FP32, 0.0f));
         std::vector<Tensor> matmulResult;
         for (int ki = 0; ki < kSplit; ki++) {
             auto input_mk = View(mat_a, {m, kSplitSize}, {0, ki * kSplitSize});
             auto input_kn = View(mat_b, {kSplitSize, n}, {ki * kSplitSize, 0});
-            Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16}, {128, 128}, {128, 128});
+            TileShape::Current().SetCubeTile({16, 16}, {128, 128}, {128, 128});
             auto tmpC1 = Matrix::Matmul<false, false>(outputType, input_mk, input_kn, tmpC);
             matmulResult.emplace_back(tmpC1);
         }
-        Program::GetInstance().GetTileShape().SetVecTileShapes(16, 128);
+        TileShape::Current().SetVecTile(16, 128);
         tmpC = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);
-        Program::GetInstance().GetTileShape().SetVecTileShapes(16, 128);
+        TileShape::Current().SetVecTile(16, 128);
         mat_c = AddS(tmpC, Element(DataType::DT_FP32, 0.0));
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -220,12 +220,12 @@ void TestNZFormatACC(int bs, int m, int k, int n) {
 }
 
 TEST_F(OnBoardTest, test_BMM_NZ_1_4_4096_7168_ACC) {
-    Program::GetInstance().GetMatrixSize().SetMatrixSize({4, 4096, 7168});
+    TileShape::Current().SetMatrixSize({4, 4096, 7168});
     TestNZFormatACC<DataType::DT_FP16, DataType::DT_FP32, false, true>(1, 4, 4096, 7168);
 }
 
 TEST_F(OnBoardTest, test_BMM_NZ_1_128_128_128_ACC) {
-    Program::GetInstance().GetMatrixSize().SetMatrixSize({128, 128, 128});
+    TileShape::Current().SetMatrixSize({128, 128, 128});
     TestNZFormatACC<DataType::DT_FP16, DataType::DT_FP32, false, true>(1, 128, 128, 128);
 }
 

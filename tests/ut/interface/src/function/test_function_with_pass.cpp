@@ -35,6 +35,7 @@ public:
         std::cout << "-----------------------------SetUp-------------------------------" << std::endl;
         Program::GetInstance().Reset();
         Program::GetInstance().GetConfig().Reset();
+        TileShape::Current().SetVecTile(16, 16);
     }
 
     void TearDown() override {

@@ -51,7 +51,7 @@ TEST_F(GeneralizetionTest, Test1) {
     int T = 8;
     std::vector<int64_t> shape{N * T, N * T};
     // 小于等于tensor shape的tile shape 正常通过， 否则报错（原因是前端约束）
-    Program::GetInstance().GetTileShape().SetVecTileShapes({T, T});
+    TileShape::Current().SetVecTile({T, T});
 
     Tensor inputA(DT_FP32, shape, "a");
     Tensor result(DT_FP32, {4 * T,4 * T}, "result");
@@ -80,7 +80,7 @@ TEST_F(GeneralizetionTest, Test1) {
 
 // =======================================================  Single OP Test ====================================================================
 TEST_F(GeneralizetionTest, TestReshape) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes({64, 64});
+    TileShape::Current().SetVecTile({64, 64});
     std::vector<int64_t> shape1{256, 256};
     std::vector<int64_t> shape2{1, 128, 512};
 
@@ -97,7 +97,7 @@ TEST_F(GeneralizetionTest, TestAssemble) {
     int N = 2;
     int T = 8;
     std::vector<int64_t> shape{T, T};
-    Program::GetInstance().GetTileShape().SetVecTileShapes({T, T});
+    TileShape::Current().SetVecTile({T, T});
 
     Tensor inputA(DT_FP32, shape, "a");
     Tensor result(DT_FP32, {2 * T, 2 * T}, "result");
@@ -115,7 +115,7 @@ TEST_F(GeneralizetionTest, TestAssemble) {
 }
 
 TEST_F(GeneralizetionTest, TestView) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes({64, 64});
+    TileShape::Current().SetVecTile({64, 64});
     std::vector<int64_t> shape1{256, 256};
     std::vector<int64_t> shape2{128, 128};
 
@@ -131,7 +131,7 @@ TEST_F(GeneralizetionTest, TestView) {
 }
 
 TEST_F(GeneralizetionTest, TestScatterUpdate) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes({16, 32});
+    TileShape::Current().SetVecTile({16, 32});
 
     int h = 128, minusTwo = -2;
     Tensor output(DT_INT32, {h, h}, "output");
@@ -153,7 +153,7 @@ TEST_F(GeneralizetionTest, TestTranspose) {
     std::vector<int64_t> shape{b, n, s, d};
     std::vector<int64_t> resShape{b, s, n, d};
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(2, 1, 32, 512);
+    TileShape::Current().SetVecTile(2, 1, 32, 512);
 
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape, "res");
@@ -166,7 +166,7 @@ TEST_F(GeneralizetionTest, TestTranspose) {
 // =======================================================  Same OP Test ====================================================================
 TEST_F(GeneralizetionTest, TestReshapeReshape) {
     config::GetPassGlobalConfig("pass_thread_num", 2);
-    Program::GetInstance().GetTileShape().SetVecTileShapes({64, 64});
+    TileShape::Current().SetVecTile({64, 64});
     std::vector<int64_t> shape1{256, 256};
 
     std::vector<int64_t> shape4{128, 512};
@@ -190,7 +190,7 @@ TEST_F(GeneralizetionTest, TestAssembleAssemble) {
     int N = 2;
     int T = 8;
     std::vector<int64_t> shape{T, T};
-    Program::GetInstance().GetTileShape().SetVecTileShapes({T, T});
+    TileShape::Current().SetVecTile({T, T});
 
     Tensor inputA(DT_FP32, shape, "a");
     Tensor result(DT_FP32, {4 * T,4 * T}, "result");
@@ -222,7 +222,7 @@ TEST_F(GeneralizetionTest, TestViewView) {
     std::vector<int64_t> shape4{1, 256, 1, 256};
     std::vector<int64_t> shape5{128, 2, 2, 128};
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes({64, 64});
+    TileShape::Current().SetVecTile({64, 64});
 
     // sub
     Tensor input(DT_FP32, shape1, "input");
@@ -241,7 +241,7 @@ TEST_F(GeneralizetionTest, TestViewView) {
 }
 
 TEST_F(GeneralizetionTest, TestScatterUpdateScatterUpdate) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes({16, 32});
+    TileShape::Current().SetVecTile({16, 32});
 
     int h = 128, minusTwo = -2, minusOne = -1;
     Tensor output(DT_INT32, {h, h}, "output");
@@ -263,7 +263,7 @@ TEST_F(GeneralizetionTest, TestTransposeTranspose) {
     std::vector<int64_t> resShape{b, s, n, d};
     std::vector<int64_t> resShape2{s, b, n, d};
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(2, 1, 32, 512);
+    TileShape::Current().SetVecTile(2, 1, 32, 512);
 
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape2, "res");
@@ -278,7 +278,7 @@ TEST_F(GeneralizetionTest, TestTransposeTranspose) {
 TEST_F(GeneralizetionTest, TestReshapeToAll) {
     int N = 2;
     int T = 64;
-    Program::GetInstance().GetTileShape().SetVecTileShapes({T, T});
+    TileShape::Current().SetVecTile({T, T});
     std::vector<int64_t> shape1{64, 1024};
     std::vector<int64_t> shape2{256, 256};
 
@@ -322,7 +322,7 @@ TEST_F(GeneralizetionTest, TestAssembleToAll) {
     int N = 2;
     int T = 64;
     std::vector<int64_t> shape{T, T};
-    Program::GetInstance().GetTileShape().SetVecTileShapes({T, T});
+    TileShape::Current().SetVecTile({T, T});
 
     Tensor inputA(DT_FP32, shape, "a");
     Tensor result(DT_FP32, {4 * T, 4 * T}, "result");
@@ -373,7 +373,7 @@ TEST_F(GeneralizetionTest, TestViewToAll) {
     int N = 2;
     int T = 64;
     std::vector<int64_t> shape{256, 256};
-    Program::GetInstance().GetTileShape().SetVecTileShapes({T, T});
+    TileShape::Current().SetVecTile({T, T});
 
     Tensor inputA(DT_FP32, shape, "a");
     Tensor result(DT_FP32, {4 * T, 4 * T}, "result");
@@ -419,7 +419,7 @@ TEST_F(GeneralizetionTest, TestScatterUpdateToAll) {
     int N = 2;
     int T = 64;
     std::vector<int64_t> shape{128, 128};
-    Program::GetInstance().GetTileShape().SetVecTileShapes({T, T});
+    TileShape::Current().SetVecTile({T, T});
 
     Tensor inputA(DT_FP32, shape, "a");
     Tensor result(DT_FP32, {2 * T, 2 * T}, "result");
@@ -465,7 +465,7 @@ TEST_F(GeneralizetionTest, TestTransposeToAll) {
     int N = 2;
     int T = 64;
     std::vector<int64_t> shape{128, 128};
-    Program::GetInstance().GetTileShape().SetVecTileShapes({T, T});
+    TileShape::Current().SetVecTile({T, T});
 
     Tensor inputA(DT_FP32, shape, "a");
     Tensor result(DT_FP32, {2 * T, 2 * T}, "result");

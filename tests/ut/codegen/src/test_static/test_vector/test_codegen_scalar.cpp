@@ -57,13 +57,9 @@ void TestQuant(std::vector<int64_t> &inputShape) {
 
     // depend on shapeDim
     switch (shapeDim) {
-        case DIM2: Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[1]); break;
-        case DIM3:
-            Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[0], vecTileShape[1]);
-            break;
-        case DIM4:
-            Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, vecTileShape[0], vecTileShape[1]);
-            break;
+        case DIM2: TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[1]); break;
+        case DIM3: TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[0], vecTileShape[1]); break;
+        case DIM4: TileShape::Current().SetVecTile(1, 1, vecTileShape[0], vecTileShape[1]); break;
         default: ASSERT(true) << "unsupport dim " << shapeDim << " \n"; break;
     }
 
@@ -96,7 +92,7 @@ TEST_F(TestCodegenScalar, TestScalarOp) {
     int s = 1; // 1, optimize set_tile
     std::vector<int64_t> shape{b * s, 35};
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(vecTileShape[0], vecTileShape[1]);
+    TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[1]);
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, shape, "res");
     std::string funcName = "ScalarAddS";

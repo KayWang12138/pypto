@@ -53,8 +53,8 @@ std::pair<Status, bool> InferMemoryConflict::IsInplace(Operation &op, std::share
     }
     /* 没在当前op中找到输入或输出 */
     if (inputIdx == -1 || outputIdx == -1) {
-        ALOG_ERROR_F("tesnor[%d] or tesnor[%d] is not the input or output for %s[%d]", 
-            in->magic, out->magic, op.GetOpcodeStr().c_str(), op.GetOpMagic());
+        ALOG_ERROR_F("tesnor[%d] or tesnor[%d] is not the input or output for %s[%d]", in->magic, out->magic,
+            op.GetOpcodeStr().c_str(), op.GetOpMagic());
         return std::make_pair(FAILED, false);
     }
     for (auto &reusePair : inplaceRelationshipMap.at(op.GetOpcode())) {
@@ -70,7 +70,7 @@ Status InferMemoryConflict::InferFromIncast(Function &function) {
     std::queue<std::shared_ptr<LogicalTensor>> leftTensors;
     for (auto &x_: function.GetIncast()) {
         /*
-        初始状态下 
+        初始状态下
         1. leftTensors仅记录了所有的INCAST
         2. 所有INCAST的parent为自己
         */
@@ -113,9 +113,9 @@ Status InferMemoryConflict::InferFromIncast(Function &function) {
     for (auto &t_ : conflictTensors) {
         ALOG_INFO_F("conflict tensor magic %d, raw magic %d", t_->magic, t_->GetRawMagic());
         auto finalParent = parentRawForard.at(t_);
-        ALOG_INFO_F("Incast %d(raw %d, symbol %s), share memory with Outcast %d(raw %d, symbol %s).", 
-            finalParent->magic, finalParent->GetRawMagic(), finalParent->tensor->symbol.c_str(),
-            t_->magic, t_->GetRawMagic(), t_->tensor->symbol.c_str());
+        ALOG_INFO_F("Incast %d(raw %d, symbol %s), share memory with Outcast %d(raw %d, symbol %s).",
+            finalParent->magic, finalParent->GetRawMagic(), finalParent->tensor->symbol.c_str(), t_->magic,
+            t_->GetRawMagic(), t_->tensor->symbol.c_str());
     }
     return SUCCESS;
 }
@@ -124,29 +124,31 @@ Status InferMemoryConflict::InsertTensorCopy(Function &function) {
     for (auto &t_ : conflictTensors) {
         auto incastParent = parentRawForard.at(t_);
         if (incastParent->tensor->symbol == t_->tensor->symbol) {
-            /* 
-            symbol 相同说明前端写法为 a = op(a, ...) 
+            /*
+            symbol 相同说明前端写法为 a = op(a, ...)
             用户本意为原地inplace
             */
             continue;
         }
         // 获取前端显示声明的输入和输出同地址信息，不插入拷贝
         if (incastParent->tensor->memoryId == t_->tensor->memoryId) {
-            ALOG_INFO_F("Incast %d(raw %d, symbol %s, memoryId: %d) have same GM address with Outcast %d(raw %d, symbol %s, memoryId: %d), will not insert copy.", 
-            incastParent->magic, incastParent->GetRawMagic(), incastParent->tensor->symbol.c_str(), incastParent->tensor->memoryId,
-            t_->magic, t_->GetRawMagic(), t_->tensor->symbol.c_str(), t_->tensor->memoryId);
+            ALOG_INFO_F("Incast %d(raw %d, symbol %s, memoryId: %d) have same GM address with Outcast %d(raw %d, "
+                        "symbol %s, memoryId: %d), will not insert copy.",
+                incastParent->magic, incastParent->GetRawMagic(), incastParent->tensor->symbol.c_str(),
+                incastParent->tensor->memoryId, t_->magic, t_->GetRawMagic(), t_->tensor->symbol.c_str(),
+                t_->tensor->memoryId);
             continue;
         }
-        
+
         /*
         before:
         op1 --> tesnor --> Assemble1 -->\
                                         OCAST
-        op2 --> tesnor --> Assemble2 -->/ 
+        op2 --> tesnor --> Assemble2 -->/
         after:
         op1 --> tensor --> Register_Copy1 --> tensor_new --> Assemble1 -->\
                                                                         OCAST
-        op2 --> tensor --> Register_Copy2 --> tensor_new --> Assemble2 -->/ 
+        op2 --> tensor --> Register_Copy2 --> tensor_new --> Assemble2 -->/
         */
         for (auto &parentAssembleOp : t_->GetProducers()) {
             if (parentAssembleOp->GetOpcode() != Opcode::OP_ASSEMBLE) {
@@ -155,7 +157,7 @@ Status InferMemoryConflict::InsertTensorCopy(Function &function) {
                     parentAssembleOp->GetOpcodeStr().c_str(), parentAssembleOp->GetOpMagic());
                 return FAILED;
             }
-            
+
             auto producerParentOp = *parentAssembleOp->ProducerOps().begin();
             if (producerParentOp->GetOpcode() == Opcode::OP_INDEX_OUTCAST) {
                 continue;
@@ -172,8 +174,8 @@ Status InferMemoryConflict::InsertTensorCopy(Function &function) {
             assembleInput->RemoveConsumer(parentAssembleOp);
             parentAssembleOp->ReplaceInput(newTensor, assembleInput);
             ALOG_ERROR_F("******** insert %s[%d], may deteriorate the performance ********", tensorCopyOp.GetOpcodeStr().c_str(), tensorCopyOp.GetOpMagic());
-            ALOG_ERROR_F("******** %s[%d] will expand as tile shape : %s ********", tensorCopyOp.GetOpcodeStr().c_str(), tensorCopyOp.GetOpMagic(),
-                tensorCopyOp.GetTileShape().Dump().c_str());
+            ALOG_ERROR_F("******** %s[%d] will expand as tile shape : %s ********", tensorCopyOp.GetOpcodeStr().c_str(),
+                tensorCopyOp.GetOpMagic(), tensorCopyOp.GetTileShape().toString(TileType::VEC).c_str());
         }
     }
     return SUCCESS;

@@ -47,7 +47,7 @@ TEST_F(TestCodegenDynVdup, TestDynVdupUnaligned) {
     std::vector<int64_t> shape{2, 256, 7};
     Element src(DataType::DT_FP32, 2.0);
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes({1, 256, 16});
+    TileShape::Current().SetVecTile({1, 256, 16});
 
     Tensor output(DataType::DT_FP32, shape, "C");
     std::string funcName = "VECDUP_T";

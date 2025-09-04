@@ -91,12 +91,12 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
                                                   {curBlockIdx * blockSize, 0});
 
                     ConfigManager::Instance().SetSemanticLabel("MatMul");
-                    Program::GetInstance().GetTileShape().SetCubeTileShapes(
+                    TileShape::Current().SetCubeTile(
                         {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]});
-                    Program::GetInstance().GetMatrixSize().SetMatrixSize({qi.GetShape()[0], 0, kj.GetShape()[0]});
+                    TileShape::Current().SetMatrixSize({qi.GetShape()[0], 0, kj.GetShape()[0]});
                     auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj); // (curNTile, dN+dR), (curS2Tile, dN+dR) -> (curNTile, curS2Tile)
                     sij.SetName("sij");
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(v1Tile[0], v1Tile[1]);
+                    TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
 
                     ConfigManager::Instance().SetSemanticLabel("SoftMax");
                     auto sijScale = MulS(sij, Element(sij->Datatype(), softmaxScale)); // (curNTile, curS2Tile)
@@ -110,13 +110,13 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
                     auto tildaLij = RowSumSingle(tildaPij); // (nTileCur, s2TileCur) -> (nTileCur, 1)
 
                     IF (IsLoopBegin(bn, 0)) {
-                        Program::GetInstance().GetTileShape().SetCubeTileShapes(
+                        TileShape::Current().SetCubeTile(
                             {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
                         ConfigManager::Instance().SetSemanticLabel("b1-matmul2");
-                        Program::GetInstance().GetMatrixSize().SetMatrixSize(
+                        TileShape::Current().SetMatrixSize(
                             {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
                         auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);; // (curNTile, curS2Tile), (curS2Tile, dN) -> (curNTile, dN)
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(v2Tile[0], v2Tile[1]);
+                        TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                         ConfigManager::Instance().SetSemanticLabel("b1-after-matmul2");
                         IF (IsLoopEnd(bn, bnPerBatch)) {
                             ConfigManager::Instance().SetSemanticLabel("b1-after-matmul2");
@@ -144,13 +144,13 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
 
                         auto q3 = Mul(oi, t2); // (curNTile, dN), (curNTile, 1) -> (curNTile, dN)
                         ConfigManager::Instance().SetSemanticLabel("bn-matmul2");
-                        Program::GetInstance().GetTileShape().SetCubeTileShapes(
+                        TileShape::Current().SetCubeTile(
                             {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
-                        Program::GetInstance().GetMatrixSize().SetMatrixSize(
+                        TileShape::Current().SetMatrixSize(
                             {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
                         auto q1 = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16,
                             vj); // (curNTile, curS2Tile), (curS2Tile, dN) -> (curNTile, dN)
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(v2Tile[0], v2Tile[1]);
+                        TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                         ConfigManager::Instance().SetSemanticLabel("bn-after-matmul2");
                         auto q2 = Mul(q1, t4);    // (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
                         auto oiTmp = Add(q3, q2); // (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
@@ -207,7 +207,7 @@ void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
                 LOOP("LOOP_L2_bn", FunctionType::DYNAMIC_LOOP, bn, LoopRange(bnPerBatch), PowersOf2(maxUnrollTimes)) {
                     for (int unrollTimes = maxUnrollTimes; unrollTimes != 0; unrollTimes /= div2) {
                         UNROLL(unrollTimes) {
-                            Program::GetInstance().GetTileShape().SetVecTileShapes(v0Tile[0], v0Tile[1]);
+                            TileShape::Current().SetVecTile(v0Tile[0], v0Tile[1]);
                             auto qn = View(qNope, {nTile, dN}, {curOffset, 0});
                             auto qr = View(qRope, {nTile, dR}, {curOffset, 0});
                             auto qi = Concat({qn, qr}, 1); // (nTileCur, dN+dR)
@@ -229,11 +229,11 @@ void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
                             auto kj = Concat({kn, kr}, 1); // (s2TileCur, dN+dR)
                             auto vj = Concat(subVjs, 0);
 
-                            Program::GetInstance().GetTileShape().SetCubeTileShapes(
+                            TileShape::Current().SetCubeTile(
                                 {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]});
 
                             auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj);
-                            Program::GetInstance().GetTileShape().SetVecTileShapes(v1Tile[0], v1Tile[1]);
+                            TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
                             auto sijScale = MulS(sij, Element(sij->Datatype(), softmaxScale)); // (nTileCur, s2TileCur)
 
                             auto tildaMij = RowMaxSingle(sijScale); // (nTileCur, s2TileCur) -> (nTileCur, 1)
@@ -244,10 +244,10 @@ void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
                             auto tildaLij = RowSumSingle(tildaPij); // (nTileCur, s2TileCur) -> (nTileCur, 1)
 
                             IF(IsLoopBegin(bn, 0)) {
-                                Program::GetInstance().GetTileShape().SetCubeTileShapes(
+                                TileShape::Current().SetCubeTile(
                                     {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
                                 auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
-                                Program::GetInstance().GetTileShape().SetVecTileShapes(v2Tile[0], v2Tile[1]);
+                                TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                                 IF(IsLoopEnd(bn, bnPerBatch)) {
                                     oiUpdate =
                                         Div(oiTmp, tildaLij); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
@@ -272,10 +272,10 @@ void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
                                 auto liNew = Add(t6, t5);    // (nTileCur, 1), (nTileCur, 1) -> (nTileCur, 1)
 
                                 auto q3 = Mul(oi, t2); // (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
-                                Program::GetInstance().GetTileShape().SetCubeTileShapes(
+                                TileShape::Current().SetCubeTile(
                                     {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
                                 auto q1 = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
-                                Program::GetInstance().GetTileShape().SetVecTileShapes(v2Tile[0], v2Tile[1]);
+                                TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                                 auto q2 = Mul(q1, t4);    // (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
                                 auto oiTmp = Add(q3, q2); // (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
                                 IF(IsLoopEnd(bn, bnPerBatch)) {
@@ -347,10 +347,9 @@ void PageAttentionHighThroughput(Tensor &qNope, Tensor &kNopeCache, Tensor &vNop
             auto vj = View(vNopeCache, {curS2Tile, dN}, {std::min(curSeq, blockSize), dN},
                 {curBlockIdx * blockSize, 0});
 
-            Program::GetInstance().GetTileShape().SetCubeTileShapes(
-                {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]});
+            TileShape::Current().SetCubeTile({c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]});
             auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj); // (curNTile, dN+dR), (curS2Tile, dN+dR) -> (curNTile, curS2Tile)
-            Program::GetInstance().GetTileShape().SetVecTileShapes(v1Tile[0], v1Tile[1]);
+            TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
             auto sijScale = MulS(sij, Element(sij->Datatype(), softmaxScale)); // (curNTile, curS2Tile)
 
             auto tildaMij = RowMaxSingle(sijScale); // (curNTile, curS2Tile) -> (curNTile, 1)
@@ -360,10 +359,9 @@ void PageAttentionHighThroughput(Tensor &qNope, Tensor &kNopeCache, Tensor &vNop
             auto tildaPijF16 = Cast(tildaPij, dtype);
             auto tildaLij = RowSumSingle(tildaPij); // (nTileCur, s2TileCur) -> (nTileCur, 1)
 
-            Program::GetInstance().GetTileShape().SetCubeTileShapes(
-                {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
+            TileShape::Current().SetCubeTile({c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
             auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);; // (curNTile, curS2Tile), (curS2Tile, dN) -> (curNTile, dN)
-            Program::GetInstance().GetTileShape().SetVecTileShapes(v2Tile[0], v2Tile[1]);
+            TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
             oiUpdate = Div(oiTmp, tildaLij); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
             Assemble(oiUpdate, oiOffset, attentionOut);
         }

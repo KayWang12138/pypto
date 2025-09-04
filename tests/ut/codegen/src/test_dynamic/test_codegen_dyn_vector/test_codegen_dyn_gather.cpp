@@ -55,7 +55,7 @@ TEST_F(TestCodegenDynGather, TestGather) {
     int axis = 0;
     std::vector<int64_t> shape2 = {B, S, D};
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes({1, GATHER_SHAPE0, GATHER_SHAPE1});
+    TileShape::Current().SetVecTile({1, GATHER_SHAPE0, GATHER_SHAPE1});
 
     Tensor inputSrc0(DT_FP32, shape0, "x");
     Tensor inputSrc1(DT_INT32, shape1, "indices");

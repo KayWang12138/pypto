@@ -48,7 +48,7 @@ void ReduceMinOperationExeFunc(
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             auto viewTensor = View(inputs[0], {firstViewShape, secondDim},
                 {std::min(firstDim - bIdx * firstViewShape, firstViewShape), secondDim}, {bIdx * firstViewShape, 0});
-            Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+            TileShape::Current().SetVecTile(args->tileShape_);
             auto res = RowMinSingle(viewTensor, args->dims_[0]);
             Assemble(res, {bIdx * firstViewShape, 0}, outputs[0]);
         }
@@ -72,7 +72,7 @@ void ReduceMin2DOperationExeFunc(
                     {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                         std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
-                Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                TileShape::Current().SetVecTile(args->tileShape_);
                 auto res = RowMinSingle(viewTensor, args->dims_[0]);
                 Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
@@ -103,7 +103,7 @@ void ReduceMin3DOperationExeFunc(
                             std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                             std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                    TileShape::Current().SetVecTile(args->tileShape_);
                     auto res = RowMinSingle(viewTensor, args->dims_[0]);
                     Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
@@ -143,7 +143,7 @@ void ReduceMin4DOperationExeFunc(
                                     std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
                                 {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
                                     nIdx * fourthViewShape});
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                        TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = RowMinSingle(viewTensor, args->dims_[0]);
                         Assemble(res,
                             {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,

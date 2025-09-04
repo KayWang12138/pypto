@@ -38,7 +38,7 @@ TEST_F(ExpandOnBoardTest, test_expand_32_1_to_32_32) {
 
     PROGRAM("EXPAND") {
         void *x_ptr = readToDev(GetGoldenDir() + "/expand_x.bin", srcCapacity);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16});
+        TileShape::Current().SetVecTile({16, 16});
         Tensor input_a(DataType::DT_FP32, srcShape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, dstShape, out_ptr, "C");
 
@@ -81,7 +81,7 @@ TEST_F(ExpandOnBoardTest, test_expand_32_8_1_to_32_8_32) {
 
     PROGRAM("EXPAND") {
         void *x_ptr = readToDev(GetGoldenDir() + "/expand_x.bin", srcCapacity);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 16});
+        TileShape::Current().SetVecTile({8, 8, 16});
         Tensor input_a(DataType::DT_FP32, srcShape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, dstShape, out_ptr, "C");
 
@@ -119,7 +119,7 @@ TEST_F(ExpandOnBoardTest, test_expand_32_1_to_32_23) {
 
     PROGRAM("EXPAND") {
         void *x_ptr = readToDev(GetGoldenDir() + "/expand_x.bin", srcCapacity);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 16});
+        TileShape::Current().SetVecTile({16, 16});
         Tensor input_a(DT_FP32, srcShape, (uint8_t *)x_ptr, "A");
         Tensor output(DT_FP32, dstShape, out_ptr, "C");
 
@@ -158,7 +158,7 @@ TEST_F(ExpandOnBoardTest, test_expand_32_8_1_to_32_8_23) {
 
     PROGRAM("EXPAND") {
         void *x_ptr = readToDev(GetGoldenDir() + "/expand_x.bin", srcCapacity);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8, 16});
+        TileShape::Current().SetVecTile({8, 8, 16});
         Tensor input_a(DT_FP32, srcShape, (uint8_t *)x_ptr, "A");
         Tensor output(DT_FP32, dstShape, out_ptr, "C");
 
@@ -192,7 +192,7 @@ TEST_F(ExpandOnBoardTest, test_expand_for_4_dim) {
 
     PROGRAM("EXPAND") {
         void *x_ptr = readToDev(GetGoldenDir() + "/expand_x.bin", srcCapacity);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({2, 2, 128, 16});
+        TileShape::Current().SetVecTile({2, 2, 128, 16});
         Tensor input_a(DT_FP32, srcShape, (uint8_t *)x_ptr, "A");
         Tensor output(DT_FP32, dstShape, out_ptr, "C");
 
@@ -230,7 +230,7 @@ TEST_F(ExpandOnBoardTest, test_expand_1_1_to_1_16384) {
 
     PROGRAM("EXPAND") {
         void *x_ptr = readToDev(GetGoldenDir() + "/expand_x.bin", srcCapacity);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 16384});
+        TileShape::Current().SetVecTile({1, 16384});
         Tensor input_a(DT_FP32, srcShape, (uint8_t *)x_ptr, "A");
         Tensor output(DT_FP32, dstShape, out_ptr, "C");
 

@@ -42,7 +42,7 @@ public:
 
 // ScatterUpdate
 void TestScatterUpdate(std::vector<int64_t> tileShape) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
+    TileShape::Current().SetVecTile(tileShape);
 
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy",
@@ -88,7 +88,7 @@ TEST_F(TestCodegenScatterUpdate, TestBatchMatmul) {
     std::vector<int64_t> shapeC = {bs, m, n};
 
     Program::GetInstance().GetConfig().Reset();
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     Tensor matA(DT_FP16, shapeA, "MatA", TileOpFormat::TILEOP_NZ);
     Tensor matB(DT_FP16, shapeB, "MatB", TileOpFormat::TILEOP_ND);
     Tensor matC(DT_FP32, shapeC, "MatC");
@@ -113,7 +113,7 @@ TEST_F(TestCodegenScatterUpdate, TestScatterUpdate) {
     std::vector<int64_t> shape1 = {1, S};
     std::vector<int64_t> shape2 = {S, kvLoraRank + qkRopeHeadDim}; // [1, 16]
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16);
+    TileShape::Current().SetVecTile(16, 16);
 
     Tensor kv_len(DT_INT64, shape1, "kv_len");
     Tensor past_key_states(DT_FP32, shape0, "past_key_states");

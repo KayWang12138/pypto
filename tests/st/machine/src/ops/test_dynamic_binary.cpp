@@ -25,7 +25,7 @@ class DynamicBinTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {}
 
 TEST_F(DynamicBinTest, TestDynamicAddUnalign) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(64, 64);
+    TileShape::Current().SetVecTile(64, 64);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 1;
@@ -75,7 +75,7 @@ TEST_F(DynamicBinTest, TestDynamicAddUnalign) {
 }
 TEST_F(DynamicBinTest, testDynMulsUnalign) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(64, 64);
+    TileShape::Current().SetVecTile(64, 64);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
     std::vector<uint8_t> devProgBinary;
@@ -130,7 +130,7 @@ TEST_F(DynamicBinTest, testDynMulsUnalign) {
 
 TEST_F(DynamicBinTest, testScalarDivsUnalign) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(64, 64);
+    TileShape::Current().SetVecTile(64, 64);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
     std::vector<uint8_t> devProgBinary;

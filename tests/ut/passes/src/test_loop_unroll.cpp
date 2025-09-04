@@ -44,9 +44,9 @@ public:
         std::vector<std::string> funcName = {"TENSOR_main"};
         config::SetPassConfig("FunctionUnroll", "LoopUnroll", "CONVERT_TO_STATIC", funcName);
         int s = 32;
-        Program::GetInstance().GetTileShape().SetVecTileShapes(s, s);
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({s, s}, {s, s}, {s, s});
-        }
+        TileShape::Current().SetVecTile(s, s);
+        TileShape::Current().SetCubeTile({s, s}, {s, s}, {s, s});
+    }
     void TearDown() override {}
 };
 

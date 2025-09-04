@@ -43,7 +43,7 @@ public:
 
 void TestRowMaxSingleBody(
     std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int64_t> tileShape, std::string name) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
+    TileShape::Current().SetVecTile(tileShape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
     FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
@@ -70,7 +70,7 @@ TEST_F(TestCodegenUnary, RowMaxSingleDim4) {
 
 void TestRowSumSingleBody(
     std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int64_t> tileShape, std::string name) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
+    TileShape::Current().SetVecTile(tileShape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
     FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
@@ -97,7 +97,7 @@ TEST_F(TestCodegenUnary, RowSumSingleDim4) {
 
 void TestTransposeVnchwconvBody(std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int> transposeShape,
     std::vector<int64_t> tileShape, std::string name) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
+    TileShape::Current().SetVecTile(tileShape);
     Tensor input(DT_FP32, shape, "input");
     Tensor output(DT_FP32, outShape, "output");
     FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
@@ -125,7 +125,7 @@ TEST_F(TestCodegenUnary, TransposeVnchwconvDim5) {
 
 void TestRowMaxExpandBody(
     std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int64_t> tileShape, std::string name) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
+    TileShape::Current().SetVecTile(tileShape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
     FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
@@ -143,7 +143,7 @@ TEST_F(TestCodegenUnary, RowMaxExpandDim2) {
 }
 
 void TestCastBody(std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int64_t> tileShape, std::string name) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
+    TileShape::Current().SetVecTile(tileShape);
     Tensor input_a(DT_INT32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
     FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
@@ -161,7 +161,7 @@ TEST_F(TestCodegenUnary, CastDim1) {
 }
 
 void TestExpandBody(std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int64_t> tileShape, std::string name) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
+    TileShape::Current().SetVecTile(tileShape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
 
@@ -189,7 +189,7 @@ TEST_F(TestCodegenUnary, ExpandDim4Axis1) {
 
 void TestRowSumBody(
     std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int64_t> tileShape, std::string name, unsigned axis) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tileShape);
+    TileShape::Current().SetVecTile(tileShape);
 
     Tensor input_a(DataType::DT_FP32, shape, "A");
     Tensor output(DataType::DT_FP32, outShape, "C");
@@ -220,7 +220,7 @@ TEST_F(TestCodegenUnary, TestVecDup) {
     std::vector<int64_t> shape{32, 1, 32};
     Element src(DataType::DT_INT32, static_cast<int64_t>(2));
     std::string funcName = "VECDUP";
-    Program::GetInstance().GetTileShape().SetVecTileShapes({16, 1, 16});
+    TileShape::Current().SetVecTile({16, 1, 16});
 
     Tensor output(DataType::DT_INT32, shape, "C");
     FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
@@ -237,7 +237,7 @@ TEST_F(TestCodegenUnary, TestVecDup) {
 TEST_F(TestCodegenUnary, TestVecDupUnaligned) {
     std::vector<int64_t> shape{2, 2, 256, 7};
     Element src(DataType::DT_FP32, 2.0);
-    Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 256, 16});
+    TileShape::Current().SetVecTile({1, 1, 256, 16});
 
     Tensor output(DataType::DT_FP32, shape, "C");
 

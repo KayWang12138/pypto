@@ -45,7 +45,7 @@ namespace {
 
         PROGRAM("Cast") {
             void *x_ptr = readToDev(GetGoldenDir() + "/" + config.inputFile, dstCapacity);
-            Program::GetInstance().GetTileShape().SetVecTileShapes(config.tileShapes);
+            TileShape::Current().SetVecTile(config.tileShapes);
             Tensor i_x(config.inputType, config.shape, (uint8_t *)x_ptr, "x");
             Tensor o_x(config.outputType, config.shape, out_ptr, "cast");
 
@@ -125,7 +125,7 @@ TEST_F(CastOnBoard, test_cast_fp16tofp32_unalign) {
 
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("CAST_test", funConfig, {input1, output}) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes({4, 256});
+            TileShape::Current().SetVecTile({4, 256});
             output = Cast(input1, oType, CAST_NONE);
         }
     }

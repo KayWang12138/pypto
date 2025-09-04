@@ -59,8 +59,8 @@ void MakeExpandGrpah(std::shared_ptr<Function> &currFunctionPtr, LogicalTensorPt
     std::vector<SymbolicScalar> symbol = {SymbolicScalar("sym")};
     auto op_attr = std::make_shared<AssembleOpAttribute>(toOffset, symbol);
     assemble_op.SetOpAttribute(op_attr);
-    div_op.tileShape_.SetVecTileShapes(tile_shape);
-    assemble_op.tileShape_.SetVecTileShapes(tile_shape);
+    div_op.tileShape_.SetVecTile(tile_shape);
+    assemble_op.tileShape_.SetVecTile(tile_shape);
 
     currFunctionPtr->inCasts_.push_back(inCast1);
     currFunctionPtr->inCasts_.push_back(inCast2);
@@ -226,7 +226,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest4) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape = {kNumExpSix, kNumExpSix};
     std::vector<int64_t> tile_shape = {kNumExpFive, kNumExpFive};
-    Program::GetInstance().GetTileShape().SetVecTileShapes(kNumExpFive, kNumExpFive);
+    TileShape::Current().SetVecTile(kNumExpFive, kNumExpFive);
     LogicalTensorPtr outCast;
     MakeExpandGrpah(currFunctionPtr, outCast);
 
@@ -290,8 +290,8 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest5) {
     auto& reshape_op = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {inCast}, {ubTensor});
     auto& assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {ubTensor}, {outCast});
     assemble_op.SetOpAttribute(op_attr);
-    reshape_op.tileShape_.SetVecTileShapes({kNumExpFive, kNumExpFive});
-    assemble_op.tileShape_.SetVecTileShapes({kNumExpFive, kNumExpFive});
+    reshape_op.tileShape_.SetVecTile({kNumExpFive, kNumExpFive});
+    assemble_op.tileShape_.SetVecTile({kNumExpFive, kNumExpFive});
 
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
@@ -324,7 +324,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionSTest1) {
     PassManager &passManager = PassManager::Instance();
     Tensor input(DT_FP32, shape, "input");
     Tensor output(DT_FP32, shape, "output");
-    Program::GetInstance().GetTileShape().SetVecTileShapes(tile_shape);
+    TileShape::Current().SetVecTile(tile_shape);
     FUNCTION("STCase1") {
         output = Exp(input);
     }
@@ -392,7 +392,7 @@ void ConstructGraphST2() {
     Tensor output2(DT_FP32, reshape_shape, "sqrt");
 
     FUNCTION("STCase2") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(tile_shape);
+        TileShape::Current().SetVecTile(tile_shape);
         exp = Exp(input);
         view = View(exp, view_shape, {kNumZero, kNumZero});
         output1 = Reciprocal(view);

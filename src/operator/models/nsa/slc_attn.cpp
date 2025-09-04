@@ -110,15 +110,15 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
                                         {curKvOffset, 0});
 
                         // C1
-                        Program::GetInstance().GetTileShape().SetCubeTileShapes(
+                        TileShape::Current().SetCubeTile(
                             {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, true);
                         ConfigManager::Instance().SetSemanticLabel("Sa_QkMM");
-                        Program::GetInstance().GetMatrixSize().SetMatrixSize({qi.GetShape()[0], 0, kj.GetShape()[0]});
+                        TileShape::Current().SetMatrixSize({qi.GetShape()[0], 0, kj.GetShape()[0]});
                         auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj);
 
                         // V1
                         ConfigManager::Instance().SetSemanticLabel("Sa_Qkvec1");
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(v1Tile[0], v1Tile[1]);
+                        TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
                         auto sijScale = MulS(sij, Element(sij->Datatype(), softmaxScale));
                         auto tildaMij = RowMaxSingle(sijScale); // (curGTile, curS2Tile) -> (curGTile, 1)
                         auto tsub = Sub(sijScale, tildaMij); // (curGTile, curS2Tile), (curGTile, 1) -> (curGTile, curS2Tile)
@@ -128,18 +128,18 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
 
                         IF (IsLoopBegin(s2Idx, 0)) {
                             // C2
-                            Program::GetInstance().GetTileShape().SetCubeTileShapes(
+                            TileShape::Current().SetCubeTile(
                                 {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
                             ConfigManager::Instance().SetSemanticLabel("Sa_KvMm");
-                            Program::GetInstance().GetMatrixSize().SetMatrixSize(
+                            TileShape::Current().SetMatrixSize(
                                 {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
                             auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
-                            Program::GetInstance().GetTileShape().SetVecTileShapes(v2Tile[0], v2Tile[1]);
+                            TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                             IF (IsLoopEnd(s2Idx, bnPerBatch)) { // PATH3
                                 // V2
                                 ConfigManager::Instance().SetSemanticLabel("Sa_KvVec2");
                                 oiUpdate = Div(oiTmp, tildaLij);
-                                Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, v2Tile[0], v2Tile[1]);
+                                TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
                                 auto oiUpdate4Dim = AddS(Reshape(oiUpdate, {1, 1, curGTile, dN}), Element(oiUpdate->Datatype(), float(0)));
                                 Assemble(oiUpdate4Dim, oiOffset, attentionOut);
                             } ELSE { // PATH2
@@ -163,18 +163,18 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
                             auto liNew = Add(t6, t5);
 
                             auto q3 = Mul(oi, t2);
-                            Program::GetInstance().GetTileShape().SetCubeTileShapes(
+                            TileShape::Current().SetCubeTile(
                                 {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
                             ConfigManager::Instance().SetSemanticLabel("Sa_UpdateMM2");
-                            Program::GetInstance().GetMatrixSize().SetMatrixSize(
+                            TileShape::Current().SetMatrixSize(
                                 {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
                             auto q1 = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
-                            Program::GetInstance().GetTileShape().SetVecTileShapes(v2Tile[0], v2Tile[1]);
+                            TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                             auto q2 = Mul(q1, t4);
                             auto oiTmp = Add(q3, q2);
                             IF (IsLoopEnd(s2Idx, bnPerBatch)) { // PATH1
                                 oiUpdate = Div(oiTmp, liNew);
-                                Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, v2Tile[0], v2Tile[1]);
+                                TileShape::Current().SetVecTile(1, 1, v2Tile[0], v2Tile[1]);
                                 auto oiUpdate4Dim = AddS(Reshape(oiUpdate, {1, 1, curGTile, dN}), Element(oiUpdate->Datatype(), float(0)));
                                 Assemble(oiUpdate4Dim, oiOffset, attentionOut);
                             } ELSE { // PATH0

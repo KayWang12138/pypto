@@ -52,7 +52,7 @@ TEST_F(TestExpandFunction, ExpandFunctionTest) {
     Tensor b(DT_FP32, shape, "b");
     Tensor c(DT_FP32, shape, "c");
     constexpr int TILE_SHAPE = 32;
-    Program::GetInstance().GetTileShape().SetVecTileShapes(TILE_SHAPE,TILE_SHAPE);
+    TileShape::Current().SetVecTile(TILE_SHAPE, TILE_SHAPE);
 
     FUNCTION("A") {
         c = Div(a, b);

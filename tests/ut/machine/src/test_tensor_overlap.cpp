@@ -44,9 +44,9 @@ Tensor add_sub_exp(int firstTileSize, int secondTileSize) {
     Tensor A(DT_INT32, tshape, "A");
     Tensor B(DT_INT32, tshape, "B");
     FUNCTION("FUNC_A") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(firstTileSize, firstTileSize);
+        TileShape::Current().SetVecTile(firstTileSize, firstTileSize);
         A = Add(A, B);
-        Program::GetInstance().GetTileShape().SetVecTileShapes(secondTileSize, secondTileSize);
+        TileShape::Current().SetVecTile(secondTileSize, secondTileSize);
         A = Sub(A, B);
     }
     FUNCTION("FUNC_B") {

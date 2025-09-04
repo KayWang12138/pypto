@@ -25,8 +25,6 @@ namespace npu::tile_fwk {
 class Program {
 public: // public api for torch
     int EndFunction(const bool isWaitTaskFinished);
-    TileShape tileShape;
-    MatrixSize matrixSize;
 
     std::vector<Function *> functionSequence_;
     Program();
@@ -47,11 +45,6 @@ public: // public api for torch
 
     Operation &AddOperation(const Opcode opCode, const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
         const std::vector<std::shared_ptr<LogicalTensor>> &oOperand);
-
-    TileShape &GetTileShape() { return tileShape; }
-    MatrixSize &GetMatrixSize() { return matrixSize; }
-    const TileShape &GetTileShape() const { return tileShape; }
-    void SetTileShape(const TileShape& tileshape) { tileShape = tileshape; }
 
     bool QueryAndUpdateCurrentFunction();
 
@@ -129,7 +122,7 @@ private:
     std::string currentFunctionMagicName_;
     Function *currentFunctionPtr_;
     Function *lastFunc_{nullptr};
-    ConfigStorage config_;    
+    ConfigStorage config_;
     Function *currentDynamicFunctionPtr_{nullptr};
     FunctionCache functionCache_;
     bool operatorChecker_{false};

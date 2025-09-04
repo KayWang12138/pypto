@@ -54,8 +54,8 @@ TEST_F(MoEGatePart1OnBoardTest, test_moe_gate_part1) {
     // process
     PROGRAM("MOE_GATE_PART1") {
         Program::GetInstance().GetConfig().Reset();
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({16, 16}, {512, 512}, {64, 64});
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 64});
+        TileShape::Current().SetCubeTile({16, 16}, {512, 512}, {64, 64});
+        TileShape::Current().SetVecTile({16, 64});
         Tensor input_e_score_bias(DataType::DT_FP32, input_e_score_bias_shape, (uint8_t *)input_e_score_bias_ptr, "InputEScoresCorrectionBias");
         Tensor input_hidden_state(DataType::DT_FP16, input_hidden_state_shape, (uint8_t *)input_hidden_state_ptr, "InputHiddenState");
         Tensor input_weight(DataType::DT_FP16, input_weight_shape, (uint8_t *)input_weight_ptr, "InputWeight");

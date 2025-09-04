@@ -64,7 +64,7 @@ void TestMoeDispatch(OpTestParam &testParam)
         ConfigManager::Instance();
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("MoeDispatch", funConfig, {tokenTensor, tokenExpertTable, validCnt, expandX}) {
-            Program::GetInstance().GetTileShape().SpecifyStaticRankId(testParam.rankId);
+            TileShape::Current().SetDistRankId(testParam.rankId);
             expandX = MoeDispatch(tokenTensor, tokenExpertTable, validCnt, testParam.group);
         }
     }

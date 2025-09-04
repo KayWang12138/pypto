@@ -34,7 +34,7 @@ def set_vec_tile_shapes(h: CodeHelper, inst: Instruction):
     else:
         s0 = get_var_str(inst.src[0])
 
-    h(f'AscendProgram::GetInstance().GetTileShape().SetVecTileShapes({s0});')
+    h(f'AscendTileShape::Current().SetVecTile({s0});')
 
 
 def set_tile_shape(h: CodeHelper, inst: Instruction):
@@ -72,7 +72,7 @@ def set_cube_tile_shapes(h: CodeHelper, inst: Instruction):
     else:
         s2 = get_var_str(inst.src[2])
 
-    h(f'AscendProgram::GetInstance().GetTileShape().SetCubeTileShapes({s0}, {s1}, {s2});')
+    h(f'AscendTileShape::Current().SetCubeTile({s0}, {s1}, {s2});')
 
 
 def set_c1_cube_config(h: CodeHelper, inst: Instruction):
@@ -98,4 +98,4 @@ def set_matrix_size(h: CodeHelper, inst: Instruction):
     else:
         s0 = get_var_str(inst.src[0])
 
-    h(f'AscendProgram::GetInstance().GetMatrixSize().SetMatrixSize({s0});')
+    h(f'AscendTileShape::Current().SetMatrixSize({s0});')

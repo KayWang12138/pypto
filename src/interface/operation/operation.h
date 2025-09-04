@@ -27,7 +27,7 @@
 #include "operation/tilefwk_op.h"
 #include "interface/configs/config_storage.h"
 #include "tilefwk/data_type.h"
-#include "common/tile_shape.h"
+#include "tilefwk/tile_shape.h"
 #include "interface/utils/common.h"
 #include "opcode.h"
 #include "attribute.h"

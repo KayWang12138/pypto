@@ -184,7 +184,7 @@ TEST(OnBoardTestAstInGraph, test_add1) {
     void *y_ptr = readToDev(GetGoldenDir() + "/add_y.bin", capacity);
     Program::GetInstance().GetConfig().Reset();
     config::SetHostConfig(KEY_DUMP_BIN_AND_JSON, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes({8, 8});
+    TileShape::Current().SetVecTile({8, 8});
     Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
     Tensor input_b(DataType::DT_FP32, shape, (uint8_t *)y_ptr, "B");
     Tensor output(DataType::DT_FP32, shape, "C");

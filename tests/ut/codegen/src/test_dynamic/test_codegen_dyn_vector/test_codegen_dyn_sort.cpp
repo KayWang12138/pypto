@@ -66,7 +66,7 @@ TestContext prepareSortParamForUT(Opcode opcode) {
     std::vector<int64_t> shape = {64, 64};
 
     auto shapeImme = OpImmediate::Specified(shape);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(shape);
+    TileShape::Current().SetVecTile(shape);
     ConfigManager::Instance().SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");

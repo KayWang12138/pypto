@@ -49,7 +49,7 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_reshape_transpose_reshape_muls) {
     uint8_t* kEmbed_ptr = allocDevAddr(kEmbedSize * sizeof(float));
 
     PROGRAM("RoPE") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 64, 1, 64});
+        TileShape::Current().SetVecTile({1, 64, 1, 64});
 
         void *q_ptr = readToDev(GetGoldenDir() + shape_dir_path + "q.bin", qSize);
         void *k_ptr = readToDev(GetGoldenDir() + shape_dir_path + "k.bin", kSize);
@@ -73,12 +73,12 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_reshape_transpose_reshape_muls) {
 
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("RoPE", funConfig, {q, qEmbed}) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileConfig.fourDimsTileShape);
+            TileShape::Current().SetVecTile(ropeTileConfig.fourDimsTileShape);
             auto qView = Reshape(q, {B, N, S, qkRopeHeadDim / 2, 2}); // [b,n,s,qk_d//2,2]
-            Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileConfig.fiveDimsTileShape);
+            TileShape::Current().SetVecTile(ropeTileConfig.fiveDimsTileShape);
             auto qTrans = Transpose(qView, {3, 4});
             auto qReshape = Reshape(qTrans, {B, N, S, qkRopeHeadDim});    // [b,n,s,qk_d]
-            Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileConfig.fourDimsTileShape);
+            TileShape::Current().SetVecTile(ropeTileConfig.fourDimsTileShape);
             qEmbed = MulS(qReshape, Element(DataType::DT_FP32, -1.0));
             // qEmbed = RotateHalf(qReshape); // 待reshape+view+muls精度解决后再验证
         }
@@ -132,7 +132,7 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_tensorIndex_unsqueeze_mul) {
     uint8_t* kEmbed_ptr = allocDevAddr(kEmbedSize * sizeof(float));
 
     PROGRAM("RoPE") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 64, 1, 64});
+        TileShape::Current().SetVecTile({1, 64, 1, 64});
 
         void *q_ptr = readToDev(GetGoldenDir() + shape_dir_path + "q.bin", qSize);
         void *k_ptr = readToDev(GetGoldenDir() + shape_dir_path + "k.bin", kSize);
@@ -157,11 +157,11 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_tensorIndex_unsqueeze_mul) {
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("RoPE", funConfig, {cos, sin, positionIds, qEmbed}) {
             // TensorIndex+unsqueeze+mul  ok
-            Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileConfig.threeDimsTileShape); // TensorIndex, 设置三维Tile
+            TileShape::Current().SetVecTile(ropeTileConfig.threeDimsTileShape); // TensorIndex, 设置三维Tile
             auto cosTensorIndexes = TensorIndex(cos, positionIds);                             // [s,qk_d],[b,s]->[b,s,qk_d]
             auto sinTensorIndexes = TensorIndex(sin, positionIds);
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileConfig.fourDimsTileShape); // TensorIndex, 设置三维Tile
+            TileShape::Current().SetVecTile(ropeTileConfig.fourDimsTileShape); // TensorIndex, 设置三维Tile
             auto cosUnsqueeze = Unsqueeze(cosTensorIndexes, 1); // [b,1,s,qk_d]
             auto sinUnsqueeze = Unsqueeze(sinTensorIndexes, 1);
 
@@ -217,7 +217,7 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_reshape_view_muls) {
     uint8_t* kEmbed_ptr = allocDevAddr(kEmbedSize * sizeof(float));
 
     PROGRAM("RoPE") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 64, 1, 64});
+        TileShape::Current().SetVecTile({1, 64, 1, 64});
 
         void *q_ptr = readToDev(GetGoldenDir() + shape_dir_path + "q.bin", qSize);
         void *k_ptr = readToDev(GetGoldenDir() + shape_dir_path + "k.bin", kSize);
@@ -234,9 +234,9 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_reshape_view_muls) {
 
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("RoPE", funConfig, {q, qEmbed}) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes({1, 64, 1, 64});
+            TileShape::Current().SetVecTile({1, 64, 1, 64});
             auto qView = Reshape(q, {B, N, S, qkRopeHeadDim / 2, 2}); // [b,n,s,qk_d//2,2]
-            Program::GetInstance().GetTileShape().SetVecTileShapes({1, 64, 1, 64, 64});
+            TileShape::Current().SetVecTile({1, 64, 1, 64, 64});
             auto qTrans = Transpose(qView, {3, 4});
             auto qReshape = Reshape(qTrans, {B, N, S, qkRopeHeadDim});    // [b,n,s,qk_d]
 
@@ -294,7 +294,7 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_reshape_view_muls_concat) {
     uint8_t* kEmbed_ptr = allocDevAddr(kEmbedSize * sizeof(float));
 
     PROGRAM("RoPE") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 64, 1, 64});
+        TileShape::Current().SetVecTile({1, 64, 1, 64});
 
         void *q_ptr = readToDev(GetGoldenDir() + shape_dir_path + "q.bin", qSize);
         void *k_ptr = readToDev(GetGoldenDir() + shape_dir_path + "k.bin", kSize);
@@ -318,23 +318,23 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_reshape_view_muls_concat) {
 
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("RoPE", funConfig, {q, k, qEmbed, kEmbed}) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileConfig.fourDimsTileShape);
+            TileShape::Current().SetVecTile(ropeTileConfig.fourDimsTileShape);
             auto qView = Reshape(q, {B, N, S, qkRopeHeadDim / 2, 2}); // [b,n,s,qk_d//2,2]
-            Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileConfig.fiveDimsTileShape);
+            TileShape::Current().SetVecTile(ropeTileConfig.fiveDimsTileShape);
             auto qTrans = Transpose(qView, {3, 4});
             auto qReshape = Reshape(qTrans, {B, N, S, qkRopeHeadDim});    // [b,n,s,qk_d]
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileConfig.fourDimsTileShape);
+            TileShape::Current().SetVecTile(ropeTileConfig.fourDimsTileShape);
             qEmbed = RotateHalf(qReshape); // view+muls+concat
 
             // k
-            Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileConfig.fourDimsTileShape);
+            TileShape::Current().SetVecTile(ropeTileConfig.fourDimsTileShape);
             auto kView = Reshape(k, {B, 1, S, qkRopeHeadDim / 2, 2}); // [b,n,s,qk_d//2,2]
-            Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileConfig.fiveDimsTileShape);
+            TileShape::Current().SetVecTile(ropeTileConfig.fiveDimsTileShape);
             auto kTrans = Transpose(kView, {3, 4});
             auto kReshape = Reshape(kTrans, {B, 1, S, qkRopeHeadDim});    // [b,n,s,qk_d]
 
-            Program::GetInstance().GetTileShape().SetVecTileShapes(ropeTileConfig.fourDimsTileShape);
+            TileShape::Current().SetVecTile(ropeTileConfig.fourDimsTileShape);
             kEmbed = RotateHalf(kReshape); // view+muls+concat
         }
     }
@@ -404,7 +404,7 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_deepseekv3) {
     uint8_t* kEmbed_ptr = allocDevAddr(kEmbedSize * sizeof(float));
 
     PROGRAM("RoPE") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 64, 1, 64});
+        TileShape::Current().SetVecTile({1, 64, 1, 64});
 
         void *q_ptr = readToDev(GetGoldenDir() + shape_dir_path + "q.bin", qSize);
         void *k_ptr = readToDev(GetGoldenDir() + shape_dir_path + "k.bin", kSize);

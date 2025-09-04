@@ -18,6 +18,7 @@
 #include <algorithm>
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
+#include "interface/inner/tile_shape.h"
 #include "interface/function/function.h"
 #include "interface/operation/operation.h"
 #include "interface/tensor/symbolic_scalar.h"
@@ -209,7 +210,7 @@ TEST_F(DynamicFunctionTest, MopCall) {
 
 TEST_F(DynamicFunctionTest, TestLoopRange) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16);
+    TileShape::Current().SetVecTile(16, 16);
 
     std::vector<int64_t> shape{16, 64};
     std::vector<int64_t> childShape{16, 16};
@@ -253,9 +254,47 @@ TEST_F(DynamicFunctionTest, TestLoopRange) {
     EXPECT_EQ(count, 3);
 }
 
+TEST_F(DynamicFunctionTest, TestTileShape) {
+    auto vecTile = VecTile{
+        {12, 16}
+    };
+    HashBuffer vecBuffer;
+    SerializeTo(vecTile, vecBuffer);
+    VecTile vecTile1;
+    DeserializeFrom(vecBuffer, vecTile1);
+    EXPECT_EQ(vecTile.tile, vecTile1.tile);
+
+    auto cubeTile = CubeTile{
+        {12, 13},
+        {14, 15},
+        {16, 17}
+    };
+    HashBuffer cubeBuffer;
+    SerializeTo(cubeTile, cubeBuffer);
+    CubeTile cubeTile1;
+    DeserializeFrom(cubeBuffer, cubeTile1);
+    EXPECT_EQ(cubeTile.m, cubeTile1.m);
+    EXPECT_EQ(cubeTile.k, cubeTile1.k);
+    EXPECT_EQ(cubeTile.n, cubeTile1.n);
+
+    auto distTile = DistTile{
+        {12, 13},
+        {14, 15},
+        {16, 17},
+    };
+    HashBuffer distBuffer;
+    SerializeTo(distTile, distBuffer);
+    DistTile distTile1;
+    DeserializeFrom(distBuffer, distTile1);
+    EXPECT_EQ(distTile.row, distTile1.row);
+    EXPECT_EQ(distTile.col, distTile1.col);
+    EXPECT_EQ(distTile.rank, distTile1.rank);
+    EXPECT_EQ(distTile.rankId, distTile1.rankId);
+}
+
 TEST_F(DynamicFunctionTest, TestOnlyExpression) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16);
+    TileShape::Current().SetVecTile(16, 16);
 
     std::vector<int64_t> shape{16, 64};
     std::vector<int64_t> childShape{16, 16};
@@ -285,7 +324,7 @@ TEST_F(DynamicFunctionTest, TestOnlyExpression) {
 
 TEST_F(DynamicFunctionTest, TestOnlySymbol) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 64);
+    TileShape::Current().SetVecTile(1, 64);
 
     std::vector<int64_t> shape{4, 64};
     std::vector<int64_t> childShape{1, 64};
@@ -319,8 +358,8 @@ void TestHybridLoopIf(
 
     Tensor r0;
     SymbolicScalar loopCount = 0;
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+    TileShape::Current().SetVecTile(32, 32);
+    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {t0, t1, t2, t3, t4}, {out}) {
         FunctionConfig funConfig2 = {.funcType = FunctionType::STATIC};
@@ -328,7 +367,7 @@ void TestHybridLoopIf(
             r0 = Add(t0, t1);
         }
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(MAIN_LOOP_COUNT)) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
+            TileShape::Current().SetVecTile(32, 32);
             r0 = Mul(r0, t1); // +t0, +t1
             IF(i < CONDITION_THRESHOLD) {
                 r0 = Sub(r0, t3); // +t2 * 6
@@ -340,12 +379,12 @@ void TestHybridLoopIf(
             }
         }
         LOOP("L1", FunctionType::DYNAMIC_LOOP, i, LoopRange(SECOND_LOOP_COUNT)) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
+            TileShape::Current().SetVecTile(32, 32);
             loopCount = loopCount + i;
             r0 = Add(r0, t4);
         }
         FUNCTION("spost", funConfig2) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
+            TileShape::Current().SetVecTile(32, 32);
             r0 = Add(r0, t0);
             r0 = Add(r0, t1);
             r0 = Add(r0, t2);
@@ -446,8 +485,8 @@ void TestStaticLoopStatic(const Tensor &t0, const Tensor &t1, const Tensor &t2, 
 
 TEST_F(DynamicFunctionTest, TestStaticLoopStatic) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+    TileShape::Current().SetVecTile(32, 32);
+    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
 
     // Representation
     int s = 32;
@@ -478,8 +517,8 @@ TEST_F(DynamicFunctionTest, TestStaticLoopStatic) {
 }
 
 TEST_F(DynamicFunctionTest, TestHybridLoopIf) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+    TileShape::Current().SetVecTile(32, 32);
+    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
 
     int s = 32;
     int n = 1;
@@ -540,8 +579,8 @@ TEST_F(DynamicFunctionTest, TestHybridLoopIf) {
 }
 
 TEST_F(DynamicFunctionTest, TestHybridLoopIf2) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+    TileShape::Current().SetVecTile(32, 32);
+    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
 
     int s = 32;
     int n = 1;
@@ -625,8 +664,9 @@ Tensor TestLoopIfWithRank(const Tensor &t0, Tensor &r0, Tensor &out, int s, int 
 }
 
 Tensor TestLoopWithManualRank(const Tensor &t0, Tensor &r0, Tensor &out, int s, int maxRank) {
-    auto func = [](const Tensor &lt0, Tensor &lr0, Tensor &lout, int ls, const npu::tile_fwk::SymbolicScalar &i, int r) {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({ls * r, ls * r});
+    auto func = [](const Tensor &lt0, Tensor &lr0, Tensor &lout, int ls, const npu::tile_fwk::SymbolicScalar &i,
+                    int r) {
+        TileShape::Current().SetVecTile({ls * r, ls * r});
         Tensor t0v = View(lt0, {ls * r, ls}, {ls * i, 0});
         Tensor r0v = View(lr0, {ls * r, ls}, {ls * i, 0});
         Tensor tmp = Add(t0v, r0v);
@@ -654,8 +694,8 @@ Tensor TestLoopWithManualRank(const Tensor &t0, Tensor &r0, Tensor &out, int s, 
 }
 
 TEST_F(DynamicFunctionTest, TestLoopWithRank) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+    TileShape::Current().SetVecTile(32, 32);
+    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
 
     int s = 32;
     int n = 10;
@@ -694,8 +734,8 @@ TEST_F(DynamicFunctionTest, TestLoopWithRank) {
 }
 
 TEST_F(DynamicFunctionTest, TestLoopIfWithRank) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+    TileShape::Current().SetVecTile(32, 32);
+    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
 
     int s = 32;
     int n = 10;
@@ -738,8 +778,8 @@ TEST_F(DynamicFunctionTest, TestLoopIfWithRank) {
 }
 
 TEST_F(DynamicFunctionTest, TestLoopWithManualRank) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+    TileShape::Current().SetVecTile(32, 32);
+    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
 
     int s = 32;
     int n = 10;
@@ -784,8 +824,8 @@ TEST_F(DynamicFunctionTest, TestSymbolicScalarDumpLoad) {
 }
 
 TEST_F(DynamicFunctionTest, TestInnerLoopOrder) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(512, 512);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+    TileShape::Current().SetVecTile(512, 512);
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
 
     int vecLen = 128;
     int loopNum = 5;
@@ -856,8 +896,8 @@ TEST_F(DynamicFunctionTest, TestInnerLoopOrder) {
 
 TEST_F(DynamicFunctionTest, TestGetInputDataInt32Dim3) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32, 32);
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {32, 32}, {32, 32});
+    TileShape::Current().SetVecTile(32, 32, 32);
+    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
 
     int s = 32;
     int n = 1;
@@ -887,7 +927,7 @@ TEST_F(DynamicFunctionTest, TestGetInputDataInt32Dim3) {
 
 TEST_F(DynamicFunctionTest, TestGetInputDataInt32Dim4) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16, 16, 16);
+    TileShape::Current().SetVecTile(16, 16, 16, 16);
 
     int s = 16;
     int k = 1;

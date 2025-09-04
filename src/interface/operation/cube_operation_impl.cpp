@@ -15,7 +15,7 @@
 
 #include "operation_impl.h"
 #include "common/pre_def.h"
-#include "common/tile_shape.h"
+#include "tilefwk/tile_shape.h"
 #include "interface/configs/config_manager.h"
 #include "interface/operation/operation.h"
 #include "interface/program/program.h"
@@ -41,16 +41,16 @@ auto CeilAlign(T num_1, T num_2) -> T {
 using AggregationMap = std::map<std::vector<int64_t>, std::vector<std::pair<LogicalTensorPtr, LogicalTensorPtr>>>;
 
 void SetMatmulAttr(Operation &op) {
-    auto matrixSize = Program::GetInstance().GetMatrixSize();
-    if (matrixSize.Size() < MATRIX_MAXSIZE) {
+    auto matrixSize = TileShape::Current().GetMatrixSize();
+    if (matrixSize.size() < MATRIX_MAXSIZE) {
         op.SetAttribute(A_MUL_B_ACT_M, 0);
         op.SetAttribute(A_MUL_B_ACT_K, 0);
         op.SetAttribute(A_MUL_B_ACT_N, 0);
         return;
     }
-    op.SetAttribute(A_MUL_B_ACT_M, matrixSize.V(M_INDEX));
-    op.SetAttribute(A_MUL_B_ACT_K, matrixSize.V(K_INDEX));
-    op.SetAttribute(A_MUL_B_ACT_N, matrixSize.V(N_INDEX));
+    op.SetAttribute(A_MUL_B_ACT_M, matrixSize[M_INDEX]);
+    op.SetAttribute(A_MUL_B_ACT_K, matrixSize[K_INDEX]);
+    op.SetAttribute(A_MUL_B_ACT_N, matrixSize[N_INDEX]);
 }
 
 void SetMatmulAttr(Operation &op, const std::tuple<LogicalTensorPtr, LogicalTensorPtr, LogicalTensorPtr> &tensorPtrs,
@@ -87,7 +87,7 @@ std::vector<SymbolicScalar> GetValidShapeFromTranspose(LogicalTensorPtr &l0Tenso
 template <bool isTransA = false, bool isTransB = false>
 void CollectSubAMulB(Function &function, const CollectSubAMulBPara &args, AggregationMap &aggregations,
     const std::vector<int64_t> &l1Offset) {
-    const TileShape &tileShape = args.tileShape;
+    const CubeTile &cubeTile = args.tileShape.GetCubeTile();
     const LogicalTensorPtr &aTensorPtr = args.aTensorPtr;
     const LogicalTensorPtr &bTensorPtr = args.bTensorPtr;
     const LogicalTensorPtr &cTensorPtr = args.cTensorPtr;
@@ -97,13 +97,13 @@ void CollectSubAMulB(Function &function, const CollectSubAMulBPara &args, Aggreg
     const int nL1 = isTransB ? bTensorPtr->shape[0] : bTensorPtr->shape[1];
     const auto opCodeA = isTransA ? Opcode::OP_L1_TO_L0_AT : Opcode::OP_L1_TO_L0A;
     const auto opCodeB = isTransB ? Opcode::OP_L1_TO_L0_BT : Opcode::OP_L1_TO_L0B;
-    for (int mL0Idx = 0; mL0Idx < mL1; mL0Idx += tileShape.M(0)) {
-        for (int nL0Idx = 0; nL0Idx < nL1; nL0Idx += tileShape.N(0)) {
-            int mL0size = std::min(mL1 - mL0Idx, tileShape.M(0));
-            int nL0size = std::min(nL1 - nL0Idx, tileShape.N(0));
+    for (int64_t mL0Idx = 0; mL0Idx < mL1; mL0Idx += cubeTile.m[0]) {
+        for (int64_t nL0Idx = 0; nL0Idx < nL1; nL0Idx += cubeTile.n[0]) {
+            int mL0size = std::min(mL1 - mL0Idx, cubeTile.m[0]);
+            int nL0size = std::min(nL1 - nL0Idx, cubeTile.n[0]);
             auto cL0Tensor = cTensorPtr->View(function, {mL0size, nL0size}, {mL0Idx, nL0Idx});
-            for (int kL0Idx = 0; kL0Idx < posK[kL1SizeIndex]; kL0Idx += tileShape.K(0)) {
-                int kL0size = std::min(posK[kL1SizeIndex] - kL0Idx, tileShape.K(0));
+            for (int64_t kL0Idx = 0; kL0Idx < posK[kL1SizeIndex]; kL0Idx += cubeTile.k[0]) {
+                int kL0size = std::min(posK[kL1SizeIndex] - kL0Idx, cubeTile.k[0]);
                 const std::vector<int64_t> sizeVecA =
                     isTransA ? std::vector<int64_t>{kL0size, mL0size} : std::vector<int64_t>{mL0size, kL0size};
                 const std::vector<int64_t> sizeVecB =
@@ -135,15 +135,15 @@ void CollectSubAMulB(Function &function, const CollectSubAMulBPara &args, Aggreg
 template <bool hasThirdInput = false, bool isTransA = false, bool isTransB = false>
 void DoAMulB(Function &function, const AggregationMap &aggregations, const LogicalTensorPtr &inputOperand,
     const DoAMulBParam &DoAMulBPara, const std::vector<int64_t> &matrixSize) {
-    const TileShape &tileShape = DoAMulBPara.tileShape;
+    const auto &cubeTile = DoAMulBPara.tileShape.GetCubeTile();
     const LogicalTensorPtr &cTensorPtr = DoAMulBPara.cTensorPtr;
     auto dataType = cTensorPtr->Datatype();
-    std::vector<int64_t> shape = {tileShape.M(0), tileShape.N(0)};
+    std::vector<int64_t> shape = {cubeTile.m[0], cubeTile.n[0]};
     for (const auto &[offset, aggregation] : aggregations) {
         ASSERT(!aggregation.empty());
         auto cL0PartialTensor = std::make_shared<LogicalTensor>(function, dataType, shape);
-        shape[0] = std::min(tileShape.M(0), static_cast<int>(cTensorPtr->shape[0] - offset[0]));
-        shape[1] = std::min(tileShape.N(0), static_cast<int>(cTensorPtr->shape[1] - offset[1]));
+        shape[0] = std::min(cubeTile.m[0], cTensorPtr->shape[0] - offset[0]);
+        shape[1] = std::min(cubeTile.n[0], cTensorPtr->shape[1] - offset[1]);
 
         auto cTilePtr = cTensorPtr->View(function, shape, offset);
         for (size_t i = 0; i < aggregation.size(); i++) {
@@ -186,8 +186,8 @@ template <bool isTransA = false, bool isTransB = false>
 void L1MultiDataLoadAL1Tiles(Function &function, const std::vector<LogicalTensorPtr> &operandVec,
     const std::vector<std::pair<int, int>> &kAL1Tiles, std::vector<std::shared_ptr<LogicalTensor>> &aL1Tiles,
     const L1DataLoadParam &L1DataLoadParam) {
-    const int &mL1Size = L1DataLoadParam.mL1Size;
-    const int &mL1Idx = L1DataLoadParam.mL1Idx;
+    const int64_t mL1Size = L1DataLoadParam.mL1Size;
+    const int64_t mL1Idx = L1DataLoadParam.mL1Idx;
     const auto operand1 = operandVec[0];
     for (const auto &tile : kAL1Tiles) {
         int startK = tile.first;
@@ -203,7 +203,7 @@ void L1MultiDataLoadAL1Tiles(Function &function, const std::vector<LogicalTensor
             SymbolicScalar::FromConcrete(newoffset),inputATile->GetDynValidShape());
         viewAttribute->SetToType(MemoryType::MEM_L1);
         copyInA.SetOpAttribute(viewAttribute);
-        aL1Tiles.push_back(inputATile); 
+        aL1Tiles.push_back(inputATile);
     }
 }
 
@@ -211,8 +211,8 @@ template <bool isTransA = false, bool isTransB = false>
 void L1MultiDataLoadBL1Tiles(Function &function, const std::vector<LogicalTensorPtr> &operandVec,
     const std::vector<std::pair<int, int>> &kBL1Tiles, std::vector<std::shared_ptr<LogicalTensor>> &bL1Tiles,
     const L1DataLoadParam &L1DataLoadParam) {
-    const int &nL1Size = L1DataLoadParam.nL1Size;
-    const int &nL1Idx = L1DataLoadParam.nL1Idx;
+    const int64_t nL1Size = L1DataLoadParam.nL1Size;
+    const int64_t nL1Idx = L1DataLoadParam.nL1Idx;
     const auto operand2 = operandVec[1];
     for (const auto &tile : kBL1Tiles) {
         int startK = tile.first;
@@ -240,20 +240,21 @@ template <bool isTransA = false, bool isTransB = false>
 void L1MultiDataLoad(Function &function, const std::vector<LogicalTensorPtr> &operandVec,
     const L1DataLoadParam &L1DataLoadParam, const TileShape &tileShape, AggregationMap &aggregations) {
     const LogicalTensorPtr &cTilePtr = L1DataLoadParam.cTilePtr;
-    const int &mL1Idx = L1DataLoadParam.mL1Idx;
-    const int &nL1Idx = L1DataLoadParam.nL1Idx;
-    const int &stepK = L1DataLoadParam.stepK;
-    const int &mL1Size = L1DataLoadParam.mL1Size;
-    const int &nL1Size = L1DataLoadParam.nL1Size;
-    const int &orgK = L1DataLoadParam.orgK;
+    const int64_t mL1Idx = L1DataLoadParam.mL1Idx;
+    const int64_t nL1Idx = L1DataLoadParam.nL1Idx;
+    const int64_t stepK = L1DataLoadParam.stepK;
+    const int64_t mL1Size = L1DataLoadParam.mL1Size;
+    const int64_t nL1Size = L1DataLoadParam.nL1Size;
+    const int64_t orgK = L1DataLoadParam.orgK;
     const int lenK = 2;
+    auto &cubeTile = tileShape.GetCubeTile();
     std::vector<std::pair<int, int>> kAL1Tiles, kBL1Tiles;
-    for (int kL1Idx = 0; kL1Idx < orgK; kL1Idx += tileShape.K(1)) {
-        int endK = std::min(kL1Idx + tileShape.K(1), orgK);
+    for (int64_t kL1Idx = 0; kL1Idx < orgK; kL1Idx += cubeTile.k[1]) {
+        int endK = std::min(kL1Idx + cubeTile.k[1], orgK);
         kAL1Tiles.emplace_back(kL1Idx, endK);
     }
-    for (int kL1Idx = 0; kL1Idx < orgK; kL1Idx += tileShape.K(lenK)) {
-        int endK = std::min(kL1Idx + tileShape.K(lenK), orgK);
+    for (int64_t kL1Idx = 0; kL1Idx < orgK; kL1Idx += cubeTile.k[lenK]) {
+        int endK = std::min(kL1Idx + cubeTile.k[lenK], orgK);
         kBL1Tiles.emplace_back(kL1Idx, endK);
     }
     std::vector<std::shared_ptr<LogicalTensor>> aL1Tiles, bL1Tiles;
@@ -261,9 +262,9 @@ void L1MultiDataLoad(Function &function, const std::vector<LogicalTensorPtr> &op
         function, operandVec, kAL1Tiles, aL1Tiles, {cTilePtr, mL1Idx, nL1Idx, stepK, mL1Size, nL1Size, orgK});
     L1MultiDataLoadBL1Tiles<isTransA, isTransB>(
         function, operandVec, kBL1Tiles, bL1Tiles, {cTilePtr, mL1Idx, nL1Idx, stepK, mL1Size, nL1Size, orgK});
-    for (int kL1Idx = 0; kL1Idx < orgK; kL1Idx += stepK) {
-        int i = kL1Idx / tileShape.K(1);
-        int j = kL1Idx / tileShape.K(lenK);
+    for (int64_t kL1Idx = 0; kL1Idx < orgK; kL1Idx += stepK) {
+        int i = kL1Idx / cubeTile.k[1];
+        int j = kL1Idx / cubeTile.k[lenK];
         int kAL1Start = kL1Idx - kAL1Tiles[i].first;
         int kBL1Start = kL1Idx - kBL1Tiles[j].first;
         int kL1Size = std::min(stepK, orgK - kL1Idx);
@@ -276,16 +277,17 @@ void L1MultiDataLoad(Function &function, const std::vector<LogicalTensorPtr> &op
 template <bool isTransA = false, bool isTransB = false>
 void L1NormalLoad(Function &function, const std::vector<LogicalTensorPtr> &operandVec,
     const L1DataLoadParam &L1DataLoadParam, const TileShape &tileShape, AggregationMap &aggregations) {
-    const int &orgK = L1DataLoadParam.orgK;
+    const int64_t orgK = L1DataLoadParam.orgK;
     const LogicalTensorPtr &cTilePtr = L1DataLoadParam.cTilePtr;
-    const int &mL1Idx = L1DataLoadParam.mL1Idx;
-    const int &nL1Idx = L1DataLoadParam.nL1Idx;
-    const int &mL1Size = L1DataLoadParam.mL1Size;
-    const int &nL1Size = L1DataLoadParam.nL1Size;
+    const int64_t mL1Idx = L1DataLoadParam.mL1Idx;
+    const int64_t nL1Idx = L1DataLoadParam.nL1Idx;
+    const int64_t mL1Size = L1DataLoadParam.mL1Size;
+    const int64_t nL1Size = L1DataLoadParam.nL1Size;
     const auto operand1 = operandVec[0];
     const auto operand2 = operandVec[1];
-    for (int kL1Idx = 0; kL1Idx < orgK; kL1Idx += tileShape.K(1)) {
-        auto kL1Size = std::min(orgK - kL1Idx, tileShape.K(1));
+    auto &cubeTile = tileShape.GetCubeTile();
+    for (int64_t kL1Idx = 0; kL1Idx < orgK; kL1Idx += cubeTile.k[1]) {
+        int kL1Size = std::min(orgK - kL1Idx, cubeTile.k[1]);
         auto aL1Tensor = isTransA ? operand1->View(function, {kL1Size, mL1Size}, {kL1Idx, mL1Idx}) :
                                     operand1->View(function, {mL1Size, kL1Size}, {mL1Idx, kL1Idx});
         auto bL1Tensor = isTransB ? operand2->View(function, {nL1Size, kL1Size}, {nL1Idx, kL1Idx}) :
@@ -307,30 +309,31 @@ void TiledInnerAMulB(Function &function, const TileShape &tileShape, const std::
         ASSERT(false && "only supported two dimension");
     }
 
-    const int orgM = isTransA ? operand1->shape[1] : operand1->shape[0];
-    const int orgK = isTransA ? operand1->shape[0] : operand1->shape[1];
-    const int orgKb = isTransB ? operand2->shape[1] : operand2->shape[0];
-    const int orgN = isTransB ? operand2->shape[0] : operand2->shape[1];
+    const int64_t orgM = isTransA ? operand1->shape[1] : operand1->shape[0];
+    const int64_t orgK = isTransA ? operand1->shape[0] : operand1->shape[1];
+    const int64_t orgKb = isTransB ? operand2->shape[1] : operand2->shape[0];
+    const int64_t orgN = isTransB ? operand2->shape[0] : operand2->shape[1];
     ASSERT(orgK == orgKb);
 
     bool checkOrgK = isTransB ? orgK == operand2->shape[1] : orgK == operand2->shape[0];
     ASSERT(checkOrgK) << "k axis of a shape is not equal to b shape ";
 
     const int kBL1Idx = 2;
-    ASSERT(tileShape.K(0) > 0 && tileShape.K(1) > 0 && tileShape.K(kBL1Idx) > 0 && tileShape.M(0) > 0 &&
-           tileShape.M(1) > 0 && tileShape.N(0) > 0 && tileShape.N(1) > 0);
-    ASSERT(tileShape.K(1) % tileShape.K(0) == 0 && "kTile[0] does not divide kTile[1]");
-    ASSERT(tileShape.K(kBL1Idx) % tileShape.K(0) == 0 && "kTile[0] does not divide kTile[2]");
-    const int stepK = std::gcd(tileShape.K(1), tileShape.K(kBL1Idx));
+    auto &cubeTile = tileShape.GetCubeTile();
+    ASSERT(cubeTile.k[0] > 0 && cubeTile.k[1] > 0 && cubeTile.k[kBL1Idx] > 0 && cubeTile.m[0] > 0 &&
+           cubeTile.m[1] > 0 && cubeTile.n[0] > 0 && cubeTile.n[1] > 0);
+    ASSERT(cubeTile.k[1] % cubeTile.k[0] == 0 && "kTile[0] does not divide kTile[1]");
+    ASSERT(cubeTile.k[kBL1Idx] % cubeTile.k[0] == 0 && "kTile[0] does not divide kTile[2]");
+    const int stepK = std::gcd(cubeTile.k[1], cubeTile.k[kBL1Idx]);
 
     AggregationMap aggregations;
     // 增加计算尾块的逻辑
-    for (int mL1Idx = 0; mL1Idx < orgM; mL1Idx += tileShape.M(1)) {
-        for (int nL1Idx = 0; nL1Idx < orgN; nL1Idx += tileShape.N(1)) {
-            auto mL1Size = std::min(orgM - mL1Idx, tileShape.M(1));
-            auto nL1Size = std::min(orgN - nL1Idx, tileShape.N(1));
+    for (int mL1Idx = 0; mL1Idx < orgM; mL1Idx += cubeTile.m[1]) {
+        for (int nL1Idx = 0; nL1Idx < orgN; nL1Idx += cubeTile.n[1]) {
+            auto mL1Size = std::min(orgM - mL1Idx, cubeTile.m[1]);
+            auto nL1Size = std::min(orgN - nL1Idx, cubeTile.n[1]);
             auto cTilePtr = cTensorPtr->View(function, {mL1Size, nL1Size}, {mL1Idx, nL1Idx});
-            if (!tileShape.SetL1Tile()) {
+            if (!cubeTile.setL1Tile) {
                 L1NormalLoad<isTransA, isTransB>(function, operandVec,
                     {cTilePtr, mL1Idx, nL1Idx, stepK, mL1Size, nL1Size, orgK}, tileShape, aggregations);
             } else {
@@ -390,13 +393,13 @@ void CheckMatMulOperandsValid(DataType outType, const Tensor &operand1, const Te
     auto opFormatA = operand1->GetTileOpFormat();
     auto opFormatB = operand2->GetTileOpFormat();
     // tile valid check
-    auto tileShape = Program::GetInstance().GetTileShape().GetCubeTileShapes();
-    int kL0 = tileShape.GetTileShape<TileShapeType::K>(0);
-    int kL1 = tileShape.GetTileShape<TileShapeType::K>(1);
-    int mL0 = tileShape.GetTileShape<TileShapeType::M>(0);
-    int mL1 = tileShape.GetTileShape<TileShapeType::M>(1);
-    int nL0 = tileShape.GetTileShape<TileShapeType::N>(0);
-    int nL1 = tileShape.GetTileShape<TileShapeType::N>(1);
+    auto &cubeType = TileShape::Current().GetCubeTile();
+    int kL0 = cubeType.k[0];
+    int kL1 = cubeType.k[1];
+    int mL0 = cubeType.m[0];
+    int mL1 = cubeType.m[1];
+    int nL0 = cubeType.n[0];
+    int nL1 = cubeType.n[1];
     if (opFormatA == TileOpFormat::TILEOP_ND) {
         ASSERT(operand1->shape.back() <= SHAPE_INNER_AXIS_MAX_SIZE);
         if (isTransA) { // nd A转置 ml0需要32B对齐

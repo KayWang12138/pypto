@@ -27,7 +27,7 @@ class DynamicOpTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 TEST_F(DynamicOpTest, VectorDuplicateUnalign) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(16, 128);
+    TileShape::Current().SetVecTile(16, 128);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
     // [b*s,h]

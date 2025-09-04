@@ -218,13 +218,13 @@ TEST_F(AssignMemoryTypeTest, TestVecToCube) {
         Tensor out(DataType::DT_FP32, shape2, "output");
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("TestVecToCube", funConfig, {input1, input2, weight, out}) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_128, NUM_128);
+            TileShape::Current().SetVecTile(NUM_128, NUM_128);
             Tensor addRes = Add(input1, input2); // 256 * 128
-            Program::GetInstance().GetTileShape().SetCubeTileShapes({NUM_32, NUM_32}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
+            TileShape::Current().SetCubeTile({NUM_32, NUM_32}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
             Tensor mmRes = Matrix::Matmul(out.GetDataType(), addRes, weight); // (256 * 128) @ (128 * 64) = (256 * 64)
-            Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_128, NUM_128);
+            TileShape::Current().SetVecTile(NUM_128, NUM_128);
             Tensor sumRes = RowSumSingle(addRes, 1);
-            Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_64, NUM_64);
+            TileShape::Current().SetVecTile(NUM_64, NUM_64);
             out = Add(mmRes, sumRes);
         }
     }
@@ -246,13 +246,13 @@ TEST_F(AssignMemoryTypeTest, TestVecToCubeV2) {
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("TestVecToCubeV2", funConfig, {input1, input2, weight, out}) {
             config::SetPassStrategy("AssignMemoryTypeTestStrategy");
-            Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_128, NUM_128);
+            TileShape::Current().SetVecTile(NUM_128, NUM_128);
             Tensor addRes = Add(input1, input2); // 256 * 128
-            Program::GetInstance().GetTileShape().SetCubeTileShapes({NUM_32, NUM_32}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
+            TileShape::Current().SetCubeTile({NUM_32, NUM_32}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
             Tensor mmRes = Matrix::Matmul(out.GetDataType(), addRes, weight); // (256 * 128) @ (128 * 64) = (256 * 64)
-            Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_128, NUM_128);
+            TileShape::Current().SetVecTile(NUM_128, NUM_128);
             Tensor sumRes = RowSumSingle(addRes, 1);
-            Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_64, NUM_64);
+            TileShape::Current().SetVecTile(NUM_64, NUM_64);
             out = Add(mmRes, sumRes);
         }
 
@@ -290,13 +290,13 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCube) {
         Tensor out(DataType::DT_FP32, shape2, "output");
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("TestCubeToCube", funConfig, {inputQ, inputK, weight, out}) {
-            Program::GetInstance().GetTileShape().SetCubeTileShapes({NUM_128, NUM_128}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
+            TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
             Tensor qUpdate = Matrix::Matmul(out.GetDataType(), inputQ, weight); // (256 * 128) @ (128 * 64) = (256 * 64)
-            Program::GetInstance().GetTileShape().SetCubeTileShapes({NUM_128, NUM_128}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
+            TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
             Tensor kUpdate = Matrix::Matmul(out.GetDataType(), inputK, weight); // (256 * 128) @ (128 * 64) = (256 * 64)
-            Program::GetInstance().GetTileShape().SetCubeTileShapes({NUM_128, NUM_128}, {NUM_64, NUM_64}, {NUM_128, NUM_128});
+            TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_64, NUM_64}, {NUM_128, NUM_128});
             Tensor QKT = Matrix::Matmul<false, true>(out.GetDataType(), qUpdate, kUpdate); // (256 * 64) @ (64 * 256) = (256 * 256)
-            Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_64, NUM_64);
+            TileShape::Current().SetVecTile(NUM_64, NUM_64);
             out = SubS(QKT, Element(DataType::DT_FP32, F_3));
         }
     }
@@ -317,13 +317,13 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCubeV2) {
 
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("TestCubeToCubeV2", funConfig, {inputQ, inputK, weight, out}) {
-            Program::GetInstance().GetTileShape().SetCubeTileShapes({NUM_128, NUM_128}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
+            TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
             Tensor qUpdate = Matrix::Matmul(out.GetDataType(), inputQ, weight); // (256 * 128) @ (128 * 64) = (256 * 64)
-            Program::GetInstance().GetTileShape().SetCubeTileShapes({NUM_128, NUM_128}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
+            TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
             Tensor kUpdate = Matrix::Matmul(out.GetDataType(), inputK, weight); // (256 * 128) @ (128 * 64) = (256 * 64)
-            Program::GetInstance().GetTileShape().SetCubeTileShapes({NUM_128, NUM_128}, {NUM_64, NUM_64}, {NUM_128, NUM_128});
+            TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_64, NUM_64}, {NUM_128, NUM_128});
             Tensor QKT = Matrix::Matmul<false, true>(out.GetDataType(), qUpdate, kUpdate); // (256 * 64) @ (64 * 256) = (256 * 256)
-            Program::GetInstance().GetTileShape().SetVecTileShapes(NUM_64, NUM_64);
+            TileShape::Current().SetVecTile(NUM_64, NUM_64);
             out = AddS(QKT, Element(DataType::DT_FP32, F_1));
         }
 
@@ -602,7 +602,7 @@ void L1DataMoveGraph (std::shared_ptr<Function> &currFunctionPtr) {
     currFunctionPtr->AddRawOperation(Opcode::OP_L1_TO_L0B, {view_out4}, {l0b_out2});
 
     currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {l0a_out1,l0b_out1}, {a_mul_b_out1});
-    currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {l0a_out2,l0b_out2}, {a_mul_b_out2});      
+    currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {l0a_out2, l0b_out2}, {a_mul_b_out2});
 
     currFunctionPtr->inCasts_.push_back(input_cast1);
     currFunctionPtr->inCasts_.push_back(input_cast2);
@@ -613,7 +613,7 @@ TEST_F(AssignMemoryTypeTest, L1DataMove) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "L1DataMove", "L1DataMove", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     Program::GetInstance().InsertFuncToFunctionMap("L1DataMove", currFunctionPtr);
-    
+
     L1DataMoveGraph(currFunctionPtr);
 
     std::stringstream ssBefore;
@@ -649,8 +649,8 @@ TEST_F(AssignMemoryTypeTest, L1DataMove) {
                 std::cout << "\t|--- MEM_L1 VIEW oOperand " << output->GetMagic() <<std::endl;
                 //EXPECT_EQ(input->GetMemoryTypeToBe(),MemoryType::MEM_L1) << "View op input has unexpected memory type!";
                 EXPECT_EQ(output->GetMemoryTypeOriginal(),MemoryType::MEM_L1) << "View op input has unexpected memory type!";
-            }   
-        }                
+            }
+        }
     }
 }
 }

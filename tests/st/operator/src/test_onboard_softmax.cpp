@@ -49,7 +49,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_cast_in) {
     uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Softmax_Cast_In") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x_softmax_cast_in.bin", cap);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 2, 1, 16});
+        TileShape::Current().SetVecTile({1, 2, 1, 16});
         Tensor i_x(iType, shape, (uint8_t *)x_ptr, "x");
         Tensor o_x(oType, shape, out_ptr, "cast_out");
 
@@ -81,7 +81,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_cast_out) {
     uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Softmax_Cast_Out") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x_softmax_cast_out.bin", cap);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 2, 1, 16});
+        TileShape::Current().SetVecTile({1, 2, 1, 16});
         Tensor i_x(iType, shape, (uint8_t *)x_ptr, "x");
         Tensor o_x(oType, shape, out_ptr, "cast_out");
 
@@ -113,7 +113,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_sum_single) {
     uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Softmax_SumSingle") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x_sum.bin", icap);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 2, 1, 8});
+        TileShape::Current().SetVecTile({1, 2, 1, 8});
         Tensor i_x(dtype, ishape, (uint8_t *)x_ptr, "x");
         Tensor o_x(dtype, oshape, out_ptr, "softmax_sum");
 
@@ -145,7 +145,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_max_single) {
     uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Softmax_MaxSingle") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x_max.bin", icap);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 2, 1, 8});
+        TileShape::Current().SetVecTile({1, 2, 1, 8});
         Tensor i_x(dtype, ishape, (uint8_t *)x_ptr, "x");
         Tensor o_x(dtype, oshape, out_ptr, "softmax_max");
 
@@ -175,7 +175,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_exp) {
     uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Softmax_Exp") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x_exp.bin", cap);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 2, 1, 8});
+        TileShape::Current().SetVecTile({1, 2, 1, 8});
         Tensor input_x(dtype, shape, (uint8_t *)x_ptr, "x");
         Tensor output(dtype, shape, out_ptr, "Softmax_Exp");
 
@@ -210,7 +210,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_div) {
     PROGRAM("Softmax_Div") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x_div.bin", lcap);
         void *y_ptr = readToDev(GetGoldenDir() + "/y_div.bin", rcap);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 2, 1, 8});
+        TileShape::Current().SetVecTile({1, 2, 1, 8});
         Tensor input_x(dtype, lshape, (uint8_t *)x_ptr, "x");
         Tensor input_y(dtype, rshape, (uint8_t *)y_ptr, "y");
         Tensor output(dtype, oshape, out_ptr, "Softmax_Div");
@@ -241,7 +241,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_sum_all) {
     uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Softmax_Sum_All") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x_sum_all.bin", icap);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 2, 1, 64});
+        TileShape::Current().SetVecTile({1, 2, 1, 64});
         Tensor i_x(dtype, ishape, (uint8_t *)x_ptr, "x");
         Tensor o_x(dtype, oshape, out_ptr, "softmax_sum_all");
 
@@ -273,7 +273,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_full_inference) {
     uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("Softmax_full_inference") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x_full.bin", icap);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, 256});
+        TileShape::Current().SetVecTile({1, 1, 32, 256});
         Tensor i_x(dtype, ishape, (uint8_t *)x_ptr, "x");
         Tensor o_x(dtype, oshape, out_ptr, "Softmax_full_inference");
 
@@ -305,7 +305,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_deepseek) {
     uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("softmax_deepseek") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x_deepseek.bin", icap);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 2, 1, 256});
+        TileShape::Current().SetVecTile({1, 2, 1, 256});
         Tensor i_x(dtype, ishape, (uint8_t *)x_ptr, "x");
         Tensor o_x(dtype, oshape, out_ptr, "softmax_deepseek");
 
@@ -337,7 +337,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_flash_attention) {
     uint8_t *out_ptr = allocDevAddr(outputSize);
     PROGRAM("softmax_fa") {
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", icap);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({4, 4, 1, 64});
+        TileShape::Current().SetVecTile({4, 4, 1, 64});
         Tensor i_x(dtype, ishape, (uint8_t *)x_ptr, "x");
         Tensor o_x(dtype, oshape, out_ptr, "softmax_deepseek");
 
@@ -359,7 +359,7 @@ TEST_F(SoftmaxOnBoard, test_softmax_flash_attention) {
 
 TEST_F(SoftmaxOnBoard, test_softmax_dyn) {
     config::SetHostConfig(npu::tile_fwk::KEY_ONLY_CODEGEN, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes({4, 4, 1, 64});
+    TileShape::Current().SetVecTile({4, 4, 1, 64});
     std::vector<int64_t> shape = {32, 32, 1, 256};
     DataType dtype = DataType::DT_FP32;
     Tensor input(dtype, shape, "input");

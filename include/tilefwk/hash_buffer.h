@@ -54,6 +54,13 @@ public:
     template<typename T, T N>
     void Append(const std::array<int, N> &v) { this->insert(this->end(), v.begin(), v.end()); }
 
+    template <typename T, T N>
+    void Append(const std::array<int64_t, N> &v) {
+        for (const auto &i : v) {
+            this->Append(i);
+        }
+    }
+
     void Update() {}
 
     template <typename Ty>

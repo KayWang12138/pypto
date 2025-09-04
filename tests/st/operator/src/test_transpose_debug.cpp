@@ -126,7 +126,7 @@ TEST_F(TransposeDebugTest, TestTranspose_BNSD_BSND) {
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 16, 16, 16);
+        TileShape::Current().SetVecTile(1, 16, 16, 16);
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
@@ -153,7 +153,7 @@ TEST_F(TransposeDebugTest, TestTranspose_ABC_BAC) {
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(32, 1, 128);
+        TileShape::Current().SetVecTile(32, 1, 128);
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
@@ -181,7 +181,7 @@ TEST_F(TransposeDebugTest, TestTranspose_BNSD2_BNS2D_small) {
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 2, 32, 32, 2);
+        TileShape::Current().SetVecTile(1, 2, 32, 32, 2);
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
@@ -209,7 +209,7 @@ TEST_F(TransposeDebugTest, TestTranspose_ROPE_5D) {
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 2, 1, 32, 2);
+        TileShape::Current().SetVecTile(1, 2, 1, 32, 2);
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
@@ -237,7 +237,7 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_3D_0) {
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(4, 4, 64);
+        TileShape::Current().SetVecTile(4, 4, 64);
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
@@ -264,7 +264,7 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_3D_1) {
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(2, 2, 512);
+        TileShape::Current().SetVecTile(2, 2, 512);
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
@@ -292,7 +292,7 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_0) {
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 32, 512);
+        TileShape::Current().SetVecTile(1, 1, 32, 512);
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
@@ -320,7 +320,7 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_1) {
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 32, 64);
+        TileShape::Current().SetVecTile(1, 1, 32, 64);
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
@@ -348,7 +348,7 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_2) {
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 32, 64);
+        TileShape::Current().SetVecTile(1, 1, 32, 64);
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
@@ -376,13 +376,13 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_3) {
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
-        // Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 32, 64);
+        // TileShape::Current().SetVecTile(1, 1, 32, 64);
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("MLA_4D_3", funConfig, {input, output}) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes(8, 1, 1, 8);
+            TileShape::Current().SetVecTile(8, 1, 1, 8);
             output = Add(input, input);
             output = Transpose(output, {1, 2});
         }
@@ -406,13 +406,13 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_4) {
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 32, 512);
+        TileShape::Current().SetVecTile(1, 1, 32, 512);
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
         FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
         FUNCTION("MLA_4D_4", funConfig, {input, output}) {
-            Program::GetInstance().GetTileShape().SetVecTileShapes(8, 1, 1, 128);
+            TileShape::Current().SetVecTile(8, 1, 1, 128);
             output = Add(input, input);
             output = Transpose(output, {1, 2});
         }
@@ -437,7 +437,7 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_5) {
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 16, d);
+        TileShape::Current().SetVecTile(1, 1, 16, d);
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
@@ -465,7 +465,7 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_50) {
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, s, d);
+        TileShape::Current().SetVecTile(1, 1, s, d);
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
@@ -493,7 +493,7 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_51) {
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 16, d);
+        TileShape::Current().SetVecTile(1, 1, 16, d);
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, "res");
@@ -523,7 +523,7 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_6) {
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
         //  1,1,1,512 ok
-        Program::GetInstance().GetTileShape().SetVecTileShapes(4, 4, 1, 512);
+        TileShape::Current().SetVecTile(4, 4, 1, 512);
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
@@ -551,7 +551,7 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_3D_2) {
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(2, 2, 128);
+        TileShape::Current().SetVecTile(2, 2, 128);
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
@@ -579,7 +579,7 @@ TEST_F(TransposeDebugTest, TestTranspose_BNDS_BNSD) {
     uint64_t outSize = 0;
     TransposePre(&out_ptr, &outSize);
     PROGRAM("Transpose") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 16, 16, 16);
+        TileShape::Current().SetVecTile(1, 16, 16, 16);
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");

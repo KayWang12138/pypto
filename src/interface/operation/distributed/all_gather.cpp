@@ -273,7 +273,7 @@ template <typename T>
 void AllGatherImpl(const Tensor &in, T &out, const char *group)
 {
     int groupIndex = static_cast<int>(Program::GetInstance().GetCommGroupRecorder().Input(std::string(group)));
-    const TileShape &tileShape = Program::GetInstance().GetTileShape();
+    const TileShape &tileShape = TileShape::Current();
     CommGroupInfo groupInfo;
     CheckAndGetGroupInfo(groupIndex, tileShape, groupInfo);
 
@@ -299,7 +299,7 @@ void AllGather(const Tensor &in, std::vector<Tensor> &out, const char *group)
 
 inline std::vector<int64_t> GetOutShape(const Tensor &in)
 {
-    const TileShape &tileShape = Program::GetInstance().GetTileShape();
+    const TileShape &tileShape = TileShape::Current();
     auto rankShape = tileShape.GetDistTileRank();
     ASSERT((rankShape[DIST_HEAD_SHAPE] >= 0) && (rankShape[DIST_HEAD_COUNT] >= 0) && (rankShape[DIST_TAIL_SHAPE] >= 0));
     int32_t rankSize = rankShape[DIST_HEAD_SHAPE] * rankShape[DIST_HEAD_COUNT] + rankShape[DIST_TAIL_SHAPE];

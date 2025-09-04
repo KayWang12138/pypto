@@ -18,7 +18,6 @@
 #include <typeinfo>
 #include <type_traits>
 #include <utility>
-#include <stdexcept>
 
 namespace npu::tile_fwk {
 class Any {

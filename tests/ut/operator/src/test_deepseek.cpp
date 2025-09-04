@@ -54,7 +54,7 @@ TEST_F(FunctionTest, TestAddTensorFunctionDim4) {
     Tensor c;
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1,1,16,16);
+    TileShape::Current().SetVecTile(1, 1, 16, 16);
 
     FUNCTION("A") {
         c = Add(a, b);
@@ -73,7 +73,7 @@ TEST_F(FunctionTest, TestAddTensorFunctionDim2) {
     Tensor c;
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(8,16);
+    TileShape::Current().SetVecTile(8, 16);
 
     FUNCTION("A") {
         c = Add(a, b);
@@ -146,8 +146,8 @@ TEST_F(FunctionTest, test_fa_new) {
     Tensor Res(DT_FP32, shape, "Res");
     FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
     FUNCTION("FA", funConfig, {Q, K, V, M, L, Res}) {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({16, 128});
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({128, 128}, {128, 128}, {128, 128});
+        TileShape::Current().SetVecTile({16, 128});
+        TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
         Res = FlashAttentionNew(Q, K, V, M, L, atDims);
     }
 }
@@ -160,7 +160,7 @@ TEST_F(FunctionTest, TestSubTensorFunctionDim2) {
     Tensor c;
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32,32);
+    TileShape::Current().SetVecTile(32, 32);
 
     FUNCTION("A") {
         c = Sub(a, b);
@@ -179,7 +179,7 @@ TEST_F(FunctionTest, TestMulTensorFunctionDim2) {
     Tensor c;
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32,32);
+    TileShape::Current().SetVecTile(32, 32);
 
     FUNCTION("A") {
         c = Mul(a, b);
@@ -198,7 +198,7 @@ TEST_F(FunctionTest, TestDivTensorFunctionDim2) {
     Tensor c;
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32,32);
+    TileShape::Current().SetVecTile(32, 32);
 
     FUNCTION("A") {
         c = Div(a, b);
@@ -218,7 +218,7 @@ TEST_F(FunctionTest, TestAddScalarFunctionDim2) {
 
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32,32);
+    TileShape::Current().SetVecTile(32, 32);
 
     FUNCTION("A") {
         d = AddS(a, value);
@@ -238,7 +238,7 @@ TEST_F(FunctionTest, TestAddScalarFunctionDim3) {
 
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32,32,32);
+    TileShape::Current().SetVecTile(32, 32, 32);
 
     FUNCTION("A") {
         d = AddS(a, value);
@@ -258,7 +258,7 @@ TEST_F(FunctionTest, TestSubScalarFunctionDim2) {
 
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32,32);
+    TileShape::Current().SetVecTile(32, 32);
 
     FUNCTION("A") {
         d = SubS(a, value);
@@ -278,7 +278,7 @@ TEST_F(FunctionTest, TestMulScalarFunctionDim2) {
 
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32,32);
+    TileShape::Current().SetVecTile(32, 32);
 
     FUNCTION("A") {
         d = MulS(a, value);
@@ -298,7 +298,7 @@ TEST_F(FunctionTest, TestDivScalarFunctionDim2) {
 
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32,32);
+    TileShape::Current().SetVecTile(32, 32);
 
     FUNCTION("A") {
         d = DivS(a, value);
@@ -316,7 +316,7 @@ TEST_F(FunctionTest, TestExpTensorFunctionDim2) {
     Tensor c;
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32,32);
+    TileShape::Current().SetVecTile(32, 32);
 
     FUNCTION("A") {
         c = Exp(a);
@@ -328,7 +328,7 @@ TEST_F(FunctionTest, TestExpTensorFunctionDim2) {
 TEST_F(FunctionTest, TestReduce) {
     // std::vector<int64_t> shape{100, 100, 100};
     std::vector<int64_t> shape = {64, 64, 64, 64};
-    // Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32, 32, 32);
+    // TileShape::Current().SetVecTile(32, 32, 32, 32);
 
     Tensor b, c;
     FUNCTION("Reduce") {
@@ -340,7 +340,7 @@ TEST_F(FunctionTest, TestReduce) {
 }
 
 TEST_F(FunctionTest, TestSin) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 4, 4});
+    TileShape::Current().SetVecTile({1, 1, 4, 4});
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     std::vector<int64_t> shape1 = {1, 2, 8, 8};
@@ -356,7 +356,7 @@ TEST_F(FunctionTest, TestSin) {
 }
 
 TEST_F(FunctionTest, TestCos) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 4, 4});
+    TileShape::Current().SetVecTile({1, 1, 4, 4});
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     std::vector<int64_t> shape1 = {1, 2, 8, 8};
@@ -377,7 +377,7 @@ TEST_F(FunctionTest, TestTranspose_BNSD_BSND) {
     // std::vector<int64_t> transposeShape{1, 2};
     Tensor a(DT_FP32, shape, "a");
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 16, 16, 2);
+    TileShape::Current().SetVecTile(1, 16, 16, 2);
     FUNCTION("BNSD_BSND") {
         auto res = Transpose(a, {1, 2});
     }
@@ -386,10 +386,10 @@ TEST_F(FunctionTest, TestTranspose_BNSD_BSND) {
 }
 
 TEST_F(FunctionTest, TestGatherAxis0Indices1) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 32, 128);
-    // Program::GetInstance().GetTileShape().SetVecTileShapes(1, 32, 64);
+    TileShape::Current().SetVecTile(1, 32, 128);
+    // TileShape::Current().SetVecTile(1, 32, 64);
     // tile graph
-     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     std::vector<int64_t> shape1 = {16, 1024};
     // std::vector<int64_t> shape1 = {16, 256};
@@ -409,7 +409,7 @@ TEST_F(FunctionTest, TestGatherAxis0Indices1) {
 }
 
 TEST_F(FunctionTest, TestGatherAxis0Indices2) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32, 128);
+    TileShape::Current().SetVecTile(32, 128);
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     std::vector<int64_t> shape1 = {16, 512};
@@ -428,7 +428,7 @@ TEST_F(FunctionTest, TestGatherAxis0Indices2) {
 }
 
 TEST_F(FunctionTest, TestTensorIndex) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 16, 16);
+    TileShape::Current().SetVecTile(1, 16, 16);
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     std::vector<int64_t> shape1 = {32, 32};
@@ -446,7 +446,7 @@ TEST_F(FunctionTest, TestTensorIndex) {
 }
 
 TEST_F(FunctionTest, TestGatherElementAxis1Indices2) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(8, 64);
+    TileShape::Current().SetVecTile(8, 64);
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     std::vector<int64_t> shape1 = {32, 512};
@@ -467,7 +467,7 @@ TEST_F(FunctionTest, TestGatherElementAxis1Indices2) {
 }
 
 TEST_F(FunctionTest, TestGatherElementAxis0Indices2) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(16, 32);
+    TileShape::Current().SetVecTile(16, 32);
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     std::vector<int64_t> shape1 = {32, 512};
@@ -489,7 +489,7 @@ TEST_F(FunctionTest, TestGatherElementAxis0Indices2) {
 
 TEST_F(FunctionTest, TestScatterElement) {
     int b = 2, s = 512, nRoutedExperts = 256, numExpertsPerTok = 8;
-    Program::GetInstance().GetTileShape().SetVecTileShapes(128, 8);
+    TileShape::Current().SetVecTile(128, 8);
 
     Tensor cnts(DT_FP32, {b * s, nRoutedExperts}, "cnts");
     Tensor topk_ids(DT_INT32, {b * s, numExpertsPerTok}, "topk_ids");
@@ -517,11 +517,11 @@ TEST_F(FunctionTest, TestScatterUpdate2) {
 
     // kv_len.GetStorage()->SetItem(1);
     FUNCTION("A") {
-        // Program::GetInstance().GetTileShape().SetVecTileShapes(1, 256, 128);
+        // TileShape::Current().SetVecTile(1, 256, 128);
         // Tensor k_nope = RmsNorm(compressed_kv); // (b,s,kvLoraRank)
         // auto k_nope_new =
         //     Reshape(k_nope, {b, 1, s, kvLoraRank}); // (b,1,s,kvLoraRank)
-        Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 256, 128);
+        TileShape::Current().SetVecTile(1, 1, 256, 128);
         // Tensor key_states = Concat({k_nope_new, k_pe_rope}, -1); // (b,1,s, kvLoraRank + qkRopeHeadDim)
 
         // auto past_key_states_new = ScatterUpdate(past_key_states, kv_len, key_states, -2); // 增量  //  open
@@ -533,7 +533,7 @@ TEST_F(FunctionTest, TestScatterUpdate2) {
 
 TEST_F(FunctionTest, TestScatterUpdate3) {
     int b = 2, s = 128, numExpertsPerTok = 8, h = 256;
-    Program::GetInstance().GetTileShape().SetVecTileShapes(512, 32);
+    TileShape::Current().SetVecTile(512, 32);
     Tensor new_x(DT_FP32, {b*s*numExpertsPerTok, h}, "new_x");
     Tensor idxs(DT_FP32, {1, b*s*numExpertsPerTok}, "idxs");
     Tensor outs(DT_FP32, {b*s*numExpertsPerTok, h}, "key_states");
@@ -565,10 +565,10 @@ TEST_F(FunctionTest, TestExp2) {
 TEST_F(FunctionTest, testRowSumSingle) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 32, 32);
+    TileShape::Current().SetVecTile(1, 1, 32, 32);
     std::vector<int64_t> tshape = {2, 2, 64, 64};
 
-    // Program::GetInstance().GetTileShape().SetVecTileShapes(32, 32);
+    // TileShape::Current().SetVecTile(32, 32);
     // std::vector<int64_t> tshape = {64, 64};
 
     Tensor T(DT_FP32, tshape, "T");
@@ -586,7 +586,7 @@ TEST_F(FunctionTest, testRowSumSingle) {
 TEST_F(FunctionTest, testRowMaxSingle) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 32, 32);
+    TileShape::Current().SetVecTile(1, 1, 32, 32);
     std::vector<int64_t> tshape = {1, 4, 64, 64};
 
     Tensor T(DT_FP32, tshape, "T");
@@ -603,7 +603,7 @@ TEST_F(FunctionTest, testRowMaxSingle) {
 TEST_F(FunctionTest, testSoftmax) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 32, 32);
+    TileShape::Current().SetVecTile(1, 1, 32, 32);
     std::vector<int64_t> tshape = {2, 2, 64, 64};
 
     Tensor T(DT_FP32, tshape, "T");
@@ -618,7 +618,7 @@ TEST_F(FunctionTest, testSoftmax) {
 }
 
 TEST_F(FunctionTest, Test_Assign) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(3, 3, 3, 3);
+    TileShape::Current().SetVecTile(3, 3, 3, 3);
     Tensor input(DT_FP32, {6, 5, 7}, "a");
     FUNCTION("TestAssign") {
 /* ROPE :
@@ -701,7 +701,7 @@ TEST_F(FunctionTest, TestRoPEDeepseekV3) {
 
     ConfigManager::Instance();
     FUNCTION("RoPE") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 64, 64});
+        TileShape::Current().SetVecTile({1, 1, 64, 64});
         auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
         int b = kPe->shape[0];
@@ -720,7 +720,7 @@ TEST_F(FunctionTest, TestRoPEDeepseekV3) {
 
 TEST_F(FunctionTest, testRmsNormNewMultiDims) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 8, 8);
+    TileShape::Current().SetVecTile(1, 1, 8, 8);
     // Create some tensors (these would be created from elsewhere in your code)
     std::vector<int64_t> tshape = {2, 2, 24, 24};
 
@@ -734,7 +734,7 @@ TEST_F(FunctionTest, testRmsNormNewMultiDims) {
 }
 
 TEST_F(FunctionTest, TestConcat) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(16, 6, 6, 6);
+    TileShape::Current().SetVecTile(16, 6, 6, 6);
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     std::vector<int64_t> shape1 = {10, 10, 10, 10};
@@ -802,18 +802,18 @@ TEST_F(FunctionTest, TestAttentionPost_cv) {
         int f_s = attnPostIn->shape[2];
         DataType dType = attnPostIn->Datatype();
         // attnPostIn: [b, n, s, d]=2_32_1_512
-        Program::GetInstance().GetTileShape().SetVecTileShapes({2, 32, 1, 128});
+        TileShape::Current().SetVecTile({2, 32, 1, 128});
         Tensor atten_res1 = Reshape(Transpose(attnPostIn, {1, 2}), {f_b * f_s, f_n, d});
         // atten_res1: [2,32,512]
-        Program::GetInstance().GetTileShape().SetVecTileShapes({2, 32, 256});
+        TileShape::Current().SetVecTile({2, 32, 256});
         Tensor atten_res2 = Transpose(atten_res1, {0, 1}); // 32_2_512
         // [n,bs,kvLoraRank] * [n, kvLoraRank, vHeadDim] = [n,bs,vHeadDim]
-        // Program::GetInstance().GetTileShape().SetVecTileShapes(128, 128);
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({2, 2}, {128, 128}, {128, 128});
+        // TileShape::Current().SetVecTile(128, 128);
+        TileShape::Current().SetCubeTile({2, 2}, {128, 128}, {128, 128});
         // [32_2_512] * [32_512_128] = [32_2_128]
         Tensor mm7_res = Matrix::BatchMatmul(dType, atten_res2, kvBProjWV);
         // 32_2_128
-        Program::GetInstance().GetTileShape().SetVecTileShapes({32, 2, 128});
+        TileShape::Current().SetVecTile({32, 2, 128});
         Tensor mm7_res1 = Transpose(mm7_res, {0, 1});
         // 2_32_128
         Tensor mm7_res2 = Reshape(mm7_res1, {f_b, f_s, f_n * v_head});
@@ -822,7 +822,7 @@ TEST_F(FunctionTest, TestAttentionPost_cv) {
         // 2_1_32*128  1_32*128_512
         Tensor attn_out_w = Unsqueeze(oProjW, 0);
 
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({1, 1}, {128, 128}, {128, 128});
+        TileShape::Current().SetCubeTile({1, 1}, {128, 128}, {128, 128});
         // [32,1,32*128] * [1,32*128,7168] = [32,1,7168]
         atten_output = Matrix::BatchMatmul(dType, mm7_res2, attn_out_w);
     }
@@ -871,16 +871,16 @@ TEST_F(FunctionTest, TestAttentionPost) {
         int f_n = attnPostIn->shape[1];
         int f_s = attnPostIn->shape[2];
         DataType dType = attnPostIn->Datatype();
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 1, 32, d});
+        TileShape::Current().SetVecTile({1, 1, 32, d});
         Tensor atten_res1 = Reshape(Transpose(attnPostIn, {1, 2}), {f_b * f_s, f_n, d});
-        Program::GetInstance().GetTileShape().SetVecTileShapes({32, 1, d});
+        TileShape::Current().SetVecTile({32, 1, d});
         Tensor atten_res2 = Transpose(atten_res1, {0, 1});
         // [n,bs,kvLoraRank] * [n, kvLoraRank, vHeadDim] = [n,bs,vHeadDim]
-        Program::GetInstance().GetTileShape().SetVecTileShapes(128, 128);
-        Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {128, 128}, {128, 128});
+        TileShape::Current().SetVecTile(128, 128);
+        TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
         Tensor mm7_res = Matrix::BatchMatmul(dType, atten_res2, kvBProjWV);
         // Tensor mm7_res = Matrix::BatchMatmul(dType, atten_res2, kvBProjWV);
-        Program::GetInstance().GetTileShape().SetVecTileShapes({1, 128, 128});
+        TileShape::Current().SetVecTile({1, 128, 128});
         Tensor mm7_res1 = Transpose(mm7_res, {0, 1});
         Tensor mm7_res2 = Reshape(mm7_res1, {f_b, f_s, f_n * v_head});
 
@@ -1083,7 +1083,7 @@ TEST_F(FunctionTest, TestArgSort) {
     int32_t shape1 = 32;
 
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-    Program::GetInstance().GetTileShape().SetVecTileShapes({shape0, shape1});
+    TileShape::Current().SetVecTile({shape0, shape1});
 
     Tensor input(DT_FP32, {shape0, shape1});
     Tensor res;
@@ -1150,7 +1150,7 @@ TEST_F(FunctionTest, TestBMMtest) {
     Tensor a(DT_FP16, shape_a, "a");
     Tensor b(DT_FP16, shape_b, "b");
     Tensor c;
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(128, 1), std::min(128, 1)}, {128, 128}, {64, 64});
+    TileShape::Current().SetCubeTile({std::min(128, 1), std::min(128, 1)}, {128, 128}, {64, 64});
     FUNCTION("BMM") {
         c = npu::tile_fwk::Matrix::BatchMatmul<false, false>(DT_FP16, a, b);
     }
@@ -1165,7 +1165,7 @@ TEST_F(FunctionTest, TestBMMtest2) {
     Tensor a(DT_FP16, shape_a, "a");
     Tensor b(DT_FP16, shape_b, "b");
     Tensor c;
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(128, 1), std::min(128, 1)}, {128, 128}, {64, 64});
+    TileShape::Current().SetCubeTile({std::min(128, 1), std::min(128, 1)}, {128, 128}, {64, 64});
     FUNCTION("BMM") {
         c = npu::tile_fwk::Matrix::BatchMatmul<false, true>(DT_FP16, a, b);
     }
@@ -1238,8 +1238,8 @@ TEST_F(FunctionTest, Test_deepseekMoEGate) {
     Tensor topk_idx, topk_weight;
     MoEGate deepseekMoEGate(deepseekConfig1);
 
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(128, s), std::min(128, s)}, {256, 256}, {64, 64});
-    Program::GetInstance().GetTileShape().SetVecTileShapes(128, 64); // for Assemble
+    TileShape::Current().SetCubeTile({std::min(128, s), std::min(128, s)}, {256, 256}, {64, 64});
+    TileShape::Current().SetVecTile(128, 64); // for Assemble
 
     FUNCTION("A") {
         auto res = deepseekMoEGate.Forward(hidden_states);
@@ -1266,8 +1266,8 @@ TEST_F(FunctionTest, Test_deepseekMoEInfer) {
 
     Tensor res;
 
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(128, s), std::min(128, s)}, {256, 256}, {64, 64});
-    Program::GetInstance().GetTileShape().SetVecTileShapes(128, 64); // for Assemble
+    TileShape::Current().SetCubeTile({std::min(128, s), std::min(128, s)}, {256, 256}, {64, 64});
+    TileShape::Current().SetVecTile(128, 64); // for Assemble
 
     FUNCTION("A") {
         res = deepseekMoEInfer.MoeInfer(hidden_states, topk_idx, topk_weight);
@@ -1289,8 +1289,8 @@ TEST_F(FunctionTest, Test_deepseekMoE) {
     Tensor res;
     DeepseekV2MoE deepseekMoE(deepseekConfig1);
 
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(128, s), std::min(128, s)}, {256, 256}, {64, 64});
-    Program::GetInstance().GetTileShape().SetVecTileShapes(128, 64); // for Assemble
+    TileShape::Current().SetCubeTile({std::min(128, s), std::min(128, s)}, {256, 256}, {64, 64});
+    TileShape::Current().SetVecTile(128, 64); // for Assemble
 
     FUNCTION("A") {
         res = deepseekMoE.Forward(hidden_states);
@@ -1312,8 +1312,8 @@ TEST_F(FunctionTest, Test_quant) {
     Tensor input = Tensor(DT_FP16, {b, s, h}, "input");
     Tensor res;
 
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({std::min(128, s), std::min(128, s)}, {256, 256}, {64, 64});
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, vecTileShape[0], vecTileShape[1]); // for Assemble
+    TileShape::Current().SetCubeTile({std::min(128, s), std::min(128, s)}, {256, 256}, {64, 64});
+    TileShape::Current().SetVecTile(1, vecTileShape[0], vecTileShape[1]); // for Assemble
 
     FUNCTION("A") {
         res = std::get<0>(Quant(input));
@@ -1326,7 +1326,7 @@ TEST_F(FunctionTest, Test_ScalarOp) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     std::vector<int64_t> shape = {128, 32};
-    Program::GetInstance().GetTileShape().SetVecTileShapes({128, 32});
+    TileShape::Current().SetVecTile({128, 32});
     Tensor input_a(DT_FP32, shape, "A");
     auto output = Tensor(DT_FP32, shape, "res"); // std::make_tuple(Tensor(DT_FP32, shape, "res"), Tensor(DT_FP32, shape, "resDics"));
     FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
@@ -1347,7 +1347,7 @@ TEST_F(FunctionTest, TestPad) {
     std::vector<int64_t> newShape{8, 24};
     Tensor a(DT_FP32, shape, "a");
     Tensor b;
-    Program::GetInstance().GetTileShape().SetVecTileShapes(8, 8);
+    TileShape::Current().SetVecTile(8, 8);
 
     FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
     FUNCTION("Pad", funConfig) {
@@ -1369,8 +1369,8 @@ TEST_F(FunctionTest, Test_quantMM) {
     Tensor inputScaleW = Tensor(DT_FP32, {1, n}, "inputScaleW");
     Tensor res;
 
-    Program::GetInstance().GetTileShape().SetCubeTileShapes({32, 32}, {128, 128}, {128, 128});
-    Program::GetInstance().GetTileShape().SetVecTileShapes(32, 64); // for Assemble
+    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
+    TileShape::Current().SetVecTile(32, 64); // for Assemble
 
     FUNCTION("A") {
         res = npu::tile_fwk::Matrix::QuantMM(inputA, inputW, inputScaleW);
@@ -1384,7 +1384,7 @@ TEST_F(FunctionTest, TestRmsNorm) {
     Tensor a(DT_FP32, shapea, "a");
     Tensor b(DT_FP32, shapeb, "b");
     Tensor c;
-    Program::GetInstance().GetTileShape().SetVecTileShapes(8, 8);
+    TileShape::Current().SetVecTile(8, 8);
     FUNCTION("RmsNorm") {
         c = RmsNorm(a, b, 1e-5f);
     }

@@ -47,7 +47,7 @@ TEST_F(TestCodegenScatter, TestScatterElement) {
     constexpr const int s = 512;
     constexpr const int nRoutedExperts = 256;
     constexpr const int numExpertsPerTok = 8;
-    Program::GetInstance().GetTileShape().SetVecTileShapes(SCATER_SHAPE0, SCATER_SHAPE1);
+    TileShape::Current().SetVecTile(SCATER_SHAPE0, SCATER_SHAPE1);
 
     Tensor cnts(DT_FP32, {b * s, nRoutedExperts}, "cnts");
     Tensor topkIds(DT_INT32, {b * s, numExpertsPerTok}, "topkIds");
