@@ -68,31 +68,10 @@ public:
               operandIdx(newOperandIdx) {}
 
         TensorParamPackTy() = default;
-
-        void Print(std::ostream &osm = std::cout) const {
-            osm << IntVecToStr(offset);
-            osm << IntVecToStr(shape);
-            osm << IntVecToStr(rawShape);
-            osm << "$" << ddrId << " Loc[" << ParamLocToStr(paramLoc) << "]";
-        }
-
-        void DumpTensor(std::vector<int64_t> &invokeParam) const {
-            invokeParam.emplace_back(static_cast<int64_t>(ddrId));
-        }
-
-        bool operator==(const TensorParamPackTy &other) const {
-            if (paramLoc != other.paramLoc || ddrId != other.ddrId || offset != other.offset || shape != other.shape ||
-                rawShape != other.rawShape || dType != other.dType || isOutputToGM != other.isOutputToGM ||
-                tensor->GetMagic() != other.tensor->GetMagic() ||
-                tensor->GetRawMagic() != other.tensor->GetRawMagic() || opMagic != other.opMagic) {
-                return false;
-            }
-            return true;
-        }
-
-        bool operator!=(const TensorParamPackTy &other) const {
-            return !(*this == other);
-        }
+        void Print(std::ostream &osm = std::cout) const;
+        void DumpTensor(std::vector<int64_t> &invokeParam) const;
+        bool operator==(const TensorParamPackTy &other) const;
+        bool operator!=(const TensorParamPackTy &other) const;
     };
 
     struct IncastParamPackTy {
@@ -121,29 +100,10 @@ public:
               opMagic(newOpMagic),
               operandIdx(newOperandIdx) {}
 
-        void Print(std::ostream &osm = std::cout) const {
-            osm << IntVecToStr(offset);
-            osm << IntVecToStr(shape);
-            osm << IntVecToStr(rawShape);
-            osm << "$" << ddrId << " Loc[" << ParamLocToStr(paramLoc) << "]";
-        }
-
-        void DumpIncastInfo(std::vector<int64_t> &invokeParam) const {
-            invokeParam.emplace_back(static_cast<int64_t>(ddrId));
-        }
-
-        bool operator==(const IncastParamPackTy &other) const {
-            if (paramLoc != other.paramLoc || ddrId != other.ddrId || offset != other.offset || shape != other.shape ||
-                rawShape != other.rawShape || dType != other.dType || tensor->GetMagic() != other.tensor->GetMagic() ||
-                tensor->GetRawMagic() != other.tensor->GetRawMagic() || opMagic != other.opMagic) {
-                return false;
-            }
-            return true;
-        }
-
-        bool operator!=(const IncastParamPackTy &other) const {
-            return !(*this == other);
-        }
+        void Print(std::ostream &osm = std::cout) const;
+        void DumpIncastInfo(std::vector<int64_t> &invokeParam) const;
+        bool operator==(const IncastParamPackTy &other) const;
+        bool operator!=(const IncastParamPackTy &other) const;
     };
 
     struct OutcastParamPackTy {
@@ -175,30 +135,10 @@ public:
 
         OutcastParamPackTy() = default;
 
-        void Print(std::ostream &osm = std::cout) const {
-            osm << "[RC:" << refCount << "]";
-            osm << IntVecToStr(offset);
-            osm << IntVecToStr(shape);
-            osm << IntVecToStr(rawShape);
-            osm << "$" << ddrId << " Loc[" << ParamLocToStr(paramLoc) << "]";
-        }
-
-        void DumpOutcastInfo(std::vector<int64_t> &invokeParam) const {
-            invokeParam.emplace_back(static_cast<int64_t>(ddrId));
-        }
-
-        bool operator==(const OutcastParamPackTy &other) const {
-            if (paramLoc != other.paramLoc || ddrId != other.ddrId || offset != other.offset || shape != other.shape ||
-                rawShape != other.rawShape || dType != other.dType || tensor->GetMagic() != other.tensor->GetMagic() ||
-                tensor->GetRawMagic() != other.tensor->GetRawMagic() || opMagic != other.opMagic) {
-                return false;
-            }
-            return true;
-        }
-
-        bool operator!=(const OutcastParamPackTy &other) const {
-            return !(*this == other);
-        }
+        void Print(std::ostream &osm = std::cout) const;
+        void DumpOutcastInfo(std::vector<int64_t> &invokeParam) const;
+        bool operator==(const OutcastParamPackTy &other) const;
+        bool operator!=(const OutcastParamPackTy &other) const;
     };
 
 public:
@@ -420,17 +360,8 @@ public:
               symbol(newSymbol),
               dataType(newDataType) {}
 
-        void Print(std::ostream &osm = std::cout) const {
-            osm << "INCAST";
-            osm << IntVecToStr(offset);
-            osm << IntVecToStr(shape);
-            osm << symName << " Loc[" << ParamLocToStr(paramLoc) << "]\n";
-        }
-
-        bool CompareParam(const SubfuncInvokeInfoTy::IncastParamPackTy &esgParam) const {
-            return (paramLoc == esgParam.paramLoc) && (symDDRId && esgParam.ddrId) &&
-                (shape == esgParam.shape) && (dataType == esgParam.dType);
-        }
+        void Print(std::ostream &osm = std::cout) const ;
+        bool CompareParam(const SubfuncInvokeInfoTy::IncastParamPackTy &esgParam) const;
     };
 
     struct OutCastParamTy {
@@ -459,19 +390,8 @@ public:
               symbol(newSymbol),
               dataType(newDataType) {}
 
-        void Print(std::ostream &osm = std::cout) const {
-            osm << "OUTCAST";
-            osm << "[" << refCount << "]";
-            osm << IntVecToStr(offset);
-            osm << IntVecToStr(shape);
-            osm << symName << " Loc[" << ParamLocToStr(paramLoc) << "]" << std::endl;
-        }
-
-        bool CompareParam(const SubfuncInvokeInfoTy::OutcastParamPackTy &esgParam) const {
-            return (paramLoc == esgParam.paramLoc) &&
-                (symDDRId == esgParam.ddrId) && (refCount == esgParam.refCount) &&
-                (shape == esgParam.shape) && (dataType == esgParam.dType);
-        }
+        void Print(std::ostream &osm = std::cout) const;
+        bool CompareParam(const SubfuncInvokeInfoTy::OutcastParamPackTy &esgParam) const;
     };
 
     struct TensorParamTy {
@@ -498,16 +418,8 @@ public:
               symbol(newSymbol),
               dataType(newDataType) {}
 
-        void Print(std::ostream &osm = std::cout) const {
-            osm << IntVecToStr(symOffset);
-            osm << IntVecToStr(shape);
-            osm << symName << " Loc[" << ParamLocToStr(paramLoc) << "]" << std::endl;
-        }
-
-        bool CompareParam(const SubfuncInvokeInfoTy::TensorParamPackTy &esgParam) const {
-            return (paramLoc == esgParam.paramLoc) && (symDDRId == esgParam.ddrId) &&
-                (shape == esgParam.shape) && (dataType == esgParam.dType);
-        }
+        void Print(std::ostream &osm = std::cout) const;
+        bool CompareParam(const SubfuncInvokeInfoTy::TensorParamPackTy &esgParam) const;
     };
 
     using OutCastParamListTy = std::vector<OutCastParamTy>;
@@ -540,23 +452,7 @@ public:
         isFinalized_ = true;
     }
 
-    void PrettyPrint(const int psgId, std::ostream &osm = std::cout) const {
-        osm << "PARAM_LIST[" << psgId << "]:\n";
-        for (auto &tensor : tensorsArgs_) {
-            osm << "|--";
-            tensor.Print(osm);
-        }
-
-        for (auto &ins : inCastArgs_) {
-            osm << "|--";
-            ins.Print(osm);
-        }
-
-        for (auto &outs : outCastArgs_) {
-            osm << "|--";
-            outs.Print(osm);
-        }
-    }
+    void PrettyPrint(const int psgId, std::ostream &osm = std::cout) const;
     Json ToJson() const;
     void FromJson(const Json &params);
 public:
@@ -596,16 +492,7 @@ public:
 
     bool IsEsgReady(const int esgId) const;
 
-    std::vector<int> GetSuccs(int esgId) const {
-        std::vector<int> succs;
-        for (auto &entry : topology_) {
-            if (esgId == entry.esgId) {
-                succs.insert(succs.end(), entry.outGraph.begin(), entry.outGraph.end());
-                break;
-            }
-        }
-        return succs;
-    }
+    std::vector<int> GetSuccs(int esgId) const;
 
     Json DumpJson() const;
     void LoadJson(const Json &topoJson);

@@ -112,63 +112,76 @@ uint64_t CalcTensorSize(const std::vector<tType> &curShape) {
     return res;
 }
 
-json ExecutionGraphStatistic::AnalyzeExecutionGraph(
-    Function& func,
-    const std::multimap<int, int>& psgToESgMap,
-    const std::vector<std::vector<OperationPtr>>& subgraphGroups)
-{
-    json report;
-
+uint64_t ExecutionGraphStatistic::AnalyzePeakMemoryUsage(
+    Function *rootFunc, std::vector<int> &peakMemoryUsageSubgraphs) {
     uint64_t peakMemoryUsage = 0;
-    std::vector<int> peakMemoryUsageSubgraphs;
-    std::unordered_map<int, uint64_t> callOpMemoryUsage; // key: callOp magic, value: memory usage
-    Function* rootFunc = func.GetRootFunction();
-    if (!rootFunc) {
-        ALOG_ERROR_F("Root function is null");
-        return report;
-    }
-    int totalSubgraphNum = func.GetTotalSubGraphCount();
-    std::unordered_map<CoreType, int> coreTypeCounts;
-    std::vector<uint64_t> subgraphLatencies(totalSubgraphNum, 0);
+
     auto operations = rootFunc->Operations();
     for (size_t i = 0; i < operations.size(); i++) {
-        auto& op = operations[i];
-        auto callAttr = dynamic_cast<CallOpAttribute*>(op.GetOpAttribute().get());
+        auto &op = operations[i];
+        auto callAttr = dynamic_cast<CallOpAttribute *>(op.GetOpAttribute().get());
         if (!callAttr || !callAttr->invokeInfo_) {
             ALOG_WARN_F("Invalid CallOpAttribute at index %zu", i);
             continue;
         }
-        // 统计内存使用
-        uint64_t currentOpMemory = 0;
-        // 统计输入tensor的内存占用
-        for (auto& iOperand : op.GetIOperands()) {
-            if (iOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-                uint64_t tensorSize = CalcTensorSize(iOperand->GetShape()) * BytesOf(iOperand->Datatype());
-                currentOpMemory += tensorSize;
-            }
-        }
-        // 统计输出tensor的内存占用
-        for (auto& oOperand : op.GetOOperands()) {
-            if (oOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-                uint64_t tensorSize = CalcTensorSize(oOperand->GetShape()) * BytesOf(oOperand->Datatype());
-                currentOpMemory += tensorSize;
-            }
-        }
-        callOpMemoryUsage[op.GetOpMagic()] = currentOpMemory;
+        uint64_t currentOpMemory = CalculateOperationMemory(op);
         if (currentOpMemory > peakMemoryUsage) {
             peakMemoryUsage = currentOpMemory;
             peakMemoryUsageSubgraphs.clear();
             peakMemoryUsageSubgraphs.push_back(op.GetSubgraphID());
-        } else if (currentOpMemory == peakMemoryUsage) {
+            continue;
+        }
+        if (currentOpMemory == peakMemoryUsage) {
             peakMemoryUsageSubgraphs.push_back(op.GetSubgraphID());
+        }
+    }
+    return peakMemoryUsage;
+}
+
+uint64_t ExecutionGraphStatistic::CalculateOperationMemory(const Operation &op) {
+    uint64_t currentOpMemory = 0;
+    // 统计输入tensor的内存占用
+    for (auto &iOperand : op.GetIOperands()) {
+        if (iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+            continue;
+        }
+        uint64_t tensorSize = CalcTensorSize(iOperand->GetShape()) * BytesOf(iOperand->Datatype());
+        currentOpMemory += tensorSize;
+    }
+    // 统计输出tensor的内存占用
+    for (auto &oOperand : op.GetOOperands()) {
+        if (oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+            continue;
+        }
+        uint64_t tensorSize = CalcTensorSize(oOperand->GetShape()) * BytesOf(oOperand->Datatype());
+        currentOpMemory += tensorSize;
+    }
+    return currentOpMemory;
+}
+
+std::unordered_map<CoreType, int> ExecutionGraphStatistic::CountCoreTypes(Function *rootFunc) {
+    std::unordered_map<CoreType, int> coreTypeCounts;
+    auto operations = rootFunc->Operations();
+
+    for (size_t i = 0; i < operations.size(); i++) {
+        auto &op = operations[i];
+        auto callAttr = dynamic_cast<CallOpAttribute *>(op.GetOpAttribute().get());
+        if (!callAttr || !callAttr->invokeInfo_) {
+            continue;
         }
 
         CoreType graphType = callAttr->invokeInfo_->GetGraphType();
         coreTypeCounts[graphType]++;
     }
 
-    std::vector<int> maxLatencySubgraphs;
-    std::vector<int> minLatencySubgraphs;
+    return coreTypeCounts;
+}
+
+uint64_t ExecutionGraphStatistic::AnalyzeSubgraphLatencies(Function &func, uint64_t &maxLatency, uint64_t &minLatency,
+    std::vector<int> &maxLatencySubgraphs, std::vector<int> &minLatencySubgraphs) {
+    int totalSubgraphNum = func.GetTotalSubGraphCount();
+    std::vector<uint64_t> subgraphLatencies(totalSubgraphNum, 0);
+
     // 收集每个子图的latency
     auto operationViewer = func.Operations();
     for (size_t i = 0; i < operationViewer.size(); i++) {
@@ -177,8 +190,8 @@ json ExecutionGraphStatistic::AnalyzeExecutionGraph(
     }
     // 计算最大值、最小值和平均值
     uint64_t totalLatency = 0;
-    uint64_t maxLatency = 0;
-    uint64_t minLatency = UINT64_MAX;
+    maxLatency = 0U;
+    minLatency = UINT64_MAX;
 
     for (int i = 0; i < totalSubgraphNum; i++) {
         uint64_t latency = subgraphLatencies[i];
@@ -192,15 +205,35 @@ json ExecutionGraphStatistic::AnalyzeExecutionGraph(
         if (latency < minLatency) {
             minLatency = latency;
             minLatencySubgraphs = {i};
-            continue;
-        }
-        if (latency == minLatency) {
+        } else if (latency == minLatency) {
             minLatencySubgraphs.push_back(i);
         }
     }
+    return totalLatency;
+}
 
+json ExecutionGraphStatistic::AnalyzeExecutionGraph(Function & func, const std::multimap<int, int> &psgToESgMap,
+    const std::vector<std::vector<OperationPtr>> &subgraphGroups) {
+    json report;
+    Function *rootFunc = func.GetRootFunction();
+    if (!rootFunc) {
+        ALOG_ERROR_F("Root function is null");
+        return report;
+    }
+
+    std::vector<int> peakMemoryUsageSubgraphs;
+    auto peakMemoryUsage = AnalyzePeakMemoryUsage(rootFunc, peakMemoryUsageSubgraphs);
+    auto coreTypeCounts = CountCoreTypes(rootFunc);
+    uint64_t maxLatency;
+    uint64_t minLatency;
+    std::vector<int> maxLatencySubgraphs;
+    std::vector<int> minLatencySubgraphs;
+    auto totalLatency =
+        AnalyzeSubgraphLatencies(func, maxLatency, minLatency, maxLatencySubgraphs, minLatencySubgraphs);
     // 计算依赖关系
     auto dependencies = AnalyzeGraphDependencies(func);
+
+    int totalSubgraphNum = func.GetTotalSubGraphCount();
     report = {
         {"totalSubgraphCount", totalSubgraphNum},
         {"maxSubgraphDepth", FindLongestPath(func).maxLength},

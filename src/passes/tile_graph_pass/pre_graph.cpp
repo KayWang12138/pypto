@@ -657,24 +657,23 @@ Status PreGraphProcess::RunOnFunction(Function &function) {
     ResetMemoryMap(function);
     auto opList = function.Operations();
     for (auto &op : opList) {
-        if (op.GetSubgraphID() > -1) {
-            auto curColor = op.GetSubgraphID();
-            InitializeTensorMemorymap(op);
-            op.UpdateSubgraphID(curColor);
-            UpdateCopyOpIsCube(op);
+        if (op.GetSubgraphID() <= -1) {
+            continue;
         }
+        auto curColor = op.GetSubgraphID();
+        InitializeTensorMemorymap(op);
+        op.UpdateSubgraphID(curColor);
+        UpdateCopyOpIsCube(op);
     }
-
     SetTensorBoundary(function);
-
+    std::vector<Opcode> specialMTEOperation = {Opcode::OP_TRANSPOSE_MOVEOUT, Opcode::OP_INDEX_OUTCAST,
+        Opcode::OP_REMOTE_GATHER, Opcode::OP_LOCAL_COPY_OUT, Opcode::OP_REMOTE_REDUCE, Opcode::OP_FFN_SCHED,
+        Opcode::OP_FFN_BATCHING, Opcode::OP_COPY_TO_LOCAL_EXPERT, Opcode::OP_SHMEM_PUT, Opcode::OP_SHMEM_SIGNAL,
+        Opcode::OP_SHMEM_GET};
     // Processing Special Ops
     for (auto &op : opList) {
-        if (op.GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT || op.GetOpcode() == Opcode::OP_INDEX_OUTCAST ||
-            op.GetOpcode() == Opcode::OP_REMOTE_GATHER || op.GetOpcode() == Opcode::OP_LOCAL_COPY_OUT ||
-            op.GetOpcode() == Opcode::OP_REMOTE_REDUCE || op.GetOpcode() == Opcode::OP_FFN_SCHED ||
-            op.GetOpcode() == Opcode::OP_FFN_BATCHING || op.GetOpcode() == Opcode::OP_COPY_TO_LOCAL_EXPERT||
-            op.GetOpcode() == Opcode::OP_SHMEM_PUT || op.GetOpcode() == Opcode::OP_SHMEM_SIGNAL ||
-            op.GetOpcode() == Opcode::OP_SHMEM_GET) {
+        if (std::find(specialMTEOperation.begin(), specialMTEOperation.end(), op.GetOpcode()) !=
+            specialMTEOperation.end()) {
             ProcessSpecialMTEOperation(op);
         }
         if (op.GetOpcode() == Opcode::OP_TRANSPOSE_MOVEIN) {
@@ -684,7 +683,8 @@ Status PreGraphProcess::RunOnFunction(Function &function) {
             // 校验单输入单输出，且输入输出mem类型相同
             if ((op.GetIOperands().size() != 1) || (op.GetOOperands().size() != 1) ||
                 (op.GetIOperands().front() == nullptr) || (op.GetOOperands().front() == nullptr) ||
-                (op.GetIOperands().front()->GetMemoryTypeOriginal() != op.GetOOperands().front()->GetMemoryTypeOriginal())) {
+                (op.GetIOperands().front()->GetMemoryTypeOriginal() !=
+                    op.GetOOperands().front()->GetMemoryTypeOriginal())) {
                 return FAILED;
             }
         }

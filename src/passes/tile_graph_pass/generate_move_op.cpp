@@ -50,69 +50,96 @@ bool GenerateMoveOp::HasGmInput(Operation &op) const {
         (op.GetOpcode() == Opcode::OP_SHMEM_WAIT_UNTIL);
 }
 
+bool GenerateMoveOp::HasSpecificConsumer(const Operation &op) const {
+    auto viewResult = op.GetOOperands()[0];
+    auto consumersCopy = viewResult->GetConsumers();
+    
+    for (auto childOp : consumersCopy) {
+        if (childOp->GetOpcode() == Opcode::OP_INDEX_OUTCAST || 
+            childOp->GetOpcode() == Opcode::OP_RESHAPE) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void GenerateMoveOp::ConvertViewToCopyInWhenInputGm(Operation &op, ViewOpAttribute *viewOpAttribute) const {
+    auto nextOp = *(op.oOperand[0]->GetConsumers().begin());
+    op.SetOpCode(Opcode::OP_COPY_IN); // 将view转化为copyin
+    auto copyAttr = std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()),
+        viewOpAttribute->GetTo(), OpImmediate::Specified(op.oOperand.front()->shape),
+        OpImmediate::Specified(op.iOperand.front()->tensor->GetDynRawShape()),
+        OpImmediate::Specified(viewOpAttribute->GetToDynValidShape())
+    );
+    op.SetOpAttribute(copyAttr);
+    if (nextOp->HasAttr(OpAttributeKey::tag)) {
+        op.SetAttribute(OpAttributeKey::tag, nextOp->GetStringAttribute(OpAttributeKey::tag));
+    }
+}
+
+void GenerateMoveOp::HandleGlobalInputView(Operation &op, ViewOpAttribute *viewOpAttribute) const {
+    auto viewResult = op.GetOOperands()[0];
+    auto consumersCopy = viewResult->GetConsumers();
+    for (auto childOp : consumersCopy) {
+        for (size_t j = 0; j < childOp->iOperand.size(); j++) {
+            if (childOp->iOperand[j] != viewResult) {
+                continue;
+            }
+            Tensor newTensor(viewResult->Datatype(), viewResult->shape);
+            newTensor.GetStorage()->UpdateOffset(viewOpAttribute->GetFrom());
+            newTensor.GetStorage()->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
+            newTensor.GetStorage()->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
+            newTensor.GetStorage()->isSubGraphBoundary = false;
+            // update consumer of oOperand
+            newTensor.GetStorage()->AddConsumer(childOp);
+            childOp->iOperand[j] = newTensor.GetStorage();
+            newTensor.GetStorage()->tensor = op.GetIOperands()[0]->tensor;
+        }
+    }
+    op.SetAsDeleted();
+}
+
+void GenerateMoveOp::HandleViewWhenBothGm(Operation &op, ViewOpAttribute *viewOpAttribute) const {
+    auto viewResult = op.GetOOperands()[0];
+    auto consumersCopy = viewResult->GetConsumers();
+    for (auto childOp : consumersCopy) {
+        for (size_t j = 0; j < childOp->iOperand.size(); j++) {
+            if (childOp->iOperand[j] != viewResult) {
+                continue;
+            }
+            Tensor newTensor(viewResult->Datatype(), viewResult->shape);
+            newTensor.GetStorage()->UpdateOffset(viewOpAttribute->GetFromTensorOffset());
+            newTensor.GetStorage()->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
+            newTensor.GetStorage()->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
+            // update consumer of oOperand
+            newTensor.GetStorage()->AddConsumer(childOp);
+            childOp->iOperand[j] = newTensor.GetStorage();
+            newTensor.GetStorage()->tensor = op.GetIOperands()[0]->tensor;
+        }
+    }
+    op.SetAsDeleted();
+}
+
 void GenerateMoveOp::CreateMoveOpForView(Operation &op) const {
     auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
     bool isGmInput = op.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
     bool isGmOutput = op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
-    if (isGmInput && isGmOutput) {
-        auto viewResult = op.GetOOperands()[0];
-        auto consumersCopy = viewResult->GetConsumers();
-        for (auto childOp : consumersCopy) {
-            if (childOp->GetOpcode() == Opcode::OP_INDEX_OUTCAST || childOp->GetOpcode() == Opcode::OP_RESHAPE) {
-                return;
-            }
+    if (isGmInput) {
+        if (isGmOutput && HasSpecificConsumer(op)) {
+            return;
         }
-    }
-    if (isGmInput && (!isGmOutput)) {
-        auto nextOp = *(op.oOperand[0]->GetConsumers().begin());
-        auto viewResult = op.GetOOperands()[0];
-        op.SetOpCode(Opcode::OP_COPY_IN); // 将view转化为copyin
-        op.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()),
-            viewOpAttribute->GetTo(), OpImmediate::Specified(op.oOperand.front()->shape),
-            OpImmediate::Specified(op.iOperand.front()->tensor->GetDynRawShape()),
-            OpImmediate::Specified(viewOpAttribute->GetToDynValidShape())));
-        if (nextOp->HasAttr(OpAttributeKey::tag)) {
-            op.SetAttribute(OpAttributeKey::tag, nextOp->GetStringAttribute(OpAttributeKey::tag));
+        if ((!isGmOutput)) {
+            ConvertViewToCopyInWhenInputGm(op, viewOpAttribute);
+            return;
         }
-        return;
     }
     if (op.HasAttr(OpAttributeKey::isGlobalInput) && op.GetBoolAttribute(OpAttributeKey::isGlobalInput)) {
-        auto viewResult = op.GetOOperands()[0];
-        auto consumersCopy = viewResult->GetConsumers();
-        for (auto childOp : consumersCopy) {
-            for (size_t j = 0; j < childOp->iOperand.size(); j++) {
-                if (childOp->iOperand[j] == viewResult) {
-                    Tensor newTensor(viewResult->Datatype(), viewResult->shape);
-                    newTensor.GetStorage()->UpdateOffset(dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get())->GetFrom());
-                    newTensor.GetStorage()->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
-                    newTensor.GetStorage()->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
-                    newTensor.GetStorage()->isSubGraphBoundary = false;
-                    // update consumer of oOperand
-                    newTensor.GetStorage()->AddConsumer(childOp);
-                    childOp->iOperand[j] = newTensor.GetStorage();
-                    newTensor.GetStorage()->tensor = op.GetIOperands()[0]->tensor;
-                }
-            }
-        }
-        op.SetAsDeleted();
-    } else if (isGmInput && isGmOutput) {
-        auto viewResult = op.GetOOperands()[0];
-        auto consumersCopy = viewResult->GetConsumers();
-        for (auto childOp : consumersCopy) {
-            for (size_t j = 0; j < childOp->iOperand.size(); j++) {
-                if (childOp->iOperand[j] == viewResult) {
-                    Tensor newTensor(viewResult->Datatype(), viewResult->shape);
-                    newTensor.GetStorage()->UpdateOffset(viewOpAttribute->GetFromTensorOffset());
-                    newTensor.GetStorage()->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
-                    newTensor.GetStorage()->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
-                    // update consumer of oOperand
-                    newTensor.GetStorage()->AddConsumer(childOp);
-                    childOp->iOperand[j] = newTensor.GetStorage();
-                    newTensor.GetStorage()->tensor = op.GetIOperands()[0]->tensor;
-                }
-            }
-        }
-        op.SetAsDeleted();
+        HandleGlobalInputView(op, viewOpAttribute);
+        return;
+    }
+    if (isGmInput && isGmOutput) {
+        HandleViewWhenBothGm(op, viewOpAttribute);
     }
 }
 
