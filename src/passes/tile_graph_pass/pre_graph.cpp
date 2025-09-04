@@ -594,6 +594,7 @@ Status DFSVisit(std::unordered_set<int> &visited, int preColor, std::unordered_m
                 std::vector<std::set<int>> &colorInGraph, std::vector<std::set<int>> &colorOutGraph)
 {
     std::vector<int> visitStack{preColor};
+    std::unordered_set<int> inStack;
     while (visitStack.size() > 0) {
         int currColor = visitStack.back();
         if (visited.count(currColor) > 0) {
@@ -604,6 +605,7 @@ Status DFSVisit(std::unordered_set<int> &visited, int preColor, std::unordered_m
         for (int pred : colorInGraph[currColor]) {
             if (visited.count(pred) == 0) {
                 visitStack.push_back(pred);
+                inStack.insert(pred);
                 allVisited = false;
             }
         }
@@ -615,7 +617,10 @@ Status DFSVisit(std::unordered_set<int> &visited, int preColor, std::unordered_m
         visited.insert(currColor);
         visitStack.pop_back();
         for (int succ : colorOutGraph[currColor]) {
-            visitStack.push_back(succ);
+            if (visited.count(succ) == 0 && inStack.count(succ) == 0) {
+                visitStack.push_back(succ);
+                inStack.insert(succ);
+            }
         }
     }
     return SUCCESS;
