@@ -914,13 +914,13 @@ Status Allocator::UpdateStorageId(TensorsDesc &tensorsDesc, std::unordered_map<i
     }
 
     auto iter = idMap.find(tensor->storage_->start_);
-    if (iter == idMap.end()) {
-        idMap.emplace(std::make_pair(tensor->storage_->start_, storageId));
-        tensor->storage_->id_ = storageId;
-        storageId++;
-    } else {
+    if (iter != idMap.end()) {
         tensor->storage_->id_ = iter->second;
+        return SUCCESS;
     }
+    idMap.emplace(std::make_pair(tensor->storage_->start_, storageId));
+    tensor->storage_->id_ = storageId;
+    storageId++;
     return SUCCESS;
 }
 

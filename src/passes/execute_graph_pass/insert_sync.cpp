@@ -18,22 +18,29 @@
 
 namespace npu {
 namespace tile_fwk {
-Status RangeSearchTree::ProcessTreeNode(const Interval &interval, IntervalTreeNode *currPtr, std::vector<IntervalTreeNode*> &intervalStack) {
+Status RangeSearchTree::ProcessTreeNode(
+    const Interval &interval, IntervalTreeNode *currPtr, std::vector<IntervalTreeNode *> &intervalStack) {
     int start = currPtr->interval.start;
     if (interval.start < start) {
-        if (currPtr->left == nullptr) {
-            currPtr->left = new IntervalTreeNode(interval);
-            if (currPtr->left == nullptr) { ALOG_ERROR_F("New created left tree node is nullptr, ProcessTreeNode failed!"); return FAILED; }
-        } else {
+        if (currPtr->left != nullptr) {
             intervalStack.push_back(currPtr->left);
+            return SUCCESS;
         }
-    } else {
-        if (currPtr->right == nullptr) {
-            currPtr->right = new IntervalTreeNode(interval);
-            if (currPtr->right == nullptr) { ALOG_ERROR_F("New created right tree node is nullptr, ProcessTreeNode failed!"); return FAILED; }
-        } else {
-            intervalStack.push_back(currPtr->right);
+        currPtr->left = new IntervalTreeNode(interval);
+        if (currPtr->left == nullptr) {
+            ALOG_ERROR_F("New created left tree node is nullptr, ProcessTreeNode failed!");
+            return FAILED;
         }
+        return SUCCESS;
+    }
+    if (currPtr->right != nullptr) {
+        intervalStack.push_back(currPtr->right);
+        return SUCCESS;
+    }
+    currPtr->right = new IntervalTreeNode(interval);
+    if (currPtr->right == nullptr) {
+        ALOG_ERROR_F("New created right tree node is nullptr, ProcessTreeNode failed!");
+        return FAILED;
     }
     return SUCCESS;
 }
@@ -243,17 +250,17 @@ std::string PipeSync::DepOp::DumpDepOp(std::vector<Operation *> opLog) {
     for (auto i : setPipe) {
         if (opLog.empty()) {
             ss << opLog[i]->GetOpMagic() << ", ";
-        } else {
-            ss << opLog[i]->GetOpMagic() << " " << opLog[i]->GetOpcodeStr() << ", ";
+            continue;
         }
+        ss << opLog[i]->GetOpMagic() << " " << opLog[i]->GetOpcodeStr() << ", ";
     }
     ss << "}, waitPipe: {";
     for (auto i : waitPipe) {
         if (opLog.empty()) {
             ss << opLog[i]->GetOpMagic() << ", ";
-        } else {
-            ss << opLog[i]->GetOpMagic() << " " << opLog[i]->GetOpcodeStr() << ", ";
+            continue;
         }
+        ss << opLog[i]->GetOpMagic() << " " << opLog[i]->GetOpcodeStr() << ", ";
     }
     ss << "}";
     return ss.str();
@@ -360,7 +367,9 @@ Status PipeSync::AdjustCopyInCfg(TileOpCfg &opcfg, Operation *opptr) {
         opcfg.pipeIdStart_ = PipeType::PIPE_MTE2;
         opcfg.pipeIdEnd_ = PipeType::PIPE_MTE2;
         opcfg.coreType_ = CoreType::AIC;
-    } else if (dstMemType == MemoryType::MEM_UB) {
+        return SUCCESS;
+    } 
+    if (dstMemType == MemoryType::MEM_UB) {
         opcfg.pipeIdStart_ = PipeType::PIPE_MTE2;
         opcfg.pipeIdEnd_ = PipeType::PIPE_MTE2;
         opcfg.coreType_ = CoreType::AIV;
@@ -379,11 +388,15 @@ Status PipeSync::AdjustCopyOutCfg(TileOpCfg &opcfg, Operation *opptr) {
         opcfg.pipeIdStart_ = PipeType::PIPE_FIX;
         opcfg.pipeIdEnd_ = PipeType::PIPE_FIX;
         opcfg.coreType_ = CoreType::AIC;
-    } else if (srcMemType == MemoryType::MEM_UB) {
+        return SUCCESS;
+    }
+    if (srcMemType == MemoryType::MEM_UB) {
         opcfg.pipeIdStart_ = PipeType::PIPE_MTE3;
         opcfg.pipeIdEnd_ = PipeType::PIPE_MTE3;
         opcfg.coreType_ = CoreType::AIV;
-    } else if (srcMemType == MemoryType::MEM_L1) {
+        return SUCCESS;
+    }
+    if (srcMemType == MemoryType::MEM_L1) {
         opcfg.pipeIdStart_ = PipeType::PIPE_MTE3;
         opcfg.pipeIdEnd_ = PipeType::PIPE_MTE3;
         opcfg.coreType_ = CoreType::AIC;
@@ -437,18 +450,18 @@ void PipeSync::InitIssueQueue() {
 void PipeSync::EnqueueOp(DepOp &op, const std::vector<Operation *> opLogPtr, std::vector<IndexOp> &syncedOpLog) {
    if (opLogPtr[op.idx]->GetOpcode() == Opcode::OP_ASSEMBLE || opLogPtr[op.idx]->GetOpcode() == Opcode::OP_VIEW) {
         syncedOpLog.emplace_back(std::make_pair(op.idx, opLogPtr[op.idx]));
-    } else {
-        PipeCoreReal opPipeCore(op.selfPipeCore.pipeEnd, op.selfPipeCore.core);
-        auto &issueQ = issueState_[static_cast<int>(GetPipeSeq(opPipeCore))];
-        issueQ.ops.emplace_back(op.idx);
-        op.idxInPipe = issueQ.ops.size() - 1;
-        // 若op的pipeStart和pipeEnd不同, 进行记录
-        if (op.selfPipeCore.pipeStart != op.selfPipeCore.pipeEnd) {
-            PipeCoreReal opPipeCoreEnd(op.selfPipeCore.pipeEnd, op.selfPipeCore.core);
-            PipePair pp{opPipeCore, opPipeCoreEnd};
-            int opMagic = opLogPtr[op.idx]->GetOpMagic();
-            doublePipeOp[pp].emplace_back(opMagic);
-        }
+        return;
+    }
+    PipeCoreReal opPipeCore(op.selfPipeCore.pipeEnd, op.selfPipeCore.core);
+    auto &issueQ = issueState_[static_cast<int>(GetPipeSeq(opPipeCore))];
+    issueQ.ops.emplace_back(op.idx);
+    op.idxInPipe = issueQ.ops.size() - 1;
+    // 若op的pipeStart和pipeEnd不同, 进行记录
+    if (op.selfPipeCore.pipeStart != op.selfPipeCore.pipeEnd) {
+        PipeCoreReal opPipeCoreEnd(op.selfPipeCore.pipeEnd, op.selfPipeCore.core);
+        PipePair pp{opPipeCore, opPipeCoreEnd};
+        int opMagic = opLogPtr[op.idx]->GetOpMagic();
+        doublePipeOp[pp].emplace_back(opMagic);
     }
 }
 
@@ -526,12 +539,14 @@ Status PipeSync::HandleEventID(DepOp &op, IssueQueue &issueQ, IssueNum &issuenum
         issuenum.currIssueNum.emplace(pp, 0);
 
         if (issuenum.currIssueNum[pp] >= issuenum.maxIssueNum[pp]) {
-            if (deadlock) {
-                // eventID deadlock, adjust op dependency to release eventID.
-                if (AdjustOpDep(op, ele, issueQ) != SUCCESS) { ALOG_ERROR_F("HandleEventID failed at function AdjustOpDep!"); return FAILED; }
-            } else {
+            if (!deadlock) {
                 eventIdOk = false;
                 break;
+            }
+            // eventID deadlock, adjust op dependency to release eventID.
+            if (AdjustOpDep(op, ele, issueQ) != SUCCESS) {
+                ALOG_ERROR_F("HandleEventID failed at function AdjustOpDep!");
+                return FAILED;
             }
         }
     }
@@ -574,19 +589,18 @@ Status PipeSync::PopFromQueue(IssueQueue &issueQ, std::vector<size_t> &poped, bo
             ALOG_ERROR_F("PopFromQueue failed at function HandleEventID!");
             return FAILED;
         }
-        if (ready && res) {
-            op.issued = true;
-            poped.emplace_back(op.idx);
-            for (auto ele : op.setPipe) {
-                PipeCoreReal currPipeCore(op.selfPipeCore.pipeEnd, op.selfPipeCore.core);
-                PipeCoreReal elePipeCore(depOps_[ele].selfPipeCore.pipeStart, depOps_[ele].selfPipeCore.core);
-                auto pp = PipePair{currPipeCore, elePipeCore};
-                issuenum.currIssueNum[pp] = issuenum.currIssueNum[pp] + 1;
-            }
-            issueQ.currOp++;
-        } else {
+        if (!ready || !res) {
             break;
         }
+        op.issued = true;
+        poped.emplace_back(op.idx);
+        for (auto ele : op.setPipe) {
+            PipeCoreReal currPipeCore(op.selfPipeCore.pipeEnd, op.selfPipeCore.core);
+            PipeCoreReal elePipeCore(depOps_[ele].selfPipeCore.pipeStart, depOps_[ele].selfPipeCore.core);
+            auto pp = PipePair{currPipeCore, elePipeCore};
+            issuenum.currIssueNum[pp] = issuenum.currIssueNum[pp] + 1;
+        }
+        issueQ.currOp++;
     }
     return SUCCESS;
 }
@@ -606,13 +620,13 @@ Status PipeSync::InjectSync(Function &function, std::vector<Operation *> opLogPt
         syncOp.opmagic = ++maxOpMagic;
         Operation *syncOpPtr = &syncOp;
         bool res = GenSyncOp(setPipeReal, currPipeReal, eventId, false, syncOpPtr);
-        if (res) {
-            // insert wait_flag
-            syncedOpLog.emplace_back(std::make_pair(-1, syncOpPtr));
-            GetFreeEventIdQueue({setPipeReal, currPipeReal}).push_back(eventId);
-        } else {
+        if (!res) {
             syncOpPtr->SetAsDeleted();
+            continue;
         }
+        // insert wait_flag
+        syncedOpLog.emplace_back(std::make_pair(-1, syncOpPtr));
+        GetFreeEventIdQueue({setPipeReal, currPipeReal}).push_back(eventId);
     }
 
     syncedOpLog.emplace_back(std::make_pair(idx, opLogPtr[idx]));
@@ -634,9 +648,10 @@ Status PipeSync::InjectSync(Function &function, std::vector<Operation *> opLogPt
         if (res) {
             // insert set_flag
             syncedOpLog.emplace_back(std::make_pair(-1, syncOpPtr));
-        } else {
-            syncOpPtr->SetAsDeleted();
+            setWaitPairMap_[{idx, ele}] = eventId;
+            continue;
         }
+        syncOpPtr->SetAsDeleted();
         setWaitPairMap_[{idx, ele}] = eventId;
     }
     return SUCCESS;
@@ -648,9 +663,8 @@ int PipeSync::GetMaxEventId(const PipePair &pp) {
     auto it2 = doublePipeOp.find(ppReverse);
     if (it1 == doublePipeOp.end() && it2 == doublePipeOp.end()) {
         return EVENT_NUM;
-    } else {
-        return EVENT_ID7;
     }
+    return EVENT_ID7;
 }
 
 Status PipeSync::ProcessDeadLock(uint64_t &eventIdDeadlockEnterTimes, bool &eventIdDeadlock, std::vector<IndexOp> &syncedOpLog) {
@@ -954,23 +968,24 @@ Status PipeSync::RelaxFakeDataDep(std::vector<IndexOp> &syncedOpLog) {
 }
 
 bool PipeSync::GenSyncOp(PipeCoreReal set, PipeCoreReal wait, int eventId, bool isSet, Operation *op) {
-    if (set.core == wait.core || config::GetPassGlobalConfig("enable_cv_fuse", false)) {
-        if (set.pipe == wait.pipe) {
-            if (isSet || set.pipe == PipeType::PIPE_S) {
-                return false;
-            }
-            if (set.core == CoreType::AIV) {
-                op->SetOpCode(Opcode::OP_BAR_V);
-            } else {
-                op->SetOpCode(Opcode::OP_BAR_M);
-            }
-            //同步相关的信息放在operation属性里
-            op->syncQueue_ = {set.pipe, wait.pipe, set.core, wait.core, eventId};
-        } else {
-            op->SetOpCode(isSet ? Opcode::OP_SYNC_SRC : Opcode::OP_SYNC_DST);
-            op->syncQueue_ = {set.pipe, wait.pipe, set.core, wait.core, eventId};
-        }
+    if (set.core != wait.core && !config::GetPassGlobalConfig("enable_cv_fuse", false)) {
+        return true;
     }
+    if (set.pipe != wait.pipe) {
+        op->SetOpCode(isSet ? Opcode::OP_SYNC_SRC : Opcode::OP_SYNC_DST);
+        op->syncQueue_ = {set.pipe, wait.pipe, set.core, wait.core, eventId};
+        return true;
+    }
+    if (isSet || set.pipe == PipeType::PIPE_S) {
+        return false;
+    }
+    //同步相关的信息放在operation属性里
+    op->syncQueue_ = {set.pipe, wait.pipe, set.core, wait.core, eventId};
+    if (set.core == CoreType::AIV) {
+        op->SetOpCode(Opcode::OP_BAR_V);
+        return true;
+    }
+    op->SetOpCode(Opcode::OP_BAR_M);
     return true;
 }
 
@@ -1004,10 +1019,9 @@ bool PipeSync::BufOverlap(const TileRange &range1, int magic1, const TileRange &
     if (range1.end > range2.start && range2.end > range1.start) {
         ALOG_DEBUG_F("        Tensor %d and tensor %d have overlap ", magic1, magic2);
         return true;
-    } else {
-        ALOG_DEBUG_F("        Tensor %d and tensor %d don't have overlap ", magic1, magic2);
-        return false;
     }
+    ALOG_DEBUG_F("        Tensor %d and tensor %d don't have overlap ", magic1, magic2);
+    return false;
 }
 
 bool PipeSync::CheckWawDependency(const Operation *opSet, const Operation *opWait, size_t k, size_t idx) const {
@@ -1256,13 +1270,17 @@ void PipeSync::PhaseKernelProcess(Function &function, std::vector<Operation *> s
 Status PipeSync::ProcessView(std::vector<Operation *> &opLogNew, std::pair<Operation *, Operation *> pair) {
     auto it1 = std::find(opLogNew.begin(), opLogNew.end(), pair.second);
     auto it2 = std::find(opLogNew.begin(), opLogNew.end(), pair.first);
-    if (it1 == opLogNew.end() && it2 == opLogNew.end()) {
-        opLogNew.emplace_back(pair.first);
-        opLogNew.emplace_back(pair.second);
-    } else if (it1 != opLogNew.end() && it2 == opLogNew.end()) {
-        opLogNew.insert(it1, pair.first);
-    } else if (it1 == opLogNew.end() && it2 != opLogNew.end()) {
+    if (it1 == opLogNew.end()) {
+        if (it2 == opLogNew.end()) {
+            opLogNew.emplace_back(pair.first);
+            opLogNew.emplace_back(pair.second);
+            return SUCCESS;
+        }
         opLogNew.insert(it2+1, pair.second);
+        return SUCCESS;
+    }
+    if (it2 == opLogNew.end()) {
+        opLogNew.insert(it1, pair.first);
     }
     return SUCCESS;
 }
@@ -1270,12 +1288,16 @@ Status PipeSync::ProcessView(std::vector<Operation *> &opLogNew, std::pair<Opera
 Status PipeSync::ProcessAssemble(std::vector<Operation *> &opLogNew, std::pair<Operation *, Operation *> pair) {
     auto it1 = std::find(opLogNew.begin(), opLogNew.end(), pair.first);
     auto it2 = std::find(opLogNew.begin(), opLogNew.end(), pair.second);
-    if (it2 == opLogNew.end() && it1 == opLogNew.end()) {
-        opLogNew.emplace_back(pair.second);
-        opLogNew.emplace_back(pair.first);
-    } else if (it2 != opLogNew.end() && it1 == opLogNew.end()) {
+    if (it1 == opLogNew.end()) {
+        if (it2 == opLogNew.end()) {
+            opLogNew.emplace_back(pair.second);
+            opLogNew.emplace_back(pair.first);
+            return SUCCESS;
+        }
         opLogNew.insert(it2+1, pair.first);
-    } else if (it2 == opLogNew.end() && it1 != opLogNew.end()) {
+        return SUCCESS;
+    }
+    if (it2 == opLogNew.end()) {
         opLogNew.insert(it1, pair.second);
     }
     return SUCCESS;
@@ -1287,15 +1309,15 @@ Status PipeSync::ProcessViewAssemble(std::vector<Operation *> &opLogNew, std::pa
             ALOG_ERROR_F("ProcessView failed.");
             return FAILED;
         }
-    } else {
-        if (pair.first->GetOpcode() != Opcode::OP_ASSEMBLE) {
-            ALOG_ERROR_F("ProcessViewAssemble failed, this op should be ASSEMBLE!");
-            return FAILED;
-        }
-        if (ProcessAssemble(opLogNew, pair) != SUCCESS) {
-            ALOG_ERROR_F("ProcessAssemble failed.");
-            return FAILED;
-        }
+        return SUCCESS;
+    }
+    if (pair.first->GetOpcode() != Opcode::OP_ASSEMBLE) {
+        ALOG_ERROR_F("ProcessViewAssemble failed, this op should be ASSEMBLE!");
+        return FAILED;
+    }
+    if (ProcessAssemble(opLogNew, pair) != SUCCESS) {
+        ALOG_ERROR_F("ProcessAssemble failed.");
+        return FAILED;
     }
     return SUCCESS;
 }
@@ -1310,9 +1332,12 @@ Status PipeSync::ReorderViewAssemble(std::vector<Operation *> &opLog, std::vecto
         auto it = toBeInsert.find(opPtr);
         if (it == toBeInsert.end()) {
             opListNew.emplace_back(opPtr);
-        } else {
-            for (auto pair : changeMap) {
-                if (pair.second == opPtr && (ProcessViewAssemble(opListNew, pair) != SUCCESS)) { ALOG_ERROR_F("ReorderViewAssemble failed at function ProcessViewAssemble!"); return FAILED; }
+            continue;
+        }
+        for (auto pair : changeMap) {
+            if (pair.second == opPtr && (ProcessViewAssemble(opListNew, pair) != SUCCESS)) {
+                ALOG_ERROR_F("ReorderViewAssemble failed at function ProcessViewAssemble!");
+                return FAILED;
             }
         }
     }
@@ -1363,13 +1388,14 @@ Status PipeSync::ProcessViewAssembleOrder(std::vector<Operation *> &opLog, std::
                 ALOG_ERROR_F("ProcessViewOrder failed!");
                 return FAILED;
             }
-        } else if (opPtr->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            if (ProcessAssembleOrder(opPtr, opLog, changeMap)) {
-                ALOG_ERROR_F("ProcessAssembleOrder failed!");
-                return FAILED;
-            }
-        } else {
+            continue;
+        }
+        if (opPtr->GetOpcode() != Opcode::OP_ASSEMBLE) {
             break;
+        }
+        if (ProcessAssembleOrder(opPtr, opLog, changeMap)) {
+            ALOG_ERROR_F("ProcessAssembleOrder failed!");
+            return FAILED;
         }
     }
     if (ReorderViewAssemble(opLog, opListNew, changeMap) != SUCCESS) {
@@ -1426,13 +1452,14 @@ Status InsertSync::InsertSyncMainLoop(Function *subGraphFunc) {
     subGraphFunc->ScheduleBy(opListNew, true);
     ALOG_DEBUG_F("==========================================================================================");
     for (const auto &op : subGraphFunc->Operations().DuplicatedOpList()) {
-        if (op->GetOpcodeStr() == "SYNC_SRC" || op->GetOpcodeStr() == "SYNC_DST" || op->GetOpcodeStr() == "BAR.V" || op->GetOpcodeStr() == "BAR.M") {
-            ALOG_DEBUG_F("Output operation %d: %s, setpipe type: %s, waitpipe type: %s, eventid: %d",
-                op->GetOpMagic(), op->GetOpcodeStr().c_str(), PipeTypeName(op->syncQueue_.pipeId_).c_str(), 
+        if (op->GetOpcodeStr() == "SYNC_SRC" || op->GetOpcodeStr() == "SYNC_DST" || op->GetOpcodeStr() == "BAR.V" ||
+            op->GetOpcodeStr() == "BAR.M") {
+            ALOG_DEBUG_F("Output operation %d: %s, setpipe type: %s, waitpipe type: %s, eventid: %d", op->GetOpMagic(),
+                op->GetOpcodeStr().c_str(), PipeTypeName(op->syncQueue_.pipeId_).c_str(),
                 PipeTypeName(op->syncQueue_.trigPipeId_).c_str(), op->syncQueue_.eventId_);
-        } else {
-            ALOG_DEBUG_F("Output operation %d: %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
+            continue;
         }
+        ALOG_DEBUG_F("Output operation %d: %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
     }
     return SUCCESS;
 }
@@ -1473,10 +1500,9 @@ Status InsertSync::RunOnFunction(Function &function) {
         if (threadNum == 1) {
             ALOG_ERROR_F("InsertSync RunOnFunction failed at function InsertSyncMainLoop in Single Thread scenario!");
             return FAILED;
-        } else {
-            ALOG_ERROR_F("InsertSync RunOnFunction failed at function InsertSyncMainLoop in Multiple Threads scenario!");
-            return FAILED;
         }
+        ALOG_ERROR_F("InsertSync RunOnFunction failed at function InsertSyncMainLoop in Multiple Threads scenario!");
+        return FAILED;
     }
     // Wait for all threads to finish
     for (auto& t : workers) {

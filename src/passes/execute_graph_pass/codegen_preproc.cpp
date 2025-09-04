@@ -41,11 +41,7 @@ Status CodegenPreproc::SaveGmTensorParamIdxToOp(Function &func) const {
         gmParamInCallFunc.clear();
         for (auto &op : subProgram.second->Operations()) {
             if (IsNeedSave(op)) {
-                int coaIndex;
-                if (IsCopyIn(op.GetOpcode()))
-                    coaIndex = op.GetIOpAttrOffset(0);
-                else
-                    coaIndex = op.GetOOpAttrOffset(0);
+                int coaIndex = IsCopyIn(op.GetOpcode()) ? op.GetIOpAttrOffset(0) : op.GetOOpAttrOffset(0);
                 gmParamInCallFunc[coaIndex].emplace_back(&op);
             }
         }
@@ -67,12 +63,7 @@ void CodegenPreproc::CombineTailAxis(std::vector<int64_t> &shape, size_t shapeSi
 }
 
 Status CodegenPreproc::ProcessAxis(Operation &op, std::vector<bool> attr, bool isInput) const {
-    LogicalTensors operands{};
-    if (isInput) {
-        operands = op.GetIOperands();
-    } else {
-        operands = op.GetOOperands();
-    }
+    LogicalTensors operands = isInput ? op.GetIOperands() : op.GetOOperands();
     if (attr.size() < operands.size()) {
         for (size_t i = 0; i < operands.size() - attr.size(); ++i) {
             attr.emplace_back(false);

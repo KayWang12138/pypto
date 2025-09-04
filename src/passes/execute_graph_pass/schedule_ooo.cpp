@@ -38,9 +38,8 @@ bool compareIssueEntries(const IssueEntryPtr &a, const IssueEntryPtr &b,
     int priorB = getEntryPriority(b, preNodePriority);
     if (priorA != priorB) {
         return priorA < priorB;
-    } else {
-        return a->execOrder < b->execOrder;
     }
+    return a->execOrder < b->execOrder;
 }
 }
 
@@ -88,23 +87,20 @@ void IssueEntry::UpdateTensorInput(std::shared_ptr<IssueEntry> &spillSrcIssue, L
 }
 
 uint64_t OoOScheduler::ShapeCeilAlign(std::vector<int64_t> shape, DataType dtype) {
-    uint64_t bytes = 0;
     if (shape.size() == DIM_FIVE) {
-        bytes = BytesPerElement(dtype) * std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int>());
-        bytes = CeilAlign(bytes, UB_BLOCK_SIZE);
-    } else {
-        uint64_t preDimSize = 1;
-        uint64_t last2DimSize = 1;
-        for (size_t i = 0; i < shape.size(); i++) {
-            if ((i < (shape.size() - LAST_TWO_DIM)) && (shape.size() != 1)) {
-                preDimSize *= shape[i];
-            } else {
-                last2DimSize *= shape[i];
-            }
-        }
-        bytes = preDimSize * CeilAlign(last2DimSize * BytesPerElement(dtype), UB_BLOCK_SIZE);
+        uint64_t bytes = BytesPerElement(dtype) * std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int>());
+        return CeilAlign(bytes, UB_BLOCK_SIZE);
     }
-    return bytes;
+    uint64_t preDimSize = 1;
+    uint64_t last2DimSize = 1;
+    for (size_t i = 0; i < shape.size(); i++) {
+        if ((i < (shape.size() - LAST_TWO_DIM)) && (shape.size() != 1)) {
+            preDimSize *= shape[i];
+            continue;
+        }
+        last2DimSize *= shape[i];
+    }
+    return preDimSize * CeilAlign(last2DimSize * BytesPerElement(dtype), UB_BLOCK_SIZE);
 }
 
 Status OoOScheduler::DelBufRefCount(const int memId) {
@@ -190,14 +186,14 @@ Status OoOScheduler::UpdateTensorAttr(
         tensor->memorymap[subGraphID] =
             TileRange(workspaceOffset, workspaceOffset + localBufferMap[spillMemId]->size, workspaceMemId++);
         workspaceOffset += localBufferMap[spillMemId]->size;
-    } else {
-        tensor->memorymap[subGraphID].memId = maxTensorMagic;
-        localBufferMap[maxTensorMagic] = std::make_shared<LocalBuffer>(
-            maxTensorMagic, ShapeCeilAlign(tensor->GetShape(), tensor->Datatype()), tensor->GetMemoryTypeOriginal());
-        if (localBufferMap[maxTensorMagic] == nullptr) {
-            ALOG_ERROR_F("Init Tensor[%d] localBuffer failed.", maxTensorMagic);
-            return FAILED;
-        }
+        return SUCCESS;
+    }
+    tensor->memorymap[subGraphID].memId = maxTensorMagic;
+    localBufferMap[maxTensorMagic] = std::make_shared<LocalBuffer>(
+        maxTensorMagic, ShapeCeilAlign(tensor->GetShape(), tensor->Datatype()), tensor->GetMemoryTypeOriginal());
+    if (localBufferMap[maxTensorMagic] == nullptr) {
+        ALOG_ERROR_F("Init Tensor[%d] localBuffer failed.", maxTensorMagic);
+        return FAILED;
     }
     return SUCCESS;
 }
@@ -378,15 +374,16 @@ void OoOScheduler::UpdateBufferUsage(MemoryType bufferType, int memId, bool isFr
         oooCheck.bufferTotalUsage[bufferType] += oooCheck.bufferLastUsage[bufferType] * (clock - oooCheck.lastClock[bufferType]);
         oooCheck.bufferLastUsage[bufferType] -= freeBufferSize;
         oooCheck.lastClock[bufferType] = clock;
-    } else {
-        oooCheck.bufferTotalUsage[bufferType] += oooCheck.bufferLastUsage[bufferType] * (clock - oooCheck.lastClock[bufferType]);
-        oooCheck.bufferLastUsage[bufferType] += localBufferMap[memId]->size;
-        oooCheck.lastClock[bufferType] = clock;
-        oooCheck.bufferMaxUsage[bufferType] = std::max(oooCheck.bufferMaxUsage[bufferType], oooCheck.bufferLastUsage[bufferType]);
+        return;
     }
+    oooCheck.bufferTotalUsage[bufferType] += oooCheck.bufferLastUsage[bufferType] * (clock - oooCheck.lastClock[bufferType]);
+    oooCheck.bufferLastUsage[bufferType] += localBufferMap[memId]->size;
+    oooCheck.lastClock[bufferType] = clock;
+    oooCheck.bufferMaxUsage[bufferType] = std::max(oooCheck.bufferMaxUsage[bufferType], oooCheck.bufferLastUsage[bufferType]);
 }
 
-OoOSchedulerCheck::SpillInfo OoOScheduler::RecordSpillInfo(MemoryType bufferType, int memId, LocalBufferPtr allocBuffer, LogicalTensorPtr spillOutTensor, bool needCopyOut) {
+OoOSchedulerCheck::SpillInfo OoOScheduler::RecordSpillInfo(
+    MemoryType bufferType, int memId, LocalBufferPtr allocBuffer, LogicalTensorPtr spillOutTensor, bool needCopyOut) {
     OoOSchedulerCheck::SpillInfo spillInfo;
     spillInfo.spillType = bufferType;
     spillInfo.bufferCurrUsage = oooCheck.bufferLastUsage[bufferType];
@@ -402,10 +399,12 @@ OoOSchedulerCheck::SpillInfo OoOScheduler::RecordSpillInfo(MemoryType bufferType
     spillInfo.allocOccupiedSize = allocOccupied;
     if (needCopyOut) {
         auto dtype = spillOutTensor->tensor->datatype;
-        spillInfo.spillCopyoutSize = std::accumulate(spillOutTensor->shape.begin(), spillOutTensor->shape.end(), 1, std::multiplies<int64_t>()) * BytesOf(dtype);
-    } else {
-        spillInfo.spillCopyoutSize = 0;
+        spillInfo.spillCopyoutSize =
+            std::accumulate(spillOutTensor->shape.begin(), spillOutTensor->shape.end(), 1, std::multiplies<int64_t>()) *
+            BytesOf(dtype);
+        return spillInfo;
     }
+    spillInfo.spillCopyoutSize = 0;
     return spillInfo;
 }
 
@@ -556,10 +555,10 @@ Status OoOScheduler::InitLocalBuffer(LogicalTensorPtr oOperand, int memId) {
             ALOG_ERROR_F("Init tensor[%d] localBuffer failed!", memId);
             return FAILED;
         }
-    } else {
-        localBufferMap[memId]->size =
-            std::max(localBufferMap[memId]->size, ShapeCeilAlign(oOperand->GetShape(), oOperand->Datatype()));
+        return SUCCESS;
     }
+    localBufferMap[memId]->size =
+        std::max(localBufferMap[memId]->size, ShapeCeilAlign(oOperand->GetShape(), oOperand->Datatype()));
     return SUCCESS;
 }
 
@@ -673,9 +672,9 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
     for (auto& op : operations) {
         if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
             newOperations.insert(newOperations.begin(), op);
-        } else {
-            newOperations.push_back(op);
+            continue;
         }
+        newOperations.push_back(op);
     }
 
     // 校验并初始化issueEntry
@@ -794,9 +793,9 @@ void OoOScheduler::DFSFromSingleNode(IssueEntryPtr issue, std::map<IssueEntryPtr
             visited[curIssue] = true;
             queue.pop_front();
             newIssueEntries.push_back(curIssue);
-        } else {
-            UpdateIssueEntriesWithUnvisitedPredecessors(curIssue, visited, preNodePriority, queue);
+            continue;
         }
+        UpdateIssueEntriesWithUnvisitedPredecessors(curIssue, visited, preNodePriority, queue);
     }
 }
 
@@ -979,12 +978,11 @@ Status OoOScheduler::PriorDFS(std::unordered_map<Opcode, int> preNodePriority) {
         }
     }
 
-    if (outNodeQueue.size() != 0) {
-       DFSFromSingleNode(outNodeQueue[0], visited, newIssueEntries, preNodePriority);
-    } else {
+    if (outNodeQueue.size() == 0) {
         ALOG_ERROR_F("Subgraph must have operation with outdegree 0.");
         return FAILED;
     }
+    DFSFromSingleNode(outNodeQueue[0], visited, newIssueEntries, preNodePriority);
 
     for (size_t i = 1; i < outNodeQueue.size(); i++) {
         while (!visited[outNodeQueue[i]]) {
@@ -1035,13 +1033,20 @@ Status OoOScheduler::SortOps(SortOpMethod sortMethod) {
             {Opcode::OP_UB_COPY_L1, 2},
             // 最后访问其它计算节点（其它节点默认的优先级为10）。
         };
-        if (PriorDFS(preNodePriority) != SUCCESS) { ALOG_ERROR_F("PriorDFS failed."); return FAILED; }
-    } else if (sortMethod == SortOpMethod::LayerBasedDFS) {
-        const int layerDepth = 10;
-        if (LayerBasedDFS(layerDepth) != SUCCESS) { ALOG_ERROR_F("LayerBasedDFS failed."); return FAILED; }
-    } else {
+        if (PriorDFS(preNodePriority) != SUCCESS) {
+            ALOG_ERROR_F("PriorDFS failed.");
+            return FAILED;
+        }
+        return SUCCESS;
+    }
+    if (sortMethod != SortOpMethod::LayerBasedDFS) {
          ALOG_ERROR_F("Op sort method not recognized.");
          return FAILED;
+    }
+    const int layerDepth = 10;
+    if (LayerBasedDFS(layerDepth) != SUCCESS) {
+        ALOG_ERROR_F("LayerBasedDFS failed.");
+        return FAILED;
     }
     return SUCCESS;
 }
@@ -1166,15 +1171,15 @@ void OoOScheduler::FindFilterLtags(IssueEntryPtr allocIssue, std::set<IssueEntry
 Status OoOScheduler::UpdateBufNextUseTime(int currPc, int memId, std::unordered_map<int, size_t> &nextUseTimeCache, std::vector<size_t> &bufNextUseTime) {
     if (nextUseTimeCache.find(memId) != nextUseTimeCache.end()) {
         bufNextUseTime.push_back(nextUseTimeCache[memId]);
-    } else {
-        size_t nextUseTime = currPc;
-        if (!GetBufNextUseTime(memId, nextUseTime)) {
-            ALOG_ERROR_F("Cannot find Tensor[%d] next used time.", memId);
-            return FAILED;
-        }
-        nextUseTimeCache[memId] = nextUseTime;
-        bufNextUseTime.push_back(nextUseTime);
+        return SUCCESS;
     }
+    size_t nextUseTime = currPc;
+    if (!GetBufNextUseTime(memId, nextUseTime)) {
+        ALOG_ERROR_F("Cannot find Tensor[%d] next used time.", memId);
+        return FAILED;
+    }
+    nextUseTimeCache[memId] = nextUseTime;
+    bufNextUseTime.push_back(nextUseTime);
     return SUCCESS;
 }
 
@@ -1202,9 +1207,9 @@ Status OoOScheduler::UpdateGroupNextUseTime(int currPc, const std::vector<int> &
     }
     if (cannotSpill) {
         groupNextUseTime.push_back(-1);
-    } else {
-        groupNextUseTime.push_back(*std::min_element(bufNextUseTime.begin(), bufNextUseTime.end()));
+        return SUCCESS;
     }
+    groupNextUseTime.push_back(*std::min_element(bufNextUseTime.begin(), bufNextUseTime.end()));
     return SUCCESS;
 }
 
@@ -1404,18 +1409,21 @@ Status OoOScheduler::RetireIssueStage(uint64_t& commitCnt, int& nextCycle) {
         if (!pipe.busy) {
             continue;
         }
-        if (pipe.curOpRetireCycle <= clock) {   // 如果该pipe内当前正在执行op，在clock的时刻已经执行完毕。
-            IssueEntryPtr issue = pipe.curIssue;
-            pipe.busy = false;
-            pipe.curIssue = nullptr;
-            ALOG_DEBUG_F("EXECUTE END: %s[%d]", issue->tileOp->GetOpcodeStr().c_str(), issue->tileOp->GetOpMagic());
-            if (RetireOpAndAwakeSucc(issue, commitCnt) != SUCCESS) { ALOG_ERROR_F("RetireOpAndAwakeSucc failed!"); return FAILED; }
-        } else {
+        if (pipe.curOpRetireCycle > clock) {   // 如果该pipe内当前正在执行op，在clock的时刻已经执行完毕。
             ALOG_DEBUG_F("EXECUTING[%ld]: %s[%d]", pipe.curOpRetireCycle,
                 pipe.curIssue->tileOp->GetOpcodeStr().c_str(), pipe.curIssue->tileOp->GetOpMagic());
             if (nextCycle == -1 || nextCycle > pipe.curOpRetireCycle) {
                 nextCycle = pipe.curOpRetireCycle;
             }
+            continue;
+        }
+        IssueEntryPtr issue = pipe.curIssue;
+        pipe.busy = false;
+        pipe.curIssue = nullptr;
+        ALOG_DEBUG_F("EXECUTE END: %s[%d]", issue->tileOp->GetOpcodeStr().c_str(), issue->tileOp->GetOpMagic());
+        if (RetireOpAndAwakeSucc(issue, commitCnt) != SUCCESS) {
+            ALOG_ERROR_F("RetireOpAndAwakeSucc failed!");
+            return FAILED;
         }
     }
     return SUCCESS;
@@ -1428,13 +1436,12 @@ Status OoOScheduler::ReallocOutTensor(IssueEntryPtr &issue) {
             continue;
         }
         int memId = outTensor->memorymap[subGraphID].memId;
-        if (tensorOccupyMap.find(memType) != tensorOccupyMap.end()) {
-            if (tensorOccupyMap[memType].find(memId) == tensorOccupyMap[memType].end()) {
-                ALOG_ERROR_F("Tensor[%d] cannot find in tensorOccupyMap.", memId);
-                return FAILED;
-            }
-        } else {
+        if (tensorOccupyMap.find(memType) == tensorOccupyMap.end()) {
             ALOG_ERROR_F("%s cannot find in tensorOccupyMap.", MemoryTypeToString(memType).c_str());
+            return FAILED;
+        }
+        if (tensorOccupyMap[memType].find(memId) == tensorOccupyMap[memType].end()) {
+            ALOG_ERROR_F("Tensor[%d] cannot find in tensorOccupyMap.", memId);
             return FAILED;
         }
         if (localBufferMap.find(memId) == localBufferMap.end()) {
@@ -1506,19 +1513,18 @@ Status OoOScheduler::ExecuteAllocOp(MemoryType memType, IssueQueue &pipe, std::v
             break;
         }
         IssueEntryPtr issue = pipe.Front();
-        if (!bufferManagerMap[memType].IsFull(localBufferMap[issue->reqMemIds[0]])) {
-            if (AllocateTensor(memType, issue, newOperations) != SUCCESS) {
-                ALOG_ERROR_F("AllocateTensor failed.");
-                return FAILED;
-            }
-            pipe.PopFront();
-            if (RetireOpAndAwakeSucc(issue, commitCnt) != SUCCESS) {
-                ALOG_ERROR_F("RetireOpAndAwakeSucc failed.");
-                return FAILED;
-            }
-        } else {
+        if (bufferManagerMap[memType].IsFull(localBufferMap[issue->reqMemIds[0]])) {
             canAlloc = false;
             break;
+        }
+        if (AllocateTensor(memType, issue, newOperations) != SUCCESS) {
+            ALOG_ERROR_F("AllocateTensor failed.");
+            return FAILED;
+        }
+        pipe.PopFront();
+        if (RetireOpAndAwakeSucc(issue, commitCnt) != SUCCESS) {
+            ALOG_ERROR_F("RetireOpAndAwakeSucc failed.");
+            return FAILED;
         }
     }
     return SUCCESS;
@@ -1572,23 +1578,19 @@ Status OoOScheduler::ProcessScheduleStage(uint64_t &commitCnt, int &nextCycle, s
 }
 
 Status OoOScheduler::AdjustMemType(Function &func, int nextCycle, std::vector<Operation *> &newOperations) {
-    // 如果nextCycle为-1，说明每个pipe都处于idle的状态，判断出现阻塞。需要spill调整内存
-    if (nextCycle == -1) {
-        MemoryType spillMemType;
-        if (!allocIssueQueue[MemoryType::MEM_UB].Empty()) {
-            spillMemType = MemoryType::MEM_UB;
-        } else if (!allocIssueQueue[MemoryType::MEM_L1].Empty()) {
-            spillMemType = MemoryType::MEM_L1;
-        } else {
-            ALOG_ERROR_F("Buffer[L0A/B/C] is Full. Please check tile shape and OOO spill failed info.");
-            return FAILED;
-        }
-        if (GenBufferSpill(func, allocIssueQueue[spillMemType].Front(), spillMemType, newOperations) != SUCCESS) {
-            ALOG_ERROR_F("GenBufferSpill failed.");
-            return FAILED;
-        }
-    } else {
+    if (nextCycle != -1) {
         clock = nextCycle;
+        return SUCCESS;
+    }
+    // 如果nextCycle为-1，说明每个pipe都处于idle的状态，判断出现阻塞。需要spill调整内存
+    if (allocIssueQueue[MemoryType::MEM_UB].Empty() && allocIssueQueue[MemoryType::MEM_L1].Empty()) {
+        ALOG_ERROR_F("Buffer[L0A/B/C] is Full. Please check tile shape and OOO spill failed info.");
+        return FAILED;
+    }
+    MemoryType spillMemType = allocIssueQueue[MemoryType::MEM_UB].Empty() ? MemoryType::MEM_L1 : MemoryType::MEM_UB;
+    if (GenBufferSpill(func, allocIssueQueue[spillMemType].Front(), spillMemType, newOperations) != SUCCESS) {
+        ALOG_ERROR_F("GenBufferSpill failed.");
+        return FAILED;
     }
     return SUCCESS;
 }
@@ -1643,42 +1645,31 @@ Status OoOScheduler::ScheduleMainLoop(Function &func, std::vector<Operation *> &
     }
     ALOG_DEBUG_F("====================== NEW OPS =====================");
     for (auto op : newOperations) {
-        if (!op->oOperand.empty()) {
-            bool needAlloc = false;
-            op->oOperand[0]->GetAttr(OpAttributeKey::needAlloc, needAlloc);
-            ALOG_DEBUG_F("%s, %d, range[%zu, %zu], needAlloc: %d", op->GetOpcodeStr().c_str(), op->GetOpMagic(),
-                op->oOperand[0]->memorymap[op->GetSubgraphID()].start,
-                op->oOperand[0]->memorymap[op->GetSubgraphID()].end, static_cast<int>(needAlloc));
-        } else {
+        if (op->oOperand.empty()) {
             ALOG_INFO(op->GetOpcodeStr(), ", ", op->GetOpMagic());
+            continue;
         }
+        bool needAlloc = false;
+        op->oOperand[0]->GetAttr(OpAttributeKey::needAlloc, needAlloc);
+        ALOG_DEBUG_F("%s, %d, range[%zu, %zu], needAlloc: %d", op->GetOpcodeStr().c_str(), op->GetOpMagic(),
+            op->oOperand[0]->memorymap[op->GetSubgraphID()].start,
+            op->oOperand[0]->memorymap[op->GetSubgraphID()].end, static_cast<int>(needAlloc));
     }
     return SUCCESS;
 }
 
 Status OoOScheduler::ExecuteSortOps(Function &function) {
-    SortOpMethod sortMethod;
-    std::string sortMethodStr;
     std::string funcName = function.GetMagicName();
     auto funcNameToSortMethod = function.paramConfigs_.OoOPreScheduleMethodMap;
-    if (funcNameToSortMethod.count(funcName) > 0) {
-        sortMethodStr = funcNameToSortMethod[funcName];
-    } else {
-        sortMethodStr = function.paramConfigs_.OoOPreScheduleMethodDefault;
-    }
-    if (sortMethodStr == "PriorDFS") {
-        sortMethod = SortOpMethod::PriorDFS;
-    } else if (sortMethodStr == "LayerBasedDFS") {
-        sortMethod = SortOpMethod::LayerBasedDFS;
-    } else {
+    std::string sortMethodStr = (funcNameToSortMethod.count(funcName) > 0) ?
+                                    funcNameToSortMethod[funcName] :
+                                    function.paramConfigs_.OoOPreScheduleMethodDefault;
+    if (sortMethodStr != "PriorDFS" && sortMethodStr != "LayerBasedDFS") {
         ALOG_ERROR_F("PreSchedule method not recognized.");
         return FAILED;
     }
-    if (SortOps(sortMethod) != SUCCESS) {
-        ALOG_ERROR_F("SortOps failed!");
-        return FAILED;
-    }
-    return SUCCESS;
+    SortOpMethod sortMethod = (sortMethodStr == "PriorDFS") ? SortOpMethod::PriorDFS : SortOpMethod::LayerBasedDFS;
+    return SortOps(sortMethod);
 }
 
 Status OoOScheduler::Initiate(const std::vector<Operation *> &operations) {

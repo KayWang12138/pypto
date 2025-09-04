@@ -22,10 +22,10 @@ void SrcDstBufferMergeImpl::InitTensorMaxSize(const LogicalTensorPtr &output) {
         tensorConsumers_[output->memorymap[subGraphID_].memId].insert(consumer->GetOpMagic());
         if (tensorMaxSize_.find(output->memorymap[subGraphID_].memId) == tensorMaxSize_.end()) {
             tensorMaxSize_[output->memorymap[subGraphID_].memId] = output->GetDataSize();
-        } else {
-            tensorMaxSize_[output->memorymap[subGraphID_].memId] =
-                std::max(tensorMaxSize_[output->memorymap[subGraphID_].memId], output->GetDataSize());
+            continue;
         }
+        tensorMaxSize_[output->memorymap[subGraphID_].memId] =
+            std::max(tensorMaxSize_[output->memorymap[subGraphID_].memId], output->GetDataSize());
     }
 }
 

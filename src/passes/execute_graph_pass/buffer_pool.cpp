@@ -59,13 +59,10 @@ std::map<uint64_t, std::map<uint64_t, uint64_t>> BufferPool::FindFreeIntervals()
 }
 
 size_t BufferPool::ObtainStartAddr(size_t i, const std::vector<std::tuple<int, size_t, size_t>> &allocatedBufs) {
-    size_t startAddr = std::get<1>(allocatedBufs[i]);
     if (i == 0) {
-        startAddr = 0;
-    } else {
-        startAddr = std::get<START_ADDR_IDX>(allocatedBufs[i - 1]);
+        return 0;
     }
-    return startAddr;
+    return std::get<START_ADDR_IDX>(allocatedBufs[i - 1]);
 }
 
 size_t BufferPool::UpdateIdx(size_t &i, size_t sizeNeedSpill, size_t startAddr, const std::vector<std::tuple<int, size_t, size_t>> &allocatedBufs) {

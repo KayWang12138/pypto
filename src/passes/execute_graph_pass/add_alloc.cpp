@@ -57,9 +57,9 @@ Status AddAlloc::AddAndCheckAlloc(Function &function) {
     for (auto& op : function.Operations().DuplicatedOpList()) {
         if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
             newOperations.insert(newOperations.begin(), op);
-        } else {
-            newOperations.push_back(op);
+            continue;
         }
+        newOperations.push_back(op);
     }
     function.ScheduleBy(newOperations);
     return SUCCESS;
@@ -86,12 +86,12 @@ Status AddAlloc::UpdateTensorAllocMsg(Operation *op, size_t i, const std::vector
     }
     if (tensorAllocMsgMap.find(memId) == tensorAllocMsgMap.end()) {
         tensorAllocMsgMap.emplace(memId, ConstructTensorAllocMsg(op, i, memId, allocMagic));
-    } else {
-        tensorAllocMsgMap[memId].producer.push_back(op);
-        if (i < allocMagic.size() && tensorAllocMsgMap[memId].isAllocated == false) {
-            ALOG_DEBUG_F("tensor [%d] is allocaterd at the first time.", memId);
-            tensorAllocMsgMap[memId].isAllocated = true;
-        }
+        return SUCCESS;
+    }
+    tensorAllocMsgMap[memId].producer.push_back(op);
+    if (i < allocMagic.size() && tensorAllocMsgMap[memId].isAllocated == false) {
+        ALOG_DEBUG_F("tensor [%d] is allocaterd at the first time.", memId);
+        tensorAllocMsgMap[memId].isAllocated = true;
     }
     return SUCCESS;
 }

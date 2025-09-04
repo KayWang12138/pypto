@@ -64,9 +64,9 @@ Status InferParamIndex::ResetViewDynValidShape(const Operation &op) {
     }
     if (newValidShape.size() == newDynValidShape.size()) {
         op.GetOOperands()[0]->UpdateDynValidShape(newDynValidShape);
-    } else {
-        viewOpAttribute->SetToDynValidShape(std::vector<SymbolicScalar>());
+        return SUCCESS;
     }
+    viewOpAttribute->SetToDynValidShape(std::vector<SymbolicScalar>());
     return SUCCESS;
 }
 
@@ -130,12 +130,7 @@ Status InferParamIndex::InferShape(Function &function)
 
 Status InferParamIndex::UpdateValidShape(Function &subFunc, std::map<int, std::vector<SymbolicScalar>> &addr2ValidShape, std::map<int, std::vector<SymbolicScalar>> &addr2ValidShapeSpecified) {
     for (auto &op : subFunc.Operations()) {
-        int tensorBaseAddrCoaIndex;
-        if (IsCopyIn(op.GetOpcode())) {
-            tensorBaseAddrCoaIndex = op.GetIOpAttrOffset(0);
-        } else {
-            tensorBaseAddrCoaIndex = op.GetOOpAttrOffset(0);
-        }
+        int tensorBaseAddrCoaIndex = IsCopyIn(op.GetOpcode()) ? op.GetIOpAttrOffset(0) : op.GetOOpAttrOffset(0);
         if (tensorBaseAddrCoaIndex == -1) {
             continue;
         }

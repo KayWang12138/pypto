@@ -94,13 +94,14 @@ struct IssueQueue {
     void InsertReloadAlloc(IssueEntryPtr op, IssueEntryPtr spillIssue) {
         IssueEntryPtr firstSuccIssue = nullptr;
         for (auto& succ : spillIssue->successors) {
-            if (!succ->isRetired) {
-                if (firstSuccIssue == nullptr) {
-                    firstSuccIssue = succ;
-                } else {
-                    firstSuccIssue = firstSuccIssue->execOrder < succ->execOrder ? firstSuccIssue : succ;
-                }
+            if (succ->isRetired) {
+                continue;
             }
+            if (firstSuccIssue == nullptr) {
+                firstSuccIssue = succ;
+                continue;
+            }
+            firstSuccIssue = firstSuccIssue->execOrder < succ->execOrder ? firstSuccIssue : succ;
         }
         Insert(op, firstSuccIssue->execOrder);
         op->execOrder = firstSuccIssue->execOrder;
