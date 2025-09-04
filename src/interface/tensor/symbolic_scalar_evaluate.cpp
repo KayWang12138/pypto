@@ -89,6 +89,24 @@ ScalarImmediateType EvaluateSymbolicCallRuntimeGetInputDataInt32Dim3(
     return ret;
 }
 
+ScalarImmediateType EvaluateSymbolicCallRuntimeGetInputDataInt32Dim4(
+        EvaluateSymbol *evaluateSymbol,
+        const std::vector<ScalarImmediateType> &dataList) {
+    ASSERT(dataList.size() == SIZE_FOUR);
+    auto inputIndex = dataList[0];
+    auto input = evaluateSymbol->GetInputDataViewList()[inputIndex];
+    auto off0 = dataList[1];
+    auto off1 = dataList[2];
+    auto off2 = dataList[3];
+    auto off3 = dataList[4];
+    ASSERT(input->GetShape().size() == SIZE_THREE);
+
+    int index = ((off0 * input->GetShape()[1] + off1) * input->GetShape()[2] + off2) * input->GetShape()[3] + off3;
+    auto elt = input->GetElement(index);
+    auto ret = static_cast<ScalarImmediateType>(elt.Cast<int64_t>());
+    return ret;
+}
+
 ScalarImmediateType EvaluateSymbolicCallRuntimeGetTensorDataInt32(
         EvaluateSymbol *evaluateSymbol,
         int ioType, int ioTypeIndex,
@@ -183,6 +201,7 @@ ScalarImmediateType EvaluateSymbol::EvaluateSymbolicCall(
         {"RUNTIME_GetInputDataInt32Dim1",       EvaluateSymbolicCallRuntimeGetInputDataInt32Dim1},
         {"RUNTIME_GetInputDataInt32Dim2",       EvaluateSymbolicCallRuntimeGetInputDataInt32Dim2},
         {"RUNTIME_GetInputDataInt32Dim3",       EvaluateSymbolicCallRuntimeGetInputDataInt32Dim3},
+        {"RUNTIME_GetInputDataInt32Dim4",       EvaluateSymbolicCallRuntimeGetInputDataInt32Dim4},
         {"RUNTIME_IsLoopBegin",                 EvaluateSymbolicCallRuntimeIsLoopBegin},
         {"RUNTIME_IsLoopEnd",                   EvaluateSymbolicCallRuntimeIsLoopEnd},
         {"RUNTIME_GetViewValidShapeDim",        EvaluateSymbolicCallRuntimeGetViewValidShapeDim},

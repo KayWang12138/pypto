@@ -312,6 +312,18 @@ SymbolicScalar GetInputDataInt32Dim2(const Tensor &t, SymbolicScalar off0, Symbo
 SymbolicScalar GetInputDataInt32Dim3(const Tensor &t, SymbolicScalar off0, SymbolicScalar off1, SymbolicScalar off2);
 
 /**
+ * @brief Get the Input Data of a 4D tensor
+ *
+ * @param t input tensor
+ * @param off0 positional shift applied to the first axis of the tensor
+ * @param off1 positional shift applied to the second axis of the tensor
+ * @param off2 positional shift applied to the third axis of the tensor
+ * @param off3 positional shift applied to the third axis of the tensor
+ * @return SymbolicScalar
+ */
+SymbolicScalar GetInputDataInt32Dim4(const Tensor &t, SymbolicScalar off0, SymbolicScalar off1, SymbolicScalar off2, SymbolicScalar off3);
+
+/**
  * @brief Determines if the current iteration is the start of loop
  *
  * @param symbol current loop index

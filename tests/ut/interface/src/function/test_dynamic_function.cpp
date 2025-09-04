@@ -884,3 +884,34 @@ TEST_F(DynamicFunctionTest, TestGetInputDataInt32Dim3) {
     std::shared_ptr<DyndevFunctionAttribute> attr = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
     auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
 }
+
+TEST_F(DynamicFunctionTest, TestGetInputDataInt32Dim4) {
+    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    Program::GetInstance().GetTileShape().SetVecTileShapes(16, 16, 16, 16);
+
+    int s = 16;
+    int k = 1;
+    int n = 1;
+    int m = 1;
+    Tensor t5(DT_FP32, {2 , k * s, n * s, m * s}, "t5");
+    Tensor out(DT_FP32, {k * s, n * s, m * s}, "out");
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(t5, 64.0),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, 0),
+    });
+
+    SymbolicScalar loopCount = 0;
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {t5}, {out}) {
+        LOOP("s1", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputDataInt32Dim4(t5, npu::tile_fwk::SymbolicScalar("0"), npu::tile_fwk::SymbolicScalar("1"), npu::tile_fwk::SymbolicScalar("2"), npu::tile_fwk::SymbolicScalar("3")) / s)) {
+            loopCount = loopCount + i;
+            out = AddS(t5, Element(DataType::DT_FP32, static_cast<double>(1.0)));
+        }
+    }
+
+    std::shared_ptr<DyndevFunctionAttribute> attr = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+    auto funcop = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+}

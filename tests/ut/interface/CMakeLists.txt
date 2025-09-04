@@ -36,6 +36,7 @@ set(_CaseFilterList
         "DynamicOpsTest.OpsElementWise"
         "DynamicOpsTest.OpsElementWiseFp16"
         "DynamicFunctionTest.TestGetInputDataInt32Dim3"
+        "DynamicFunctionTest.TestGetInputDataInt32Dim4"
         "DynamicFunctionTest.TestSymbolic"
         "DynamicFunctionTest.TestLoopRange"
         "DynamicFunctionTest.TestOnlyExpression"

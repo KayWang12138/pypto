@@ -322,6 +322,25 @@ SymbolicScalar npu::tile_fwk::GetInputDataInt32Dim3(const Tensor &t, SymbolicSca
     return getInputDataInt32Dim3(input, off0, off1, off2);
 }
 
+SymbolicScalar npu::tile_fwk::GetInputDataInt32Dim4(const Tensor &t, SymbolicScalar off0, SymbolicScalar off1,
+    SymbolicScalar off2, SymbolicScalar off3) {
+    auto slotManager = Program::GetInstance().GetTensorSlotManager();
+    slotManager->TensorRead(t);
+
+    std::string getInputDataInt32Dim4Name = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::GetInputDataInt32Dim4);
+    int inputIndex = slotManager->GetInputIndex(t);
+    ASSERT(inputIndex >= 0 && static_cast<size_t>(inputIndex) < slotManager->GetInputNameList().size()) <<
+        "Tensor " << t.GetStorage(false)->GetRawTensor()->GetSymbol() << " is not in input tensor list!";
+    std::string inputName = slotManager->GetInputNameList()[inputIndex];
+
+    getInputDataInt32Dim4Name = AddRuntimePrefix(getInputDataInt32Dim4Name);
+    inputName = AddArgPrefix(inputName);
+
+    SymbolicScalar getInputDataInt32Dim4(getInputDataInt32Dim4Name);
+    SymbolicScalar input(inputName);
+    return getInputDataInt32Dim4(input, off0, off1, off2, off3);
+}
+
 namespace npu::tile_fwk {
 
 static

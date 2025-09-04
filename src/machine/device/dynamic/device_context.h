@@ -2012,6 +2012,11 @@ struct DeviceExecuteContext {
         DevTensorData *input = &ctx->args->inputTensorList[inputIndex];
         return ((int32_t *)input->address)[off0 * input->shape.dim[1] * input->shape.dim[2] + off1 * input->shape.dim[2] + off2]; // 2: dim 2
     }
+    static int64_t GetInputDataInt32Dim4(DeviceExecuteContext *ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1,
+        uint64_t off2, uint64_t off3) {
+        DevTensorData *input = &ctx->args->inputTensorList[inputIndex];
+        return ((int32_t *)input->address)[((off0 * input->shape.dim[1] + off1) * input->shape.dim[2] + off2) * input->shape.dim[3] + off3]; // 2: dim 2, 3: dim 3
+    }
 
     static void *SymbolHandlerIdToHandler(SymbolHandlerId id) {
         switch (id) {
@@ -2025,6 +2030,8 @@ struct DeviceExecuteContext {
                 return (void *)GetInputDataInt32Dim2;
             case SymbolHandlerId::GetInputDataInt32Dim3:
                 return (void *)GetInputDataInt32Dim3;
+            case SymbolHandlerId::GetInputDataInt32Dim4:
+                return (void *)GetInputDataInt32Dim4;
             default:
                 DEV_ASSERT(0);
                 return nullptr;
