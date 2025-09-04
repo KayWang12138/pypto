@@ -164,6 +164,8 @@ public:
     const TileShape &GetTileShape() const { return tileShape_; }
     void UpdateTileShape(const TileShape newTileShape) { tileShape_ = newTileShape; }
 
+    TileShape &GetTileShapeForSetting() { return tileShape_; }
+
     [[nodiscard]] std::string GetStringAttribute(const std::string &key) const;
     void SetAttribute(const std::string &key, const std::string &value);
 

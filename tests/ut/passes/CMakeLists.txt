@@ -189,6 +189,7 @@ set(_CaseFilterList
         "CubeProcessTest.TestAnzBndL1"
         "CubeProcessTest.TestAndBndCnz"
         "TestPriorScheduling.TestMainSchedule"
+        "TestSetHeuristicTileShapes.TestMain"
         "RemoveAllocTest.RemoveAlloc"
         "InsertSyncTest.TestEnableDebug"
         "InsertSyncTest.TestFindDep"
