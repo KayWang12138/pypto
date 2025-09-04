@@ -24,7 +24,11 @@ namespace CostModel
     private:
         const std::unordered_map<std::string, std::vector<float>> opLatencyA2A3_{
             {"COPY_IN", {2.613, 0.00240884}},
+            {"L1_COPY_IN", {2.613, 0.00240884}},
+            {"UB_COPY_IN", {2.613, 0.00240884}},
             {"COPY_OUT", {3.2883, 0.00195}},
+            {"L0C_COPY_OUT", {3.2883, 0.00195}},
+            {"UB_COPY_OUT", {3.2883, 0.00195}},
             {"ADD", {2.40457, 0.0188}},
             {"SUB", {1.64044, 0.02152}},
             {"MUL", {1.63706, 0.01419}},

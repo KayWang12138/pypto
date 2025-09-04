@@ -335,10 +335,32 @@ namespace CostModel
         return PARALLEL_RATIO_2;
     }
 
+    std::string GetOpCode(const TileOpPtr &tileOp)
+    {
+        if (tileOp->opcode == "COPY_IN") {
+            static const std::unordered_map<OperandType, std::string> COPY_IN_OP {
+                {BUF_L1, "L1_COPY_IN"},
+                {BUF_UB, "UB_COPY_IN"},
+            };
+            if (COPY_IN_OP.find(tileOp->bufType) != COPY_IN_OP.end()) {
+                return COPY_IN_OP.at(tileOp->bufType);
+            }
+        } else if (tileOp->opcode == "COPY_OUT") {
+            static const std::unordered_map<OperandType, std::string> COPY_OUT_OP {
+                {BUF_L0C, "L0C_COPY_OUT"},
+                {BUF_UB, "UB_COPY_OUT"},
+            };
+            if (COPY_OUT_OP.find(tileOp->bufType) != COPY_OUT_OP.end()) {
+                return COPY_OUT_OP.at(tileOp->bufType);
+            }
+        }
+        return tileOp->opcode;
+    }
+
     template <typename PostSimulator>
     uint64_t PipeSimulatorFast<PostSimulator>::PostSimulate(const TileOpPtr &tileOp)
     {
-        std::string op = tileOp->opcode;
+        std::string op = GetOpCode(tileOp);
         PostSimulator psm;
         auto opLatency = psm.GetOpLatency();
         if (opLatency.find(op) == opLatency.end()) {
@@ -361,10 +383,10 @@ namespace CostModel
         const int wGmLatency = 300;
         int freqTrans = 2000;
         int latency =  shapeCnt * (uint64_t((r[0] * size * parallelRatio * 1E-6 + r[1]) * freqTrans) + 1);
-        if (op == "COPY_IN") {
+        if (tileOp->opcode == "COPY_IN") {
             latency += rGmLatency;
         }
-        else if (op == "COPY_OUT") {
+        else if (tileOp->opcode == "COPY_OUT") {
             latency += wGmLatency;
         }
         return latency;
