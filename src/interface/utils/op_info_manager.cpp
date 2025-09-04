@@ -33,6 +33,7 @@ uint64_t OpInfoManager::GetOpTilingKey() const {
 
 // need check
 uint64_t OpInfoManager::GetNewSubTilingKey() {
+  std::lock_guard<std::mutex> lock(mtx_);
   subTilingKey_++;
   uint64_t cur_key = (subTilingKey_ << SUB_KEY_OFFSET) | opTilingKey_;
   return cur_key;

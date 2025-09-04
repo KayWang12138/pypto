@@ -17,6 +17,7 @@
 
 #include <map>
 #include <vector>
+#include <mutex>
 #include "tilefwk/tensor.h"
 
 namespace npu::tile_fwk {
@@ -36,6 +37,7 @@ public:
     void SetOpType(const std::string &opType);
     const std::string &GetOpType() const;
 private:
+  std::mutex mtx_;
   std::string opType_ = "tilefwk";
   uint64_t opTilingKey_{0};
   uint64_t subTilingKey_{0};
