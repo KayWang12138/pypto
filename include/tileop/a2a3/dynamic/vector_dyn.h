@@ -1529,6 +1529,91 @@ TILEOP void DynTgatherElement(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *sr
     wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
 }
 
+// 2dim
+template <typename T, typename T2, unsigned src1RawShape1, unsigned dstRawShape1, unsigned axis>
+TILEOP void DynTscatterElement(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, T src2, 
+    unsigned src1Shape0, unsigned src1Shape1) {
+    set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    for (int i = 0; i < src1Shape0; ++i) {
+        for (int j = 0; j < src1Shape1; ++j) {
+            T2 index = (T2)(*(src1 + i * src1RawShape1 + j)); // index[i,j]
+            int dstOffset = 0;
+            if constexpr (axis == 0) {
+                dstOffset = index * dstRawShape1 + j;    // dst[ index[i,j] ][j]
+            } else {
+                dstOffset = i * dstRawShape1 + index;   // dst[i][ index[i,j] ]
+            }
+            dst[dstOffset] = src2;
+        }
+    }
+    set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+    wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+}
+
+// 3dim
+template <typename T, typename T2, unsigned src1RawShape1, unsigned src1RawShape2, unsigned dstRawShape1, 
+    unsigned dstRawShape2, unsigned axis>
+TILEOP void DynTscatterElement(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, T src2, unsigned src1Shape0, 
+    unsigned src1Shape1, unsigned src1Shape2) {
+    set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    for (int i = 0; i < src1Shape0; ++i) {
+        for (int j = 0; j < src1Shape1; ++j) {
+            for (int k = 0; k < src1Shape2; ++k) {
+                T2 index = (T2)(*(src1 + i * src1RawShape1 * src1RawShape2 + j * src1RawShape2 + k));
+                int dstOffset = 0;
+                if constexpr (axis == 0) {
+                    dstOffset = index * dstRawShape1 * dstRawShape2 + j * dstRawShape2 + k;
+                } else if (axis == 1) {
+                    dstOffset = i * dstRawShape1 * dstRawShape2 + index * dstRawShape2 + k;
+                } else {
+                    dstOffset = i * dstRawShape1 * dstRawShape2 + j * dstRawShape2 + index;
+                }
+                dst[dstOffset] = src2;
+            }
+        }
+    }
+    set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+    wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+}
+
+// 4dim
+template <typename T, typename T2, unsigned src1RawShape1, unsigned src1RawShape2, unsigned src1RawShape3,
+    unsigned dstRawShape1, unsigned dstRawShape2, unsigned dstRawShape3, unsigned axis>
+TILEOP void DynTscatterElement(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, T src2, unsigned src1Shape0,
+    unsigned src1Shape1, unsigned src1Shape2, unsigned src1Shape3) {
+    set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    for (int i = 0; i < src1Shape0; ++i) {
+        for (int j = 0; j < src1Shape1; ++j) {
+            for (int k = 0; k < src1Shape2; ++k) {
+                for (int l = 0; l < src1Shape3; ++l) {
+                    T2 index = (T2)(*(src1 + i * src1RawShape1 * src1RawShape2 * src1RawShape3 + 
+                        j *  src1RawShape2 * src1RawShape3 + k * src1RawShape3 + l)); // index[i,j,k,l]
+                    int dstOffset = 0;
+                    if constexpr (axis == 0) {
+                        dstOffset = index * dstRawShape1 * dstRawShape2 * dstRawShape3 +
+                            j * dstRawShape2 * dstRawShape3 + k * dstRawShape3 + l;
+                    } else if (axis == 1) {
+                        dstOffset = i * dstRawShape1 * dstRawShape2 * dstRawShape3 +
+                            index * dstRawShape2 * dstRawShape3 + k * dstRawShape3 + l;
+                    } else if (axis == 2) {
+                        dstOffset = i * dstRawShape1 * dstRawShape2 * dstRawShape3 +
+                            j * dstRawShape2 * dstRawShape3 + index * dstRawShape3 + l;
+                    } else {
+                        dstOffset = i * dstRawShape1 * dstRawShape2 * dstRawShape3 +
+                            j * dstRawShape2 * dstRawShape3 + k * dstRawShape3 + index;
+                    }
+                    dst[dstOffset] = src2;
+                }
+            }
+        }
+    }
+    set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+    wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+}
+
 template <typename T, unsigned DS, unsigned SS>
 TILEOP void DynTtranspose_vnchwconv_(
     __ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp, unsigned T0, unsigned T1, unsigned TS) {

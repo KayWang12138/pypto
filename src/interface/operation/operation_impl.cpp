@@ -2305,12 +2305,18 @@ Tensor ScatterUpdate(const Tensor &dst, const Tensor &index, const Tensor &src, 
     return result;
 }
 
+static void CheckScatterElementInvalid(const Tensor &src, const Tensor &index)
+{
+    ASSERT(src->shape.size() == index->shape.size());
+    for (size_t i = 0; i < src->shape.size(); i++) {
+        ASSERT(index->shape[i] <= src->shape[i]);
+    }
+}
+
 Tensor ScatterElement(const Tensor &src, const Tensor &idx, const Element &scalar, int axis) {
     DECLARE_TRACER();
-    // 目前只支持2维操作
-    constexpr int kScatterDim = 2;
-    ASSERT(src->shape.size() == kScatterDim);
-    ASSERT(idx->shape.size() == kScatterDim);
+
+    CheckScatterElementInvalid(src, idx);
     axis = axis < 0 ? src->shape.size() + axis : axis;
     Tensor result(src->tensor->datatype, src->shape);
     result.GetStorage()->tensor->SetTensorInfo(src.GetStorage()->tensor->GetTensorInfo());

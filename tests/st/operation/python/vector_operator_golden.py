@@ -788,6 +788,25 @@ def gen_gatherelement_op_golden(case_name: str, output: Path, case_index: int = 
     return gen_op_golden("GatherElement", golden_func, output, case_index)
 
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestScatterElement/ScatterElementOperationTest.TestScatterElement",
+    ]
+)
+def gen_scatterelement_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs, params: dict):
+        axis = params["axis"]
+        src = torch.from_numpy(inputs[0])
+        indices = torch.from_numpy(inputs[1])
+        res = src.scatter(axis, indices, 20).numpy()
+
+        return [res]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("ScatterElement", golden_func, output, case_index)
+
+
 def main() -> bool:
     # 用例名称
     case_name_list: List[str] = [
