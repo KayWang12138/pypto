@@ -283,9 +283,13 @@ struct LogicalTensorData {
         std::ostringstream oss;
         oss << "<";
         for (size_t k = 0; k < GetShape().size(); k++) {
-            oss << GetShape()[k] << " x ";
+            oss << GetShape()[k] << "x";
         }
-        oss << DataType2String(GetDataType()) << ">";
+        oss << BriefDataType2String(GetDataType()) << "/";
+        for (size_t k = 0; k < validShape_.size(); k++) {
+            oss << validShape_[k] << "x";
+        }
+        oss << BriefDataType2String(GetDataType()) << ">";
         return oss.str();
     }
 

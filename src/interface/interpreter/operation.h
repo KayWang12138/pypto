@@ -38,6 +38,23 @@ struct ExecuteOperationContext {
     const std::vector<LogicalTensorDataPtr> *ioperandDataViewList;
     std::vector<LogicalTensorDataPtr> *ooperandDataViewList;
     std::vector<LogicalTensorDataPtr> *ooperandInplaceDataViewList;
+
+    std::string Dump() const {
+        std::stringstream ss;
+        auto dumpType = [&ss](auto &viewList) {
+            for (size_t i = 0; i < viewList.size(); i++) {
+                if (i != 0)
+                    ss << ", ";
+                ss << viewList[i]->DumpType();
+            }
+        };
+        ss << op->Dump();
+        dumpType(*ooperandInplaceDataViewList);
+        ss << " = " << op->GetOpcodeStr() << " ";
+        dumpType(*ioperandDataViewList);
+        ss << '\n';
+        return ss.str();
+    }
 };
 
 using Funcs = std::function<void(ExecuteOperationContext*)>;

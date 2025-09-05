@@ -37,7 +37,7 @@ void ExecuteOpBinary(ExecuteOperationContext *ctx) {
     switch (opcode) {
         case Opcode::OP_ADD: calc::Add(ret, lhs, rhs); break;
         case Opcode::OP_ADD_BRC: calc::Add(ret, lhs, rhs); break;
-        case Opcode::OP_PAIRSUM: calc::Add(ret, lhs, rhs); break;
+        case Opcode::OP_PAIRSUM: calc::PairSum(ret, lhs, rhs); break;
         case Opcode::OP_SUB: calc::Sub(ret, lhs, rhs); break;
         case Opcode::OP_SUB_BRC: calc::Sub(ret, lhs, rhs); break;
         case Opcode::OP_MUL: calc::Mul(ret, lhs, rhs); break;
@@ -45,8 +45,8 @@ void ExecuteOpBinary(ExecuteOperationContext *ctx) {
         case Opcode::OP_DIV: calc::Div(ret, lhs, rhs); break;
         case Opcode::OP_DIV_BRC: calc::Div(ret, lhs, rhs); break;
         case Opcode::OP_S_MAX: calc::Max(ret, lhs, rhs); break;
-        case Opcode::OP_PAIRMAX: calc::Max(ret, lhs, rhs); break;
-        case Opcode::OP_PAIRMIN: calc::Min(ret, lhs, rhs); break;
+        case Opcode::OP_PAIRMAX: calc::PairMax(ret, lhs, rhs); break;
+        case Opcode::OP_PAIRMIN: calc::PairMin(ret, lhs, rhs); break;
         case Opcode::OP_S_MIN: calc::Min(ret, lhs, rhs); break;
         default: ASSERT(false);
     }

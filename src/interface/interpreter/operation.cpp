@@ -58,6 +58,10 @@ void OperationInterpreter::ExecuteOperation(ExecuteOperationContext *ctx) {
     auto iOperands = OperationInterpreter::GetValidDataView(*ctx->ioperandDataViewList);
     auto oOperands = OperationInterpreter::GetValidDataView(*ctx->ooperandInplaceDataViewList);
     ExecuteOperationContext ctxValid = {ctx->frame, this, ctx->op, &iOperands, {}, &oOperands};
-    OperationInterpreter::CallOperationInterpreterFunc(&ctxValid);
+    try {
+        OperationInterpreter::CallOperationInterpreterFunc(&ctxValid);
+    } catch (std::exception &e) {
+        throw std::runtime_error(ctx->Dump() + e.what());
+    }
 }
 }
