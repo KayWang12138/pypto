@@ -38,6 +38,9 @@ void TensorBucket::UpdateOffset(const uint64_t offset) {
 
     // 更新存储信息
     for (auto &tensorGroup : tensorGroups_) {
+        if (tensorGroup.empty()) {
+            continue;
+        }
         LogicalTensorPtr leadTensor = *tensorGroup.begin();
         leadTensor->storage_->start_ = offset;
         leadTensor->storage_->length_ = size_;
@@ -89,7 +92,26 @@ bool Allocator::IsRawQualified(const WorkspaceInfo &outWspInfo, const WorkspaceI
     return true;
 }
 
-void Allocator::ScanParentOps(Function *leafFunc, const Operation *parent, std::unordered_set<LogicalTensorPtr> &visited, std::unordered_set<Operation*> &operations) {
+const std::vector<WorkspaceInfo> &Allocator::GetLeafFuncOutputInputReuseMap(Function *leafFunc) const {
+    auto it = leafFuncOutputInputReuseMap_.find(leafFunc);
+    if (it != leafFuncOutputInputReuseMap_.end()) {
+        return it->second;
+    }
+    static std::vector<WorkspaceInfo> empty;
+    return empty;
+}
+
+std::vector<WorkspaceInfo> &Allocator::GetLeafFuncOutputInputReuseMap(Function *leafFunc) {
+    return leafFuncOutputInputReuseMap_[leafFunc];
+}
+
+void Allocator::SetLeafFuncOutputInputReuseMap(
+    Function *leafFunc, const std::vector<WorkspaceInfo> &leafFuncOutputInputReuseMap) {
+    leafFuncOutputInputReuseMap_[leafFunc] = leafFuncOutputInputReuseMap;
+}
+
+void Allocator::ScanParentOps(Function *leafFunc, const Operation *parent,
+    std::unordered_set<LogicalTensorPtr> &visited, std::unordered_set<Operation *> &operations) {
     for (LogicalTensorPtr in : parent->GetIOperands()) {
         // 检查是否为leafFunc输入边界
         if (leafFunc->IsFromInCast(in)) {
@@ -106,7 +128,9 @@ void Allocator::ScanParentOps(Function *leafFunc, const Operation *parent, std::
     }
 }
 
-bool Allocator::CheckReuseOp(const std::unordered_set<Operation*> &operations, std::deque<Operation*> &parents, const WorkspaceInfo &outWspInfo, std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inWspCnt, std::vector<WorkspaceInfo> &leafFuncReuseMap) {
+bool Allocator::CheckReuseOp(const std::unordered_set<Operation *> &operations, std::deque<Operation *> &parents,
+    const WorkspaceInfo &outWspInfo, std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inputWorkspaceInfoMap,
+    std::vector<WorkspaceInfo> &leafFuncReuseMap) {
     auto &out = outWspInfo.tensor;
     for (Operation* operation : operations) {
         if (!OpcodeManager::Inst().IsCopyIn(operation->GetOpcode())) {
@@ -114,8 +138,8 @@ bool Allocator::CheckReuseOp(const std::unordered_set<Operation*> &operations, s
             continue;
         }
         LogicalTensorPtr copyInInput = operation->GetIOperands()[0];
-        auto iter = inWspCnt.find(copyInInput);
-        if (iter == inWspCnt.end()) {
+        auto iter = inputWorkspaceInfoMap.find(copyInInput);
+        if (iter == inputWorkspaceInfoMap.end()) {
             parents.push_back(operation);
             continue;
         }
@@ -142,22 +166,20 @@ bool Allocator::CheckReuseOp(const std::unordered_set<Operation*> &operations, s
 // 在不引入额外同步的情况下，完成内存的复用，找到某一个CopyOut的前驱的CopyIn，依赖关系天然存在
 // 极限的复用，可以不考虑依赖关系，只看节点之间的顺序，在后续insert sync时可以插入mte3 wait mte2的同步，但是可能会有性能劣化。
 void Allocator::FindReusableInputForOutput(Function *leafFunc, Operation *op, const WorkspaceInfo &outWspInfo,
-    std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inWspCnt, std::vector<WorkspaceInfo> &leafFuncReuseMap) {
+    std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inputWorkspaceInfoMap, std::vector<WorkspaceInfo> &leafFuncReuseMap) {
     ALOG_DEBUG_F("Searching reusable input for output tensor %d (rawmagic %d).", outWspInfo.tensor->magic,
         outWspInfo.tensor->tensor->rawmagic);
     std::deque<Operation*> parents;
     // 已访问tensor集合, 节省BFS搜索时长，并且防止出现环路后进入死循环
     std::unordered_set<LogicalTensorPtr> visited;
-
     parents.push_back(op);
-
     while (!parents.empty()) {
         Operation* parent = parents.front();
         parents.pop_front();
         // 存储本层的所有操作，容器可自动去除重复值
         std::unordered_set<Operation*> operations;
         ScanParentOps(leafFunc, parent, visited, operations);
-        if (!CheckReuseOp(operations, parents, outWspInfo, inWspCnt, leafFuncReuseMap)) {
+        if (!CheckReuseOp(operations, parents, outWspInfo, inputWorkspaceInfoMap, leafFuncReuseMap)) {
             ALOG_INFO_F("$$$$$$$$$$$$ leaf hash %lu.", leafFunc->GetFunctionHash().GetHash());
             return;
         }
@@ -165,7 +187,7 @@ void Allocator::FindReusableInputForOutput(Function *leafFunc, Operation *op, co
 }
 
 void Allocator::ProcessOutputForGlobalMemoryReuse(Function *leafFunc, WorkspaceInfo &wspInfo,
-    std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inWspCnt, std::vector<WorkspaceInfo> &leafFuncReuseMap) {
+    std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inputWorkspaceInfoMap, std::vector<WorkspaceInfo> &leafFuncReuseMap) {
     auto &out = wspInfo.tensor;
     if (wspInfo.count != 1) {
         ALOG_DEBUG_F("magic %d raw %d not 1.", out->magic, out->tensor->rawmagic);
@@ -189,7 +211,7 @@ void Allocator::ProcessOutputForGlobalMemoryReuse(Function *leafFunc, WorkspaceI
     }
 
     // 寻找可复用的输入tensor
-    FindReusableInputForOutput(leafFunc, producer, wspInfo, inWspCnt, leafFuncReuseMap);
+    FindReusableInputForOutput(leafFunc, producer, wspInfo, inputWorkspaceInfoMap, leafFuncReuseMap);
 }
 
 bool GetCopyInSize(LogicalTensorPtr &in, Operation *copyIn, uint64_t &size) {
@@ -221,7 +243,8 @@ bool HasReshapeConsumer(const LogicalTensorPtr &tensor) {
     return false;
 }
 
-void Allocator::CollectOutputTensor(Function *leafFunc, std::unordered_map<LogicalTensorPtr, size_t> &tensorToInfo, std::vector<WorkspaceInfo> &outWspInfo, std::vector<WorkspaceInfo>& leafFuncReuseMap) {
+void Allocator::CollectOutputTensor(Function *leafFunc, std::unordered_map<LogicalTensorPtr, size_t> &tensorToInfo,
+    std::vector<WorkspaceInfo> &outWspInfo, std::vector<WorkspaceInfo> &leafFuncReuseMap) {
     for (size_t i = 0; i < leafFunc->outCasts_.size(); ++i) {
         LogicalTensorPtr out = leafFunc->outCasts_[i];
         leafFuncReuseMap.emplace_back(WorkspaceInfo());
@@ -243,7 +266,7 @@ void Allocator::CollectOutputTensor(Function *leafFunc, std::unordered_map<Logic
     }
 }
 
-void Allocator::CollectInputTensor(Function *leafFunc, std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inWspCnt) {
+void Allocator::CollectInputTensor(Function *leafFunc, std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inputWorkspaceInfoMap) {
     for (size_t i = 0; i < leafFunc->inCasts_.size(); ++i) {
         LogicalTensorPtr in = leafFunc->inCasts_[i];
 
@@ -253,15 +276,15 @@ void Allocator::CollectInputTensor(Function *leafFunc, std::unordered_map<Logica
         }
 
         // 记录输入tensor信息
-        auto iter = inWspCnt.find(in);
-        if (iter != inWspCnt.end()) {
+        auto iter = inputWorkspaceInfoMap.find(in);
+        if (iter != inputWorkspaceInfoMap.end()) {
             iter->second.count++;
             continue;
         }
         Operation* consumer = *(in->GetConsumers().begin());
         uint64_t size = 0;
         if (GetCopyInSize(in, consumer, size)) {
-            inWspCnt[in] = WorkspaceInfo(1, i, size, in);
+            inputWorkspaceInfoMap[in] = WorkspaceInfo(1, i, size, in);
         }
     }
 }
@@ -279,14 +302,14 @@ void Allocator::ProcessLeafGlobalMemoryReuse(Function *leafFunc) {
         leafFunc->GetFunctionHash().GetHash());
     std::unordered_map<LogicalTensorPtr, size_t> tensorToInfo;
     std::vector<WorkspaceInfo> outWspInfo;
-    std::unordered_map<LogicalTensorPtr, WorkspaceInfo> inWspCnt;
+    std::unordered_map<LogicalTensorPtr, WorkspaceInfo> inputWorkspaceInfoMap;
     // 获取或创建该 leaf function 的 LeafFuncOutputInputReuseMap_ 数据
     std::vector<WorkspaceInfo>& leafFuncReuseMap = GetLeafFuncOutputInputReuseMap(leafFunc);
     CollectOutputTensor(leafFunc, tensorToInfo, outWspInfo, leafFuncReuseMap);
-    CollectInputTensor(leafFunc, inWspCnt);
+    CollectInputTensor(leafFunc, inputWorkspaceInfoMap);
     // 处理每个输出tensor的内存复用
     for (auto &wspInfo : outWspInfo) {
-        ProcessOutputForGlobalMemoryReuse(leafFunc, wspInfo, inWspCnt, leafFuncReuseMap);
+        ProcessOutputForGlobalMemoryReuse(leafFunc, wspInfo, inputWorkspaceInfoMap, leafFuncReuseMap);
         ALOG_DEBUG_F("[LeafReuse] Checking output: magic=%d rawmagic=%d size=%lu count=%d.",
                      wspInfo.tensor->magic, wspInfo.tensor->tensor->rawmagic,
                      wspInfo.size, wspInfo.count);
@@ -512,7 +535,8 @@ TensorBucket &Allocator::GetBestFitBucket(const TensorsDesc &tensorsDesc) {
     return buckets_.back();
 }
 
-bool Allocator::CalOffsetRawShape(size_t dimCount, const std::vector<SymbolicScalar> &argList, std::vector<int> &offsets, std::vector<int> &rawShapes) const {
+bool Allocator::CalOffsetRawShape(size_t dimCount, const std::vector<SymbolicScalar> &argList,
+    std::vector<int> &offsets, std::vector<int> &rawShapes) const {
     const size_t offsetStartIdx = OFFSET_INDEX;
     const size_t rawShapeStartIdx = OFFSET_INDEX + 2 * dimCount;
     for (size_t i = 0; i < dimCount; i++) {
@@ -532,7 +556,8 @@ bool Allocator::CalOffsetRawShape(size_t dimCount, const std::vector<SymbolicSca
     return true;
 }
 
-void Allocator::CalStridesStorageOffset(size_t dimCount, const LogicalTensorPtr &input, std::vector<int> &offsets, std::vector<int> &rawShapes, uint64_t& storageOffset) const {
+void Allocator::CalStridesStorageOffset(size_t dimCount, const LogicalTensorPtr &input, std::vector<int> &offsets,
+    std::vector<int> &rawShapes, uint64_t &storageOffset) const {
     // 计算步长
     std::vector<int> strides(dimCount, 1);
     for (int i = static_cast<int>(dimCount) - 2; i >= 0; i--) {
@@ -777,7 +802,8 @@ void Allocator::HandleNewTensor(Operation& callOp, size_t outputIdx, LogicalTens
 
     // 处理actualRawmagic的tensor集合
     UpdateStorageForActualRaw(outputTensor);
-    ALOG_INFO_F("New storage created for tensor: magic=%d size=%lu.", outputTensor->magic, outputTensor->storage_->length_);
+    ALOG_INFO_F(
+        "New storage created for tensor: magic=%d size=%lu.", outputTensor->magic, outputTensor->storage_->length_);
 }
 
 void Allocator::ProcessOperations() {
