@@ -37,6 +37,7 @@ class PlatformConfig {
     size_t GetMemoryLimit(MemoryType memtype) const;
     size_t GetCoreNum(NpuCoreType coreType) const;
     void SetMemoryLimit(MemoryType memoryType, size_t memSize);
+    Status SetMemoryPath(std::vector<std::string>& pathDesc, std::string &platformIdStr);
     void ResetAndAddPath(const std::unordered_map<MemoryType, MemoryType>& memPaths);
     bool IsInited() const { return isInit_; }
   private:

@@ -20,13 +20,30 @@
 #include "passes/pass_config/json_node_paser.h"
 namespace npu{
 namespace tile_fwk {
+const std::string platformConfigEnvName = "PLATFORM_CONFIG_PATH";
+
+const std::string MEM_UB_STR = "MEM_UB";
 const std::string MEM_L1_STR = "MEM_L1";
 const std::string MEM_L0A_STR = "MEM_L0A";
 const std::string MEM_L0B_STR = "MEM_L0B";
 const std::string MEM_L0C_STR = "MEM_L0C";
-const std::string MEM_UB_STR = "MEM_UB";
+const std::string MEM_FIX_STR = "MEM_FIX";
+const std::string MEM_FIX_QUANT_PRE_STR = "MEM_FIX_QUANT_PRE";
+const std::string MEM_FIX_RELU_PRE_STR = "MEM_FIX_RELU_PRE";
+const std::string MEM_FIX_RELU_POST_STR = "MEM_FIX_RELU_POST";
+const std::string MEM_FIX_QUANT_POST_STR = "MEM_FIX_QUANT_POST";
+const std::string MEM_FIX_ELT_ANTIQ_STR = "MEM_FIX_ELT_ANTIQ";
+const std::string MEM_FIX_MTE2_ANTIQ_STR = "MEM_FIX_MTE2_ANTIQ";
+const std::string MEM_BT_STR = "MEM_BT";
+const std::string MEM_L2_STR = "MEM_L2";
+const std::string MEM_L3_STR = "MEM_L3";
 const std::string MEM_DEVICE_DDR_STR = "MEM_DEVICE_DDR";
 const std::string MEM_HOST1_STR = "MEM_HOST1";
+const std::string MEM_FAR1_STR = "MEM_FAR1";
+const std::string MEM_FAR2_STR = "MEM_FAR2";
+const std::string MEM_WORKSPACE_STR = "MEM_WORKSPACE";
+const std::string MEM_VECTOR_REG_STR = "MEM_VECTOR_REG";
+
 const std::string PATHS_STR = "PATHS";
 const std::string MEM_LIMITS_STR = "MEMORY_LIMITS";
 const std::string CORE_NUM_STR = "CORE_NUM";
@@ -35,13 +52,27 @@ const std::string CUBE_CORE_STR = "CUBE_CORE";
 const std::string VECTOR_CORE_STR = "VECTOR_CORE";
 
 static std::unordered_map<std::string, MemoryType> jsonNodeToMemoryType = {
-    {MEM_L1_STR, MemoryType::MEM_L1},
     {MEM_UB_STR, MemoryType::MEM_UB},
+    {MEM_L1_STR, MemoryType::MEM_L1},
     {MEM_L0A_STR, MemoryType::MEM_L0A},
     {MEM_L0B_STR, MemoryType::MEM_L0B},
     {MEM_L0C_STR, MemoryType::MEM_L0C},
+    {MEM_FIX_STR, MemoryType::MEM_FIX},
+    {MEM_FIX_QUANT_PRE_STR, MemoryType::MEM_FIX_QUANT_PRE},
+    {MEM_FIX_RELU_PRE_STR, MemoryType::MEM_FIX_RELU_PRE},
+    {MEM_FIX_RELU_POST_STR, MemoryType::MEM_FIX_RELU_POST},
+    {MEM_FIX_QUANT_POST_STR, MemoryType::MEM_FIX_QUANT_POST},
+    {MEM_FIX_ELT_ANTIQ_STR, MemoryType::MEM_FIX_ELT_ANTIQ},
+    {MEM_FIX_MTE2_ANTIQ_STR, MemoryType::MEM_FIX_MTE2_ANTIQ},
+    {MEM_BT_STR, MemoryType::MEM_BT},
+    {MEM_L2_STR, MemoryType::MEM_L2},
+    {MEM_L3_STR, MemoryType::MEM_L3},
     {MEM_DEVICE_DDR_STR, MemoryType::MEM_DEVICE_DDR},
-    {MEM_HOST1_STR, MemoryType::MEM_HOST1}
+    {MEM_HOST1_STR, MemoryType::MEM_HOST1},
+    {MEM_FAR1_STR, MemoryType::MEM_FAR1},
+    {MEM_FAR2_STR, MemoryType::MEM_FAR2},
+    {MEM_WORKSPACE_STR, MemoryType::MEM_WORKSPACE},
+    {MEM_VECTOR_REG_STR, MemoryType::MEM_VECTOR_REG}
 };
 
 static std::unordered_map<std::string, NpuCoreType> jsonNodeToCoreType = {
@@ -64,55 +95,84 @@ inline std::string PlatformIdToString(DPlatform platformId) {
     return res;
 }
 
-inline void AddCoreNum(const nlohmann::json *node, std::unordered_map<NpuCoreType, size_t>& corenum) {
+inline Status AddCoreNum(const nlohmann::json *node, std::unordered_map<NpuCoreType, size_t>& corenum, std::string &platformIdStr) {
     if (node == nullptr) {
         ALOG_WARN_F("Platform %s built in config doesn't contain corenums, can add manually.");
-        return;
+        return SUCCESS;
     }
     for (auto &[coreTypeKey, coreNum] : (*node).get<std::map<std::string, size_t>>()) {
         auto coreType = jsonNodeToCoreType.find(coreTypeKey);
         if (coreType != jsonNodeToCoreType.end()) {
             corenum[coreType->second] = coreNum;
+        } else {
+            ALOG_WARN_F("Core type %s of Platform %s is not recognized.", coreTypeKey.c_str(), platformIdStr.c_str());
         }
     }
+    return SUCCESS;
+}
+
+Status PlatformConfig::SetMemoryPath(std::vector<std::string>& pathDesc, std::string &platformIdStr) {
+    if (pathDesc.size() != 2U) {
+        ALOG_ERROR_F("Platform %s path is not legal.", platformIdStr.c_str());
+        return FAILED;
+    }
+    auto from = jsonNodeToMemoryType.find(pathDesc[0]);
+    auto to = jsonNodeToMemoryType.find(pathDesc[1]);
+    if (from == jsonNodeToMemoryType.end()) {
+        ALOG_ERROR_F("Memory Type %s of Platform %s is not recognized in memory path.", pathDesc[0].c_str(), platformIdStr.c_str());
+        return FAILED;
+    }
+    if (to == jsonNodeToMemoryType.end()) {
+        ALOG_ERROR_F("Memory Type %s of Platform %s is not recognized in memory path.", pathDesc[1].c_str(), platformIdStr.c_str());
+        return FAILED;
+    }
+    memoryGraph_.AddPath(from->second, to->second);
+    return SUCCESS;
 }
 
 Status PlatformConfig::InitPlatformConfig(DPlatform platformId) {
     platformId_ = platformId;
     auto platformIdStr = PlatformIdToString(platformId);
-    auto modelConfigPath = GetCurrentSharedLibPath() + "/../conf/tile_fwk_platform_info.json";
+    std::string platformConfigPath = GetEnvVar(platformConfigEnvName);
+    std::string builtinPlatformConfigPath = GetCurrentSharedLibPath() + "/../conf/tile_fwk_platform_info.json";
     JsonNodeParser jsonParser;
-    if (jsonParser.Initialize(modelConfigPath) != SUCCESS) {
-        ALOG_WARN_F("Platform %s built in config is not availbale, please set memory and add path manually.");
+    if (platformConfigPath.size() > 0 && jsonParser.Initialize(platformConfigPath) != SUCCESS) {
+        ALOG_ERROR_F("Platform %s config file %s is not available, please set %s properly.",
+            platformIdStr.c_str(), platformConfigPath.c_str(), platformConfigEnvName.c_str());
+        return FAILED;
+    }
+    if (platformConfigPath.size() == 0 && jsonParser.Initialize(builtinPlatformConfigPath) != SUCCESS) {
+        ALOG_ERROR_F("Platform %s config is not available.", platformIdStr.c_str());
         return FAILED;
     }
     if (auto root = jsonParser.GetRootNode()) {
         auto memLimits = jsonParser.GetJsonInnerNode(*root, {platformIdStr, MEM_LIMITS_STR});
         if (memLimits == nullptr) {
-            ALOG_WARN_F("Platform %s built in config doesn't contain memory limits, please add limits manually.");
+            ALOG_ERROR_F("Platform %s config doesn't contain memory limits, please add limits manually.", platformIdStr.c_str());
             return FAILED;
         }
         for (auto &[memDesc, memLimit] : (*memLimits).get<std::map<std::string, size_t>>()) {
             auto mem = jsonNodeToMemoryType.find(memDesc);
             if (mem != jsonNodeToMemoryType.end()) {
                 SetMemoryLimit(mem->second, memLimit);
+            } else {
+                ALOG_ERROR_F("Memory Type %s of Platform %s is not recognized in memory limit.", memDesc.c_str(), platformIdStr.c_str());
+                return FAILED;
             }
         }
-        AddCoreNum(jsonParser.GetJsonInnerNode(*root, {platformIdStr, CORE_NUM_STR}), coreNum_);
+        if (AddCoreNum(jsonParser.GetJsonInnerNode(*root, {platformIdStr, CORE_NUM_STR}), coreNum_, platformIdStr) != SUCCESS) {
+            ALOG_ERROR_F("Failed to set core number.");
+            return FAILED;
+        }
         auto paths = jsonParser.GetJsonInnerNode(*root, {platformIdStr, PATHS_STR});
         if (paths == nullptr) {
-            ALOG_WARN_F("Platform %s built in config doesn't contain memory path, please set add path manually.");
+            ALOG_ERROR_F("Platform %s config doesn't contain memory path, please add path manually.", platformIdStr.c_str());
             return FAILED;
         }
         for(auto &pathDesc : (*paths).get<std::vector<std::vector<std::string>>>()) {
-            if (pathDesc.size() != 2U) {
-                ALOG_WARN_F("Platform %s path is not legal.");
+            if (SetMemoryPath(pathDesc, platformIdStr) != SUCCESS) {
+                ALOG_ERROR_F("Failed to set memory path.");
                 return FAILED;
-            }
-            auto from = jsonNodeToMemoryType.find(pathDesc[0]);
-            auto to = jsonNodeToMemoryType.find(pathDesc[1]);
-            if ((from != jsonNodeToMemoryType.end()) && (to != jsonNodeToMemoryType.end())) {
-                memoryGraph_.AddPath(from->second, to->second);
             }
         }
     }
