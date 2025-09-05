@@ -13,7 +13,7 @@ import sys
 import logging
 from pathlib import Path
 from typing import List
-
+import torch
 import numpy as np
 from bfloat16 import bfloat16
 
@@ -38,22 +38,22 @@ def dump_file(data_pool, data_path, type_str):
 
 
 def gen_uniform_data(data_shape, min_value, max_value, dtypes):
+    if isinstance(data_shape, list):
+        data_shape = tuple(data_shape)
     if min_value == 0 and max_value == 0:
-        return np.zeros(data_shape, dtype=dtypes)
-    if dtypes == np.bool_:
-        return np.random.choice([True, False], size=data_shape)
-    return np.random.uniform(low=min_value, high=max_value, size=data_shape).astype(
-        dtypes
-    )
+        return torch.zeros(data_shape, dtype=dtypes)
+    if dtypes == torch.bool:
+        return torch.randint(0, 2, size=data_shape, dtype=torch.bool)
+    return torch.rand(data_shape, dtype=dtypes).uniform_(min_value, max_value)
 
 
 def softmax(x):
     # this func is only used by quant_dequant
-    x = x.astype(np.float32)
-    x_max = x.max(axis=-1, keepdims=True)
+    x = x.to(torch.float32)
+    x_max = torch.max(x, dim=-1, keepdims=True)[0]
     x_sub = x - x_max
-    y = np.exp(x_sub)
-    x_sum = y.sum(axis=-1, keepdims=True)
+    y = torch.exp(x_sub)
+    x_sum = torch.sum(y, dim=-1, keepdims=True)
     ans = y
     return ans, x_sum
 
@@ -83,19 +83,19 @@ def win_attn_calc(input_params_win_attn, actual_seq_list, q_bsnd, k_bsnd, v_bsnd
                 k_cur = k_bsnd[b_index:(b_index + 1), cur_loc - valid_len: cur_loc, n_kv_index:(n_kv_index + 1), :].reshape(valid_len, d_k)
                 v_cur = v_bsnd[b_index:(b_index + 1), cur_loc - valid_len: cur_loc, n_kv_index:(n_kv_index + 1), :].reshape(valid_len, d_v)
 
-                qk_mm_res = np.matmul(q_tensor_cur.astype(dtypes), k_cur.astype(dtypes).transpose(1, 0))
-                qk_mm_fp32 = qk_mm_res.astype(np.float32)
+                qk_mm_res = torch.matmul(q_tensor_cur.to(dtypes), k_cur.T.to(dtypes))
+                qk_mm_fp32 = qk_mm_res.to(torch.float32)
                 qk_ele_res = qk_mm_fp32 * scalar
                 softmax_res, softmax_sum = softmax(qk_ele_res)
                 softmax_out = softmax_res / softmax_sum
-                mm2_res = np.matmul(softmax_out.astype(dtypes), v_cur.astype(dtypes))
+                mm2_res = torch.matmul(softmax_out.to(dtypes), v_cur.to(dtypes))
                 atten_out[b_index:(b_index + 1), s1_index:(s1_index + 1), :, :] = mm2_res
-    atten_out = atten_out.astype(np.float32)
+    atten_out = atten_out.to(torch.float32)
     return atten_out
 
 
 def gen_win_attn_data(win, b, s_q, n_q, skv, block_size, n_kv, dtypes, output):
-    np.random.seed(None)
+    torch.seed()
 
     # output path
     q_nope_path = Path(output, 'q_nope.bin')
@@ -108,6 +108,15 @@ def gen_win_attn_data(win, b, s_q, n_q, skv, block_size, n_kv, dtypes, output):
     actual_seq_len_path = Path(output, 'actual_seq_list.bin')
     attent_out_path = Path(output, 'atten_out.bin')
     input_param_path = Path(output, 'input_param.bin')
+
+    if 'bfloat' in str(dtypes):
+        new_dtype = torch.bfloat16
+    elif 'float16' in str(dtypes):
+        new_dtype = torch.float16
+    elif 'float32' in str(dtypes):
+        new_dtype = torch.float32
+    else:
+        raise ValueError(f"Unsupposed dtype: {dtypes}. Supported dtypes are bloat16, float16 and float32")
 
     kv_lora_rank = 512
     qk_rope_dim = 64
@@ -141,9 +150,9 @@ def gen_win_attn_data(win, b, s_q, n_q, skv, block_size, n_kv, dtypes, output):
     block_num = 0
 
     # gen q k v data
-    q = gen_uniform_data(shape_q, -1, 1, dtypes)
+    q = gen_uniform_data(shape_q, -1, 1, new_dtype)
     q_bsnd = q.reshape(b, s_q, n_q, d_q)
-    k_bsnd = gen_uniform_data(shape_k, -1, 1, dtypes)
+    k_bsnd = gen_uniform_data(shape_k, -1, 1, new_dtype)
     v_bsnd = k_bsnd[:, :, :, : kv_lora_rank]
 
     for actual_seq in actual_seq_list:
@@ -159,15 +168,13 @@ def gen_win_attn_data(win, b, s_q, n_q, skv, block_size, n_kv, dtypes, output):
     # gen block table [b, skv_max/block_size]
     block_table_shape = [b, math.ceil(skv_max / block_size)]
     block_num = block_num_min
-
-    block_idx_list = np.arange(0, block_num, 1).astype(np.int32)
-    block_idx_list = np.random.permutation(block_idx_list).astype(np.int32)
+    block_idx_list = torch.randperm(block_num, dtype=torch.int32)
 
     block_idx = 0
     # invalid block_id set as -1
     block_table = [-1] * block_table_shape[1]
 
-    block_table = np.tile(block_table, (block_table_shape[0], 1)).astype(np.int32)
+    block_table = torch.tile(torch.tensor(block_table).to(torch.int32), (block_table_shape[0], 1))
     block_table_batch_idx = 0
     for idx in block_num_per_batch:
         for j in range(idx):
@@ -177,12 +184,12 @@ def gen_win_attn_data(win, b, s_q, n_q, skv, block_size, n_kv, dtypes, output):
     logging.debug("block_table %s", block_table)
 
     # gen kv cache. [block_num , block_size, H]
-    k_cache = np.zeros([block_num, block_size, n_kv, d_k]).astype(dtypes)
-    v_cache = np.zeros([block_num, block_size, n_kv, d_v]).astype(dtypes)
+    k_cache = torch.zeros([block_num, block_size, n_kv, d_k], dtype=new_dtype)
+    v_cache = torch.zeros([block_num, block_size, n_kv, d_v], dtype=new_dtype)
 
     # kv paddIng
-    k_tensor_bsnd = np.zeros((b, block_table_shape[1] * block_size, n_kv, d_k)).astype(dtypes)
-    v_tensor_bsnd = np.zeros((b, block_table_shape[1] * block_size, n_kv, d_v)).astype(dtypes)
+    k_tensor_bsnd = torch.zeros((b, block_table_shape[1] * block_size, n_kv, d_k), dtype=new_dtype)
+    v_tensor_bsnd = torch.zeros((b, block_table_shape[1] * block_size, n_kv, d_v), dtype=new_dtype)
 
     k_tensor_bsnd[:, :k_bsnd.shape[1], :, :] = k_bsnd[:, :, :, :]
     v_tensor_bsnd[:, :v_bsnd.shape[1], :, :] = v_bsnd[:, :, :, :]
@@ -198,9 +205,9 @@ def gen_win_attn_data(win, b, s_q, n_q, skv, block_size, n_kv, dtypes, output):
                 v_cache[kv_cache_blk_id, 0:block_size, :, :] = v_tensor_bsnd[
                                                             b_idx, block_offset:(block_offset + block_size), :, :]
 
-    atten_out = np.zeros(atten_out_shape, dtype=np.float32)
+    atten_out = torch.zeros(atten_out_shape, dtype=torch.float32)
     input_params_win_attn = [b, s_q, n_kv, n_q, d_q, win, d_k, d_v, scalar]
-    atten_out = win_attn_calc(input_params_win_attn, actual_seq_list, q_bsnd, k_bsnd, v_bsnd, dtypes, atten_out)
+    atten_out = win_attn_calc(input_params_win_attn, actual_seq_list, q_bsnd, k_bsnd, v_bsnd, new_dtype, atten_out)
 
     q_nope = q[:, : kv_lora_rank]
     q_rope = q[:, kv_lora_rank:]
@@ -209,6 +216,13 @@ def gen_win_attn_data(win, b, s_q, n_q, skv, block_size, n_kv, dtypes, output):
     k_cache_rope = k_cache[:, :, :, kv_lora_rank:]
     input_params = [b, s_q, n_q, n_kv, skv_max, kv_lora_rank, qk_rope_dim, block_size, win]
 
+    #output
+    if 'bfloat' in str(dtypes):
+        q_nope = q_nope.to(torch.float32)
+        q_rope = q_rope.to(torch.float32)
+        k_cache_nope = k_cache_nope.to(torch.float32)
+        k_cache_rope = k_cache_rope.to(torch.float32)
+        atten_out = atten_out.to(torch.float32)
 
     # dump golden file
     dump_file(q_nope, q_nope_path, dtypes)

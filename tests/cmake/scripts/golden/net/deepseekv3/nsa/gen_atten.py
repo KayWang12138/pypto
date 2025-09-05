@@ -16,8 +16,12 @@ from typing import List
 
 import torch
 import numpy as np
+import torch
 from bfloat16 import bfloat16
-np.random.seed(0)
+
+torch.manual_seed(0)
+
+
 if __name__ == "__main__":
     # 日志级别
     logging.basicConfig(format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s',
@@ -36,15 +40,24 @@ fp32 = np.float32
 
 
 def gen_gen_atten_golden_data(params, dtype, output_dir: Path):
+    if 'bfloat' in str(dtypes):
+        new_dtype = torch.bfloat16
+    elif 'float16' in str(dtypes):
+        new_dtype = torch.float16
+    elif 'float32' in str(dtypes):
+        new_dtype = torch.float32
+    else:
+        raise ValueError(f"Unsupposed dtype: {dtypes}. Supported dtypes are bloat16, float16 and float32")
+
     b = params.get("b")
     n = params.get("n")
     s = params.get("s")
     d = params.get("d")
 
-    cmp_atten_shape = [b, s, n, d]
-    sel_atten_shape = [b, s, n, d]
-    win_atten_shape = [b, s, n, d]
-    gating_score_shape = [b, s, n, 3]
+    cmp_atten_shape = (b, s, n, d)
+    sel_atten_shape = (b, s, n, d)
+    win_atten_shape = (b, s, n, d)
+    gating_score_shape = (b, s, n, 3)
 
     cmp_atten_path = Path(output_dir, 'cmp_atten.bin')
     sel_atten_path = Path(output_dir, 'sel_atten.bin')
@@ -54,22 +67,22 @@ def gen_gen_atten_golden_data(params, dtype, output_dir: Path):
     attention_out_path = Path(output_dir, 'attention_out.bin')
 
     # gen input
-    cmp_atten = np.random.uniform(-1, 1, cmp_atten_shape).astype(dtype)
-    cmp_atten.tofile(cmp_atten_path)
-    sel_atten = np.random.uniform(-1, 1, sel_atten_shape).astype(dtype)
-    sel_atten.tofile(sel_atten_path)
-    win_atten = np.random.uniform(-1, 1, win_atten_shape).astype(dtype)
-    win_atten.tofile(win_atten_path)
-    gating_score = np.random.uniform(-1, 1, gating_score_shape).astype(dtype)
-    gating_score.tofile(gating_score_path)
+    cmp_atten = torch.rand(cmp_atten_shape, dtype=new_dtype).uniform_(-1, 1)
+    cmp_atten.to(torch.float32).numpy().astype(dtype).tofile(cmp_atten_path)
+    sel_atten = torch.rand(sel_atten_shape, dtype=new_dtype).uniform_(-1, 1)
+    sel_atten.to(torch.float32).numpy().astype(dtype).tofile(sel_atten_path)
+    win_atten = torch.rand(win_atten_shape, dtype=new_dtype).uniform_(-1, 1)
+    win_atten.to(torch.float32).numpy().astype(dtype).tofile(win_atten_path)
+    gating_score = torch.rand(gating_score_shape, dtype=new_dtype).uniform_(-1, 1)
+    gating_score.to(torch.float32).numpy().astype(dtype).tofile(gating_score_path)
 
-    cmp_atten_fp32 = cmp_atten.astype(fp32)
-    sel_atten_fp32 = sel_atten.astype(fp32)
-    win_atten_fp32 = win_atten.astype(fp32)
-    gating_score_fp32 = gating_score.astype(fp32)
-    w_cmp, w_slc, w_win = np.split(gating_score_fp32, 3, axis = -1)
+    cmp_atten_fp32 = cmp_atten.to(torch.float32)
+    sel_atten_fp32 = sel_atten.to(torch.float32)
+    win_atten_fp32 = win_atten.to(torch.float32)
+    gating_score_fp32 = gating_score.to(torch.float32)
+    w_cmp, w_slc, w_win = torch.chunk(gating_score_fp32, 3, dim=-1)
     attention_out_fp32 = (w_cmp * cmp_atten_fp32 + w_slc * sel_atten_fp32 + w_win * win_atten_fp32)
-    attention_out = attention_out_fp32.astype(dtype)
+    attention_out = attention_out_fp32.to(torch.float32).numpy().astype(dtype)
     attention_out.tofile(attention_out_path)
 
 
