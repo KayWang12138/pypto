@@ -40,31 +40,37 @@ fp32 = np.float32
 
 
 def gen_gen_atten_golden_data(params, dtype, output_dir: Path):
-    if 'bfloat' in str(dtypes):
+    if 'bfloat16' in str(dtype):
         new_dtype = torch.bfloat16
-    elif 'float16' in str(dtypes):
+    elif 'float16' in str(dtype):
         new_dtype = torch.float16
-    elif 'float32' in str(dtypes):
+    elif 'float32' in str(dtype):
         new_dtype = torch.float32
     else:
-        raise ValueError(f"Unsupposed dtype: {dtypes}. Supported dtypes are bloat16, float16 and float32")
+        raise ValueError(f"Unsupposed dtype: {dtype}. Supported dtypes are bloat16, float16 and float32")
 
     b = params.get("b")
     n = params.get("n")
-    s = params.get("s")
+    s1 = params.get("s1")
     d = params.get("d")
 
-    cmp_atten_shape = (b, s, n, d)
-    sel_atten_shape = (b, s, n, d)
-    win_atten_shape = (b, s, n, d)
-    gating_score_shape = (b, s, n, 3)
+    cmp_atten_shape = [b, s1, n, d]
+    sel_atten_shape = [b, s1, n, d]
+    win_atten_shape = [b, s1, n, d]
+    gating_score_shape = [b, s1, n, 3]
 
+    input_param_path = Path(output_dir, 'input_param.bin')
     cmp_atten_path = Path(output_dir, 'cmp_atten.bin')
     sel_atten_path = Path(output_dir, 'sel_atten.bin')
     win_atten_path = Path(output_dir, 'win_atten.bin')
     gating_score_path = Path(output_dir, 'gating_score.bin')
     # output
     attention_out_path = Path(output_dir, 'attention_out.bin')
+
+    # input_params
+    input_param = [b, s1, n, d]
+    input_param_array = np.array(input_param, dtype=np.int32)
+    input_param_array.tofile(input_param_path)
 
     # gen input
     cmp_atten = torch.rand(cmp_atten_shape, dtype=new_dtype).uniform_(-1, 1)
@@ -89,7 +95,7 @@ def gen_gen_atten_golden_data(params, dtype, output_dir: Path):
 def gen_gen_atten_test_s1(dtypes, output_dir: Path):
     params = {
         "b": 16,
-        "s": 1,
+        "s1": 1,
         "n": 128,
         "d": 512,
     }
@@ -99,7 +105,7 @@ def gen_gen_atten_test_s1(dtypes, output_dir: Path):
 def gen_gen_atten_test_s2(dtypes, output_dir: Path):
     params = {
         "b": 16,
-        "s": 2,
+        "s1": 2,
         "n": 128,
         "d": 512,
     }
@@ -109,27 +115,27 @@ def gen_gen_atten_test_s2(dtypes, output_dir: Path):
 @GoldenRegister.reg_golden_func(
     case_names=[
         # MLA_prolog v2
-        "TestGenAtten.TestOnboardGenAttenTest_FP16_S1",
-        "TestGenAtten.TestOnboardGenAttenTest_FP32_S1",
-        "TestGenAtten.TestOnboardGenAttenTest_BF16_S1",
-        "TestGenAtten.TestOnboardGenAttenTest_FP16_S2",
-        "TestGenAtten.TestOnboardGenAttenTest_FP32_S2",
-        "TestGenAtten.TestOnboardGenAttenTest_BF16_S2",
+        "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_1_FP16",
+        "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_1_FP32",
+        "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_1_BF16",
+        "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_2_FP16",
+        "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_2_FP32",
+        "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_2_BF16",
     ]
 )
 
 def gen_gen_atten_data(case_name: str, output: Path) -> bool:
-    if case_name == "TestGenAtten.TestOnboardGenAttenTest_FP16_S1":
+    if case_name == "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_1_FP16":
         gen_gen_atten_test_s1(np.float16, output)
-    elif case_name == "TestGenAtten.TestOnboardGenAttenTest_FP32_S1":
+    elif case_name == "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_1_FP32":
         gen_gen_atten_test_s1(np.float32, output)
-    elif case_name == "TestGenAtten.TestOnboardGenAttenTest_BF16_S1":
+    elif case_name == "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_1_BF16":
         gen_gen_atten_test_s1(bfloat16, output)
-    elif case_name == "TestGenAtten.TestOnboardGenAttenTest_FP16_S2":
+    elif case_name == "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_2_FP16":
         gen_gen_atten_test_s2(np.float16, output)
-    elif case_name == "TestGenAtten.TestOnboardGenAttenTest_FP32_S2":
+    elif case_name == "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_2_FP32":
         gen_gen_atten_test_s2(np.float32, output)
-    elif case_name == "TestGenAtten.TestOnboardGenAttenTest_BF16_S2":
+    elif case_name == "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_2_BF16":
         gen_gen_atten_test_s2(bfloat16, output)
     else:
         logging.error("Can't get func to gen golden, Case(%s)", case_name)
@@ -140,12 +146,12 @@ def gen_gen_atten_data(case_name: str, output: Path) -> bool:
 def main() -> bool:
     # 用例名称
     case_name_list: List[str] = [
-        "TestGenAtten.TestOnboardGenAttenTest_FP16_S1",
-        "TestGenAtten.TestOnboardGenAttenTest_FP32_S1",
-        "TestGenAtten.TestOnboardGenAttenTest_BF16_S1",
-        "TestGenAtten.TestOnboardGenAttenTest_FP16_S2",
-        "TestGenAtten.TestOnboardGenAttenTest_FP32_S2",
-        "TestGenAtten.TestOnboardGenAttenTest_BF16_S2",
+        "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_1_FP16",
+        "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_1_FP32",
+        "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_1_BF16",
+        "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_2_FP16",
+        "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_2_FP32",
+        "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_2_BF16",
     ]
     # 函数调用
     ret: bool = True

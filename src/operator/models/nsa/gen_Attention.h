@@ -24,14 +24,18 @@
 #include "interface/configs/config_storage.h"
 
 namespace npu::tile_fwk {
-constexpr int NUM_2 = 2;
-constexpr int NUM_3 = 3;
-constexpr int NUM_16 = 16;
-constexpr int NUM_32 = 32;
-constexpr int NUM_128 = 128;
-constexpr int NUM_512 = 512;
+struct GenAttenTileShapeConfig {
+    int tileBSize;
+    int tileS1Size;
+    std::array<int, TILE_VEC_FOUR_DIMS> vec1TileShape; // vector op tileshape
+    std::array<int, TILE_VEC_FOUR_DIMS> vec2TileShape; // vector op tileshape
+};
 
-void GenAttention(Tensor &cmpAtten, Tensor &selAtten, Tensor &winAtten, Tensor &gatingScore, Tensor &attentionOut);
+void GenAttentionCompute(Tensor &cmpAtten, Tensor &selAtten, Tensor &winAtten, Tensor &gatingScore, Tensor &attentionOut,
+    GenAttenTileShapeConfig &tileConfig);
+
+void GenAttention(Tensor &cmpAtten, Tensor &selAtten, Tensor &winAtten, Tensor &gatingScore, Tensor &attentionOut,
+    GenAttenTileShapeConfig &tileConfig);
 } // namespace npu::tile_fwk
 
 #endif // MLA_PROLOG

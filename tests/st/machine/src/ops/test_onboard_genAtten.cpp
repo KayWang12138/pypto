@@ -29,22 +29,27 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class TestGenAtten : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
-struct GenAttenConfig {
-    int batchSize = 0;
-    int headNumSize = 0;
-    int s1Size = 0;
-    int dimSize = 0;
-};
+constexpr int NUM_2 = 2;
+constexpr int NUM_3 = 3;
+constexpr int NUM_8 = 8;
+constexpr int NUM_16 = 16;
+constexpr int NUM_32 = 32;
+constexpr int NUM_128 = 128;
+constexpr int NUM_512 = 512;
 
 template<typename T = npu::tile_fwk::float16>
-void genAtten(GenAttenConfig &inputConfig) {
+void genAtten(GenAttenTileShapeConfig &tileConfig) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     Program::GetInstance().GetConfig().Set<uint8_t>(MACHINE_CONFIG, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
 
-    int B = inputConfig.batchSize;
-    int N = inputConfig.headNumSize;
-    int S = inputConfig.s1Size;
-    int D = inputConfig.dimSize;
+    int paramsSize = 4;
+    std::vector<int> inputParam(paramsSize);
+    readInput<int>(GetGoldenDir() + "/input_param.bin", inputParam);
+
+    int64_t B = inputParam[0];
+    int64_t N = inputParam[1];
+    int64_t S1 = inputParam[2];
+    int64_t D = inputParam[3];
     DataType dType;
     if (std::is_same<T, float>::value) {
         dType = DT_FP32;
@@ -52,11 +57,11 @@ void genAtten(GenAttenConfig &inputConfig) {
         dType = (std::is_same<T, npu::tile_fwk::float16>::value) ? DT_FP16 : DT_BF16;
     }
 
-    std::vector<int64_t> shape_cmpAtten = {B, S, N, D};
-    std::vector<int64_t> shape_selAtten = {B, S, N, D};
-    std::vector<int64_t> shape_winAtten = {B, S, N, D};
-    std::vector<int64_t> shape_gatingScore = {B, S, N, NUM_3};
-    std::vector<int64_t> shape_attentionOut = {B, S, N, D};
+    std::vector<int64_t> shape_cmpAtten = {B, S1, N, D};
+    std::vector<int64_t> shape_selAtten = {B, S1, N, D};
+    std::vector<int64_t> shape_winAtten = {B, S1, N, D};
+    std::vector<int64_t> shape_gatingScore = {B, S1, N, NUM_3};
+    std::vector<int64_t> shape_attentionOut = {B, S1, N, D};
 
     Tensor cmpAtten(dType, shape_cmpAtten, "cmpAtten");
     Tensor selAtten(dType, shape_selAtten, "selAtten");
@@ -64,11 +69,11 @@ void genAtten(GenAttenConfig &inputConfig) {
     Tensor gatingScore(dType, shape_gatingScore, "gatingScore");
     Tensor out_npu(dType, shape_attentionOut, "out_npu");
 
-    std::vector<T>cmpAttenData(B * S * N * D);
-    std::vector<T>selAttenData(B * S * N * D);
-    std::vector<T>winAttenData(B * S * N * D);
-    std::vector<T>gatingScoreData(B * S * N * NUM_3);
-    std::vector<T>out_goldenData(B * S * N * D);
+    std::vector<T>cmpAttenData(B * S1 * N * D);
+    std::vector<T>selAttenData(B * S1 * N * D);
+    std::vector<T>winAttenData(B * S1 * N * D);
+    std::vector<T>gatingScoreData(B * S1 * N * NUM_3);
+    std::vector<T>out_goldenData(B * S1 * N * D);
 
     readInput(GetGoldenDir() + "/cmp_atten.bin", cmpAttenData);
     readInput(GetGoldenDir() + "/sel_atten.bin", selAttenData);
@@ -87,7 +92,7 @@ void genAtten(GenAttenConfig &inputConfig) {
         RawTensorData::CreateConstantTensor<T>(out_npu, 0),
     });
 
-    GenAttention(cmpAtten, selAtten, winAtten, gatingScore, out_npu);
+    GenAttention(cmpAtten, selAtten, winAtten, gatingScore, out_npu, tileConfig);
 
 #ifdef ENABLE_BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -96,56 +101,68 @@ void genAtten(GenAttenConfig &inputConfig) {
 #endif
 }
 
-TEST_F(TestGenAtten, TestOnboardGenAttenTest_FP16_S1) {
-    GenAttenConfig config;
-    config.batchSize = NUM_16;
-    config.headNumSize = NUM_128;
-    config.s1Size = 1;
-    config.dimSize = NUM_512;
-    genAtten<npu::tile_fwk::float16>(config);
+TEST_F(TestGenAtten, TestDynamicGenAttenTest_B_16_S1_1_FP16) {
+    GenAttenTileShapeConfig tileConfig;
+    const int dTileSize = NUM_512;
+    const int nTileSize = NUM_128;
+    tileConfig.tileBSize = NUM_8;
+    tileConfig.tileS1Size = 1;
+    tileConfig.vec1TileShape = {1, 1, NUM_16, dTileSize};
+    tileConfig.vec2TileShape = {1, 1, nTileSize, NUM_3};
+    genAtten<npu::tile_fwk::float16>(tileConfig);
 }
 
-TEST_F(TestGenAtten, TestOnboardGenAttenTest_FP32_S1) {
-    GenAttenConfig config;
-    config.batchSize = NUM_16;
-    config.headNumSize = NUM_128;
-    config.s1Size = 1;
-    config.dimSize = NUM_512;
-    genAtten<float>(config);
+TEST_F(TestGenAtten, TestDynamicGenAttenTest_B_16_S1_1_FP32) {
+    GenAttenTileShapeConfig tileConfig;
+    const int dTileSize = NUM_512;
+    const int nTileSize = NUM_128;
+    tileConfig.tileBSize = NUM_8;
+    tileConfig.tileS1Size = 1;
+    tileConfig.vec1TileShape = {1, 1, NUM_16, dTileSize};
+    tileConfig.vec2TileShape = {1, 1, nTileSize, NUM_3};
+    genAtten<float>(tileConfig);
 }
 
-TEST_F(TestGenAtten, TestOnboardGenAttenTest_BF16_S1) {
-    GenAttenConfig config;
-    config.batchSize = NUM_16;
-    config.headNumSize = NUM_128;
-    config.s1Size = 1;
-    config.dimSize = NUM_512;
-    genAtten<npu::tile_fwk::bfloat16>(config);
+TEST_F(TestGenAtten, TestDynamicGenAttenTest_B_16_S1_1_BF16) {
+    GenAttenTileShapeConfig tileConfig;
+    const int dTileSize = NUM_512;
+    const int nTileSize = NUM_128;
+    tileConfig.tileBSize = NUM_8;
+    tileConfig.tileS1Size = 1;
+    tileConfig.vec1TileShape = {1, 1, NUM_16, dTileSize};
+    tileConfig.vec2TileShape = {1, 1, nTileSize, NUM_3};
+    genAtten<npu::tile_fwk::bfloat16>(tileConfig);
 }
 
-TEST_F(TestGenAtten, TestOnboardGenAttenTest_FP16_S2) {
-    GenAttenConfig config;
-    config.batchSize = NUM_16;
-    config.headNumSize = NUM_128;
-    config.s1Size = NUM_2;
-    config.dimSize = NUM_512;
-    genAtten<npu::tile_fwk::float16>(config);
+TEST_F(TestGenAtten, TestDynamicGenAttenTest_B_16_S1_2_FP16) {
+    GenAttenTileShapeConfig tileConfig;
+    const int dTileSize = NUM_512;
+    const int nTileSize = NUM_128;
+    tileConfig.tileBSize = NUM_8;
+    tileConfig.tileS1Size = 1;
+    tileConfig.vec1TileShape = {1, 1, NUM_16, dTileSize};
+    tileConfig.vec2TileShape = {1, 1, nTileSize, NUM_3};
+    genAtten<npu::tile_fwk::float16>(tileConfig);
 }
 
-TEST_F(TestGenAtten, TestOnboardGenAttenTest_FP32_S2) {
-    GenAttenConfig config;
-    config.batchSize = NUM_16;
-    config.headNumSize = NUM_128;
-    config.s1Size = NUM_2;
-    config.dimSize = NUM_512;
-    genAtten<float>(config);
+TEST_F(TestGenAtten, TestDynamicGenAttenTest_B_16_S1_2_FP32) {
+    GenAttenTileShapeConfig tileConfig;
+    const int dTileSize = NUM_512;
+    const int nTileSize = NUM_128;
+    tileConfig.tileBSize = NUM_8;
+    tileConfig.tileS1Size = 1;
+    tileConfig.vec1TileShape = {1, 1, NUM_16, dTileSize};
+    tileConfig.vec2TileShape = {1, 1, nTileSize, NUM_3};
+    genAtten<float>(tileConfig);
 }
 
-TEST_F(TestGenAtten, TestOnboardGenAttenTest_BF16_S2) {
-    GenAttenConfig config;
-    config.batchSize = NUM_16;
-    config.headNumSize = NUM_128;
-    config.s1Size = NUM_2;
-    config.dimSize = NUM_512;
-    genAtten<npu::tile_fwk::bfloat16>(config);
+TEST_F(TestGenAtten, TestDynamicGenAttenTest_B_16_S1_2_BF16) {
+    GenAttenTileShapeConfig tileConfig;
+    const int dTileSize = NUM_512;
+    const int nTileSize = NUM_128;
+    tileConfig.tileBSize = NUM_8;
+    tileConfig.tileS1Size = 1;
+    tileConfig.vec1TileShape = {1, 1, NUM_16, dTileSize};
+    tileConfig.vec2TileShape = {1, 1, nTileSize, NUM_3};
+    genAtten<npu::tile_fwk::bfloat16>(tileConfig);
 }

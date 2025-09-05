@@ -19,7 +19,15 @@
 
 using namespace npu::tile_fwk;
 
-class DynamicTestGenAtten : public testing::Test {
+constexpr int NUM_2 = 2;
+constexpr int NUM_3 = 3;
+constexpr int NUM_8 = 8;
+constexpr int NUM_16 = 16;
+constexpr int NUM_32 = 32;
+constexpr int NUM_128 = 128;
+constexpr int NUM_512 = 512;
+
+class GenAttnUtTest : public testing::Test {
 public:
     void SetUp() override {
         oriEnableAihacBackend = config::GetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);
@@ -41,13 +49,14 @@ struct GenAttenConfig {
 };
 
 template<typename T = npu::tile_fwk::float16>
-void genAtten(GenAttenConfig &inputConfig) {
+void genAtten(GenAttenTileShapeConfig &tileConfig) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     Program::GetInstance().GetConfig().Set<uint8_t>(MACHINE_CONFIG, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
-    int B = inputConfig.batchSize;
-    int N = inputConfig.headNumSize;
-    int S = inputConfig.s1Size;
-    int D = inputConfig.dimSize;
+
+    int B = NUM_16;
+    int N = NUM_128;
+    int S1 = 1;
+    int D = NUM_512;
     DataType dType;
     if (std::is_same<T, float>::value) {
         dType = DT_FP32;
@@ -55,11 +64,11 @@ void genAtten(GenAttenConfig &inputConfig) {
         dType = (std::is_same<T, npu::tile_fwk::float16>::value) ? DT_FP16 : DT_BF16;
     }
 
-    std::vector<int64_t> shape_cmpAtten = {B, S, N, D};
-    std::vector<int64_t> shape_selAtten = {B, S, N, D};
-    std::vector<int64_t> shape_winAtten = {B, S, N, D};
-    std::vector<int64_t> shape_gatingScore = {B, S, N, NUM_3};
-    std::vector<int64_t> shape_attentionOut = {B, S, N, D};
+    std::vector<int64_t> shape_cmpAtten = {B, S1, N, D};
+    std::vector<int64_t> shape_selAtten = {B, S1, N, D};
+    std::vector<int64_t> shape_winAtten = {B, S1, N, D};
+    std::vector<int64_t> shape_gatingScore = {B, S1, N, NUM_3};
+    std::vector<int64_t> shape_attentionOut = {B, S1, N, D};
 
     Tensor cmpAtten(dType, shape_cmpAtten, "cmpAtten");
     Tensor selAtten(dType, shape_selAtten, "selAtten");
@@ -67,20 +76,22 @@ void genAtten(GenAttenConfig &inputConfig) {
     Tensor gatingScore(dType, shape_gatingScore, "gatingScore");
     Tensor out_npu(dType, shape_attentionOut, "out_npu");
 
-    std::vector<T>cmpAttenData(B * S * N * D);
-    std::vector<T>selAttenData(B * S * N * D);
-    std::vector<T>winAttenData(B * S * N * D);
-    std::vector<T>gatingScoreData(B * S * N * NUM_3);
-    std::vector<T>out_goldenData(B * S * N * D);
+    std::vector<T>cmpAttenData(B * S1 * N * D);
+    std::vector<T>selAttenData(B * S1 * N * D);
+    std::vector<T>winAttenData(B * S1 * N * D);
+    std::vector<T>gatingScoreData(B * S1 * N * NUM_3);
+    std::vector<T>out_goldenData(B * S1 * N * D);
 
-    GenAttention(cmpAtten, selAtten, winAtten, gatingScore, out_npu);
+    GenAttention(cmpAtten, selAtten, winAtten, gatingScore, out_npu, tileConfig);
 }
 
-TEST_F(DynamicTestGenAtten, TestOnboardGenAttenTest_FP16) {
-    GenAttenConfig config;
-    config.batchSize = NUM_16;
-    config.headNumSize = NUM_128;
-    config.s1Size = 1;
-    config.dimSize = NUM_512;
-    genAtten<npu::tile_fwk::float16>(config);
+TEST_F(GenAttnUtTest, TestDynamicGenAttenTest_FP16_ut) {
+    GenAttenTileShapeConfig tileConfig;
+    const int dTileSize = NUM_512;
+    const int nTileSize = NUM_128;
+    tileConfig.tileBSize = NUM_8;
+    tileConfig.tileS1Size = 1;
+    tileConfig.vec1TileShape = {1, 1, NUM_16, dTileSize};
+    tileConfig.vec2TileShape = {1, 1, nTileSize, NUM_3};
+    genAtten<npu::tile_fwk::float16>(tileConfig);
 }

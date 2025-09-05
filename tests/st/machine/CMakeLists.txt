@@ -72,7 +72,7 @@ set(_CaseFilterList
         #===========================================================================
         # NSA native spare attention
         #===========================================================================
-        "TestGenAtten.TestOnboardGenAttenTest_FP16_S1"
+        "TestGenAtten.TestDynamicGenAttenTest_B_16_S1_1_FP16"
         "DynamicSlcTest.dynamic_p_slc_bf16"
         "DynamicSlcTest.dynamic_p_slc_fp16"
         "DynamicWinAttenTest.test_DynAttn_nas_win_attn_s1_2_actseqlen_1024_mla_fp16_v1"
