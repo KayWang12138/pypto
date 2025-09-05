@@ -209,6 +209,38 @@ LogicalTensorPtr BinaryOperationBroadCast(const LogicalTensorPtr &operand, const
     return operand;
 }
 
+inline const std::vector<size_t> &GetShapeLenLimit(const std::string &op) {
+    // if the limit of op is not [1, 4], should add here
+    static std::unordered_map<std::string, const std::vector<size_t>> op_shape_len_limit = {
+        {    "ADD", {1, 4}},
+        {   "CAST", {1, 4}},
+        {"DEFAULT", {1, 4}}
+    };
+    if (op_shape_len_limit.find(op) == op_shape_len_limit.end()) {
+        return op_shape_len_limit.at("DEFAULT");
+    }
+    return op_shape_len_limit.at(op);
+}
+
+inline void CheckTensorShape(const LogicalTensorPtr &tensor, const std::string &op) {
+    auto shape = tensor->shape;
+    // valid input dims must in [1, 4]
+    auto shape_len_limit = GetShapeLenLimit(op);
+    if (shape.size() < shape_len_limit[0] || shape.size() > shape_len_limit[1]) {
+        assert(false && "The dims of tensor out of range.");
+    }
+    size_t shapeSize = 1;
+    for (const auto &value : shape) {
+        if (value > INT32_MAX) {
+            assert(false && "The dim value of tensor must less than or equal to INT32_MAX(2,147,483,647)");
+        }
+        shapeSize *= static_cast<size_t>(value);
+        if (shapeSize > INT32_MAX) {
+            assert(false && "The shape size of tensor must less than or equal to INT32_MAX(2,147,483,647)");
+        }
+    }
+}
+
 void CheckOperandsValid(const Tensor &operand1, const Tensor &operand2) {
     assert(operand1->shape.size() == operand2->shape.size());
     assert(operand1->shape.size() == operand1->offset.size());
@@ -225,8 +257,19 @@ void CheckBinOpOperandsValid(
     }
 }
 
+inline void CheckBinaryInputTensors(const LogicalTensorPtr &tensor1, const LogicalTensorPtr &tensor2, std::string &op) {
+    CheckTensorShape(tensor1, op);
+    CheckTensorShape(tensor2, op);
+    CheckBinOpOperandsValid(tensor1, tensor2);
+    if (tensor1->Datatype() != tensor2->Datatype()) {
+        assert(false && "The dtype of input tensors are not same.");
+    }
+}
+
 template <UnaryOpType T>
 Tensor UnaryOperation(Tensor operand) {
+    auto opName = GetUnaryOpName<T>();
+    CheckTensorShape(operand.GetStorage(), opName);
     Tensor result(operand->tensor->datatype, operand->shape);
     assert(operand->shape.size() == operand->offset.size());
     Program::GetInstance().AddOperation(GetUnaryOpName<T>(), {operand.GetStorage()}, {result.GetStorage()});
@@ -235,6 +278,8 @@ Tensor UnaryOperation(Tensor operand) {
 
 template <UnaryOpType T>
 LogicalTensorPtr TensorUnaryOperation(Function &function, LogicalTensorPtr operand) {
+    auto opName = GetUnaryOpName<T>();
+    CheckTensorShape(operand, opName);
     auto result = std::make_shared<LogicalTensor>(function, operand->tensor->datatype, operand->shape, operand->GetDynValidShape());
     function.AddOperation(GetUnaryOpNameCode<T>(), {operand}, {result});
     return result;
@@ -469,7 +514,8 @@ LogicalTensorPtr TensorBinaryOperation(Function &function, const Tensor &operand
         oprandT1 = BinaryOperationBroadCast(oprandT1, broadCastShape);
         oprandT2 = BinaryOperationBroadCast(oprandT2, broadCastShape);
     }
-    CheckBinOpOperandsValid(oprandT1, oprandT2);
+    auto opName = GetBinaryOpName<T>();
+    CheckBinaryInputTensors(oprandT1, oprandT2, opName);
 
     std::vector<SymbolicScalar> resultValidShape;
     std::vector<int64_t> resultShape = BinaryOperationResultShape(oprandT1, oprandT2);
@@ -489,6 +535,8 @@ LogicalTensorPtr TensorBinaryOperation(Function &function, const Tensor &operand
 
 template <BinaryOpType T>
 LogicalTensorPtr TensorBinaryOperationScalar(Function &function, LogicalTensorPtr operand1, const Element &value) {
+    auto opName = GetBinaryOpName<T>();
+    CheckTensorShape(operand1, opName);
     auto result = std::make_shared<LogicalTensor>(function, operand1->Datatype(), operand1->shape, operand1->GetDynValidShape());
     auto &op = function.AddOperation(GetBinaryOpNameCode<T, true>(), {operand1}, {result});
     op.SetAttribute(OpAttributeKey::scalar, value);
@@ -572,6 +620,8 @@ void TiledBinaryOperationAllScalar(Function &function, const TileShape &tileShap
 template <BinaryOpType T>
 LogicalTensorPtr TensorBinaryOperationAllScalar(Function &function,
     const Tensor &operand1, const Tensor &operand2) {
+    auto opName = GetBinaryOpName<T>();
+    CheckBinaryInputTensors(operand1.GetStorage(), operand2.GetStorage(), opName);
     auto result = std::make_shared<LogicalTensor>(function, operand1->Datatype(), operand1->shape);
     function.AddOperation(GetBinaryOpNameCode<T, false>(), {operand1.GetStorage(), operand2.GetStorage()}, {result});
     return result;
