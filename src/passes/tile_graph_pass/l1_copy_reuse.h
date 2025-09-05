@@ -33,22 +33,26 @@ class L1CopyInReuseRunner {
   public:
     explicit L1CopyInReuseRunner(const std::vector<std::vector<int>> &inGraph1) : inGraph(inGraph1) {}
     ~L1CopyInReuseRunner() {}
-    void Run(Function &func, int color, std::vector<std::vector<int>> &colorNode);
+    Status Run(Function &func, int color, std::vector<std::vector<int>> &colorNode);
   private:
     void GetOpHash(std::vector<uint64_t> &hashList, const std::string op, int idx);
     void GetColorHash(const OperationsViewer &opOriList, std::vector<uint64_t> &hashColor);
     int GetMaxInColor(const std::vector<int> &nodes, const OperationsViewer &opOriList, int curColor);
-    void MergeDupL1CopyIn(Function &func, std::vector<std::vector<int>> &colorNode,
-                          int color);
+    Status MergeDupL1CopyIn(Function &func, std::vector<std::vector<int>> &colorNode, int color);
     std::vector<int> GetOpInputFeature(const OperationsViewer &opOriList,
                                       const int opIdx, const int ioperandIdx);
     void RemoveUselessViews(Function &func) const;
-    void GetDuplicateOps(std::vector<Operation *> &opOriList,
-                         const std::vector<int> &opIdx);
+    Status GetDuplicateOps(std::vector<Operation *> &opOriList, const std::vector<int> &opIdx);
     void TackleOp(int i, Operation *op, std::vector<std::vector<int>> &replacedInputs, 
                         std::vector<std::vector<int>> &replacedOutputs);
-    void Phase1(Function &func, int color, std::vector<std::vector<int>> &colorNode, 
-                        std::vector<int> &colorCopyIn, std::vector<uint64_t> &hashColor);
+    Status Phase1(Function &func, int color, std::vector<std::vector<int>> &colorNode, 
+                  std::vector<int> &colorCopyIn, std::vector<uint64_t> &hashColor);
+    Status L1MergeProcess(OperationsViewer &opOriList, std::vector<std::vector<int>> &colorNode,
+                          std::vector<uint64_t> &hashColor, std::vector<int> &colorCopyIn,
+                          std::map<std::vector<uint64_t>, int> &l1InputList, int &tmpColor,
+                          std::vector<int> &mergedNum, int &i);
+    void CubeMergeProcess(std::vector<std::vector<int>> &colorNode, OperationsViewer &opOriList,
+                          std::vector<int> &hashMergeNum, std::vector<int> &colorCopyIn);
     std::vector<int> SetNumLR();
     std::vector<int> SetNumDB();
     const std::vector<std::vector<int>> &inGraph;

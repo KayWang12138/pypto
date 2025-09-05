@@ -24,12 +24,13 @@ namespace npu::tile_fwk {
 void NBufferMerge::GetOpHash(std::vector<uint64_t> &hashList, const std::string op, int idx) {
     uint64_t a = 0x12345678;
     uint64_t p = 37;
+    const uint64_t mod = UINT64_MAX;
     uint64_t hash = 0;
     for (char c : op) {
-        hash = hash * p + static_cast<uint64_t>(c);
+        hash = (hash * p + static_cast<uint64_t>(c)) % mod;
     }
     for (int j : inGraph_[idx]) {
-        hash = hash * p + (hashList[j] ^ a);
+        hash = (hash * p + (hashList[j] ^ a)) % mod;
     }
     hashList[idx] = hash;
 }
@@ -37,12 +38,13 @@ void NBufferMerge::GetOpHash(std::vector<uint64_t> &hashList, const std::string 
 void NBufferMerge::GetOpHashReverse(std::vector<uint64_t> &hashList, const std::string op, int idx) {
     uint64_t a = 0x12345678;
     uint64_t p = 37;
+    const uint64_t mod = UINT64_MAX;
     uint64_t hash = 0;
     for (char c : op) {
-        hash = hash * p + static_cast<uint64_t>(c);
+        hash = (hash * p + static_cast<uint64_t>(c)) % mod;
     }
     for (int j : outGraph_[idx]) {
-        hash = hash * p + (hashList[j] ^ a);
+        hash = (hash * p + (hashList[j] ^ a)) % mod;
     }
     hashList[idx] = hash;
 }
@@ -201,7 +203,7 @@ Status NBufferMerge::Init(Function &func) {
         return SUCCESS;
     }
     if (colorSet.size() != colorMax + 1) {
-        ALOG_ERROR_F("[NBUFFER_MERGE] colors are not continously numbered from 0");
+        ALOG_ERROR_F("[NBUFFER_MERGE] colors are not continously numbered from 0.");
         return FAILED;
     }
     color_ = colorMax + 1;
@@ -266,6 +268,7 @@ void NBufferMerge::GetColorHash(const OperationsViewer &opOriList,
     }
     uint64_t a = 0x12345678;
     uint64_t p = 23;
+    const uint64_t mod = UINT64_MAX;
     std::set<int32_t> mulaccGraph;
     for (size_t i = 0; i < opOriList.size(); i++) {
         if (opOriList[i].GetSubgraphID() < 0) {
@@ -276,11 +279,11 @@ void NBufferMerge::GetColorHash(const OperationsViewer &opOriList,
             hashColor[opOriList[i].GetSubgraphID()] = 0;
             continue;
         }
-        if (opOriList[i].HasAttr(OpAttributeKey::isCube) && (opOriList[i].GetBoolAttribute(OpAttributeKey::isCube))) {
+        if (OpcodeManager::Inst().GetCoreType(opOriList[i].GetOpcode()) == OpCoreType::AIC) {
             mulaccGraph.insert(opOriList[i].GetSubgraphID());
             continue;
         }
-        hashColor[opOriList[i].GetSubgraphID()] = hashColor[opOriList[i].GetSubgraphID()] * p + (hashTileOp[i] ^ a);
+        hashColor[opOriList[i].GetSubgraphID()] = (hashColor[opOriList[i].GetSubgraphID()] * p + (hashTileOp[i] ^ a)) % mod;
     }
     for (auto subgraphId : mulaccGraph) {
         hashColor[subgraphId] = 0;

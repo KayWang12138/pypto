@@ -69,9 +69,11 @@ private:
     int sgCubeParallelNum;
     std::map<int, int> vecNBufferMap;
     std::unordered_map<uint64_t, int> hashOrder;
-    int noMerge = 0;
-    int autoMerge = 1;
-    int manualMerge = 2;
+    enum ModeType {
+        noMerge = 0,
+        autoMerge = 1,
+        manualMerge = 2
+    };
 };
 }  // namespace npu::tile_fwk
 #endif  // PASS_N_BUFFER_MERGE_H_
