@@ -320,12 +320,12 @@ Function *LoopUnroll::CreateLoopFunc(Function *func, Function *callerParentFunc)
     return caller.get();
 }
 
-Status LoopUnroll::CreateLoopUnrollFunc(const std::string funcName, const FunctionType funcType,
-    const GraphType graphType) {
+Status LoopUnroll::CreateLoopUnrollFunc(Function *function) {
+    std::string funcName = function->GetRawName() + "_Loop_Unroll";
     auto funcMagicName = funcName + "_" + std::to_string(IdGen<IdType::FUNCTION>::Inst().CurId());
     auto newFunc = std::make_unique<Function>(Program::GetInstance(), funcMagicName, funcName, nullptr);
-    newFunc->SetFunctionType(funcType);
-    newFunc->SetGraphType(graphType);
+    newFunc->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
+    newFunc->SetGraphType(GraphType::TENSOR_GRAPH);
 
     Program::GetInstance().SetCurrentFunction(newFunc.get());
     if (Program::GetInstance().GetFunctionMap().count(funcMagicName) != 0) {
@@ -370,9 +370,8 @@ Status LoopUnroll::CreateLoopUnrollFunc(const std::string funcName, const Functi
 }
 
 Status LoopUnroll::TopFunctionUnroll(Function *function, std::vector<Operation *> callopList) {
-    std::string funcName = function->GetRawName() + "_Loop_Unroll";
-    if (CreateLoopUnrollFunc(funcName, FunctionType::DYNAMIC_LOOP_PATH, GraphType::TENSOR_GRAPH) != SUCCESS) {
-        ALOG_ERROR_F("Function[%s] CreateLoopUnrollFunc failed.", funcName.c_str());
+    if (CreateLoopUnrollFunc(function) != SUCCESS) {
+        ALOG_ERROR_F("CreateLoopUnrollFunc failed.");
         return FAILED;
     }
     for (auto incast : function->GetIncast()) {
@@ -383,6 +382,7 @@ Status LoopUnroll::TopFunctionUnroll(Function *function, std::vector<Operation *
         }
         int slotIdx = function->GetInCastSlot(incast)[0];
         auto newIncast = incast->Clone(*topFunction_, true);
+        newIncast->nodetype = NodeType::LOCAL;
         lastWriteMap_[slotIdx] = std::make_pair(newIncast, true);
     }
     for (auto callop : callopList) {
@@ -397,33 +397,44 @@ Status LoopUnroll::TopFunctionUnroll(Function *function, std::vector<Operation *
 }
 
 Status LoopUnroll::UpdateTopFuncInoutCast(Function *function) {
-    for (auto incast : function->GetIncast()) {
+    auto scope = Program::GetInstance().GetTensorSlotManager()->EndScope();
+    std::vector<int> incastSlot = Program::GetInstance().GetTensorSlotManager()->LookupSlotIndexConst(
+        function->GetDyndevAttribute()->startArgsInputTensorList);
+    for (auto &incast : function->GetIncast()) {
         if (function->GetInCastSlot(incast).size() != 1) {
             ALOG_ERROR_F("Incast[%d] has multi slot[%d], not support now.", incast->GetMagic(),
                 function->GetInCastSlot(incast).size());
             return FAILED;
         }
         int slotIdx = function->GetInCastSlot(incast)[0];
+        if (std::find(incastSlot.begin(), incastSlot.end(), slotIdx) == incastSlot.end()) {
+            continue;
+        }
         if (lastWriteMap_.find(slotIdx) != lastWriteMap_.end()) {
-            if (lastWriteMap_[slotIdx].first->GetProducers().empty()) {
-                lastWriteMap_[slotIdx].first->nodetype = NodeType::INCAST;
-                topFunction_->inCasts_.push_back(lastWriteMap_[slotIdx].first);
-                topFunction_->GetTensorMap().Insert(lastWriteMap_[slotIdx].first, false);
-            }
+            scope->ioslot.incastSlot.push_back({slotIdx});
+            lastWriteMap_[slotIdx].first->nodetype = NodeType::INCAST;
+            topFunction_->inCasts_.push_back(lastWriteMap_[slotIdx].first);
+            topFunction_->GetTensorMap().Insert(lastWriteMap_[slotIdx].first, false);
         }
     }
-    for (auto outcast : function->GetOutcast()) {
+    std::vector<int> outcastSlot = Program::GetInstance().GetTensorSlotManager()->LookupSlotIndexConst(
+    function->GetDyndevAttribute()->startArgsOutputTensorList);
+    int idx = 0;
+    for (auto &outcast : function->GetOutcast()) {
         if (function->GetOutCastSlot(outcast).size() != 1) {
             ALOG_ERROR_F("Outcast[%d] has multi slot[%d], not support now.", outcast->GetMagic(),
                 function->GetOutCastSlot(outcast).size());
             return FAILED;
         }
         int slotIdx = function->GetOutCastSlot(outcast)[0];
+        if (std::find(outcastSlot.begin(), outcastSlot.end(), slotIdx) == outcastSlot.end()) {
+            continue;
+        }
         if (lastWriteMap_.find(slotIdx) != lastWriteMap_.end()) {
-            if (lastWriteMap_[slotIdx].first->GetConsumers().empty()) {
-                lastWriteMap_[slotIdx].first->nodetype = NodeType::OUTCAST;
-                topFunction_->outCasts_.push_back(lastWriteMap_[slotIdx].first);
-            }
+            scope->ioslot.outcastSlot.push_back({slotIdx});
+            scope->ioslot.partialUpdateOutcastList.push_back(idx++);
+            lastWriteMap_[slotIdx].first->nodetype = NodeType::OUTCAST;
+            topFunction_->outCasts_.push_back(lastWriteMap_[slotIdx].first);
         }
     }
     return SUCCESS;
@@ -438,21 +449,12 @@ Status LoopUnroll::TraverseCallOp(Function *function) {
             return FAILED;
         }
 
+        Program::GetInstance().GetTensorSlotManager()->scopeList.clear();
+        Program::GetInstance().GetTensorSlotManager()->BeginScope(topFunction_);
         if (UpdateTopFuncInoutCast(function) != SUCCESS) {
             ALOG_ERROR_F("Function[%s] UpdateTopFuncInoutCast failed.", function->GetRawName().c_str());
             return FAILED;
         }
-
-        std::shared_ptr<TensorSlotScope> topFuncScope = nullptr;
-        for (auto &scope : Program::GetInstance().GetTensorSlotManager()->scopeList) {
-            if (scope->tensorFunc->IsFunctionType(FunctionType::DYNAMIC_LOOP_PATH)) {
-                scope->tensorFunc = topFunction_;
-                topFunction_->SetSlotScope(scope);
-                topFuncScope = scope;
-            }
-        }
-        Program::GetInstance().GetTensorSlotManager()->scopeList.clear();
-        Program::GetInstance().GetTensorSlotManager()->scopeList.push_back(topFuncScope);
 
         auto loopFunction = CreateLoopFunc(topFunction_, function);
         topFunction_->SetParent(loopFunction);
@@ -473,6 +475,10 @@ Status LoopUnroll::TraverseCallOp(Function *function) {
             if (TraverseCallOp(childFunction) != SUCCESS) {
                 ALOG_ERROR_F("Child function[%s] TopFunctionUnroll failed.", childFunction->GetRawName().c_str());
                 return FAILED;
+            }
+            if (IsConvertingToStatic(childFunction)) {
+                CallOpAttribute *callOpAttr = static_cast<CallOpAttribute *>(callop->GetOpAttribute().get());
+                callOpAttr->SetCalleeHash(childFunction->GetFunctionHash());
             }
         }
     }

@@ -98,7 +98,7 @@ private:
         LogicalTensorPtr tensor);
     Status CreateLocal2Global(std::unordered_map<int, LogicalTensorPtr> &tensor2Global, LogicalTensorPtr tensor);
     Function *CreateLoopFunc(Function *func, Function *callerParentFunc);
-    Status CreateLoopUnrollFunc(const std::string funcName, const FunctionType funcType, const GraphType graphType);
+    Status CreateLoopUnrollFunc(Function *function);
 };
 } // namespace tile_fwk
 } // namespace npu
