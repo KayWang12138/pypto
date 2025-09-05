@@ -168,20 +168,23 @@ private:
     Status UpdateForPerfectlyMatchWithAll(Function &function, Operation &op, const CalcOverlapPara &para, const ReshapeSourcePara &sourcePara);
     Status ProcessMultitoOne(Function &function, Operation &op, const CalcOverlapPara &para);
 
-    bool CheckSplit(const LogicalTensorPtr &reshapeSource);
+    bool CheckSameRawInput(const LogicalTensorPtr &reshapeSource);
     std::shared_ptr<ReshapeOp> ReshapeOperationExist(const std::shared_ptr<ReshapeOp> &isAddReshapeop);
     unsigned long ComputeReshapeHash(const LogicalTensorPtr &input, const LogicalTensorPtr &output) const;
     unsigned long ComputeReshapeHashOrderless(const LogicalTensorPtr &input, const LogicalTensorPtr &output) const;
-    
+    std::vector<int64_t> ObtainMapOffset(const LogicalTensorPtr &input, const LogicalTensorPtr &output) const;
+
     Status GetOpDynShape(const std::shared_ptr<ReshapeOp> &op, std::vector<SymbolicScalar> &dynValidShape);
     Status GroupReshapeOffset(const std::shared_ptr<ReshapeOp> &isAddReshapeop, const std::vector<int64_t> &offset);
     Status UpdateDynShape(const std::shared_ptr<ReshapeOp> &reshapeOp, const std::vector<int64_t> &offset, const std::vector<SymbolicScalar> &dynShape);
+    Status ObtainChangingAxis(std::vector<int64_t> alignedShape, std::vector<int64_t> input, std::vector<bool> &ChangingAxis);
     Status CheckDynStatus(std::vector<int64_t> alignedShape, std::vector<int64_t> input, std::vector<int64_t> output, std::vector<SymbolicScalar> dynOutput);
     Status UpdateShapeOffset(UpdatePara &para, bool &flag, int &currentShape, int &currentOffset);
     Status ShapeAlign(std::vector<int64_t> shape1, std::vector<int64_t> shape2, std::vector<int64_t> &alignedShape);
     Status RawToAlign(const ReshapeTilePara &shapePara, std::vector<int64_t> &newOffset, std::vector<int64_t> &newShape);
     Status AlignToRaw(const ReshapeTilePara &shapePara, std::vector<int64_t> &newOffset, std::vector<int64_t> &newShape);
-    std::unordered_map<int, std::set<LogicalTensorPtr, TensorPtrComparator>> copyOutSources;
+    
+    std::unordered_map<int, std::set<LogicalTensorPtr, TensorPtrComparator>> AssembleOutToInput;
     std::unordered_map<InputMaigc, std::unordered_map<OutputMaigc, std::vector<int64_t>>> mapOffset;
     std::unordered_map<int, LogicalTensorPtr> reshapeSources;
     std::unordered_map<int, std::vector<SymbolicScalar>> reshapeDynOutput;

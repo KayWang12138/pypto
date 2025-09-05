@@ -69,7 +69,7 @@ TEST_F(TestSplitReshapePass, TestInit) {
     auto status = pass.Init();
     EXPECT_EQ(status, SUCCESS);
 
-    EXPECT_EQ(pass.copyOutSources.size(), kSizeZero);
+    EXPECT_EQ(pass.AssembleOutToInput.size(), kSizeZero);
     EXPECT_EQ(pass.reshapeSources.size(), kSizeZero);
     EXPECT_EQ(pass.mapOffset.size(), kSizeZero);
     EXPECT_EQ(pass.assembles.size(), kSizeZero);
@@ -124,9 +124,9 @@ TEST_F(TestSplitReshapePass, TestCollectCopyOut) {
         EXPECT_EQ(iter2->second[i].Dump(), validShape[i].Dump());
     }
 
-    EXPECT_EQ(pass.copyOutSources.size(), kSizeOne);
-    auto iter3 = pass.copyOutSources.find(ubTensor->tensor->rawmagic);
-    EXPECT_NE(iter3, pass.copyOutSources.end());
+    EXPECT_EQ(pass.AssembleOutToInput.size(), kSizeOne);
+    auto iter3 = pass.AssembleOutToInput.find(ubTensor->tensor->rawmagic);
+    EXPECT_NE(iter3, pass.AssembleOutToInput.end());
     EXPECT_EQ(iter3->second.size(), kNumTwo);
     EXPECT_EQ(iter3->second.count(input1), kNumOne);
     EXPECT_EQ(iter3->second.count(input2), kNumOne);
@@ -194,10 +194,10 @@ TEST_F(TestSplitReshapePass, TestCheckSplit) {
     SplitReshape pass;
     auto status = pass.CollectCopyOut(*currFunctionPtr);
     EXPECT_EQ(status, SUCCESS);
-    EXPECT_EQ(pass.CheckSplit(case1UbTensor), true);
-    EXPECT_EQ(pass.CheckSplit(case2Input), true);
-    EXPECT_EQ(pass.CheckSplit(case3UbTensor), false);
-    EXPECT_EQ(pass.CheckSplit(case4UbTensor), true);
+    EXPECT_EQ(pass.CheckSameRawInput(case1UbTensor), true);
+    EXPECT_EQ(pass.CheckSameRawInput(case2Input), true);
+    EXPECT_EQ(pass.CheckSameRawInput(case3UbTensor), false);
+    EXPECT_EQ(pass.CheckSameRawInput(case4UbTensor), true);
 }
 
 TEST_F(TestSplitReshapePass, TestCheckDynStatus) {
