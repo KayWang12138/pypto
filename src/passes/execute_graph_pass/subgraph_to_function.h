@@ -22,6 +22,7 @@
 #include "tilefwk/data_type.h"
 #include "passes/pass_utils/pass_utils.h"
 #include "passes/statistics/execute_graph_statistic.h"
+#include "passes/execute_graph_pass/static_subgraph_processor.h"
 
 namespace npu::tile_fwk {
 struct RecordInfo {
@@ -38,6 +39,10 @@ public:
     SubgraphToFunction() : Pass("SubgraphToFunction") {}
     ~SubgraphToFunction() override = default;
 
+    void SetupStaticProcessor() {
+        staticProcessor_.SetNList(nLIST);
+    }
+
 private:
     Status PreCheck(Function &function) override;
     Status PostCheck(Function &function) override;
@@ -45,12 +50,9 @@ private:
 
     void GetTensorDataDependencyInsert(Function &function);
     void GetTensorDataDependencyClear(Function &function);
-    Status BuildGraph(Function &function);
-    void InsertParameter(size_t i, Function* leafFunc);
-    Status BuildInGraph(Function &function);
-    Status EdgeIndexCheck(const bool found, const int newIndex, const size_t graphSize) const;
+       
     void DoHealthCheckAfter(Function &function, const std::string &folderPath) override;
-    void ConstructParamMap(Function &function);
+    
     Status ProcessSubgraph(Function& function, size_t i, size_t& programIdx, std::vector<Function*>& outputFuncList);
     Status ProcessCacheResult(const std::tuple<Function*, Operation*, bool>& result, size_t i, size_t& programIdx, std::vector<Function*>& outputFuncList, Operation* callOp);
     void SetSemanticLabel(const std::vector<std::shared_ptr<Operation>>& subgraph, Operation* callOp);
@@ -59,56 +61,44 @@ private:
     Status SetESGGraphType(int32_t cubeOpCnt, int32_t vecOpCnt, int32_t aicpuOpCnt, CoreType &esgGraphType);
     Status DetermineGraphType(size_t i, CoreType &esgGraphType);
     Status SetCallAttrGraphType(Function* rootFunc, size_t i, const CoreType &esgGraphType);
-    Status SetReadySubGraphType(Function* rootFunc, size_t i, const CoreType &esgGraphType);
+    
     Status HandleReadyStates(Function* rootFunc);
     void InitializeRootFunction(Function& function, Function* rootFunc);
     Status IslandToFunction(Function &function);
     void ConstructnList(Function &function);
-    void RecordEsgIncastOutcast(Function &function);
+   
+    // 与 subFuncInvokeInfos相关的函数
     void RecordIncastOutcast(Function &function);
-    void BuildLocalGraph(std::vector<std::vector<std::shared_ptr<Operation>>> &nLIST,
-        std::vector<std::vector<std::vector<size_t>>> &localInGraph,
-        std::vector<std::vector<std::vector<size_t>>> &localOutGraph);
-    void UpdateTopoEntry(size_t i, int eSgId, int realOutDegree, const setType &succESgs, SubfuncTopologyInfoTy &topo);
-    SubfuncTopologyInfoTy ConstructSubgraphTopologyInfo(
-        Function &function, std::vector<SubfuncInvokeInfoTy> &esgInvokeInfoMap);
-    void SymbolizeFunction(Function *rootFunc, std::vector<Function*> &mergedFuncList1) const;
-    void SetColorGraph(size_t i, const OperationsViewer &list);
-    void ProcessColorGraph(Function &function);
-    void BuildColorGraph(Function &function);
-    void PrintColorGraph(const Function &function);
-    void UpdateTag(int i, int tagValue, std::vector<int> &tag, std::vector<std::vector<int>>& redundantColorInGraph, std::vector<std::vector<int>>& redundantColorOutGraph);
-    void FindRedundantEdges(int color, std::vector<std::vector<int>>& redundantColorInGraph,
-        std::vector<std::vector<int>>& redundantColorOutGraph);
-    void EraseRedundantColorEdges(const Function &function);
-    std::string FindSymbolName(std::shared_ptr<LogicalTensor> op, int magic) const;
-    void RecordConnectionWithProducers(RecordInfo recordInfo, SubfuncInvokeInfoTy &iter);
-    void RecordIncastInfo(Function &function, RecordInfo recordInfo, SubfuncInvokeInfoTy &iter);
     void RecordEsgIncast(Function &function, size_t i, size_t j, size_t k);
-    void RecordOutcastInfo(Function &function, RecordInfo recordInfo, SubfuncInvokeInfoTy &iter);
+    void RecordIncastInfo(Function &function, RecordInfo recordInfo, SubfuncInvokeInfoTy &iter);
+    void RecordConnectionWithProducers(RecordInfo recordInfo, SubfuncInvokeInfoTy &iter);
     void RecordEsgOutcast(Function &function, size_t i, size_t j, size_t k);
+    void RecordEsgIncastOutcast(Function &function);
+    void InsertParameter(size_t i, Function* leafFunc);
+    void ConstructParamMap(Function &function);
+    void RecordOutcastInfo(Function &function, RecordInfo recordInfo, SubfuncInvokeInfoTy &iter);
+    
+    // 符号化相关函数
     void ProcessInputOperands(Function* rootFunc, Operation& tileOp, SubfuncParam& pSgParamInfo, int& tParamLoc, int& iParamLoc) const;
     void ProcessOutputOperands(Function* rootFunc, Operation& tileOp, SubfuncParam& pSgParamInfo, int& tParamLoc, int& oParamLoc) const;
     void ProcessCopyInOperand(Operation &tileOp, std::vector<int64_t> &offset, std::vector<int64_t> &shape) const;
     void ProcessCopyOutOperand(Operation &tileOp, std::vector<int64_t> &offset, std::vector<int64_t> &shape) const;
     void SymbolizeEachFunction(Function *rootFunc, std::vector<Function *> &mergedFuncList1, size_t i) const;
+    void SymbolizeFunction(Function *rootFunc, std::vector<Function*> &mergedFuncList1) const;
+    std::string FindSymbolName(std::shared_ptr<LogicalTensor> op, int magic) const;
+
     void GenerateAndExportCombinedReport(Function& func,
     const std::multimap<int, int>& psgToESgMapParam,
     const std::vector<std::vector<OperationPtr>>& subgraphGroups,
     const std::string& filename="ExecuteGraph_Health_Report.json");
+    
+    // 静态流程处理器
+    StaticSubgraphProcessor staticProcessor_;
 
     std::vector<std::vector<OperationPtr>> nLIST;
-    std::vector<std::vector<size_t>> inGraph;
-    std::vector<std::vector<size_t>> outGraph;
-    std::vector<bool> isReshape;
-    std::vector<std::vector<int>> colorInGraph;
-    std::vector<std::vector<int>> colorOutGraph;
     std::vector<Function *> mergedFuncList;
-    std::vector<std::vector<OperationPtr>> mergedSubgraphList;
     std::multimap<int, int> psgToESgMap;
-    std::vector<int64_t> subgTopoParamOffsets;
     std::vector<SubfuncInvokeInfoTy> subFuncInvokeInfos;
-    bool printDetails = false;
     static constexpr int kShapePlaceholderForParameterized = -2;
 };
 } // namespace npu::tile_fwk

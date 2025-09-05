@@ -26,6 +26,7 @@
 #include "interface/function/function.h"
 #include "interface/operation/operation.h"
 #include "passes/execute_graph_pass/subgraph_to_function.h"
+#include "passes/execute_graph_pass/static_subgraph_processor.h"
 #include "passes/pass_manager.h"
 #include "ut_json/ut_json_tool.h"
 
@@ -45,11 +46,6 @@ public:
     }
 
     void TearDown() override {}
-};
-
-class SubgraphToFunctionFriend : public SubgraphToFunction {
-public:
-    using SubgraphToFunction::colorOutGraph;
 };
 
 bool ArePsgHashesUnique(const Function &function) {
@@ -971,9 +967,9 @@ TEST_F(SubgraphToFunctionTest, EliminateRedundantEdges) {
     function->SetTotalSubGraphCount(5);  // 共5个子图
     // 2. 运行SubgraphToFunction pass
     SubgraphToFunction pass;
-
+    pass.SetupStaticProcessor(); 
     // 构建基础图结构
-    pass.BuildGraph(*function);
+    pass.staticProcessor_.BuildGraph(*function);
     pass.RecordIncastOutcast(*function);
 
     // 3. 验证初始边关系（通过消费者关系）
@@ -987,12 +983,11 @@ TEST_F(SubgraphToFunctionTest, EliminateRedundantEdges) {
     EXPECT_TRUE(abs_consumers1.find(max_op) != abs_consumers1.end());
 
     // 4. 构建颜色图并消除冗余边
-    pass.BuildColorGraph(*function);
-    pass.EraseRedundantColorEdges(*function);
+    pass.staticProcessor_.BuildColorGraph(*function);
+    pass.staticProcessor_.EraseRedundantColorEdges(*function);
 
     // 5. 验证冗余边已被移除
-    auto& pass_ref = static_cast<SubgraphToFunctionFriend&>(pass);
-    const auto& colorOutGraph = pass_ref.colorOutGraph;
+    const auto& colorOutGraph = pass.staticProcessor_.colorOutGraph;
     const int abs_sgid = G.GetOp("ABS_SG2")->GetSubgraphID();
     const int max_sgid = G.GetOp("MAX_SG4")->GetSubgraphID();
     const auto& abs_out_edges = colorOutGraph[abs_sgid];
@@ -1030,10 +1025,12 @@ TEST_F(SubgraphToFunctionTest, ReshapeDependencyHandling) {
     // 3. 构建函数并运行pass
     Function* function = G.GetFunction();
     ASSERT_NE(function, nullptr);
-    function->SetTotalSubGraphCount(2);  // 3个子图
+    function->SetTotalSubGraphCount(2);  // 2个子图
 
     SubgraphToFunction pass;
-    pass.BuildGraph(*function);
+    pass.SetupStaticProcessor(); // 初始化静态处理器
+    // 通过静态处理器调用BuildGraph
+    pass.staticProcessor_.BuildGraph(*function);
     pass.RecordIncastOutcast(*function);
     pass.ConstructParamMap(*function);
 
@@ -1043,7 +1040,7 @@ TEST_F(SubgraphToFunctionTest, ReshapeDependencyHandling) {
     const int reshape_sgid = reshape_op->GetSubgraphID();
 
     // 4.1 验证RESHAPE子图被正确标记
-    EXPECT_TRUE(pass.isReshape[reshape_sgid])
+    EXPECT_TRUE(pass.staticProcessor_.isReshape[reshape_sgid])
         << "RESHAPE subgraph should be marked when it has no input subgraph and single reshape op";
 
     EXPECT_TRUE(function->topoInfo_.GetSuccs(reshape_sgid).empty())
