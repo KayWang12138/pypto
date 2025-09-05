@@ -20,26 +20,27 @@ namespace {
 const unsigned IDX_DIM0 = 0;
 const unsigned IDX_DIM1 = 1;
 const unsigned IDX_DIM2 = 2;
+const unsigned IDX_DIM3 = 3;
 
-struct ReduceSumOpFuncArgs : public OpFuncArgs {
-    ReduceSumOpFuncArgs(std::vector<int64_t> viewShape, const std::vector<int64_t> tileShape, std::vector<int64_t> dims)
+struct RowSumSingleOpFuncArgs : public OpFuncArgs {
+    RowSumSingleOpFuncArgs(std::vector<int64_t> viewShape, const std::vector<int64_t> tileShape, std::vector<int64_t> dims)
         : viewShape_(viewShape), tileShape_(tileShape), dims_(dims) {}
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
     std::vector<int64_t> dims_;
 };
 
-struct ReduceSumOpMetadata {
-    explicit ReduceSumOpMetadata(const OpFunc &opFunc, const nlohmann::json &test_data)
+struct RowSumSingleOpMetadata {
+    explicit RowSumSingleOpMetadata(const OpFunc &opFunc, const nlohmann::json &test_data)
         : opFunc_(opFunc), test_data_(test_data) {}
     OpFunc opFunc_;
     nlohmann::json test_data_;
 };
 
-void ReduceSumOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
+void RowSumSingleOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
                                 const OpFuncArgs* opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    auto args = static_cast<const ReduceSumOpFuncArgs *>(opArgs);
+    auto args = static_cast<const RowSumSingleOpFuncArgs *>(opArgs);
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
@@ -69,10 +70,10 @@ void ReduceSumOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Te
     }
 }
 
-void ReduceSum3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
+void RowSumSingle3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
                                  const OpFuncArgs* opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    auto args = static_cast<const ReduceSumOpFuncArgs *>(opArgs);
+    auto args = static_cast<const RowSumSingleOpFuncArgs *>(opArgs);
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
@@ -114,10 +115,10 @@ void ReduceSum3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<
     }
 }
 
-void ReduceSum4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
+void RowSumSingle4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs,
                                  const OpFuncArgs* opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    auto args = static_cast<const ReduceSumOpFuncArgs *>(opArgs);
+    auto args = static_cast<const RowSumSingleOpFuncArgs *>(opArgs);
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0]->shape[0];
@@ -137,7 +138,7 @@ void ReduceSum4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loops[IDX_DIM0])) {
             LOOP("LOOP_L1_bIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loops[IDX_DIM1])) {
                 LOOP("LOOP_L2_bIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(loops[IDX_DIM2])) {
-                    LOOP("LOOP_L3_bIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(loops[IDX_DIM2])) {
+                    LOOP("LOOP_L3_bIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(loops[IDX_DIM3])) {
                         std::vector<SymbolicScalar> offset = {
                             bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2], qIdx * viewShape[3]
                         };
@@ -159,17 +160,17 @@ void ReduceSum4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<
     }
 }
 
-class ReduceSumOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<ReduceSumOpMetadata> {};
+class RowSumSingleOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<RowSumSingleOpMetadata> {};
 
-INSTANTIATE_TEST_SUITE_P(TestReduceSum, ReduceSumOperationTest, ::testing::ValuesIn(
-    GetOpMetaData<ReduceSumOpMetadata>({ReduceSumOperationExeFunc, ReduceSum3DOperationExeFunc, ReduceSum4DOperationExeFunc}, "ReduceSum")));
+INSTANTIATE_TEST_SUITE_P(TestRowSumSingle, RowSumSingleOperationTest, ::testing::ValuesIn(
+    GetOpMetaData<RowSumSingleOpMetadata>({RowSumSingleOperationExeFunc, RowSumSingle3DOperationExeFunc, RowSumSingle4DOperationExeFunc}, "RowSumSingle")));
 
-TEST_P(ReduceSumOperationTest, TestReduceSum) {
+TEST_P(RowSumSingleOperationTest, TestRowSumSingle) {
     TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
     testCase.inputTensors = GetInputTensors(test_data);
     testCase.outputTensors = GetOutputTensors(test_data);
-    auto args = ReduceSumOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data),
+    auto args = RowSumSingleOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data),
         GetValueByName<std::vector<int64_t>>(test_data, "dims"));
     testCase.args = &args;
     testCase.opFunc = GetParam().opFunc_;

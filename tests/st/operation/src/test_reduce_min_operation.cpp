@@ -17,6 +17,11 @@
 
 using namespace tile_fwk::test_operation;
 namespace {
+const unsigned IDX_DIM0 = 0;
+const unsigned IDX_DIM1 = 1;
+const unsigned IDX_DIM2 = 2;
+const unsigned IDX_DIM3 = 3;
+
 struct ReduceMinOpFuncArgs : public OpFuncArgs {
     ReduceMinOpFuncArgs(
         const std::vector<int64_t> dims, const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
@@ -62,19 +67,32 @@ void ReduceMin2DOperationExeFunc(
         auto args = static_cast<const ReduceMinOpFuncArgs *>(opArgs);
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
-        const int firstViewShape = args->viewShape_[0];
-        const int secondViewShape = args->viewShape_[1];
-        int bloop = CeilDiv(firstDim, firstViewShape);
-        int sloop = CeilDiv(secondDim, secondViewShape);
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                auto viewTensor = View(inputs[0], {firstViewShape, secondViewShape},
-                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                        std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
-                    {bIdx * firstViewShape, sIdx * secondViewShape});
+        int dim = args->dims_[0];
+        if (dim < 0) {
+            dim = static_cast<int>(inputs[0]->shape.size()) + dim;
+        }
+        SymbolicScalar viewShape[] = {args->viewShape_[0], args->viewShape_[1]};
+        int loops[] = {
+            CeilDiv(inputs[0]->shape[0], viewShape[0]),
+            CeilDiv(inputs[0]->shape[1], viewShape[1])
+        };
+        viewShape[dim] = 0;
+        loops[dim] = 1;
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, loops[IDX_DIM0], 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, loops[IDX_DIM1], 1)) {
+                auto viewTensor = View(inputs[0],
+                    {
+                        viewShape[0] == 0 ? firstDim : viewShape[0],
+                        viewShape[1] == 0 ? secondDim : viewShape[1]
+                    },
+                    {
+                        viewShape[0] == 0 ? firstDim : std::min(firstDim - bIdx * viewShape[0], viewShape[0]),
+                        viewShape[1] == 0 ? secondDim : std::min(secondDim - sIdx * viewShape[1], viewShape[1])
+                    },
+                    {bIdx * viewShape[0], sIdx * viewShape[1]});
                 TileShape::Current().SetVecTile(args->tileShape_);
                 auto res = RowMinSingle(viewTensor, args->dims_[0]);
-                Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
+                    Assemble(res, {bIdx * viewShape[0], sIdx * viewShape[1]}, outputs[0]);
             }
         }
     }
@@ -87,25 +105,37 @@ void ReduceMin3DOperationExeFunc(
         auto args = static_cast<const ReduceMinOpFuncArgs *>(opArgs);
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
-        SymbolicScalar thirdDim = inputs[0]->shape[2];
-        const int firstViewShape = args->viewShape_[0];
-        const int secondViewShape = args->viewShape_[1];
-        const int thirdViewShape = args->viewShape_[2];
-        int bloop = CeilDiv(firstDim, firstViewShape);
-        int sloop = CeilDiv(secondDim, secondViewShape);
-        int nloop = CeilDiv(thirdDim, thirdViewShape);
-
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                    auto viewTensor = View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
-                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                            std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                            std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
-                        {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
+        SymbolicScalar lastDim = inputs[0]->shape[2];
+        int dim = args->dims_[0];
+        if (dim < 0) {
+            dim = static_cast<int>(inputs[0]->shape.size()) + dim;
+        }
+        SymbolicScalar viewShape[] = {args->viewShape_[0], args->viewShape_[1], args->viewShape_[2]};
+        int loops[] = {
+            CeilDiv(inputs[0]->shape[0], viewShape[0]),
+            CeilDiv(inputs[0]->shape[1], viewShape[1]),
+            CeilDiv(inputs[0]->shape[2], viewShape[2])
+        };
+        viewShape[dim] = 0;
+        loops[dim] = 1;
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, loops[IDX_DIM0], 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, loops[IDX_DIM0], 1)) {
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, loops[IDX_DIM0], 1)) {
+                    auto viewTensor = View(inputs[0],
+                        {
+                            viewShape[0] == 0 ? firstDim : viewShape[0],
+                            viewShape[1] == 0 ? secondDim : viewShape[1],
+                            viewShape[2] == 0 ? lastDim : viewShape[2]
+                        },
+                        {
+                            viewShape[0] == 0 ? firstDim : std::min(firstDim - bIdx * viewShape[0], viewShape[0]),
+                            viewShape[1] == 0 ? secondDim : std::min(secondDim - sIdx * viewShape[1], viewShape[1]),
+                            viewShape[2] == 0 ? lastDim : std::min(lastDim - nIdx * viewShape[2], viewShape[2])
+                        },
+                        {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]});
                     TileShape::Current().SetVecTile(args->tileShape_);
                     auto res = RowMinSingle(viewTensor, args->dims_[0]);
-                    Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
+                    Assemble(res, {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]}, outputs[0]);
                 }
             }
         }
