@@ -786,6 +786,7 @@ void TileReduceNew(Function &function, const TileShape &tileShape, const std::st
             }
             if (static_cast<size_t>(axis) == (in->shape.size() - 1)) {
                 auto tempTensor = std::make_shared<LogicalTensor>(function, in->Datatype(), tmpShape);
+                tempTensor->dynValidShape_ = SymbolicScalar::FromConcrete(tmpShape);
                 auto &newOp = function.AddOperation("TILE_ROW" + op + "_SINGLE", {sourceReg}, {result, tempTensor});
                 newOp.SetAttribute(OP_ATTR_PREFIX + "AXIS", axis);
             } else {
