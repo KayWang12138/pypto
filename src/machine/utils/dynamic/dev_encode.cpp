@@ -324,10 +324,16 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                 auto it = rawMagicToRawTensor.find(rawTensor->actualRawmagic);
                 ASSERT(it != rawMagicToRawTensor.end());
                 auto &actualRaw = it->second;
-                if (rawTensor->GetRawShapeSize() > 0) {
-                    ASSERT(rawTensor->GetRawShapeSize() == actualRaw->GetRawShapeSize());
-                    ASSERT(rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize());
+                auto rawTensorRawShape = rawTensor->GetRawShape();
+                bool isDynamicShape = false;
+                for (auto dimShape : rawTensorRawShape) {
+                    if (dimShape < 0) {
+                        isDynamicShape = true;
+                    }
                 }
+                if (isDynamicShape) continue;
+                ASSERT(rawTensor->GetRawShapeSize() == actualRaw->GetRawShapeSize());
+                ASSERT(rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize());
             }
         }
 
