@@ -174,6 +174,29 @@ TEST_F(DynamicBasicTest, TestTT) {
 #endif
 }
 
+TEST_F(DynamicBasicTest, TestCheckPointRestore) {
+    int s = 16;
+    Tensor t;
+    Tensor t0(DT_FP32, {s, s}, "t0");
+
+    FunctionConfig config;
+    FUNCTION("main", config, {t}, {t0}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(1)) {
+            IF(idx == 0) {
+                t0 = VectorDuplicate(Element(DT_FP32, 1.0f), DT_FP32, {s, s});
+            }
+            ELSE {
+                t0 = VectorDuplicate(Element(DT_FP32, 2.0f), DT_FP32, {s, s});
+            }
+        }
+        LOOP("L1", FunctionType::DYNAMIC_LOOP, idx, LoopRange(1)) {
+            (void)idx;
+            t0 = VectorDuplicate(Element(DT_FP32, 1.0f), DT_FP32, {s, s});
+        }
+    }
+    EXPECT_EQ(t0->tensor->GetRefCount(), 1);
+}
+
 TEST_F(DynamicBasicTest, DynamicRawShape) {
     int s = 32;
     Tensor t0(DT_FP32, {-1, s}, "t0"); // [32*8, 32]

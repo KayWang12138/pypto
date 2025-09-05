@@ -65,7 +65,7 @@ static void ScatterElementOperationExeFunc2Dims(
                         std::min(idx_secondDim - sIdx * secondViewShape, secondViewShape)},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
 
-                Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                TileShape::Current().SetVecTile(args->tileShape_);
                 auto res = ScatterElement(tileTensor0, tileTensor1, Element(DataType::DT_FP32, 20.0), args->axis_);
                 Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
@@ -73,8 +73,8 @@ static void ScatterElementOperationExeFunc2Dims(
     }
 }
 
-static void ScatterElementOperationExeFunc3Dims(const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, 
-    const OpFuncArgs *opArgs) {
+static void ScatterElementOperationExeFunc3Dims(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
     FunctionConfig funConfig;
@@ -110,7 +110,7 @@ static void ScatterElementOperationExeFunc3Dims(const std::vector<Tensor> &input
                             std::min(idx_thirdDim - nIdx * thirdViewShape, thirdViewShape) },
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
 
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                    TileShape::Current().SetVecTile(args->tileShape_);
                     auto res = ScatterElement(tileTensor0, tileTensor1, Element(DataType::DT_FP32, 20.0), args->axis_);
                     Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
@@ -159,7 +159,7 @@ static void ScatterElementOperationExeFunc4Dims(const std::vector<Tensor> &input
                                 std::min(idx_fourthDim - nIdx * fourthViewShape, fourthViewShape)},
                             {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
                                 nIdx * fourthViewShape});
-                        Program::GetInstance().GetTileShape().SetVecTileShapes(args->tileShape_);
+                        TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = ScatterElement(tileTensor0, tileTensor1, Element(DataType::DT_FP32, 20.0), args->axis_);
                         Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
                             nIdx * fourthViewShape}, outputs[0]);

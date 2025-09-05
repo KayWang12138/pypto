@@ -184,8 +184,13 @@ struct IncastOutcastLink {
     std::vector<int> partialUpdateSlotIdexList;
 };
 
+struct SlotInfo {
+    std::shared_ptr<LogicalTensor> tensor;
+    int refCount;
+};
+
 struct TensorSlotCheckpoint {
-    std::unordered_map<TensorSlot, std::shared_ptr<LogicalTensor>> slotDict;
+    std::unordered_map<TensorSlot, SlotInfo> slotDict;
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::set<Operation *, LogicalTensor::CompareOp>> producerDict;
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::set<Operation *, LogicalTensor::CompareOp>> consumerDict;
 };

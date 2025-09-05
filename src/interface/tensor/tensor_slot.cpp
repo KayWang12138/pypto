@@ -348,8 +348,13 @@ void TensorSlotManager::Checkpoint() {
 
     std::unordered_set<std::shared_ptr<LogicalTensor>> tensorSet;
     for (auto &slot : liveSlotSet) {
-        checkpoint.slotDict[slot] = slot.GetSlotValue();
-        tensorSet.insert(slot.GetSlotValue());
+        auto storage = slot.GetSlotValue();
+        int refCount = 0;
+        if (storage && storage->tensor) {
+            refCount = storage->tensor->GetRefCount();
+        }
+        checkpoint.slotDict[slot] = {storage, refCount};
+        tensorSet.insert(storage);
 
         LogOperation(slot, "checkpoint");
     }
@@ -367,8 +372,11 @@ void TensorSlotManager::Restore() {
     ASSERT(checkpointStack.size() != 0);
     TensorSlotCheckpoint &checkpoint = checkpointStack.back();
     for (auto &[slot, value] : checkpoint.slotDict) {
-        slot.SetSlotValue(value);
-
+        auto storage = value.tensor;
+        slot.SetSlotValue(storage);
+        if (storage && storage->tensor) {
+            storage->tensor->SetRefCount(value.refCount);
+        }
         LogOperation(slot, "restore");
     }
 

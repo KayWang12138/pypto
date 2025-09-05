@@ -75,6 +75,7 @@ public:
     void SetIsDummy(bool dummy = true);
 
     void AddRefCount(int value);
+    void SetRefCount(int value) { refCount_ = value; }
     auto GetRefCount() const { return refCount_; }
 
     int GetRawMagic() const {

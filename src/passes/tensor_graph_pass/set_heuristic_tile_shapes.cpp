@@ -142,7 +142,7 @@ void FindScoreForTiles(std::pair<std::vector<int64_t>, std::vector<DataType>> sh
         score = (tile[M_DIM] == std::max(M, MIN_MKN)) ? (score + WHOLE_M_SCORE) : score;
         score = (tile[K_DIM] == std::max(K, MIN_MKN)) ? (score + WHOLE_K_SCORE) : score;
         score = (tile[N_DIM] == std::max(N, MIN_MKN)) ? (score + WHOLE_N_SCORE) : score;
-        
+
         // The more filled L0A, L0B, L0C is better
         double utilizationL0A = (m * k * inputTypeSize) / (L0A_MAX_SIZE / DOUBLE_BUFFER);
         double utilizationL0B = (k * n * inputTypeSize) / (L0B_MAX_SIZE / DOUBLE_BUFFER);
@@ -150,16 +150,16 @@ void FindScoreForTiles(std::pair<std::vector<int64_t>, std::vector<DataType>> sh
         vectorRatio = {utilizationL0A, utilizationL0B, utilizationL0C};
         double geomeanUtilizationL0 = CalculateGeometricMean(vectorRatio);
         score += WEIGHT_L0 * geomeanUtilizationL0;
-        
+
         // The closer the tasksRatio is to 1, the better
         double tasks = numOfMatmuls * (std::max(M, MIN_MKN) / m) * (std::max(N, MIN_MKN) / n) / (l1Reuse * cubeNBuffer);
         double tasksRatioLess = (tasks < CUBE_CORES) ? (1 - tasks / CUBE_CORES) : 0;
         double tasksRatioMore = (tasks > 2 * CUBE_CORES) ? (tasks / (2 * CUBE_CORES) - 1) : 0;
-        
+
         // Penalty for tasks < CUBE_CORES & tasks > 2 * CUBE_CORES
         score -= TASKS_WEIGHT * (tasksRatioLess + tasksRatioMore);
-        
-        // The more residualTasks the better 
+
+        // The more residualTasks the better
         int64_t residualTasks = (int64_t(std::ceil(tasks)) % int64_t(CUBE_CORES) == 0) ? int64_t(CUBE_CORES) : (int64_t(std::ceil(tasks)) % int64_t(CUBE_CORES));
         score += RESIDUAL_TASKS_WEIGHT * residualTasks;
 
@@ -172,7 +172,7 @@ void FindScoreForTiles(std::pair<std::vector<int64_t>, std::vector<DataType>> sh
 
         // Penalty for bad balance
         score -= BALANCE_WEIGHT * ratioMKN;
-        
+
         // Consider num of L1CopyIn cycles
         uint64_t numL1CopyInL1A = inputMKN / (mkn * l1Reuse * cubeNBuffer); // Num of L1CopyIn instructions for A
         uint64_t numL1CopyInL1B = inputMKN / mkn; // Num of L1CopyIn instructions for B
@@ -184,14 +184,14 @@ void FindScoreForTiles(std::pair<std::vector<int64_t>, std::vector<DataType>> sh
 
         uint64_t repeatCountL1A = (tile[M_DIM] * tile[K_DIM] * inputTypeSize - BYTES_PER_REPEAT) / BYTES_PER_REPEAT + 1;
         uint64_t repeatCountL1B = (tile[K_DIM] * tile[N_DIM] * inputTypeSize - BYTES_PER_REPEAT) / BYTES_PER_REPEAT + 1;
-        
+
         uint64_t cyclesL1A = numL1CopyInL1A * (latency + cyclePerRepeat * repeatCountL1A - 1);
         uint64_t cyclesL1B = numL1CopyInL1B * (latency + cyclePerRepeat * repeatCountL1B - 1);
 
         // Overall cycles of L1CopyIn for {m, k, n} tiles (the less the better)
         uint64_t cycles = cyclesL1A + cyclesL1B;
         double cyclesLog = std::log2(cycles);
-        
+
         // Penalty for large num of cycles
         score -= CYCLES_WEIGHT * cyclesLog;
     }
@@ -221,7 +221,7 @@ std::vector<int64_t> FindAndSetCubeTileShapes(std::pair<std::vector<int64_t>, st
 
     // Find score for each set of tiles
     FindScoreForTiles(shapeAndTypeInfo, setOfTiles, l1Reuse, cubeNBuffer, numOfMatmuls);
-    
+
     // Find set of tiles with max Score
     double maxScore = -std::numeric_limits<double>::max();
     int64_t mFinal = 0;
@@ -229,9 +229,9 @@ std::vector<int64_t> FindAndSetCubeTileShapes(std::pair<std::vector<int64_t>, st
     int64_t nFinal = 0;
     for (auto & [tile, score] : setOfTiles) {
         if (maxScore < score) {
-            mFinal = tile[M_DIM];    
-            kFinal = tile[K_DIM]; 
-            nFinal = tile[N_DIM]; 
+            mFinal = tile[M_DIM];
+            kFinal = tile[K_DIM];
+            nFinal = tile[N_DIM];
             maxScore = score;
         }
     }
@@ -242,12 +242,12 @@ std::vector<int64_t> FindAndSetCubeTileShapes(std::pair<std::vector<int64_t>, st
     resultTiles.push_back(nFinal);
     return resultTiles;
 }
- 
+
 void SetHeuristicTileShapes::SetHeuristicTileShapesFunc(Function &function) const {
     std::map<std::pair<std::vector<int64_t>, std::vector<DataType>>, int64_t> uniqueTiles;
-    
+
     std::unordered_set<Operation *> cubeOperations;
-    
+
     int64_t l1Reuse = (function.paramConfigs_.l1ReuseNum == 0) ? 1 : function.paramConfigs_.l1ReuseNum;
     int64_t cubeNBuffer = (function.paramConfigs_.cubeNBufferNum == 0) ? 1 : function.paramConfigs_.cubeNBufferNum;
 
@@ -257,12 +257,12 @@ void SetHeuristicTileShapes::SetHeuristicTileShapesFunc(Function &function) cons
             int64_t shapeM = op.GetIOperands()[0]->shape[0];
             int64_t shapeK = op.GetIOperands()[0]->shape[1];
             int64_t shapeN = (op.GetIOperands()[0]->shape[1] == op.GetIOperands()[1]->shape[0]) ? op.GetIOperands()[1]->shape[1] : op.GetIOperands()[1]->shape[0];
-            
+
             DataType inputType = op.GetIOperands()[0]->tensor->GetDataType();
             DataType outputType = (IsFloat(op.GetOOperands()[0])) ? DataType::DT_FP32 : DataType::DT_INT32;
-            
+
             curShapeAndType = {{shapeM, shapeK, shapeN}, {inputType, outputType}};
-            
+
             // Find set of tiles by key
             auto it = uniqueTiles.find(curShapeAndType);
             if (it != uniqueTiles.end()) {
@@ -273,20 +273,20 @@ void SetHeuristicTileShapes::SetHeuristicTileShapesFunc(Function &function) cons
             cubeOperations.insert(&op);
         }
     }
-    
+
     // Find and set heuristic cube tile shapes
     std::map<std::pair<std::vector<int64_t>, std::vector<DataType>>, std::vector<int64_t>> resultTilesAndInfo;
     for (auto & [shapeAndTypeInfo, numOfMatmuls] : uniqueTiles) {
         std::vector<int64_t> resultTiles = FindAndSetCubeTileShapes(shapeAndTypeInfo, numOfMatmuls, l1Reuse, cubeNBuffer);
         resultTilesAndInfo[shapeAndTypeInfo] = resultTiles;
     }
-    
+
     std::array<int64_t, MAX_MDIM> m = {0,0};
-    std::vector<int64_t> k = {0,0,0};
-    std::array<int64_t, MAX_MDIM> n = {0,0};
+    std::array<int64_t, MAX_KDIM> k = {0, 0, 0};
+    std::array<int64_t, MAX_NDIM> n = {0, 0};
 
     PrintTiles(resultTilesAndInfo);
-    
+
     for (auto &op : cubeOperations) {
         int64_t shapeM = op->GetIOperands()[0]->shape[0];
         int64_t shapeK = op->GetIOperands()[0]->shape[1];
@@ -294,21 +294,21 @@ void SetHeuristicTileShapes::SetHeuristicTileShapesFunc(Function &function) cons
 
         DataType inputType = op->GetIOperands()[0]->tensor->GetDataType();
         DataType outputType = (IsFloat(op->GetOOperands()[0])) ? DataType::DT_FP32 : DataType::DT_INT32;
-        
+
         curShapeAndType = {{shapeM, shapeK, shapeN}, {inputType, outputType}};
-        
+
         m[0] = resultTilesAndInfo[curShapeAndType][M_DIM];
         k[0] = resultTilesAndInfo[curShapeAndType][K_DIM];
         n[0] = resultTilesAndInfo[curShapeAndType][N_DIM];
-        
+
         // The algorithm calculates tiles for L0, let's assume that tiles for L1 are the same
         m[1] = m[0];
         k[1] = k[0];
         k[MAX_KDIM - 1] = k[0];
         n[1] = n[0];
-        
+
         // Set new tiles for each operation (M = m, N = n, K = k, setL1Tile = true)
-        op->GetTileShapeForSetting().SetCubeTileShapes(m, k, n, true);
+        op->GetTileShapeForSetting().SetCubeTile(m, k, n, true);
     }
 }
 } // namespace npu::tile_fwk
