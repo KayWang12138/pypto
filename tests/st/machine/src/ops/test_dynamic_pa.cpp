@@ -31,11 +31,27 @@ using namespace npu::tile_fwk::dynamic;
 
 class DynamicPATest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
+static void readBlockTableFromFile(const std::string& filename, int rows, int cols, std::vector<std::vector<int>> & blockTable) {
+    std::ifstream inFile(filename, std::ios::binary);
+    if (!inFile) {
+        std::cerr << "Error opening file for reading!" << std::endl;
+        return;
+    }
+
+    for (int i = 0; i < rows; ++i) {
+        inFile.read(reinterpret_cast<char*>(blockTable[i].data()), cols * sizeof(int));
+    }
+
+    inFile.close();
+    return;
+}
+
 struct PaConfig {
     bool manualUnroll{false};
     int maxUnrollTimes{1};
     bool onlyBatchLoop{false};
     bool isNzFormat{false};
+    bool isImmediateSymScalar{false};
 };
 
 void testPa(PaTileShapeConfig& tileConfig, PaConfig config) {
@@ -65,6 +81,7 @@ void testPa(PaTileShapeConfig& tileConfig, PaConfig config) {
     // blockTable: (b, maxBlockNumPerBatch)
     int maxSeqAllBatch = *(std::max_element(seq.begin(), seq.end()));
     int maxBlockNumPerBatch = CeilDiv(maxSeqAllBatch, blockSize);
+    std::vector<std::vector<int>> blockTableVector(b, std::vector<int>(maxBlockNumPerBatch, 0));
 
     TileOpFormat kvFormat = config.isNzFormat ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
 
@@ -81,9 +98,14 @@ void testPa(PaTileShapeConfig& tileConfig, PaConfig config) {
         PageAttentionHighThroughput(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
             tileConfig, config.maxUnrollTimes);
     } else {
-        if (!config.manualUnroll) {
-            PageAttention(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
-                tileConfig, config.maxUnrollTimes, config.isNzFormat);
+         if (!config.manualUnroll) {
+            if (!config.isImmediateSymScalar) {
+                PageAttention(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
+                    tileConfig, config.maxUnrollTimes, config.isNzFormat);
+            } else {
+                PageAttentionWithImmScalar(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTableVector/*vector*/, seq/*vector*/, blockSize, softmaxScale, paOut,
+                    tileConfig, config.maxUnrollTimes, config.isNzFormat);
+            }
         } else {
             PageAttentionWithManualUnroll(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
                 tileConfig, config.maxUnrollTimes);
@@ -111,18 +133,31 @@ void testPa(PaTileShapeConfig& tileConfig, PaConfig config) {
     }
     readInput<int32_t>(GetGoldenDir() + "/block_table.bin", blockTableData);
 
+    readBlockTableFromFile(GetGoldenDir() + "/block_table.bin", b, maxBlockNumPerBatch, blockTableVector);
     std::vector<float> golden(b * sq * nq * dn, 0);
     readInput(GetGoldenDir() + "/atten_out.bin", golden);
 
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(qNope, qNopeData),
-        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(kNopeCache, kNopeCacheData),
-        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(vNopeCache, vNopeCacheData),
-        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(qRope, qRopeData),
-        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(kRopeCache, kRopeCacheData),
-        RawTensorData::CreateTensor<int32_t>(blockTable, blockTableData),
-        RawTensorData::CreateTensor<int32_t>(actSeqs, seq),
-    });
+    if (!config.isImmediateSymScalar) {
+        ProgramData::GetInstance().AppendInputs({
+            RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(qNope, qNopeData),
+            RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(kNopeCache, kNopeCacheData),
+            RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(vNopeCache, vNopeCacheData),
+            RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(qRope, qRopeData),
+            RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(kRopeCache, kRopeCacheData),
+
+            RawTensorData::CreateTensor<int32_t>(blockTable, blockTableData),
+            RawTensorData::CreateTensor<int32_t>(actSeqs, seq),
+        });
+    } else {
+        ProgramData::GetInstance().AppendInputs({
+            RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(qNope, qNopeData),
+            RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(kNopeCache, kNopeCacheData),
+            RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(vNopeCache, vNopeCacheData),
+            RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(qRope, qRopeData),
+            RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(kRopeCache, kRopeCacheData),
+            });
+    }
+
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(paOut, 0),
     });
@@ -144,6 +179,22 @@ TEST_F(DynamicPATest, dynamic_pa_low_lantency) {
     tileConfig.v2TileShape = {nTile, 64};
     PaConfig config;
     config.isNzFormat = true;
+    testPa(tileConfig, config);
+}
+
+TEST_F(DynamicPATest, dynamic_pa_low_lantency_imm_scalar) {
+    PaTileShapeConfig tileConfig;
+    const int nTile = 32;
+    const int blockSize = 256;
+    tileConfig.headNumQTile = nTile;
+    tileConfig.v0TileShape = {nTile, 64};
+    tileConfig.c1TileShape = {nTile, nTile, 64, 64, blockSize, blockSize};
+    tileConfig.v1TileShape = {nTile, 64};
+    tileConfig.c2TileShape = {nTile, nTile, 64, 64, blockSize, blockSize};
+    tileConfig.v2TileShape = {nTile, 64};
+    PaConfig config;
+    config.isNzFormat = true;
+    config.isImmediateSymScalar = true;
     testPa(tileConfig, config);
 }
 

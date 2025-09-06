@@ -123,6 +123,53 @@ TEST_F(DynamicPATest, dynamic_pa_low_lantency_unroll) {
         tileConfig, maxUnrollTimes);
 }
 
+TEST_F(DynamicPATest, dynamic_pa_low_lantency_pass_unroll) {
+    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    std::vector<uint8_t> devProgBinary;
+
+    std::vector<int> input_param = {1, 1, 128, 1, 512, 64, 256, 32};
+    int b = input_param[0];
+    int sq = input_param[1];
+    int nq = input_param[2];
+    int nk = input_param[3];
+    int dn = input_param[4];
+    int dr = input_param[5];
+    int blockSize = input_param[6];
+    int nTile = input_param[7];
+    float softmaxScale = static_cast<float>(1.0 / sqrtf((dn + dr)));
+
+    PaTileShapeConfig tileConfig;
+    tileConfig.headNumQTile = nTile;
+    tileConfig.v0TileShape = {nTile, 64};
+    tileConfig.c1TileShape = {nTile, nTile, 64, 64, blockSize, blockSize};
+    tileConfig.v1TileShape = {nTile, 64};
+    tileConfig.c2TileShape = {nTile, nTile, 64, 64, blockSize, blockSize};
+    tileConfig.v2TileShape = {nTile, 64};
+
+    std::vector<int> seq(b, 256);
+
+    int blockNum = 0;
+    for (auto s : seq) {
+        blockNum += ((s + (blockSize - 1)) / blockSize);
+    }
+    // blockTable: (b, maxBlockNumPerBatch)
+    int maxSeqAllBatch = *(std::max_element(seq.begin(), seq.end()));
+    int maxBlockNumPerBatch = ((maxSeqAllBatch + (blockSize - 1)) / blockSize);
+    std::vector<std::vector<int>> blockTable(b, {maxBlockNumPerBatch, 0});
+
+    Tensor qNope(DT_BF16, {b * nq * sq, dn}, "qNope");
+    Tensor kNopeCache(DT_BF16, {int(blockNum * blockSize), nk * dn}, "kNopeCache");
+    Tensor vNopeCache(DT_BF16, {int(blockNum * blockSize), nk * dn}, "vNopeCache");
+    Tensor qRope(DT_BF16, {b * nq * sq, nk * dr}, "qRope");
+    Tensor kRopeCache(DT_BF16, {int(blockNum * blockSize), nk * dr}, "kRope");
+
+    Tensor paOut(DT_FP32, {b * nq * sq, dn}, "paOut");
+
+    int maxUnrollTimes = 1;
+    PageAttentionWithImmScalar(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, seq, blockSize, softmaxScale, paOut,
+        tileConfig, maxUnrollTimes);
+}
+
 TEST_F(DynamicPATest, dynamic_pa_low_lantency_manual_unroll) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     config::SetPlatformConfig("PRINT_TENSOR_GRAPH", true);

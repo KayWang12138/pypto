@@ -100,6 +100,7 @@ set(_CaseFilterList
         "DynamicPATest.dynamic_pa_low_lantency_manual_unroll"
         "DynamicPATest.dynamic_pa_high_throughput_only_batch_loop"
         "DynamicPATest.AllocatorCoverage"
+        "DynamicPATest.dynamic_pa_low_lantency_pass_unroll"
 
         #
         "CmpAttnTopk.cmp_attn_with_topk_singleop_bf16"

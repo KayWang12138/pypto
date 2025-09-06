@@ -378,12 +378,12 @@ TEST_F(DynamicBasicTest, TestInnerLoopOrder) {
     TileShape::Current().SetVecTile(512, 512);
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
 
-    int vecLen = 128;
-    int loopNum = 5;
-    int tileNum = 4;
+    int vecLen = 16;
+    int loopNum = 4;
+    int tileNum = 3;
     Tensor inputA(DT_FP32, {loopNum, vecLen}, "inputA");
     Tensor inputB(DT_FP32, {tileNum, vecLen}, "inputB");
-    Tensor output(DT_FP32, {1, vecLen}, "out");
+    Tensor output(DT_FP32, {tileNum, vecLen}, "out");
 
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {inputA, inputB}, {output}) {
@@ -392,7 +392,7 @@ TEST_F(DynamicBasicTest, TestInnerLoopOrder) {
             LOOP("Inner", FunctionType::DYNAMIC_LOOP, j, LoopRange(1)) {
                 (void)j;
                 auto tile = View(inputB, {1, vecLen}, {i, 0});
-                tileB = MulS(tile, Element(DataType::DT_FP32, 1.0));
+                tileB = MulS(tile, Element(DataType::DT_FP32, 2.0));
             }
 
             LOOP("Inner2", FunctionType::DYNAMIC_LOOP, k, LoopRange(loopNum)) {
@@ -402,7 +402,7 @@ TEST_F(DynamicBasicTest, TestInnerLoopOrder) {
 
             LOOP("Inner3", FunctionType::DYNAMIC_LOOP, l, LoopRange(1)) {
                 (void)l;
-                tileB = MulS(tileB, Element(DataType::DT_FP32, 1.0));
+                tileB = MulS(tileB, Element(DataType::DT_FP32, 3.0));
                 Assemble(tileB, {i, 0}, output);
             }
         }
@@ -410,6 +410,28 @@ TEST_F(DynamicBasicTest, TestInnerLoopOrder) {
 
     auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_main_2");
     EXPECT_NE(mainFunc, nullptr);
+
+    std::vector<float> inputAData(loopNum * vecLen, 0);
+    std::vector<float> inputBData(tileNum * vecLen, 0);
+    std::vector<float> golden(tileNum * vecLen, 0);
+
+    readInput<float>(GetGoldenDir() + "/input_a.bin", inputAData);
+    readInput<float>(GetGoldenDir() + "/input_b.bin", inputBData);
+    readInput(GetGoldenDir() + "/out.bin", golden);
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<float>(inputA, inputAData),
+        RawTensorData::CreateTensor<float>(inputB, inputBData),
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(output, 0.0f),
+    });
+
+    // excute
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.005f));
 }
 
 TEST_F(DynamicBasicTest, TestDeviceMachineOnModel) {

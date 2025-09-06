@@ -256,6 +256,7 @@ def softmax(x):
         "OnBoardPaCostTest.test_page_attention_hight_throughput_cost",
         "OnBoardPaCostTest.test_page_attention_hight_throughput_cost_precision",
         "DynamicPATest.dynamic_pa_low_lantency",
+        "DynamicPATest.dynamic_pa_low_lantency_imm_scalar",
         "DynamicPATest.dynamic_pa_low_lantency_unroll",
         "DynamicPATest.dynamic_pa_low_lantency_manual_unroll",
         "DynamicPATest.dynamic_pa_low_lantency_dyn_valid_shape",
@@ -291,6 +292,12 @@ def ifa_pa_func(case_name: str, output: Path) -> bool:
         n_q = 32
         skv = 256
         block_size = 128
+        n_tile = 32
+    elif (case_name == "DynamicPATest.dynamic_pa_low_lantency_imm_scalar"):
+        b = 1
+        n_q = 128
+        skv = 256
+        block_size = 256
         n_tile = 32
     elif (case_name == "DynamicPATest.dynamic_pa_high_throughput_dview_large"
           or case_name == "DynamicPATest.dynamic_pa_high_throughput_only_batch_loop"

@@ -169,6 +169,133 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
     }
 }
 
+// this case only for tensor graph loop unroll test
+void PageAttentionWithImmScalar(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &qRope, Tensor &kRopeCache,
+    std::vector<std::vector<int>>  &blockTable, std::vector<int> &actSeqs, int blockSize, float softmaxScale, Tensor &attentionOut,
+    PaTileShapeConfig &tileConfig, int maxUnrollTimes, bool isNzFormat) {
+    auto dtype = qNope->Datatype();
+    // 入参B*S*N合轴
+    int dN = qNope->shape[1];
+    int dR = qRope->shape[1];
+
+    int nTile = tileConfig.headNumQTile;
+    auto c1Tile = tileConfig.c1TileShape;
+    auto v1Tile = tileConfig.v1TileShape;
+    auto c2Tile = tileConfig.c2TileShape;
+    auto v2Tile = tileConfig.v2TileShape;
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig,
+        {qNope, kNopeCache, vNopeCache, qRope, kRopeCache}, {attentionOut}) {
+        int batchSize((int64_t)blockTable.size());
+        SymbolicScalar nQ = qNope->shape[0] / batchSize;
+        SymbolicScalar nLoop = nQ / nTile;
+
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, batchSize, 1)) {
+            SymbolicScalar curSeq(static_cast<int64_t>(actSeqs[0])); // diff batch seq all same
+            SymbolicScalar bnPerBatch = (curSeq + blockSize - 1) / blockSize;
+            bnPerBatch.AsIntermediateVariable();
+            LOOP("LOOP_L1_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nLoop, 1)) {
+                int curNTile = nTile;
+                Tensor oiUpdate(DT_FP32, {nTile, dN}, "oiUpdate");
+                Tensor liUpdate(DT_FP32, {nTile, 1}, "liUpdate");
+                Tensor miUpdate(DT_FP32, {nTile, 1}, "miUpdate");
+                SymbolicScalar curOffset = bIdx * nQ + nIdx * nTile;
+                std::vector<SymbolicScalar> oiOffset = {curOffset, 0}; // (B*N*S, d)
+
+                LOOP("LOOP_L2_bn", FunctionType::DYNAMIC_LOOP, bn, LoopRange(0, bnPerBatch, 1), PowersOf2(maxUnrollTimes)) {
+                    int curS2Tile = blockSize;
+                    auto qn = View(qNope, {curNTile, dN}, {curOffset, 0});
+                    auto qr = View(qRope, {curNTile, dR}, {curOffset, 0});
+                    Tensor qi(dtype, {curNTile, dN + dR}, "qi");
+                    Assemble(qn, {0, 0}, qi);
+                    Assemble(qr, {0, dN}, qi);
+
+                    // Force set to 0 for test only
+                    SymbolicScalar curBlockIdx(0);
+                    curBlockIdx.AsIntermediateVariable();
+                    auto kn = View(kNopeCache, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},
+                                                  {curBlockIdx * blockSize, 0});
+                    auto kr = View(kRopeCache, {curS2Tile, dR}, {std::min(curSeq - bn * blockSize, blockSize), dR},
+                                                  {curBlockIdx * blockSize, 0});
+
+                    TileOpFormat kjFormat = isNzFormat ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
+                    Tensor kj(dtype, {curS2Tile, dN + dR}, "kj", kjFormat);
+                    Assemble(kn, {0, 0}, kj);
+                    Assemble(kr, {0, dN}, kj);
+                    kj = View(kj, {curS2Tile, dN + dR}, {std::min(curSeq - bn * blockSize, blockSize), dR + dN}, {0, 0});
+                    auto vj = View(vNopeCache, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},
+                                                  {curBlockIdx * blockSize, 0});
+
+                    TileShape::Current().SetCubeTile(
+                        {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]});
+                    TileShape::Current().SetMatrixSize({qi.GetShape()[0], 0, kj.GetShape()[0]});
+                    auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj); // (curNTile, dN+dR), (curS2Tile, dN+dR) -> (curNTile, curS2Tile)
+                    TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
+
+                    auto sijScale = MulS(sij, Element(sij->Datatype(), softmaxScale)); // (curNTile, curS2Tile)
+
+                    auto tildaMij = RowMaxSingle(sijScale); // (curNTile, curS2Tile) -> (curNTile, 1)
+                    auto tsub =
+                        Sub(sijScale, tildaMij); // (curNTile, curS2Tile) - (curNTile, 1) -> (curNTile, curS2Tile)
+                    auto tildaPij = Exp(tsub);
+                    auto tildaPijF16 = Cast(tildaPij, dtype);
+                    auto tildaLij = RowSumSingle(tildaPij); // (nTileCur, s2TileCur) -> (nTileCur, 1)
+
+                    IF (bn == 0) {
+                        TileShape::Current().SetCubeTile(
+                            {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
+                        TileShape::Current().SetMatrixSize(
+                            {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
+                        auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);; // (curNTile, curS2Tile), (curS2Tile, dN) -> (curNTile, dN)
+                        TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
+                        IF (bn == bnPerBatch - 1) {
+                            oiUpdate = Div(oiTmp, tildaLij); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
+                            Assemble(oiUpdate, oiOffset, attentionOut);
+                        } ELSE {
+                            oiUpdate = oiTmp;
+                        }
+                        liUpdate = tildaLij;
+                        miUpdate = tildaMij;
+                    } ELSE {
+                        auto oi = oiUpdate;
+                        auto li = liUpdate;
+                        auto mi = miUpdate;
+
+                        auto miNew = Maximum(mi, tildaMij); // (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+                        auto t1 = Sub(mi, miNew);           // (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+                        auto t2 = Exp(t1);
+                        auto t3 = Sub(tildaMij, miNew); // (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+                        auto t4 = Exp(t3);
+                        auto t5 = Mul(t4, tildaLij); // (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+                        auto t6 = Mul(t2, li);       // (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+                        auto liNew = Add(t6, t5);    // (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
+
+                        auto q3 = Mul(oi, t2); // (curNTile, dN), (curNTile, 1) -> (curNTile, dN)
+                        TileShape::Current().SetCubeTile(
+                            {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
+                        TileShape::Current().SetMatrixSize(
+                            {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
+                        auto q1 = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16,
+                            vj); // (curNTile, curS2Tile), (curS2Tile, dN) -> (curNTile, dN)
+                        TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
+                        auto q2 = Mul(q1, t4);    // (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
+                        auto oiTmp = Add(q3, q2); // (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
+                        IF (bn == bnPerBatch - 1) {
+                            oiUpdate = Div(oiTmp, liNew); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
+                            Assemble(oiUpdate, oiOffset, attentionOut);
+                        } ELSE {
+                            oiUpdate = oiTmp;
+                        }
+                        liUpdate = liNew;
+                        miUpdate = miNew;
+                    }
+                }
+            }
+        }
+    }
+}
+
+
 void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &qRope, Tensor &kRopeCache,
     Tensor &blockTable, Tensor &actSeqs, int blockSize, float softmaxScale, Tensor &attentionOut,
     PaTileShapeConfig &tileConfig, int maxUnrollTimes) {
