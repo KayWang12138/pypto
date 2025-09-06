@@ -40,4 +40,6 @@ FILE* LockAndOpenFile(const std::string &lockFilePath);
 void UnlockAndCloseFile(FILE *fp);
 bool CopyFile(const std::string &srcPath, const std::string &dstPath);
 std::string GetCurrentSharedLibPath();
+std::string GetCurRunningPath();
+bool IsSymlinkExist(const std::string& path);
 }

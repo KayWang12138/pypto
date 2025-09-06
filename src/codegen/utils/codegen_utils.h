@@ -58,5 +58,6 @@ inline std::string GetTileOpName(Opcode opCode) {
 }
 
 std::string GetAddrTypeByOperandType(OperandType type);
+
 } // namespace npu::tile_fwk
 #endif

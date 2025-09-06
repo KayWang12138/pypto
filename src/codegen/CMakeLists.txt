@@ -13,10 +13,6 @@ file(GLOB_RECURSE _CodeGen_Srcs *.cpp)
 
 add_library(tile_fwk_codegen SHARED)
 target_sources(tile_fwk_codegen PRIVATE ${_CodeGen_Srcs})
-target_compile_definitions(tile_fwk_codegen
-        PRIVATE
-            SRCPATH="${TILE_FWK_SRC_ROOT}"
-)
 target_link_libraries(tile_fwk_codegen
         PUBLIC
             tile_fwk_interface

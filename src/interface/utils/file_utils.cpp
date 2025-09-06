@@ -400,4 +400,24 @@ std::string GetCurrentSharedLibPath() {
     }
     return currentLibPath;
 }
+
+std::string GetCurRunningPath() {
+    constexpr size_t size = 1024;
+    char buffer[size] = {};
+    std::string cwd = getcwd(buffer, size);
+    if (cwd.empty()) {
+        ALOG_ERROR_F("failed to call getcwd()");
+        return "";
+    }
+    return cwd;
+}
+
+bool IsSymlinkExist(const std::string& path) {
+    struct stat info;
+    int isFileExist = lstat(path.c_str(), &info);
+    if (isFileExist != 0) {
+        return false;
+    }
+    return  S_ISLNK(info.st_mode);
+}
 }  // namespace npu::tile_fwk

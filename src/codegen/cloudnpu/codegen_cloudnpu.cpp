@@ -32,50 +32,7 @@
 #include "codegen_cloudnpu.h"
 
 namespace npu::tile_fwk {
-#ifdef SRCPATH
-constexpr const char *SRC_PATH = SRCPATH;
-#else
-constexpr const char *SRC_PATH = ".";
-#endif
-
-using SubstMap = std::map<std::string, std::string>;
-std::string StringSubstitute(std::string const &in, SubstMap const &subst) {
-    const char *tokenHead = "${";
-    const char *tokenTail = "}$";
-    constexpr size_t tokenSepLen = 2;
-
-    std::ostringstream out;
-    size_t pos = 0;
-    for (;;) {
-        size_t substPos = in.find(tokenHead, pos);
-        size_t endPos = in.find(tokenTail, substPos);
-        if (endPos == std::string::npos) {
-            break;
-        }
-
-        out.write(&*in.begin() + pos, substPos - pos);
-
-        substPos += tokenSepLen;
-        auto substIter = subst.find(in.substr(substPos, endPos - substPos));
-        if (substIter == subst.end()) {
-            throw std::runtime_error("undefined substitution");
-        }
-
-        out << substIter->second;
-        pos = endPos + tokenSepLen;
-    }
-    out << in.substr(pos, std::string::npos);
-    return out.str();
-}
-
-bool CompareStrings(const std::string &s1, const std::string &s2) {
-    std::string str1 = s1;
-    std::string str2 = s2;
-    transform(str1.begin(), str1.end(), str1.begin(), ::tolower);
-    transform(str2.begin(), str2.end(), str2.begin(), ::tolower);
-
-    return str1 < str2;
-}
+const std::string ENV_ASCEND_HOME_PATH = "ASCEND_HOME_PATH";
 
 bool CodeGenCloudNPU::IsCube(const OperationsViewer &operationList) const {
     auto isL1CopyIn = [](const Operation &op) {
@@ -153,12 +110,12 @@ std::string CodeGenCloudNPU::GenFuncHeader(uint64_t programId, Function &topFunc
                << "* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam)";
     auto funcDec = funcHeader.str() + ";";
     compileInfo.SetFuncDeclare(funcDec);
-    funcHeader <<  " {\n";
+    funcHeader << " {\n";
     return funcHeader.str();
 }
 
-std::string CodeGenCloudNPU::GenFuncBodyBefore(const std::pair<uint64_t, Function *> &subFuncPair,
-    Function &topFunc, const VFCodeGen &vfCg, CompileInfo &compileInfo) const {
+std::string CodeGenCloudNPU::GenFuncBodyBefore(const std::pair<uint64_t, Function *> &subFuncPair, Function &topFunc,
+    const VFCodeGen &vfCg, CompileInfo &compileInfo) const {
     std::ostringstream codeBefore;
     codeBefore << GenInclude(vfCg);
     codeBefore << GenCommentBeforeFuncHeader(*subFuncPair.second);
@@ -452,12 +409,78 @@ void CodeGenCloudNPU::DoCompileCCE(const CompileInfo &compileInfo, const std::st
     ASSERT(errCode == 0) << "CompileCCE failed. errCode = " << errCode << ", cce file: " << compileInfo.GetCCEAbsPath();
 }
 
+std::string GetIncludePathByRelative() {
+    std::string curExePath = GetCurRunningPath();
+    ALOG_INFO_F("curExePath is %s", curExePath.c_str());
+    std::string includePath = curExePath + "/../../include/";
+    ALOG_INFO_F("includePath relative is %s", includePath.c_str());
+    return includePath;
+}
+
+std::string GetIncludePathByLib() {
+    std::string libPath = GetCurrentSharedLibPath();
+    if (libPath.empty()) {
+        return "";
+    }
+
+    std::string includePath = libPath + "/../../include/";
+    ALOG_INFO_F("includePath by lib is %s", includePath.c_str());
+
+    if (IsSymlinkExist(includePath)) {
+        return includePath;
+    }
+
+    return "";
+}
+
+std::string GetIncludePathByEnv() {
+    const char *homePath = std::getenv(ENV_ASCEND_HOME_PATH.c_str());
+    if (homePath == nullptr) {
+        return "";
+    }
+
+    std::string includePath = std::string(homePath) + "/include/tile_fwk/";
+    if (IsPathExist(includePath)){
+        return includePath;
+    }
+
+    return "";
+}
+
+std::string CodeGenCloudNPU::GetIncludePathForCompileCCE() const {
+    if (!ctx.IsIncludePathEmpty()) {
+        ALOG_INFO_F("include path from ctx is %s", ctx.includePath.c_str());
+        return ctx.includePath;
+    }
+
+    std::string includePathByLib = GetIncludePathByLib();
+    ALOG_INFO_F("includePathByLib is %s", includePathByLib.c_str());
+    if (!includePathByLib.empty()) {
+        return includePathByLib;
+    }
+
+    std::string includePathByEnv = GetIncludePathByEnv();
+    ALOG_INFO_F("includePathByEnv is %s", includePathByEnv.c_str());
+    if (!includePathByEnv.empty()) {
+        return includePathByEnv;
+    }
+
+    std::string includePathByRel = GetIncludePathByRelative();
+    ALOG_INFO_F("includePathByRel is %s", includePathByRel.c_str());
+    if (!includePathByRel.empty()) {
+        return includePathByRel;
+    }
+
+    ASSERT(false) << "include path for compiling cce is unavailable";
+    return "";
+}
+
 int CodeGenCloudNPU::CompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const {
     const std::string srcFile = compileInfo.GetCCEAbsPath();
     const std::string objFile = compileInfo.GetBinAbsPath();
 
     std::string coreType = compileInfo.IsCube() ? "dav-c220-cube" : "dav-c220-vec";
-    std::string includePath = ctx.IsIncludePathEmpty() ? SRC_PATH : ctx.includePath;
+    std::string includePath = GetIncludePathForCompileCCE();
 
     std::ostringstream oss;
     oss << "ccec " << compileOptions << " -c -O3 -g -x cce -std=c++17 "
@@ -468,11 +491,9 @@ int CodeGenCloudNPU::CompileCCE(const CompileInfo &compileInfo, const std::strin
         << "-mllvm -cce-aicore-record-overflow=false "
         << "-mllvm -cce-aicore-addr-transform "
         << "-mllvm -cce-aicore-dcci-insert-for-scalar=false "
-        << "-I" << includePath << "/include/tileop/a2a3 "
-        << "-I" << includePath << "/src/machine/kernel "
-        << "-I" << includePath << "/src/ "
-        << "-I" << includePath << "/include/tilefwk "
-        << "-I" << includePath << "/include/ "
+        << "-I" << includePath << "/tileop/a2a3 "
+        << "-I" << includePath << "/tilefwk "
+        << "-I" << includePath << " "
         << "-o " << objFile << " " << srcFile;
 
     std::string ccecCmd = oss.str();

@@ -15,11 +15,56 @@
 
 #include "test_suite_stest_ops.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "interface/utils/file_utils.h"
 
-using namespace npu::tile_fwk;
+namespace npu::tile_fwk {
 
 class TestTileOpAdd : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
+int CompileCCEForSingleOpTest(const std::string &srcFile, const std::string &objFile, bool isCube) {
+    std::string curPath = GetCurRunningPath();
+    std::string codeSrcPath = curPath.append("/../../../");
+    ALOG_INFO_F("codeSrcPath: %s", codeSrcPath.c_str());
+
+    std::string coreType = isCube ? "dav-c220-cube" : "dav-c220-vec";
+    const std::string envPath = std::string(std::getenv("ASCEND_AICPU_PATH"));
+    std::string runtimePath = envPath + "/machine/include";
+    std::string lib64Path = envPath + "/lib64";
+
+    char ccecCmd[2048];
+    std::string compileOptions = "";
+
+    int ret = snprintf_s(ccecCmd, sizeof(ccecCmd), sizeof(ccecCmd) - 1,
+        "ccec %s -lstdc++ -O2 -g -x cce -std=c++17 --shared -fPIC "
+        "--cce-aicore-arch=%s "
+        "--cce-enable-print "
+        "-mllvm -cce-aicore-stack-size=0x8000 "
+        "-mllvm -cce-aicore-function-stack-size=0x8000 "
+        "-mllvm -cce-aicore-record-overflow=false "
+        "-mllvm -cce-aicore-addr-transform "
+        "-mllvm -cce-aicore-dcci-insert-for-scalar=false "
+        "-L%s "
+        "-lruntime "
+        "-I%s "
+        "-I%s/include/tileop/a2a3 "
+        "-I%s/src/machine/kernel/ "
+        "-I%s/src/ "
+        "-I%s/src/interface "
+        "-o %s "
+        "%s",
+        compileOptions.c_str(), coreType.c_str(), lib64Path.c_str(), runtimePath.c_str(), codeSrcPath.c_str(),
+        codeSrcPath.c_str(), codeSrcPath.c_str(), codeSrcPath.c_str(), objFile.c_str(), srcFile.c_str());
+    if (ret < 0) {
+        ALOG_INFO << "CompileCCE snprintf_s failed " << ret;
+    }
+
+    ALOG_INFO << "compile kernel...\n" << ccecCmd;
+    ret = std::system(ccecCmd);
+    if (ret != 0) {
+        ALOG_INFO << "CompileCce ccec failed " << ret;
+    }
+    return ret;
+}
 void CompileTestCCE(const std::string &cceFileName) {
     CodeGenCtx ctx;
     CodeGenCloudNPU codegen(ctx); // used to PrepareDefaultOutputPath
@@ -81,3 +126,5 @@ TEST_F(TestTileOpAdd, TestAddDim2) {
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
 }
+
+} // namespace npu::tile_fwk

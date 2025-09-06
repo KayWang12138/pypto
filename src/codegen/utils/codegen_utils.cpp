@@ -17,8 +17,10 @@
 
 #include <cstring>
 #include <algorithm>
+#include <unistd.h>
 
 #include "codegen/codegen_common.h"
+#include "interface/utils/log.h"
 
 namespace npu::tile_fwk {
 std::string JoinString(const std::vector<std::string> &strList, const std::string &conj) {
@@ -73,4 +75,5 @@ std::string GetAddrTypeByOperandType(OperandType type) {
     ASSERT(false) << "cannot support current OperandType " << type;
     return "";
 }
+
 } // namespace npu::tile_fwk

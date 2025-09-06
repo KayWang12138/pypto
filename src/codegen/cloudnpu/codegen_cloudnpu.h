@@ -124,6 +124,8 @@ private:
     void UpdateSubFunc(std::pair<uint64_t, Function *> subFuncPair, const CompileInfo &compileInfo) const;
 
     bool isUnderDynamicFunction_{false};
+
+    std::string GetIncludePathForCompileCCE() const;
 };
 
 } // namespace npu::tile_fwk
