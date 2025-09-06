@@ -141,8 +141,8 @@ void TestDynamicMlaProlog(
     Tensor dynamicCos(dType, {-1, -1, qkRopeHeadDim}, "dynamicCos");
     Tensor dynamicSin(dType, {-1, -1, qkRopeHeadDim}, "dynamicSin");
     Tensor dynamicCacheIndex(DT_INT64, {-1, -1}, "dynamicCacheIndex"); // int64
-    Tensor dynamicOutputQ(dType, {-1, GetInputShapeDim(dynamicX, 1), n, kvLoraRank}, "dynamicOutputQ");
-    Tensor dynamicOutputQRope(dType, {-1, GetInputShapeDim(dynamicX, 1), n, qkRopeHeadDim}, "dynamicOutputQRope");
+    Tensor dynamicOutputQ(dType, {-1, GetInputShape(dynamicX, 1), n, kvLoraRank}, "dynamicOutputQ");
+    Tensor dynamicOutputQRope(dType, {-1, GetInputShape(dynamicX, 1), n, qkRopeHeadDim}, "dynamicOutputQRope");
 
     // output
     std::vector<T> golden1 = getGoldenVec<T>(qOutShape, "/q_golden.bin");

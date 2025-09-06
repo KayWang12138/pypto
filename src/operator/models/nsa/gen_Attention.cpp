@@ -40,8 +40,8 @@ void GenAttentionCompute(Tensor &cmpAtten, Tensor &selAtten, Tensor &winAtten, T
     auto v1Tile = tileConfig.vec1TileShape;
     auto v2Tile = tileConfig.vec2TileShape;
 
-    SymbolicScalar bDimSize = GetInputShapeDim(cmpAtten, 0);
-    SymbolicScalar sDimSize = GetInputShapeDim(cmpAtten, 1);
+    SymbolicScalar bDimSize = GetInputShape(cmpAtten, 0);
+    SymbolicScalar sDimSize = GetInputShape(cmpAtten, 1);
     SymbolicScalar bLoop = bDimSize / tileB;
     SymbolicScalar sLoop = sDimSize / tileS;
     DataType dType = cmpAtten->Datatype();

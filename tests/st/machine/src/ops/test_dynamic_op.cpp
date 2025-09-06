@@ -40,7 +40,7 @@ TEST_F(DynamicOpTest, VectorDuplicateUnalign) {
 
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {actSeqs}, {output}) {
-        SymbolicScalar curSeq = GetInputDataInt32Dim1(actSeqs, 0);
+        SymbolicScalar curSeq = GetInputData(actSeqs, {0});
 
         LOOP("L0", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange((curSeq + sTile - 1) / sTile)) {
             Tensor tmp = VectorDuplicate(Element(DataType::DT_FP32, 2.0f), DT_FP32, {sTile, h},

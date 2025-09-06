@@ -439,26 +439,13 @@ void TestStaticLoopStatic(const Tensor &t0, const Tensor &t1, const Tensor &t2, 
             r0 = Add(t0, t1);
             r0 = Sub(r0, t2);
         }
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShapeDim(t3, 1) / s)) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(t3, 1) / s)) {
             loopCount = loopCount + i;
             Tensor t3v = View(t3, {s, s}, {0, 0});
             r0 = Add(t3v, r0);
         }
 
-        LOOP("L1", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShapeDimSize(t3) / s)) {
-            loopCount = loopCount + i;
-            Tensor t3v = View(t3, {s, s}, {0, 0});
-            r0 = Add(t3v, r0);
-        }
-
-        LOOP("L1", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputDataInt32Dim1(t3, npu::tile_fwk::SymbolicScalar("0")) / s)) {
-            loopCount = loopCount + i;
-            Tensor t3v = View(t3, {s, s}, {0, 0});
-            r0 = Add(t3v, r0);
-        }
-
-        LOOP("L2", FunctionType::DYNAMIC_LOOP, i,
-             LoopRange(GetInputDataInt32Dim2(t3, npu::tile_fwk::SymbolicScalar("0"), npu::tile_fwk::SymbolicScalar("1")) / s)) {
+        LOOP("L1", FunctionType::DYNAMIC_LOOP, i, LoopRange(t3.Dim() / s)) {
             loopCount = loopCount + i;
             Tensor t3v = View(t3, {s, s}, {0, 0});
             r0 = Add(t3v, r0);
@@ -622,7 +609,7 @@ TEST_F(DynamicFunctionTest, TestHybridLoopIf2) {
 Tensor TestLoopWithRank(const Tensor &t0, Tensor &r0, Tensor &out, int s, int maxRank) {
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {t0, r0}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShapeDim(t0, 0) / s), PowersOf2(maxRank)) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(t0, 0) / s), PowersOf2(maxRank)) {
             Tensor t0v = View(t0, {s, s}, {s * i, 0});
             r0 = Add(t0v, r0);
         }
@@ -637,7 +624,7 @@ Tensor TestLoopWithRank(const Tensor &t0, Tensor &r0, Tensor &out, int s, int ma
 Tensor TestLoopIfWithRank(const Tensor &t0, Tensor &r0, Tensor &out, int s, int maxRank) {
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {t0, r0}, {out}) {
-        auto len = GetInputShapeDim(t0, 0) / s;
+        auto len = GetInputShape(t0, 0) / s;
 
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(len), PowersOf2(maxRank)) {
             IF(IsLoopBegin(i, 0)) {
@@ -674,7 +661,7 @@ Tensor TestLoopWithManualRank(const Tensor &t0, Tensor &r0, Tensor &out, int s, 
     };
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {t0, r0}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShapeDim(t0, 0) / s), PowersOf2(maxRank)) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(t0, 0) / s), PowersOf2(maxRank)) {
             UNROLL_DEFAULT {
                 func(t0, r0, out, s, i, 1);
             }
@@ -902,8 +889,8 @@ TEST_F(DynamicFunctionTest, TestGetInputDataInt32Dim3) {
     int s = 32;
     int n = 1;
     int m = 1;
-    Tensor t5(DT_FP32, {2 , n * s, m * s}, "t5");
-    Tensor out(DT_FP32, {n * s, m * s}, "out");
+    Tensor t5(DT_INT32, {2 , n * s, m * s}, "t5");
+    Tensor out(DT_INT32, {n * s, m * s}, "out");
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateConstantTensor<float>(t5, 64.0),
@@ -915,7 +902,7 @@ TEST_F(DynamicFunctionTest, TestGetInputDataInt32Dim3) {
     SymbolicScalar loopCount = 0;
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {t5}, {out}) {
-        LOOP("s1", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputDataInt32Dim3(t5,  npu::tile_fwk::SymbolicScalar("0"), npu::tile_fwk::SymbolicScalar("1"), npu::tile_fwk::SymbolicScalar("2")) / s)) {
+        LOOP("s1", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputData(t5,  {npu::tile_fwk::SymbolicScalar("0"), npu::tile_fwk::SymbolicScalar("1"), npu::tile_fwk::SymbolicScalar("2")}) / s)) {
             loopCount = loopCount + i;
             out = AddS(t5, Element(DataType::DT_FP32, static_cast<double>(1.0)));
         }
@@ -933,7 +920,7 @@ TEST_F(DynamicFunctionTest, TestGetInputDataInt32Dim4) {
     int k = 1;
     int n = 1;
     int m = 1;
-    Tensor t5(DT_FP32, {2 , k * s, n * s, m * s}, "t5");
+    Tensor t5(DT_INT32, {2 , k * s, n * s, m * s}, "t5");
     Tensor out(DT_FP32, {k * s, n * s, m * s}, "out");
 
     ProgramData::GetInstance().AppendInputs({
@@ -946,7 +933,7 @@ TEST_F(DynamicFunctionTest, TestGetInputDataInt32Dim4) {
     SymbolicScalar loopCount = 0;
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {t5}, {out}) {
-        LOOP("s1", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputDataInt32Dim4(t5, npu::tile_fwk::SymbolicScalar("0"), npu::tile_fwk::SymbolicScalar("1"), npu::tile_fwk::SymbolicScalar("2"), npu::tile_fwk::SymbolicScalar("3")) / s)) {
+        LOOP("s1", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputData(t5, {npu::tile_fwk::SymbolicScalar("0"), npu::tile_fwk::SymbolicScalar("1"), npu::tile_fwk::SymbolicScalar("2"), npu::tile_fwk::SymbolicScalar("3")}) / s)) {
             loopCount = loopCount + i;
             out = AddS(t5, Element(DataType::DT_FP32, static_cast<double>(1.0)));
         }

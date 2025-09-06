@@ -620,8 +620,8 @@ void TestLoopTailBlock(const Tensor &t0, const Tensor &blockTable, Tensor &out, 
     int blockSize = 64;
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {t0, blockTable}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShapeDim(t0, 0) / s)) {
-            SymbolicScalar size = GetInputDataInt32Dim2(blockTable, i, 0);
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(t0, 0) / s)) {
+            SymbolicScalar size = GetInputData(blockTable, {i, 0});
             Tensor t0s = View(t0, {s, s}, {size, s}, {blockSize * i, 0});
             Tensor t1s = View(t0, {s/2, s}, {size, s}, {blockSize * i, 0});
             Tensor t1 = Add(t1s, t1s);

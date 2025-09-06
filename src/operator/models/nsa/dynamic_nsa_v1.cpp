@@ -86,8 +86,8 @@ void GenAttn(Tensor &gatingScore, Tensor &cmpAtten, Tensor &selAtten, Tensor &wi
     int tileB = 8;
     int tileS = 1;
 
-    SymbolicScalar bDimSize = GetInputShapeDim(cmpAtten, 0);
-    SymbolicScalar sDimSize = GetInputShapeDim(cmpAtten, 1);
+    SymbolicScalar bDimSize = GetInputShape(cmpAtten, 0);
+    SymbolicScalar sDimSize = GetInputShape(cmpAtten, 1);
     SymbolicScalar bLoop = bDimSize / tileB;
     SymbolicScalar sLoop = sDimSize / tileS;
     DataType dType = attentionOut->Datatype();

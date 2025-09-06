@@ -87,8 +87,8 @@ TEST_F(DynamicBasicTest, TestHybridLoopIf2) {
 void TestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Tensor &blockTable, Tensor &out, int s) {
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {t0, t1, blockTable}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShapeDim(t0, 0) / s)) {
-            SymbolicScalar idx = GetInputDataInt32Dim2(blockTable, i, 0);
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(t0, 0) / s)) {
+            SymbolicScalar idx = GetInputData(blockTable, {i, 0});
             Tensor t0s = View(t0, {s, s}, {idx * s, 0});
 
             Tensor qi(DT_FP32, {s, 2*s}, "qi");
@@ -205,7 +205,7 @@ TEST_F(DynamicBasicTest, DynamicRawShape) {
 
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {t0, t1}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(GetInputShapeDim(t0, 0) / s)) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(GetInputShape(t0, 0) / s)) {
             Tensor t0s = View(t0, {s, s}, {idx * s, 0});
             Tensor t2 = Matrix::Matmul<false, true>(DataType::DT_FP32, t0s, t1);
             Assemble(t2, {idx * s, 0}, out);
@@ -238,7 +238,7 @@ TEST_F(DynamicBasicTest, DynamicRawShapeUnalign) {
 
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {t0}, {out}) {
-        auto shape0 = GetInputShapeDim(t0, 0);
+        auto shape0 = GetInputShape(t0, 0);
         auto t1 = Tensor(t0.GetDataType(), {shape0, s});
         auto loop1 = (shape0 + s - 1) / s;
         LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(loop1)) {
@@ -248,7 +248,7 @@ TEST_F(DynamicBasicTest, DynamicRawShapeUnalign) {
         }
 
         // check t1 use dynshape from t0
-        auto loop2 = (GetInputShapeDim(t1, 0) + s - 1) / s;
+        auto loop2 = (GetInputShape(t1, 0) + s - 1) / s;
         LOOP("L1", FunctionType::DYNAMIC_LOOP, idx, LoopRange(loop2), {}, true) {
             Tensor t1s = View(t1, {s, s}, {idx * s, 0});
             auto t = SubS(t1s, Element(DT_FP32, 1.0));
@@ -593,8 +593,8 @@ TEST_F(DynamicBasicTest, TestGetTensorData) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
             Tensor t0 = AddS(inputA, Element(DT_INT32, (int64_t)2)); // t0[i, j] -> inputA[i, j] + 2 -> i * n + j + 2
-            SymbolicScalar v0 = GetTensorDataInt32(t0, 0, 1); // t0[0, 1] -> 0 * n + 1 + 2 -> 3
-            SymbolicScalar v1 = GetTensorDataInt32(t0, 0, 2); // t0[0, 2] -> 0 * n + 2 + 2 -> 4
+            SymbolicScalar v0 = GetTensorData(t0, {0, 1}); // t0[0, 1] -> 0 * n + 1 + 2 -> 3
+            SymbolicScalar v1 = GetTensorData(t0, {0, 2}); // t0[0, 2] -> 0 * n + 2 + 2 -> 4
             auto t2 = View(inputC, {n, n}, {0, v0 * n});
             auto t3 = View(inputC, {n, n}, {0, v1 * n});
             output = Mul(t2, t3);
@@ -660,22 +660,22 @@ TEST_F(DynamicBasicTest, TestGetTensorDataCrossFunction) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
             auto t0 = AddS(inputA, Element(DT_INT32, (int64_t)2)); // t0[i, j] -> inputA[i, j] + 2 -> i * n + j + 2
-            v0 = GetTensorDataInt32(t0, 0, 1); // t0[0, 1] -> 0 * n + 1 + 2 -> 3
-            v1 = GetTensorDataInt32(t0, 0, 2); // t0[0, 2] -> 0 * n + 2 + 2 -> 4
-            v2 = v0 + v1 + GetInputDataInt32Dim2(inputA, 0, 1);
+            v0 = GetTensorData(t0, {0, 1}); // t0[0, 1] -> 0 * n + 1 + 2 -> 3
+            v1 = GetTensorData(t0, {0, 2}); // t0[0, 2] -> 0 * n + 2 + 2 -> 4
+            v2 = v0 + v1 + GetInputData(inputA, {0, 1});
         }
         LOOP("Step1", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
             auto t2 = View(inputC, {n, n}, {0, v0 * n});
             auto t3 = View(inputC, {n, n}, {0, v1 * n});
             output = Mul(t2, t3);
-            SetTensorDataInt32(v0, {0, 0}, outsum);
-            SetTensorDataInt32(v1, {0, 1}, outsum);
-            SetTensorDataInt32(v2, {0, 2}, outsum);
-            SetTensorDataInt32(v0 + v1, {0, 3}, outsum);
-            SetTensorDataInt32(v0 + v2, {0, 4}, outsum);
-            SetTensorDataInt32(v1 + v2, {0, 5}, outsum);
-            SetTensorDataInt32(v0 + v1 + v2, {0, 6}, outsum);
+            SetTensorData(v0, {0, 0}, outsum);
+            SetTensorData(v1, {0, 1}, outsum);
+            SetTensorData(v2, {0, 2}, outsum);
+            SetTensorData(v0 + v1, {0, 3}, outsum);
+            SetTensorData(v0 + v2, {0, 4}, outsum);
+            SetTensorData(v1 + v2, {0, 5}, outsum);
+            SetTensorData(v0 + v1 + v2, {0, 6}, outsum);
         }
     }
 
@@ -747,9 +747,9 @@ TEST_F(DynamicBasicTest, TestGetTensorDataUnalign) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
             auto t0 = AddS(inputA, Element(DT_INT32, (int64_t)2)); // t0[i, j] -> inputA[i, j] + 2 -> i * n + j + 2
-            v0 = GetTensorDataInt32(t0, 0, 1); // t0[0, 1] -> 0 * n + 1 + 2 -> 3
-            v1 = GetTensorDataInt32(t0, 0, 2); // t0[0, 2] -> 0 * n + 2 + 2 -> 4
-            v2 = v0 + v1 + GetInputDataInt32Dim2(inputA, 0, 1);
+            v0 = GetTensorData(t0, {0, 1}); // t0[0, 1] -> 0 * n + 1 + 2 -> 3
+            v1 = GetTensorData(t0, {0, 2}); // t0[0, 2] -> 0 * n + 2 + 2 -> 4
+            v2 = v0 + v1 + GetInputData(inputA, {0, 1});
         }
         LOOP("Step1", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
@@ -802,10 +802,10 @@ TEST_F(DynamicBasicTest, TestGetTensorDataExpr) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
             Tensor t0 = AddS(inputA, Element(DT_INT32, (int64_t)2)); // t0[i, j] -> inputA[i, j] + 2 -> i * n + j + 2
-            SymbolicScalar v0 = GetTensorDataInt32(t0, 0, 1); // t0[0, 1] + 2 -> 0 * n + 1 + 2 -> 3
-            SymbolicScalar v1 = GetTensorDataInt32(t0, 0, 2); // t0[0, 2] + 2 -> 0 * n + 2 + 2 -> 4
-            SymbolicScalar v2 = GetInputDataInt32Dim2(inputA, 0, 1); // inputA[0, 1] -> 1
-            SymbolicScalar v3 = GetInputDataInt32Dim2(inputA, 0, 2); // inputA[0, 2] -> 2
+            SymbolicScalar v0 = GetTensorData(t0, {0, 1}); // t0[0, 1] + 2 -> 0 * n + 1 + 2 -> 3
+            SymbolicScalar v1 = GetTensorData(t0, {0, 2}); // t0[0, 2] + 2 -> 0 * n + 2 + 2 -> 4
+            SymbolicScalar v2 = GetInputData(inputA, {0, 1}); // inputA[0, 1] -> 1
+            SymbolicScalar v3 = GetInputData(inputA, {0, 2}); // inputA[0, 2] -> 2
             auto t2 = View(inputC, {n, n}, {0, (v0 + v2 + i / i) * n}); // {0, (3 + 1 + 1) * n} -> {0, 5 * n}
             auto t3 = View(inputC, {n, n}, {0, (v1 + v3 + i / i) * n}); // {0, (4 + 2 + 1) * n} -> {0, 7 * n}
             output = Mul(t2, t3);
@@ -899,7 +899,7 @@ TEST_F(DynamicBasicTest, TestSetTensorData) {
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {}, {output}) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) {
-            SetTensorDataInt32(30, {i / 2 * 2 + i % 2}, output);
+            SetTensorData(30, {i / 2 * 2 + i % 2}, output);
         }
     }
 
@@ -934,7 +934,7 @@ TEST_F(DynamicBasicTest, TestSetTensorDataExpr) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) {
             LOOP("Step1", FunctionType::DYNAMIC_LOOP, j, LoopRange(n)) {
                 for (int k = 0; k < n; k++) {
-                    SetTensorDataInt32(i * tiling * tiling + j * tiling + k, {i, j, k}, output);
+                    SetTensorData(i * tiling * tiling + j * tiling + k, {i, j, k}, output);
                 }
             }
         }
@@ -978,7 +978,7 @@ TEST_F(DynamicBasicTest, TestGetTensorDataAndDup) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
             auto add = Add(input, input);
-            auto s = GetTensorDataInt32(add, row, col);
+            auto s = GetTensorData(add, {row, col});
             output = VectorDuplicate(s + 1, DT_INT32, {n, n});
         }
     }
@@ -1021,8 +1021,8 @@ TEST_F(DynamicBasicTest, TestGetAndSetTensorDataExpr) {
             LOOP("Step1", FunctionType::DYNAMIC_LOOP, j, LoopRange(n)) {
                 auto add = Add(input, input);
                 for (int k = 0; k < n; k++) {
-                    SymbolicScalar s = GetTensorDataInt32(add, {i, j, k});
-                    SetTensorDataInt32(s + i * tiling * tiling + j * tiling + k, {i, j, k}, output);
+                    SymbolicScalar s = GetTensorData(add, {i, j, k});
+                    SetTensorData(s + i * tiling * tiling + j * tiling + k, {i, j, k}, output);
                 }
             }
         }
@@ -1106,8 +1106,8 @@ TEST_F(DynamicBasicTest, TestSelectAttention) {
             LOOP("Step1", FunctionType::DYNAMIC_LOOP, j, LoopRange(0, n, topk), {}, true) {
                 (void)j;
                 for (int k = 0; k < topk; k++) {
-                    SymbolicScalar s = GetTensorDataInt32(index, {i, j + k}); // index[i, j + k] -> j + k
-                    SymbolicScalar slcBlockIdx = GetInputDataInt32Dim2(table, i, s); // table[i, s] -> s
+                    SymbolicScalar s = GetTensorData(index, {i, j + k}); // index[i, j + k] -> j + k
+                    SymbolicScalar slcBlockIdx = GetInputData(table, {i, s}); // table[i, s] -> s
                     auto k0 = View(c0, {n, n}, {0, s * n});
                     auto k1 = View(c1, {n, n}, {0, slcBlockIdx * n});
 

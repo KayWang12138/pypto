@@ -262,7 +262,7 @@ void PageAttentionPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
         {postOut}) {
         SymbolicScalar nLoop = nQ / nTile;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, batchSize, 1)) {
-            SymbolicScalar curSeq = GetInputDataInt32Dim1(actSeqs, bIdx);
+            SymbolicScalar curSeq = GetInputData(actSeqs, {bIdx});
             SymbolicScalar bnPerBatch = curSeq / blockSize; // 暂时仅考虑curSeq是blockSize对齐
             bnPerBatch.AsIntermediateVariable();
             LOOP("LOOP_L1_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nLoop, 1)) {
@@ -284,7 +284,7 @@ void PageAttentionPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
                     Assemble(qn, {0, 0}, qi);
                     Assemble(qr, {0, dN}, qi);
 
-                    SymbolicScalar curBlockIdx = GetInputDataInt32Dim2(blockTable, bIdx, bn);
+                    SymbolicScalar curBlockIdx = GetInputData(blockTable, {bIdx, bn});
                     curBlockIdx.AsIntermediateVariable();
                     auto kn = View(kNopeCache, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},
                                                   {curBlockIdx * blockSize, 0});

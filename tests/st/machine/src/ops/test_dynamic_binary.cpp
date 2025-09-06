@@ -36,13 +36,13 @@ TEST_F(DynamicBinTest, TestDynamicAddUnalign) {
 
     Tensor input1(DT_FP32, inputShape, "intput1");
     Tensor input2(DT_FP32, inputShape, "intput2");
-    Tensor curSeq(DT_FP32, {b, 1}, "curSeq");
+    Tensor curSeq(DT_INT32, {b, 1}, "curSeq");
     Tensor out(DT_FP32, outShape, "out");
 
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {input1, input2, curSeq}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
-            auto seq = GetInputDataInt32Dim2(curSeq, batchId, 0);
+            auto seq = GetInputData(curSeq, {batchId, 0});
             Tensor intput11 = View(input1, {sq, d}, {seq, d}, {batchId, 0});
             Tensor intput22 = View(input2, {sq, d}, {seq, d}, {batchId, 0});
             auto tmp = Add(intput11, intput22);
@@ -92,8 +92,8 @@ TEST_F(DynamicBinTest, testDynMulsUnalign) {
 
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0) / (sq))) {
-            SymbolicScalar curSeq = GetInputDataInt32Dim2(actSeqs, batchId, 0);
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (sq))) {
+            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0});
             Element value(DataType::DT_FP32, 1.0);
             Tensor q0 = View(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
             auto tmp = MulS(q0, value);
@@ -147,8 +147,8 @@ TEST_F(DynamicBinTest, testScalarDivsUnalign) {
 
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0) / (sq))) {
-            SymbolicScalar curSeq = GetInputDataInt32Dim2(actSeqs, batchId, 0);
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (sq))) {
+            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0});
             Element value(DataType::DT_FP32, 1.0);
             Tensor q0 = View(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
             auto tmp = ScalarDivS(q0, value, true);

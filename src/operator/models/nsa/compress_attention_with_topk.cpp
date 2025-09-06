@@ -99,7 +99,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
     }
 
     LOOP("CMP_ATTN_LOOP_BATCH", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(b), {}) {
-        SymbolicScalar curSeq = GetInputDataInt32Dim1(actSeq, bIdx);
+        SymbolicScalar curSeq = GetInputData(actSeq, {bIdx});
         LOOP("CMP_ATTN_LOOP_S1", FunctionType::DYNAMIC_LOOP, s1Idx, LoopRange(s1), {}, true) {
             // 因果推理，注意可用实际的s2长度
             ASSERT(cmpStride !=0) << "cmpStride can't be zero!";
@@ -118,7 +118,7 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
             Tensor slcPre(DT_FP32, {blockSlcNum, n1}, "slcPre");
             // Block Loop
             LOOP("CMP_ATTN_LOOP_BLOCK", FunctionType::DYNAMIC_LOOP, blockIdx, LoopRange(curCmpBlock), {}) {
-                SymbolicScalar curBlockIdx = GetInputDataInt32Dim2(cmpBlockTable, bIdx, blockIdx);
+                SymbolicScalar curBlockIdx = GetInputData(cmpBlockTable, {bIdx, blockIdx});
                 curBlockIdx.AsIntermediateVariable();
 
                 auto curValidSeq = std::min(casCmpSeq - blockIdx * blockSize, blockSize);

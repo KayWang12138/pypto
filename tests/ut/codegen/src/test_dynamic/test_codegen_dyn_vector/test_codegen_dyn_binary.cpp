@@ -193,14 +193,14 @@ TEST_F(TestCodegenDynBinary, AddUnalignLayout) {
 
     Tensor input1(DT_FP32, inputShape, "intput1");
     Tensor input2(DT_FP32, inputShape, "intput2");
-    Tensor curSeq(DT_FP32, {b, 1}, "curSeq");
+    Tensor curSeq(DT_INT32, {b, 1}, "curSeq");
     Tensor out(DT_FP32, outShape, "out");
 
     std::string loopName = "L0";
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {input1, input2, curSeq}, {out}) {
         LOOP(loopName, FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
-            auto seq = GetInputDataInt32Dim2(curSeq, batchId, 0);
+            auto seq = GetInputData(curSeq, {batchId, 0});
             Tensor intput11 = View(input1, {sq, d}, {seq, d}, {batchId, 0});
             Tensor intput22 = View(input2, {sq, d}, {seq, d}, {batchId, 0});
             auto tmp = Add(intput11, intput22);

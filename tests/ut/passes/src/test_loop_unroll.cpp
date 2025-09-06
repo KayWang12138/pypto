@@ -105,7 +105,7 @@ TEST_F(LoopUnrollTest, test_only_reshape2) {
             ReshapeInplace(q, qReshape);
         }
 
-        LOOP("L0_AF", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0)), {}, true) {
+        LOOP("L0_AF", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0)), {}, true) {
             Tensor q0 = View(qReshape, {sq, d}, {batchId * sq, 0});
             auto tmp = Exp(q0);
             Assemble(tmp, {batchId * sq, 0}, out);

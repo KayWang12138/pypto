@@ -213,6 +213,15 @@ const Shape &Tensor::GetShape() const {
     return storage_->shape;
 }
 
+uint64_t Tensor::Dim() const {
+    if (storage_ != nullptr) {
+        return storage_->shape.size();
+    }
+    else {
+        return 0;
+    }
+}
+
 int32_t Tensor::GetShape(int axis) const {
     const size_t dimCount = storage_->shape.size();
     ASSERT(dimCount > 0) << "Tensor has no dimensions!";
@@ -247,28 +256,15 @@ std::string Tensor::GetName() const {
     return storage_ ? storage_->tensor->GetSymbol() : "";
 }
 
-SymbolicScalar npu::tile_fwk::GetInputShapeDimSize(const Tensor &t) {
-    std::string getInputShapeDimSizeName = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::GetInputShapeDimSize);
-    auto slotManager = Program::GetInstance().GetTensorSlotManager();
-    int inputIndex = slotManager->GetInputIndex(t);
-    ASSERT(inputIndex >= 0 && static_cast<size_t>(inputIndex) < slotManager->GetInputNameList().size()) <<
-        "Tensor " << t.GetStorage(false)->GetRawTensor()->GetSymbol() << " is not in input tensor list!";
-    std::string inputName = slotManager->GetInputNameList()[inputIndex];
-
-    getInputShapeDimSizeName = AddRuntimePrefix(getInputShapeDimSizeName);
-    inputName = AddArgPrefix(inputName);
-
-    SymbolicScalar getInputShapeDimSize(getInputShapeDimSizeName);
-    SymbolicScalar input(inputName);
-    return getInputShapeDimSize(input);
-}
-
-SymbolicScalar npu::tile_fwk::GetInputShapeDim(const Tensor &t, int n) {
+SymbolicScalar npu::tile_fwk::GetInputShape(const Tensor &t, int n) {
     auto rawTensor = t.GetStorage(false)->GetRawTensor();
     return rawTensor->GetDynRawShape(n);
 }
 
-SymbolicScalar npu::tile_fwk::GetInputDataInt32Dim1(const Tensor &t, SymbolicScalar off0) {
+namespace npu::tile_fwk {
+
+static
+SymbolicScalar GetInputDataInt32Dim1(const Tensor &t, SymbolicScalar off0) {
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
     slotManager->TensorRead(t);
 
@@ -286,7 +282,8 @@ SymbolicScalar npu::tile_fwk::GetInputDataInt32Dim1(const Tensor &t, SymbolicSca
     return getInputDataInt32Dim1(input, off0);
 }
 
-SymbolicScalar npu::tile_fwk::GetInputDataInt32Dim2(const Tensor &t, SymbolicScalar off0, SymbolicScalar off1) {
+static
+SymbolicScalar GetInputDataInt32Dim2(const Tensor &t, SymbolicScalar off0, SymbolicScalar off1) {
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
     slotManager->TensorRead(t);
 
@@ -304,7 +301,8 @@ SymbolicScalar npu::tile_fwk::GetInputDataInt32Dim2(const Tensor &t, SymbolicSca
     return getInputDataInt32Dim2(input, off0, off1);
 }
 
-SymbolicScalar npu::tile_fwk::GetInputDataInt32Dim3(const Tensor &t, SymbolicScalar off0, SymbolicScalar off1, SymbolicScalar off2) {
+static
+SymbolicScalar GetInputDataInt32Dim3(const Tensor &t, SymbolicScalar off0, SymbolicScalar off1, SymbolicScalar off2) {
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
     slotManager->TensorRead(t);
 
@@ -322,7 +320,8 @@ SymbolicScalar npu::tile_fwk::GetInputDataInt32Dim3(const Tensor &t, SymbolicSca
     return getInputDataInt32Dim3(input, off0, off1, off2);
 }
 
-SymbolicScalar npu::tile_fwk::GetInputDataInt32Dim4(const Tensor &t, SymbolicScalar off0, SymbolicScalar off1,
+static
+SymbolicScalar GetInputDataInt32Dim4(const Tensor &t, SymbolicScalar off0, SymbolicScalar off1,
     SymbolicScalar off2, SymbolicScalar off3) {
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
     slotManager->TensorRead(t);
@@ -341,7 +340,23 @@ SymbolicScalar npu::tile_fwk::GetInputDataInt32Dim4(const Tensor &t, SymbolicSca
     return getInputDataInt32Dim4(input, off0, off1, off2, off3);
 }
 
-namespace npu::tile_fwk {
+SymbolicScalar GetInputData(const Tensor &t, const std::vector<SymbolicScalar> &offset) {
+    ASSERT(t.GetDataType() == DT_INT32);
+    ASSERT(t.Dim() == offset.size());
+    ASSERT(t.Dim() >0 && t.Dim() <= 0x4);
+    if (t.Dim() == 0x1) {
+        return GetInputDataInt32Dim1(t, offset[0]);
+    }
+    else if (t.Dim() == 0x2) {
+        return GetInputDataInt32Dim2(t, offset[0], offset[1]);
+    }
+    else if (t.Dim() == 0x3){
+        return GetInputDataInt32Dim3(t, offset[0], offset[1], offset[2]);
+    }
+    else {
+        return GetInputDataInt32Dim4(t, offset[0], offset[1], offset[2], offset[3]);
+    }
+}
 
 static
 SymbolicScalar DoGetTensorDataInt32(SymbolHandlerId handlerId, const Tensor &t, const std::vector<SymbolicScalar> &offset) {
@@ -374,20 +389,9 @@ SymbolicScalar DoGetTensorDataInt32(SymbolHandlerId handlerId, const Tensor &t, 
     return getRuntimeHandler(argList);
 }
 
-SymbolicScalar GetTensorDataInt32(const Tensor &t, const SymbolicScalar &off0) {
-    return DoGetTensorDataInt32(SymbolHandlerId::GetTensorDataInt32Dim1, t, {off0});
-}
-SymbolicScalar GetTensorDataInt32(const Tensor &t, const SymbolicScalar &off0, const SymbolicScalar &off1) {
-    return DoGetTensorDataInt32(SymbolHandlerId::GetTensorDataInt32Dim2, t, {off0, off1});
-}
-SymbolicScalar GetTensorDataInt32(const Tensor &t, const SymbolicScalar &off0, const SymbolicScalar &off1, const SymbolicScalar &off2) {
-    return DoGetTensorDataInt32(SymbolHandlerId::GetTensorDataInt32Dim3, t, {off0, off1, off2});
-}
-SymbolicScalar GetTensorDataInt32(const Tensor &t, const SymbolicScalar &off0, const SymbolicScalar &off1, const SymbolicScalar &off2, const SymbolicScalar &off3) {
-    return DoGetTensorDataInt32(SymbolHandlerId::GetTensorDataInt32Dim4, t, {off0, off1, off2, off3});
-}
 constexpr int MAX_GET_TENSOR_DATA_DIM = 4;
-SymbolicScalar GetTensorDataInt32(const Tensor &t, const std::vector<SymbolicScalar> &off) {
+SymbolicScalar GetTensorData(const Tensor &t, const std::vector<SymbolicScalar> &off) {
+    ASSERT(t.GetDataType() == DT_INT32);
     ASSERT(off.size() <= MAX_GET_TENSOR_DATA_DIM);
     SymbolHandlerId handlerId = static_cast<SymbolHandlerId>(static_cast<int>(SymbolHandlerId::GetTensorDataInt32Dim1) + off.size() - 1) ;
     return DoGetTensorDataInt32(handlerId, t, off);
@@ -406,7 +410,8 @@ void DoSetTensorDataInt32(const SymbolicScalar &v, const std::vector<SymbolicSca
     TensorInsert(tmp, off, t);
 }
 
-void SetTensorDataInt32(const SymbolicScalar &v, const std::vector<SymbolicScalar> &off, Tensor &dst) {
+void SetTensorData(const SymbolicScalar &v, const std::vector<SymbolicScalar> &off, Tensor &dst) {
+    ASSERT(dst.GetDataType() == DT_INT32);
     return DoSetTensorDataInt32(v, off, dst);
 }
 

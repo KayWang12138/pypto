@@ -54,7 +54,7 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
         SymbolicScalar nLoop = nQ / nTile;
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, batchSize, 1)) {
-            SymbolicScalar curSeq = GetInputDataInt32Dim1(actSeqs, bIdx);
+            SymbolicScalar curSeq = GetInputData(actSeqs, {bIdx});
             SymbolicScalar bnPerBatch = (curSeq + blockSize - 1) / blockSize;
             bnPerBatch.AsIntermediateVariable();
             LOOP("LOOP_L1_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nLoop, 1)) {
@@ -75,7 +75,7 @@ void PageAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor
                     Assemble(qn, {0, 0}, qi);
                     Assemble(qr, {0, dN}, qi);
 
-                    SymbolicScalar curBlockIdx = GetInputDataInt32Dim2(blockTable, bIdx, bn);
+                    SymbolicScalar curBlockIdx = GetInputData(blockTable, {bIdx, bn});
                     curBlockIdx.AsIntermediateVariable();
                     auto kn = View(kNopeCache, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},
                                                   {curBlockIdx * blockSize, 0});
@@ -193,7 +193,7 @@ void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
         SymbolicScalar nLoop = nQ / nTile;
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(batchSize)) {
-            SymbolicScalar curSeq = GetInputDataInt32Dim1(actSeqs, bIdx);
+            SymbolicScalar curSeq = GetInputData(actSeqs, {bIdx});
             SymbolicScalar bnPerBatch = curSeq / blockSize; // 暂时仅考虑curSeq是blockSize对齐
             bnPerBatch.AsIntermediateVariable();
             LOOP("LOOP_L1_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(nLoop)) {
@@ -215,7 +215,7 @@ void PageAttentionWithManualUnroll(Tensor &qNope, Tensor &kNopeCache, Tensor &vN
                             std::vector<Tensor> subKrs;
                             std::vector<Tensor> subVjs;
                             for (int idxOffset = 0; idxOffset < unrollTimes; idxOffset++) {
-                                auto curBlockIdx = GetInputDataInt32Dim2(blockTable, bIdx, bn + idxOffset);
+                                auto curBlockIdx = GetInputData(blockTable, {bIdx, bn + idxOffset});
                                 subKns.emplace_back(
                                     View(kNopeCache, {blockSize, dN}, {curBlockIdx * blockSize, 0}));
                                 subKrs.emplace_back(
@@ -317,7 +317,7 @@ void PageAttentionHighThroughput(Tensor &qNope, Tensor &kNopeCache, Tensor &vNop
         SymbolicScalar nQ = qNope->shape[0] / batchSize;
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, batchSize, 1), PowersOf2(maxUnrollTimes)) {
-            SymbolicScalar curSeq = GetInputDataInt32Dim1(actSeqs, bIdx);
+            SymbolicScalar curSeq = GetInputData(actSeqs, {bIdx});
             SymbolicScalar bnPerBatch = curSeq / blockSize; // 暂时仅考虑curSeq是blockSize对齐
             bnPerBatch.AsIntermediateVariable();
 
@@ -335,7 +335,7 @@ void PageAttentionHighThroughput(Tensor &qNope, Tensor &kNopeCache, Tensor &vNop
             Assemble(qn, {0, 0}, qi);
             Assemble(qr, {0, dN}, qi);
 
-            SymbolicScalar curBlockIdx = GetInputDataInt32Dim2(blockTable, bIdx, 0);
+            SymbolicScalar curBlockIdx = GetInputData(blockTable, {bIdx, 0});
             curBlockIdx.AsIntermediateVariable();
             auto kn = View(kNopeCache, {curS2Tile, dN}, {std::min(curSeq, blockSize), dN},
                 {curBlockIdx * blockSize, 0});

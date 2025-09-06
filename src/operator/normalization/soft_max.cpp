@@ -64,7 +64,7 @@ Tensor SoftmaxNew(const Tensor &operand) {
 void SoftmaxDynamicCompute(Tensor &input, Tensor &output) {
     // input_shape: [b, n1, n2, d] fp16/bf16
     // int b = input->shape[0]; batch轴动态
-    SymbolicScalar b = GetInputShapeDim(input, 0);
+    SymbolicScalar b = GetInputShape(input, 0);
     int n1 = input->shape[1];
     int n2 = input->shape[2];
     int dim = input->shape[3];

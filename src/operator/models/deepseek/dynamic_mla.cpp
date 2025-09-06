@@ -411,8 +411,8 @@ void MlaPrologCompute(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUq
         {tileB, tileS, 1, qkRopeHeadDim / 2, 2}  // (b,s,n,d//2,2)
     };
 
-    SymbolicScalar b = GetInputShapeDim(tokenX, 0);
-    SymbolicScalar s = GetInputShapeDim(tokenX, 1);
+    SymbolicScalar b = GetInputShape(tokenX, 0);
+    SymbolicScalar s = GetInputShape(tokenX, 1);
     SymbolicScalar bLoop = b / tileB;
     SymbolicScalar sLoop = s / tileS;
 

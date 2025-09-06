@@ -44,7 +44,7 @@ TEST_F(DynamicReshapeTest, test_only_reshape) {
     FunctionConfig funConfig;
     FUNCTION("MAIN_FUNC", funConfig, {q}, {out}) {
         Tensor bfRes(DT_FP32, qShape, "bfRes");
-        LOOP("L0_BF", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0)), {}, true) {
+        LOOP("L0_BF", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0)), {}, true) {
             TileShape::Current().SetVecTile(1, 64, 64);
             Tensor q0 = View(q, {1, sq, d}, {batchId, 0, 0});
             auto tmp = Exp(q0);
@@ -57,7 +57,7 @@ TEST_F(DynamicReshapeTest, test_only_reshape) {
             ReshapeInplace(bfRes, qReshape);
         }
 
-        LOOP("L0_AF", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0)), {}, true) {
+        LOOP("L0_AF", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0)), {}, true) {
             TileShape::Current().SetVecTile(64, 64);
             Tensor q0 = View(qReshape, {sq, d}, {batchId * sq, 0});
             auto tmp = AddS((q0), Element(DataType::DT_FP32, 1.0f));
@@ -106,7 +106,7 @@ TEST_F(DynamicReshapeTest, test_only_reshape2) {
             ReshapeInplace(q, qReshape);
         }
 
-        LOOP("L0_AF", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0)), {}, true) {
+        LOOP("L0_AF", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0)), {}, true) {
             TileShape::Current().SetVecTile(64, 64);
             Tensor q0 = View(qReshape, {sq, d}, {batchId * sq, 0});
             auto tmp = Exp(q0);
@@ -149,13 +149,13 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape) {
 
     FunctionConfig funConfig;
     FUNCTION("MAIN_FUNC", funConfig, {q}, {out}) {
-        Tensor qReshape(DT_FP32, {GetInputShapeDim(q, 0) * GetInputShapeDim(q, 1), d}, "qReshape");
+        Tensor qReshape(DT_FP32, {GetInputShape(q, 0) * GetInputShape(q, 1), d}, "qReshape");
         LOOP("LOOP_RESHAPE", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(0,1,1), {}, true) {
             (void) batchId;
             ReshapeInplace(q, qReshape);
         }
 
-        LOOP("L0_AF", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0)), {}, true) {
+        LOOP("L0_AF", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0)), {}, true) {
             TileShape::Current().SetVecTile(64, 64);
             Tensor q0 = View(qReshape, {sq, d}, {batchId * sq, 0});
             auto tmp = Exp(q0);
@@ -198,21 +198,21 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape2) {
 
     FunctionConfig funConfig;
     FUNCTION("MAIN_FUNC", funConfig, {q}, {out}) {
-        Tensor bfRes(DT_FP32,  {GetInputShapeDim(q, 0), sq, d}, "bfRes");
-        LOOP("L0_BF", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0)), {}, true) {
+        Tensor bfRes(DT_FP32,  {GetInputShape(q, 0), sq, d}, "bfRes");
+        LOOP("L0_BF", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0)), {}, true) {
             TileShape::Current().SetVecTile(1, 64, 64);
             Tensor q0 = View(q, {1, sq, d}, {batchId, 0, 0});
             auto tmp = Exp(q0);
             Assemble(tmp, {batchId, 0, 0}, bfRes);
         }
 
-        Tensor qReshape(DT_FP32, {GetInputShapeDim(q, 0) * GetInputShapeDim(q, 1), d}, "qReshape");
+        Tensor qReshape(DT_FP32, {GetInputShape(q, 0) * GetInputShape(q, 1), d}, "qReshape");
         LOOP("LOOP_RESHAPE", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(0,1,1), {}, true) {
             (void) batchId;
             ReshapeInplace(bfRes, qReshape);
         }
 
-        LOOP("L0_AF", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0)), {}, true) {
+        LOOP("L0_AF", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0)), {}, true) {
             TileShape::Current().SetVecTile(64, 64);
             Tensor q0 = View(qReshape, {sq, d}, {batchId * sq, 0});
             auto tmp = AddS((q0), Element(DataType::DT_FP32, 1.0f));
@@ -339,8 +339,8 @@ TEST_F(DynamicReshapeTest, test_reshape_unalign) {
 
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0) / (sq))) {
-            SymbolicScalar curSeq = GetInputDataInt32Dim3(actSeqs, batchId, 0, 0);
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (sq))) {
+            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0, 0});
 
             Tensor q0 = View(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
             auto tmp0 = Reshape(q0, {1, sq, d}, {1, curSeq, d});
@@ -396,8 +396,8 @@ TEST_F(DynamicReshapeTest, test_assemble_diff_tile) {
 
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {a, b, actSeqs}, {out}) {
-        LOOP("LOOP_BATCH", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(GetInputShapeDim(a, 0) / s1)) {
-            SymbolicScalar actS2 = GetInputDataInt32Dim1(actSeqs, bIdx);
+        LOOP("LOOP_BATCH", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(GetInputShape(a, 0) / s1)) {
+            SymbolicScalar actS2 = GetInputData(actSeqs, {bIdx});
 
             Tensor aView = View(a, {s1, s2}, {s1, s2}, {bIdx*s1, 0});
             Tensor bView = View(b, {s2, d}, {s2, actS2}, {bIdx*s2, 0});
@@ -524,7 +524,7 @@ TEST_F(DynamicReshapeTest, test_reshape_dassemble) {
 # if 1
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {q}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShapeDim(q, 0) / (sq))) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (sq))) {
             Tensor q0 = View(q, {sq, d}, {batchId * sq, 0});
             // auto tmp0 = MulS(q0, Element(DataType::DT_FP32, 1.0));
             auto tmp = Reshape(q0, {1, sq, d});

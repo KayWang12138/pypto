@@ -41,7 +41,7 @@ constexpr float F_NEGA_1 = -1.0;
     const int H = hiddenStates.GetShape()[1];
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {hiddenStates, ffnWeight1, ffnWeight2, ffnWeight3}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, loopIdx, LoopRange(GetInputShapeDim(hiddenStates, 0) / BASIC_BATCH)) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, loopIdx, LoopRange(GetInputShape(hiddenStates, 0) / BASIC_BATCH)) {
             SymbolicScalar batchIdx = BASIC_BATCH * loopIdx;
             auto hiddenStatesTemp = View(hiddenStates, {BASIC_BATCH, H}, {batchIdx, 0});
             auto castRes = Cast(hiddenStatesTemp, DataType::DT_FP16);
@@ -68,7 +68,7 @@ constexpr float F_NEGA_1 = -1.0;
     const int H = hiddenStatesQuant.GetShape()[1];
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {hiddenStatesQuant, hiddenStatesScale, ffnWeight1, ffnWeight2, ffnWeight3, ffnScale1, ffnScale2, ffnScale3}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, loopIdx, LoopRange(GetInputShapeDim(hiddenStatesQuant, 0) / BASIC_BATCH)) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, loopIdx, LoopRange(GetInputShape(hiddenStatesQuant, 0) / BASIC_BATCH)) {
             SymbolicScalar batchIdx = BASIC_BATCH * loopIdx;
 
             auto castRes = View(hiddenStatesQuant, {BASIC_BATCH, H}, {batchIdx, 0});

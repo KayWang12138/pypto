@@ -38,13 +38,13 @@ TEST_F(DynamicBrcTest, TestDynamicMulBrcUnalign) {
 
     Tensor input_a(DT_FP32, inputShape_a, "intput_a");
     Tensor input_b(DT_FP32, inputShape_b, "intput_b");
-    Tensor curSeq(DT_FP32, {b, 1}, "curSeq");
+    Tensor curSeq(DT_INT32, {b, 1}, "curSeq");
     Tensor out(DT_FP32, outShape, "out");
 
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {input_a, input_b, curSeq}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
-            auto seq = GetInputDataInt32Dim2(curSeq, batchId, 0);
+            auto seq = GetInputData(curSeq, {batchId, 0});
             Tensor input_a0 = View(input_a, {sq, d}, {seq, d}, {batchId * sq, 0});
             Tensor input_b0 = View(input_b, {sq, 8}, {seq, 8}, {batchId * sq, 0});
             auto input_c = RowSumSingle(input_b0);

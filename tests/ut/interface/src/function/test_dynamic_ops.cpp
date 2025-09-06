@@ -222,7 +222,7 @@ TEST_F(DynamicOpsTest, OpsElementWise) {
 
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {t0, t1, t2, t3, t4, t5}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(npu::tile_fwk::GetInputDataInt32Dim3(t5, n - 1, s - 1, m * s - 1))) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(npu::tile_fwk::GetInputData(t5, {n - 1, s - 1, m * s - 1}))) {
             IF (i == 0) {
                 out = Add(t0, t1); // +t0, +t1
             } ELSE {
@@ -445,8 +445,8 @@ TEST_F(DynamicOpsTest, TestGetAndSetTensorDataExpr) {
             LOOP("Step1", FunctionType::DYNAMIC_LOOP, j, LoopRange(n)) {
                 auto add = Add(input, input);
                 for (int k = 0; k < n; k++) {
-                    SymbolicScalar s = GetTensorDataInt32(add, {i, j, k});
-                    SetTensorDataInt32(s + i * tiling * tiling + j * tiling + k, {i, j, k}, output);
+                    SymbolicScalar s = GetTensorData(add, {i, j, k});
+                    SetTensorData(s + i * tiling * tiling + j * tiling + k, {i, j, k}, output);
                 }
             }
         }

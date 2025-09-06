@@ -258,6 +258,11 @@ public:
      * \return const std::string& : The name of the tensor.
      */
     std::string GetName() const;
+    
+    /**
+     * \brief Get the Shape Dim Size of Tensor.
+     */
+    uint64_t Dim() const; 
 
 private:
     std::shared_ptr<LogicalTensor> storage_;
@@ -266,62 +271,22 @@ private:
 };
 
 /**
- * @brief Get the Input Shape Dim Size object
- *
- * @param t input tensor
- * @return SymbolicScalar : dimension of tensor
- */
-SymbolicScalar GetInputShapeDimSize(const Tensor &t);
-
-/**
  * @brief Get the size of a special dimension of input tensor
  *
  * @param t input tensor
  * @param n dimension index
  * @return SymbolicScalar : size of a special dimension of tensor
  */
-SymbolicScalar GetInputShapeDim(const Tensor &t, int n);
+SymbolicScalar GetInputShape(const Tensor &t, int n);
 
 /**
- * @brief Get the Input Data of a 1D tensor
+ * @brief Get the Input Data of a  tensor
  *
  * @param t input tensor
- * @param off0 positional shift applied to the first axis of the tensor
- * @return SymbolicScalar : the data of a 1D tensor starting from off0
- */
-SymbolicScalar GetInputDataInt32Dim1(const Tensor &t, SymbolicScalar off0);
-
-/**
- * @brief Get the Input Data of a 2D tensor
- * @param t input tensor
- * @param off0 positional shift applied to the first axis of the tensor
- * @param off1 positional shift applied to the second axis of the tensor
- * @return SymbolicScalar the data of a 1D tensor starting from [off0, off1]
- */
-SymbolicScalar GetInputDataInt32Dim2(const Tensor &t, SymbolicScalar off0, SymbolicScalar off1);
-
-/**
- * @brief Get the Input Data of a 3D tensor
- *
- * @param t input tensor
- * @param off0 positional shift applied to the first axis of the tensor
- * @param off1 positional shift applied to the second axis of the tensor
- * @param off2 positional shift applied to the third axis of the tensor
+ * @param offset positional shift applied to the each axis of the tensor
  * @return SymbolicScalar
  */
-SymbolicScalar GetInputDataInt32Dim3(const Tensor &t, SymbolicScalar off0, SymbolicScalar off1, SymbolicScalar off2);
-
-/**
- * @brief Get the Input Data of a 4D tensor
- *
- * @param t input tensor
- * @param off0 positional shift applied to the first axis of the tensor
- * @param off1 positional shift applied to the second axis of the tensor
- * @param off2 positional shift applied to the third axis of the tensor
- * @param off3 positional shift applied to the third axis of the tensor
- * @return SymbolicScalar
- */
-SymbolicScalar GetInputDataInt32Dim4(const Tensor &t, SymbolicScalar off0, SymbolicScalar off1, SymbolicScalar off2, SymbolicScalar off3);
+SymbolicScalar GetInputData(const Tensor &t, const std::vector<SymbolicScalar> &offset);
 
 /**
  * @brief Determines if the current iteration is the start of loop
@@ -341,12 +306,6 @@ SymbolicScalar IsLoopBegin(const SymbolicScalar &symbol, const SymbolicScalar &b
  */
 SymbolicScalar IsLoopEnd(const SymbolicScalar &symbol, const SymbolicScalar &end);
 
-SymbolicScalar GetTensorDataInt32(const Tensor &t, const SymbolicScalar &off0);
-SymbolicScalar GetTensorDataInt32(const Tensor &t, const SymbolicScalar &off0, const SymbolicScalar &off1);
-SymbolicScalar GetTensorDataInt32(
-    const Tensor &t, const SymbolicScalar &off0, const SymbolicScalar &off1, const SymbolicScalar &off2);
-SymbolicScalar GetTensorDataInt32(const Tensor &t, const SymbolicScalar &off0, const SymbolicScalar &off1,
-    const SymbolicScalar &off2, const SymbolicScalar &off3);
-SymbolicScalar GetTensorDataInt32(const Tensor &t, const std::vector<SymbolicScalar> &off);
-void SetTensorDataInt32(const SymbolicScalar &v, const std::vector<SymbolicScalar> &off, Tensor &dst);
+SymbolicScalar GetTensorData(const Tensor &t, const std::vector<SymbolicScalar> &off);
+void SetTensorData(const SymbolicScalar &v, const std::vector<SymbolicScalar> &off, Tensor &dst);
 } // namespace npu::tile_fwk
