@@ -203,11 +203,7 @@ def gen_op_golden(
             if config.get("operation") in op_list and input_tensor.get("format") == "NZ":
                 tensor = trans_nd_to_fractal_nz(tensor)
 
-        res = (
-            golden_func(input_tensors)
-            if len(config["params"]) <= 1
-            else golden_func(input_tensors, config["params"])
-        )
+        res = golden_func(input_tensors, config)
 
         for input_tensor, read_input in zip(input_tensors, config["input_tensors"]):
             input_tensor.tofile(Path(output_path, read_input["name"] + ".bin"))
@@ -366,14 +362,18 @@ def gen_topk_op_golden(case_name: str, output: Path, case_index: int = None) -> 
 )
 def gen_cast_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def golden_func(inputs, params: dict):
+    def golden_func(inputs: list, config: dict):
+        params = config.get("params")
+        params["mode"] = int(params.get("mode", "0"))
+        output_dtype = config.get("output_tensors")[0].get("dtype")
+        dst_dtype = params.get("dst_dtype", output_dtype)
         if inputs[0].dtype == bfloat16:
-            dtype_out = get_dtype_by_name(params["dst_dtype"])
+            dtype_out = get_dtype_by_name(dst_dtype)
             x = inputs[0].astype(dtype_out)
         else:
-            dtype_out = get_dtype_by_name(params["dst_dtype"], True)
+            dtype_out = get_dtype_by_name(dst_dtype, True)
             if dtype_out is None:
-                return [inputs[0].astype(get_dtype_by_name(params["dst_dtype"]))]
+                return [inputs[0].astype(get_dtype_by_name(dst_dtype))]
             x = torch.from_numpy(inputs[0])
             if dtype_out == torch.bfloat16:
                 x = x.to(torch.float32).numpy().astype(bfloat16)
@@ -386,7 +386,8 @@ def gen_cast_op_golden(case_name: str, output: Path, case_index: int = None) -> 
     return gen_op_golden("Cast", golden_func, output, case_index)
 
 
-def matmul_golden_func(inputs, params: dict):
+def matmul_golden_func(inputs: list, config: dict):
+    params = config.get("params")
     tensor_a = inputs[0] if not params.get("transA") else \
         np.swapaxes(inputs[0], inputs[0].ndim - 2, inputs[0].ndim - 1)
     tensor_b = inputs[1] if not params.get("transB") else \
@@ -461,7 +462,7 @@ def gen_batchmatmulverify_op_golden(case_name: str, output: Path, case_index: in
 )
 def gen_exp_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def golden_func(inputs):
+    def golden_func(inputs: list, _config: dict):
         return [np.exp(inputs[0])]
 
     logging.debug("Case(%s), Golden creating...", case_name)
@@ -475,7 +476,7 @@ def gen_exp_op_golden(case_name: str, output: Path, case_index: int = None) -> b
 )
 def gen_sqrt_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def golden_func(inputs):
+    def golden_func(inputs: list, _config: dict):
         return [np.sqrt(inputs[0])]
 
     logging.debug("Case(%s), Golden creating...", case_name)
@@ -489,7 +490,7 @@ def gen_sqrt_op_golden(case_name: str, output: Path, case_index: int = None) -> 
 )
 def gen_add_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def golden_func(inputs):
+    def golden_func(inputs: list, _config: dict):
         return [inputs[0] + inputs[1]]
 
     logging.debug("Case(%s), Golden creating...", case_name)
@@ -503,7 +504,7 @@ def gen_add_op_golden(case_name: str, output: Path, case_index: int = None) -> b
 )
 def gen_sub_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def golden_func(inputs):
+    def golden_func(inputs: list, _config: dict):
         return [inputs[0] - inputs[1]]
 
     logging.debug("Case(%s), Golden creating...", case_name)
@@ -517,7 +518,7 @@ def gen_sub_op_golden(case_name: str, output: Path, case_index: int = None) -> b
 )
 def gen_mul_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def golden_func(inputs):
+    def golden_func(inputs: list, _config: dict):
         return [inputs[0] * inputs[1]]
 
     logging.debug("Case(%s), Golden creating...", case_name)
@@ -531,7 +532,7 @@ def gen_mul_op_golden(case_name: str, output: Path, case_index: int = None) -> b
 )
 def gen_div_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def golden_func(inputs):
+    def golden_func(inputs: list, _config: dict):
         return [inputs[0] / inputs[1]]
 
     logging.debug("Case(%s), Golden creating...", case_name)
@@ -545,7 +546,10 @@ def gen_div_op_golden(case_name: str, output: Path, case_index: int = None) -> b
 )
 def gen_adds_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def golden_func(inputs, params: dict):
+    def golden_func(inputs: list, config: dict):
+        params = config.get("params")
+        default_value = params.get("input_value_type", "fp32")
+        params["scalar_type"] = params.get("scalar_type", default_value)
         scalar = get_dtype_by_name(params["scalar_type"])(params["scalar"])
         return [inputs[0] + scalar]
 
@@ -560,7 +564,10 @@ def gen_adds_op_golden(case_name: str, output: Path, case_index: int = None) -> 
 )
 def gen_muls_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def golden_func(inputs, params: dict):
+    def golden_func(inputs: list, config: dict):
+        params = config.get("params")
+        default_value = params.get("input_value_type", "fp32")
+        params["scalar_type"] = params.get("scalar_type", default_value)
         scalar = get_dtype_by_name(params["scalar_type"])(params["scalar"])
         return [inputs[0] * scalar]
 
@@ -575,7 +582,10 @@ def gen_muls_op_golden(case_name: str, output: Path, case_index: int = None) -> 
 )
 def gen_divs_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def golden_func(inputs, params: dict):
+    def golden_func(inputs: list, config: dict):
+        params = config.get("params")
+        default_value = params.get("input_value_type", "fp32")
+        params["scalar_type"] = params.get("scalar_type", default_value)
         scalar = get_dtype_by_name(params["scalar_type"])(params["scalar"])
         return [inputs[0] / scalar]
 
@@ -592,7 +602,10 @@ def gen_vector_dup_op_golden(
     case_name: str, output: Path, case_index: int = None
 ) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def golden_func(inputs, params: dict):
+    def golden_func(inputs: list, config: dict):
+        params = config.get("params")
+        default_value = params.get("input_value_type", "fp32")
+        params["scalar_type"] = params.get("scalar_type", default_value)
         scalar = get_dtype_by_name(params["scalar_type"])(params["scalar"])
         return [np.full(inputs[0].shape, scalar, inputs[0].dtype)]
 
@@ -607,7 +620,10 @@ def gen_vector_dup_op_golden(
 )
 def gen_subs_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def golden_func(inputs, params: dict):
+    def golden_func(inputs: list, config: dict):
+        params = config.get("params")
+        default_value = params.get("input_value_type", "fp32")
+        params["scalar_type"] = params.get("scalar_type", default_value)
         scalar = get_dtype_by_name(params["scalar_type"])(params["scalar"])
         return [inputs[0] - scalar]
 
@@ -622,7 +638,8 @@ def gen_subs_op_golden(case_name: str, output: Path, case_index: int = None) -> 
 )
 def gen_reduce_sum_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def golden_func(inputs, params: dict):
+    def golden_func(inputs: list, config: dict):
+        params = config.get("params")
         x = inputs[0]
         dims = params["dims"]
         return [x.sum(axis=dims[0], keepdims=True)]
@@ -638,7 +655,8 @@ def gen_reduce_sum_op_golden(case_name: str, output: Path, case_index: int = Non
 )
 def gen_reduce_max_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def golden_func(inputs, params: dict):
+    def golden_func(inputs: list, config: dict):
+        params = config.get("params")
         x = inputs[0]
         dims = params["dims"]
         return [x.max(axis=dims[0], keepdims=True)]
@@ -653,7 +671,8 @@ def gen_reduce_max_op_golden(case_name: str, output: Path, case_index: int = Non
 )
 def gen_reduce_min_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def golden_func(inputs, params: dict):
+    def golden_func(inputs: list, config: dict):
+        params = config.get("params")
         dims = params["dims"]
         return [inputs[0].min(axis=dims[0],keepdims=True)]
     logging.debug("Case(%s), Golden creating...", case_name)
@@ -667,7 +686,8 @@ def gen_reduce_min_op_golden(case_name: str, output: Path, case_index: int = Non
 )
 def gen_transpose_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def golden_func(inputs, params: dict):
+    def golden_func(inputs: list, config: dict):
+        params = config.get("params")
         return [np.transpose(inputs[0], axes=tuple(params["dims"]))]
 
     logging.debug("Case(%s), Golden creating...", case_name)
@@ -681,7 +701,8 @@ def gen_transpose_op_golden(case_name: str, output: Path, case_index: int = None
 )
 def gen_topk_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def golden_func(inputs, params: dict):
+    def golden_func(inputs: list, config: dict):
+        params = config.get("params")
         x = torch.from_numpy(inputs[0])
         dims = params["dims"]
         count = params["count"]
@@ -700,7 +721,8 @@ def gen_topk_op_golden(case_name: str, output: Path, case_index: int = None) -> 
 )
 def gen_gatherelement_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def golden_func(inputs, params: dict):
+    def golden_func(inputs: list, config: dict):
+        params = config.get("params")
         axis = params["axis"]
         src = torch.from_numpy(inputs[0])
         indices = torch.from_numpy(inputs[1])

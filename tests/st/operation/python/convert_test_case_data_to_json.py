@@ -11,7 +11,6 @@
 
 import logging
 import os
-import sys
 import json
 import pandas as pd
 
@@ -34,8 +33,15 @@ class DataRange:
 
 
 class TensorData:
-    def __init__(self, name: str, shape: list, dtype: str, data_range: list,
-        tensor_format: str = None, is_trans: bool = None):
+    def __init__(
+        self,
+        name: str,
+        shape: list,
+        dtype: str,
+        data_range: list,
+        tensor_format: str = None,
+        is_trans: bool = None,
+    ):
         self._name = name
         self._shape = shape
         self._dtype = dtype
@@ -148,31 +154,31 @@ class TestDataReader:
 
     def convert_row_data(self, row):
         row_data = row.to_dict()
-        input_shape = self.str_to_list(row_data.get("input_shape"))
+        input_shape = self.str_to_list(row_data.pop("input_shape"))
         if not isinstance(input_shape[0], (list, tuple)):
             input_shape = [input_shape]
-        input_dtype = self.str_to_list(row_data.get("input_dtype"))
-        data_range = self.str_to_list(row_data.get("input_datarange"))
+        input_dtype = self.str_to_list(row_data.pop("input_dtype"))
+        data_range = self.str_to_list(row_data.pop("input_datarange"))
         if not isinstance(data_range[0], (list, tuple)):
             data_range = [data_range]
+        assert len(input_shape) == len(input_dtype)
+        assert len(input_shape) == len(data_range)
 
-        input_format_list = [None] * len(input_shape)
-        if row_data.get("input_format") is not None:
-            input_format_list = self.str_to_list(row_data.get("input_format"))
-            assert len(input_format_list) == len(input_shape)
+        input_format_list = self.str_to_list(row_data.pop("input_format"))
+        assert len(input_format_list) == len(input_shape)
 
         is_trans_list = []
         # 转换布尔值（支持TRUE/FALSE/1/0）
-        if row_data.get("isATrans") is not None and row_data.get("isBTrans") is not None:
-            is_a_trans = self.str_to_bool(row_data.get("isATrans"))
-            is_b_trans = self.str_to_bool(row_data.get("isBTrans"))
+        isATrans = row_data.pop("isATrans", None)
+        isBTrans = row_data.pop("isBTrans", None)
+        if isATrans is not None and isBTrans is not None:
+            is_a_trans = self.str_to_bool(isATrans)
+            is_b_trans = self.str_to_bool(isBTrans)
             is_trans_list = [is_a_trans, is_b_trans]
         # 若输入数量超过2个，剩余默认不转置
         while len(is_trans_list) < len(input_shape):
             is_trans_list.append(None)
 
-        assert len(input_shape) == len(input_dtype)
-        assert len(input_shape) == len(data_range)
         input_tensors = []
         for idx in range(len(input_shape)):
             input_tensors.append(
@@ -182,65 +188,71 @@ class TestDataReader:
                     input_dtype[idx],
                     data_range[idx],
                     tensor_format=input_format_list[idx],
-                    is_trans=is_trans_list[idx]
+                    is_trans=is_trans_list[idx],
                 )
             )
-        output_shape = self.str_to_list(row_data.get("output_shape"))
+        output_shape = self.str_to_list(row_data.pop("output_shape"))
         if not isinstance(output_shape[0], (list, tuple)):
             output_shape = [output_shape]
-        output_dtype = self.str_to_list(row_data.get("output_dtype"))
+        output_dtype = self.str_to_list(row_data.pop("output_dtype"))
 
-        output_format_list = [None] * len(output_shape)
-        if row_data.get("output_format") is not None:
-            output_format_list = self.str_to_list(row_data.get("output_format"))
-            assert len(output_format_list) == len(output_shape)
+        output_format_list = self.str_to_list(row_data.pop("output_format"))
+        assert len(output_format_list) == len(output_shape)
 
         output_tensors = []
         for idx in range(len(output_shape)):
             output_tensors.append(
                 TensorData(
-                    "output" + str(idx), output_shape[idx], output_dtype[idx], None,
-                    tensor_format=output_format_list[idx], is_trans=None
+                    "output" + str(idx),
+                    output_shape[idx],
+                    output_dtype[idx],
+                    None,
+                    tensor_format=output_format_list[idx],
+                    is_trans=None,
                 )
             )
-        view_shape = self.str_to_list(row_data.get("view_shape"))
+        view_shape = self.str_to_list(row_data.pop("view_shape"))
         if isinstance(view_shape[0], (list, tuple)) and len(view_shape[0]) > 1:
             view_shape = view_shape[0]
-        tile_shape = self.str_to_list(row_data.get("tile_shape"))
-        params = {}
-        mode = row_data.get(
-            "mode", "0" if row_data.get("operation") == "Cast" else None
-        )
-        if mode is not None and not pd.isna(mode) and not pd.isnull(mode):
-            params["mode"] = int(mode)
-            dst_dtype = row_data.get("dst_dtype", output_dtype[0])
-            params["dst_dtype"] = output_dtype[0] if dst_dtype is None else dst_dtype
-        scalar = row_data.get("scalar", row_data.get("input_value", None))
-        if scalar is not None and not pd.isna(scalar) and not pd.isnull(scalar):
-            params["scalar"] = float(scalar)
-            default_value = row_data.get("input_value_type", "fp32")
-            params["scalar_type"] = row_data.get("scalar_type", default_value)
-        params["func_id"] = int(row_data.get("func_id", "-1"))
+        tile_shape = self.str_to_list(row_data.pop("tile_shape"))
+        params = row_data.copy()
+        # case_index, case_name, operation not need
+        params.pop("case_index")
+        params.pop("case_name")
+        params.pop("operation")
+        params["func_id"] = int(params.pop("func_id", "-1"))
         dims = row_data.get("dims", None)
         if dims is not None and not pd.isna(dims) and not pd.isnull(dims):
             params["dims"] = self.str_to_list(row_data.get("dims"))
         first_dim = row_data.get("first_dim", None)
-        if first_dim is not None and not pd.isna(first_dim) and not pd.isnull(first_dim):
+        if (
+            first_dim is not None
+            and not pd.isna(first_dim)
+            and not pd.isnull(first_dim)
+        ):
             params["first_dim"] = int(first_dim)
         second_dim = row_data.get("second_dim", None)
-        if second_dim is not None and not pd.isna(second_dim) and not pd.isnull(second_dim):
+        if (
+            second_dim is not None
+            and not pd.isna(second_dim)
+            and not pd.isnull(second_dim)
+        ):
             params["second_dim"] = int(second_dim)
         count = row_data.get("count", None)
         if count is not None:
             params["count"] = self.str_to_list(row_data.get("count"))
         islargest = row_data.get("islargest", None)
         if islargest is not None:
-            params["islargest"] = [bool(x) for x in self.str_to_list(row_data.get("islargest"))]
+            params["islargest"] = [
+                bool(x) for x in self.str_to_list(row_data.get("islargest"))
+            ]
         axis = row_data.get("axis", None)
         if axis is not None and not pd.isna(axis) and not pd.isnull(axis):
             params["axis"] = int(axis)
 
-        self.extend_matmul_param(params, is_trans_list, input_format_list, output_format_list, row_data)
+        self.extend_matmul_param(
+            params, is_trans_list, input_format_list, output_format_list, row_data
+        )
 
         return TestCaseData(
             row_data.get("case_index"),
@@ -253,18 +265,20 @@ class TestDataReader:
             params,
         )
 
-    def dump_to_json(self):
-        json_file = f"{self._json_path}/{self._case_data['operation']}_test_case_data_{self._case_index}.json"
-        row_data = self.convert_row_data(self._case_data)
-        try:
-            with open(json_file, "w", encoding="utf-8") as outfile:
-                json.dump(
-                    row_data.dump_to_json(), outfile, ensure_ascii=False, indent=4
+    def dump_to_json(self, write_to_json: bool = True):
+        row_data = self.convert_row_data(self._case_data).dump_to_json()
+        test_case = {"test_case": row_data}
+        if write_to_json:
+            json_file = f"{self._json_path}/{self._case_data['case_name']}.json"
+            try:
+                with open(json_file, "w", encoding="utf-8") as outfile:
+                    json.dump(row_data, outfile, ensure_ascii=False, indent=4)
+            except Exception as e:
+                logging.error(
+                    "Exception occur when writing %s, exception is %s.", json_file, e
                 )
-        except Exception as e:
-            logging.error(
-                "Exception occur when writing %s, exception is %s.", json_file, e
-            )
+            test_case["json_file"] = json_file
+        return test_case
 
     def str_to_list(self, input: str):
         ret_list = []
@@ -295,9 +309,20 @@ class TestDataReader:
         logging.debug("caseindex: %s, input str: %s", self._case_index, input_str)
         return input_str in ("TRUE", "1")
 
-    def extend_matmul_param(self, params: dict, trans_list: list, input_format_list: list, output_format_list: list,
-        row_data: dict):
-        if row_data.get("operation") not in ("Matmul", "BatchMatmul", "MatmulVerify", "BatchMatmulVerify"):
+    def extend_matmul_param(
+        self,
+        params: dict,
+        trans_list: list,
+        input_format_list: list,
+        output_format_list: list,
+        row_data: dict,
+    ):
+        if row_data.get("operation") not in (
+            "Matmul",
+            "BatchMatmul",
+            "MatmulVerify",
+            "BatchMatmulVerify",
+        ):
             return
         params["transA"] = trans_list[0]
         params["transB"] = trans_list[1]
@@ -373,36 +398,50 @@ def clean_data_frame(
     return data_frame
 
 
-def dump_data_frame_to_json(data_frames: list, json_path: str):
+def dump_data_frame_to_json(data_frames: list, json_path: str, json_only: bool):
     data_frame = pd.concat(
         data_frames,
         ignore_index=True,
     )
     if len(data_frame) == 0:
-        return False
-    for _, row_data in data_frame.iterrows():
+        return {}
+    if not os.path.exists(json_path):
+        os.makedirs(json_path, exist_ok=True)
+    test_cases = []
+    test_case_info_list = []
+    for index, row_data in data_frame.iterrows():
         reader = TestDataReader(row_data["case_index"], row_data, json_path)
-        reader.dump_to_json()
-    return True
+        case_info = reader.dump_to_json(not json_only)
+        test_case_info_list.append(
+            {
+                "index": index,
+                "case_index": case_info["test_case"]["case_index"],
+                "case_name": case_info["test_case"]["case_name"],
+                "operation": case_info["test_case"]["operation"],
+                "json_file": None if json_only else case_info["json_file"],
+            }
+        )
+        if json_only:
+            test_cases.append(case_info["test_case"])
+    test_cases.sort(key=lambda x: (x["operation"], x["case_index"]))
+    test_case_info_list.sort(key=lambda x: (x["operation"], x["case_index"]))
+    if json_only:
+        json_file = f"{json_path}/{test_cases[0]['operation']}_st_test_cases.json"
+        row_data = {"test_cases": test_cases}
+        with open(json_file, "w", encoding="utf-8") as outfile:
+            json.dump(row_data, outfile, ensure_ascii=False, indent=4)
+    return test_case_info_list
 
 
-def main(file_name: str, op: str, index_range: list, json_path: str) -> bool:
+def convert_data_to_json(
+    file_name: str, op: str, index_range: list, json_path: str, json_only: bool = False
+) -> list:
     test_cases = load_test_cases(file_name, op)
     if test_cases is None or len(test_cases) == 0:
-        return False
+        return []
 
     test_cases = [
         clean_data_frame(data_frame, op, index_range[0], index_range[1])
         for data_frame in test_cases
     ]
-    return dump_data_frame_to_json(test_cases, json_path)
-
-
-if __name__ == "__main__":
-    exit(
-        0
-        if main(
-            sys.argv[1], sys.argv[2], [int(sys.argv[3]), int(sys.argv[4])], sys.argv[5]
-        )
-        else 1
-    )
+    return dump_data_frame_to_json(test_cases, json_path, json_only)
