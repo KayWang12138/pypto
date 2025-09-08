@@ -3,7 +3,7 @@
 using namespace npu::tile_fwk;
 
 namespace pypto {
-void bind_operation(py::module_ &m) {
+void bind_operation(py::module &m) {
     m.def(
         "add", [](const Tensor &left, const Tensor &right) { return npu::tile_fwk::Add(left, right); }, "Tensor add.");
     m.def("sub", [](const Tensor left, const Tensor &right) { return npu::tile_fwk::Sub(left, right); }, "Tensor sub.");

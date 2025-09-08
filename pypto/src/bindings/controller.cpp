@@ -9,7 +9,7 @@ using ref_tensors = std::vector<std::reference_wrapper<const Tensor>>;
 using ref_tensors = std::vector<std::reference_wrapper<const Tensor>>;
 
 namespace pypto {
-void bind_controller(py::module_ &m) {
+void bind_controller(py::module &m) {
     m.def("set_vec_tile_shapes", [](py::args args) {
         std::vector<int64_t> v;
         v.reserve(args.size());
@@ -22,8 +22,8 @@ void bind_controller(py::module_ &m) {
 
     m.def(
         "set_cube_tile_shapes",
-        [](const std::array<int64_t, MAX_M_DIM_SIZE> &m, const std::array<int64_t, MAX_K_DIM_SIZE> &k,
-            const std::array<int64_t, MAX_N_DIM_SIZE> &n, bool setL1Tile = false) { TileShape::Current().SetCubeTile(m, k, n, setL1Tile); },
+        [](const std::array<int64_t, MAX_M_DIM_SIZE> &m_, const std::array<int64_t, MAX_K_DIM_SIZE> &k,
+            const std::array<int64_t, MAX_N_DIM_SIZE> &n, bool setL1Tile = false) { TileShape::Current().SetCubeTile(m_, k, n, setL1Tile); },
         py::arg("m"), py::arg("k"), py::arg("n"), py::arg("setL1Tile") = false);
 
     m.def("begin_function", [](const std::string &funcName, GraphType graphType, FunctionType funcType, py::args args) {

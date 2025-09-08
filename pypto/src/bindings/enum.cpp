@@ -3,7 +3,7 @@
 using namespace npu::tile_fwk;
 
 namespace pypto {
-void bind_enum(py::module_ &m){
+void bind_enum(py::module &m){
     py::enum_<DataType>(m, "DataType")
         .value("DT_INT4", DataType::DT_INT4)
         .value("DT_INT8", DataType::DT_INT8)

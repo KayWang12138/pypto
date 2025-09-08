@@ -10,7 +10,7 @@
 find_package(PythonLibs REQUIRED)
 find_package(pybind11 CONFIG REQUIRED)
 
-pybind11_add_module(pto_fwk_py
+pybind11_add_module(pto
         MODULE
             src/pybind11.cpp
             src/bindings/enum.cpp
@@ -20,12 +20,12 @@ pybind11_add_module(pto_fwk_py
             src/bindings/operation.cpp
 )
 
-target_include_directories(pto_fwk_py
+target_include_directories(pto
         PRIVATE
             src
 )
 
-target_link_libraries(pto_fwk_py
+target_link_libraries(pto
         PRIVATE
             c_sec
             tile_fwk_passes
@@ -39,8 +39,8 @@ target_link_libraries(pto_fwk_py
             tile_fwk_intf_pub
 )
 
-set_target_properties(pto_fwk_py
+set_target_properties(pto
         PROPERTIES
-            LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}
+            LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/test/
             CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE
 )

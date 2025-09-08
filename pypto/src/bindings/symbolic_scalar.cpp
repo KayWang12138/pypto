@@ -3,7 +3,7 @@
 using namespace npu::tile_fwk;
 
 namespace pypto {
-void bind_symbolic_scalar(py::module_ &m) {
+void bind_symbolic_scalar(py::module &m) {
     py::class_<NotLessThan>(m, "not_less_than").def(py::init<int64_t>(), py::arg("threshold"));
     py::class_<NotGreaterThan>(m, "not_greater_than").def(py::init<int64_t>(), py::arg("threshold"));
 
@@ -17,7 +17,7 @@ void bind_symbolic_scalar(py::module_ &m) {
         .def(py::init<std::string, NotGreaterThan>(), py::arg("name"), py::arg("<"))
         .def(py::init<std::string, NotLessThan, NotGreaterThan>(), py::arg("name"), py::arg("<"), py::arg(">"))
         .def(py::init<std::string, int64_t>(), py::arg("name"), py::arg("value"));
-    
+
     SymbolicScalar
         .def("is_immediate", &SymbolicScalar::IsImmediate)
         .def("is_symbol", &SymbolicScalar::IsSymbol)

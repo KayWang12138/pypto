@@ -3,7 +3,7 @@
 using namespace npu::tile_fwk;
 
 namespace pypto {
-void bind_tensor(py::module_ &m){
+void bind_tensor(py::module &m){
     py::class_<Tensor>(m, "tensor")
         .def(py::init<DataType, std::vector<int64_t>, std::string>(), py::arg("dtype"), py::arg("shape"),
             py::arg("name") = "Unknown")
