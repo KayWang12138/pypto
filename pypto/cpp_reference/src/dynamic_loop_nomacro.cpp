@@ -15,7 +15,7 @@ int main(){
     Tensor b(DT_FP32, shape, "b");
     
     auto* recordFunc0 = new RecordFunc("main", FunctionType::DYNAMIC, {a}, {b});
-    Program::GetInstance().GetTileShape().SetVecTileShapes({64, 64});
+    TileShape::Current().SetVecTile({64, 64});
     auto record_loop = RecordLoopFunc("Dynamic", FunctionType::DYNAMIC_LOOP, "k", LoopRange(10));
     for (auto &k : record_loop) {
         b = Add(a, a);

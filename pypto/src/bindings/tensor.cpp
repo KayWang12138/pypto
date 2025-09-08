@@ -5,7 +5,7 @@ using namespace npu::tile_fwk;
 namespace pypto {
 void bind_tensor(py::module_ &m){
     py::class_<Tensor>(m, "tensor")
-        .def(py::init<DataType, std::vector<int>, std::string>(), py::arg("dtype"), py::arg("shape"),
+        .def(py::init<DataType, std::vector<int64_t>, std::string>(), py::arg("dtype"), py::arg("shape"),
             py::arg("name") = "Unknown")
         .def(
             "__add__", [](Tensor &self, Tensor tensor) { return npu::tile_fwk::Add(self, tensor); }, "Tensor add.")

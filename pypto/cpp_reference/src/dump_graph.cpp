@@ -18,7 +18,7 @@ int main() {
 
     std::vector<int> shape{1, 2, 256, 128, 2};
     Tensor a(DT_FP32, shape, "a");
-    Program::GetInstance().GetTileShape().SetVecTileShapes(1, 1, 32, 32, 2);
+    TileShape::Current().SetVecTile(1, 1, 32, 32, 2);
 
     FUNCTION("BNSD2_BNS2D") {
         a = Transpose(a, {3, 4});

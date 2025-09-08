@@ -18,7 +18,7 @@ int main() {
 
     Program::GetInstance().BeginFunction("ADD");
 
-    Program::GetInstance().GetTileShape().SetVecTileShapes({32, 1, 16, 32});
+    TileShape::Current().SetVecTile({32, 1, 16, 32});
     output = Add(input_a, input_b);
 
     Program::GetInstance().EndFunction("ADD");

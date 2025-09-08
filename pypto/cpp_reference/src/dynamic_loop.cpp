@@ -14,7 +14,7 @@ int main(){
     Tensor a(DT_FP32, shape, "a");
     Tensor b(DT_FP32, shape, "b");
     FUNCTION("main", FunctionType::DYNAMIC, {a}, {b}) {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({64, 64});
+        TileShape::Current().SetVecTile({64, 64});
         LOOP("Dynamic", FunctionType::DYNAMIC_LOOP, k, LoopRange(10)) {
             b = Add(a, a); // 运算1
             IF (k < 2) {

@@ -68,17 +68,17 @@ constexpr int DFT_SINGLE_M = 128;
 constexpr int DFT_SINGLE_N = 128;
 
 static inline void SetC1CubeConfig(const AttentionCubeTileConfig &cubeCfg) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes(
+    TileShape::Current().SetCubeTile(
         {cubeCfg.c1L0, cubeCfg.c1L1M}, {cubeCfg.c1L0, cubeCfg.c1L1K}, {cubeCfg.c1L0, cubeCfg.c1L1N});
 }
 
 static inline void SetC2CubeConfig(const AttentionCubeTileConfig &cubeCfg) {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes(
+    TileShape::Current().SetCubeTile(
         {cubeCfg.c2L0, cubeCfg.c2L1M}, {cubeCfg.c2L0, cubeCfg.c2L1K}, {cubeCfg.c2L0, cubeCfg.c2L1N});
 }
 
 void SetDefaultL0CubeConfig() {
-    Program::GetInstance().GetTileShape().SetCubeTileShapes(
+    TileShape::Current().SetCubeTile(
         {T_SHAPE, T_SHAPE}, {T_SHAPE, T_SHAPE}, {T_SHAPE, T_SHAPE});
 }
 
@@ -133,7 +133,7 @@ Tensor FlashAttention(const Tensor &q, const Tensor &k, const Tensor &v, const T
                     SetC1CubeConfig(cubeCfg);
                     auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj); // [128, 128], [128, 1024] => [128, 1024]
 
-                    Program::GetInstance().GetTileShape().SetVecTileShapes(
+                    TileShape::Current().SetVecTile(
                         vecCfg.softmaxTileX, vecCfg.softmaxTileY);
 
                     auto tildaMij = RowMaxSingle(sij);
@@ -218,7 +218,7 @@ Tensor MultiAttention(const Tensor &hiddenStates, const Tensor &weight, const Te
 
 Tensor LlamaLayer(Tensor hiddenStates, const Tensor &attnWight, const Tensor &denseWeight, const Tensor &ffnWeight,
     const AttentionDims &atDims, const AttentionVecTileConfig &vecCfg, const AttentionCubeTileConfig &cubeCfg) {
-    Program::GetInstance().GetTileShape().SetVecTileShapes(vecCfg.defaultVecTileX, vecCfg.defaultVecTileY);
+    TileShape::Current().SetVecTile(vecCfg.defaultVecTileX, vecCfg.defaultVecTileY);
     SetDefaultL0CubeConfig();
     auto shape = hiddenStates->shape;
     auto residual = hiddenStates;
@@ -237,7 +237,7 @@ Tensor LlamaLayer(Tensor hiddenStates, const Tensor &attnWight, const Tensor &de
     // Dense
     SetDefaultL0CubeConfig();
     auto denseOut = Matrix::Matmul<false, false>(DataType::DT_FP32, attentionOutFp16, denseWeight);
-    Program::GetInstance().GetTileShape().SetVecTileShapes(vecCfg.defaultVecTileX, vecCfg.defaultVecTileY);
+    TileShape::Current().SetVecTile(vecCfg.defaultVecTileX, vecCfg.defaultVecTileY);
     hiddenStates = Add(residual, denseOut);
 
     // Fully Connected

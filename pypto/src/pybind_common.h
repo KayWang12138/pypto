@@ -18,7 +18,7 @@
 
 #include "operation/tilefwk_op.h"
 #include "tilefwk/tensor.h"
-#include "common/tile_shape.h"
+#include "tilefwk/tile_shape.h"
 #include "tilefwk/tilefwk.h"
 #include "tilefwk/function.h"
 #include "interface/inner/tilefwk.h"

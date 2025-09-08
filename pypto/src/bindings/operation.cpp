@@ -11,7 +11,7 @@ void bind_operation(py::module_ &m) {
     m.def("div", [](const Tensor left, const Tensor &right) { return npu::tile_fwk::Div(left, right); }, "Tensor div.");
     m.def(
         "view",
-        [](const Tensor &operand, const std::vector<int> &shapes, const std::vector<int> &offsets) {
+        [](const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<int64_t> &offsets) {
             return npu::tile_fwk::View(operand, shapes, offsets);
         },
         "Tensor view.");
@@ -83,7 +83,7 @@ void bind_operation(py::module_ &m) {
 
     m.def(
         "assemble",
-        [](const std::vector<std::pair<Tensor, std::vector<int>>> &tensor_int_pairs) {
+        [](const std::vector<std::pair<Tensor, std::vector<int64_t>>> &tensor_int_pairs) {
             return npu::tile_fwk::Assemble(tensor_int_pairs);
         },
         "Tensor::Assemble");

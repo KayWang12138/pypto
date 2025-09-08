@@ -20,7 +20,7 @@ int main() {
     Tensor input_b(DT_FP32, shape,  "B");
     Tensor output(DT_FP32, shape, "C");
     FUNCTION("ADD") {
-        Program::GetInstance().GetTileShape().SetVecTileShapes({32, 1, 16, 32});
+        TileShape::Current().SetVecTile({32, 1, 16, 32});
         // NOTE: here increase TileShapes from {32, 1, 16, 32} to {32, 1, 64, 32} will 
         // crash `OOOSchedule` pass due to UB overflow
         output = Add(input_a, input_b);
