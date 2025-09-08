@@ -45,6 +45,7 @@
 #include "passes/tile_graph_pass/remove_redundant_op.h"
 #include "passes/tile_graph_pass/n_buffer_merge.h"
 #include "passes/tile_graph_pass/split_large_local_raw.h"
+#include "passes/tile_graph_pass/split_raw.h"
 #include "passes/tile_graph_pass/update_memory_map.h"
 #include "passes/tile_graph_pass/split_large_fanout_tensor.h"
 #include "passes/tile_graph_pass/cube_process.h"
@@ -96,6 +97,7 @@ void RegPass() {
     REG_PASS(PreGraphProcess);
     REG_PASS(RemoveRedundantOp);
     REG_PASS(SplitLargeLocalRawTensor);
+    REG_PASS(SplitRawTensor);
     REG_PASS(SplitReshape);
     REG_PASS(RemoveUnalignedReshape);
     REG_PASS(CodegenPreproc);
@@ -118,6 +120,7 @@ void PassManager::RegDefaultStrategy() {
             {            "DuplicateView",            "DuplicateView",    PassType::TYPE_TILE_GRAPH},
             {        "MergeViewAssemble",        "MergeViewAssemble",    PassType::TYPE_TILE_GRAPH},
             {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
+            {           "SplitRawTensor",           "SplitRawTensor",    PassType::TYPE_TILE_GRAPH},
             {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
             {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
             {        "RemoveRedundantOp",        "RemoveRedundantOp",    PassType::TYPE_TILE_GRAPH},
@@ -127,7 +130,6 @@ void PassManager::RegDefaultStrategy() {
             {             "NBufferMerge",             "NBufferMerge",    PassType::TYPE_TILE_GRAPH},
             {          "UpdateMemoryMap",          "UpdateMemoryMap",    PassType::TYPE_TILE_GRAPH},
             {        "GenerateMoveOp_02",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
-            { "SplitLargeLocalRawTensor", "SplitLargeLocalRawTensor",    PassType::TYPE_TILE_GRAPH},
             {     "InsertInterGraphCopy",     "InsertInterGraphCopy",    PassType::TYPE_TILE_GRAPH},
             { "CommonOperationEliminate", "CommonOperationEliminate",    PassType::TYPE_TILE_GRAPH},
             {       "L1CopyInReuseMerge",       "L1CopyInReuseMerge",    PassType::TYPE_TILE_GRAPH},
