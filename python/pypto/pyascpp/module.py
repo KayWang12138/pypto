@@ -10,10 +10,14 @@
 # ======================================================================================================================
 from abc import ABC, abstractmethod
 from typing import Union, Optional, Any, Sequence
+from pathlib import Path
+import os
 
 from . import context
 from . import parser
 from .utils import Tensor, Instruction, CustStruct, Tuple, Var, AggregationVec, Vector
+from .gen_ast_testing_code import gen_ast_ut_code, gen_ast_st_code, gen_ast_golden_script, \
+    gen_ast_prefix_code, parse_st_code, parse_ut_code
 
 
 class AscppModule(ABC):
@@ -30,6 +34,7 @@ class AscppModule(ABC):
     init_code: str
     _stage: str
     custstructs: list[CustStruct]
+    _return_type: str
 
     def __init__(self, *args: Union[Tensor, CustStruct, Var, Vector]) -> None:
 
@@ -41,13 +46,13 @@ class AscppModule(ABC):
         self._current_startif = None
         self._stage = 'init'
         self.custstructs = []
+        self._return_type = ''
 
         args = self.clean_args(args)
         for a in args:
-            a.push()
-            self._args.append(a)
             a.set_idx(self.args_counter)
             self.args_counter += 1
+            self._args.append(a)
 
             if isinstance(a, CustStruct):
                 self.custstructs.append(a)
@@ -56,9 +61,6 @@ class AscppModule(ABC):
         self._gen_init()
         self.debug()
         context.stack_out_module()
-
-        for a in args:
-            a.pop()
 
         if context.active_module is not None:
             self.create_module()
@@ -72,6 +74,7 @@ class AscppModule(ABC):
     def __call__(self, *args: Union[Tensor, CustStruct, Var, Vector]) -> Any:
         def forward_res(*args: Union[Tensor, CustStruct, Var, Vector]):
             res = self.forward(*args)
+            self._return_type = parser.get_return_type(res)
             if res is None:
                 self._n_returned_tensors = 0
             elif isinstance(res, Tensor):
@@ -83,10 +86,10 @@ class AscppModule(ABC):
             else:
                 raise NotImplementedError()
             self._gen_code(res)
+            
             self.debug()
             context.stack_out_module()
-            for a in args:
-                a.pop()
+            
             self._initialized = True
 
         if not self._initialized:
@@ -156,7 +159,7 @@ class AscppModule(ABC):
     @abstractmethod
     def init(self):
         ...
-
+        
     @abstractmethod
     def forward(self) -> Union[
         None, Tensor, tuple[Tensor, ...], list[Tensor]]:
@@ -248,7 +251,7 @@ class AscppModule(ABC):
     def end_else(self):
         self.add_inst(Instruction('close_bracket', [], None))
 
-    def gen_code(self, target_file: str):
+    def gen_src_code(self, is_gen_ast: bool = False):
         def parse_children(mod: AscppModule, d: dict[AscppModule, int]):
             for _, v in vars(mod).items():
                 if isinstance(v, AscppModule):
@@ -265,19 +268,21 @@ class AscppModule(ABC):
                     generated_structs_list.append(custstruct_class)
                     result_code.append(parser.get_custstruct_code(custstruct_obj))
 
-        def gen_result_code(target_file: str, traversed_class_list: list[AscppModule]):
+        def gen_result_code(traversed_class_list: list[AscppModule]):
             result_code: list[str] = []
             generated_class_list: list[type[AscppModule]] = []
             generated_structs_list: list[type[CustStruct]] = []
             for mod in traversed_class_list:
                 if type(mod) not in generated_class_list:
                     gen_result_code_sub(mod, result_code, generated_structs_list)
-                    result_code.append(mod.init_code)
-                    result_code.append(mod.code)
+                    if is_gen_ast:
+                        result_code.append(mod.code.replace("::forward", ""))
+                    else: 
+                        result_code.append(mod.init_code)
+                        result_code.append(mod.code)
                     generated_class_list.append(type(mod))
 
-            with open(target_file, 'w') as f:
-                f.write('\n\n'.join(result_code))
+            return result_code
 
         # find the depth of each module
         depth_dict: dict[AscppModule, int] = {}
@@ -295,8 +300,48 @@ class AscppModule(ABC):
                     traversed_class_list.append(mod)
             current_depth += 1
         traversed_class_list.reverse()
-        gen_result_code(target_file, traversed_class_list)
-
+        return gen_result_code(traversed_class_list)
+        
+    def gen_code(self, target_file: str):
+        result_code = self.gen_src_code()
+        with open(target_file, 'w') as f:
+            f.write('\n\n'.join(result_code))
+        
+    def gen_ast_code(self, directory_path: str):
+        ast_include_file_list = [
+            "interface/operation/operation_impl.h",
+            "interface/operation/operation.h",
+            "interface/function/function.h",
+            "tilefwk/tensor.h",
+            "interface/tensor/logical_tensor.h",
+            "interface/tensor/raw_tensor.h",
+            "tilefwk/tilefwk.h",
+            "interface/inner/tilefwk.h",
+            "interface/tensor/tensormap.h",
+            "interface/configs/config_manager.h",
+            "interface/configs/config_storage.h",
+            "interface/utils/common.h",
+            "interface/utils/id_gen.h",
+            "interface/utils/log.h"
+        ]
+        ast_code_prefix = gen_ast_prefix_code(ast_include_file_list)
+        ast_code_suffix = "} // namespace"
+        result_code = self.gen_src_code(is_gen_ast=True)
+        
+        src_operator_folder = Path(directory_path, 'src/operator/custom')
+        if not os.path.exists(src_operator_folder):
+            os.mkdir(src_operator_folder)
+        operator_name = type(self).__name__
+        src_operator_file = Path(src_operator_folder, f'{operator_name}.cpp')
+        with open(src_operator_file, 'w') as f:
+            f.write(ast_code_prefix)
+            f.write('\n\n'.join(result_code))
+            f.write(ast_code_suffix)
+        
+        gen_ast_ut_code(directory_path, operator_name, self._args, self._return_type)
+        gen_ast_st_code(directory_path, operator_name, self._args, self._return_type)
+        gen_ast_golden_script(directory_path, operator_name, self._args)
+        
     def _gen_init(self):
         # Get list of variables
         variables = []
@@ -323,7 +368,6 @@ class AscppModule(ABC):
 
     def _gen_code(self, res: Union[None, Tensor, tuple[Tensor, ...], list[Tensor]] = None):
         self.code = parser.parse(type(self).__name__, self.inst_list, self._args, res)
-
         fwd_signature = parser.get_signature(self._args, res)
         lines = self.init_code.split('\n')
         lines.insert(-2, f"    {fwd_signature}")

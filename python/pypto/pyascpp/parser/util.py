@@ -47,3 +47,29 @@ def get_curlybrace_list(v) -> str:
         return '{' + body + '}'
     else:
         return get_var_str(v)
+
+    
+def get_scalar_dtype(v: Union[Var, int, float]):
+    dtype_mapper = {
+        'int8_t': 'DataType::DT_INT8',
+        'int16_t': 'DataType::DT_INT16',
+        'int32_t': 'DataType::DT_INT32',
+        'int64_t': 'DataType::DT_INT64',
+        'npu::tile_fwk::float16': 'DataType::DT_FP16',
+        'float': 'DataType::DT_FP32',
+        'double': 'DataType::DT_DOUBLE',
+        'npu::tile_fwk::bfloat16': 'DataType::DT_BF16',
+        'uint8_t': 'DataType::DT_UINT8',
+        'uint16_t': 'DataType::DT_UINT16',
+        'uint32_t': 'DataType::DT_UINT32',
+        'uint64_t': 'DataType::DT_UINT64',
+        'int': 'DataType::DT_INT32',
+        'str': 'DataType::DT_FP32' # to be modified
+    }
+    dtype = "UNKNOWN"
+    if isinstance(v, Var):
+        if v.dtype in dtype_mapper:
+            dtype = dtype_mapper.get(v.dtype)
+        else:
+            dtype = dtype_mapper.get(type(v).__name__, "ILLEGAL_DTYPE"), 
+    return dtype

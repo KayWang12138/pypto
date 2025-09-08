@@ -298,7 +298,7 @@ def get_signature(args: Sequence[Union[Tensor, CustStruct, ConfigMap, Var, Vecto
     return f'{return_type} forward({args_str});'
 
 
-def parse(func_name: str, inst_list: Sequence[Instruction],
+def parse(func_name: str, inst_list: Sequence[Instruction], \
           args: Sequence[Union[Tensor, CustStruct, ConfigMap, Var, Vector]], \
           res: Union[None, Tensor, tuple[Tensor, ...], list[Tensor]]) -> str:
     args_str = get_args_str(args)

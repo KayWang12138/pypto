@@ -9,7 +9,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
-from .util import get_var_str, get_curlybrace_list
+from .util import get_var_str, get_curlybrace_list, get_scalar_dtype
 from ..utils import CodeHelper, Instruction, Tensor, Var, Shape, Tuple, Vector
 
 
@@ -177,7 +177,7 @@ def scatterelement(h: CodeHelper, inst: Instruction):
     if not isinstance(inst.dst, Tensor):
         raise Exception()
 
-    scalar_str = get_var_str(inst.src[2])
+    scalar_str = get_scalar_dtype(inst.src[2]), + ', ' + get_var_str(inst.src[2])
     axis_str = get_var_str(inst.src[3])
     h(f'auto tsr{inst.dst.idx} = ScatterElement(tsr{inst.src[0].idx}, tsr{inst.src[1].idx}, \
         Element({scalar_str}), {axis_str});')
@@ -344,7 +344,9 @@ def vector_duplicate(h: CodeHelper, inst: Instruction):
         raise Exception()
     if not isinstance(inst.dst, Tensor):
         raise Exception()
-    h(f'auto {get_var_str(inst.dst)} = VectorDuplicate(Element({inst.src[0]}), \
+    
+    h(f'auto {get_var_str(inst.dst)} = VectorDuplicate(Element(\
+        {get_scalar_dtype(inst.src[0]) + ", " + inst.src[0]}), \
         {get_var_str(inst.src[2])}, {get_curlybrace_list(inst.src[1])});')
 
 

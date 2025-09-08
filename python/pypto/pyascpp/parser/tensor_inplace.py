@@ -8,8 +8,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
-
-from .util import get_var_str
+from .util import get_var_str, get_scalar_dtype
 from ..utils import CodeHelper, Instruction, Tensor, Var
 
 
@@ -70,23 +69,23 @@ def retrieve_const_str(inst: Instruction) -> str:
 
 def imuls(h: CodeHelper, inst: Instruction):
     const_str = retrieve_const_str(inst)
-
+    const_str = get_scalar_dtype(inst.src[1]) + ', ' + const_str
     h(f'tsr{inst.dst.idx} = MulS(tsr{inst.src[0].idx}, Element({const_str}));')
 
 
 def isubs(h: CodeHelper, inst: Instruction):
     const_str = retrieve_const_str(inst)
-
+    const_str = get_scalar_dtype(inst.src[1]) + ', ' + const_str
     h(f'tsr{inst.dst.idx} = SubS(tsr{inst.src[0].idx}, Element({const_str}));')
 
 
 def idivs(h: CodeHelper, inst: Instruction):
     const_str = retrieve_const_str(inst)
-
+    const_str = get_scalar_dtype(inst.src[1]) + ', ' + const_str
     h(f'tsr{inst.dst.idx} = DivS(tsr{inst.src[0].idx}, Element({const_str}));')
 
 
 def iadds(h: CodeHelper, inst: Instruction):
     const_str = retrieve_const_str(inst)
-
+    const_str = get_scalar_dtype(inst.src[1]) + ', ' + const_str
     h(f'tsr{inst.dst.idx} = AddS(tsr{inst.src[0].idx}, Element({const_str}));')

@@ -10,13 +10,13 @@
 # ======================================================================================================================
 
 class DATATYPE:
-    fp16 = 'DataType::AST2_FP16'
-    fp32 = 'DataType::AST2_FP32'
-    bf16 = 'DataType::AST2_BF16'
-    bf32 = 'DataType::AST2_BF32'
-    int32 = 'DataType::AST2_INT32'
+    fp16 = 'DataType::DT_FP16'
+    fp32 = 'DataType::DT_FP32'
+    bf16 = 'DataType::DT_BF16'
+    bf32 = 'DataType::DT_BF32'
+    int32 = 'DataType::DT_INT32'
     int = 'int'
-    int32 = 'DataType::AST2_INT32'
+    int32 = 'DataType::DT_INT32'
 
 
 class ReduceMode:

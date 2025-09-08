@@ -27,11 +27,16 @@ class Tensor():
     is_transpose: bool = False
     _previdx: list[int]
     _prev_insts: list[Optional['Instruction']]
+    _shape: Optional[Union[list[Union[Var, int]], 'Shape']]
+    dtype: Optional[Union[Var, str]]
+    is_output: bool = False
 
     def __init__(self, shape: Optional[Union[list[Union[Var, int]], 'Shape']] = None,
-                 dtype: Optional[Union[Var, str]] = None, force_declare: bool = False):
+                 dtype: Optional[Union[Var, str]] = None, is_output: bool = False, force_declare: bool = False):
         self._previdx = []
         self._prev_insts = [None, ]
+        self._shape, self.dtype = shape, dtype
+        self.is_output = is_output
         if shape is not None and dtype is not None:
             if context.active_module is not None:
                 self.idx = context.active_module.args_counter
@@ -285,17 +290,23 @@ class Tensor():
             return res
         else:
             raise TypeError('Only support matmul for tensor @ tensor')
-
+        
     @property
     def shape(self):
         if context.active_module is None:
-            raise Exception()
-        new_shape = Shape()
+            raise Exception
+        if self._shape is not None:
+            new_shape = Shape(len(self._shape), self._shape)
+        else:
+            new_shape = Shape()
         new_shape.set_idx(context.active_module.args_counter)
         context.active_module.args_counter += 1
         context.active_module.add_inst(Instruction('get_shape', [self], new_shape))
         return new_shape
-
+    
+    def get_shape(self):
+        return self._shape
+        
     def set_idx(self, idx: int):
         self.idx = idx
 

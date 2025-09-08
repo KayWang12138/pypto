@@ -8,7 +8,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
-
+from typing import Sequence
 from .util import get_var_str
 from ..utils import CodeHelper, Instruction, Tensor, Var, Shape
 
@@ -54,9 +54,9 @@ def set_shape(h: CodeHelper, inst: Instruction):
 
 def new_shape(h: CodeHelper, inst: Instruction):
     def new_shape_sub(h: CodeHelper, inst: Instruction, var_str0: str):
-        if not isinstance(inst.src[1], (Var, int, list)):
+        if not isinstance(inst.src[1], (Var, int, Sequence)):
             raise Exception()
-        if isinstance(inst.src[1], list):
+        if isinstance(inst.src[1], Sequence):
             dims = []
             for dim in inst.src[1]:
                 if not isinstance(dim, (Var, int)):

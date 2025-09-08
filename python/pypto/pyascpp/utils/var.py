@@ -9,7 +9,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
-from typing import Union
+from typing import Union, Optional
 
 from .instruction import Instruction
 from .utilfuncs import get_obj_dtype
@@ -20,12 +20,15 @@ class Var():
     idx: int = -1
     _previdx: list[int]
     dtype: str
+    value: Union[float, bool, int, str]
 
-    def __init__(self, dtype: str, is_declare: bool = True):
+    def __init__(self, dtype: str, value: Optional[Union[float, bool, int, str]] = None, is_declare: bool = True):
         self._previdx = []
         if not isinstance(dtype, str):
             raise Exception()
         self.dtype = dtype
+        if value is not None:
+            self.value = value
         if is_declare:
             if context.active_module is None:
                 raise Exception()
