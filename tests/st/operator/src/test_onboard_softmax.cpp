@@ -359,22 +359,22 @@ TEST_F(SoftmaxOnBoard, test_softmax_flash_attention) {
 
 TEST_F(SoftmaxOnBoard, test_softmax_dyn) {
     config::SetHostConfig(npu::tile_fwk::KEY_ONLY_CODEGEN, true);
-    TileShape::Current().SetVecTile({4, 4, 1, 64});
     std::vector<int64_t> shape = {32, 32, 1, 256};
     DataType dtype = DataType::DT_FP32;
     Tensor input(dtype, shape, "input");
     Tensor output(dtype, shape, "output");
 
+    // 准备输入和输出数据
     std::vector<float> goldenData = GetGoldenVec<float>(shape, "/softmax.bin");
-
     auto inputData = CreateTensorData<float>(input, "/x.bin");
     auto outputData = RawTensorData::CreateConstantTensor<float>(output, 0.0);
-
     std::vector<RawTensorDataPtr> inputDataList = {inputData};
     std::vector<RawTensorDataPtr> outputDataList = {outputData};
 
+    // 调用算子函数
     SoftmaxDynamic(input, output);
 #ifdef ENABLE_BUILD_WITH_CANN
+    // 上板执行
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
     EXPECT_TRUE(resultCmp<float>(goldenData, (float *)outputData->data(), 0.001f));
 #endif

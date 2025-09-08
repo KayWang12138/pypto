@@ -42,11 +42,14 @@ Tensor Softmax(const Tensor &operand) {
 }
 
 Tensor SoftmaxNew(const Tensor &operand) {
+    // 获取输入数据类型
     auto inputDtype = operand->Datatype();
     Tensor castOperand = operand;
+    // 如果输入数据类型不是FP32，则将其转换为FP32
     if (inputDtype != DataType::DT_FP32) {
         castOperand = Cast(operand, DataType::DT_FP32);
     }
+    // 描述计算逻辑
     // M=rowMax(xi)
     auto rowmax = RowMaxSingle(castOperand);
     // S=rowSum(exp(xi-M))
@@ -55,6 +58,7 @@ Tensor SoftmaxNew(const Tensor &operand) {
     auto esum = RowSumSingle(exp);
     // softmax(zi)=exp(xi-M)/S
     auto softmax = Div(exp, esum);
+    // 如果输出数据类型与输入不同，则进行类型转换
     if (inputDtype != softmax->Datatype()) {
         softmax = Cast(softmax, inputDtype);
     }
@@ -62,27 +66,33 @@ Tensor SoftmaxNew(const Tensor &operand) {
 }
 
 void SoftmaxDynamicCompute(Tensor &input, Tensor &output) {
-    // input_shape: [b, n1, n2, d] fp16/bf16
-    // int b = input->shape[0]; batch轴动态
+    // 获取输入形状信息[b, n1, n2, dim], batch轴动态
     SymbolicScalar b = GetInputShape(input, 0);
-    int n1 = input->shape[1];
-    int n2 = input->shape[2];
-    int dim = input->shape[3];
+    int n1 = input->GetShape()[1];
+    int n2 = input->GetShape()[2];
+    int dim = input->GetShape()[3];
+    //设置Loop处理的batch大小及循环次数
     int tileB = 1;
     SymbolicScalar bLoop = b / tileB;
+    // 定义循环，用于处理每个batch块，每个batch块为(1, 32, 1, 256)
     LOOP("SOFTMAX_LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1), {}, true) {
+        // 计算偏移量
         SymbolicScalar bOffset = bIdx * tileB;
         std::vector<SymbolicScalar> outOffset = {bOffset, 0, 0, 0};
-        TileShape::Current().SetVecTile({1, 1, 32, 256});
+        // 对每个batch块进行tile切分，切分大小为(1, 4, 1, 64)
+        TileShape::Current().SetVecTile({1, 4, 1, 64});
+        // 创建输入视图
         auto inputView = View(input, {tileB, n1, n2, dim}, {bOffset, 0, 0, 0});
+        // 调用Softmax算子函数
         auto outputView = SoftmaxNew(inputView);
+        // 将输出结果组装到输出Tensor中
         Assemble(outputView, outOffset, output);
     }
 }
 
 void SoftmaxDynamic(Tensor &input, Tensor &output) {
     FunctionConfig funConfig;
-    FUNCTION("SOFTMAX_DYNAMIC", funConfig, {input}, {output}) {
+    FUNCTION("SOFTMAX_DYNAMIC_EXAMPLE", funConfig, {input}, {output}) {
         SoftmaxDynamicCompute(input, output);
     }
 }

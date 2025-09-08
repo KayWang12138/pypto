@@ -363,7 +363,7 @@ int DeviceRunner::Synchronize(rtStream_t stream) {
         AdxDataDumpServerUnInit();
     }
     if (rc != 0) {
-        ALOG_ERROR_F("sync stream faild %d", rc);
+        ALOG_ERROR_F("sync stream failed %d", rc);
     }
     return rc;
 }
