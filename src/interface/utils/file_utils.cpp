@@ -412,12 +412,4 @@ std::string GetCurRunningPath() {
     return cwd;
 }
 
-bool IsSymlinkExist(const std::string& path) {
-    struct stat info;
-    int isFileExist = lstat(path.c_str(), &info);
-    if (isFileExist != 0) {
-        return false;
-    }
-    return  S_ISLNK(info.st_mode);
-}
 }  // namespace npu::tile_fwk

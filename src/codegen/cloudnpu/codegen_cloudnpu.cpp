@@ -426,7 +426,7 @@ std::string GetIncludePathByLib() {
     std::string includePath = libPath + "/../../include/";
     ALOG_INFO_F("includePath by lib is %s", includePath.c_str());
 
-    if (IsSymlinkExist(includePath)) {
+    if (IsPathExist(includePath)) {
         return includePath;
     }
 
@@ -440,7 +440,7 @@ std::string GetIncludePathByEnv() {
     }
 
     std::string includePath = std::string(homePath) + "/include/tile_fwk/";
-    if (IsPathExist(includePath)){
+    if (IsPathExist(includePath)) {
         return includePath;
     }
 
