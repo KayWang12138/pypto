@@ -30,6 +30,7 @@ struct HcomTestParam {
 
 void TestFrameworkInit(OpTestParam &testParam, HcomTestParam &hcomTestParam);
 void TestFrameworkDestroy(int32_t timeout);
+std::string getTimeStamp() ;
 
 } // namespace Distributed
 } // namespace npu::tile_fwk

@@ -140,8 +140,15 @@ static std::string CreateLogTopFolder() {
     std::string folderPath = "output";
     bool res = CreateDir(folderPath);
     ASSERT(res) << "Failed to create directory: " << folderPath;
-
-    folderPath = folderPath + "/" + "output_" + timestamp.str();
+    const char* envDir = std::getenv("TILE_FWK_OUTPUT_DIR");
+    if (envDir != nullptr) {
+        std::string envStr(envDir);
+        if (!envStr.empty()) {
+            folderPath = std::move(envStr);
+        }
+    } else {
+        folderPath = folderPath + "/" + "output_" + timestamp.str(); 
+    }
     res = CreateDir(folderPath);
     ASSERT(res) << "Failed to create directory: " << folderPath;
 
