@@ -12,3 +12,5 @@ test:
 	./build/vector_add
 	./build/manual_record
 	./build/llama_graph
+	./build/dynamic_attention
+	./build/dynamic_loop

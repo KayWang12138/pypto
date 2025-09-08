@@ -2,7 +2,7 @@ import pto
 import pytest
 
 
-def test_begin_add_end_function():
+def test_record_function():
     dtype = pto.DataType.DT_FP16
     shape = (8, 8)
     a = pto.tensor(dtype, shape, "tensor_a")
@@ -16,13 +16,13 @@ def test_begin_add_end_function():
     pto.set_vec_tile_shapes(8, 8)
     c = pto.add(a, b)
     pto.end_function("ADD", False)
+    # del recorder
 
     print(pto.dump())
     # Replace True with False to see graph
     assert isinstance(c, pto.tensor)
 
 
-@pytest.mark.skip(reason="add inplace fails in pytests")
 def test_begin_inplaceadd_end_function():
     dtype = pto.DataType.DT_FP16
     func_type = pto.function_type.STATIC
@@ -46,7 +46,6 @@ def test_begin_inplaceadd_end_function():
 def test_empty_begin_end_function():
     dtype = pto.DataType.DT_FP16
     a = pto.tensor(dtype, (8, 8), "tensor_a")
-    fnc_name = "name"
 
     graph_t = pto.graph_type.TENSOR_GRAPH
     func_t = pto.function_type.STATIC
@@ -54,5 +53,19 @@ def test_empty_begin_end_function():
     pto.begin_function("MAIN", graph_t, func_t, a)
     pto.set_vec_tile_shapes(8, 8)
     pto.end_function("MAIN", False)
+
+    assert True
+
+
+def test_record_function_static():
+    dtype = pto.DataType.DT_FP16
+    a = pto.tensor(dtype, (8, 8), "tensor_a")
+    b = pto.tensor(dtype, (8, 8), "tensor_b")
+    c = pto.tensor(dtype, (8, 8), "tensor_c")
+
+    recorder = pto.record_func("ADD_FNC", pto.function_type.STATIC, [a, b, c])
+    pto.set_vec_tile_shapes(8, 8)
+    c.move(pto.add(a, b))
+    del recorder
 
     assert True

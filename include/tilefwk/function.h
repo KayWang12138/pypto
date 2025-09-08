@@ -163,6 +163,7 @@ public:
 
         Iterator operator++();
         bool operator!=(const IteratorEnd &rhs);
+        bool operator==(const IteratorEnd &rhs) { return !this->operator!=(rhs); }
         const SymbolicScalar &operator*() const { return scalar_; }
         SymbolicScalar &operator*() { return scalar_; }
 

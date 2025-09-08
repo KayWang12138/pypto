@@ -8,6 +8,7 @@ NUM_128 = 128
 F_1 = 1.0
 F_NEGA_1 = -1.0
 
+
 @dataclass
 class AttentionDims:
     b: int
@@ -16,6 +17,7 @@ class AttentionDims:
     d: int
     single_m: int
     single_n: int
+
 
 @dataclass
 class AttentionVecTileConfig:
@@ -28,6 +30,7 @@ class AttentionVecTileConfig:
     cast_tile_x: int
     cast_tile_y: int
 
+
 @dataclass
 class AttentionCubeTileConfig:
     c1_l1_m: int
@@ -39,6 +42,7 @@ class AttentionCubeTileConfig:
     c1_l0: int = 128
     c2_l0: int = 128
 
+
 @dataclass
 class KeyConfig:
     max: int
@@ -48,6 +52,7 @@ class KeyConfig:
     is_partition_cv: int
     c_tile_x: int
     c_tile_y: int
+
 
 DFS_VEC_CFG = AttentionVecTileConfig(128, 128, 16, 128, 16, 128, 32, 128)
 SMALL_DFS_VEC_CFG = AttentionVecTileConfig(64, 128, 16, 128, 16, 128, 32, 128)
@@ -60,26 +65,26 @@ DFT_BASIC_CFG = KeyConfig(8192, 1024, 1, 1, 0, 128, 128)
 DFT_SINGLE_M = 128
 DFT_SINGLE_N = 128
 
+
 def set_c1_cube_config(cube_cfg: AttentionCubeTileConfig):
     pto.set_cube_tile_shapes(
         [cube_cfg.c1_l0, cube_cfg.c1_l1_m],
         [cube_cfg.c1_l0, cube_cfg.c1_l1_k],
-        [cube_cfg.c1_l0, cube_cfg.c1_l1_n]
+        [cube_cfg.c1_l0, cube_cfg.c1_l1_n],
     )
+
 
 def set_c2_cube_config(cube_cfg: AttentionCubeTileConfig):
     pto.set_cube_tile_shapes(
         [cube_cfg.c2_l0, cube_cfg.c2_l1_m],
         [cube_cfg.c2_l0, cube_cfg.c2_l1_k],
-        [cube_cfg.c2_l0, cube_cfg.c2_l1_n]
+        [cube_cfg.c2_l0, cube_cfg.c2_l1_n],
     )
 
+
 def set_default_l0_cube_config():
-    pto.set_cube_tile_shapes(
-        [T_SHAPE, T_SHAPE],
-        [T_SHAPE, T_SHAPE],
-        [T_SHAPE, T_SHAPE]
-    )
+    pto.set_cube_tile_shapes([T_SHAPE, T_SHAPE], [T_SHAPE, T_SHAPE], [T_SHAPE, T_SHAPE])
+
 
 def flash_attention(
     q: pto.tensor,
@@ -89,7 +94,7 @@ def flash_attention(
     l: pto.tensor,
     at_dims: AttentionDims,
     vec_cfg: AttentionVecTileConfig,
-    cube_cfg: AttentionCubeTileConfig
+    cube_cfg: AttentionCubeTileConfig,
 ) -> None:
     # m, l are not used
     dim0 = q.shape[0]
@@ -118,19 +123,27 @@ def flash_attention(
     for b_idx in range(b):
         for n_idx in range(n):
             for s2_idx in range(s2_loop):
-                kj = pto.view(k, [single_n, d], [b_idx * s + s2_idx * single_n, n_idx * d])
-                vj = pto.view(v, [single_n, d], [b_idx * s + s2_idx * single_n, n_idx * d])
+                kj = pto.view(
+                    k, [single_n, d], [b_idx * s + s2_idx * single_n, n_idx * d]
+                )
+                vj = pto.view(
+                    v, [single_n, d], [b_idx * s + s2_idx * single_n, n_idx * d]
+                )
 
                 for s1_idx in range(s1_loop):
                     print(f"inner fa {s2_idx} {s1_idx} {s2_loop} {s1_loop}")
-                    qi = pto.view(q, [single_m, d], [b_idx * s + s1_idx * single_m, n_idx * d])
+                    qi = pto.view(
+                        q, [single_m, d], [b_idx * s + s1_idx * single_m, n_idx * d]
+                    )
                     oi_offset = (b_idx * s + s1_idx * single_m, n_idx * d)
                     li_offset = ((b_idx * n + n_idx) * s + s1_idx * single_m, 0)
                     mi_offset = ((b_idx * n + n_idx) * s + s1_idx * single_m, 0)
                     set_c1_cube_config(cube_cfg)
                     sij = pto.matmul(pto.DT_FP32, qi, kj, b_trans=True)
 
-                    pto.set_vec_tile_shapes(vec_cfg.softmax_tile_x, vec_cfg.softmax_tile_y)
+                    pto.set_vec_tile_shapes(
+                        vec_cfg.softmax_tile_x, vec_cfg.softmax_tile_y
+                    )
 
                     tilda_mij = pto.row_max_single(sij)
                     tsub = pto.sub(sij, tilda_mij)
@@ -186,7 +199,16 @@ def flash_attention(
         assert result.shape[1] == n * d
     return result
 
-def multi_attention(hidden_states, weight, m, l, at_dims: AttentionDims, vec_cfg: AttentionVecTileConfig, cube_cfg: AttentionCubeTileConfig):
+
+def multi_attention(
+    hidden_states,
+    weight,
+    m,
+    l,
+    at_dims: AttentionDims,
+    vec_cfg: AttentionVecTileConfig,
+    cube_cfg: AttentionCubeTileConfig,
+):
     x = pto.cast(hidden_states, pto.DT_FP16)
     qkv = pto.matmul(pto.DT_FP16, x, weight)
     q = pto.view(qkv, hidden_states.shape, [0, 0])
@@ -195,7 +217,16 @@ def multi_attention(hidden_states, weight, m, l, at_dims: AttentionDims, vec_cfg
     result = flash_attention(q, k, v, m, l, at_dims, vec_cfg, cube_cfg)
     return result
 
-def llama_layer(hidden_states, attn_weight, dense_weight, ffn_weight, at_dims: AttentionDims, vec_cfg: AttentionVecTileConfig, cube_cfg: AttentionCubeTileConfig):
+
+def llama_layer(
+    hidden_states,
+    attn_weight,
+    dense_weight,
+    ffn_weight,
+    at_dims: AttentionDims,
+    vec_cfg: AttentionVecTileConfig,
+    cube_cfg: AttentionCubeTileConfig,
+):
     pto.set_vec_tile_shapes(vec_cfg.default_vec_tile_x, vec_cfg.default_vec_tile_y)
     set_default_l0_cube_config()
     shape = hidden_states.shape
@@ -208,7 +239,9 @@ def llama_layer(hidden_states, attn_weight, dense_weight, ffn_weight, at_dims: A
 
     m = pto.tensor(pto.DT_FP32, shape_reduce, "m_temp")
     l = pto.tensor(pto.DT_FP32, shape_reduce, "l_temp")
-    attention_out = multi_attention(hidden_states, attn_weight, m, l, at_dims, vec_cfg, cube_cfg)
+    attention_out = multi_attention(
+        hidden_states, attn_weight, m, l, at_dims, vec_cfg, cube_cfg
+    )
 
     attention_out_fp16 = pto.cast(attention_out, pto.DT_FP16)
     # Dense
@@ -242,6 +275,7 @@ def llama_layer(hidden_states, attn_weight, dense_weight, ffn_weight, at_dims: A
     hidden_states = pto.add(residual, mlp_res)
     return hidden_states
 
+
 if __name__ == "__main__":
     # pto.reset_config()
     dims_cfg = AttentionDims(1, 1, 128, 128, DFT_SINGLE_M, DFT_SINGLE_N)
@@ -254,7 +288,10 @@ if __name__ == "__main__":
     DW = pto.tensor(pto.DT_FP16, [n * d, n * d], "DW")
     FW = pto.tensor(pto.DT_FP16, [n * d, n * d * 3], "FW")
     res = pto.tensor(pto.DT_FP32, [b * s, n * d], "Res")
-    with pto_function("LLAMA", H, AW, DW, FW, res):
+
+    graph_t = pto.graph_type.TENSOR_GRAPH
+    func_t = pto.function_type.STATIC
+    with pto_function("LLAMA", graph_t, func_t, H, AW, DW, FW, res):
         res = llama_layer(H, AW, DW, FW, dims_cfg, SMALL_DFS_VEC_CFG, DFS_CUBE_CFG)
 
     # NOTE: or set `GLOBAL_LOG_LEVEL=1` to dump

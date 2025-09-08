@@ -47,8 +47,18 @@ foreach(LIB ${ASCENDCPP_LIBS})
     endif()
 endforeach()
 
+set(BIND_SOURCES
+    "src/bindings/enum.cpp"
+    "src/bindings/tensor.cpp"
+    "src/bindings/symbolic_scalar.cpp"
+    "src/bindings/controller.cpp"
+    "src/bindings/operation.cpp"
+)
 
-pybind11_add_module(pto src/pybind11.cpp)
+pybind11_add_module(pto 
+  src/pybind11.cpp
+  ${BIND_SOURCES}
+)
 
 target_sources(pto PRIVATE
   ${ASCENDCPP_DIR}/src
@@ -78,6 +88,7 @@ target_include_directories(pto PRIVATE
   ${ASCENDCPP_DIR}/include
   ${ASCENDCPP_DIR}/src
   ${ASCENDCPP_DIR}/build/3rd/libboundscheck-v1.1.16/output/include/
+  ${ASCENDCPP_DIR}/pypto/src
 )
 
 target_compile_options(pto PRIVATE

@@ -11,3 +11,10 @@ build: clean
 
 test:
 	pytest test
+
+test_examples:
+	python example/dynamic_loop_nomacro.py
+	python example/record_loop_func.py
+	python example/record_func_static.py
+	python example/vector_op.py
+	python example/matrix_op.py

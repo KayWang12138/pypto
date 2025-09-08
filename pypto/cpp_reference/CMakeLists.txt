@@ -17,6 +17,9 @@ message("* ASCENDCPP_DIR             : ${ASCENDCPP_DIR}")
 message("***********************************************************")
 
 # can add new standalone cpp examples here
+add_executable(dynamic_attention src/dynamic_attention.cpp)
+add_executable(dynamic_loop_nomacro src/dynamic_loop_nomacro.cpp)
+add_executable(dynamic_loop src/dynamic_loop.cpp)
 add_executable(print_dtype src/print_dtype.cpp)
 add_executable(dump_graph src/dump_graph.cpp)
 add_executable(vector_add src/vector_add.cpp)
@@ -25,6 +28,9 @@ add_executable(manual_record src/manual_record.cpp)
 
 set(
   EXECUTABLES
+  dynamic_attention
+  dynamic_loop_nomacro
+  dynamic_loop
   print_dtype
   dump_graph
   vector_add

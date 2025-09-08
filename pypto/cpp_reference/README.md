@@ -32,5 +32,7 @@ export GLOBAL_LOG_LEVEL=1  # optionally log all passes
 ./build/vector_add
 ./build/manual_record
 ./build/llama_graph
+./build/dynamic_attention
+./build/dynamic_loop
 # all runs through all passes (last is Pass_31_CodegenPreproc)
 ```
