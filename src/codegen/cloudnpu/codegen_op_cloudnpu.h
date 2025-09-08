@@ -113,6 +113,7 @@ public:
     void UpdateTileTensorInfo();
 
 private:
+    int GetCacheModeFlag(const std::string &cacheMode)  const;
     template <typename T>
     bool GetAttr(const std::string &key, T &value) const;
 
