@@ -341,6 +341,20 @@ int32_t NodeGraphInfo::FindParent(std::vector<int32_t> &parent, int32_t i)
     return currIdx;
 }
 
+inline std::string GetOpCoreTypeStr(OpCoreType coreType) {
+    std::map<OpCoreType, std::string> coreTypeStr{
+        {OpCoreType::AIC, "AIC"},
+        {OpCoreType::AIV, "AIV"},
+        {OpCoreType::AICPU, "AICPU"},
+        {OpCoreType::HUB, "HUB"},
+        {OpCoreType::GMATOMIC, "GMATOMIC"}};
+    if (coreTypeStr.count(coreType) == 0) {
+        return "UNKNOWN";
+    } else {
+        return coreTypeStr[coreType];
+    }
+}
+
 Status NodeGraphInfo::MergeSrcToDstIsland(const std::shared_ptr<OperationGraphInfo> operationGraphInfo,
                                           std::vector<int32_t> &parent, int32_t src, int32_t dst)
 {
@@ -359,9 +373,13 @@ Status NodeGraphInfo::MergeSrcToDstIsland(const std::shared_ptr<OperationGraphIn
     isAICPUandVIEW = isAICPUandVIEW || (operationGraphInfo->opCoreType_[dst] == OpCoreType::AICPU &&
                                         operationGraphInfo->opList_[src]->GetOpcode() == Opcode::OP_VIEW);
     if (!isAICPUandVIEW && !operationGraphInfo->CoreTypeMergeable(coreTypes)) {
-        ALOG_ERROR_F("Try to merge not mergeable operations: %d, %d, %d, %d.",
-            operationGraphInfo->opList_[src]->GetOpMagic(), operationGraphInfo->opList_[dst]->GetOpMagic(),
-            operationGraphInfo->opList_[srcParent]->GetOpMagic(), operationGraphInfo->opList_[dstParent]->GetOpMagic());
+        ALOG_ERROR_F("Try to merge operations with different OpCoreType in building SuperNode:");
+        std::set<int> mergeIdxs{src, srcParent, dst, dstParent};
+        for (int mergeIdx : mergeIdxs) {
+            auto &mergeOp = operationGraphInfo->opList_[mergeIdx];
+            ALOG_ERROR_F("%s [opMagic: %d] [opCoreType: %s]", mergeOp->GetOpcodeStr().c_str(), mergeOp->GetOpMagic(),
+                         GetOpCoreTypeStr(operationGraphInfo->opCoreType_[mergeIdx]).c_str());
+        }
         return FAILED;
     }
     parent[srcParent] = dstParent;
