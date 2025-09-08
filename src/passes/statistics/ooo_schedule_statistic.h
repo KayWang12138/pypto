@@ -26,9 +26,9 @@ namespace npu {
 namespace tile_fwk {
 class OoOSchedulerCheck {
 public:
-    void DoHealthCheck(Function *function, const std::string &fileName);
+    Status DoHealthCheck(Function *function, const std::string &fileName);
     void HealthCheckSpillInfo();
-    void HealthCheckOoOSchedule();
+    Status HealthCheckOoOSchedule();
     void HealthCheckKernelGraph(Function *function);
     std::string jsonFileName;
     bool doHealthCheck{false};

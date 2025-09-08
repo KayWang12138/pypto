@@ -38,18 +38,26 @@ void OoOSchedulerCheck::HealthCheckSpillInfo() {
     report["spillDetails"] = spill;
 }
 
-void OoOSchedulerCheck::HealthCheckOoOSchedule() {
+Status OoOSchedulerCheck::HealthCheckOoOSchedule() {
     int64_t maxL0ASize = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L0A);
     int64_t maxL0BSize = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L0B);
     int64_t maxL0CSize = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L0C);
     int64_t maxUBSize = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB);
     int64_t maxL1Size = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L1);
+    if (maxL0ASize == 0 || maxL0BSize == 0 || maxL0CSize == 0 || maxUBSize == 0 || maxL1Size == 0) {
+        ALOG_ERROR_F("Max buffer size is 0, HealthCheckOoOSchedule failed!");
+        return FAILED;
+    }
     // Workspace Info
     report["workspaceOffset"] = workspaceOffset;
     // Execution Info
     report["totalCycles"] = clock;
     // Pipe Usage Rate
     Json pipeUsageRate;
+    if (clock == 0) {
+        ALOG_ERROR_F("Clock is 0, HealthCheckOoOSchedule failed!");
+        return FAILED;
+    }
     pipeUsageRate["PIPE_S_Usage_Rate"] = static_cast<float>(pipeUsageCount.at(PipeType::PIPE_S)) / clock * percent;
     pipeUsageRate["PIPE_V_Usage_Rate"] = static_cast<float>(pipeUsageCount.at(PipeType::PIPE_V)) / clock * percent;
     pipeUsageRate["PIPE_M_Usage_Rate"] = static_cast<float>(pipeUsageCount.at(PipeType::PIPE_M)) / clock * percent;
@@ -83,6 +91,7 @@ void OoOSchedulerCheck::HealthCheckOoOSchedule() {
     report["spillCount"] = spillInfoVec.size();
     // Detailed spill information
     HealthCheckSpillInfo();
+    return SUCCESS;
 }
 
 void OoOSchedulerCheck::HealthCheckKernelGraph(Function *function) {
@@ -130,12 +139,16 @@ void OoOSchedulerCheck::HealthCheckKernelGraph(Function *function) {
     report["maxOutputsOps"] = maxOutputsOps;
 }
 
-void OoOSchedulerCheck::DoHealthCheck(Function *function, const std::string &fileName) {
-    HealthCheckOoOSchedule();
+Status OoOSchedulerCheck::DoHealthCheck(Function *function, const std::string &fileName) {
+    if (HealthCheckOoOSchedule() != SUCCESS) {
+        ALOG_ERROR_F("DoHealthCheck failed at HealthCheckOoOSchedule!");
+        return FAILED;
+    }
     HealthCheckKernelGraph(function);
     std::ofstream file(fileName);
     file << report.dump(1) << std::endl;
     file.close();
+    return SUCCESS;
 }
 
 } // namespace tile_fwk
