@@ -15,7 +15,47 @@
 
 #include "inplace_process.h"
 
-namespace npu::tile_fwk {
+namespace npu {
+namespace tile_fwk {
+bool InplaceProcess::HasSameConsecutive(Operation &op) {
+    for (auto &nextOp : op.ConsumerOps()) {
+        if (nextOp->GetOpcode() == op.GetOpcode()) {
+            return true;
+        }
+    }
+    return false;
+}
+Status InplaceProcess::PreCheck(Function &function) {
+    ALOG_INFO_F("PreCheck for InplaceProcess.");
+    if (!function.LoopCheck().empty()) {
+        ALOG_ERROR_F("Loopcheck failed before PreGraph");
+        return FAILED;
+    }
+    for (auto &op : function.Operations()) {
+        if (op.GetSubgraphID() == NOT_IN_SUBGRAPH) {
+            ALOG_ERROR_F("%s[%d] is not partitioned.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            return FAILED;
+        }
+        if ((op.GetOpcode() != Opcode::OP_ASSEMBLE) && (op.GetOpcode() != Opcode::OP_VIEW) && 
+            (op.GetOpcode() != Opcode::OP_RESHAPE)) {
+            continue;
+        }
+        if (HasSameConsecutive(op)) {
+            ALOG_ERROR_F("%s[%d] has the same Opcode child op.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+        }
+        auto tensorIn = op.GetIOperands().front();
+        auto tensorOut = op.GetOOperands().front();
+        if (tensorIn->GetMemoryTypeOriginal() != tensorOut->GetMemoryTypeOriginal()) {
+            ALOG_ERROR_F("unmatched input output memory type for reshape opmagic: %d, input mem type: %s, output mem type: %s", 
+                op.opmagic,
+                MemoryTypeToString(tensorIn->GetMemoryTypeOriginal()).c_str(),
+                MemoryTypeToString(tensorOut->GetMemoryTypeOriginal()).c_str());
+            return FAILED;
+        }
+    }
+    ALOG_INFO_F("PreCheck for InplaceProcess success.");
+    return SUCCESS;
+}
 
 Status InplaceProcess::RunOnFunction(Function &function) {
     ALOG_INFO_F("===> Start InplaceProcess.");
@@ -236,4 +276,5 @@ Status InplaceProcess::ProcessInplaceOp(Function &function, Operation &op) const
     return SUCCESS;
 }
 
-} // namespace npu::tile_fwk
+} // namespace tile_fwk
+} // namespace npu

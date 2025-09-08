@@ -53,6 +53,7 @@ public:
     CubeProcess() : Pass("CubeProcess") {}
     ~CubeProcess() override = default;
 
+    Status PreCheck(Function &function) override;
     Status RunOnFunction(Function &function) override;
     Status EliminateReduceAcc(Function &function);
     Status UpdateCubeOp(Function &function);

@@ -31,8 +31,8 @@
 #include "interface/configs/config_manager.h"
 #include "interface/tensor/logical_tensor.h"
 
-namespace npu::tile_fwk {
-
+namespace npu {
+namespace tile_fwk {
 /*
 key: Opcode类型
 vaule: vector of pair, 每个pair记录了第几个输入和第几个输出存在inplace关系
@@ -62,5 +62,6 @@ private:
         parentRawForard; // key: 当前tensor的magic，value: parent tensor 的 raw magic
     std::set<std::shared_ptr<LogicalTensor>> conflictTensors;
 };
-} // namespace npu::tile_fwk
+} // namespace tile_fwk
+} // namespace npu
 #endif // PASS_INFER_MEMORY_CONFLICT_H_

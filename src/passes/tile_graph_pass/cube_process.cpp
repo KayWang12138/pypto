@@ -15,7 +15,56 @@
 
 #include "cube_process.h"
 
-namespace npu::tile_fwk {
+namespace npu {
+namespace tile_fwk {
+Status CubeProcess::PreCheck(Function &function) {
+    ALOG_INFO_F("PreCheck for CubeProcess.");
+    if (!function.LoopCheck().empty()) {
+        ALOG_ERROR_F("Loopcheck failed before PreGraph");
+        return FAILED;
+    }
+    for (auto &op : function.Operations()) {
+        if (op.GetSubgraphID() == NOT_IN_SUBGRAPH) {
+            ALOG_ERROR_F("%s[%d] is not partitioned.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            return FAILED;
+        }
+        if (op.GetOpcode() == Opcode::OP_A_MUL_B && op.GetOpcode() == Opcode::OP_A_MULACC_B) {
+            // L0C tensor 有且只有一个非空consumer op
+            if (op.GetOOperands().size() != 1) {
+                ALOG_ERROR_F("[CubeProcess] invalid op: %s[%d] has output num not equal to ONE.",
+                    op.GetOpcodeStr().c_str(), op.GetOpMagic());
+                return FAILED;
+            }
+            auto output = op.GetOOperands().front();
+            if ((output->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) || (output->GetConsumers().size() != 1) 
+                || (*output->GetConsumers().begin() == nullptr)) {
+                ALOG_ERROR_F("[CubeProcess] %s[%d] has invalid output tenosr[%d].",
+                    op.GetOpcodeStr().c_str(), op.GetOpMagic(), output->magic);
+                return FAILED;
+            }
+        }
+        if (op.GetOpcode() == Opcode::OP_REDUCE_ACC) {
+            // Reduce Acc 的输入和输出必须都是DDR类型
+            for (auto &in : op.GetIOperands()) {
+                if (in->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+                    ALOG_ERROR_F("[CubeProcess] %s[%d] has non-DDR input tenosr[%d]",
+                        op.GetOpcodeStr().c_str(), op.GetOpMagic(), in->magic);
+                    return FAILED;
+                }
+            }
+            for (auto &out : op.GetOOperands()) {
+                if (out->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+                    ALOG_ERROR_F("[CubeProcess] %s[%d] has non-DDR output tenosr[%d]",
+                        op.GetOpcodeStr().c_str(), op.GetOpMagic(), out->magic);
+                    return FAILED;
+                }
+            }
+        }
+    }
+    ALOG_INFO_F("PreCheck for CubeProcess success.");
+    return SUCCESS;
+}
+
 // verstion 2.0
 Status CubeProcess::RunOnFunction(Function &function) {
     ALOG_INFO_F("===> start CubeProcess");
@@ -120,7 +169,7 @@ Status CubeProcess::UpdateCubeOp(Function &function) {
             auto outputL0C = op.GetOOperands().front();
             auto chainEndCopyOut = *(outputL0C->GetConsumers().begin());
             // recursively find: MatMul -> L0C -> Copy_Out -> Gm
-            while (chainEndCopyOut != nullptr && chainEndCopyOut->GetOpcode() != Opcode::OP_COPY_OUT ) {
+            while (chainEndCopyOut->GetOpcode() != Opcode::OP_COPY_OUT ) {
                 outputL0C = chainEndCopyOut->GetOOperands().front();
                 chainEndCopyOut = *(outputL0C->GetConsumers().begin());
             }
@@ -172,8 +221,9 @@ Status CubeProcess::AddL1CopyInAttr(
         tensorL0 = L1CopyInOp->GetIOperands().front();
         L1CopyInOp = *(tensorL0->GetProducers().begin());
     }
-    if (L1CopyInOp == nullptr || L1CopyInOp->GetOpcode() != Opcode::OP_COPY_IN) {
-        return SUCCESS;
+    if (L1CopyInOp->GetOpcode() != Opcode::OP_COPY_IN) {
+        ALOG_DEBUG_F("L0 tesnor[%d] has invalid corresponding L1CopyInOp, please check.", input->magic);
+        return FAILED;
     }
     L1CopyInOp->SetAttribute(COPY_IS_NZ, nzValue);
     ALOG_DEBUG_F("Update %s[%d] attr is_Nz: %d", L1CopyInOp->GetOpcodeStr().c_str(), L1CopyInOp->GetOpMagic(), nzValue);
@@ -201,7 +251,7 @@ Status CubeProcess::AddL1CopyInAttr(
         ALOG_DEBUG_F("OP_L1_TO_L0_BT: Outer: %d, Inner: %d", nValue, kValue);
         return SUCCESS;
     }
-    ALOG_DEBUG_F("Invalid Cube input %d, produced by %s[%d]", input->GetMagic(), copyInOp->GetOpcodeStr().c_str(),
+    ALOG_DEBUG_F("invalid Cube input %d, produced by %s[%d]", input->GetMagic(), copyInOp->GetOpcodeStr().c_str(),
         copyInOp->GetOpMagic());
     return FAILED;
 }
@@ -254,4 +304,5 @@ Status CubeProcess::UpdateCopyAttr(Operation &op) const {
     }
     return SUCCESS;
 }
-} // namespace npu::tile_fwk
+} // namespace tile_fwk
+} // namespace npu

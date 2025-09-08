@@ -28,8 +28,8 @@
 #include "interface/configs/config_manager.h"
 #include "passes/pass_config/pass_config_manager.h"
 
-namespace npu::tile_fwk {
-
+namespace npu {
+namespace tile_fwk {
 /*
 key: Opcode类型
 vaule: vector of pair, 每个pair记录了第几个输入和第几个输出存在inplace关系
@@ -50,7 +50,9 @@ private:
     补齐: Status PreCheck(Function &function) override;
     补齐: Status PostCheck(Function &function) override;
     */
+    Status PreCheck(Function &function) override;
     Status RunOnFunction(Function &function) override;
+    bool HasSameConsecutive(Operation &op);
     void ProcessView(Function &function, Operation &op) const;
     void ProcessAssemble(Function &function, Operation &op);
     void AlignCopyInConsumer(std::shared_ptr<LogicalTensor> tensorGm) const;
@@ -62,5 +64,6 @@ private:
         const std::shared_ptr<LogicalTensor> targetTensor, const Operation &op);
     std::vector<int> visitedAssembleOp;
 };
-} // namespace npu::tile_fwk
+} // namespace tile_fwk
+} // namespace npu
 #endif // INPLACE_PROCESS_H

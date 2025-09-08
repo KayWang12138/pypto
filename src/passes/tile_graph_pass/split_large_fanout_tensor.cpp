@@ -347,7 +347,7 @@ void SplitLargeFanoutTensor::EraseRedundantCopyIn(Function &function) {
             }
             auto input = op.GetIOperands().front();
             auto output = op.GetOOperands().front();
-            ALOG_ERROR_F("Found redundant view and remove it, opmagic: %d, to: %s. Input mem: %s, Output mem: %s.",
+            ALOG_DEBUG_F("Found redundant view and remove it, opmagic: %d, to: %s. Input mem: %s, Output mem: %s.",
                 op.GetOpMagic(),BriefMemoryTypeToString(viewAttr->GetTo()).c_str(),
                 BriefMemoryTypeToString(input->GetMemoryTypeOriginal()).c_str(),
                 BriefMemoryTypeToString(output->GetMemoryTypeOriginal()).c_str());

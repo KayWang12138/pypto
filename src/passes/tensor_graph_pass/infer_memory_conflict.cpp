@@ -16,8 +16,8 @@
 #include "infer_memory_conflict.h"
 #include <queue>
 
-using namespace npu::tile_fwk;
-
+namespace npu {
+namespace tile_fwk {
 Status InferMemoryConflict::RunOnFunction(Function &function) {
     ALOG_INFO_F("===> Start InferMemoryConflict for function [%s].", function.GetRawName().c_str());
     if (InferFromIncast(function) != SUCCESS) {
@@ -180,3 +180,5 @@ Status InferMemoryConflict::InsertTensorCopy(Function &function) {
     }
     return SUCCESS;
 }
+} // namespace tile_fwk
+} // namespace npu
