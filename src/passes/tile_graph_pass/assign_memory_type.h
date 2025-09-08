@@ -39,6 +39,7 @@ private:
     void ProcessMemL1View(Operation &operation);
     void AssignSpecialOpMemtype(Operation &op);
     void AssignMemtypeForSplitReshape(Operation &op, const LogicalTensorPtr &input, const LogicalTensorPtr &output);
+    void UpdateOverSizedLocalBuffer(Operation &operation);
     std::string PrintTensorMem(std::shared_ptr<LogicalTensor>& tensor) const;
     ConvertInserter inserter;
 };

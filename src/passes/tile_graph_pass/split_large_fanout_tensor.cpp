@@ -34,7 +34,6 @@ Status SplitLargeFanoutTensor::RunOnFunction(Function &function) {
         ALOG_ERROR_F("Eliminate dead operation failed in CommonOperationEliminate.");
         return FAILED;
     }
-    UpdateOverSizedLocalBuffer(function);
     ALOG_INFO_F("===> End SplitLargeFanoutTensor.");
     return SUCCESS;
 }
@@ -244,7 +243,7 @@ void SplitLargeFanoutTensor::EraseRedundantCopyOut(Function &function) {
             ALOG_ERROR_F("%s[%d] has nullptr input/output.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
             continue;
         }
-        if (output->nodetype == NodeType::LOCAL && output->GetConsumers().empty()) {
+        if (!function.IsFromOutCast(output) && output->GetConsumers().empty()) {
             /* input --> Assemble --> output(非OCAST, 且没有consumer) */
             redundantCopyOuts.push_back(&op);
         }
@@ -357,26 +356,6 @@ void SplitLargeFanoutTensor::EraseRedundantCopyIn(Function &function) {
     }
     if (!redundantView.empty()) {
         RemoveOps(function, redundantView);
-    }
-}
-
-void SplitLargeFanoutTensor::UpdateOverSizedLocalBuffer(Function &function) {
-    const int UB_SIZE_THRESHOLD = static_cast<int>(PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB) * 0.5);
-    const int L1_SIZE_THRESHOLD = static_cast<int>(PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L1) * 0.5);
-    ALOG_INFO_F("UB buffer size threshold %d", UB_SIZE_THRESHOLD);
-    ALOG_INFO_F("L1 buffer size threshold %d", L1_SIZE_THRESHOLD);
-    for (auto &op : function.Operations()) {
-        if (op.GetOpcode() != Opcode::OP_ASSEMBLE) {
-            continue;
-        }
-        auto assembleOut = op.GetOOperands().front();
-        auto memType = assembleOut->GetMemoryTypeOriginal();
-        if (((memType == MemoryType::MEM_UB) && (assembleOut->GetDataSize() > UB_SIZE_THRESHOLD)) ||
-            ((memType == MemoryType::MEM_L1) && (assembleOut->GetDataSize() > L1_SIZE_THRESHOLD))) {
-            assembleOut->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
-            ALOG_INFO_F("%s[%d] output %d is oversized, set as MEM_DEVICE_DDR", op.GetOpcodeStr().c_str(),
-                op.GetOpMagic(), assembleOut->magic);
-        }
     }
 }
 

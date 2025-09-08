@@ -54,7 +54,6 @@ private:
     void RemoveOps(Function &function, std::vector<Operation *> &opList) const;
     void UpdateForRedundantAssemble(Operation &op);
     void UpdateForRedundantView(Operation &op, Operation &consumer);
-    void UpdateOverSizedLocalBuffer(Function &function);
 
     /*
     key: Assemble输出LogicalTensor所指向的raw tensor Id
