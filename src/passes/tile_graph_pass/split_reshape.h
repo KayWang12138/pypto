@@ -150,8 +150,6 @@ private:
     Status SetMemoryType(Function &function);
 
     Status ObtainReshapeSource(Function &function, const OpPara &para, LogicalTensorPtr &newReshapeSource);
-    Status AddReshapeRemoveView(Operation &op, const OpPara &para);
-    Status AddReshape(Operation &op, const OpPara &para);
     Status ObtainCopyOutTile(Function &function, const copyOutTilePara &copyOutTile, LogicalTensors &overlaps, LogicalTensors &newOverlaps);
     Status ConstructShapeOffset(const ReshapeTilePara &shapePara, size_t &i, size_t j, std::vector<int64_t> &newOffset, std::vector<int64_t> &newShape);
 
@@ -174,7 +172,9 @@ private:
     unsigned long ComputeReshapeHashOrderless(const LogicalTensorPtr &input, const LogicalTensorPtr &output) const;
     std::vector<int64_t> ObtainMapOffset(const LogicalTensorPtr &input, const LogicalTensorPtr &output) const;
 
-    Status GetOpDynShape(const std::shared_ptr<ReshapeOp> &op, std::vector<SymbolicScalar> &dynValidShape);
+    Status AddAssembleOp(const MemoryType &memoryType, const std::vector<int64_t> &outputOffset, const LogicalTensorPtr &input, const LogicalTensorPtr &output);
+    Status SetAssembleDynShape(const LogicalTensorPtr &input, const LogicalTensorPtr &output, const std::vector<int64_t> &toOffset);
+    Status GetReshapeDynShape(const std::shared_ptr<ReshapeOp> &op, std::vector<SymbolicScalar> &dynValidShape);
     Status GroupReshapeOffset(const std::shared_ptr<ReshapeOp> &isAddReshapeop, const std::vector<int64_t> &offset);
     Status UpdateDynShape(const std::shared_ptr<ReshapeOp> &reshapeOp, const std::vector<int64_t> &offset, const std::vector<SymbolicScalar> &dynShape);
     Status ObtainChangingAxis(std::vector<int64_t> alignedShape, std::vector<int64_t> input, std::vector<bool> &ChangingAxis);
@@ -190,7 +190,8 @@ private:
     std::unordered_map<int, std::vector<SymbolicScalar>> reshapeDynOutput;
     std::vector<AssembleOp> assembles;
     std::unordered_map<unsigned long, std::shared_ptr<ReshapeOp>> reshapes;
-    std::unordered_map<std::shared_ptr<ReshapeOp>, std::vector<int64_t>> startIdx;
+    std::unordered_map<std::shared_ptr<ReshapeOp>, std::vector<int64_t>> viewOffset;
+    std::unordered_map<LogicalTensorPtr, std::vector<int64_t>> reshapeOffset;
     std::unordered_set<Operation *> redundantViewops;
     std::unordered_map<OverlaprawMagic, std::shared_ptr<RawTensor>> reshapeRawOutputs;
     std::unordered_map<OverlaprawMagic, std::shared_ptr<RawTensor>> reshapeRawInputs;

@@ -83,12 +83,12 @@ Status RemoveRedundantOpChecker::PostCheckAssemble(const Operation &op) {
     if (assemble_in->shape == assemble_out->shape) {
         if (assemble_in->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
             assemble_out->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-            ALOG_ERROR_F("PostCheck for assembleDDR op[%d] failed with the same shape!", op.GetOpMagic());
+            ALOG_ERROR_F("PostCheck for assembleDDR (both input and output are memorytype DDR) op[%d] failed. Input and output has the same shape!", op.GetOpMagic());
             return FAILED;
         }
         if (assemble_in->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
             assemble_out->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-            ALOG_ERROR_F("PostCheck for assembleUB op[%d] failed with the same shape!", op.GetOpMagic());
+            ALOG_ERROR_F("PostCheck for assembleUB (both input and output are memorytype UB) op[%d] failed. Input and output has the same shape!", op.GetOpMagic());
             return FAILED;
         }
     }
@@ -123,7 +123,7 @@ Status RemoveRedundantOpChecker::PostCheckRegCopy(const Operation &op) {
     auto regcopy_in = op.iOperand.front();
     auto regcopy_out = op.oOperand.front();
     if (regcopy_in->shape == regcopy_out->shape && regcopy_in->GetMemoryTypeOriginal() == regcopy_out->GetMemoryTypeOriginal()) {
-        ALOG_ERROR_F("PostCheck for regcopy op[%d] failed, in->shape == out->shape!", op.GetOpMagic());
+        ALOG_ERROR_F("PostCheck for regcopy op[%d] failed, the shape of input equals to the output!", op.GetOpMagic());
         return FAILED;
     }
     return SUCCESS;
@@ -145,7 +145,7 @@ Status RemoveRedundantOpChecker::PostCheckCopyIn(const Operation &op) {
             }
         }
         if (isRedundant) {
-            ALOG_ERROR_F("PostCheck for copyin op[%d] failed!", op.GetOpMagic());
+            ALOG_ERROR_F("PostCheck for copyin op[%d] failed, the producers of the op are view!", op.GetOpMagic());
             return FAILED;
         }
     }
@@ -156,7 +156,7 @@ Status RemoveRedundantOpChecker::PostCheckExpand(const Operation &op) {
     auto expand_in = op.iOperand.front();
     auto expand_out = op.oOperand.front();
     if (expand_in->shape == expand_out->shape) {
-        ALOG_ERROR_F("PostCheck for expand op[%d] failed!", op.GetOpMagic());
+        ALOG_ERROR_F("PostCheck for expand op[%d] failed, the shape of input equals to the output!", op.GetOpMagic());
         return FAILED;
     }
     return SUCCESS;

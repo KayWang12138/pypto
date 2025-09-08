@@ -1367,6 +1367,8 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedWithallSTest) {
                                  {a0,a1,1,2}
 {2,2,2} -> assemble -> {2,2,2} -> reshape -> {2,2,1,2} -> view -> {2,2,1,2}
 {2,2,2} -> assemble -> {2,2,2} -> reshape -> {2,2,1,2} -> view -> {2,2,1,2}
+{a0,a1,2}             {a0,a1,2}              {a0,a1,1,2}
+{a0,a1,2}             {a0,a1,2}              {a0,a1,1,2}
 */
 TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
     auto func = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
@@ -1381,12 +1383,13 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
     std::vector<int64_t> viewOffset1 = {kNumZero, kNumZero, kNumZero, kNumZero};
     std::vector<int64_t> viewOffset2 = {kNumZero, kNumZero, kNumZero, kNumTwo};
     std::vector<SymbolicScalar> validShape = {SymbolicScalar("a0"), SymbolicScalar("a1"), kNumOne, kNumFour};
-
+    std::vector<SymbolicScalar> dynInputShape = {SymbolicScalar("a0"), SymbolicScalar("a1"), kNumTwo};
+    
     std::shared_ptr<RawTensor> ddrRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape2);
     std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape3);
-    auto input1 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset1, shape1);
+    auto input1 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset1, shape1, dynInputShape);
     input1->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    auto input2 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset2, shape1);
+    auto input2 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset2, shape1, dynInputShape);
     input2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
     auto ubTensor1 = std::make_shared<LogicalTensor>(*func, DT_FP32, shape2);
     ubTensor1->SetMemoryTypeOriginal(MemoryType::MEM_UNKNOWN, false);
@@ -1396,7 +1399,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
     output1->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
     auto output2 = std::make_shared<LogicalTensor>(*func, ddrRawTensor2, viewOffset2, shape4);
     output2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-
+    
     auto &assemble_op1 = func->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
     auto assemble_Attr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset1);
     assemble_op1.SetOpAttribute(assemble_Attr1);
@@ -1447,43 +1450,68 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
     EXPECT_EQ(viewOp, kNumTwo);
 
     EXPECT_EQ(assembleOp, 11);
+    auto assembleDynValidShape1 = dynamic_cast<AssembleOpAttribute *>(newAssemble1->GetOpAttribute().get())->GetFromDynValidShape();
+    auto assembleDynValidShape2 = dynamic_cast<AssembleOpAttribute *>(newAssemble1->GetOpAttribute().get())->GetFromDynValidShape();
+    EXPECT_EQ(assembleDynValidShape1.size(), kNumThree);
+    EXPECT_EQ(assembleDynValidShape2.size(), kNumThree);
+    for (size_t i = 0; i < kNumThree; ++i) {
+        EXPECT_EQ(assembleDynValidShape1[i].Dump(), dynInputShape[i].Dump());
+        EXPECT_EQ(assembleDynValidShape2[i].Dump(), dynInputShape[i].Dump());
+    }
 
+    auto assembleOpAttribute1 = dynamic_cast<AssembleOpAttribute *>(newAssemble1->GetOpAttribute().get());
+    EXPECT_EQ(assembleOpAttribute1->GetToOffset(), assembleOffset1);
+    auto assembleOpAttribute2 = dynamic_cast<AssembleOpAttribute *>(newAssemble2->GetOpAttribute().get());
+    EXPECT_EQ(assembleOpAttribute2->GetToOffset(), assembleOffset2);
+    
     auto reshapeSource1 = newAssemble1->GetOutputOperand(kSizeZero);
     auto reshapeSource2 = newAssemble2->GetOutputOperand(kSizeZero);
     EXPECT_NE(reshapeSource1, reshapeSource2);
+    std::vector<SymbolicScalar> assembleDynOutput1 = reshapeSource1->GetDynValidShape();
+    std::vector<SymbolicScalar> assembleDynOutput2 = reshapeSource2->GetDynValidShape();
+    EXPECT_EQ(assembleDynOutput1.size(), kNumThree);
+    std::vector<std::string> expectAssembleDynShape = {
+        "RUNTIME_Max(0, (a0*(a0!=0)))",
+        "RUNTIME_Max(0, (a1*(a1!=0)))",
+        "2"
+    };
+    for (size_t i = 0; i < kNumThree; ++i) {
+        EXPECT_EQ(assembleDynOutput1[i].Dump(), expectAssembleDynShape[i]);
+    }
+    EXPECT_EQ(assembleDynOutput2.size(), kNumThree);
+    for (size_t i = 0; i < kNumThree; ++i) {
+        EXPECT_EQ(assembleDynOutput2[i].Dump(), expectAssembleDynShape[i]);
+    }
+
     auto reshape1 = *(reshapeSource1->GetConsumers().begin());
     auto reshape2 = *(reshapeSource2->GetConsumers().begin());
     EXPECT_NE(reshape1, reshape2);
-
-    std::vector<SymbolicScalar> reshapeDynOutput1;
-    std::vector<SymbolicScalar> reshapeDynOutput2;
-    EXPECT_TRUE(reshape1->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeDynOutput1));
-    EXPECT_TRUE(reshape2->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeDynOutput2));
-
-    EXPECT_EQ(reshapeDynOutput1.size(), kNumFour);
-    std::vector<std::string> expectValidShape1 = {
-        "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a0,0,2)*(RUNTIME_GetViewValidShapeDim(a0,0,2)!=0))-0))",
-        "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a1,0,2)*(RUNTIME_GetViewValidShapeDim(a1,0,2)!=0))-0))",
-        "1",
-        "2"
-    };
-    for (size_t i = 0; i < kNumFour; ++i) {
-        EXPECT_EQ(reshapeDynOutput1[i].Dump(), expectValidShape1[i]);
-    }
-
-    EXPECT_EQ(reshapeDynOutput2.size(), kNumFour);
-    std::vector<std::string> expectValidShape2 = {
-        "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a0,0,2)*(RUNTIME_GetViewValidShapeDim(a0,0,2)!=0))-0))",
-        "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a1,0,2)*(RUNTIME_GetViewValidShapeDim(a1,0,2)!=0))-0))",
-        "1",
-        "2"
-    };
-    for (size_t i = 0; i < kNumFour; ++i) {
-        EXPECT_EQ(reshapeDynOutput2[i].Dump(), expectValidShape2[i]);
-    }
-
     auto reshapeOutput1 = reshape1->GetOutputOperand(kSizeZero);
     auto reshapeOutput2 = reshape2->GetOutputOperand(kSizeZero);
+
+    std::vector<SymbolicScalar> reshapeAttrValidShape1;
+    std::vector<SymbolicScalar> reshapeAttrValidShape2;
+    std::vector<SymbolicScalar> reshapeDynOutput1 = reshapeOutput1->GetDynValidShape();
+    std::vector<SymbolicScalar> reshapeDynOutput2 = reshapeOutput2->GetDynValidShape();
+    EXPECT_TRUE(reshape1->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeAttrValidShape1));
+    EXPECT_TRUE(reshape2->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeAttrValidShape2));
+    EXPECT_EQ(reshapeDynOutput1.size(), kNumFour);
+    EXPECT_EQ(reshapeDynOutput2.size(), kNumFour);
+    EXPECT_EQ(reshapeAttrValidShape1.size(), kNumFour);
+    EXPECT_EQ(reshapeAttrValidShape2.size(), kNumFour);
+    std::vector<std::string> expectReshapeDynShape = {
+        "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a0,0,2)*(RUNTIME_GetViewValidShapeDim(a0,0,2)!=0))-0))",
+        "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a1,0,2)*(RUNTIME_GetViewValidShapeDim(a1,0,2)!=0))-0))",
+        "1",
+        "2"
+    };
+    for (size_t i = 0; i < kNumFour; ++i) {
+        EXPECT_EQ(reshapeDynOutput1[i].Dump(), expectReshapeDynShape[i]);
+        EXPECT_EQ(reshapeDynOutput2[i].Dump(), expectReshapeDynShape[i]);
+        EXPECT_EQ(reshapeAttrValidShape1[i].Dump(), expectReshapeDynShape[i]);
+        EXPECT_EQ(reshapeAttrValidShape2[i].Dump(), expectReshapeDynShape[i]);
+    }
+
     EXPECT_NE(reshapeOutput1, reshapeOutput2);
     auto view1 = *(reshapeOutput1->GetConsumers().begin());
     auto view2 = *(reshapeOutput2->GetConsumers().begin());
@@ -1498,14 +1526,15 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
 {2,2,2} -> assemble                                -> view -> {2,2}
                                                    -> view -> {2,2}
                                                    -> view -> {2,2}
-                                    {4,a}
+{2,2,a}                            {4,a}
 2) splitreshape
                                     {4, Max(0, GetViewValidShapeDim(a,0,2))}
                                                    -> view -> {2,2}
 {2,2,2} -> assemble -> {2,2,2} -> reshape -> {4,2} -> view -> {2,2}
 {2,2,2} -> assemble -> {2,2,2} -> reshape -> {4,2} -> view -> {2,2}
                                                    -> view -> {2,2}
-                                    {4, Max(0, GetViewValidShapeDim(a,2,2))}
+{2,2,a}                {2,2,a}               {4,a}           
+                   {4, Max(0, GetViewValidShapeDim(a,2,2))}
 */
 TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
     auto func = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
@@ -1522,13 +1551,16 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
     std::vector<int64_t> viewOffset3 = {kNumTwo, kNumZero};
     std::vector<int64_t> viewOffset4 = {kNumTwo, kNumTwo};
     std::vector<SymbolicScalar> validShape = {kNumFour, SymbolicScalar("a")};
+    std::vector<SymbolicScalar> dynInputShape = {kNumTwo, kNumTwo, SymbolicScalar("a")};
 
     std::shared_ptr<RawTensor> ddrRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape2);
     std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape3);
     auto input1 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset1, shape1);
     input1->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+    input1->UpdateDynValidShape(dynInputShape);
     auto input2 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset2, shape1);
     input2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+    input2->UpdateDynValidShape(dynInputShape);
     auto ubTensor1 = std::make_shared<LogicalTensor>(*func, DT_FP32, shape2);
     ubTensor1->SetMemoryTypeOriginal(MemoryType::MEM_UNKNOWN, false);
     auto ubTensor2 = std::make_shared<LogicalTensor>(*func, DT_FP32, shape3);
@@ -1600,39 +1632,66 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
     EXPECT_EQ(viewOp, kNumFour);
 
     EXPECT_EQ(assembleOp, 11);
+    auto assembleDynValidShape1 = dynamic_cast<AssembleOpAttribute *>(newAssemble1->GetOpAttribute().get())->GetFromDynValidShape();
+    auto assembleDynValidShape2 = dynamic_cast<AssembleOpAttribute *>(newAssemble1->GetOpAttribute().get())->GetFromDynValidShape();
+    EXPECT_EQ(assembleDynValidShape1.size(), kNumThree);
+    EXPECT_EQ(assembleDynValidShape2.size(), kNumThree);
+    for (size_t i = 0; i < kNumThree; ++i) {
+        EXPECT_EQ(assembleDynValidShape1[i].Dump(), dynInputShape[i].Dump());
+        EXPECT_EQ(assembleDynValidShape2[i].Dump(), dynInputShape[i].Dump());
+    }
 
     auto reshapeSource1 = newAssemble1->GetOutputOperand(kSizeZero);
     auto reshapeSource2 = newAssemble2->GetOutputOperand(kSizeZero);
     EXPECT_NE(reshapeSource1, reshapeSource2);
+    std::vector<SymbolicScalar> assembleDynOutput1 = reshapeSource1->GetDynValidShape();
+    std::vector<SymbolicScalar> assembleDynOutput2 = reshapeSource2->GetDynValidShape();
+    EXPECT_EQ(assembleDynOutput1.size(), kNumThree);
+    std::vector<std::string> expectAssembleDynShape = {
+        "2",
+        "2",
+        "RUNTIME_Max(0, (a*(a!=0)))"
+    };
+    for (size_t i = 0; i < kNumThree; ++i) {
+        EXPECT_EQ(assembleDynOutput1[i].Dump(), expectAssembleDynShape[i]);
+    }
+    EXPECT_EQ(assembleDynOutput2.size(), kNumThree);
+    for (size_t i = 0; i < kNumThree; ++i) {
+        EXPECT_EQ(assembleDynOutput2[i].Dump(), expectAssembleDynShape[i]);
+    }
+
     auto reshape1 = *(reshapeSource1->GetConsumers().begin());
     auto reshape2 = *(reshapeSource2->GetConsumers().begin());
     EXPECT_NE(reshape1, reshape2);
+    auto reshapeOutput1 = reshape1->GetOutputOperand(kSizeZero);
+    auto reshapeOutput2 = reshape2->GetOutputOperand(kSizeZero);
 
-    std::vector<SymbolicScalar> reshapeDynOutput1;
-    std::vector<SymbolicScalar> reshapeDynOutput2;
-    EXPECT_TRUE(reshape1->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeDynOutput1));
-    EXPECT_TRUE(reshape2->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeDynOutput2));
-
+    std::vector<SymbolicScalar> reshapeAttrValidShape1;
+    std::vector<SymbolicScalar> reshapeAttrValidShape2;
+    std::vector<SymbolicScalar> reshapeDynOutput1 = reshapeOutput1->GetDynValidShape();
+    std::vector<SymbolicScalar> reshapeDynOutput2 = reshapeOutput2->GetDynValidShape();
+    EXPECT_TRUE(reshape1->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeAttrValidShape1));
+    EXPECT_TRUE(reshape2->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeAttrValidShape2));
+    
     EXPECT_EQ(reshapeDynOutput1.size(), kNumTwo);
+    EXPECT_EQ(reshapeDynOutput2.size(), kNumTwo);
+    EXPECT_EQ(reshapeAttrValidShape1.size(), kNumTwo);
+    EXPECT_EQ(reshapeAttrValidShape2.size(), kNumTwo);
     std::vector<std::string> expectValidShape1 = {
         "4",
         "RUNTIME_Max(RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a,0,2)*(RUNTIME_GetViewValidShapeDim(a,0,2)!=0))-0)), ((RUNTIME_GetViewValidShapeDim(a,0,2)*(RUNTIME_GetViewValidShapeDim(a,0,2)!=0))-0))"
     };
-    for (size_t i = 0; i < kNumTwo; ++i) {
-        EXPECT_EQ(reshapeDynOutput1[i].Dump(), expectValidShape1[i]);
-    }
-
-    EXPECT_EQ(reshapeDynOutput2.size(), kNumTwo);
     std::vector<std::string> expectValidShape2 = {
         "4",
         "RUNTIME_Max(RUNTIME_Max(0, (((RUNTIME_GetViewValidShapeDim(a,2,2)+2)*(RUNTIME_GetViewValidShapeDim(a,2,2)!=0))-2)), (((RUNTIME_GetViewValidShapeDim(a,2,2)+2)*(RUNTIME_GetViewValidShapeDim(a,2,2)!=0))-2))"
     };
     for (size_t i = 0; i < kNumTwo; ++i) {
+        EXPECT_EQ(reshapeDynOutput1[i].Dump(), expectValidShape1[i]);
         EXPECT_EQ(reshapeDynOutput2[i].Dump(), expectValidShape2[i]);
+        EXPECT_EQ(reshapeAttrValidShape1[i].Dump(), expectValidShape1[i]);
+        EXPECT_EQ(reshapeAttrValidShape2[i].Dump(), expectValidShape2[i]);
     }
 
-    auto reshapeOutput1 = reshape1->GetOutputOperand(kSizeZero);
-    auto reshapeOutput2 = reshape2->GetOutputOperand(kSizeZero);
     std::vector<int64_t> expectedShape = {kNumFour, kNumTwo};
     EXPECT_EQ(reshapeOutput1->shape, expectedShape);
     EXPECT_EQ(reshapeOutput2->shape, expectedShape);
@@ -1652,16 +1711,17 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
 验证多对一场景下动态shape的兜底策略
 因为缺乏宏构建策略，手动构造expandfunction的输出构图
 1) 用例设置：
-{2,2,2} -> assemble -> {8,2,2} -> reshape -> {2,4,2,2} -> view -> {2,2,2,2}
+{2,2,2} -> assemble -> {2,8,2} -> reshape -> {2,4,2,2} -> view -> {2,2,2,2}
 {2,2,2} -> assemble                                    -> view -> {2,2,2,2}
 {2,2,2} -> assemble
 {2,2,2} -> assemble
-                                 {2,4,2,a}
+{2,2,a}                         {2,4,2,a}
 2) splitreshape
 {2,2,2} -> assemble ->
 {2,2,2} -> assemble -> reshape -> {2,2,2,2} -> view -> {2,2,2,2}
 {2,2,2} -> assemble -> reshape -> {2,2,2,2} -> view -> {2,2,2,2}
 {2,2,2} -> assemble ->
+{2,2,a}           {2,4,a}         {2,2,2,a}       
                         {2,2,2,Max(0, RUNTIME_GetViewValidShapeDim(a,0,2))}
 */
 TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
@@ -1679,16 +1739,17 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
     std::vector<int64_t> viewOffset1 = {kNumZero, kNumZero, kNumZero, kNumZero};
     std::vector<int64_t> viewOffset2 = {kNumZero, kNumTwo, kNumZero, kNumZero};
     std::vector<SymbolicScalar> validShape = {kNumTwo, kNumFour, kNumTwo, SymbolicScalar("a")};
-
+    std::vector<SymbolicScalar> dynInputShape = {kNumTwo, kNumTwo, SymbolicScalar("a")};
+    
     std::shared_ptr<RawTensor> ddrRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape2);
     std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape3);
-    auto input1 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset1, shape1);
+    auto input1 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset1, shape1, dynInputShape);
     input1->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    auto input2 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset2, shape1);
+    auto input2 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset2, shape1, dynInputShape);
     input2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    auto input3 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset3, shape1);
+    auto input3 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset3, shape1, dynInputShape);
     input3->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    auto input4 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset4, shape1);
+    auto input4 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset4, shape1, dynInputShape);
     input4->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
     auto ubTensor1 = std::make_shared<LogicalTensor>(*func, DT_FP32, shape2);
     ubTensor1->SetMemoryTypeOriginal(MemoryType::MEM_UNKNOWN, false);
@@ -1771,39 +1832,64 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
     auto reshapeSource1 = newAssemble1->GetOutputOperand(kSizeZero);
     auto reshapeSource2 = newAssemble4->GetOutputOperand(kSizeZero);
     EXPECT_NE(reshapeSource1, reshapeSource2);
+
+    auto assembleDynValidShape1 = dynamic_cast<AssembleOpAttribute *>(newAssemble1->GetOpAttribute().get())->GetFromDynValidShape();
+    auto assembleDynValidShape2 = dynamic_cast<AssembleOpAttribute *>(newAssemble1->GetOpAttribute().get())->GetFromDynValidShape();
+    auto assembleDynValidShape3 = dynamic_cast<AssembleOpAttribute *>(newAssemble1->GetOpAttribute().get())->GetFromDynValidShape();
+    auto assembleDynValidShape4 = dynamic_cast<AssembleOpAttribute *>(newAssemble1->GetOpAttribute().get())->GetFromDynValidShape();
+    EXPECT_EQ(assembleDynValidShape1.size(), kNumThree);
+    EXPECT_EQ(assembleDynValidShape2.size(), kNumThree);
+    EXPECT_EQ(assembleDynValidShape3.size(), kNumThree);
+    EXPECT_EQ(assembleDynValidShape4.size(), kNumThree);
+    for (size_t i = 0; i < kNumThree; ++i) {
+        EXPECT_EQ(assembleDynValidShape1[i].Dump(), dynInputShape[i].Dump());
+        EXPECT_EQ(assembleDynValidShape2[i].Dump(), dynInputShape[i].Dump());
+        EXPECT_EQ(assembleDynValidShape3[i].Dump(), dynInputShape[i].Dump());
+        EXPECT_EQ(assembleDynValidShape4[i].Dump(), dynInputShape[i].Dump());
+    }
+
+    std::vector<SymbolicScalar> assembleDynOutput1 = reshapeSource1->GetDynValidShape();
+    std::vector<SymbolicScalar> assembleDynOutput2 = reshapeSource2->GetDynValidShape();
+    EXPECT_EQ(assembleDynOutput1.size(), kNumThree);
+    EXPECT_EQ(assembleDynOutput2.size(), kNumThree);
+    std::vector<std::string> expectAssembleDynShape = {
+        "2",
+        "4",
+        "RUNTIME_Max(RUNTIME_Max(0, (a*(a!=0))), (a*(a!=0)))"
+    };
+    for (size_t i = 0; i < kNumThree; ++i) {
+        EXPECT_EQ(assembleDynOutput1[i].Dump(), expectAssembleDynShape[i]);
+        EXPECT_EQ(assembleDynOutput2[i].Dump(), expectAssembleDynShape[i]);
+    }
+
     auto reshape1 = *(reshapeSource1->GetConsumers().begin());
     auto reshape2 = *(reshapeSource2->GetConsumers().begin());
     EXPECT_NE(reshape1, reshape2);
-
-    std::vector<SymbolicScalar> reshapeDynOutput1;
-    std::vector<SymbolicScalar> reshapeDynOutput2;
-    EXPECT_TRUE(reshape1->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeDynOutput1));
-    EXPECT_TRUE(reshape2->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeDynOutput2));
-
-    EXPECT_EQ(reshapeDynOutput1.size(), kNumFour);
-    std::vector<std::string> expectValidShape1 = {
-        "2",
-        "2",
-        "2",
-        "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a,0,2)*(RUNTIME_GetViewValidShapeDim(a,0,2)!=0))-0))"
-    };
-    for (size_t i = 0; i < kNumFour; ++i) {
-        EXPECT_EQ(reshapeDynOutput1[i].Dump(), expectValidShape1[i]);
-    }
-
-    EXPECT_EQ(reshapeDynOutput2.size(), kNumFour);
-    std::vector<std::string> expectValidShape2 = {
-        "2",
-        "2",
-        "2",
-        "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a,0,2)*(RUNTIME_GetViewValidShapeDim(a,0,2)!=0))-0))"
-    };
-    for (size_t i = 0; i < kNumFour; ++i) {
-        EXPECT_EQ(reshapeDynOutput2[i].Dump(), expectValidShape2[i]);
-    }
-
     auto reshapeOutput1 = reshape1->GetOutputOperand(kSizeZero);
     auto reshapeOutput2 = reshape2->GetOutputOperand(kSizeZero);
+    
+    std::vector<SymbolicScalar> reshapeAttrValidShape1;
+    std::vector<SymbolicScalar> reshapeAttrValidShape2;
+    std::vector<SymbolicScalar> reshapeDynOutput1 = reshapeOutput1->GetDynValidShape();
+    std::vector<SymbolicScalar> reshapeDynOutput2 = reshapeOutput2->GetDynValidShape();
+    EXPECT_TRUE(reshape1->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeAttrValidShape1));
+    EXPECT_TRUE(reshape2->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeAttrValidShape2));
+    
+    EXPECT_EQ(reshapeDynOutput1.size(), kNumFour);
+    EXPECT_EQ(reshapeDynOutput2.size(), kNumFour);
+    std::vector<std::string> expectValidShape = {
+        "2",
+        "2",
+        "2",
+        "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a,0,2)*(RUNTIME_GetViewValidShapeDim(a,0,2)!=0))-0))"
+    };
+    for (size_t i = 0; i < kNumFour; ++i) {
+        EXPECT_EQ(reshapeDynOutput1[i].Dump(), expectValidShape[i]);
+        EXPECT_EQ(reshapeDynOutput2[i].Dump(), expectValidShape[i]);
+        EXPECT_EQ(reshapeAttrValidShape1[i].Dump(), expectValidShape[i]);
+        EXPECT_EQ(reshapeAttrValidShape2[i].Dump(), expectValidShape[i]);
+    }
+
     EXPECT_NE(reshapeOutput1, reshapeOutput2);
     EXPECT_EQ(reshapeOutput1->GetConsumers().size(), kNumOne);
     EXPECT_EQ(reshapeOutput2->GetConsumers().size(), kNumOne);
