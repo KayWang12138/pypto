@@ -1,101 +1,46 @@
-cmake_minimum_required(VERSION 3.16.0)
-project(pypto)
-
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_BUILD_TYPE "Release")  # "Debug"
-
-# main ascendcpp path, now just need to point to parent dir, but can also be built as out-of-source extension
-if(NOT DEFINED ENV{ASCENDCPP_DIR})
-  message(FATAL_ERROR "ASCENDCPP_DIR is not set")
-else()
-  set(ASCENDCPP_DIR $ENV{ASCENDCPP_DIR})
-endif()
-
-message("***********************************************************")
-message("* ASCENDCPP_DIR             : ${ASCENDCPP_DIR}")
-message("***********************************************************")
-
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
 
 find_package(PythonLibs REQUIRED)
 find_package(pybind11 CONFIG REQUIRED)
 
-# AscendC++ libraries required from PyPTO
-set(ASCENDCPP_LIBS
-    tile_fwk_interface
-    tile_fwk_codegen
-    tile_fwk_operator
-    tile_fwk_compiler
-    tile_fwk_passes
-    tile_fwk_simulation
+pybind11_add_module(pto_fwk_py
+        MODULE
+            src/pybind11.cpp
+            src/bindings/enum.cpp
+            src/bindings/tensor.cpp
+            src/bindings/symbolic_scalar.cpp
+            src/bindings/controller.cpp
+            src/bindings/operation.cpp
 )
 
-foreach(LIB ${ASCENDCPP_LIBS})
-    find_library(${LIB} NAMES ${LIB}
-                            PATHS ${ASCENDCPP_DIR}/build/src/interface
-                                  ${ASCENDCPP_DIR}/build/src/operator
-                                  ${ASCENDCPP_DIR}/build/src/passes
-                                  ${ASCENDCPP_DIR}/build/src/machine
-                                  ${ASCENDCPP_DIR}/build/src/codegen
-                                  ${ASCENDCPP_DIR}/build/src/cost_model/simulation
-                            NO_DEFAULT_PATH)
-    if(${LIB})
-        message(STATUS "Found ${LIB}: ${${LIB}}")
-        list(APPEND FOUND_LIBS ${${LIB}})
-    else()
-        message(FATAL_ERROR "${LIB} not found")
-    endif()
-endforeach()
-
-set(BIND_SOURCES
-    "src/bindings/enum.cpp"
-    "src/bindings/tensor.cpp"
-    "src/bindings/symbolic_scalar.cpp"
-    "src/bindings/controller.cpp"
-    "src/bindings/operation.cpp"
+target_include_directories(pto_fwk_py
+        PRIVATE
+            src
 )
 
-pybind11_add_module(pto 
-  src/pybind11.cpp
-  ${BIND_SOURCES}
+target_link_libraries(pto_fwk_py
+        PRIVATE
+            c_sec
+            tile_fwk_passes
+            tile_fwk_interface
+            tile_fwk_codegen
+            tile_fwk_operator
+            tile_fwk_compiler
+            tile_fwk_simulation
+        PRIVATE
+            intf_pub_cxx17
+            tile_fwk_intf_pub
 )
 
-target_sources(pto PRIVATE
-  ${ASCENDCPP_DIR}/src
-)
-
-target_link_libraries(pto PRIVATE
-  c_sec
-  tile_fwk_passes
-  tile_fwk_interface
-  tile_fwk_codegen
-  tile_fwk_operator
-  tile_fwk_compiler
-  tile_fwk_simulation
-)
-
-target_link_directories(pto PRIVATE
-  ${ASCENDCPP_DIR}/build/src/passes
-  ${ASCENDCPP_DIR}/build/src/interface
-  ${ASCENDCPP_DIR}/build/src/operator
-  ${ASCENDCPP_DIR}/build/src/machine
-  ${ASCENDCPP_DIR}/build/src/codegen
-  ${ASCENDCPP_DIR}/build/src/cost_model/simulation
-  ${ASCENDCPP_DIR}/build/3rd/libboundscheck-v1.1.16/output/lib/
-)
-
-target_include_directories(pto PRIVATE
-  ${ASCENDCPP_DIR}/include
-  ${ASCENDCPP_DIR}/src
-  ${ASCENDCPP_DIR}/build/3rd/libboundscheck-v1.1.16/output/include/
-  ${ASCENDCPP_DIR}/pypto/src
-)
-
-target_compile_options(pto PRIVATE
-  -D_GLIBCXX_USE_CXX11_ABI=0
-)
-
-set_target_properties(pto PROPERTIES
-  LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}
-  CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE
+set_target_properties(pto_fwk_py
+        PROPERTIES
+            LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}
+            CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE
 )

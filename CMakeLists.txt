@@ -69,6 +69,7 @@ include(cmake/func.cmake)
 # 编译流程
 ########################################################################################################################
 
+# add_subdirectory(pypto)
 add_subdirectory(src)
 add_subdirectory(python/op_compile)
 
