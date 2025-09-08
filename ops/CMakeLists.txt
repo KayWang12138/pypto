@@ -88,10 +88,8 @@ if (BUILD_OPEN_PROJECT AND ENABLE_BUILD_HOST)
         protobuf_generate(tile_fwk_proto PROTO_SRCS PROTO_HDRS ${PROTO_LIST} TARGET)
 
         # op proto
-        add_library(opsproto_rt2.0 SHARED
-                ${PROTO_HDRS}
-                ${PROTO_SRCS}
-        )
+        add_library(opsproto_rt2.0 SHARED)
+        add_dependencies(opsproto_rt2.0 tile_fwk_proto)
         target_include_directories(opsproto_rt2.0 PRIVATE
                 ${CMAKE_BINARY_DIR}/proto/tile_fwk_proto
                 ${ASCEND_HOME_PATH}/include/experiment/runtime
@@ -99,6 +97,7 @@ if (BUILD_OPEN_PROJECT AND ENABLE_BUILD_HOST)
         )
         target_compile_options(opsproto_rt2.0 PRIVATE
                 -fvisibility=hidden
+                -Dgoogle=ascend_private
         )
         target_compile_definitions(opsproto_rt2.0 PRIVATE
                 LOG_CPP
@@ -130,10 +129,8 @@ if (BUILD_OPEN_PROJECT AND ENABLE_BUILD_HOST)
         )
 
         # op proto
-        add_library(opmaster_ct SHARED
-                ${PROTO_HDRS}
-                ${PROTO_SRCS}
-        )
+        add_library(opmaster_ct SHARED)
+        add_dependencies(opmaster_ct tile_fwk_proto)
         target_include_directories(opmaster_ct PRIVATE
                 ${CMAKE_BINARY_DIR}/proto/tile_fwk_proto
                 ${ASCEND_HOME_PATH}/include/experiment/runtime
@@ -141,6 +138,7 @@ if (BUILD_OPEN_PROJECT AND ENABLE_BUILD_HOST)
         )
         target_compile_options(opmaster_ct PRIVATE
                 -fvisibility=hidden
+                -Dgoogle=ascend_private
         )
         target_compile_definitions(opmaster_ct PRIVATE
                 LOG_CPP
@@ -173,8 +171,15 @@ if (BUILD_OPEN_PROJECT AND ENABLE_BUILD_HOST)
 
         # op tiling
         add_library(opmaster_rt2.0 SHARED)
+        add_dependencies(opmaster_rt2.0 tile_fwk_proto)
+        target_include_directories(opmaster_rt2.0 PRIVATE
+                ${CMAKE_BINARY_DIR}/proto/tile_fwk_proto
+                ${ASCEND_HOME_PATH}/include/experiment/runtime
+                ${ASCEND_HOME_PATH}/include/experiment/msprof
+        )
         target_compile_options(opmaster_rt2.0 PRIVATE
                 -fvisibility=hidden
+                -Dgoogle=ascend_private
         )
         target_compile_definitions(opmaster_rt2.0 PRIVATE
                 LOG_CPP
@@ -194,6 +199,7 @@ if (BUILD_OPEN_PROJECT AND ENABLE_BUILD_HOST)
                 register
                 alog
                 error_manager
+                ascend_protobuf
                 -Wl,--as-needed
                 -Wl,--whole-archive
                 -Wl,--no-whole-archive

@@ -105,7 +105,6 @@ target_include_directories(metadef_headers INTERFACE
     ${metadef_PREFIX}/third_party/transformer
     ${metadef_PREFIX}/third_party/transformer/inc
     ${metadef_PREFIX}/graph
-    ${metadef_PREFIX}/graph/debug
     ${metadef_PREFIX}/register
     ${metadef_PREFIX}/register/op_tiling
 )

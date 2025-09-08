@@ -7,6 +7,12 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
+## find slog
+if (BUILD_OPEN_PROJECT)
+    list(APPEND CMAKE_PREFIX_PATH ${ASCEND_CANN_PACKAGE_PATH})
+    list(APPEND CMAKE_MODULE_PATH ${TILE_FWK_SRC_ROOT}/cmake/modules)
+    find_package(slog MODULE REQUIRED)
+endif()
 
 file(GLOB_RECURSE _Executor_Srcs *.cpp)
 add_library(tile_fwk_executor SHARED)
@@ -42,7 +48,8 @@ target_link_libraries(tile_fwk_executor
             $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>
         PRIVATE
             intf_pub_cxx17
-            tile_fwk_intf_pub 
+            tile_fwk_intf_pub
+            slog
 )
 
 TileFwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_executor)

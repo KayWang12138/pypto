@@ -12,7 +12,7 @@
 #include "runtime/rt.h"
 #include "runtime/rt_preload_task.h"
 #include "driver/ascend_hal_define.h"
-#include "interface/utils/log.h"
+#include "tile_fwk_log.h"
 
 namespace npu::tile_fwk {
 namespace {
@@ -27,7 +27,7 @@ bool GetPgmsk(const int32_t deviceId, uint64_t &valid) {
   auto halFuncDevInfo = (int (*)(uint32_t deviceId, int32_t moduleType, int32_t infoType,
                          void* buf, int32_t *size))dlsym(nullptr, "halGetDeviceInfoByBuff");
   if (halFuncDevInfo == nullptr) {
-    ALOG_ERROR_F("Failed to find halGetDeviceInfoByBuff function.\n");
+    TILE_FWK_LOGE("Failed to find halGetDeviceInfoByBuff function.\n");
     return false;
   }
   auto ret = halFuncDevInfo(static_cast<uint32_t>(deviceId), MODULE_TYPE_AI_CORE, INFO_TYPE_OCCUPY,
@@ -42,16 +42,16 @@ bool GetPgmsk(const int32_t deviceId, uint64_t &valid) {
 AicoreRtManager::AicoreRtManager() {}
 
 AicoreRtManager::~AicoreRtManager() {
-    ALOG_DEBUG_F("DeInit with mem size %zu.", allocated_addrs_.size());
+    TILE_FWK_LOGD("DeInit with mem size %zu.", allocated_addrs_.size());
     BatchFreeDevAddr(allocated_addrs_);
     cache_hidden_input_map_.clear();
 }
 
 bool AicoreRtManager::AllocDevAddr(void **dev_addr, size_t size, std::vector<void *> &allocated_addrs) {
-  ALOG_DEBUG_F("Alloc size is %zu.", size);
+  TILE_FWK_LOGD("Alloc size is %zu.", size);
   int res = rtMalloc(dev_addr, size, RT_MEMORY_HBM, 0);
   if (res != 0) {
-    ALOG_ERROR_F("Failed to alloc mem with size %zu.");
+    TILE_FWK_LOGE("Failed to alloc mem with size %zu.");
     return false;
   }
   allocated_addrs.emplace_back(*dev_addr);
@@ -83,7 +83,7 @@ int64_t* AicoreRtManager::GetHiddenInputCache(const int64_t &cache_id) const {
   if (iter == cache_hidden_input_map_.end()) {
     return nullptr;
   }
-  ALOG_DEBUG_F("Cache %ld hit hidden input.", cache_id);
+  TILE_FWK_LOGD("Cache %ld hit hidden input.", cache_id);
   return iter->second;
 }
 
@@ -92,10 +92,10 @@ bool AicoreRtManager::GetAicoreRegInfo(const int32_t device_id, std::vector<int6
   int nrSubCore = 3;
   uint64_t valid = 0;
   if (!GetPgmsk(device_id, valid)) {
-      ALOG_ERROR_F("Failed to get device info or no valid core exists.");
+      TILE_FWK_LOGE("Failed to get device info or no valid core exists.");
       return false;
   }
-  ALOG_INFO_F("The valid cores are %ld", valid);
+  TILE_FWK_LOGD("The valid cores are %ld", valid);
   uint64_t coreStride = 8 * 1024 * 1024; // 8M
   uint64_t subCoreStride = 0x100000ULL;  
   auto isValid = [&valid](int id) {
@@ -105,7 +105,7 @@ bool AicoreRtManager::GetAicoreRegInfo(const int32_t device_id, std::vector<int6
   auto halFunc = (int (*)(int type, void *paramValue, size_t paramValueSize, void *outValue,
       size_t *outSizeRet))dlsym(nullptr, "halMemCtl");
   if (halFunc == nullptr) {
-    ALOG_ERROR_F("Failed to find halMemCtlSpeical function.");
+    TILE_FWK_LOGE("Failed to find halMemCtlSpeical function.");
     return false;
   }  
   struct AddrMapInPara inMapPara;
@@ -115,7 +115,7 @@ bool AicoreRtManager::GetAicoreRegInfo(const int32_t device_id, std::vector<int6
   auto ret = halFunc(0, reinterpret_cast<void *>(&inMapPara), sizeof(struct AddrMapInPara),
       reinterpret_cast<void *>(&outMapPara), nullptr);
   if (ret != 0) {
-    ALOG_ERROR_F("CTRL_TYPE_ADDR_MAP fail. (ret=%d).", ret);
+    TILE_FWK_LOGE("CTRL_TYPE_ADDR_MAP fail. (ret=%d).", ret);
     return false;
   }
   for (int i = 0; i < nrCore; i++) {
@@ -143,25 +143,25 @@ bool AicoreRtManager::InitDyBinData(const std::vector<int64_t> &aic, const std::
   regs.insert(regs.end(), aiv.begin(), aiv.end());
   size_t shared_size = regs.size() * SHARE_BUFFER_SIZE;
   if (!AllocDevAddr((void**)&host_args->devArgs.sharedBuffer, shared_size, allocated_addrs)) {
-    ALOG_ERROR_F("Failed to alloc shared buffer.");
+    TILE_FWK_LOGE("Failed to alloc shared buffer.");
     return false;
   }
   if (rtMemset((void*)host_args->devArgs.sharedBuffer, shared_size, 0U, shared_size) != RT_ERROR_NONE) {
-    ALOG_ERROR_F("Failed to copy shared buffer to device.");
+    TILE_FWK_LOGE("Failed to copy shared buffer to device.");
     return false;
   }
 
   size_t core_reg_size = regs.size() * sizeof(uint64_t);
   if (!AllocDevAddr((void**)&host_args->devArgs.coreRegAddr, core_reg_size, allocated_addrs)) {
-    ALOG_ERROR_F("Failed to alloc core reg addr.");
+    TILE_FWK_LOGE("Failed to alloc core reg addr.");
     return false;
   }
   if (rtMemcpy((void*)host_args->devArgs.coreRegAddr, core_reg_size, regs.data(), core_reg_size, 
       RT_MEMCPY_HOST_TO_DEVICE) != RT_ERROR_NONE) {
-    ALOG_ERROR_F("Failed to copy core reg addr to device.");
+    TILE_FWK_LOGE("Failed to copy core reg addr to device.");
     return false;
   }
-  ALOG_DEBUG_F("DevAscendProgram: aic %lu, aiv %lu, block dim %lu, sharedBuffer %lx, coreRegAddr %lx, workspace %lu.",
+  TILE_FWK_LOGD("DevAscendProgram: aic %lu, aiv %lu, block dim %lu, sharedBuffer %lx, coreRegAddr %lx, workspace %lu.",
                host_args->devArgs.nrAic, host_args->devArgs.nrAiv, host_args->devArgs.nrValidAic,
                host_args->devArgs.sharedBuffer, host_args->devArgs.coreRegAddr, host_args->workspaceSize);
   return true;
@@ -180,32 +180,32 @@ int64_t* AicoreRtManager::TileFwkHiddenInput(const std::vector<uint8_t> &op_bin,
   int32_t device_id = 0;
   rtGetDevice(&device_id);
   (void)rtGetL2CacheOffset(device_id, &host_args->l2CacheOffset);
-  ALOG_DEBUG_F("L2 cache offset of device id [%d] is [%lu].", device_id, host_args->l2CacheOffset);
+  TILE_FWK_LOGD("L2 cache offset of device id [%d] is [%lu].", device_id, host_args->l2CacheOffset);
 
   std::vector<int64_t> aic;
   std::vector<int64_t> aiv;
   if (!GetAicoreRegInfo(device_id, aic, aiv)) {
-    ALOG_ERROR_F("Failed to get aicore reg info.");
+    TILE_FWK_LOGE("Failed to get aicore reg info.");
     return nullptr;
   }
-  ALOG_DEBUG_F("After get aicore reg info, size of aic and aiv is [%zu] and [%zu].", aic.size(), aiv.size());
+  TILE_FWK_LOGD("After get aicore reg info, size of aic and aiv is [%zu] and [%zu].", aic.size(), aiv.size());
 
   std::vector<void *> allocated_addrs;
   if (!InitDyBinData(aic, aiv, host_args, allocated_addrs)) {
-    ALOG_ERROR_F("Failed to init bin data.");
+    TILE_FWK_LOGE("Failed to init bin data.");
     BatchFreeDevAddr(allocated_addrs);
     return nullptr;
   }
 
   int64_t *dev_args = nullptr;
   if (!AllocDevAddr((void**)&dev_args, op_bin_copy.size(), allocated_addrs)) {
-    ALOG_ERROR_F("Failed to alloc dev args.");
+    TILE_FWK_LOGE("Failed to alloc dev args.");
     BatchFreeDevAddr(allocated_addrs);
     return nullptr;
   }
   if (rtMemcpy(dev_args, op_bin_copy.size(), (void*)op_bin_copy.data(), op_bin_copy.size(), RT_MEMCPY_HOST_TO_DEVICE) !=
       RT_ERROR_NONE) {
-    ALOG_ERROR_F("Failed to copy bin data to device.");
+    TILE_FWK_LOGE("Failed to copy bin data to device.");
     BatchFreeDevAddr(allocated_addrs);
     return nullptr;
   }
