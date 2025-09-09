@@ -337,6 +337,10 @@ function(TileFwk_STest_AddExe_RunExe)
             SOURCES                     ${_Sources}
             PRIVATE_LINK_LIBRARIES      ${TileFwkSTestNamePrefix}_intf_pub tile_fwk_compiler ${TileFwkSTestCaseLibraries}
     )
+    # PyPTO
+    if (TARGET pto)
+        add_dependencies(${TMP_TARGET} pto)
+    endif ()
 
     #
     # 执行

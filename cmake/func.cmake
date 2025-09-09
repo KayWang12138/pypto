@@ -117,3 +117,26 @@ function(TileFwk_AnalysisTargetHeaderFiles)
         )
     endif ()
 endfunction()
+
+function(PTO_Fwk_AnalysisPython3Environ OUT_VALUE)
+    cmake_parse_arguments(
+            ARG
+            "GET_PYBIND11_DIR"
+            ""
+            ""
+            ""
+            ${ARGN}
+    )
+    get_filename_component(_PyScript "${TILE_FWK_SRC_ROOT}/cmake/scripts/analysis_python3_environ.py" REALPATH)
+    set(_Args "-e=${Python3_EXECUTABLE}")
+    if (ARG_GET_PYBIND11_DIR)
+        list(APPEND _Args "--print_pybind11_dir")
+    else ()
+    endif ()
+    execute_process(
+            COMMAND ${TILE_FWK_PYTHON3_EXE} ${_PyScript} ${_Args}
+            OUTPUT_VARIABLE OutVariable
+            # RESULT_VARIABLE RstVariable
+    )
+    set(${OUT_VALUE} ${OutVariable} PARENT_SCOPE)
+endfunction()

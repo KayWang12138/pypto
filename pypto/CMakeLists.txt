@@ -7,9 +7,6 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
-find_package(PythonLibs REQUIRED)
-find_package(pybind11 CONFIG REQUIRED)
-
 pybind11_add_module(pto
         MODULE
             src/pybind11.cpp
@@ -27,7 +24,7 @@ target_include_directories(pto
 
 target_link_libraries(pto
         PRIVATE
-            c_sec
+            $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
             tile_fwk_passes
             tile_fwk_interface
             tile_fwk_codegen

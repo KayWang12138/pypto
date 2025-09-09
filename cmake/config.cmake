@@ -14,7 +14,7 @@
 
 # Python3
 if (NOT DEFINED Python3_EXECUTABLE)
-    find_package(Python3)
+    find_package(Python3 COMPONENTS Development Interpreter)
     if ((NOT Python3_FOUND) OR (${Python3_EXECUTABLE} STREQUAL ""))
         message(FATAL_ERROR "Can't find python3.")
     endif ()

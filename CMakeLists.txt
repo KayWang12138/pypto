@@ -69,7 +69,11 @@ include(cmake/func.cmake)
 # 编译流程
 ########################################################################################################################
 
-# add_subdirectory(pypto)
+PTO_Fwk_AnalysisPython3Environ(pybind11_DIR GET_PYBIND11_DIR)
+if ((NOT "${pybind11_DIR}x" STREQUAL "x") AND Python3_Development_FOUND)
+    find_package(pybind11 CONFIG REQUIRED PATHS ${pybind11_DIR} NO_DEFAULT_PATH)
+    add_subdirectory(pypto)
+endif ()
 
 add_subdirectory(src)
 add_subdirectory(python/op_compile)
