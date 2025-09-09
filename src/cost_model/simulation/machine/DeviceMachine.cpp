@@ -451,7 +451,7 @@ void DeviceMachine::PushReadyQueue(MachineType mType, uint64_t taskId)
         InsertReadySet(taskId);
         return;
     }
-    if (cubeVecMix) {
+    if (cubeVecMix && mType != MachineType::HUB) {
         mType = MachineType::MIXAICORE;
     }
     readyQueues[mType].push_back(taskId);
@@ -461,7 +461,7 @@ void DeviceMachine::PushReadyQueue(MachineType mType, uint64_t taskId)
 
 uint64_t DeviceMachine::PopReadyQueue(MachineType mType)
 {
-    if (cubeVecMix) {
+    if (cubeVecMix && mType != MachineType::HUB) {
         mType = MachineType::MIXAICORE;
     }
     uint64_t taskId = readyQueues[mType].front();
@@ -473,7 +473,7 @@ uint64_t DeviceMachine::PopReadyQueue(MachineType mType)
 
 bool DeviceMachine::EraseReadyQueue(MachineType mType, uint64_t taskId)
 {
-    if (cubeVecMix) {
+    if (cubeVecMix && mType != MachineType::HUB) {
         mType = MachineType::MIXAICORE;
     }
     auto it = std::find(readyQueues[mType].begin(), readyQueues[mType].end(), taskId);
