@@ -46,6 +46,18 @@ void bind_enum(py::module &m){
         .value("OUTCAST", NodeType::OUTCAST)
         .export_values();
 
+    py::enum_<TileOpFormat>(m, "TileOpFormat")
+        .value("TILEOP_ND", TileOpFormat::TILEOP_ND)
+        .value("TILEOP_NZ", TileOpFormat::TILEOP_NZ)
+        .value("TILEOP_FORMAT_NUM", TileOpFormat::TILEOP_FORMAT_NUM)
+        .export_values();
+
+    py::enum_<CachePolicy>(m, "CachePolicy")
+        .value("PREFETCH", CachePolicy::PREFETCH)
+        .value("NONE_CACHEABLE", CachePolicy::NONE_CACHEABLE)
+        .value("MAX_NUM", CachePolicy::MAX_NUM)
+        .export_values();
+
     py::enum_<MemoryType>(m, "MemoryType")
         .value("MEM_UB", MemoryType::MEM_UB)
         .value("MEM_L1", MemoryType::MEM_L1)

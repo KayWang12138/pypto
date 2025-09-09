@@ -41,6 +41,8 @@ void bind_controller(py::module &m) {
             const std::array<int64_t, MAX_N_DIM_SIZE> &n, bool setL1Tile = false) { TileShape::Current().SetCubeTile(m_, k, n, setL1Tile); },
         py::arg("m"), py::arg("k"), py::arg("n"), py::arg("setL1Tile") = false);
 
+    m.def("bytes_of", [](DataType t) { return BytesOf(t); });
+
     m.def("begin_function", [](const std::string &funcName, GraphType graphType, FunctionType funcType, py::args args) {
         // TODO: pass function name
         std::vector<std::reference_wrapper<Tensor>> tensors;
