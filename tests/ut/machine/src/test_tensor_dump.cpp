@@ -25,7 +25,7 @@
 #include "machine/device/aicore_dump.h"
 #include "interface/utils/common.h"
 #include "machine/utils/device_log.h"
-#include "interface/cache/core_func_data.h"
+#include "tilefwk/core_func_data.h"
 
 #include <iostream>
 

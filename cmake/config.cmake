@@ -33,10 +33,6 @@ else()
 endif ()
 message(STATUS "ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH}")
 
-if (ENABLE_BUILD_WITH_CANN)
-    add_compile_options(-DASCEND_CANN_ROOT_PATH="${ASCEND_CANN_PACKAGE_PATH}")
-endif ()
-
 ########################################################################################################################
 # CMake 选项, 缺省参数设置
 #   按 CMake 构建过程对 CMake 选项, CMake 缺省参数进行配置

@@ -223,10 +223,7 @@ struct TileShape {
      *
      * @return TileShape&
      */
-    static TileShape &Current() {
-        static TileShape instance;
-        return instance;
-    }
+    static TileShape &Current();
 
     /**
      * @brief Reset the tile shape

@@ -44,7 +44,7 @@ class BuildCtrl:
         # 控制标记/参数预处理(common)
         self.backend_type = "npu" if args.backend is None else args.backend
         self.build_targets: Optional[List[str]] = args.targets  # 编译阶段的编译目标
-        self.build_job_num: int = args.job_num if args.job_num > 0 else int(multiprocessing.cpu_count())
+        self.build_job_num: int = args.job_num if args.job_num > 0 else int(multiprocessing.cpu_count()/2)
         self.forced_clean: bool = args.clean  # 强制清理 Build-Tree 及 Install-Tree 标记
         self.timeout = None if args.timeout == 0 else args.timeout  # 构建超时时长
         self.build_type: Optional[str] = args.build_type

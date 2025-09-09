@@ -231,8 +231,9 @@ function(TileFwk_GTest_AddExe)
         COMMAND ln -sf "${TILE_FWK_SRC_ROOT}/src/interface/configs/tile_fwk_config.json" "${TILE_FWK_BIN_ROOT}/src/conf/tile_fwk_config.json"
         COMMAND ln -sf "${TILE_FWK_SRC_ROOT}/src/passes/pass_config/tile_fwk_platform_info.json" "${TILE_FWK_BIN_ROOT}/src/conf/tile_fwk_platform_info.json"
         COMMENT "Soft link of tile_fwk_config.json and tile_fwk_platform_info.json has been created at ${TILE_FWK_BIN_ROOT}/src/conf"
-        COMMAND rm -rf "${TILE_FWK_BIN_ROOT}/include"
-        COMMAND ln -sf "${TILE_FWK_SRC_ROOT}/include" "${TILE_FWK_BIN_ROOT}/"
-        COMMENT "Soft link include directory has been created at ${TILE_FWK_BIN_ROOT}/include"
+        COMMAND ${CMAKE_COMMAND} -E remove_directory ${TILE_FWK_BIN_ROOT}/src/include
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${TILE_FWK_BIN_ROOT}/src/include
+        COMMAND ln -sf ${TILE_FWK_SRC_ROOT}/include ${TILE_FWK_BIN_ROOT}/src/include/tile_fwk
+        COMMENT "Soft link include directory has been created at ${TILE_FWK_BIN_ROOT}/src/include/tile_fwk"
     )
 endfunction()

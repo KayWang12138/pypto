@@ -22,7 +22,7 @@
 #include "cost_model/simulation/pv/PvModel.h"
 #include "cost_model/simulation/pv/PvModelFactory.h"
 #include "machine/device/dynamic/costmodel_utils.h"
-#include "interface/cache/core_func_data.h"
+#include "tilefwk/core_func_data.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;

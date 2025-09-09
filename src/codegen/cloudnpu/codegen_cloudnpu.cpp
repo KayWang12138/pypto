@@ -412,7 +412,7 @@ void CodeGenCloudNPU::DoCompileCCE(const CompileInfo &compileInfo, const std::st
 std::string GetIncludePathByRelative() {
     std::string curExePath = GetCurRunningPath();
     ALOG_INFO_F("curExePath is %s", curExePath.c_str());
-    std::string includePath = curExePath + "/../../include/";
+    std::string includePath = curExePath + "/../../../include";
     ALOG_INFO_F("includePath relative is %s", includePath.c_str());
     return includePath;
 }
@@ -423,7 +423,7 @@ std::string GetIncludePathByLib() {
         return "";
     }
 
-    std::string includePath = libPath + "/../../include/";
+    std::string includePath = libPath + "/../include/tile_fwk";
     ALOG_INFO_F("includePath by lib is %s", includePath.c_str());
 
     if (IsPathExist(includePath)) {

@@ -15,9 +15,11 @@
 
 #ifndef MACHINE_WS_INTF_H
 #define MACHINE_WS_INTF_H
+
+#include "common/common_def.h"
 #include "interface/utils/common.h"
-#include "interface/cache/core_func_data.h"
-#include "machine/utils/common_def.h"
+#include "tilefwk/core_func_data.h"
+
 namespace npu::tile_fwk {
 enum class MachineStatus { START = 0, FINISH = 1, STOP = 2 };
 

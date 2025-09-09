@@ -21,7 +21,7 @@
 #include <memory>
 #include <unordered_map>
 #include <map>
-#include "core_func_data.h"
+#include "tilefwk/core_func_data.h"
 #include "function_cache.h"
 #include "interface/utils/common.h"
 

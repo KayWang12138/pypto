@@ -17,7 +17,7 @@
 #define COMM_WAIT_FLAG_H
 
 #include "interface/utils/common.h"
-#include "interface/cache/core_func_data.h"
+#include "tilefwk/core_func_data.h"
 #include <cstdint>
 #include <vector>
 #include <deque>

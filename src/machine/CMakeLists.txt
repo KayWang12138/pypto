@@ -36,6 +36,7 @@ endif ()
 file(GLOB_RECURSE _Compiler_Srcs
         host/*.cpp
         kernel/aicore_compiler.cpp
+        kernel/gen_aicore_code.cpp
         dump/*.cpp
         platform/*.cpp
         utils/*.cpp
@@ -57,10 +58,6 @@ target_include_directories(tile_fwk_compiler
 target_compile_definitions(tile_fwk_compiler
         PUBLIC
             $<$<BOOL:${ENABLE_BUILD_WITH_CANN}>:ENABLE_BUILD_WITH_CANN>
-        PRIVATE
-            SRCPATH="${TILE_FWK_SRC_ROOT}"
-            BISHENG_LD="${BISHENG_LD}"
-            BISHENG_PROGRAM="${BISHENG_PROGRAM}"
 )
 target_link_directories(tile_fwk_compiler
         PUBLIC

@@ -25,7 +25,7 @@
 
 #include "tileop/hccl_context.h"
 #include "machine/utils/device_log.h"
-#include "interface/cache/core_func_data.h"
+#include "tilefwk/core_func_data.h"
 #include "neon_stub.h"
 
 

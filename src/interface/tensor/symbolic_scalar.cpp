@@ -14,17 +14,11 @@
  */
 
 #include "interface/tensor/symbolic_scalar.h"
-
 #include <sys/mman.h>
-
 #include <sstream>
 #include "interface/utils/log.h"
+#include "interface/utils/file_utils.h"
 
-#ifdef SRCPATH
-constexpr const char *SrcPath = SRCPATH;
-#else
-constexpr const char *SrcPath = ".";
-#endif
 constexpr uint64_t IMMEDIATE = 0;
 constexpr uint64_t SYMBOL = 1;
 constexpr uint64_t EXPRESSION = 2;
@@ -51,11 +45,10 @@ std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::s
     std::string objectFilePath = sourceFilePath + ".o";
     std::string binaryFilePath = sourceFilePath + ".bin";
     std::string LD_PRELOAD = "LD_PRELOAD= ";
-
+    std::string includePath = GetCurrentSharedLibPath() + "/../include/tile_fwk";
     std::string cmdGcc = LD_PRELOAD + gcc + " -fPIC -O2 " + extraCflag +
-        " -I" + std::string(SrcPath) + "/src " +
-        " -I" + std::string(SrcPath) + "/src/interface " +
-        " -I" + std::string(SrcPath) + "/include/ " +
+        " -I" + includePath + " " +
+        " -I" + includePath + "/tilefwk " +
         " -S " + sourceFilePath + " -o " + assembleFilePath;
     ALOG_INFO("[RunCmd] ", cmdGcc);
     ASSERT(system(cmdGcc.c_str()) == 0);

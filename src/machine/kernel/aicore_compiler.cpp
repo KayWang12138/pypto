@@ -23,16 +23,19 @@
 #include "interface/utils/file_utils.h"
 #include "interface/utils/op_info_manager.h"
 #include "machine/dump/kernel_dump_utils.h"
+#include "machine/kernel/gen_aicore_code.h"
 
 namespace npu::tile_fwk {
 namespace {
 constexpr const size_t CMD_SIZE_1K = 1024;
 constexpr const size_t CMD_SIZE_2K = 2048;
+constexpr const char* BISHENG_PROGRAM_CMD = "bisheng";
+constexpr const char* BISHENG_LD_CMD = "ld.lld";
 }
 
 static int CompileCoreMachine(const std::string &objFile, bool isCube, uint64_t tilingKey,
                               const std::string &headFile) {
-  const std::string srcFile = std::string(SRCPATH) + "/src/machine/kernel/aicore.cpp";
+  const std::string srcFile = GenAndGetAicoreCodeSrcPath();
   ALOG_INFO_F("Compile src file is [%s], kernel type[%d].", srcFile.c_str(), isCube);
   const std::string cc_opt = isCube ? "dav-c220-cube" : "dav-c220-vec";
   const std::string coreType = isCube ? "-D__AIC__" : "-D__AIV__";
@@ -40,6 +43,7 @@ static int CompileCoreMachine(const std::string &objFile, bool isCube, uint64_t 
   std::string hasSubFunc = headFile.empty() ? "" : "-D__HAS_SUB_FUNC__";
   std::string ccecCmd;
   ccecCmd.resize(CMD_SIZE_2K);
+  std::string includePath = GetCurrentSharedLibPath() + "/../include/tile_fwk";
   int ret = snprintf_s(ccecCmd.data(), CMD_SIZE_2K, CMD_SIZE_2K - 1,
                    "%s -c -O3 -g -x cce -Wall -Werror -std=c++17 "
                    "--cce-aicore-only "
@@ -55,17 +59,18 @@ static int CompileCoreMachine(const std::string &objFile, bool isCube, uint64_t 
                    "-D__HEAD_FILE__=%s "
                    "%s "
                    "%s "
-                   "-I%s/src/ "
-                   "-I%s/include/tileop/a2a3 "
-                   "-I%s/include/ "
+                   "-I%s/tileop/a2a3 "
+                   "-I%s/ "
                    "-o %s "
                    "%s",
-                   BISHENG_PROGRAM, cc_opt.c_str(), std::to_string(tilingKey).c_str(), opType.c_str(), headFile.c_str(),
-                   hasSubFunc.c_str(), coreType.c_str(), SRCPATH, SRCPATH, SRCPATH, objFile.c_str(), srcFile.c_str());
+                   BISHENG_PROGRAM_CMD, cc_opt.c_str(), std::to_string(tilingKey).c_str(), opType.c_str(),
+                   headFile.c_str(), hasSubFunc.c_str(), coreType.c_str(), includePath.c_str(), includePath.c_str(),
+                   objFile.c_str(), srcFile.c_str());
   if (ret < 0) {
     ALOG_ERROR_F("Compile aicore construct cmd failed.");
     return ret;
   }
+  ALOG_DEBUG_F("Compile ccec command:[%s].", ccecCmd.c_str());
   ret = std::system(ccecCmd.c_str());
   if (ret != 0) {
     ALOG_ERROR_F("Compile ccec failed.");
@@ -131,11 +136,12 @@ static int LinkObject(const std::string &src_objs, std::string &objPath, bool re
   int ret = snprintf_s(ccecCmd.data(), cmdSize, cmdSize - 1,
                        "%s -m aicorelinux -Ttext=0 -static %s -o "
                        "%s "
-                       "%s", BISHENG_LD, relocate ? "-r" : "" , objPath.c_str(), src_objs.c_str());
+                       "%s", BISHENG_LD_CMD, relocate ? "-r" : "" , objPath.c_str(), src_objs.c_str());
   if (ret < 0) {
     ALOG_ERROR_F("LinkCoreMachine construct cmd failed.");
     return ret;
   }
+  ALOG_DEBUG_F("Link ccec command:[%s].", ccecCmd.c_str());
   ret = std::system(ccecCmd.c_str());
   if (ret != 0) {
     ALOG_ERROR_F("Link kernel failed.");

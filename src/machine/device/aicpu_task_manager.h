@@ -17,7 +17,7 @@
 #include "distributed/depend_on.h"
 #include "distributed/comm_wait_flag.h"
 #include "machine/utils/machine_ws_intf.h"
-#include "interface/cache/core_func_data.h"
+#include "tilefwk/core_func_data.h"
 #include "interface/operation/opcode.h"
 #include "interface/utils/common.h"
 #include <functional>

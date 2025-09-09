@@ -27,16 +27,16 @@
 
 #include "machine/utils/device_log.h"
 #include "machine/utils/device_switch.h"
-#include "interface/cache/core_func_data.h"
+#include "tilefwk/core_func_data.h"
 #include "interface/schema/schema.h"
 #include "securec.h"
 #include "interface/utils/common.h"
 #include "tilefwk/data_type.h"
+#include "tilefwk/aicpu_runtime.h"
 #include "interface/tensor/symbol_handler.h"
 #include "machine/kernel/aicore.h"
 #include "machine/utils/dynamic/allocator/allocators.h"
 #include "machine/utils/dynamic/vector.h"
-#include "machine/utils/dynamic/codegen/aicpu_runtime.h"
 #include "machine/device/dynamic/device_utils.h"
 
 namespace npu::tile_fwk {

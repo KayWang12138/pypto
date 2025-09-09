@@ -20,7 +20,7 @@
 #include <unordered_map>
 #include "interface/function/function.h"
 #include "interface/cache/hash.h"
-#include "core_func_data.h"
+#include "tilefwk/core_func_data.h"
 
 
 namespace npu::tile_fwk {

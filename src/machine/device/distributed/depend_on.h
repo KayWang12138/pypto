@@ -17,7 +17,7 @@
 #define DEPEND_ON_H
 
 #include "interface/utils/common.h"
-#include "interface/cache/core_func_data.h"
+#include "tilefwk/core_func_data.h"
 #include <cstdint>
 #include <vector>
 #include <deque>

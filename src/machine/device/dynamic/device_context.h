@@ -31,7 +31,7 @@
 #include <sys/mman.h>
 #endif
 
-#include "interface/cache/core_func_data.h"
+#include "tilefwk/core_func_data.h"
 #include "interface/schema/schema.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/utils/dynamic/allocator/allocators.h"

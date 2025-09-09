@@ -11,7 +11,7 @@
 #pragma once
 
 #include "interface/machine/host/machine_task.h"
-#include "interface/cache/core_func_data.h"
+#include "tilefwk/core_func_data.h"
 #include "machine/host/machine_compiler.h"
 
 namespace npu::tile_fwk {

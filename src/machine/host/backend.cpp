@@ -330,8 +330,8 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
             << "#include <stdint.h>\n"
             << "#include \"" << expName << "\"\n"
             << "#include \"tilefwk/aicore_data.h\"\n"
-            << "#include \"machine/utils/dynamic/codegen/aicpu_runtime.h\"\n"
-            << "#include \"machine/utils/dynamic/codegen/aicpu_distributed.h\"\n";
+            << "#include \"tilefwk/aicpu_runtime.h\"\n"
+            << "#include \"tilefwk/aicpu_distributed.h\"\n";
         expressionOss
             << "\n/* Symbol table list */\n"
             << linker.GetSymbolTable()->BuildSymbolList();
@@ -447,13 +447,12 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
 
 static std::string Arm64TargetTool(const std::string &bin) {
     // ARM arch compiler
-#ifdef ASCEND_CANN_ROOT_PATH
-    return std::string(ASCEND_CANN_ROOT_PATH) + "/toolkit/toolchain/hcc/bin/aarch64-target-linux-gnu-" + bin;
-#else
-    (void) bin;
-    ASSERT(false) << "CANN environment not found";
-    return "";
-#endif // ifdef ASCEND_CANN_ROOT_PATH
+    const char *homePath = std::getenv("ASCEND_HOME_PATH");
+    if (homePath == nullptr) {
+        return "";
+    } else {
+        return std::string(homePath) + "/toolkit/toolchain/hcc/bin/aarch64-target-linux-gnu-" + bin;
+    }
 }
 
 static void FillL2PrefetchInfo(std::shared_ptr<DyndevFunctionAttribute> attr) {
@@ -648,21 +647,21 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, cons
         controlFlowSource, controlFlowHostFilePath,
         "g++", "objcopy", "ast2", IsNeedDumpAicpuKernel(controlFlowHostFilePath), cflags);
     AlignUpTo(attr->hostControlFlowBinary, 0x8, 0);
-#ifdef ASCEND_CANN_ROOT_PATH
-    if (ToolchainExist(Arm64TargetTool("g++"))) {
+
+    std::string arm64TargetToolPath = Arm64TargetTool("g++");
+    if (ToolchainExist(arm64TargetToolPath)) {
         std::string controlFlowDevFilePath = aicpuDirPath + "/controlFlow_dev.cpp";
+        ALOG_INFO_F("Compile control flow src file[%s] with arm64 target tool[%s].",
+                    controlFlowDevFilePath.c_str(), arm64TargetToolPath.c_str());
         attr->devControlFlowBinary = CompileAndLoadSection(
             controlFlowSource, controlFlowDevFilePath,
-            Arm64TargetTool("g++"), Arm64TargetTool("objcopy"), "ast2", IsNeedDumpAicpuKernel(controlFlowDevFilePath));
+            arm64TargetToolPath, Arm64TargetTool("objcopy"), "ast2", IsNeedDumpAicpuKernel(controlFlowDevFilePath));
     } else {
         // brk #0
+        ALOG_WARN_F("Arm64 target tool is not found.");
         attr->devControlFlowBinary = std::vector<uint8_t>{0xd4, 0x20, 0x00, 0x00};
     }
     AlignUpTo(attr->devControlFlowBinary, 0x8, 0);
-#else
-    (void) Arm64TargetTool;
-    attr->devControlFlowBinary = attr->hostControlFlowBinary;
-#endif // ifdef ASCEND_CANN_ROOT_PATH
 
     std::map<std::string, Function *> leafDict;
     for (auto &devRoot : attr->funcGroup.devRootList) {

@@ -15,7 +15,7 @@
 
 #include <gtest/gtest.h>
 #include "machine/device/distributed/shmem_wait_until.h"
-#include "interface/cache/core_func_data.h"
+#include "tilefwk/core_func_data.h"
 #include "tileop/hccl_context.h"
 
 namespace {

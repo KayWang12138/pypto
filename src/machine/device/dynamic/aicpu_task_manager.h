@@ -27,7 +27,7 @@
 #include "machine/device/distributed/common.h"
 #include "machine/device/distributed/shmem_wait_until.h"
 #include "machine/utils/machine_ws_intf.h"
-#include "interface/cache/core_func_data.h"
+#include "tilefwk/core_func_data.h"
 #include "interface/operation/opcode.h"
 #include "interface/utils/common.h"
 #include "tileop/hccl_context.h"

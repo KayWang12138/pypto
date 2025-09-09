@@ -19,7 +19,7 @@
 #include <vector>
 
 #include "common.h"
-#include "interface/cache/core_func_data.h"
+#include "tilefwk/core_func_data.h"
 
 namespace npu::tile_fwk::Distributed {
 constexpr uint32_t VECTOR_PRE_SIZE = 1024;

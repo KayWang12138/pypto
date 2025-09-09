@@ -12,7 +12,7 @@
 #include <cstddef>
 #include <vector>
 #include <unordered_map>
-#include "machine/utils/common_def.h"
+#include "common/common_def.h"
 
 namespace npu::tile_fwk {
 struct DevAscendProgram {
