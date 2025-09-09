@@ -23,16 +23,6 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned 
     unsigned src1T0, unsigned src1T1, bool copyFlag) {
     unsigned T0 = src0T0 < src1T0 ? src0T0 : src1T0;
     unsigned T1 = src0T1 < src1T1 ? src0T1 : src1T1;
-    if (copyFlag && src0T1 != src1T1) {
-        __ubuf__ T *src = src0T1 > src1T1 ? src0 : src1;
-        unsigned srcT1 = src0T1 > src1T1 ? src0T1 : src1T1;
-        uint16_t lenBurst = (srcT1 * sizeof(T) + BLOCK_SIZE - 1) / BLOCK_SIZE;
-        uint16_t srcSS = src0T1 > src1T1 ? SS0 : SS1;
-        uint16_t srcGap = srcSS * sizeof(T) / BLOCK_SIZE - lenBurst;
-        uint16_t dstGap = DS * sizeof(T) / BLOCK_SIZE - lenBurst;
-        copy_ubuf_to_ubuf(dst, src, 0, src0T0, lenBurst, srcGap, dstGap);
-        pipe_barrier(PIPE_V);
-    }
     if (copyFlag && src0T0 != src1T0) {
         __ubuf__ T *src = src0T0 > src1T0 ? src0 : src1;
         unsigned srcT0 = src0T0 > src1T0 ? src0T0 : src1T0;
@@ -40,6 +30,15 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned 
         uint16_t srcGap = SS0 * sizeof(T) / BLOCK_SIZE - lenBurst;
         uint16_t dstGap = DS * sizeof(T) / BLOCK_SIZE - lenBurst;
         copy_ubuf_to_ubuf(dst, src, 0, srcT0, lenBurst, srcGap, dstGap);
+        pipe_barrier(PIPE_V);
+    } else if (copyFlag && src0T1 != src1T1) {
+        __ubuf__ T *src = src0T1 > src1T1 ? src0 : src1;
+        unsigned srcT1 = src0T1 > src1T1 ? src0T1 : src1T1;
+        uint16_t lenBurst = (srcT1 * sizeof(T) + BLOCK_SIZE - 1) / BLOCK_SIZE;
+        uint16_t srcSS = src0T1 > src1T1 ? SS0 : SS1;
+        uint16_t srcGap = srcSS * sizeof(T) / BLOCK_SIZE - lenBurst;
+        uint16_t dstGap = DS * sizeof(T) / BLOCK_SIZE - lenBurst;
+        copy_ubuf_to_ubuf(dst, src, 0, src0T0, lenBurst, srcGap, dstGap);
         pipe_barrier(PIPE_V);
     }
     constexpr unsigned elementsPerRepeat = REPEAT_BYTE / sizeof(T);
@@ -122,8 +121,8 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned 
         constexpr unsigned MRGDS = DS1 * DS2 * DS3;
         constexpr unsigned MRGS0 = S0S1 * S0S2 * S0S3;
         constexpr unsigned MRGS1 = S1S1 * S1S2 * S1S3;
-        unsigned src0Mrg = src0T1 * src0T2 * src0T3;
-        unsigned src1Mrg = src1T1 * src1T2 * src1T3;
+        unsigned src0Mrg = S0S1 * S0S2 * S0S3;
+        unsigned src1Mrg = S1S1 * S1S2 * S1S3;
         T_BIN<T, MRGDS, MRGS0, MRGS1>(dst, src0, src1, src0T0, src0Mrg, src1T0, src1Mrg, copyFlag);
         return;
     }
@@ -131,8 +130,8 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned 
         constexpr unsigned MRGDS = DS2 * DS3;
         constexpr unsigned MRGS0 = S0S2 * S0S3;
         constexpr unsigned MRGS1 = S1S2 * S1S3;
-        unsigned src0Mrg = src0T2 * src0T3;
-        unsigned src1Mrg = src1T2 * src1T3;
+        unsigned src0Mrg = S0S2 * S0S3;
+        unsigned src1Mrg = S1S2 * S1S3;
         for (int i = 0; i < src0T0; i++) {
             T_BIN<T, MRGDS, MRGS0, MRGS1>(dst, src0, src1, src0T1, src0Mrg, src1T1, src1Mrg, copyFlag);
             dst += DS1 * DS2 * DS3;

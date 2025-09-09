@@ -1991,7 +1991,7 @@ template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0
 TILEOP void DynMrgSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, unsigned oriShape1) {
     constexpr int32_t kAlign = (k + 3) / 4 * 4; // k需要向32Bytes取整,否则最后搬运出问题
     int32_t totalNum = oriShape1 / 4;
-    for (int rowIdx = 0; rowIdx < dstShape0; rowIdx++) {
+    for (int rowIdx = 0; rowIdx < oriShape0; rowIdx++) {
         // 每4个合并,计算整块
         int32_t z = 32;
         for (; z * 4 <= totalNum; z *= 4) {
@@ -2060,7 +2060,7 @@ TILEOP void DynMrgSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
                 vmrgsort4(dstData, addr_array, src1, config);
                 pipe_barrier(PIPE_V);
                 copy_ubuf_to_ubuf((__ubuf__ void *)srcData, (__ubuf__ void *)dstData, 0,
-                    (tmpMrgSortedLen + tmpMrgArray) * 2 / 8, 1, 0, 0);
+                    ((tmpMrgSortedLen + tmpMrgArray) * 2 + 7) / 8, 1, 0, 0);
                 pipe_barrier(PIPE_V);
             }
         }
