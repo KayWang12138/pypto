@@ -117,7 +117,7 @@ def gen_dynamic_basic_op_golden(case_name: str, output: Path) -> bool:
         logging.error("Can't get func to gen golden, Case(%s)", case_name)
         return False
     return True
-
+    
 
 def main() -> bool:
     """

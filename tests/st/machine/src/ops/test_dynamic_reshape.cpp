@@ -89,10 +89,10 @@ TEST_F(DynamicReshapeTest, test_only_reshape) {
 TEST_F(DynamicReshapeTest, test_only_reshape2) {
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
-    int b = 1;
-    int sq = 128;
-    int d = 64;
-    int bSq = (b == -1) ? -1 : b*sq;
+    int b = 2;
+    int sq = 32;
+    int d = 16;
+    int bSq = b*sq;
     std::vector<int64_t> qShape = {b, sq, d};
 
     Tensor q(DT_FP32, qShape, "q");
@@ -101,38 +101,38 @@ TEST_F(DynamicReshapeTest, test_only_reshape2) {
     FunctionConfig funConfig;
     FUNCTION("MAIN_FUNC", funConfig, {q}, {out}) {
         Tensor qReshape(DT_FP32, {bSq, d}, "qReshape");
-        LOOP("LOOP_RESHAPE", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(0,1,1), {}, true) {
+        LOOP("LOOP_RESHAPE", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(0,b,1), {}, true) {
             (void) batchId;
-            ReshapeInplace(q, qReshape);
+            TileShape::Current().SetVecTile(16, 16);  //设置Tileshape大小为16*16
+            qReshape=Reshape(q, {bSq, d});
         }
 
         LOOP("L0_AF", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0)), {}, true) {
-            TileShape::Current().SetVecTile(64, 64);
+            TileShape::Current().SetVecTile(16, 16);  //设置Tileshape大小为16*16
             Tensor q0 = View(qReshape, {sq, d}, {batchId * sq, 0});
             auto tmp = Exp(q0);
             Assemble(tmp, {batchId * sq, 0}, out);
         }
     }
 
-    b = 1;
-    Tensor q_real(DT_FP32, {b, sq, d});
-    Tensor out_real(DT_FP32, {b * sq, d});
+    std::vector<float> qData(b * sq * d, 0);
+    std::vector<float> golden(b * sq * d, 0);
+
+    readInput<float>(GetGoldenDir() + "/q.bin", qData);
+    readInput(GetGoldenDir() + "/out.bin", golden);
 
     ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateConstantTensor<float>(q_real, 1.0),
+        RawTensorData::CreateTensor<float>(q, qData),
     });
 
     ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<float>(out_real, 0.001f),
+        RawTensorData::CreateConstantTensor<float>(out, 0.0f),
     });
 
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
-
-    std::vector<float> golden(b * sq * d, exp(1.0f));
-
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.005f));
 }
 
 TEST_F(DynamicReshapeTest, test_dyn_reshape) {

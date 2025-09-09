@@ -542,6 +542,60 @@ TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard1) {
 
 namespace DynamicTest {
 
+TEST_F(DynamicBasicTest, TestLoopIfWithRank456) {
+    TileShape::Current().SetVecTile(32, 32);   //设置Tileshape大小为32*32
+
+    int s = 32;
+    int n = 10;
+    Tensor t0(DT_FP32, {n * s, s}, "t0");
+    Tensor r0(DT_FP32, {s, s}, "r0");
+    Tensor out(DT_FP32, {s, s}, "out");
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(t0, 1.0),
+        RawTensorData::CreateConstantTensor<float>(r0, 0.0),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, 0.0f),
+    });
+
+    std::vector<float> golden(s * s, 12.0f);
+
+    // Direct implementation of the function logic within the test
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {t0, r0}, {out}) {
+        constexpr int LOOP_LENGTH = 10;
+        npu::tile_fwk::SymbolicScalar len(LOOP_LENGTH);
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(len)) {
+            IF(i==0) {
+                IF(i==len-1) {
+                    r0 = AddS(r0, Element(DataType::DT_FP32, 1.0));
+                } ELSE {
+                    r0 = AddS(r0, Element(DataType::DT_FP32, 2.0));
+                }
+            } ELSE {
+                IF(i==len-1) {
+                    r0 = AddS(r0, Element(DataType::DT_FP32, 0.0));
+                } ELSE {
+                    Tensor t0v = View(t0, {s, s}, {s * i, 0});
+                    r0 = Add(t0v, r0);
+                }
+            }
+            out = AddS(r0, Element(DataType::DT_FP32, 0.0));
+        }
+
+        FunctionConfig funConfig2 = {.funcType = FunctionType::STATIC};
+        FUNCTION("S1", funConfig2) {
+            out = AddS(r0, Element(DataType::DT_FP32, 2.0));  //静态function中增加2.0的偏移量
+        }
+    }
+    #ifdef ENABLE_BUILD_WITH_CANN
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    #endif
+}
+
 TEST_F(DynamicBasicTest, TestTensorExtract) {
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
