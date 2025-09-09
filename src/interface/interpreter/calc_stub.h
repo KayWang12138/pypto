@@ -17,6 +17,7 @@ inline bool AllClose(LogicalTensorDataPtr, LogicalTensorDataPtr, double, double)
 
 inline void Cast(LogicalTensorDataPtr, LogicalTensorDataPtr, CastMode) {}
 inline void Exp(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
+inline void Neg(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 inline void Sqrt(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 inline void Abs(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 

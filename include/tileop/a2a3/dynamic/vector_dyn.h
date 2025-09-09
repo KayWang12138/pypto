@@ -129,6 +129,12 @@ namespace TileOp {
 #include "vector_una_dyn.h"
 #undef T_UNA
 #undef V_UNA_FUNC
+// NEG
+#define T_UNA DynTneg_
+#define V_UNA_FUNC Neg
+#include "vector_una_dyn.h"
+#undef T_UNA
+#undef V_UNA_FUNC
 // RECIPROCAL
 #define T_UNA DynTrec_
 #define V_UNA_FUNC Rec

@@ -32,6 +32,7 @@ void Dump(std::ostream &os, LogicalTensorDataPtr self);
 bool AllClose(LogicalTensorDataPtr self, LogicalTensorDataPtr other, double atol = 1e-8, double rtol = 1e-5);
 void Cast(LogicalTensorDataPtr out, LogicalTensorDataPtr self, CastMode mode = CAST_NONE);
 void Exp(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
+void Neg(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
 void Sqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
 void Abs(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
 

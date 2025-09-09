@@ -66,6 +66,7 @@ Tensor Transpose(const Tensor &operand, std::vector<int> transposeShape);
 Tensor Cast(const Tensor &operand, DataType newDataType, CastMode mode = CAST_NONE);
 
 Tensor Exp(const Tensor &operand);
+Tensor Neg(const Tensor &operand);
 Tensor Sqrt(const Tensor &operand);
 Tensor Reciprocal(const Tensor &operand);
 Tensor Abs(const Tensor &operand);

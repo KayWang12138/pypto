@@ -27,6 +27,7 @@ const std::unordered_set<Opcode> BinaryOps{Opcode::OP_ADD, Opcode::OP_SUB, Opcod
     Opcode::OP_PAIRMAX, Opcode::OP_PAIRMIN, Opcode::OP_PAIRSUM, Opcode::OP_EXPAND, Opcode::OP_FUSED_OP};
 const std::unordered_set<Opcode> UnaryOps{
     Opcode::OP_EXP,
+    Opcode::OP_NEG,
     Opcode::OP_SQRT,
     Opcode::OP_ABS,
     Opcode::OP_ROWMAX,

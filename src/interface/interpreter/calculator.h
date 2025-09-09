@@ -32,6 +32,11 @@ inline T Exp(T v) {
 }
 
 template <typename T>
+inline T Neg(T v) {
+    return static_cast<T>(static_cast<double>(v * -1.0));
+}
+
+template <typename T>
 inline T Sqrt(T v) {
     return static_cast<T>(std::sqrt(static_cast<double>(v)));
 }
@@ -217,7 +222,7 @@ struct CalcUnaryContext {
 template <Opcode opcode, typename DataType, typename CalcType>
 struct CalcUnary {
     static_assert(opcode == Opcode::OP_EXP || opcode == Opcode::OP_SQRT || opcode == Opcode::OP_ABS ||
-                      opcode == Opcode::OP_COPY_IN,
+                      opcode == Opcode::OP_COPY_IN || opcode == Opcode::OP_NEG,
         "invalid opcode");
     static void Entry(void *c) {
         auto [ret, oper, indexBegin, indexEnd] = *(CalcUnaryContext *)c;
@@ -1017,6 +1022,10 @@ public:
 
     static void CalcExp(LogicalTensorData *ret, const LogicalTensorData *oper, util::ThreadPool *pool) {
         HandleDataType<CalcUnary, Opcode::OP_EXP>(oper->GetDataType(), ret, oper, pool);
+    }
+
+    static void CalcNeg(LogicalTensorData *ret, const LogicalTensorData *oper, util::ThreadPool *pool) {
+        HandleDataType<CalcUnary, Opcode::OP_NEG>(oper->GetDataType(), ret, oper, pool);
     }
 
     static void CalcSqrt(LogicalTensorData *ret, const LogicalTensorData *oper, util::ThreadPool *pool) {

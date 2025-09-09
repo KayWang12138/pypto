@@ -101,6 +101,11 @@ void Exp(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     torch::exp_out(tout, From(self));
 }
 
+void Neg(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tout = From(out);
+    torch::neg_out(tout, From(self));
+}
+
 void Sqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
     torch::sqrt_out(tout, From(self));

@@ -48,6 +48,7 @@ enum class BinaryOpType {
 };
 enum class UnaryOpType {
     EXP,
+    NEG,
     SQRT,
     RECIPROCAL,
     DUPLICATE,

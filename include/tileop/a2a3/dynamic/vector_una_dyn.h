@@ -27,6 +27,10 @@ TILEOP void UnaryCompute(__ubuf__ T *dst, __ubuf__ T *src, unsigned L0, unsigned
     if constexpr (op == UnaryOp::EXP) {
         vexp(dst, src, L0, 1, 1, S2, S3);
     }
+    if constexpr (op == UnaryOp::NEG) {
+        vmuls(dst, src, static_cast<T>(-1.0),
+                L0, 1, 1, S2, S3);
+    }
     if constexpr (op == UnaryOp::REC) {
         vrec(dst, src, L0, 1, 1, S2, S3);
     }
@@ -215,6 +219,11 @@ TILEOP void Abs(DT dst, ST src) {
 template <typename DT, typename ST>
 TILEOP void Exp(DT dst, ST src) {
     UnaryOperation<UnaryOp::EXP, DT, ST>(dst, src);
+}
+
+template <typename DT, typename ST>
+TILEOP void Neg(DT dst, ST src) {
+    UnaryOperation<UnaryOp::NEG, DT, ST>(dst, src);
 }
 
 template <typename DT, typename ST>

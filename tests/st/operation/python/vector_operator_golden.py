@@ -471,6 +471,20 @@ def gen_exp_op_golden(case_name: str, output: Path, case_index: int = None) -> b
 
 @GoldenRegister.reg_golden_func(
     case_names=[
+        "TestNeg/NegOperationTest.TestNeg",
+    ]
+)
+def gen_neg_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs):
+        return [np.negative(inputs[0])]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Neg", golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
         "TestSqrt/SqrtOperationTest.TestSqrt",
     ]
 )

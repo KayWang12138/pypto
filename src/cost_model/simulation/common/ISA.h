@@ -34,6 +34,7 @@ constexpr uint64_t RAW_MAGIC_MAX_SIZE = 1024 * 1024;
 
 const std::map<std::string, CorePipeType> SCHED_CORE_PIPE_TYPE { // Unary Vector
     {"EXP", CorePipeType::PIPE_VECTOR_ALU},
+    {"NEG", CorePipeType::PIPE_VECTOR_ALU},
     {"SQRT", CorePipeType::PIPE_VECTOR_ALU},
     {"RECIPROCAL", CorePipeType::PIPE_VECTOR_ALU},
     {"ABS", CorePipeType::PIPE_VECTOR_ALU},

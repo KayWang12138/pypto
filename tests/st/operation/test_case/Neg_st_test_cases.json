@@ -1,0 +1,44 @@
+{
+    "test_cases": [
+        {
+            "case_index": 0,
+            "case_name": "Neg_test_0",
+            "operation": "Neg",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        3072,
+                        1
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        3072,
+                        1
+                    ],
+                    "dtype": "fp32"
+                }
+            ],
+            "view_shape": [
+                128,
+                1
+            ],
+            "tile_shape": [
+                32,
+                32
+            ],
+            "params": {
+                "func_id": -1
+            }
+        }
+    ]
+}

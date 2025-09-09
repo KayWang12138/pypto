@@ -83,6 +83,8 @@ std::string GetUnaryOpName() {
     switch (T) {
         case UnaryOpType::EXP:
             return "EXP";
+        case UnaryOpType::NEG:
+            return "NEG";
         case UnaryOpType::SQRT:
             return "SQRT";
         case UnaryOpType::RECIPROCAL:
@@ -103,6 +105,7 @@ Opcode GetUnaryOpNameCode() {
 case UnaryOpType::X: return Opcode::OP_## X
     switch (T) {
         CASE(EXP);
+        CASE(NEG);
         CASE(SQRT);
         CASE(RECIPROCAL);
         CASE(ABS);
@@ -1742,6 +1745,13 @@ Tensor ScalarMax(const Tensor &operand1, const Tensor &operand2) {
         operand1.GetStorage(), operand2.GetStorage());
 }
 
+Tensor Neg(const Tensor &operand) {
+    DECLARE_TRACER();
+
+    RETURN_CALL(
+        UnaryOperation<UnaryOpType::NEG>, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage());
+}
+
 Tensor Sqrt(const Tensor &operand) {
     DECLARE_TRACER();
 
@@ -3362,6 +3372,11 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
         case Opcode::OP_EXP: {
             UnaryOperationOperandCheck(iOperand, oOperand);
             TiledUnaryOperation<UnaryOpType::EXP>(function, tileShape, iOperand[0], oOperand[0]);
+            break;
+        }
+        case Opcode::OP_NEG: {
+            UnaryOperationOperandCheck(iOperand, oOperand);
+            TiledUnaryOperation<UnaryOpType::NEG>(function, tileShape, iOperand[0], oOperand[0]);
             break;
         }
         case Opcode::OP_SQRT: {
