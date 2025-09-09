@@ -23,29 +23,23 @@ namespace npu::tile_fwk {
 
 std::string TensorSlot::GetSymbolName() const {
     std::string name;
-    if (IsKindTensor()) {
-        const Tensor *t = reinterpret_cast<const Tensor *>(GetSlot());
-        if (t->GetStorage(false) != nullptr) {
-            name = t->GetStorage(false)->tensor->symbol;
-        }
+    const Tensor *t = reinterpret_cast<const Tensor *>(GetSlot());
+    if (t->GetStorage(false) != nullptr) {
+        name = t->GetStorage(false)->tensor->symbol;
     }
     return name;
 }
 
 std::shared_ptr<LogicalTensor> TensorSlot::GetSlotValue() const {
     std::shared_ptr<LogicalTensor> value;
-    if (IsKindTensor()) {
-        const Tensor *tensor = reinterpret_cast<const Tensor *>(GetSlot());
-        value = tensor->GetStorage(false);
-    }
+    const Tensor *tensor = reinterpret_cast<const Tensor *>(GetSlot());
+    value = tensor->GetStorage(false);
     return value;
 }
 
 void TensorSlot::SetSlotValue(const std::shared_ptr<LogicalTensor> &value) const {
-    if (IsKindTensor()) {
-        Tensor *tensor = reinterpret_cast<Tensor *>(const_cast<void *>(GetSlot()));
-        tensor->GetStorage(false) = value;
-    }
+    Tensor *tensor = reinterpret_cast<Tensor *>(const_cast<void *>(GetSlot()));
+    tensor->GetStorage(false) = value;
 }
 
 std::string TensorSlot::DumpHead(const std::string &name) const {
@@ -55,7 +49,7 @@ std::string TensorSlot::DumpHead(const std::string &name) const {
     if (symbol != "") {
         symbol = "(" + symbol + ")";
     }
-    oss << "kind:" << static_cast<int>(GetKind()) << " slot:" << GetSlot() << std::setw(width) << std::left << symbol;;
+    oss << "Id:" << id_ << " slot:" << GetSlot() << std::setw(width) << std::left << symbol;
     return oss.str();
 }
 
@@ -136,8 +130,10 @@ void TensorSlotScope::BuildIncastOutcastSlot(const std::unordered_map<TensorSlot
         std::sort(ioslot.outcastSlot[idx].begin(), ioslot.outcastSlot[idx].end());
 
         auto outcast = tensorFunc->GetOutcast()[idx];
-        if (partialUpdateOutcastSet.count(outcast)) {
+        auto itor = partialUpdateOutcastDict.find(outcast);
+        if (itor != partialUpdateOutcastDict.end()) {
             ioslot.partialUpdateOutcastList.push_back(idx);
+            ioslot.partialUpdateCount.push_back(itor->second);
         }
     }
 }
@@ -341,6 +337,11 @@ int TensorSlotManager::GetOutputIndex(const Tensor &tensor) {
         }
     }
     return -1;
+}
+
+int TensorSlotManager::GetSlotIndex(const Tensor &tensor) {
+    TensorSlot slot = TensorSlot::CreateTensor(tensor);
+    return slotIndexDict[slot];
 }
 
 void TensorSlotManager::Checkpoint() {

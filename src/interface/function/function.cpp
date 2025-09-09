@@ -1627,10 +1627,9 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
         ASSERT(iOperand.size() == newOutcastOffsets.size());
         for (size_t i = 0; i < iOperand.size(); i++) {
             auto producerSet = iOperand[i]->GetProducers();
-            auto anyAssemble = std::any_of(producerSet.begin(), producerSet.end(), [](Operation *op){
-                return op->GetOpcode() == Opcode::OP_ASSEMBLE && op->HasAttribute("dassemble");
-            });
-            if (anyAssemble) {
+            auto assembleCount = std::count_if(producerSet.begin(), producerSet.end(),
+                [](Operation *op) { return op->GetOpcode() == Opcode::OP_ASSEMBLE && op->HasAttribute("dassemble"); });
+            if (assembleCount) {
                 for (auto producer : producerSet) {
                     auto producerAttr = std::static_pointer_cast<AssembleOpAttribute>(producer->GetOpAttribute());
                     auto [offset, dynOffset] = TensorOffset::Add(iOperand[i]->GetOffset(), iOperand[i]->GetDynOffset(), producerAttr->GetToOffset(), producerAttr->GetToDynOffset());
@@ -1639,7 +1638,7 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
                     producer->SetAsDeleted();
                 }
                 if (scope) {
-                    scope->partialUpdateOutcastSet.insert(rawSymbol);
+                    scope->partialUpdateOutcastDict[rawSymbol] = assembleCount;
                 }
             } else {
                 auto &assembleOp = AddOperation(Opcode::OP_ASSEMBLE, {iOperand[i]}, oOperand);

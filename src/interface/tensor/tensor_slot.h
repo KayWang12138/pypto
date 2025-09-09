@@ -25,21 +25,12 @@
 
 namespace npu::tile_fwk {
 
-enum class TensorSlotKind {
-    T_SLOT_INVALID,
-    T_SLOT_TENSOR,
-    T_SLOT_CONCRETE_ASSEMBLE,
-    T_SLOT_SYMBOLIC_ASSEMBLE,
-};
-
 struct TensorSlot {
 public:
     TensorSlot() {}
-    TensorSlot(TensorSlotKind kind, const void *slot) : kind_(kind), slot_(slot) {}
+    TensorSlot(int64_t id, const void *slot) : id_(id), slot_(slot) {}
 
-    TensorSlotKind GetKind() const { return kind_; }
     const void *GetSlot() const { return slot_; }
-    bool IsKindTensor() const { return kind_ == TensorSlotKind::T_SLOT_TENSOR; }
 
     std::string GetSymbolName() const;
 
@@ -49,24 +40,12 @@ public:
     std::string Dump() const;
     std::string DumpHead(const std::string &name) const;
 
-    bool operator==(const TensorSlot &th) const { return kind_ == th.kind_ && slot_ == th.slot_; }
+    bool operator==(const TensorSlot &th) const { return id_ == th.id_; }
 
-    static TensorSlot CreateTensor(const Tensor &tensor) {
-        return TensorSlot(TensorSlotKind::T_SLOT_TENSOR, &tensor);
-    }
-
-    static TensorSlot CreateConcreteAssemble(
-        const std::tuple<std::vector<int>, std::shared_ptr<LogicalTensor>> &assemble) {
-        return TensorSlot(TensorSlotKind::T_SLOT_CONCRETE_ASSEMBLE, &assemble);
-    }
-
-    static TensorSlot CreateSymbolicAssemble(
-        const std::tuple<std::vector<SymbolicScalar>, std::shared_ptr<LogicalTensor>> &assemble) {
-        return TensorSlot(TensorSlotKind::T_SLOT_SYMBOLIC_ASSEMBLE, &assemble);
-    }
+    static TensorSlot CreateTensor(const Tensor &tensor) { return TensorSlot(tensor.Id(), &tensor); }
 
 private:
-    TensorSlotKind kind_{TensorSlotKind::T_SLOT_INVALID};
+    int64_t id_{-1};
     const void *slot_{nullptr};
 };
 } // namespace npu::tile_fwk
@@ -136,6 +115,7 @@ struct IncastOutcastSlot {
     std::vector<std::vector<int>> incastSlot;
     std::vector<std::vector<int>> outcastSlot;
     std::vector<int> partialUpdateOutcastList;
+    std::vector<int> partialUpdateCount;
 };
 
 struct TensorSlotScope {
@@ -154,7 +134,7 @@ struct TensorSlotScope {
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::unordered_set<std::shared_ptr<LogicalTensor>>> incastToInOriginalDict;
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::unordered_set<std::shared_ptr<LogicalTensor>>> outcastToOutOriginalDict;
 
-    std::unordered_set<LogicalTensorPtr> partialUpdateOutcastSet;
+    std::unordered_map<LogicalTensorPtr, int> partialUpdateOutcastDict;
 
     IncastOutcastSlot ioslot;
     IncastOutcastSlot originalIocastsSlot;
@@ -248,6 +228,7 @@ struct TensorSlotManager {
 
     int GetInputIndex(const Tensor &tensor);
     int GetOutputIndex(const Tensor &tensor);
+    int GetSlotIndex(const Tensor &tensor);
 
     void Checkpoint();
     void Restore();

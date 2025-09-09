@@ -26,6 +26,8 @@ set(_CaseFilterList
         # Flash Attention
         #===========================================================================
         "DynamicBasicTest.TestDD"
+        "DynamicBasicTest.TestCheckPointRestore"
+        "DynamicBasicTest.TestSlotId"
         "DynamicBasicTest.DynamicRawShape"
         "DynamicBasicTest.TestStaticUnderDynDev"
         "DynamicBasicTest.TestStaticLoop"

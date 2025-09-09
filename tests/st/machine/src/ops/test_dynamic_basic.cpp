@@ -197,6 +197,39 @@ TEST_F(DynamicBasicTest, TestCheckPointRestore) {
     EXPECT_EQ(t0->tensor->GetRefCount(), 1);
 }
 
+TEST_F(DynamicBasicTest, TestSlotId) {
+    int s = 16;
+    int id[2] = {0};
+    Tensor *p[2] = {nullptr};
+    Tensor t(DT_FP32, {s, s}, "t0");
+    Tensor out(DT_FP32, {s, s}, "out");
+
+    FunctionConfig config;
+    FUNCTION("main", config, {t}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(1)) {
+            (void)idx;
+            Tensor t0(DT_FP32, {s, s}, "t1");
+            LOOP("L00", FunctionType::DYNAMIC_LOOP, idx1, LoopRange(1)) {
+                (void)idx1;
+                t0 = Add(t, t);
+            }
+            p[0] = &t0;
+            id[0] = t0.Id();
+        }
+        LOOP("L1", FunctionType::DYNAMIC_LOOP, idx, LoopRange(1)) {
+            (void)idx;
+            Tensor t1(DT_FP32, {s, s}, "t1");
+            LOOP("L10", FunctionType::DYNAMIC_LOOP, idx1, LoopRange(1)) {
+                (void)idx1;
+                t1 = Add(t, t);
+            }
+            p[1] = &t1;
+            id[1] = t1.Id();
+        }
+    }
+    EXPECT_NE(id[0], id[1]);
+}
+
 TEST_F(DynamicBasicTest, DynamicRawShape) {
     int s = 32;
     Tensor t0(DT_FP32, {-1, s}, "t0"); // [32*8, 32]
