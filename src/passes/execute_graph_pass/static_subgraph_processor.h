@@ -34,6 +34,14 @@ public:
     ~StaticSubgraphProcessor() = default;
     
     // 静态流程专用函数
+    // ESGGraphType相关方法
+    Status CalOpCnt(size_t i, int32_t &cubeOpCnt, int32_t &vecOpCnt, int32_t &aicpuOpCnt);
+    Status SetESGGraphType(int32_t cubeOpCnt, int32_t vecOpCnt, int32_t aicpuOpCnt, CoreType &esgGraphType);
+    Status DetermineGraphType(size_t i, CoreType &esgGraphType);
+    Status SetCallAttrGraphType(Function* rootFunc, size_t i, const CoreType &esgGraphType);
+    
+    Status HandleReadyStates(Function* rootFunc);
+    bool IsCVSeparatePlatform();
     Status BuildGraph(Function &function);
     Status BuildInGraph(Function &function);
     Status EdgeIndexCheck(const bool found, const int newIndex, const size_t graphSize) const;
@@ -51,7 +59,6 @@ public:
     void UpdateTag(int i, int tagValue, std::vector<int> &tag, std::vector<std::vector<int>>& redundantColorInGraph, std::vector<std::vector<int>>& redundantColorOutGraph);
     void EraseRedundantColorEdges(const Function &function);
     Status SetReadySubGraphType(Function* rootFunc, size_t i, const CoreType &esgGraphType);
-
     void SetNList(std::vector<std::vector<OperationPtr>>& nList) {
         nLIST_ = &nList;
     }

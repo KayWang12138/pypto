@@ -399,40 +399,41 @@ def build_swim_info(swim_data, topo_data, label_type: int = 0):
         total_cores[core_idx] = core_entry
 
     # 解析topo.json 文件中的数据
-    for topo_task in topo_data:
-        task_id = topo_task["taskId"]
-        if task_id not in total_tasks:
-            print(
-                f"WARNING: {task_id} in TOPO INFO, but not in LOG INFO, build fake task_entry\n"
-            )
-            build_fake_entry(task_id)
-            fake_task_list.append(task_id)
-        func_name = topo_task.get("funcName", "")        
-        sematic_label = topo_task.get("semanticLabel", "")
-        entry = total_tasks[task_id]
-        entry.root_index = topo_task.get("rootIndex", -1)
-        entry.root_hash = topo_task.get("rootHash", -1)
-        entry.opmagic = topo_task.get("opMagic", -1)
+    if topo_data != None:
+        for topo_task in topo_data:
+            task_id = topo_task["taskId"]
+            if task_id not in total_tasks:
+                print(
+                    f"WARNING: {task_id} in TOPO INFO, but not in LOG INFO, build fake task_entry\n"
+                )
+                build_fake_entry(task_id)
+                fake_task_list.append(task_id)
+            func_name = topo_task.get("funcName", "")        
+            sematic_label = topo_task.get("semanticLabel", "")
+            entry = total_tasks[task_id]
+            entry.root_index = topo_task.get("rootIndex", -1)
+            entry.root_hash = topo_task.get("rootHash", -1)
+            entry.opmagic = topo_task.get("opMagic", -1)
 
-        # should assert entry.psg_id_in_dyn == topo_task.get('leafIndex', -1) after dyn-static same code
-        if label_type == 1:
-            entry.color_label += sematic_label
-        elif label_type == 2:
-            entry.color_label = decimal_to_26(entry.psg_id_in_dyn)
-            entry.color_label += " " + sematic_label
-        else:
-            entry.color_label = decimal_to_26(entry.psg_id_in_dyn)
-        entry.func_name = func_name
-        entry.psg_id_within_static = topo_task.get("psgId", entry.psg_id_in_dyn)
-        entry.inoperand_label = topo_task.get("inoperandLabel", "")
-        entry.outoperand_label = topo_task.get("outoperandLabel", "")
-        entry.successors = topo_task["successors"]
-        entry.in_operands = topo_task.get('in_operands') if topo_task.get('in_operands') else []
-        entry.out_operands = topo_task.get('out_operands') if topo_task.get('out_operands') else []
-        entry.func_hash = topo_task.get('funcHash')
-        entry.tensors_life_range = topo_task.get('tensors_life_range')
-        entry.tensors = topo_task.get('tensors')
-        entry.rawtensors = topo_task.get('rawtensors')
+            # should assert entry.psg_id_in_dyn == topo_task.get('leafIndex', -1) after dyn-static same code
+            if label_type == 1:
+                entry.color_label += sematic_label
+            elif label_type == 2:
+                entry.color_label = decimal_to_26(entry.psg_id_in_dyn)
+                entry.color_label += " " + sematic_label
+            else:
+                entry.color_label = decimal_to_26(entry.psg_id_in_dyn)
+            entry.func_name = func_name
+            entry.psg_id_within_static = topo_task.get("psgId", entry.psg_id_in_dyn)
+            entry.inoperand_label = topo_task.get("inoperandLabel", "")
+            entry.outoperand_label = topo_task.get("outoperandLabel", "")
+            entry.successors = topo_task["successors"]
+            entry.in_operands = topo_task.get('in_operands') if topo_task.get('in_operands') else []
+            entry.out_operands = topo_task.get('out_operands') if topo_task.get('out_operands') else []
+            entry.func_hash = topo_task.get('funcHash')
+            entry.tensors_life_range = topo_task.get('tensors_life_range')
+            entry.tensors = topo_task.get('tensors')
+            entry.rawtensors = topo_task.get('rawtensors')
 
     # Get Predecessors for each task
     get_predecessors()

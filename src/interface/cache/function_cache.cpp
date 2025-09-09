@@ -199,7 +199,7 @@ void FunctionCache::UpdateReadyFunction(const Function &func, CacheValue &value)
 void FunctionCache::Insert(const HashKey& key, Function &func) {
     CacheValue cacheVal;
     if (func.IsFunctionTypeAndGraphType({FunctionType::DYNAMIC_LOOP, FunctionType::DYNAMIC_LOOP_PATH, FunctionType::STATIC}, {GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) {
-        if (func.rootFunc_) {
+        if (func.rootFunc_ && func.GetFunctionType() == FunctionType::STATIC) {
             UpdateTopoCache(*func.rootFunc_, cacheVal);
             UpdateBinCache(*func.rootFunc_, cacheVal);
             UpdateReadyFunction(*func.rootFunc_, cacheVal);

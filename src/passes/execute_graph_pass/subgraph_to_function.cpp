@@ -31,14 +31,20 @@ Status SubgraphToFunction::RunOnFunction(Function &function) {
     // build in-graph and out-graph at first
     // GetTensorData: Add dependency
     GetTensorDataDependencyInsert(function);
-    // 1. Construct in-graph & out-graph
-    if (staticProcessor_.BuildGraph(function) != SUCCESS) {
-        ASLOGE("failed to build graph from input function");
-        return FAILED;
+    // 只在静态流程中构建图
+    if (function.GetFunctionType() == FunctionType::STATIC) {
+        // 1. Construct in-graph & out-graph
+        if (staticProcessor_.BuildGraph(function) != SUCCESS) {
+            ASLOGE("failed to build graph from input function");
+            return FAILED;
+        }
+        // reconnect in-graph and out-graph by Incast and Outcast
+        RecordIncastOutcast(function);
+        SetupStaticProcessor();
+    } else {
+        // reconnect in-graph and out-graph by Incast and Outcast
+        RecordIncastOutcast(function);
     }
-    // reconnect in-graph and out-graph by Incast and Outcast
-    RecordIncastOutcast(function);
-    SetupStaticProcessor();
     // Construct funtion.subFunctionInvokeMap
     ConstructParamMap(function);
     // Determine the isomorphism of subgraphs and record ProgramInfoMap
@@ -81,7 +87,7 @@ void SubgraphToFunction::RecordConnectionWithProducers(RecordInfo recordInfo, Su
         std::vector<int>::iterator it = find(assembleRawMagic.begin(), assembleRawMagic.end(), iOperand->GetRawMagic());
         if (it != assembleRawMagic.end()) {
             continue;
-        } 
+        }
         assembleRawMagic.push_back(iOperand->GetRawMagic());
         iter.RecordConnection(eSgId, i, nLIST[i][j]->GetIntAttribute(OpAttributeKey::seqNo), k,
             iOperand->GetRawMagic() /*placeHolder*/, offset,
@@ -236,27 +242,12 @@ void SubgraphToFunction::RecordIncastOutcast(Function &function) {
 }
 
 void SubgraphToFunction::ConstructParamMap(Function &function) {
-    function.topoInfo_ = staticProcessor_.ConstructSubgraphTopologyInfo(function, subFuncInvokeInfos);
+    if (function.GetFunctionType() == FunctionType::STATIC) {
+        function.topoInfo_ = staticProcessor_.ConstructSubgraphTopologyInfo(function, subFuncInvokeInfos);
+    }
     for (size_t i = 0; i < subFuncInvokeInfos.size(); i++) {
         subFuncInvokeInfos[i].ConstructActualInvokeParam(i);
     }
-}
-
-bool IsCubeOp(Operation &op) {
-    if (op.GetBoolAttribute(OpAttributeKey::isCube)) {
-        return true;
-    }
-    if ((op.GetOpcode() == Opcode::OP_L0C_COPY_OUT) || (op.GetOpcode() == Opcode::OP_L1_COPY_IN)) {
-        return true;
-    }
-    return false;
-}
-
-bool IsAICPUOp(Operation &op) {
-    if ((op.GetCoreType() == CoreType::AICPU)) {
-        return true;
-    }
-    return false;
 }
 
 void SubgraphToFunction::ProcessInputOperands(Function* rootFunc, Operation& tileOp, SubfuncParam& pSgParamInfo, int& tParamLoc, int& iParamLoc) const {
@@ -483,110 +474,6 @@ void SubgraphToFunction::SetSemanticLabel(const std::vector<std::shared_ptr<Oper
     callOp->SetSemanticLabel(tag);
 }
 
-bool SubgraphToFunction::IsCVSeparatePlatform() {
-    auto socVersion = config::GetDevicePlatform();
-    if (socVersion == DPlatform::ASCEND_910B1 || socVersion == DPlatform::ASCEND_910B2 || socVersion == DPlatform::ASCEND_910B3 || socVersion == DPlatform::ASCEND_910B4) {
-        return true;
-    }
-    return false;
-}
-
-Status SubgraphToFunction::CalOpCnt(size_t i, int32_t &cubeOpCnt, int32_t &vecOpCnt, int32_t &aicpuOpCnt) {
-    for (size_t j = 0; j < nLIST[i].size(); j++) {
-        if (IsCubeOp(*nLIST[i][j])) {
-            cubeOpCnt += 1;
-            continue;
-        }
-        if(IsAICPUOp(*nLIST[i][j])){
-            aicpuOpCnt += 1;
-            continue;
-        }
-        vecOpCnt += 1;
-    }
-    return SUCCESS;
-}
-
-Status SubgraphToFunction::SetESGGraphType(int32_t cubeOpCnt, int32_t vecOpCnt, int32_t aicpuOpCnt, CoreType &esgGraphType) {
-    if (aicpuOpCnt > 0) {
-        esgGraphType = CoreType::AICPU;
-        return SUCCESS;
-    }
-    if (cubeOpCnt == 0 && vecOpCnt > 0) {
-        esgGraphType = CoreType::AIV;
-        return SUCCESS;
-    }
-    if (cubeOpCnt > 0 && vecOpCnt == 0) {
-        esgGraphType = CoreType::AIC;
-        return SUCCESS;
-    }
-    if (cubeOpCnt <= 0 || vecOpCnt <= 0) {
-        return SUCCESS;
-    }
-    esgGraphType = CoreType::MIX;
-    if (IsCVSeparatePlatform() == true) {
-        ALOG_ERROR_F("Get CoreType::MIX in C-V separate platform");
-        return FAILED;
-    }
-    return SUCCESS;
-}
-
-Status SubgraphToFunction::DetermineGraphType(size_t i, CoreType &esgGraphType) {
-    int32_t cubeOpCnt = 0;
-    int32_t vecOpCnt = 0;
-    int32_t aicpuOpCnt = 0;
-    if (CalOpCnt(i, cubeOpCnt, vecOpCnt, aicpuOpCnt) != SUCCESS) {
-        ALOG_ERROR_F("CalOpCnt failed.");
-        return FAILED;
-    }
-    if (SetESGGraphType(cubeOpCnt, vecOpCnt, aicpuOpCnt, esgGraphType) != SUCCESS) {
-        ALOG_ERROR_F("SetESGGraphType failed.");
-        return FAILED;
-    }
-    if(nLIST[i].size() == 1 && nLIST[i][0]->GetOpcode() == Opcode::OP_RESHAPE && staticProcessor_.colorInGraph[i].size() != 0){
-        esgGraphType = CoreType::HUB;
-    }
-    return SUCCESS;
-}
-
-Status SubgraphToFunction::SetCallAttrGraphType(Function* rootFunc, size_t i, const CoreType &esgGraphType) {
-    // Get the operation and verify it exists
-    if (i >= rootFunc->Operations().size()) {
-        ALOG_ERROR_F("Operation index %zu out of bounds (total operations: %zu)", i, rootFunc->Operations().size());
-        return FAILED;
-    }
-    auto& op = rootFunc->Operations()[i];
-    auto callAttr = dynamic_cast<CallOpAttribute *>(op.GetOpAttribute().get());
-    if (callAttr == nullptr) {
-        ALOG_ERROR_F("Failed to get CallOpAttribute for operation %zu (opcode: %s)", i, op.GetOpcodeStr().c_str());
-        return FAILED;
-    }
-    callAttr->invokeInfo_->SetGraphType(esgGraphType);
-    return SUCCESS;
-}
-
-Status SubgraphToFunction::HandleReadyStates(Function* rootFunc) {
-    if (rootFunc == nullptr) {
-        ALOG_ERROR("Root function is nullptr");
-        return FAILED;
-    }
-    for (size_t i = 0; i < nLIST.size(); i++) {
-        CoreType esgGraphType = CoreType::AIV;
-        if (DetermineGraphType(i, esgGraphType) != SUCCESS) {
-            ALOG_ERROR_F("DetermineGraphType failed");
-            return FAILED;
-        }
-        if (SetCallAttrGraphType(rootFunc, i, esgGraphType) != SUCCESS) {
-            ALOG_ERROR_F("SetCallAttrGraphType failed");
-            return FAILED;
-        }
-        if (staticProcessor_.SetReadySubGraphType(rootFunc, i, esgGraphType) != SUCCESS) {
-            ALOG_ERROR_F("SetReadySubGraphType failed");
-            return FAILED;
-        }
-    }
-    return SUCCESS;
-}
-
 Status SubgraphToFunction::IslandToFunction(Function &function) {
     // 1. Create root function
     auto rootName = Function::CreateRootRawName(function.GetRawName());
@@ -606,16 +493,19 @@ Status SubgraphToFunction::IslandToFunction(Function &function) {
     auto rootEndResult = Program::GetInstance().EndFunction(rootName, false);
     auto resultFunc = std::get<0>(rootEndResult);
     if (resultFunc != rootFunc) { ALOG_ERROR_F("Root function mismatch after finalization"); return FAILED; }
-    rootFunc->topoInfo_ = function.topoInfo_;
+    if (function.GetFunctionType() == FunctionType::STATIC) {
+        rootFunc->topoInfo_ = function.topoInfo_;
+    }
     function.rootFunc_ = rootFunc;
 
     // 4. Add graphType of ESGInvokeInfoMap
-    Status readyStateStatus = HandleReadyStates(rootFunc);
-    if (readyStateStatus != SUCCESS) {
-        ALOG_ERROR("Failed to handle ready states");
-        return readyStateStatus;
+    if (function.GetFunctionType() == FunctionType::STATIC) {
+        Status readyStateStatus = staticProcessor_.HandleReadyStates(rootFunc);
+        if (readyStateStatus != SUCCESS) {
+            ALOG_ERROR("Failed to handle ready states");
+            return readyStateStatus;
+        }
     }
-
     // 5. symbolize esg to program subgraph for both static and dynamic paths
     SymbolizeFunction(rootFunc, mergedFuncList);
 
@@ -853,8 +743,10 @@ Status SubgraphToFunction::PreCheck(Function &function) {
 
 Status SubgraphToFunction::PostCheck(Function &function) {
     SubGraphToFuncChecker checker;
-    checker.SetInOutGraph(staticProcessor_.inGraph, staticProcessor_.outGraph);
-    checker.SetColorGraph(staticProcessor_.colorInGraph, staticProcessor_.colorOutGraph);
+    if (function.GetFunctionType() == FunctionType::STATIC) {
+        checker.SetInOutGraph(staticProcessor_.inGraph, staticProcessor_.outGraph);
+        checker.SetColorGraph(staticProcessor_.colorInGraph, staticProcessor_.colorOutGraph);
+    }
     checker.SetPsgToESgMap(psgToESgMap);
     return checker.DoPostCheck(function);
 }

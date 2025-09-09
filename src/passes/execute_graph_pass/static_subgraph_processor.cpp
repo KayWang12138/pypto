@@ -14,6 +14,7 @@
  */
 
 #include "passes/execute_graph_pass/static_subgraph_processor.h"
+#include "interface/configs/config_manager.h"
 
 namespace npu::tile_fwk {
 
@@ -306,5 +307,128 @@ void StaticSubgraphProcessor::UpdateTopoEntry(size_t i, int eSgId, int realOutDe
     }
     ALOG_DEBUG_F("######## AddEntry ESgId %d ReadyOrNot %d %zu %d ######", eSgId, readyOrNot, topo.readyIds_.size(),
         topo.readyIds_[0]);
+}
+
+Status StaticSubgraphProcessor::SetESGGraphType(int32_t cubeOpCnt, int32_t vecOpCnt, int32_t aicpuOpCnt, CoreType &esgGraphType) {
+    if (aicpuOpCnt > 0) {
+        esgGraphType = CoreType::AICPU;
+        return SUCCESS;
+    }
+    if (cubeOpCnt == 0 && vecOpCnt > 0) {
+        esgGraphType = CoreType::AIV;
+        return SUCCESS;
+    }
+    if (cubeOpCnt > 0 && vecOpCnt == 0) {
+        esgGraphType = CoreType::AIC;
+        return SUCCESS;
+    }
+    if (cubeOpCnt <= 0 || vecOpCnt <= 0) {
+        return SUCCESS;
+    }
+    esgGraphType = CoreType::MIX;
+    if (IsCVSeparatePlatform() == true) {
+        ALOG_ERROR_F("Get CoreType::MIX in C-V separate platform");
+        return FAILED;
+    }
+    return SUCCESS;
+}
+
+Status StaticSubgraphProcessor::DetermineGraphType(size_t i, CoreType &esgGraphType) {
+    int32_t cubeOpCnt = 0;
+    int32_t vecOpCnt = 0;
+    int32_t aicpuOpCnt = 0;
+    if (CalOpCnt(i, cubeOpCnt, vecOpCnt, aicpuOpCnt) != SUCCESS) {
+        ALOG_ERROR_F("CalOpCnt failed.");
+        return FAILED;
+    }
+    if (SetESGGraphType(cubeOpCnt, vecOpCnt, aicpuOpCnt, esgGraphType) != SUCCESS) {
+        ALOG_ERROR_F("SetESGGraphType failed.");
+        return FAILED;
+    }
+    if(GetNList()[i].size() == 1 && GetNList()[i][0]->GetOpcode() == Opcode::OP_RESHAPE && colorInGraph[i].size() != 0){
+        esgGraphType = CoreType::HUB;
+    }
+    return SUCCESS;
+}
+
+Status StaticSubgraphProcessor::SetCallAttrGraphType(Function* rootFunc, size_t i, const CoreType &esgGraphType) {
+    // Get the operation and verify it exists
+    if (i >= rootFunc->Operations().size()) {
+        ALOG_ERROR_F("Operation index %zu out of bounds (total operations: %zu)", i, rootFunc->Operations().size());
+        return FAILED;
+    }
+    auto& op = rootFunc->Operations()[i];
+    auto callAttr = dynamic_cast<CallOpAttribute *>(op.GetOpAttribute().get());
+    if (callAttr == nullptr) {
+        ALOG_ERROR_F("Failed to get CallOpAttribute for operation %zu (opcode: %s)", i, op.GetOpcodeStr().c_str());
+        return FAILED;
+    }
+    callAttr->invokeInfo_->SetGraphType(esgGraphType);
+    return SUCCESS;
+}
+
+bool IsCubeOp(Operation &op) {
+    if (op.GetBoolAttribute(OpAttributeKey::isCube)) {
+        return true;
+    }
+    if ((op.GetOpcode() == Opcode::OP_L0C_COPY_OUT) || (op.GetOpcode() == Opcode::OP_L1_COPY_IN)) {
+        return true;
+    }
+    return false;
+}
+
+bool IsAICPUOp(Operation &op) {
+    if ((op.GetCoreType() == CoreType::AICPU)) {
+        return true;
+    }
+    return false;
+}
+
+Status StaticSubgraphProcessor::CalOpCnt(size_t i, int32_t &cubeOpCnt, int32_t &vecOpCnt, int32_t &aicpuOpCnt) {
+    auto& nList = GetNList();
+    for (size_t j = 0; j < nList[i].size(); j++) {
+        if (IsCubeOp(*nList[i][j])) {
+            cubeOpCnt += 1;
+            continue;
+        }
+        if(IsAICPUOp(*nList[i][j])){
+            aicpuOpCnt += 1;
+            continue;
+        }
+        vecOpCnt += 1;
+    }
+    return SUCCESS;
+}
+
+Status StaticSubgraphProcessor::HandleReadyStates(Function* rootFunc) {
+    if (rootFunc == nullptr) {
+        ALOG_ERROR("Root function is nullptr");
+        return FAILED;
+    }
+    auto& nList = GetNList();
+    for (size_t i = 0; i < nList.size(); i++) {
+        CoreType esgGraphType = CoreType::AIV;
+        if (DetermineGraphType(i, esgGraphType) != SUCCESS) {
+            ALOG_ERROR_F("DetermineGraphType failed");
+            return FAILED;
+        }
+        if (SetCallAttrGraphType(rootFunc, i, esgGraphType) != SUCCESS) {
+            ALOG_ERROR_F("SetCallAttrGraphType failed");
+            return FAILED;
+        }
+        if (SetReadySubGraphType(rootFunc, i, esgGraphType) != SUCCESS) {
+            ALOG_ERROR_F("SetReadySubGraphType failed");
+            return FAILED;
+        }
+    }
+    return SUCCESS;
+}
+
+bool StaticSubgraphProcessor::IsCVSeparatePlatform() {
+    auto socVersion = config::GetDevicePlatform();
+    if (socVersion == DPlatform::ASCEND_910B1 || socVersion == DPlatform::ASCEND_910B2 || socVersion == DPlatform::ASCEND_910B3 || socVersion == DPlatform::ASCEND_910B4) {
+        return true;
+    }
+    return false;
 }
 }

@@ -56,13 +56,6 @@ private:
     Status ProcessSubgraph(Function& function, size_t i, size_t& programIdx, std::vector<Function*>& outputFuncList);
     Status ProcessCacheResult(const std::tuple<Function*, Operation*, bool>& result, size_t i, size_t& programIdx, std::vector<Function*>& outputFuncList, Operation* callOp);
     void SetSemanticLabel(const std::vector<std::shared_ptr<Operation>>& subgraph, Operation* callOp);
-    bool IsCVSeparatePlatform();
-    Status CalOpCnt(size_t i, int32_t &cubeOpCnt, int32_t &vecOpCnt, int32_t &aicpuOpCnt);
-    Status SetESGGraphType(int32_t cubeOpCnt, int32_t vecOpCnt, int32_t aicpuOpCnt, CoreType &esgGraphType);
-    Status DetermineGraphType(size_t i, CoreType &esgGraphType);
-    Status SetCallAttrGraphType(Function* rootFunc, size_t i, const CoreType &esgGraphType);
-    
-    Status HandleReadyStates(Function* rootFunc);
     void InitializeRootFunction(Function& function, Function* rootFunc);
     Status IslandToFunction(Function &function);
     void ConstructnList(Function &function);

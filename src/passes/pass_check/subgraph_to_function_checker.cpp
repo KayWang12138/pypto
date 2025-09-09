@@ -372,35 +372,38 @@ Status SubGraphToFuncChecker::ColorOutGraphCheck(Function &function) const {
 Status SubGraphToFuncChecker::DoPostCheck(Function &function) {
     // Check colorInGraph_ and colorOutGraph_ consistency
     ALOG_INFO_F("Start PostCheck for SubgraphToFunction!");
-    if (InAndOutGraphConsistencyCheck(colorInGraph_, colorOutGraph_) != SUCCESS) {
-        ALOG_ERROR_F("Consistency check for input colorInGraph_ and colorOutGraph_ failed");
-        return FAILED;
-    }
+    // 只在静态流程中检查静态专用的图信息
+    if (function.GetFunctionType() == FunctionType::STATIC) {
+        if (InAndOutGraphConsistencyCheck(colorInGraph_, colorOutGraph_) != SUCCESS) {
+            ALOG_ERROR_F("Consistency check for input colorInGraph_ and colorOutGraph_ failed");
+            return FAILED;
+        }
 
-    // Check colorOutGraph_ matches outGraph_
-    if (ColorOutGraphCheck(function) != SUCCESS) {
-        ALOG_ERROR_F("Consistency check for colorOutGraph_ and input failed");
-        return FAILED;
+        // Check colorOutGraph_ matches outGraph_
+        if (ColorOutGraphCheck(function) != SUCCESS) {
+            ALOG_ERROR_F("Consistency check for colorOutGraph_ and input failed");
+            return FAILED;
+        }
+
+        // Verify readyState matches negative predecessor count
+        for (size_t i = 0; i < function.rootFunc_->topoInfo_.topology_.size(); i++) {
+            if (CheckReadyStateConsistency(function, i) != SUCCESS) {
+                ALOG_ERROR_F("Ready state inconsistency found for topology entry %zu", i);
+                return FAILED;
+            }
+        }
+
+        for (size_t i = 0; i < function.rootFunc_->Operations().size(); ++i) {
+            if (VerifySingleOpTopology(function, i) != SUCCESS) {
+                ALOG_ERROR_F("Failed to verify topology for operation %zu", i);
+                return FAILED;
+            }
+        }
     }
 
     // Check the mapping relationships in psgToESgMap
     for (auto [psgId, esgId] : psgToESgMap_) {
         if (CheckSinglePsgEsgMapping(function, psgId, esgId) != SUCCESS) { ALOG_ERROR_F("Failed to check mapping between psg %d and esg %d", psgId, esgId); return FAILED; }
-    }
-
-    for (size_t i = 0; i < function.rootFunc_->Operations().size(); ++i) {
-        if (VerifySingleOpTopology(function, i) != SUCCESS) {
-            ALOG_ERROR_F("Failed to verify topology for operation %zu", i);
-            return FAILED;
-        }
-    }
-
-    // Verify readyState matches negative predecessor count
-    for (size_t i = 0; i < function.rootFunc_->topoInfo_.topology_.size(); i++) {
-        if (CheckReadyStateConsistency(function, i) != SUCCESS) {
-            ALOG_ERROR_F("Ready state inconsistency found for topology entry %zu", i);
-            return FAILED;
-        }
     }
     return SUCCESS;
 }

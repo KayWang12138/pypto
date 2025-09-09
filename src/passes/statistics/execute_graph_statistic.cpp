@@ -230,18 +230,9 @@ json ExecutionGraphStatistic::AnalyzeExecutionGraph(Function & func, const std::
     std::vector<int> minLatencySubgraphs;
     auto totalLatency =
         AnalyzeSubgraphLatencies(func, maxLatency, minLatency, maxLatencySubgraphs, minLatencySubgraphs);
-    // 计算依赖关系
-    auto dependencies = AnalyzeGraphDependencies(func);
-
     int totalSubgraphNum = func.GetTotalSubGraphCount();
     report = {
         {"totalSubgraphCount", totalSubgraphNum},
-        {"maxSubgraphDepth", FindLongestPath(func).maxLength},
-        {"maxSubgraphWidth", CalculateConcurrency(func).maxConcurrency},
-        {"maxSubgraphFanin", dependencies["Predecessors"]["MAX"]["value"]},
-        {"maxFaninSubgraphs", dependencies["Predecessors"]["MAX"]["subgraph"]},
-        {"maxSubgraphFanout", dependencies["Successors"]["MAX"]["value"]},
-        {"maxFanoutSubgraphs", dependencies["Successors"]["MAX"]["subgraph"]},
         {"maxSubgraphCycle", maxLatency},
         {"minSubgraphCycle", minLatency == UINT64_MAX ? 0 : minLatency},
         {"avgSubgraphCycle", totalSubgraphNum > 0 ? totalLatency / totalSubgraphNum : 0},
@@ -257,7 +248,25 @@ json ExecutionGraphStatistic::AnalyzeExecutionGraph(Function & func, const std::
         {"invalidSubgraphCount", coreTypeCounts[CoreType::INVALID]},
         {"mixSubgraphCount", coreTypeCounts[CoreType::MIX]}
     };
+
+    // 只在静态流程中添加拓扑相关指标
+    if (func.GetFunctionType() == FunctionType::STATIC) {
+        auto dependencies = AnalyzeGraphDependencies(func);
+        auto longestPath = FindLongestPath(func);
+        auto concurrencyStats = CalculateConcurrency(func);
+        
+        report.update({
+            {"maxSubgraphDepth", longestPath.maxLength},
+            {"maxSubgraphWidth", concurrencyStats.maxConcurrency},
+            {"maxSubgraphFanin", dependencies["Predecessors"]["MAX"]["value"]},
+            {"maxFaninSubgraphs", dependencies["Predecessors"]["MAX"]["subgraph"]},
+            {"maxSubgraphFanout", dependencies["Successors"]["MAX"]["value"]},
+            {"maxFanoutSubgraphs", dependencies["Successors"]["MAX"]["subgraph"]}
+        });
+    }
     AnalyzeIsomorphism(report, psgToESgMap, subgraphGroups);
+    // 添加流程类型信息
+    report["functionType"] = func.GetFunctionType() == FunctionType::STATIC ? "STATIC" : "DYNAMIC";
     return report;
 }
 
