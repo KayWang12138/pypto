@@ -14,12 +14,27 @@
 
 # Python3
 if (NOT DEFINED Python3_EXECUTABLE)
-    find_package(Python3 COMPONENTS Development Interpreter)
-    if ((NOT Python3_FOUND) OR (${Python3_EXECUTABLE} STREQUAL ""))
-        message(FATAL_ERROR "Can't find python3.")
+    find_package(Python3 COMPONENTS Interpreter Development)
+    if ("${Python3_EXECUTABLE}x" STREQUAL "x")
+        message(FATAL_ERROR "Can't find python3 Interpreter.")
+    endif ()
+else ()
+    # 从解释器路径推导出 Python3 根目录
+    get_filename_component(_Python3_Root "${Python3_EXECUTABLE}" DIRECTORY)
+    get_filename_component(_Python3_Root "${_Python3_Root}" DIRECTORY)  # 通常需要向上两级
+    # 设置查找路径
+    set(Python3_ROOT_DIR "${_Python3_Root}")
+    find_package(Python3 COMPONENTS Development)
+endif ()
+
+# pybind11
+if (Python3_Development_FOUND)
+    PTO_Fwk_AnalysisPython3Environ(pybind11_DIR GET_PYBIND11_DIR)
+    message(STATUS "pybind11_DIR=${pybind11_DIR}")
+    if (NOT "${pybind11_DIR}x" STREQUAL "x")
+        find_package(pybind11 CONFIG REQUIRED PATHS ${pybind11_DIR} NO_DEFAULT_PATH)
     endif ()
 endif ()
-set(TILE_FWK_PYTHON3_EXE   "${Python3_EXECUTABLE}" CACHE   STRING   "python executor")
 
 # 获取 CANN 路径
 if (CUSTOM_ASCEND_CANN_PACKAGE_PATH)
@@ -223,7 +238,7 @@ endif ()
 # SecureC
 if (BUILD_OPEN_PROJECT)
     set(BoundsCheck_DirName "libboundscheck-v1.1.16")
-    get_filename_component(BoundsCheck_Dir "${TILE_FWK_SRC_ROOT}/3rd/${BoundsCheck_DirName}" REALPATH)
+    get_filename_component(BoundsCheck_Dir "${PTO_FWK_SRC_ROOT}/3rd/${BoundsCheck_DirName}" REALPATH)
     if (NOT (EXISTS "${BoundsCheck_Dir}" AND EXISTS "${BoundsCheck_Dir}/CMakeLists.txt"))
         message(WARNING "Can't get BoundsCheck/HwSecureC Source, Please make sure BoundsCheck has been installed.")
     else ()
@@ -263,14 +278,11 @@ if (BUILD_OPEN_PROJECT)
     endif ()
 endif ()
 
-## torch optional
+# torch optional
 if (ENABLE_TESTS_UTEST OR ENABLE_TESTS_STEST)
-    execute_process(
-        COMMAND ${TILE_FWK_PYTHON3_EXE} -c "import torch; print(torch.__version__)"
-        OUTPUT_VARIABLE TORCH_VERSION
-    )
-    message(STATUS "Torch=${TORCH_VERSION}")
-    if ("${TORCH_VERSION}" STRGREATER_EQUAL "2.1.0")
+    PTO_Fwk_AnalysisPython3Environ(torch_Version GET_TORCH_VERSION)
+    message(STATUS "Torch=${torch_Version}")
+    if ("${torch_Version}" STRGREATER_EQUAL "2.1.0")
         set(ENABLE_TORCH_VERIFIER ON)
     endif()
 endif()

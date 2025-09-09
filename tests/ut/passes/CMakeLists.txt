@@ -300,11 +300,11 @@ set(_CaseFilterList
         "HealthReportTest.TestDD"
 )
 
-set(_Target ${TileFwkUTestNamePrefix}_passes)
+set(_Target ${PTO_Fwk_UTestNamePrefix}_passes)
 
 file(GLOB_RECURSE _Sources src/*.cpp)
 
-TileFwk_UTest_AddCaseLib(
+PTO_Fwk_UTest_AddCaseLib(
         TARGET ${_Target}
         SOURCES ${_Sources}
         PUBLIC_LINK_LIBRARIES tile_fwk_passes tile_fwk_interface
@@ -313,7 +313,7 @@ TileFwk_UTest_AddCaseLib(
 
 add_custom_command(
         TARGET ${_Target} PRE_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${TileFwkUTestExePath}/config/pass/json
-        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/src/ut_json/*.json ${TileFwkUTestExePath}/config/pass/json
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${PTO_Fwk_UTestExePath}/config/pass/json
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/src/ut_json/*.json ${PTO_Fwk_UTestExePath}/config/pass/json
         COMMENT "Copy ${_Target} dependence config file."
 )

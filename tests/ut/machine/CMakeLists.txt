@@ -51,20 +51,20 @@ set(_CaseFilterList
         "DynamicMatmulUTest.mm_A_B_ND_bf16"
 )
 
-set(_Target ${TileFwkUTestNamePrefix}_machine)
+set(_Target ${PTO_Fwk_UTestNamePrefix}_machine)
 
 file(GLOB_RECURSE _Sources src/*.cpp)
-list(APPEND _Sources ${TILE_FWK_SRC_ROOT}/src/machine/device/aicore_prof.cpp)
-list(APPEND _Sources ${TILE_FWK_SRC_ROOT}/src/machine/device/device_machine.cpp)
-list(APPEND _Sources ${TILE_FWK_SRC_ROOT}/src/machine/device/device_log.cpp)
-list(APPEND _Sources ${TILE_FWK_SRC_ROOT}/src/machine/device/distributed/comm_wait_flag.cpp)
-list(APPEND _Sources ${TILE_FWK_SRC_ROOT}/src/machine/device/distributed/shmem_wait_until.cpp)
+list(APPEND _Sources ${PTO_FWK_SRC_ROOT}/src/machine/device/aicore_prof.cpp)
+list(APPEND _Sources ${PTO_FWK_SRC_ROOT}/src/machine/device/device_machine.cpp)
+list(APPEND _Sources ${PTO_FWK_SRC_ROOT}/src/machine/device/device_log.cpp)
+list(APPEND _Sources ${PTO_FWK_SRC_ROOT}/src/machine/device/distributed/comm_wait_flag.cpp)
+list(APPEND _Sources ${PTO_FWK_SRC_ROOT}/src/machine/device/distributed/shmem_wait_until.cpp)
 
-TileFwk_UTest_AddCaseLib(
+PTO_Fwk_UTest_AddCaseLib(
         TARGET ${_Target}
         SOURCES ${_Sources}
         PUBLIC_LINK_LIBRARIES tile_fwk_compiler tile_fwk_runtime tile_fwk_interface dl
-        PRIVATE_INCLUDE_DIRECTORIES ${TILE_FWK_SRC_ROOT}/tests/runtime
+        PRIVATE_INCLUDE_DIRECTORIES ${PTO_FWK_SRC_ROOT}/tests/runtime
         GTEST_FILTER_LIST ${_CaseFilterList}
 )
 target_compile_definitions(${_Target}
@@ -74,8 +74,8 @@ target_compile_definitions(${_Target}
 # 可执行程序运行依赖的配置, 脚本配置
 add_custom_command(
         TARGET ${_Target} PRE_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${TileFwkUTestExePath}/stubs/compiler/data/platform_config/
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${PTO_Fwk_UTestExePath}/stubs/compiler/data/platform_config/
         COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/stubs/compiler/data/platform_config/Ascend910B1.ini
-                                         ${TileFwkUTestExePath}/stubs/compiler/data/platform_config/
+                                         ${PTO_Fwk_UTestExePath}/stubs/compiler/data/platform_config/
         COMMENT "Copy ${_Target} dependence config file."
 )

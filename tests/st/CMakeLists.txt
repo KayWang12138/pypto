@@ -17,7 +17,7 @@ if (ENABLE_TESTS_STEST OR ENABLE_TESTS_STEST_DISTRIBUTED)
         add_subdirectory(simulation)
 
         # 可执行程序
-        TileFwk_STest_AddExe_RunExe(TARGET ${TileFwkSTestNamePrefix})
+        PTO_Fwk_STest_AddExe_RunExe(TARGET ${PTO_Fwk_STestNamePrefix})
     endif ()
 
     if (ENABLE_TESTS_STEST_DISTRIBUTED)

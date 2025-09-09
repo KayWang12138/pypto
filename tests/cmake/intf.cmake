@@ -7,7 +7,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
-set(_Target ${TileFwkUTestNamePrefix}_intf_pub)
+set(_Target ${PTO_Fwk_UTestNamePrefix}_intf_pub)
 add_library(${_Target} INTERFACE)
 target_compile_options(${_Target}
         INTERFACE
@@ -19,7 +19,7 @@ target_link_libraries(${_Target}
             tile_fwk_intf_pub
 )
 
-set(_Target ${TileFwkSTestNamePrefix}_intf_pub)
+set(_Target ${PTO_Fwk_STestNamePrefix}_intf_pub)
 add_library(${_Target} INTERFACE)
 target_compile_options(${_Target}
         INTERFACE

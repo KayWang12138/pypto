@@ -74,9 +74,9 @@ if(slog_FOUND)
     set(slog_INCLUDE_DIR "${_INCLUDE_DIR}")
     include(CMakePrintHelpers)
     message(STATUS "Variables in slog module:")
-    cmake_print_variables(slog_INCLUDE_DIR)
-    cmake_print_variables(slog_SHARED_LIBRARY)
-    cmake_print_variables(alog_SHARED_LIBRARY)
+#    cmake_print_variables(slog_INCLUDE_DIR)
+#    cmake_print_variables(slog_SHARED_LIBRARY)
+#    cmake_print_variables(alog_SHARED_LIBRARY)
 
     add_library(slog SHARED IMPORTED)
     set_target_properties(slog PROPERTIES
@@ -98,15 +98,15 @@ if(slog_FOUND)
     )
 
     include(CMakePrintHelpers)
-    cmake_print_properties(TARGETS slog
-        PROPERTIES INTERFACE_COMPILE_DEFINITIONS INTERFACE_LINK_LIBRARIES IMPORTED_LOCATION
-    )
-    cmake_print_properties(TARGETS alog
-        PROPERTIES INTERFACE_COMPILE_DEFINITIONS INTERFACE_LINK_LIBRARIES IMPORTED_LOCATION
-    )
-    cmake_print_properties(TARGETS slog_headers
-        PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-    )
+#    cmake_print_properties(TARGETS slog
+#        PROPERTIES INTERFACE_COMPILE_DEFINITIONS INTERFACE_LINK_LIBRARIES IMPORTED_LOCATION
+#    )
+#    cmake_print_properties(TARGETS alog
+#        PROPERTIES INTERFACE_COMPILE_DEFINITIONS INTERFACE_LINK_LIBRARIES IMPORTED_LOCATION
+#    )
+#    cmake_print_properties(TARGETS slog_headers
+#        PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+#    )
 endif()
 
 # Cleanup temporary variables.

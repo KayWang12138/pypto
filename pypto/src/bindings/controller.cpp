@@ -1,3 +1,18 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file controller.cpp
+ * \brief
+ */
+
 #include "pybind_common.h"
 
 #include <utility>
@@ -14,7 +29,7 @@ void bind_controller(py::module &m) {
         std::vector<int64_t> v;
         v.reserve(args.size());
         for (auto &a : args) {
-            v.push_back(a.cast<int>());
+            v.push_back(a.cast<int64_t>());
         }
         TileShape::Current().SetVecTile(v);
     });
@@ -85,11 +100,11 @@ void bind_controller(py::module &m) {
             py::arg("line") = 0)
         .def("__bool__", py::overload_cast<>(&RecordIfBranch::operator bool, py::const_));
 
-    // TODO(anastasios): not used now since we use Program::GetInstance()
+    // (anastasios): not used now since we use Program::GetInstance()
     py::class_<TileShape>(m, "tile_shape")
         .def(py::init<>())
         .def("reset", &TileShape::Reset)
-        .def("to_string", &TileShape::toString)
+        .def("to_string", &TileShape::toString, py::arg("tile_type") = TileType::MAX)
         .def("get_vec_tile_shapes", py::overload_cast<>(&TileShape::GetVecTile))
         .def("get_vec_tile_shapes", py::overload_cast<>(&TileShape::GetVecTile, py::const_))
         .def("set_vec_tile_shapes", [](TileShape &self, py::args args) {
@@ -99,7 +114,21 @@ void bind_controller(py::module &m) {
                 v.push_back(a.cast<int>()); // require ints
             }
             self.SetVecTile(v);
-        });
+        })
+        .def("set_disk_rank_id", &TileShape::SetDistRankId);
+
+    py::class_<VecTile>(m, "vec_tile")
+        .def(py::init<>())
+        .def_readwrite("tile", &VecTile::tile)
+        .def("valid", &VecTile::valid,
+             "Check if all elements are positive and non-empty")
+        .def("__getitem__", [](const VecTile& vt, int index) {
+            if (index < 0 || index >= static_cast<int>(vt.size())) {
+                throw py::index_error("Index out of range");
+            }
+            return vt[index];
+        }, py::arg("index"))
+        .def("__len__", &VecTile::size, "Get the size of the tile");
 
     py::class_<LoopRange>(m, "loop_range")
         .def(py::init<const SymbolicScalar & /* rangeBegin */, const SymbolicScalar & /* rangeEnd */,
@@ -116,6 +145,8 @@ void bind_controller(py::module &m) {
 
     py::class_<FunctionConfig>(m, "func_config")
         .def(py::init<>())
+        .def(py::init<FunctionType>(),
+             py::arg("funcType") = FunctionType::DYNAMIC)
         .def_readwrite("funcType", &FunctionConfig::funcType);
 }
 } // namespace pypto

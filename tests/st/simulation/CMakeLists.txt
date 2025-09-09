@@ -12,11 +12,11 @@ set(_CaseFilterList
         "CostModelDynTest.TestDD"
 )
 
-set(_Target ${TileFwkSTestNamePrefix}_simulation)
+set(_Target ${PTO_Fwk_STestNamePrefix}_simulation)
 
 file(GLOB_RECURSE _Sources src/*.cpp)
 
-TileFwk_STest_AddLib(
+PTO_Fwk_STest_AddLib(
         TARGET ${_Target}
         SOURCES ${_Sources}
         PUBLIC_LINK_LIBRARIES tile_fwk_interface tile_fwk_simulation tile_fwk_simulation_ca
@@ -26,15 +26,15 @@ TileFwk_STest_AddLib(
 # 可执行程序运行依赖的配置, 脚本配置
 add_custom_command(
         TARGET ${_Target} PRE_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${TileFwkSTestExePath}/config/
-        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/config/* ${TileFwkSTestExePath}/config/
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${PTO_Fwk_STestExePath}/config/
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/config/* ${PTO_Fwk_STestExePath}/config/
         COMMENT "Copy ${_Target} dependence config file."
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${TileFwkSTestExePath}/scripts/
-        COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/src/cost_model/simulation/scripts/print_swim_lane.py ${TileFwkSTestExePath}/scripts/
-        COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/src/cost_model/simulation/scripts/draw_comm_swim_lane_png.py ${TileFwkSTestExePath}/scripts/
-        COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/src/cost_model/simulation/scripts/draw_pipe_swim_lane.py ${TileFwkSTestExePath}/scripts/
-        COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/tools/draw_swim_lane.py ${TileFwkSTestExePath}/scripts/
-        COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/tools/function_json_convert.py ${TileFwkSTestExePath}/scripts/
-        COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/tools/parse_pipe_time_trace.py ${TileFwkSTestExePath}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${PTO_Fwk_STestExePath}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/src/cost_model/simulation/scripts/print_swim_lane.py ${PTO_Fwk_STestExePath}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/src/cost_model/simulation/scripts/draw_comm_swim_lane_png.py ${PTO_Fwk_STestExePath}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/src/cost_model/simulation/scripts/draw_pipe_swim_lane.py ${PTO_Fwk_STestExePath}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/tools/draw_swim_lane.py ${PTO_Fwk_STestExePath}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/tools/function_json_convert.py ${PTO_Fwk_STestExePath}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/tools/parse_pipe_time_trace.py ${PTO_Fwk_STestExePath}/scripts/
         COMMENT "Copy ${_Target} dependence scripts file."
 )

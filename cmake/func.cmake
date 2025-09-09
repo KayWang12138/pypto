@@ -7,28 +7,47 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
-
-function(TileFwk_Debug_List)
+# 源码列表调试
+#[[
+Parameters:
+  options:
+      DETAIL                        : [Optional] 是否输出详细信息
+  one_value_keywords:
+      NAME                          : [Required] 指定目标名称/标识名称
+  multi_value_keywords:
+      LIST                          : [Required] 源码列表
+]]
+function(PTO_Fwk_Debug_Source_List)
     cmake_parse_arguments(
-            TMP
-            ""
-            "NAME;DETAIL"
+            ARG
+            "DETAIL"
+            "NAME"
             "LIST"
             ""
             ${ARGN}
     )
-    list(LENGTH TMP_LIST _Len)
-    message(STATUS "${TMP_NAME}: Length: ${_Len}")
-    if (TMP_DETAIL)
-        foreach (_f ${TMP_LIST})
+    list(LENGTH ARG_LIST _Len)
+    message(STATUS "${ARG_NAME}: Length: ${_Len}")
+    if (ARG_DETAIL)
+        foreach (_f ${ARG_LIST})
             message(STATUS "${_f}")
         endforeach ()
     endif ()
 endfunction()
 
-function(TileFwk_AnalysisTargetSymbols)
+# 分析二进制的符号信息
+#[[
+Parameters:
+  options:
+      DF                            : [Optional] 输出已定义的关系
+      IGNORE_UDF_SELF               : [Optional] 忽略自身的未定义符号(UDF: Undefined)
+      IGNORE_UDF_PASSED             : [Optional] 忽略传递的未定义符号(UDF: Undefined)
+  one_value_keywords:
+      TARGET                        : [Required] 指定目标名称
+]]
+function(PTO_Fwk_AnalysisTargetSymbols)
     cmake_parse_arguments(
-            TMP
+            ARG
             "DF;IGNORE_UDF_SELF;IGNORE_UDF_PASSED"
             "TARGET"
             ""
@@ -39,29 +58,35 @@ function(TileFwk_AnalysisTargetSymbols)
             AND (ENABLE_TESTS_UTEST OR ENABLE_TESTS_STEST OR ENABLE_TESTS_STEST_DISTRIBUTED)
             AND (CMAKE_GENERATOR STREQUAL "Unix Makefiles")
             AND (CMAKE_C_COMPILER_ID STREQUAL "GNU"))
-        set(_file $<TARGET_FILE:${TMP_TARGET}>)
-        get_filename_component(_PyScript "${TILE_FWK_SRC_ROOT}/cmake/scripts/analysis_binary_symbol.py" REALPATH)
+        set(_file $<TARGET_FILE:${ARG_TARGET}>)
+        get_filename_component(_PyScript "${PTO_FWK_SRC_ROOT}/cmake/scripts/analysis_binary_symbol.py" REALPATH)
         set(_Args "-f=${_file}")
-        if (TMP_DF)
+        if (ARG_DF)
             list(APPEND _Args "--print_defined_relations")
         endif ()
-        if (TMP_IGNORE_UDF_SELF)
+        if (ARG_IGNORE_UDF_SELF)
             list(APPEND _Args "--ignore_undefined_symbols_self")
         endif ()
-        if (NOT TMP_IGNORE_UDF_PASSED)
+        if (NOT ARG_IGNORE_UDF_PASSED)
             list(APPEND _Args "--ignore_undefined_symbols_pass")
         endif ()
         add_custom_command(
-                TARGET ${TMP_TARGET} POST_BUILD
-                COMMAND ${TILE_FWK_PYTHON3_EXE} ${_PyScript} ARGS ${_Args}
-                COMMENT "Analysis symbol of ${TMP_TARGET}"
+                TARGET ${ARG_TARGET} POST_BUILD
+                COMMAND ${Python3_EXECUTABLE} ${_PyScript} ARGS ${_Args}
+                COMMENT "Analysis symbol of ${ARG_TARGET}"
         )
     endif ()
 endfunction()
 
+# 分析二进制的头文件依赖信息
+#[[
+Parameters:
+  one_value_keywords:
+      TARGET                        : [Required] 指定目标名称
+]]
 function(TileFwk_AnalysisTargetHeaderFiles)
     cmake_parse_arguments(
-            TMP
+            ARG
             ""
             "TARGET"
             ""
@@ -72,13 +97,13 @@ function(TileFwk_AnalysisTargetHeaderFiles)
             AND (ENABLE_TESTS_UTEST OR ENABLE_TESTS_STEST OR ENABLE_TESTS_STEST_DISTRIBUTED)
             AND (CMAKE_GENERATOR STREQUAL "Unix Makefiles")
             AND (CMAKE_C_COMPILER_ID STREQUAL "GNU"))
-        set(_file $<TARGET_FILE:${TMP_TARGET}>)
-        set(_objects $<TARGET_OBJECTS:${TMP_TARGET}>)
-        get_filename_component(_PyScript "${TILE_FWK_SRC_ROOT}/cmake/scripts/analysis_binary_header_files.py" REALPATH)
-        get_filename_component(_JsonCfg "${TILE_FWK_SRC_ROOT}/cmake/scripts/analysis_binary_header_files.json" REALPATH)
+        set(_file $<TARGET_FILE:${ARG_TARGET}>)
+        set(_objects $<TARGET_OBJECTS:${ARG_TARGET}>)
+        get_filename_component(_PyScript "${PTO_FWK_SRC_ROOT}/cmake/scripts/analysis_binary_header_files.py" REALPATH)
+        get_filename_component(_JsonCfg "${PTO_FWK_SRC_ROOT}/cmake/scripts/analysis_binary_header_files.json" REALPATH)
         set(_Args
-                "-s=${TILE_FWK_SRC_ROOT}"
-                "-b=${TILE_FWK_BIN_ROOT}"
+                "-s=${PTO_FWK_SRC_ROOT}"
+                "-b=${PTO_FWK_BIN_ROOT}"
                 "-t=${_file}"
                 "-o='${_objects}'"
                 "-j=${_JsonCfg}"
@@ -111,32 +136,38 @@ function(TileFwk_AnalysisTargetHeaderFiles)
         list(REMOVE_DUPLICATES _Args)
 
         add_custom_command(
-                TARGET ${TMP_TARGET} POST_BUILD
-                COMMAND ${TILE_FWK_PYTHON3_EXE} ${_PyScript} ARGS ${_Args}
-                COMMENT "Analysis Header-File of ${TMP_TARGET}"
+                TARGET ${ARG_TARGET} POST_BUILD
+                COMMAND ${Python3_EXECUTABLE} ${_PyScript} ARGS ${_Args}
+                COMMENT "Analysis Header-File of ${ARG_TARGET}"
         )
     endif ()
 endfunction()
 
+# 分析 Python3 环境信息, 主要是 pip 包信息
+#[[
+Parameters:
+  options:
+      GET_PYBIND11_DIR            : [Optional] 获取 pybind11 路径
+]]
 function(PTO_Fwk_AnalysisPython3Environ OUT_VALUE)
     cmake_parse_arguments(
             ARG
-            "GET_PYBIND11_DIR"
+            "GET_PYBIND11_DIR;GET_TORCH_VERSION"
             ""
             ""
             ""
             ${ARGN}
     )
-    get_filename_component(_PyScript "${TILE_FWK_SRC_ROOT}/cmake/scripts/analysis_python3_environ.py" REALPATH)
+    get_filename_component(_PyScript "${PTO_FWK_SRC_ROOT}/cmake/scripts/analysis_python3_environ.py" REALPATH)
     set(_Args "-e=${Python3_EXECUTABLE}")
     if (ARG_GET_PYBIND11_DIR)
         list(APPEND _Args "--print_pybind11_dir")
-    else ()
+    elseif (ARG_GET_TORCH_VERSION)
+        list(APPEND _Args "--print_torch_version")
     endif ()
     execute_process(
-            COMMAND ${TILE_FWK_PYTHON3_EXE} ${_PyScript} ${_Args}
+            COMMAND ${Python3_EXECUTABLE} ${_PyScript} ${_Args}
             OUTPUT_VARIABLE OutVariable
-            # RESULT_VARIABLE RstVariable
     )
     set(${OUT_VALUE} ${OutVariable} PARENT_SCOPE)
 endfunction()

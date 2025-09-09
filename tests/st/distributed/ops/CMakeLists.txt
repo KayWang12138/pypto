@@ -7,10 +7,10 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
-set(_Target ${TileFwkSTestNamePrefix}_distributed_ops)
+set(_Target ${PTO_Fwk_STestNamePrefix}_distributed_ops)
 
 file(GLOB_RECURSE _Sources src/*.cpp)
-file(GLOB_RECURSE _Device_Srcs ${TILE_FWK_SRC_ROOT}/src/machine/device/*.cpp)
+file(GLOB_RECURSE _Device_Srcs ${PTO_FWK_SRC_ROOT}/src/machine/device/*.cpp)
 list(APPEND _Sources ${_Device_Srcs})
 
 add_library(${_Target} SHARED)
@@ -24,7 +24,7 @@ target_include_directories(${_Target}
 )
 target_link_libraries(${_Target}
         PRIVATE
-            ${TileFwkSTestNamePrefix}_utils
+            ${PTO_Fwk_STestNamePrefix}_utils
             tile_fwk_interface
             tile_fwk_compiler
             tile_fwk_runtime

@@ -7,7 +7,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
-set(_Target ${TileFwkSTestNamePrefix}_distributed_framework)
+set(_Target ${PTO_Fwk_STestNamePrefix}_distributed_framework)
 file(GLOB_RECURSE _Sources src/*.cpp)
 
 add_library(${_Target} SHARED)
@@ -19,11 +19,11 @@ target_include_directories(${_Target}
         PUBLIC
             include
             ../ops/include
-            ${TILE_FWK_SRC_ROOT}/tests/runtime
+            ${PTO_FWK_SRC_ROOT}/tests/runtime
 )
 target_link_libraries(${_Target}
         PRIVATE
-            ${TileFwkSTestNamePrefix}_intf_pub
+            ${PTO_Fwk_STestNamePrefix}_intf_pub
             tile_fwk_compiler
             tile_fwk_runtime
 )

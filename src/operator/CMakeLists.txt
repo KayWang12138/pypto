@@ -9,7 +9,7 @@
 
 file(GLOB_RECURSE _Operator_Srcs *.cpp)
 
-#TileFwk_Debug_List(NAME "_Operator_Srcs" LIST ${_Operator_Srcs} DETAIL OFF)
+#PTO_Fwk_Debug_Source_List(NAME "_Operator_Srcs" LIST ${_Operator_Srcs} DETAIL OFF)
 
 add_library(tile_fwk_operator SHARED)
 target_sources(tile_fwk_operator PRIVATE ${_Operator_Srcs})
@@ -23,7 +23,7 @@ target_link_libraries(tile_fwk_operator
             tile_fwk_interface
 )
 TileFwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_operator)
-TileFwk_AnalysisTargetSymbols(TARGET tile_fwk_operator)
+PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_operator)
 
 install(TARGETS tile_fwk_operator
         LIBRARY DESTINATION lib OPTIONAL

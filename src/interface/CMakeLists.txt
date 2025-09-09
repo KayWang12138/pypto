@@ -27,13 +27,13 @@ file(GLOB _Interface_Srcs
         machine/host/*.cpp
         registry/*.cpp
 )
-#TileFwk_Debug_List(NAME "_Interface_Srcs" LIST ${_Interface_Srcs} DETAIL OFF)
+#PTO_Fwk_Debug_Source_List(NAME "_Interface_Srcs" LIST ${_Interface_Srcs} DETAIL OFF)
 
 add_library(tile_fwk_interface SHARED)
 target_sources(tile_fwk_interface PRIVATE ${_Interface_Srcs})
 target_compile_definitions(tile_fwk_interface
         PRIVATE
-            SRCPATH="${TILE_FWK_SRC_ROOT}"
+            SRCPATH="${PTO_FWK_SRC_ROOT}"
 )
 target_link_libraries(tile_fwk_interface
         PUBLIC
@@ -47,11 +47,11 @@ target_link_libraries(tile_fwk_interface
             Threads::Threads
 )
 TileFwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_interface)
-TileFwk_AnalysisTargetSymbols(TARGET tile_fwk_interface)
+PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_interface)
 
 if (ENABLE_TORCH_VERIFIER)
 execute_process(
-    COMMAND ${TILE_FWK_PYTHON3_EXE} -c "
+    COMMAND ${Python3_EXECUTABLE} -c "
 import torch
 print(torch.utils.cmake_prefix_path)
 print(int(torch._C._GLIBCXX_USE_CXX11_ABI))
@@ -84,8 +84,8 @@ PUBLIC
 target_include_directories(tile_fwk_calculator SYSTEM PRIVATE
     ${TORCH_ROOT_PATH}/include
     ${TORCH_ROOT_PATH}/include/torch/csrc/api/include
-    ${TILE_FWK_SRC_ROOT}/include
-    ${TILE_FWK_SRC_ROOT}/src/
+    ${PTO_FWK_SRC_ROOT}/include
+    ${PTO_FWK_SRC_ROOT}/src/
 )
 
 target_link_directories(tile_fwk_calculator PUBLIC

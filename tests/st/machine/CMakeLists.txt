@@ -189,13 +189,13 @@ set(_CaseFilterList
         "DynamicReshapeTest.test_assemble_diff_tile"
 )
 
-set(_Target ${TileFwkSTestNamePrefix}_machine)
+set(_Target ${PTO_Fwk_STestNamePrefix}_machine)
 
 file(GLOB_RECURSE _Sources src/*.cpp)
-file(GLOB_RECURSE _Device_Srcs ${TILE_FWK_SRC_ROOT}/src/machine/device/*.cpp)
+file(GLOB_RECURSE _Device_Srcs ${PTO_FWK_SRC_ROOT}/src/machine/device/*.cpp)
 list(APPEND _Sources ${_Device_Srcs})
 
-TileFwk_STest_AddLib(
+PTO_Fwk_STest_AddLib(
         TARGET ${_Target}
         SOURCES ${_Sources}
         PUBLIC_LINK_LIBRARIES tile_fwk_compiler tile_fwk_runtime tile_fwk_interface

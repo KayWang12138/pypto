@@ -9,13 +9,13 @@
 
 
 file(GLOB_RECURSE _Simulation_Srcs *.cpp)
-#TileFwk_Debug_List(NAME "_Simulation_Srcs" LIST ${_Simulation_Srcs} DETAIL OFF)
+#PTO_Fwk_Debug_Source_List(NAME "_Simulation_Srcs" LIST ${_Simulation_Srcs} DETAIL OFF)
 
 add_library(tile_fwk_simulation SHARED)
 target_sources(tile_fwk_simulation PRIVATE ${_Simulation_Srcs})
 target_include_directories(tile_fwk_simulation
         PRIVATE
-            ${TILE_FWK_SRC_ROOT}/src/cost_model
+            ${PTO_FWK_SRC_ROOT}/src/cost_model
 )
 target_link_libraries(tile_fwk_simulation
         PUBLIC
@@ -29,7 +29,7 @@ target_link_libraries(tile_fwk_simulation
             $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
 )
 TileFwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_simulation)
-TileFwk_AnalysisTargetSymbols(TARGET tile_fwk_simulation)
+PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_simulation)
 
 install(TARGETS tile_fwk_simulation
         LIBRARY DESTINATION lib OPTIONAL

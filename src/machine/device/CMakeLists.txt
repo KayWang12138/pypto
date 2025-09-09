@@ -20,7 +20,7 @@ if(BUILD_OPEN_PROJECT)
 endif()
 
 # 路径配置
-get_filename_component(TILE_FWK_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../.." ABSOLUTE)
+get_filename_component(PTO_FWK_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../.." ABSOLUTE)
 
 # 公开编译开关
 option(BUILD_OPEN_PROJECT   "Build open Tile Framework project."  ON)
@@ -57,10 +57,10 @@ target_compile_options(tile_fwk_server
 )
 target_include_directories(tile_fwk_server
         PRIVATE
-            ${TILE_FWK_SRC_ROOT}/src
-            ${TILE_FWK_SRC_ROOT}/src/include
-            ${TILE_FWK_SRC_ROOT}/include
-            ${TILE_FWK_SRC_ROOT}/src/cost_model
+            ${PTO_FWK_SRC_ROOT}/src
+            ${PTO_FWK_SRC_ROOT}/src/include
+            ${PTO_FWK_SRC_ROOT}/include
+            ${PTO_FWK_SRC_ROOT}/src/cost_model
             $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/include>
 )
 target_link_directories(tile_fwk_server

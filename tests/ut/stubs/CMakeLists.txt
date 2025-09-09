@@ -90,7 +90,7 @@ if (ENABLE_BUILD_WITH_CANN)
     # 追加 Stubs 相关配置, 需保证:
     # 1. stubs 下相关代码编译至可执行文件内, 保证用例内直调 Stubs 内相关函数走进 Stubs;
     # 2. stubs 下相关 target 创建, 保证业务代码(如 tile_fwk_compiler) 链接正常;
-    set(_Target ${TileFwkUTestNamePrefix}_stubs)
+    set(_Target ${PTO_Fwk_UTestNamePrefix}_stubs)
     aux_source_directory(src _Sources)
 
     add_library(${_Target} STATIC)

@@ -11,11 +11,11 @@ set(_CaseFilterList
         # "TestTileOpAdd.TestAddDim2"
 )
 
-set(_Target ${TileFwkSTestNamePrefix}_operation)
+set(_Target ${PTO_Fwk_STestNamePrefix}_operation)
 
 file(GLOB_RECURSE _Sources src/*.cpp)
 
-TileFwk_STest_AddLib(
+PTO_Fwk_STest_AddLib(
         TARGET ${_Target}
         SOURCES ${_Sources}
         PUBLIC_LINK_LIBRARIES tile_fwk_interface tile_fwk_simulation tile_fwk_simulation_ca
@@ -25,6 +25,6 @@ TileFwk_STest_AddLib(
 )
 add_custom_command(
         TARGET ${_Target} PRE_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${TileFwkSTestExePath}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${PTO_Fwk_STestExePath}/scripts/
         COMMENT "Copy ${_Target} dependence scripts file."
 )

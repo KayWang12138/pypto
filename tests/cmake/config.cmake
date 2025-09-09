@@ -13,25 +13,25 @@
 ########################################################################################################################
 
 # 预定义变量
-set(TileFwkUTestNamePrefix tile_fwk_utest)
-set(TileFwkSTestNamePrefix tile_fwk_stest)
+set(PTO_Fwk_UTestNamePrefix tile_fwk_utest)
+set(PTO_Fwk_STestNamePrefix tile_fwk_stest)
 
-set(TileFwkStestExecuteDeviceIdList)
+set(PTO_Fwk_StestExecuteDeviceIdList)
 if (NOT ENABLE_TESTS_EXECUTE_DEVICE_ID)
-    set(TileFwkStestExecuteDeviceIdList 0)
+    set(PTO_Fwk_StestExecuteDeviceIdList 0)
 else ()
-    string(REPLACE ":" ";" TileFwkStestExecuteDeviceIdList "${ENABLE_TESTS_EXECUTE_DEVICE_ID}")
+    string(REPLACE ":" ";" PTO_Fwk_StestExecuteDeviceIdList "${ENABLE_TESTS_EXECUTE_DEVICE_ID}")
 endif ()
-list(GET TileFwkStestExecuteDeviceIdList 0 TileFwkStestExecuteDeviceIdPref)
+list(GET PTO_Fwk_StestExecuteDeviceIdList 0 TileFwkStestExecuteDeviceIdPref)
 
 # 预定义路径
-get_filename_component(TileFwkUTestExePath "${CMAKE_CURRENT_BINARY_DIR}/ut" REALPATH)
-get_filename_component(TileFwkSTestExePath "${CMAKE_CURRENT_BINARY_DIR}/st" REALPATH)
+get_filename_component(PTO_Fwk_UTestExePath "${CMAKE_CURRENT_BINARY_DIR}/ut" REALPATH)
+get_filename_component(PTO_Fwk_STestExePath "${CMAKE_CURRENT_BINARY_DIR}/st" REALPATH)
 
 if (ENABLE_TESTS_STEST_GOLDEN_PATH)
     get_filename_component(ENABLE_TESTS_STEST_GOLDEN_PATH "${ENABLE_TESTS_STEST_GOLDEN_PATH}" REALPATH)
 else ()
-    get_filename_component(ENABLE_TESTS_STEST_GOLDEN_PATH "${TileFwkSTestExePath}/golden" REALPATH)
+    get_filename_component(ENABLE_TESTS_STEST_GOLDEN_PATH "${PTO_Fwk_STestExePath}/golden" REALPATH)
 endif ()
 
 

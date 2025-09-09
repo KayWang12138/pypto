@@ -1,7 +1,19 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+"""
+"""
 import pto
 
 
-def test_symbolic_scalar_Add():
+def test_symbolic_scalar_add():
     ten = pto.symbolic_scalar("10", 10)
     twenty = pto.symbolic_scalar("20", 20)
     thirty = pto.symbolic_scalar("30", 30)
@@ -9,7 +21,7 @@ def test_symbolic_scalar_Add():
     assert ten + twenty == thirty
 
 
-def test_symbolic_scalar_Sub():
+def test_symbolic_scalar_sub():
     ten = pto.symbolic_scalar("10", 10)
     twenty = pto.symbolic_scalar("20", 20)
     thirty = pto.symbolic_scalar("30", 30)
@@ -17,7 +29,7 @@ def test_symbolic_scalar_Sub():
     assert twenty == thirty - ten
 
 
-def test_symbolic_scalar_Mul():
+def test_symbolic_scalar_mul():
     ten = pto.symbolic_scalar("10", 10)
     twenty = pto.symbolic_scalar("20", 20)
     two = pto.symbolic_scalar("2", 3)
@@ -25,7 +37,7 @@ def test_symbolic_scalar_Mul():
     assert ten * two == twenty
 
 
-def test_symbolic_scalar_Div():
+def test_symbolic_scalar_div():
     ten = pto.symbolic_scalar("10", 10)
     twenty = pto.symbolic_scalar("20", 20)
     two = pto.symbolic_scalar("2", 3)
@@ -33,7 +45,7 @@ def test_symbolic_scalar_Div():
     assert (twenty / ten) == two
 
 
-def test_symbolic_scalar_Mod():
+def test_symbolic_scalar_mod():
     one = pto.symbolic_scalar("one", 1)
     scalar = pto.symbolic_scalar("31", 31)
     two = pto.symbolic_scalar("2", 3)

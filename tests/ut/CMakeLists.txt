@@ -22,5 +22,5 @@ if (ENABLE_TESTS_UTEST)
     endif ()
 
     # 可执行程序
-    TileFwk_UTest_AddExe_RunExe(TARGET ${TileFwkUTestNamePrefix})
+    PTO_Fwk_UTest_AddExe_RunExe(TARGET ${PTO_Fwk_UTestNamePrefix})
 endif ()

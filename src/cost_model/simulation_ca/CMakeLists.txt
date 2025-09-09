@@ -9,17 +9,17 @@
 
 
 file(GLOB_RECURSE _Ca_Model_Srcs *.cpp)
-#TileFwk_Debug_List(NAME "_Ca_Model_Srcs" LIST ${_Ca_Model_Srcs} DETAIL ON)
+#PTO_Fwk_Debug_Source_List(NAME "_Ca_Model_Srcs" LIST ${_Ca_Model_Srcs} DETAIL ON)
 
 add_library(tile_fwk_simulation_ca SHARED)
 target_sources(tile_fwk_simulation_ca PRIVATE ${_Ca_Model_Srcs})
 target_include_directories(tile_fwk_simulation_ca
         PRIVATE
-            ${TILE_FWK_SRC_ROOT}/src/cost_model
+            ${PTO_FWK_SRC_ROOT}/src/cost_model
 )
 target_compile_definitions(tile_fwk_simulation_ca
         PRIVATE
-            SRCPATH="${TILE_FWK_SRC_ROOT}"
+            SRCPATH="${PTO_FWK_SRC_ROOT}"
 )
 target_link_libraries(tile_fwk_simulation_ca
         PUBLIC
@@ -32,7 +32,7 @@ target_link_libraries(tile_fwk_simulation_ca
             $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
 )
 TileFwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_simulation_ca)
-TileFwk_AnalysisTargetSymbols(TARGET tile_fwk_simulation_ca)
+PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_simulation_ca)
 
 install(TARGETS tile_fwk_simulation_ca
         LIBRARY DESTINATION lib OPTIONAL
@@ -45,7 +45,7 @@ add_executable(get_cce_simulation)
 target_sources(get_cce_simulation PRIVATE tools/GenSimulation.cpp)
 target_include_directories(get_cce_simulation
         PRIVATE
-            ${TILE_FWK_SRC_ROOT}/src/cost_model
+            ${PTO_FWK_SRC_ROOT}/src/cost_model
 )
 target_link_libraries(get_cce_simulation
         PRIVATE

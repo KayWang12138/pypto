@@ -18,8 +18,8 @@ project(TileFramework
 ########################################################################################################################
 
 # 路径配置
-get_filename_component(TILE_FWK_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}" REALPATH)
-get_filename_component(TILE_FWK_BIN_ROOT "${CMAKE_CURRENT_BINARY_DIR}" REALPATH)
+get_filename_component(PTO_FWK_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}" REALPATH)
+get_filename_component(PTO_FWK_BIN_ROOT "${CMAKE_CURRENT_BINARY_DIR}" REALPATH)
 # 公开编译开关(common)
 option(BUILD_OPEN_PROJECT   "Build open Tile Framework project."  ON)
 if (DEFINED AC_ENABLE_FRAMEWORK_WITHOUT_CANN)
@@ -61,17 +61,16 @@ option(ENABLE_TORCH_VERIFIER "Flow verify with libtorch" OFF)
 
 # 缺省编译配置, 编译函数
 include(ExternalProject)
+include(cmake/func.cmake)
 include(cmake/config.cmake)
 include(cmake/intf.cmake)
-include(cmake/func.cmake)
+
 
 ########################################################################################################################
 # 编译流程
 ########################################################################################################################
 
-PTO_Fwk_AnalysisPython3Environ(pybind11_DIR GET_PYBIND11_DIR)
-if ((NOT "${pybind11_DIR}x" STREQUAL "x") AND Python3_Development_FOUND)
-    find_package(pybind11 CONFIG REQUIRED PATHS ${pybind11_DIR} NO_DEFAULT_PATH)
+if (pybind11_FOUND)
     add_subdirectory(pypto)
 endif ()
 

@@ -1,3 +1,15 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+"""
+"""
 import pto
 import pytest
 
@@ -63,7 +75,8 @@ def test_record_function_static():
     b = pto.tensor(dtype, (8, 8), "tensor_b")
     c = pto.tensor(dtype, (8, 8), "tensor_c")
 
-    recorder = pto.record_func("ADD_FNC", pto.function_type.STATIC, [a, b, c])
+    func_cfg = pto.func_config(pto.function_type.STATIC)
+    recorder = pto.record_func("ADD_FNC", func_cfg, [a, b, c])
     pto.set_vec_tile_shapes(8, 8)
     c.move(pto.add(a, b))
     del recorder

@@ -12,11 +12,11 @@ set(_CaseFilterList
         "AicoreRuntimeManagerUnitTest.test_tile_fwk_hidden_input_for_aclnn"
 )
 
-set(_Target ${TileFwkUTestNamePrefix}_execute)
+set(_Target ${PTO_Fwk_UTestNamePrefix}_execute)
 
 file(GLOB_RECURSE _Sources src/*.cpp)
 
-TileFwk_UTest_AddCaseLib(
+PTO_Fwk_UTest_AddCaseLib(
         TARGET ${_Target}
         SOURCES ${_Sources}
         PUBLIC_LINK_LIBRARIES tile_fwk_executor graph_base

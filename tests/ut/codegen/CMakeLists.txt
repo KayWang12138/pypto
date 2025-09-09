@@ -105,12 +105,12 @@ set(_CaseFilterList
         "TestCodegenStaticUnderDyn.TestStaticFuncUnderDyn"
 )
 
-set(_Target ${TileFwkUTestNamePrefix}_codegen)
+set(_Target ${PTO_Fwk_UTestNamePrefix}_codegen)
 
 file(GLOB_RECURSE _Sources src/*.cpp)
 set(_Include "include")
 
-TileFwk_UTest_AddCaseLib(
+PTO_Fwk_UTest_AddCaseLib(
         TARGET ${_Target}
         SOURCES ${_Sources}
         PRIVATE_INCLUDE_DIRECTORIES ${_Include}

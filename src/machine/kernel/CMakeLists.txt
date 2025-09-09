@@ -20,8 +20,8 @@ set(AI_CORE_FLAGS
     -D__STATIC_KERNEL__ \
     -D__TILINGKEY__=0   \
     -D__OPTYPE__=tilefwk   \
-    -I${TILE_FWK_SRC_ROOT}/src \
-    -I${TILE_FWK_SRC_ROOT}/include"
+    -I${PTO_FWK_SRC_ROOT}/src \
+    -I${PTO_FWK_SRC_ROOT}/include"
 )
 
 separate_arguments(AI_CORE_FLAGS)

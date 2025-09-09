@@ -28,7 +28,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple, Any
 
-from tools import work_flow as wf
+
+# Python3.7.5 等较低版本, 需要添加
+g_src_root: Path = Path(__file__).parent.resolve()
+g_src_tools: Path = Path(g_src_root, "tools")
+if str(g_src_tools) not in sys.path:
+    sys.path.append(str(g_src_tools))
+
+import work_flow as wf
 
 
 class BuildCtrl:
@@ -345,7 +352,7 @@ class BuildCtrl:
     def configure(self):
         """ CMake Configure 阶段流程. """
         # 基本配置, 当前 CMake 中有调用 python3 的情况, 传入 python3 解释器, 保证所使用的 python3 版本一致
-        cmd = f"cmake -S {self.src_root} -B {self.build_root}"
+        cmd = f"cmake -S {self.src_root} -B {self.build_root} -DPython3_EXECUTABLE={sys.executable}"
         cmd += f" -DCMAKE_BUILD_TYPE={self.build_type}" if self.build_type else ""
         # common 相关配置
         #    SocVersion, Backend 相关配置, SocVersion相关配置暂不支持

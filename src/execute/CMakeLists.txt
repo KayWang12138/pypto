@@ -10,7 +10,7 @@
 ## find slog
 if (BUILD_OPEN_PROJECT)
     list(APPEND CMAKE_PREFIX_PATH ${ASCEND_CANN_PACKAGE_PATH})
-    list(APPEND CMAKE_MODULE_PATH ${TILE_FWK_SRC_ROOT}/cmake/modules)
+    list(APPEND CMAKE_MODULE_PATH ${PTO_FWK_SRC_ROOT}/cmake/modules)
     find_package(slog MODULE REQUIRED)
 endif()
 
@@ -30,8 +30,8 @@ target_include_directories(tile_fwk_executor
             $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${ENABLE_BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/msprof>
             $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${ENABLE_BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/runtime>
             $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${ENABLE_BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/ascend_hal>
-            $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${ENABLE_BUILD_WITH_CANN}>>:${TILE_FWK_SRC_ROOT}/third_party/metadef/inc>
-            $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${ENABLE_BUILD_WITH_CANN}>>:${TILE_FWK_SRC_ROOT}/third_party/metadef/inc/external>
+            $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${ENABLE_BUILD_WITH_CANN}>>:${PTO_FWK_SRC_ROOT}/third_party/metadef/inc>
+            $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${ENABLE_BUILD_WITH_CANN}>>:${PTO_FWK_SRC_ROOT}/third_party/metadef/inc/external>
         PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}
 )
@@ -53,7 +53,7 @@ target_link_libraries(tile_fwk_executor
 )
 
 TileFwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_executor)
-TileFwk_AnalysisTargetSymbols(TARGET tile_fwk_executor)
+PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_executor)
 
 install(TARGETS tile_fwk_executor
         LIBRARY DESTINATION lib OPTIONAL

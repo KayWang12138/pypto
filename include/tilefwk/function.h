@@ -95,6 +95,10 @@ struct FunctionConfig {
      * @brief The type of function, support FunctionType::DYNAMIC and FunctionType::STATIC.
      */
     enum FunctionType funcType{FunctionType::DYNAMIC};
+
+    FunctionConfig() = default;
+
+    FunctionConfig(FunctionType type) : funcType(type) {};
 };
 
 const std::string FUNCTION_PREFIX = "TENSOR_";

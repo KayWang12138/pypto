@@ -15,9 +15,9 @@ Parameters:
   multi_value_keywords:
       FILTER_DIRECTORIES : [Optional] 覆盖率结果过滤目录
 ]]
-function(TileFwk_GTest_GenerateCoverage)
+function(PTO_Fwk_GTest_GenerateCoverage)
     cmake_parse_arguments(
-            TMP
+            ARG
             ""
             "TARGET"
             "FILTER_DIRECTORIES"
@@ -40,9 +40,9 @@ function(TileFwk_GTest_GenerateCoverage)
 
         # 参数组织
         find_program(LCOV lcov REQUIRED)
-        get_filename_component(GenCoveragePy ${TILE_FWK_SRC_ROOT}/tests/cmake/scripts/python/gen_coverage.py REALPATH)
-        get_filename_component(GenCoverageDataDir "${TILE_FWK_BIN_ROOT}" REALPATH)
-        set(_Args "-s=${TILE_FWK_SRC_ROOT}" "-c=${GenCoverageDataDir}")
+        get_filename_component(GenCoveragePy ${PTO_FWK_SRC_ROOT}/tests/cmake/scripts/python/gen_coverage.py REALPATH)
+        get_filename_component(GenCoverageDataDir "${PTO_FWK_BIN_ROOT}" REALPATH)
+        set(_Args "-s=${PTO_FWK_SRC_ROOT}" "-c=${GenCoverageDataDir}")
 
         get_target_property(GTest_GTest_Inc     GTest::gtest           INTERFACE_INCLUDE_DIRECTORIES)
         get_target_property(GTest_GTestMain_Inc GTest::gtest_main      INTERFACE_INCLUDE_DIRECTORIES)
@@ -52,13 +52,13 @@ function(TileFwk_GTest_GenerateCoverage)
             get_target_property(Json_Inc json                         INTERFACE_INCLUDE_DIRECTORIES)
         endif ()
         set(Filter_Dirs
-                ${TILE_FWK_SRC_ROOT}/tests
-                ${TILE_FWK_SRC_ROOT}/third_party
+                ${PTO_FWK_SRC_ROOT}/tests
+                ${PTO_FWK_SRC_ROOT}/third_party
                 ${GTest_GTest_Inc}
                 ${GTest_GTestMain_Inc}
                 ${Json_Inc}
                 ${SYS_ROOT}
-                ${TMP_FILTER_DIRECTORIES}
+                ${ARG_FILTER_DIRECTORIES}
         )
         foreach (_dir ${Filter_Dirs})
             list(APPEND _Args "-f=${_dir}")
@@ -66,9 +66,9 @@ function(TileFwk_GTest_GenerateCoverage)
         list(REMOVE_DUPLICATES _Args)
 
         add_custom_command(
-                TARGET ${TMP_TARGET} POST_BUILD
-                COMMAND ${TILE_FWK_PYTHON3_EXE} ${GenCoveragePy} ARGS ${_Args}
-                COMMENT "Generate coverage for ${TMP_TARGET}"
+                TARGET ${ARG_TARGET} POST_BUILD
+                COMMAND ${Python3_EXECUTABLE} ${GenCoveragePy} ARGS ${_Args}
+                COMMENT "Generate coverage for ${ARG_TARGET}"
         )
     endif ()
 endfunction()
@@ -87,9 +87,9 @@ Parameters:
       CMD_SETUP_EXT      : [Optional] 附加命令行配置, 要求调用者设置 export 及多命令行配置间的 && 连接
       ENV_LINES_EXT      : [Optional] 附加环境变量配置(按照 "K=V" 格式组织)
 ]]
-function(TileFwk_GTest_RunExe_GetPreExecSetup PY_CMD_SETUP PY_ENV_LINES BASH_CMD_SETUP)
+function(PTO_Fwk_GTest_RunExe_GetPreExecSetup PY_CMD_SETUP PY_ENV_LINES BASH_CMD_SETUP)
     cmake_parse_arguments(
-            TMP
+            ARG
             ""
             "TARGET"
             "LD_LIBRARIES_EXT;CMD_SETUP_EXT;ENV_LINES_EXT"
@@ -100,8 +100,8 @@ function(TileFwk_GTest_RunExe_GetPreExecSetup PY_CMD_SETUP PY_ENV_LINES BASH_CMD
     # 命令行
     set(CmdSetup)
     # 处理变量 CMD_SETUP_EXT
-    if (NOT "${TMP_CMD_SETUP_EXT}x" STREQUAL "x")
-        list(APPEND CmdSetup ${TMP_CMD_SETUP_EXT})
+    if (NOT "${ARG_CMD_SETUP_EXT}x" STREQUAL "x")
+        list(APPEND CmdSetup ${ARG_CMD_SETUP_EXT})
     endif ()
     # 处理变量内部处理(XSan 相关处理)
     if (ENABLE_ASAN OR ENABLE_UBSAN)
@@ -115,8 +115,8 @@ function(TileFwk_GTest_RunExe_GetPreExecSetup PY_CMD_SETUP PY_ENV_LINES BASH_CMD
     set(EnvLines)
     # 处理变量 LD_LIBRARIES_EXT 及环境变量 LD_LIBRARY_PATH
     set(LD_LIBRARY_PATH_EXT)
-    foreach (LIBRARY ${TMP_LD_LIBRARIES_EXT})
-        add_dependencies(${TMP_TARGET} ${LIBRARY})
+    foreach (LIBRARY ${ARG_LD_LIBRARIES_EXT})
+        add_dependencies(${ARG_TARGET} ${LIBRARY})
         list(APPEND LD_LIBRARY_PATH_EXT "$<TARGET_FILE_DIR:${LIBRARY}>")
     endforeach ()
     string(REPLACE ";" ":" LD_LIBRARY_PATH_EXT "${LD_LIBRARY_PATH_EXT}")
@@ -130,11 +130,11 @@ function(TileFwk_GTest_RunExe_GetPreExecSetup PY_CMD_SETUP PY_ENV_LINES BASH_CMD
         list(APPEND EnvLines "PATH=$ENV{PATH}:${CCEC_PATH}")
     endif()
     # 处理变量 ENV_SETUP_EXT
-    list(REMOVE_ITEM TMP_ENV_LINES_EXT export)
-    list(REMOVE_ITEM TMP_ENV_LINES_EXT &)
-    list(REMOVE_ITEM TMP_ENV_LINES_EXT &&)
-    if (NOT "${TMP_ENV_LINES_EXT}x" STREQUAL "x")
-        list(APPEND EnvLines ${TMP_ENV_LINES_EXT})
+    list(REMOVE_ITEM ARG_ENV_LINES_EXT export)
+    list(REMOVE_ITEM ARG_ENV_LINES_EXT &)
+    list(REMOVE_ITEM ARG_ENV_LINES_EXT &&)
+    if (NOT "${ARG_ENV_LINES_EXT}x" STREQUAL "x")
+        list(APPEND EnvLines ${ARG_ENV_LINES_EXT})
     endif ()
     # 处理 ASAN / UBSAN 场景
     if (ENABLE_ASAN OR ENABLE_UBSAN)
@@ -196,44 +196,44 @@ Parameters:
       PRIVATE_INCLUDE_DIRECTORIES   : [Optional] Private 头文件查找路径
       PRIVATE_LINK_LIBRARIES        : [Optional] Private 链接库
 ]]
-function(TileFwk_GTest_AddExe)
+function(PTO_Fwk_GTest_AddExe)
     cmake_parse_arguments(
-            TMP
+            ARG
             ""
             "TARGET"
             "SOURCES;PRIVATE_INCLUDE_DIRECTORIES;PRIVATE_LINK_LIBRARIES"
             ""
             ${ARGN}
     )
-    add_executable(${TMP_TARGET})
-    target_sources(${TMP_TARGET}
+    add_executable(${ARG_TARGET})
+    target_sources(${ARG_TARGET}
             PRIVATE
-                ${TMP_SOURCES}
-                ${TILE_FWK_SRC_ROOT}/tests/main.cpp
+                ${ARG_SOURCES}
+                ${PTO_FWK_SRC_ROOT}/tests/main.cpp
     )
-    target_include_directories(${TMP_TARGET}
+    target_include_directories(${ARG_TARGET}
             PRIVATE
-                ${TMP_PRIVATE_INCLUDE_DIRECTORIES}
+                ${ARG_PRIVATE_INCLUDE_DIRECTORIES}
     )
-    target_link_libraries(${TMP_TARGET}
+    target_link_libraries(${ARG_TARGET}
             PRIVATE
                 GTest::gtest
                 -Wl,--no-as-needed
                 -Wl,--whole-archive
-                ${TMP_PRIVATE_LINK_LIBRARIES}
+                ${ARG_PRIVATE_LINK_LIBRARIES}
                 -Wl,--as-needed
                 -Wl,--no-whole-archive
                 -rdynamic
     )
     add_custom_command(
-        TARGET ${TMP_TARGET} POST_BUILD
-        COMMAND mkdir -p "${TILE_FWK_BIN_ROOT}/src/conf"
-        COMMAND ln -sf "${TILE_FWK_SRC_ROOT}/src/interface/configs/tile_fwk_config.json" "${TILE_FWK_BIN_ROOT}/src/conf/tile_fwk_config.json"
-        COMMAND ln -sf "${TILE_FWK_SRC_ROOT}/src/passes/pass_config/tile_fwk_platform_info.json" "${TILE_FWK_BIN_ROOT}/src/conf/tile_fwk_platform_info.json"
-        COMMENT "Soft link of tile_fwk_config.json and tile_fwk_platform_info.json has been created at ${TILE_FWK_BIN_ROOT}/src/conf"
-        COMMAND ${CMAKE_COMMAND} -E remove_directory ${TILE_FWK_BIN_ROOT}/src/include
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${TILE_FWK_BIN_ROOT}/src/include
-        COMMAND ln -sf ${TILE_FWK_SRC_ROOT}/include ${TILE_FWK_BIN_ROOT}/src/include/tile_fwk
-        COMMENT "Soft link include directory has been created at ${TILE_FWK_BIN_ROOT}/src/include/tile_fwk"
+        TARGET ${ARG_TARGET} POST_BUILD
+        COMMAND mkdir -p "${PTO_FWK_BIN_ROOT}/src/conf"
+        COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/src/interface/configs/tile_fwk_config.json" "${PTO_FWK_BIN_ROOT}/src/conf/tile_fwk_config.json"
+        COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/src/passes/pass_config/tile_fwk_platform_info.json" "${PTO_FWK_BIN_ROOT}/src/conf/tile_fwk_platform_info.json"
+        COMMENT "Soft link of tile_fwk_config.json and tile_fwk_platform_info.json has been created at ${PTO_FWK_BIN_ROOT}/src/conf"
+        COMMAND ${CMAKE_COMMAND} -E remove_directory ${PTO_FWK_BIN_ROOT}/src/include
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${PTO_FWK_BIN_ROOT}/src/include
+        COMMAND ln -sf ${PTO_FWK_SRC_ROOT}/include ${PTO_FWK_BIN_ROOT}/src/include/tile_fwk
+        COMMENT "Soft link include directory has been created at ${PTO_FWK_BIN_ROOT}/src/include/tile_fwk"
     )
 endfunction()

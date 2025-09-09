@@ -57,17 +57,17 @@ set(_CaseFilterList
         # Utils
         "CommonTest.*"
         "StringUtils.*"
- 
+
         "TorchAdaptorTest.*"
 )
 
-set(_Target ${TileFwkUTestNamePrefix}_interface)
+set(_Target ${PTO_Fwk_UTestNamePrefix}_interface)
 
 file(GLOB_RECURSE _Sources
         src/*.cpp
 )
 
-TileFwk_UTest_AddCaseLib(
+PTO_Fwk_UTest_AddCaseLib(
         TARGET ${_Target}
         SOURCES ${_Sources}
         PUBLIC_LINK_LIBRARIES tile_fwk_interface

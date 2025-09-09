@@ -366,11 +366,11 @@ set(_CaseFilterList
         "VecdupTest.TestVecDup"
 )
 
-set(_Target ${TileFwkSTestNamePrefix}_operator)
+set(_Target ${PTO_Fwk_STestNamePrefix}_operator)
 
 file(GLOB_RECURSE _Sources src/*.cpp)
 
-TileFwk_STest_AddLib(
+PTO_Fwk_STest_AddLib(
         TARGET ${_Target}
         SOURCES ${_Sources}
         PUBLIC_LINK_LIBRARIES tile_fwk_interface tile_fwk_operator tile_fwk_compiler tile_fwk_runtime tile_fwk_simulation tile_fwk_simulation_ca
@@ -380,11 +380,11 @@ TileFwk_STest_AddLib(
 )
 add_custom_command(
         TARGET ${_Target} PRE_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${TileFwkSTestExePath}/scripts/
-        COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/src/cost_model/simulation/scripts/print_swim_lane.py ${TileFwkSTestExePath}/scripts/
-        COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/src/cost_model/simulation/scripts/draw_comm_swim_lane_png.py ${TileFwkSTestExePath}/scripts/
-        COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/src/cost_model/simulation/scripts/draw_pipe_swim_lane.py ${TileFwkSTestExePath}/scripts/
-        COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/tools/draw_swim_lane.py ${TileFwkSTestExePath}/scripts/
-        COMMAND ${CMAKE_COMMAND} -E copy ${TILE_FWK_SRC_ROOT}/tools/function_json_convert.py ${TileFwkSTestExePath}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${PTO_Fwk_STestExePath}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/src/cost_model/simulation/scripts/print_swim_lane.py ${PTO_Fwk_STestExePath}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/src/cost_model/simulation/scripts/draw_comm_swim_lane_png.py ${PTO_Fwk_STestExePath}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/src/cost_model/simulation/scripts/draw_pipe_swim_lane.py ${PTO_Fwk_STestExePath}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/tools/draw_swim_lane.py ${PTO_Fwk_STestExePath}/scripts/
+        COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/tools/function_json_convert.py ${PTO_Fwk_STestExePath}/scripts/
         COMMENT "Copy ${_Target} dependence scripts file."
 )

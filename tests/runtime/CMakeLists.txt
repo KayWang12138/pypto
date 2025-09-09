@@ -8,7 +8,7 @@
 # ======================================================================================================================
 
 file(GLOB_RECURSE _Runtime_Srcs *.cpp)
-add_definitions(-DSRCPATH="${TILE_FWK_SRC_ROOT}")
+add_definitions(-DSRCPATH="${PTO_FWK_SRC_ROOT}")
 add_library(tile_fwk_runtime SHARED)
 target_sources(tile_fwk_runtime PRIVATE ${_Runtime_Srcs})
 target_include_directories(tile_fwk_runtime
@@ -27,7 +27,7 @@ target_include_directories(tile_fwk_runtime
             $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${ENABLE_BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/msprof>
         PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}
-            ${TILE_FWK_SRC_ROOT}/src/cost_model
+            ${PTO_FWK_SRC_ROOT}/src/cost_model
 )
 target_compile_definitions(tile_fwk_runtime
         PUBLIC
@@ -62,7 +62,7 @@ if ((ENABLE_BUILD_WITH_CANN) AND (NOT PRODUCT_SIDE STREQUAL "device"))
     )
 endif ()
 TileFwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_runtime)
-TileFwk_AnalysisTargetSymbols(TARGET tile_fwk_runtime)
+PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_runtime)
 
 install(TARGETS tile_fwk_runtime
         LIBRARY DESTINATION lib OPTIONAL

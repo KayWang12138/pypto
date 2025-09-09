@@ -12,17 +12,17 @@ add_subdirectory(ops)
 add_subdirectory(framework)
 
 # 用例可执行程序(编译)
-set(_Target ${TileFwkSTestNamePrefix}_distributed)
+set(_Target ${PTO_Fwk_STestNamePrefix}_distributed)
 file(GLOB_RECURSE _Sources src/*.cpp)
 set(_PrivateLinkLibraries
         tile_fwk_compiler
         tile_fwk_interface
         tile_fwk_simulation
-        ${TileFwkSTestNamePrefix}_utils
-        ${TileFwkSTestNamePrefix}_distributed_ops
-        ${TileFwkSTestNamePrefix}_distributed_framework
+        ${PTO_Fwk_STestNamePrefix}_utils
+        ${PTO_Fwk_STestNamePrefix}_distributed_ops
+        ${PTO_Fwk_STestNamePrefix}_distributed_framework
 )
-TileFwk_GTest_AddExe(
+PTO_Fwk_GTest_AddExe(
         TARGET                  ${_Target}
         SOURCES                 ${_Sources}
         PRIVATE_LINK_LIBRARIES  ${_PrivateLinkLibraries}
@@ -47,12 +47,12 @@ set(_DistributedGTestCaseFilterConfig
 )
 set(_LdLibrariesExt
         tile_fwk_compiler
-        ${TileFwkSTestNamePrefix}_distributed_framework
+        ${PTO_Fwk_STestNamePrefix}_distributed_framework
 )
 set(_EnvSetupExt
         "TILE_FWK_STEST_GOLDEN_PATH=${ENABLE_TESTS_STEST_GOLDEN_PATH}"
 )
-TileFwk_STest_Distributed_RunExe(
+PTO_Fwk_STest_Distributed_RunExe(
        TARGET                  ${_Target}
        LD_LIBRARIES_EXT        ${_LdLibrariesExt}
        ENV_LINES_EXT           ${_EnvSetupExt}

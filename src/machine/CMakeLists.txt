@@ -15,7 +15,7 @@ endif ()
 
 if (ENABLE_BUILD_WITH_CANN)
     ExternalProject_Add(tile_fwk_server
-            SOURCE_DIR ${TILE_FWK_SRC_ROOT}/src/machine/device
+            SOURCE_DIR ${PTO_FWK_SRC_ROOT}/src/machine/device
             CONFIGURE_COMMAND ${CMAKE_COMMAND}
                 -G ${CMAKE_GENERATOR}
                 -DBUILD_OPEN_PROJECT=${BUILD_OPEN_PROJECT}
@@ -29,7 +29,7 @@ if (ENABLE_BUILD_WITH_CANN)
             INSTALL_COMMAND ${CMAKE_COMMAND} -E copy <BINARY_DIR>/libtilefwk_backend_server.so ${CMAKE_BINARY_DIR}/
             BUILD_ALWAYS TRUE
             BUILD_BYPRODUCTS
-                ${TILE_FWK_BIN_ROOT}/libtilefwk_backend_server.so
+                ${PTO_FWK_BIN_ROOT}/libtilefwk_backend_server.so
     )
 endif ()
 
@@ -76,7 +76,7 @@ target_link_libraries(tile_fwk_compiler
 )
 
 TileFwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_compiler)
-TileFwk_AnalysisTargetSymbols(TARGET tile_fwk_compiler)
+PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_compiler)
 
 install(TARGETS tile_fwk_compiler
         LIBRARY DESTINATION lib OPTIONAL

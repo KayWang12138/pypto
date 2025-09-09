@@ -7,7 +7,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
-set(_Target ${TileFwkSTestNamePrefix}_utils)
+set(_Target ${PTO_Fwk_STestNamePrefix}_utils)
 add_library(${_Target} INTERFACE)
 target_include_directories(${_Target}
         INTERFACE
@@ -26,8 +26,8 @@ target_include_directories(${_Target}
             $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${ENABLE_BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/runtime>
             $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${ENABLE_BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/msprof>
         INTERFACE
-            ${TILE_FWK_SRC_ROOT}/tests/runtime
-            ${TILE_FWK_SRC_ROOT}/src/cost_model
+            ${PTO_FWK_SRC_ROOT}/tests/runtime
+            ${PTO_FWK_SRC_ROOT}/src/cost_model
 )
 target_compile_definitions(${_Target}
         INTERFACE
@@ -41,7 +41,7 @@ target_link_directories(${_Target}
 )
 target_link_libraries(${_Target}
         INTERFACE
-            ${TileFwkSTestNamePrefix}_intf_pub
+            ${PTO_Fwk_STestNamePrefix}_intf_pub
             $<$<BOOL:${ENABLE_BUILD_WITH_CANN}>:ascendcl>
             $<$<BOOL:${ENABLE_BUILD_WITH_CANN}>:runtime>
             $<$<BOOL:${ENABLE_BUILD_WITH_CANN}>:hccl>

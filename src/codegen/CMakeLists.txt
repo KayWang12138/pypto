@@ -9,7 +9,7 @@
 
 
 file(GLOB_RECURSE _CodeGen_Srcs *.cpp)
-#TileFwk_Debug_List(NAME "_CodeGen_Srcs" LIST ${_CodeGen_Srcs} DETAIL OFF)
+#PTO_Fwk_Debug_Source_List(NAME "_CodeGen_Srcs" LIST ${_CodeGen_Srcs} DETAIL OFF)
 
 add_library(tile_fwk_codegen SHARED)
 target_sources(tile_fwk_codegen PRIVATE ${_CodeGen_Srcs})
@@ -23,7 +23,7 @@ target_link_libraries(tile_fwk_codegen
             $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
 )
 TileFwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_codegen)
-TileFwk_AnalysisTargetSymbols(TARGET tile_fwk_codegen)
+PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_codegen)
 
 install(TARGETS tile_fwk_codegen
         LIBRARY DESTINATION lib OPTIONAL
