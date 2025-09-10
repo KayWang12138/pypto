@@ -108,6 +108,13 @@ inline std::string NodeType2String(NodeType n) {
     }
 }
 
+inline bool IsFloat(DataType t) {
+    if ((t == DT_FP8) || (t == DT_FP16) || (t == DT_FP32) || (t == DT_BF16)) {
+        return true;
+    }
+    return false;
+}
+
 inline std::string DataType2String(DataType t) {
     switch (t) {
         case DT_INT4: return "DT_INT4";

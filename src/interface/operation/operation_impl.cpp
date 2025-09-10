@@ -1748,8 +1748,13 @@ Tensor ScalarMax(const Tensor &operand1, const Tensor &operand2) {
 Tensor Neg(const Tensor &operand) {
     DECLARE_TRACER();
 
-    RETURN_CALL(
-        UnaryOperation<UnaryOpType::NEG>, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage());
+    if (IsFloat(operand->Datatype())) {
+        RETURN_CALL(BinaryOperationScalar<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(),
+            operand.GetStorage(), Element(operand->Datatype(), -1.0));
+    } else {
+        RETURN_CALL(BinaryOperationScalar<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(),
+            operand.GetStorage(), Element(operand->Datatype(), -1));
+    }
 }
 
 Tensor Sqrt(const Tensor &operand) {

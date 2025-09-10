@@ -638,7 +638,7 @@ TEST_F(DynamicBasicTest, TestTensorExtract) {
     int s = 32;
     Tensor inputA(DT_INT32, {n, n}, "inputA");
     std::vector<int32_t> inputAData(n * n);
-    for (size_t k = 0; k < n * n; k++) {
+    for (int k = 0; k < n * n; k++) {
         inputAData[k] = k;
     }
     Tensor output(DT_INT32, {1, s}, "output");

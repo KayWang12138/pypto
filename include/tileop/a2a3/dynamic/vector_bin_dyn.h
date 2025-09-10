@@ -197,11 +197,12 @@ TILEOP void T_BIN_VS(__ubuf__ T *dst, __ubuf__ T *src0, T src1, unsigned T0, uns
     if (numRemainPerLine) {
         unsigned numLoop = T0 / REPEAT_MAX;
         unsigned remainAfterLoop = T0 % REPEAT_MAX;
-        bool strideOverFlag = (DS / blockSizeElem > REPEAT_STRIDE_MAX) || (SS0 / blockSizeElem > REPEAT_STRIDE_MAX);
+        constexpr bool strideOverFlag = (DS / blockSizeElem > REPEAT_STRIDE_MAX) ||
+                                        (SS0 / blockSizeElem > REPEAT_STRIDE_MAX);
         SetContinuousMask(numRemainPerLine);
         if (numLoop) {
             for (int i = 0; i < numLoop; i++) {
-                if (strideOverFlag) {
+                if constexpr (strideOverFlag) {
                     for (uint64_t j = 0; j < REPEAT_MAX; j++) {
                         V_BIN_FUNC_VS(dst + i * REPEAT_MAX * DS + j * DS, src0 + i * REPEAT_MAX * SS0 + j * SS0, src1,
                             1, 1, 1, 1, 1);
@@ -213,7 +214,7 @@ TILEOP void T_BIN_VS(__ubuf__ T *dst, __ubuf__ T *src0, T src1, unsigned T0, uns
             }
         }
         if (remainAfterLoop) {
-            if (strideOverFlag) {
+            if constexpr (strideOverFlag) {
                 for (unsigned j = 0; j < REPEAT_MAX; j++) {
                     V_BIN_FUNC_VS((__ubuf__ T *)(dst + numLoop * REPEAT_MAX * DS + j * DS),
                         src0 + numLoop * REPEAT_MAX * SS0 + j * SS0, src1, 1, 1, 1, 1, 1);
