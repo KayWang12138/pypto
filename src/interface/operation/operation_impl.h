@@ -113,7 +113,7 @@ struct L1DataLoadParam {
 
 struct CollectSubAMulBPara {
     const TileShape &tileShape;
-    const std::array<int, 3> &posK;
+    const std::array<int64_t, 3> &posK;
     const LogicalTensorPtr &aTensorPtr;
     const LogicalTensorPtr &bTensorPtr;
     const LogicalTensorPtr &cTensorPtr;

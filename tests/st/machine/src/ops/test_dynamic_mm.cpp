@@ -31,7 +31,7 @@ const size_t MM_SHAPE_N_IDX = 2;
 
 class DynamicMatmulTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
-inline SymbolicScalar CeilDivSymbolicScalar(SymbolicScalar a, int b) {
+inline SymbolicScalar CeilDivSymbolicScalar(SymbolicScalar a, int64_t b) {
     if (b == 0) {
         return a;
     }
@@ -165,17 +165,17 @@ void TestDynMatmul(
         return;
     }
 
-    int m = mmShape[0];
-    int k = mmShape[1];
-    int n = mmShape[MM_SHAPE_N_IDX];
+    int64_t m = mmShape[0];
+    int64_t k = mmShape[1];
+    int64_t n = mmShape[MM_SHAPE_N_IDX];
     Tensor tensor_a = transA ? constructMatmulTensor<inputDtype>({k, m}, "tensor_a", isANz) :
                                constructMatmulTensor<inputDtype>({m, k}, "tensor_a", isANz);
     Tensor tensor_b = transB ? constructMatmulTensor<inputDtype>({n, k}, "tensor_b", isBNz) :
                                constructMatmulTensor<inputDtype>({k, n}, "tensor_b", isBNz);
     Tensor tensor_c = constructMatmulTensor<outputDtype>({m, n}, "tensor_c", isCNz);
 
-    int viewM = viewShape[0];
-    int viewN = viewShape[1];
+    int64_t viewM = viewShape[0];
+    int64_t viewN = viewShape[1];
     if (viewM > 0 && viewN > 0) {
         MNSplitFunc<outputDtype, transA, transB, isCNz>(viewShape, tensor_a, tensor_b, tensor_c);
     } else if (viewM > 0) {
@@ -211,9 +211,9 @@ void TestDynMatmul(
 
 TEST_F(DynamicMatmulTest, mm_A_B_ND_bf16) {
     TileShape::Current().SetCubeTile({64, 64}, {128, 128}, {128, 128});
-    int m = 128;
-    int k = 256;
-    int n = 512;
+    int64_t m = 128;
+    int64_t k = 256;
+    int64_t n = 512;
     bool isANz = false;
     bool isBNz = false;
     std::vector<int64_t> viewShape = {96, -1};
@@ -223,9 +223,9 @@ TEST_F(DynamicMatmulTest, mm_A_B_ND_bf16) {
 
 TEST_F(DynamicMatmulTest, mm_A_B_NZ_bf16) {
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
-    int m = 16;
-    int k = 32;
-    int n = 512;
+    int64_t m = 16;
+    int64_t k = 32;
+    int64_t n = 512;
     bool isANz = false;
     bool isBNz = true;
     std::vector<int64_t> viewShape = {-1, -1};
@@ -235,9 +235,9 @@ TEST_F(DynamicMatmulTest, mm_A_B_NZ_bf16) {
 
 TEST_F(DynamicMatmulTest, mm_A_Bt_ND_fp16) {
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
-    int m = 128;
-    int k = 257;
-    int n = 511;
+    int64_t m = 128;
+    int64_t k = 257;
+    int64_t n = 511;
     bool isANz = false;
     bool isBNz = false;
     std::vector<int64_t> viewShape = {-1, 256};
@@ -247,9 +247,9 @@ TEST_F(DynamicMatmulTest, mm_A_Bt_ND_fp16) {
 
 TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_fp16) {
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
-    int m = 1;
-    int k = 512;
-    int n = 256;
+    int64_t m = 1;
+    int64_t k = 512;
+    int64_t n = 256;
     bool isANz = false;
     bool isBNz = true;
     std::vector<int64_t> viewShape = {-1, -1};
@@ -259,9 +259,9 @@ TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_fp16) {
 
 TEST_F(DynamicMatmulTest, mm_A_B_NZ_int8) {
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
-    int m = 16;
-    int k = 32;
-    int n = 512;
+    int64_t m = 16;
+    int64_t k = 32;
+    int64_t n = 512;
     bool isANz = false;
     bool isBNz = true;
     std::vector<int64_t> viewShape = {-1, -1};
@@ -270,9 +270,9 @@ TEST_F(DynamicMatmulTest, mm_A_B_NZ_int8) {
 
 TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_int8) {
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
-    int m = 1;
-    int k = 512;
-    int n = 256;
+    int64_t m = 1;
+    int64_t k = 512;
+    int64_t n = 256;
     bool isANz = false;
     bool isBNz = true;
     std::vector<int64_t> viewShape = {-1, -1};
@@ -281,9 +281,9 @@ TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_int8) {
 
 TEST_F(DynamicMatmulTest, mm_A_B_ND_bf16_tile1) {
     TileShape::Current().SetCubeTile({64, 64}, {256, 256}, {128, 128});
-    int m = 128;
-    int k = 256;
-    int n = 512;
+    int64_t m = 128;
+    int64_t k = 256;
+    int64_t n = 512;
     bool isANz = false;
     bool isBNz = false;
     std::vector<int64_t> viewShape = {90, 256};
@@ -293,9 +293,9 @@ TEST_F(DynamicMatmulTest, mm_A_B_ND_bf16_tile1) {
 
 TEST_F(DynamicMatmulTest, mm_A_Bt_ND_fp16_tile2) {
     TileShape::Current().SetCubeTile({32, 32}, {512, 512}, {32, 32});
-    int m = 16;
-    int k = 512;
-    int n = 512;
+    int64_t m = 16;
+    int64_t k = 512;
+    int64_t n = 512;
     bool isANz = false;
     bool isBNz = false;
     std::vector<int64_t> viewShape = {-1, -1};
@@ -305,9 +305,9 @@ TEST_F(DynamicMatmulTest, mm_A_Bt_ND_fp16_tile2) {
 
 TEST_F(DynamicMatmulTest, mm_A_B_NZ_int8_tile3) {
     TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {512, 512});
-    int m = 16;
-    int k = 32;
-    int n = 512;
+    int64_t m = 16;
+    int64_t k = 32;
+    int64_t n = 512;
     bool isANz = false;
     bool isBNz = true;
     std::vector<int64_t> viewShape = {-1, -1};
@@ -316,9 +316,9 @@ TEST_F(DynamicMatmulTest, mm_A_B_NZ_int8_tile3) {
 
 TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_int8_tile4) {
     TileShape::Current().SetCubeTile({32, 32}, {64, 64}, {32, 32});
-    int m = 1;
-    int k = 512;
-    int n = 256;
+    int64_t m = 1;
+    int64_t k = 512;
+    int64_t n = 256;
     bool isANz = false;
     bool isBNz = true;
     std::vector<int64_t> viewShape = {-1, -1};
@@ -327,9 +327,9 @@ TEST_F(DynamicMatmulTest, mm_A_Bt_NZ_int8_tile4) {
 
 TEST_F(DynamicMatmulTest, mm_A_ND_B_ND_C_NZ) {
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
-    int m = 16;
-    int k = 192;
-    int n = 128;
+    int64_t m = 16;
+    int64_t k = 192;
+    int64_t n = 128;
     bool isANz = false;
     bool isBNz = false;
     std::vector<int64_t> viewShape = {-1, -1};
@@ -339,9 +339,9 @@ TEST_F(DynamicMatmulTest, mm_A_ND_B_ND_C_NZ) {
 
 TEST_F(DynamicMatmulTest, mm_AT_B_ANZ_BND_bf16) {
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
-    int m = 128;
-    int k = 256;
-    int n = 512;
+    int64_t m = 128;
+    int64_t k = 256;
+    int64_t n = 512;
     bool isANz = true;
     bool isBNz = false;
     std::vector<int64_t> viewShape = {-1, -1};
@@ -351,9 +351,9 @@ TEST_F(DynamicMatmulTest, mm_AT_B_ANZ_BND_bf16) {
 
 TEST_F(DynamicMatmulTest, mm_AT_BT_AND_BND_bf16) {
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
-    int m = 128;
-    int k = 256;
-    int n = 512;
+    int64_t m = 128;
+    int64_t k = 256;
+    int64_t n = 512;
     bool isANz = false;
     bool isBNz = false;
     std::vector<int64_t> viewShape = {-1, -1};
@@ -363,9 +363,9 @@ TEST_F(DynamicMatmulTest, mm_AT_BT_AND_BND_bf16) {
 
 TEST_F(DynamicMatmulTest, mm_AT_B_ANZ_BND_fp16_UNALIGN) {
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
-    int m = 127;
-    int k = 255;
-    int n = 511;
+    int64_t m = 127;
+    int64_t k = 255;
+    int64_t n = 511;
     bool isANz = false;
     bool isBNz = false;
     std::vector<int64_t> viewShape = {-1, -1};
