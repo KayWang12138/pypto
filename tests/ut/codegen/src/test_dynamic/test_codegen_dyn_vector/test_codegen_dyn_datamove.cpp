@@ -55,7 +55,8 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim3) {
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape, "res");
     std::string funcName = "DATAMOVE";
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION(funcName, funConfig, {input, output}) {
         output = Transpose(input, {0, 1});
     }
@@ -97,7 +98,8 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim4) {
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape, "res");
     std::string funcName = "DATAMOVE";
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION(funcName, funConfig, {input, output}) {
         output = Transpose(input, {1, 2});
     }
@@ -140,7 +142,8 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveAlignDim4) {
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape, "res");
     std::string funcName = "DATAMOVE";
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION(funcName, funConfig, {input, output}) {
         output = Transpose(input, {1, 2});
     }

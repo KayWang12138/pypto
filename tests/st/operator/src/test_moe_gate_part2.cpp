@@ -45,7 +45,8 @@ TEST_F(MoEGatePart2OnBoardTest, test_operation_b_2) {
                                     (uint8_t *)scores_for_choice_ptr, "scores_for_choice");
         Tensor output_group_idx(DataType::DT_FP32, output_idx_shape, (uint8_t *)out_group_idx_ptr, "group_idx");
         Tensor output_group_mask(DataType::DT_FP32, output_mask_shape, (uint8_t *)out_group_mask_ptr, "group_mask");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("MOE_GATE_PART2_T", funConfig, {input_scores_for_choice, output_group_idx, output_group_mask}) {
             Tensor scores_for_choice_reshape;
             scores_for_choice_reshape = Reshape(input_scores_for_choice, input_reshape);
@@ -111,7 +112,8 @@ TEST_F(MoEGatePart2OnBoardTest, test_operation_b_1024) {
                                     (uint8_t *)scores_for_choice_ptr, "scores_for_choice");
         Tensor output_group_idx(DataType::DT_FP32, output_idx_shape, (uint8_t *)out_group_idx_ptr, "group_idx");
         Tensor output_group_mask(DataType::DT_FP32, output_mask_shape, (uint8_t *)out_group_mask_ptr, "group_mask");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("MOE_GATE_PART2_T", funConfig, {input_scores_for_choice, output_group_idx, output_group_mask}) {
             Tensor scores_for_choice_reshape;
             scores_for_choice_reshape = Reshape(input_scores_for_choice, input_reshape);

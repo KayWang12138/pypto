@@ -54,7 +54,8 @@ void TestAddDynBody(const std::vector<int64_t> &shape, const std::vector<int64_t
     Tensor input_b(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
 
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION(name, funConfig, {input_a, input_b, output}) {
         output = Add(input_a, input_b);
     }
@@ -103,7 +104,8 @@ TEST_F(TestCodegenDynBinary, TestAddsDynamic) {
     Element value(DataType::DT_FP32, 1.5);
     Tensor output(DataType::DT_FP32, shape, "C");
     ConfigManager::Instance();
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION("ADD_S", funConfig, {input_a, output}) {
         output = AddS(input_a, value);
     }
@@ -148,7 +150,8 @@ TEST_F(TestCodegenDynBinary, TestGatherEle) {
     Tensor outputTensor(DT_FP32, outputShape, "output_tensor");
 
     std::string funcName = "GATHER_ELEMET_T";
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION(funcName, funConfig, {inputScores, inputTmpScores, outputTensor}) {
         outputTensor = GatherElement(inputTmpScores, inputScores, 1); // [b*s,8]
     }

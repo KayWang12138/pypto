@@ -53,7 +53,8 @@ TEST_F(SoftmaxOnBoard, test_softmax_cast_in) {
         Tensor i_x(iType, shape, (uint8_t *)x_ptr, "x");
         Tensor o_x(oType, shape, out_ptr, "cast_out");
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("Softmax_Cast_In", funConfig, {i_x, o_x}) {
             o_x = Cast(i_x, oType);
         }
@@ -85,7 +86,8 @@ TEST_F(SoftmaxOnBoard, test_softmax_cast_out) {
         Tensor i_x(iType, shape, (uint8_t *)x_ptr, "x");
         Tensor o_x(oType, shape, out_ptr, "cast_out");
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("Softmax_Cast_Out", funConfig, {i_x, o_x}) {
             o_x = Cast(i_x, oType);
         }
@@ -117,7 +119,8 @@ TEST_F(SoftmaxOnBoard, test_softmax_sum_single) {
         Tensor i_x(dtype, ishape, (uint8_t *)x_ptr, "x");
         Tensor o_x(dtype, oshape, out_ptr, "softmax_sum");
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("SOFTMAX_SUM_T", funConfig, {i_x, o_x}) {
             o_x = RowSumSingle(i_x);
         }
@@ -149,7 +152,8 @@ TEST_F(SoftmaxOnBoard, test_softmax_max_single) {
         Tensor i_x(dtype, ishape, (uint8_t *)x_ptr, "x");
         Tensor o_x(dtype, oshape, out_ptr, "softmax_max");
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("SOFTMAX_MAX_T", funConfig, {i_x, o_x}) {
             o_x = RowMaxSingle(i_x);
         }
@@ -179,7 +183,8 @@ TEST_F(SoftmaxOnBoard, test_softmax_exp) {
         Tensor input_x(dtype, shape, (uint8_t *)x_ptr, "x");
         Tensor output(dtype, shape, out_ptr, "Softmax_Exp");
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("SOFTMAX_EXP_T", funConfig, {input_x, output}) {
             output = Exp(input_x);
         }
@@ -215,7 +220,8 @@ TEST_F(SoftmaxOnBoard, test_softmax_div) {
         Tensor input_y(dtype, rshape, (uint8_t *)y_ptr, "y");
         Tensor output(dtype, oshape, out_ptr, "Softmax_Div");
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("SOFTMAX_SUB_T", funConfig, {input_x, input_y, output}) {
             output = Div(input_x, input_y);
         }
@@ -245,7 +251,8 @@ TEST_F(SoftmaxOnBoard, test_softmax_sum_all) {
         Tensor i_x(dtype, ishape, (uint8_t *)x_ptr, "x");
         Tensor o_x(dtype, oshape, out_ptr, "softmax_sum_all");
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("SOFTMAX_SUM_T", funConfig, {i_x, o_x}) {
             o_x = SoftmaxNew(i_x);
         }
@@ -277,7 +284,8 @@ TEST_F(SoftmaxOnBoard, test_softmax_full_inference) {
         Tensor i_x(dtype, ishape, (uint8_t *)x_ptr, "x");
         Tensor o_x(dtype, oshape, out_ptr, "Softmax_full_inference");
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("SOFTMAX_FULL_INFERENCE_T", funConfig, {i_x, o_x}) {
             o_x = SoftmaxNew(i_x);
         }
@@ -309,7 +317,8 @@ TEST_F(SoftmaxOnBoard, test_softmax_deepseek) {
         Tensor i_x(dtype, ishape, (uint8_t *)x_ptr, "x");
         Tensor o_x(dtype, oshape, out_ptr, "softmax_deepseek");
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("SOFTMAX_DEEPSEEK", funConfig, {i_x, o_x}) {
             o_x = SoftmaxNew(i_x);
         }
@@ -341,7 +350,8 @@ TEST_F(SoftmaxOnBoard, test_softmax_flash_attention) {
         Tensor i_x(dtype, ishape, (uint8_t *)x_ptr, "x");
         Tensor o_x(dtype, oshape, out_ptr, "softmax_deepseek");
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("SOFTMAX_FA", funConfig, {i_x, o_x}) {
             o_x = SoftmaxNew(i_x);
         }

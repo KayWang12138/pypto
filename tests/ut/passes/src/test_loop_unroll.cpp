@@ -152,7 +152,8 @@ TEST_F(LoopUnrollTest, TestLoopIfWithRank) {
                 }
             }
         }
-        FunctionConfig funConfig2 = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig2(FunctionType::STATIC);
+        ;
         FUNCTION("S1", funConfig2) {
             out = AddS(r0, Element(DataType::DT_FP32, 1.0));
         }

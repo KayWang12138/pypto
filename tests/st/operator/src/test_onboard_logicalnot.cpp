@@ -43,7 +43,8 @@ TEST_F(LogicalNotOnBoardTest, test_logicalnot_16_32_fp32) {
         Tensor input_a(DataType::DT_FP32, srcShape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, dstShape, out_ptr, "C");
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("LOGICALNOT_T", funConfig, {input_a, output}) {
             output = LogicalNot(input_a);
         }
@@ -84,7 +85,8 @@ TEST_F(LogicalNotOnBoardTest, test_logicalnot_16_32_32_fp16) {
         Tensor input_a(DataType::DT_FP16, srcShape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP16, dstShape, out_ptr, "C");
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("LOGICALNOT_T", funConfig, {input_a, output}) {
             output = LogicalNot(input_a);
         }

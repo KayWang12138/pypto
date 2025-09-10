@@ -130,7 +130,8 @@ void TestMlaPrologV2(std::vector<int> &params, bool isQuant = false, bool hasSmo
                 quantInputs.smoothScalesCq = smooth_cq;
                 smooth_cq.SetCachePolicy(CachePolicy::PREFETCH, true);
             }
-            FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+            FunctionConfig funConfig(FunctionType::STATIC);
+            ;
             FUNCTION("MlaPrologUt", funConfig,
                 {x, wDq, wUqQr, w_qb_scale, smooth_cq, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos,
                  kv_len, kv_cache, kr_cache, output_q, output_q_rope}) {
@@ -140,7 +141,8 @@ void TestMlaPrologV2(std::vector<int> &params, bool isQuant = false, bool hasSmo
             };
 
         } else {
-            FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+            FunctionConfig funConfig(FunctionType::STATIC);
+            ;
             FUNCTION("MlaPrologUt", funConfig,
                 {x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos,
                  kv_len, kv_cache, kr_cache, output_q, output_q_rope}) {

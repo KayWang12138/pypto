@@ -56,7 +56,8 @@ TEST_F(TestCodegenDynRowSumLine, TestOperationRowSumLine) {
     Tensor output(DataType::DT_FP32, outshape, "C");
 
     std::string funcName = "Reduce3dimMoe";
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION(funcName, funConfig, {input_a, output}) {
         output = RowSumSingle(input_a, 1);
     }

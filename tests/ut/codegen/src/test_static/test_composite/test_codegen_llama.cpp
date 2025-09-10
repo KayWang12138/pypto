@@ -55,7 +55,8 @@ void CgLLamaLayer(const AttentionDims &dimsCfg, float threadhold = 0.001f) {
     Tensor Res(DT_FP32, {b * s, n * d}, "Res");
     ConfigManager::Instance();
     std::string funcName = "LLAMA";
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION(funcName, funConfig, {H, AW, DW, FW, Res}) {
         Res = LlamaLayer(H, AW, DW, FW, dimsCfg, SMALL_DFS_VEC_CFG, DFS_CUBE_CFG);
     }

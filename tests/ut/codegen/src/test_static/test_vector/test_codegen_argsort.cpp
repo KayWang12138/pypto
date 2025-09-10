@@ -52,7 +52,8 @@ TEST_F(TestCodegenArgSort, TestArgSort) {
     Tensor output(DT_FP32, output_shape, "resDics");
 
     std::string funcName = "ARGSORT_T";
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION(funcName, funConfig, {input_a, output}) {
         output = ArgSort(input_a, -1);
     }

@@ -200,7 +200,6 @@ TEST_F(DynamicBasicTest, TestCheckPointRestore) {
 TEST_F(DynamicBasicTest, TestSlotId) {
     int s = 16;
     int id[2] = {0};
-    Tensor *p[2] = {nullptr};
     Tensor t(DT_FP32, {s, s}, "t0");
     Tensor out(DT_FP32, {s, s}, "out");
 
@@ -213,7 +212,6 @@ TEST_F(DynamicBasicTest, TestSlotId) {
                 (void)idx1;
                 t0 = Add(t, t);
             }
-            p[0] = &t0;
             id[0] = t0.Id();
         }
         LOOP("L1", FunctionType::DYNAMIC_LOOP, idx, LoopRange(1)) {
@@ -223,7 +221,6 @@ TEST_F(DynamicBasicTest, TestSlotId) {
                 (void)idx1;
                 t1 = Add(t, t);
             }
-            p[1] = &t1;
             id[1] = t1.Id();
         }
     }
@@ -347,7 +344,8 @@ TEST_F(DynamicBasicTest, TestStaticUnderDynDev) {
     Tensor out(DT_FP32, {n * s, s}, "out");
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {t0, t1}, {out}) {
-        FunctionConfig funConfig2 = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig2(FunctionType::STATIC);
+        ;
         FUNCTION("S0", funConfig2) {
             out = Sub(t1, t0);
         }
@@ -379,7 +377,8 @@ TEST_F(DynamicBasicTest, TestStaticLoop) {
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {t0, t1, t2}, {out}) {
         Tensor s0Out;
-        FunctionConfig funConfig2 = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig2(FunctionType::STATIC);
+        ;
         FUNCTION("S0", funConfig2) {
             s0Out = Sub(t1, t0);
         }
@@ -617,7 +616,8 @@ TEST_F(DynamicBasicTest, TestLoopIfWithRank456) {
             out = AddS(r0, Element(DataType::DT_FP32, 0.0));
         }
 
-        FunctionConfig funConfig2 = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig2(FunctionType::STATIC);
+        ;
         FUNCTION("S1", funConfig2) {
             out = AddS(r0, Element(DataType::DT_FP32, 2.0));  //静态function中增加2.0的偏移量
         }

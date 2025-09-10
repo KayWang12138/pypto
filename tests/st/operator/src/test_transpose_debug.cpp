@@ -130,7 +130,8 @@ TEST_F(TransposeDebugTest, TestTranspose_BNSD_BSND) {
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("BNSD_BSND", funConfig, {input, output}) {
             output = Transpose(input, {1, 2});
         }
@@ -157,7 +158,8 @@ TEST_F(TransposeDebugTest, TestTranspose_ABC_BAC) {
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("ABC_BAC", funConfig, {input, output}) {
             output = Transpose(input, {0, 1});
         }
@@ -185,7 +187,8 @@ TEST_F(TransposeDebugTest, TestTranspose_BNSD2_BNS2D_small) {
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("BNSD2_BNS2D_small", funConfig, {input, output}) {
             output = Transpose(input, {3, 4});
         }
@@ -213,7 +216,8 @@ TEST_F(TransposeDebugTest, TestTranspose_ROPE_5D) {
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("ROPE_5D", funConfig, {input, output}) {
             output = Transpose(input, {3, 4});
         }
@@ -241,7 +245,8 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_3D_0) {
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("MLA_3D_0", funConfig, {input, output}) {
             output = Transpose(input, {0, 1});
         }
@@ -268,7 +273,8 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_3D_1) {
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("MLA_3D_1", funConfig, {input, output}) {
             output = Transpose(input, {0, 1});
         }
@@ -296,7 +302,8 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_0) {
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("MLA_4D_0", funConfig, {input, output}) {
             output = Transpose(input, {1, 2});
         }
@@ -324,7 +331,8 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_1) {
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("MLA_4D_1", funConfig, {input, output}) {
             output = Transpose(input, {1, 2});
         }
@@ -352,7 +360,8 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_2) {
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("MLA_4D_2", funConfig, {input, output}) {
             output = Transpose(input, {1, 2});
         }
@@ -380,7 +389,8 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_3) {
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("MLA_4D_3", funConfig, {input, output}) {
             TileShape::Current().SetVecTile(8, 1, 1, 8);
             output = Add(input, input);
@@ -410,7 +420,8 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_4) {
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("MLA_4D_4", funConfig, {input, output}) {
             TileShape::Current().SetVecTile(8, 1, 1, 128);
             output = Add(input, input);
@@ -441,7 +452,8 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_5) {
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("MLA_4D_5", funConfig, {input, output}) {
             output = Transpose(input, {2, 3});
         }
@@ -469,7 +481,8 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_50) {
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("MLA_4D_50", funConfig, {input, output}) {
             output = Transpose(input, {2, 3});
         }
@@ -497,7 +510,8 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_51) {
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, "res");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("MLA_4D_51", funConfig, {input, output}) {
             output = Transpose(input, {2, 3});
         }
@@ -527,7 +541,8 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_4D_6) {
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("MLA_4D_6", funConfig, {input, output}) {
             output = Transpose(input, {1, 2});
         }
@@ -555,7 +570,8 @@ TEST_F(TransposeDebugTest, TestTranspose_MLA_3D_2) {
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("MLA_3D_2", funConfig, {input, output}) {
             output = Transpose(input, {0, 1});
         }
@@ -583,7 +599,8 @@ TEST_F(TransposeDebugTest, TestTranspose_BNDS_BNSD) {
         void *input_ptr = readToDev("input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *)input_ptr, "input");
         Tensor output(DataType::DT_FP32, resShape, out_ptr, "res");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("BNDS_BNSD", funConfig, {input, output}) {
             output = Transpose(input, {2, 3});
         }

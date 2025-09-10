@@ -56,7 +56,8 @@ std::string TestL0COutBody(bool isDynamicUnalign) {
     Tensor output(DT_FP32, shape, "C");
 
     std::string funcName = "ADD";
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION(funcName, funConfig, {inputA, inputB, output}) {
         output = Add(inputA, inputB);
     }
@@ -134,7 +135,8 @@ std::string TestL1CopyInBody(bool isNz = false, int outerValueForNz = 0, int inn
     Tensor output(DT_FP32, shape, "C");
 
     std::string funcName = "ADD";
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION(funcName, funConfig, {inputA, inputB, output}) {
         output = Add(inputA, inputB);
     }
@@ -218,7 +220,8 @@ TEST_F(TestCodegenDynCopy, UBCopyIn) {
     Tensor output(DT_FP32, shape, "C");
 
     std::string funcName = "ADD";
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION(funcName, funConfig, {inputA, inputB, output}) {
         output = Add(inputA, inputB);
     }

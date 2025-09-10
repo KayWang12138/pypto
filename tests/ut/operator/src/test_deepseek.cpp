@@ -144,7 +144,8 @@ TEST_F(FunctionTest, test_fa_new) {
     Tensor M(DataType::DT_FP32, shape_reduce, "M");
     Tensor L(DataType::DT_FP32, shape_reduce, "L");
     Tensor Res(DT_FP32, shape, "Res");
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION("FA", funConfig, {Q, K, V, M, L, Res}) {
         TileShape::Current().SetVecTile({16, 128});
         TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
@@ -1329,7 +1330,8 @@ TEST_F(FunctionTest, Test_ScalarOp) {
     TileShape::Current().SetVecTile({128, 32});
     Tensor input_a(DT_FP32, shape, "A");
     auto output = Tensor(DT_FP32, shape, "res"); // std::make_tuple(Tensor(DT_FP32, shape, "res"), Tensor(DT_FP32, shape, "resDics"));
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION("ScalarAddS", funConfig) {
         auto a = ScalarAddS(input_a, Element(DataType::DT_FP32, F_127), true);
         auto b = ScalarSubS(a, Element(DataType::DT_FP32, F_127), true);
@@ -1349,7 +1351,8 @@ TEST_F(FunctionTest, TestPad) {
     Tensor b;
     TileShape::Current().SetVecTile(8, 8);
 
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION("Pad", funConfig) {
         b = Pad(a, newShape);
     }

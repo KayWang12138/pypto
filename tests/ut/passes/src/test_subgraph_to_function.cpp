@@ -385,7 +385,8 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load)
     Tensor matA(DT_FP16, shapeA, "MatA", TileOpFormat::TILEOP_NZ);
     Tensor matB(DT_FP16, shapeB, "MatB", TileOpFormat::TILEOP_ND);
     Tensor matC(DT_FP32, shapeC, "MatC");
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION("BATCHMATMUL", funConfig, {matA, matB, matC})
     {
         config::SetPassConfig("PVC2_OOO", "OoOSchedule", "DISABLE_PASS", true);
@@ -530,7 +531,8 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_1) {
         auto output = std::make_tuple(Tensor(DT_FP32, output_shape, nullptr, "npu_val"),
                                       Tensor(DT_FP32, output_shape, nullptr, "resDics"));
         config::SetPassConfig("PVC2_OOO", "OoOSchedule", "DISABLE_PASS", true);
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("TOPK_T", funConfig, {input_a, std::get<0>(output), std::get<1>(output)}) {
             output = TopK(input_a, k, -1, isLargest);
         }
@@ -563,7 +565,8 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_1_cov) {
         Tensor input_a(DT_FP32, input_shape, (uint8_t *)nullptr, "A");
         auto output = std::make_tuple(Tensor(DT_FP32, output_shape, nullptr, "npu_val"),
                                       Tensor(DT_FP32, output_shape, nullptr, "resDics"));
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("TOPK_T", funConfig, {input_a, std::get<0>(output), std::get<1>(output)}) {
             output = TopK(input_a, k, -1, isLargest);
         }
@@ -628,7 +631,8 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_2) {
         Tensor attentionOut(DT_FP32, {b * sq * nq, dn}, nullptr, "attentionOut");
 
         // 计算流程开始
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("IfaStatic", funConfig,
             {qNope, kNopeCache, vNopeCache, qRope, kRopeCache, attentionOut}) {
             IncreFlashAttention(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, softmaxScale,
@@ -967,7 +971,7 @@ TEST_F(SubgraphToFunctionTest, EliminateRedundantEdges) {
     function->SetTotalSubGraphCount(5);  // 共5个子图
     // 2. 运行SubgraphToFunction pass
     SubgraphToFunction pass;
-    pass.SetupStaticProcessor(); 
+    pass.SetupStaticProcessor();
     // 构建基础图结构
     pass.staticProcessor_.BuildGraph(*function);
     pass.RecordIncastOutcast(*function);

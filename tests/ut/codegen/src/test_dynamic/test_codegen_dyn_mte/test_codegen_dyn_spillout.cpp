@@ -55,7 +55,8 @@ TEST_F(TestCodegenDynSpillOut, UBSpillOut) {
     Tensor output(DT_FP32, shape, "C");
 
     std::string funcName = "ADD";
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION(funcName, funConfig, {inputA, inputB, output}) {
         output = Add(inputA, inputB);
     }
@@ -108,7 +109,8 @@ TEST_F(TestCodegenDynSpillOut, L1SpillOut) {
     Tensor output(DT_FP32, shape, "C");
 
     std::string funcName = "ADD";
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION(funcName, funConfig, {inputA, inputB, output}) {
         output = Add(inputA, inputB);
     }

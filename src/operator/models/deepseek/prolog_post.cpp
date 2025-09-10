@@ -152,7 +152,8 @@ void PrologPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &q
             }
         }
 
-        FunctionConfig funConfig2 = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig2(FunctionType::STATIC);
+        ;
         FUNCTION("PaPost", funConfig2) {
             TileShape::Current().SetVecTile({32, dN});
             auto attenRes = Reshape(attentionOut, {batchSize, nQ, dN}); // (b*sQ*nQ, dN), sQ=1

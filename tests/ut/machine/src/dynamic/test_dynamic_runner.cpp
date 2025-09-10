@@ -72,7 +72,8 @@ TEST_F(TestDynamicDeviceRunner, TestDynMachineAgent) {
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
 
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION("ADD", funConfig, {inputA, inputB, output}) {
         output = Add(inputA, inputB);
     }

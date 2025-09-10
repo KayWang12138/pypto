@@ -33,7 +33,8 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_128_32_argsort) {
         TileShape::Current().SetVecTile({shape0, shape1});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("ARGSORT_T", funConfig, {input_a, output}) {
             output = ArgSort(input_a, -1);
         }
@@ -61,7 +62,8 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_4_32_argsort) {
         TileShape::Current().SetVecTile({shape0, shape1});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("ARGSORT_T", funConfig, {input_a, output}) {
             output = ArgSort(input_a, -1);
         }
@@ -89,7 +91,8 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_2_16_argsort) {
         TileShape::Current().SetVecTile({shape0, shape1});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("ARGSORT_T", funConfig, {input_a, output}) {
             output = ArgSort(input_a, -1);
         }
@@ -117,7 +120,8 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_32_argsort) {
         TileShape::Current().SetVecTile({shape0});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("ARGSORT_T", funConfig, {input_a, output}) {
             output = ArgSort(input_a, -1);
         }
@@ -145,7 +149,8 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_64_argsort) {
         TileShape::Current().SetVecTile({shape0});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("ARGSORT_T", funConfig, {input_a, output}) {
             output = ArgSort(input_a, -1);
         }
@@ -174,7 +179,8 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_4_32__argsort) {
         TileShape::Current().SetVecTile({shape0, shape1});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("ARGSORT_T", funConfig, {input_a, output}) {
             output = ArgSort(input_a, -1, false);
         }
@@ -201,7 +207,8 @@ TEST_F(ArgsortOnBoardTest, test_operation_tensor_64__argsort_moe) {
         TileShape::Current().SetVecTile({shape0});
         Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, output_shape, out_ptr1, "resDics");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("ARGSORT_T", funConfig, {input_a, output}) {
             output = ArgSort(input_a, -1, false);
         }

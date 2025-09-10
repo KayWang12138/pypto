@@ -96,7 +96,8 @@ void TestMatmulTrans(int m, int k, int n, string dataPath) {
         Tensor mat_b(InputDtype, shape_b, (uint8_t *)b_ptr, "mat_b");
         Tensor mat_c(OutputDtype, shape_c, c_ptr, "mat_c");
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("Matmul_T", funConfig, {mat_a, mat_b, mat_c}) {
             mat_c = npu::tile_fwk::Matrix::Matmul<false, true>(OutputDtype, mat_a, mat_b);  // result dtype
         }

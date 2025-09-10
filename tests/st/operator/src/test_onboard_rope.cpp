@@ -71,7 +71,8 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_reshape_transpose_reshape_muls) {
             {1, 64, 1, 64, 64} // for transpose
         };
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("RoPE", funConfig, {q, qEmbed}) {
             TileShape::Current().SetVecTile(ropeTileConfig.fourDimsTileShape);
             auto qView = Reshape(q, {B, N, S, qkRopeHeadDim / 2, 2}); // [b,n,s,qk_d//2,2]
@@ -154,7 +155,8 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_tensorIndex_unsqueeze_mul) {
             {1, 64, 1, 64, 64} // for transpose
         };
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("RoPE", funConfig, {cos, sin, positionIds, qEmbed}) {
             // TensorIndex+unsqueeze+mul  ok
             TileShape::Current().SetVecTile(ropeTileConfig.threeDimsTileShape); // TensorIndex, 设置三维Tile
@@ -232,7 +234,8 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_reshape_view_muls) {
         Tensor qEmbed(DataType::DT_FP32, qEmbedShape, qEmbed_ptr, "qEmbed");
         Tensor kEmbed(DataType::DT_FP32, kEmbedShape, kEmbed_ptr, "kEmbed");
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("RoPE", funConfig, {q, qEmbed}) {
             TileShape::Current().SetVecTile({1, 64, 1, 64});
             auto qView = Reshape(q, {B, N, S, qkRopeHeadDim / 2, 2}); // [b,n,s,qk_d//2,2]
@@ -316,7 +319,8 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_reshape_view_muls_concat) {
             {1, 64, 1, 64, 64} // for transpose
         };
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("RoPE", funConfig, {q, k, qEmbed, kEmbed}) {
             TileShape::Current().SetVecTile(ropeTileConfig.fourDimsTileShape);
             auto qView = Reshape(q, {B, N, S, qkRopeHeadDim / 2, 2}); // [b,n,s,qk_d//2,2]
@@ -426,7 +430,8 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_deepseekv3) {
             {1, 64, 1, 64, 64} // for transpose
         };
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("RoPE", funConfig, {q, k, cos, sin, positionIds, qEmbed, kEmbed}) {
             ApplyRotaryPosEmb(q, k, cos, sin, positionIds, qEmbed, kEmbed, 1, ropeTileConfig);
         }
@@ -513,7 +518,8 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_v2_deepseekv3) {
             {1, 1, 64, 32, 2} // (b,s,n,d//2,2)
         };
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("RoPE", funConfig, {q, k, cos, sin, qEmbed, kEmbed}) {
             ApplyRotaryPosEmbV2(q, k, cos, sin, qEmbed, kEmbed, 2, ropeTileConfig);
         }
@@ -583,7 +589,8 @@ TEST_F(RoPEOnBoardTest, test_operation_rope_v2_deepseekv3_b32) {
             {32, 1, 1, 32, 2} // (b,s,n,d//2,2)
         };
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("RoPE", funConfig, {q, k, cos, sin, qEmbed, kEmbed}) {
             ApplyRotaryPosEmbV2(q, k, cos, sin, qEmbed, kEmbed, 2, ropeTileConfig);
         }

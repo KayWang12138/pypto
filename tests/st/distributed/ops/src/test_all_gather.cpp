@@ -49,7 +49,8 @@ void TestAllGather(OpTestParam &testParam)
         Tensor out(dType, outShape, outPtr, "out");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("AllGather", funConfig, {in, out}) {
             TileShape::Current().SetDistTile({outM / testParam.rankSize, testParam.rankSize, 0},
                 {N / testParam.rankSize, testParam.rankSize, 0}, {1, testParam.rankSize, 0});
@@ -91,7 +92,8 @@ void TestAllGatherEx(OpTestParam &testParam)
         tensorParams.emplace_back(in);
 
         ConfigManager::Instance();
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("AllGather_Ex", funConfig, tensorParams) {
             TileShape::Current().SetDistTile({M / 2, 2, 0}, {N / 2, 2, 0}, {1, testParam.rankSize, 0});
             TileShape::Current().SetDistRankId(testParam.rankId);

@@ -56,7 +56,8 @@ void RunLLamaLayerCostModel(const AttentionDims &dimsCfg, float threadhold = 0.0
         Tensor FW(DataType::DT_FP16, {n * d, n * d * 3}, "FW");
         Tensor Res(DT_FP32, {b * s, n * d}, "Res");
         ConfigManager::Instance();
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("LLAMA", funConfig, {H, AW, DW, FW, Res}) {
             Res = LlamaLayer(H, AW, DW, FW, dimsCfg, SMALL_DFS_VEC_CFG, DFS_CUBE_CFG);
         }

@@ -79,7 +79,8 @@ TEST_F(QuantTest, Test_ScalarDivS) {
         void *input_ptr = readToDev(GetGoldenDir() + "/input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *) input_ptr, "input");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "res");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("ScalarDivS", funConfig, {input, output}) {
             output = ScalarDivS(input, Element(DataType::DT_FP32, static_cast<double>(INT8_MAX_VALUE)),
                                 true);
@@ -103,7 +104,8 @@ TEST_F(QuantTest, Test_ScalarAddS) {
         void *input_ptr = readToDev(GetGoldenDir() + "/input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *) input_ptr, "input");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "res");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("ScalarAddS", funConfig, {input, output}) {
             output = ScalarAddS(input, Element(DataType::DT_FP32, static_cast<double>(INT8_MAX_VALUE)),
                                 true);
@@ -127,7 +129,8 @@ TEST_F(QuantTest, Test_ScalarSubS) {
         void *input_ptr = readToDev(GetGoldenDir() + "/input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *) input_ptr, "input");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "res");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("ScalarSubS", funConfig, {input, output}) {
             output = ScalarSubS(input, Element(DataType::DT_FP32, static_cast<double>(INT8_MAX_VALUE)),
                                 true);
@@ -151,7 +154,8 @@ TEST_F(QuantTest, Test_ScalarMulS) {
         void *input_ptr = readToDev(GetGoldenDir() + "/input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *) input_ptr, "input");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "res");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("ScalarMulS", funConfig, {input, output}) {
             output = ScalarMulS(input, Element(DataType::DT_FP32, static_cast<double>(INT8_MAX_VALUE)),
                                 true);
@@ -175,7 +179,8 @@ TEST_F(QuantTest, Test_ScalarMaxS) {
         void *input_ptr = readToDev(GetGoldenDir() + "/input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *) input_ptr, "input");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "res");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("ScalarMaxS", funConfig, {input, output}) {
             output = ScalarMaxS(input, Element(DataType::DT_FP32, static_cast<double>(INT8_MAX_VALUE-1)),
                                 true);
@@ -199,7 +204,8 @@ TEST_F(QuantTest, Test_ScalarOp) {
         void *input_ptr = readToDev(GetGoldenDir() + "/input.bin", capacity);
         Tensor input(DataType::DT_FP32, shape, (uint8_t *) input_ptr, "input");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "res");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("ScalarAddS", funConfig, {input, output}) {
             auto output_a = ScalarAddS(input, Element(DataType::DT_FP32, F_127), true);
             auto output_b = ScalarSubS(output_a, Element(DataType::DT_FP32, F_127),

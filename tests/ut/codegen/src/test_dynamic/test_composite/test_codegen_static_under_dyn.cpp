@@ -39,7 +39,8 @@ void TestStaticLoop(const Tensor &t0, const Tensor &t1, const Tensor &t2, Tensor
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {t0, t1, t2}, {out}) {
         Tensor s0Out;
-        FunctionConfig funConfig2 = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig2(FunctionType::STATIC);
+        ;
         FUNCTION("S0", funConfig2) {
             s0Out = Sub(t1, t0);
         }

@@ -87,7 +87,8 @@ TEST_F(RemoveRedundantOpTest, TestIntermediateOutcast) {
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape, "res");
     Tensor output_add(DataType::DT_FP32, resShape, "res_add");
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION("RemoveRedundantOpFunction", funConfig, {input, output, output_add}) {
         TileShape::Current().SetVecTile(1, 32, 128);
         output = Transpose(input, {0, 1});
@@ -155,7 +156,8 @@ TEST_F(RemoveRedundantOpTest, TestInternalAssembleView) {
 
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape, "res");
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION("RemoveRedundantOpFunction", funConfig, {input, output}) {
         TileShape::Current().SetVecTile(1, 32, 128);
         auto tmp = Transpose(input, {0, 1}); // [32, 4, 128]

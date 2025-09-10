@@ -58,7 +58,8 @@ TEST_F(TestCodegenDynUna, TestAbsDynamic) {
     Tensor input_a(DataType::DT_FP16, srcShape, "A");
     Tensor output(DataType::DT_FP16, dstShape, "C");
 
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION("ABS_T", funConfig, {input_a, output}) {
         output = Abs(input_a);
     }
@@ -97,7 +98,8 @@ TEST_F(TestCodegenDynUna, TestDynExpand) {
     Tensor output(DT_FP32, shape, "C");
 
     std::string funcName = "ADD";
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION(funcName, funConfig, {inputA, inputB, output}) {
         output = Add(inputA, inputB);
     }

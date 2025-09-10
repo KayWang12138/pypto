@@ -50,7 +50,8 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam)
     uint8_t* outPtr = allocDevAddr(outByteSize);
     Tensor out(dtype, outShape, outPtr, "out");
 
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION("Allgather_AttnPost_ReduceScatter", funConfig, {agIn, wLora, wOut, out}) {
         ConfigManager::Instance().SetSemanticLabel("AllGather");
         TileShape::Current().SetDistTile({64, b * n * s / rankSize / 64, 0}, {kvLoraRank, 1, 0}, {1, rankSize, 0});

@@ -68,7 +68,8 @@ void TestQuant(std::vector<int64_t>& inputShape) {
         Tensor output(DataType::DT_INT8, inputShape, out_ptr, "output");
         Tensor scaleDeQuant(DataType::DT_FP32, scaleShape, scale_ptr, "scaleDeQuant");
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("Quant", funConfig, {input, output, scaleDeQuant}) {
             auto res = Quant(input);
             output = std::get<0>(res);
@@ -133,7 +134,8 @@ void TestQuant3D(std::vector<int64_t>& inputShape) {
         Tensor output(DataType::DT_INT8, inputShape, out_ptr, "output");
         Tensor scaleDeQuant(DataType::DT_FP32, scaleShape, scale_ptr, "scaleDeQuant");
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("Quant", funConfig, {input, output, scaleDeQuant}) {
             auto res = Quant(input);
             output = std::get<0>(res);
@@ -199,7 +201,8 @@ void TestQuantWithSmoothFactor(std::vector<int64_t>& inputShape) {
         Tensor output(DataType::DT_INT8, inputShape, out_ptr, "output");
         Tensor scaleDeQuant(DataType::DT_FP32, scaleShape, scale_ptr, "scaleDeQuant");
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("Quant", funConfig, {input, output, smoothFactor, scaleDeQuant}) {
             auto res = Quant(input, true, true, smoothFactor);
             output = std::get<0>(res);
@@ -277,7 +280,8 @@ void TestQuantMM(std::vector<int64_t>& shapeA, std::vector<int64_t>& shapeW) {
         Tensor matW(DataType::DT_INT8, shapeW, (uint8_t *)matW_ptr, "MatW");
         Tensor matScaleW(DataType::DT_FP32, shapeScaleW, (uint8_t *)matScaleW_ptr, "MatScaleW");
         Tensor matRes(DataType::DT_BF16, shapeRes, matRes_ptr, "MatRes");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("QUANTMM", funConfig, {matA, matW, matScaleW, matRes}) {
             matRes = npu::tile_fwk::Matrix::QuantMM(matA, matW, matScaleW);
         }
@@ -332,7 +336,8 @@ void TestQuantMM3D(std::vector<int64_t>& shapeA, std::vector<int64_t>& shapeW) {
         Tensor matW(DataType::DT_INT8, shapeW, (uint8_t *)matW_ptr, "MatW");
         Tensor matScaleW(DataType::DT_FP32, shapeScaleW, (uint8_t *)matScaleW_ptr, "MatScaleW");
         Tensor matRes(DataType::DT_BF16, shapeRes, matRes_ptr, "MatRes");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("QUANTMM", funConfig, {matA, matW, matScaleW, matRes}) {
             matRes = npu::tile_fwk::Matrix::QuantMM(matA, matW, matScaleW);
         }

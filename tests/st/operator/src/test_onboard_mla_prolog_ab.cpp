@@ -123,7 +123,8 @@ void TestMlaPrologAb(std::vector<int> &params, string dataPath, bool isQuant = f
             std::tuple<Tensor, Tensor> res;
             DeepseekAttention Attention(g_deepseekConfig, aw, 1);
 
-            FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+            FunctionConfig funConfig(FunctionType::STATIC);
+            ;
             FUNCTION("MlaPrologAb_T", funConfig,
                     {x, w_qa, w_qb, w_qb_scale, w_kv_a, w_kv_b_k, q_pe_new, output_q, output_kv}) {
                 auto q_kv = Attention.MlaPrologAbForward(x, q_pe_new, isQuant);
@@ -134,7 +135,8 @@ void TestMlaPrologAb(std::vector<int> &params, string dataPath, bool isQuant = f
             std::tuple<Tensor, Tensor> res;
             DeepseekAttention Attention(g_deepseekConfig, aw, 1);
 
-            FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+            FunctionConfig funConfig(FunctionType::STATIC);
+            ;
             FUNCTION("MlaPrologAb_T", funConfig,
                     {x, w_qa, w_qb, w_kv_a, w_kv_b_k, q_pe_new, output_q, output_kv}) {
                 auto q_kv = Attention.MlaPrologAbForward(x, q_pe_new, isQuant);

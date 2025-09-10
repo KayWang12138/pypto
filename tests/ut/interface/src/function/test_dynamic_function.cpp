@@ -362,7 +362,8 @@ void TestHybridLoopIf(
     TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {t0, t1, t2, t3, t4}, {out}) {
-        FunctionConfig funConfig2 = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig2(FunctionType::STATIC);
+        ;
         FUNCTION("spre", funConfig2) {
             r0 = Add(t0, t1);
         }
@@ -613,7 +614,8 @@ Tensor TestLoopWithRank(const Tensor &t0, Tensor &r0, Tensor &out, int s, int ma
             Tensor t0v = View(t0, {s, s}, {s * i, 0});
             r0 = Add(t0v, r0);
         }
-        FunctionConfig funConfig2 = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig2(FunctionType::STATIC);
+        ;
         FUNCTION("S1", funConfig2) {
             out = AddS(r0, Element(DataType::DT_FP32, 3.0));
         }
@@ -642,7 +644,8 @@ Tensor TestLoopIfWithRank(const Tensor &t0, Tensor &r0, Tensor &out, int s, int 
                 }
             }
         }
-        FunctionConfig funConfig2 = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig2(FunctionType::STATIC);
+        ;
         FUNCTION("S1", funConfig2) {
             out = AddS(r0, Element(DataType::DT_FP32, 3.0));
         }
@@ -672,7 +675,8 @@ Tensor TestLoopWithManualRank(const Tensor &t0, Tensor &r0, Tensor &out, int s, 
                 func(t0, r0, out, s, i, 3);
             }
         }
-        FunctionConfig funConfig2 = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig2(FunctionType::STATIC);
+        ;
         FUNCTION("S1", funConfig2) {
             out = AddS(out, Element(DataType::DT_FP32, 1.0));
         }

@@ -617,7 +617,8 @@ TEST_F(CubeProcessTest, Test_MM_FP16_Atomic_On) {
         Tensor final_out(outputAstDtype, shape_c, "final_out");
         auto kSplit = 4;
         auto kSplitSize = k / kSplit;
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("MM_FP16_Atomic_On", funConfig, {mat_a, mat_b, final_out}) {
             TileShape::Current().SetVecTile(64, 64);
             Tensor tmpC(outputAstDtype, shape_c, "tmp_c");

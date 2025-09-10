@@ -52,7 +52,8 @@ TEST_F(GatherOnBoardTest, test_gather_float_32_64_1_32) {
         Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("GATHER_T", funConfig, {input_src0, input_src1, output}) {
             output = Gather(input_src0, input_src1, axis);
         }
@@ -101,7 +102,8 @@ TEST_F(GatherOnBoardTest, test_gather_float_32_65_1_33) {
         Tensor output(DT_FP32, shape2, out_ptr, "output");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("GATHER_T", funConfig, {input_src0, input_src1, output}) {
             output = Gather(input_src0, input_src1, axis);
         }
@@ -149,7 +151,8 @@ TEST_F(GatherOnBoardTest, test_gather_float_64_256_1_64) {
         Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("GATHER_T", funConfig, {input_src0, input_src1, output}) {
             output = Gather(input_src0, input_src1, axis);
         }
@@ -198,7 +201,8 @@ TEST_F(GatherOnBoardTest, test_gather_float_1_64_32_1) {
         Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("GATHER_T", funConfig, {input_src0, input_src1, output}) {
             output = Gather(input_src0, input_src1, axis);
         }
@@ -244,7 +248,8 @@ TEST_F(GatherOnBoardTest, test_gather_float_64_512_16_64) {
         Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("GATHER_T", funConfig, {input_src0, input_src1, output}) {
             output = Gather(input_src0, input_src1, axis);
         }
@@ -288,7 +293,8 @@ TEST_F(GatherOnBoardTest, test_gather_float_8_7168_64) {
         Tensor output(DataType::DT_FP32, shape2, out_ptr, "output");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("GATHER_T", funConfig, {input_src0, input_src1, output}) {
             output = Gather(input_src0, input_src1, axis);
         }
@@ -332,7 +338,8 @@ TEST_F(GatherOnBoardTest, test_gather_float_8_7169_64) {
         Tensor output(DT_FP32, shape2, out_ptr, "output");
 
         ConfigManager::Instance();
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("GATHER_T", funConfig, {input_src0, input_src1, output}) {
             output = Gather(input_src0, input_src1, axis);
         }

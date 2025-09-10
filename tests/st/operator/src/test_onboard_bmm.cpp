@@ -53,7 +53,8 @@ void TestBatchMatmul3D(std::vector<int64_t> shape_a, std::vector<int64_t>shape_b
         Tensor matA(InputAstDtype, shape_a, (uint8_t *)mat_a_ptr, "MatA");
         Tensor matB(InputAstDtype, shape_b, (uint8_t *)mat_b_ptr, "MatB");
         Tensor matC(OutputAstDtype, shape_c, mat_c_ptr, "MatC");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("BATCHMATMUL", funConfig, {matA, matB, matC}) {
             matC = npu::tile_fwk::Matrix::BatchMatmul<false, transpose>(OutputAstDtype, matA, matB);
         }
@@ -91,7 +92,8 @@ void TestBatchMatmul4D(std::vector<int64_t> shape_a, std::vector<int64_t>shape_b
         Tensor matA(InputAstDtype, shape_a, (uint8_t *)mat_a_ptr, "MatA");
         Tensor matB(InputAstDtype, shape_b, (uint8_t *)mat_b_ptr, "MatB");
         Tensor matC(OutputAstDtype, shape_c, mat_c_ptr, "MatC");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("BATCHMATMUL", funConfig, {matA, matB, matC}) {
             matC = npu::tile_fwk::Matrix::BatchMatmul<false, transpose>(OutputAstDtype, matA, matB);
         }
@@ -222,7 +224,8 @@ void TestBatchMatmulA8W8O32(std::vector<int64_t> shape_a_in, std::vector<int64_t
         Tensor matA(DataType::DT_INT8, shape_a, (uint8_t *)mat_a_ptr, "MatA");
         Tensor matB(DataType::DT_INT8, shape_b, (uint8_t *)mat_b_ptr, "MatB");
         Tensor matC(DataType::DT_INT32, shape_c, mat_c_ptr, "MatC");
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("BATCHMATMUL", funConfig, {matA, matB, matC}) {
             matC = npu::tile_fwk::Matrix::BatchMatmul<false, false>(DataType::DT_INT32, matA, matB);
         }
@@ -269,7 +272,8 @@ void TestBatchMatmulA8W8O32ACC(std::vector<int64_t> shape_a_in, std::vector<int6
         auto kSplit = 2;
         auto kSplitSize = k / kSplit;
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("BATCHMATMUL", funConfig, {matA, matB, matC}) {
             TileShape::Current().SetVecTile(64, 64);
             Tensor tmpc(DT_FP32, shape_c, "tmpC");

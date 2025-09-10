@@ -47,7 +47,8 @@ void TestAddBody(std::vector<int64_t> shape, std::vector<int64_t> tile_shape, st
     Tensor input_b(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
 
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION(name, funConfig, {input_a, input_b, output}) {
         output = Add(input_a, input_b);
     }
@@ -79,7 +80,8 @@ TEST_F(TestCodegenBinary, TestCodegenAddDim2ByJson) {
     Tensor output(DT_FP32, shape, "C");
 
     std::string name = "ADD_DIM2_BY_JSON";
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION(name, funConfig, {input_a, input_b, output}) {
         output = Add(input_a, input_b);
     }
@@ -95,7 +97,8 @@ void TestAddSBody(std::vector<int64_t> shape, std::vector<int64_t> tile_shape, s
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, shape, "C");
     Element value(DataType::DT_FP32, 1.5);
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION(name, funConfig, {input_a, output}) {
         output = AddS(input_a, value);
     }

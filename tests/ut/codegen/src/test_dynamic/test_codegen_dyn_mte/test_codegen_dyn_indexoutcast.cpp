@@ -68,7 +68,8 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
     Tensor key_states(DataType::DT_FP32, shape2, "key_states"); // [16,16]
 
     std::string funcName = "ScatterUpdate";
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION(funcName, funConfig, {kv_len, key_states, past_key_states}) {
         past_key_states = ScatterUpdate(past_key_states, kv_len, key_states, -2);
     }

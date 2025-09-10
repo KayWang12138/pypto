@@ -60,7 +60,8 @@ void TestReduceScatter() {
     Tensor out(dType, shape, "out");
     ConfigManager::Instance();
 
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION("REDUCESCATTER_F", funConfig, {in[0], in[1], out}) {
         // 为了适配 kernel 代码，这边切分改成 1，线上代码可以直接运行
         TileShape::Current().SetDistTile({m / 2, 2, 0}, {n, 1, 0}, {2, 1, 0});
@@ -87,7 +88,8 @@ void TestReduceScatterOneTensor() {
     Tensor out(dType, outShape, "out");
     ConfigManager::Instance();
 
-    FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+    FunctionConfig funConfig(FunctionType::STATIC);
+    ;
     FUNCTION("REDUCESCATTER_F", funConfig, {in, out}) {
         // 为了适配 kernel 代码，这边切分改成 1，线上代码可以直接运行
         TileShape::Current().SetDistTile({m / 2, 2, 0}, {m, 1, 0}, {rankSize, 1, 0});

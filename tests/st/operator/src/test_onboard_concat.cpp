@@ -38,7 +38,8 @@ TEST_F(ConcatOnBoardTest, test_concat_dim4_float32) {
         Tensor input_y(dtype, shape, (uint8_t *)y_ptr, "y");
         Tensor output(dtype, resShape, out_ptr, "res");
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("CONCAT_T", funConfig, {input_x, input_y, output}) {
             output = Concat(std::vector<Tensor>{input_x, input_y}, -1);
         }
@@ -73,7 +74,8 @@ TEST_F(ConcatOnBoardTest, test_concat_exp_dim4_float32) {
         //Tensor output1(dtype, resShape, "z");
         Tensor output2(dtype, resShape, out_ptr, "res");
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("CONCAT_T", funConfig, {input_x, input_y, output2}) {
             Tensor output1 = Concat(std::vector<Tensor>{input_x, input_y}, -1);
             output2 = Exp(output1);
@@ -108,7 +110,8 @@ TEST_F(ConcatOnBoardTest, test_exp_concat_dim4_float32) {
         //Tensor output1(dtype, resShape, "z");
         Tensor output2(dtype, resShape, out_ptr, "res");
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("CONCAT_T", funConfig, {input_x, input_y, output2}) {
             Tensor input_x_1 = Exp(input_x);
             Tensor input_y_1 = Exp(input_y);
@@ -147,7 +150,8 @@ TEST_F(ConcatOnBoardTest, test_concat_sqrt_dim4_float32) {
         //Tensor output1(dtype, resShape, "z");
         Tensor output2(dtype, resShape, out_ptr, "res");
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("CONCAT_T", funConfig, {input_x, input_y, output2}) {
             Tensor output1 = Concat(std::vector<Tensor>{input_x, input_y}, 2);
             output2 = Sqrt(output1);
@@ -188,7 +192,8 @@ TEST_F(ConcatOnBoardTest, test_concat_100_inputs_float32) {
         Tensor output(dtype, resShape, out_ptr, "res");
         std::vector<std::reference_wrapper<Tensor>> paras(inputs.begin(), inputs.end());
         paras.emplace_back(output);
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("CONCAT_T", funConfig, paras) {
             output = Concat(inputs, -1);
         }
@@ -226,7 +231,8 @@ TEST_F(ConcatOnBoardTest, test_concat_128_inputs_float32) {
         Tensor output(dtype, resShape, out_ptr, "res");
         std::vector<std::reference_wrapper<Tensor>> paras(inputs.begin(), inputs.end());
         paras.emplace_back(output);
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("CONCAT_T", funConfig, paras) {
             output = Concat(inputs, -2);
         }
@@ -262,7 +268,8 @@ TEST_F(ConcatOnBoardTest, test_concat_dim2_float32_moe) {
         Tensor input_y(dtype, shape1, (uint8_t *)y_ptr, "y");
         Tensor output(dtype, resShape, out_ptr, "res");
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("CONCAT_T", funConfig, {input_x, input_y, output}) {
             output = Concat(std::vector<Tensor>{input_x, input_y}, -2);
         }

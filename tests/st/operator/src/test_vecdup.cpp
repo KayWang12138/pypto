@@ -34,7 +34,8 @@ TEST_F(VecdupTest, TestVecDup) {
 
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("VECDUP_T", funConfig, {output}) {
                 output = npu::tile_fwk::VectorDuplicate(src, DT_FP32, shape);
         }
@@ -65,7 +66,8 @@ TEST_F(VecdupTest, TestVecDupUnaligned) {
 
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
-        FunctionConfig funConfig = {.funcType = FunctionType::STATIC};
+        FunctionConfig funConfig(FunctionType::STATIC);
+        ;
         FUNCTION("VECDUP_T", funConfig, {output}) {
                 output = npu::tile_fwk::VectorDuplicate(src, DT_FP32, shape);
         }
