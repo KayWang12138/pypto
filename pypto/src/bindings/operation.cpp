@@ -20,6 +20,7 @@
 using namespace npu::tile_fwk;
 
 namespace pypto {
+constexpr const int SCATTER_UPDATE_DIM  = -2;
 void bind_operation(py::module &m) {
     m.def(
         "add", [](const Tensor &left, const Tensor &right) { return npu::tile_fwk::Add(left, right); }, "Tensor add.");
@@ -109,8 +110,66 @@ void bind_operation(py::module &m) {
         "maximum", [](const Tensor &left, const Tensor &right) { return npu::tile_fwk::Maximum(left, right); },
         py::arg("left"), py::arg("right"), "Tensor maximum.");
     m.def(
+        "unsqueeze", [](const Tensor &old, int unsqueezeDimNum) { return npu::tile_fwk::Unsqueeze(old, unsqueezeDimNum); },
+        "Tensor unsqueeze.");
+    m.def(
+        "tensor_index", [](const Tensor &params, const Tensor &indices) {
+            return npu::tile_fwk::TensorIndex(params, indices);
+        }, "Tensor index.");
+    m.def(
+        "scatter_update", [](const Tensor &dst, const Tensor &index, const Tensor &src, int axis,
+        std::string cacheMode, int chunkSize) {
+            return npu::tile_fwk::ScatterUpdate(dst, index, src, axis, cacheMode, chunkSize);
+        },
+        py::arg("dst"), py::arg("index"), py::arg("src"), py::arg("axis") = SCATTER_UPDATE_DIM, py::arg("cacheMode") = "PA_BNSD",
+        py::arg("chunkSize") = 1, "Tensor scatter update.");
+    m.def(
+        "expand", [](const Tensor &operand, const std::vector<int64_t> &dstShape) {
+            return npu::tile_fwk::Expand(operand, dstShape);
+        }, "Tensor expand.");
+    m.def(
+        "expand", [](const Tensor &operand, DataType dataType, const std::vector<int64_t> &shape) {
+            return npu::tile_fwk::Expand(operand, dataType, shape);
+        }, "Tensor expand.");
+    m.def(
+        "sin", [](const Tensor &operand) { return npu::tile_fwk::Sin(operand); },
+        "Tensor sin.");
+    m.def(
+        "cos", [](const Tensor &operand) { return npu::tile_fwk::Cos(operand); },
+        "Tensor cos.");
+    m.def(
+        "softmax", [](const Tensor &operand) { return npu::tile_fwk::Softmax(operand); },
+        "Tensor softmax.");
+    m.def(
+        "new_compact", [](const Tensor &operand) { return npu::tile_fwk::NewCompact(operand); },
+        "Tensor new compact.");
+    m.def(
+        "logical_not", [](const Tensor &operand) { return npu::tile_fwk::LogicalNot(operand); },
+        "Tensor logical not.");
+    m.def(
+        "assign", [](const Tensor &operand) { return npu::tile_fwk::Assign(operand); },
+        "Tensor assign.");
+    m.def(
         "rms_norm", [](const Tensor &operand) { return npu::tile_fwk::RmsNorm(operand); }, py::arg("operand"),
         "Tensor rms norm.");
+    m.def(
+        "rms_norm", [](const Tensor &operand, const Tensor &gamma, float epsilon) {
+            return npu::tile_fwk::RmsNorm(operand, gamma, epsilon);
+        },
+        py::arg("operand"), py::arg("gamma"), py::arg("epsilon") = 1e-05f, "Tensor rms norm.");
+    m.def(
+        "concat", [](const std::vector<Tensor> &tensorLists, int axis) {
+            return npu::tile_fwk::Concat(tensorLists, axis);
+        }, "Tensor concat.");
+    m.def(
+        "pad", [](const Tensor &old, const std::vector<int64_t> &newShape) {
+            return npu::tile_fwk::Pad(old, newShape);
+        }, "Tensor pad.");
+    m.def(
+        "topk", [](const Tensor &operand, const int &k, int axis, bool islargest) {
+            return npu::tile_fwk::TopK(operand, k, axis, islargest);
+        },
+        py::arg("operand"), py::arg("k"), py::arg("axis"), py::arg("islargest") = true, "Tensor topk.");
 
     m.def(
         "matmul",
