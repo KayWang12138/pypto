@@ -370,21 +370,7 @@ void PreGraphProcess::ProcessMoveInOperation(Operation &op) const {
 }
 
 void PreGraphProcess::InsertTemporaryCopyIn(Function &function, Operation &op) const {
-    if (op.GetOpcode() == Opcode::OP_REMOTE_REDUCE ||
-        op.GetOpcode() == Opcode::OP_WRITE_REMOTE ||
-        op.GetOpcode() == Opcode::OP_LOCAL_COPY_OUT ||
-        op.GetOpcode() == Opcode::OP_REMOTE_GATHER ||
-        op.GetOpcode() == Opcode::OP_MOE_FFN_TO_ATTN ||
-        op.GetOpcode() == Opcode::OP_MOE_ATTN_COMBINE ||
-        op.GetOpcode() == Opcode::OP_SEND_TO_ROUTING_EXPERT ||
-        op.GetOpcode() == Opcode::OP_SEND_TO_SHARED_EXPERT ||
-        op.GetOpcode() == Opcode::OP_FFN_SCHED ||
-        op.GetOpcode() == Opcode::OP_FFN_BATCHING ||
-        op.GetOpcode() == Opcode::OP_COPY_TO_LOCAL_EXPERT ||
-        op.GetOpcode() == Opcode::OP_DISPATCH_SET_FLAG ||
-        op.GetOpcode() == Opcode::OP_SHMEM_PUT ||
-        op.GetOpcode() == Opcode::OP_SHMEM_SIGNAL ||
-        op.GetOpcode() == Opcode::OP_SHMEM_GET) {
+    if (std::find(DISTRIBUTED_OPS.begin(), DISTRIBUTED_OPS.end(), op.GetOpcode()) != DISTRIBUTED_OPS.end()) {
         for (auto &input : op.GetIOperands()) {
             if (input->GetProducers().size() == 0 && input->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
                 // insert Copy_In before the op
@@ -671,17 +657,12 @@ Status PreGraphProcess::RunOnFunction(Function &function) {
         UpdateCopyOpIsCube(op);
     }
     SetTensorBoundary(function);
-    std::vector<Opcode> specialMTEOperation = {Opcode::OP_TRANSPOSE_MOVEOUT, Opcode::OP_INDEX_OUTCAST,
-        Opcode::OP_REMOTE_GATHER, Opcode::OP_LOCAL_COPY_OUT, Opcode::OP_REMOTE_REDUCE, Opcode::OP_FFN_SCHED,
-        Opcode::OP_FFN_BATCHING, Opcode::OP_COPY_TO_LOCAL_EXPERT, Opcode::OP_SHMEM_PUT, Opcode::OP_SHMEM_SIGNAL,
-        Opcode::OP_SHMEM_GET};
     // Processing Special Ops
     for (auto &op : opList) {
-        if (std::find(specialMTEOperation.begin(), specialMTEOperation.end(), op.GetOpcode()) !=
-            specialMTEOperation.end()) {
+        if (IsCopyOut(op.GetOpcode()) && op.GetOpcode() != Opcode::OP_COPY_OUT) {
             ProcessSpecialMTEOperation(op);
         }
-        if (op.GetOpcode() == Opcode::OP_TRANSPOSE_MOVEIN) {
+        if (IsCopyIn(op.GetOpcode()) && op.GetOpcode() != Opcode::OP_COPY_IN) {
             ProcessMoveInOperation(op);
         }
         if ((op.GetOpcode() == Opcode::OP_ASSEMBLE) || (op.GetOpcode() == Opcode::OP_RESHAPE)) {
