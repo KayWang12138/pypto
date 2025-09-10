@@ -125,7 +125,11 @@ void RowMaxSingle4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vect
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar thirdDim = inputs[0]->shape[2];
         SymbolicScalar lastDim = inputs[0]->shape[3];
-        std::vector<int64_t> viewShape = {
+        int dim = args->dims_[0];
+        if (dim < 0) {
+            dim = static_cast<int>(inputs[0]->shape.size()) + dim;
+        }
+        SymbolicScalar viewShape[] = {
             args->viewShape_[0], args->viewShape_[1],
             args->viewShape_[2], args->viewShape_[3]
         };
@@ -135,6 +139,8 @@ void RowMaxSingle4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vect
             CeilDiv(inputs[0]->shape[2], viewShape[2]),
             CeilDiv(inputs[0]->shape[3], viewShape[3])
         };
+        viewShape[dim] = 0;
+        loops[dim] = 1;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loops[IDX_DIM0])) {
             LOOP("LOOP_L1_bIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loops[IDX_DIM1])) {
                 LOOP("LOOP_L2_bIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(loops[IDX_DIM2])) {
@@ -142,12 +148,18 @@ void RowMaxSingle4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vect
                         std::vector<SymbolicScalar> offset = {
                             bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2], qIdx * viewShape[3]
                         };
-                        auto viewTensor = View(inputs[0], viewShape,
+                        auto viewTensor = View(inputs[0],
                             {
-                                std::min(firstDim - bIdx * viewShape[0], viewShape[0]),
-                                std::min(secondDim - sIdx * viewShape[1], viewShape[1]),
-                                std::min(thirdDim - nIdx * viewShape[2], viewShape[2]),
-                                std::min(lastDim - qIdx * viewShape[3], viewShape[3])
+                                viewShape[0] == 0 ? firstDim : viewShape[0],
+                                viewShape[1] == 0 ? secondDim : viewShape[1],
+                                viewShape[2] == 0 ? thirdDim : viewShape[2],
+                                viewShape[3] == 0 ? lastDim : viewShape[3]
+                            },
+                            {
+                                viewShape[0] == 0 ? firstDim : std::min(firstDim - bIdx * viewShape[0], viewShape[0]),
+                                viewShape[1] == 0 ? secondDim : std::min(secondDim - sIdx * viewShape[1], viewShape[1]),
+                                viewShape[2] == 0 ? thirdDim : std::min(thirdDim - nIdx * viewShape[2], viewShape[2]),
+                                viewShape[3] == 0 ? lastDim : std::min(lastDim - qIdx * viewShape[3], viewShape[3])
                             },
                             offset);
                         TileShape::Current().SetVecTile(args->tileShape_);
