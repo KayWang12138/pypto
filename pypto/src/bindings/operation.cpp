@@ -15,6 +15,8 @@
 
 #include "pybind_common.h"
 
+#include <vector>
+
 using namespace npu::tile_fwk;
 
 namespace pypto {
@@ -69,6 +71,40 @@ void bind_operation(py::module &m) {
     m.def(
         "row_sum_single", [](const Tensor &operand, int axis) { return npu::tile_fwk::RowSumSingle(operand, axis); },
         py::arg("operand"), py::arg("axis") = -1, "Tensor row sum single.");
+    m.def(
+        "row_min_single", [](const Tensor &operand, int axis) { return npu::tile_fwk::RowMinSingle(operand, axis); },
+        py::arg("operand"), py::arg("axis") = -1, "Tensor row min single.");
+    m.def(
+        "row_sum_expand", [](const Tensor &operand) { return npu::tile_fwk::RowSumExpand(operand); },
+        "Tensor row sum expand.");
+    m.def(
+        "row_max_expand", [](const Tensor &operand) { return npu::tile_fwk::RowSumSingle(operand); },
+        "Tensor row sum expand.");
+    m.def("compact", [](const Tensor &operand) { return npu::tile_fwk::Compact(operand); }, "Tensor compact.");
+    m.def("indexput", [](const Tensor &src, std::vector<Tensor> indices, const Tensor &values)
+        { return npu::tile_fwk::IndexPut(src, indices, values); }, "Tensor indexput.");
+    m.def("scatter_element", [](const Tensor &src, const Tensor &idx, const Element &scalar, int axis)
+        { return npu::tile_fwk::ScatterElement(src, idx, scalar, axis); }, "Tensor scatter element.");
+    m.def("gather_element", [](const Tensor &params, const Tensor &indices, int axis)
+        { return npu::tile_fwk::GatherElement(params, indices, axis); }, "Tensor gather element.");
+    m.def("gather", [](const Tensor &params, const Tensor &indices, int axis)
+        { return npu::tile_fwk::Gather(params, indices, axis); }, "Tensor gather.");
+    m.def("duplicate", [](const Tensor &operand) { return npu::tile_fwk::Duplicate(operand); }, "Tensor duplicate.");
+    m.def("vector_duplicate", [](const Element &src, DataType dType, std::vector<int64_t> dstShape, 
+        std::vector<SymbolicScalar> validShape)
+        { return npu::tile_fwk::VectorDuplicate(src, dType, dstShape, validShape); },
+        py::arg("src"), py::arg("dType"), py::arg("dstShape"), py::arg("validShape") = std::vector<SymbolicScalar>{},
+        "Tensor vector duplicate.");
+    m.def("vector_duplicate", [](const SymbolicScalar &src, DataType dType, std::vector<int64_t> dstShape, 
+        std::vector<SymbolicScalar> validShape)
+        { return npu::tile_fwk::VectorDuplicate(src, dType, dstShape, validShape); },
+        py::arg("src"), py::arg("dType"), py::arg("dstShape"), py::arg("validShape") = std::vector<SymbolicScalar>{},
+        "Tensor vector duplicate.");
+    m.def("reshape", [](const Tensor &input, const std::vector<int64_t> &dstShape,
+        const std::vector<SymbolicScalar> validShape) { return npu::tile_fwk::Reshape(input, dstShape, validShape); },
+        py::arg("input"), py::arg("dstShape"), py::arg("validShape") = std::vector<SymbolicScalar>{},
+        "Tensor reshape.");
+
     m.def(
         "maximum", [](const Tensor &left, const Tensor &right) { return npu::tile_fwk::Maximum(left, right); },
         py::arg("left"), py::arg("right"), "Tensor maximum.");

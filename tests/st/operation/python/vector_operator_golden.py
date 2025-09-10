@@ -240,7 +240,7 @@ def gen_op_golden(
 )
 def gen_scatter_update_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def golden_func(inputs):
+    def golden_func(inputs, config):
         src = inputs[0]
         index = inputs[1]
         dst = inputs[2]
@@ -272,20 +272,20 @@ def gen_scatter_update_op_golden(case_name: str, output: Path, case_index: int =
                 for _s in range(s):
                     result[index[_b][_s]][:] = src[_b * s + _s][:]
         else:
-            logging.debug("axis ERROR!")
+            logging.error("axis ERROR!")
 
         inputs[0] = src
         inputs[1] = index
         inputs[2] = dst
 
-        logging.info("src:")
-        logging.info(inputs[0])
-        logging.info("index:")
-        logging.info(inputs[1])
-        logging.info("dst:")
-        logging.info(inputs[2])
-        logging.info("result:")
-        logging.info(result)
+        logging.debug("src:")
+        logging.debug(inputs[0])
+        logging.debug("index:")
+        logging.debug(inputs[1])
+        logging.debug("dst:")
+        logging.debug(inputs[2])
+        logging.debug("result:")
+        logging.debug(result)
 
         return [result]
 
