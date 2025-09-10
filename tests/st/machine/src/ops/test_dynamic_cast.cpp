@@ -64,7 +64,7 @@ TEST_F(DynamicCastTest, testDynCastUnalign) {
         RawTensorData::CreateConstantTensor<int32_t>(out, 0),
     });
 
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), FuncRunnerConfig(0, 3)); // 看护可重入，连续执行3次
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(0, 3)); // 看护可重入，连续执行3次
 
     std::vector<int32_t> golden(b * sq * d, 0);
     for (int bidx = 0; bidx < b; ++bidx) {

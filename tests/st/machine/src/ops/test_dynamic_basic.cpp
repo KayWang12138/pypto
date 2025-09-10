@@ -297,7 +297,7 @@ TEST_F(DynamicBasicTest, DynamicRawShapeUnalign) {
     });
 
 #ifdef ENABLE_BUILD_WITH_CANN
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), FuncRunnerConfig(arg0->GetDataSize()));
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(arg0->GetDataSize()));
     std::vector<float> golden(s0, 5.0f);
     auto outs = ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));

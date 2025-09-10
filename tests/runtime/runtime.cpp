@@ -23,8 +23,8 @@ const int32_t INFO_TYPE_OCCUPY = 8;
 const uint8_t AICORE_MAP_BUFF_LEN = 2;
 } // namespace
 namespace npu::tile_fwk {
-namespace machine {
-bool RuntimeAgent::GetPgmsk(uint64_t &valid, int32_t &deviceId) const{
+
+static bool GetPgMask(uint64_t &valid, int32_t &deviceId) {
     rtGetDevice(&deviceId);
     rtSetDevice(deviceId);
     uint64_t aicore_bitmap[AICORE_MAP_BUFF_LEN] = {0};
@@ -44,12 +44,12 @@ bool RuntimeAgent::GetPgmsk(uint64_t &valid, int32_t &deviceId) const{
     return true;
 }
 
-int RuntimeAgent::GetAicoreRegInfo(std::vector<int64_t> &aic, std::vector<int64_t> &aiv, const int &addrType) const {
+int RuntimeAgentMemory::GetAicoreRegInfo(std::vector<int64_t> &aic, std::vector<int64_t> &aiv, const int &addrType) const {
     int nrCore = 25;
     int nrSubCore = 3;
     int32_t deviceId = 0;
     uint64_t valid = 0;
-    if (!GetPgmsk(valid, deviceId)) {
+    if (!GetPgMask(valid, deviceId)) {
         ALOG_ERROR("Get Device Info failed or no valid core exists\n");
         return -1;
     }
@@ -94,7 +94,37 @@ int RuntimeAgent::GetAicoreRegInfo(std::vector<int64_t> &aic, std::vector<int64_
 
     return 0;
 }
-} // namespace runtime
+
+void *RuntimeAgentMemory::MapAiCoreReg() {
+    std::vector<int64_t> aiv;
+    std::vector<int64_t> aic;
+
+    if (GetAicoreRegInfo(aic, aiv, ADDR_MAP_TYPE_REG_AIC_CTRL) != 0) {
+        return nullptr;
+    }
+
+    std::vector<int64_t> regAddr;
+    regAddr.insert(regAddr.end(), aic.begin(), aic.end());
+    regAddr.insert(regAddr.end(), aiv.begin(), aiv.end());
+    void *devAddr = nullptr;
+    size_t regAddrSize = sizeof(void *) * regAddr.size();
+    int rc = rtMalloc(&devAddr, regAddrSize, RT_MEMORY_HBM, 0);
+    if (rc != 0) {
+        ASLOGE("rtMalloc failed. size: %zu", regAddrSize);
+        return nullptr;
+    }
+
+    rc = rtMemcpy(devAddr, regAddrSize, regAddr.data(), regAddrSize, RT_MEMCPY_HOST_TO_DEVICE);
+    if (rc != 0) {
+        ASLOGE("rtMemcpy failed. size: %zu", regAddrSize);
+        return nullptr;
+    }
+
+    ASLOGI("All AiCore Reg mapped: %p. size: %zu", devAddr, regAddrSize);
+    allocatedDevAddr.emplace_back((uint8_t *)devAddr);
+    return devAddr;
+}
+
 } // namespace npu::tile_fwk
 
 #endif // ENABLE_BUILD_WITH_CANN

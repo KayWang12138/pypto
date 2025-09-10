@@ -134,7 +134,7 @@ void TestDynAllGather(OpTestParam &testParam)
 
     auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
     auto hcclContext = GetHcclContext({std::string(testParam.group)});
-    FuncRunnerConfig config;
+    DeviceLauncherConfig config;
     config.runModel = false;
     config.hcclContext = hcclContext;
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);

@@ -72,6 +72,9 @@ set(_CaseFilterList
         "DynamicDatamoveTest.TestDynamicDatamove"
         "DynamicBrcTest.TestDynamicMulBrcUnalign"
 
+        "DynamicBindingTest.TestDefaultCompute"
+        "DynamicBindingTest.TestDeviceCompute"
+
         #===========================================================================
         # NSA native spare attention
         #===========================================================================

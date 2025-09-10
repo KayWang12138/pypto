@@ -58,10 +58,10 @@ public:
         return runner;
     }
 
-    int Run(rtStream_t stream, int64_t taskId, uint64_t taskData, int taskType = DEVICE_TASK_TYPE_STATIC);
-    int RunAsync(rtStream_t stream, int64_t taskId, uint64_t taskData, int taskType = DEVICE_TASK_TYPE_STATIC);
+    int Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, uint64_t taskData, int taskType = DEVICE_TASK_TYPE_STATIC);
+    int RunAsync(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, uint64_t taskData, int taskType = DEVICE_TASK_TYPE_STATIC);
     uint64_t GetTasksTime() const;
-    int DynamicRun(rtStream_t stream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim = 25, int launchAicpuNum = 5);
+    int DynamicRun(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim = 25, int launchAicpuNum = 5);
     void InitDynamicArgs(DeviceArgs &args, int nrCore = CORE_DEFAULT_NUM);
     static int RegiserKernelBin(void **hdl);
     static void SetBinData(const std::vector<uint8_t> &binBuf);
@@ -71,18 +71,18 @@ private:
     int InitDeviceArgs(DeviceArgs &args);
     int Init();
 
-    int LaunchAiCpu(const rtStream_t stream, const uint64_t taskId, const uint64_t taskData, int taskType) const;
-    int LaunchAiCore(rtStream_t stream, int taskType);
+    int LaunchAiCpu(const rtStream_t aicpuStream, const uint64_t taskId, const uint64_t taskData, int taskType) const;
+    int LaunchAiCore(rtStream_t aicoreStream, int taskType);
     void Dump();
     void AllocDfxMetricMemory();
     void SetPmuEventType(int32_t &profPmuType);
     void GetPmuEventType();
     /**************DynamicFunction**************/
-    int Synchronize(rtStream_t stream);
-    int launchDynamicAiCore(rtStream_t stream, AstKernelArgs *kernelArgs);
-    int launchDynamicAiCpu(rtStream_t stream, AstKernelArgs *kArgs);
-    int RunPrepare(rtStream_t stream);
-    int launchDynamicAiCpuInit(rtStream_t stream, AstKernelArgs *kArgs);
+    int Synchronize(rtStream_t aicpuStream, rtStream_t aicoreStream);
+    int launchDynamicAiCore(rtStream_t aicoreStream, AstKernelArgs *kernelArgs);
+    int launchDynamicAiCpu(rtStream_t aicpuStream, AstKernelArgs *kArgs);
+    int RunPrepare(rtStream_t aicpuStream, rtStream_t aicoreStream);
+    int launchDynamicAiCpuInit(rtStream_t aicpuStream, AstKernelArgs *kArgs);
     void InitAiCpuSoBin();
 private:
     int devId_;
@@ -94,7 +94,6 @@ private:
     std::vector<void *> perfData_;
     std::once_flag once_;
     rtBinHandle binHdl_;
-    rtStream_t coreStream_;
     FileLock lock_;
 };
 

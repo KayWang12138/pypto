@@ -176,7 +176,7 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape) {
     });
 
     // excute
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), FuncRunnerConfig(q_real->GetDataSize()));
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(q_real->GetDataSize()));
 
     std::vector<float> golden(b * sq * d, exp(1.0f));
 
@@ -233,7 +233,7 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape2) {
     });
 
     // excute
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), FuncRunnerConfig(q_real->GetDataSize()));
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(q_real->GetDataSize()));
 
     std::vector<float> golden(b * sq * d, exp(1.0f) + 1.0f);
 

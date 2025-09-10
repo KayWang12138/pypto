@@ -63,7 +63,7 @@ void *DeviceRunner::DevAlloc(int size) {
     int rc = rtMemset(devPtr, size, 0, size);
     if (rc != 0) {
         machine::GetRA()->FreeTensor(devPtr);
-        ALOG_ERROR("rtMemset failed %d\n", rc);
+        ALOG_ERROR_F("rtMemset failed size=%d rc=%d\n", size, rc);
         return nullptr;
     }
     return devPtr;
@@ -183,18 +183,18 @@ uint64_t DeviceRunner::GetTasksTime() const {
     return buffer;
 }
 
-int DeviceRunner::Run(rtStream_t stream, int64_t taskId, uint64_t taskData, int taskType) {
+int DeviceRunner::Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, uint64_t taskData, int taskType) {
     int rc;
 
-    rc = RunAsync(stream, taskId, taskData, taskType);
+    rc = RunAsync(aicpuStream, aicoreStream, taskId, taskData, taskType);
     if (rc < 0) {
         return rc;
     }
-    rc = rtStreamSynchronize(coreStream_);
+    rc = rtStreamSynchronize(aicoreStream);
     if (rc != 0) {
         ALOG_INFO_F("aicore stream sync failed");
     }
-    rc = rtStreamSynchronize(stream);
+    rc = rtStreamSynchronize(aicpuStream);
     if (rc != 0) {
         ALOG_INFO_F("aicpu stream sync failed");
     }
@@ -211,7 +211,7 @@ int DeviceRunner::Run(rtStream_t stream, int64_t taskId, uint64_t taskData, int 
     return rc;
 }
 
-int DeviceRunner::LaunchAiCore(rtStream_t stream, int taskType) {
+int DeviceRunner::LaunchAiCore(rtStream_t aicoreStream, int taskType) {
     struct Args {
         int64_t *syncAddr = nullptr;
         int64_t *inputs = nullptr;
@@ -239,11 +239,11 @@ int DeviceRunner::LaunchAiCore(rtStream_t stream, int taskType) {
     memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
     rtArgs.args = &args;
     rtArgs.argsSize = sizeof(args);
-    return rtKernelLaunchWithHandleV2(binHdl_, 0, blockDim_, &rtArgs, nullptr, stream, nullptr);
+    return rtKernelLaunchWithHandleV2(binHdl_, 0, blockDim_, &rtArgs, nullptr, aicoreStream, nullptr);
 }
 
 int DeviceRunner::LaunchAiCpu(
-    const rtStream_t stream, const uint64_t taskId, const uint64_t taskData, int taskType) const {
+    const rtStream_t aicpuStream, const uint64_t taskId, const uint64_t taskData, int taskType) const {
     struct Args {
         DeviceArgs devArgs;
         const char kernelName[32] = {"StaticTileFwkKernelServer"};
@@ -263,7 +263,7 @@ int DeviceRunner::LaunchAiCpu(
     rtArgs.kernelNameAddrOffset = offsetof(struct Args, kernelName);
     rtArgs.soNameAddrOffset = offsetof(struct Args, soName);
     return rtAicpuKernelLaunchExWithArgs(
-        rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_AICPU", aicpuNum_, &rtArgs, nullptr, stream, 0);
+        rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_AICPU", aicpuNum_, &rtArgs, nullptr, aicpuStream, 0);
 }
 
 void DeviceRunner::AllocDfxMetricMemory() {
@@ -278,7 +278,7 @@ void DeviceRunner::AllocDfxMetricMemory() {
     }
 }
 
-int DeviceRunner::RunAsync(rtStream_t stream, int64_t taskId, uint64_t taskData, int taskType) {
+int DeviceRunner::RunAsync(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, uint64_t taskData, int taskType) {
     int rc;
 
     aclrtEvent event;
@@ -287,12 +287,12 @@ int DeviceRunner::RunAsync(rtStream_t stream, int64_t taskId, uint64_t taskData,
         ALOG_INFO_F("aclrtCreateEvent failed %d\n", rc);
     }
 
-    rc = aclrtRecordEvent(event, stream);
+    rc = aclrtRecordEvent(event, aicpuStream);
     if (rc < 0) {
         ALOG_INFO_F("aclrtRecordEvent failed %d\n", rc);
     }
 
-    rc = aclrtStreamWaitEvent(coreStream_, event);
+    rc = aclrtStreamWaitEvent(aicoreStream, event);
     if (rc < 0) {
         ALOG_INFO_F("aclrtStreamWaitEvent failed %d\n", rc);
     }
@@ -305,7 +305,7 @@ int DeviceRunner::RunAsync(rtStream_t stream, int64_t taskId, uint64_t taskData,
 #endif
 
     std::lock_guard<FileLock> lock(lock_);
-    rc = LaunchAiCore(coreStream_, DEVICE_TASK_TYPE_STATIC);
+    rc = LaunchAiCore(aicoreStream, DEVICE_TASK_TYPE_STATIC);
     if (rc < 0) {
         ALOG_INFO_F("launch aicpu failed %d\n", rc);
         return rc;
@@ -316,7 +316,7 @@ int DeviceRunner::RunAsync(rtStream_t stream, int64_t taskId, uint64_t taskData,
     }
     g_IsFirstInit = true;
 
-    rc = LaunchAiCpu(stream, taskId, taskData, taskType);
+    rc = LaunchAiCpu(aicpuStream, taskId, taskData, taskType);
     if (rc < 0) {
         ALOG_INFO_F("launch aicpu failed %d\n", rc);
         return rc;
@@ -354,9 +354,9 @@ void DeviceRunner::Dump() {
 }
 
 /**************************** DynamicFunction *****************************/
-int DeviceRunner::Synchronize(rtStream_t stream) {
-    int rc = rtStreamSynchronize(coreStream_);
-    rc += rtStreamSynchronize(stream);
+int DeviceRunner::Synchronize(rtStream_t aicpuStream, rtStream_t aicoreStream) {
+    int rc = rtStreamSynchronize(aicoreStream);
+    rc += rtStreamSynchronize(aicpuStream);
 
     if (IsAstDataDumpEnabled()) {
         ALOG_DEBUG_F("DataDumpServerInit is called \n");
@@ -368,17 +368,17 @@ int DeviceRunner::Synchronize(rtStream_t stream) {
     return rc;
 }
 
-int DeviceRunner::launchDynamicAiCore(rtStream_t stream, AstKernelArgs *kernelArgs) {
+int DeviceRunner::launchDynamicAiCore(rtStream_t aicoreStream, AstKernelArgs *kernelArgs) {
     rtArgsEx_t rtArgs;
     memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
     std::vector<void *> kArgs = {nullptr, nullptr, nullptr, nullptr, nullptr, kernelArgs->cfgdata};
     rtArgs.args = kArgs.data();
     rtArgs.argsSize = kArgs.size() * sizeof(int64_t);
     uint64_t tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
-    return rtKernelLaunchWithHandleV2(binHdl_, tilingKey, blockDim_, &rtArgs, nullptr, stream, nullptr);
+    return rtKernelLaunchWithHandleV2(binHdl_, tilingKey, blockDim_, &rtArgs, nullptr, aicoreStream, nullptr);
 }
 
-int DeviceRunner::launchDynamicAiCpu(rtStream_t stream, AstKernelArgs *kArgs) {
+int DeviceRunner::launchDynamicAiCpu(rtStream_t aicpuStream, AstKernelArgs *kArgs) {
     struct Args {
         AstKernelArgs kArgs;
         const char kernelName[32] = {"DynTileFwkKernelServer"};
@@ -395,7 +395,7 @@ int DeviceRunner::launchDynamicAiCpu(rtStream_t stream, AstKernelArgs *kArgs) {
     rtArgs.kernelNameAddrOffset = offsetof(struct Args, kernelName);
     rtArgs.soNameAddrOffset = offsetof(struct Args, soName);
     return rtAicpuKernelLaunchExWithArgs(
-        rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", aicpuNum_, &rtArgs, nullptr, stream, 0);
+        rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", aicpuNum_, &rtArgs, nullptr, aicpuStream, 0);
 }
 
 void DeviceRunner::InitAiCpuSoBin() {
@@ -413,7 +413,7 @@ void DeviceRunner::InitAiCpuSoBin() {
     args_.aicpuSoLen = buffer.size();
 }
 
-int DeviceRunner::launchDynamicAiCpuInit(rtStream_t stream, AstKernelArgs *kArgs) {
+int DeviceRunner::launchDynamicAiCpuInit(rtStream_t aicpuStream, AstKernelArgs *kArgs) {
     struct Args {
         AstKernelArgs kArgs;
         const char kernelName[32] = {"DynTileFwkKernelServerInit"};
@@ -430,10 +430,10 @@ int DeviceRunner::launchDynamicAiCpuInit(rtStream_t stream, AstKernelArgs *kArgs
     rtArgs.kernelNameAddrOffset = offsetof(struct Args, kernelName);
     rtArgs.soNameAddrOffset = offsetof(struct Args, soName);
     return rtAicpuKernelLaunchExWithArgs(
-        rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 1, &rtArgs, nullptr, stream, 0);
+        rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 1, &rtArgs, nullptr, aicpuStream, 0);
 }
 
-int DeviceRunner::RunPrepare(rtStream_t stream) {
+int DeviceRunner::RunPrepare(rtStream_t aicpuStream, rtStream_t aicoreStream) {
     int rc;
 
     aclrtEvent event;
@@ -442,12 +442,12 @@ int DeviceRunner::RunPrepare(rtStream_t stream) {
         ALOG_INFO_F("aclrtCreateEvent failed %d\n", rc);
     }
 
-    rc = aclrtRecordEvent(event, stream);
+    rc = aclrtRecordEvent(event, aicpuStream);
     if (rc < 0) {
         ALOG_INFO_F("aclrtRecordEvent failed %d\n", rc);
     }
 
-    rc = aclrtStreamWaitEvent(coreStream_, event);
+    rc = aclrtStreamWaitEvent(aicoreStream, event);
     if (rc < 0) {
         ALOG_INFO_F("aclrtStreamWaitEvent failed %d\n", rc);
     }
@@ -464,7 +464,7 @@ int DeviceRunner::RunPrepare(rtStream_t stream) {
     return rc;
 }
 
-int DeviceRunner::DynamicRun(rtStream_t stream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim, int launchAicpuNum) {
+int DeviceRunner::DynamicRun(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim, int launchAicpuNum) {
     if (!g_IsFirstInit) {
         InitAiCpuSoBin();
     }
@@ -491,28 +491,28 @@ int DeviceRunner::DynamicRun(rtStream_t stream, int64_t taskId, AstKernelArgs *k
         return rc;
     }
 
-    rc = RunPrepare(stream);
+    rc = RunPrepare(aicpuStream, aicoreStream);
     if (rc < 0)
         return rc;
 
-    rc = launchDynamicAiCore(coreStream_, kernelArgs);
+    rc = launchDynamicAiCore(aicoreStream, kernelArgs);
     if (rc < 0) {
         ALOG_ERROR_F("launch aicpu failed %d\n", rc);
         return rc;
     }
 
-    if (launchDynamicAiCpuInit(stream, kernelArgs) < 0) {
+    if (launchDynamicAiCpuInit(aicpuStream, kernelArgs) < 0) {
         ALOG_ERROR_F("launch aicpu init failed %d\n", rc);
         return rc;
     }
 
-    rc = launchDynamicAiCpu(stream, kernelArgs);
+    rc = launchDynamicAiCpu(aicpuStream, kernelArgs);
     if (rc < 0) {
         ALOG_ERROR_F("launch aicpu failed %d\n", rc);
         return rc;
     }
 
-    return Synchronize(stream);
+    return Synchronize(aicpuStream, aicoreStream);
 }
 /**************************** DynamicFunction *****************************/
 std::vector<uint8_t> g_binBuf;
@@ -556,8 +556,6 @@ int DeviceRunner::Init(void) {
         ALOG_ERROR("RegiserKernelBin failed\n");
         return -1;
     }
-
-    coreStream_ = machine::GetRA()->GetStream();
     return 0;
 }
 } // namespace npu::tile_fwk
