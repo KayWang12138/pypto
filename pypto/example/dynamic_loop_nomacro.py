@@ -43,7 +43,7 @@ def main():
                 else:
                     b.move(pto.div(b, a))
                 b.move(pto.sub(b, a))
-
+    print(pto.dump())
     assert isinstance(b, pto.tensor)
 
 

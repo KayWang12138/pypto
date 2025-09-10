@@ -87,7 +87,7 @@ def vector_view():
 
     with pto_function("VIEW", GRAPH_T, FUNC_T, a, b):
         pto.set_vec_tile_shapes(32, 1, 16, 32)
-        pto.set_cube_tile_shapes((16, 16), [16, 16], [16, 16])
+        pto.set_cube_tile_shapes((16, 16), (16, 16), (16, 16))
         print("vec tile shapes:", pto.get_vec_tile_shapes())
         c = pto.add(
             pto.view(a, [64, 1, 32, 64], [0, 0, 0, 0]),

@@ -55,9 +55,9 @@ struct CubeTile {
     bool setL1Tile {false};
 
     bool valid() const {
-        return std::all_of(m.begin(), m.end(), [](int x) { return x > 0; }) &&
-               std::all_of(k.begin(), k.end(), [](int x) { return x > 0; }) &&
-               std::all_of(n.begin(), n.end(), [](int x) { return x > 0; });
+        return std::all_of(m.begin(), m.end(), [](int64_t x) { return x > 0; }) &&
+               std::all_of(k.begin(), k.end(), [](int64_t x) { return x > 0; }) &&
+               std::all_of(n.begin(), n.end(), [](int64_t x) { return x > 0; });
     }
 };
 

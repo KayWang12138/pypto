@@ -35,11 +35,34 @@ void bind_controller(py::module &m) {
     });
     m.def("get_vec_tile_shapes", []() { return TileShape::Current().GetVecTile(); });
 
-    m.def(
-        "set_cube_tile_shapes",
-        [](const std::array<int64_t, MAX_M_DIM_SIZE> &m_, const std::array<int64_t, MAX_K_DIM_SIZE> &k,
-            const std::array<int64_t, MAX_N_DIM_SIZE> &n, bool setL1Tile = false) { TileShape::Current().SetCubeTile(m_, k, n, setL1Tile); },
-        py::arg("m"), py::arg("k"), py::arg("n"), py::arg("setL1Tile") = false);
+    m.def("set_cube_tile_shapes",
+        [](const std::vector<int64_t>& mvec, const std::vector<int64_t>& kvec,
+        const std::vector<int64_t>& nvec, bool setL1Tile = false) {
+            if (mvec.size() > MAX_M_DIM_SIZE) {
+                throw py::value_error("Parameter 'm' must have exactly " +
+                                    std::to_string(MAX_M_DIM_SIZE) + " elements");
+            }
+            if (kvec.size() > MAX_K_DIM_SIZE) {
+                throw py::value_error("Parameter 'k' must have exactly " +
+                                    std::to_string(MAX_K_DIM_SIZE) + " elements");
+            }
+            if (nvec.size() > MAX_N_DIM_SIZE) {
+                throw py::value_error("Parameter 'n' must have exactly " +
+                                    std::to_string(MAX_N_DIM_SIZE) + " elements");
+            }
+
+            std::array<int64_t, MAX_M_DIM_SIZE> marr = {0};
+            std::array<int64_t, MAX_K_DIM_SIZE> karr = {0};
+            std::array<int64_t, MAX_N_DIM_SIZE> narr = {0};
+
+            std::copy(mvec.begin(), mvec.end(), marr.begin());
+            std::copy(kvec.begin(), kvec.end(), karr.begin());
+            std::copy(nvec.begin(), nvec.end(), narr.begin());
+
+            TileShape::Current().SetCubeTile(marr, karr, narr, setL1Tile);
+        },
+        py::arg("m"), py::arg("k"), py::arg("n"), py::arg("setL1Tile") = false,
+        "Set cube tile shapes with specified dimensions");
 
     m.def("bytes_of", [](DataType t) { return BytesOf(t); });
 

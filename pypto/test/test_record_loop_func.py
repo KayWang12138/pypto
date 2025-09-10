@@ -58,6 +58,6 @@ def test_dynamic_loop_nomacro():
                     b.move(pto.mul(b, a))
                 else:
                     b.move(pto.div(b, a))
-                b.move(pto.sub(b, a))
+                c.move(pto.sub(b, a))
 
     assert isinstance(b, pto.tensor)

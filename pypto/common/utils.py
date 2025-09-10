@@ -20,7 +20,7 @@ import inspect
 def dyn_function(
     name: str, in_tensors: List[pto.tensor], out_tensors: List[pto.tensor]
 ) -> pto.record_func:
-    func_cfg = pto.func_config()
+    func_cfg = pto.func_config(pto.function_type.DYNAMIC)
     record_func = pto.record_func(
         name, func_cfg, in_tensors, out_tensors, []
     )

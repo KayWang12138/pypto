@@ -2761,7 +2761,6 @@ TensorGraphInfo Function::GetGraphInfo() {
     std::set<std::shared_ptr<Operation>> viewOpSet, assembleOpSet;
     std::set<std::shared_ptr<LogicalTensor>> iOperandSet, oOperandSet;
     std::vector<std::shared_ptr<Operation>> operations;
-
     for (auto &op : operations_) {
         if (op->GetOpcode() == Opcode::OP_VIEW) {
             viewOpSet.emplace(op);
