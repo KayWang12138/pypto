@@ -1841,6 +1841,16 @@ Json Function::DumpJson(bool useTable) {
     }
     funcDump["global_tensors"] = globalTensorVec;
     funcDump["static"]["global_tensors"] = funcDump["global_tensors"];
+
+    std::unordered_set<SourceLocationPtr> locations;
+    for (auto &op : Operations()) {
+        if (auto loc = op.GetLocation(); loc) {
+            locations.insert(loc);
+        }
+    }
+    std::vector<SourceLocationPtr> locs(locations.begin(), locations.end());
+    SourceLocation::Init(locs);
+
     Json operations = Json::array();
     if (useTable) {
         for (const auto &op : Operations()) {

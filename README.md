@@ -423,7 +423,7 @@ output_tools
 3. 开启指定功能选项
    | 配置选项                                  | 类型         | 作用&解释                               |
    |:-----------------------------------------|:-------------|:---------------------------------------|
-   | KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE    | bool         | 使能先生成TensorFlow graph              |
+   | KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE    | bool         | 使能先生成TensorFlow graph               |
    | KEY_VERIFY_TENSOR_GRAPH                  | bool         | 验证tensor graph                        |
    | KEY_VERIFY_TENSOR_GRAPH_DUMP_OPERATION   | bool         | 导出执行op                              |
    | KEY_VERIFY_TENSOR_GRAPH_DUMP_TENSOR      | bool         | 导出tensor的执行结果                     |
@@ -440,6 +440,7 @@ output_tools
    | KEY_VERIFY_EXECUTE_GRAPH_DUMP_TENSOR     | bool         | 导出tensor的执行结果                     |
    | KEY_VERIFY_EXECUTE_GRAPH_CHECK_PRECISION | bool         | 执行精度校验，如果为false则不进行精度校验  |
    | KEY_VERIFY_THREAD_NUMBER                 | int          | 设置线程数量，默认为64                    |
+   | ENABLE_SOURCE_LOCATION                   | bool         | 使能源位置信息                          |
 
 4. 执行ST或UT用例
    python3 build.py -s=DynamicAttentionPostTest.dynamic_pa_post_cast_first_bmm4

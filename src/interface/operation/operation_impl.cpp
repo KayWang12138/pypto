@@ -2060,11 +2060,17 @@ Tensor VectorDuplicate(const SymbolicScalar &dynSrc, DataType dtype, const std::
     RETURN_CALL(VectorDuplicateOperation, *Program::GetInstance().GetCurrentFunction(), Element(dtype, (int64_t)0), dynSrc, dtype, dstShape, validShape);
 }
 
-void Print(const Tensor &operand, const std::string &msg, SymbolicScalar cond) {
+void internal::Print(const PrintInfo &info) {
     auto function = Program::GetInstance().GetCurrentFunction();
-    auto &op = function->AddOperation(Opcode::OP_PRINT, {operand.GetStorage()}, {});
-    op.SetAttribute(OP_ATTR_PREFIX + "msg", msg);
-    op.SetAttribute(OP_ATTR_PREFIX + "cond", cond);
+    std::vector<LogicalTensorPtr> inputs;
+    for (auto &x : info.values) {
+        if (std::holds_alternative<Tensor>(x)) {
+            inputs.push_back(std::get<Tensor>(x).GetStorage(false));
+        }
+    }
+    auto &op = function->AddOperation(Opcode::OP_PRINT, inputs, {});
+    op.SetAttr(OP_ATTR_PREFIX + "msg", info);
+    op.SetAttribute(OP_ATTR_PREFIX + "cond", info.cond);
 }
 
 void ToFile(const Tensor &operand, const std::string &fname, SymbolicScalar cond) {
@@ -3022,8 +3028,9 @@ Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std
     return result;
 }
 
-Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &newOffsets) {
-    DECLARE_TRACER();
+Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &newOffsets,
+    const void *lr) {
+    DECLARE_TRACERX(lr);
     Tensor result(operand->Datatype(), shapes, "View_" + operand->GetRawTensor()->GetSymbol(), operand->tensorfmt);
     result->UpdateDynValidShape(SymbolicScalar::FromConcrete(shapes));
     auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(
@@ -3036,9 +3043,13 @@ Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std
     return result;
 }
 
+Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &newOffset) {
+    return View(operand, shapes, newOffset, __builtin_return_address(0));
+}
+
 //重载View，initializer_list避免歧义
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::initializer_list<SymbolicScalar> &newOffsets) {
-    return View(operand, shapes, std::vector<SymbolicScalar>(newOffsets));
+    return View(operand, shapes, std::vector<SymbolicScalar>(newOffsets), __builtin_return_address(0));
 }
 
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes,

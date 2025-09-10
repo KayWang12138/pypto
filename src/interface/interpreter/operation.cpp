@@ -61,7 +61,34 @@ void OperationInterpreter::ExecuteOperation(ExecuteOperationContext *ctx) {
     try {
         OperationInterpreter::CallOperationInterpreterFunc(&ctxValid);
     } catch (std::exception &e) {
+        auto func = ctx->frame->func;
+        func->DumpFile(config::LogTensorGraphFolder() + "/" + func->GetRawName() + ".tifwkgr");
         throw std::runtime_error(ctx->Dump() + e.what());
     }
+}
+
+std::string ExecuteOperationContext::Dump() const {
+    std::stringstream ss;
+    ss << "func: " << frame->func->GetRawName() << "\n";
+
+    if (auto loc = op->GetLocation(); loc) {
+        ss << "filename: " << loc->GetFileName() << "\n";
+        ss << "lineno: " << loc->GetLineno() << "\n";
+    }
+
+    auto printType = [&](auto &viewList) {
+        for (size_t i = 0; i < viewList.size(); i++) {
+            if (i != 0)
+                ss << ", ";
+            ss << viewList[i]->DumpType();
+        }
+    };
+
+    ss << op->Dump();
+    printType(*ooperandInplaceDataViewList);
+    ss << " = " << op->GetOpcodeStr() << " ";
+    printType(*ioperandDataViewList);
+    ss << "\n";
+    return ss.str();
 }
 }

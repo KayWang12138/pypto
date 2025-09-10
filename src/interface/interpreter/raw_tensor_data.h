@@ -108,6 +108,13 @@ struct RawTensorData : public std::vector<uint8_t> {
         }
     }
 
+    Element GetElement(int64_t *coords, size_t n) const {
+        int64_t index = 0;
+        ASSERT(n == shape_.size());
+        index = std::inner_product(coords, coords + n, stride_.begin(), 0);
+        return GetElement(index);
+    }
+
     std::string DumpElement(int index) const {
         switch (GetDataType()) {
             case DT_INT8: return std::to_string(Get<int8_t>(index));
@@ -331,7 +338,7 @@ struct LogicalTensorData {
         return DumpData(INDENT_TWO, elementDumpList);
     }
 
-    std::string Dump() const { return DumpData(2, nullptr); }
+    std::string ToString(int precision = 4, int edgeItems = 3) const;
 
     void Save(const std::string &filepath) const;
     void SaveFile(const char *filepath) const;

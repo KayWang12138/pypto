@@ -10,6 +10,7 @@
 #include "operator_tracer.h"
 #include "interface/program/program.h"
 #include "interface/utils/id_gen.h"
+#include "interface/configs/config_manager.h"
 
 namespace npu::tile_fwk {
 void OperatorChecker::PreCheck() {
@@ -46,6 +47,20 @@ void OperatorChecker::PostCheck() {
     }
 }
 
-bool OperatorTracer::enableChecker = false;
-bool OperatorTracer::enableSourceLocation = false;
+bool OperatorTracer::IsCheckerEnabled() const {
+    static int enableChecker = -1;
+    if (enableChecker == -1) {
+        enableChecker = config::GetPlatformConfig(KEY_ENABLE_CHECKER, 0);
+    }
+    return enableChecker;
 }
+
+bool OperatorTracer::IsSourceLocationEnabled() const {
+    static int enableSourceLocation = -1;
+    if (enableSourceLocation == -1) {
+        enableSourceLocation = config::GetPlatformConfig(KEY_ENABLE_SOURCE_LOCATION, 0);
+    }
+    return enableSourceLocation;
+}
+
+} // namespace npu::tile_fwk

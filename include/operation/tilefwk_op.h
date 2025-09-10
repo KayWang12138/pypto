@@ -16,6 +16,7 @@
 #pragma once
 
 #include <array>
+#include <variant>
 
 #include "tilefwk/tensor.h"
 #include "tilefwk/element.h"
@@ -25,15 +26,54 @@ namespace npu::tile_fwk {
 constexpr const int TILE_VEC_DIMS = 2;
 constexpr const int TILE_CUBE_DIMS = 6;
 
+namespace internal {
+struct PrintInfo {
+    using ValueType = std::variant<SymbolicScalar, Tensor, std::string>;
+
+    std::vector<ValueType> values;
+    SymbolicScalar cond{1};
+
+    void Append(const std::string &val) { values.push_back(val); }
+    void Append(const char *str) { values.push_back(std::string(str)); }
+    void Append(const Tensor &val) { values.push_back(val); }
+    void Append(const SymbolicScalar &val) { values.push_back(val); }
+
+    template <typename T>
+    void Append(const T &val) {
+        values.push_back(std::to_string(val));
+    }
+};
+
+void Print(const PrintInfo &info);
+} // namespace internal
+
 /**
- * \brief Print a tensor
+ * \brief Print values in flow_verifier
  *
- * \param operand tensor to print
- * \param msg extra message, symbols are allowed, eg: "i={i}"
- * \param cond print only the result `cond` evaluate result  is not zero
- * \attention Only takes in flow verifier
+ * \tparam Args Tensor | SymbolicScalar | std::string | std::to_string(T)
+ * \param args
  */
-void Print(const Tensor &operand, const std::string &msg, SymbolicScalar cond = 1);
+template <typename... Args>
+void Print(Args... args) {
+    internal::PrintInfo info;
+    (info.Append(args), ...);
+    internal::Print(info);
+}
+
+/**
+ * \brief Print values in flow_verifier
+ *
+ * \tparam Args Tensor | SymbolicScalar | std::string | std::to_string(T)
+ * \param args
+ * \param cond print only the result `cond` evaluate result  is not zero
+ */
+template <typename... Args>
+void PrintIf(SymbolicScalar cond, Args... args) {
+    internal::PrintInfo info;
+    info.cond = cond;
+    (info.Append(args), ...);
+    internal::Print(info);
+}
 
 /**
  * \brief Dump a tensor to file

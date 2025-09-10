@@ -20,10 +20,12 @@ namespace npu::tile_fwk {
 class SourceLocation {
 public:
     SourceLocation() = default;
+    SourceLocation(const std::string &fname, int lineno) : fname_(fname), lineno_(lineno) {}
     explicit SourceLocation(uint64_t pc) : fname_("??"), lineno_(-1), pc_(pc){};
 
     int GetLineno() const;
     std::string GetFileName() const;
+    uint64_t GetPC() const { return pc_; }
 
     static void SetLocation(std::shared_ptr<SourceLocation> loc = nullptr) {
         if (loc)

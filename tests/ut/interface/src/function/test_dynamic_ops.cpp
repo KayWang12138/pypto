@@ -52,6 +52,7 @@ public:
         config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_OPERATION, false);
         config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_TENSOR, false);
         config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_CHECK_PRECISION, false);
+        config::SetPlatformConfig(KEY_ENABLE_SOURCE_LOCATION, false);
     }
 };
 
@@ -103,6 +104,7 @@ TEST_F(DynamicOpsTest, AssembleFp16) {
     config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
     config::SetPlatformConfig(KEY_VERIFY_PASS, true);
     config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, true);
+    config::SetPlatformConfig(KEY_ENABLE_SOURCE_LOCATION, true);
 
     int s = 32;
     int n = 2;
@@ -132,7 +134,7 @@ TEST_F(DynamicOpsTest, AssembleFp16) {
             auto t2a = Add(t0a, t1a);
             auto t2b = Add(t0b, t1b);
             ToFile(t2b, "t2b_{i}.bin", i % 2 == 0);
-            Print(t2b, "i={i}", i == 1);
+            PrintIf(i == 1, t2b, "i={i}");
             std::vector<std::pair<Tensor, std::vector<int64_t>>> data = {
                 {t2a, {0, 0}},
                 {t2b, {s, 0}},
@@ -154,7 +156,6 @@ TEST_F(DynamicOpsTest, OpsElementWise) {
     config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, true);
     config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_OPERATION, true);
     config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_TENSOR, true);
-    config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_CHECK_PRECISION, true);
 
     std::vector<uint8_t> devProgBinary;
 

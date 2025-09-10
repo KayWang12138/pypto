@@ -161,6 +161,74 @@ void LogicalTensorData::SaveFile(const char *filepath) const {
     return Save(filepath);
 }
 
+std::string LogicalTensorData::ToString(int precision, int edgeItems) const {
+    std::stringstream os;
+    int64_t axes[0x8] = {0}; // max dim is 8
+
+    std::function<void(int dim)> printImpl;
+    int ndim = shape_.size();
+    auto &shape = validShape_.empty() ? shape_ : validShape_;
+
+    auto repeat = [&](char c, int n) {
+        for (int i = 0; i < n; i++) {
+            os << c;
+        }
+    };
+
+    auto print1d = [&](int s, int e) {
+        for (int i = s; i < e; i++) {
+            if (i != 0)
+                os << " ";
+            axes[ndim - 1] = i;
+            auto elem = GetData()->GetElement(axes, ndim);
+            if (elem.IsSigned())
+                os << elem.GetSignedData();
+            else if (elem.IsUnsigned())
+                os << elem.GetUnsignedData();
+            else
+                os << std::fixed << std::setprecision(precision) << elem.GetFloatData();
+        }
+    };
+
+    auto printnd = [&](int dim, int s, int e) {
+        for (int i = s; i < e; i++) {
+            if (i > 0) {
+                repeat('\n', ndim - dim - 1);
+                repeat(' ', dim + 1);
+            }
+            axes[dim] = i;
+            printImpl(dim + 1);
+        }
+    };
+
+    printImpl = [&](int dim) {
+        os << "[";
+        if (dim == ndim - 1) {
+            if (shape[dim] > 0x2 * edgeItems) {
+                print1d(0, edgeItems);
+                os << " ...";
+                print1d(shape[dim] - edgeItems, shape[dim]);
+            } else {
+                print1d(0, shape[dim]);
+            }
+        } else {
+            if (shape[dim] > 0x2 * edgeItems) {
+                printnd(dim, 0, edgeItems);
+                os << "\n";
+                repeat(' ', dim + 1);
+                os << "...";
+                printnd(dim, shape[dim] - edgeItems, shape[dim]);
+            } else {
+                printnd(dim, 0, shape[dim]);
+            }
+        }
+        os << "]";
+    };
+    os << DumpType() << '\n';
+    printImpl(0);
+    return os.str();
+}
+
 std::shared_ptr<LogicalTensorData> LogicalTensorData::Load(const std::string &filepath) {
     FILE *fdata = fopen(filepath.c_str(), "rb");
     LogicalTensorDataHead head;

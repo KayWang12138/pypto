@@ -18,6 +18,7 @@
 #include "interface/function/function.h"
 #include "interface/tensor/raw_tensor.h"
 #include "interface/tensor/logical_tensor.h"
+#include "interface/utils/source_location.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
@@ -119,6 +120,7 @@ Status ExpandFunction::Expandfunction(Function &function) const {
         if (op->GetOpcode() == Opcode::OP_NOP || op->GetOpcode() == Opcode::OP_PRINT) {
             continue;
         }
+        SourceLocation::SetLocation(op->GetLocation());
         bool needCopy = CheckAssembleNeedCopy(function, op);
         if (op->GetOpcode() == Opcode::OP_VIEW || (op->GetOpcode() == Opcode::OP_ASSEMBLE && !needCopy) || op->GetOpcode() == Opcode::OP_PAD) {
             auto &newOp = function.AddOperation(op->GetOpcode(), op->GetIOperands(), op->GetOOperands());
@@ -136,6 +138,7 @@ Status ExpandFunction::Expandfunction(Function &function) const {
                 newOp.CopyAttrFrom(*op, OP_EMUOP_PREFIX);
             }
         }
+        SourceLocation::SetLocation(nullptr);
     }
     function.expandFunctionAccelerate = false;
     return SUCCESS;

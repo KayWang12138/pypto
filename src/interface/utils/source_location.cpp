@@ -17,43 +17,61 @@
 #include <memory>
 #include <sstream>
 #include <iostream>
+#include <unordered_set>
 
 namespace npu::tile_fwk {
 
 void SourceLocation::Init(std::vector<std::shared_ptr<SourceLocation>> locs) {
-    Dl_info dlinfo;
-    std::map<std::pair<std::string, uint64_t>, std::vector<int>> locMap;
-    for (size_t i = 0; i < locs.size(); i++) {
-        if (locs[i] == nullptr || locs[i]->lineno_ != -1)
+    std::unordered_set<uint64_t> pcSet;
+
+    for (auto &loc : locs) {
+        if (loc == nullptr || loc->lineno_ != -1)
             continue;
-        if (dladdr((void *)locs[i]->pc_, &dlinfo) < 0) {
-            locs[i]->lineno_ = 0;
-        } else {
-            locMap[{dlinfo.dli_fname, (uint64_t)dlinfo.dli_fbase}].push_back(i);
+        pcSet.insert(loc->pc_);
+    }
+
+    Dl_info dlinfo;
+    std::map<std::pair<std::string, uint64_t>, std::vector<uint64_t>> locMap;
+    for (auto pc : pcSet) {
+        if (dladdr((void *)pc, &dlinfo) != 0) {
+            locMap[{dlinfo.dli_fname, (uint64_t)dlinfo.dli_fbase}].push_back(pc);
         }
     }
 
     size_t n = 0;
     char *line = nullptr;
-    for (auto &[info, idxs] : locMap) {
+    std::map<uint64_t, std::pair<std::string, uint64_t>> pcMap;
+    for (auto &[info, pcs] : locMap) {
         std::stringstream ss;
         ss << "addr2line -i -p -e " << info.first << " " << std::hex;
-        for (auto idx : idxs)
-            ss << " " << locs[idx]->pc_ - (intptr_t)info.second;
-        std::cout << ss.str() << std::endl;
+        for (auto pc : pcs)
+            ss << " " << pc - (intptr_t)info.second;
         auto fp = popen(ss.str().c_str(), "r");
-        for (auto idx : idxs) {
-            locs[idx]->lineno_ = 0;
+        if (fp == nullptr) {
+            continue;
+        }
+        for (auto pc : pcs) {
             int rc = getline(&line, &n, fp);
-            if (rc >= 0 && strstr(line, "inlined by"))
+            if (rc >= 0 && strstr(line, "inlined by")) {
                 rc = getline(&line, &n, fp);
+            }
             if (rc >= 0) {
                 char *p = line;
-                locs[idx]->fname_ = strsep(&p, ":");
-                locs[idx]->lineno_ = atoi(p);
+                char *name = strsep(&p, ":");
+                if (auto base = strrchr(name, '/'); base != nullptr) {
+                    name = base + 1;
+                }
+                pcMap[pc] = {name, atoi(p)};
             }
         }
         pclose(fp);
+
+        for (auto &loc : locs) {
+            if (loc == nullptr || loc->lineno_ != -1)
+                continue;
+            loc->fname_ = pcMap[loc->pc_].first;
+            loc->lineno_ = pcMap[loc->pc_].second;
+        }
     }
     free(line);
 }

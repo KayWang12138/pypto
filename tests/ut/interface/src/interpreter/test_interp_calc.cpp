@@ -236,15 +236,15 @@ TEST_F(TorchAdaptorTest, BinaryOps) {
     }
     {
         // scatter update 4dim
-        std::vector<float> sdata = {1.0f, 1.0f, 1.0f, 1.0f, 
-                                    2.0f, 2.0f, 2.0f, 2.0f, 
-                                    3.0f, 3.0f, 3.0f, 3.0f, 
+        std::vector<float> sdata = {1.0f, 1.0f, 1.0f, 1.0f,
+                                    2.0f, 2.0f, 2.0f, 2.0f,
+                                    3.0f, 3.0f, 3.0f, 3.0f,
                                     4.0f, 4.0f, 4.0f, 4.0f};
-        std::vector<float> gdata = {0.0f, 0.0f, 0.0f, 0.0f, 
-                                    4.0f, 4.0f, 4.0f, 4.0f, 
-                                    0.0f, 0.0f, 0.0f, 0.0f, 
-                                    1.0f, 1.0f, 1.0f, 1.0f, 
-                                    3.0f, 3.0f, 3.0f, 3.0f, 
+        std::vector<float> gdata = {0.0f, 0.0f, 0.0f, 0.0f,
+                                    4.0f, 4.0f, 4.0f, 4.0f,
+                                    0.0f, 0.0f, 0.0f, 0.0f,
+                                    1.0f, 1.0f, 1.0f, 1.0f,
+                                    3.0f, 3.0f, 3.0f, 3.0f,
                                     2.0f, 2.0f, 2.0f, 2.0f};
         std::vector<int64_t> idata = {3, 5, 4, 1};
         auto self = makeTensorData(DT_FP32, {2, 2, 1, 4}, sdata);
@@ -300,7 +300,7 @@ LogicalTensorDataPtr makePartialGolden(int n, int p, float v1, float v2) {
     }
     return makeTensorData(DT_FP32, {n, n}, ret);
 }
- 
+
 TEST_F(TorchAdaptorTest, BinaryPairOps) {
     int n = 16, p = 5;
     {
@@ -634,7 +634,7 @@ TEST_F(TorchAdaptorTest, TopkDescending) {
     sdata.insert(sdata.end(), OUTPUT_AXIS_SIZE, 0.0f);
     auto self = makeTensorData(DT_FP32, {2, 128}, sdata);
     auto out = makeTensorData(DT_FP32, {2, 64}, 0.0f);
-    
+
     calc::Topk(out, self, -1, TOPK_VAL, true);
     ASSERT_ALLCLOSE(out, golden);
 }
@@ -668,7 +668,7 @@ TEST_F(TorchAdaptorTest, TopkAscending) {
     auto self = makeTensorData(DT_FP32, {2, 128}, sdata);
     auto out = makeTensorData(DT_FP32, {2, 64}, 0.0f);
     const int64_t TOPK_VAL = 32;
-    
+
     calc::Topk(out, self, -1, TOPK_VAL, false);
     ASSERT_ALLCLOSE(out, golden);
 }
@@ -712,7 +712,7 @@ TEST_F(TorchAdaptorTest, ExtractDescending) {
     auto out1 = makeTensorData(DT_FP32, {2, 32}, 0.0f);
     auto golden0 = makeTensorData(DT_FP32, {2, 32}, gdata0);
     auto golden1 = makeTensorData(DT_FP32, {2, 32}, gdata1);
-    
+
     calc::Extract(out0, self, 0, true);
     calc::Extract(out1, self, 1, true);
     ASSERT_ALLCLOSE(out0, golden0);
@@ -763,5 +763,14 @@ TEST_F(TorchAdaptorTest, ExtractAscending) {
     calc::Extract(out1, self, 1, false);
     ASSERT_ALLCLOSE(out0, golden0);
     ASSERT_ALLCLOSE(out1, golden1);
+}
+
+TEST_F(TorchAdaptorTest, Print) {
+    auto t0 = makeTensorData(DT_FP32, {16, 16}, 4.0f);
+    std::cout << t0->ToString() << std::endl;
+    auto t1 = makeTensorData(DT_FP32, {4, 4, 4}, 4.0f);
+    std::cout << t1->ToString() << std::endl;
+    auto t2 = makeTensorData(DT_FP32, {4, 4, 1024, 512}, 4.0f);
+    std::cout << t2->ToString() << std::endl;
 }
 } // namespace npu::tile_fwk

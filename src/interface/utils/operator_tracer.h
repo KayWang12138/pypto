@@ -29,29 +29,26 @@ private:
 
 struct OperatorTracer {
     OperatorTracer(const void *lr) {
-        if (enableSourceLocation) {
+        if (IsSourceLocationEnabled()) {
             // lr is return address, we need find caller address, minus 4 here
             SourceLocation::SetLocation(std::make_shared<SourceLocation>((uint64_t)lr - 4));
         }
-        if (enableChecker) {
+        if (IsCheckerEnabled()) {
             checker.PreCheck();
         }
     }
     ~OperatorTracer() {
-        if (enableSourceLocation)
+        if (IsSourceLocationEnabled())
             SourceLocation::SetLocation(nullptr);
-        if (enableChecker)
+        if (IsCheckerEnabled())
             checker.PostCheck();
     }
     OperatorChecker checker;
 
-    static void EnableChecker(bool val) { enableChecker = val; }
-    static void EnableSourceLocation(bool val) { enableSourceLocation = val; }
-
-    static bool enableChecker;
-    static bool enableSourceLocation;
+    bool IsCheckerEnabled() const;
+    bool IsSourceLocationEnabled() const;
 };
 } // namespace npu::tile_fwk
 
-#define DECLARE_TRACER() (void)npu::tile_fwk::OperatorTracer(__builtin_return_address(0))
-#define DECLARE_TRACERX(lr) (void)npu::tile_fwk::OperatorTracer(lr)
+#define DECLARE_TRACER() auto __tracer = npu::tile_fwk::OperatorTracer(__builtin_return_address(0));
+#define DECLARE_TRACERX(lr) auto __tracer = npu::tile_fwk::OperatorTracer(lr)

@@ -158,7 +158,6 @@ std::string FormatString(const std::string &s, OperationInterpreter *opInter) {
 }
 
 void ExecutePrint(ExecuteOperationContext *ctx) {
-    auto &iop = ctx->ioperandDataViewList->at(0);
     auto cond = ctx->op->GetSymbolicScalarAttribute(OP_ATTR_PREFIX + "cond");
     if (!ctx->opInter->EvaluateSymbolicScalar(cond)) {
         return;
@@ -167,6 +166,7 @@ void ExecutePrint(ExecuteOperationContext *ctx) {
     if (ctx->op->HasAttribute(OP_ATTR_PREFIX + "fname")) {
         auto fname = ctx->op->GetStringAttribute(OP_ATTR_PREFIX + "fname");
         auto fpath = config::LogTopFolder() + "/tensor/" + FormatString(fname, ctx->opInter);
+        auto &iop = ctx->ioperandDataViewList->at(0);
         auto shape = iop->GetValidShape();
         if (shape.empty()) {
             shape = iop->GetShape();
@@ -176,9 +176,23 @@ void ExecutePrint(ExecuteOperationContext *ctx) {
         oop->GetData()->ToFile(fpath);
     }
 
-    if (ctx->op->HasAttribute(OP_ATTR_PREFIX + "msg")) {
-        auto msg = ctx->op->GetStringAttribute(OP_ATTR_PREFIX + "msg");
-        std::cout << FormatString(msg, ctx->opInter) << "\n" << iop->Dump() << std::endl;
+    internal::PrintInfo info;
+    if (ctx->op->GetAttr(OP_ATTR_PREFIX + "msg", info)) {
+        int opIdx = 0;
+        for (auto &x : info.values) {
+            if (std::holds_alternative<Tensor>(x)) {
+                auto &iop = ctx->ioperandDataViewList->at(opIdx++);
+                std::cout << iop->ToString() << std::endl;
+            } else if (std::holds_alternative<std::string>(x)) {
+                std::cout << (std::get<std::string>(x));
+            } else if (std::holds_alternative<SymbolicScalar>(x)) {
+                auto &scalar = std::get<SymbolicScalar>(x);
+                std::cout << ctx->opInter->EvaluateSymbolicScalar(scalar);
+            } else {
+                ASSERT(false);
+            }
+        }
+        std::cout << std::endl;
     }
 }
 REGISTER_CALC_OP(OP_PRINT, Opcode::OP_PRINT, ExecutePrint);

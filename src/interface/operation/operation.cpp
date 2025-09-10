@@ -159,6 +159,7 @@ Operation::Operation(
         if (!ConfigManager::Instance().GetSemanticLabel().empty()) {
             SetSemanticLabel(ConfigManager::Instance().GetSemanticLabel());
         }
+        location_ = SourceLocation::GetLocation();
     }
 
     for (auto &input : GetIOperands()) {
@@ -335,6 +336,10 @@ Json Operation::DumpJson(bool dumpTensor) const {
 
     opDump["opmagic"] = GetOpMagic();
     opDump["semantic_label"] = semanticLabels_;
+    if (location_) {
+        opDump["file"] = location_->GetFileName();
+        opDump["line"] = location_->GetLineno();
+    }
 
     opDump["subgraphid"] = subgraphID_;
     Json inLocation = Json::array();
@@ -423,6 +428,10 @@ std::shared_ptr<Operation> Operation::LoadJson(
 
     op->semanticLabels_ =
         opDump["semantic_label"].get<std::array<std::string, static_cast<int>(SemanticLabelType::LABEL_COUNT)>>();
+
+    if (opDump.count("file")) {
+        op->location_ = std::make_shared<SourceLocation>(opDump["file"].get<std::string>(), opDump["line"].get<int>());
+    }
 
     int subgraphid = opDump["subgraphid"].get<int>();
     op->subgraphID_ = subgraphid;

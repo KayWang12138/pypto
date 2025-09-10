@@ -33,6 +33,7 @@
 #include "attribute.h"
 #include "attr_holder.h"
 #include "interface/utils/log.h"
+#include "interface/utils/source_location.h"
 #include "interface/tensor/logical_tensor.h"
 #include "operation_common.h"
 
@@ -445,6 +446,7 @@ public:
     }
 
     std::vector<std::reference_wrapper<SymbolicScalar>> GetDynamicAttributeList();
+    SourceLocationPtr GetLocation() const { return location_; }
 
 private:
     Opcode opcode_{Opcode::OP_UNKNOWN};
@@ -464,6 +466,7 @@ private:
     mutable size_t groupID_{NON_GROUP};
     bool isDeleted_{false};
 
+    SourceLocationPtr location_;
     std::array<std::string, static_cast<int>(SemanticLabelType::LABEL_COUNT)> semanticLabels_;
     Function *function_;
 };
