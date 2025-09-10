@@ -409,6 +409,7 @@ struct ParamConfigs {
     int nBufferMergeMode{1};
     int sgVecParallelNum{48};
     int sgCubeParallelNum{24};
+    bool sgSkipPartition{false};
     std::map<int, int> vecNBufferMap;
 };
 

@@ -26,7 +26,6 @@ enum class GraphExtendResult { EXTEND_SUCCESS, EXTEND_LINK_EXHAUST, EXTEND_NODE_
 class OperationGraphInfo {
 public:
     uint64_t GetHash(const Operation *op) const;
-    Status Build(std::vector<Operation*> &opList);
     bool CoreTypeMergeable(const std::set<OpCoreType> &coreTypes) const;
     std::vector<int32_t> GetSameLevelOpIdx(int32_t opIdx, Opcode opLabel) const;
     std::vector<Operation*> opList_;
@@ -120,7 +119,7 @@ class IsoPartitioner {
 public:
     Status PartitionGraph(Function &function);
     Status SetParameter(int32_t cycleUpperBound, int32_t parallelNum, int32_t cycleLowerBound, 
-                        bool useReduceBalanceHash);
+                        bool useReduceBalanceHash=true, bool skipPartition=false);
 
 private:
     Status BuildOpGraph(const std::vector<Operation*> &opList);
@@ -150,6 +149,7 @@ private:
     int32_t tryMergeLoopNum_ = 100;
     bool useReduceBalanceHash_ = true;
     bool useCVMixPartition_ = false;
+    bool skipPartition_ = false;
     int32_t cycleUB_ = -1;
     int32_t parallelNum_ = -1;
     int32_t cycleLB_ = -1;

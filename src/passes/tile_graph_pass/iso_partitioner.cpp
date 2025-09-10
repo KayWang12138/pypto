@@ -32,7 +32,8 @@ Status GraphPartition::RunOnFunction(Function &function)
     if (partitioner.SetParameter(function.paramConfigs_.sgCycleUpperBound,
                                  function.paramConfigs_.sgParallelNum,
                                  function.paramConfigs_.sgCycleLowerBound,
-                                 true) != SUCCESS) {
+                                 true,
+                                 function.paramConfigs_.sgSkipPartition) != SUCCESS) {
         ALOG_ERROR_F("Set parameters of GraphPartition failed.");
         return FAILED;
     }
@@ -58,6 +59,14 @@ Status GraphPartition::PostCheck(Function &function)
 
 Status IsoPartitioner::PartitionGraph(Function &function)
 {
+    if (skipPartition_) {
+        for (auto &op : function.Operations()) {
+            op.UpdateSubgraphID(0);
+        }
+        function.SetTotalSubGraphCount(1);
+        ALOG_INFO_F("Graph Partition is skipped.");
+        return SUCCESS;
+    }
     if (cycleUB_ == -1 || parallelNum_ == -1 || cycleLB_ == -1) {
         ALOG_ERROR_F("Partition parameters not initialized.");
         return FAILED;
@@ -1164,9 +1173,9 @@ bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor
         return shouldMerge;
     } 
     bool isSuitableForMerge = (currColorSize == mergeColorSize);
-    isSuitableForMerge = isSuitableForMerge || (std::min(currColorSize, mergeColorSize) > parallelNum_);
+    isSuitableForMerge = isSuitableForMerge || (std::min(currColorSize, mergeColorSize) >= parallelNum_);
     isSuitableForMerge = isSuitableForMerge ||
-                         (std::min(isoSubGroups_[currColor]->GetLatency(), isoSubGroups_[mergeColor]->GetLatency()) <
+                         (std::min(isoSubGroups_[currColor]->GetLatency(), isoSubGroups_[mergeColor]->GetLatency()) <=
                           cycleLB_);
     isSuitableForMerge = coreTypeMergable && isSuitableForMerge && cycleMergable;
     ALOG_DEBUG_F("Try merge current group: %d [%s]\n\t with: %d [%s], is suitable for merge: %d.",
@@ -1368,8 +1377,12 @@ Status IsoPartitioner::UpdatePartitionResult(Function &function)
 }
 
 Status IsoPartitioner::SetParameter(int32_t cycleUpperBound, int32_t parallelNum, int32_t cycleLowerBound, 
-                                    bool useReduceBalanceHash)
+                                    bool useReduceBalanceHash, bool skipPartition)
 {
+    skipPartition_ = skipPartition;
+    if (skipPartition) {
+        return SUCCESS;
+    }
     if (cycleUpperBound < 0) {
         ALOG_ERROR_F("Illegal cycleUpperBound: %d.", cycleUpperBound);
         return FAILED;

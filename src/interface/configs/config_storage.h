@@ -38,7 +38,7 @@ namespace npu::tile_fwk {
 /* RuntimeConfig KEYS*/
 const std::string SG_PARALLEL_NUM = "parallel_threshold";
 const std::string SG_CYCLE_UPPER_BOUND = "cycle_upper_bound";
-const std::string SG_CYCLE_LOWER_BOUND = "cycles_threshold";
+const std::string SG_CYCLE_LOWER_BOUND = "cycle_lower_bound";
 const std::string L1_REUSE = "l1_reuse";
 const std::string L1_REUSE_MAP = "l1_reuse_map";
 const std::string CUBE_NBUFFER = "cube_nbuffer";
@@ -51,6 +51,7 @@ const std::string NBUFFER_MERGE_MODE = "nbuffer_merge_mode";
 const std::string VEC_NBUFFER_MAP = "vec_nbuffer_map";
 const std::string SG_CUBE_PARALLEL_NUM = "sg_cube_parallel_num";
 const std::string SG_VEC_PARALLEL_NUM = "sg_vec_parallel_num";
+const std::string SG_SKIP_PARTITION = "sg_skip_partition";
 
 class ConfigStorage {
 public:
@@ -80,6 +81,7 @@ public:
         configs_[NBUFFER_MERGE_MODE] = 1;
         configs_[SG_VEC_PARALLEL_NUM] = sg_vec_parallel_num;
         configs_[SG_CUBE_PARALLEL_NUM] = sg_cube_parallel_num;
+        configs_[SG_SKIP_PARTITION] = false;
         configs_[VEC_NBUFFER_MAP] = std::map<int, int>({});
     }
 

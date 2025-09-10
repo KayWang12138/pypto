@@ -1783,6 +1783,7 @@ Json Function::DumpJson(bool useTable) {
     funcDump["_nbuffer_merge_mode"] = paramConfigs_.nBufferMergeMode;
     funcDump["_sg_vec_parallel_num"] = paramConfigs_.sgVecParallelNum;
     funcDump["_sg_cube_parallel_num"] = paramConfigs_.sgCubeParallelNum;
+    funcDump["_sg_skip_partition"] = paramConfigs_.sgSkipPartition;
     funcDump["_total_subgraph_count"] = totalSubGraphCount_;
     funcDump["_ooo_preschedule_method_default"] = paramConfigs_.OoOPreScheduleMethodDefault;
 
@@ -2103,6 +2104,7 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     func->paramConfigs_.nBufferMergeMode = funcDump["_nbuffer_merge_mode"].get<int>();
     func->paramConfigs_.sgVecParallelNum = funcDump["_sg_vec_parallel_num"].get<int>();
     func->paramConfigs_.sgCubeParallelNum = funcDump["_sg_cube_parallel_num"].get<int>();
+    func->paramConfigs_.sgSkipPartition = funcDump["_sg_skip_partition"].get<bool>();
     auto subGraphCount = funcDump["_total_subgraph_count"].get<size_t>();
     func->SetTotalSubGraphCount(subGraphCount);
     func->paramConfigs_.OoOPreScheduleMethodDefault = funcDump["_ooo_preschedule_method_default"].get<std::string>();
