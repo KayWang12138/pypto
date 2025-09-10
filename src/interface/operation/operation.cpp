@@ -172,13 +172,24 @@ Operation::Operation(
         }
     }
 
-    if (!GetIOperands().empty()) {
-        // Get operation latency
-        std::vector<std::vector<int64_t>> shape;
-        for (auto &srcTile : GetIOperands()) {
-            shape.emplace_back(srcTile->shape);
+    if (opcode == Opcode::OP_COPY_IN || opcode == Opcode::OP_VIEW) {
+        if (!GetOOperands().empty()) {
+            // Get operation latency
+            std::vector<std::vector<int64_t>> shape;
+            for (auto &tgtTile : GetOOperands()) {
+                shape.emplace_back(tgtTile->shape);
+            }
+            latency_ = GetCycles(GetOpcodeStr(), shape, GetOOperands()[0]->tensor->datatype);
         }
-        latency_ = GetCycles(GetOpcodeStr(), shape, GetIOperands()[0]->tensor->datatype);
+    } else {
+        if (!GetIOperands().empty()) {
+            // Get operation latency
+            std::vector<std::vector<int64_t>> shape;
+            for (auto &srcTile : GetIOperands()) {
+                shape.emplace_back(srcTile->shape);
+            }
+            latency_ = GetCycles(GetOpcodeStr(), shape, GetIOperands()[0]->tensor->datatype);
+        }
     }
 }
 
