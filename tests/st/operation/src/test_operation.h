@@ -356,11 +356,10 @@ T GetValueByName(const nlohmann::json &json_data, const std::string &name) {
 
 template <typename T>
 std::vector<T> GetOpMetaData(const std::vector<OpFunc> &opFuncs, const std::string &op) {
-    auto root_path = std::string(get_current_dir_name()) + "/../../../";
-    auto path = root_path + "tests/st/operation/.cache/running_test_cases/test_cases_data.json";
-    std::ifstream json_file(path);
+    auto case_file = "../../../tests/st/operation/test_case/" + op + "_st_test_cases.json";
+    std::ifstream json_file(case_file);
     if (!json_file.is_open()) {
-        ALOG_INFO << "Not find any input data for [" << op << "] in " << path << ".";
+        ALOG_INFO << "Not find any input data for " << case_file << ".";
         return {};
     }
     nlohmann::json json_data = nlohmann::json::parse(json_file);

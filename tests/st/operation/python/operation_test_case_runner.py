@@ -11,7 +11,6 @@
 """ """
 import argparse
 import os
-import shutil
 import subprocess
 from convert_test_case_data_to_json import convert_data_to_json
 from analyze_test_case_log import TestCaseLogAnalyzer
@@ -20,7 +19,7 @@ from analyze_test_case_log import TestCaseLogAnalyzer
 class OperationTestCaseRunner:
     def __init__(self, config):
         self.work_path = os.getcwd()
-        self.input_file = config.input_file
+        self.input_file = os.path.abspath(config.input_file)
         self.op = config.op
         self.index = [args.start_index, args.end_index]
         self.report_file = os.path.abspath(config.report)
@@ -29,18 +28,14 @@ class OperationTestCaseRunner:
         self.clean = config.clean
         self.save_data = config.save_data
         self.log_path = os.path.dirname(self.report_file) + "/test_case_log"
-        self.test_cache_path = f"{self.work_path}/tests/st/operation/.cache/"
         self.plog_cache_path = f"{self.work_path}/plog"
 
     def clear_cache_files(self):
         if os.path.exists(self.log_path):
-            shutil.rmtree(self.log_path)
+            os.system(f"rm -rf {self.log_path}")
         os.mkdir(self.log_path)
-        if os.path.exists(self.test_cache_path):
-            shutil.rmtree(self.test_cache_path)
-        os.mkdir(self.test_cache_path)
         if os.path.exists(self.plog_cache_path):
-            shutil.rmtree(self.plog_cache_path)
+            os.system(f"rm -rf {self.plog_cache_path}")
         os.mkdir(self.plog_cache_path)
         if os.path.exists(self.report_file):
             os.remove(self.report_file)
@@ -81,7 +76,6 @@ class OperationTestCaseRunner:
         case_index = test_case_info["case_index"]
         case_name = test_case_info["case_name"]
         case_op = test_case_info["operation"]
-        json_file = test_case_info["json_file"]
         # test report(excel file)
         log_file = f"{self.log_path}/{case_name}.log"
         log_path = f"{self.log_path}/{case_op}/{case_index}"
@@ -92,20 +86,15 @@ class OperationTestCaseRunner:
         )
         is_pass = analyzer.analyze()
         if not is_pass or self.save_data:
-            shutil.copy(json_file, log_path)
-            shutil.copytree(self.plog_cache_path, log_path, dirs_exist_ok=True)
-        shutil.move(log_file, log_path)
-        shutil.rmtree(self.plog_cache_path)
+            os.system(f"cp -rf {self.plog_cache_path} {log_path}")
+        os.system(f"mv {log_file} {log_path}")
+        os.system(f"rm -rf {self.plog_cache_path}")
 
     def run(self):
         os.environ["ASCEND_PROCESS_LOG_PATH"] = self.plog_cache_path
-        json_path = (
-            os.path.dirname(self.input_file)
-            if self.json_only
-            else self.test_cache_path + "/test_cases"
-        )
+        json_path = f"{self.work_path}/tests/st/operation/test_case/"
         test_case_info_list = convert_data_to_json(
-            self.input_file, self.op, self.index, json_path, self.json_only
+            self.input_file, self.op, self.index, json_path
         )
         if self.json_only:
             return
@@ -122,9 +111,8 @@ class OperationTestCaseRunner:
             if os.path.exists(golden_path + "/golden_desc.json"):
                 os.remove(golden_path + "/golden_desc.json")
             if not self.save_data:
-                shutil.rmtree(golden_path)
+                os.system(f"rm -rf {golden_path}")
 
-        shutil.rmtree(json_path)
         del os.environ["ASCEND_PROCESS_LOG_PATH"]
 
 

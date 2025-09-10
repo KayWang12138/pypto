@@ -15,7 +15,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 },
                 {
                     "name": "input1",
@@ -27,7 +28,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 }
             ],
             "output_tensors": [
@@ -37,7 +39,8 @@
                         1,
                         1
                     ],
-                    "dtype": "fp32"
+                    "dtype": "fp32",
+                    "format": "ND"
                 }
             ],
             "view_shape": [
@@ -67,7 +70,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 },
                 {
                     "name": "input1",
@@ -79,7 +83,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 }
             ],
             "output_tensors": [
@@ -89,7 +94,8 @@
                         8,
                         128
                     ],
-                    "dtype": "fp32"
+                    "dtype": "fp32",
+                    "format": "ND"
                 }
             ],
             "view_shape": [
@@ -119,7 +125,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 },
                 {
                     "name": "input1",
@@ -131,7 +138,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 }
             ],
             "output_tensors": [
@@ -141,7 +149,8 @@
                         31,
                         1
                     ],
-                    "dtype": "fp32"
+                    "dtype": "fp32",
+                    "format": "ND"
                 }
             ],
             "view_shape": [
@@ -171,7 +180,8 @@
                     "data_range": {
                         "min": -100,
                         "max": 100
-                    }
+                    },
+                    "format": "ND"
                 },
                 {
                     "name": "input1",
@@ -183,7 +193,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 }
             ],
             "output_tensors": [
@@ -193,7 +204,8 @@
                         32,
                         32
                     ],
-                    "dtype": "fp32"
+                    "dtype": "fp32",
+                    "format": "ND"
                 }
             ],
             "view_shape": [
@@ -223,7 +235,8 @@
                     "data_range": {
                         "min": -100,
                         "max": 100
-                    }
+                    },
+                    "format": "ND"
                 },
                 {
                     "name": "input1",
@@ -235,7 +248,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 }
             ],
             "output_tensors": [
@@ -245,7 +259,8 @@
                         32,
                         32
                     ],
-                    "dtype": "fp32"
+                    "dtype": "fp32",
+                    "format": "ND"
                 }
             ],
             "view_shape": [
@@ -275,7 +290,8 @@
                     "data_range": {
                         "min": "inf",
                         "max": "inf"
-                    }
+                    },
+                    "format": "ND"
                 },
                 {
                     "name": "input1",
@@ -287,7 +303,8 @@
                     "data_range": {
                         "min": "-inf",
                         "max": "-inf"
-                    }
+                    },
+                    "format": "ND"
                 }
             ],
             "output_tensors": [
@@ -297,7 +314,8 @@
                         32,
                         32
                     ],
-                    "dtype": "fp32"
+                    "dtype": "fp32",
+                    "format": "ND"
                 }
             ],
             "view_shape": [
@@ -327,7 +345,8 @@
                     "data_range": {
                         "min": "nan",
                         "max": "nan"
-                    }
+                    },
+                    "format": "ND"
                 },
                 {
                     "name": "input1",
@@ -339,7 +358,8 @@
                     "data_range": {
                         "min": "nan",
                         "max": "nan"
-                    }
+                    },
+                    "format": "ND"
                 }
             ],
             "output_tensors": [
@@ -349,7 +369,8 @@
                         32,
                         32
                     ],
-                    "dtype": "fp32"
+                    "dtype": "fp32",
+                    "format": "ND"
                 }
             ],
             "view_shape": [
@@ -379,7 +400,8 @@
                     "data_range": {
                         "min": "max",
                         "max": "max"
-                    }
+                    },
+                    "format": "ND"
                 },
                 {
                     "name": "input1",
@@ -391,7 +413,8 @@
                     "data_range": {
                         "min": "min",
                         "max": "min"
-                    }
+                    },
+                    "format": "ND"
                 }
             ],
             "output_tensors": [
@@ -401,7 +424,8 @@
                         32,
                         32
                     ],
-                    "dtype": "fp32"
+                    "dtype": "fp32",
+                    "format": "ND"
                 }
             ],
             "view_shape": [
@@ -431,7 +455,8 @@
                     "data_range": {
                         "min": "min",
                         "max": "min"
-                    }
+                    },
+                    "format": "ND"
                 },
                 {
                     "name": "input1",
@@ -443,7 +468,8 @@
                     "data_range": {
                         "min": "max",
                         "max": "max"
-                    }
+                    },
+                    "format": "ND"
                 }
             ],
             "output_tensors": [
@@ -453,7 +479,8 @@
                         32,
                         32
                     ],
-                    "dtype": "fp32"
+                    "dtype": "fp32",
+                    "format": "ND"
                 }
             ],
             "view_shape": [
@@ -483,7 +510,8 @@
                     "data_range": {
                         "min": -100,
                         "max": 100
-                    }
+                    },
+                    "format": "ND"
                 },
                 {
                     "name": "input1",
@@ -495,7 +523,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 }
             ],
             "output_tensors": [
@@ -505,7 +534,8 @@
                         32,
                         32
                     ],
-                    "dtype": "fp32"
+                    "dtype": "fp32",
+                    "format": "ND"
                 }
             ],
             "view_shape": [
@@ -535,7 +565,8 @@
                     "data_range": {
                         "min": -100,
                         "max": 100
-                    }
+                    },
+                    "format": "ND"
                 },
                 {
                     "name": "input1",
@@ -547,7 +578,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 }
             ],
             "output_tensors": [
@@ -557,7 +589,8 @@
                         32,
                         32
                     ],
-                    "dtype": "fp32"
+                    "dtype": "fp32",
+                    "format": "ND"
                 }
             ],
             "view_shape": [
@@ -587,7 +620,8 @@
                     "data_range": {
                         "min": "nan",
                         "max": "nan"
-                    }
+                    },
+                    "format": "ND"
                 },
                 {
                     "name": "input1",
@@ -599,7 +633,8 @@
                     "data_range": {
                         "min": "nan",
                         "max": "nan"
-                    }
+                    },
+                    "format": "ND"
                 }
             ],
             "output_tensors": [
@@ -609,7 +644,8 @@
                         32,
                         1536
                     ],
-                    "dtype": "fp32"
+                    "dtype": "fp32",
+                    "format": "ND"
                 }
             ],
             "view_shape": [
@@ -639,7 +675,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 },
                 {
                     "name": "input1",
@@ -651,7 +688,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 }
             ],
             "output_tensors": [
@@ -661,7 +699,8 @@
                         71,
                         576
                     ],
-                    "dtype": "fp32"
+                    "dtype": "fp32",
+                    "format": "ND"
                 }
             ],
             "view_shape": [
@@ -691,7 +730,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 },
                 {
                     "name": "input1",
@@ -703,7 +743,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 }
             ],
             "output_tensors": [
@@ -713,7 +754,8 @@
                         107,
                         145
                     ],
-                    "dtype": "fp32"
+                    "dtype": "fp32",
+                    "format": "ND"
                 }
             ],
             "view_shape": [
@@ -743,7 +785,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 },
                 {
                     "name": "input1",
@@ -755,7 +798,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 }
             ],
             "output_tensors": [
@@ -765,7 +809,8 @@
                         128,
                         128
                     ],
-                    "dtype": "fp32"
+                    "dtype": "fp32",
+                    "format": "ND"
                 }
             ],
             "view_shape": [
@@ -795,7 +840,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 },
                 {
                     "name": "input1",
@@ -807,7 +853,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 }
             ],
             "output_tensors": [
@@ -817,7 +864,8 @@
                         192,
                         512
                     ],
-                    "dtype": "fp32"
+                    "dtype": "fp32",
+                    "format": "ND"
                 }
             ],
             "view_shape": [
@@ -849,7 +897,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 },
                 {
                     "name": "input1",
@@ -863,7 +912,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 }
             ],
             "output_tensors": [
@@ -875,7 +925,8 @@
                         16,
                         16
                     ],
-                    "dtype": "fp32"
+                    "dtype": "fp32",
+                    "format": "ND"
                 }
             ],
             "view_shape": [
@@ -911,7 +962,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 },
                 {
                     "name": "input1",
@@ -925,7 +977,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 }
             ],
             "output_tensors": [
@@ -937,7 +990,8 @@
                         2,
                         65
                     ],
-                    "dtype": "fp32"
+                    "dtype": "fp32",
+                    "format": "ND"
                 }
             ],
             "view_shape": [
@@ -973,7 +1027,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 },
                 {
                     "name": "input1",
@@ -987,7 +1042,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 }
             ],
             "output_tensors": [
@@ -999,7 +1055,8 @@
                         16,
                         16
                     ],
-                    "dtype": "fp32"
+                    "dtype": "fp32",
+                    "format": "ND"
                 }
             ],
             "view_shape": [
@@ -1035,7 +1092,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 },
                 {
                     "name": "input1",
@@ -1049,7 +1107,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 }
             ],
             "output_tensors": [
@@ -1061,7 +1120,8 @@
                         10,
                         2
                     ],
-                    "dtype": "fp32"
+                    "dtype": "fp32",
+                    "format": "ND"
                 }
             ],
             "view_shape": [
@@ -1097,7 +1157,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 },
                 {
                     "name": "input1",
@@ -1111,7 +1172,8 @@
                     "data_range": {
                         "min": -10,
                         "max": 10
-                    }
+                    },
+                    "format": "ND"
                 }
             ],
             "output_tensors": [
@@ -1123,7 +1185,8 @@
                         64,
                         192
                     ],
-                    "dtype": "fp32"
+                    "dtype": "fp32",
+                    "format": "ND"
                 }
             ],
             "view_shape": [
@@ -1136,6 +1199,241 @@
                 8,
                 8,
                 8,
+                8
+            ],
+            "params": {
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 21,
+            "case_name": "Mul_test_22",
+            "operation": "Mul",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        16,
+                        1536
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    },
+                    "format": "ND"
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        16,
+                        1536
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        16,
+                        1536
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                3,
+                437
+            ],
+            "tile_shape": [
+                7,
+                288
+            ],
+            "params": {
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 22,
+            "case_name": "Mul_test_23",
+            "operation": "Mul",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        16,
+                        1536
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    },
+                    "format": "ND"
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        1,
+                        1536
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        16,
+                        1536
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                1,
+                625
+            ],
+            "tile_shape": [
+                38,
+                192
+            ],
+            "params": {
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 23,
+            "case_name": "Mul_test_24",
+            "operation": "Mul",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        512,
+                        128,
+                        1
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    },
+                    "format": "ND"
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        512,
+                        128,
+                        512
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        512,
+                        128,
+                        512
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                256,
+                19,
+                126
+            ],
+            "tile_shape": [
+                22,
+                79,
+                8
+            ],
+            "params": {
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 24,
+            "case_name": "Mul_test_25",
+            "operation": "Mul",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        48,
+                        1,
+                        128,
+                        64
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    },
+                    "format": "ND"
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        48,
+                        1,
+                        1,
+                        64
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        48,
+                        1,
+                        128,
+                        64
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                10,
+                2,
+                57,
+                9
+            ],
+            "tile_shape": [
+                70,
+                1,
+                20,
                 8
             ],
             "params": {

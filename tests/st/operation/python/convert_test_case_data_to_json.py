@@ -215,7 +215,9 @@ class TestDataReader:
         if isinstance(view_shape[0], (list, tuple)) and len(view_shape[0]) > 1:
             view_shape = view_shape[0]
         tile_shape = self.str_to_list(row_data.pop("tile_shape"))
-        params = row_data.copy()
+        params = {
+            k: "" if pd.isna(v) or pd.isnull(v) else v for k, v in row_data.items()
+        }
         # case_index, case_name, operation not need
         params.pop("case_index")
         params.pop("case_name")
@@ -398,7 +400,7 @@ def clean_data_frame(
     return data_frame
 
 
-def dump_data_frame_to_json(data_frames: list, json_path: str, json_only: bool):
+def dump_data_frame_to_json(data_frames: list, json_path: str):
     data_frame = pd.concat(
         data_frames,
         ignore_index=True,
@@ -411,30 +413,27 @@ def dump_data_frame_to_json(data_frames: list, json_path: str, json_only: bool):
     test_case_info_list = []
     for index, row_data in data_frame.iterrows():
         reader = TestDataReader(row_data["case_index"], row_data, json_path)
-        case_info = reader.dump_to_json(not json_only)
+        case_info = reader.dump_to_json(False)
         test_case_info_list.append(
             {
                 "index": index,
                 "case_index": case_info["test_case"]["case_index"],
                 "case_name": case_info["test_case"]["case_name"],
                 "operation": case_info["test_case"]["operation"],
-                "json_file": None if json_only else case_info["json_file"],
             }
         )
-        if json_only:
-            test_cases.append(case_info["test_case"])
+        test_cases.append(case_info["test_case"])
     test_cases.sort(key=lambda x: (x["operation"], x["case_index"]))
     test_case_info_list.sort(key=lambda x: (x["operation"], x["case_index"]))
-    if json_only:
-        json_file = f"{json_path}/{test_cases[0]['operation']}_st_test_cases.json"
-        row_data = {"test_cases": test_cases}
-        with open(json_file, "w", encoding="utf-8") as outfile:
-            json.dump(row_data, outfile, ensure_ascii=False, indent=4)
+    json_file = f"{json_path}/{test_cases[0]['operation']}_st_test_cases.json"
+    row_data = {"test_cases": test_cases}
+    with open(json_file, "w", encoding="utf-8") as outfile:
+        json.dump(row_data, outfile, ensure_ascii=False, indent=4)
     return test_case_info_list
 
 
 def convert_data_to_json(
-    file_name: str, op: str, index_range: list, json_path: str, json_only: bool = False
+    file_name: str, op: str, index_range: list, json_path: str
 ) -> list:
     test_cases = load_test_cases(file_name, op)
     if test_cases is None or len(test_cases) == 0:
@@ -444,4 +443,4 @@ def convert_data_to_json(
         clean_data_frame(data_frame, op, index_range[0], index_range[1])
         for data_frame in test_cases
     ]
-    return dump_data_frame_to_json(test_cases, json_path, json_only)
+    return dump_data_frame_to_json(test_cases, json_path)

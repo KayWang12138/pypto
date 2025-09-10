@@ -110,7 +110,7 @@ def gen_uniform_data(data_shape, min_value, max_value, dtype):
     )
 
 
-def load_test_cases_from_json(op: str, json_file: str) -> list:
+def load_test_cases_from_json(json_file: str) -> list:
     with open(json_file, "r") as data_file:
         json_data = json.load(data_file)
     if json_data is None:
@@ -119,50 +119,8 @@ def load_test_cases_from_json(op: str, json_file: str) -> list:
         test_cases = json_data["test_cases"]
     else:
         test_cases = [json_data]
-    return [
-        test_case
-        for test_case in test_cases
-        if test_case["operation"].lower() == op.lower()
-    ]
-
-
-def load_test_cases(op: str, json_path: str) -> list:
-    if not os.path.exists(json_path):
-        os.makedirs(json_path, exist_ok=True)
-    logging.info(f"Try to load test cases from {json_path}.")
-    json_files = [
-        os.path.join(json_path, file)
-        for file in os.listdir(json_path)
-        if os.path.isfile(os.path.join(json_path, file))
-        and os.path.splitext(file)[1] == ".json"
-    ]
-    if len(json_files) == 0:
-        logging.info(f"Not find test case from {json_path}.")
-        json_path = os.path.join(json_path, "../../test_case")
-        logging.info(f"Try to load test cases from {json_path}.")
-        json_files = [
-            os.path.join(json_path, file)
-            for file in os.listdir(json_path)
-            if os.path.isfile(os.path.join(json_path, file))
-            and os.path.splitext(file)[1] == ".json"
-        ]
-    test_cases = []
-    for json_file in json_files:
-        logging.info(f"Try to load test cases from file {json_file}.")
-        test_cases = test_cases + load_test_cases_from_json(op, json_file)
     test_cases.sort(key=lambda x: x["case_index"])
     return test_cases
-
-
-def write_test_cases_json(json_data, file_path: str):
-    if not os.path.exists(file_path):
-        os.mkdir(file_path)
-    json_file = f"{file_path}/test_cases_data.json"
-    try:
-        with open(json_file, "w", encoding="utf-8") as outfile:
-            json.dump(json_data, outfile, ensure_ascii=False, indent=4)
-    except Exception as e:
-        logging.error("Exception occur when writing %s, exception is %s.", json_file, e)
 
 
 def gen_op_golden(
@@ -214,8 +172,8 @@ def gen_op_golden(
             )
         return True
 
-    cache_path = os.getcwd() + "/../../st/operation/.cache"
-    test_configs = load_test_cases(op, cache_path + "/test_cases")
+    case_file = os.getcwd() + "/../../st/operation/test_case/" + op + "_st_test_cases.json"
+    test_configs = load_test_cases_from_json(case_file)
     if len(test_configs) == 0:
         raise ValueError("Not find test cases, please check.")
 
@@ -228,8 +186,6 @@ def gen_op_golden(
             generate_golden_files(golden_func, output_path, test_config)
     else:
         generate_golden_files(golden_func, output_path, test_configs[case_index])
-    test_cases = {"test_cases": test_configs}
-    write_test_cases_json(test_cases, cache_path + "/running_test_cases")
     return True
 
 
@@ -246,7 +202,6 @@ def gen_scatter_update_op_golden(case_name: str, output: Path, case_index: int =
         dst = inputs[2]
         axis = src.ndim
 
-        logging.debug("axis", axis)
         # 自测，src = np.random.randint(2, 3, src.shape).astype(np.float32)
         # 自测，dst = np.random.randint(1, 2, dst.shape).astype(np.float32)
         if axis == 4:
@@ -476,7 +431,7 @@ def gen_exp_op_golden(case_name: str, output: Path, case_index: int = None) -> b
 )
 def gen_neg_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def golden_func(inputs):
+    def golden_func(inputs, _config: dict):
         return [np.negative(inputs[0])]
 
     logging.debug("Case(%s), Golden creating...", case_name)
@@ -562,10 +517,9 @@ def gen_adds_op_golden(case_name: str, output: Path, case_index: int = None) -> 
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
     def golden_func(inputs: list, config: dict):
         params = config.get("params")
-        default_value = params.get("input_value_type", "fp32")
-        params["scalar_type"] = params.get("scalar_type", default_value)
-        scalar = get_dtype_by_name(params["scalar_type"])(params["scalar"])
-        return [inputs[0] + scalar]
+        params["scalar_type"] = params.get("scalar_type", "fp32")
+        params["scalar"] = get_dtype_by_name(params["scalar_type"])(params["scalar"])
+        return [inputs[0] + params["scalar"]]
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Adds", golden_func, output, case_index)
@@ -580,10 +534,9 @@ def gen_muls_op_golden(case_name: str, output: Path, case_index: int = None) -> 
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
     def golden_func(inputs: list, config: dict):
         params = config.get("params")
-        default_value = params.get("input_value_type", "fp32")
-        params["scalar_type"] = params.get("scalar_type", default_value)
-        scalar = get_dtype_by_name(params["scalar_type"])(params["scalar"])
-        return [inputs[0] * scalar]
+        params["scalar_type"] = params.get("scalar_type", "fp32")
+        params["scalar"] = get_dtype_by_name(params["scalar_type"])(params["scalar"])
+        return [inputs[0] * params["scalar"]]
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Muls", golden_func, output, case_index)
@@ -598,10 +551,9 @@ def gen_divs_op_golden(case_name: str, output: Path, case_index: int = None) -> 
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
     def golden_func(inputs: list, config: dict):
         params = config.get("params")
-        default_value = params.get("input_value_type", "fp32")
-        params["scalar_type"] = params.get("scalar_type", default_value)
-        scalar = get_dtype_by_name(params["scalar_type"])(params["scalar"])
-        return [inputs[0] / scalar]
+        params["scalar_type"] = params.get("scalar_type", "fp32")
+        params["scalar"] = get_dtype_by_name(params["scalar_type"])(params["scalar"])
+        return [inputs[0] / params["scalar"]]
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Divs", golden_func, output, case_index)
@@ -618,10 +570,9 @@ def gen_vector_dup_op_golden(
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
     def golden_func(inputs: list, config: dict):
         params = config.get("params")
-        default_value = params.get("input_value_type", "fp32")
-        params["scalar_type"] = params.get("scalar_type", default_value)
-        scalar = get_dtype_by_name(params["scalar_type"])(params["scalar"])
-        return [np.full(inputs[0].shape, scalar, inputs[0].dtype)]
+        params["scalar_type"] = params.get("scalar_type", "fp32")
+        params["scalar"] = get_dtype_by_name(params["scalar_type"])(params["scalar"])
+        return [np.full(inputs[0].shape, params["scalar"], inputs[0].dtype)]
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("VectorDuplicate", golden_func, output, case_index)
@@ -636,10 +587,9 @@ def gen_subs_op_golden(case_name: str, output: Path, case_index: int = None) -> 
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
     def golden_func(inputs: list, config: dict):
         params = config.get("params")
-        default_value = params.get("input_value_type", "fp32")
-        params["scalar_type"] = params.get("scalar_type", default_value)
-        scalar = get_dtype_by_name(params["scalar_type"])(params["scalar"])
-        return [inputs[0] - scalar]
+        params["scalar_type"] = params.get("scalar_type", "fp32")
+        params["scalar"] = get_dtype_by_name(params["scalar_type"])(params["scalar"])
+        return [inputs[0] - params["scalar"]]
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Subs", golden_func, output, case_index)
@@ -756,7 +706,8 @@ def gen_gatherelement_op_golden(case_name: str, output: Path, case_index: int = 
 )
 def gen_scatterelement_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def golden_func(inputs, params: dict):
+    def golden_func(inputs, config: dict):
+        params = config.get("params")
         axis = params["axis"]
         src = torch.from_numpy(inputs[0])
         indices = torch.from_numpy(inputs[1])
