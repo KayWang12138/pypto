@@ -83,7 +83,6 @@ Status GraphPartitionChecker::PostOperationCheck(Function &function) {
                              op.GetOpMagic(), op.GetOpcodeStr().c_str());
                 return FAILED;
             }
-            continue;
         }
         bool isEndNodeInSubgraph = true;
         for (auto oTensor : op.GetOOperands()) {
@@ -104,7 +103,6 @@ Status GraphPartitionChecker::PostOperationCheck(Function &function) {
                              op.GetOpMagic(), op.GetOpcodeStr().c_str());
                 return FAILED;
             }
-            continue;
         }
     }
     return SUCCESS;
