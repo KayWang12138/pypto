@@ -31,11 +31,11 @@ void SrcDstBufferMergeImpl::InitTensorMaxSize(const LogicalTensorPtr &output) {
 
 Status SrcDstBufferMergeImpl::CheckOpValid(const Operation *op, int opId) {
     if (op == nullptr) {
-        ALOG_ERROR_F("op:%d is null", opId);
+        ALOG_ERROR_F("Op:%d is null", opId);
         return FAILED;
     }
     if (subGraphID_ != op->GetSubgraphID()) {
-        ALOG_ERROR_F("subgraph id:%d is not same with op:%s magic:%d id:%d subgraph id:%d",
+        ALOG_ERROR_F("Subgraph id:%d is not same with op:%s magic:%d id:%d subgraph id:%d",
             subGraphID_, op->GetOpcodeStr().c_str(), op->GetOpMagic(), opId, op->GetSubgraphID());
         return FAILED;
     }
@@ -46,13 +46,13 @@ void SrcDstBufferMergeImpl::InitOpOutput(const Operation *op) {
     int outId = 0;
     for (auto &output : op->GetOOperands()) {
         if (output == nullptr) {
-            ALOG_DEBUG_F("op:%s, magic:%d, output:%d is null",
+            ALOG_DEBUG_F("Op:%s, magic:%d, output:%d is null",
                 op->GetOpcodeStr().c_str(), op->GetOpMagic(), outId);
             ++outId;
             continue;
         }
         if (output->memorymap.find(subGraphID_) == output->memorymap.end()) {
-            ALOG_DEBUG_F("op:%s, magic:%d, output id:%d can not find subgrash id:%d",
+            ALOG_DEBUG_F("Op:%s, magic:%d, output id:%d can not find subgraph id:%d",
                 op->GetOpcodeStr().c_str(), op->GetOpMagic(), outId, subGraphID_);
             ++outId;
             continue;
@@ -67,11 +67,11 @@ void SrcDstBufferMergeImpl::InitOpOutput(const Operation *op) {
 
 Status SrcDstBufferMergeImpl::Init(const std::vector<Operation *> &opList) {
     if (opList.empty()) {
-        ALOG_ERROR_F("opList empty");
+        ALOG_ERROR_F("OpList empty");
         return FAILED;
     }
     if (opList.front() == nullptr) {
-        ALOG_ERROR_F("first op is null");
+        ALOG_ERROR_F("First op is null");
         return FAILED;
     }
     subGraphID_ = opList.front()->GetSubgraphID();
@@ -120,7 +120,7 @@ std::pair<bool, Status> SrcDstBufferMergeImpl::CheckHasInplaced(const Operation 
         inIdx = oriOps->GetIntAttribute(OpAttributeKey::inplaceIdx);
         if (oriOps->GetIOperands().size() <= static_cast<size_t>(inIdx) ||
             oriOps->GetOOperands().size() <= static_cast<size_t>(0)) {
-            ALOG_ERROR_F("operands size error, in:%d, out:%d, inIdx:%d",
+            ALOG_ERROR_F("Operands size error, in:%d, out:%d, inIdx:%d",
                 oriOps->GetIOperands().size(), oriOps->GetOOperands().size(), inIdx);
             return std::make_pair(false, FAILED);
         }
@@ -153,7 +153,7 @@ bool SrcDstBufferMergeImpl::FindReplaced(const Operation *oriOps, const Operatio
             }
             ALOG_DEBUG_F("Op [%d] %s reuse src [%d] buffer",
                 oriOps->GetOpMagic(), oriOps->GetOpcodeStr().c_str(), inIdx);
-            ALOG_DEBUG_F("set out tensor %d reuse src tensor %d", out->GetMagic(), in->GetMagic());
+            ALOG_DEBUG_F("Set out tensor %d reuse src tensor %d", out->GetMagic(), in->GetMagic());
             out->memorymap[subGraphID_].memId = in->memorymap[subGraphID_].memId;
             if (tensorConsumers_[outTensorMagic].size() > tensorConsumers_[inTensorMagic].size()) {
                 tensorConsumers_[inTensorMagic] = tensorConsumers_[outTensorMagic];
@@ -182,11 +182,11 @@ void SrcDstBufferMergeImpl::NotFindReplacedProcess(const Operation *ops,
 
 Status SrcDstBufferMergeImpl::Run(Function &func) {
     if (func.rootFunc_ == nullptr) {
-        ALOG_ERROR_F("rootFunc is null");
+        ALOG_ERROR_F("RootFunc is null");
         return FAILED;
     }
     for (auto &subProgram : func.rootFunc_->programs_) {
-        ALOG_INFO_F("merge src dst for program id : [%lu]", subProgram.first);
+        ALOG_INFO_F("Merge src dst for program id : [%lu]", subProgram.first);
         auto opList = subProgram.second->Operations().DuplicatedOpList();
         if (Init(opList) != SUCCESS) {
             return FAILED;
@@ -222,7 +222,7 @@ bool SrcDstBufferMergeImpl::CheckAssembleReuse(const LogicalTensorPtr &outOperan
         }
         for (auto assembleOutTensor : consumer->GetOOperands()) {
             if (assembleOutTensor->memorymap[subGraphID_].memId == outOperand->memorymap[subGraphID_].memId) {
-                ALOG_DEBUG_F("assemble cannot be reused.");
+                ALOG_DEBUG_F("Assemble cannot be reused.");
                 return false;
             }
         }
@@ -241,19 +241,19 @@ bool SrcDstBufferMergeImpl::CanSrcDstReuse(const Operation *ops,
         }
     }
     auto outOperand = ops->GetOOperands()[0];
-    ALOG_DEBUG_F("try reuse src %d dst %d", ioperand->GetMagic(), outOperand->GetMagic());
+    ALOG_DEBUG_F("Try reuse src %d dst %d", ioperand->GetMagic(), outOperand->GetMagic());
     if (outOperand->GetMemoryTypeOriginal() != ioperand->GetMemoryTypeOriginal()) {
-        ALOG_DEBUG_F("memtype is not same");
+        ALOG_DEBUG_F("Memtype is not same");
         return false;
     }
     // tile shape 必须一样
     if (tensorMaxSize_[outOperand->memorymap[subGraphID_].memId] !=
         tensorMaxSize_[ioperand->memorymap[subGraphID_].memId]) {
-        ALOG_DEBUG_F("datasize is not same");
+        ALOG_DEBUG_F("Datasize is not same");
         return false;
     }
     if (strict && outOperand->Datatype() != ioperand->Datatype()) {
-        ALOG_DEBUG_F("datatype is not same");
+        ALOG_DEBUG_F("Datatype is not same");
         return false;
     }
     if (!CheckAssembleReuse(outOperand)) {
@@ -263,7 +263,7 @@ bool SrcDstBufferMergeImpl::CanSrcDstReuse(const Operation *ops,
     // 确保复用UB buffer后不会被覆写
     auto iter = tensorConsumers_.find(ioperand->memorymap[ops->GetSubgraphID()].memId);
     if (iter != tensorConsumers_.end() && iter->second.size() > 1) {
-        ALOG_DEBUG_F("has more 1 output");
+        ALOG_DEBUG_F("Has more 1 output");
         return false;
     }
     return true;
