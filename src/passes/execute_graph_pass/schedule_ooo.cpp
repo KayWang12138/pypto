@@ -25,7 +25,7 @@ namespace npu::tile_fwk {
 namespace {
 int getEntryPriority(const IssueEntryPtr& entry, const std::unordered_map<Opcode, int> &preNodePriority) {
     const int defaultVal = 10;
-    auto it = preNodePriority.find(entry->tileOp->GetOpcode());
+    auto it = preNodePriority.find(entry->tileOp.GetOpcode());
     if (it != preNodePriority.end()) {
         return it->second;
     }
@@ -53,16 +53,16 @@ constexpr int32_t DIM_FIVE = 5;
 constexpr int32_t LAST_TWO_DIM = 2;
 constexpr int32_t UB_BLOCK_SIZE = 32;
 
-IssueEntry::IssueEntry(Operation *op, uint64_t issueId)
-    : tileOp(op), execOrder(issueId), type(RescheduleUtils::GetOpPipeType(op)) {
-    if (tileOp->GetOpcodeStr().find("ALLOC") != std::string::npos) {
+IssueEntry::IssueEntry(Operation &op, uint64_t issueId)
+    : tileOp(op), id(issueId), execOrder(issueId), type(RescheduleUtils::GetOpPipeType(&op)) {
+    if (tileOp.GetOpcodeStr().find("ALLOC") != std::string::npos) {
         isAlloc = true;
     }
 }
 
 int IssueEntry::GetOOperandIdx(int curMemId) {
-    for (size_t i = 0; i < tileOp->GetOOperands().size(); i++) {
-        if (tileOp->GetOOperands()[i]->memorymap[tileOp->GetSubgraphID()].memId == curMemId) {
+    for (size_t i = 0; i < tileOp.GetOOperands().size(); i++) {
+        if (tileOp.GetOOperands()[i]->memorymap[tileOp.GetSubgraphID()].memId == curMemId) {
             return i;
         }
     }
@@ -77,10 +77,10 @@ void IssueEntry::Clear() {
 }
 
 void IssueEntry::UpdateTensorInput(std::shared_ptr<IssueEntry> &spillSrcIssue, LogicalTensorPtr tensor) const {
-    for (size_t index = 0; index < tileOp->GetIOperands().size(); index++) {
-        for (auto &inOp : tileOp->GetIOperands()[index]->GetProducers()) {
-            if (inOp == spillSrcIssue->tileOp) {
-                tileOp->UpdateInputOperand(index, tensor);
+    for (size_t index = 0; index < tileOp.GetIOperands().size(); index++) {
+        for (auto &inOp : tileOp.GetIOperands()[index]->GetProducers()) {
+            if (inOp == &(spillSrcIssue->tileOp)) {
+                tileOp.UpdateInputOperand(index, tensor);
             }
         }
     }
@@ -122,7 +122,7 @@ Status OoOScheduler::UpdateOldestBuffer(IssueEntryPtr allocIssue, MemoryType buf
     uint64_t maxIdx = 0;
     for (auto &occupyIssue : tensorOccupyMap[bufferType]) {
         if (occupyIssue.second->isAlloc || filterLtags.count(occupyIssue.second) != 0 ||
-            USE_LESS_OPS.find(occupyIssue.second->tileOp->GetOpcode()) != USE_LESS_OPS.end()) {
+            USE_LESS_OPS.find(occupyIssue.second->tileOp.GetOpcode()) != USE_LESS_OPS.end()) {
             continue;
         }
         auto occupyTensor = localBufferMap[occupyIssue.first];
@@ -152,13 +152,13 @@ Status OoOScheduler::GetOldestBuffer(IssueEntryPtr allocIssue, MemoryType buffer
         ALOG_ERROR_F("======== OoO Spill failed info ===========");
         ALOG_ERROR_F("Spill failed memoryType: %s.", MemoryTypeToString(bufferType).c_str());
         if (localBufferMap.find(allocIssue->reqMemIds[0]) != localBufferMap.end()) {
-            ALOG_ERROR_F("%s[%d] alloc buffer size: %lu.", allocIssue->tileOp->GetOpcodeStr().c_str(), 
-                allocIssue->tileOp->GetOpMagic(), localBufferMap[allocIssue->reqMemIds[0]]->size);
+            ALOG_ERROR_F("%s[%d] alloc buffer size: %lu.", allocIssue->tileOp.GetOpcodeStr().c_str(), 
+                allocIssue->tileOp.GetOpMagic(), localBufferMap[allocIssue->reqMemIds[0]]->size);
         }
         if (tensorOccupyMap.find(bufferType) != tensorOccupyMap.end()) {
             for (auto occupyIssue : tensorOccupyMap[bufferType]) {
                 ALOG_ERROR_F("%s[%d], range[%lu, %lu], Tensor[%d] size: %lu", 
-                    occupyIssue.second->tileOp->GetOpcodeStr().c_str(), occupyIssue.second->tileOp->GetOpMagic(),
+                    occupyIssue.second->tileOp.GetOpcodeStr().c_str(), occupyIssue.second->tileOp.GetOpMagic(),
                     localBufferMap[occupyIssue.first]->start, localBufferMap[occupyIssue.first]->end, occupyIssue.first,
                     localBufferMap[occupyIssue.first]->size);
             }
@@ -166,7 +166,7 @@ Status OoOScheduler::GetOldestBuffer(IssueEntryPtr allocIssue, MemoryType buffer
         ALOG_ERROR_F("Could not find availalble buffer to spill!"); 
         return FAILED; 
     }
-    ALOG_DEBUG_F("  Spill op: %s %d.", spillIssue->tileOp->GetOpcodeStr().c_str(), spillIssue->tileOp->GetOpMagic());
+    ALOG_DEBUG_F("  Spill op: %s %d.", spillIssue->tileOp.GetOpcodeStr().c_str(), spillIssue->tileOp.GetOpMagic());
     return SUCCESS;
 }
 
@@ -205,9 +205,9 @@ void OoOScheduler::UpdateOpAttr(
             OpImmediate::Specified(offset), OpImmediate::Specified(spillTensor->GetShape()),
             OpImmediate::Specified(spillTensor->GetRawTensor()->GetDynRawShape())));
     } else if (op.GetOpcodeStr().find("ALLOC") == std::string::npos) {
-        if (spillIssue->tileOp->GetOpcode() == Opcode::OP_COPY_IN) {
-            op.SetOpAttribute(spillIssue->tileOp->GetOpAttribute());
-            op.inParamLocation_ = spillIssue->tileOp->inParamLocation_;
+        if (spillIssue->tileOp.GetOpcode() == Opcode::OP_COPY_IN) {
+            op.SetOpAttribute(spillIssue->tileOp.GetOpAttribute());
+            op.inParamLocation_ = spillIssue->tileOp.inParamLocation_;
         } else {
             op.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(offset),
                 spillTensor->GetMemoryTypeOriginal(), OpImmediate::Specified(spillTensor->GetShape()),
@@ -235,7 +235,7 @@ Status OoOScheduler::UpdateRemainOpBufId(int oldMemId, int newMemId) {
                 std::replace(issue->reqMemIds.begin(), issue->reqMemIds.end(), oldMemId, newMemId);
             }
         }
-        for (auto &outTensor : issue->tileOp->GetOOperands()) {
+        for (auto &outTensor : issue->tileOp.GetOOperands()) {
             if (outTensor->memorymap[subGraphID].memId == oldMemId) {
                 outTensor->memorymap[subGraphID].memId = newMemId;
             }
@@ -250,7 +250,7 @@ Status OoOScheduler::GetSpillTensor(IssueEntryPtr spillIssue, int spillMemId, Lo
         ALOG_ERROR_F("Tensor[%d] cannot find in op's oOperand", spillMemId);
         return FAILED;
     }
-    spillTensor = spillIssue->tileOp->GetOutputOperand(spillTensorIdx);
+    spillTensor = spillIssue->tileOp.GetOutputOperand(spillTensorIdx);
     if (spillTensor == nullptr) {
         ALOG_ERROR_F("Op cannot find oOperand[%d]", spillTensorIdx);
         return FAILED;
@@ -261,25 +261,26 @@ Status OoOScheduler::GetSpillTensor(IssueEntryPtr spillIssue, int spillMemId, Lo
 Status OoOScheduler::UpdateReloadIssueInfo(IssueEntryPtr reloadAlloc, IssueEntryPtr reloadCopyin,
     IssueEntryPtr spillIssue, int spillMemId, int bufNextUseTime) {
     reloadAlloc->reqMemIds = {maxTensorMagic};
-    reloadAlloc->successors.insert(reloadCopyin);
+    reloadAlloc->successors.insert(reloadCopyin->id);
     reloadCopyin->reqMemIds = {maxTensorMagic};
-    reloadCopyin->predecessors.insert(reloadAlloc);
+    reloadCopyin->predecessors.insert(reloadAlloc->id);
 
-    for (auto& succ : spillIssue->successors) {
+    for (auto& succId : spillIssue->successors) {
+        auto succ = issueEntryMap[succId];
         if (!succ->isRetired && (std::count(succ->reqMemIds.begin(), succ->reqMemIds.end(), spillMemId) > 0)) {
-            reloadCopyin->successors.insert(succ);
-            if (succ->predecessors.erase(spillIssue) == 0) {
-                ALOG_ERROR_F("Erase issueEntry %s, %d failed", spillIssue->tileOp->GetOpcodeStr().c_str(),
-                    spillIssue->tileOp->GetOpMagic());
+            reloadCopyin->successors.insert(succ->id);
+            if (succ->predecessors.erase(spillIssue->id) == 0) {
+                ALOG_ERROR_F("Erase issueEntry %s, %d failed", spillIssue->tileOp.GetOpcodeStr().c_str(),
+                    spillIssue->tileOp.GetOpMagic());
                 return FAILED;
             }
-            succ->predecessors.insert(reloadCopyin);
-            if (reloadCopyin->tileOp->GetOutputOperand(0) == nullptr) {
-                ALOG_ERROR_F("%s %d cannot find oOperand[0]", reloadCopyin->tileOp->GetOpcodeStr().c_str(),
-                    reloadCopyin->tileOp->GetOpMagic());
+            succ->predecessors.insert(reloadCopyin->id);
+            if (reloadCopyin->tileOp.GetOutputOperand(0) == nullptr) {
+                ALOG_ERROR_F("%s %d cannot find oOperand[0]", reloadCopyin->tileOp.GetOpcodeStr().c_str(),
+                    reloadCopyin->tileOp.GetOpMagic());
                 return FAILED;
             }
-            succ->UpdateTensorInput(spillIssue, reloadCopyin->tileOp->GetOutputOperand(0));
+            succ->UpdateTensorInput(spillIssue, reloadCopyin->tileOp.GetOutputOperand(0));
         }
     }
     if (UpdateRemainOpBufId(spillMemId, reloadAlloc->reqMemIds[0])) {
@@ -319,16 +320,17 @@ Status OoOScheduler::CreateSpillCopyout(Function &func, IssueEntryPtr spillIssue
     UpdateOpAttr(spillOutOp, DEFAULT_LATENCY, spillTensor, offset, spillIssue);
 
     // 创建spill搬出数据OP_COPY_OUT的issueEntry
-    spillCopyout = std::make_shared<IssueEntry>(&spillOutOp, issueEntries.size());
+    spillCopyout = std::make_shared<IssueEntry>(spillOutOp, issueId);
+    issueEntryMap[issueId++] = spillCopyout;
     if (spillCopyout == nullptr) {
         ALOG_ERROR_F("Create OP_COPY_OUT issueEntry failed!");
         return FAILED;
     }
     spillCopyout->reqMemIds = {spillMemId};
-    spillCopyout->predecessors.insert(spillIssue);
-    spillIssue->successors.insert(spillCopyout);
+    spillCopyout->predecessors.insert(spillIssue->id);
+    spillIssue->successors.insert(spillCopyout->id);
     spillCopyout->isRetired = true;
-    ALOG_DEBUG_F("Add SPILL_OUT: %s[%d].", spillCopyout->tileOp->GetOpcodeStr().c_str(), spillCopyout->tileOp->GetOpMagic());
+    ALOG_DEBUG_F("Add SPILL_OUT: %s[%d].", spillCopyout->tileOp.GetOpcodeStr().c_str(), spillCopyout->tileOp.GetOpMagic());
     return SUCCESS;
 }
 
@@ -355,16 +357,18 @@ Status OoOScheduler::CreateSpillReloadIssue(Function &func, LogicalTensorPtr spi
     UpdateOpAttr(spillCopyInOp, DEFAULT_LATENCY, localTensor, spillOutTensor->GetOffset(), spillIssue);
 
     // 初始化OP_COPY_IN/OP_ALLOC的issueEntry
-    IssueEntryPtr spillAllocInst = std::make_shared<IssueEntry>(&spillAllocOp, issueEntries.size());
-    IssueEntryPtr spillInInst = std::make_shared<IssueEntry>(&spillCopyInOp, issueEntries.size() + 1);
+    IssueEntryPtr spillAllocInst = std::make_shared<IssueEntry>(spillAllocOp, issueId);
+    issueEntryMap[issueId++] = spillAllocInst;
+    IssueEntryPtr spillInInst = std::make_shared<IssueEntry>(spillCopyInOp, issueId);
+    issueEntryMap[issueId++] = spillInInst;
     if (spillAllocInst == nullptr || spillInInst == nullptr) {
         ALOG_ERROR_F("Create OP_COPY_IN/OP_ALLOC issueEntry failed!");
         return FAILED;
     }
     reloadIssues.first = spillAllocInst;
     reloadIssues.second = spillInInst;
-    ALOG_DEBUG_F("Add SPILL_ALLOC: %s[%d].", spillAllocInst->tileOp->GetOpcodeStr().c_str(), spillAllocInst->tileOp->GetOpMagic());
-    ALOG_DEBUG_F("Add SPILL_IN: %s[%d].", spillInInst->tileOp->GetOpcodeStr().c_str(), spillInInst->tileOp->GetOpMagic());
+    ALOG_DEBUG_F("Add SPILL_ALLOC: %s[%d].", spillAllocInst->tileOp.GetOpcodeStr().c_str(), spillAllocInst->tileOp.GetOpMagic());
+    ALOG_DEBUG_F("Add SPILL_IN: %s[%d].", spillInInst->tileOp.GetOpcodeStr().c_str(), spillInInst->tileOp.GetOpMagic());
     return SUCCESS;
 }
 
@@ -415,7 +419,7 @@ Status OoOScheduler::GetddrTensor(Function &function, const SpillInfo &spillInfo
     IssueEntryPtr allocIssue = spillInfo.allocIssue;
     LogicalTensorPtr spillTensor = spillInfo.spillTensor;
     bool needCopyOut = false;
-    if (spillIssue->tileOp->GetOpcode() != Opcode::OP_COPY_IN) { // 若spill的tensor不来自OP_COPY_IN，则将tensor搬出，在需要的时候再搬入
+    if (spillIssue->tileOp.GetOpcode() != Opcode::OP_COPY_IN) { // 若spill的tensor不来自OP_COPY_IN，则将tensor搬出，在需要的时候再搬入
         needCopyOut = true;
         IssueEntryPtr spillCopyout = nullptr;
         if (CreateSpillCopyout(function, spillIssue, spillTensor, spillMemId, spillCopyout) != SUCCESS) {
@@ -423,11 +427,11 @@ Status OoOScheduler::GetddrTensor(Function &function, const SpillInfo &spillInfo
             return FAILED;
         }
         issueEntries.emplace_back(spillCopyout);
-        ddrTensor = spillCopyout->tileOp->GetOutputOperand(0);
-        newOperations.push_back(spillCopyout->tileOp);
-        ALOG_DEBUG_F("Insert: %s[%d]", spillCopyout->tileOp->GetOpcodeStr().c_str(), spillCopyout->tileOp->GetOpMagic());
+        ddrTensor = spillCopyout->tileOp.GetOutputOperand(0);
+        newOperations.push_back(&(spillCopyout->tileOp));
+        ALOG_DEBUG_F("Insert: %s[%d]", spillCopyout->tileOp.GetOpcodeStr().c_str(), spillCopyout->tileOp.GetOpMagic());
     } else { // 若spill的tensor来自OP_COPY_IN，则数据无需搬出到DDR
-        ddrTensor = spillIssue->tileOp->GetInputOperand(0);
+        ddrTensor = spillIssue->tileOp.GetInputOperand(0);
     }
     // Healthcheck record - spill info
     if (oooCheck.doHealthCheck) {
@@ -446,13 +450,13 @@ Status OoOScheduler::GenBufferSpill(
     }
     LogicalTensorPtr spillTensor = nullptr;
     if (GetSpillTensor(spillIssue, spillMemId, spillTensor) != SUCCESS) {
-        ALOG_ERROR_F("%d %s GetSpillTensor failed!", spillIssue->tileOp->GetOpMagic(), spillIssue->tileOp->GetOpcodeStr().c_str());
+        ALOG_ERROR_F("%d %s GetSpillTensor failed!", spillIssue->tileOp.GetOpMagic(), spillIssue->tileOp.GetOpcodeStr().c_str());
         return FAILED;
     }
     LogicalTensorPtr ddrTensor = nullptr;
     SpillInfo spillInfo = {spillMemId, bufferType, spillIssue, allocIssue, spillTensor};
     if (GetddrTensor(function, spillInfo, ddrTensor, newOperations) != SUCCESS) {
-        ALOG_ERROR_F("%s GetddrTensor failed!", spillIssue->tileOp->GetOpMagic());
+        ALOG_ERROR_F("%s GetddrTensor failed!", spillIssue->tileOp.GetOpMagic());
         return FAILED;
     }
     IssueEntryPtr reloadCopyin = nullptr;
@@ -480,24 +484,26 @@ Status OoOScheduler::GenBufferSpill(
         ALOG_ERROR_F("Erase tensor[%d] failed", spillMemId);
         return FAILED;
     }
-    allocIssueQueue[localBufferMap[spillMemId]->memType].InsertReloadAlloc(reloadAlloc, spillIssue);
+    allocIssueQueue[localBufferMap[spillMemId]->memType].InsertReloadAlloc(reloadAlloc, spillIssue, issueEntryMap);
     return SUCCESS;
 }
 
 void OoOScheduler::PrintDependenciesAndRelations() {
     for (const auto &issue : issueEntries) {
-        if (issue->tileOp->GetBoolAttribute(OpAttributeKey::dontTouch)) {
+        if (issue->tileOp.GetBoolAttribute(OpAttributeKey::dontTouch)) {
             continue;
         }
-        ALOG_DEBUG_F("%d %s, latency: %d.", issue->tileOp->GetOpMagic(), issue->tileOp->GetOpcodeStr().c_str(),
-            issue->tileOp->GetLatency());
-        for (const auto &pre : issue->predecessors) {
+        ALOG_DEBUG_F("%d %s, latency: %d.", issue->tileOp.GetOpMagic(), issue->tileOp.GetOpcodeStr().c_str(),
+            issue->tileOp.GetLatency());
+        for (const auto &preId : issue->predecessors) {
+            auto pre = issueEntryMap[preId];
             ALOG_DEBUG_F("    |--- Predecessors:");
-            ALOG_DEBUG_F("        |--- %s[%d]", pre->tileOp->GetOpcodeStr().c_str(), pre->tileOp->GetOpMagic());
+            ALOG_DEBUG_F("        |--- %s[%d]", pre->tileOp.GetOpcodeStr().c_str(), pre->tileOp.GetOpMagic());
         }
-        for (const auto &successor : issue->successors) {
+        for (const auto &successorId : issue->successors) {
+            auto successor = issueEntryMap[successorId];
             ALOG_DEBUG_F("    |--- Successors:");
-            ALOG_DEBUG_F("        |--- %s[%d]", successor->tileOp->GetOpcodeStr().c_str(), successor->tileOp->GetOpMagic());
+            ALOG_DEBUG_F("        |--- %s[%d]", successor->tileOp.GetOpcodeStr().c_str(), successor->tileOp.GetOpMagic());
         }
         ALOG_DEBUG_F("\n");
     }
@@ -539,8 +545,8 @@ void OoOScheduler::AddDependencies(
         issue->reqMemIds.push_back(memId);
     }
     if (lastWriteOpMap.find(memId) != lastWriteOpMap.end()) {
-        issue->predecessors.insert(lastWriteOpMap[memId]);
-        lastWriteOpMap[memId]->successors.insert(issue);
+        issue->predecessors.insert(lastWriteOpMap[memId]->id);
+        lastWriteOpMap[memId]->successors.insert(issue->id);
     }
 }
 
@@ -569,16 +575,16 @@ Status OoOScheduler::InitDependencies() {
         issue->Clear();
         // 仅检测 RAW 和 WAW，不检测 WAR -->SSA
         // RAW
-        for (auto &inTensor : issue->tileOp->GetIOperands()) {
+        for (auto &inTensor : issue->tileOp.GetIOperands()) {
             AddDependencies(issue, lastWriteOpMap, inTensor);
         }
 
         // WAW
-        for (auto &outTensor : issue->tileOp->GetOOperands()) {
+        for (auto &outTensor : issue->tileOp.GetOOperands()) {
             AddDependencies(issue, lastWriteOpMap, outTensor);
         }
 
-        for (auto &oOperand : issue->tileOp->GetOOperands()) {
+        for (auto &oOperand : issue->tileOp.GetOOperands()) {
             int memId = oOperand->memorymap[subGraphID].memId;
             maxTensorMagic = std::max(maxTensorMagic, memId);
             lastWriteOpMap[memId] = issue;
@@ -593,7 +599,7 @@ Status OoOScheduler::InitDependencies() {
 }
 
 Status OoOScheduler::UpdateIssueIOTensor(const IssueEntryPtr &issue, std::map<int, IssueEntryPtr> &tensorAllocMap) {
-    for (auto outTensor : issue->tileOp->GetOOperands()) {
+    for (auto outTensor : issue->tileOp.GetOOperands()) {
         if (outTensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
             continue;
         }
@@ -602,7 +608,7 @@ Status OoOScheduler::UpdateIssueIOTensor(const IssueEntryPtr &issue, std::map<in
             tensorAllocMap[memId] = issue;
         }
     }
-    for (auto inTensor : issue->tileOp->GetIOperands()) {
+    for (auto inTensor : issue->tileOp.GetIOperands()) {
         if (inTensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
             continue;
         }
@@ -619,7 +625,7 @@ Status OoOScheduler::CheckAllocIssue() {
     for (const auto &issue : issueEntries) {
         if (issue->isAlloc) {
             if (issue->reqMemIds.size() != 1) {
-                ALOG_ERROR_F("ALLOC[%d] reqMemIds size not equal to 0.", issue->tileOp->GetOpMagic());
+                ALOG_ERROR_F("ALLOC[%d] reqMemIds size not equal to 0.", issue->tileOp.GetOpMagic());
                 return FAILED;
             }
         }
@@ -630,8 +636,8 @@ Status OoOScheduler::CheckAllocIssue() {
     }
     for (auto tensorAlloc : tensorAllocMap) {
         if (!tensorAlloc.second->isAlloc) {
-            ALOG_ERROR_F("%s[%d] Tensor[%d] is missing Alloc.", tensorAlloc.second->tileOp->GetOpcodeStr().c_str(),
-                tensorAlloc.second->tileOp->GetOpMagic(), tensorAlloc.first);
+            ALOG_ERROR_F("%s[%d] Tensor[%d] is missing Alloc.", tensorAlloc.second->tileOp.GetOpcodeStr().c_str(),
+                tensorAlloc.second->tileOp.GetOpMagic(), tensorAlloc.first);
             return FAILED;
         }
     }
@@ -678,14 +684,15 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
     }
 
     // 校验并初始化issueEntry
-    uint64_t issueId = 0;
     for (const auto &op : newOperations) {
         maxOpMagic = std::max(maxOpMagic, op->GetOpMagic());
         if (CheckOpBufferSize(op) != SUCCESS) {
             ALOG_ERROR_F("%s[%d] CheckOpBufferSize failed!", op->GetOpcodeStr().c_str(), op->GetOpMagic());
             return FAILED;
         }
-        auto issue = std::make_shared<IssueEntry>(op, issueId++);
+        auto issue = std::make_shared<IssueEntry>(*op, issueId);
+        issueEntryMap[issueId] = issue;
+        issueId++;
         if (issue == nullptr) {
             ALOG_ERROR_F("IssueEntry %s, %d init failed!", op->GetOpcodeStr().c_str(), op->GetOpMagic());
             return FAILED;
@@ -713,7 +720,8 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
 int OoOScheduler::GetNumUnvisitPreNode(IssueEntryPtr issue, std::map<IssueEntryPtr, bool>& visited) {
     std::unordered_set<IssueEntryPtr> preNodeTotal;
     std::unordered_set<IssueEntryPtr> curr;
-    for (auto& preIssue : issue->predecessors) {
+    for (auto& preIssueId : issue->predecessors) {
+        auto preIssue = issueEntryMap[preIssueId];
         if (!visited[preIssue]) {
             curr.insert(preIssue);
             preNodeTotal.insert(preIssue);
@@ -722,7 +730,8 @@ int OoOScheduler::GetNumUnvisitPreNode(IssueEntryPtr issue, std::map<IssueEntryP
     while (!curr.empty()) {
         std::unordered_set<IssueEntryPtr> next;
         for (auto& curIssue : curr) {
-            for (auto& preIssue : curIssue->predecessors) {
+            for (auto& preIssueId : curIssue->predecessors) {
+                auto preIssue = issueEntryMap[preIssueId];
                 if (!visited[preIssue] && preNodeTotal.find(preIssue) == preNodeTotal.end()) {
                     next.insert(preIssue);
                 }
@@ -755,7 +764,8 @@ IssueEntryPtr OoOScheduler::FindNodeMinNumUnvisitedPreNode(
 
 void OoOScheduler::UpdateIssueEntriesWithUnvisitedPredecessors(const IssueEntryPtr &curIssue, std::map<IssueEntryPtr, bool>& visited, std::unordered_map<Opcode, int> preNodePriority, std::deque<IssueEntryPtr> &queue) {
     std::vector<IssueEntryPtr> notReadyPreNode;
-    for (auto& preIssue : curIssue->predecessors) {
+    for (auto& preIssueId : curIssue->predecessors) {
+        auto preIssue = issueEntryMap[preIssueId];
         if (!visited[preIssue]) {
             notReadyPreNode.push_back(preIssue);
         }
@@ -769,7 +779,8 @@ void OoOScheduler::UpdateIssueEntriesWithUnvisitedPredecessors(const IssueEntryP
 }
 
 bool OoOScheduler::CheckIsReady(const IssueEntryPtr &curIssue, std::map<IssueEntryPtr, bool>& visited) {
-    for (auto& preIssue : curIssue->predecessors) {
+    for (auto& preIssueId : curIssue->predecessors) {
+        auto preIssue = issueEntryMap[preIssueId];
         if (!visited[preIssue]) {
             return false;
         }
@@ -799,7 +810,8 @@ void OoOScheduler::DFSFromSingleNode(IssueEntryPtr issue, std::map<IssueEntryPtr
     }
 }
 
-Status EntryInOutGraph(std::vector<IssueEntryPtr> &issueEntries, std::vector<std::set<int>> &entryInGraph, std::vector<std::set<int>> &entryOutGraph)
+Status EntryInOutGraph(std::vector<IssueEntryPtr> &issueEntries, std::vector<std::set<int>> &entryInGraph, 
+    std::vector<std::set<int>> &entryOutGraph, std::unordered_map<int, IssueEntryPtr> issueEntryMap)
 {
     entryInGraph.clear();
     entryOutGraph.clear();
@@ -810,7 +822,8 @@ Status EntryInOutGraph(std::vector<IssueEntryPtr> &issueEntries, std::vector<std
         entryPtr2Idx[issueEntries[ptrIdx].get()] = ptrIdx;
     }
     for (int ptrIdx = 0; ptrIdx < static_cast<int>(issueEntries.size()); ptrIdx++) {
-        for (auto outPtr : issueEntries[ptrIdx]->successors) {
+        for (auto outPtrId : issueEntries[ptrIdx]->successors) {
+            auto outPtr = issueEntryMap[outPtrId];
             entryOutGraph[ptrIdx].insert(entryPtr2Idx[outPtr.get()]);
             entryInGraph[entryPtr2Idx[outPtr.get()]].insert(ptrIdx);
         }
@@ -928,7 +941,7 @@ Status OoOScheduler::LayerBasedDFS(int layerDepth)
 {
     std::vector<std::set<int>> entryInGraph;
     std::vector<std::set<int>> entryOutGraph;
-    EntryInOutGraph(issueEntries, entryInGraph, entryOutGraph);
+    EntryInOutGraph(issueEntries, entryInGraph, entryOutGraph, issueEntryMap);
     std::vector<int32_t> seqToColor;
     std::vector<int32_t> colorToSeq;
     EntryTopoSort(entryInGraph, entryOutGraph, seqToColor, colorToSeq);
@@ -1079,13 +1092,13 @@ Status OoOScheduler::SpillBuffer(Function &function, int spillMemId, size_t &pcI
     auto spillIssue = issueEntries[bufLastWriteTime];
     LogicalTensorPtr spillTensor = nullptr;
     if (GetSpillTensor(spillIssue, spillMemId, spillTensor) != SUCCESS) {
-        ALOG_ERROR_F("%d %s GetSpillTensor failed!", spillIssue->tileOp->GetOpMagic(), spillIssue->tileOp->GetOpcodeStr().c_str());
+        ALOG_ERROR_F("%d %s GetSpillTensor failed!", spillIssue->tileOp.GetOpMagic(), spillIssue->tileOp.GetOpcodeStr().c_str());
         return FAILED;
     }
-    ALOG_DEBUG_F("Begin spill %s[%d] tensor[%d].", spillIssue->tileOp->GetOpcodeStr().c_str(), spillIssue->tileOp->GetOpMagic(), spillMemId);
+    ALOG_DEBUG_F("Begin spill %s[%d] tensor[%d].", spillIssue->tileOp.GetOpcodeStr().c_str(), spillIssue->tileOp.GetOpMagic(), spillMemId);
     LogicalTensorPtr ddrTensor = nullptr;
     bool needCopyOut = false;
-    if (spillIssue->tileOp->GetOpcodeStr().find("COPY_IN") == std::string::npos) {
+    if (spillIssue->tileOp.GetOpcodeStr().find("COPY_IN") == std::string::npos) {
         needCopyOut = true;
         IssueEntryPtr spillOutIssue = nullptr;
         if (CreateSpillCopyout(function, spillIssue, spillTensor, spillMemId, spillOutIssue) != SUCCESS) {
@@ -1094,11 +1107,11 @@ Status OoOScheduler::SpillBuffer(Function &function, int spillMemId, size_t &pcI
         }
         issueEntries.insert(issueEntries.begin() + bufLastUseTime + 1, spillOutIssue);
         bufNextUseTime++;
-        ddrTensor = spillOutIssue->tileOp->GetOutputOperand(0);
+        ddrTensor = spillOutIssue->tileOp.GetOutputOperand(0);
         pcIdx++;
         numTotalIssues++;
     } else {
-        ddrTensor = spillIssue->tileOp->GetInputOperand(0);
+        ddrTensor = spillIssue->tileOp.GetInputOperand(0);
     }
     // Healthcheck record - spill info
     if (oooCheck.doHealthCheck) {
@@ -1123,7 +1136,7 @@ Status OoOScheduler::SpillBuffer(Function &function, int spillMemId, size_t &pcI
 bool OoOScheduler::GetBufLastWriteTime(int curMemId, size_t& lastWriteTime) {
     lastWriteTime -= 1;
     while (lastWriteTime > 0) {
-        for (auto& outTensor : issueEntries[lastWriteTime]->tileOp->GetOOperands()) {
+        for (auto& outTensor : issueEntries[lastWriteTime]->tileOp.GetOOperands()) {
             if (outTensor->memorymap[subGraphID].memId == curMemId) {
                 return true;
             }
@@ -1161,8 +1174,10 @@ bool OoOScheduler::GetBufNextUseTime(int curMemId, size_t& nextUseTime) {
 }
 
 void OoOScheduler::FindFilterLtags(IssueEntryPtr allocIssue, std::set<IssueEntryPtr> &filterLtags) {
-    for (auto &dstIssue : allocIssue->successors) {
-        for (auto &inIssue : dstIssue->predecessors) {
+    for (auto &dstIssueId : allocIssue->successors) {
+        auto dstIssue = issueEntryMap[dstIssueId];
+        for (auto &inIssueId : dstIssue->predecessors) {
+            auto inIssue = issueEntryMap[inIssueId];
             filterLtags.insert(inIssue);
         }
     }
@@ -1195,8 +1210,8 @@ Status OoOScheduler::UpdateGroupNextUseTime(int currPc, const std::vector<int> &
             return FAILED;
         }
         auto spillIssue = issueEntries[bufLastWriteTime];
-        if (spillIssue->tileOp->GetOpcode() == Opcode::OP_VIEW ||
-            spillIssue->tileOp->GetOpcode() == Opcode::OP_ASSEMBLE || filterLtags.count(spillIssue) != 0) {
+        if (spillIssue->tileOp.GetOpcode() == Opcode::OP_VIEW ||
+            spillIssue->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE || filterLtags.count(spillIssue) != 0) {
             cannotSpill = true;
             break;
         }
@@ -1316,7 +1331,7 @@ Status OoOScheduler::ProcessAllocAndRetire(Function &function) {
     size_t pcIdx = 0;
     while (pcIdx < issueEntries.size()) {
         auto issue = issueEntries[pcIdx];
-        ALOG_DEBUG_F("Launch %s[%d]", issue->tileOp->GetOpcodeStr().c_str(), issue->tileOp->GetOpMagic());
+        ALOG_DEBUG_F("Launch %s[%d]", issue->tileOp.GetOpcodeStr().c_str(), issue->tileOp.GetOpMagic());
         if (ProcessAlloc(function, issue, pcIdx) != SUCCESS) {
             ALOG_ERROR_F("ProcessAlloc failed");
             return FAILED;
@@ -1371,19 +1386,21 @@ Status OoOScheduler::RetireOp(IssueEntryPtr &issue) {
 }
 
 Status OoOScheduler::AwakeSucc(IssueEntryPtr &issue) {
-    for (auto succ : issue->successors) {
+    for (auto succId : issue->successors) {
+        auto succ = issueEntryMap[succId];
         if (succ->isRetired) {
             continue;
         }
         bool ready = true;
-        for (auto pred : succ->predecessors) {
+        for (auto predId : succ->predecessors) {
+            auto pred = issueEntryMap[predId];
             if (!pred->isRetired) {
                 ready = false;
             }
         }
         if (ready) {
             issueQueues[succ->type].Insert(succ, succ->execOrder);
-            ALOG_DEBUG_F("    Wakeup: %s[%d], execOrder: %d", succ->tileOp->GetOpcodeStr().c_str(), succ->tileOp->GetOpMagic(), succ->execOrder);
+            ALOG_DEBUG_F("    Wakeup: %s[%d], execOrder: %d", succ->tileOp.GetOpcodeStr().c_str(), succ->tileOp.GetOpMagic(), succ->execOrder);
         }
     }
     return SUCCESS;
@@ -1411,7 +1428,7 @@ Status OoOScheduler::RetireIssueStage(uint64_t& commitCnt, int& nextCycle) {
         }
         if (pipe.curOpRetireCycle > clock) {   // 如果该pipe内当前正在执行op，在clock的时刻已经执行完毕。
             ALOG_DEBUG_F("EXECUTING[%ld]: %s[%d]", pipe.curOpRetireCycle,
-                pipe.curIssue->tileOp->GetOpcodeStr().c_str(), pipe.curIssue->tileOp->GetOpMagic());
+                pipe.curIssue->tileOp.GetOpcodeStr().c_str(), pipe.curIssue->tileOp.GetOpMagic());
             if (nextCycle == -1 || nextCycle > pipe.curOpRetireCycle) {
                 nextCycle = pipe.curOpRetireCycle;
             }
@@ -1420,7 +1437,7 @@ Status OoOScheduler::RetireIssueStage(uint64_t& commitCnt, int& nextCycle) {
         IssueEntryPtr issue = pipe.curIssue;
         pipe.busy = false;
         pipe.curIssue = nullptr;
-        ALOG_DEBUG_F("EXECUTE END: %s[%d]", issue->tileOp->GetOpcodeStr().c_str(), issue->tileOp->GetOpMagic());
+        ALOG_DEBUG_F("EXECUTE END: %s[%d]", issue->tileOp.GetOpcodeStr().c_str(), issue->tileOp.GetOpMagic());
         if (RetireOpAndAwakeSucc(issue, commitCnt) != SUCCESS) {
             ALOG_ERROR_F("RetireOpAndAwakeSucc failed!");
             return FAILED;
@@ -1430,7 +1447,7 @@ Status OoOScheduler::RetireIssueStage(uint64_t& commitCnt, int& nextCycle) {
 }
 
 Status OoOScheduler::ReallocOutTensor(IssueEntryPtr &issue) {
-    for (auto& outTensor : issue->tileOp->GetOOperands()) {
+    for (auto& outTensor : issue->tileOp.GetOOperands()) {
         MemoryType memType = outTensor->GetMemoryTypeOriginal();
         if (memType == MemoryType::MEM_DEVICE_DDR) {
             continue;
@@ -1449,9 +1466,9 @@ Status OoOScheduler::ReallocOutTensor(IssueEntryPtr &issue) {
             return FAILED;
         }
         ALOG_DEBUG_F("REALLOC Tensor[%u] %s %d --> %s, %d. ", memId,
-            tensorOccupyMap[memType][memId]->tileOp->GetOpcodeStr().c_str(),
-            tensorOccupyMap[memType][memId]->tileOp->GetOpMagic(),
-            issue->tileOp->GetOpcodeStr().c_str(), issue->tileOp->GetOpMagic());
+            tensorOccupyMap[memType][memId]->tileOp.GetOpcodeStr().c_str(),
+            tensorOccupyMap[memType][memId]->tileOp.GetOpMagic(),
+            issue->tileOp.GetOpcodeStr().c_str(), issue->tileOp.GetOpMagic());
         tensorOccupyMap[memType][memId] = issue;
         outTensor->memorymap[subGraphID] =
             TileRange(localBufferMap[memId]->start, localBufferMap[memId]->end, memId);
@@ -1468,23 +1485,23 @@ Status OoOScheduler::LaunchIssueStage(int& nextCycle, std::vector<Operation *> &
         IssueEntryPtr issue = pipe.PopFront();
         pipe.busy = true;
         pipe.curIssue = issue;
-        pipe.curOpRetireCycle = clock + issue->tileOp->GetLatency();
-        oooCheck.pipeUsageCount[pipeType] += issue->tileOp->GetLatency();
+        pipe.curOpRetireCycle = clock + issue->tileOp.GetLatency();
+        oooCheck.pipeUsageCount[pipeType] += issue->tileOp.GetLatency();
         if (ReallocOutTensor(issue) != SUCCESS) {
             ALOG_ERROR_F("ReallocOutTensor failed.");
             return FAILED;
         }
-        newOperations.emplace_back(issue->tileOp);
+        newOperations.emplace_back(&(issue->tileOp));
         if (nextCycle == -1 || nextCycle > pipe.curOpRetireCycle) {
             nextCycle = pipe.curOpRetireCycle;
         }
-        ALOG_DEBUG_F("Insert: %s[%d]", issue->tileOp->GetOpcodeStr().c_str(), issue->tileOp->GetOpMagic());
+        ALOG_DEBUG_F("Insert: %s[%d]", issue->tileOp.GetOpcodeStr().c_str(), issue->tileOp.GetOpMagic());
     }
     return SUCCESS;
 }
 
 Status OoOScheduler::AllocateTensor(MemoryType memType, IssueEntryPtr &issue, std::vector<Operation *>& newOperations) {
-    ALOG_DEBUG_F("ALLOCATE: %s[%d]", issue->tileOp->GetOpcodeStr().c_str(), issue->tileOp->GetOpMagic());
+    ALOG_DEBUG_F("ALLOCATE: %s[%d]", issue->tileOp.GetOpcodeStr().c_str(), issue->tileOp.GetOpMagic());
     if (bufferManagerMap[memType].Allocate(localBufferMap[issue->reqMemIds[0]]) != SUCCESS) {
         ALOG_ERROR_F("Allocate Tensor[%d] failed.", issue->reqMemIds[0]);
         return FAILED;
@@ -1495,13 +1512,13 @@ Status OoOScheduler::AllocateTensor(MemoryType memType, IssueEntryPtr &issue, st
     }
     tensorOccupyMap[memType][issue->reqMemIds[0]] = issue;
     localBufferMap[issue->reqMemIds[0]]->startCycle = clock;
-    if (issue->tileOp->GetOutputOperand(0) == nullptr) {
-        ALOG_ERROR_F("Alloc[%d] cannot find oOperand[0].", issue->tileOp->GetOpMagic());
+    if (issue->tileOp.GetOutputOperand(0) == nullptr) {
+        ALOG_ERROR_F("Alloc[%d] cannot find oOperand[0].", issue->tileOp.GetOpMagic());
         return FAILED;
     }
-    issue->tileOp->GetOutputOperand(0)->SetAttr(OpAttributeKey::needAlloc, true);
-    newOperations.push_back(issue->tileOp);
-    ALOG_DEBUG_F("Insert: %s[%d]", issue->tileOp->GetOpcodeStr().c_str(), issue->tileOp->GetOpMagic());
+    issue->tileOp.GetOutputOperand(0)->SetAttr(OpAttributeKey::needAlloc, true);
+    newOperations.push_back(&(issue->tileOp));
+    ALOG_DEBUG_F("Insert: %s[%d]", issue->tileOp.GetOpcodeStr().c_str(), issue->tileOp.GetOpMagic());
     return SUCCESS;
 }
 
@@ -1547,7 +1564,7 @@ Status OoOScheduler::BufferAllocStage(std::vector<Operation *>& newOperations, u
 void OoOScheduler::LaunchReadyIssue() {
     for (size_t i = 0; i < issueEntries.size(); i++) {
         issueEntries[i]->execOrder = i;
-        if (USE_LESS_OPS.find(issueEntries[i]->tileOp->GetOpcode()) != USE_LESS_OPS.end() &&
+        if (USE_LESS_OPS.find(issueEntries[i]->tileOp.GetOpcode()) != USE_LESS_OPS.end() &&
             issueEntries[i]->predecessors.empty()) {
             issueQueues[issueEntries[i]->type].Insert(issueEntries[i], i);
         }
@@ -1620,13 +1637,13 @@ Status OoOScheduler::ProcessTillRetired(Function &func, std::vector<Operation *>
 Status OoOScheduler::UpdateIssues() {
     for (const auto &issue : issueEntries) {
         if (!issue->isRetired) {
-            ALOG_ERROR_F("Unexecuted op: %s %d", issue->tileOp->GetOpcodeStr().c_str(), issue->tileOp->GetOpMagic());
+            ALOG_ERROR_F("Unexecuted op: %s %d", issue->tileOp.GetOpcodeStr().c_str(), issue->tileOp.GetOpMagic());
             return FAILED;
         }
         if (issue->isAlloc) {
-            issue->tileOp->GetOutputOperand(0)->memorymap[subGraphID].lifeStart =
+            issue->tileOp.GetOutputOperand(0)->memorymap[subGraphID].lifeStart =
                 localBufferMap[issue->reqMemIds[0]]->startCycle;
-            issue->tileOp->GetOutputOperand(0)->memorymap[subGraphID].lifeEnd =
+            issue->tileOp.GetOutputOperand(0)->memorymap[subGraphID].lifeEnd =
                 localBufferMap[issue->reqMemIds[0]]->retireCycle;
         }
     }

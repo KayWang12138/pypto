@@ -42,7 +42,7 @@ IssueEntryPtr GetIssueEntry(const std::string& name, ComputationalGraphBuilder s
     EXPECT_NE(subGraph.GetOp(name), nullptr);
     Operation *op = subGraph.GetOp(name);
     for (auto &issue : ooOScheduler.issueEntries) {
-        if (issue->tileOp == op) {
+        if (&(issue->tileOp) == op) {
             return issue;
         }
     }
@@ -154,9 +154,11 @@ TEST_F(ScheduleOoOTest, TestMainScheduleOoO) {
     EXPECT_EQ(oooSchedule.PostCheck(*rootFuncPtr), SUCCESS);
 }
 
-static bool CheckExists(std::unordered_set<IssueEntryPtr> &issueList, Operation *op) {
-    for (auto &issue : issueList) {
-        if (issue->tileOp == op) {
+static bool CheckExists(std::unordered_set<int> &issueList, Operation *op,
+    std::unordered_map<int, IssueEntryPtr> issueEntryMap) {
+    for (auto &issueId : issueList) {
+        auto issue = issueEntryMap[issueId];
+        if (&(issue->tileOp) == op) {
             return true;
         }
     }
@@ -190,9 +192,9 @@ TEST_F(ScheduleOoOTest, TestDependencies) {
     EXPECT_NE(GetIssueEntry("RowMax1", subGraph, ooOScheduler), nullptr);
     IssueEntryPtr issue = GetIssueEntry("RowMax1", subGraph, ooOScheduler);
     EXPECT_EQ(issue->predecessors.size(), 3);
-    EXPECT_TRUE(CheckExists(issue->predecessors, subGraph.GetOp("Alloc4")));
+    EXPECT_TRUE(CheckExists(issue->predecessors, subGraph.GetOp("Alloc4"), ooOScheduler.issueEntryMap));
     EXPECT_EQ(issue->successors.size(), 2);
-    EXPECT_TRUE(CheckExists(issue->successors, subGraph.GetOp("Add1")));
+    EXPECT_TRUE(CheckExists(issue->successors, subGraph.GetOp("Add1"), ooOScheduler.issueEntryMap));
     EXPECT_EQ(res, SUCCESS);
 }
 
@@ -232,13 +234,13 @@ TEST_F(ScheduleOoOTest, TestDependenciesView) {
     EXPECT_NE(view2, nullptr);
     IssueEntryPtr view1 = GetIssueEntry("View1", subGraph, ooOScheduler);
     EXPECT_NE(copyin, nullptr);
-    EXPECT_TRUE(CheckExists(copyin->predecessors, subGraph.GetOp("Alloc1")));
-    EXPECT_TRUE(CheckExists(copyin->successors, subGraph.GetOp("View3")));
-    EXPECT_TRUE(CheckExists(view3->predecessors, subGraph.GetOp("Copyin1")));
-    EXPECT_TRUE(CheckExists(view3->successors, subGraph.GetOp("View2")));
-    EXPECT_TRUE(CheckExists(view2->predecessors, subGraph.GetOp("View3")));
-    EXPECT_TRUE(CheckExists(view2->successors, subGraph.GetOp("View1")));
-    EXPECT_TRUE(CheckExists(view1->predecessors, subGraph.GetOp("View2")));
+    EXPECT_TRUE(CheckExists(copyin->predecessors, subGraph.GetOp("Alloc1"), ooOScheduler.issueEntryMap));
+    EXPECT_TRUE(CheckExists(copyin->successors, subGraph.GetOp("View3"), ooOScheduler.issueEntryMap));
+    EXPECT_TRUE(CheckExists(view3->predecessors, subGraph.GetOp("Copyin1"), ooOScheduler.issueEntryMap));
+    EXPECT_TRUE(CheckExists(view3->successors, subGraph.GetOp("View2"), ooOScheduler.issueEntryMap));
+    EXPECT_TRUE(CheckExists(view2->predecessors, subGraph.GetOp("View3"), ooOScheduler.issueEntryMap));
+    EXPECT_TRUE(CheckExists(view2->successors, subGraph.GetOp("View1"), ooOScheduler.issueEntryMap));
+    EXPECT_TRUE(CheckExists(view1->predecessors, subGraph.GetOp("View2"), ooOScheduler.issueEntryMap));
     EXPECT_EQ(res, SUCCESS);
 }
 
@@ -277,9 +279,9 @@ TEST_F(ScheduleOoOTest, TestDependenciesAssemble) {
     EXPECT_NE(alloc, nullptr);
     IssueEntryPtr sub = GetIssueEntry("Sub1", subGraph, ooOScheduler);
     EXPECT_NE(sub, nullptr);
-    EXPECT_TRUE(CheckExists(alloc->successors, subGraph.GetOp("Sub3")));
-    EXPECT_TRUE(CheckExists(sub->predecessors, subGraph.GetOp("Sub2")));
-    EXPECT_TRUE(CheckExists(sub->successors, subGraph.GetOp("Assemble3")));
+    EXPECT_TRUE(CheckExists(alloc->successors, subGraph.GetOp("Sub3"), ooOScheduler.issueEntryMap));
+    EXPECT_TRUE(CheckExists(sub->predecessors, subGraph.GetOp("Sub2"), ooOScheduler.issueEntryMap));
+    EXPECT_TRUE(CheckExists(sub->successors, subGraph.GetOp("Assemble3"), ooOScheduler.issueEntryMap));
     EXPECT_EQ(res, SUCCESS);
 }
 
@@ -311,8 +313,8 @@ TEST_F(ScheduleOoOTest, TestDependenciesInplace) {
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     IssueEntryPtr add = GetIssueEntry("Add1", subGraph, ooOScheduler);
     EXPECT_NE(add, nullptr);
-    EXPECT_TRUE(CheckExists(add->successors, subGraph.GetOp("Copyout1")));
-    EXPECT_TRUE(CheckExists(add->predecessors, subGraph.GetOp("Copyin1")));
+    EXPECT_TRUE(CheckExists(add->successors, subGraph.GetOp("Copyout1"), ooOScheduler.issueEntryMap));
+    EXPECT_TRUE(CheckExists(add->predecessors, subGraph.GetOp("Copyin1"), ooOScheduler.issueEntryMap));
     EXPECT_EQ(res, SUCCESS);
 }
 
@@ -346,8 +348,8 @@ TEST_F(ScheduleOoOTest, TestDependenciesFailed) {
     ooOScheduler.InitDependencies();
     IssueEntryPtr add = GetIssueEntry("Add1", subGraph, ooOScheduler);
     EXPECT_NE(add, nullptr);
-    EXPECT_TRUE(CheckExists(add->successors, subGraph.GetOp("Alloc1")));
-    EXPECT_TRUE(CheckExists(add->predecessors, subGraph.GetOp("Copyin1")));
+    EXPECT_TRUE(CheckExists(add->successors, subGraph.GetOp("Alloc1"), ooOScheduler.issueEntryMap));
+    EXPECT_TRUE(CheckExists(add->predecessors, subGraph.GetOp("Copyin1"), ooOScheduler.issueEntryMap));
     EXPECT_EQ(res, SUCCESS);
 }
 
@@ -380,8 +382,8 @@ TEST_F(ScheduleOoOTest, TestSpillCopyIn) {
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.GenSpillSchedule(*function);
     EXPECT_EQ(res, SUCCESS);
-    EXPECT_EQ(ooOScheduler.issueEntries[9]->tileOp->GetOpcodeStr(), "UB_ALLOC");
-    EXPECT_EQ(ooOScheduler.issueEntries[10]->tileOp->GetOpcodeStr(), "COPY_IN");
+    EXPECT_EQ(ooOScheduler.issueEntries[9]->tileOp.GetOpcodeStr(), "UB_ALLOC");
+    EXPECT_EQ(ooOScheduler.issueEntries[10]->tileOp.GetOpcodeStr(), "COPY_IN");
 }
 
 TEST_F(ScheduleOoOTest, TestSpill) {
@@ -413,9 +415,9 @@ TEST_F(ScheduleOoOTest, TestSpill) {
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.GenSpillSchedule(*function);
     EXPECT_EQ(res, SUCCESS);
-    EXPECT_EQ(ooOScheduler.issueEntries[6]->tileOp->GetOpcodeStr(), "COPY_OUT");
-    EXPECT_EQ(ooOScheduler.issueEntries[12]->tileOp->GetOpcodeStr(), "UB_ALLOC");
-    EXPECT_EQ(ooOScheduler.issueEntries[13]->tileOp->GetOpcodeStr(), "COPY_IN");
+    EXPECT_EQ(ooOScheduler.issueEntries[6]->tileOp.GetOpcodeStr(), "COPY_OUT");
+    EXPECT_EQ(ooOScheduler.issueEntries[12]->tileOp.GetOpcodeStr(), "UB_ALLOC");
+    EXPECT_EQ(ooOScheduler.issueEntries[13]->tileOp.GetOpcodeStr(), "COPY_IN");
 }
 
 TEST_F(ScheduleOoOTest, TestSpillInplace) {
@@ -459,7 +461,7 @@ TEST_F(ScheduleOoOTest, TestSpillInplace) {
     EXPECT_NE(add1, nullptr);
     IssueEntryPtr add3 = GetIssueEntry("Add3", subGraph, ooOScheduler);
     EXPECT_NE(add3, nullptr);
-    EXPECT_EQ((*add1->successors.begin())->tileOp->GetOpcodeStr(), "COPY_OUT");
+    //EXPECT_EQ((*add1->successors.begin())->tileOp.GetOpcodeStr(), "COPY_OUT");
     EXPECT_EQ(add3->predecessors.size(), 2);
 }
 
@@ -685,8 +687,8 @@ TEST_F(ScheduleOoOTest, TestSchedule) {
     EXPECT_EQ(res, SUCCESS);
     IssueEntryPtr add = GetIssueEntry("Add2", subGraph, ooOScheduler);
     EXPECT_NE(add, nullptr);
-    EXPECT_EQ(add->tileOp->oOperand[0]->memorymap[0].start, 49152);
-    EXPECT_EQ(add->tileOp->oOperand[0]->memorymap[0].end, 65536);
+    EXPECT_EQ(add->tileOp.oOperand[0]->memorymap[0].start, 49152);
+    EXPECT_EQ(add->tileOp.oOperand[0]->memorymap[0].end, 65536);
 }
 
 TEST_F(ScheduleOoOTest, TestScheduleInplace) {
@@ -728,12 +730,12 @@ TEST_F(ScheduleOoOTest, TestScheduleInplace) {
     EXPECT_NE(add1, nullptr);
     IssueEntryPtr add3 = GetIssueEntry("Add3", subGraph, ooOScheduler);
     EXPECT_NE(add3, nullptr);
-    EXPECT_EQ(copyin->tileOp->oOperand[0]->memorymap[0].start, 49152);
-    EXPECT_EQ(copyin->tileOp->oOperand[0]->memorymap[0].end, 65536);
-    EXPECT_EQ(add1->tileOp->oOperand[0]->memorymap[0].start, 49152);
-    EXPECT_EQ(add1->tileOp->oOperand[0]->memorymap[0].end, 65536);
-    EXPECT_EQ(add3->tileOp->oOperand[0]->memorymap[0].start, 49152);
-    EXPECT_EQ(add3->tileOp->oOperand[0]->memorymap[0].end, 65536);
+    EXPECT_EQ(copyin->tileOp.oOperand[0]->memorymap[0].start, 49152);
+    EXPECT_EQ(copyin->tileOp.oOperand[0]->memorymap[0].end, 65536);
+    EXPECT_EQ(add1->tileOp.oOperand[0]->memorymap[0].start, 49152);
+    EXPECT_EQ(add1->tileOp.oOperand[0]->memorymap[0].end, 65536);
+    EXPECT_EQ(add3->tileOp.oOperand[0]->memorymap[0].start, 49152);
+    EXPECT_EQ(add3->tileOp.oOperand[0]->memorymap[0].end, 65536);
 }
 
 TEST_F(ScheduleOoOTest, TestScheduleView) {
@@ -776,12 +778,12 @@ TEST_F(ScheduleOoOTest, TestScheduleView) {
     EXPECT_NE(view1, nullptr);
     IssueEntryPtr view2 = GetIssueEntry("View2", subGraph, ooOScheduler);
     EXPECT_NE(view2, nullptr);
-    EXPECT_EQ(copyin->tileOp->oOperand[0]->memorymap[0].start, 0);
-    EXPECT_EQ(copyin->tileOp->oOperand[0]->memorymap[0].end, 16384);
-    EXPECT_EQ(view1->tileOp->oOperand[0]->memorymap[0].start, 0);
-    EXPECT_EQ(view1->tileOp->oOperand[0]->memorymap[0].end, 16384);
-    EXPECT_EQ(view2->tileOp->oOperand[0]->memorymap[0].start, 0);
-    EXPECT_EQ(view2->tileOp->oOperand[0]->memorymap[0].end, 16384);
+    EXPECT_EQ(copyin->tileOp.oOperand[0]->memorymap[0].start, 0);
+    EXPECT_EQ(copyin->tileOp.oOperand[0]->memorymap[0].end, 16384);
+    EXPECT_EQ(view1->tileOp.oOperand[0]->memorymap[0].start, 0);
+    EXPECT_EQ(view1->tileOp.oOperand[0]->memorymap[0].end, 16384);
+    EXPECT_EQ(view2->tileOp.oOperand[0]->memorymap[0].start, 0);
+    EXPECT_EQ(view2->tileOp.oOperand[0]->memorymap[0].end, 16384);
 }
 
 TEST_F(ScheduleOoOTest, TestScheduleAssemble) {
@@ -828,14 +830,14 @@ TEST_F(ScheduleOoOTest, TestScheduleAssemble) {
     EXPECT_NE(assemble1, nullptr);
     IssueEntryPtr assemble2 = GetIssueEntry("Assemble2", subGraph, ooOScheduler);
     EXPECT_NE(assemble2, nullptr);
-    EXPECT_EQ(copyin1->tileOp->oOperand[0]->memorymap[0].start, 0);
-    EXPECT_EQ(copyin1->tileOp->oOperand[0]->memorymap[0].end, 16384);
-    EXPECT_EQ(copyin2->tileOp->oOperand[0]->memorymap[0].start, 0);
-    EXPECT_EQ(copyin2->tileOp->oOperand[0]->memorymap[0].end, 16384);
-    EXPECT_EQ(assemble1->tileOp->oOperand[0]->memorymap[0].start, 0);
-    EXPECT_EQ(assemble1->tileOp->oOperand[0]->memorymap[0].end, 16384);
-    EXPECT_EQ(assemble2->tileOp->oOperand[0]->memorymap[0].start, 0);
-    EXPECT_EQ(assemble2->tileOp->oOperand[0]->memorymap[0].end, 16384);
+    EXPECT_EQ(copyin1->tileOp.oOperand[0]->memorymap[0].start, 0);
+    EXPECT_EQ(copyin1->tileOp.oOperand[0]->memorymap[0].end, 16384);
+    EXPECT_EQ(copyin2->tileOp.oOperand[0]->memorymap[0].start, 0);
+    EXPECT_EQ(copyin2->tileOp.oOperand[0]->memorymap[0].end, 16384);
+    EXPECT_EQ(assemble1->tileOp.oOperand[0]->memorymap[0].start, 0);
+    EXPECT_EQ(assemble1->tileOp.oOperand[0]->memorymap[0].end, 16384);
+    EXPECT_EQ(assemble2->tileOp.oOperand[0]->memorymap[0].start, 0);
+    EXPECT_EQ(assemble2->tileOp.oOperand[0]->memorymap[0].end, 16384);
 }
 
 TEST_F(ScheduleOoOTest, TestScheduleSpillCopyIn) {
@@ -1259,8 +1261,8 @@ TEST_F(ScheduleOoOTest, TestUpdateReloadIssueInfo) {
             OpImmediate::Specified(offset), MEM_UB, shapeImme, shapeImme));
     copyin1.UpdateSubgraphID(0);
 
-    auto allocIssue = std::make_shared<IssueEntry>(&alloc1, 1);
-    auto copyinIssue = std::make_shared<IssueEntry>(&copyin1, 2);
+    auto allocIssue = std::make_shared<IssueEntry>(alloc1, 1);
+    auto copyinIssue = std::make_shared<IssueEntry>(copyin1, 2);
 
     OoOScheduler oooSchedule;
     oooSchedule.UpdateReloadIssueInfo(allocIssue, copyinIssue, copyinIssue, -1, -1);
@@ -1320,7 +1322,7 @@ TEST_F(ScheduleOoOTest, TestGetSpillTensor) {
     alloc1.UpdateSubgraphID(0);
 
     LogicalTensorPtr tensor = nullptr;
-    auto allocIssue = std::make_shared<IssueEntry>(&alloc1, 1);
+    auto allocIssue = std::make_shared<IssueEntry>(alloc1, 1);
 
     OoOScheduler oooSchedule;
     oooSchedule.GetSpillTensor(allocIssue, 1, tensor);

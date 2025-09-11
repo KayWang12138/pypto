@@ -52,22 +52,23 @@ const std::unordered_set<Opcode> USE_LESS_OPS = {
     Opcode::OP_RESHAPE, Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_COMM_WAIT_FLAG, Opcode::OP_SHMEM_WAIT_UNTIL};
 
 struct IssueEntry {
-    Operation *tileOp;
+    Operation &tileOp;
+    int id;
     int execOrder{-1};
     PipeType type{PipeType::PIPE_ALL};
     bool isAlloc{false};
     bool isRetired{false};
 
     // 当前op的前序op
-    std::unordered_set<std::shared_ptr<IssueEntry>> predecessors;
+    std::unordered_set<int> predecessors;
 
     // 当前op的后序op
-    std::unordered_set<std::shared_ptr<IssueEntry>> successors;
+    std::unordered_set<int> successors;
 
     // op计算所需的memId
     std::vector<int> reqMemIds;
 
-    IssueEntry(Operation *op, uint64_t issueId);
+    IssueEntry(Operation &op, uint64_t issueId);
     void Clear();
     int GetOOperandIdx(int curMemId);
     void UpdateTensorInput(std::shared_ptr<IssueEntry> &spillSrcIssue, LogicalTensorPtr tensor) const;
@@ -91,9 +92,11 @@ struct IssueQueue {
             [](std::pair<IssueEntryPtr, int> &a, std::pair<IssueEntryPtr, int> &b) { return a.second > b.second; });
     }
 
-    void InsertReloadAlloc(IssueEntryPtr op, IssueEntryPtr spillIssue) {
+    void InsertReloadAlloc(IssueEntryPtr op, IssueEntryPtr spillIssue, 
+        std::unordered_map<int, IssueEntryPtr> issueEntryMap) {
         IssueEntryPtr firstSuccIssue = nullptr;
-        for (auto& succ : spillIssue->successors) {
+        for (auto& succId : spillIssue->successors) {
+            auto succ = issueEntryMap[succId];
             if (succ->isRetired) {
                 continue;
             }
@@ -144,6 +147,7 @@ struct SpillInfo {
 class OoOScheduler {
 private:
     std::vector<IssueEntryPtr> issueEntries;
+    std::unordered_map<int, IssueEntryPtr> issueEntryMap;
 
     std::unordered_map<int, LocalBufferPtr> localBufferMap;
     std::unordered_map<npu::tile_fwk::MemoryType, BufferPool> bufferManagerMap;
@@ -155,6 +159,7 @@ private:
     std::unordered_map<MemoryType, int64_t> inChipMemorySize;
 
     int subGraphID;
+    int issueId{0};
     uint64_t spillIssueCnt{0};
     int workspaceMemId{SYMBOL_STACK_BASE};
     int maxTensorMagic{-1};
