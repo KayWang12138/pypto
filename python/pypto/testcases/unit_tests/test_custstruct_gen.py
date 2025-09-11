@@ -9,10 +9,10 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
-from pyascpp.module import AscppModule
-from pyascpp.utils import CustStruct, Vector, Tensor, Var, Tuple, ConfigMap, Shape
-from pyascpp.utils import DATATYPE as DT
-from pyascpp.flowcontrol import If, Else
+from pypto.module import AscppModule
+from pypto.utils import CustStruct, Vector, Tensor, Var, Tuple, ConfigMap, Shape
+from pypto.utils import DATATYPE as DT
+from pypto.flowcontrol import If, Else
 
 
 class Type1(CustStruct):
@@ -40,9 +40,9 @@ class TestGenCustStruct(AscppModule):
     def forward(self, t1: Tensor = None, settings: Type2 = None):
         return_tensor = Tensor(force_declare=True)
         with If((self.int_setting > 10) & self.bool_setting):
-            return_tensor.eq(t1 + settings.int_value + settings.vec[0] + settings.nested_vec[0][0])
+            return_tensor.assign(t1 + settings.int_value + settings.vec[0] + settings.nested_vec[0][0])
         with Else():
-            return_tensor.eq(t1 + settings.int_value + settings.vec[1] + settings.nested_vec[1][1])
+            return_tensor.assign(t1 + settings.int_value + settings.vec[1] + settings.nested_vec[1][1])
         return return_tensor
 
 

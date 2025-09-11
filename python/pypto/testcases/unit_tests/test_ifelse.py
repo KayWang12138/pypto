@@ -9,10 +9,10 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
-from pyascpp.module import AscppModule
-from pyascpp.utils import CustStruct, Vector, Tensor, Var, Tuple, ConfigMap, Shape
-from pyascpp.utils import DATATYPE as DT
-from pyascpp.flowcontrol import If, Else, Elif
+from pypto.module import AscppModule
+from pypto.utils import CustStruct, Vector, Tensor, Var, Tuple, ConfigMap, Shape
+from pypto.utils import DATATYPE as DT
+from pypto.flowcontrol import If, Else, Elif
 
 
 class IntsToCheck(CustStruct):

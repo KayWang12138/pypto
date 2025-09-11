@@ -1,4 +1,4 @@
-# !/usr/bin/env python3
+#!/usr/bin/env python3
 # coding: utf-8
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This file is a part of the CANN Open Software.
@@ -8,10 +8,14 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
-from setuptools import setup, find_packages
 
-setup(
-    name="pypto",  # Name
-    version="0.1",  # Version
-    packages=find_packages()  # Automatically find the packages that are recognized in the '__init__.py'.
-)
+from pypto.module import AscppModule
+from pypto.utils import DATATYPE as DT, Tensor
+
+
+class Linear(AscppModule):
+    def init(self, input_size=0, output_size=0):
+        self.weight = Tensor(shape=[input_size, output_size], dtype=DT.fp32, force_declare=True)
+
+    def forward(self, x=None):
+        return x @ self.weight

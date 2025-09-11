@@ -9,9 +9,9 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
-from pyascpp.stub_fun import concat, reshape
-from pyascpp.utils import Tensor, DATATYPE, Vector, Tensor, Var, Tuple, ConfigMap, Shape
-from pyascpp.module import AscppModule
+from pypto.stub_fun import concat, reshape
+from pypto.utils import Tensor, DATATYPE, Vector, Tensor, Var, Tuple, ConfigMap, Shape
+from pypto.module import AscppModule
 
 
 class TsrIdxingModule(AscppModule):

@@ -1,4 +1,4 @@
-# !/usr/bin/env python3
+#!/usr/bin/env python3
 # coding: utf-8
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This file is a part of the CANN Open Software.
@@ -8,10 +8,25 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
-from setuptools import setup, find_packages
 
-setup(
-    name="pypto",  # Name
-    version="0.1",  # Version
-    packages=find_packages()  # Automatically find the packages that are recognized in the '__init__.py'.
-)
+from .util import get_var_str
+from ..utils import CodeHelper, Instruction, Var
+
+
+def var_assign(h: CodeHelper, inst: Instruction):
+    if not isinstance(inst.src[0], str):
+        raise Exception()
+    if not isinstance(inst.src[1], Var):
+        raise Exception()
+    if not isinstance(inst.src[2], (str, int, float, Var)):
+        raise Exception()
+    dest_str = get_var_str(inst.src[2])
+    h(f'v{inst.src[1].idx} = ({inst.src[0]}) {dest_str};')
+
+
+def var_declare(h: CodeHelper, inst: Instruction):
+    if not isinstance(inst.src[0], str):
+        raise Exception()
+    if not isinstance(inst.dst, Var):
+        raise Exception()
+    h(f'{inst.src[0]} v{inst.dst.idx};')

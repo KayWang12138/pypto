@@ -9,13 +9,13 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
-from pyascpp.module import AscppModule
-from pyascpp.utils import CustStruct, TensorMap, Tensor, Var
-from pyascpp.utils import DATATYPE as DT
-from pyascpp.stub_fun import set_c1_cube_config, set_vec_tile_shapes, set_tile_shape, \
-    set_c2_cube_config, set_cube_tile_shapes, continue_loop, maximum, tensor2aggregationvec, \
+from pypto.module import AscppModule
+from pypto.utils import CustStruct, TensorMap, Tensor, Var
+from pypto.utils import DATATYPE as DT
+from pypto.stub_fun import set_c1_cube_config, set_vec_tile_shapes, set_tile_shape, \
+    set_c2_cube_config, set_cube_tile_shapes, continue_loop, maximum, tensor_to_aggregation_vec, \
     assemble, cast, matmul, update_record_tile_op, rms_norm
-from pyascpp.flowcontrol import Loop, If, Else
+from pypto.flowcontrol import Loop, If, Else
 
 
 class AttentionDims(CustStruct):
@@ -98,11 +98,11 @@ class FlashAttention(AscppModule):
         set_tile_shape(0, 64)  # AscendProgram::GetInstance().GetConfig().set_tile_shape(0, NUM_64);
         set_tile_shape(1, 128)  # AscendProgram::GetInstance().GetConfig().set_tile_shape(1, NUM_128);
 
-        self.tilda_mij = sij.rowmaxsingle()
+        self.tilda_mij = sij.row_max_single()
         tsub = sij - self.tilda_mij
         tilda_pij = tsub.exp()
         self.tilda_pij_fp16 = tilda_pij.astype(DT.fp16)
-        self.tilda_lij = tilda_pij.rowsumsingle()
+        self.tilda_lij = tilda_pij.row_sum_single()
 
         set_c2_cube_config(cube_cfg)
         
@@ -177,8 +177,8 @@ class FlashAttention(AscppModule):
                 with Loop(0, s2_loop) as s2_idx:  # LLAMA_FUNCTION: lashAttention_L2, END TO BE CHANGED
                     self.s1_inner_loop(b_idx, n_idx, s2_idx, attn_dims, model_active)
 
-            aggregation = tensor2aggregationvec(self.last_oi)
-            self.result.eq(assemble(aggregation))
+            aggregation = tensor_to_aggregation_vec(self.last_oi)
+            self.result.assign(assemble(aggregation))
         return self.result
 
 

@@ -9,9 +9,9 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
-from pyascpp.module import AscppModule
-from pyascpp.utils import CustStruct, TensorMap, AggregationVec, Vector, Tensor, Var, Tuple, ConfigMap, Shape
-from pyascpp.utils import DATATYPE as DT
+from pypto.module import AscppModule
+from pypto.utils import CustStruct, TensorMap, AggregationVec, Vector, Tensor, Var, Tuple, ConfigMap, Shape
+from pypto.utils import DATATYPE as DT
 
 
 class TestNestedVec(AscppModule):
