@@ -13,38 +13,116 @@
  * \brief
  */
 
-#include "tilefwk/tilefwk.h"
-#include "interface/program/program.h"
+#include "interface/inner/config.h"
+#include "interface/utils/string_utils.h"
 
 namespace npu::tile_fwk {
-Config &Config::GetInstance() {
-    static Config Config;
-    return Config;
-}
+using ConfigType = std::variant<bool, int64_t, std::string, std::vector<int64_t>>;
+static FunctionType g_funcType{FunctionType::DYNAMIC};
+static std::unordered_map<std::string, ConfigType> g_optionsMap;
 
-Config& Config::SetCycleUpperBound(int sgCycleUpperBound) {
-    Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_UPPER_BOUND, sgCycleUpperBound);
-    return *this;
-}
- 
-Config& Config::SetCycleLowerBound(int sgCycleLowerBound) {
-    Program::GetInstance().GetConfig().Set<int>(SG_CYCLE_LOWER_BOUND, sgCycleLowerBound);
-    return *this;
-}
- 
-Config& Config::SetParallelNum(int sgParallelNum) {
-    Program::GetInstance().GetConfig().Set<int>(SG_PARALLEL_NUM, sgParallelNum);
-    return *this;
-}
-
-Config& Config::SetMachineSchMode(const std::vector<MachineScheduleConfig> &config) {
-    uint8_t machineConfig = 0;
-    for (size_t i = 0; i < config.size(); i++) {
-        machineConfig |= static_cast<uint8_t>(config[i]);
+void Config::SetOption(const std::string &key, bool value) {
+    auto iter = g_optionsMap.find(key);
+    if (g_optionsMap.find(key) == g_optionsMap.end()) {
+        throw std::runtime_error("Config key not found: " + key);
     }
-
-    Program::GetInstance().GetConfig().Set<uint8_t>(MACHINE_CONFIG, machineConfig);
-    return *this;
+    iter->second = value;
 }
 
-} // end ascend
+void Config::SetOption(const std::string &key, int64_t value) {
+    auto iter = g_optionsMap.find(key);
+    if (g_optionsMap.find(key) == g_optionsMap.end()) {
+        throw std::runtime_error("Config key not found: " + key);
+    }
+    iter->second = value;
+}
+
+void Config::SetOption(const std::string &key, const std::string &value) {
+    auto iter = g_optionsMap.find(key);
+    if (g_optionsMap.find(key) == g_optionsMap.end()) {
+        throw std::runtime_error("Config key not found: " + key);
+    }
+    iter->second = value;
+}
+
+void Config::SetOption(const std::string &key, std::vector<int64_t> &value) {
+    auto iter = g_optionsMap.find(key);
+    if (g_optionsMap.find(key) == g_optionsMap.end()) {
+        throw std::runtime_error("Config key not found: " + key);
+    }
+    iter->second = value;
+}
+
+void Config::SetBuildStatic(bool isStatic) {
+    g_funcType = isStatic ? FunctionType::STATIC : FunctionType::DYNAMIC;
+}
+
+std::string Config::ToString() {
+    std::ostringstream oss;
+    for (auto &it : g_optionsMap) {
+        if (auto *valuePtr = std::get_if<bool>(&(it.second))) {
+            oss << it.first << ": " << std::boolalpha << *valuePtr << std::endl;
+        } else {
+            std::visit([&](auto &value) {
+                oss << it.first << ": " << value << std::endl;
+            }, it.second);
+        }
+    }
+    return oss.str();
+}
+
+void SetOptionOverlay(const std::string &key, bool value) {
+    g_optionsMap[key] = value;
+}
+
+void SetOptionOverlay(const std::string &key, int64_t value) {
+    g_optionsMap[key] = value;
+}
+
+void SetOptionOverlay(const std::string &key, const std::string &value) {
+    g_optionsMap[key] = value;
+}
+
+void SetOptionOverlay(const std::string &key, std::vector<int64_t> &value) {
+    g_optionsMap[key] = value;
+}
+
+bool GetOptionInner(const std::string &key, bool &value) {
+    auto iter = g_optionsMap.find(key);
+    if (iter == g_optionsMap.end()) {
+        return false;
+    }
+    value = std::get<bool>(iter->second);
+    return true;
+}
+
+bool GetOptionInner(const std::string &key, int64_t &value) {
+    auto iter = g_optionsMap.find(key);
+    if (iter == g_optionsMap.end()) {
+        return false;
+    }
+    value = std::get<int64_t>(iter->second);
+    return true;
+}
+
+bool GetOptionInner(const std::string &key, std::string &value) {
+    auto iter = g_optionsMap.find(key);
+    if (iter == g_optionsMap.end()) {
+        return false;
+    }
+    value = std::get<std::string>(iter->second);
+    return true;
+}
+
+bool GetOptionInner(const std::string &key, std::vector<int64_t> &value) {
+    auto iter = g_optionsMap.find(key);
+    if (iter == g_optionsMap.end()) {
+        return false;
+    }
+    value = std::get<std::vector<int64_t>>(iter->second);
+    return true;
+}
+
+FunctionType GetFunctionType() { return g_funcType; }
+
+} // end npu::tile_fwk

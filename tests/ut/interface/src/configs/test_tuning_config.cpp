@@ -71,20 +71,3 @@ TEST_F(TestConfigStorage, ConfigSet) {
     auto cubeNbuffer = config.Get<std::map<int,int>>(CUBE_NBUFFER_MAP);
     EXPECT_EQ(cubeNbuffer, expect);
 }
-
-TEST_F(TestConfigStorage, TunerInterface) {
-    const int defaultCyclesThreshold = 100;
-    const int defaultCyclesUpperBound = 1000;
-    const int defaultParalleThreshold = 10;
-
-    Config::GetInstance()
-        .SetCycleLowerBound(defaultCyclesThreshold)
-        .SetCycleUpperBound(defaultCyclesUpperBound)
-        .SetMachineSchMode({MachineScheduleConfig::L2CACHE_AFFINITY_SCH})
-        .SetParallelNum(defaultParalleThreshold);
-
-    EXPECT_EQ(Program::GetInstance().GetConfig().Get<int>(SG_CYCLE_LOWER_BOUND), defaultCyclesThreshold);
-    EXPECT_EQ(Program::GetInstance().GetConfig().Get<int>(SG_CYCLE_UPPER_BOUND), defaultCyclesUpperBound);
-    EXPECT_EQ(Program::GetInstance().GetConfig().Get<uint8_t>(MACHINE_CONFIG), (static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH)));
-    EXPECT_EQ(Program::GetInstance().GetConfig().Get<int>(SG_PARALLEL_NUM), defaultParalleThreshold);
-}

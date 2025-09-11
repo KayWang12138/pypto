@@ -14,6 +14,8 @@
  */
 
 #pragma once
+#include <string>
+#include <vector>
 
 namespace npu::tile_fwk {
 
@@ -28,28 +30,14 @@ class Config {
 public:
     Config(const Config&) = delete;
     Config& operator=(const Config&) = delete;
+    // bool和int64_t类型函数重载，使用时可能存在二义性，须明确其类型
+    static void SetOption(const std::string &key, bool value);
+    static void SetOption(const std::string &key, int64_t value);
+    static void SetOption(const std::string &key, const std::string &value);
+    static void SetOption(const std::string &key, std::vector<int64_t> &value);
 
-    static Config &GetInstance();
-
-    /**
-     * @brief Set the Cycle Upper Bound object
-     *
-     * @param sgCycleUpperBound
-     * @return Config&
-     */
-    Config& SetCycleUpperBound(int sgCycleUpperBound);
-
-    Config& SetCycleLowerBound(int sgCycleLowerBound);
-
-    Config& SetParallelNum(int sgParallelNum);
-
-    /**
-     * @brief Set the Machine Sch Mode object
-     *
-     * @param config
-     * @return Config&
-     */
-    Config& SetMachineSchMode(const std::vector<MachineScheduleConfig> &config);
+    static void SetBuildStatic(bool isStatic);
+    static std::string ToString();
 private:
     Config() = default;
     ~Config() = default;

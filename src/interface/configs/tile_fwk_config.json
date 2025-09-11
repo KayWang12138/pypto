@@ -1,4 +1,12 @@
 {
+    "nbuffer_num": 1,
+    "l1_reuse_num": 0,
+    "cube_nbuffer_num": 1,
+    "cycle_upper_bound": 1,
+    "cycle_lower_bound": 1,
+    "parallel_threshold": 1,
+    "copyin_threshold": 2097152,
+    "db_type": 1,
     "global_configs": {
         "platform_configs": {
             "USE_SSA": true,

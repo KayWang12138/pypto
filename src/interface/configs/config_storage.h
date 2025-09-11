@@ -52,6 +52,10 @@ const std::string VEC_NBUFFER_MAP = "vec_nbuffer_map";
 const std::string SG_CUBE_PARALLEL_NUM = "sg_cube_parallel_num";
 const std::string SG_VEC_PARALLEL_NUM = "sg_vec_parallel_num";
 const std::string SG_SKIP_PARTITION = "sg_skip_partition";
+const std::string NBUFFER_NUM = "nbuffer_num";
+const std::string L1_REUSE_NUM = "l1_reuse_num";
+const std::string CUBE_NBUFFER_NUM = "cube_nbuffer_num";
+const std::string DB_TYPE = "db_type";
 
 class ConfigStorage {
 public:

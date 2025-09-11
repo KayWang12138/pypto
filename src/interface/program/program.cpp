@@ -53,6 +53,7 @@ Program::Program() : currentFunctionPtr_(nullptr) {
     CreateInitFunction();
 
     HostMachine::GetInstance().Init(HostMachineMode::SERVER);
+    ConfigManager::Instance().Initialize();
     std::string envLogLevel;
     GetEnv("GLOBAL_LOG_LEVEL", envLogLevel);
     if (envLogLevel.empty()) {
@@ -92,6 +93,7 @@ void Program::Reset() {
     functionCache_.Reset();
     functionSequence_.clear();
     CreateInitFunction();
+    ConfigManager::Instance().Initialize();
     tensorSlotManager_ = nullptr;
     currentFunctionPtr_ = functionmap_[currentFunctionMagicName_].get();
 }

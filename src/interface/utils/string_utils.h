@@ -23,6 +23,20 @@
 #include "tilefwk/error.h"
 
 namespace npu::tile_fwk {
+
+template<typename T>
+std::ostream& operator<<(std::ostream &os, const std::vector<T> &vec) {
+    os << "[";
+    for (auto iter = vec.begin(); iter != vec.end(); ++iter) {
+        if (iter != vec.begin()) {
+            os << ", ";
+        }
+        os << *iter;
+    }
+    os << "]";
+    return os;
+}
+
 class StringUtils {
 public:
     static constexpr size_t MAX_DATA_LEN = 0x40000000UL;
