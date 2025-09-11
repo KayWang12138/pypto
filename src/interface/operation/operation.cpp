@@ -336,7 +336,7 @@ Json Operation::DumpJson(bool dumpTensor) const {
 
     opDump["opmagic"] = GetOpMagic();
     opDump["semantic_label"] = semanticLabels_;
-    if (location_) {
+    if (location_ && config::GetPlatformConfig(KEY_DUMP_SOURCE_LOCATION, 0)) {
         opDump["file"] = location_->GetFileName();
         opDump["line"] = location_->GetLineno();
     }

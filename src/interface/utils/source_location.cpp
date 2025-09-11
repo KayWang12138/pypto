@@ -17,41 +17,36 @@
 #include <memory>
 #include <sstream>
 #include <iostream>
+#include <vector>
 #include <unordered_set>
 
 namespace npu::tile_fwk {
 
-void SourceLocation::Init(std::vector<std::shared_ptr<SourceLocation>> locs) {
-    std::unordered_set<uint64_t> pcSet;
-
-    for (auto &loc : locs) {
-        if (loc == nullptr || loc->lineno_ != -1)
-            continue;
-        pcSet.insert(loc->pc_);
+void SourceLocation::Init() const {
+    if (pcSet.empty()) {
+        return;
     }
 
     Dl_info dlinfo;
-    std::map<std::pair<std::string, uint64_t>, std::vector<uint64_t>> locMap;
+    std::map<std::pair<std::string, uint64_t>, std::vector<uint64_t>> dlMap;
     for (auto pc : pcSet) {
         if (dladdr((void *)pc, &dlinfo) != 0) {
-            locMap[{dlinfo.dli_fname, (uint64_t)dlinfo.dli_fbase}].push_back(pc);
+            dlMap[{dlinfo.dli_fname, (uint64_t)dlinfo.dli_fbase}].push_back(pc);
         }
     }
+    pcSet.clear();
 
     size_t n = 0;
     char *line = nullptr;
-    std::map<uint64_t, std::pair<std::string, uint64_t>> pcMap;
-    for (auto &[info, pcs] : locMap) {
+    for (auto &[info, pcs] : dlMap) {
         std::stringstream ss;
         ss << "addr2line -i -p -e " << info.first << " " << std::hex;
         for (auto pc : pcs)
             ss << " " << pc - (intptr_t)info.second;
         auto fp = popen(ss.str().c_str(), "r");
-        if (fp == nullptr) {
-            continue;
-        }
+        std::cout << ss.str() << std::endl;
         for (auto pc : pcs) {
-            int rc = getline(&line, &n, fp);
+            int rc = fp ? getline(&line, &n, fp) : -1;
             if (rc >= 0 && strstr(line, "inlined by")) {
                 rc = getline(&line, &n, fp);
             }
@@ -61,57 +56,32 @@ void SourceLocation::Init(std::vector<std::shared_ptr<SourceLocation>> locs) {
                 if (auto base = strrchr(name, '/'); base != nullptr) {
                     name = base + 1;
                 }
-                pcMap[pc] = {name, atoi(p)};
+                locMap[pc]->fname_ = name;
+                locMap[pc]->lineno_ = atoi(p);
+            } else {
+                std::stringstream os;
+                // addr2line failed, use elfname + offset
+                os << info.first << "(+" << std::hex << pc - (intptr_t)info.second << ")";
+                locMap[pc]->fname_ = os.str();
+                locMap[pc]->lineno_ = 0;
             }
         }
         pclose(fp);
-
-        for (auto &loc : locs) {
-            if (loc == nullptr || loc->lineno_ != -1)
-                continue;
-            loc->fname_ = pcMap[loc->pc_].first;
-            loc->lineno_ = pcMap[loc->pc_].second;
-        }
     }
     free(line);
-}
-
-void SourceLocation::Init() const {
-    lineno_ = 0;
-    fname_ = "??";
-
-    Dl_info dlinfo;
-    if (dladdr((void *)pc_, &dlinfo) < 0)
-        return;
-
-    std::stringstream ss;
-    ss << "addr2line -i -p -e " << dlinfo.dli_fname << " " << std::hex
-       << pc_ - (uint64_t)dlinfo.dli_fbase;
-    size_t n = 0;
-    char *line = nullptr;
-    auto fp = popen(ss.str().c_str(), "r");
-    if (getline(&line, &n, fp) >= 0) {
-        char *p = line;
-        fname_ = strsep(&p, ":");
-        lineno_ = atoi(p);
-    }
-    free(line);
-    pclose(fp);
 }
 
 int SourceLocation::GetLineno() const {
-    if (lineno_ == -1) {
-        Init();
-    }
+    Init();
     return lineno_;
 }
 
 std::string SourceLocation::GetFileName() const {
-    if (lineno_ == -1) {
-        Init();
-    }
+    Init();
     return fname_;
 }
 
 std::stack<std::shared_ptr<SourceLocation>> SourceLocation::callStack;
+std::unordered_set<uint64_t> SourceLocation::pcSet;
+std::unordered_map<uint64_t, std::shared_ptr<SourceLocation>> SourceLocation::locMap;
 } // namespace npu::tile_fwk

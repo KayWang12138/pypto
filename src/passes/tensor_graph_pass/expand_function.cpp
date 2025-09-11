@@ -138,7 +138,7 @@ Status ExpandFunction::Expandfunction(Function &function) const {
                 newOp.CopyAttrFrom(*op, OP_EMUOP_PREFIX);
             }
         }
-        SourceLocation::SetLocation(nullptr);
+        SourceLocation::ClearLocation();
     }
     function.expandFunctionAccelerate = false;
     return SUCCESS;

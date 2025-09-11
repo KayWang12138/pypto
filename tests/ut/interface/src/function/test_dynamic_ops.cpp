@@ -52,7 +52,6 @@ public:
         config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_OPERATION, false);
         config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_TENSOR, false);
         config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_CHECK_PRECISION, false);
-        config::SetPlatformConfig(KEY_ENABLE_SOURCE_LOCATION, false);
     }
 };
 
@@ -104,7 +103,6 @@ TEST_F(DynamicOpsTest, AssembleFp16) {
     config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
     config::SetPlatformConfig(KEY_VERIFY_PASS, true);
     config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, true);
-    config::SetPlatformConfig(KEY_ENABLE_SOURCE_LOCATION, true);
 
     int s = 32;
     int n = 2;

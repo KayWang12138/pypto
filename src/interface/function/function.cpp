@@ -1091,7 +1091,10 @@ unsigned long Function::ComputeHashOrderless() const {
     std::unordered_map<int, int> magic2index;
     // 只有leaf graph需要判断边界
     if (graphType_ == GraphType::LEAF_GRAPH) {
-        MagicLookup(this, GetOutcast(), operations_[operations_.size() - 1]->GetSubgraphID(), index, magic2index, ss);
+        if (operations_.size()) {
+            MagicLookup(
+                this, GetOutcast(), operations_[operations_.size() - 1]->GetSubgraphID(), index, magic2index, ss);
+        }
     } else {
         MagicLookup(this, GetOutcast(), INT32_MIN, index, magic2index, ss);
     }
@@ -1437,6 +1440,7 @@ std::pair<std::shared_ptr<LogicalTensor>, std::shared_ptr<LogicalTensor>> Functi
 void Function::CreateFromIncast(const std::shared_ptr<LogicalTensor> &symbol,
                                       const std::shared_ptr<LogicalTensor> &newIncast,
                                       const std::shared_ptr<LogicalTensor> &originIncast) {
+    DEFINE_SOURCE_LOCATION();
     auto &incastOp = AddOperation(Opcode::OP_VIEW, {symbol}, {newIncast});
     incastOp.SetAttr(OpAttributeKey::isGlobalInput, true);
 
@@ -1631,6 +1635,7 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
                 [](Operation *op) { return op->GetOpcode() == Opcode::OP_ASSEMBLE && op->HasAttribute("dassemble"); });
             if (assembleCount) {
                 for (auto producer : producerSet) {
+                    DEFINE_SOURCE_LOCATION();
                     auto producerAttr = std::static_pointer_cast<AssembleOpAttribute>(producer->GetOpAttribute());
                     auto [offset, dynOffset] = TensorOffset::Add(iOperand[i]->GetOffset(), iOperand[i]->GetDynOffset(), producerAttr->GetToOffset(), producerAttr->GetToDynOffset());
                     auto &assembleOp = AddOperation(Opcode::OP_ASSEMBLE, {producer->GetIOperands()[0]}, oOperand);
@@ -1641,6 +1646,7 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
                     scope->partialUpdateOutcastDict[rawSymbol] = assembleCount;
                 }
             } else {
+                DEFINE_SOURCE_LOCATION();
                 auto &assembleOp = AddOperation(Opcode::OP_ASSEMBLE, {iOperand[i]}, oOperand);
                 assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(newOutcastOffsets[i]));
             }
@@ -1841,15 +1847,6 @@ Json Function::DumpJson(bool useTable) {
     }
     funcDump["global_tensors"] = globalTensorVec;
     funcDump["static"]["global_tensors"] = funcDump["global_tensors"];
-
-    std::unordered_set<SourceLocationPtr> locations;
-    for (auto &op : Operations()) {
-        if (auto loc = op.GetLocation(); loc) {
-            locations.insert(loc);
-        }
-    }
-    std::vector<SourceLocationPtr> locs(locations.begin(), locations.end());
-    SourceLocation::Init(locs);
 
     Json operations = Json::array();
     if (useTable) {

@@ -12,8 +12,9 @@
 #include <cstdint>
 #include <memory>
 #include <string>
-#include <vector>
 #include <stack>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace npu::tile_fwk {
 
@@ -25,23 +26,25 @@ public:
 
     int GetLineno() const;
     std::string GetFileName() const;
-    uint64_t GetPC() const { return pc_; }
+    std::string ToString() const { return GetFileName() + ":" + std::to_string(GetLineno()); }
 
-    static void SetLocation(std::shared_ptr<SourceLocation> loc = nullptr) {
-        if (loc)
-            callStack.push(loc);
-        else if (callStack.size())
-            callStack.pop();
-    }
-
-    static std::shared_ptr<SourceLocation> GetLocation() {
-        if (callStack.size())
-            return callStack.top();
-        return nullptr;
-    }
-    static void Init(std::vector<std::shared_ptr<SourceLocation>> locs);
+public:
+    static void SetLocation(const void *pc) { callStack.push(GetLocation(reinterpret_cast<uint64_t>(pc))); }
+    static void SetLocation(std::shared_ptr<SourceLocation> loc) { callStack.push(loc); }
+    static void ClearLocation() { callStack.pop(); }
+    static auto GetLocation() { return callStack.size() > 0 ? callStack.top() : nullptr; }
 
 private:
+    static std::shared_ptr<SourceLocation> GetLocation(uint64_t pc) {
+        if (locMap.find(pc) != locMap.end()) {
+            return locMap[pc];
+        }
+        auto loc = std::make_shared<SourceLocation>(pc);
+        locMap[pc] = loc;
+        pcSet.insert(pc);
+        return loc;
+    }
+
     void Init() const;
 
 private:
@@ -49,8 +52,18 @@ private:
     mutable int lineno_;
     uint64_t pc_;
     static std::stack<std::shared_ptr<SourceLocation>> callStack;
+    static std::unordered_set<uint64_t> pcSet;
+    static std::unordered_map<uint64_t, std::shared_ptr<SourceLocation>> locMap;
 };
 
 using SourceLocationPtr = std::shared_ptr<SourceLocation>;
+
+struct SourceLocationHelper {
+    // lr is return address, we need find caller address, minus 4 here
+    SourceLocationHelper(const void *lr) { SourceLocation::SetLocation((const uint8_t *)lr - 4); }
+    ~SourceLocationHelper() { SourceLocation::ClearLocation(); }
+};
+
+#define DEFINE_SOURCE_LOCATION() auto __loc = SourceLocationHelper(__builtin_return_address(0))
 
 } // namespace npu::tile_fwk

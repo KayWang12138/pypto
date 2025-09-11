@@ -20,7 +20,7 @@
             "TEST_IS_TIG": false,
             "ENABLE_SOFT_MEMORY": false,
             "ENABLE_PV_DATA": false,
-            "ENABLE_SOURCE_LOCATION": false,
+            "DUMP_SOURCE_LOCATION": false,
             "ENABLE_CHECKER": false,
             "DEVICE_PLATFORM":"ASCEND_910B2"
         },

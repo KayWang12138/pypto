@@ -54,13 +54,4 @@ bool OperatorTracer::IsCheckerEnabled() const {
     }
     return enableChecker;
 }
-
-bool OperatorTracer::IsSourceLocationEnabled() const {
-    static int enableSourceLocation = -1;
-    if (enableSourceLocation == -1) {
-        enableSourceLocation = config::GetPlatformConfig(KEY_ENABLE_SOURCE_LOCATION, 0);
-    }
-    return enableSourceLocation;
-}
-
 } // namespace npu::tile_fwk
