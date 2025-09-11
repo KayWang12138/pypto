@@ -98,6 +98,7 @@ struct AOTBinary {
 
         PerfBegin(PERF_EVT_CONTROL_FLOW_MAPEXE_MEMCPY);
         memcpy_s(base, size, data, size);
+        __builtin___clear_cache(base, (uint8_t*)base + size);
         PerfEnd(PERF_EVT_CONTROL_FLOW_MAPEXE_MEMCPY);
         code_ = (unsigned char *)base;
         size_ = size;
