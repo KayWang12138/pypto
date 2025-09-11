@@ -20,8 +20,11 @@ using namespace npu::tile_fwk;
 namespace pypto {
 void bind_tensor(py::module &m){
     py::class_<Tensor>(m, "tensor")
+        .def(py::init<>())
         .def(py::init<DataType, std::vector<int64_t>, std::string>(), py::arg("dtype"), py::arg("shape"),
-            py::arg("name") = "Unknown")
+            py::arg("name") = "int_init")
+        .def(py::init<DataType, std::vector<SymbolicScalar>, std::string>(), py::arg("dtype"), py::arg("shape"),
+            py::arg("name") = "SymbolicScalar_init")
         .def(
             "__add__", [](Tensor &self, Tensor tensor) { return npu::tile_fwk::Add(self, tensor); }, "Tensor add.")
         .def("get_dtype", &Tensor::GetDataType)
@@ -29,6 +32,7 @@ void bind_tensor(py::module &m){
             "shape", py::overload_cast<>(&Tensor::GetShape, py::const_), py::return_value_policy::reference_internal)
         .def("get_shape", py::overload_cast<>(&Tensor::GetShape, py::const_),
             py::return_value_policy::reference_internal)
+        .def("get_shape_at",py::overload_cast<int>(&Tensor::GetShape, py::const_),py::arg("axis"))
         .def("assign",
             py::overload_cast<const Tensor&>(&Tensor::operator=),
             "Assigns from another tensor by copying its content.",
@@ -42,7 +46,17 @@ void bind_tensor(py::module &m){
             "Assigns from another tensor by moving its content. The source tensor is left in an empty state.",
             py::arg("other"),
             py::return_value_policy::reference_internal
-        );
+        )
+        .def("id", &Tensor::Id, "Get the index of the tensor.")
+        .def_property_readonly("id", &Tensor::Id, "Get the index of the tensor.");
+    m.def("get_input_shape", &GetInputShape, py::arg("index"), py::arg("input_index"),
+         "Get the shape of the input at the specified index.");
+    m.def("get_input_data", &GetInputData, py::arg("index"), py::arg("data_offsets"),
+        "Get the input data at the specified offsets.");
+    m.def("get_tensor_data", &GetTensorData, py::arg("index"), py::arg("data_offsets"),
+        "Get the tensor data at the specified offsets.");
+    m.def("set_tensor_data", &SetTensorData, py::arg("value"), py::arg("src_offset"), py::arg("dst_offset"),
+        "Set the tensor data at the destination offset from the source value.");
 
     py::class_<Element>(m, "element")
         .def(py::init<DataType, int64_t>(), py::arg("type"), py::arg("sData"))
