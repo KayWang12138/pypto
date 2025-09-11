@@ -138,9 +138,6 @@ void bind_operation(py::module &m) {
         "cos", [](const Tensor &operand) { return npu::tile_fwk::Cos(operand); },
         "Tensor cos.");
     m.def(
-        "softmax", [](const Tensor &operand) { return npu::tile_fwk::Softmax(operand); },
-        "Tensor softmax.");
-    m.def(
         "new_compact", [](const Tensor &operand) { return npu::tile_fwk::NewCompact(operand); },
         "Tensor new compact.");
     m.def(
@@ -190,6 +187,180 @@ void bind_operation(py::module &m) {
         },
         py::arg("out_type"), py::arg("a"), py::arg("b"), py::arg("a_trans") = false, py::arg("b_trans") = false,
         "Matrix multiply.");
+
+    m.def(
+        "sort",
+        [](const Tensor &operand, int axis, bool is_largest = true) {
+            return npu::tile_fwk::ArgSort(operand, axis, is_largest);
+        },
+        py::arg("operand"), py::arg("axis"), py::arg("is_largest"), "Tensor sort.");
+    m.def(
+        "softmax", [](const Tensor &operand) { return npu::tile_fwk::SoftmaxNew(operand); }, py::arg("operand"),
+        "Tensor softmax.");
+    m.def(
+        "rotate_half", [](const Tensor &input) { return npu::tile_fwk::RotateHalf(input); }, py::arg("input"),
+        "Tensor rotate half.");
+    m.def("sigmoid", [](Tensor &input) { return npu::tile_fwk::Sigmoid(input); }, py::arg("input"), "Tensor sigmoid.");
+    m.def(
+        "quant",
+        [](const Tensor &input, bool is_symmetry = true, bool has_smooth_factor = false,
+            const Tensor &smooth_factor = Tensor()) {
+            return npu::tile_fwk::Quant(input, is_symmetry, has_smooth_factor, smooth_factor);
+        },
+        py::arg("input"), py::arg("is_symmetry") = true, py::arg("has_smooth_factor") = false,
+        py::arg("smooth_factor") = Tensor(), "Tensor quant.");
+    m.def(
+        "scalar_divs",
+        [](const Tensor &operand, const Element &value, bool reverse_operand = false) {
+            return npu::tile_fwk::ScalarDivS(operand, value, reverse_operand);
+        },
+        py::arg("operand"), py::arg("value"), py::arg("reverse_operand") = false, "Tensor scalar divs.");
+    m.def(
+        "scalar_adds",
+        [](const Tensor &operand, const Element &value, bool reverse_operand = false) {
+            return npu::tile_fwk::ScalarAddS(operand, value, reverse_operand);
+        },
+        py::arg("operand"), py::arg("value"), py::arg("reverse_operand") = false, "Tensor scalar adds.");
+    m.def(
+        "scalar_maxs",
+        [](const Tensor &operand, const Element &value, bool reverse_operand = false) {
+            return npu::tile_fwk::ScalarMaxS(operand, value, reverse_operand);
+        },
+        py::arg("operand"), py::arg("value"), py::arg("reverse_operand") = false, "Tensor scalar maxs.");
+    m.def(
+        "scalar_subs",
+        [](const Tensor &operand, const Element &value, bool reverse_operand = false) {
+            return npu::tile_fwk::ScalarSubS(operand, value, reverse_operand);
+        },
+        py::arg("operand"), py::arg("value"), py::arg("reverse_operand") = false, "Tensor scalar subs.");
+    m.def(
+        "scalar_muls",
+        [](const Tensor &operand, const Element &value, bool reverse_operand = false) {
+            return npu::tile_fwk::ScalarMulS(operand, value, reverse_operand);
+        },
+        py::arg("operand"), py::arg("value"), py::arg("reverse_operand") = false, "Tensor scalar muls.");
+    m.def(
+        "scalar_sub",
+        [](const Tensor &operand1, const Tensor &operand2) { return npu::tile_fwk::ScalarSub(operand1, operand2); },
+        py::arg("operand1"), py::arg("operand2"), "Tensor scalar sub.");
+    m.def(
+        "scalar_div",
+        [](const Tensor &operand1, const Tensor &operand2) { return npu::tile_fwk::ScalarDiv(operand1, operand2); },
+        py::arg("operand1"), py::arg("operand2"), "Tensor scalar div.");
+    m.def(
+        "reduce",
+        [](const std::vector<Tensor> &aggregation, const ReduceMode reduce_mode) {
+            return npu::tile_fwk::Reduce(aggregation, reduce_mode);
+        },
+        py::arg("aggregation"), py::arg("reduce_mode"), "Tensor reduce.");
+    m.def(
+        "max_pool",
+        [](const Tensor &operand, const std::vector<int> &pools, const std::vector<int> &stride,
+            const std::vector<int> &paddings) { return npu::tile_fwk::Maxpool(operand, pools, stride, paddings); },
+        py::arg("operand"), py::arg("pools"), py::arg("stride"), py::arg("paddings"), "Max pool.");
+    m.def(
+        "apply_rotary_pos_emb",
+        [](const Tensor &q, const Tensor &k, const Tensor &cos, const Tensor &sin, const Tensor &position_ids,
+            Tensor &q_embed, Tensor &k_embed, const int unsqueeze_dim = 1,
+            const RoPETileShapeConfig &rope_tile_config = {}) {
+            npu::tile_fwk::ApplyRotaryPosEmb(
+                q, k, cos, sin, position_ids, q_embed, k_embed, unsqueeze_dim, rope_tile_config);
+        },
+        py::arg("q"), py::arg("k"), py::arg("cos"), py::arg("sin"), py::arg("position_ids"), py::arg("q_embed"),
+        py::arg("k_embed"), py::arg("unsqueeze_dim") = 1, py::arg("rope_tile_config") = RoPETileShapeConfig(),
+        "Apply rotary pos emb.");
+    m.def(
+        "apply_rotary_pos_emb_v2",
+        [](const Tensor &q, const Tensor &k, const Tensor &cos, const Tensor &sin, Tensor &q_embed, Tensor &k_embed,
+            const int unsqueeze_dim = NUM2, const RoPETileShapeConfigNew &rope_tile_config = {}) {
+            npu::tile_fwk::ApplyRotaryPosEmbV2(q, k, cos, sin, q_embed, k_embed, unsqueeze_dim, rope_tile_config);
+        },
+        py::arg("q"), py::arg("k"), py::arg("cos"), py::arg("sin"), py::arg("q_embed"), py::arg("k_embed"),
+        py::arg("unsqueeze_dim") = NUM2, py::arg("rope_tile_config") = RoPETileShapeConfigNew(),
+        "Apply rotary pos emb v2.");
+    m.def(
+        "incre_flash_attention",
+        [](Tensor &q_nope, Tensor &k_nope_cache, Tensor &v_nope_cache, Tensor &q_rope, Tensor &k_rope_cache,
+            std::vector<std::vector<int>> &block_table, std::vector<int> &act_seqs, float soft_max_scale,
+            Tensor &attention_out, IfaTileShapeConfig &tile_config) {
+            npu::tile_fwk::IncreFlashAttention(q_nope, k_nope_cache, v_nope_cache, q_rope, k_rope_cache, block_table,
+                act_seqs, soft_max_scale, attention_out, tile_config);
+        },
+        py::arg("q_nope"), py::arg("k_nope_cache"), py::arg("v_nope_cache"), py::arg("q_rope"), py::arg("k_rope_cache"),
+        py::arg("block_table"), py::arg("act_seqs"), py::arg("soft_max_scale"), py::arg("attention_out"),
+        py::arg("tile_config"), "Incre flash attention.");
+    m.def(
+        "page_attention_adds",
+        [](Tensor &q_nope, Tensor &k_nope_cache, Tensor &v_nope_cache, Tensor &q_rope, Tensor &k_rope_cache,
+            Tensor &block_table, Tensor &act_seqs, int block_size, float soft_max_scale, Tensor &attention_out,
+            Tensor &post_out, PaTileShapeConfig &tile_config, int max_unroll_times = 1) {
+            npu::tile_fwk::PageAttentionAddS(q_nope, k_nope_cache, v_nope_cache, q_rope, k_rope_cache, block_table,
+                act_seqs, block_size, soft_max_scale, attention_out, post_out, tile_config, max_unroll_times);
+        },
+        py::arg("q_nope"), py::arg("k_nope_cache"), py::arg("v_nope_cache"), py::arg("q_rope"), py::arg("k_rope_cache"),
+        py::arg("block_table"), py::arg("act_seqs"), py::arg("block_size"), py::arg("soft_max_scale"),
+        py::arg("attention_out"), py::arg("post_out"), py::arg("tile_config"), py::arg("max_unroll_times") = 1,
+        "Page attention adds.");
+    m.def(
+        "page_attention_adds_single_output",
+        [](Tensor &q_nope, Tensor &k_nope_cache, Tensor &v_nope_cache, Tensor &q_rope, Tensor &k_rope_cache,
+            Tensor &block_table, Tensor &act_seqs, int block_size, float soft_max_scale, Tensor &attention_out,
+            Tensor &post_out, PaTileShapeConfig &tile_config, int max_unroll_times = 1) {
+            npu::tile_fwk::PageAttentionAddSSingleOutput(q_nope, k_nope_cache, v_nope_cache, q_rope, k_rope_cache,
+                block_table, act_seqs, block_size, soft_max_scale, attention_out, post_out, tile_config,
+                max_unroll_times);
+        },
+        py::arg("q_nope"), py::arg("k_nope_cache"), py::arg("v_nope_cache"), py::arg("q_rope"), py::arg("k_rope_cache"),
+        py::arg("block_table"), py::arg("act_seqs"), py::arg("block_size"), py::arg("soft_max_scale"),
+        py::arg("attention_out"), py::arg("post_out"), py::arg("tile_config"), py::arg("max_unroll_times") = 1,
+        "Page attention adds single output.");
+    m.def(
+        "prolog_post",
+        [](Tensor &q_nope, Tensor &k_nope_cache, Tensor &v_nope_cache, Tensor &q_rope, Tensor &k_rope_cache,
+            Tensor &block_table, Tensor &act_seqs, Tensor &weight_uv, Tensor &weight0, int block_size,
+            float soft_max_scale, Tensor &post_out, PaTileShapeConfig &tile_config) {
+        npu::tile_fwk::PrologPost(q_nope, k_nope_cache, v_nope_cache, q_rope, k_rope_cache, block_table, act_seqs,
+            weight_uv, weight0, block_size, soft_max_scale, post_out, tile_config);
+        },
+        py::arg("q_nope"), py::arg("k_nope_cache"), py::arg("v_nope_cache"), py::arg("q_rope"), py::arg("k_rope_cache"),
+        py::arg("block_table"), py::arg("act_seqs"), py::arg("weight_uv"), py::arg("weight0"), py::arg("block_size"),
+        py::arg("soft_max_scale"), py::arg("post_out"), py::arg("tile_config"), "Prolog post.");
+    m.def(
+        "all_gather",
+        [](const Tensor &in, std::vector<Tensor> &out, const char *group) {
+        npu::tile_fwk::Distributed::AllGather(in, out, group);
+        },
+        py::arg("in"), py::arg("out"), py::arg("group"), "Tensor all gather.");
+    m.def(
+        "all_gather",
+        [](const Tensor &in, const char *group) {
+        return npu::tile_fwk::Distributed::AllGather(in, group); },
+        py::arg("in"), py::arg("group"), "Tensor all gather.");
+    m.def(
+        "reduce_scatter",
+        [](const std::vector<Tensor> &in, const char *group, Distributed::DistReduceType reduce_type) {
+            return npu::tile_fwk::Distributed::ReduceScatter(in, group, reduce_type);
+        },
+        py::arg("in"), py::arg("group"), py::arg("reduce_type"), "Tensor reduce scatter.");
+    m.def(
+        "reduce_scatter",
+        [](const Tensor &in, const char *group, Distributed::DistReduceType reduce_type) {
+            return npu::tile_fwk::Distributed::ReduceScatter(in, group, reduce_type);
+        },
+        py::arg("in"), py::arg("group"), py::arg("reduce_type"), "Tensor reduce scatter.");
+    m.def(
+        "moe_dispatch",
+        [](const Tensor &token_tensor, const Tensor &token_expert_table, Tensor &valid_cnt, const char *group) {
+            return npu::tile_fwk::Distributed::MoeDispatch(token_tensor, token_expert_table, valid_cnt, group);
+        },
+        py::arg("token_tensor"), py::arg("token_expert_table"), py::arg("valid_cnt"), py::arg("group"),
+        "Tensor moe dispatch.");
+    m.def(
+        "moe_combine",
+        [](const Tensor &in, const Tensor &scale, const Tensor &combine_info, const char *group) {
+            return npu::tile_fwk::Distributed::MoeCombine(in, scale, combine_info, group);
+        },
+        py::arg("in"), py::arg("scale"), py::arg("combine_info"), py::arg("group"), "Tensor moe combine.");
 
     m.def(
         "assemble",
