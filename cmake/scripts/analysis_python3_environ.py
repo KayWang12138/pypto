@@ -14,6 +14,7 @@ Python3环境分析.
 """
 import argparse
 import logging
+import importlib
 from pathlib import Path
 from typing import Optional
 
@@ -24,6 +25,8 @@ class Analysis:
         self.executable: Path = Path(args.executable[0]).resolve()
         self.print_pybind11_dir: bool = args.print_pybind11_dir
         self.print_torch_version: bool = args.print_torch_version
+        self.judge_pytest_installed: bool = args.judge_pytest_installed
+        self.judge_pytest_forked_installed: bool = args.judge_pytest_forked_installed
 
     @staticmethod
     def analysis_pybind11_dir() -> str:
@@ -50,6 +53,26 @@ class Analysis:
         return str(torch_version) if torch_version else ""
 
     @staticmethod
+    def analysis_pytest() -> str:
+        installed: bool = False
+        try:
+            importlib.import_module("pytest")
+            installed = True
+        except (ModuleNotFoundError or ImportError):
+            pass
+        return "True" if installed else ""
+
+    @staticmethod
+    def analysis_pytest_forked() -> str:
+        installed: bool = False
+        try:
+            importlib.import_module("pytest_forked")
+            installed = True
+        except (ModuleNotFoundError or ImportError):
+            pass
+        return "True" if installed else ""
+
+    @staticmethod
     def main() -> str:
         """主处理流程
         """
@@ -61,6 +84,10 @@ class Analysis:
                             help="Print pip3::pybind11 dir.")
         parser.add_argument("--print_torch_version", action="store_true", default=False,
                             help="Print pip3::torch version.")
+        parser.add_argument("--judge_pytest_installed", action="store_true", default=False,
+                            help="Judge pip3::pytest installed.")
+        parser.add_argument("--judge_pytest_forked_installed", action="store_true", default=False,
+                            help="Judge pip3::pytest-forked installed.")
         # 流程处理
         ctrl = Analysis(args=parser.parse_args())
         return ctrl.analysis()
@@ -70,6 +97,10 @@ class Analysis:
             return self.analysis_pybind11_dir()
         elif self.print_torch_version:
             return self.analysis_torch_version()
+        elif self.judge_pytest_installed:
+            return self.analysis_pytest()
+        elif self.judge_pytest_forked_installed:
+            return self.analysis_pytest_forked()
         else:
             return ""
 

@@ -14,9 +14,6 @@ import pto
 import sys
 import os
 
-common_dir = os.path.join(os.path.dirname(__file__), '..', 'common')
-sys.path.insert(0, os.path.abspath(common_dir))
-
 from utils import dyn_function, loop_function, record_if_branch
 
 

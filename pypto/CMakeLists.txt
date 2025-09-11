@@ -35,9 +35,3 @@ target_link_libraries(pto
             intf_pub_cxx17
             tile_fwk_intf_pub
 )
-
-set_target_properties(pto
-        PROPERTIES
-            LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/test/
-            CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE
-)

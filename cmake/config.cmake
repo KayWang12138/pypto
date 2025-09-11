@@ -14,17 +14,14 @@
 
 # Python3
 if (NOT DEFINED Python3_EXECUTABLE)
+    # 当外部未指定 Python3 时, 一般是从 CMake 为入口触发的编译, 此时直接 find
     find_package(Python3 COMPONENTS Interpreter Development)
     if ("${Python3_EXECUTABLE}x" STREQUAL "x")
         message(FATAL_ERROR "Can't find python3 Interpreter.")
     endif ()
 else ()
-    # 从解释器路径推导出 Python3 根目录
-    get_filename_component(_Python3_Root "${Python3_EXECUTABLE}" DIRECTORY)
-    get_filename_component(_Python3_Root "${_Python3_Root}" DIRECTORY)  # 通常需要向上两级
-    # 设置查找路径
-    set(Python3_ROOT_DIR "${_Python3_Root}")
-    find_package(Python3 COMPONENTS Development)
+    # 当外部指定 Python3 时, 此时强制使用外部指定的 Python3 对应版本
+    find_package(Python3 ${Python3_FIND_VERSION} EXACT COMPONENTS Development)
 endif ()
 
 # pybind11
@@ -34,6 +31,10 @@ if (Python3_Development_FOUND)
     if (NOT "${pybind11_DIR}x" STREQUAL "x")
         find_package(pybind11 CONFIG REQUIRED PATHS ${pybind11_DIR} NO_DEFAULT_PATH)
     endif ()
+endif ()
+if (NOT pybind11_FOUND)
+    set(ENABLE_BUILD_PTO_FWK_PYTHON OFF)
+    message(WARNING "Can't get pybind11, Auto turn off ENABLE_BUILD_PTO_FWK_PYTHON.")
 endif ()
 
 # 获取 CANN 路径

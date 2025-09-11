@@ -9,18 +9,25 @@
 
 if (ENABLE_TESTS_STEST OR ENABLE_TESTS_STEST_DISTRIBUTED)
     add_subdirectory(utils)
+endif ()
 
-    if (ENABLE_TESTS_STEST)
-        add_subdirectory(operator)
-        add_subdirectory(operation)
-        add_subdirectory(machine)
-        add_subdirectory(simulation)
+if (ENABLE_TESTS_STEST)
+    add_subdirectory(operator)
+    add_subdirectory(operation)
+    add_subdirectory(machine)
+    add_subdirectory(simulation)
 
-        # 可执行程序
-        PTO_Fwk_STest_AddExe_RunExe(TARGET ${PTO_Fwk_STestNamePrefix})
-    endif ()
+    # 可执行程序
+    PTO_Fwk_STest_AddExe_RunExe(TARGET ${PTO_Fwk_STestNamePrefix})
+endif ()
 
-    if (ENABLE_TESTS_STEST_DISTRIBUTED)
-        add_subdirectory(distributed)
-    endif ()
+if (ENABLE_TESTS_STEST_DISTRIBUTED)
+    add_subdirectory(distributed)
+endif ()
+
+if (ENABLE_BUILD_PTO_FWK_PYTHON AND ENABLE_TESTS_STEST)
+    get_filename_component(_SrcCommon "${PTO_FWK_SRC_ROOT}/pypto/common" REALPATH)
+    PTO_Fwk_STest_RunPytest(
+        PYTHON_PATH_EXT     ${_SrcCommon}
+    )
 endif ()

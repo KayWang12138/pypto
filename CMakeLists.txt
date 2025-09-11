@@ -8,7 +8,7 @@
 # ======================================================================================================================
 cmake_minimum_required(VERSION 3.16)
 
-project(TileFramework
+project(PTO_Framework
         LANGUAGES C CXX
         VERSION 2.0
 )
@@ -31,6 +31,8 @@ if (DEFINED AC_ENABLE_FRAMEWORK_WITHOUT_CANN)
 else ()
     option(ENABLE_BUILD_WITH_CANN "Enable build with CANN." ON)
 endif ()
+option(ENABLE_BUILD_PTO_FWK_PYTHON "Enable build PTO-Framework-Python"  ON)
+
 # 公开编译开关(tests)
 option(ENABLE_TESTS_EXECUTE "Enable auto execute tests executable"  OFF)
 option(ENABLE_TESTS_EXECUTE_DEVICE_ID "Auto execute tests executable with Device Id" OFF)
@@ -43,11 +45,13 @@ option(ENABLE_TESTS_STEST_GOLDEN_PATH "Specific STest Golden Path"  OFF)
 option(ENABLE_TESTS_STEST_GOLDEN_PATH_CLEAN "Clean STest Golden"  OFF)
 option(ENABLE_TESTS_STEST_BINARY_CACHE "Enable STest Binary Cache" OFF)
 option(ENABLE_TESTS_STEST_DUMP_JSON "Enable STest Dump Json"  OFF)
+
 # 公开编译开关(tools_build)
 option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
 option(ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
 option(ENABLE_GCOV "Enable GNU Coverage Instrumentation Tool" OFF)
 option(ENABLE_TESTS_STEST_EXPERIMENT_COPY_AICPU_BINARY "Enable Copy AICPU binary to device auto(Experiment)" OFF)
+
 # 公开编译开关(tools_profiling/tools_precision)
 option(ENABLE_TESTS_STEST_TOOLS_OUTPUT_CLEAN "Clean STest Tools Output Directory" OFF)
 option(ENABLE_TESTS_STEST_TOOLS_INTERCEPT "Enable STest Tools Intercept if has any failed case" OFF)
@@ -70,7 +74,7 @@ include(cmake/intf.cmake)
 # 编译流程
 ########################################################################################################################
 
-if (pybind11_FOUND)
+if (ENABLE_BUILD_PTO_FWK_PYTHON)
     add_subdirectory(pypto)
 endif ()
 

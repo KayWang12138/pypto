@@ -237,3 +237,82 @@ function(PTO_Fwk_GTest_AddExe)
         COMMENT "Soft link include directory has been created at ${PTO_FWK_BIN_ROOT}/src/include/tile_fwk"
     )
 endfunction()
+
+# GTest 以 pytest 方式触发 python 用例执行
+#[[
+Parameters:
+  one_value_keywords:
+      STUB_TARGET_NAME              : [Required] 用于指定桩目标的名称
+      PYTEST_INI                    : [Optional] 指定具体 pytest.ini 文件
+  multi_value_keywords:
+      PYTHON_PATH_EXT               : [Optional] 额外需要配置的 PYTHONPATH
+      PYTHON_PATH_LIBRARIES         : [Optional] 需要配置在 PYTHONPATH 中的二进制
+      PYTEST_PARAM_EXT              : [Optional] pytest 额外补充参数
+]]
+function(PTO_Fwk_GTest_RunPytest)
+    cmake_parse_arguments(
+            ARG
+            ""
+            "TARGET_NAME_PREFIX;PYTEST_INI"
+            "PYTHON_PATH_EXT;PYTHON_PATH_LIBRARIES;PYTEST_PARAM_EXT"
+            ""
+            ${ARGN}
+    )
+    # 编译 桩目标
+    set(_MainStub ${CMAKE_CURRENT_BINARY_DIR}/${ARG_TARGET_NAME_PREFIX}_main_stub_python.cpp)
+    execute_process(COMMAND touch ${_MainStub})
+    set(_Target ${ARG_TARGET_NAME_PREFIX}_python)
+    add_library(${_Target} SHARED)
+    target_sources(${_Target} PRIVATE ${_MainStub})
+    add_dependencies(${_Target} pto)
+
+    # 处理 pytest.ini
+    if (NOT ARG_PYTEST_INI)
+        get_filename_component(ARG_PYTEST_INI "${CMAKE_CURRENT_SOURCE_DIR}/pytest.ini" REALPATH)
+    endif ()
+    if (NOT EXISTS "${ARG_PYTEST_INI}")
+        message(FATAL_ERROR "Can't get ${ARG_STUB_TARGET_NAME} 's pytest.ini[${ARG_PYTEST_INI}]")
+    endif ()
+
+    # 处理 依赖库路径
+    set(_LibrariesPathList)
+    foreach (_Lib ${ARG_PYTHON_PATH_LIBRARIES})
+        list(APPEND _LibrariesPathList "$<TARGET_FILE_DIR:${_Lib}>")
+    endforeach ()
+    set(_PythonPath ${_LibrariesPathList} ${ARG_PYTHON_PATH_EXT} "$ENV{PYTHONPATH}")
+    string(REPLACE ";" ":" _PythonPath "${_PythonPath}")
+
+    # 执行 pytest
+    PTO_Fwk_AnalysisPython3Environ(pytest_FOUND JUDGE_PYTEST_INSTALLED)
+    if (NOT "${pytest_FOUND}x" STREQUAL "x")
+        PTO_Fwk_AnalysisPython3Environ(pytest_forked_FOUND JUDGE_PYTEST_FORKED_INSTALLED)
+        set(_PytestParamExt)
+        if (NOT "${pytest_forked_FOUND}x" STREQUAL "x")
+            list(APPEND _PytestParamExt --forked)
+        endif ()
+
+        PTO_Fwk_GTest_RunExe_GetPreExecSetup(PyCmdSetup PyEnvLines BashCmdSetup
+                TARGET              ${_Target}
+                LD_LIBRARIES_EXT    ${ARG_PYTHON_PATH_LIBRARIES}
+        )
+        add_custom_command(
+                TARGET ${_Target} POST_BUILD
+                COMMAND mkdir -p "${PTO_FWK_BIN_ROOT}/src/conf"
+                COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/src/interface/configs/tile_fwk_config.json" "${PTO_FWK_BIN_ROOT}/src/conf/tile_fwk_config.json"
+                COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/src/passes/pass_config/tile_fwk_platform_info.json" "${PTO_FWK_BIN_ROOT}/src/conf/tile_fwk_platform_info.json"
+                COMMENT "Soft link of tile_fwk_config.json and tile_fwk_platform_info.json has been created at ${PTO_FWK_BIN_ROOT}/src/conf"
+        )
+        add_custom_command(
+                TARGET ${_Target} PRE_BUILD
+                COMMAND touch ${_MainStub}  # 重新 touch 源码, 保证可重复执行
+        )
+        add_custom_command(
+                TARGET ${_Target} POST_BUILD
+                COMMAND ${PyEnvLines} PYTHONPATH=${_PythonPath} ${Python3_EXECUTABLE} -m pytest -s -c ${ARG_PYTEST_INI} ${_PytestParamExt} ${PYTEST_PARAM_EXT}
+                COMMENT "Run pytest With ${ARG_PYTEST_INI}"
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        )
+    else ()
+        message(WARNING "pytest not installed, python test won't run.")
+    endif ()
+endfunction ()

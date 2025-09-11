@@ -152,7 +152,7 @@ Parameters:
 function(PTO_Fwk_AnalysisPython3Environ OUT_VALUE)
     cmake_parse_arguments(
             ARG
-            "GET_PYBIND11_DIR;GET_TORCH_VERSION"
+            "GET_PYBIND11_DIR;GET_TORCH_VERSION;JUDGE_PYTEST_INSTALLED;JUDGE_PYTEST_FORKED_INSTALLED"
             ""
             ""
             ""
@@ -164,6 +164,10 @@ function(PTO_Fwk_AnalysisPython3Environ OUT_VALUE)
         list(APPEND _Args "--print_pybind11_dir")
     elseif (ARG_GET_TORCH_VERSION)
         list(APPEND _Args "--print_torch_version")
+    elseif (ARG_JUDGE_PYTEST_INSTALLED)
+        list(APPEND _Args "--judge_pytest_installed")
+    elseif (ARG_JUDGE_PYTEST_FORKED_INSTALLED)
+        list(APPEND _Args "--judge_pytest_forked_installed")
     endif ()
     execute_process(
             COMMAND ${Python3_EXECUTABLE} ${_PyScript} ${_Args}

@@ -352,7 +352,9 @@ class BuildCtrl:
     def configure(self):
         """ CMake Configure 阶段流程. """
         # 基本配置, 当前 CMake 中有调用 python3 的情况, 传入 python3 解释器, 保证所使用的 python3 版本一致
+        ver = sys.version_info
         cmd = f"cmake -S {self.src_root} -B {self.build_root} -DPython3_EXECUTABLE={sys.executable}"
+        cmd += f" -DPython3_FIND_STRATEGY=LOCATION -DPython3_FIND_VERSION={ver.major}.{ver.minor}"
         cmd += f" -DCMAKE_BUILD_TYPE={self.build_type}" if self.build_type else ""
         # common 相关配置
         #    SocVersion, Backend 相关配置, SocVersion相关配置暂不支持
