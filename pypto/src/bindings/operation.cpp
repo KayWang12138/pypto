@@ -258,6 +258,10 @@ void bind_operation(py::module &m) {
         [](const Tensor &operand, const std::vector<int> &pools, const std::vector<int> &stride,
             const std::vector<int> &paddings) { return npu::tile_fwk::Maxpool(operand, pools, stride, paddings); },
         py::arg("operand"), py::arg("pools"), py::arg("stride"), py::arg("paddings"), "Max pool.");
+    py::class_<RoPETileShapeConfig>(m, "rope_tile_shape_config")
+        .def(py::init<std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>>(),
+            py::arg("twoDimsTileShape"), py::arg("threeDimsTileShape"), py::arg("fourDimsTileShape"),
+            py::arg("fiveDimsTileShape"));
     m.def(
         "apply_rotary_pos_emb",
         [](const Tensor &q, const Tensor &k, const Tensor &cos, const Tensor &sin, const Tensor &position_ids,
@@ -269,6 +273,10 @@ void bind_operation(py::module &m) {
         py::arg("q"), py::arg("k"), py::arg("cos"), py::arg("sin"), py::arg("position_ids"), py::arg("q_embed"),
         py::arg("k_embed"), py::arg("unsqueeze_dim") = 1, py::arg("rope_tile_config") = RoPETileShapeConfig(),
         "Apply rotary pos emb.");
+    py::class_<RoPETileShapeConfigNew>(m, "rope_tile_shape_config_new")
+        .def(py::init<std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>>(),
+            py::arg("threeDimsTileShape"), py::arg("fourDimsTileShapeQ"), py::arg("fourDimsTileShapeK"),
+            py::arg("fiveDimsTileShape"));
     m.def(
         "apply_rotary_pos_emb_v2",
         [](const Tensor &q, const Tensor &k, const Tensor &cos, const Tensor &sin, Tensor &q_embed, Tensor &k_embed,
