@@ -203,6 +203,9 @@ public:
         ctx.aicoreModel = args->aicoreModel;
         PerfBegin(PERF_EVT_EXEC_DYN);
         ctx.GELaunch(devArgs, [this](uint64_t dynTaskId, DeviceTask *devTask, DeviceExecuteContext *ctx_) {
+#if DEBUG_SWITCH
+            DumpTask(dynTaskId, (DeviceTask *)devTask, true);
+#endif
             PushTask(DEVICE_TASK_TYPE_DYN, dynTaskId, devTask, ctx_, DeviceExecuteContext::TaskFinish);
         });
         DEV_INFO("end control flow.");
