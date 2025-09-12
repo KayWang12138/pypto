@@ -204,11 +204,12 @@ void bind_operation(py::module &m) {
     m.def(
         "quant",
         [](const Tensor &input, bool is_symmetry = true, bool has_smooth_factor = false,
-            const Tensor &smooth_factor = Tensor()) {
-            return npu::tile_fwk::Quant(input, is_symmetry, has_smooth_factor, smooth_factor);
+            const py::object &smooth_factor = py::none()) {
+            Tensor smooth_factor_tensor = smooth_factor.is_none() ? Tensor() : smooth_factor.cast<Tensor>();
+            return npu::tile_fwk::Quant(input, is_symmetry, has_smooth_factor, smooth_factor_tensor);
         },
         py::arg("input"), py::arg("is_symmetry") = true, py::arg("has_smooth_factor") = false,
-        py::arg("smooth_factor") = Tensor(), "Tensor quant.");
+        py::arg("smooth_factor") = py::none(), "Tensor quant.");
     m.def(
         "scalar_divs",
         [](const Tensor &operand, const Element &value, bool reverse_operand = false) {
@@ -266,12 +267,13 @@ void bind_operation(py::module &m) {
         "apply_rotary_pos_emb",
         [](const Tensor &q, const Tensor &k, const Tensor &cos, const Tensor &sin, const Tensor &position_ids,
             Tensor &q_embed, Tensor &k_embed, const int unsqueeze_dim = 1,
-            const RoPETileShapeConfig &rope_tile_config = {}) {
-            npu::tile_fwk::ApplyRotaryPosEmb(
-                q, k, cos, sin, position_ids, q_embed, k_embed, unsqueeze_dim, rope_tile_config);
+            const py::object &rope_tile_config = py::none()) {
+            auto config =
+                rope_tile_config.is_none() ? RoPETileShapeConfig() : rope_tile_config.cast<RoPETileShapeConfig>();
+            npu::tile_fwk::ApplyRotaryPosEmb(q, k, cos, sin, position_ids, q_embed, k_embed, unsqueeze_dim, config);
         },
         py::arg("q"), py::arg("k"), py::arg("cos"), py::arg("sin"), py::arg("position_ids"), py::arg("q_embed"),
-        py::arg("k_embed"), py::arg("unsqueeze_dim") = 1, py::arg("rope_tile_config") = RoPETileShapeConfig(),
+        py::arg("k_embed"), py::arg("unsqueeze_dim") = 1, py::arg("rope_tile_config") = py::none(),
         "Apply rotary pos emb.");
     py::class_<RoPETileShapeConfigNew>(m, "rope_tile_shape_config_new")
         .def(py::init<std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>>(),
@@ -280,12 +282,13 @@ void bind_operation(py::module &m) {
     m.def(
         "apply_rotary_pos_emb_v2",
         [](const Tensor &q, const Tensor &k, const Tensor &cos, const Tensor &sin, Tensor &q_embed, Tensor &k_embed,
-            const int unsqueeze_dim = NUM2, const RoPETileShapeConfigNew &rope_tile_config = {}) {
-            npu::tile_fwk::ApplyRotaryPosEmbV2(q, k, cos, sin, q_embed, k_embed, unsqueeze_dim, rope_tile_config);
+            const int unsqueeze_dim = NUM2, const py::object &rope_tile_config = py::none()) {
+            auto config =
+                rope_tile_config.is_none() ? RoPETileShapeConfigNew() : rope_tile_config.cast<RoPETileShapeConfigNew>();
+            npu::tile_fwk::ApplyRotaryPosEmbV2(q, k, cos, sin, q_embed, k_embed, unsqueeze_dim, config);
         },
         py::arg("q"), py::arg("k"), py::arg("cos"), py::arg("sin"), py::arg("q_embed"), py::arg("k_embed"),
-        py::arg("unsqueeze_dim") = NUM2, py::arg("rope_tile_config") = RoPETileShapeConfigNew(),
-        "Apply rotary pos emb v2.");
+        py::arg("unsqueeze_dim") = NUM2, py::arg("rope_tile_config") = py::none(), "Apply rotary pos emb v2.");
     m.def(
         "incre_flash_attention",
         [](Tensor &q_nope, Tensor &k_nope_cache, Tensor &v_nope_cache, Tensor &q_rope, Tensor &k_rope_cache,

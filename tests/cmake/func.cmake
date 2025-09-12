@@ -265,54 +265,55 @@ function(PTO_Fwk_GTest_RunPytest)
     add_library(${_Target} SHARED)
     target_sources(${_Target} PRIVATE ${_MainStub})
     add_dependencies(${_Target} pto)
-
-    # 处理 pytest.ini
-    if (NOT ARG_PYTEST_INI)
-        get_filename_component(ARG_PYTEST_INI "${CMAKE_CURRENT_SOURCE_DIR}/pytest.ini" REALPATH)
-    endif ()
-    if (NOT EXISTS "${ARG_PYTEST_INI}")
-        message(FATAL_ERROR "Can't get ${ARG_STUB_TARGET_NAME} 's pytest.ini[${ARG_PYTEST_INI}]")
-    endif ()
-
-    # 处理 依赖库路径
-    set(_LibrariesPathList)
-    foreach (_Lib ${ARG_PYTHON_PATH_LIBRARIES})
-        list(APPEND _LibrariesPathList "$<TARGET_FILE_DIR:${_Lib}>")
-    endforeach ()
-    set(_PythonPath ${_LibrariesPathList} ${ARG_PYTHON_PATH_EXT} "$ENV{PYTHONPATH}")
-    string(REPLACE ";" ":" _PythonPath "${_PythonPath}")
-
-    # 执行 pytest
-    PTO_Fwk_AnalysisPython3Environ(pytest_FOUND JUDGE_PYTEST_INSTALLED)
-    if (NOT "${pytest_FOUND}x" STREQUAL "x")
-        PTO_Fwk_AnalysisPython3Environ(pytest_forked_FOUND JUDGE_PYTEST_FORKED_INSTALLED)
-        set(_PytestParamExt)
-        if (NOT "${pytest_forked_FOUND}x" STREQUAL "x")
-            list(APPEND _PytestParamExt --forked)
+    if (ENABLE_TESTS_EXECUTE)
+        # 处理 pytest.ini
+        if (NOT ARG_PYTEST_INI)
+            get_filename_component(ARG_PYTEST_INI "${CMAKE_CURRENT_SOURCE_DIR}/pytest.ini" REALPATH)
         endif ()
-
-        PTO_Fwk_GTest_RunExe_GetPreExecSetup(PyCmdSetup PyEnvLines BashCmdSetup
-                TARGET              ${_Target}
-                LD_LIBRARIES_EXT    ${ARG_PYTHON_PATH_LIBRARIES}
-        )
-        add_custom_command(
-                TARGET ${_Target} POST_BUILD
-                COMMAND mkdir -p "${PTO_FWK_BIN_ROOT}/src/conf"
-                COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/src/interface/configs/tile_fwk_config.json" "${PTO_FWK_BIN_ROOT}/src/conf/tile_fwk_config.json"
-                COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/src/passes/pass_config/tile_fwk_platform_info.json" "${PTO_FWK_BIN_ROOT}/src/conf/tile_fwk_platform_info.json"
-                COMMENT "Soft link of tile_fwk_config.json and tile_fwk_platform_info.json has been created at ${PTO_FWK_BIN_ROOT}/src/conf"
-        )
-        add_custom_command(
-                TARGET ${_Target} PRE_BUILD
-                COMMAND touch ${_MainStub}  # 重新 touch 源码, 保证可重复执行
-        )
-        add_custom_command(
-                TARGET ${_Target} POST_BUILD
-                COMMAND ${PyEnvLines} PYTHONPATH=${_PythonPath} ${Python3_EXECUTABLE} -m pytest -s -c ${ARG_PYTEST_INI} ${_PytestParamExt} ${PYTEST_PARAM_EXT}
-                COMMENT "Run pytest With ${ARG_PYTEST_INI}"
-                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        )
-    else ()
-        message(WARNING "pytest not installed, python test won't run.")
+        if (NOT EXISTS "${ARG_PYTEST_INI}")
+            message(FATAL_ERROR "Can't get ${ARG_STUB_TARGET_NAME} 's pytest.ini[${ARG_PYTEST_INI}]")
+        endif ()
+    
+        # 处理 依赖库路径
+        set(_LibrariesPathList)
+        foreach (_Lib ${ARG_PYTHON_PATH_LIBRARIES})
+            list(APPEND _LibrariesPathList "$<TARGET_FILE_DIR:${_Lib}>")
+        endforeach ()
+        set(_PythonPath ${_LibrariesPathList} ${ARG_PYTHON_PATH_EXT} "$ENV{PYTHONPATH}")
+        string(REPLACE ";" ":" _PythonPath "${_PythonPath}")
+    
+        # 执行 pytest
+        PTO_Fwk_AnalysisPython3Environ(pytest_FOUND JUDGE_PYTEST_INSTALLED)
+        if (NOT "${pytest_FOUND}x" STREQUAL "x")
+            PTO_Fwk_AnalysisPython3Environ(pytest_forked_FOUND JUDGE_PYTEST_FORKED_INSTALLED)
+            set(_PytestParamExt)
+            if (NOT "${pytest_forked_FOUND}x" STREQUAL "x")
+                list(APPEND _PytestParamExt --forked)
+            endif ()
+    
+            PTO_Fwk_GTest_RunExe_GetPreExecSetup(PyCmdSetup PyEnvLines BashCmdSetup
+                    TARGET              ${_Target}
+                    LD_LIBRARIES_EXT    ${ARG_PYTHON_PATH_LIBRARIES}
+            )
+            add_custom_command(
+                    TARGET ${_Target} POST_BUILD
+                    COMMAND mkdir -p "${PTO_FWK_BIN_ROOT}/src/conf"
+                    COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/src/interface/configs/tile_fwk_config.json" "${PTO_FWK_BIN_ROOT}/src/conf/tile_fwk_config.json"
+                    COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/src/passes/pass_config/tile_fwk_platform_info.json" "${PTO_FWK_BIN_ROOT}/src/conf/tile_fwk_platform_info.json"
+                    COMMENT "Soft link of tile_fwk_config.json and tile_fwk_platform_info.json has been created at ${PTO_FWK_BIN_ROOT}/src/conf"
+            )
+            add_custom_command(
+                    TARGET ${_Target} PRE_BUILD
+                    COMMAND touch ${_MainStub}  # 重新 touch 源码, 保证可重复执行
+            )
+            add_custom_command(
+                    TARGET ${_Target} POST_BUILD
+                    COMMAND ${PyEnvLines} PYTHONPATH=${_PythonPath} ${Python3_EXECUTABLE} -m pytest -s -c ${ARG_PYTEST_INI}     ${_PytestParamExt} ${PYTEST_PARAM_EXT}
+                    COMMENT "Run pytest With ${ARG_PYTEST_INI}"
+                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            )
+        else ()
+            message(WARNING "pytest not installed, python test won't run.")
+        endif ()
     endif ()
 endfunction ()
