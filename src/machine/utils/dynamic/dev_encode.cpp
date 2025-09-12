@@ -893,9 +893,10 @@ struct EncodeDevAscendFunctionInfo {
         }
 
         // Add edge from all stitchPolicyFullCoverProducerList's node to the single node
+        size_t hubEntryLeast = 2;
         for (auto &o : outcastList) {
             auto &outcastOpAttr = outcastOpAttrDict[o];
-            if (outcastOpAttr.stitchPolicyFullCoverProducerList.size() != 0) {
+            if (outcastOpAttr.stitchPolicyFullCoverProducerList.size() > hubEntryLeast) {
                 outcastOpAttr.stitchPolicyFullCoverProducerHubOpIdx = callList.size();
 
                 auto dummyOp = MakeDummyCall();

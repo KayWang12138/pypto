@@ -1033,14 +1033,22 @@ public:
         (void)slotIdx;
         slot.stitchDupIdx = devNextIdx;
         slot.stitchOutcastIdx = outcastIndex;
-
+        
         auto producerList = &devRootSrc->At(outcast.producerList, 0);
         auto &cellMatchTableDesc = outcast.cellMatchTableDesc;
-
         if (slot.isPartialUpdateStitch) {
             auto tableData = &slot.partialUpdate->cellMatchRuntimePartialUpdateTable[0];
-            devRootSrc->CellMatchFillIncastOutcast<false>(
-                    producerList, outcast.producerList.size(), expressionList, false, cellMatchTableDesc, tableData, devNextIdx);
+            auto producerSize = outcast.producerList.size();
+            if (producerSize != 0) {
+                devRootSrc->CellMatchFillIncastOutcast<false>(
+                        producerList, producerSize, expressionList, false, cellMatchTableDesc, tableData, devNextIdx);
+            } else {
+                // maybe is fullcover producer, dassemble full shape
+                devRootSrc->CellMatchFillIncastOutcast<false>(
+                        &devRootSrc->At(outcast.stitchPolicyFullCoverProducerList, 0), outcast.stitchPolicyFullCoverProducerList.size(),
+                        expressionList, false, cellMatchTableDesc, tableData, devNextIdx);
+            }
+
             DEV_DEBUG("[UpdateSlots]   CellMatchPartial=%s\n", DevAscendFunctionDuppedStitchList::DumpTask(tableData, slot.partialUpdate->cellMatchRuntimePartialUpdateTable.size()).c_str());
             slot.isPartialUpdateDirty = true;
         } else {
@@ -1523,8 +1531,19 @@ public:
             outcast.producerList.size(), incast.consumerList.size(),
             outcast.cellMatchStaticOutcastTable.size(), incast.cellMatchStaticIncastTable.size(),
             outcast.stitchByAllFullMatch, incast.stitchByAllFullMatch);
-        {
-            // For stitchPolicyFullCover
+
+        // stitchPolicyFullCover hub
+        auto producerHubOpIdx = outcast.stitchPolicyFullCoverProducerHubOpIdx;
+        if (producerHubOpIdx != -1) {
+            auto consumerAllOpIdxList = &nextSrc->At(incast.stitchPolicyFullCoverConsumerAllOpIdxList, 0);
+            for (size_t conIndex = 0, conSize = incast.stitchPolicyFullCoverConsumerAllOpIdxList.size(); conIndex < conSize; conIndex++) {
+                auto &consumerOpIdx = consumerAllOpIdxList[conIndex];
+                DeviceStitchContext::HandleOneStitch(prevDup, nextDup, producerHubOpIdx, devNextIdx, consumerOpIdx,
+                    workspace_, StitchKind::StitchFullCover, slotIdx);
+            }
+            DeviceStitchContext::CheckStitch(stitchedList_.data(), stitchedList_.size(), &nextDup);
+        } else {
+            // stitchPolicyFullCover producer
             auto producerList = &prevSrc->At(outcast.stitchPolicyFullCoverProducerList, 0);
             auto consumerAllOpIdxList = &nextSrc->At(incast.stitchPolicyFullCoverConsumerAllOpIdxList, 0);
             for (size_t prodIndex = 0, prodSize = outcast.stitchPolicyFullCoverProducerList.size(); prodIndex < prodSize; prodIndex++) {
@@ -1540,19 +1559,6 @@ public:
             DeviceStitchContext::CheckStitch(stitchedList_.data(), stitchedList_.size(), &nextDup);
         }
 
-        {
-            // For stitchPolicyFullCover
-            auto producerHubOpIdx = outcast.stitchPolicyFullCoverProducerHubOpIdx;
-            if (producerHubOpIdx != -1) {
-                auto consumerAllOpIdxList = &nextSrc->At(incast.stitchPolicyFullCoverConsumerAllOpIdxList, 0);
-                for (size_t conIndex = 0, conSize = incast.stitchPolicyFullCoverConsumerAllOpIdxList.size(); conIndex < conSize; conIndex++) {
-                    auto &consumerOpIdx = consumerAllOpIdxList[conIndex];
-                    DeviceStitchContext::HandleOneStitch(prevDup, nextDup, producerHubOpIdx, devNextIdx, consumerOpIdx,
-                        workspace_, StitchKind::StitchFullCover, slotIdx);
-                }
-                DeviceStitchContext::CheckStitch(stitchedList_.data(), stitchedList_.size(), &nextDup);
-            }
-        }
         return FullCoverDefaultUpdateStitch(nextDup, devNextIdx, slot, slotIdx, incast);
     }
 
@@ -1609,16 +1615,17 @@ public:
                 }
 
                 auto &slot = slotList[slotIdx];
+                if (slot.stitchDupIdx == INVALID_STITCH_IDX) {
+                    // Slot never output
+                    continue;
+                }
+
                 if (slot.isPartialUpdateStitch) {
                     matchCount = PartialUpdateStitch(nextDup, devNextIdx, slot, slotIdx, incast);
                     continue;
                 }
 
                 if (slot.desc.IsNullAddress()) {
-                    continue;
-                }
-                if (slot.stitchDupIdx == INVALID_STITCH_IDX) {
-                    // Slot never output
                     continue;
                 }
                 DEV_DEBUG("incast %zu is %d, cellMatchStaticIncastTable is %s\n", incastIdx, incast.stitchByAllFullMatch,
