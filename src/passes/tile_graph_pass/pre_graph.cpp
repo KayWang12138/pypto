@@ -671,6 +671,7 @@ Status PreGraphProcess::RunOnFunction(Function &function) {
                 (op.GetIOperands().front() == nullptr) || (op.GetOOperands().front() == nullptr) ||
                 (op.GetIOperands().front()->GetMemoryTypeOriginal() !=
                     op.GetOOperands().front()->GetMemoryTypeOriginal())) {
+                ALOG_ERROR_F("Invalid Op %s[%d], please check.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
                 return FAILED;
             }
         }

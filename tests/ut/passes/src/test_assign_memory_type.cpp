@@ -245,7 +245,6 @@ TEST_F(AssignMemoryTypeTest, TestVecToCubeV2) {
         Function* originFunction = nullptr;
 
         FunctionConfig funConfig(FunctionType::STATIC);
-        ;
         FUNCTION("TestVecToCubeV2", funConfig, {input1, input2, weight, out}) {
             config::SetPassStrategy("AssignMemoryTypeTestStrategy");
             TileShape::Current().SetVecTile(NUM_128, NUM_128);
@@ -291,7 +290,6 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCube) {
         Tensor weight(DataType::DT_FP32, shape1, "weight");
         Tensor out(DataType::DT_FP32, shape2, "output");
         FunctionConfig funConfig(FunctionType::STATIC);
-        ;
         FUNCTION("TestCubeToCube", funConfig, {inputQ, inputK, weight, out}) {
             TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
             Tensor qUpdate = Matrix::Matmul(out.GetDataType(), inputQ, weight); // (256 * 128) @ (128 * 64) = (256 * 64)
@@ -319,7 +317,6 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCubeV2) {
         Function* originFunction = nullptr;
 
         FunctionConfig funConfig(FunctionType::STATIC);
-        ;
         FUNCTION("TestCubeToCubeV2", funConfig, {inputQ, inputK, weight, out}) {
             TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
             Tensor qUpdate = Matrix::Matmul(out.GetDataType(), inputQ, weight); // (256 * 128) @ (128 * 64) = (256 * 64)

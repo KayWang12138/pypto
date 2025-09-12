@@ -39,11 +39,12 @@ public:
 
 private:
     Status RunOnFunction(Function &function) override;
-    void UpdateConsumerView(Function &function, const LogicalTensorPtr &logicalTensor, std::vector<int64_t> &diff) const;
-    void UpdateProducerAssemble(Function &function, const LogicalTensorPtr &logicalTensor, std::vector<int64_t> &diff) const;
+    void UpdateConsumerView(Function &function, const LogicalTensorPtr &logicalTensor) const;
+    void UpdateProducerAssemble(Function &function, const LogicalTensorPtr &logicalTensor) const;
     void SplitRaw(Function &function) const;
-    bool ShouldProcessTensor(Function& function, const LogicalTensorPtr& tensor) const;
-    std::vector<int64_t> UpdateOffset(std::vector<int64_t> &offset, std::vector<int64_t> &diff) const;
+    bool ShouldProcessTensor(Function& function, const LogicalTensorPtr& singleTensor) const;
+    std::vector<int64_t> UpdateOffset(std::vector<int64_t> &offset, const std::vector<int64_t> &diff) const;
+    std::vector<SymbolicScalar> UpdateDynOffset(std::vector<SymbolicScalar> &offset, const std::vector<SymbolicScalar> &diff) const;
 };
 } // namespace tile_fwk
 } // namespace npu

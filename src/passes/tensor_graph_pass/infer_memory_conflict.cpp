@@ -32,7 +32,8 @@ Status InferMemoryConflict::RunOnFunction(Function &function) {
     return SUCCESS;
 }
 
-std::pair<Status, bool> InferMemoryConflict::IsInplace(Operation &op, std::shared_ptr<LogicalTensor> in, std::shared_ptr<LogicalTensor> out) const {
+std::pair<Status, bool> InferMemoryConflict::IsInplace(
+    Operation &op, std::shared_ptr<LogicalTensor> in, std::shared_ptr<LogicalTensor> out) const {
     if (inplaceRelationshipMap.find(op.GetOpcode()) == inplaceRelationshipMap.end()) {
         return std::make_pair(SUCCESS, false);
     }
@@ -68,7 +69,7 @@ std::pair<Status, bool> InferMemoryConflict::IsInplace(Operation &op, std::share
 // 从INCAST出发，按DFS做前向推导
 Status InferMemoryConflict::InferFromIncast(Function &function) {
     std::queue<std::shared_ptr<LogicalTensor>> leftTensors;
-    for (auto &x_: function.GetIncast()) {
+    for (auto &x_ : function.GetIncast()) {
         /*
         初始状态下
         1. leftTensors仅记录了所有的INCAST
@@ -80,7 +81,7 @@ Status InferMemoryConflict::InferFromIncast(Function &function) {
     }
     while (!leftTensors.empty()) {
         std::shared_ptr<LogicalTensor> currentTensor = leftTensors.front();
-        for (auto &childOp: currentTensor->GetConsumers()) {
+        for (auto &childOp : currentTensor->GetConsumers()) {
             /*
             currentTensor --> childOp --> out
             判断对childOp而言，指定输入和输出之间是否存在inplace 关系
@@ -94,7 +95,8 @@ Status InferMemoryConflict::InferFromIncast(Function &function) {
                 */
                 std::pair<Status, bool> inplaceInfo = IsInplace(*childOp, currentTensor, out);
                 if (inplaceInfo.first != SUCCESS) {
-                    ALOG_ERROR_F("Find inplace relationship for %s[%d] filed.", childOp->GetOpcodeStr().c_str(), childOp->GetOpMagic());
+                    ALOG_ERROR_F("Find inplace relationship for %s[%d] filed.", childOp->GetOpcodeStr().c_str(),
+                        childOp->GetOpMagic());
                     return FAILED;
                 }
                 if (!inplaceInfo.second) {
@@ -152,9 +154,9 @@ Status InferMemoryConflict::InsertTensorCopy(Function &function) {
         */
         for (auto &parentAssembleOp : t_->GetProducers()) {
             if (parentAssembleOp->GetOpcode() != Opcode::OP_ASSEMBLE) {
-                 ALOG_DEBUG_F("OCAST magic: %d, raw: %d, symbol: %s,  has non-Assemble producer %s[%d]",
-                    t_->magic, t_->GetRawMagic(), t_->tensor->symbol.c_str(),
-                    parentAssembleOp->GetOpcodeStr().c_str(), parentAssembleOp->GetOpMagic());
+                ALOG_DEBUG_F("OCAST magic: %d, raw: %d, symbol: %s,  has non-Assemble producer %s[%d]", t_->magic,
+                    t_->GetRawMagic(), t_->tensor->symbol.c_str(), parentAssembleOp->GetOpcodeStr().c_str(),
+                    parentAssembleOp->GetOpMagic());
                 return FAILED;
             }
 
@@ -163,19 +165,24 @@ Status InferMemoryConflict::InsertTensorCopy(Function &function) {
                 continue;
             }
             auto assembleInput = parentAssembleOp->GetIOperands().front();
-            std::shared_ptr<RawTensor> newRawTensor = std::make_shared<RawTensor>(assembleInput->Datatype(), assembleInput->tensor->rawshape);
-            std::shared_ptr<LogicalTensor> newTensor = std::make_shared<LogicalTensor>(function, newRawTensor, assembleInput->offset, assembleInput->shape);
+            std::shared_ptr<RawTensor> newRawTensor =
+                std::make_shared<RawTensor>(assembleInput->Datatype(), assembleInput->tensor->GetRawShape());
+            std::shared_ptr<LogicalTensor> newTensor = std::make_shared<LogicalTensor>(function, newRawTensor,
+                assembleInput->GetOffset(), assembleInput->GetShape(), assembleInput->GetDynValidShape());
             auto &tensorCopyOp = function.AddRawOperation(Opcode::OP_REGISTER_COPY, {assembleInput}, {newTensor});
 
             /* Assemble 的前置op 为Reshape/NOP 时，需要从该op上获取tile shape */
-            if ((producerParentOp->GetOpcode() == Opcode::OP_RESHAPE) || (producerParentOp->GetOpcode() == Opcode::OP_NOP)) {
+            if ((producerParentOp->GetOpcode() == Opcode::OP_RESHAPE) ||
+                (producerParentOp->GetOpcode() == Opcode::OP_NOP)) {
                 tensorCopyOp.UpdateTileShape(producerParentOp->GetTileShape());
             }
             assembleInput->RemoveConsumer(parentAssembleOp);
             parentAssembleOp->ReplaceInput(newTensor, assembleInput);
-            ALOG_ERROR_F("******** insert %s[%d], may deteriorate the performance ********", tensorCopyOp.GetOpcodeStr().c_str(), tensorCopyOp.GetOpMagic());
-            ALOG_ERROR_F("******** %s[%d] will expand as tile shape : %s ********", tensorCopyOp.GetOpcodeStr().c_str(),
-                tensorCopyOp.GetOpMagic(), tensorCopyOp.GetTileShape().toString(TileType::VEC).c_str());
+            ALOG_ERROR_F("******** insert %s[%d], may deteriorate the performance ********",
+                tensorCopyOp.GetOpcodeStr().c_str(), tensorCopyOp.GetOpMagic());
+            ALOG_ERROR_F("******** %s[%d] will expand as tile shape : %s, input %s. ********",
+                tensorCopyOp.GetOpcodeStr().c_str(), tensorCopyOp.GetOpMagic(),
+                tensorCopyOp.GetTileShape().toString(TileType::VEC).c_str(), assembleInput->DumpType().c_str());
         }
     }
     return SUCCESS;

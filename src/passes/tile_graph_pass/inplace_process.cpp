@@ -42,6 +42,7 @@ Status InplaceProcess::PreCheck(Function &function) {
         }
         if (HasSameConsecutive(op)) {
             ALOG_ERROR_F("%s[%d] has the same Opcode child op.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            return FAILED;
         }
         auto tensorIn = op.GetIOperands().front();
         auto tensorOut = op.GetOOperands().front();
