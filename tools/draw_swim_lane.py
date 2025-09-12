@@ -71,7 +71,8 @@ class TaskInfo:
             f"Task:[{self.formal_name()}], "
             f"rootHash:{self.root_hash}, "
             f"callOpMagic:{self.opmagic}, "
-            f"leafHash:{self.func_hash}"
+            f"leafHash:{self.func_hash}, "
+            f"TaskId:{self.origin_task_id}"
         )
 
     def get_task_execution_time_analysis(self):
