@@ -44,7 +44,7 @@ class PlatformConfig {
     DPlatform platformId_;
     struct MemoryNode {
         MemoryType type;
-        std::map<MemoryType, std::shared_ptr<MemoryNode>> dests;
+        std::set<MemoryType> dests;
         void AddDest(const std::shared_ptr<MemoryNode> &to);
     };
     struct MemoryGraph {

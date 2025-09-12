@@ -82,6 +82,9 @@
         "default_pass_configs": {
             "PRINT_FUNCTION": false,
             "PRINT_PROGRAM": true,
+            "DUMP_TENSOR_GRAPH": false,
+            "DUMP_TILE_GRAPH": false,
+            "DUMP_BLOCK_GRAPH": false,
             "DUMP_FUNCTION_GRAPH_BEFORE_PASS": false,
             "DUMP_FUNCTION_GRAPH_AFTER_PASS": false,
             "DUMP_PASS_TIME_COST": true,
@@ -98,97 +101,14 @@
                 "I'm pass config key, you can change default or add specific to your pass": "any json type is allowed"
             }
         },
-        "TIG": {
-            "RemoveRedundantReshape": {
-                "DUMP_FUNCTION_GRAPH_BEFORE_PASS": false
-            }
-        },
-        "PVC1_OOO": {
-            "OoOSchedule": {
-                "PRINT_FUNCTION": false
-            }
-        },
         "PVC2_OOO": {
-            "RemoveRedundantReshape": {
-                "EXPECTED_VALUE_CHECK": false
-            },
-            "MergeViewAssemble": {
-                "DUMP_FUNCTION_GRAPH_BEFORE_PASS": false,
-                "DUMP_FUNCTION_GRAPH_AFTER_PASS": false
-            },
-            "InsertInterGraphCopy": {
-                "EXPECTED_VALUE_CHECK": false,
-                "DUMP_FUNCTION_GRAPH_BEFORE_PASS": false,
-                "DUMP_FUNCTION_GRAPH_AFTER_PASS": false
-            },
-            "PadLocalBuffer": {
-                "DUMP_FUNCTION_GRAPH_BEFORE_PASS": false,
-                "DUMP_FUNCTION_GRAPH_AFTER_PASS": false
-            },
-            "RemoveRedundantOp": {
-                "EXPECTED_VALUE_CHECK": false
-            },
-            "CommonOperationEliminate": {
-                "EXPECTED_VALUE_CHECK": false
-            },
             "ExpandFunction": {
-                "EXPECTED_VALUE_CHECK": false
-            },
-            "GenerateMoveOp": {
-                "PRE_CHECK": false,
-                "POST_CHECK": false,
-                "EXPECTED_VALUE_CHECK": false
-            },
-            "SplitReshape": {
-                "EXPECTED_VALUE_CHECK": false
-            },
-            "SplitLargeFanoutTensor": {
                 "EXPECTED_VALUE_CHECK": false
             },
             "SubgraphToFunction": {
                 "PRE_CHECK": false,
                 "POST_CHECK": false,
                 "USE_MAX_FREQ_LABEL": true
-            },
-            "SrcDstBufferMerge": {
-                "POST_CHECK": false
-            },
-            "AddAllocNewPass": {
-                "POST_CHECK": false
-            },
-            "OoOSchedule": {
-                "PRE_CHECK": false,
-                "POST_CHECK": false,
-                "DUMP_FUNCTION_GRAPH_BEFORE_PASS": false,
-                "DUMP_FUNCTION_GRAPH_AFTER_PASS": false
-            },
-            "RemoveAlloc": {
-                "POST_CHECK": false
-            },
-            "InsertSync": {
-                "DUMP_FUNCTION_GRAPH_BEFORE_PASS": false,
-                "DUMP_FUNCTION_GRAPH_AFTER_PASS": false
-            },
-            "GraphPartition": {
-                "PRE_CHECK": false,
-                "POST_CHECK": false,
-                "DUMP_FUNCTION_GRAPH_BEFORE_PASS": false,
-                "DUMP_FUNCTION_GRAPH_AFTER_PASS": false
-            },
-            "CodegenPreproc": {
-                "POST_CHECK": false
-            },
-            "GlobalMemoryReuse": {
-            },
-            "L1CopyInReuseMerge": {
-            },
-            "VFFusionPass": {
-                "DISABLE_PASS": true
-            }
-        },
-        "JsonResumeStrategy": {
-            "MergeViewAssemble": {
-                "RESUME_PATH":"./config/pass/json/pass_resume.json"
             }
         }
     }

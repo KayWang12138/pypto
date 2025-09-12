@@ -38,7 +38,6 @@ set(_CaseFilterList
         "SubgraphToFunctionTest.test_json_dump_and_load_1_cov"
         "SubgraphToFunctionTest.test_json_dump_and_load_2"
         "SubgraphToFunctionTest.SameOffset"
-        "SubgraphToFunctionTest.VerifyPassResumeByJson"
         "SubgraphToFunctionTest.TestBasicSubgraphConversion"
         "SubgraphToFunctionTest.MultiSubgraphDependencyWithMixedOps"
         "SubgraphToFunctionTest.EliminateRedundantEdges"

@@ -118,5 +118,5 @@ TEST_F(TestConfigManager, PassStrategies3) {
 
     config::SetPassDefaultConfig(KEY_EXPECTED_VALUE_CHECK, true);
     ret = ConfigManager::Instance().GetPassConfigs("PVC2_OOO", "RemoveRedundantReshape");
-    EXPECT_EQ(ret.expectedValueCheck, false);
+    EXPECT_EQ(ret.expectedValueCheck, true);
 }

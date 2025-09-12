@@ -208,7 +208,7 @@ size_t PlatformConfig::GetCoreNum(NpuCoreType coretype) const {
 }
 
 void PlatformConfig::MemoryNode::AddDest(const std::shared_ptr<MemoryNode> &to) {
-    dests.insert({to->type, to});
+    dests.insert({to->type});
 }
 
 void PlatformConfig::MemoryGraph::AddPath(MemoryType from, MemoryType to) {
@@ -244,12 +244,12 @@ std::shared_ptr<PlatformConfig::MemoryNode> PlatformConfig::MemoryGraph::GetNode
 void PlatformConfig::MemoryGraph::DFS(MemoryType target, const std::shared_ptr<MemoryNode> &node,
     std::vector<MemoryType> &candidate, std::vector<MemoryType> &paths) const {
     for (auto &dest : node->dests) {
-        if (std::find(candidate.begin(), candidate.end(), dest.first) != candidate.end()) {
+        if (std::find(candidate.begin(), candidate.end(), dest) != candidate.end()) {
             continue;
         }
-        candidate.push_back(dest.first);
-        if (dest.first != target) {
-            DFS(target, dest.second, candidate, paths);
+        candidate.push_back(dest);
+        if (dest != target) {
+            DFS(target, nodes.at(dest), candidate, paths);
             candidate.pop_back();
             continue;
         }
@@ -286,7 +286,7 @@ std::string PlatformConfig::MemoryGraph::ToString() const {
     std::stringstream ss;
     for (auto &node : nodes) {
         for (auto &dest : node.second->dests) {
-            ss << MemoryTypeToString(node.first) << " --> " << MemoryTypeToString(dest.first) << "\n";
+            ss << MemoryTypeToString(node.first) << " --> " << MemoryTypeToString(dest) << "\n";
         }
     }
     return ss.str();
