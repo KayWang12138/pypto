@@ -187,6 +187,80 @@ private:
         return devProg->inplaceSlotList.size() != 0;
     }
 
+    bool IsDumpTensorEnable() const {
+        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(function_).data()));
+        return devProg->debugDumpTensorMemReq != 0;
+    }
+
+    static void DumpDevDataBinary(std::ostream &os, const uint8_t *hostData, uint64_t size, const uint8_t *devptr) {
+        /*
+         * Format:
+         *   8 bytes: address on device
+         *   8 bytes: data block size
+         *   n bytes: data block
+         */
+        uint64_t header[] = {
+            reinterpret_cast<uint64_t>(devptr),
+            size,
+        };
+        os.write(reinterpret_cast<const char *>(header), sizeof(header));
+        if (hostData != nullptr) {
+            os.write(reinterpret_cast<const char *>(hostData), size);
+        } else {
+            static constexpr uint64_t THROUGHPUT = UINT64_C(1024) * 1024 * 1024;
+            std::vector<uint8_t> buf;
+            buf.reserve(std::min(THROUGHPUT, size));
+            for (uint64_t offset = 0; offset < size; offset += THROUGHPUT) {
+                uint64_t blockSize = std::min(THROUGHPUT, size - offset);
+                rtMemcpy(buf.data(), buf.capacity(), devptr + offset, blockSize, RT_MEMCPY_DEVICE_TO_HOST);
+                os.write(reinterpret_cast<const char *>(buf.data()), blockSize);
+            }
+        }
+    }
+
+    void DumpTensorContents(const AstKernelArgs &kArgs,
+                            const std::vector<RawTensorDataPtr> &inputs,
+                            const std::vector<RawTensorDataPtr> &outputs) {
+        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(function_).data()));
+        uint8_t *dumpTensorWsPtr = reinterpret_cast<uint8_t *>(kArgs.workspace) + devProg->aicoreLocalWorkspaceSize + devProg->aicpuCoherentWorkspaceSize;
+        uint64_t dumpTensorWsUsed = 0;
+        rtMemcpy(&dumpTensorWsUsed, sizeof(uint64_t), dumpTensorWsPtr, sizeof(uint64_t), RT_MEMCPY_DEVICE_TO_HOST);
+        ALOG_ERROR_F("[DumpTensor] dumpTensorWsPtr=%p, memory used=%lu\n", dumpTensorWsPtr, dumpTensorWsUsed);
+
+        std::string path = config::LogTopFolder() + "/dump_tensor.txt";
+        std::ofstream fout(path, std::ios::out | std::ios::binary);
+
+        auto printIODevAddrs = [&](const std::vector<RawTensorDataPtr> &ptrs) {
+            uint64_t ptrNum = ptrs.size();
+            fout.write(reinterpret_cast<const char *>(&ptrNum), sizeof(ptrNum));
+            int idx = 0;
+            for (auto &ptr : ptrs) {
+                uint64_t devPtr = ptr ? reinterpret_cast<uint64_t>(ptr->GetDevPtr()) : 0;
+                ALOG_ERROR_F("[DumpTensor] devPtr %d = %lu\n", idx++, devPtr);
+                fout.write(reinterpret_cast<const char *>(&devPtr), sizeof(devPtr));
+            }
+        };
+
+        // write input/output devAddr list
+        ALOG_ERROR_F("[DumpTensor] #inputs=%zu\n", inputs.size());
+        printIODevAddrs(inputs);
+        ALOG_ERROR_F("[DumpTensor] #outputs=%zu\n", outputs.size());
+        printIODevAddrs(outputs);
+        
+        DumpDevDataBinary(fout, nullptr, dumpTensorWsUsed, dumpTensorWsPtr);
+        for (auto &input : inputs) {
+            if (input) {
+                DumpDevDataBinary(fout, input->data(), input->GetDataSize(), input->GetDevPtr());
+            }
+        }
+        for (auto &output : outputs) {
+            if (output) {
+                DumpDevDataBinary(fout, output->data(), output->GetDataSize(), output->GetDevPtr());
+            }
+        }
+        fout.close();
+    }
+
     void RunOnBoard(const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs) {
         std::cout << "!!! Kernel Launch " << "\n";
         int rc = aclInit(nullptr);
@@ -204,6 +278,9 @@ private:
             CopyFromDev(outputs, false);
             if (HasInplaceArgs())
                 CopyFromDev(inputs, false);
+            if (IsDumpTensorEnable()) {
+                DumpTensorContents(kArgs, inputs, outputs);
+            }
         }
     }
 

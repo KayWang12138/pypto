@@ -454,6 +454,9 @@ void SubgraphToFunction::SetSemanticLabel(const std::vector<std::shared_ptr<Oper
         // Count the occurrences of each string
         for (const auto& op : subgraph) {
             auto str = op->GetSemanticLabel();
+            if (str.empty()) {
+                continue;
+            }
             frequencyMap[str]++;
         }
         // Find the string with the maximum occurrence

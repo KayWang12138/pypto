@@ -274,11 +274,17 @@ Status InplaceProcess::ProcessInplaceOp(Function &function, Operation &op) const
         }
         ALOG_DEBUG_F("%s[%d] output %d reuses input %d.", op.GetOpcodeStr().c_str(), op.GetOpMagic(), outputIdx, inputIdx);
         if (function.IsFromOutCast(tensorOut)) {
+            if ((tensorIn->tensor->symbol != "") && (tensorOut->tensor->symbol == "")) {
+                tensorOut->tensor->symbol = tensorIn->tensor->symbol;
+            }
             tensorIn->tensor = tensorOut->tensor;
             tensorIn->UpdateOffset(tensorOut->GetOffset());
             ALOG_DEBUG_F("Output magic: %d, raw maigc: %d.", tensorOut->magic, tensorOut->tensor->GetRawMagic());
             ALOG_DEBUG_F("Input magic: %d, raw maigc: %d.", tensorIn->magic, tensorIn->tensor->GetRawMagic());
             continue;
+        }
+        if ((tensorIn->tensor->symbol == "") && (tensorOut->tensor->symbol != "")) {
+            tensorIn->tensor->symbol = tensorOut->tensor->symbol;
         }
         tensorOut->tensor = tensorIn->tensor;
         tensorOut->UpdateOffset(tensorIn->GetOffset());

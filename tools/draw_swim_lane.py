@@ -57,9 +57,6 @@ class TaskInfo:
         self.tensors = {}
         self.rawtensors = {}
 
-    def get_func_name_only(self):
-        return self.func_name.split("[")[0]
-
     def formal_name(self):
         seq_no = self.task_id >> 32
         func_id = (self.task_id >> 20) & ((1 << 11) - 1)
@@ -404,9 +401,6 @@ def build_swim_info(swim_data, topo_data, label_type: int = 0):
         for topo_task in topo_data:
             task_id = topo_task["taskId"]
             if task_id not in total_tasks:
-                print(
-                    f"WARNING: {task_id} in TOPO INFO, but not in LOG INFO, build fake task_entry\n"
-                )
                 build_fake_entry(task_id)
                 fake_task_list.append(task_id)
             func_name = topo_task.get("funcName", "")        
@@ -426,8 +420,8 @@ def build_swim_info(swim_data, topo_data, label_type: int = 0):
                 entry.color_label = decimal_to_26(entry.psg_id_in_dyn)
             entry.func_name = func_name
             entry.psg_id_within_static = topo_task.get("psgId", entry.psg_id_in_dyn)
-            entry.inoperand_label = topo_task.get("inoperandLabel", "")
-            entry.outoperand_label = topo_task.get("outoperandLabel", "")
+            entry.inoperand_label = f"{topo_task.get('inoperands', [])}"
+            entry.outoperand_label = f"{topo_task.get('outoperands', [])}"
             entry.successors = topo_task["successors"]
             entry.in_operands = topo_task.get('in_operands') if topo_task.get('in_operands') else []
             entry.out_operands = topo_task.get('out_operands') if topo_task.get('out_operands') else []
@@ -575,7 +569,7 @@ def process_ooo_mem_usage(outjson):
         time_events[i] = dict()
 
     for _, task in total_tasks.items():
-        if 'max_range' not in task.tensors_life_range.keys() or task.tensors_life_range['max_range'] == 0:
+        if task.tensors_life_range['max_range'] == 0:
             continue
         time_unit = (task.exec_end - task.exec_start) / task.tensors_life_range['max_range']
         for t_magic, t_life_range in task.tensors_life_range['data'].items():
@@ -835,12 +829,23 @@ def generate_execute_json(path):
     print("Generate Executable Json:", path)
 
 
-def load_dyn_topo(file_path, func_table_data, func_data):
+def get_func_index(func_hash, func_data):
+    i = 0
+    while i < len(func_data):
+        if str(func_hash) == func_data[i].get("hash", "0"):
+            return i
+        i += 1
+    return i
+
+
+def load_dyn_topo(file_path, func_data):
     # 输入文件由Tensor_Main_2.json改为program.json，处理json数据接入
     func_hash_data = {}
     for _, func in enumerate(func_data):
         func_hash_data[func['hash']] = func
-    for func in func_table_data:
+    for _, func in enumerate(func_data):
+        if func['graphtype'] != 2:
+            continue
         func_tensors = dict()
         func_rawtensors = dict()
         for tensor in func['tensors']:
@@ -849,19 +854,22 @@ def load_dyn_topo(file_path, func_table_data, func_data):
             func_rawtensors[rawtensor['rawmagic']] = rawtensor
         for operation in func['operations']:
             ioperands = []
+            ioperands_added = set()
             for ioperand in operation['ioperands']:
-                if isinstance(func_tensors[ioperand]['rawtensor'], dict):
-                    continue
-                raw_tensor_data = func_rawtensors[func_tensors[ioperand]['rawtensor']]
-                func_tensors[ioperand]['rawtensor'] = raw_tensor_data
-                ioperands.append(func_tensors[ioperand])
+                if not isinstance(func_tensors[ioperand]['rawtensor'], dict):
+                    func_tensors[ioperand]['rawtensor'] = func_rawtensors[func_tensors[ioperand]['rawtensor']]
+                if func_tensors[ioperand]['magic'] not in ioperands_added:
+                    ioperands.append(func_tensors[ioperand])
+                    ioperands_added.add(func_tensors[ioperand]['magic'])
             operation['ioperands'] = ioperands
             ooperands = []
+            ooperands_added = set()
             for ooperand in operation['ooperands']:
-                if isinstance(func_tensors[ooperand]['rawtensor'], dict):
-                    continue
-                func_tensors[ooperand]['rawtensor'] = func_rawtensors[func_tensors[ooperand]['rawtensor']]
-                ooperands.append(func_tensors[ooperand])
+                if not isinstance(func_tensors[ooperand]['rawtensor'], dict):
+                    func_tensors[ooperand]['rawtensor'] = func_rawtensors[func_tensors[ooperand]['rawtensor']]
+                if func_tensors[ooperand]['magic'] not in ooperands_added:
+                    ooperands.append(func_tensors[ooperand])
+                    ooperands_added.add(func_tensors[ooperand]['magic'])
             operation['ooperands'] = ooperands
             operation['funcName'] = func_hash_data.get(operation['calleehash']).get('func_magicname')
     topo = []
@@ -881,6 +889,8 @@ def load_dyn_topo(file_path, func_table_data, func_data):
                 core_type,
                 psg_id_within_root,
             ) = fields[:9]
+            root_index = get_func_index(root_hash, func_data)
+            leaf_index = get_func_index(func_hash, func_data)
             succs = fields[9:]
             topo.append(
                 {
@@ -888,25 +898,25 @@ def load_dyn_topo(file_path, func_table_data, func_data):
                     "successors": [seq_no << 32 | x for x in succs],
                     "coreType": core_type,
                     "rootIndex": root_index,
-                    "leafIndex": leaf_index,
                     "rootHash": root_hash,
                     "opMagic": opmagic,
+                    "leafIndex": leaf_index,
                     "psgId": psg_id_within_root,
                     "funcHash": func_hash,
                     "semanticLabel": fcvt.get_sematic(
-                        root_index, opmagic, func_table_data
+                        root_index, opmagic, func_data
                     ),
-                    "inoperandLabel": fcvt.get_in_out_operand_str(
-                        True, root_index, opmagic, func_table_data
+                    "inoperands": fcvt.get_in_out_operand_str(
+                        True, root_index, opmagic, func_data
                     ),
-                    "outoperandLabel": fcvt.get_in_out_operand_str(
-                        False, root_index, opmagic, func_table_data
+                    "outoperands": fcvt.get_in_out_operand_str(
+                        False, root_index, opmagic, func_data
                     ),
                     "in_operands": fcvt.get_in_out_operands_data(
-                        True, root_index, opmagic, func_table_data
+                        True, root_index, opmagic, func_data
                     ),
                     "out_operands": fcvt.get_in_out_operands_data(
-                        False, root_index, opmagic, func_table_data
+                        False, root_index, opmagic, func_data
                     ),
                     "tensors_life_range": fcvt.get_tensors_life_range(str(func_hash), func_hash_data),
                     "tensors": fcvt.get_tensors(str(func_hash), func_hash_data),
@@ -1103,22 +1113,10 @@ if __name__ == "__main__":
 
     is_dyn = "dyn" in os.path.basename(args.topo_json_file)
     if is_dyn:
-        func_table_data = []
-        root_func_table = []
-        if not args.func_table_file:
-            print(
-                f"NOT found func_table.json(e.g program.json), please input the file path as third parameter\n"
-            )
-        else:
-            func_table_data = load_json(args.func_table_file)
-        func_data = func_table_data['functions']
-        func_key = 0
-        for _, func in enumerate(func_data):
-            if func['graphtype'] == 2:
-                func['funcKey'] = func_key
-                func_key += 1
-                root_func_table.append(func)
-        input_topo_data = load_dyn_topo(args.topo_json_file, root_func_table, func_data)
+        assert args.func_table_file is not None, "For dynamic topo, program.json is required"
+        program_data = load_json(args.func_table_file)
+        func_data = program_data["functions"]
+        input_topo_data = load_dyn_topo(args.topo_json_file, func_data)
     else:
         input_topo_data = load_json(args.topo_json_file)
 

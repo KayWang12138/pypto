@@ -92,8 +92,8 @@ protected:
         devProg->devArgs.nrAicpu = config.aicpuNum;
         devProg->devArgs.nrValidAic = config.blockdim;
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
-        devProg->workspaceSize = devProg->aicoreLocalWorkspaceSize + devProg->aicpuCoherentWorkspaceSize
-                                 + config.dynWorkspaceSize;
+        devProg->workspaceSize = devProg->aicoreLocalWorkspaceSize + devProg->aicpuCoherentWorkspaceSize +
+                                 devProg->debugDumpTensorMemReq + config.dynWorkspaceSize;
         devProg->l2CacheOffset = machine::GetRA()->GetL2Offset();
         ASSERT((devProg->commGroupNum == config.hcclContext.size()) &&
             (devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t))));

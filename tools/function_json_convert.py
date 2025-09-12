@@ -14,10 +14,10 @@ import json
 from enum import Enum
 
 
-def get_sematic(root_index, opmagic, func_table_data):
-    if root_index >= len(func_table_data):
+def get_sematic(func_index, opmagic, func_data):
+    if func_index >= len(func_data):
         return ""
-    for call_op in func_table_data[root_index]["operations"]:
+    for call_op in func_data[func_index]["operations"]:
         if call_op["opmagic"] == opmagic:
             return ", ".join(call_op["semantic_label"])
     return ""
@@ -125,25 +125,27 @@ def convert_operands_to_str(operands):
     return ", ".join(set(res))
 
 
-def get_in_out_operand_str(is_inoperand, func_key, opmagic, func_table_data):
-    if func_key >= len(func_table_data):
+def get_in_out_operand_str(is_inoperand, func_index, opmagic, func_data):
+    if func_index >= len(func_data):
         return ""
-    for call_op in func_table_data[func_key]["operations"]:
-        if is_inoperand:
-            return convert_operands_data(call_op['ioperands'])
-        else:
-            return convert_operands_data(call_op['ooperands'])
+    for call_op in func_data[func_index]["operations"]:
+        if call_op["opmagic"] == opmagic:
+            if is_inoperand:
+                return convert_operands_data(call_op['ioperands'])
+            else:
+                return convert_operands_data(call_op['ooperands'])
     return ""
 
 
-def get_in_out_operands_data(is_inoperand, func_key, opmagic, func_table_data):
-    if func_key >= len(func_table_data):
+def get_in_out_operands_data(is_inoperand, func_index, opmagic, func_data):
+    if func_index >= len(func_data):
         return []
-    for call_op in func_table_data[func_key]["operations"]:
-        if is_inoperand:
-            return convert_operands_data(call_op['ioperands'])
-        else:
-            return convert_operands_data(call_op['ooperands'])
+    for call_op in func_data[func_index]["operations"]:
+        if call_op["opmagic"] == opmagic:
+            if is_inoperand:
+                return convert_operands_data(call_op['ioperands'])
+            else:
+                return convert_operands_data(call_op['ooperands'])
     return []
 
 

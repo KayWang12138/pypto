@@ -302,8 +302,8 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                 rawTensor->addrOffset = encoded.addrOffset;
                 rawTensorWsMemoryRequirement = std::max(rawTensorWsMemoryRequirement,
                     rawAttrs[i].storage->start_ + rawAttrs[i].storage->length_);
-            }
 #endif
+            }
             UpdateRawTensorDesc(rawTensor, i, incastRawList.size(), encoded);
         }
 

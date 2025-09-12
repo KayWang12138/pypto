@@ -167,7 +167,7 @@ private:
 
         kArgs.inputs = buildInouts(inputs);
         kArgs.outputs = buildInouts(outputs);
-        kArgs.workspace = (int64_t *)pv_->AllocWorkspaceDev(devProg->aicoreLocalWorkspaceSize + devProg->aicpuCoherentWorkspaceSize);
+        kArgs.workspace = (int64_t *)pv_->AllocWorkspaceDev(devProg->aicoreLocalWorkspaceSize + devProg->aicpuCoherentWorkspaceSize + devProg->debugDumpTensorMemReq);
         kArgs.cfgdata = (int64_t *)pv_->CopyToDev(devProg_.data(), devProg_.size());
         kArgs.machineConfig  = devProg->devArgs.machineConfig;
         kArgs.aicoreModel = model_.get();

@@ -308,4 +308,6 @@ SymbolicScalar IsLoopEnd(const SymbolicScalar &symbol, const SymbolicScalar &end
 
 SymbolicScalar GetTensorData(const Tensor &t, const std::vector<SymbolicScalar> &off);
 void SetTensorData(const SymbolicScalar &v, const std::vector<SymbolicScalar> &off, Tensor &dst);
+
+#define ANNOTATE_TENSOR(X) (X).SetName(#X)
 } // namespace npu::tile_fwk

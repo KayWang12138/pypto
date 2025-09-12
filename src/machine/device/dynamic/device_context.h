@@ -1230,7 +1230,7 @@ struct DeviceStitchContext {
             uintdevptr_t outcastWsStandardAddr = dup.RuntimeOutcastBase() + outcastRawTensor->addrOffset;
             bool isStandardOutcastSlot = outcastDesc.addr == outcastWsStandardAddr ||
                                          (outcastDesc.addr & NON_ADDR_MASK) == NON_ADDR_MASK;
-            if (!isStandardOutcastSlot || outcastRawTensor->linkedIncastId != -1) {
+            if (!isStandardOutcastSlot) {
                 desc = outcastDesc;
                 continue;
             }
@@ -1245,8 +1245,8 @@ struct DeviceStitchContext {
                 ++*slotInfosInDecidingSlotMem_[firstSlotIdx].refCnt;
                 slotInfosInDecidingSlotMem_[slotIdx] = slotInfosInDecidingSlotMem_[firstSlotIdx];
             }
-        }
 #endif
+        }
         for (size_t slotIdx = 0; slotIdx < slotSize; ++slotIdx) {
             auto &slot = slotList[slotIdx];
             auto &desc = slot.desc;

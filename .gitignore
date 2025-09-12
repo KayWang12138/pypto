@@ -4,9 +4,6 @@ cmake-build-*
 tags
 build
 build_debug
-kernel_meta
-*.dot
-graphs*
 .cache
 *.log
 *.trace
@@ -24,5 +21,6 @@ output_tools
 dvcTestPlatform
 output
 summary
-kernel_meta*
 log
+tilefwk_*
+tmp
