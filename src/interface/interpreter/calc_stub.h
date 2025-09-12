@@ -59,7 +59,8 @@ inline void ReduceAcc(LogicalTensorDataPtr, const std::vector<LogicalTensorDataP
 inline void Copy(LogicalTensorDataPtr, LogicalTensorDataPtr, bool) {}
 inline void ScatterUpdate(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int, std::string, int) {}
 
-inline void FormatND2NZ(LogicalTensorDataPtr) {}
+inline void FormatND2NZ(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
+inline void FormatNZ2ND(LogicalTensorDataPtr, LogicalTensorDataPtr) {}
 inline void MatMul(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr,
                    MatMulSetParam &) {}
 inline void BitSort(LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, bool) {}

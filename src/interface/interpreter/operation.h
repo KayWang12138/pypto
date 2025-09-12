@@ -22,7 +22,6 @@
 #include "interface/utils/file_utils.h"
 #include "interface/tensor/symbolic_scalar_evaluate.h"
 #include "calc.h"
-#include "calculator.h"
 #include "tilefwk/data_type.h"
 #include "calc.h"
 namespace npu::tile_fwk {

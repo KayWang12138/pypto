@@ -74,7 +74,7 @@ void Transpose(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t dim0
 void ReduceAcc(LogicalTensorDataPtr out, const std::vector<LogicalTensorDataPtr> &tdatas);
 
 void Copy(LogicalTensorDataPtr out, LogicalTensorDataPtr self, bool trans = false);
-void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, int axis = -2, 
+void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, int axis = -2,
     std::string cacheMode = "BSND", int blockSize = 1);
 
 void BitSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, bool descending);
@@ -82,11 +82,13 @@ void BitSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, 
 void Extract(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int mod, bool descending);
 
 void Topk(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, int64_t k, bool descending);
+
 // matmul
-void FormatND2NZ(LogicalTensorDataPtr inputTensor);
+void FormatNZ2ND(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
+void FormatND2NZ(LogicalTensorDataPtr out, LogicalTensorDataPtr self);
 
 void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, LogicalTensorDataPtr acc,
-            MatMulSetParam &param);
+    MatMulSetParam &param);
 }
 
 #ifndef ENABLE_VERIFIER

@@ -42,7 +42,7 @@ static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int64_t
 }
 
 #define ASSERT_ALLCLOSE(self, other) \
-    ASSERT(calc::AllClose(self, other)) << "lhs:\n" << self << "\nrhs:\n" << other << "\n"
+    ASSERT(calc::AllClose(self, other)) << "lhs:\n" << self->ToString() << "\nrhs:\n" << other->ToString() << "\n"
 
 TEST_F(TorchAdaptorTest, UnaryOps) {
     {
@@ -772,5 +772,28 @@ TEST_F(TorchAdaptorTest, Print) {
     std::cout << t1->ToString() << std::endl;
     auto t2 = makeTensorData(DT_FP32, {4, 4, 1024, 512}, 4.0f);
     std::cout << t2->ToString() << std::endl;
+}
+
+static inline int64_t alignup(int64_t x, int64_t align) {
+    return (x + (align - 1)) & ~(align - 1);
+}
+
+TEST_F(TorchAdaptorTest, NDNZ) {
+    for (auto m : {32, 33, 48}) {
+        for (auto n : {32, 33, 48}) {
+            int padm = alignup(m, 16);
+            int padn = alignup(n, 8);
+            std::vector<int> data(2 * m * n);
+            std::iota(data.begin(), data.end(), 0);
+            auto t0 = makeTensorData(DT_INT32, {2, m, n}, data);
+            auto nzout = makeTensorData(DT_INT32, {2, padm, padn}, 0);
+            auto ndzout = makeTensorData(DT_INT32, {2, m, n}, 0);
+            auto golden = makeTensorData(DT_INT32, {2, m, n}, data);
+
+            calc::FormatND2NZ(nzout, t0);
+            calc::FormatNZ2ND(ndzout, nzout);
+            ASSERT_ALLCLOSE(ndzout, golden);
+        }
+    }
 }
 } // namespace npu::tile_fwk

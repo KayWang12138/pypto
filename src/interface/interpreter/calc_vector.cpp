@@ -87,71 +87,24 @@ void ExecuteOpReduce(ExecuteOperationContext *ctx) {
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop = ctx->ioperandDataViewList->at(0);
     int axis = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
-    bool outputCombineAxisDone = false;
-    if (opcode == Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE || opcode == Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE) {
-        outputCombineAxisDone = ctx->op->GetBoolAttribute("output_combine_axis_done");
-    }
-    LogicalTensorDataPtr oopTrans;
-    switch (opcode) {
-        case Opcode::OP_ROWSUM_SINGLE:
-        case Opcode::OP_ROWSUMLINE:
-        case Opcode::OP_ROWMAX_SINGLE: {
-            if (oop->GetShape()[axis] != 1) {
-                std::vector<int64_t> oopShape = oop->GetShape();
-                oopShape[axis] = 1;
-                oop = oop->View(oopShape, std::vector<int64_t>(oopShape.size(), 0));
-            }
-        } break;
-        case Opcode::OP_ROWMIN_SINGLE: {
-            if (oop->GetShape()[axis] != 1) {
-                std::vector<int64_t> oopShape = oop->GetShape();
-                oopShape[axis] = 1;
-                oop = oop->View(oopShape, std::vector<int64_t>(oopShape.size(), 0));
-            }
-        } break;
-        case Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE:
-        case Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE: {
-            if (outputCombineAxisDone) {
-                std::vector<int64_t> transShape = {oop->GetShape()[1], oop->GetShape()[0]};
-                transShape[axis] = 1;
-                oopTrans = LogicalTensorData::CreateEmpty(oop->GetDataType(), transShape, std::vector<int64_t>(0));
-            }
-        } break;
-        default: ASSERT(false);
+    if (oop->GetShape()[axis] != 1) {
+        std::vector<int64_t> oopShape = oop->GetShape();
+        oopShape[axis] = 1;
+        oop = oop->View(oopShape, std::vector<int64_t>(oopShape.size(), 0));
     }
 
     switch (opcode) {
         case Opcode::OP_ROWSUM_SINGLE: calc::RowSumSingle(oop, iop, axis); break;
-        case Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE: {
-            if (outputCombineAxisDone) {
-                std::vector<int> axises = {0, 1};
-                Calculator::CalcRowSumSingle(oopTrans.get(), iop.get(), axis, ctx->opInter->GetPoolPtr());
-                Calculator::CalcTransposeAdjDim(oop.get(), oopTrans.get(), axises[0], ctx->opInter->GetPoolPtr());
-            } else {
-                Calculator::CalcRowSumSingle(oop.get(), iop.get(), axis, ctx->opInter->GetPoolPtr());
-            }
-        } break;
         case Opcode::OP_ROWMAX_SINGLE: calc::RowMaxSingle(oop, iop, axis); break;
-        case Opcode::OP_ROWMIN_SINGLE:
-        case Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE: {
-            if (outputCombineAxisDone) {
-                std::vector<int> axises = {0, 1};
-                Calculator::CalcRowMaxSingle(oopTrans.get(), iop.get(), axis, ctx->opInter->GetPoolPtr());
-                Calculator::CalcTransposeAdjDim(oop.get(), oopTrans.get(), axises[0], ctx->opInter->GetPoolPtr());
-            } else {
-                Calculator::CalcRowMaxSingle(oop.get(), iop.get(), axis, ctx->opInter->GetPoolPtr());
-            }
-        } break;
+        case Opcode::OP_ROWMIN_SINGLE: calc::RowMinSingle(oop, iop, axis); break;
         case Opcode::OP_ROWSUMLINE: calc::RowSumExpand(oop, iop, axis); break;
-        default: ASSERT(false);
+        default: ASSERT(false) << "opcode not support" << ctx->op->GetOpcodeStr();
     }
 }
 REGISTER_CALC_OP(OP_ROWSUM_SINGLE, Opcode::OP_ROWSUM_SINGLE, ExecuteOpReduce<Opcode::OP_ROWSUM_SINGLE>);
 REGISTER_CALC_OP(OP_ROWSUMLINE, Opcode::OP_ROWSUMLINE, ExecuteOpReduce<Opcode::OP_ROWSUMLINE>);
 REGISTER_CALC_OP(OP_ROWMAX_SINGLE, Opcode::OP_ROWMAX_SINGLE, ExecuteOpReduce<Opcode::OP_ROWMAX_SINGLE>);
 REGISTER_CALC_OP(OP_ROWMIN_SINGLE, Opcode::OP_ROWMIN_SINGLE, ExecuteOpReduce<Opcode::OP_ROWMIN_SINGLE>);
-REGISTER_CALC_OP(OP_ROWSUM_COMBINE_AXIS_SINGLE, Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, ExecuteOpReduce<Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE>);
-REGISTER_CALC_OP(OP_ROWMAX_COMBINE_AXIS_SINGLE, Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, ExecuteOpReduce<Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE>);
 
 void ExecuteOpCast(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);

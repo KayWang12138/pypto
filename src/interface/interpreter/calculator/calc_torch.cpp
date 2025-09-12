@@ -14,6 +14,8 @@
 namespace npu::tile_fwk::calc {
 
 #define AXIS_TO_LAST -2
+constexpr int BLOCK_SIZE = 32;
+
 #define CALC_ASSERT(cond, ...) TORCH_CHECK(cond, __VA_ARGS__)
 
 static torch::ScalarType FromDataType(DataType t) {
@@ -206,58 +208,55 @@ std::vector<int64_t> GenAxesForTranspose(const int64_t offset, const std::vector
     return axes;
 }
 
-void FormatND2NZ(LogicalTensorDataPtr inputTensor) {
-    auto inputData = From(inputTensor);
-    auto oriShape = inputData.sizes();
-    constexpr int minAxes = 2;
-    if (oriShape.size() < minAxes) {
-        return;
+static inline int64_t alignup(int64_t x, int64_t align) {
+    return (x + (align - 1)) & ~(align - 1);
+}
+
+void FormatND2NZ(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto &shape = self->GetShape();
+    CALC_ASSERT(shape.size() >= 0x2, "Input tensor must have at least 2 dimensions");
+
+    int64_t ndim = shape.size();
+    int64_t m = shape[ndim - 0x2];
+    int64_t m0 = 16; // m0 16
+    int64_t padm = alignup(m, m0);
+    int64_t n = shape[ndim - 1];
+    int64_t n0 = BLOCK_SIZE / BytesOf(self->GetDataType());
+    int64_t padn = alignup(n, n0);
+    int64_t n1 = padn / n0;
+
+    auto tself = From(self);
+    tself = tself.reshape({-1, m, n}); // [b, m1*m0, n1*n0]
+    if (padm != m || padn != n) {
+        tself = torch::constant_pad_nd(tself, {0, padn - n, 0, padm - m}, 0); // [b, padm, padn]
     }
-    int64_t oriM = oriShape[oriShape.size() - minAxes];
-    int64_t oriN = oriShape.back();
 
-    std::vector<int64_t> oriBatch(oriShape.begin(), oriShape.end() - minAxes);
-    int64_t batchNum = oriBatch.size();
+    tself = tself.reshape({-1, padm, n1, n0}); // [b, padm, n1, n0]
+    tself = tself.permute({0, 0x2, 1, 0x3});   // [b, n1, padm, n0]
 
-    int64_t m0 = 16;
-    constexpr int NZ_BLOCK_SIZE = 32;
-    auto dtype = inputData.scalar_type();
-    ASSERT(c10::elementSize(dtype) != 0);
-    int64_t n0 = (dtype == at::ScalarType::Int) ? m0 : NZ_BLOCK_SIZE / c10::elementSize(dtype);
-    ASSERT(n0 != 0);
-    int64_t m1 = (oriM + m0 - 1) / m0;
-    int64_t n1 = (oriN + n0 - 1) / n0;
-    int64_t paddingM = m1 * m0 - oriM;
-    int64_t paddingN = n1 * n0 - oriN;
+    std::vector<int64_t> nzShape(shape.begin(), shape.end() - 2); // remove last 2 dim, keep only batch dims
+    nzShape.push_back(padm);
+    nzShape.push_back(padn);
+    tself = tself.reshape(nzShape); // [b, padm, padn]
+    From(out).copy_(tself);
+}
 
-    // Prepare padding vector
-    std::vector<int64_t> padWidth;
-    for (int64_t i = 0; i < batchNum; i++) {
-        padWidth.push_back(0);
-        padWidth.push_back(0);
-    }
-    padWidth.push_back(0);
-    padWidth.push_back(paddingM);
-    padWidth.push_back(0);
-    padWidth.push_back(paddingN);
+void FormatNZ2ND(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto &shape = self->GetShape();
+    CALC_ASSERT(shape.size() >= 0x2, "Input tensor must have at least 2 dimensions");
 
-    auto paddedData = torch::constant_pad_nd(inputData, padWidth, 0);
+    auto tself = From(self); // [b, m1*m0, n1*n0]
+    int64_t ndim = shape.size();
+    int64_t m = shape[ndim - 0x2];
+    int64_t n0 = BLOCK_SIZE / BytesOf(self->GetDataType());
+    int64_t n1 = shape[ndim - 1] / n0;
 
-    // Reshape and transpose
-    std::vector<int64_t> newShape = oriBatch;
-    newShape.push_back(m1);
-    newShape.push_back(m0);
-    newShape.push_back(n1);
-    newShape.push_back(n0);
+    tself = tself.reshape({-1, n1, m, n0});  // [b, n1, m1*m0, n0]
+    tself = tself.permute({0, 0x2, 1, 0x3}); // [b, m1*m0, n1, n0]
+    tself = tself.reshape(shape);            // [b, m1*m0, n1*n0]
 
-    auto reshaped = paddedData.reshape(newShape);
-    std::vector<int64_t> axisToNZ = {2, 0, 1, 3};
-    auto axes = GenAxesForTranspose(batchNum, axisToNZ);
-
-    auto transposed = reshaped.permute(axes);
-    auto restored = transposed.reshape({m1 * m0, n1 * n0});
-
-    inputData.copy_(restored);
+    std::vector<int64_t> offset(ndim, 0);
+    From(out).copy_(View(tself, out->GetShape(), offset));
 }
 
 static void MatmulSplitK(torch::Tensor &out, const torch::Tensor &lhs, const torch::Tensor &rhs, int64_t kstep) {
@@ -393,7 +392,7 @@ void ReduceAcc(LogicalTensorDataPtr out, const std::vector<LogicalTensorDataPtr>
 /**
  * @brief Perform a bitwise sort of 32 elements on the input tensor according to the specified dimension
  *        and return the output tensor
- *        e.g.,1.If the shape of the input tensor is {2,33}, a temporary tensor will be created based on the 
+ *        e.g.,1.If the shape of the input tensor is {2,33}, a temporary tensor will be created based on the
  *             input pad to {2,64}, and an index tensor with a shape of {2,64} and values from 0 to 63 will
  *             be created along the sorting axis;
  *             2. Then stack the temporary tensor and index tensor into a new tensor with a shape of {2,64,2}
@@ -467,7 +466,7 @@ void BitSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, 
 
 /**
  * @brief extract elements from the target dimension of tensors and ajust the output according to the param
- *        require the data distribution if the input tensor sorting axis to be value indexed alternately 
+ *        require the data distribution if the input tensor sorting axis to be value indexed alternately
  *        arranged in order
  *
  * @param out output tensor
@@ -522,7 +521,7 @@ void Topk(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, int
     constexpr int MERGE_SORT_NUM = 4;
     constexpr int DIM_SIZE_TWO = 2;
     constexpr int ACTUAL_VALID_RATIO = 2;
-    
+
     axis = axis < 0?(axis + tself.dim()):axis;
     auto sliceIndices = torch::arange(tself.size(axis) / ACTUAL_VALID_RATIO, torch::dtype(torch::kLong));
     auto tselfHalf = tself.index_select(axis, sliceIndices);
@@ -573,8 +572,8 @@ void Topk(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, int
     dstSubview.copy_(topkGroups.reshape(torch::IntArrayRef(dstShape)));
 }
 
-bool ScatterDateCopy(const std::vector<int64_t> &loopIdx, torch::Tensor &src, torch::Tensor &indices, torch::Tensor &ret, 
-    int blockSize) {
+bool ScatterDateCopy(const std::vector<int64_t> &loopIdx, torch::Tensor &src, torch::Tensor &indices,
+    torch::Tensor &ret, int blockSize) {
     bool flag = false;
     int64_t s = indices.size(1);
     int64_t i = loopIdx[0];
@@ -582,7 +581,7 @@ bool ScatterDateCopy(const std::vector<int64_t> &loopIdx, torch::Tensor &src, to
     int64_t dataIdx = indices.index({i, j}).item<int64_t>();
 
     ASSERT(blockSize != 0);
-    if (ret.dim() == SHAPE_DIM_NUM_2) {
+    if (ret.dim() == 2) { // 2 dim
         int64_t srcIdx = i * s + j;
         if ((dataIdx < 0 || dataIdx >= ret.size(0)) || (srcIdx < 0 || srcIdx >= src.size(0))) {
             ALOG_ERROR_F("index out of range. i:%d, j:%d, dst_idx:%d, srcIdx:%d\n", i, j, dataIdx, srcIdx);
@@ -590,7 +589,7 @@ bool ScatterDateCopy(const std::vector<int64_t> &loopIdx, torch::Tensor &src, to
         }
         ret[dataIdx] = src[srcIdx];
         flag = true;
-    } else if (ret.dim() == SHAPE_DIM_NUM_4) {
+    } else if (ret.dim() == 4) { // 4 dim
         int64_t bIdx = dataIdx / blockSize;
         int64_t sIdx = dataIdx % blockSize;
         if ((bIdx < 0 || bIdx >= ret.size(0)) || (sIdx < 0 || sIdx >= ret.size(1))) {
@@ -604,7 +603,7 @@ bool ScatterDateCopy(const std::vector<int64_t> &loopIdx, torch::Tensor &src, to
     return flag;
 }
 
-void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, int axis, 
+void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, int axis,
     std::string cacheMode, int blockSize) {
     (void)axis;
     (void)cacheMode;
@@ -613,9 +612,9 @@ void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalT
     auto src = From(self);
     auto indices = From(index);
 
-    ASSERT(indices.dim() == SHAPE_DIM_NUM_2);
-    ASSERT((src.dim() == SHAPE_DIM_NUM_2) || (src.dim() == SHAPE_DIM_NUM_4));
-    ASSERT((ret.dim() == SHAPE_DIM_NUM_2) || (ret.dim() == SHAPE_DIM_NUM_4));
+    ASSERT(indices.dim() == 2);                   // indices should be 2 dim
+    ASSERT((src.dim() == 2) || (src.dim() == 4)); // only 2, 4 dim support
+    ASSERT((ret.dim() == 2) || (ret.dim() == 4)); // only 2, 4 dim support
     ASSERT(src.dim() == ret.dim());
 
     int64_t b = indices.size(0);
