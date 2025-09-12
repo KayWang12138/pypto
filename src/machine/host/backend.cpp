@@ -569,9 +569,7 @@ static void ConstructCodeInfo(struct EncodeDevAscendFunctionParam &encodeDevAsce
         attr->cceCodeInfo[leafIndex].coreType = static_cast<uint32_t>(CoreType::HUB);
       attr->cceCodeInfo[leafIndex].psgId = leaf->GetProgramId();
       attr->cceCodeInfo[leafIndex].funcHash = leaf->GetFunctionHash().GetHash();
-      attr->cceCodeInfo[leafIndex].aicpuOpType = static_cast<uint32_t>(
-        (attr->cceCodeInfo[leafIndex].coreType == static_cast<uint32_t>(CoreType::AICPU)) ?
-        leaf->Operations()[0].GetOpcode() : Opcode::OP_UNKNOWN);
+      attr->cceCodeInfo[leafIndex].aicpuOpType = static_cast<uint32_t>(leaf->IsAicpuSubFunction().second);
       leafIndex++;
     }
     encodeDevAscendFunctionParam.cceCodeInfoList = attr->cceCodeInfo;

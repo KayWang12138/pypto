@@ -133,13 +133,24 @@ void InplaceProcess::ProcessView(Function &function, Operation &op) const {
             continue;
         }
         std::vector<int64_t> viewOpOffset = viewAttr->GetFrom();
+        auto inputDynOffset = op.GetIOperands()[0]->GetDynOffset();
+        if (inputDynOffset.empty()) {
+            inputDynOffset = std::vector<SymbolicScalar>(inputOffset.size(), 0);
+        }
+        auto attrDynOffset = viewAttr->GetFromDynOffset();
+        if (attrDynOffset.empty()) {
+            attrDynOffset = std::vector<SymbolicScalar>(inputOffset.size(), 0);
+        }
+        std::vector<SymbolicScalar> outTensorOffset;
         // 增加校验: input --> View --> ouput 三者的offset size 相同
         for (size_t i = 0; i < inputOffset.size(); i++) {
             viewOpOffset[i] = inputOffset[i] + viewOpOffset[i];
+            attrDynOffset[i] = inputDynOffset[i] + attrDynOffset[i];
         }
         viewAttr->SetFromOffset(viewOpOffset, viewAttr->GetFromDynOffset());
         consumer->oOperand[0]->tensor = op.GetIOperands()[0]->tensor;
-        consumer->oOperand[0]->UpdateOffset(viewOpOffset);
+        TensorOffset newOffset(viewOpOffset, attrDynOffset);
+        consumer->oOperand[0]->UpdateOffset(newOffset);
     }
 }
 

@@ -17,7 +17,7 @@
 #include "passes/pass_config/pass_config_manager.h"
 
 namespace npu{
-    namespace tile_fwk {
+namespace tile_fwk {
 
 // 设置指定tensor的指定consumer op所需的mem tobe 类型
 void ConvertInserter::UpdateTensorTobeMap(LogicalTensor &tensor, Operation &operation, MemoryType t) {

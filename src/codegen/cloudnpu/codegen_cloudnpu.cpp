@@ -511,7 +511,7 @@ int CodeGenCloudNPU::CompileCCE(const CompileInfo &compileInfo, const std::strin
 }
 
 bool CodeGenCloudNPU::HandleForAICpuSubFunc(Function &subFunc) {
-    if (!subFunc.IsAicpuSubFunction()) {
+    if (!subFunc.IsAicpuSubFunction().first) {
         return false;
     }
 

@@ -37,8 +37,6 @@ private:
     void EraseRedundantCopyOut(Function &function) const;
     bool HasSpecificConsumer(const Operation &op) const;
     void ConvertViewToCopyInWhenInputGm(Operation &op, ViewOpAttribute *viewOpAttribute) const;
-    void HandleGlobalInputView(Operation &op, ViewOpAttribute *viewOpAttribute) const;
-    void HandleViewWhenBothGm(Operation &op, ViewOpAttribute *viewOpAttribute) const;
     void CreateMoveOpForView(Operation &op) const;
     void CreateMoveOpForAssemble(Operation &op) const;
     void CreateMoveOpForConvert(Operation &op) const;

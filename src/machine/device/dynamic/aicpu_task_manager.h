@@ -159,8 +159,7 @@ private:
         return hcclOpParam->windowsIn[dstRankId] + offsetPerRank * hcclOpParam->rankNum;   
     }
 
-    inline npu::tile_fwk::Distributed::TensorInfo GetTensorInfo(const uint64_t taskId,
-        const std::vector<uint32_t>& previousOperandDims)
+    inline npu::tile_fwk::Distributed::TensorInfo GetTensorInfo(const uint64_t taskId, uint32_t shmOperandIdx)
     {
         auto funcId = FuncID(taskId);
         auto opIndex = TaskID(taskId);
@@ -171,13 +170,14 @@ private:
 
         uint32_t index = 0;
         ++index; // 跳过 function id
-        for (uint32_t dim : previousOperandDims) {
-            index += 1 + dim * 4; // 1 跳过 rawIndex，dim * 4 跳过 offset、shape、rawShape、dynValidShape
+        for (uint32_t i  = 0U; i < shmOperandIdx; ++i)  {
+            // 1 跳过rawIndex, 4 表示 offset、shape、rawShape、dynValidShape
+            index += 1 + funcDup.GetSource()->GetOperationIOperandInfo(opIndex, i).GetDim() * 4;
         }
 
         npu::tile_fwk::Distributed::TensorInfo info;
         ++index; // 跳过 rawIndex
-        info.dim = funcDup.GetSource()->GetOperationIOperandInfo(opIndex, 1).GetDim(); // todo: shmemSignal 是第 1 个输入
+        info.dim = funcDup.GetSource()->GetOperationIOperandInfo(opIndex, shmOperandIdx).GetDim();
         info.offset = GetCoaVector(index, info.dim, opAttrs, expressionTable);
         index += info.dim;
         info.shape = GetCoaVector(index, info.dim, opAttrs, expressionTable);
@@ -196,7 +196,7 @@ private:
         auto taskType = GetTaskType(elem);
         if (taskType < TaskType::TASK_TYPE_NUM) {
             auto enqueueOp = enqueueOpCallBack_[static_cast<uint64_t>(taskType)];
-            auto tensor = GetTensorInfo(elem, std::vector<uint32_t>{2});
+            auto tensor = GetTensorInfo(elem, 2); // 约定 shmemSignal 是第 3 个输入
             enqueueOp(elem, tensor);
         }
         tasks_.push(elem);

@@ -627,8 +627,17 @@ public:
 
     void HandleControlOps(Operation &op, std::vector<Operation *> &toRemoveOps) const;
     void UpdateOperandBeforeRemoveOp(Operation &op, const bool keepOutTensor = false);
-    bool IsAicpuSubFunction() const {
-        return (operations_.size() == 1UL) && (operations_[0]->GetCoreType() == CoreType::AICPU);
+    std::pair<bool, Opcode> IsAicpuSubFunction() const {
+        Opcode code = Opcode::OP_UNKNOWN;
+        for (size_t i = 0UL; i < operations_.size(); i++) {
+            if ((operations_[i]->GetOpcode() != Opcode::OP_VIEW) &&
+                (operations_[i]->GetCoreType() != CoreType::AICPU)) {
+                    return std::make_pair(false, Opcode::OP_UNKNOWN);
+            } else if (operations_[i]->GetCoreType() == CoreType::AICPU) {
+                   code = operations_[i]->GetOpcode();
+            }
+        }
+        return std::make_pair(true, code);
     }
 
     bool IsDummyFunction() const {
