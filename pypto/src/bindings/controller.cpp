@@ -64,6 +64,42 @@ void bind_controller(py::module &m) {
         py::arg("m"), py::arg("k"), py::arg("n"), py::arg("setL1Tile") = false,
         "Set cube tile shapes with specified dimensions");
 
+    m.def(
+        "set_config", 
+        [](const std::string &key, const int &value) {
+            Program::GetInstance().GetConfig().Set<int>(key, value); }, 
+        py::arg("key"), py::arg("value"));
+    m.def(
+        "set_config", 
+        [](const std::string &key, const std::map<int, int> &value) { 
+            Program::GetInstance().GetConfig().Set<std::map<int, int>>(key, value); }, 
+        py::arg("key"), py::arg("value"));
+    m.def(
+        "set_matrix_size", 
+        [](const std::vector<int64_t>& size) {
+            TileShape::Current().SetMatrixSize(size); }, 
+        py::arg("size"));
+    m.def(
+        "set_semantic_label", 
+        [](const std::string &label) {
+            ConfigManager::Instance().SetSemanticLabel(label); }, 
+        py::arg("label"));
+
+    m.def(
+        "set_operation_config", 
+        [](const std::string &key, const bool &value) {
+            ConfigManager::Instance().SetOperationConfig<bool>(key, value); }, 
+        py::arg("key"), py::arg("value"));
+    m.def(
+        "set_pass_config", 
+        [](const std::string &strategy, const std::string &identifier, const std::string &key, const bool &value) {
+            ConfigManager::Instance().SetPassConfig<bool>(strategy, identifier, key, value); }, 
+        py::arg("strategy"), py::arg("identifier"), py::arg("key"), py::arg("value"));
+    m.def(
+        "set_host_config", 
+        [](const std::string &key, const bool &value) {
+            ConfigManager::Instance().SetHostConfig<bool>(key, value); }, 
+        py::arg("key"), py::arg("value"));
     m.def("bytes_of", [](DataType t) { return BytesOf(t); });
 
     m.def("begin_function", [](const std::string &funcName, GraphType graphType, FunctionType funcType, py::args args) {
@@ -155,7 +191,7 @@ void bind_controller(py::module &m) {
         }, py::arg("index"))
         .def("__len__", &VecTile::size, "Get the size of the tile");
 
-    py::class_<LoopRange>(m, "loop_range")
+    py::class_<LoopRange>(m, "loop_range_")
         .def(py::init<const SymbolicScalar & /* rangeBegin */, const SymbolicScalar & /* rangeEnd */,
             const SymbolicScalar & /* rangeStep */>())
         .def(py::init<const SymbolicScalar & /* rangeBegin */, const SymbolicScalar & /* rangeEnd */>())
@@ -173,5 +209,9 @@ void bind_controller(py::module &m) {
         .def(py::init<FunctionType>(),
              py::arg("funcType") = FunctionType::DYNAMIC)
         .def_readwrite("funcType", &FunctionConfig::funcType);
+
+    m.def("is_loop_begin_", &IsLoopBegin, py::arg("symbol"), py::arg("begin"));
+    m.def("is_loop_end_", &IsLoopEnd, py::arg("symbol"), py::arg("end"));
+    m.def("powers_of_2", &PowersOf2, py::arg("n"));
 }
 } // namespace pypto

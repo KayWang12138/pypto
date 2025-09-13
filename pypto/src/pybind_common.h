@@ -38,5 +38,6 @@
 #include "tilefwk/tilefwk.h"
 #include "tilefwk/function.h"
 #include "interface/inner/tilefwk.h"
+#include "interface/configs/config_manager.h"
 
 namespace py = pybind11;

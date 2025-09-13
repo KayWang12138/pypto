@@ -60,16 +60,18 @@ def test_symbolic_scalar_binop():
     d = a - b
     e = a * b
     f = a / b
+    f_floor = a // b
     g = a % b
     h = a.max(b)
     i = a.min(b)
 
-    for op in [c, d, e, f, g, h, i]:
+    for op in [c, d, e, f, f_floor, g, h, i]:
         assert isinstance(op, pto.symbolic_scalar)
     assert c.concrete() == 10
     assert d.concrete() == 2
     assert e.concrete() == 24
     assert f.concrete() == 1
+    assert f_floor.concrete() == 1
     assert g.concrete() == 2
     assert h.concrete() == 6
     assert i.concrete() == 4
@@ -82,23 +84,27 @@ def test_symbolic_scalar_binop_with_int():
     d = a - b
     e = a * b
     f = a / b
+    f_floor = a // b
     g = a % b
 
     h = b + a
     i = b - a
     j = b * a
     k = b / a
+    k_floor = b // a
     l = b % a
 
-    for op in [c, d, e, f, g, h, i, j, k, l]:
+    for op in [c, d, e, f, f_floor, g, h, i, j, k, k_floor, l]:
         assert isinstance(op, pto.symbolic_scalar)
     assert c.concrete() == 10
     assert d.concrete() == 2
     assert e.concrete() == 24
     assert f.concrete() == 1
+    assert f_floor.concrete() == 1
     assert g.concrete() == 2
     assert h.concrete() == 10
     assert i.concrete() == -2
     assert j.concrete() == 24
     assert k.concrete() == 0
+    assert k_floor.concrete() == 0
     assert l.concrete() == 4

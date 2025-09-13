@@ -46,16 +46,20 @@ void bind_enum(py::module &m){
         .value("OUTCAST", NodeType::OUTCAST)
         .export_values();
 
-    py::enum_<TileOpFormat>(m, "TileOpFormat")
+    py::enum_<TileOpFormat>(m, "tile_op_format")
         .value("TILEOP_ND", TileOpFormat::TILEOP_ND)
         .value("TILEOP_NZ", TileOpFormat::TILEOP_NZ)
         .value("TILEOP_FORMAT_NUM", TileOpFormat::TILEOP_FORMAT_NUM)
         .export_values();
 
-    py::enum_<CachePolicy>(m, "CachePolicy")
+    py::enum_<CachePolicy>(m, "cache_policy")
         .value("PREFETCH", CachePolicy::PREFETCH)
         .value("NONE_CACHEABLE", CachePolicy::NONE_CACHEABLE)
         .value("MAX_NUM", CachePolicy::MAX_NUM)
+        .export_values();
+
+    py::enum_<ReduceMode>(m, "reduce_mode")
+        .value("ATOMIC_ADD", ReduceMode::ATOMIC_ADD)
         .export_values();
 
     py::enum_<MemoryType>(m, "MemoryType")
@@ -92,7 +96,7 @@ void bind_enum(py::module &m){
         .value("INVALID", GraphType::INVALID)
         .export_values();
 
-    py::enum_<CastMode>(m, "CastMode")
+    py::enum_<CastMode>(m, "cast_mode")
         .value("CAST_NONE", CastMode::CAST_NONE)
         .value("CAST_RINT", CastMode::CAST_RINT)
         .value("CAST_ROUND", CastMode::CAST_ROUND)
@@ -101,6 +105,7 @@ void bind_enum(py::module &m){
         .value("CAST_TRUNC", CastMode::CAST_TRUNC)
         .value("CAST_ODD", CastMode::CAST_ODD)
         .export_values();
+
     py::enum_<TileType>(m, "TileType")
         .value("VEC", TileType::VEC)
         .value("CUBE", TileType::CUBE)

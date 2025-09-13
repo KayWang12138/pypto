@@ -12,7 +12,9 @@
 """
 from dataclasses import dataclass
 import pto
-from utils import pto_function
+from utils import pto_function, view, assemble
+pto.view = view
+pto.assemble = assemble
 
 T_SHAPE = 128
 NUM_64 = 64

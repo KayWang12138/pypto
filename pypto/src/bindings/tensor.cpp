@@ -25,6 +25,12 @@ void bind_tensor(py::module &m){
             py::arg("name") = "int_init")
         .def(py::init<DataType, std::vector<SymbolicScalar>, std::string>(), py::arg("dtype"), py::arg("shape"),
             py::arg("name") = "SymbolicScalar_init")
+        .def(py::init<DataType, std::vector<int64_t>, std::string, TileOpFormat>(),
+            py::arg("dtype"), py::arg("shape"), py::arg("name") = "", py::arg("format") = TileOpFormat::TILEOP_ND)
+        .def(py::init<DataType, std::vector<int64_t>, uint8_t *, std::string, TileOpFormat>(),
+            py::arg("dtype"), py::arg("shape"),  py::arg("data_ptr"), py::arg("name"), py::arg("format") = TileOpFormat::TILEOP_ND)
+        .def(py::init<DataType, std::vector<SymbolicScalar>, std::string, TileOpFormat>(),
+            py::arg("dtype"), py::arg("shape"), py::arg("name") = "", py::arg("format") = TileOpFormat::TILEOP_ND)
         .def(
             "__add__", [](Tensor &self, Tensor tensor) { return npu::tile_fwk::Add(self, tensor); }, "Tensor add.")
         .def("get_dtype", &Tensor::GetDataType)
@@ -47,6 +53,9 @@ void bind_tensor(py::module &m){
             py::arg("other"),
             py::return_value_policy::reference_internal
         )
+        .def("set_cache_policy", &Tensor::SetCachePolicy, py::arg("policy"), py::arg("value"))
+        .def("get_cache_policy", &Tensor::GetCachePolicy, py::arg("policy"))
+        .def("has_storage", [](const Tensor &self) { return self.GetStorage(false) != nullptr; })
         .def("id", &Tensor::Id, "Get the index of the tensor.")
         .def_property_readonly("id", &Tensor::Id, "Get the index of the tensor.");
     m.def("get_input_shape", &GetInputShape, py::arg("index"), py::arg("input_index"),
@@ -66,5 +75,7 @@ void bind_tensor(py::module &m){
         .def("get_signed_data", &Element::GetSignedData)
         .def("get_unsigned_data", &Element::GetUnsignedData)
         .def("get_float_data", &Element::GetFloatData);
+
+    m.def("get_input_data", &GetInputData, py::arg("tensor"), py::arg("offset"));
 }
 }

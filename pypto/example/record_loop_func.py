@@ -28,7 +28,7 @@ def main():
     with dyn_function("main", [a, b], [c]):
 
         pto.set_vec_tile_shapes(16, 16)
-        loop_range = pto.loop_range(10)
+        loop_range = pto.loop_range_(10)
 
         with loop_function(
             "Dynamic",

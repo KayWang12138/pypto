@@ -32,7 +32,7 @@ def test_record_if_branch():
 
     with pto.dyn_function("ADD_IF", [a, b], [c]):
         pto.set_vec_tile_shapes(8, 8)
-        loop_range = pto.loop_range(2)
+        loop_range = pto.loop_range_(2)
         with pto.loop_function(
             "LOOP",
             "k",

@@ -24,15 +24,36 @@ constexpr const int SCATTER_UPDATE_DIM  = -2;
 void bind_operation(py::module &m) {
     m.def(
         "add", [](const Tensor &left, const Tensor &right) { return npu::tile_fwk::Add(left, right); }, "Tensor add.");
-    m.def("sub", [](const Tensor left, const Tensor &right) { return npu::tile_fwk::Sub(left, right); }, "Tensor sub.");
-    m.def("mul", [](const Tensor left, const Tensor &right) { return npu::tile_fwk::Mul(left, right); }, "Tensor mul.");
-    m.def("div", [](const Tensor left, const Tensor &right) { return npu::tile_fwk::Div(left, right); }, "Tensor div.");
+    m.def("sub", [](const Tensor &left, const Tensor &right) { return npu::tile_fwk::Sub(left, right); }, "Tensor sub.");
+    m.def("mul", [](const Tensor &left, const Tensor &right) { return npu::tile_fwk::Mul(left, right); }, "Tensor mul.");
+    m.def("div", [](const Tensor &left, const Tensor &right) { return npu::tile_fwk::Div(left, right); }, "Tensor div.");
     m.def(
-        "view",
+        "view_",
         [](const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<int64_t> &offsets) {
-            return npu::tile_fwk::View(operand, shapes, offsets);
-        },
+            return npu::tile_fwk::View(operand, shapes, offsets); }, 
+        py::arg("operand"), py::arg("shapes"), py::arg("offsets"),
         "Tensor view.");
+    m.def(
+        "view_",
+        [](const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &newOffsets) {
+            return npu::tile_fwk::View(operand, shapes, newOffsets); }, 
+        py::arg("operand"), py::arg("shapes"), py::arg("new_offsets"),
+        "Tensor dview.");
+    m.def(
+        "view_",
+        [](const Tensor &operand, const std::vector<int64_t> &shapes,
+            const std::initializer_list<SymbolicScalar> &newOffsets) {
+            return npu::tile_fwk::View(operand, shapes, newOffsets); }, 
+        py::arg("operand"), py::arg("shapes"), py::arg("new_offsets"),
+        "Tensor dview.");
+    m.def(
+        "view_",
+        [](const Tensor &operand, const std::vector<int64_t> &shapes,
+            const std::vector<SymbolicScalar> &newValidShapes, const std::vector<SymbolicScalar> &newOffsets) {
+            return npu::tile_fwk::View(operand, shapes, newValidShapes, newOffsets); }, 
+        py::arg("operand"), py::arg("shapes"), py::arg("new_valid_shapes"), py::arg("new_offsets"),
+        "Tensor dview_pad.");
+
     m.def("exp", [](const Tensor &operand) { return npu::tile_fwk::Exp(operand); }, "Tensor exp.");
 
     m.def(
@@ -101,10 +122,16 @@ void bind_operation(py::module &m) {
         { return npu::tile_fwk::VectorDuplicate(src, dType, dstShape, validShape); },
         py::arg("src"), py::arg("dType"), py::arg("dstShape"), py::arg("validShape") = std::vector<SymbolicScalar>{},
         "Tensor vector duplicate.");
-    m.def("reshape", [](const Tensor &input, const std::vector<int64_t> &dstShape,
+    m.def("reshape_", [](const Tensor &input, const std::vector<int64_t> &dstShape,
         const std::vector<SymbolicScalar> validShape) { return npu::tile_fwk::Reshape(input, dstShape, validShape); },
         py::arg("input"), py::arg("dstShape"), py::arg("validShape") = std::vector<SymbolicScalar>{},
         "Tensor reshape.");
+    m.def(
+        "reduce", 
+        [](const std::vector<Tensor> &aggregation, const ReduceMode &reduceMode) {
+            return npu::tile_fwk::Reduce(aggregation, reduceMode);
+        },
+        py::arg("aggregation"), py::arg("reduce_mode"), "Tensor reduce.");
 
     m.def(
         "maximum", [](const Tensor &left, const Tensor &right) { return npu::tile_fwk::Maximum(left, right); },
@@ -187,6 +214,25 @@ void bind_operation(py::module &m) {
         },
         py::arg("out_type"), py::arg("a"), py::arg("b"), py::arg("a_trans") = false, py::arg("b_trans") = false,
         "Matrix multiply.");
+    m.def(
+        "batch_matmul",
+        [](DataType out_type, const Tensor &a, const Tensor &b, bool a_trans, bool b_trans) {
+            if (a_trans) {
+                if (b_trans) {
+                    return npu::tile_fwk::Matrix::BatchMatmul<true, true>(out_type, a, b);
+                } else {
+                    return npu::tile_fwk::Matrix::BatchMatmul<true, false>(out_type, a, b);
+                }
+            } else {
+                if (b_trans) {
+                    return npu::tile_fwk::Matrix::BatchMatmul<false, true>(out_type, a, b);
+                } else {
+                    return npu::tile_fwk::Matrix::BatchMatmul<false, false>(out_type, a, b);
+                }
+            }
+        },
+        py::arg("out_type"), py::arg("a"), py::arg("b"), py::arg("a_trans") = false, py::arg("b_trans") = false,
+        "Batch matrix multiply.");
 
     m.def(
         "sort",
@@ -260,9 +306,19 @@ void bind_operation(py::module &m) {
             const std::vector<int> &paddings) { return npu::tile_fwk::Maxpool(operand, pools, stride, paddings); },
         py::arg("operand"), py::arg("pools"), py::arg("stride"), py::arg("paddings"), "Max pool.");
     py::class_<RoPETileShapeConfig>(m, "rope_tile_shape_config")
-        .def(py::init<std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>>(),
-            py::arg("twoDimsTileShape"), py::arg("threeDimsTileShape"), py::arg("fourDimsTileShape"),
-            py::arg("fiveDimsTileShape"));
+        .def(py::init<>())
+        .def_readwrite("two_dims_tile_shape", &RoPETileShapeConfig::twoDimsTileShape)
+        .def_readwrite("three_dims_tile_shape", &RoPETileShapeConfig::threeDimsTileShape)
+        .def_readwrite("four_dims_tile_shape", &RoPETileShapeConfig::fourDimsTileShape)
+        .def_readwrite("five_dims_tile_shape", &RoPETileShapeConfig::fiveDimsTileShape);
+    py::class_<PaTileShapeConfig>(m, "pa_tile_shape_config")
+        .def(py::init<>())
+        .def_readwrite("head_num_q_tile", &PaTileShapeConfig::headNumQTile)
+        .def_readwrite("v0_tile_shape", &PaTileShapeConfig::v0TileShape)
+        .def_readwrite("c1_tile_shape", &PaTileShapeConfig::c1TileShape)
+        .def_readwrite("v1_tile_shape", &PaTileShapeConfig::v1TileShape)
+        .def_readwrite("c2_tile_shape", &PaTileShapeConfig::c2TileShape)
+        .def_readwrite("v2_tile_shape", &PaTileShapeConfig::v2TileShape);
     m.def(
         "apply_rotary_pos_emb",
         [](const Tensor &q, const Tensor &k, const Tensor &cos, const Tensor &sin, const Tensor &position_ids,
@@ -276,9 +332,11 @@ void bind_operation(py::module &m) {
         py::arg("k_embed"), py::arg("unsqueeze_dim") = 1, py::arg("rope_tile_config") = py::none(),
         "Apply rotary pos emb.");
     py::class_<RoPETileShapeConfigNew>(m, "rope_tile_shape_config_new")
-        .def(py::init<std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>>(),
-            py::arg("threeDimsTileShape"), py::arg("fourDimsTileShapeQ"), py::arg("fourDimsTileShapeK"),
-            py::arg("fiveDimsTileShape"));
+        .def(py::init<>())
+        .def_readwrite("three_dims_tile_shape", &RoPETileShapeConfigNew::threeDimsTileShape)
+        .def_readwrite("four_dims_tile_shape_q", &RoPETileShapeConfigNew::fourDimsTileShapeQ)
+        .def_readwrite("four_dims_tile_shape_k", &RoPETileShapeConfigNew::fourDimsTileShapeK)
+        .def_readwrite("five_dims_tile_shape", &RoPETileShapeConfigNew::fiveDimsTileShape);
     m.def(
         "apply_rotary_pos_emb_v2",
         [](const Tensor &q, const Tensor &k, const Tensor &cos, const Tensor &sin, Tensor &q_embed, Tensor &k_embed,
@@ -374,10 +432,16 @@ void bind_operation(py::module &m) {
         py::arg("in"), py::arg("scale"), py::arg("combine_info"), py::arg("group"), "Tensor moe combine.");
 
     m.def(
-        "assemble",
+        "assemble_",
         [](const std::vector<std::pair<Tensor, std::vector<int64_t>>> &tensor_int_pairs) {
             return npu::tile_fwk::Assemble(tensor_int_pairs);
         },
-        "Tensor::Assemble");
+        "Tensor assemble");
+    m.def(
+        "assemble_",
+        [](const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset, Tensor &dest) {
+            npu::tile_fwk::Assemble(tensor, dynOffset, dest);
+        },
+        "Tensor dassemble");
 }
 } // namespace pypto

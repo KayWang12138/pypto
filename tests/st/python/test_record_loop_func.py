@@ -40,7 +40,7 @@ def test_dynamic_loop_nomacro():
         with pto.loop_function(
             "LOOP",
             "k",
-            pto.loop_range(10),
+            pto.loop_range_(10),
         ) as rlf:
 
             for k in rlf:

@@ -24,6 +24,7 @@
 
 using namespace npu::tile_fwk;
 
+namespace mla {
 constexpr int SCATTER_UPADATE_DIM = -2;
 constexpr int NUM_2 = 2;
 constexpr int NUM_3 = 3;
@@ -46,6 +47,7 @@ struct MlaQuantInputs {
     Tensor quantScaleCkr;
     Tensor smoothScalesCq;
 };
+
 
 std::vector<Tensor> mlaPre(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wDkvKr,
     const Tensor &gammaCq, float epsilonCq, const MlaQuantInputs &quantInputs, bool splitK, bool isSmooth) {
@@ -106,8 +108,7 @@ std::vector<Tensor> mlaPre(const Tensor &tokenX, const Tensor &wDq, const Tensor
         }
         normRes = std::get<0>(normQuantRes);
         normDequantScale = std::get<1>(normQuantRes);
-        TileShape::Current().SetCubeTile(
-            {tieM, tieM}, {256, 256}, {256, 256}); // 256
+        TileShape::Current().SetCubeTile({tieM, tieM}, {256, 256}, {256, 256}); // 256
     } else {
         // use tileM will core dump
         TileShape::Current().SetCubeTile({tieM, tieM}, {256, 256}, {64, 64}); // 256, 64
@@ -140,7 +141,7 @@ std::vector<Tensor> mlaPre(const Tensor &tokenX, const Tensor &wDq, const Tensor
     } else {
         compressedKv = Matrix::Matmul(dType, input, wDkvKr); // bf16
     }
-    Tensor compressedKvRes = Reshape(compressedKv, {b, s, wDkvKr->shape[1]});
+    Tensor compressedKvRes = Reshape(compressedKv, {b, s, (int)wDkvKr->shape[1]});
     qkvPreRes.emplace_back(compressedKvRes);
 
     if (isQuant) {
@@ -185,11 +186,13 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
     auto c2Tile = paTileConfig.c2TileShape;
     auto v2Tile = paTileConfig.v2TileShape;
 
-    auto vHeadDim = weightUV->shape[2];
+    int vHeadDim = weightUV->shape[2];
 
     std::vector<int> paOutShape = {b * s * n, kvLoraRank};
 
-    FUNCTION("main", FunctionType::DYNAMIC,
+    config::SetPassConfig("PVC2_OOO", "InferMemoryConflict", "DISABLE_PASS", true);
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig,
         {tokenX, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache,
          quantInputs.dequantScaleWUqQr, quantInputs.smoothScalesCq,
          blockTable, actSeqs, weightUV, weightO, weightOScaleW},
@@ -212,7 +215,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
             Tensor smoothScalesCq = quantInputs.smoothScalesCq;
             bool isSmooth = (smoothScalesCq.GetStorage() != nullptr);
             std::cout << "isQuant +++ " << isQuant << std::endl;
-            auto xView = DView(tokenX, {tileB, s, h}, {bOffset, 0, 0});
+            auto xView = View(tokenX, {tileB, s, h}, {bOffset, 0, 0});
             ConfigManager::Instance().SetSemanticLabel("mlaPre");
 
             auto qKv = mlaPre(xView, wDq, wUqQr, wDkvKr, gammaCq, epsilonCq, quantInputs, false, isSmooth);
@@ -222,7 +225,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
             // dequant: int32 -> fp32 -> *scale -> fp16/bf16
             if (isQuant) {
                 ConfigManager::Instance().SetSemanticLabel("Quant");
-                std::vector<int> tileShape = {std::min(NUM_32, tileBS), NUM_64};
+                std::vector<int64_t> tileShape = {std::min(NUM_32, tileBS), NUM_64};
                 TileShape::Current().SetVecTile(tileShape);
                 auto qTmpFp32 = Cast(q, DataType::DT_FP32);
                 auto qTmpDequantScale = qKv[2];
@@ -234,7 +237,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
 
             ConfigManager::Instance().SetSemanticLabel("Reshape0");
             auto qTmp = Reshape(q, {tileB, s, n, qHeadDim});
-            std::vector<int> tileShape = {std::min(NUM_32, tileB), 1, 1, NUM_64};
+            std::vector<int64_t> tileShape = {std::min(NUM_32, tileB), 1, 1, NUM_64};
             TileShape::Current().SetVecTile(tileShape);
 
             /******** q ********/
@@ -275,8 +278,8 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
             TileShape::Current().SetVecTile(tileShape);
             Tensor kPeRes = Reshape(kPeView, {tileB, s, 1, qkRopeHeadDim}); // [b,s,1,qkRopeHeadDim]
             Tensor qPeView = View(qTmp, {tileB, s, n, qkRopeHeadDim}, {0, 0, 0, qkNopeHeadDim});
-            Tensor cosView = DView(cos, {tileB, s, qkRopeHeadDim}, {bOffset, 0, 0});
-            Tensor sinView = DView(sin, {tileB, s, qkRopeHeadDim}, {bOffset, 0, 0});
+            Tensor cosView = View(cos, {tileB, s, qkRopeHeadDim}, {bOffset, 0, 0});
+            Tensor sinView = View(sin, {tileB, s, qkRopeHeadDim}, {bOffset, 0, 0});
             Tensor kRopeView(kPeRes->Datatype(), {tileB, s, 1, qkRopeHeadDim}, "kRopeView"); // [b,1,s,qkRopeHeadDim]
             Tensor qRopeView(kPeRes->Datatype(), {tileB, s, n, qkRopeHeadDim}, "qRopeView");
             ConfigManager::Instance().SetSemanticLabel("ApplyRotaryPosEmbV2");
@@ -287,7 +290,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                 int n2 = kvCache->shape[2];
                 Tensor kvCacheRes = Reshape(kvCache, {blockNum * blockSize * n2, kvLoraRank});
                 Tensor krCacheRes = Reshape(krCache, {blockNum * blockSize * n2, qkRopeHeadDim});
-                auto cacheIndexDview = DView(cacheIndex, {tileB, s}, {bOffset, 0});
+                auto cacheIndexDview = View(cacheIndex, {tileB, s}, {bOffset, 0});
                 kNope = Reshape(kNope, {tileB * s, kvLoraRank}); // [b*s,kvLoraRank]
                 Tensor kRopeRes = Reshape(kRopeView, {tileB * s * 1, qkRopeHeadDim});
 
@@ -307,12 +310,12 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                 ConfigManager::Instance().SetSemanticLabel("Reshape1");
                 Tensor kRopeRes = Reshape(kRopeView, {tileB, 1, s, qkRopeHeadDim});
                 ConfigManager::Instance().SetSemanticLabel("kvCache");
-                auto cacheIndexDview = DView(cacheIndex, {tileB, s}, {bOffset, 0});
+                auto cacheIndexDview = View(cacheIndex, {tileB, s}, {bOffset, 0});
                 /******** kvCache ********/
                 tileShape = {1, 1, 1, kvLoraRank};
                 TileShape::Current().SetVecTile(tileShape);
                 // kvCache: [b,1,s2,kvLoraRank], output3
-                auto kvCacheDview = DView(kvCache, {tileB, 1, s2, kvLoraRank}, {bOffset, 0, 0, 0});
+                auto kvCacheDview = View(kvCache, {tileB, 1, s2, kvLoraRank}, {bOffset, 0, 0, 0});
                 ConfigManager::Instance().SetSemanticLabel("ScatterUpdate0");
                 auto kvCacheOutDview = ScatterUpdate(kvCacheDview, cacheIndexDview, kNope, -2);
 
@@ -321,20 +324,20 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                 tileShape = {1, 1, 1, qkRopeHeadDim};
                 TileShape::Current().SetVecTile(tileShape);
                 // krCache: [b,1,s2,qkRopeHeadDim], output4
-                auto krCacheDview = DView(krCache, {tileB, 1, s2, qkRopeHeadDim}, {bOffset, 0, 0, 0});
+                auto krCacheDview = View(krCache, {tileB, 1, s2, qkRopeHeadDim}, {bOffset, 0, 0, 0});
                 ConfigManager::Instance().SetSemanticLabel("ScatterUpdate1");
                 auto krCacheOutDview = ScatterUpdate(krCacheDview, cacheIndexDview, kRopeRes, -2);
 
                 auto kvCacheOutDviewNew = Reshape(kvCacheOutDview, {tileB*1*s2, kvLoraRank});
                 auto krCacheOutDviewNew = Reshape(krCacheOutDview, {tileB*1*s2, qkRopeHeadDim});
-                DAssemble(kvCacheOutDviewNew, {bOffset*s2, 0}, kvCacheOut);
-                DAssemble(krCacheOutDviewNew, {bOffset*s2, 0}, krCacheOut);
+                Assemble(kvCacheOutDviewNew, {bOffset*s2, 0}, kvCacheOut);
+                Assemble(krCacheOutDviewNew, {bOffset*s2, 0}, krCacheOut);
             }
 
             auto queryOutDviewNew = Reshape(qNopeNewTrans, {tileB*s*n, kvLoraRank});
             auto qRopeViewNew = Reshape(qRopeView, {tileB*s*n, qkRopeHeadDim});
-            DAssemble(queryOutDviewNew, {bOffset*s*n, 0}, qNopeOut);
-            DAssemble(qRopeViewNew, {bOffset*s, 0}, qRopeOut);
+            Assemble(queryOutDviewNew, {bOffset*s*n, 0}, qNopeOut);
+            Assemble(qRopeViewNew, {bOffset*s, 0}, qRopeOut);
         }
 
         /******** pa ********/
@@ -351,7 +354,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
         config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
 
         LOOP("LOOP_L0_bIdx_pa", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, batchSizeScalar, 1), {}, true) {
-            SymbolicScalar curSeq = GetInputDataInt32Dim1(actSeqs, bIdx);
+            SymbolicScalar curSeq = GetInputData(actSeqs, {bIdx});
             SymbolicScalar bnPerBatch = (curSeq + blockSize - 1) / blockSize;
             bnPerBatch.AsIntermediateVariable();
             LOOP("LOOP_L1_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nLoop, 1)) {
@@ -359,7 +362,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                 Tensor oiUpdate(DT_FP32, {nTile, dN}, "oiUpdate");
                 Tensor liUpdate(DT_FP32, {nTile, 1}, "liUpdate");
                 Tensor miUpdate(DT_FP32, {nTile, 1}, "miUpdate");
-                // 当前curOffset没放到更内层循环，避免重复bnPerBatch次的DAssemble操作
+                // 当前curOffset没放到更内层循环，避免重复bnPerBatch次的Assemble操作
                 SymbolicScalar curOffset = bIdx * nQ + nIdx * nTile;
                 std::vector<SymbolicScalar> oiOffset = {curOffset, 0}; // (B*N*S, d)
 
@@ -367,28 +370,28 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                     ConfigManager::Instance().SetSemanticLabel("pa");
                     // 当前qn，qr和qi放入内层Loop，避免Concat单独切成一个小图
                     int curS2Tile = blockSize;
-                    auto qn = DView(qNopeOut, {curNTile, dN}, {curOffset, 0});
-                    auto qr = DView(qRopeOut, {curNTile, dR}, {curOffset, 0});
+                    auto qn = View(qNopeOut, {curNTile, dN}, {curOffset, 0});
+                    auto qr = View(qRopeOut, {curNTile, dR}, {curOffset, 0});
                     Tensor qi(dtype, {curNTile, dN + dR}, "qi");
-                    DAssemble(qn, {0, 0}, qi);
-                    DAssemble(qr, {0, dN}, qi);
+                    Assemble(qn, {0, 0}, qi);
+                    Assemble(qr, {0, dN}, qi);
 
-                    SymbolicScalar curBlockIdx = GetInputDataInt32Dim2(blockTable, bIdx, bn);
+                    SymbolicScalar curBlockIdx = GetInputData(blockTable, {bIdx, bn});
                     curBlockIdx.AsIntermediateVariable();
-                    auto kn = DViewPad(kvCacheOut, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},
+                    auto kn = View(kvCacheOut, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},
                                                   {curBlockIdx * blockSize, 0});
-                    auto kr = DViewPad(krCacheOut, {curS2Tile, dR}, {std::min(curSeq - bn * blockSize, blockSize), dR},
+                    auto kr = View(krCacheOut, {curS2Tile, dR}, {std::min(curSeq - bn * blockSize, blockSize), dR},
                                                   {curBlockIdx * blockSize, 0});
-                    Tensor kj(dtype, {curS2Tile, dN + dR}, "kj", NodeType::LOCAL, paFormat);
-                    DAssemble(kn, {0, 0}, kj);
-                    DAssemble(kr, {0, dN}, kj);
-                    auto vj = DViewPad(kvCacheOut, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},
+                    Tensor kj(dtype, {curS2Tile, dN + dR}, "kj", paFormat);
+                    Assemble(kn, {0, 0}, kj);
+                    Assemble(kr, {0, dN}, kj);
+                    auto vj = View(kvCacheOut, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},
                                                   {curBlockIdx * blockSize, 0});
 
                     TileShape::Current().SetCubeTile(
                         {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, true);
                     ConfigManager::Instance().SetSemanticLabel("paQkMM");
-                    Program::GetInstance().GetMatrixSize().SetMatrixSize({qi.GetShape()[0], 0, kj.GetShape()[0]});
+                    TileShape::Current().SetMatrixSize({qi.GetShape()[0], 0, kj.GetShape()[0]});
                     auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj); // (curNTile, dN+dR), (curS2Tile, dN+dR) -> (curNTile, curS2Tile)
                     ConfigManager::Instance().SetSemanticLabel("paQkvec1");
                     TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
@@ -404,14 +407,14 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                         TileShape::Current().SetCubeTile(
                             {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
                         ConfigManager::Instance().SetSemanticLabel("paKvMm");
-                        Program::GetInstance().GetMatrixSize().SetMatrixSize(
+                        TileShape::Current().SetMatrixSize(
                             {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
                         auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
                         TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                         IF (IsLoopEnd(bn, bnPerBatch)) {
                             ConfigManager::Instance().SetSemanticLabel("paKvVec2");
                             oiUpdate = Div(oiTmp, tildaLij); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-                            DAssemble(oiUpdate, oiOffset, paOut);
+                            Assemble(oiUpdate, oiOffset, paOut);
                         } ELSE {
                             oiUpdate = oiTmp;
                         }
@@ -436,7 +439,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                         TileShape::Current().SetCubeTile(
                             {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
                         ConfigManager::Instance().SetSemanticLabel("paUpdateMM2");
-                        Program::GetInstance().GetMatrixSize().SetMatrixSize(
+                        TileShape::Current().SetMatrixSize(
                             {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
                         auto q1 = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
                         TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
@@ -444,7 +447,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                         auto oiTmp = Add(q3, q2); // (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
                         IF (IsLoopEnd(bn, bnPerBatch)) {
                             oiUpdate = Div(oiTmp, liNew); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-                            DAssemble(oiUpdate, oiOffset, paOut);
+                            Assemble(oiUpdate, oiOffset, paOut);
                         } ELSE {
                             oiUpdate = oiTmp;
                         }
@@ -462,37 +465,36 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
         Program::GetInstance().GetConfig().Set<int>(CUBE_NBUFFER, 1);
         config::SetOperationConfig("FORCE_COMBINE_AXIS", false);
         Program::GetInstance().GetConfig().Set<std::map<int, int>>(CUBE_NBUFFER_MAP, {{0, 4}});
-        Program::GetInstance().GetMatrixSize().SetMatrixSize({});
+        TileShape::Current().SetMatrixSize({});
         LOOP("PaPost", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(bLoop), {}, true) {
             ConfigManager::Instance().SetSemanticLabel("Post");
-            auto postInUnit = DView(paOut, {tileB * s * n, kvLoraRank}, {bIdx * tileB * s * n, 0});
+            auto postInUnit = View(paOut, {tileB * s * n, kvLoraRank}, {bIdx * tileB * s * n, 0});
 
             auto r1Res = Reshape(postInUnit, {tileB*s, n, kvLoraRank}); // 128个
-	        TileShape::Current().SetVecTile({std::min(NUM_32, tileB*s), NUM_2, kvLoraRank});
+            TileShape::Current().SetVecTile({std::min(NUM_32, tileB * s), NUM_2, kvLoraRank});
             auto cast1 = Cast(r1Res, DT_FP16);
             auto t1Res = Transpose(cast1, {0, 1}); // (n, tileB * s, kvLoraRank)    // 128个
 
-            TileShape::Current().SetCubeTile({std::min(NUM_32, tileB*s), std::min(NUM_32, tileB*s)},
-                {std::min(256, kvLoraRank), std::min(512, kvLoraRank)},
-                {vHeadDim, vHeadDim}, true); // raw tileB*1  512   128   // 128/4个
+            TileShape::Current().SetCubeTile({std::min(NUM_32, tileB * s), std::min(NUM_32, tileB * s)},
+                {std::min(256, kvLoraRank), std::min(512, kvLoraRank)}, {vHeadDim, vHeadDim},
+                true);                                                 // raw tileB*1  512   128   // 128/4个
             auto bmmRes = Matrix::BatchMatmul(dtype, t1Res, weightUV); // (n, tileB, kvLoraRank) * (n, kvLoraRank, vHeadDim) -> (n, tileB, vHeadDim)
 
-            TileShape::Current().SetVecTile(NUM_4, std::min(NUM_32, tileB*s), vHeadDim); // raw (128, tileB*1, 128)
+            TileShape::Current().SetVecTile(NUM_4, std::min(NUM_32, tileB * s), vHeadDim); // raw (128, tileB*1, 128)
             auto t3Res = Transpose(bmmRes, {0, 1}); // (n, tileB, vHeadDim) -> (tileB, n, vHeadDim) // 128个
             auto r2Res = Reshape(t3Res, {tileB * s, n * vHeadDim}); // (tileB * s, n, vHeadDim) -> (tileB * s, n*vHeadDim)
 
-            TileShape::Current().SetVecTile(1, n*vHeadDim); // raw (tileB*1, 128*128)
+            TileShape::Current().SetVecTile(1, n * vHeadDim); // raw (tileB*1, 128*128)
             auto quantA = Quant(r2Res);
             auto quantizedA = std::get<0>(quantA); //(tileB * s, n*vHeadDim)
             auto dequantScaleA = std::get<1>(quantA); //(tileB * s, 1)
 
-            TileShape::Current().SetCubeTile(
-                {std::min(32, tileB*s), std::min(32, tileB*s)},
-                {std::min(512, n*vHeadDim), std::min(512, n*vHeadDim)},
-                {std::min(64, h), std::min(64, h)}, true); // raw  tileB*1  16k  7168
+            TileShape::Current().SetCubeTile({std::min(32, tileB * s), std::min(32, tileB * s)},
+                {std::min(512, n * vHeadDim), std::min(512, n * vHeadDim)}, {std::min(64, h), std::min(64, h)},
+                true); // raw  tileB*1  16k  7168
             Tensor res = npu::tile_fwk::Matrix::Matmul(DataType::DT_INT32, quantizedA, weightO);
 
-            TileShape::Current().SetVecTile(std::min(NUM_32, tileB*s), std::min(NUM_32, h)); // raw (tileB*1, 7168)
+            TileShape::Current().SetVecTile(std::min(NUM_32, tileB * s), std::min(NUM_32, h)); // raw (tileB*1, 7168)
             res = Cast(res, DataType::DT_FP32);
             res = Mul(res, dequantScaleA);   // (B*s, 1)
             Tensor weightOScaleW2Dim = Reshape(weightOScaleW, {1, h});
@@ -501,7 +503,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
             auto postOutTmp = Reshape(bmm5Res, {tileB, s, h});
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * tileB, 0, 0};
-            DAssemble(postOutTmp, dynOffset, postOut);
+            Assemble(postOutTmp, dynOffset, postOut);
         }
     }
 }
@@ -509,9 +511,10 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
 
 template <typename T = npu::tile_fwk::float16, bool splitReduceLastDim = false, bool splitK = false, bool nz= false,
     bool usePrefetch = false>
-void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileConfig,
+void TestDynamicAttention(std::vector<int64_t> &params, PaTileShapeConfig &paTileConfig,
      bool isQuant = false, std::string cacheMode = "BNSD") {
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim
+    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
 
     int b = params[0];
     int s = params[1];
@@ -550,32 +553,32 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
 
     DataType dTypeQuantIn = isQuant ? DT_INT8 : dType;
 
-    std::vector<int> x_shape = {b, s, h};
-    std::vector<int> w_qa_shape = {h, qLoraRank};
-    std::vector<int> w_qb_shape = {qLoraRank, n * q_head_dim};
-    std::vector<int> w_kv_a_shape = {h, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> w_kv_b_k_shape = {n, qkNopeHeadDim, kvLoraRank};
-    std::vector<int> cos_shape = {b, s, qkRopeHeadDim};
-    std::vector<int> gamma_cq_shape = {qLoraRank};
-    std::vector<int> gamma_ckv_shape = {kvLoraRank};
-    std::vector<int> kv_len_shape = {b, s};
-    std::vector<int> kv_cache_shape = {b, 1, s2, kvLoraRank};
-    std::vector<int> kr_cache_shape = {b, 1, s2, qkRopeHeadDim};
+    std::vector<int64_t> x_shape = {b, s, h};
+    std::vector<int64_t> w_qa_shape = {h, qLoraRank};
+    std::vector<int64_t> w_qb_shape = {qLoraRank, n * q_head_dim};
+    std::vector<int64_t> w_kv_a_shape = {h, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> w_kv_b_k_shape = {n, qkNopeHeadDim, kvLoraRank};
+    std::vector<int64_t> cos_shape = {b, s, qkRopeHeadDim};
+    std::vector<int64_t> gamma_cq_shape = {qLoraRank};
+    std::vector<int64_t> gamma_ckv_shape = {kvLoraRank};
+    std::vector<int64_t> kv_len_shape = {b, s};
+    std::vector<int64_t> kv_cache_shape = {b, 1, s2, kvLoraRank};
+    std::vector<int64_t> kr_cache_shape = {b, 1, s2, qkRopeHeadDim};
     if (cacheMode != "BNSD") {
         kv_cache_shape = {blockNum, blockSize, 1, kvLoraRank};
         kr_cache_shape = {blockNum, blockSize, 1, qkRopeHeadDim};
     }
     // pa
-    std::vector<int> blockTableShape = {b, 1, s2, qkRopeHeadDim};
+    std::vector<int64_t> blockTableShape = {b, 1, s2, qkRopeHeadDim};
     // output
-    std::vector<int> q_out_shape = {b, s, n, kvLoraRank};
-    std::vector<int> q_rope_out_shape = {b, s, n, qkRopeHeadDim};
-    std::vector<int> kv_cache_out_shape = {b, 1, s2, kvLoraRank};
-    std::vector<int> kr_cache_out_shape = {b, 1, s2, qkRopeHeadDim};
-    std::vector<int> fake_out_shape = {b, s, kvLoraRank + qkRopeHeadDim};
-    std::vector<int> fake_out_shape1 = {n, b * s, qkNopeHeadDim};
+    std::vector<int64_t> q_out_shape = {b, s, n, kvLoraRank};
+    std::vector<int64_t> q_rope_out_shape = {b, s, n, qkRopeHeadDim};
+    std::vector<int64_t> kv_cache_out_shape = {b, 1, s2, kvLoraRank};
+    std::vector<int64_t> kr_cache_out_shape = {b, 1, s2, qkRopeHeadDim};
+    std::vector<int64_t> fake_out_shape = {b, s, kvLoraRank + qkRopeHeadDim};
+    std::vector<int64_t> fake_out_shape1 = {n, b * s, qkNopeHeadDim};
 
-    std::vector<int> w_qb_scale_shape;
+    std::vector<int64_t> w_qb_scale_shape;
     if (isQuant) {
         w_qb_scale_shape = {1, n * q_head_dim};
     }
@@ -584,26 +587,26 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
     TileOpFormat paFormat = cacheMode == "PA_NZ" ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
     //mla_prolog
     Tensor x(dType, x_shape, "x");
-    Tensor wDq(dType, w_qa_shape, "wDq", NodeType::LOCAL, weightFormat);
-    Tensor wUqQr(dTypeQuantIn, w_qb_shape, "wUqQr", NodeType::LOCAL, weightFormat);
+    Tensor wDq(dType, w_qa_shape, "wDq", weightFormat);
+    Tensor wUqQr(dTypeQuantIn, w_qb_shape, "wUqQr", weightFormat);
     if constexpr (usePrefetch) {
         wDq.SetCachePolicy(CachePolicy::PREFETCH, true);
         wUqQr.SetCachePolicy(CachePolicy::PREFETCH, true);
     }
-    Tensor wDkvKr(dType, w_kv_a_shape, "wDkvKr", NodeType::LOCAL, weightFormat);
-    Tensor wUk(dType, w_kv_b_k_shape, "wUk", NodeType::LOCAL, weightFormat);
+    Tensor wDkvKr(dType, w_kv_a_shape, "wDkvKr", weightFormat);
+    Tensor wUk(dType, w_kv_b_k_shape, "wUk", weightFormat);
     Tensor gamma_cq(dType, gamma_cq_shape, "gamma_cq");
     Tensor gamma_ckv(dType, gamma_ckv_shape, "gamma_ckv");
     Tensor cos(dType, cos_shape, "cos");
     Tensor sin(dType, cos_shape, "sin");
     Tensor kv_len(DT_INT64, kv_len_shape, "kv_len"); // int64
-    Tensor kv_cache(dType, kv_cache_shape, "kv_cache", NodeType::LOCAL, paFormat);
-    Tensor kr_cache(dType, kr_cache_shape, "kr_cache", NodeType::LOCAL, paFormat);
+    Tensor kv_cache(dType, kv_cache_shape, "kv_cache", paFormat);
+    Tensor kr_cache(dType, kr_cache_shape, "kr_cache", paFormat);
 
     Tensor output_q(dType, {b*s*n, kvLoraRank}, "output_q");
     Tensor output_q_rope(dType, {b*s*n, qkRopeHeadDim}, "output_q_rope");
-    Tensor output_kv_cache(dType, {b*1*s2, kvLoraRank}, "output_kv_cache", NodeType::LOCAL, paFormat);
-    Tensor output_kr_cache(dType, {b*1*s2, qkRopeHeadDim}, "output_kr_cache", NodeType::LOCAL, paFormat);
+    Tensor output_kv_cache(dType, {b * 1 * s2, kvLoraRank}, "output_kv_cache", paFormat);
+    Tensor output_kr_cache(dType, {b * 1 * s2, qkRopeHeadDim}, "output_kr_cache", paFormat);
 
     Tensor fakeOut(dType, {b * s, n, qkNopeHeadDim}, "fakeOut");
     Tensor fakeOut1(dType, {n, b * s, qkNopeHeadDim}, "fakeOut1");
@@ -646,7 +649,7 @@ int main(){
     int kvLoraRank = 512;
     int vHeadDim = 128;
     int blockSize = 256;
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim, blockSize};
+    std::vector<int64_t> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim, blockSize};
 
     const bool splitReduceLastDim = false;
     const bool splitK = false;
@@ -664,3 +667,4 @@ int main(){
     TestDynamicAttention<npu::tile_fwk::float16, splitReduceLastDim, splitK, nz>(params, tileConfig, false);
     std::cout << "finished" << std::endl;
 }
+} // namespace mla

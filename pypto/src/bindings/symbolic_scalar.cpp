@@ -22,9 +22,9 @@ void bind_symbolic_scalar(py::module &m) {
     py::class_<NotLessThan>(m, "not_less_than").def(py::init<int64_t>(), py::arg("threshold"));
     py::class_<NotGreaterThan>(m, "not_greater_than").def(py::init<int64_t>(), py::arg("threshold"));
 
-    py::class_<SymbolicScalar> SymbolicScalar(m, "symbolic_scalar");
+    py::class_<SymbolicScalar> _SymbolicScalar(m, "symbolic_scalar");
 
-    SymbolicScalar
+    _SymbolicScalar
         .def(py::init<>())
         .def(py::init<std::string>(), py::arg("name"))
         .def(py::init<std::int64_t>(), py::arg("value"))
@@ -33,7 +33,7 @@ void bind_symbolic_scalar(py::module &m) {
         .def(py::init<std::string, NotLessThan, NotGreaterThan>(), py::arg("name"), py::arg("<"), py::arg(">"))
         .def(py::init<std::string, int64_t>(), py::arg("name"), py::arg("value"));
 
-    SymbolicScalar
+    _SymbolicScalar
         .def("is_immediate", &SymbolicScalar::IsImmediate)
         .def("is_symbol", &SymbolicScalar::IsSymbol)
         .def("is_expression", &SymbolicScalar::IsExpression)
@@ -50,26 +50,35 @@ void bind_symbolic_scalar(py::module &m) {
         .def("__sub__", &SymbolicScalar::Sub)
         .def("__mul__", &SymbolicScalar::Mul)
         .def("__truediv__", &SymbolicScalar::Div)
-        .def("__mod__", &SymbolicScalar::Mod);
+        .def("__mod__", &SymbolicScalar::Mod)
+        .def("__floordiv__", [](const SymbolicScalar& self, const SymbolicScalar& other) {
+            return self.Div(other);
+        })
+        .def("__floordiv__", [](const SymbolicScalar& self, int other) {
+            return self.Div(other);
+        })
+        .def("__rfloordiv__", [](const SymbolicScalar& self, int left_int) {
+            return SymbolicScalar(left_int).Div(self);
+        });
 
-    SymbolicScalar
+    _SymbolicScalar
         .def("as_intermediate_variable", &SymbolicScalar::AsIntermediateVariable)
         .def("is_intermediate_variable", &SymbolicScalar::IsIntermediateVariable)
         .def("dump", &SymbolicScalar::Dump)
         .def("min", &SymbolicScalar::Min, py::arg("other"))
         .def("max", &SymbolicScalar::Max, py::arg("other"));
 
-    SymbolicScalar
+    _SymbolicScalar
         .def("__int__", &SymbolicScalar::operator int, "Convert to an integer if concrete value is valid.")
         .def("__str__", &SymbolicScalar::Dump, "String representation for print().")
         .def("__repr__", &SymbolicScalar::Dump, "String representation for display.");
 
-    SymbolicScalar
+    _SymbolicScalar
         .def("__pos__", &SymbolicScalar::Pos)
         .def("__neg__", &SymbolicScalar::Neg)
         .def("__invert__", &SymbolicScalar::Not);
 
-    SymbolicScalar
+    _SymbolicScalar
         .def(py::self + int())
         .def(int() + py::self)
         .def(py::self - int())

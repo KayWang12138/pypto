@@ -16,7 +16,9 @@ Confirm same output as `vector_add` in `cpp_reference`
 """
 
 import pto
-from utils import pto_function
+from utils import pto_function, view, assemble
+pto.view = view
+pto.assemble = assemble
 
 GRAPH_T = pto.graph_type.TENSOR_GRAPH
 FUNC_T = pto.function_type.STATIC
@@ -105,7 +107,7 @@ def vector_cast_exp():
 
     with pto_function("exp", GRAPH_T, FUNC_T, a):
         pto.set_vec_tile_shapes(32, 1, 16, 32)
-        b = pto.cast(pto.exp(a), pto.DataType.DT_FP16, pto.CastMode.CAST_FLOOR)
+        b = pto.cast(pto.exp(a), pto.DataType.DT_FP16, pto.cast_mode.CAST_FLOOR)
 
     assert isinstance(b, pto.tensor)
     print(b.get_shape())
