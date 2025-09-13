@@ -57,6 +57,13 @@ bool g_IsFirstInit = false;
 
 extern "C" __attribute__((weak)) int AdxDataDumpServerUnInit();
 namespace npu::tile_fwk {
+
+DeviceRunner &DeviceRunner::Get() {
+    static DeviceRunner runner;
+    std::call_once(runner.once_, [&]() { runner.Init(); });
+    return runner;
+}
+
 void *DeviceRunner::DevAlloc(int size) {
     uint8_t *devPtr = nullptr;
     machine::GetRA()->AllocDevAddr(&devPtr, size);
@@ -354,7 +361,7 @@ void DeviceRunner::Dump() {
 }
 
 /**************************** DynamicFunction *****************************/
-int DeviceRunner::Synchronize(rtStream_t aicpuStream, rtStream_t aicoreStream) {
+int DeviceRunner::DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t aicoreStream) {
     int rc = rtStreamSynchronize(aicoreStream);
     rc += rtStreamSynchronize(aicpuStream);
 
@@ -464,7 +471,7 @@ int DeviceRunner::RunPrepare(rtStream_t aicpuStream, rtStream_t aicoreStream) {
     return rc;
 }
 
-int DeviceRunner::DynamicRun(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim, int launchAicpuNum) {
+int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim, int launchAicpuNum) {
     if (!g_IsFirstInit) {
         InitAiCpuSoBin();
     }
@@ -511,9 +518,17 @@ int DeviceRunner::DynamicRun(rtStream_t aicpuStream, rtStream_t aicoreStream, in
         ALOG_ERROR_F("launch aicpu failed %d\n", rc);
         return rc;
     }
-
-    return Synchronize(aicpuStream, aicoreStream);
+    return rc;
 }
+
+int DeviceRunner::DynamicRun(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim, int launchAicpuNum) {
+    int rc = DynamicLaunch(aicpuStream, aicoreStream, taskId, kernelArgs, blockdim, launchAicpuNum);
+    if (rc < 0) {
+        return rc;
+    }
+    return DynamicLaunchSynchronize(aicpuStream, aicoreStream);
+}
+
 /**************************** DynamicFunction *****************************/
 std::vector<uint8_t> g_binBuf;
 

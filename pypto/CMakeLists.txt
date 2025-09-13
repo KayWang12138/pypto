@@ -15,11 +15,13 @@ pybind11_add_module(pto
             src/bindings/symbolic_scalar.cpp
             src/bindings/controller.cpp
             src/bindings/operation.cpp
+            src/bindings/runtime.cpp
 )
 
 target_include_directories(pto
         PRIVATE
             src
+            ${PTO_FWK_SRC_ROOT}/tests
 )
 
 target_link_libraries(pto
@@ -31,6 +33,7 @@ target_link_libraries(pto
             tile_fwk_operator
             tile_fwk_compiler
             tile_fwk_simulation
+            $<$<AND:$<BOOL:${ENABLE_BUILD_WITH_CANN}>,$<OR:$<BOOL:${ENABLE_TESTS_UTEST}>,$<BOOL:${ENABLE_TESTS_STEST}>,$<BOOL:${ENABLE_TESTS_STEST_DISTRIBUTED}>>>:tile_fwk_runtime>
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub

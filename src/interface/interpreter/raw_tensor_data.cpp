@@ -245,4 +245,9 @@ std::shared_ptr<LogicalTensorData> LogicalTensorData::Load(const std::string &fi
     return dataView;
 }
 
+ProgramData &ProgramData::GetInstance() {
+    static ProgramData data;
+    return data;
+}
+
 }

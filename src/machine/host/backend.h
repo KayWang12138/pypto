@@ -49,7 +49,7 @@ struct Linker {
 
         auto funcKey = funcGroup_.loopList.InsertAndGetIndex(func);
         std::string key = SymbolicExpressionTable::GetExprKeyLoopBes(funcKey);
-        
+
         auto &exprTable = exprTableDictGroup_.loopBesDict[func];
         exprTable.AddPrimaryExpression(ss);
         exprTable.SetElementKeyOnce(key);
@@ -105,10 +105,14 @@ struct Linker {
     SymbolicSymbolTable *GetSymbolTable() {
         return &symbolTable_;
     }
-    
+
 private:
     void AddSymbolFromExpression(const SymbolicScalar &ss) {
         symbolTable_.AddSymbolFromExpression(ss);
     }
 };
+
+// Force link library compiler as nothing depends on it.
+void ForceLinkLibraryCompiler();
+
 }

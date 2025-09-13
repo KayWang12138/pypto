@@ -108,38 +108,6 @@ public:
         RunStatic();
     }
 
-    static void DeviceRunOnce(Function *function, const DeviceLauncherConfig &config = DeviceLauncherConfig()) {
-        auto &inputs = ProgramData::GetInstance().GetInputDataList();
-        auto &outputs = ProgramData::GetInstance().GetOutputDataList();
-        auto runner = DevFuncRunner(function, config);
-        runner.DeviceRunOnce(inputs, outputs);
-    }
-
-    void DeviceRunOnce(const std::vector<RawTensorDataPtr> &inputTensors, const std::vector<RawTensorDataPtr> &outputTensors) {
-        std::cout << "!!! Kernel Launch " << "\n";
-        int rc = aclInit(nullptr);
-        if (rc == 0 || rc == ACL_ERROR_REPEAT_INITIALIZE) {
-            auto aicpuStream = machine::GetRA()->GetStreamAICPU();
-            auto aicoreStream = machine::GetRA()->GetStream();
-            std::vector<DeviceTensorData> inputList;
-            std::vector<DeviceTensorData> outputList;
-            std::tie(inputList, outputList) = BuildInputOutput(inputTensors, outputTensors, false);
-
-            rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
-            AstKernelArgs kArgs;
-            DeviceInitTilingData(MemoryHelper(false), kArgs, function_, config_);
-            DeviceInitKernelInOuts(MemoryHelper(false), kArgs, inputList, outputList);
-            rc = DeviceRunner::Get().DynamicRun(aicpuStream, aicoreStream, 0, &kArgs, config_.blockdim, config_.aicpuNum);
-            EXPECT_EQ(rc, 0);
-        }
-        if (rc == 0) {
-            CopyFromDev(outputTensors, false);
-            if (HasInplaceArgs()) {
-                CopyFromDev(inputTensors, false);
-            }
-        }
-    }
-
 private:
     DevFuncRunner(Function *function, const DeviceLauncherConfig &config) : function_(function), config_(config) {
         if (function != nullptr && function->GetDyndevAttribute() != nullptr) {
@@ -180,11 +148,6 @@ private:
             RunTestMode(&kArgs);
         }
         RunDynCostModel();
-    }
-
-    bool HasInplaceArgs() {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(function_).data()));
-        return devProg->inplaceSlotList.size() != 0;
     }
 
     bool IsDumpTensorEnable() const {
@@ -246,7 +209,7 @@ private:
         printIODevAddrs(inputs);
         ALOG_ERROR_F("[DumpTensor] #outputs=%zu\n", outputs.size());
         printIODevAddrs(outputs);
-        
+
         DumpDevDataBinary(fout, nullptr, dumpTensorWsUsed, dumpTensorWsPtr);
         for (auto &input : inputs) {
             if (input) {
@@ -271,13 +234,14 @@ private:
             auto aicpuStream = machine::GetRA()->GetStreamAICPU();
             auto aicoreStream = machine::GetRA()->GetStream();
             for (int i = 0; i < config_.repeatNum; i++) {
-              InitKernelInOuts(kArgs, inputs, outputs, false);
-              rc = DeviceRunner::Get().DynamicRun(aicpuStream, aicoreStream, 0, &kArgs, config_.blockdim, config_.aicpuNum);
-              EXPECT_EQ(rc, 0);
+                InitKernelInOuts(kArgs, inputs, outputs, false);
+                rc = DeviceRunner::Get().DynamicRun(aicpuStream, aicoreStream, 0, &kArgs, config_.blockdim, config_.aicpuNum);
+                EXPECT_EQ(rc, 0);
             }
-            CopyFromDev(outputs, false);
-            if (HasInplaceArgs())
-                CopyFromDev(inputs, false);
+            CopyFromDev(MemoryHelper(false), outputs);
+            if (HasInplaceArgs(function_)) {
+                CopyFromDev(MemoryHelper(false), inputs);
+            }
             if (IsDumpTensorEnable()) {
                 DumpTensorContents(kArgs, inputs, outputs);
             }
@@ -353,49 +317,11 @@ private:
         }
     }
 
-    static void CopyFromDev(const std::vector<RawTensorDataPtr> &outputs, bool isTest) {
-        MemoryHelper h{isTest};
-        for (auto &output : outputs) {
-            if (output)
-                h.CopyFromDev(*output);
-        }
-    }
-
-    static std::pair<std::vector<DeviceTensorData>, std::vector<DeviceTensorData>> BuildInputOutput(
-            const std::vector<RawTensorDataPtr> &inputTensors,
-            const std::vector<RawTensorDataPtr> &outputTensors, bool isTest) {
-        MemoryHelper h{isTest};
-
-        std::vector<DeviceTensorData> inputList;
-        std::vector<DeviceTensorData> outputList;
-        for (auto &input: inputTensors) {
-            std::vector<int64_t> shape;
-            if (input) {
-                input->SetDevPtr(nullptr);
-                shape.insert(shape.end(), input->GetShape().begin(), input->GetShape().end());
-                inputList.emplace_back((uintdevptr_t)h.CopyToDev(*input), shape);
-            } else {
-                inputList.emplace_back(0, shape);
-            }
-        }
-        for (auto &output: outputTensors) {
-            std::vector<int64_t> shape;
-            if (output) {
-                output->SetDevPtr(nullptr);
-                shape.insert(shape.end(), output->GetShape().begin(), output->GetShape().end());
-                outputList.emplace_back((uintdevptr_t)h.CopyToDev(*output), shape);
-            } else {
-                outputList.emplace_back(0, shape);
-            }
-        }
-        return std::make_pair(inputList, outputList);
-    }
-
     void InitKernelInOuts(AstKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputTensors,
         const std::vector<RawTensorDataPtr> &outputTensors, bool isTest) {
         std::vector<DeviceTensorData> inputList;
         std::vector<DeviceTensorData> outputList;
-        std::tie(inputList, outputList) = BuildInputOutput(inputTensors, outputTensors, isTest);
+        std::tie(inputList, outputList) = BuildInputOutput(MemoryHelper(isTest), inputTensors, outputTensors);
         DeviceInitKernelInOuts(MemoryHelper(isTest), kArgs, inputList, outputList);
         ALOG_INFO_F("Inputs %p outputs %p workspace %p cfgdata %p", kArgs.inputs, kArgs.outputs, kArgs.workspace,
             kArgs.cfgdata);

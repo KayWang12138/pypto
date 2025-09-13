@@ -32,6 +32,9 @@
 
 using namespace npu::tile_fwk::dynamic;
 namespace npu::tile_fwk {
+
+void ForceLinkLibraryCompiler() {}
+
 static constexpr size_t TABSIZE = 2;
 constexpr int ALIGN_SIZE_8 = 8;
 extern "C" int32_t Initialize() {
@@ -516,6 +519,9 @@ static void SetDyndevProgBinary(Function *function) {
         }
     }
     devProg->RelocProgram(-reinterpret_cast<int64_t>(devProg));
+    if (config::GetPassDefaultConfig(npu::tile_fwk::KEY_PRINT_PROGRAM, false)) {
+        SaveFile(config::LogTopFolder() + "/program.tifwkbin", dynAttrPtr->devProgBinary);
+    }
     ALOG_INFO_F("Dev prog binary size is:%zu.\n", dynAttrPtr->devProgBinary.size());
 }
 

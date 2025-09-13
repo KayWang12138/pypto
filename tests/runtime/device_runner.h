@@ -52,19 +52,18 @@ struct FileLock {
 };
 class DeviceRunner {
 public:
-    static DeviceRunner &Get() {
-        static DeviceRunner runner;
-        std::call_once(runner.once_, [&]() { runner.Init(); });
-        return runner;
-    }
+    static DeviceRunner &Get();
 
     int Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, uint64_t taskData, int taskType = DEVICE_TASK_TYPE_STATIC);
     int RunAsync(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, uint64_t taskData, int taskType = DEVICE_TASK_TYPE_STATIC);
     uint64_t GetTasksTime() const;
+    int DynamicLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim, int launchAicpuNum);
+    int DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t aicoreStream);
     int DynamicRun(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim = 25, int launchAicpuNum = 5);
     void InitDynamicArgs(DeviceArgs &args, int nrCore = CORE_DEFAULT_NUM);
     static int RegiserKernelBin(void **hdl);
     static void SetBinData(const std::vector<uint8_t> &binBuf);
+
 private:
     DeviceRunner() = default;
     void *DevAlloc(int size);
@@ -78,7 +77,6 @@ private:
     void SetPmuEventType(int32_t &profPmuType);
     void GetPmuEventType();
     /**************DynamicFunction**************/
-    int Synchronize(rtStream_t aicpuStream, rtStream_t aicoreStream);
     int launchDynamicAiCore(rtStream_t aicoreStream, AstKernelArgs *kernelArgs);
     int launchDynamicAiCpu(rtStream_t aicpuStream, AstKernelArgs *kArgs);
     int RunPrepare(rtStream_t aicpuStream, rtStream_t aicoreStream);

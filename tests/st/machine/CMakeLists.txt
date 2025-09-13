@@ -73,6 +73,7 @@ set(_CaseFilterList
         "DynamicBrcTest.TestDynamicMulBrcUnalign"
 
         "DynamicBindingTest.TestDefaultCompute"
+        "DynamicBindingTest.TestDeviceRunDataFromHost"
         "DynamicBindingTest.TestDeviceCompute"
 
         #===========================================================================

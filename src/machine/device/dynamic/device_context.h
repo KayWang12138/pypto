@@ -183,7 +183,7 @@ struct DynDeviceTask {
 
     uint32_t GetReadyQueueIndexByCoreType(CoreType coreType) {
         if (coreType == CoreType::AICPU) {
-            return static_cast<uint32_t>(READY_QUEUE_SIZE) - 1; 
+            return static_cast<uint32_t>(READY_QUEUE_SIZE) - 1;
         }
         return static_cast<uint32_t>(coreType);
     }
@@ -987,20 +987,22 @@ struct DeviceSlotContext {
 
 public:
     void FillInputOutputSlot(DeviceExecuteSlot *slotList, size_t slotSize, DevAscendProgram *devProg, DevStartArgs *args) {
+        DEV_TRACE_DEBUG(CtrlEvent(none(), InputTensorCount(args->GetInputTensorSize())));
         for (int i = 0; i < args->GetInputTensorSize(); ++i) {
             DevTensorData &param = args->GetInputTensor(i);
             int slotIndex = devProg->startArgsInputTensorSlotIndexList[i];
             slotList[slotIndex].desc = AddressDescriptor(param.address);
             DEV_INFO("Param %d Input Slot %d = %lx.", i, slotIndex, param.address);
-            DEV_TRACE_DEBUG(CtrlEvent(none(), InputTensor(i, range(param.address, param.address + param.shape.GetSize()))));
+            DEV_TRACE_DEBUG(CtrlEvent(none(), InputTensorElement(i, param.address, param.shape.GetSize())));
         }
+        DEV_TRACE_DEBUG(CtrlEvent(none(), OutputTensorCount(args->GetOutputTensorSize())));
         for (int i = 0; i < args->GetOutputTensorSize(); ++i) {
             DevTensorData &param = args->GetOutputTensor(i);
             int slotIndex = devProg->startArgsOutputTensorSlotIndexList[i];
             slotList[slotIndex].desc = AddressDescriptor(param.address);
             slotList[slotIndex].isOutputSlot = true;
             DEV_INFO("Param %d Output Slot %d = %lx.", i, slotIndex, param.address);
-            DEV_TRACE_DEBUG(CtrlEvent(none(), OutputTensor(i, range(param.address, param.address + param.shape.GetSize()))));
+            DEV_TRACE_DEBUG(CtrlEvent(none(), OutputTensorElement(i, param.address, param.shape.GetSize())));
         }
         for (size_t i = static_cast<size_t>(args->GetOutputTensorSize()); i < devProg->startArgsOutputTensorSlotIndexList.size(); ++i) {
             int outSlot = devProg->startArgsOutputTensorSlotIndexList[i];

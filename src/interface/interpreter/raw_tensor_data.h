@@ -459,12 +459,6 @@ struct ProgramData {
         goldenDataList_.clear();
     }
 
-    void SaveJsonFile(const std::string &fileName);
-    void LoadJsonFile(const std::string &fileName);
-
-    static ProgramData &GetInstance() {
-        static ProgramData data;
-        return data;
-    }
+    static ProgramData &GetInstance();
 };
 } // namespace npu::tile_fwk

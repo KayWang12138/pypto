@@ -91,15 +91,24 @@ SCHEMA_DEF_ATTR(WorkspacePartialOutcast, range);
 SCHEMA_DEF_ATTR(WorkspaceInDeviceTaskOutcast, range);
 SCHEMA_DEF_ATTR(WorkspaceCrossDeviceTaskOutcast, range);
 SCHEMA_DEF_ATTR(WorkspaceSpill, mem, Int64Type, range);
-SCHEMA_DEF_ATTR(InputTensor, Int64Type, range);
-SCHEMA_DEF_ATTR(OutputTensor, Int64Type, range);
+SCHEMA_DEF_ATTR(InputTensorCount, Int64Type);
+SCHEMA_DEF_ATTR(InputTensorRange, Int64Type, range);
+SCHEMA_DEF_ATTR(InputTensorElement, Int64Type, AddressType, Int64Type);
+SCHEMA_DEF_ATTR(OutputTensorCount, Int64Type);
+SCHEMA_DEF_ATTR(OutputTensorRange, Int64Type, range);
+SCHEMA_DEF_ATTR(OutputTensorElement, Int64Type, AddressType, Int64Type);
 
 SCHEMA_DEF_TYPE_UNION(CtrlActType,
                       ThreadStart, ThreadFinish,
                       WorkspaceInnerTensor, WorkspacePartialOutcast,
                       WorkspaceInDeviceTaskOutcast, WorkspaceCrossDeviceTaskOutcast,
                       WorkspaceSpill,
-                      InputTensor, OutputTensor);
+                      InputTensorCount,
+                      InputTensorRange,
+                      InputTensorElement,
+                      OutputTensorCount,
+                      OutputTensorRange,
+                      OutputTensorElement);
 SCHEMA_DEF_TYPE_UNION(ScheActType, ThreadStart, ThreadFinish);
 
 SCHEMA_DEF_ATTR(CtrlEvent, ControlThreadIndexType, CtrlActType);

@@ -769,6 +769,15 @@ RecordFunc::RecordFunc(const std::string &name, const FunctionConfig &funConfig,
     attr->startArgsInputTensorList = startArgsInputTensorList;
     attr->startArgsOutputTensorList = startArgsOutputTensorList;
 
+    attr->startArgsInputLogicalTensorList.resize(startArgsInputTensorList.size());
+    attr->startArgsOutputLogicalTensorList.resize(startArgsOutputTensorList.size());
+    for (size_t k = 0; k < startArgsInputTensorList.size(); k++) {
+        attr->startArgsInputLogicalTensorList[k] = startArgsInputTensorList[k].get().GetStorage(false);
+    }
+    for (size_t k = 0; k < startArgsOutputTensorList.size(); k++) {
+        attr->startArgsOutputLogicalTensorList[k] = startArgsOutputTensorList[k].get().GetStorage(false);
+    }
+
     dynFunc_->SetDyndevAttribute(attr);
     Program::GetInstance().SetCurrentDynamicFunction(dynFunc_);
 }
@@ -787,7 +796,7 @@ RecordFunc::~RecordFunc() {
                 Program::GetInstance().VerifyTensorGraph();
             }
             MergeAllFuncDupIocast(nullptr);
-            PassManager::Instance().RunPass(Program::GetInstance(), 
+            PassManager::Instance().RunPass(Program::GetInstance(),
                 *Program::GetInstance().GetFunctionByMagicName(PROGRAM_ENTRY_FUNCTION_NAME), "FunctionUnroll");
             if (!config::GetPlatformConfig(npu::tile_fwk::KEY_ONLY_TENSOR_GRAPH, false)) {
                 Program::GetInstance().UpdateCompileTask();

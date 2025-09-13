@@ -26,5 +26,6 @@ PYBIND11_MODULE(pto, m) {
     bind_symbolic_scalar(m);
     bind_controller(m);
     bind_operation(m);
+    BindRuntime(m);
 };
 } // namespace pypto

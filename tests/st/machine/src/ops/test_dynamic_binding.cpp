@@ -17,7 +17,7 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "operator/models/deepseek/page_attention.h"
 #include "machine/utils/dynamic/dev_encode.h"
-#include "test_dev_func_runner.h"
+#include "device_launcher.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -25,19 +25,27 @@ using namespace npu::tile_fwk::machine;
 
 static constexpr int tiling32 = 32;
 
-class DynamicBindingTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
+class DynamicBindingTest : public testing::Test {
 public:
+    static void SetUpTestCase() {}
+
+    static void TearDownTestCase() {}
+
     void SetUp() override {
-        npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac::SetUp();
-        config::SetHostConfig(KEY_ONLY_CODEGEN, true);
-        TileShape::Current().SetVecTile(tiling32, tiling32);
-        TileShape::Current().SetCubeTile({tiling32, tiling32}, {tiling32, tiling32}, {tiling32, tiling32});
+        DeviceLauncherContext::Get().DeviceInit();
+     }
+
+    void TearDown() override {
+        DeviceLauncherContext::Get().DeviceFini();
     }
 };
 
 namespace {
 
 TEST_F(DynamicBindingTest, TestDefaultCompute) {
+    TileShape::Current().SetVecTile(tiling32, tiling32);
+    TileShape::Current().SetCubeTile({tiling32, tiling32}, {tiling32, tiling32}, {tiling32, tiling32});
+
     int n = 1 * tiling32;
     int m = 2 * tiling32;
 
@@ -74,7 +82,47 @@ TEST_F(DynamicBindingTest, TestDefaultCompute) {
     }
 
 #ifdef ENABLE_BUILD_WITH_CANN
-    DevFuncRunner::DeviceRunOnce(Program::GetInstance().GetLastFunction());
+    EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction()));
+    auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
+#endif
+}
+
+TEST_F(DynamicBindingTest, TestDeviceRunDataFromHost) {
+    int n = 2 * tiling32;
+
+    std::vector<int32_t> inputData(n * n, 0);
+    std::vector<int32_t> outputData(n * n, 0);
+    std::vector<int32_t> outputGolden(n * n, 0);
+    for (int i = 0; i < n * n; i++) {
+        inputData[i] = i;
+        outputGolden[i] = i * 11;
+    }
+
+    Tensor input(DT_INT32, {n, n}, "input");
+    Tensor output(DT_INT32, {n, n}, "output");
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<int32_t>(input, inputData),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateTensor<int32_t>(output, outputData),
+    });
+
+    FunctionConfig funConfig;
+    TileShape::Current().SetVecTile(tiling32, tiling32);
+    FUNCTION("main", funConfig, {input}, {output}) {
+        LOOP("s0", FunctionType::DYNAMIC_LOOP, k, LoopRange(10)) {
+            IF (k == 0) {
+                output = Add(input, input);
+            } ELSE {
+                output = Add(input, output);
+            }
+        }
+    }
+
+#ifdef ENABLE_BUILD_WITH_CANN
+    EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction()));
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
 #endif
@@ -84,6 +132,9 @@ TEST_F(DynamicBindingTest, TestDeviceCompute) {
     auto agent = RuntimeAgent::GetAgent();
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+
+    TileShape::Current().SetVecTile(tiling32, tiling32);
+    TileShape::Current().SetCubeTile({tiling32, tiling32}, {tiling32, tiling32}, {tiling32, tiling32});
 
     int n = 1 * tiling32;
     int m = 2 * tiling32;
@@ -132,7 +183,7 @@ TEST_F(DynamicBindingTest, TestDeviceCompute) {
 
     auto aicpuStream = machine::GetRA()->GetStreamAICPU();
     auto aicoreStream = machine::GetRA()->GetStream();
-    DeviceLauncher::DeviceRunOnceWithDeviceTensorData(Program::GetInstance().GetLastFunction(), inputList, outputList, aicpuStream, aicoreStream);
+    EXPECT_EQ(0, DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(Program::GetInstance().GetLastFunction(), inputList, outputList, aicpuStream, aicoreStream, true));
 
     agent->CopyFromDev((uint8_t *)outputData.data(), outputDevAddr, outputData.size() * sizeof(int32_t));
 

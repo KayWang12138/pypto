@@ -24,4 +24,5 @@ namespace pypto {
     void bind_symbolic_scalar(py::module &m);
     void bind_controller(py::module &m);
     void bind_operation(py::module &m);
+    void BindRuntime(py::module &m);
 }
