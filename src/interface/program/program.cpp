@@ -198,8 +198,8 @@ bool Program::BeginFunction(const std::string &funcName,
         currentFunctionMagicName_ = funcMagicName;
         currentFunctionPtr_ = functionmap_[funcMagicName].get();
     }
-    if (currentFunctionPtr_->GetGraphType() != GraphType::LEAF_GRAPH &&
-        currentFunctionPtr_->GetGraphType() != GraphType::ROOT_GRAPH) {
+    if (currentFunctionPtr_->GetGraphType() != GraphType::BLOCK_GRAPH &&
+        currentFunctionPtr_->GetGraphType() != GraphType::EXECUTE_GRAPH) {
         GetTensorSlotManager()->BeginScope(currentFunctionPtr_);
     }
 
@@ -263,8 +263,8 @@ std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string 
     currentFunctionPtr_->paramConfigs_.dynamicUnalignedOps = ConfigManager::Instance().GetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, false);
     std::shared_ptr<TensorSlotScope> scope = nullptr;
     // root & leaf do not need scope, use tensor/tile graph's
-    if (currentFunctionPtr_->GetGraphType() != GraphType::LEAF_GRAPH &&
-        currentFunctionPtr_->GetGraphType() != GraphType::ROOT_GRAPH) {
+    if (currentFunctionPtr_->GetGraphType() != GraphType::BLOCK_GRAPH &&
+        currentFunctionPtr_->GetGraphType() != GraphType::EXECUTE_GRAPH) {
         scope = GetTensorSlotManager()->EndScope();
     }
     currentFunctionPtr_->SetUnderDynamicFunction(Program::GetInstance().GetCurrentDynamicFunction() != nullptr);
@@ -374,7 +374,7 @@ Json Program::DumpJson(Function *mainFunc) const {
         std::shared_ptr<npu::tile_fwk::Function> tensorGraphFunc = nullptr;
         /* 先Dump Leaf、Tensor、PROGRAM_ENTRY */
         for (const auto &func : functionmap_) {
-            if (func.second->GetGraphType() == GraphType::ROOT_GRAPH) {
+            if (func.second->GetGraphType() == GraphType::EXECUTE_GRAPH) {
                 rootFuncs.emplace_back(func.second);
                 continue;
             }
@@ -624,7 +624,7 @@ bool Program::QueryAndUpdateCurrentFunction() {
         }
         return false;
     } else {
-        ASSERT(currentFunctionPtr_->IsGraphType(GraphType::LEAF_GRAPH));
+        ASSERT(currentFunctionPtr_->IsGraphType(GraphType::BLOCK_GRAPH));
         auto cacheFunc = cacheValue->cacheFunction;
         functionmap_.erase(currentFunctionPtr_->GetMagicName());
         currentFunctionPtr_ = cacheFunc;

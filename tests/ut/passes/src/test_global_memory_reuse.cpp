@@ -25,7 +25,7 @@
 #include "interface/tensor/tensormap.h"
 #include "operator/models/deepseek/deepseek_mla.h"
 #include "operator/models/deepseek/deepseek_spec.h"
-#include "passes/execute_graph_pass/global_memory_reuse.h"
+#include "passes/block_graph_pass/global_memory_reuse.h"
 #include "computational_graph_builder.h"
 
 namespace npu {
@@ -572,9 +572,9 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseNormal) {
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
 
     auto &cache = Program::GetInstance().GetFunctionCache();
-    leafFunc1.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc2.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc3.SetGraphType(GraphType::LEAF_GRAPH);
+    leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc2.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc3.SetGraphType(GraphType::BLOCK_GRAPH);
     cache.Insert(leafFunc1.GetFunctionHash(), leafFunc1);
     cache.Insert(leafFunc2.GetFunctionHash(), leafFunc2);
     cache.Insert(leafFunc3.GetFunctionHash(), leafFunc3);
@@ -697,9 +697,9 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseOutputActualRawmagic) {
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
 
     auto &cache = Program::GetInstance().GetFunctionCache();
-    leafFunc1.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc2.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc3.SetGraphType(GraphType::LEAF_GRAPH);
+    leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc2.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc3.SetGraphType(GraphType::BLOCK_GRAPH);
     cache.Insert(leafFunc1.GetFunctionHash(), leafFunc1);
     cache.Insert(leafFunc2.GetFunctionHash(), leafFunc2);
     cache.Insert(leafFunc3.GetFunctionHash(), leafFunc3);
@@ -822,9 +822,9 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseInputActualRawmagic) {
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
 
     auto &cache = Program::GetInstance().GetFunctionCache();
-    leafFunc1.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc2.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc3.SetGraphType(GraphType::LEAF_GRAPH);
+    leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc2.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc3.SetGraphType(GraphType::BLOCK_GRAPH);
     cache.Insert(leafFunc1.GetFunctionHash(), leafFunc1);
     cache.Insert(leafFunc2.GetFunctionHash(), leafFunc2);
     cache.Insert(leafFunc3.GetFunctionHash(), leafFunc3);
@@ -946,9 +946,9 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseInputLessThanOutput) {
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
 
     auto &cache = Program::GetInstance().GetFunctionCache();
-    leafFunc1.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc2.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc3.SetGraphType(GraphType::LEAF_GRAPH);
+    leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc2.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc3.SetGraphType(GraphType::BLOCK_GRAPH);
     cache.Insert(leafFunc1.GetFunctionHash(), leafFunc1);
     cache.Insert(leafFunc2.GetFunctionHash(), leafFunc2);
     cache.Insert(leafFunc3.GetFunctionHash(), leafFunc3);
@@ -1070,9 +1070,9 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseInputEightTimesOutput) {
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
 
     auto &cache = Program::GetInstance().GetFunctionCache();
-    leafFunc1.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc2.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc3.SetGraphType(GraphType::LEAF_GRAPH);
+    leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc2.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc3.SetGraphType(GraphType::BLOCK_GRAPH);
     cache.Insert(leafFunc1.GetFunctionHash(), leafFunc1);
     cache.Insert(leafFunc2.GetFunctionHash(), leafFunc2);
     cache.Insert(leafFunc3.GetFunctionHash(), leafFunc3);
@@ -1194,9 +1194,9 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseInputLessThanEightTimesOutput
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
 
     auto &cache = Program::GetInstance().GetFunctionCache();
-    leafFunc1.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc2.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc3.SetGraphType(GraphType::LEAF_GRAPH);
+    leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc2.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc3.SetGraphType(GraphType::BLOCK_GRAPH);
     cache.Insert(leafFunc1.GetFunctionHash(), leafFunc1);
     cache.Insert(leafFunc2.GetFunctionHash(), leafFunc2);
     cache.Insert(leafFunc3.GetFunctionHash(), leafFunc3);
@@ -1318,9 +1318,9 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseDim) {
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
 
     auto &cache = Program::GetInstance().GetFunctionCache();
-    leafFunc1.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc2.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc3.SetGraphType(GraphType::LEAF_GRAPH);
+    leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc2.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc3.SetGraphType(GraphType::BLOCK_GRAPH);
     cache.Insert(leafFunc1.GetFunctionHash(), leafFunc1);
     cache.Insert(leafFunc2.GetFunctionHash(), leafFunc2);
     cache.Insert(leafFunc3.GetFunctionHash(), leafFunc3);
@@ -1442,9 +1442,9 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseDataType) {
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
 
     auto &cache = Program::GetInstance().GetFunctionCache();
-    leafFunc1.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc2.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc3.SetGraphType(GraphType::LEAF_GRAPH);
+    leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc2.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc3.SetGraphType(GraphType::BLOCK_GRAPH);
     cache.Insert(leafFunc1.GetFunctionHash(), leafFunc1);
     cache.Insert(leafFunc2.GetFunctionHash(), leafFunc2);
     cache.Insert(leafFunc3.GetFunctionHash(), leafFunc3);
@@ -1566,9 +1566,9 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseNotMaxmunAxisNotEqual) {
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
 
     auto &cache = Program::GetInstance().GetFunctionCache();
-    leafFunc1.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc2.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc3.SetGraphType(GraphType::LEAF_GRAPH);
+    leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc2.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc3.SetGraphType(GraphType::BLOCK_GRAPH);
     cache.Insert(leafFunc1.GetFunctionHash(), leafFunc1);
     cache.Insert(leafFunc2.GetFunctionHash(), leafFunc2);
     cache.Insert(leafFunc3.GetFunctionHash(), leafFunc3);
@@ -1728,10 +1728,10 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseNormal2) {
     function->programs_.emplace(4, &leafFunc4); // 索引4 绑定 leafFunc4
 
     auto &cache = Program::GetInstance().GetFunctionCache();
-    leafFunc1.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc2.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc3.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc4.SetGraphType(GraphType::LEAF_GRAPH);
+    leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc2.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc3.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc4.SetGraphType(GraphType::BLOCK_GRAPH);
     cache.Insert(leafFunc1.GetFunctionHash(), leafFunc1);
     cache.Insert(leafFunc2.GetFunctionHash(), leafFunc2);
     cache.Insert(leafFunc3.GetFunctionHash(), leafFunc3);
@@ -1898,10 +1898,10 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseNormal3) {
     function->programs_.emplace(4, &leafFunc4); // 索引4 绑定 leafFunc4
 
     auto &cache = Program::GetInstance().GetFunctionCache();
-    leafFunc1.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc2.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc3.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc4.SetGraphType(GraphType::LEAF_GRAPH);
+    leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc2.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc3.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc4.SetGraphType(GraphType::BLOCK_GRAPH);
     cache.Insert(leafFunc1.GetFunctionHash(), leafFunc1);
     cache.Insert(leafFunc2.GetFunctionHash(), leafFunc2);
     cache.Insert(leafFunc3.GetFunctionHash(), leafFunc3);
@@ -2068,10 +2068,10 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseOffsetNotImmediate1) {
     function->programs_.emplace(4, &leafFunc4); // 索引4 绑定 leafFunc4
 
     auto &cache = Program::GetInstance().GetFunctionCache();
-    leafFunc1.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc2.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc3.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc4.SetGraphType(GraphType::LEAF_GRAPH);
+    leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc2.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc3.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc4.SetGraphType(GraphType::BLOCK_GRAPH);
     cache.Insert(leafFunc1.GetFunctionHash(), leafFunc1);
     cache.Insert(leafFunc2.GetFunctionHash(), leafFunc2);
     cache.Insert(leafFunc3.GetFunctionHash(), leafFunc3);
@@ -2234,10 +2234,10 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseOffsetNotImmediate2) {
     function->programs_.emplace(4, &leafFunc4); // 索引4 绑定 leafFunc4
 
     auto &cache = Program::GetInstance().GetFunctionCache();
-    leafFunc1.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc2.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc3.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc4.SetGraphType(GraphType::LEAF_GRAPH);
+    leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc2.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc3.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc4.SetGraphType(GraphType::BLOCK_GRAPH);
     cache.Insert(leafFunc1.GetFunctionHash(), leafFunc1);
     cache.Insert(leafFunc2.GetFunctionHash(), leafFunc2);
     cache.Insert(leafFunc3.GetFunctionHash(), leafFunc3);
@@ -2400,10 +2400,10 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseShapeNotImmediate1) {
     function->programs_.emplace(4, &leafFunc4); // 索引4 绑定 leafFunc4
 
     auto &cache = Program::GetInstance().GetFunctionCache();
-    leafFunc1.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc2.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc3.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc4.SetGraphType(GraphType::LEAF_GRAPH);
+    leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc2.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc3.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc4.SetGraphType(GraphType::BLOCK_GRAPH);
     cache.Insert(leafFunc1.GetFunctionHash(), leafFunc1);
     cache.Insert(leafFunc2.GetFunctionHash(), leafFunc2);
     cache.Insert(leafFunc3.GetFunctionHash(), leafFunc3);
@@ -2570,10 +2570,10 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseShapeNotImmediate2) {
     function->programs_.emplace(4, &leafFunc4); // 索引4 绑定 leafFunc4
 
     auto &cache = Program::GetInstance().GetFunctionCache();
-    leafFunc1.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc2.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc3.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc4.SetGraphType(GraphType::LEAF_GRAPH);
+    leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc2.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc3.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc4.SetGraphType(GraphType::BLOCK_GRAPH);
     cache.Insert(leafFunc1.GetFunctionHash(), leafFunc1);
     cache.Insert(leafFunc2.GetFunctionHash(), leafFunc2);
     cache.Insert(leafFunc3.GetFunctionHash(), leafFunc3);
@@ -2736,10 +2736,10 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseNormalOverlap) {
     function->programs_.emplace(4, &leafFunc4); // 索引4 绑定 leafFunc4
 
     auto &cache = Program::GetInstance().GetFunctionCache();
-    leafFunc1.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc2.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc3.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc4.SetGraphType(GraphType::LEAF_GRAPH);
+    leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc2.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc3.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc4.SetGraphType(GraphType::BLOCK_GRAPH);
     cache.Insert(leafFunc1.GetFunctionHash(), leafFunc1);
     cache.Insert(leafFunc2.GetFunctionHash(), leafFunc2);
     cache.Insert(leafFunc3.GetFunctionHash(), leafFunc3);
@@ -2903,9 +2903,9 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseNormal4) {
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
 
     auto &cache = Program::GetInstance().GetFunctionCache();
-    leafFunc1.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc2.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc3.SetGraphType(GraphType::LEAF_GRAPH);
+    leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc2.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc3.SetGraphType(GraphType::BLOCK_GRAPH);
     cache.Insert(leafFunc1.GetFunctionHash(), leafFunc1);
     cache.Insert(leafFunc2.GetFunctionHash(), leafFunc2);
     cache.Insert(leafFunc3.GetFunctionHash(), leafFunc3);
@@ -3071,9 +3071,9 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseNormal5) {
     function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
 
     auto &cache = Program::GetInstance().GetFunctionCache();
-    leafFunc1.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc2.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc3.SetGraphType(GraphType::LEAF_GRAPH);
+    leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc2.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc3.SetGraphType(GraphType::BLOCK_GRAPH);
     cache.Insert(leafFunc1.GetFunctionHash(), leafFunc1);
     cache.Insert(leafFunc2.GetFunctionHash(), leafFunc2);
     cache.Insert(leafFunc3.GetFunctionHash(), leafFunc3);
@@ -3292,12 +3292,12 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseMultiOpSerialConn) {
     function->programs_.emplace(6, &leafFunc6); // 索引6 绑定 leafFunc6
 
     auto &cache = Program::GetInstance().GetFunctionCache();
-    leafFunc1.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc2.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc3.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc4.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc5.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc6.SetGraphType(GraphType::LEAF_GRAPH);
+    leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc2.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc3.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc4.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc5.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc6.SetGraphType(GraphType::BLOCK_GRAPH);
     cache.Insert(leafFunc1.GetFunctionHash(), leafFunc1);
     cache.Insert(leafFunc2.GetFunctionHash(), leafFunc2);
     cache.Insert(leafFunc3.GetFunctionHash(), leafFunc3);
@@ -3511,12 +3511,12 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseMultiOpParallelConn) {
     function->programs_.emplace(6, &leafFunc6); // 索引6 绑定 leafFunc6
 
     auto &cache = Program::GetInstance().GetFunctionCache();
-    leafFunc1.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc2.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc3.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc4.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc5.SetGraphType(GraphType::LEAF_GRAPH);
-    leafFunc6.SetGraphType(GraphType::LEAF_GRAPH);
+    leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc2.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc3.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc4.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc5.SetGraphType(GraphType::BLOCK_GRAPH);
+    leafFunc6.SetGraphType(GraphType::BLOCK_GRAPH);
     cache.Insert(leafFunc1.GetFunctionHash(), leafFunc1);
     cache.Insert(leafFunc2.GetFunctionHash(), leafFunc2);
     cache.Insert(leafFunc3.GetFunctionHash(), leafFunc3);

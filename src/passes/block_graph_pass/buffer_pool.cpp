@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "passes/execute_graph_pass/buffer_pool.h"
+#include "passes/block_graph_pass/buffer_pool.h"
 namespace npu::tile_fwk {
 constexpr size_t START_ADDR_IDX = 2;
 

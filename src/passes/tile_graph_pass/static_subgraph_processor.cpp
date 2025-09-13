@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "passes/execute_graph_pass/static_subgraph_processor.h"
+#include "passes/tile_graph_pass/static_subgraph_processor.h"
 #include "interface/configs/config_manager.h"
 
 namespace npu::tile_fwk {

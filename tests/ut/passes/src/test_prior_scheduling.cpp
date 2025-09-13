@@ -21,7 +21,7 @@
 #include "interface/inner/tilefwk.h"
 #include "passes/pass_manager.h"
 #include "interface/configs/config_manager.h"
-#include "passes/execute_graph_pass/prior_scheduling.h"
+#include "passes/block_graph_pass/prior_scheduling.h"
 #include "ut_json/ut_json_tool.h"
 
 namespace npu::tile_fwk {

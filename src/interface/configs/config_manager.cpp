@@ -94,7 +94,7 @@ static PassType StringToPassType(const std::string &str, PassType defaultValue) 
     static std::map<std::string, PassType> passTypeStrMap = {
         { "tensor_graph",  PassType::TYPE_TENSOR_GRAPH},
         {   "tile_graph",    PassType::TYPE_TILE_GRAPH},
-        {"execute_graph", PassType::TYPE_EXECUTE_GRAPH}
+        {"execute_graph", PassType::TYPE_BLOCK_GRAPH}
     };
 
     if (auto it = passTypeStrMap.find(str); it != passTypeStrMap.end()) {
@@ -285,7 +285,7 @@ static std::map<std::string, std::function<void(GlobalPassConfigs &, const nlohm
     {    "enable_pass_configs",
      [](GlobalPassConfigs &configs, const nlohmann::json &node) { configs.enablePassConfigs = node.get<bool>(); }},
     { "enabled_last_pass_type",
-     [](GlobalPassConfigs &configs, const nlohmann::json &node) { configs.enabledLastPassType = StringToPassType(node.get<std::string>(), PassType::TYPE_EXECUTE_GRAPH); }},
+     [](GlobalPassConfigs &configs, const nlohmann::json &node) { configs.enabledLastPassType = StringToPassType(node.get<std::string>(), PassType::TYPE_BLOCK_GRAPH); }},
     {   "default_pass_configs",
      [](GlobalPassConfigs &configs, const nlohmann::json &node) { configs.defaultPassConfigs = InternalGetPassConfigs(node, nullptr); }},
 };

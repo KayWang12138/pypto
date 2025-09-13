@@ -137,7 +137,7 @@ struct PassConfigs {
 };
 
 struct GlobalPassConfigs {
-    PassType enabledLastPassType{PassType::TYPE_EXECUTE_GRAPH};
+    PassType enabledLastPassType{PassType::TYPE_BLOCK_GRAPH};
     bool enablePassConfigs{false};
     PassConfigs defaultPassConfigs;
 };

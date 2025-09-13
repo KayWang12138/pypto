@@ -21,7 +21,7 @@
 #include "passes/pass_registry.h"
 #include "interface/configs/config_manager.h"
 #include "ut_json/ut_json_tool.h"
-#include "passes/execute_graph_pass/merge_src_dst_buffer.h"
+#include "passes/block_graph_pass/merge_src_dst_buffer.h"
 #include "passes/pass_utils/pass_utils.h"
 #include "computational_graph_builder.h"
 #include <fstream>
@@ -69,8 +69,8 @@ TEST_F(MergeSrcDstBufferTest, NoReplaced) {
         {           "InplaceProcess",           "InplaceProcess",    PassType::TYPE_TILE_GRAPH},
         {             "PreGraphProcess",             "PreGraphProcess",    PassType::TYPE_TILE_GRAPH},
         {           "PadLocalBuffer",           "PadLocalBuffer",    PassType::TYPE_TILE_GRAPH},
-        {       "SubgraphToFunction",       "SubgraphToFunction", PassType::TYPE_EXECUTE_GRAPH},
-        {"SrcDstBufferMerge","SrcDstBufferMerge", PassType::TYPE_EXECUTE_GRAPH},
+        {       "SubgraphToFunction",       "SubgraphToFunction", PassType::TYPE_BLOCK_GRAPH},
+        {"SrcDstBufferMerge","SrcDstBufferMerge", PassType::TYPE_BLOCK_GRAPH},
     });
     config::SetHostConfig(KEY_STRATEGY, "SrcDstBufferMergeIncludePrePassStrategy");
     config::SetPlatformConfig("TEST_IS_TIG", true);
@@ -374,7 +374,7 @@ TEST_F(MergeSrcDstBufferTest, PairMaxNotReplaced) {
     /* stub params */
     StubInputOutput(function, true);
     function->GetRootFunction()->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
-    function->GetRootFunction()->SetGraphType(GraphType::ROOT_GRAPH);
+    function->GetRootFunction()->SetGraphType(GraphType::EXECUTE_GRAPH);
 
     SrcDstBufferMerge mergePass;
     mergePass.RunOnFunction(*function);

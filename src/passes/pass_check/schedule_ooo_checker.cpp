@@ -14,7 +14,7 @@
  */
 
 #include "schedule_ooo_checker.h"
-#include "passes/execute_graph_pass/schedule_ooo.h"
+#include "passes/block_graph_pass/schedule_ooo.h"
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_utils/pass_utils.h"

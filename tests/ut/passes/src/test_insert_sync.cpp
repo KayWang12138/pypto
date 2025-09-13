@@ -13,7 +13,7 @@
  * \brief Unit test for InsertSync.
  */
 #include <gtest/gtest.h>
-#include "passes/execute_graph_pass/insert_sync.h"
+#include "passes/block_graph_pass/insert_sync.h"
 #include "ut_json/ut_json_tool.h"
 #define private public
 

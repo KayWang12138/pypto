@@ -52,8 +52,8 @@ inline const BiMap<FunctionType> &GetFunctionTypeNameDict() {
 enum class GraphType {
     TENSOR_GRAPH,
     TILE_GRAPH,
-    ROOT_GRAPH,
-    LEAF_GRAPH,
+    EXECUTE_GRAPH,
+    BLOCK_GRAPH,
     LEAF_VF_GRAPH,
     INVALID
 };
@@ -63,8 +63,8 @@ inline const BiMap<GraphType> &GetGraphTypeNameDict() {
         {
          {GraphType::TENSOR_GRAPH,     "TENSOR_GRAPH"},
          {GraphType::TILE_GRAPH,       "TILE_GRAPH"},
-         {GraphType::ROOT_GRAPH,       "ROOT_GRAPH"},
-         {GraphType::LEAF_GRAPH,       "LEAF_GRAPH"},
+         {GraphType::EXECUTE_GRAPH,       "EXECUTE_GRAPH"},
+         {GraphType::BLOCK_GRAPH,       "BLOCK_GRAPH"},
          {GraphType::LEAF_VF_GRAPH,    "LEAF_VF_GRAPH"},
          {GraphType::INVALID,          "INVALID"}
          }
@@ -449,7 +449,7 @@ public:
     Function &operator=(Function &&other) = delete;
 
     bool IsCompiledFunction() const {
-        return IsFunctionTypeAndGraphType(FunctionType::STATIC, {GraphType::ROOT_GRAPH, GraphType::LEAF_GRAPH});
+        return IsFunctionTypeAndGraphType(FunctionType::STATIC, {GraphType::EXECUTE_GRAPH, GraphType::BLOCK_GRAPH});
     }
     std::unordered_set<int> LoopCheck();
     FunctionHash ComputeHash();

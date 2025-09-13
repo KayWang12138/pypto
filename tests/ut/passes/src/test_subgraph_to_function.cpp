@@ -25,8 +25,8 @@
 #include "interface/program/program.h"
 #include "interface/function/function.h"
 #include "interface/operation/operation.h"
-#include "passes/execute_graph_pass/subgraph_to_function.h"
-#include "passes/execute_graph_pass/static_subgraph_processor.h"
+#include "passes/tile_graph_pass/subgraph_to_function.h"
+#include "passes/tile_graph_pass/static_subgraph_processor.h"
 #include "passes/pass_manager.h"
 #include "ut_json/ut_json_tool.h"
 
@@ -721,7 +721,7 @@ TEST_F(SubgraphToFunctionTest, TestBasicSubgraphConversion) {
     // 7. 验证结果
     Function* rootFunc = function->rootFunc_;
     ASSERT_NE(rootFunc, nullptr);
-    EXPECT_EQ(rootFunc->GetGraphType(), GraphType::ROOT_GRAPH);
+    EXPECT_EQ(rootFunc->GetGraphType(), GraphType::EXECUTE_GRAPH);
 
     // 检查子图调用信息
     const auto& topoInfo = rootFunc->topoInfo_;
@@ -1047,7 +1047,7 @@ TEST_F(SubgraphToFunctionTest, FullPassWithEmptySubgraph) {
 
     // 4.1 Verify root function was created
     ASSERT_NE(function->rootFunc_, nullptr);
-    EXPECT_EQ(function->rootFunc_->GetGraphType(), GraphType::ROOT_GRAPH);
+    EXPECT_EQ(function->rootFunc_->GetGraphType(), GraphType::EXECUTE_GRAPH);
 
     // 4.2 Verify subgraph programs were created
     EXPECT_EQ(function->rootFunc_->programs_.size(), 5); // Should have programs for all subgraphs

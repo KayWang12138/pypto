@@ -17,7 +17,7 @@
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "passes/execute_graph_pass/codegen_preproc.h"
+#include "passes/block_graph_pass/codegen_preproc.h"
 #include "interface/configs/config_manager.h"
 #include "ut_json/ut_json_tool.h"
 #include <vector>

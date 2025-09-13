@@ -55,15 +55,15 @@
 #include "passes/tile_graph_pass/iso_partitioner.h"
 #include "passes/tile_graph_pass/infer_dyn_shape.h"
 // execute graph pass
-#include "passes/execute_graph_pass/global_memory_reuse.h"
-#include "passes/execute_graph_pass/subgraph_to_function.h"
-#include "passes/execute_graph_pass/insert_sync.h"
-#include "passes/execute_graph_pass/schedule_ooo.h"
-#include "passes/execute_graph_pass/codegen_preproc.h"
-#include "passes/execute_graph_pass/infer_param_index.h"
-#include "passes/execute_graph_pass/add_alloc.h"
-#include "passes/execute_graph_pass/remove_alloc.h"
-#include "passes/execute_graph_pass/merge_src_dst_buffer.h"
+#include "passes/block_graph_pass/global_memory_reuse.h"
+#include "passes/tile_graph_pass/subgraph_to_function.h"
+#include "passes/block_graph_pass/insert_sync.h"
+#include "passes/block_graph_pass/schedule_ooo.h"
+#include "passes/block_graph_pass/codegen_preproc.h"
+#include "passes/block_graph_pass/infer_param_index.h"
+#include "passes/block_graph_pass/add_alloc.h"
+#include "passes/block_graph_pass/remove_alloc.h"
+#include "passes/block_graph_pass/merge_src_dst_buffer.h"
 #include "passes/pass_config/pass_config_manager.h"
 
 namespace npu::tile_fwk {
@@ -138,15 +138,15 @@ void PassManager::RegDefaultStrategy() {
             {           "PadLocalBuffer",           "PadLocalBuffer",    PassType::TYPE_TILE_GRAPH},
             {   "RemoveUnalignedReshape",   "RemoveUnalignedReshape",    PassType::TYPE_TILE_GRAPH},
             {            "InferDynShape",            "InferDynShape",    PassType::TYPE_TILE_GRAPH},
-            {       "SubgraphToFunction",       "SubgraphToFunction", PassType::TYPE_EXECUTE_GRAPH},
-            {          "InferParamIndex",          "InferParamIndex", PassType::TYPE_EXECUTE_GRAPH},
-            {        "SrcDstBufferMerge",        "SrcDstBufferMerge", PassType::TYPE_EXECUTE_GRAPH},
-            {                 "AddAlloc",                 "AddAlloc", PassType::TYPE_EXECUTE_GRAPH},
-            {              "OoOSchedule",              "OoOSchedule", PassType::TYPE_EXECUTE_GRAPH},
-            {        "GlobalMemoryReuse",        "GlobalMemoryReuse", PassType::TYPE_EXECUTE_GRAPH},
-            {              "RemoveAlloc",              "RemoveAlloc", PassType::TYPE_EXECUTE_GRAPH},
-            {               "InsertSync",               "InsertSync", PassType::TYPE_EXECUTE_GRAPH},
-            {           "CodegenPreproc",           "CodegenPreproc", PassType::TYPE_EXECUTE_GRAPH},
+            {       "SubgraphToFunction",       "SubgraphToFunction",    PassType::TYPE_TILE_GRAPH},
+            {          "InferParamIndex",          "InferParamIndex",   PassType::TYPE_BLOCK_GRAPH},
+            {        "SrcDstBufferMerge",        "SrcDstBufferMerge",   PassType::TYPE_BLOCK_GRAPH},
+            {                 "AddAlloc",                 "AddAlloc",   PassType::TYPE_BLOCK_GRAPH},
+            {              "OoOSchedule",              "OoOSchedule",   PassType::TYPE_BLOCK_GRAPH},
+            {        "GlobalMemoryReuse",        "GlobalMemoryReuse",   PassType::TYPE_BLOCK_GRAPH},
+            {              "RemoveAlloc",              "RemoveAlloc",   PassType::TYPE_BLOCK_GRAPH},
+            {               "InsertSync",               "InsertSync",   PassType::TYPE_BLOCK_GRAPH},
+            {           "CodegenPreproc",           "CodegenPreproc",   PassType::TYPE_BLOCK_GRAPH},
     });
     RegisterStrategy(
         "FunctionUnroll", {

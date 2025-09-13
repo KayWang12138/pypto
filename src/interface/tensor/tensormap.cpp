@@ -294,7 +294,7 @@ std::vector<std::shared_ptr<LogicalTensor>> TensorMap::Find(std::shared_ptr<Logi
     auto it = tensorMap_.find(ttensor->tensor->rawmagic);
     if (it == tensorMap_.end()) {
         /* Root function does not belong to any other functions. */
-        if (!belongTo.HasParent() || belongTo.IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::ROOT_GRAPH)) {
+        if (!belongTo.HasParent() || belongTo.IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::EXECUTE_GRAPH)) {
             return {};
         }
         return belongTo.Parent().GetTensorMap().Find(ttensor);

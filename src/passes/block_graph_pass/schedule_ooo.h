@@ -29,7 +29,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
-#include "passes/execute_graph_pass/buffer_pool.h"
+#include "passes/block_graph_pass/buffer_pool.h"
 #include "passes/statistics/ooo_schedule_statistic.h"
 
 namespace npu::tile_fwk {

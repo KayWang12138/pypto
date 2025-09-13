@@ -358,7 +358,7 @@ Json Operation::DumpJson(bool dumpTensor) const {
         opDump["out_param_loc"] = outLocation;
         opDump["static"]["out_param_loc"] = opDump["out_param_loc"];
     }
-    if (opcode_ == Opcode::OP_CALL && BelongTo()->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::ROOT_GRAPH)) {
+    if (opcode_ == Opcode::OP_CALL && BelongTo()->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::EXECUTE_GRAPH)) {
         auto callAttr = dynamic_cast<CallOpAttribute *>(GetOpAttribute().get());
         auto programId = callAttr->invokeInfo_->GetProgramId();
         auto programIter = function_->programs_.find(programId);

@@ -274,12 +274,12 @@ void Function::RecordOOOSeq()
 }
 
 std::vector<OperationPtr> &Function::GetProgramOp() {
-    ASSERT(graphType_ == GraphType::LEAF_GRAPH);
+    ASSERT(graphType_ == GraphType::BLOCK_GRAPH);
     return operations_;
 }
 
 void Function::SetProgramOp(const std::vector<OperationPtr> &operations) {
-    ASSERT(graphType_ == GraphType::LEAF_GRAPH);
+    ASSERT(graphType_ == GraphType::BLOCK_GRAPH);
     operations_ = operations;
 
     RefreshOpPosition();
@@ -287,7 +287,7 @@ void Function::SetProgramOp(const std::vector<OperationPtr> &operations) {
 }
 
 void Function::UpdateBelongToThis() {
-    ASSERT(graphType_ == GraphType::LEAF_GRAPH);
+    ASSERT(graphType_ == GraphType::BLOCK_GRAPH);
     for (auto &ele : operations_) {
         ele->function_ = this;
     }
@@ -564,8 +564,8 @@ FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &s
         auto iodescDict = GetTensorDataForTensorGraph();
         GetTensorDataRefreshIO(iodescDict);
         SortOperations();
-    } else if (graphType_ == GraphType::ROOT_GRAPH) {
-    } else if (graphType_ == GraphType::LEAF_GRAPH) {
+    } else if (graphType_ == GraphType::EXECUTE_GRAPH) {
+    } else if (graphType_ == GraphType::BLOCK_GRAPH) {
         for (auto &out : outCasts_) {
             CreateLeafInAndOutCast(out, outArgumentList);
         }
@@ -579,7 +579,7 @@ FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &s
     std::vector<int> iOffset;
     std::vector<int> oOffset;
     std::vector< std::vector<SymbolicScalar>> argList;
-    if (graphType_ == GraphType::LEAF_GRAPH) {
+    if (graphType_ == GraphType::BLOCK_GRAPH) {
         argList = NormalizeCoa(iOffset, oOffset);
     }
     ComputeHash();
@@ -1026,7 +1026,7 @@ void Function::ProducerMagicLookup(const Function *function, const std::set<Oper
         for (const auto &attr : OpcodeManager::Inst().GetAttrs(op->GetOpcode())) {
             ss << " attr: [" << attr << " : " << op->DumpAttr(attr) << "]";
         }
-        if (function->GetGraphType() != GraphType::LEAF_GRAPH) {
+        if (function->GetGraphType() != GraphType::BLOCK_GRAPH) {
             ss << op->GetTileShape().toString();
         }
         if (op->GetOpAttribute() != nullptr) {
@@ -1035,7 +1035,7 @@ void Function::ProducerMagicLookup(const Function *function, const std::set<Oper
                     ss << " " << op->GetOpAttribute()->Dump();
                 }
             } else if ((!IsCopyIn(op->GetOpcode()) && !IsCopyOut(op->GetOpcode())) ||
-                function->GetGraphType() != GraphType::LEAF_GRAPH) {
+                function->GetGraphType() != GraphType::BLOCK_GRAPH) {
                 ss << " " << op->GetOpAttribute()->Dump();
             }
         }
@@ -1081,7 +1081,7 @@ unsigned long Function::ComputeHashOrderless() const {
     std::stringstream ss;
     ss << std::to_string(static_cast<int>(functionType_)) << " ";
     ss << std::to_string(static_cast<int>(graphType_)) << " ";
-    if (!IsGraphType({GraphType::LEAF_GRAPH, GraphType::LEAF_VF_GRAPH}) &&
+    if (!IsGraphType({GraphType::BLOCK_GRAPH, GraphType::LEAF_VF_GRAPH}) &&
         !IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TENSOR_GRAPH)) {
         ss << GetMagicName() << " ";
     }
@@ -1090,7 +1090,7 @@ unsigned long Function::ComputeHashOrderless() const {
     int index = 0;
     std::unordered_map<int, int> magic2index;
     // 只有leaf graph需要判断边界
-    if (graphType_ == GraphType::LEAF_GRAPH) {
+    if (graphType_ == GraphType::BLOCK_GRAPH) {
         if (operations_.size()) {
             MagicLookup(
                 this, GetOutcast(), operations_[operations_.size() - 1]->GetSubgraphID(), index, magic2index, ss);
@@ -1230,7 +1230,7 @@ Operation &Function::AddOperation(const Opcode opCode, LogicalTensors iOperands,
 
 Operation &Function::AddRawOperation(
 const Opcode opCode, const LogicalTensors &iOperands, const LogicalTensors &oOperands, bool updateTensorMap) {
-    if (IsFunctionTypeAndGraphType(FunctionType::STATIC, {GraphType::ROOT_GRAPH, GraphType::LEAF_GRAPH})) {
+    if (IsFunctionTypeAndGraphType(FunctionType::STATIC, {GraphType::EXECUTE_GRAPH, GraphType::BLOCK_GRAPH})) {
         updateTensorMap = false;
         sorted_ = true;
     } else {
@@ -1881,7 +1881,7 @@ Json Function::DumpJson(bool useTable) {
         funcDump["topo"] = topoInfo_.DumpJson();
         funcDump["static"]["topo"] = funcDump["topo"];
     }
-    if (graphType_ == GraphType::LEAF_GRAPH) {
+    if (graphType_ == GraphType::BLOCK_GRAPH) {
         funcDump["subfunc_param"] = parameter_.ToJson();
         funcDump["static"]["subfunc_param"] = funcDump["subfunc_param"];
     }

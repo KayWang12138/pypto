@@ -86,8 +86,8 @@ void bind_enum(py::module &m){
     py::enum_<GraphType>(m, "graph_type")
         .value("TENSOR_GRAPH", GraphType::TENSOR_GRAPH)
         .value("TILE_GRAPH", GraphType::TILE_GRAPH)
-        .value("ROOT_GRAPH", GraphType::ROOT_GRAPH)
-        .value("LEAF_GRAPH", GraphType::LEAF_GRAPH)
+        .value("EXECUTE_GRAPH", GraphType::EXECUTE_GRAPH)
+        .value("BLOCK_GRAPH", GraphType::BLOCK_GRAPH)
         .value("LEAF_VF_GRAPH", GraphType::LEAF_VF_GRAPH)
         .value("INVALID", GraphType::INVALID)
         .export_values();

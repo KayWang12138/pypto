@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "passes/execute_graph_pass/insert_sync.h"
+#include "passes/block_graph_pass/insert_sync.h"
 #include <thread>
 
 namespace npu {

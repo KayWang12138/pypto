@@ -160,7 +160,7 @@ static void FindAllExpression(FunctionCache &cache, Linker &linker, Function *fu
         ALOG_INFO("Compile tile:", func->Dump());
         Function *root = func->GetRootFunction();
         FindAllExpression(cache, linker, root);
-    } else if (func->GetGraphType() == GraphType::ROOT_GRAPH) {
+    } else if (func->GetGraphType() == GraphType::EXECUTE_GRAPH) {
         ALOG_INFO("Compile root:", func->Dump());
         for(auto outCast : func->GetOutcast()) {
             for (auto dynShapeValidShapeI : outCast->tensor->GetDynRawShape())
@@ -174,7 +174,7 @@ static void FindAllExpression(FunctionCache &cache, Linker &linker, Function *fu
             Function *leafFunc = cache.GetCacheFunction(hash);
             FindAllExpression(cache, linker, leafFunc);
         }
-    } else if (func->GetGraphType() == GraphType::LEAF_GRAPH) {
+    } else if (func->GetGraphType() == GraphType::BLOCK_GRAPH) {
         for (auto &op : func->Operations()) {
             if (op.GetOpcode() == Opcode::OP_VEC_DUP) {
                 if (op.HasAttr(OpAttributeKey::dynScalar)) {
@@ -425,7 +425,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         Function *root = func->GetRootFunction();
         rootTileDict[root] = func;
         BuildControlFlow(cache, linker, sectionName, root, group, rootTileDict, controlFlowOss, expressionOss, indent, expName);
-    } else if (func->GetGraphType() == GraphType::ROOT_GRAPH) {
+    } else if (func->GetGraphType() == GraphType::EXECUTE_GRAPH) {
         ASSERT(group.devRootList.count(func));
         int devRootKey = group.devRootList.GetIndex(func);
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "// " << BuildControlFlowCallee(func) << "\n";

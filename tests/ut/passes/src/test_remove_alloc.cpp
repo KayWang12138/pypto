@@ -22,7 +22,7 @@
 #include "passes/pass_manager.h"
 #include "interface/configs/config_manager.h"
 #include "ut_json/ut_json_tool.h"
-#include "passes/execute_graph_pass/remove_alloc.h"
+#include "passes/block_graph_pass/remove_alloc.h"
 #include "computational_graph_builder.h"
 
 using namespace npu::tile_fwk;
@@ -49,7 +49,7 @@ TEST_F(RemoveAllocTest, RemoveAlloc) {
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestSaveGmTensorParamIdxToOpLeaf", "TestSaveGmTensorParamIdxToOpLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    currFunctionPtr->SetGraphType(GraphType::LEAF_GRAPH);
+    currFunctionPtr->SetGraphType(GraphType::BLOCK_GRAPH);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
 
     std::vector<int64_t> shape = {CP_NUM16, CP_NUM16};

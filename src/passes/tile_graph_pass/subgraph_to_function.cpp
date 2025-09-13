@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "passes/execute_graph_pass/subgraph_to_function.h"
+#include "passes/tile_graph_pass/subgraph_to_function.h"
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_utils/pass_utils.h"
@@ -394,7 +394,7 @@ Status SubgraphToFunction::ProcessSubgraph(
     auto leafName = function.GetRawName() + "_leaf" + std::to_string(i);
     ALOG_DEBUG_F("Add leafFunction %s", leafName.c_str());
 
-    Program::GetInstance().BeginFunction(leafName, FunctionType::STATIC, GraphType::LEAF_GRAPH);
+    Program::GetInstance().BeginFunction(leafName, FunctionType::STATIC, GraphType::BLOCK_GRAPH);
     auto leafFunc = Program::GetInstance().GetCurrentFunction();
     leafFunc->SetProgramOp(subgraph);
     InsertParameter(i, leafFunc);
@@ -480,7 +480,7 @@ void SubgraphToFunction::SetSemanticLabel(const std::vector<std::shared_ptr<Oper
 Status SubgraphToFunction::IslandToFunction(Function &function) {
     // 1. Create root function
     auto rootName = Function::CreateRootRawName(function.GetRawName());
-    Program::GetInstance().BeginFunction(rootName, function.GetFunctionType(), GraphType::ROOT_GRAPH);
+    Program::GetInstance().BeginFunction(rootName, function.GetFunctionType(), GraphType::EXECUTE_GRAPH);
     auto rootFunc = Program::GetInstance().GetCurrentFunction();
     if (rootFunc == nullptr) { ALOG_ERROR_F("Failed to create root function"); return FAILED; }
     InitializeRootFunction(function, rootFunc);

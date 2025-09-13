@@ -206,7 +206,7 @@ void FunctionCache::Insert(const HashKey& key, Function &func) {
         }
         cacheVal.cacheFunction = &func;
     } else {
-        if (func.GetGraphType() == GraphType::LEAF_GRAPH) {
+        if (func.GetGraphType() == GraphType::BLOCK_GRAPH) {
             cacheVal.cacheFunction = &func;
         } else {
             return;

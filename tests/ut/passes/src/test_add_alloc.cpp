@@ -20,7 +20,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "passes/pass_manager.h"
-#include "passes/execute_graph_pass/add_alloc.h"
+#include "passes/block_graph_pass/add_alloc.h"
 #include "ut_json/ut_json_tool.h"
 #include "interface/configs/config_manager.h"
 #include "computational_graph_builder.h"

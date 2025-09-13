@@ -32,7 +32,7 @@ def pto_function(name: str, *args):
 
 
 @pytest.mark.skip(
-    reason="RuntimeError: ASSERTION FAILED: currentFunctionPtr_->IsGraphType(GraphType::LEAF_GRAPH)"
+    reason="RuntimeError: ASSERTION FAILED: currentFunctionPtr_->IsGraphType(GraphType::BLOCK_GRAPH)"
 )
 def test_pybind_context_manager():
     dtype = pto.DataType.DT_FP16

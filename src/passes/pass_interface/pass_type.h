@@ -21,7 +21,7 @@ enum class PassType : int32_t {
     TYPE_INVALID = -1,
     TYPE_TENSOR_GRAPH = 0,
     TYPE_TILE_GRAPH = 1,
-    TYPE_EXECUTE_GRAPH = 2,
+    TYPE_BLOCK_GRAPH = 2,
     TYPE_BOTTOM
 };
 }

@@ -18,7 +18,7 @@
 #include "interface/program/program.h"
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
-#include "passes/execute_graph_pass/global_memory_reuse.h"
+#include "passes/block_graph_pass/global_memory_reuse.h"
 
 namespace npu {
 namespace tile_fwk {

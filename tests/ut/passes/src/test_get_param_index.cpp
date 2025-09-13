@@ -19,7 +19,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/operation/op_infer_shape_impl.h"
-#include "passes/execute_graph_pass/infer_param_index.h"
+#include "passes/block_graph_pass/infer_param_index.h"
 #include "interface/operation/attribute.h"
 #include "interface/function/function.h"
 
