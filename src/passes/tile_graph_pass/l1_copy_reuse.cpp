@@ -429,6 +429,9 @@ void L1CopyInReuseRunner::RemoveUselessViews(Function &func) const {
         if (op.GetOpcode() == Opcode::OP_VIEW && op.GetIOperands().size() == 1 && op.GetOOperands().size() == 1) {
             auto input = op.GetIOperands()[0];
             auto output = op.GetOOperands()[0];
+            if (func.IsFromInCast(input) || func.IsFromOutCast(output)) {
+                continue;
+            }
             auto iOperandMem = input->GetMemoryTypeOriginal();
             auto oOperandMem = output->GetMemoryTypeOriginal();
             if (iOperandMem == MemoryType::MEM_DEVICE_DDR && oOperandMem == MemoryType::MEM_DEVICE_DDR) {

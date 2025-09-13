@@ -45,6 +45,13 @@ Status ProcessRegCopy(const Operation &op, const Function &function, bool &needT
 
 Status ProcessAssembleDDR(const Operation &op, const LogicalTensorPtr &assembleIn, const LogicalTensorPtr &assembleOut,
     Function &function, bool &needToDelete) {
+    bool allProdView{true};
+    for (auto &prod : function.FindProducers(op)) {
+        if (prod->GetOpcode() != Opcode::OP_VIEW) {
+            allProdView = false;
+        }
+    }
+    if (allProdView) { return SUCCESS; }
     auto consumerOps = function.FindConsumers(op);
     if (!consumerOps.empty()) {
         for (auto &consumerOp : consumerOps) {

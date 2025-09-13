@@ -274,6 +274,13 @@ void PreGraphProcess::DeleteRedundantAssemble(Function &function) const {
         if (output->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR || op.IsDeleted()) {
             continue;
         }
+        bool allProdView{true};
+        for (auto &prod : function.FindProducers(op)) {
+            if (prod->GetOpcode() != Opcode::OP_VIEW) {
+                allProdView = false;
+            }
+        }
+        if (allProdView) { continue; }
         auto &input = op.GetIOperands().front();
         auto &consumers = input->GetConsumers();
         std::unordered_set<Operation *> concurrentAssembles;
