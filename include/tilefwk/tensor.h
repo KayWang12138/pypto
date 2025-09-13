@@ -258,11 +258,11 @@ public:
      * \return const std::string& : The name of the tensor.
      */
     std::string GetName() const;
-    
+
     /**
      * \brief Get the Shape Dim Size of Tensor.
      */
-    uint64_t Dim() const; 
+    uint64_t Dim() const;
 
 private:
     std::shared_ptr<LogicalTensor> storage_;
@@ -308,6 +308,4 @@ SymbolicScalar IsLoopEnd(const SymbolicScalar &symbol, const SymbolicScalar &end
 
 SymbolicScalar GetTensorData(const Tensor &t, const std::vector<SymbolicScalar> &off);
 void SetTensorData(const SymbolicScalar &v, const std::vector<SymbolicScalar> &off, Tensor &dst);
-
-#define ANNOTATE_TENSOR(X) (X).SetName(#X)
 } // namespace npu::tile_fwk
