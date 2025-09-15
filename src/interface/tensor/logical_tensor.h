@@ -176,6 +176,7 @@ public:
 
     const std::vector<SymbolicScalar> &GetDynOffset() const { return dynOffset_; }
     const std::vector<SymbolicScalar> &GetDynValidShape() const { return dynValidShape_; }
+    std::vector<SymbolicScalar> &GetDynValidShape() { return dynValidShape_; }
 
     void SetCachePolicy(CachePolicy policy, bool value) {
       if (tensor != nullptr) {

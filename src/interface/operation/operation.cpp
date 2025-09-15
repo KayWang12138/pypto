@@ -525,7 +525,7 @@ std::string Operation::DumpSSA() const {
 }
 
 std::string Operation::Dump() const {
-    return DumpSSA();
+    return location_ ? location_->ToString() + '\n' + DumpSSA() : DumpSSA();
 }
 
 void Operation::ReplaceInputOperand(
@@ -850,6 +850,9 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
                         dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape));
                     }
                 }
+                for (auto &shape: oOperand[0]->GetDynValidShape()) {
+                    dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape));
+                }
             } break;
         case Opcode::OP_ASSEMBLE:
             {
@@ -863,6 +866,9 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
                     for (auto &shape : assembleFromDynValidShape) {
                         dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape));
                     }
+                }
+                for (auto &shape: iOperand[0]->GetDynValidShape()) {
+                    dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape));
                 }
             } break;
         case Opcode::OP_COPY_IN: [[fallthrough]];

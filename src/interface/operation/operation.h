@@ -351,11 +351,6 @@ public:
         ASSERT(opcode_ == Opcode::OP_ASSEMBLE);
         SetOpAttribute(std::make_shared<AssembleOpAttribute>(toOffset, toDynOffset));
     }
-    void SetAssembleOpAttribute(
-        MemoryType from, const std::vector<int64_t> &toOffset, const std::vector<SymbolicScalar> &toDynOffset = {}) {
-        ASSERT(opcode_ == Opcode::OP_ASSEMBLE);
-        SetOpAttribute(std::make_shared<AssembleOpAttribute>(from, toOffset, toDynOffset));
-    }
 
     void ReplaceIOperand(size_t index, std::shared_ptr<LogicalTensor> newTensor);
     void ReplaceOOperand(size_t index, std::shared_ptr<LogicalTensor> newTensor);

@@ -1228,6 +1228,37 @@ Operation &Function::AddOperation(const Opcode opCode, LogicalTensors iOperands,
     return AddRawOperation(opCode, iOperands, oOperands, updateTensorMap);
 }
 
+void Function::UpdateTensorDataUsage(Operation &op) {
+    auto dynFunc = Program::GetInstance().GetCurrentDynamicFunction();
+    if (dynFunc == nullptr) {
+        return;
+    }
+    auto dynDevAttr = dynFunc->GetDyndevAttribute();
+    if (dynDevAttr == nullptr) {
+        return;
+    }
+    auto &descDict = dynDevAttr->getTensorDataDescDict;
+    auto &importDict = dynDevAttr->getTensorDataUsageDict[this].importDict;
+
+    auto dynAttrList = op.GetDynamicAttributeList();
+    auto dict = GetTensorDataDict(dynAttrList);
+    for (auto &[index, callList] : dict) {
+        (void)callList;
+        ASSERT(descDict.count(index)) << "Invalid index" << op.Dump();
+        if (importDict.count(index)) {
+            continue;
+        }
+        auto assemble = descDict[index].assembleTensor;
+        std::vector<int64_t> importShape(assemble->GetShape().size(), 1);
+        std::vector<int64_t> importOffset(assemble->GetShape().size(), 0);
+        auto import = View(*assemble, importShape, importOffset);
+        auto importOp = *import->GetProducers().begin();
+        SetEmuOpcode(importOp, EMUOP_TENSOR_GETDATA_IMPORT);
+        GetTensorDataSetIndex(importOp, index);
+        importDict[index] = importOp;
+    }
+}
+
 Operation &Function::AddRawOperation(
 const Opcode opCode, const LogicalTensors &iOperands, const LogicalTensors &oOperands, bool updateTensorMap) {
     if (IsFunctionTypeAndGraphType(FunctionType::STATIC, {GraphType::EXECUTE_GRAPH, GraphType::BLOCK_GRAPH})) {

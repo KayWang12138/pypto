@@ -739,6 +739,7 @@ public:
     GetTensorDataIODescDict GetTensorDataForTensorGraph();
     GetTensorDataIODescDict GetTensorDataForLeafGraph();
     void GetTensorDataRefreshIO(const GetTensorDataIODescDict &descDict);
+    void UpdateTensorDataUsage(Operation &op);
 
 private:
     int functionMagic_{-1};

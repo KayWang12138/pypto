@@ -993,45 +993,6 @@ constexpr int SMALL_CHANNEL_4 = 4;
 constexpr int SMALL_CHANNEL_8 = 8;
 constexpr int SMALL_CHANNEL_16 = 16;
 
-static void MaybeAppendGetTensorData(Operation *op, const std::vector<std::reference_wrapper<SymbolicScalar>> &dynScalarList) {
-    (void)op;
-    auto currDynFunc = Program::GetInstance().GetCurrentDynamicFunction();
-    if (currDynFunc == nullptr) {
-        return;
-    }
-
-    auto currFunc = Program::GetInstance().GetCurrentFunction();
-
-    auto currDynAttr = currDynFunc->GetDyndevAttribute();
-    auto getTensorDataDict = GetTensorDataDict(dynScalarList);
-    for (auto &[getTensorDataIndex, _] : getTensorDataDict) {
-        (void)_;
-        ASSERT(currDynAttr->getTensorDataDescDict.count(getTensorDataIndex)) << "Invalid index!";
-
-        if (currDynAttr->getTensorDataUsageDict[currFunc].importDict.count(getTensorDataIndex)) {
-            continue;
-        }
-
-        auto assemble = *currDynAttr->getTensorDataDescDict[getTensorDataIndex].assembleTensor;
-        // The goal of this view is to add the tensor as incast.
-        std::vector<int64_t> importShape(assemble.GetShape().size(), 1);
-        std::vector<int64_t> importOffset(assemble.GetShape().size(), 0);
-        auto import = View(assemble, importShape, importOffset);
-        auto importOp = *import->GetProducers().begin();
-        SetEmuOpcode(importOp, EMUOP_TENSOR_GETDATA_IMPORT);
-        GetTensorDataSetIndex(importOp, getTensorDataIndex);
-
-        currDynAttr->getTensorDataUsageDict[currFunc].importDict[getTensorDataIndex] = importOp;
-    }
-}
-
-static void MaybeAppendGetTensorData(Operation *op) {
-    std::vector<std::reference_wrapper<SymbolicScalar>> dynamicAttributeList = op->GetDynamicAttributeList();
-    if (dynamicAttributeList.size() != 0) {
-        MaybeAppendGetTensorData(op, dynamicAttributeList);
-    }
-}
-
 void TiledGatherOperation(Function &function, const TileShape &tileShape, size_t cur, Input &paramsInput,
     Input &indicesInput, int axis, const LogicalTensorPtr &result, TileInfo &resultTileInfo) {
     if (cur == result->shape.size()) {
@@ -2041,7 +2002,7 @@ Tensor TensorVectorDuplicateOperation(Function &function, const Element& src, co
     }
     op.SetAttribute(OP_ATTR_PREFIX + "shape", dstShape);
     op.SetAttribute(OP_ATTR_PREFIX + "validShape", validShape);
-    MaybeAppendGetTensorData(&op);
+    function.UpdateTensorDataUsage(op);
     return result;
 }
 
@@ -3038,13 +2999,13 @@ Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std
     DECLARE_TRACERX(lr);
     Tensor result(operand->Datatype(), shapes, "View_" + operand->GetRawTensor()->GetSymbol(), operand->tensorfmt);
     result->UpdateDynValidShape(SymbolicScalar::FromConcrete(shapes));
-    auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(
-        Opcode::OP_VIEW, {operand.GetStorage()}, {result.GetStorage()});
+    auto function = Program::GetInstance().GetCurrentFunction();
+    auto &op = function->AddOperation(Opcode::OP_VIEW, {operand.GetStorage()}, {result.GetStorage()});
     auto validShape = GetViewValidShape(operand->GetDynValidShape(), {}, newOffsets, shapes);
     result->UpdateDynValidShape(validShape);
     std::vector<int64_t> newOffsetsConcrete = SymbolicScalar::Concrete(newOffsets, 0);
     op.SetOpAttribute(std::make_shared<ViewOpAttribute>(newOffsetsConcrete, newOffsets, validShape));
-    MaybeAppendGetTensorData(&op);
+    function->UpdateTensorDataUsage(op);
     return result;
 }
 
@@ -3061,12 +3022,12 @@ Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes,
     const std::vector<SymbolicScalar> &newValidShapes, const std::vector<SymbolicScalar> &newOffsets) {
     DECLARE_TRACER();
     Tensor result(operand->Datatype(), shapes, "View_" + operand->GetRawTensor()->GetSymbol(), operand->tensorfmt);
-    auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(
-        Opcode::OP_VIEW, {operand.GetStorage()}, {result.GetStorage()});
+    auto function = Program::GetInstance().GetCurrentFunction();
+    auto &op = function->AddOperation(Opcode::OP_VIEW, {operand.GetStorage()}, {result.GetStorage()});
     std::vector<int64_t> newOffsetsConcrete = SymbolicScalar::Concrete(newOffsets, 0);
     op.SetOpAttribute(std::make_shared<ViewOpAttribute>(newOffsetsConcrete, newOffsets, newValidShapes));
     result->UpdateDynValidShape(newValidShapes);
-    MaybeAppendGetTensorData(&op);
+    function->UpdateTensorDataUsage(op);
     return result;
 }
 
@@ -3138,7 +3099,7 @@ void TensorDInnerAssemble(Function &function, const LogicalTensorPtr &operand,
     auto &op = function.AddOperation(Opcode::OP_ASSEMBLE, {operand}, {result});
     op.SetAssembleOpAttribute(offset, dynOffset);
     op.SetAttribute("dassemble", true);
-    MaybeAppendGetTensorData(&op);
+    function.UpdateTensorDataUsage(op);
 }
 
 void DInnerAssemble(Function &function, const LogicalTensorPtr &operand,

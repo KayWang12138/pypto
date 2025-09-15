@@ -44,7 +44,6 @@ void SourceLocation::Init() const {
         for (auto pc : pcs)
             ss << " " << pc - (intptr_t)info.second;
         auto fp = popen(ss.str().c_str(), "r");
-        std::cout << ss.str() << std::endl;
         for (auto pc : pcs) {
             int rc = fp ? getline(&line, &n, fp) : -1;
             if (rc >= 0 && strstr(line, "inlined by")) {
