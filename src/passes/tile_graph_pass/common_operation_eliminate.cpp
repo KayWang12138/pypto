@@ -120,10 +120,7 @@ bool CommonOperationEliminate::OpAlreadyExist(Operation *op) {
             continue;
         }
     }
-    auto producers = oldtensor->GetProducers();
-    for (auto &cur : producers) {
-        cur->ReplaceOutput(newtensor, oldtensor);
-    }
+    oldtensor->GetConsumers().clear();
     ALOG_DEBUG_F("In CommonOperationEliminate, Operation %d is marked as redundant.", op->GetOpMagic());
     return true;
 }
