@@ -191,6 +191,20 @@ set(_CaseFilterList
         "DynamicReshapeTest.test_only_reshape2"
         "DynamicReshapeTest.test_dyn_reshape2"
         "DynamicReshapeTest.test_assemble_diff_tile"
+        #===========================================================================
+        # 非对齐Reshape功能用例
+        #===========================================================================
+        "DynamicReshapeUnalignTest.test_add_dim"
+        "DynamicReshapeUnalignTest.test_merge_dim"
+        "DynamicReshapeUnalignTest.test_split_dim"
+        #===========================================================================
+        # reshapeinplace非对齐场景功能用例
+        #===========================================================================
+        "DynamicReshapeUnalignImplaceTest.test_op_reshape_op"
+        "DynamicReshapeUnalignImplaceTest.merge_two_dynamic_dim"
+        "DynamicReshapeUnalignImplaceTest.test_exchange_dim"
+        "DynamicReshapeUnalignImplaceTest.test_reshape_special"
+
 )
 
 set(_Target ${PTO_Fwk_STestNamePrefix}_machine)

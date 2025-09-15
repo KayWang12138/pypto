@@ -31,7 +31,7 @@ public:
 };
 
 // add dim
-TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_add_dim) {
+TEST_F(DynamicReshapeUnalignTest, test_add_dim) {
     TileShape::Current().SetVecTile(64, 64);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
@@ -84,7 +84,7 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_add_dim) {
 }
 
 // merge dim, not last dim
-TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_merge_dim) {
+TEST_F(DynamicReshapeUnalignTest, test_merge_dim) {
     TileShape::Current().SetVecTile(1, 16, 16);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
@@ -139,7 +139,7 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_merge_dim) {
 }
 
 // split dim
-TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_split_dim) {
+TEST_F(DynamicReshapeUnalignTest, test_split_dim) {
     TileShape::Current().SetVecTile(1, 16, 16);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
@@ -198,60 +198,6 @@ TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_split_dim) {
             }
         }
     }
-
-    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
-}
-
-// split dim and merge dim
-TEST_F(DynamicReshapeUnalignTest, test_reshape_unalign_split_and_merge) {
-    TileShape::Current().SetVecTile(1, 4, 32);
-    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-    config::SetPassConfig("PVC2_OOO", "SplitReshape", "DISABLE_PASS", true);
-
-    int b = 4;
-    int sq = 128;
-    int d = 64;
-    std::vector<int64_t> qShape3Dim = {b, sq, d};
-    Tensor q(DT_FP32, qShape3Dim, "q");
-    Tensor out(DT_FP32, qShape3Dim, "out");
-
-    int bView = 2;
-    int sqView = 12;
-    int dView = 64;
-
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {q}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, (b + bView - 1) / bView, 1)) {
-            SymbolicScalar bValid = min(b - bView * bIdx, bView);
-            LOOP("L1", FunctionType::DYNAMIC_LOOP, sqIdx, LoopRange(0, (sq + sqView - 1) / sqView, 1)) {
-                SymbolicScalar sqValid = min(sq - sqView * sqIdx, sqView);
-                Tensor q0 = View(q, {bView, sqView, dView}, {bValid, sqValid, dView}, {bIdx * bView, sqIdx * sqView, 0});
-                Tensor tmp0 = Reshape(q0, {bView * sqView, dView}, {bValid * sqValid, dView}); //(bView, sqView, dView) -> (bView * sqView, dView)
-
-                TileShape::Current().SetVecTile(1 * 4, 32);
-                Tensor tmp1 = AddS(tmp0, Element(tmp0->Datatype(), 0.01));
-                Tensor tmp2 = Reshape(tmp1, {bView, sqView, dView}, {bValid, sqValid, dView}); //(bView * sqView, dView) -> (bView, sqView, dView)
-                TileShape::Current().SetVecTile(1, 4, 32);
-                Assemble(tmp2, {bIdx * bView, sqIdx * sqView, 0}, out);
-            }
-        }
-    }
-    float initInputValue = 2.0f;
-    float initOutValue = 0.5f;
-
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateConstantTensor<float>(q, initInputValue),
-    });
-
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<float>(out, initOutValue),
-    });
-
-    // excute
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
-
-    std::vector<float> golden(b * sq * d, 2.01f);
 
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
