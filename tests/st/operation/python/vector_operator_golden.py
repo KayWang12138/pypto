@@ -144,8 +144,8 @@ def gen_op_golden(
                     min, str
                 ), "Data range must be number when the min and max are not same."
                 if op == "ScatterUpdate" and index == 1:
-                    tensor = np.random.choice(range(min, max), input_tensor["shape"], replace: bool = False).
-                        astype(get_dtype_by_name(input_tensor["dtype"])
+                    tensor = np.random.choice(range(min, max), input_tensor["shape"], False).astype(
+                        get_dtype_by_name(input_tensor["dtype"])
                     )
                 else:
                     tensor = np.random.uniform(min, max, input_tensor["shape"]).astype(
