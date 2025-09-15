@@ -630,7 +630,7 @@ def gen_reduce_max_op_golden(case_name: str, output: Path, case_index: int = Non
 
 @GoldenRegister.reg_golden_func(
     case_names=[
-        "TestReduceMin/ReduceMinOperationTest.TestReduceMin",
+        "TestRowMinSingle/RowMinSingleOperationTest.TestRowMinSingle",
     ]
 )
 def gen_reduce_min_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
@@ -640,7 +640,7 @@ def gen_reduce_min_op_golden(case_name: str, output: Path, case_index: int = Non
         dims = params["dims"]
         return [inputs[0].min(axis=dims[0],keepdims=True)]
     logging.debug("Case(%s), Golden creating...", case_name)
-    return gen_op_golden("ReduceMin", golden_func, output, case_index)
+    return gen_op_golden("RowMinSingle", golden_func, output, case_index)
 
 
 @GoldenRegister.reg_golden_func(

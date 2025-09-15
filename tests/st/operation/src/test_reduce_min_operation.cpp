@@ -22,8 +22,8 @@ const unsigned IDX_DIM1 = 1;
 const unsigned IDX_DIM2 = 2;
 const unsigned IDX_DIM3 = 3;
 
-struct ReduceMinOpFuncArgs : public OpFuncArgs {
-    ReduceMinOpFuncArgs(
+struct RowMinSingleOpFuncArgs : public OpFuncArgs {
+    RowMinSingleOpFuncArgs(
         const std::vector<int64_t> dims, const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
         : dims_(dims), viewShape_(viewShape), tileShape_(tileShape) {}
 
@@ -32,19 +32,19 @@ struct ReduceMinOpFuncArgs : public OpFuncArgs {
     std::vector<int64_t> tileShape_;
 };
 
-struct ReduceMinOperationMetadata {
-    explicit ReduceMinOperationMetadata(const OpFunc &opFunc, const nlohmann::json &test_data)
+struct RowMinSingleOperationMetadata {
+    explicit RowMinSingleOperationMetadata(const OpFunc &opFunc, const nlohmann::json &test_data)
         : opFunc_(opFunc), test_data_(test_data) {}
 
     OpFunc opFunc_;
     nlohmann::json test_data_;
 };
 
-void ReduceMinOperationExeFunc(
+void RowMinSingleOperationExeFunc(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
-        auto args = static_cast<const ReduceMinOpFuncArgs *>(opArgs);
+        auto args = static_cast<const RowMinSingleOpFuncArgs *>(opArgs);
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         const int firstViewShape = args->viewShape_[0];
@@ -60,11 +60,11 @@ void ReduceMinOperationExeFunc(
     }
 }
 
-void ReduceMin2DOperationExeFunc(
+void RowMinSingle2DOperationExeFunc(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
-        auto args = static_cast<const ReduceMinOpFuncArgs *>(opArgs);
+        auto args = static_cast<const RowMinSingleOpFuncArgs *>(opArgs);
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         int dim = args->dims_[0];
@@ -98,11 +98,11 @@ void ReduceMin2DOperationExeFunc(
     }
 }
 
-void ReduceMin3DOperationExeFunc(
+void RowMinSingle3DOperationExeFunc(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
-        auto args = static_cast<const ReduceMinOpFuncArgs *>(opArgs);
+        auto args = static_cast<const RowMinSingleOpFuncArgs *>(opArgs);
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar lastDim = inputs[0]->shape[2];
@@ -142,11 +142,11 @@ void ReduceMin3DOperationExeFunc(
     }
 }
 
-void ReduceMin4DOperationExeFunc(
+void RowMinSingle4DOperationExeFunc(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
-        auto args = static_cast<const ReduceMinOpFuncArgs *>(opArgs);
+        auto args = static_cast<const RowMinSingleOpFuncArgs *>(opArgs);
         SymbolicScalar firstDim = inputs[0]->shape[0];
         SymbolicScalar secondDim = inputs[0]->shape[1];
         SymbolicScalar thirdDim = inputs[0]->shape[2];
@@ -186,22 +186,22 @@ void ReduceMin4DOperationExeFunc(
     }
 }
 
-class ReduceMinOperationTest
-    : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<ReduceMinOperationMetadata> {};
+class RowMinSingleOperationTest
+    : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<RowMinSingleOperationMetadata> {};
 
-INSTANTIATE_TEST_SUITE_P(TestReduceMin, ReduceMinOperationTest,
+INSTANTIATE_TEST_SUITE_P(TestRowMinSingle, RowMinSingleOperationTest,
     ::testing::ValuesIn(
-        GetOpMetaData<ReduceMinOperationMetadata>({ReduceMinOperationExeFunc, ReduceMin2DOperationExeFunc,
-                                                      ReduceMin3DOperationExeFunc, ReduceMin4DOperationExeFunc},
-            "ReduceMin")));
+        GetOpMetaData<RowMinSingleOperationMetadata>({RowMinSingleOperationExeFunc, RowMinSingle2DOperationExeFunc,
+                                                      RowMinSingle3DOperationExeFunc, RowMinSingle4DOperationExeFunc},
+            "RowMinSingle")));
 
-TEST_P(ReduceMinOperationTest, TestReduceMin) {
+TEST_P(RowMinSingleOperationTest, TestRowMinSingle) {
     TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
     testCase.inputTensors = GetInputTensors(test_data);
     testCase.outputTensors = GetOutputTensors(test_data);
     auto dims = GetValueByName<std::vector<int64_t>>(test_data, "dims");
-    auto args = ReduceMinOpFuncArgs(dims, GetViewShape(test_data), GetTileShape(test_data));
+    auto args = RowMinSingleOpFuncArgs(dims, GetViewShape(test_data), GetTileShape(test_data));
     testCase.args = &args;
     testCase.opFunc = GetParam().opFunc_;
     testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0]->Symbol() + ".bin"};
