@@ -135,6 +135,7 @@ def gen_op_golden(
             "max": np.finfo(np.float32).max,
             "min": np.finfo(np.float32).min,
         }
+        index = 0
         for input_tensor in config["input_tensors"]:
             min = input_tensor["data_range"]["min"]
             max = input_tensor["data_range"]["max"]
@@ -142,9 +143,14 @@ def gen_op_golden(
                 assert not isinstance(min, str) and not isinstance(
                     min, str
                 ), "Data range must be number when the min and max are not same."
-                tensor = np.random.uniform(min, max, input_tensor["shape"]).astype(
-                    get_dtype_by_name(input_tensor["dtype"])
-                )
+                if op == "ScatterUpdate" and index == 1:
+                    tensor = np.random.choice(range(min, max), input_tensor["shape"], replace: bool = False).
+                        astype(get_dtype_by_name(input_tensor["dtype"])
+                    )
+                else:
+                    tensor = np.random.uniform(min, max, input_tensor["shape"]).astype(
+                        get_dtype_by_name(input_tensor["dtype"])
+                    )
             else:
                 if isinstance(min, str):
                     assert (
@@ -156,6 +162,7 @@ def gen_op_golden(
                     max,
                     dtype=get_dtype_by_name(input_tensor["dtype"]),
                 )
+            index += 1
             input_tensors.append(tensor)
             op_list = ["Matmul", "BatchMatmul", "MatmulVerify", "BatchMatmulVerify"]
             if config.get("operation") in op_list and input_tensor.get("format") == "NZ":
@@ -210,7 +217,6 @@ def gen_scatter_update_op_golden(case_name: str, output: Path, case_index: int =
             blockNum = dst.shape[0]
             blockSize = dst.shape[1]
             bs2 = blockNum * blockSize
-            index = np.random.choice(range(0, bs2), index.shape, replace = False)
             result = copy.copy(dst)
             for _b in range(b):
                 for _s in range(s):
@@ -220,7 +226,6 @@ def gen_scatter_update_op_golden(case_name: str, output: Path, case_index: int =
             s   = index.shape[1]
             bs2  = dst.shape[0]
             d   = dst.shape[1]
-            index = np.random.choice(range(0, bs2), index.shape, replace = False)
             result = copy.copy(dst)
 
             for _b in range(b):
@@ -228,10 +233,6 @@ def gen_scatter_update_op_golden(case_name: str, output: Path, case_index: int =
                     result[index[_b][_s]][:] = src[_b * s + _s][:]
         else:
             logging.error("axis ERROR!")
-
-        inputs[0] = src
-        inputs[1] = index
-        inputs[2] = dst
 
         logging.debug("src:")
         logging.debug(inputs[0])
