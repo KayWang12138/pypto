@@ -598,6 +598,10 @@ bool IsNeedDumpAicpuKernel(const std::string &inputFile) {
 
 static void CompileDyndevFunction(Function *function, FunctionCache &cache, const std::string &ccePath,
                                   std::string &kernelPath) {
+    if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, false)) {                                
+        PassManager::Instance().RunPass(Program::GetInstance(), *function, "ScalarOptimize");
+    }
+
     std::shared_ptr<DyndevFunctionAttribute> attr = function->GetDyndevAttribute();
     ASSERT(attr != nullptr);
 

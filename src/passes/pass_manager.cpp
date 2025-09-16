@@ -64,6 +64,7 @@
 #include "passes/block_graph_pass/add_alloc.h"
 #include "passes/block_graph_pass/remove_alloc.h"
 #include "passes/block_graph_pass/merge_src_dst_buffer.h"
+#include "passes/block_graph_pass/dyn_attr_to_static.h"
 #include "passes/pass_config/pass_config_manager.h"
 
 namespace npu::tile_fwk {
@@ -109,6 +110,7 @@ void RegPass() {
     REG_PASS(RemoveAlloc);
     REG_PASS(SrcDstBufferMerge);
     REG_PASS(LoopUnroll);
+    REG_PASS(DynAttrToStatic);
 }
 
 void PassManager::RegDefaultStrategy() {
@@ -151,6 +153,10 @@ void PassManager::RegDefaultStrategy() {
     RegisterStrategy(
         "FunctionUnroll", {
             {               "LoopUnroll",               "LoopUnroll",  PassType::TYPE_TENSOR_GRAPH}
+    });
+    RegisterStrategy(
+        "ScalarOptimize", {
+            {               "DynAttrToStatic",     "DynAttrToStatic",  PassType::TYPE_BLOCK_GRAPH}
     });
 }
 

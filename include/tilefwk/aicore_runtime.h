@@ -323,6 +323,18 @@ INLINE uint32_t GetTensorDataInt32(CoreFuncParam *ctx, uint64_t address) {
 #define RUNTIME_COA_GET_PARAM_ADDR(_, idx)                                          GET_PARAM_ADDR(param, _, idx)
 #define RUNTIME_COA_GET_PARAM(idx)                                                  GetCoa(param, idx)
 
+#define RUNTIME_COA_GET_PARAM_OFFSET_MAYBE_CONST_0(value, dim, base, idx)           RUNTIME_COA_GET_PARAM_OFFSET(dim, base, idx)
+#define RUNTIME_COA_GET_PARAM_OFFSET_MAYBE_CONST_1(value, dim, base, idx)           value
+#define RUNTIME_COA_GET_PARAM_OFFSET_MAYBE_CONST(isConst, value, dim, base, idx)    RUNTIME_COA_GET_PARAM_OFFSET_MAYBE_CONST_##isConst(value, dim, base, idx)
+
+#define RUNTIME_COA_GET_PARAM_VALID_SHAPE_MAYBE_CONST_0(value, dim, base, idx)           RUNTIME_COA_GET_PARAM_VALID_SHAPE(dim, base, idx)
+#define RUNTIME_COA_GET_PARAM_VALID_SHAPE_MAYBE_CONST_1(value, dim, base, idx)           value
+#define RUNTIME_COA_GET_PARAM_VALID_SHAPE_MAYBE_CONST(isConst, value, dim, base, idx)    RUNTIME_COA_GET_PARAM_VALID_SHAPE_MAYBE_CONST_##isConst(value, dim, base, idx)
+
+#define RUNTIME_COA_GET_PARAM_MAYBE_CONST_0(value, idx)           RUNTIME_COA_GET_PARAM(idx)
+#define RUNTIME_COA_GET_PARAM_MAYBE_CONST_1(value, idx)           value
+#define RUNTIME_COA_GET_PARAM_MAYBE_CONST(isConst, value, idx)    RUNTIME_COA_GET_PARAM_MAYBE_CONST_##isConst(value, idx)
+
 #define RuntimeGetInputDataInt32Dim1(input, off0) (((int32_t *)(input)->address)[(off0)])
 #define RuntimeGetInputDataInt32Dim2(input, off0, off1) \
     (((int32_t *)(input)->address)[(off0) * (input)->shape.dim[1] + (off1)])
