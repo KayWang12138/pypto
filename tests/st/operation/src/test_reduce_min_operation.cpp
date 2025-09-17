@@ -40,26 +40,6 @@ struct RowMinSingleOperationMetadata {
     nlohmann::json test_data_;
 };
 
-void RowMinSingleOperationExeFunc(
-    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {inputs[0]}, {outputs[0]}) {
-        auto args = static_cast<const RowMinSingleOpFuncArgs *>(opArgs);
-        SymbolicScalar firstDim = inputs[0]->shape[0];
-        SymbolicScalar secondDim = inputs[0]->shape[1];
-        const int firstViewShape = args->viewShape_[0];
-        int bloop = CeilDiv(firstDim, firstViewShape);
-
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            auto viewTensor = View(inputs[0], {firstViewShape, secondDim},
-                {std::min(firstDim - bIdx * firstViewShape, firstViewShape), secondDim}, {bIdx * firstViewShape, 0});
-            TileShape::Current().SetVecTile(args->tileShape_);
-            auto res = RowMinSingle(viewTensor, args->dims_[0]);
-            Assemble(res, {bIdx * firstViewShape, 0}, outputs[0]);
-        }
-    }
-}
-
 void RowMinSingle2DOperationExeFunc(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FunctionConfig funConfig;
@@ -119,8 +99,8 @@ void RowMinSingle3DOperationExeFunc(
         viewShape[dim] = 0;
         loops[dim] = 1;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, loops[IDX_DIM0], 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, loops[IDX_DIM0], 1)) {
-                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, loops[IDX_DIM0], 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, loops[IDX_DIM1], 1)) {
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, loops[IDX_DIM2], 1)) {
                     auto viewTensor = View(inputs[0],
                         {
                             viewShape[0] == 0 ? firstDim : viewShape[0],
@@ -191,8 +171,8 @@ class RowMinSingleOperationTest
 
 INSTANTIATE_TEST_SUITE_P(TestRowMinSingle, RowMinSingleOperationTest,
     ::testing::ValuesIn(
-        GetOpMetaData<RowMinSingleOperationMetadata>({RowMinSingleOperationExeFunc, RowMinSingle2DOperationExeFunc,
-                                                      RowMinSingle3DOperationExeFunc, RowMinSingle4DOperationExeFunc},
+        GetOpMetaData<RowMinSingleOperationMetadata>(
+            {RowMinSingle2DOperationExeFunc, RowMinSingle3DOperationExeFunc, RowMinSingle4DOperationExeFunc},
             "RowMinSingle")));
 
 TEST_P(RowMinSingleOperationTest, TestRowMinSingle) {
