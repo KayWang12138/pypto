@@ -61,6 +61,7 @@ private:
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::shared_ptr<LogicalTensor>>
         parentRawForard; // key: 当前tensor的magic，value: parent tensor 的 raw magic
     std::set<std::shared_ptr<LogicalTensor>> conflictTensors;
+    bool IsValidTileShape(const Operation &op) const;
 };
 } // namespace tile_fwk
 } // namespace npu

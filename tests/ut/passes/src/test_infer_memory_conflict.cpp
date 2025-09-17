@@ -86,9 +86,12 @@ TEST_F(InferMemoryConflictTest, InferMemoryConflictUTest_View_Assemble) {
     auto view_attr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_ZERO, NUM_ZERO});
     auto assemble_attr = std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{NUM_ZERO, NUM_ZERO});
     auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {tensor1});
+    TileShape::Current().SetVecTile(shape1);
+    view_op.UpdateTileShape(TileShape::Current());
     auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {tensor1}, {outCast});
     view_op.SetOpAttribute(view_attr);
     assemble_op.SetOpAttribute(assemble_attr);
+    assemble_op.UpdateTileShape(TileShape::Current());
 
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
@@ -136,12 +139,20 @@ TEST_F(InferMemoryConflictTest, InferMemoryConflictUTest_View_Assemble_V2) {
         std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{NUM_ZERO, NUM_ZERO, NUM_ZERO, NUM_512});
     auto &view_op1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast1}, {tensor1});
     view_op1.SetOpAttribute(view_attr1);
+    TileShape::Current().SetVecTile({2, 1, 1, NUM_512});
+    view_op1.UpdateTileShape(TileShape::Current());
     auto &view_op2 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast2}, {tensor2});
     view_op2.SetOpAttribute(view_attr2);
+    TileShape::Current().SetVecTile({2, 1, 1, NUM_64});
+    view_op2.UpdateTileShape(TileShape::Current());
     auto &assemble_op1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {tensor1}, {outCast});
-    assemble_op1.SetOpAttribute(assemble_attr2);
+    assemble_op1.SetOpAttribute(assemble_attr1);
+    TileShape::Current().SetVecTile({2, 1, 1, NUM_512});
+    assemble_op1.UpdateTileShape(TileShape::Current());
     auto &assemble_op2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {tensor2}, {outCast});
     assemble_op2.SetOpAttribute(assemble_attr2);
+    TileShape::Current().SetVecTile({2, 1, 1, NUM_64});
+    assemble_op1.UpdateTileShape(TileShape::Current());
 
     currFunctionPtr->inCasts_.push_back(inCast1);
     currFunctionPtr->inCasts_.push_back(inCast2);
@@ -182,7 +193,9 @@ TEST_F(InferMemoryConflictTest, InferMemoryConflictUTest_Reshape) {
     auto view_attr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_ZERO, NUM_ZERO});
     auto assemble_attr = std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{NUM_ZERO, NUM_ZERO});
     auto &view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {tensor1});
-    currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {tensor1}, {tensor2});
+    auto &reshape_op = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {tensor1}, {tensor2});
+    TileShape::Current().SetVecTile({1, NUM_512});
+    reshape_op.UpdateTileShape(TileShape::Current());
     auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {tensor2}, {outCast});
     view_op.SetOpAttribute(view_attr);
     assemble_op.SetOpAttribute(assemble_attr);
@@ -301,7 +314,9 @@ TEST_F(InferMemoryConflictTest, InferMemoryConflictUTest_ScatterUpdate_Reshape) 
     auto &view_op3 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast3}, {tensor3});
     view_op3.SetOpAttribute(view_attr3);
     currFunctionPtr->AddOperation(Opcode::OP_INDEX_OUTCAST, {tensor2, tensor3, tensor1}, {tensor4});
-    currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {tensor4}, {tensor5});
+    auto &reshape_op = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {tensor4}, {tensor5});
+    TileShape::Current().SetVecTile({NUM_2, NUM_512});
+    reshape_op.UpdateTileShape(TileShape::Current());
     auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {tensor5}, {outCast});
     assemble_op.SetOpAttribute(assemble_attr);
 
@@ -367,7 +382,9 @@ TEST_F(InferMemoryConflictTest, InferMemoryConflictUTest_Reshape_ScatterUpdate_R
     auto &view_op3 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast3}, {tensor3});
     view_op3.SetOpAttribute(view_attr3);
     currFunctionPtr->AddOperation(Opcode::OP_INDEX_OUTCAST, {tensor2_reshape, tensor3, tensor1_reshape}, {tensor4});
-    currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {tensor4}, {tensor5});
+    auto &reshape_op = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {tensor4}, {tensor5});
+    TileShape::Current().SetVecTile({NUM_2, NUM_512});
+    reshape_op.UpdateTileShape(TileShape::Current());
     auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {tensor5}, {outCast});
     assemble_op.SetOpAttribute(assemble_attr);
 

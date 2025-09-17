@@ -24,10 +24,6 @@ Status CubeProcess::PreCheck(Function &function) {
         return FAILED;
     }
     for (auto &op : function.Operations()) {
-        if (op.GetSubgraphID() == NOT_IN_SUBGRAPH) {
-            ALOG_ERROR_F("%s[%d] is not partitioned.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
-            return FAILED;
-        }
         if (op.GetOpcode() == Opcode::OP_A_MUL_B && op.GetOpcode() == Opcode::OP_A_MULACC_B) {
             // L0C tensor 有且只有一个非空consumer op
             if (op.GetOOperands().size() != 1) {
@@ -212,11 +208,12 @@ Status CubeProcess::AddL1CopyInAttr(
     auto copyInOp = *(input->GetProducers().begin());
     auto tensorL0 = copyInOp->GetIOperands().front();
     auto L1CopyInOp = *(tensorL0->GetProducers().begin());
-    if (L1CopyInOp->GetOpcode() == Opcode::OP_VIEW) {
+    if (L1CopyInOp->GetOpcode() == Opcode::OP_VIEW || L1CopyInOp->GetOpcode() == Opcode::OP_ASSEMBLE) {
         /*
-        大包搬运场景
+        1. View 对应大包搬运场景
         gm -> L1_COPY_IN -> L1 ---> View ---> L1_partial ---> L1_TO_L0A ---> L0 ---> A_MUL_B
                               \ ---> View ---> L1_partial ---> L1_TO_L0A ---> L0 ---> A_MUL_B
+        2. Assemble 对应 Gather On L1 场景
         */
         tensorL0 = L1CopyInOp->GetIOperands().front();
         L1CopyInOp = *(tensorL0->GetProducers().begin());

@@ -33,6 +33,18 @@ Status InferMemoryConflict::RunOnFunction(Function &function) {
     return SUCCESS;
 }
 
+bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
+    auto input = op.GetIOperands().front();
+    VecTile tileSize = op.GetTileShape().GetVecTile();
+    if (input->GetShape().size() != tileSize.size()) {
+        ALOG_ERROR_F("%s[%d] has unequal input shape dims size and tile shape dims, input shape: %s, tile size: %s", 
+            op.GetOpcodeStr().c_str(), op.GetOpMagic(),
+            input->DumpType().c_str(), op.GetTileShape().toString(TileType::VEC).c_str());
+        return false;
+    }
+    return true;
+}
+
 std::pair<Status, bool> InferMemoryConflict::IsInplace(
     Operation &op, std::shared_ptr<LogicalTensor> in, std::shared_ptr<LogicalTensor> out) const {
     if (inplaceRelationshipMap.find(op.GetOpcode()) == inplaceRelationshipMap.end()) {
@@ -173,10 +185,12 @@ Status InferMemoryConflict::InsertTensorCopy(Function &function) {
             GraphUtils::CopyDynStatus(newTensor, assembleInput);
             auto &tensorCopyOp = GraphUtils::AddDynRawOperation(function, Opcode::OP_REGISTER_COPY, {assembleInput}, {newTensor});
 
-            /* Assemble 的前置op 为Reshape/NOP 时，需要从该op上获取tile shape */
-            if ((producerParentOp->GetOpcode() == Opcode::OP_RESHAPE) ||
-                (producerParentOp->GetOpcode() == Opcode::OP_NOP)) {
-                tensorCopyOp.UpdateTileShape(producerParentOp->GetTileShape());
+            /* 从Assemble 的前置op 上获取tile shape */
+            tensorCopyOp.UpdateTileShape(producerParentOp->GetTileShape());
+            /* 检查拷贝op的tile size 设置是否合理 */
+            if (!IsValidTileShape(tensorCopyOp)) {
+                ALOG_ERROR_F("Invalid tile size for %s[%d].", tensorCopyOp.GetOpcodeStr().c_str(), tensorCopyOp.GetOpMagic());
+                return FAILED;
             }
             assembleInput->RemoveConsumer(parentAssembleOp);
             parentAssembleOp->ReplaceInput(newTensor, assembleInput);
