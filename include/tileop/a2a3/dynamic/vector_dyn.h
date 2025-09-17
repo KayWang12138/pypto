@@ -24,6 +24,7 @@
 namespace TileOp {
 // ADD
 #define T_BIN DynTadd_
+#define T_BIN_PAIR DynTaddpair_
 #define V_BIN_FUNC vadd
 #define T_BIN_VS DynTadds_
 #define V_BIN_FUNC_VS vadds
@@ -31,9 +32,11 @@ namespace TileOp {
 #undef T_BIN_VS
 #undef V_BIN_FUNC_VS
 #undef T_BIN
+#undef T_BIN_PAIR
 #undef V_BIN_FUNC
 // SUB
 #define T_BIN DynTsub_
+#define T_BIN_PAIR DynTsubpair_
 #define V_BIN_FUNC vsub
 #define T_BIN_VS DynTsubs_
 #define V_BIN_FUNC_VS vadds
@@ -43,9 +46,11 @@ namespace TileOp {
 #undef T_BIN_VS
 #undef V_BIN_FUNC_VS
 #undef T_BIN
+#undef T_BIN_PAIR
 #undef V_BIN_FUNC
 // MUL
 #define T_BIN DynTmul_
+#define T_BIN_PAIR DynTmulpair_
 #define V_BIN_FUNC vmul
 #define T_BIN_VS DynTmuls_
 #define V_BIN_FUNC_VS vmuls
@@ -53,9 +58,11 @@ namespace TileOp {
 #undef T_BIN_VS
 #undef V_BIN_FUNC_VS
 #undef T_BIN
+#undef T_BIN_PAIR
 #undef V_BIN_FUNC
 // DIV
 #define T_BIN DynTdiv_
+#define T_BIN_PAIR DynTdivpair_
 #define V_BIN_FUNC vdiv
 #define T_BIN_VS DynTdivs_
 #define V_BIN_FUNC_VS vmuls
@@ -65,24 +72,29 @@ namespace TileOp {
 #undef T_BIN_VS
 #undef V_BIN_FUNC_VS
 #undef T_BIN
+#undef T_BIN_PAIR
 #undef V_BIN_FUNC
 // MAX
 #define T_BIN DynTmax_
+#define T_BIN_PAIR DynTmaxpair_
 #define V_BIN_FUNC vmax
 #define T_BIN_VS DynTmaxs_
 #define V_BIN_FUNC_VS vmaxs
 #include "vector_bin_dyn.h"
 #undef T_BIN
+#undef T_BIN_PAIR
 #undef V_BIN_FUNC
 #undef T_BIN_VS
 #undef V_BIN_FUNC_VS
 // MIN
 #define T_BIN DynTmin_
+#define T_BIN_PAIR DynTminpair_
 #define V_BIN_FUNC vmin
 #define T_BIN_VS DynTmins_
 #define V_BIN_FUNC_VS vmins
 #include "vector_bin_dyn.h"
 #undef T_BIN
+#undef T_BIN_PAIR
 #undef V_BIN_FUNC
 #undef T_BIN_VS
 #undef V_BIN_FUNC_VS

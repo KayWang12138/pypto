@@ -28,17 +28,36 @@ void ElewiseInferFunc(Operation* op,
     auto shapeDimNum = op->GetIOperands()[0]->GetDynValidShape().size();
     // 将每个输入的同一维shape值填充到一个vector中，便于后续对每一维进行筛选
     std::vector<std::vector<SymbolicScalar>> dimValidShape(shapeDimNum, std::vector<SymbolicScalar>(inputNum, SymbolicScalar()));
+    std::vector<std::vector<int64_t>> dimShape(shapeDimNum, std::vector<int64_t>(inputNum, 0));
     for (size_t i = 0; i < op->GetIOperands().size(); ++i) {
         auto validShape = op->GetIOperands()[i]->GetDynValidShape();
         for (size_t dimIdx = 0; dimIdx < validShape.size(); ++dimIdx) {
             dimValidShape[dimIdx][i] = validShape[dimIdx];
         }
+        auto shape = op->GetIOperands()[i]->GetShape();
+        for (size_t dimIdx = 0; dimIdx < shape.size(); ++dimIdx) {
+            dimShape[dimIdx][i] = shape[dimIdx];
+        }    
     }
     std::vector<SymbolicScalar> inputValidShape;
     for (size_t i = 0; i < shapeDimNum; ++i) {
+        size_t oneDimNum = 0;
+        size_t noOneIndex = 0;
+        for (size_t j = 0; j < dimShape[i].size(); ++j) {
+            if (dimShape[i][j] == 1) {
+                oneDimNum++;
+            } else {
+                noOneIndex = j;
+            }
+        }
+        if (oneDimNum > 0 && oneDimNum < dimShape[i].size()) {
+            inputValidShape.push_back(dimValidShape[i][noOneIndex]);
+            continue;
+        }
+
         auto flag = false;
         auto minDim = SymbolicScalar();
-        for (auto dim : dimValidShape[i]) {
+        for (auto dim : dimValidShape[i]) {            
             if (!(dim.IsImmediate())) {
                 inputValidShape.push_back(dim);
                 flag = true;

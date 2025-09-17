@@ -13,7 +13,7 @@ set(_CaseFilterList
         #===========================================================================
         #"DynamicNSATest.nsa_b_16_s1_1_s2_8192_h_7168_fp16"
         #"DynamicSATest.slc_attn_fp16"
-        "DynamicNSATest.mini"
+        #"DynamicNSATest.mini"
         "DynamicSATest.slc_attn_mtp_s1_2_fp16"
         "DynamicSATest.slc_attn_bf16_b48_s1_perf"
         "DynamicKvSATest.kv_slc_attn_b48_s1_fp16_perf"

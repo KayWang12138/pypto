@@ -143,9 +143,9 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_SCATTER_SCALAR, OpCoreType::ANY, "SCATTER_SCALAR",
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {}, OpCalcType::OTHER);
     registerInfo(Opcode::OP_MAXIMUM, OpCoreType::AIV, "MAXIMUM", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tmax", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis});
-    registerInfo(Opcode::OP_PAIRMAX, OpCoreType::AIV, "PAIRMAX", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tmax", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis});
-    registerInfo(Opcode::OP_PAIRMIN, OpCoreType::AIV, "PAIRMIN", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tmin", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis});    
-    registerInfo(Opcode::OP_PAIRSUM, OpCoreType::AIV, "PAIRSUM", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tadd", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis});
+    registerInfo(Opcode::OP_PAIRMAX, OpCoreType::AIV, "PAIRMAX", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tmaxpair", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis});
+    registerInfo(Opcode::OP_PAIRMIN, OpCoreType::AIV, "PAIRMIN", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tminpair", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis});
+    registerInfo(Opcode::OP_PAIRSUM, OpCoreType::AIV, "PAIRSUM", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Taddpair", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis});
     registerInfo(Opcode::OP_ROWMAX_SINGLE, OpCoreType::AIV, "ROWMAX_SINGLE",
         {MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Trowmaxsingle", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::REDUCE, {OP_ATTR_PREFIX + "AXIS"});
     registerInfo(Opcode::OP_ROWMIN_SINGLE, OpCoreType::AIV, "ROWMIN_SINGLE",

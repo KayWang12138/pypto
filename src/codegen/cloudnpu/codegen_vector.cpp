@@ -1043,25 +1043,21 @@ std::string CodeGenOpCloudNPU::PrintBinaryStatic(const PrintBinaryParam &param) 
         paramList.emplace_back(std::to_string(os0[i]));
     }
     paramList.emplace_back("/*OS1*/");
-    paramList.emplace_back(std::to_string(os1[ID3]));
+    for (int i = 0; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(os1[i]));
+    }
     paramList.emplace_back("/*DS*/");
-    for (int i = 1; i < SHAPE_DIM4; ++i) {
+    for (int i = 0; i < SHAPE_DIM4; ++i) {
         paramList.emplace_back(std::to_string(ds[i]));
     }
     paramList.emplace_back("/*S0*/");
-    for (int i = 1; i < SHAPE_DIM4; ++i) {
+    for (int i = 0; i < SHAPE_DIM4; ++i) {
         paramList.emplace_back(std::to_string(s0[i]));
     }
     paramList.emplace_back("/*S1*/");
-    for (int i = 1; i < SHAPE_DIM4; ++i) {
+    for (int i = 0; i < SHAPE_DIM4; ++i) {
         paramList.emplace_back(std::to_string(s1[i]));
     }
-    bool copyFlag = false;
-    if (opCode == Opcode::OP_PAIRMAX || opCode == Opcode::OP_PAIRMIN || opCode == Opcode::OP_PAIRSUM) {
-        copyFlag = true;
-    }
-    paramList.emplace_back("/*copyFlag*/");
-    paramList.emplace_back(std::to_string(copyFlag));
     std::string templateParam = JoinString(paramList, ", ");
 
     paramList.clear();
@@ -1124,14 +1120,8 @@ std::string CodeGenOpCloudNPU::PrintBinaryDynamicUnaligned(const PrintBinaryPara
     for (auto dynShape : dynSrcShape1) {
         paramList.emplace_back(dynShape.Dump());
     }
-    bool copyFlag = false;
-    if (opCode == Opcode::OP_PAIRMAX || opCode == Opcode::OP_PAIRMIN || opCode == Opcode::OP_PAIRSUM) {
-        copyFlag = true;
-    }
-    paramList.emplace_back(std::to_string(copyFlag));
     std::string tiloOpCallParam = JoinString(paramList, ", ");
     os << tileOpName.c_str() << "_<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
-
     return os.str();
 }
 

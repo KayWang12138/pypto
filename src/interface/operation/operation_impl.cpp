@@ -379,6 +379,13 @@ bool CallBrcBinOp(LogicalTensorPtr operand1, LogicalTensorPtr operand2) {
     return (operand1->shape[shapeSize - 1] != 1) && (operand2->shape[shapeSize - 1] == 1);
 }
 
+bool IsLastBrc(LogicalTensorPtr operand1, LogicalTensorPtr operand2) {
+    assert(operand1->shape.size() == operand2->shape.size() && "Dims not match");
+    size_t shapeSize = operand1->shape.size();
+    return ((operand1->shape[shapeSize - 1] != 1) && (operand2->shape[shapeSize - 1] == 1)) ||
+           ((operand2->shape[shapeSize - 1] != 1) && (operand1->shape[shapeSize - 1] == 1));
+}
+
 template <BinaryOpType T>
 void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t cur, Input &input1,
     Input &input2, const LogicalTensorPtr &result, TileInfo &resultTileInfo, bool withBrc) {
@@ -413,7 +420,8 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, Logica
     LogicalTensorPtr operand2, const LogicalTensorPtr &result) {
     CheckBinOpOperandsValid(operand1, operand2);
     bool withBrc = CallBrcBinOp(operand1, operand2) && ConfigManager::Instance().GetOperationConfig("FORCE_COMBINE_AXIS", false);
-    if (!withBrc) {
+    // nolast brc will be inline
+    if ((!withBrc) && IsLastBrc(operand1, operand2)) {
         if (operand1->shape != result->shape) {
             auto targetShape = result->shape;
             auto tmp = std::make_shared<LogicalTensor>(function, operand1->Datatype(), targetShape);

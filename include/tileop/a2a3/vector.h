@@ -31,6 +31,7 @@ constexpr unsigned REPEAT_STRIDE_MAX = 255;
 // Binary op
 // ADD
 #define T_BIN Tadd_
+#define T_BIN_PAIR Taddpair_
 #define V_BIN_FUNC vadd
 #define T_BIN_VS Tadds_
 #define V_BIN_FUNC_VS vadds
@@ -38,9 +39,11 @@ constexpr unsigned REPEAT_STRIDE_MAX = 255;
 #undef T_BIN_VS
 #undef V_BIN_FUNC_VS
 #undef T_BIN
+#undef T_BIN_PAIR
 #undef V_BIN_FUNC
 // SUB
 #define T_BIN Tsub_
+#define T_BIN_PAIR Tsubpair_
 #define V_BIN_FUNC vsub
 #define T_BIN_VS Tsubs_
 #define V_BIN_FUNC_VS vadds
@@ -50,10 +53,12 @@ constexpr unsigned REPEAT_STRIDE_MAX = 255;
 #undef T_BIN_VS
 #undef V_BIN_FUNC_VS
 #undef T_BIN
+#undef T_BIN_PAIR
 #undef V_BIN_FUNC
 
 // MUL
 #define T_BIN Tmul_
+#define T_BIN_PAIR Tmulpair_
 #define V_BIN_FUNC vmul
 #define T_BIN_VS Tmuls_
 #define V_BIN_FUNC_VS vmuls
@@ -61,17 +66,21 @@ constexpr unsigned REPEAT_STRIDE_MAX = 255;
 #undef T_BIN_VS
 #undef V_BIN_FUNC_VS
 #undef T_BIN
+#undef T_BIN_PAIR
 #undef V_BIN_FUNC
 
 // MAX
 #define T_BIN Tmax_
+#define T_BIN_PAIR Tmaxpair_
 #define V_BIN_FUNC vmax
 #include "vector_bin.h"
 #undef T_BIN
+#undef T_BIN_PAIR
 #undef V_BIN_FUNC
 
 // DIV
 #define T_BIN Tdiv_
+#define T_BIN_PAIR Tdivpair_
 #define V_BIN_FUNC vdiv
 #define T_BIN_VS Tdivs_
 #define V_BIN_FUNC_VS vmuls
@@ -81,6 +90,7 @@ constexpr unsigned REPEAT_STRIDE_MAX = 255;
 #undef T_BIN_VS
 #undef V_BIN_FUNC_VS
 #undef T_BIN
+#undef T_BIN_PAIR
 #undef V_BIN_FUNC
 
 // ADDWITHBRC

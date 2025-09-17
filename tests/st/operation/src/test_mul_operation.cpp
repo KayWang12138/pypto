@@ -130,10 +130,10 @@ static void MulOperationExeFunc4Dims(
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {inputs[0], inputs[1]}, {outputs[0]}) {
-        SymbolicScalar firstDim = inputs[0]->shape[0];
-        SymbolicScalar secondDim = inputs[0]->shape[1];
-        SymbolicScalar thirdDim = inputs[0]->shape[2];
-        SymbolicScalar fourthDim = inputs[0]->shape[3];
+        SymbolicScalar firstDim = std::max(inputs[0]->shape[0], inputs[1]->shape[0]);
+        SymbolicScalar secondDim = std::max(inputs[0]->shape[1], inputs[1]->shape[1]);
+        SymbolicScalar thirdDim = std::max(inputs[0]->shape[2], inputs[1]->shape[2]);
+        SymbolicScalar fourthDim = std::max(inputs[0]->shape[3], inputs[1]->shape[3]);
         auto args = static_cast<const MulOpFuncArgs *>(opArgs);
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
@@ -153,8 +153,6 @@ static void MulOperationExeFunc4Dims(
                         Tensor tileTensor0;
                         Tensor tileTensor1;
                         IF(inputs[1]->shape[2] == broadcastFlag && inputs[0]->shape[2] != broadcastFlag) {
-                            // case 26 [16, 16, 1, 16] broadcast场景
-                            // case 27 [1, 1, 1, 16] broadcast场景
                             tileTensor0 =
                                 View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
                                     {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
@@ -168,6 +166,54 @@ static void MulOperationExeFunc4Dims(
                                     std::min(secondDim - sIdx * secondViewShape, secondViewShape), 1,
                                     std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
                                 {bIdx * firstViewShape, sIdx * secondViewShape, 0, nIdx * fourthViewShape});
+                        }
+                        ELSE IF(inputs[1]->shape[1] == broadcastFlag && inputs[0]->shape[1] != broadcastFlag) {
+                            // case 26 [16, 1, 16, 16] broadcast场景
+                            tileTensor0 =
+                                View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                        std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                        std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
+                                        std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
+                                    {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                        nIdx * fourthViewShape});
+                            tileTensor1 = View(inputs[1], {firstViewShape, 1, thirdViewShape, fourthViewShape},
+                                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                     1, std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
+                                     std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
+                                    {bIdx * firstViewShape, 0, mIdx * thirdViewShape, nIdx * fourthViewShape});
+                        }
+                        ELSE IF(inputs[0]->shape[1] == broadcastFlag && inputs[1]->shape[1] != broadcastFlag) {
+                            // case 28 [16, 1, 16, 16] broadcast场景 第一个操作数broadcast
+                            tileTensor0 = View(inputs[0], {firstViewShape, 1, thirdViewShape, fourthViewShape},
+                                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                     1, std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
+                                     std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
+                                    {bIdx * firstViewShape, 0, mIdx * thirdViewShape, nIdx * fourthViewShape});
+                            tileTensor1 =
+                                View(inputs[1], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                        std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                        std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
+                                        std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
+                                    {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                        nIdx * fourthViewShape});
+                        }
+                        ELSE IF(inputs[1]->shape[0] == broadcastFlag && inputs[0]->shape[0] != broadcastFlag) {
+                            // case 27 [1, 16, 16, 16] broadcast场景
+                            tileTensor0 =
+                                View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                        std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                        std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
+                                        std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
+                                    {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
+                                        nIdx * fourthViewShape});
+                            tileTensor1 = View(inputs[1], {1, secondViewShape, thirdViewShape, fourthViewShape},
+                                {1, std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                    std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
+                                    std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
+                                {0, sIdx * secondViewShape, mIdx * thirdViewShape, nIdx * fourthViewShape});
                         }
                         ELSE {
                             tileTensor0 =
