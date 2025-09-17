@@ -11,7 +11,6 @@
 """
 """
 import os
-
 import pto
 from utils import dyn_function, loop_function, record_if_branch
 
@@ -34,7 +33,7 @@ def test_device_run_data_from_host():
 
     pto.set_vec_tile_shapes(tiling, tiling)
     with pto.dyn_function("MAIN", [a], [b]):
-        with pto.loop_function("s0", "k", pto.loop_range(10)) as rlf:
+        with pto.loop_function("s0", "k", pto.loop_range_(10)) as rlf:
             for k in rlf:
                 if pto.cond(k == 0):
                     b.move(pto.add(a, a))
@@ -69,7 +68,7 @@ def test_device_run_data_from_device():
 
     pto.set_vec_tile_shapes(tiling, tiling)
     with pto.dyn_function("MAIN", [a], [b]):
-        with pto.loop_function("s0", "k", pto.loop_range(10)) as rlf:
+        with pto.loop_function("s0", "k", pto.loop_range_(10)) as rlf:
             for k in rlf:
                 if pto.cond(k == 0):
                     b.move(pto.add(a, a))

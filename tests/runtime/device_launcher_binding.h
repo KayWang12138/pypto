@@ -61,6 +61,8 @@ int DeviceLaunchOnceWithDeviceTensorData(
 
 int DeviceRunOnce(Function *function, const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
+int HasInplaceArgs(Function *function);
+
 void DeviceLauncherInit();
 
 void DeviceLauncherFini();

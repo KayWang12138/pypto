@@ -91,6 +91,10 @@ int DeviceRunOnce(Function *function, const DeviceLauncherConfig &config) {
     return DeviceLauncher::DeviceRunOnce(function, config);
 }
 
+int HasInplaceArgs(Function *function) {
+    return DeviceLauncher::HasInplaceArgs(function);
+}
+
 void DeviceLauncherInit() {
     DeviceLauncherContext::Get().DeviceInit();
 }
