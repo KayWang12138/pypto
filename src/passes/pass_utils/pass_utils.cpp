@@ -699,7 +699,7 @@ void SubfuncParam::InCastParamTy::Print(std::ostream &osm) const {
 }
 
 bool SubfuncParam::InCastParamTy::CompareParam(const SubfuncInvokeInfoTy::IncastParamPackTy &esgParam) const {
-    return (paramLoc == esgParam.paramLoc) && (symDDRId && esgParam.ddrId) && (shape == esgParam.shape) &&
+    return (paramLoc == esgParam.paramLoc) && (shape == esgParam.shape) &&
            (dataType == esgParam.dType);
 }
 
@@ -712,7 +712,7 @@ void SubfuncParam::OutCastParamTy::Print(std::ostream &osm) const {
 }
 
 bool SubfuncParam::OutCastParamTy::CompareParam(const SubfuncInvokeInfoTy::OutcastParamPackTy &esgParam) const {
-    return (paramLoc == esgParam.paramLoc) && (symDDRId == esgParam.ddrId) && (refCount == esgParam.refCount) &&
+    return (paramLoc == esgParam.paramLoc) && (refCount == esgParam.refCount) &&
            (shape == esgParam.shape) && (dataType == esgParam.dType);
 }
 
@@ -723,7 +723,7 @@ void SubfuncParam::TensorParamTy::Print(std::ostream &osm) const {
 }
 
 bool SubfuncParam::TensorParamTy::CompareParam(const SubfuncInvokeInfoTy::TensorParamPackTy &esgParam) const {
-    return (paramLoc == esgParam.paramLoc) && (symDDRId == esgParam.ddrId) &&
+    return (paramLoc == esgParam.paramLoc) &&
         (shape == esgParam.shape) && (dataType == esgParam.dType);
 }
 namespace {
