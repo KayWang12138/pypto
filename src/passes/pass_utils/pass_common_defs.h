@@ -17,13 +17,33 @@
 #define TILE_FWK_PASS_PASS_COMMON_DEFS_H_
 #include <vector>
 #include "interface/tensor/logical_tensor.h"
-namespace npu::tile_fwk {
+
+namespace npu {
+namespace tile_fwk {
 struct AssembleOp {
     MemoryType from;
     std::vector<int64_t> toOffset;
-    std::shared_ptr<LogicalTensor> input;
-    std::shared_ptr<LogicalTensor> output;
+    LogicalTensorPtr input;
+    LogicalTensorPtr output;
 };
-}  // namespace npu::tile_fwk
+
+struct ViewOp {
+    MemoryType toType;
+    std::vector<int64_t> fromOffset;
+    LogicalTensorPtr input;
+    LogicalTensorPtr output;
+};
+
+struct CopyInOutOp {
+    MemoryType from;
+    std::vector<OpImmediate> Offset;
+    std::vector<OpImmediate> shape;
+    std::vector<OpImmediate> rawShape;
+    std::vector<OpImmediate> fromDynValidShape;
+    LogicalTensorPtr input;
+    LogicalTensorPtr output;
+};
+}  // namespace tile_fwk
+}  // namespace npu
 
 #endif // TILE_FWK_PASS_PASS_COMMON_DEFS_H_

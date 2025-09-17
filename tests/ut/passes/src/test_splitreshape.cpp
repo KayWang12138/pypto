@@ -894,6 +894,8 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForBeCovered) {
     EXPECT_EQ(newAssemble->toOffset, offset1);
     EXPECT_EQ(newAssemble->input, input);
     EXPECT_EQ(newAssemble->output, newReshapeResource);
+    auto viewOpAttribute1 = dynamic_cast<ViewOpAttribute *>(view_op1.GetOpAttribute().get());
+    EXPECT_EQ(viewOpAttribute1->GetFromOffset(), view_offset1);
     auto viewOpAttribute2 = dynamic_cast<ViewOpAttribute *>(view_op2.GetOpAttribute().get());
     EXPECT_EQ(viewOpAttribute2->GetFromOffset(), view_offset2);
 }

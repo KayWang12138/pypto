@@ -15,6 +15,7 @@
 #include "convert_op_inserter.h"
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_config/pass_config_manager.h"
+#include "passes/pass_utils/graph_utils.h"
 
 namespace npu{
 namespace tile_fwk {
@@ -372,6 +373,7 @@ void ConvertInserter::CheckUnknown(Function &function) const {
 void ConvertInserter::InsertConvertOps(Function &function) {
     ALOG_INFO_F("============== Need to insert %d convert operations ==============", converts.size());
     for (auto &c : converts) {
+        GraphUtils::CopyDynStatus(c.output, c.input);
         auto &convertOp = function.AddRawOperation(Opcode::OP_CONVERT, {c.input}, {c.output});
         convertOp.SetOpAttribute(std::make_shared<ConvertOpAttribute>(c.from, c.to));
     }

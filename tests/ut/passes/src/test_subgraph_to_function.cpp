@@ -501,7 +501,8 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load)
         if (op.GetOpcode() == Opcode::OP_COPY_IN) {
             auto copyInOpAttr = std::dynamic_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
             EXPECT_NE(copyInOpAttr, nullptr);
-
+            auto outputDynShape = op.GetOOperands().front()->GetDynValidShape();
+            EXPECT_NE(outputDynShape.size(), 0);
         }
         if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
             auto copyOutOpAttr = std::dynamic_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());

@@ -15,6 +15,7 @@
 
 #include "pre_graph.h"
 #include "passes/pass_check/pre_graph_checker.h"
+#include "passes/pass_utils/graph_utils.h"
 
 namespace npu::tile_fwk {
 
@@ -382,9 +383,9 @@ void PreGraphProcess::InsertTemporaryCopyIn(Function &function, Operation &op) c
             if (input->GetProducers().size() == 0 && input->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
                 // insert Copy_In before the op
                 input->isSubGraphBoundary = false;
-                std::vector<std::shared_ptr<LogicalTensor>> operandGm;
-                std::shared_ptr<LogicalTensor> tensorGM =
-                    std::make_shared<LogicalTensor>(function, input->Datatype(), input->shape);
+                LogicalTensors operandGm;
+                LogicalTensorPtr tensorGM = std::make_shared<LogicalTensor>(function, input->Datatype(), input->shape);
+                GraphUtils::CopyDynStatus(tensorGM, input);
                 tensorGM->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
                 tensorGM->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
                 tensorGM->isSubGraphBoundary = true;
@@ -392,7 +393,7 @@ void PreGraphProcess::InsertTemporaryCopyIn(Function &function, Operation &op) c
                 operandGm.push_back(tensorGM);
                 function.GetTensorMap().Insert(tensorGM);
 
-                std::vector<std::shared_ptr<LogicalTensor>> operandUb;
+                LogicalTensors operandUb;
                 operandUb.push_back(input);
 
                 // add UB_Alloc && UB_COPY_IN

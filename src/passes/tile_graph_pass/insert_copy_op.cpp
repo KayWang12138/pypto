@@ -14,6 +14,7 @@
  */
 
 #include "insert_copy_op.h"
+#include "passes/pass_utils/graph_utils.h"
 
 using namespace npu::tile_fwk;
 
@@ -67,20 +68,13 @@ void InsertInterGraphCopy::SplitTensor(Function &function) {
 }
 void InsertInterGraphCopy::CreateCopyOp(Function &function) {
     for (auto &copy : copysToCreate) {
-        auto &copyOut = function.AddOperation(Opcode::OP_COPY_OUT, std::vector<std::shared_ptr<LogicalTensor>>({copy.input}), std::vector<std::shared_ptr<LogicalTensor>>({copy.ddr}));
-        copyOut.UpdateSubgraphID(copy.input->subGraphID);
-        copyOut.SetOpAttribute(std::make_shared<CopyOpAttribute>(copy.input->GetMemoryTypeOriginal(),
-            OpImmediate::Specified(std::vector<int64_t>(copy.input->shape.size(), 0)),
-            OpImmediate::Specified(copy.input->shape), OpImmediate::Specified(copy.output->tensor->GetDynRawShape())));
-        auto &copyIn = function.AddOperation(Opcode::OP_COPY_IN, std::vector<std::shared_ptr<LogicalTensor>>({copy.ddr}),
-            std::vector<std::shared_ptr<LogicalTensor>>({copy.output}));
-        copyIn.UpdateSubgraphID(copy.output->subGraphID);
-        copyIn.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-            OpImmediate::Specified(std::vector<int64_t>(copy.output->shape.size(), 0)),
-            copy.output->GetMemoryTypeOriginal(), OpImmediate::Specified(copy.output->shape),
-            OpImmediate::Specified(copy.input->tensor->GetDynRawShape()),
-            OpImmediate::Specified(copy.output->GetDynValidShape())));
-
+        CopyInOutOp copyOutOp = {copy.input->GetMemoryTypeOriginal(), OpImmediate::Specified(std::vector<int64_t>(copy.input->shape.size(), 0)),
+                                 OpImmediate::Specified(copy.input->shape), OpImmediate::Specified(copy.output->tensor->GetDynRawShape()), {}, copy.input, copy.ddr};
+        GraphUtils::AddCopyOutOperation(function, copyOutOp);
+        CopyInOutOp copyInOp = {copy.output->GetMemoryTypeOriginal(), OpImmediate::Specified(std::vector<int64_t>(copy.output->shape.size(), 0)), 
+                          OpImmediate::Specified(copy.output->shape), OpImmediate::Specified(copy.input->tensor->GetDynRawShape()),
+                          OpImmediate::Specified(copy.output->GetDynValidShape()), copy.ddr, copy.output};
+        GraphUtils::AddCopyInOperation(function, copyInOp);
         if (copy.usedOp) {
             copy.usedOp->ReplaceInput(copy.output, copy.input);
         }

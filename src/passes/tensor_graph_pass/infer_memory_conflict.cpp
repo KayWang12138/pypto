@@ -15,6 +15,7 @@
 
 #include "infer_memory_conflict.h"
 #include <queue>
+#include "passes/pass_utils/graph_utils.h"
 
 namespace npu {
 namespace tile_fwk {
@@ -169,7 +170,8 @@ Status InferMemoryConflict::InsertTensorCopy(Function &function) {
                 std::make_shared<RawTensor>(assembleInput->Datatype(), assembleInput->tensor->GetRawShape());
             std::shared_ptr<LogicalTensor> newTensor = std::make_shared<LogicalTensor>(function, newRawTensor,
                 assembleInput->GetOffset(), assembleInput->GetShape(), assembleInput->GetDynValidShape());
-            auto &tensorCopyOp = function.AddRawOperation(Opcode::OP_REGISTER_COPY, {assembleInput}, {newTensor});
+            GraphUtils::CopyDynStatus(newTensor, assembleInput);
+            auto &tensorCopyOp = GraphUtils::AddDynRawOperation(function, Opcode::OP_REGISTER_COPY, {assembleInput}, {newTensor});
 
             /* Assemble 的前置op 为Reshape/NOP 时，需要从该op上获取tile shape */
             if ((producerParentOp->GetOpcode() == Opcode::OP_RESHAPE) ||

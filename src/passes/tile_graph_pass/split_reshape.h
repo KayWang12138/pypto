@@ -162,7 +162,7 @@ private:
     Status ProcessOnetoOne(Function &function, Operation &op, const CalcOverlapPara &para);
     Status ProcessBeCovered(Function &function, Operation &op, const BeCoveredPara &para);
     Status ProcessOnetoMulti(Function &function, Operation &op, const CalcOverlapPara &para);
-    Status ProcessPerfectlyMatchWithAll(Operation &op, const PerfectlyMatchWithAllPara &para);
+    Status ProcessPerfectlyMatchWithAll(Function &function, Operation &op, const PerfectlyMatchWithAllPara &para);
     Status UpdateForPerfectlyMatchWithAll(Function &function, Operation &op, const CalcOverlapPara &para, const ReshapeSourcePara &sourcePara);
     Status ProcessMultitoOne(Function &function, Operation &op, const CalcOverlapPara &para);
 
@@ -173,7 +173,7 @@ private:
     std::vector<int64_t> ObtainMapOffset(const LogicalTensorPtr &input, const LogicalTensorPtr &output) const;
 
     Status AddAssembleOp(const MemoryType &memoryType, const std::vector<int64_t> &outputOffset, const LogicalTensorPtr &input, const LogicalTensorPtr &output);
-    Status SetAssembleDynShape(const LogicalTensorPtr &input, const LogicalTensorPtr &output, const std::vector<int64_t> &toOffset);
+    Status GetAssembleDynShape(const LogicalTensorPtr &input, const LogicalTensorPtr &output, const std::vector<int64_t> &toOffset, std::vector<SymbolicScalar> &dynValidShape);
     Status GetReshapeDynShape(const std::shared_ptr<ReshapeOp> &op, std::vector<SymbolicScalar> &dynValidShape);
     Status GroupReshapeOffset(const std::shared_ptr<ReshapeOp> &isAddReshapeop, const std::vector<int64_t> &offset);
     Status UpdateDynShape(const std::shared_ptr<ReshapeOp> &reshapeOp, const std::vector<int64_t> &offset, const std::vector<SymbolicScalar> &dynShape);

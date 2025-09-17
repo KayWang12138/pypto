@@ -22,6 +22,7 @@
 #include "interface/program/program.h"
 #include "passes/pass_utils/parallel_tool.h"
 #include "passes/pass_check/subgraph_to_function_checker.h"
+#include "passes/pass_utils/graph_utils.h"
 
 namespace npu::tile_fwk {
 
@@ -653,6 +654,7 @@ void SubgraphToFunction::GetTensorDataDependencyInsert(Function &function) {
             if (getTensorDataIOType == GET_TENSOR_DATA_OPERAND_IOTYPE_INCAST) {
                 copyInSourceTensor = function.GetIncast()[getTensorDataIOTypeIndex];
                 copyInTensor = std::make_shared<LogicalTensor>(function, copyInSourceTensor->Datatype(), copyInSourceTensor->GetShape());
+                GraphUtils::CopyDynStatus(copyInTensor, copyInSourceTensor);
                 std::vector<OpImmediate> copyInOffset(OpImmediate::Specified(std::vector<int64_t>(copyInTensor->GetShape().size(), 0)));
                 std::vector<OpImmediate> copyInShape(OpImmediate::Specified(copyInTensor->GetShape()));
                 std::vector<OpImmediate> copyInRawShape(OpImmediate::Specified(copyInTensor->GetShape()));
@@ -663,6 +665,7 @@ void SubgraphToFunction::GetTensorDataDependencyInsert(Function &function) {
                 auto outcastAttr = std::static_pointer_cast<CopyOpAttribute>(outcastDesc.copyout->GetOpAttribute());
                 copyInSourceTensor = outcastDesc.outcast;
                 copyInTensor = std::make_shared<LogicalTensor>(function, outcastDesc.outcast->Datatype(), outcastDesc.outcast->GetShape());
+                GraphUtils::CopyDynStatus(copyInTensor, copyInSourceTensor);
                 copyInAttr = std::make_shared<CopyOpAttribute>(outcastAttr->GetToOffset(), MemoryType::MEM_UB, outcastAttr->GetShape(), outcastAttr->GetRawShape());
             } else {
                 // Impossible

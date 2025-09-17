@@ -14,6 +14,7 @@
  */
 
 #include "remove_unaligned_reshape_op.h"
+#include "passes/pass_utils/graph_utils.h"
 
 namespace npu::tile_fwk {
 /*
@@ -27,6 +28,7 @@ Status RemoveUnalignedReshape::RunOnFunction(Function &function) {
     ALOG_INFO_F("===> start RemoveUnalignedReshape");
     CollectReshapeOps(function);
     for (auto &a : copyOuts) {
+        GraphUtils::CopyDynStatus(a.output, a.input);
         auto &newCopyOut = function.AddRawOperation(Opcode::OP_COPY_OUT, {a.input}, {a.output});
         newCopyOut.SetOpAttribute(std::make_shared<CopyOpAttribute>(a.from, OpImmediate::Specified(a.toOffset),
             OpImmediate::Specified(newCopyOut.iOperand.front()->oriShape),
@@ -36,6 +38,7 @@ Status RemoveUnalignedReshape::RunOnFunction(Function &function) {
             a.input->magic, a.output->magic);
     }
     for (auto &b : copyIns) {
+        GraphUtils::CopyDynStatus(b.input, b.output);
         auto &newCopyIn = function.AddRawOperation(Opcode::OP_COPY_IN, {b.input}, {b.output});
         newCopyIn.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(b.fromOffset), b.to,
             OpImmediate::Specified(newCopyIn.oOperand.front()->oriShape),

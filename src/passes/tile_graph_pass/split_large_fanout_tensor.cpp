@@ -14,6 +14,7 @@
  */
 
 #include "passes/tile_graph_pass/split_large_fanout_tensor.h"
+#include "passes/pass_utils/graph_utils.h"
 
 namespace npu::tile_fwk {
 Status SplitLargeFanoutTensor::RunOnFunction(Function &function) {
@@ -22,12 +23,9 @@ Status SplitLargeFanoutTensor::RunOnFunction(Function &function) {
     assembles.clear();
     CollectCopyOut(function);
     CompareWithCopyIn(function);
-
     for (auto &a : assembles) {
-        auto &newCopyOut = function.AddOperation(Opcode::OP_ASSEMBLE, {a.input}, {a.output});
-        newCopyOut.SetOpAttribute(std::make_shared<AssembleOpAttribute>(a.from, a.toOffset));
+        GraphUtils::AddAssembleOperation(function, a);
     }
-
     EraseRedundantCopyOut(function);
     EraseRedundantCopyIn(function);
     if (DeadOperationEliminator::EliminateDeadOperation(function) != SUCCESS) {
@@ -89,6 +87,7 @@ void SplitLargeFanoutTensor::RecordMatched(Function &function, Operation &op,
             newInput->SetMemoryTypeBoth(input->GetMemoryTypeOriginal());
             assembles.emplace_back(AssembleOp{overlap->GetMemoryTypeOriginal(), newOffset, overlap, newInput});
             viewOpAttribute->SetFromOffset(newOffset);
+            GraphUtils::UpdateViewAttr(function, op);
             op.ReplaceInput(newInput, input);
             break;
         }
@@ -99,9 +98,9 @@ void SplitLargeFanoutTensor::RecordMatched(Function &function, Operation &op,
             if (newInput == nullptr) { break; }
             newInput->SetMemoryTypeBoth(input->GetMemoryTypeOriginal());
             assembles.emplace_back(AssembleOp{overlap->GetMemoryTypeOriginal(), newOffset, overlap, newInput});
-            std::transform(fromOffset.begin(), fromOffset.end(), matchedTensors.front()->offset.begin(),
-                newOffset.begin(), [](int a, int b) { return a - b; });
+            std::transform(fromOffset.begin(), fromOffset.end(), matchedTensors.front()->offset.begin(), newOffset.begin(), [](int a, int b) { return a - b; });
             viewOpAttribute->SetFromOffset(newOffset);
+            GraphUtils::UpdateViewAttr(function, op);
             op.ReplaceInput(newInput, input);
             break;
         }
@@ -116,10 +115,10 @@ void SplitLargeFanoutTensor::RecordMatched(Function &function, Operation &op,
                 for (size_t j = 0; j < newAssembleOffset.size(); ++j) {
                     newAssembleOffset[j] -= fromOffset[j];
                 }
-                assembles.emplace_back(
-                    AssembleOp{overlap->GetMemoryTypeOriginal(), newAssembleOffset, overlap, newInput});
+                assembles.emplace_back(AssembleOp{overlap->GetMemoryTypeOriginal(), newAssembleOffset, overlap, newInput});
             }
             viewOpAttribute->SetFromOffset(newOffset);
+            GraphUtils::UpdateViewAttr(function, op);
             op.ReplaceInput(newInput, input);
             break;
         }
@@ -342,6 +341,7 @@ void SplitLargeFanoutTensor::EraseRedundantCopyIn(Function &function) {
                 return true;
             });
         if (allChildrenView) {
+            GraphUtils::UpdateViewAttr(function, op);
             for (auto &consumer : consumers) {
                 UpdateForRedundantView(op, *consumer);
             }

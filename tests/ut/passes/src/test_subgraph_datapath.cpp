@@ -84,7 +84,8 @@ enum TestTensorType {
 LogicalTensorPtr CreateTestTensor(std::shared_ptr<Function> function, int& rawMagic,
     TestTensorType tensorType=TT_FUNC_NONE, MemoryType memoryType=MEM_UB) {
     std::vector<int64_t> shape = {16, 16};
-    LogicalTensorPtr tensor = std::make_shared<LogicalTensor>(*function, DT_FP32, shape);
+    std::vector<SymbolicScalar> symShape = {16, 16};
+    LogicalTensorPtr tensor = std::make_shared<LogicalTensor>(*function, DT_FP32, shape, symShape);
     tensor->memoryTypeOriginal_ = memoryType;
     tensor->memoryTypeToBe_ = memoryType;
     tensor->tensor->rawmagic = rawMagic++;

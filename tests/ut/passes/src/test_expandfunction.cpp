@@ -122,7 +122,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest1) {
 
 /*
 TESTExpandFunctionNOP
-inCast{8,16}->pad->ubTensor1{8,16}->nop->ubTensor2{8,16}->view->outCast{1,8,16}
+inCast{8,16}->pad->ubTensor1{8,16}->nop->ubTensor2{8,16}->view->outCast{8,16}
 pad is removed
 */
 TEST_F(TestExpandFunctionPass, ExpandFunctionUTest2) {
@@ -130,12 +130,11 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest2) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int64_t> shape1 = {kNumEight, kNumExpFour};
-    std::vector<int64_t> shape2 = {kNumOne, kNumEight, kNumExpFour};
-    auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
-    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
-    auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
-    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    std::vector<int64_t> shape = {kNumEight, kNumExpFour};
+    auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
 
     auto op_attr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{kNumZero, kNumZero});
     auto& pad_op = currFunctionPtr->AddOperation(Opcode::OP_PAD, {inCast}, {ubTensor1});

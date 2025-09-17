@@ -62,6 +62,7 @@ public:
     // [16, 16] --> View --> [8, 8] --> Sub --> [8, 8] --> Assemble --> [16, 16]
     void TileExpandSub(ComputationalGraphBuilder &G, const int N, const int T) {
         std::vector<int64_t> tileShape{T, T};
+        std::vector<SymbolicScalar> dynShape{SymbolicScalar("a"), T};
         for (int i = 0; i < N; i++) {
             for (int j = 0; j < N; j++) {
                 std::vector<int64_t> offset = {i * T, j * T};
@@ -89,6 +90,7 @@ public:
                 G.AddOp(Opcode::OP_SUB, {localA, localB}, {localSubOut}, "Sub_" + std::to_string(i * N + j));
                 auto tensorSubOut = G.GetTensor(localSubOut);
                 tensorSubOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+                tensorSubOut->UpdateDynValidShape(dynShape);
 
                 G.AddOp(Opcode::OP_ASSEMBLE, {localSubOut}, {"sub_out"}, "Assemble_" + std::to_string(i * N + j));
                 auto attrAssemble = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, offset);
@@ -100,6 +102,7 @@ public:
 };
 
 TEST_F(SplitLargeFanoutTensorTest, BeCovered_Full) {
+    int NUM_2 = 2;
     int NUM_32 = 32;
     int NUM_64 = 64;
     int NUM_128 = 128;
@@ -117,11 +120,14 @@ TEST_F(SplitLargeFanoutTensorTest, BeCovered_Full) {
     ComputationalGraphBuilder G;
 
     // [128, 512] --> View(64, 0) --> [32, 512]
+    std::vector<SymbolicScalar> dynShapeA = {SymbolicScalar("a"), NUM_512};
     G.AddTensor(DataType::DT_FP32, shape1, "a"); // [128, 512]
     auto a = G.GetTensor("a");
+    a->UpdateDynValidShape(dynShapeA);
     a->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
     G.AddTensor(DataType::DT_FP32, tiledShape1, "tiledA"); // [32, 512]
     auto tiledA = G.GetTensor("tiledA");
+    tiledA->UpdateDynValidShape(dynShapeA);
     tiledA->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
     G.AddOp(Opcode::OP_VIEW, {"a"}, {"tiledA"}, "View_A");
     auto View_A =  G.GetOp("View_A");
@@ -130,11 +136,14 @@ TEST_F(SplitLargeFanoutTensorTest, BeCovered_Full) {
     View_A->SetOpAttribute(attrA);
 
     // [128, 64] --> View(64, 0) --> [32, 64]
+    std::vector<SymbolicScalar> dynShapeB = {SymbolicScalar("a"), NUM_64};
     G.AddTensor(DataType::DT_FP32, shape0, "b"); // [128, 64]
     auto b = G.GetTensor("b");
+    b->UpdateDynValidShape(dynShapeB);
     b->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
     G.AddTensor(DataType::DT_FP32, tiledShape0, "tiledB"); // [32, 64]
     auto tiledB = G.GetTensor("tiledB");
+    tiledB->UpdateDynValidShape(dynShapeB);
     tiledB->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
     G.AddOp(Opcode::OP_VIEW, {"b"}, {"tiledB"}, "View_B");
     auto View_B =  G.GetOp("View_B");
@@ -281,7 +290,16 @@ TEST_F(SplitLargeFanoutTensorTest, BeCovered_Full) {
         EXPECT_NE(viewOpToUbBfore.find(op.GetOpMagic()), viewOpToUbBfore.end());
         auto oldOffset = viewOpToUbBfore.at(op.GetOpMagic());
         auto newOffset = viewAttr->GetFromOffset();
+        auto newDynOffset = viewAttr->GetFromDynOffset();
+        EXPECT_EQ(newOffset.size(), NUM_2);
         EXPECT_EQ(newOffset[0], NUM_64);
+        EXPECT_EQ(newDynOffset.size(), NUM_2);
+        EXPECT_EQ(newDynOffset[0].Concrete(), NUM_64);
+
+        auto input = op.GetIOperands().front();
+        auto inputDynShape = input->GetDynValidShape();
+        EXPECT_EQ(inputDynShape.size(), NUM_2);
+        EXPECT_EQ(inputDynShape[0].Dump(), "a");
     }
 }
 
@@ -371,6 +389,7 @@ TEST_F(SplitLargeFanoutTensorTest, Unmatched) {
 }
 
 TEST_F(SplitLargeFanoutTensorTest, PerfectlyMatchWithAll_Full) {
+    int NUM_2 = 2;
     int N = 2;
     int T = 8;
     std::vector<int64_t> shape0{N * T, N * T};
@@ -407,10 +426,12 @@ TEST_F(SplitLargeFanoutTensorTest, PerfectlyMatchWithAll_Full) {
     View_UR->SetOpAttribute(attrUR);
 
     // 左半边 [16, 8] + 右半边 [16, 8]
+    std::vector<SymbolicScalar> subDynShape = {SymbolicScalar("a"), T};
     G.AddTensor(DataType::DT_FP32, shape2, "add_out");
     G.AddOp(Opcode::OP_ADD, {"sub_out_right", "sub_out_left"}, {"add_out"}, "Add");
     auto addOut = G.GetTensor("add_out");
     addOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    addOut->UpdateDynValidShape(subDynShape);
 
     G.AddOp(Opcode::OP_ASSEMBLE, {"add_out"}, {"out"}, "Assemble_final");
     auto attrAssembleFinal = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, std::vector<int64_t> {0, 0});
@@ -422,7 +443,7 @@ TEST_F(SplitLargeFanoutTensorTest, PerfectlyMatchWithAll_Full) {
     auto b = G.GetTensor("b");
     b->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
     auto out = G.GetTensor("out");
-    out->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    out->UpdateDynValidShape(subDynShape);
 
     G.SetInCast({"a", "b"});
     G.SetOutCast({"out"});
@@ -471,6 +492,12 @@ TEST_F(SplitLargeFanoutTensorTest, PerfectlyMatchWithAll_Full) {
             auto viewAttr = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
             auto offset = viewAttr->GetFromOffset();
             EXPECT_EQ(accumulate(offset.begin(), offset.end(), 0), 0) << "OP_VIEW offset should be all zero";
+            auto dynOffset = viewAttr->GetFromDynOffset();
+            EXPECT_EQ(dynOffset.size(), 0);
+            auto input = op.GetIOperands().front();
+            auto inputDynShape = input->GetDynValidShape();
+            EXPECT_EQ(inputDynShape.size(), NUM_2);
+            EXPECT_EQ(inputDynShape[0].Dump(), "RUNTIME_Max(RUNTIME_Max(0, ((a+8)*(a!=0))), (a*(a!=0)))");
         }
     }
 }

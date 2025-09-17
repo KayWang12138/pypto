@@ -14,6 +14,7 @@
  */
 
 #include <unordered_set>
+#include "passes/pass_utils/graph_utils.h"
 #include "intra_subgraph_adapter.h"
 
 using namespace npu::tile_fwk;
@@ -206,6 +207,7 @@ LogicalTensorPtr IntraSubgraphAdapter::InsertOpBetween(Function &function, Opcod
     ASSERT(opcode == Opcode::OP_VIEW || opcode == Opcode::OP_ASSEMBLE);
     LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(function, tensor->GetRawTensor(),
         tensor->GetOffset(), tensor->GetShape());
+    GraphUtils::CopyDynStatus(newTensor, tensor);
     newTensor->SetMemoryTypeBoth(tensor->GetMemoryTypeOriginal(), true);
     function.GetTensorMap().Insert(newTensor, false);
     op->ReplaceOutputOperand(tensor, newTensor);
@@ -219,7 +221,6 @@ LogicalTensorPtr IntraSubgraphAdapter::InsertOpBetween(Function &function, Opcod
         newOp->SetOpAttribute(std::make_shared<ViewOpAttribute>(offset, newTensor->GetMemoryTypeToBe()));
     }
     newOp->UpdateSubgraphID(op->GetSubgraphID());
-
     newTensor->AddProducer(op);
     newTensor->AddConsumer(newOp);
     tensor->RemoveProducer(op);
@@ -236,6 +237,7 @@ LogicalTensorPtr IntraSubgraphAdapter::InsertOpBetween(Function &function, Opcod
     ASSERT(opcode == Opcode::OP_VIEW || opcode == Opcode::OP_ASSEMBLE);
     LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(function, tensor->GetRawTensor(),
         tensor->GetOffset(), tensor->GetShape());
+    GraphUtils::CopyDynStatus(newTensor, tensor);
     newTensor->SetMemoryTypeBoth(tensor->GetMemoryTypeOriginal(), true);
     function.GetTensorMap().Insert(newTensor, false);
 
@@ -256,7 +258,6 @@ LogicalTensorPtr IntraSubgraphAdapter::InsertOpBetween(Function &function, Opcod
     } else {
         newOp->UpdateSubgraphID(newOpSubgraphID);
     }
-
     newTensor->AddProducer(newOp);
     for (Operation* op : ops) {
         newTensor->AddConsumer(op);

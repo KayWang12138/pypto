@@ -15,7 +15,7 @@
 
 #include "split_reshape.h"
 #include "interface/tensor/logical_tensor.h"
-#include "interface/operation/op_infer_shape_impl.h"
+#include "passes/pass_utils/graph_utils.h"
 
 namespace npu::tile_fwk {
 namespace {
@@ -620,6 +620,7 @@ Status SplitReshape::ProcessPerfectlyMatch(Function &function, Operation &op, co
     if (existOp != nullptr) {
         op.ReplaceInput(existOp->output, input);
         viewOpAttribute->SetFromOffset(existOp->output->offset);
+        GraphUtils::UpdateViewAttr(function, op);
         if (UpdateDynShape(existOp, existOp->output->offset, para.viewDynShape) != SUCCESS || 
             GroupReshapeOffset(existOp, existOp->output->offset) != SUCCESS) {
             ALOG_ERROR_F("UpdateDynShape or GroupReshapeOffset failed.");
@@ -633,6 +634,7 @@ Status SplitReshape::ProcessPerfectlyMatch(Function &function, Operation &op, co
     }
     op.ReplaceInput(reshapeOutput, input);
     viewOpAttribute->SetFromOffset(reshapeOutput->offset);
+    GraphUtils::UpdateViewAttr(function, op);
     if (UpdateDynShape(isAddReshapeOp, reshapeOutput->offset, para.viewDynShape) != SUCCESS || 
         GroupReshapeOffset(isAddReshapeOp, reshapeOutput->offset) != SUCCESS) {
         ALOG_ERROR_F("UpdateDynShape or GroupReshapeOffset failed.");
@@ -699,6 +701,7 @@ Status SplitReshape::ProcessBeCovered(Function &function, Operation &op, const B
     auto isAddReshapeOp = std::make_shared<ReshapeOp>(newReshapeSource, reshapeOutput);
     auto existOp = ReshapeOperationExist(isAddReshapeOp);
     viewOpAttribute->SetFromOffset(newOffset);
+    GraphUtils::UpdateViewAttr(function, op);
     if (existOp != nullptr) {
         op.ReplaceInput(existOp->output, input);
         if (UpdateDynShape(existOp, newOffset, para.viewDynShape) != SUCCESS || 
@@ -780,7 +783,7 @@ Status SplitReshape::ProcessOnetoMulti(Function &function, Operation &op, const 
     return SUCCESS;
 }
 
-Status SplitReshape::ProcessPerfectlyMatchWithAll(Operation &op, const PerfectlyMatchWithAllPara &para) {
+Status SplitReshape::ProcessPerfectlyMatchWithAll(Function &function, Operation &op, const PerfectlyMatchWithAllPara &para) {
     auto input = para.input;
     auto reshapeOutput = para.reshapeOutput;
     auto newReshapeSource = para.newReshapeSource;
@@ -798,10 +801,12 @@ Status SplitReshape::ProcessPerfectlyMatchWithAll(Operation &op, const Perfectly
         }
         op.ReplaceInput(existOp->output, input);
         viewOpAttribute->SetFromOffset(existOp->output->offset);
+        GraphUtils::UpdateViewAttr(function, op);
         return SUCCESS;
     }
     op.ReplaceInput(reshapeOutput, input);
     viewOpAttribute->SetFromOffset(reshapeOutput->offset);
+    GraphUtils::UpdateViewAttr(function, op);
     if (UpdateDynShape(isAddReshapeOp, reshapeOutput->offset, para.viewDynShape) != SUCCESS || 
         GroupReshapeOffset(isAddReshapeOp, reshapeOutput->offset) != SUCCESS) {
         return FAILED;
@@ -854,7 +859,7 @@ Status SplitReshape::UpdateForPerfectlyMatchWithAll(Function &function, Operatio
         }
     }
     PerfectlyMatchWithAllPara perfectlyMatchwithAllPara = {input, output, overlaps.front(), reshapeOutput, newReshapeSource, para.oriViewDynShape};
-    if (ProcessPerfectlyMatchWithAll(op, perfectlyMatchwithAllPara) != SUCCESS) {
+    if (ProcessPerfectlyMatchWithAll(function, op, perfectlyMatchwithAllPara) != SUCCESS) {
         ALOG_ERROR_F("Process ProcessPerfectlyMatchWithAll failed.");
         return FAILED;
     }
@@ -1017,7 +1022,7 @@ Status SplitReshape::CheckCopyIn(Function &function) {
     return SUCCESS;
 }
 
-Status SplitReshape::SetAssembleDynShape(const LogicalTensorPtr &input, const LogicalTensorPtr &output, const std::vector<int64_t> &toOffset) {
+Status SplitReshape::GetAssembleDynShape(const LogicalTensorPtr &input, const LogicalTensorPtr &output, const std::vector<int64_t> &toOffset, std::vector<SymbolicScalar> &dynValidShape) {
     auto iter = reshapeOffset.find(output);
     if (iter == reshapeOffset.end()) {
         ALOG_ERROR_F("Cannot find output from reshapeOffset!");
@@ -1028,17 +1033,15 @@ Status SplitReshape::SetAssembleDynShape(const LogicalTensorPtr &input, const Lo
     if (dynInputShape.empty()) {
         return SUCCESS;
     }
-    std::vector<SymbolicScalar> dynOutShape = output->GetDynValidShape();
-    if (dynOutShape.empty()) {
+    dynValidShape = output->GetDynValidShape();
+    if (dynValidShape.empty()) {
         for (size_t i = 0; i < dynInputShape.size(); ++i) {
-            dynOutShape.push_back(SymbolicScalar(0));
+            dynValidShape.push_back(SymbolicScalar(0));
         }
     }
-    std::vector<SymbolicScalar> outShape;
-    for (size_t i = 0U; i < dynOutShape.size(); i++) {
-        dynOutShape[i] = std::max(dynOutShape[i], (dynInputShape[i] + (toOffset[i] - upperleftIdx[i])) * (dynInputShape[i] != 0));
+    for (size_t i = 0U; i < dynValidShape.size(); i++) {
+        dynValidShape[i] = std::max(dynValidShape[i], (dynInputShape[i] + (toOffset[i] - upperleftIdx[i])) * (dynInputShape[i] != 0));
     }
-    output->UpdateDynValidShape(dynOutShape);
     return SUCCESS;
 }
 
@@ -1090,26 +1093,22 @@ Status SplitReshape::GetReshapeDynShape(const std::shared_ptr<ReshapeOp> &op, st
 }
 
 Status SplitReshape::AddOperation(Function &function) {
+    std::vector<SymbolicScalar> dynValidShape;
     for (auto &a : assembles) {
-        auto &newCopyOut = function.AddOperation(Opcode::OP_ASSEMBLE, {a.input}, {a.output});
-        if (SetAssembleDynShape(a.input, a.output, a.toOffset) != SUCCESS) {
+        dynValidShape.clear();
+        if (GetAssembleDynShape(a.input, a.output, a.toOffset, dynValidShape) != SUCCESS) {
             return FAILED;
         }
-        auto assembleOpAttribute = std::make_shared<AssembleOpAttribute>(a.from, a.toOffset);
-        auto fromValidShape = a.input->GetDynValidShape();
-        assembleOpAttribute->SetFromDynValidShape(fromValidShape);
-        newCopyOut.SetOpAttribute(assembleOpAttribute);
+        auto &newCopyOut = GraphUtils::AddAssembleOperation(function, a, {dynValidShape});
         ALOG_INFO_F("ADD OP_ASSEMBLE, magic %d ,IOperand tensor magic %d OOperand tensor magic %d, dynValidShape %s", newCopyOut.opmagic,
             a.input->GetMagic(), a.output->GetMagic(), GetStr(a.output->GetDynValidShape()).c_str());
     }
     for (auto &b : reshapes) {
-        auto &newReshape = function.AddOperation(Opcode::OP_RESHAPE, {b.second->input}, {b.second->output});
-        std::vector<SymbolicScalar> dynValidShape;
+        dynValidShape.clear();
         if (GetReshapeDynShape(b.second, dynValidShape) != SUCCESS) {
             return FAILED;
         }
-        newReshape.SetAttribute(OP_ATTR_PREFIX + "validShape", dynValidShape);
-        b.second->output->UpdateDynValidShape(dynValidShape);
+        auto &newReshape = GraphUtils::AddReshapeOperation(function, b.second->input, b.second->output, dynValidShape);
         ALOG_INFO_F("ADD OP_RESHAPE, magic %d ,IOperand tensor magic %d OOperand tensor magic %d, dynValidShape %s", newReshape.opmagic,
             b.second->input->GetMagic(), b.second->output->GetMagic(), GetStr(b.second->output->GetDynValidShape()).c_str());
     }
