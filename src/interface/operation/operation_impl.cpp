@@ -3635,8 +3635,8 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
             break;
         }
         default: {
-            ASLOGE("OpCode is %d", static_cast<int>(opCode));
-            ASSERT(false) << "unsupported now";
+            ASLOGE("Unsupported opcode %d, opmagic is %d", static_cast<int>(opCode), op.GetOpMagic());
+            ASSERT(false) << "Unsupported opcode " << static_cast<int>(opCode) << ", opmagic is " << op.GetOpMagic();
         }
     }
 }
