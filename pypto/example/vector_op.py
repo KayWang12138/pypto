@@ -16,9 +16,6 @@ Confirm same output as `vector_add` in `cpp_reference`
 """
 
 import pto
-from utils import pto_function, view, assemble
-pto.view = view
-pto.assemble = assemble
 
 GRAPH_T = pto.graph_type.TENSOR_GRAPH
 FUNC_T = pto.function_type.STATIC
@@ -31,7 +28,7 @@ def vector_add():
     b = pto.tensor(dtype, shape, "B")
     c = None
 
-    with pto_function("ADD", GRAPH_T, FUNC_T, a, b):
+    with pto.pto_function("ADD", GRAPH_T, FUNC_T, a, b):
         pto.set_vec_tile_shapes(32, 1, 16, 32)
         c = pto.add(a, b)
 
@@ -45,7 +42,7 @@ def vector_sub():
     b = pto.tensor(dtype, shape, "B")
     c = None
 
-    with pto_function("SUB", GRAPH_T, FUNC_T, a, b):
+    with pto.pto_function("SUB", GRAPH_T, FUNC_T, a, b):
         pto.set_vec_tile_shapes(32, 1, 16, 32)
         c = pto.sub(a, b)
 
@@ -59,7 +56,7 @@ def vector_mul():
     b = pto.tensor(dtype, shape, "B")
     c = None
 
-    with pto_function("MUL", GRAPH_T, FUNC_T, a, b):
+    with pto.pto_function("MUL", GRAPH_T, FUNC_T, a, b):
         pto.set_vec_tile_shapes(32, 1, 16, 32)
         c = pto.mul(a, b)
 
@@ -73,7 +70,7 @@ def vector_div():
     b = pto.tensor(dtype, shape, "B")
     c = None
 
-    with pto_function("DIV", GRAPH_T, FUNC_T, a, b):
+    with pto.pto_function("DIV", GRAPH_T, FUNC_T, a, b):
         pto.set_vec_tile_shapes(32, 1, 16, 32)
         c = pto.div(a, b)
 
@@ -87,7 +84,7 @@ def vector_view():
     b = pto.tensor(dtype, shape, "B")
     c = None
 
-    with pto_function("VIEW", GRAPH_T, FUNC_T, a, b):
+    with pto.pto_function("VIEW", GRAPH_T, FUNC_T, a, b):
         pto.set_vec_tile_shapes(32, 1, 16, 32)
         pto.set_cube_tile_shapes((16, 16), (16, 16), (16, 16))
         print("vec tile shapes:", pto.get_vec_tile_shapes())
@@ -105,7 +102,7 @@ def vector_cast_exp():
     a = pto.tensor(dtype, shape, "A")
     b = None
 
-    with pto_function("exp", GRAPH_T, FUNC_T, a):
+    with pto.pto_function("exp", GRAPH_T, FUNC_T, a):
         pto.set_vec_tile_shapes(32, 1, 16, 32)
         b = pto.cast(pto.exp(a), pto.DataType.DT_FP16, pto.cast_mode.CAST_FLOOR)
 
@@ -145,7 +142,7 @@ def vector_element():
     d = pto.tensor(dtype, shape, "D")
     e = None
     f = None
-    with pto_function("ELEMENT", GRAPH_T, FUNC_T, d):
+    with pto.pto_function("ELEMENT", GRAPH_T, FUNC_T, d):
         pto.set_vec_tile_shapes(32, 1, 16, 32)
         e = pto.add_s(d, a)  # add element to tensor
         f = pto.mul_s(d, a)
@@ -160,7 +157,7 @@ def vector_maximum():
     b = pto.tensor(dtype, shape, "B")
     c = None
 
-    with pto_function("MAXIMUM", GRAPH_T, FUNC_T, a, b):
+    with pto.pto_function("MAXIMUM", GRAPH_T, FUNC_T, a, b):
         pto.set_vec_tile_shapes(32, 1, 16, 32)
         c = pto.maximum(a, b)
 
@@ -175,7 +172,7 @@ def vector_row_sum_single():
     a = pto.tensor(dtype, shape, "A")
     b = None
 
-    with pto_function("ROW_SUM_SINGLE", GRAPH_T, FUNC_T, a):
+    with pto.pto_function("ROW_SUM_SINGLE", GRAPH_T, FUNC_T, a):
         pto.set_vec_tile_shapes(32, 1, 16, 32)
         b = pto.row_sum_single(a)
 
@@ -190,7 +187,7 @@ def vector_row_max_single():
     a = pto.tensor(dtype, shape, "A")
     b = None
 
-    with pto_function("ROW_MAX_SINGLE", GRAPH_T, FUNC_T, a):
+    with pto.pto_function("ROW_MAX_SINGLE", GRAPH_T, FUNC_T, a):
         pto.set_vec_tile_shapes(32, 1, 16, 32)
         b = pto.row_max_single(a)
 
@@ -205,7 +202,7 @@ def vector_rms_norm():
     a = pto.tensor(dtype, shape, "A")
     b = None
 
-    with pto_function("RMS_NORM", GRAPH_T, FUNC_T, a):
+    with pto.pto_function("RMS_NORM", GRAPH_T, FUNC_T, a):
         pto.set_vec_tile_shapes(16, 1, 16, 16)
         b = pto.rms_norm(a)
 
@@ -220,7 +217,7 @@ def vector_reciprocal():
     a = pto.tensor(dtype, shape, "A")
     b = None
 
-    with pto_function("RECIPROCAL", GRAPH_T, FUNC_T, a):
+    with pto.pto_function("RECIPROCAL", GRAPH_T, FUNC_T, a):
         pto.set_vec_tile_shapes(32, 1, 16, 32)
         b = pto.reciprocal(pto.transpose(a, [2, 3]))
 
@@ -236,10 +233,10 @@ def vector_assemble():
     tensor = pto.tensor(dtype, shape, "tensor")
     c = None
 
-    assemble_input = [(tensor, offsets)]
-
-    with pto_function("ASSEMBLE", GRAPH_T, FUNC_T, tensor):
+    with pto.pto_function("ASSEMBLE", GRAPH_T, FUNC_T, tensor):
         pto.set_vec_tile_shapes(128, 128)
+        new_tensor = pto.add_s(tensor, pto.element(dtype, 1.0))
+        assemble_input = [(new_tensor, offsets)]
         c = pto.assemble(assemble_input)
 
     assert isinstance(c, pto.tensor)

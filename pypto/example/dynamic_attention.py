@@ -15,19 +15,6 @@ from typing import List
 import logging
 import math
 import pto
-from utils import (
-    dyn_function, loop_function, record_if_branch, loop_range, 
-    view, assemble, reshape, is_loop_begin, is_loop_end
-)
-pto.dyn_function = dyn_function
-pto.loop_function = loop_function
-pto.cond = record_if_branch
-pto.loop_range = loop_range
-pto.view = view
-pto.assemble = assemble
-pto.reshape = reshape
-pto.is_loop_begin = is_loop_begin
-pto.is_loop_end = is_loop_end
 
 # RuntimeConfig KEYS
 SG_PARALLEL_NUM = "parallel_threshold"

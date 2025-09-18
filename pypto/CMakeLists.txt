@@ -7,7 +7,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
-pybind11_add_module(pto
+pybind11_add_module(pto_impl
         MODULE
             src/pybind11.cpp
             src/bindings/enum.cpp
@@ -18,13 +18,13 @@ pybind11_add_module(pto
             src/bindings/runtime.cpp
 )
 
-target_include_directories(pto
+target_include_directories(pto_impl
         PRIVATE
             src
             ${PTO_FWK_SRC_ROOT}/tests
 )
 
-target_link_libraries(pto
+target_link_libraries(pto_impl
         PRIVATE
             $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
             tile_fwk_passes

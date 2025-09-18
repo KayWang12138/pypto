@@ -213,7 +213,5 @@ function(PTO_Fwk_UTest_RunPytest)
     PTO_Fwk_GTest_RunPytest(
             TARGET_NAME_PREFIX      ${PTO_Fwk_UTestNamePrefix}
             PYTEST_INI              ${ARG_PYTEST_INI}
-            PYTHON_PATH_EXT         ${ARG_PYTHON_PATH_EXT}
-            PYTHON_PATH_LIBRARIES   pto ${ARG_PYTHON_PATH_LIBRARIES}
     )
 endfunction()

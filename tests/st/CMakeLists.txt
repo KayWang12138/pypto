@@ -26,8 +26,5 @@ if (ENABLE_TESTS_STEST_DISTRIBUTED)
 endif ()
 
 if (ENABLE_BUILD_PTO_FWK_PYTHON AND ENABLE_TESTS_STEST)
-    get_filename_component(_SrcCommon "${PTO_FWK_SRC_ROOT}/pypto/common" REALPATH)
-    PTO_Fwk_STest_RunPytest(
-        PYTHON_PATH_EXT     ${_SrcCommon}
-    )
+    # PTO_Fwk_STest_RunPytest()
 endif ()

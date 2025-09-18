@@ -12,9 +12,6 @@
 """
 from dataclasses import dataclass
 import pto
-from utils import pto_function, view, assemble
-pto.view = view
-pto.assemble = assemble
 
 T_SHAPE = 128
 NUM_64 = 64
@@ -305,7 +302,7 @@ if __name__ == "__main__":
 
     graph_t = pto.graph_type.TENSOR_GRAPH
     func_t = pto.function_type.STATIC
-    with pto_function("LLAMA", graph_t, func_t, H, AW, DW, FW, res):
+    with pto.pto_function("LLAMA", graph_t, func_t, H, AW, DW, FW, res):
         res = llama_layer(H, AW, DW, FW, dims_cfg, SMALL_DFS_VEC_CFG, DFS_CUBE_CFG)
 
     # NOTE: or set `GLOBAL_LOG_LEVEL=1` to dump

@@ -11,7 +11,6 @@
 """
 """
 import pto
-from utils import dyn_function, loop_function
 
 
 def init_tensors():
@@ -25,12 +24,12 @@ def init_tensors():
 
 def main():
     a, b, c = init_tensors()
-    with dyn_function("main", [a, b], [c]):
+    with pto.dyn_function("main", [a, b], [c], []):
 
         pto.set_vec_tile_shapes(16, 16)
         loop_range = pto.loop_range_(10)
 
-        with loop_function(
+        with pto.loop_function(
             "Dynamic",
             "k",
             loop_range,

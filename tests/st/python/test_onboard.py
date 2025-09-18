@@ -12,13 +12,6 @@
 """
 import os
 import pto
-from utils import dyn_function, loop_function, record_if_branch
-
-
-# FIXME(anastasios): Fix after pypackage.Monkey patching for now
-pto.dyn_function = dyn_function
-pto.loop_function = loop_function
-pto.cond = record_if_branch
 
 
 def test_device_run_data_from_host():

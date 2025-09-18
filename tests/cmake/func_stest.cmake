@@ -539,9 +539,6 @@ endfunction()
 Parameters:
   one_value_keywords:
       PYTEST_INI                    : [Optional] 指定具体 pytest.ini 文件
-  multi_value_keywords:
-      PYTHON_PATH_EXT               : [Optional] 额外需要配置的 PYTHONPATH
-      PYTHON_PATH_LIBRARIES         : [Optional] 需要配置在 PYTHONPATH 中的二进制
 ]]
 function(PTO_Fwk_STest_RunPytest)
     cmake_parse_arguments(
@@ -556,7 +553,5 @@ function(PTO_Fwk_STest_RunPytest)
     PTO_Fwk_GTest_RunPytest(
             TARGET_NAME_PREFIX      ${PTO_Fwk_STestNamePrefix}
             PYTEST_INI              ${ARG_PYTEST_INI}
-            PYTHON_PATH_EXT         ${ARG_PYTHON_PATH_EXT}
-            PYTHON_PATH_LIBRARIES   pto ${ARG_PYTHON_PATH_LIBRARIES}
     )
 endfunction()

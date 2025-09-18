@@ -30,6 +30,7 @@ constexpr const char *SRC_PATH = ".";
 
 namespace npu::tile_fwk {
 
+const std::string tilefwkConfigEnvName = "TILEFWK_CONFIG_PATH";
 static PassConfigs InternalGetPassConfigs(const nlohmann::json &root, const GlobalPassConfigs *globalConfigs);
 static GlobalPassConfigs InternalGetGlobalConfigs(const nlohmann::json &globalCfg);
 
@@ -109,7 +110,13 @@ Status ConfigManager::Initialize() {
         ASLOGI("ConfigManager has been initialized.");
         return SUCCESS;
     }
-    std::string configJsonFilePath = GetCurrentSharedLibPath() + "/../conf/tile_fwk_config.json";
+    std::string configJsonFilePath = GetEnvVar(tilefwkConfigEnvName);
+    std::string builtinConfigJsonFilePath = GetCurrentSharedLibPath() + "/../conf/tile_fwk_config.json";
+
+    if (configJsonFilePath.size() == 0) {
+        configJsonFilePath = builtinConfigJsonFilePath;
+    }
+
     ASLOGI("Start to parse op_json_file %s", configJsonFilePath.c_str());
     if (!ReadJsonFile(configJsonFilePath, json_)) {
         ASLOGE("ReadJsonFile failed.");

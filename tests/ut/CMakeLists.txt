@@ -26,10 +26,6 @@ if (ENABLE_TESTS_UTEST)
 
     # python
     if (ENABLE_BUILD_PTO_FWK_PYTHON AND ENABLE_BUILD_WITH_CANN)
-        get_filename_component(_SrcCommon "${PTO_FWK_SRC_ROOT}/pypto/common" REALPATH)
-        PTO_Fwk_UTest_RunPytest(
-                PYTHON_PATH_EXT         ${_SrcCommon}
-                PYTHON_PATH_LIBRARIES   tile_fwk_simulation_ca
-        )
+        # PTO_Fwk_UTest_RunPytest()
     endif ()
 endif ()

@@ -19,7 +19,7 @@
 using namespace npu::tile_fwk;
 
 namespace pypto {
-PYBIND11_MODULE(pto, m) {
+PYBIND11_MODULE(pto_impl, m) {
     m.doc() = "PyPTO";
     bind_enum(m);
     bind_tensor(m);

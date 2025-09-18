@@ -18,7 +18,7 @@ def init_tensors():
     shape = (128, 128)
     a = pto.tensor(dtype, shape, "a")
     b = pto.tensor(dtype, shape, "b")
-    c = None
+    c = pto.tensor(dtype, shape, "b")
     return a, b, c
 
 
@@ -28,7 +28,7 @@ def main():
     func_cfg = pto.func_config(pto.function_type.STATIC)
     recorder = pto.record_func("main", func_cfg, [a, b])
     pto.set_vec_tile_shapes(16, 16)
-    c = pto.add(a, b)
+    c.move(pto.add(a, b))
     del recorder
 
     print(pto.dump())

@@ -14,15 +14,6 @@ import pto
 import sys
 import os
 
-from utils import dyn_function, loop_function, record_if_branch
-
-
-# FIXME(anastasios): Fix after pypackage.Monkey patching for now
-pto.dyn_function = dyn_function
-pto.loop_function = loop_function
-pto.cond = record_if_branch
-
-
 def test_record_if_branch():
     dtype = pto.DataType.DT_FP16
     shape = (32, 32)
