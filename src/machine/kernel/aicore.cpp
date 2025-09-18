@@ -308,9 +308,8 @@ extern "C" __global__ __aicore__ void KERNEL_ENTRY(__OPTYPE__, __TILINGKEY__)(in
     SetStatus(args, STAGE_HANDSHAKE_START);
     HandshakeClient(args->shakeBuffer);
     SetStatus(args, STAGE_HANDSHAKE_END);
-
+    set_mask_norm();
     uint32_t curTaskIdx;
-    uint32_t lastTaskIdx;
     int64_t coreFuncData = 0;
     ExecuteContext ctx = {.args = args };
     //get core task data
@@ -321,7 +320,7 @@ extern "C" __global__ __aicore__ void KERNEL_ENTRY(__OPTYPE__, __TILINGKEY__)(in
         if ((loop_count % 1000 == 0) && (get_sys_cnt() - t0 > 3000000000)) {
             break;
         }
-        lastTaskIdx = AICORE_TASK_INIT;
+        uint32_t lastTaskIdx = AICORE_TASK_INIT;
         coreFuncData = getCoreFuncionData(args, coreFuncData);
         if (coreFuncData == 0) {
             FlushMetricStatistic(args);

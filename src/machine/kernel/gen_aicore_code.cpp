@@ -477,7 +477,7 @@ extern "C" __global__ __aicore__ void KERNEL_ENTRY(__OPTYPE__, __TILINGKEY__)(in
     SetStatus(args, STAGE_HANDSHAKE_START);
     HandshakeClient(args->shakeBuffer);
     SetStatus(args, STAGE_HANDSHAKE_END);
-
+    set_mask_norm();
     uint32_t curTaskIdx;
     uint32_t lastTaskIdx;
     int64_t coreFuncData = 0;

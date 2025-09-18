@@ -227,6 +227,15 @@ public:
         return ret;
     }
 
+    void ResetRegAll() {
+      sleep(1);
+      DEV_ERROR("ResetRegAll");
+      for (uint32_t i = 0; i < schAicpuNum_; ++i) {
+        aicoreManager_[i]->ResetRegAll();
+      }
+      sleep(1);
+      DEV_ERROR("Exception reset reg finish.");
+    }
 private:
     static void DumpTask(int64_t taskId, DeviceTask *devTask, bool isDyn) {
         DEV_DEBUG("devTask %ld %p.", taskId, devTask);
@@ -286,7 +295,6 @@ private:
         (void)taskId;
         DEV_DEBUG("===== dev task end =====");
     }
-
 private:
     uint64_t sharedBuffer_{0};
     uint64_t coreNum_{0};

@@ -74,7 +74,6 @@ asm(
 );
 
 struct AOTCodePool {
-    char buf[PAGE_SIZE * POOL_PAGE_COUNT];
     uintptr_t base{0};
     uintptr_t offset{0};
 
@@ -93,14 +92,11 @@ struct AOTBinary {
 
     void InitCodeSize(const void *data, uint64_t size) {
         auto &pool = AOTCodePool::GetCodePool();
-        void *base = (void *)(pool.base + pool.offset);
-        pool.offset += size;
-
         PerfBegin(PERF_EVT_CONTROL_FLOW_MAPEXE_MEMCPY);
-        memcpy_s(base, size, data, size);
-        __builtin___clear_cache(base, (uint8_t*)base + size);
+        memcpy_s((void *)pool.base , size, data, size);
+        __builtin___clear_cache((void *)pool.base, (uint8_t*)pool.base + size);
         PerfEnd(PERF_EVT_CONTROL_FLOW_MAPEXE_MEMCPY);
-        code_ = (unsigned char *)base;
+        code_ = (unsigned char *)pool.base;
         size_ = size;
     }
     void InitCode(const void *data) {

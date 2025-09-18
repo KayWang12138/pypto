@@ -200,11 +200,19 @@ public:
     int64_t *GetRegAddrs() const { return regAddrs_; }
 
     inline uint32_t ReadReg32(int coreIdx, int offset) {
-        return *(reinterpret_cast<volatile uint32_t*>(regAddrs_[GetPhyIdByBlockId(coreIdx)] + offset));
+        auto idx = GetPhyIdByBlockId(coreIdx);
+        if (idx != -1) {
+          return *(reinterpret_cast<volatile uint32_t*>(regAddrs_[idx] + offset));
+        }
+        return 0;
     }
 
     inline void WriteReg32(int coreIdx, int offset, uint32_t val) {
-        *(reinterpret_cast<volatile uint32_t*>(regAddrs_[GetPhyIdByBlockId(coreIdx)] + offset)) = val;
+        auto idx = GetPhyIdByBlockId(coreIdx);
+        if (idx != -1) {
+          *(reinterpret_cast<volatile uint32_t*>(regAddrs_[idx] + offset)) = val;
+        }
+        return;
     }
 
     inline void WriteReg32All(int aicNum, int aivNum, int offset, uint32_t val) {
@@ -680,6 +688,15 @@ public:
             DEV_ERROR("status %lu,running taskid:%s,funcdata:  %s.", status, std::to_string(runningIds_[coreIdx]).c_str(),
                 ((DynDeviceTask *)curDevTask_)->DumpTaskData(runningIds_[coreIdx]).c_str());
         }
+    }
+
+    void ResetRegAll() {
+      ForEachManageAicore([this](int coreIdx) {
+          if (aicoreHAL.ReadReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE) == REG_SPR_FAST_PATH_OPEN) {
+            aicoreHAL.WriteReg32(coreIdx, REG_SPR_DATA_MAIN_BASE, AICORE_TASK_STOP + 1);
+            aicoreHAL.WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
+          }
+      });
     }
 
     inline int Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *taskCtrl = nullptr) {

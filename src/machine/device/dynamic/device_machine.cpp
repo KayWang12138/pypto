@@ -19,6 +19,8 @@
 #include <cstdio>
 #include <mutex>
 #include <sched.h>
+#include <signal.h>
+#include <sys/ucontext.h>
 #include "machine/device/dynamic/device_utils.h"
 #include "machine/kernel/aicore.h"
 #include "machine/utils/device_log.h"
@@ -28,7 +30,9 @@ using namespace npu::tile_fwk::dynamic;
 
 namespace {
 constexpr uint64_t CPUS_PER_CLUSTER = 4;
-bool g_initFlag = false;
+constexpr uint64_t SIGNAL_DELAY_SECONDS = 2;
+
+extern void SigAct(int signum, siginfo_t* info, void* act);
 
 void DySdmaPrefetch(DevStartArgs *devArgs) {
     if (devArgs == nullptr || devArgs->devProg == nullptr) {
@@ -94,6 +98,22 @@ struct DynMachineManager {
         return threadIdx;
     }
 
+    void SignalReg() {
+        DEV_INFO("Exception SignalReg.");
+        struct sigaction myAct;
+        (void)memset_s(&myAct, sizeof(myAct), 0, sizeof(myAct));
+        sigemptyset(&myAct.sa_mask);
+        myAct.sa_flags = SA_SIGINFO;
+        myAct.sa_sigaction = SigAct;
+        sigaction(SIGFPE, &myAct, &oriFPEAct_);
+        sigaction(SIGBUS, &myAct, &oriBUSAct_);
+        sigaction(SIGSEGV, &myAct, &oriSEGVAct_);
+        sigaction(SIGPIPE, &myAct, &oriPIPEAct_);
+        sigaction(SIGILL, &myAct, &oriILLAct_);
+        sigaction(SIGABRT, &myAct, &oriBordAct_);
+        return;
+    }
+
     int Run(AstKernelArgs *args) {
         char logfile[128];
         (void)logfile;
@@ -122,7 +142,7 @@ struct DynMachineManager {
 #endif
                 DEV_TRACE_DEBUG(schema::CtrlEvent(threadIdx, schema::ThreadStart()));
                 ret = machine_.ExecDyn(threadIdx, devArgs->taskId, args);
-            } else if (threadIdx == MAX_SCHEDULE_AICPU_NUM + 1){
+            } else if (threadIdx == MAX_SCHEDULE_AICPU_NUM + 1) {
 #if !DEBUG_PLOG || !defined(__DEVICE__)
                 (void)sprintf_s(logfile, sizeof(logfile), "/tmp/tile_fwk_aicpu_prefetch.txt");
                 GetLogger(logfile);
@@ -147,8 +167,19 @@ struct DynMachineManager {
     }
 
     void Init(DeviceArgs *args) {
+        SignalReg();
         schAicpuNum_ = CalcSchAicpuNumByBlockDim(args->nrValidAic);
         machine_.init(args, schAicpuNum_);
+    }
+
+    void SignalReset() {
+        sigaction(SIGFPE, &oriFPEAct_, nullptr);
+        sigaction(SIGBUS, &oriBUSAct_, nullptr);
+        sigaction(SIGSEGV, &oriSEGVAct_, nullptr);
+        sigaction(SIGPIPE, &oriPIPEAct_, nullptr);
+        sigaction(SIGILL, &oriILLAct_, nullptr);
+        sigaction(SIGABRT, &oriBordAct_, nullptr);
+        return;
     }
 
     void DeInit() {
@@ -156,6 +187,7 @@ struct DynMachineManager {
       finished_ = 0;
       cpumask_ = 0;
       ctrlcpuIdx_ = MAX_SCHEDULE_AICPU_NUM;
+      SignalReset();
     }
 
     std::atomic<int> threadIdx_{0};
@@ -164,9 +196,37 @@ struct DynMachineManager {
     std::atomic<int> ctrlcpuIdx_{MAX_SCHEDULE_AICPU_NUM};
     int schAicpuNum_{MAX_SCHEDULE_AICPU_NUM};
     DeviceMachine machine_;
+    struct sigaction oriFPEAct_;
+    struct sigaction oriBUSAct_;
+    struct sigaction oriSEGVAct_;
+    struct sigaction oriPIPEAct_;
+    struct sigaction oriILLAct_;
+    struct sigaction oriBordAct_;
+    std::atomic<bool> reset_{false};
 };
 
 DynMachineManager g_machine_mgr;
+
+void SigAct(int signum, siginfo_t* info, void* act) {
+    (void)info;
+    (void)act;
+    DEV_ERROR("Exception Signum[%d] Act.", signum);
+    if (g_machine_mgr.reset_.load()) {
+      DEV_ERROR("Exception Already reset.");
+      sleep(SIGNAL_DELAY_SECONDS);
+      return;
+    }
+    g_machine_mgr.reset_.store(true);
+    g_machine_mgr.machine_.ResetRegAll();
+    sigaction(SIGFPE, &g_machine_mgr.oriFPEAct_, nullptr);
+    sigaction(SIGBUS, &g_machine_mgr.oriBUSAct_, nullptr);
+    sigaction(SIGSEGV, &g_machine_mgr.oriSEGVAct_, nullptr);
+    sigaction(SIGPIPE, &g_machine_mgr.oriPIPEAct_, nullptr);
+    sigaction(SIGILL, &g_machine_mgr.oriILLAct_, nullptr);
+    sigaction(SIGABRT, &g_machine_mgr.oriBordAct_, nullptr);
+    (void)raise(signum);
+    return;
+}
 }
 
 static int RunDynamic(AstKernelArgs *kargs) {
@@ -201,10 +261,7 @@ extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelSer
     }
     auto devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
     DeviceMachine::InitDyn(kargs);
-    if (!g_initFlag || !IsDeviceMode()) {
-      g_machine_mgr.Init(devArgs);
-      g_initFlag = true;
-    }
+    g_machine_mgr.Init(devArgs);
     PerfEnd(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
     return 0;
 }
