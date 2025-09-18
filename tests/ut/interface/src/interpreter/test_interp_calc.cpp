@@ -46,6 +46,14 @@ static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int64_t
 
 TEST_F(TorchAdaptorTest, UnaryOps) {
     {
+        // rsqrt
+        auto self = makeTensorData(DT_FP32, {16, 16}, 4.0f);
+        auto out = makeTensorData(DT_FP32, {16, 16}, 0.0f);
+        auto golden = makeTensorData(DT_FP32, {16, 16}, 0.5f);
+        calc::Rsqrt(out, self);
+        ASSERT_ALLCLOSE(out, golden);
+    }
+    {
         // sqrt
         auto self = makeTensorData(DT_FP32, {16, 16}, 4.0f);
         auto out = makeTensorData(DT_FP32, {16, 16}, 0.0f);

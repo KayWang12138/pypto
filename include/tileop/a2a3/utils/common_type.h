@@ -18,7 +18,7 @@
 
 enum class Hardware : uint8_t { GM = 0, UB, L1, L0A, l0B, L0C, BIAS, FIXBUF, MAX };
 
-enum class UnaryOp : uint8_t { ABS = 0, EXP, NEG, REC, SQRT };
+enum class UnaryOp : uint8_t { ABS = 0, EXP, NEG, REC, RSQRT, SQRT };
 
 enum class BinaryOp : uint8_t { ADD = 0, SUB, MUL, DIV, AND, OR, MAX, MIN };
 

@@ -107,6 +107,7 @@ Tensor Cast(const Tensor &operand, DataType newDataType, CastMode mode = CAST_NO
 
 Tensor Exp(const Tensor &operand);
 Tensor Neg(const Tensor &operand);
+Tensor Rsqrt(const Tensor &operand);
 Tensor Sqrt(const Tensor &operand);
 Tensor Reciprocal(const Tensor &operand);
 Tensor Abs(const Tensor &operand);

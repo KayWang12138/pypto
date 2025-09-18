@@ -147,6 +147,12 @@ namespace TileOp {
 #include "vector_una_dyn.h"
 #undef T_UNA
 #undef V_UNA_FUNC
+// RSQRT
+#define T_UNA DynTrsqrt_
+#define V_UNA_FUNC vrsqrt
+#include "vector_una_dyn.h"
+#undef T_UNA
+#undef V_UNA_FUNC
 // SQRT
 #define T_UNA DynTsqrt_
 #define V_UNA_FUNC vsqrt
