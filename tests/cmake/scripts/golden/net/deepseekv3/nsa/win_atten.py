@@ -49,16 +49,28 @@ def gen_uniform_data(data_shape, min_value, max_value, dtypes):
 
 def softmax(x):
     # this func is only used by quant_dequant
-    x = x.to(torch.float32)
-    x_max = torch.max(x, dim=-1, keepdims=True)[0]
-    x_sub = x - x_max
-    y = torch.exp(x_sub)
-    x_sum = torch.sum(y, dim=-1, keepdims=True)
-    ans = y
+    if (isinstance(x, np.ndarray)):
+        x = x.astype(np.float32)
+        x_max = x.max(axis=-1, keepdims=True)
+        x_sub = x - x_max
+        y = np.exp(x_sub)
+        x_sum = y.sum(axis=-1, keepdims=True)
+        ans = y
+    else:
+        x = x.to(torch.float32)
+        x_max = torch.max(x, dim=-1, keepdims=True)[0]
+        x_sub = x - x_max
+        y = torch.exp(x_sub)
+        x_sum = torch.sum(y, dim=-1, keepdims=True)
+        ans = y
     return ans, x_sum
 
 
 def win_attn_calc(input_params_win_attn, actual_seq_list, q_bsnd, k_bsnd, v_bsnd, dtypes, atten_out):
+    flag = False
+    if 'numpy' in str(dtypes):
+        flag = True
+
     b = input_params_win_attn[0]
     s_q = input_params_win_attn[1]
     n_kv = input_params_win_attn[2]
@@ -72,7 +84,7 @@ def win_attn_calc(input_params_win_attn, actual_seq_list, q_bsnd, k_bsnd, v_bsnd
     for b_index in range(b):
         for s1_index in range(s_q):
             for n_kv_index in range(n_kv):
-                # for g_index in range(g_tile):
+               
                 act_seq = actual_seq_list[b_index]
 
                 q_tensor_cur = q_bsnd[b_index:(b_index + 1), s1_index:(s1_index + 1), :, :].reshape(n_q, d_q)
@@ -83,14 +95,24 @@ def win_attn_calc(input_params_win_attn, actual_seq_list, q_bsnd, k_bsnd, v_bsnd
                 k_cur = k_bsnd[b_index:(b_index + 1), cur_loc - valid_len: cur_loc, n_kv_index:(n_kv_index + 1), :].reshape(valid_len, d_k)
                 v_cur = v_bsnd[b_index:(b_index + 1), cur_loc - valid_len: cur_loc, n_kv_index:(n_kv_index + 1), :].reshape(valid_len, d_v)
 
-                qk_mm_res = torch.matmul(q_tensor_cur.to(dtypes), k_cur.T.to(dtypes))
-                qk_mm_fp32 = qk_mm_res.to(torch.float32)
+                if flag:
+                    qk_mm_res = np.matmul(q_tensor_cur.astype(dtypes), k_cur.astype(dtypes).transpose(1, 0))
+                    qk_mm_fp32 = qk_mm_res.astype(np.float32)
+                else:
+                    qk_mm_res = torch.matmul(q_tensor_cur.to(dtypes), k_cur.T.to(dtypes))
+                    qk_mm_fp32 = qk_mm_res.to(torch.float32)
                 qk_ele_res = qk_mm_fp32 * scalar
                 softmax_res, softmax_sum = softmax(qk_ele_res)
                 softmax_out = softmax_res / softmax_sum
-                mm2_res = torch.matmul(softmax_out.to(dtypes), v_cur.to(dtypes))
+                if flag:
+                    mm2_res = np.matmul(softmax_out.astype(dtypes), v_cur.astype(dtypes))
+                else:
+                    mm2_res = torch.matmul(softmax_out.to(dtypes), v_cur.to(dtypes))
                 atten_out[b_index:(b_index + 1), s1_index:(s1_index + 1), :, :] = mm2_res
-    atten_out = atten_out.to(torch.float32)
+    if flag:
+        atten_out = atten_out.astype(np.float32)
+    else:
+        atten_out = atten_out.to(torch.float32)
     return atten_out
 
 
