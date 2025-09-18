@@ -15,14 +15,10 @@
 
 #ifndef PASS_BUFFER_POOL_H_
 #define PASS_BUFFER_POOL_H_
-#include <map>
-#include <vector>
-#include <memory>
-#include <unordered_map>
-#include <algorithm>
 #include "tilefwk/data_type.h"
 #include "interface/utils/log.h"
 #include "interface/utils/common.h"
+
 namespace npu::tile_fwk {
 struct LocalBuffer {
     uint32_t id{0};
@@ -74,6 +70,7 @@ class BufferPool {
     size_t ObtainStartAddr(size_t i, const std::vector<std::tuple<int, size_t, size_t>> &allocatedBufs);
     size_t UpdateIdx(size_t &i, size_t sizeNeedSpill, size_t startAddr, const std::vector<std::tuple<int, size_t, size_t>> &allocatedBufs);
     Status GetSpillGroup(size_t sizeNeedSpill, std::vector<std::vector<int>> &canSpillGroups);
+    std::vector<uint32_t> GetBufferSlices();
   private:
     MemoryType memType_{MemoryType::MEM_UNKNOWN};
     uint64_t memSize_{0};

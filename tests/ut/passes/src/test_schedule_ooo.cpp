@@ -20,7 +20,7 @@
 #include "interface/inner/tilefwk.h"
 #include "passes/pass_manager.h"
 #include "interface/configs/config_manager.h"
-#include "passes/block_graph_pass/schedule_ooo.h"
+#include "passes/block_graph_pass/schedule_ooo/schedule_ooo.h"
 #include "operator/models/deepseek/deepseek_mla.h"
 #include "computational_graph_builder.h"
 #include "passes/pass_config/pass_config_manager.h"
@@ -186,7 +186,7 @@ TEST_F(ScheduleOoOTest, TestDependencies) {
         op->UpdateSubgraphID(0);
     }
 
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_NE(GetIssueEntry("RowMax1", subGraph, ooOScheduler), nullptr);
@@ -223,7 +223,7 @@ TEST_F(ScheduleOoOTest, TestDependenciesView) {
         op->UpdateSubgraphID(0);
     }
 
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     IssueEntryPtr copyin = GetIssueEntry("Copyin1", subGraph, ooOScheduler);
@@ -272,7 +272,7 @@ TEST_F(ScheduleOoOTest, TestDependenciesAssemble) {
         op->UpdateSubgraphID(0);
     }
 
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     IssueEntryPtr alloc = GetIssueEntry("Alloc1", subGraph, ooOScheduler);
@@ -308,7 +308,7 @@ TEST_F(ScheduleOoOTest, TestDependenciesInplace) {
         op->UpdateSubgraphID(0);
     }
 
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     IssueEntryPtr add = GetIssueEntry("Add1", subGraph, ooOScheduler);
@@ -341,7 +341,7 @@ TEST_F(ScheduleOoOTest, TestDependenciesFailed) {
         op->UpdateSubgraphID(0);
     }
 
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     std::rotate(ooOScheduler.issueEntries.begin(), ooOScheduler.issueEntries.begin() + 1, ooOScheduler.issueEntries.end());
@@ -374,13 +374,13 @@ TEST_F(ScheduleOoOTest, TestSpillCopyIn) {
         op->UpdateSubgraphID(0);
     }
 
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
-    res = ooOScheduler.GenSpillSchedule(*function);
+    res = ooOScheduler.GenSpillSchedule();
     EXPECT_EQ(res, SUCCESS);
     EXPECT_EQ(ooOScheduler.issueEntries[9]->tileOp.GetOpcodeStr(), "UB_ALLOC");
     EXPECT_EQ(ooOScheduler.issueEntries[10]->tileOp.GetOpcodeStr(), "COPY_IN");
@@ -407,13 +407,13 @@ TEST_F(ScheduleOoOTest, TestSpill) {
         op->UpdateSubgraphID(0);
     }
 
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
-    res = ooOScheduler.GenSpillSchedule(*function);
+    res = ooOScheduler.GenSpillSchedule();
     EXPECT_EQ(res, SUCCESS);
     EXPECT_EQ(ooOScheduler.issueEntries[6]->tileOp.GetOpcodeStr(), "COPY_OUT");
     EXPECT_EQ(ooOScheduler.issueEntries[12]->tileOp.GetOpcodeStr(), "UB_ALLOC");
@@ -448,20 +448,20 @@ TEST_F(ScheduleOoOTest, TestSpillInplace) {
         op->UpdateSubgraphID(0);
     }
 
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
     std::rotate(ooOScheduler.issueEntries.begin(), ooOScheduler.issueEntries.begin() + 6, ooOScheduler.issueEntries.begin() + 11);
-    res = ooOScheduler.GenSpillSchedule(*function);
+    res = ooOScheduler.GenSpillSchedule();
     EXPECT_EQ(res, SUCCESS);
     IssueEntryPtr add1 = GetIssueEntry("Add1", subGraph, ooOScheduler);
     EXPECT_NE(add1, nullptr);
     IssueEntryPtr add3 = GetIssueEntry("Add3", subGraph, ooOScheduler);
     EXPECT_NE(add3, nullptr);
-    //EXPECT_EQ((*add1->successors.begin())->tileOp.GetOpcodeStr(), "COPY_OUT");
+    EXPECT_EQ(ooOScheduler.issueEntryMap[(*add1->successors.begin())]->tileOp.GetOpcodeStr(), "COPY_OUT");
     EXPECT_EQ(add3->predecessors.size(), 2);
 }
 
@@ -497,13 +497,13 @@ TEST_F(ScheduleOoOTest, TestSpillMultiTensor) {
         op->UpdateSubgraphID(0);
     }
 
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
-    res = ooOScheduler.GenSpillSchedule(*function);
+    res = ooOScheduler.GenSpillSchedule();
     EXPECT_EQ(res, SUCCESS);
     EXPECT_EQ(ooOScheduler.issueEntries.size(), 21);
 }
@@ -535,13 +535,13 @@ TEST_F(ScheduleOoOTest, TestSpillView) {
         op->UpdateSubgraphID(0);
     }
 
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
-    res = ooOScheduler.GenSpillSchedule(*function);
+    res = ooOScheduler.GenSpillSchedule();
     EXPECT_EQ(res, FAILED);
 }
 
@@ -573,13 +573,13 @@ TEST_F(ScheduleOoOTest, TestSpillAssemble) {
         op->UpdateSubgraphID(0);
     }
 
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
-    res = ooOScheduler.GenSpillSchedule(*function);
+    res = ooOScheduler.GenSpillSchedule();
     EXPECT_EQ(res, FAILED);
 }
 
@@ -596,6 +596,7 @@ TEST_F(ScheduleOoOTest, TestSpillFragFailed) {
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {128, 128}, tensorMemTypes, tensorNames, 0), true);
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     Function *function = subGraph.GetFunction();
+
     EXPECT_NE(function, nullptr);
 
     EXPECT_NE(subGraph.GetTensor("t3"), nullptr);
@@ -608,14 +609,14 @@ TEST_F(ScheduleOoOTest, TestSpillFragFailed) {
         op->UpdateSubgraphID(0);
     }
 
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
     std::swap(ooOScheduler.issueEntries[0], ooOScheduler.issueEntries[1]);
-    res = ooOScheduler.GenSpillSchedule(*function);
+    res = ooOScheduler.GenSpillSchedule();
     EXPECT_EQ(res, FAILED);
 }
 
@@ -649,13 +650,13 @@ TEST_F(ScheduleOoOTest, TestSpillL0AFailed) {
     std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t10");
     tensor2->memorymap[0].memId = subGraph.GetTensor("t8")->memorymap[0].memId;
 
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
-    res = ooOScheduler.GenSpillSchedule(*function);
+    res = ooOScheduler.GenSpillSchedule();
     EXPECT_EQ(res, FAILED);
 }
 
@@ -681,9 +682,9 @@ TEST_F(ScheduleOoOTest, TestSchedule) {
     }
 
     std::vector<Operation *> newOpList;
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
-    Status res = ooOScheduler.Schedule(*function, function->Operations().DuplicatedOpList(), newOpList);
+    Status res = ooOScheduler.Schedule(function->Operations().DuplicatedOpList(), newOpList);
     EXPECT_EQ(res, SUCCESS);
     IssueEntryPtr add = GetIssueEntry("Add2", subGraph, ooOScheduler);
     EXPECT_NE(add, nullptr);
@@ -720,9 +721,9 @@ TEST_F(ScheduleOoOTest, TestScheduleInplace) {
     }
 
     std::vector<Operation *> newOpList;
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
-    Status res = ooOScheduler.Schedule(*function, function->Operations().DuplicatedOpList(), newOpList);
+    Status res = ooOScheduler.Schedule(function->Operations().DuplicatedOpList(), newOpList);
     EXPECT_EQ(res, SUCCESS);
     IssueEntryPtr copyin = GetIssueEntry("Copyin1", subGraph, ooOScheduler);
     EXPECT_NE(copyin, nullptr);
@@ -768,9 +769,9 @@ TEST_F(ScheduleOoOTest, TestScheduleView) {
     }
 
     std::vector<Operation *> newOpList;
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
-    Status res = ooOScheduler.Schedule(*function, function->Operations().DuplicatedOpList(), newOpList);
+    Status res = ooOScheduler.Schedule(function->Operations().DuplicatedOpList(), newOpList);
     EXPECT_EQ(res, SUCCESS);
     IssueEntryPtr copyin = GetIssueEntry("Copyin1", subGraph, ooOScheduler);
     EXPECT_NE(copyin, nullptr);
@@ -818,9 +819,9 @@ TEST_F(ScheduleOoOTest, TestScheduleAssemble) {
     }
 
     std::vector<Operation *> newOpList;
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
-    Status res = ooOScheduler.Schedule(*function, function->Operations().DuplicatedOpList(), newOpList);
+    Status res = ooOScheduler.Schedule(function->Operations().DuplicatedOpList(), newOpList);
     EXPECT_EQ(res, SUCCESS);
     IssueEntryPtr copyin1 = GetIssueEntry("Copyin1", subGraph, ooOScheduler);
     EXPECT_NE(copyin1, nullptr);
@@ -862,13 +863,13 @@ TEST_F(ScheduleOoOTest, TestScheduleSpillCopyIn) {
     }
 
     std::vector<Operation *> newOpList;
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
-    res = ooOScheduler.ScheduleMainLoop(*function, newOpList);
+    res = ooOScheduler.ScheduleMainLoop(newOpList);
     EXPECT_EQ(res, SUCCESS);
     EXPECT_EQ(newOpList[9]->GetOpcodeStr(), "UB_ALLOC");
     EXPECT_EQ(newOpList[9]->oOperand[0]->memorymap[0].start, 131072);
@@ -900,13 +901,13 @@ TEST_F(ScheduleOoOTest, TestScheduleSpill) {
     }
 
     std::vector<Operation *> newOpList;
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
-    res = ooOScheduler.ScheduleMainLoop(*function, newOpList);
+    res = ooOScheduler.ScheduleMainLoop(newOpList);
     EXPECT_EQ(res, SUCCESS);
     EXPECT_EQ(newOpList[6]->GetOpcodeStr(), "COPY_OUT");
     EXPECT_EQ(newOpList[6]->oOperand[0]->memorymap[0].start, 0);
@@ -948,14 +949,14 @@ TEST_F(ScheduleOoOTest, TestScheduleSpillInplace) {
     }
 
     std::vector<Operation *> newOpList;
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
     std::rotate(ooOScheduler.issueEntries.begin(), ooOScheduler.issueEntries.begin() + 6, ooOScheduler.issueEntries.begin() + 11);
-    res = ooOScheduler.ScheduleMainLoop(*function, newOpList);
+    res = ooOScheduler.ScheduleMainLoop(newOpList);
     EXPECT_EQ(res, SUCCESS);
     EXPECT_EQ(newOpList[9]->GetOpcodeStr(), "COPY_OUT");
     EXPECT_EQ(newOpList[13]->GetOpcodeStr(), "COPY_IN");
@@ -994,13 +995,13 @@ TEST_F(ScheduleOoOTest, TestScheduleSpillView) {
     }
 
     std::vector<Operation *> newOpList;
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
-    res = ooOScheduler.ScheduleMainLoop(*function, newOpList);
+    res = ooOScheduler.ScheduleMainLoop(newOpList);
     EXPECT_EQ(res, FAILED);
 }
 
@@ -1033,13 +1034,13 @@ TEST_F(ScheduleOoOTest, TestScheduleSpillAssemble) {
     }
 
     std::vector<Operation *> newOpList;
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
-    res = ooOScheduler.ScheduleMainLoop(*function, newOpList);
+    res = ooOScheduler.ScheduleMainLoop(newOpList);
     EXPECT_EQ(res, FAILED);
 }
 
@@ -1069,13 +1070,13 @@ TEST_F(ScheduleOoOTest, TestScheduleSpillFragFailed) {
     }
 
     std::vector<Operation *> newOpList;
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
-    res = ooOScheduler.ScheduleMainLoop(*function, newOpList);
+    res = ooOScheduler.ScheduleMainLoop(newOpList);
     EXPECT_EQ(res, FAILED);
 }
 
@@ -1114,13 +1115,13 @@ TEST_F(ScheduleOoOTest, TestScheduleSpillL0AFailed) {
     }
 
     std::vector<Operation *> newOpList;
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
-    res = ooOScheduler.ScheduleMainLoop(*function, newOpList);
+    res = ooOScheduler.ScheduleMainLoop(newOpList);
     EXPECT_EQ(res, FAILED);
 }
 
@@ -1128,8 +1129,8 @@ TEST_F(ScheduleOoOTest, TestEmptyOplist) {
     Function function(Program::GetInstance(), "", "", nullptr);
     std::vector<Operation *> newOpList;
     std::vector<Operation *> scheduleOpList;
-    OoOScheduler ooOScheduler;
-    Status res = ooOScheduler.Schedule(function, scheduleOpList, newOpList);
+    OoOScheduler ooOScheduler(function);
+    Status res = ooOScheduler.Schedule(scheduleOpList, newOpList);
     EXPECT_EQ(res, SUCCESS);
 }
 
@@ -1153,9 +1154,9 @@ TEST_F(ScheduleOoOTest, TestScheduleReshape) {
     }
 
     std::vector<Operation *> newOpList;
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
-    Status res = ooOScheduler.Schedule(*function, function->Operations().DuplicatedOpList(), newOpList);
+    Status res = ooOScheduler.Schedule(function->Operations().DuplicatedOpList(), newOpList);
     EXPECT_EQ(res, SUCCESS);
 }
 
@@ -1179,9 +1180,9 @@ TEST_F(ScheduleOoOTest, TestSingleCopyin1) {
     }
 
     std::vector<Operation *> newOpList;
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
-    Status res = ooOScheduler.Schedule(*function, function->Operations().DuplicatedOpList(), newOpList);
+    Status res = ooOScheduler.Schedule(function->Operations().DuplicatedOpList(), newOpList);
     EXPECT_EQ(res, FAILED);
 }
 
@@ -1205,29 +1206,21 @@ TEST_F(ScheduleOoOTest, TestSingleCopyin2) {
     }
 
     std::vector<Operation *> newOpList;
-    OoOScheduler ooOScheduler;
+    OoOScheduler ooOScheduler(*function);
     ooOScheduler.subGraphID = 0;
-    Status res = ooOScheduler.Schedule(*function, function->Operations().DuplicatedOpList(), newOpList);
+    Status res = ooOScheduler.Schedule(function->Operations().DuplicatedOpList(), newOpList);
     EXPECT_EQ(res, FAILED);
 }
 
-TEST_F(ScheduleOoOTest, TestOpNullptr) {
-    Function function(Program::GetInstance(), "", "", nullptr);
-    std::vector<Operation *> scheduleOpList;
-    std::vector<Operation *> newScheduleOpList;
-    OoOScheduler oooSchedule;
-    Operation *op = nullptr;
-    scheduleOpList.push_back(op);
-    oooSchedule.Schedule(function, scheduleOpList, newScheduleOpList);
-}
-
 TEST_F(ScheduleOoOTest, TestDelBufCount) {
-    OoOScheduler oooSchedule;
+    Function function(Program::GetInstance(), "", "", nullptr);
+    OoOScheduler oooSchedule(function);
     oooSchedule.DelBufRefCount(-1);
 }
 
 TEST_F(ScheduleOoOTest, TestDelBufCount_1) {
-    OoOScheduler oooSchedule;
+    Function function(Program::GetInstance(), "", "", nullptr);
+    OoOScheduler oooSchedule(function);
     oooSchedule.bufRefCount[1] = -1;
     oooSchedule.DelBufRefCount(1);
 }
@@ -1264,7 +1257,7 @@ TEST_F(ScheduleOoOTest, TestUpdateReloadIssueInfo) {
     auto allocIssue = std::make_shared<IssueEntry>(alloc1, 1);
     auto copyinIssue = std::make_shared<IssueEntry>(copyin1, 2);
 
-    OoOScheduler oooSchedule;
+    OoOScheduler oooSchedule(function);
     oooSchedule.UpdateReloadIssueInfo(allocIssue, copyinIssue, copyinIssue, -1, -1);
 }
 
@@ -1283,7 +1276,7 @@ TEST_F(ScheduleOoOTest, TestUpdateTensorAttr_DDR) {
     tensor3->subGraphID = 0;
     tensor3->memorymap[0].memId = 3;
 
-    OoOScheduler oooSchedule;
+    OoOScheduler oooSchedule(function);
     oooSchedule.UpdateTensorAttr(tensor1, MemoryType::MEM_DEVICE_DDR, tensor3, -1);
 }
 
@@ -1302,7 +1295,7 @@ TEST_F(ScheduleOoOTest, TestUpdateTensorAttr_UB) {
     tensor3->subGraphID = 0;
     tensor3->memorymap[0].memId = 3;
 
-    OoOScheduler oooSchedule;
+    OoOScheduler oooSchedule(function);
     oooSchedule.UpdateTensorAttr(tensor1, MemoryType::MEM_UB, tensor3, -1);
 }
 
@@ -1324,7 +1317,7 @@ TEST_F(ScheduleOoOTest, TestGetSpillTensor) {
     LogicalTensorPtr tensor = nullptr;
     auto allocIssue = std::make_shared<IssueEntry>(alloc1, 1);
 
-    OoOScheduler oooSchedule;
+    OoOScheduler oooSchedule(function);
     oooSchedule.GetSpillTensor(allocIssue, 1, tensor);
 }
 
@@ -1349,7 +1342,7 @@ TEST_F(ScheduleOoOTest, TestCheckAllocIssue) {
     alloc1.UpdateLatency(1);
     alloc1.UpdateSubgraphID(0);
 
-    OoOScheduler oooSchedule;
+    OoOScheduler oooSchedule(function);
     oooSchedule.Init(function.Operations().DuplicatedOpList());
 }
 
@@ -1360,7 +1353,7 @@ TEST_F(ScheduleOoOTest, TestGetBufTimes) {
     size_t bufLastUseTime;
     size_t bufLastWriteTime;
 
-    OoOScheduler oooSchedule;
+    OoOScheduler oooSchedule(function);
     oooSchedule.GetBufTimes(-1, bufNextUseTime, bufLastUseTime, bufLastWriteTime);
 }
 } // namespace npu::tile_fwk

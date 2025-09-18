@@ -234,7 +234,6 @@ set(_CaseFilterList
         "ScheduleOoOTest.TestScheduleReshape"
         "ScheduleOoOTest.TestSingleCopyin1"
         "ScheduleOoOTest.TestSingleCopyin2"
-        "ScheduleOoOTest.TestOpNullptr"
         "ScheduleOoOTest.TestDelBufCount"
         "ScheduleOoOTest.TestDelBufCount_1"
         "ScheduleOoOTest.TestUpdateReloadIssueInfo"

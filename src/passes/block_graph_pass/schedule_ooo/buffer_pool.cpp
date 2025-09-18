@@ -13,7 +13,8 @@
  * \brief
  */
 
-#include "passes/block_graph_pass/buffer_pool.h"
+#include "passes/block_graph_pass/schedule_ooo/buffer_pool.h"
+
 namespace npu::tile_fwk {
 constexpr size_t START_ADDR_IDX = 2;
 
@@ -108,6 +109,14 @@ Status BufferPool::GetSpillGroup(size_t sizeNeedSpill, std::vector<std::vector<i
         i += 1;
     }
     return SUCCESS;
+}
+
+std::vector<uint32_t> BufferPool::GetBufferSlices() {
+    std::vector<uint32_t> res;
+    for (auto bufferSlice : bufferSlices) {
+        res.push_back(bufferSlice.first);
+    }
+    return res;
 }
 
 Status BufferPool::Allocate(LocalBufferPtr tensor) {
