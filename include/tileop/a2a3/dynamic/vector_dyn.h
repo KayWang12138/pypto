@@ -332,7 +332,7 @@ template <typename T, unsigned DS, unsigned SS, unsigned TBS>
 TILEOP void DynTrowmaxsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp, unsigned OS0, unsigned OS1) {
     //    OS0 <= REPEAT_MAX
     uint64_t srcRepeatPerRow = static_cast<uint64_t>(OS1 * sizeof(T) / REPEAT_BYTE);
-    unsigned srcRepeatStride = SS * sizeof(T) / BLOCK_SIZE;
+    constexpr unsigned srcRepeatStride = SS * sizeof(T) / BLOCK_SIZE;
     constexpr unsigned nElemPerRepeat = REPEAT_BYTE / sizeof(T);
     unsigned remain = OS1 % nElemPerRepeat;
     if (srcRepeatPerRow == 1 && OS0 <= REPEAT_MAX && remain == 0) {
@@ -370,12 +370,12 @@ TILEOP void DynTrowmaxsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp,
             return;
         }
     }
-    uint16_t tmpRepeatStride = TBS * sizeof(T) / BLOCK_SIZE;
-    if (srcRepeatPerRow == 1 && remain > 0) {
+    constexpr uint16_t tmpRepeatStride = TBS * sizeof(T) / BLOCK_SIZE;
+    if (srcRepeatStride >= BLOCK_MAX_PER_REPEAT && srcRepeatPerRow == 1 && remain > 0) {
         copy_ubuf_to_ubuf(tmp, src, 0, OS0, BLOCK_MAX_PER_REPEAT, srcRepeatStride - BLOCK_MAX_PER_REPEAT,
             tmpRepeatStride - BLOCK_MAX_PER_REPEAT);
     } else {
-        if ((tmpRepeatStride <= REPEAT_MAX) && (srcRepeatStride <= REPEAT_MAX)) {
+        if constexpr ((tmpRepeatStride <= REPEAT_MAX) && (srcRepeatStride <= REPEAT_MAX)) {
             vmax(tmp, src, src + nElemPerRepeat, OS0, 1, 1, 1, tmpRepeatStride, srcRepeatStride, srcRepeatStride);
         } else {
             for (int i = 0; i < OS0; i++) {
@@ -386,7 +386,7 @@ TILEOP void DynTrowmaxsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp,
     pipe_barrier(PIPE_V);
 
     for (int i = 2; i < srcRepeatPerRow; i++) {
-        if ((tmpRepeatStride <= REPEAT_MAX) && (srcRepeatStride <= REPEAT_MAX)) {
+        if constexpr ((tmpRepeatStride <= REPEAT_MAX) && (srcRepeatStride <= REPEAT_MAX)) {
             vmax(tmp, src + i * nElemPerRepeat, tmp, OS0, 1, 1, 1, tmpRepeatStride, srcRepeatStride, tmpRepeatStride);
         } else {
             for (int j = 0; j < OS0; j++) {
@@ -397,7 +397,7 @@ TILEOP void DynTrowmaxsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp,
     }
     if (remain > 0) {
         SetContinuousMask(remain);
-        if ((tmpRepeatStride <= REPEAT_MAX) && (srcRepeatStride <= REPEAT_MAX)) {
+        if constexpr ((tmpRepeatStride <= REPEAT_MAX) && (srcRepeatStride <= REPEAT_MAX)) {
             vmax(tmp, src + srcRepeatPerRow * nElemPerRepeat, tmp, OS0, 1, 1, 1, tmpRepeatStride, srcRepeatStride,
                 tmpRepeatStride);
         } else {
@@ -437,7 +437,7 @@ template <typename T, unsigned DS, unsigned SS, unsigned TBS>
 TILEOP void DynTrowminsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp, unsigned OS0, unsigned OS1) {
     //    OS0 <= REPEAT_MAX
     uint64_t srcRepeatPerRow = static_cast<uint64_t>(OS1 * sizeof(T) / REPEAT_BYTE);
-    unsigned srcRepeatStride = SS * sizeof(T) / BLOCK_SIZE;
+    constexpr unsigned srcRepeatStride = SS * sizeof(T) / BLOCK_SIZE;
     constexpr unsigned nElemPerRepeat = REPEAT_BYTE / sizeof(T);
     unsigned remain = OS1 % nElemPerRepeat;
     if (srcRepeatPerRow == 1 && OS0 <= REPEAT_MAX && remain == 0) {
@@ -475,12 +475,12 @@ TILEOP void DynTrowminsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp,
             return;
         }
     }
-    uint16_t tmpRepeatStride = TBS * sizeof(T) / BLOCK_SIZE;
-    if (srcRepeatPerRow == 1 && remain > 0) {
+    constexpr uint16_t tmpRepeatStride = TBS * sizeof(T) / BLOCK_SIZE;
+    if (srcRepeatStride >= BLOCK_MAX_PER_REPEAT && srcRepeatPerRow == 1 && remain > 0) {
         copy_ubuf_to_ubuf(tmp, src, 0, OS0, BLOCK_MAX_PER_REPEAT, srcRepeatStride - BLOCK_MAX_PER_REPEAT,
             tmpRepeatStride - BLOCK_MAX_PER_REPEAT);
     } else {
-        if ((tmpRepeatStride <= REPEAT_MAX) && (srcRepeatStride <= REPEAT_MAX)) {
+        if constexpr ((tmpRepeatStride <= REPEAT_MAX) && (srcRepeatStride <= REPEAT_MAX)) {
             vmin(tmp, src, src + nElemPerRepeat, OS0, 1, 1, 1, tmpRepeatStride, srcRepeatStride, srcRepeatStride);
         } else {
             for (int i = 0; i < OS0; i++) {
@@ -491,7 +491,7 @@ TILEOP void DynTrowminsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp,
     pipe_barrier(PIPE_V);
 
     for (int i = 2; i < srcRepeatPerRow; i++) {
-        if ((tmpRepeatStride <= REPEAT_MAX) && (srcRepeatStride <= REPEAT_MAX)) {
+        if constexpr ((tmpRepeatStride <= REPEAT_MAX) && (srcRepeatStride <= REPEAT_MAX)) {
             vmin(tmp, src + i * nElemPerRepeat, tmp, OS0, 1, 1, 1, tmpRepeatStride, srcRepeatStride, tmpRepeatStride);
         } else {
             for (int j = 0; j < OS0; j++) {
@@ -502,7 +502,7 @@ TILEOP void DynTrowminsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp,
     }
     if (remain > 0) {
         SetContinuousMask(remain);
-        if ((tmpRepeatStride <= REPEAT_MAX) && (srcRepeatStride <= REPEAT_MAX)) {
+        if constexpr ((tmpRepeatStride <= REPEAT_MAX) && (srcRepeatStride <= REPEAT_MAX)) {
             vmin(tmp, src + srcRepeatPerRow * nElemPerRepeat, tmp, OS0, 1, 1, 1, tmpRepeatStride, srcRepeatStride,
                 tmpRepeatStride);
         } else {
