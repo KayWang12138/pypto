@@ -461,7 +461,7 @@ private:
     mutable size_t groupID_{NON_GROUP};
     bool isDeleted_{false};
 
-    SourceLocationPtr location_;
+    SourceLocationPtr location_ {nullptr};
     std::array<std::string, static_cast<int>(SemanticLabelType::LABEL_COUNT)> semanticLabels_;
     Function *function_;
 };

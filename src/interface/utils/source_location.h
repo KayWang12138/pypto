@@ -13,6 +13,7 @@
 #include <memory>
 #include <string>
 #include <stack>
+#include <mutex>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -36,6 +37,7 @@ public:
 
 private:
     static std::shared_ptr<SourceLocation> GetLocation(uint64_t pc) {
+        std::lock_guard<std::mutex> lock(mutex);
         if (locMap.find(pc) != locMap.end()) {
             return locMap[pc];
         }
@@ -51,6 +53,7 @@ private:
     mutable std::string fname_;
     mutable int lineno_;
     uint64_t pc_;
+    static std::mutex mutex;
     static std::stack<std::shared_ptr<SourceLocation>> callStack;
     static std::unordered_set<uint64_t> pcSet;
     static std::unordered_map<uint64_t, std::shared_ptr<SourceLocation>> locMap;

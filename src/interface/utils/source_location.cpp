@@ -23,6 +23,7 @@
 namespace npu::tile_fwk {
 
 void SourceLocation::Init() const {
+    std::lock_guard<std::mutex> lock(mutex);
     if (pcSet.empty()) {
         return;
     }
@@ -80,6 +81,7 @@ std::string SourceLocation::GetFileName() const {
     return fname_;
 }
 
+std::mutex SourceLocation::mutex;
 std::stack<std::shared_ptr<SourceLocation>> SourceLocation::callStack;
 std::unordered_set<uint64_t> SourceLocation::pcSet;
 std::unordered_map<uint64_t, std::shared_ptr<SourceLocation>> SourceLocation::locMap;
