@@ -54,6 +54,8 @@ target_compile_options(tile_fwk_server
             -fPIC
             -D__DEVICE__
             -Werror
+            -Wl,-z,relro,-z,now
+            -fstack-protector-all
 )
 target_include_directories(tile_fwk_server
         PRIVATE
