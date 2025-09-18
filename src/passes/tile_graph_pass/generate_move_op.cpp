@@ -72,6 +72,7 @@ void GenerateMoveOp::ConvertViewToCopyInWhenInputGm(Operation &op, ViewOpAttribu
         OpImmediate::Specified(op.iOperand.front()->tensor->GetDynRawShape()),
         OpImmediate::Specified(viewOpAttribute->GetToDynValidShape())
     );
+    op.GetOOperands()[0]->UpdateDynValidShape(viewOpAttribute->GetToDynValidShape());
     op.SetOpAttribute(copyAttr);
     if (nextOp->HasAttr(OpAttributeKey::tag)) {
         op.SetAttribute(OpAttributeKey::tag, nextOp->GetStringAttribute(OpAttributeKey::tag));
