@@ -147,7 +147,7 @@ def gen_ast_ut_code(directory_path: str, operator_name: str, \
     return_type: str):
     ast_ut_include_file_list = [
         "gtest/gtest.h",
-        "operation/tilefwk_op.h",
+        "tilefwk/tilefwk_op.h",
         "tilefwk/tilefwk.h",
         "interface/inner/tilefwk.h",
         "interface/configs/config_storage.h",

@@ -17,7 +17,7 @@
 #include "interface/configs/config_manager.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/interpreter/calc.h"
-#include "operation/tilefwk_op.h"
+#include "tilefwk/tilefwk_op.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_storage.h"

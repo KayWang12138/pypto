@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "tilefwk/hash_buffer.h"
+#include "interface/inner/hash_buffer.h"
 
 namespace npu::tile_fwk {
 

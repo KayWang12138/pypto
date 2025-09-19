@@ -19,12 +19,14 @@
 #include <memory>
 #include <vector>
 #include <initializer_list>
-#include "common/pre_def.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/symbolic_scalar.h"
 
 namespace npu::tile_fwk {
 
+class LogicalTensor;
+class SymbolicScalar;
+using BinDataPtr = uint8_t *;
 using Shape = std::vector<int64_t>;
 using Offset = std::vector<int64_t>;
 using Stride = std::vector<int64_t>;

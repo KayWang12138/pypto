@@ -16,7 +16,7 @@
 #include <gtest/gtest.h>
 #include "tilefwk/data_type.h"
 #include "interface/function/function.h"
-#include "operation/tilefwk_op.h"
+#include "tilefwk/tilefwk_op.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"

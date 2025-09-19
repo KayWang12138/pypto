@@ -9,7 +9,7 @@
  */
 #pragma once
 #include "tilefwk/tile_shape.h"
-#include "tilefwk/hash_buffer.h"
+#include "interface/inner/hash_buffer.h"
 
 namespace npu::tile_fwk {
 inline HashBuffer &SerializeTo(const VecTile &vecTile, HashBuffer &hashBuffer) {

@@ -20,9 +20,10 @@
 
 #include "tilefwk/tensor.h"
 #include "tilefwk/element.h"
-#include "common/pre_def.h"
 
 namespace npu::tile_fwk {
+class SymbolicScalar;
+class Element;
 constexpr const int TILE_VEC_DIMS = 2;
 constexpr const int TILE_CUBE_DIMS = 6;
 

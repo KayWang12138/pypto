@@ -19,7 +19,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "passes/pass_manager.h"
-#include "operation/tilefwk_op.h"
+#include "tilefwk/tilefwk_op.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 
 namespace npu::tile_fwk {

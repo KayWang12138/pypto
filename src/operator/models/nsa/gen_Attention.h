@@ -17,8 +17,8 @@
 #ifndef GEN_ATTENTION
 #define GEN_ATTENTION
 
-#include "operation/tilefwk_op.h"
-#include "common/pre_def.h"
+#include "tilefwk/tilefwk_op.h"
+#include "interface/inner/pre_def.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_storage.h"

@@ -23,7 +23,7 @@
 
 #include "tilefwk/tilefwk.h"
 #include "interface/operation/operation.h"
-#include "common/pre_def.h"
+#include "interface/inner/pre_def.h"
 #include "interface/tensor/symbolic_scalar.h"
 #include "tilefwk/tensor.h"
 #include "interface/tensor/tensormap.h"

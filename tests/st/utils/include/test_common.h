@@ -21,7 +21,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "runtime.h"
-#include "operation/tilefwk_op.h"
+#include "tilefwk/tilefwk_op.h"
 #include "interface/tensor/float.h"
 #include "interface/tensor/logical_tensor.h"
 #include "cost_model/simulation/pv/PvData.h"

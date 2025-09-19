@@ -16,7 +16,7 @@
 #ifndef MACHINE_WS_INTF_H
 #define MACHINE_WS_INTF_H
 
-#include "common/common_def.h"
+#include "tilefwk/common_def.h"
 #include "interface/utils/common.h"
 #include "tilefwk/core_func_data.h"
 

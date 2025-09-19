@@ -17,7 +17,7 @@
 #ifndef DYNAMIC_NSA
 #define DYNAMIC_NSA
 
-#include "common/pre_def.h"
+#include "interface/inner/pre_def.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"

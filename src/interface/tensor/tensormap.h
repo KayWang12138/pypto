@@ -25,7 +25,7 @@
 #include <algorithm>
 #include <cassert>
 #include <memory>
-#include "common/pre_def.h"
+#include "interface/inner/pre_def.h"
 #include "interface/tensor/hypercube_overlap_checker.h"
 
 namespace npu::tile_fwk {

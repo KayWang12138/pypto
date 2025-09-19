@@ -15,7 +15,7 @@
 #include "attention_post.h"
 
 #include "interface/function/function.h"
-#include "operation/tilefwk_op.h"
+#include "tilefwk/tilefwk_op.h"
 #include "tilefwk/tensor.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/utils/common.h"

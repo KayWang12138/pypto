@@ -18,7 +18,7 @@
 
 #include <string>
 #include <atomic>
-#include "common/pre_def.h"
+#include "interface/inner/pre_def.h"
 #include "interface/configs/config_manager.h"
 
 namespace npu::tile_fwk {

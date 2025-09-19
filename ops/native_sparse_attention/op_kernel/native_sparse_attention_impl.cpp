@@ -10,7 +10,7 @@
 
 #include "tilefwk/tilefwk.h"
 #include "tilefwk/op_registry.h"
-#include "operation/tilefwk_op.h"
+#include "tilefwk/tilefwk_op.h"
 
 namespace npu::tile_fwk {
 void DynamicDD(uint64_t configKey) {

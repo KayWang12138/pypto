@@ -17,7 +17,7 @@
 
 #include <cstdint>
 #include "interface/utils/common.h"
-#include "common/pre_def.h"
+#include "interface/inner/pre_def.h"
 
 namespace npu::tile_fwk {
 

@@ -15,7 +15,7 @@
 
 #include "tilefwk/shmem_tensor_manager.h"
 #include "interface/tensor/logical_tensor.h"
-#include "operation/tilefwk_op.h"
+#include "tilefwk/tilefwk_op.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {

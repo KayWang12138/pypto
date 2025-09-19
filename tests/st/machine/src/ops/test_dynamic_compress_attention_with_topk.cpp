@@ -17,7 +17,7 @@
 #include "interface/tensor/float.h"
 #include "tilefwk/data_type.h"
 #include "interface/function/function.h"
-#include "operation/tilefwk_op.h"
+#include "tilefwk/tilefwk_op.h"
 #include "tilefwk/tilefwk.h"
 #include "machine/device/dynamic/device_utils.h"
 #include "test_suite_stest_ops.h"

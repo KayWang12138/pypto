@@ -22,7 +22,7 @@
 #include <unordered_set>
 #include <functional>
 #include "tilefwk/data_type.h"
-#include "common/pre_def.h"
+#include "interface/inner/pre_def.h"
 #include "raw_tensor.h"
 #include "interface/operation/attr_holder.h"
 #include "symbolic_scalar.h"

@@ -24,6 +24,10 @@
 #include "tilefwk/tile_shape.h"
 
 namespace npu::tile_fwk {
+    
+class Function;
+class Operation;
+using LogicalTensorPtr = std::shared_ptr<LogicalTensor>;
 enum class CastOpType {
     CAST,
     // FLOOR,

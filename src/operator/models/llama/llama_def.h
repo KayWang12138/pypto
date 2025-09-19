@@ -17,7 +17,7 @@
 #ifndef LLAMA_DEF_H
 #define LLAMA_DEF_H
 
-#include "common/pre_def.h"
+#include "interface/inner/pre_def.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_storage.h"

@@ -15,7 +15,7 @@
 
 #include <iostream>
 
-#include "operation/tilefwk_op.h"
+#include "tilefwk/tilefwk_op.h"
 #include "tilefwk/tensor.h"
 
 int main() {

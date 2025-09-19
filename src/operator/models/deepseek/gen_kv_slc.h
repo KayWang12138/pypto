@@ -16,8 +16,8 @@
 #ifndef GEN_KV_SLC
 #define GEN_KV_SLC
 
-#include "operation/tilefwk_op.h"
-#include "common/pre_def.h"
+#include "tilefwk/tilefwk_op.h"
+#include "interface/inner/pre_def.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/configs/config_storage.h"

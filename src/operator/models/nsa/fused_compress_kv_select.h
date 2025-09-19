@@ -17,8 +17,8 @@
 #ifndef FUSED_COMPRESS_KV_SELECT_H
 #define FUSED_COMPRESS_KV_SELECT_H
 
-#include "operation/tilefwk_op.h"
-#include "common/pre_def.h"
+#include "tilefwk/tilefwk_op.h"
+#include "interface/inner/pre_def.h"
 #include "tilefwk/tilefwk.h"
 
 namespace npu::tile_fwk {

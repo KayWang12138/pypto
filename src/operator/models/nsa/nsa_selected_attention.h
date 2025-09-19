@@ -17,8 +17,8 @@
 #ifndef NSA_SELECTED_ATTENTION
 #define NSA_SELECTED_ATTENTION
 
-#include "operation/tilefwk_op.h"
-#include "common/pre_def.h"
+#include "tilefwk/tilefwk_op.h"
+#include "interface/inner/pre_def.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/configs/config_storage.h"
 

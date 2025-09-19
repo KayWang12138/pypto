@@ -22,7 +22,7 @@
 #include <vector>
 #include <nlohmann/json.hpp>
 #include "tilefwk/tilefwk.h"
-#include "common/pre_def.h"
+#include "interface/inner/pre_def.h"
 #include "tilefwk/data_type.h"
 #include "interface/utils/log.h"
 

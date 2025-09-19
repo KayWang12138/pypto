@@ -19,7 +19,7 @@
 #include <vector>
 #include <string>
 #include <array>
-#include "common/any.h"
+#include "interface/inner/any.h"
 
 namespace npu::tile_fwk {
 

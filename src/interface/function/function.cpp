@@ -17,7 +17,7 @@
 #include <queue>
 #include <algorithm>
 #include <unordered_map>
-#include "common/pre_def.h"
+#include "interface/inner/pre_def.h"
 #include "interface/cache/hash.h"
 #include "interface/operation/opcode.h"
 #include "interface/operation/operation.h"

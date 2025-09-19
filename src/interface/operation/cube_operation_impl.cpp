@@ -14,7 +14,7 @@
  */
 
 #include "operation_impl.h"
-#include "common/pre_def.h"
+#include "interface/inner/pre_def.h"
 #include "tilefwk/tile_shape.h"
 #include "interface/configs/config_manager.h"
 #include "interface/operation/operation.h"

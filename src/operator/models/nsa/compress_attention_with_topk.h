@@ -17,8 +17,8 @@
 #ifndef COMPRESS_ATTENTION_WITH_TOPK_H
 #define COMPRESS_ATTENTION_WITH_TOPK_H
 
-#include "operation/tilefwk_op.h"
-#include "common/pre_def.h"
+#include "tilefwk/tilefwk_op.h"
+#include "interface/inner/pre_def.h"
 #include "tilefwk/tilefwk.h"
 #include "operator/models/nsa/fused_compress_kv_select.h"
 

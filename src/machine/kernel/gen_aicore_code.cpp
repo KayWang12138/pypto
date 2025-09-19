@@ -21,7 +21,7 @@ namespace {
 const std::string kAicoreSrcCode = R"!!!(
 #include <stdint.h>
 #include <cstdint>
-#include "common/common_def.h"
+#include "tilefwk/common_def.h"
 #include "tilefwk/aicore_runtime.h"
 #include "tilefwk/core_func_data.h"
 

@@ -14,7 +14,7 @@
  */
 
 #include "gtest/gtest.h"
-#include "operation/tilefwk_op.h"
+#include "tilefwk/tilefwk_op.h"
 
 #include "interface/tensor/logical_tensor.h"
 #include "interface/operation/operation.h"

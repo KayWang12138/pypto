@@ -22,9 +22,9 @@
 #include <unordered_set>
 #include <variant>
 #include <nlohmann/json.hpp>
-#include "common/any.h"
-#include "common/pre_def.h"
-#include "operation/tilefwk_op.h"
+#include "interface/inner/any.h"
+#include "interface/inner/pre_def.h"
+#include "tilefwk/tilefwk_op.h"
 #include "interface/configs/config_storage.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/tile_shape.h"

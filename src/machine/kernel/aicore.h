@@ -15,7 +15,7 @@
 
 #pragma once
 #include <cstdint>
-#include "common/common_def.h"
+#include "tilefwk/common_def.h"
 #include "tilefwk/core_func_data.h"
 #ifndef __gm__
 #define __gm__

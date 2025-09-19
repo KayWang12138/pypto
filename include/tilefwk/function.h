@@ -23,6 +23,11 @@
 #include "tilefwk/tensor.h"
 #include "tilefwk/symbolic_scalar.h"
 
+namespace npu::tile_fwk {
+// Forward declaration for types used in this file
+class Function;
+}
+
 // Helper macros to count arguments
 #define RECORD_FUNC_VAR_NAME_COUNTER_HELPER(var, cnt) var##cnt
 #define RECORD_FUNC_VAR_NAME_COUNTER(var, cnt) RECORD_FUNC_VAR_NAME_COUNTER_HELPER(var, cnt)

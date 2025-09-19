@@ -30,7 +30,7 @@
 
 #include "tilefwk/error.h"
 #include "tilefwk/data_type.h"
-#include "tilefwk/hash_buffer.h"
+#include "interface/inner/hash_buffer.h"
 #include "interface/utils/common.h"
 
 namespace npu::tile_fwk {
