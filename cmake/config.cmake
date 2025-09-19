@@ -31,11 +31,15 @@ if (Python3_Development_FOUND)
     if (NOT "${pybind11_DIR}x" STREQUAL "x")
         find_package(pybind11 CONFIG REQUIRED PATHS ${pybind11_DIR} NO_DEFAULT_PATH)
     endif ()
-endif ()
-if (NOT pybind11_FOUND)
+    if (NOT pybind11_FOUND)
+        set(ENABLE_BUILD_PTO_FWK_PYTHON OFF)
+        message(WARNING "Can't get pybind11, Auto turn off ENABLE_BUILD_PTO_FWK_PYTHON.")
+    endif ()
+else ()
     set(ENABLE_BUILD_PTO_FWK_PYTHON OFF)
-    message(WARNING "Can't get pybind11, Auto turn off ENABLE_BUILD_PTO_FWK_PYTHON.")
+    message(WARNING "Can't get python3-dev, Auto turn off ENABLE_BUILD_PTO_FWK_PYTHON.")
 endif ()
+
 
 # 获取 CANN 路径
 if (CUSTOM_ASCEND_CANN_PACKAGE_PATH)

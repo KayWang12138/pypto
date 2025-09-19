@@ -7,6 +7,12 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
+
+/*!
+ * \file operator_tracer.cpp
+ * \brief
+ */
+
 #include "operator_tracer.h"
 #include "interface/program/program.h"
 #include "interface/utils/id_gen.h"

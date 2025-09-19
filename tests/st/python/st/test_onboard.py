@@ -40,7 +40,7 @@ def test_device_run_data_from_host():
     pto.DeviceRunOnceDataFromHost([a_data], [b_data])
 
     assert b_data == [v * 11 for v in range(n * m)]
-    pto._DeviceFini()
+    pto.DeviceFini()
 
 def test_device_run_data_from_device():
     try:

@@ -7,8 +7,13 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
-#include <torch/torch.h>
 
+ /*!
+  * \file calc_torch.cpp
+  * \brief
+  */
+
+#include <torch/torch.h>
 #include "../calc.h"
 
 namespace npu::tile_fwk::calc {

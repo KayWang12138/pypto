@@ -227,7 +227,7 @@ bool IsPathExist(const std::string& path)
     if (path.empty()) {
         return false;
     }
-    
+
     struct stat buffer;
     return (stat(path.c_str(), &buffer) == 0);
 }
@@ -246,7 +246,7 @@ std::vector<std::string> GetFiles(const std::string& path, const std::string& ex
         if (fileName == "." || fileName == "..") {
             continue;
         }
-        
+
         // 检查文件扩展名
         if (!ext.empty()) {
             size_t pos = fileName.rfind('.');
@@ -262,11 +262,11 @@ std::vector<std::string> GetFiles(const std::string& path, const std::string& ex
                 continue;
             }
         }
-        
+
         files.push_back(fileName);
     }
     closedir(dir);
-    
+
     std::sort(files.begin(), files.end());
     return files;
 }

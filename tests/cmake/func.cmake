@@ -319,7 +319,7 @@ function(PTO_Fwk_GTest_RunPytest)
                     TARGET ${_Target} POST_BUILD
                     COMMAND ${CMAKE_COMMAND} -E remove_directory ${_PyPTOInstallPath}
                     COMMAND ${CMAKE_COMMAND} -E make_directory ${_PyPTOInstallPath}
-                    COMMAND pip3 install --target=${_PyPTOInstallPath} -v --force-reinstall .
+                    COMMAND ${Python3_EXECUTABLE} -m pip install --target=${_PyPTOInstallPath} -v --force-reinstall .
                     COMMAND ${CMAKE_COMMAND} -E remove_directory ${_PyPTOInstallPath}/pto/include/
                     COMMAND ${CMAKE_COMMAND} -E copy_directory  ${PTO_FWK_SRC_ROOT}/include/ ${_PyPTOInstallPath}/pto/include/
                     COMMENT "Install to ${_PyPTOInstallPath}"
