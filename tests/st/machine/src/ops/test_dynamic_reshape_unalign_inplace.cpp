@@ -94,7 +94,6 @@ TEST_F(DynamicReshapeUnalignImplaceTest, merge_two_dynamic_dim) {
     genDateAndExe(q_real, out_real, 1);
 }
 
-
 TEST_F(DynamicReshapeUnalignImplaceTest, test_exchange_dim) {
     TileShape::Current().SetVecTile(1, 16, 16);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
@@ -129,7 +128,6 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_exchange_dim) {
     Tensor out_real(DT_FP32, {d, sq, m});
     genDateAndExe(q_real, out_real, 1);
 }
-
 
 TEST_F(DynamicReshapeUnalignImplaceTest, test_reshape_special) {
     TileShape::Current().SetVecTile(1, 16, 16);
@@ -209,4 +207,74 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_op_reshape_op) {
     genDateAndExe(q_real, out_real, 2);
 }
 
+TEST_F(DynamicReshapeUnalignImplaceTest, test_src_op_dst_op) {
+    TileShape::Current().SetVecTile(1, 16, 16);
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
+    int sq = 5;
+    int d = -1;
+    int m = 8;
+    int sqD = (d == -1) ? -1 : sq*d;
+    std::vector<int64_t> qShape3Dim = {sq, d, m}; //(5, -1(5), 8)
+    std::vector<int64_t> qShape2Dim = {sqD, m};   //(-1(5*5), 8)
+
+    Tensor q(DT_FP32, qShape3Dim, "q");
+    Tensor outSrc(DT_FP32, qShape3Dim, "outSrc");
+    Tensor outDst(DT_FP32, qShape2Dim, "outDst");
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {q}, {outSrc, outDst}) {
+        Tensor q_reshape(DT_FP32, {GetInputShape(q, 0) * GetInputShape(q, 1), m});
+        LOOP("reshapeInplace", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)){
+            (void)index;
+            ReshapeInplace(q, q_reshape);
+        }
+        LOOP("srcOp", FunctionType::DYNAMIC_LOOP, indx, LoopRange(GetInputShape(q, 1))){
+            Tensor tmp0 = View(q, {sq, 1, m}, {0, indx, 0});
+            auto tmp1 = AddS(tmp0, Element(tmp0->Datatype(), 0.02));
+            Assemble(tmp1, {0, indx, 0}, outSrc);
+        }
+        SymbolicScalar offSet = 32;
+        LOOP("destOp", FunctionType::DYNAMIC_LOOP, loopIdx, LoopRange((GetInputShape(q, 0) * GetInputShape(q, 1) + offSet - 1)/offSet)){
+            Tensor tmp2 = View(q_reshape, {offSet, m}, {min(GetInputShape(q, 0) * GetInputShape(q, 1) - loopIdx * offSet, offSet), m}, {loopIdx * offSet, 0});
+            TileShape::Current().SetVecTile(16, 16);
+            auto tmp3 = AddS(tmp2, Element(tmp2->Datatype(), 0.01));
+            Assemble(tmp3, {loopIdx * offSet, 0}, outDst);
+        }
+    }
+    d = 5;
+    Tensor qReal(DT_FP32, {sq, d, m});
+    Tensor outSrcReal(DT_FP32, {sq, d, m});
+    Tensor outDstReal(DT_FP32, {sq*d, m});
+
+    std::vector<int64_t> shape = qReal.GetShape();
+    size_t elementSum = 1;
+    for (size_t i = 0; i < shape.size(); i++){
+        elementSum *= shape[i];
+    }
+    std::vector<float> inputValueData(elementSum, 0);
+    for (size_t i = 0; i < elementSum ; i++){
+        inputValueData[i] = static_cast<float>(i);
+    }
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<float>(qReal, inputValueData),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(outSrcReal, 0.0f),
+        RawTensorData::CreateConstantTensor<float>(outDstReal, 0.0f),
+    });
+
+    std::vector<float> outSrcGolden(elementSum, 1.02f);
+    for (size_t i = 0; i < elementSum ; i++){
+        outSrcGolden[i] = static_cast<float>(i) + 0.02f;
+    }
+    std::vector<float> outDstGolden(elementSum, 1.01f);
+    for (size_t i = 0; i < elementSum ; i++){
+        outDstGolden[i] = static_cast<float>(i) + 0.01f;
+    }
+    // excute
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(qReal->GetDataSize()));
+    auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(outSrcGolden, (float *)outputResult->data(), 0.001f));
+    auto outsumResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(1);
+    EXPECT_TRUE(resultCmp(outDstGolden, (float *)outsumResult->data(), 0.001f));
+}

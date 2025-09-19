@@ -204,6 +204,7 @@ set(_CaseFilterList
         "DynamicReshapeUnalignImplaceTest.merge_two_dynamic_dim"
         "DynamicReshapeUnalignImplaceTest.test_exchange_dim"
         "DynamicReshapeUnalignImplaceTest.test_reshape_special"
+        "DynamicReshapeUnalignImplaceTest.test_src_op_dst_op"
 
 )
 
