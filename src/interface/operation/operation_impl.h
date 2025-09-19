@@ -38,6 +38,8 @@ enum class BinaryOpType {
     SUB,
     MUL,
     DIV,
+    MAX,
+    MIN,
     ADD_BRC,
     SUB_BRC,
     MUL_BRC,

@@ -322,3 +322,115 @@ void TestNZFormatBatch(int bs, int m, int k, int n) {
 TEST_F(OperationImplTest, test_BMMT_NZ_1_128_256_128_Batch) {
     TestNZFormatBatch<DataType::DT_FP16, DataType::DT_FP32, false, true, true>(2, 128, 128, 256);
 }
+
+TEST_F(OperationImplTest, test_MaxS_FP16) {
+    float scalar = 127.0;
+    TileShape::Current().SetVecTile(8, 8, 8, 8);
+    Tensor operand1(DT_FP16, {8, 16, 16}, "operand1");
+    Element operand2(DT_FP16, scalar);
+    Tensor result;
+    FUNCTION("TestMaxS") {
+        result = MaxS(operand1, operand2);
+    }
+}
+
+TEST_F(OperationImplTest, test_MaxS_FP32) {
+    float scalar = 127.0;
+    TileShape::Current().SetVecTile(8, 8, 8, 8);
+    Tensor operand1(DT_FP32, {8, 16, 16}, "operand1");
+    Element operand2(DT_FP32, scalar);
+    Tensor result;
+    FUNCTION("TestMaxS") {
+        result = MaxS(operand1, operand2);
+    }
+}
+
+TEST_F(OperationImplTest, test_MaxS_INT8) {
+    int scalar = 127;
+    TileShape::Current().SetVecTile(8, 8, 8, 8);
+    Tensor operand1(DT_INT8, {8, 16, 16}, "operand1");
+    Element operand2(DT_INT8, scalar);
+    Tensor result;
+    FUNCTION("TestMaxS") {
+        result = MaxS(operand1, operand2);
+    }
+}
+
+
+TEST_F(OperationImplTest, test_MaxS_INT16) {
+    int scalar = 127;
+    TileShape::Current().SetVecTile(8, 8, 8, 8);
+    Tensor operand1(DT_INT16, {8, 16, 16}, "operand1");
+    Element operand2(DT_INT16, scalar);
+    Tensor result;
+    FUNCTION("TestMaxS") {
+        result = MaxS(operand1, operand2);
+    }
+}
+
+TEST_F(OperationImplTest, test_MaxS_INT32) {
+    int scalar = 127;
+    TileShape::Current().SetVecTile(8, 8, 8, 8);
+    Tensor operand1(DT_INT32, {8, 16, 16}, "operand1");
+    Element operand2(DT_INT32, scalar);
+    Tensor result;
+    FUNCTION("TestMaxS") {
+        result = MaxS(operand1, operand2);
+    }
+}
+
+TEST_F(OperationImplTest, test_MinS_FP16) {
+    float scalar = 127.0;
+    TileShape::Current().SetVecTile(8, 8, 8, 8);
+    Tensor operand1(DT_FP16, {8, 16, 16}, "operand1");
+    Element operand2(DT_FP16, scalar);
+    Tensor result;
+    FUNCTION("TestMinS") {
+        result = MinS(operand1, operand2);
+    }
+}
+
+TEST_F(OperationImplTest, test_MinS_FP32) {
+    float scalar = 127.0;
+    TileShape::Current().SetVecTile(8, 8, 8, 8);
+    Tensor operand1(DT_FP32, {8, 16, 16}, "operand1");
+    Element operand2(DT_FP32, scalar);
+    Tensor result;
+    FUNCTION("TestMinS") {
+        result = MinS(operand1, operand2);
+    }
+}
+
+TEST_F(OperationImplTest, test_MinS_INT8) {
+    int scalar = 127;
+    TileShape::Current().SetVecTile(8, 8, 8, 8);
+    Tensor operand1(DT_INT8, {8, 16, 16}, "operand1");
+    Element operand2(DT_INT8, scalar);
+    Tensor result;
+    FUNCTION("TestMinS") {
+        result = MinS(operand1, operand2);
+    }
+}
+
+
+TEST_F(OperationImplTest, test_MinS_INT16) {
+    int scalar = 127;
+    TileShape::Current().SetVecTile(8, 8, 8, 8);
+    Tensor operand1(DT_INT16, {8, 16, 16}, "operand1");
+    Element operand2(DT_INT16, scalar);
+    Tensor result;
+    FUNCTION("TestMinS") {
+        result = MinS(operand1, operand2);
+    }
+}
+
+TEST_F(OperationImplTest, test_MinS_INT32) {
+    int scalar = 127;
+    TileShape::Current().SetVecTile(8, 8, 8, 8);
+    Tensor operand1(DT_INT32, {8, 16, 16}, "operand1");
+    Element operand2(DT_INT32, scalar);
+    Tensor result;
+    FUNCTION("TestMinS") {
+        result = MinS(operand1, operand2);
+    }
+}

@@ -406,6 +406,8 @@ private:
         {                      Opcode::OP_SUBS,           [this]() { return GenVectorScalarOp(); }},
         {                      Opcode::OP_MULS,           [this]() { return GenVectorScalarOp(); }},
         {                      Opcode::OP_DIVS,           [this]() { return GenVectorScalarOp(); }},
+        {                      Opcode::OP_MAXS,           [this]() { return GenVectorScalarOp(); }},
+        {                      Opcode::OP_MINS,           [this]() { return GenVectorScalarOp(); }},
 
         // binary op: vector scalar, scalar mode
         {                    Opcode::OP_S_ADDS, [this]() { return GenVectorScalarOpScalarMode(); }},

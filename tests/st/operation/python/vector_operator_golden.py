@@ -733,6 +733,23 @@ def gen_scatterelement_op_golden(case_name: str, output: Path, case_index: int =
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("ScatterElement", golden_func, output, case_index)
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestMaxS/MaxSOperationTest.TestMaxS",
+    ]
+)
+def gen_maxs_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    def golden_func(inputs, config: dict):
+        params = config["params"]
+        x = inputs[0]
+        scalar_type = params.get("scalar_type", "fp32")
+        scalar = get_dtype_by_name(scalar_type)(params["scalar"])
+        y = np.where(x < scalar, scalar, x)
+        return [y]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("MaxS", golden_func, output, case_index)
+
 
 def main() -> bool:
     # 用例名称

@@ -46,6 +46,8 @@ enum class Opcode {
     OP_SUBS,
     OP_MULS,
     OP_DIVS,
+    OP_MAXS,
+    OP_MINS,
     OP_S_ADDS,
     OP_S_SUBS,
     OP_S_MULS,
@@ -415,7 +417,7 @@ const std::unordered_set<Opcode> UNARY_OPS_WITH_TMP{
     Opcode::OP_COMPACT, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWMIN_SINGLE, Opcode::OP_TRANSPOSE_VNCHWCONV,
     Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE};
 
-const std::unordered_set<Opcode> VECTOR_SCALAR_OPS{Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_DIVS};
+const std::unordered_set<Opcode> VECTOR_SCALAR_OPS{Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_DIVS, Opcode::OP_MAXS, Opcode::OP_MINS};
 
 const std::unordered_set<Opcode> SCLAR_VECTOR_SCALAR_OPS{
     Opcode::OP_S_ADDS, Opcode::OP_S_SUBS, Opcode::OP_S_MULS, Opcode::OP_S_DIVS, Opcode::OP_S_MAXS, Opcode::OP_S_MINS};
@@ -431,7 +433,7 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_TRANSP
     Opcode::OP_GATHER_ELEMENT, Opcode::OP_COPY_IN, Opcode::OP_COPY_OUT, Opcode::OP_TRANSPOSE_MOVEOUT,
     Opcode::OP_INDEX_OUTCAST, Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL, Opcode::OP_DIV, Opcode::OP_EXP, Opcode::OP_NEG,
 Opcode::OP_ABS, Opcode::OP_RSQRT, Opcode::OP_SQRT, Opcode::OP_RECIPROCAL, Opcode::OP_CAST, Opcode::OP_ADDS, Opcode::OP_SUBS,
-    Opcode::OP_MULS, Opcode::OP_DIVS, Opcode::OP_PAIRMAX, Opcode::OP_PAIRSUM, Opcode::OP_ROWMAX_SINGLE,
+    Opcode::OP_MULS, Opcode::OP_DIVS, Opcode::OP_MAXS, Opcode::OP_MINS, Opcode::OP_PAIRMAX, Opcode::OP_PAIRSUM, Opcode::OP_ROWMAX_SINGLE,
     Opcode::OP_ROWSUM_SINGLE, Opcode::OP_EXPAND, Opcode::OP_VEC_DUP, Opcode::OP_MAXIMUM, Opcode::OP_L1_TO_L0A,
     Opcode::OP_L1_TO_L0_BT, Opcode::OP_L1_TO_L0B, Opcode::OP_L1_TO_L0_AT, Opcode::OP_A_MUL_B, Opcode::OP_A_MULACC_B, 
     Opcode::OP_A_MUL_BT, Opcode::OP_AT_MUL_B, Opcode::OP_AT_MUL_BT,

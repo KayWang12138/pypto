@@ -137,6 +137,8 @@ Tensor AddS(const Tensor &operand1, const Element &operand2);
 Tensor SubS(const Tensor &operand1, const Element &operand2);
 Tensor DivS(const Tensor &operand1, const Element &operand2);
 Tensor MulS(const Tensor &operand1, const Element &operand2);
+Tensor MinS(const Tensor &operand1, const Element &operand2);
+Tensor MaxS(const Tensor &operand1, const Element &operand2);
 
 Tensor Unsqueeze(const Tensor &old, int unsqueezeDimNum);
 

@@ -128,6 +128,10 @@ std::string GetBinaryOpName() {
             return "MUL";
         case BinaryOpType::DIV:
             return "DIV";
+        case BinaryOpType::MAX:
+            return "MAX";
+        case BinaryOpType::MIN:
+            return "MIN";
         case BinaryOpType::MAXIMUM:
             return "MAXIMUM";
         default:
@@ -146,6 +150,8 @@ Opcode GetBinaryOpNameCode() {
             CASE(SUB);
             CASE(MUL);
             CASE(DIV);
+            CASE(MAX);
+            CASE(MIN);
             CASE(S_ADD);
             CASE(S_SUB);
             CASE(S_MUL);
@@ -1788,6 +1794,18 @@ Tensor DivS(const Tensor &operand1, const Element &operand2) {
         operand1.GetStorage(), operand2);
 }
 
+Tensor MaxS(const Tensor &operand1, const Element &operand2) {
+    DECLARE_TRACER();
+    RETURN_CALL(BinaryOperationScalar<BinaryOpType::MAX>, *Program::GetInstance().GetCurrentFunction(),
+        operand1.GetStorage(), operand2);
+}
+
+Tensor MinS(const Tensor &operand1, const Element &operand2) {
+    DECLARE_TRACER();
+    RETURN_CALL(BinaryOperationScalar<BinaryOpType::MIN>, *Program::GetInstance().GetCurrentFunction(),
+        operand1.GetStorage(), operand2);
+}
+
 Tensor ScalarAddS(const Tensor &operand, const Element &value, bool reverseOperand) {
     DECLARE_TRACER();
 
@@ -3281,6 +3299,16 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
         }
         case Opcode::OP_DIVS: {
             TiledBinaryOperationScalar<BinaryOpType::DIV>(function, tileShape, iOperand[0],
+                op.GetElementAttribute(OpAttributeKey::scalar), oOperand[0]);
+            break;
+        }
+        case Opcode::OP_MAXS: {
+            TiledBinaryOperationScalar<BinaryOpType::MAX>(function, tileShape, iOperand[0],
+            op.GetElementAttribute(OpAttributeKey::scalar), oOperand[0]);
+            break;
+        }
+        case Opcode::OP_MINS: {
+            TiledBinaryOperationScalar<BinaryOpType::MIN>(function, tileShape, iOperand[0],
                 op.GetElementAttribute(OpAttributeKey::scalar), oOperand[0]);
             break;
         }
