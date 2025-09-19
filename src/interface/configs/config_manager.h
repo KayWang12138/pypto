@@ -125,6 +125,9 @@ inline DPlatform StringToDpaltform(std::string platform) {
 struct PassConfigs {
     bool printFunction{false};
     bool printProgram{false};
+    bool dumpTensorGraph{false};
+    bool dumpTileGraph{false};
+    bool dumpBlockGraph{false};
     bool dumpFunctionGraphBeforePass{false};
     bool dumpFunctionGraphAfterPass{false};
     bool dumpPassTimeCost{false};

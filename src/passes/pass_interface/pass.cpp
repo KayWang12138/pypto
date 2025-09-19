@@ -160,6 +160,16 @@ Status Pass::PreRun(Function &function) {
             ALOG_WARN_F("Print function before pass failed.");
         }
     }
+    if (passDfxconfigs_.dumpTensorGraph && (name_ == "ExpandFunction" || name_ == "RemoveRedundantReshape")) {
+        if (DumpFunctionJson(function, passFolder_, true) != SUCCESS) {
+            ALOG_WARN_F("Dump TensorGraph json failed.");
+        }
+    }
+    if (passDfxconfigs_.dumpTileGraph && name_ == "SubgraphToFunction") {
+        if (DumpFunctionJson(function, passFolder_, true) != SUCCESS) {
+            ALOG_WARN_F("Dump TileGraph json failed.");
+        }
+    }
     if (passDfxconfigs_.dumpFunctionGraphBeforePass) {
         if (DumpFunctionJson(function, passFolder_, true) != SUCCESS) {
             ALOG_WARN_F("Dump function json before pass failed.");
@@ -181,6 +191,16 @@ Status Pass::PostRun(Function &function) {
     if (passDfxconfigs_.printFunction) {
         if (PrintFunction(function, passFolder_, false) != SUCCESS) {
             ALOG_WARN_F("Print function after pass failed.");
+        }
+    }
+    if (passDfxconfigs_.dumpTileGraph && name_ == "ExpandFunction") {
+        if (DumpFunctionJson(function, passFolder_, false) != SUCCESS) {
+            ALOG_WARN_F("Dump TileGraph json failed.");
+        }
+    }
+    if (passDfxconfigs_.dumpBlockGraph && (name_ == "SubgraphToFunction" || name_ == "CodegenPreproc")) {
+        if (DumpFunctionJson(function, passFolder_, false) != SUCCESS) {
+            ALOG_WARN_F("Dump BlockGraph json failed.");
         }
     }
     if (passDfxconfigs_.dumpFunctionGraphAfterPass) {
