@@ -91,7 +91,11 @@ void TiledShmemSignal(Function &function, const TileShape &tileShape,
 void TiledShmemWaitUntil(Function &function, const TileShape &tileShape,
     const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
-}
-}
+void TiledShmemReduce(Function &function, const TileShape &tileShape,
+    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
+    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
+
+} // namespace npu::tile_fwk
+} // namespace Distributed
 
 #endif // DISTRIBUTED_EXPAND_H

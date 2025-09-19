@@ -34,7 +34,8 @@ bool IsCopyOpWithShapeOffsetAttr(Opcode opcode) {
                   opcode == Opcode::OP_REMOTE_REDUCE || opcode == Opcode::OP_REMOTE_GATHER ||
                   opcode == Opcode::OP_FFN_SCHED || opcode == Opcode::OP_FFN_BATCHING ||
                   opcode == Opcode::OP_COPY_TO_LOCAL_EXPERT || opcode == Opcode::OP_SHMEM_PUT ||
-                  opcode == Opcode::OP_SHMEM_SIGNAL || opcode == Opcode::OP_SHMEM_GET;
+                  opcode == Opcode::OP_SHMEM_SIGNAL || opcode == Opcode::OP_SHMEM_GET ||
+                  opcode == Opcode::OP_SHMEM_REDUCE;
 
     return result;
 }
@@ -366,7 +367,7 @@ void CodeGenOp::GetGmParamIdx(const npu::tile_fwk::Operation &oper) {
     }
 
     if ((oper.GetOpcode() == Opcode::OP_SHMEM_PUT) || (oper.GetOpcode() == Opcode::OP_SHMEM_SIGNAL) ||
-        (oper.GetOpcode() == Opcode::OP_SHMEM_GET)) {
+        (oper.GetOpcode() == Opcode::OP_SHMEM_GET) || (oper.GetOpcode() == Opcode::OP_SHMEM_REDUCE)) {
         for (size_t i = 0; i < oper.GetOOperands().size(); ++i) {
             if (oper.GetOOperands()[i]->GetMemoryTypeToBe() == MEM_DEVICE_DDR) {
                 paramLocation[i] = oper.GetOOpAttrOffset(i);

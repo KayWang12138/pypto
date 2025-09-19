@@ -166,4 +166,59 @@ void TiledShmemGet(Function &function, const TileShape &tileShape,
         }
     }
 }
+
+
+Shape GetReduceUbShape(int64_t rowSize, int64_t colSize, DataType dType, bool fp32Mode)
+{
+    Shape ubShape;
+    if (fp32Mode) {
+        ubShape = {rowSize * colSize +                                              // copy需要的ub大小
+            rowSize * colSize * (int64_t)(BytesOf(DT_FP32) / BytesOf(dType)) +      // 存放fp32计算结果的ub大小
+            (int64_t)(256 / BytesOf(dType))};                                       // fp32计算需要的额外
+    } else {
+        ubShape = {2 * rowSize * colSize};  // copy 和 sum 需要的ub大小
+    }
+    return ubShape;
 }
+
+void TiledShmemReduce(Function &function, const TileShape &tileShape,
+    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
+    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op)
+{
+    (void)op;
+    ASSERT(iOperand.size() == 3UL) << "TiledShmemGet iOperand size is not equal to 3";
+    ASSERT(oOperand.size() == 1UL) << "TiledShmemGet oOperand size is not equal to 1";
+    const auto in = iOperand[0];
+    const auto shmData = iOperand[1];
+    const auto dummy = iOperand[2];
+    const auto out = oOperand[0];
+    ASSERT(in->shape.size() == 2UL);
+    ASSERT(shmData->shape.size() == 4UL);
+    ASSERT(out->shape.size() == 2UL);
+    const int64_t oriRow = out->shape[0];
+    const int64_t oriCol = out->shape[1];
+    const auto tileRow = tileShape.GetDistTileRow();
+    const auto tileCol = tileShape.GetDistTileCol();
+    const int64_t rowStep = tileRow[0];
+    const int64_t colStep = tileCol[0];
+    bool fp32Mode;
+    op.GetAttr("FP32Mode", fp32Mode);
+    std::string extraTemplateParam = fp32Mode? "true" : "false";
+    int tileIndex = 0;
+    for (int64_t rowIdx = 0; rowIdx < oriRow; rowIdx += rowStep) {
+        auto rowSize = std::min(oriRow - rowIdx, rowStep);
+        for (int64_t colIdx = 0; colIdx < oriCol; colIdx += colStep) {
+            auto colSize = std::min(oriCol - colIdx, colStep);
+            auto inTile = in->View(function, {rowSize, colSize}, {rowIdx, colIdx});
+            auto dummyTile = dummy->View(function, {1, 1}, {tileIndex, 0});
+            auto outTile = out->View(function, {rowSize, colSize}, {rowIdx, colIdx});
+            Shape ubShape = GetReduceUbShape(rowSize, colSize, out->Datatype(), fp32Mode);
+            auto ubTensor = std::make_shared<LogicalTensor>(function, out->Datatype(), ubShape);
+            auto& tileop = function.AddOperation("SHMEM_REDUCE", {inTile, shmData, dummyTile}, {outTile, ubTensor});
+            tileop.SetAttr("extraTemplateParam", extraTemplateParam);
+            tileIndex++;
+        }
+    }
+}
+
+}   // namespace npu::tile_fwk::Distributed

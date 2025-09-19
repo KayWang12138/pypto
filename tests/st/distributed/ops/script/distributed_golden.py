@@ -264,6 +264,7 @@ class DistributedTestGolden:
             "DistributedTest.aivWaitFlag_multi_test_all_gather_float16_32_32_4",
             "DistributedTest.aivWaitFlag_single_test_moe_dispatch_bfloat16_rank_size_4",
             "DistributedTest.test_dyn_all_gather_int32_128_256_4",
+            "DistributedTest.shmem_reduce_scatter_float32_128_256_4",
         ]
     )
     def dist_operator_golden_gen_func(case_name: str, output: Path) -> bool:

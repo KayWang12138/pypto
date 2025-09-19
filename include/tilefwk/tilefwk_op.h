@@ -285,5 +285,8 @@ Tensor ReduceScatter(const Tensor &in, const char *group, DistReduceType reduceT
 Tensor MoeDispatch(const Tensor &tokenTensor, const Tensor &tokenExpertTable, Tensor &validCnt, const char *group);
 Tensor MoeCombine(const Tensor &in, const Tensor &scale, const Tensor &combineInfo, const char *group);
 void AllGatherDyn(const Tensor &in, const char *group, Tensor &out);
+
+// SHMEM
+Tensor ShmemReduceScatter(Tensor &in, const char* group, DistReduceType reduceType);
 } // namespace Distributed
 } // namespace npu::tile_fwk

@@ -112,5 +112,48 @@ void TestReduceScatterEx(OpTestParam &testParam)
     EXPECT_TRUE(CompareWithGolden<uint8_t *>(dType, "/output_rank_", outSize, outPtr, testParam));
 }
 
+void TestShmemReduceScatter(OpTestParam &testParam)
+{
+    constexpr size_t paramsSize = 3;
+    auto [row, col, typeNum] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    int rowOut = row / testParam.rankSize;
+    DataType dType = GetDataTypeNum(typeNum);
+    using T = float;
+
+    Tensor in(dType, {row, col}, "in");
+    Tensor out(dType, {rowOut, col}, "out");
+
+    std::vector<T> inData = ReadToVector<T>(
+        GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
+
+    FunctionConfig funcConfig;
+    FUNCTION("ShmemReduceScatter", funcConfig, {in}, {out}) {
+        LOOP("LOOP", FunctionType::DYNAMIC_LOOP, idx, LoopRange(1)) {
+            (void)idx;
+            TileShape::Current().SetDistTile({rowOut, 1, 0}, {col, 1, 0}, {1, testParam.rankSize, 0});
+            TileShape::Current().SetDistRankId(testParam.rankId);
+            out = Distributed::ShmemReduceScatter(in, testParam.group,
+                npu::tile_fwk::Distributed::DistReduceType::DIST_REDUCE_ADD);
+        }
+    }
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<T>(in, inData),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<T>(out, 0),
+    });
+
+    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+    auto hcclContext = GetHcclContext({std::string(testParam.group)});
+    DeviceLauncherConfig config;
+    config.runModel = false;
+    config.hcclContext = hcclContext;
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
+
+    auto outPut = ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", rowOut * col, outPut->GetDevPtr(), testParam));
+}
+
 } // namespace Distributed
 } // namespace npu::tile_fwk

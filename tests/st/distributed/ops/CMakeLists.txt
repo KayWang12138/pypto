@@ -17,6 +17,7 @@ add_library(${_Target} SHARED)
 target_sources(${_Target}
         PRIVATE
             ${_Sources}
+            ${_Device_Srcs}
 )
 target_include_directories(${_Target}
         PUBLIC

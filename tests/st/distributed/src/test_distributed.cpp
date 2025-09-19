@@ -133,5 +133,12 @@ TEST_F(DistributedTest, test_dyn_all_gather_int32_128_256_4) {
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     Distributed::TestDynAllGather(testParam);
 }
+
+TEST_F(DistributedTest, shmem_reduce_scatter_float32_128_256_4)
+{
+    config::SetHostConfig(KEY_ONLY_CODEGEN, true);
+    Distributed::TestShmemReduceScatter(testParam);
+}
+
 } // namespace Distributed
 } // namespace npu::tile_fwk

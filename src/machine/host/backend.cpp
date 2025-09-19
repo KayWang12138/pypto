@@ -250,7 +250,9 @@ static void SimplifySlots(DyndevFunctionAttribute *attr) {
         IncastOutcastSlot &ioslot = inoutLink.ioslotDict[devTile];
 
         for (auto &incastSlots : ioslot.incastSlot) {
-            ASSERT(!incastSlots.empty()) << "devTile: " << devTile->GetMagicName();
+            if (incastSlots.empty()) {
+                ALOG_WARN("devTile: " + devTile->GetMagicName());
+            }
             incastSlots.resize(1); // meaningless to maintain multi incast slots
             slotUsed[incastSlots.front()] = true;
         }

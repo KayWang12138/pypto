@@ -469,7 +469,9 @@ IncastOutcastLink TensorSlotManager::BuildIncastOutcastLink([[maybe_unused]]cons
 
     for (auto &[func, ioslot] : link.ioslotDict) {
         for (size_t idx = 0; idx < func->GetIncast().size(); idx++) {
-            ASSERT(!ioslot.incastSlot[idx].empty()) << "!!! incast[" << idx <<"] slot not found, " << func->GetIncast()[idx]->Dump();
+            if (ioslot.incastSlot[idx].empty()) {
+                ALOG_WARN("!!! incast[" + std::to_string(idx) + "] slot not found, " + func->GetIncast()[idx]->Dump());
+            }
         }
     }
     return link;

@@ -331,6 +331,11 @@ OpcodeManager::OpcodeManager() {
         {MemoryType::MEM_DEVICE_DDR /* nonShmemData */, MemoryType::MEM_UB /* buffer */},
         {"TileOp::Distributed::ShmemGet", PIPE_S, PIPE_S, CoreType::AIV},
         OpCalcType::DISTRIBUTED);
+    registerInfo(Opcode::OP_SHMEM_REDUCE, OpCoreType::AIV, "SHMEM_REDUCE",
+        {MemoryType::MEM_DEVICE_DDR /* in */, MemoryType::MEM_DEVICE_DDR /* shmemData */, MemoryType::MEM_DEVICE_DDR /*dummy*/},
+        {MemoryType::MEM_DEVICE_DDR /* out */, MemoryType::MEM_UB /* ubTensor */},
+        {"TileOp::Distributed::ShmemReduce", PIPE_S, PIPE_S, CoreType::AIV},
+        OpCalcType::DISTRIBUTED);
 
     registerInfo(Opcode::OP_NOP, OpCoreType::ANY, "NOP", {}, {}, {}, OpCalcType::OTHER);
     registerInfo(Opcode::OP_REDUCE_ACC, OpCoreType::GMATOMIC, "REDUCE_ACC", {MEM_DEVICE_DDR, MEM_DEVICE_DDR}, {MEM_DEVICE_DDR}, {}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "atomic_add"});

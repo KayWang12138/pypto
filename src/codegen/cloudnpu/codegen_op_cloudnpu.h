@@ -492,6 +492,7 @@ private:
         {                 Opcode::OP_SHMEM_PUT,                   [this]() { return GenDistOp(); }},
         {              Opcode::OP_SHMEM_SIGNAL,                   [this]() { return GenDistOp(); }},
         {                 Opcode::OP_SHMEM_GET,                   [this]() { return GenDistOp(); }},
+        {              Opcode::OP_SHMEM_REDUCE,                   [this]() { return GenDistOp(); }},
 
         // max pool
         {                  Opcode::OP_MAX_POOL,                   [this]() { return GenPoolOp(); }},

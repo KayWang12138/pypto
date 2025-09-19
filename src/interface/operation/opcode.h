@@ -199,6 +199,8 @@ enum class Opcode {
     OP_SHMEM_SIGNAL,
     OP_SHMEM_WAIT_UNTIL,
     OP_SHMEM_GET,
+    OP_SHMEM_REDUCE,
+
     // Begin: add for TOPK and ArgSort
     // OP_TOPK,
     OP_BITSORT,
@@ -339,7 +341,7 @@ public:
                opCode == Opcode::OP_FFN_SCHED || opCode == Opcode::OP_FFN_BATCHING ||
                opCode == Opcode::OP_COPY_TO_LOCAL_EXPERT ||
                opCode == Opcode::OP_SHMEM_PUT || opCode == Opcode::OP_SHMEM_SIGNAL ||
-               opCode == Opcode::OP_SHMEM_GET;
+               opCode == Opcode::OP_SHMEM_GET || opCode == Opcode::OP_SHMEM_REDUCE;
     }
 
     inline bool IsCopyInOrOut(Opcode opCode) const { return IsCopyIn(opCode) || IsCopyOut(opCode); }
@@ -454,7 +456,8 @@ const std::unordered_set<Opcode> DISTRIBUTED_OPS{
     Opcode::OP_REMOTE_GATHER, Opcode::OP_LOCAL_COPY_OUT, Opcode::OP_WRITE_REMOTE, Opcode::OP_REMOTE_REDUCE,
     Opcode::OP_MOE_FFN_TO_ATTN, Opcode::OP_MOE_ATTN_COMBINE, Opcode::OP_SEND_TO_ROUTING_EXPERT,
     Opcode::OP_SEND_TO_SHARED_EXPERT, Opcode::OP_COPY_TO_LOCAL_EXPERT, Opcode::OP_DISPATCH_SET_FLAG,
-    Opcode::OP_FFN_SCHED, Opcode::OP_FFN_BATCHING, Opcode::OP_SHMEM_PUT, Opcode::OP_SHMEM_SIGNAL, Opcode::OP_SHMEM_GET};
+    Opcode::OP_FFN_SCHED, Opcode::OP_FFN_BATCHING, Opcode::OP_SHMEM_PUT, Opcode::OP_SHMEM_SIGNAL, Opcode::OP_SHMEM_GET,
+    Opcode::OP_SHMEM_REDUCE};
 
 inline bool IsAllocOpCode(Opcode opCode) {
     return (ALLOC_OPCODE.count(opCode) != 0);
@@ -475,7 +478,7 @@ inline bool IsCopyOut(const Opcode &op) {
             op == Opcode::OP_REMOTE_REDUCE || op == Opcode::OP_FFN_SCHED || op == Opcode::OP_FFN_BATCHING ||
             op == Opcode::OP_COPY_TO_LOCAL_EXPERT ||
             op == Opcode::OP_SHMEM_PUT || op == Opcode::OP_SHMEM_SIGNAL ||
-            op == Opcode::OP_SHMEM_GET);
+            op == Opcode::OP_SHMEM_GET || op == Opcode::OP_SHMEM_REDUCE);
 }
 
 inline bool IsOpCodeSupportMultiProducers(Opcode opCode) {

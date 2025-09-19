@@ -50,9 +50,15 @@ std::string CodeGenOpCloudNPU::GenTemplateParams() const
         std::string value = npu::tile_fwk::AnyCast<std::string>(opAttrs.at("Value"));
         std::string atomicType = npu::tile_fwk::AnyCast<std::string>(opAttrs.at("AtomicType"));
         oss << value << ", " << atomicType;
+    } else if (opCode == Opcode::OP_SHMEM_REDUCE) {
+        std::string extraTemplateParam = npu::tile_fwk::AnyCast<std::string>(opAttrs.at("extraTemplateParam"));
+        std::vector<int64_t> outShape = rawShape[ID0];
+        oss << GetTemplateDType() << ", " << extraTemplateParam << ", " << outShape[0] << ", " << outShape[1];
     } else if (opAttrs.count("extraTemplateParam") != 0) {
         std::string extraTemplateParam = npu::tile_fwk::AnyCast<std::string>(opAttrs.at("extraTemplateParam"));
         oss << GetTemplateDType() << ", " << extraTemplateParam;
+    } else {
+        oss << GetTemplateDType();
     }
     return oss.str();
 }
@@ -88,6 +94,11 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapes() const
         constexpr int32_t shmemSignalDim = 4;
         auto [shmemSignalOffsets, shmemSignalRawShapes] = GenOffsetsAndRawShapes(shmemSignalIndex, shmemSignalDim);
         oss << ", " << shmemSignalOffsets << ", " << shmemSignalRawShapes;
+    } else if (opCode == Opcode::OP_SHMEM_REDUCE) {
+        constexpr int32_t outIndex = 0;
+        constexpr int32_t outDim = 2;
+        auto [outOffsets, outRawShape] = GenOffsetsAndRawShapes(outIndex, outDim);
+        oss << ", " << outOffsets << ", " << outRawShape;
     }
     return oss.str();
 }

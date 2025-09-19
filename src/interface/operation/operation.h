@@ -338,6 +338,7 @@ public:
             case Opcode::OP_SHMEM_PUT:
             case Opcode::OP_SHMEM_SIGNAL:
             case Opcode::OP_SHMEM_GET:
+            case Opcode::OP_SHMEM_REDUCE:
             case Opcode::OP_COPY_TO_LOCAL_EXPERT: {
                 ASSERT(dynamic_cast<CopyOpAttribute *>(opAttribute_.get()) != nullptr);
                 break;
