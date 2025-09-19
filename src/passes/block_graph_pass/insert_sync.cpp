@@ -115,7 +115,7 @@ void DataDependencySearcher::CheckWAWSearchTree(Operation *opWait, std::set<int>
     for (size_t outIdx = 0; outIdx < opWait->GetOOperands().size(); outIdx++) {
         MemoryType currMemoryType = opWait->GetOOperands()[outIdx]->GetMemoryTypeOriginal();
         if (wawSearchTree_.count(currMemoryType) > 0) {
-            TileRange rg = opWait->GetOOperands()[outIdx]->memorymap[opWait->GetSubgraphID()];
+            TileRange rg = opWait->GetOOperands()[outIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR];
             std::set<int> found = wawSearchTree_[currMemoryType].GetCovered(rg.start, rg.end);
             res.insert(found.begin(), found.end());
         }
@@ -125,13 +125,13 @@ void DataDependencySearcher::CheckWAWSearchTree(Operation *opWait, std::set<int>
 void DataDependencySearcher::CheckRAWSearchTree(Operation *opWait, std::set<int> &res) {
     for (size_t inIdx = 0; inIdx < opWait->GetIOperands().size(); inIdx++) {
         MemoryType readMemoryType = opWait->GetIOperands()[inIdx]->GetMemoryTypeOriginal();
-        int readDDRmemId = opWait->GetIOperands()[inIdx]->memorymap[opWait->GetSubgraphID()].memId;
+        int readDDRmemId = opWait->GetIOperands()[inIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
         if (readDDRmemId != -1 && writeDdrMemMap.count(readDDRmemId) > 0) {
             std::set<int> found = writeDdrMemMap[readDDRmemId];
             res.insert(found.begin(), found.end());
         }
         if (rawSearchTree_.count(readMemoryType) > 0) {
-            TileRange rg = opWait->GetIOperands()[inIdx]->memorymap[opWait->GetSubgraphID()];
+            TileRange rg = opWait->GetIOperands()[inIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR];
             std::set<int> found = rawSearchTree_[readMemoryType].GetCovered(rg.start, rg.end);
             res.insert(found.begin(), found.end());
         }
@@ -141,13 +141,13 @@ void DataDependencySearcher::CheckRAWSearchTree(Operation *opWait, std::set<int>
 void DataDependencySearcher::CheckWARSearchTree(Operation *opWait, std::set<int> &res) {
     for (size_t outIdx = 0; outIdx < opWait->GetOOperands().size(); outIdx++) {
         MemoryType writeMemoryType = opWait->GetOOperands()[outIdx]->GetMemoryTypeOriginal();
-        int writeDDRmemId = opWait->GetOOperands()[outIdx]->memorymap[opWait->GetSubgraphID()].memId;
+        int writeDDRmemId = opWait->GetOOperands()[outIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
         if (writeDDRmemId != -1 && readDdrMemMap.count(writeDDRmemId) > 0) {
             std::set<int> found = readDdrMemMap[writeDDRmemId];
             res.insert(found.begin(), found.end());
         }
         if (warSearchTree_.count(writeMemoryType) > 0) {
-            TileRange rg = opWait->GetOOperands()[outIdx]->memorymap[opWait->GetSubgraphID()];
+            TileRange rg = opWait->GetOOperands()[outIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR];
             std::set<int> found = warSearchTree_[writeMemoryType].GetCovered(rg.start, rg.end);
             res.insert(found.begin(), found.end());
         }
@@ -173,7 +173,7 @@ void DataDependencySearcher::InsertWAWSearchTree(const Operation *opSet, int idx
         if (wawSearchTree_.count(prevMemoryType) == 0) {
             wawSearchTree_[prevMemoryType] = RangeSearchTree();
         }
-        TileRange rg = opSet->GetOOperands()[outIdx]->memorymap[opSet->GetSubgraphID()];
+        TileRange rg = opSet->GetOOperands()[outIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR];
         wawSearchTree_[prevMemoryType].Insert(rg.start, rg.end, idx);
     }
 }
@@ -191,7 +191,7 @@ void DataDependencySearcher::InsertRAWSearchTree(const Operation *opSet, int idx
         if (rawSearchTree_.count(writeMemoryType) == 0) {
             rawSearchTree_[writeMemoryType] = RangeSearchTree();
         }
-        TileRange rg = opSet->GetOOperands()[outIdx]->memorymap[opSet->GetSubgraphID()];
+        TileRange rg = opSet->GetOOperands()[outIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR];
         rawSearchTree_[writeMemoryType].Insert(rg.start, rg.end,idx);
     }
 }
@@ -209,7 +209,7 @@ void DataDependencySearcher::InsertWARSearchTree(const Operation *opSet, int idx
         if (warSearchTree_.count(readMemoryType) == 0) {
             warSearchTree_[readMemoryType] = RangeSearchTree();
         }
-        TileRange rg = opSet->GetIOperands()[inIdx]->memorymap[opSet->GetSubgraphID()];
+        TileRange rg = opSet->GetIOperands()[inIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR];
         warSearchTree_[readMemoryType].Insert(rg.start, rg.end,idx);
     }
 }
@@ -1028,8 +1028,8 @@ bool PipeSync::CheckWawDependency(const Operation *opSet, const Operation *opWai
     for (size_t setIdx = 0; setIdx < opSet->GetOOperands().size(); setIdx++) {
         for (size_t waitIdx = 0; waitIdx < opWait->GetOOperands().size(); waitIdx++) {
             if (opSet->GetOOperands()[setIdx]->GetMemoryTypeOriginal() == opWait->GetOOperands()[waitIdx]->GetMemoryTypeOriginal() && 
-                BufOverlap(opSet->GetOOperands()[setIdx]->memorymap[opSet->GetSubgraphID()], opSet->GetOOperands()[setIdx]->GetMagic(), 
-                    opWait->GetOOperands()[waitIdx]->memorymap[opWait->GetSubgraphID()], opWait->GetOOperands()[waitIdx]->GetMagic())) {
+                BufOverlap(opSet->GetOOperands()[setIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR], opSet->GetOOperands()[setIdx]->GetMagic(), 
+                    opWait->GetOOperands()[waitIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR], opWait->GetOOperands()[waitIdx]->GetMagic())) {
                 ALOG_DEBUG_F("        %d %zu %s and %d %zu %s has WAW data dependency", opSet->GetOpMagic(), k, opSet->GetOpcodeStr().c_str(),
                     opWait->GetOpMagic(), idx, opWait->GetOpcodeStr().c_str());
                 return true;
@@ -1044,9 +1044,10 @@ bool PipeSync::CheckRawDependency(const Operation *opSet, const Operation *opWai
         for (size_t inIdx = 0; inIdx < opWait->GetIOperands().size(); inIdx++) {
             auto memTypeSame = opWait->GetIOperands()[inIdx]->GetMemoryTypeOriginal() == opSet->GetOOperands()[outIdx]->GetMemoryTypeOriginal();
             auto ddrTensorSame = opSet->GetOOperands()[outIdx]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
-                opWait->GetIOperands()[inIdx]->memorymap[opWait->GetSubgraphID()].memId == opSet->GetOOperands()[outIdx]->memorymap[opSet->GetSubgraphID()].memId;
-            auto overlap = BufOverlap(opWait->GetIOperands()[inIdx]->memorymap[opWait->GetSubgraphID()], opWait->GetIOperands()[inIdx]->GetMagic(), 
-                opSet->GetOOperands()[outIdx]->memorymap[opSet->GetSubgraphID()], opSet->GetOOperands()[outIdx]->GetMagic());
+                opWait->GetIOperands()[inIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId ==
+                opSet->GetOOperands()[outIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
+            auto overlap = BufOverlap(opWait->GetIOperands()[inIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR], opWait->GetIOperands()[inIdx]->GetMagic(), 
+                opSet->GetOOperands()[outIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR], opSet->GetOOperands()[outIdx]->GetMagic());
             if (memTypeSame && (overlap || ddrTensorSame)) {
                 ALOG_DEBUG_F("        %d %zu %s and %d %zu %s has RAW data dependency", opSet->GetOpMagic(), k, opSet->GetOpcodeStr().c_str(),
                        opWait->GetOpMagic(), idx, opWait->GetOpcodeStr().c_str());
@@ -1062,9 +1063,10 @@ bool PipeSync::CheckWarDependency(const Operation *opSet, const Operation *opWai
         for (size_t inIdx = 0; inIdx < opSet->GetIOperands().size(); inIdx++) {
             auto memTypeSame = opSet->GetIOperands()[inIdx]->GetMemoryTypeOriginal() == opWait->GetOOperands()[outIdx]->GetMemoryTypeOriginal();
             auto ddrTensorSame = opSet->GetIOperands()[inIdx]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
-                opWait->GetOOperands()[outIdx]->memorymap[opWait->GetSubgraphID()].memId == opSet->GetIOperands()[inIdx]->memorymap[opSet->GetSubgraphID()].memId;
-            auto overlap = BufOverlap(opSet->GetIOperands()[inIdx]->memorymap[opSet->GetSubgraphID()], opSet->GetIOperands()[inIdx]->GetMagic(), 
-                opWait->GetOOperands()[outIdx]->memorymap[opWait->GetSubgraphID()], opWait->GetOOperands()[outIdx]->GetMagic());
+                opWait->GetOOperands()[outIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId ==
+                opSet->GetIOperands()[inIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
+            auto overlap = BufOverlap(opSet->GetIOperands()[inIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR], opSet->GetIOperands()[inIdx]->GetMagic(), 
+                opWait->GetOOperands()[outIdx]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR], opWait->GetOOperands()[outIdx]->GetMagic());
             if (memTypeSame && (overlap || ddrTensorSame)) {
                 ALOG_DEBUG_F("        %d %zu %s and %d %zu %s has WAR data dependency", opSet->GetOpMagic(), k, opSet->GetOpcodeStr().c_str(),
                        opWait->GetOpMagic(), idx, opWait->GetOpcodeStr().c_str());

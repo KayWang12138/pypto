@@ -326,8 +326,8 @@ void CodeGenCloudNPU::DumpCCE(const std::string &fileName, const std::string &co
 std::optional<std::string> CodeGenCloudNPU::GenExtraAlloc(
     SymbolManager &symbolMgr, const std::shared_ptr<LogicalTensor> &tensor, const Operation &op) const {
     const auto &memMap = tensor->memorymap;
-    if (memMap.find(tensor->subGraphID) == memMap.end()) {
-        ALOG_ERROR_F("%s: can not find subgGraphID(%d) in the memorymap of op:", __FUNCTION__, tensor->subGraphID);
+    if (memMap.size() == 0) {
+        ALOG_ERROR_F("%s: empty memorymap of op:", __FUNCTION__);
         ALOG_ERROR_F("    %s", op.Dump().c_str());
         return std::nullopt;
     }
@@ -339,7 +339,7 @@ std::optional<std::string> CodeGenCloudNPU::GenExtraAlloc(
         return std::nullopt;
     }
 
-    const TileRange &range = memMap.at(tensor->subGraphID);
+    const TileRange &range = memMap.begin()->second;
     auto bufferType = OPERAND_TYPE_TO_MEMORY_TYPE.at(memType);
 
     return GenAlloc(symbolMgr, bufferType, tensor->Datatype(), range);

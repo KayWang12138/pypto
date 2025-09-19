@@ -66,11 +66,11 @@ Status OoOScheduler::UpdateTensorAttr(
             ALOG_ERROR_F("Cannot find Tensor[%d] in localBufferMap.", spillMemId);
             return FAILED;
         }
-        tensor->memorymap[subGraphID] =
+        tensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR] =
             TileRange(workspaceOffset, workspaceOffset + localBufferMap[spillMemId]->size, workspaceMemId++);
         workspaceOffset += localBufferMap[spillMemId]->size;
     } else {
-        tensor->memorymap[subGraphID].memId = maxTensorMagic;
+        tensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId = maxTensorMagic;
         localBufferMap[maxTensorMagic] = std::make_shared<LocalBuffer>(
             maxTensorMagic, ShapeCeilAlign(tensor->GetShape(), tensor->Datatype()), tensor->GetMemoryTypeOriginal());
         if (localBufferMap[maxTensorMagic] == nullptr) {
@@ -119,8 +119,8 @@ Status OoOScheduler::UpdateRemainOpBufId(int oldMemId, int newMemId) {
             }
         }
         for (auto &outTensor : issue->tileOp.GetOOperands()) {
-            if (outTensor->memorymap[subGraphID].memId == oldMemId) {
-                outTensor->memorymap[subGraphID].memId = newMemId;
+            if (outTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId == oldMemId) {
+                outTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId = newMemId;
             }
         }
     }

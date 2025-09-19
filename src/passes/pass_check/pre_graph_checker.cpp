@@ -105,17 +105,6 @@ Status PreGraphProcessChecker::PostCheckHelpFunc(const LogicalTensor &singleTens
             singleTensor.GetMagic());
         return FAILED;
     }
-    for (auto &rangePair : singleTensor.memorymap) {
-        if (singleTensor.GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-            continue;
-        }
-        if (rangePair.second.memId != singleTensor.GetRawMagic()) {
-            // tensor memorymap 的 memId 是否与其 raw tensor id 一致
-            ALOG_ERROR_F("Tensor magic: %d, its memId %d should be same with its raw magic %d, but not.",
-                singleTensor.GetMagic(), rangePair.second.memId, singleTensor.GetRawMagic());
-            return FAILED;
-        }
-    }
     if (singleTensor.MemorySize() < 1 && !singleTensor.IsDummy()) {
         // 是否存在 dummy tensor
         ALOG_INFO_F("Tensor magic: %d, its memory size %d should be over than 0, but not.",
@@ -145,19 +134,7 @@ Status PreGraphProcessChecker::PostCheckReshape(const Operation &op) {
                 op.GetOpMagic(), opSubgraphId, inputSubgraphId, outSubgraphId);
             return FAILED;
         }
-        auto inputRange = reshapeIn->memorymap.find(opSubgraphId);
-        auto outputRange = reshapeOut->memorymap.find(opSubgraphId);
-        if ((inputRange == reshapeIn->memorymap.end()) || 
-            (outputRange == reshapeOut->memorymap.end())) {
-            ALOG_ERROR_F("OP_RESHAPE[%d], input or output memorymap set wrong.", op.GetOpMagic());
-            return FAILED;
-        }
-        ALOG_DEBUG_F("input memid: %d, output memid: %d", inputRange->second.memId, outputRange->second.memId);
-        if (inputRange->second.memId != outputRange->second.memId) {
-            ALOG_ERROR_F("unmatched memid for OP_RESHAPE, opmagic: %d, input memid: %d, output memid: %d",
-            op.opmagic, inputRange->second.memId, outputRange->second.memId);
-            return FAILED;
-        }
+        
         // Debug Print
         ALOG_DEBUG_F(" check done, input magic %d (raw %d), output magic %d (raw %d)",
             reshapeIn->magic, reshapeIn->GetRawMagic(), reshapeOut->magic,
@@ -166,8 +143,6 @@ Status PreGraphProcessChecker::PostCheckReshape(const Operation &op) {
         ALOG_DEBUG_F(" child op: %s, opmagic: %d", childOp->GetOpcodeStr().c_str(), childOp->opmagic);
         ALOG_DEBUG_F(" child op output magic %d (raw %d)", childOp->GetOOperands()[0]->magic,
             childOp->GetOOperands()[0]->GetRawMagic());
-        auto childoutputRange = childOp->GetOOperands()[0]->memorymap.find(opSubgraphId);
-        ALOG_DEBUG_F(" child output memid: %d", childoutputRange->second.memId);
     }
     return SUCCESS;
 }

@@ -22,6 +22,7 @@
 #include "interface/configs/config_manager.h"
 
 namespace npu::tile_fwk {
+constexpr int BLOCK_GRAPH_DEFAULT_COLOR = 0;
 
 class Pass {
 public:

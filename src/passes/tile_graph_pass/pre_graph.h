@@ -50,10 +50,9 @@ private:
     void ProcessSpecialMTEOperation(Operation &op) const;
     void ProcessMoveInOperation(Operation &op) const;
     void InsertTemporaryCopyIn(Function &function, Operation &op) const;
-    void ResetMemoryMap(Function &function) const;
     void ProcessInplaceOp(Function &function) const;
     void UpdateCopyOpIsCube(Operation &op) const;
-    void InitializeTensorMemorymap(Operation &op) const;
+    void InitializeTensorColor(Operation &op) const;
     void ProcessSameInOutOp(Function &function) const;
     void SetTensorBoundary(Function &function) const;
     void HandleForAssembleToOutcast(Function &function, std::unordered_set<Operation *> &concurrentAssembles, 

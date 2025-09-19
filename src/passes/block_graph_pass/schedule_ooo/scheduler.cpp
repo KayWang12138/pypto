@@ -34,7 +34,7 @@ IssueEntry::IssueEntry(Operation &op, uint64_t issueId)
 
 int IssueEntry::GetOOperandIdx(int curMemId) {
     for (size_t i = 0; i < tileOp.GetOOperands().size(); i++) {
-        if (tileOp.GetOOperands()[i]->memorymap[tileOp.GetSubgraphID()].memId == curMemId) {
+        if (tileOp.GetOOperands()[i]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId == curMemId) {
             return i;
         }
     }
@@ -122,7 +122,7 @@ bool OoOScheduler::GetBufLastWriteTime(int curMemId, size_t& lastWriteTime) {
     lastWriteTime -= 1;
     while (lastWriteTime > 0) {
         for (auto& outTensor : issueEntries[lastWriteTime]->tileOp.GetOOperands()) {
-            if (outTensor->memorymap[subGraphID].memId == curMemId) {
+            if (outTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId == curMemId) {
                 return true;
             }
         }
@@ -215,8 +215,8 @@ void OoOScheduler::PrintOpList(std::vector<Operation *> operations) {
             bool needAlloc = false;
             op->oOperand[0]->GetAttr(OpAttributeKey::needAlloc, needAlloc);
             ALOG_DEBUG_F("%s[%d], range[%zu, %zu], needAlloc: %d", op->GetOpcodeStr().c_str(), op->GetOpMagic(),
-                op->oOperand[0]->memorymap[op->GetSubgraphID()].start,
-                op->oOperand[0]->memorymap[op->GetSubgraphID()].end, static_cast<int>(needAlloc));
+                op->oOperand[0]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].start,
+                op->oOperand[0]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].end, static_cast<int>(needAlloc));
         } else {
             ALOG_INFO_F("%s[%d]", op->GetOpcodeStr(), op->GetOpMagic()); 
         }
@@ -250,9 +250,9 @@ Status OoOScheduler::CheckAndUpdateLifecycle() {
             return FAILED; 
         }
         if (issue->isAlloc) {
-            issue->tileOp.GetOutputOperand(0)->memorymap[subGraphID].lifeStart =
+            issue->tileOp.GetOutputOperand(0)->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].lifeStart =
                 localBufferMap[issue->reqMemIds[0]]->startCycle;
-            issue->tileOp.GetOutputOperand(0)->memorymap[subGraphID].lifeEnd =
+            issue->tileOp.GetOutputOperand(0)->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].lifeEnd =
                 localBufferMap[issue->reqMemIds[0]]->retireCycle;
         }
     }
@@ -288,7 +288,7 @@ Status OoOScheduler::AllocTensorMemRange(IssueEntryPtr issue) {
         if (memType == MemoryType::MEM_DEVICE_DDR) {
             continue;
         }
-        int memId = outTensor->memorymap[subGraphID].memId;
+        int memId = outTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
         if (tensorOccupyMap.find(memType) != tensorOccupyMap.end()) {
             if (tensorOccupyMap[memType].find(memId) == tensorOccupyMap[memType].end()) {
                 ALOG_ERROR_F("Tensor[%d] cannot find in tensorOccupyMap.", memId);
@@ -305,7 +305,7 @@ Status OoOScheduler::AllocTensorMemRange(IssueEntryPtr issue) {
         ALOG_DEBUG_F("REALLOC Tensor[%u] %s --> %s. ", memId, tensorOccupyMap[memType][memId]->GetOpInfo(), 
             issue->GetOpInfo());
         tensorOccupyMap[memType][memId] = issue;
-        outTensor->memorymap[subGraphID] =
+        outTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR] =
             TileRange(localBufferMap[memId]->start, localBufferMap[memId]->end, memId);
     }
     return SUCCESS;
@@ -542,7 +542,7 @@ void OoOScheduler::UpdateAllocMap(IssueEntryPtr issue, std::map<int, IssueEntryP
         if (outTensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
             continue;
         }
-        int memId = outTensor->memorymap[subGraphID].memId;
+        int memId = outTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
         if (tensorAllocMap.find(memId) == tensorAllocMap.end()) {
             tensorAllocMap[memId] = issue;
         }
@@ -551,7 +551,7 @@ void OoOScheduler::UpdateAllocMap(IssueEntryPtr issue, std::map<int, IssueEntryP
         if (inTensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
             continue;
         }
-        int memId = inTensor->memorymap[subGraphID].memId;
+        int memId = inTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
         if (tensorAllocMap.find(memId) == tensorAllocMap.end()) {
             tensorAllocMap[memId] = issue;
         }
@@ -599,7 +599,7 @@ Status OoOScheduler::InitLocalBuffer(LogicalTensorPtr oOperand, int memId) {
 void OoOScheduler::AddDependencies(
     IssueEntryPtr issue, std::map<int, IssueEntryPtr> lastWriteOpMap, LogicalTensors tensors) {
     for (auto &tensor : tensors) {
-        int memId = tensor->memorymap[subGraphID].memId;
+        int memId = tensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
         if (tensor->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
             bufRefCount[memId]++;
             issue->reqMemIds.push_back(memId);
@@ -624,7 +624,7 @@ Status OoOScheduler::InitDependencies() {
         AddDependencies(issue, lastWriteOpMap, issue->tileOp.GetOOperands());
 
         for (auto &oOperand : issue->tileOp.GetOOperands()) {
-            int memId = oOperand->memorymap[subGraphID].memId;
+            int memId = oOperand->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
             maxTensorMagic = std::max(maxTensorMagic, memId);
             lastWriteOpMap[memId] = issue;
             if (InitLocalBuffer(oOperand, memId) != SUCCESS) {
@@ -639,9 +639,9 @@ Status OoOScheduler::InitDependencies() {
 
 void OoOScheduler::CalcBufferSize(LogicalTensors tensors, std::map<MemoryType, int64_t> &bufferSize, std::set<int> &memIdMap) {
     for (auto tensor : tensors) {
-        if (memIdMap.find(tensor->memorymap[subGraphID].memId) == memIdMap.end()) {
+        if (memIdMap.find(tensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId) == memIdMap.end()) {
             bufferSize[tensor->GetMemoryTypeOriginal()] += tensor->GetDataSize();
-            memIdMap.insert(tensor->memorymap[subGraphID].memId);
+            memIdMap.insert(tensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId);
         }
     }
 }

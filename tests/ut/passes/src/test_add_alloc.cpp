@@ -80,9 +80,11 @@ TEST_F(AddAllocTest, TestAddAllocInplace) {
 
     EXPECT_NE(subGraph.GetTensor("t11"), nullptr);
     std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t10");
-    tensor1->memorymap[0].memId = subGraph.GetTensor("t5")->memorymap[0].memId;
+    tensor1->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
+        subGraph.GetTensor("t5")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
     std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t11");
-    tensor2->memorymap[0].memId = subGraph.GetTensor("t5")->memorymap[0].memId;
+    tensor2->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
+        subGraph.GetTensor("t5")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
 
     for (size_t i = 0; i < opNames.size(); i++) {
         EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
@@ -114,9 +116,11 @@ TEST_F(AddAllocTest, TestAddAllocAssemble) {
 
     EXPECT_NE(subGraph.GetTensor("t9"), nullptr);
     std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t9");
-    tensor1->memorymap[0].memId = subGraph.GetTensor("t5")->memorymap[0].memId;
+    tensor1->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
+        subGraph.GetTensor("t5")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
     std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t6");
-    tensor2->memorymap[0].memId = subGraph.GetTensor("t5")->memorymap[0].memId;
+    tensor2->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
+        subGraph.GetTensor("t5")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
 
     for (size_t i = 0; i < opNames.size(); i++) {
         EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
@@ -146,9 +150,11 @@ TEST_F(AddAllocTest, TestAddAllocView) {
 
     EXPECT_NE(subGraph.GetTensor("t6"), nullptr);
     std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t5");
-    tensor1->memorymap[0].memId = subGraph.GetTensor("t3")->memorymap[0].memId;
+    tensor1->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
+        subGraph.GetTensor("t3")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
     std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t6");
-    tensor2->memorymap[0].memId = subGraph.GetTensor("t3")->memorymap[0].memId;
+    tensor2->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
+        subGraph.GetTensor("t3")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
 
     for (size_t i = 0; i < opNames.size(); i++) {
         EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
@@ -178,9 +184,10 @@ TEST_F(AddAllocTest, TestAddAllocErrorMemId) {
 
     EXPECT_NE(subGraph.GetTensor("t6"), nullptr);
     std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t5");
-    tensor1->memorymap[0].memId = -1;
+    tensor1->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId = -1;
     std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t6");
-    tensor2->memorymap[0].memId = subGraph.GetTensor("t3")->memorymap[0].memId;
+    tensor2->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
+        subGraph.GetTensor("t3")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
 
     for (size_t i = 0; i < opNames.size(); i++) {
         EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);
@@ -211,7 +218,8 @@ TEST_F(AddAllocTest, TestAddAllocErrorMemorymap) {
     std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t5");
     tensor1->memorymap.clear();
     std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t6");
-    tensor2->memorymap[0].memId = subGraph.GetTensor("t3")->memorymap[0].memId;
+    tensor2->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId =
+        subGraph.GetTensor("t3")->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
 
     for (size_t i = 0; i < opNames.size(); i++) {
         EXPECT_NE(subGraph.GetOp(opNames[i]), nullptr);

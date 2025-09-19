@@ -32,7 +32,7 @@ using namespace npu::tile_fwk;
 namespace npu {
 namespace tile_fwk {
 
-void PrintGraphInfoPreGraph(Function* func, int& memoryMapSize, std::set<int>& tensorMagicWithColorSet) {
+void PrintGraphInfoPreGraph(Function* func, std::set<int>& tensorMagicWithColorSet) {
     std::cout << "func->Operations().size() = "  << func->Operations().size() << std::endl;
     for (auto &op : func->Operations()) {
         std::cout << "Op:" << op.GetOpMagic() << " " <<  op.GetOpcodeStr() << std::endl;
@@ -44,9 +44,6 @@ void PrintGraphInfoPreGraph(Function* func, int& memoryMapSize, std::set<int>& t
             if (input_tensor->GetMemoryTypeOriginal() == npu::tile_fwk::MemoryType::MEM_DEVICE_DDR) {
                 continue;
             }
-            int memorySize = input_tensor->memorymap.size();
-            memoryMapSize = memorySize == 0 ? 0 : memoryMapSize;
-            std::cout << "input tensor, cur memory size is " << memorySize << std::endl;
             int curColor = input_tensor->subGraphID;
             std::cout << "input tensor, cur color is " << curColor << std::endl;
             if (curColor > 0) {
@@ -62,9 +59,6 @@ void PrintGraphInfoPreGraph(Function* func, int& memoryMapSize, std::set<int>& t
             if (output_tensor->GetMemoryTypeOriginal() == npu::tile_fwk::MemoryType::MEM_DEVICE_DDR) {
                 continue;
             }
-            int memorySize = output_tensor->memorymap.size();
-            memoryMapSize = memorySize == 0 ? 0 : memoryMapSize;
-            std::cout << "output tensor, cur memory size is " << memorySize << std::endl;
             int curColor = output_tensor->subGraphID;
             std::cout << "output tensor, cur color is " << curColor << std::endl;
             if (curColor > 0) {
@@ -344,9 +338,8 @@ TEST_F(PreGraphTest, TestVCPartition) {
     preGraphPass.RunOnFunction(*func);
     preGraphPass.PostCheck(*func);
 
-    int memoryMapSize = 1;
     std::set<int> tensorMagicWithColorSet;
-    PrintGraphInfoPreGraph(func, memoryMapSize, tensorMagicWithColorSet);
+    PrintGraphInfoPreGraph(func, tensorMagicWithColorSet);
 
     // ================== Verify the effect of the Pass ==================
     auto updated_operations = func->Operations();
@@ -408,16 +401,14 @@ TEST_F(PreGraphTest, TestAssemble) {
     preGraphPass.RunOnFunction(*func);
     preGraphPass.PostCheck(*func);
 
-    int memoryMapSize = 1;
     std::set<int> tensorMagicWithColorSet;
-    PrintGraphInfoPreGraph(func, memoryMapSize, tensorMagicWithColorSet);
+    PrintGraphInfoPreGraph(func, tensorMagicWithColorSet);
 
     // ================== Verify the effect of the Pass ==================
     auto updated_operations = func->Operations();
     int opSize = 28;
 
     EXPECT_EQ(updated_operations.size(), opSize) << "After the Pass, there should be 30 operations";
-    EXPECT_NE(memoryMapSize, 0) << "All op memory size should not be 0";
     EXPECT_EQ(tensorMagicWithColorSet.size() > 0, true) << "There should be many tensor magic with color";
 }
 
@@ -490,16 +481,14 @@ config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
     preGraphPass.RunOnFunction(*func);
     preGraphPass.PostCheck(*func);
 
-    int memoryMapSize = 1;
     std::set<int> tensorMagicWithColorSet;
-    PrintGraphInfoPreGraph(func, memoryMapSize, tensorMagicWithColorSet);
+    PrintGraphInfoPreGraph(func, tensorMagicWithColorSet);
 
     // ================== Verify the effect of the Pass ==================
     auto updated_operations = func->Operations();
     int opSize = 32;
 
     EXPECT_EQ(updated_operations.size(), opSize) << "After the Pass, there should be 32 operations";
-    EXPECT_NE(memoryMapSize, 0) << "All op memory size should not be 0";
     EXPECT_EQ(tensorMagicWithColorSet.size() > 0, true) << "There should be many tensor magic with color";
 }
 
@@ -554,9 +543,8 @@ TEST_F(PreGraphTest, TestROWMAX_SINGLE) {
     preGraphPass.RunOnFunction(*func);
     preGraphPass.PostCheck(*func);
 
-    int memoryMapSize = 1;
     std::set<int> tensorMagicWithColorSet;
-    PrintGraphInfoPreGraph(func, memoryMapSize, tensorMagicWithColorSet);
+    PrintGraphInfoPreGraph(func, tensorMagicWithColorSet);
 
     // ================== Verify the effect of the Pass ==================
     auto updated_operations = func->Operations();

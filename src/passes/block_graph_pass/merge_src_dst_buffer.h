@@ -20,7 +20,6 @@
 #include "passes/pass_interface/pass.h"
 #include "interface/utils/log.h"
 namespace npu::tile_fwk {
-
 class SrcDstBufferMergeImpl {
 public:
     SrcDstBufferMergeImpl() = default;
@@ -28,6 +27,8 @@ public:
     Status Run(Function &func);
 
 private:
+    void ResetMemoryMap(Function &function) const;
+    void InitializeTensorMemorymap(Operation &op) const;
     void InitTensorMaxSize(const LogicalTensorPtr &output);
     void InitOpOutput(const Operation *op);
     Status CheckOpValid(const Operation *op, int opId);
@@ -44,7 +45,6 @@ private:
 
     std::map<int, std::set<int>> tensorConsumers_;
     std::map<int, int> tensorMaxSize_;
-    int subGraphID_{-1};
 };
 
 class SrcDstBufferMerge : public Pass {

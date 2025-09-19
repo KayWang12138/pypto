@@ -19,10 +19,9 @@
 namespace npu::tile_fwk {
 AllocKey SymbolManager::CreateAllocKey(const std::shared_ptr<LogicalTensor> &tensor) const {
     const auto &memMap = tensor->memorymap;
-    if (memMap.count(tensor->subGraphID) == 0) {
-        ALOG_ERROR_F("%s: can not find subGraphID(%d) in the memorymap of tensor: ", __FUNCTION__, tensor->subGraphID);
+    if (memMap.size() == 0) {
+        ALOG_ERROR_F("%s: empty memorymap in tensor: ", __FUNCTION__);
         ALOG_ERROR_F("    %s", tensor->Dump().c_str());
-        ALOG_ERROR_F("    memorymap size = %d", memMap.size());
 
         ASSERT(false);
         return {};
@@ -37,7 +36,7 @@ AllocKey SymbolManager::CreateAllocKey(const std::shared_ptr<LogicalTensor> &ten
         return {};
     }
 
-    const TileRange &range = memMap.at(tensor->subGraphID);
+    const TileRange &range = memMap.begin()->second;
     auto bufferType = OPERAND_TYPE_TO_MEMORY_TYPE.at(memType);
     AllocKey key = AllocKey(bufferType, range.start, range.end);
     return key;

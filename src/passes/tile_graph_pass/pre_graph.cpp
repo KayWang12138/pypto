@@ -19,18 +19,6 @@
 
 namespace npu::tile_fwk {
 
-void PreGraphProcess::ResetMemoryMap(Function &function) const {
-    /* 初始化所有tensor的memorymap */
-    for (auto &op : function.Operations()) {
-        for (auto &input : op.GetIOperands()) {
-            input->memorymap.clear();
-        }
-        for (auto &output : op.GetOOperands()) {
-            output->memorymap.clear();
-        }
-    }
-}
-
 /* 将某个op的输入是expected的替换为newTensor并刷新Producer、Consumer关系 */
 void SubstituteInput(Operation *op, LogicalTensorPtr &expected, LogicalTensorPtr &newTensor) {
     for (auto &input : op->iOperand) {
@@ -519,29 +507,52 @@ void PreGraphProcess::UpdateCopyOpIsCube(Operation &op) const {
     }
 }
 
-void PreGraphProcess::InitializeTensorMemorymap(Operation &op) const {
-    const int newColor = op.GetSubgraphID();
-    for (auto &input : op.GetIOperands()) {
-        TileRange range;
-        range.memId = input->tensor->GetRawMagic();
-        input->memorymap.insert(std::make_pair(newColor, range));
-        if (input->GetProducers().size() == 0) {
-            input->subGraphID = newColor;
+void PreGraphProcess::InitializeTensorColor(Operation &op) const {	
+    const int newColor = op.GetSubgraphID();	
+    for (auto &input : op.GetIOperands()) {	
+        if (input->GetProducers().size() == 0) {	
+            input->subGraphID = newColor;	
+        }	
+    }	
+    for (auto &output : op.GetOOperands()) {	
+        TileRange range;	
+        range.memId = output->tensor->GetRawMagic();	
+        output->subGraphID = newColor;
+    }	
+}
+
+bool IsDiffSubgraphId(int &oriSubgraphId, Operation *op) {
+    int opSubgraphId = op->GetSubgraphID();
+    if (oriSubgraphId == -1) {
+        oriSubgraphId = opSubgraphId;
+    }
+    if (oriSubgraphId != opSubgraphId) {
+        return true;
+    }
+    return false;
+}
+
+bool IsTensorSubgraphBoundary(LogicalTensorPtr t) {
+    int subgraphId = -1;
+    for (auto &op : t->GetProducers()) {
+        if (IsDiffSubgraphId(subgraphId, op) == true) {
+            return true;
         }
     }
-    for (auto &output : op.GetOOperands()) {
-        TileRange range;
-        range.memId = output->tensor->GetRawMagic();
-        output->memorymap.insert(std::make_pair(newColor, range));
-        output->subGraphID = newColor;
+    for (auto &op : t->GetConsumers()) {
+        if (IsDiffSubgraphId(subgraphId, op) == true) {
+            return true;
+        }
     }
+
+    return false;
 }
 
 void PreGraphProcess::SetTensorBoundary(Function &function) const {
     for (auto &op : function.Operations()) {
         /* memory map size > 1 代表该tensor被多个子图使用，那么标记为boundary*/
         for (auto &input : op.GetIOperands()) {
-            if (input->memorymap.size() > 1) {
+            if (IsTensorSubgraphBoundary(input)) {
                 input->isSubGraphBoundary = true;
             }
             if (input->GetProducers().size() == 0) {
@@ -550,7 +561,7 @@ void PreGraphProcess::SetTensorBoundary(Function &function) const {
             }
         }
         for (auto &output : op.GetOOperands()) {
-            if (output->memorymap.size() > 1) {
+            if (IsTensorSubgraphBoundary(output)) {
                 output->isSubGraphBoundary = true;
             }
         }
@@ -653,14 +664,13 @@ Status PreGraphProcess::PreColorSort(Function &function)
 Status PreGraphProcess::RunOnFunction(Function &function) {
     ALOG_INFO_F("===> start PreGraph");
     PreColorSort(function);
-    ResetMemoryMap(function);
     auto opList = function.Operations();
     for (auto &op : opList) {
         if (op.GetSubgraphID() <= -1) {
             continue;
         }
         auto curColor = op.GetSubgraphID();
-        InitializeTensorMemorymap(op);
+        InitializeTensorColor(op);
         op.UpdateSubgraphID(curColor);
         UpdateCopyOpIsCube(op);
     }

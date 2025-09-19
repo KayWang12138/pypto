@@ -79,7 +79,7 @@ TensorAllocMsg AddAlloc::ConstructTensorAllocMsg(Operation *op, size_t i, int me
 
 Status AddAlloc::UpdateTensorAllocMsg(Operation *op, size_t i, const std::vector<int> &allocMagic,
                                       std::unordered_map<int, TensorAllocMsg> &tensorAllocMsgMap) const {
-    auto memId = op->GetOutputOperand(i)->memorymap[op->GetSubgraphID()].memId;
+    auto memId = op->GetOutputOperand(i)->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
     if (memId == -1) {
         ALOG_ERROR_F("Get memId in memorymap failed.");
         return FAILED;
@@ -102,7 +102,7 @@ Status AddAlloc::SetTensorAllocMsg(Operation *op,
         if (op->GetOutputOperand(i)->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
             continue;
         }
-        if (op->GetOutputOperand(i)->memorymap.find(op->GetSubgraphID()) == op->GetOutputOperand(i)->memorymap.end()) {
+        if (op->GetOutputOperand(i)->memorymap.find(BLOCK_GRAPH_DEFAULT_COLOR) == op->GetOutputOperand(i)->memorymap.end()) {
             ALOG_ERROR_F("Cannot find memorymap in subgraph[%d]", op->GetSubgraphID());
             return FAILED;
         }
@@ -136,7 +136,7 @@ Status AddAlloc::GenAllocOpcode(int subgraphID, const Opcode &allocOpcode, const
         maxOpMagic = std::max(maxOpMagic, op.GetOpMagic());
     }
     for (auto &oOperand : tensorAllocMsg.producer[0]->GetOOperands()) {
-        if (oOperand->memorymap[subgraphID].memId != tensorAllocMsg.memId) {
+        if (oOperand->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId != tensorAllocMsg.memId) {
             continue;
         }
         auto &allocOp = function.AddOperation(allocOpcode, {}, 

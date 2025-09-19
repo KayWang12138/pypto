@@ -44,7 +44,7 @@ bool OoOScheduleChecker::PreCheckTensorInfo(const int subGraphId, const LogicalT
     bool hasMemMap = false;
     // tensor memorymap应该只有一项
     for (auto &range : tensor->memorymap) {
-        if (range.first == subGraphId) {
+        if (range.first == BLOCK_GRAPH_DEFAULT_COLOR) {
             hasMemMap = true;
             if (range.second.memId == -1) {
                 ALOG_ERROR_F("SubgraphId %d: %d Tensor memorymap[%d] memId does not exist, OoOSchedule Precheck failed!", subGraphId, tensor->GetMagic(), subGraphId);
@@ -94,9 +94,9 @@ bool OoOScheduleChecker::PreCheckOpInfo(const int subGraphId, const Operation *o
     // 检查输出不在DDR上的Op
     if (op->GetOOperands()[0]->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
         // 输入tensor的memid要与输出tensor的memid保持一致
-        int memId = op->GetOOperands()[0]->memorymap[op->GetSubgraphID()].memId;
+        int memId = op->GetOOperands()[0]->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
         for (auto inTensor : op->GetIOperands()) {
-            if (inTensor->memorymap[op->GetSubgraphID()].memId != memId &&
+            if (inTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId != memId &&
                 inTensor->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
                 ALOG_ERROR_F("SubgraphId %d: %d %s input output tensors memId does not match, OoOSchedule Precheck failed!", subGraphId, op->GetOpMagic(), op->GetOpcodeStr().c_str());
                 return false;
@@ -233,10 +233,10 @@ bool OoOScheduleChecker::PostCheckTensorMagic(std::set<int> tensorSet, const Log
     return true;
 }
 
-bool OoOScheduleChecker::PostCheckLocalTensor(const LogicalTensorPtr tensor, const int subGraphId, const int programIdx) {
+bool OoOScheduleChecker::PostCheckLocalTensor(const LogicalTensorPtr tensor, const int programIdx) {
     MemoryType memType = tensor->GetMemoryTypeOriginal();
     if (memType == MemoryType::MEM_UB || memType == MemoryType::MEM_L1 || memType == MemoryType::MEM_L0A || memType == MemoryType::MEM_L0B || memType == MemoryType::MEM_L0C) {
-        int memoryrange = tensor->memorymap[subGraphId].end - tensor->memorymap[subGraphId].start;
+        int memoryrange = tensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].end - tensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].start;
         if (memoryrange == 0) {
             ALOG_ERROR_F("Program %d: %d tensor memory range is 0, OoOSchedule Postcheck failed!", programIdx, tensor->GetMagic());
             return false;
@@ -254,10 +254,10 @@ bool OoOScheduleChecker::PostCheckLocalTensor(const LogicalTensorPtr tensor, con
     return true;
 }
 
-bool OoOScheduleChecker::PostCheckGlobalTensor(const LogicalTensorPtr tensor, const int subGraphId, const int programIdx) {
+bool OoOScheduleChecker::PostCheckGlobalTensor(const LogicalTensorPtr tensor, const int programIdx) {
     MemoryType memType = tensor->GetMemoryTypeOriginal();
     if (memType == MemoryType::MEM_DEVICE_DDR && !(tensor->isSubGraphBoundary)) {
-        if (tensor->memorymap[subGraphId].memId == -1) {
+        if (tensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId == -1) {
             ALOG_ERROR_F("Program %d: %d global tensor memid is -1, OoOSchedule Postcheck failed!", programIdx, tensor->GetMagic());
             return false;
         }
@@ -312,14 +312,14 @@ bool OoOScheduleChecker::PostCheckNewTensor(const int subGraphId, std::pair<cons
     return true;
 }
 
-Status OoOScheduleChecker::PostCheckTensor(const LogicalTensorPtr &tensor, const std::set<int> &tensorSet, int programIdx, int subGraphId) {
+Status OoOScheduleChecker::PostCheckTensor(const LogicalTensorPtr &tensor, const std::set<int> &tensorSet, int programIdx) {
     if (!PostCheckTensorMagic(tensorSet, tensor, programIdx)) {
         return FAILED; // tensor magic不能重复
     };
-    if (!PostCheckLocalTensor(tensor, subGraphId, programIdx)) {
+    if (!PostCheckLocalTensor(tensor, programIdx)) {
         return FAILED; // 0 < memoryrange < shape*dtype
     };
-    if (!PostCheckGlobalTensor(tensor, subGraphId, programIdx)) {
+    if (!PostCheckGlobalTensor(tensor, programIdx)) {
         return FAILED; // global tensor memid不为-1
     };
     if (!PostCheckDynValidShape(tensor, programIdx)) {
@@ -367,7 +367,7 @@ Status OoOScheduleChecker::PostCheckSubGraph(const std::pair<uint64_t, Function*
     tensorListAfterPass_[programIdx] = tensorList;
     std::set<int> tensorSet;
     for (auto &tensor : tensorList) {
-        if (PostCheckTensor(tensor, tensorSet, programIdx, subGraphId) != SUCCESS) {
+        if (PostCheckTensor(tensor, tensorSet, programIdx) != SUCCESS) {
             return FAILED;
         }
     }
