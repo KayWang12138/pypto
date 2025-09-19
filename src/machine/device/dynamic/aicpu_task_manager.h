@@ -122,11 +122,11 @@ private:
 
     inline TaskType GetTaskType(uint64_t taskId) {
         auto funcId = FuncID(taskId);
-        auto &funcDup = curDevTask_->stitchedList[funcId];
         auto opIndex = TaskID(taskId);
-        auto extType = funcDup.GetSource()->GetOperationAicpuOpType(opIndex);
+        auto callList = curDevTask_->cacheList[funcId].calleList;
+        auto &code = curDevTask_->aicpuLeafBinary[callList[opIndex]].aicpuLeafCode;
         auto taskType = TaskType::TASK_TYPE_NUM;
-        switch (extType) {
+        switch (code[0]) {
             case static_cast<uint32_t>(Opcode::OP_SHMEM_WAIT_UNTIL): taskType = TaskType::SHMEM_WAIT_UNTIL; break;
             default: break;
         }
@@ -159,25 +159,20 @@ private:
         return hcclOpParam->windowsIn[dstRankId] + offsetPerRank * hcclOpParam->rankNum;   
     }
 
-    inline npu::tile_fwk::Distributed::TensorInfo GetTensorInfo(const uint64_t taskId, uint32_t shmOperandIdx)
+    inline npu::tile_fwk::Distributed::TensorInfo GetTensorInfo(const uint64_t taskId)
     {
         auto funcId = FuncID(taskId);
         auto opIndex = TaskID(taskId);
-        auto &funcDup = curDevTask_->stitchedList[funcId];
         auto &funcData = funcDataList_[funcId];
         auto opAttrs = &funcData.opAttrs[funcData.opAtrrOffsets[opIndex]];
         auto expressionTable = funcData.exprTbl;
 
-        uint32_t index = 0;
-        ++index; // 跳过 function id
-        for (uint32_t i  = 0U; i < shmOperandIdx; ++i)  {
-            // 1 跳过rawIndex, 4 表示 offset、shape、rawShape、dynValidShape
-            index += 1 + funcDup.GetSource()->GetOperationIOperandInfo(opIndex, i).GetDim() * 4;
-        }
-
+        auto callList = curDevTask_->cacheList[funcId].calleList;
+        auto &code = curDevTask_->aicpuLeafBinary[callList[opIndex]].aicpuLeafCode;
+        uint32_t index = code[5]; // waitUntil 对应5，后续由各个aicpu op从code中解析出index
         npu::tile_fwk::Distributed::TensorInfo info;
         ++index; // 跳过 rawIndex
-        info.dim = funcDup.GetSource()->GetOperationIOperandInfo(opIndex, shmOperandIdx).GetDim();
+        info.dim = 4; // 由shmem维度是4，后面也可以写入aicpuleaf code中
         info.offset = GetCoaVector(index, info.dim, opAttrs, expressionTable);
         index += info.dim;
         info.shape = GetCoaVector(index, info.dim, opAttrs, expressionTable);
@@ -196,7 +191,7 @@ private:
         auto taskType = GetTaskType(elem);
         if (taskType < TaskType::TASK_TYPE_NUM) {
             auto enqueueOp = enqueueOpCallBack_[static_cast<uint64_t>(taskType)];
-            auto tensor = GetTensorInfo(elem, 2); // 约定 shmemSignal 是第 3 个输入
+            auto tensor = GetTensorInfo(elem);
             enqueueOp(elem, tensor);
         }
         tasks_.push(elem);

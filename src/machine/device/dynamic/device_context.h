@@ -173,6 +173,7 @@ struct DynDeviceTask {
     DynFuncCacheItem cacheList[MAX_CACHED_FUNC_NUM];
     Vector<DevAscendFunctionDupped, WsMemCategory::VECTOR_STITCHED_LIST, DeviceWorkspaceAllocator> stitchedList;
     const DevCceBinary *cceBinary;
+    const DevAicpuLeafBinary *aicpuLeafBinary;
     WsAllocation selfAlloc;
     WsSlabStageAllocMem taskStageAllocMem;
     std::atomic_bool isFinish{false}; // mark task execution status
@@ -1939,6 +1940,7 @@ private:
 
     void BuildDeviceTaskData(DynDeviceTask *dyntask, DevAscendProgram *devProg) {
         dyntask->cceBinary = devProg->GetCceBinary(0);
+        dyntask->aicpuLeafBinary = devProg->GetAicpuLeafBinary(0);
         DeviceStitchContext::CheckStitch(dyntask);
 
         DEV_DEBUG("build ready queue.");

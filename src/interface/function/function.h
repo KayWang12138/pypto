@@ -276,7 +276,7 @@ struct CceCodeInfo {
     uint32_t coreType;
     uint32_t psgId;
     uint64_t funcHash;
-    uint32_t aicpuOpType{0};
+    std::vector<int32_t> aicpuLeafCode;
 };
 
 struct OriArgInfo {

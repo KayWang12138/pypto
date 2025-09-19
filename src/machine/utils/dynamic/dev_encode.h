@@ -267,6 +267,10 @@ struct DevCceBinary {
     uint64_t funcHash;
 };
 
+struct DevAicpuLeafBinary {
+    DevRelocVector<int32_t> aicpuLeafCode;
+};
+
 static_assert(sizeof(DynFuncBin) == sizeof(DevCceBinary));
 
 struct PrefetchInfo {
@@ -439,7 +443,6 @@ struct DevAscendOperation {
     uint32_t depGraphPredCount;
     DevLocalVector<int> depGraphSuccList;
     uint64_t debugOpmagic; // DEBUG_ONLY
-    uint32_t aicpuOpType;
 };
 
 struct DevAscendFunctionCallOperandUse {
@@ -989,9 +992,6 @@ public:
     inline size_t GetOperationOOperandSize(int operationIndex) const {
         return At(operationList_, operationIndex).ooperandList.size();
     }
-    inline size_t GetOperationAicpuOpType(int operationIndex) const {
-        return At(operationList_, operationIndex).aicpuOpType;
-    }
 
     inline const DevAscendOperationOperandInfo &GetOperationIOperandInfo(int operationIndex, int operandIndex) const {
         return At(At(operationList_, operationIndex).ioperandList, operandIndex);
@@ -1431,7 +1431,6 @@ private:
             const std::vector<int32_t> &outcastStitchIndexList,
             const std::vector<int> &noPredOpList,
             const std::vector<int> &noSuccOpList,
-            const std::vector<CceCodeInfo> &cceCodeInfoList,
             bool fillContent);
 
     void InitIncastOutcast(uintdevptr_t &initOffset, const std::vector<std::shared_ptr<LogicalTensor>> &incastTensorList,
@@ -2171,6 +2170,8 @@ struct DevAscendProgram {
     DevRelocVector<DevRelocVector<uint8_t>> devEncodeList;
     DevRelocVector<uint8_t> devEncodeDataList;
     DevRelocVector<DevCceBinary> cceCodeList;
+    DevRelocVector<DevAicpuLeafBinary> aicpuLeafCodeList;
+    DevRelocVector<int32_t> aicpuLeafCodeDataList;
     DevRelocVector<uint64_t> startArgsInputTensorSlotIndexList;
     DevRelocVector<uint64_t> startArgsOutputTensorSlotIndexList;
     DevRelocVector<uint64_t> startArgsInputSymbolIndexList;
@@ -2408,6 +2409,7 @@ struct DevAscendProgram {
     }
 
     const DevCceBinary *GetCceBinary(int index) const { return &cceCodeList[index]; }
+    const DevAicpuLeafBinary *GetAicpuLeafBinary(int index) const { return &aicpuLeafCodeList[index]; }
 
     template<typename Ty>
     typename Ty::ElementType *RelocOffset(intptr_t shift, void *&offset, Ty &list) {
@@ -2438,6 +2440,12 @@ struct DevAscendProgram {
         }
         RelocOffset(shift, offset, devEncodeDataList);
         RelocOffset(shift, offset, cceCodeList);
+        auto aicpuLeafCodeListPtr = RelocOffset(shift, offset, aicpuLeafCodeList);
+        for (size_t i = 0; i < aicpuLeafCodeList.size(); i++) {
+            aicpuLeafCodeListPtr[i].aicpuLeafCode.DeviceRelocData(shift);
+        }
+        RelocOffset(shift, offset, aicpuLeafCodeDataList);
+
         RelocOffset(shift, offset, startArgsInputTensorSlotIndexList);
         RelocOffset(shift, offset, startArgsOutputTensorSlotIndexList);
         RelocOffset(shift, offset, startArgsSymbolHandlerList);

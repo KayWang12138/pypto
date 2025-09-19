@@ -515,8 +515,28 @@ bool CodeGenCloudNPU::HandleForAICpuSubFunc(Function &subFunc) {
         return false;
     }
 
+    std::vector<int32_t> code;
+    auto operationList = subFunc.Operations(false);
+    for (const auto &op : operationList) {
+        if (op.GetCoreType() != CoreType::AICPU) {
+            continue;
+        }
+        
+        code.push_back(static_cast<int32_t>(op.GetOpcode()));
+        code.push_back(static_cast<int32_t>(op.GetOOperands().size()));
+        for (size_t i = 0; i < op.GetOOperands().size(); ++i) {
+            code.push_back(op.GetOOpAttrOffset(i));
+        }
+        code.push_back(static_cast<int32_t>(op.GetIOperands().size()));
+        for (size_t i = 0; i < op.GetIOperands().size(); ++i) {
+            code.push_back(op.GetIOpAttrOffset(i));
+        }
+        break;
+    }
+
     std::shared_ptr<LeafFuncAttribute> attr = std::make_shared<LeafFuncAttribute>();
     attr->coreType = CoreType::AICPU;
+    attr->aicpuLeafCode = std::move(code);
     subFunc.SetLeafFuncAttribute(attr);
     return true;
 }

@@ -577,7 +577,7 @@ static void ConstructCodeInfo(struct EncodeDevAscendFunctionParam &encodeDevAsce
         attr->cceCodeInfo[leafIndex].coreType = static_cast<uint32_t>(CoreType::HUB);
       attr->cceCodeInfo[leafIndex].psgId = leaf->GetProgramId();
       attr->cceCodeInfo[leafIndex].funcHash = leaf->GetFunctionHash().GetHash();
-      attr->cceCodeInfo[leafIndex].aicpuOpType = static_cast<uint32_t>(leaf->IsAicpuSubFunction().second);
+      attr->cceCodeInfo[leafIndex].aicpuLeafCode = leafFuncAttr->aicpuLeafCode;
       leafIndex++;
     }
     encodeDevAscendFunctionParam.cceCodeInfoList = attr->cceCodeInfo;

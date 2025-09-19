@@ -377,7 +377,6 @@ void DevAscendFunction::InitOperation(
         const std::vector<int32_t> &outcastStitchIndexList,
         const std::vector<int> &noPredOpList,
         const std::vector<int> &noSuccOpList,
-        const std::vector<CceCodeInfo> &cceCodeInfoList,
         bool fillContent) {
     noPredOpList_.HostInitDataSizeOffset(initOffset, noPredOpList.size());
     noSuccOpList_.HostInitDataSizeOffset(initOffset, noSuccOpList.size());
@@ -477,8 +476,6 @@ void DevAscendFunction::InitOperation(
 
             At(opAttrOffsetList_, i) = staticAttrSize;
             At(opCalleeList_, i) = calleeHashIndexDict.at(callop->GetCalleeHash().GetHash());
-            int leafIndex = At(opCalleeList_, i);
-            staticField.aicpuOpType = cceCodeInfoList[leafIndex].aicpuOpType;
             staticAttrSize += opStaticAttrSize;
 
             // Fill succ
@@ -1308,7 +1305,7 @@ struct EncodeDevAscendFunctionInfo {
         devFunc->InitRawTensorAndMemoryRequirement(initOffset, incastRawTensorList, outcastRawTensorList,
             rawTensorList, rawMagicToRawTensor, rawAttrs, param, expressionTable, fillContent);
         devFunc->InitTensor(initOffset, tensorList, rawTensorList, fillContent);
-        devFunc->InitOperation(initOffset, expressionTable, callList, tensorList, rawTensorList, callOpPredDict, callOpSuccDict, calleeHashIndexDict, outcastStitchIndexList, noPredOpList, noSuccOpList, cceCodeInfoList, fillContent);
+        devFunc->InitOperation(initOffset, expressionTable, callList, tensorList, rawTensorList, callOpPredDict, callOpSuccDict, calleeHashIndexDict, outcastStitchIndexList, noPredOpList, noSuccOpList, fillContent);
         devFunc->InitIncastOutcast(initOffset, incastList, outcastList, tensorList, incastOpAttrDict, outcastOpAttrDict, slot, rawName, fillContent);
     }
 };
@@ -1395,13 +1392,22 @@ void DevAscendProgram::InitDevEncodeList(
 void DevAscendProgram::InitCceCodeList(uintdevptr_t &initOffset, const std::vector<CceCodeInfo> &cceInfo,
                                        bool fillContent) {
     cceCodeList.HostInitDataSizeOffset(initOffset, cceInfo.size());
+    aicpuLeafCodeList.HostInitDataSizeOffset(initOffset, cceInfo.size());
+    aicpuLeafCodeDataList.HostInitDataSizeOffset(initOffset, 0);
+    size_t dataOffset = 0;
     for (size_t i = 0; i < cceInfo.size(); i++) {
         ONFILLCONTENT {
             cceCodeList[i].coreType = cceInfo[i].coreType;
             cceCodeList[i].psgId = cceInfo[i].psgId;
             cceCodeList[i].funcHash = cceInfo[i].funcHash;
+            auto dataLen = cceInfo[i].aicpuLeafCode.size();
+            aicpuLeafCodeList[i].aicpuLeafCode.HostAssignRangeOffsetSize(aicpuLeafCodeDataList, dataOffset, dataLen);
+            (void)memcpy_s(aicpuLeafCodeList[i].aicpuLeafCode.Data(), sizeof(int32_t) * dataLen,
+                cceInfo[i].aicpuLeafCode.data(), sizeof(int32_t) * dataLen);
         };
+        dataOffset += cceInfo[i].aicpuLeafCode.size();
     }
+    aicpuLeafCodeDataList.HostInitDataSizeOffset(initOffset, dataOffset);
 }
 
 void DevAscendProgram::InitPrefetchInfoList(uintdevptr_t &initOffset, const std::vector<L2Info> &l2InfoList,
