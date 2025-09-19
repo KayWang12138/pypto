@@ -245,11 +245,9 @@ std::string CodeGenOpCloudNPU::GenIndexOutCastOp() const {
     OperandType localType = OperandType::BUF_UB;
     addrTypeHead[gmIdx] = GetAddrTypeByOperandType(BUF_DDR);
     addrTypeHead[localIdx] = GetAddrTypeByOperandType(localType);
-    auto ks0 = sm->CreateAllocKey(operandWithMagic[ID1]);
-    auto ks1 = sm->CreateAllocKey(operandWithMagic[ID2]);
 
-    std::string s0Var = sm->QueryVariableName(ks0);
-    std::string s1Var = sm->QueryVariableName(ks1);
+    std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+    std::string s1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
 
     std::vector gmShape = this->rawShape[gmIdx];
     ALOG_INFO_F("genIndexOutCastOp gm shape: %s", IntVecToStr(gmShape).c_str());
@@ -266,7 +264,9 @@ std::string CodeGenOpCloudNPU::GenIndexOutCastOp() const {
     std::string src1DtypeStr = DataType2CCEStr(operandDtype[ID2]);
     std::string dataTypeExpr[ID3] = {dstDtypeStr, src0DtypeStr, src1DtypeStr};
 
-    AppendLocalBufferVarOffset({&s0Var}, {localIdx});
+    AppendLocalBufferVarOffset({
+        {localIdx, &s0Var}
+    });
 
     std::vector<int64_t> s0os = NormalizeShape(src0OriginShape, SHAPE_DIM4);
     std::vector<int64_t> gms = NormalizeShape(gmShape, SHAPE_DIM4);
@@ -287,8 +287,7 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCast(const PrintIndexOutCastParam &p
     return PrintIndexOutCastStatic(param);
 }
 
-int CodeGenOpCloudNPU::GetCacheModeFlag(const std::string &cacheMode) const
-{
+int CodeGenOpCloudNPU::GetCacheModeFlag(const std::string &cacheMode) const {
     const int PA_BNSD = 0;
     const int PA_NZ = 1;
     const int PA_BSND = 2;
@@ -322,8 +321,8 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastStatic(const PrintIndexOutCastPa
     paramList.insert(paramList.end(), {dataTypeExpr[ID0], dataTypeExpr[ID2]});
     paramList.insert(paramList.end(), {std::to_string(src0OriginShape[ID0]), std::to_string(src0OriginShape[ID1]),
                                           std::to_string(src0OriginShape[ID3])});
-    paramList.insert(paramList.end(), {std::to_string(src0RawShape[ID1]),
-        std::to_string(src0RawShape[ID2]), std::to_string(src0RawShape[ID3])});
+    paramList.insert(paramList.end(),
+        {std::to_string(src0RawShape[ID1]), std::to_string(src0RawShape[ID2]), std::to_string(src0RawShape[ID3])});
     paramList.emplace_back(std::to_string(src1OriginShape[ID0]));
     paramList.emplace_back(std::to_string(src1OriginShape[ID1]));
     paramList.emplace_back(std::to_string(src1RawShape[ID3]));
@@ -366,8 +365,8 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastDynamic(const PrintIndexOutCastP
     paramList.insert(paramList.end(), {dataTypeExpr[ID0], dataTypeExpr[ID2]});
     paramList.insert(paramList.end(), {std::to_string(src0OriginShape[ID0]), std::to_string(src0OriginShape[ID1]),
                                           std::to_string(src0OriginShape[ID3])});
-    paramList.insert(paramList.end(), {std::to_string(src0RawShape[ID1]),
-        std::to_string(src0RawShape[ID2]), std::to_string(src0RawShape[ID3])});
+    paramList.insert(paramList.end(),
+        {std::to_string(src0RawShape[ID1]), std::to_string(src0RawShape[ID2]), std::to_string(src0RawShape[ID3])});
     paramList.emplace_back(std::to_string(src1OriginShape[ID0]));
     paramList.emplace_back(std::to_string(src1OriginShape[ID1]));
     paramList.emplace_back(std::to_string(src1RawShape[ID3]));
@@ -413,8 +412,8 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastDynamicUnaligned(const PrintInde
     std::vector<std::string> paramList;
     // template param
     paramList.insert(paramList.end(), {dataTypeExpr[ID0], dataTypeExpr[ID2]});
-    paramList.insert(paramList.end(), {std::to_string(src0RawShape[ID1]),
-        std::to_string(src0RawShape[ID2]), std::to_string(src0RawShape[ID3])});
+    paramList.insert(paramList.end(),
+        {std::to_string(src0RawShape[ID1]), std::to_string(src0RawShape[ID2]), std::to_string(src0RawShape[ID3])});
     paramList.emplace_back(std::to_string(src1RawShape[ID3]));
     paramList.emplace_back(std::to_string(cacheModeFlag));
     paramList.emplace_back(param.blockSize);
@@ -757,7 +756,9 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUB(PrintMemCopyWithUBParam &param
     // When ub tensor spilling to GM occurred, the spilling unit is entire raw shape of ub tensor.
     // So ub offset is always zero under this scene, do not need to calculate anymore.
     if (!param.isSpillIntoGM) {
-        AppendLocalBufferVarOffset({&addrExpr[localIdx]}, {localIdx});
+        AppendLocalBufferVarOffset({
+            {localIdx, &addrExpr[localIdx]}
+        });
     }
     if (isSupportLayout) {
         return PrintMemCopyWithUBTileTensor();

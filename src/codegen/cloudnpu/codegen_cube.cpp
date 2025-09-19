@@ -74,11 +74,11 @@ std::string CodeGenOpCloudNPU::GenCubeOp(bool zeroC) const {
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenCubeOpMatmul() const{
+std::string CodeGenOpCloudNPU::GenCubeOpMatmul() const {
     return GenCubeOp(true);
 }
 
-std::string CodeGenOpCloudNPU::GenCubeOpMatmulAcc() const{
+std::string CodeGenOpCloudNPU::GenCubeOpMatmulAcc() const {
     return GenCubeOp(false);
 }
 
@@ -106,7 +106,9 @@ std::string CodeGenOpCloudNPU::GenParamsStr() const {
                 // 大包搬运场景下，L1搬运至L0不需要计算L1地址偏移
                 // 非大包搬运场景下，L1与L0数据大小一致，也不需要地址偏移
                 // 偏移计算仅用于L1_Copy_In 和 L1_Copy_Out
-                AppendLocalBufferVarOffset({&var}, {static_cast<unsigned>(i)});
+                AppendLocalBufferVarOffset({
+                    {static_cast<unsigned>(i), &var}
+                });
             }
 
             std::ostringstream oss;

@@ -54,10 +54,8 @@ std::string CodeGenOpCloudNPU::PrintCastDynamicUnaligned(const PrintUnaryParam &
     return oss.str();
 }
 std::string CodeGenOpCloudNPU::GenCastOp() const {
-    auto kS0 = sm->CreateAllocKey(operandWithMagic[ID1]);
-    auto kDst = sm->CreateAllocKey(operandWithMagic[ID0]);
-    std::string s0Var = sm->QueryVariableName(kS0);
-    std::string dVar = sm->QueryVariableName(kDst);
+    std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+    std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
     std::vector srcShape = this->rawShape[ID1];
     ALOG_INFO_F("genCastOp %s, srcShape is %s", tileOpName.c_str(), IntVecToStr(srcShape).c_str());
@@ -68,7 +66,7 @@ std::string CodeGenOpCloudNPU::GenCastOp() const {
     std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID1]);
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
 
-    AppendLocalBufferVarOffset({&dVar, &s0Var}, {ID0, ID1});
+    AppendLocalBufferVarOffset(std::vector{&dVar, &s0Var});
     std::vector<int64_t> os = NormalizeShape(originShape[0], SHAPE_DIM4);
     std::vector<int64_t> ss = NormalizeShape(rawShape[1], SHAPE_DIM4);
     std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
@@ -157,7 +155,7 @@ std::string CodeGenOpCloudNPU::PrintDupOp(const PrintDupOpParam &param) const {
 std::string CodeGenOpCloudNPU::GenDupOp() const {
     auto kDst = sm->CreateAllocKey(operandWithMagic[ID0]);
     std::string dVar = sm->QueryVariableName(kDst);
-    AppendLocalBufferVarOffset({&dVar}, {0});
+    AppendLocalBufferVarOffset(std::vector{&dVar});
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
 
     std::string dupV;
@@ -469,7 +467,10 @@ std::string CodeGenOpCloudNPU::GenTransposeDataMove() const {
     std::vector<int64_t> gmShape = this->rawShape[gmIdx];
     ALOG_INFO_F("GenUnaryOp: gmShape is %s", IntVecToStr(gmShape).c_str());
 
-    AppendLocalBufferVarOffset({&gmVar, &localVar}, {gmIdx, localIdx});
+    AppendLocalBufferVarOffset({
+        {   gmIdx,    &gmVar},
+        {localIdx, &localVar}
+    });
 
     std::string localDtypeStr = DataType2CCEStr(operandDtype[localIdx]);
     std::string gmDtypeStr = DataType2CCEStr(operandDtype[gmIdx]);
@@ -477,13 +478,10 @@ std::string CodeGenOpCloudNPU::GenTransposeDataMove() const {
 }
 
 std::string CodeGenOpCloudNPU::GenUnaryOp() const {
-    auto kS0 = sm->CreateAllocKey(operandWithMagic[ID1]);
-    std::string s0Var = sm->QueryVariableName(kS0);
+    std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+    std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
-    auto kDst = sm->CreateAllocKey(operandWithMagic[ID0]);
-    std::string dVar = sm->QueryVariableName(kDst);
-
-    AppendLocalBufferVarOffset({&dVar, &s0Var}, {0, 1});
+    AppendLocalBufferVarOffset(std::vector{&dVar, &s0Var});
 
     std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID1]);
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
@@ -615,7 +613,8 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveStatic(const PrintTranspose
     for (int i = 1; i < SHAPE_DIM4; i++) {
         paramList.emplace_back(std::to_string(srcShape[i]));
     }
-    std::vector<int64_t> transposeAxis = npu::tile_fwk::AnyCast<std::vector<int64_t>>(opAttrs.at(OP_ATTR_PREFIX + "shape"));
+    std::vector<int64_t> transposeAxis =
+        npu::tile_fwk::AnyCast<std::vector<int64_t>>(opAttrs.at(OP_ATTR_PREFIX + "shape"));
     int correctionAxis = SHAPE_DIM4 - originShape[0].size();
     for (auto &axis : transposeAxis) {
         axis += correctionAxis;
@@ -660,7 +659,8 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveDynamic(const PrintTranspos
     for (int i = 1; i < SHAPE_DIM4; i++) {
         paramList.emplace_back(std::to_string(srcShape[i]));
     }
-    std::vector<int64_t> transposeAxis = npu::tile_fwk::AnyCast<std::vector<int64_t>>(opAttrs.at(OP_ATTR_PREFIX + "shape"));
+    std::vector<int64_t> transposeAxis =
+        npu::tile_fwk::AnyCast<std::vector<int64_t>>(opAttrs.at(OP_ATTR_PREFIX + "shape"));
     int correctionAxis = SHAPE_DIM4 - originShape[1].size();
     for (auto &axis : transposeAxis) {
         axis += correctionAxis;
@@ -711,7 +711,8 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveDynamicUnaligned(const Prin
     for (int i = 1; i < SHAPE_DIM5; i++) {
         paramList.emplace_back(std::to_string(localShape[i]));
     }
-    std::vector<int64_t> transposeAxis = npu::tile_fwk::AnyCast<std::vector<int64_t>>(opAttrs.at(OP_ATTR_PREFIX + "shape"));
+    std::vector<int64_t> transposeAxis =
+        npu::tile_fwk::AnyCast<std::vector<int64_t>>(opAttrs.at(OP_ATTR_PREFIX + "shape"));
     int correctionAxis = SHAPE_DIM5 - originShape[localIdx].size();
     for (auto &axis : transposeAxis) {
         axis += correctionAxis;
@@ -723,7 +724,7 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveDynamicUnaligned(const Prin
     std::string gm = "(__gm__ " + gmDtypeStr + "*)" + gmVar;
     std::string ub = "(__ubuf__ " + localDtypeStr + "*)" + localVar;
 
-    if(gmIdx == 0){
+    if (gmIdx == 0) {
         paramList.insert(paramList.end(), {gm, ub});
     } else {
         paramList.insert(paramList.end(), {ub, gm});
@@ -921,14 +922,15 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
     std::string tmpDtypeStr = DataType2CCEStr(operandDtype[ID1]);
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
 
-    AppendLocalBufferVarOffset({&dVar, &tmpVar, &s0Var}, {0, 1, 2});
+    AppendLocalBufferVarOffset(std::vector{&dVar, &tmpVar, &s0Var});
 
     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
     if (opCode == Opcode::OP_TRANSPOSE_VNCHWCONV) {
         return PrintVnchwconv({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
 
-    if (opCode == Opcode::OP_ROWSUM_SINGLE || opCode == Opcode::OP_ROWMAX_SINGLE || opCode == Opcode::OP_ROWMIN_SINGLE) {
+    if (opCode == Opcode::OP_ROWSUM_SINGLE || opCode == Opcode::OP_ROWMAX_SINGLE ||
+        opCode == Opcode::OP_ROWMIN_SINGLE) {
         return PrintReduceLastAxis({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
 
@@ -1269,7 +1271,7 @@ std::string CodeGenOpCloudNPU::GenBinaryOp() const {
     auto kS1 = sm->CreateAllocKey(operandWithMagic[ID2]);
     std::string s1Var = sm->QueryVariableName(kS1);
 
-    AppendLocalBufferVarOffset({&dVar, &s0Var, &s1Var}, {0, 1, 2});
+    AppendLocalBufferVarOffset(std::vector{&dVar, &s0Var, &s1Var});
     return PrintBinary({s0Var, s1Var, dVar, src0DtypeStr, src1DtypeStr, dstDtypeStr});
 }
 
@@ -1297,7 +1299,7 @@ std::string CodeGenOpCloudNPU::GenBinaryWithBrc() const {
     tmpVar = sm->QueryVariableName(kTmp);
     tmpDtypeStr = DataType2CCEStr(operandDtype[ID1]);
 
-    AppendLocalBufferVarOffset({&dVar, &s0Var, &s1Var, &tmpVar}, {0, 1, 2, 3});
+    AppendLocalBufferVarOffset(std::vector{&dVar, &s0Var, &s1Var, &tmpVar});
     int ret = 0;
     if (opCode == Opcode::OP_ADD_BRC || opCode == Opcode::OP_SUB_BRC || opCode == Opcode::OP_MUL_BRC ||
         opCode == Opcode::OP_DIV_BRC || opCode == Opcode::OP_MAX_BRC) {
@@ -1318,7 +1320,7 @@ std::string CodeGenOpCloudNPU::GenFusedOp() const {
         operandsNum++;
     }
     std::string paramString;
-    std::vector<std::string> varList;
+    std::map<unsigned, std::string *> varMap;
     for (int i = 0; i < operandsNum; i++) {
         auto kS0 = sm->CreateAllocKey(operandWithMagic[i]);
         std::string s0Var = sm->QueryVariableName(kS0);
@@ -1327,17 +1329,11 @@ std::string CodeGenOpCloudNPU::GenFusedOp() const {
         if (i < operandsNum - 1) {
             paramString += ", ";
         }
-        varList.push_back(s0Var);
+        varMap[i] = &s0Var;
     }
-    std::vector<std::string *> varPtrList;
-    std::vector<unsigned> operandIdxes;
-    for (size_t i = 0; i < varList.size(); i++) {
-        varPtrList.push_back(&varList[i]);
-        operandIdxes.push_back(i);
-    }
+    AppendLocalBufferVarOffset(varMap);
 
     char buffer[256] = "CG_ERROR";
-    AppendLocalBufferVarOffset(varPtrList, operandIdxes);
     int ret = 0;
     ret = sprintf_s(buffer, sizeof(buffer), "%s(%s);\n", fusedOpName.c_str(), paramString.c_str());
     ASSERT(ret >= 0) << "GenFusedOp sprintf_s failed ";
@@ -1474,7 +1470,7 @@ std::string CodeGenOpCloudNPU::GenGatherOp() const {
     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
     std::string src1DtypeStr = DataType2CCEStr(operandDtype[ID2]);
 
-    AppendLocalBufferVarOffset({&dVar, &s0Var, &s1Var}, {0, 1, 2});
+    AppendLocalBufferVarOffset(std::vector{&dVar, &s0Var, &s1Var});
     int ret = 0;
     if (src0Rank == RANK2 && (src1Rank == RANK1 || src1Rank == RANK2)) {
         // [case1] src0: [S2,D], src1: [S], axis: 0, dst: [S,D]
@@ -1579,7 +1575,7 @@ std::string CodeGenOpCloudNPU::GenGatherElementOp() const {
     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
     std::string src1DtypeStr = DataType2CCEStr(operandDtype[ID2]);
 
-    AppendLocalBufferVarOffset({&dVar, &s0Var, &s1Var}, {0, 1, 2});
+    AppendLocalBufferVarOffset(std::vector{&dVar, &s0Var, &s1Var});
 
     // [case1] src0: [S2,D], src1: [B,S], axis: 0, dst: [B,S,D]
     std::vector<int64_t> dos = NormalizeShape(originShape[0], SHAPE_DIM2);
@@ -1717,8 +1713,7 @@ std::string CodeGenOpCloudNPU::GenScatterElementOp() const {
     ALOG_INFO_F("GenScatterElementOp, dstDtypeStr%s", dstDtypeStr.c_str());
     ALOG_INFO_F("GenScatterElementOp, src1DtypeStr%s", src1DtypeStr.c_str());
 
-    AppendLocalBufferVarOffset({&dstVar, &src0Var, &src1Var},
-        {ToUnderlying(DISIIdx::DST_IDX), ToUnderlying(DISIIdx::SRC0_IDX), ToUnderlying(DISIIdx::SRC1_IDX)});
+    AppendLocalBufferVarOffset(std::vector{&dstVar, &src0Var, &src1Var});
 
     constexpr int NumOperands = 3;
     std::string dataTypeExpr[NumOperands] = {dstDtypeStr, src0DtypeStr, src1DtypeStr};
@@ -1845,7 +1840,7 @@ SortParam CodeGenOpCloudNPU::PrepareSortParam() const {
 
     std::string dstDtypeStr = DataType2CCEStr(dstDtype);
     std::string src0DtypeStr = DataType2CCEStr(src0Dtype);
-    AppendLocalBufferVarOffset({&dstVar, &src0Var}, {0, 1});
+    AppendLocalBufferVarOffset(std::vector{&dstVar, &src0Var});
     return {
         {ds[ID0], ds[ID1], ds[ID2], ds[ID3]},
         {ss[ID0], ss[ID1], ss[ID2], ss[ID3]},
@@ -1875,7 +1870,7 @@ std::string CodeGenOpCloudNPU::PrintExtractStatic() const {
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
     std::vector src0Shape = this->rawShape[0];
-    AppendLocalBufferVarOffset({&dVar, &s0Var}, {0, 1});
+    AppendLocalBufferVarOffset(std::vector{&dVar, &s0Var});
     constexpr unsigned defaultDim = 1u;
     if (this->rawShape[1].size() == 1) {
         tShape1 = std::min(src0RawShape[0], shape[0][0]);
@@ -1911,7 +1906,7 @@ std::string CodeGenOpCloudNPU::PrintExtractDynamicUnaligned() const {
 
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
-    AppendLocalBufferVarOffset({&dVar, &s0Var}, {0, 1});
+    AppendLocalBufferVarOffset(std::vector{&dVar, &s0Var});
 
     std::vector<std::string> paramList;
     paramList.insert(paramList.end(), {dstDtypeStr, src0DtypeStr});
@@ -2112,7 +2107,7 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
     ASSERT(ret >= 0) << "GenVectorScalarOpByMode sprintf_s failed ";
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
 
-    AppendLocalBufferVarOffset({&dVar, &s0Var}, {0, 1});
+    AppendLocalBufferVarOffset(std::vector{&dVar, &s0Var});
 
     std::vector src0RawShape = this->rawShape[1];
     std::vector dstRawShape = this->rawShape[0];
@@ -2165,7 +2160,7 @@ std::string CodeGenOpCloudNPU::GenPoolOp() const {
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
     std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID1]);
 
-    AppendLocalBufferVarOffset({&dVar, &sVar}, {0, 1});
+    AppendLocalBufferVarOffset(std::vector{&dVar, &sVar});
 
     int paddingLeft = poolParams[0];
     int paddingTop = poolParams[1];

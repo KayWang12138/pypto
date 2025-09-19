@@ -28,41 +28,46 @@ const std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {        Opcode::OP_ADD,      "Add"},
 };
 
-void CodeGenOpCloudNPU::AppendLocalBufferVarOffset(
-    const std::vector<std::string *> &vars, const std::vector<unsigned> &operandIdxes) const {
-    ASSERT(vars.size() == operandIdxes.size())
-        << "vars size vs operandIdxes is not equal" << vars.size() << " vs. " << operandIdxes.size();
+void CodeGenOpCloudNPU::AppendLocalBufferVarOffset(const std::vector<std::string *> &vars) const {
+    std::map<unsigned, std::string *> varsMap;
+    int idx = 0;
+    std::for_each(vars.begin(), vars.end(), [&](std::string *var) { varsMap.emplace(idx++, var); });
+    AppendLocalBufferVarOffset(varsMap);
+}
 
-    for (size_t i = 0; i < vars.size(); ++i) {
-        int resOffset{0};
+void CodeGenOpCloudNPU::AppendLocalBufferVarOffset(const std::map<unsigned, std::string *> &vars) const {
+    for (auto &kv : vars) {
+        auto operandIdx = kv.first;
+        int64_t resOffset{0};
 
-        std::vector varOffset = offset[operandIdxes[i]];
+        std::vector varOffset = offset[operandIdx];
         if (varOffset.empty()) {
             continue;
         }
 
-        std::vector varRawShape = rawShape[operandIdxes[i]];
+        std::vector varRawShape = rawShape[operandIdx];
         ASSERT(!varRawShape.empty()) << "varRawShape is empty!!";
         ASSERT(varOffset.size() == varRawShape.size())
             << "varOffset " << IntVecToStr(varOffset) << ", size " << varOffset.size() << " vs varRawShape "
             << IntVecToStr(varRawShape) << ", size " << varRawShape.size() << " is not equal!!";
 
-        int base = 1;
-        for (int j = varOffset.size() - 1; j >= 0; j--) {
-            resOffset += varOffset[j] * base;
-            base *= varRawShape[j];
+        int64_t base = 1;
+        for (int i = varOffset.size() - 1; i >= 0; i--) {
+            resOffset += varOffset[i] * base;
+            base *= varRawShape[i];
         }
 
         if (resOffset == 0) {
             continue;
         }
 
-        ALOG_DEBUG_F(" vars[%d]: %s", i, (*vars[i]).c_str());
+        std::string *var = kv.second;
+        ASSERT(var) << "operandIdx: " << operandIdx << ", var is null !!";
+        ALOG_DEBUG_F(" var: %s", var->c_str());
         ALOG_DEBUG_F(" varRawShape: %s", IntVecToStr(varRawShape).c_str());
         ALOG_DEBUG_F(" varOffset: %s", IntVecToStr(varOffset).c_str());
         ALOG_DEBUG_F(" resOffset: %d", resOffset);
-        ASSERT(vars[i]) << "var[" << i << "] is null!!";
-        *vars[i] += " + " + std::to_string(resOffset);
+        *var += " + " + std::to_string(resOffset);
     }
 }
 
@@ -191,7 +196,8 @@ TileTensor CodeGenOpCloudNPU::BuildTileTensor(int paramIdx, const std::string &u
         tileTensor.bufVar = sm->QueryVarNameByTensorMagic(tileTensor.magic);
     }
     tileTensor.usingType = usingType;
-    tileTensor.tensorName = BUFFER_TYPE_TO_PREFIX_LC.at(tileTensor.bufType) + "Tensor_" + std::to_string(tileTensor.magic);
+    tileTensor.tensorName =
+        BUFFER_TYPE_TO_PREFIX_LC.at(tileTensor.bufType) + "Tensor_" + std::to_string(tileTensor.magic);
 
     if (tileTensor.bufType == OperandType::BUF_DDR) {
         tileTensor.shape = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_RAW_SHAPE);

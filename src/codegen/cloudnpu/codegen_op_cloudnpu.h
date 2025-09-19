@@ -113,11 +113,11 @@ public:
     void UpdateTileTensorInfo();
 
 private:
-    int GetCacheModeFlag(const std::string &cacheMode)  const;
+    int GetCacheModeFlag(const std::string &cacheMode) const;
     template <typename T>
     bool GetAttr(const std::string &key, T &value) const;
 
-    TileTensor BuildTileTensor(int paramIdx, const std::string& usingType);
+    TileTensor BuildTileTensor(int paramIdx, const std::string &usingType);
 
     std::vector<int64_t> GetTileShapeForMemTransfer(
         OperandType localType, std::vector<int64_t> gmShape, unsigned localIdx) const;
@@ -127,8 +127,8 @@ private:
     std::string GenAddrExpr(const std::string &addrExpr, unsigned offsetParam) const;
 
     // update var offset when parent of this var is split by "view" operation. (used for ub var currently)
-    void AppendLocalBufferVarOffset(
-        const std::vector<std::string *> &vars, const std::vector<unsigned> &operandIdxes) const;
+    void AppendLocalBufferVarOffset(const std::vector<std::string *> &vars) const;
+    void AppendLocalBufferVarOffset(const std::map<unsigned, std::string *> &vars) const;
 
     std::string GenGmParamVar(unsigned gmParamIdx) const;
 
@@ -449,8 +449,8 @@ private:
         {           Opcode::OP_SCATTER_ELEMENT,         [this]() { return GenScatterElementOp(); }},
 
         // transpose with gm
-        {        Opcode::OP_TRANSPOSE_MOVEOUT,        [this]() { return GenTransposeDataMove(); }},
-        {        Opcode::OP_TRANSPOSE_MOVEIN,        [this]() { return GenTransposeDataMove(); }},
+        {         Opcode::OP_TRANSPOSE_MOVEOUT,        [this]() { return GenTransposeDataMove(); }},
+        {          Opcode::OP_TRANSPOSE_MOVEIN,        [this]() { return GenTransposeDataMove(); }},
 
         // vector dup
         {                   Opcode::OP_VEC_DUP,                    [this]() { return GenDupOp(); }},
