@@ -42,6 +42,7 @@ set(_CaseFilterList
         "SubgraphToFunctionTest.MultiSubgraphDependencyWithMixedOps"
         "SubgraphToFunctionTest.EliminateRedundantEdges"
         "SubgraphToFunctionTest.ReshapeDependencyHandling"
+        "SubgraphToFunctionCheckTest.TestPrePostCheck"
         "MergeViewAssembleTest.TestMergeViewAssemble"
         "MergeViewAssembleTest.MergeTwoConsecutiveViews"
         "MergeViewAssembleTest.MergeThreeConsecutiveAssembles"
