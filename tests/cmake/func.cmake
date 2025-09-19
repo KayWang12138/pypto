@@ -263,46 +263,92 @@ function(PTO_Fwk_GTest_RunPytest)
     add_library(${_Target} SHARED)
     target_sources(${_Target} PRIVATE ${_MainStub})
     add_dependencies(${_Target} pto_impl)
+
+    # 处理 pytest.ini
+    if (NOT ARG_PYTEST_INI)
+        get_filename_component(_PytestIniIn "${CMAKE_CURRENT_SOURCE_DIR}/pytest.ini.in" REALPATH)
+        if (EXISTS "${_PytestIniIn}")
+            get_filename_component(PTO_FWK_PYTHON_TESTS_PATH "${CMAKE_CURRENT_SOURCE_DIR}" REALPATH)  # config pytest.ini.in 所需
+            get_filename_component(ARG_PYTEST_INI "${CMAKE_CURRENT_BINARY_DIR}/pytest.ini" REALPATH)
+            configure_file(${_PytestIniIn} ${ARG_PYTEST_INI} @ONLY)
+        endif ()
+    endif ()
+    if (NOT EXISTS "${ARG_PYTEST_INI}")
+        message(FATAL_ERROR "Can't get ${ARG_STUB_TARGET_NAME} 's pytest.ini[${ARG_PYTEST_INI}]")
+    endif ()
+
+    # 执行用例
     if (ENABLE_TESTS_EXECUTE)
-        # 处理 pytest.ini
-        if (NOT ARG_PYTEST_INI)
-            get_filename_component(ARG_PYTEST_INI "${CMAKE_CURRENT_SOURCE_DIR}/pytest.ini" REALPATH)
-        endif ()
-        if (NOT EXISTS "${ARG_PYTEST_INI}")
-            message(FATAL_ERROR "Can't get ${ARG_STUB_TARGET_NAME} 's pytest.ini[${ARG_PYTEST_INI}]")
-        endif ()
-    
-        # 执行 pytest
         PTO_Fwk_AnalysisPython3Environ(pytest_FOUND JUDGE_PYTEST_INSTALLED)
-        if (NOT "${pytest_FOUND}x" STREQUAL "x")
-            PTO_Fwk_AnalysisPython3Environ(pytest_forked_FOUND JUDGE_PYTEST_FORKED_INSTALLED)
+        if ("${pytest_FOUND}x" STREQUAL "x")
+            message(WARNING "pytest not installed, python test won't run.")
+        else ()
+            # 重新 touch 源码, 保证可重复执行
+            add_custom_command(
+                    TARGET ${_Target} PRE_BUILD
+                    COMMAND touch ${_MainStub}
+            )
+
+            # 安装 pypto whl 包
+            get_filename_component(_PyPTOInstallPath ${PTO_FWK_BIN_ROOT}/pypto_install REALPATH)
+            add_custom_command(
+                    TARGET ${_Target} POST_BUILD
+                    COMMAND find ./pto/ -name "*.so" -delete
+                    COMMAND find ./pto/ -name "*.json" -delete
+                    COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/src/interface/configs/tile_fwk_config.json         ./pto/
+                    COMMAND ${CMAKE_COMMAND} -E copy ${PTO_FWK_SRC_ROOT}/src/passes/pass_config/tile_fwk_platform_info.json ./pto/
+                    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tile_fwk_operator>       ./pto/
+                    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tile_fwk_interface>      ./pto/
+                    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tile_fwk_passes>         ./pto/
+                    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tile_fwk_compiler>       ./pto/
+                    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tile_fwk_codegen>        ./pto/
+                    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tile_fwk_simulation>     ./pto/
+                    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tile_fwk_simulation_ca>  ./pto/
+                    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tile_fwk_runtime>        ./pto/
+                    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:pto_impl>                ./pto/
+                    WORKING_DIRECTORY ${PTO_FWK_SRC_ROOT}/pypto
+            )
+            if (TARGET tile_fwk_calculator)
+                add_custom_command(
+                        TARGET ${_Target} POST_BUILD
+                        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tile_fwk_calculator>     ./pto/
+                        WORKING_DIRECTORY ${PTO_FWK_SRC_ROOT}/pypto
+                )
+            endif ()
+            add_custom_command(
+                    TARGET ${_Target} POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E remove_directory ${_PyPTOInstallPath}
+                    COMMAND ${CMAKE_COMMAND} -E make_directory ${_PyPTOInstallPath}
+                    COMMAND pip3 install --target=${_PyPTOInstallPath} -v --force-reinstall .
+                    COMMAND ${CMAKE_COMMAND} -E remove_directory ${_PyPTOInstallPath}/pto/include/
+                    COMMAND ${CMAKE_COMMAND} -E copy_directory  ${PTO_FWK_SRC_ROOT}/include/ ${_PyPTOInstallPath}/pto/include/
+                    COMMENT "Install to ${_PyPTOInstallPath}"
+                    WORKING_DIRECTORY ${PTO_FWK_SRC_ROOT}/pypto
+            )
+
+            # 拼接 pytest 执行参数和环境变量, 并执行
             set(_PytestParamExt)
+            PTO_Fwk_AnalysisPython3Environ(pytest_forked_FOUND JUDGE_PYTEST_FORKED_INSTALLED)
             if (NOT "${pytest_forked_FOUND}x" STREQUAL "x")
                 list(APPEND _PytestParamExt --forked)
             endif ()
-    
             PTO_Fwk_GTest_RunExe_GetPreExecSetup(PyCmdSetup PyEnvLines BashCmdSetup
-                    TARGET              ${_Target}
-                    LD_LIBRARIES_EXT    ${ARG_PYTHON_PATH_LIBRARIES}
+                    TARGET ${_Target}
             )
-	    add_custom_command(
-		    TARGET ${_Target} POST_BUILD
-		    COMMAND make install_pypackage
-		    WORKING_DIRECTORY ${PTO_FWK_SRC_ROOT}/pypto
-		    COMMENT "Running 'make install_pypackage' inside pypto/"
-	    )
-            add_custom_command(
-                    TARGET ${_Target} PRE_BUILD
-                    COMMAND touch ${_MainStub}  # 重新 touch 源码, 保证可重复执行
+            set(_PytestCmd
+                    ${PyEnvLines}
+                    PYTHONPATH="${_PyPTOInstallPath}:$ENV{PYTHONPATH}"
+                    LD_LIBRARY_PATH="$ENV{LD_LIBRARY_PATH}:${TORCH_ROOT_PATH}/lib"
+                    TILEFWK_CONFIG_PATH=${_PyPTOInstallPath}/pto/tile_fwk_config.json
+                    PLATFORM_CONFIG_PATH=${_PyPTOInstallPath}/pto/tile_fwk_platform_info.json
+                    ${Python3_EXECUTABLE} -m pytest -s -c ${ARG_PYTEST_INI} ${_PytestParamExt} ${PYTEST_PARAM_EXT}
             )
             add_custom_command(
                     TARGET ${_Target} POST_BUILD
-                    COMMAND ${PyEnvLines} ${Python3_EXECUTABLE} -m pytest -s -c ${ARG_PYTEST_INI}     ${_PytestParamExt} ${PYTEST_PARAM_EXT}
-                    COMMENT "Run pytest With ${ARG_PYTEST_INI}"
-                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                    COMMAND ${_PytestCmd}
+                    COMMENT "Run pytest With ${_PytestCmd}"
+                    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
             )
-        else ()
-            message(WARNING "pytest not installed, python test won't run.")
         endif ()
     endif ()
 endfunction ()

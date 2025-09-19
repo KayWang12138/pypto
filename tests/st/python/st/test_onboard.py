@@ -19,7 +19,7 @@ def test_device_run_data_from_host():
     tiling = 32
     n, m = tiling * 1, tiling * 1
 
-    pto._DeviceInit()
+    pto.DeviceInit()
 
     a = pto.tensor(pto.DataType.DT_INT32, (n, m), "PTO_TENSOR_a")
     b = pto.tensor(pto.DataType.DT_INT32, (n, m), "PTO_TENSOR_b")
@@ -37,7 +37,7 @@ def test_device_run_data_from_host():
     a_data = list(range(n * m))
     b_data = list([0] * n * m)
 
-    pto._DeviceRunOnceDataFromHost([a_data], [b_data])
+    pto.DeviceRunOnceDataFromHost([a_data], [b_data])
 
     assert b_data == [v * 11 for v in range(n * m)]
     pto._DeviceFini()
@@ -54,7 +54,7 @@ def test_device_run_data_from_device():
     tiling = 32
     n, m = tiling * 1, tiling * 1
 
-    pto._DeviceInit()
+    pto.DeviceInit()
 
     a = pto.tensor(pto.DataType.DT_INT32, (n, m), "PTO_TENSOR_a")
     b = pto.tensor(pto.DataType.DT_INT32, (n, m), "PTO_TENSOR_b")
@@ -75,7 +75,7 @@ def test_device_run_data_from_device():
     stream = torch.npu.current_stream()
     stream.synchronize()
 
-    pto._DeviceRunOnceDataFromDevice([a_data.data_ptr()], [b_data.data_ptr()], stream.npu_stream)
+    pto.DeviceRunOnceDataFromDevice([a_data.data_ptr()], [b_data.data_ptr()], stream.npu_stream)
 
     stream.synchronize()
 
@@ -85,4 +85,4 @@ def test_device_run_data_from_device():
     a_data_list = [c for r in a_data_cpu.tolist() for c in r]
     b_data_list = [c for r in b_data_cpu.tolist() for c in r]
     assert b_data_list == [v * 11 for v in a_data_list]
-    pto._DeviceFini()
+    pto.DeviceFini()

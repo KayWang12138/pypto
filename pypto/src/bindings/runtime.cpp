@@ -111,7 +111,7 @@ static void HostCastNativeToPython(const std::shared_ptr<LogicalTensor> &tensor,
     }
 }
 
-static std::string DeviceRunOnceDataFromHost(py::list &inputPythonDataList, py::list &outputPythonDataList) {
+std::string DeviceRunOnceDataFromHost(py::list &inputPythonDataList, py::list &outputPythonDataList) {
     Function *func = Program::GetInstance().GetLastFunction();
     if (!func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC, GraphType::TENSOR_GRAPH)) {
         return "Invalid function format";
@@ -162,7 +162,7 @@ static std::string DeviceRunOnceDataFromHost(py::list &inputPythonDataList, py::
     return "";
 }
 
-static std::string DeviceRunOnceDataFromDevice(py::list &inputDeviceAddrList, py::list &outputDeviceAddrList, py::int_ incomingStreamPython) {
+std::string DeviceRunOnceDataFromDevice(py::list &inputDeviceAddrList, py::list &outputDeviceAddrList, py::int_ incomingStreamPython) {
     (void)incomingStreamPython;
     Function *func = Program::GetInstance().GetLastFunction();
     if (!func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC, GraphType::TENSOR_GRAPH)) {
@@ -216,10 +216,10 @@ void DeviceFini() {
 }
 
 void BindRuntime(py::module &m) {
-    m.def("_DeviceInit", &DeviceInit);
-    m.def("_DeviceFini", &DeviceFini);
-    m.def("_DeviceRunOnceDataFromHost", &DeviceRunOnceDataFromHost);
-    m.def("_DeviceRunOnceDataFromDevice", &DeviceRunOnceDataFromDevice);
+    m.def("DeviceInit", &DeviceInit);
+    m.def("DeviceFini", &DeviceFini);
+    m.def("DeviceRunOnceDataFromHost", &DeviceRunOnceDataFromHost);
+    m.def("DeviceRunOnceDataFromDevice", &DeviceRunOnceDataFromDevice);
 }
 
 #else

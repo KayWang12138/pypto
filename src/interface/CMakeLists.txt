@@ -50,63 +50,48 @@ TileFwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_interface)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_interface)
 
 if (ENABLE_TORCH_VERIFIER)
-execute_process(
-    COMMAND ${Python3_EXECUTABLE} -c "
-import torch
-print(torch.utils.cmake_prefix_path)
-print(int(torch._C._GLIBCXX_USE_CXX11_ABI))
-"
-    OUTPUT_VARIABLE TORCH_ENV_OUTPUT
-)
-string(REPLACE "\n" ";" TORCH_ENV_LIST "${TORCH_ENV_OUTPUT}")
-list(GET TORCH_ENV_LIST 0 TORCH_ROOT_PATH)
-list(GET TORCH_ENV_LIST 1 TORCH_ABI_VERSION)
-get_filename_component(TORCH_ROOT_PATH "${TORCH_ROOT_PATH}/../.." REALPATH)
-
-add_library(tile_fwk_calculator SHARED)
-target_link_libraries(tile_fwk_interface
-PUBLIC
-    tile_fwk_calculator
-)
-
-target_sources(tile_fwk_calculator PRIVATE
-    interpreter/calculator/calc_torch.cpp
-)
-
-target_compile_definitions(tile_fwk_calculator
-PRIVATE
-    -D_GLIBCXX_USE_CXX11_ABI=${TORCH_ABI_VERSION}
-    -D__DEVICE__
-PUBLIC
-    -DENABLE_VERIFIER=1
-)
-
-target_include_directories(tile_fwk_calculator SYSTEM PRIVATE
-    ${TORCH_ROOT_PATH}/include
-    ${TORCH_ROOT_PATH}/include/torch/csrc/api/include
-    ${PTO_FWK_SRC_ROOT}/include
-    ${PTO_FWK_SRC_ROOT}/src/
-)
-
-target_link_directories(tile_fwk_calculator PUBLIC
-    ${TORCH_ROOT_PATH}/lib
-    ${TORCH_ROOT_PATH}/../torch.libs
-)
-
-target_link_libraries(tile_fwk_calculator PRIVATE
-    $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>
-    $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
-    torch
-)
-
-target_link_options(tile_fwk_calculator PRIVATE
-    -Wl,-no-as-needed,${TORCH_ROOT_PATH}/lib/libtorch_cpu.so -Wl,-as-needed
-    -Wl,-no-as-needed,${TORCH_ROOT_PATH}/lib/libc10.so -Wl,-as-needed
-)
-
-install(TARGETS tile_fwk_calculator
-        LIBRARY DESTINATION lib OPTIONAL
-)
+    add_library(tile_fwk_calculator SHARED)
+    target_link_libraries(tile_fwk_interface
+            PUBLIC
+                tile_fwk_calculator
+    )
+    target_sources(tile_fwk_calculator
+            PRIVATE
+                interpreter/calculator/calc_torch.cpp
+    )
+    target_compile_definitions(tile_fwk_calculator
+            PRIVATE
+                -D_GLIBCXX_USE_CXX11_ABI=${TORCH_ABI_VERSION}
+                -D__DEVICE__
+            PUBLIC
+                -DENABLE_VERIFIER=1
+    )
+    target_include_directories(tile_fwk_calculator
+            SYSTEM PRIVATE
+                ${TORCH_ROOT_PATH}/include
+                ${TORCH_ROOT_PATH}/include/torch/csrc/api/include
+                ${PTO_FWK_SRC_ROOT}/include
+                ${PTO_FWK_SRC_ROOT}/src/
+    )
+    target_link_directories(tile_fwk_calculator
+            PUBLIC
+                ${TORCH_ROOT_PATH}/lib
+                ${TORCH_ROOT_PATH}/../torch.libs
+    )
+    target_link_libraries(tile_fwk_calculator
+            PRIVATE
+                $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,nlohmann_json::nlohmann_json,json>
+                $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,boundscheck,c_sec>
+                torch
+    )
+    target_link_options(tile_fwk_calculator
+            PRIVATE
+                -Wl,-no-as-needed,${TORCH_ROOT_PATH}/lib/libtorch_cpu.so -Wl,-as-needed
+                -Wl,-no-as-needed,${TORCH_ROOT_PATH}/lib/libc10.so -Wl,-as-needed
+    )
+    install(TARGETS tile_fwk_calculator
+            LIBRARY DESTINATION lib OPTIONAL
+    )
 endif() ## ENABLE_TORCH_VERIFIER
 
 install(TARGETS tile_fwk_interface

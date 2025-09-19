@@ -48,6 +48,7 @@ std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::s
     std::string includePath = GetCurrentSharedLibPath() + "/../include/tile_fwk";
     std::string cmdGcc = LD_PRELOAD + gcc + " -fPIC -O2 " + extraCflag +
         " -I" + includePath + " " +
+        " -I" + GetCurrentSharedLibPath() + "/include/" +
         " -I" + includePath + "/tilefwk " +
         " -S " + sourceFilePath + " -o " + assembleFilePath;
     ALOG_INFO("[RunCmd] ", cmdGcc);

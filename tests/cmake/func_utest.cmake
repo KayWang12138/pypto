@@ -211,7 +211,7 @@ function(PTO_Fwk_UTest_RunPytest)
     )
     # 执行
     PTO_Fwk_GTest_RunPytest(
-            TARGET_NAME_PREFIX      ${PTO_Fwk_UTestNamePrefix}
             PYTEST_INI              ${ARG_PYTEST_INI}
+            TARGET_NAME_PREFIX      ${PTO_Fwk_UTestNamePrefix}
     )
 endfunction()

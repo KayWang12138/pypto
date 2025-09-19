@@ -26,5 +26,5 @@ if (ENABLE_TESTS_STEST_DISTRIBUTED)
 endif ()
 
 if (ENABLE_BUILD_PTO_FWK_PYTHON AND ENABLE_TESTS_STEST)
-    # PTO_Fwk_STest_RunPytest()
+    PTO_Fwk_STest_RunPytest()
 endif ()

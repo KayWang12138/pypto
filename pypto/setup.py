@@ -10,7 +10,6 @@ from setuptools import setup
 from setuptools.command.install import install
 import subprocess
 import pathlib
-import sysconfig
 
 
 class InstallWithRpathFix(install):

@@ -105,6 +105,8 @@ if (BUILD_OPEN_PROJECT)
     if (CCACHE_PROGRAM)
         set(CMAKE_C_COMPILER_LAUNCHER   ${CCACHE_PROGRAM} CACHE PATH "C cache Compiler")
         set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM} CACHE PATH "CXX cache Compiler")
+    else ()
+        message(STATUS "ccache not found.")
     endif ()
 endif()
 
@@ -285,5 +287,13 @@ if (ENABLE_TESTS_UTEST OR ENABLE_TESTS_STEST)
     message(STATUS "Torch=${torch_Version}")
     if ("${torch_Version}" STRGREATER_EQUAL "2.1.0")
         set(ENABLE_TORCH_VERIFIER ON)
+        execute_process(
+                COMMAND ${Python3_EXECUTABLE} -c "import torch;print(torch.utils.cmake_prefix_path);print(int(torch._C._GLIBCXX_USE_CXX11_ABI))"
+                OUTPUT_VARIABLE TORCH_ENV_OUTPUT
+        )
+        string(REPLACE "\n" ";" _TORCH_ENV_LIST "${TORCH_ENV_OUTPUT}")
+        list(GET _TORCH_ENV_LIST 0 TORCH_ROOT_PATH)
+        list(GET _TORCH_ENV_LIST 1 TORCH_ABI_VERSION)
+        get_filename_component(TORCH_ROOT_PATH "${TORCH_ROOT_PATH}/../.." REALPATH)
     endif()
 endif()
