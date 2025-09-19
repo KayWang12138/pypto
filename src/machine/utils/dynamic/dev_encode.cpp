@@ -955,7 +955,7 @@ struct EncodeDevAscendFunctionInfo {
                     if (i->tensor->rawmagic == iOperand->tensor->rawmagic) {
                         ASSERT(iOperand->GetShape().size() == dim);
                         std::vector<int64_t> shape = callAttr->GetLinearImmediateArgList(coaIndex + dim, coaIndex + dim * 0x2, false);
-                        incastOpAttr.useList.emplace_back(j, k, coaIndex + 1, coaIndex + dim + 1);
+                        incastOpAttr.useList.emplace_back(j, k, coaIndex, coaIndex + dim);
                         UpdateCellMatchShape(incastOpAttr.cellMatchTableDesc, shape);
                         ALOG_DEBUG_F("minimal shape for incast %d raw %d op %d %d is %s\n", i->magic, i->GetRawMagic(), j,
                             op.GetOpMagic(), IntVecToStr(ShapeToVector(incastOpAttr.cellMatchTableDesc.cellShape)).c_str());
@@ -1472,11 +1472,12 @@ static void InitPartialUpdateCellMatch(
         std::vector<int> outcastShape;
         for (int d = 0; d < outcastList[i]->dim; d++) {
             outcastShape.push_back(outcastList[i]->cellMatchTableDesc.GetCellShape(d) * outcastList[i]->cellMatchTableDesc.GetStrideShape(d));
+            if (i > 0) {
+               tensorShape[d] = std::max(tensorShape[d], outcastShape[d]);
+            }
         }
         if (i == 0) {
             tensorShape = outcastShape;
-        } else {
-            ASSERT(tensorShape == outcastShape);
         }
     }
 
@@ -1486,8 +1487,10 @@ static void InitPartialUpdateCellMatch(
         for (size_t i = 0; i < outcastList.size(); i++) {
             if (i == 0) {
                 dim = outcastList[i]->cellMatchTableDesc.GetCellShape(d);
-            } else {
+            } else if (dim != -1) {
                 dim = std::gcd(dim, outcastList[i]->cellMatchTableDesc.GetCellShape(d));
+            } else {
+                ASSERT(outcastList[i]->cellMatchTableDesc.GetCellShape(d) == -1);
             }
         }
         cellShape.push_back(dim);

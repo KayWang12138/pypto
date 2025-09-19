@@ -670,7 +670,7 @@ public:
 private:
     std::string DumpTensor(int tensorIndex) const {
         std::ostringstream oss;
-        oss << "%" << tensorIndex << "@" << GetTensor(tensorIndex)->rawIndex;
+        oss << "%ten(" << tensorIndex << ")@raw(" << GetTensor(tensorIndex)->rawIndex << ")";
         return oss.str();
     }
 
@@ -764,6 +764,7 @@ public:
     std::string DumpOperation(int operationIndex, int &totalAttrStartIdx, const std::vector<uintdevptr_t> &ooperandAddrList = {},
         const std::vector<uintdevptr_t> &ioperandAddrList = {}, uint64_t *runtimeExpressionList = nullptr) const {
         std::ostringstream oss;
+        oss << "#output ";
         for (size_t j = 0; j < GetOperationOOperandSize(operationIndex); j++) {
             oss << Delim(j != 0, ",") << DumpTensor(GetOperationOOperandInfo(operationIndex, j).tensorIndex);
             if (j < ooperandAddrList.size()) {
@@ -771,7 +772,8 @@ public:
             }
         }
         oss << " = "
-            << "!" << operationIndex << " ";
+            << "!operation(" << operationIndex << ") ";
+        oss << "#input ";
         for (size_t j = 0; j < GetOperationIOperandSize(operationIndex); j++) {
             oss << Delim(j != 0, ",") << DumpTensor(GetOperationIOperandInfo(operationIndex, j).tensorIndex);
             if (j < ioperandAddrList.size()) {
@@ -787,7 +789,7 @@ public:
     std::string DumpRawTensor(int rawIndex, uintdevptr_t addr = 0) const {
         std::ostringstream oss;
         auto rawTensor = GetRawTensor(rawIndex);
-        oss << rawTensor->DumpType() << " @" << rawIndex << " = ";
+        oss << rawTensor->DumpType() << " @rawIndex(" << rawIndex << ") = ";
         oss << rawTensor->DumpAttr();
         if (addr != 0) {
             oss << AddressDescriptor::DumpAddress(addr);
@@ -839,6 +841,24 @@ public:
     std::string DumpOutcast(int outcastIndex, const std::string &indent, uint64_t *runtimeExpressionList = nullptr, const std::vector<uintdevptr_t> &slotAddrList = {}) const {
         std::ostringstream oss;
         const DevAscendFunctionOutcast &outcast = GetOutcast(outcastIndex);
+        auto dumpProducer = [this, &oss, &indent, &outcast, &runtimeExpressionList](const DevLocalVector<DevAscendFunctionCallOperandUse>& producerList) -> void {
+            for (size_t j = 0; j < producerList.size(); j++) {
+                auto &producer = At(producerList, j);
+                int producerIdx = producer.operationIdx;
+                int operandIdx = producer.operandIdx;
+                int offsetAttrIdx = producer.offsetAttrIdx;
+                int shapeAttrIdx = producer.shapeAttrIdx;
+                oss << indent;
+                oss << " | #producerIdx:!" << producerIdx;
+                oss << " | #operandIdx:" << operandIdx;
+                oss << " | #offsetAttrIdx:" << offsetAttrIdx;
+                oss << " | #shapeAttrIdx:" << shapeAttrIdx;
+                oss << " | #offsetAttr:" << DumpSymIntList(&GetOperationAttr(producerIdx, offsetAttrIdx), outcast.dim, runtimeExpressionList);
+                oss << " | #shapeAttr:" << DumpSymIntList(&GetOperationAttr(producerIdx, shapeAttrIdx), outcast.dim, runtimeExpressionList);
+                oss << "\n";
+            }
+        };
+
         oss << "#outcast:" << outcastIndex << " = " << DumpTensor(outcast.tensorIndex);
         for (size_t j = 0; j < outcast.toSlotList.size(); j++) {
             int slot = At(outcast.toSlotList, j);
@@ -859,28 +879,15 @@ public:
             oss << Delim(j != 0, ",") << At(outcast.stitchPolicyFullCoverProducerList, j).operationIdx;
         }
         oss << "]\n";
+        dumpProducer(outcast.stitchPolicyFullCoverProducerList);
+
         oss << indent << " | #stitchPolicyFullCoverProducerHubOpIdx:" << outcast.stitchPolicyFullCoverProducerHubOpIdx << "\n";
         oss << indent << " | #stitchPolicyFullCoverProducerAllOpIdxList:[";
         for (size_t j = 0; j < outcast.stitchPolicyFullCoverProducerAllOpIdxList.size(); j++) {
             oss << Delim(j != 0, ",") << At(outcast.stitchPolicyFullCoverProducerAllOpIdxList, j);
         }
         oss << "]\n";
-
-        for (size_t j = 0; j < outcast.producerList.size(); j++) {
-            auto &producer = At(outcast.producerList, j);
-            int producerIdx = producer.operationIdx;
-            int operandIdx = producer.operandIdx;
-            int offsetAttrIdx = producer.offsetAttrIdx;
-            int shapeAttrIdx = producer.shapeAttrIdx;
-            oss << indent;
-            oss << " | #producerIdx:!" << producerIdx;
-            oss << " | #operandIdx:" << operandIdx;
-            oss << " | #offsetAttrIdx:" << offsetAttrIdx;
-            oss << " | #shapeAttrIdx:" << shapeAttrIdx;
-            oss << " | #offsetAttr:" << DumpSymIntList(&GetOperationAttr(producerIdx, offsetAttrIdx), outcast.dim, runtimeExpressionList);
-            oss << " | #shapeAttr:" << DumpSymIntList(&GetOperationAttr(producerIdx, shapeAttrIdx), outcast.dim, runtimeExpressionList);
-            oss << "\n";
-        }
+        dumpProducer(outcast.producerList);
         return oss.str();
     }
 
@@ -1315,6 +1322,10 @@ public:
         struct HandleFill {
             static inline void Process(int index, uint32_t *cellMatchTableData, uint32_t operationIdx) {
                 cellMatchTableData[index] = operationIdx;
+#if DEBUG_SWITCH
+                DEV_DEBUG("cell match fill, operation %u , cellindex[%d] = operationindex(%u)",
+                        operationIdx, index, operationIdx);
+#endif
             }
         };
         CellMatchHandle<HandleFill>(offset, shape, cellMatchTableDesc, cellMatchTableData, operationIdx);
@@ -1330,6 +1341,10 @@ public:
         struct HandleFill {
             static inline void Process(int index, uint32_t *cellMatchTableData, uint32_t funcIdx, uint32_t operationIdx) {
                 cellMatchTableData[index] = MakeTaskID(funcIdx, operationIdx);
+#if DEBUG_SWITCH
+                DEV_DEBUG("cell match fill, funcIdx %u operation %u , cellindex[%d] = taskid(%u)",
+                        funcIdx, operationIdx, index, cellMatchTableData[index]);
+#endif
             }
         };
         CellMatchHandle<HandleFill>(offset, shape, cellMatchTableDesc, cellMatchTableData, funcIdx, operationIdx);
@@ -1354,7 +1369,14 @@ public:
                 cellMatchTableDesc.GetDimensionSize(), operationIndex, operandIndex, isIOperand);
             if (paramConcrete) {
                 for (int j = 0; j < cellMatchTableDesc.GetDimensionSize(); j++) {
+#if DEBUG_SWITCH
+                    DEV_DEBUG("cell match fill, operation[%d] -> dimension[%d] = (offset:%lu ,shape:%lu, rawshape:%lu, cellshape:%d)",
+                            operationIndex, j, offset[j], shape[j], rawShape[j], cellMatchTableDesc.cellShape.dim[j]);
+#endif
                     if (offset[j] >= rawShape[j]) {
+#if DEBUG_SWITCH
+                        DEV_DEBUG("cell match fill failed, exceed invalid cell");
+#endif
                         return false;
                     } else if (offset[j] + shape[j] > rawShape[j]){
                         shape[j] = rawShape[j] - offset[j];
@@ -1368,7 +1390,8 @@ public:
             auto &use = operandUseList[i];
             uint64_t offset[DEV_SHAPE_DIM_MAX];
             uint64_t shape[DEV_SHAPE_DIM_MAX];
-            bool paramConcrete = GetTensorOffsetAndShape<skipExpression>(offset, shape, runtimeExpressionList, cellMatchTableDesc.GetDimensionSize(), use.operationIdx, use.operandIdx, isIOperand);
+            bool paramConcrete = GetTensorOffsetAndShape<skipExpression>(offset, shape, runtimeExpressionList,
+                cellMatchTableDesc.GetDimensionSize(), use.operationIdx, use.operandIdx, isIOperand);
             if (paramConcrete) {
                 if (!validateAndRefreshOffsetShape(offset, shape, use.operationIdx, use.operandIdx)) {
                     continue; // dassemble offset of outoperand maybe exceed the rawshape dimension
@@ -1515,9 +1538,12 @@ struct DevAscendFunctionDuppedStitchList {
     static std::string DumpTask(uint32_t *idx, int size) {
         std::ostringstream oss;
         oss << "{";
+        oss << "size = " << size << " -> ";
         for (int i = 0; i < size; i++) {
-            oss << Delim(i != 0, ",");
-            oss << "[" << std::dec << i << "]=" << DumpTask(idx[i]);
+            if (idx[i] != AICORE_TASK_INIT) {
+                oss << Delim(i != 0, ",");
+                oss << "[" << std::dec << i << "]=" << DumpTask(idx[i]);
+            }
         }
         oss << "}";
         return oss.str();
@@ -2039,7 +2065,7 @@ struct DevAscendFunctionDupped {
         auto dumpAttr = [this, &oss, func](const SymInt *attrs, const auto &info) {
             int attrOffset = info.staticOffsetAttrBeginIndex;
             auto rawIndex = attrs[attrOffset - 1].Value();
-            oss << "@" << rawIndex << "(attridx " << (attrOffset - 1) << ")" << ", ";
+            oss << "@(rawidx:" << rawIndex << " attridx:" << (attrOffset - 1) << ")" << ", ";
 
             int dim = info.GetDim();
             auto rawTensor = func->GetRawTensor(rawIndex);
@@ -2068,24 +2094,20 @@ struct DevAscendFunctionDupped {
                 << " #taskID:" << MakeTaskID(funcIdx, operIdx) << " #opMagic: " << func->GetOperationDebugOpmagic(operIdx)
                 << "\n";
             oss << "  #invokeAttrs : ";
-#if DEBUG_INFINITE_LIFETIME
-            UNUSED(dumpAttr);
-#endif
             int offset = 0;
             for (size_t idx = 0; idx < func->GetOperationIOperandSize(operIdx); idx++) {
                 auto &opInfo = func->GetOperationIOperandInfo(operIdx, idx);
                 offset = std::max(offset, opInfo.staticOffsetAttrBeginIndex + ARG_ATTR_TYPE * opInfo.GetDim());
-#if !DEBUG_INFINITE_LIFETIME
+            oss << " in:";
             dumpAttr(attrBase, opInfo);
-#endif
             }
             for (size_t idx = 0; idx < func->GetOperationOOperandSize(operIdx); idx++) {
                 auto &opInfo = func->GetOperationOOperandInfo(operIdx, idx);
                 offset = std::max(offset, opInfo.staticOffsetAttrBeginIndex + ARG_ATTR_TYPE * opInfo.GetDim());
-#if !DEBUG_INFINITE_LIFETIME
+            oss << " out:";
             dumpAttr(attrBase, opInfo);
-#endif
             }
+            oss << "\n other attr:";
             for (size_t idx = offset; idx < func->GetOperationAttrSize(operIdx); idx++) {
                 oss << GetValue(attrBase, idx) << ", ";
             }
@@ -2097,7 +2119,7 @@ struct DevAscendFunctionDupped {
                 oss << "\n   ";
             DEV_ASSERT(GetRawTensorAddrEx(i) == GetRawTensorAddr(i));
             auto desc = funcData->rawTensorDesc[i];
-            oss << GetRawTensorAddrEx(i) << "(" << desc.location << " " << desc.offsetOrIndex << ")" << ", ";
+            oss << GetRawTensorAddrEx(i) << "(location:" << desc.location << " offsetOrIdex" << desc.offsetOrIndex << ")" << ", ";
         }
         oss << "\n]";
         return oss.str();
@@ -2650,9 +2672,7 @@ public:
             oss << INDENTINNER << "#input-" << i << ": #address:" << AddressDescriptor::DumpAddress(input.address);
             oss << " #shape:[";
             for (int j = 0; j < input.shape.dimSize; j++) {
-                if (j != 0) {
-                    oss << ",";
-                }
+                oss << Delim(j != 0, ",");
                 oss << input.shape.dim[j];
             }
             oss << "]\n";
@@ -2662,9 +2682,7 @@ public:
             oss << INDENTINNER << "#output-" << i << ": #address:" << AddressDescriptor::DumpAddress(output.address);
             oss << " #shape:[";
             for (int j = 0; j < output.shape.dimSize; j++) {
-                if (j != 0) {
-                    oss << ",";
-                }
+                oss << Delim(j != 0, ",");
                 oss << output.shape.dim[j];
             }
             oss << "]\n";
@@ -2679,38 +2697,5 @@ public:
     static std::unordered_map<std::string, SymbolHandlerId> symbolIndexDict;
 };
 
-constexpr uint32_t MAX_SYM_NUM = 16;
-
-constexpr uint32_t MAX_DEV_FUNCTION_NUM = 16;
-
-using CfgFuncCallback = void(*)(void *ctx, uint64_t rootKey);
-using ExprFunc = uint64_t(*)(uint64_t *symbolTable, uint64_t exprIndex);
-using CfgFunc = uint64_t(*)(uint64_t *symbolTable, CfgFuncCallback callback, void *ctx);
-
-struct DevFunctionMain {
-    uint64_t symNum;
-    uint64_t symTbl[MAX_SYM_NUM];
-    uint64_t workspaceSize;
-    uint64_t workspaceAddr;
-    uint64_t exprSize;
-    ExprFunc exprFunc;
-    uint64_t funcNum;
-    DevAscendFunction *devFuncList[MAX_DEV_FUNCTION_NUM];
-    uint64_t cfgSize;
-    CfgFunc cfgFunc;
-};
-
-struct DevIncastOutcastLink {
-    DevAscendFunction *prev;
-    uint64_t prevOutIndex;
-    DevAscendFunction *succ;
-    uint64_t succInIndex;
-};
-
-// Runtime
-struct DevSymbolInitializer {
-    uint64_t symbolIndex;
-    int64_t symbolValue;
-};
 } // namespace dynamic
 } // namespace npu::tile_fwk
