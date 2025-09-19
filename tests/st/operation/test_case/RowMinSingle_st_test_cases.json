@@ -1393,6 +1393,98 @@
                 "skip": "",
                 "func_id": -1
             }
+        },
+        {
+            "case_index": 30,
+            "case_name": "RowMinSingle_64_768_last",
+            "operation": "RowMinSingle",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        64,
+                        768
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        64,
+                        1
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                64,
+                1024
+            ],
+            "tile_shape": [
+                16,
+                256
+            ],
+            "params": {
+                "dims": [
+                    1
+                ],
+                "skip": "",
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 31,
+            "case_name": "RowMinSingle_64_768_first",
+            "operation": "RowMinSingle",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        64,
+                        768
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        1,
+                        768
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                64,
+                1024
+            ],
+            "tile_shape": [
+                16,
+                256
+            ],
+            "params": {
+                "dims": [
+                    0
+                ],
+                "skip": "",
+                "func_id": -1
+            }
         }
     ]
 }

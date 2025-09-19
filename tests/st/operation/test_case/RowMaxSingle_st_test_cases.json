@@ -2075,6 +2075,929 @@
                 ],
                 "func_id": -1
             }
+        },
+        {
+            "case_index": 44,
+            "case_name": "RowMaxSingle_32_32_last",
+            "operation": "RowMaxSingle",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        32,
+                        32
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        32,
+                        1
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                64,
+                128
+            ],
+            "tile_shape": [
+                33,
+                40
+            ],
+            "params": {
+                "dims": [
+                    -1
+                ],
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 45,
+            "case_name": "RowMaxSingle_32_32_last_smalltile",
+            "operation": "RowMaxSingle",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        32,
+                        32
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        32,
+                        1
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                64,
+                128
+            ],
+            "tile_shape": [
+                17,
+                24
+            ],
+            "params": {
+                "dims": [
+                    -1
+                ],
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 46,
+            "case_name": "RowMaxSingle_32_32_first",
+            "operation": "RowMaxSingle",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        32,
+                        32
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        1,
+                        32
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                64,
+                128
+            ],
+            "tile_shape": [
+                33,
+                40
+            ],
+            "params": {
+                "dims": [
+                    0
+                ],
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 47,
+            "case_name": "RowMaxSingle_32_32_first_smalltile",
+            "operation": "RowMaxSingle",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        32,
+                        32
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        1,
+                        32
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                64,
+                128
+            ],
+            "tile_shape": [
+                17,
+                24
+            ],
+            "params": {
+                "dims": [
+                    0
+                ],
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 48,
+            "case_name": "RowMaxSingle_16_24_32_last",
+            "operation": "RowMaxSingle",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        16,
+                        24,
+                        32
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        16,
+                        24,
+                        1
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                8,
+                8,
+                8
+            ],
+            "tile_shape": [
+                17,
+                25,
+                40
+            ],
+            "params": {
+                "dims": [
+                    -1
+                ],
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 49,
+            "case_name": "RowMaxSingle_16_24_32_last_smalltile",
+            "operation": "RowMaxSingle",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        16,
+                        24,
+                        32
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        16,
+                        24,
+                        1
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                8,
+                8,
+                8
+            ],
+            "tile_shape": [
+                9,
+                13,
+                24
+            ],
+            "params": {
+                "dims": [
+                    -1
+                ],
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 50,
+            "case_name": "RowMaxSingle_16_24_32_second",
+            "operation": "RowMaxSingle",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        16,
+                        24,
+                        32
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        16,
+                        1,
+                        32
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                8,
+                8,
+                8
+            ],
+            "tile_shape": [
+                17,
+                25,
+                40
+            ],
+            "params": {
+                "dims": [
+                    1
+                ],
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 51,
+            "case_name": "RowMaxSingle_16_24_32_second_smalltile",
+            "operation": "RowMaxSingle",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        16,
+                        24,
+                        32
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        16,
+                        1,
+                        32
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                8,
+                8,
+                8
+            ],
+            "tile_shape": [
+                9,
+                13,
+                24
+            ],
+            "params": {
+                "dims": [
+                    1
+                ],
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 52,
+            "case_name": "RowMaxSingle_16_24_32_first",
+            "operation": "RowMaxSingle",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        16,
+                        24,
+                        32
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        1,
+                        24,
+                        32
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                8,
+                8,
+                8
+            ],
+            "tile_shape": [
+                17,
+                25,
+                40
+            ],
+            "params": {
+                "dims": [
+                    0
+                ],
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 53,
+            "case_name": "RowMaxSingle_16_24_32_first_smalltile1",
+            "operation": "RowMaxSingle",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        16,
+                        24,
+                        32
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        1,
+                        24,
+                        32
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                8,
+                8,
+                8
+            ],
+            "tile_shape": [
+                9,
+                13,
+                24
+            ],
+            "params": {
+                "dims": [
+                    0
+                ],
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 54,
+            "case_name": "RowMaxSingle_16_24_32_first_smalltile2",
+            "operation": "RowMaxSingle",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        16,
+                        24,
+                        32
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        1,
+                        24,
+                        32
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                8,
+                8,
+                8
+            ],
+            "tile_shape": [
+                9,
+                13,
+                32
+            ],
+            "params": {
+                "dims": [
+                    0
+                ],
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 55,
+            "case_name": "RowMaxSingle_17_8_15_first",
+            "operation": "RowMaxSingle",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        17,
+                        8,
+                        15
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        1,
+                        8,
+                        15
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                8,
+                8,
+                8
+            ],
+            "tile_shape": [
+                8,
+                8,
+                8
+            ],
+            "params": {
+                "dims": [
+                    0
+                ],
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 56,
+            "case_name": "RowMaxSingle_17_10_15_first",
+            "operation": "RowMaxSingle",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        17,
+                        10,
+                        15
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        1,
+                        8,
+                        15
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                8,
+                8,
+                8
+            ],
+            "tile_shape": [
+                8,
+                8,
+                8
+            ],
+            "params": {
+                "dims": [
+                    0
+                ],
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 57,
+            "case_name": "RowMaxSingle_11_12_13_14_last",
+            "operation": "RowMaxSingle",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        11,
+                        12,
+                        13,
+                        14
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        11,
+                        12,
+                        13,
+                        1
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                8,
+                8,
+                8,
+                8
+            ],
+            "tile_shape": [
+                8,
+                8,
+                8,
+                8
+            ],
+            "params": {
+                "dims": [
+                    -1
+                ],
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 58,
+            "case_name": "RowMaxSingle_11_12_13_14_third",
+            "operation": "RowMaxSingle",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        11,
+                        12,
+                        13,
+                        14
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        11,
+                        12,
+                        1,
+                        14
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                8,
+                8,
+                8,
+                8
+            ],
+            "tile_shape": [
+                8,
+                8,
+                8,
+                8
+            ],
+            "params": {
+                "dims": [
+                    2
+                ],
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 59,
+            "case_name": "RowMaxSingle_11_12_13_14_second",
+            "operation": "RowMaxSingle",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        11,
+                        12,
+                        13,
+                        14
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        11,
+                        1,
+                        13,
+                        14
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                8,
+                8,
+                8,
+                8
+            ],
+            "tile_shape": [
+                8,
+                8,
+                8,
+                8
+            ],
+            "params": {
+                "dims": [
+                    1
+                ],
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 60,
+            "case_name": "RowMaxSingle_11_12_13_14_first",
+            "operation": "RowMaxSingle",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        11,
+                        12,
+                        13,
+                        14
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        1,
+                        12,
+                        13,
+                        14
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                8,
+                8,
+                8,
+                8
+            ],
+            "tile_shape": [
+                8,
+                8,
+                8,
+                8
+            ],
+            "params": {
+                "dims": [
+                    0
+                ],
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 61,
+            "case_name": "RowMaxSingle_64_768_last",
+            "operation": "RowMaxSingle",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        64,
+                        768
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        64,
+                        1
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                64,
+                1024
+            ],
+            "tile_shape": [
+                16,
+                256
+            ],
+            "params": {
+                "dims": [
+                    1
+                ],
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 62,
+            "case_name": "RowMaxSingle_64_768_first",
+            "operation": "RowMaxSingle",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        64,
+                        768
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        1,
+                        768
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                64,
+                1024
+            ],
+            "tile_shape": [
+                16,
+                256
+            ],
+            "params": {
+                "dims": [
+                    0
+                ],
+                "func_id": -1
+            }
         }
     ]
 }
