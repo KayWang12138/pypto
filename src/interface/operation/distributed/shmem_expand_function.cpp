@@ -17,6 +17,8 @@
 #include "distributed_common.h"
 
 namespace npu::tile_fwk::Distributed {
+constexpr uint16_t UB_BUFFER_BYTE_SIZE = 256;
+
 void TiledShmemPut(Function &function, const TileShape &tileShape,
     const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op)
@@ -41,12 +43,22 @@ void TiledShmemPut(Function &function, const TileShape &tileShape,
         auto rowSize = std::min(oriRow - rowIdx, rowStep);
         for (int64_t colIdx = 0; colIdx < oriCol; colIdx += colStep) {
             auto colSize = std::min(oriCol - colIdx, colStep);
-
+            ASSERT(rowSize > 0 && colSize > 0) << "tileShape is not valid";
             Shape shape = {rowSize, colSize};
             auto inTile = in->View(function, shape, {rowIdx, colIdx});
             auto shmDataTile = shmData->View(function, {1, 1, rowSize, colSize}, {0, 0, rowIdx, colIdx});
             auto dummyTile = dummy->View(function, {1, 1}, {tileIndex, 0});
-            auto ubTensor = std::make_shared<LogicalTensor>(function, in->Datatype(), shape);
+
+            const uint16_t copyNum = UB_BUFFER_BYTE_SIZE / sizeof(in->Datatype());
+            Shape bufferShape;
+            if (copyNum >= rowSize * colSize) {
+                bufferShape = {rowSize, colSize};
+            } else if (copyNum >= colSize) {
+                bufferShape = {(copyNum + colSize - 1) / colSize, colSize};
+            } else {
+                bufferShape = {1, copyNum};
+            }
+            auto ubTensor = std::make_shared<LogicalTensor>(function, in->Datatype(), bufferShape);
 
             auto& tileop = function.AddOperation("SHMEM_PUT", {inTile, shmDataTile}, {dummyTile, ubTensor});
             tileop.SetAttr("AtomicType", atomicType);
@@ -153,13 +165,23 @@ void TiledShmemGet(Function &function, const TileShape &tileShape,
         auto rowSize = std::min(oriRow - rowIdx, rowStep);
         for (int64_t colIdx = 0; colIdx < oriCol; colIdx += colStep) {
             auto colSize = std::min(oriCol - colIdx, colStep);
-
+            ASSERT(rowSize > 0 && colSize > 0) << "tileShape is not valid";
             auto dummyTile = dummy->View(function, {1, 1}, {tileIndex, 0});
             auto shmDataTile = shmData->View(function, {1, 1, rowSize, colSize}, {0, 0, rowIdx, colIdx});
             Shape shape = {rowSize, colSize};
             auto outTile = out->View(function, shape, {rowIdx, colIdx});
-            auto ubTensor = std::make_shared<LogicalTensor>(function, out->Datatype(), shape);
 
+            const uint16_t copyNum = UB_BUFFER_BYTE_SIZE / sizeof(out->Datatype());
+            Shape bufferShape;
+            if (copyNum >= rowSize * colSize) {
+                bufferShape = {rowSize, colSize};
+            } else if (copyNum >= colSize) {
+                bufferShape = {(copyNum + colSize - 1) / colSize, colSize};
+            } else {
+                bufferShape = {1, copyNum};
+            }
+            auto ubTensor = std::make_shared<LogicalTensor>(function, out->Datatype(), bufferShape);
+    
             auto& tileop = function.AddOperation("SHMEM_GET", {dummyTile, shmDataTile}, {outTile, ubTensor});
             tileop.SetAttr("AtomicType", atomicType);
             tileIndex++;

@@ -40,12 +40,17 @@ std::string CodeGenOpCloudNPU::GenTemplateParams() const
 {
     std::ostringstream oss;
     if ((opCode == Opcode::OP_SHMEM_PUT) || (opCode == Opcode::OP_SHMEM_GET)) {
-        std::vector<int64_t> inShape = rawShape[ID3]; // operand 3 是 shmemData
-        int rowShape = inShape[inShape.size() - ID2]; // 倒数第 2 轴是 row
-        ASSERT(rowShape > 0 && rowShape <= std::numeric_limits<uint16_t>::max()) << "rowShape is not valid";
-        int64_t colShape = inShape[inShape.size() - 1];
-        ASSERT(colShape > 0 && colShape <= std::numeric_limits<uint16_t>::max()) << "colShape is not valid";
-        oss << GetTemplateDType() << ", " << rowShape << ", " << colShape;
+        std::vector<int64_t> tileShape = originShape[ID3];
+        int64_t tileRowShape = tileShape[tileShape.size() - ID2];
+        ASSERT(tileRowShape > 0 && tileRowShape <= std::numeric_limits<uint16_t>::max()) << "tileRowShape is not valid";
+        int64_t tileColShape = tileShape[tileShape.size() - ID1];
+        ASSERT(tileColShape > 0 && tileColShape <= std::numeric_limits<uint16_t>::max()) << "tileColShape is not valid";
+        std::vector<int64_t> bufferShape = originShape[ID1];
+        int64_t bufferRowShape = bufferShape[0];
+        int64_t bufferColShape = bufferShape[1];
+        std::vector<int64_t> originTensorShape = rawShape[ID3]; // 切块之前的shape
+        int64_t stride = originTensorShape[originTensorShape.size() - ID1];
+        oss << GetTemplateDType() << ", " << tileRowShape << ", " << tileColShape << ", " << bufferRowShape << ", " << bufferColShape << ", " << stride << ", " << stride;
     } else if (opCode == Opcode::OP_SHMEM_SIGNAL) {
         std::string value = npu::tile_fwk::AnyCast<std::string>(opAttrs.at("Value"));
         std::string atomicType = npu::tile_fwk::AnyCast<std::string>(opAttrs.at("AtomicType"));
