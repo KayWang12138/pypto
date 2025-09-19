@@ -36,15 +36,14 @@ Status OoOSchedule::RunOnFunction(Function &function) {
         if (IsAicpuProgram(opList)) {
             continue;
         }
-        std::vector<Operation *> newOperations;
         OoOScheduler oooSchedule(*program.second);
         ALOG_INFO_F("Subgraph[%d] OOOSchedule start.", program.first);
-        if (oooSchedule.Schedule(opList, newOperations) != SUCCESS) { 
+        if (oooSchedule.Schedule(opList) != SUCCESS) { 
             ALOG_ERROR_F("Subgraph[%d] OoO Schedule failed.", program.first); 
             return FAILED;
         }
         ALOG_INFO_F("Subgraph[%d] OOOSchedule end.", program.first);
-        program.second->ScheduleBy(newOperations);
+        program.second->ScheduleBy(oooSchedule.GetNewOperations());
         program.second->RecordOOOSeq();
         RescheduleUtils::UpdateTensorConsProd(program.second);
         maxWorkeSpaceSize = std::max(maxWorkeSpaceSize, (*program.second).GetStackWorkespaceSize());

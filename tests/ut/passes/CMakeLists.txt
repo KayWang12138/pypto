@@ -238,7 +238,6 @@ set(_CaseFilterList
         "ScheduleOoOTest.TestUpdateTensorAttr_UB"
         "ScheduleOoOTest.TestGetSpillTensor"
         "ScheduleOoOTest.TestCheckAllocIssue"
-        "ScheduleOoOTest.TestGetBufTimes"
         "TestRemoveUnalignedReshapeOp.reshaped_padded_ub"
         "TestRemoveUnalignedReshapeOp.reshaped_unpadded_ub"
         "TestRemoveUnalignedReshapeOp.reshaped_unpadded_ub_gm"

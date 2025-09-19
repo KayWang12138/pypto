@@ -101,23 +101,6 @@ void OoOScheduler::PrintSpillFailedInfo(IssueEntryPtr allocIssue, MemoryType buf
     }
 }
 
-Status OoOScheduler::GetBufTimes(
-    int spillMemId, size_t &bufNextUseTime, size_t &bufLastUseTime, size_t &bufLastWriteTime) {
-    if (!GetBufNextUseTime(spillMemId, bufNextUseTime)) {
-        ALOG_ERROR_F("Cannot find spill Tensor[%d] next used time.", spillMemId);
-        return FAILED;
-    }
-    if (!GetBufLastUseTime(spillMemId, bufLastUseTime)) {
-        ALOG_ERROR_F("Cannot find spill Tensor[%d] last used time.", spillMemId);
-        return FAILED;
-    }
-    if (!GetBufLastWriteTime(spillMemId, bufLastWriteTime)) {
-        ALOG_ERROR_F("Cannot find spill Tensor[%d] last write time.", spillMemId);
-        return FAILED;
-    }
-    return SUCCESS;
-}
-
 bool OoOScheduler::GetBufLastWriteTime(int curMemId, size_t& lastWriteTime) {
     lastWriteTime -= 1;
     while (lastWriteTime > 0) {
@@ -259,7 +242,7 @@ Status OoOScheduler::CheckAndUpdateLifecycle() {
     return SUCCESS;
 }
 
-Status OoOScheduler::SpillOnBlock(std::vector<Operation *> &newOperations) {
+Status OoOScheduler::SpillOnBlock() {
     MemoryType spillMemType;
     if (!allocIssueQueue[MemoryType::MEM_UB].Empty()) {
         spillMemType = MemoryType::MEM_UB;
@@ -275,7 +258,7 @@ Status OoOScheduler::SpillOnBlock(std::vector<Operation *> &newOperations) {
         ALOG_ERROR_F("Buffer[L0A/B/C] is Full. Please check tile shape and OOO spill failed info."); 
         return FAILED; 
     }
-    if (GenBufferSpill(allocIssueQueue[spillMemType].Front(), spillMemType, newOperations) != SUCCESS) {
+    if (GenBufferSpill(allocIssueQueue[spillMemType].Front(), spillMemType) != SUCCESS) {
         ALOG_ERROR_F("GenBufferSpill failed."); 
         return FAILED; 
     }
@@ -311,7 +294,7 @@ Status OoOScheduler::AllocTensorMemRange(IssueEntryPtr issue) {
     return SUCCESS;
 }
 
-Status OoOScheduler::LaunchIssueStage(int& nextCycle, std::vector<Operation *> &newOperations) {
+Status OoOScheduler::LaunchIssueStage(int& nextCycle) {
     // issue from all pipes
     for (auto &[pipeType, pipe] : issueQueues) {
         if (pipe.Empty() || pipe.busy) {
@@ -323,7 +306,7 @@ Status OoOScheduler::LaunchIssueStage(int& nextCycle, std::vector<Operation *> &
         pipe.curOpRetireCycle = clock + issue->tileOp.GetLatency();
         oooCheck.pipeUsageCount[pipeType] += issue->tileOp.GetLatency();
 
-        newOperations.emplace_back(&(issue->tileOp));
+        newOperations_.emplace_back(&(issue->tileOp));
         if (nextCycle == -1 || nextCycle > pipe.curOpRetireCycle) {
             nextCycle = pipe.curOpRetireCycle;
         }
@@ -336,7 +319,7 @@ Status OoOScheduler::LaunchIssueStage(int& nextCycle, std::vector<Operation *> &
     return SUCCESS;
 }
 
-Status OoOScheduler::ExecuteAllocIssue(std::vector<Operation *>& newOperations, uint64_t &commitCnt,
+Status OoOScheduler::ExecuteAllocIssue(uint64_t &commitCnt,
     MemoryType memType, IssueQueue &pipe) {
     bool canAlloc = true;
     while (canAlloc) {
@@ -362,7 +345,7 @@ Status OoOScheduler::ExecuteAllocIssue(std::vector<Operation *>& newOperations, 
                 return FAILED;
             }
             issue->tileOp.GetOutputOperand(0)->SetAttr(OpAttributeKey::needAlloc, true);
-            newOperations.push_back(&(issue->tileOp));
+            newOperations_.push_back(&(issue->tileOp));
             ALOG_DEBUG_F("Insert: %s", issue->GetOpInfo());
             pipe.PopFront();
             if (RetireOpAndAwakeSucc(issue, commitCnt) != SUCCESS) { 
@@ -377,13 +360,13 @@ Status OoOScheduler::ExecuteAllocIssue(std::vector<Operation *>& newOperations, 
     return SUCCESS;
 }
 
-Status OoOScheduler::BufferAllocStage(std::vector<Operation *>& newOperations, uint64_t &commitCnt) {
+Status OoOScheduler::BufferAllocStage(uint64_t &commitCnt) {
     for (auto& [memType, pipe] : allocIssueQueue) {
         if (pipe.Empty()) {
             continue;
         }
         // 不断按顺序执行alloc指令，直到buffer被占满为止。
-        if (ExecuteAllocIssue(newOperations, commitCnt, memType, pipe) != SUCCESS) {
+        if (ExecuteAllocIssue(commitCnt, memType, pipe) != SUCCESS) {
             ALOG_ERROR_F("ExecuteAllocIssue failed.");
             return FAILED;
         }
@@ -482,7 +465,7 @@ void OoOScheduler::LaunchReadyIssue() {
     }
 }
 
-Status OoOScheduler::ScheduleMainLoop(std::vector<Operation *> &newOperations) {
+Status OoOScheduler::ScheduleMainLoop() {
     LaunchReadyIssue();
     uint64_t commitCnt = 0; // 当前已提交的issue数量
     bool isAllRetired = false;
@@ -496,12 +479,12 @@ Status OoOScheduler::ScheduleMainLoop(std::vector<Operation *> &newOperations) {
             return FAILED;
         }
         // Buffer Allocation Stage : 分配buffer。对于所有类型的buffer，按顺序执行alloc指令，并激活后续已经就绪的op。不断执行alloc直到buffer被占满为止。
-        if (BufferAllocStage(newOperations, commitCnt) != SUCCESS) { 
+        if (BufferAllocStage(commitCnt) != SUCCESS) { 
             ALOG_ERROR_F("BufferAllocStage failed."); 
             return FAILED;
         }
         // Launch Stage ：检查idle的pipe中是否有已经就绪的指令。如果有，则执行该指令，并更新pipe的状态为busy。
-        if (LaunchIssueStage(nextCycle, newOperations) != SUCCESS) { 
+        if (LaunchIssueStage(nextCycle) != SUCCESS) { 
             ALOG_ERROR_F("LaunchIssueStage failed."); 
             return FAILED; 
         }
@@ -511,13 +494,82 @@ Status OoOScheduler::ScheduleMainLoop(std::vector<Operation *> &newOperations) {
         }
         // 如果nextCycle为-1，说明每个pipe都处于idle的状态，判断出现阻塞。需要spill调整内存
         if (nextCycle == -1) {
-            if (SpillOnBlock(newOperations) != SUCCESS) {
+            if (SpillOnBlock() != SUCCESS) {
                 ALOG_ERROR_F("SpillOnBlock failed.");
                 return FAILED;
             }
         } else { 
             clock = nextCycle; 
         }
+    }
+    return SUCCESS;
+}
+
+Status OoOScheduler::RetireIssue(IssueEntryPtr issue) {
+    issue->isRetired = true;
+    for (auto memId : issue->reqMemIds) {
+        if (DelBufRefCount(memId) != SUCCESS) { 
+            ALOG_ERROR_F("DelBufRefCount tensor[%d] failed", memId); 
+            return FAILED; 
+        }
+        if (bufRefCount[memId] == 0) {
+            if (bufferManagerMap[localBufferMap[memId]->memType].Free(localBufferMap[memId]->id) != SUCCESS) { 
+                ALOG_ERROR_F("Free tensor[%d] failed", memId); 
+                return FAILED; 
+            }
+        }
+    }
+    return SUCCESS;
+}
+
+Status OoOScheduler::ExecuteAllocIssue(IssueEntryPtr issue, size_t &pcIdx) {
+    if (localBufferMap.find(issue->reqMemIds[0]) == localBufferMap.end()) {
+        ALOG_ERROR_F("Tensor[%d] cannot find in localBufferMap!", issue->reqMemIds[0]);
+        return FAILED;
+    }
+    LocalBufferPtr allocBuffer = localBufferMap[issue->reqMemIds[0]];
+    if (bufferManagerMap[allocBuffer->memType].IsFull(allocBuffer)) {
+        if (GenSpillOp(allocBuffer, pcIdx) != SUCCESS) { 
+            ALOG_ERROR_F("GenSpillOp failed!"); 
+            return FAILED; 
+        }
+    }
+    if (bufferManagerMap[allocBuffer->memType].Allocate(allocBuffer) != SUCCESS) { 
+        ALOG_ERROR_F("Allocate tensor[%u] failed", allocBuffer->id); 
+        return FAILED; 
+    }
+    return SUCCESS;
+}
+
+Status OoOScheduler::GenSpillSchedule() {
+    size_t pcIdx = 0;
+    ALOG_DEBUG_F("=========> Begin GenSpillSchedule.");
+    while (pcIdx < issueEntries.size()) {
+        auto issue = issueEntries[pcIdx];
+        ALOG_DEBUG_F("Launch %s", issue->GetOpInfo());
+        if (issue->isAlloc) {
+            if (ExecuteAllocIssue(issue, pcIdx) != SUCCESS) {
+                ALOG_ERROR_F("ExecuteAllocIssue failed!"); 
+                return FAILED;
+            }
+        }
+        if (RetireIssue(issue) != SUCCESS) {
+            ALOG_ERROR_F("RetireIssue failed!"); 
+            return FAILED;
+        }
+        pcIdx += 1;
+    }
+    for (auto bufRef : bufRefCount) {
+        if (bufRef.second != 0) { 
+            ALOG_ERROR_F("Tensor[%d] bufRefCount not equal to 0!", bufRef.first); 
+            return FAILED; 
+        }
+    }
+    ALOG_DEBUG_F("=========> End GenSpillSchedule.");
+    // 更新依赖关系
+    if (InitDependencies() != SUCCESS) { 
+        ALOG_ERROR_F("InitDependencies failed!"); 
+        return FAILED; 
     }
     return SUCCESS;
 }
@@ -724,7 +776,7 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
     return SUCCESS;
 }
 
-Status OoOScheduler::Schedule(const std::vector<Operation *> &operations, std::vector<Operation *> &newOperations) {
+Status OoOScheduler::Schedule(const std::vector<Operation *> &operations) {
     if (operations.empty()) {
         return SUCCESS;
     }
@@ -745,7 +797,7 @@ Status OoOScheduler::Schedule(const std::vector<Operation *> &operations, std::v
         return FAILED; 
     }
     // 模拟调度
-    if (ScheduleMainLoop(newOperations) != SUCCESS) {
+    if (ScheduleMainLoop() != SUCCESS) {
         ALOG_ERROR_F("ScheduleMainLoop failed"); 
         return FAILED;
     }
@@ -753,7 +805,7 @@ Status OoOScheduler::Schedule(const std::vector<Operation *> &operations, std::v
         ALOG_ERROR_F("CheckAndUpdateLifecycle failed.");
         return FAILED;
     }
-    PrintOpList(newOperations);
+    PrintOpList(newOperations_);
     function_.SetStackWorkespaceSize(workspaceOffset);
     return SUCCESS;
 }
