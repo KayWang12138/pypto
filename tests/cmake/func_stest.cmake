@@ -338,8 +338,8 @@ function(PTO_Fwk_STest_AddExe_RunExe)
             PRIVATE_LINK_LIBRARIES      ${PTO_Fwk_STestNamePrefix}_intf_pub tile_fwk_compiler ${PTO_Fwk_STestCaseLibraries}
     )
     # PyPTO
-    if (TARGET pto)
-        add_dependencies(${ARG_TARGET} pto)
+    if (TARGET ${ARG_TARGET}_python)
+        add_dependencies(${ARG_TARGET} ${ARG_TARGET}_python)
     endif ()
 
     #

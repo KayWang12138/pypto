@@ -1032,7 +1032,7 @@ public:
         (void)slotIdx;
         slot.stitchDupIdx = devNextIdx;
         slot.stitchOutcastIdx = outcastIndex;
-        
+
         auto producerList = &devRootSrc->At(outcast.producerList, 0);
         if (slot.isPartialUpdateStitch) {
             auto &cellMatchTableDesc = slot.partialUpdate->cellMatchTableDesc;
@@ -2278,6 +2278,9 @@ private:
     static void *DeviceExecuteRuntimerLog(void *ctx_, uint64_t value) {
         (void)ctx_;
         DEV_DEBUG("DeviceExecuteRuntimerLog -> Value: %lu", value);
+#if DEBUG_PLOG
+        (void)value;
+#endif
         return nullptr;
     }
 };
