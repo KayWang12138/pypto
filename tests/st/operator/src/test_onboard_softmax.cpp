@@ -236,34 +236,45 @@ TEST_F(SoftmaxOnBoard, test_softmax_div) {
 }
 
 TEST_F(SoftmaxOnBoard, test_softmax_sum_all) {
+    // 初始化和设置deviceId
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
+    // 设置shape
     std::vector<int64_t> ishape = {2, 2, 1, 128};
     std::vector<int64_t> oshape = {ishape[0], ishape[1], ishape[2], ishape[3]};
-    DataType dtype = DataType::DT_FP16;
+    // 计算输入和输出元素数量
     int icap = ishape[0] * ishape[1] * ishape[2] * ishape[3];
     int oCap = oshape[0] * oshape[1] * oshape[2] * oshape[3];
+    // 计算输出大小，分配输出在Dev上的内存
     uint64_t outputSize = oCap * sizeof(uint16_t);
     uint8_t *out_ptr = allocDevAddr(outputSize);
+    // 指定算子计算的数据类型
+    DataType dtype = DataType::DT_FP16;
     PROGRAM("Softmax_Sum_All") {
+        // 读取数据数据
         void *x_ptr = readToDev(GetGoldenDir() + "/x_sum_all.bin", icap);
+        // 设置切分shape
         TileShape::Current().SetVecTile({1, 2, 1, 64});
+        // 声明输入输出tensor
         Tensor i_x(dtype, ishape, (uint8_t *)x_ptr, "x");
         Tensor o_x(dtype, oshape, out_ptr, "softmax_sum_all");
-
+        // 指定当前Function为静态实现
         FunctionConfig funConfig(FunctionType::STATIC);
-        ;
         FUNCTION("SOFTMAX_SUM_T", funConfig, {i_x, o_x}) {
+            // 调用Softmax计算函数
             o_x = SoftmaxNew(i_x);
         }
-    }
+    } // Program结束的时候会自动触发编译
+    // 上板执行
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<npu::tile_fwk::float16> x(icap);
     std::vector<npu::tile_fwk::float16> golden(oCap);
     std::vector<npu::tile_fwk::float16> res(oCap);
+    // 把输出数据从Device内存拷贝到Host内存
     machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), out_ptr, outputSize);
     readInput(GetGoldenDir() + "/x_sum_all.bin", x);
     readInput(GetGoldenDir() + "/softmax_sum_all.bin", golden);
+    // 比对计算结果
     int ret = resultCmpUnary<npu::tile_fwk::float16>(x, golden, res, 0.001f, 10);
     EXPECT_EQ(ret, true);
 }
@@ -369,8 +380,11 @@ TEST_F(SoftmaxOnBoard, test_softmax_flash_attention) {
 
 TEST_F(SoftmaxOnBoard, test_softmax_dyn) {
     config::SetHostConfig(npu::tile_fwk::KEY_ONLY_CODEGEN, true);
+    // 设置输入输出shape
     std::vector<int64_t> shape = {32, 32, 1, 256};
+    // 指定计算数据类型
     DataType dtype = DataType::DT_FP32;
+    // 声明输入输出Tensor
     Tensor input(dtype, shape, "input");
     Tensor output(dtype, shape, "output");
 
@@ -381,11 +395,12 @@ TEST_F(SoftmaxOnBoard, test_softmax_dyn) {
     std::vector<RawTensorDataPtr> inputDataList = {inputData};
     std::vector<RawTensorDataPtr> outputDataList = {outputData};
 
-    // 调用算子函数
+    // 调用Softmax动态实现函数
     SoftmaxDynamic(input, output);
 #ifdef ENABLE_BUILD_WITH_CANN
     // 上板执行
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
+    // 比对计算结果
     EXPECT_TRUE(resultCmp<float>(goldenData, (float *)outputData->data(), 0.001f));
 #endif
 }
