@@ -57,6 +57,9 @@ Operation *CommonOperationEliminate::OperationExist(Operation *operation) {
     if (operation->GetOpcode() == Opcode::OP_VIEW) {
         return nullptr;
     }
+    if (operation->GetBoolAttribute(OpAttributeKey::dontTouch)) {
+        return nullptr;
+    }
     if (operationCache_.count(operation->ComputeHash()) != 0) {
         return operationCache_[operation->ComputeHash()];
     }
@@ -94,33 +97,45 @@ bool CommonOperationEliminate::OpAlreadyExist(Operation *op) {
     if (op->GetOOperands().front()->shape != existOp->GetOOperands().front()->shape) {
         return false;
     }
-    auto oldtensor = op->GetOOperands().front();
-    if (oldtensor->GetConsumers().size() == 0) {
+    LogicalTensors oldtensors(op->GetOOperands().begin(), op->GetOOperands().end());
+    LogicalTensors newtensors(existOp->GetOOperands().begin(), existOp->GetOOperands().end());
+    if (oldtensors.size() != newtensors.size()) {
         return false;
     }
-    auto newtensor = existOp->GetOOperands().front();
-    if (newtensor->GetMagic() == oldtensor->GetMagic()) {
-        ALOG_DEBUG_F("In CommonOperationEliminate, Operation %d is marked as redundant.", op->GetOpMagic());
-        return true;
-    }
-    auto consumers = oldtensor->GetConsumers();
-    for (auto &cur : consumers) {
-        cur->ReplaceInput(newtensor, oldtensor);
-        if (cur->GetOpAttribute() == nullptr) {
-            continue;
-        }
-        if (auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(cur->GetOpAttribute().get())) {
-            // VIEW操作的offset要相应被修改。
-            UpdateView(viewOpAttribute, oldtensor, newtensor);
-            continue;
-        }
-        if (auto copyOpAttribute = dynamic_cast<CopyOpAttribute*>(cur->GetOpAttribute().get())) {
-            // CopyIn操作的offset要相应被修改。
-            UpdateCopy(copyOpAttribute, oldtensor, newtensor);
-            continue;
+    for (auto oldtensor : oldtensors) {
+        if (oldtensor->nodetype == NodeType::OUTCAST) {
+            return false;
         }
     }
-    oldtensor->GetConsumers().clear();
+    for (size_t i = 0; i < oldtensors.size(); i++) {
+        auto oldtensor = oldtensors[i];
+        auto newtensor = newtensors[i];
+        if (oldtensor->GetConsumers().size() == 0) {
+            continue;
+        }
+        if (newtensor->GetMagic() == oldtensor->GetMagic()) {
+            ALOG_DEBUG_F("In CommonOperationEliminate, Operation %d is marked as redundant.", op->GetOpMagic());
+            continue;
+        }
+        auto consumers = oldtensor->GetConsumers();
+        for (auto &cur : consumers) {
+            cur->ReplaceInput(newtensor, oldtensor);
+            if (cur->GetOpAttribute() == nullptr) {
+                continue;
+            }
+            if (auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(cur->GetOpAttribute().get())) {
+                // VIEW操作的offset要相应被修改。
+                UpdateView(viewOpAttribute, oldtensor, newtensor);
+                continue;
+            }
+            if (auto copyOpAttribute = dynamic_cast<CopyOpAttribute*>(cur->GetOpAttribute().get())) {
+                // CopyIn操作的offset要相应被修改。
+                UpdateCopy(copyOpAttribute, oldtensor, newtensor);
+                continue;
+            }
+        }
+        oldtensor->GetConsumers().clear();
+    }
     ALOG_DEBUG_F("In CommonOperationEliminate, Operation %d is marked as redundant.", op->GetOpMagic());
     return true;
 }
