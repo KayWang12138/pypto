@@ -68,7 +68,6 @@ class BuildCtrl:
         self.stest_distributed_cases_filter: Optional[str] = None  # 指定 distributed test 所需执行用例
         self.stest_device_id: str = ""
         self.stest_enable_binary_cache: bool = False
-        self.stest_experiment_copy_aicpu_binary: bool = args.experiment_copy_aicpu_binary
         self.stest_dump_json: bool = args.stest_dump_json
         self.tests_auto_execute: bool = args.disable_auto_execute
         self.tests_auto_execute_parallel: bool = False
@@ -225,8 +224,6 @@ class BuildCtrl:
                             help="Enable UndefinedBehaviorSanitizer.")
         parser.add_argument("--gcov", action="store_true", default=False,
                             help="Enable GNU Coverage Instrumentation Tool.")
-        parser.add_argument("--experiment_copy_aicpu_binary", action="store_true", default=False,
-                            help="Experiment, copy aicpu binary auto.")
         parser.add_argument("--prof", nargs="?", type=int, default=0, choices=[1, 2],
                             help="Enable workflow.")
 
@@ -474,9 +471,6 @@ class BuildCtrl:
             cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_BINARY_CACHE", ctr=self.stest_enable_binary_cache)
             # DumJson
             cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_DUMP_JSON", ctr=self.stest_dump_json)
-            # Experiment
-            cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_EXPERIMENT_COPY_AICPU_BINARY",
-                                 ctr=self.stest_experiment_copy_aicpu_binary)
         # STest
         if self.stest_enable:
             # DeviceId

@@ -50,7 +50,6 @@ option(ENABLE_TESTS_STEST_DUMP_JSON "Enable STest Dump Json"  OFF)
 option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
 option(ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
 option(ENABLE_GCOV "Enable GNU Coverage Instrumentation Tool" OFF)
-option(ENABLE_TESTS_STEST_EXPERIMENT_COPY_AICPU_BINARY "Enable Copy AICPU binary to device auto(Experiment)" OFF)
 
 # 公开编译开关(tools_profiling/tools_precision)
 option(ENABLE_TESTS_STEST_TOOLS_OUTPUT_CLEAN "Clean STest Tools Output Directory" OFF)

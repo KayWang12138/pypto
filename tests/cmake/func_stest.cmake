@@ -62,47 +62,6 @@ function(PTO_Fwk_STest_AddLib)
     set(PTO_Fwk_STestCaseGoldenScriptPathList ${PTO_Fwk_STestCaseGoldenScriptPathList} ${ARG_GOLDEN_SCRIPT_DIR} CACHE INTERNAL "" FORCE)
 endfunction()
 
-# STest 拷贝 AICPU Binary
-#[[
-Parameters:
-  one_value_keywords:
-      TARGET             : [Required] 指定所依赖的目标(POST_BUILD)
-]]
-function(PTO_Fwk_STest_RunExe_CopyAiCpuBinary)
-    cmake_parse_arguments(
-            ARG
-            ""
-            "TARGET"
-            "MANUAL_SPECIAL_DEVICE"
-            ""
-            ${ARGN}
-    )
-    # AICPU Copy
-    if (ENABLE_TESTS_STEST_EXPERIMENT_COPY_AICPU_BINARY)
-        get_filename_component(_CopyPy "${PTO_FWK_SRC_ROOT}/tests/cmake/scripts/python/experiment_copy_aicpu_binary.py" REALPATH)
-        get_filename_component(_File "${PTO_FWK_BIN_ROOT}/libtilefwk_backend_server.so" REALPATH)
-        set(_Args "-b=${_File}")
-        # DISTRIBUTED STEST SPECIAL DEVICE LIST
-        if (${ARG_MANUAL_SPECIAL_DEVICE})
-            set(Idx 0)
-            while (${Idx} LESS ${ARG_MANUAL_SPECIAL_DEVICE})
-                list(APPEND PTO_Fwk_StestExecuteDeviceIdList ${Idx})
-                math(EXPR Idx "${Idx} + 1")
-            endwhile ()
-        endif ()
-        list(REMOVE_DUPLICATES PTO_Fwk_StestExecuteDeviceIdList)
-        foreach (DevId ${PTO_Fwk_StestExecuteDeviceIdList})
-            set(_ArgsDev ${_Args} "-d=${DevId}")
-            add_custom_command(
-                    TARGET ${ARG_TARGET} PRE_BUILD
-                    COMMAND ${Python3_EXECUTABLE} ${_CopyPy} ARGS ${_ArgsDev}
-                    COMMENT "Copy AICPU Binary auto to Device(${DevId})."
-            )
-        endforeach ()
-        add_dependencies(${ARG_TARGET} tile_fwk_server)
-    endif ()
-endfunction()
-
 # STest 执行可执行程序 (性能工具)
 function(PTO_Fwk_STest_RunExe_ToolsProf)
     cmake_parse_arguments(
@@ -364,9 +323,6 @@ function(PTO_Fwk_STest_AddExe_RunExe)
         endif ()
     endif ()
 
-    # AICPU Binary Copy
-    PTO_Fwk_STest_RunExe_CopyAiCpuBinary(TARGET ${ARG_TARGET})
-
     # 性能用例
     PTO_Fwk_STest_RunExe_ToolsProf(
             TARGET              ${ARG_TARGET}
@@ -499,10 +455,6 @@ function(PTO_Fwk_STest_Distributed_RunExe)
                 set(MaxRankSize ${RankSize})
             endif ()
         endforeach ()
-        PTO_Fwk_STest_RunExe_CopyAiCpuBinary(
-            TARGET ${ARG_TARGET}
-            MANUAL_SPECIAL_DEVICE ${MaxRankSize}
-        )
         if (GTestFilterList)
             # 命令行参数处理
             PTO_Fwk_GTest_RunExe_GetPreExecSetup(PyCmdSetup PyEnvLines BashCmdSetup

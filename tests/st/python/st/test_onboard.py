@@ -12,7 +12,7 @@
 """
 import os
 import pto
-import pytest
+
 
 def test_device_run_data_from_host():
     device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0)
@@ -43,7 +43,6 @@ def test_device_run_data_from_host():
     pto.DeviceFini()
 
 
-@pytest.mark.skip(reason="update package")
 def test_device_run_data_from_device():
     try:
         import torch
