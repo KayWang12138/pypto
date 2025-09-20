@@ -46,6 +46,7 @@ private:
     Status PostCheck(Function &function) override;
     Status RunOnFunction(Function &function) override;
     Status PreColorSort(Function &function);
+    bool IsCandidateAssembleOp(Function &function, Operation &op) const;
     void DeleteRedundantAssemble(Function &function) const;
     void ProcessSpecialMTEOperation(Operation &op) const;
     void ProcessMoveInOperation(Operation &op) const;

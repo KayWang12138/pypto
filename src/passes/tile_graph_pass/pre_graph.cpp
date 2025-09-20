@@ -243,6 +243,22 @@ void PreGraphProcess::HandleForReshapeToOutcast(Function &function) const {
     }
 }
 
+bool PreGraphProcess::IsCandidateAssembleOp(Function &function, Operation &op) const {
+    if (op.GetOpcode() != Opcode::OP_ASSEMBLE) {
+        return false;
+    }
+    auto &output = op.GetOOperands().front();
+    if (output->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR || op.IsDeleted()) {
+        return false;
+    }
+    for (auto &prod : function.FindProducers(op)) {
+        if (prod->GetOpcode() != Opcode::OP_VIEW) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /*
     Producer1 -->
                  \
@@ -256,21 +272,11 @@ void PreGraphProcess::HandleForReshapeToOutcast(Function &function) const {
 */
 void PreGraphProcess::DeleteRedundantAssemble(Function &function) const {
     for (auto &op : function.Operations()) {
-        if (op.GetOpcode() != Opcode::OP_ASSEMBLE) {
+        if (!IsCandidateAssembleOp(function, op)) {
             continue;
         }
-        auto &output = op.GetOOperands().front();
-        if (output->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR || op.IsDeleted()) {
-            continue;
-        }
-        bool allProdView{true};
-        for (auto &prod : function.FindProducers(op)) {
-            if (prod->GetOpcode() != Opcode::OP_VIEW) {
-                allProdView = false;
-            }
-        }
-        if (allProdView) { continue; }
         auto &input = op.GetIOperands().front();
+        auto &output = op.GetOOperands().front();
         auto &consumers = input->GetConsumers();
         std::unordered_set<Operation *> concurrentAssembles;
         auto producersBackup = input->GetProducers();
