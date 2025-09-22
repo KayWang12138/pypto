@@ -30,7 +30,14 @@ public:
     Status DoPostCheck(Function &function) override;
 private:
     Status PostCheckHelpFunc(const LogicalTensor &singleTensor);
-    Status PostCheckReshape(const Operation &op);
+    bool VerifyAssembleResult (const Operation &op);
+    Status PostCheckAssemble(Function &function, const Operation &op);
+    bool VerifyViewResult (const Operation &op);
+    Status PostCheckView(Function &function, const Operation &op);
+    Status VerifyReshapeResult(
+        Function &function, const Operation &op, const LogicalTensorPtr reshapeIn, const LogicalTensorPtr reshapeOut);
+    Status PostCheckReshape(Function &function, const Operation &op);
+    Status HandleScenarioReshapeOutCast(Function &function, const Operation &op, const LogicalTensorPtr reshapeIn);
 };
 } // namespace tile_fwk
 } // namespace npu

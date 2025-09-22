@@ -54,14 +54,14 @@ Status PreGraphProcessChecker::DoPostCheck(Function &function) {
     }
     std::unordered_set<std::shared_ptr<LogicalTensor>> checkedTensors;
     for (auto &op : function.Operations()) {
-        if ((op.GetOpcode() == Opcode::OP_ASSEMBLE || op.GetOpcode() == Opcode::OP_VIEW) &&
-            op.GetIOperands()[0]->GetRawMagic() != op.GetOOperands()[0]->GetRawMagic()) {
-            ALOG_WARN_F("Operation magic: %d, assemble or view op raw magic should not changed.", op.GetOpMagic());
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE && PostCheckAssemble(function, op) != SUCCESS) {
+            return FAILED;
         }
-        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            if (PostCheckReshape(op) != SUCCESS) {
-                return FAILED;
-            }
+        if (op.GetOpcode() == Opcode::OP_VIEW && PostCheckView(function, op) != SUCCESS) {
+            return FAILED;
+        }
+        if (op.GetOpcode() == Opcode::OP_RESHAPE && PostCheckReshape(function, op) != SUCCESS) {
+            return FAILED;
         }
         for (const std::shared_ptr<LogicalTensor> &inputTensor : op.GetIOperands()) {
             if (checkedTensors.count(inputTensor) > 0) {
@@ -113,13 +113,209 @@ Status PreGraphProcessChecker::PostCheckHelpFunc(const LogicalTensor &singleTens
     return SUCCESS;
 }
 
-Status PreGraphProcessChecker::PostCheckReshape(const Operation &op) {
+bool PreGraphProcessChecker::VerifyAssembleResult (const Operation &op) {
+    auto assembleIn = op.GetIOperands().front();
+    auto assembleOut = op.GetOOperands().front();
+    for (LogicalTensorPtr in : op.GetIOperands()) {
+        if (in->GetRawMagic() != assembleIn->GetRawMagic()) {
+            return false;
+        }
+    }
+    for (LogicalTensorPtr out : op.GetOOperands()) {
+        if (out->GetRawMagic() != assembleOut->GetRawMagic()) {
+            return false;
+        }
+    }
+    if (assembleIn->GetRawMagic() != assembleOut->GetRawMagic()) {
+        return false;
+    }
+    return true;
+}
+
+Status PreGraphProcessChecker::PostCheckAssemble(Function &function, const Operation &op) {
+    if (VerifyAssembleResult(op)) {
+        return SUCCESS;
+    }
+    auto assembleIn = op.GetIOperands().front();
+    for (Operation *producer : assembleIn->GetProducers()) {
+        if (producer->GetOpcode() == Opcode::OP_VIEW) {
+            ALOG_ERROR_F(
+                "Assemble[%d] Unsupported OP connection scenaios: assemble input tensor has view producer op[%d]",
+                op.GetOpMagic(), producer->GetOpMagic());
+            return FAILED;
+        }
+        if (producer->GetOpcode() == Opcode::OP_RESHAPE) {
+            ALOG_ERROR_F(
+                "Assemble[%d] Unsupported OP connection scenaios: assemble input tensor has reshape producer op[%d]",
+                op.GetOpMagic(), producer->GetOpMagic());
+            return FAILED;
+        }
+    }
+    for (Operation *consumer : assembleIn->GetConsumers()) {
+        if (consumer->GetOpcode() == op.GetOpcode()) {
+            continue;
+        }
+        if (consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
+            ALOG_ERROR_F(
+                "Assemble[%d] Unsupported OP connection scenaios: assemble input tensor has other assemble consumer op[%d]",
+                op.GetOpMagic(), consumer->GetOpMagic());
+            return FAILED;
+        }
+        if (consumer->GetOpcode() == Opcode::OP_RESHAPE && function.IsFromOutCast(consumer->GetOOperands().front())) {
+            ALOG_ERROR_F(
+                "Assemble[%d] Unsupported OP connection scenaios: assemble input tensor has reshape->outcast consumer op[%d]",
+                op.GetOpMagic(), consumer->GetOpMagic());
+            return FAILED;
+        }
+    }
+    ALOG_ERROR_F("Operation magic: %d, assemble op raw magic should not changed.", op.GetOpMagic());
+    return FAILED;
+}
+
+bool PreGraphProcessChecker::VerifyViewResult (const Operation &op) {
+    auto viewIn = op.GetIOperands().front();
+    auto viewOut = op.GetOOperands().front();
+    for (LogicalTensorPtr in : op.GetIOperands()) {
+        if (in->GetRawMagic() != viewIn->GetRawMagic()) {
+            return false;
+        }
+    }
+    for (LogicalTensorPtr out : op.GetOOperands()) {
+        if (out->GetRawMagic() != viewOut->GetRawMagic()) {
+            return false;
+        }
+    }
+    if (viewIn->GetRawMagic() != viewOut->GetRawMagic()) {
+        return false;
+    }
+    return true;
+}
+
+Status PreGraphProcessChecker::PostCheckView(Function &function, const Operation &op) {
+    if (VerifyViewResult(op)) {
+        return SUCCESS;
+    }
+    auto viewOut = op.GetOOperands().front();
+    for (Operation *producer : viewOut->GetProducers()) {
+        if (producer->GetOpcode() == op.GetOpcode()) {
+            continue;
+        }
+        if (producer->GetOpcode() == Opcode::OP_VIEW) {
+            ALOG_ERROR_F(
+                "View[%d] Unsupported OP connection scenaios: view input tensor has other view producer op[%d]",
+                op.GetOpMagic(), producer->GetOpMagic());
+            return FAILED;
+        }
+        if (producer->GetOpcode() == Opcode::OP_RESHAPE) {
+            ALOG_ERROR_F(
+                "View[%d] Unsupported OP connection scenaios: view input tensor has reshape producer op[%d]",
+                op.GetOpMagic(), producer->GetOpMagic());
+            return FAILED;
+        }
+    }
+    for (Operation *consumer : viewOut->GetConsumers()) {
+        if (consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
+            ALOG_ERROR_F(
+                "View[%d] Unsupported OP connection scenaios: view input tensor has assemble consumer op[%d]",
+                op.GetOpMagic(), consumer->GetOpMagic());
+            return FAILED;
+        }
+        if (consumer->GetOpcode() == Opcode::OP_RESHAPE && function.IsFromOutCast(consumer->GetOOperands().front())) {
+            ALOG_ERROR_F(
+                "View[%d] Unsupported OP connection scenaios: view input tensor has reshape->outcast consumer op[%d]",
+                op.GetOpMagic(), consumer->GetOpMagic());
+            return FAILED;
+        }
+    }
+    ALOG_ERROR_F("Operation magic: %d, view op raw magic should not changed.", op.GetOpMagic());
+    return FAILED;
+}
+
+Status PreGraphProcessChecker::HandleScenarioReshapeOutCast(Function &function, const Operation &op, const LogicalTensorPtr reshapeIn) {
+    for (Operation *producer : reshapeIn->GetProducers()) {
+        if (producer->GetOpcode() == Opcode::OP_VIEW) {
+            ALOG_ERROR_F("Reshape[%d]->outcast Unsupported OP connection scenaios: reshape->outcast input tensor "
+                         "has view producer op[%d]",
+                op.GetOpMagic(), producer->GetOpMagic());
+            return FAILED;
+        }
+        if (producer->GetOpcode() == Opcode::OP_RESHAPE) {
+            ALOG_ERROR_F("Reshape[%d]->outcast Unsupported OP connection scenaios: reshape->outcast input tensor "
+                         "has reshape producer op[%d]",
+                op.GetOpMagic(), producer->GetOpMagic());
+            return FAILED;
+        }
+    }
+    for (Operation *consumer : reshapeIn->GetConsumers()) {
+        if (consumer->GetOpcode() == op.GetOpcode()) {
+            continue;
+        }
+        if (consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
+            ALOG_ERROR_F("Reshape[%d]->outcast Unsupported OP connection scenaios: reshape->outcast input tensor has "
+                         "other assemble consumer op[%d]",
+                op.GetOpMagic(), consumer->GetOpMagic());
+            return FAILED;
+        }
+        if (consumer->GetOpcode() == Opcode::OP_RESHAPE && function.IsFromOutCast(consumer->GetOOperands().front())) {
+            ALOG_ERROR_F("Reshape[%d]->outcast Unsupported OP connection scenaios: reshape->outcast input tensor has "
+                         "reshape->outcast consumer op[%d]",
+                op.GetOpMagic(), consumer->GetOpMagic());
+            return FAILED;
+        }
+    }
+    ALOG_ERROR_F("Operation magic: %d, reshape op's output actual raw magic shoule be same with input raw magic.",
+        op.GetOpMagic());
+    return FAILED;
+}
+
+Status PreGraphProcessChecker::VerifyReshapeResult(
+    Function &function, const Operation &op, const LogicalTensorPtr reshapeIn, const LogicalTensorPtr reshapeOut) {
+    if (reshapeOut->GetRawMagic() == reshapeIn->GetRawMagic()) {
+        return SUCCESS;
+    }
+    if (function.IsFromOutCast(reshapeOut)) {
+        return HandleScenarioReshapeOutCast(function, op, reshapeIn);
+    }
+    for (Operation *producer : reshapeOut->GetProducers()) {
+        if (producer->GetOpcode() == op.GetOpcode()) {
+            continue;
+        }
+        if (producer->GetOpcode() == Opcode::OP_VIEW) {
+            ALOG_ERROR_F(
+                "Reshape[%d] Unsupported OP connection scenaios: reshape input tensor has other view producer op[%d]",
+                op.GetOpMagic(), producer->GetOpMagic());
+            return FAILED;
+        }
+        if (producer->GetOpcode() == Opcode::OP_RESHAPE) {
+            ALOG_ERROR_F(
+                "Reshape[%d] Unsupported OP connection scenaios: reshape input tensor has reshape producer op[%d]",
+                op.GetOpMagic(), producer->GetOpMagic());
+            return FAILED;
+        }
+    }
+    for (Operation *consumer : reshapeOut->GetConsumers()) {
+        if (consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
+            ALOG_ERROR_F(
+                "Reshape[%d] Unsupported OP connection scenaios: reshape input tensor has assemble consumer op[%d]",
+                op.GetOpMagic(), consumer->GetOpMagic());
+            return FAILED;
+        }
+        if (consumer->GetOpcode() == Opcode::OP_RESHAPE && function.IsFromOutCast(consumer->GetOOperands().front())) {
+            ALOG_ERROR_F(
+                "Reshape[%d] Unsupported OP connection scenaios: reshape input tensor has reshape->outcast consumer op[%d]",
+                op.GetOpMagic(), consumer->GetOpMagic());
+            return FAILED;
+        }
+    }
+    ALOG_ERROR_F("Operation magic: %d, reshape op's output actual raw magic shoule be same with input raw magic.",
+        op.GetOpMagic());
+    return FAILED;
+}
+
+Status PreGraphProcessChecker::PostCheckReshape(Function &function, const Operation &op) {
     auto reshapeIn = op.GetIOperands().front();
     auto reshapeOut = op.GetOOperands().front();
-    if (reshapeOut->tensor->GetRawMagic() != reshapeIn->GetRawMagic()) {
-        ALOG_ERROR_F(
-            "Operation magic: %d, reshape op's output actual raw magic shoule be same with input raw magic.",
-            op.GetOpMagic());
+    if (VerifyReshapeResult(function, op, reshapeIn, reshapeOut) == FAILED) {
         return FAILED;
     }
 
