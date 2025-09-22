@@ -389,6 +389,7 @@ constexpr uint32_t TASKID_FUNC_BITS = 11;
 #define TASKID_FUNC_MASK ((1 << TASKID_FUNC_BITS) - 1)
 constexpr uint32_t TASKID_TASK_BITS = 20;
 #define TASKID_TASK_MASK ((1 << TASKID_TASK_BITS) - 1)
+constexpr uint32_t TASKID_SHIFT32 = 32;
 
 inline uint32_t MakeTaskID(uint32_t funcId, uint32_t taskId) {
     return (funcId << TASKID_TASK_BITS) | taskId;
@@ -1336,18 +1337,18 @@ public:
             const uint64_t shape[DEV_SHAPE_DIM_MAX],
             uint32_t operationIdx,
             const DevCellMatchTableDesc &cellMatchTableDesc,
-            uint32_t *cellMatchTableData,
+            uint64_t *cellMatchTableData, uint32_t devTaskId,
             uint32_t funcIdx) {
         struct HandleFill {
-            static inline void Process(int index, uint32_t *cellMatchTableData, uint32_t funcIdx, uint32_t operationIdx) {
-                cellMatchTableData[index] = MakeTaskID(funcIdx, operationIdx);
+            static inline void Process(int index, uint64_t *cellMatchTableData, uint32_t devTaskId, uint32_t funcIdx, uint32_t operationIdx) {
+                cellMatchTableData[index] = (static_cast<uint64_t>(devTaskId) << TASKID_SHIFT32) | MakeTaskID(funcIdx, operationIdx);
 #if DEBUG_SWITCH
-                DEV_DEBUG("cell match fill, funcIdx %u operation %u , cellindex[%d] = taskid(%u)",
-                        funcIdx, operationIdx, index, cellMatchTableData[index]);
+                DEV_DEBUG("cell match fill, devtaskid:%u funcIdx %u operation %u , cellindex[%d] = taskid(%lx)",
+                        devTaskId, funcIdx, operationIdx, index, cellMatchTableData[index]);
 #endif
             }
         };
-        CellMatchHandle<HandleFill>(offset, shape, cellMatchTableDesc, cellMatchTableData, funcIdx, operationIdx);
+        CellMatchHandle<HandleFill>(offset, shape, cellMatchTableDesc, cellMatchTableData, devTaskId, funcIdx, operationIdx);
     }
 
     template<bool skipExpression, typename ... TyArgs>
@@ -1529,20 +1530,25 @@ struct DevAscendFunctionDuppedStitchList {
         head_->PushBack(taskId);
     }
 
-    static std::string DumpTask(uint32_t id) {
+    template<typename T = uint32_t>
+    static std::string DumpTask(T id) {
         std::ostringstream oss;
-        oss << FuncID(id) << "!" << TaskID(id);
+        if constexpr (std::is_same<T, uint64_t>::value) {
+            oss << (id >> TASKID_SHIFT32) << "!"; // devicetaskid
+        }
+        oss << FuncID(static_cast<uint32_t>(id)) << "!" << TaskID(static_cast<uint32_t>(id));
         return oss.str();
     }
 
-    static std::string DumpTask(uint32_t *idx, int size) {
+    template<typename T = uint32_t>
+    static std::string DumpTask(T *idx, int size) {
         std::ostringstream oss;
         oss << "{";
         oss << "size = " << size << " -> ";
         for (int i = 0; i < size; i++) {
             if (idx[i] != AICORE_TASK_INIT) {
                 oss << Delim(i != 0, ",");
-                oss << "[" << std::dec << i << "]=" << DumpTask(idx[i]);
+                oss << "[" << std::dec << i << "]=" << DumpTask<T>(idx[i]);
             }
         }
         oss << "}";
@@ -2150,7 +2156,7 @@ struct DevAscendProgramPartialUpdate {
     int slotIndex;
 
     DevCellMatchTableDesc cellMatchTableDesc;
-    DevRelocVector<uint32_t> cellMatchRuntimePartialUpdateTable;
+    DevRelocVector<uint64_t> cellMatchRuntimePartialUpdateTable; // devtaskid | taskid
 
     bool Empty() const {
         return cellMatchRuntimePartialUpdateTable.size() == 0;
@@ -2201,7 +2207,7 @@ struct DevAscendProgram {
     DevRelocVector<uint64_t> assembleSlotIndexList;
     DevRelocVector<uint64_t> inplaceSlotList;
     DevRelocVector<DevAscendProgramPartialUpdate> partialUpdateList;
-    DevRelocVector<uint32_t> cellMatchRuntimePartialUpdateTableList;
+    DevRelocVector<uint64_t> cellMatchRuntimePartialUpdateTableList;
     DevRelocVector<PrefetchInfo> prefetchInfoList;
     DevRelocVector<uint8_t> disableL2List;
 #define programLastField                              disableL2List

@@ -1547,7 +1547,7 @@ void DevAscendProgram::InitPartialUpdateSlot(
         }
         totalCellMatchSize += tableSize;
     }
-    totalCellMatchSize = ALIGN_UP(totalCellMatchSize, sizeof(uint64_t) * FRIENDLY_CACHE_ALIGN_U64_SIZE / sizeof(uint32_t));
+    totalCellMatchSize = ALIGN_UP(totalCellMatchSize, sizeof(uint64_t) * FRIENDLY_CACHE_ALIGN_U64_SIZE / sizeof(uint64_t));
     this->cellMatchRuntimePartialUpdateTableList.HostInitDataSizeOffset(initOffset, totalCellMatchSize);
 }
 
