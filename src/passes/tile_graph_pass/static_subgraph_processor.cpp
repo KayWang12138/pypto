@@ -146,27 +146,56 @@ void StaticSubgraphProcessor::PrintColorGraph(const Function &function) {
     ALOG_INFO_F("total in: %d, total out: %d\n", inCount, outCount);
 }
 
-void StaticSubgraphProcessor::FindRedundantEdges(int color, std::vector<std::vector<int>>& redundantColorInGraph,
-    std::vector<std::vector<int>>& redundantColorOutGraph) {
-    std::vector<int> tag(color);
-    int tagValue = 2;
-    for (int i = 0; i < color; i++) {
-        for (int j : colorOutGraph[i]) {
-            tag[j] = tagValue;
+inline void findAllReachableNodes(int start_node, std::vector<std::vector<int>>& outGraph,
+                                        std::vector<std::unordered_set<int>>& reachable, std::vector<int>& visited) {
+    reachable[start_node].insert(start_node);
+    for (int v : outGraph[start_node]) { 
+        if (visited[v] == 0) {
+            findAllReachableNodes(v, outGraph, reachable, visited);
         }
-        UpdateTag(i, tagValue, tag, redundantColorInGraph, redundantColorOutGraph);
+        reachable[start_node].insert(reachable[v].begin(), reachable[v].end());
+    }
+    visited[start_node] = 1;
+}
+
+void StaticSubgraphProcessor::FindRedundantEdges(int colorNum, std::vector<std::vector<int>>& redundantColorInGraph,
+            std::vector<std::vector<int>>& redundantColorOutGraph) {
+    std::vector<std::unordered_set<int>> reachable(colorNum);
+    std::vector<int> visited(colorNum, 0);
+    for (int i = 0; i < colorNum; ++i) {
+        if (visited[i] == 0) {
+            findAllReachableNodes(i, colorOutGraph, reachable, visited); // DFS记忆化计算
+        }
+    }
+    for (int u = 0; u < colorNum; ++u) {
+        for (int v : colorOutGraph[u]) {
+            bool is_redundant = false;
+            for (int w : colorOutGraph[u]) {
+                if (w == v) {
+                    continue;
+                }
+                if (reachable[w].count(v)) {
+                    is_redundant = true;
+                    break;
+                }
+            }
+            if (is_redundant) {
+                redundantColorOutGraph[u].push_back(v);
+                redundantColorInGraph[v].push_back(u);
+            }
+        }
     }
 }
 
 void StaticSubgraphProcessor::EraseRedundantColorEdges(const Function &function) {
-    size_t color = function.GetTotalSubGraphCount();
-    std::vector<std::vector<int>> redundantColorInGraph(color), redundantColorOutGraph(color);
-    std::vector<int> tag(color);
+    size_t colorNum = function.GetTotalSubGraphCount();
+    std::vector<std::vector<int>> redundantColorInGraph(colorNum), redundantColorOutGraph(colorNum);
     // Find redundant edges
-    FindRedundantEdges(color, redundantColorInGraph, redundantColorOutGraph);
+    FindRedundantEdges(colorNum, redundantColorInGraph, redundantColorOutGraph);
     // Erase redundant edges
-    for (size_t i = 0; i < color; i++) {
+    for (size_t i = 0; i < colorNum; i++) {
         std::sort(redundantColorOutGraph[i].begin(), redundantColorOutGraph[i].end());
+        ALOG_INFO_F("Redundant outgraph of %d is %s", i, IntVecToStr(redundantColorOutGraph[i]).c_str());
         std::vector<int> newGraph;
         // update color_in_graph
         size_t j = 0U;
@@ -225,40 +254,6 @@ void StaticSubgraphProcessor::ProcessColorGraph(Function &function) {
         std::sort(colorOutGraph[i].begin(), colorOutGraph[i].end());
         colorOutGraph[i].resize(std::unique(colorOutGraph[i].begin(), colorOutGraph[i].end()) -
                             colorOutGraph[i].begin());
-    }
-}
-
-void StaticSubgraphProcessor::UpdateTag(int i, int tagValue, std::vector<int> &tag, std::vector<std::vector<int>>& redundantColorInGraph, std::vector<std::vector<int>>& redundantColorOutGraph) {
-    std::vector<int> queue0 = colorOutGraph[i];
-    std::vector<int> queue1;
-    for (int j : queue0) {
-        for (int k : colorOutGraph[j]) {
-            if (tag[k] == tagValue) {
-                tag[k] = 1;
-                redundantColorOutGraph[i].push_back(k);
-                redundantColorInGraph[k].push_back(i);
-                continue;
-            } 
-            if (tag[k] == 0) {
-                tag[k] = 1;
-                queue1.push_back(k);
-            }
-        }
-    }
-    for (int j : queue1) {
-        for (int k : colorOutGraph[j]) {
-            if (tag[k] == tagValue) {
-                tag[k] = 1;
-                redundantColorOutGraph[i].push_back(k);
-                redundantColorInGraph[k].push_back(i);
-            }
-        }
-    }
-    for (int j : queue0) {
-        tag[j] = 0;
-    }
-    for (int j : queue1) {
-        tag[j] = 0;
     }
 }
 

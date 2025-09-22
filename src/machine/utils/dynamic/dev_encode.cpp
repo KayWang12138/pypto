@@ -1048,64 +1048,67 @@ struct EncodeDevAscendFunctionInfo {
         }
     }
 
-     void PrintColorGraph(int color) {
+    void PrintColorGraph(int colorNum) {
         ALOG_INFO_F("********** Call OP Graph **********\n");
-        for (int i = 0; i < color; i++) {
+        for (int i = 0; i < colorNum; i++) {
             ALOG_INFO_F("%zu: %zu", i, colorOutGraph[i].size());
             ALOG_INFO_F("%s", IntVecToStr(colorOutGraph[i]).c_str());
         }
         int outCount = 0;
-        for (int i = 0; i < color; i++) {
+        for (int i = 0; i < colorNum; i++) {
             outCount += colorOutGraph[i].size();
         }
         ALOG_INFO_F("total out: %d\n", outCount);
     }
 
-    void FindRedundantEdges(int color, std::vector<std::vector<int>>& redundantColorOutGraph) {
-        std::vector<int> tag(color);
-        int tagValue = 2;
-        for (int i = 0; i < color; i++) {
-            std::vector<int> queue1, queue2;
-            for (int j : colorOutGraph[i]) {
-                tag[j] = tagValue;
+    inline void findAllReachableNodes(int start_node, std::unordered_map<int, std::vector<int>>& outGraph,
+                                        std::vector<std::unordered_set<int>>& reachable, std::vector<int>& visited) {
+        reachable[start_node].insert(start_node);
+        for (int v : outGraph[start_node]) { 
+            if (visited[v] == 0) {
+                findAllReachableNodes(v, outGraph, reachable, visited);
             }
-            for (int j : colorOutGraph[i]) {
-                for (int k : colorOutGraph[j]) {
-                    if (tag[k] == tagValue) {
-                    tag[k] = 1;
-                    redundantColorOutGraph[i].push_back(k);
-                    } else if (tag[k] == 0) {
-                    tag[k] = 1;
-                    queue1.push_back(k);
+            reachable[start_node].insert(reachable[v].begin(), reachable[v].end());
+        }
+        visited[start_node] = 1;
+    }
+
+    void FindRedundantEdges(int colorNum, std::vector<std::vector<int>>& redundantColorOutGraph) {
+        std::vector<std::unordered_set<int>> reachable(colorNum);
+        std::vector<int> visited(colorNum, 0);
+        for (int i = 0; i < colorNum; ++i) {
+            if (visited[i] == 0) {
+                findAllReachableNodes(i, colorOutGraph, reachable, visited); // DFS记忆化计算
+            }
+        }
+        for (int u = 0; u < colorNum; ++u) {
+            for (int v : colorOutGraph[u]) {
+                bool is_redundant = false;
+                for (int w : colorOutGraph[u]) {
+                    if (w == v) {
+                        continue;
+                    }
+                    if (reachable[w].count(v)) {
+                        is_redundant = true;
+                        break;
                     }
                 }
-            }
-            for (int j : queue1) {
-                for (int k : colorOutGraph[j]) {
-                    if (tag[k] == tagValue) {
-                    tag[k] = 1;
-                    redundantColorOutGraph[i].push_back(k);
-                    }
+                if (is_redundant) {
+                    redundantColorOutGraph[u].push_back(v);
                 }
-            }
-            for (int j : colorOutGraph[i]) {
-                tag[j] = 0;
-            }
-            for (int j : queue1) {
-                tag[j] = 0;
             }
         }
     }
 
     void EraseRedundantColorEdges(std::vector<Operation *> &callopList) {
-        int color = callopList.size();
-        std::vector<std::vector<int>> redundantColorOutGraph(color);
-        std::vector<int> tag(color);
+        int colorNum = callopList.size();
+        std::vector<std::vector<int>> redundantColorOutGraph(colorNum);
         // Find redundant edges
-        FindRedundantEdges(color, redundantColorOutGraph);
+        FindRedundantEdges(colorNum, redundantColorOutGraph);
         // Erase redundant edges
-        for (int i = 0; i < color; i++) {
+        for (int i = 0; i < colorNum; i++) {
             std::sort(redundantColorOutGraph[i].begin(), redundantColorOutGraph[i].end());
+            ALOG_INFO_F("Redundant outgraph of %d is %s", i, IntVecToStr(redundantColorOutGraph[i]).c_str());
             // update color_out_graph
             std::vector<int> newGraph;
             size_t j = 0U;

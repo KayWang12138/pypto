@@ -54,9 +54,8 @@ public:
     void BuildColorGraph(Function &function);
     void PrintColorGraph(const Function &function);
     void ProcessColorGraph(Function &function);
-    void FindRedundantEdges(int color, std::vector<std::vector<int>>& redundantColorInGraph,
+    void FindRedundantEdges(int colorNum, std::vector<std::vector<int>>& redundantColorInGraph,
         std::vector<std::vector<int>>& redundantColorOutGraph);
-    void UpdateTag(int i, int tagValue, std::vector<int> &tag, std::vector<std::vector<int>>& redundantColorInGraph, std::vector<std::vector<int>>& redundantColorOutGraph);
     void EraseRedundantColorEdges(const Function &function);
     Status SetReadySubGraphType(Function* rootFunc, size_t i, const CoreType &esgGraphType);
     void SetNList(std::vector<std::vector<OperationPtr>>& nList) {
