@@ -54,8 +54,6 @@ target_compile_options(tile_fwk_server
             -fPIC
             -D__DEVICE__
             -Werror
-            -Wl,-z,relro,-z,now
-            -fstack-protector-all
 )
 target_include_directories(tile_fwk_server
         PRIVATE
@@ -76,6 +74,7 @@ target_link_libraries(tile_fwk_server
             c_sec
             $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,slog_stub,slog>
             -ldl
+            $<$<TARGET_EXISTS:intf_pub>:$<BUILD_INTERFACE:intf_pub>>
 )
 set_target_properties(tile_fwk_server PROPERTIES OUTPUT_NAME tilefwk_backend_server)
 
