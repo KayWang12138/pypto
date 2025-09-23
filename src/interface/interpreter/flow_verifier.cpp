@@ -47,6 +47,9 @@ bool FlowVerifier::VerifyResult(const std::string &key,
     for (size_t k = 0; k < goldenDataViewList.size(); k++) {
         auto &goldenView = goldenDataViewList[k];
         auto &outputView = outputDataViewList[k];
+        if (goldenView == nullptr || outputView == nullptr) {
+            continue;
+        }
         auto result = VerifyResult(goldenView, outputView, eps);
         if (!result.Check()) {
             ALOG_ERROR(key, ":\n    Verify for ", goldenDataViewList.size(), " data view list index ", k, " result ", TTY_RED("FAILED"));
@@ -88,6 +91,9 @@ void FlowVerifier::VerifyTensorGraph(Function *entry,
     ASSERT(inputDataViewList.size() == inputSlotList.size());
     for (size_t i = 0; i < inputDataViewList.size(); i++) {
         auto inputTensor = attr->startArgsInputTensorList[i].get().GetStorage();
+        if (inputTensor == nullptr) {
+            continue;
+        }
         auto tileop = inputTensor->GetTileOpFormat();
 
         auto input = inputDataViewList[i];

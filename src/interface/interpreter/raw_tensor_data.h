@@ -435,9 +435,13 @@ struct ProgramData {
     void CopyTo(std::vector<std::shared_ptr<LogicalTensorData>> &dataViewList,
         const std::vector<RawTensorDataPtr> &dataList) {
         for (auto data : dataList) {
-            auto shape = data->GetShape();
-            dataViewList.push_back(
-                std::make_shared<LogicalTensorData>(data, shape, shape, std::vector<int64_t>(shape.size(), 0)));
+            if (data) {
+                auto shape = data->GetShape();
+                dataViewList.push_back(
+                    std::make_shared<LogicalTensorData>(data, shape, shape, std::vector<int64_t>(shape.size(), 0)));
+            } else {
+                dataViewList.push_back(nullptr);
+            }
         }
     }
 
