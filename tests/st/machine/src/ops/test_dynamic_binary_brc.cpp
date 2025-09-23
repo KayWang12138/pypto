@@ -24,6 +24,7 @@ using namespace npu::tile_fwk::dynamic;
 class DynamicBrcTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 TEST_F(DynamicBrcTest, TestDynamicMulBrcUnalign) {
+    SetInterpreterConfig();
     config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(32, 128);
@@ -41,6 +42,27 @@ TEST_F(DynamicBrcTest, TestDynamicMulBrcUnalign) {
     Tensor curSeq(DT_INT32, {b, 1}, "curSeq");
     Tensor out(DT_FP32, outShape, "out");
 
+    std::vector<int> actSeqsData(b, 24); // 有效值应该是block对齐的
+    std::vector<float> golden(b * sq * d, 0.001f);
+    for (int i = 0; i < b; i++) {
+        int offset = i * sq * d;
+        std::fill(golden.begin() + offset, golden.begin() + offset + actSeqsData[i] * d, 48.0);
+    }
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(input_a, 2.0),
+        RawTensorData::CreateConstantTensor<float>(input_b, 3.0),
+        RawTensorData::CreateTensor<int32_t>(curSeq, actSeqsData),
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, 0.001f),
+    });
+
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out, golden),
+    });
+
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {input_a, input_b, curSeq}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
@@ -53,23 +75,6 @@ TEST_F(DynamicBrcTest, TestDynamicMulBrcUnalign) {
         }
     }
 
-    std::vector<int> actSeqsData(b, 24); // 有效值应该是block对齐的
-
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateConstantTensor<float>(input_a, 2.0),
-        RawTensorData::CreateConstantTensor<float>(input_b, 3.0),
-        RawTensorData::CreateTensor<int32_t>(curSeq, actSeqsData),
-    });
-
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<float>(out, 0.001f),
-    });
-
-    std::vector<float> golden(b * sq * d, 0.001f);
-    for (int i = 0; i < b; i++) {
-        int offset = i * sq * d;
-        std::fill(golden.begin() + offset, golden.begin() + offset + actSeqsData[i] * d, 48.0);
-    }
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 

@@ -56,6 +56,7 @@ static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileN
 template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool splitK = false, bool nz = true,
     bool isSmooth = true, bool usePrefetch = true>
 void TestMlaPrologV2(const SimpleParams &params) {
+    SetInterpreterConfig();
     pre();
 
     int b = params.b;

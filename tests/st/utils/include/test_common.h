@@ -26,6 +26,7 @@
 #include "interface/tensor/logical_tensor.h"
 #include "cost_model/simulation/pv/PvData.h"
 #include "cost_model/simulation/emulator/SoftMemory.h"
+#include "interface/configs/config_manager.h"
 
 using namespace npu::tile_fwk;
 using Json = nlohmann::json;
@@ -449,4 +450,17 @@ inline int calcOffset(std::vector<int> shape, std::vector<int> offset) {
         base *= shape[i];
     }
     return res;
+}
+
+inline void SetInterpreterConfig(){
+// 通过build.py --enable_interpreter_config使能
+#ifdef ENABLE_TESTS_STEST_INTERPRETER_CONFIG
+    config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
+    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
+    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true);
+    config::SetPlatformConfig(KEY_VERIFY_PASS, true);
+    config::SetPlatformConfig(KEY_VERIFY_PASS_CHECK_PRECISION, true);
+    config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, true);
+    config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_CHECK_PRECISION, true);
+#endif
 }

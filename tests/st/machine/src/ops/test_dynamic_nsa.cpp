@@ -53,6 +53,7 @@ static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileN
 
 template <typename T = float16, typename outputT = float, bool nz = false>
 void TestNsa(const SimpleParams &params) {
+    SetInterpreterConfig();
     int b = params.b;
     int s = params.s;
     int n = params.n;
@@ -78,6 +79,19 @@ void TestNsa(const SimpleParams &params) {
     auto simW1Data = CreateTensorData<T>(simW1, "/gate_sim_w1.bin");
 
     auto outputData = RawTensorData::CreateConstantTensor<outputT>(output, 0.0);
+
+    ProgramData::GetInstance().AppendInputs({
+        xData, w1Data, w2Data, simW1Data,
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        outputData,
+    });
+
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<outputT>(output, outputGolden),
+    });
+
     GenGatedScoreCompute(x, w1, w2, simW1, output, GateMode::standard);
 #ifdef ENABLE_BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {xData, w1Data, w2Data, simW1Data}, {outputData});

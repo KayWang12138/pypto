@@ -59,9 +59,6 @@ void SourceLocation::Init() const {
             if (rc >= 0) {
                 char *p = line;
                 char *name = strsep(&p, ":");
-                if (auto base = strrchr(name, '/'); base != nullptr) {
-                    name = base + 1;
-                }
                 locMap[pc]->fname_ = name;
                 locMap[pc]->lineno_ = atoi(p);
             } else {

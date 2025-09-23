@@ -142,6 +142,11 @@ KVCompress params:
     std::vector<RawTensorDataPtr> outputDataList = {cmpKvCacheInput, cmpKrCacheInput, auxTensorOutput};
     ProgramData::GetInstance().AppendInputs(inputDataList);
     ProgramData::GetInstance().AppendOutputs(outputDataList);
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<T>(cmpKvCache, cmpKvCacheOutGolden),
+        RawTensorData::CreateTensor<T>(cmpKrCache, cmpKrCacheOutGolden),
+        RawTensorData::CreateTensor<float>(auxTensor, auxTensorGolden),
+    });
 
     compressKv(kvCache, krCache, cmpKvCache, cmpKrCache, blockTable, cmpCacheIndex, actSeqLen, mlpWk1, mlpWk2, mlpCos,
         mlpSin, cmpKvCache, cmpKrCache, auxTensor, cmpBlockSize, cmpStride, rs, tileConfig);
@@ -160,20 +165,8 @@ KVCompress params:
 }
 
 TEST_F(DynKVCmp, KVCmpBatch48float16) {
+    SetInterpreterConfig();
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
-    // // 精度工具
-    // config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
-    // config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
-    // config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_DUMP_OPERATION, true);
-    // config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_DUMP_TENSOR, true);
-    // config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true);
-    // config::SetPlatformConfig(KEY_VERIFY_PASS, true);
-    // config::SetPlatformConfig(KEY_VERIFY_PASS_DUMP_OPERATION, true);
-    // config::SetPlatformConfig(KEY_VERIFY_PASS_DUMP_TENSOR, true);
-    // config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, true);
-    // config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_OPERATION, true);
-    // config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_TENSOR, true);
-    // config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_CHECK_PRECISION, true);
 
     CmpAttnTile config;
     // Block concat tile
@@ -193,20 +186,8 @@ TEST_F(DynKVCmp, KVCmpBatch48float16) {
 }
 
 TEST_F(DynKVCmp, KVCmpBatch32bf16) {
+    SetInterpreterConfig();
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
-    // // 精度工具
-    // config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
-    // config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
-    // config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_DUMP_OPERATION, true);
-    // config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_DUMP_TENSOR, true);
-    // config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true);
-    // config::SetPlatformConfig(KEY_VERIFY_PASS, true);
-    // config::SetPlatformConfig(KEY_VERIFY_PASS_DUMP_OPERATION, true);
-    // config::SetPlatformConfig(KEY_VERIFY_PASS_DUMP_TENSOR, true);
-    // config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, true);
-    // config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_OPERATION, true);
-    // config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_TENSOR, true);
-    // config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_CHECK_PRECISION, true);
 
     CmpAttnTile config;
     // Block concat tile

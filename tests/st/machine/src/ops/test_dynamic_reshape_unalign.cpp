@@ -32,6 +32,7 @@ public:
 
 // add dim
 TEST_F(DynamicReshapeUnalignTest, test_add_dim) {
+    SetInterpreterConfig();
     TileShape::Current().SetVecTile(64, 64);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
@@ -45,6 +46,29 @@ TEST_F(DynamicReshapeUnalignTest, test_add_dim) {
     Tensor actSeqs(DT_INT32, {b, 1, 1}, "actual_seq");
     Tensor out(DT_FP32, qShape3Dim, "out");
 
+    float inputValue = 2.0f;
+    float initValue = 0.5f;
+
+    std::vector<int> actSeqsData(b, 63);
+    std::vector<float> golden(b * sq * d, initValue);
+    for (int bidx = 0; bidx < b; ++bidx) {
+        int offset = bidx * sq * d;
+        std::fill(golden.begin() + offset, golden.begin() + offset + actSeqsData[bidx] * d, exp(inputValue));
+    }
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(q, inputValue),
+        RawTensorData::CreateTensor<int32_t>(actSeqs, actSeqsData),
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, initValue),
+    });
+
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out, golden),
+    });
+
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (sq))) {
@@ -57,34 +81,15 @@ TEST_F(DynamicReshapeUnalignTest, test_add_dim) {
         }
     }
 
-    float inputValue = 2.0f;
-    float initValue = 0.5f;
-
-    std::vector<int> actSeqsData(b, 63);
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateConstantTensor<float>(q, inputValue),
-        RawTensorData::CreateTensor<int32_t>(actSeqs, actSeqsData),
-    });
-
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<float>(out, initValue),
-    });
-
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
-
-    std::vector<float> golden(b * sq * d, initValue);
-    for (int bidx = 0; bidx < b; ++bidx) {
-        int offset = bidx * sq * d;
-        std::fill(golden.begin() + offset, golden.begin() + offset + actSeqsData[bidx] * d, exp(inputValue));
-    }
-
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 }
 
 // merge dim, not last dim
 TEST_F(DynamicReshapeUnalignTest, test_merge_dim) {
+    SetInterpreterConfig();
     TileShape::Current().SetVecTile(1, 16, 16);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
@@ -97,6 +102,29 @@ TEST_F(DynamicReshapeUnalignTest, test_merge_dim) {
     Tensor q(DT_FP32, qShape3Dim, "q");
     Tensor actSeqs(DT_INT32, {b, 1, 1}, "actual_seq");
     Tensor out(DT_FP32, qShape2Dim, "out");
+
+    float inputValue = 2.0f;
+    float initValue = 0.5f;
+
+    std::vector<int> actSeqsData(b, 8);
+    std::vector<float> golden(b * sq * d, initValue);
+    for (int bidx = 0; bidx < b; ++bidx) {
+        int offset = bidx * sq * d;
+        std::fill(golden.begin() + offset, golden.begin() + offset + actSeqsData[bidx] * d, exp(inputValue));
+    }
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(q, inputValue),
+        RawTensorData::CreateTensor<int32_t>(actSeqs, actSeqsData),
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, initValue),
+    });
+
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out, golden),
+    });
 
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
@@ -112,34 +140,15 @@ TEST_F(DynamicReshapeUnalignTest, test_merge_dim) {
         }
     }
 
-    float inputValue = 2.0f;
-    float initValue = 0.5f;
-
-    std::vector<int> actSeqsData(b, 8);
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateConstantTensor<float>(q, inputValue),
-        RawTensorData::CreateTensor<int32_t>(actSeqs, actSeqsData),
-    });
-
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<float>(out, initValue),
-    });
-
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
-
-    std::vector<float> golden(b * sq * d, initValue);
-    for (int bidx = 0; bidx < b; ++bidx) {
-        int offset = bidx * sq * d;
-        std::fill(golden.begin() + offset, golden.begin() + offset + actSeqsData[bidx] * d, exp(inputValue));
-    }
-
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 }
 
 // split dim
 TEST_F(DynamicReshapeUnalignTest, test_split_dim) {
+    SetInterpreterConfig();
     TileShape::Current().SetVecTile(1, 16, 16);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
@@ -152,6 +161,40 @@ TEST_F(DynamicReshapeUnalignTest, test_split_dim) {
     Tensor q(DT_FP32, qShape3Dim, "q");
     Tensor actSeqs(DT_INT32, {b, 2, 1}, "actual_seq");
     Tensor out(DT_FP32, qShape4Dim, "out");
+
+    float initValue = 0.5f;
+
+    std::vector<int> actSeqsData = {5, 8, 5, 8};
+    std::vector<float> inputValueData;
+    for (int i = 0; i < b * sq * d; i++){
+        inputValueData.push_back(static_cast<float>(i));
+    }
+    
+    std::vector<float> golden(b * sq * d, initValue);
+    int count = 0;
+    for (int bidx = 0; bidx < b; ++bidx) {
+        int offset = bidx * sq * d;
+        count = offset;
+        for (int row = 0; row < actSeqsData[0]; row++){
+            for (int col = 0; col < actSeqsData[1]; col++){
+                if (count % d == 8) count +=2;
+                golden[offset + row * d + col] = count++;
+            }
+        }
+    }
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<float>(q, inputValueData),
+        RawTensorData::CreateTensor<int32_t>(actSeqs, actSeqsData),
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, initValue),
+    });
+
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out, golden),
+    });
 
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
@@ -167,38 +210,8 @@ TEST_F(DynamicReshapeUnalignTest, test_split_dim) {
         }
     }
 
-    float initValue = 0.5f;
-
-    std::vector<int> actSeqsData = {5, 8, 5, 8};
-    std::vector<float> inputValueData;
-    for (int i = 0; i < b * sq * d; i++){
-        inputValueData.push_back(static_cast<float>(i));
-    }
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<float>(q, inputValueData),
-        RawTensorData::CreateTensor<int32_t>(actSeqs, actSeqsData),
-    });
-
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<float>(out, initValue),
-    });
-
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
-
-    std::vector<float> golden(b * sq * d, initValue);
-    int count = 0;
-    for (int bidx = 0; bidx < b; ++bidx) {
-        int offset = bidx * sq * d;
-        count = offset;
-        for (int row = 0; row < actSeqsData[0]; row++){
-            for (int col = 0; col < actSeqsData[1]; col++){
-                if (count % d == 8) count +=2;
-                golden[offset + row * d + col] = count++;
-            }
-        }
-    }
-
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 }

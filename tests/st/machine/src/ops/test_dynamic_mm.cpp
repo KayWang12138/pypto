@@ -158,6 +158,7 @@ static void MNSplitFunc(
 template <typename inputDtype, typename outputDtype, bool transA, bool transB, bool isCNz>
 void TestDynMatmul(
     const std::vector<int64_t>& mmShape, bool isANz, bool isBNz, const std::vector<int64_t> &viewShape, string dataPath) {
+    SetInterpreterConfig();
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
 
@@ -173,18 +174,6 @@ void TestDynMatmul(
     Tensor tensor_b = transB ? constructMatmulTensor<inputDtype>({n, k}, "tensor_b", isBNz) :
                                constructMatmulTensor<inputDtype>({k, n}, "tensor_b", isBNz);
     Tensor tensor_c = constructMatmulTensor<outputDtype>({m, n}, "tensor_c", isCNz);
-
-    int64_t viewM = viewShape[0];
-    int64_t viewN = viewShape[1];
-    if (viewM > 0 && viewN > 0) {
-        MNSplitFunc<outputDtype, transA, transB, isCNz>(viewShape, tensor_a, tensor_b, tensor_c);
-    } else if (viewM > 0) {
-        MSplitFunc<outputDtype, transA, transB, isCNz>(viewShape, tensor_a, tensor_b, tensor_c);
-    } else if (viewN > 0) {
-        NSplitFunc<outputDtype, transA, transB, isCNz>(viewShape, tensor_a, tensor_b, tensor_c);
-    } else {
-        NonSplitFunc<outputDtype, transA, transB, isCNz>(tensor_a, tensor_b, tensor_c);
-    }
 
     std::vector<inputDtype> aData(m * k, 0);
     std::vector<inputDtype> bData(k * n, 0);
@@ -202,6 +191,22 @@ void TestDynMatmul(
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<outputDtype>(tensor_c, 0.0f),
     });
+
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<outputDtype>(tensor_c, golden),
+    });
+
+    int64_t viewM = viewShape[0];
+    int64_t viewN = viewShape[1];
+    if (viewM > 0 && viewN > 0) {
+        MNSplitFunc<outputDtype, transA, transB, isCNz>(viewShape, tensor_a, tensor_b, tensor_c);
+    } else if (viewM > 0) {
+        MSplitFunc<outputDtype, transA, transB, isCNz>(viewShape, tensor_a, tensor_b, tensor_c);
+    } else if (viewN > 0) {
+        NSplitFunc<outputDtype, transA, transB, isCNz>(viewShape, tensor_a, tensor_b, tensor_c);
+    } else {
+        NonSplitFunc<outputDtype, transA, transB, isCNz>(tensor_a, tensor_b, tensor_c);
+    }
 
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

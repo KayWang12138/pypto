@@ -26,6 +26,7 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class DynamicTransposeTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 TEST_F(DynamicTransposeTest, TestDynamicVnchwconv) {
+    SetInterpreterConfig();
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(64, 64);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
@@ -41,18 +42,6 @@ TEST_F(DynamicTransposeTest, TestDynamicVnchwconv) {
     Tensor actSeqs(DT_INT32, {b, 1}, "actual_seq");
     Tensor out(DT_FP32, outShape, "out");
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (sq))) {
-            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0});
-
-            Tensor q0 = View(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
-            auto tmp = Transpose(q0, {0, 1});
-            // 01转置后是不是应该为{batchid * d, 0}?
-            Assemble(tmp, {batchId * d, 0}, out);
-        }
-    }
-
     std::vector<int> actSeqsData(b, 100);
     std::vector<float> qData(b * sq * d, 0);
     std::vector<float> golden(b * sq * d, 0);
@@ -67,6 +56,22 @@ TEST_F(DynamicTransposeTest, TestDynamicVnchwconv) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(out, 0.001f),
     });
+
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out, golden),
+    });
+
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (sq))) {
+            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0});
+
+            Tensor q0 = View(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
+            auto tmp = Transpose(q0, {0, 1});
+            // 01转置后是不是应该为{batchid * d, 0}?
+            Assemble(tmp, {batchId * d, 0}, out);
+        }
+    }
 
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

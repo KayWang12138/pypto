@@ -45,6 +45,7 @@ option(ENABLE_TESTS_STEST_GOLDEN_PATH "Specific STest Golden Path"  OFF)
 option(ENABLE_TESTS_STEST_GOLDEN_PATH_CLEAN "Clean STest Golden"  OFF)
 option(ENABLE_TESTS_STEST_BINARY_CACHE "Enable STest Binary Cache" OFF)
 option(ENABLE_TESTS_STEST_DUMP_JSON "Enable STest Dump Json"  OFF)
+option(ENABLE_TESTS_STEST_INTERPRETER_CONFIG "Enable STest Interpreter Config"  OFF)
 
 # 公开编译开关(tools_build)
 option(ENABLE_ASAN "Enable AddressSanitizer" OFF)

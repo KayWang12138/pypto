@@ -67,6 +67,7 @@ template <typename T = npu::tile_fwk::float16,  typename wDtype = int8_t, bool i
 void TestDynamicMlaProlog(
     const TestShapeParams &params, const MlaTileConfig &tileConfig, std::string cacheMode = "PA_NZ") {
     config::SetHostConfig(npu::tile_fwk::KEY_ONLY_CODEGEN, true);
+    SetInterpreterConfig();
 
     int b = params.b;
     int s = params.s;
@@ -196,6 +197,17 @@ void TestDynamicMlaProlog(
         inputDataList.emplace_back(nullptr); // quantInputs.dequantScaleWUqQr
         inputDataList.emplace_back(nullptr); // quantInputs.smoothScalesCq
     }
+
+    ProgramData::GetInstance().AppendInputs({inputDataList});
+
+    ProgramData::GetInstance().AppendOutputs({outputDataList});
+
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<T>(outputQ, golden1),
+        RawTensorData::CreateTensor<T>(outputQRope, golden2),
+        RawTensorData::CreateTensor<T>(outputKvCache, golden3),
+        RawTensorData::CreateTensor<T>(outputKrCache, golden4),
+    });
 
     MlaProlog(dynamicX, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, dynamicSin, dynamicCos, dynamicCacheIndex,
         kvCache, krCache, quantInputs, tileConfig,

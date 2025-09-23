@@ -107,6 +107,7 @@ void TestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Tensor &bloc
 }
 
 TEST_F(DynamicBasicTest, TestDD) {
+    SetInterpreterConfig();
     int s = 32;
     int n = 8;
     Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
@@ -122,6 +123,8 @@ TEST_F(DynamicBasicTest, TestDD) {
     for (int i = 0; i < n; i++)
         tblData.push_back(i);
 
+    std::vector<float> golden(n * s * s, 128.0f);
+
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateConstantTensor<float>(t0, 1.0),
         RawTensorData::CreateConstantTensor<float>(t1, 2.0),
@@ -130,10 +133,12 @@ TEST_F(DynamicBasicTest, TestDD) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
     });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out, golden),
+    });
 
 #ifdef ENABLE_BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
-    std::vector<float> golden(n * s * s, 128.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 #endif
@@ -228,6 +233,7 @@ TEST_F(DynamicBasicTest, TestSlotId) {
 }
 
 TEST_F(DynamicBasicTest, DynamicRawShape) {
+    SetInterpreterConfig();
     int s = 32;
     Tensor t0(DT_FP32, {-1, s}, "t0"); // [32*8, 32]
     Tensor t1(DT_FP32, {s, s}, "t1");              // [32, 32]
@@ -245,6 +251,9 @@ TEST_F(DynamicBasicTest, DynamicRawShape) {
     int n = 8;
     Tensor arg0(DT_FP32, {n * s, s});
     Tensor out0(DT_FP32, {n * s, s});
+
+    std::vector<float> golden(n * s * s, 64.0f);
+
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateConstantTensor<float>(arg0, 1.0),
         RawTensorData::CreateConstantTensor<float>(t1, 2.0),
@@ -252,10 +261,12 @@ TEST_F(DynamicBasicTest, DynamicRawShape) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(out0, 0.0f),
     });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out0, golden),
+    });
 
 #ifdef ENABLE_BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
-    std::vector<float> golden(n * s * s, 64.0f);
     auto outs = ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 #endif
@@ -337,11 +348,13 @@ TEST_F(DynamicBasicTest, TestInplace) {
 }
 
 TEST_F(DynamicBasicTest, TestStaticUnderDynDev) {
+    SetInterpreterConfig();
     int s = 32;
     int n = 8;
     Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
     Tensor t1(DT_FP32, {n * s, s}, "t1");  // [32, 32]
     Tensor out(DT_FP32, {n * s, s}, "out");
+    std::vector<float> golden(n * s, 1.0f);
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {t0, t1}, {out}) {
         FunctionConfig funConfig2(FunctionType::STATIC);
@@ -358,22 +371,26 @@ TEST_F(DynamicBasicTest, TestStaticUnderDynDev) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
     });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out, golden),
+    });
 
 #ifdef ENABLE_BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
-    std::vector<float> golden(n * s, 1.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 #endif
 }
 
 TEST_F(DynamicBasicTest, TestStaticLoop) {
+    SetInterpreterConfig();
     int s = 32;
     int n = 8;
     Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
     Tensor t1(DT_FP32, {n * s, s}, "t1");  // [32, 32]
     Tensor t2(DT_FP32, {s, s}, "t2");  // [32, 32]
     Tensor out(DT_FP32, {n * s, s}, "out");
+    std::vector<float> outGolden(n * s, 4.0f);
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {t0, t1, t2}, {out}) {
         Tensor s0Out;
@@ -397,16 +414,19 @@ TEST_F(DynamicBasicTest, TestStaticLoop) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
     });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out, outGolden),
+    });
 
 #ifdef ENABLE_BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
-    std::vector<float> outGolden(n * s, 4.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(outGolden, (float *)outs->data(), 0.001f));
 #endif
 }
 
 TEST_F(DynamicBasicTest, TestInnerLoopOrder) {
+    SetInterpreterConfig();
     TileShape::Current().SetVecTile(512, 512);
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
 
@@ -459,6 +479,9 @@ TEST_F(DynamicBasicTest, TestInnerLoopOrder) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(output, 0.0f),
     });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(output, golden),
+    });
 
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -507,6 +530,7 @@ TEST_F(DynamicBasicTest, TestDeviceMachineOnModel) {
 }
 
 TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard) {
+    SetInterpreterConfig();
     int s = 32;
     int n = 8;
     Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
@@ -522,6 +546,8 @@ TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard) {
     for (int i = 0; i < n; i++)
         tblData.push_back(i);
 
+    std::vector<float> golden(n * s * s, 128.0f);
+
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateConstantTensor<float>(t0, 1.0),
         RawTensorData::CreateConstantTensor<float>(t1, 2.0),
@@ -530,10 +556,12 @@ TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
     });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out, golden),
+    });
 
 #ifdef ENABLE_BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {true, 15, 4});
-    std::vector<float> golden(n * s * s, 128.0f);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 #endif
@@ -575,6 +603,7 @@ TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard1) {
 namespace DynamicTest {
 
 TEST_F(DynamicBasicTest, TestLoopIfWithRank456) {
+    SetInterpreterConfig();
     TileShape::Current().SetVecTile(32, 32);   //设置Tileshape大小为32*32
 
     int s = 32;
@@ -582,6 +611,7 @@ TEST_F(DynamicBasicTest, TestLoopIfWithRank456) {
     Tensor t0(DT_FP32, {n * s, s}, "t0");
     Tensor r0(DT_FP32, {s, s}, "r0");
     Tensor out(DT_FP32, {s, s}, "out");
+    std::vector<float> golden(s * s, 12.0f);
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateConstantTensor<float>(t0, 1.0),
@@ -590,8 +620,9 @@ TEST_F(DynamicBasicTest, TestLoopIfWithRank456) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
     });
-
-    std::vector<float> golden(s * s, 12.0f);
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out, golden),
+    });
 
     // Direct implementation of the function logic within the test
     FunctionConfig funConfig;
@@ -669,6 +700,7 @@ TEST_F(DynamicBasicTest, TestTensorExtract) {
 }
 
 TEST_F(DynamicBasicTest, TestGetTensorData) {
+    SetInterpreterConfig();
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
     TileShape::Current().SetCubeTile({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
@@ -696,6 +728,9 @@ TEST_F(DynamicBasicTest, TestGetTensorData) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(output, 0.0f),
     });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(output, outputGolden),
+    });
 
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {inputA, inputC}, {output}) {
@@ -718,6 +753,7 @@ TEST_F(DynamicBasicTest, TestGetTensorData) {
 }
 
 TEST_F(DynamicBasicTest, TestGetTensorDataCrossFunction) {
+    SetInterpreterConfig();
     ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
@@ -760,6 +796,10 @@ TEST_F(DynamicBasicTest, TestGetTensorDataCrossFunction) {
         RawTensorData::CreateConstantTensor<float>(output, 0.0f),
         RawTensorData::CreateConstantTensor<int32_t>(outsum, 0),
     });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(output, outputGolden),
+        RawTensorData::CreateTensor<int32_t>(outsum, outsumGolden),
+    });
 
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {inputA, inputC}, {output, outsum}) {
@@ -798,6 +838,7 @@ TEST_F(DynamicBasicTest, TestGetTensorDataCrossFunction) {
 }
 
 TEST_F(DynamicBasicTest, TestGetTensorDataUnalign) {
+    SetInterpreterConfig();
     ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     int tiling = 32;
@@ -847,6 +888,9 @@ TEST_F(DynamicBasicTest, TestGetTensorDataUnalign) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(output, 0.0f),
     });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(output, outputGolden),
+    });
 
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {inputA, inputC1, inputC2}, {output}) {
@@ -876,6 +920,7 @@ TEST_F(DynamicBasicTest, TestGetTensorDataUnalign) {
 }
 
 TEST_F(DynamicBasicTest, TestGetTensorDataExpr) {
+    SetInterpreterConfig();
     int tiling = 32;
     ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
     TileShape::Current().SetVecTile(tiling, tiling);
@@ -905,6 +950,9 @@ TEST_F(DynamicBasicTest, TestGetTensorDataExpr) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(output, 0.0f),
     });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(output, outputGolden),
+    });
 
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {inputA, inputC}, {output}) {
@@ -930,6 +978,7 @@ TEST_F(DynamicBasicTest, TestGetTensorDataExpr) {
 
 
 TEST_F(DynamicBasicTest, TestVectorDup) {
+    SetInterpreterConfig();
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
     TileShape::Current().SetCubeTile({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
@@ -942,6 +991,9 @@ TEST_F(DynamicBasicTest, TestVectorDup) {
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<int32_t>(output, 0),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<int32_t>(output, outputGolden),
     });
 
     FunctionConfig funConfig;
@@ -961,6 +1013,7 @@ TEST_F(DynamicBasicTest, TestVectorDup) {
 }
 
 TEST_F(DynamicBasicTest, TestTensorInsert) {
+    SetInterpreterConfig();
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
     TileShape::Current().SetCubeTile({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
@@ -973,6 +1026,9 @@ TEST_F(DynamicBasicTest, TestTensorInsert) {
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<int32_t>(output, 0),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<int32_t>(output, outputGolden),
     });
 
     FunctionConfig funConfig;
@@ -991,6 +1047,7 @@ TEST_F(DynamicBasicTest, TestTensorInsert) {
 }
 
 TEST_F(DynamicBasicTest, TestSetTensorData) {
+    SetInterpreterConfig();
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
     TileShape::Current().SetCubeTile({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
@@ -1003,6 +1060,9 @@ TEST_F(DynamicBasicTest, TestSetTensorData) {
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<int32_t>(output, 0),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<int32_t>(output, outputGolden),
     });
 
     FunctionConfig funConfig;
@@ -1020,6 +1080,7 @@ TEST_F(DynamicBasicTest, TestSetTensorData) {
 }
 
 TEST_F(DynamicBasicTest, TestSetTensorDataExpr) {
+    SetInterpreterConfig();
     ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
 
     int tiling = 32;
@@ -1036,6 +1097,9 @@ TEST_F(DynamicBasicTest, TestSetTensorDataExpr) {
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<int32_t>(output, 0),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<int32_t>(output, outputGolden),
     });
 
     FunctionConfig funConfig;
@@ -1057,6 +1121,7 @@ TEST_F(DynamicBasicTest, TestSetTensorDataExpr) {
 }
 
 TEST_F(DynamicBasicTest, TestGetTensorDataAndDup) {
+    SetInterpreterConfig();
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling, tiling);
 
@@ -1100,6 +1165,7 @@ TEST_F(DynamicBasicTest, TestGetTensorDataAndDup) {
 }
 
 TEST_F(DynamicBasicTest, TestGetAndSetTensorDataExpr) {
+    SetInterpreterConfig();
     ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_EXPRESSION_FUSION, true);
 
     int tiling = 32;

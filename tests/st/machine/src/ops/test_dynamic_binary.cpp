@@ -24,6 +24,7 @@ using namespace npu::tile_fwk::dynamic;
 class DynamicBinTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 TEST_F(DynamicBinTest, TestDynamicAddUnalign) {
+    SetInterpreterConfig();
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(64, 64);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
@@ -38,17 +39,6 @@ TEST_F(DynamicBinTest, TestDynamicAddUnalign) {
     Tensor input2(DT_FP32, inputShape, "intput2");
     Tensor curSeq(DT_INT32, {b, 1}, "curSeq");
     Tensor out(DT_FP32, outShape, "out");
-
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {input1, input2, curSeq}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
-            auto seq = GetInputData(curSeq, {batchId, 0});
-            Tensor intput11 = View(input1, {sq, d}, {seq, d}, {batchId, 0});
-            Tensor intput22 = View(input2, {sq, d}, {seq, d}, {batchId, 0});
-            auto tmp = Add(intput11, intput22);
-            Assemble(tmp, {batchId * sq, 0}, out);
-        }
-    }
 
     std::vector<int> actSeqsData(b, 100);
     std::vector<float> golden(b * sq * d, 0.001f);
@@ -67,6 +57,21 @@ TEST_F(DynamicBinTest, TestDynamicAddUnalign) {
         RawTensorData::CreateConstantTensor<float>(out, 0.001f),
     });
 
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out, golden),
+    });
+
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {input1, input2, curSeq}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
+            auto seq = GetInputData(curSeq, {batchId, 0});
+            Tensor intput11 = View(input1, {sq, d}, {seq, d}, {batchId, 0});
+            Tensor intput22 = View(input2, {sq, d}, {seq, d}, {batchId, 0});
+            auto tmp = Add(intput11, intput22);
+            Assemble(tmp, {batchId * sq, 0}, out);
+        }
+    }
+
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
@@ -74,6 +79,7 @@ TEST_F(DynamicBinTest, TestDynamicAddUnalign) {
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 }
 TEST_F(DynamicBinTest, testDynMulsUnalign) {
+    SetInterpreterConfig();
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(64, 64);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
@@ -90,6 +96,29 @@ TEST_F(DynamicBinTest, testDynMulsUnalign) {
     Tensor actSeqs(DT_INT32, {b, 1}, "actual_seq");
     Tensor out(DT_FP32, outShape, "out");
 
+    std::vector<int> actSeqsData(b, 100);
+    std::vector<float> golden(b * sq * d, 0.001f);
+    for (int bidx = 0; bidx < b; ++bidx) {
+        for (int seq = 0; seq < actSeqsData[bidx]; ++seq) {
+            for (int dim = 0; dim < d; ++dim) {
+                int idx = bidx * sq * d + seq * d + dim;
+                golden[idx] = 1.0f;
+            }
+        }
+    }
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(q, 1.0),
+        RawTensorData::CreateTensor<int>(actSeqs, actSeqsData),
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, 0.001f),
+    });
+
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out, golden),
+    });
+
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (sq))) {
@@ -101,34 +130,15 @@ TEST_F(DynamicBinTest, testDynMulsUnalign) {
             Assemble(tmp, {batchId * sq, 0}, out);
         }
     }
-    std::vector<int> actSeqsData(b, 100);
-
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateConstantTensor<float>(q, 1.0),
-        RawTensorData::CreateTensor<int>(actSeqs, actSeqsData),
-    });
-
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<float>(out, 0.001f),
-    });
 
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
-
-    std::vector<float> golden(b * sq * d, 0.001f);
-    for (int bidx = 0; bidx < b; ++bidx) {
-        for (int seq = 0; seq < actSeqsData[bidx]; ++seq) {
-            for (int dim = 0; dim < d; ++dim) {
-                int idx = bidx * sq * d + seq * d + dim;
-                golden[idx] = 1.0f;
-            }
-        }
-    }
 
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 }
 
 TEST_F(DynamicBinTest, testScalarDivsUnalign) {
+    SetInterpreterConfig();
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(64, 64);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
@@ -145,17 +155,6 @@ TEST_F(DynamicBinTest, testScalarDivsUnalign) {
     Tensor actSeqs(DT_INT32, {b, 1}, "actual_seq");
     Tensor out(DT_FP32, outShape, "out");
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (sq))) {
-            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0});
-            Element value(DataType::DT_FP32, 1.0);
-            Tensor q0 = View(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
-            auto tmp = ScalarDivS(q0, value, true);
-
-            Assemble(tmp, {batchId * sq, 0}, out);
-        }
-    }
     // load data
     std::vector<float> qData(b * sq * d, 0);
     std::vector<int> actSeqsData(b);
@@ -172,6 +171,22 @@ TEST_F(DynamicBinTest, testScalarDivsUnalign) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(out, 0.001f),
     });
+
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out, golden),
+    });
+
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (sq))) {
+            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0});
+            Element value(DataType::DT_FP32, 1.0);
+            Tensor q0 = View(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
+            auto tmp = ScalarDivS(q0, value, true);
+
+            Assemble(tmp, {batchId * sq, 0}, out);
+        }
+    }
 
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 

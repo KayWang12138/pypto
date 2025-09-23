@@ -43,6 +43,7 @@ public:
 namespace {
 
 TEST_F(DynamicBindingTest, TestDefaultCompute) {
+    SetInterpreterConfig();
     TileShape::Current().SetVecTile(tiling32, tiling32);
     TileShape::Current().SetCubeTile({tiling32, tiling32}, {tiling32, tiling32}, {tiling32, tiling32});
 
@@ -70,6 +71,9 @@ TEST_F(DynamicBindingTest, TestDefaultCompute) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateTensor<int32_t>(output, outputData),
     });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<int32_t>(output, outputGolden),
+    });
 
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {inputA, inputB}, {output}) {
@@ -89,6 +93,7 @@ TEST_F(DynamicBindingTest, TestDefaultCompute) {
 }
 
 TEST_F(DynamicBindingTest, TestDeviceRunDataFromHost) {
+    SetInterpreterConfig();
     int n = 2 * tiling32;
 
     std::vector<int32_t> inputData(n * n, 0);
@@ -107,6 +112,9 @@ TEST_F(DynamicBindingTest, TestDeviceRunDataFromHost) {
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateTensor<int32_t>(output, outputData),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<int32_t>(output, outputGolden),
     });
 
     FunctionConfig funConfig;
@@ -129,6 +137,7 @@ TEST_F(DynamicBindingTest, TestDeviceRunDataFromHost) {
 }
 
 TEST_F(DynamicBindingTest, TestDeviceCompute) {
+    SetInterpreterConfig();
     auto agent = RuntimeAgent::GetAgent();
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
@@ -163,6 +172,17 @@ TEST_F(DynamicBindingTest, TestDeviceCompute) {
     Tensor inputA(DT_INT32, {n, m}, "inputA");
     Tensor inputB(DT_INT32, {n, m}, "inputB");
     Tensor output(DT_INT32, {n, m}, "output");
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<int32_t>(inputA, inputAData),
+        RawTensorData::CreateTensor<int32_t>(inputB, inputBData),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateTensor<int32_t>(output, outputData),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<int32_t>(output, outputGolden),
+    });
 
     FUNCTION("main", funConfig, {inputA, inputB}, {output}) {
         LOOP("Step0", FunctionType::DYNAMIC_LOOP, i, LoopRange(m / tiling32)) {

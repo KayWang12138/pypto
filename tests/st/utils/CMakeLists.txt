@@ -32,6 +32,7 @@ target_include_directories(${_Target}
 target_compile_definitions(${_Target}
         INTERFACE
             $<$<BOOL:${ENABLE_BUILD_WITH_CANN}>:ENABLE_BUILD_WITH_CANN>
+            $<$<BOOL:${ENABLE_TESTS_STEST_INTERPRETER_CONFIG}>:ENABLE_TESTS_STEST_INTERPRETER_CONFIG>
 )
 target_link_directories(${_Target}
         INTERFACE

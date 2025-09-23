@@ -39,6 +39,7 @@ constexpr int NUM_1024 = 1024;
 
 template <typename T = npu::tile_fwk::float16>
 void TestWinAtten(WinAttenTileShapeConfig& tileConfig) {
+    SetInterpreterConfig();
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
 
     DataType dType = DT_FP32;
@@ -119,6 +120,9 @@ void TestWinAtten(WinAttenTileShapeConfig& tileConfig) {
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(attentionOut, 0),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(attentionOut, golden),
     });
 
     WinAttention(qNope, vNopeCache, qRope, kRopeCache, nQ, nKV, blockTable, actSeqs, windowSize,

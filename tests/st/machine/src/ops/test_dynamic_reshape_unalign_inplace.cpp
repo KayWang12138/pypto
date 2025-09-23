@@ -30,7 +30,7 @@ public:
     }
 };
 
-void genDateAndExe(Tensor in, Tensor out, int opCount){
+std::vector<float> genDateAndExe(Tensor in, Tensor out, int opCount){
     std::vector<int64_t> shape = in.GetShape();
     size_t elementSum = 1;
     for (size_t i = 0; i < shape.size(); i++){
@@ -42,6 +42,11 @@ void genDateAndExe(Tensor in, Tensor out, int opCount){
         inputValueData[i] = static_cast<float>(i);
     }
 
+    std::vector<float> golden(elementSum, 0);
+    for (size_t i = 0; i < elementSum; i++){
+        golden[i] = static_cast<float>(i) + 0.01f * opCount;
+    }
+
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<float>(in, inputValueData),
     });
@@ -49,18 +54,16 @@ void genDateAndExe(Tensor in, Tensor out, int opCount){
         RawTensorData::CreateConstantTensor<float>(out, 0.001f),
     });
 
-    std::vector<float> golden(elementSum, 0);
-    for (size_t i = 0; i < elementSum; i++){
-        golden[i] = static_cast<float>(i) + 0.01f * opCount;
-    }
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out, golden),
+    });
 
-    // excute
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(in->GetDataSize()));
-    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    return golden;
+
 }
 
 TEST_F(DynamicReshapeUnalignImplaceTest, merge_two_dynamic_dim) {
+    SetInterpreterConfig();
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     int b = -1;
     int sq = -1;
@@ -70,6 +73,12 @@ TEST_F(DynamicReshapeUnalignImplaceTest, merge_two_dynamic_dim) {
 
     Tensor q(DT_FP32, qShape, "q");        // (-1(2), -1(3), 64)
     Tensor out(DT_FP32, {bSq, d}, "out");  // (-1(2*3), 64)
+
+    b = 2;
+    sq = 3;
+    Tensor q_real(DT_FP32, {b, sq, d});
+    Tensor out_real(DT_FP32, {b * sq, d});
+    std::vector<float> golden = genDateAndExe(q_real, out_real, 1);
 
     FunctionConfig funConfig;
     FUNCTION("MAIN_FUNC", funConfig, {q}, {out}) {
@@ -87,14 +96,14 @@ TEST_F(DynamicReshapeUnalignImplaceTest, merge_two_dynamic_dim) {
             }
         }
     }
-    b = 2;
-    sq = 3;
-    Tensor q_real(DT_FP32, {b, sq, d});
-    Tensor out_real(DT_FP32, {b * sq, d});
-    genDateAndExe(q_real, out_real, 1);
+    
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(q_real->GetDataSize()));
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 }
 
 TEST_F(DynamicReshapeUnalignImplaceTest, test_exchange_dim) {
+    SetInterpreterConfig();
     TileShape::Current().SetVecTile(1, 16, 16);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
@@ -106,6 +115,11 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_exchange_dim) {
 
     Tensor q(DT_FP32, qShape3Dim, "q");
     Tensor out(DT_FP32, qShape2Dim, "out");
+
+    d = 24;
+    Tensor q_real(DT_FP32, {sq, d, m});
+    Tensor out_real(DT_FP32, {d, sq, m});
+    std::vector<float> golden = genDateAndExe(q_real, out_real, 1);
 
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {q}, {out}) {
@@ -123,13 +137,14 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_exchange_dim) {
             Assemble(tmp, {loopIdx, 0, 0}, out);
         }
     }
-    d = 24;
-    Tensor q_real(DT_FP32, {sq, d, m});
-    Tensor out_real(DT_FP32, {d, sq, m});
-    genDateAndExe(q_real, out_real, 1);
+    
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(q_real->GetDataSize()));
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 }
 
 TEST_F(DynamicReshapeUnalignImplaceTest, test_reshape_special) {
+    SetInterpreterConfig();
     TileShape::Current().SetVecTile(1, 16, 16);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
@@ -141,6 +156,11 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_reshape_special) {
 
     Tensor q(DT_FP32, qShape3Dim, "q");
     Tensor out(DT_FP32, qShape2Dim, "out");
+
+    d = 2;
+    Tensor q_real(DT_FP32, {sq, d, m});
+    Tensor out_real(DT_FP32, {4, 4, m});
+    std::vector<float> golden = genDateAndExe(q_real, out_real, 1);
 
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {q}, {out}) {
@@ -157,13 +177,14 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_reshape_special) {
             Assemble(tmp, {loopIdx, 0, 0}, out);
         }
     }
-    d = 2;
-    Tensor q_real(DT_FP32, {sq, d, m});
-    Tensor out_real(DT_FP32, {4, 4, m});
-    genDateAndExe(q_real, out_real, 1);
+    
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(q_real->GetDataSize()));
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 }
 
 TEST_F(DynamicReshapeUnalignImplaceTest, test_op_reshape_op) {
+    SetInterpreterConfig();
     TileShape::Current().SetVecTile(1, 4, 32);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetPassConfig("PVC2_OOO", "SplitReshape", "DISABLE_PASS", true);
@@ -176,6 +197,11 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_op_reshape_op) {
     std::vector<int64_t> qShape2Dim = {bSq, d};  //{-1(36), 8}
     Tensor q(DT_FP32, qShape3Dim, "q");
     Tensor out(DT_FP32, qShape2Dim, "out");
+
+    sq = 18;
+    Tensor q_real(DT_FP32, {b, sq, d});
+    Tensor out_real(DT_FP32, {b * sq, d});
+    std::vector<float> golden = genDateAndExe(q_real, out_real, 2);
 
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {q}, {out}) {   
@@ -201,10 +227,10 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_op_reshape_op) {
             Assemble(tmp, {loopIdx * offSet, 0}, out);
         }
     }
-    sq = 18;
-    Tensor q_real(DT_FP32, {b, sq, d});
-    Tensor out_real(DT_FP32, {b * sq, d});
-    genDateAndExe(q_real, out_real, 2);
+    
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(q_real->GetDataSize()));
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 }
 
 TEST_F(DynamicReshapeUnalignImplaceTest, test_src_op_dst_op) {

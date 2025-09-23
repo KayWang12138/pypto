@@ -48,6 +48,7 @@ static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileN
 template <typename T = npu::tile_fwk::float16, bool nz = true, typename wUvDType = int8_t, bool isSmoothWUv = false,
     typename wODType = int8_t, bool isSmoothWo = false>
 void TestAttentionPost(const TestPostParams &params, const PostTileConfig &tileConfig, float precision) {
+    SetInterpreterConfig();
     config::SetHostConfig(npu::tile_fwk::KEY_ONLY_CODEGEN, true);
     int b = params.b;
     int n = params.n;
@@ -96,6 +97,14 @@ void TestAttentionPost(const TestPostParams &params, const PostTileConfig &tileC
     CreateQuantTensorAndData(wOQuant);
     inputDataList.emplace_back(wOQuant.scale.dataPtr);
     inputDataList.emplace_back(wOQuant.smooth.dataPtr);
+    
+    ProgramData::GetInstance().AppendInputs({inputDataList});
+
+    ProgramData::GetInstance().AppendOutputs({outputDataList});
+
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<T>(postOut, goldenDate),
+    });
 
     PostTensors postTensors{
         wUv, wo, wUvQuant.scale.tensor, wUvQuant.smooth.tensor, wOQuant.scale.tensor, wOQuant.smooth.tensor};

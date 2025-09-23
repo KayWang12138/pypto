@@ -36,6 +36,7 @@ struct SaConfig {
 
 template <typename T = npu::tile_fwk::float16>
 void TestSa(SaTileShapeConfig& tileConfig, SaConfig config) {
+    SetInterpreterConfig();
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
 
     DataType dType = DT_FP32;
@@ -80,8 +81,6 @@ void TestSa(SaTileShapeConfig& tileConfig, SaConfig config) {
     Tensor vSlc(dType, vSlcShape, "vSlc", kvFormat);
     Tensor saOut(DT_FP32, saOutShape, "saOut");
 
-    SlcAttn(qNope, qRope, kSlc, vSlc, actSeqs, nq, nkv, softmaxScale, saOut, tileConfig);
-
     // 读数据
     int qNopeSize = std::accumulate(qNopeShape.begin(), qNopeShape.end(), 1, std::multiplies<>());
     int qRopeSize = std::accumulate(qRopeShape.begin(), qRopeShape.end(), 1, std::multiplies<>());
@@ -118,6 +117,11 @@ void TestSa(SaTileShapeConfig& tileConfig, SaConfig config) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(saOut, 0),
     });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(saOut, golden),
+    });
+
+    SlcAttn(qNope, qRope, kSlc, vSlc, actSeqs, nq, nkv, softmaxScale, saOut, tileConfig);
 
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);

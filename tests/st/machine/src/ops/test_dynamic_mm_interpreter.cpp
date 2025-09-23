@@ -161,13 +161,7 @@ void TestDynMatmul(
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
 
-    config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
-    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
-    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true);
-    config::SetPlatformConfig(KEY_VERIFY_PASS, true);
-    config::SetPlatformConfig(KEY_VERIFY_PASS_CHECK_PRECISION, true);
-    config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, true);
-    config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_CHECK_PRECISION, true);
+    SetInterpreterConfig();
 
     if (mmShape.size() != MM_SHAPE_SIZE || viewShape.size() != MM_VIEW_SHAPE_SIZE) {
         return;

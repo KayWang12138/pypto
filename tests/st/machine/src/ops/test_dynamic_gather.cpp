@@ -26,6 +26,7 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class DynamicGatherTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 TEST_F(DynamicGatherTest, TestDynamicGatherDim2) {
+    SetInterpreterConfig();
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(64, 64);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
@@ -42,18 +43,6 @@ TEST_F(DynamicGatherTest, TestDynamicGatherDim2) {
     Tensor indices(DT_INT32, indicesShape, "indices");
     Tensor actSeqs(DT_INT32, {b, 1}, "actual_seq");
     Tensor out(DT_FP32, outShape, "out");
-
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {q, indices, actSeqs}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
-            int axis = 0;
-            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0});
-
-            Tensor indices0 = View(indices, {sq}, {curSeq}, {batchId * sq});
-            auto tmp = Gather(q, indices0, axis);
-            Assemble(tmp, {batchId * sq, 0}, out);
-        }
-    }
 
     std::vector<int> actSeqsData(b, 100);
     std::vector<float> qData(s1 * d, 0);
@@ -73,6 +62,22 @@ TEST_F(DynamicGatherTest, TestDynamicGatherDim2) {
         RawTensorData::CreateConstantTensor<float>(out, 0.001f),
     });
 
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out, golden),
+    });
+
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {q, indices, actSeqs}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
+            int axis = 0;
+            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0});
+
+            Tensor indices0 = View(indices, {sq}, {curSeq}, {batchId * sq});
+            auto tmp = Gather(q, indices0, axis);
+            Assemble(tmp, {batchId * sq, 0}, out);
+        }
+    }
+
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
@@ -81,6 +86,7 @@ TEST_F(DynamicGatherTest, TestDynamicGatherDim2) {
 }
 
 TEST_F(DynamicGatherTest, TestDynamicGatherDim3) {
+    SetInterpreterConfig();
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(1, 1, 64);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
@@ -99,18 +105,6 @@ TEST_F(DynamicGatherTest, TestDynamicGatherDim3) {
     Tensor actSeqs(DT_INT32, {b, 1}, "actual_seq");
     Tensor out(DT_FP32, outShape, "out");
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {q, indices, actSeqs}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
-            int axis = 0;
-            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0});
-
-            Tensor indices0 = View(indices, {sq, s2}, {curSeq, s2}, {batchId * sq, 0});
-            auto tmp = Gather(q, indices0, axis);
-            Assemble(tmp, {batchId * sq, 0, 0}, out);
-        }
-    }
-
     std::vector<int> actSeqsData(b, 30);
     std::vector<float> qData(s1 * d, 0);
     std::vector<float> golden(b * sq * s2 * d, 0);
@@ -128,6 +122,22 @@ TEST_F(DynamicGatherTest, TestDynamicGatherDim3) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(out, 0.001f),
     });
+
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out, golden),
+    });
+
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {q, indices, actSeqs}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
+            int axis = 0;
+            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0});
+
+            Tensor indices0 = View(indices, {sq, s2}, {curSeq, s2}, {batchId * sq, 0});
+            auto tmp = Gather(q, indices0, axis);
+            Assemble(tmp, {batchId * sq, 0, 0}, out);
+        }
+    }
 
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

@@ -98,6 +98,7 @@ class BuildCtrl:
         self.calendar = args.calendar
         self.pvmodel = args.pvmodel
         self.replay_file_path = args.replay_file_path
+        self.tests_interpreter_config: bool = args.enable_interpreter_config
 
     def __str__(self):
 
@@ -136,6 +137,7 @@ class BuildCtrl:
         desc += f"\n\tSource  Root Dir         : {self.src_root}"
         desc += f"\n\tBuild   Root Dir         : {self.build_root}"
         desc += f"\n\tInstall Root Dir         : {self.install_root}"
+        desc += f"\n\tTests Interpreter        : {self.tests_interpreter_config}"
         return desc
 
     @classmethod
@@ -213,6 +215,8 @@ class BuildCtrl:
                             help="Enable calendar mode.")
         parser.add_argument("-pv", "--pvmodel", action="store_true", default=False,
                             help="Enable PVModel mode.")
+        parser.add_argument("--enable_interpreter_config", action="store_true", default=False,
+                            help="enable STest Interpreter Config")                    
 
     @classmethod
     def _add_argument_build_tools(cls, parser):
@@ -481,6 +485,8 @@ class BuildCtrl:
         # STest, Distributed
         cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_DISTRIBUTED", ctr=self.stest_distributed_enable,
                              tv=f"{self.stest_distributed_cases_filter}")
+        # STest Interpreter Config
+        cmd += self._gen_cmd(opt="ENABLE_TESTS_STEST_INTERPRETER_CONFIG", ctr=self.tests_interpreter_config)
         return cmd
 
     def _configure_tools_build(self) -> str:

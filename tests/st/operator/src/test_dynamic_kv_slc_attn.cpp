@@ -46,6 +46,7 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::strin
 
 template <typename T = npu::tile_fwk::float16>
 void TestKvSlcAttn(const NSASimpleParams &params, SATileShapeConfig& saTileConfig) {
+    SetInterpreterConfig();
     SetKvSAPreConfig();
 
     int b = params.b;
@@ -129,6 +130,20 @@ void TestKvSlcAttn(const NSASimpleParams &params, SATileShapeConfig& saTileConfi
     std::vector<T> kSlcOutGolden = getGoldenVec<T>(kSlcShape, "/kv_slc_out.bin");
     std::vector<T> vSlcOutGolden = getGoldenVec<T>(vSlcShape, "/kr_slc_out.bin");
     std::vector<float> attenOutGolden = getGoldenVec<float>(shape_selAtten, "/slc_attn_out.bin");
+
+    ProgramData::GetInstance().AppendInputs({
+        topkIndicesData, kvNopeCacheData, kRopeCacheData, kvCacheActSeqData,
+        blockTableData, qNopeData, qRopeData,
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        attenOutZeroData,
+    });
+
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(attenOut, attenOutGolden),
+    });
+
     // 4. 计算接口
     SelectedAttention(topkIndices, kvNopeCache, kRopeCache, kvCacheActSeq, blockTable,
         qNope, qRope, attenOut,

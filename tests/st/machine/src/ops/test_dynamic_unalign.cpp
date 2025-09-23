@@ -76,6 +76,7 @@ TEST_F(DynamicUnalignTest, TestTailBlock) {
 }
 
 TEST_F(DynamicUnalignTest, test_mm_unalign) {
+    SetInterpreterConfig();
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 1;
@@ -104,30 +105,6 @@ TEST_F(DynamicUnalignTest, test_mm_unalign) {
     Tensor out(DT_FP32, outShape, "out");
 
     auto dtype = qNope->Datatype();
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {qRope, qNope, kRope, kNope, actSeqs}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(qRope, 0) / (nq * s1))) {
-            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId});
-
-            Tensor qr = View(qRope, {nq * s1, dR}, {nq * s1, dR}, {batchId * nq * s1, 0});
-            Tensor qn = View(qNope, {nq * s1, dN}, {nq * s1, dN}, {batchId * nq * s1, 0});
-
-            Tensor kr = View(kRope, {nk * s2, dR}, {nk * curSeq, dR}, {batchId * nk * s2, 0});
-            Tensor kn = View(kNope, {nk * s2, dN}, {nk * curSeq, dN}, {batchId * nk * s2, 0});
-
-            Tensor qi(dtype, {nq * s1, dN + dR}, "qi");
-            Assemble(qn, {0, 0}, qi);
-            Assemble(qr, {0, dN}, qi);
-
-            Tensor kj(dtype, {nk * s2, dN + dR}, "kj");
-            Assemble(kn, {0, 0}, kj);
-            Assemble(kr, {0, dN}, kj);
-
-            auto tmp = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj);
-
-            Assemble(tmp, {batchId * nq * s1, 0}, out);
-        }
-    }
 
     // read data
     std::vector<npu::tile_fwk::bfloat16> qRopeData(b * nq * s1 * dR, 0);
@@ -161,6 +138,34 @@ TEST_F(DynamicUnalignTest, test_mm_unalign) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
     });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out, golden),
+    });
+
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {qRope, qNope, kRope, kNope, actSeqs}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(qRope, 0) / (nq * s1))) {
+            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId});
+
+            Tensor qr = View(qRope, {nq * s1, dR}, {nq * s1, dR}, {batchId * nq * s1, 0});
+            Tensor qn = View(qNope, {nq * s1, dN}, {nq * s1, dN}, {batchId * nq * s1, 0});
+
+            Tensor kr = View(kRope, {nk * s2, dR}, {nk * curSeq, dR}, {batchId * nk * s2, 0});
+            Tensor kn = View(kNope, {nk * s2, dN}, {nk * curSeq, dN}, {batchId * nk * s2, 0});
+
+            Tensor qi(dtype, {nq * s1, dN + dR}, "qi");
+            Assemble(qn, {0, 0}, qi);
+            Assemble(qr, {0, dN}, qi);
+
+            Tensor kj(dtype, {nk * s2, dN + dR}, "kj");
+            Assemble(kn, {0, 0}, kj);
+            Assemble(kr, {0, dN}, kj);
+
+            auto tmp = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj);
+
+            Assemble(tmp, {batchId * nq * s1, 0}, out);
+        }
+    }
 
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -170,6 +175,7 @@ TEST_F(DynamicUnalignTest, test_mm_unalign) {
 }
 
 TEST_F(DynamicUnalignTest, test_mm2_unalign) {
+    SetInterpreterConfig();
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {64, 64});
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
@@ -189,20 +195,6 @@ TEST_F(DynamicUnalignTest, test_mm2_unalign) {
     Tensor v(DT_BF16, kShape, "v");
     Tensor actSeqs{DT_INT32, {b}, "actSeqs"};
     Tensor out(DT_FP32, outShape, "out");
-
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {qk, v, actSeqs}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(qk, 0) / (nq * s1))) {
-            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId});
-
-            Tensor qk0 = View(qk, {nq * s1, nk * s2}, {nq * s1, nk * curSeq}, {batchId * nq * s1, 0});
-            Tensor v0 = View(v, {nk * s2, d}, {nk * curSeq, d}, {batchId * nk * s2, 0});
-            auto tmp = Matrix::Matmul<false, false>(DataType::DT_FP32, qk0, v0);
-
-            Assemble(tmp, {batchId * nq * s1, 0}, out);
-            // out = Matrix::Matmul<false, false>(DataType::DT_FP32, qk0, v0);
-        }
-    }
 
     // read data
     std::vector<npu::tile_fwk::bfloat16> qkData(b * nq * s1 * nk * s2, 0);
@@ -224,6 +216,23 @@ TEST_F(DynamicUnalignTest, test_mm2_unalign) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
     });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out, golden),
+    });
+
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {qk, v, actSeqs}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(qk, 0) / (nq * s1))) {
+            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId});
+
+            Tensor qk0 = View(qk, {nq * s1, nk * s2}, {nq * s1, nk * curSeq}, {batchId * nq * s1, 0});
+            Tensor v0 = View(v, {nk * s2, d}, {nk * curSeq, d}, {batchId * nk * s2, 0});
+            auto tmp = Matrix::Matmul<false, false>(DataType::DT_FP32, qk0, v0);
+
+            Assemble(tmp, {batchId * nq * s1, 0}, out);
+            // out = Matrix::Matmul<false, false>(DataType::DT_FP32, qk0, v0);
+        }
+    }
 
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -233,6 +242,7 @@ TEST_F(DynamicUnalignTest, test_mm2_unalign) {
 }
 
 TEST_F(DynamicUnalignTest, test_rowmaxsingle_unalign) {
+    SetInterpreterConfig();
     TileShape::Current().SetVecTile(128, 128);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
@@ -246,17 +256,6 @@ TEST_F(DynamicUnalignTest, test_rowmaxsingle_unalign) {
     Tensor actSeqs(DT_INT32, {b, 1}, "actual_seq");
     Tensor out(DT_FP32, outshape, "out");
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (nTile))) {
-            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0});
-
-            Tensor q0 = View(q, {nTile, blockSize}, {nTile, curSeq}, {batchId * nTile, 0});
-            auto tmp = RowMaxSingle(q0);
-            Assemble(tmp, {batchId * nTile, 0}, out);
-        }
-    }
-
     // read data
     std::vector<float> qData(b * nTile * blockSize, 0);
 
@@ -275,6 +274,20 @@ TEST_F(DynamicUnalignTest, test_rowmaxsingle_unalign) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
     });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out, golden),
+    });
+
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (nTile))) {
+            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0});
+
+            Tensor q0 = View(q, {nTile, blockSize}, {nTile, curSeq}, {batchId * nTile, 0});
+            auto tmp = RowMaxSingle(q0);
+            Assemble(tmp, {batchId * nTile, 0}, out);
+        }
+    }
 
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -283,6 +296,7 @@ TEST_F(DynamicUnalignTest, test_rowmaxsingle_unalign) {
 }
 
 TEST_F(DynamicUnalignTest, test_rowsumsingle_unalign) {
+    SetInterpreterConfig();
     TileShape::Current().SetVecTile(128, 128);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
@@ -296,17 +310,6 @@ TEST_F(DynamicUnalignTest, test_rowsumsingle_unalign) {
     Tensor actSeqs(DT_INT32, {b, 1}, "actual_seq");
     Tensor out(DT_FP32, outshape, "out");
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (nTile))) {
-            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0});
-
-            Tensor q0 = View(q, {nTile, blockSize}, {nTile, curSeq}, {batchId * nTile, 0});
-            auto tmp = RowSumSingle(q0, -1);
-            Assemble(tmp, {batchId * nTile, 0}, out);
-        }
-    }
-
     // read data
     std::vector<float> qData(b * nTile * blockSize, 0);
 
@@ -325,6 +328,21 @@ TEST_F(DynamicUnalignTest, test_rowsumsingle_unalign) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(out, 0.0f),
     });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out, golden),
+    });
+
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (nTile))) {
+            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0});
+
+            Tensor q0 = View(q, {nTile, blockSize}, {nTile, curSeq}, {batchId * nTile, 0});
+            auto tmp = RowSumSingle(q0, -1);
+            Assemble(tmp, {batchId * nTile, 0}, out);
+        }
+    }
+
 
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -333,6 +351,7 @@ TEST_F(DynamicUnalignTest, test_rowsumsingle_unalign) {
 }
 
 TEST_F(DynamicUnalignTest, test_unary_unalign) {
+    SetInterpreterConfig();
     TileShape::Current().SetVecTile(64, 64);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
 
@@ -345,6 +364,24 @@ TEST_F(DynamicUnalignTest, test_unary_unalign) {
     Tensor actSeqs(DT_INT32, {b, 1, 1}, "actual_seq");
     Tensor out(DT_FP32, qShape, "out");
 
+    std::vector<int> actSeqsData(b, 100);
+    std::vector<float> golden(b * sq * d, 0.001f);
+    for (int bidx = 0; bidx < b; ++bidx) {
+        int offset = bidx * sq * d;
+        std::fill(golden.begin() + offset, golden.begin() + offset + actSeqsData[bidx] * d, exp(1.0));
+    }
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(q, 1.0),
+        RawTensorData::CreateTensor<int32_t>(actSeqs, actSeqsData),
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, 0.001f),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out, golden),
+    });
+
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (sq))) {
@@ -356,25 +393,8 @@ TEST_F(DynamicUnalignTest, test_unary_unalign) {
         }
     }
 
-    std::vector<int> actSeqsData(b, 100);
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateConstantTensor<float>(q, 1.0),
-        RawTensorData::CreateTensor<int32_t>(actSeqs, actSeqsData),
-    });
-
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<float>(out, 0.001f),
-    });
-
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
-
-    std::vector<float> golden(b * sq * d, 0.001f);
-    for (int bidx = 0; bidx < b; ++bidx) {
-        int offset = bidx * sq * d;
-        std::fill(golden.begin() + offset, golden.begin() + offset + actSeqsData[bidx] * d, exp(1.0));
-    }
-
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
 }

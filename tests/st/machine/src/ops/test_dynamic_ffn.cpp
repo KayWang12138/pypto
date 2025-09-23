@@ -26,6 +26,7 @@ class DynamicFFNTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {}
 
 namespace {
 TEST_F(DynamicFFNTest, TestOnbroadDynamicFFN) {
+    SetInterpreterConfig();
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(32, 256);
     TileShape::Current().SetCubeTile({32, 32}, {128, 256}, {128, 128});
@@ -58,8 +59,6 @@ TEST_F(DynamicFFNTest, TestOnbroadDynamicFFN) {
     readInput(GetGoldenDir() + "/ffnWeight3.bin", ffnweight3Data);
     readInput(GetGoldenDir() + "/final_out.bin", golden);
 
-    DynamicFFN(hiddenStates, ffnweight1, ffnweight2, ffnweight3, ffnout, BASIC_BATCH);
-
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<float>(hiddenStates, hiddenStatesData),
         RawTensorData::CreateTensor<npu::tile_fwk::float16>(ffnweight1, ffnweight1Data),
@@ -69,6 +68,12 @@ TEST_F(DynamicFFNTest, TestOnbroadDynamicFFN) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(ffnout, 0),
     });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(ffnout, golden),
+    });
+
+    DynamicFFN(hiddenStates, ffnweight1, ffnweight2, ffnweight3, ffnout, BASIC_BATCH);
+
 #ifdef ENABLE_BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);

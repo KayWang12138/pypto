@@ -55,6 +55,7 @@ struct PaConfig {
 };
 
 void testPa(PaTileShapeConfig& tileConfig, PaConfig config) {
+    SetInterpreterConfig();
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
 
     std::vector<uint8_t> devProgBinary;
@@ -160,6 +161,9 @@ void testPa(PaTileShapeConfig& tileConfig, PaConfig config) {
 
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(paOut, 0),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(paOut, golden),
     });
 
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

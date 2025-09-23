@@ -44,16 +44,16 @@ TEST_F(DynamicCastTest, testDynCastUnalign) {
     Tensor actSeqs(DT_INT32, {b, 1}, "actual_seq");
     Tensor out(oType, outShape, "out");
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (sq))) {
-            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0});
-            Tensor q0 = View(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
-            auto tmp = Cast(q0, oType, CAST_ROUND);
-            Assemble(tmp, {batchId * sq, 0}, out);
+    std::vector<int> actSeqsData(b, 20);
+    std::vector<int32_t> golden(b * sq * d, 0);
+    for (int bidx = 0; bidx < b; ++bidx) {
+        for (int seq = 0; seq < actSeqsData[bidx]; ++seq) {
+            for (int dim = 0; dim < d; ++dim) {
+                int idx = bidx * sq * d + seq * d + dim;
+                golden[idx] = 1;
+            }
         }
     }
-    std::vector<int> actSeqsData(b, 20);
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateConstantTensor<float>(q, 1.0),
@@ -64,17 +64,22 @@ TEST_F(DynamicCastTest, testDynCastUnalign) {
         RawTensorData::CreateConstantTensor<int32_t>(out, 0),
     });
 
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(0, 3)); // 看护可重入，连续执行3次
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<int32_t>(out, golden),
+    });
 
-    std::vector<int32_t> golden(b * sq * d, 0);
-    for (int bidx = 0; bidx < b; ++bidx) {
-        for (int seq = 0; seq < actSeqsData[bidx]; ++seq) {
-            for (int dim = 0; dim < d; ++dim) {
-                int idx = bidx * sq * d + seq * d + dim;
-                golden[idx] = 1;
-            }
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {q, actSeqs}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (sq))) {
+            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0});
+            Tensor q0 = View(q, {sq, d}, {curSeq, d}, {batchId * sq, 0});
+            auto tmp = Cast(q0, oType, CAST_ROUND);
+            Assemble(tmp, {batchId * sq, 0}, out);
         }
     }
+
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(0, 3)); // 看护可重入，连续执行3次
+
     std::vector<float> x(b * sq * d);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     std::vector<int32_t> outVec(reinterpret_cast<int32_t *>(outs->data()),

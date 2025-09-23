@@ -27,6 +27,7 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class DynamicExpandTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 TEST_F(DynamicExpandTest, TestDynamicExpandUnalign) {
+    SetInterpreterConfig();
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(64, 64);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
@@ -39,15 +40,6 @@ TEST_F(DynamicExpandTest, TestDynamicExpandUnalign) {
 
     Tensor q(DT_FP32, qShape, "q");
     Tensor out(DT_FP32, outShape, "out");
-
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {q}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
-            Tensor q0 = View(q, {1, d}, {1, d}, {batchId, 0});
-            auto tmp = Expand(q0, {100, d});
-            Assemble(tmp, {batchId * sq, 0}, out);
-        }
-    }
 
     std::vector<int> actSeqsData(b, 100);
     std::vector<float> golden(b * sq * d, 0.001f);
@@ -63,6 +55,19 @@ TEST_F(DynamicExpandTest, TestDynamicExpandUnalign) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(out, 0.001f),
     });
+
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out, golden),
+    });
+
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {q}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
+            Tensor q0 = View(q, {1, d}, {1, d}, {batchId, 0});
+            auto tmp = Expand(q0, {100, d});
+            Assemble(tmp, {batchId * sq, 0}, out);
+        }
+    }
 
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

@@ -39,6 +39,7 @@ constexpr int NUM_512 = 512;
 
 template<typename T = npu::tile_fwk::float16>
 void genAtten(GenAttenTileShapeConfig &tileConfig) {
+    SetInterpreterConfig();
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     Program::GetInstance().GetConfig().Set<uint8_t>(MACHINE_CONFIG, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
 
@@ -90,6 +91,10 @@ void genAtten(GenAttenTileShapeConfig &tileConfig) {
 
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<T>(out_npu, 0),
+    });
+
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<T>(out_npu, out_goldenData),
     });
 
     GenAttention(cmpAtten, selAtten, winAtten, gatingScore, out_npu, tileConfig);

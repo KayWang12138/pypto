@@ -26,6 +26,7 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class DynamicDatamoveTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 TEST_F(DynamicDatamoveTest, TestDynamicDatamove) {
+    SetInterpreterConfig();
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(1, 32, 64);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
@@ -41,17 +42,6 @@ TEST_F(DynamicDatamoveTest, TestDynamicDatamove) {
     Tensor actSeqs(DT_INT32, {b, 1}, "actual_seq");
     Tensor out(DT_FP32, outShape, "out");
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {input, actSeqs}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
-            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0});
-
-            Tensor input0 = View(input, {n, sq, d}, {n, curSeq, d}, {batchId, 0, 0});
-            auto tmp = Transpose(input0, {0, 1});
-            Assemble(tmp, {batchId * sq, 0, 0}, out);
-        }
-    }
-
     std::vector<int> actSeqsData(b, 30);
     std::vector<float> inputData(b * n * sq * d, 0);
     std::vector<float> golden(b * n * sq * d, 0);
@@ -66,6 +56,21 @@ TEST_F(DynamicDatamoveTest, TestDynamicDatamove) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(out, 0.001f),
     });
+
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out, golden),
+    });
+
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {input, actSeqs}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
+            SymbolicScalar curSeq = GetInputData(actSeqs, {batchId, 0});
+
+            Tensor input0 = View(input, {n, sq, d}, {n, curSeq, d}, {batchId, 0, 0});
+            auto tmp = Transpose(input0, {0, 1});
+            Assemble(tmp, {batchId * sq, 0, 0}, out);
+        }
+    }
 
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

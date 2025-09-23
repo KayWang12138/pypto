@@ -33,6 +33,7 @@ class DynamicSlcTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {}
 
 template <typename T = npu::tile_fwk::float16, DataType tensorType = DataType::DT_FP16>
 void testSlc(KvSlcTileShapeConfig& tileConfig) {
+    SetInterpreterConfig();
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     int paramsSize = 10;
     std::vector<int> input_param(paramsSize);
@@ -106,6 +107,11 @@ void testSlc(KvSlcTileShapeConfig& tileConfig) {
         RawTensorData::CreateConstantTensor<T>(k_slcOut, 0),
         RawTensorData::CreateConstantTensor<T>(v_slcOut, 0),
         RawTensorData::CreateConstantTensor<int32_t>(kvSlcActSeqs, 0),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<T>(k_slcOut, k_golden),
+        RawTensorData::CreateTensor<T>(v_slcOut, v_golden),
+        RawTensorData::CreateTensor<int32_t>(kvSlcActSeqs, kvSlcActSeqs_golden),
     });
 
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

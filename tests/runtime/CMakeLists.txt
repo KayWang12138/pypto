@@ -32,6 +32,7 @@ target_include_directories(tile_fwk_runtime
 target_compile_definitions(tile_fwk_runtime
         PUBLIC
             $<$<BOOL:${ENABLE_BUILD_WITH_CANN}>:ENABLE_BUILD_WITH_CANN>
+            $<$<BOOL:${ENABLE_TESTS_STEST_INTERPRETER_CONFIG}>:ENABLE_TESTS_STEST_INTERPRETER_CONFIG>
 )
 target_link_directories(tile_fwk_runtime
         PUBLIC
