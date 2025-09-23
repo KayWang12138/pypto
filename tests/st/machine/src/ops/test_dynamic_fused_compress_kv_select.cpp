@@ -168,16 +168,18 @@ void TestCmpKvSel(CmpAttnTile &tileConfig) {
     auto firstRope_v3 = RawTensorData::CreateConstantTensor<T>(firstRope, 0.0f);
     auto firstRopeInput_v3 = RawTensorData::CreateConstantTensor<T>(firstRopeInput, 0.0f);
     auto topkRes_v3 = RawTensorData::CreateConstantTensor<uint32_t>(topkRes, 0.0f);
+    auto topkInputData = RawTensorData::CreateConstantTensor<float>(topkInput, 0.0f);
 
 
     std::vector<RawTensorDataPtr> inputDataList = {
         qNopeData_v3, qRopeData_v3, kvCacheData_v3, krCacheData_v3, cmpKvCacheData_v3, cmpKrCacheData_v3, blockTableData_v3,
         cmpBlockTableData_v3, actSeqData_v3, actCmpSeqData_v3, wk1Data_v3, wk2Data_v3, cosData_v3, sinData_v3};
     std::vector<RawTensorDataPtr> outputDataList =
-        {cmpAttn_v3, cmpAttn16_v3, cmpSoftmax_v3, fullK_v3, cmpK_v3, firstRope_v3, firstRopeInput_v3, topkRes_v3};
+        {cmpAttn_v3, cmpAttn16_v3, cmpSoftmax_v3, fullK_v3, cmpK_v3, firstRope_v3, firstRopeInput_v3, topkRes_v3, topkInputData};
 
     FusedCompressKvSelect(qNope_v2, qRope_v2, kvCache_v2, krCache_v2, cmpKvCache_v2, cmpKrCache_v2, blockTable_v2,
-        cmpBlockTable_v2, actSeqLen_v2, actCmpSeqLen_v2, mlpWk1_v2, mlpWk2_v2, mlpCos_v2, mlpSin_v2, cmpAttn, cmpAttn16, cmpSoftmax, fullK, cmpK, firstRope, firstRopeInput,topkRes, topkInput, blockSize, cmpBlockSize, cmpStride, softmaxScale, n1, n2, tileConfig);
+        cmpBlockTable_v2, actSeqLen_v2, actCmpSeqLen_v2, mlpWk1_v2, mlpWk2_v2, mlpCos_v2, mlpSin_v2, cmpAttn, cmpAttn16,
+        cmpSoftmax, fullK, cmpK, firstRope, firstRopeInput,topkRes, topkInput, blockSize, cmpBlockSize, cmpStride, softmaxScale, n1, n2, tileConfig);
 
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
 
@@ -213,6 +215,31 @@ TEST_F(DynamicCmpKvSel, dynamic_NSA_case_no_flash) {
     // config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_OPERATION, true);
     // config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_TENSOR, true);
     // config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_CHECK_PRECISION, true);
+
+    CmpAttnTile config;
+    // Block concat tile
+    config.castTile = {128, 64}; // {blockSize, n2 * d}
+    // MlpRope
+    config.mlpRopeTile.twoDim = {64, 64};           // (cmpBlockSize, n2*dk)
+    config.mlpRopeTile.threeDim = {1, 64, 64};      // (1, cmpBlockSize, dk)
+    config.mlpRopeTile.fourDim = {1, 64, 1, 64};    // (1, cmpBlockSize, n2, dK) * (1, cmpBlockSize, 1, dK) & RotateHalf
+    config.mlpRopeTile.fiveDim = {1, 64, 1, 64, 2}; // (1, cmpBlockSize, n2, dk / 2, 2)
+    // MlpCmp
+    config.mlpCmpTile.transTileShape = {32, 1, 192};              // (cmpBlockSize, n2, d)
+    config.mlpCmpTile.c1TileShape = {16, 16, 128, 128, 128, 128}; // (n2, 2 * cmpBlockSize * d)
+    config.mlpCmpTile.v1TileShape = {1, 128};                     // (n2, 2 * cmpBlockSize * d)
+    config.mlpCmpTile.c2TileShape = {16, 16, 128, 128, 128, 128}; // // (n2, d)
+    config.mlpCmpTile.v2TileShape = {1, 1, 128};                  // (1, n2, d)
+    // CmpAttn
+    config.attnTile.c1TileShape = {16, 16, 128, 128, 128, 128}; // (g, effSeq)
+    config.attnTile.v1TileShape = {16, 128};                     // (g, effSeq)
+    config.attnTile.c2TileShape = {16, 16, 128, 128, 128, 128}; // (g, dN)
+
+    TestCmpKvSel<npu::tile_fwk::float16>(config);
+}
+
+TEST_F(DynamicCmpKvSel, debug_dynamic_NSA_case_no_flash) {
+    config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
 
     CmpAttnTile config;
     // Block concat tile

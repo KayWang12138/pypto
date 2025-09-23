@@ -563,6 +563,7 @@ def fused_cmp_kv_sel(out_path: Path, params, other_input=None):
 @GoldenRegister.reg_golden_func(
     case_names=[
         "DynamicCmpKvSel.dynamic_NSA_case_no_flash",
+        "DynamicCmpKvSel.debug_dynamic_NSA_case_no_flash",
     ]
 )
 def fuse_compress_kv_select(case_name: str, output: Path) -> bool:
@@ -582,6 +583,18 @@ def fuse_compress_kv_select(case_name: str, output: Path) -> bool:
         # dv = 128
         s2 = 1024
         act_seq = [s2 for _ in range(b)]
+    if case_name.startswith("DynamicCmpKvSel.debug_dynamic_NSA_case_no_flash"):
+        b = 1
+        s1 = 1
+        n1 = 2
+        d_qk = 192
+        n2 = 1
+        dv = 128
+        s2 = 8
+        cmp_block_size = 8
+        cmp_stride = 4
+        act_seq = [s2 for _ in range(b)]
+        logging.info("get func to gen golden, Case(%s)", case_name)
     else:
         logging.error("Can't get func to gen golden, Case(%s)", case_name)
         return False
@@ -604,7 +617,9 @@ def fuse_compress_kv_select(case_name: str, output: Path) -> bool:
         (cur_s - cmp_block_size) // cmp_stride + 1 for cur_s in act_seq
     ]
     params["act_cmp_seq"] = act_cmp_seq
+    print("act_cmp_seq: ", act_cmp_seq)
     scmp = max(act_cmp_seq)
+    print("scmp: ", scmp)
     params["scmp"] = scmp
     fused_cmp_kv_sel(output, params)
     return True
