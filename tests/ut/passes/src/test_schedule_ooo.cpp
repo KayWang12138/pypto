@@ -1236,42 +1236,6 @@ TEST_F(ScheduleOoOTest, TestDelBufCount_1) {
     oooSchedule.DelBufRefCount(1);
 }
 
-TEST_F(ScheduleOoOTest, TestUpdateReloadIssueInfo) {
-    Function function(Program::GetInstance(), "", "", nullptr);
-    std::vector<Operation *> scheduleOpList;
-
-    std::vector<int64_t> shape = {128, 128};
-    auto shapeImme = OpImmediate::Specified(shape);
-    std::vector<int64_t> offset = {0, 0};
-    std::shared_ptr<LogicalTensor> tensor1 = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, shape);
-    tensor1->SetMemoryTypeOriginal(MEM_DEVICE_DDR);
-    tensor1->SetMemoryTypeToBe(MEM_DEVICE_DDR);
-    tensor1->subGraphID = 0;
-    tensor1->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId = 1;
-
-    std::shared_ptr<LogicalTensor> tensor3 = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, shape);
-    tensor3->SetMemoryTypeOriginal(MEM_UB);
-    tensor3->SetMemoryTypeToBe(MEM_UB);
-    tensor3->subGraphID = 0;
-    tensor3->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId = 3;
-
-    auto &alloc1 = function.AddOperation(Opcode::OP_UB_ALLOC, {}, std::vector<std::shared_ptr<LogicalTensor>>({tensor3}));
-    alloc1.UpdateLatency(1);
-    alloc1.UpdateSubgraphID(0);
-    auto &copyin1 =
-        function.AddOperation(Opcode::OP_COPY_IN, std::vector<std::shared_ptr<LogicalTensor>>({tensor1}),
-                              std::vector<std::shared_ptr<LogicalTensor>>({tensor3}));
-    copyin1.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-            OpImmediate::Specified(offset), MEM_UB, shapeImme, shapeImme));
-    copyin1.UpdateSubgraphID(0);
-
-    auto allocIssue = std::make_shared<IssueEntry>(alloc1, 1);
-    auto copyinIssue = std::make_shared<IssueEntry>(copyin1, 2);
-
-    OoOScheduler oooSchedule(function);
-    oooSchedule.UpdateReloadIssueInfo(allocIssue, copyinIssue, copyinIssue, -1, -1);
-}
-
 TEST_F(ScheduleOoOTest, TestUpdateTensorAttr_DDR) {
     Function function(Program::GetInstance(), "", "", nullptr);
     std::vector<int64_t> shape = {128, 128};

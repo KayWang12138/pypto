@@ -62,8 +62,7 @@ const char* IssueEntry::GetOpInfo() {
     return (tileOp.GetOpcodeStr() + "[" + std::to_string(tileOp.GetOpMagic()) + "]").c_str();
 }
 
-Status OoOScheduler::PrintSpillFailedInfo(int currPc) {
-    auto allocIssue = issueEntries[currPc];
+Status OoOScheduler::PrintSpillFailedInfo(IssueEntryPtr allocIssue) {
     ALOG_ERROR_F("======== OoO Spill failed info ===========");
     ALOG_ERROR_F("Spill failed memoryType: %s.", 
         MemoryTypeToString(localBufferMap[allocIssue->reqMemIds[0]]->memType).c_str());
@@ -73,12 +72,11 @@ Status OoOScheduler::PrintSpillFailedInfo(int currPc) {
     }
     auto bufferSlices = bufferManagerMap[localBufferMap[allocIssue->reqMemIds[0]]->memType].GetBufferSlices();
     for (auto memId : bufferSlices) {
-        size_t bufLastWriteTime = currPc;
-        if (!GetBufLastWriteTime(memId, bufLastWriteTime)) {
+        auto occupyIssue = GetBufLastWriteIssue(allocIssue, memId);
+        if (occupyIssue == nullptr) {
             ALOG_ERROR_F("Cannot find spill Tensor[%d] last write time.", memId);
             return FAILED;
         }
-        auto occupyIssue = issueEntries[bufLastWriteTime];
         ALOG_ERROR_F("%s, range[%lu, %lu], Tensor[%d] size: %lu", occupyIssue->GetOpInfo(), 
             localBufferMap[memId]->start, localBufferMap[memId]->end, memId, localBufferMap[memId]->size);
     }
@@ -101,47 +99,7 @@ void OoOScheduler::PrintSpillFailedInfo(IssueEntryPtr allocIssue, MemoryType buf
     }
 }
 
-bool OoOScheduler::GetBufLastWriteTime(int curMemId, size_t& lastWriteTime) {
-    lastWriteTime -= 1;
-    while (lastWriteTime > 0) {
-        for (auto& outTensor : issueEntries[lastWriteTime]->tileOp.GetOOperands()) {
-            if (outTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId == curMemId) {
-                return true;
-            }
-        }
-        lastWriteTime -= 1U;
-    }
-    return false;
-}
-
-bool OoOScheduler::GetBufLastUseTime(int curMemId, size_t& lastUseTime) {
-    lastUseTime -= 1;
-    while (lastUseTime > 0) {
-        for (auto& memId : issueEntries[lastUseTime]->reqMemIds) {
-            if (memId == curMemId) {
-                return true;
-            }
-        }
-        lastUseTime -= 1U;
-    }
-    return false;
-}
-
-bool OoOScheduler::GetBufNextUseTime(int curMemId, size_t& nextUseTime) {
-    while (++nextUseTime < issueEntries.size()) {
-        if (issueEntries[nextUseTime]->isRetired) {
-            continue;
-        }
-        for (auto& memId : issueEntries[nextUseTime]->reqMemIds) {
-            if (memId == curMemId) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-void OoOScheduler::PrintDependenciesAndRelations() {
+void OoOScheduler::PrintDependencies() {
     for (const auto &issue : issueEntries) {
         if (issue->tileOp.GetBoolAttribute(OpAttributeKey::dontTouch)) {
             continue;
@@ -206,6 +164,27 @@ void OoOScheduler::PrintOpList(std::vector<Operation *> operations) {
     }
 }
 
+void OoOScheduler::InsertIssueEntries(IssueEntryPtr insertIssue) {
+    auto it = issueEntries.begin();
+    for (; it != issueEntries.end(); it++) {
+        if ((*it)->execOrder >= insertIssue->execOrder) {
+            break;
+        }
+    }
+    auto insertPos = issueEntries.insert(it++, insertIssue);
+    for (auto adjustIt = insertPos + 1; adjustIt != issueEntries.end(); adjustIt++) {
+        if ((*adjustIt)->execOrder >= insertIssue->execOrder) {
+            (*adjustIt)->execOrder++;
+        }
+    }
+}
+
+void OoOScheduler::UpdateIssueExecOrder() {
+    for (size_t idx = 0; idx < issueEntries.size(); idx++) {
+        issueEntries[idx]->execOrder = idx;
+    }
+}
+
 uint64_t OoOScheduler::ShapeCeilAlign(std::vector<int64_t> shape, DataType dtype) {
     uint64_t bytes = 0;
     if (shape.size() == DIM_FIVE) {
@@ -258,7 +237,7 @@ Status OoOScheduler::SpillOnBlock() {
         ALOG_ERROR_F("Buffer[L0A/B/C] is Full. Please check tile shape and OOO spill failed info."); 
         return FAILED; 
     }
-    if (GenBufferSpill(allocIssueQueue[spillMemType].Front(), spillMemType) != SUCCESS) {
+    if (GenBufferSpill(allocIssueQueue[spillMemType].Front()) != SUCCESS) {
         ALOG_ERROR_F("GenBufferSpill failed."); 
         return FAILED; 
     }
@@ -454,7 +433,6 @@ Status OoOScheduler::RetireIssueStage(uint64_t& commitCnt, int& nextCycle) {
 
 void OoOScheduler::LaunchReadyIssue() {
     for (size_t i = 0; i < issueEntries.size(); i++) {
-        issueEntries[i]->execOrder = i;
         if (USE_LESS_OPS.find(issueEntries[i]->tileOp.GetOpcode()) != USE_LESS_OPS.end() &&
             issueEntries[i]->predecessors.empty()) {
             issueQueues[issueEntries[i]->type].Insert(issueEntries[i], i);
@@ -466,6 +444,7 @@ void OoOScheduler::LaunchReadyIssue() {
 }
 
 Status OoOScheduler::ScheduleMainLoop() {
+    UpdateIssueExecOrder();
     LaunchReadyIssue();
     uint64_t commitCnt = 0; // 当前已提交的issue数量
     bool isAllRetired = false;
@@ -542,6 +521,7 @@ Status OoOScheduler::ExecuteAllocIssue(IssueEntryPtr issue, size_t &pcIdx) {
 }
 
 Status OoOScheduler::GenSpillSchedule() {
+    UpdateIssueExecOrder();
     size_t pcIdx = 0;
     ALOG_DEBUG_F("=========> Begin GenSpillSchedule.");
     while (pcIdx < issueEntries.size()) {
@@ -685,7 +665,7 @@ Status OoOScheduler::InitDependencies() {
             }
         }
     }
-    PrintDependenciesAndRelations();
+    PrintDependencies();
     return SUCCESS;
 }
 

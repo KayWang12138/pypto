@@ -234,7 +234,6 @@ set(_CaseFilterList
         "ScheduleOoOTest.TestSingleCopyin2"
         "ScheduleOoOTest.TestDelBufCount"
         "ScheduleOoOTest.TestDelBufCount_1"
-        "ScheduleOoOTest.TestUpdateReloadIssueInfo"
         "ScheduleOoOTest.TestUpdateTensorAttr_DDR"
         "ScheduleOoOTest.TestUpdateTensorAttr_UB"
         "ScheduleOoOTest.TestGetSpillTensor"

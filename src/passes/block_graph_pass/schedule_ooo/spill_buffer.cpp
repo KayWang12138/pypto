@@ -20,37 +20,71 @@ namespace npu::tile_fwk {
 constexpr int32_t TWO_ISSUE = 2;
 constexpr int32_t DEFAULT_LATENCY = 511;
 
-Status OoOScheduler::GetOldestBuffer(IssueEntryPtr allocIssue, MemoryType bufferType, int& memId,
-    IssueEntryPtr &spillIssue) {
-    std::set<IssueEntryPtr> filterLtags;
-    FindFilterLtags(allocIssue, filterLtags);
-    uint64_t maxIdx = 0;
-    for (auto &occupyIssue : tensorOccupyMap[bufferType]) {
-        if (occupyIssue.second->isAlloc || filterLtags.count(occupyIssue.second) != 0 ||
-            USE_LESS_OPS.find(occupyIssue.second->tileOp.GetOpcode()) != USE_LESS_OPS.end()) {
+OoOSchedulerCheck::SpillInfo OoOScheduler::RecordSpillInfo(MemoryType bufferType, int memId, 
+    LocalBufferPtr allocBuffer, LogicalTensorPtr spillOutTensor, bool needCopyOut) {
+    OoOSchedulerCheck::SpillInfo spillInfo;
+    spillInfo.spillType = bufferType;
+    spillInfo.bufferCurrUsage = oooCheck.bufferLastUsage[bufferType];
+    spillInfo.spillTensorSize = localBufferMap[memId]->size;
+    spillInfo.spillTensorMagic = spillOutTensor->GetMagic();
+    spillInfo.triggerTensorSize = allocBuffer->size;
+    int allocOccupied = 0;
+    for (const auto &pair : tensorOccupyMap[bufferType]) {
+        if (pair.second->isAlloc) {
+            allocOccupied += localBufferMap[pair.first]->size;
+        }
+    }
+    spillInfo.allocOccupiedSize = allocOccupied;
+    if (needCopyOut) {
+        auto dtype = spillOutTensor->tensor->datatype;
+        spillInfo.spillCopyoutSize = std::accumulate(spillOutTensor->shape.begin(), spillOutTensor->shape.end(), 
+            1, std::multiplies<int64_t>()) * BytesOf(dtype);
+    } else {
+        spillInfo.spillCopyoutSize = 0;
+    }
+    return spillInfo;
+}
+
+int OoOScheduler::GetBufNextUseOrder(IssueEntryPtr issue, int curMemId) {
+    auto it = std::find_if(issueEntries.begin(), issueEntries.end(), [issue, curMemId](const IssueEntryPtr a) {
+        return a && a->execOrder > issue->execOrder && 
+            std::find(a->reqMemIds.begin(), a->reqMemIds.end(), curMemId) != a->reqMemIds.end();
+    });
+    return (it != issueEntries.end()) ? (*it)->execOrder : -1;
+}
+
+int OoOScheduler::GetBufLastUseOrder(IssueEntryPtr issue, int curMemId) {
+    auto targetIt = std::find(issueEntries.begin(), issueEntries.end(), issue);
+    if (targetIt == issueEntries.end()) {
+        return -1;
+    }
+    for (auto it = std::make_reverse_iterator(targetIt); it != issueEntries.rend(); it++) {
+        IssueEntryPtr curIssue = *it;
+        if (curIssue && curIssue->execOrder < issue->execOrder && std::find(curIssue->reqMemIds.begin(), 
+            curIssue->reqMemIds.end(), curMemId) != curIssue->reqMemIds.end()) {
+            return curIssue->execOrder;
+        }
+    }
+    return -1;
+}
+
+IssueEntryPtr OoOScheduler::GetBufLastWriteIssue(IssueEntryPtr issue, int curMemId) {
+    auto targetIt = std::find(issueEntries.begin(), issueEntries.end(), issue);
+    if (targetIt == issueEntries.end()) {
+        return nullptr;
+    }
+    for (auto it = std::make_reverse_iterator(targetIt); it != issueEntries.rend(); it++) {
+        IssueEntryPtr curIssue = *it;
+        if (curIssue == nullptr || curIssue->execOrder >= issue->execOrder) {
             continue;
         }
-        auto occupyTensor = localBufferMap[occupyIssue.first];
-        if ((occupyTensor->end - occupyTensor->start) >= localBufferMap[allocIssue->reqMemIds[0]]->size) {
-            size_t nextUseTime = occupyIssue.second->execOrder;
-            if (!GetBufNextUseTime(occupyIssue.first, nextUseTime)) {
-                ALOG_ERROR_F("Cannot find spill Tensor[%d] next used time.", occupyIssue.first);
-                return FAILED;
-            }
-            if (maxIdx < nextUseTime) {
-                maxIdx = nextUseTime;
-                spillIssue = occupyIssue.second;
-                memId = occupyIssue.first;
+        for (auto& outTensor : curIssue->tileOp.GetOOperands()) {
+            if (outTensor->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId == curMemId) {
+                return curIssue;
             }
         }
     }
-    if (spillIssue == nullptr || memId == -1) {
-        PrintSpillFailedInfo(allocIssue, bufferType);
-        ALOG_ERROR_F("Could not find availalble buffer to spill!"); 
-        return FAILED; 
-    }
-    ALOG_DEBUG_F("  Spill op: %s.", spillIssue->GetOpInfo());
-    return SUCCESS;
+    return nullptr;
 }
 
 Status OoOScheduler::UpdateTensorAttr(
@@ -152,11 +186,21 @@ Status OoOScheduler::UpdateReloadIssueDepend(IssueEntryPtr reloadCopyin, IssueEn
 }
 
 Status OoOScheduler::UpdateReloadIssueInfo(IssueEntryPtr reloadAlloc, IssueEntryPtr reloadCopyin,
-    IssueEntryPtr spillIssue, int spillMemId, int bufNextUseTime) {
+    IssueEntryPtr spillIssue, int spillMemId, IssueEntryPtr allocIssue) {
     reloadAlloc->reqMemIds = {maxTensorMagic};
     reloadAlloc->successors.insert(reloadCopyin->id);
     reloadCopyin->reqMemIds = {maxTensorMagic};
     reloadCopyin->predecessors.insert(reloadAlloc->id);
+    
+    int bufNextUseOrder = GetBufNextUseOrder(allocIssue, spillMemId);
+    if (bufNextUseOrder == -1) {
+        ALOG_ERROR_F("Get Tensor[%d] next use order failed.", spillMemId);
+        return FAILED;
+    }
+    reloadAlloc->execOrder = bufNextUseOrder++;
+    InsertIssueEntries(reloadAlloc);
+    reloadCopyin->execOrder = bufNextUseOrder;
+    InsertIssueEntries(reloadCopyin);
 
     if (UpdateReloadIssueDepend(reloadCopyin, spillIssue, spillMemId) != SUCCESS) {
         ALOG_ERROR_F("UpdateReloadIssueDepend failed.");
@@ -166,9 +210,73 @@ Status OoOScheduler::UpdateReloadIssueInfo(IssueEntryPtr reloadAlloc, IssueEntry
         ALOG_ERROR_F("UpdateRemainOpBufId failed.");
         return FAILED;
     }
-    issueEntries.insert(issueEntries.begin() + bufNextUseTime, reloadCopyin);
-    issueEntries.insert(issueEntries.begin() + bufNextUseTime, reloadAlloc);
     numTotalIssues += TWO_ISSUE;
+    return SUCCESS;
+}
+
+Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
+    LogicalTensorPtr spillTensor, IssueEntryPtr &spillIssue, std::pair<IssueEntryPtr, IssueEntryPtr> &reloadIssues) {
+    MemoryType memType = spillTensor->GetMemoryTypeOriginal();
+    // 创建将spill搬出数据搬回OP_COPY_IN的tensor
+    LogicalTensorPtr localTensor = std::make_shared<LogicalTensor>(
+            function_, spillTensor->Datatype(), spillTensor->shape);
+    if (localTensor == nullptr) {
+        ALOG_ERROR_F("Create local tensor failed!");
+        return FAILED;
+    }
+    if (UpdateTensorAttr(localTensor, memType, spillTensor, -1) != SUCCESS) {
+        ALOG_ERROR_F("UpdateTensorAttr local tensor failed!");
+        return FAILED;
+    }
+
+    // 创建spill搬出数据搬回OP_COPY_IN/OP_ALLOC
+    Opcode allocOp = memType == MemoryType::MEM_UB ? Opcode::OP_UB_ALLOC : Opcode::OP_L1_ALLOC;
+    auto &spillAllocOp = function_.AddRawOperation(allocOp, {}, {localTensor});
+    auto &spillCopyInOp = function_.AddRawOperation(Opcode::OP_COPY_IN, {spillOutTensor}, {localTensor});
+
+    UpdateOpAttr(spillAllocOp, 1, localTensor, {}, spillIssue);
+    UpdateOpAttr(spillCopyInOp, DEFAULT_LATENCY, localTensor, spillOutTensor->GetOffset(), spillIssue);
+
+    // 初始化OP_COPY_IN/OP_ALLOC的issueEntry
+    IssueEntryPtr spillAllocInst = std::make_shared<IssueEntry>(spillAllocOp, issueId);
+    issueEntryMap[issueId++] = spillAllocInst;
+    IssueEntryPtr spillInInst = std::make_shared<IssueEntry>(spillCopyInOp, issueId);
+    issueEntryMap[issueId++] = spillInInst;
+    if (spillAllocInst == nullptr || spillInInst == nullptr) {
+        ALOG_ERROR_F("Create OP_COPY_IN/OP_ALLOC issueEntry failed!");
+        return FAILED;
+    }
+    reloadIssues.first = spillAllocInst;
+    reloadIssues.second = spillInInst;
+    ALOG_DEBUG_F("Add SPILL_ALLOC: %s.", spillAllocInst->GetOpInfo());
+    ALOG_DEBUG_F("Add SPILL_IN: %s.", spillInInst->GetOpInfo());
+    return SUCCESS;
+}
+
+Status OoOScheduler::SpillInBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, MemoryType bufferType, 
+    bool isGenSpill) {
+    IssueEntryPtr reloadCopyin = nullptr;
+    IssueEntryPtr reloadAlloc = nullptr;
+    std::pair<IssueEntryPtr, IssueEntryPtr> reloadIssues = {reloadAlloc, reloadCopyin};
+    if (CreateSpillReloadIssue(spillInfo.ddrTensor_, spillInfo.spillTensor_, spillInfo.spillIssue_,
+        reloadIssues) != SUCCESS) { 
+        ALOG_ERROR_F("CreateSpillReloadIssue failed!"); 
+        return FAILED; 
+    }
+    reloadAlloc = reloadIssues.first;
+    reloadCopyin = reloadIssues.second;
+    if (UpdateReloadIssueInfo(reloadAlloc, reloadCopyin, spillInfo.spillIssue_, spillInfo.spillMemId_, 
+        allocIssue) != SUCCESS) { 
+        ALOG_ERROR_F("UpdateReloadIssueInfo failed!"); 
+        return FAILED; 
+    }
+    if (!isGenSpill) {
+        allocIssueQueue[bufferType].Insert(reloadAlloc, reloadAlloc->execOrder);
+    }
+    if (bufferManagerMap[bufferType].Free(spillInfo.spillMemId_) != SUCCESS) {
+        ALOG_ERROR_F("Free spill tensor[%d] failed!", spillInfo.spillMemId_);
+        return FAILED;
+    }
     return SUCCESS;
 }
 
@@ -213,137 +321,7 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
     return SUCCESS;
 }
 
-Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
-    LogicalTensorPtr spillTensor, IssueEntryPtr &spillIssue, std::pair<IssueEntryPtr, IssueEntryPtr> &reloadIssues) {
-    MemoryType memType = spillTensor->GetMemoryTypeOriginal();
-    // 创建将spill搬出数据搬回OP_COPY_IN的tensor
-    LogicalTensorPtr localTensor = std::make_shared<LogicalTensor>(function_, spillTensor->Datatype(), spillTensor->shape);
-    if (localTensor == nullptr) {
-        ALOG_ERROR_F("Create local tensor failed!");
-        return FAILED;
-    }
-    if (UpdateTensorAttr(localTensor, memType, spillTensor, -1) != SUCCESS) {
-        ALOG_ERROR_F("UpdateTensorAttr local tensor failed!");
-        return FAILED;
-    }
-
-    // 创建spill搬出数据搬回OP_COPY_IN/OP_ALLOC
-    Opcode allocOp = memType == MemoryType::MEM_UB ? Opcode::OP_UB_ALLOC : Opcode::OP_L1_ALLOC;
-    auto &spillAllocOp = function_.AddRawOperation(allocOp, {}, {localTensor});
-    auto &spillCopyInOp = function_.AddRawOperation(Opcode::OP_COPY_IN, {spillOutTensor}, {localTensor});
-
-    UpdateOpAttr(spillAllocOp, 1, localTensor, {}, spillIssue);
-    UpdateOpAttr(spillCopyInOp, DEFAULT_LATENCY, localTensor, spillOutTensor->GetOffset(), spillIssue);
-
-    // 初始化OP_COPY_IN/OP_ALLOC的issueEntry
-    IssueEntryPtr spillAllocInst = std::make_shared<IssueEntry>(spillAllocOp, issueId);
-    issueEntryMap[issueId++] = spillAllocInst;
-    IssueEntryPtr spillInInst = std::make_shared<IssueEntry>(spillCopyInOp, issueId);
-    issueEntryMap[issueId++] = spillInInst;
-    if (spillAllocInst == nullptr || spillInInst == nullptr) {
-        ALOG_ERROR_F("Create OP_COPY_IN/OP_ALLOC issueEntry failed!");
-        return FAILED;
-    }
-    reloadIssues.first = spillAllocInst;
-    reloadIssues.second = spillInInst;
-    ALOG_DEBUG_F("Add SPILL_ALLOC: %s.", spillAllocInst->GetOpInfo());
-    ALOG_DEBUG_F("Add SPILL_IN: %s.", spillInInst->GetOpInfo());
-    return SUCCESS;
-}
-
-OoOSchedulerCheck::SpillInfo OoOScheduler::RecordSpillInfo(MemoryType bufferType, int memId, LocalBufferPtr allocBuffer, LogicalTensorPtr spillOutTensor, bool needCopyOut) {
-    OoOSchedulerCheck::SpillInfo spillInfo;
-    spillInfo.spillType = bufferType;
-    spillInfo.bufferCurrUsage = oooCheck.bufferLastUsage[bufferType];
-    spillInfo.spillTensorSize = localBufferMap[memId]->size;
-    spillInfo.spillTensorMagic = spillOutTensor->GetMagic();
-    spillInfo.triggerTensorSize = allocBuffer->size;
-    int allocOccupied = 0;
-    for (const auto &pair : tensorOccupyMap[bufferType]) {
-        if (pair.second->isAlloc) {
-            allocOccupied += localBufferMap[pair.first]->size;
-        }
-    }
-    spillInfo.allocOccupiedSize = allocOccupied;
-    if (needCopyOut) {
-        auto dtype = spillOutTensor->tensor->datatype;
-        spillInfo.spillCopyoutSize = std::accumulate(spillOutTensor->shape.begin(), spillOutTensor->shape.end(), 1, std::multiplies<int64_t>()) * BytesOf(dtype);
-    } else {
-        spillInfo.spillCopyoutSize = 0;
-    }
-    return spillInfo;
-}
-
-Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue, MemoryType bufferType) {
-    int spillMemId = -1;
-    IssueEntryPtr spillIssue = nullptr;
-    if (GetOldestBuffer(allocIssue, bufferType, spillMemId, spillIssue) != SUCCESS) {
-        ALOG_ERROR_F("GetOldestBuffer failed.");
-        return FAILED;
-    }
-    LogicalTensorPtr spillTensor = nullptr;
-    if (GetSpillTensor(spillIssue, spillMemId, spillTensor) != SUCCESS) {
-        ALOG_ERROR_F("%s GetSpillTensor failed!", spillIssue->GetOpInfo()); 
-        return FAILED;
-    }
-    LogicalTensorPtr ddrTensor = nullptr;
-    size_t temp = 1;
-    SpillInfo spillInfo(spillMemId, spillIssue, spillTensor, ddrTensor);
-    if (SpillOutBuffer(spillInfo, temp, temp, false) != SUCCESS) {
-        ALOG_ERROR_F("SpillOutBuffer failed.");
-        return FAILED;
-    }
-    // Healthcheck record - spill info
-    if (oooCheck.doHealthCheck) {
-        oooCheck.spillInfoVec.emplace_back(RecordSpillInfo(bufferType, spillMemId, 
-            localBufferMap[allocIssue->reqMemIds[0]], ddrTensor, 
-            spillIssue->tileOp.GetOpcodeStr().find("COPY_IN") == std::string::npos));
-    }
-    if (SpillInBuffer(spillInfo, bufferType, issueEntries.size(), false) != SUCCESS) {
-        ALOG_ERROR_F("SpillInBuffer failed.");
-        return FAILED;
-    }
-    // Healthcheck record - update buffer usage statistics
-    if (oooCheck.doHealthCheck) { 
-        UpdateBufferUsage(bufferType, spillMemId, true); 
-    }
-    localBufferMap[spillMemId]->retireCycle = clock;
-    if (tensorOccupyMap[bufferType].erase(spillMemId) == 0) {
-        ALOG_ERROR_F("Erase tensor[%d] failed", spillMemId);
-        return FAILED;
-    }
-    return SUCCESS;
-}
-
-Status OoOScheduler::SpillInBuffer(SpillInfo &spillInfo, MemoryType bufferType, size_t bufNextUseTime, 
-    bool isGenSpill) {
-    IssueEntryPtr reloadCopyin = nullptr;
-    IssueEntryPtr reloadAlloc = nullptr;
-    std::pair<IssueEntryPtr, IssueEntryPtr> reloadIssues = {reloadAlloc, reloadCopyin};
-    if (CreateSpillReloadIssue(spillInfo.ddrTensor_, spillInfo.spillTensor_, spillInfo.spillIssue_,
-        reloadIssues) != SUCCESS) { 
-        ALOG_ERROR_F("CreateSpillReloadIssue failed!"); 
-        return FAILED; 
-    }
-    reloadAlloc = reloadIssues.first;
-    reloadCopyin = reloadIssues.second;
-    if (UpdateReloadIssueInfo(reloadAlloc, reloadCopyin, spillInfo.spillIssue_, spillInfo.spillMemId_, 
-        bufNextUseTime) != SUCCESS) { 
-        ALOG_ERROR_F("UpdateReloadIssueInfo failed!"); 
-        return FAILED; 
-    }
-    if (!isGenSpill) {
-        allocIssueQueue[localBufferMap[spillInfo.spillMemId_]->memType].InsertReloadAlloc(
-            reloadAlloc, spillInfo.spillIssue_, issueEntryMap);
-    }
-    if (bufferManagerMap[bufferType].Free(spillInfo.spillMemId_) != SUCCESS) {
-        ALOG_ERROR_F("Free spill tensor[%d] failed!", spillInfo.spillMemId_);
-        return FAILED;
-    }
-    return SUCCESS;
-}
-
-Status OoOScheduler::SpillOutBuffer(SpillInfo &spillInfo, size_t &bufNextUseTime, size_t &pcIdx, bool isGenSpill) {
+Status OoOScheduler::SpillOutBuffer(SpillInfo &spillInfo, IssueEntryPtr issue, size_t &pcIdx, bool isGenSpill) {
     if (spillInfo.spillIssue_->tileOp.GetOpcodeStr().find("COPY_IN") == std::string::npos) {
         IssueEntryPtr spillCopyout = nullptr;
         if (CreateSpillCopyout(spillInfo.spillIssue_, spillInfo.spillTensor_, spillInfo.spillMemId_, 
@@ -351,18 +329,17 @@ Status OoOScheduler::SpillOutBuffer(SpillInfo &spillInfo, size_t &bufNextUseTime
             ALOG_ERROR_F("CreateSpillCopyout failed!"); 
             return FAILED; 
         }
+        int bufLastUseOrder = GetBufLastUseOrder(issue, spillInfo.spillMemId_);
+        if (bufLastUseOrder == -1) {
+            ALOG_ERROR_F("Cannot find spill Tensor[%d] last used order.", spillInfo.spillMemId_);
+            return FAILED;
+        }
+        spillCopyout->execOrder = bufLastUseOrder + 1;
+        InsertIssueEntries(spillCopyout);
         if (isGenSpill) {
-            size_t bufLastUseTime = pcIdx;
-            if (!GetBufLastUseTime(spillInfo.spillMemId_, bufLastUseTime)) {
-                ALOG_ERROR_F("Cannot find spill Tensor[%d] last used time.", spillInfo.spillMemId_);
-                return FAILED;
-            }
-            issueEntries.insert(issueEntries.begin() + bufLastUseTime + 1, spillCopyout);
-            bufNextUseTime++;
             pcIdx++;
             numTotalIssues++;
         } else {
-            issueEntries.emplace_back(spillCopyout);
             newOperations_.push_back(&(spillCopyout->tileOp));
             ALOG_DEBUG_F("Insert: %s", spillCopyout->GetOpInfo());
         }
@@ -387,18 +364,43 @@ Status OoOScheduler::GetSpillTensor(IssueEntryPtr spillIssue, int spillMemId, Lo
     return SUCCESS;
 }
 
-Status OoOScheduler::SpillBuffer(int spillMemId, size_t &pcIdx, LocalBufferPtr allocBuffer) {
-    size_t bufNextUseTime = pcIdx;
-    size_t bufLastWriteTime = pcIdx;
-    if (!GetBufNextUseTime(spillMemId, bufNextUseTime)) {
-        ALOG_ERROR_F("Cannot find spill Tensor[%d] next used time.", spillMemId);
+Status OoOScheduler::SpillBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, size_t &pcIdx, 
+    LocalBufferPtr allocBuffer, bool isGenSpill) {
+    if (SpillOutBuffer(spillInfo, allocIssue, pcIdx, isGenSpill) != SUCCESS) {
+        ALOG_ERROR_F("SpillOutBuffer failed.");
         return FAILED;
     }
-    if (!GetBufLastWriteTime(spillMemId, bufLastWriteTime)) {
-        ALOG_ERROR_F("Cannot find spill Tensor[%d] last write time.", spillMemId);
+    // Healthcheck record - spill info
+    if (oooCheck.doHealthCheck) {
+        oooCheck.spillInfoVec.emplace_back(
+            RecordSpillInfo(allocBuffer->memType, spillInfo.spillMemId_, allocBuffer, spillInfo.ddrTensor_,
+                spillInfo.spillIssue_->tileOp.GetOpcodeStr().find("COPY_IN") == std::string::npos));
+    }
+    if (SpillInBuffer(spillInfo, allocIssue, allocBuffer->memType, isGenSpill) != SUCCESS) {
+        ALOG_ERROR_F("SpillInBuffer failed.");
         return FAILED;
     }
-    auto spillIssue = issueEntries[bufLastWriteTime];
+    if (!isGenSpill) {
+        // Healthcheck record - update buffer usage statistics
+        if (oooCheck.doHealthCheck) { 
+            UpdateBufferUsage(allocBuffer->memType, spillInfo.spillMemId_, true); 
+        }
+        localBufferMap[spillInfo.spillMemId_]->retireCycle = clock;
+        if (tensorOccupyMap[allocBuffer->memType].erase(spillInfo.spillMemId_) == 0) {
+            ALOG_ERROR_F("Erase tensor[%d] failed", spillInfo.spillMemId_);
+            return FAILED;
+        }
+    }
+    return SUCCESS;
+}
+
+Status OoOScheduler::GetSpillInfo(IssueEntryPtr allocIssue, int spillMemId, bool isGenSpill, 
+    SpillInfo &spillInfo) {
+    auto spillIssue = GetSpillIssue(allocIssue, spillMemId, isGenSpill);
+    if (spillIssue == nullptr) {
+        ALOG_ERROR_F("Cannot find spill Tensor[%d] last write issue.", spillMemId);
+        return FAILED;
+    }
     LogicalTensorPtr spillTensor = nullptr;
     if (GetSpillTensor(spillIssue, spillMemId, spillTensor) != SUCCESS) {
         ALOG_ERROR_F("%s GetSpillTensor failed!", spillIssue->GetOpInfo());
@@ -406,19 +408,25 @@ Status OoOScheduler::SpillBuffer(int spillMemId, size_t &pcIdx, LocalBufferPtr a
     }
     ALOG_DEBUG_F("Begin spill %s tensor[%d].", spillIssue->GetOpInfo(), spillMemId);
     LogicalTensorPtr ddrTensor = nullptr;
-    SpillInfo spillInfo(spillMemId, spillIssue, spillTensor, ddrTensor);
-    if (SpillOutBuffer(spillInfo, bufNextUseTime, pcIdx, true) != SUCCESS) {
-        ALOG_ERROR_F("SpillOutBuffer failed.");
-        return FAILED;
-    }
-    // Healthcheck record - spill info
-    if (oooCheck.doHealthCheck) {
-        oooCheck.spillInfoVec.emplace_back(RecordSpillInfo(allocBuffer->memType, spillMemId, allocBuffer, ddrTensor, 
-            spillIssue->tileOp.GetOpcodeStr().find("COPY_IN") == std::string::npos));
-    }
-    if (SpillInBuffer(spillInfo, allocBuffer->memType, bufNextUseTime, true) != SUCCESS) {
-        ALOG_ERROR_F("SpillInBuffer failed.");
-        return FAILED;
+    spillInfo.ddrTensor_ = ddrTensor;
+    spillInfo.spillTensor_ = spillTensor;
+    spillInfo.spillIssue_ = spillIssue;
+    spillInfo.spillMemId_ = spillMemId;
+    return SUCCESS;
+}
+
+Status OoOScheduler::SpillMultiBuffer(IssueEntryPtr allocIssue, std::vector<int> spillGroup, size_t &pcIdx, 
+    LocalBufferPtr allocBuffer, bool isGenSpill) {
+    for (auto &spillMemId : spillGroup) {
+        SpillInfo spillInfo;
+        if (GetSpillInfo(allocIssue, spillMemId, isGenSpill, spillInfo) != SUCCESS) {
+            ALOG_ERROR_F("GetSpillInfo failed.");
+            return FAILED;
+        }
+        if (SpillBuffer(spillInfo, allocIssue, pcIdx, allocBuffer, isGenSpill) != SUCCESS) {
+            ALOG_ERROR_F("SpillBuffer[%d] failed.", spillMemId);
+            return FAILED;
+        }
     }
     return SUCCESS;
 }
@@ -433,10 +441,9 @@ void OoOScheduler::FindFilterLtags(IssueEntryPtr allocIssue, std::set<IssueEntry
     }
 }
 
-bool OoOScheduler::IsBelongSpillBlackList(size_t bufLastWriteTime, IssueEntryPtr issue) {
+bool OoOScheduler::IsBelongSpillBlackList(IssueEntryPtr spillIssue, IssueEntryPtr issue) {
     std::set<IssueEntryPtr> filterLtags;
     FindFilterLtags(issue, filterLtags);
-    auto spillIssue = issueEntries[bufLastWriteTime];
     if (spillIssue->isAlloc || spillIssue->tileOp.GetOpcode() == Opcode::OP_VIEW ||
         spillIssue->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE || filterLtags.count(spillIssue) != 0) {
         return true;
@@ -444,28 +451,35 @@ bool OoOScheduler::IsBelongSpillBlackList(size_t bufLastWriteTime, IssueEntryPtr
     return false;
 }
 
-Status OoOScheduler::GetGroupNextUseTime(std::vector<int> group, int currPc, std::vector<int> &groupNextUseTime, 
-    std::unordered_map<int, size_t> &nextUseTimeCache) {
+IssueEntryPtr OoOScheduler::GetSpillIssue(IssueEntryPtr allocIssue, int memId, bool isGenSpill) {
+    if (isGenSpill) {
+        return GetBufLastWriteIssue(allocIssue, memId);
+    } 
+    return tensorOccupyMap[localBufferMap[allocIssue->reqMemIds[0]]->memType][memId];
+}
+
+Status OoOScheduler::GetGroupNextUseOrder(std::vector<int> group, IssueEntryPtr allocIssue, 
+    std::vector<int> &groupNextUseTime, std::unordered_map<int, size_t> &nextUseTimeCache, bool isGenSpill) {
     std::vector<size_t> bufNextUseTime;
     for (auto& memId : group) {
-        size_t bufLastWriteTime = currPc;
-        if (!GetBufLastWriteTime(memId, bufLastWriteTime)) {
-            ALOG_ERROR_F("Cannot find spill Tensor[%d] last write time.", memId);
+        IssueEntryPtr spillIssue = GetSpillIssue(allocIssue, memId, isGenSpill);
+        if (spillIssue == nullptr) {
+            ALOG_ERROR_F("Cannot find spill Tensor[%d] last write issue.", memId);
             return FAILED;
         }
-        if (IsBelongSpillBlackList(bufLastWriteTime, issueEntries[currPc])) {
+        if (IsBelongSpillBlackList(spillIssue, allocIssue)) {
             break;
         }
         if (nextUseTimeCache.find(memId) != nextUseTimeCache.end()) {
             bufNextUseTime.push_back(nextUseTimeCache[memId]);
         } else {
-            size_t nextUseTime = currPc;
-            if (!GetBufNextUseTime(memId, nextUseTime)) {
+            int nextUseOrder = GetBufNextUseOrder(allocIssue, memId);
+            if (nextUseOrder == -1) {
                 ALOG_ERROR_F("Cannot find Tensor[%d] next used time.", memId);
                 return FAILED;
             }
-            nextUseTimeCache[memId] = nextUseTime;
-            bufNextUseTime.push_back(nextUseTime);
+            nextUseTimeCache[memId] = static_cast<size_t>(nextUseOrder);
+            bufNextUseTime.push_back(static_cast<size_t>(nextUseOrder));
         }
     }
     if (bufNextUseTime.empty()) {
@@ -476,61 +490,72 @@ Status OoOScheduler::GetGroupNextUseTime(std::vector<int> group, int currPc, std
     return SUCCESS;
 }
 
-Status OoOScheduler::SelectSpillBufferGroup(
-    std::vector<std::vector<int>> &groups, int currPc, std::vector<int> &spillGroup) {
-    if (groups.empty()) { 
-        ALOG_ERROR_F("Cannot find tensor to spill."); 
-        return FAILED; 
-    }
-    std::unordered_map<int, size_t> nextUseTimeCache;
-    std::vector<int> groupNextUseTime;
-    for (auto &group : groups) {
-        if (GetGroupNextUseTime(group, currPc, groupNextUseTime, nextUseTimeCache) != SUCCESS) {
-            ALOG_ERROR_F("GetGroupNextUseTime failed.");
-            return FAILED;
-        }
-    }
-    size_t groupSelect = std::max_element(groupNextUseTime.begin(), groupNextUseTime.end()) - groupNextUseTime.begin();
-    if (groupNextUseTime[groupSelect] == -1) {
-        if (PrintSpillFailedInfo(currPc) != SUCCESS) {
-            ALOG_ERROR_F("PrintSpillFailedInfo failed.");
-            return FAILED;
-        }
-        ALOG_ERROR_F("Cannot find tensor to spill.");
-        return FAILED;
-    }
-    spillGroup = groups[groupSelect];
-    return SUCCESS;
-}
-
-Status OoOScheduler::GenSpillOp(LocalBufferPtr allocBuffer, size_t &pcIdx) {
-    ALOG_DEBUG_F("---> START: SPILL tensor.");
-    if (allocBuffer->memType != MemoryType::MEM_L1 && allocBuffer->memType != MemoryType::MEM_UB) {
-        if (PrintSpillFailedInfo(pcIdx) != SUCCESS) {
-            ALOG_ERROR_F("PrintSpillFailedInfo failed.");
-            return FAILED;
-        }
-        ALOG_ERROR_F("Buffer[L0A/B/C] is Full. Please check tile shape and OOO spill failed info.");
-        return FAILED;
-    }
+Status OoOScheduler::SelectSpillBuffers(LocalBufferPtr allocBuffer, IssueEntryPtr allocIssue, 
+    std::vector<int> &spillGroup, bool isGenSpill) {
     // 查找出可以spill 单个或多个tensor的集合
     std::vector<std::vector<int>> canSpillGroups;
     if (bufferManagerMap[allocBuffer->memType].GetSpillGroup(allocBuffer->size, canSpillGroups) != SUCCESS) {
         ALOG_ERROR_F("GetSpillGroup failed.");
         return FAILED;
     }
-    // 选择最晚被使用的spill 单个或多个tensor
-    std::vector<int> spillGroup;
-    if (SelectSpillBufferGroup(canSpillGroups, pcIdx, spillGroup) != SUCCESS) {
-        ALOG_ERROR_F("SelectSpillBufferGroup failed!");
+    if (canSpillGroups.empty()) { 
+        ALOG_ERROR_F("Cannot find tensor to spill."); 
+        return FAILED; 
+    }
+    std::unordered_map<int, size_t> nextUseTimeCache;
+    std::vector<int> groupNextUseTime;
+    for (auto &group : canSpillGroups) {
+        if (GetGroupNextUseOrder(group, allocIssue, groupNextUseTime, nextUseTimeCache, isGenSpill) != SUCCESS) {
+            ALOG_ERROR_F("GetGroupNextUseOrder failed.");
+            return FAILED;
+        }
+    }
+    size_t groupSel = std::max_element(groupNextUseTime.begin(), groupNextUseTime.end()) - groupNextUseTime.begin();
+    if (groupNextUseTime[groupSel] == -1) {
+        if (PrintSpillFailedInfo(allocIssue) != SUCCESS) {
+            ALOG_ERROR_F("PrintSpillFailedInfo failed.");
+            return FAILED;
+        }
+        ALOG_ERROR_F("Cannot find tensor to spill.");
         return FAILED;
     }
-    for (auto spillMemId : spillGroup) {
-        // 插入spill搬出重载数据的COPY_OUT/COPY_IN
-        if (SpillBuffer(spillMemId, pcIdx, allocBuffer) != SUCCESS) { 
-            ALOG_ERROR_F("Tensor[%d] SpillBuffer failed!", spillMemId);
-            return FAILED; 
+    spillGroup = canSpillGroups[groupSel];
+    return SUCCESS;
+}
+
+Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
+    std::vector<int> spillGroup;
+    if (SelectSpillBuffers(localBufferMap[allocIssue->reqMemIds[0]], allocIssue, spillGroup, false) != SUCCESS) {
+        ALOG_ERROR_F("SelectSpillBuffers failed!");
+        return FAILED;
+    }
+    size_t temp = 1;
+    if (SpillMultiBuffer(allocIssue, spillGroup, temp, localBufferMap[allocIssue->reqMemIds[0]], false) != SUCCESS) { 
+        ALOG_ERROR_F("SpillMultiBuffer failed!");
+        return FAILED; 
+    }
+    return SUCCESS;
+}
+
+Status OoOScheduler::GenSpillOp(LocalBufferPtr allocBuffer, size_t &pcIdx) {
+    ALOG_DEBUG_F("---> START: SPILL tensor.");
+    if (allocBuffer->memType != MemoryType::MEM_L1 && allocBuffer->memType != MemoryType::MEM_UB) {
+        if (PrintSpillFailedInfo(issueEntries[pcIdx]) != SUCCESS) {
+            ALOG_ERROR_F("PrintSpillFailedInfo failed.");
+            return FAILED;
         }
+        ALOG_ERROR_F("Buffer[L0A/B/C] is Full. Please check tile shape and OOO spill failed info.");
+        return FAILED;
+    }
+    // 选择最晚被使用的spill 单个或多个tensor
+    std::vector<int> spillGroup;
+    if (SelectSpillBuffers(allocBuffer, issueEntries[pcIdx], spillGroup, true) != SUCCESS) {
+        ALOG_ERROR_F("SelectSpillBuffers failed!");
+        return FAILED;
+    }
+    if (SpillMultiBuffer(issueEntries[pcIdx], spillGroup, pcIdx, allocBuffer, true) != SUCCESS) { 
+        ALOG_ERROR_F("SpillMultiBuffer failed!");
+        return FAILED; 
     }
     ALOG_DEBUG_F("---> END: SPILL tensor.");
     return SUCCESS;
