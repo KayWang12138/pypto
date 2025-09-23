@@ -672,12 +672,7 @@ Status PreGraphProcess::RunOnFunction(Function &function) {
     PreColorSort(function);
     auto opList = function.Operations();
     for (auto &op : opList) {
-        if (op.GetSubgraphID() <= -1) {
-            continue;
-        }
-        auto curColor = op.GetSubgraphID();
         InitializeTensorColor(op);
-        op.UpdateSubgraphID(curColor);
         UpdateCopyOpIsCube(op);
     }
     SetTensorBoundary(function);

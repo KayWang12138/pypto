@@ -23,7 +23,7 @@ Status SToIWrapper(const std::string str, int& result) {
         result = std::stoi(str);
         return SUCCESS;
     } catch (const std::exception &e) {
-        ALOG_ERROR_F("Failed to convert %s to int, error is %s.", str, e.what());
+        ALOG_ERROR_F("Failed to convert %s to int, error is %s.", str.c_str(), e.what());
     }
     return FAILED;
 }
@@ -108,7 +108,7 @@ Status DynAttrToStatic::BuildLeafToCaller(Function *func) {
             Function *nextFunc = nullptr;
             if (GetCallee(callop, nextFunc) != SUCCESS) {
                 ALOG_ERROR_F("BuildLeafToCaller at %s, %s[%d] GetCallee failed",
-                    func->GetRawName(), callop->GetOpcodeStr().c_str(), callop->GetOpMagic());
+                    func->GetRawName().c_str(), callop->GetOpcodeStr().c_str(), callop->GetOpMagic());
                 return FAILED;
             }
             if (BuildLeafToCaller(nextFunc) != SUCCESS) {
@@ -124,7 +124,7 @@ Status DynAttrToStatic::BuildLeafToCaller(Function *func) {
             Function *leafFunc = nullptr;
             if (GetCallee(callop, leafFunc) != SUCCESS) {
                 ALOG_ERROR_F("BuildLeafToCaller at %s, %s[%d] GetCallee failed",
-                    func->GetRawName(), callop->GetOpcodeStr().c_str(), callop->GetOpMagic());
+                    func->GetRawName().c_str(), callop->GetOpcodeStr().c_str(), callop->GetOpMagic());
                 return FAILED;
             }
             leaf2Caller[leafFunc].push_back(callop);
@@ -132,7 +132,7 @@ Status DynAttrToStatic::BuildLeafToCaller(Function *func) {
         return SUCCESS;
     }
     ALOG_INFO_F("BuildLeafToCaller at %s entered unexpected function type %d",
-        func->GetRawName(), static_cast<int>(func->GetFunctionType()));
+        func->GetRawName().c_str(), static_cast<int>(func->GetFunctionType()));
     return FAILED;
 }
 
@@ -186,7 +186,7 @@ Status DynAttrToStatic::TryRemoveDynAttr(Function* leafFunc, std::vector<Operati
         for (auto dynScalar : dynScalarList) {
             if (BuildNewCoa(dynScalar, callopArglistOneDim) != SUCCESS) {
                 ALOG_ERROR_F("TryRemoveDynAttr failed to execute BuildNewCoa for op [%d][%s].",
-                    op.GetOpMagic(), op.GetOpcodeStr());
+                    op.GetOpMagic(), op.GetOpcodeStr().c_str());
                 return FAILED;
             }
         }
@@ -202,7 +202,7 @@ Status DynAttrToStatic::TryRemoveDynAttr(Function* leafFunc, std::vector<Operati
             std::reference_wrapper<SymbolicScalar> dynExpr = const_cast<SymbolicScalar&>(dynParam.second.dim);
             if (BuildNewCoa(dynExpr, callopArglistOneDim) != SUCCESS) {
                 ALOG_ERROR_F("TryRemoveDynAttr failed to execute BuildNewCoa for dynExpr %s.",
-                    SymbolicExpressionTable::BuildExpression(dynExpr));
+                    SymbolicExpressionTable::BuildExpression(dynExpr).c_str());
                 return FAILED;
             }
         }
@@ -223,7 +223,7 @@ Status DynAttrToStatic::RunOnFunction(Function &function) {
     // 2. 遍历leaf2Caller，尝试为每个leaf消除动态attributes
     for (const auto& pair : leaf2Caller) {
         if (TryRemoveDynAttr(pair.first, pair.second) != SUCCESS) {
-            ALOG_ERROR_F("Failed to call TryRemoveDynAttr for leafFunc %s.", pair.first->GetRawName());
+            ALOG_ERROR_F("Failed to call TryRemoveDynAttr for leafFunc %s.", pair.first->GetRawName().c_str());
             return FAILED;
         }
     }

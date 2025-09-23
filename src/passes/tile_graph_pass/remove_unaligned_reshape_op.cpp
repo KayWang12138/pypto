@@ -33,7 +33,8 @@ Status RemoveUnalignedReshape::RunOnFunction(Function &function) {
         newCopyOut.SetOpAttribute(std::make_shared<CopyOpAttribute>(a.from, OpImmediate::Specified(a.toOffset),
             OpImmediate::Specified(newCopyOut.iOperand.front()->oriShape),
             OpImmediate::Specified(newCopyOut.oOperand.front()->tensor->GetDynRawShape())));
-        newCopyOut.UpdateSubgraphID(a.input->subGraphID);
+        auto producerOp = *(a.input->GetProducers().begin());
+        newCopyOut.UpdateSubgraphID(producerOp->GetSubgraphID());
         ALOG_INFO_F("ADD OP_COPY_OUT, magic %d ,IOperand tensor magic %d OOperand tensor magic %d", newCopyOut.opmagic,
             a.input->magic, a.output->magic);
     }
@@ -44,7 +45,8 @@ Status RemoveUnalignedReshape::RunOnFunction(Function &function) {
             OpImmediate::Specified(newCopyIn.oOperand.front()->oriShape),
             OpImmediate::Specified(newCopyIn.iOperand.front()->tensor->GetDynRawShape()),
             OpImmediate::Specified(newCopyIn.iOperand.front()->GetDynValidShape())));
-        newCopyIn.UpdateSubgraphID(b.output->subGraphID);
+        auto consumerOp = *(b.output->GetConsumers().begin());
+        newCopyIn.UpdateSubgraphID(consumerOp->GetSubgraphID());
         ALOG_INFO_F("ADD OP_VIEW, magic %d ,IOperand tensor magic %d OOperand tensor magic %d", newCopyIn.opmagic,
             b.input->magic, b.output->magic);
     }

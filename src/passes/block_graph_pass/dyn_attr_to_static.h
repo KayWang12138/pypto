@@ -88,25 +88,25 @@ struct CoaInfo {
             macroType = CoaType::PARAM_OFFSET;
             if (SToIParamShapeAndOffset(match) != SUCCESS) {
                 ALOG_ERROR_F("ParseCoaString failed to convert indices,"
-                    "CoaType::PARAM_OFFSET, input coaExpr %s.", coaExpr);
+                    "CoaType::PARAM_OFFSET, input coaExpr %s.", coaExpr.c_str());
                 return FAILED;
             }
         } else if (std::regex_search(coaExpr, match, paramShapePattern)) {
             macroType = CoaType::PARAM_VALID_SHAPE;
             if (SToIParamShapeAndOffset(match) != SUCCESS) {
                 ALOG_ERROR_F("ParseCoaString failed to convert indices,"
-                    "CoaType::PARAM_VALID_SHAPE, input coaExpr %s.", coaExpr);
+                    "CoaType::PARAM_VALID_SHAPE, input coaExpr %s.", coaExpr.c_str());
                 return FAILED;
             }
         } else if (std::regex_search(coaExpr, match, paramPattern)) {
             macroType = CoaType::PARAM;
             if (SToIWrapper(match[INPUT_PARAM_POS_ONE].str(), idx) != SUCCESS) {
                 ALOG_ERROR_F("ParseCoaString failed to convert indices,"
-                    "CoaType::PARAM, input coaExpr %s.", coaExpr);
+                    "CoaType::PARAM, input coaExpr %s.", coaExpr.c_str());
                 return FAILED;
             }
         } else {
-            ALOG_ERROR_F("ParseCoaString input coaExpr %s is not recognized.", coaExpr);
+            ALOG_ERROR_F("ParseCoaString input coaExpr %s is not recognized.", coaExpr.c_str());
             return FAILED;
         }
         return SUCCESS;

@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "../statistics/tensor_and_tile_graph_statistic.h"
+#include "tensor_and_tile_graph_statistic.h"
 
 #include <sstream>
 #include <stdexcept>
