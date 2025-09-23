@@ -22,12 +22,11 @@
 #include <array>
 #include <semaphore.h>
 #include "securec.h"
-
 #include "tilefwk/config.h"
 #include "interface/utils/common.h"
 #include "interface/operation/opcode.h"
 #include "interface/schema/schema.h"
-
+#include "machine/utils/dynamic/dev_workspace.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/utils/dynamic/small_array.h"
 #include "machine/utils/dynamic/spsc_queue.h"

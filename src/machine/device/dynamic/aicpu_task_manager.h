@@ -23,7 +23,7 @@
 #include <queue>
 
 #include "machine/utils/dynamic/dev_encode.h"
-#include "machine/device/dynamic/device_context.h"
+#include "machine/utils/dynamic/dev_workspace.h"
 #include "machine/device/distributed/common.h"
 #include "machine/device/distributed/shmem_wait_until.h"
 #include "machine/utils/machine_ws_intf.h"

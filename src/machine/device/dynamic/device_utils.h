@@ -23,6 +23,7 @@
 #include <vector>
 #include <mutex>
 #include <fstream>
+#include "securec.h"
 #include "machine/utils/device_log.h"
 
 #ifndef CONFIG_MAX_DEVICE_TASK_NUM
