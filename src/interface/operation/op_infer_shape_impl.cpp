@@ -595,6 +595,22 @@ void MrgSortFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outVal
 
 REGISTER_INFER_SHAPE_FUNC(OP_MRGSORT, Opcode::OP_MRGSORT, MrgSortFunc);
 
+void TiledMrgSortFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
+    std::vector<std::vector<SymbolicScalar>> inputValidShapes;
+    for (auto inputTensor : op->GetIOperands()) {
+        inputValidShapes.push_back(inputTensor->GetDynValidShape());
+    }
+    if (inputValidShapes.empty()) {
+        return;
+    }
+    auto outValidShape = inputValidShapes[0];
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(outValidShape);
+    }
+}
+
+REGISTER_INFER_SHAPE_FUNC(OP_TILEDMRGSORT, Opcode::OP_TILEDMRGSORT, TiledMrgSortFunc);
+
 // m, 2 * k align8 -> m, k
 void ExtractFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
     std::vector<std::vector<SymbolicScalar>> inputValidShapes;

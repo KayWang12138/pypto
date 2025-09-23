@@ -92,6 +92,7 @@ public:
     std::string GenBitSortOp() const;
     std::string GenMrgSortOp() const;
     std::string GenExtractOp() const;
+    std::string GenTiledMrgSortOp() const;
 
     std::string GenParamsStr() const;
 
@@ -264,6 +265,9 @@ private:
     std::string PrintUnaryStatic(const PrintUnaryParam &param) const;
 
     SortParam PrepareSortParam() const;
+    TiledSortParam PrepareTiledSortParam() const;
+    std::string PrintTiledSortDynamicUnaligned(const TiledSortParam &param) const;
+    std::string PrintTiledMrgSortDynamicUnaligned(const TiledSortParam &param) const;
     std::string PrintSortDynamicUnaligned(const SortParam &param) const;
     std::string PrintSortStatic(const SortParam &param) const;
     std::string PrintBitSortDynamicUnaligned(const SortParam &param) const;
@@ -466,6 +470,7 @@ private:
         {                   Opcode::OP_BITSORT,                [this]() { return GenBitSortOp(); }},
         {                   Opcode::OP_MRGSORT,                [this]() { return GenMrgSortOp(); }},
         {                   Opcode::OP_EXTRACT,                [this]() { return GenExtractOp(); }},
+        {                   Opcode::OP_TILEDMRGSORT,      [this]() { return GenTiledMrgSortOp(); }},
 
         // matmul
         {                   Opcode::OP_A_MUL_B,             [this]() { return GenCubeOpMatmul(); }},

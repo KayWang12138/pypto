@@ -1884,14 +1884,14 @@ TILEOP void DynTSmaxs(__ubuf__ T *dst, __ubuf__ T *src, float scalar, unsigned T
     wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
 }
 
-template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0, unsigned srcShape1, int axis, int isLargest>
+template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0, unsigned srcShape1, int axis, int offset, int isLargest>
 TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, unsigned oriShape1) {
     // 生成index数据,首先创建一个1~8的数组,之后扩展到TShape1,构成0~TShape1的index数组
     // pipe_barrier(PIPE_ALL); // 当前OP无法描述两条流水,UB复用场景存在问题,暂时按照pipe_all规避
     int32_t srcShape1Align = (oriShape1 + 31) / 32 * 32;
     __ubuf__ uint32_t *idx = (__ubuf__ uint32_t *)dst + 2 * srcShape1Align;
     for (int32_t j = 0; j < oriShape1; j++) {
-        *(idx + j) = j;
+        *(idx + j) = (j + offset);
     }
     float FLOAT_MIN = -(0.0 / 0.0);
     set_flag(PIPE_S, PIPE_V, EVENT_ID7);
@@ -1997,7 +1997,7 @@ TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
 }
 
 template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned dstShape2, unsigned dstShape3,
-    unsigned srcShape0, unsigned srcShape1, unsigned srcShape2, unsigned srcShape3, int axis, int isLargest>
+    unsigned srcShape0, unsigned srcShape1, unsigned srcShape2, unsigned srcShape3, int axis, int offset, int isLargest>
 TILEOP void DynBitSort(
     __ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, unsigned oriShape1, unsigned oriShape2, unsigned oriShape3) {
     for (int i = 0; i < oriShape0; ++i) {
@@ -2005,7 +2005,7 @@ TILEOP void DynBitSort(
         __ubuf__ T *src_ = src;
         for (int j = 0; j < oriShape1; ++j) {
             if (oriShape2 != 0 && oriShape3 != 0) {
-                TileOp::DynBitSort<T, dstShape2, dstShape3, srcShape2, srcShape3, axis, isLargest>(dst_, src_, oriShape2, oriShape3);
+                TileOp::DynBitSort<T, dstShape2, dstShape3, srcShape2, srcShape3, axis, offset, isLargest>(dst_, src_, oriShape2, oriShape3);
                 dst_ += dstShape2 * dstShape3;
                 src_ += srcShape2 * srcShape3;
                 pipe_barrier(PIPE_V);
@@ -2107,13 +2107,146 @@ TILEOP void DynMrgSort(
         __ubuf__ T *dst_ = dst;
         __ubuf__ T *src_ = src;
         for (int j = 0; j < oriShape1; ++j) {
-            TileOp::DynMrgSort<T, dstShape2, dstShape3, srcShape2, srcShape3, axis, k, isLargest>(dst_, src_, oriShape2, oriShape3);
-            dst_ += dstShape2 * dstShape3;
-            src_ += srcShape2 * srcShape3;
-            pipe_barrier(PIPE_V);
+            if (oriShape2 != 0 && oriShape3 != 0) {
+                TileOp::DynMrgSort<T, dstShape2, dstShape3, srcShape2, srcShape3, axis, k, isLargest>(dst_, src_, oriShape2, oriShape3);
+                dst_ += dstShape2 * dstShape3;
+                src_ += srcShape2 * srcShape3;
+                pipe_barrier(PIPE_V);
+            }
         }
         dst += dstShape1 * dstShape2 * dstShape3;
         src += srcShape1 * srcShape2 * srcShape3;
+    }
+}
+
+template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0, unsigned srcShape1,
+ unsigned srcShapeLast, int k, int validBit>
+TILEOP void DynTiledMrgSort(
+    __ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, __ubuf__ T *src2, __ubuf__ T *src3, __ubuf__ T *tmp, 
+    unsigned oriShape0, unsigned oriShape1, unsigned oriShapeLast) {
+    constexpr int32_t kAlign = (k + 3) / 4 * 4;
+    int32_t totalNum = oriShape1 / 4;
+    for (int rowIdx = 0; rowIdx < oriShape0; rowIdx++) {
+        if constexpr (validBit == 4) {
+            __ubuf__ float *src0Data = reinterpret_cast<__ubuf__ float *>(src0) + rowIdx * srcShape1;
+            __ubuf__ float *src1Data = reinterpret_cast<__ubuf__ float *>(src1) + rowIdx * srcShape1;
+            __ubuf__ float *src2Data = reinterpret_cast<__ubuf__ float *>(src2) + rowIdx * srcShape1;
+            __ubuf__ float *src3Data = reinterpret_cast<__ubuf__ float *>(src3) + rowIdx * srcShapeLast;
+            uint64_t config = 0;
+            config |= uint64_t(1); // Xt[7:0]: repeat time
+            config |= (uint64_t(0b1111) << 8);      // Xt[11:8]: 4-bit mask signal
+            config |= (uint64_t(0b0) << 12);        // Xt[12]: 1-enable input list exhausted suspension
+
+            // 每次计算的数据
+            uint64_t count = 0;
+            count |= (uint64_t(k));
+            count |= (uint64_t(k) << 16);
+            count |= (uint64_t(k) << 32);
+            count |= (uint64_t(k) << 48);
+
+            __ubuf__ float *addr_array[4] = {(__ubuf__ float *)(src0Data),
+                (__ubuf__ float *)(src1Data), (__ubuf__ float *)(src2Data),
+                (__ubuf__ float *)(src3Data)};
+            pipe_barrier(PIPE_V);
+            vmrgsort4(tmp, addr_array, count, config);
+            pipe_barrier(PIPE_V);
+        }
+        if constexpr (validBit == 3) {
+            __ubuf__ float *src0Data = reinterpret_cast<__ubuf__ float *>(src0) + rowIdx * srcShape1;
+            __ubuf__ float *src1Data = reinterpret_cast<__ubuf__ float *>(src1) + rowIdx * srcShape1;
+            __ubuf__ float *src2Data = reinterpret_cast<__ubuf__ float *>(src2) + rowIdx * srcShapeLast;
+            uint64_t config = 0;
+            config |= uint64_t(1); // Xt[7:0]: repeat time
+            config |= (uint64_t(0b111) << 8);      // Xt[11:8]: 4-bit mask signal
+            config |= (uint64_t(0b0) << 12);        // Xt[12]: 1-enable input list exhausted suspension
+
+            // 每次计算的数据
+            uint64_t count = 0;
+            count |= (uint64_t(k));
+            count |= (uint64_t(k) << 16);
+            count |= (uint64_t(k) << 32);
+
+            __ubuf__ float *addr_array[4] = {(__ubuf__ float *)(src0Data),
+                (__ubuf__ float *)(src1Data), (__ubuf__ float *)(src2Data),
+                (__ubuf__ float *)0};
+            pipe_barrier(PIPE_V);
+            vmrgsort4(tmp, addr_array, count, config);
+            pipe_barrier(PIPE_V);
+        }
+        if constexpr (validBit == 2) {
+            __ubuf__ float *src0Data = reinterpret_cast<__ubuf__ float *>(src0) + rowIdx * srcShape1;
+            __ubuf__ float *src1Data = reinterpret_cast<__ubuf__ float *>(src1) + rowIdx * srcShapeLast;
+
+            uint64_t config = 0;
+            config |= uint64_t(1); // Xt[7:0]: repeat time
+            config |= (uint64_t(0b11) << 8);      // Xt[11:8]: 4-bit mask signal
+            config |= (uint64_t(0b0) << 12);        // Xt[12]: 1-enable input list exhausted suspension
+
+            // 每次计算的数据
+            uint64_t count = 0;
+            count |= (uint64_t(k));
+            count |= (uint64_t(k) << 16);
+
+            __ubuf__ float *addr_array[4] = {(__ubuf__ float *)(src0Data),
+                (__ubuf__ float *)(src1Data), (__ubuf__ float *)0,
+                (__ubuf__ float *)0};
+            pipe_barrier(PIPE_V);
+            vmrgsort4(tmp, addr_array, count, config);
+            pipe_barrier(PIPE_V);
+        }       
+        copy_ubuf_to_ubuf((__ubuf__ float *)(dst + rowIdx * dstShape1), (__ubuf__ float *)tmp, 0,
+            kAlign / 4, 1, 0, 0);
+        pipe_barrier(PIPE_V);
+    }
+}
+
+template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned dstShape2, unsigned dstShape3,
+    unsigned srcShape0, unsigned srcShape1, unsigned srcShape2, unsigned srcShape3, unsigned srcShapeLast,
+    int k, int validBit>
+TILEOP void DynTiledMrgSort(
+    __ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, __ubuf__ T *src2, __ubuf__ T *src3, __ubuf__ T *tmp,
+    unsigned oriShape0, unsigned oriShape1, unsigned oriShape2, unsigned oriShape3, unsigned oriShapeLast) {
+    for (int i = 0; i < oriShape0; ++i) {
+        __ubuf__ T *dst_ = dst;
+        __ubuf__ T *src0_ = src0;
+        __ubuf__ T *src1_ = src1;
+        __ubuf__ T *src2_ = src2;
+        __ubuf__ T *src3_ = src3;
+        for (int j = 0; j < oriShape1; ++j) {
+            if (oriShape2 != 0 && oriShape3 != 0 && oriShapeLast != 0) {
+                TileOp::DynTiledMrgSort<T, dstShape2, dstShape3, srcShape2, srcShape3, srcShapeLast, k, validBit>
+                (dst_, src0_, src1_, src2_, src3_, tmp, oriShape2, oriShape3, oriShapeLast);
+                pipe_barrier(PIPE_V);
+            }
+            dst_ += dstShape2 * dstShape3;
+            if constexpr (validBit == 2) {
+                src0_ += srcShape2 * srcShape3;
+                src1_ += srcShape2 * srcShapeLast;
+            } else if constexpr (validBit == 3) {
+                src0_ += srcShape2 * srcShape3;
+                src1_ += srcShape2 * srcShape3;
+                src2_ += srcShape2 * srcShapeLast;
+            }  else if constexpr (validBit == 4) {
+                src0_ += srcShape2 * srcShape3;
+                src1_ += srcShape2 * srcShape3;
+                src2_ += srcShape2 * srcShape3;
+                src3_ += srcShape2 * srcShapeLast;
+            }
+        }
+        dst += dstShape1 * dstShape2 * dstShape3;
+        if constexpr (validBit == 2) {
+            src0 += srcShape1 * srcShape2 * srcShape3;
+            src1 += srcShape1 * srcShape2 * srcShapeLast;
+        } else if constexpr (validBit == 3) {
+            src0 += srcShape1 * srcShape2 * srcShape3;
+            src1 += srcShape1 * srcShape2 * srcShape3;
+            src2 += srcShape1 * srcShape2 * srcShapeLast;
+        }  else if constexpr (validBit == 4) {
+            src0 += srcShape1 * srcShape2 * srcShape3;
+            src1 += srcShape1 * srcShape2 * srcShape3;
+            src2 += srcShape1 * srcShape2 * srcShape3;
+            src3 += srcShape1 * srcShape2 * srcShapeLast;
+        }
     }
 }
 
@@ -2124,7 +2257,7 @@ TILEOP void DynExtract(__ubuf__ T *dst, __ubuf__ U *src, unsigned TShape0) {
     constexpr uint8_t srcBlockStride = 1;
     constexpr uint8_t dstRepeatStride = 8;
     constexpr uint8_t srcRepeatStride = 8;
-    // mode trans, extractMode == 0 取奇数位， extractMode == 1 取偶数位
+    // mode trans, extractMode == 0 取偶数位， extractMode == 1 取奇数位
     int patternMode = 1;
     if constexpr (extractMode == 1) {
         patternMode = 2;

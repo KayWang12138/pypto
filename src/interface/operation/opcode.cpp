@@ -239,11 +239,14 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_PRINT, OpCoreType::ANY, "OP_DUMP", {}, {}, {}, OpCalcType::SYS, {});
     registerInfo(Opcode::OP_CALL_NOT_EXPAND, OpCoreType::ANY, "CALL_NOT_EXPAND", {}, {}, {}, OpCalcType::SYS);
     // Begin: add for TOPK and ArgSort
-    registerInfo(Opcode::OP_BITSORT, OpCoreType::ANY, "BITSORT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::BitSort", PIPE_S, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "order"});
+    registerInfo(Opcode::OP_BITSORT, OpCoreType::ANY, "BITSORT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::BitSort", PIPE_S, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "order", OP_ATTR_PREFIX + "offset"});
     registerInfo(Opcode::OP_MRGSORT, OpCoreType::ANY, "MRGSORT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::MrgSort", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "order", OP_ATTR_PREFIX + "kvalue"});
     registerInfo(Opcode::OP_ARGSORT, OpCoreType::ANY, "ARGSORT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::ArgSort", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "order", OP_ATTR_PREFIX + "kvalue"});
     registerInfo(Opcode::OP_EXTRACT, OpCoreType::ANY, "EXTRACT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Extract", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
     {OP_ATTR_PREFIX + "kvalue", OP_ATTR_PREFIX + "order", OP_ATTR_PREFIX + "makeMode"});
+    registerInfo(Opcode::OP_TILEDMRGSORT, OpCoreType::ANY, "TILEDMRGSORT", {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::TiledMrgSort", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
+     {OP_ATTR_PREFIX + "validBit", OP_ATTR_PREFIX + "kvalue"});
+    registerInfo(Opcode::OP_TOPK, OpCoreType::ANY, "TOPK", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::MrgSort", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "order", OP_ATTR_PREFIX + "kvalue"});
 
     registerInfo(Opcode::OP_FUSED_OP, OpCoreType::AIV, "FUSED_OP", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::fusedOP", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST);
     registerInfo(Opcode::OP_VLD, OpCoreType::ANY, "VLD", {}, {}, {}, OpCalcType::MOVE_IN);

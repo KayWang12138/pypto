@@ -2702,7 +2702,7 @@ TILEOP void Tvcopy(__ubuf__ T *dst, __ubuf__ T *src) {
 }
 
 template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0, unsigned srcShape1,
-    unsigned oriShape0, unsigned oriShape1, int axis, int isLargest>
+    unsigned oriShape0, unsigned oriShape1, int axis, int offset, int isLargest>
 TILEOP void BitSort(__ubuf__ T *dst, __ubuf__ T *src) {
     // 生成index数据,首先创建一个1~8的数组,之后扩展到TShape1,构成0~TShape1的index数组
     // pipe_barrier(PIPE_ALL); // 当前OP无法描述两条流水,UB复用场景存在问题,暂时按照pipe_all规避

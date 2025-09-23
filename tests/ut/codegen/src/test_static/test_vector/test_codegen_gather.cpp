@@ -74,7 +74,7 @@ TEST_F(TestCodegenGather, TestGather) {
 }
 
 TEST_F(TestCodegenGather, TestGatherEle) {
-    constexpr const int32_t nRoutedExperts = 256;
+    constexpr const int32_t nRoutedExperts = 32;
     constexpr const int32_t numExpertsPerTopk = 8;
     constexpr const int32_t S = 1;
     constexpr const int32_t B = 2;

@@ -203,7 +203,8 @@ enum class Opcode {
     OP_SHMEM_REDUCE,
 
     // Begin: add for TOPK and ArgSort
-    // OP_TOPK,
+    OP_TOPK,
+    OP_TILEDMRGSORT,
     OP_BITSORT,
     OP_MRGSORT,
     OP_ARGSORT,
@@ -443,7 +444,7 @@ Opcode::OP_LN, Opcode::OP_ABS, Opcode::OP_RSQRT, Opcode::OP_SQRT, Opcode::OP_REC
     Opcode::OP_ROWSUMLINE, Opcode::OP_ADD_BRC, Opcode::OP_ADD_BRC, Opcode::OP_SUB_BRC,
     Opcode::OP_MUL_BRC, Opcode::OP_DIV_BRC, Opcode::OP_MAX_BRC, Opcode::OP_GATHER, Opcode::OP_S_ADDS, Opcode::OP_S_SUBS,
     Opcode::OP_S_DIVS, Opcode::OP_S_MULS, Opcode::OP_S_MAXS, Opcode::OP_BITSORT, Opcode::OP_MRGSORT,
-    Opcode::OP_EXTRACT, Opcode::OP_ROWMAXLINE, Opcode::OP_PAIRMIN,Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWMINLINE,
+    Opcode::OP_EXTRACT, Opcode::OP_TILEDMRGSORT, Opcode::OP_ROWMAXLINE, Opcode::OP_PAIRMIN,Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWMINLINE,
     Opcode::OP_SCATTER_ELEMENT, Opcode::OP_TRANSPOSE_MOVEIN};
 
 const std::unordered_set<Opcode> FIX_COPY_IN_OPS{Opcode::OP_FIX_COPY_IN, Opcode::OP_FIX_COPY_IN_QUANT_PRE,

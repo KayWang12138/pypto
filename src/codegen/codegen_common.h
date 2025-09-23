@@ -43,6 +43,7 @@ constexpr const unsigned ID1 = 1;
 constexpr const unsigned ID2 = 2;
 constexpr const unsigned ID3 = 3;
 constexpr const unsigned ID4 = 4;
+constexpr const unsigned ID5 = 5;
 
 constexpr const int BUFFER_SIZE_256 = 256;
 constexpr const int BUFFER_SIZE_512 = 512;
@@ -125,6 +126,19 @@ struct SortParam {
     std::vector<int64_t> dstShape{4, 1};
     std::vector<int64_t> srcShape{4, 1};
     const std::string s0Var = "";
+    const std::string dVar = "";
+    const std::string srcDtypeStr = "";
+    const std::string dstDtypeStr = "";
+};
+
+struct TiledSortParam {
+    std::vector<int64_t> dstShape{4, 1};
+    std::vector<int64_t> srcShape{5, 1};
+    const std::string s0Var = "";
+    const std::string s1Var = "";
+    const std::string s2Var = "";
+    const std::string s3Var = "";
+    const std::string tmpVar = "";
     const std::string dVar = "";
     const std::string srcDtypeStr = "";
     const std::string dstDtypeStr = "";
