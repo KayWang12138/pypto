@@ -134,9 +134,8 @@ void SplitRawTensor::SplitRaw(Function &function) const {
                 continue;
             }
             /* 创建新的rawTensor，并将其后接的View以及view的Consumer的rawtensor刷新为新的rawTensor */
-            std::string symbol = SYMBOL_PREFIX + std::to_string(singleLogicalTensor->magic);
             singleLogicalTensor->tensor = std::make_shared<RawTensor>(
-                singleLogicalTensor->tensor->datatype, singleLogicalTensor->GetShape(), symbol);
+                singleLogicalTensor->tensor->datatype, singleLogicalTensor->GetShape(), singleLogicalTensor->Symbol());
             ALOG_DEBUG_F("SplitRawTensor::SplitRaw: tensor[%d] updated new raw tensor[%d] with the same raw shape.",
                 singleLogicalTensor->GetMagic(), singleLogicalTensor->GetRawMagic());
             if (singleLogicalTensor->tensor == nullptr) {

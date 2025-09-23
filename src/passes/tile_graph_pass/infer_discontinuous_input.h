@@ -13,8 +13,8 @@
  * \brief
  */
 
-#ifndef PASS_INFER_MEMORY_CONFLICT_H_
-#define PASS_INFER_MEMORY_CONFLICT_H_
+#ifndef PASS_INFER_DISCONTINUOUS_INPUT_H_
+#define PASS_INFER_DISCONTINUOUS_INPUT_H_
 
 #include <vector>
 #include <unordered_map>
@@ -25,23 +25,23 @@
 
 namespace npu {
 namespace tile_fwk {
-class InferMemoryConflict : public Pass {
+class InferDiscontinuousInput : public Pass {
 public:
-    InferMemoryConflict() : Pass("InferMemoryConflict") {}
-    ~InferMemoryConflict() override = default;
+    InferDiscontinuousInput() : Pass("InferDiscontinuousInput") {}
+    ~InferDiscontinuousInput() override = default;
 
 private:
     Status RunOnFunction(Function &function) override;
     Status InferFromIncast(Function &function);
     Status InsertTensorCopy(Function &function);
     void Init(Function& function);
-    bool IsValidTileShape(const Operation &op) const;
     std::vector<std::pair<LogicalTensorPtr, Operation *>> FilterCopyScenes(Function &function, LogicalTensorPtr targetTensor,
         const std::vector<std::pair<LogicalTensorPtr, Operation *>> &);
     std::unordered_map<LogicalTensorPtr, LogicalTensorPtr> parentRawTensor_; // key: 当前tensor的magic，value: parent tensor 的 raw magic
     std::map<LogicalTensorPtr, std::vector<std::pair<LogicalTensorPtr, Operation *>>> insertCopys_;
     std::map<Operation *, size_t> opInputDegree_;
+    std::map<LogicalTensorPtr, size_t> tensorProducers_;
 };
 } // namespace tile_fwk
 } // namespace npu
-#endif // PASS_INFER_MEMORY_CONFLICT_H_
+#endif // PASS_INFER_DISCONTINUOUS_INPUT_H_

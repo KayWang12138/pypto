@@ -54,6 +54,7 @@
 #include "passes/tile_graph_pass/infer_dyn_shape.h"
 #include "passes/tile_graph_pass/iso_partitioner.h"
 #include "passes/tile_graph_pass/infer_dyn_shape.h"
+#include "passes/tile_graph_pass/infer_discontinuous_input.h"
 // execute graph pass
 #include "passes/block_graph_pass/global_memory_reuse.h"
 #include "passes/tile_graph_pass/subgraph_to_function.h"
@@ -111,6 +112,7 @@ void RegPass() {
     REG_PASS(SrcDstBufferMerge);
     REG_PASS(LoopUnroll);
     REG_PASS(DynAttrToStatic);
+    REG_PASS(InferDiscontinuousInput);
 }
 
 void PassManager::RegDefaultStrategy() {
@@ -124,6 +126,7 @@ void PassManager::RegDefaultStrategy() {
             {             "SplitReshape",             "SplitReshape",    PassType::TYPE_TILE_GRAPH},
             {           "SplitRawTensor",           "SplitRawTensor",    PassType::TYPE_TILE_GRAPH},
             {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor",    PassType::TYPE_TILE_GRAPH},
+            {  "InferDiscontinuousInput",  "InferDiscontinuousInput",    PassType::TYPE_TILE_GRAPH},
             {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
             {        "RemoveRedundantOp",        "RemoveRedundantOp",    PassType::TYPE_TILE_GRAPH},
             {        "GenerateMoveOp_01",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},

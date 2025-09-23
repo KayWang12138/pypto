@@ -30,8 +30,6 @@
 namespace npu {
 namespace tile_fwk {
 
-const std::string SYMBOL_PREFIX = "raw_for_";
-
 class SplitRawTensor : public Pass {
 public:
     SplitRawTensor() : Pass("SplitRawTensor") {}
