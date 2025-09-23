@@ -285,7 +285,6 @@ Tensor LlamaLayer(Tensor hiddenStates, const Tensor &attnWight, const Tensor &de
 }
 
 int main() {
-    // TODO: proper platform configuration to avoid run-time error
     Program::GetInstance().GetConfig().Reset();
     AttentionDims dimsCfg = {1, 1, 128, 128, DFT_SINGLE_M, DFT_SINGLE_N};
     int b = dimsCfg.b;

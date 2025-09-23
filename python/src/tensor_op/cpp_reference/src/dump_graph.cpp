@@ -24,7 +24,6 @@
 using namespace npu::tile_fwk;
 
 int main() {
-    // TODO: proper platform configuration to avoid run-time error
     Program::GetInstance().GetConfig().Reset();
 
     std::vector<int> shape{1, 2, 256, 128, 2};

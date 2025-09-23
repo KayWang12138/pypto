@@ -306,13 +306,13 @@ function(PTO_Fwk_GTest_RunPytest)
                     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tile_fwk_simulation_ca>  ./pto/
                     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tile_fwk_runtime>        ./pto/
                     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:pto_impl>                ./pto/
-                    WORKING_DIRECTORY ${PTO_FWK_SRC_ROOT}/pypto
+                    WORKING_DIRECTORY ${PTO_FWK_SRC_ROOT}/python/src/tensor_op
             )
             if (TARGET tile_fwk_calculator)
                 add_custom_command(
                         TARGET ${_Target} POST_BUILD
                         COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tile_fwk_calculator>     ./pto/
-                        WORKING_DIRECTORY ${PTO_FWK_SRC_ROOT}/pypto
+                        WORKING_DIRECTORY ${PTO_FWK_SRC_ROOT}/python/src/tensor_op
                 )
             endif ()
             add_custom_command(
@@ -323,7 +323,7 @@ function(PTO_Fwk_GTest_RunPytest)
                     COMMAND ${CMAKE_COMMAND} -E remove_directory ${_PyPTOInstallPath}/pto/include/
                     COMMAND ${CMAKE_COMMAND} -E copy_directory  ${PTO_FWK_SRC_ROOT}/include/ ${_PyPTOInstallPath}/pto/include/
                     COMMENT "Install to ${_PyPTOInstallPath}"
-                    WORKING_DIRECTORY ${PTO_FWK_SRC_ROOT}/pypto
+                    WORKING_DIRECTORY ${PTO_FWK_SRC_ROOT}/python/src/tensor_op
             )
 
             # 拼接 pytest 执行参数和环境变量, 并执行

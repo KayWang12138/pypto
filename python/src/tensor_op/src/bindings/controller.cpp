@@ -103,7 +103,6 @@ void bind_controller(py::module &m) {
     m.def("bytes_of", [](DataType t) { return BytesOf(t); });
 
     m.def("begin_function", [](const std::string &funcName, GraphType graphType, FunctionType funcType, py::args args) {
-        // TODO: pass function name
         std::vector<std::reference_wrapper<Tensor>> tensors;
         tensors.reserve(args.size());
         for (auto &a : args) {

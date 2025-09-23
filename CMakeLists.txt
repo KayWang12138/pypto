@@ -74,7 +74,7 @@ include(cmake/intf.cmake)
 ########################################################################################################################
 
 if (ENABLE_BUILD_PTO_FWK_PYTHON)
-    add_subdirectory(pypto)
+    add_subdirectory(python/src/tensor_op)
 endif ()
 
 add_subdirectory(src)
