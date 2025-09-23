@@ -1192,21 +1192,23 @@ struct ScatterTileInfoPara {
     TileInfo dstTileInfo;
 };
 
-struct ScatterElementPara {
+struct ScatterElementSPara {
     const LogicalTensorPtr &dstTensor;
     const LogicalTensorPtr &srcInput;
     const LogicalTensorPtr &idxInput;
     const Element& scalar;
     const int axis;
+    const std::string &reduce;
 };
 
-void InnerTiledScatterElement(size_t cur, Function &function, const TileShape &tileShape,
-    const ScatterElementPara& scatterPara, ScatterTileInfoPara& scatterTileInfo) {
+void InnerTiledScatterElementS(size_t cur, Function &function, const TileShape &tileShape,
+    const ScatterElementSPara& scatterPara, ScatterTileInfoPara& scatterTileInfo) {
     const LogicalTensorPtr &dstTensor = scatterPara.dstTensor;
     const LogicalTensorPtr &srcInput = scatterPara.srcInput;
     const LogicalTensorPtr &idxInput = scatterPara.idxInput;
     const Element& scalar = scatterPara.scalar;
     const int axis = scatterPara.axis;
+    const std::string &reduce = scatterPara.reduce;
 
     if (cur == dstTensor->shape.size()) {
         // add Operation
@@ -1216,11 +1218,17 @@ void InnerTiledScatterElement(size_t cur, Function &function, const TileShape &t
         auto &op = function.AddOperation(Opcode::OP_SCATTER_ELEMENT, {srcTile, idxTile}, {dstTile});
         op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
         op.SetAttribute(OpAttributeKey::scalar, scalar);
+        op.SetAttribute(OpAttributeKey::reduce, reduce);
         return;
     }
 
     // 按照dstShape进行切分
     auto &vecTile = tileShape.GetVecTile();
+    if (vecTile[axis] < dstTensor->shape[axis]) {
+        ALOG_ERROR_F("the axis:%d is not allowed to be cut. tileshape:%lld dstshape:%lld", axis, vecTile[axis], 
+            dstTensor->shape[axis]);
+        ASSERT(vecTile[axis] >= dstTensor->shape[axis]);
+    }
     int64_t tmpTile = vecTile[cur];
     if (static_cast<int>(cur) == axis) {
         tmpTile = dstTensor->shape[cur];
@@ -1244,11 +1252,11 @@ void InnerTiledScatterElement(size_t cur, Function &function, const TileShape &t
             scatterTileInfo.srcTileInfo.shape[cur] =
                 std::min(idxInput->shape[cur] - scatterTileInfo.idxTileInfo.offset[cur], tmpTile);
         }
-        InnerTiledScatterElement(cur + 1, function, tileShape, scatterPara, scatterTileInfo);
+        InnerTiledScatterElementS(cur + 1, function, tileShape, scatterPara, scatterTileInfo);
     }
 }
 
-void TiledScatterElement(Function &function, const TileShape &tileShape, const ScatterElementPara& scatterPara) {
+void TiledScatterElementS(Function &function, const TileShape &tileShape, const ScatterElementSPara& scatterPara) {
     // Check Operands Valid
     assert(scatterPara.srcInput->shape.size() == scatterPara.srcInput->offset.size());
     assert(scatterPara.idxInput->shape.size() == scatterPara.idxInput->offset.size());
@@ -1259,13 +1267,14 @@ void TiledScatterElement(Function &function, const TileShape &tileShape, const S
         TileInfo(scatterPara.idxInput->shape.size(), scatterPara.idxInput->offset.size()),
         TileInfo(scatterPara.dstTensor->shape.size(), scatterPara.dstTensor->offset.size()),
     };
-    InnerTiledScatterElement(0, function, tileShape, scatterPara, scatterTileInfo);
+    InnerTiledScatterElementS(0, function, tileShape, scatterPara, scatterTileInfo);
 }
 
-void TensorScatterElement(Function &function, const ScatterElementPara& scatterPara) {
+void TensorScatterElementS(Function &function, const ScatterElementSPara& scatterPara) {
     auto &op = function.AddOperation(Opcode::OP_SCATTER_ELEMENT, {scatterPara.srcInput, scatterPara.idxInput}, {scatterPara.dstTensor});
     op.SetAttribute(OP_ATTR_PREFIX + "axis", scatterPara.axis);
     op.SetAttribute(OpAttributeKey::scalar, scatterPara.scalar);
+    op.SetAttribute(OpAttributeKey::reduce, scatterPara.reduce);
 }
 
 void UnalignPadTmpBufTile(std::vector<int64_t> &shape, int blockElem) {
@@ -2390,23 +2399,38 @@ Tensor ScatterUpdate(const Tensor &dst, const Tensor &index, const Tensor &src, 
     return result;
 }
 
-static void CheckScatterElementInvalid(const Tensor &src, const Tensor &index)
+static void CheckScatterElementSParamsInvalid(const Tensor &self, const Tensor &indices, int axis, const std::string &reduce)
 {
-    ASSERT(src->shape.size() == index->shape.size());
-    for (size_t i = 0; i < src->shape.size(); i++) {
-        ASSERT(index->shape[i] <= src->shape[i]);
+    ASSERT(self->shape.size() == indices->shape.size());
+    ASSERT(axis < static_cast<int>(self->shape.size()));
+    ASSERT((reduce == "None") || (reduce == "add") || (reduce == "multiply"));
+    for (size_t i = 0; i < self->shape.size(); i++) {
+        ASSERT(indices->shape[i] <= self->shape[i]);
     }
 }
 
-Tensor ScatterElement(const Tensor &src, const Tensor &idx, const Element &scalar, int axis) {
+Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, int axis, std::string reduce) {
     DECLARE_TRACER();
 
-    CheckScatterElementInvalid(src, idx);
-    axis = axis < 0 ? src->shape.size() + axis : axis;
-    Tensor result(src->tensor->datatype, src->shape);
-    result.GetStorage()->tensor->SetTensorInfo(src.GetStorage()->tensor->GetTensorInfo());
-    CALL(ScatterElement, *Program::GetInstance().GetCurrentFunction(), {result.GetStorage(), src.GetStorage(),
-         idx.GetStorage(), scalar, axis});
+    axis = axis < 0 ? self->shape.size() + axis : axis;
+    CheckScatterElementSParamsInvalid(self, indices, axis, reduce);
+    Tensor result(self->tensor->datatype, self->shape);
+    Program::GetInstance().GetCurrentFunction()->AddOperation(Opcode::OP_REGISTER_COPY, {self.GetStorage()}, 
+        {result.GetStorage()});
+    CALL(ScatterElementS, *Program::GetInstance().GetCurrentFunction(), {result.GetStorage(), self.GetStorage(),
+         indices.GetStorage(), src, axis, reduce});
+    return result;
+}
+
+Tensor Scatter_(const Tensor &self, const Tensor &indices, const Element &src, int axis, std::string reduce) {
+    DECLARE_TRACER();
+
+    axis = axis < 0 ? self->shape.size() + axis : axis;
+    CheckScatterElementSParamsInvalid(self, indices, axis, reduce);
+    Tensor result(self->tensor->datatype, self->shape);
+    result.GetStorage()->tensor->SetTensorInfo(self.GetStorage()->tensor->GetTensorInfo());
+    CALL(ScatterElementS, *Program::GetInstance().GetCurrentFunction(), {result.GetStorage(), self.GetStorage(),
+         indices.GetStorage(), src, axis, reduce});
     return result;
 }
 
@@ -3435,7 +3459,8 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
         case Opcode::OP_SCATTER_ELEMENT: {
             int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "axis");
             Element scalar = op.GetElementAttribute(OpAttributeKey::scalar);
-            TiledScatterElement(function, tileShape, {oOperand[0], iOperand[0], iOperand[1], scalar, axis});
+            std::string reduce = op.GetStringAttribute(OpAttributeKey::reduce);
+            TiledScatterElementS(function, tileShape, {oOperand[0], iOperand[0], iOperand[1], scalar, axis, reduce});
             break;
         }
         case Opcode::OP_INDEX_PUT: {

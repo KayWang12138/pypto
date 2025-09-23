@@ -105,8 +105,10 @@ void bind_operation(py::module &m) {
     m.def("compact", [](const Tensor &operand) { return npu::tile_fwk::Compact(operand); }, "Tensor compact.");
     m.def("indexput", [](const Tensor &src, std::vector<Tensor> indices, const Tensor &values)
         { return npu::tile_fwk::IndexPut(src, indices, values); }, "Tensor indexput.");
-    m.def("scatter_element", [](const Tensor &src, const Tensor &idx, const Element &scalar, int axis)
-        { return npu::tile_fwk::ScatterElement(src, idx, scalar, axis); }, "Tensor scatter element.");
+    m.def("scatter_", [](const Tensor &self, const Tensor &indices, const Element &src, int axis, std::string reduce)
+        { return npu::tile_fwk::Scatter_(self, indices, src, axis, reduce); },
+        py::arg("self"), py::arg("indices"), py::arg("src"), py::arg("axis"), py::arg("reduce") = "None",
+        "Tensor scatter element.");
     m.def("gather_element", [](const Tensor &params, const Tensor &indices, int axis)
         { return npu::tile_fwk::GatherElement(params, indices, axis); }, "Tensor gather element.");
     m.def("gather", [](const Tensor &params, const Tensor &indices, int axis)

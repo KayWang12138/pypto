@@ -69,9 +69,9 @@ def gen_scatter_element_data(s0, s1, d0, d1, axis, dtype, indices_dtype, output_
 
 @GoldenRegister.reg_golden_func(
     case_names=[
-        "ScatterElementOnBoardTest.test_scatter_element_float_16_64_16_32_1",
-        "ScatterElementOnBoardTest.test_scatter_element_float_16_70_16_40_1",
-        "ScatterElementOnBoardTest.test_scatter_element_float_8_256_8_8_1_moe",
+        "Scatter_OnBoardTest.test_scatter_element_float_16_64_16_32_1",
+        "Scatter_OnBoardTest.test_scatter_element_float_16_70_16_40_1",
+        "Scatter_OnBoardTest.test_scatter_element_float_8_256_8_8_1_moe",
     ]
 )
 def gen_scatter_element_op_date(case_name: str, output: Path) -> bool:
@@ -87,19 +87,19 @@ def gen_scatter_element_op_date(case_name: str, output: Path) -> bool:
         logging.debug("Case(%s), Golden complete.", case_name)
         return True
     else:
-        if case_name == "ScatterElementOnBoardTest.test_scatter_element_float_16_64_8_32_1":
+        if case_name == "Scatter_OnBoardTest.test_scatter_element_float_16_64_8_32_1":
             s0, s1, d0, d1 = 16, 64, 8, 32
             axis = 1
             gen_scatter_element_data(s0, s1, d0, d1, axis, dtype, indices_dtype, output)
-        elif case_name == "ScatterElementOnBoardTest.test_scatter_element_float_16_64_16_32_1":
+        elif case_name == "Scatter_OnBoardTest.test_scatter_element_float_16_64_16_32_1":
             s0, s1, d0, d1 = 16, 64, 16, 32
             axis = 1
             gen_scatter_element_data(s0, s1, d0, d1, axis, dtype, indices_dtype, output)
-        elif case_name == "ScatterElementOnBoardTest.test_scatter_element_float_16_70_16_40_1":
+        elif case_name == "Scatter_OnBoardTest.test_scatter_element_float_16_70_16_40_1":
             s0, s1, d0, d1 = 16, 70, 16, 40
             axis = 1
             gen_scatter_element_data(s0, s1, d0, d1, axis, dtype, indices_dtype, output)
-        elif case_name == "ScatterElementOnBoardTest.test_scatter_element_float_8_256_8_8_1_moe":
+        elif case_name == "Scatter_OnBoardTest.test_scatter_element_float_8_256_8_8_1_moe":
             s0, s1, d0, d1 = 8, 256, 8, 8
             axis = 1
             gen_scatter_element_data(s0, s1, d0, d1, axis, dtype, indices_dtype, output)
@@ -115,7 +115,7 @@ def main() -> bool:
     """
     # 用例名称
     case_name_list: List[str] = [
-        "ScatterElementOnBoardTest.test_scatter_element_float_16_64_8_32_1",
+        "Scatter_OnBoardTest.test_scatter_element_float_16_64_8_32_1",
     ]
     # 函数调用
     ret: bool = True

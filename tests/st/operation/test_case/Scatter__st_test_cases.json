@@ -2,685 +2,14 @@
     "test_cases": [
         {
             "case_index": 0,
-            "case_name": "ScatterElement_test_0",
-            "operation": "ScatterElement",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        8,
-                        9
-                    ],
-                    "dtype": "fp32",
-                    "data_range": {
-                        "min": -1,
-                        "max": 1
-                    },
-                    "format": "ND"
-                },
-                {
-                    "name": "input1",
-                    "shape": [
-                        4,
-                        6
-                    ],
-                    "dtype": "int64",
-                    "data_range": {
-                        "min": 0,
-                        "max": 7
-                    },
-                    "format": "ND"
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        8,
-                        9
-                    ],
-                    "dtype": "fp32",
-                    "format": "ND"
-                }
-            ],
-            "view_shape": [
-                8,
-                9
-            ],
-            "tile_shape": [
-                3,
-                8
-            ],
-            "params": {
-                "axis": 0,
-                "func_id": -1
-            }
-        },
-        {
-            "case_index": 1,
-            "case_name": "ScatterElement_test_1",
-            "operation": "ScatterElement",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        8,
-                        9
-                    ],
-                    "dtype": "fp32",
-                    "data_range": {
-                        "min": -1,
-                        "max": 1
-                    },
-                    "format": "ND"
-                },
-                {
-                    "name": "input1",
-                    "shape": [
-                        4,
-                        9
-                    ],
-                    "dtype": "int64",
-                    "data_range": {
-                        "min": 0,
-                        "max": 7
-                    },
-                    "format": "ND"
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        8,
-                        9
-                    ],
-                    "dtype": "fp32",
-                    "format": "ND"
-                }
-            ],
-            "view_shape": [
-                8,
-                8
-            ],
-            "tile_shape": [
-                3,
-                8
-            ],
-            "params": {
-                "axis": 0,
-                "func_id": -1
-            }
-        },
-        {
-            "case_index": 2,
-            "case_name": "ScatterElement_test_2",
-            "operation": "ScatterElement",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        8,
-                        9
-                    ],
-                    "dtype": "fp32",
-                    "data_range": {
-                        "min": -1,
-                        "max": 1
-                    },
-                    "format": "ND"
-                },
-                {
-                    "name": "input1",
-                    "shape": [
-                        4,
-                        6
-                    ],
-                    "dtype": "int64",
-                    "data_range": {
-                        "min": 0,
-                        "max": 8
-                    },
-                    "format": "ND"
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        8,
-                        9
-                    ],
-                    "dtype": "fp32",
-                    "format": "ND"
-                }
-            ],
-            "view_shape": [
-                8,
-                9
-            ],
-            "tile_shape": [
-                3,
-                8
-            ],
-            "params": {
-                "axis": 1,
-                "func_id": -1
-            }
-        },
-        {
-            "case_index": 3,
-            "case_name": "ScatterElement_test_3",
-            "operation": "ScatterElement",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        8,
-                        9
-                    ],
-                    "dtype": "fp32",
-                    "data_range": {
-                        "min": -1,
-                        "max": 1
-                    },
-                    "format": "ND"
-                },
-                {
-                    "name": "input1",
-                    "shape": [
-                        8,
-                        4
-                    ],
-                    "dtype": "int64",
-                    "data_range": {
-                        "min": 0,
-                        "max": 7
-                    },
-                    "format": "ND"
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        8,
-                        9
-                    ],
-                    "dtype": "fp32",
-                    "format": "ND"
-                }
-            ],
-            "view_shape": [
-                5,
-                9
-            ],
-            "tile_shape": [
-                3,
-                8
-            ],
-            "params": {
-                "axis": 1,
-                "func_id": -1
-            }
-        },
-        {
-            "case_index": 4,
-            "case_name": "ScatterElement_test_4",
-            "operation": "ScatterElement",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        2,
-                        8,
-                        9
-                    ],
-                    "dtype": "fp32",
-                    "data_range": {
-                        "min": -1,
-                        "max": 1
-                    },
-                    "format": "ND"
-                },
-                {
-                    "name": "input1",
-                    "shape": [
-                        1,
-                        4,
-                        6
-                    ],
-                    "dtype": "int64",
-                    "data_range": {
-                        "min": 0,
-                        "max": 2
-                    },
-                    "format": "ND"
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        2,
-                        8,
-                        9
-                    ],
-                    "dtype": "fp32",
-                    "format": "ND"
-                }
-            ],
-            "view_shape": [
-                2,
-                8,
-                9
-            ],
-            "tile_shape": [
-                1,
-                3,
-                8
-            ],
-            "params": {
-                "axis": 0,
-                "func_id": -1
-            }
-        },
-        {
-            "case_index": 5,
-            "case_name": "ScatterElement_test_5",
-            "operation": "ScatterElement",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        2,
-                        8,
-                        9
-                    ],
-                    "dtype": "fp32",
-                    "data_range": {
-                        "min": -1,
-                        "max": 1
-                    },
-                    "format": "ND"
-                },
-                {
-                    "name": "input1",
-                    "shape": [
-                        1,
-                        4,
-                        6
-                    ],
-                    "dtype": "int64",
-                    "data_range": {
-                        "min": 0,
-                        "max": 8
-                    },
-                    "format": "ND"
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        2,
-                        8,
-                        9
-                    ],
-                    "dtype": "fp32",
-                    "format": "ND"
-                }
-            ],
-            "view_shape": [
-                2,
-                8,
-                9
-            ],
-            "tile_shape": [
-                1,
-                3,
-                8
-            ],
-            "params": {
-                "axis": 1,
-                "func_id": -1
-            }
-        },
-        {
-            "case_index": 6,
-            "case_name": "ScatterElement_test_6",
-            "operation": "ScatterElement",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        2,
-                        8,
-                        9
-                    ],
-                    "dtype": "fp32",
-                    "data_range": {
-                        "min": -1,
-                        "max": 1
-                    },
-                    "format": "ND"
-                },
-                {
-                    "name": "input1",
-                    "shape": [
-                        1,
-                        4,
-                        6
-                    ],
-                    "dtype": "int64",
-                    "data_range": {
-                        "min": 0,
-                        "max": 8
-                    },
-                    "format": "ND"
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        2,
-                        8,
-                        9
-                    ],
-                    "dtype": "fp32",
-                    "format": "ND"
-                }
-            ],
-            "view_shape": [
-                2,
-                8,
-                9
-            ],
-            "tile_shape": [
-                1,
-                3,
-                8
-            ],
-            "params": {
-                "axis": 2,
-                "func_id": -1
-            }
-        },
-        {
-            "case_index": 7,
-            "case_name": "ScatterElement_test_7",
-            "operation": "ScatterElement",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        2,
-                        3,
-                        8,
-                        9
-                    ],
-                    "dtype": "fp32",
-                    "data_range": {
-                        "min": -1,
-                        "max": 1
-                    },
-                    "format": "ND"
-                },
-                {
-                    "name": "input1",
-                    "shape": [
-                        1,
-                        2,
-                        4,
-                        6
-                    ],
-                    "dtype": "int64",
-                    "data_range": {
-                        "min": 0,
-                        "max": 2
-                    },
-                    "format": "ND"
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        2,
-                        3,
-                        8,
-                        9
-                    ],
-                    "dtype": "fp32",
-                    "format": "ND"
-                }
-            ],
-            "view_shape": [
-                2,
-                3,
-                8,
-                9
-            ],
-            "tile_shape": [
-                1,
-                1,
-                3,
-                8
-            ],
-            "params": {
-                "axis": 0,
-                "func_id": -1
-            }
-        },
-        {
-            "case_index": 8,
-            "case_name": "ScatterElement_test_8",
-            "operation": "ScatterElement",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        2,
-                        3,
-                        8,
-                        9
-                    ],
-                    "dtype": "fp32",
-                    "data_range": {
-                        "min": -1,
-                        "max": 1
-                    },
-                    "format": "ND"
-                },
-                {
-                    "name": "input1",
-                    "shape": [
-                        1,
-                        2,
-                        4,
-                        6
-                    ],
-                    "dtype": "int64",
-                    "data_range": {
-                        "min": 0,
-                        "max": 3
-                    },
-                    "format": "ND"
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        2,
-                        3,
-                        8,
-                        9
-                    ],
-                    "dtype": "fp32",
-                    "format": "ND"
-                }
-            ],
-            "view_shape": [
-                2,
-                3,
-                8,
-                9
-            ],
-            "tile_shape": [
-                1,
-                1,
-                3,
-                8
-            ],
-            "params": {
-                "axis": 1,
-                "func_id": -1
-            }
-        },
-        {
-            "case_index": 9,
-            "case_name": "ScatterElement_test_9",
-            "operation": "ScatterElement",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        2,
-                        3,
-                        8,
-                        9
-                    ],
-                    "dtype": "fp32",
-                    "data_range": {
-                        "min": -1,
-                        "max": 1
-                    },
-                    "format": "ND"
-                },
-                {
-                    "name": "input1",
-                    "shape": [
-                        1,
-                        2,
-                        4,
-                        6
-                    ],
-                    "dtype": "int64",
-                    "data_range": {
-                        "min": 0,
-                        "max": 8
-                    },
-                    "format": "ND"
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        2,
-                        3,
-                        8,
-                        9
-                    ],
-                    "dtype": "fp32",
-                    "format": "ND"
-                }
-            ],
-            "view_shape": [
-                2,
-                3,
-                8,
-                9
-            ],
-            "tile_shape": [
-                1,
-                1,
-                3,
-                8
-            ],
-            "params": {
-                "axis": 2,
-                "func_id": -1
-            }
-        },
-        {
-            "case_index": 10,
-            "case_name": "ScatterElement_test_10",
-            "operation": "ScatterElement",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
-                        2,
-                        3,
-                        8,
-                        9
-                    ],
-                    "dtype": "fp32",
-                    "data_range": {
-                        "min": -1,
-                        "max": 1
-                    },
-                    "format": "ND"
-                },
-                {
-                    "name": "input1",
-                    "shape": [
-                        1,
-                        2,
-                        4,
-                        6
-                    ],
-                    "dtype": "int64",
-                    "data_range": {
-                        "min": 0,
-                        "max": 9
-                    },
-                    "format": "ND"
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        2,
-                        3,
-                        8,
-                        9
-                    ],
-                    "dtype": "fp32",
-                    "format": "ND"
-                }
-            ],
-            "view_shape": [
-                2,
-                3,
-                8,
-                9
-            ],
-            "tile_shape": [
-                1,
-                1,
-                3,
-                8
-            ],
-            "params": {
-                "axis": 3,
-                "func_id": -1
-            }
-        },
-        {
-            "case_index": 11,
-            "case_name": "ScatterElement_test_11",
-            "operation": "ScatterElement",
+            "case_name": "ScatterInplace_test_0",
+            "operation": "Scatter_",
             "input_tensors": [
                 {
                     "name": "input0",
                     "shape": [
                         128,
-                        4096
+                        512
                     ],
                     "dtype": "fp32",
                     "data_range": {
@@ -692,8 +21,8 @@
                 {
                     "name": "input1",
                     "shape": [
-                        108,
-                        500
+                        128,
+                        512
                     ],
                     "dtype": "int64",
                     "data_range": {
@@ -708,7 +37,7 @@
                     "name": "output0",
                     "shape": [
                         128,
-                        4096
+                        512
                     ],
                     "dtype": "fp32",
                     "format": "ND"
@@ -716,28 +45,682 @@
             ],
             "view_shape": [
                 128,
-                4096
+                128
             ],
             "tile_shape": [
-                32,
+                128,
+                64
+            ],
+            "params": {
+                "axis": 0,
+                "src": 1.0,
+                "reduce": "",
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 1,
+            "case_name": "ScatterInplace_test_1",
+            "operation": "Scatter_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        128,
+                        16384
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    },
+                    "format": "ND"
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        128,
+                        16384
+                    ],
+                    "dtype": "int64",
+                    "data_range": {
+                        "min": 0,
+                        "max": 128
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        128,
+                        16384
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                128,
+                512
+            ],
+            "tile_shape": [
+                128,
                 128
             ],
             "params": {
                 "axis": 0,
+                "src": 2.0,
+                "reduce": "",
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 2,
+            "case_name": "ScatterInplace_test_2",
+            "operation": "Scatter_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        128,
+                        512
+                    ],
+                    "dtype": "fp16",
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    },
+                    "format": "ND"
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        128,
+                        512
+                    ],
+                    "dtype": "int64",
+                    "data_range": {
+                        "min": 0,
+                        "max": 128
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        128,
+                        512
+                    ],
+                    "dtype": "fp16",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                128,
+                128
+            ],
+            "tile_shape": [
+                128,
+                64
+            ],
+            "params": {
+                "axis": 0,
+                "src": 0.015005,
+                "reduce": "",
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 3,
+            "case_name": "ScatterInplace_test_3",
+            "operation": "Scatter_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        128,
+                        512
+                    ],
+                    "dtype": "bf16",
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    },
+                    "format": "ND"
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        128,
+                        512
+                    ],
+                    "dtype": "int64",
+                    "data_range": {
+                        "min": 0,
+                        "max": 128
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        128,
+                        512
+                    ],
+                    "dtype": "bf16",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                128,
+                128
+            ],
+            "tile_shape": [
+                128,
+                64
+            ],
+            "params": {
+                "axis": 0,
+                "src": 0.02581481,
+                "reduce": "",
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 4,
+            "case_name": "ScatterInplace_test_4",
+            "operation": "Scatter_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        1024,
+                        128
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    },
+                    "format": "ND"
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        1024,
+                        128
+                    ],
+                    "dtype": "int64",
+                    "data_range": {
+                        "min": 0,
+                        "max": 128
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        1024,
+                        128
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                128,
+                128
+            ],
+            "tile_shape": [
+                64,
+                128
+            ],
+            "params": {
+                "axis": 1,
+                "src": 2.0,
+                "reduce": "",
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 5,
+            "case_name": "ScatterInplace_test_5",
+            "operation": "Scatter_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        16,
+                        1,
+                        16384
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    },
+                    "format": "ND"
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        16,
+                        1,
+                        16384
+                    ],
+                    "dtype": "int64",
+                    "data_range": {
+                        "min": 0,
+                        "max": 128
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        16,
+                        1,
+                        16384
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                2,
+                1,
+                16384
+            ],
+            "tile_shape": [
+                1,
+                1,
+                16384
+            ],
+            "params": {
+                "axis": -1,
+                "src": 1.0,
+                "reduce": "",
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 6,
+            "case_name": "ScatterInplace_test_6",
+            "operation": "Scatter_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        2,
+                        1,
+                        1024,
+                        2048
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    },
+                    "format": "ND"
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        2,
+                        1,
+                        1024,
+                        2048
+                    ],
+                    "dtype": "int64",
+                    "data_range": {
+                        "min": 0,
+                        "max": 2
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        2,
+                        1,
+                        1024,
+                        2048
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                2,
+                1,
+                256,
+                256
+            ],
+            "tile_shape": [
+                2,
+                1,
+                64,
+                128
+            ],
+            "params": {
+                "axis": 0,
+                "src": 2.0,
+                "reduce": "",
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 7,
+            "case_name": "ScatterInplace_test_7",
+            "operation": "Scatter_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        128,
+                        512
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    },
+                    "format": "ND"
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        128,
+                        512
+                    ],
+                    "dtype": "int64",
+                    "data_range": {
+                        "min": 0,
+                        "max": 128
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        128,
+                        512
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                128,
+                128
+            ],
+            "tile_shape": [
+                128,
+                64
+            ],
+            "params": {
+                "axis": 0,
+                "src": 1.0,
+                "reduce": "add",
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 8,
+            "case_name": "ScatterInplace_test_8",
+            "operation": "Scatter_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        128,
+                        512
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    },
+                    "format": "ND"
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        128,
+                        512
+                    ],
+                    "dtype": "int64",
+                    "data_range": {
+                        "min": 0,
+                        "max": 128
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        128,
+                        512
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                128,
+                128
+            ],
+            "tile_shape": [
+                128,
+                64
+            ],
+            "params": {
+                "axis": 0,
+                "src": 2.0,
+                "reduce": "multiply",
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 9,
+            "case_name": "ScatterInplace_test_9",
+            "operation": "Scatter_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        128,
+                        512
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    },
+                    "format": "ND"
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        64,
+                        256
+                    ],
+                    "dtype": "int64",
+                    "data_range": {
+                        "min": 0,
+                        "max": 128
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        128,
+                        512
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                128,
+                512
+            ],
+            "tile_shape": [
+                128,
+                128
+            ],
+            "params": {
+                "axis": 0,
+                "src": 1.0,
+                "reduce": "",
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 10,
+            "case_name": "ScatterInplace_test_10",
+            "operation": "Scatter_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        128,
+                        129
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    },
+                    "format": "ND"
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        128,
+                        129
+                    ],
+                    "dtype": "int64",
+                    "data_range": {
+                        "min": 0,
+                        "max": 128
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        128,
+                        129
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                128,
+                80
+            ],
+            "tile_shape": [
+                128,
+                32
+            ],
+            "params": {
+                "axis": 0,
+                "src": 2.0,
+                "reduce": "",
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 11,
+            "case_name": "ScatterInplace_test_11",
+            "operation": "Scatter_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        128,
+                        129
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    },
+                    "format": "ND"
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        128,
+                        129
+                    ],
+                    "dtype": "int64",
+                    "data_range": {
+                        "min": 0,
+                        "max": 128
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        128,
+                        129
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                128,
+                80
+            ],
+            "tile_shape": [
+                128,
+                40
+            ],
+            "params": {
+                "axis": 0,
+                "src": 1e-05,
+                "reduce": "",
                 "func_id": -1
             }
         },
         {
             "case_index": 12,
-            "case_name": "ScatterElement_test_12",
-            "operation": "ScatterElement",
+            "case_name": "ScatterInplace_test_12",
+            "operation": "Scatter_",
             "input_tensors": [
                 {
                     "name": "input0",
                     "shape": [
-                        2,
-                        4096,
-                        512
+                        128,
+                        128
                     ],
                     "dtype": "fp32",
                     "data_range": {
@@ -749,14 +732,13 @@
                 {
                     "name": "input1",
                     "shape": [
-                        1,
-                        2048,
-                        500
+                        128,
+                        128
                     ],
                     "dtype": "int64",
                     "data_range": {
                         "min": 0,
-                        "max": 2
+                        "max": 128
                     },
                     "format": "ND"
                 }
@@ -765,41 +747,38 @@
                 {
                     "name": "output0",
                     "shape": [
-                        2,
-                        4096,
-                        512
+                        128,
+                        128
                     ],
                     "dtype": "fp32",
                     "format": "ND"
                 }
             ],
             "view_shape": [
-                2,
-                4096,
-                512
+                128,
+                64
             ],
             "tile_shape": [
-                1,
-                64,
-                128
+                128,
+                48
             ],
             "params": {
                 "axis": 0,
+                "src": 1.0,
+                "reduce": "",
                 "func_id": -1
             }
         },
         {
             "case_index": 13,
-            "case_name": "ScatterElement_test_13",
-            "operation": "ScatterElement",
+            "case_name": "ScatterInplace_test_13",
+            "operation": "Scatter_",
             "input_tensors": [
                 {
                     "name": "input0",
                     "shape": [
-                        2,
-                        2,
-                        4096,
-                        512
+                        1,
+                        1
                     ],
                     "dtype": "fp32",
                     "data_range": {
@@ -812,14 +791,12 @@
                     "name": "input1",
                     "shape": [
                         1,
-                        1,
-                        2048,
-                        500
+                        1
                     ],
                     "dtype": "int64",
                     "data_range": {
                         "min": 0,
-                        "max": 2
+                        "max": 1
                     },
                     "format": "ND"
                 }
@@ -828,9 +805,181 @@
                 {
                     "name": "output0",
                     "shape": [
-                        2,
-                        2,
-                        4096,
+                        1,
+                        1
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                32,
+                32
+            ],
+            "tile_shape": [
+                32,
+                16
+            ],
+            "params": {
+                "axis": 0,
+                "src": 2.0,
+                "reduce": "",
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 14,
+            "case_name": "ScatterInplace_test_14",
+            "operation": "Scatter_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        32,
+                        32
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    },
+                    "format": "ND"
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        32,
+                        32
+                    ],
+                    "dtype": "int64",
+                    "data_range": {
+                        "min": 0,
+                        "max": 32
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        32,
+                        32
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                32,
+                32
+            ],
+            "tile_shape": [
+                32,
+                16
+            ],
+            "params": {
+                "axis": 0,
+                "src": 3.1e+38,
+                "reduce": "",
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 15,
+            "case_name": "ScatterInplace_test_15",
+            "operation": "Scatter_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        128,
+                        128
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    },
+                    "format": "ND"
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        128,
+                        128
+                    ],
+                    "dtype": "int64",
+                    "data_range": {
+                        "min": 0,
+                        "max": 128
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        128,
+                        128
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                128,
+                64
+            ],
+            "tile_shape": [
+                128,
+                128
+            ],
+            "params": {
+                "axis": 0,
+                "src": 1.0,
+                "reduce": "",
+                "func_id": -1
+            }
+        },
+        {
+            "case_index": 16,
+            "case_name": "ScatterInplace_test_16",
+            "operation": "Scatter_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        80,
+                        512
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    },
+                    "format": "ND"
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        80,
+                        512
+                    ],
+                    "dtype": "int64",
+                    "data_range": {
+                        "min": 0,
+                        "max": 80
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        80,
                         512
                     ],
                     "dtype": "fp32",
@@ -838,20 +987,76 @@
                 }
             ],
             "view_shape": [
-                2,
-                2,
-                4096,
-                512
+                80,
+                128
             ],
             "tile_shape": [
-                1,
-                1,
-                64,
+                80,
                 128
             ],
             "params": {
                 "axis": 0,
+                "src": 2.0,
+                "reduce": "",
                 "func_id": -1
+            }
+        },
+        {
+            "case_index": 17,
+            "case_name": "ScatterInplace_test_16",
+            "operation": "Scatter_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        80,
+                        512
+                    ],
+                    "dtype": "fp32",
+                    "data_range": {
+                        "min": "nan",
+                        "max": "nan"
+                    },
+                    "format": "ND"
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        80,
+                        512
+                    ],
+                    "dtype": "int64",
+                    "data_range": {
+                        "min": 0,
+                        "max": 80
+                    },
+                    "format": "ND"
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        80,
+                        512
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [
+                80,
+                128
+            ],
+            "tile_shape": [
+                80,
+                128
+            ],
+            "params": {
+                "axis": 0,
+                "src": 1.0,
+                "reduce": "",
+                "func_id": 3
             }
         }
     ]

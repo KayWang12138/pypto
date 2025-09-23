@@ -123,7 +123,8 @@ void MoEGateOnBoardFunc(MoEGateParams& opsParams) {
         auto output_group_mask = MulS(group_scores, Element(DataType::DT_FP32, F_0));                                 // [B, 8]
 
         // Part3
-        output_group_mask = ScatterElement(output_group_mask, output_group_idx,
+        TileShape::Current().SetVecTile({1, nGroup});
+        output_group_mask = Scatter_(output_group_mask, output_group_idx,
             Element(DataType::DT_FP32, F_1), 1); // (b*s, nGroup)
         Tensor group_mask_new = Reshape(output_group_mask, {B*S, nGroup, 1}); // (b*s, nGroup, 1)
         TileShape::Current().SetVecTile(1, 8, 32);

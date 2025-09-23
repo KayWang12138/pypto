@@ -132,7 +132,7 @@ set(_CaseFilterList
         # GatherElement
         #"GatherElementOnBoardTest.test_gather_element_float_16_64_7_32_1"
         #"GatherElementOnBoardTest.test_gather_element_float_16_64_7_32_0"
-        #"ScatterElementOnBoardTest.test_scatter_element_float_8_256_8_8_1_moe"
+        #"Scatter_OnBoardTest.test_scatter_element_float_8_256_8_8_1_moe"
 
         #===========================================================================
         # matmul功能用例

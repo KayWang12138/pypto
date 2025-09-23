@@ -488,9 +488,9 @@ TEST_F(FunctionTest, TestGatherElementAxis0Indices2) {
     ALOG_INFO(Program::GetInstance().Dump());
 }
 
-TEST_F(FunctionTest, TestScatterElement) {
+TEST_F(FunctionTest, TestScatter_) {
     int b = 2, s = 512, nRoutedExperts = 256, numExpertsPerTok = 8;
-    TileShape::Current().SetVecTile(128, 8);
+    TileShape::Current().SetVecTile(128, nRoutedExperts);
 
     Tensor cnts(DT_FP32, {b * s, nRoutedExperts}, "cnts");
     Tensor topk_ids(DT_INT32, {b * s, numExpertsPerTok}, "topk_ids");
@@ -500,7 +500,7 @@ TEST_F(FunctionTest, TestScatterElement) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     FUNCTION("A") {
-        res = ScatterElement(cnts, topk_ids, Element(DataType::DT_FP32, 1.0), 1); // (b*s, nRoutedExperts)
+        res = Scatter_(cnts, topk_ids, Element(DataType::DT_FP32, 1.0), 1); // (b*s, nRoutedExperts)
     }
     ALOG_INFO(Program::GetInstance().Dump());
 }
@@ -1268,7 +1268,7 @@ TEST_F(FunctionTest, Test_deepseekMoEInfer) {
     Tensor res;
 
     TileShape::Current().SetCubeTile({std::min(128, s), std::min(128, s)}, {256, 256}, {64, 64});
-    TileShape::Current().SetVecTile(128, 64); // for Assemble
+    TileShape::Current().SetVecTile(128, 256); // for Assemble
 
     FUNCTION("A") {
         res = deepseekMoEInfer.MoeInfer(hidden_states, topk_idx, topk_weight);
@@ -1291,7 +1291,7 @@ TEST_F(FunctionTest, Test_deepseekMoE) {
     DeepseekV2MoE deepseekMoE(deepseekConfig1);
 
     TileShape::Current().SetCubeTile({std::min(128, s), std::min(128, s)}, {256, 256}, {64, 64});
-    TileShape::Current().SetVecTile(128, 64); // for Assemble
+    TileShape::Current().SetVecTile(128, 256); // for Assemble
 
     FUNCTION("A") {
         res = deepseekMoE.Forward(hidden_states);

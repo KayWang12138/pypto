@@ -45,7 +45,7 @@ set(_CaseFilterList
         "TestCodegenGather.TestGatherEle"
         "TestCodegenReduceScatter.TestReduceScatter"
         "TestCodegenReduceScatter.TestReduceScatterOneTensor"
-        "TestCodegenScatter.TestScatterElement"
+        "TestCodegenScatter.TestScatter_"
         "TestCodegenUnary.RowMaxSingleDim2"
         "TestCodegenUnary.RowMaxSingleDim3"
         "TestCodegenUnary.RowMaxSingleDim4"

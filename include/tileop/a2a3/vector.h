@@ -2286,7 +2286,7 @@ TILEOP void TgatherElement(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1)
 
 template <typename T, typename T2, unsigned src1RawShape1, unsigned dstRawShape1, unsigned src1Shape0, 
          unsigned src1Shape1, unsigned axis>
-TILEOP void TscatterElement(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, T src2) {
+TILEOP void TscatterElementS(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, T src2) {
     for (int i = 0; i < src1Shape0; ++i) {
         for (int j = 0; j < src1Shape1; ++j) {
             set_flag(PIPE_V, PIPE_S, EVENT_ID7);

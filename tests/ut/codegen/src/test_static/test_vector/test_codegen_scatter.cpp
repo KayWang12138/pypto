@@ -41,8 +41,8 @@ public:
 };
 
 constexpr const int SCATER_SHAPE0 = 128;
-constexpr const int SCATER_SHAPE1 = 8;
-TEST_F(TestCodegenScatter, TestScatterElement) {
+constexpr const int SCATER_SHAPE1 = 256;
+TEST_F(TestCodegenScatter, TestScatter_) {
     constexpr const int b = 2;
     constexpr const int s = 512;
     constexpr const int nRoutedExperts = 256;
@@ -58,7 +58,7 @@ TEST_F(TestCodegenScatter, TestScatterElement) {
 
     std::string funcName = "SCATTER_T";
     FUNCTION(funcName) {
-        res = ScatterElement(cnts, topkIds, Element(DataType::DT_FP32, 1.0), 1); // (b*s, nRoutedExperts)
+        res = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, 1.0), 1); // (b*s, nRoutedExperts)
     }
 
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);

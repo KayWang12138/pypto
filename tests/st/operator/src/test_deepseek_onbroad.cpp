@@ -71,7 +71,7 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer) {
         Program::GetInstance().GetConfig().Reset();
         TileShape::Current().SetCubeTile({std::min(128, b * s), std::min(128, b * s)}, {64, 64}, {64, 64});
 
-        TileShape::Current().SetVecTile(64, 64); // for Assemble
+        TileShape::Current().SetVecTile(64, nRoutedExperts); // for Assemble
 
         Tensor hiddenStates = Tensor(DataType::DT_FP32, hiddenStatesShape, (uint8_t *)hiddenStatesPtr, "hiddenStates");
         Tensor topkIdx = Tensor(DataType::DT_INT32, topKShape, (uint8_t *)topkIdxPtr, "topkIdx");
@@ -173,7 +173,7 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout) {
         Program::GetInstance().GetConfig().Reset();
         TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
 
-        TileShape::Current().SetVecTile(128, 128); // for Assemble
+        TileShape::Current().SetVecTile(64, nRoutedExperts); // for Assemble
 
         Tensor hiddenStates = Tensor(DT_FP32, hiddenStatesShape, (uint8_t *)hiddenStatesPtr, "hiddenStates");
         Tensor topkIdx = Tensor(DT_INT32, topKShape, (uint8_t *)topkIdxPtr, "topkIdx");
@@ -245,7 +245,7 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout_singlemlp) {
         Program::GetInstance().GetConfig().Reset();
         TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
 
-        TileShape::Current().SetVecTile(128, 128); // for Assemble
+        TileShape::Current().SetVecTile(64, nRoutedExperts); // for Assemble
 
         Tensor hiddenStates = Tensor(DT_FP32, hiddenStatesShape, (uint8_t *)hiddenStatesPtr, "hiddenStates");
         Tensor topkIdx = Tensor(DT_INT32, topKShape, (uint8_t *)topkIdxPtr, "topkIdx");
@@ -327,7 +327,7 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout_singlemlp_withquant)
         TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
         Program::GetInstance().GetConfig().Set<int>(L1_REUSE, 4);
 
-        TileShape::Current().SetVecTile(128, 128); // for Assemble
+        TileShape::Current().SetVecTile(64, nRoutedExperts); // for Assemble
 
         Tensor hiddenStates = Tensor(DT_FP32, hiddenStatesShape, (uint8_t *)hiddenStatesPtr, "hiddenStates");
         Tensor topkIdx = Tensor(DT_INT32, topKShape, (uint8_t *)topkIdxPtr, "topkIdx");

@@ -193,7 +193,7 @@ def scatter_element(h: CodeHelper, inst: Instruction):
 
     scalar_str = get_scalar_dtype(inst.src[2]), + ', ' + get_var_str(inst.src[2])
     axis_str = get_var_str(inst.src[3])
-    h(f'auto tsr{inst.dst.idx} = ScatterElement(tsr{inst.src[0].idx}, tsr{inst.src[1].idx}, \
+    h(f'auto tsr{inst.dst.idx} = Scatter_(tsr{inst.src[0].idx}, tsr{inst.src[1].idx}, \
         Element({scalar_str}), {axis_str});')
 
 

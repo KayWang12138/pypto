@@ -42,7 +42,7 @@ test_cases = [
         "FunctionTest.TestGatherAxis0Indices2",
         "FunctionTest.TestGatherElementAxis1Indices2",
         "FunctionTest.TestGatherElementAxis0Indices2",
-        "FunctionTest.TestScatterElement",
+        "FunctionTest.TestScatter_",
         "FunctionTest.TestScatterUpdate2",
         "FunctionTest.testRowSumSingle",
         "FunctionTest.testRowMaxSingle",

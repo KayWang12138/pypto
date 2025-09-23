@@ -714,24 +714,46 @@ def gen_gatherelement_op_golden(case_name: str, output: Path, case_index: int = 
     return gen_op_golden("GatherElement", golden_func, output, case_index)
 
 
+def scatter_golden_func(inputs, config: dict):
+    params = config.get("params")
+    axis = params["axis"]
+    reduceop = params["reduce"]
+    scalar = params["src"]
+    indices = torch.from_numpy(inputs[1])
+
+    if inputs[0].dtype == bfloat16:
+        src = torch.from_numpy(inputs[0].astype(np.float32))
+        if len(reduceop) == 0:
+            res = src.scatter(axis, indices, scalar).numpy().astype(bfloat16)
+        else:
+            res = src.scatter(axis, indices, scalar, reduce=reduceop).numpy().astype(bfloat16)
+    else:
+        src = torch.from_numpy(inputs[0])
+        if len(reduceop) == 0:
+            res = src.scatter(axis, indices, scalar).numpy()
+        else:
+            res = src.scatter(axis, indices, scalar, reduce=reduceop).numpy()
+
+    return [res]
+
 @GoldenRegister.reg_golden_func(
     case_names=[
-        "TestScatterElement/ScatterElementOperationTest.TestScatterElement",
+        "TestScatter/ScatterOperationTest.TestScatter",
     ]
 )
-def gen_scatterelement_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
-    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
-    def golden_func(inputs, config: dict):
-        params = config.get("params")
-        axis = params["axis"]
-        src = torch.from_numpy(inputs[0])
-        indices = torch.from_numpy(inputs[1])
-        res = src.scatter(axis, indices, 20).numpy()
-
-        return [res]
-
+def gen_scatter_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     logging.debug("Case(%s), Golden creating...", case_name)
-    return gen_op_golden("ScatterElement", golden_func, output, case_index)
+    return gen_op_golden("Scatter", scatter_golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestScatter_/Scatter_OperationTest.TestScatter_",
+    ]
+)
+def gen_scatter__op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Scatter_", scatter_golden_func, output, case_index)
 
 @GoldenRegister.reg_golden_func(
     case_names=[

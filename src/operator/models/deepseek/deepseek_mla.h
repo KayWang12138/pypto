@@ -327,7 +327,7 @@ public:
         // groupMask = torch.zeros_like(groupScores)
         auto groupMask = MulS(groupScoresReshape, Element(DataType::DT_FP32, F_0)); // [b*s,8]
         // groupMask.scatter_(1, groupIdx, 1)
-        auto groupMaskScatter = ScatterElement(groupMask, groupIdx, Element(DataType::DT_FP32, F_1), 1); // [b*s,8]
+        auto groupMaskScatter = Scatter_(groupMask, groupIdx, Element(DataType::DT_FP32, F_1), 1); // [b*s,8]
         // scoreMask
         int dim0 = groupMaskScatter->shape[0] * groupMaskScatter->shape[1];
 
@@ -392,7 +392,7 @@ public:
 
         Tensor cnts = MulS(randoms, Element(DataType::DT_FP32, F_0)); // (b*s, nRoutedExperts)
 
-        cnts = ScatterElement(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
+        cnts = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
 
         Tensor tokensPerExpert = RowSumSingle(cnts, 0);
 
@@ -487,7 +487,7 @@ public:
 
         Tensor cnts = MulS(randoms, Element(DataType::DT_FP32, F_0)); // (b*s, nRoutedExperts)
 
-        cnts = ScatterElement(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
+        cnts = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
 
         Tensor tokensPerExpert = RowSumSingle(cnts, 0);
 
@@ -550,7 +550,7 @@ public:
 
         Tensor cnts = MulS(randoms, Element(DataType::DT_FP32, F_0)); // (b*s, nRoutedExperts)
 
-        cnts = ScatterElement(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
+        cnts = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
 
         Tensor tokensPerExpert = RowSumSingle(cnts, 0);
 
@@ -615,7 +615,7 @@ public:
 
         Tensor cnts = MulS(randoms, Element(DataType::DT_FP32, F_0)); // (b*s, nRoutedExperts)
 
-        cnts = ScatterElement(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
+        cnts = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
 
         Tensor tokensPerExpert = RowSumSingle(cnts, 0);
 
@@ -709,7 +709,7 @@ public:
 
         Tensor cnts = MulS(randoms, Element(DataType::DT_FP32, F_0)); // (b*s, nRoutedExperts)
 
-        cnts = ScatterElement(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
+        cnts = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
 
         Tensor tokensPerExpert = RowSumSingle(cnts, 0);
         // reduce 0维, (b*s, nRoutedExperts)->(nRoutedExperts)

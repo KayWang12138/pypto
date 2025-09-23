@@ -1594,12 +1594,12 @@ std::string CodeGenOpCloudNPU::GenGatherElementOp() const {
     return PrintGatherElementStatic({gatherAxis, dVar, s0Var, s1Var, dos, ds, s0s, s1s, dataTypeExpr});
 }
 
-std::string CodeGenOpCloudNPU::PrintScatterElementOpStatic(const PrintScatterElemParam &param) const {
+std::string CodeGenOpCloudNPU::PrintScatterElementSOpStatic(const PrintScatterElemParam &param) const {
     // Static only support 2Dim
     int dstRank = shape[ToUnderlying(DISIIdx::DST_IDX)].size();
     int src1Rank = shape[ToUnderlying(DISIIdx::SRC1_IDX)].size();
-    ASSERT(src1Rank == RANK2) << "GenScatterElementOp: src1 shape rank is not supported!";
-    ASSERT(dstRank == RANK2) << "GenScatterElementOp: dst shape rank is not supported!";
+    ASSERT(src1Rank == RANK2) << "GenScatterElementSOp: src1 shape rank is not supported!";
+    ASSERT(dstRank == RANK2) << "GenScatterElementSOp: dst shape rank is not supported!";
 
     const std::string &dstVar = param.dVar;
     const std::string &src0Var = param.s0Var;
@@ -1618,7 +1618,7 @@ std::string CodeGenOpCloudNPU::PrintScatterElementOpStatic(const PrintScatterEle
     int ret =
         snprintf_s(scalarTmpBuffer, sizeof(scalarTmpBuffer), sizeof(scalarTmpBuffer) - 1, "%.9g", scala.Cast<float>());
     if (ret < 0) {
-        ALOG_INFO_F("GenScatterElementOp snprintf_s scalarTmpBuffer failed %d", ret);
+        ALOG_INFO_F("GenScatterElementSOp snprintf_s scalarTmpBuffer failed %d", ret);
     }
     std::vector<std::string> templateParams;
     templateParams.emplace_back(dataTypeExpr[ToUnderlying(DISIIdx::DST_IDX)]);
@@ -1643,7 +1643,7 @@ std::string CodeGenOpCloudNPU::PrintScatterElementOpStatic(const PrintScatterEle
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintScatterElementOpDynamicUnaligned(const PrintScatterElemParam &param) const {
+std::string CodeGenOpCloudNPU::PrintScatterElementSOpDynamicUnaligned(const PrintScatterElemParam &param) const {
     const std::string &dstVar = param.dVar;
     const std::string &src0Var = param.s0Var;
     const std::string &src1Var = param.s1Var;
@@ -1661,7 +1661,7 @@ std::string CodeGenOpCloudNPU::PrintScatterElementOpDynamicUnaligned(const Print
     int ret =
         snprintf_s(scalarTmpBuffer, sizeof(scalarTmpBuffer), sizeof(scalarTmpBuffer) - 1, "%.9g", scala.Cast<float>());
     if (ret < 0) {
-        ALOG_INFO_F("GenScatterElementOp snprintf_s scalarTmpBuffer failed %d", ret);
+        ALOG_INFO_F("GenScatterElementSOp snprintf_s scalarTmpBuffer failed %d", ret);
     }
 
     std::vector<std::string> templateParams;
@@ -1673,14 +1673,16 @@ std::string CodeGenOpCloudNPU::PrintScatterElementOpDynamicUnaligned(const Print
     for (size_t i = 1; i < dynDim; ++i) {
         templateParams.emplace_back(std::to_string(drs[i]));
     }
+    templateParams.emplace_back(std::to_string(param.axis));
+    templateParams.emplace_back(std::to_string(param.reduceOp));
     std::string templateParamStr = JoinString(templateParams, ", ");
-    templateParamStr += GenOpAttr();
 
     std::vector<std::string> callParams;
+    const std::string src2_dtypestr = "float";
     callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(DISIIdx::DST_IDX)] + "*)" + dstVar);
     callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(DISIIdx::SRC0_IDX)] + "*)" + src0Var);
     callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(DISIIdx::SRC1_IDX)] + "*)" + src1Var);
-    callParams.emplace_back("(" + dataTypeExpr[ToUnderlying(DISIIdx::DST_IDX)] + ")" + scalarTmpBuffer);
+    callParams.emplace_back("(" + src2_dtypestr + ")" + scalarTmpBuffer);
     for (size_t i = 0; i < dynDim; ++i) {
         callParams.emplace_back(dynSrc1Shape[i].Dump());
     }
@@ -1691,7 +1693,32 @@ std::string CodeGenOpCloudNPU::PrintScatterElementOpDynamicUnaligned(const Print
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenScatterElementOp() const {
+int CodeGenOpCloudNPU::GetScatterElementSReduceOperation(const std::string &reduce) const
+{
+    constexpr int replaceOp = 0;
+    constexpr int addOp = 1;
+    constexpr int multiplyOp = 2;
+    int reduceOp = replaceOp;
+
+    if (reduce == "None") {
+        reduceOp = replaceOp;
+    } else if (reduce == "add") {
+        reduceOp = addOp;
+    } else if (reduce == "multiply") {
+        reduceOp = multiplyOp;
+    } else {
+        ALOG_ERROR_F("GetScatterElementSReduceOperation reduce is not supported, reduce is %s", reduce.c_str());
+    }
+
+    return reduceOp;
+}
+
+std::string CodeGenOpCloudNPU::GenScatterElementSOp() const {
+    ASSERT(opAttrs.count(OpAttributeKey::reduce)) << "cannot get reduce attr";
+    ASSERT(opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
+    int axis = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
+    std::string reduce = npu::tile_fwk::AnyCast<std::string>(opAttrs.at(OpAttributeKey::reduce));
+    int reduceOp = GetScatterElementSReduceOperation(reduce);
     const DataType dstDtype = operandDtype[ToUnderlying(DISIIdx::DST_IDX)];
     const DataType src0Dtype = operandDtype[ToUnderlying(DISIIdx::SRC0_IDX)];
     const DataType src1Dtype = operandDtype[ToUnderlying(DISIIdx::SRC1_IDX)];
@@ -1700,9 +1727,9 @@ std::string CodeGenOpCloudNPU::GenScatterElementOp() const {
     std::string src1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(DISIIdx::SRC1_IDX)]);
     std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(DISIIdx::DST_IDX)]);
 
-    ALOG_INFO_F("GenScatterElementOp, dst Shape is %s", IntVecToStr(shape[ToUnderlying(DISIIdx::DST_IDX)]).c_str());
-    ALOG_INFO_F("GenScatterElementOp, src0 Shape is %s", IntVecToStr(shape[ToUnderlying(DISIIdx::SRC0_IDX)]).c_str());
-    ALOG_INFO_F("GenScatterElementOp, src1 Shape is %s", IntVecToStr(shape[ToUnderlying(DISIIdx::SRC1_IDX)]).c_str());
+    ALOG_INFO_F("GenScatterElementSOp, dst Shape is %s", IntVecToStr(shape[ToUnderlying(DISIIdx::DST_IDX)]).c_str());
+    ALOG_INFO_F("GenScatterElementSOp, src0 Shape is %s", IntVecToStr(shape[ToUnderlying(DISIIdx::SRC0_IDX)]).c_str());
+    ALOG_INFO_F("GenScatterElementSOp, src1 Shape is %s", IntVecToStr(shape[ToUnderlying(DISIIdx::SRC1_IDX)]).c_str());
 
     std::vector dstRawShape = this->rawShape[ToUnderlying(DISIIdx::DST_IDX)];
     std::vector src1RawShape = this->rawShape[ToUnderlying(DISIIdx::SRC1_IDX)];
@@ -1710,8 +1737,8 @@ std::string CodeGenOpCloudNPU::GenScatterElementOp() const {
     std::string dstDtypeStr = DataType2CCEStr(dstDtype);
     std::string src0DtypeStr = DataType2CCEStr(src0Dtype);
     std::string src1DtypeStr = DataType2CCEStr(src1Dtype);
-    ALOG_INFO_F("GenScatterElementOp, dstDtypeStr%s", dstDtypeStr.c_str());
-    ALOG_INFO_F("GenScatterElementOp, src1DtypeStr%s", src1DtypeStr.c_str());
+    ALOG_INFO_F("GenScatterElementSOp, dstDtypeStr%s", dstDtypeStr.c_str());
+    ALOG_INFO_F("GenScatterElementSOp, src1DtypeStr%s", src1DtypeStr.c_str());
 
     AppendLocalBufferVarOffset(std::vector{&dstVar, &src0Var, &src1Var});
 
@@ -1719,10 +1746,11 @@ std::string CodeGenOpCloudNPU::GenScatterElementOp() const {
     std::string dataTypeExpr[NumOperands] = {dstDtypeStr, src0DtypeStr, src1DtypeStr};
 
     if (isSupportDynamicUnaligned) {
-        return PrintScatterElementOpDynamicUnaligned(
-            {dstVar, src0Var, src1Var, dstRawShape, src1RawShape, dataTypeExpr});
+        return PrintScatterElementSOpDynamicUnaligned(
+            {axis, reduceOp, dstVar, src0Var, src1Var, dstRawShape, src1RawShape, dataTypeExpr});
     }
-    return PrintScatterElementOpStatic({dstVar, src0Var, src1Var, dstRawShape, src1RawShape, dataTypeExpr});
+    return PrintScatterElementSOpStatic({axis, reduceOp, dstVar, src0Var, src1Var, dstRawShape, src1RawShape, 
+        dataTypeExpr});
 }
 
 std::string CodeGenOpCloudNPU::PrintSortDynamicUnaligned(const SortParam &param) const {

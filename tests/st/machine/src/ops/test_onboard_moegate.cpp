@@ -65,7 +65,7 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_case1) {
     /* torch capture */
     TileFwkBeginFunction("MOEGATE_GRAPH3", {group_idx, group_mask, scores_for_choice, res_scores});
     {
-        auto tmp_group_mask = ScatterElement(group_mask, group_idx, Element(DataType::DT_FP32, 1.0), 1); // (b*s, nGroup)
+        auto tmp_group_mask = Scatter_(group_mask, group_idx, Element(DataType::DT_FP32, 1.0), 1); // (b*s, nGroup)
         Tensor group_mask_new = Reshape(tmp_group_mask, {B*S, nGroup, 1}); // (b*s, nGroup, 1)
 
         TileShape::Current().SetVecTile(16, 16, 32);
@@ -149,7 +149,7 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_case2_32_1_7168) {
     /* torch capture */
     TileFwkBeginFunction("MOEGATE_GRAPH3", {group_idx, group_mask, scores_for_choice, res_scores});
     {
-        auto tmp_group_mask = ScatterElement(group_mask, group_idx, Element(DataType::DT_FP32, 1.0), 1); // (b*s, nGroup)
+        auto tmp_group_mask = Scatter_(group_mask, group_idx, Element(DataType::DT_FP32, 1.0), 1); // (b*s, nGroup)
         Tensor group_mask_new = Reshape(tmp_group_mask, {B*S, nGroup, 1}); // (b*s, nGroup, 1)
 
         TileShape::Current().SetVecTile(32, 8, 32); // 此处如果用(16 16 32)的tile 会有精度问题
@@ -233,7 +233,7 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_case2_8_1_7168) {
     /* torch capture */
     TileFwkBeginFunction("MOEGATE_GRAPH3", {group_idx, group_mask, scores_for_choice, res_scores});
     {
-        auto tmp_group_mask = ScatterElement(group_mask, group_idx, Element(DataType::DT_FP32, 1.0), 1); // (b*s, nGroup)
+        auto tmp_group_mask = Scatter_(group_mask, group_idx, Element(DataType::DT_FP32, 1.0), 1); // (b*s, nGroup)
         Tensor group_mask_new = Reshape(tmp_group_mask, {B*S, nGroup, 1}); // (b*s, nGroup, 1)
 
         TileShape::Current().SetVecTile(16, 16, 32);
@@ -320,7 +320,7 @@ TEST_F(MoegateOnBoardTest, test_moegate_graph3_graph4_case_32_1_7168) {
     /* torch capture */
     TileFwkBeginFunction("MOEGATE_GRAPH3_GRAPH4", {group_idx, group_mask, scores_for_choice, scores, outputTensor});
     {
-        auto tmp_group_mask = ScatterElement(group_mask, group_idx, Element(DataType::DT_FP32, 1.0), 1); // (b*s, nGroup)
+        auto tmp_group_mask = Scatter_(group_mask, group_idx, Element(DataType::DT_FP32, 1.0), 1); // (b*s, nGroup)
         Tensor group_mask_new = Reshape(tmp_group_mask, {B*S, nGroup, 1}); // (b*s, nGroup, 1)
 
         TileShape::Current().SetVecTile(16, 16, 32); // 此处如果用(16 16 32)的tile 会有精度问题

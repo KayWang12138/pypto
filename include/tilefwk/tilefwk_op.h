@@ -116,7 +116,8 @@ Tensor Abs(const Tensor &operand);
 Tensor Duplicate(const Tensor &operand);
 Tensor Gather(const Tensor &params, const Tensor &indices, int axis);
 Tensor GatherElement(const Tensor &params, const Tensor &indices, int axis);
-Tensor ScatterElement(const Tensor &src, const Tensor &idx, const Element &scalar, int axis);
+Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, int axis, std::string reduce = "None");
+Tensor Scatter_(const Tensor &self, const Tensor &indices, const Element &src, int axis, std::string reduce = "None");
 Tensor IndexPut(const Tensor &src, std::vector<Tensor> indices, const Tensor &values);
 
 Tensor RowSumExpand(const Tensor &operand);

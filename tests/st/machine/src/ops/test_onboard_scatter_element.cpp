@@ -26,9 +26,9 @@
 
 using namespace npu::tile_fwk;
 
-class ScatterElementOnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
+class Scatter_OnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
-TEST_F(ScatterElementOnBoardTest, test_scatter_element_float_16_64_8_32_1) {
+TEST_F(Scatter_OnBoardTest, test_scatter_element_float_16_64_8_32_1) {
     int S0 = 16;
     int S1 = 64;
     int D0 = 8;
@@ -46,7 +46,7 @@ TEST_F(ScatterElementOnBoardTest, test_scatter_element_float_16_64_8_32_1) {
     rtSetDevice(0);
     TileFwkInit();
 
-    TileShape::Current().SetVecTile({8, 32});
+    TileShape::Current().SetVecTile({8, S1});
 
     void *src_ptr = readToDev(GetGoldenDir() + "/src.bin", capacity0);
     void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
@@ -57,7 +57,7 @@ TEST_F(ScatterElementOnBoardTest, test_scatter_element_float_16_64_8_32_1) {
     /* torch capture */
     TileFwkBeginFunction("SCATTERELEMENT", {input_src0, input_src1});
     {
-        input_src0 = ScatterElement(input_src0, input_src1, Element(DataType::DT_FP32, 1.0), axis);
+        input_src0 = Scatter_(input_src0, input_src1, Element(DataType::DT_FP32, 1.0), axis);
     }
     TileFwkEndFunction();
 
@@ -83,7 +83,7 @@ TEST_F(ScatterElementOnBoardTest, test_scatter_element_float_16_64_8_32_1) {
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(ScatterElementOnBoardTest, test_scatter_element_float_16_70_16_40_1) {
+TEST_F(Scatter_OnBoardTest, test_scatter_element_float_16_70_16_40_1) {
     int S0 = 16;
     int S1 = 70;
     int D0 = 16;
@@ -101,7 +101,7 @@ TEST_F(ScatterElementOnBoardTest, test_scatter_element_float_16_70_16_40_1) {
     rtSetDevice(0);
     TileFwkInit();
 
-    TileShape::Current().SetVecTile({8, 32});
+    TileShape::Current().SetVecTile({8, S1});
 
     void *src_ptr = readToDev(GetGoldenDir() + "/src.bin", capacity0);
     void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
@@ -112,7 +112,7 @@ TEST_F(ScatterElementOnBoardTest, test_scatter_element_float_16_70_16_40_1) {
     /* torch capture */
     TileFwkBeginFunction("SCATTERELEMENT", {input_src0, input_src1});
     {
-        input_src0 = ScatterElement(input_src0, input_src1, Element(DataType::DT_FP32, 1.0), axis);
+        input_src0 = Scatter_(input_src0, input_src1, Element(DataType::DT_FP32, 1.0), axis);
     }
     TileFwkEndFunction();
 
@@ -143,7 +143,7 @@ TEST_F(ScatterElementOnBoardTest, test_scatter_element_float_16_70_16_40_1) {
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(ScatterElementOnBoardTest, test_scatter_element_float_16_64_16_32_1) {
+TEST_F(Scatter_OnBoardTest, test_scatter_element_float_16_64_16_32_1) {
     int S0 = 16;
     int S1 = 64;
     int D0 = 16;
@@ -161,7 +161,7 @@ TEST_F(ScatterElementOnBoardTest, test_scatter_element_float_16_64_16_32_1) {
     rtSetDevice(0);
     TileFwkInit();
 
-    TileShape::Current().SetVecTile({8, 32});
+    TileShape::Current().SetVecTile({8, S1});
 
     void *src_ptr = readToDev(GetGoldenDir() + "/src.bin", capacity0);
     void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
@@ -172,7 +172,7 @@ TEST_F(ScatterElementOnBoardTest, test_scatter_element_float_16_64_16_32_1) {
     /* torch capture */
     TileFwkBeginFunction("SCATTERELEMENT", {input_src0, input_src1});
     {
-        input_src0 = ScatterElement(input_src0, input_src1, Element(DataType::DT_FP32, 1.0), axis);
+        input_src0 = Scatter_(input_src0, input_src1, Element(DataType::DT_FP32, 1.0), axis);
     }
     TileFwkEndFunction();
 
@@ -203,7 +203,7 @@ TEST_F(ScatterElementOnBoardTest, test_scatter_element_float_16_64_16_32_1) {
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(ScatterElementOnBoardTest, test_scatter_element_float_8_256_8_8_1_moe) {
+TEST_F(Scatter_OnBoardTest, test_scatter_element_float_8_256_8_8_1_moe) {
     int S0 = 8;
     int S1 = 256;
     int D0 = 8;
@@ -221,7 +221,7 @@ TEST_F(ScatterElementOnBoardTest, test_scatter_element_float_8_256_8_8_1_moe) {
     rtSetDevice(0);
     TileFwkInit();
 
-    TileShape::Current().SetVecTile({8, 32});
+    TileShape::Current().SetVecTile({8, S1});
 
     void *src_ptr = readToDev(GetGoldenDir() + "/src.bin", capacity0);
     void *indices_ptr = readToDev(GetGoldenDir() + "/indices.bin", capacity1);
@@ -232,7 +232,7 @@ TEST_F(ScatterElementOnBoardTest, test_scatter_element_float_8_256_8_8_1_moe) {
     /* torch capture */
     TileFwkBeginFunction("SCATTERELEMENT", {input_src0, input_src1});
     {
-        input_src0 = ScatterElement(input_src0, input_src1, Element(DataType::DT_FP32, 1.0), axis);
+        input_src0 = Scatter_(input_src0, input_src1, Element(DataType::DT_FP32, 1.0), axis);
     }
     TileFwkEndFunction();
 

@@ -64,6 +64,8 @@ public:
     std::string GenGatherElementOp() const;
 
     struct PrintScatterElemParam {
+        int axis;
+        int reduceOp;
         const std::string &dVar;
         const std::string &s0Var;
         const std::string &s1Var;
@@ -71,9 +73,9 @@ public:
         std::vector<int64_t> &src1RawShape;
         const std::string *dataTypeExpr;
     };
-    std::string GenScatterElementOp() const;
-    std::string PrintScatterElementOpStatic(const PrintScatterElemParam &param) const;
-    std::string PrintScatterElementOpDynamicUnaligned(const PrintScatterElemParam &param) const;
+    std::string GenScatterElementSOp() const;
+    std::string PrintScatterElementSOpStatic(const PrintScatterElemParam &param) const;
+    std::string PrintScatterElementSOpDynamicUnaligned(const PrintScatterElemParam &param) const;
 
     std::string GenIndexOutCastOp() const;
 
@@ -114,6 +116,7 @@ public:
 
 private:
     int GetCacheModeFlag(const std::string &cacheMode) const;
+    int GetScatterElementSReduceOperation(const std::string &reduce) const;
     template <typename T>
     bool GetAttr(const std::string &key, T &value) const;
 
@@ -446,7 +449,7 @@ private:
         // gather/scatter op
         {                    Opcode::OP_GATHER,                 [this]() { return GenGatherOp(); }},
         {            Opcode::OP_GATHER_ELEMENT,          [this]() { return GenGatherElementOp(); }},
-        {           Opcode::OP_SCATTER_ELEMENT,         [this]() { return GenScatterElementOp(); }},
+        {           Opcode::OP_SCATTER_ELEMENT,         [this]() { return GenScatterElementSOp(); }},
 
         // transpose with gm
         {         Opcode::OP_TRANSPOSE_MOVEOUT,        [this]() { return GenTransposeDataMove(); }},
