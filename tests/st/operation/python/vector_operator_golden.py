@@ -438,6 +438,30 @@ def gen_neg_op_golden(case_name: str, output: Path, case_index: int = None) -> b
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Neg", golden_func, output, case_index)
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestLog/LogOperationTest.TestLog",
+    ]
+)
+def gen_log_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs, _config: dict):
+        base = _config['params']['base']
+        input_dtype = inputs[0].dtype
+        if input_dtype == np.float16:
+            inputs[0].astype(np.float32)
+        if base == 'e':
+            output = [np.log(inputs[0])]
+        elif base == '2':
+            output = [np.log2(inputs[0])]
+        elif base == '10':
+            output = [np.log10(inputs[0])]
+        if input_dtype == np.float16:
+            output = [output[0].astype(np.float16)]
+        return output
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Log", golden_func, output, case_index)
 
 @GoldenRegister.reg_golden_func(
     case_names=[

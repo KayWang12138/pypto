@@ -165,6 +165,12 @@ namespace TileOp {
 #include "vector_una_dyn.h"
 #undef T_UNA
 #undef V_UNA_FUNC
+// LN
+#define T_UNA DynTln_
+#define V_UNA_FUNC vln
+#include "vector_una_dyn.h"
+#undef T_UNA
+#undef V_UNA_FUNC
 
 template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned srcRawShape1,
     unsigned srcRawShape2, unsigned axis0, unsigned axis1>

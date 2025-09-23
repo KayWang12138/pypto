@@ -128,6 +128,11 @@ void Abs(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     torch::abs_out(tout, From(self));
 }
 
+void Ln(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tout = From(out);
+    torch::log_out(tout, From(self));
+}
+
 #define DEFINE_BINARY_S_OPS(Name, op_out)                                                                 \
     void Name(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse) { \
         auto tout = From(out);                                                                            \

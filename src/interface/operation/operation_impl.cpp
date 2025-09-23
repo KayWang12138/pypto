@@ -95,6 +95,8 @@ std::string GetUnaryOpName() {
             return "DUPLICATE";
         case UnaryOpType::ABS:
             return "ABS";
+        case UnaryOpType::LN:
+            return "LN"; 
         default:
             assert(false && "unknown unary op type");
             return "";
@@ -112,6 +114,7 @@ case UnaryOpType::X: return Opcode::OP_## X
         CASE(SQRT);
         CASE(RECIPROCAL);
         CASE(ABS);
+        CASE(LN);
         default: assert(false && "unknown unary op type");
     }
 #undef CASE
@@ -1666,6 +1669,47 @@ Tensor Exp(const Tensor &operand) {
 
     RETURN_CALL(
         UnaryOperation<UnaryOpType::EXP>, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage());
+}
+
+Tensor Ln(const Tensor &operand) {
+    DECLARE_TRACER();
+
+    RETURN_CALL(UnaryOperation<UnaryOpType::LN>, *Program::GetInstance().GetCurrentFunction(),
+        operand.GetStorage());
+}
+
+Tensor Log(const Tensor &operand, LogBaseType base) {
+    DECLARE_TRACER();
+    ASSERT(base == LogBaseType::LOG_e || base == LogBaseType::LOG_2 || base == LogBaseType::LOG_10);
+    ASSERT(operand->tensor->datatype == DataType::DT_FP16 || operand->tensor->datatype == DataType::DT_FP32);
+
+    auto operandCast = Tensor(DataType::DT_FP32, operand->shape);
+    if (operand->tensor->datatype == DataType::DT_FP16) {
+        operandCast = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            operand.GetStorage(), DataType::DT_FP32, CastMode::CAST_NONE);
+    } else {
+        operandCast = operand;
+    }
+
+    auto resTensor = Tensor(DataType::DT_FP32, operand->shape);
+    resTensor = CALL(UnaryOperation<UnaryOpType::LN>, *Program::GetInstance().GetCurrentFunction(), operandCast.GetStorage());
+
+    auto resTensorBeforeCast = Tensor(DataType::DT_FP32, operand->shape);
+    if (base == LogBaseType::LOG_2) {
+        resTensorBeforeCast = CALL(BinaryOperationScalar<BinaryOpType::DIV>, *Program::GetInstance().GetCurrentFunction(),
+            resTensor.GetStorage(), Element(DataType::DT_FP32, std::log(static_cast<float>(NUM_VALUE_2))));
+    } else if (base == LogBaseType::LOG_10) {
+        resTensorBeforeCast = CALL(BinaryOperationScalar<BinaryOpType::DIV>, *Program::GetInstance().GetCurrentFunction(),
+            resTensor.GetStorage(), Element(DataType::DT_FP32, std::log(static_cast<float>(NUM_VALUE_10))));
+    } else {
+        resTensorBeforeCast = resTensor;
+    }
+
+    if (operand->tensor->datatype == DataType::DT_FP16) {
+        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            resTensorBeforeCast.GetStorage(), DataType::DT_FP16, CastMode::CAST_NONE);
+    }
+    return resTensorBeforeCast;
 }
 
 Tensor Maximum(const Tensor &operand1, const Tensor &operand2) {
@@ -3444,6 +3488,11 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
         case Opcode::OP_ABS: {
             UnaryOperationOperandCheck(iOperand, oOperand);
             TiledUnaryOperation<UnaryOpType::ABS>(function, tileShape, iOperand[0], oOperand[0]);
+            break;
+        }
+        case Opcode::OP_LN: {
+            UnaryOperationOperandCheck(iOperand, oOperand);
+            TiledUnaryOperation<UnaryOpType::LN>(function, tileShape, iOperand[0], oOperand[0]);
             break;
         }
         case Opcode::OP_GATHER: {

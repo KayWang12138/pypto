@@ -38,6 +38,7 @@ const std::map<std::string, CorePipeType> SCHED_CORE_PIPE_TYPE { // Unary Vector
     {"SQRT", CorePipeType::PIPE_VECTOR_ALU},
     {"RECIPROCAL", CorePipeType::PIPE_VECTOR_ALU},
     {"ABS", CorePipeType::PIPE_VECTOR_ALU},
+    {"LN", CorePipeType::PIPE_VECTOR_ALU},
     {"CAST", CorePipeType::PIPE_VECTOR_ALU},
     {"EXPAND", CorePipeType::PIPE_VECTOR_ALU},
     {"COMPACT", CorePipeType::PIPE_VECTOR_ALU},

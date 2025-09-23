@@ -112,6 +112,7 @@ Tensor Rsqrt(const Tensor &operand);
 Tensor Sqrt(const Tensor &operand);
 Tensor Reciprocal(const Tensor &operand);
 Tensor Abs(const Tensor &operand);
+Tensor Ln(const Tensor &operand);
 
 Tensor Duplicate(const Tensor &operand);
 Tensor Gather(const Tensor &params, const Tensor &indices, int axis);
@@ -202,6 +203,13 @@ Tensor Reduce(const std::vector<Tensor> &aggregation, const ReduceMode reduceMod
 
 Tensor Maxpool(const Tensor &operand, const std::vector<int> &pools, const std::vector<int> &strides,
     const std::vector<int> &paddings);
+
+enum class LogBaseType {
+    LOG_e,
+    LOG_2,
+    LOG_10,
+};
+Tensor Log(const Tensor &operand, LogBaseType base = LogBaseType::LOG_e);
 
 struct IfaTileShapeConfig {
     int blockSize;

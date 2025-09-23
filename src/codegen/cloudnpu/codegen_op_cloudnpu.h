@@ -436,6 +436,7 @@ private:
         {                Opcode::OP_ROWMAXLINE,                  [this]() { return GenUnaryOp(); }},
         {                Opcode::OP_ROWMINLINE,                  [this]() { return GenUnaryOp(); }},
         {                       Opcode::OP_ABS,                  [this]() { return GenUnaryOp(); }},
+        {                        Opcode::OP_LN,                  [this]() { return GenUnaryOp(); }},
 
         // unary with temp buffer
         {                   Opcode::OP_COMPACT,       [this]() { return GenUnaryOpWithTmpBuff(); }},

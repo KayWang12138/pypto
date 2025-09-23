@@ -60,6 +60,7 @@ enum class UnaryOpType {
     RECIPROCAL,
     DUPLICATE,
     ABS,
+    LN,
 };
 enum class ReduceType {
     NORMAL,
@@ -74,6 +75,7 @@ constexpr int32_t NUM_VALUE_3 = 3;
 constexpr int32_t NUM_VALUE_4 = 4;
 constexpr int32_t NUM_VALUE_5 = 5;
 constexpr int32_t NUM_VALUE_8 = 8;
+constexpr int32_t NUM_VALUE_10 = 10;
 constexpr int32_t NUM_VALUE_16 = 16;
 constexpr int32_t NUM_VALUE_31 = 31;
 constexpr int32_t NUM_VALUE_32 = 32;
