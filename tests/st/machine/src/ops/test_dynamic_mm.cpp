@@ -377,4 +377,41 @@ TEST_F(DynamicMatmulTest, mm_AT_B_ANZ_BND_fp16_UNALIGN) {
     TestDynMatmul<npu::tile_fwk::float16, float, true, false, false>(
         {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
 }
+
+TEST_F(DynamicMatmulTest, mm_AT_B_AND_BND_fp32_UNALIGN) {
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
+    int64_t m = 127;
+    int64_t k = 255;
+    int64_t n = 511;
+    bool isANz = false;
+    bool isBNz = false;
+    std::vector<int64_t> viewShape = {-1, -1};
+    TestDynMatmul<float, float, true, false, false>(
+        {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
+}
+
+TEST_F(DynamicMatmulTest, mm_AT_BT_AND_BND_fp32) {
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
+    int64_t m = 128;
+    int64_t k = 256;
+    int64_t n = 512;
+    bool isANz = false;
+    bool isBNz = false;
+    std::vector<int64_t> viewShape = {-1, -1};
+    TestDynMatmul<float, float, true, true, true>(
+        {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
+}
+
+TEST_F(DynamicMatmulTest, test1_fp32) {
+    TileShape::Current().SetCubeTile({256, 256}, {64, 64}, {64, 64});
+    int64_t m = 128;
+    int64_t k = 256;
+    int64_t n = 513;
+    bool isANz = true;
+    bool isBNz = false;
+    std::vector<int64_t> viewShape = {32, 32};
+    TestDynMatmul<float, float, true, false, true>(
+        {m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
+}
+
 } // namespace

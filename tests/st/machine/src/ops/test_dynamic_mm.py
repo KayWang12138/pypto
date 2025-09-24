@@ -200,6 +200,10 @@ def gen_dynamic_mm_golden(case_name: str, output: Path) -> bool:
         "DynamicMatmulTest.mm_AT_B_ANZ_BND_bf16",
         "DynamicMatmulTest.mm_AT_BT_AND_BND_bf16",
         "DynamicMatmulTest.mm_AT_B_ANZ_BND_fp16_UNALIGN",
+        "DynamicMatmulTest.mm_AT_B_AND_BND_fp32_UNALIGN",
+        "DynamicMatmulTest.test1_fp32",
+        "DynamicMatmulTest.test2_fp32",
+
     ]
 )
 def gen_dynamic_mm_golden(case_name: str, output: Path) -> bool:
@@ -217,6 +221,18 @@ def gen_dynamic_mm_golden(case_name: str, output: Path) -> bool:
         return True
     if case_name == "DynamicMatmulTest.mm_AT_B_ANZ_BND_fp16_UNALIGN":
         input_config = ShapeConfig(127, 255, 511, FP16, FP32, True, False, False, False, False)
+        gen_mm_data(input_config, output)
+        return True
+    if case_name == "DynamicMatmulTest.mm_AT_B_AND_BND_fp32_UNALIGN":
+        input_config = ShapeConfig(127, 255, 511, FP32, FP32, True, False, False, False, False)
+        gen_mm_data(input_config, output)
+        return True
+    if case_name == "DynamicMatmulTest.mm_AT_BT_AND_BND_fp32":
+        input_config = ShapeConfig(128, 256, 512, FP32, FP32, True, True, False, False, True)
+        gen_mm_data(input_config, output)
+        return True
+    if case_name == "DynamicMatmulTest.test1_fp32":
+        input_config = ShapeConfig(128, 256, 513, FP32, FP32, True, False, True, False, True)
         gen_mm_data(input_config, output)
         return True
     else:

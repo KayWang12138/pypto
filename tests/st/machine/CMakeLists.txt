@@ -154,6 +154,9 @@ set(_CaseFilterList
         "DynamicMatmulTest.mm_AT_B_ANZ_BND_bf16"
         "DynamicMatmulTest.mm_AT_BT_AND_BND_bf16"
         "DynamicMatmulTest.mm_AT_B_ANZ_BND_fp16_UNALIGN"
+        "DynamicMatmulTest.mm_AT_B_AND_BND_fp32_UNALIGN"
+        "DynamicMatmulTest.mm_AT_BT_AND_BND_fp32"
+        "DynamicMatmulTest.test1_fp32"
         #===========================================================================
         # matmul Interpreter 功能用例
         #===========================================================================

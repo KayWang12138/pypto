@@ -858,30 +858,10 @@ Tensor BatchMatmul(DataType dataType, const Tensor &aMatrix, const Tensor &bMatr
     DECLARE_TRACER();
     ASSERT(aMatrix.GetShape().size() == bMatrix.GetShape().size());
     Tensor res;
-    if constexpr (!isTransA && isTransB) {
-        if (aMatrix.GetShape().size() == SHAPE_DIM4) {
+    if (aMatrix.GetShape().size() == SHAPE_DIM4) {
             res = ABatchMulB4D<isTransA, isTransB, isCMatrixNZ>(dataType, aMatrix, bMatrix);
-        } else {
-            res = ABatchMulB3D<isTransA, isTransB, isCMatrixNZ>(dataType, aMatrix, bMatrix);
-        }
-    } else if constexpr (!isTransA && !isTransB) {
-        if (aMatrix.GetShape().size() == SHAPE_DIM4) {
-            res = ABatchMulB4D<isTransA, isTransB, isCMatrixNZ>(dataType, aMatrix, bMatrix);
-        } else {
-            res = ABatchMulB3D<isTransA, isTransB, isCMatrixNZ>(dataType, aMatrix, bMatrix);
-        }
-    } else if constexpr (isTransA && !isTransB){
-        if (aMatrix.GetShape().size() == SHAPE_DIM4) {
-            res = ABatchMulB4D<isTransA, isTransB, isCMatrixNZ>(dataType, aMatrix, bMatrix);
-        } else {
-            res = ABatchMulB3D<isTransA, isTransB, isCMatrixNZ>(dataType, aMatrix, bMatrix);
-        }
     } else {
-        if (aMatrix.GetShape().size() == SHAPE_DIM4) {
-            res = ABatchMulB4D<isTransA, isTransB, isCMatrixNZ>(dataType, aMatrix, bMatrix);
-        } else {
             res = ABatchMulB3D<isTransA, isTransB, isCMatrixNZ>(dataType, aMatrix, bMatrix);
-        }
     }
     return res;
 }

@@ -377,6 +377,14 @@ TILEOP void DynL1ToL0A(__ca__ T *dst, __cbuf__ T *src, unsigned dstM, unsigned d
     int32_t srcOffset = Offset0 * blockCubeK + Offset1 *srcM;
     int32_t srcOffsetStep = BLOCK_CUBE_M_N * blockCubeK;
 
+    if constexpr (std::is_same<T, float>::value) {
+        uint64_t config = srcM | (1 << 16);
+        set_fmatrix(config);
+        dstK = CeilAlign<uint16_t>(dstK, BLOCK_CUBE_M_N);
+        img2colv2_cbuf_to_ca(dst,src, dstK, dstM, 0, 0, 1, 1, 1, 1, 1, 1, false, false, false, false, srcK);
+        return;
+    }
+
     for (int32_t mIdx = 0; mIdx < static_cast<int32_t>(dstM / BLOCK_CUBE_M_N); ++mIdx) {
         load_cbuf_to_ca(dst + dstOffset, src + srcOffset, 0, repeat, srcStride, dstStride, 0, 0, inc);
         dstOffset += dstOffsetStep;
@@ -392,6 +400,13 @@ TILEOP void DynL1ToL0At(__ca__ T *dst, __cbuf__ T *src, unsigned dstM, unsigned 
     dstK = CeilAlign<uint16_t>(dstK, BLOCK_CUBE_M_N);
     srcM = CeilAlign<uint16_t>(srcM, c0Size);
     srcK = CeilAlign<uint16_t>(srcK, BLOCK_CUBE_M_N);
+
+    if constexpr (std::is_same<T, float>::value) {
+        uint64_t config = srcK | (1 << 16);
+        set_fmatrix(config);
+        img2colv2_cbuf_to_ca(dst,src, dstM, dstK, 0, 0, 1, 1, 1, 1, 1, 1, false, false, true, false, srcM);
+        return;
+    }
 
     if constexpr (std::is_same<T, int8_t>::value) {
         uint8_t repeat = dstK / c0Size;
@@ -443,6 +458,21 @@ TILEOP void DynL1ToL0B(__cb__ T *dst, __cbuf__ T *src, unsigned dstK, unsigned d
     srcN = (srcN + frac_num - 1) / frac_num * frac_num;
     srcK = (srcK + frac_num - 1) / frac_num * frac_num;
 
+    if constexpr (std::is_same<T, float>::value) {
+        constexpr uint16_t C0Size = BLOCK_ALIGN_BYTE / sizeof(T);
+        // need to enable k-alignment in mmad to copy with even numbers align to 8 should actually be odd numbers to 8.
+        // load3D automatically to 16
+        dstK = CeilAlign<uint16_t>(dstK, BLOCK_CUBE_M_N);
+        dstN = CeilAlign<uint16_t>(dstN, BLOCK_CUBE_M_N);
+        srcN = CeilAlign<uint16_t>(srcN, C0Size);
+        srcK = CeilAlign<uint16_t>(srcK, BLOCK_CUBE_M_N);
+        // set featureMap 0-15 for w(srcK) 16-31(1)
+        uint64_t config = srcK | (1 << 16);
+        set_fmatrix_b(config);
+        img2colv2_cbuf_to_cb(dst,src, dstN, dstK, 0, 0, 1, 1, 1, 1, 1, 1, false, false, false, true, srcN);
+        return;
+    }
+
     if constexpr (std::is_same<T, int8_t>::value) {
         uint8_t repeat = dstK / nBlockSize;
         uint16_t srcStride = 1;
@@ -486,13 +516,16 @@ TILEOP void DynL1ToL0B(__cb__ T *dst, __cbuf__ T *src, unsigned dstK, unsigned d
 template <typename T, unsigned Offset0, unsigned Offset1>
 TILEOP void DynL1ToL0Bt(__cb__ T *dst, __cbuf__ T *src, unsigned dstK, unsigned dstN, unsigned srcN, unsigned srcK) {
     int64_t frac_num = 32 / sizeof(T);
-    dstK = (dstK + frac_num - 1) / frac_num * frac_num;
-    dstN = (dstN + frac_num - 1) / frac_num * frac_num;
-    srcN = (srcN + frac_num - 1) / frac_num * frac_num;
-    srcK = (srcK + frac_num - 1) / frac_num * frac_num;
+
+    // no need to use load3D as the frac is same for l1 and l0
+    constexpr uint16_t c0Size = BLOCK_ALIGN_BYTE / sizeof(T);
+    dstN = CeilAlign<uint16_t>(dstN, BLOCK_CUBE_M_N);
+    dstK = CeilAlign<uint16_t>(dstK, c0Size);
+    srcN = CeilAlign<uint16_t>(srcN, BLOCK_CUBE_M_N);
+    srcK = CeilAlign<uint16_t>(srcK, c0Size);
 
     if (dstN == srcN) {
-        uint8_t repeat = dstN / (32 / sizeof(T)) * dstK / 16;
+        uint8_t repeat = dstN / BLOCK_CUBE_M_N * dstK / c0Size;
         constexpr uint16_t srcStride = 1;
         constexpr uint16_t dstStride = 0;
 
