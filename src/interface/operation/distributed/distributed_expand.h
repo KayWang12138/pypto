@@ -30,10 +30,6 @@ constexpr int32_t ROUTING_EXPERT_NUM = 3;
 constexpr int32_t TOTAL_EXPERT_NUM = SHARED_EXPERT_NUM + ROUTING_EXPERT_NUM;
 constexpr int32_t AIV_NUM = 4;
 
-enum class AtomicType : std::uint8_t {
-    SET,
-    ADD
-};
 inline bool IsRoutingExpert(int rankId)
 {
     return rankId >= SHARED_EXPERT_NUM;

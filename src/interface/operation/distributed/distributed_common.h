@@ -46,6 +46,23 @@ enum class TileIndex : size_t {
     HEAD_NUM,
     TAIL_SHAPE
 };
+
+enum class AtomicType {
+    SET,
+    ADD
+};
+
+inline std::string AtomicTypeToString(AtomicType type) {
+    switch (type) {
+        case AtomicType::SET:
+            return "TileOp::Distributed::AtomicType::SET";
+        case AtomicType::ADD:
+            return "TileOp::Distributed::AtomicType::ADD";
+        default:
+            return "";
+    }
+}
+
 inline int GetTotalTileNum(const std::array<int, MAX_DIST_DIM_SIZE> &tile)
 {
     return tile[static_cast<size_t>(TileIndex::HEAD_NUM)] +

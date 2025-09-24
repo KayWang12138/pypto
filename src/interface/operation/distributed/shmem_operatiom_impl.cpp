@@ -35,15 +35,15 @@ Tensor AddShmemPut(const Tensor &in, const Tensor &shmemDataTile, const int tile
     Shape shape{tileCount, 1};
     auto dummy = std::make_shared<LogicalTensor>(function, DT_INT32, shape);
     auto &op= function.AddOperation("SHMEM_PUT", {in.GetStorage(), shmemDataTile.GetStorage()}, {dummy});
-    op.SetAttr("AtomicType", std::string("TileOp::Distributed::AtomicType::SET"));
+    op.SetAttr("AtomicType", AtomicType::SET);
     return dummy;
 }
 
-void AddShmemSignal(const Tensor &dummy, const Tensor &shmemSignalTile, std::string atomicType)
+void AddShmemSignal(const Tensor &dummy, const Tensor &shmemSignalTile, AtomicType atomicType)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
     auto &op= function.AddOperation("SHMEM_SIGNAL", {dummy.GetStorage()}, {shmemSignalTile.GetStorage()});
-    std::string value = "1";
+    int64_t value = 1;
     op.SetAttr("Value", value);
     op.SetAttr("AtomicType", atomicType);
 }
@@ -54,19 +54,17 @@ Tensor AddShmemGet(const Tensor &dummy, const Tensor &shmemDataTile)
     Shape shape = {shmemDataTile.GetShape()[2], shmemDataTile.GetShape()[3]};
     auto tempOutTile = std::make_shared<LogicalTensor>(function, shmemDataTile.GetDataType(), shape);
     auto &op= function.AddOperation("SHMEM_GET", {dummy.GetStorage(), shmemDataTile.GetStorage()}, {tempOutTile});
-    op.SetAttr("AtomicType", std::string("TileOp::Distributed::AtomicType::SET"));
+    op.SetAttr("AtomicType", AtomicType::SET);
     return tempOutTile;
 }
 
-Tensor AddWaitUntil(const Tensor &in, const Tensor &shmemSignalTile, const int tileCount, const int value)
+Tensor AddWaitUntil(const Tensor &in, const Tensor &shmemSignalTile, const int tileCount, const int64_t value)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
     Shape shape {tileCount, 1};
     auto dummy = std::make_shared<LogicalTensor>(function, DT_INT32, shape);
     auto &op= function.AddOperation("SHMEM_WAIT_UNTIL", {in.GetStorage(), shmemSignalTile.GetStorage()}, {dummy});
-    std::string stride = "32";
-    op.SetAttr("Value", std::to_string(value));
-    op.SetAttr("Stride", stride);
+    op.SetAttr("Value", value);
     return dummy;
 }
 
@@ -113,7 +111,7 @@ void AllGatherDyn(const Tensor &in, const char *group, Tensor &out)
         auto shmemData = ShmemTensorMgr::GetInstance().CreateTensor(
             rankSize, groupIndex, in.GetDataType(), shmDataShape);
         auto shmemSignal = ShmemTensorMgr::GetInstance().CreateTensor(rankSize, groupIndex, DT_INT32, shmSignalShape);
-        std::string atomicType = "TileOp::Distributed::AtomicType::SET";
+        AtomicType atomicType = AtomicType::SET;
         LOOP("L0", FunctionType::DYNAMIC_LOOP, dynRankId, LoopRange(0, rankSize, 1)) {
             auto shmemDataTile = ShmemTensorMgr::GetInstance().GetView(shmemData,
                 {1, 1, row, col}, std::vector<SymbolicScalar>{dynRankId, thisRank, 0, 0});
@@ -159,7 +157,7 @@ Tensor ShmemReduceScatter(Tensor &in, const char* group, DistReduceType reduceTy
     auto shmemData = ShmemTensorMgr::GetInstance().CreateTensor(rankSize, hcclGroupIndex, in.GetDataType(), outShape);
     auto shmemSignal = ShmemTensorMgr::GetInstance().CreateTensor(rankSize, hcclGroupIndex, DT_INT32, signalShape);
 
-    std::string atomicType = "TileOp::Distributed::AtomicType::ADD";
+    AtomicType atomicType = AtomicType::ADD;
     for (int i = 1; i < rankSize; i++) {
         SymbolicScalar otherRank = (thisRank + i) % rankSize;
         auto shmDataRank = ShmemTensorMgr::GetInstance().GetView(shmemData,

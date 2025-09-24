@@ -19,6 +19,7 @@
 #include "codegen_op_cloudnpu.h"
 #include "interface/utils/log.h"
 #include "securec.h"
+#include "interface/operation/distributed/distributed_common.h"
 
 namespace npu::tile_fwk {
 
@@ -52,9 +53,9 @@ std::string CodeGenOpCloudNPU::GenTemplateParams() const
         int64_t stride = originTensorShape[originTensorShape.size() - ID1];
         oss << GetTemplateDType() << ", " << tileRowShape << ", " << tileColShape << ", " << bufferRowShape << ", " << bufferColShape << ", " << stride << ", " << stride;
     } else if (opCode == Opcode::OP_SHMEM_SIGNAL) {
-        std::string value = npu::tile_fwk::AnyCast<std::string>(opAttrs.at("Value"));
-        std::string atomicType = npu::tile_fwk::AnyCast<std::string>(opAttrs.at("AtomicType"));
-        oss << value << ", " << atomicType;
+        int64_t value = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at("Value")); 
+        npu::tile_fwk::Distributed::AtomicType atomicType = npu::tile_fwk::AnyCast<npu::tile_fwk::Distributed::AtomicType>(opAttrs.at("AtomicType"));
+        oss << std::to_string(value) << ", " << npu::tile_fwk::Distributed::AtomicTypeToString(atomicType);
     } else if (opCode == Opcode::OP_SHMEM_REDUCE) {
         std::string extraTemplateParam = npu::tile_fwk::AnyCast<std::string>(opAttrs.at("extraTemplateParam"));
         std::vector<int64_t> outShape = rawShape[ID0];

@@ -36,7 +36,7 @@ void TiledShmemPut(Function &function, const TileShape &tileShape,
     const auto tileCol = tileShape.GetDistTileCol();
     const int64_t rowStep = tileRow[0];
     const int64_t colStep = tileCol[0];
-    std::string atomicType;
+    AtomicType atomicType;
     op.GetAttr("AtomicType", atomicType);
     int tileIndex = 0;
     for (int64_t rowIdx = 0; rowIdx < oriRow; rowIdx += rowStep) {
@@ -78,8 +78,8 @@ void TiledShmemSignal(Function &function, const TileShape &tileShape,
     ASSERT(shmSignal->shape.size() == 4UL);
     const auto tileRow = tileShape.GetDistTileRow();
     const auto tileCol = tileShape.GetDistTileCol();
-    std::string atomicType;
-    std::string value;
+    AtomicType atomicType;
+    int64_t value;
     op.GetAttr("AtomicType", atomicType);
     op.GetAttr("Value", value);
     const int64_t tileLen = shmSignal->shape[3];
@@ -119,9 +119,7 @@ void TiledShmemWaitUntil(Function &function, const TileShape &tileShape,
     const auto tileCol = tileShape.GetDistTileCol();
     const int64_t rowStep = tileRow[0];
     const int64_t colStep = tileCol[0];
-    std::string stride;
-    std::string value;
-    op.GetAttr("Stride", stride);
+    int64_t value;
     op.GetAttr("Value", value);
     int tileIndex = 0;
     for (int64_t rowIdx = 0; rowIdx < oriRow; rowIdx += rowStep) {
@@ -135,7 +133,6 @@ void TiledShmemWaitUntil(Function &function, const TileShape &tileShape,
 
             auto& tileop = function.AddOperation("SHMEM_WAIT_UNTIL", {inTile, shmSignalTile}, {dummyTile});
             tileop.SetAttr("Value", value);
-            tileop.SetAttr("Stride", stride);
             tileIndex++;
         }
     }
@@ -158,7 +155,7 @@ void TiledShmemGet(Function &function, const TileShape &tileShape,
     const auto tileCol = tileShape.GetDistTileCol();
     const int64_t rowStep = tileRow[0];
     const int64_t colStep = tileCol[0];
-    std::string atomicType;
+    AtomicType atomicType;
     op.GetAttr("AtomicType", atomicType);
     int tileIndex = 0;
     for (int64_t rowIdx = 0; rowIdx < oriRow; rowIdx += rowStep) {

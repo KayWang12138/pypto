@@ -126,7 +126,7 @@ TILEOP void ShmemPut(__gm__ int32_t* dummy, __ubuf__ T* buffer, __gm__ T* nonShm
      CopyGmToGm<T, tileRowShape, tileColShape, bufferRowShape, bufferColShape, srcStride, dstStride>(shmemDataAddr, buffer, nonShmemDataAddr);
 }
 
-template<int32_t value, AtomicType atomicType>
+template<int64_t value, AtomicType atomicType>
 TILEOP void ShmemSignal(__ubuf__ int32_t* buffer, __gm__ int32_t* dummy, __gm__ int32_t* shmemSignalBaseAddr,
     uint32_t shmemSignalOffset0, uint32_t shmemSignalOffset1, uint32_t shmemSignalOffset2, uint32_t shmemSignalOffset3,
     uint32_t shmemSignalRawShape0, uint32_t shmemSignalRawShape1, uint32_t shmemSignalRawShape2, uint32_t shmemSignalRawShape3, __gm__ int64_t *hcclContext)
