@@ -166,6 +166,29 @@ Tensor Assign(const Tensor &operand);
 std::tuple<Tensor, Tensor> TopK(const Tensor &operand, const int &k, int axis, bool isLargest = true);
 Tensor ArgSort(const Tensor &operand, int axis, bool isLargest = true);
 
+/**
+ * @brief Sort a tensor with shape (1, n) along the last dimension, n must be orders of 2.
+ *        The vecTile (1, t), t must be orders of 2, maximum is 16K.
+ * @param x The input tensor to be sorted, the indices are initialized to 0123...
+ * @param descending If true, sorts in descending order; otherwise ascending order (default: true).
+ * @return std::tuple<Tensor, Tensor> A tuple containing two tensors:
+ *         - First tensor: The sorted data.
+ *         - Second tensor: The corresponding indices.
+ */
+std::tuple<Tensor, Tensor> Sort(const Tensor &x, bool descending = true);
+
+/**
+ * @brief Sort a tensor & indices with shape (1, n) along the last dimension, n must be orders of 2.
+ *        The vecTile (1, t), t must be orders of 2, maximum is 16K.
+ * @param x The input tensor to be sorted.
+ * @param idx The input indices corresponding to x.
+ * @param descending If true, sorts in descending order; otherwise ascending order (default: true).
+ * @return std::tuple<Tensor, Tensor> A tuple containing two tensors:
+ *         - First tensor: The sorted data.
+ *         - Second tensor: The corresponding indices.
+ */
+std::tuple<Tensor, Tensor> SortWithIndex(const Tensor &x, const Tensor &idx, bool descending = true);
+
 Tensor SoftmaxNew(const Tensor &operand);
 void SoftmaxDynamic(Tensor &input, Tensor &output);
 

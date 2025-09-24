@@ -93,6 +93,9 @@ public:
     std::string GenMrgSortOp() const;
     std::string GenExtractOp() const;
     std::string GenTiledMrgSortOp() const;
+    std::string GenSortOp() const;
+    std::string GenCompareAndSwapOp() const;
+    std::string GenMergeOp() const;
 
     std::string GenParamsStr() const;
 
@@ -472,6 +475,11 @@ private:
         {                   Opcode::OP_EXTRACT,                [this]() { return GenExtractOp(); }},
         {                   Opcode::OP_TILEDMRGSORT,      [this]() { return GenTiledMrgSortOp(); }},
 
+        // parallel sort
+        {                   Opcode::OP_SORT,                   [this]() { return GenSortOp(); }},
+        {                   Opcode::OP_COMPARE_SWAP,              [this]() { return GenCompareAndSwapOp(); }},
+        {                   Opcode::OP_MERGE,                  [this]() { return GenMergeOp(); }},
+        
         // matmul
         {                   Opcode::OP_A_MUL_B,             [this]() { return GenCubeOpMatmul(); }},
         {                  Opcode::OP_A_MUL_BT,             [this]() { return GenCubeOpMatmul(); }},

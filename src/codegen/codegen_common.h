@@ -44,6 +44,8 @@ constexpr const unsigned ID2 = 2;
 constexpr const unsigned ID3 = 3;
 constexpr const unsigned ID4 = 4;
 constexpr const unsigned ID5 = 5;
+constexpr const unsigned ID6 = 6;
+constexpr const unsigned ID7 = 7;
 
 constexpr const int BUFFER_SIZE_256 = 256;
 constexpr const int BUFFER_SIZE_512 = 512;

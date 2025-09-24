@@ -2390,4 +2390,123 @@ std::string CodeGenOpCloudNPU::GenPoolOp() const {
     oss << tileOpName << "<" << templateStr << ">" << "(" << tileOpParam << ");\n";
     return oss.str();
 }
+
+std::string CodeGenOpCloudNPU::GenSortOp() const {
+    std::string xDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+    std::string idxDtypeStr = DataType2CCEStr(operandDtype[ID1]);
+
+    std::string yVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+    std::string yIdxVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+    std::string tmpVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
+    std::string xVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID3]);
+    AppendLocalBufferVarOffset(std::vector{&yVar, &yIdxVar, &tmpVar, &xVar});
+
+    auto xShape = this->rawShape[ID0];
+    auto idxShape = this->rawShape[ID1];
+
+    std::vector<std::string> paramList;
+    paramList.emplace_back(xDtypeStr);
+    paramList.emplace_back(idxDtypeStr);
+    paramList.emplace_back(std::to_string(xShape[0]));
+    paramList.emplace_back(std::to_string(xShape[1]));
+    paramList.emplace_back(std::to_string(idxShape[0]));
+    paramList.emplace_back(std::to_string(idxShape[1]));
+    std::string templateParam = JoinString(paramList, ", ");
+    templateParam += GenOpAttr();
+
+    paramList.clear();
+    std::string y = "(" + GetAddrTypeByOperandType(operandType[ID0]) + " " + xDtypeStr + "*)" + yVar;
+    std::string yIdx = "(" + GetAddrTypeByOperandType(operandType[ID1]) + " " + idxDtypeStr + "*)" + yIdxVar;
+    std::string tmp = "(" + GetAddrTypeByOperandType(operandType[ID2]) + " " + xDtypeStr + "*)" + tmpVar;
+    std::string x = "(" + GetAddrTypeByOperandType(operandType[ID3]) + " " + xDtypeStr + "*)" + xVar;
+    paramList.insert(paramList.end(), {y, yIdx, tmp, x});
+    std::string tileOpParam = JoinString(paramList, ", ");
+
+    std::ostringstream os;
+    os << tileOpName.c_str() << "<" << templateParam << ">" << "(" << tileOpParam << ");\n";
+    return os.str();
+}
+
+std::string CodeGenOpCloudNPU::GenMergeOp() const {
+    std::string xDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+    std::string idxDtypeStr = DataType2CCEStr(operandDtype[ID1]);
+
+    std::string yVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+    std::string yIdxVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+    std::string tmpVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
+    std::string xVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID3]);
+    std::string idxVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID4]);
+    AppendLocalBufferVarOffset(std::vector{&yVar, &yIdxVar, &tmpVar, &xVar, &idxVar});
+
+    auto xShape = this->rawShape[ID0];
+    auto idxShape = this->rawShape[ID1];
+
+    std::vector<std::string> paramList;
+    paramList.emplace_back(xDtypeStr);
+    paramList.emplace_back(idxDtypeStr);
+    paramList.emplace_back(std::to_string(xShape[0]));
+    paramList.emplace_back(std::to_string(xShape[1]));
+    paramList.emplace_back(std::to_string(idxShape[0]));
+    paramList.emplace_back(std::to_string(idxShape[1]));
+    std::string templateParam = JoinString(paramList, ", ");
+    templateParam += GenOpAttr();
+
+    paramList.clear();
+    std::string y = "(" + GetAddrTypeByOperandType(operandType[ID0]) + " " + xDtypeStr + "*)" + yVar;
+    std::string yIdx = "(" + GetAddrTypeByOperandType(operandType[ID1]) + " " + idxDtypeStr + "*)" + yIdxVar;
+    std::string tmp = "(" + GetAddrTypeByOperandType(operandType[ID2]) + " " + xDtypeStr + "*)" + tmpVar;
+    std::string x = "(" + GetAddrTypeByOperandType(operandType[ID3]) + " " + xDtypeStr + "*)" + xVar;
+    std::string idx = "(" + GetAddrTypeByOperandType(operandType[ID4]) + " " + idxDtypeStr + "*)" + idxVar;
+    paramList.insert(paramList.end(), {y, yIdx, tmp, x, idx});
+    std::string tileOpParam = JoinString(paramList, ", ");
+
+    std::ostringstream os;
+    os << tileOpName.c_str() << "<" << templateParam << ">" << "(" << tileOpParam << ");\n";
+    return os.str();
+}
+
+std::string CodeGenOpCloudNPU::GenCompareAndSwapOp() const {
+    std::string xDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+    std::string idxDtypeStr = DataType2CCEStr(operandDtype[ID1]);
+
+    std::string y0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+    std::string yIdx0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+    std::string y1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
+    std::string yIdx1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID3]);
+    std::string x0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID4]);
+    std::string idx0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID5]);
+    std::string x1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID6]);
+    std::string idx1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID7]);
+    AppendLocalBufferVarOffset(std::vector{&y0Var, &yIdx0Var, &y1Var, &yIdx1Var, &x0Var, &idx0Var, &x1Var, &idx1Var});
+
+    auto xShape = this->rawShape[ID0];
+    auto idxShape = this->rawShape[ID1];
+
+    std::vector<std::string> paramList;
+    paramList.emplace_back(xDtypeStr);
+    paramList.emplace_back(idxDtypeStr);
+    paramList.emplace_back(std::to_string(xShape[0]));
+    paramList.emplace_back(std::to_string(xShape[1]));
+    paramList.emplace_back(std::to_string(idxShape[0]));
+    paramList.emplace_back(std::to_string(idxShape[1]));
+    std::string templateParam = JoinString(paramList, ", ");
+    templateParam += GenOpAttr();
+
+    paramList.clear();
+    std::string y0 = "(" + GetAddrTypeByOperandType(operandType[ID0]) + " " + xDtypeStr + "*)" + y0Var;
+    std::string yIdx0 = "(" + GetAddrTypeByOperandType(operandType[ID1]) + " " + idxDtypeStr + "*)" + yIdx0Var;
+    std::string y1 = "(" + GetAddrTypeByOperandType(operandType[ID2]) + " " + xDtypeStr + "*)" + y1Var;
+    std::string yIdx1 = "(" + GetAddrTypeByOperandType(operandType[ID3]) + " " + idxDtypeStr + "*)" + yIdx1Var;
+    std::string x0 = "(" + GetAddrTypeByOperandType(operandType[ID4]) + " " + xDtypeStr + "*)" + x0Var;
+    std::string idx0 = "(" + GetAddrTypeByOperandType(operandType[ID5]) + " " + idxDtypeStr + "*)" + idx0Var;
+    std::string x1 = "(" + GetAddrTypeByOperandType(operandType[ID6]) + " " + xDtypeStr + "*)" + x1Var;
+    std::string idx1 = "(" + GetAddrTypeByOperandType(operandType[ID7]) + " " + idxDtypeStr + "*)" + idx1Var;
+    paramList.insert(paramList.end(), {y0, yIdx0, y1, yIdx1, x0, idx0, x1, idx1});
+    std::string tileOpParam = JoinString(paramList, ", ");
+
+    std::ostringstream os;
+    os << tileOpName.c_str() << "<" << templateParam << ">" << "(" << tileOpParam << ");\n";
+    return os.str();
+}
+
 } // namespace npu::tile_fwk

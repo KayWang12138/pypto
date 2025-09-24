@@ -66,6 +66,7 @@ public:
     static const std::string inputCombineAxisDone;
     static const std::string outputCombineAxisDone;
     static const std::string inplaceIdx;
+    static const std::string inplaceInfo;
     static const std::string cacheMode;
     static const std::string panzBlockSize;
     static const std::string reduce;

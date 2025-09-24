@@ -2303,6 +2303,21 @@ TILEOP void DynExtract(__ubuf__ T *dst, __ubuf__ U *src, unsigned TShape0, unsig
     }
 }
 
+template <typename T, typename idxT, unsigned xShape0, unsigned xShape1, unsigned idxShape0, unsigned idxShape1, int descending, int idxStart>
+TILEOP void DynSort(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, __ubuf__ T *x) {
+    TileOp::Sort<T, idxT, xShape0, xShape1, idxShape0, idxShape1, descending, idxStart>(y, yIdx, tmp, x);
+}
+
+template <typename T, typename idxT, unsigned xShape0, unsigned xShape1, unsigned idxShape0, unsigned idxShape1, int fullSort, int descending>
+TILEOP void DynMerge(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, __ubuf__ T *x, __ubuf__ idxT *idx) {
+    TileOp::Merge<T, idxT, xShape0, xShape1, idxShape0, idxShape1, fullSort, descending>(y, yIdx, tmp, x, idx);
+}
+
+template <typename T, typename idxT, unsigned xShape0, unsigned xShape1, unsigned idxShape0, unsigned idxShape1, int descending>
+TILEOP void DynCompareAndSwap(__ubuf__ T *y0, __ubuf__ idxT *yIdx0, __ubuf__ T *y1, __ubuf__ idxT *yIdx1, __ubuf__ T *x0, __ubuf__ idxT *idx0, __ubuf__ T *x1, __ubuf__ idxT *idx1) {
+    TileOp::CompareAndSwap<T, idxT, xShape0, xShape1, idxShape0, idxShape1, descending>(y0, yIdx0, y1, yIdx1, x0, idx0, x1, idx1);
+}
+
 } // namespace TileOp
 
 #endif // TILE_FWK_VECTOR_DYN_H

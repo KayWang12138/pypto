@@ -42,6 +42,8 @@ set(_CaseFilterList
         "SlcAttnUtest.slc_attn_fp16"
         "KvSlcAttnUtest.kv_slc_attn_ut"
         "KvCmpUtest.kv_compress_ut"
+        "ParallelSortUTest.fp32_64k_8k"
+        "ParallelSortUTest.withindex_fp32_64k_8k"
 
         # 前端表达'单 Op'用例
         "FunctionTest.TestAddTensorFunctionDim4"

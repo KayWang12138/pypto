@@ -93,6 +93,9 @@ set(_CaseFilterList
         "DyNsa.GateScore_b32_s2_bf"
         "DyNsa.GateScore_b48_s1_fp"
 
+        # parallel sort
+        "ParallelSortSTest.fp32_64k"
+
         # PaPost
         #===========================================================================
         #"DynamicAttentionPostTest.dynamic_pa_post_new_mm5nz_splitk"

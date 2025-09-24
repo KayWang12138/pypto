@@ -18,6 +18,7 @@
 #include <array>
 #include <sstream>
 #include <unordered_set>
+#include "interface/operation/operation.h"
 #include "interface/utils/common.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/error.h"
@@ -344,6 +345,17 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_NOP, OpCoreType::ANY, "NOP", {}, {}, {}, OpCalcType::OTHER);
     registerInfo(Opcode::OP_REDUCE_ACC, OpCoreType::GMATOMIC, "REDUCE_ACC", {MEM_DEVICE_DDR, MEM_DEVICE_DDR}, {MEM_DEVICE_DDR}, {}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "atomic_add"});
     registerInfo(Opcode::OP_MAX_POOL, OpCoreType::AIV, "MAX_POOL", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tmaxpool", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER);
+    // parallel sort
+    registerInfo(Opcode::OP_SORT, OpCoreType::AIV, "SORT", 
+        {MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, 
+        {"TileOp::Sort", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OpAttributeKey::inplaceInfo, OP_ATTR_PREFIX + "start_index", OP_ATTR_PREFIX + "order"});
+    registerInfo(Opcode::OP_COMPARE_SWAP, OpCoreType::AIV, "COMP_SWAP", 
+        {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, 
+        {"TileOp::CompareAndSwap", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OpAttributeKey::inplaceInfo, OP_ATTR_PREFIX + "order"});
+    registerInfo(Opcode::OP_MERGE, OpCoreType::AIV, "MERGE", 
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, 
+        {"TileOp::Merge", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OpAttributeKey::inplaceInfo, OP_ATTR_PREFIX + "order", OP_ATTR_PREFIX + "full_sort"});
+
     // check register ok
     // clang-format on
     ASSERT(strToEnum_.size() == static_cast<size_t>(Opcode::OP_UNKNOWN));

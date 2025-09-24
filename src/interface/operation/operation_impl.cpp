@@ -3255,6 +3255,278 @@ void TiledReduceAcc(Function &function, const TileShape &tileShape,
     TiledReduceAcc(function, tileShape, 0, inputVec, result, resultTileInfo);
 }
 
+// parallel sort
+const std::string SORT_ORDER = OP_ATTR_PREFIX + "order";
+const std::string SORT_START_INDEX = OP_ATTR_PREFIX + "start_index";
+const std::string SORT_FULL = OP_ATTR_PREFIX + "full_sort";
+
+void TiledSort(Function &function, const LogicalTensorPtr &x, const LogicalTensorPtr &y, const LogicalTensorPtr &yIdx, const LogicalTensorPtr &temp, int idxStart, int descending) {
+    auto &op = function.AddOperation(Opcode::OP_SORT, {x}, {y, yIdx, temp});
+    op.SetAttribute(SORT_START_INDEX, static_cast<int>(idxStart));
+    op.SetAttribute(SORT_ORDER, static_cast<int>(descending));
+    std::map<int, int> inplaceInfo = {{0, 0}};
+    op.SetAttr(OpAttributeKey::inplaceInfo, inplaceInfo);
+}
+
+std::tuple<Tensor, Tensor, Tensor> L1Sort(const Tensor &x, int idxStart, bool descending) {
+    constexpr int32_t kFactorSize = 1;
+    auto tempShape = x->shape;
+    tempShape[1] *= kFactorSize;
+    auto y = Tensor(x->tensor->datatype, x->shape);
+    auto yIdx = Tensor(DataType::DT_INT32, x->shape);
+    auto temp = Tensor(x->tensor->datatype, tempShape);
+    TiledSort(*Program::GetInstance().GetCurrentFunction(), x.GetStorage(), y.GetStorage(), yIdx.GetStorage(), temp.GetStorage(), idxStart, descending);
+    return std::tie(y, yIdx, temp);
+}
+
+void TiledCompareAndSwap(Function &function, const LogicalTensorPtr &x0, const LogicalTensorPtr &idx0, const LogicalTensorPtr &x1, const LogicalTensorPtr &idx1, 
+    const LogicalTensorPtr &y0, const LogicalTensorPtr &yIdx0, const LogicalTensorPtr &y1, const LogicalTensorPtr &yIdx1, int descending) {
+    auto &op = function.AddOperation(Opcode::OP_COMPARE_SWAP, {x0, idx0, x1, idx1}, {y0, yIdx0, y1, yIdx1});
+    op.SetAttribute(SORT_ORDER, static_cast<int>(descending));
+    std::map<int, int> inplaceInfo = {{0, 0}, {1, 1}};
+    op.SetAttr(OpAttributeKey::inplaceInfo, inplaceInfo);
+}
+
+std::tuple<Tensor, Tensor, Tensor, Tensor> L1CompareAndSwap(const Tensor &x0, const Tensor &idx0, const Tensor &x1, const Tensor &idx1, bool descending) {
+    Tensor y0(x0->Datatype(), x0->shape);
+    Tensor yIdx0(idx0->Datatype(), idx0->shape);
+    Tensor y1(x1->Datatype(), x1->shape);
+    Tensor yIdx1(idx1->Datatype(), idx1->shape);
+    TiledCompareAndSwap(*Program::GetInstance().GetCurrentFunction(), x0.GetStorage(), idx0.GetStorage(), x1.GetStorage(), idx1.GetStorage(), 
+        y0.GetStorage(), yIdx0.GetStorage(), y1.GetStorage(), yIdx1.GetStorage(), descending);
+    return std::tie(y0, yIdx0, y1, yIdx1);
+}
+
+void TiledMerge(Function &function, const LogicalTensorPtr &x, const LogicalTensorPtr &idx, const LogicalTensorPtr &y, const LogicalTensorPtr &yIdx, const LogicalTensorPtr &temp, int fullSort, int descending) {
+    auto &op = function.AddOperation(Opcode::OP_MERGE, {x, idx}, {y, yIdx, temp});
+    op.SetAttribute(SORT_ORDER, static_cast<int>(descending));
+    op.SetAttribute(SORT_FULL, static_cast<int>(fullSort));
+    std::map<int, int> inplaceInfo = {{0, 0}, {1, 1}};
+    op.SetAttr(OpAttributeKey::inplaceInfo, inplaceInfo);
+}
+
+std::tuple<Tensor, Tensor, Tensor> L1Merge(const Tensor &x, const Tensor &idx, bool descending, bool fullSort) {
+    constexpr int32_t kFactorSize = 1;
+    auto tempShape = x->shape;
+    tempShape[1] *= kFactorSize;
+    auto y = Tensor(x->tensor->datatype, x->shape);
+    auto yIdx = Tensor(idx->tensor->datatype, idx->shape);
+    auto temp = Tensor(x->tensor->datatype, tempShape);
+    TiledMerge(*Program::GetInstance().GetCurrentFunction(), x.GetStorage(), idx.GetStorage(), y.GetStorage(), yIdx.GetStorage(), temp.GetStorage(), fullSort, descending);
+    return std::tie(y, yIdx, temp);
+}
+
+using SortTileMap = std::map<int, std::tuple<Tensor, Tensor>>;
+
+bool IsMaxTile(SortTileMap &map, int index) {
+    return map.find(index) == map.end();
+}
+
+void CompareAndSwapStep(SortTileMap &tileMap, int offset, int mergeSize, bool descending) {
+    int nTile = mergeSize;
+    for (int step = nTile; step >= NUM2; step /= NUM2) {
+        for (int start = 0; start < nTile * NUM2; start += step * NUM2) {
+            // within each swap size = step * tileSize
+            for (int i = 0; i < step; i++) {
+                int idx0 = offset + start + i;
+                int idx1 = idx0 + step;
+
+                // no need to comp & swap
+                if (IsMaxTile(tileMap, idx0) && descending) {
+                    continue;
+                }
+                if (IsMaxTile(tileMap, idx1) && !descending) {
+                    continue;
+                }
+                if (IsMaxTile(tileMap, idx0) && !descending) {
+                    tileMap[idx0] = tileMap[idx1];
+                    tileMap.erase(idx1);
+                    continue;
+                } else if (IsMaxTile(tileMap, idx1) && descending) {
+                    tileMap[idx1] = tileMap[idx0];
+                    tileMap.erase(idx0);
+                    continue;
+                }
+
+                // use L1CompareAndSwap
+                auto [x0, xIdx0] = tileMap[idx0];
+                auto [x1, xIdx1] = tileMap[idx1];
+                auto [y0, yIdx0, y1, yIdx1] = L1CompareAndSwap(x0, xIdx0, x1, xIdx1, descending);
+                tileMap[idx0] = std::tie(y0, yIdx0);
+                tileMap[idx1] = std::tie(y1, yIdx1);
+            }
+        }
+    }
+}
+
+void MergeStep(SortTileMap &tileMap, int offset, int mergeSize, int tileSize, bool descending) {
+    // Compare & Swap
+    CompareAndSwapStep(tileMap, offset, mergeSize, descending);
+
+    // maxStep is the minimum orders of 2 that >= n
+    int n = tileMap.size() / NUM2;
+    int maxStep = 1;
+    while (maxStep < n) {
+        maxStep <<= 1;
+    }
+    int halfSize = tileSize / NUM2;
+
+    // Merge within each tile
+    for (int i = 0; i < mergeSize; i++) {
+        int idx0 = offset + NUM2 * i;
+        int idx1 = idx0 + 1;
+        if (IsMaxTile(tileMap, idx0) || IsMaxTile(tileMap, idx1)) {
+            continue;
+        }
+        auto [x0, xIdx0] = tileMap[idx0];
+        auto [x1, xIdx1] = tileMap[idx1];
+        Tensor src(x0.GetDataType(), {1, tileSize});
+        Tensor srcIdx(DT_INT32, {1, tileSize});
+        Assemble(x0, {0, 0}, src);
+        Assemble(x1, {0, halfSize}, src);
+        Assemble(xIdx0, {0, 0}, srcIdx);
+        Assemble(xIdx1, {0, halfSize}, srcIdx);
+        auto mergeResult = L1Merge(src, srcIdx, descending, false);
+        auto res = std::get<0>(mergeResult);
+        auto resIdx = std::get<1>(mergeResult);
+        
+        if (mergeSize < maxStep) {
+            tileMap[idx0] = {View(res, {1, halfSize}, {0, 0}), View(resIdx, {1, halfSize}, {0, 0})};
+            tileMap[idx1] = {View(res, {1, halfSize}, {0, halfSize}), View(resIdx, {1, halfSize}, {0, halfSize})};
+        } else {
+            // For assemble, no need to split into half
+            tileMap[idx0] = {res, resIdx};
+        }
+    }
+}
+
+bool IsPowerOfTwo(int n) {
+    return (n & (n - 1)) == 0;
+}
+
+int NextPowerofTwo(int n) {
+    int power = 1;
+    while (power < n) {
+        power <<= 1;
+    }
+    return power;
+}
+
+std::tuple<Tensor, Tensor> Sort(const Tensor &x, bool descending) {
+    DECLARE_TRACER();
+    ASSERT(x->shape.size() == NUM2);
+    ASSERT(x->shape[0] == 1);
+    auto &vecTile = TileShape::Current().GetVecTile();
+    ASSERT(vecTile.size() == NUM2);
+    ASSERT(vecTile[0] == 1);
+    auto tileSize = vecTile[1];
+    ASSERT(IsPowerOfTwo(tileSize));
+    int length = x->shape[1];
+    int padLength = NextPowerofTwo(length);
+
+    int nTile = padLength / tileSize;
+    int halfSize = tileSize / NUM2;
+    SortTileMap tileMap;
+
+    if (nTile <= 1) {
+        auto res = L1Sort(x, 0, descending);
+        auto y = std::get<0>(res);
+        auto yIdx = std::get<1>(res);
+        return std::tie(y, yIdx);
+    }
+
+    // Tile Sort
+    for (int i = 0; i < nTile; i++) {
+        bool flag = (i % NUM2 == (descending ? 0 : 1));
+        int idxStart = i;
+        auto src = View(x, {1, tileSize}, {0, tileSize * i});
+        auto sortResult = L1Sort(src, idxStart, flag);
+        auto res = std::get<0>(sortResult);
+        auto resIdx = std::get<1>(sortResult);
+        tileMap[i * NUM2] = {View(res, {1, halfSize}, {0, 0}), View(resIdx, {1, halfSize}, {0, 0})};
+        tileMap[i * NUM2 + 1] = {View(res, {1, halfSize}, {0, halfSize}), View(resIdx, {1, halfSize}, {0, halfSize})};
+    }
+
+    // Merge
+    for (int step = NUM2; step <= nTile; step *= NUM2) {
+        for (int i = 0; i < nTile / step; ++i) {
+            int offset = i * step * NUM2;
+            bool flag = (i % NUM2 == 0) ? descending : !descending;
+            MergeStep(tileMap, offset, step, tileSize, flag);
+        }
+    }
+
+    // Assemble result
+    Tensor y(x.GetDataType(), {1, length});
+    Tensor yIdx(DT_INT32, {1, length});
+    for (int i = 0; i < nTile; i++) {
+        if (IsMaxTile(tileMap, NUM2 * i)) {
+            continue;
+        }
+        auto [res, resIdx] = tileMap[NUM2 * i];
+        Assemble(res, {0, i * tileSize}, y);
+        Assemble(resIdx, {0, i * tileSize}, yIdx);
+    }
+    return std::tie(y, yIdx);
+}
+
+std::tuple<Tensor, Tensor> SortWithIndex(const Tensor &x, const Tensor &idx, bool descending) {
+    DECLARE_TRACER();
+    ASSERT(x->shape.size() == NUM2);
+    ASSERT(x->shape[0] == 1);
+    auto &vecTile = TileShape::Current().GetVecTile();
+    ASSERT(vecTile.size() == NUM2);
+    ASSERT(vecTile[0] == 1);
+    auto tileSize = vecTile[1];
+    ASSERT(IsPowerOfTwo(tileSize));
+    int length = x->shape[1];
+    int padLength = NextPowerofTwo(length);
+    int nTile = padLength / tileSize;
+    int halfSize = tileSize / NUM2;
+    SortTileMap tileMap;
+
+    if (nTile <= 1) {
+        auto res = L1Merge(x, idx, descending, true);   // L1Sort with index
+        auto y = std::get<0>(res);
+        auto yIdx = std::get<1>(res);
+        return std::tie(y, yIdx);
+    }
+
+    // Tile Sort
+    for (int i = 0; i < nTile; i++) {
+        bool flag = (i % NUM2 == (descending ? 0 : 1));
+        auto src = View(x, {1, tileSize}, {0, tileSize * i});
+        auto srcIdx = View(idx, {1, tileSize}, {0, tileSize * i});
+        auto sortResult = L1Merge(src, srcIdx, flag, true);   // L1Sort with index
+        auto res = std::get<0>(sortResult);
+        auto resIdx = std::get<1>(sortResult);
+        tileMap[i * NUM2] = {View(res, {1, halfSize}, {0, 0}), View(resIdx, {1, halfSize}, {0, 0})};
+        tileMap[i * NUM2 + 1] = {View(res, {1, halfSize}, {0, halfSize}), View(resIdx, {1, halfSize}, {0, halfSize})};
+    }
+
+    // Merge
+    for (int step = NUM2; step <= nTile; step *= NUM2) {
+        for (int i = 0; i < nTile / step; ++i) {
+            int offset = i * step * NUM2;
+            bool flag = (i % NUM2 == 0) ? descending : !descending;
+            MergeStep(tileMap, offset, step, tileSize, flag);
+        }
+    }
+
+    // Assemble result
+    Tensor y(x.GetDataType(), {1, length});
+    Tensor yIdx(idx.GetDataType(), {1, length});
+    for (int i = 0; i < nTile; i++) {
+        if (IsMaxTile(tileMap, NUM2 * i)) {
+            continue;
+        }
+        auto [res, resIdx] = tileMap[NUM2 * i];
+        Assemble(res, {0, i * tileSize}, y);
+        Assemble(resIdx, {0, i * tileSize}, yIdx);
+    }
+    return std::tie(y, yIdx);
+}
+
 // view op
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<int64_t> &offsets) {
     DECLARE_TRACER();
@@ -3831,6 +4103,23 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
             int kValue = op.GetIntAttribute(TOPK_KVALUE);
             int isLargest = op.GetIntAttribute(TOPK_ORDER);
             TiledTopK(function, tileShape, iOperand[0], oOperand[0], oOperand[1], axis, kValue, isLargest);
+            break;
+        }
+        case Opcode::OP_SORT: {
+            int idxStart = op.GetIntAttribute(SORT_START_INDEX);
+            int descending = op.GetIntAttribute(SORT_ORDER);
+            TiledSort(function, iOperand[0], oOperand[0], oOperand[1], oOperand[2], idxStart, descending);
+            break;
+        }
+        case Opcode::OP_COMPARE_SWAP: {
+            int descending = op.GetIntAttribute(SORT_ORDER);
+            TiledCompareAndSwap(function, iOperand[0], iOperand[1], iOperand[2], iOperand[3], oOperand[0], oOperand[1], oOperand[2], oOperand[3], descending);
+            break;
+        }
+        case Opcode::OP_MERGE: {
+            int descending = op.GetIntAttribute(SORT_ORDER);
+            int fullSort = op.GetIntAttribute(SORT_FULL);
+            TiledMerge(function, iOperand[0], iOperand[1], oOperand[0], oOperand[1], oOperand[2], fullSort, descending);
             break;
         }
         case Opcode::OP_VEC_DUP: {

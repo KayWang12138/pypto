@@ -138,6 +138,23 @@ bool SrcDstBufferMergeImpl::CheckIgnoreScene(const Operation *oriOps) {
 
 std::pair<bool, Status> SrcDstBufferMergeImpl::CheckHasInplaced(const Operation *oriOps, const Operation *ops,
     std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors, int &inIdx) {
+    if (oriOps->HasAttr(OpAttributeKey::inplaceInfo)) {
+        std::map<int, int> inplaceInfo;
+        if (!oriOps->GetAttr(OpAttributeKey::inplaceInfo, inplaceInfo)) {
+            ALOG_ERROR_F("Get inplaceInfo error");
+            return std::make_pair(false, FAILED);
+        }
+        for (auto &[iIdx, oIdx] : inplaceInfo) {
+            auto in = ops->GetIOperands()[iIdx];
+            auto out = ops->GetOOperands()[oIdx];
+            out->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId = in->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId;
+            tensorConsumers_[in->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId].insert(
+                tensorConsumers_[out->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId].begin(),
+                tensorConsumers_[out->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId].end());
+            replacedTensors[out->memorymap[BLOCK_GRAPH_DEFAULT_COLOR].memId] = in;
+        }
+        return std::make_pair(true, SUCCESS);
+    }
     if (oriOps->HasAttr(OpAttributeKey::inplaceIdx)) {
         inIdx = oriOps->GetIntAttribute(OpAttributeKey::inplaceIdx);
         if (oriOps->GetIOperands().size() <= static_cast<size_t>(inIdx) ||

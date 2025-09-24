@@ -52,6 +52,7 @@ const std::string OpAttributeKey::sameInOut = "SAME_IN_OUT";
 const std::string OpAttributeKey::inputCombineAxis = "op_attr_input_combine_axis";
 const std::string OpAttributeKey::outputCombineAxis = "op_attr_output_combine_axis";
 const std::string OpAttributeKey::inplaceIdx = "INPLACE_IDX";
+const std::string OpAttributeKey::inplaceInfo = "INPLACE_INFO";
 const std::string OpAttributeKey::cacheMode = "CACHE_MODE";
 const std::string OpAttributeKey::panzBlockSize = "PA_NZ_BLOCK_SIZE";
 const std::string OpAttributeKey::reduce = "None";
