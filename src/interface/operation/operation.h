@@ -69,7 +69,7 @@ public:
     static const std::string inplaceInfo;
     static const std::string cacheMode;
     static const std::string panzBlockSize;
-    static const std::string reduce;
+    static const std::string reduceMode;
 };
 
 

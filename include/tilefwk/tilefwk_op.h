@@ -117,8 +117,29 @@ Tensor Ln(const Tensor &operand);
 Tensor Duplicate(const Tensor &operand);
 Tensor Gather(const Tensor &params, const Tensor &indices, int axis);
 Tensor GatherElement(const Tensor &params, const Tensor &indices, int axis);
-Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, int axis, std::string reduce = "None");
-Tensor Scatter_(const Tensor &self, const Tensor &indices, const Element &src, int axis, std::string reduce = "None");
+/**
+ * \brief Write the scalar value of src into self Tensor, with the write position specified by the indices Tensor.
+ *
+ * \param self : Tensor to write into.
+ * \param indices : the index Tensor of element to be dispersed.
+ * \param src : scalar value to be dispersed.
+ * \param axis : axis to be indexed.
+ * \param reduce : reduction operation to be applied. Support "add","multiply". "" is default.
+ * \return Tensor
+ */
+Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, int axis, std::string reduce = "");
+/**
+ * \brief Write the scalar value of src into self Tensor, with the write position specified by the indices Tensor. It is
+ * the inplace version of Scatter
+ *
+ * \param self : Tensor to write into.
+ * \param indices : the index Tensor of element to be dispersed.
+ * \param src : scalar value to be dispersed.
+ * \param axis : axis to be indexed.
+ * \param reduce : reduction operation to be applied. Support "add","multiply". "" is default.
+ * \return Tensor
+ */
+Tensor Scatter_(const Tensor &self, const Tensor &indices, const Element &src, int axis, std::string reduce = "");
 Tensor IndexPut(const Tensor &src, std::vector<Tensor> indices, const Tensor &values);
 
 Tensor RowSumExpand(const Tensor &operand);

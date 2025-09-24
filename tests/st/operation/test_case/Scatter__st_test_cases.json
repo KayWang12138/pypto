@@ -182,64 +182,6 @@
                 {
                     "name": "input0",
                     "shape": [
-                        128,
-                        512
-                    ],
-                    "dtype": "bf16",
-                    "data_range": {
-                        "min": -1,
-                        "max": 1
-                    },
-                    "format": "ND"
-                },
-                {
-                    "name": "input1",
-                    "shape": [
-                        128,
-                        512
-                    ],
-                    "dtype": "int64",
-                    "data_range": {
-                        "min": 0,
-                        "max": 128
-                    },
-                    "format": "ND"
-                }
-            ],
-            "output_tensors": [
-                {
-                    "name": "output0",
-                    "shape": [
-                        128,
-                        512
-                    ],
-                    "dtype": "bf16",
-                    "format": "ND"
-                }
-            ],
-            "view_shape": [
-                128,
-                128
-            ],
-            "tile_shape": [
-                128,
-                64
-            ],
-            "params": {
-                "axis": 0,
-                "src": 0.02581481,
-                "reduce": "",
-                "func_id": -1
-            }
-        },
-        {
-            "case_index": 4,
-            "case_name": "ScatterInplace_test_4",
-            "operation": "Scatter_",
-            "input_tensors": [
-                {
-                    "name": "input0",
-                    "shape": [
                         1024,
                         128
                     ],
@@ -291,8 +233,8 @@
             }
         },
         {
-            "case_index": 5,
-            "case_name": "ScatterInplace_test_5",
+            "case_index": 4,
+            "case_name": "ScatterInplace_test_4",
             "operation": "Scatter_",
             "input_tensors": [
                 {
@@ -354,8 +296,8 @@
             }
         },
         {
-            "case_index": 6,
-            "case_name": "ScatterInplace_test_6",
+            "case_index": 5,
+            "case_name": "ScatterInplace_test_5",
             "operation": "Scatter_",
             "input_tensors": [
                 {
@@ -422,8 +364,8 @@
             }
         },
         {
-            "case_index": 7,
-            "case_name": "ScatterInplace_test_7",
+            "case_index": 6,
+            "case_name": "ScatterInplace_test_6",
             "operation": "Scatter_",
             "input_tensors": [
                 {
@@ -480,8 +422,8 @@
             }
         },
         {
-            "case_index": 8,
-            "case_name": "ScatterInplace_test_8",
+            "case_index": 7,
+            "case_name": "ScatterInplace_test_7",
             "operation": "Scatter_",
             "input_tensors": [
                 {
@@ -538,8 +480,8 @@
             }
         },
         {
-            "case_index": 9,
-            "case_name": "ScatterInplace_test_9",
+            "case_index": 8,
+            "case_name": "ScatterInplace_test_8",
             "operation": "Scatter_",
             "input_tensors": [
                 {
@@ -596,8 +538,8 @@
             }
         },
         {
-            "case_index": 10,
-            "case_name": "ScatterInplace_test_10",
+            "case_index": 9,
+            "case_name": "ScatterInplace_test_9",
             "operation": "Scatter_",
             "input_tensors": [
                 {
@@ -654,8 +596,8 @@
             }
         },
         {
-            "case_index": 11,
-            "case_name": "ScatterInplace_test_11",
+            "case_index": 10,
+            "case_name": "ScatterInplace_test_10",
             "operation": "Scatter_",
             "input_tensors": [
                 {
@@ -712,8 +654,8 @@
             }
         },
         {
-            "case_index": 12,
-            "case_name": "ScatterInplace_test_12",
+            "case_index": 11,
+            "case_name": "ScatterInplace_test_11",
             "operation": "Scatter_",
             "input_tensors": [
                 {
@@ -770,8 +712,8 @@
             }
         },
         {
-            "case_index": 13,
-            "case_name": "ScatterInplace_test_13",
+            "case_index": 12,
+            "case_name": "ScatterInplace_test_12",
             "operation": "Scatter_",
             "input_tensors": [
                 {
@@ -828,8 +770,8 @@
             }
         },
         {
-            "case_index": 14,
-            "case_name": "ScatterInplace_test_14",
+            "case_index": 13,
+            "case_name": "ScatterInplace_test_13",
             "operation": "Scatter_",
             "input_tensors": [
                 {
@@ -886,8 +828,8 @@
             }
         },
         {
-            "case_index": 15,
-            "case_name": "ScatterInplace_test_15",
+            "case_index": 14,
+            "case_name": "ScatterInplace_test_14",
             "operation": "Scatter_",
             "input_tensors": [
                 {
@@ -944,8 +886,8 @@
             }
         },
         {
-            "case_index": 16,
-            "case_name": "ScatterInplace_test_16",
+            "case_index": 15,
+            "case_name": "ScatterInplace_test_15",
             "operation": "Scatter_",
             "input_tensors": [
                 {
@@ -1002,7 +944,7 @@
             }
         },
         {
-            "case_index": 17,
+            "case_index": 16,
             "case_name": "ScatterInplace_test_16",
             "operation": "Scatter_",
             "input_tensors": [

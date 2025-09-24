@@ -55,7 +55,7 @@ const std::string OpAttributeKey::inplaceIdx = "INPLACE_IDX";
 const std::string OpAttributeKey::inplaceInfo = "INPLACE_INFO";
 const std::string OpAttributeKey::cacheMode = "CACHE_MODE";
 const std::string OpAttributeKey::panzBlockSize = "PA_NZ_BLOCK_SIZE";
-const std::string OpAttributeKey::reduce = "None";
+const std::string OpAttributeKey::reduceMode = "REDUCE_MODE";
 const std::string OpAttributeKey::inputCombineAxisDone = "input_combine_axis_done"; // only for flow verify tool
 const std::string OpAttributeKey::outputCombineAxisDone = "output_combine_axis_done"; // flow verify tool only
 

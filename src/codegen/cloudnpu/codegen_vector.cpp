@@ -1693,32 +1693,36 @@ std::string CodeGenOpCloudNPU::PrintScatterElementSOpDynamicUnaligned(const Prin
     return oss.str();
 }
 
-int CodeGenOpCloudNPU::GetScatterElementSReduceOperation(const std::string &reduce) const
+unsigned CodeGenOpCloudNPU::GetScatterElementSReduceOperation(const std::string &reduceMode) const
 {
-    constexpr int replaceOp = 0;
-    constexpr int addOp = 1;
-    constexpr int multiplyOp = 2;
-    int reduceOp = replaceOp;
+    enum class ReduceOp : unsigned {
+        ReplaceOperation,
+        AddOperation,
+        MultiplyOperation,
+        UnknownOperation
+    };
+    ReduceOp reduceOp = ReduceOp::UnknownOperation;
 
-    if (reduce == "None") {
-        reduceOp = replaceOp;
-    } else if (reduce == "add") {
-        reduceOp = addOp;
-    } else if (reduce == "multiply") {
-        reduceOp = multiplyOp;
+    if (reduceMode.empty()) {
+        reduceOp = ReduceOp::ReplaceOperation;
+    } else if (reduceMode == "add") {
+        reduceOp = ReduceOp::AddOperation;
+    } else if (reduceMode == "multiply") {
+        reduceOp = ReduceOp::MultiplyOperation;
     } else {
-        ALOG_ERROR_F("GetScatterElementSReduceOperation reduce is not supported, reduce is %s", reduce.c_str());
+        ALOG_ERROR_F("GetScatterElementSReduceOperation reduceMode is not supported, reduceMode is %s", 
+            reduceMode.c_str());
     }
 
-    return reduceOp;
+    return ToUnderlying(reduceOp);
 }
 
 std::string CodeGenOpCloudNPU::GenScatterElementSOp() const {
-    ASSERT(opAttrs.count(OpAttributeKey::reduce)) << "cannot get reduce attr";
+    ASSERT(opAttrs.count(OpAttributeKey::reduceMode)) << "cannot get reduceMode attr";
     ASSERT(opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
     int axis = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
-    std::string reduce = npu::tile_fwk::AnyCast<std::string>(opAttrs.at(OpAttributeKey::reduce));
-    int reduceOp = GetScatterElementSReduceOperation(reduce);
+    std::string reduceMode = npu::tile_fwk::AnyCast<std::string>(opAttrs.at(OpAttributeKey::reduceMode));
+    unsigned reduceOp = GetScatterElementSReduceOperation(reduceMode);
     const DataType dstDtype = operandDtype[ToUnderlying(DISIIdx::DST_IDX)];
     const DataType src0Dtype = operandDtype[ToUnderlying(DISIIdx::SRC0_IDX)];
     const DataType src1Dtype = operandDtype[ToUnderlying(DISIIdx::SRC1_IDX)];

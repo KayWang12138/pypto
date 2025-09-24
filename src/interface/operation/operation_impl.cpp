@@ -1201,7 +1201,7 @@ struct ScatterElementSPara {
     const LogicalTensorPtr &idxInput;
     const Element& scalar;
     const int axis;
-    const std::string &reduce;
+    const std::string &reduceMode;
 };
 
 void InnerTiledScatterElementS(size_t cur, Function &function, const TileShape &tileShape,
@@ -1211,7 +1211,7 @@ void InnerTiledScatterElementS(size_t cur, Function &function, const TileShape &
     const LogicalTensorPtr &idxInput = scatterPara.idxInput;
     const Element& scalar = scatterPara.scalar;
     const int axis = scatterPara.axis;
-    const std::string &reduce = scatterPara.reduce;
+    const std::string &reduceMode = scatterPara.reduceMode;
 
     if (cur == dstTensor->shape.size()) {
         // add Operation
@@ -1221,7 +1221,7 @@ void InnerTiledScatterElementS(size_t cur, Function &function, const TileShape &
         auto &op = function.AddOperation(Opcode::OP_SCATTER_ELEMENT, {srcTile, idxTile}, {dstTile});
         op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
         op.SetAttribute(OpAttributeKey::scalar, scalar);
-        op.SetAttribute(OpAttributeKey::reduce, reduce);
+        op.SetAttribute(OpAttributeKey::reduceMode, reduceMode);
         return;
     }
 
@@ -1277,7 +1277,7 @@ void TensorScatterElementS(Function &function, const ScatterElementSPara& scatte
     auto &op = function.AddOperation(Opcode::OP_SCATTER_ELEMENT, {scatterPara.srcInput, scatterPara.idxInput}, {scatterPara.dstTensor});
     op.SetAttribute(OP_ATTR_PREFIX + "axis", scatterPara.axis);
     op.SetAttribute(OpAttributeKey::scalar, scatterPara.scalar);
-    op.SetAttribute(OpAttributeKey::reduce, scatterPara.reduce);
+    op.SetAttribute(OpAttributeKey::reduceMode, scatterPara.reduceMode);
 }
 
 void UnalignPadTmpBufTile(std::vector<int64_t> &shape, int blockElem) {
@@ -2443,11 +2443,12 @@ Tensor ScatterUpdate(const Tensor &dst, const Tensor &index, const Tensor &src, 
     return result;
 }
 
-static void CheckScatterElementSParamsInvalid(const Tensor &self, const Tensor &indices, int axis, const std::string &reduce)
+static void CheckScatterElementSParamsInvalid(const Tensor &self, const Tensor &indices, int axis, 
+    const std::string &reduceMode)
 {
     ASSERT(self->shape.size() == indices->shape.size());
     ASSERT(axis < static_cast<int>(self->shape.size()));
-    ASSERT((reduce == "None") || (reduce == "add") || (reduce == "multiply"));
+    ASSERT(reduceMode.empty() || (reduceMode == "add") || (reduceMode == "multiply"));
     for (size_t i = 0; i < self->shape.size(); i++) {
         ASSERT(indices->shape[i] <= self->shape[i]);
     }
@@ -3950,8 +3951,8 @@ void npu::tile_fwk::ExpandOperationInto(Function &function, const TileShape &til
         case Opcode::OP_SCATTER_ELEMENT: {
             int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "axis");
             Element scalar = op.GetElementAttribute(OpAttributeKey::scalar);
-            std::string reduce = op.GetStringAttribute(OpAttributeKey::reduce);
-            TiledScatterElementS(function, tileShape, {oOperand[0], iOperand[0], iOperand[1], scalar, axis, reduce});
+            std::string reduceMode = op.GetStringAttribute(OpAttributeKey::reduceMode);
+            TiledScatterElementS(function, tileShape, {oOperand[0], iOperand[0], iOperand[1], scalar, axis, reduceMode});
             break;
         }
         case Opcode::OP_INDEX_PUT: {

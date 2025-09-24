@@ -1559,15 +1559,17 @@ INLINE void ScatterElementSReduceOp(__ubuf__ T *dst, int dstOffset, float src2, 
         dst[dstOffset] = src2;
     } else if (reduceOp == 1) {
         dst[dstOffset] = src2 + static_cast<float>(dst[dstOffset]);
-    } else  if (reduceOp == 2) {
+    } else {
         dst[dstOffset] = src2 * static_cast<float>(dst[dstOffset]);
-    } else {}
+    }
 }
 
+constexpr unsigned REDUCE_OP_MAX = 3;
 // 2dim
 template <typename T, typename T2, unsigned src1RawShape1, unsigned dstRawShape1, unsigned axis, unsigned reduceOp>
 TILEOP void DynTscatterElementS(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, float src2, 
     unsigned src1Shape0, unsigned src1Shape1) {
+    static_assert(reduceOp < REDUCE_OP_MAX, "Unsupport reduceOp");
     set_flag(PIPE_V, PIPE_S, EVENT_ID7);
     wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
     for (int i = 0; i < src1Shape0; ++i) {
@@ -1591,6 +1593,7 @@ template <typename T, typename T2, unsigned src1RawShape1, unsigned src1RawShape
     unsigned dstRawShape2, unsigned axis, unsigned reduceOp>
 TILEOP void DynTscatterElementS(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, float src2, unsigned src1Shape0, 
     unsigned src1Shape1, unsigned src1Shape2) {
+    static_assert(reduceOp < REDUCE_OP_MAX, "Unsupport reduceOp");
     set_flag(PIPE_V, PIPE_S, EVENT_ID7);
     wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
     for (int i = 0; i < src1Shape0; ++i) {
@@ -1618,6 +1621,7 @@ template <typename T, typename T2, unsigned src1RawShape1, unsigned src1RawShape
     unsigned dstRawShape1, unsigned dstRawShape2, unsigned dstRawShape3, unsigned axis, unsigned reduceOp>
 TILEOP void DynTscatterElementS(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, float src2, unsigned src1Shape0,
     unsigned src1Shape1, unsigned src1Shape2, unsigned src1Shape3) {
+    static_assert(reduceOp < REDUCE_OP_MAX, "Unsupport reduceOp");
     set_flag(PIPE_V, PIPE_S, EVENT_ID7);
     wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
     for (int i = 0; i < src1Shape0; ++i) {

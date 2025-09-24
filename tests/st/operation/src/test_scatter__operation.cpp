@@ -225,9 +225,6 @@ TEST_P(Scatter_OperationTest, TestScatter_) {
     auto dtype = testCase.outputTensors.at(0).GetDataType();
     Element value(dtype, GetValueByName<float>(test_data, "src"));
     auto reduce = GetValueByName<std::string>(test_data, "reduce");
-    if (reduce.size() == 0) {
-        reduce = "None";
-    }
     auto args = Scatter_OpFuncArgs(GetViewShape(test_data), GetTileShape(test_data), axis, value, reduce);
     testCase.args = &args;
     testCase.opFunc = GetParam().opFunc_;

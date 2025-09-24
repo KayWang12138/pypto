@@ -65,7 +65,7 @@ public:
 
     struct PrintScatterElemParam {
         int axis;
-        int reduceOp;
+        unsigned reduceOp;
         const std::string &dVar;
         const std::string &s0Var;
         const std::string &s1Var;
@@ -120,7 +120,7 @@ public:
 
 private:
     int GetCacheModeFlag(const std::string &cacheMode) const;
-    int GetScatterElementSReduceOperation(const std::string &reduce) const;
+    unsigned GetScatterElementSReduceOperation(const std::string &reduceMode) const;
     template <typename T>
     bool GetAttr(const std::string &key, T &value) const;
 

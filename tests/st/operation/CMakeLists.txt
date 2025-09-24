@@ -38,6 +38,8 @@ set(_CaseFilterList
         "TestRowSumSingle/RowSumSingleOperationTest.TestRowSumSingle/1"
         "TestScatter_/Scatter_OperationTest.TestScatter_/0"
         "TestScatter_/Scatter_OperationTest.TestScatter_/1"
+        "TestScatter/ScatterOperationTest.TestScatter/0"
+        "TestScatter/ScatterOperationTest.TestScatter/2"
         "TestScatterUpdate/ScatterUpdateOperationTest.TestScatterUpdate/0"
         "TestScatterUpdate/ScatterUpdateOperationTest.TestScatterUpdate/1"
         "TestRsqrt/RsqrtOperationTest.TestRsqrt/0"
