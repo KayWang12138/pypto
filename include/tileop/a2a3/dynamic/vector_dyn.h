@@ -2046,7 +2046,7 @@ TILEOP void DynMrgSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
             vmrgsort4(dstData, addr_array, src1, config);
             pipe_barrier(PIPE_V);
             copy_ubuf_to_ubuf(
-                (__ubuf__ void *)srcData, (__ubuf__ void *)dstData, 0, z * 4 * repeat_mrg * 2 / 8, 1, 0, 0);
+                (__ubuf__ void *)srcData, (__ubuf__ void *)dstData, 0, 1, z * 4 * repeat_mrg * 2 / 8, 0, 0);
             pipe_barrier(PIPE_V);
         }
         // 合并尾块
@@ -2088,13 +2088,13 @@ TILEOP void DynMrgSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
                 pipe_barrier(PIPE_V);
                 vmrgsort4(dstData, addr_array, src1, config);
                 pipe_barrier(PIPE_V);
-                copy_ubuf_to_ubuf((__ubuf__ void *)srcData, (__ubuf__ void *)dstData, 0,
-                    ((tmpMrgSortedLen + tmpMrgArray) * 2 + 7) / 8, 1, 0, 0);
+                copy_ubuf_to_ubuf((__ubuf__ void *)srcData, (__ubuf__ void *)dstData, 0, 1,
+                    ((tmpMrgSortedLen + tmpMrgArray) * 2 + 7) / 8, 0, 0);
                 pipe_barrier(PIPE_V);
             }
         }
         copy_ubuf_to_ubuf((__ubuf__ float *)dst + rowIdx * dstShape1, (__ubuf__ float *)src + rowIdx * srcShape1, 0,
-            kAlign / 4, 1, 0, 0);
+            1, kAlign / 4, 0, 0);
         pipe_barrier(PIPE_V);
     }
 }
@@ -2195,7 +2195,7 @@ TILEOP void DynTiledMrgSort(
             pipe_barrier(PIPE_V);
         }       
         copy_ubuf_to_ubuf((__ubuf__ float *)(dst + rowIdx * dstShape1), (__ubuf__ float *)tmp, 0,
-            kAlign / 4, 1, 0, 0);
+            1, kAlign / 4, 0, 0);
         pipe_barrier(PIPE_V);
     }
 }
