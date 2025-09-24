@@ -24,8 +24,7 @@ import inspect
 
 from pto import pto_impl
 from pto.pto_impl import *
-
-
+from .runtime import device_init, device_fini, device_run_once_data_from_host, device_run_once_data_from_device, jit
 cond = pto_impl.record_if_branch
 
 @contextmanager
