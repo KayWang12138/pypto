@@ -154,20 +154,63 @@ Status Pass::DumpFunctionJson(Function& function, const std::string &logFolder, 
     return SUCCESS;
 }
 
+Status Pass::DumpGraphJson(Function& function, const std::string &fileName) {
+    if (fileName.find("BlockGraph") == std::string::npos) {
+        function.DumpJsonFile(fileName + ".json");
+        return SUCCESS;
+    }
+    if (function.rootFunc_ != nullptr) {
+        for (auto &subProgram : function.rootFunc_->programs_) {
+            std::stringstream ss;
+            ss << fileName << "_" << subProgram.first << ".json";
+            subProgram.second->DumpJsonFile(ss.str());
+        }
+    }
+    return SUCCESS;
+}
+
+Status Pass::CreateGraphFolder(Function &function) {
+    if (passDfxconfigs_.dumpTensorGraph || passDfxconfigs_.dumpTileGraph || passDfxconfigs_.dumpBlockGraph) {
+        graphFolder_ = config::LogTopFolder() + '/' + function.GetMagicName();
+        bool res = CreateDir(graphFolder_);
+        if (res == false) {
+            ALOG_WARN_F("Failed to create directory: [%s].", graphFolder_.c_str());
+            return FAILED;
+        }
+    }
+    return SUCCESS;
+}
+
 Status Pass::PreRun(Function &function) {
+    std::string fileName;
     if (passDfxconfigs_.printFunction) {
         if (PrintFunction(function, passFolder_, true) != SUCCESS) {
             ALOG_WARN_F("Print function before pass failed.");
         }
     }
-    if (passDfxconfigs_.dumpTensorGraph && (name_ == "ExpandFunction" || name_ == "RemoveRedundantReshape")) {
-        if (DumpFunctionJson(function, passFolder_, true) != SUCCESS) {
-            ALOG_WARN_F("Dump TensorGraph json failed.");
+    if (CreateGraphFolder(function) != SUCCESS) {
+        ALOG_WARN_F("Create graph directory failed.");
+    }
+    if (passDfxconfigs_.dumpTensorGraph) {
+        if (name_ == "ExpandFunction") {
+            fileName = graphFolder_ + "/End_TensorGraph";
+            if (DumpGraphJson(function, fileName) != SUCCESS) {
+                ALOG_WARN_F("Dump End TensorGraph json failed.");
+            }
+        }
+        if (name_ == "RemoveRedundantReshape") {
+            fileName = graphFolder_ + "/Begin_TensorGraph";
+            if (DumpGraphJson(function, fileName) != SUCCESS) {
+                ALOG_WARN_F("Dump Begin TensorGraph json failed.");
+            }
         }
     }
-    if (passDfxconfigs_.dumpTileGraph && name_ == "SubgraphToFunction") {
-        if (DumpFunctionJson(function, passFolder_, true) != SUCCESS) {
-            ALOG_WARN_F("Dump TileGraph json failed.");
+    if (passDfxconfigs_.dumpTileGraph) {
+        if (name_ == "SubgraphToFunction") {
+            fileName = graphFolder_ + "/End_TileGraph";
+            if (DumpGraphJson(function, fileName) != SUCCESS) {
+                ALOG_WARN_F("Dump End TileGraph json failed.");
+            }
         }
     }
     if (passDfxconfigs_.dumpFunctionGraphBeforePass) {
@@ -188,19 +231,32 @@ Status Pass::PreRun(Function &function) {
 }
 
 Status Pass::PostRun(Function &function) {
+    std::string fileName;
     if (passDfxconfigs_.printFunction) {
         if (PrintFunction(function, passFolder_, false) != SUCCESS) {
             ALOG_WARN_F("Print function after pass failed.");
         }
     }
     if (passDfxconfigs_.dumpTileGraph && name_ == "ExpandFunction") {
-        if (DumpFunctionJson(function, passFolder_, false) != SUCCESS) {
-            ALOG_WARN_F("Dump TileGraph json failed.");
+        if (name_ == "ExpandFunction") {
+            fileName = graphFolder_ + "/Begin_TileGraph";
+            if (DumpGraphJson(function, fileName) != SUCCESS) {
+                ALOG_WARN_F("Dump Begin TileGraph json failed.");
+            }
         }
     }
-    if (passDfxconfigs_.dumpBlockGraph && (name_ == "SubgraphToFunction" || name_ == "CodegenPreproc")) {
-        if (DumpFunctionJson(function, passFolder_, false) != SUCCESS) {
-            ALOG_WARN_F("Dump BlockGraph json failed.");
+    if (passDfxconfigs_.dumpBlockGraph) {
+        if (name_ == "SubgraphToFunction") {
+            fileName = graphFolder_ + "/Begin_BlockGraph";
+            if (DumpGraphJson(function, fileName) != SUCCESS) {
+                ALOG_WARN_F("Dump Begin BlockGraph json failed.");
+            }
+        }
+        if (name_ == "CodegenPreproc") {
+            fileName = graphFolder_ + "/End_BlockGraph";
+            if (DumpGraphJson(function, fileName) != SUCCESS) {
+                ALOG_WARN_F("Dump End BlockGraph json failed.");
+            }
         }
     }
     if (passDfxconfigs_.dumpFunctionGraphAfterPass) {

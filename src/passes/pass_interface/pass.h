@@ -48,6 +48,8 @@ protected:
     virtual Status CreateLogFolder(const std::string &topFolder, size_t i) const;
     virtual Status PrintFunction(Function& function, const std::string &logFolder, bool beforeFunction);
     virtual Status DumpFunctionJson(Function& function, const std::string &logFolder, bool beforeFunction);
+    virtual Status DumpGraphJson(Function& function, const std::string &fileName);
+    virtual Status CreateGraphFolder(Function &function);
     virtual Status PreRun(Function &function);
     virtual Status PostRun(Function &function);
     // folderPath: dump路径
@@ -64,6 +66,7 @@ private:
     size_t passRuntimeIndex_;
     mutable std::string passFolder_{"."};
     std::string name_;
+    std::string graphFolder_;
 };
 } // namespace npu::tile_fwk
 #endif  // PASSES_PASS_H_
