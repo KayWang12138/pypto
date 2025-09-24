@@ -243,6 +243,8 @@ void ExecuteOpBinaryScalar(ExecuteOperationContext *ctx) {
         case Opcode::OP_ADDS: calc::AddS(ret, lhs, element); break;
         case Opcode::OP_SUBS: calc::SubS(ret, lhs, element, reverse); break;
         case Opcode::OP_MULS: calc::MulS(ret, lhs, element); break;
+        case Opcode::OP_MAXS: calc::MaxS(ret, lhs, element); break;
+        case Opcode::OP_MINS: calc::MinS(ret, lhs, element); break;
         case Opcode::OP_DIVS: calc::DivS(ret, lhs, element, reverse); break;
         case Opcode::OP_S_MAXS: calc::MaxS(ret, lhs, element); break;
         case Opcode::OP_S_MINS: calc::MinS(ret, lhs, element);  break;
