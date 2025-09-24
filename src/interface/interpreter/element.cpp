@@ -18,9 +18,11 @@
 
 namespace npu::tile_fwk {
 
-#define ELEMENT_CAST(ast2Type, type, calcType)   \
+constexpr double D_EPSILON = 1e-9;
+
+#define ELEMENT_CAST(ast2Type, type, calcType)       \
     template <>                                      \
-    type Element::Cast<type>() const {   \
+    type Element::Cast<type>() const {               \
         type result{0};                              \
         if (IsSigned()) {                            \
             result = static_cast<type>(data_.sData); \
@@ -34,9 +36,23 @@ namespace npu::tile_fwk {
         return result;                               \
     }
 
+// custom cast of bool type
+template <>
+bool Element::Cast<bool>() const {
+    if (IsSigned()) {
+        return data_.sData != 0;
+    } else if (IsUnsigned()) {
+        return data_.uData != 0;
+    } else if (IsFloat()) {
+        return std::abs(data_.fData) > D_EPSILON;
+    } else {
+        ASSERT(false);
+    }
+    return false;
+}
+
 DISPATCH_DATA_TYPE(ELEMENT_CAST)
 
-constexpr double D_EPSILON = 1e-9;
 
 #define CALC_ADD(lhs, rhs) ((lhs) + (rhs))
 #define CALC_SUB(lhs, rhs) ((lhs) - (rhs))

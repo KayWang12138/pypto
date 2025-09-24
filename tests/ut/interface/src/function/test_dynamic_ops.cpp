@@ -131,8 +131,8 @@ TEST_F(DynamicOpsTest, AssembleFp16) {
             auto t1b = View(t1, {s, s}, {s, 0});
             auto t2a = Add(t0a, t1a);
             auto t2b = Add(t0b, t1b);
-            ToFile(t2b, "t2b_{i}.bin", i % 2 == 0);
-            PrintIf(i == 1, t2b, "i={i}");
+            ToFile(t2b, "t2b_%d.bin", {i});
+            PrintIf(i == 1,"t2b=", t2b);
             std::vector<std::pair<Tensor, std::vector<int64_t>>> data = {
                 {t2a, {0, 0}},
                 {t2b, {s, 0}},
@@ -553,6 +553,36 @@ TEST_F(DynamicOpsTest, MatmulAcc) {
             auto v1 = View(t1, {64, 64}, {64, 64});
             auto m0 = Matrix::Matmul<false, true>(DT_FP32, v0, v1);
             out = Add(m0, t2);
+        }
+    }
+}
+
+TEST_F(DynamicOpsTest, GetTensorData) {
+    config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
+    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
+    config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true);
+    config::SetPlatformConfig(KEY_VERIFY_PASS, true);
+    config::SetPlatformConfig(KEY_VERIFY_PASS_CHECK_PRECISION, true);
+    config::SetPlatformConfig(KEY_VERIFY_DUMP_PERF_DATA, true);
+
+    Tensor t0(DT_FP32, {32, 32}, "t0");
+    Tensor out(DT_FP32, {64, 64}, "out");
+
+    auto t0Data = RawTensorData::CreateConstantTensor<float>(t0, 1.0f);
+    auto outData = RawTensorData::CreateConstantTensor<float>(out, 0.0f);
+    auto golden = RawTensorData::CreateConstantTensor<float>(out, 2.0f);
+
+    ProgramData::GetInstance().PrepareData({t0Data}, {outData}, {golden});
+
+    FunctionConfig config;
+    FUNCTION("main", config, {t0}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(2)) {
+            auto v = VectorDuplicate(Element(DT_INT32, 32), DT_INT32, {16, 16});
+            auto index = GetTensorData(v, {0, 0});
+            Print("i=", i, " index=", index, " v=", v);
+            auto d = Add(t0, t0);
+            Assemble(d, {index * i, 0}, out);
+            Assemble(d, {index * i, 32}, out);
         }
     }
 }

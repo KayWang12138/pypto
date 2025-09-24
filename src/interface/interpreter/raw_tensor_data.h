@@ -104,6 +104,7 @@ struct RawTensorData : public std::vector<uint8_t> {
             break;
             DISPATCH_DATA_TYPE(CASE_DATA_TYPE_DIS, index)
 #undef CASE_DATA_TYPE_DIS
+            case DT_BOOL: return Element(DT_BOOL, Get<bool>(index));
             default: ASSERT(false); return Element();
         }
     }
@@ -118,6 +119,7 @@ struct RawTensorData : public std::vector<uint8_t> {
     std::string DumpElement(int index) const {
         switch (GetDataType()) {
             case DT_INT8: return std::to_string(Get<int8_t>(index));
+            case DT_BOOL: return std::to_string(Get<bool>(index));
             case DT_INT16: return std::to_string(Get<int16_t>(index));
             case DT_INT32: return std::to_string(Get<int32_t>(index));
             case DT_INT64: return std::to_string(Get<int64_t>(index));
@@ -136,6 +138,7 @@ struct RawTensorData : public std::vector<uint8_t> {
     void DumpElement(int index, ElementDump *dump) const {
         switch (GetDataType()) {
             case DT_INT8: dump->DumpElement(static_cast<int64_t>(Get<int8_t>(index))); break;
+            case DT_BOOL: dump->DumpElement(static_cast<int64_t>(Get<int8_t>(index))); break;
             case DT_INT16: dump->DumpElement(static_cast<int64_t>(Get<int16_t>(index))); break;
             case DT_INT32: dump->DumpElement(static_cast<int64_t>(Get<int32_t>(index))); break;
             case DT_INT64: dump->DumpElement(static_cast<int64_t>(Get<int64_t>(index))); break;

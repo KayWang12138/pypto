@@ -16,7 +16,7 @@
 #pragma once
 
 #include <array>
-#include <variant>
+#include <sstream>
 
 #include "tilefwk/tensor.h"
 #include "tilefwk/element.h"
@@ -28,63 +28,69 @@ constexpr const int TILE_VEC_DIMS = 2;
 constexpr const int TILE_CUBE_DIMS = 6;
 
 namespace internal {
-struct PrintInfo {
-    using ValueType = std::variant<SymbolicScalar, Tensor, std::string>;
-
-    std::vector<ValueType> values;
-    SymbolicScalar cond{1};
-
-    void Append(const std::string &val) { values.push_back(val); }
-    void Append(const char *str) { values.push_back(std::string(str)); }
-    void Append(const Tensor &val) { values.push_back(val); }
-    void Append(const SymbolicScalar &val) { values.push_back(val); }
+struct PrintHelper {
+    SymbolicScalar cond;
+    std::vector<Tensor> tensors;
+    std::vector<SymbolicScalar> scalars;
+    std::stringstream ss;
 
     template <typename T>
-    void Append(const T &val) {
-        values.push_back(std::to_string(val));
+    void Append(T t) {
+        if constexpr (std::is_same_v<T, Tensor>) {
+            tensors.push_back(t);
+            ss << "{T}";
+        } else if constexpr (std::is_same_v<T, SymbolicScalar>) {
+            scalars.push_back(t);
+            ss << "{S}";
+        } else {
+            ss << t;
+        }
     }
 };
 
-void Print(const PrintInfo &info);
+void Print(SymbolicScalar cond, const std::string &format, const std::vector<Tensor> &tensors,
+    const std::vector<SymbolicScalar> &scalars);
 } // namespace internal
 
-/**
- * \brief Print values in flow_verifier
- *
- * \tparam Args Tensor | SymbolicScalar | std::string | std::to_string(T)
- * \param args
- */
 template <typename... Args>
 void Print(Args... args) {
-    internal::PrintInfo info;
-    (info.Append(args), ...);
-    internal::Print(info);
+    internal::PrintHelper helper;
+    (helper.Append(args), ...);
+    internal::Print(1, helper.ss.str(), helper.tensors, helper.scalars);
+}
+
+template <typename... Args>
+void PrintIf(SymbolicScalar cond, Args... args) {
+    internal::PrintHelper helper;
+    (helper.Append(args), ...);
+    internal::Print(cond, helper.ss.str(), helper.tensors, helper.scalars);
 }
 
 /**
- * \brief Print values in flow_verifier
+ * \brief Set tensor print options
  *
- * \tparam Args Tensor | SymbolicScalar | std::string | std::to_string(T)
- * \param args
- * \param cond print only the result `cond` evaluate result  is not zero
+ * \param edgeItems print max items in tensor head and tail
+ * \param precision print precision
  */
-template <typename... Args>
-void PrintIf(SymbolicScalar cond, Args... args) {
-    internal::PrintInfo info;
-    info.cond = cond;
-    (info.Append(args), ...);
-    internal::Print(info);
-}
+void SetPrintOptions(int edgeItems, int precision);
+
+/**
+ * \brief Get tensor print options
+ *
+ * \param edgeItems print max items in tensor head and tail
+ * \param precision print precision
+ */
+void GetPrintOptions(int &edgeItems, int &precision);
 
 /**
  * \brief Dump a tensor to file
  *
- * \param operand tensor to dump
- * \param fname filename, symbols are allowed, eg: "t_{i}.bin"
  * \param cond Dump the tensor only `cond` evaluate result is none zero
- * \attention Only takes in flow verifier
+ * \param operand tensor to dump
+ * \param fname filename, {S} can be used as scalar placeholder
+ * \param scalars scalars to dump
  */
-void ToFile(const Tensor &operand, const std::string &fname, SymbolicScalar cond = 1);
+void ToFile(const Tensor &operand, const std::string &fname, const std::vector<SymbolicScalar> &scalars = {}, SymbolicScalar cond = 1);
 
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<int64_t> &offsets);
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<SymbolicScalar> &newOffsets);

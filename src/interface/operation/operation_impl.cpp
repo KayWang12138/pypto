@@ -2115,25 +2115,28 @@ Tensor VectorDuplicate(const SymbolicScalar &dynSrc, DataType dtype, const std::
     RETURN_CALL(VectorDuplicateOperation, *Program::GetInstance().GetCurrentFunction(), Element(dtype, (int64_t)0), dynSrc, dtype, dstShape, validShape);
 }
 
-void internal::Print(const PrintInfo &info) {
+void internal::Print(SymbolicScalar cond, const std::string &format, const std::vector<Tensor> &tensors,
+    const std::vector<SymbolicScalar> &scalars){
     auto function = Program::GetInstance().GetCurrentFunction();
     std::vector<LogicalTensorPtr> inputs;
-    for (auto &x : info.values) {
-        if (std::holds_alternative<Tensor>(x)) {
-            inputs.push_back(std::get<Tensor>(x).GetStorage(false));
-        }
+    for (auto &t : tensors) {
+        inputs.push_back(t.GetStorage());
     }
     auto &op = function->AddOperation(Opcode::OP_PRINT, inputs, {});
-    op.SetAttr(OP_ATTR_PREFIX + "msg", info);
-    op.SetAttribute(OP_ATTR_PREFIX + "cond", info.cond);
+    op.SetAttr(OP_ATTR_PREFIX + "format", format);
+    op.SetAttr(OP_ATTR_PREFIX + "scalars", scalars);
+    op.SetAttribute(OP_ATTR_PREFIX + "cond", cond);
+    function->UpdateTensorDataUsage(op);
 }
 
-void ToFile(const Tensor &operand, const std::string &fname, SymbolicScalar cond) {
+void ToFile(const Tensor &operand, const std::string &fname, const std::vector<SymbolicScalar> &scalars, SymbolicScalar cond) {
     auto function = Program::GetInstance().GetCurrentFunction();
     auto &op = function->AddOperation(Opcode::OP_PRINT, {operand.GetStorage()}, {});
     ASSERT(!fname.empty()) << "Invalid file name";
     op.SetAttribute(OP_ATTR_PREFIX + "fname", fname);
+    op.SetAttribute(OP_ATTR_PREFIX + "scalars", scalars);
     op.SetAttribute(OP_ATTR_PREFIX + "cond", cond);
+    function->UpdateTensorDataUsage(op);
 }
 
 Tensor GatherElement(const Tensor &params, const Tensor &indices, int axis) {

@@ -877,16 +877,16 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
         case Opcode::OP_UB_COPY_IN:
             {
                 auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(GetOpAttribute());
-                std::vector<OpImmediate> &copyFromOffset = copyAttr->GetFromOffset();
-                for (auto &offset : copyFromOffset) {
-                    if (offset.IsSpecified()) {
-                        dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(offset.GetSpecifiedValue()));
+                if (copyAttr != nullptr) {
+                    for (auto &offset : copyAttr->GetFromOffset()) {
+                        if (offset.IsSpecified()) {
+                            dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(offset.GetSpecifiedValue()));
+                        }
                     }
-                }
-                std::vector<OpImmediate> &copyToDynValidShape = copyAttr->GetToDynValidShape();
-                for (auto &shape : copyToDynValidShape) {
-                    if (shape.IsSpecified()) {
-                        dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
+                    for (auto &shape : copyAttr->GetToDynValidShape()) {
+                        if (shape.IsSpecified()) {
+                            dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
+                        }
                     }
                 }
             } break;
@@ -894,26 +894,37 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
         case Opcode::OP_UB_COPY_OUT:
             {
                 auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(GetOpAttribute());
-                std::vector<OpImmediate> &copyToOffset = copyAttr->GetToOffset();
-                for (auto &offset : copyToOffset) {
-                    if (offset.IsSpecified()) {
-                        dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(offset.GetSpecifiedValue()));
+                if (copyAttr) {
+                    for (auto &offset : copyAttr->GetToOffset()) {
+                        if (offset.IsSpecified()) {
+                            dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(offset.GetSpecifiedValue()));
+                        }
                     }
-                }
-                std::vector<OpImmediate> &copyFromDynValidShape = copyAttr->GetFromDynValidShape();
-                for (auto &shape : copyFromDynValidShape) {
-                    if (shape.IsSpecified()) {
-                        dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
+                    for (auto &shape : copyAttr->GetFromDynValidShape()) {
+                        if (shape.IsSpecified()) {
+                            dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
+                        }
                     }
                 }
             } break;
         case Opcode::OP_VEC_DUP:
             {
-                auto &attrDict = GetAllAttr();
-                auto it = attrDict.find(OpAttributeKey::dynScalar);
-                if (it != attrDict.end()) {
-                    auto &value = *npu::tile_fwk::AnyCast<SymbolicScalar>(&it->second);
-                    dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(value));
+                auto scalar = GetAttr<SymbolicScalar>(OpAttributeKey::dynScalar);
+                if (scalar) {
+                    dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(*scalar));
+                }
+            } break;
+        case Opcode::OP_PRINT:
+            {
+                auto cond = GetAttr<SymbolicScalar>(OP_ATTR_PREFIX + "cond");
+                if (cond) {
+                    dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(*cond));
+                }
+                auto scalars = GetAttr<std::vector<SymbolicScalar>>(OP_ATTR_PREFIX + "scalars");
+                if (scalars) {
+                    for (auto &scalar : *scalars) {
+                        dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(scalar));
+                    }
                 }
             } break;
         default:

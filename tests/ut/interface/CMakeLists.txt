@@ -35,6 +35,7 @@ set(_CaseFilterList
         "DynamicOpsTest.AssembleFp16"
         "DynamicOpsTest.OpsElementWise"
         "DynamicOpsTest.OpsElementWiseFp16"
+        "DynamicOpsTest.GetTensorData"
         "DynamicFunctionTest.TestGetInputDataInt32Dim3"
         "DynamicFunctionTest.TestGetInputDataInt32Dim4"
         "DynamicFunctionTest.TestSymbolic"

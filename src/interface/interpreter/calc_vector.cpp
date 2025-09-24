@@ -237,7 +237,7 @@ void ExecuteOpBinaryScalar(ExecuteOperationContext *ctx) {
     auto element = Element(DT_FP32, 0.0f);
     ctx->op->GetAttr(OpAttributeKey::scalar, element);
     bool reverse = ctx->op->GetBoolAttribute(OP_ATTR_PREFIX + "reverseOperand");
-    ASSERT(ret->GetDataType() == DT_FP32);
+    ASSERT(ret->GetDataType() == DT_FP32 || ret->GetDataType() == DT_INT32);
 
     switch (opcode) {
         case Opcode::OP_ADDS: calc::AddS(ret, lhs, element); break;

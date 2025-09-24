@@ -869,26 +869,44 @@ std::unordered_set<int> Function::LoopCheck() {
 }
 
 void Function::SortOperations() {
-    std::unordered_map<const Operation *, int> opMagicToIndex;
+    std::unordered_map<const Operation *, int> opToIndex;
+    std::unordered_map<const Operation *, std::set<std::pair<int, int>>> usageDict;
+
     for (size_t i = 0; i < operations_.size(); i++) {
-        ASSERT(opMagicToIndex.count(operations_[i].get()) == 0);
-        opMagicToIndex.emplace(operations_[i].get(), i);
+        auto op = operations_[i].get();
+        ASSERT(opToIndex.count(op) == 0);
+        opToIndex.emplace(op, i);
+        if (!op->IsCall()) {
+            auto attrList = op->GetDynamicAttributeList();
+            usageDict[op] = GetTensorDataUsage(attrList);
+        }
     }
     std::vector<int> outDegree(operations_.size(), 0);
     std::vector<int> groupOutDegree(operationGroups_.size(), 0);
 
-    for (auto &operation : operations_) {
-        for (auto &iOperand : operation->iOperand) {
-            for (const auto &producer : iOperand->GetProducers()) {
-                if (producer->BelongTo() != this || producer == operation.get()) {
-                    continue;
-                }
-                ASSERT(opMagicToIndex.count(producer) != 0);
-                if (producer->GroupID() == NON_GROUP) {
-                    outDegree[opMagicToIndex[producer]]++;
-                } else if (operation->GroupID() != producer->GroupID()) {
-                    groupOutDegree[producer->GroupID()]++;
-                }
+    auto addProd = [&] (auto operation, auto ioperand) {
+        for (const auto &prod : ioperand->GetProducers()) {
+            if (prod->BelongTo() != this || prod == operation) {
+                continue;
+            }
+            ASSERT(opToIndex.count(prod) != 0);
+            if (prod->GroupID() == NON_GROUP) {
+                outDegree[opToIndex[prod]]++;
+            } else if (operation->GroupID() != prod->GroupID()) {
+                groupOutDegree[prod->GroupID()]++;
+            }
+        }
+    };
+
+    for (auto &op : operations_) {
+        for (auto &iop : op->iOperand) {
+           addProd(op.get(), iop);
+        }
+        for (auto [type, index] : usageDict[op.get()]) {
+            if (type == GET_TENSOR_DATA_OPERAND_IOTYPE_INCAST) {
+                addProd(op.get(), inCasts_[index]);
+            } else if (type == GET_TENSOR_DATA_OPERAND_IOTYPE_OUTCAST) {
+                addProd(op.get(), outCasts_[index]);
             }
         }
     }
@@ -899,48 +917,60 @@ void Function::SortOperations() {
             q.emplace(i);
         }
     }
+
     for (size_t i = 0; i < operationGroups_.size(); i++) {
         if (groupOutDegree[i] == 0) {
             auto &group = operationGroups_[i];
             for (auto riter = group.rbegin(); riter != group.rend(); ++riter) {
-                ASSERT(opMagicToIndex.count(*riter) != 0);
-                q.emplace(opMagicToIndex[*riter]);
+                ASSERT(opToIndex.count(*riter) != 0);
+                q.emplace(opToIndex[*riter]);
             }
         }
     }
+
+    auto visit = [&] (auto operation, auto ioperand) {
+        for (const auto &producer : ioperand->GetProducers()) {
+            if (producer->BelongTo() != this || producer == operation) {
+                continue;
+            }
+            if (producer->GroupID() == NON_GROUP) {
+                auto nxtOpIndex = opToIndex[producer];
+                if (--outDegree[nxtOpIndex] == 0) {
+                    q.emplace(nxtOpIndex);
+                }
+            } else if (operation->GroupID() != producer->GroupID()) {
+                if (--groupOutDegree[producer->GroupID()] == 0) {
+                    auto &group = operationGroups_[producer->GroupID()];
+                    for (auto riter = group.rbegin(); riter != group.rend(); ++riter) {
+                        ASSERT(opToIndex.count(*riter) != 0);
+                        q.emplace(opToIndex[*riter]);
+                    }
+                }
+            }
+        }
+    };
 
     std::vector<std::shared_ptr<Operation>> sortedOperations;
     while (!q.empty()) {
         const auto &op = operations_[q.front()];
         q.pop();
         sortedOperations.emplace_back(op);
-        for (auto &iOperand : op->iOperand) {
-            for (const auto &producer : iOperand->GetProducers()) {
-                if (producer->BelongTo() != this || producer == op.get()) {
-                    continue;
-                }
-                if (producer->GroupID() == NON_GROUP) {
-                    auto nxtOpIndex = opMagicToIndex[producer];
-                    if (--outDegree[nxtOpIndex] == 0) {
-                        q.emplace(nxtOpIndex);
-                    }
-                } else if (op->GroupID() != producer->GroupID()) {
-                    if (--groupOutDegree[producer->GroupID()] == 0) {
-                        auto &group = operationGroups_[producer->GroupID()];
-                        for (auto riter = group.rbegin(); riter != group.rend(); ++riter) {
-                            ASSERT(opMagicToIndex.count(*riter) != 0);
-                            q.emplace(opMagicToIndex[*riter]);
-                        }
-                    }
-                }
+        for (auto &iop : op->iOperand) {
+            visit(op.get(), iop);
+        }
+        for (auto [type, index] : usageDict[op.get()]) {
+            if (type == GET_TENSOR_DATA_OPERAND_IOTYPE_INCAST) {
+                visit(op.get(), inCasts_[index]);
+            } else if (type == GET_TENSOR_DATA_OPERAND_IOTYPE_OUTCAST) {
+                visit(op.get(), outCasts_[index]);
             }
         }
     }
-    for (const auto &operation : operations_) {
-        if (operation->GroupID() == NON_GROUP) {
-            ASSERT(outDegree[opMagicToIndex[operation.get()]] == 0);
+    for (auto &op : operations_) {
+        if (op->GroupID() == NON_GROUP) {
+            ASSERT(outDegree[opToIndex[op.get()]] == 0);
         } else {
-            ASSERT(groupOutDegree[operation->GroupID()] == 0);
+            ASSERT(groupOutDegree[op->GroupID()] == 0);
         }
     }
     ASSERT(operations_.size() == sortedOperations.size());

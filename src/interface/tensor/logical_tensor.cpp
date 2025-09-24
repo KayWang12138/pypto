@@ -741,6 +741,26 @@ std::string GetTensorDataIODescDict::Dump() const {
     return oss.str();
 }
 
+std::set<std::pair<int, int>> GetTensorDataUsage(const std::vector<std::reference_wrapper<SymbolicScalar>> &scalars) {
+    std::set<std::pair<int, int>> usage;
+    for (auto &scalar : scalars) {
+        auto mopcall = LookupExpressionByOpcode(scalar.get().Raw(), SymbolicOpcode::T_MOP_CALL);
+        for (auto mop : mopcall) {
+            auto callee = mop->GetExpressionOperandList()[0];
+            if (!callee->IsSymbol()) {
+                continue;
+            }
+            auto name = callee->GetSymbolName();
+            if (StringUtils::StartsWith(name, AddRuntimePrefix("GetTensorData"))) {
+                auto ioType = mop->GetExpressionOperandList()[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE]->GetImmediateValue();
+                auto ioIndex = mop->GetExpressionOperandList()[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX]->GetImmediateValue();
+                usage.insert({ioType, ioIndex});
+            }
+        }
+    }
+    return usage;
+}
+
 SymbolicScalar GetTensorDataFillIO(const GetTensorDataIODescDict &iodescDict, const SymbolicScalar &dimOffset) {
     RawSymbolicScalarPtr curr = dimOffset.Raw();
     bool filledFound = true;

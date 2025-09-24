@@ -252,6 +252,7 @@ constexpr int GET_TENSOR_DATA_OPERAND_INDEX_ADDRESS = 4;
 constexpr int GET_TENSOR_DATA_OPERAND_IOTYPE_INCAST = 0;
 constexpr int GET_TENSOR_DATA_OPERAND_IOTYPE_OUTCAST = 1;
 SymbolicScalar GetTensorDataFillIO(const GetTensorDataIODescDict &iodescDict, const SymbolicScalar &dimOffset);
+std::set<std::pair<int, int>> GetTensorDataUsage(const std::vector<std::reference_wrapper<SymbolicScalar>> &scalars);
 
 constexpr int RUNTIME_GET_PARAM_OFFSET_OPERAND_INDEX_DIM_SIZE_INDEX = 1;
 constexpr int RUNTIME_GET_PARAM_OFFSET_OPERAND_INDEX_COA_INDEX = 2;

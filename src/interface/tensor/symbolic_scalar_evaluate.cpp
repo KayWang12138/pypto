@@ -159,6 +159,11 @@ ScalarImmediateType EvaluateSymbolicCallRuntimeGetTensorDataInt32Dim3(
     return ret;
 }
 
+ScalarImmediateType EvaluateSymbolicCallGetParaAddr(EvaluateSymbol *, const std::vector<ScalarImmediateType> &) {
+    // not used by getTensorData
+    return 0;
+}
+
 ScalarImmediateType EvaluateSymbolicCallRuntimeIsLoopBegin(
         EvaluateSymbol *evaluateSymbol,
         const std::vector<ScalarImmediateType> &dataList) {
@@ -208,6 +213,7 @@ ScalarImmediateType EvaluateSymbol::EvaluateSymbolicCall(
         {"RUNTIME_GetTensorDataInt32Dim1",      EvaluateSymbolicCallRuntimeGetTensorDataInt32Dim1},
         {"RUNTIME_GetTensorDataInt32Dim2",      EvaluateSymbolicCallRuntimeGetTensorDataInt32Dim2},
         {"RUNTIME_GetTensorDataInt32Dim3",      EvaluateSymbolicCallRuntimeGetTensorDataInt32Dim3},
+        {"RUNTIME_COA_GET_PARAM_ADDR",          EvaluateSymbolicCallGetParaAddr},
     };
     ASSERT(callEntryDict.count(name)) << "Symbolic call not found: " << name;
     auto callEntry = callEntryDict[name];

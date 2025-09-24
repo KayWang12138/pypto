@@ -123,6 +123,21 @@ bool GetOptionInner(const std::string &key, std::vector<int64_t> &value) {
     return true;
 }
 
+static struct PrintFormat {
+    int edgeItems = 3; // 3 edge items
+    int precision = 4; // 4 float precision
+} g_printFormat;
+
+void SetPrintOptions(int edgeItems, int precision) {
+    g_printFormat.edgeItems = edgeItems;
+    g_printFormat.precision = precision;
+}
+
+void GetPrintOptions(int &edgeItems, int &precision) {
+    edgeItems = g_printFormat.edgeItems;
+    precision = g_printFormat.precision;
+}
+
 FunctionType GetFunctionType() { return g_funcType; }
 
 } // end npu::tile_fwk

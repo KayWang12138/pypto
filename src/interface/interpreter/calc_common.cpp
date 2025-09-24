@@ -135,20 +135,35 @@ void ExecuteOpCopy(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_REGISTER_COPY, Opcode::OP_REGISTER_COPY, ExecuteOpCopy);
 
-std::string FormatString(const std::string &s, OperationInterpreter *opInter) {
+std::string FormatString(const std::string &s, OperationInterpreter *opInter,
+    const std::vector<LogicalTensorDataPtr> *iopDataView, const std::vector<SymbolicScalar> *scalars) {
     std::stringstream ss;
     size_t pos = 0;
+    size_t tpos = 0, spos = 0;
+    int edgeItems = 0, precision = 0;
+    GetPrintOptions(edgeItems, precision);
     while (pos < s.size()) {
         if (s[pos] == '{') {
             size_t end = s.find('}', pos + 1);
             if (end == std::string::npos) {
                 ss << s.substr(pos);
                 break;
-            } else {
-                auto symbol = s.substr(pos + 1, end - pos - 1);
-                ss << opInter->EvaluateSymbolicScalar(symbol);
-                pos = end + 1;
             }
+            auto symbol = s.substr(pos + 1, end - pos - 1);
+            if (symbol == "T") {
+                if (iopDataView && tpos < iopDataView->size())
+                    ss << (*iopDataView)[tpos++]->ToString();
+                else
+                    ss << "???";
+            } else if ( symbol == "S") {
+                if (scalars && spos < scalars->size())
+                    ss << opInter->EvaluateSymbolicScalar((*scalars)[spos++]);
+                else
+                    ss << "???";
+            } else {
+                ss << '{' << symbol << '}';
+            }
+            pos = end + 1;
         } else {
             ss << s[pos];
             pos++;
@@ -163,9 +178,11 @@ void ExecutePrint(ExecuteOperationContext *ctx) {
         return;
     }
 
+    std::vector<SymbolicScalar> *scalars = nullptr;
+    scalars = ctx->op->GetAttr<std::vector<SymbolicScalar> >(OP_ATTR_PREFIX + "scalars");
     if (ctx->op->HasAttribute(OP_ATTR_PREFIX + "fname")) {
         auto fname = ctx->op->GetStringAttribute(OP_ATTR_PREFIX + "fname");
-        auto fpath = config::LogTopFolder() + "/tensor/" + FormatString(fname, ctx->opInter);
+        auto fpath = config::LogTopFolder() + "/tensor/" + FormatString(fname, ctx->opInter, nullptr, scalars);
         auto &iop = ctx->ioperandDataViewList->at(0);
         auto shape = iop->GetValidShape();
         if (shape.empty()) {
@@ -176,23 +193,9 @@ void ExecutePrint(ExecuteOperationContext *ctx) {
         oop->GetData()->ToFile(fpath);
     }
 
-    internal::PrintInfo info;
-    if (ctx->op->GetAttr(OP_ATTR_PREFIX + "msg", info)) {
-        int opIdx = 0;
-        for (auto &x : info.values) {
-            if (std::holds_alternative<Tensor>(x)) {
-                auto &iop = ctx->ioperandDataViewList->at(opIdx++);
-                std::cout << iop->ToString() << std::endl;
-            } else if (std::holds_alternative<std::string>(x)) {
-                std::cout << (std::get<std::string>(x));
-            } else if (std::holds_alternative<SymbolicScalar>(x)) {
-                auto &scalar = std::get<SymbolicScalar>(x);
-                std::cout << ctx->opInter->EvaluateSymbolicScalar(scalar);
-            } else {
-                ASSERT(false);
-            }
-        }
-        std::cout << std::endl;
+    std::string format;
+    if (ctx->op->GetAttr(OP_ATTR_PREFIX + "format", format)) {
+        std::cout << FormatString(format, ctx->opInter, ctx->ioperandDataViewList, scalars) << std::endl;
     }
 }
 REGISTER_CALC_OP(OP_PRINT, Opcode::OP_PRINT, ExecutePrint);

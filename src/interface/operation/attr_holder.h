@@ -79,6 +79,15 @@ public:
         return true;
     }
 
+    template <typename T>
+    T *GetAttr(const std::string &key) {
+        auto it = attributes.find(key);
+        if (it != attributes.end() && it->second.Type() == typeid(T)) {
+            return AnyCast<T>(&it->second);
+        }
+        return nullptr;
+    }
+
     // 移除属性
     void RemoveAttr(const std::string &key) {
         auto it = attributes.find(key);
