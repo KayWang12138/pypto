@@ -369,6 +369,30 @@ void ConvertInserter::CheckUnknown(Function &function) const {
     });
 }
 
+void ConvertInserter::CreateMoveOpForConvert(Operation &op) {
+    auto convertOpAttribute = dynamic_cast<ConvertOpAttribute *>(op.GetOpAttribute().get());
+    auto [from, to] = convertOpAttribute->GetConvertPath();
+
+    if (from == MemoryType::MEM_DEVICE_DDR) {
+        op.SetOpCode(Opcode::OP_VIEW); // 将convert根据View, 后续GenerateMoveOp Pass会转化为copyin
+        op.SetOpAttribute(std::make_shared<ViewOpAttribute>(op.iOperand.front()->GetOffset(), to,
+            op.iOperand.front()->GetDynOffset(),
+            op.iOperand.front()->GetDynValidShape()));
+        auto childOp = *op.oOperand.front()->GetConsumers().begin();
+        op.UpdateSubgraphID(childOp->GetSubgraphID());
+        return;
+    }
+
+    if (to == MemoryType::MEM_DEVICE_DDR) {
+        op.SetOpCode(Opcode::OP_ASSEMBLE); //将convert根据Assemble, 后续GenerateMoveOp Pass会转化为copyout
+        op.SetOpAttribute(std::make_shared<AssembleOpAttribute>(from, op.oOperand.front()->GetOffset(),
+            op.oOperand.front()->GetDynOffset(),
+            op.iOperand.front()->GetDynValidShape()));
+        auto parentOp = *op.oOperand.front()->GetProducers().begin();
+        op.UpdateSubgraphID(parentOp->GetSubgraphID());
+    }
+}
+
 // 根据已记录的converts插入OP_CONVERT
 void ConvertInserter::InsertConvertOps(Function &function) {
     ALOG_INFO_F("============== Need to insert %d convert operations ==============", converts.size());
@@ -376,6 +400,7 @@ void ConvertInserter::InsertConvertOps(Function &function) {
         GraphUtils::CopyDynStatus(c.output, c.input);
         auto &convertOp = function.AddRawOperation(Opcode::OP_CONVERT, {c.input}, {c.output});
         convertOp.SetOpAttribute(std::make_shared<ConvertOpAttribute>(c.from, c.to));
+        CreateMoveOpForConvert(convertOp);
     }
 }
 

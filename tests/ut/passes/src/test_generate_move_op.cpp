@@ -20,6 +20,7 @@
 #include "passes/pass_manager.h"
 #include "ut_json/ut_json_tool.h"
 #include "passes/tile_graph_pass/generate_move_op.h"
+#include "passes/tile_graph_pass/convert_op_inserter.h"
 #include "interface/configs/config_manager.h"
 #include <fstream>
 #include <vector>
@@ -558,6 +559,9 @@ TEST_F(GenerateMoveOpPassTest, L1TOL0){
     ssBefore << "Before_GenerateMoveOp";
 
     // Call the pass
+    ConvertInserter inserter;
+    inserter.CreateMoveOpForConvert(convert_op1);
+    inserter.CreateMoveOpForConvert(convert_op2);
     GenerateMoveOp generateMoveOp;
     generateMoveOp.PreCheck(*currFunctionPtr);
     generateMoveOp.RunOnFunction(*currFunctionPtr);

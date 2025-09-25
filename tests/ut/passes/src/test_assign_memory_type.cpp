@@ -197,7 +197,7 @@ TEST_F(AssignMemoryTypeTest, AddReshape) {
             std::cout << ", tobe: " << BriefMemoryTypeToString(memTobe) << std::endl;
             EXPECT_EQ(memOri, memTobe) << " output Memory Ori should be the same as Memory Tobe";
         }
-        if (op.GetOpcode() == Opcode::OP_CONVERT) {
+        if (op.GetOpcode() == Opcode::OP_CONVERT || (op.GetOpcode() == Opcode::OP_ASSEMBLE && op.opmagic != opMagic2)) {
             convertNum++;
             CheckConvertOp(op);
         }
@@ -259,6 +259,13 @@ TEST_F(AssignMemoryTypeTest, TestVecToCubeV2) {
 
         originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_TestVecToCubeV2"); // Tensor_{Function名字}
         ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
+        std::vector<int64_t> beforeMagic;
+        for (const auto &op : originFunction->Operations()) {
+            if (op.GetOpcode() == Opcode::OP_CONVERT || op.GetOpcode() == Opcode::OP_VIEW ||
+                op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+                beforeMagic.push_back(op.opmagic);
+            }
+        }
         // Call the pass
         AssignMemoryType assignMemoryType;
         assignMemoryType.PreCheck(*originFunction);
@@ -268,7 +275,11 @@ TEST_F(AssignMemoryTypeTest, TestVecToCubeV2) {
         auto updatedOperations = originFunction->Operations();
         int convertNum = 0;
         for (const auto &op : updatedOperations) {
-            if (op.GetOpcode() == Opcode::OP_CONVERT) {
+            if (op.GetOpcode() == Opcode::OP_CONVERT || op.GetOpcode() == Opcode::OP_VIEW ||
+                op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+                if (std::find(beforeMagic.begin(), beforeMagic.end(), op.opmagic) != beforeMagic.end()) {
+                    continue;
+                }
                 convertNum++;
                 std::cout << op.GetOpcodeStr() << " " << op.GetOpMagic() << std::endl;
                 CheckConvertOp(op, true);
@@ -330,6 +341,13 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCubeV2) {
 
         originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_TestCubeToCubeV2"); // Tensor_{Function名字}
         ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
+        std::vector<int64_t> beforeMagic;
+        for (const auto &op : originFunction->Operations()) {
+            if (op.GetOpcode() == Opcode::OP_CONVERT || op.GetOpcode() == Opcode::OP_VIEW ||
+                op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+                beforeMagic.push_back(op.opmagic);
+            }
+        }
         // Call the pass
         AssignMemoryType assignMemoryType;
         assignMemoryType.PreCheck(*originFunction);
@@ -339,7 +357,11 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCubeV2) {
         auto opList = originFunction->Operations();
         int convertNum = 0;
         for (const auto &op : opList) {
-            if (op.GetOpcode() != Opcode::OP_CONVERT) {
+            if (std::find(beforeMagic.begin(), beforeMagic.end(), op.opmagic) != beforeMagic.end()) {
+                continue;
+            }
+            if (op.GetOpcode() != Opcode::OP_CONVERT && op.GetOpcode() != Opcode::OP_VIEW &&
+                op.GetOpcode() != Opcode::OP_ASSEMBLE) {
                 continue;
             }
             std::cout << op.GetOpcodeStr() << " " << op.GetOpMagic() << std::endl;

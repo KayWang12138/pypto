@@ -129,7 +129,6 @@ void PassManager::RegDefaultStrategy() {
             {  "InferDiscontinuousInput",  "InferDiscontinuousInput",    PassType::TYPE_TILE_GRAPH},
             {         "AssignMemoryType",         "AssignMemoryType",    PassType::TYPE_TILE_GRAPH},
             {        "RemoveRedundantOp",        "RemoveRedundantOp",    PassType::TYPE_TILE_GRAPH},
-            {        "GenerateMoveOp_01",           "GenerateMoveOp",    PassType::TYPE_TILE_GRAPH},
             {              "CubeProcess",              "CubeProcess",    PassType::TYPE_TILE_GRAPH},
             {           "GraphPartition",           "GraphPartition",    PassType::TYPE_TILE_GRAPH},
             {             "NBufferMerge",             "NBufferMerge",    PassType::TYPE_TILE_GRAPH},
