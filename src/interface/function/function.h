@@ -644,7 +644,13 @@ public:
     }
 
     bool IsDummyFunction() const {
-        return std::all_of(operations_.begin(), operations_.end(), [](auto &op) {  return op->GetOpcode() == Opcode::OP_RESHAPE; });
+        return std::all_of(operations_.begin(), operations_.end(), [](auto &op) {
+            Opcode opcode = op->GetOpcode();
+            // 扩展支持的算子类型：RESHAPE、VIEW、ASSEMBLE
+            return opcode == Opcode::OP_RESHAPE || 
+                opcode == Opcode::OP_VIEW || 
+                opcode == Opcode::OP_ASSEMBLE;
+        });
     }
 
     const std::map<std::string, DynParamInfo> &GetDynParamTable() const {
