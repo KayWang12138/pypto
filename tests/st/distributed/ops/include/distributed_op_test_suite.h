@@ -32,7 +32,6 @@ void TestReduceScatter(OpTestParam &testParam);
 void TestMoeDispatch(OpTestParam &testParam);
 void TestMoeCombine(OpTestParam &testParam);
 void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam);
-void TestDynMoeDispatch(OpTestParam &testParam);
 void TestDynAllGather(OpTestParam &testParam);
 void TestShmemReduceScatter(OpTestParam &testParam);
 

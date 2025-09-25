@@ -9,43 +9,45 @@
  */
 
 /*!
- * \file shmem_wait_until.h
+ * \file shmem_barrier_all.h
  * \brief
  */
 
-#ifndef SHMEM_WAIT_UNTIL_H
-#define SHMEM_WAIT_UNTIL_H
+#pragma once
 
+#include <cstdint>
 #include <vector>
 
 #include "common.h"
 #include "machine/utils/dynamic/dev_workspace.h"
 
 namespace npu::tile_fwk::Distributed {
-class SignalTileOp {
-public:
-    void Init(uint64_t taskId, int32_t* addr, uint32_t endOffset, uint32_t stride, int32_t expectedSum);
-    bool PollCompleted(std::vector<uint64_t> &completed);
 
-private:
-    uint64_t taskId_;
-    int32_t* addr_;
-    uint32_t endOffset_;
-    uint32_t stride_;
-    int32_t expectedSum_;
+constexpr uint16_t TOTAL_WIN_EXP_SIZE = 1024;
+
+struct BarrierInfo {
+    uint64_t taskId;
+    uint64_t* winExp;
+    uint32_t winExpIndex;
+    uint64_t expected;
 };
 
-class ShmemWaitUntil {
+class ShmemBarrierAll {
 public:
-    void Init(npu::tile_fwk::dynamic::DynDeviceTask *dynDeviceTask);
+    void Init(npu::tile_fwk::dynamic::DynDeviceTask* deviceTask);
     void EnqueueOp(uint64_t taskId, TensorInfo& info);
-    void PollCompleted(std::vector<uint64_t> &completed);
+    void PollCompleted(std::vector<uint64_t>& completed);
 
 private:
-    std::vector<SignalTileOp> signalTileOp_{VECTOR_PRE_SIZE};
+    std::vector<BarrierInfo> barrierInfo_{VECTOR_PRE_SIZE};
     std::vector<bool> done_ = std::vector<bool>(VECTOR_PRE_SIZE, false);
-    uint32_t signalTileOpCount_{0};
+    uint64_t* hcclContext_{nullptr};
+    uint64_t tileOpCount_{0};
+    uint16_t winExpIndex_{0};
+    uint64_t round_{1};
+    uint32_t rankSize_{0};
+
+    bool Ready(BarrierInfo& info);
 };
 
 } // namespace npu::tile_fwk::Distributed
-#endif // SHMEM_WAIT_UNTIL_H

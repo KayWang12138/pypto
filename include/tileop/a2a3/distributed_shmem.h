@@ -111,6 +111,37 @@ TILEOP void CopyGmToGm(__gm__ T* target, __ubuf__ T* buffer, __gm__ T* source)
     }
 }
 
+TILEOP void ShmemClearSignal(__gm__ int32_t* shmemSignalRawBaseAddr, __ubuf__ int32_t* buffer, __gm__ int32_t* shmemSignalBaseAddr,
+    uint32_t shmemSignalOffset0, uint32_t shmemSignalOffset1, uint32_t shmemSignalOffset2, uint32_t shmemSignalOffset3,
+    uint32_t shmemSignalRawShape0, uint32_t shmemSignalRawShape1, uint32_t shmemSignalRawShape2, uint32_t shmemSignalRawShape3, __gm__ int64_t *hcclContext)
+{
+    (void)shmemSignalRawBaseAddr;
+    (void)hcclContext;
+
+    constexpr uint8_t repeat = 1;
+    constexpr int32_t src = 0;
+    constexpr uint16_t dstBlockStride = 1;
+    constexpr uint16_t srcBlockStride = 0; // src 是个 scalar，srcBlockStride 不起作用，设置为 0 即可
+    constexpr uint8_t dstRepeatStride = 0; // repeat = 1 的场景下，dstRepeatStride 不起作用，设置为 0 即可
+    constexpr uint8_t srcRepeatStride = 0; // src 是个 scalar，srcRepeatStride 不起作用，设置为 0 即可
+    vector_dup(buffer, src, repeat, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
+
+    set_flag(PIPE_V, PIPE_S, EVENT_ID0);
+    wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
+
+    __gm__ int32_t* shmemSignalAddr = shmemSignalBaseAddr + shmemSignalOffset1 * shmemSignalRawShape2 * shmemSignalRawShape3 + shmemSignalOffset2 * shmemSignalRawShape3 + shmemSignalOffset3;
+    constexpr uint16_t sid = 0;
+    constexpr uint16_t nBurst = 1;
+    const uint16_t lenBurst = shmemSignalOffset1 * shmemSignalOffset2 * shmemSignalOffset3 * sizeof(int32_t) / COPY_BLOCK_BYTE_SIZE;
+    constexpr uint16_t srcStride = 0;
+    constexpr uint16_t dstStride = 0;
+
+    set_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
+    wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
+
+    copy_ubuf_to_gm(shmemSignalAddr, buffer, sid, nBurst, lenBurst, dstStride, srcStride);
+}
+
 template<typename T, uint32_t tileRowShape, uint32_t tileColShape, uint32_t bufferRowShape, uint32_t bufferColShape,
     uint32_t srcStride, uint32_t dstStride>
 TILEOP void ShmemPut(__gm__ int32_t* dummy, __ubuf__ T* buffer, __gm__ T* nonShmemDataBaseAddr, __gm__ T* shmemDataBaseAddr,

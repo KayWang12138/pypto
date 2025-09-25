@@ -26,8 +26,8 @@
 #include "machine/utils/dynamic/dev_workspace.h"
 #include "machine/device/distributed/common.h"
 #include "machine/device/distributed/shmem_wait_until.h"
+#include "machine/device/distributed/shmem_barrier_all.h"
 #include "machine/utils/machine_ws_intf.h"
-#include "tilefwk/core_func_data.h"
 #include "interface/operation/opcode.h"
 #include "interface/utils/common.h"
 #include "tileop/hccl_context.h"
@@ -39,9 +39,10 @@ class AicpuTaskManager {
 public:
     enum TaskType {
         SHMEM_WAIT_UNTIL = 0,
+        SHMEM_BARRIER_ALL,
         TASK_TYPE_NUM,
     };
-    using InitCallBack = std::function<void(DeviceTask *)>;
+    using InitCallBack = std::function<void(npu::tile_fwk::dynamic::DynDeviceTask*)>;
     using EnqueueOpCallBack = std::function<void(uint64_t, npu::tile_fwk::Distributed::TensorInfo&)>;
     using PollCompletedCallBack = std::function<void(std::vector<uint64_t> &)>;
 
@@ -49,6 +50,7 @@ public:
 
     AicpuTaskManager() {
         TaskCallBackResigter<npu::tile_fwk::Distributed::ShmemWaitUntil>(TaskType::SHMEM_WAIT_UNTIL, shmemWaitUntil_);
+        TaskCallBackResigter<npu::tile_fwk::Distributed::ShmemBarrierAll>(TaskType::SHMEM_BARRIER_ALL, shmemBarrierAll_);
     };
     ~AicpuTaskManager() {};
 
@@ -76,7 +78,7 @@ public:
         readyQueue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(deviceTask->devTask.readyAicpuFunctionQue);
         hcclContextAddr_ = funcDataList_->hcclContext;
         for (auto &init : initCallBack_) {
-            init(&(deviceTask->devTask));
+            init(deviceTask);
         }
     }
 
@@ -128,6 +130,7 @@ private:
         auto taskType = TaskType::TASK_TYPE_NUM;
         switch (code[0]) {
             case static_cast<uint32_t>(Opcode::OP_SHMEM_WAIT_UNTIL): taskType = TaskType::SHMEM_WAIT_UNTIL; break;
+            case static_cast<uint32_t>(Opcode::OP_SHMEM_BARRIER_ALL): taskType = TaskType::SHMEM_BARRIER_ALL; break;
             default: break;
         }
         return taskType;
@@ -200,6 +203,7 @@ private:
     ReadyCoreFunctionQueue *readyQueue_{nullptr};
 
     npu::tile_fwk::Distributed::ShmemWaitUntil shmemWaitUntil_;
+    npu::tile_fwk::Distributed::ShmemBarrierAll shmemBarrierAll_;
 
     std::array<InitCallBack, TaskType::TASK_TYPE_NUM> initCallBack_;
     std::array<EnqueueOpCallBack, TaskType::TASK_TYPE_NUM> enqueueOpCallBack_;

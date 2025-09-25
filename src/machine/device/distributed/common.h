@@ -19,6 +19,8 @@
 #include <vector>
 
 namespace npu::tile_fwk::Distributed {
+constexpr uint64_t VECTOR_PRE_SIZE = 1024;
+
 struct TensorInfo {
     uint64_t rawAddr;
     uint32_t dim;

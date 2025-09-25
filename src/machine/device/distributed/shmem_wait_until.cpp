@@ -25,7 +25,7 @@
 
 #include "tileop/hccl_context.h"
 #include "machine/utils/device_log.h"
-#include "tilefwk/core_func_data.h"
+#include "machine/utils/dynamic/dev_workspace.h"
 #include "neon_stub.h"
 
 
@@ -52,9 +52,9 @@ bool SignalTileOp::PollCompleted(std::vector<uint64_t> &completed)
     return false;
 }
 
-void ShmemWaitUntil::Init(DeviceTask *deviceTask)
+void ShmemWaitUntil::Init(npu::tile_fwk::dynamic::DynDeviceTask* dynDeviceTask)
 {
-    (void)deviceTask;
+    (void)dynDeviceTask;
 }
 
 void ShmemWaitUntil::EnqueueOp(uint64_t taskId, TensorInfo& info)
@@ -73,6 +73,7 @@ void ShmemWaitUntil::EnqueueOp(uint64_t taskId, TensorInfo& info)
 
     if (signalTileOpCount_ == signalTileOp_.size()) {
         signalTileOp_.resize(signalTileOpCount_ * 2); // 扩容到原本的 2 倍
+        done_.resize(signalTileOpCount_ * 2); // 扩容到原本的 2 倍
     }
     signalTileOp_[signalTileOpCount_].Init(taskId, addr, shape2, shape3, expectedSum);
     ++signalTileOpCount_;

@@ -31,8 +31,6 @@ std::string CodeGenOpCloudNPU::GetTemplateDType() const
         return DataType2CCEStr(operandDtype[0]);
     } else if (opCode == Opcode::OP_DISPATCH_SET_FLAG) {
         return DataType2CCEStr(operandDtype[4]); // 从 operand 4 获取 T
-    } else if (opCode == Opcode::OP_SHMEM_SIGNAL) {
-        return DataType2CCEStr(operandDtype[2]); // 从 operand 2 获取 T
     }
     return DataType2CCEStr(operandDtype[1]);
 }
@@ -51,20 +49,20 @@ std::string CodeGenOpCloudNPU::GenTemplateParams() const
         int64_t bufferColShape = bufferShape[1];
         std::vector<int64_t> originTensorShape = rawShape[ID3]; // 切块之前的shape
         int64_t stride = originTensorShape[originTensorShape.size() - ID1];
-        oss << GetTemplateDType() << ", " << tileRowShape << ", " << tileColShape << ", " << bufferRowShape << ", " << bufferColShape << ", " << stride << ", " << stride;
+        oss << "<" << GetTemplateDType() << ", " << tileRowShape << ", " << tileColShape << ", " << bufferRowShape << ", " << bufferColShape << ", " << stride << ", " << stride << ">";
     } else if (opCode == Opcode::OP_SHMEM_SIGNAL) {
         int64_t value = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at("Value")); 
         npu::tile_fwk::Distributed::AtomicType atomicType = npu::tile_fwk::AnyCast<npu::tile_fwk::Distributed::AtomicType>(opAttrs.at("AtomicType"));
-        oss << std::to_string(value) << ", " << npu::tile_fwk::Distributed::AtomicTypeToString(atomicType);
+        oss << "<" << std::to_string(value) << ", " << npu::tile_fwk::Distributed::AtomicTypeToString(atomicType) << ">";
     } else if (opCode == Opcode::OP_SHMEM_REDUCE) {
         std::string extraTemplateParam = npu::tile_fwk::AnyCast<std::string>(opAttrs.at("extraTemplateParam"));
         std::vector<int64_t> outShape = rawShape[ID0];
-        oss << GetTemplateDType() << ", " << extraTemplateParam << ", " << outShape[0] << ", " << outShape[1];
+        oss << "<" << GetTemplateDType() << ", " << extraTemplateParam << ", " << outShape[0] << ", " << outShape[1] << ">";
     } else if (opAttrs.count("extraTemplateParam") != 0) {
         std::string extraTemplateParam = npu::tile_fwk::AnyCast<std::string>(opAttrs.at("extraTemplateParam"));
-        oss << GetTemplateDType() << ", " << extraTemplateParam;
-    } else {
-        oss << GetTemplateDType();
+        oss << "<" << GetTemplateDType() << ", " << extraTemplateParam << ">";
+    } else if (opCode != Opcode::OP_SHMEM_CLEAR_SIGNAL) {
+        oss << "<" << GetTemplateDType() << ">";
     }
     return oss.str();
 }
@@ -95,7 +93,7 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapes() const
         auto [shmemDataOffsets, shmemDataRawShapes] = GenOffsetsAndRawShapes(shmemDataIndex, shmemDataDim);
         oss << ", " << nonShmemDataOffsets << ", " << nonShmemDataRawShapes
             << ", " << shmemDataOffsets << ", " << shmemDataRawShapes;
-    } else if (opCode == Opcode::OP_SHMEM_SIGNAL) {
+    } else if (opCode == Opcode::OP_SHMEM_CLEAR_SIGNAL || opCode == Opcode::OP_SHMEM_SIGNAL) {
         constexpr int32_t shmemSignalIndex = 2;
         constexpr int32_t shmemSignalDim = 4;
         auto [shmemSignalOffsets, shmemSignalRawShapes] = GenOffsetsAndRawShapes(shmemSignalIndex, shmemSignalDim);
@@ -112,7 +110,7 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapes() const
 std::string CodeGenOpCloudNPU::GenDistOp() const
 {
     std::ostringstream oss;
-    oss << tileOpName << "<" << GenTemplateParams() << ">(" << GenParamsStr() << GenOffsetsAndRawShapes() <<
+    oss << tileOpName << GenTemplateParams() << "(" << GenParamsStr() << GenOffsetsAndRawShapes() <<
         ", hcclContext);\n";
     return oss.str();
 }
