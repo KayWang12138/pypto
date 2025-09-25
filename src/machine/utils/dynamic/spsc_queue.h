@@ -56,7 +56,8 @@ public:
         return true;
     }
 
-    inline void FreeUntil(std::function<bool(const T&)> checker) {
+    inline bool FreeUntil(std::function<bool(const T&)> checker) {
+        bool checkerSucc = false;
         while (true) {
             auto head = head_.load(std::memory_order_relaxed);
             auto tail = tail_.load(std::memory_order_acquire);
@@ -70,7 +71,13 @@ public:
             }
 
             head_.fetch_add(1, std::memory_order_release);
+            checkerSucc = true;
         }
+        return checkerSucc;
+    }
+
+    inline bool IsEmpty() {
+        return (head_ == tail_);
     }
 
 private:

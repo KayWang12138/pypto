@@ -52,7 +52,7 @@
 #define STR(n)          STR_(n)
 #endif
 
-#define AOT_CODE_POOL_CODE_SIZE     (4096 * 0x100)
+#define AOT_CODE_POOL_CODE_SIZE     (4096 * 0x200)
 extern uint8_t aotCodePoolCode[];
 
 namespace npu::tile_fwk {
@@ -936,7 +936,7 @@ struct DeviceTaskContext {
 
         // cache allocated memory , when task finish will recycle
         dynTask->taskStageAllocMem = workspace_->SlabGetStageAllocMem(withoutTail, WsAicpuSlabMemType::DUPPED_FUNC_DATA);
-        dynTask->isFinish.store(false);
+        workspace_->SlabStageAllocMemSubmmit(&dynTask->taskStageAllocMem);
         return dynTask;
     }
 
@@ -1384,21 +1384,6 @@ struct DeviceExecuteContext {
         // Reset stitch context
         stitchContext.Reset();
         slotContext.ClearDirty();
-        auto FreeTaskfunc = [this] (DynDeviceTask* task) -> bool {
-            if (task->isFinish.load(std::memory_order_relaxed)) {
-                workspace.SlabFreeStageAllocMem(task->taskStageAllocMem); // recycle slab alloc memory
-                return true;
-            }
-            return false;
-        };
-
-        // try free finished task and recycle aicpu meta memory
-        submmitTaskQueue_.FreeUntil(FreeTaskfunc);
-
-        while (!submmitTaskQueue_.TryEnqueue(dynTask)) {
-            // maybe que is full, need wait task finish and recycle aicpu meta memory
-            submmitTaskQueue_.FreeUntil(FreeTaskfunc);
-        }
     }
 
     schema::RUid GetRuid(uint64_t rootKey, bool afterAppend = false) {
@@ -1455,7 +1440,7 @@ struct DeviceExecuteContext {
     }
 
     void TaskFinish(DynDeviceTask *dynTask) {
-        dynTask->isFinish.store(true);
+        dynTask->taskStageAllocMem.canFree.store(true); // mark memory can recycle
     }
 
     static void TaskFinish(DeviceTask *task, void *ctx_) {

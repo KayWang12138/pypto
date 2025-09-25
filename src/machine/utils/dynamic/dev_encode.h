@@ -671,7 +671,7 @@ public:
 private:
     std::string DumpTensor(int tensorIndex) const {
         std::ostringstream oss;
-        oss << "%ten(" << tensorIndex << ")@raw(" << GetTensor(tensorIndex)->rawIndex << ")";
+        oss << "%" << tensorIndex << "@" << GetTensor(tensorIndex)->rawIndex;
         return oss.str();
     }
 
@@ -790,7 +790,7 @@ public:
     std::string DumpRawTensor(int rawIndex, uintdevptr_t addr = 0) const {
         std::ostringstream oss;
         auto rawTensor = GetRawTensor(rawIndex);
-        oss << rawTensor->DumpType() << " @rawIndex(" << rawIndex << ") = ";
+        oss << rawTensor->DumpType() << " @" << rawIndex << " = ";
         oss << rawTensor->DumpAttr();
         if (addr != 0) {
             oss << AddressDescriptor::DumpAddress(addr);
@@ -2125,7 +2125,7 @@ struct DevAscendFunctionDupped {
                 oss << "\n   ";
             DEV_ASSERT(GetRawTensorAddrEx(i) == GetRawTensorAddr(i));
             auto desc = funcData->rawTensorDesc[i];
-            oss << GetRawTensorAddrEx(i) << "(location:" << desc.location << " offsetOrIdex" << desc.offsetOrIndex << ")" << ", ";
+            oss << GetRawTensorAddrEx(i) << "(location:" << desc.location << " offsetOrIdex: " << desc.offsetOrIndex << ")" << ", ";
         }
         oss << "\n]";
         return oss.str();

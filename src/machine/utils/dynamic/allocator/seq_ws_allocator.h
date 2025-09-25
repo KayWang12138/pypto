@@ -47,8 +47,9 @@ public:
     }
 
     WsAllocation Malloc(uint64_t memReq, WsMemCategory category = WsMemCategory::UNCLASSIFIED) {
-        DEV_DEBUG_ASSERT(CanAllocate(memReq));
-
+        DEV_DEBUG_ASSERT_MSG(CanAllocate(memReq), "Memory not enough(alloc %lu), WsProperty:%d, WsAddr:%lu, WsSize:%lu,"
+                "AllocatedCnt:%lu, ResetTimes:%u", memReq, ToUnderlying(property_), workspaceAddr_, workspaceSize_, allocated_, resetTimes_);
+        
         WsAllocation allocation;
         allocation.ptr = workspaceAddr_ + allocated_;
         allocation.node_ = reinterpret_cast<void *>(0xDEADBEEFDEADBEEF); // Random value, to make allocation valid(void *)0xDEADBEEFDEADBEEF; // Random value, to make allocation valid

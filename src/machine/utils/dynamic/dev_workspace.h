@@ -39,8 +39,25 @@ struct DynFuncCacheItem {
     DevAscendFunctionDupped dup;
 };
 struct WsSlabStageAllocMem {
+    std::atomic_bool canFree{false};
     StageAllocInfo aicpuCoherentStageMem;
     StageAllocInfo aicpuStitchStageMem;
+
+    WsSlabStageAllocMem() = default;
+    WsSlabStageAllocMem(const WsSlabStageAllocMem& other)
+        : canFree(other.canFree.load(std::memory_order_relaxed)),
+          aicpuCoherentStageMem(other.aicpuCoherentStageMem),
+          aicpuStitchStageMem(other.aicpuStitchStageMem) {}
+
+    WsSlabStageAllocMem& operator=(const WsSlabStageAllocMem& other) {
+        if (this != &other) {
+            canFree.store(other.canFree.load(std::memory_order_relaxed), 
+                         std::memory_order_relaxed);
+            aicpuCoherentStageMem = other.aicpuCoherentStageMem;
+            aicpuStitchStageMem = other.aicpuStitchStageMem;
+        }
+        return *this;
+    }
 };
 
 class DeviceWorkspaceAllocator;
@@ -56,7 +73,6 @@ struct DynDeviceTask {
     const DevAicpuLeafBinary *aicpuLeafBinary;
     WsAllocation selfAlloc;
     WsSlabStageAllocMem taskStageAllocMem;
-    std::atomic_bool isFinish{false}; // mark task execution status
 
     uint32_t GetReadyQueueIndexByCoreType(CoreType coreType) {
         if (coreType == CoreType::AICPU) {
@@ -160,7 +176,7 @@ struct DeviceExecuteSlot {
     }
 };
 
-const uint32_t SUBMMIT_TASK_QUE_SIZE = 3;
+const uint32_t SUBMMIT_TASK_QUE_SIZE = 32;
 class DeviceWorkspaceAllocator {
 public:
     DeviceWorkspaceAllocator() = default;
@@ -494,12 +510,6 @@ public:
         return dynTask;
     }
 
-    void DestroyDynDeviceTask(DynDeviceTask *dynTask) {
-        auto alloc = dynTask->taskStageAllocMem;
-        dynTask->~DynDeviceTask();
-        SlabFreeStageAllocMem(alloc); // recycle all memory allocated when build device task
-    }
-
     DevAscendFunctionDuppedStitch *AllocateStitch() {
         WsAllocation allocation = SlabAlloc(sizeof(DevAscendFunctionDuppedStitch), WsAicpuSlabMemType::DUPPED_STITCH);
         DevAscendFunctionDuppedStitch *stitch = allocation.As<DevAscendFunctionDuppedStitch>();
@@ -544,7 +554,7 @@ public:
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_LIGHT
         aicpuCoherentAllocator_.DumpMemoryUsage(hint, "Metadata");
         aicpuMetaSlabAllocator_.DumpMemoryUsage(hint, "Metadata slab allocator");
-        aicpuStitchSlabAllocator_.DumpMemoryUsage(hint, "Stitch Metadata");
+        aicpuStitchSlabAllocator_.DumpMemoryUsage(hint, "Metadata Stitch slab allocator");
         aicoreLocalFuncWsAllocator_.DumpMemoryUsage(hint, "Tensor (inner) workspace");
         aicoreLocalFuncOutcastAllocator_.DumpMemoryUsage(hint, "Tensor (outcast) workspace");
         aicoreGlobalAllocator_.DumpMemoryUsage(hint, "Tensor (global) workspace");
@@ -574,12 +584,32 @@ public:
         void* ptr = nullptr;
         DEV_DEBUG("SlabAlloc type = %u, size = %u.", ToUnderlying(type), objSize);
         SlabTryDynAddCache(type, objSize); // ready que need dyn add cache
-        if (type < WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT) {
-            ptr = aicpuMetaSlabAllocator_.Alloc(ToUnderlying(type));
-        } else if (type < WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT) {
-            ptr = aicpuStitchSlabAllocator_.Alloc(ToUnderlying(type));
-        }
-        DEV_ASSERT(ptr != nullptr);
+        do {
+            if (type < WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT) {
+                ptr = aicpuMetaSlabAllocator_.Alloc(ToUnderlying(type));
+            } else if (type < WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT) {
+                ptr = aicpuStitchSlabAllocator_.Alloc(ToUnderlying(type));
+            }
+            if (ptr != nullptr) {
+                break;
+            }
+
+            if (submmitTaskSlabMemQueue_.IsEmpty()) {
+                // should not happen, first task alloc failed
+                aicpuMetaSlabAllocator_.DumpMemoryStatusWhenAbnormal("SlabAlloc null");
+                aicpuStitchSlabAllocator_.DumpMemoryStatusWhenAbnormal("SlabAlloc null");
+                DEV_ASSERT_MSG(false, "Slab alloc null,type=%u,objsize=%u.", ToUnderlying(type), objSize);
+            }
+            uint32_t ttl = 0;
+            uint32_t ttlTimout = 100000;
+            while (!SlabStageAllocMemTryRecycle()) {  // wait sch aicpu finish task
+                ttl++;
+                if (ttl > ttlTimout) {
+                    DEV_WARN("Waiting for device task memory reclamation for too long.");
+                }
+            };
+        } while (true);
+
         WsAllocation allocation;
         allocation.ptr = reinterpret_cast<uintdevptr_t>(ptr);
         allocation.node_ = reinterpret_cast<void *>(0xDEADBEEFDEADBEFF);
@@ -593,9 +623,12 @@ public:
         return stageMem;
     }
 
-     void SlabFreeStageAllocMem(WsSlabStageAllocMem stageMem) {
-        aicpuMetaSlabAllocator_.FreeStageAllocMem(stageMem.aicpuCoherentStageMem);
-        aicpuStitchSlabAllocator_.FreeStageAllocMem(stageMem.aicpuStitchStageMem);
+    void SlabStageAllocMemSubmmit(WsSlabStageAllocMem* submmitSlabMem) {
+        while (!submmitTaskSlabMemQueue_.TryEnqueue(submmitSlabMem)) {
+            // maybe que is full, need wait task finish and recycle aicpu meta memory
+            SlabStageAllocMemTryRecycle();
+        }
+        return;
     }
 
     /* support vector allocator,so need have this fucntion member */
@@ -778,6 +811,22 @@ private:
         }
     }
 private:
+    bool SlabStageAllocMemTryRecycle() {
+        auto FreeTaskSlabMemfunc = [this] (WsSlabStageAllocMem* slabStageMem) -> bool {
+            if (slabStageMem->canFree.load(std::memory_order_relaxed)) {
+                // recycle slab alloc memory
+                aicpuMetaSlabAllocator_.FreeStageAllocMem(slabStageMem->aicpuCoherentStageMem);
+                aicpuStitchSlabAllocator_.FreeStageAllocMem(slabStageMem->aicpuStitchStageMem);
+                return true;
+            }
+            return false;
+        };
+
+        // try free finished task and recycle aicpu meta memory
+        return submmitTaskSlabMemQueue_.FreeUntil(FreeTaskSlabMemfunc);
+    }
+
+private:
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
     DelayedDumper wsMemDelayedDumper_;
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
@@ -810,6 +859,7 @@ private:
     WsMemoryVerifier globalTensorVerifier_;
 
     Vector<uintdevptr_t, WsMemCategory::VECTOR_AICORE_RECYCLE_LIST> slotMemToBeFree_;
+    SPSCQueue<WsSlabStageAllocMem *, SUBMMIT_TASK_QUE_SIZE> submmitTaskSlabMemQueue_;
 };
 } // namespace npu::tile_fwk::dynamic
 #endif
