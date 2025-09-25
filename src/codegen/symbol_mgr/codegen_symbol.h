@@ -138,9 +138,6 @@ public:
         tensorMap_.insert({magicNum, tensor});
     }
 
-    std::shared_ptr<LogicalTensor> GetTensorByMagic(int magicNum) const;
-    AllocKey CreateAllocKey(const std::shared_ptr<LogicalTensor> &tensor) const;
-    AllocKey CreateAllocKey(int tensorMagicNum) const;
     static std::string FormatAllocKey(const AllocKey &key);
 
     std::string AddTileTensorUsing(const TileTensorUsing &tileTensorUsing);
@@ -151,6 +148,10 @@ public:
     std::string GenTileTensorDefList();
 
 private:
+    std::shared_ptr<LogicalTensor> GetTensorByMagic(int magicNum) const;
+    AllocKey CreateAllocKey(const std::shared_ptr<LogicalTensor> &tensor) const;
+    AllocKey CreateAllocKey(int tensorMagicNum) const;
+
     // <AllocKey, buffer variable name>
     std::map<AllocKey, std::string> key2VariableName_;
     //<tensor magic, LogicalTensor>

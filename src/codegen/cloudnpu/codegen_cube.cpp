@@ -33,13 +33,9 @@ std::string CodeGenOpCloudNPU::GenCubeOp(bool zeroC) const {
     int64_t n = shape[ID0][ID1];
     unsigned uf = 0;
 
-    auto kL0C = sm->CreateAllocKey(operandWithMagic[ID0]);
-    auto kL0A = sm->CreateAllocKey(operandWithMagic[ID1]);
-    auto kL0B = sm->CreateAllocKey(operandWithMagic[ID2]);
-
-    std::string aVar = sm->QueryVariableName(kL0A);
-    std::string bVar = sm->QueryVariableName(kL0B);
-    std::string cVar = sm->QueryVariableName(kL0C);
+    std::string aVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+    std::string bVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
+    std::string cVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
     std::string aDtypeStr = DataType2CCEStr(operandDtype[ID1]);
     std::string bDtypeStr = DataType2CCEStr(operandDtype[ID2]);
@@ -101,8 +97,7 @@ std::string CodeGenOpCloudNPU::GenParamsStr() const {
             oss << "(" << prefix << " " << dtypeStr << "*)" << var;
             params.emplace_back(oss.str());
         } else {
-            auto localAllocKey = sm->CreateAllocKey(operandWithMagic[i]);
-            std::string var = sm->QueryVariableName(localAllocKey);
+            std::string var = sm->QueryVarNameByTensorMagic(operandWithMagic[i]);
 
             if (opCode != Opcode::OP_L1_TO_L0A && opCode != Opcode::OP_L1_TO_L0B && opCode != Opcode::OP_L1_TO_L0_BT &&
                 opCode != Opcode::OP_L1_TO_L0_AT) {

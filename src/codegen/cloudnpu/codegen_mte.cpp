@@ -107,13 +107,12 @@ std::string CodeGenOpCloudNPU::GenMemL1SpillIntoGM(
     addrTypeHead[l1Idx] = isCopyL0CToGM ? GetAddrTypeByOperandType(BUF_L0C) : GetAddrTypeByOperandType(BUF_L1);
 
     // Query ub variable name
-    auto l1AllocKey = sm->CreateAllocKey(opInfo.operands[ID0]);
     std::vector<int64_t> gmOffset = offset[gmIdx];
     std::vector<int64_t> l1TileOffset = offset[l1Idx];
     unsigned l1Offset = l1TileOffset[ID0] * l1TileOffset[ID1];
     std::string addrExpr[ID2];
     addrExpr[gmIdx] = GenGMAddrExprWithOffset(GM_STACK_BASE, gmIdx);
-    addrExpr[l1Idx] = GenAddrExpr(sm->QueryVariableName(l1AllocKey), l1Offset);
+    addrExpr[l1Idx] = GenAddrExpr(sm->QueryVarNameByTensorMagic(opInfo.operands[ID0]), l1Offset);
 
     std::vector<int64_t> gmShape = rawShape[gmIdx];
     ALOG_INFO_F("GenMemOpL1 op: %s, gmShape: %s", opInfo.op.c_str(), IntVecToStr(gmShape).c_str());
@@ -206,8 +205,7 @@ std::string CodeGenOpCloudNPU::GenMemUBSpillIntoGM(bool isCopyUBToGM) const {
 
     // Query ub variable name
     std::string addrExpr[ID2];
-    auto ubAllocKey = sm->CreateAllocKey(operandWithMagic[ubIdx]);
-    addrExpr[ubIdx] = sm->QueryVariableName(ubAllocKey);
+    addrExpr[ubIdx] = sm->QueryVarNameByTensorMagic(operandWithMagic[ubIdx]);
     // In spilling out scene,  GM offset is added after "GMStackBase" var.
     // "GMStackBase" is a base address of a gm workspace which is using for spilled tensors.
     addrExpr[gmIdx] = GenGMAddrExprWithOffset(GM_STACK_BASE, gmIdx);
@@ -485,9 +483,8 @@ std::string CodeGenOpCloudNPU::GenMemCopyVar(bool isCopyLocalToGM, OperandType l
     ALOG_INFO_F("========dst shape is %s", IntVecToStr(shape[ID0]).c_str());
     ALOG_INFO_F("========tileShapeForMT is %s", IntVecToStr(tileShapeForMT).c_str());
 
-    auto localAllocKey = sm->CreateAllocKey(operandWithMagic[localIdx]);
     std::string addrExpr[ID2];
-    addrExpr[localIdx] = sm->QueryVariableName(localAllocKey);
+    addrExpr[localIdx] = sm->QueryVarNameByTensorMagic(operandWithMagic[localIdx]);
     addrExpr[gmIdx] = GenGmParamVar(gmIdx);
 
     std::string dataTypeExpr[ID2];
@@ -645,7 +642,6 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Static(const PrintMemCopyWithL1
 
     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
 
-    std::shared_ptr<LogicalTensor> tensor = sm->GetTensorByMagic(operandWithMagic[ID1]);
     std::string opName = tileOpName;
     char addrBuffer[BUFFER_SIZE_1024] = "";
     char oriAddrBuffer[BUFFER_SIZE_1024] = "";
@@ -705,7 +701,6 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL
     std::vector<std::string> gmOffsetExpr = GenGetParamMacroPacked(param.gmIdx, SHAPE_DIM2, PREFIX_STR_OFFSET);
     ALOG_INFO_F("dynamic gmOffset param: %s", IntVecToStr(gmOffsetExpr).c_str());
 
-    std::shared_ptr<LogicalTensor> tensor = sm->GetTensorByMagic(operandWithMagic[ID1]);
     std::string opName = tileOpName;
     std::string addrBuffer = addrExpr[ID1];
 

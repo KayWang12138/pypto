@@ -58,7 +58,7 @@ enum class SISOIdx : int {
 };
 
 // dual input single output
-enum class DISIIdx : int {
+enum class DISOIdx : int {
     DST_IDX = 0,
     SRC0_IDX = 1,
     SRC1_IDX = 2,
