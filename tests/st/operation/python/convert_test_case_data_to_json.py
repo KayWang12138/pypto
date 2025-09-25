@@ -12,6 +12,7 @@
 import logging
 import os
 import json
+from dataclasses import dataclass
 import pandas as pd
 
 
@@ -146,6 +147,16 @@ class TestCaseData:
         }
 
 
+@dataclass
+class MatmulParam:
+    trans_list: list
+    input_format_list: list
+    output_format_list: list
+    row_data: dict
+    output_dtype: str
+    is_k_split: bool
+
+
 class TestDataReader:
     def __init__(self, case_index: int, case_data, json_path: str):
         self._case_index = case_index
@@ -179,6 +190,11 @@ class TestDataReader:
         while len(is_trans_list) < len(input_shape):
             is_trans_list.append(None)
 
+        is_k_split = False
+        enable_k_split = row_data.pop("enableKSplit", None)
+        if enable_k_split is not None:
+            is_k_split = self.str_to_bool(enable_k_split)
+
         input_tensors = []
         for idx in range(len(input_shape)):
             input_tensors.append(
@@ -195,7 +211,6 @@ class TestDataReader:
         if not isinstance(output_shape[0], (list, tuple)):
             output_shape = [output_shape]
         output_dtype = self.str_to_list(row_data.pop("output_dtype"))
-
         output_format_list = self.str_to_list(row_data.pop("output_format"))
         assert len(output_format_list) == len(output_shape)
 
@@ -252,9 +267,15 @@ class TestDataReader:
         if axis is not None and not pd.isna(axis) and not pd.isnull(axis):
             params["axis"] = int(axis)
 
-        self.extend_matmul_param(
-            params, is_trans_list, input_format_list, output_format_list, row_data
+        matmulparam = MatmulParam(
+            is_trans_list,
+            input_format_list,
+            output_format_list,
+            row_data,
+            output_dtype[0],
+            is_k_split
         )
+        self.extend_matmul_param(matmulparam, params)
 
         return TestCaseData(
             row_data.get("case_index"),
@@ -311,29 +332,23 @@ class TestDataReader:
         logging.debug("caseindex: %s, input str: %s", self._case_index, input_str)
         return input_str in ("TRUE", "1")
 
-    def extend_matmul_param(
-        self,
-        params: dict,
-        trans_list: list,
-        input_format_list: list,
-        output_format_list: list,
-        row_data: dict,
-    ):
-        if row_data.get("operation") not in (
+    def extend_matmul_param(self, matmulparam: MatmulParam, params: dict):
+        if matmulparam.row_data.get("operation") not in (
             "Matmul",
             "BatchMatmul",
             "MatmulVerify",
             "BatchMatmulVerify",
         ):
             return
-        params["transA"] = trans_list[0]
-        params["transB"] = trans_list[1]
-        params["isAMatrixNz"] = input_format_list[0] == "NZ"
-        params["isBMatrixNz"] = input_format_list[1] == "NZ"
-        params["isCMatrixNz"] = output_format_list[0] == "NZ"
-        output_dtype_str = self.str_to_list(row_data.get("output_dtype"))[0]
+        params["transA"] = matmulparam.trans_list[0]
+        params["transB"] = matmulparam.trans_list[1]
+        params["isAMatrixNz"] = matmulparam.input_format_list[0] == "NZ"
+        params["isBMatrixNz"] = matmulparam.input_format_list[1] == "NZ"
+        params["isCMatrixNz"] = matmulparam.output_format_list[0] == "NZ"
+        output_dtype_str = matmulparam.output_dtype
         params["outDtype"] = str(output_dtype_str).strip()
         params["func_id"] = 0
+        params["enableKSplit"] = matmulparam.is_k_split
 
 
 def read_test_cases_from_csv(file_name: str, op: list) -> list:

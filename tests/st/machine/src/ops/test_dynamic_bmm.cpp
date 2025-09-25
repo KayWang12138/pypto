@@ -47,12 +47,15 @@ static void NonSplitFunc(const Tensor &tensor_a, const Tensor &tensor_b, Tensor 
     std::vector<SymbolicScalar> aValidShape = {aShape[0], aShape[1], aShape[2]};
     const auto &bShape = tensor_b.GetShape();
     std::vector<SymbolicScalar> bValidShape = {bShape[0], bShape[1], bShape[2]};
-
+    int64_t m = transA ? aShape[2] : aShape[1];
+    int64_t k = transA ? aShape[1] : aShape[2];
+    int64_t n = transB ? bShape[1] : bShape[2];
     FunctionConfig funConfig;
     FUNCTION("testNoSplit", funConfig, {tensor_a, tensor_b}, {tensor_c}) {
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1)) {
             Tensor dyn_a = View(tensor_a, aShape, aValidShape, {0, mIdx, 0});
             Tensor dyn_b = View(tensor_b, bShape, bValidShape, {0, 0, 0});
+            TileShape::Current().SetMatrixSize({m, k, n});
             tensor_c = Matrix::BatchMatmul<transA, transB, isCNz>(GetAstDtype<outputDtype>(), dyn_a, dyn_b);
         }
     }
@@ -65,7 +68,9 @@ static void MSplitFunc(
     std::vector<SymbolicScalar> aValidShape = {aShape[0], aShape[1], aShape[2]};
     const auto &bShape = tensor_b.GetShape();
     std::vector<SymbolicScalar> bValidShape = {bShape[0], bShape[1], bShape[2]};
-
+    int64_t n = transB ? bShape[1] : bShape[2];
+    int64_t m = transA ? aShape[2] : aShape[1];
+    int64_t k = transA ? aShape[1] : aShape[2];
     FunctionConfig funConfig;
     FUNCTION("testMSplit", funConfig, {tensor_a, tensor_b}, {tensor_c}) {
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx,
@@ -79,6 +84,7 @@ static void MSplitFunc(
                     {aShape[0], std::min(aShape[1] - viewShape[1] * mIdx, viewShape[1]), aShape[2]}, {0, mIdx * viewShape[1], 0});
             }
             Tensor dyn_b = View(tensor_b, bShape, bValidShape, {0, 0, 0});
+            TileShape::Current().SetMatrixSize({m, k, n});
             Tensor res = Matrix::BatchMatmul<transA, transB, isCNz>(GetAstDtype<outputDtype>(), dyn_a, dyn_b);
             Assemble(res, {0, mIdx * viewShape[0], 0}, tensor_c);
         }
@@ -92,7 +98,9 @@ static void NSplitFunc(
     std::vector<SymbolicScalar> aValidShape = {aShape[0], aShape[1], aShape[2]};
     const auto &bShape = tensor_b.GetShape();
     std::vector<SymbolicScalar> bValidShape = {bShape[0], bShape[1], bShape[2]};
-
+    int64_t m = transA ? aShape[2] : aShape[1];
+    int64_t k = transA ? aShape[1] : aShape[2];
+    int64_t n = transB ? bShape[1] : bShape[2];
     FunctionConfig funConfig;
     FUNCTION("testNSplit", funConfig, {tensor_a, tensor_b}, {tensor_c}) {
         LOOP("nLoop", FunctionType::DYNAMIC_LOOP, nIdx,
@@ -106,6 +114,7 @@ static void NSplitFunc(
                 dyn_b = View(tensor_b, {bShape[0], viewShape[2], bShape[2]},
                     {bShape[0], std::min(bShape[1] - viewShape[2] * nIdx, viewShape[2]), bShape[2]}, {0, nIdx * viewShape[2], 0});
             }
+            TileShape::Current().SetMatrixSize({m, k, n});
             Tensor res = Matrix::BatchMatmul<transA, transB, isCNz>(GetAstDtype<outputDtype>(), dyn_a, dyn_b);
             Assemble(res, {0, 0, nIdx * viewShape[2]}, tensor_c);
         }
@@ -119,7 +128,9 @@ static void MNSplitFunc(
     std::vector<SymbolicScalar> aValidShape = {aShape[0], aShape[1], aShape[2]};
     const auto &bShape = tensor_b.GetShape();
     std::vector<SymbolicScalar> bValidShape = {bShape[0], bShape[1], bShape[2]};
-
+    int64_t m = transA ? aShape[2] : aShape[1];
+    int64_t n = transB ? bShape[1] : bShape[2];
+    int64_t k = transA ? aShape[1] : aShape[2];
     FunctionConfig funConfig;
     FUNCTION("testNSplit", funConfig, {tensor_a, tensor_b}, {tensor_c}) {
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx,
@@ -146,6 +157,7 @@ static void MNSplitFunc(
                         {bShape[0], std::min(bShape[1] - viewShape[2] * nIdx, viewShape[2]), bShape[2]},
                         {0, nIdx * viewShape[2], 0});
                 }
+                TileShape::Current().SetMatrixSize({m, k, n});
                 Tensor res = Matrix::BatchMatmul<transA, transB, isCNz>(GetAstDtype<outputDtype>(), dyn_a, dyn_b);
                 Assemble(res, {0, mIdx * viewShape[0], nIdx * viewShape[1]}, tensor_c);
             }
@@ -220,7 +232,7 @@ TEST_F(DynamicBatchMatmulTest, test_bmm_A_B_ND_bf16) {
     int64_t n = 512;
     bool isANz = false;
     bool isBNz = false;
-    std::vector<int64_t> viewShape = {-1, -1};
+    std::vector<int64_t> viewShape = {-1, -1, -1};
     TestDynBatchMatmul<npu::tile_fwk::bfloat16, float, false, false, false>(
         {b, m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
 }
@@ -233,7 +245,7 @@ TEST_F(DynamicBatchMatmulTest, test_bmm_A_Bt_ND_fp16) {
     int64_t n = 4096;
     bool isANz = false;
     bool isBNz = false;
-    std::vector<int64_t> viewShape = {-1, -1};
+    std::vector<int64_t> viewShape = {-1, -1, -1};
     TestDynBatchMatmul<npu::tile_fwk::float16, float, false, true, false>(
         {b, m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
 }
@@ -246,7 +258,7 @@ TEST_F(DynamicBatchMatmulTest, test_bmm_A_B_NZ_bf16) {
     int64_t n = 128;
     bool isANz = false;
     bool isBNz = true;
-    std::vector<int64_t> viewShape = {-1, -1};
+    std::vector<int64_t> viewShape = {-1, -1, -1};
     TestDynBatchMatmul<npu::tile_fwk::bfloat16, float, false, false, false>(
         {b, m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
 }
@@ -259,7 +271,7 @@ TEST_F(DynamicBatchMatmulTest, test_bmm_A_Bt_NZ_fp16) {
     int64_t n = 256;
     bool isANz = false;
     bool isBNz = true;
-    std::vector<int64_t> viewShape = {-1, -1};
+    std::vector<int64_t> viewShape = {-1, -1, -1};
     TestDynBatchMatmul<npu::tile_fwk::float16, float, false, true, false>(
         {b, m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
 }
@@ -272,7 +284,7 @@ TEST_F(DynamicBatchMatmulTest, test_bmm_A_B_ND_bf16_tile1) {
     int64_t n = 4096;
     bool isANz = false;
     bool isBNz = false;
-    std::vector<int64_t> viewShape = {-1, -1};
+    std::vector<int64_t> viewShape = {-1, -1, -1};
     TestDynBatchMatmul<npu::tile_fwk::bfloat16, float, false, false, false>(
         {b, m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
 }
@@ -285,7 +297,7 @@ TEST_F(DynamicBatchMatmulTest, test_bmm_At_Bt_ND_fp16) {
     int64_t n = 4096;
     bool isANz = false;
     bool isBNz = false;
-    std::vector<int64_t> viewShape = {-1, -1};
+    std::vector<int64_t> viewShape = {-1, -1, -1};
     TestDynBatchMatmul<npu::tile_fwk::float16, float, true, true, false>(
         {b, m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
 }
@@ -298,7 +310,7 @@ TEST_F(DynamicBatchMatmulTest, test_bmm_At_Bt_ANZ_BND_fp16) {
     int64_t n = 512;
     bool isANz = true;
     bool isBNz = false;
-    std::vector<int64_t> viewShape = {-1, -1};
+    std::vector<int64_t> viewShape = {-1, -1, -1};
     TestDynBatchMatmul<npu::tile_fwk::float16, float, true, true, false>(
         {b, m, k, n}, isANz, isBNz, viewShape, GetGoldenDir());
 }

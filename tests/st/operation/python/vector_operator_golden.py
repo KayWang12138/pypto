@@ -164,13 +164,12 @@ def gen_op_golden(
                 )
             index += 1
             input_tensors.append(tensor)
-            op_list = ["Matmul", "BatchMatmul", "MatmulVerify", "BatchMatmulVerify"]
-            if config.get("operation") in op_list and input_tensor.get("format") == "NZ":
-                tensor = trans_nd_to_fractal_nz(tensor)
-
+            
         res = golden_func(input_tensors, config)
-
+        cube_op_list = ["Matmul", "BatchMatmul", "MatmulVerify", "BatchMatmulVerify"]
         for input_tensor, read_input in zip(input_tensors, config["input_tensors"]):
+            if config.get("operation") in cube_op_list and read_input.get("format") == "NZ":
+                input_tensor = trans_nd_to_fractal_nz(input_tensor)
             input_tensor.tofile(Path(output_path, read_input["name"] + ".bin"))
 
         for idx in range(len(config["output_tensors"])):

@@ -445,7 +445,7 @@ void CheckOperandShapeBound(const Tensor &operand) {
             << "Current inner axis: " << operand->shape.back() << ", when input "
             << "is NZ format, inner axis shape must be 32-byte aligned" << std::endl;
         ASSERT(operand->shape[operand->shape.size() - SHAPE_DIM2] % ALIGN_SIZE_16 == 0)
-            << "Current outer axis: " << operand->shape[operand->shape.size() - SHAPE_DIM2] << ", when input"
+            << "Current outer axis: " << operand->shape[operand->shape.size() - SHAPE_DIM2] << ", when input "
             << "is NZ format, outer axis shape must be 16-element aligned" << std::endl;
     }
 }
