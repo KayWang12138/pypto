@@ -236,7 +236,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_op_reshape_op) {
 TEST_F(DynamicReshapeUnalignImplaceTest, test_src_op_dst_op) {
     TileShape::Current().SetVecTile(1, 16, 16);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
-
+    SetInterpreterConfig();
     int sq = 5;
     int d = -1;
     int m = 8;
@@ -247,6 +247,44 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_src_op_dst_op) {
     Tensor q(DT_FP32, qShape3Dim, "q");
     Tensor outSrc(DT_FP32, qShape3Dim, "outSrc");
     Tensor outDst(DT_FP32, qShape2Dim, "outDst");
+    
+    d = 5;
+    Tensor qReal(DT_FP32, {sq, d, m});
+    Tensor outSrcReal(DT_FP32, {sq, d, m});
+    Tensor outDstReal(DT_FP32, {sq*d, m});
+
+    std::vector<int64_t> shape = qReal.GetShape();
+    size_t elementSum = 1;
+    for (size_t i = 0; i < shape.size(); i++){
+        elementSum *= shape[i];
+    }
+    std::vector<float> inputValueData(elementSum, 0);
+    for (size_t i = 0; i < elementSum ; i++){
+        inputValueData[i] = static_cast<float>(i);
+    }
+
+    std::vector<float> outSrcGolden(elementSum, 1.02f);
+    for (size_t i = 0; i < elementSum ; i++){
+        outSrcGolden[i] = static_cast<float>(i) + 0.02f;
+    }
+    std::vector<float> outDstGolden(elementSum, 1.01f);
+    for (size_t i = 0; i < elementSum ; i++){
+        outDstGolden[i] = static_cast<float>(i) + 0.01f;
+    }
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<float>(qReal, inputValueData),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(outSrcReal, 0.0f),
+        RawTensorData::CreateConstantTensor<float>(outDstReal, 0.0f),
+    });
+
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(outSrcReal, outSrcGolden),
+        RawTensorData::CreateTensor<float>(outDstReal, outDstGolden),
+    });
+
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {q}, {outSrc, outDst}) {
         Tensor q_reshape(DT_FP32, {GetInputShape(q, 0) * GetInputShape(q, 1), m});
@@ -267,36 +305,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_src_op_dst_op) {
             Assemble(tmp3, {loopIdx * offSet, 0}, outDst);
         }
     }
-    d = 5;
-    Tensor qReal(DT_FP32, {sq, d, m});
-    Tensor outSrcReal(DT_FP32, {sq, d, m});
-    Tensor outDstReal(DT_FP32, {sq*d, m});
 
-    std::vector<int64_t> shape = qReal.GetShape();
-    size_t elementSum = 1;
-    for (size_t i = 0; i < shape.size(); i++){
-        elementSum *= shape[i];
-    }
-    std::vector<float> inputValueData(elementSum, 0);
-    for (size_t i = 0; i < elementSum ; i++){
-        inputValueData[i] = static_cast<float>(i);
-    }
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<float>(qReal, inputValueData),
-    });
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<float>(outSrcReal, 0.0f),
-        RawTensorData::CreateConstantTensor<float>(outDstReal, 0.0f),
-    });
-
-    std::vector<float> outSrcGolden(elementSum, 1.02f);
-    for (size_t i = 0; i < elementSum ; i++){
-        outSrcGolden[i] = static_cast<float>(i) + 0.02f;
-    }
-    std::vector<float> outDstGolden(elementSum, 1.01f);
-    for (size_t i = 0; i < elementSum ; i++){
-        outDstGolden[i] = static_cast<float>(i) + 0.01f;
-    }
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(qReal->GetDataSize()));
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);

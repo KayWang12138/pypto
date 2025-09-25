@@ -117,7 +117,6 @@ TEST_F(DynamicBasicTest, TestDD) {
          "blockTable"
     };
     Tensor out(DT_FP32, {n * s, s}, "out");
-    TestLoopViewAssemble(t0, t1, blockTable, out, s);
 
     std::vector<int> tblData;
     for (int i = 0; i < n; i++)
@@ -136,6 +135,8 @@ TEST_F(DynamicBasicTest, TestDD) {
     ProgramData::GetInstance().AppendGoldens({
         RawTensorData::CreateTensor<float>(out, golden),
     });
+
+    TestLoopViewAssemble(t0, t1, blockTable, out, s);
 
 #ifdef ENABLE_BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -239,15 +240,6 @@ TEST_F(DynamicBasicTest, DynamicRawShape) {
     Tensor t1(DT_FP32, {s, s}, "t1");              // [32, 32]
     Tensor out(DT_FP32, {-1, s}, "out");
 
-    FunctionConfig funConfig;
-    FUNCTION("main", funConfig, {t0, t1}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(GetInputShape(t0, 0) / s)) {
-            Tensor t0s = View(t0, {s, s}, {idx * s, 0});
-            Tensor t2 = Matrix::Matmul<false, true>(DataType::DT_FP32, t0s, t1);
-            Assemble(t2, {idx * s, 0}, out);
-        }
-    }
-
     int n = 8;
     Tensor arg0(DT_FP32, {n * s, s});
     Tensor out0(DT_FP32, {n * s, s});
@@ -264,6 +256,15 @@ TEST_F(DynamicBasicTest, DynamicRawShape) {
     ProgramData::GetInstance().AppendGoldens({
         RawTensorData::CreateTensor<float>(out0, golden),
     });
+
+    FunctionConfig funConfig;
+    FUNCTION("main", funConfig, {t0, t1}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(GetInputShape(t0, 0) / s)) {
+            Tensor t0s = View(t0, {s, s}, {idx * s, 0});
+            Tensor t2 = Matrix::Matmul<false, true>(DataType::DT_FP32, t0s, t1);
+            Assemble(t2, {idx * s, 0}, out);
+        }
+    }
 
 #ifdef ENABLE_BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -391,6 +392,19 @@ TEST_F(DynamicBasicTest, TestStaticLoop) {
     Tensor t2(DT_FP32, {s, s}, "t2");  // [32, 32]
     Tensor out(DT_FP32, {n * s, s}, "out");
     std::vector<float> outGolden(n * s, 4.0f);
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(t0, 1.0),
+        RawTensorData::CreateConstantTensor<float>(t1, 2.0),
+        RawTensorData::CreateConstantTensor<float>(t2, 3.0),  // value: [0,1,2,...,7]
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, 0.0f),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(out, outGolden),
+    });
+
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {t0, t1, t2}, {out}) {
         Tensor s0Out;
@@ -405,18 +419,6 @@ TEST_F(DynamicBasicTest, TestStaticLoop) {
             Assemble(t3, {i * s, 0}, out);
         }
     }
-
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateConstantTensor<float>(t0, 1.0),
-        RawTensorData::CreateConstantTensor<float>(t1, 2.0),
-        RawTensorData::CreateConstantTensor<float>(t2, 3.0),  // value: [0,1,2,...,7]
-    });
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<float>(out, 0.0f),
-    });
-    ProgramData::GetInstance().AppendGoldens({
-        RawTensorData::CreateTensor<float>(out, outGolden),
-    });
 
 #ifdef ENABLE_BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -436,6 +438,26 @@ TEST_F(DynamicBasicTest, TestInnerLoopOrder) {
     Tensor inputA(DT_FP32, {loopNum, vecLen}, "inputA");
     Tensor inputB(DT_FP32, {tileNum, vecLen}, "inputB");
     Tensor output(DT_FP32, {tileNum, vecLen}, "out");
+
+    std::vector<float> inputAData(loopNum * vecLen, 0);
+    std::vector<float> inputBData(tileNum * vecLen, 0);
+    std::vector<float> golden(tileNum * vecLen, 0);
+
+    readInput<float>(GetGoldenDir() + "/input_a.bin", inputAData);
+    readInput<float>(GetGoldenDir() + "/input_b.bin", inputBData);
+    readInput(GetGoldenDir() + "/out.bin", golden);
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<float>(inputA, inputAData),
+        RawTensorData::CreateTensor<float>(inputB, inputBData),
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(output, 0.0f),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(output, golden),
+    });
 
     FunctionConfig funConfig;
     FUNCTION("main", funConfig, {inputA, inputB}, {output}) {
@@ -462,26 +484,6 @@ TEST_F(DynamicBasicTest, TestInnerLoopOrder) {
 
     auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_main_2");
     EXPECT_NE(mainFunc, nullptr);
-
-    std::vector<float> inputAData(loopNum * vecLen, 0);
-    std::vector<float> inputBData(tileNum * vecLen, 0);
-    std::vector<float> golden(tileNum * vecLen, 0);
-
-    readInput<float>(GetGoldenDir() + "/input_a.bin", inputAData);
-    readInput<float>(GetGoldenDir() + "/input_b.bin", inputBData);
-    readInput(GetGoldenDir() + "/out.bin", golden);
-
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<float>(inputA, inputAData),
-        RawTensorData::CreateTensor<float>(inputB, inputBData),
-    });
-
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<float>(output, 0.0f),
-    });
-    ProgramData::GetInstance().AppendGoldens({
-        RawTensorData::CreateTensor<float>(output, golden),
-    });
 
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -540,7 +542,6 @@ TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard) {
          "blockTable"
     };
     Tensor out(DT_FP32, {n * s, s}, "out");
-    TestLoopViewAssemble(t0, t1, blockTable, out, s);
 
     std::vector<int> tblData;
     for (int i = 0; i < n; i++)
@@ -559,6 +560,8 @@ TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard) {
     ProgramData::GetInstance().AppendGoldens({
         RawTensorData::CreateTensor<float>(out, golden),
     });
+
+    TestLoopViewAssemble(t0, t1, blockTable, out, s);
 
 #ifdef ENABLE_BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), {true, 15, 4});

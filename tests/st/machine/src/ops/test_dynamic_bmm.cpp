@@ -191,8 +191,7 @@ void TestDynBatchMatmul(
     });
 
     ProgramData::GetInstance().AppendGoldens({
-        RawTensorData::CreateTensor<float>(tensor_a, golden),
-        RawTensorData::CreateTensor<float>(tensor_b, golden),
+        RawTensorData::CreateTensor<outputDtype>(tensor_c, golden),
     });
 
     int64_t viewM = viewShape[1];

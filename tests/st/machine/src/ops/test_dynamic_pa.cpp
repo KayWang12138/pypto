@@ -95,24 +95,6 @@ void testPa(PaTileShapeConfig& tileConfig, PaConfig config) {
     Tensor actSeqs(DT_INT32, {b}, "actSeqs");
     Tensor paOut(DT_FP32, {b * nq * sq, dn}, "paOut");
 
-    if (config.onlyBatchLoop) {
-        PageAttentionHighThroughput(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
-            tileConfig, config.maxUnrollTimes);
-    } else {
-         if (!config.manualUnroll) {
-            if (!config.isImmediateSymScalar) {
-                PageAttention(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
-                    tileConfig, config.maxUnrollTimes, config.isNzFormat);
-            } else {
-                PageAttentionWithImmScalar(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTableVector/*vector*/, seq/*vector*/, blockSize, softmaxScale, paOut,
-                    tileConfig, config.maxUnrollTimes, config.isNzFormat);
-            }
-        } else {
-            PageAttentionWithManualUnroll(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
-                tileConfig, config.maxUnrollTimes);
-        }
-    }
-
     // 读数据
     std::vector<npu::tile_fwk::bfloat16> qNopeData(b * nq * sq * dn, 0);
     std::vector<npu::tile_fwk::bfloat16> qRopeData(b * nq * sq * dr, 0);
@@ -165,6 +147,24 @@ void testPa(PaTileShapeConfig& tileConfig, PaConfig config) {
     ProgramData::GetInstance().AppendGoldens({
         RawTensorData::CreateTensor<float>(paOut, golden),
     });
+
+    if (config.onlyBatchLoop) {
+        PageAttentionHighThroughput(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
+            tileConfig, config.maxUnrollTimes);
+    } else {
+         if (!config.manualUnroll) {
+            if (!config.isImmediateSymScalar) {
+                PageAttention(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
+                    tileConfig, config.maxUnrollTimes, config.isNzFormat);
+            } else {
+                PageAttentionWithImmScalar(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTableVector/*vector*/, seq/*vector*/, blockSize, softmaxScale, paOut,
+                    tileConfig, config.maxUnrollTimes, config.isNzFormat);
+            }
+        } else {
+            PageAttentionWithManualUnroll(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
+                tileConfig, config.maxUnrollTimes);
+        }
+    }
 
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
