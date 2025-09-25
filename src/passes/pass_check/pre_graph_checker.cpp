@@ -152,7 +152,7 @@ Status PreGraphProcessChecker::PostCheckAssemble(Function &function, const Opera
         }
     }
     for (Operation *consumer : assembleIn->GetConsumers()) {
-        if (consumer->GetOpcode() == op.GetOpcode()) {
+        if (consumer->GetOpMagic() == op.GetOpMagic()) {
             continue;
         }
         if (consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
@@ -197,7 +197,7 @@ Status PreGraphProcessChecker::PostCheckView(Function &function, const Operation
     }
     auto viewOut = op.GetOOperands().front();
     for (Operation *producer : viewOut->GetProducers()) {
-        if (producer->GetOpcode() == op.GetOpcode()) {
+        if (producer->GetOpMagic() == op.GetOpMagic()) {
             continue;
         }
         if (producer->GetOpcode() == Opcode::OP_VIEW) {
@@ -247,7 +247,7 @@ Status PreGraphProcessChecker::HandleScenarioReshapeOutCast(Function &function, 
         }
     }
     for (Operation *consumer : reshapeIn->GetConsumers()) {
-        if (consumer->GetOpcode() == op.GetOpcode()) {
+        if (consumer->GetOpMagic() == op.GetOpMagic()) {
             continue;
         }
         if (consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
@@ -277,7 +277,7 @@ Status PreGraphProcessChecker::VerifyReshapeResult(
         return HandleScenarioReshapeOutCast(function, op, reshapeIn);
     }
     for (Operation *producer : reshapeOut->GetProducers()) {
-        if (producer->GetOpcode() == op.GetOpcode()) {
+        if (producer->GetOpMagic() == op.GetOpMagic()) {
             continue;
         }
         if (producer->GetOpcode() == Opcode::OP_VIEW) {
