@@ -2962,40 +2962,28 @@ TILEOP void BitSortAll(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, __ub
     constexpr uint32_t oneLength = 256 / sizeof(T);
     set_mask_norm();
     set_vector_mask(-1, -1);
-    // x == xIdx == y == yIdx == tmp, vbitsort for 2 times, due to tmp buffer limit
+    // x == xIdx == y == yIdx == tmp / 4
     constexpr uint32_t repeat = shape / bitSortLength;
-    constexpr uint32_t len = shape / 2;
     constexpr uint32_t len255 = 255 * bitSortLength;
-    if constexpr (len <= 255 * bitSortLength) {
-        vbitsort(tmp, x, (__ubuf__ uint32_t *)xIdx, repeat / 2);
+    if constexpr (shape <= 255 * bitSortLength) {
+        vbitsort(tmp, x, (__ubuf__ uint32_t *)xIdx, repeat);
         pipe_barrier(PIPE_V);
-        vreducev2((__ubuf__ uint32_t *)y, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, repeat / 2, 1, 1, 8, 0);
+        vreducev2((__ubuf__ uint32_t *)y, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, repeat, 1, 1, 8, 0);
         pipe_barrier(PIPE_V);
-        vreducev2((__ubuf__ uint32_t *)yIdx, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, repeat / 2, 1, 2, 8, 0);
+        vreducev2((__ubuf__ uint32_t *)yIdx, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, repeat, 1, 2, 8, 0);
         pipe_barrier(PIPE_V);
-        vbitsort(tmp, x + len, (__ubuf__ uint32_t *)xIdx + len, repeat / 2);
-        pipe_barrier(PIPE_V);
-        vreducev2((__ubuf__ uint32_t *)y + len, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, repeat / 2, 1, 1, 8, 0);
-        pipe_barrier(PIPE_V);
-        vreducev2((__ubuf__ uint32_t *)yIdx + len, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, repeat / 2, 1, 2, 8, 0);
-    } else { // shape = 16K, repeat = 512
+    } else { // shape = 8K, repeat = 256
         vbitsort(tmp, x, (__ubuf__ uint32_t *)xIdx, 255);
         pipe_barrier(PIPE_V);
         vreducev2((__ubuf__ uint32_t *)y, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, 255, 1, 1, 8, 0);
         pipe_barrier(PIPE_V);
         vreducev2((__ubuf__ uint32_t *)yIdx, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, 255, 1, 2, 8, 0);
         pipe_barrier(PIPE_V);
-        vbitsort(tmp, x + len255, (__ubuf__ uint32_t *)xIdx + len255, 255);
+        vbitsort(tmp, x + len255, (__ubuf__ uint32_t *)xIdx + len255, repeat - 255);
         pipe_barrier(PIPE_V);
-        vreducev2((__ubuf__ uint32_t *)y + len255, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, 255, 1, 1, 8, 0);
+        vreducev2((__ubuf__ uint32_t *)y + len255, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, repeat - 255, 1, 1, 8, 0);
         pipe_barrier(PIPE_V);
-        vreducev2((__ubuf__ uint32_t *)yIdx + len255, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, 255, 1, 2, 8, 0);
-        pipe_barrier(PIPE_V);
-        vbitsort(tmp, x + len255 * 2, (__ubuf__ uint32_t *)xIdx + len255 * 2, repeat - 255 * 2);
-        pipe_barrier(PIPE_V);
-        vreducev2((__ubuf__ uint32_t *)y + len255 * 2, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, repeat - 255 * 2, 1, 1, 8, 0);
-        pipe_barrier(PIPE_V);
-        vreducev2((__ubuf__ uint32_t *)yIdx + len255 * 2, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, repeat - 255 * 2, 1, 2, 8, 0);
+        vreducev2((__ubuf__ uint32_t *)yIdx + len255, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, repeat - 255, 1, 2, 8, 0);
     }
 }
 
@@ -3092,166 +3080,99 @@ TILEOP void CompSwapSteps(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, _
     }
 }
 
-template <typename T, unsigned shape, int mask32>
+template <typename T, unsigned shape>
 TILEOP void MulsMinusOne(__ubuf__ T *src) {
     constexpr uint32_t oneLength = 256 / sizeof(T);
     constexpr uint32_t repeat = shape / oneLength;
     constexpr uint32_t len255 = 255 * oneLength;
     set_mask_norm();
-    if constexpr (mask32 == 0) {
-        set_vector_mask(-1, -1);
-    } else {
-        constexpr uint64_t mask = (static_cast<uint64_t>(1) << 32) - 1;
-        set_vector_mask(0, mask);
-    }
-    
+    set_vector_mask(-1, -1);
     if constexpr (repeat <= 255) {
         vmuls(src, src, -1.0f, repeat, 1, 1, 8, 8);
-    } else if constexpr (repeat <= 255 * 2) {
+    } else { // shape = 16K, repeat = 256
         vmuls(src, src, -1.0f, 255, 1, 1, 8, 8);
         vmuls(src + len255, src + len255, -1.0f, repeat - 255, 1, 1, 8, 8);
-    } else { // shape = 32K, repeat = 512
-        vmuls(src, src, -1.0f, 255, 1, 1, 8, 8);
-        vmuls(src + len255, src + len255, -1.0f, 255, 1, 1, 8, 8);
-        vmuls(src + len255 * 2, src + len255 * 2, -1.0f, repeat - 255 * 2, 1, 1, 8, 8);
-    }
-}
-
-template <typename T, unsigned shape>
-TILEOP void BitSortAll(__ubuf__ T *dst, __ubuf__ T *tmp, __ubuf__ T *src) {
-    constexpr uint32_t bitSortLength = 32;
-    constexpr uint32_t oneLength = 256 / sizeof(T);
-    set_mask_norm();
-    set_vector_mask(-1, -1);
-    if constexpr (shape == bitSortLength * 2) {
-        // shape = 64, tmp size == dst == src
-        vbitsort(tmp, src, (__ubuf__ uint32_t *)tmp, 2);
-        vreducev2((__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, 2, 1, 1, 8, 0);
-    } else {
-        // dst == src == tmp * 2, vbitsort for 4 times, due to tmp buffer limit
-        constexpr uint32_t repeat = shape / bitSortLength;
-        constexpr uint32_t len = shape / 4;
-        constexpr uint32_t len255 = 255 * bitSortLength;
-        if constexpr (len <= 255 * bitSortLength) {
-            vbitsort(tmp, src, (__ubuf__ uint32_t *)tmp, repeat / 4);
-            pipe_barrier(PIPE_V);
-            vreducev2((__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, repeat / 4, 1, 1, 8, 0);
-            vbitsort(tmp, src + len, (__ubuf__ uint32_t *)tmp, repeat / 4);
-            pipe_barrier(PIPE_V);
-            vreducev2((__ubuf__ uint32_t *)dst + len, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, repeat / 4, 1, 1, 8, 0);
-            vbitsort(tmp, src + len * 2, (__ubuf__ uint32_t *)tmp, repeat / 4);
-            pipe_barrier(PIPE_V);
-            vreducev2((__ubuf__ uint32_t *)dst + len * 2, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, repeat / 4, 1, 1, 8, 0);
-            vbitsort(tmp, src + len * 3, (__ubuf__ uint32_t *)tmp, repeat / 4);
-            pipe_barrier(PIPE_V);
-            vreducev2((__ubuf__ uint32_t *)dst + len * 3, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, repeat / 4, 1, 1, 8, 0);
-        } else { // shape = 32K, repeat = 1024
-            vbitsort(tmp, src, (__ubuf__ uint32_t *)tmp, 255);
-            vreducev2((__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, 255, 1, 1, 8, 0);
-            vbitsort(tmp, src + len255, (__ubuf__ uint32_t *)tmp, 255);
-            vreducev2((__ubuf__ uint32_t *)dst + len255, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, 255, 1, 1, 8, 0);
-            vbitsort(tmp, src + len255 * 2, (__ubuf__ uint32_t *)tmp, 255);
-            vreducev2((__ubuf__ uint32_t *)dst + len255 * 2, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, 255, 1, 1, 8, 0);
-            vbitsort(tmp, src + len255 * 3, (__ubuf__ uint32_t *)tmp, 255);
-            vreducev2((__ubuf__ uint32_t *)dst + len255 * 3, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, 255, 1, 1, 8, 0);
-            vbitsort(tmp, src + len255 * 4, (__ubuf__ uint32_t *)tmp, repeat - 255 * 4);
-            pipe_barrier(PIPE_V);   // delete this, opsort will fail
-            vreducev2((__ubuf__ uint32_t *)dst + len255 * 4, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, repeat - 255 * 4, 1, 1, 8, 0);
-        }
-    }
-}
-
-template <typename T, unsigned shape, unsigned mergeLength, int descending>
-TILEOP void MulsMinusOneStep(__ubuf__ T *src) {
-    constexpr uint32_t bitSortLength = 32;
-    constexpr uint32_t oneLength = 256 / sizeof(T);
-    constexpr uint32_t nMerge = shape / mergeLength;
-
-    constexpr uint32_t nOne = mergeLength / oneLength;
-    constexpr uint32_t nMuls = nMerge == 1 ? 1 : nMerge / 2 ;    // half of nMerge needs to muls -1
-    set_mask_norm();
-    set_vector_mask(-1, -1);
-    // nOne vs nMuls
-    if constexpr (nOne >= nMuls) {
-        constexpr uint32_t len255 = 255 * oneLength;
-        for (uint32_t i = 0; i < nMuls; i++) {
-            uint32_t start = i * mergeLength * 2;
-            if constexpr (descending == 1) start += mergeLength; // 2nd merge to muls -1
-            if constexpr (nOne <= 255) {
-                // dst src0 src1 repeat dstBlockStride srcBlockStride dstRepeatStride srcRepeatStride
-                vmuls(src + start, src + start, -1.0f, nOne, 1, 1, 8, 8);
-            } else if constexpr (nOne <= 255 * 2) {    // shape = 32K, mergeLength = 16K
-                vmuls(src + start, src + start, -1.0f, 255, 1, 1, 8, 8);
-                vmuls(src + start + len255, src + start + len255, -1.0f, nOne - 255, 1, 1, 8, 8);
-            } else {    // shape = 32K, mergeLength = 32K
-                vmuls(src + start, src + start, -1.0f, 255, 1, 1, 8, 8);
-                vmuls(src + start + len255, src + start + len255, -1.0f, 255, 1, 1, 8, 8);
-                vmuls(src + start + len255 * 2, src + start + len255 * 2, -1.0f, nOne - 255 * 2, 1, 1, 8, 8);
-            }
-        }
-    } else {
-        constexpr uint32_t len255 = 255 * mergeLength;
-        for (uint32_t i = 0; i < nOne; i++) {
-            uint32_t start = i * oneLength;
-            if constexpr (descending == 1) start += mergeLength; // 2nd merge to muls -1
-            if constexpr (nMuls <= 255) {
-                vmuls(src + start, src + start, -1.0f, nMuls, 1, 1, mergeLength * 2 / 8, mergeLength * 2 / 8);
-            } else {    // shape = 32K, mergeLength = 64
-                vmuls(src + start, src + start, -1.0f, 255, 1, 1, mergeLength * 2 / 8, mergeLength * 2 / 8);
-                vmuls(src + start + len255, src + start + len255, -1.0f, nMuls - 255, 1, 1, mergeLength * 2 / 8, mergeLength * 2 / 8);
-            }
-        }
-    }
-}
-
-template <typename T, typename idxT, unsigned shape, unsigned mergeLength, int descending>
-TILEOP void MergeSteps(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, __ubuf__ T *x, __ubuf__ idxT *xIdx) {
-    // muls -1 for different portion
-    if constexpr (mergeLength != shape || descending == 0) {
-        MulsMinusOneStep<T, shape, mergeLength, descending>(x);
-        pipe_barrier(PIPE_V);
-    }
-
-    // global comp & swap
-    CompSwapSteps<T, idxT, shape, mergeLength>(y, yIdx, tmp, x, xIdx);
-    pipe_barrier(PIPE_V);
-
-    // bitsort all to finish one merge step
-    BitSortAll<T, idxT, shape>(y, yIdx, tmp, x, xIdx);
-    pipe_barrier(PIPE_V);
-
-    // muls -1 to recover
-    if constexpr (mergeLength != shape || descending == 0) {
-        MulsMinusOneStep<T, shape, mergeLength, descending>(y);
-        pipe_barrier(PIPE_V);
-    }
-
-    if constexpr (mergeLength < shape) {
-        MergeSteps<T, idxT, shape, mergeLength * 2, descending>(y, yIdx, tmp, x, xIdx);
     }
 }
 
 template <typename T, typename idxT, unsigned xShape0, unsigned xShape1, unsigned idxShape0, unsigned idxShape1, int descending>
 TILEOP void SortWithIndex(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, __ubuf__ T *x, __ubuf__ idxT *xIdx) {
-    // ideally, x == xIdx == y == yIdx == tmp
+    // xShape1 <= 8K, y == yIdx == x == xIdx == tmp / 4
+    // Step 0: muls -1
+    if constexpr (descending == 0) {
+        MulsMinusOne<T, xShape1>(x);
+        pipe_barrier(PIPE_V);
+    }
+    // Step 1: vbs
     constexpr uint32_t bitSortLength = 32;
-    // vbitsort for each 32
-    // even idx of 32 muls -1 to sort in opposite order
-    MulsMinusOne<T, xShape1, 1>(x);
+    constexpr uint32_t repeat = xShape1 / bitSortLength;
+    constexpr uint32_t len255 = 255 * bitSortLength;
+    if constexpr (repeat <= 255) {
+        vbitsort(tmp, x, (__ubuf__ uint32_t *)xIdx, repeat);
+    } else {
+        vbitsort(tmp, x, (__ubuf__ uint32_t *)xIdx, 255);
+        vbitsort(tmp + len255 * 2, x + len255, (__ubuf__ uint32_t *)xIdx + len255, repeat - 255);
+    }
     pipe_barrier(PIPE_V);
-    
-    BitSortAll<T, idxT, xShape1>(y, yIdx, tmp, x, xIdx);
+    // Step 2: vms4
+    __ubuf__ float *src = tmp + xShape1 * 2;
+    __ubuf__ float *dst = tmp;
+    uint32_t z = 32;
+    for (;z * 4 <= xShape1; z *= 4) {
+        __ubuf__ float *swap = src;
+        src = dst;
+        dst = swap;
+        uint64_t config = 0;
+        uint32_t repeat_mrg = xShape1 / z / 4;
+        config |= uint64_t(repeat_mrg);         // Xt[7:0]: repeat time
+        config |= (uint64_t(0b1111) << 8);      // Xt[11:8]: 4-bit mask signal
+        config |= (uint64_t(0b0) << 12);        // Xt[12]: 1-enable input list exhausted suspension
+
+        // 每次计算的数据
+        uint64_t lengthData = 0;
+        lengthData |= (uint64_t(z));
+        lengthData |= (uint64_t(z) << 16);
+        lengthData |= (uint64_t(z) << 32);
+        lengthData |= (uint64_t(z) << 48);
+
+        __ubuf__ float *addr[4] = {(__ubuf__ float *)(src), (__ubuf__ float *)(src + z * 2), (__ubuf__ float *)(src + z * 4), (__ubuf__ float *)(src + z * 6)};
+        pipe_barrier(PIPE_V);
+        vmrgsort4(dst, addr, lengthData, config);
+        pipe_barrier(PIPE_V);
+    }
+    if (z * 2 == xShape1) {
+        __ubuf__ float *swap = src;
+        src = dst;
+        dst = swap;
+        uint64_t config = 0;
+        uint32_t repeat_mrg = 1;
+        config |= uint64_t(repeat_mrg);         // Xt[7:0]: repeat time
+        config |= (uint64_t(0b11) << 8);        // Xt[11:8]: 4-bit mask signal
+        config |= (uint64_t(0b0) << 12);        // Xt[12]: 1-enable input list exhausted suspension
+
+        // 每次计算的数据
+        uint64_t lengthData = 0;
+        lengthData |= (uint64_t(z));
+        lengthData |= (uint64_t(z) << 16);
+
+        __ubuf__ float *addr[4] = {(__ubuf__ float *)(src), (__ubuf__ float *)(src + z * 2), (__ubuf__ float *)(0), (__ubuf__ float *)(0)};
+        pipe_barrier(PIPE_V);
+        vmrgsort4(dst, addr, lengthData, config);
+        pipe_barrier(PIPE_V);
+    }
+    // Step 3: extract
+    vreducev2((__ubuf__ uint32_t *)y, (__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)dst, xShape1 / 32, 1, 1, 8, 0);
+    vreducev2((__ubuf__ uint32_t *)yIdx, (__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)dst, xShape1 / 32, 1, 2, 8, 0);
     pipe_barrier(PIPE_V);
-    
-    // muls -1 to recover
-    MulsMinusOne<T, xShape1, 1>(x);
-    pipe_barrier(PIPE_V);
-    // merge
-    MergeSteps<T, idxT, xShape1, bitSortLength * 2, descending>(y, yIdx, tmp, x, xIdx);
+    // Step 4: muls -1
+    if constexpr (descending == 0) {
+        MulsMinusOne<T, xShape1>(y);
+        pipe_barrier(PIPE_V);
+    }
 }
 
-template <typename T, typename idxT, unsigned xShape1, int idxStart>
-TILEOP void GenSortIndex(__ubuf__ idxT *idx, __ubuf__ T *tmp) {
+template <typename T, typename idxT, unsigned xShape1>
+TILEOP void GenSortIndex(__ubuf__ idxT *idx, __ubuf__ T *tmp, int idxStart) {
     __ubuf__ float *tmp1 = (__ubuf__ float *)(tmp + xShape1 / 2); //need 64*4 size
 
     set_mask_count();
@@ -3300,7 +3221,7 @@ template <typename T, typename idxT, unsigned xShape0, unsigned xShape1, unsigne
 TILEOP void Sort(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, __ubuf__ T *x) {
     // index init
     __ubuf__ idxT *xIdx = yIdx;
-    GenSortIndex<T, idxT, xShape1, idxStart>(xIdx, tmp);
+    GenSortIndex<T, idxT, xShape1>(xIdx, tmp, idxStart);
     SortWithIndex<T, idxT, xShape0, xShape1, idxShape0, idxShape1, descending>(y, yIdx, tmp, x, xIdx);
 }
 
@@ -3313,7 +3234,7 @@ TILEOP void Merge(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, __ubuf__ 
     }
 
     if constexpr (descending == 0) {   // ascending
-        MulsMinusOne<T, xShape1, 0>(x);
+        MulsMinusOne<T, xShape1>(x);
         pipe_barrier(PIPE_V);
     }
 
@@ -3324,7 +3245,7 @@ TILEOP void Merge(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, __ubuf__ 
     pipe_barrier(PIPE_V);
 
     if constexpr (descending == 0) {   // ascending recover
-        MulsMinusOne<T, xShape1, 0>(y);
+        MulsMinusOne<T, xShape1>(y);
     }
 }
 

@@ -3273,7 +3273,7 @@ void TiledSort(Function &function, const LogicalTensorPtr &x, const LogicalTenso
 }
 
 std::tuple<Tensor, Tensor, Tensor> L1Sort(const Tensor &x, int idxStart, bool descending) {
-    constexpr int32_t kFactorSize = 1;
+    constexpr int32_t kFactorSize = NUM_VALUE_4;
     auto tempShape = x->shape;
     tempShape[1] *= kFactorSize;
     auto y = Tensor(x->tensor->datatype, x->shape);
@@ -3310,7 +3310,7 @@ void TiledMerge(Function &function, const LogicalTensorPtr &x, const LogicalTens
 }
 
 std::tuple<Tensor, Tensor, Tensor> L1Merge(const Tensor &x, const Tensor &idx, bool descending, bool fullSort) {
-    constexpr int32_t kFactorSize = 1;
+    constexpr int32_t kFactorSize = NUM_VALUE_4;
     auto tempShape = x->shape;
     tempShape[1] *= kFactorSize;
     auto y = Tensor(x->tensor->datatype, x->shape);

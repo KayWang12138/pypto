@@ -140,9 +140,9 @@ def gen_topk_golden(length: int, k: int, descending: bool, dtype: torch.dtype, o
 
 @GoldenRegister.reg_golden_func(
     case_names=[
-        "ParallelSortOnBoardTest.op_sort",
-        "ParallelSortOnBoardTest.op_compswap",
-        "ParallelSortOnBoardTest.op_merge",
+        "ParallelSortSTest.op_sort",
+        "ParallelSortSTest.op_compswap",
+        "ParallelSortSTest.op_merge",
         "ParallelSortSTest.sort_static",
         "ParallelSortSTest.sort",
         "ParallelSortSTest.sort_index",
@@ -153,12 +153,12 @@ def gen_topk_golden(length: int, k: int, descending: bool, dtype: torch.dtype, o
     ]
 )
 def gen_golden(case_name: str, output: Path) -> bool:
-    if case_name == "ParallelSortOnBoardTest.op_sort":
-        gen_op_sort_golden(1024, False, torch.float32, output)
-    elif case_name == "ParallelSortOnBoardTest.op_compswap":
-        gen_op_compswap_golden(1024, False, torch.float32, output)
-    elif case_name == "ParallelSortOnBoardTest.op_merge":
-        gen_op_merge_golden(1024, False, torch.float32, output)
+    if case_name == "ParallelSortSTest.op_sort":
+        gen_op_sort_golden(8192, False, torch.float32, output)
+    elif case_name == "ParallelSortSTest.op_compswap":
+        gen_op_compswap_golden(8192, False, torch.float32, output)
+    elif case_name == "ParallelSortSTest.op_merge":
+        gen_op_merge_golden(8192, False, torch.float32, output)
     elif case_name == "ParallelSortSTest.sort_static":
         gen_sort_golden(2048, False, torch.float32, output)
     elif case_name == "ParallelSortSTest.sort":

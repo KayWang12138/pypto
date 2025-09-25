@@ -42,8 +42,8 @@ int64_t Capacity(std::vector<int64_t> &shape) {
     return std::accumulate(shape.begin(), shape.end(), uint64_t{1}, std::multiplies<uint64_t>());
 }
 
-template <typename T = float, typename idxT = int, int tileSize = 2048>
-void SortStaticTest(){
+template <typename T = float, typename idxT = int>
+void SortStaticTest(int tileSize){
     aclInit(nullptr);
     rtSetDevice(npu::tile_fwk::stubs::DeviceStub::GetCurrentDeviceId());
 
@@ -89,8 +89,8 @@ void SortStaticTest(){
     EXPECT_EQ(cmp && cmpIdx, true);
 }
 
-template <typename T = float, typename idxT = int, int tileSize = 2048>
-void SortTest(){
+template <typename T = float, typename idxT = int>
+void SortTest(int tileSize){
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     
@@ -99,8 +99,8 @@ void SortTest(){
     int32_t length = params[0];
     bool descending = (bool)params[1];
 
-    DataType dType = (std::is_same<T, float>::value) ? DT_FP32 : DT_FP32;
-    DataType idxDType = (std::is_same<idxT, int>::value) ? DT_INT32 : DT_INT32;
+    DataType dType = DT_FP32;
+    DataType idxDType = DT_INT32;
     std::vector<int64_t> shape = {1, length};
 
     // input & output
@@ -136,8 +136,8 @@ void SortTest(){
     EXPECT_TRUE(resultCmp<idxT>(yIdxGolden, (idxT *)yIdxData->data(), 0));
 }
 
-template <typename T = float, typename idxT = int, int tileSize = 2048>
-void SortWithIndexTest(){
+template <typename T = float, typename idxT = int>
+void SortWithIndexTest(int tileSize){
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     
@@ -146,8 +146,8 @@ void SortWithIndexTest(){
     int32_t length = params[0];
     bool descending = (bool)params[1];
 
-    DataType dType = (std::is_same<T, float>::value) ? DT_FP32 : DT_FP32;
-    DataType idxDType = (std::is_same<idxT, int>::value) ? DT_INT32 : DT_INT32;
+    DataType dType = DT_FP32;
+    DataType idxDType = DT_INT32;
     std::vector<int64_t> shape = {1, length};
 
     // input & output
@@ -185,8 +185,8 @@ void SortWithIndexTest(){
     EXPECT_TRUE(resultCmp<idxT>(yIdxGolden, (idxT *)yIdxData->data(), 0));
 }
 
-template <typename T = float, typename idxT = int, int tileSize = 2048>
-void TopKTest(){
+template <typename T = float, typename idxT = int>
+void TopKTest(int tileSize){
     config::SetHostConfig(KEY_ONLY_CODEGEN, true);
     config::SetCodeGenConfig(KEY_SUPPORT_DYNAMIC_UNALIGNED, true);
     
@@ -196,8 +196,8 @@ void TopKTest(){
     bool descending = (bool)params[1];
     int32_t k = params[2];
 
-    DataType dType = (std::is_same<T, float>::value) ? DT_FP32 : DT_FP32;
-    DataType idxDType = (std::is_same<idxT, int>::value) ? DT_INT32 : DT_INT32;
+    DataType dType = DT_FP32;
+    DataType idxDType = DT_INT32;
     std::vector<int64_t> shape = {1, length};
     std::vector<int64_t> kShape = {1, k};
 
@@ -232,29 +232,29 @@ void TopKTest(){
 }
 
 TEST_F(ParallelSortSTest, sort_static) {
-    SortStaticTest<float, int, 256>();
+    SortStaticTest(256);
 }
 
 TEST_F(ParallelSortSTest, sort) {
-    SortTest<float, int, 256>();
+    SortTest(256);
 }
 
 TEST_F(ParallelSortSTest, sort_index) {
-    SortWithIndexTest<float, int, 256>();
+    SortWithIndexTest(256);
 }
 
 TEST_F(ParallelSortSTest, topk) {
-    TopKTest<float, int, 1024 * 2>();
+    TopKTest(2048);
 }
 
 TEST_F(ParallelSortSTest, fp32_64k) {
-    SortTest<float, int, 1024 * 8>();
+    SortTest(8192);
 }
 
 TEST_F(ParallelSortSTest, fp32_128k) {
-    SortTest<float, int, 1024 * 16>();
+    SortTest(8192);
 }
 
 TEST_F(ParallelSortSTest, topk_128k_2k) {
-    TopKTest<float, int, 1024 * 8>();
+    TopKTest(8192);
 }
