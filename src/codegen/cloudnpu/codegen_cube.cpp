@@ -60,8 +60,11 @@ std::string CodeGenOpCloudNPU::GenCubeOp(bool zeroC) const {
             << "((" << GetAddrTypeByOperandType(operandType[ID0]) << " " << cDtypeStr << "*)" << cVar << ", "
             << "(" << GetAddrTypeByOperandType(operandType[ID1]) << " " << aDtypeStr << "*)" << aVar << ", "
             << "(" << GetAddrTypeByOperandType(operandType[ID2]) << " " << bDtypeStr << "*)" << bVar << ", "
-            << mSymbol.Dump() << ", " << kSymbol.Dump() << ", " << nSymbol.Dump() << ", " << (zeroC ? "true" : "false")
-            << ", " << uf << ", " << l0cShapeDyn[ID0].Dump() << ", " << l0cShapeDyn[ID1].Dump() << ");\n";
+            << SymbolicExpressionTable::BuildExpression(mSymbol) << ", "
+            << SymbolicExpressionTable::BuildExpression(kSymbol) << ", "
+            << SymbolicExpressionTable::BuildExpression(nSymbol) << ", " << (zeroC ? "true" : "false") << ", " << uf
+            << ", " << SymbolicExpressionTable::BuildExpression(l0cShapeDyn[ID0]) << ", "
+            << SymbolicExpressionTable::BuildExpression(l0cShapeDyn[ID1]) << ");\n";
     } else {
         oss << tileOpName << "<" << cDtypeStr << ", " << aDtypeStr << ", " << bDtypeStr << ", " << offset[ID0][ID0]
             << ", " << offset[ID0][ID1] << ", " << shape[ID0][ID0] << ", " << shape[ID0][ID1] << ">"

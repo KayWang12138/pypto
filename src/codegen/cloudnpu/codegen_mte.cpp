@@ -140,8 +140,10 @@ std::string CodeGenOpCloudNPU::GenMemL1SpillIntoGM(
         oss << tileOpName << "<" << typeExpr[gmIdx] << ", " << typeExpr[l1Idx] << ">"
             << "((" << addrTypeHead[ID0] << " " << typeExpr[ID0] << "*)" << addrExpr[ID0] << ", "
             << "(" << addrTypeHead[ID1] << " " << typeExpr[ID1] << "*)" << addrExpr[ID1] << ", "
-            << dynValidShape[ID0].Dump() << ", " << dynValidShape[ID1].Dump() << ", " << dynValidShape[ID0].Dump()
-            << ", " << dynValidShape[ID1].Dump() << ", " << uf << ");\n";
+            << SymbolicExpressionTable::BuildExpression(dynValidShape[ID0]) << ", "
+            << SymbolicExpressionTable::BuildExpression(dynValidShape[ID1]) << ", "
+            << SymbolicExpressionTable::BuildExpression(dynValidShape[ID0]) << ", "
+            << SymbolicExpressionTable::BuildExpression(dynValidShape[ID1]) << ", " << uf << ");\n";
 
         return oss.str();
     } else {
@@ -179,8 +181,10 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0() const {
     std::ostringstream oss;
     if (isSupportDynamicUnaligned) {
         oss << tileOpName << "<" << dtypeStr << ", " << srcOffset0 << ", " << srcOffset1 << ">"
-            << "(" << paramStr << ", " << l0ShapeDyn[ID0].Dump() << ", " << l0ShapeDyn[ID1].Dump() << ", "
-            << l1ShapeDyn[ID0].Dump() << ", " << l1ShapeDyn[ID1].Dump() << ");\n";
+            << "(" << paramStr << ", " << SymbolicExpressionTable::BuildExpression(l0ShapeDyn[ID0]) << ", "
+            << SymbolicExpressionTable::BuildExpression(l0ShapeDyn[ID1]) << ", "
+            << SymbolicExpressionTable::BuildExpression(l1ShapeDyn[ID0]) << ", "
+            << SymbolicExpressionTable::BuildExpression(l1ShapeDyn[ID1]) << ");\n";
     } else {
         oss << tileOpName << "<" << dtypeStr << ", " << tileShape0 << ", " << tileShape1 << ", " << srcOffset0 << ", "
             << srcOffset1 << ", " << srcShape0 << ", " << srcShape1 << ">"
@@ -425,10 +429,11 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastDynamicUnaligned(const PrintInde
     std::string src0 = "(__ubuf__ " + dataTypeExpr[ID1] + "*)" + s0Var;
     std::string src1 = "(__ubuf__ " + dataTypeExpr[ID2] + "*)" + s1Var;
     paramList.insert(paramList.end(), {dst, src0, src1});
-    paramList.insert(
-        paramList.end(), {src0ValidShape[ID0].Dump(), src0ValidShape[ID1].Dump(), src0ValidShape[ID3].Dump()});
-    paramList.emplace_back(src1ValidShape[ID0].Dump());
-    paramList.emplace_back(src1ValidShape[ID1].Dump());
+    paramList.insert(paramList.end(), {SymbolicExpressionTable::BuildExpression(src0ValidShape[ID0]),
+                                          SymbolicExpressionTable::BuildExpression(src0ValidShape[ID1]),
+                                          SymbolicExpressionTable::BuildExpression(src0ValidShape[ID3])});
+    paramList.emplace_back(SymbolicExpressionTable::BuildExpression(src1ValidShape[ID0]));
+    paramList.emplace_back(SymbolicExpressionTable::BuildExpression(src1ValidShape[ID1]));
     paramList.insert(paramList.end(), paramPack.paramList.begin(), paramPack.paramList.end());
 
     std::string tiloOpCallParam = JoinString(paramList, ", ");
@@ -528,9 +533,10 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CStatic(const PrintMemCopyWithL
     int printRet = sprintf_s(buffer, BUFFER_SIZE_1024,
         "%s<%s, %s, %u, %u, %d, %d, %s, %s, %d, %d>((%s %s*)%s, (%s %s*)%s, %u);\n", tileOpName.c_str(),
         dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), tileShapeForMT[ID0], tileShapeForMT[ID1],
-        gmShape[ID0], gmShape[ID1], outputOffset[ID0].Dump().c_str(), outputOffset[ID1].Dump().c_str(), oriTileShape0,
-        oriTileShape1, addrTypeHead[ID0].c_str(), dataTypeExpr[ID0].c_str(), addrExpr[ID0].c_str(),
-        addrTypeHead[ID1].c_str(), dataTypeExpr[ID1].c_str(), addrExpr[ID1].c_str(), uf);
+        gmShape[ID0], gmShape[ID1], SymbolicExpressionTable::BuildExpression(outputOffset[ID0]).c_str(),
+        SymbolicExpressionTable::BuildExpression(outputOffset[ID1]).c_str(), oriTileShape0, oriTileShape1,
+        addrTypeHead[ID0].c_str(), dataTypeExpr[ID0].c_str(), addrExpr[ID0].c_str(), addrTypeHead[ID1].c_str(),
+        dataTypeExpr[ID1].c_str(), addrExpr[ID1].c_str(), uf);
     ASSERT(printRet >= 0) << "sprintf_s failed in genMemCopyVar(BUF_L0C), return value:" << printRet;
     return buffer;
 }
@@ -566,7 +572,7 @@ std::string CodeGenOpCloudNPU::PrintL0CCopyOutDynamicUnalign(const PrintMemCopyW
     paramList.insert(paramList.end(), {dst, src});
     auto dynValidShape = dynamicValidShape[localIdx];
     for (int i = 0; i < SHAPE_DIM2; i++) {
-        paramList.emplace_back(dynValidShape[i].Dump());
+        paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynValidShape[i]));
     }
     paramList.emplace_back(gmShapeExpr[0]);
     paramList.emplace_back(gmOffsetExpr[0]);
@@ -673,9 +679,10 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Static(const PrintMemCopyWithL1
         printRet =
             sprintf_s(buffer, BUFFER_SIZE_1024, "%s<%s, %s, %u, %u, %s, %s, %d, %d>((%s %s*)%s, (%s %s*)%s, %u);\n",
                 opName.c_str(), dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), tileShapeForMT[ID0],
-                tileShapeForMT[ID1], gmOffset[ID0].Dump().c_str(), gmOffset[ID1].Dump().c_str(), gmShape[ID0],
-                gmShape[ID1], addrTypeHead[ID0].c_str(), dataTypeExpr[ID0].c_str(), addrExpr[ID0].c_str(),
-                addrTypeHead[ID1].c_str(), dataTypeExpr[ID1].c_str(), addrBuffer, uf);
+                tileShapeForMT[ID1], SymbolicExpressionTable::BuildExpression(gmOffset[ID0]).c_str(),
+                SymbolicExpressionTable::BuildExpression(gmOffset[ID1]).c_str(), gmShape[ID0], gmShape[ID1],
+                addrTypeHead[ID0].c_str(), dataTypeExpr[ID0].c_str(), addrExpr[ID0].c_str(), addrTypeHead[ID1].c_str(),
+                dataTypeExpr[ID1].c_str(), addrBuffer, uf);
     }
     ASSERT(printRet >= 0) << "sprintf_s failed in PrintMemCopyWithL1Static, return value:" << printRet;
     return buffer;
@@ -720,7 +727,8 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL
             oss << opName << "<" << dataTypeExpr[gmIdx] << ", " << dataTypeExpr[localIdx] << ">"
                 << "((" << addrTypeHead[ID0] << " " << dataTypeExpr[ID0] << "*)" << addrExpr[ID0] << ", "
                 << "(" << addrTypeHead[ID1] << " " << dataTypeExpr[ID1] << "*)" << addrBuffer << ", "
-                << dynValidShape[ID0].Dump() << ", " << dynValidShape[ID1].Dump() << ", " << gmShapeExpr[ID0] << ", "
+                << SymbolicExpressionTable::BuildExpression(dynValidShape[ID0]) << ", "
+                << SymbolicExpressionTable::BuildExpression(dynValidShape[ID1]) << ", " << gmShapeExpr[ID0] << ", "
                 << gmOffsetExpr[ID0] << ", " << outerValueStr << ", " << innerValueStr << ", " << uf << ");\n";
         } else {
             oss << opName << "<" << dataTypeExpr[gmIdx] << ", " << dataTypeExpr[localIdx] << ", " << tileShapeForMT[ID0]
@@ -736,7 +744,8 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL
             oss << opName << "<" << dataTypeExpr[gmIdx] << ", " << dataTypeExpr[localIdx] << ">"
                 << "((" << addrTypeHead[ID0] << " " << dataTypeExpr[ID0] << "*)" << addrExpr[ID0] << ", "
                 << "(" << addrTypeHead[ID1] << " " << dataTypeExpr[ID1] << "*)" << addrBuffer << ", "
-                << dynValidShape[ID0].Dump() << ", " << dynValidShape[ID1].Dump() << ", " << gmShapeExpr[ID0] << ", "
+                << SymbolicExpressionTable::BuildExpression(dynValidShape[ID0]) << ", "
+                << SymbolicExpressionTable::BuildExpression(dynValidShape[ID1]) << ", " << gmShapeExpr[ID0] << ", "
                 << gmOffsetExpr[ID0] << ", " << uf << ");\n";
         } else {
             oss << opName << "<" << dataTypeExpr[gmIdx] << ", " << dataTypeExpr[localIdx] << ", " << tileShapeForMT[ID0]
@@ -875,7 +884,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamicSupportUnaligned(const P
     paramList.emplace_back(dst);
     paramList.emplace_back(src);
     for (auto ts : newDynamicShape) {
-        paramList.emplace_back(ts.Dump());
+        paramList.emplace_back(SymbolicExpressionTable::BuildExpression(ts));
     }
     paramList.insert(paramList.end(), paramPack.paramList.begin(), paramPack.paramList.end());
 
@@ -903,7 +912,7 @@ std::string CodeGenOpCloudNPU::GenGMAddrExprWithOffset(const std::string &addrEx
     if (isZero) {
         oss << addrExpr;
     } else {
-        oss << "((__gm__ uint8_t*)" << addrExpr << " + " << gmOffset.Dump() << ")";
+        oss << "((__gm__ uint8_t*)" << addrExpr << " + " << SymbolicExpressionTable::BuildExpression(gmOffset) << ")";
     }
 
     return oss.str();

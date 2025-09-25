@@ -119,7 +119,10 @@ std::string SymbolicExpressionTable::BuildExpressionByRaw(const RawSymbolicScala
             } else if (CheckArgPrefix(symbol->Name())) {
                 result = symbol->Name();
             } else {
-                result = "VALUE_" + symbol->Name();
+                if (symbol->Name().rfind("sym_", 0) == 0)
+                    result = symbol->Name();
+                else
+                    result = "VALUE_" + symbol->Name();
             }
         } break;
         case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION: {
